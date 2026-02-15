@@ -9,6 +9,8 @@
     "astro": "astro"
   },
   "dependencies": {
+    "@atproto/api": "^0.18.21",
+    "@atproto/oauth-client-browser": "^0.3.40",
     "astro": "^5.17.1"
   }
 }
