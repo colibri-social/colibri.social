@@ -6,7 +6,7 @@ function buildClientID() {
 	if (isLocal) {
 		// see https://atproto.com/specs/oauth#localhost-client-development
 		return `http://localhost?${new URLSearchParams({
-			scope: "atproto repo:app.bsky.feed.post?action=create repo:social.colibri.test.actor.data?action=create",
+			scope: "atproto repo:social.colibri.test.actor.data?action=create repo:social.colibri.test.community?action=create repo:social.colibri.test.category?action=create repo:social.colibri.test.channel?action=create repo:social.colibri.test.message?action=create",
 			redirect_uri: Object.assign(new URL(window.location.origin), { hostname: '127.0.0.1' }).href,
 		})}`
 	}
@@ -32,7 +32,7 @@ async function init() {
 
 	document.getElementById("post-form")!.onsubmit = function(e) {
 		e.preventDefault();
-		doPost((document.getElementById("post-text") as HTMLInputElement).value);
+		doPost();
 	}
 
 	document.getElementById("logout-nav")!.onclick = function() {
@@ -97,20 +97,45 @@ async function doLogin(identifier: string) {
 	loginButton.removeAttribute("aria-busy");
 }
 
-async function doPost(message: string) {
+async function doPost() {
 	const postButton = document.getElementById("post-button")!;
 	postButton.setAttribute("aria-busy", "true");
 
 	let res;
 	try {
+		const communityRes = await agent!.com.atproto.repo.createRecord({
+			repo: agent!.did!,
+			collection: 'social.colibri.test.community',
+			record: {
+				$type: 'social.colibri.test.community',
+				name: "Example Community",
+				description: "Example Community Description",
+				categoryOrder: []
+			},
+		});
+
 		res = await agent!.com.atproto.repo.createRecord({
 			repo: agent!.did!,
-			collection: 'social.colibri.test.actor.data',
-			rkey: "self",
+			collection: 'social.colibri.test.category',
 			record: {
-				$type: 'social.colibri.test.actor.data',
-				status: message,
-				communities: [],
+				$type: 'social.colibri.test.category',
+				name: "Example Community",
+				channelOrder: [],
+				permissions: {},
+				community: communityRes.data.cid
+			},
+		});
+
+		res = await agent!.com.atproto.repo.createRecord({
+			repo: agent!.did!,
+			collection: 'social.colibri.test.channel',
+			record: {
+				$type: 'social.colibri.test.channel',
+				name: "Example Community",
+				description: "Example Community Description",
+				type: "text",
+				permissions: {},
+				category: "..."
 			},
 		});
 
