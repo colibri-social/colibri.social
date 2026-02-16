@@ -34,8 +34,9 @@ export const client = new NodeOAuthClient({
 		tos_uri: `${import.meta.env.SITE}/tos`,
 		policy_uri: `${import.meta.env.SITE}/policy`,
 		redirect_uris: [
-			`${import.meta.env.SITE}/auth/callback`,
-			"http://127.0.0.1:4321/auth/callback",
+			import.meta.env.DEV
+				? `http://127.0.0.1:4321/auth/callback`
+				: `${import.meta.env.SITE}/auth/callback`,
 		],
 		grant_types: ["authorization_code", "refresh_token"],
 		scope: scopes.join(" "),
