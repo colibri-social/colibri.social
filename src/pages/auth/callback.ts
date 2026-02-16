@@ -13,16 +13,16 @@ export const GET = (async ({ request, session }) => {
 
 		console.log('User authenticated as:', callbackResult.session.did);
 
-		const parsedState: { dev: boolean } = JSON.parse(callbackResult.state ?? "{ dev: false }");
+		// const parsedState: { dev: boolean } = JSON.parse(callbackResult.state ?? "{ dev: false }");
 
-		if (parsedState.dev && !import.meta.env.DEV) {
-			return new Response(JSON.stringify(callbackResult), {
-				status: 302,
-				headers: new Headers({
-					'location': `http://localhost:4321/auth/callback`
-				})
-			});
-		}
+		// if (parsedState.dev && !import.meta.env.DEV) {
+		// 	return new Response(JSON.stringify(callbackResult), {
+		// 		status: 302,
+		// 		headers: new Headers({
+		// 			'location': `http://localhost:4321/auth/callback`
+		// 		})
+		// 	});
+		// }
 
 		const agent = new Agent(callbackResult.session);
 
