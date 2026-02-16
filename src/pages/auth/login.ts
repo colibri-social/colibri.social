@@ -56,7 +56,7 @@ export const GET = (async ({ request }) => {
 			}),
 		});
 	} catch (e) {
-		return new Response("Internal Server Error while logging in: " + e, {
+		return new Response(`Internal Server Error while logging in: ${e}`, {
 			status: 500,
 		});
 	}

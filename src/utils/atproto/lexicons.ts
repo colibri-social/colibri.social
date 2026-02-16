@@ -3,11 +3,11 @@ import { Lexicons } from "@atproto/lexicon";
 const lex = new Lexicons();
 
 export const RECORD_IDs: Record<string, `${string}.${string}.${string}`> = {
-	ACTOR_DATA: 'social.colibri.actor.data',
-	COMMUNITY: 'social.colibri.community',
-	CATEGORY: 'social.colibri.category',
-	CHANNEL: 'social.colibri.channel',
-	MESSAGE: 'social.colibri.message',
+	ACTOR_DATA: "social.colibri.actor.data",
+	COMMUNITY: "social.colibri.community",
+	CATEGORY: "social.colibri.category",
+	CHANNEL: "social.colibri.channel",
+	MESSAGE: "social.colibri.message",
 };
 
 lex.add({
@@ -20,10 +20,10 @@ lex.add({
 			key: "tid",
 			record: {
 				properties: {
-					'$type': {
-						type: 'string',
-						description: 'The type of the record.',
-						format: 'nsid'
+					$type: {
+						type: "string",
+						description: "The type of the record.",
+						format: "nsid",
 					},
 					status: {
 						type: "string",
@@ -44,10 +44,10 @@ lex.add({
 					},
 				},
 				required: ["status", "communities"],
-				type: "object"
+				type: "object",
 			},
-			type: "record"
-		}
+			type: "record",
+		},
 	},
 });
 
@@ -58,16 +58,17 @@ lex.add({
 	defs: {
 		main: {
 			type: "record",
-			description: 'A community, or "server", is where users join to interact with each other on Colibri.',
+			description:
+				'A community, or "server", is where users join to interact with each other on Colibri.',
 			key: "tid",
 			record: {
 				type: "object",
 				required: ["name", "description", "categoryOrder"],
 				properties: {
-					'$type': {
-						type: 'string',
-						description: 'The type of the record.',
-						format: 'nsid'
+					$type: {
+						type: "string",
+						description: "The type of the record.",
+						format: "nsid",
 					},
 					name: {
 						type: "string",
@@ -83,7 +84,8 @@ lex.add({
 					},
 					picture: {
 						type: "blob",
-						description: "An image for the community that will be shown to users.",
+						description:
+							"An image for the community that will be shown to users.",
 						accept: ["image/jpeg", "image/png", "image/gif"],
 					},
 					categoryOrder: {
@@ -95,9 +97,9 @@ lex.add({
 							description: "A category in this community.",
 						},
 					},
-				}
-			}
-		}
+				},
+			},
+		},
 	},
 });
 
@@ -107,17 +109,18 @@ lex.add({
 	revision: 1,
 	defs: {
 		main: {
-			description: "A category belongs to a community and contains multiple channels on Colibri.",
+			description:
+				"A category belongs to a community and contains multiple channels on Colibri.",
 			key: "tid",
 			type: "record",
 			record: {
 				type: "object",
 				required: ["name", "channelOrder", "community"],
 				properties: {
-					'$type': {
-						type: 'string',
-						description: 'The type of the record.',
-						format: 'nsid'
+					$type: {
+						type: "string",
+						description: "The type of the record.",
+						format: "nsid",
 					},
 					name: {
 						type: "string",
@@ -140,9 +143,9 @@ lex.add({
 						format: "record-key",
 					},
 					// TODO: permissions
-				}
-			}
-		}
+				},
+			},
+		},
 	},
 });
 
@@ -159,10 +162,10 @@ lex.add({
 				required: ["name", "type", "category"],
 				type: "object",
 				properties: {
-					'$type': {
-						type: 'string',
-						description: 'The type of the record.',
-						format: 'nsid'
+					$type: {
+						type: "string",
+						description: "The type of the record.",
+						format: "nsid",
 					},
 					name: {
 						type: "string",
@@ -187,9 +190,9 @@ lex.add({
 						format: "record-key",
 					},
 					// TODO: permissions
-				}
-			}
-		}
+				},
+			},
+		},
 	},
 });
 
@@ -207,10 +210,10 @@ lex.add({
 				required: ["text", "createdAt", "channel"],
 				type: "object",
 				properties: {
-					'$type': {
-						type: 'string',
-						description: 'The type of the record.',
-						format: 'nsid'
+					$type: {
+						type: "string",
+						description: "The type of the record.",
+						format: "nsid",
 					},
 					text: {
 						type: "string",
@@ -227,9 +230,9 @@ lex.add({
 						description: "The channel this message was sent in.",
 						format: "record-key",
 					},
-				}
-			}
-		}
+				},
+			},
+		},
 	},
 });
 

@@ -1,10 +1,9 @@
-import { isAtIdentifierString } from "@atproto/lex";
-import type { APIRoute } from "astro";
-import { client, scopes } from "../../utils/atproto/oauth";
-import { ColibriSDK } from "@/utils/sdk";
 import { Agent } from "@atproto/api";
+import type { APIRoute } from "astro";
+import { ColibriSDK } from "@/utils/sdk";
+import { client } from "../../utils/atproto/oauth";
 
-export const GET = (async ({ request, session }) => {
+export const GET = (async ({ session }) => {
 	try {
 		if (!session || !session?.has("user")) {
 			return new Response("Forbidden", {
@@ -17,7 +16,11 @@ export const GET = (async ({ request, session }) => {
 		const agent = new Agent(oauthSession);
 		const sdk = new ColibriSDK(agent);
 
-		const community = await sdk.createCommunityData(agent.did!);
+		const community = await sdk.createCommunityData(
+			agent.did!,
+			"New Community",
+			"This is my new community!",
+		);
 
 		return new Response(null, {
 			status: 302,
@@ -26,8 +29,11 @@ export const GET = (async ({ request, session }) => {
 			}),
 		});
 	} catch (e) {
-		return new Response("Internal Server Error while logging in: " + e, {
-			status: 500,
-		});
+		return new Response(
+			`Internal Server Error while creating community: ${e}`,
+			{
+				status: 500,
+			},
+		);
 	}
 }) satisfies APIRoute;

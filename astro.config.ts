@@ -4,6 +4,8 @@ import node from "@astrojs/node";
 import tailwindcss from "@tailwindcss/vite";
 import solidJs from "@astrojs/solid-js";
 
+import startupCode from "astro-startup-code";
+
 // https://astro.build/config
 export default defineConfig({
 	site: 'https://colibri.lou.gg',
@@ -17,7 +19,7 @@ export default defineConfig({
 	vite: {
 		plugins: [tailwindcss()]
 	},
-	integrations: [solidJs()],
+	integrations: [solidJs(), startupCode({ entrypoint: './src/sockets/index.ts' })],
 	env: {
 		schema: {
 			PRIVATE_KEY_1: envField.string({ context: "server", access: "secret" }),

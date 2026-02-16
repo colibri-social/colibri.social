@@ -1,6 +1,6 @@
 import type { APIRoute } from "astro";
 
-export const GET = (async ({ request, session }) => {
+export const GET = (async ({ session }) => {
 	try {
 		session?.destroy();
 

@@ -1,8 +1,7 @@
-import { isAtIdentifierString } from "@atproto/lex";
-import type { APIRoute } from "astro";
-import { client, scopes } from "../../utils/atproto/oauth";
-import { ColibriSDK } from "@/utils/sdk";
 import { Agent } from "@atproto/api";
+import type { APIRoute } from "astro";
+import { ColibriSDK } from "@/utils/sdk";
+import { client } from "../../utils/atproto/oauth";
 
 export const GET = (async ({ request, session }) => {
 	try {
@@ -25,7 +24,11 @@ export const GET = (async ({ request, session }) => {
 		const agent = new Agent(oauthSession);
 		const sdk = new ColibriSDK(agent);
 
-		const category = await sdk.createCategoryData(agent.did!, community);
+		const category = await sdk.createCategoryData(
+			agent.did!,
+			community,
+			"New Category",
+		);
 		await sdk.addCategoryToCommunity(agent.did!, community, category);
 
 		return new Response(null, {
@@ -35,7 +38,7 @@ export const GET = (async ({ request, session }) => {
 			}),
 		});
 	} catch (e) {
-		return new Response("Internal Server Error while logging in: " + e, {
+		return new Response(`Internal Server Error while creating category: ${e}`, {
 			status: 500,
 		});
 	}

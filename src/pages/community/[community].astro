@@ -1,9 +1,9 @@
 ---
+import { Agent } from "@atproto/api";
 import Button from "@/components/bearnie/button/Button.astro";
 import BaseLayout from "@/layouts/BaseLayout.astro";
 import { client } from "@/utils/atproto/oauth";
 import { ColibriSDK } from "@/utils/sdk";
-import { Agent } from "@atproto/api";
 
 const { community } = Astro.params;
 
@@ -17,7 +17,10 @@ const agent = new Agent(oauthSession);
 const sdk = new ColibriSDK(agent);
 
 const communityData = await sdk.getCommunityData(agent.did!, community);
-const categories = await sdk.getCategories(agent.did!, communityData.categoryOrder);
+const categories = await sdk.getCategories(
+	agent.did!,
+	communityData.categoryOrder,
+);
 ---
 
 <BaseLayout>

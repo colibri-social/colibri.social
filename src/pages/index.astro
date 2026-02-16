@@ -1,17 +1,17 @@
 ---
 import { Image } from "astro:assets";
+import { Agent } from "@atproto/api";
 import Logo from "@/assets/logo.png";
 import Button from "@/components/bearnie/button/Button.astro";
 import Input from "@/components/bearnie/input/Input.astro";
 import BaseLayout from "@/layouts/BaseLayout.astro";
 import { client } from "@/utils/atproto/oauth";
-import { Agent } from "@atproto/api";
 import { ColibriSDK, type CommunityData } from "@/utils/sdk";
 
 const user = await Astro.session?.get("user");
 
 // TODO: This doesn't account for communities the user doesn't own yet
-let communities: Array<{ rkey: string, data: CommunityData }> = [];
+let communities: Array<{ rkey: string; data: CommunityData }> = [];
 
 if (user) {
 	try {
