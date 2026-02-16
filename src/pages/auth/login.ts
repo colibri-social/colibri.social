@@ -23,6 +23,16 @@ export const GET = (async () => {
 
 		console.log(url);
 
+		let state = url.searchParams.get("state")!;
+
+		if (import.meta.env.DEV) {
+			state += "__is_dev__";
+		}
+
+		console.log(state);
+
+		url.searchParams.set("state", state);
+
 		return new Response(null, {
 			status: 302,
 			headers: new Headers({

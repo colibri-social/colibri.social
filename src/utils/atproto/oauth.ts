@@ -4,6 +4,7 @@ import { PRIVATE_KEY_1, PRIVATE_KEY_2 } from "astro:env/server";
 
 export const scopes = [
 	"atproto",
+	"rpc:app.bsky.actor.getProfile?aud=did:web:api.bsky.app#bsky_appview",
 	"repo:social.colibri.actor.data?action=create",
 	"repo:social.colibri.community?action=create",
 	"repo:social.colibri.category?action=create",
