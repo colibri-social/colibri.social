@@ -34,7 +34,7 @@ export const client = new NodeOAuthClient({
     token_endpoint_auth_method: 'private_key_jwt',
     token_endpoint_auth_signing_alg: 'RS256',
     dpop_bound_access_tokens: true,
-    jwks_uri: 'https://colibri.lou.gg/jwks.json',
+    jwks_uri: 'https://colibri.lou.gg/.well-known/jwks.json',
   },
 
   // Used to authenticate the client to the token endpoint. Will be used to
