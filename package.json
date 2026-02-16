@@ -27,6 +27,7 @@
     "@tailwindcss/vite": "^4.1.18",
     "astro": "^5.17.1",
     "clsx": "^2.1.1",
+    "sharp": "^0.34.5",
     "solid-js": "^1.9.11",
     "tailwind-merge": "^3.4.0",
     "tailwindcss": "^4.1.18"
