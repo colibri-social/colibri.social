@@ -13,10 +13,12 @@ export const GET = (async () => {
 			});
 		}
 
+		console.log(import.meta.env.DEV ? `http://127.0.0.1:4321/auth/callback` : `${import.meta.env.SITE}/auth/callback` as any);
+
 		const url = await client.authorize(handle, {
-			scope: scopes.join(""),
+			scope: scopes.join(" "),
 			state,
-			// redirect_uri: import.meta.env.DEV ? `http://127.0.0.1:4321/auth/callback` : `${import.meta.env.SITE}/auth/callback` as any
+			redirect_uri: import.meta.env.DEV ? `http://127.0.0.1:4321/auth/callback` : `${import.meta.env.SITE}/auth/callback` as any
 		});
 
 		console.log(url);

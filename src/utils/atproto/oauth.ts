@@ -20,13 +20,13 @@ export const client = new NodeOAuthClient({
   // This object will be used to build the payload of the /client-metadata.json
   // endpoint metadata, exposing the client metadata to the OAuth server.
   clientMetadata: {
-    client_id: 'https://colibri.lou.gg/.well-known/client-metadata.json',
-    client_name: 'My App',
-    client_uri: 'https://colibri.lou.gg',
-    logo_uri: 'https://colibri.lou.gg/logo.png',
-    tos_uri: 'https://colibri.lou.gg/tos',
-    policy_uri: 'https://colibri.lou.gg/policy',
-    redirect_uris: ['https://colibri.lou.gg/auth/callback'],
+    client_id: `${import.meta.env.SITE}/.well-known/client-metadata.json`,
+    client_name: 'Colibri Chat',
+    client_uri: `${import.meta.env.SITE}`,
+    logo_uri: `${import.meta.env.SITE}/logo.png`,
+    tos_uri: `${import.meta.env.SITE}/tos`,
+    policy_uri: `${import.meta.env.SITE}/policy`,
+    redirect_uris: [`${import.meta.env.SITE}/auth/callback`, `http://127.0.0.1:4321/auth/callback`],
     grant_types: ['authorization_code', 'refresh_token'],
     scope: scopes.join(" "),
     response_types: ['code'],
@@ -34,7 +34,7 @@ export const client = new NodeOAuthClient({
     token_endpoint_auth_method: 'private_key_jwt',
     token_endpoint_auth_signing_alg: 'RS256',
     dpop_bound_access_tokens: true,
-    jwks_uri: 'https://colibri.lou.gg/.well-known/jwks.json',
+    jwks_uri: `${import.meta.env.SITE}/.well-known/jwks.json`,
   },
 
   // Used to authenticate the client to the token endpoint. Will be used to
