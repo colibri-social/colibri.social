@@ -2,12 +2,17 @@ import type { APIRoute } from "astro";
 import { client, scopes } from "../../utils/atproto/oauth";
 import { isAtIdentifierString } from '@atproto/lex'
 
-export const GET = (async () => {
+export const GET = (async ({ request }) => {
 	try {
-		const handle = 'did:plc:w64dlsa4zwjv2wljlvmymldc'; // Temporary, users will need to provide their own later. Also a DID because the aka didn't work (bruh)
-		// const state = {
-		// 	dev: import.meta.env.DEV
-		// }; // Arbitrary
+		const reqUrl = new URL(request.url);
+
+		if (!reqUrl.searchParams.has("handle")) {
+			return new Response("No handle given", {
+				status: 400,
+			});
+		}
+
+		const handle = reqUrl.searchParams.get("handle")!;
 
 		if (!isAtIdentifierString(handle)) {
 			return new Response("Bad handle", {
@@ -18,20 +23,10 @@ export const GET = (async () => {
 		const url = await client.authorize(handle, {
 			scope: scopes.join(" "),
 			state: JSON.stringify("{}"),
-			redirect_uri: `${import.meta.env.SITE}/auth/callback` as any
+			redirect_uri: import.meta.env.DEV ? `http://127.0.0.1:4321/auth/callback` : `${import.meta.env.SITE}/auth/callback` as any
 		});
 
 		console.log(url);
-
-		let state = url.searchParams.get("state")!;
-
-		if (import.meta.env.DEV) {
-			state += "__is_dev__";
-		}
-
-		console.log(state);
-
-		url.searchParams.set("state", state);
 
 		return new Response(null, {
 			status: 302,

@@ -21,13 +21,15 @@ export const client = new NodeOAuthClient({
   // This object will be used to build the payload of the /client-metadata.json
   // endpoint metadata, exposing the client metadata to the OAuth server.
   clientMetadata: {
-    client_id: `${import.meta.env.SITE}/client-metadata.json`,
+		client_id: import.meta.env.DEV
+			? `http://localhost/?redirect_uri=${encodeURIComponent('http://127.0.0.1:4321/auth/callback')}&scope=${encodeURIComponent(scopes.join(" "))}`
+			: `${import.meta.env.SITE}/client-metadata.json`,
     client_name: 'Colibri Chat',
-    client_uri: `${import.meta.env.SITE}`,
+    client_uri: import.meta.env.SITE,
     logo_uri: `${import.meta.env.SITE}/logo.png`,
     tos_uri: `${import.meta.env.SITE}/tos`,
     policy_uri: `${import.meta.env.SITE}/policy`,
-    redirect_uris: [`${import.meta.env.SITE}/auth/callback`],
+    redirect_uris: [`${import.meta.env.SITE}/auth/callback`, 'http://127.0.0.1:4321/auth/callback'],
     grant_types: ['authorization_code', 'refresh_token'],
     scope: scopes.join(" "),
     response_types: ['code'],

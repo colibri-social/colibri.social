@@ -1,5 +1,6 @@
 ---
 import Button from '@/components/bearnie/button/Button.astro';
+import Input from '@/components/bearnie/input/Input.astro';
 import BaseLayout from '@/layouts/BaseLayout.astro';
 
 const user = await Astro.session?.get('user');
@@ -9,9 +10,29 @@ const user = await Astro.session?.get('user');
 		<h1>Colibri</h1>
 		{!user && (
 			<span>Not logged in!</span>
-			<Button href='/auth/login' class="mt-4">
-				Login with Atmosphere account
-			</Button>
+			<div class="flex gap-2 w-full max-w-lg mt-4">
+				<Input type="text" placeholder="alice.bsky.social" id="handle-input" />
+				<Button href='/auth/login' id='login-btn'>
+					Login with Atmosphere account
+				</Button>
+			</div>
+			<script>
+				const handleInput = document.querySelector<HTMLInputElement>("#handle-input")!;
+				const loginLinkBtn = document.querySelector<HTMLAnchorElement>("#login-btn")!;
+
+				const authLink = '/auth/login';
+
+				handleInput.addEventListener("input", () => {
+					loginLinkBtn.href = authLink + `?handle=${handleInput.value}`;
+				});
+
+				loginLinkBtn.addEventListener("click", (e) => {
+					if (handleInput.value.trim().length === 0) {
+						e.preventDefault();
+						alert("Please input your handle");
+					}
+				});
+			</script>
 		)}
 		{user && (
 			<code>
@@ -19,7 +40,7 @@ const user = await Astro.session?.get('user');
 					{JSON.stringify(user, null, 2)}
 				</pre>
 			</code>
-			<Button href='/logout' variant='destructive' class="mt-4">
+			<Button href='/auth/logout' variant='destructive' class="mt-4">
 				Log out
 			</Button>
 		)}

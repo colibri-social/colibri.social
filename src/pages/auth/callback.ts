@@ -6,16 +6,9 @@ export const GET = (async ({ request, session }) => {
 	try {
 		const params = new URL(request.url).searchParams;
 
-		if (params.get("state")?.includes("__is_dev__")) {
-			return new Response(JSON.stringify(params), {
-				status: 302,
-				headers: new Headers({
-					'location': `http://localhost:4321/auth/callback?${params.toString}`
-				})
-			});
-		}
-
-		const callbackResult = await client.callback(params);
+		const callbackResult = await client.callback(params, {
+			redirect_uri: import.meta.env.DEV ? 'http://127.0.0.1:4321/auth/callback' : undefined
+		});
 
     // Process successful authentication here
 		console.log('authorize() was called with state:', callbackResult.state);
