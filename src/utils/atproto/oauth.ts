@@ -21,7 +21,7 @@ export const client = new NodeOAuthClient({
   // This object will be used to build the payload of the /client-metadata.json
   // endpoint metadata, exposing the client metadata to the OAuth server.
   clientMetadata: {
-    client_id: import.meta.env.SITE.replace("https://", ""),
+    client_id: `${import.meta.env.SITE}/client-metadata.json`,
     client_name: 'Colibri Chat',
     client_uri: `${import.meta.env.SITE}`,
     logo_uri: `${import.meta.env.SITE}/logo.png`,
