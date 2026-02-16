@@ -1,0 +1,7 @@
+ignoredBuiltDependencies:
+  - core-js
+
+minimumReleaseAge: 4320
+
+onlyBuiltDependencies:
+  - core-js
