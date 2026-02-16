@@ -4,12 +4,13 @@ import { PRIVATE_KEY_1, PRIVATE_KEY_2 } from "astro:env/server";
 
 export const scopes = [
 	"atproto",
+	"blob:*/*",
 	"rpc:app.bsky.actor.getProfile?aud=did:web:api.bsky.app#bsky_appview",
-	"repo:social.colibri.actor.data?action=create",
-	"repo:social.colibri.community?action=create",
-	"repo:social.colibri.category?action=create",
-	"repo:social.colibri.channel?action=create",
-	"repo:social.colibri.message?action=create"
+	"repo:social.colibri.actor.data?action=create&action=update&action=delete",
+	"repo:social.colibri.community?action=create&action=update&action=delete",
+	"repo:social.colibri.category?action=create&action=update&action=delete",
+	"repo:social.colibri.channel?action=create&action=update&action=delete",
+	"repo:social.colibri.message?action=&action=update&action=delete"
 ];
 
 const stateMap = new Map();
@@ -20,7 +21,7 @@ export const client = new NodeOAuthClient({
   // This object will be used to build the payload of the /client-metadata.json
   // endpoint metadata, exposing the client metadata to the OAuth server.
   clientMetadata: {
-    client_id: `${import.meta.env.SITE}/.well-known/client-metadata.json`,
+    client_id: import.meta.env.SITE.replace("https://", ""),
     client_name: 'Colibri Chat',
     client_uri: `${import.meta.env.SITE}`,
     logo_uri: `${import.meta.env.SITE}/logo.png`,
@@ -34,7 +35,7 @@ export const client = new NodeOAuthClient({
     token_endpoint_auth_method: 'private_key_jwt',
     token_endpoint_auth_signing_alg: 'RS256',
     dpop_bound_access_tokens: true,
-    jwks_uri: `${import.meta.env.SITE}/.well-known/jwks.json`,
+    jwks_uri: `${import.meta.env.SITE}/jwks.json`,
   },
 
   // Used to authenticate the client to the token endpoint. Will be used to
