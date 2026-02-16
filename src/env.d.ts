@@ -6,11 +6,11 @@ declare namespace App {
 			status: string;
 			communities: Array<string>,
 			// Provided by `app.bsky.actor.profile`
-			avatar: string;
-			banner: string;
-			description: string;
-			displayName: string;
-			// This is the user's first A.K.A. (I think?)
+			avatar: string | undefined;
+			banner: string | undefined;
+			description: string | undefined;
+			displayName: string | undefined;
+			// This is the user's handle
 			identity: string;
 		}
 	}

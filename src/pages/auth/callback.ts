@@ -1,9 +1,8 @@
 import type { APIRoute } from "astro";
-import { client, scopes } from "../../utils/atproto/oauth";
-import { isAtIdentifierString } from '@atproto/lex'
+import { client } from "../../utils/atproto/oauth";
 import { Agent } from "@atproto/api";
 
-export const GET = (async ({ request }) => {
+export const GET = (async ({ request, session }) => {
 	try {
 		const params = new URL(request.url).searchParams;
 
@@ -30,6 +29,16 @@ export const GET = (async ({ request }) => {
     // Make Authenticated API calls
     const profile = await agent.getProfile({ actor: agent.did! })
 		console.log('Bsky profile:', profile.data);
+
+		session?.set('user', {
+			status: '(empty)',
+			avatar: profile.data.avatar,
+			banner: profile.data.banner,
+			communities: [],
+			description: profile.data.description,
+			displayName: profile.data.displayName,
+			identity: profile.data.handle
+		});
 
 		return new Response(JSON.stringify(callbackResult), {
 			status: 302,

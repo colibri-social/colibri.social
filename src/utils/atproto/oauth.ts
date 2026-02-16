@@ -4,7 +4,6 @@ import { PRIVATE_KEY_1, PRIVATE_KEY_2 } from "astro:env/server";
 
 export const scopes = [
 	"atproto",
-	"transition:generic",
 	"repo:social.colibri.actor.data?action=create",
 	"repo:social.colibri.community?action=create",
 	"repo:social.colibri.category?action=create",
