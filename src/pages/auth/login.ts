@@ -5,7 +5,9 @@ import { isAtIdentifierString } from '@atproto/lex'
 export const GET = (async () => {
 	try {
 		const handle = 'did:plc:w64dlsa4zwjv2wljlvmymldc'; // Temporary, users will need to provide their own later. Also a DID because the aka didn't work (bruh)
-		const state = '434321'; // Arbitrary
+		const state = {
+			dev: import.meta.env.DEV
+		}; // Arbitrary
 
 		if (!isAtIdentifierString(handle)) {
 			return new Response("Bad handle", {
@@ -13,12 +15,10 @@ export const GET = (async () => {
 			});
 		}
 
-		console.log(import.meta.env.DEV ? `http://127.0.0.1:4321/auth/callback` : `${import.meta.env.SITE}/auth/callback` as any);
-
 		const url = await client.authorize(handle, {
 			scope: scopes.join(" "),
-			state,
-			redirect_uri: import.meta.env.DEV ? `http://127.0.0.1:4321/auth/callback` : `${import.meta.env.SITE}/auth/callback` as any
+			state: JSON.stringify(state),
+			redirect_uri: `${import.meta.env.SITE}/auth/callback` as any
 		});
 
 		console.log(url);
