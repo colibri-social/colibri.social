@@ -1,11 +1,32 @@
 ---
-import Button from '@/components/bearnie/button/Button.astro';
-import Input from '@/components/bearnie/input/Input.astro';
-import BaseLayout from '@/layouts/BaseLayout.astro';
-import Logo from '@/assets/logo.png';
-import { Image } from 'astro:assets';
+import { Image } from "astro:assets";
+import Logo from "@/assets/logo.png";
+import Button from "@/components/bearnie/button/Button.astro";
+import Input from "@/components/bearnie/input/Input.astro";
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { client } from "@/utils/atproto/oauth";
+import { Agent } from "@atproto/api";
+import { ColibriSDK, type CommunityData } from "@/utils/sdk";
 
-const user = await Astro.session?.get('user');
+const user = await Astro.session?.get("user");
+
+// TODO: This doesn't account for communities the user doesn't own yet
+let communities: Array<{ rkey: string, data: CommunityData }> = [];
+
+if (user) {
+	try {
+		const oauthSession = await client.restore(user.sub!);
+		const agent = new Agent(oauthSession);
+		const sdk = new ColibriSDK(agent);
+
+		const data = await sdk.getCommunities(agent.did!);
+
+		communities = data;
+	} catch (e) {
+		console.error(e);
+		Astro.redirect("/auth/logout");
+	}
+}
 ---
 <BaseLayout>
 	<main class="flex justify-center items-center w-screen h-screen flex-col">
@@ -38,14 +59,19 @@ const user = await Astro.session?.get('user');
 			</script>
 		)}
 		{user && (
-			<code>
-				<pre>
-					{JSON.stringify(user, null, 2)}
-				</pre>
-			</code>
-			<Button href='/auth/logout' variant='destructive' class="mt-4">
-				Log out
-			</Button>
+			<div class="flex flex-col gap-2 items-center justify-center">
+				{communities.map((community) => (
+					<a href={`/community/${community.rkey}`}>{community.data.name}</a>
+				))}
+			</div>
+			<div class="flex gap-2 w-full max-w-lg mt-4 items-center justify-center">
+				<Button href='/new/community'>
+					Create new community
+				</Button>
+				<Button href='/auth/logout' variant='destructive'>
+					Log out
+				</Button>
+			</div>
 		)}
 	</main>
 </BaseLayout>

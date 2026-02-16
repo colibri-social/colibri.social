@@ -4,7 +4,7 @@ declare namespace App {
 		user: {
 			// Provided by `social.colibri.actor.data`
 			status: string;
-			communities: Array<string>,
+			communities: Array<string>;
 			// Provided by `app.bsky.actor.profile`
 			avatar: string | undefined;
 			banner: string | undefined;
@@ -12,6 +12,7 @@ declare namespace App {
 			displayName: string | undefined;
 			// This is the user's handle
 			identity: string;
-		}
+			sub: string;
+		};
 	}
 }

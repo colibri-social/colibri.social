@@ -8,7 +8,7 @@
 	},
 	"files": {
 		"ignoreUnknown": false,
-		"includes": ["./packages/**"]
+		"includes": ["./src/**"]
 	},
 	"formatter": {
 		"enabled": true,
@@ -29,9 +29,6 @@
 		"parser": {
 			"tailwindDirectives": true
 		}
-	},
-	"html": {
-		"experimentalFullSupportEnabled": true
 	},
 	"assist": {
 		"enabled": true,
@@ -61,6 +58,24 @@
 					},
 					"suspicious": {
 						"noExplicitAny": "off"
+					}
+				}
+			}
+		},
+		{
+			"includes": ["**/*.astro"],
+			"linter": {
+				"rules": {
+					"style": {
+						"useConst": "off",
+						"useImportType": "off"
+					},
+					"complexity": {
+						"noImportantStyles": "off"
+					},
+					"correctness": {
+						"noUnusedVariables": "off",
+						"noUnusedImports": "off"
 					}
 				}
 			}

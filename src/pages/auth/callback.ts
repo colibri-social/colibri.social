@@ -1,50 +1,50 @@
-import type { APIRoute } from "astro";
-import { client } from "../../utils/atproto/oauth";
 import { Agent } from "@atproto/api";
+import type { APIRoute } from "astro";
 import { ColibriSDK } from "@/utils/sdk";
+import { client } from "../../utils/atproto/oauth";
 
 export const GET = (async ({ request, session }) => {
 	try {
 		const params = new URL(request.url).searchParams;
 
 		const callbackResult = await client.callback(params, {
-			redirect_uri: import.meta.env.DEV ? 'http://127.0.0.1:4321/auth/callback' : undefined
+			redirect_uri: import.meta.env.DEV
+				? "http://127.0.0.1:4321/auth/callback"
+				: undefined,
 		});
-
-    // Process successful authentication here
-		console.log('authorize() was called with state:', callbackResult.state);
-
-		console.log('User authenticated as:', callbackResult.session.did);
 
 		const agent = new Agent(callbackResult.session);
 		const sdk = new ColibriSDK(agent);
 
-    // Make Authenticated API calls
+		const { status, communities } = await sdk.getActorData(agent.did!, true);
+
+		// Make Authenticated API calls
 		const profile = await agent.getProfile({ actor: agent.did! });
 
 		// Check for profile data
 
-		session?.set('user', {
-			status: '(empty)',
+		session?.set("user", {
+			status,
 			avatar: profile.data.avatar,
 			banner: profile.data.banner,
-			communities: [],
+			communities,
 			description: profile.data.description,
 			displayName: profile.data.displayName,
-			identity: profile.data.handle
+			identity: profile.data.handle,
+			sub: callbackResult.session.sub,
 		});
 
 		return new Response(JSON.stringify(callbackResult), {
 			status: 302,
 			headers: new Headers({
-				'location': `/`
-			})
+				location: `/`,
+			}),
 		});
-  } catch (err) {
+	} catch (err) {
 		console.error(err);
 
 		return new Response("An error occurred.", {
 			status: 500,
 		});
-  }
+	}
 }) satisfies APIRoute;

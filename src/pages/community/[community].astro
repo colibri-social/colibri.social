@@ -1,0 +1,34 @@
+---
+import Button from "@/components/bearnie/button/Button.astro";
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { client } from "@/utils/atproto/oauth";
+import { ColibriSDK } from "@/utils/sdk";
+import { Agent } from "@atproto/api";
+
+const { community } = Astro.params;
+
+if (!community) {
+	return Astro.redirect("/");
+}
+
+const user = (await Astro.session!.get("user"))!;
+const oauthSession = await client.restore(user.sub!);
+const agent = new Agent(oauthSession);
+const sdk = new ColibriSDK(agent);
+
+const communityData = await sdk.getCommunityData(agent.did!, community);
+const categories = await sdk.getCategories(agent.did!, communityData.categoryOrder);
+---
+
+<BaseLayout>
+	<span>{JSON.stringify(communityData)}</span>
+	<div class="flex flex-col gap-2 items-center justify-center">
+		{categories.map((category, i) => (
+			<a href={`/community/${community}/${communityData.categoryOrder[i]}`}>{category.name}</a>
+		))}
+	</div>
+	<div></div>
+	<Button href={`/new/category?community=${community}`}>
+		Create new category
+	</Button>
+</BaseLayout>

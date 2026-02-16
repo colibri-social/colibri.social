@@ -7,14 +7,14 @@ export const GET = (async ({ request, session }) => {
 		return new Response(null, {
 			status: 302,
 			headers: new Headers({
-				'location': `/`
-			})
+				location: `/`,
+			}),
 		});
-  } catch (err) {
+	} catch (err) {
 		console.error(err);
 
 		return new Response("An error occurred.", {
 			status: 500,
 		});
-  }
+	}
 }) satisfies APIRoute;

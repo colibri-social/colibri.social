@@ -1,6 +1,6 @@
+import { isAtIdentifierString } from "@atproto/lex";
 import type { APIRoute } from "astro";
 import { client, scopes } from "../../utils/atproto/oauth";
-import { isAtIdentifierString } from '@atproto/lex';
 
 /**
  * Resolves a handle using bluesky as the resolver.
@@ -8,7 +8,9 @@ import { isAtIdentifierString } from '@atproto/lex';
  * @returns The DID associated with the handle.
  */
 const resolveHandle = async (handle: string): Promise<string | undefined> => {
-	const res = await fetch(`https://bsky.social/xrpc/com.atproto.identity.resolveHandle?handle=${handle}`);
+	const res = await fetch(
+		`https://bsky.social/xrpc/com.atproto.identity.resolveHandle?handle=${handle}`,
+	);
 	const data = await res.json();
 	return data.did;
 };
@@ -42,14 +44,16 @@ export const GET = (async ({ request }) => {
 		const url = await client.authorize(did, {
 			scope: scopes.join(" "),
 			state: JSON.stringify("{}"),
-			redirect_uri: import.meta.env.DEV ? `http://127.0.0.1:4321/auth/callback` : `${import.meta.env.SITE}/auth/callback` as any
+			redirect_uri: import.meta.env.DEV
+				? `http://127.0.0.1:4321/auth/callback`
+				: (`${import.meta.env.SITE}/auth/callback` as any),
 		});
 
 		return new Response(null, {
 			status: 302,
 			headers: new Headers({
-				'location': url.toString()
-			})
+				location: url.toString(),
+			}),
 		});
 	} catch (e) {
 		return new Response("Internal Server Error while logging in: " + e, {

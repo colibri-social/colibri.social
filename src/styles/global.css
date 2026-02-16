@@ -1,65 +1,76 @@
 @import "tailwindcss";
-@plugin "@tailwindcss/typography";
 @import "../components/bearnie/styles/bearnie.css";
+@plugin "@tailwindcss/typography";
 
 @layer base {
-  /* Body and Paragraphs */
-  body {
-    @apply text-gray-700 leading-7 dark:text-gray-300;
-  }
+	/* Body and Paragraphs */
+	body {
+		@apply text-gray-700 leading-7 dark:text-gray-300;
+	}
 
-  p {
-    @apply mt-5 mb-5;
-  }
+	p {
+		@apply mt-5 mb-5;
+	}
 
-  /* Headings */
-  h1, h2, h3, h4 {
-    @apply text-gray-900 font-extrabold tracking-tight dark:text-white;
-  }
+	/* Headings */
+	h1,
+	h2,
+	h3,
+	h4 {
+		@apply text-gray-900 font-extrabold tracking-tight dark:text-white;
+	}
 
-  h1 { @apply text-4xl mt-0 mb-9; }
-  h2 { @apply text-2xl mt-12 mb-6; }
-  h3 { @apply text-xl mt-8 mb-3; }
-  h4 { @apply mt-6 mb-2; }
+	h1 {
+		@apply text-4xl mt-0 mb-9;
+	}
+	h2 {
+		@apply text-2xl mt-12 mb-6;
+	}
+	h3 {
+		@apply text-xl mt-8 mb-3;
+	}
+	h4 {
+		@apply mt-6 mb-2;
+	}
 
-  /* Links */
-  a {
-    @apply text-gray-900 font-medium decoration-gray-300 underline-offset-4 hover:decoration-gray-900 dark:text-white dark:decoration-gray-600 dark:hover:decoration-white;
-  }
+	/* Links */
+	a {
+		@apply text-gray-900 font-medium decoration-gray-300 underline-offset-4 hover:decoration-gray-900 dark:text-white dark:decoration-gray-600 dark:hover:decoration-white;
+	}
 
-  /* Lists */
-  ul {
-    @apply list-disc pl-7 mt-5 mb-5;
-  }
+	/* Lists */
+	ul {
+		@apply list-disc pl-7 mt-5 mb-5;
+	}
 
-  ol {
-    @apply list-decimal pl-7 mt-5 mb-5;
-  }
+	ol {
+		@apply list-decimal pl-7 mt-5 mb-5;
+	}
 
-  li {
-    @apply mt-2 mb-2;
-  }
+	li {
+		@apply mt-2 mb-2;
+	}
 
-  /* Blockquotes */
-  blockquote {
-    @apply pl-5 italic font-medium text-gray-900 border-l-4 border-gray-200 mt-8 mb-8 dark:text-white dark:border-gray-700;
-  }
+	/* Blockquotes */
+	blockquote {
+		@apply pl-5 italic font-medium text-gray-900 border-l-4 border-gray-200 mt-8 mb-8 dark:text-white dark:border-gray-700;
+	}
 
-  /* Code and Pre */
-  code {
-    @apply text-gray-900 font-semibold text-sm bg-gray-100 px-1 py-0.5 rounded dark:bg-gray-800 dark:text-gray-200;
-  }
+	/* Code and Pre */
+	code {
+		@apply text-gray-900 font-semibold text-sm bg-gray-100 px-1 py-0.5 rounded dark:bg-gray-800 dark:text-gray-200;
+	}
 
-  pre {
-    @apply text-gray-200 bg-gray-800 text-sm leading-6 rounded-lg mt-8 mb-8 px-5 py-4 overflow-x-auto dark:bg-gray-900 dark:border dark:border-gray-700;
-  }
+	pre {
+		@apply text-gray-200 bg-gray-800 text-sm leading-6 rounded-lg mt-8 mb-8 px-5 py-4 overflow-x-auto dark:bg-gray-900 dark:border dark:border-gray-700;
+	}
 
-  pre code {
-    @apply bg-transparent p-0 text-inherit font-normal;
-  }
+	pre code {
+		@apply bg-transparent p-0 text-inherit font-normal;
+	}
 
-  /* Horizontal Rule */
-  hr {
-    @apply border-t border-gray-200 my-12 dark:border-gray-700;
-  }
+	/* Horizontal Rule */
+	hr {
+		@apply border-t border-gray-200 my-12 dark:border-gray-700;
+	}
 }

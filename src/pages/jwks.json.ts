@@ -5,7 +5,7 @@ export const GET = () => {
 		status: 200,
 		statusText: "OK",
 		headers: new Headers({
-			'content-type': 'application/json'
-		})
+			"content-type": "application/json",
+		}),
 	});
-}
+};
