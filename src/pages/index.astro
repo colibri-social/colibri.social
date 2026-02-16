@@ -2,11 +2,14 @@
 import Button from '@/components/bearnie/button/Button.astro';
 import Input from '@/components/bearnie/input/Input.astro';
 import BaseLayout from '@/layouts/BaseLayout.astro';
+import Logo from '@/assets/logo.png';
+import { Image } from 'astro:assets';
 
 const user = await Astro.session?.get('user');
 ---
 <BaseLayout>
 	<main class="flex justify-center items-center w-screen h-screen flex-col">
+		<Image src={Logo} width={256} height={256} alt="A minimalist-looking Colibri, the logo of colibri.social." />
 		<h1>Colibri</h1>
 		{!user && (
 			<span>Not logged in!</span>

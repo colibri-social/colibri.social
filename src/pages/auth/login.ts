@@ -1,6 +1,17 @@
 import type { APIRoute } from "astro";
 import { client, scopes } from "../../utils/atproto/oauth";
-import { isAtIdentifierString } from '@atproto/lex'
+import { isAtIdentifierString } from '@atproto/lex';
+
+/**
+ * Resolves a handle using bluesky as the resolver.
+ * @param handle The handle to resolve.
+ * @returns The DID associated with the handle.
+ */
+const resolveHandle = async (handle: string): Promise<string | undefined> => {
+	const res = await fetch(`https://bsky.social/xrpc/com.atproto.identity.resolveHandle?handle=${handle}`);
+	const data = await res.json();
+	return data.did; // returns did:plc:xxxx...
+};
 
 export const GET = (async ({ request }) => {
 	try {
@@ -20,13 +31,19 @@ export const GET = (async ({ request }) => {
 			});
 		}
 
-		const url = await client.authorize(handle, {
+		const did = await resolveHandle(handle);
+
+		if (!did) {
+			return new Response("Unable to resolve given handle", {
+				status: 400,
+			});
+		}
+
+		const url = await client.authorize(did, {
 			scope: scopes.join(" "),
 			state: JSON.stringify("{}"),
 			redirect_uri: import.meta.env.DEV ? `http://127.0.0.1:4321/auth/callback` : `${import.meta.env.SITE}/auth/callback` as any
 		});
-
-		console.log(url);
 
 		return new Response(null, {
 			status: 302,
