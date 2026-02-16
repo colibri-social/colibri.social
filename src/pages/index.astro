@@ -11,8 +11,7 @@ const user = await Astro.session?.get('user');
 		{!user && (
 			<span>Not logged in!</span>
 			<Button href='/auth/login' class="mt-4">
-				<Bluesky slot="left-icon" />
-				Login with Bluesky
+				Login with Atmosphere account
 			</Button>
 		)}
 		{user && (

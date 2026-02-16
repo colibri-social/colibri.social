@@ -20,13 +20,13 @@ export const client = new NodeOAuthClient({
   // This object will be used to build the payload of the /client-metadata.json
   // endpoint metadata, exposing the client metadata to the OAuth server.
   clientMetadata: {
-    client_id: 'https://colibri.chat/.well-known/client-metadata.json',
+    client_id: 'https://colibri.lou.gg/.well-known/client-metadata.json',
     client_name: 'My App',
-    client_uri: 'https://colibri.chat',
-    logo_uri: 'https://colibri.chat/logo.png',
-    tos_uri: 'https://colibri.chat/tos',
-    policy_uri: 'https://colibri.chat/policy',
-    redirect_uris: ['https://colibri.chat/auth/callback'],
+    client_uri: 'https://colibri.lou.gg',
+    logo_uri: 'https://colibri.lou.gg/logo.png',
+    tos_uri: 'https://colibri.lou.gg/tos',
+    policy_uri: 'https://colibri.lou.gg/policy',
+    redirect_uris: ['https://colibri.lou.gg/auth/callback'],
     grant_types: ['authorization_code', 'refresh_token'],
     scope: scopes.join(" "),
     response_types: ['code'],
@@ -34,7 +34,7 @@ export const client = new NodeOAuthClient({
     token_endpoint_auth_method: 'private_key_jwt',
     token_endpoint_auth_signing_alg: 'RS256',
     dpop_bound_access_tokens: true,
-    jwks_uri: 'https://colibri.chat/jwks.json',
+    jwks_uri: 'https://colibri.lou.gg/jwks.json',
   },
 
   // Used to authenticate the client to the token endpoint. Will be used to
