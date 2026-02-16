@@ -1,4 +1,5 @@
 ---
+import { actions } from "astro:actions";
 import { Image } from "astro:assets";
 import { Agent } from "@atproto/api";
 import Logo from "@/assets/logo.png";
@@ -27,6 +28,12 @@ if (user) {
 		Astro.redirect("/auth/logout");
 	}
 }
+
+const result = Astro.getActionResult(actions.login);
+console.log(result);
+if (result && !result.error) {
+	return Astro.redirect(result.data);
+}
 ---
 <BaseLayout>
 	<main class="flex justify-center items-center w-screen h-screen flex-col">
@@ -34,29 +41,12 @@ if (user) {
 		<h1>Colibri</h1>
 		{!user && (
 			<span>Not logged in!</span>
-			<div class="flex gap-2 w-full max-w-lg mt-4">
-				<Input type="text" placeholder="alice.bsky.social" id="handle-input" />
-				<Button href='/auth/login' id='login-btn'>
+			<form method="post" class="flex gap-2 w-full max-w-lg mt-4" action={actions.login}>
+				<Input type="text" placeholder="alice.bsky.social" id="handle" name="handle" />
+				<Button id='login-btn' type={"submit"}>
 					Login with Atmosphere account
 				</Button>
-			</div>
-			<script>
-				const handleInput = document.querySelector<HTMLInputElement>("#handle-input")!;
-				const loginLinkBtn = document.querySelector<HTMLAnchorElement>("#login-btn")!;
-
-				const authLink = '/auth/login';
-
-				handleInput.addEventListener("input", () => {
-					loginLinkBtn.href = authLink + `?handle=${handleInput.value}`;
-				});
-
-				loginLinkBtn.addEventListener("click", (e) => {
-					if (handleInput.value.trim().length === 0) {
-						e.preventDefault();
-						alert("Please input your handle");
-					}
-				});
-			</script>
+			</form>
 		)}
 		{user && (
 			<div class="flex flex-col gap-2 items-center justify-center">
@@ -65,7 +55,7 @@ if (user) {
 				))}
 			</div>
 			<div class="flex gap-2 w-full max-w-lg mt-4 items-center justify-center">
-				<Button href='/new/community'>
+				<Button href='/' onclick="alert('Moved to actions! Re-implement in solid please :D')">
 					Create new community
 				</Button>
 				<Button href='/auth/logout' variant='destructive'>

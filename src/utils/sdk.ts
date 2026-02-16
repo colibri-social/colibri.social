@@ -304,13 +304,22 @@ export class ColibriSDK {
 		return Promise.all(categories);
 	};
 
+	/**
+	 * A helper function to create data for a new channel.
+	 * @param did The DID of the user who owns the channel.
+	 * @param category The category the channel will be placed in.
+	 * @param name The name of the channel.
+	 * @param type The type of the channel. One of `text`, `voice` or `forum`.
+	 * @returns The record key of the newly created channel.
+	 */
 	public createChannelData = async (
 		did: string,
 		category: string,
+		name: string,
 		type: ChannelType,
 	): Promise<string> => {
 		const record = this.constructAtProtoRecord(did, RECORD_IDs.CHANNEL, {
-			name: "New channel",
+			name: name ?? "New channel",
 			type,
 			category,
 		});
@@ -320,6 +329,12 @@ export class ColibriSDK {
 		return res.data.uri.split("/").pop()!;
 	};
 
+	/**
+	 * A helper function to modify the data of a category.
+	 * @param did The DID of the user who owns the category.
+	 * @param category The record key of the category to edit.
+	 * @param data The new data to insert. Overwrites any existing data and should be complete.
+	 */
 	public modifyCategoryData = async (
 		did: string,
 		category: string,
@@ -336,6 +351,12 @@ export class ColibriSDK {
 		await this.agent.com.atproto.repo.putRecord(record);
 	};
 
+	/**
+	 * Gets all data for a given channel.
+	 * @param did The DID of the user who owns the channel.
+	 * @param rkey The record key of the channel.
+	 * @returns The channel data.
+	 */
 	public getChannelData = async (
 		did: string,
 		rkey: string,
@@ -349,7 +370,12 @@ export class ColibriSDK {
 		return res.data.value as ChannelData;
 	};
 
-	// TODO: Use listRecords
+	/**
+	 * Returns the channel data for a given array of channel record keys.
+	 * @param did The DID of the user the categories belong to.
+	 * @param channelRecordKeys The channel record keys to fetch.
+	 * @returns An array of channel data.
+	 */
 	public getChannels = async (
 		did: string,
 		channelRecordKeys: Array<string>,
@@ -361,6 +387,12 @@ export class ColibriSDK {
 		return Promise.all(categories);
 	};
 
+	/**
+	 * A helper function to add a channel to a category.
+	 * @param did The DID of the user that owns the category.
+	 * @param category The record key of the category to add the channel to.
+	 * @param channel The record key of the channel to add.
+	 */
 	public addChannelToCategory = async (
 		did: string,
 		category: string,
@@ -375,6 +407,14 @@ export class ColibriSDK {
 		await this.modifyCategoryData(did, category, existingRecord);
 	};
 
+	/**
+	 * A helper function to create data for a new message.
+	 * @param did The DID of the user who owns the message.
+	 * @param channel The channel the message was sent in.
+	 * @param text The text of the message.
+	 * @param createdAt The timestamp the message was sent at.
+	 * @returns The record key of the newly posted message.
+	 */
 	public createMessageData = async (
 		did: string,
 		channel: string,
@@ -392,6 +432,12 @@ export class ColibriSDK {
 		return res.data.uri.split("/").pop()!;
 	};
 
+	/**
+	 * Returns all data for a given message.
+	 * @param did The DID of the user who owns the message.
+	 * @param rkey The record key of the message.
+	 * @returns The message data.
+	 */
 	public getMessageData = async (
 		did: string,
 		rkey: string,
@@ -405,7 +451,15 @@ export class ColibriSDK {
 		return res.data.value as MessageData;
 	};
 
-	// TODO: This is *wildly* inefficient. We basically need a relay for this.
+	/**
+	 * Returns all messages in a given channel.
+	 *
+	 * TODO: This is *wildly* inefficient. We basically need a relay + separate database (e.g. Postgres) for this.
+	 *
+	 * @param did The DID of the user who owns the messages.
+	 * @param channel The channel the messages belong to.
+	 * @returns The message data for all messages in this channel by this user.
+	 */
 	public getMessagesForChannel = async (
 		did: string,
 		channel: string,

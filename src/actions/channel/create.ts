@@ -4,12 +4,14 @@ import { z } from "astro/zod";
 import { client } from "@/utils/atproto/oauth";
 import { ColibriSDK } from "@/utils/sdk";
 
-export const createCommunity = defineAction({
+export const createChannel = defineAction({
 	input: z.object({
-		name: z.string().max(32),
-		description: z.string().max(256),
+		name: z.string(),
+		type: z.enum(["text", "voice", "forum"]),
+		community: z.string(),
+		category: z.string(),
 	}),
-	handler: async ({ name, description }, { session }) => {
+	handler: async ({ name, type, community, category }, { session }) => {
 		try {
 			if (!session || !session?.has("user")) {
 				throw new ActionError({
@@ -23,14 +25,18 @@ export const createCommunity = defineAction({
 			const agent = new Agent(oauthSession);
 			const sdk = new ColibriSDK(agent);
 
-			const community = await sdk.createCommunityData(
+			const channel = await sdk.createChannelData(
 				agent.did!,
+				category,
 				name,
-				description,
+				type,
 			);
+			await sdk.addChannelToCategory(agent.did!, category, channel);
 
 			return {
 				community,
+				category,
+				channel,
 			};
 		} catch (e) {
 			console.error(e);

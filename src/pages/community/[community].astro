@@ -26,12 +26,19 @@ const categories = await sdk.getCategories(
 <BaseLayout>
 	<span>{JSON.stringify(communityData)}</span>
 	<div class="flex flex-col gap-2 items-center justify-center">
-		{categories.map((category, i) => (
-			<a href={`/community/${community}/${communityData.categoryOrder[i]}`}>{category.name}</a>
-		))}
+		{
+			categories.map((category, i) => (
+				<a href={`/community/${community}/${communityData.categoryOrder[i]}`}>
+					{category.name}
+				</a>
+			))
+		}
 	</div>
 	<div></div>
-	<Button href={`/new/category?community=${community}`}>
+	<Button
+		href={`/`}
+		onclick="alert('Moved to actions! Re-implement in solid please :D')"
+	>
 		Create new category
 	</Button>
 </BaseLayout>

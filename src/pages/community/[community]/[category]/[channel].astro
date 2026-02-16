@@ -25,33 +25,27 @@ console.log(messages);
 <BaseLayout>
 	<span>{JSON.stringify(channelData)}</span>
 	<div class="flex flex-col gap-2 items-center justify-center">
-		{messages.map((message, i) => (
-			<div>{message.text} ({message.createdAt})</div>
-		))}
+		{
+			messages.map((message, i) => (
+				<div>
+					{message.text} ({message.createdAt})
+				</div>
+			))
+		}
 	</div>
 	<div class="flex gap-2 w-full max-w-lg mt-4">
-		<Input data-obj={JSON.stringify({ category, community, channel })} type="text" placeholder="Send a message in this channel!" id="message-input" />
-		<Button id="send-btn" href={`/new/message?category=${category}&community=${community}&channel=${channel}`}>
+		<Input
+			data-obj={JSON.stringify({ category, community, channel })}
+			type="text"
+			placeholder="Send a message in this channel!"
+			id="message-input"
+		/>
+		<Button
+			id="send-btn"
+			href={`/`}
+			onclick="alert('Moved to actions! Re-implement in solid please :D')"
+		>
 			Send
 		</Button>
 	</div>
-	<script>
-		const messageInput = document.querySelector<HTMLInputElement>("#message-input")!;
-		const submitBtn = document.querySelector<HTMLAnchorElement>("#send-btn")!;
-
-		const { category, community, channel } = JSON.parse(messageInput.dataset.obj!);
-
-		const messageLink = `/new/message?category=${category}&community=${community}&channel=${channel}`;
-
-		messageInput.addEventListener("keyup", () => {
-			submitBtn.href = messageLink + `&text=${encodeURIComponent(messageInput.value)}`;
-		});
-
-		submitBtn.addEventListener("click", (e) => {
-			if (messageInput.value.trim().length === 0) {
-				e.preventDefault();
-				alert("Message must have text");
-			}
-		});
-	</script>
 </BaseLayout>

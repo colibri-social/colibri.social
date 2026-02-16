@@ -23,11 +23,20 @@ const channels = await sdk.getChannels(agent.did!, categoryData.channelOrder);
 <BaseLayout>
 	<span>{JSON.stringify(categoryData)}</span>
 	<div class="flex flex-col gap-2 items-center justify-center">
-		{channels.map((channel, i) => (
-			<a href={`/community/${community}/${category}/${categoryData.channelOrder[i]}/`}>{channel.name}</a>
-		))}
+		{
+			channels.map((channel, i) => (
+				<a
+					href={`/community/${community}/${category}/${categoryData.channelOrder[i]}/`}
+				>
+					{channel.name}
+				</a>
+			))
+		}
 	</div>
-	<Button href={`/new/channel?category=${category}&community=${community}`}>
+	<Button
+		href={`/`}
+		onclick="alert('Moved to actions! Re-implement in solid please :D')"
+	>
 		New channel
 	</Button>
 </BaseLayout>
