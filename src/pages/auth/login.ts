@@ -10,7 +10,7 @@ import { isAtIdentifierString } from '@atproto/lex';
 const resolveHandle = async (handle: string): Promise<string | undefined> => {
 	const res = await fetch(`https://bsky.social/xrpc/com.atproto.identity.resolveHandle?handle=${handle}`);
 	const data = await res.json();
-	return data.did; // returns did:plc:xxxx...
+	return data.did;
 };
 
 export const GET = (async ({ request }) => {

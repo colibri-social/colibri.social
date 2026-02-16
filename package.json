@@ -4,7 +4,7 @@
   "version": "0.0.1",
   "packageManager": "pnpm@10.29.3",
   "engines": {
- 		"node": "^24.13.0"
+    "node": "^24.13.0"
   },
   "scripts": {
     "dev": "astro dev --host",
@@ -21,6 +21,7 @@
     "@atproto/api": "^0.18.21",
     "@atproto/jwk-jose": "^0.1.11",
     "@atproto/lex": "^0.0.15",
+    "@atproto/lexicon": "^0.6.1",
     "@atproto/oauth-client-node": "^0.3.16",
     "@biomejs/biome": "^2.4.0",
     "@tailwindcss/vite": "^4.1.18",

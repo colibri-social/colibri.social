@@ -1,6 +1,7 @@
 import type { APIRoute } from "astro";
 import { client } from "../../utils/atproto/oauth";
 import { Agent } from "@atproto/api";
+import { ColibriSDK } from "@/utils/sdk";
 
 export const GET = (async ({ request, session }) => {
 	try {
@@ -16,10 +17,12 @@ export const GET = (async ({ request, session }) => {
 		console.log('User authenticated as:', callbackResult.session.did);
 
 		const agent = new Agent(callbackResult.session);
+		const sdk = new ColibriSDK(agent);
 
     // Make Authenticated API calls
-    const profile = await agent.getProfile({ actor: agent.did! })
-		console.log('Bsky profile:', profile.data);
+		const profile = await agent.getProfile({ actor: agent.did! });
+
+		// Check for profile data
 
 		session?.set('user', {
 			status: '(empty)',
