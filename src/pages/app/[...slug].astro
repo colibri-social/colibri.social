@@ -1,0 +1,9 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import { App } from "../../components/solid/App.tsx";
+---
+
+<BaseLayout title="Solid">
+  <h1>This is rendered statically by Astro</h1>
+  <App client:only="solid-js" />
+</BaseLayout>
