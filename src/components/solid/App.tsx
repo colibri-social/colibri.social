@@ -5,7 +5,6 @@ import AppLayout from "./layouts/AppLayout";
 import CommunityLayout from "./layouts/CommunityLayout";
 import ChannelView from "./views/ChannelView";
 
-// TODO: For some godforsaken reason this doesn't work without the span children
 export const App = ({ communities }: { communities: Array<CommunityData> }) => {
 	return (
 		<GlobalContextProvider

@@ -64,12 +64,12 @@ const ChannelView: Component = () => {
 		Array<MessageData>
 	>([]);
 
-	// TODO: Move logic to appview
+	// TODO: Move jetstream consumer to appview, socket connection to appview to applayout, distribute messages from there.
+	// We need this for message indicators as well as notifications anyway.
 	const socket = makeHeartbeatWS(
 		makeReconnectingWS(
 			`wss://jetstream2.us-east.bsky.network/subscribe?wantedCollections=social.colibri.message`,
 		),
-		{ message: "👍" },
 	);
 
 	socket.addEventListener("message", (message) => {

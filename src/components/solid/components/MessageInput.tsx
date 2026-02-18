@@ -8,13 +8,17 @@ export const MessageInput: Component = () => {
 	const params = useParams();
 
 	const [formData, setFormData] = createStore({
-		community: params.community!,
-		channel: params.channel!,
+		community: () => params.community!,
+		channel: () => params.channel!,
 		text: "",
 	});
 
 	const sendMessage = async () => {
-		const { error } = await actions.postMessage(formData);
+		const { error } = await actions.postMessage({
+			text: formData.text,
+			community: formData.community(),
+			channel: formData.channel()
+		});
 
 		if (error) {
 			return alert(error.message);
