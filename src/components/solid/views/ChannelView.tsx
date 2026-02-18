@@ -10,6 +10,7 @@ import {
 import type { ChannelInfo } from "@/pages/api/v1/channel/[channel]/messages";
 import type { MaybeResponse } from "@/utils/types/maybe-response";
 import { Message } from "../components/Message";
+
 // import { useGlobalContext } from "../contexts/GlobalContext";
 
 const fetchMessagesForChannel = async (

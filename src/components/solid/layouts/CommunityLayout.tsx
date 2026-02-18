@@ -9,9 +9,9 @@ import {
 import type { CommunityInfo } from "@/pages/api/v1/community/[community]";
 import type { MaybeResponse } from "@/utils/types/maybe-response";
 import { ChannelList } from "../components/ChannelList";
-import { useGlobalContext } from "../contexts/GlobalContext";
 import { MessageInput } from "../components/MessageInput";
 import { UserStatus } from "../components/UserStatus";
+import { useGlobalContext } from "../contexts/GlobalContext";
 
 const fetchCommunityCategoriesAndChannels = async (
 	community: string,

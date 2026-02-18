@@ -2,8 +2,8 @@ import { Route, Router } from "@solidjs/router";
 import type { CommunityData } from "@/utils/sdk";
 import { GlobalContextProvider } from "./contexts/GlobalContext";
 import AppLayout from "./layouts/AppLayout";
-import ChannelView from "./views/ChannelView";
 import CommunityLayout from "./layouts/CommunityLayout";
+import ChannelView from "./views/ChannelView";
 
 // TODO: For some godforsaken reason this doesn't work without the span children
 export const App = ({ communities }: { communities: Array<CommunityData> }) => {

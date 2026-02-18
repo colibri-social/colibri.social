@@ -1,5 +1,5 @@
-import type { MessageData } from "@/utils/sdk";
 import type { Component } from "solid-js";
+import type { MessageData } from "@/utils/sdk";
 
 export const Message: Component<{ data: MessageData }> = ({ data }) => {
 	return (
