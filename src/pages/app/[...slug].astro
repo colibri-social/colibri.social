@@ -1,0 +1,8 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import { App } from "../../components/solid/App.tsx";
+---
+
+<BaseLayout title="Solid">
+  <App client:only="solid-js" />
+</BaseLayout>

@@ -25,6 +25,7 @@
     "@atproto/oauth-client-node": "^0.3.16",
     "@atproto/ws-client": "^0.0.4",
     "@biomejs/biome": "^2.4.0",
+    "@solidjs/router": "^0.15.4",
     "@tailwindcss/vite": "^4.1.18",
     "astro": "^5.17.1",
     "astro-startup-code": "^0.1.2",
