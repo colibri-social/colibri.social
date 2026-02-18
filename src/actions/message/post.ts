@@ -8,10 +8,9 @@ export const postMessage = defineAction({
 	input: z.object({
 		text: z.string().max(2048),
 		community: z.string(),
-		category: z.string(),
 		channel: z.string(),
 	}),
-	handler: async ({ text, community, category, channel }, { session }) => {
+	handler: async ({ text, community, channel }, { session }) => {
 		try {
 			if (!session || !session?.has("user")) {
 				throw new ActionError({
@@ -35,7 +34,6 @@ export const postMessage = defineAction({
 
 			return {
 				community,
-				category,
 				channel,
 				message,
 			};
