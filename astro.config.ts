@@ -1,30 +1,28 @@
-import { defineConfig, envField, fontProviders } from 'astro/config';
+import { defineConfig, envField, fontProviders } from "astro/config";
 
 import node from "@astrojs/node";
 import tailwindcss from "@tailwindcss/vite";
 import solidJs from "@astrojs/solid-js";
 
-import startupCode from "astro-startup-code";
-
 // https://astro.build/config
 export default defineConfig({
-	site: 'https://colibri.lou.gg',
+	site: "https://colibri.lou.gg",
 	session: {
-		options: {}
+		options: {},
 	},
 	adapter: node({
-		mode: "standalone"
+		mode: "standalone",
 	}),
 	output: "server",
 	vite: {
-		plugins: [tailwindcss()]
+		plugins: [tailwindcss()],
 	},
-	integrations: [solidJs(), startupCode({ entrypoint: './src/sockets/index.ts' })],
+	integrations: [solidJs()],
 	env: {
 		schema: {
 			PRIVATE_KEY_1: envField.string({ context: "server", access: "secret" }),
 			PRIVATE_KEY_2: envField.string({ context: "server", access: "secret" }),
-		}
+		},
 	},
 	experimental: {
 		fonts: [
@@ -32,14 +30,14 @@ export default defineConfig({
 				provider: fontProviders.google(),
 				name: "Inter",
 				weights: ["100 900"],
-				cssVariable: "--font-inter"
+				cssVariable: "--font-inter",
 			},
 			{
 				provider: fontProviders.google(),
 				name: "Geist Mono",
 				weights: ["100 900"],
-				cssVariable: "--font-geist-mono"
+				cssVariable: "--font-geist-mono",
 			},
-		]
-	}
+		],
+	},
 });

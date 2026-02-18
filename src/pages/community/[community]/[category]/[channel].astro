@@ -19,14 +19,13 @@ const sdk = new ColibriSDK(agent);
 
 const channelData = await sdk.getChannelData(agent.did!, channel);
 const messages = await sdk.getMessagesForChannel(agent.did!, channel);
-console.log(messages);
 ---
 
 <BaseLayout>
 	<span>{JSON.stringify(channelData)}</span>
 	<div class="flex flex-col gap-2 items-center justify-center">
 		{
-			messages.map((message, i) => (
+			messages.map((message) => (
 				<div>
 					{message.text} ({message.createdAt})
 				</div>

@@ -1,20 +1,28 @@
-import { Router, Route } from '@solidjs/router';
-
-import AppLayout from './AppLayout';
-import CommunityView from './views/CommunityView';
-import ChannelView from './views/ChannelView';
+import { Route, Router } from "@solidjs/router";
+import type { CommunityData } from "@/utils/sdk";
+import { GlobalContextProvider } from "./contexts/GlobalContext";
+import AppLayout from "./layouts/AppLayout";
+import ChannelView from "./views/ChannelView";
+import CommunityLayout from "./layouts/CommunityLayout";
 
 // TODO: For some godforsaken reason this doesn't work without the span children
-export const App = () => (
-	<Router base='/app'>
-		<Route path="/" component={AppLayout}>
-			<span class='test'>Test</span>
-			<Route path="/c/:community" component={CommunityView}>
-				<span class='test'>Test</span>
-				<Route path="/:channel" component={ChannelView}>
-					<span>Test</span>
+export const App = ({ communities }: { communities: Array<CommunityData> }) => {
+	return (
+		<GlobalContextProvider
+			contextData={{ communities, categories: [], channels: [] }}
+		>
+			<Router base="/app">
+				<Route component={AppLayout}>
+					<Route path="/" component={() => <div>App page</div>} />
+					<Route component={CommunityLayout}>
+						<Route
+							path="/c/:community"
+							component={() => <div>Community page</div>}
+						/>
+						<Route path="/c/:community/:channel" component={ChannelView} />
+					</Route>
 				</Route>
-			</Route>
-		</Route>
-	</Router>
-)
+			</Router>
+		</GlobalContextProvider>
+	);
+};

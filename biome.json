@@ -50,7 +50,7 @@
 			}
 		},
 		{
-			"includes": ["**/*.ts"],
+			"includes": ["**/*.ts", "**/*.tsx"],
 			"linter": {
 				"rules": {
 					"style": {

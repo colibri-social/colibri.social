@@ -11,27 +11,31 @@ export type CommunityData = {
 	picture?: string;
 	description: string;
 	categoryOrder: Array<string>;
+	rkey: string;
 };
 
-type CategoryData = {
+export type CategoryData = {
 	name: string;
 	channelOrder: Array<string>;
 	community: string;
+	rkey: string;
 };
 
-type ChannelType = "text" | "voice" | "forum";
+export type ChannelType = "text" | "voice" | "forum";
 
-type ChannelData = {
+export type ChannelData = {
 	name: string;
 	description?: string;
 	type: ChannelType;
 	category: string;
+	rkey: string;
 };
 
-type MessageData = {
+export type MessageData = {
 	text: string;
 	createdAt: string;
 	channel: string;
+	rkey: string;
 };
 
 interface AtProtoRecord<T extends string, K> {
@@ -179,7 +183,7 @@ export class ColibriSDK {
 			rkey,
 		});
 
-		return res.data.value as CommunityData;
+		return { ...res.data.value, rkey } as CommunityData;
 	};
 
 	/**
@@ -189,7 +193,7 @@ export class ColibriSDK {
 	 */
 	public getCommunities = async (
 		did: string,
-	): Promise<Array<{ rkey: string; data: CommunityData }>> => {
+	): Promise<Array<CommunityData>> => {
 		const communities = await this.agent.com.atproto.repo.listRecords({
 			repo: did,
 			collection: RECORD_IDs.COMMUNITY,
@@ -198,9 +202,9 @@ export class ColibriSDK {
 		const data = communities.data.records.map((record) => {
 			const rkey = record.uri.split("/").pop()!;
 			return {
+				...record.value,
 				rkey,
-				data: record.value as CommunityData,
-			};
+			} as CommunityData;
 		});
 
 		return data;
@@ -284,7 +288,7 @@ export class ColibriSDK {
 			rkey,
 		});
 
-		return res.data.value as CategoryData;
+		return { ...res.data.value, rkey } as CategoryData;
 	};
 
 	/**
@@ -367,7 +371,7 @@ export class ColibriSDK {
 			rkey,
 		});
 
-		return res.data.value as ChannelData;
+		return { ...res.data.value, rkey } as ChannelData;
 	};
 
 	/**
@@ -448,7 +452,7 @@ export class ColibriSDK {
 			rkey,
 		});
 
-		return res.data.value as MessageData;
+		return { ...res.data.value, rkey } as MessageData;
 	};
 
 	/**
@@ -471,7 +475,9 @@ export class ColibriSDK {
 
 		const filtered = res.data.records
 			.filter((record) => (record.value as MessageData).channel === channel)
-			.map((x) => x.value as MessageData);
+			.map(
+				(x) => ({ ...x.value, rkey: x.uri.split("/").pop()! }) as MessageData,
+			);
 
 		return filtered;
 	};

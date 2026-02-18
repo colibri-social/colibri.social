@@ -1,8 +1,33 @@
 ---
-import BaseLayout from "../../layouts/BaseLayout.astro";
+import { Agent } from "@atproto/api";
+import { client } from "@/utils/atproto/oauth";
+import { ColibriSDK, type CommunityData } from "@/utils/sdk";
 import { App } from "../../components/solid/App.tsx";
+import BaseLayout from "../../layouts/BaseLayout.astro";
+
+const user = await Astro.session?.get("user");
+
+// TODO: This doesn't account for communities the user doesn't own yet
+let communities: Array<CommunityData> = [];
+
+if (user) {
+	try {
+		const oauthSession = await client.restore(user.sub!);
+		const agent = new Agent(oauthSession);
+		const sdk = new ColibriSDK(agent);
+
+		const data = await sdk.getCommunities(agent.did!);
+
+		console.log(data);
+
+		communities = data;
+	} catch (e) {
+		console.error(e);
+		return Astro.redirect("/auth/logout");
+	}
+}
 ---
 
 <BaseLayout title="Solid">
-  <App client:only="solid-js" />
+	<App communities={communities} client:only="solid-js" />
 </BaseLayout>
