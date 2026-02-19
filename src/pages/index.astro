@@ -1,33 +1,12 @@
 ---
 import { actions } from "astro:actions";
 import { Image } from "astro:assets";
-import { Agent } from "@atproto/api";
 import Logo from "@/assets/logo.png";
 import Button from "@/components/bearnie/button/Button.astro";
 import Input from "@/components/bearnie/input/Input.astro";
 import BaseLayout from "@/layouts/BaseLayout.astro";
-import { client } from "@/utils/atproto/oauth";
-import { ColibriSDK, type CommunityData } from "@/utils/sdk";
 
 const user = await Astro.session?.get("user");
-
-// TODO: This doesn't account for communities the user doesn't own yet
-let communities: Array<CommunityData> = [];
-
-if (user) {
-	try {
-		const oauthSession = await client.restore(user.sub!);
-		const agent = new Agent(oauthSession);
-		const sdk = new ColibriSDK(agent);
-
-		const data = await sdk.getCommunities(agent.did!);
-
-		communities = data;
-	} catch (e) {
-		console.error(e);
-		return Astro.redirect("/auth/logout");
-	}
-}
 
 const result = Astro.getActionResult(actions.login);
 if (result && !result.error) {
