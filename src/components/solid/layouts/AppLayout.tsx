@@ -1,5 +1,5 @@
 import { A, useNavigate } from "@solidjs/router";
-import { For, type ParentComponent } from "solid-js";
+import { For, Show, type ParentComponent } from "solid-js";
 import { useGlobalContext } from "../contexts/GlobalContext";
 import { House } from "../icons/House";
 import { Gear } from "../icons/Gear";
@@ -9,7 +9,7 @@ const AppLayout: ParentComponent = (props) => {
 	const [globalState] = useGlobalContext();
 	const navigate = useNavigate();
 
-	if (window.location.pathname === "/app") {
+	if (window.location.pathname === "/app" && globalState.communities.length > 0) {
 		navigate(`/c/${globalState.communities[0].rkey}`);
 	}
 	// params.community is the currently selected community's record id
@@ -60,7 +60,9 @@ const AppLayout: ParentComponent = (props) => {
 						</div>
 					</div>
 				</aside>
-				<main class="w-full h-full">{props.children}</main>
+				<main class="w-full h-full">
+					{props.children}
+				</main>
 			</div>
 		</div>
 	);
