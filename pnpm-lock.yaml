@@ -12,7 +12,7 @@ importers:
         specifier: ^0.9.6
         version: 0.9.6(prettier@3.8.1)(typescript@5.9.3)
       '@astrojs/node':
-        specifier: ^9.5.4
+        specifier: ^9.5.0
         version: 9.5.4(astro@5.17.3(@types/node@25.2.3)(jiti@2.6.1)(lightningcss@1.30.2)(rollup@4.57.1)(typescript@5.9.3)(yaml@2.8.2))
       '@astrojs/solid-js':
         specifier: ^5.1.3
