@@ -1,6 +1,6 @@
 @theme {
 	/* Typography */
-	--font-sans: var(--font-inter), sans-serif;
+	--font-sans: var(--font-satoshi), sans-serif;
 	--font-mono: var(--font-geist-mono), monospace;
 
 	/* Border Radius */

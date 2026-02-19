@@ -1,9 +1,9 @@
-import type { Component } from "solid-js";
 import { actions } from "astro:actions";
-import { createStore } from "solid-js/store";
 import { useParams } from "@solidjs/router";
-import { useGlobalContext } from "../contexts/GlobalContext";
+import type { Component } from "solid-js";
+import { createStore } from "solid-js/store";
 import { generateHash } from "@/utils/generate-hash";
+import { useGlobalContext } from "../contexts/GlobalContext";
 
 // text, community, category, channel
 export const MessageInput: Component = () => {
@@ -37,7 +37,9 @@ export const MessageInput: Component = () => {
 			createdAt: obj.createdAt,
 			hash,
 			text: obj.text,
-			did: globalData.user.identity,
+			author_did: globalData.user.sub,
+			display_name: globalData.user.displayName!,
+			avatar_url: globalData.user.avatar!,
 		});
 
 		const { error } = await actions.postMessage(obj);

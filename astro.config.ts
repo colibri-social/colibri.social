@@ -27,10 +27,10 @@ export default defineConfig({
 	experimental: {
 		fonts: [
 			{
-				provider: fontProviders.google(),
-				name: "Inter",
+				provider: fontProviders.fontshare(),
+				name: "Satoshi",
 				weights: ["100 900"],
-				cssVariable: "--font-inter",
+				cssVariable: "--font-satoshi",
 			},
 			{
 				provider: fontProviders.google(),

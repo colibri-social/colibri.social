@@ -36,7 +36,9 @@ export type MessageData = {
 	createdAt: string;
 	channel: string;
 	rkey: string;
-	did: string;
+	author_did: string;
+	display_name: string;
+	avatar_url: string;
 };
 
 export type IndexedMessageData = {
@@ -44,7 +46,9 @@ export type IndexedMessageData = {
 	created_at: string;
 	channel: string;
 	rkey: string;
-	did: string;
+	author_did: string;
+	display_name: string;
+	avatar_url: string;
 };
 
 interface AtProtoRecord<T extends string, K> {
@@ -458,7 +462,7 @@ export class ColibriSDK {
 			rkey,
 		});
 
-		return { ...res.data.value, rkey, did } as MessageData;
+		return { ...res.data.value, rkey, author_did: did } as MessageData;
 	};
 
 	/**
@@ -483,7 +487,11 @@ export class ColibriSDK {
 			.filter((record) => (record.value as MessageData).channel === channel)
 			.map(
 				(x) =>
-					({ ...x.value, rkey: x.uri.split("/").pop()!, did }) as MessageData,
+					({
+						...x.value,
+						rkey: x.uri.split("/").pop()!,
+						author_did: did,
+					}) as MessageData,
 			);
 
 		return filtered;

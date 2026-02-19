@@ -1,22 +1,35 @@
-import { Match, Show, Switch, type Component } from "solid-js";
+import { type Component, Match, Show, Switch } from "solid-js";
 import type { IndexedMessageData } from "@/utils/sdk";
+import type { PendingMessageData } from "../contexts/GlobalContext";
 
 export const Message: Component<{
-	data: IndexedMessageData;
+	data: IndexedMessageData | PendingMessageData;
 	isSubsequent: boolean;
 }> = ({ data, isSubsequent }) => {
+	const isPending = "hash" in data;
 	return (
 		<div
-			class={`w-full h-fit flex flex-row p-4 gap-4 ${isSubsequent ? "py-0" : "pb-0"}`}
+			class={`w-full h-fit flex flex-row p-4 gap-4`}
+			classList={{
+				"py-0": isSubsequent,
+				"pb-0": !isSubsequent,
+			}}
 		>
 			<Switch>
 				<Match when={!isSubsequent}>
-					<div class="w-10 h-10 min-w-10 min-h-10 bg-indigo-500 rounded-full"></div>
+					<img
+						src={data.avatar_url || "/logo.png"}
+						alt={data.display_name}
+						class="w-10 h-10 min-w-10 min-h-10 bg-neutral-500 rounded-full border border-neutral-800"
+						loading="lazy"
+					/>
 				</Match>
 				<Match when={isSubsequent}>
 					<div class="w-10 h-8 min-w-10 min-h-8 text-neutral-400 group-hover:opacity-100 opacity-0 text-xs flex items-center justify-center">
 						<span>
-							{new Date(data.created_at).toLocaleTimeString(undefined, {
+							{new Date(
+								isPending ? data.createdAt : data.created_at,
+							).toLocaleTimeString(undefined, {
 								hour: "2-digit",
 								minute: "2-digit",
 							})}
@@ -27,17 +40,28 @@ export const Message: Component<{
 			<div class="flex flex-col gap-1 w-full justify-center">
 				<Show when={!isSubsequent}>
 					<div class="flex gap-2 text-sm items-baseline">
-						<span class="font-bold">Username</span>
+						<span class="font-bold">{data.display_name}</span>
 						<small class="text-neutral-400">
-							{new Date(data.created_at).toLocaleDateString()}{" "}
-							{new Date(data.created_at).toLocaleTimeString(undefined, {
+							{new Date(
+								isPending ? data.createdAt : data.created_at,
+							).toLocaleDateString()}{" "}
+							{new Date(
+								isPending ? data.createdAt : data.created_at,
+							).toLocaleTimeString(undefined, {
 								hour: "2-digit",
 								minute: "2-digit",
 							})}
 						</small>
 					</div>
 				</Show>
-				<p class="m-0">{data.text}</p>
+				<p
+					class="m-0"
+					classList={{
+						"text-neutral-400": isPending,
+					}}
+				>
+					{data.text}
+				</p>
 			</div>
 		</div>
 	);

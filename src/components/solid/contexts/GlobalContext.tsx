@@ -1,17 +1,11 @@
-import {
-	type Accessor,
-	createContext,
-	createSignal,
-	type ParentComponent,
-	useContext,
-} from "solid-js";
+import { createContext, type ParentComponent, useContext } from "solid-js";
+import { createStore } from "solid-js/store";
 import type {
 	CategoryData,
 	ChannelData,
 	CommunityData,
 	MessageData,
 } from "@/utils/sdk";
-import { createStore } from "solid-js/store";
 
 export type GlobalContextData = {
 	communities: Array<CommunityData>;
