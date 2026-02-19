@@ -1,10 +1,14 @@
-import { A } from "@solidjs/router";
+import { A, useNavigate } from "@solidjs/router";
 import { For, type ParentComponent } from "solid-js";
 import { useGlobalContext } from "../contexts/GlobalContext";
 
 const AppLayout: ParentComponent = (props) => {
 	const [globalState] = useGlobalContext();
+	const navigate = useNavigate();
 
+	if (window.location.pathname === "/app") {
+		navigate(`/c/${globalState.communities[0].rkey}`);
+	}
 	// params.community is the currently selected community's record id
 
 	return (
@@ -20,7 +24,7 @@ const AppLayout: ParentComponent = (props) => {
 								<div class="block w-fit h-fit">H</div>
 							</div>
 							<hr class="m-0 border-neutral-800" />
-							<For each={globalState().communities}>
+							<For each={globalState.communities}>
 								{(item) => (
 									<A
 										href={`/c/${item.rkey}`}

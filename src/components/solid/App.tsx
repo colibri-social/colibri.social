@@ -5,10 +5,22 @@ import AppLayout from "./layouts/AppLayout";
 import CommunityLayout from "./layouts/CommunityLayout";
 import ChannelView from "./views/ChannelView";
 
-export const App = ({ communities }: { communities: Array<CommunityData> }) => {
+export const App = ({
+	communities,
+	user,
+}: {
+	communities: Array<CommunityData>;
+	user: App.SessionData["user"];
+}) => {
 	return (
 		<GlobalContextProvider
-			contextData={{ communities, categories: [], channels: [] }}
+			contextData={{
+				communities,
+				categories: [],
+				channels: [],
+				pendingMessages: [],
+				user,
+			}}
 		>
 			<Router base="/app">
 				<Route component={AppLayout}>

@@ -2,10 +2,14 @@ import type { Component } from "solid-js";
 import { actions } from "astro:actions";
 import { createStore } from "solid-js/store";
 import { useParams } from "@solidjs/router";
+import { useGlobalContext } from "../contexts/GlobalContext";
+import { generateHash } from "@/utils/generate-hash";
 
 // text, community, category, channel
 export const MessageInput: Component = () => {
 	const params = useParams();
+	const [globalData, { addPendingMessage, removePendingMessage }] =
+		useGlobalContext();
 
 	const [formData, setFormData] = createStore({
 		community: () => params.community!,
@@ -13,16 +17,38 @@ export const MessageInput: Component = () => {
 		text: "",
 	});
 
-	const sendMessage = async () => {
-		const { error } = await actions.postMessage({
+	const sendMessage = async (): Promise<boolean> => {
+		const obj = {
 			text: formData.text,
 			community: formData.community(),
-			channel: formData.channel()
+			channel: formData.channel(),
+			createdAt: new Date().toISOString(),
+		};
+
+		const hash = await generateHash(
+			JSON.stringify({
+				...obj,
+				community: undefined,
+			}),
+		);
+
+		addPendingMessage({
+			channel: obj.channel,
+			createdAt: obj.createdAt,
+			hash,
+			text: obj.text,
+			did: globalData.user.identity,
 		});
 
+		const { error } = await actions.postMessage(obj);
+
 		if (error) {
-			return alert(error.message);
+			alert(error.message);
+			removePendingMessage(hash);
+			return false;
 		}
+
+		return true;
 	};
 
 	return (
@@ -44,8 +70,8 @@ export const MessageInput: Component = () => {
 				}
 				onKeyDown={(event) => {
 					if (event.key === "Enter") {
-						(event.target as HTMLInputElement).value = "";
 						sendMessage();
+						(event.target as HTMLInputElement).value = "";
 					}
 				}}
 			/>

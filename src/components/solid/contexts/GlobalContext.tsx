@@ -5,38 +5,57 @@ import {
 	type ParentComponent,
 	useContext,
 } from "solid-js";
-import type { CategoryData, ChannelData, CommunityData } from "@/utils/sdk";
+import type {
+	CategoryData,
+	ChannelData,
+	CommunityData,
+	MessageData,
+} from "@/utils/sdk";
+import { createStore } from "solid-js/store";
 
 export type GlobalContextData = {
 	communities: Array<CommunityData>;
 	categories: Array<CategoryData>;
 	channels: Array<ChannelData>;
+	pendingMessages: Array<PendingMessageData>;
+	user: App.SessionData["user"];
 };
 
 export type GlobalContextUtility = {
 	addChannel: (channel: ChannelData) => void;
 	addCategory: (category: CategoryData) => void;
+	addPendingMessage: (message: PendingMessageData) => void;
+	removePendingMessage: (hash: string) => void;
+};
+
+export type PendingMessageData = Omit<MessageData, "rkey"> & {
+	hash: string;
 };
 
 export const GlobalContext =
-	createContext<[Accessor<GlobalContextData>, GlobalContextUtility]>();
+	createContext<[GlobalContextData, GlobalContextUtility]>();
 
 export const GlobalContextProvider: ParentComponent<{
 	contextData: GlobalContextData;
 }> = (props) => {
-	const [globalContext, setGlobalContext] = createSignal(props.contextData);
-	const context: [Accessor<GlobalContextData>, GlobalContextUtility] = [
+	const [globalContext, setGlobalContext] = createStore(props.contextData);
+
+	const context: [GlobalContextData, GlobalContextUtility] = [
 		globalContext,
 		{
 			addChannel(channel: ChannelData) {
-				const newContext = JSON.parse(JSON.stringify(globalContext));
-				newContext.channels.push(channel);
-				setGlobalContext(newContext);
+				setGlobalContext("channels", (list) => [...list, channel]);
 			},
 			addCategory(category: CategoryData) {
-				const newContext = JSON.parse(JSON.stringify(globalContext));
-				newContext.categories.push(category);
-				setGlobalContext(newContext);
+				setGlobalContext("categories", (list) => [...list, category]);
+			},
+			addPendingMessage(message: PendingMessageData) {
+				setGlobalContext("pendingMessages", (list) => [...list, message]);
+			},
+			removePendingMessage(hash: string) {
+				setGlobalContext("pendingMessages", (list) =>
+					list.filter((m) => m.hash !== hash),
+				);
 			},
 		},
 	];

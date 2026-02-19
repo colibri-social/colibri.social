@@ -30,7 +30,6 @@ if (user) {
 }
 
 const result = Astro.getActionResult(actions.login);
-console.log(result);
 if (result && !result.error) {
 	return Astro.redirect(result.data);
 }

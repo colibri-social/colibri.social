@@ -1,22 +1,22 @@
 import { Match, Show, Switch, type Component } from "solid-js";
-import type { IndexedMessageData } from "@/utils/sdk";
+import type { PendingMessageData } from "../contexts/GlobalContext";
 
-export const Message: Component<{
-	data: IndexedMessageData;
+export const PendingMessage: Component<{
+	data: PendingMessageData;
 	isSubsequent: boolean;
 }> = ({ data, isSubsequent }) => {
 	return (
 		<div
-			class={`w-full h-fit flex flex-row p-4 gap-4 ${isSubsequent ? "py-0" : "pb-0"}`}
+			class={`w-full h-fit flex flex-row p-4 gap-4 ${isSubsequent ? "pt-0" : "pb-0"}`}
 		>
 			<Switch>
 				<Match when={!isSubsequent}>
 					<div class="w-10 h-10 min-w-10 min-h-10 bg-indigo-500 rounded-full"></div>
 				</Match>
 				<Match when={isSubsequent}>
-					<div class="w-10 h-8 min-w-10 min-h-8 text-neutral-400 group-hover:opacity-100 opacity-0 text-xs flex items-center justify-center">
+					<div class="w-10 h-10 min-w-10 min-h-10 text-neutral-400 group-hover:opacity-100 opacity-0 text-xs flex items-center justify-center">
 						<span>
-							{new Date(data.created_at).toLocaleTimeString(undefined, {
+							{new Date(data.createdAt).toLocaleTimeString(undefined, {
 								hour: "2-digit",
 								minute: "2-digit",
 							})}
@@ -29,15 +29,15 @@ export const Message: Component<{
 					<div class="flex gap-2 text-sm items-baseline">
 						<span class="font-bold">Username</span>
 						<small class="text-neutral-400">
-							{new Date(data.created_at).toLocaleDateString()}{" "}
-							{new Date(data.created_at).toLocaleTimeString(undefined, {
+							{new Date(data.createdAt).toLocaleDateString()}{" "}
+							{new Date(data.createdAt).toLocaleTimeString(undefined, {
 								hour: "2-digit",
 								minute: "2-digit",
 							})}
 						</small>
 					</div>
 				</Show>
-				<p class="m-0">{data.text}</p>
+				<p class="m-0 text-neutral-400">{data.text}</p>
 			</div>
 		</div>
 	);

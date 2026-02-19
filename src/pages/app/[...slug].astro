@@ -18,16 +18,16 @@ if (user) {
 
 		const data = await sdk.getCommunities(agent.did!);
 
-		console.log(data);
-
 		communities = data;
 	} catch (e) {
 		console.error(e);
 		return Astro.redirect("/auth/logout");
 	}
+} else {
+	return Astro.redirect("/");
 }
 ---
 
 <BaseLayout title="Solid">
-	<App communities={communities} client:only="solid-js" />
+	<App {communities} {user} client:only="solid-js" />
 </BaseLayout>

@@ -36,6 +36,15 @@ export type MessageData = {
 	createdAt: string;
 	channel: string;
 	rkey: string;
+	did: string;
+};
+
+export type IndexedMessageData = {
+	text: string;
+	created_at: string;
+	channel: string;
+	rkey: string;
+	did: string;
 };
 
 interface AtProtoRecord<T extends string, K> {
@@ -344,7 +353,6 @@ export class ColibriSDK {
 		category: string,
 		data: CategoryData,
 	): Promise<void> => {
-		console.log(did, category, data);
 		const record = this.constructAtProtoRecord(
 			did,
 			RECORD_IDs.CATEGORY,
@@ -404,8 +412,6 @@ export class ColibriSDK {
 	): Promise<void> => {
 		const existingRecord = await this.getCategoryData(did, category);
 
-		console.log(did, category, channel);
-
 		existingRecord.channelOrder.push(channel);
 
 		await this.modifyCategoryData(did, category, existingRecord);
@@ -452,7 +458,7 @@ export class ColibriSDK {
 			rkey,
 		});
 
-		return { ...res.data.value, rkey } as MessageData;
+		return { ...res.data.value, rkey, did } as MessageData;
 	};
 
 	/**
@@ -476,7 +482,8 @@ export class ColibriSDK {
 		const filtered = res.data.records
 			.filter((record) => (record.value as MessageData).channel === channel)
 			.map(
-				(x) => ({ ...x.value, rkey: x.uri.split("/").pop()! }) as MessageData,
+				(x) =>
+					({ ...x.value, rkey: x.uri.split("/").pop()!, did }) as MessageData,
 			);
 
 		return filtered;

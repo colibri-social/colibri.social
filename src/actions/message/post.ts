@@ -9,8 +9,9 @@ export const postMessage = defineAction({
 		text: z.string().max(2048),
 		community: z.string(),
 		channel: z.string(),
+		createdAt: z.string().datetime(),
 	}),
-	handler: async ({ text, community, channel }, { session }) => {
+	handler: async ({ text, community, channel, createdAt }, { session }) => {
 		try {
 			if (!session || !session?.has("user")) {
 				throw new ActionError({
@@ -28,9 +29,8 @@ export const postMessage = defineAction({
 				agent.did!,
 				channel,
 				text,
-				new Date().toISOString(),
+				createdAt,
 			);
-			console.log(message);
 
 			return {
 				community,

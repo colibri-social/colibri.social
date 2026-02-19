@@ -24,7 +24,7 @@ const CommunityLayout: ParentComponent = (props) => {
 	const params = useParams();
 	const [globalContext] = useGlobalContext();
 
-	const community = globalContext().communities.find(
+	const community = globalContext.communities.find(
 		(x) => x.rkey === params.community,
 	);
 
