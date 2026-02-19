@@ -120,7 +120,11 @@ const ChannelView: Component = () => {
 					<Match when={messages()?.error === null}>
 						<For
 							each={[
-								...messages()!.data!.messages.reverse(),
+								...messages()!.data!.messages.sort(
+									(a, b) =>
+										new Date(a.createdAt).getTime() -
+										new Date(b.createdAt).getTime(),
+								),
 								...additionalMessages(),
 							]}
 						>
