@@ -24,6 +24,18 @@ export default defineConfig({
 			PRIVATE_KEY_2: envField.string({ context: "server", access: "secret" }),
 		},
 	},
+	security: {
+		allowedDomains: [
+			{
+				hostname: '**.colibri.social',
+				protocol: 'https'
+			},
+			{
+				hostname: 'colibri.social',
+				protocol: 'https'
+			}
+		]
+	},
 	experimental: {
 		fonts: [
 			{
