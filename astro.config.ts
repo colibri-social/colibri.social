@@ -33,6 +33,10 @@ export default defineConfig({
 			{
 				hostname: 'colibri.social',
 				protocol: 'https'
+			},
+			{
+				hostname: 'colibri.social',
+				protocol: 'http'
 			}
 		]
 	},
