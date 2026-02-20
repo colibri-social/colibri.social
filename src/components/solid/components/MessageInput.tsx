@@ -41,7 +41,6 @@ export const MessageInput: Component = () => {
 		useGlobalContext();
 
 	const [formData, setFormData] = createStore({
-		community: () => params.community!,
 		channel: () => params.channel!,
 		text: "",
 	});
@@ -65,7 +64,6 @@ export const MessageInput: Component = () => {
 	const sendMessage = async (): Promise<boolean> => {
 		const obj = {
 			text: formData.text,
-			community: formData.community(),
 			channel: formData.channel(),
 			createdAt: new Date().toISOString(),
 		};
@@ -114,7 +112,7 @@ export const MessageInput: Component = () => {
 			/>*/}
 			<input
 				type="text"
-				class="w-full h-10 px-3 border border-foreground rounded-lg outline-0 focus:border-muted-foreground"
+				class="w-full h-10 px-3 border border-border rounded-lg outline-0 focus:border-foreground"
 				placeholder="Write some text..."
 				id="text"
 				name="text"

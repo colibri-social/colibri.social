@@ -49,7 +49,7 @@ export const Category: ParentComponent<{
 						<A
 							href={`/c/${params.community}/${channel.rkey}`}
 							class="flex flex-row items-center gap-2 text-muted-foreground hover:bg-card cursor-pointer p-1 py-0.5 rounded-sm"
-							activeClass="hover:bg-card"
+							activeClass="bg-card"
 						>
 							<ChatCircleDots />
 							<span>{channel.name}</span>

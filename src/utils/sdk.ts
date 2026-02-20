@@ -39,6 +39,8 @@ export type MessageData = {
 	author_did: string;
 	display_name: string;
 	avatar_url: string;
+	edited?: boolean;
+	parent?: string;
 };
 
 export type IndexedMessageData = {
@@ -444,6 +446,38 @@ export class ColibriSDK {
 		const res = await this.agent.com.atproto.repo.createRecord(record);
 
 		return res.data.uri.split("/").pop()!;
+	};
+
+	/**
+	 * Edits a given message by it's channel and record key.
+	 * @param did The DID of the message owner.
+	 * @param channel The channel the message was sent in.
+	 * @param text The new text to be used for the message.
+	 * @param rkey The record key of the message to be edited.
+	 */
+	public editMessage = async (
+		did: string,
+		channel: string,
+		text: string,
+		rkey: string,
+	): Promise<void> => {
+		const { createdAt } = await this.getMessageData(did, rkey);
+
+		const newRecord = this.constructAtProtoRecord(did, RECORD_IDs.MESSAGE, {
+			text,
+			createdAt,
+			channel,
+		});
+
+		await this.agent.com.atproto.repo.putRecord(newRecord);
+	};
+
+	public deleteMessage = async (did: string, rkey: string): Promise<void> => {
+		await this.agent.com.atproto.repo.deleteRecord({
+			repo: did,
+			collection: RECORD_IDs.MESSAGE,
+			rkey,
+		});
 	};
 
 	/**

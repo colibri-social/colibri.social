@@ -21,6 +21,7 @@ export type GlobalContextData = {
 	pendingMessages: Array<PendingMessageData>;
 	additionalMessages: Array<IndexedMessageData>;
 	user: App.SessionData["user"];
+	deletedMessages: Array<Omit<MessageDeletionEvent, "id">>;
 };
 
 export type GlobalContextUtility = {
@@ -28,23 +29,37 @@ export type GlobalContextUtility = {
 	addCategory: (category: CategoryData) => void;
 	addPendingMessage: (message: PendingMessageData) => void;
 	removePendingMessage: (hash: string) => void;
+	addDeletedMessage: (data: Omit<MessageDeletionEvent, "id">) => void;
 	addAdditionalMessage: (message: IndexedMessageData) => void;
 	clearAdditionalMessages: () => void;
 	sendSocketMessage: (message: Record<string, any>) => void;
+	clearDeletedMessages: () => void;
 };
 
-export type AppviewSubscriptionData = {
+export type MessagePostEvent = {
 	type: "message";
+	id: string;
+	created_at: string;
+	indexed_at: string;
+} & MessageData;
+
+export type MessageDeletionEvent = {
+	type: "message_deleted";
 	id: string;
 	rkey: string;
 	author_did: string;
-	text: string;
 	channel: string;
-	created_at: string;
-	indexed_at: string;
-	display_name: string;
-	avatar_url: string;
 };
+
+export type AckEvent = {
+	type: "ack";
+	message: string;
+};
+
+export type AppviewSubscriptionData =
+	| MessagePostEvent
+	| MessageDeletionEvent
+	| AckEvent;
 
 export type PendingMessageData = Omit<MessageData, "rkey"> & {
 	hash: string;
@@ -52,6 +67,38 @@ export type PendingMessageData = Omit<MessageData, "rkey"> & {
 
 export const GlobalContext =
 	createContext<[GlobalContextData, GlobalContextUtility]>();
+
+const handleNewMessage = async (
+	context: GlobalContextUtility,
+	data: MessagePostEvent,
+) => {
+	const hash = await generateHash(
+		JSON.stringify({
+			text: data.text,
+			channel: data.channel,
+			createdAt: data.created_at,
+		}),
+	);
+
+	context.removePendingMessage(hash);
+
+	context.addAdditionalMessage({
+		channel: data.channel,
+		created_at: data.created_at,
+		rkey: data.rkey,
+		text: data.text,
+		author_did: data.author_did,
+		display_name: data.display_name!,
+		avatar_url: data.avatar_url!,
+	});
+};
+
+const handleMessageDeletion = async (
+	context: GlobalContextUtility,
+	data: MessageDeletionEvent,
+) => {
+	context.addDeletedMessage(data);
+};
 
 export const GlobalContextProvider: ParentComponent<{
 	contextData: {
@@ -73,6 +120,7 @@ export const GlobalContextProvider: ParentComponent<{
 		categories: [],
 		channels: [],
 		pendingMessages: [],
+		deletedMessages: [],
 	});
 
 	const context: [GlobalContextData, GlobalContextUtility] = [
@@ -101,33 +149,44 @@ export const GlobalContextProvider: ParentComponent<{
 			sendSocketMessage(message) {
 				socket.send(JSON.stringify(message));
 			},
+			addDeletedMessage(data) {
+				setGlobalContext("deletedMessages", (list) => {
+					if (
+						list.find(
+							(x) =>
+								x.rkey === data.rkey &&
+								x.channel === data.channel &&
+								x.author_did === data.author_did,
+						)
+					) {
+						return list;
+					}
+
+					return [...list, data];
+				});
+			},
+			clearDeletedMessages() {
+				setGlobalContext("deletedMessages", []);
+			},
 		},
 	];
 
 	socket.addEventListener("message", async (message) => {
 		const data = JSON.parse(message.data) as AppviewSubscriptionData;
 
+		switch (data.type) {
+			case "message":
+				handleNewMessage(context[1], data);
+				break;
+			case "message_deleted":
+				handleMessageDeletion(context[1], data);
+				break;
+			case "ack":
+				break;
+			default:
+				console.error("Unknown event: ", data);
+		}
 		if (data.type !== "message") return;
-
-		const hash = await generateHash(
-			JSON.stringify({
-				text: data.text,
-				channel: data.channel,
-				createdAt: data.created_at,
-			}),
-		);
-
-		context[1].removePendingMessage(hash);
-
-		context[1].addAdditionalMessage({
-			channel: data.channel,
-			created_at: data.created_at,
-			rkey: data.rkey,
-			text: data.text,
-			author_did: data.author_did,
-			display_name: data.display_name!,
-			avatar_url: data.avatar_url!,
-		});
 	});
 
 	return (

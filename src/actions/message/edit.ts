@@ -4,13 +4,13 @@ import { z } from "astro/zod";
 import { client } from "@/utils/atproto/oauth";
 import { ColibriSDK } from "@/utils/sdk";
 
-export const postMessage = defineAction({
+export const editMessage = defineAction({
 	input: z.object({
 		text: z.string().max(2048),
 		channel: z.string(),
-		createdAt: z.string().datetime(),
+		rkey: z.string(),
 	}),
-	handler: async ({ text, channel, createdAt }, { session }) => {
+	handler: async ({ text, channel, rkey }, { session }) => {
 		try {
 			if (!session || !session?.has("user")) {
 				throw new ActionError({
@@ -24,16 +24,12 @@ export const postMessage = defineAction({
 			const agent = new Agent(oauthSession);
 			const sdk = new ColibriSDK(agent);
 
-			const message = await sdk.createMessageData(
-				agent.did!,
-				channel,
-				text,
-				createdAt,
-			);
+			await sdk.editMessage(agent.did!, channel, text, rkey);
 
 			return {
 				channel,
-				message,
+				text,
+				rkey,
 			};
 		} catch (e) {
 			console.error(e);

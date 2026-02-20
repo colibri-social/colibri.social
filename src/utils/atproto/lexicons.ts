@@ -200,7 +200,7 @@ lex.add({
 	lexicon: 1,
 	id: RECORD_IDs.MESSAGE,
 	description: "A message sent in a channel on Colibri.",
-	revision: 1,
+	revision: 2,
 	defs: {
 		main: {
 			type: "record",
@@ -228,6 +228,17 @@ lex.add({
 					channel: {
 						type: "string",
 						description: "The channel this message was sent in.",
+						format: "record-key",
+					},
+					edited: {
+						type: "boolean",
+						description: "Whether this message has been edited.",
+						default: false,
+					},
+					parent: {
+						type: "string",
+						description:
+							"The record key of a message this message is replying to.",
 						format: "record-key",
 					},
 				},

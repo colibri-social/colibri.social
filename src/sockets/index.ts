@@ -6,10 +6,6 @@ const main = async () => {
 			`wss://jetstream2.us-east.bsky.network/subscribe?wantedCollections=social.colibri.message`,
 		heartbeatIntervalMs: 5000,
 	});
-
-	for await (const message of socket) {
-		console.log(message.toString());
-	}
 };
 
 main();

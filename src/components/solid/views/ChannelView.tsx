@@ -3,6 +3,7 @@ import { createAsync, query, useParams } from "@solidjs/router";
 import {
 	type Component,
 	createEffect,
+	createSignal,
 	For,
 	onCleanup,
 	Suspense,
@@ -30,30 +31,14 @@ const fetchMessagesForChannel = query(
 
 const ChannelView: Component = () => {
 	const params = useParams();
-	const [globalState, { sendSocketMessage }] = useGlobalContext();
+	const [
+		globalState,
+		{ sendSocketMessage, clearAdditionalMessages, clearDeletedMessages },
+	] = useGlobalContext();
 	const messages = createAsync(() => fetchMessagesForChannel(params.channel!));
+	const [scrolled, setScrolled] = createSignal(false);
 
 	let chatContainer: HTMLDivElement | undefined;
-
-	createEffect(() => {
-		sendSocketMessage({
-			action: "subscribe",
-			event_type: "message",
-			channel: params.channel,
-		});
-	});
-
-	createEffect(() => {
-		// Wait until both initial messages and additionalMessages are ready
-		const msgs = allMessages();
-
-		if (!chatContainer || msgs.length === 0) return;
-
-		// Schedule scroll after DOM updates
-		requestAnimationFrame(() => {
-			chatContainer!.scrollTop = chatContainer!.scrollHeight;
-		});
-	});
 
 	onCleanup(() => {
 		sendSocketMessage({
@@ -61,15 +46,31 @@ const ChannelView: Component = () => {
 			event_type: "message",
 			channel: params.channel,
 		});
+
+		clearAdditionalMessages();
+		clearDeletedMessages();
 	});
 
 	const allMessages = () => {
+		console.log("allMessages: ", globalState.deletedMessages);
 		const fetchedMessageData = messages() || [];
 		const newlyReceivedMessages = globalState.additionalMessages;
 		const pendingMessages = globalState.pendingMessages;
+		const deletedMessages = globalState.deletedMessages;
 
 		return [...fetchedMessageData, ...newlyReceivedMessages, ...pendingMessages]
 			.filter((message) => message.channel === params.channel)
+			.filter((message) => {
+				// Early return since pending messages cannot be deleted
+				if ("hash" in message) return true;
+
+				return !deletedMessages.find(
+					(delMessage) =>
+						message.author_did === delMessage.author_did &&
+						message.channel === delMessage.channel &&
+						message.rkey === delMessage.rkey,
+				);
+			})
 			.sort((a, b) => {
 				let dateA: number;
 				let dateB: number;
@@ -84,6 +85,29 @@ const ChannelView: Component = () => {
 			});
 	};
 
+	createEffect(() => {
+		sendSocketMessage({
+			action: "subscribe",
+			event_type: "message",
+			channel: params.channel,
+		});
+	});
+
+	createEffect(() => {
+		if (scrolled()) return;
+		// Wait until both initial messages and additionalMessages are ready
+		const msgs = allMessages();
+
+		if (!chatContainer || msgs.length === 0) return;
+
+		// Schedule scroll after DOM updates
+		requestAnimationFrame(() => {
+			chatContainer!.scrollTop = chatContainer!.scrollHeight;
+		});
+
+		setScrolled(true);
+	});
+
 	return (
 		<div
 			class="w-full h-full overflow-auto pb-4"
@@ -97,15 +121,15 @@ const ChannelView: Component = () => {
 				</div>
 				<For each={allMessages()}>
 					{(item, index) => {
-						const idx = index();
-						const messageList = allMessages();
-
-						const subsequentMessage =
-							idx !== 0 && messageList[idx - 1].author_did === item.author_did;
+						const isSubsequent = () => {
+							const idx = index();
+							const msgs = allMessages();
+							return idx !== 0 && msgs[idx - 1]?.author_did === item.author_did;
+						};
 
 						return (
 							<Message
-								isSubsequent={subsequentMessage}
+								isSubsequent={isSubsequent()}
 								data={item as PendingMessageData | IndexedMessageData}
 							/>
 						);
