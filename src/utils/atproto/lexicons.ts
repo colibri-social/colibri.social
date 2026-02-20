@@ -8,6 +8,7 @@ export const RECORD_IDs: Record<string, `${string}.${string}.${string}`> = {
 	CATEGORY: "social.colibri.category",
 	CHANNEL: "social.colibri.channel",
 	MESSAGE: "social.colibri.message",
+	REACTION: "social.colibri.reaction",
 };
 
 lex.add({
@@ -239,6 +240,41 @@ lex.add({
 						type: "string",
 						description:
 							"The record key of a message this message is replying to.",
+						format: "record-key",
+					},
+				},
+			},
+		},
+	},
+});
+
+lex.add({
+	lexicon: 1,
+	id: RECORD_IDs.REACTION,
+	revision: 1,
+	defs: {
+		main: {
+			type: "record",
+			key: "tid",
+			description: "A reaction on a Colibri message.",
+			record: {
+				required: ["name", "type", "category"],
+				type: "object",
+				properties: {
+					$type: {
+						type: "string",
+						description: "The type of the record.",
+						format: "nsid",
+					},
+					emoji: {
+						type: "string",
+						description:
+							"The emoji of the reaction. This allows for any string to support for custom emojis later down the line.",
+						default: "New channel",
+					},
+					targetMessage: {
+						type: "string",
+						description: "The message this relation belongs to.",
 						format: "record-key",
 					},
 				},
