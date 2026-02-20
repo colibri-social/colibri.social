@@ -114,7 +114,7 @@ export const MessageInput: Component = () => {
 			/>*/}
 			<input
 				type="text"
-				class="w-full h-10 px-3 border border-neutral-700 rounded-lg outline-0 focus:border-neutral-50"
+				class="w-full h-10 px-3 border border-foreground rounded-lg outline-0 focus:border-muted-foreground"
 				placeholder="Write some text..."
 				id="text"
 				name="text"

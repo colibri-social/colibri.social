@@ -34,15 +34,15 @@ const CommunityLayout: ParentComponent = (props) => {
 	);
 
 	return (
-		<div class="bg-neutral-950 w-full h-full rounded-tl-xl border-t border-l border-neutral-800 flex">
+		<div class="bg-background w-full h-full rounded-tl-xl border-t border-l border-border flex">
 			<Suspense fallback={<div>Loading...</div>}>
 				<Switch>
 					<Match when={communityInfo.error || communityInfo()?.error !== null}>
 						<div>Lol nope</div>
 					</Match>
 					<Match when={communityInfo()?.error === null}>
-						<aside class="h-full min-w-72 w-72 border-r border-neutral-800 flex flex-col">
-							<div class="w-full border-b border-neutral-800 flex flex-col justify-center p-4">
+						<aside class="h-full min-w-72 w-72 border-r border-border flex flex-col">
+							<div class="w-full border-b border-border flex flex-col justify-center p-4">
 								<h2 class="m-0 text-xl">{community?.name}</h2>
 								<small>69 Members</small>
 							</div>
@@ -53,7 +53,7 @@ const CommunityLayout: ParentComponent = (props) => {
 							<div class="w-full h-full max-h-full">{props.children}</div>
 							<MessageInput />
 						</div>
-						<div class="min-w-72 w-72 h-full flex flex-col p-4 border-l border-neutral-800">
+						<div class="min-w-72 w-72 h-full flex flex-col p-4 border-l border-border">
 							Members List
 						</div>
 					</Match>
