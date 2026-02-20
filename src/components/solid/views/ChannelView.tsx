@@ -1,46 +1,27 @@
-import {
-	makeHeartbeatWS,
-	makeReconnectingWS,
-} from "@solid-primitives/websocket";
+import { APPVIEW_DOMAIN } from "astro:env/client";
 import { createAsync, query, useParams } from "@solidjs/router";
 import {
 	type Component,
 	createEffect,
-	createSignal,
 	For,
-	Match,
 	onCleanup,
 	Suspense,
 } from "solid-js";
-import { generateHash } from "@/utils/generate-hash";
 import type { IndexedMessageData } from "@/utils/sdk";
 import { Message } from "../components/Message";
 import {
-	useGlobalContext,
 	type PendingMessageData,
+	useGlobalContext,
 } from "../contexts/GlobalContext";
 
 // import { useGlobalContext } from "../contexts/GlobalContext";
-
-type AppviewSubscriptionData = {
-	type: "message";
-	id: string;
-	rkey: string;
-	author_did: string;
-	text: string;
-	channel: string;
-	created_at: string;
-	indexed_at: string;
-	display_name: string;
-	avatar_url: string;
-};
 
 // TODO: this only fetches the last 50 messages. The appview supports paging (we can implement this via observers)
 // but it's still a work in progress thing.
 const fetchMessagesForChannel = query(
 	async (channel: string): Promise<Array<IndexedMessageData>> => {
 		const response = await fetch(
-			`https://appview.colibri.social/api/messages?channel=${channel}`,
+			`https://${APPVIEW_DOMAIN}/api/messages?channel=${channel}`,
 		);
 		return response.json();
 	},
@@ -49,63 +30,17 @@ const fetchMessagesForChannel = query(
 
 const ChannelView: Component = () => {
 	const params = useParams();
-	let chatContainer: HTMLDivElement | undefined;
-
-	const [globalState, { removePendingMessage }] = useGlobalContext();
-
+	const [globalState, { sendSocketMessage }] = useGlobalContext();
 	const messages = createAsync(() => fetchMessagesForChannel(params.channel!));
 
-	const [additionalMessages, setAdditionalMessages] = createSignal<
-		Array<IndexedMessageData>
-	>([]);
+	let chatContainer: HTMLDivElement | undefined;
 
-	// TODO: Move jetstream consumer to appview, socket connection to appview to applayout, distribute messages from there.
-	// We need this for message indicators as well as notifications anyway.
-	const socket = makeHeartbeatWS(
-		makeReconnectingWS(`wss://appview.colibri.social/api/subscribe`),
-		{
-			message: JSON.stringify({ action: "heartbeat", event_type: "heartbeat" }),
-			interval: 20_000,
-		},
-	);
-
-	socket.addEventListener("open", () => {
-		socket.send(
-			JSON.stringify({
-				action: "subscribe",
-				event_type: "message",
-				channel: params.channel,
-			}),
-		);
-	});
-
-	socket.addEventListener("message", async (message) => {
-		const data = JSON.parse(message.data) as AppviewSubscriptionData;
-
-		if (data.type !== "message") return;
-
-		const hash = await generateHash(
-			JSON.stringify({
-				text: data.text,
-				channel: data.channel,
-				createdAt: data.created_at,
-			}),
-		);
-
-		removePendingMessage(hash);
-
-		setAdditionalMessages((current) => [
-			...current,
-			{
-				channel: data.channel,
-				created_at: data.created_at,
-				rkey: data.rkey,
-				text: data.text,
-				author_did: data.author_did,
-				display_name: data.display_name!,
-				avatar_url: data.avatar_url!,
-			},
-		]);
+	createEffect(() => {
+		sendSocketMessage({
+			action: "subscribe",
+			event_type: "message",
+			channel: params.channel,
+		});
 	});
 
 	createEffect(() => {
@@ -120,9 +55,17 @@ const ChannelView: Component = () => {
 		});
 	});
 
+	onCleanup(() => {
+		sendSocketMessage({
+			action: "unsubscribe",
+			event_type: "message",
+			channel: params.channel,
+		});
+	});
+
 	const allMessages = () => {
 		const fetchedMessageData = messages() || [];
-		const newlyReceivedMessages = additionalMessages();
+		const newlyReceivedMessages = globalState.additionalMessages;
 		const pendingMessages = globalState.pendingMessages;
 
 		return [...fetchedMessageData, ...newlyReceivedMessages, ...pendingMessages]
@@ -140,25 +83,6 @@ const ChannelView: Component = () => {
 				return dateA - dateB;
 			});
 	};
-
-	onCleanup(() => {
-		socket.send(
-			JSON.stringify({
-				action: "unsubscribe",
-				event_type: "message",
-				channel: params.channel,
-			}),
-		);
-		socket.close();
-	});
-
-	createEffect(() => {
-		// Track params.channel
-		const _channel = params.channel;
-
-		// Reset the signal whenever the channel changes
-		setAdditionalMessages([]);
-	});
 
 	return (
 		<div

@@ -57,7 +57,12 @@
 						"noNonNullAssertion": "off"
 					},
 					"suspicious": {
-						"noExplicitAny": "off"
+						"noExplicitAny": "off",
+						"noAssignInExpressions": "off",
+						"noMisleadingCharacterClass": "off"
+					},
+					"complexity": {
+						"noBannedTypes": "off"
 					}
 				}
 			}

@@ -16,9 +16,6 @@ export const App = ({
 		<GlobalContextProvider
 			contextData={{
 				communities,
-				categories: [],
-				channels: [],
-				pendingMessages: [],
 				user,
 			}}
 		>

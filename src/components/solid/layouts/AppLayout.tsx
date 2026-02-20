@@ -1,8 +1,8 @@
 import { A, useNavigate } from "@solidjs/router";
 import { For, type ParentComponent } from "solid-js";
 import { useGlobalContext } from "../contexts/GlobalContext";
-import { House } from "../icons/House";
 import { Gear } from "../icons/Gear";
+import { House } from "../icons/House";
 import { Plus } from "../icons/Plus";
 
 const AppLayout: ParentComponent = (props) => {

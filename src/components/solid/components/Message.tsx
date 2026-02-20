@@ -9,7 +9,7 @@ export const Message: Component<{
 	const isPending = "hash" in data;
 	return (
 		<div
-			class={`w-full h-fit flex flex-row p-4 gap-4`}
+			class={`w-full h-fit flex flex-row p-4 gap-4 group`}
 			classList={{
 				"py-0": isSubsequent,
 				"pb-0": !isSubsequent,
@@ -20,12 +20,12 @@ export const Message: Component<{
 					<img
 						src={data.avatar_url || "/logo.png"}
 						alt={data.display_name}
-						class="w-10 h-10 min-w-10 min-h-10 bg-neutral-500 rounded-full border border-neutral-800"
+						class="w-10 h-10 min-w-10 min-h-10 bg-muted rounded-full border border-border"
 						loading="lazy"
 					/>
 				</Match>
 				<Match when={isSubsequent}>
-					<div class="w-10 h-8 min-w-10 min-h-8 text-neutral-400 group-hover:opacity-100 opacity-0 text-xs flex items-center justify-center">
+					<div class="w-10 h-8 min-w-10 min-h-8 text-muted-foreground group-hover:opacity-100 opacity-0 text-xs flex items-center justify-center">
 						<span>
 							{new Date(
 								isPending ? data.createdAt : data.created_at,
@@ -41,7 +41,7 @@ export const Message: Component<{
 				<Show when={!isSubsequent}>
 					<div class="flex gap-2 text-sm items-baseline">
 						<span class="font-bold">{data.display_name}</span>
-						<small class="text-neutral-400">
+						<small class="text-muted-foreground">
 							{new Date(
 								isPending ? data.createdAt : data.created_at,
 							).toLocaleDateString()}{" "}
@@ -57,7 +57,8 @@ export const Message: Component<{
 				<p
 					class="m-0"
 					classList={{
-						"text-neutral-400": isPending,
+						"text-muted-foreground": isPending,
+						"text-foreground": !isPending,
 					}}
 				>
 					{data.text}
