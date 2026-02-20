@@ -4,6 +4,7 @@ import { GlobalContextProvider } from "./contexts/GlobalContext";
 import AppLayout from "./layouts/AppLayout";
 import CommunityLayout from "./layouts/CommunityLayout";
 import ChannelView from "./views/ChannelView";
+import { DevelopmentPlaceholder } from "./components/DevelopmentPlaceholder";
 
 export const App = ({
 	communities,
@@ -21,7 +22,7 @@ export const App = ({
 		>
 			<Router base="/app">
 				<Route component={AppLayout}>
-					<Route path="/" component={() => <div>App page</div>} />
+					<Route path="/" component={() => <DevelopmentPlaceholder />} />
 					<Route component={CommunityLayout}>
 						<Route
 							path="/c/:community"
