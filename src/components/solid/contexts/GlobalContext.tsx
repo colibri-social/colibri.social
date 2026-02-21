@@ -41,7 +41,7 @@ export type MessagePostEvent = {
 	id: string;
 	created_at: string;
 	indexed_at: string;
-} & MessageData;
+} & IndexedMessageData;
 
 export type MessageDeletionEvent = {
 	type: "message_deleted";
@@ -63,6 +63,7 @@ export type AppviewSubscriptionData =
 
 export type PendingMessageData = Omit<MessageData, "rkey"> & {
 	hash: string;
+	parent_message?: IndexedMessageData;
 };
 
 export const GlobalContext =
@@ -90,6 +91,8 @@ const handleNewMessage = async (
 		author_did: data.author_did,
 		display_name: data.display_name!,
 		avatar_url: data.avatar_url!,
+		parent: data.parent,
+		parent_message: data.parent_message,
 	});
 };
 

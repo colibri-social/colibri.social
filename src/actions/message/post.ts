@@ -9,8 +9,9 @@ export const postMessage = defineAction({
 		text: z.string().max(2048),
 		channel: z.string(),
 		createdAt: z.string().datetime(),
+		parent: z.string().optional(),
 	}),
-	handler: async ({ text, channel, createdAt }, { session }) => {
+	handler: async ({ text, channel, createdAt, parent }, { session }) => {
 		try {
 			if (!session || !session?.has("user")) {
 				throw new ActionError({
@@ -29,6 +30,7 @@ export const postMessage = defineAction({
 				channel,
 				text,
 				createdAt,
+				parent,
 			);
 
 			return {

@@ -1,11 +1,11 @@
 import type { ParentComponent } from "solid-js";
+import { cn } from "@/utils/cn";
 import {
 	Tooltip,
 	TooltipContent,
 	TooltipPortal,
 	TooltipTrigger,
 } from "../shadcn-solid/Tooltip";
-import { cn } from "@/utils/cn";
 
 export const MessageAction: ParentComponent<{
 	tooltipText: string;

@@ -1,10 +1,10 @@
 import { Route, Router } from "@solidjs/router";
 import type { CommunityData } from "@/utils/sdk";
+import { DevelopmentPlaceholder } from "./components/DevelopmentPlaceholder";
 import { GlobalContextProvider } from "./contexts/GlobalContext";
 import AppLayout from "./layouts/AppLayout";
 import CommunityLayout from "./layouts/CommunityLayout";
 import ChannelView from "./views/ChannelView";
-import { DevelopmentPlaceholder } from "./components/DevelopmentPlaceholder";
 
 export const App = ({
 	communities,

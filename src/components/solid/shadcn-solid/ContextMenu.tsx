@@ -1,6 +1,6 @@
+import { ContextMenu as ContextMenuPrimitive } from "@kobalte/core/context-menu";
 import type { ComponentProps, ValidComponent } from "solid-js";
 import { splitProps } from "solid-js";
-import { ContextMenu as ContextMenuPrimitive } from "@kobalte/core/context-menu";
 
 import { cx } from "@/lib/cva";
 

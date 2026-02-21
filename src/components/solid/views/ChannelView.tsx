@@ -14,6 +14,7 @@ import {
 	type PendingMessageData,
 	useGlobalContext,
 } from "../contexts/GlobalContext";
+import { useMessageContext } from "../contexts/MessageContext";
 
 // import { useGlobalContext } from "../contexts/GlobalContext";
 
@@ -31,6 +32,7 @@ const fetchMessagesForChannel = query(
 
 const ChannelView: Component = () => {
 	const params = useParams();
+	const [messageData] = useMessageContext();
 	const [
 		globalState,
 		{ sendSocketMessage, clearAdditionalMessages, clearDeletedMessages },
@@ -52,7 +54,6 @@ const ChannelView: Component = () => {
 	});
 
 	const allMessages = () => {
-		console.log("allMessages: ", globalState.deletedMessages);
 		const fetchedMessageData = messages() || [];
 		const newlyReceivedMessages = globalState.additionalMessages;
 		const pendingMessages = globalState.pendingMessages;
@@ -108,6 +109,26 @@ const ChannelView: Component = () => {
 		setScrolled(true);
 	});
 
+	createEffect(() => {
+		if (!messageData.focusedMessage) return;
+
+		const messages =
+			document.querySelectorAll<HTMLDivElement>("div[data-message]");
+
+		messages.forEach((message) => {
+			const data = JSON.parse(message.dataset.message!) as IndexedMessageData;
+			if (
+				data.author_did === messageData.focusedMessage!.author_did &&
+				data.rkey === messageData.focusedMessage!.rkey
+			) {
+				message.scrollIntoView({
+					behavior: "smooth",
+					block: "center",
+				});
+			}
+		});
+	});
+
 	return (
 		<div
 			class="w-full h-full overflow-auto pb-4"
@@ -117,7 +138,7 @@ const ChannelView: Component = () => {
 			<Suspense fallback={<div></div>}>
 				<div class="w-full flex flex-col justify-center items-center">
 					<h3 class="mb-0">This is the start of this channel.</h3>
-					<p>Send some messages to get the discussion started!</p>
+					<p class="mb-2">Send some messages to get the discussion started!</p>
 				</div>
 				<For each={allMessages()}>
 					{(item, index) => {

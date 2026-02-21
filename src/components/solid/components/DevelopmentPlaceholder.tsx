@@ -10,7 +10,13 @@ export const DevelopmentPlaceholder: Component = () => (
 				alt="The Colibri Social logo, a purple hummingbird."
 			/>
 			<h3>You seem to be new here. Welcome!</h3>
-			<p>Colibri is under active development. You're currently unable to create any communities, as we simply have not implemented that functionality yet. Please check back soon or contact <a href="https://bsky.app/profile/lou.gg">@lou.gg</a> on Bluesky for more info.</p>
+			<p>
+				Colibri is under active development. You're currently unable to create
+				any communities, as we simply have not implemented that functionality
+				yet. Please check back soon or contact{" "}
+				<a href="https://bsky.app/profile/lou.gg">@lou.gg</a> on Bluesky for
+				more info.
+			</p>
 		</div>
 	</div>
-)
+);

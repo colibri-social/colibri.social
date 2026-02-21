@@ -12,8 +12,6 @@ const result = Astro.getActionResult(actions.login);
 if (result && !result.error) {
 	return Astro.redirect(result.data);
 }
-
-console.log(Astro.request);
 ---
 <BaseLayout>
 	<main class="flex justify-center items-center w-screen h-screen flex-col">

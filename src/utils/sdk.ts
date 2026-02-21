@@ -51,6 +51,8 @@ export type IndexedMessageData = {
 	author_did: string;
 	display_name: string;
 	avatar_url: string;
+	parent: string | null;
+	parent_message: IndexedMessageData | null;
 };
 
 interface AtProtoRecord<T extends string, K> {
@@ -436,11 +438,13 @@ export class ColibriSDK {
 		channel: string,
 		text: string,
 		createdAt: string,
+		parent?: string,
 	): Promise<string> => {
 		const record = this.constructAtProtoRecord(did, RECORD_IDs.MESSAGE, {
 			text,
 			createdAt,
 			channel,
+			parent,
 		});
 
 		const res = await this.agent.com.atproto.repo.createRecord(record);
