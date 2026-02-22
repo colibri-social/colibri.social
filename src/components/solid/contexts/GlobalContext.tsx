@@ -14,6 +14,8 @@ import type {
 	MessageData,
 } from "@/utils/sdk";
 
+type ReactionEventCallback = (data: ReactionAddedEvent | ReactionRemovedEvent) => void;
+
 export type GlobalContextData = {
 	communities: Array<CommunityData>;
 	categories: Array<CategoryData>;
@@ -34,6 +36,7 @@ export type GlobalContextUtility = {
 	clearAdditionalMessages: () => void;
 	sendSocketMessage: (message: Record<string, any>) => void;
 	clearDeletedMessages: () => void;
+	addReactionListener: (callback: ReactionEventCallback) => (() => void);
 };
 
 export type MessagePostEvent = {
@@ -51,6 +54,21 @@ export type MessageDeletionEvent = {
 	channel: string;
 };
 
+export type ReactionData = {
+	rkey: string;
+	author_did: string;
+	emoji: string;
+	target_rkey: string;
+	channel: string;}
+
+export type ReactionAddedEvent = ReactionData & {
+	type: "reaction_added";
+};
+
+export type ReactionRemovedEvent = ReactionData & {
+	type: "reaction_removed";
+};
+
 export type AckEvent = {
 	type: "ack";
 	message: string;
@@ -59,7 +77,9 @@ export type AckEvent = {
 export type AppviewSubscriptionData =
 	| MessagePostEvent
 	| MessageDeletionEvent
-	| AckEvent;
+	| AckEvent
+	| ReactionAddedEvent
+	| ReactionRemovedEvent;
 
 export type PendingMessageData = Omit<MessageData, "rkey"> & {
 	hash: string;
@@ -109,6 +129,8 @@ export const GlobalContextProvider: ParentComponent<{
 		user: App.SessionData["user"];
 	};
 }> = (props) => {
+	const reactionListeners = new Set<ReactionEventCallback>();
+
 	const socket = makeHeartbeatWS(
 		makeReconnectingWS(`wss://${APPVIEW_DOMAIN}/api/subscribe`),
 		{
@@ -123,7 +145,7 @@ export const GlobalContextProvider: ParentComponent<{
 		categories: [],
 		channels: [],
 		pendingMessages: [],
-		deletedMessages: [],
+		deletedMessages: []
 	});
 
 	const context: [GlobalContextData, GlobalContextUtility] = [
@@ -171,6 +193,10 @@ export const GlobalContextProvider: ParentComponent<{
 			clearDeletedMessages() {
 				setGlobalContext("deletedMessages", []);
 			},
+			addReactionListener(callback) {
+				reactionListeners.add(callback);
+				return () => reactionListeners.delete(callback);
+			}
 		},
 	];
 
@@ -183,6 +209,10 @@ export const GlobalContextProvider: ParentComponent<{
 				break;
 			case "message_deleted":
 				handleMessageDeletion(context[1], data);
+				break;
+			case "reaction_added":
+			case "reaction_removed":
+				reactionListeners.forEach((callback) => callback(data));
 				break;
 			case "ack":
 				break;

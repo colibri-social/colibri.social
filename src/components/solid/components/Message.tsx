@@ -49,6 +49,23 @@ import {
 	DrawerTrigger,
 } from "../shadcn-solid/Drawer";
 import { MessageAction } from "./MessageAction";
+import twemoji from "twemoji";
+import {
+	convertSkinToneToComponent,
+	EmojiPicker,
+	getEmojiWithSkinTone,
+	type Emoji,
+	type EmojiComponents,
+	type EmojiData,
+	type EmojiSkinTone,
+} from "solid-emoji-picker";
+import {
+	Popover,
+	PopoverContent,
+	PopoverPortal,
+	PopoverTrigger,
+} from "../shadcn-solid/Popover";
+import { Emoji as EmojiIcon } from "../icons/Emoji";
 
 const [messageToBeDeleted, setMessageToBeDeleted] =
 	createSignal<IndexedMessageData>();
@@ -211,13 +228,55 @@ const MessageDeletionDrawer: ParentComponent<{
 	);
 };
 
+const EmojiPopover: ParentComponent<{
+	setEmojiPopoverOpen: (state: boolean) => void;
+}> = (props) => {
+	function getTwemoji(
+		emojis: EmojiData,
+		emoji: Emoji,
+		components: EmojiComponents,
+		tone?: EmojiSkinTone,
+	) {
+		const skinTone = convertSkinToneToComponent(components, tone);
+		const tonedEmoji = getEmojiWithSkinTone(emojis, emoji, skinTone);
+		return twemoji.parse(tonedEmoji);
+	}
+
+	function renderTwemoji(
+		emojis: EmojiData,
+		emoji: Emoji,
+		components: EmojiComponents,
+		tone?: EmojiSkinTone,
+	) {
+		return (
+			<div
+				class="w-8 h-8 p-1"
+				innerHTML={getTwemoji(emojis, emoji, components, tone)}
+			/>
+		);
+	}
+
+	return (
+		<Popover onOpenChange={props.setEmojiPopoverOpen}>
+			<PopoverTrigger>{props.children}</PopoverTrigger>
+			<PopoverPortal>
+				<PopoverContent class="w-[18.5rem] overflow-auto h-80">
+					<EmojiPicker renderEmoji={renderTwemoji} />
+				</PopoverContent>
+			</PopoverPortal>
+		</Popover>
+	);
+};
+
 const MessageContextMenu: ParentComponent<{
 	data: IndexedMessageData | PendingMessageData;
 	disabled: boolean;
+	showReactionsModal: () => void;
 	enableEditMode: () => void;
 	enableReplyMode: () => void;
 	handlePotentialDeletion: (e: MouseEvent) => void;
 	addDeletedMessage: GlobalContextUtility["addDeletedMessage"];
+	setEmojiPopoverOpen: (state: boolean) => void;
 }> = (props) => {
 	return (
 		<ContextMenu>
@@ -226,6 +285,12 @@ const MessageContextMenu: ParentComponent<{
 			</ContextMenuTrigger>
 			<ContextMenuPortal>
 				<ContextMenuContent class="w-32">
+					<EmojiPopover setEmojiPopoverOpen={props.setEmojiPopoverOpen}>
+						<ContextMenuItem onClick={props.showReactionsModal}>
+							<EmojiIcon />
+							<span>React</span>
+						</ContextMenuItem>
+					</EmojiPopover>
 					<ContextMenuItem onClick={props.enableReplyMode}>
 						<Reply />
 						<span>Reply</span>
@@ -262,6 +327,11 @@ export const Message: Component<{
 	const [messageData, { setReplyingTo, jumpToMessage }] = useMessageContext();
 	const [globalData, { addDeletedMessage }] = useGlobalContext();
 	const isPending = () => "hash" in props.data;
+	const [emojiPopoverOpen, setEmojiPopoverOpen] = createSignal(false);
+
+	const showReactionsModal = () => {
+		console.error("TODO");
+	};
 
 	const enableReplyMode = () => {
 		if (isPending()) return;
@@ -314,12 +384,14 @@ export const Message: Component<{
 
 	return (
 		<MessageContextMenu
+			data={props.data}
 			disabled={isPending()}
+			showReactionsModal={showReactionsModal}
 			enableEditMode={enableEditMode}
 			handlePotentialDeletion={handlePotentialDeletion}
-			data={props.data}
 			addDeletedMessage={addDeletedMessage}
 			enableReplyMode={enableReplyMode}
+			setEmojiPopoverOpen={setEmojiPopoverOpen}
 		>
 			<div
 				class={`w-full h-fit flex flex-col pr-4 pl-3.5 gap-2 group border-l-2 relative hover:bg-card/50 transition-colors duration-75`}
@@ -414,7 +486,18 @@ export const Message: Component<{
 						</p>
 					</div>
 					<Show when={!isPending()}>
-						<div class="absolute top-0 right-4 transform -translate-y-1/2 hidden group-hover:flex flex-row h-8 bg-card border border-border rounded-sm overflow-hidden">
+						<div
+							class="absolute top-0 right-4 transform -translate-y-1/2  flex-row h-8 bg-card border border-border rounded-sm overflow-hidden"
+							classList={{
+								"hidden group-hover:flex": !emojiPopoverOpen(),
+								flex: emojiPopoverOpen(),
+							}}
+						>
+							<EmojiPopover setEmojiPopoverOpen={setEmojiPopoverOpen}>
+								<MessageAction tooltipText="Add reaction">
+									<EmojiIcon />
+								</MessageAction>
+							</EmojiPopover>
 							<MessageAction tooltipText="Reply" onClick={enableReplyMode}>
 								<Reply />
 							</MessageAction>
