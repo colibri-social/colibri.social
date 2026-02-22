@@ -260,7 +260,7 @@ const EmojiPopover: ParentComponent<{
 		<Popover onOpenChange={props.setEmojiPopoverOpen}>
 			<PopoverTrigger>{props.children}</PopoverTrigger>
 			<PopoverPortal>
-				<PopoverContent class="w-[18.5rem] overflow-auto h-80">
+				<PopoverContent class="w-74 overflow-auto h-80">
 					<EmojiPicker renderEmoji={renderTwemoji} />
 				</PopoverContent>
 			</PopoverPortal>
