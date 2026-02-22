@@ -15,6 +15,7 @@ export const scopes = [
 	"repo:social.colibri.category?action=create&action=update&action=delete",
 	"repo:social.colibri.channel?action=create&action=update&action=delete",
 	"repo:social.colibri.message?action=create&action=update&action=delete",
+	"repo:social.colibri.reaction?action=create&action=delete",
 ];
 
 const stateMap = new Map();

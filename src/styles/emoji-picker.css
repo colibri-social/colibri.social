@@ -1,0 +1,17 @@
+@reference "./global.css"
+
+/* Without this, the first styles don't get applied??? */
+:root {
+}
+
+.emoji-section-title {
+	@apply text-muted-foreground text-sm;
+}
+
+.emoji-section {
+	@apply flex flex-col gap-2;
+}
+
+.emoji-button:not(:has(*)) {
+	@apply hidden;
+}

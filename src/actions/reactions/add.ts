@@ -1,0 +1,40 @@
+import { ActionError, defineAction } from "astro:actions";
+import { Agent } from "@atproto/api";
+import { z } from "astro/zod";
+import { client } from "@/utils/atproto/oauth";
+import { ColibriSDK } from "@/utils/sdk";
+
+export const addReaction = defineAction({
+	input: z.object({
+		emoji: z.string(),
+		message: z.string(),
+	}),
+	handler: async ({ emoji, message }, { session }) => {
+		try {
+			if (!session || !session?.has("user")) {
+				throw new ActionError({
+					message: "Forbidden",
+					code: "FORBIDDEN",
+				});
+			}
+
+			const user = (await session.get("user"))!;
+			const oauthSession = await client.restore(user.sub!);
+			const agent = new Agent(oauthSession);
+			const sdk = new ColibriSDK(agent);
+
+			const rkey = await sdk.createReactionData(agent.did!, emoji, message);
+
+			return {
+				rkey,
+			};
+		} catch (e) {
+			console.error(e);
+
+			throw new ActionError({
+				message: "Internal Server Error while creating community.",
+				code: "INTERNAL_SERVER_ERROR",
+			});
+		}
+	},
+});

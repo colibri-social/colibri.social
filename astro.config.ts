@@ -28,10 +28,10 @@ export default defineConfig({
 	experimental: {
 		fonts: [
 			{
-				provider: fontProviders.fontshare(),
-				name: "Satoshi",
+				provider: fontProviders.google(),
+				name: "Hanken Grotesk",
 				weights: ["100 900"],
-				cssVariable: "--font-satoshi",
+				cssVariable: "--font-hanken-grotesk",
 			},
 			{
 				provider: fontProviders.google(),

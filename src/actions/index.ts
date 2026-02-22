@@ -5,6 +5,8 @@ import { createCommunity } from "./community/create";
 import { deleteMessage } from "./message/delete";
 import { editMessage } from "./message/edit";
 import { postMessage } from "./message/post";
+import { addReaction } from "./reactions/add";
+import { removeReaction } from "./reactions/remove";
 
 export const server = {
 	createCommunity,
@@ -14,4 +16,6 @@ export const server = {
 	editMessage,
 	deleteMessage,
 	login,
+	addReaction,
+	removeReaction,
 };

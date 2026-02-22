@@ -43,6 +43,12 @@ export type MessageData = {
 	parent?: string;
 };
 
+export type ReactionData = {
+	emoji: string;
+	authors: Array<string>;
+	count: number;
+};
+
 export type IndexedMessageData = {
 	text: string;
 	created_at: string;
@@ -53,6 +59,7 @@ export type IndexedMessageData = {
 	avatar_url: string;
 	parent: string | null;
 	parent_message: IndexedMessageData | null;
+	reactions: Array<ReactionData>;
 };
 
 interface AtProtoRecord<T extends string, K> {
@@ -504,34 +511,37 @@ export class ColibriSDK {
 	};
 
 	/**
-	 * Returns all messages in a given channel.
-	 *
-	 * TODO: This is *wildly* inefficient. We basically need a relay + separate database (e.g. Postgres) for this.
-	 *
-	 * @param did The DID of the user who owns the messages.
-	 * @param channel The channel the messages belong to.
-	 * @returns The message data for all messages in this channel by this user.
+	 * Creates reaction data for a specific message.
+	 * @param did The DID of the current user
+	 * @param emoji The emoji to be reacted with
+	 * @param message The record key of the message this reaction will belong to
+	 * @returns The record key of the newly created reaction
 	 */
-	public getMessagesForChannel = async (
+	public createReactionData = async (
 		did: string,
-		channel: string,
-	): Promise<Array<MessageData>> => {
-		const res = await this.agent.com.atproto.repo.listRecords({
-			collection: RECORD_IDs.MESSAGE,
-			repo: did,
+		emoji: string,
+		parent: string,
+	): Promise<string> => {
+		const record = this.constructAtProtoRecord(did, RECORD_IDs.REACTION, {
+			emoji,
+			parent,
 		});
 
-		const filtered = res.data.records
-			.filter((record) => (record.value as MessageData).channel === channel)
-			.map(
-				(x) =>
-					({
-						...x.value,
-						rkey: x.uri.split("/").pop()!,
-						author_did: did,
-					}) as MessageData,
-			);
+		const res = await this.agent.com.atproto.repo.createRecord(record);
 
-		return filtered;
+		return res.data.uri.split("/").pop()!;
+	};
+
+	/**
+	 * Deletes a given reaction.
+	 * @param did The DID of the current user
+	 * @param rkey The record key of the reaction
+	 */
+	public deleteReaction = async (did: string, rkey: string): Promise<void> => {
+		await this.agent.com.atproto.repo.deleteRecord({
+			repo: did,
+			collection: RECORD_IDs.REACTION,
+			rkey,
+		});
 	};
 }

@@ -14,7 +14,9 @@ import type {
 	MessageData,
 } from "@/utils/sdk";
 
-type ReactionEventCallback = (data: ReactionAddedEvent | ReactionRemovedEvent) => void;
+type ReactionEventCallback = (
+	data: ReactionAddedEvent | ReactionRemovedEvent,
+) => void;
 
 export type GlobalContextData = {
 	communities: Array<CommunityData>;
@@ -36,7 +38,7 @@ export type GlobalContextUtility = {
 	clearAdditionalMessages: () => void;
 	sendSocketMessage: (message: Record<string, any>) => void;
 	clearDeletedMessages: () => void;
-	addReactionListener: (callback: ReactionEventCallback) => (() => void);
+	addReactionListener: (callback: ReactionEventCallback) => () => void;
 };
 
 export type MessagePostEvent = {
@@ -59,7 +61,8 @@ export type ReactionData = {
 	author_did: string;
 	emoji: string;
 	target_rkey: string;
-	channel: string;}
+	channel: string;
+};
 
 export type ReactionAddedEvent = ReactionData & {
 	type: "reaction_added";
@@ -84,6 +87,7 @@ export type AppviewSubscriptionData =
 export type PendingMessageData = Omit<MessageData, "rkey"> & {
 	hash: string;
 	parent_message?: IndexedMessageData;
+	reactions: [];
 };
 
 export const GlobalContext =
@@ -113,6 +117,7 @@ const handleNewMessage = async (
 		avatar_url: data.avatar_url!,
 		parent: data.parent,
 		parent_message: data.parent_message,
+		reactions: data.reactions,
 	});
 };
 
@@ -145,7 +150,7 @@ export const GlobalContextProvider: ParentComponent<{
 		categories: [],
 		channels: [],
 		pendingMessages: [],
-		deletedMessages: []
+		deletedMessages: [],
 	});
 
 	const context: [GlobalContextData, GlobalContextUtility] = [
@@ -196,7 +201,7 @@ export const GlobalContextProvider: ParentComponent<{
 			addReactionListener(callback) {
 				reactionListeners.add(callback);
 				return () => reactionListeners.delete(callback);
-			}
+			},
 		},
 	];
 

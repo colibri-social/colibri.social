@@ -4,6 +4,7 @@ import { client } from "@/utils/atproto/oauth";
 import { ColibriSDK, type CommunityData } from "@/utils/sdk";
 import { App } from "../../components/solid/App.tsx";
 import BaseLayout from "../../layouts/BaseLayout.astro";
+import "@/styles/emoji-picker.css";
 
 const user = await Astro.session?.get("user");
 

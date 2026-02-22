@@ -2,6 +2,7 @@ import { actions } from "astro:actions";
 import {
 	type Component,
 	createSignal,
+	For,
 	Match,
 	type ParentComponent,
 	Show,
@@ -49,7 +50,7 @@ import {
 	DrawerTrigger,
 } from "../shadcn-solid/Drawer";
 import { MessageAction } from "./MessageAction";
-import twemoji from "twemoji";
+import twemoji from "@twemoji/api";
 import {
 	convertSkinToneToComponent,
 	EmojiPicker,
@@ -230,6 +231,7 @@ const MessageDeletionDrawer: ParentComponent<{
 
 const EmojiPopover: ParentComponent<{
 	setEmojiPopoverOpen: (state: boolean) => void;
+	message: string;
 }> = (props) => {
 	function getTwemoji(
 		emojis: EmojiData,
@@ -239,7 +241,12 @@ const EmojiPopover: ParentComponent<{
 	) {
 		const skinTone = convertSkinToneToComponent(components, tone);
 		const tonedEmoji = getEmojiWithSkinTone(emojis, emoji, skinTone);
-		return twemoji.parse(tonedEmoji);
+		const parsed = twemoji.parse(tonedEmoji);
+
+		const multipleImageTags = /<img[\w\W]+<img/g.test(parsed);
+		if (multipleImageTags) return false;
+
+		return parsed;
 	}
 
 	function renderTwemoji(
@@ -248,17 +255,37 @@ const EmojiPopover: ParentComponent<{
 		components: EmojiComponents,
 		tone?: EmojiSkinTone,
 	) {
+		const addReaction = () => {
+			actions.addReaction({
+				emoji: emoji.emoji,
+				message: props.message,
+			});
+
+			// TODO: Add reaction optimistically
+
+			props.setEmojiPopoverOpen(false);
+		};
+
+		const twemoji = getTwemoji(emojis, emoji, components, tone);
+
+		if (!twemoji) return null;
+
 		return (
 			<div
-				class="w-8 h-8 p-1"
-				innerHTML={getTwemoji(emojis, emoji, components, tone)}
+				class="w-8 h-8 p-1 rounded-xs hover:bg-muted cursor-pointer"
+				innerHTML={twemoji}
+				onClick={addReaction}
 			/>
 		);
 	}
 
 	return (
-		<Popover onOpenChange={props.setEmojiPopoverOpen}>
-			<PopoverTrigger>{props.children}</PopoverTrigger>
+		<Popover
+			placement="left-start"
+			hideWhenDetached
+			onOpenChange={props.setEmojiPopoverOpen}
+		>
+			<PopoverTrigger class="w-full">{props.children}</PopoverTrigger>
 			<PopoverPortal>
 				<PopoverContent class="w-74 overflow-auto h-80">
 					<EmojiPicker renderEmoji={renderTwemoji} />
@@ -271,12 +298,12 @@ const EmojiPopover: ParentComponent<{
 const MessageContextMenu: ParentComponent<{
 	data: IndexedMessageData | PendingMessageData;
 	disabled: boolean;
-	showReactionsModal: () => void;
 	enableEditMode: () => void;
 	enableReplyMode: () => void;
 	handlePotentialDeletion: (e: MouseEvent) => void;
 	addDeletedMessage: GlobalContextUtility["addDeletedMessage"];
 	setEmojiPopoverOpen: (state: boolean) => void;
+	messageEditable: () => boolean;
 }> = (props) => {
 	return (
 		<ContextMenu>
@@ -284,36 +311,32 @@ const MessageContextMenu: ParentComponent<{
 				{props.children}
 			</ContextMenuTrigger>
 			<ContextMenuPortal>
-				<ContextMenuContent class="w-32">
-					<EmojiPopover setEmojiPopoverOpen={props.setEmojiPopoverOpen}>
-						<ContextMenuItem onClick={props.showReactionsModal}>
-							<EmojiIcon />
-							<span>React</span>
-						</ContextMenuItem>
-					</EmojiPopover>
+				<ContextMenuContent>
 					<ContextMenuItem onClick={props.enableReplyMode}>
 						<Reply />
 						<span>Reply</span>
 					</ContextMenuItem>
-					<ContextMenuItem onClick={props.enableEditMode}>
-						<Pencil />
-						<span>Edit</span>
-					</ContextMenuItem>
-					<MessageDeletionDrawer
-						message={props.data}
-						addDeletedMessage={props.addDeletedMessage}
-					>
-						<ContextMenuItem
-							class="text-destructive"
-							onClick={(e) => {
-								setMessageToBeDeleted(props.data as IndexedMessageData);
-								props.handlePotentialDeletion(e);
-							}}
-						>
-							<Trash />
-							<span>Delete</span>
+					<Show when={props.messageEditable()}>
+						<ContextMenuItem onClick={props.enableEditMode}>
+							<Pencil />
+							<span>Edit</span>
 						</ContextMenuItem>
-					</MessageDeletionDrawer>
+						<MessageDeletionDrawer
+							message={props.data}
+							addDeletedMessage={props.addDeletedMessage}
+						>
+							<ContextMenuItem
+								class="text-destructive"
+								onClick={(e) => {
+									setMessageToBeDeleted(props.data as IndexedMessageData);
+									props.handlePotentialDeletion(e);
+								}}
+							>
+								<Trash />
+								<span>Delete</span>
+							</ContextMenuItem>
+						</MessageDeletionDrawer>
+					</Show>
 				</ContextMenuContent>
 			</ContextMenuPortal>
 		</ContextMenu>
@@ -328,10 +351,6 @@ export const Message: Component<{
 	const [globalData, { addDeletedMessage }] = useGlobalContext();
 	const isPending = () => "hash" in props.data;
 	const [emojiPopoverOpen, setEmojiPopoverOpen] = createSignal(false);
-
-	const showReactionsModal = () => {
-		console.error("TODO");
-	};
 
 	const enableReplyMode = () => {
 		if (isPending()) return;
@@ -382,19 +401,21 @@ export const Message: Component<{
 		);
 	};
 
+	const messageEditable = () => props.data.author_did === globalData.user.sub;
+
 	return (
 		<MessageContextMenu
 			data={props.data}
 			disabled={isPending()}
-			showReactionsModal={showReactionsModal}
 			enableEditMode={enableEditMode}
 			handlePotentialDeletion={handlePotentialDeletion}
 			addDeletedMessage={addDeletedMessage}
 			enableReplyMode={enableReplyMode}
 			setEmojiPopoverOpen={setEmojiPopoverOpen}
+			messageEditable={messageEditable}
 		>
 			<div
-				class={`w-full h-fit flex flex-col pr-4 pl-3.5 gap-2 group border-l-2 relative hover:bg-card/50 transition-colors duration-75`}
+				class={`w-full h-fit flex flex-col pr-4 pl-3.5 gap-1 group border-l-2 relative hover:bg-card/50 transition-colors duration-75`}
 				data-message={JSON.stringify(props.data)}
 				classList={{
 					"py-0": isSubsequentMessage(),
@@ -402,6 +423,7 @@ export const Message: Component<{
 					"border-transparent": !isRepliedTo(),
 					"bg-primary/15 hover:bg-primary/25 border-primary": isRepliedTo(),
 					"bg-primary/15": isFocused(),
+					"pb-2": props.data.reactions.length > 0,
 				}}
 			>
 				<Show when={props.data.parent_message}>
@@ -493,7 +515,10 @@ export const Message: Component<{
 								flex: emojiPopoverOpen(),
 							}}
 						>
-							<EmojiPopover setEmojiPopoverOpen={setEmojiPopoverOpen}>
+							<EmojiPopover
+								setEmojiPopoverOpen={setEmojiPopoverOpen}
+								message={(props.data as IndexedMessageData).rkey}
+							>
 								<MessageAction tooltipText="Add reaction">
 									<EmojiIcon />
 								</MessageAction>
@@ -501,26 +526,50 @@ export const Message: Component<{
 							<MessageAction tooltipText="Reply" onClick={enableReplyMode}>
 								<Reply />
 							</MessageAction>
-							<MessageAction tooltipText="Edit" onClick={enableEditMode}>
-								<Pencil />
-							</MessageAction>
-							<MessageDeletionDrawer
-								message={props.data}
-								addDeletedMessage={addDeletedMessage}
-							>
-								<MessageAction
-									tooltipText="Delete"
-									buttonClasses="text-destructive"
-									onClick={(e) => {
-										setMessageToBeDeleted(props.data as IndexedMessageData);
-										handlePotentialDeletion(e);
-									}}
-								>
-									<Trash />
+							<Show when={messageEditable()}>
+								<MessageAction tooltipText="Edit" onClick={enableEditMode}>
+									<Pencil />
 								</MessageAction>
-							</MessageDeletionDrawer>
+								<MessageDeletionDrawer
+									message={props.data}
+									addDeletedMessage={addDeletedMessage}
+								>
+									<MessageAction
+										tooltipText="Delete"
+										buttonClasses="text-destructive"
+										onClick={(e) => {
+											setMessageToBeDeleted(props.data as IndexedMessageData);
+											handlePotentialDeletion(e);
+										}}
+									>
+										<Trash />
+									</MessageAction>
+								</MessageDeletionDrawer>
+							</Show>
 						</div>
 					</Show>
+				</div>
+				<div class="flex flex-row gap-4 items-center pl-14">
+					<For each={props.data.reactions}>
+						{(item) => (
+							<button
+								type="button"
+								class="border rounded-sm hover:bg-card px-1.5 py-1 flex gap-1 items-center cursor-pointer"
+								classList={{
+									"border-primary bg-primary/15 hover:bg-primary/25":
+										item.authors.includes(globalData.user.sub),
+									"border-border bg-card hover:bg-muted":
+										!item.authors.includes(globalData.user.sub),
+								}}
+								onClick={() => {
+									// TODO: Add same reaction if not in array, remove if in array, handle optimistic updates
+								}}
+							>
+								<span class="h-4 w-4" innerHTML={twemoji.parse(item.emoji)} />
+								<span class="text-muted-foreground text-sm">{item.count}</span>
+							</button>
+						)}
+					</For>
 				</div>
 			</div>
 		</MessageContextMenu>
