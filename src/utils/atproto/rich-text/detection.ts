@@ -1,4 +1,4 @@
-import type { $Typed, AppBskyRichtextFacet } from "@atproto/api";
+import type { $Typed } from "@atproto/api";
 import type { ByteSlice } from "@atproto/api/dist/client/types/app/bsky/richtext/facet";
 import TLDs from "tlds";
 import type { UnicodeString } from "./unicode";
@@ -34,6 +34,16 @@ export type ColibriRichTextCode = {
 	$type?: "social.colibri.richtext.facet#code";
 };
 
+export type ColibriRichTextMention = {
+	$type?: "social.colibri.richtext.facet#mention";
+	did: string;
+};
+
+export type ColibriRichTextLink = {
+	$type?: "social.colibri.richtext.facet#link";
+	uri: string;
+};
+
 export interface ColibriRichTextFacet {
 	$type?: "social.colibri.richtext.facet";
 	index: ByteSlice;
@@ -44,10 +54,12 @@ export interface ColibriRichTextFacet {
 		| $Typed<ColibriRichTextUnderline>
 		| $Typed<ColibriRichTextStrikethrough>
 		| $Typed<ColibriRichTextCode>
+		| $Typed<ColibriRichTextMention>
+		| $Typed<ColibriRichTextLink>
 	)[];
 }
 
-export type Facet = AppBskyRichtextFacet.Main | ColibriRichTextFacet;
+export type Facet = ColibriRichTextFacet;
 
 export function detectFacets(text: UnicodeString): Facet[] | undefined {
 	let match: RegExpExecArray | null;
@@ -62,14 +74,14 @@ export function detectFacets(text: UnicodeString): Facet[] | undefined {
 
 			const start = text.utf16.indexOf(match[3], match.index) - 1;
 			facets.push({
-				$type: "app.bsky.richtext.facet",
+				$type: "social.colibri.richtext.facet",
 				index: {
 					byteStart: text.utf16IndexToUtf8Index(start),
 					byteEnd: text.utf16IndexToUtf8Index(start + match[3].length + 1),
 				},
 				features: [
 					{
-						$type: "app.bsky.richtext.facet#mention",
+						$type: "social.colibri.richtext.facet#mention",
 						did: match[3], // must be resolved afterwards
 					},
 				],
@@ -106,7 +118,7 @@ export function detectFacets(text: UnicodeString): Facet[] | undefined {
 				},
 				features: [
 					{
-						$type: "app.bsky.richtext.facet#link",
+						$type: "social.colibri.richtext.facet#link",
 						uri,
 					},
 				],

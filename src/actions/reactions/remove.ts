@@ -27,7 +27,7 @@ export const removeReaction = defineAction({
 			console.error(e);
 
 			throw new ActionError({
-				message: "Internal Server Error while creating community.",
+				message: "Internal Server Error while removing reaction.",
 				code: "INTERNAL_SERVER_ERROR",
 			});
 		}

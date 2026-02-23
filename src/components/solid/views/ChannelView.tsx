@@ -73,16 +73,9 @@ const ChannelView: Component = () => {
 				);
 			})
 			.sort((a, b) => {
-				let dateA: number;
-				let dateB: number;
-
-				if ("hash" in a) dateA = new Date(a.createdAt).getTime();
-				else dateA = new Date(a.created_at).getTime();
-
-				if ("hash" in b) dateB = new Date(b.createdAt).getTime();
-				else dateB = new Date(b.created_at).getTime();
-
-				return dateA - dateB;
+				return (
+					new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+				);
 			});
 	};
 

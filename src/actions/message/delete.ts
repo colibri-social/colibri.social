@@ -31,7 +31,7 @@ export const deleteMessage = defineAction({
 			console.error(e);
 
 			throw new ActionError({
-				message: "Internal Server Error while creating community.",
+				message: "Internal Server Error while posting message.",
 				code: "INTERNAL_SERVER_ERROR",
 			});
 		}

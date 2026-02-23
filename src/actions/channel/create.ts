@@ -42,7 +42,7 @@ export const createChannel = defineAction({
 			console.error(e);
 
 			throw new ActionError({
-				message: "Internal Server Error while creating community.",
+				message: "Internal Server Error while creating channel.",
 				code: "INTERNAL_SERVER_ERROR",
 			});
 		}

@@ -70,6 +70,7 @@ import {
 	PopoverTrigger,
 } from "../shadcn-solid/Popover";
 import { MessageAction } from "./MessageAction";
+import { RichTextRenderer } from "./RichTextRenderer";
 
 const [messageToBeDeleted, setMessageToBeDeleted] =
 	createSignal<IndexedMessageData>();
@@ -119,16 +120,8 @@ const MessageDeletionDrawer: ParentComponent<{
 				<div class="flex gap-2 text-sm items-baseline">
 					<span class="font-bold">{props.message.display_name}</span>
 					<small class="text-muted-foreground">
-						{new Date(
-							isPending()
-								? (props.message as PendingMessageData).createdAt
-								: (props.message as IndexedMessageData).created_at,
-						).toLocaleDateString()}{" "}
-						{new Date(
-							isPending()
-								? (props.message as PendingMessageData).createdAt
-								: (props.message as IndexedMessageData).created_at,
-						).toLocaleTimeString(undefined, {
+						{new Date(props.message.created_at).toLocaleDateString()}{" "}
+						{new Date(props.message.created_at).toLocaleTimeString(undefined, {
 							hour: "2-digit",
 							minute: "2-digit",
 						})}
@@ -588,14 +581,13 @@ export const Message: Component<{
 						<Match when={isSubsequentMessage()}>
 							<div class="w-10 h-8 min-w-10 min-h-8 text-muted-foreground group-hover:opacity-100 opacity-0 text-xs flex items-center justify-center">
 								<span>
-									{new Date(
-										isPending()
-											? (props.data as PendingMessageData).createdAt
-											: (props.data as IndexedMessageData).created_at,
-									).toLocaleTimeString(undefined, {
-										hour: "2-digit",
-										minute: "2-digit",
-									})}
+									{new Date(props.data.created_at).toLocaleTimeString(
+										undefined,
+										{
+											hour: "2-digit",
+											minute: "2-digit",
+										},
+									)}
 								</span>
 							</div>
 						</Match>
@@ -605,31 +597,27 @@ export const Message: Component<{
 							<div class="flex gap-2 text-sm items-baseline">
 								<span class="font-bold">{props.data.display_name}</span>
 								<small class="text-muted-foreground">
-									{new Date(
-										isPending()
-											? (props.data as PendingMessageData).createdAt
-											: (props.data as IndexedMessageData).created_at,
-									).toLocaleDateString()}{" "}
-									{new Date(
-										isPending()
-											? (props.data as PendingMessageData).createdAt
-											: (props.data as IndexedMessageData).created_at,
-									).toLocaleTimeString(undefined, {
-										hour: "2-digit",
-										minute: "2-digit",
-									})}
+									{new Date(props.data.created_at).toLocaleDateString()}{" "}
+									{new Date(props.data.created_at).toLocaleTimeString(
+										undefined,
+										{
+											hour: "2-digit",
+											minute: "2-digit",
+										},
+									)}
 								</small>
 							</div>
 						</Show>
-						<p
-							class="m-0"
+						<RichTextRenderer
+							text={() => ({
+								text: props.data.text,
+								facets: props.data.facets || [],
+							})}
 							classList={{
 								"text-muted-foreground": isPending(),
 								"text-foreground": !isPending(),
 							}}
-						>
-							{props.data.text}
-						</p>
+						/>
 					</div>
 					<Show when={!isPending()}>
 						<div

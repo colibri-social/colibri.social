@@ -1,5 +1,6 @@
 import type { Agent } from "@atproto/api";
 import { lexicon, RECORD_IDs } from "./atproto/lexicons";
+import type { Facet } from "./atproto/rich-text";
 
 type ActorData = {
 	status: string;
@@ -33,7 +34,7 @@ export type ChannelData = {
 
 export type MessageData = {
 	text: string;
-	createdAt: string;
+	facets: Array<Facet> | null;
 	channel: string;
 	rkey: string;
 	author_did: string;
@@ -41,6 +42,16 @@ export type MessageData = {
 	avatar_url: string;
 	edited?: boolean;
 	parent?: string;
+	reactions: Array<MessageReactionData>;
+	parent_message: IndexedMessageData | null;
+};
+
+export type PDSMessageData = MessageData & {
+	createdAt: string;
+};
+
+export type DBMessageData = MessageData & {
+	created_at: string;
 };
 
 export type MessageReactionData = {
@@ -50,18 +61,7 @@ export type MessageReactionData = {
 	rkeys: Array<string>;
 };
 
-export type IndexedMessageData = {
-	text: string;
-	created_at: string;
-	channel: string;
-	rkey: string;
-	author_did: string;
-	display_name: string;
-	avatar_url: string;
-	parent: string | null;
-	parent_message: IndexedMessageData | null;
-	reactions: Array<MessageReactionData>;
-};
+export type IndexedMessageData = DBMessageData;
 
 interface AtProtoRecord<T extends string, K> {
 	repo: string;
@@ -446,6 +446,7 @@ export class ColibriSDK {
 		channel: string,
 		text: string,
 		createdAt: string,
+		facets: Array<Facet>,
 		parent?: string,
 	): Promise<string> => {
 		const record = this.constructAtProtoRecord(did, RECORD_IDs.MESSAGE, {
@@ -453,6 +454,7 @@ export class ColibriSDK {
 			createdAt,
 			channel,
 			parent,
+			facets,
 		});
 
 		const res = await this.agent.com.atproto.repo.createRecord(record);
@@ -501,14 +503,15 @@ export class ColibriSDK {
 	public getMessageData = async (
 		did: string,
 		rkey: string,
-	): Promise<MessageData> => {
+	): Promise<PDSMessageData> => {
 		const res = await this.agent.com.atproto.repo.getRecord({
 			collection: RECORD_IDs.MESSAGE,
 			repo: did,
 			rkey,
 		});
 
-		return { ...res.data.value, rkey, author_did: did } as MessageData;
+		// TODO
+		return { ...res.data.value, rkey, author_did: did } as PDSMessageData;
 	};
 
 	/**

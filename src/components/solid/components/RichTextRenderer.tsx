@@ -2,7 +2,17 @@ import type { Facet } from "@/utils/atproto/rich-text";
 import { detectFacets } from "@/utils/atproto/rich-text/detection";
 import { UnicodeString } from "@/utils/atproto/rich-text/unicode";
 import twemoji from "@twemoji/api";
-import type { Accessor, Component, Setter } from "solid-js";
+import {
+	createSignal,
+	type JSX,
+	Show,
+	type Accessor,
+	type Component,
+	type Setter,
+	onMount,
+	onCleanup,
+} from "solid-js";
+import { Portal } from "solid-js/web";
 
 export type TextWithFacets = {
 	text: string;
@@ -28,18 +38,14 @@ const escapeAttr = (s: string): string =>
  */
 const applyStyleForFacet = (text: string, feature: AnyFeature): string => {
 	switch (feature.$type) {
-		case "app.bsky.richtext.facet#mention": {
+		case "social.colibri.richtext.facet#mention": {
 			const did = "did" in feature ? escapeAttr(String(feature.did)) : "";
 			return `<div data-facet-type="mention" data-did="${did}" class="bg-primary/15 hover:bg-primary/25 px-1 rounded-xs cursor-pointer inline">${text}</div>`;
 		}
-		case "app.bsky.richtext.facet#link": {
+		case "social.colibri.richtext.facet#link": {
 			const uri =
 				"uri" in feature ? escapeAttr(String(feature.uri)) : escapeAttr(text);
 			return `<a data-facet-type="link" data-uri="${uri}" href="${uri}" class="text-primary-foreground font-medium hover:underline inline w-fit" target="_blank">${text}</a>`;
-		}
-		case "app.bsky.richtext.facet#tag": {
-			const tag = "tag" in feature ? escapeAttr(String(feature.tag)) : "";
-			return `<div data-facet-type="tag" data-tag="${tag}" class="bg-primary/15 hover:bg-primary/25 px-1 rounded-xs cursor-pointer inline">${text}</div>`;
 		}
 		case "social.colibri.richtext.facet#channel": {
 			const channel =
@@ -58,7 +64,8 @@ const applyStyleForFacet = (text: string, feature: AnyFeature): string => {
 			return `<code data-facet-type="code">${text}</code>`;
 	}
 
-	return "UNKNOWN";
+	// @ts-expect-error
+	return `[UNKNOWN FACET: ${feature.$type}]`;
 };
 
 /**
@@ -156,18 +163,13 @@ const featureFromElement = (el: HTMLElement): AnyFeature | null => {
 	switch (facetType) {
 		case "mention":
 			return {
-				$type: "app.bsky.richtext.facet#mention",
+				$type: "social.colibri.richtext.facet#mention",
 				did: el.dataset.did || "",
 			};
 		case "link":
 			return {
-				$type: "app.bsky.richtext.facet#link",
+				$type: "social.colibri.richtext.facet#link",
 				uri: el.dataset.uri || (el as HTMLAnchorElement).href || "",
-			};
-		case "tag":
-			return {
-				$type: "app.bsky.richtext.facet#tag",
-				tag: el.dataset.tag || "",
 			};
 		case "channel":
 			return {
@@ -329,21 +331,102 @@ const mergeWithDetectedFacets = (parsed: TextWithFacets): TextWithFacets => {
 export const RichTextRenderer: Component<{
 	editable?: boolean;
 	text: Accessor<TextWithFacets>;
-	setInputContent: Setter<TextWithFacets>;
+	setInputContent?: Setter<TextWithFacets>;
+	classList?: Record<string, boolean>;
 }> = (props) => {
+	let pRef: HTMLParagraphElement | undefined;
+
 	const rendered = renderWithFacets(props.text());
 	const renderedWithEmojis = twemoji.parse(rendered);
 
+	const [formattingOverlayPosition, setFormattingOverlayPosition] =
+		createSignal({
+			top: -1000,
+			left: -1000,
+			shown: false,
+		});
+
+	const getSelectionPixels = (selection: Selection) => {
+		if (selection.rangeCount === 0) return null;
+
+		const range = selection.getRangeAt(0).cloneRange();
+
+		// Collapse to start to get the specific "beginning" pixel coordinate
+		range.collapse(true);
+
+		const rect = range.getBoundingClientRect();
+
+		return {
+			top: rect.top + window.scrollY,
+			left: rect.left + window.scrollX,
+			bottom: rect.bottom + window.scrollY,
+			height: rect.height,
+		};
+	};
+
+	const handleSelection = () => {
+		const selection = document.getSelection();
+		if (
+			pRef &&
+			selection &&
+			pRef.contains(selection.anchorNode) &&
+			selection.type === "Range"
+		) {
+			const position = getSelectionPixels(selection);
+
+			if (!position) return;
+
+			setFormattingOverlayPosition({
+				top: position.top - 48,
+				left: position.left,
+				shown: true,
+			});
+		} else {
+			setFormattingOverlayPosition({
+				top: -1,
+				left: -1,
+				shown: false,
+			});
+		}
+	};
+
+	onMount(() => {
+		document.addEventListener("selectionchange", handleSelection);
+	});
+
+	onCleanup(() => {
+		document.removeEventListener("selectionchange", handleSelection);
+	});
+
 	return (
-		<p
-			class="m-0 rich-text focus:outline-0"
-			contentEditable={props.editable}
-			innerHTML={renderedWithEmojis}
-			onInput={(e) => {
-				const parsed = parseDomToFacets(e.currentTarget);
-				const result = mergeWithDetectedFacets(parsed);
-				props.setInputContent(result);
-			}}
-		/>
+		<>
+			<p
+				class="m-0 rich-text focus:outline-0 leading-5.5 break-all"
+				contentEditable={props.editable}
+				innerHTML={renderedWithEmojis}
+				classList={props.classList}
+				onInput={(e) => {
+					if (!props.setInputContent) return;
+
+					const parsed = parseDomToFacets(e.currentTarget);
+					const result = mergeWithDetectedFacets(parsed);
+					props.setInputContent(result);
+				}}
+				ref={pRef}
+			/>
+			<Show when={props.editable && formattingOverlayPosition().shown}>
+				<Portal>
+					<div
+						class="absolute w-65 h-8 bg-red-500"
+						style={{
+							top: `${formattingOverlayPosition().top}px`,
+							left: `${formattingOverlayPosition().left}px`,
+						}}
+					>
+						Test
+					</div>
+				</Portal>
+			</Show>
+		</>
 	);
 };

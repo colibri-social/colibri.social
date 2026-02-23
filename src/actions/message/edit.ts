@@ -35,7 +35,7 @@ export const editMessage = defineAction({
 			console.error(e);
 
 			throw new ActionError({
-				message: "Internal Server Error while creating community.",
+				message: "Internal Server Error while editing message.",
 				code: "INTERNAL_SERVER_ERROR",
 			});
 		}

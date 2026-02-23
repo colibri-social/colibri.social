@@ -10,8 +10,8 @@ import type {
 	CategoryData,
 	ChannelData,
 	CommunityData,
+	DBMessageData,
 	IndexedMessageData,
-	MessageData,
 } from "@/utils/sdk";
 
 type ReactionEventCallback = (
@@ -85,10 +85,8 @@ export type AppviewSubscriptionData =
 	| ReactionAddedEvent
 	| ReactionRemovedEvent;
 
-export type PendingMessageData = Omit<MessageData, "rkey"> & {
+export type PendingMessageData = Omit<DBMessageData, "rkey"> & {
 	hash: string;
-	parent_message?: IndexedMessageData;
-	reactions: [];
 };
 
 export const GlobalContext =
@@ -103,23 +101,13 @@ const handleNewMessage = async (
 			text: data.text,
 			channel: data.channel,
 			createdAt: data.created_at,
+			facets: data.facets,
 		}),
 	);
 
 	context.removePendingMessage(hash);
 
-	context.addAdditionalMessage({
-		channel: data.channel,
-		created_at: data.created_at,
-		rkey: data.rkey,
-		text: data.text,
-		author_did: data.author_did,
-		display_name: data.display_name!,
-		avatar_url: data.avatar_url!,
-		parent: data.parent,
-		parent_message: data.parent_message,
-		reactions: data.reactions,
-	});
+	context.addAdditionalMessage(data);
 };
 
 const handleMessageDeletion = async (

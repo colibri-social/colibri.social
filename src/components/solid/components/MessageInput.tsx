@@ -1,7 +1,6 @@
 import { actions } from "astro:actions";
 import { useParams } from "@solidjs/router";
 import { type Component, createSignal, Show } from "solid-js";
-import { createStore } from "solid-js/store";
 import { generateHash } from "@/utils/generate-hash";
 import { useGlobalContext } from "../contexts/GlobalContext";
 import { useMessageContext } from "../contexts/MessageContext";
@@ -9,16 +8,17 @@ import { Plus } from "../icons/Plus";
 import { XCircle } from "../icons/XCircle";
 import { makePersisted } from "@solid-primitives/storage";
 import { RichTextRenderer, type TextWithFacets } from "./RichTextRenderer";
+import type { PostMessageInput } from "@/actions/message/post";
 
 const content: TextWithFacets = {
 	text: "This is some text content containing @lou.gg mentions, #channel mentions, bold, italic, underlined and strikethrough text, as well as code. It also contains a https://example.com url. 😁",
 	facets: [
 		{
-			$type: "app.bsky.richtext.facet",
+			$type: "social.colibri.richtext.facet",
 			index: { byteStart: 37, byteEnd: 44 },
 			features: [
 				{
-					$type: "app.bsky.richtext.facet#mention",
+					$type: "social.colibri.richtext.facet#mention",
 					did: "did:plc:w64dlsa4zwjv2wljlvmymldc",
 				},
 			],
@@ -52,7 +52,10 @@ const content: TextWithFacets = {
 		{
 			index: { byteStart: 159, byteEnd: 178 },
 			features: [
-				{ $type: "app.bsky.richtext.facet#link", uri: "https://example.com" },
+				{
+					$type: "social.colibri.richtext.facet#link",
+					uri: "https://example.com",
+				},
 			],
 		},
 	],
@@ -61,15 +64,11 @@ const content: TextWithFacets = {
 // text, community, category, channel
 export const MessageInput: Component = () => {
 	const params = useParams();
+	const channel = () => params.channel!;
 
 	const [messageData, { clearReplyingTo }] = useMessageContext();
 	const [globalData, { addPendingMessage, removePendingMessage }] =
 		useGlobalContext();
-
-	const [formData, setFormData] = createStore({
-		channel: () => params.channel!,
-		text: "",
-	});
 
 	let inputEl!: HTMLDivElement;
 	const [inputContent, setInputContent] = makePersisted(
@@ -91,9 +90,10 @@ export const MessageInput: Component = () => {
 	// });
 
 	const sendMessage = async (): Promise<boolean> => {
-		const obj = {
-			text: formData.text,
-			channel: formData.channel(),
+		const obj: PostMessageInput = {
+			text: inputContent().text,
+			facets: inputContent().facets,
+			channel: channel(),
 			createdAt: new Date().toISOString(),
 			parent: messageData.replyingTo?.rkey,
 		};
@@ -102,14 +102,15 @@ export const MessageInput: Component = () => {
 
 		addPendingMessage({
 			channel: obj.channel,
-			createdAt: obj.createdAt,
+			created_at: obj.createdAt,
 			hash,
-			text: obj.text,
+			text: inputContent().text,
+			facets: inputContent().facets,
 			author_did: globalData.user.sub,
 			display_name: globalData.user.displayName!,
 			avatar_url: globalData.user.avatar!,
 			parent: messageData.replyingTo?.rkey,
-			parent_message: messageData.replyingTo || undefined,
+			parent_message: messageData.replyingTo || null,
 			reactions: [],
 		});
 
@@ -156,7 +157,7 @@ export const MessageInput: Component = () => {
 						if (e.key === "Enter" && !e.shiftKey) {
 							e.preventDefault();
 							// TODO(rich-text): Send message with facets. Implement this in appview, then in actions and then here.
-							// sendMessage();
+							sendMessage();
 						}
 					}}
 				>

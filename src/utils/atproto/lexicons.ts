@@ -9,6 +9,7 @@ export const RECORD_IDs: Record<string, `${string}.${string}.${string}`> = {
 	CHANNEL: "social.colibri.channel",
 	MESSAGE: "social.colibri.message",
 	REACTION: "social.colibri.reaction",
+	RICHTEXT_FACET: "social.colibri.richtext.facet",
 };
 
 lex.add({
@@ -221,6 +222,14 @@ lex.add({
 						description: "The message content.",
 						maxLength: 2048,
 					},
+					facets: {
+						type: "array",
+						description: "Annotations of sections of the text.",
+						items: {
+							type: "ref",
+							ref: "social.colibri.richtext.facet",
+						},
+					},
 					createdAt: {
 						type: "string",
 						description: "When the message was sent.",
@@ -277,6 +286,121 @@ lex.add({
 						description: "The message this relation belongs to.",
 						format: "record-key",
 					},
+				},
+			},
+		},
+	},
+});
+
+lex.add({
+	lexicon: 1,
+	id: RECORD_IDs.RICHTEXT_FACET,
+	revision: 1,
+	defs: {
+		main: {
+			type: "object",
+			description: "A rich text facet annotation on a message.",
+			required: ["index", "features"],
+			properties: {
+				index: {
+					type: "ref",
+					ref: "social.colibri.richtext.facet#byteSlice",
+				},
+				features: {
+					type: "array",
+					description: "The features of this facet.",
+					items: {
+						type: "union",
+						refs: [
+							"social.colibri.richtext.facet#channel",
+							"social.colibri.richtext.facet#bold",
+							"social.colibri.richtext.facet#italic",
+							"social.colibri.richtext.facet#underline",
+							"social.colibri.richtext.facet#strikethrough",
+							"social.colibri.richtext.facet#code",
+							"social.colibri.richtext.facet#mention",
+							"social.colibri.richtext.facet#link",
+						],
+					},
+				},
+			},
+		},
+		byteSlice: {
+			type: "object",
+			description:
+				"Specifies the sub-string range a facet feature applies to. Start index is inclusive, end index is exclusive. Indices are zero-based, counting bytes of the UTF-8 encoded text.",
+			required: ["byteStart", "byteEnd"],
+			properties: {
+				byteStart: {
+					type: "integer",
+					description: "The start index of the byte slice (inclusive).",
+					minimum: 0,
+				},
+				byteEnd: {
+					type: "integer",
+					description: "The end index of the byte slice (exclusive).",
+					minimum: 0,
+				},
+			},
+		},
+		channel: {
+			type: "object",
+			description: "A facet feature for a channel reference.",
+			required: ["channel"],
+			properties: {
+				channel: {
+					type: "string",
+					description: "The record key of the referenced channel.",
+					format: "record-key",
+				},
+			},
+		},
+		bold: {
+			type: "object",
+			description: "A facet feature for bold text.",
+			properties: {},
+		},
+		italic: {
+			type: "object",
+			description: "A facet feature for italic text.",
+			properties: {},
+		},
+		underline: {
+			type: "object",
+			description: "A facet feature for underlined text.",
+			properties: {},
+		},
+		strikethrough: {
+			type: "object",
+			description: "A facet feature for strikethrough text.",
+			properties: {},
+		},
+		code: {
+			type: "object",
+			description: "A facet feature for inline code text.",
+			properties: {},
+		},
+		mention: {
+			type: "object",
+			description: "A facet feature for a user mention.",
+			required: ["did"],
+			properties: {
+				did: {
+					type: "string",
+					description: "The DID of the mentioned user.",
+					format: "did",
+				},
+			},
+		},
+		link: {
+			type: "object",
+			description: "A facet feature for a hyperlink.",
+			required: ["uri"],
+			properties: {
+				uri: {
+					type: "string",
+					description: "The URI of the link.",
+					format: "uri",
 				},
 			},
 		},
