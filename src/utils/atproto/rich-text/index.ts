@@ -94,8 +94,13 @@ F: 0 1 2 3 4 5 6 7 8 910   // string indices
 import { AppBskyRichtextFacet, type AtpBaseClient } from "@atproto/api";
 import { is$typed } from "@atproto/api/dist/client/util";
 import {
+	type ColibriRichTextBold,
 	type ColibriRichTextChannel,
+	type ColibriRichTextCode,
 	type ColibriRichTextFacet,
+	type ColibriRichTextItalic,
+	type ColibriRichTextStrikethrough,
+	type ColibriRichTextUnderline,
 	detectFacets,
 } from "./detection";
 import { sanitizeRichText } from "./sanitization";
@@ -107,6 +112,11 @@ export type Facet = AppBskyRichtextFacet.Main | ColibriRichTextFacet;
 export type FacetLink = AppBskyRichtextFacet.Link;
 export type FacetMention = AppBskyRichtextFacet.Mention;
 export type FacetChannel = ColibriRichTextChannel;
+export type FacetBoldText = ColibriRichTextBold;
+export type FacetItalicText = ColibriRichTextItalic;
+export type FacetUnderlineText = ColibriRichTextUnderline;
+export type FacetStrikethroughText = ColibriRichTextStrikethrough;
+export type FacetCodeText = ColibriRichTextCode;
 
 export interface RichTextProps {
 	text: string;

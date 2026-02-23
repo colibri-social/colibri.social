@@ -418,7 +418,7 @@ export const Message: Component<{
 	};
 
 	const enableEditMode = () => {
-		// TODO:
+		// TODO(edit):
 		// 1. Show input
 		// 2. On enter of said input, submit edit request and immediately hide input, replace text with edited one
 		// 3. We don't care about a websocket response in this case, this can be handled locally

@@ -14,10 +14,37 @@ export type ColibriRichTextChannel = {
 	channel: string;
 };
 
+export type ColibriRichTextBold = {
+	$type?: "social.colibri.richtext.facet#bold";
+};
+
+export type ColibriRichTextItalic = {
+	$type?: "social.colibri.richtext.facet#italic";
+};
+
+export type ColibriRichTextUnderline = {
+	$type?: "social.colibri.richtext.facet#underline";
+};
+
+export type ColibriRichTextStrikethrough = {
+	$type?: "social.colibri.richtext.facet#strikethrough";
+};
+
+export type ColibriRichTextCode = {
+	$type?: "social.colibri.richtext.facet#code";
+};
+
 export interface ColibriRichTextFacet {
 	$type?: "social.colibri.richtext.facet";
 	index: ByteSlice;
-	features: ($Typed<ColibriRichTextChannel> | { $type: string })[];
+	features: (
+		| $Typed<ColibriRichTextChannel>
+		| $Typed<ColibriRichTextBold>
+		| $Typed<ColibriRichTextItalic>
+		| $Typed<ColibriRichTextUnderline>
+		| $Typed<ColibriRichTextStrikethrough>
+		| $Typed<ColibriRichTextCode>
+	)[];
 }
 
 export type Facet = AppBskyRichtextFacet.Main | ColibriRichTextFacet;

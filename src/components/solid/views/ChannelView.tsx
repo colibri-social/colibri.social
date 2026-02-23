@@ -18,7 +18,7 @@ import { useMessageContext } from "../contexts/MessageContext";
 
 // import { useGlobalContext } from "../contexts/GlobalContext";
 
-// TODO: this only fetches the last 50 messages. The appview supports paging (we can implement this via observers)
+// TODO(messages): this only fetches the last 50 messages. The appview supports paging (we can implement this via observers)
 // but it's still a work in progress thing.
 const fetchMessagesForChannel = query(
 	async (channel: string): Promise<Array<IndexedMessageData>> => {
@@ -130,11 +130,7 @@ const ChannelView: Component = () => {
 	});
 
 	return (
-		<div
-			class="w-full h-full overflow-auto pb-4"
-			style={{ height: "calc(100vh - 40px - 64px)" }}
-			ref={chatContainer}
-		>
+		<div class="w-full h-full overflow-auto pb-4" ref={chatContainer}>
 			<Suspense fallback={<div></div>}>
 				<div class="w-full flex flex-col justify-center items-center px-4 text-center">
 					<h3 class="mb-0">This is the start of this channel.</h3>

@@ -53,8 +53,8 @@ const CommunityLayout: ParentComponent = (props) => {
 								<ChannelList data={communityInfo()!.data!} />
 								<UserStatus />
 							</aside>
-							<div class="w-full h-full flex flex-col max-h-full relative">
-								<div class="w-full h-full max-h-full">{props.children}</div>
+							<div class="w-full h-full flex flex-col max-h-[calc(100vh-39px)]">
+								<div class="w-full flex-1 min-h-0">{props.children}</div>
 								<MessageInput />
 							</div>
 							<div class="min-w-72 w-72 h-full flex flex-col p-4 border-l border-border">
