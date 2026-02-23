@@ -218,7 +218,9 @@ export const GlobalContextProvider: ParentComponent<{
 				break;
 			case "reaction_added":
 			case "reaction_removed":
-				reactionListeners.forEach((callback) => callback(data));
+				reactionListeners.forEach((callback) => {
+					callback(data);
+				});
 				break;
 			case "ack":
 				break;

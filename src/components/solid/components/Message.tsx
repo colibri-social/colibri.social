@@ -1,4 +1,14 @@
 import { actions } from "astro:actions";
+import twemoji from "@twemoji/api";
+import {
+	convertSkinToneToComponent,
+	type Emoji,
+	type EmojiComponents,
+	type EmojiData,
+	EmojiPicker,
+	type EmojiSkinTone,
+	getEmojiWithSkinTone,
+} from "solid-emoji-picker";
 import {
 	type Accessor,
 	type Component,
@@ -6,14 +16,12 @@ import {
 	For,
 	Match,
 	type ParentComponent,
-	type Setter,
 	Show,
 	Switch,
 } from "solid-js";
 import createMediaQuery from "@/utils/create-media-query";
 import type { IndexedMessageData, MessageReactionData } from "@/utils/sdk";
 import {
-	type GlobalContextData,
 	type GlobalContextUtility,
 	type PendingMessageData,
 	type ReactionAddedEvent,
@@ -21,6 +29,7 @@ import {
 	useGlobalContext,
 } from "../contexts/GlobalContext";
 import { useMessageContext } from "../contexts/MessageContext";
+import { Emoji as EmojiIcon } from "../icons/Emoji";
 import { Pencil } from "../icons/Pencil";
 import { Reply } from "../icons/Reply";
 import { Trash } from "../icons/Trash";
@@ -54,24 +63,13 @@ import {
 	DrawerPortal,
 	DrawerTrigger,
 } from "../shadcn-solid/Drawer";
-import { MessageAction } from "./MessageAction";
-import twemoji from "@twemoji/api";
-import {
-	convertSkinToneToComponent,
-	EmojiPicker,
-	getEmojiWithSkinTone,
-	type Emoji,
-	type EmojiComponents,
-	type EmojiData,
-	type EmojiSkinTone,
-} from "solid-emoji-picker";
 import {
 	Popover,
 	PopoverContent,
 	PopoverPortal,
 	PopoverTrigger,
 } from "../shadcn-solid/Popover";
-import { Emoji as EmojiIcon } from "../icons/Emoji";
+import { MessageAction } from "./MessageAction";
 
 const [messageToBeDeleted, setMessageToBeDeleted] =
 	createSignal<IndexedMessageData>();
@@ -237,9 +235,7 @@ const MessageDeletionDrawer: ParentComponent<{
 const EmojiPopover: ParentComponent<{
 	emojiPopoverOpen: Accessor<boolean>;
 	setEmojiPopoverOpen: (state: boolean) => void;
-	setAdditionalReactions: Setter<Array<ReactionAddedEvent>>;
-	globalData: GlobalContextData;
-	messageData: IndexedMessageData;
+	addReactionOptimistic: (emoji: string) => void;
 }> = (props) => {
 	function getTwemoji(
 		emojis: EmojiData,
@@ -263,30 +259,9 @@ const EmojiPopover: ParentComponent<{
 		components: EmojiComponents,
 		tone?: EmojiSkinTone,
 	) {
-		const addReaction = async () => {
+		const addReaction = () => {
 			props.setEmojiPopoverOpen(false);
-
-			const result = await actions.addReaction({
-				emoji: emoji.emoji,
-				message: props.messageData.rkey,
-			});
-
-			if (result.error) {
-				return alert(result.error);
-			}
-
-			props.setAdditionalReactions((current) => [
-				...current,
-				{
-					author_did: props.globalData.user.sub,
-					rkey: result.data.rkey,
-					target_rkey: props.messageData.rkey,
-					target_author_did: props.messageData.author_did,
-					channel: props.messageData.channel,
-					emoji: emoji.emoji,
-					type: "reaction_added",
-				},
-			]);
+			props.addReactionOptimistic(emoji.emoji);
 		};
 
 		const twemoji = getTwemoji(emojis, emoji, components, tone);
@@ -305,10 +280,11 @@ const EmojiPopover: ParentComponent<{
 	return (
 		<Popover
 			open={props.emojiPopoverOpen()}
+			onOpenChange={props.setEmojiPopoverOpen}
 			placement="left-start"
 			hideWhenDetached
 		>
-			<PopoverTrigger class="w-full">{props.children}</PopoverTrigger>
+			<PopoverTrigger as="div">{props.children}</PopoverTrigger>
 			<PopoverPortal>
 				<PopoverContent class="w-74 overflow-auto h-80">
 					<EmojiPicker renderEmoji={renderTwemoji} />
@@ -382,6 +358,59 @@ export const Message: Component<{
 		Array<ReactionRemovedEvent>
 	>([]);
 
+	const [_, setPendingCounter] = createSignal(0);
+
+	const addReactionOptimistic = (emoji: string) => {
+		const tempRkey = `__pending_${setPendingCounter((c) => c + 1)}`;
+		const messageRkey = (props.data as IndexedMessageData).rkey;
+
+		setAdditionalReactions((current) => [
+			...current,
+			{
+				author_did: globalData.user.sub,
+				rkey: tempRkey,
+				target_rkey: messageRkey,
+				target_author_did: props.data.author_did,
+				channel: props.data.channel,
+				emoji,
+				type: "reaction_added",
+			},
+		]);
+
+		actions
+			.addReaction({
+				emoji,
+				message: messageRkey,
+			})
+			.then((result) => {
+				if (result.error) {
+					setAdditionalReactions((current) =>
+						current.filter((r) => r.rkey !== tempRkey),
+					);
+					alert(result.error);
+					return;
+				}
+
+				const wasRemoved = removedReactions().some((r) => r.rkey === tempRkey);
+
+				if (wasRemoved) {
+					actions.removeReaction({ rkey: result.data.rkey });
+					setAdditionalReactions((current) =>
+						current.filter((r) => r.rkey !== tempRkey),
+					);
+					setRemovedReactions((current) =>
+						current.filter((r) => r.rkey !== tempRkey),
+					);
+				} else {
+					setAdditionalReactions((current) =>
+						current.map((r) =>
+							r.rkey === tempRkey ? { ...r, rkey: result.data.rkey } : r,
+						),
+					);
+				}
+			});
+	};
+
 	const enableReplyMode = () => {
 		if (isPending()) return;
 
@@ -434,14 +463,16 @@ export const Message: Component<{
 	const messageEditable = () => props.data.author_did === globalData.user.sub;
 
 	const messageReactions = (): Array<MessageReactionData> => {
-		const existingReactions = [...props.data.reactions];
+		const existingReactions = props.data.reactions.map((r) => ({
+			...r,
+			authors: [...r.authors],
+			rkeys: [...r.rkeys],
+		}));
 
 		for (const reaction of additionalReactions()) {
-			let existingEntry = existingReactions.find(
+			const existingEntry = existingReactions.find(
 				(x) => x.emoji === reaction.emoji,
 			);
-
-			console.log(existingEntry);
 
 			if (!existingEntry) {
 				existingReactions.push({
@@ -458,11 +489,9 @@ export const Message: Component<{
 		}
 
 		for (const reaction of removedReactions()) {
-			let existingEntry = existingReactions.find(
+			const existingEntry = existingReactions.find(
 				(x) => x.emoji === reaction.emoji,
 			);
-
-			console.log(existingEntry);
 
 			if (!existingEntry) continue;
 
@@ -475,7 +504,7 @@ export const Message: Component<{
 			existingEntry.count--;
 		}
 
-		return existingReactions;
+		return existingReactions.filter((r) => r.count > 0);
 	};
 
 	addReactionListener((data) => {
@@ -518,9 +547,7 @@ export const Message: Component<{
 					"border-transparent": !isRepliedTo(),
 					"bg-primary/15 hover:bg-primary/25 border-primary": isRepliedTo(),
 					"bg-primary/15": isFocused(),
-					"pb-2":
-						messageReactions().length > 0 &&
-						messageReactions().every((reaction) => reaction.count >= 0),
+					"pb-2": messageReactions().length > 0,
 				}}
 			>
 				<Show when={props.data.parent_message}>
@@ -606,23 +633,18 @@ export const Message: Component<{
 					</div>
 					<Show when={!isPending()}>
 						<div
-							class="absolute top-0 right-4 transform -translate-y-1/2  flex-row h-8 bg-card border border-border rounded-sm overflow-hidden"
+							class="absolute top-0 right-4 transform -translate-y-1/2 flex flex-row h-8 bg-card border border-border rounded-sm overflow-hidden"
 							classList={{
-								"hidden group-hover:flex": !emojiPopoverOpen(),
-								flex: emojiPopoverOpen(),
+								"invisible pointer-events-none group-hover:visible group-hover:pointer-events-auto":
+									!emojiPopoverOpen(),
 							}}
 						>
 							<EmojiPopover
 								emojiPopoverOpen={emojiPopoverOpen}
 								setEmojiPopoverOpen={setEmojiPopoverOpen}
-								setAdditionalReactions={setAdditionalReactions}
-								globalData={globalData}
-								messageData={props.data as IndexedMessageData}
+								addReactionOptimistic={addReactionOptimistic}
 							>
-								<MessageAction
-									tooltipText="Add reaction"
-									onClick={() => setEmojiPopoverOpen((current) => !current)}
-								>
+								<MessageAction tooltipText="Add reaction">
 									<EmojiIcon />
 								</MessageAction>
 							</EmojiPopover>
@@ -654,75 +676,52 @@ export const Message: Component<{
 				</div>
 				<div class="flex flex-row gap-1 flex-wrap items-center pl-14">
 					<For each={messageReactions()}>
-						{(item) => {
-							if (item.count < 1) return null;
-							return (
-								<button
-									type="button"
-									class="border rounded-sm hover:bg-card px-1.5 py-1 flex gap-1 items-center cursor-pointer"
-									classList={{
-										"border-primary bg-primary/15 hover:bg-primary/25":
-											item.authors.includes(globalData.user.sub),
-										"border-border bg-card hover:bg-muted":
-											!item.authors.includes(globalData.user.sub),
-									}}
-									onClick={async () => {
-										let reactionIndex = item.authors.findIndex(
-											(author) => author === globalData.user.sub,
-										);
+						{(item) => (
+							<button
+								type="button"
+								class="border rounded-sm hover:bg-card px-1.5 py-1 flex gap-1 items-center cursor-pointer"
+								classList={{
+									"border-primary bg-primary/15 hover:bg-primary/25":
+										item.authors.includes(globalData.user.sub),
+									"border-border bg-card hover:bg-muted":
+										!item.authors.includes(globalData.user.sub),
+								}}
+								onClick={() => {
+									const reactionIndex = item.authors.indexOf(
+										globalData.user.sub,
+									);
 
-										if (reactionIndex !== -1) {
-											const author_did = item.authors[reactionIndex];
-											const rkey = item.rkeys[reactionIndex];
+									if (reactionIndex !== -1) {
+										const author_did = item.authors[reactionIndex];
+										const rkey = item.rkeys[reactionIndex];
 
+										if (!rkey.startsWith("__pending_")) {
 											actions.removeReaction({
 												rkey,
 											});
-
-											setRemovedReactions((current) => [
-												...current,
-												{
-													author_did,
-													rkey,
-													target_rkey: (props.data as IndexedMessageData).rkey,
-													target_author_did: props.data.author_did,
-													channel: props.data.channel,
-													emoji: item.emoji,
-													type: "reaction_removed",
-												},
-											]);
-										} else {
-											const result = await actions.addReaction({
-												emoji: item.emoji,
-												message: (props.data as IndexedMessageData).rkey,
-											});
-
-											if (result.error) {
-												return alert(result.error);
-											}
-
-											setAdditionalReactions((current) => [
-												...current,
-												{
-													author_did: globalData.user.sub,
-													rkey: result.data.rkey,
-													target_rkey: (props.data as IndexedMessageData).rkey,
-													target_author_did: props.data.author_did,
-													channel: props.data.channel,
-													emoji: item.emoji,
-													type: "reaction_added",
-												},
-											]);
 										}
-									}}
-								>
-									<span class="h-4 w-4" innerHTML={twemoji.parse(item.emoji)} />
-									<span class="text-muted-foreground text-sm">
-										{item.count}
-									</span>
-								</button>
-							);
-						}}
+
+										setRemovedReactions((current) => [
+											...current,
+											{
+												author_did,
+												rkey,
+												target_rkey: (props.data as IndexedMessageData).rkey,
+												target_author_did: props.data.author_did,
+												channel: props.data.channel,
+												emoji: item.emoji,
+												type: "reaction_removed",
+											},
+										]);
+									} else {
+										addReactionOptimistic(item.emoji);
+									}
+								}}
+							>
+								<span class="h-4 w-4" innerHTML={twemoji.parse(item.emoji)} />
+								<span class="text-muted-foreground text-sm">{item.count}</span>
+							</button>
+						)}
 					</For>
 				</div>
 			</div>

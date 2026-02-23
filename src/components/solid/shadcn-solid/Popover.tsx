@@ -1,10 +1,10 @@
+import { Popover as PopoverPrimitive } from "@kobalte/core/popover";
 import {
+	type ComponentProps,
 	mergeProps,
 	splitProps,
-	type ComponentProps,
 	type ValidComponent,
 } from "solid-js";
-import { Popover as PopoverPrimitive } from "@kobalte/core/popover";
 
 import { cx } from "@/lib/cva";
 

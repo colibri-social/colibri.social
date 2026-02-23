@@ -1,8 +1,4 @@
-@reference "./global.css"
-
-/* Without this, the first styles don't get applied??? */
-:root {
-}
+@reference "./global.css";
 
 .emoji-section-title {
 	@apply text-muted-foreground text-sm;
