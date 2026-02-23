@@ -85,6 +85,7 @@ export const MessageInput: Component = () => {
 			avatar_url: globalData.user.avatar!,
 			parent: messageData.replyingTo?.rkey,
 			parent_message: messageData.replyingTo || undefined,
+			reactions: [],
 		});
 
 		const { error } = await actions.postMessage(obj);

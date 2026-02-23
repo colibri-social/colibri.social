@@ -1,18 +1,23 @@
 import { actions } from "astro:actions";
 import {
+	type Accessor,
 	type Component,
 	createSignal,
 	For,
 	Match,
 	type ParentComponent,
+	type Setter,
 	Show,
 	Switch,
 } from "solid-js";
 import createMediaQuery from "@/utils/create-media-query";
-import type { IndexedMessageData } from "@/utils/sdk";
+import type { IndexedMessageData, MessageReactionData } from "@/utils/sdk";
 import {
+	type GlobalContextData,
 	type GlobalContextUtility,
 	type PendingMessageData,
+	type ReactionAddedEvent,
+	type ReactionRemovedEvent,
 	useGlobalContext,
 } from "../contexts/GlobalContext";
 import { useMessageContext } from "../contexts/MessageContext";
@@ -230,8 +235,11 @@ const MessageDeletionDrawer: ParentComponent<{
 };
 
 const EmojiPopover: ParentComponent<{
+	emojiPopoverOpen: Accessor<boolean>;
 	setEmojiPopoverOpen: (state: boolean) => void;
-	message: string;
+	setAdditionalReactions: Setter<Array<ReactionAddedEvent>>;
+	globalData: GlobalContextData;
+	messageData: IndexedMessageData;
 }> = (props) => {
 	function getTwemoji(
 		emojis: EmojiData,
@@ -255,15 +263,30 @@ const EmojiPopover: ParentComponent<{
 		components: EmojiComponents,
 		tone?: EmojiSkinTone,
 	) {
-		const addReaction = () => {
-			actions.addReaction({
+		const addReaction = async () => {
+			props.setEmojiPopoverOpen(false);
+
+			const result = await actions.addReaction({
 				emoji: emoji.emoji,
-				message: props.message,
+				message: props.messageData.rkey,
 			});
 
-			// TODO: Add reaction optimistically
+			if (result.error) {
+				return alert(result.error);
+			}
 
-			props.setEmojiPopoverOpen(false);
+			props.setAdditionalReactions((current) => [
+				...current,
+				{
+					author_did: props.globalData.user.sub,
+					rkey: result.data.rkey,
+					target_rkey: props.messageData.rkey,
+					target_author_did: props.messageData.author_did,
+					channel: props.messageData.channel,
+					emoji: emoji.emoji,
+					type: "reaction_added",
+				},
+			]);
 		};
 
 		const twemoji = getTwemoji(emojis, emoji, components, tone);
@@ -281,9 +304,9 @@ const EmojiPopover: ParentComponent<{
 
 	return (
 		<Popover
+			open={props.emojiPopoverOpen()}
 			placement="left-start"
 			hideWhenDetached
-			onOpenChange={props.setEmojiPopoverOpen}
 		>
 			<PopoverTrigger class="w-full">{props.children}</PopoverTrigger>
 			<PopoverPortal>
@@ -348,9 +371,16 @@ export const Message: Component<{
 	isSubsequent: boolean;
 }> = (props) => {
 	const [messageData, { setReplyingTo, jumpToMessage }] = useMessageContext();
-	const [globalData, { addDeletedMessage }] = useGlobalContext();
+	const [globalData, { addDeletedMessage, addReactionListener }] =
+		useGlobalContext();
 	const isPending = () => "hash" in props.data;
 	const [emojiPopoverOpen, setEmojiPopoverOpen] = createSignal(false);
+	const [additionalReactions, setAdditionalReactions] = createSignal<
+		Array<ReactionAddedEvent>
+	>([]);
+	const [removedReactions, setRemovedReactions] = createSignal<
+		Array<ReactionRemovedEvent>
+	>([]);
 
 	const enableReplyMode = () => {
 		if (isPending()) return;
@@ -403,6 +433,71 @@ export const Message: Component<{
 
 	const messageEditable = () => props.data.author_did === globalData.user.sub;
 
+	const messageReactions = (): Array<MessageReactionData> => {
+		const existingReactions = [...props.data.reactions];
+
+		for (const reaction of additionalReactions()) {
+			let existingEntry = existingReactions.find(
+				(x) => x.emoji === reaction.emoji,
+			);
+
+			console.log(existingEntry);
+
+			if (!existingEntry) {
+				existingReactions.push({
+					authors: [reaction.author_did],
+					rkeys: [reaction.rkey],
+					count: 1,
+					emoji: reaction.emoji,
+				});
+			} else {
+				existingEntry.authors.push(reaction.author_did);
+				existingEntry.rkeys.push(reaction.rkey);
+				existingEntry.count++;
+			}
+		}
+
+		for (const reaction of removedReactions()) {
+			let existingEntry = existingReactions.find(
+				(x) => x.emoji === reaction.emoji,
+			);
+
+			console.log(existingEntry);
+
+			if (!existingEntry) continue;
+
+			existingEntry.authors = existingEntry.authors.filter(
+				(x) => x !== reaction.author_did,
+			);
+			existingEntry.rkeys = existingEntry.rkeys.filter(
+				(x) => x !== reaction.rkey,
+			);
+			existingEntry.count--;
+		}
+
+		return existingReactions;
+	};
+
+	addReactionListener((data) => {
+		if (isPending()) return;
+
+		if (
+			data.target_rkey !== (props.data as IndexedMessageData).rkey ||
+			data.target_author_did !== props.data.author_did
+		) {
+			return;
+		}
+
+		// We have already handled this addition optimistically
+		if (data.author_did === globalData.user.sub) return;
+
+		if (data.type === "reaction_added") {
+			setAdditionalReactions((current) => [...current, data]);
+		} else {
+			setRemovedReactions((current) => [...current, data]);
+		}
+	});
+
 	return (
 		<MessageContextMenu
 			data={props.data}
@@ -423,7 +518,9 @@ export const Message: Component<{
 					"border-transparent": !isRepliedTo(),
 					"bg-primary/15 hover:bg-primary/25 border-primary": isRepliedTo(),
 					"bg-primary/15": isFocused(),
-					"pb-2": props.data.reactions.length > 0,
+					"pb-2":
+						messageReactions().length > 0 &&
+						messageReactions().every((reaction) => reaction.count >= 0),
 				}}
 			>
 				<Show when={props.data.parent_message}>
@@ -516,10 +613,16 @@ export const Message: Component<{
 							}}
 						>
 							<EmojiPopover
+								emojiPopoverOpen={emojiPopoverOpen}
 								setEmojiPopoverOpen={setEmojiPopoverOpen}
-								message={(props.data as IndexedMessageData).rkey}
+								setAdditionalReactions={setAdditionalReactions}
+								globalData={globalData}
+								messageData={props.data as IndexedMessageData}
 							>
-								<MessageAction tooltipText="Add reaction">
+								<MessageAction
+									tooltipText="Add reaction"
+									onClick={() => setEmojiPopoverOpen((current) => !current)}
+								>
 									<EmojiIcon />
 								</MessageAction>
 							</EmojiPopover>
@@ -549,26 +652,77 @@ export const Message: Component<{
 						</div>
 					</Show>
 				</div>
-				<div class="flex flex-row gap-4 items-center pl-14">
-					<For each={props.data.reactions}>
-						{(item) => (
-							<button
-								type="button"
-								class="border rounded-sm hover:bg-card px-1.5 py-1 flex gap-1 items-center cursor-pointer"
-								classList={{
-									"border-primary bg-primary/15 hover:bg-primary/25":
-										item.authors.includes(globalData.user.sub),
-									"border-border bg-card hover:bg-muted":
-										!item.authors.includes(globalData.user.sub),
-								}}
-								onClick={() => {
-									// TODO: Add same reaction if not in array, remove if in array, handle optimistic updates
-								}}
-							>
-								<span class="h-4 w-4" innerHTML={twemoji.parse(item.emoji)} />
-								<span class="text-muted-foreground text-sm">{item.count}</span>
-							</button>
-						)}
+				<div class="flex flex-row gap-1 flex-wrap items-center pl-14">
+					<For each={messageReactions()}>
+						{(item) => {
+							if (item.count < 1) return null;
+							return (
+								<button
+									type="button"
+									class="border rounded-sm hover:bg-card px-1.5 py-1 flex gap-1 items-center cursor-pointer"
+									classList={{
+										"border-primary bg-primary/15 hover:bg-primary/25":
+											item.authors.includes(globalData.user.sub),
+										"border-border bg-card hover:bg-muted":
+											!item.authors.includes(globalData.user.sub),
+									}}
+									onClick={async () => {
+										let reactionIndex = item.authors.findIndex(
+											(author) => author === globalData.user.sub,
+										);
+
+										if (reactionIndex !== -1) {
+											const author_did = item.authors[reactionIndex];
+											const rkey = item.rkeys[reactionIndex];
+
+											actions.removeReaction({
+												rkey,
+											});
+
+											setRemovedReactions((current) => [
+												...current,
+												{
+													author_did,
+													rkey,
+													target_rkey: (props.data as IndexedMessageData).rkey,
+													target_author_did: props.data.author_did,
+													channel: props.data.channel,
+													emoji: item.emoji,
+													type: "reaction_removed",
+												},
+											]);
+										} else {
+											const result = await actions.addReaction({
+												emoji: item.emoji,
+												message: (props.data as IndexedMessageData).rkey,
+											});
+
+											if (result.error) {
+												return alert(result.error);
+											}
+
+											setAdditionalReactions((current) => [
+												...current,
+												{
+													author_did: globalData.user.sub,
+													rkey: result.data.rkey,
+													target_rkey: (props.data as IndexedMessageData).rkey,
+													target_author_did: props.data.author_did,
+													channel: props.data.channel,
+													emoji: item.emoji,
+													type: "reaction_added",
+												},
+											]);
+										}
+									}}
+								>
+									<span class="h-4 w-4" innerHTML={twemoji.parse(item.emoji)} />
+									<span class="text-muted-foreground text-sm">
+										{item.count}
+									</span>
+								</button>
+							);
+						}}
 					</For>
 				</div>
 			</div>

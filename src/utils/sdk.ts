@@ -43,10 +43,11 @@ export type MessageData = {
 	parent?: string;
 };
 
-export type ReactionData = {
+export type MessageReactionData = {
 	emoji: string;
 	authors: Array<string>;
 	count: number;
+	rkeys: Array<string>;
 };
 
 export type IndexedMessageData = {
@@ -59,7 +60,7 @@ export type IndexedMessageData = {
 	avatar_url: string;
 	parent: string | null;
 	parent_message: IndexedMessageData | null;
-	reactions: Array<ReactionData>;
+	reactions: Array<MessageReactionData>;
 };
 
 interface AtProtoRecord<T extends string, K> {

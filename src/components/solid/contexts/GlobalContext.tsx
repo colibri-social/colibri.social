@@ -62,6 +62,7 @@ export type ReactionData = {
 	emoji: string;
 	target_rkey: string;
 	channel: string;
+	target_author_did: string;
 };
 
 export type ReactionAddedEvent = ReactionData & {

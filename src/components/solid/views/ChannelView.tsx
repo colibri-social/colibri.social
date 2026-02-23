@@ -136,7 +136,7 @@ const ChannelView: Component = () => {
 			ref={chatContainer}
 		>
 			<Suspense fallback={<div></div>}>
-				<div class="w-full flex flex-col justify-center items-center">
+				<div class="w-full flex flex-col justify-center items-center px-4 text-center">
 					<h3 class="mb-0">This is the start of this channel.</h3>
 					<p class="mb-2">Send some messages to get the discussion started!</p>
 				</div>
