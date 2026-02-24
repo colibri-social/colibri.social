@@ -13,6 +13,7 @@ import type {
 	DBMessageData,
 	IndexedMessageData,
 } from "@/utils/sdk";
+import stringify from "json-stable-stringify";
 
 type ReactionEventCallback = (
 	data: ReactionAddedEvent | ReactionRemovedEvent,
@@ -96,12 +97,14 @@ const handleNewMessage = async (
 	context: GlobalContextUtility,
 	data: MessagePostEvent,
 ) => {
-	const string = JSON.stringify({
+	const string = stringify({
 		text: data.text,
 		facets: data.facets,
 		channel: data.channel,
 		createdAt: data.created_at,
-	});
+		parent: data.parent || undefined,
+	})!;
+
 	const hash = await generateHash(string);
 
 	context.removePendingMessage(hash);

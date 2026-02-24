@@ -3,7 +3,9 @@ import { detectFacets } from "@/utils/atproto/rich-text/detection";
 import { UnicodeString } from "@/utils/atproto/rich-text/unicode";
 import twemoji from "@twemoji/api";
 import {
+	createEffect,
 	createSignal,
+	on,
 	Show,
 	type Accessor,
 	type Component,
@@ -19,6 +21,19 @@ import { Underline } from "../icons/Underline";
 import { Strikethrough } from "../icons/Strikethrough";
 import { Code } from "../icons/Code";
 import { Link } from "../icons/Link";
+import {
+	Popover,
+	PopoverContent,
+	PopoverPortal,
+	PopoverTrigger,
+} from "../shadcn-solid/Popover";
+import {
+	TextField,
+	TextFieldErrorMessage,
+	TextFieldInput,
+	TextFieldLabel,
+} from "../shadcn-solid/text-field";
+import { Button } from "../shadcn-solid/Button";
 
 export type TextWithFacets = {
 	text: string;
@@ -334,6 +349,58 @@ const mergeWithDetectedFacets = (parsed: TextWithFacets): TextWithFacets => {
 	};
 };
 
+/**
+ * Strips leading and trailing whitespace from the text and adjusts facet
+ * byte offsets accordingly. Facets that fall entirely within the trimmed
+ * regions are removed; facets that partially overlap are clamped.
+ */
+export const trimTextWithFacets = (input: TextWithFacets): TextWithFacets => {
+	const { text, facets } = input;
+
+	// Find leading and trailing whitespace in the original string
+	const leadingMatch = text.match(/^\s+/);
+	const trailingMatch = text.match(/\s+$/);
+	const leadingWs = leadingMatch ? leadingMatch[0] : "";
+	const trailingWs = trailingMatch ? trailingMatch[0] : "";
+
+	if (!leadingWs && !trailingWs) return input;
+
+	const trimmedText = text.slice(
+		leadingWs.length,
+		text.length - (trailingWs.length || 0),
+	);
+
+	// Compute byte-level boundaries for the trimmed region
+	const leadingBytes = textEncoder.encode(leadingWs).length;
+	const totalBytes = textEncoder.encode(text).length;
+	const trailingBytes = textEncoder.encode(trailingWs).length;
+	const trimmedEndByte = totalBytes - trailingBytes;
+
+	const newFacets: Facet[] = [];
+	for (const facet of facets) {
+		// Clamp the facet to the trimmed byte region
+		const newStart =
+			Math.max(facet.index.byteStart, leadingBytes) - leadingBytes;
+		const newEnd = Math.min(facet.index.byteEnd, trimmedEndByte) - leadingBytes;
+
+		// Discard facets that are entirely outside the trimmed region
+		if (newStart >= newEnd) continue;
+
+		newFacets.push({
+			...facet,
+			index: {
+				byteStart: newStart,
+				byteEnd: newEnd,
+			},
+		});
+	}
+
+	return {
+		text: trimmedText,
+		facets: newFacets,
+	};
+};
+
 const ToolbarButton: ParentComponent<{
 	onClick?: (e: MouseEvent) => void;
 	active?: boolean;
@@ -342,6 +409,7 @@ const ToolbarButton: ParentComponent<{
 		type="button"
 		class="w-8 h-8 flex items-center justify-center cursor-pointer hover:bg-muted/50"
 		classList={{ "bg-muted": !!props.active }}
+		onMouseDown={(e) => e.preventDefault()}
 		onClick={props.onClick}
 	>
 		{props.children}
@@ -523,7 +591,7 @@ const getSelectionByteOffsets = (
 };
 
 /** Map a toolbar format name to the corresponding facet feature. */
-const formatTypeToFeature = (type: string): AnyFeature | null => {
+const formatTypeToFeature = (type: string, uri?: string): AnyFeature | null => {
 	switch (type) {
 		case "bold":
 			return { $type: "social.colibri.richtext.facet#bold" };
@@ -535,6 +603,8 @@ const formatTypeToFeature = (type: string): AnyFeature | null => {
 			return { $type: "social.colibri.richtext.facet#strikethrough" };
 		case "code":
 			return { $type: "social.colibri.richtext.facet#code" };
+		case "link":
+			return { $type: "social.colibri.richtext.facet#link", uri: uri ?? "" };
 		default:
 			return null;
 	}
@@ -729,10 +799,53 @@ const charOffsetToDomPosition = (
 	return result;
 };
 
+/** Validate that a string is a well-formed http(s) URL. */
+const isValidUrl = (value: string): boolean => {
+	try {
+		const url = new URL(value);
+		return url.protocol === "http:" || url.protocol === "https:";
+	} catch {
+		return false;
+	}
+};
+
 const Toolbar: Component<{
 	state: Accessor<ToolbarState | null>;
-	onFormat: (type: string) => void;
+	onFormat: (type: string, link?: string) => void;
+	onPopoverOpenChange?: (open: boolean) => void;
 }> = (props) => {
+	const [link, setLink] = createSignal("");
+	const [linkError, setLinkError] = createSignal("");
+	const [popoverOpen, setPopoverOpen] = createSignal(false);
+
+	const handlePopoverOpenChange = (open: boolean) => {
+		setPopoverOpen(open);
+		if (!open) {
+			setLink("");
+			setLinkError("");
+		}
+		props.onPopoverOpenChange?.(open);
+	};
+
+	const handleAddLink = () => {
+		const url = link().trim();
+
+		if (!url) {
+			setLinkError("Please enter a URL.");
+			return;
+		}
+
+		if (!isValidUrl(url)) {
+			setLinkError("Please enter a valid http or https URL.");
+			return;
+		}
+
+		setLinkError("");
+		props.onFormat("link", url);
+		setPopoverOpen(false);
+		setLink("");
+	};
+
 	return (
 		<Show when={props.state()}>
 			{(state) => (
@@ -742,7 +855,6 @@ const Toolbar: Component<{
 						top: `${state().position.top - 48}px`,
 						left: `${state().position.left}px`,
 					}}
-					onMouseDown={(e) => e.preventDefault()}
 				>
 					<ToolbarButton
 						onClick={() => props.onFormat("bold")}
@@ -774,9 +886,46 @@ const Toolbar: Component<{
 					>
 						<Code />
 					</ToolbarButton>
-					<ToolbarButton>
-						<Link />
-					</ToolbarButton>
+					<Popover open={popoverOpen()} onOpenChange={handlePopoverOpenChange}>
+						<PopoverTrigger>
+							<ToolbarButton>
+								<Link />
+							</ToolbarButton>
+						</PopoverTrigger>
+						<PopoverPortal>
+							<PopoverContent>
+								<TextField validationState={linkError() ? "invalid" : "valid"}>
+									<TextFieldLabel>Link</TextFieldLabel>
+									<TextFieldInput
+										type="url"
+										value={link()}
+										onInput={(e) => {
+											setLink(e.currentTarget.value);
+											if (linkError()) setLinkError("");
+										}}
+										onKeyDown={(e) => {
+											if (e.key === "Enter") {
+												e.preventDefault();
+												handleAddLink();
+											}
+										}}
+										autocomplete="off"
+										autocorrect="off"
+										placeholder="https://colibri.social"
+									/>
+									<TextFieldErrorMessage>{linkError()}</TextFieldErrorMessage>
+								</TextField>
+								<div class="w-full flex justify-end">
+									<Button
+										class="mt-4 cursor-pointer ml-auto"
+										onClick={handleAddLink}
+									>
+										Add
+									</Button>
+								</div>
+							</PopoverContent>
+						</PopoverPortal>
+					</Popover>
 				</div>
 			)}
 		</Show>
@@ -790,15 +939,48 @@ export const RichTextRenderer: Component<{
 	classList?: Record<string, boolean>;
 }> = (props) => {
 	let pRef: HTMLParagraphElement | undefined;
+	let skipNextEffect = false;
 
 	const rendered = renderWithFacets(props.text());
 	const renderedWithEmojis = twemoji.parse(rendered);
+
+	// Re-render the contentEditable DOM when the text signal changes externally
+	// (e.g. clearing the input after sending a message). Internal changes from
+	// typing or toolbar formatting set `skipNextEffect` so we don't clobber
+	// the live DOM the user is editing.
+	createEffect(
+		on(
+			() => props.text(),
+			(content) => {
+				if (skipNextEffect) {
+					skipNextEffect = false;
+					return;
+				}
+				if (pRef) {
+					const newRendered = renderWithFacets(content);
+					pRef.innerHTML = twemoji.parse(newRendered);
+				}
+			},
+			{ defer: true },
+		),
+	);
 
 	const [toolbarState, setToolbarState] = createSignal<ToolbarState | null>(
 		null,
 	);
 
+	let popoverOpen = false;
+
+	const handlePopoverOpenChange = (open: boolean) => {
+		popoverOpen = open;
+	};
+
 	const handleSelection = () => {
+		// While the link popover is open, don't update or dismiss the
+		// toolbar — the user is interacting with the popover's text field
+		// and the selection is expected to leave the contentEditable.
+		if (popoverOpen) return;
+
 		const sel = document.getSelection();
 		if (
 			pRef &&
@@ -848,14 +1030,14 @@ export const RichTextRenderer: Component<{
 		}
 	};
 
-	const handleFormat = (formatType: string) => {
+	const handleFormat = (formatType: string, link?: string) => {
 		const state = toolbarState();
 		if (!state || !pRef || !props.setInputContent) return;
 
 		const offsets = getSelectionByteOffsets(pRef, state.range);
 		if (!offsets) return;
 
-		const feature = formatTypeToFeature(formatType);
+		const feature = formatTypeToFeature(formatType, link);
 		if (!feature) return;
 
 		const current = props.text();
@@ -932,6 +1114,7 @@ export const RichTextRenderer: Component<{
 			facets: newFacets,
 		};
 
+		skipNextEffect = true;
 		props.setInputContent(newContent);
 
 		// Re-render the contentEditable with the new facets
@@ -940,6 +1123,7 @@ export const RichTextRenderer: Component<{
 
 		// Clear the toolbar since the selection is now stale
 		setToolbarState(null);
+		popoverOpen = false;
 
 		// Restore the cursor at the end of the previously selected range.
 		// Use requestAnimationFrame so the browser has finished laying out
@@ -1007,17 +1191,23 @@ export const RichTextRenderer: Component<{
 						result.facets.length > 0
 					) {
 						e.currentTarget.innerHTML = "";
+						skipNextEffect = true;
 						props.setInputContent({ text: "", facets: [] });
 						return;
 					}
 
+					skipNextEffect = true;
 					props.setInputContent(result);
 				}}
 				ref={pRef}
 			/>
 			<Show when={props.editable && toolbarState() !== null}>
 				<Portal>
-					<Toolbar state={toolbarState} onFormat={handleFormat} />
+					<Toolbar
+						state={toolbarState}
+						onFormat={handleFormat}
+						onPopoverOpenChange={handlePopoverOpenChange}
+					/>
 				</Portal>
 			</Show>
 		</>

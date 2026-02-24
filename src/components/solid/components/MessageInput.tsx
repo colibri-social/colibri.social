@@ -7,8 +7,13 @@ import { useMessageContext } from "../contexts/MessageContext";
 import { Plus } from "../icons/Plus";
 import { XCircle } from "../icons/XCircle";
 import { makePersisted } from "@solid-primitives/storage";
-import { RichTextRenderer, type TextWithFacets } from "./RichTextRenderer";
+import {
+	RichTextRenderer,
+	trimTextWithFacets,
+	type TextWithFacets,
+} from "./RichTextRenderer";
 import type { PostMessageInput } from "@/actions/message/post";
+import stringify from "json-stable-stringify";
 
 const content: TextWithFacets = {
 	text: "This is some text content containing @lou.gg mentions, #channel mentions, bold, italic, underlined and strikethrough text, as well as code. It also contains a https://example.com url. 😁",
@@ -90,22 +95,28 @@ export const MessageInput: Component = () => {
 	// });
 
 	const sendMessage = async (): Promise<boolean> => {
+		const trimmed = trimTextWithFacets(inputContent());
+
+		if (trimmed.text.length === 0) {
+			return false;
+		}
+
 		const obj: PostMessageInput = {
-			text: inputContent().text,
-			facets: inputContent().facets,
+			text: trimmed.text,
+			facets: trimmed.facets,
 			channel: channel(),
 			createdAt: new Date().toISOString(),
 			parent: messageData.replyingTo?.rkey,
 		};
 
-		const hash = await generateHash(JSON.stringify(obj));
+		const hash = await generateHash(stringify(obj)!);
 
 		addPendingMessage({
 			channel: obj.channel,
 			created_at: obj.createdAt,
 			hash,
-			text: inputContent().text,
-			facets: inputContent().facets,
+			text: trimmed.text,
+			facets: trimmed.facets,
 			author_did: globalData.user.sub,
 			display_name: globalData.user.displayName!,
 			avatar_url: globalData.user.avatar!,
