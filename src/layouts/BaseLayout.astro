@@ -1,18 +1,46 @@
 ---
 import "@/styles/global.css";
 import { Font } from "astro:assets";
+
+interface Props {
+	title?: string;
+	description?: string;
+	image?: string;
+}
+
+const {
+	title = "Colibri",
+	description = "Work in progress.",
+	image = "/og.png",
+} = Astro.props;
 ---
 
 <html lang="en" class="dark">
 	<head>
 		<meta charset="utf-8" />
+		<link rel="icon" type="image/png" href="/favicon-96x96.png" sizes="96x96" />
 		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-		<link rel="icon" href="/favicon.ico" />
+		<link rel="shortcut icon" href="/favicon.ico" />
+		<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+		<meta name="apple-mobile-web-app-title" content="Colibri" />
+		<link rel="manifest" href="/site.webmanifest" />
 		<meta name="viewport" content="width=device-width" />
 		<meta name="generator" content={Astro.generator} />
+		<title>{title}</title>
+		<meta name="description" content={description} />
+		<meta name="theme-color" content="#8e51ff" />
+		<link rel="canonical" href={Astro.site} />
+		<meta property="og:title" content={title} />
+		<meta property="og:description" content={description} />
+		{image !== undefined && <meta property="og:image" content={image} />}
+		<meta property="og:url" content={Astro.site} />
+		<meta property="og:type" content="website" />
+		<meta property="og:locale" content="en" />
+		<meta name="twitter:card" content="summary_large_image" />
+		<meta name="twitter:title" content={title} />
+		<meta name="twitter:description" content={description} />
 		<Font cssVariable="--font-hanken-grotesk" preload />
 		<Font cssVariable="--font-geist-mono" preload />
-		<title>Astro</title>
 	</head>
 	<body class="w-screen h-screen">
 		<slot />

@@ -4,15 +4,21 @@ import { UnicodeString } from "@/utils/atproto/rich-text/unicode";
 import twemoji from "@twemoji/api";
 import {
 	createSignal,
-	type JSX,
 	Show,
 	type Accessor,
 	type Component,
 	type Setter,
 	onMount,
 	onCleanup,
+	type ParentComponent,
 } from "solid-js";
 import { Portal } from "solid-js/web";
+import { Bold } from "../icons/Bold";
+import { Italic } from "../icons/Italic";
+import { Underline } from "../icons/Underline";
+import { Strikethrough } from "../icons/Strikethrough";
+import { Code } from "../icons/Code";
+import { Link } from "../icons/Link";
 
 export type TextWithFacets = {
 	text: string;
@@ -328,6 +334,455 @@ const mergeWithDetectedFacets = (parsed: TextWithFacets): TextWithFacets => {
 	};
 };
 
+const ToolbarButton: ParentComponent<{
+	onClick?: (e: MouseEvent) => void;
+	active?: boolean;
+}> = (props) => (
+	<button
+		type="button"
+		class="w-8 h-8 flex items-center justify-center cursor-pointer hover:bg-muted/50"
+		classList={{ "bg-muted": !!props.active }}
+		onClick={props.onClick}
+	>
+		{props.children}
+	</button>
+);
+
+const getSelectionPixels = (selection: Selection | null) => {
+	if (!selection || selection.rangeCount === 0) return null;
+
+	const range = selection.getRangeAt(0);
+
+	// Try collapsing to start for a precise caret position
+	const collapsed = range.cloneRange();
+	collapsed.collapse(true);
+	let rect = collapsed.getBoundingClientRect();
+
+	// Fall back to the full range rect when the collapsed rect is degenerate
+	// (e.g. Ctrl+A selects everything and the collapsed range sits at an
+	// element boundary where getBoundingClientRect returns all zeros)
+	if (rect.height === 0) {
+		rect = range.getBoundingClientRect();
+	}
+
+	if (rect.height === 0) return null;
+
+	return {
+		top: rect.top + window.scrollY,
+		left: rect.left + window.scrollX,
+		bottom: rect.bottom + window.scrollY,
+		height: rect.height,
+	};
+};
+
+type ToolbarPosition = {
+	top: number;
+	left: number;
+	bottom: number;
+	height: number;
+};
+
+type ToolbarState = {
+	position: ToolbarPosition;
+	selection: Selection;
+	range: Range;
+	isBackward: boolean;
+	activeFormats: Set<string>;
+};
+
+/**
+ * Walk the DOM tree of a `contentEditable` element — mirroring the exact same
+ * text-construction logic used by {@link parseDomToFacets} — and map a
+ * browser {@link Range}'s start/end boundaries to UTF-8 byte offsets within
+ * that text.
+ *
+ * This correctly handles multi-line selections where `startContainer` and
+ * `endContainer` live in completely different DOM subtrees.
+ */
+const getSelectionByteOffsets = (
+	root: HTMLElement,
+	range: Range,
+): {
+	byteStart: number;
+	byteEnd: number;
+	charStart: number;
+	charEnd: number;
+} | null => {
+	let text = "";
+	let startCharOffset: number | null = null;
+	let endCharOffset: number | null = null;
+
+	const BLOCK_TAGS = new Set([
+		"DIV",
+		"P",
+		"BLOCKQUOTE",
+		"LI",
+		"OL",
+		"UL",
+		"H1",
+		"H2",
+		"H3",
+		"H4",
+		"H5",
+		"H6",
+	]);
+
+	/** Check whether a range boundary targets `container` at child-index `childIndex`. */
+	const checkElementBoundary = (container: Node, childIndex: number) => {
+		if (
+			range.startContainer === container &&
+			range.startOffset === childIndex &&
+			startCharOffset === null
+		) {
+			startCharOffset = text.length;
+		}
+		if (
+			range.endContainer === container &&
+			range.endOffset === childIndex &&
+			endCharOffset === null
+		) {
+			endCharOffset = text.length;
+		}
+	};
+
+	/** Walk all children of `parent`, checking element-level boundaries before each child and after the last. */
+	const walkChildren = (parent: Node) => {
+		const children = parent.childNodes;
+		for (let i = 0; i < children.length; i++) {
+			checkElementBoundary(parent, i);
+			walk(children[i], i === 0);
+		}
+		checkElementBoundary(parent, children.length);
+	};
+
+	const walk = (node: Node, isFirstChild: boolean): void => {
+		// Plain text
+		if (node.nodeType === Node.TEXT_NODE) {
+			const content = node.textContent || "";
+			const nodeStart = text.length;
+
+			if (range.startContainer === node && startCharOffset === null) {
+				startCharOffset = nodeStart + range.startOffset;
+			}
+			if (range.endContainer === node && endCharOffset === null) {
+				endCharOffset = nodeStart + range.endOffset;
+			}
+
+			text += content;
+			return;
+		}
+
+		if (node.nodeType !== Node.ELEMENT_NODE) return;
+		const el = node as HTMLElement;
+
+		// Twemoji images → original emoji character from alt
+		if (el.tagName === "IMG" && el.classList.contains("emoji")) {
+			text += el.getAttribute("alt") || "";
+			return;
+		}
+
+		// <br> → newline
+		if (el.tagName === "BR") {
+			text += "\n";
+			return;
+		}
+
+		const feature = featureFromElement(el);
+
+		// Non-facet block wrappers injected by contentEditable
+		const isBlockWrapper = !feature && BLOCK_TAGS.has(el.tagName);
+		if (
+			isBlockWrapper &&
+			!isFirstChild &&
+			text.length > 0 &&
+			!text.endsWith("\n")
+		) {
+			text += "\n";
+		}
+
+		walkChildren(el);
+	};
+
+	walkChildren(root);
+
+	if (startCharOffset === null || endCharOffset === null) return null;
+
+	const byteStart = textEncoder.encode(
+		text.substring(0, startCharOffset),
+	).byteLength;
+	const byteEnd = textEncoder.encode(
+		text.substring(0, endCharOffset),
+	).byteLength;
+
+	return {
+		byteStart,
+		byteEnd,
+		charStart: startCharOffset,
+		charEnd: endCharOffset,
+	};
+};
+
+/** Map a toolbar format name to the corresponding facet feature. */
+const formatTypeToFeature = (type: string): AnyFeature | null => {
+	switch (type) {
+		case "bold":
+			return { $type: "social.colibri.richtext.facet#bold" };
+		case "italic":
+			return { $type: "social.colibri.richtext.facet#italic" };
+		case "underline":
+			return { $type: "social.colibri.richtext.facet#underline" };
+		case "strikethrough":
+			return { $type: "social.colibri.richtext.facet#strikethrough" };
+		case "code":
+			return { $type: "social.colibri.richtext.facet#code" };
+		default:
+			return null;
+	}
+};
+
+/**
+ * Check whether the **entire** byte range `[byteStart, byteEnd)` is covered
+ * by facets of the given `featureType`. Multiple adjacent/overlapping facets
+ * are merged so that e.g. two bold facets `[0,5)` and `[5,11)` together
+ * cover `[0,11)`.
+ */
+const isFormatActive = (
+	facets: Facet[],
+	byteStart: number,
+	byteEnd: number,
+	featureType: string,
+): boolean => {
+	const overlapping = facets
+		.filter(
+			(f) =>
+				f.features.some((feat) => feat.$type === featureType) &&
+				f.index.byteStart < byteEnd &&
+				f.index.byteEnd > byteStart,
+		)
+		.sort((a, b) => a.index.byteStart - b.index.byteStart);
+
+	if (overlapping.length === 0) return false;
+
+	let covered = byteStart;
+	for (const f of overlapping) {
+		if (f.index.byteStart > covered) return false; // gap
+		covered = Math.max(covered, f.index.byteEnd);
+		if (covered >= byteEnd) return true;
+	}
+
+	return covered >= byteEnd;
+};
+
+const FORMAT_TYPES = [
+	"bold",
+	"italic",
+	"underline",
+	"strikethrough",
+	"code",
+] as const;
+
+/**
+ * Return the set of format names (e.g. `"bold"`, `"italic"`) that fully
+ * cover the given byte range in the current facet list.
+ */
+const computeActiveFormats = (
+	facets: Facet[],
+	byteStart: number,
+	byteEnd: number,
+): Set<string> => {
+	const active = new Set<string>();
+	for (const fmt of FORMAT_TYPES) {
+		if (
+			isFormatActive(
+				facets,
+				byteStart,
+				byteEnd,
+				`social.colibri.richtext.facet#${fmt}`,
+			)
+		) {
+			active.add(fmt);
+		}
+	}
+	return active;
+};
+
+/**
+ * Given a character offset into the plain text (as produced by the DOM walk
+ * in {@link parseDomToFacets} / {@link getSelectionByteOffsets}), walk the
+ * (possibly freshly re-rendered) DOM and return the corresponding
+ * `{ node, offset }` pair suitable for {@link Selection.collapse}.
+ */
+const charOffsetToDomPosition = (
+	root: HTMLElement,
+	targetCharOffset: number,
+): { node: Node; offset: number } | null => {
+	let text = "";
+	let result: { node: Node; offset: number } | null = null;
+
+	const BLOCK_TAGS = new Set([
+		"DIV",
+		"P",
+		"BLOCKQUOTE",
+		"LI",
+		"OL",
+		"UL",
+		"H1",
+		"H2",
+		"H3",
+		"H4",
+		"H5",
+		"H6",
+	]);
+
+	const walk = (node: Node, isFirstChild: boolean): boolean => {
+		if (result) return true;
+
+		// Plain text
+		if (node.nodeType === Node.TEXT_NODE) {
+			const content = node.textContent || "";
+			const nodeStart = text.length;
+			const nodeEnd = nodeStart + content.length;
+
+			if (targetCharOffset >= nodeStart && targetCharOffset <= nodeEnd) {
+				result = { node, offset: targetCharOffset - nodeStart };
+				return true;
+			}
+
+			text += content;
+			return false;
+		}
+
+		if (node.nodeType !== Node.ELEMENT_NODE) return false;
+		const el = node as HTMLElement;
+
+		// Twemoji images → original emoji character from alt
+		if (el.tagName === "IMG" && el.classList.contains("emoji")) {
+			const alt = el.getAttribute("alt") || "";
+			const nodeStart = text.length;
+			text += alt;
+
+			if (targetCharOffset >= nodeStart && targetCharOffset <= text.length) {
+				// Land cursor right after the <img>
+				const parent = el.parentNode;
+				if (parent) {
+					const idx = Array.from(parent.childNodes).indexOf(el as ChildNode);
+					result = { node: parent, offset: idx + 1 };
+				}
+				return true;
+			}
+			return false;
+		}
+
+		// <br> → newline
+		if (el.tagName === "BR") {
+			text += "\n";
+
+			if (targetCharOffset === text.length - 1) {
+				const parent = el.parentNode;
+				if (parent) {
+					const idx = Array.from(parent.childNodes).indexOf(el as ChildNode);
+					result = { node: parent, offset: idx + 1 };
+				}
+				return true;
+			}
+			return false;
+		}
+
+		const feature = featureFromElement(el);
+
+		// Non-facet block wrappers injected by contentEditable
+		const isBlockWrapper = !feature && BLOCK_TAGS.has(el.tagName);
+		if (
+			isBlockWrapper &&
+			!isFirstChild &&
+			text.length > 0 &&
+			!text.endsWith("\n")
+		) {
+			text += "\n";
+		}
+
+		const children = el.childNodes;
+		for (let i = 0; i < children.length; i++) {
+			if (walk(children[i], i === 0)) return true;
+		}
+
+		return false;
+	};
+
+	const topChildren = root.childNodes;
+	for (let i = 0; i < topChildren.length; i++) {
+		if (walk(topChildren[i], i === 0)) break;
+	}
+
+	// Fallback: place cursor at the very end
+	if (!result) {
+		if (root.lastChild && root.lastChild.nodeType === Node.TEXT_NODE) {
+			result = {
+				node: root.lastChild,
+				offset: root.lastChild.textContent?.length || 0,
+			};
+		} else {
+			result = { node: root, offset: root.childNodes.length };
+		}
+	}
+
+	return result;
+};
+
+const Toolbar: Component<{
+	state: Accessor<ToolbarState | null>;
+	onFormat: (type: string) => void;
+}> = (props) => {
+	return (
+		<Show when={props.state()}>
+			{(state) => (
+				<div
+					class="absolute w-fit h-8 bg-card flex items-center border border-border rounded-sm overflow-hidden"
+					style={{
+						top: `${state().position.top - 48}px`,
+						left: `${state().position.left}px`,
+					}}
+					onMouseDown={(e) => e.preventDefault()}
+				>
+					<ToolbarButton
+						onClick={() => props.onFormat("bold")}
+						active={state().activeFormats.has("bold")}
+					>
+						<Bold />
+					</ToolbarButton>
+					<ToolbarButton
+						onClick={() => props.onFormat("italic")}
+						active={state().activeFormats.has("italic")}
+					>
+						<Italic />
+					</ToolbarButton>
+					<ToolbarButton
+						onClick={() => props.onFormat("underline")}
+						active={state().activeFormats.has("underline")}
+					>
+						<Underline />
+					</ToolbarButton>
+					<ToolbarButton
+						onClick={() => props.onFormat("strikethrough")}
+						active={state().activeFormats.has("strikethrough")}
+					>
+						<Strikethrough />
+					</ToolbarButton>
+					<ToolbarButton
+						onClick={() => props.onFormat("code")}
+						active={state().activeFormats.has("code")}
+					>
+						<Code />
+					</ToolbarButton>
+					<ToolbarButton>
+						<Link />
+					</ToolbarButton>
+				</div>
+			)}
+		</Show>
+	);
+};
+
 export const RichTextRenderer: Component<{
 	editable?: boolean;
 	text: Accessor<TextWithFacets>;
@@ -339,55 +794,167 @@ export const RichTextRenderer: Component<{
 	const rendered = renderWithFacets(props.text());
 	const renderedWithEmojis = twemoji.parse(rendered);
 
-	const [formattingOverlayPosition, setFormattingOverlayPosition] =
-		createSignal({
-			top: -1000,
-			left: -1000,
-			shown: false,
-		});
-
-	const getSelectionPixels = (selection: Selection) => {
-		if (selection.rangeCount === 0) return null;
-
-		const range = selection.getRangeAt(0).cloneRange();
-
-		// Collapse to start to get the specific "beginning" pixel coordinate
-		range.collapse(true);
-
-		const rect = range.getBoundingClientRect();
-
-		return {
-			top: rect.top + window.scrollY,
-			left: rect.left + window.scrollX,
-			bottom: rect.bottom + window.scrollY,
-			height: rect.height,
-		};
-	};
+	const [toolbarState, setToolbarState] = createSignal<ToolbarState | null>(
+		null,
+	);
 
 	const handleSelection = () => {
-		const selection = document.getSelection();
+		const sel = document.getSelection();
 		if (
 			pRef &&
-			selection &&
-			pRef.contains(selection.anchorNode) &&
-			selection.type === "Range"
+			sel &&
+			pRef.contains(sel.anchorNode) &&
+			sel.type === "Range" &&
+			sel.rangeCount > 0
 		) {
-			const position = getSelectionPixels(selection);
+			const position = getSelectionPixels(sel);
+			if (position) {
+				const range = sel.getRangeAt(0);
+				// A selection is backward when the anchor (where the user started
+				// dragging) comes after the focus in document order.
+				let isBackward = false;
+				if (sel.anchorNode && sel.focusNode) {
+					if (sel.anchorNode === sel.focusNode) {
+						isBackward = sel.anchorOffset > sel.focusOffset;
+					} else {
+						const cmp = sel.anchorNode.compareDocumentPosition(sel.focusNode);
+						isBackward = (cmp & Node.DOCUMENT_POSITION_PRECEDING) !== 0;
+					}
+				}
 
-			if (!position) return;
+				// Compute which formats fully cover the current selection
+				const clonedRange = range.cloneRange();
+				const offsets = getSelectionByteOffsets(pRef!, clonedRange);
+				const activeFormats = offsets
+					? computeActiveFormats(
+							props.text().facets,
+							offsets.byteStart,
+							offsets.byteEnd,
+						)
+					: new Set<string>();
 
-			setFormattingOverlayPosition({
-				top: position.top - 48,
-				left: position.left,
-				shown: true,
-			});
+				setToolbarState({
+					position,
+					selection: sel,
+					range: clonedRange,
+					isBackward,
+					activeFormats,
+				});
+			} else {
+				setToolbarState(null);
+			}
 		} else {
-			setFormattingOverlayPosition({
-				top: -1,
-				left: -1,
-				shown: false,
-			});
+			setToolbarState(null);
 		}
+	};
+
+	const handleFormat = (formatType: string) => {
+		const state = toolbarState();
+		if (!state || !pRef || !props.setInputContent) return;
+
+		const offsets = getSelectionByteOffsets(pRef, state.range);
+		if (!offsets) return;
+
+		const feature = formatTypeToFeature(formatType);
+		if (!feature) return;
+
+		const current = props.text();
+		const cursorCharOffset = state.isBackward
+			? offsets.charStart
+			: offsets.charEnd;
+
+		const featureType = `social.colibri.richtext.facet#${formatType}`;
+		const active = isFormatActive(
+			current.facets,
+			offsets.byteStart,
+			offsets.byteEnd,
+			featureType,
+		);
+
+		let newFacets: Facet[];
+
+		if (active) {
+			// Toggle OFF – remove / trim / split overlapping facets of this type
+			newFacets = [];
+			for (const facet of current.facets) {
+				const isTargetType = facet.features.some(
+					(f) => f.$type === featureType,
+				);
+				const overlaps =
+					facet.index.byteStart < offsets.byteEnd &&
+					facet.index.byteEnd > offsets.byteStart;
+
+				if (!isTargetType || !overlaps) {
+					newFacets.push(facet);
+					continue;
+				}
+
+				// Part before the selection
+				if (facet.index.byteStart < offsets.byteStart) {
+					newFacets.push({
+						...facet,
+						index: {
+							byteStart: facet.index.byteStart,
+							byteEnd: offsets.byteStart,
+						},
+					} as Facet);
+				}
+
+				// Part after the selection
+				if (facet.index.byteEnd > offsets.byteEnd) {
+					newFacets.push({
+						...facet,
+						index: {
+							byteStart: offsets.byteEnd,
+							byteEnd: facet.index.byteEnd,
+						},
+					} as Facet);
+				}
+			}
+		} else {
+			// Toggle ON – add a new facet covering the selection
+			newFacets = [
+				...current.facets,
+				{
+					index: {
+						byteStart: offsets.byteStart,
+						byteEnd: offsets.byteEnd,
+					},
+					features: [feature],
+				} as Facet,
+			];
+		}
+
+		newFacets.sort((a, b) => a.index.byteStart - b.index.byteStart);
+
+		const newContent: TextWithFacets = {
+			text: current.text,
+			facets: newFacets,
+		};
+
+		props.setInputContent(newContent);
+
+		// Re-render the contentEditable with the new facets
+		const newRendered = renderWithFacets(newContent);
+		pRef.innerHTML = twemoji.parse(newRendered);
+
+		// Clear the toolbar since the selection is now stale
+		setToolbarState(null);
+
+		// Restore the cursor at the end of the previously selected range.
+		// Use requestAnimationFrame so the browser has finished laying out
+		// the freshly-injected innerHTML before we try to place the caret.
+		const ref = pRef;
+		requestAnimationFrame(() => {
+			const pos = charOffsetToDomPosition(ref, cursorCharOffset);
+			if (pos) {
+				const sel = document.getSelection();
+				if (sel) {
+					sel.collapse(pos.node, pos.offset);
+				}
+			}
+			ref.focus();
+		});
 	};
 
 	onMount(() => {
@@ -408,23 +975,49 @@ export const RichTextRenderer: Component<{
 				onInput={(e) => {
 					if (!props.setInputContent) return;
 
+					// Save cursor position before twemoji replacement mutates the DOM
+					const sel = document.getSelection();
+					let cursorCharOffset: number | null = null;
+					if (sel && sel.rangeCount > 0 && pRef) {
+						const offsets = getSelectionByteOffsets(pRef, sel.getRangeAt(0));
+						if (offsets) {
+							cursorCharOffset = offsets.charEnd;
+						}
+					}
+
+					// Replace native emoji characters with twemoji <img> elements
+					twemoji.parse(e.currentTarget);
+
+					// Restore cursor after twemoji DOM mutation
+					if (cursorCharOffset !== null && pRef && sel) {
+						const pos = charOffsetToDomPosition(pRef, cursorCharOffset);
+						if (pos) {
+							sel.collapse(pos.node, pos.offset);
+						}
+					}
+
 					const parsed = parseDomToFacets(e.currentTarget);
 					const result = mergeWithDetectedFacets(parsed);
+
+					// When all meaningful content has been deleted, clear any
+					// stale formatting wrappers the browser left behind so
+					// new text doesn't inherit the previous style.
+					if (
+						result.text.replace(/\n/g, "").length === 0 &&
+						result.facets.length > 0
+					) {
+						e.currentTarget.innerHTML = "";
+						props.setInputContent({ text: "", facets: [] });
+						return;
+					}
+
 					props.setInputContent(result);
 				}}
 				ref={pRef}
 			/>
-			<Show when={props.editable && formattingOverlayPosition().shown}>
+			<Show when={props.editable && toolbarState() !== null}>
 				<Portal>
-					<div
-						class="absolute w-65 h-8 bg-red-500"
-						style={{
-							top: `${formattingOverlayPosition().top}px`,
-							left: `${formattingOverlayPosition().left}px`,
-						}}
-					>
-						Test
-					</div>
+					<Toolbar state={toolbarState} onFormat={handleFormat} />
 				</Portal>
 			</Show>
 		</>

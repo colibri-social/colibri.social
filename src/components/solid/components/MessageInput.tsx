@@ -114,6 +114,11 @@ export const MessageInput: Component = () => {
 			reactions: [],
 		});
 
+		setInputContent({
+			text: "",
+			facets: [],
+		});
+
 		const { error } = await actions.postMessage(obj);
 
 		if (error) {

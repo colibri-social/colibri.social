@@ -96,14 +96,13 @@ const handleNewMessage = async (
 	context: GlobalContextUtility,
 	data: MessagePostEvent,
 ) => {
-	const hash = await generateHash(
-		JSON.stringify({
-			text: data.text,
-			channel: data.channel,
-			createdAt: data.created_at,
-			facets: data.facets,
-		}),
-	);
+	const string = JSON.stringify({
+		text: data.text,
+		facets: data.facets,
+		channel: data.channel,
+		createdAt: data.created_at,
+	});
+	const hash = await generateHash(string);
 
 	context.removePendingMessage(hash);
 
