@@ -28,7 +28,7 @@ export const client = new NodeOAuthClient({
 	clientMetadata: {
 		client_id: import.meta.env.DEV
 			? `http://localhost/?redirect_uri=${encodeURIComponent("http://127.0.0.1:4321/auth/callback")}&scope=${encodeURIComponent(scopes.join(" "))}`
-			: `${import.meta.env.SITE}/client-metadata.json`,
+			: `${import.meta.env.SITE}/oauth-client-metadata.json`,
 		client_name: "Colibri Chat",
 		client_uri: import.meta.env.SITE,
 		logo_uri: `${import.meta.env.SITE}/logo.png`,
