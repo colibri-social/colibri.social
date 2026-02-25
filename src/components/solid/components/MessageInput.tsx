@@ -15,57 +15,6 @@ import {
 	trimTextWithFacets,
 } from "./RichTextRenderer";
 
-const content: TextWithFacets = {
-	text: "This is some text content containing @lou.gg mentions, #channel mentions, bold, italic, underlined and strikethrough text, as well as code. It also contains a https://example.com url. 😁",
-	facets: [
-		{
-			$type: "social.colibri.richtext.facet",
-			index: { byteStart: 37, byteEnd: 44 },
-			features: [
-				{
-					$type: "social.colibri.richtext.facet#mention",
-					did: "did:plc:w64dlsa4zwjv2wljlvmymldc",
-				},
-			],
-		},
-		{
-			index: { byteStart: 55, byteEnd: 63 },
-			features: [
-				{ $type: "social.colibri.richtext.facet#channel", channel: "channel" },
-			],
-		},
-		{
-			index: { byteStart: 74, byteEnd: 78 },
-			features: [{ $type: "social.colibri.richtext.facet#bold" }],
-		},
-		{
-			index: { byteStart: 80, byteEnd: 86 },
-			features: [{ $type: "social.colibri.richtext.facet#italic" }],
-		},
-		{
-			index: { byteStart: 88, byteEnd: 98 },
-			features: [{ $type: "social.colibri.richtext.facet#underline" }],
-		},
-		{
-			index: { byteStart: 103, byteEnd: 116 },
-			features: [{ $type: "social.colibri.richtext.facet#strikethrough" }],
-		},
-		{
-			index: { byteStart: 134, byteEnd: 138 },
-			features: [{ $type: "social.colibri.richtext.facet#code" }],
-		},
-		{
-			index: { byteStart: 159, byteEnd: 178 },
-			features: [
-				{
-					$type: "social.colibri.richtext.facet#link",
-					uri: "https://example.com",
-				},
-			],
-		},
-	],
-};
-
 // text, community, category, channel
 export const MessageInput: Component = () => {
 	const params = useParams();
@@ -77,7 +26,7 @@ export const MessageInput: Component = () => {
 
 	let inputEl!: HTMLDivElement;
 	const [inputContent, setInputContent] = makePersisted(
-		createSignal<TextWithFacets>(content),
+		createSignal<TextWithFacets>({ text: "", facets: [] }),
 		{
 			name: `${params.channel}-input`,
 		},
