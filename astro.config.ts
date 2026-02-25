@@ -27,6 +27,7 @@ export default defineConfig({
 	},
 	security: {
 		allowedDomains: [
+			{ hostname: "colibri.social", protocol: "https" },
 			{ hostname: "example.com", protocol: "https" }, // Temporary until Astro 5.18
 		],
 	},
