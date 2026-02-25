@@ -1,5 +1,6 @@
 import { useParams } from "@solidjs/router";
 import {
+	createMemo,
 	createResource,
 	Match,
 	type ParentComponent,
@@ -25,12 +26,12 @@ const CommunityLayout: ParentComponent = (props) => {
 	const params = useParams();
 	const [globalContext] = useGlobalContext();
 
-	const community = globalContext.communities.find(
-		(x) => x.rkey === params.community,
+	const community = createMemo(() =>
+		globalContext.communities.find((x) => x.rkey === params.community),
 	);
 
 	const [communityInfo] = createResource(
-		params.community,
+		() => params.community,
 		fetchCommunityCategoriesAndChannels,
 	);
 
@@ -47,13 +48,16 @@ const CommunityLayout: ParentComponent = (props) => {
 						<Match when={communityInfo()?.error === null}>
 							<aside class="h-full min-w-72 w-72 border-r border-border flex flex-col">
 								<div class="w-full border-b border-border flex flex-col justify-center p-4">
-									<h2 class="m-0 text-xl">{community?.name}</h2>
+									<h2 class="m-0 text-xl">{community()?.name}</h2>
 									<small>69 Members</small>
 								</div>
-								<ChannelList data={communityInfo()!.data!} />
+								<ChannelList
+									data={communityInfo()!.data!}
+									community={params.community!}
+								/>
 								<UserStatus />
 							</aside>
-							<div class="w-full h-full flex flex-col max-h-[calc(100vh-39px)]">
+							<div class="w-full h-full flex flex-col max-h-[calc(100vh-39px)] max-w-[calc(100vw-576px-56px-1px)]">
 								<div class="w-full flex-1 min-h-0">{props.children}</div>
 								<MessageInput />
 							</div>

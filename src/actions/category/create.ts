@@ -7,8 +7,9 @@ import { ColibriSDK } from "@/utils/sdk";
 export const createCategory = defineAction({
 	input: z.object({
 		community: z.string(),
+		name: z.string().min(1).max(32),
 	}),
-	handler: async ({ community }, { session }) => {
+	handler: async ({ community, name }, { session }) => {
 		try {
 			if (!session || !session?.has("user")) {
 				throw new ActionError({
@@ -25,7 +26,7 @@ export const createCategory = defineAction({
 			const category = await sdk.createCategoryData(
 				agent.did!,
 				community,
-				"New Category",
+				name,
 			);
 			await sdk.addCategoryToCommunity(agent.did!, community, category);
 

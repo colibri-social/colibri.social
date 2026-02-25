@@ -2,8 +2,8 @@ import { ActionError, defineAction } from "astro:actions";
 import { Agent } from "@atproto/api";
 import { z } from "astro/zod";
 import { client } from "@/utils/atproto/oauth";
-import { ColibriSDK } from "@/utils/sdk";
 import type { Facet } from "@/utils/atproto/rich-text";
+import { ColibriSDK } from "@/utils/sdk";
 
 const input = z.object({
 	text: z.string().max(2048),

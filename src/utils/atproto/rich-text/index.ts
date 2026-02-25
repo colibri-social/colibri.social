@@ -91,22 +91,22 @@ F: 0 1 2 3 4 5 6 7 8 910   // string indices
    ^-------^               // target slice {start: 0, end: 5}
  */
 
-import { AppBskyRichtextFacet, type AtpBaseClient } from "@atproto/api";
-import { is$typed } from "@atproto/api/dist/client/util";
-import {
-	type ColibriRichTextBold,
-	type ColibriRichTextChannel,
-	type ColibriRichTextCode,
-	type ColibriRichTextFacet,
-	type ColibriRichTextItalic,
-	type ColibriRichTextLink,
-	type ColibriRichTextMention,
-	type ColibriRichTextStrikethrough,
-	type ColibriRichTextUnderline,
-	detectFacets,
+// import { AppBskyRichtextFacet, type AtpBaseClient } from "@atproto/api";
+// import { is$typed } from "@atproto/api/dist/client/util";
+import type {
+	ColibriRichTextBold,
+	ColibriRichTextChannel,
+	ColibriRichTextCode,
+	ColibriRichTextFacet,
+	ColibriRichTextItalic,
+	ColibriRichTextLink,
+	ColibriRichTextMention,
+	ColibriRichTextStrikethrough,
+	ColibriRichTextUnderline,
+	// detectFacets,
 } from "./detection";
-import { sanitizeRichText } from "./sanitization";
-import { UnicodeString } from "./unicode";
+// import { sanitizeRichText } from "./sanitization";
+// import { UnicodeString } from "./unicode";
 
 // TODO. See https://github.com/bluesky-social/atproto/blob/main/packages/api/src/client/lexicons.ts and
 // https://github.com/bluesky-social/atproto/blob/main/packages/api/src/client/types/app/bsky/richtext/facet.ts

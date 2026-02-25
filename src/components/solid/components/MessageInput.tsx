@@ -1,19 +1,19 @@
 import { actions } from "astro:actions";
+import { makePersisted } from "@solid-primitives/storage";
 import { useParams } from "@solidjs/router";
+import stringify from "json-stable-stringify";
 import { type Component, createSignal, Show } from "solid-js";
+import type { PostMessageInput } from "@/actions/message/post";
 import { generateHash } from "@/utils/generate-hash";
 import { useGlobalContext } from "../contexts/GlobalContext";
 import { useMessageContext } from "../contexts/MessageContext";
 import { Plus } from "../icons/Plus";
 import { XCircle } from "../icons/XCircle";
-import { makePersisted } from "@solid-primitives/storage";
 import {
 	RichTextRenderer,
-	trimTextWithFacets,
 	type TextWithFacets,
+	trimTextWithFacets,
 } from "./RichTextRenderer";
-import type { PostMessageInput } from "@/actions/message/post";
-import stringify from "json-stable-stringify";
 
 const content: TextWithFacets = {
 	text: "This is some text content containing @lou.gg mentions, #channel mentions, bold, italic, underlined and strikethrough text, as well as code. It also contains a https://example.com url. 😁",

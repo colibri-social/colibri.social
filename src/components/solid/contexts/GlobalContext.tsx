@@ -3,6 +3,7 @@ import {
 	makeHeartbeatWS,
 	makeReconnectingWS,
 } from "@solid-primitives/websocket";
+import stringify from "json-stable-stringify";
 import { createContext, type ParentComponent, useContext } from "solid-js";
 import { createStore } from "solid-js/store";
 import { generateHash } from "@/utils/generate-hash";
@@ -13,7 +14,6 @@ import type {
 	DBMessageData,
 	IndexedMessageData,
 } from "@/utils/sdk";
-import stringify from "json-stable-stringify";
 
 type ReactionEventCallback = (
 	data: ReactionAddedEvent | ReactionRemovedEvent,
@@ -30,6 +30,7 @@ export type GlobalContextData = {
 };
 
 export type GlobalContextUtility = {
+	addCommunity: (community: CommunityData) => void;
 	addChannel: (channel: ChannelData) => void;
 	addCategory: (category: CategoryData) => void;
 	addPendingMessage: (message: PendingMessageData) => void;
@@ -147,6 +148,9 @@ export const GlobalContextProvider: ParentComponent<{
 	const context: [GlobalContextData, GlobalContextUtility] = [
 		globalContext,
 		{
+			addCommunity(community) {
+				setGlobalContext("communities", (list) => [community, ...list]);
+			},
 			addChannel(channel) {
 				setGlobalContext("channels", (list) => [...list, channel]);
 			},

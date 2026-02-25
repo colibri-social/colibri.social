@@ -1,26 +1,27 @@
-import type { Facet } from "@/utils/atproto/rich-text";
-import { detectFacets } from "@/utils/atproto/rich-text/detection";
-import { UnicodeString } from "@/utils/atproto/rich-text/unicode";
 import twemoji from "@twemoji/api";
 import {
+	type Accessor,
+	type Component,
 	createEffect,
 	createSignal,
 	on,
-	Show,
-	type Accessor,
-	type Component,
-	type Setter,
-	onMount,
 	onCleanup,
+	onMount,
 	type ParentComponent,
+	type Setter,
+	Show,
 } from "solid-js";
 import { Portal } from "solid-js/web";
+import type { Facet } from "@/utils/atproto/rich-text";
+import { detectFacets } from "@/utils/atproto/rich-text/detection";
+import { UnicodeString } from "@/utils/atproto/rich-text/unicode";
 import { Bold } from "../icons/Bold";
-import { Italic } from "../icons/Italic";
-import { Underline } from "../icons/Underline";
-import { Strikethrough } from "../icons/Strikethrough";
 import { Code } from "../icons/Code";
+import { Italic } from "../icons/Italic";
 import { Link } from "../icons/Link";
+import { Strikethrough } from "../icons/Strikethrough";
+import { Underline } from "../icons/Underline";
+import { Button } from "../shadcn-solid/Button";
 import {
 	Popover,
 	PopoverContent,
@@ -33,7 +34,6 @@ import {
 	TextFieldInput,
 	TextFieldLabel,
 } from "../shadcn-solid/text-field";
-import { Button } from "../shadcn-solid/Button";
 
 export type TextWithFacets = {
 	text: string;
@@ -1152,7 +1152,7 @@ export const RichTextRenderer: Component<{
 	return (
 		<>
 			<p
-				class="m-0 rich-text focus:outline-0 leading-5.5 break-all"
+				class="m-0 rich-text focus:outline-0 leading-5.5 break-words"
 				contentEditable={props.editable}
 				innerHTML={renderedWithEmojis}
 				classList={props.classList}

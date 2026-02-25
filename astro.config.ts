@@ -25,6 +25,11 @@ export default defineConfig({
 			APPVIEW_DOMAIN: envField.string({ context: "client", access: "public" }),
 		},
 	},
+	security: {
+		allowedDomains: [
+			{ hostname: "example.com", protocol: "https" }, // Temporary until Astro 5.18
+		],
+	},
 	experimental: {
 		fonts: [
 			{

@@ -76,6 +76,7 @@ lex.add({
 						type: "string",
 						description: "The name of the community.",
 						maxLength: 32,
+						minLength: 1,
 						default: "New Community",
 					},
 					description: {
@@ -128,6 +129,7 @@ lex.add({
 						type: "string",
 						description: "The name of the category.",
 						maxLength: 32,
+						minLength: 1,
 						default: "New category",
 					},
 					channelOrder: {
@@ -173,6 +175,7 @@ lex.add({
 						type: "string",
 						description: "The name of the channel.",
 						maxLength: 32,
+						minLength: 1,
 						default: "New channel",
 					},
 					description: {

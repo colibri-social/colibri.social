@@ -9,11 +9,37 @@ type ActorData = {
 
 export type CommunityData = {
 	name: string;
-	picture?: string;
+	image?: string;
 	description: string;
 	categoryOrder: Array<string>;
 	rkey: string;
 };
+
+const pdsUrlCache = new Map<string, string>();
+
+async function resolvePdsUrl(did: string): Promise<string | undefined> {
+	if (pdsUrlCache.has(did)) return pdsUrlCache.get(did)!;
+	try {
+		const res = await fetch(`https://plc.directory/${did}`);
+		const doc = await res.json();
+		const pdsUrl = doc.service?.find(
+			(s: { id: string; serviceEndpoint: string }) => s.id === "#atproto_pds",
+		)?.serviceEndpoint;
+		if (pdsUrl) pdsUrlCache.set(did, pdsUrl);
+		return pdsUrl;
+	} catch {
+		return undefined;
+	}
+}
+
+function blobRefToUrl(
+	pdsUrl: string,
+	did: string,
+	blobRef: { ref: { toString(): string } },
+): string {
+	const cid = blobRef.ref.toString();
+	return `${pdsUrl}/xrpc/com.atproto.sync.getBlob?did=${encodeURIComponent(did)}&cid=${encodeURIComponent(cid)}`;
+}
 
 export type CategoryData = {
 	name: string;
@@ -179,12 +205,17 @@ export class ColibriSDK {
 		did: string,
 		name: string,
 		description: string,
-		_image?: string,
+		image?: Blob,
 	): Promise<string> => {
+		const blobRef = image
+			? await this.agent.com.atproto.repo.uploadBlob(image)
+			: undefined;
+
 		const record = this.constructAtProtoRecord(did, RECORD_IDs.COMMUNITY, {
 			name: name ?? "New community",
 			description: description ?? "",
 			categoryOrder: [],
+			image: blobRef ? blobRef.data.blob : undefined,
 		});
 
 		const res = await this.agent.com.atproto.repo.createRecord(record);
@@ -212,6 +243,35 @@ export class ColibriSDK {
 	};
 
 	/**
+	 * Returns the record for a given community owned by a user with the image properly resolved.
+	 * @param did The DID of the owner of the community.
+	 * @param rkey The record key of the community.
+	 * @returns The resolved community data.
+	 */
+	public getResolvedCommunityData = async (
+		did: string,
+		rkey: string,
+	): Promise<CommunityData> => {
+		const res = await this.agent.com.atproto.repo.getRecord({
+			collection: RECORD_IDs.COMMUNITY,
+			repo: did,
+			rkey,
+		});
+
+		const value = res.data.value as Record<string, any>;
+		let imageUrl: string | undefined;
+
+		if (value.image?.ref) {
+			const pdsUrl = await resolvePdsUrl(did);
+			if (pdsUrl) {
+				imageUrl = blobRefToUrl(pdsUrl, did, value.image);
+			}
+		}
+
+		return { ...value, rkey, image: imageUrl } as CommunityData;
+	};
+
+	/**
 	 * Returns a list of all communites a certain user owns.
 	 * @param did The DID of the user.
 	 * @returns The community data of all communities the user owns.
@@ -224,11 +284,21 @@ export class ColibriSDK {
 			collection: RECORD_IDs.COMMUNITY,
 		});
 
+		const pdsUrl = await resolvePdsUrl(did);
+
 		const data = communities.data.records.map((record) => {
 			const rkey = record.uri.split("/").pop()!;
+			const value = record.value as Record<string, any>;
+			let imageUrl: string | undefined;
+
+			if (value.image?.ref && pdsUrl) {
+				imageUrl = blobRefToUrl(pdsUrl, did, value.image);
+			}
+
 			return {
-				...record.value,
+				...value,
 				rkey,
+				image: imageUrl,
 			} as CommunityData;
 		});
 

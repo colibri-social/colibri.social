@@ -6,10 +6,23 @@ import { ColibriSDK } from "@/utils/sdk";
 
 export const createCommunity = defineAction({
 	input: z.object({
-		name: z.string().max(32),
-		description: z.string().max(256),
+		name: z.string().min(1).max(32),
+		image: z
+			.object({
+				base64: z
+					.string()
+					.refine(
+						(val) =>
+							/^data:image\/(png|jpeg|jpg|gif|webp|svg\+xml);base64,[A-Za-z0-9+/]+=*$/.test(
+								val,
+							),
+						{ message: "Image must be a valid base64-encoded image data URL" },
+					),
+				type: z.string(),
+			})
+			.optional(),
 	}),
-	handler: async ({ name, description }, { session }) => {
+	handler: async ({ name, image }, { session }) => {
 		try {
 			if (!session || !session?.has("user")) {
 				throw new ActionError({
@@ -26,7 +39,8 @@ export const createCommunity = defineAction({
 			const community = await sdk.createCommunityData(
 				agent.did!,
 				name,
-				description,
+				"",
+				image ? base64ToBlob(image.base64, image.type) : undefined,
 			);
 
 			return {
@@ -42,3 +56,23 @@ export const createCommunity = defineAction({
 		}
 	},
 });
+
+function base64ToBlob(base64: string, contentType = "", sliceSize = 512) {
+	const byteCharacters = atob(base64.split(",")[1]);
+	const byteArrays = [];
+
+	for (let offset = 0; offset < byteCharacters.length; offset += sliceSize) {
+		const slice = byteCharacters.slice(offset, offset + sliceSize);
+
+		const byteNumbers = new Array(slice.length);
+		for (let i = 0; i < slice.length; i++) {
+			byteNumbers[i] = slice.charCodeAt(i);
+		}
+
+		const byteArray = new Uint8Array(byteNumbers);
+		byteArrays.push(byteArray);
+	}
+
+	const blob = new Blob(byteArrays, { type: contentType });
+	return blob;
+}

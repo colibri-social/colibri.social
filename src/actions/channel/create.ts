@@ -6,12 +6,11 @@ import { ColibriSDK } from "@/utils/sdk";
 
 export const createChannel = defineAction({
 	input: z.object({
-		name: z.string(),
+		name: z.string().min(1).max(32),
 		type: z.enum(["text", "voice", "forum"]),
-		community: z.string(),
 		category: z.string(),
 	}),
-	handler: async ({ name, type, community, category }, { session }) => {
+	handler: async ({ name, type, category }, { session }) => {
 		try {
 			if (!session || !session?.has("user")) {
 				throw new ActionError({
@@ -34,7 +33,6 @@ export const createChannel = defineAction({
 			await sdk.addChannelToCategory(agent.did!, category, channel);
 
 			return {
-				community,
 				category,
 				channel,
 			};
