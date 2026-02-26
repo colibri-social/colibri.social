@@ -25,6 +25,7 @@ export const CategoryCreationModal: ParentComponent<{ community: string }> = (
 ) => {
 	const [name, setName] = createSignal("");
 	const [loading, setLoading] = createSignal(false);
+	const [open, setOpen] = createSignal(false);
 
 	/**
 	 * Creates a new category in the specified community.
@@ -42,7 +43,7 @@ export const CategoryCreationModal: ParentComponent<{ community: string }> = (
 	};
 
 	return (
-		<Dialog>
+		<Dialog open={open()} onOpenChange={setOpen}>
 			<DialogTrigger>{props.children}</DialogTrigger>
 			<DialogPortal>
 				<DialogContent class="w-92">
@@ -76,7 +77,11 @@ export const CategoryCreationModal: ParentComponent<{ community: string }> = (
 						</TextField>
 					</div>
 					<DialogFooter>
-						<Button variant="secondary" disabled={loading()}>
+						<Button
+							variant="secondary"
+							disabled={loading()}
+							onClick={() => setOpen(false)}
+						>
 							Cancel
 						</Button>
 						<Button disabled={loading()} onClick={createCategory}>
