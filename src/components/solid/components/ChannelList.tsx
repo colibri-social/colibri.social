@@ -66,7 +66,7 @@ const CategoryCreationModal: ParentComponent<{ community: string }> = (
 							}
 						>
 							<TextFieldLabel>
-								Category Name <span class="text-destructive">*</span>
+								Channel Name <span class="text-destructive">*</span>
 							</TextFieldLabel>
 							<TextFieldInput
 								maxLength={32}
