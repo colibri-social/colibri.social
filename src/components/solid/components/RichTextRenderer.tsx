@@ -10,6 +10,7 @@ import {
 	type ParentComponent,
 	type Setter,
 	Show,
+	type JSX,
 } from "solid-js";
 import { Portal } from "solid-js/web";
 import type { Facet } from "@/utils/atproto/rich-text";
@@ -66,7 +67,7 @@ const applyStyleForFacet = (text: string, feature: AnyFeature): string => {
 		case "social.colibri.richtext.facet#link": {
 			const uri =
 				"uri" in feature ? escapeAttr(String(feature.uri)) : escapeAttr(text);
-			return `<a data-facet-type="link" data-uri="${uri}" href="${uri}" class="text-primary-foreground font-medium hover:underline inline w-fit" target="_blank">${text}</a>`;
+			return `<a data-facet-type="link" title="${uri}" data-uri="${uri}" href="${uri}" class="text-primary-foreground font-medium hover:underline inline w-fit" target="_blank">${text}</a>`;
 		}
 		case "social.colibri.richtext.facet#channel": {
 			const channel =
@@ -316,12 +317,98 @@ const parseDomToFacets = (root: HTMLElement): TextWithFacets => {
 };
 
 /**
+ * Strip auto-detected link facets from the parsed output so that
+ * {@link mergeWithDetectedFacets} can re-detect them with the correct,
+ * up-to-date byte range. This is necessary because `contentEditable`
+ * browsers often place newly typed characters *outside* the `<a>` tag,
+ * causing the DOM-sourced facet to cover only part of the URL while the
+ * user continues typing.
+ *
+ * A link is considered "auto-detected" when its covered text contains no
+ * whitespace (URL-like) and the stored `uri` is a valid URL. Manually
+ * labelled links (e.g. "click here" → https://…) contain whitespace in
+ * their text and are preserved.
+ */
+const stripAutoDetectedLinks = (parsed: TextWithFacets): TextWithFacets => {
+	const bytes = textEncoder.encode(parsed.text);
+	let changed = false;
+
+	const adjustedFacets: Facet[] = [];
+
+	for (const facet of parsed.facets) {
+		const linkFeature = facet.features.find(
+			(f) => f.$type === "social.colibri.richtext.facet#link",
+		);
+
+		if (!linkFeature) {
+			adjustedFacets.push(facet);
+			continue;
+		}
+
+		const facetText = textDecoder.decode(
+			bytes.slice(facet.index.byteStart, facet.index.byteEnd),
+		);
+		const currentUri = "uri" in linkFeature ? String(linkFeature.uri) : "";
+
+		// Auto-detected links have URL-like text (no whitespace) and a
+		// valid stored URI. Strip the link feature so detectFacets can
+		// re-add it at the correct range. Manual labelled links whose
+		// text contains whitespace are kept as-is.
+		const isAutoDetected = !/\s/.test(facetText) && isValidUrl(currentUri);
+
+		if (isAutoDetected) {
+			changed = true;
+			// Preserve any non-link features on this range (e.g. bold)
+			const otherFeatures = facet.features.filter(
+				(f) => f.$type !== "social.colibri.richtext.facet#link",
+			);
+			if (otherFeatures.length > 0) {
+				adjustedFacets.push({
+					...facet,
+					features: otherFeatures,
+				} as Facet);
+			}
+			// else: drop the entire facet
+		} else {
+			adjustedFacets.push(facet);
+		}
+	}
+
+	return changed ? { text: parsed.text, facets: adjustedFacets } : parsed;
+};
+
+/**
+ * Deep-compare two facet arrays to determine whether the DOM needs to be
+ * re-rendered. Compares byte ranges, feature types, and metadata fields
+ * (uri, did, channel) so that only meaningful changes trigger a re-render.
+ */
+const facetsChanged = (a: Facet[], b: Facet[]): boolean => {
+	if (a.length !== b.length) return true;
+	for (let i = 0; i < a.length; i++) {
+		const fa = a[i];
+		const fb = b[i];
+		if (fa.index.byteStart !== fb.index.byteStart) return true;
+		if (fa.index.byteEnd !== fb.index.byteEnd) return true;
+		if (fa.features.length !== fb.features.length) return true;
+		for (let j = 0; j < fa.features.length; j++) {
+			if (fa.features[j].$type !== fb.features[j].$type) return true;
+			const af = fa.features[j] as Record<string, unknown>;
+			const bf = fb.features[j] as Record<string, unknown>;
+			if (af.uri !== bf.uri || af.did !== bf.did || af.channel !== bf.channel)
+				return true;
+		}
+	}
+	return false;
+};
+
+/**
  * After the DOM has been parsed back into facets, run the automatic pattern
  * detectors (`detectFacets`) over the plain text to discover any *new*
  * mentions, links or channels the user may have typed. Detected facets that
- * overlap with an existing DOM-sourced facet are discarded so that
- * metadata-rich facets (e.g. those carrying a resolved DID) are never
- * overwritten.
+ * overlap with an existing **non-formatting** DOM-sourced facet (i.e. links,
+ * mentions, channels) are discarded so that metadata-rich facets (e.g. those
+ * carrying a resolved DID) are never overwritten. Formatting-only facets
+ * (bold, italic, etc.) do not block detection.
  */
 const mergeWithDetectedFacets = (parsed: TextWithFacets): TextWithFacets => {
 	const unicodeText = new UnicodeString(parsed.text);
@@ -329,11 +416,21 @@ const mergeWithDetectedFacets = (parsed: TextWithFacets): TextWithFacets => {
 
 	if (!detected || detected.length === 0) return parsed;
 
+	const FORMATTING_TYPES = new Set([
+		"social.colibri.richtext.facet#bold",
+		"social.colibri.richtext.facet#italic",
+		"social.colibri.richtext.facet#underline",
+		"social.colibri.richtext.facet#strikethrough",
+		"social.colibri.richtext.facet#code",
+	]);
+
 	const merged = [...parsed.facets];
 
 	for (const detectedFacet of detected) {
 		const overlaps = parsed.facets.some(
 			(existing) =>
+				// Only non-formatting facets block detection
+				existing.features.some((f) => !FORMATTING_TYPES.has(f.$type)) &&
 				detectedFacet.index.byteStart < existing.index.byteEnd &&
 				detectedFacet.index.byteEnd > existing.index.byteStart,
 		);
@@ -941,6 +1038,136 @@ export const RichTextRenderer: Component<{
 	let pRef: HTMLParagraphElement | undefined;
 	let skipNextEffect = false;
 
+	/** Formats armed by a keyboard shortcut on a collapsed cursor, applied on the next insertion. */
+	const pendingFormats = new Set<string>();
+	/** Byte offset of the cursor when pending formats were armed. */
+	let pendingByteOffset: number | null = null;
+
+	// ── Undo / Redo history ────────────────────────────────────
+	type HistoryEntry = {
+		content: TextWithFacets;
+		cursorCharOffset: number | null;
+	};
+
+	const undoStack: HistoryEntry[] = [];
+	const redoStack: HistoryEntry[] = [];
+	const MAX_HISTORY = 100;
+
+	/** Tracks cursor char-offset so we can store it in undo entries. */
+	let lastCursorCharOffset: number | null = null;
+
+	/**
+	 * Whether we are inside a "typing burst". While true, consecutive
+	 * input events won't push additional undo entries — the whole burst
+	 * collapses into a single undo step.
+	 */
+	let inTypingBurst = false;
+	let typingBurstTimer: ReturnType<typeof setTimeout> | null = null;
+	const TYPING_BURST_MS = 400;
+
+	/** Deep-clone a TextWithFacets so mutations don't corrupt history. */
+	const cloneContent = (c: TextWithFacets): TextWithFacets => ({
+		text: c.text,
+		facets: c.facets.map((f) => ({
+			...f,
+			index: { ...f.index },
+			features: f.features.map((feat) => ({ ...feat })),
+		})),
+	});
+
+	/** Push the current state onto the undo stack (call *before* mutating). */
+	const saveForUndo = (cursorCharOffset?: number | null) => {
+		const content = props.text();
+		undoStack.push({
+			content: cloneContent(content),
+			cursorCharOffset: cursorCharOffset ?? lastCursorCharOffset,
+		});
+		if (undoStack.length > MAX_HISTORY) undoStack.shift();
+		redoStack.length = 0;
+	};
+
+	/** Restore a history entry into the editor. */
+	const applyHistoryEntry = (entry: HistoryEntry) => {
+		if (!pRef || !props.setInputContent) return;
+
+		skipNextEffect = true;
+		props.setInputContent(entry.content);
+
+		const newRendered = renderWithFacets(entry.content);
+		pRef.innerHTML = twemoji.parse(newRendered);
+
+		pendingFormats.clear();
+		pendingByteOffset = null;
+		setToolbarState(null);
+
+		// Update tracked cursor offset immediately so subsequent
+		// undo/redo operations have the correct value even before
+		// the async selectionchange event fires.
+		lastCursorCharOffset = entry.cursorCharOffset;
+
+		const ref = pRef;
+		const offset = entry.cursorCharOffset;
+		requestAnimationFrame(() => {
+			if (offset !== null) {
+				const pos = charOffsetToDomPosition(ref, offset);
+				if (pos) {
+					const sel = document.getSelection();
+					if (sel) sel.collapse(pos.node, pos.offset);
+				}
+			}
+			ref.focus();
+		});
+	};
+
+	const performUndo = () => {
+		if (undoStack.length === 0) return;
+
+		// Flush any in-progress typing burst so its state is captured
+		if (typingBurstTimer !== null) {
+			clearTimeout(typingBurstTimer);
+			typingBurstTimer = null;
+		}
+		inTypingBurst = false;
+
+		// Save current state to redo stack
+		const current = props.text();
+		redoStack.push({
+			content: cloneContent(current),
+			cursorCharOffset: lastCursorCharOffset,
+		});
+
+		const entry = undoStack.pop()!;
+		applyHistoryEntry(entry);
+	};
+
+	const performRedo = () => {
+		if (redoStack.length === 0) return;
+
+		// Flush any in-progress typing burst
+		if (typingBurstTimer !== null) {
+			clearTimeout(typingBurstTimer);
+			typingBurstTimer = null;
+		}
+		inTypingBurst = false;
+
+		// Save current state to undo stack
+		const current = props.text();
+		undoStack.push({
+			content: cloneContent(current),
+			cursorCharOffset: lastCursorCharOffset,
+		});
+
+		const entry = redoStack.pop()!;
+		applyHistoryEntry(entry);
+	};
+
+	/** Block the browser's native undo/redo so we handle it ourselves. */
+	const handleBeforeInput = (e: InputEvent) => {
+		if (e.inputType === "historyUndo" || e.inputType === "historyRedo") {
+			e.preventDefault();
+		}
+	};
+
 	const rendered = renderWithFacets(props.text());
 	const renderedWithEmojis = twemoji.parse(rendered);
 
@@ -960,11 +1187,23 @@ export const RichTextRenderer: Component<{
 					const newRendered = renderWithFacets(content);
 					pRef.innerHTML = twemoji.parse(newRendered);
 				}
+				// Clear pending formats and undo/redo history on external text changes
+				pendingFormats.clear();
+				pendingByteOffset = null;
+				undoStack.length = 0;
+				redoStack.length = 0;
+				inTypingBurst = false;
+				if (typingBurstTimer !== null) {
+					clearTimeout(typingBurstTimer);
+					typingBurstTimer = null;
+				}
+				lastCursorCharOffset = null;
 			},
 			{ defer: true },
 		),
 	);
 
+	// (toolbarState is declared early so applyHistoryEntry can reference it)
 	const [toolbarState, setToolbarState] = createSignal<ToolbarState | null>(
 		null,
 	);
@@ -980,6 +1219,28 @@ export const RichTextRenderer: Component<{
 		// toolbar — the user is interacting with the popover's text field
 		// and the selection is expected to leave the contentEditable.
 		if (popoverOpen) return;
+
+		// Any cursor movement clears pending formats so they don't
+		// unexpectedly apply later.
+		pendingFormats.clear();
+		pendingByteOffset = null;
+
+		// Track cursor position for undo history entries
+		const selForCursor = document.getSelection();
+		if (
+			selForCursor &&
+			selForCursor.rangeCount > 0 &&
+			pRef &&
+			pRef.contains(selForCursor.anchorNode)
+		) {
+			const curOffsets = getSelectionByteOffsets(
+				pRef,
+				selForCursor.getRangeAt(0),
+			);
+			if (curOffsets) {
+				lastCursorCharOffset = curOffsets.charEnd;
+			}
+		}
 
 		const sel = document.getSelection();
 		if (
@@ -1039,6 +1300,9 @@ export const RichTextRenderer: Component<{
 
 		const feature = formatTypeToFeature(formatType, link);
 		if (!feature) return;
+
+		// Save state for undo before applying the format
+		saveForUndo(state.isBackward ? offsets.charStart : offsets.charEnd);
 
 		const current = props.text();
 		const cursorCharOffset = state.isBackward
@@ -1141,13 +1405,334 @@ export const RichTextRenderer: Component<{
 		});
 	};
 
+	/**
+	 * Handle keyboard shortcuts for toggling formatting facets.
+	 * When the cursor is collapsed (no selection), the format is armed as a
+	 * "pending format" so that the next typed text inherits the style.
+	 *
+	 *   Ctrl/Cmd + B → Bold
+	 *   Ctrl/Cmd + I → Italic
+	 *   Ctrl/Cmd + U → Underline
+	 *   Ctrl/Cmd + S → Strikethrough
+	 *   Ctrl/Cmd + E → Code
+	 */
+	const handleKeyDown = (e: KeyboardEvent) => {
+		if (!props.editable || !props.setInputContent || !pRef) return;
+
+		// Handle Mentions and channel links
+
+		const isModifier = e.ctrlKey || e.metaKey;
+		if (!isModifier) return;
+
+		// ── Undo / Redo ────────────────────────────────────────
+		if (e.key.toLowerCase() === "z" && !e.shiftKey) {
+			e.preventDefault();
+			performUndo();
+			return;
+		}
+		if (
+			(e.key.toLowerCase() === "z" && e.shiftKey) ||
+			e.key.toLowerCase() === "y"
+		) {
+			e.preventDefault();
+			performRedo();
+			return;
+		}
+
+		let formatType: string | null = null;
+		switch (e.key.toLowerCase()) {
+			case "b":
+				formatType = "bold";
+				break;
+			case "i":
+				formatType = "italic";
+				break;
+			case "u":
+				formatType = "underline";
+				break;
+			case "s":
+				formatType = "strikethrough";
+				break;
+			case "e":
+				formatType = "code";
+				break;
+			default:
+				return;
+		}
+
+		e.preventDefault();
+
+		const sel = document.getSelection();
+		if (!sel || sel.rangeCount === 0) return;
+
+		// ── Collapsed cursor → toggle a pending format ──────────────
+		if (sel.isCollapsed) {
+			if (pendingFormats.has(formatType)) {
+				pendingFormats.delete(formatType);
+			} else {
+				pendingFormats.add(formatType);
+			}
+
+			const range = sel.getRangeAt(0);
+			const offsets = getSelectionByteOffsets(pRef, range);
+			if (offsets) {
+				pendingByteOffset = offsets.byteStart;
+			}
+			return;
+		}
+
+		// ── Non-collapsed selection → toggle format immediately ─────
+		const range = sel.getRangeAt(0);
+		const offsets = getSelectionByteOffsets(pRef, range);
+		if (!offsets || offsets.byteStart === offsets.byteEnd) return;
+
+		const feature = formatTypeToFeature(formatType);
+		if (!feature) return;
+
+		// Save state for undo before applying the format
+		saveForUndo(offsets.charEnd);
+
+		const featureType = `social.colibri.richtext.facet#${formatType}`;
+		const current = props.text();
+
+		const active = isFormatActive(
+			current.facets,
+			offsets.byteStart,
+			offsets.byteEnd,
+			featureType,
+		);
+
+		let newFacets: Facet[];
+
+		if (active) {
+			// Toggle OFF – remove / trim / split overlapping facets of this type
+			newFacets = [];
+			for (const facet of current.facets) {
+				const isTargetType = facet.features.some(
+					(f) => f.$type === featureType,
+				);
+				const overlaps =
+					facet.index.byteStart < offsets.byteEnd &&
+					facet.index.byteEnd > offsets.byteStart;
+
+				if (!isTargetType || !overlaps) {
+					newFacets.push(facet);
+					continue;
+				}
+
+				// Part before the selection
+				if (facet.index.byteStart < offsets.byteStart) {
+					newFacets.push({
+						...facet,
+						index: {
+							byteStart: facet.index.byteStart,
+							byteEnd: offsets.byteStart,
+						},
+					} as Facet);
+				}
+
+				// Part after the selection
+				if (facet.index.byteEnd > offsets.byteEnd) {
+					newFacets.push({
+						...facet,
+						index: {
+							byteStart: offsets.byteEnd,
+							byteEnd: facet.index.byteEnd,
+						},
+					} as Facet);
+				}
+			}
+		} else {
+			// Toggle ON – add a new facet covering the selection
+			newFacets = [
+				...current.facets,
+				{
+					index: {
+						byteStart: offsets.byteStart,
+						byteEnd: offsets.byteEnd,
+					},
+					features: [feature],
+				} as Facet,
+			];
+		}
+
+		newFacets.sort((a, b) => a.index.byteStart - b.index.byteStart);
+
+		const cursorCharOffset = offsets.charEnd;
+
+		const newContent: TextWithFacets = {
+			text: current.text,
+			facets: newFacets,
+		};
+
+		skipNextEffect = true;
+		props.setInputContent(newContent);
+
+		// Re-render the contentEditable with the new facets
+		const newRendered = renderWithFacets(newContent);
+		pRef.innerHTML = twemoji.parse(newRendered);
+
+		// Clear the toolbar since the selection is now stale
+		setToolbarState(null);
+		popoverOpen = false;
+
+		// Restore the cursor at the end of the previously selected range
+		const ref = pRef;
+		requestAnimationFrame(() => {
+			const pos = charOffsetToDomPosition(ref, cursorCharOffset);
+			if (pos) {
+				const sel = document.getSelection();
+				if (sel) {
+					sel.collapse(pos.node, pos.offset);
+				}
+			}
+			ref.focus();
+		});
+	};
+
 	onMount(() => {
 		document.addEventListener("selectionchange", handleSelection);
 	});
 
 	onCleanup(() => {
 		document.removeEventListener("selectionchange", handleSelection);
+		if (typingBurstTimer !== null) {
+			clearTimeout(typingBurstTimer);
+			typingBurstTimer = null;
+		}
 	});
+
+	const handleInput: JSX.InputEventHandlerUnion<
+		HTMLParagraphElement,
+		InputEvent
+	> = (e) => {
+		if (!props.setInputContent) return;
+
+		// ── Undo: save state before the first input in a typing burst ──
+		if (!inTypingBurst) {
+			saveForUndo();
+			inTypingBurst = true;
+		}
+		// Reset the burst timer — after TYPING_BURST_MS of silence the
+		// next keystroke will start a new undo group.
+		if (typingBurstTimer !== null) clearTimeout(typingBurstTimer);
+		typingBurstTimer = setTimeout(() => {
+			inTypingBurst = false;
+			typingBurstTimer = null;
+		}, TYPING_BURST_MS);
+
+		// Save cursor position before twemoji replacement mutates the DOM
+		const sel = document.getSelection();
+		let cursorCharOffset: number | null = null;
+		let cursorByteOffset: number | null = null;
+		if (sel && sel.rangeCount > 0 && pRef) {
+			const offsets = getSelectionByteOffsets(pRef, sel.getRangeAt(0));
+			if (offsets) {
+				cursorCharOffset = offsets.charEnd;
+				cursorByteOffset = offsets.byteEnd;
+			}
+		}
+
+		// Replace native emoji characters with twemoji <img> elements
+		twemoji.parse(e.currentTarget);
+
+		// Restore cursor after twemoji DOM mutation
+		if (cursorCharOffset !== null && pRef && sel) {
+			const pos = charOffsetToDomPosition(pRef, cursorCharOffset);
+			if (pos) {
+				sel.collapse(pos.node, pos.offset);
+			}
+		}
+
+		const parsed = parseDomToFacets(e.currentTarget);
+		const stripped = stripAutoDetectedLinks(parsed);
+		let result = mergeWithDetectedFacets(stripped);
+
+		// Deep-compare the final facets against the DOM-sourced facets
+		// to decide whether a re-render is needed (e.g. a new URL was
+		// detected, or an existing link's range grew).
+		const facetsChangedByDetection = facetsChanged(
+			parsed.facets,
+			result.facets,
+		);
+
+		// ── Apply pending formats to newly inserted text ───────
+		if (
+			pendingFormats.size > 0 &&
+			pendingByteOffset !== null &&
+			cursorByteOffset !== null &&
+			cursorByteOffset > pendingByteOffset &&
+			pRef
+		) {
+			const newFacets = [...result.facets];
+			for (const fmt of pendingFormats) {
+				const feature = formatTypeToFeature(fmt);
+				if (feature) {
+					newFacets.push({
+						index: {
+							byteStart: pendingByteOffset,
+							byteEnd: cursorByteOffset,
+						},
+						features: [feature],
+					} as Facet);
+				}
+			}
+			newFacets.sort((a, b) => a.index.byteStart - b.index.byteStart);
+			result = { text: result.text, facets: newFacets };
+
+			// Re-render so the formatted wrapper is in the DOM and
+			// subsequent typing occurs inside it.
+			const newRendered = renderWithFacets(result);
+			pRef.innerHTML = twemoji.parse(newRendered);
+
+			if (cursorCharOffset !== null && sel) {
+				const pos = charOffsetToDomPosition(pRef, cursorCharOffset);
+				if (pos) {
+					sel.collapse(pos.node, pos.offset);
+				}
+			}
+		}
+
+		// Always clear pending formats after an input event
+		pendingFormats.clear();
+		pendingByteOffset = null;
+
+		// If auto-detection added new facets (e.g. a typed URL was
+		// recognised as a link) or adjustLinkFacetUris updated a
+		// URI, re-render the DOM so the change is visible immediately.
+		if (facetsChangedByDetection && pRef) {
+			const newRendered = renderWithFacets(result);
+			pRef.innerHTML = twemoji.parse(newRendered);
+
+			if (cursorCharOffset !== null && sel) {
+				const pos = charOffsetToDomPosition(pRef, cursorCharOffset);
+				if (pos) {
+					sel.collapse(pos.node, pos.offset);
+				}
+			}
+		}
+
+		// When all meaningful content has been deleted, clear any
+		// stale formatting wrappers the browser left behind so
+		// new text doesn't inherit the previous style.
+		if (
+			result.text.replace(/\n/g, "").length === 0 &&
+			result.facets.length > 0
+		) {
+			e.currentTarget.innerHTML = "";
+			skipNextEffect = true;
+			props.setInputContent({ text: "", facets: [] });
+			return;
+		}
+
+		skipNextEffect = true;
+		props.setInputContent(result);
+
+		// Update tracked cursor offset for future undo entries
+		if (cursorCharOffset !== null) {
+			lastCursorCharOffset = cursorCharOffset;
+		}
+	};
 
 	return (
 		<>
@@ -1156,49 +1741,9 @@ export const RichTextRenderer: Component<{
 				contentEditable={props.editable}
 				innerHTML={renderedWithEmojis}
 				classList={props.classList}
-				onInput={(e) => {
-					if (!props.setInputContent) return;
-
-					// Save cursor position before twemoji replacement mutates the DOM
-					const sel = document.getSelection();
-					let cursorCharOffset: number | null = null;
-					if (sel && sel.rangeCount > 0 && pRef) {
-						const offsets = getSelectionByteOffsets(pRef, sel.getRangeAt(0));
-						if (offsets) {
-							cursorCharOffset = offsets.charEnd;
-						}
-					}
-
-					// Replace native emoji characters with twemoji <img> elements
-					twemoji.parse(e.currentTarget);
-
-					// Restore cursor after twemoji DOM mutation
-					if (cursorCharOffset !== null && pRef && sel) {
-						const pos = charOffsetToDomPosition(pRef, cursorCharOffset);
-						if (pos) {
-							sel.collapse(pos.node, pos.offset);
-						}
-					}
-
-					const parsed = parseDomToFacets(e.currentTarget);
-					const result = mergeWithDetectedFacets(parsed);
-
-					// When all meaningful content has been deleted, clear any
-					// stale formatting wrappers the browser left behind so
-					// new text doesn't inherit the previous style.
-					if (
-						result.text.replace(/\n/g, "").length === 0 &&
-						result.facets.length > 0
-					) {
-						e.currentTarget.innerHTML = "";
-						skipNextEffect = true;
-						props.setInputContent({ text: "", facets: [] });
-						return;
-					}
-
-					skipNextEffect = true;
-					props.setInputContent(result);
-				}}
+				onKeyDown={handleKeyDown}
+				onInput={handleInput}
+				onBeforeInput={handleBeforeInput}
 				ref={pRef}
 			/>
 			<Show when={props.editable && toolbarState() !== null}>

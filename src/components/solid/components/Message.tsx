@@ -20,7 +20,11 @@ import {
 	Switch,
 } from "solid-js";
 import createMediaQuery from "@/utils/create-media-query";
-import type { IndexedMessageData, MessageReactionData } from "@/utils/sdk";
+import type {
+	DBMessageData,
+	IndexedMessageData,
+	MessageReactionData,
+} from "@/utils/sdk";
 import {
 	type GlobalContextUtility,
 	type PendingMessageData,
@@ -72,15 +76,11 @@ import {
 import { MessageAction } from "./MessageAction";
 import { RichTextRenderer } from "./RichTextRenderer";
 
-const [messageToBeDeleted, setMessageToBeDeleted] =
-	createSignal<IndexedMessageData>();
-const [deletionModalOpen, setDeletionModalOpen] = createSignal(false);
-
-const deleteMessageAndCloseModal = (
+const deleteMessage = (
+	message: IndexedMessageData,
 	addDeletedMessage: GlobalContextUtility["addDeletedMessage"],
+	setOpen?: (open: boolean) => void,
 ) => {
-	const message = messageToBeDeleted()!;
-
 	actions.deleteMessage({
 		rkey: message.rkey,
 	});
@@ -92,12 +92,14 @@ const deleteMessageAndCloseModal = (
 		type: "message_deleted",
 	});
 
-	setDeletionModalOpen(false);
+	setOpen?.(false);
 };
 
 const MessageDeletionDrawer: ParentComponent<{
-	message: IndexedMessageData | PendingMessageData;
+	message: DBMessageData | PendingMessageData;
 	addDeletedMessage: GlobalContextUtility["addDeletedMessage"];
+	open: boolean;
+	setOpen: (open: boolean) => void;
 }> = (props) => {
 	const isPending = () => "hash" in props.message;
 	const isDesktop = createMediaQuery("(min-width: 768px)");
@@ -127,21 +129,23 @@ const MessageDeletionDrawer: ParentComponent<{
 						})}
 					</small>
 				</div>
-				<p
-					class="m-0"
+				<RichTextRenderer
+					text={() => ({
+						text: props.message.text,
+						facets: props.message.facets || [],
+					})}
 					classList={{
 						"text-muted-foreground": isPending(),
 						"text-foreground": !isPending(),
 					}}
-				>
-					{props.message.text}
-				</p>
+				/>
+				<p class="m-0">{}</p>
 			</div>
 		</div>
 	);
 
 	const MobileDrawer: Component = () => (
-		<Drawer breakPoints={[0.75]} open={deletionModalOpen()}>
+		<Drawer breakPoints={[0.75]} open={props.open}>
 			<DrawerTrigger>{props.children}</DrawerTrigger>
 			<DrawerPortal>
 				<DrawerContent>
@@ -160,8 +164,11 @@ const MessageDeletionDrawer: ParentComponent<{
 							variant="destructive"
 							class="cursor-pointer"
 							onClick={() => {
-								deleteMessageAndCloseModal(props.addDeletedMessage);
-								setMessageToBeDeleted(props.message as IndexedMessageData);
+								deleteMessage(
+									props.message as IndexedMessageData,
+									props.addDeletedMessage,
+									props.setOpen,
+								);
 							}}
 						>
 							Delete message
@@ -170,7 +177,7 @@ const MessageDeletionDrawer: ParentComponent<{
 							<Button
 								variant="secondary"
 								class="w-full cursor-pointer"
-								onClick={() => setDeletionModalOpen(false)}
+								onClick={() => props.setOpen(false)}
 							>
 								Cancel
 							</Button>
@@ -183,7 +190,7 @@ const MessageDeletionDrawer: ParentComponent<{
 
 	return (
 		<Show when={isDesktop()} fallback={<MobileDrawer />}>
-			<Dialog open={deletionModalOpen()}>
+			<Dialog open={props.open}>
 				<DialogTrigger class="w-full">{props.children}</DialogTrigger>
 				<DialogPortal>
 					<DialogContent>
@@ -202,8 +209,11 @@ const MessageDeletionDrawer: ParentComponent<{
 								variant="destructive"
 								class="cursor-pointer"
 								onClick={() => {
-									deleteMessageAndCloseModal(props.addDeletedMessage);
-									setMessageToBeDeleted(props.message as IndexedMessageData);
+									deleteMessage(
+										props.message as IndexedMessageData,
+										props.addDeletedMessage,
+										props.setOpen,
+									);
 								}}
 							>
 								Delete message
@@ -212,7 +222,7 @@ const MessageDeletionDrawer: ParentComponent<{
 								<Button
 									variant="secondary"
 									class="cursor-pointer"
-									onClick={() => setDeletionModalOpen(false)}
+									onClick={() => props.setOpen(false)}
 								>
 									Cancel
 								</Button>
@@ -296,10 +306,12 @@ const MessageContextMenu: ParentComponent<{
 	addDeletedMessage: GlobalContextUtility["addDeletedMessage"];
 	setEmojiPopoverOpen: (state: boolean) => void;
 	messageEditable: () => boolean;
+	deletionModalOpen: boolean;
+	setDeletionModalOpen: (open: boolean) => void;
 }> = (props) => {
 	return (
 		<ContextMenu>
-			<ContextMenuTrigger disabled={props.disabled || deletionModalOpen()}>
+			<ContextMenuTrigger disabled={props.disabled || props.deletionModalOpen}>
 				{props.children}
 			</ContextMenuTrigger>
 			<ContextMenuPortal>
@@ -316,11 +328,12 @@ const MessageContextMenu: ParentComponent<{
 						<MessageDeletionDrawer
 							message={props.data}
 							addDeletedMessage={props.addDeletedMessage}
+							open={props.deletionModalOpen}
+							setOpen={props.setDeletionModalOpen}
 						>
 							<ContextMenuItem
 								class="text-destructive"
 								onClick={(e) => {
-									setMessageToBeDeleted(props.data as IndexedMessageData);
 									props.handlePotentialDeletion(e);
 								}}
 							>
@@ -343,6 +356,7 @@ export const Message: Component<{
 	const [globalData, { addDeletedMessage, addReactionListener }] =
 		useGlobalContext();
 	const isPending = () => "hash" in props.data;
+	const [deletionModalOpen, setDeletionModalOpen] = createSignal(false);
 	const [emojiPopoverOpen, setEmojiPopoverOpen] = createSignal(false);
 	const [additionalReactions, setAdditionalReactions] = createSignal<
 		Array<ReactionAddedEvent>
@@ -421,7 +435,7 @@ export const Message: Component<{
 		if (isPending()) return;
 
 		if (e.shiftKey) {
-			return deleteMessageAndCloseModal(addDeletedMessage);
+			return deleteMessage(props.data as IndexedMessageData, addDeletedMessage);
 		}
 
 		setDeletionModalOpen(true);
@@ -525,11 +539,13 @@ export const Message: Component<{
 			data={props.data}
 			disabled={isPending()}
 			enableEditMode={enableEditMode}
+			enableReplyMode={enableReplyMode}
 			handlePotentialDeletion={handlePotentialDeletion}
 			addDeletedMessage={addDeletedMessage}
-			enableReplyMode={enableReplyMode}
 			setEmojiPopoverOpen={setEmojiPopoverOpen}
 			messageEditable={messageEditable}
+			deletionModalOpen={deletionModalOpen()}
+			setDeletionModalOpen={setDeletionModalOpen}
 		>
 			<div
 				class={`w-full h-fit flex flex-col pr-4 pl-3.5 gap-1 group border-l-2 relative hover:bg-card/50 transition-colors duration-75`}
@@ -646,12 +662,13 @@ export const Message: Component<{
 								<MessageDeletionDrawer
 									message={props.data}
 									addDeletedMessage={addDeletedMessage}
+									open={deletionModalOpen()}
+									setOpen={setDeletionModalOpen}
 								>
 									<MessageAction
 										tooltipText="Delete"
 										buttonClasses="text-destructive"
 										onClick={(e) => {
-											setMessageToBeDeleted(props.data as IndexedMessageData);
 											handlePotentialDeletion(e);
 										}}
 									>
