@@ -2,11 +2,13 @@ import { actions } from "astro:actions";
 import { makePersisted } from "@solid-primitives/storage";
 import { A, useParams } from "@solidjs/router";
 import {
+	type Accessor,
 	type Component,
 	createSignal,
 	For,
 	Match,
 	type ParentComponent,
+	type Setter,
 	Show,
 	Switch,
 } from "solid-js";
@@ -41,10 +43,13 @@ import {
 	TextFieldLabel,
 } from "../shadcn-solid/text-field";
 
-const ChannelCreationModal: ParentComponent<{ category: string }> = (props) => {
+const ChannelCreationModal: ParentComponent<{
+	category: string;
+}> = (props) => {
 	const [name, setName] = createSignal("");
 	const [channelType, setChannelType] = createSignal<string>("Text");
 	const [loading, setLoading] = createSignal(false);
+	const [open, setOpen] = createSignal(false);
 
 	const createCategory = async () => {
 		setLoading(true);
@@ -56,7 +61,8 @@ const ChannelCreationModal: ParentComponent<{ category: string }> = (props) => {
 		});
 
 		setLoading(false);
-		// TODO: Add new channel immediately, don't wait for websocket update
+		setOpen(false);
+		// TODO: Handle errors, add new channel immediately, don't wait for websocket update
 	};
 
 	const ImageForChannelType: Component<{
@@ -78,7 +84,7 @@ const ChannelCreationModal: ParentComponent<{ category: string }> = (props) => {
 	};
 
 	return (
-		<Dialog>
+		<Dialog open={open()} onOpenChange={setOpen}>
 			<DialogTrigger>{props.children}</DialogTrigger>
 			<DialogPortal>
 				<DialogContent class="w-92">
@@ -144,7 +150,11 @@ const ChannelCreationModal: ParentComponent<{ category: string }> = (props) => {
 						</Select>
 					</div>
 					<DialogFooter>
-						<Button variant="secondary" disabled={loading()}>
+						<Button
+							onClick={() => setOpen(false)}
+							variant="secondary"
+							disabled={loading()}
+						>
 							Cancel
 						</Button>
 						<Button disabled={loading()} onClick={createCategory}>

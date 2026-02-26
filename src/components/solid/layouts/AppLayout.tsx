@@ -2,10 +2,12 @@ import { actions } from "astro:actions";
 import type { Details } from "@kobalte/core/file-field";
 import { A, type Navigator, useNavigate } from "@solidjs/router";
 import {
+	type Accessor,
 	createSignal,
 	For,
 	Match,
 	type ParentComponent,
+	type Setter,
 	Switch,
 } from "solid-js";
 import { useGlobalContext } from "../contexts/GlobalContext";
@@ -39,7 +41,9 @@ import {
 	TextFieldLabel,
 } from "../shadcn-solid/text-field";
 
-const NewCommunityModal: ParentComponent<{ navigate: Navigator }> = (props) => {
+const NewCommunityModal: ParentComponent<{
+	navigate: Navigator;
+}> = (props) => {
 	const [, globalContext] = useGlobalContext();
 	const [name, setName] = createSignal<string>("");
 	const [image, setImage] = createSignal<Details>();
@@ -150,7 +154,11 @@ const NewCommunityModal: ParentComponent<{ navigate: Navigator }> = (props) => {
 						</TextField>
 					</div>
 					<DialogFooter>
-						<Button variant="secondary" disabled={loading()}>
+						<Button
+							variant="secondary"
+							disabled={loading()}
+							onClick={() => setOpen(false)}
+						>
 							Cancel
 						</Button>
 						<Button disabled={loading()} onClick={createCommunity}>
