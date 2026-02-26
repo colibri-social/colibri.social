@@ -6,6 +6,9 @@ import AppLayout from "./layouts/AppLayout";
 import CommunityLayout from "./layouts/CommunityLayout";
 import ChannelView from "./views/ChannelView";
 
+/**
+ * The entrypoint to the main solid app.
+ */
 export const App = ({
 	communities,
 	user,

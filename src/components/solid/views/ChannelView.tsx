@@ -9,17 +9,18 @@ import {
 	Suspense,
 } from "solid-js";
 import type { IndexedMessageData } from "@/utils/sdk";
-import { Message } from "../components/Message";
+import { Message } from "../components/Message/Message";
 import {
 	type PendingMessageData,
 	useGlobalContext,
 } from "../contexts/GlobalContext";
 import { useMessageContext } from "../contexts/MessageContext";
 
-// import { useGlobalContext } from "../contexts/GlobalContext";
-
-// TODO(messages): this only fetches the last 50 messages. The appview supports paging (we can implement this via observers)
-// but it's still a work in progress thing.
+/**
+ * A query used to (pre-) fetch data message data for a channel from the app view.
+ * @todo This only fetches the last 50 messages. The appview supports paging (we can
+ * implement this via observers) but it's still a work in progress thing.
+ */
 const fetchMessagesForChannel = query(
 	async (channel: string): Promise<Array<IndexedMessageData>> => {
 		const response = await fetch(
@@ -30,6 +31,9 @@ const fetchMessagesForChannel = query(
 	"messages",
 );
 
+/**
+ * A channel view within Colibri.
+ */
 const ChannelView: Component = () => {
 	const params = useParams();
 	const [messageData] = useMessageContext();
@@ -42,17 +46,10 @@ const ChannelView: Component = () => {
 
 	let chatContainer: HTMLDivElement | undefined;
 
-	onCleanup(() => {
-		sendSocketMessage({
-			action: "unsubscribe",
-			event_type: "message",
-			channel: params.channel,
-		});
-
-		clearAdditionalMessages();
-		clearDeletedMessages();
-	});
-
+	/**
+	 * A derived signal which contains all messages that should be displayed in a channel.
+	 * @returns An array of messages the component can then render.
+	 */
 	const allMessages = () => {
 		const fetchedMessageData = messages() || [];
 		const newlyReceivedMessages = globalState.additionalMessages;
@@ -79,6 +76,7 @@ const ChannelView: Component = () => {
 			});
 	};
 
+	// Handlers for web socket connections to subscribe to new messages / unsubscribe on cleanup
 	createEffect(() => {
 		sendSocketMessage({
 			action: "subscribe",
@@ -87,6 +85,18 @@ const ChannelView: Component = () => {
 		});
 	});
 
+	onCleanup(() => {
+		sendSocketMessage({
+			action: "unsubscribe",
+			event_type: "message",
+			channel: params.channel,
+		});
+
+		clearAdditionalMessages();
+		clearDeletedMessages();
+	});
+
+	// Scroll to the bottom once messages load in
 	createEffect(() => {
 		if (scrolled()) return;
 		// Wait until both initial messages and additionalMessages are ready
@@ -102,6 +112,7 @@ const ChannelView: Component = () => {
 		setScrolled(true);
 	});
 
+	// When a message is focused, scroll to that message.
 	createEffect(() => {
 		if (!messageData.focusedMessage) return;
 

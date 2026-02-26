@@ -1,6 +1,10 @@
 import type { Component } from "solid-js";
 import { useGlobalContext } from "../contexts/GlobalContext";
 
+/**
+ * The user status visible in the community sidebar.
+ * @todo This is mostly static right now.
+ */
 export const UserStatus: Component = () => {
 	const [globalState] = useGlobalContext();
 	return (

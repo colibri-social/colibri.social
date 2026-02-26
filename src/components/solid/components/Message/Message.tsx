@@ -1,353 +1,35 @@
 import { actions } from "astro:actions";
 import twemoji from "@twemoji/api";
 import {
-	convertSkinToneToComponent,
-	type Emoji,
-	type EmojiComponents,
-	type EmojiData,
-	EmojiPicker,
-	type EmojiSkinTone,
-	getEmojiWithSkinTone,
-} from "solid-emoji-picker";
-import {
-	type Accessor,
 	type Component,
 	createSignal,
 	For,
 	Match,
-	type ParentComponent,
 	Show,
 	Switch,
 } from "solid-js";
-import createMediaQuery from "@/utils/create-media-query";
-import type {
-	DBMessageData,
-	IndexedMessageData,
-	MessageReactionData,
-} from "@/utils/sdk";
+import type { IndexedMessageData, MessageReactionData } from "@/utils/sdk";
 import {
-	type GlobalContextUtility,
 	type PendingMessageData,
 	type ReactionAddedEvent,
 	type ReactionRemovedEvent,
 	useGlobalContext,
-} from "../contexts/GlobalContext";
-import { useMessageContext } from "../contexts/MessageContext";
-import { Emoji as EmojiIcon } from "../icons/Emoji";
-import { Pencil } from "../icons/Pencil";
-import { Reply } from "../icons/Reply";
-import { Trash } from "../icons/Trash";
-import { Button } from "../shadcn-solid/Button";
-import {
-	ContextMenu,
-	ContextMenuContent,
-	ContextMenuItem,
-	ContextMenuPortal,
-	ContextMenuTrigger,
-} from "../shadcn-solid/ContextMenu";
-import {
-	Dialog,
-	DialogCloseButton,
-	DialogContent,
-	DialogDescription,
-	DialogFooter,
-	DialogHeader,
-	DialogPortal,
-	DialogTitle,
-	DialogTrigger,
-} from "../shadcn-solid/Dialog";
-import {
-	Drawer,
-	DrawerClose,
-	DrawerContent,
-	DrawerDescription,
-	DrawerFooter,
-	DrawerHeader,
-	DrawerLabel,
-	DrawerPortal,
-	DrawerTrigger,
-} from "../shadcn-solid/Drawer";
-import {
-	Popover,
-	PopoverContent,
-	PopoverPortal,
-	PopoverTrigger,
-} from "../shadcn-solid/Popover";
+} from "../../contexts/GlobalContext";
+import { useMessageContext } from "../../contexts/MessageContext";
+import { Emoji as EmojiIcon } from "../../icons/Emoji";
+import { Pencil } from "../../icons/Pencil";
+import { Reply } from "../../icons/Reply";
+import { Trash } from "../../icons/Trash";
 import { MessageAction } from "./MessageAction";
-import { RichTextRenderer } from "./RichTextRenderer";
+import { RichTextRenderer } from "../RichTextRenderer";
+import { EmojiPopover } from "./EmojiPopover";
+import { MessageContextMenu } from "./MessageContextMenu";
+import { MessageDeletionDrawer } from "./MessageDeletionDrawer";
+import { deleteMessage } from "./util";
 
-const deleteMessage = (
-	message: IndexedMessageData,
-	addDeletedMessage: GlobalContextUtility["addDeletedMessage"],
-	setOpen?: (open: boolean) => void,
-) => {
-	actions.deleteMessage({
-		rkey: message.rkey,
-	});
-
-	addDeletedMessage({
-		author_did: message.author_did,
-		channel: message.channel,
-		rkey: message.rkey,
-		type: "message_deleted",
-	});
-
-	setOpen?.(false);
-};
-
-const MessageDeletionDrawer: ParentComponent<{
-	message: DBMessageData | PendingMessageData;
-	addDeletedMessage: GlobalContextUtility["addDeletedMessage"];
-	open: boolean;
-	setOpen: (open: boolean) => void;
-}> = (props) => {
-	const isPending = () => "hash" in props.message;
-	const isDesktop = createMediaQuery("(min-width: 768px)");
-
-	const MockMessage: Component = () => (
-		<div
-			class={`w-fullh-fit flex flex-row p-2 gap-4 group relative border border-border rounded-sm`}
-			classList={{
-				"mx-4": !isDesktop(),
-				"w-full mx-0": isDesktop(),
-			}}
-		>
-			<img
-				src={props.message.avatar_url || "/logo.png"}
-				alt={props.message.display_name}
-				class="w-10 h-10 min-w-10 min-h-10 bg-muted rounded-full border border-border"
-				loading="lazy"
-			/>
-			<div class="flex flex-col w-full justify-center">
-				<div class="flex gap-2 text-sm items-baseline">
-					<span class="font-bold">{props.message.display_name}</span>
-					<small class="text-muted-foreground">
-						{new Date(props.message.created_at).toLocaleDateString()}{" "}
-						{new Date(props.message.created_at).toLocaleTimeString(undefined, {
-							hour: "2-digit",
-							minute: "2-digit",
-						})}
-					</small>
-				</div>
-				<RichTextRenderer
-					text={() => ({
-						text: props.message.text,
-						facets: props.message.facets || [],
-					})}
-					classList={{
-						"text-muted-foreground": isPending(),
-						"text-foreground": !isPending(),
-					}}
-				/>
-				<p class="m-0">{}</p>
-			</div>
-		</div>
-	);
-
-	const MobileDrawer: Component = () => (
-		<Drawer breakPoints={[0.75]} open={props.open}>
-			<DrawerTrigger>{props.children}</DrawerTrigger>
-			<DrawerPortal>
-				<DrawerContent>
-					<DrawerHeader>
-						<DrawerLabel class="m-0">Delete this message?</DrawerLabel>
-						<DrawerDescription class="m-0">
-							This action cannot be undone.
-						</DrawerDescription>
-					</DrawerHeader>
-					<MockMessage />
-					<p class="text-sm text-muted-foreground my-1">
-						Tip: You can shift-click the delete button to skip this pop-up!
-					</p>
-					<DrawerFooter>
-						<Button
-							variant="destructive"
-							class="cursor-pointer"
-							onClick={() => {
-								deleteMessage(
-									props.message as IndexedMessageData,
-									props.addDeletedMessage,
-									props.setOpen,
-								);
-							}}
-						>
-							Delete message
-						</Button>
-						<DrawerClose class="w-full">
-							<Button
-								variant="secondary"
-								class="w-full cursor-pointer"
-								onClick={() => props.setOpen(false)}
-							>
-								Cancel
-							</Button>
-						</DrawerClose>
-					</DrawerFooter>
-				</DrawerContent>
-			</DrawerPortal>
-		</Drawer>
-	);
-
-	return (
-		<Show when={isDesktop()} fallback={<MobileDrawer />}>
-			<Dialog open={props.open}>
-				<DialogTrigger class="w-full">{props.children}</DialogTrigger>
-				<DialogPortal>
-					<DialogContent>
-						<DialogHeader>
-							<DialogTitle class="m-0">Delete this message?</DialogTitle>
-							<DialogDescription class="m-0">
-								This action cannot be undone.
-							</DialogDescription>
-						</DialogHeader>
-						<MockMessage />
-						<p class="text-sm text-muted-foreground my-1">
-							Tip: You can shift-click the delete button to skip this pop-up!
-						</p>
-						<DialogFooter>
-							<Button
-								variant="destructive"
-								class="cursor-pointer"
-								onClick={() => {
-									deleteMessage(
-										props.message as IndexedMessageData,
-										props.addDeletedMessage,
-										props.setOpen,
-									);
-								}}
-							>
-								Delete message
-							</Button>
-							<DialogCloseButton>
-								<Button
-									variant="secondary"
-									class="cursor-pointer"
-									onClick={() => props.setOpen(false)}
-								>
-									Cancel
-								</Button>
-							</DialogCloseButton>
-						</DialogFooter>
-					</DialogContent>
-				</DialogPortal>
-			</Dialog>
-		</Show>
-	);
-};
-
-const EmojiPopover: ParentComponent<{
-	emojiPopoverOpen: Accessor<boolean>;
-	setEmojiPopoverOpen: (state: boolean) => void;
-	addReactionOptimistic: (emoji: string) => void;
-}> = (props) => {
-	function getTwemoji(
-		emojis: EmojiData,
-		emoji: Emoji,
-		components: EmojiComponents,
-		tone?: EmojiSkinTone,
-	) {
-		const skinTone = convertSkinToneToComponent(components, tone);
-		const tonedEmoji = getEmojiWithSkinTone(emojis, emoji, skinTone);
-		const parsed = twemoji.parse(tonedEmoji);
-
-		const multipleImageTags = /<img[\w\W]+<img/g.test(parsed);
-		if (multipleImageTags) return false;
-
-		return parsed;
-	}
-
-	function renderTwemoji(
-		emojis: EmojiData,
-		emoji: Emoji,
-		components: EmojiComponents,
-		tone?: EmojiSkinTone,
-	) {
-		const addReaction = () => {
-			props.setEmojiPopoverOpen(false);
-			props.addReactionOptimistic(emoji.emoji);
-		};
-
-		const twemoji = getTwemoji(emojis, emoji, components, tone);
-
-		if (!twemoji) return null;
-
-		return (
-			<div
-				class="w-8 h-8 p-1 rounded-xs hover:bg-muted cursor-pointer"
-				innerHTML={twemoji}
-				onClick={addReaction}
-			/>
-		);
-	}
-
-	return (
-		<Popover
-			open={props.emojiPopoverOpen()}
-			onOpenChange={props.setEmojiPopoverOpen}
-			placement="left-start"
-			hideWhenDetached
-		>
-			<PopoverTrigger as="div">{props.children}</PopoverTrigger>
-			<PopoverPortal>
-				<PopoverContent class="w-74 overflow-auto h-80">
-					<EmojiPicker renderEmoji={renderTwemoji} />
-				</PopoverContent>
-			</PopoverPortal>
-		</Popover>
-	);
-};
-
-const MessageContextMenu: ParentComponent<{
-	data: IndexedMessageData | PendingMessageData;
-	disabled: boolean;
-	enableEditMode: () => void;
-	enableReplyMode: () => void;
-	handlePotentialDeletion: (e: MouseEvent) => void;
-	addDeletedMessage: GlobalContextUtility["addDeletedMessage"];
-	setEmojiPopoverOpen: (state: boolean) => void;
-	messageEditable: () => boolean;
-	deletionModalOpen: boolean;
-	setDeletionModalOpen: (open: boolean) => void;
-}> = (props) => {
-	return (
-		<ContextMenu>
-			<ContextMenuTrigger disabled={props.disabled || props.deletionModalOpen}>
-				{props.children}
-			</ContextMenuTrigger>
-			<ContextMenuPortal>
-				<ContextMenuContent>
-					<ContextMenuItem onClick={props.enableReplyMode}>
-						<Reply />
-						<span>Reply</span>
-					</ContextMenuItem>
-					<Show when={props.messageEditable()}>
-						<ContextMenuItem onClick={props.enableEditMode}>
-							<Pencil />
-							<span>Edit</span>
-						</ContextMenuItem>
-						<MessageDeletionDrawer
-							message={props.data}
-							addDeletedMessage={props.addDeletedMessage}
-							open={props.deletionModalOpen}
-							setOpen={props.setDeletionModalOpen}
-						>
-							<ContextMenuItem
-								class="text-destructive"
-								onClick={(e) => {
-									props.handlePotentialDeletion(e);
-								}}
-							>
-								<Trash />
-								<span>Delete</span>
-							</ContextMenuItem>
-						</MessageDeletionDrawer>
-					</Show>
-				</ContextMenuContent>
-			</ContextMenuPortal>
-		</ContextMenu>
-	);
-};
-
+/**
+ * A rendered message component in a chat.
+ */
 export const Message: Component<{
 	data: IndexedMessageData | PendingMessageData;
 	isSubsequent: boolean;
@@ -367,6 +49,12 @@ export const Message: Component<{
 
 	const [_, setPendingCounter] = createSignal(0);
 
+	/**
+	 * Optimistically add a reaction emoji to a message, even though the server has not responded yet.
+	 * Replaces the reaction with the proper one should the server respond with a success and will remove it
+	 * if the server errors out.
+	 * @param emoji The emoji to react with.
+	 */
 	const addReactionOptimistic = (emoji: string) => {
 		const tempRkey = `__pending_${setPendingCounter((c) => c + 1)}`;
 		const messageRkey = (props.data as IndexedMessageData).rkey;
@@ -418,19 +106,29 @@ export const Message: Component<{
 			});
 	};
 
+	/**
+	 * Enables reply mode.
+	 * @todo Disable once reply has been sent
+	 */
 	const enableReplyMode = () => {
 		if (isPending()) return;
 
 		setReplyingTo(props.data as IndexedMessageData);
 	};
 
-	const enableEditMode = () => {
-		// TODO(edit):
-		// 1. Show input
-		// 2. On enter of said input, submit edit request and immediately hide input, replace text with edited one
-		// 3. We don't care about a websocket response in this case, this can be handled locally
-	};
+	/**
+	 * Enables edit mode for this message.
+	 * @todo
+	 * 1. Show input
+	 * 2. On enter of said input, submit edit request and immediately hide input, replace text with edited one
+	 * 3. We don't care about a websocket response in this case, this can be handled locally
+	 */
+	const enableEditMode = () => {};
 
+	/**
+	 * Handles a potential deletion by either opening the modal or immediately deleting the message if the shift key is held while clicking.
+	 * @param e The click event.
+	 */
 	const handlePotentialDeletion = (e: MouseEvent) => {
 		if (isPending()) return;
 
@@ -441,6 +139,10 @@ export const Message: Component<{
 		setDeletionModalOpen(true);
 	};
 
+	/**
+	 * A derived signal to check whether a message is in reply to another message.
+	 * @returns Whether the message is in reply to another message or not.
+	 */
 	const isRepliedTo = () => {
 		if ("hash" in props.data) return;
 
@@ -450,6 +152,10 @@ export const Message: Component<{
 		);
 	};
 
+	/**
+	 * A derived signal to check whether this is a subsequent message or not.
+	 * @returns Whether this is a subsequent message or not.
+	 */
 	const isSubsequentMessage = () => {
 		if (!props.isSubsequent || typeof props.data.parent === "string") {
 			return false;
@@ -458,6 +164,10 @@ export const Message: Component<{
 		return true;
 	};
 
+	/**
+	 * A derived signal to check whether a message is focused or not.
+	 * @returns Whether a message is focused or not.
+	 */
 	const isFocused = () => {
 		if ("hash" in props.data) return false;
 
@@ -467,8 +177,17 @@ export const Message: Component<{
 		);
 	};
 
+	/**
+	 * A derived signal to check if a message is editable or not.
+	 * @returns Whether the message is editable or not.
+	 */
 	const messageEditable = () => props.data.author_did === globalData.user.sub;
 
+	/**
+	 * A derived signal that computes an array of reaction data, grouping reactions
+	 * by their emoji.
+	 * @returns A sorted array of reactions, their emoji, count, author DIDs and record keys.
+	 */
 	const messageReactions = (): Array<MessageReactionData> => {
 		const existingReactions = props.data.reactions.map((r) => ({
 			...r,
@@ -514,6 +233,9 @@ export const Message: Component<{
 		return existingReactions.filter((r) => r.count > 0);
 	};
 
+	/**
+	 * Optimistic updates for reactions coming in via the websocket
+	 */
 	addReactionListener((data) => {
 		if (isPending()) return;
 

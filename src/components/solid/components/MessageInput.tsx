@@ -15,7 +15,9 @@ import {
 	trimTextWithFacets,
 } from "./RichTextRenderer";
 
-// text, community, category, channel
+/**
+ * The message input used to send messages to the currently viewed channel.
+ */
 export const MessageInput: Component = () => {
 	const params = useParams();
 	const channel = () => params.channel!;
@@ -32,17 +34,9 @@ export const MessageInput: Component = () => {
 		},
 	);
 
-	// onMount(() => {
-	// 	// 1. Initialize the editor. Render the placeholder, make sure it's editable.
-	// 	// 2. Add event listeners for typing. When text is added, place it in a span.
-	// 	// 3. On select, show a floating toolbar above. This needs to have buttons for
-	// 	//    bold text, italics, strikethrough, underline and code.
-	// 	//    There should also be options behind a separator which change the line to be a
-	// 	//    heading (h1 - h6).
-	// 	// 4. Content is rendered using facets, this needs to be constructed using the atproto
-	// 	//    libs. Custom facets are needed for
-	// });
-
+	/**
+	 * Sends the message currently contained in the input.
+	 */
 	const sendMessage = async (): Promise<boolean> => {
 		const trimmed = trimTextWithFacets(inputContent());
 
@@ -121,7 +115,6 @@ export const MessageInput: Component = () => {
 					onKeyDown={(e) => {
 						if (e.key === "Enter" && !e.shiftKey) {
 							e.preventDefault();
-							// TODO(rich-text): Send message with facets. Implement this in appview, then in actions and then here.
 							sendMessage();
 						}
 					}}

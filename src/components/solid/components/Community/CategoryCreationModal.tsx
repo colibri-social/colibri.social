@@ -1,16 +1,7 @@
 import { actions } from "astro:actions";
-import {
-	type Component,
-	createMemo,
-	createSignal,
-	For,
-	type ParentComponent,
-} from "solid-js";
-import type { CommunityInfo } from "@/pages/api/v1/community/[community]";
-import type { ChannelData } from "@/utils/sdk";
-import { Plus } from "../icons/Plus";
-import { Spinner } from "../icons/Spinner";
-import { Button } from "../shadcn-solid/Button";
+import { createSignal, type ParentComponent } from "solid-js";
+import { Spinner } from "../../icons/Spinner";
+import { Button } from "../../shadcn-solid/Button";
 import {
 	Dialog,
 	DialogContent,
@@ -18,21 +9,27 @@ import {
 	DialogHeader,
 	DialogPortal,
 	DialogTrigger,
-} from "../shadcn-solid/Dialog";
+} from "../../shadcn-solid/Dialog";
 import {
 	TextField,
 	TextFieldDescription,
 	TextFieldInput,
 	TextFieldLabel,
-} from "../shadcn-solid/text-field";
-import { Category } from "./Category";
+} from "../../shadcn-solid/text-field";
 
-const CategoryCreationModal: ParentComponent<{ community: string }> = (
+/**
+ * A modal for creating a category.
+ */
+export const CategoryCreationModal: ParentComponent<{ community: string }> = (
 	props,
 ) => {
 	const [name, setName] = createSignal("");
 	const [loading, setLoading] = createSignal(false);
 
+	/**
+	 * Creates a new category in the specified community.
+	 * @todo Add new category immediately, don't wait for websocket update
+	 */
 	const createCategory = async () => {
 		setLoading(true);
 
@@ -42,7 +39,6 @@ const CategoryCreationModal: ParentComponent<{ community: string }> = (
 		});
 
 		setLoading(false);
-		// TODO: Add new category immediately, don't wait for websocket update
 	};
 
 	return (
@@ -96,51 +92,5 @@ const CategoryCreationModal: ParentComponent<{ community: string }> = (
 				</DialogContent>
 			</DialogPortal>
 		</Dialog>
-	);
-};
-
-export const ChannelList: Component<{
-	data: CommunityInfo;
-	community: string;
-}> = (props) => {
-	const processed = createMemo(() => {
-		const categories = props.data.categories.map((category) => ({
-			...category,
-			channels: [] as Array<ChannelData>,
-		}));
-
-		const channelsWithoutCategory: Array<ChannelData> = [];
-
-		for (const channel of props.data.channels) {
-			const category = categories.find(
-				(category) => category.rkey === channel.category,
-			);
-
-			if (category) {
-				category.channels.push(channel);
-				continue;
-			}
-
-			channelsWithoutCategory.push(channel);
-		}
-
-		return { categories, channelsWithoutCategory };
-	});
-
-	return (
-		<nav class="w-full h-full flex flex-col">
-			<For each={processed().channelsWithoutCategory}>
-				{(channel) => <div>{channel.name}</div>}
-			</For>
-			<For each={processed().categories}>
-				{(category) => <Category category={category} />}
-			</For>
-			<CategoryCreationModal community={props.community}>
-				<Button size="sm" class="w-[calc(100%-2rem)] mx-4 mt-4" variant="ghost">
-					<Plus />
-					<span>Add new category</span>
-				</Button>
-			</CategoryCreationModal>
-		</nav>
 	);
 };

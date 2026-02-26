@@ -9,12 +9,18 @@ import {
 } from "solid-js";
 import type { CommunityInfo } from "@/pages/api/v1/community/[community]";
 import type { MaybeResponse } from "@/utils/types/maybe-response";
-import { ChannelList } from "../components/ChannelList";
+import { ChannelList } from "../components/Community/ChannelList";
 import { MessageInput } from "../components/MessageInput";
 import { UserStatus } from "../components/UserStatus";
 import { useGlobalContext } from "../contexts/GlobalContext";
 import { MessageContextProvider } from "../contexts/MessageContext";
 
+/**
+ * A fetch wrapper to return all categories and channels for a community.
+ * @param community The community to fetch the data for.
+ * @returns The fetched data as JSON.
+ * @todo Move to Astro Action
+ */
 const fetchCommunityCategoriesAndChannels = async (
 	community: string,
 ): Promise<MaybeResponse<CommunityInfo>> => {
