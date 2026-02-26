@@ -1,8 +1,11 @@
-import { createSignal, Switch, type ParentComponent } from "solid-js";
-import { useGlobalContext } from "../contexts/GlobalContext";
-import type { Navigator } from "@solidjs/router";
-import type { Details } from "@kobalte/core/file-field";
 import { actions } from "astro:actions";
+import type { Details } from "@kobalte/core/file-field";
+import type { Navigator } from "@solidjs/router";
+import { createSignal, Match, type ParentComponent, Switch } from "solid-js";
+import { useGlobalContext } from "../contexts/GlobalContext";
+import { Image } from "../icons/Image";
+import { Spinner } from "../icons/Spinner";
+import { Button } from "../shadcn-solid/Button";
 import {
 	Dialog,
 	DialogContent,
@@ -20,16 +23,12 @@ import {
 	FileFieldItemPreviewImage,
 	FileFieldTrigger,
 } from "../shadcn-solid/file-field";
-import { Match } from "solid-js";
-import { Image } from "../icons/Image";
 import {
 	TextField,
 	TextFieldDescription,
 	TextFieldInput,
 	TextFieldLabel,
 } from "../shadcn-solid/text-field";
-import { Button } from "../shadcn-solid/Button";
-import { Spinner } from "../icons/Spinner";
 
 export const NewCommunityModal: ParentComponent<{ navigate: Navigator }> = (
 	props,

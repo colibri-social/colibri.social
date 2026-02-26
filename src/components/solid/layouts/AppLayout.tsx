@@ -1,10 +1,10 @@
 import { A, useNavigate } from "@solidjs/router";
 import { For, Match, type ParentComponent, Switch } from "solid-js";
+import { NewCommunityModal } from "../components/NewCommunityModal";
 import { useGlobalContext } from "../contexts/GlobalContext";
 import { Gear } from "../icons/Gear";
 import { House } from "../icons/House";
 import { Plus } from "../icons/Plus";
-import { NewCommunityModal } from "../components/NewCommunityModal";
 
 const AppLayout: ParentComponent = (props) => {
 	const [globalState] = useGlobalContext();
