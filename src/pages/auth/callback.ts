@@ -37,7 +37,7 @@ export const GET = (async ({ request, session }) => {
 		return new Response(JSON.stringify(callbackResult), {
 			status: 302,
 			headers: new Headers({
-				location: `/`,
+				location: `/app`,
 			}),
 		});
 	} catch (err) {

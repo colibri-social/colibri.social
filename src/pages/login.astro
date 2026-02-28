@@ -1,0 +1,101 @@
+---
+import { actions } from "astro:actions";
+import PublicLayout from "@/layouts/PublicLayout.astro";
+import Input from "@/components/bearnie/input/Input.astro";
+import Button from "@/components/bearnie/button/Button.astro";
+
+const user = await Astro.session?.get("user");
+
+if (user) {
+	return Astro.redirect("/app");
+}
+
+const result = Astro.getActionResult(actions.login);
+if (result && !result.error) {
+	return Astro.redirect(result.data);
+}
+---
+
+<PublicLayout>
+	<section class="py-40 px-76 relative flex flex-col items-center gap-16">
+		<h1 class="text-5xl font-black m-0">LOGIN</h1>
+		<form
+			method="post"
+			class="flex gap-2 w-full max-w-lg mt-4"
+			action={actions.login}
+		>
+			<Input
+				type="text"
+				placeholder="alice.bsky.social"
+				id="handle"
+				name="handle"
+			/>
+			<Button id="login-btn" type={"submit"}>
+				Login with Atmosphere account
+			</Button>
+		</form>
+	</section>
+</PublicLayout>
+<style>
+	.glide {
+		animation: glide 8s ease-in-out infinite;
+		transform-origin: center center;
+	}
+
+	.glide-offset {
+		animation-delay: -2s;
+	}
+
+	@keyframes glide {
+		0% {
+			transform: translateY(0px) rotate(var(--tw-rotate, 0deg));
+		}
+		25% {
+			transform: translateY(-12px) rotate(calc(var(--tw-rotate, 0deg) - 3deg));
+		}
+		50% {
+			transform: translateY(4px) rotate(calc(var(--tw-rotate, 0deg) + 2deg));
+		}
+		75% {
+			transform: translateY(-8px) rotate(calc(var(--tw-rotate, 0deg) - 1.5deg));
+		}
+		100% {
+			transform: translateY(0px) rotate(var(--tw-rotate, 0deg));
+		}
+	}
+</style>
+<script>
+	import createGlobe from "cobe";
+
+	let phi = 0;
+	let canvas = document.querySelector<HTMLCanvasElement>("#cobe")!;
+
+	const globe = createGlobe(canvas, {
+		devicePixelRatio: 2,
+		width: 1000,
+		height: 1000,
+		phi: 0,
+		theta: 0,
+		mapSamples: 16000,
+		mapBrightness: 6,
+		mapBaseBrightness: 0,
+		diffuse: 1.2,
+		dark: 1,
+		baseColor: [0.2, 0.1, 0.3],
+		markerColor: [1, 1, 1],
+		glowColor: [0.556, 0.317, 1],
+		scale: 1,
+		offset: [0, 0],
+		opacity: 0.9,
+		markers: [
+			// { location: [37.7595, -122.4367], size: 0.03 },
+			// { location: [40.7128, -74.006], size: 0.1 },
+		],
+		onRender: (state) => {
+			// Called on every animation frame.
+			// `state` will be an empty object, return updated params.
+			state.phi = phi;
+			phi += 0.001;
+		},
+	});
+</script>

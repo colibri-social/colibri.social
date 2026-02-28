@@ -96,6 +96,13 @@ const ChannelView: Component = () => {
 		clearDeletedMessages();
 	});
 
+	// Reset scrolled state when channel changes
+	createEffect(() => {
+		// Track the channel param so this re-runs on navigation
+		const _ = params.channel;
+		setScrolled(false);
+	});
+
 	// Scroll to the bottom once messages load in
 	createEffect(() => {
 		if (scrolled()) return;

@@ -1,5 +1,4 @@
 ---
-import { actions } from "astro:actions";
 import { Image } from "astro:assets";
 import IPhone from "@/assets/landing/iPhone.webp";
 import Branch from "@/assets/landing/branch.webp";
@@ -24,11 +23,6 @@ import {
 	AccordionItem,
 	AccordionTrigger,
 } from "@/components/bearnie/accordion";
-
-const result = Astro.getActionResult(actions.login);
-if (result && !result.error) {
-	return Astro.redirect(result.data);
-}
 ---
 
 <PublicLayout home>

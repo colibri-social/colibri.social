@@ -10,7 +10,7 @@ interface Props {
 const { home } = Astro.props;
 ---
 
-<BaseLayout home>
+<BaseLayout {home}>
 	<Navbar />
 	<main class="min-h-screen overflow-x-hidden">
 		<slot />

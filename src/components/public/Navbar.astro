@@ -32,7 +32,7 @@ const user = await Astro.session?.get("user");
 	}
 	{
 		user && (
-			<div class="w-40 flex justify-end items-center">
+			<div class="w-40 flex justify-end items-center gap-4">
 				<Button href="/app">Go to app</Button>
 				<Button href="/auth/logout" variant="destructive">
 					Log out
