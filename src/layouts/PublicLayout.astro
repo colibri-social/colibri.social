@@ -1,0 +1,19 @@
+---
+import Navbar from "@/components/public/Navbar.astro";
+import BaseLayout from "./BaseLayout.astro";
+import Footer from "@/components/public/Footer.astro";
+
+interface Props {
+	home?: boolean;
+}
+
+const { home } = Astro.props;
+---
+
+<BaseLayout home>
+	<Navbar />
+	<main class="min-h-screen overflow-x-hidden">
+		<slot />
+	</main>
+	<Footer />
+</BaseLayout>

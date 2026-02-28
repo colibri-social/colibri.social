@@ -121,6 +121,7 @@
 }
 
 :root {
+	--gradient-dark: linear-gradient(180deg, #0a0a0a 0%, #151515 100%);
 	--background: oklch(1 0 0);
 	--foreground: oklch(0.145 0 0);
 	--card: oklch(1 0 0);
@@ -247,11 +248,61 @@
 		font-family: var(--font-sans);
 	}
 
+	.bg-gradient-dark {
+		background: var(--gradient-dark);
+	}
+
 	.rich-text img.emoji {
 		display: inline;
 		height: 1.125em;
 		width: 1.125em;
 		margin: 0 0.05em 0 0.1em;
 		vertical-align: text-top;
+	}
+
+	.floaty {
+		animation: 6s ease-in-out float infinite;
+	}
+
+	.hero-container::before {
+		content: "";
+		width: 100%;
+		height: 100%;
+		position: absolute;
+		top: 0;
+		left: 0;
+		z-index: -1;
+		opacity: 0.25;
+
+		--square-width: 4vw;
+		--square-1: calc(var(--square-width) - 2px);
+		--square-2: var(--square-width);
+
+		background-image:
+			repeating-linear-gradient(
+				0deg,
+				transparent,
+				transparent var(--square-1),
+				#353535 var(--square-1),
+				#353535 var(--square-2)
+			),
+			repeating-linear-gradient(
+				90deg,
+				transparent,
+				transparent var(--square-1),
+				#353535 var(--square-1),
+				#353535 var(--square-2)
+			);
+		background-size: var(--square-2) var(--square-2);
+	}
+}
+
+@keyframes float {
+	0%,
+	100% {
+		transform: translateY(15px);
+	}
+	50% {
+		transform: translateY(-15px);
 	}
 }

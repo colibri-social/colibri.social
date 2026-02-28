@@ -1,0 +1,18 @@
+---
+import { Image } from "astro:assets";
+import Logo from "@/assets/logo.png";
+---
+
+<a href="/" class="w-40 flex flex-row gap-2 items-center">
+	<Image
+		src={Logo}
+		width={32}
+		height={32}
+		alt={"A minimalist-looking hummingbird shape with a gradient from purple to white."}
+	/>
+	<span
+		class="bg-clip-text text-transparent bg-[linear-gradient(69deg,#090615_-145.97%,#31226D_-87.27%,#6C5AA6_-26.22%,#AE99CB_30.13%,#E0DEEC_75.92%)] text-xl not-italic font-black leading-[normal]"
+	>
+		colibri.social
+	</span>
+</a>

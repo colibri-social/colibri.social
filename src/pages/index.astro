@@ -2,39 +2,116 @@
 import { actions } from "astro:actions";
 import { Image } from "astro:assets";
 import Logo from "@/assets/logo.png";
+import IPhone from "@/assets/landing/iPhone.webp";
+import Branch from "@/assets/landing/branch.webp";
+import PublicLayout from "@/layouts/PublicLayout.astro";
 import Button from "@/components/bearnie/button/Button.astro";
-import Input from "@/components/bearnie/input/Input.astro";
-import BaseLayout from "@/layouts/BaseLayout.astro";
-
-const user = await Astro.session?.get("user");
+import Download from "@/components/icons/download.svg";
+import Globe from "@/components/icons/globe.svg";
+import GitBranch from "@/components/icons/git-branch.svg";
 
 const result = Astro.getActionResult(actions.login);
 if (result && !result.error) {
 	return Astro.redirect(result.data);
 }
 ---
-<BaseLayout>
-	<main class="flex justify-center items-center w-screen h-screen flex-col">
-		<Image src={Logo} width={256} height={256} alt="A minimalist-looking Colibri, the logo of colibri.social." />
-		<h1>Colibri</h1>
-		{!user && (
-			<span>Not logged in!</span>
-			<form method="post" class="flex gap-2 w-full max-w-lg mt-4" action={actions.login}>
-				<Input type="text" placeholder="alice.bsky.social" id="handle" name="handle" />
-				<Button id='login-btn' type={"submit"}>
-					Login with Atmosphere account
+
+<PublicLayout home>
+	<div
+		class="w-screen flex flex-row gap-12 py-40 px-76 bg-gradient-dark rounded-b-xl drop-shadow-md drop-shadow-black/50 hero-container overflow-hidden"
+	>
+		<div class="w-full flex flex-col justify-center gap-4">
+			<h1 class="text-5xl font-black m-0">
+				LET YOUR COMMUNITY SPREAD ITS WINGS.
+			</h1>
+			<p class="m-0">
+				Colibri is an open source chat platform built on the AT protocol for
+				communities big and small.
+			</p>
+			<div class="flex flex-row items-start align-center gap-4">
+				<Button variant="default">
+					<Download slot="left-icon" />
+					Download
 				</Button>
-			</form>
-		)}
-		{user && (
-			<div class="flex gap-2 w-full max-w-lg mt-4 items-center justify-center">
-				<Button href='/app'>
-					Go to app
+				<Button variant="secondary">
+					<Globe slot="left-icon" />
+					Open in Browser
 				</Button>
-				<Button href='/auth/logout' variant='destructive'>
-					Log out
+				<Button variant="secondary">
+					<GitBranch slot="left-icon" />
+					View Source Code
 				</Button>
 			</div>
-		)}
-	</main>
-</BaseLayout>
+		</div>
+		<div class="w-full relative">
+			<canvas id="cobe" class="w-128 h-128" width="1000" height="1000"></canvas>
+			<Image
+				src={IPhone}
+				width={240}
+				height={406}
+				quality={100}
+				alt={"An iPhone with the spellcast logo in the center of the screen."}
+				class="absolute top-1/2 left-1/2 transform -translate-1/2 floaty"
+			/>
+		</div>
+		<Image
+			src={Branch}
+			width={800}
+			height={519}
+			quality={100}
+			alt={"A desaturated cherry blossom branch."}
+			class="absolute -right-40 -bottom-20"
+		/>
+		<Image
+			src={Branch}
+			width={800}
+			height={519}
+			quality={100}
+			alt={"A desaturated cherry blossom branch."}
+			class="absolute -left-80 -bottom-50 transform -scale-x-100"
+		/>
+	</div>
+	<Image
+		src={Logo}
+		width={256}
+		height={256}
+		alt="A minimalist-looking Colibri, the logo of colibri.social."
+		class={"opacity-0 h-[200vh]"}
+	/>
+	<h1>Colibri</h1>
+</PublicLayout>
+<script>
+	import createGlobe from "cobe";
+
+	let phi = 0;
+	let canvas = document.querySelector<HTMLCanvasElement>("#cobe")!;
+
+	const globe = createGlobe(canvas, {
+		devicePixelRatio: 2,
+		width: 1000,
+		height: 1000,
+		phi: 0,
+		theta: 0,
+		mapSamples: 16000,
+		mapBrightness: 6,
+		mapBaseBrightness: 0,
+		diffuse: 1.2,
+		dark: 1,
+		baseColor: [0.2, 0.1, 0.3],
+		markerColor: [1, 1, 1],
+		glowColor: [0.556, 0.317, 1],
+		scale: 1,
+		offset: [0, 0],
+		opacity: 0.9,
+		markers: [
+			// { location: [37.7595, -122.4367], size: 0.03 },
+			// { location: [40.7128, -74.006], size: 0.1 },
+		],
+		onRender: (state) => {
+			// Called on every animation frame.
+			// `state` will be an empty object, return updated params.
+			state.phi = phi;
+			phi += 0.001;
+		},
+	});
+</script>

@@ -36,6 +36,7 @@
 		"@twemoji/api": "^17.0.2",
 		"astro": "^5.17.1",
 		"clsx": "^2.1.1",
+		"cobe": "^0.6.5",
 		"cva": "1.0.0-beta.4",
 		"json-stable-stringify": "^1.3.0",
 		"sharp": "^0.34.5",

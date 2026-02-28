@@ -1,0 +1,11 @@
+---
+import type { LinkData } from "./shared";
+
+type Props = LinkData;
+
+const { href, text } = Astro.props;
+---
+
+<a href={href} class="hover:bg-white hover:text-black px-2 flex items-center">
+	[ {text} ]
+</a>

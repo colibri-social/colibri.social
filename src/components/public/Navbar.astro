@@ -1,0 +1,43 @@
+---
+import type { LinkData } from "./shared";
+import NavLink from "./NavLink.astro";
+import Button from "@/components/bearnie/button/Button.astro";
+import HomeLink from "./HomeLink.astro";
+
+const links: Array<LinkData> = [
+	{ text: "Download", href: "/download" },
+	{ text: "About", href: "/about" },
+	{ text: "GitHub", href: "https://github.com/colibri-social" },
+	// TODO: Add proper link
+	{ text: "Leaflet.pub", href: "https://leaflet.pub" },
+	{ text: "FAQ", href: "/faq" },
+];
+
+const user = await Astro.session?.get("user");
+---
+
+<nav
+	class="w-full h-fit absolute top-0 left-0 flex flex-row justify-between items-center p-6 z-50"
+>
+	<HomeLink />
+	<div class="flex flex-row items-center gap-4">
+		{links.map(({ text, href }) => <NavLink {text} {href} />)}
+	</div>
+	{
+		!user && (
+			<div class="w-40 flex justify-end">
+				<Button href="/login">Log in</Button>
+			</div>
+		)
+	}
+	{
+		user && (
+			<div class="w-40 flex justify-end items-center">
+				<Button href="/app">Go to app</Button>
+				<Button href="/auth/logout" variant="destructive">
+					Log out
+				</Button>
+			</div>
+		)
+	}
+</nav>

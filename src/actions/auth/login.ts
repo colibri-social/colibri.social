@@ -6,11 +6,15 @@ import { client, scopes } from "@/utils/atproto/oauth";
 /**
  * Resolves a handle using bluesky as the resolver.
  * @param handle The handle to resolve.
+ * @param pds The domain of the PDS.
  * @returns The DID associated with the handle.
  */
-const resolveHandle = async (handle: string): Promise<string | undefined> => {
+const resolveHandle = async (
+	handle: string,
+	pds: string,
+): Promise<string | undefined> => {
 	const res = await fetch(
-		`https://bsky.social/xrpc/com.atproto.identity.resolveHandle?handle=${handle}`,
+		`https://${pds}/xrpc/com.atproto.identity.resolveHandle?handle=${handle}`,
 	);
 	const data = await res.json();
 	return data.did;
@@ -20,8 +24,9 @@ export const login = defineAction({
 	accept: "form",
 	input: z.object({
 		handle: z.string(),
+		pds: z.string().optional(),
 	}),
-	handler: async ({ handle }) => {
+	handler: async ({ handle, pds }) => {
 		try {
 			if (!isAtIdentifierString(handle)) {
 				return new ActionError({
@@ -30,7 +35,7 @@ export const login = defineAction({
 				});
 			}
 
-			const did = await resolveHandle(handle);
+			const did = await resolveHandle(handle, pds || "bsky.social");
 
 			if (!did) {
 				return new ActionError({

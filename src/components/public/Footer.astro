@@ -1,0 +1,56 @@
+---
+import type { LinkData } from "./shared";
+import HomeLink from "./HomeLink.astro";
+import NavLink from "./NavLink.astro";
+import { Image } from "astro:assets";
+import Farn from "@/assets/landing/Farn.webp";
+import Plants from "@/assets/landing/Plants.webp";
+
+const links: Array<LinkData> = [
+	{ text: "Download", href: "/download" },
+	{ text: "Web-App", href: "/app" },
+	{ text: "About", href: "/about" },
+	{ text: "GitHub", href: "https://github.com/colibri-social" },
+	// TODO: Add proper link
+	{ text: "Leaflet.pub", href: "https://leaflet.pub" },
+	{ text: "FAQ", href: "/faq" },
+];
+---
+
+<footer class="w-full h-fit flex flex-col relative max-w-screen">
+	<Image
+		src={Farn}
+		width={620}
+		height={387}
+		quality={100}
+		alt={"Grayscale Plants"}
+		class="absolute -top-72 z-10 -right-44"
+	/>
+	<Image
+		src={Plants}
+		width={600}
+		height={395}
+		quality={100}
+		alt={"Grayscale Plants"}
+		class="absolute -top-full -left-52 z-10"
+	/>
+	<div class="w-full h-full bg-gradient-dark absolute rounded-t-xl z-10"></div>
+	<div class="py-6 px-76 flex flex-row items-center justify-between z-20">
+		<HomeLink />
+		<span class="font-light">©️ 2026 Colibri Social Maintainers</span>
+	</div>
+	<div
+		class="flex flex-row items-center justify-between w-full px-76 pb-6 z-20"
+	>
+		{links.map(({ text, href }) => <NavLink {text} {href} />)}
+	</div>
+	<hr class="my-4 z-20" />
+	<div
+		class="w-full z-20 h-50 relative overflow-hidden flex flex-col items-center justify-end bg-clip-text text-transparent bg-[linear-gradient(70deg,rgba(9,6,21,1)_-28.53%,rgba(49,34,109,1)_0.95%,rgba(108,90,166,1)_31.62%,rgba(174,153,203,1)_59.93%,rgba(224,222,236,1)_82.92%)] text-[16.8vw] not-italic font-black"
+	>
+		<span class="relative bottom-14 z-20">colibri.social</span>
+		<span class="bottom-14 text-white absolute blur-xs z-10 opacity-25">
+			colibri.social
+		</span>
+	</div>
+</footer>
