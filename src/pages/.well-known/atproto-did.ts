@@ -6,7 +6,7 @@ export const GET = () => {
 			status: 200,
 			statusText: "OK",
 			headers: new Headers({
-				"content-type": "plain/text",
+				"content-type": "text/plain",
 			}),
 		});
 	} else {
