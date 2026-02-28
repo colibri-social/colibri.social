@@ -1,0 +1,63 @@
+---
+import { Image } from "astro:assets";
+import Cloud from "./Cloud.astro";
+---
+
+<div class="w-full absolute transform -translate-y-76 -z-10 overflow-visible">
+	<div class="marquee-track marquee-slow" data-speed="slow">
+		<div class="marquee-content">
+			<Cloud />
+			<Cloud />
+			<Cloud />
+		</div>
+		<div class="marquee-content" aria-hidden="true">
+			<Cloud />
+			<Cloud />
+			<Cloud />
+		</div>
+	</div>
+	<div class="marquee-track marquee-fast absolute top-20" data-speed="fast">
+		<div class="marquee-content">
+			<Cloud />
+			<Cloud />
+			<Cloud />
+		</div>
+		<div class="marquee-content" aria-hidden="true">
+			<Cloud />
+			<Cloud />
+			<Cloud />
+		</div>
+	</div>
+</div>
+
+<style>
+	.marquee-track {
+		display: flex;
+		width: max-content;
+	}
+
+	.marquee-content {
+		display: flex;
+		flex-shrink: 0;
+		gap: 2rem;
+		padding-right: 2rem;
+		animation: scroll var(--marquee-duration, 120s) linear infinite;
+	}
+
+	.marquee-slow .marquee-content {
+		--marquee-duration: 140s;
+	}
+
+	.marquee-fast .marquee-content {
+		--marquee-duration: 100s;
+	}
+
+	@keyframes scroll {
+		0% {
+			transform: translateX(0);
+		}
+		100% {
+			transform: translateX(-100%);
+		}
+	}
+</style>

@@ -252,6 +252,10 @@
 		background: var(--gradient-dark);
 	}
 
+	.bg-gradient-feature {
+		background: linear-gradient(180deg, #171717 0%, #15071b 100%);
+	}
+
 	.rich-text img.emoji {
 		display: inline;
 		height: 1.125em;

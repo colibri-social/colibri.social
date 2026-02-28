@@ -1,0 +1,56 @@
+<div class="binary-marquee-wrapper absolute w-full z-0 text-sm">
+	<div class="binary-marquee-track">
+		<span class="binary-marquee-content">
+			01100011 01101111 01101100 01101001 01100010 01110010 01101001 00101110
+			01110011 01101111 01100011 01101001 01100001 01101100&nbsp;
+		</span>
+		<span class="binary-marquee-content" aria-hidden="true">
+			01100011 01101111 01101100 01101001 01100010 01110010 01101001 00101110
+			01110011 01101111 01100011 01101001 01100001 01101100&nbsp;
+		</span>
+	</div>
+</div>
+
+<style>
+	.binary-marquee-wrapper {
+		width: 100%;
+		overflow: hidden;
+		background: linear-gradient(
+			90deg,
+			#ffffff00 0%,
+			#fff 10%,
+			#0c0c0c 40.43%,
+			#0c0c0c 60.04%,
+			#8e51ff 74.52%,
+			#8e51ff 90%,
+			#8e51ff00 100%
+		);
+		background-clip: text;
+		-webkit-background-clip: text;
+		-webkit-text-fill-color: transparent;
+		font-family: var(--font-mono);
+		font-style: normal;
+		font-weight: 300;
+		line-height: normal;
+	}
+
+	.binary-marquee-track {
+		display: flex;
+		width: max-content;
+	}
+
+	.binary-marquee-content {
+		flex-shrink: 0;
+		white-space: nowrap;
+		animation: binary-scroll 30s linear infinite;
+	}
+
+	@keyframes binary-scroll {
+		0% {
+			transform: translateX(-100%);
+		}
+		100% {
+			transform: translateX(0%);
+		}
+	}
+</style>

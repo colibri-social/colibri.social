@@ -1,0 +1,27 @@
+---
+import { cn } from "@/utils/cn";
+import type { HTMLAttributes } from "astro/types";
+
+export interface Props extends HTMLAttributes<"div"> {
+	defaultOpen?: boolean;
+	id?: string;
+}
+
+const { defaultOpen = false, class: className, id, ...props } = Astro.props;
+
+const classes = cn("overflow-hidden text-sm transition-all", className);
+---
+
+<div
+	class={classes}
+	data-accordion-content
+	data-state={defaultOpen ? "open" : "closed"}
+	role="region"
+	id={id}
+	hidden={!defaultOpen}
+	{...props}
+>
+	<div class="pb-4 pt-0">
+		<slot />
+	</div>
+</div>

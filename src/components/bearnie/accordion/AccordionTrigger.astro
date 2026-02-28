@@ -1,0 +1,28 @@
+---
+import { cn } from "@/utils/cn";
+import type { HTMLAttributes } from "astro/types";
+import ChevronDown from "@/components/icons/chevron-down.astro";
+
+export interface Props extends HTMLAttributes<"button"> {
+	defaultOpen?: boolean;
+}
+
+const { defaultOpen = false, class: className, ...props } = Astro.props;
+
+const classes = cn(
+	"flex w-full flex-1 items-center justify-between py-4 font-medium transition-all hover:underline [&[data-state=open]>svg]:rotate-180",
+	className,
+);
+---
+
+<button
+	type="button"
+	class={classes}
+	data-accordion-trigger
+	data-state={defaultOpen ? "open" : "closed"}
+	aria-expanded={defaultOpen}
+	{...props}
+>
+	<slot />
+	<ChevronDown size={16} class="shrink-0 transition-transform duration-200" />
+</button>

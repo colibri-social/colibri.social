@@ -1,0 +1,16 @@
+---
+import { cn } from "@/utils/cn";
+import type { HTMLAttributes } from "astro/types";
+
+export interface Props extends HTMLAttributes<"div"> {
+	value: string;
+}
+
+const { value, class: className, ...props } = Astro.props;
+
+const classes = cn("border-b", className);
+---
+
+<div class={classes} data-accordion-item data-value={value} {...props}>
+	<slot />
+</div>

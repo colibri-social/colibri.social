@@ -1,0 +1,107 @@
+---
+import { cn } from "@/utils/cn";
+import type { HTMLAttributes } from "astro/types";
+
+export interface Props extends HTMLAttributes<"div"> {
+	type?: "single" | "multiple";
+}
+
+const { type = "single", class: className, ...props } = Astro.props;
+
+const classes = cn("w-full", className);
+---
+
+<div class={classes} data-accordion data-type={type} {...props}>
+	<slot />
+</div>
+
+<script>
+	import { generateId } from "@/utils/focus-trap";
+
+	function initAccordions() {
+		document.querySelectorAll("[data-accordion]").forEach((accordion) => {
+			if (accordion.hasAttribute("data-initialized")) return;
+			accordion.setAttribute("data-initialized", "true");
+
+			const type = accordion.getAttribute("data-type");
+
+			// Only select direct accordion items (not nested ones)
+			const items = Array.from(
+				accordion.querySelectorAll("[data-accordion-item]"),
+			).filter((item) => item.closest("[data-accordion]") === accordion);
+
+			items.forEach((item) => {
+				const trigger = item.querySelector(
+					":scope > [data-accordion-trigger]",
+				) as HTMLElement;
+				const content = item.querySelector(
+					":scope > [data-accordion-content]",
+				) as HTMLElement;
+
+				if (!trigger || !content) return;
+
+				// Generate IDs and set aria-controls
+				if (!content.id) {
+					content.id = generateId("accordion-content");
+				}
+				if (!trigger.id) {
+					trigger.id = generateId("accordion-trigger");
+				}
+
+				trigger.setAttribute("aria-controls", content.id);
+				content.setAttribute("aria-labelledby", trigger.id);
+			});
+
+			// Only select triggers that belong directly to this accordion
+			const triggers = Array.from(
+				accordion.querySelectorAll("[data-accordion-trigger]"),
+			).filter(
+				(trigger) => trigger.closest("[data-accordion]") === accordion,
+			) as HTMLElement[];
+
+			triggers.forEach((trigger) => {
+				trigger.addEventListener("click", (e) => {
+					// Prevent event from bubbling to parent accordions
+					e.stopPropagation();
+
+					const item = trigger.closest("[data-accordion-item]");
+					const content = item?.querySelector(
+						":scope > [data-accordion-content]",
+					) as HTMLElement;
+					const isOpen = trigger.getAttribute("data-state") === "open";
+
+					if (type === "single") {
+						// Close all other items in THIS accordion only
+						triggers.forEach((t) => {
+							if (t !== trigger) {
+								t.setAttribute("data-state", "closed");
+								t.setAttribute("aria-expanded", "false");
+								const otherItem = t.closest("[data-accordion-item]");
+								const otherContent = otherItem?.querySelector(
+									":scope > [data-accordion-content]",
+								) as HTMLElement;
+								if (otherContent) {
+									otherContent.setAttribute("data-state", "closed");
+									otherContent.hidden = true;
+								}
+							}
+						});
+					}
+
+					// Toggle current item
+					const newState = isOpen ? "closed" : "open";
+					trigger.setAttribute("data-state", newState);
+					trigger.setAttribute("aria-expanded", String(!isOpen));
+
+					if (content) {
+						content.setAttribute("data-state", newState);
+						content.hidden = isOpen;
+					}
+				});
+			});
+		});
+	}
+
+	initAccordions();
+	document.addEventListener("astro:page-load", initAccordions);
+</script>
