@@ -36,6 +36,7 @@ export const ChannelCreationModal: ParentComponent<{ category: string }> = (
 	const [name, setName] = createSignal("");
 	const [channelType, setChannelType] = createSignal<string>("Text");
 	const [loading, setLoading] = createSignal(false);
+	const [open, setOpen] = createSignal(false);
 
 	/**
 	 * Creates a new channel within the specified category.
@@ -54,7 +55,7 @@ export const ChannelCreationModal: ParentComponent<{ category: string }> = (
 	};
 
 	return (
-		<Dialog>
+		<Dialog open={open()} onOpenChange={setOpen}>
 			<DialogTrigger>{props.children}</DialogTrigger>
 			<DialogPortal>
 				<DialogContent class="w-92">
@@ -120,7 +121,11 @@ export const ChannelCreationModal: ParentComponent<{ category: string }> = (
 						</Select>
 					</div>
 					<DialogFooter>
-						<Button variant="secondary" disabled={loading()}>
+						<Button
+							variant="secondary"
+							disabled={loading()}
+							onClick={() => setOpen(false)}
+						>
 							Cancel
 						</Button>
 						<Button disabled={loading()} onClick={createChannel}>

@@ -143,7 +143,11 @@ export const NewCommunityModal: ParentComponent<{ navigate: Navigator }> = (
 						</TextField>
 					</div>
 					<DialogFooter>
-						<Button variant="secondary" disabled={loading()}>
+						<Button
+							variant="secondary"
+							disabled={loading()}
+							onClick={() => setOpen(false)}
+						>
 							Cancel
 						</Button>
 						<Button disabled={loading()} onClick={createCommunity}>
