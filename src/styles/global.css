@@ -7,6 +7,7 @@
 @theme inline {
 	--color-background: var(--background);
 	--color-foreground: var(--foreground);
+	--font-display: var(--font-stardom);
 	--font-sans: var(--font-hanken-grotesk);
 	--font-mono: var(--font-geist-mono);
 	--color-sidebar-ring: var(--sidebar-ring);
@@ -62,11 +63,21 @@
 	h2,
 	h3,
 	h4 {
-		@apply text-gray-900 font-extrabold tracking-tight dark:text-white;
+		@apply text-gray-900 font-extrabold tracking-tight dark:text-white font-display;
 	}
 
 	h1 {
-		@apply text-4xl mt-0 mb-9;
+		@apply mt-0 mb-9;
+		background: linear-gradient(
+			135deg,
+			#ffffff 40%,
+			rgba(134, 102, 255, 1) 100%
+		);
+		background-clip: text;
+		-webkit-text-fill-color: transparent;
+	}
+	h1:not(.reset) {
+		@apply text-4xl;
 	}
 	h2 {
 		@apply text-2xl mt-12 mb-6;
@@ -298,6 +309,26 @@
 				#353535 var(--square-2)
 			);
 		background-size: var(--square-2) var(--square-2);
+	}
+
+	.glow {
+		position: relative;
+	}
+
+	.glow::before {
+		content: "";
+		position: absolute;
+		aspect-ratio: 2 / 1;
+		inset: -100%;
+		top: 50%;
+		transform: translateY(-50%) scale(0.5);
+		background: radial-gradient(
+			ellipse at center,
+			rgba(124, 92, 252, 0.15) 0%,
+			transparent 70%
+		);
+		pointer-events: none;
+		z-index: -1;
 	}
 }
 

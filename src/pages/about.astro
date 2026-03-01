@@ -1,0 +1,38 @@
+---
+import PublicLayout from "@/layouts/PublicLayout.astro";
+import { getCollection } from "astro:content";
+import { render } from "astro:content";
+import { getEntry } from "astro:content";
+
+const data = await getEntry("documents", "about")!;
+
+const { Content } = await render(data);
+---
+
+<PublicLayout>
+	<section class="py-40 px-64 relative flex flex-col items-center gap-12">
+		<article class="max-w-[65ch] w-full flex flex-col items-center gap-8">
+			<div class="flex flex-col gap-4 items-center text-center glow">
+				<small class="text-primary text-sm">
+					Hatching a social platform.
+				</small>
+				<h1 class="text-5xl font-black m-0">{data.data.title}</h1>
+				<p class="m-0 text-muted-foreground">
+					{data.data.description}
+				</p>
+			</div>
+			<div
+				class="mx-8 mb-0 w-full border-none h-px bg-border relative before:w-full before:top-0 before:absolute before:h-px before:bg-[linear-gradient(to_right,transparent_5%,var(--primary)_50%,transparent_95%)] prose prose-neutral dark:prose-invert"
+			>
+			</div>
+			<div class="w-full">
+				<Content />
+			</div>
+		</article>
+	</section>
+</PublicLayout>
+<style is:global>
+	h2:first-of-type {
+		margin-top: 0;
+	}
+</style>

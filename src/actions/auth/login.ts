@@ -13,38 +13,45 @@ const resolveHandle = async (
 	handle: string,
 	pds: string,
 ): Promise<string | undefined> => {
-	const res = await fetch(
-		`https://${pds}/xrpc/com.atproto.identity.resolveHandle?handle=${handle}`,
-	);
-	const data = await res.json();
-	return data.did;
+	try {
+		const res = await fetch(
+			`https://${pds}/xrpc/com.atproto.identity.resolveHandle?handle=${handle}`,
+		);
+		const data = await res.json();
+		return data.did;
+	} catch (e) {
+		console.error(e);
+		return undefined;
+	}
+};
+
+const resolvePotentialHandle = async (
+	handle: string | undefined,
+): Promise<string | ActionError | undefined> => {
+	if (!handle) return undefined;
+
+	if (!isAtIdentifierString(handle)) {
+		return new ActionError({
+			code: "BAD_REQUEST",
+			message: "Invalid handle",
+		});
+	}
+
+	return await resolveHandle(handle, "bsky.social");
 };
 
 export const login = defineAction({
 	accept: "form",
 	input: z.object({
-		handle: z.string(),
-		pds: z.string().optional(),
+		handle: z.string().optional(),
 	}),
-	handler: async ({ handle, pds }) => {
+	handler: async ({ handle }) => {
 		try {
-			if (!isAtIdentifierString(handle)) {
-				return new ActionError({
-					code: "BAD_REQUEST",
-					message: "Invalid handle",
-				});
-			}
+			const didOrError = await resolvePotentialHandle(handle);
 
-			const did = await resolveHandle(handle, pds || "bsky.social");
+			if (didOrError instanceof ActionError) return didOrError;
 
-			if (!did) {
-				return new ActionError({
-					code: "BAD_REQUEST",
-					message: "Unable to resolve given handle",
-				});
-			}
-
-			const url = await client.authorize(did, {
+			const url = await client.authorize(didOrError || "https://bsky.social", {
 				scope: scopes.join(" "),
 				state: JSON.stringify("{}"),
 				redirect_uri: import.meta.env.DEV

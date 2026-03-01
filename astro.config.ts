@@ -46,6 +46,12 @@ export default defineConfig({
 				weights: ["100 900"],
 				cssVariable: "--font-geist-mono",
 			},
+			{
+				provider: fontProviders.fontshare(),
+				name: "Stardom",
+				weights: ["400"],
+				cssVariable: "--font-stardom",
+			},
 		],
 	},
 });

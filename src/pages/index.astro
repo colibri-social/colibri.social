@@ -27,9 +27,12 @@ import {
 
 <PublicLayout home>
 	<section
-		class="w-screen flex flex-row gap-12 py-40 px-76 bg-gradient-dark rounded-b-xl drop-shadow-md drop-shadow-black/50 hero-container overflow-hidden"
+		class="w-screen flex flex-row gap-12 py-40 px-64 bg-gradient-dark rounded-b-xl drop-shadow-md drop-shadow-black/50 hero-container overflow-hidden"
 	>
 		<div class="w-full flex flex-col justify-center gap-4">
+			<small class="text-primary text-sm">
+				Chats where you truly own your data.
+			</small>
 			<h1 class="text-5xl font-black m-0">
 				LET YOUR COMMUNITY SPREAD ITS WINGS.
 			</h1>
@@ -61,6 +64,7 @@ import {
 				quality={100}
 				alt={"An iPhone with the spellcast logo in the center of the screen."}
 				class="absolute top-1/2 left-1/2 transform -translate-1/2 floaty"
+				loading="eager"
 			/>
 		</div>
 		<Image
@@ -70,6 +74,7 @@ import {
 			quality={100}
 			alt={"A desaturated cherry blossom branch."}
 			class="absolute -right-40 -bottom-20 pointer-events-none"
+			loading="eager"
 		/>
 		<Image
 			src={Branch}
@@ -78,12 +83,13 @@ import {
 			quality={100}
 			alt={"A desaturated cherry blossom branch."}
 			class="absolute -left-80 -bottom-50 transform -scale-x-100 pointer-events-none"
+			loading="eager"
 		/>
 	</section>
-	<section class="py-40 px-76">
+	<section class="py-40 px-64">
 		<Clouds />
 		<div
-			class="bg-gradient-dark w-full rounded-2xl border border-border flex flex-row h-162"
+			class="bg-gradient-dark w-full rounded-2xl border border-border flex flex-row h-162 drop-shadow-black/25 drop-shadow-2xl"
 		>
 			<div
 				class="h-full w-full flex flex-col gap-12 p-6 border-r border-border"
@@ -157,7 +163,7 @@ import {
 			</div>
 		</div>
 	</section>
-	<section class="py-40 px-76 relative">
+	<section class="py-40 px-64 relative">
 		<Image
 			src={Colibri}
 			width={240}
@@ -175,7 +181,7 @@ import {
 			class="absolute -bottom-40 left-0 rotate-25 glide"
 		/>
 		<div
-			class="bg-gradient-dark w-full rounded-2xl border border-border flex flex-row h-fit p-6 relative gap-6 overflow-hidden"
+			class="bg-gradient-dark w-full rounded-2xl border border-border flex flex-row h-fit p-6 relative gap-6 overflow-hidden drop-shadow-black/25 drop-shadow-2xl"
 		>
 			<Image
 				src={Leaves}
@@ -185,7 +191,8 @@ import {
 				alt="Leaves hanging down from some branches."
 				class="absolute top-0 -right-2 opacity-50"
 			/>
-			<div class="w-full flex flex-col gap-4 items-center justify-center">
+			<div class="w-full flex flex-col gap-4 justify-center">
+				<small class="text-primary text-sm">Future-proofed.</small>
 				<h2 class="text-4xl font-black m-0">
 					BUILT ON OPEN STANDARDS. PRIVATE WHEN NEEDED.
 				</h2>
@@ -215,11 +222,14 @@ import {
 			</div>
 		</div>
 	</section>
-	<section class="py-40 px-76 relative">
+	<section class="py-40 px-64 relative">
 		<div
-			class="bg-gradient-dark w-full rounded-2xl border border-border flex flex-col gap-8 h-fit p-6 relative items-center"
+			class="bg-gradient-dark w-full rounded-2xl border border-border flex flex-col gap-8 h-fit p-6 relative items-center drop-shadow-black/25 drop-shadow-2xl"
 		>
-			<h2 class="text-4xl font-black m-0">QUESTIONS? WE’VE GOT ANSWERS.</h2>
+			<div class="flex flex-col gap-4 items-center text-center">
+				<small class="text-primary text-sm">Stuff you might ask about.</small>
+				<h2 class="text-4xl font-black m-0">QUESTIONS? WE’VE GOT ANSWERS.</h2>
+			</div>
 			<Accordion type="single" class="space-y-4 text-foreground">
 				<AccordionItem value="item-1" class="border rounded-lg px-4">
 					<AccordionTrigger>What is the AT Protocol?</AccordionTrigger>
@@ -299,7 +309,7 @@ import {
 	}
 
 	.glide-offset {
-		animation-delay: -2s;
+		animation-delay: -1.5s;
 	}
 
 	@keyframes glide {

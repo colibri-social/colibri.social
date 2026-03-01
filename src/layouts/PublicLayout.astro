@@ -2,6 +2,7 @@
 import Navbar from "@/components/public/Navbar.astro";
 import BaseLayout from "./BaseLayout.astro";
 import Footer from "@/components/public/Footer.astro";
+import { Font } from "astro:assets";
 
 interface Props {
 	home?: boolean;
@@ -11,6 +12,9 @@ const { home } = Astro.props;
 ---
 
 <BaseLayout {home}>
+	<Fragment slot="head">
+		<Font cssVariable="--font-stardom" preload />
+	</Fragment>
 	<Navbar />
 	<main class="min-h-screen overflow-x-hidden">
 		<slot />
