@@ -29,43 +29,46 @@ import {
 	<section
 		class="w-screen flex flex-row gap-12 py-40 px-64 bg-gradient-dark rounded-b-xl drop-shadow-md drop-shadow-black/50 hero-container overflow-hidden"
 	>
-		<div class="w-full flex flex-col justify-center gap-4">
-			<small class="text-primary text-sm">
-				Chats where you truly own your data.
-			</small>
-			<h1 class="text-5xl font-black m-0">
-				LET YOUR COMMUNITY SPREAD ITS WINGS.
-			</h1>
-			<p class="m-0">
-				Colibri is an open source chat platform built on the AT protocol for
-				communities big and small.
-			</p>
-			<div class="flex flex-row items-start align-center gap-4">
-				<Button variant="default" class="cursor-pointer">
-					<Download slot="left-icon" href="/download" />
-					Download
-				</Button>
-				<Button variant="secondary" href="/app">
-					<Globe slot="left-icon" />
-					Open in Browser
-				</Button>
-				<Button variant="secondary" href="https://github.com/colibri-social">
-					<GitBranch slot="left-icon" />
-					View Source Code
-				</Button>
+		<div class="flex flex-row gap-12 mx-auto w-full max-w-320">
+			<div class="w-full flex flex-col justify-center gap-4">
+				<small class="text-primary text-sm">
+					Chats where you truly own your data.
+				</small>
+				<h1 class="text-5xl font-black m-0">
+					LET YOUR COMMUNITY SPREAD ITS WINGS.
+				</h1>
+				<p class="m-0">
+					Colibri is an open source chat platform built on the AT protocol for
+					communities big and small.
+				</p>
+				<div class="flex flex-row items-start align-center gap-4">
+					<Button variant="default" class="cursor-pointer">
+						<Download slot="left-icon" href="/download" />
+						Download
+					</Button>
+					<Button variant="secondary" href="/app">
+						<Globe slot="left-icon" />
+						Open in Browser
+					</Button>
+					<Button variant="secondary" href="https://github.com/colibri-social">
+						<GitBranch slot="left-icon" />
+						View Source Code
+					</Button>
+				</div>
 			</div>
-		</div>
-		<div class="w-full relative flex items-center justify-center">
-			<canvas id="cobe" class="w-128 h-128" width="1000" height="1000"></canvas>
-			<Image
-				src={IPhone}
-				width={240}
-				height={406}
-				quality={100}
-				alt={"An iPhone with the spellcast logo in the center of the screen."}
-				class="absolute top-1/2 left-1/2 transform -translate-1/2 floaty"
-				loading="eager"
-			/>
+			<div class="w-full relative flex items-center justify-center">
+				<canvas id="cobe" class="w-128 h-128" width="1000" height="1000"
+				></canvas>
+				<Image
+					src={IPhone}
+					width={240}
+					height={406}
+					quality={100}
+					alt={"An iPhone with the spellcast logo in the center of the screen."}
+					class="absolute top-1/2 left-1/2 transform -translate-1/2 floaty"
+					loading="eager"
+				/>
+			</div>
 		</div>
 		<Image
 			src={Branch}
@@ -170,7 +173,7 @@ import {
 			height={240}
 			quality={100}
 			alt="The Colibri logo, a hummingbird as a 3D-looking icon."
-			class="absolute top-0 transform -scale-x-100 right-20 rotate-5 glide glide-offset"
+			class="absolute -top-8 transform -scale-x-100 -right-36 rotate-5 glide glide-offset"
 		/>
 		<Image
 			src={Colibri}
@@ -178,7 +181,7 @@ import {
 			height={480}
 			quality={100}
 			alt="The Colibri logo, a hummingbird as a 3D-looking icon."
-			class="absolute -bottom-40 left-0 rotate-25 glide"
+			class="absolute -bottom-64 -left-44 rotate-25 glide"
 		/>
 		<div
 			class="bg-gradient-dark w-full rounded-2xl border border-border flex flex-row h-fit p-6 relative gap-6 overflow-hidden drop-shadow-black/25 drop-shadow-2xl"
