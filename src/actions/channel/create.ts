@@ -9,8 +9,9 @@ export const createChannel = defineAction({
 		name: z.string().min(1).max(32),
 		type: z.enum(["text", "voice", "forum"]),
 		category: z.string(),
+		community: z.string(),
 	}),
-	handler: async ({ name, type, category }, { session }) => {
+	handler: async ({ name, type, category, community }, { session }) => {
 		try {
 			if (!session || !session?.has("user")) {
 				throw new ActionError({
@@ -26,6 +27,7 @@ export const createChannel = defineAction({
 
 			const channel = await sdk.createChannelData(
 				agent.did!,
+				community,
 				category,
 				name,
 				type,

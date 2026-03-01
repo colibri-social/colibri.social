@@ -24,7 +24,11 @@ const escapeAttr = (s: string): string =>
  * `data-facet-type` (and any metadata like `data-did`, `data-uri`,
  * `data-channel`) so the reverse parser can reconstruct the facet losslessly.
  */
-const applyStyleForFacet = (text: string, feature: AnyFeature): string => {
+const applyStyleForFacet = (
+	text: string,
+	feature: AnyFeature,
+	community?: string,
+): string => {
 	switch (feature.$type) {
 		case "social.colibri.richtext.facet#mention": {
 			const did = "did" in feature ? escapeAttr(String(feature.did)) : "";
@@ -38,6 +42,10 @@ const applyStyleForFacet = (text: string, feature: AnyFeature): string => {
 		case "social.colibri.richtext.facet#channel": {
 			const channel =
 				"channel" in feature ? escapeAttr(String(feature.channel)) : "";
+			if (community) {
+				const href = escapeAttr(`/c/${community}/${channel}`);
+				return `<a data-facet-type="channel" data-channel="${channel}" href="${href}" class="bg-blue-500/15 hover:bg-blue-500/25 px-1 rounded-xs cursor-pointer inline no-underline text-foreground">${text}</a>`;
+			}
 			return `<div data-facet-type="channel" data-channel="${channel}" class="bg-blue-500/15 hover:bg-blue-500/25 px-1 rounded-xs cursor-pointer inline">${text}</div>`;
 		}
 		case "social.colibri.richtext.facet#bold":
@@ -64,7 +72,10 @@ const applyStyleForFacet = (text: string, feature: AnyFeature): string => {
  * When multiple facets share the same byte range, all of their features are
  * applied as nested wrappers.
  */
-export const renderWithFacets = (input: TextWithFacets): string => {
+export const renderWithFacets = (
+	input: TextWithFacets,
+	community?: string,
+): string => {
 	const bytes = textEncoder.encode(input.text);
 
 	// Sort facets by byteStart, then by byteEnd (ascending) so that for
@@ -123,8 +134,23 @@ export const renderWithFacets = (input: TextWithFacets): string => {
 			textDecoder.decode(bytes.slice(group.byteStart, group.byteEnd)),
 		);
 
-		for (const feature of group.features) {
-			facetText = applyStyleForFacet(facetText, feature);
+		// If a channel mention is present, render ONLY the channel mention
+		// style — other formatting features are stripped to prevent forgery.
+		const channelFeature = group.features.find(
+			(f) => f.$type === "social.colibri.richtext.facet#channel",
+		);
+		const mentionFeature = group.features.find(
+			(f) => f.$type === "social.colibri.richtext.facet#mention",
+		);
+
+		if (channelFeature) {
+			facetText = applyStyleForFacet(facetText, channelFeature, community);
+		} else if (mentionFeature) {
+			facetText = applyStyleForFacet(facetText, mentionFeature, community);
+		} else {
+			for (const feature of group.features) {
+				facetText = applyStyleForFacet(facetText, feature, community);
+			}
 		}
 
 		result += facetText;

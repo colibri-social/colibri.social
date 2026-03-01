@@ -1,6 +1,7 @@
 import type { Agent } from "@atproto/api";
 import { lexicon, RECORD_IDs } from "./atproto/lexicons";
 import type { Facet } from "./atproto/rich-text";
+import { APPVIEW_DOMAIN } from "astro:env/client";
 
 type ActorData = {
 	status: string;
@@ -13,7 +14,21 @@ export type CommunityData = {
 	description: string;
 	categoryOrder: Array<string>;
 	rkey: string;
+	owner_did: string;
 };
+
+type AppviewCommunityImageData = {
+	image: {
+		$type: "blob";
+		mimeType: string;
+		ref: {
+			$link: string;
+		};
+	} | null;
+};
+
+export type UnresolvedCommunityData = Omit<CommunityData, "image"> &
+	AppviewCommunityImageData;
 
 const pdsUrlCache = new Map<string, string>();
 
@@ -35,9 +50,10 @@ async function resolvePdsUrl(did: string): Promise<string | undefined> {
 function blobRefToUrl(
 	pdsUrl: string,
 	did: string,
-	blobRef: { ref: { toString(): string } },
-): string {
-	const cid = blobRef.ref.toString();
+	blobRef: AppviewCommunityImageData["image"],
+): string | false {
+	if (!blobRef) return false;
+	const cid = blobRef.ref.$link;
 	return `${pdsUrl}/xrpc/com.atproto.sync.getBlob?did=${encodeURIComponent(did)}&cid=${encodeURIComponent(cid)}`;
 }
 
@@ -243,62 +259,34 @@ export class ColibriSDK {
 	};
 
 	/**
-	 * Returns the record for a given community owned by a user with the image properly resolved.
-	 * @param did The DID of the owner of the community.
-	 * @param rkey The record key of the community.
-	 * @returns The resolved community data.
-	 */
-	public getResolvedCommunityData = async (
-		did: string,
-		rkey: string,
-	): Promise<CommunityData> => {
-		const res = await this.agent.com.atproto.repo.getRecord({
-			collection: RECORD_IDs.COMMUNITY,
-			repo: did,
-			rkey,
-		});
-
-		const value = res.data.value as Record<string, any>;
-		let imageUrl: string | undefined;
-
-		if (value.image?.ref) {
-			const pdsUrl = await resolvePdsUrl(did);
-			if (pdsUrl) {
-				imageUrl = blobRefToUrl(pdsUrl, did, value.image);
-			}
-		}
-
-		return { ...value, rkey, image: imageUrl } as CommunityData;
-	};
-
-	/**
-	 * Returns a list of all communites a certain user owns.
+	 * Returns a list of all communites a certain user owns or is part of.
 	 * @param did The DID of the user.
-	 * @returns The community data of all communities the user owns.
+	 * @returns The community data of all communities the user owns or is part of.
 	 */
 	public getCommunities = async (
 		did: string,
 	): Promise<Array<CommunityData>> => {
-		const communities = await this.agent.com.atproto.repo.listRecords({
-			repo: did,
-			collection: RECORD_IDs.COMMUNITY,
-		});
+		const communities = (await (
+			await fetch(`https://${APPVIEW_DOMAIN}/api/communities?did=${did}`)
+		).json()) as {
+			owned: Array<UnresolvedCommunityData>;
+			joined: Array<UnresolvedCommunityData>;
+		};
 
+		const combined = [...communities.owned, ...communities.joined];
 		const pdsUrl = await resolvePdsUrl(did);
 
-		const data = communities.data.records.map((record) => {
-			const rkey = record.uri.split("/").pop()!;
-			const value = record.value as Record<string, any>;
-			let imageUrl: string | undefined;
+		const data = combined.map((record) => {
+			let imageUrl: string | false | undefined;
 
-			if (value.image?.ref && pdsUrl) {
-				imageUrl = blobRefToUrl(pdsUrl, did, value.image);
+			if (record.image?.ref && pdsUrl) {
+				console.log(pdsUrl, did, record.image);
+				imageUrl = blobRefToUrl(pdsUrl, did, record.image);
 			}
 
 			return {
-				...value,
-				rkey,
-				image: imageUrl,
+				...record,
+				image: imageUrl || null,
 			} as CommunityData;
 		});
 
@@ -406,6 +394,7 @@ export class ColibriSDK {
 	/**
 	 * A helper function to create data for a new channel.
 	 * @param did The DID of the user who owns the channel.
+	 * @param community The record key of the community the channel belongs to.
 	 * @param category The category the channel will be placed in.
 	 * @param name The name of the channel.
 	 * @param type The type of the channel. One of `text`, `voice` or `forum`.
@@ -413,14 +402,16 @@ export class ColibriSDK {
 	 */
 	public createChannelData = async (
 		did: string,
+		community: string,
 		category: string,
 		name: string,
 		type: ChannelType,
 	): Promise<string> => {
 		const record = this.constructAtProtoRecord(did, RECORD_IDs.CHANNEL, {
-			name: name ?? "New channel",
+			name: name,
 			type,
 			category,
+			community,
 		});
 
 		const res = await this.agent.com.atproto.repo.createRecord(record);

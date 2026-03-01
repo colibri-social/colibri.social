@@ -13,7 +13,8 @@
 		"astro": "astro",
 		"lint": "biome check .",
 		"lint:fix": "biome check . --write",
-		"start": "node ./dist/server/entry.mjs"
+		"start": "node ./dist/server/entry.mjs",
+		"publish-lexicons": "node --experimental-strip-types scripts/publish-lexicons.ts"
 	},
 	"dependencies": {
 		"@astrojs/check": "^0.9.6",
