@@ -310,26 +310,6 @@
 			);
 		background-size: var(--square-2) var(--square-2);
 	}
-
-	.glow {
-		position: relative;
-	}
-
-	.glow::before {
-		content: "";
-		position: absolute;
-		aspect-ratio: 2 / 1;
-		inset: -100%;
-		top: 50%;
-		transform: translateY(-50%) scale(0.5);
-		background: radial-gradient(
-			ellipse at center,
-			rgba(124, 92, 252, 0.15) 0%,
-			transparent 70%
-		);
-		pointer-events: none;
-		z-index: -1;
-	}
 }
 
 @keyframes float {
