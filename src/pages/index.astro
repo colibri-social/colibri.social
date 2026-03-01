@@ -18,353 +18,323 @@ import PrivateDataIcons from "@/assets/landing/PrivateDataIcons.png";
 import Colibri from "@/assets/landing/Colibri.png";
 import Leaves from "@/assets/landing/Leaves.webp";
 import {
-	Accordion,
-	AccordionContent,
-	AccordionItem,
-	AccordionTrigger,
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
 } from "@/components/bearnie/accordion";
+import MockVoiceCall from "@/components/public/MockVoiceCall.tsx";
 ---
 
 <PublicLayout home>
-	<section
-		class="w-screen flex flex-row gap-12 py-40 bg-gradient-dark rounded-b-xl drop-shadow-md drop-shadow-black/50 hero-container overflow-hidden"
-	>
-		<div class="flex flex-row gap-12 mx-auto w-full max-w-336 px-16">
-			<div class="w-full flex flex-col justify-center gap-4">
-				<small class="text-primary text-sm">
-					Chats where you truly own your data.
-				</small>
-				<h1 class="text-5xl font-black m-0">
-					LET YOUR COMMUNITY SPREAD ITS WINGS.
-				</h1>
-				<p class="m-0">
-					Colibri is an open source chat platform built on the AT protocol for
-					communities big and small.
-				</p>
-				<div class="flex flex-row items-start align-center gap-4">
-					<Button variant="default" class="cursor-pointer">
-						<Download slot="left-icon" href="/download" />
-						Download
-					</Button>
-					<Button variant="secondary" href="/app">
-						<Globe slot="left-icon" />
-						Open in Browser
-					</Button>
-					<Button variant="secondary" href="https://github.com/colibri-social">
-						<GitBranch slot="left-icon" />
-						View Source Code
-					</Button>
-				</div>
-			</div>
-			<div class="w-full relative flex items-center justify-center">
-				<canvas id="cobe" class="w-128 h-128" width="1000" height="1000"
-				></canvas>
-				<Image
-					src={IPhone}
-					width={240}
-					height={406}
-					quality={100}
-					alt={"An iPhone with the spellcast logo in the center of the screen."}
-					class="absolute top-1/2 left-1/2 transform -translate-1/2 floaty"
-					loading="eager"
-				/>
-			</div>
-		</div>
-		<Image
-			src={Branch}
-			width={800}
-			height={519}
-			quality={100}
-			alt={"A desaturated cherry blossom branch."}
-			class="absolute -right-40 -bottom-20 pointer-events-none"
-			loading="eager"
-		/>
-		<Image
-			src={Branch}
-			width={800}
-			height={519}
-			quality={100}
-			alt={"A desaturated cherry blossom branch."}
-			class="absolute -left-80 -bottom-50 transform -scale-x-100 pointer-events-none"
-			loading="eager"
-		/>
-	</section>
-	<section class="py-40 mx-auto w-full max-w-336 px-16">
-		<Clouds />
-		<div
-			class="bg-gradient-dark w-full rounded-2xl border border-border flex flex-row h-162 drop-shadow-black/25 drop-shadow-2xl"
-		>
-			<div
-				class="h-full w-full flex flex-col gap-12 p-6 border-r border-border"
-			>
-				<div
-					class="bg-gradient-feature p-8 rounded-sm h-92 flex items-center justify-center"
-					style="box-shadow: 0 0 5.625px 0 rgba(14, 0, 23, 0.50) inset;"
-				>
-					Animated Preview!!!
-				</div>
-				<div class="flex flex-col gap-4">
-					<h2 class="text-4xl font-black m-0">
-						CHAT, TALK, AND HANG OUT IN REAL TIME.
-					</h2>
-					<p class="m-0">
-						From quick chats and drop-in voice or video calls to organized forum
-						discussions, Colibri gives your community the perfect space to stay
-						connected and share what matters.
-					</p>
-				</div>
-			</div>
-			<div class="h-full w-full flex flex-col">
-				<div class="flex flex-col gap-4 p-6 h-full border-b border-border">
-					<div class="h-30 flex flex-row items-center justify-center relative">
-						<Image
-							src={atShield}
-							width={120}
-							height={120}
-							alt="A white, 3D shield with 'at://' written on it."
-							class="z-10"
-						/>
-						<BinaryMarquee />
-					</div>
-					<h2 class="text-4xl font-black m-0">YOU OWN YOUR DATA.</h2>
-					<p class="m-0">
-						Your data isn’t trapped on our servers. Colibri is built on the AT
-						Protocol, the open network with 40M+ users, where you literally own
-						your profile and messages.
-					</p>
-				</div>
-				<div class="flex flex-col gap-4 p-6 h-full">
-					<div class="h-30 flex flex-row items-center justify-around">
-						<div class="w-23 flex items-center justify-center">
-							<Image
-								src={User}
-								width={72}
-								height={72}
-								alt="A white, 3D User icon."
-							/>
-						</div>
-						<Image
-							src={Tools}
-							width={120}
-							height={120}
-							alt="A white 3D-looking hammer and wrench."
-						/>
-						<Image
-							src={UserVerified}
-							width={92}
-							height={72}
-							alt="A white, 3D User icon with a checkmark."
-						/>
-					</div>
-					<h2 class="text-4xl font-black m-0">ROLES AND MODERATION</h2>
-					<p class="m-0">
-						Running more than just a group chat? Set up custom roles, manage
-						permissions, and use built-in moderation to keep your community
-						safe.
-					</p>
-				</div>
-			</div>
-		</div>
-	</section>
-	<section class="py-40 mx-auto w-full max-w-336 px-16 relative">
-		<Image
-			src={Colibri}
-			width={240}
-			height={240}
-			quality={100}
-			alt="The Colibri logo, a hummingbird as a 3D-looking icon."
-			class="absolute -top-8 transform -scale-x-100 -right-36 rotate-5 glide glide-offset"
-		/>
-		<Image
-			src={Colibri}
-			width={480}
-			height={480}
-			quality={100}
-			alt="The Colibri logo, a hummingbird as a 3D-looking icon."
-			class="absolute -bottom-64 -left-44 rotate-25 glide"
-		/>
-		<div
-			class="bg-gradient-dark w-full rounded-2xl border border-border flex flex-row h-fit p-6 relative gap-6 overflow-hidden drop-shadow-black/25 drop-shadow-2xl"
-		>
-			<Image
-				src={Leaves}
-				width={512}
-				height={344}
-				quality={100}
-				alt="Leaves hanging down from some branches."
-				class="absolute top-0 -right-2 opacity-50"
-			/>
-			<div class="w-full flex flex-col gap-4 justify-center">
-				<small class="text-primary text-sm">Future-proofed.</small>
-				<h2 class="text-4xl font-black m-0">
-					BUILT ON OPEN STANDARDS. PRIVATE WHEN NEEDED.
-				</h2>
-				<p class="m-0">
-					Running a private group chat? Until the AT Protocol supports private
-					data, we’ll store your data on our EU-based servers. Once the network
-					allows for private data, we’ll handle the migration for you.
-				</p>
-			</div>
-			<div class="min-w-120 w-full h-108 flex items-center justify-center">
-				<Image
-					width={480}
-					height={480}
-					src={PrivateDataBG}
-					quality={100}
-					alt="A big 3D purple shield."
-					class="absolute"
-				/>
-				<Image
-					width={320}
-					height={120}
-					src={PrivateDataIcons}
-					quality={100}
-					class="z-10"
-					alt="A 3D-looking database icon with a lock, a 3D-looking lock icon with the text 'at://' on it, and a 3D-looking arrow icon pointing from the database to the lock."
-				/>
-			</div>
-		</div>
-	</section>
-	<section class="py-40 mx-auto w-full max-w-336 px-16 relative">
-		<div
-			class="bg-gradient-dark w-full rounded-2xl border border-border flex flex-col gap-8 h-fit p-6 relative items-center drop-shadow-black/25 drop-shadow-2xl"
-		>
-			<div class="flex flex-col gap-4 items-center text-center">
-				<small class="text-primary text-sm">Stuff you might ask about.</small>
-				<h2 class="text-4xl font-black m-0">QUESTIONS? WE’VE GOT ANSWERS.</h2>
-			</div>
-			<Accordion type="single" class="space-y-4 text-foreground">
-				<AccordionItem value="item-1" class="border rounded-lg px-4">
-					<AccordionTrigger>What is the AT Protocol?</AccordionTrigger>
-					<AccordionContent>
-						The AT Protocol (Authenticated Transfer Protocol) is an open,
-						decentralized network originally created by the team behind Bluesky.
-						It lets you truly own your identity and data — your account, posts,
-						and social graph aren't locked into any single platform. With over
-						40 million users, it's a growing foundation for the next generation
-						of social apps.
-					</AccordionContent>
-				</AccordionItem>
-				<AccordionItem value="item-2" class="border rounded-lg px-4">
-					<AccordionTrigger>
-						Why is Colibri built on the AT Protocol?
-					</AccordionTrigger>
-					<AccordionContent>
-						We believe your community shouldn't be held hostage by any single
-						company. Building on the AT Protocol means your data is portable,
-						your identity is yours, and Colibri can't lock you in. If you ever
-						want to move, your data comes with you.
-					</AccordionContent>
-				</AccordionItem>
-				<AccordionItem value="item-3" class="border rounded-lg px-4">
-					<AccordionTrigger>
-						Can I use my Bluesky account with Colibri?
-					</AccordionTrigger>
-					<AccordionContent>
-						Yes! Since Colibri is built on the same AT Protocol that powers
-						Bluesky, you can sign in with your existing Bluesky handle. No need
-						to create a new account — your identity carries over seamlessly.
-						Just log in and you're ready to go.
-					</AccordionContent>
-				</AccordionItem>
-				<AccordionItem value="item-4" class="border rounded-lg px-4">
-					<AccordionTrigger>
-						Can I use my private PDS account?
-					</AccordionTrigger>
-					<AccordionContent>
-						Absolutely. If you're running your own Personal Data Server, Colibri
-						works with it out of the box. Just sign in with your handle or DID
-						and we'll connect to your PDS directly. You stay in full control of
-						where your data lives — that's the whole point of the AT Protocol.
-					</AccordionContent>
-				</AccordionItem>
-				<AccordionItem value="item-5" class="border rounded-lg px-4">
-					<AccordionTrigger>
-						Do you host a PDS if I want a new account or move my data over to
-						you?
-					</AccordionTrigger>
-					<AccordionContent>
-						Not yet, but it's on our roadmap. For now, you can use Bluesky's
-						hosted PDS or run your own. Once we offer hosted PDS accounts,
-						you'll be able to create a new identity with us or migrate your
-						existing data over — all without losing your social connections or
-						community history.
-					</AccordionContent>
-				</AccordionItem>
-				<AccordionItem value="item-6" class="border rounded-lg px-4">
-					<AccordionTrigger>Where is my private data hosted?</AccordionTrigger>
-					<AccordionContent>
-						The AT Protocol doesn't support private data yet, so any private
-						community data (like messages in private groups) is stored securely
-						on our EU-based servers. Once the AT Protocol introduces support for
-						private data, we'll handle the migration for you automatically — no
-						action needed on your end.
-					</AccordionContent>
-				</AccordionItem>
-			</Accordion>
-		</div>
-	</section>
+  <section
+    class="w-screen flex flex-row gap-12 py-40 bg-gradient-dark rounded-b-xl drop-shadow-md drop-shadow-black/50 hero-container overflow-hidden"
+  >
+    <div class="flex flex-row gap-12 mx-auto w-full max-w-336 px-16">
+      <div class="w-full flex flex-col justify-center">
+        <small class="text-primary text-sm mb-3"> True chat data ownership </small>
+        <h1 class="text-5xl font-black m-0 mb-2">LET YOUR COMMUNITY SPREAD ITS WINGS.</h1>
+        <p class="m-0 mb-8 text-lg/6">
+          Colibri is an open source chat platform built on the AT protocol for communities big and
+          small.
+        </p>
+        <div class="flex flex-row items-start align-center gap-4">
+          <Button variant="default" class="cursor-pointer" href="/download">
+            <Download slot="left-icon" />
+            Download
+          </Button>
+          <Button variant="secondary" href="/app">
+            <Globe slot="left-icon" />
+            Open in Browser
+          </Button>
+          <Button variant="secondary" href="https://github.com/colibri-social">
+            <GitBranch slot="left-icon" />
+            View Source Code
+          </Button>
+        </div>
+      </div>
+      <div class="w-full relative flex items-center justify-center">
+        <canvas id="cobe" class="w-128 h-128" width="1000" height="1000"></canvas>
+        <Image
+          src={IPhone}
+          width={240}
+          height={406}
+          quality={100}
+          alt={"An iPhone with the spellcast logo in the center of the screen."}
+          class="absolute top-1/2 left-1/2 transform -translate-1/2 floaty"
+          loading="eager"
+        />
+      </div>
+    </div>
+    <Image
+      src={Branch}
+      width={800}
+      height={519}
+      quality={100}
+      alt={"A desaturated cherry blossom branch."}
+      class="absolute -right-40 -bottom-20 pointer-events-none"
+      loading="eager"
+    />
+    <Image
+      src={Branch}
+      width={800}
+      height={519}
+      quality={100}
+      alt={"A desaturated cherry blossom branch."}
+      class="absolute -left-80 -bottom-50 transform -scale-x-100 pointer-events-none"
+      loading="eager"
+    />
+  </section>
+  <section class="py-40 mx-auto w-full max-w-336 px-16">
+    <Clouds />
+    <div
+      class="bg-gradient-dark w-full rounded-2xl border border-border flex flex-row h-162 drop-shadow-black/25 drop-shadow-2xl"
+    >
+      <div class="h-full w-full flex flex-col gap-12 p-6 border-r border-border">
+        <div
+          class="bg-gradient-feature p-12 rounded-sm h-92 flex items-start justify-center overflow-y-clip"
+          style="box-shadow: 0 0 5.625px 0 rgba(14, 0, 23, 0.50) inset;"
+        >
+          <MockVoiceCall client:visible />
+        </div>
+        <div class="flex flex-col gap-4">
+          <h2 class="text-4xl font-black m-0">CHAT, TALK, AND HANG OUT IN REAL TIME.</h2>
+          <p class="m-0">
+            From quick chats and drop-in voice or video calls to organized forum discussions,
+            Colibri gives your community the perfect space to stay connected and share what matters.
+          </p>
+        </div>
+      </div>
+      <div class="h-full w-full flex flex-col">
+        <div class="flex flex-col gap-4 p-6 h-full border-b border-border">
+          <div class="h-30 flex flex-row items-center justify-center relative">
+            <Image
+              src={atShield}
+              width={120}
+              height={120}
+              alt="A white, 3D shield with 'at://' written on it."
+              class="z-10"
+            />
+            <BinaryMarquee />
+          </div>
+          <h2 class="text-4xl font-black m-0">YOU OWN YOUR DATA.</h2>
+          <p class="m-0">
+            Your data isn’t trapped on our servers. Colibri is built on the AT Protocol, the open
+            network with 40M+ users, where you literally own your profile and messages.
+          </p>
+        </div>
+        <div class="flex flex-col gap-4 p-6 h-full">
+          <div class="h-30 flex flex-row items-center justify-around">
+            <div class="w-23 flex items-center justify-center">
+              <Image src={User} width={72} height={72} alt="A white, 3D User icon." />
+            </div>
+            <Image
+              src={Tools}
+              width={120}
+              height={120}
+              alt="A white 3D-looking hammer and wrench."
+            />
+            <Image
+              src={UserVerified}
+              width={92}
+              height={72}
+              alt="A white, 3D User icon with a checkmark."
+            />
+          </div>
+          <h2 class="text-4xl font-black m-0">ROLES AND MODERATION</h2>
+          <p class="m-0">
+            Running more than just a group chat? Set up custom roles, manage permissions, and use
+            built-in moderation to keep your community safe.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+  <section class="py-40 mx-auto w-full max-w-336 px-16 relative">
+    <Image
+      src={Colibri}
+      width={240}
+      height={240}
+      quality={100}
+      alt="The Colibri logo, a hummingbird as a 3D-looking icon."
+      class="absolute -top-8 transform -scale-x-100 -right-36 rotate-5 glide glide-offset"
+    />
+    <Image
+      src={Colibri}
+      width={480}
+      height={480}
+      quality={100}
+      alt="The Colibri logo, a hummingbird as a 3D-looking icon."
+      class="absolute -bottom-64 -left-44 rotate-25 glide"
+    />
+    <div
+      class="bg-gradient-dark w-full rounded-2xl border border-border flex flex-row h-fit p-6 relative gap-6 overflow-hidden drop-shadow-black/25 drop-shadow-2xl"
+    >
+      <Image
+        src={Leaves}
+        width={512}
+        height={344}
+        quality={100}
+        alt="Leaves hanging down from some branches."
+        class="absolute top-0 -right-2 opacity-50"
+      />
+      <div class="w-full flex flex-col gap-4 justify-center">
+        <small class="text-primary text-sm">Future-proofed.</small>
+        <h2 class="text-4xl font-black m-0">BUILT ON OPEN STANDARDS. PRIVATE WHEN NEEDED.</h2>
+        <p class="m-0">
+          Running a private group chat? Until the AT Protocol supports private data, we’ll store
+          your data on our EU-based servers. Once the network allows for private data, we’ll handle
+          the migration for you.
+        </p>
+      </div>
+      <div class="min-w-120 w-full h-108 flex items-center justify-center">
+        <Image
+          width={480}
+          height={480}
+          src={PrivateDataBG}
+          quality={100}
+          alt="A big 3D purple shield."
+          class="absolute"
+        />
+        <Image
+          width={320}
+          height={120}
+          src={PrivateDataIcons}
+          quality={100}
+          class="z-10"
+          alt="A 3D-looking database icon with a lock, a 3D-looking lock icon with the text 'at://' on it, and a 3D-looking arrow icon pointing from the database to the lock."
+        />
+      </div>
+    </div>
+  </section>
+  <section class="py-40 mx-auto w-full max-w-336 px-16 relative">
+    <div
+      class="bg-gradient-dark w-full rounded-2xl border border-border flex flex-col gap-8 h-fit p-6 relative items-center drop-shadow-black/25 drop-shadow-2xl"
+    >
+      <div class="flex flex-col gap-4 items-center text-center">
+        <small class="text-primary text-sm">Stuff you might ask about.</small>
+        <h2 class="text-4xl font-black m-0">QUESTIONS? WE’VE GOT ANSWERS.</h2>
+      </div>
+      <Accordion type="single" class="space-y-4 text-foreground">
+        <AccordionItem value="item-1" class="border rounded-lg px-4">
+          <AccordionTrigger>What is the AT Protocol?</AccordionTrigger>
+          <AccordionContent>
+            The AT Protocol (Authenticated Transfer Protocol) is an open, decentralized network
+            originally created by the team behind Bluesky. It lets you truly own your identity and
+            data — your account, posts, and social graph aren't locked into any single platform.
+            With over 40 million users, it's a growing foundation for the next generation of social
+            apps.
+          </AccordionContent>
+        </AccordionItem>
+        <AccordionItem value="item-2" class="border rounded-lg px-4">
+          <AccordionTrigger> Why is Colibri built on the AT Protocol? </AccordionTrigger>
+          <AccordionContent>
+            We believe your community shouldn't be held hostage by any single company. Building on
+            the AT Protocol means your data is portable, your identity is yours, and Colibri can't
+            lock you in. If you ever want to move, your data comes with you.
+          </AccordionContent>
+        </AccordionItem>
+        <AccordionItem value="item-3" class="border rounded-lg px-4">
+          <AccordionTrigger> Can I use my Bluesky account with Colibri? </AccordionTrigger>
+          <AccordionContent>
+            Yes! Since Colibri is built on the same AT Protocol that powers Bluesky, you can sign in
+            with your existing Bluesky handle. No need to create a new account — your identity
+            carries over seamlessly. Just log in and you're ready to go.
+          </AccordionContent>
+        </AccordionItem>
+        <AccordionItem value="item-4" class="border rounded-lg px-4">
+          <AccordionTrigger> Can I use my private PDS account? </AccordionTrigger>
+          <AccordionContent>
+            Absolutely. If you're running your own Personal Data Server, Colibri works with it out
+            of the box. Just sign in with your handle or DID and we'll connect to your PDS directly.
+            You stay in full control of where your data lives — that's the whole point of the AT
+            Protocol.
+          </AccordionContent>
+        </AccordionItem>
+        <AccordionItem value="item-5" class="border rounded-lg px-4">
+          <AccordionTrigger>
+            Do you host a PDS if I want a new account or move my data over to you?
+          </AccordionTrigger>
+          <AccordionContent>
+            Not yet, but it's on our roadmap. For now, you can use Bluesky's hosted PDS or run your
+            own. Once we offer hosted PDS accounts, you'll be able to create a new identity with us
+            or migrate your existing data over — all without losing your social connections or
+            community history.
+          </AccordionContent>
+        </AccordionItem>
+        <AccordionItem value="item-6" class="border rounded-lg px-4">
+          <AccordionTrigger>Where is my private data hosted?</AccordionTrigger>
+          <AccordionContent>
+            The AT Protocol doesn't support private data yet, so any private community data (like
+            messages in private groups) is stored securely on our EU-based servers. Once the AT
+            Protocol introduces support for private data, we'll handle the migration for you
+            automatically — no action needed on your end.
+          </AccordionContent>
+        </AccordionItem>
+      </Accordion>
+    </div>
+  </section>
 </PublicLayout>
 <style>
-	.glide {
-		animation: glide 8s ease-in-out infinite;
-		transform-origin: center center;
-	}
+  .glide {
+    animation: glide 8s ease-in-out infinite;
+    transform-origin: center center;
+  }
 
-	.glide-offset {
-		animation-delay: -1.5s;
-	}
+  .glide-offset {
+    animation-delay: -1.5s;
+  }
 
-	@keyframes glide {
-		0% {
-			transform: translateY(0px) rotate(var(--tw-rotate, 0deg));
-		}
-		25% {
-			transform: translateY(-12px) rotate(calc(var(--tw-rotate, 0deg) - 3deg));
-		}
-		50% {
-			transform: translateY(4px) rotate(calc(var(--tw-rotate, 0deg) + 2deg));
-		}
-		75% {
-			transform: translateY(-8px) rotate(calc(var(--tw-rotate, 0deg) - 1.5deg));
-		}
-		100% {
-			transform: translateY(0px) rotate(var(--tw-rotate, 0deg));
-		}
-	}
+  @keyframes glide {
+    0% {
+      transform: translateY(0px) rotate(var(--tw-rotate, 0deg));
+    }
+    25% {
+      transform: translateY(-12px) rotate(calc(var(--tw-rotate, 0deg) - 3deg));
+    }
+    50% {
+      transform: translateY(4px) rotate(calc(var(--tw-rotate, 0deg) + 2deg));
+    }
+    75% {
+      transform: translateY(-8px) rotate(calc(var(--tw-rotate, 0deg) - 1.5deg));
+    }
+    100% {
+      transform: translateY(0px) rotate(var(--tw-rotate, 0deg));
+    }
+  }
 </style>
 <script>
-	import createGlobe from "cobe";
+  import createGlobe from "cobe";
 
-	let phi = 0;
-	let canvas = document.querySelector<HTMLCanvasElement>("#cobe")!;
+  let phi = 0;
+  let canvas = document.querySelector<HTMLCanvasElement>("#cobe")!;
 
-	const globe = createGlobe(canvas, {
-		devicePixelRatio: 2,
-		width: 1000,
-		height: 1000,
-		phi: 0,
-		theta: 0,
-		mapSamples: 16000,
-		mapBrightness: 6,
-		mapBaseBrightness: 0,
-		diffuse: 1.2,
-		dark: 1,
-		baseColor: [0.2, 0.1, 0.3],
-		markerColor: [1, 1, 1],
-		glowColor: [0.556, 0.317, 1],
-		scale: 1,
-		offset: [0, 0],
-		opacity: 0.9,
-		markers: [
-			// { location: [37.7595, -122.4367], size: 0.03 },
-			// { location: [40.7128, -74.006], size: 0.1 },
-		],
-		onRender: (state) => {
-			// Called on every animation frame.
-			// `state` will be an empty object, return updated params.
-			state.phi = phi;
-			phi += 0.001;
-		},
-	});
+  const globe = createGlobe(canvas, {
+    devicePixelRatio: 2,
+    width: 1000,
+    height: 1000,
+    phi: 0,
+    theta: 0,
+    mapSamples: 16000,
+    mapBrightness: 6,
+    mapBaseBrightness: 0,
+    diffuse: 1.2,
+    dark: 1,
+    baseColor: [0.2, 0.1, 0.3],
+    markerColor: [1, 1, 1],
+    glowColor: [0.556, 0.317, 1],
+    scale: 1,
+    offset: [0, 0],
+    opacity: 0.9,
+    markers: [
+      // { location: [37.7595, -122.4367], size: 0.03 },
+      // { location: [40.7128, -74.006], size: 0.1 },
+    ],
+    onRender: (state) => {
+      // Called on every animation frame.
+      // `state` will be an empty object, return updated params.
+      state.phi = phi;
+      phi += 0.001;
+    },
+  });
 </script>
