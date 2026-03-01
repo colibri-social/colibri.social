@@ -73,6 +73,8 @@ export const MessageInput: Component = () => {
 			facets: [],
 		});
 
+		clearReplyingTo();
+
 		const { error } = await actions.postMessage(obj);
 
 		if (error) {
