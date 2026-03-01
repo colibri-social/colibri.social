@@ -34,12 +34,14 @@ const links: Array<LinkData> = [
 		class="absolute -top-full -left-52 z-10"
 	/>
 	<div class="w-full h-full bg-gradient-dark absolute rounded-t-xl z-10"></div>
-	<div class="py-6 px-64 flex flex-row items-center justify-between z-20">
+	<div
+		class="py-6 mx-auto w-full max-w-320 flex flex-row items-center justify-between z-20"
+	>
 		<HomeLink />
 		<span class="font-light">©️ 2026 Colibri Social Maintainers</span>
 	</div>
 	<div
-		class="flex flex-row items-center justify-between w-full px-64 pb-6 z-20"
+		class="flex flex-row items-center justify-between mx-auto w-full max-w-320 pb-6 z-20"
 	>
 		{links.map(({ text, href }) => <NavLink {text} {href} />)}
 	</div>

@@ -43,6 +43,7 @@ export const NewCommunityModal: ParentComponent<{ navigate: Navigator }> = (
 		setLoading(true);
 
 		let base64Image: string | undefined;
+		let mimeType: string | undefined;
 
 		if (image()) {
 			base64Image = await new Promise<string>((resolve, reject) => {
@@ -51,16 +52,16 @@ export const NewCommunityModal: ParentComponent<{ navigate: Navigator }> = (
 				reader.onerror = reject;
 				reader.readAsDataURL(image()!.acceptedFiles[0]);
 			});
-		}
 
-		const mimeType = image()!.acceptedFiles[0].type;
+			mimeType = image()!.acceptedFiles[0].type;
+		}
 
 		const { data, error } = await actions.createCommunity({
 			name: name(),
 			image: base64Image
 				? {
 						base64: base64Image,
-						type: mimeType,
+						type: mimeType!,
 					}
 				: undefined,
 		});
