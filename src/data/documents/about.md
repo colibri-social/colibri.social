@@ -46,4 +46,4 @@ Atproto just so happened to be a decent fit for the prototype.
 ## I like what I'm reading. Can I help out?
 
 Yes, please! Both of the pieces of Software we've made, the [App View](https://github.com/colibri-social/appview) and [Website & App](https://github.com/colibri-social/colibri.social) are open source.
-We encourage contributions by the community, be it for new features, small fixes or adjustments,or even large additions to the system.
+We encourage contributions by the community, be it for new features, small fixes or adjustments, or even large additions to the system.
