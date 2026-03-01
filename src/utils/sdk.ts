@@ -508,6 +508,7 @@ export class ColibriSDK {
 	 * @param did The DID of the user who owns the message.
 	 * @param channel The channel the message was sent in.
 	 * @param text The text of the message.
+	 * @param facets The facets for this text.
 	 * @param createdAt The timestamp the message was sent at.
 	 * @returns The record key of the newly posted message.
 	 */
@@ -537,21 +538,31 @@ export class ColibriSDK {
 	 * @param did The DID of the message owner.
 	 * @param channel The channel the message was sent in.
 	 * @param text The new text to be used for the message.
+	 * @param facets The facets for this text.
 	 * @param rkey The record key of the message to be edited.
 	 */
 	public editMessage = async (
 		did: string,
 		channel: string,
 		text: string,
+		facets: Array<Facet>,
 		rkey: string,
 	): Promise<void> => {
-		const { createdAt } = await this.getMessageData(did, rkey);
+		const { createdAt, parent } = await this.getMessageData(did, rkey);
 
-		const newRecord = this.constructAtProtoRecord(did, RECORD_IDs.MESSAGE, {
-			text,
-			createdAt,
-			channel,
-		});
+		const newRecord = this.constructAtProtoRecord(
+			did,
+			RECORD_IDs.MESSAGE,
+			{
+				text,
+				createdAt,
+				channel,
+				parent,
+				facets,
+				edited: true,
+			},
+			rkey,
+		);
 
 		await this.agent.com.atproto.repo.putRecord(newRecord);
 	};

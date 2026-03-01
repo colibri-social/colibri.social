@@ -20,7 +20,7 @@ import { Emoji as EmojiIcon } from "../../icons/Emoji";
 import { Pencil } from "../../icons/Pencil";
 import { Reply } from "../../icons/Reply";
 import { Trash } from "../../icons/Trash";
-import { RichTextRenderer } from "../RichTextRenderer";
+import { RichTextRenderer, type TextWithFacets } from "../RichTextRenderer";
 import { EmojiPopover } from "./EmojiPopover";
 import { MessageAction } from "./MessageAction";
 import { MessageContextMenu } from "./MessageContextMenu";
@@ -46,8 +46,12 @@ export const Message: Component<{
 	const [removedReactions, setRemovedReactions] = createSignal<
 		Array<ReactionRemovedEvent>
 	>([]);
-
 	const [_, setPendingCounter] = createSignal(0);
+	const [editMode, setEditMode] = createSignal(false);
+	const [editedText, setEditedText] = createSignal<TextWithFacets>({
+		text: props.data.text,
+		facets: props.data.facets || [],
+	});
 
 	/**
 	 * Optimistically add a reaction emoji to a message, even though the server has not responded yet.
@@ -123,7 +127,37 @@ export const Message: Component<{
 	 * 2. On enter of said input, submit edit request and immediately hide input, replace text with edited one
 	 * 3. We don't care about a websocket response in this case, this can be handled locally
 	 */
-	const enableEditMode = () => {};
+	const enableEditMode = () => {
+		setEditMode(true);
+	};
+
+	/**
+	 * Resets all edits made on this message and disables edit mode.
+	 */
+	const cancelEdits = () => {
+		setEditedText({
+			text: props.data.text,
+			facets: props.data.facets || [],
+		});
+		setEditMode(false);
+	};
+
+	/**
+	 * Saves edits to the PDS.
+	 * @todo If the message is empty, ask to delete.
+	 */
+	const submitEdits = () => {
+		if ("hash" in props.data) return;
+
+		actions.editMessage({
+			channel: props.data.channel,
+			facets: editedText().facets,
+			text: editedText().text,
+			rkey: props.data.rkey,
+		});
+
+		setEditMode(false);
+	};
 
 	/**
 	 * Handles a potential deletion by either opening the modal or immediately deleting the message if the shift key is held while clicking.
@@ -346,16 +380,54 @@ export const Message: Component<{
 								</small>
 							</div>
 						</Show>
-						<RichTextRenderer
-							text={() => ({
-								text: props.data.text,
-								facets: props.data.facets || [],
-							})}
-							classList={{
-								"text-muted-foreground": isPending(),
-								"text-foreground": !isPending(),
+						<div
+							onKeyDown={(e) => {
+								if (e.key === "Enter" && !e.shiftKey) {
+									e.preventDefault();
+									submitEdits();
+								}
+								if (e.key === "Escape") {
+									cancelEdits();
+								}
 							}}
-						/>
+						>
+							<RichTextRenderer
+								text={editedText}
+								setInputContent={setEditedText}
+								classList={{
+									"text-muted-foreground": isPending(),
+									"text-foreground": !isPending(),
+									"p-4 py-3 border border-border rounded-sm bg-card":
+										editMode(),
+								}}
+								editable={editMode()}
+							/>
+							<Show when={editMode()}>
+								<div class="flex flex-row items-center gap-1">
+									<small>
+										escape to{" "}
+										<button
+											type="button"
+											class="cursor-pointer hover:underline text-primary-foreground"
+											onClick={cancelEdits}
+										>
+											cancel
+										</button>
+									</small>
+									<span class="w-1 h-1 bg-muted-foreground rounded-full" />
+									<small>
+										enter to{" "}
+										<button
+											type="button"
+											class="cursor-pointer hover:underline text-primary-foreground"
+											onClick={submitEdits}
+										>
+											submit
+										</button>
+									</small>
+								</div>
+							</Show>
+						</div>
 					</div>
 					<Show when={!isPending()}>
 						<div

@@ -56,7 +56,22 @@ const ChannelView: Component = () => {
 		const pendingMessages = globalState.pendingMessages;
 		const deletedMessages = globalState.deletedMessages;
 
-		return [...fetchedMessageData, ...newlyReceivedMessages, ...pendingMessages]
+		// Separate edited messages from truly new messages in additionalMessages
+		const editedMessages = newlyReceivedMessages.filter((msg) => msg.edited);
+		const newMessages = newlyReceivedMessages.filter((msg) => !msg.edited);
+
+		// Replace fetched messages with their edited versions where a matching rkey exists
+		const updatedFetchedMessages = fetchedMessageData.map((msg) => {
+			const editedVersion = editedMessages.find(
+				(edited) =>
+					edited.rkey === msg.rkey && edited.author_did === msg.author_did,
+			);
+			return editedVersion ?? msg;
+		});
+
+		// Discard orphaned edits (edited messages with no matching fetched message)
+		// Only new (non-edited) additional messages should be appended
+		return [...updatedFetchedMessages, ...newMessages, ...pendingMessages]
 			.filter((message) => message.channel === params.channel)
 			.filter((message) => {
 				// Early return since pending messages cannot be deleted

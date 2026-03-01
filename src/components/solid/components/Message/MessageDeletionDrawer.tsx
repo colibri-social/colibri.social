@@ -65,6 +65,7 @@ export const MessageDeletionDrawer: ParentComponent<{
 						<MockMessage message={props.message} isDesktop={isDesktop} />
 						<DialogTip />
 						<DialogFooter>
+							<DialogCancelButton setOpen={props.setOpen} />
 							<DialogConfirmButton
 								onClick={() => {
 									deleteMessage(
@@ -74,7 +75,6 @@ export const MessageDeletionDrawer: ParentComponent<{
 									);
 								}}
 							/>
-							<DialogCancelButton setOpen={props.setOpen} />
 						</DialogFooter>
 					</DialogContent>
 				</DialogPortal>

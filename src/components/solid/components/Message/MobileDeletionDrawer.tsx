@@ -49,6 +49,7 @@ export const MobileDrawer: ParentComponent<{
 				<MockMessage isDesktop={props.isDesktop} message={props.message} />
 				<DialogTip />
 				<DrawerFooter>
+					<DialogCancelButton setOpen={props.setOpen} />
 					<DialogConfirmButton
 						onClick={() => {
 							deleteMessage(
@@ -58,7 +59,6 @@ export const MobileDrawer: ParentComponent<{
 							);
 						}}
 					/>
-					<DialogCancelButton setOpen={props.setOpen} />
 				</DrawerFooter>
 			</DrawerContent>
 		</DrawerPortal>

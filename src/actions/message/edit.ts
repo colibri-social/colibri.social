@@ -3,14 +3,16 @@ import { Agent } from "@atproto/api";
 import { z } from "astro/zod";
 import { client } from "@/utils/atproto/oauth";
 import { ColibriSDK } from "@/utils/sdk";
+import type { Facet } from "@/utils/atproto/rich-text";
 
 export const editMessage = defineAction({
 	input: z.object({
 		text: z.string().max(2048),
-		channel: z.string(),
+		facets: z.array(z.custom<Facet>()),
 		rkey: z.string(),
+		channel: z.string(),
 	}),
-	handler: async ({ text, channel, rkey }, { session }) => {
+	handler: async ({ text, channel, facets, rkey }, { session }) => {
 		try {
 			if (!session || !session?.has("user")) {
 				throw new ActionError({
@@ -24,7 +26,7 @@ export const editMessage = defineAction({
 			const agent = new Agent(oauthSession);
 			const sdk = new ColibriSDK(agent);
 
-			await sdk.editMessage(agent.did!, channel, text, rkey);
+			await sdk.editMessage(agent.did!, channel, text, facets, rkey);
 
 			return {
 				channel,

@@ -166,7 +166,20 @@ export const GlobalContextProvider: ParentComponent<{
 				);
 			},
 			addAdditionalMessage(message) {
-				setGlobalContext("additionalMessages", (list) => [...list, message]);
+				const existingAdditionalMessageIndex =
+					globalContext.additionalMessages.findIndex(
+						(x) => x.rkey === message.rkey,
+					);
+				if (existingAdditionalMessageIndex) {
+					const newArray = globalContext.additionalMessages.toSpliced(
+						existingAdditionalMessageIndex,
+						1,
+						message,
+					);
+					setGlobalContext("additionalMessages", newArray);
+				} else {
+					setGlobalContext("additionalMessages", (list) => [...list, message]);
+				}
 			},
 			clearAdditionalMessages() {
 				setGlobalContext("additionalMessages", []);
