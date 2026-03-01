@@ -1,9 +1,11 @@
 import { useParams } from "@solidjs/router";
 import {
+	createEffect,
 	createMemo,
 	createResource,
 	For,
 	Match,
+	onCleanup,
 	type ParentComponent,
 	Suspense,
 	Switch,
@@ -57,7 +59,7 @@ const fetchCommunityMembers = async (
 
 const CommunityLayout: ParentComponent = (props) => {
 	const params = useParams();
-	const [globalContext] = useGlobalContext();
+	const [globalContext, { sendSocketMessage }] = useGlobalContext();
 
 	const community = createMemo(() =>
 		globalContext.communities.find((x) => x.rkey === params.community),
@@ -77,6 +79,31 @@ const CommunityLayout: ParentComponent = (props) => {
 		},
 		(source) => fetchCommunityMembers(source.ownerDid, source.community),
 	);
+
+	// Handlers for web socket connections to subscribe to community updates
+	createEffect(() => {
+		const community = globalContext.communities.find(
+			(community) => community.rkey === params.community,
+		)!;
+
+		sendSocketMessage({
+			action: "subscribe",
+			event_type: "community",
+			community_uri: `at://${community.owner_did}/social.colibri.community/${community.rkey}`,
+		});
+	});
+
+	onCleanup(() => {
+		const community = globalContext.communities.find(
+			(community) => community.rkey === params.community,
+		)!;
+
+		sendSocketMessage({
+			action: "unsubscribe",
+			event_type: "message",
+			community_uri: `at://${community.owner_did}/social.colibri.community/${community.rkey}`,
+		});
+	});
 
 	const channels = createMemo(() => communityInfo()?.data?.channels ?? []);
 	const communityRkey = createMemo(() => params.community ?? "");

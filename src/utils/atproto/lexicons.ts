@@ -179,7 +179,7 @@ lex.add(
 				key: "tid",
 				description: "A channel that belongs to a category on Colibri.",
 				record: {
-					required: ["name", "type", "category"],
+					required: ["name", "type", "category", "community"],
 					type: "object",
 					properties: {
 						$type: {
