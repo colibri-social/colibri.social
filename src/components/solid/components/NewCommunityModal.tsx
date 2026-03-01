@@ -1,8 +1,9 @@
 import { actions } from "astro:actions";
+import { toast } from "somoto";
 import type { Details } from "@kobalte/core/file-field";
 import type { Navigator } from "@solidjs/router";
 import { createSignal, Match, type ParentComponent, Switch } from "solid-js";
-import { useGlobalContext } from "../contexts/GlobalContext";
+import { useGlobalContext } from "../contexts/GlobalContext/index";
 import { Image } from "../icons/Image";
 import { Spinner } from "../icons/Spinner";
 import { Button } from "../shadcn-solid/Button";
@@ -33,7 +34,7 @@ import {
 export const NewCommunityModal: ParentComponent<{ navigate: Navigator }> = (
 	props,
 ) => {
-	const [, globalContext] = useGlobalContext();
+	const [globalData, globalContext] = useGlobalContext();
 	const [name, setName] = createSignal<string>("");
 	const [image, setImage] = createSignal<Details>();
 	const [loading, setLoading] = createSignal<boolean>(false);
@@ -68,16 +69,17 @@ export const NewCommunityModal: ParentComponent<{ navigate: Navigator }> = (
 
 		if (error) {
 			setLoading(false);
-			alert(error.message);
+			toast.error("Failed to create community", { description: error.message });
 			return;
 		}
 
 		globalContext.addCommunity({
 			rkey: data.community,
 			name: name(),
-			image: base64Image,
+			picture: base64Image,
 			description: "",
 			categoryOrder: [],
+			owner_did: globalData.user.sub,
 		});
 
 		setLoading(false);

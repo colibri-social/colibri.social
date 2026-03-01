@@ -43,6 +43,7 @@
 		"sharp": "^0.34.5",
 		"solid-emoji-picker": "^0.3.0",
 		"solid-js": "^1.9.11",
+		"somoto": "^0.0.2",
 		"tailwind-merge": "^3.4.0",
 		"tailwindcss": "^4.1.18",
 		"tlds": "^1.261.0",

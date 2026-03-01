@@ -42,16 +42,15 @@ const AppLayout: ParentComponent = (props) => {
 											activeClass="outline outline-foreground outline-2 -outline-offset-2"
 										>
 											<Switch>
-												<Match when={item.image}>
+												<Match when={item.picture}>
 													<img
-														src={item.image}
+														src={item.picture}
 														alt={item.name}
 														class="w-10 h-10 rounded-md object-cover"
 													/>
 												</Match>
-												<Match when={!item.image}>
+												<Match when={!item.picture}>
 													<span class="font-bold">
-														{/*TODO: Server images*/}
 														{item.name
 															.split(" ")
 															.map((x) => x.substring(0, 1))

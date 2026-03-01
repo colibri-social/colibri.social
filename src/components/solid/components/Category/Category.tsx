@@ -20,6 +20,7 @@ import { ChannelCreationModal } from "./ChannelCreationModal";
  */
 export const Category: ParentComponent<{
 	category: CategoryData & { channels: ChannelData[] };
+	community: string;
 }> = (props) => {
 	const params = useParams();
 
@@ -47,7 +48,10 @@ export const Category: ParentComponent<{
 					</Switch>
 					<span>{props.category.name}</span>
 				</div>
-				<ChannelCreationModal category={props.category.rkey}>
+				<ChannelCreationModal
+					category={props.category.rkey}
+					community={props.community}
+				>
 					<Button size="sm" class="w-5 h-5 cursor-pointer" variant="ghost">
 						<PlusSmall />
 					</Button>

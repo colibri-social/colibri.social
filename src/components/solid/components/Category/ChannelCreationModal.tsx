@@ -1,4 +1,5 @@
 import { actions } from "astro:actions";
+import { toast } from "somoto";
 import { createSignal, type ParentComponent } from "solid-js";
 import type { ChannelType } from "@/utils/sdk";
 import { Spinner } from "../../icons/Spinner";
@@ -25,33 +26,49 @@ import {
 	TextFieldInput,
 	TextFieldLabel,
 } from "../../shadcn-solid/text-field";
+import { useGlobalContext } from "../../contexts/GlobalContext/index";
 import { ImageForChannelType } from "../IconForChannelType";
 
 /**
  * The creation modal for a new channel within a category.
  */
-export const ChannelCreationModal: ParentComponent<{ category: string }> = (
-	props,
-) => {
+export const ChannelCreationModal: ParentComponent<{
+	category: string;
+	community: string;
+}> = (props) => {
+	const [, { addChannel }] = useGlobalContext();
 	const [name, setName] = createSignal("");
 	const [channelType, setChannelType] = createSignal<string>("Text");
 	const [loading, setLoading] = createSignal(false);
 	const [open, setOpen] = createSignal(false);
 
 	/**
-	 * Creates a new channel within the specified category.
-	 * @todo Add new channel immediately, don't wait for websocket update
+	 * Creates a new channel within the specified category and immediately
+	 * adds it to the global context for optimistic display.
 	 */
 	const createChannel = async () => {
 		setLoading(true);
 
-		await actions.createChannel({
+		const result = await actions.createChannel({
 			category: props.category,
+			community: props.community,
 			name: name(),
 			type: channelType().toLowerCase() as ChannelType,
 		});
 
 		setLoading(false);
+
+		if (result.error) {
+			toast.error("Failed to create channel", {
+				description: result.error.message,
+			});
+			return;
+		}
+
+		if (result.data) {
+			addChannel(result.data);
+			setOpen(false);
+		}
 	};
 
 	return (

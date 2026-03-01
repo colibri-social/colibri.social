@@ -86,6 +86,9 @@ importers:
       solid-js:
         specifier: ^1.9.11
         version: 1.9.11
+      somoto:
+        specifier: ^0.0.2
+        version: 0.0.2(solid-js@1.9.11)
       tailwind-merge:
         specifier: ^3.4.0
         version: 3.4.0
@@ -2678,6 +2681,12 @@ packages:
     resolution: {integrity: sha512-ocHVnbfy23CgfaH4cEUR/AFg0Y3CEL8Oh3n9Qv8OHFJgPh+zkmERKZQfi/xH5XvxDCizg8VjPrVUhiHB1Gza8g==}
     peerDependencies:
       solid-js: ^1.8
+
+  somoto@0.0.2:
+    resolution: {integrity: sha512-2e7V2O16D+DkE3z0kBdA4AnVYOi4yLLwIrKe3SE1kRAicwALrw+kx57/SRqSbEXaIsZrIPhGfL7VcRQE+tI0Bg==}
+    engines: {node: '>=18'}
+    peerDependencies:
+      solid-js: '>=1.6.0'
 
   sonic-boom@3.8.1:
     resolution: {integrity: sha512-y4Z8LCDBuum+PBP3lSV7RHrXscqksve/bi0as7mhwVnBW+/wUqKT/2Kb7um8yqcFy0duYbbPxzt89Zy2nOCaxg==}
@@ -6092,6 +6101,10 @@ snapshots:
   solid-transition-size@0.1.4(solid-js@1.9.11):
     dependencies:
       '@corvu/utils': 0.3.2(solid-js@1.9.11)
+      solid-js: 1.9.11
+
+  somoto@0.0.2(solid-js@1.9.11):
+    dependencies:
       solid-js: 1.9.11
 
   sonic-boom@3.8.1:

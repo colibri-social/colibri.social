@@ -1,4 +1,5 @@
 import { actions } from "astro:actions";
+import { toast } from "somoto";
 import { makePersisted } from "@solid-primitives/storage";
 import { useParams } from "@solidjs/router";
 import stringify from "json-stable-stringify";
@@ -78,7 +79,7 @@ export const MessageInput: Component = () => {
 		const { error } = await actions.postMessage(obj);
 
 		if (error) {
-			alert(error.message);
+			toast.error("Failed to send message", { description: error.message });
 			removePendingMessage(hash);
 			return false;
 		}

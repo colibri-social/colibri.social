@@ -10,7 +10,7 @@ type ActorData = {
 
 export type CommunityData = {
 	name: string;
-	image?: string;
+	picture?: string;
 	description: string;
 	categoryOrder: Array<string>;
 	rkey: string;
@@ -18,7 +18,7 @@ export type CommunityData = {
 };
 
 type AppviewCommunityImageData = {
-	image: {
+	picture: {
 		$type: "blob";
 		mimeType: string;
 		ref: {
@@ -27,7 +27,7 @@ type AppviewCommunityImageData = {
 	} | null;
 };
 
-export type UnresolvedCommunityData = Omit<CommunityData, "image"> &
+export type UnresolvedCommunityData = Omit<CommunityData, "picture"> &
 	AppviewCommunityImageData;
 
 const pdsUrlCache = new Map<string, string>();
@@ -50,7 +50,7 @@ async function resolvePdsUrl(did: string): Promise<string | undefined> {
 function blobRefToUrl(
 	pdsUrl: string,
 	did: string,
-	blobRef: AppviewCommunityImageData["image"],
+	blobRef: AppviewCommunityImageData["picture"],
 ): string | false {
 	if (!blobRef) return false;
 	const cid = blobRef.ref.$link;
@@ -72,6 +72,28 @@ export type ChannelData = {
 	type: ChannelType;
 	category: string;
 	rkey: string;
+	community: string;
+};
+
+export type SidebarChannelData = {
+	uri: string;
+	rkey: string;
+	name: string;
+	channel_type: ChannelType;
+	category_rkey: string | null;
+};
+
+export type SidebarCategoryData = {
+	uri: string;
+	rkey: string;
+	name: string;
+	channel_order: Array<string>;
+	channels: Array<SidebarChannelData>;
+};
+
+export type SidebarData = {
+	categories: Array<SidebarCategoryData>;
+	uncategorized: Array<SidebarChannelData>;
 };
 
 export type MessageData = {
@@ -277,16 +299,17 @@ export class ColibriSDK {
 		const pdsUrl = await resolvePdsUrl(did);
 
 		const data = combined.map((record) => {
+			console.log(`https://${APPVIEW_DOMAIN}/api/communities?did=${did}`);
 			let imageUrl: string | false | undefined;
 
-			if (record.image?.ref && pdsUrl) {
-				console.log(pdsUrl, did, record.image);
-				imageUrl = blobRefToUrl(pdsUrl, did, record.image);
+			if (record.picture?.ref && pdsUrl) {
+				console.log(pdsUrl, did, record.picture);
+				imageUrl = blobRefToUrl(pdsUrl, did, record.picture);
 			}
 
 			return {
 				...record,
-				image: imageUrl || null,
+				picture: imageUrl || null,
 			} as CommunityData;
 		});
 
@@ -304,7 +327,7 @@ export class ColibriSDK {
 		did: string,
 		community: string,
 		name: string,
-	): Promise<string> => {
+	): Promise<CategoryData> => {
 		const record = this.constructAtProtoRecord(did, RECORD_IDs.CATEGORY, {
 			name: name ?? "New category",
 			community,
@@ -313,7 +336,10 @@ export class ColibriSDK {
 
 		const res = await this.agent.com.atproto.repo.createRecord(record);
 
-		return res.data.uri.split("/").pop()!;
+		return {
+			...record.record,
+			rkey: res.data.uri.split("/").pop()!,
+		};
 	};
 
 	/**
@@ -606,6 +632,26 @@ export class ColibriSDK {
 		const res = await this.agent.com.atproto.repo.createRecord(record);
 
 		return res.data.uri.split("/").pop()!;
+	};
+
+	/**
+	 * Fetches the sidebar data (categories and channels) for a given community
+	 * from the appview's /api/sidebar endpoint.
+	 * @param ownerDid The DID of the community owner.
+	 * @param communityRkey The record key of the community.
+	 * @returns The sidebar data containing categorised and uncategorised channels.
+	 */
+	public getSidebarData = async (
+		ownerDid: string,
+		communityRkey: string,
+	): Promise<SidebarData> => {
+		const uri = encodeURIComponent(
+			`at://${ownerDid}/social.colibri.community/${communityRkey}`,
+		);
+		const response = await fetch(
+			`https://${APPVIEW_DOMAIN}/api/sidebar?community=${uri}`,
+		);
+		return response.json() as Promise<SidebarData>;
 	};
 
 	/**

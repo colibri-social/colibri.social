@@ -28,12 +28,9 @@ export const createCategory = defineAction({
 				community,
 				name,
 			);
-			await sdk.addCategoryToCommunity(agent.did!, community, category);
+			await sdk.addCategoryToCommunity(agent.did!, community, category.rkey);
 
-			return {
-				community,
-				category,
-			};
+			return category;
 		} catch (e) {
 			console.error(e);
 

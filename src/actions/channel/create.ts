@@ -2,6 +2,7 @@ import { ActionError, defineAction } from "astro:actions";
 import { Agent } from "@atproto/api";
 import { z } from "astro/zod";
 import { client } from "@/utils/atproto/oauth";
+import type { ChannelData } from "@/utils/sdk";
 import { ColibriSDK } from "@/utils/sdk";
 
 export const createChannel = defineAction({
@@ -25,19 +26,24 @@ export const createChannel = defineAction({
 			const agent = new Agent(oauthSession);
 			const sdk = new ColibriSDK(agent);
 
-			const channel = await sdk.createChannelData(
+			const rkey = await sdk.createChannelData(
 				agent.did!,
 				community,
 				category,
 				name,
 				type,
 			);
-			await sdk.addChannelToCategory(agent.did!, category, channel);
+			await sdk.addChannelToCategory(agent.did!, category, rkey);
 
-			return {
+			const channelData: ChannelData = {
+				rkey,
+				name,
+				type,
 				category,
-				channel,
+				community,
 			};
+
+			return channelData;
 		} catch (e) {
 			console.error(e);
 

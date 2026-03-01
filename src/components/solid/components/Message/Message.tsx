@@ -1,4 +1,5 @@
 import { actions } from "astro:actions";
+import { toast } from "somoto";
 import twemoji from "@twemoji/api";
 import {
 	type Component,
@@ -86,7 +87,9 @@ export const Message: Component<{
 					setAdditionalReactions((current) =>
 						current.filter((r) => r.rkey !== tempRkey),
 					);
-					alert(result.error);
+					toast.error("Failed to add reaction", {
+						description: result.error.message,
+					});
 					return;
 				}
 
@@ -146,17 +149,23 @@ export const Message: Component<{
 	 * Saves edits to the PDS.
 	 * @todo If the message is empty, ask to delete.
 	 */
-	const submitEdits = () => {
+	const submitEdits = async () => {
 		if ("hash" in props.data) return;
 
-		actions.editMessage({
+		setEditMode(false);
+
+		const { error } = await actions.editMessage({
 			channel: props.data.channel,
 			facets: editedText().facets,
 			text: editedText().text,
 			rkey: props.data.rkey,
 		});
 
-		setEditMode(false);
+		if (error) {
+			toast.error("Failed to edit message", { description: error.message });
+			// Restore edit mode so the user can retry without losing their changes
+			setEditMode(true);
+		}
 	};
 
 	/**

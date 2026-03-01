@@ -1,4 +1,5 @@
 import { actions } from "astro:actions";
+import { toast } from "somoto";
 import twemoji from "@twemoji/api";
 import {
 	convertSkinToneToComponent,
@@ -25,10 +26,8 @@ export const deleteMessage = (
 	addDeletedMessage: GlobalContextUtility["addDeletedMessage"],
 	setOpen?: (open: boolean) => void,
 ) => {
-	actions.deleteMessage({
-		rkey: message.rkey,
-	});
-
+	// Optimistically remove the message and close the modal immediately,
+	// then revert and surface an error if the server rejects the deletion.
 	addDeletedMessage({
 		author_did: message.author_did,
 		channel: message.channel,
@@ -37,6 +36,12 @@ export const deleteMessage = (
 	});
 
 	setOpen?.(false);
+
+	actions.deleteMessage({ rkey: message.rkey }).then(({ error }) => {
+		if (error) {
+			toast.error("Failed to delete message", { description: error.message });
+		}
+	});
 };
 
 /**
