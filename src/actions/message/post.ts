@@ -29,8 +29,6 @@ export const postMessage = defineAction({
 				});
 			}
 
-			channel = "3mfyslcdt7d2c";
-
 			const user = (await session.get("user"))!;
 			const oauthSession = await client.restore(user.sub!);
 			const agent = new Agent(oauthSession);
