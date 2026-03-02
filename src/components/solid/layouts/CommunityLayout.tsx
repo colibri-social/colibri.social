@@ -170,11 +170,7 @@ const CommunityLayout: ParentComponent = (props) => {
 					community,
 				})) ?? [];
 
-		const removedRkeys = new Set(
-			globalContext.removedChannels
-				.filter((ch) => ch.community === community)
-				.map((ch) => ch.rkey),
-		);
+		const removedRkeys = new Set(globalContext.removedChannels);
 
 		const globalForCommunity = globalContext.addedChannels.filter(
 			(ch) => ch.community === community,
