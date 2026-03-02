@@ -326,7 +326,8 @@ const InfoPage: Component = () => {
 				help in debugging issues.
 			</p>
 			<div class="flex flex-col gap-2">
-				<span>verify against lexicon</span>
+				{/* TODO: (also for channels and categories) */}
+				<span> verify against lexicon (button)</span>
 				<span>rkey</span>
 				<span>cid</span>
 				<span>at-uri</span>
