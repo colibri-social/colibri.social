@@ -137,7 +137,7 @@ const GeneralSettingsPage: Component = () => {
 		if (existingImage) {
 			const originalImage = await (await fetch(existingImage)).blob();
 
-			base64Image = await new Promise<string>(async (resolve, reject) => {
+			base64Image = await new Promise<string>((resolve, reject) => {
 				reader.onload = () => resolve(reader.result as string);
 				reader.onerror = reject;
 				reader.readAsDataURL(originalImage);
@@ -283,7 +283,9 @@ const DangerSettingsPage: Component = () => {
 	const isValid = () => communityNameReset() === community()?.name;
 
 	const deleteCommunity = async () => {
+		setLoading(true);
 		await actions.deleteCommunity({ rkey: community()!.rkey });
+		setLoading(false);
 		removeCommunity(community()!.rkey);
 		navigate("/");
 	};

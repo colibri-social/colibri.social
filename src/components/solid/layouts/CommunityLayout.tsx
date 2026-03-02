@@ -223,7 +223,9 @@ const CommunityLayout: ParentComponent = (props) => {
 								</aside>
 								<div class="w-full h-full flex flex-col max-h-[calc(100vh-39px)] max-w-[calc(100vw-576px-56px-1px)]">
 									<div class="w-full flex-1 min-h-0">{props.children}</div>
-									<MessageInput />
+									<Show when={!!params.channel}>
+										<MessageInput />
+									</Show>
 								</div>
 								<div class="min-w-72 w-72 h-full flex flex-col p-4 border-l gap-3 border-border overflow-y-auto">
 									<span>Members</span>
