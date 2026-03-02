@@ -3,6 +3,7 @@ import { createCategory } from "./category/create";
 import { deleteCategory } from "./category/delete";
 import { editCategory } from "./category/edit";
 import { createChannel } from "./channel/create";
+import { deleteChannel } from "./channel/delete";
 import { editChannel } from "./channel/edit";
 import { createCommunity } from "./community/create";
 import { deleteCommunity } from "./community/delete";
@@ -22,6 +23,7 @@ export const server = {
 	deleteCategory,
 	createChannel,
 	editChannel,
+	deleteChannel,
 	postMessage,
 	editMessage,
 	deleteMessage,

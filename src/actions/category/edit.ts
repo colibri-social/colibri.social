@@ -6,8 +6,11 @@ import { ColibriSDK } from "@/utils/sdk";
 
 export const editCategory = defineAction({
 	input: z.object({
-		name: z.string().min(1).max(32),
-		rkey: z.string(),
+		name: z
+			.string({ message: "A name is required." })
+			.min(1, { message: "Name must be at least a singular chacacter." })
+			.max(32, { message: "Name must be shorter than 32 characters." }),
+		rkey: z.string({ message: "No record key given." }),
 	}),
 	handler: async ({ rkey, name }, { session }) => {
 		try {

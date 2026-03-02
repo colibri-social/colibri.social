@@ -15,7 +15,7 @@ export type GlobalContextData = {
 	communities: Array<CommunityData>;
 	categories: Array<CategoryData>;
 	addedChannels: Array<ChannelData>;
-	removedChannels: Array<ChannelData>;
+	removedChannels: Array<string>;
 	pendingMessages: Array<PendingMessageData>;
 	additionalMessages: Array<IndexedMessageData>;
 	user: App.SessionData["user"];
@@ -28,7 +28,7 @@ export type GlobalContextUtility = {
 	addCategory: (category: CategoryData) => void;
 	removeCategory: (rkey: string) => void;
 	addChannel: (channel: ChannelData) => void;
-	removeChannel: (rkey: ChannelData) => void;
+	removeChannel: (rkey: string) => void;
 	addPendingMessage: (message: PendingMessageData) => void;
 	removePendingMessage: (hash: string) => void;
 	addDeletedMessage: (data: Omit<MessageDeletionEvent, "id">) => void;

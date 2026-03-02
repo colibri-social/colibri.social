@@ -11,6 +11,7 @@ import {
 	type JSX,
 	type Component,
 } from "solid-js";
+import { Dynamic } from "solid-js/web";
 import {
 	Dialog,
 	DialogCloseButton,
@@ -163,11 +164,11 @@ export const SettingsModal: ParentComponent<{
 								</Match>
 							)}
 						</For>
-						<Show when={props.debugPage}>
-							<Match when={activePage() === props.debugPage!.id}>
-								{(() => props.debugPage!.component)()}
-							</Match>
-						</Show>
+						<Match
+							when={props.debugPage && activePage() === props.debugPage.id}
+						>
+							<Dynamic component={props.debugPage!.component} />
+						</Match>
 						<Match when={activePage() === props.dangerPage.id}>
 							<props.dangerPage.component />
 						</Match>

@@ -13,6 +13,8 @@ import type { ParentComponent } from "solid-js";
 import { toast } from "somoto";
 import type { SidebarCategoryData } from "@/utils/sdk";
 import { parseZodToErrorOrDisplay } from "@/utils/parse-zod-to-error-or-display";
+import { SettingsInfoPage } from "../SettingsInfoPage";
+import { RECORD_IDs } from "@/utils/atproto/lexicons";
 
 const GeneralSettingsPage: Component<{ category: SidebarCategoryData }> = (
 	props,
@@ -147,6 +149,8 @@ const DangerSettingsPage: Component<{ category: SidebarCategoryData }> = (
 export const CategorySettingsModal: ParentComponent<{
 	category: SidebarCategoryData;
 }> = (props) => {
+	const did = props.category.uri.split("/")[2];
+
 	return (
 		<SettingsModal
 			pages={[
@@ -160,6 +164,17 @@ export const CategorySettingsModal: ParentComponent<{
 				title: "Danger Zone",
 				id: "danger",
 				component: () => <DangerSettingsPage category={props.category} />,
+			}}
+			debugPage={{
+				title: "Debug Information",
+				id: "info",
+				component: () => (
+					<SettingsInfoPage
+						did={did}
+						collection={RECORD_IDs.CATEGORY}
+						rkey={props.category.rkey}
+					/>
+				),
 			}}
 		>
 			{props.children}

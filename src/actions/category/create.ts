@@ -6,8 +6,11 @@ import { ColibriSDK } from "@/utils/sdk";
 
 export const createCategory = defineAction({
 	input: z.object({
-		community: z.string(),
-		name: z.string().min(1).max(32),
+		community: z.string({ message: "No community given." }),
+		name: z
+			.string({ message: "A name is required." })
+			.min(1, { message: "Name must be at least a singular chacacter." })
+			.max(32, { message: "Name must be shorter than 32 characters." }),
 	}),
 	handler: async ({ community, name }, { session }) => {
 		try {

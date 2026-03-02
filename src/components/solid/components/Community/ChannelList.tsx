@@ -41,11 +41,7 @@ export const ChannelList: Component<{
 				globalCategoriesForCommunity.map((c) => [c.rkey, c]),
 			);
 
-			const removedChannelRkeys = new Set(
-				globalContext.removedChannels
-					.filter((ch) => ch.community === props.community)
-					.map((ch) => ch.rkey),
-			);
+			const removedChannelRkeys = new Set(globalContext.removedChannels);
 
 			const globalChannelsForCommunity = globalContext.addedChannels.filter(
 				(ch) => ch.community === props.community,
@@ -132,7 +128,7 @@ export const ChannelList: Component<{
 
 			for (const ch of optimisticChannels) {
 				const sidebarChannel: SidebarChannelData = {
-					uri: "",
+					uri: ch.uri || "",
 					rkey: ch.rkey,
 					name: ch.name,
 					description: "",

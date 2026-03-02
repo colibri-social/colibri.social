@@ -33,7 +33,11 @@ export const App = ({
 						<Route component={CommunityLayout}>
 							<Route
 								path="/c/:community"
-								component={() => <div>Community page</div>}
+								component={() => (
+									<div class="w-full h-full flex items-center justify-center">
+										Placeholder community page
+									</div>
+								)}
 							/>
 							<Route path="/c/:community/:channel" component={ChannelView} />
 						</Route>

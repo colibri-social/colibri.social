@@ -13,6 +13,8 @@ import type { ParentComponent } from "solid-js";
 import { toast } from "somoto";
 import type { SidebarChannelData } from "@/utils/sdk";
 import { parseZodToErrorOrDisplay } from "@/utils/parse-zod-to-error-or-display";
+import { RECORD_IDs } from "@/utils/atproto/lexicons";
+import { SettingsInfoPage } from "../SettingsInfoPage";
 
 const GeneralSettingsPage: Component<{ channel: SidebarChannelData }> = (
 	props,
@@ -98,44 +100,44 @@ const GeneralSettingsPage: Component<{ channel: SidebarChannelData }> = (
 const DangerSettingsPage: Component<{ channel: SidebarChannelData }> = (
 	props,
 ) => {
-	const [, { removeCategory }] = useGlobalContext();
+	const [, { removeChannel }] = useGlobalContext();
 
 	const [loading, setLoading] = createSignal<boolean>(false);
-	const [categoryNameReset, setCategoryNameReset] = createSignal("");
+	const [channelNameReset, setChannelNameReset] = createSignal("");
 
-	const isValid = () => categoryNameReset() === props.channel.name;
+	const isValid = () => channelNameReset() === props.channel.name;
 
-	const deleteCategory = async () => {
+	const deleteChannel = async () => {
 		setLoading(true);
 
-		const deletedCategory = await actions.deleteCategory({
+		const deletedChannel = await actions.deleteChannel({
 			rkey: props.channel.rkey,
 		});
 
 		setLoading(false);
 
-		if (deletedCategory.error) {
-			toast.error("Failed to delete category", {
-				description: parseZodToErrorOrDisplay(deletedCategory.error.message),
+		if (deletedChannel.error) {
+			toast.error("Failed to delete channel", {
+				description: parseZodToErrorOrDisplay(deletedChannel.error.message),
 			});
 			return;
 		}
 
-		removeCategory(props.channel.rkey);
+		removeChannel(props.channel.rkey);
 	};
 
 	return (
 		<SettingsPage loading={loading} title="Danger Zone">
-			<h3 class="m-0 font-semibold">Delete this category</h3>
+			<h3 class="m-0 font-semibold">Delete this channel</h3>
 			<p class="m-0">
-				To delete this category and all associated data, first type in the name
-				of the category below. Channels within this category will also be
-				deleted. <strong>This action cannot be undone.</strong>
+				To delete this category and all associated messages and reactions, first
+				type in the name of the channel below.{" "}
+				<strong>This action cannot be undone.</strong>
 			</p>
 			<div class="flex flex-row gap-2 items-baseline-last">
 				<TextField
-					value={categoryNameReset()}
-					onChange={setCategoryNameReset}
+					value={channelNameReset()}
+					onChange={setChannelNameReset}
 					validationState={isValid() ? "valid" : "invalid"}
 					disabled={loading()}
 				>
@@ -150,7 +152,7 @@ const DangerSettingsPage: Component<{ channel: SidebarChannelData }> = (
 				<Button
 					variant="destructive"
 					disabled={loading() || !isValid()}
-					onClick={deleteCategory}
+					onClick={deleteChannel}
 				>
 					<Spinner
 						classList={{
@@ -158,7 +160,7 @@ const DangerSettingsPage: Component<{ channel: SidebarChannelData }> = (
 							block: loading(),
 						}}
 					/>
-					Delete Category
+					Delete Channel
 				</Button>
 			</div>
 		</SettingsPage>
@@ -169,6 +171,9 @@ export const ChannelSettingsModal: ParentComponent<{
 	channel: SidebarChannelData;
 	class?: string;
 }> = (props) => {
+	console.log(props.channel);
+	const did = props.channel.uri.split("/")[2];
+
 	return (
 		<SettingsModal
 			class={props.class}
@@ -183,6 +188,17 @@ export const ChannelSettingsModal: ParentComponent<{
 				title: "Danger Zone",
 				id: "danger",
 				component: () => <DangerSettingsPage channel={props.channel} />,
+			}}
+			debugPage={{
+				title: "Debug Information",
+				id: "info",
+				component: () => (
+					<SettingsInfoPage
+						did={did}
+						collection={RECORD_IDs.CHANNEL}
+						rkey={props.channel.rkey}
+					/>
+				),
 			}}
 		>
 			{props.children}

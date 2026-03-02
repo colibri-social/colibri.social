@@ -6,10 +6,20 @@ import type { Facet } from "@/utils/atproto/rich-text";
 import { ColibriSDK } from "@/utils/sdk";
 
 const input = z.object({
-	text: z.string().max(2048),
+	text: z
+		.string({ message: "No text given." })
+		.min(1, {
+			message: "Text must contain at least a singular character.",
+		})
+		.max(2048, {
+			message: "Text must be shorter than 2048 characters.",
+		}),
 	facets: z.array(z.custom<Facet>()),
-	channel: z.string(),
-	createdAt: z.string().datetime(),
+	rkey: z.string({ message: "No record key given." }),
+	channel: z.string({ message: "No channel given." }),
+	createdAt: z
+		.string({ message: "No creation date given." })
+		.datetime({ message: "Creation date must be a valid ISO 8601 date." }),
 	parent: z.string().optional(),
 });
 

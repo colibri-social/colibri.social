@@ -94,17 +94,11 @@ export const GlobalContextProvider: ParentComponent<{
 					return [...list, channel];
 				});
 			},
-			removeChannel(channel) {
+			removeChannel(rkey) {
 				setGlobalContext("removedChannels", (list) => {
-					const alreadyExistsIndex = list.findIndex(
-						(c) => c.rkey === channel.rkey,
-					);
-
-					if (alreadyExistsIndex >= 0) {
-						return list.toSpliced(alreadyExistsIndex, 1, channel);
-					}
-
-					return [...list, channel];
+					const alreadyExists = list.find((x) => x === rkey);
+					if (alreadyExists) return list;
+					return [...list, rkey];
 				});
 			},
 			addPendingMessage(message) {

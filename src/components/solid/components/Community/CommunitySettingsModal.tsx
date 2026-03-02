@@ -1,4 +1,4 @@
-import { createSignal, Match, Switch, type Component } from "solid-js";
+import { createSignal, Match, Show, Switch, type Component } from "solid-js";
 import {
 	TextField,
 	TextFieldInput,
@@ -26,6 +26,8 @@ import { SettingsModal, SettingsPage } from "../SettingsModal";
 import type { ParentComponent } from "solid-js";
 import { toast } from "somoto";
 import { parseZodToErrorOrDisplay } from "@/utils/parse-zod-to-error-or-display";
+import { RECORD_IDs } from "@/utils/atproto/lexicons";
+import { SettingsInfoPage } from "../SettingsInfoPage";
 
 const GeneralSettingsPage: Component = () => {
 	const [globalData, { addCommunity }] = useGlobalContext();
@@ -287,57 +289,13 @@ const DangerSettingsPage: Component = () => {
 	);
 };
 
-const InfoPage: Component = () => {
-	const [globalData, { removeCommunity }] = useGlobalContext();
+export const CommunitySettingsModal: ParentComponent = (props) => {
+	const [globalData] = useGlobalContext();
 	const params = useParams();
-	const navigate = useNavigate();
-
-	const [loading, setLoading] = createSignal<boolean>(false);
-	const [communityNameReset, setCommunityNameReset] = createSignal("");
 
 	const community = () =>
 		globalData.communities.find((x) => x.rkey === params.community);
-	const isValid = () => communityNameReset() === community()?.name;
 
-	const deleteCommunity = async () => {
-		setLoading(true);
-
-		const deletedCommunity = await actions.deleteCommunity({
-			rkey: community()!.rkey,
-		});
-
-		setLoading(false);
-
-		if (deletedCommunity.error) {
-			toast.error("Failed to delete community", {
-				description: parseZodToErrorOrDisplay(deletedCommunity.error.message),
-			});
-			return;
-		}
-
-		removeCommunity(community()!.rkey);
-		navigate("/");
-	};
-
-	return (
-		<SettingsPage loading={loading} title="Debug Information">
-			<p class="m-0">
-				Below you'll find some useful information about this community which can
-				help in debugging issues.
-			</p>
-			<div class="flex flex-col gap-2">
-				{/* TODO: (also for channels and categories) */}
-				<span> verify against lexicon (button)</span>
-				<span>rkey</span>
-				<span>cid</span>
-				<span>at-uri</span>
-				<span>view on pdsls.dev</span>
-			</div>
-		</SettingsPage>
-	);
-};
-
-export const CommunitySettingsModal: ParentComponent = (props) => {
 	return (
 		<SettingsModal
 			pages={[
@@ -355,7 +313,13 @@ export const CommunitySettingsModal: ParentComponent = (props) => {
 			debugPage={{
 				title: "Debug Information",
 				id: "info",
-				component: InfoPage,
+				component: () => (
+					<SettingsInfoPage
+						did={community()!.owner_did}
+						collection={RECORD_IDs.COMMUNITY}
+						rkey={community()!.rkey}
+					/>
+				),
 			}}
 		>
 			{props.children}

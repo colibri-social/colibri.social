@@ -6,7 +6,10 @@ import { ColibriSDK } from "@/utils/sdk";
 
 export const createCommunity = defineAction({
 	input: z.object({
-		name: z.string().min(1).max(32),
+		name: z
+			.string({ message: "A name is required." })
+			.min(1, { message: "Name must be at least a singular chacacter." })
+			.max(32, { message: "Name must be shorter than 32 characters." }),
 		image: z
 			.object({
 				base64: z
@@ -18,7 +21,7 @@ export const createCommunity = defineAction({
 							),
 						{ message: "Image must be a valid base64-encoded image data URL" },
 					),
-				type: z.string(),
+				type: z.string({ message: "No MIME-type given." }),
 			})
 			.optional(),
 	}),

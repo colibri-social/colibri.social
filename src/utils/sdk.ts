@@ -2,8 +2,6 @@ import type { Agent, BlobRef } from "@atproto/api";
 import { lexicon, RECORD_IDs } from "./atproto/lexicons";
 import type { Facet } from "./atproto/rich-text";
 import { APPVIEW_DOMAIN } from "astro:env/client";
-import { asCid, isCid, parseCid } from "@atproto/lex";
-import type { ReactionData } from "@/components/solid/contexts/GlobalContext";
 
 type ActorData = {
 	status: string;
@@ -80,6 +78,7 @@ export type ChannelData = {
 	category: string;
 	rkey: string;
 	community: string;
+	uri?: string;
 };
 
 export type SidebarChannelData = {
@@ -665,7 +664,7 @@ export class ColibriSDK {
 	public deleteChannel = async (did: string, rkey: string): Promise<void> => {
 		await this.agent.com.atproto.repo.deleteRecord({
 			repo: did,
-			collection: RECORD_IDs.MESSAGE,
+			collection: RECORD_IDs.CHANNEL,
 			rkey,
 		});
 	};

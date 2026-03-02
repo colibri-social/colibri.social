@@ -4,12 +4,11 @@ import { z } from "astro/zod";
 import { client } from "@/utils/atproto/oauth";
 import { ColibriSDK } from "@/utils/sdk";
 
-export const addReaction = defineAction({
+export const deleteChannel = defineAction({
 	input: z.object({
-		emoji: z.string({ message: "No emoji given." }),
-		message: z.string({ message: "No message given." }),
+		rkey: z.string({ message: "No record key given." }),
 	}),
-	handler: async ({ emoji, message }, { session }) => {
+	handler: async ({ rkey }, { session }) => {
 		try {
 			if (!session || !session?.has("user")) {
 				throw new ActionError({
@@ -23,13 +22,13 @@ export const addReaction = defineAction({
 			const agent = new Agent(oauthSession);
 			const sdk = new ColibriSDK(agent);
 
-			const rkey = await sdk.createReactionData(agent.did!, emoji, message);
+			await sdk.deleteChannel(agent.did!, rkey);
 
-			return {
-				rkey,
-			};
+			return;
 		} catch (e) {
 			console.error(e);
+
+			console.log((e as Error).message);
 
 			throw new ActionError({
 				message: (e as Error).message,
