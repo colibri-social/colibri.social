@@ -51,7 +51,6 @@ export const toggleFormat = (
 	let newFacets: Facet[];
 
 	if (active) {
-		// Toggle OFF – remove / trim / split overlapping facets of this type
 		newFacets = [];
 		for (const facet of current.facets) {
 			const isTargetType = facet.features.some((f) => f.$type === featureType);
@@ -64,7 +63,6 @@ export const toggleFormat = (
 				continue;
 			}
 
-			// Part before the selection
 			if (facet.index.byteStart < offsets.byteStart) {
 				newFacets.push({
 					...facet,
@@ -75,7 +73,6 @@ export const toggleFormat = (
 				} as Facet);
 			}
 
-			// Part after the selection
 			if (facet.index.byteEnd > offsets.byteEnd) {
 				newFacets.push({
 					...facet,
@@ -87,7 +84,6 @@ export const toggleFormat = (
 			}
 		}
 	} else {
-		// Toggle ON – add a new facet covering the selection
 		newFacets = [
 			...current.facets,
 			{
@@ -110,17 +106,12 @@ export const toggleFormat = (
 	setSkipNextEffect(true);
 	setInputContent(newContent);
 
-	// Re-render the contentEditable with the new facets
 	const newRendered = renderWithFacets(newContent, community);
 	pRef.innerHTML = twemoji.parse(newRendered);
 
-	// Clear the toolbar since the selection is now stale
 	setToolbarState(null);
 	setPopoverOpen(false);
 
-	// Restore the cursor at the end of the previously selected range.
-	// Use requestAnimationFrame so the browser has finished laying out
-	// the freshly-injected innerHTML before we try to place the caret.
 	const ref = pRef;
 	requestAnimationFrame(() => {
 		const pos = charOffsetToDomPosition(ref, cursorCharOffset);
@@ -157,7 +148,6 @@ export const handleToolbarFormat = (
 	const offsets = getSelectionByteOffsets(pRef, state.range);
 	if (!offsets) return;
 
-	// Save state for undo before applying the format
 	saveForUndo(
 		history,
 		getText,

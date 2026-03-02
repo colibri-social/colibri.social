@@ -12,14 +12,10 @@ import type { ChannelData } from "@/utils/sdk";
 import { ImageForChannelType } from "../IconForChannelType";
 
 export type ChannelMentionState = {
-	/** The search query (text after the `#`). */
 	query: string;
-	/** Pixel position for the popup. */
 	top: number;
 	left: number;
-	/** The char offset where the `#` was typed (used for replacement). */
 	hashCharOffset: number;
-	/** The byte offset where the `#` was typed. */
 	hashByteOffset: number;
 };
 
@@ -38,7 +34,6 @@ export const ChannelMentionPopup: Component<{
 		return props.channels().filter((ch) => ch.name.toLowerCase().startsWith(q));
 	};
 
-	// Reset the selected index when the query or list changes
 	createEffect(
 		on(
 			() => props.state()?.query,
@@ -80,8 +75,6 @@ export const ChannelMentionPopup: Component<{
 	createEffect(() => {
 		const s = props.state();
 		if (s) {
-			// Capture during the bubble phase so we intercept before the
-			// contentEditable's own keydown handler processes the event.
 			document.addEventListener("keydown", handleKeyDown, true);
 		} else {
 			document.removeEventListener("keydown", handleKeyDown, true);
@@ -113,7 +106,6 @@ export const ChannelMentionPopup: Component<{
 										"bg-muted": index() === selectedIndex(),
 									}}
 									onMouseDown={(e) => {
-										// Prevent focus loss from the contentEditable
 										e.preventDefault();
 										props.onSelect(channel);
 									}}

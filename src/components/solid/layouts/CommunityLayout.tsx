@@ -8,6 +8,7 @@ import {
 	Match,
 	onCleanup,
 	type ParentComponent,
+	Show,
 	Suspense,
 	Switch,
 	untrack,
@@ -19,20 +20,10 @@ import { UserStatus } from "../components/UserStatus";
 import { ChannelContextProvider } from "../contexts/ChannelContext";
 import { useGlobalContext } from "../contexts/GlobalContext/index";
 import { MessageContextProvider } from "../contexts/MessageContext";
+import { CommunitySettingsModal } from "../components/Community/CommunitySettingsModal";
 
-// ── Queries ────────────────────────────────────────────────────────────────────
-//
-// Defined at module scope so `query()` can cache them by key across the entire
-// router lifetime. Using `query()` over a plain fetch gives us:
-//   - Deduplication: only one in-flight request per unique key
-//   - A 5-second preload window: data fetched on hover is reused on navigation
-//   - Back/forward reuse: browser history navigation skips the network
-//   - Forward-compatibility with Solid 2.0's async primitives
-
-/**
- * Fetches the sidebar data (categories + channels) for a community directly
- * from the appview's /api/sidebar endpoint.
- * Keyed by community rkey so navigating between communities invalidates correctly.
+/**../components/Community/CommunitySettingsModal
+ * Fetches the sidebar data (categories + channels) for a community.
  */
 export const fetchSidebarData = query(
 	async (ownerDid: string, communityRkey: string): Promise<SidebarData> => {
@@ -70,12 +61,8 @@ export const fetchCommunityMembers = query(
 	"communityMembers",
 );
 
-// ── Skeleton components ────────────────────────────────────────────────────────
-
 /**
  * Member list skeleton shown while the member roster is loading.
- * Uses <For> so each row is created lazily inside a reactive scope,
- * avoiding the plain .map() anti-pattern in SolidJS JSX.
  */
 const MemberListSkeleton = () => (
 	<div class="w-full flex flex-col gap-2">
@@ -90,17 +77,10 @@ const MemberListSkeleton = () => (
 	</div>
 );
 
-// ── Layout component ───────────────────────────────────────────────────────────
-
 const CommunityLayout: ParentComponent = (props) => {
 	const params = useParams();
 	const [globalContext, { sendSocketMessage }] = useGlobalContext();
 
-	/**
-	 * Reactive reference to the current community record from global state.
-	 * Used for the community name display and WebSocket subscriptions only —
-	 * NOT read inside createAsync fetchers to avoid reactive loops.
-	 */
 	const community = createMemo(() =>
 		globalContext.communities.find((x) => x.rkey === params.community),
 	);
@@ -110,8 +90,7 @@ const CommunityLayout: ParentComponent = (props) => {
 	 * directly from the appview. Re-runs only when params.community changes.
 	 *
 	 * IMPORTANT: community() is read with untrack() here for the same reason
-	 * as the members fetch below — to prevent reactive loops caused by
-	 * globalContext store changes triggering a re-fetch on every WS event.
+	 * as the members fetch below.
 	 */
 	const sidebarData = createAsync(
 		() => {
@@ -130,22 +109,19 @@ const CommunityLayout: ParentComponent = (props) => {
 	 * createAsync re-runs every time anything in globalContext changes (incoming
 	 * WebSocket messages, pending messages, reactions, etc.) because community()
 	 * reads from the reactive globalContext store. That caused an infinite fetch
-	 * loop and OOM crashes. We only want this to re-run when params.community
-	 * changes, so we read community() untracked and use params.community as the
-	 * sole reactive dependency.
+	 * loop and OOM crashes.
 	 */
 	const members = createAsync(
 		() => {
 			const rkey = params.community;
-			// untrack prevents community() from being a reactive dependency here.
 			const ownerDid = untrack(() => community()?.owner_did);
+
 			if (!ownerDid || !rkey) return Promise.resolve([] as Array<MemberData>);
+
 			return fetchCommunityMembers(ownerDid, rkey);
 		},
 		{ name: "communityMembers", initialValue: [] as Array<MemberData> },
 	);
-
-	// ── WebSocket subscription ─────────────────────────────────────────────────
 
 	createEffect(() => {
 		const c = community();
@@ -169,8 +145,6 @@ const CommunityLayout: ParentComponent = (props) => {
 		});
 	});
 
-	// ── Derived values passed into sub-components ──────────────────────────────
-
 	const communityRkey = createMemo(() => params.community ?? "");
 
 	/**
@@ -192,18 +166,10 @@ const CommunityLayout: ParentComponent = (props) => {
 				})) ?? [],
 	);
 
-	// ── Render ─────────────────────────────────────────────────────────────────
-
 	return (
 		<MessageContextProvider>
 			<ChannelContextProvider channels={channels} community={communityRkey}>
 				<div class="bg-background w-full h-full rounded-tl-xl border-t border-l border-border flex">
-					{/*
-					 * A single top-level Suspense catches the sidebarData suspension.
-					 * Once it resolves, the Switch evaluates. The nested Suspense
-					 * boundary for members is independent — a slow member fetch won't
-					 * block the channel list from rendering.
-					 */}
 					<Suspense
 						fallback={
 							<div class="w-full h-full flex items-center justify-center text-muted-foreground text-sm">
@@ -219,26 +185,33 @@ const CommunityLayout: ParentComponent = (props) => {
 							}
 						>
 							<Match when={sidebarData()}>
-								{/* ── Left sidebar: channel list ── */}
 								<aside class="h-full min-w-72 w-72 border-r border-border flex flex-col">
 									<div class="w-full border-b border-border flex flex-col justify-center p-4">
 										<h2 class="m-0 text-xl">{community()?.name}</h2>
-										{/*
-										 * Member count is wrapped in its own Suspense so the
-										 * header title renders even if the member fetch is slow.
-										 */}
-										<Suspense
-											fallback={
-												<small class="text-muted-foreground animate-pulse">
-													Loading members…
+										<div class="flex flex-row items-center gap-2 test-sm">
+											<Suspense
+												fallback={
+													<small class="text-muted-foreground animate-pulse">
+														Loading members…
+													</small>
+												}
+											>
+												<small>
+													{members()?.length ?? "???"} Member
+													{members()?.length === 1 ? "" : "s"}
 												</small>
-											}
-										>
-											<small>
-												{members()?.length ?? "???"} Member
-												{members()?.length === 1 ? "" : "s"}
-											</small>
-										</Suspense>
+											</Suspense>
+											<Show
+												when={community()?.owner_did === globalContext.user.sub}
+											>
+												<div class="w-1 h-1 bg-muted-foreground rounded-full" />
+												<CommunitySettingsModal>
+													<small class="cursor-pointer hover:underline">
+														Settings
+													</small>
+												</CommunitySettingsModal>
+											</Show>
+										</div>
 									</div>
 
 									<ChannelList
@@ -248,14 +221,10 @@ const CommunityLayout: ParentComponent = (props) => {
 
 									<UserStatus />
 								</aside>
-
-								{/* ── Main content area ── */}
 								<div class="w-full h-full flex flex-col max-h-[calc(100vh-39px)] max-w-[calc(100vw-576px-56px-1px)]">
 									<div class="w-full flex-1 min-h-0">{props.children}</div>
 									<MessageInput />
 								</div>
-
-								{/* ── Right sidebar: member list ── */}
 								<div class="min-w-72 w-72 h-full flex flex-col p-4 border-l gap-3 border-border overflow-y-auto">
 									<span>Members</span>
 									<Suspense fallback={<MemberListSkeleton />}>

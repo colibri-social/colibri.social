@@ -1,13 +1,9 @@
 import type { IndexedMessageData } from "@/utils/sdk";
 
-// ── Shared ─────────────────────────────────────────────────────
-
 export type AckEvent = {
 	type: "ack";
 	message: string;
 };
-
-// ── Message subscription events ────────────────────────────────
 
 export type MessageEventPayload = {
 	id: string;
@@ -34,8 +30,6 @@ export type MessageDeletionEvent = {
 	channel: string;
 };
 
-// ── Reaction events ────────────────────────────────────────────
-
 export type ReactionData = {
 	rkey: string;
 	author_did: string;
@@ -52,8 +46,6 @@ export type ReactionAddedEvent = ReactionData & {
 export type ReactionRemovedEvent = ReactionData & {
 	type: "reaction_removed";
 };
-
-// ── Community subscription events ──────────────────────────────
 
 export type CommunityUpsertedEvent = {
 	type: "community_upserted";
@@ -73,8 +65,6 @@ export type CommunityDeletedEvent = {
 	rkey: string;
 };
 
-// ── Channel events ─────────────────────────────────────────────
-
 export type ChannelCreatedEvent = {
 	type: "channel_created";
 	community_uri: string;
@@ -92,8 +82,6 @@ export type ChannelDeletedEvent = {
 	rkey: string;
 };
 
-// ── Category events ────────────────────────────────────────────
-
 export type CategoryCreatedEvent = {
 	type: "category_created";
 	community_uri: string;
@@ -110,8 +98,6 @@ export type CategoryDeletedEvent = {
 	uri: string;
 	rkey: string;
 };
-
-// ── Membership events ──────────────────────────────────────────
 
 export type MemberPendingEvent = {
 	type: "member_pending";
@@ -133,8 +119,6 @@ export type MemberLeftEvent = {
 	member_did: string;
 };
 
-// ── Union of all possible subscription events ──────────────────
-
 export type AppviewSubscriptionData =
 	| AckEvent
 	| MessagePostEvent
@@ -150,8 +134,6 @@ export type AppviewSubscriptionData =
 	| MemberPendingEvent
 	| MemberJoinedEvent
 	| MemberLeftEvent;
-
-// ── Callback types ─────────────────────────────────────────────
 
 export type ReactionEventCallback = (
 	data: ReactionAddedEvent | ReactionRemovedEvent,

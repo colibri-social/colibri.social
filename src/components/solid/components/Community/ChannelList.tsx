@@ -23,8 +23,6 @@ export const ChannelList: Component<{
 	 * that have no category.
 	 */
 	const processed = createMemo(() => {
-		// ── Map sidebar categories to CategoryData & { channels: ChannelData[] } ──
-
 		const serverCategoryRkeys = new Set(
 			props.data.categories.map((c) => c.rkey),
 		);
@@ -48,8 +46,6 @@ export const ChannelList: Component<{
 			return { ...categoryData, channels };
 		});
 
-		// ── Append optimistic categories not yet confirmed by the server ──
-
 		const optimisticCategories = globalContext.categories
 			.filter(
 				(c) =>
@@ -58,8 +54,6 @@ export const ChannelList: Component<{
 			.map((c) => ({ ...c, channels: [] as Array<ChannelData> }));
 
 		const categories = [...serverCategories, ...optimisticCategories];
-
-		// ── Map sidebar uncategorized channels to ChannelData ──
 
 		const serverChannelRkeys = new Set([
 			...props.data.categories.flatMap((c) => c.channels.map((ch) => ch.rkey)),
@@ -75,8 +69,6 @@ export const ChannelList: Component<{
 				community: props.community,
 			}),
 		);
-
-		// ── Append optimistic channels not yet confirmed by the server ──
 
 		const optimisticChannels = globalContext.channels.filter(
 			(c) => c.community === props.community && !serverChannelRkeys.has(c.rkey),

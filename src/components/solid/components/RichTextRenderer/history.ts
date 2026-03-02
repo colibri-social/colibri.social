@@ -23,7 +23,9 @@ export type HistoryState = {
 export const MAX_HISTORY = 100;
 export const TYPING_BURST_MS = 400;
 
-/** Deep-clone a TextWithFacets so mutations don't corrupt history. */
+/**
+ * Deep-clone a TextWithFacets so mutations don't corrupt history.
+ */
 export const cloneContent = (c: TextWithFacets): TextWithFacets => ({
 	text: c.text,
 	facets: c.facets.map((f) => ({
@@ -33,7 +35,9 @@ export const cloneContent = (c: TextWithFacets): TextWithFacets => ({
 	})),
 });
 
-/** Push the current state onto the undo stack (call *before* mutating). */
+/**
+ * Push the current state onto the undo stack (call *before* mutating).
+ */
 export const saveForUndo = (
 	history: HistoryState,
 	getText: () => TextWithFacets,
@@ -48,7 +52,9 @@ export const saveForUndo = (
 	history.redoStack.length = 0;
 };
 
-/** Restore a history entry into the editor. */
+/**
+ * Restore a history entry into the editor.
+ */
 export const applyHistoryEntry = (
 	entry: HistoryEntry,
 	pRef: HTMLParagraphElement,
@@ -70,9 +76,6 @@ export const applyHistoryEntry = (
 	setPendingByteOffset(null);
 	setToolbarState(null);
 
-	// Update tracked cursor offset immediately so subsequent
-	// undo/redo operations have the correct value even before
-	// the async selectionchange event fires.
 	history.lastCursorCharOffset = entry.cursorCharOffset;
 
 	const ref = pRef;
@@ -89,7 +92,9 @@ export const applyHistoryEntry = (
 	});
 };
 
-/** Undoes a singular action. */
+/**
+ * Undoes a singular action.
+ */
 export const performUndo = (
 	history: HistoryState,
 	getText: () => TextWithFacets,
@@ -104,14 +109,12 @@ export const performUndo = (
 	if (history.undoStack.length === 0) return;
 	if (!pRef || !setInputContent) return;
 
-	// Flush any in-progress typing burst so its state is captured
 	if (history.typingBurstTimer !== null) {
 		clearTimeout(history.typingBurstTimer);
 		history.typingBurstTimer = null;
 	}
 	history.inTypingBurst = false;
 
-	// Save current state to redo stack
 	const current = getText();
 	history.redoStack.push({
 		content: cloneContent(current),
@@ -132,7 +135,9 @@ export const performUndo = (
 	);
 };
 
-/** Redoes a singular action. */
+/**
+ * Redoes a singular action.
+ */
 export const performRedo = (
 	history: HistoryState,
 	getText: () => TextWithFacets,
@@ -147,14 +152,12 @@ export const performRedo = (
 	if (history.redoStack.length === 0) return;
 	if (!pRef || !setInputContent) return;
 
-	// Flush any in-progress typing burst
 	if (history.typingBurstTimer !== null) {
 		clearTimeout(history.typingBurstTimer);
 		history.typingBurstTimer = null;
 	}
 	history.inTypingBurst = false;
 
-	// Save current state to undo stack
 	const current = getText();
 	history.undoStack.push({
 		content: cloneContent(current),
@@ -175,7 +178,9 @@ export const performRedo = (
 	);
 };
 
-/** Create a fresh history state object. */
+/**
+ * Create a fresh history state object.
+ */
 export const createHistoryState = (): HistoryState => ({
 	undoStack: [],
 	redoStack: [],

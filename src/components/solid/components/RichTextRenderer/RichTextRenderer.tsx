@@ -71,10 +71,8 @@ export const RichTextRenderer: Component<{
 		pendingByteOffset = v;
 	};
 
-	// ── History ────────────────────────────────────────────────
 	const history: HistoryState = createHistoryState();
 
-	// ── Toolbar ────────────────────────────────────────────────
 	const [toolbarState, setToolbarState] = createSignal<ToolbarState | null>(
 		null,
 	);
@@ -87,7 +85,6 @@ export const RichTextRenderer: Component<{
 		popoverOpen = open;
 	};
 
-	// ── Channel mention autocomplete ───────────────────────────
 	const channelCtx = useChannelContext();
 	const [channelMentionState, setChannelMentionState] =
 		createSignal<ChannelMentionState | null>(null);
@@ -100,18 +97,16 @@ export const RichTextRenderer: Component<{
 		return channelCtx?.community() ?? "";
 	};
 
-	/** Block the browser's native undo/redo so we handle it ourselves. */
+	/** Blocks the browser's native undo/redo so we handle it ourselves. */
 	const handleBeforeInput = (e: InputEvent) => {
 		if (e.inputType === "historyUndo" || e.inputType === "historyRedo") {
 			e.preventDefault();
 		}
 	};
 
-	// ── Initial render ─────────────────────────────────────────
 	const rendered = renderWithFacets(props.text(), community());
 	const renderedWithEmojis = twemoji.parse(rendered);
 
-	// Re-render the contentEditable DOM when the text signal changes externally
 	createEffect(
 		on(
 			() => props.text(),
@@ -139,14 +134,12 @@ export const RichTextRenderer: Component<{
 		),
 	);
 
-	// ── Selection handling ─────────────────────────────────────
 	const handleSelection = () => {
 		if (popoverOpen) return;
 
 		pendingFormats.clear();
 		pendingByteOffset = null;
 
-		// Track cursor position for undo history entries
 		const selForCursor = document.getSelection();
 		if (
 			selForCursor &&
@@ -209,7 +202,6 @@ export const RichTextRenderer: Component<{
 		}
 	};
 
-	// ── Toolbar format handler ─────────────────────────────────
 	const handleFormat = (formatType: string, link?: string) => {
 		handleToolbarFormat(
 			formatType,
@@ -225,8 +217,6 @@ export const RichTextRenderer: Component<{
 			community(),
 		);
 	};
-
-	// ── Channel mention helpers ────────────────────────────────
 
 	/**
 	 * Get the pixel position of the caret. Used to position the channel
@@ -265,12 +255,9 @@ export const RichTextRenderer: Component<{
 		const currentText = props.text().text;
 		const textBeforeCursor = currentText.substring(0, offsets.charEnd);
 
-		// Search backwards from the cursor for a `#` that signals a channel mention.
-		// The `#` must be at the start of the text or preceded by whitespace.
 		const hashIndex = textBeforeCursor.lastIndexOf("#");
 		if (hashIndex === -1) return null;
 
-		// Verify the `#` is at the start or preceded by a space/newline
 		if (hashIndex > 0) {
 			const charBefore = textBeforeCursor[hashIndex - 1];
 			if (charBefore !== " " && charBefore !== "\n" && charBefore !== "\t") {
@@ -280,7 +267,6 @@ export const RichTextRenderer: Component<{
 
 		const query = textBeforeCursor.substring(hashIndex + 1);
 
-		// Don't trigger if there's a space in the query (user moved on)
 		if (/\s/.test(query)) return null;
 
 		const hashByteOffset = textEncoder.encode(
@@ -337,7 +323,6 @@ export const RichTextRenderer: Component<{
 		const current = props.text();
 		const currentText = current.text;
 
-		// The text to replace: from the `#` to the current cursor
 		const sel = document.getSelection();
 		if (!sel || sel.rangeCount === 0) return;
 
@@ -347,14 +332,12 @@ export const RichTextRenderer: Component<{
 		const beforeHash = currentText.substring(0, state.hashCharOffset);
 		const afterCursor = currentText.substring(cursorOffsets.charEnd);
 		const channelText = `#${channel.name}`;
-		const newText = beforeHash + channelText + " " + afterCursor;
+		const newText = `${beforeHash}${channelText} ${afterCursor}`;
 
 		const hashByteOffset = textEncoder.encode(beforeHash).byteLength;
 		const channelTextBytes = textEncoder.encode(channelText).byteLength;
-		const spaceBytes = 1; // space is 1 byte
+		const spaceBytes = 1;
 
-		// Adjust existing facets: remove any that overlap with the replaced region,
-		// and shift facets that come after
 		const replacedByteStart = hashByteOffset;
 		const replacedByteEnd = cursorOffsets.byteEnd;
 		const insertedBytes = channelTextBytes + spaceBytes;
@@ -362,19 +345,16 @@ export const RichTextRenderer: Component<{
 
 		const newFacets: Facet[] = [];
 		for (const facet of current.facets) {
-			// Completely inside the replaced region — drop it
 			if (
 				facet.index.byteStart >= replacedByteStart &&
 				facet.index.byteEnd <= replacedByteEnd
 			) {
 				continue;
 			}
-			// Completely before the replaced region — keep as-is
 			if (facet.index.byteEnd <= replacedByteStart) {
 				newFacets.push(facet);
 				continue;
 			}
-			// Completely after the replaced region — shift
 			if (facet.index.byteStart >= replacedByteEnd) {
 				newFacets.push({
 					...facet,
@@ -383,12 +363,9 @@ export const RichTextRenderer: Component<{
 						byteEnd: facet.index.byteEnd + byteShift,
 					},
 				} as Facet);
-				continue;
 			}
-			// Partial overlap — drop (edge case; shouldn't happen often)
 		}
 
-		// Add the channel mention facet
 		newFacets.push({
 			index: {
 				byteStart: hashByteOffset,
@@ -415,7 +392,6 @@ export const RichTextRenderer: Component<{
 		const newRendered = renderWithFacets(newContent, community());
 		pRef.innerHTML = twemoji.parse(newRendered);
 
-		// Place cursor after the channel mention + space
 		const cursorCharOffset = state.hashCharOffset + channelText.length + 1; // +1 for the space
 
 		const ref = pRef;
@@ -437,14 +413,34 @@ export const RichTextRenderer: Component<{
 		setChannelMentionState(null);
 	};
 
-	// ── Keyboard shortcut handling ─────────────────────────────
+	createEffect(
+		on(
+			() => props.editable,
+			(editable) => {
+				if (!editable) return;
+
+				if (!pRef) return;
+
+				pRef.focus();
+
+				const sel = document.getSelection();
+				if (sel) {
+					const range = document.createRange();
+					range.selectNodeContents(pRef);
+					range.collapse(false);
+					sel.removeAllRanges();
+					sel.addRange(range);
+				}
+			},
+		),
+	);
+
 	const handleKeyDown = (e: KeyboardEvent) => {
 		if (!props.editable || !props.setInputContent || !pRef) return;
 
 		const isModifier = e.ctrlKey || e.metaKey;
 		if (!isModifier) return;
 
-		// ── Undo / Redo ────────────────────────────────────────
 		if (e.key.toLowerCase() === "z" && !e.shiftKey) {
 			e.preventDefault();
 			performUndo(
@@ -505,7 +501,6 @@ export const RichTextRenderer: Component<{
 		const sel = document.getSelection();
 		if (!sel || sel.rangeCount === 0) return;
 
-		// ── Collapsed cursor → toggle a pending format ──────────
 		if (sel.isCollapsed) {
 			if (pendingFormats.has(formatType)) {
 				pendingFormats.delete(formatType);
@@ -521,7 +516,6 @@ export const RichTextRenderer: Component<{
 			return;
 		}
 
-		// ── Non-collapsed selection → toggle format immediately ──
 		const range = sel.getRangeAt(0);
 		const offsets = getSelectionByteOffsets(pRef, range);
 		if (!offsets || offsets.byteStart === offsets.byteEnd) return;
@@ -546,14 +540,12 @@ export const RichTextRenderer: Component<{
 		);
 	};
 
-	// ── Input handling ─────────────────────────────────────────
 	const handleInput: JSX.InputEventHandlerUnion<
 		HTMLParagraphElement,
 		InputEvent
 	> = (e) => {
 		if (!props.setInputContent) return;
 
-		// ── Undo: save state before the first input in a typing burst ──
 		if (!history.inTypingBurst) {
 			saveForUndo(history, () => props.text());
 			history.inTypingBurst = true;
@@ -565,7 +557,6 @@ export const RichTextRenderer: Component<{
 			history.typingBurstTimer = null;
 		}, TYPING_BURST_MS);
 
-		// Save cursor position before twemoji replacement mutates the DOM
 		const sel = document.getSelection();
 		let cursorCharOffset: number | null = null;
 		let cursorByteOffset: number | null = null;
@@ -577,10 +568,8 @@ export const RichTextRenderer: Component<{
 			}
 		}
 
-		// Replace native emoji characters with twemoji <img> elements
 		twemoji.parse(e.currentTarget);
 
-		// Restore cursor after twemoji DOM mutation
 		if (cursorCharOffset !== null && pRef && sel) {
 			const pos = charOffsetToDomPosition(pRef, cursorCharOffset);
 			if (pos) {
@@ -614,8 +603,9 @@ export const RichTextRenderer: Component<{
 					const isChannel = f.features.some(
 						(feat) => feat.$type === "social.colibri.richtext.facet#channel",
 					);
+
 					if (!isChannel) return true;
-					// Keep it only if it was already in the DOM-parsed facets
+
 					return domChannelFacets.has(
 						`${f.index.byteStart}:${f.index.byteEnd}`,
 					);
@@ -628,7 +618,6 @@ export const RichTextRenderer: Component<{
 			result.facets,
 		);
 
-		// ── Apply pending formats to newly inserted text ───────
 		if (
 			pendingFormats.size > 0 &&
 			pendingByteOffset !== null &&
@@ -649,6 +638,7 @@ export const RichTextRenderer: Component<{
 					} as Facet);
 				}
 			}
+
 			newFacets.sort((a, b) => a.index.byteStart - b.index.byteStart);
 			result = { text: result.text, facets: newFacets };
 
@@ -663,11 +653,9 @@ export const RichTextRenderer: Component<{
 			}
 		}
 
-		// Always clear pending formats after an input event
 		pendingFormats.clear();
 		pendingByteOffset = null;
 
-		// If auto-detection added new facets, re-render
 		if (facetsChangedByDetection && pRef) {
 			const newRendered = renderWithFacets(result, community());
 			pRef.innerHTML = twemoji.parse(newRendered);
@@ -680,7 +668,6 @@ export const RichTextRenderer: Component<{
 			}
 		}
 
-		// When all meaningful content has been deleted, clear stale wrappers
 		if (
 			result.text.replace(/\n/g, "").length === 0 &&
 			result.facets.length > 0
@@ -699,14 +686,11 @@ export const RichTextRenderer: Component<{
 			history.lastCursorCharOffset = cursorCharOffset;
 		}
 
-		// Update channel mention popup after input
-		// Use a microtask so the DOM and props.text() are settled
 		queueMicrotask(() => {
 			updateChannelMention();
 		});
 	};
 
-	// ── Lifecycle ──────────────────────────────────────────────
 	onMount(() => {
 		document.addEventListener("selectionchange", handleSelection);
 	});
@@ -719,7 +703,6 @@ export const RichTextRenderer: Component<{
 		}
 	});
 
-	/** Intercept clicks on channel mention links for SPA navigation. */
 	const handleClick = (e: MouseEvent) => {
 		const target = (e.target as HTMLElement).closest<HTMLAnchorElement>(
 			"a[data-facet-type='channel']",

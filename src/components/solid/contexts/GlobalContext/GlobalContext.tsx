@@ -5,7 +5,7 @@ import {
 } from "@solid-primitives/websocket";
 import { type ParentComponent, useContext } from "solid-js";
 import { createStore } from "solid-js/store";
-import type { CategoryData, ChannelData, CommunityData } from "@/utils/sdk";
+import type { ChannelData, CommunityData } from "@/utils/sdk";
 import type { AppviewSubscriptionData, ReactionEventCallback } from "./events";
 import { handleMessageDeletion, handleNewMessage } from "./handlers";
 import type { GlobalContextData, GlobalContextUtility } from "./types";

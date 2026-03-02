@@ -44,8 +44,6 @@ const ChannelView: Component = () => {
 	let topSentinel: HTMLDivElement | undefined;
 	let observer: IntersectionObserver | undefined;
 
-	// ── Derived message list ──────────────────────────────────────────────────
-
 	const allMessages = createMemo(
 		(): Array<IndexedMessageData | PendingMessageData> => {
 			const historicalMessages = history.pages();
@@ -81,8 +79,6 @@ const ChannelView: Component = () => {
 		},
 	);
 
-	// ── Scroll helpers ────────────────────────────────────────────────────────
-
 	const isAtBottom = () => {
 		if (!chatContainer) return true;
 		return (
@@ -97,8 +93,6 @@ const ChannelView: Component = () => {
 		if (!chatContainer) return;
 		chatContainer.scrollTop = chatContainer.scrollHeight;
 	};
-
-	// ── IntersectionObserver: upward pagination ───────────────────────────────
 
 	const setupIntersectionObserver = () => {
 		observer?.disconnect();
@@ -130,8 +124,6 @@ const ChannelView: Component = () => {
 		observer?.disconnect();
 	});
 
-	// ── Channel navigation ────────────────────────────────────────────────────
-
 	createEffect(
 		on(
 			() => params.channel,
@@ -148,8 +140,6 @@ const ChannelView: Component = () => {
 			},
 		),
 	);
-
-	// ── WebSocket subscription ────────────────────────────────────────────────
 
 	createEffect(() => {
 		sendSocketMessage({
@@ -169,8 +159,6 @@ const ChannelView: Component = () => {
 		clearDeletedMessages();
 	});
 
-	// ── Scroll: initial scroll-to-bottom ─────────────────────────────────────
-
 	// Once the first fetch completes, scroll to the bottom once.
 	// setScrolled(true) prevents this from ever running again for this channel.
 	createEffect(() => {
@@ -180,8 +168,6 @@ const ChannelView: Component = () => {
 		scrollToBottom();
 		setScrolled(true);
 	});
-
-	// ── Scroll: follow new messages at the bottom ─────────────────────────────
 
 	// When a new message is appended and the user is already near the bottom,
 	// scroll to reveal it. We track message count reactively; the actual scroll
@@ -200,12 +186,6 @@ const ChannelView: Component = () => {
 		),
 	);
 
-	// ── Scroll: restore position after upward pagination ─────────────────────
-
-	// When a pagination fetch starts we capture the distance-from-bottom.
-	// When loading transitions back to false the DOM has been updated with the
-	// new messages prepended, so we restore that distance to keep the viewport
-	// on the same message the user was looking at.
 	let scrollBottomBeforeFetch: number | null = null;
 
 	createEffect(
@@ -213,13 +193,11 @@ const ChannelView: Component = () => {
 			() => history.loading(),
 			(isLoading) => {
 				if (isLoading) {
-					// Fetch just started — snapshot current position.
 					if (chatContainer) {
 						scrollBottomBeforeFetch =
 							chatContainer.scrollHeight - chatContainer.scrollTop;
 					}
 				} else if (scrollBottomBeforeFetch !== null) {
-					// Fetch just finished — restore position after DOM has updated.
 					const savedBottom = scrollBottomBeforeFetch;
 					scrollBottomBeforeFetch = null;
 					queueMicrotask(() => {
@@ -232,8 +210,6 @@ const ChannelView: Component = () => {
 			},
 		),
 	);
-
-	// ── Jump-to-reply ─────────────────────────────────────────────────────────
 
 	createEffect(() => {
 		const target = messageData.focusedMessage;
@@ -264,29 +240,20 @@ const ChannelView: Component = () => {
 		});
 	});
 
-	// ── Render ────────────────────────────────────────────────────────────────
-
 	return (
 		<div class="w-full h-full relative">
-			{/* Initial load spinner — shown before any messages have loaded */}
 			<Show when={history.loading() && allMessages().length === 0}>
 				<div class="absolute inset-0 flex items-center justify-center pointer-events-none">
 					<Spinner classList={{}} className="w-5 h-5 text-muted-foreground" />
 				</div>
 			</Show>
-
 			<div class="w-full h-full overflow-auto pb-4" ref={chatContainer}>
-				{/* Top sentinel — observed for upward pagination */}
 				<div ref={topSentinel} class="w-full h-px" aria-hidden="true" />
-
-				{/* Pagination spinner — shown above existing messages while paginating upward */}
 				<Show when={history.loading() && allMessages().length > 0}>
 					<div class="w-full flex justify-center py-2">
 						<Spinner classList={{}} className="w-4 h-4 text-muted-foreground" />
 					</div>
 				</Show>
-
-				{/* Start-of-channel banner */}
 				<Show when={history.reachedTop()}>
 					<div class="w-full flex flex-col justify-center items-center px-4 text-center">
 						<h3 class="mb-0">This is the start of this channel.</h3>
@@ -295,8 +262,6 @@ const ChannelView: Component = () => {
 						</p>
 					</div>
 				</Show>
-
-				{/* Message list */}
 				<For each={allMessages()}>
 					{(item, index) => {
 						const isSubsequent = () => {

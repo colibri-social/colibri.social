@@ -8,6 +8,9 @@ import type { GlobalContextUtility } from "./types";
  * Matches the incoming message against any optimistic pending message
  * (by hashing the canonical fields) and removes the pending entry,
  * then adds the real message to the store.
+ *
+ * @param context The global context utility. Needed for UI update trigger functions.
+ * @param data The data of the new message
  */
 export const handleNewMessage = async (
 	context: GlobalContextUtility,
@@ -42,6 +45,9 @@ export const handleNewMessage = async (
 /**
  * Handles a message deletion event by recording the deletion
  * in the store so the UI can remove the message.
+ *
+ * @param context The global context utility. Needed for UI update trigger functions.
+ * @param data The data of the deleted message
  */
 export const handleMessageDeletion = (
 	context: GlobalContextUtility,

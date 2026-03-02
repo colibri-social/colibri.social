@@ -262,6 +262,40 @@ export class ColibriSDK {
 	};
 
 	/**
+	 * Edits the data for a community.
+	 * @param did The DID of the user who owns the community.
+	 * @param name The new name of the community.
+	 * @param description The new description of the community.
+	 * @param image The new image of the community.
+	 * @returns The new community data.
+	 */
+	public editCommunity = async (
+		did: string,
+		name: string,
+		description: string,
+		image?: Blob,
+	): Promise<CommunityData> => {
+		// const { createdAt, parent } = await this.getMessageData(did, rkey);
+
+		// const newRecord = this.constructAtProtoRecord(
+		// 	did,
+		// 	RECORD_IDs.MESSAGE,
+		// 	{
+		// 		text,
+		// 		createdAt,
+		// 		channel,
+		// 		parent,
+		// 		facets,
+		// 		edited: true,
+		// 	},
+		// 	rkey,
+		// );
+
+		// await this.agent.com.atproto.repo.putRecord(newRecord);
+		return {} as CommunityData;
+	};
+
+	/**
 	 * Returns the record for a given community owned by a user.
 	 * @param did The DID of the owner of the community.
 	 * @param rkey The record key of the community.
@@ -299,11 +333,9 @@ export class ColibriSDK {
 		const pdsUrl = await resolvePdsUrl(did);
 
 		const data = combined.map((record) => {
-			console.log(`https://${APPVIEW_DOMAIN}/api/communities?did=${did}`);
 			let imageUrl: string | false | undefined;
 
 			if (record.picture?.ref && pdsUrl) {
-				console.log(pdsUrl, did, record.picture);
 				imageUrl = blobRefToUrl(pdsUrl, did, record.picture);
 			}
 

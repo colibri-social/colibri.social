@@ -1,10 +1,13 @@
 import type { Component } from "solid-js";
 
-export const Gear: Component<{ className?: string }> = ({ className }) => (
+export const Gear: Component<{ className?: string; size?: number }> = ({
+	className,
+	size,
+}) => (
 	<svg
 		xmlns="http://www.w3.org/2000/svg"
-		width="20"
-		height="20"
+		width={size || "20"}
+		height={size || "20"}
 		fill="currentColor"
 		viewBox="0 0 256 256"
 		aria-hidden="true"

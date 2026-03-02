@@ -26,8 +26,6 @@ export const deleteMessage = (
 	addDeletedMessage: GlobalContextUtility["addDeletedMessage"],
 	setOpen?: (open: boolean) => void,
 ) => {
-	// Optimistically remove the message and close the modal immediately,
-	// then revert and surface an error if the server rejects the deletion.
 	addDeletedMessage({
 		author_did: message.author_did,
 		channel: message.channel,

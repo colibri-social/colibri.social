@@ -1,5 +1,5 @@
 import { APPVIEW_DOMAIN } from "astro:env/client";
-import { batch, createSignal } from "solid-js";
+import { batch, createSignal, type Accessor } from "solid-js";
 import type { IndexedMessageData } from "@/utils/sdk";
 
 const PAGE_SIZE = 50;
@@ -11,16 +11,13 @@ const PAGE_SIZE = 50;
  * time by using the `created_at` of the oldest message we have fetched so far
  * as the `before` parameter.
  *
- * All multi-signal updates use batch() so that SolidJS only schedules a single
- * re-render per logical state transition, preventing skeleton flicker.
+ * @param channel
  */
-export function useMessageHistory(channel: () => string) {
+export function useMessageHistory(channel: Accessor<string>) {
 	const [pages, setPages] = createSignal<Array<IndexedMessageData>>([]);
 	const [loading, setLoading] = createSignal(false);
 	const [reachedTop, setReachedTop] = createSignal(false);
 
-	// Plain boolean — not a signal. Guards against concurrent fetches without
-	// causing any reactive updates.
 	let inflight = false;
 
 	/**
@@ -49,8 +46,6 @@ export function useMessageHistory(channel: () => string) {
 			const fetched: Array<IndexedMessageData> = await response.json();
 
 			if (fetched.length === 0) {
-				// Nothing older exists — we are at the top. Update both signals
-				// atomically so consumers never see loading=false, reachedTop=false.
 				batch(() => {
 					setReachedTop(true);
 					setLoading(false);
@@ -58,18 +53,12 @@ export function useMessageHistory(channel: () => string) {
 				return;
 			}
 
-			// The API returns newest-first; reverse to chronological order so we
-			// can prepend correctly.
 			const chronological = [...fetched].reverse();
 
-			// Compute the deduplicated page array before entering batch so the
-			// batch itself is as short as possible.
 			const existingRkeys = new Set(pages().map((m) => m.rkey));
 			const novel = chronological.filter((m) => !existingRkeys.has(m.rkey));
 			const hitTop = fetched.length < PAGE_SIZE;
 
-			// Single atomic update: pages, reachedTop, and loading all change
-			// together, producing exactly one re-render.
 			batch(() => {
 				setPages((prev) => [...novel, ...prev]);
 				if (hitTop) setReachedTop(true);
@@ -77,7 +66,6 @@ export function useMessageHistory(channel: () => string) {
 			});
 		} catch (err) {
 			console.error("[useMessageHistory] Failed to fetch messages:", err);
-			// Still clear loading on error so the UI doesn't get stuck.
 			setLoading(false);
 		} finally {
 			inflight = false;
@@ -86,8 +74,6 @@ export function useMessageHistory(channel: () => string) {
 
 	/**
 	 * Resets all state atomically. Call whenever the channel param changes.
-	 * Using batch() here prevents the 3-render cascade that caused skeleton
-	 * flicker (pages=[] render, loading=false render, reachedTop=false render).
 	 */
 	const reset = (): void => {
 		inflight = false;
@@ -104,22 +90,20 @@ export function useMessageHistory(channel: () => string) {
 	 *
 	 * Used when the user clicks "jump to reply" and the referenced message is
 	 * not yet loaded.
+	 *
+	 * @param targetRkey The record key of the message to jump to.
 	 */
 	const fetchUntilMessage = async (targetRkey: string): Promise<boolean> => {
 		while (!reachedTop()) {
 			if (pages().some((m) => m.rkey === targetRkey)) return true;
-			// eslint-disable-next-line no-await-in-loop
 			await fetchOlderMessages();
 		}
 		return pages().some((m) => m.rkey === targetRkey);
 	};
 
 	return {
-		/** Reactive accessor for the array of historically loaded messages, oldest-first. */
 		pages,
-		/** True while a fetch is in progress. */
 		loading,
-		/** True once the oldest message in the channel has been loaded. */
 		reachedTop,
 		fetchOlderMessages,
 		fetchUntilMessage,

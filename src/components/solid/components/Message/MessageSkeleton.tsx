@@ -23,8 +23,7 @@ const MessageSkeletonRow = (props: { wide?: boolean }) => (
 );
 
 /**
- * A skeleton row that mimics a subsequent (same-author) message — no avatar,
- * just a narrow timestamp placeholder and a text line.
+ * A skeleton row that mimics a subsequent (same-author) message.
  */
 const SubsequentSkeletonRow = (props: { wide?: boolean }) => (
 	<div class="w-full h-fit flex flex-row pr-4 pl-3.5 py-0 gap-4 border-l-2 border-transparent">
@@ -58,9 +57,7 @@ export const MessageSkeletonGroup = () => (
 
 /**
  * A column of skeleton groups used as the initial loading fallback while the
- * first page of messages is being fetched. Renders enough groups to overfill
- * any screen height — the parent is expected to be overflow-hidden so the
- * excess is clipped, leaving the bottom-anchored skeletons always visible.
+ * first page of messages is being fetched.
  */
 export const MessageSkeletonList = () => (
 	<div class="flex flex-col py-2">
