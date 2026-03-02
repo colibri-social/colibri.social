@@ -4,27 +4,11 @@ import { z } from "astro/zod";
 import { client } from "@/utils/atproto/oauth";
 import { ColibriSDK } from "@/utils/sdk";
 
-export const editCommunity = defineAction({
+export const deleteCommunity = defineAction({
 	input: z.object({
-		name: z.string().min(1).max(32),
-		description: z.string().max(256),
 		rkey: z.string(),
-		image: z
-			.object({
-				base64: z
-					.string()
-					.refine(
-						(val) =>
-							/^data:image\/(png|jpeg|jpg|gif|webp|svg\+xml);base64,[A-Za-z0-9+/]+=*$/.test(
-								val,
-							),
-						{ message: "Image must be a valid base64-encoded image data URL" },
-					),
-				type: z.string(),
-			})
-			.optional(),
 	}),
-	handler: async ({ name, description, rkey, image }, { session }) => {
+	handler: async ({ rkey }, { session }) => {
 		try {
 			if (!session || !session?.has("user")) {
 				throw new ActionError({
@@ -38,15 +22,9 @@ export const editCommunity = defineAction({
 			const agent = new Agent(oauthSession);
 			const sdk = new ColibriSDK(agent);
 
-			const community = await sdk.editCommunity(
-				agent.did!,
-				name,
-				description,
-				rkey,
-				image ? base64ToBlob(image.base64, image.type) : undefined,
-			);
+			await sdk.deleteCommunity(agent.did!, rkey);
 
-			return community;
+			return;
 		} catch (e) {
 			console.error(e);
 

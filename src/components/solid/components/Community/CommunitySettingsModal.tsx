@@ -24,7 +24,7 @@ import {
 	TextFieldLabel,
 } from "../../shadcn-solid/text-field";
 import { useGlobalContext } from "../../contexts/GlobalContext";
-import { useParams } from "@solidjs/router";
+import { useNavigate, useParams } from "@solidjs/router";
 import {
 	FileField,
 	FileFieldDropzone,
@@ -45,9 +45,9 @@ import { actions } from "astro:actions";
 const SettingsPage: ParentComponent<{
 	loading: Accessor<boolean>;
 	title: string;
-	onSave: () => void;
-	canReset: boolean;
-	onReset: () => void;
+	onSave?: () => void;
+	canReset?: boolean;
+	onReset?: () => void;
 }> = (props) => {
 	return (
 		<div class="w-full flex flex-col justify-between gap-4 h-128">
@@ -57,35 +57,39 @@ const SettingsPage: ParentComponent<{
 					{props.children}
 				</div>
 			</div>
-			<div class="w-full border-t border-border p-4 flex flex-row items-center justify-end gap-2">
-				<Show when={props.canReset}>
-					<Button
-						variant="secondary"
-						onClick={props.onReset}
-						disabled={props.loading()}
-					>
-						Reset
-					</Button>
-				</Show>
-				<Button
-					onClick={props.onSave}
-					disabled={props.loading() || !props.canReset}
-				>
-					<Spinner
-						classList={{
-							hidden: !props.loading(),
-							block: props.loading(),
-						}}
-					/>
-					Save
-				</Button>
-			</div>
+			<Show when={props.onSave || props.onReset}>
+				<div class="w-full border-t border-border p-4 flex flex-row items-center justify-end gap-2">
+					<Show when={props.canReset && props.onReset}>
+						<Button
+							variant="secondary"
+							onClick={props.onReset}
+							disabled={props.loading()}
+						>
+							Reset
+						</Button>
+					</Show>
+					<Show when={props.onSave}>
+						<Button
+							onClick={props.onSave}
+							disabled={props.loading() || !props.canReset}
+						>
+							<Spinner
+								classList={{
+									hidden: !props.loading(),
+									block: props.loading(),
+								}}
+							/>
+							Save
+						</Button>
+					</Show>
+				</div>
+			</Show>
 		</div>
 	);
 };
 
 const GeneralSettingsPage: Component = () => {
-	const [globalData] = useGlobalContext();
+	const [globalData, { addCommunity }] = useGlobalContext();
 	const params = useParams();
 
 	const community = () =>
@@ -105,7 +109,8 @@ const GeneralSettingsPage: Component = () => {
 	const hasEdited = (): boolean =>
 		name() !== community().name ||
 		description() !== community().description ||
-		!!existingImageUrl();
+		imageRemoved() ||
+		image() !== undefined;
 
 	const clearNewFile = (e?: MouseEvent) => {
 		e?.preventDefault();
@@ -121,7 +126,51 @@ const GeneralSettingsPage: Component = () => {
 
 	const editCommunityData = async () => {
 		setLoading(true);
-		// await actions.editCommunity();
+
+		// Download original image, convert to base64 if defined and not changed
+		const existingImage = existingImageUrl();
+		const reader = new FileReader();
+
+		let base64Image: string | undefined;
+		let mimeType: string | undefined;
+
+		if (existingImage) {
+			const originalImage = await (await fetch(existingImage)).blob();
+
+			base64Image = await new Promise<string>(async (resolve, reject) => {
+				reader.onload = () => resolve(reader.result as string);
+				reader.onerror = reject;
+				reader.readAsDataURL(originalImage);
+			});
+
+			mimeType = originalImage.type;
+			// Get mime type for image, convert to base64
+		} else if (image()) {
+			base64Image = await new Promise<string>((resolve, reject) => {
+				reader.onload = () => resolve(reader.result as string);
+				reader.onerror = reject;
+				reader.readAsDataURL(image()!.acceptedFiles[0]);
+			});
+
+			mimeType = image()!.acceptedFiles[0].type;
+		}
+
+		const communityData = await actions.editCommunity({
+			name: name(),
+			description: description(),
+			rkey: community().rkey,
+			image: base64Image
+				? {
+						base64: base64Image,
+						type: mimeType!,
+					}
+				: undefined,
+		});
+
+		// TODO: Error handling
+
+		addCommunity(communityData.data!);
+		setLoading(false);
 	};
 
 	const resetCommunityData = () => {
@@ -168,7 +217,7 @@ const GeneralSettingsPage: Component = () => {
 			<FileField class="items-start" onFileChange={setImage} maxFiles={1}>
 				<FileFieldLabel>Community Image</FileFieldLabel>
 				<FileFieldDropzone class="h-32 w-32 min-h-0">
-					<FileFieldTrigger class="h-32 w-32 bg-muted/25 hover:bg-muted/50">
+					<FileFieldTrigger class="h-32 w-32 p-0 bg-muted/25 hover:bg-muted/50 rounded-sm overflow-hidden">
 						<Switch>
 							<Match when={image() !== undefined}>
 								<div class="relative w-32 h-32">
@@ -222,16 +271,59 @@ const GeneralSettingsPage: Component = () => {
 };
 
 const DangerSettingsPage: Component = () => {
+	const [globalData, { removeCommunity }] = useGlobalContext();
+	const params = useParams();
+	const navigate = useNavigate();
+
 	const [loading, setLoading] = createSignal<boolean>(false);
+	const [communityNameReset, setCommunityNameReset] = createSignal("");
+
+	const community = () =>
+		globalData.communities.find((x) => x.rkey === params.community);
+	const isValid = () => communityNameReset() === community()?.name;
+
+	const deleteCommunity = async () => {
+		await actions.deleteCommunity({ rkey: community()!.rkey });
+		removeCommunity(community()!.rkey);
+		navigate("/");
+	};
+
 	return (
-		<SettingsPage
-			loading={loading}
-			title="Danger Zone"
-			onSave={() => {}}
-			canReset={false}
-			onReset={() => {}}
-		>
-			Content
+		<SettingsPage loading={loading} title="Danger Zone">
+			<h3 class="m-0 font-semibold">Delete this Community</h3>
+			<p class="m-0">
+				To delete this community and all associated data, fist type in the name
+				of the community below. <strong>This action cannot be undone.</strong>
+			</p>
+			<div class="flex flex-row gap-2 items-baseline-last">
+				<TextField
+					value={communityNameReset()}
+					onChange={setCommunityNameReset}
+					validationState={isValid() ? "valid" : "invalid"}
+					disabled={loading()}
+				>
+					<TextFieldInput
+						placeholder={community()?.name}
+						maxLength={32}
+						minLength={1}
+						type="text"
+						required
+					/>
+				</TextField>
+				<Button
+					variant="destructive"
+					disabled={loading() || !isValid()}
+					onClick={deleteCommunity}
+				>
+					<Spinner
+						classList={{
+							hidden: !loading(),
+							block: loading(),
+						}}
+					/>
+					Delete Community
+				</Button>
+			</div>
 		</SettingsPage>
 	);
 };

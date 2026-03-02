@@ -45,7 +45,22 @@ export const GlobalContextProvider: ParentComponent<{
 		globalContext,
 		{
 			addCommunity(community) {
-				setGlobalContext("communities", (list) => [community, ...list]);
+				setGlobalContext("communities", (list) => {
+					const alreadyExistsIndex = list.findIndex(
+						(c) => c.rkey === community.rkey,
+					);
+
+					if (alreadyExistsIndex >= 0) {
+						return list.toSpliced(alreadyExistsIndex, 1, community);
+					}
+
+					return [community, ...list];
+				});
+			},
+			removeCommunity(rkey) {
+				setGlobalContext("communities", (list) =>
+					list.filter((x) => x.rkey !== rkey),
+				);
 			},
 			addCategory(category) {
 				setGlobalContext("categories", (list) => {

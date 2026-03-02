@@ -23,6 +23,7 @@ export type GlobalContextData = {
 
 export type GlobalContextUtility = {
 	addCommunity: (community: CommunityData) => void;
+	removeCommunity: (rkey: string) => void;
 	addCategory: (category: CategoryData) => void;
 	addChannel: (channel: ChannelData) => void;
 	addPendingMessage: (message: PendingMessageData) => void;

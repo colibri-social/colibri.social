@@ -1,7 +1,9 @@
-import type { Agent } from "@atproto/api";
+import type { Agent, BlobRef } from "@atproto/api";
 import { lexicon, RECORD_IDs } from "./atproto/lexicons";
 import type { Facet } from "./atproto/rich-text";
 import { APPVIEW_DOMAIN } from "astro:env/client";
+import { asCid, isCid, parseCid } from "@atproto/lex";
+import type { ReactionData } from "@/components/solid/contexts/GlobalContext";
 
 type ActorData = {
 	status: string;
@@ -19,7 +21,6 @@ export type CommunityData = {
 
 type AppviewCommunityImageData = {
 	picture: {
-		$type: "blob";
 		mimeType: string;
 		ref: {
 			$link: string;
@@ -50,10 +51,16 @@ async function resolvePdsUrl(did: string): Promise<string | undefined> {
 function blobRefToUrl(
 	pdsUrl: string,
 	did: string,
-	blobRef: AppviewCommunityImageData["picture"],
+	blobRef: AppviewCommunityImageData["picture"] | BlobRef,
 ): string | false {
 	if (!blobRef) return false;
-	const cid = blobRef.ref.$link;
+
+	if ("$link" in blobRef.ref) {
+		const cid = blobRef.ref.$link;
+		return `${pdsUrl}/xrpc/com.atproto.sync.getBlob?did=${encodeURIComponent(did)}&cid=${encodeURIComponent(cid)}`;
+	}
+
+	const cid = (blobRef as BlobRef).ref.toString();
 	return `${pdsUrl}/xrpc/com.atproto.sync.getBlob?did=${encodeURIComponent(did)}&cid=${encodeURIComponent(cid)}`;
 }
 
@@ -253,7 +260,7 @@ export class ColibriSDK {
 			name: name ?? "New community",
 			description: description ?? "",
 			categoryOrder: [],
-			image: blobRef ? blobRef.data.blob : undefined,
+			picture: blobRef ? blobRef.data.blob : undefined,
 		});
 
 		const res = await this.agent.com.atproto.repo.createRecord(record);
@@ -266,6 +273,7 @@ export class ColibriSDK {
 	 * @param did The DID of the user who owns the community.
 	 * @param name The new name of the community.
 	 * @param description The new description of the community.
+	 * @param rkey The record key of the community.
 	 * @param image The new image of the community.
 	 * @returns The new community data.
 	 */
@@ -273,26 +281,129 @@ export class ColibriSDK {
 		did: string,
 		name: string,
 		description: string,
+		rkey: string,
 		image?: Blob,
 	): Promise<CommunityData> => {
-		// const { createdAt, parent } = await this.getMessageData(did, rkey);
+		const blobRef = image
+			? await this.agent.com.atproto.repo.uploadBlob(image)
+			: undefined;
 
-		// const newRecord = this.constructAtProtoRecord(
-		// 	did,
-		// 	RECORD_IDs.MESSAGE,
-		// 	{
-		// 		text,
-		// 		createdAt,
-		// 		channel,
-		// 		parent,
-		// 		facets,
-		// 		edited: true,
-		// 	},
-		// 	rkey,
-		// );
+		const { categoryOrder } = await this.getCommunityData(did, rkey);
 
-		// await this.agent.com.atproto.repo.putRecord(newRecord);
-		return {} as CommunityData;
+		const record = this.constructAtProtoRecord(
+			did,
+			RECORD_IDs.COMMUNITY,
+			{
+				name: name,
+				description: description,
+				picture: blobRef ? blobRef.data.blob : undefined,
+				categoryOrder,
+			},
+			rkey,
+		);
+
+		await this.agent.com.atproto.repo.putRecord(record);
+		const pdsUrl = await resolvePdsUrl(did);
+
+		let imageUrl: string | false = false;
+
+		if (record.record.picture?.ref && pdsUrl) {
+			imageUrl = blobRefToUrl(pdsUrl, did, record.record.picture as any);
+		}
+
+		return {
+			...record.record,
+			picture: imageUrl || null,
+			rkey,
+			owner_did: did,
+		} as CommunityData;
+	};
+
+	/**
+	 * Deletes a community and all associated data.
+	 * @param did The DID of the community owner.
+	 * @param rkey The record key of the community.
+	 */
+	public deleteCommunity = async (did: string, rkey: string) => {
+		const uri = encodeURIComponent(
+			`at://${did}/social.colibri.community/${rkey}`,
+		);
+
+		const response = (await (
+			await fetch(`https://${APPVIEW_DOMAIN}/api/sidebar?community=${uri}`)
+		).json()) as SidebarData;
+
+		const categories: Array<SidebarCategoryData> = [...response.categories];
+		const channels: Array<SidebarChannelData> = [...response.uncategorized];
+		const messages: Array<IndexedMessageData> = [];
+		const reactions: Array<MessageReactionData> = [];
+
+		for (const category of response.categories) {
+			channels.push(...category.channels);
+		}
+
+		for (const channel of channels) {
+			const url = new URL(`https://${APPVIEW_DOMAIN}/api/messages`);
+			url.searchParams.set("channel", channel.rkey);
+			url.searchParams.set("all", "");
+
+			const res = (await (
+				await fetch(url.toString())
+			).json()) as Array<IndexedMessageData>;
+
+			messages.push(...res);
+
+			for (const message of res) {
+				reactions.push(...message.reactions);
+			}
+		}
+
+		// Start deleting stuff
+		const promises: Array<Promise<any>> = [];
+
+		for (const reaction of reactions) {
+			for (const rkey of reaction.rkeys) {
+				try {
+					// TODO: Other DIDs and agents from Redis
+					promises.push(this.deleteReaction(did, rkey));
+				} catch (e) {
+					console.error(e);
+				}
+			}
+		}
+
+		for (const message of messages) {
+			try {
+				// TODO: Other DIDs and agents from Redis
+				promises.push(this.deleteMessage(did, message.rkey));
+			} catch (e) {
+				console.error(e);
+			}
+		}
+
+		for (const channel of channels) {
+			try {
+				promises.push(this.deleteChannel(did, channel.rkey));
+			} catch (e) {
+				console.error(e);
+			}
+		}
+
+		for (const category of categories) {
+			try {
+				promises.push(this.deleteCategory(did, category.rkey));
+			} catch (e) {
+				console.error(e);
+			}
+		}
+
+		await Promise.allSettled(promises);
+
+		await this.agent.com.atproto.repo.deleteRecord({
+			repo: did,
+			collection: RECORD_IDs.COMMUNITY,
+			rkey,
+		});
 	};
 
 	/**
@@ -372,6 +483,19 @@ export class ColibriSDK {
 			...record.record,
 			rkey: res.data.uri.split("/").pop()!,
 		};
+	};
+
+	/**
+	 * Deletes a given category.
+	 * @param did The DID of the category owner.
+	 * @param rkey The record key of the category.
+	 */
+	public deleteCategory = async (did: string, rkey: string): Promise<void> => {
+		await this.agent.com.atproto.repo.deleteRecord({
+			repo: did,
+			collection: RECORD_IDs.CATEGORY,
+			rkey,
+		});
 	};
 
 	/**
@@ -475,6 +599,19 @@ export class ColibriSDK {
 		const res = await this.agent.com.atproto.repo.createRecord(record);
 
 		return res.data.uri.split("/").pop()!;
+	};
+
+	/**
+	 * Deletes a given channel from the user's PDS.
+	 * @param did The channel owner's DID.
+	 * @param rkey The record key of the channel.
+	 */
+	public deleteChannel = async (did: string, rkey: string): Promise<void> => {
+		await this.agent.com.atproto.repo.deleteRecord({
+			repo: did,
+			collection: RECORD_IDs.MESSAGE,
+			rkey,
+		});
 	};
 
 	/**

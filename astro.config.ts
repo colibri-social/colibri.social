@@ -31,6 +31,7 @@ export default defineConfig({
 			{ hostname: "colibri.social", protocol: "https" },
 			{ hostname: "example.com", protocol: "https" }, // Temporary until Astro 5.18
 		],
+		actionBodySizeLimit: 10 * 1024 * 1024,
 	},
 	experimental: {
 		fonts: [

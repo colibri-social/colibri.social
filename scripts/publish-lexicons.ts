@@ -28,7 +28,7 @@ const agent = new AtpAgent({ service: pds });
 
 await agent.login({ identifier: handle, password });
 
-console.log(`Logged in as ${agent.session?.did}\n`);
+console.info(`Logged in as ${agent.session?.did}\n`);
 
 for (const doc of LEXICON_DOCS) {
 	const rkey = doc.id;
@@ -57,7 +57,7 @@ for (const doc of LEXICON_DOCS) {
 			rkey,
 			record,
 		});
-		console.log(`  updated  ${rkey}`);
+		console.info(`  updated  ${rkey}`);
 	} else {
 		await agent.api.com.atproto.repo.createRecord({
 			repo: agent.session!.did,
@@ -65,8 +65,8 @@ for (const doc of LEXICON_DOCS) {
 			rkey,
 			record,
 		});
-		console.log(`  created  ${rkey}`);
+		console.info(`  created  ${rkey}`);
 	}
 }
 
-console.log(`\nDone. Published ${LEXICON_DOCS.length} lexicon(s).`);
+console.info(`\nDone. Published ${LEXICON_DOCS.length} lexicon(s).`);
