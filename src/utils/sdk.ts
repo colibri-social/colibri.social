@@ -86,6 +86,7 @@ export type SidebarChannelData = {
 	uri: string;
 	rkey: string;
 	name: string;
+	description: string;
 	channel_type: ChannelType;
 	category_rkey: string | null;
 };
@@ -485,6 +486,32 @@ export class ColibriSDK {
 		};
 	};
 
+	public editCategory = async (
+		did: string,
+		name: string,
+		rkey: string,
+	): Promise<CategoryData> => {
+		const { community, channelOrder } = await this.getCategoryData(did, rkey);
+
+		const newRecord = this.constructAtProtoRecord(
+			did,
+			RECORD_IDs.CATEGORY,
+			{
+				name,
+				community,
+				channelOrder,
+			},
+			rkey,
+		);
+
+		await this.agent.com.atproto.repo.putRecord(newRecord);
+
+		return {
+			...newRecord.record,
+			rkey,
+		} as CategoryData;
+	};
+
 	/**
 	 * Deletes a given category.
 	 * @param did The DID of the category owner.
@@ -599,6 +626,35 @@ export class ColibriSDK {
 		const res = await this.agent.com.atproto.repo.createRecord(record);
 
 		return res.data.uri.split("/").pop()!;
+	};
+
+	public editChannel = async (
+		did: string,
+		name: string,
+		description: string,
+		rkey: string,
+	): Promise<ChannelData> => {
+		const { type, community, category } = await this.getChannelData(did, rkey);
+
+		const newRecord = this.constructAtProtoRecord(
+			did,
+			RECORD_IDs.CHANNEL,
+			{
+				name,
+				description,
+				type,
+				community,
+				category,
+			},
+			rkey,
+		);
+
+		await this.agent.com.atproto.repo.putRecord(newRecord);
+
+		return {
+			...newRecord.record,
+			rkey,
+		} as ChannelData;
 	};
 
 	/**

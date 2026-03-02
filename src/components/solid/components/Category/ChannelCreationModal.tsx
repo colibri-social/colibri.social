@@ -28,6 +28,7 @@ import {
 } from "../../shadcn-solid/text-field";
 import { useGlobalContext } from "../../contexts/GlobalContext/index";
 import { ImageForChannelType } from "../IconForChannelType";
+import { parseZodToErrorOrDisplay } from "@/utils/parse-zod-to-error-or-display";
 
 /**
  * The creation modal for a new channel within a category.
@@ -60,7 +61,7 @@ export const ChannelCreationModal: ParentComponent<{
 
 		if (result.error) {
 			toast.error("Failed to create channel", {
-				description: result.error.message,
+				description: parseZodToErrorOrDisplay(result.error.message),
 			});
 			return;
 		}

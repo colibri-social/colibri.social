@@ -64,7 +64,7 @@ export const login = defineAction({
 			console.error(e);
 
 			throw new ActionError({
-				message: "Internal Server Error while logging in.",
+				message: (e as Error).message,
 				code: "INTERNAL_SERVER_ERROR",
 			});
 		}

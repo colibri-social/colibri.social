@@ -24,6 +24,8 @@ import { Spinner } from "../../icons/Spinner";
 import { actions } from "astro:actions";
 import { SettingsModal, SettingsPage } from "../SettingsModal";
 import type { ParentComponent } from "solid-js";
+import { toast } from "somoto";
+import { parseZodToErrorOrDisplay } from "@/utils/parse-zod-to-error-or-display";
 
 const GeneralSettingsPage: Component = () => {
 	const [globalData, { addCommunity }] = useGlobalContext();
@@ -104,7 +106,13 @@ const GeneralSettingsPage: Component = () => {
 				: undefined,
 		});
 
-		// TODO: Error handling
+		if (communityData.error) {
+			setLoading(false);
+			toast.error("Failed to update community", {
+				description: parseZodToErrorOrDisplay(communityData.error.message),
+			});
+			return;
+		}
 
 		addCommunity(communityData.data!);
 		setLoading(false);
@@ -221,8 +229,20 @@ const DangerSettingsPage: Component = () => {
 
 	const deleteCommunity = async () => {
 		setLoading(true);
-		await actions.deleteCommunity({ rkey: community()!.rkey });
+
+		const deletedCommunity = await actions.deleteCommunity({
+			rkey: community()!.rkey,
+		});
+
 		setLoading(false);
+
+		if (deletedCommunity.error) {
+			toast.error("Failed to delete community", {
+				description: parseZodToErrorOrDisplay(deletedCommunity.error.message),
+			});
+			return;
+		}
+
 		removeCommunity(community()!.rkey);
 		navigate("/");
 	};
@@ -231,7 +251,7 @@ const DangerSettingsPage: Component = () => {
 		<SettingsPage loading={loading} title="Danger Zone">
 			<h3 class="m-0 font-semibold">Delete this Community</h3>
 			<p class="m-0">
-				To delete this community and all associated data, fist type in the name
+				To delete this community and all associated data, first type in the name
 				of the community below. <strong>This action cannot be undone.</strong>
 			</p>
 			<div class="flex flex-row gap-2 items-baseline-last">
@@ -267,6 +287,55 @@ const DangerSettingsPage: Component = () => {
 	);
 };
 
+const InfoPage: Component = () => {
+	const [globalData, { removeCommunity }] = useGlobalContext();
+	const params = useParams();
+	const navigate = useNavigate();
+
+	const [loading, setLoading] = createSignal<boolean>(false);
+	const [communityNameReset, setCommunityNameReset] = createSignal("");
+
+	const community = () =>
+		globalData.communities.find((x) => x.rkey === params.community);
+	const isValid = () => communityNameReset() === community()?.name;
+
+	const deleteCommunity = async () => {
+		setLoading(true);
+
+		const deletedCommunity = await actions.deleteCommunity({
+			rkey: community()!.rkey,
+		});
+
+		setLoading(false);
+
+		if (deletedCommunity.error) {
+			toast.error("Failed to delete community", {
+				description: parseZodToErrorOrDisplay(deletedCommunity.error.message),
+			});
+			return;
+		}
+
+		removeCommunity(community()!.rkey);
+		navigate("/");
+	};
+
+	return (
+		<SettingsPage loading={loading} title="Debug Information">
+			<p class="m-0">
+				Below you'll find some useful information about this community which can
+				help in debugging issues.
+			</p>
+			<div class="flex flex-col gap-2">
+				<span>verify against lexicon</span>
+				<span>rkey</span>
+				<span>cid</span>
+				<span>at-uri</span>
+				<span>view on pdsls.dev</span>
+			</div>
+		</SettingsPage>
+	);
+};
+
 export const CommunitySettingsModal: ParentComponent = (props) => {
 	return (
 		<SettingsModal
@@ -281,6 +350,11 @@ export const CommunitySettingsModal: ParentComponent = (props) => {
 				title: "Danger Zone",
 				id: "danger",
 				component: DangerSettingsPage,
+			}}
+			debugPage={{
+				title: "Debug Information",
+				id: "info",
+				component: InfoPage,
 			}}
 		>
 			{props.children}

@@ -94,12 +94,14 @@ const SettingsPageSelector: ParentComponent<{
 export type SettingsPageInfo = {
 	title: string;
 	id: string;
-	component: Component;
+	component: Component<any>;
 };
 
 export const SettingsModal: ParentComponent<{
 	pages: Array<SettingsPageInfo>;
+	debugPage?: SettingsPageInfo;
 	dangerPage: SettingsPageInfo;
+	class?: string;
 }> = (props) => {
 	const [activePage, setActivePage] = createSignal<string>(props.pages[0].id);
 	const [open, setOpen] = createSignal(false);
@@ -112,7 +114,7 @@ export const SettingsModal: ParentComponent<{
 
 	return (
 		<Dialog open={open()} onOpenChange={setOpen}>
-			<DialogTrigger>{props.children}</DialogTrigger>
+			<DialogTrigger class={props.class}>{props.children}</DialogTrigger>
 			<DialogPortal>
 				<DialogContent class="w-[75vw] min-w-92 h-fit min-h-128 max-w-192! p-0 flex flex-row gap-0">
 					<div class="absolute top-4 right-4 flex items-center justify-center w-6 h-6 hover:bg-muted/50 cursor-pointer rounded-sm">
@@ -133,13 +135,23 @@ export const SettingsModal: ParentComponent<{
 								)}
 							</For>
 						</div>
-						<SettingsPageSelector
-							activePage={activePage() === props.dangerPage.id}
-							danger
-							onClick={() => setActivePage(props.dangerPage.id)}
-						>
-							{props.dangerPage.title}
-						</SettingsPageSelector>
+						<div class="flex flex-col gap-1">
+							<Show when={props.debugPage}>
+								<SettingsPageSelector
+									activePage={activePage() === props.debugPage!.id}
+									onClick={() => setActivePage(props.debugPage!.id)}
+								>
+									{props.debugPage!.title}
+								</SettingsPageSelector>
+							</Show>
+							<SettingsPageSelector
+								activePage={activePage() === props.dangerPage.id}
+								danger
+								onClick={() => setActivePage(props.dangerPage.id)}
+							>
+								{props.dangerPage.title}
+							</SettingsPageSelector>
+						</div>
 					</div>
 					<Switch
 						fallback={<div>No settings page for this category found.</div>}
@@ -151,6 +163,11 @@ export const SettingsModal: ParentComponent<{
 								</Match>
 							)}
 						</For>
+						<Show when={props.debugPage}>
+							<Match when={activePage() === props.debugPage!.id}>
+								{(() => props.debugPage!.component)()}
+							</Match>
+						</Show>
 						<Match when={activePage() === props.dangerPage.id}>
 							<props.dangerPage.component />
 						</Match>

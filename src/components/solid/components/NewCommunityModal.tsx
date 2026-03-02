@@ -30,6 +30,7 @@ import {
 	TextFieldInput,
 	TextFieldLabel,
 } from "../shadcn-solid/text-field";
+import { parseZodToErrorOrDisplay } from "@/utils/parse-zod-to-error-or-display";
 
 export const NewCommunityModal: ParentComponent<{ navigate: Navigator }> = (
 	props,
@@ -69,7 +70,9 @@ export const NewCommunityModal: ParentComponent<{ navigate: Navigator }> = (
 
 		if (error) {
 			setLoading(false);
-			toast.error("Failed to create community", { description: error.message });
+			toast.error("Failed to create community", {
+				description: parseZodToErrorOrDisplay(error.message),
+			});
 			return;
 		}
 

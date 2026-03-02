@@ -4,11 +4,12 @@ import { z } from "astro/zod";
 import { client } from "@/utils/atproto/oauth";
 import { ColibriSDK } from "@/utils/sdk";
 
-export const deleteCommunity = defineAction({
+export const editCategory = defineAction({
 	input: z.object({
+		name: z.string().min(1).max(32),
 		rkey: z.string(),
 	}),
-	handler: async ({ rkey }, { session }) => {
+	handler: async ({ rkey, name }, { session }) => {
 		try {
 			if (!session || !session?.has("user")) {
 				throw new ActionError({
@@ -22,9 +23,9 @@ export const deleteCommunity = defineAction({
 			const agent = new Agent(oauthSession);
 			const sdk = new ColibriSDK(agent);
 
-			await sdk.deleteCommunity(agent.did!, rkey);
+			const category = await sdk.editCategory(agent.did!, name, rkey);
 
-			return;
+			return category;
 		} catch (e) {
 			console.error(e);
 

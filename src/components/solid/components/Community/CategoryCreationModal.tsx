@@ -18,6 +18,7 @@ import {
 	TextFieldLabel,
 } from "../../shadcn-solid/text-field";
 import { useGlobalContext } from "../../contexts/GlobalContext/index";
+import { parseZodToErrorOrDisplay } from "@/utils/parse-zod-to-error-or-display";
 
 /**
  * A modal for creating a category.
@@ -46,7 +47,7 @@ export const CategoryCreationModal: ParentComponent<{ community: string }> = (
 
 		if (result.error) {
 			toast.error("Failed to create category", {
-				description: result.error.message,
+				description: parseZodToErrorOrDisplay(result.error.message),
 			});
 			return;
 		}

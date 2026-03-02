@@ -36,7 +36,8 @@ export const GlobalContextProvider: ParentComponent<{
 		...props.contextData,
 		additionalMessages: [],
 		categories: [],
-		channels: [],
+		addedChannels: [],
+		removedChannels: [],
 		pendingMessages: [],
 		deletedMessages: [],
 	});
@@ -64,15 +65,45 @@ export const GlobalContextProvider: ParentComponent<{
 			},
 			addCategory(category) {
 				setGlobalContext("categories", (list) => {
-					const alreadyExists = list.some((c) => c.rkey === category.rkey);
-					if (alreadyExists) return list;
-					return [...list, category];
+					const alreadyExistsIndex = list.findIndex(
+						(c) => c.rkey === category.rkey,
+					);
+
+					if (alreadyExistsIndex >= 0) {
+						return list.toSpliced(alreadyExistsIndex, 1, category);
+					}
+
+					return [category, ...list];
 				});
 			},
+			removeCategory(rkey) {
+				setGlobalContext("categories", (list) =>
+					list.filter((x) => x.rkey !== rkey),
+				);
+			},
 			addChannel(channel) {
-				setGlobalContext("channels", (list) => {
-					const alreadyExists = list.some((c) => c.rkey === channel.rkey);
-					if (alreadyExists) return list;
+				setGlobalContext("addedChannels", (list) => {
+					const alreadyExistsIndex = list.findIndex(
+						(c) => c.rkey === channel.rkey,
+					);
+
+					if (alreadyExistsIndex >= 0) {
+						return list.toSpliced(alreadyExistsIndex, 1, channel);
+					}
+
+					return [...list, channel];
+				});
+			},
+			removeChannel(channel) {
+				setGlobalContext("removedChannels", (list) => {
+					const alreadyExistsIndex = list.findIndex(
+						(c) => c.rkey === channel.rkey,
+					);
+
+					if (alreadyExistsIndex >= 0) {
+						return list.toSpliced(alreadyExistsIndex, 1, channel);
+					}
+
 					return [...list, channel];
 				});
 			},

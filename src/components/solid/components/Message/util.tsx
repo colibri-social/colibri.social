@@ -14,6 +14,7 @@ import type { IndexedMessageData } from "@/utils/sdk";
 import type { GlobalContextUtility } from "../../contexts/GlobalContext";
 import { Button } from "../../shadcn-solid/Button";
 import { DialogCloseButton } from "../../shadcn-solid/Dialog";
+import { parseZodToErrorOrDisplay } from "@/utils/parse-zod-to-error-or-display";
 
 /**
  * A utility function to delete a message, then close the modal.
@@ -37,7 +38,9 @@ export const deleteMessage = (
 
 	actions.deleteMessage({ rkey: message.rkey }).then(({ error }) => {
 		if (error) {
-			toast.error("Failed to delete message", { description: error.message });
+			toast.error("Failed to delete message", {
+				description: parseZodToErrorOrDisplay(error.message),
+			});
 		}
 	});
 };

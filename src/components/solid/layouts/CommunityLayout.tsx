@@ -149,22 +149,49 @@ const CommunityLayout: ParentComponent = (props) => {
 
 	/**
 	 * Flat list of all channels in the current community, derived from the
-	 * sidebar data. Used by ChannelContext so the RichTextRenderer can offer
-	 * channel mention autocomplete.
+	 * sidebar data, with any matching entries overwritten by the global context
+	 * (optimistic updates), and net-new global context channels appended.
+	 * Used by ChannelContext so the RichTextRenderer can offer channel mention
+	 * autocomplete.
 	 */
-	const channels = createMemo(
-		() =>
-			sidebarData()
-				?.categories.flatMap((c) => c.channels)
-				.concat(sidebarData()?.uncategorized ?? [])
+	const channels = createMemo(() => {
+		const sidebar = sidebarData();
+		const community = communityRkey();
+
+		const fromSidebar =
+			sidebar?.categories
+				.flatMap((c) => c.channels)
+				.concat(sidebar?.uncategorized ?? [])
 				.map((ch) => ({
 					rkey: ch.rkey,
 					name: ch.name,
 					type: ch.channel_type,
 					category: ch.category_rkey ?? "",
-					community: communityRkey(),
-				})) ?? [],
-	);
+					community,
+				})) ?? [];
+
+		const removedRkeys = new Set(
+			globalContext.removedChannels
+				.filter((ch) => ch.community === community)
+				.map((ch) => ch.rkey),
+		);
+
+		const globalForCommunity = globalContext.addedChannels.filter(
+			(ch) => ch.community === community,
+		);
+		const globalByRkey = new Map(globalForCommunity.map((ch) => [ch.rkey, ch]));
+
+		const merged = fromSidebar
+			.filter((ch) => !removedRkeys.has(ch.rkey))
+			.map((ch) => globalByRkey.get(ch.rkey) ?? ch);
+
+		const sidebarRkeys = new Set(fromSidebar.map((ch) => ch.rkey));
+		const netNew = globalForCommunity.filter(
+			(ch) => !sidebarRkeys.has(ch.rkey) && !removedRkeys.has(ch.rkey),
+		);
+
+		return [...merged, ...netNew];
+	});
 
 	return (
 		<MessageContextProvider>
@@ -173,7 +200,7 @@ const CommunityLayout: ParentComponent = (props) => {
 					<Suspense
 						fallback={
 							<div class="w-full h-full flex items-center justify-center text-muted-foreground text-sm">
-								Loading community…
+								Loading community...
 							</div>
 						}
 					>
@@ -192,7 +219,7 @@ const CommunityLayout: ParentComponent = (props) => {
 											<Suspense
 												fallback={
 													<small class="text-muted-foreground animate-pulse">
-														Loading members…
+														Loading members...
 													</small>
 												}
 											>

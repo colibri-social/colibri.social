@@ -4,7 +4,7 @@ import { z } from "astro/zod";
 import { client } from "@/utils/atproto/oauth";
 import { ColibriSDK } from "@/utils/sdk";
 
-export const deleteCommunity = defineAction({
+export const deleteCategory = defineAction({
 	input: z.object({
 		rkey: z.string(),
 	}),
@@ -22,7 +22,7 @@ export const deleteCommunity = defineAction({
 			const agent = new Agent(oauthSession);
 			const sdk = new ColibriSDK(agent);
 
-			await sdk.deleteCommunity(agent.did!, rkey);
+			await sdk.deleteCategory(agent.did!, rkey);
 
 			return;
 		} catch (e) {

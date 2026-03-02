@@ -32,7 +32,7 @@ export const addReaction = defineAction({
 			console.error(e);
 
 			throw new ActionError({
-				message: "Internal Server Error while adding reaction.",
+				message: (e as Error).message,
 				code: "INTERNAL_SERVER_ERROR",
 			});
 		}

@@ -37,7 +37,7 @@ export const editMessage = defineAction({
 			console.error(e);
 
 			throw new ActionError({
-				message: "Internal Server Error while editing message.",
+				message: (e as Error).message,
 				code: "INTERNAL_SERVER_ERROR",
 			});
 		}

@@ -50,7 +50,7 @@ export const createCommunity = defineAction({
 			console.error(e);
 
 			throw new ActionError({
-				message: "Internal Server Error while creating community.",
+				message: (e as Error).message,
 				code: "INTERNAL_SERVER_ERROR",
 			});
 		}

@@ -19,7 +19,7 @@ const AppLayout: ParentComponent = (props) => {
 
 	return (
 		<div class="flex flex-col w-screen h-screen bg-card">
-			<div class="flex w-full h-10 pl-2 items-center gap-2">
+			<div class="flex w-full h-10 min-h-10 pl-2 items-center gap-2">
 				<img src="/logo.png" width={32} height={32} alt="Colibri Social logo" />
 				<span class="font-black text-lg bg-clip-text text-transparent bg-[linear-gradient(69deg,#090615_-145.97%,#31226D_-87.27%,#6C5AA6_-26.22%,#AE99CB_30.13%,#E0DEEC_75.92%)]">
 					colibri.social

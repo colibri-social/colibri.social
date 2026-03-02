@@ -27,6 +27,7 @@ import { MessageAction } from "./MessageAction";
 import { MessageContextMenu } from "./MessageContextMenu";
 import { MessageDeletionDrawer } from "./MessageDeletionDrawer";
 import { deleteMessage } from "./util";
+import { parseZodToErrorOrDisplay } from "@/utils/parse-zod-to-error-or-display";
 
 /**
  * A rendered message component in a chat.
@@ -93,7 +94,7 @@ export const Message: Component<{
 						current.filter((r) => r.rkey !== tempRkey),
 					);
 					toast.error("Failed to add reaction", {
-						description: result.error.message,
+						description: parseZodToErrorOrDisplay(result.error.message),
 					});
 					return;
 				}
@@ -101,13 +102,38 @@ export const Message: Component<{
 				const wasRemoved = removedReactions().some((r) => r.rkey === tempRkey);
 
 				if (wasRemoved) {
-					actions.removeReaction({ rkey: result.data.rkey });
+					const removedReaction = actions.removeReaction({
+						rkey: result.data.rkey,
+					});
 					setAdditionalReactions((current) =>
 						current.filter((r) => r.rkey !== tempRkey),
 					);
 					setRemovedReactions((current) =>
 						current.filter((r) => r.rkey !== tempRkey),
 					);
+
+					removedReaction.then((res) => {
+						if (res.error) {
+							toast.error("Failed to remove reaction", {
+								description: parseZodToErrorOrDisplay(res.error.message),
+							});
+
+							setAdditionalReactions((current) => [
+								...current,
+								{
+									author_did: globalData.user.sub,
+									rkey: result.data.rkey,
+									target_rkey: messageRkey,
+									target_author_did: props.data.author_did,
+									channel: props.data.channel,
+									emoji,
+									type: "reaction_added",
+								},
+							]);
+
+							return;
+						}
+					});
 				} else {
 					setAdditionalReactions((current) =>
 						current.map((r) =>
@@ -168,7 +194,9 @@ export const Message: Component<{
 		});
 
 		if (error) {
-			toast.error("Failed to edit message", { description: error.message });
+			toast.error("Failed to edit message", {
+				description: parseZodToErrorOrDisplay(error.message),
+			});
 			// Restore edit mode so the user can retry without losing their changes
 			setEditingMessage((props.data as IndexedMessageData).rkey);
 		}
@@ -510,9 +538,25 @@ export const Message: Component<{
 										const rkey = item.rkeys[reactionIndex];
 
 										if (!rkey.startsWith("__pending_")) {
-											actions.removeReaction({
-												rkey,
-											});
+											actions
+												.removeReaction({
+													rkey,
+												})
+												.then((res) => {
+													if (res.error) {
+														toast.error("Failed to remove reaction", {
+															description: parseZodToErrorOrDisplay(
+																res.error.message,
+															),
+														});
+
+														setRemovedReactions((current) =>
+															current.filter((r) => r.rkey !== rkey),
+														);
+
+														return;
+													}
+												});
 										}
 
 										setRemovedReactions((current) => [

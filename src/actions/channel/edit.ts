@@ -4,11 +4,13 @@ import { z } from "astro/zod";
 import { client } from "@/utils/atproto/oauth";
 import { ColibriSDK } from "@/utils/sdk";
 
-export const deleteCommunity = defineAction({
+export const editChannel = defineAction({
 	input: z.object({
+		name: z.string().min(1).max(32),
+		description: z.string({ message: "A description is required." }).max(256),
 		rkey: z.string(),
 	}),
-	handler: async ({ rkey }, { session }) => {
+	handler: async ({ name, description, rkey }, { session }) => {
 		try {
 			if (!session || !session?.has("user")) {
 				throw new ActionError({
@@ -22,11 +24,18 @@ export const deleteCommunity = defineAction({
 			const agent = new Agent(oauthSession);
 			const sdk = new ColibriSDK(agent);
 
-			await sdk.deleteCommunity(agent.did!, rkey);
+			const channelData = await sdk.editChannel(
+				agent.did!,
+				name,
+				description,
+				rkey,
+			);
 
-			return;
+			return channelData;
 		} catch (e) {
 			console.error(e);
+
+			console.log((e as Error).message);
 
 			throw new ActionError({
 				message: (e as Error).message,
