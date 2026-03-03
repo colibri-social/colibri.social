@@ -117,6 +117,7 @@ const GeneralSettingsPage: Component = () => {
 		}
 
 		addCommunity(communityData.data!);
+		resetCommunityData();
 		setLoading(false);
 	};
 
