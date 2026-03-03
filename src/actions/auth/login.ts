@@ -37,7 +37,12 @@ const resolvePotentialHandle = async (
 		});
 	}
 
-	return await resolveHandle(handle, "bsky.social");
+	console.log(handle, handle.replace(/[a-zA-Z0123456789\-]+\./, ""));
+
+	return await resolveHandle(
+		handle,
+		handle.replace(/[a-zA-Z0123456789\-]+\./, ""),
+	);
 };
 
 export const login = defineAction({
