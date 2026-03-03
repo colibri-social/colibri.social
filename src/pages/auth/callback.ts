@@ -21,7 +21,7 @@ export const GET = (async ({ request, session }) => {
 		// Make Authenticated API calls
 		const profile = await agent.getProfile({ actor: agent.did! });
 
-		console.log(profile);
+		// console.log(profile);
 
 		// Check for profile data
 		session?.set("user", {
