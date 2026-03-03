@@ -10,7 +10,7 @@ export const UserStatus: Component = () => {
 	return (
 		<div class="w-full h-16 flex flex-row gap-3 px-4 py-3 bg-card">
 			<img
-				src={globalState.user.avatar || "/logo.png"}
+				src={globalState.user.avatar || "/user-placeholder.png"}
 				alt={globalState.user.displayName}
 				class="w-10 h-10 min-w-10 min-h-10 bg-muted rounded-full border border-border"
 			/>

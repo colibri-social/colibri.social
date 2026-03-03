@@ -373,7 +373,10 @@ export const Message: Component<{
 							onClick={() => jumpToMessage(props.data.parent_message!)}
 						>
 							<img
-								src={props.data.parent_message!.avatar_url}
+								src={
+									props.data.parent_message!.avatar_url ||
+									"/user-placeholder.png"
+								}
 								width={16}
 								height={16}
 								alt={props.data.parent_message!.display_name}
@@ -390,7 +393,7 @@ export const Message: Component<{
 					<Switch>
 						<Match when={!isSubsequentMessage()}>
 							<img
-								src={props.data.avatar_url || "/logo.png"}
+								src={props.data.avatar_url || "/user-placeholder.png"}
 								alt={props.data.display_name}
 								class="w-10 h-10 min-w-10 min-h-10 bg-muted rounded-full border border-border"
 								loading="lazy"

@@ -20,7 +20,7 @@ export const MockMessage: Component<{
 			}}
 		>
 			<img
-				src={props.message.avatar_url || "/logo.png"}
+				src={props.message.avatar_url || "/user-placeholder.png"}
 				alt={props.message.display_name}
 				class="w-10 h-10 min-w-10 min-h-10 bg-muted rounded-full border border-border"
 				loading="lazy"

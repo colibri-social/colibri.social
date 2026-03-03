@@ -257,7 +257,7 @@ const CommunityLayout: ParentComponent = (props) => {
 											{(item) => (
 												<div class="flex flex-row gap-2 border border-border bg-card rounded-sm p-2">
 													<img
-														src={item.avatar_url}
+														src={item.avatar_url || "/user-placeholder.png"}
 														alt={item.display_name}
 														width={28}
 														height={28}
