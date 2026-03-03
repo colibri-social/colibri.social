@@ -5,13 +5,23 @@ import { client, scopes } from "@/utils/atproto/oauth";
 export const login = defineAction({
 	accept: "form",
 	input: z.object({
-		handle: z.string().optional(),
+		handle: z.string(),
+		signUp: z.string().optional(),
 	}),
-	handler: async ({ handle }) => {
+	handler: async ({ handle, signUp }) => {
 		try {
-			const url = await client.authorize(handle || "https://bsky.social", {
+			let authorizerHandle: string = handle;
+
+			if (handle === "__bluesky__") {
+				authorizerHandle = "https://bsky.social";
+			} else if (handle === "__colibri__") {
+				authorizerHandle = "https://colibri.social";
+			}
+
+			const url = await client.authorize(authorizerHandle, {
 				scope: scopes.join(" "),
 				state: JSON.stringify("{}"),
+				prompt: signUp ? "create" : "login",
 				redirect_uri: import.meta.env.DEV
 					? `http://127.0.0.1:4321/auth/callback`
 					: (`${import.meta.env.SITE}/auth/callback` as any),

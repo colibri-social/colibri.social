@@ -38,7 +38,42 @@ if (result && !result.error) {
 			>
 				<Input
 					type="text"
-					value="bsky.social"
+					value="__colibri__"
+					id="handle"
+					name="handle"
+					class="hidden"
+				/>
+				<Button
+					id="login-btn"
+					type="submit"
+					class="w-full bg-primary/15 hover:bg-primary/25"
+					variant="secondary"
+				>
+					<img
+						src="/logo.png"
+						alt="Colibri's Logo, a hummingbird."
+						width="24"
+						height="24"
+					/>
+					Login with Colibri
+				</Button>
+			</form>
+			<div class="relative w-full">
+				<hr class="bg-border w-full h-px border-none m-0" />
+				<small
+					class="text-muted-foreground bg-card absolute top-1/2 left-1/2 transform -translate-1/2 px-2"
+				>
+					OR USE BLUESKY
+				</small>
+			</div>
+			<form
+				method="post"
+				class="flex gap-2 w-full p-6 items-center justify-center"
+				action={actions.login}
+			>
+				<Input
+					type="text"
+					value="__bluesky__"
 					id="handle"
 					name="handle"
 					class="hidden"
@@ -58,7 +93,7 @@ if (result && !result.error) {
 				<small
 					class="text-muted-foreground bg-card absolute top-1/2 left-1/2 transform -translate-1/2 px-2"
 				>
-					OR USE ATMOSPHERE
+					OR USE YOUR HANDLE
 				</small>
 			</div>
 			<form
@@ -77,7 +112,27 @@ if (result && !result.error) {
 						Login with Atmosphere
 					</Button>
 				</div>
-				<Button variant="link" class="text-muted-foreground">
+			</form>
+			<form
+				method="post"
+				class="flex flex-col items-center justify-center relative bottom-3"
+				action={actions.login}
+			>
+				<Input
+					type="text"
+					value="__colibri__"
+					id="handle"
+					name="handle"
+					class="hidden"
+				/>
+				<Input
+					type="text"
+					value="true"
+					id="signUp"
+					name="signUp"
+					class="hidden"
+				/>
+				<Button variant="link" type={"submit"} class="text-muted-foreground">
 					New to the Atmosphere? Sign up with us!
 				</Button>
 			</form>
