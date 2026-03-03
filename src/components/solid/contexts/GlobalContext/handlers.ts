@@ -39,6 +39,7 @@ export const handleNewMessage = async (
 		facets: [],
 		reactions: [],
 		parent_message: data.parent ?? null,
+		edited: data.edited,
 	});
 };
 

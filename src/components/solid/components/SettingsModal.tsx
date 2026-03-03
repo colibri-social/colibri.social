@@ -31,7 +31,7 @@ export const SettingsPage: ParentComponent<{
 	onReset?: () => void;
 }> = (props) => {
 	return (
-		<div class="w-full flex flex-col justify-between gap-4 h-128">
+		<div class="w-full flex flex-col justify-between gap-4 min-h-108">
 			<div class=" flex flex-col gap-4 py-4">
 				<h2 class="m-0 px-4">{props.title}</h2>
 				<div class="w-full h-full flex flex-col gap-4 px-4">

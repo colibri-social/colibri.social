@@ -15,6 +15,7 @@ export type MessageEventPayload = {
 	indexed_at: string;
 	display_name: string;
 	avatar_url: string;
+	edited: boolean;
 };
 
 export type MessagePostEvent = {

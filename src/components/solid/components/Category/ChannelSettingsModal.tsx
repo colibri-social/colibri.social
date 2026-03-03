@@ -21,8 +21,6 @@ const GeneralSettingsPage: Component<{ channel: SidebarChannelData }> = (
 ) => {
 	const [, { addChannel }] = useGlobalContext();
 
-	console.log(props.channel);
-
 	const [loading, setLoading] = createSignal<boolean>(false);
 	const [name, setName] = createSignal(props.channel.name);
 	const [description, setDescription] = createSignal(
@@ -171,7 +169,6 @@ export const ChannelSettingsModal: ParentComponent<{
 	channel: SidebarChannelData;
 	class?: string;
 }> = (props) => {
-	console.log(props.channel);
 	const did = props.channel.uri.split("/")[2];
 
 	return (

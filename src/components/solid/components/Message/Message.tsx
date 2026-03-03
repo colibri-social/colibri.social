@@ -45,6 +45,7 @@ export const Message: Component<{
 	const isPending = () => "hash" in props.data;
 	const [deletionModalOpen, setDeletionModalOpen] = createSignal(false);
 	const [emojiPopoverOpen, setEmojiPopoverOpen] = createSignal(false);
+	const [debugModalOpen, setDebugModalOpen] = createSignal(false);
 	const [additionalReactions, setAdditionalReactions] = createSignal<
 		Array<ReactionAddedEvent>
 	>([]);
@@ -345,6 +346,8 @@ export const Message: Component<{
 			messageEditable={messageEditable}
 			deletionModalOpen={deletionModalOpen()}
 			setDeletionModalOpen={setDeletionModalOpen}
+			debugModalOpen={debugModalOpen()}
+			setDebugModalOpen={setDebugModalOpen}
 		>
 			<div
 				class={`w-full h-fit flex flex-col pr-4 pl-3.5 gap-1 group border-l-2 relative hover:bg-card/50 transition-colors duration-75`}
@@ -421,6 +424,9 @@ export const Message: Component<{
 										},
 									)}
 								</small>
+								<Show when={props.data.edited}>
+									<small class="text-muted-foreground">(edited)</small>
+								</Show>
 							</div>
 						</Show>
 						<div

@@ -28,8 +28,6 @@ export const deleteChannel = defineAction({
 		} catch (e) {
 			console.error(e);
 
-			console.log((e as Error).message);
-
 			throw new ActionError({
 				message: (e as Error).message,
 				code: "INTERNAL_SERVER_ERROR",

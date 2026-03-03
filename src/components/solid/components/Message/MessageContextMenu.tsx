@@ -1,5 +1,5 @@
 import { type ParentComponent, type Setter, Show } from "solid-js";
-import type { IndexedMessageData } from "@/utils/sdk";
+import type { DBMessageData, IndexedMessageData } from "@/utils/sdk";
 import type {
 	GlobalContextUtility,
 	PendingMessageData,
@@ -15,6 +15,8 @@ import {
 	ContextMenuTrigger,
 } from "../../shadcn-solid/ContextMenu";
 import { MessageDeletionDrawer } from "./MessageDeletionDrawer";
+import { MessageDebugInfo } from "./MessageDebugInfo";
+import { Info } from "../../icons/Info";
 
 /**
  * A component handling the right click context menu for messages.
@@ -30,42 +32,63 @@ export const MessageContextMenu: ParentComponent<{
 	messageEditable: () => boolean;
 	deletionModalOpen: boolean;
 	setDeletionModalOpen: Setter<boolean>;
+	debugModalOpen: boolean;
+	setDebugModalOpen: Setter<boolean>;
 }> = (props) => {
 	return (
-		<ContextMenu>
-			<ContextMenuTrigger disabled={props.disabled || props.deletionModalOpen}>
-				{props.children}
-			</ContextMenuTrigger>
-			<ContextMenuPortal>
-				<ContextMenuContent>
-					<ContextMenuItem onClick={props.enableReplyMode}>
-						<Reply />
-						<span>Reply</span>
-					</ContextMenuItem>
-					<Show when={props.messageEditable()}>
-						<ContextMenuItem onClick={props.enableEditMode}>
-							<Pencil />
-							<span>Edit</span>
+		<>
+			<ContextMenu>
+				<ContextMenuTrigger
+					disabled={
+						props.disabled || props.debugModalOpen || props.deletionModalOpen
+					}
+				>
+					{props.children}
+				</ContextMenuTrigger>
+				<ContextMenuPortal>
+					<ContextMenuContent>
+						<ContextMenuItem onClick={props.enableReplyMode}>
+							<Reply />
+							<span>Reply</span>
 						</ContextMenuItem>
-						<MessageDeletionDrawer
-							message={props.data}
-							addDeletedMessage={props.addDeletedMessage}
-							open={props.deletionModalOpen}
-							setOpen={props.setDeletionModalOpen}
-						>
-							<ContextMenuItem
-								class="text-destructive"
-								onClick={(e) => {
-									props.handlePotentialDeletion(e);
-								}}
-							>
-								<Trash />
-								<span>Delete</span>
+						<Show when={!("hash" in props.data)}>
+							<ContextMenuItem onClick={() => props.setDebugModalOpen(true)}>
+								<Info />
+								<span>Show Debug Information</span>
 							</ContextMenuItem>
-						</MessageDeletionDrawer>
-					</Show>
-				</ContextMenuContent>
-			</ContextMenuPortal>
-		</ContextMenu>
+						</Show>
+						<Show when={props.messageEditable()}>
+							<ContextMenuItem onClick={props.enableEditMode}>
+								<Pencil />
+								<span>Edit</span>
+							</ContextMenuItem>
+							<MessageDeletionDrawer
+								message={props.data}
+								addDeletedMessage={props.addDeletedMessage}
+								open={props.deletionModalOpen}
+								setOpen={props.setDeletionModalOpen}
+							>
+								<ContextMenuItem
+									class="text-destructive"
+									onClick={(e) => {
+										props.handlePotentialDeletion(e);
+									}}
+								>
+									<Trash />
+									<span>Delete</span>
+								</ContextMenuItem>
+							</MessageDeletionDrawer>
+						</Show>
+					</ContextMenuContent>
+				</ContextMenuPortal>
+			</ContextMenu>
+			<Show when={!("hash" in props.data)}>
+				<MessageDebugInfo
+					message={props.data as DBMessageData}
+					open={props.debugModalOpen}
+					setOpen={props.setDebugModalOpen}
+				/>
+			</Show>
+		</>
 	);
 };
