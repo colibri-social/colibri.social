@@ -15,7 +15,6 @@ const input = z.object({
 			message: "Text must be shorter than 2048 characters.",
 		}),
 	facets: z.array(z.custom<Facet>()),
-	rkey: z.string({ message: "No record key given." }),
 	channel: z.string({ message: "No channel given." }),
 	createdAt: z
 		.string({ message: "No creation date given." })
