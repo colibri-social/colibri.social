@@ -63,6 +63,9 @@ export const GlobalContextProvider: ParentComponent<{
 					list.filter((x) => x.rkey !== rkey),
 				);
 			},
+			setCommunities(list) {
+				setGlobalContext("communities", list);
+			},
 			addCategory(category) {
 				setGlobalContext("categories", (list) => {
 					const alreadyExistsIndex = list.findIndex(

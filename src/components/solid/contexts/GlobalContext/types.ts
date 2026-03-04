@@ -25,6 +25,7 @@ export type GlobalContextData = {
 export type GlobalContextUtility = {
 	addCommunity: (community: CommunityData) => void;
 	removeCommunity: (rkey: string) => void;
+	setCommunities: (communties: Array<CommunityData>) => void;
 	addCategory: (category: CategoryData) => void;
 	removeCategory: (rkey: string) => void;
 	addChannel: (channel: ChannelData) => void;
