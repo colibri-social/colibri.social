@@ -21,8 +21,31 @@ export const GET = (async ({ request, session }) => {
 		// Make Authenticated API calls
 		const profile = await agent.getProfile({ actor: agent.did! });
 
-		// Check for profile data
+		// Check if user ever signed up to Bluesky by inspecting their profile fields.
+		// A DID that has never used Bluesky will have no displayName, description, avatar, and banner.
+		const hasBlueskyProfile =
+			profile.data.displayName !== undefined &&
+			profile.data.description !== undefined &&
+			profile.data.avatar !== undefined &&
+			profile.data.banner !== undefined;
 
+		if (!hasBlueskyProfile) {
+			console.log(
+				`User ${agent.did} has no Bluesky profile. Creating basic profile from handle.`,
+			);
+			await agent.com.atproto.repo.putRecord({
+				repo: agent.did!,
+				collection: "app.bsky.actor.profile",
+				rkey: "self",
+				record: {
+					$type: "app.bsky.actor.profile",
+					displayName: profile.data.handle,
+					description: "",
+				},
+			});
+		}
+
+		// Check for profile data
 		session?.set("user", {
 			status,
 			avatar: profile.data.avatar,

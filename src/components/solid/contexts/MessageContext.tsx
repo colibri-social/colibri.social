@@ -5,12 +5,15 @@ import type { IndexedMessageData } from "@/utils/sdk";
 export type MessageContextData = {
 	replyingTo: IndexedMessageData | undefined;
 	focusedMessage: IndexedMessageData | undefined;
+	editingMessageRkey: string | undefined;
 };
 
 export type MessageContextUtility = {
 	setReplyingTo: (message: IndexedMessageData) => void;
 	clearReplyingTo: () => void;
 	jumpToMessage: (message: IndexedMessageData) => void;
+	setEditingMessage: (rkey: string) => void;
+	clearEditingMessage: () => void;
 };
 
 export const MessageContext =
@@ -20,6 +23,7 @@ export const MessageContextProvider: ParentComponent = (props) => {
 	const [messageContext, setMessageContext] = createStore<MessageContextData>({
 		replyingTo: undefined,
 		focusedMessage: undefined,
+		editingMessageRkey: undefined,
 	});
 
 	const context: [MessageContextData, MessageContextUtility] = [
@@ -38,6 +42,12 @@ export const MessageContextProvider: ParentComponent = (props) => {
 				setTimeout(() => {
 					setMessageContext("focusedMessage", undefined);
 				}, 2000);
+			},
+			setEditingMessage(rkey) {
+				setMessageContext("editingMessageRkey", rkey);
+			},
+			clearEditingMessage() {
+				setMessageContext("editingMessageRkey", undefined);
 			},
 		},
 	];

@@ -1,26 +1,33 @@
 ---
 import PublicLayout from "@/layouts/PublicLayout.astro";
+import { render } from "astro:content";
+import { getEntry } from "astro:content";
+
+const data = await getEntry("documents", "faq")!;
+
+const { Content } = await render(data);
 ---
 
 <PublicLayout>
 	<section
-		class="py-40 mx-auto w-full max-w-336 px-16 relative flex flex-col items-center gap-8"
+		class="py-40 mx-auto w-full max-w-336 md:px-16 px-6 relative flex flex-col items-center gap-12"
 	>
-		<div class="flex flex-col gap-4 items-center text-center">
+		<div class="flex flex-col gap-4 items-center text-center max-w-[65ch]">
 			<small class="text-primary text-sm">
-				Questions? We've got answers.
+				{data.data.eyebrow}
 			</small>
-			<h1 class="text-5xl font-black m-0">Frequently Asked Questions</h1>
+			<h1 class="text-5xl font-black m-0">{data.data.title}</h1>
 			<p class="m-0 text-muted-foreground">
-				Unsure about anything? You're in the right place, you'll probably find
-				an answer here.
+				{data.data.description}
 			</p>
 		</div>
 		<div
-			class="mx-8 mb-0 w-full border-none h-px bg-border relative prose prose-neutral dark:prose-invert"
+			class="mx-8 mb-0 w-full border-none h-px bg-border relative max-w-[65ch]"
 		>
 		</div>
-		<h2>TODO</h2>
+		<div class="w-full prose prose-neutral dark:prose-invert max-w-[65ch]">
+			<Content />
+		</div>
 	</section>
 </PublicLayout>
 <style is:global>

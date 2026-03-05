@@ -1,11 +1,27 @@
 ---
 import type { LinkData } from "./shared";
 
-type Props = LinkData;
+type Props = LinkData & { isFooterLink?: boolean };
 
-const { href, text } = Astro.props;
+const { href, text, isFooterLink } = Astro.props;
 ---
 
+<<<<<<< feature/animated-homepage-widget
 <a href={href} class="hover:bg-white hover:text-black px-2 flex items-center font-mono">
   [ {text} ]
+=======
+<a
+	href={href}
+	class="hover:bg-white hover:text-black px-2 flex items-center gap-0.5"
+>
+	<span
+		class="relative"
+		class:list={[!isFooterLink ? "-top-1 lg:-top-px" : "-top-px"]}>[</span
+	>
+	<span>{text}</span>
+	<span
+		class="relative"
+		class:list={[!isFooterLink ? "-top-1 lg:-top-px" : "-top-px"]}>]</span
+	>
+>>>>>>> main
 </a>

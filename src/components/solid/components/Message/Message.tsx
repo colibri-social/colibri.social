@@ -1,4 +1,5 @@
 import { actions } from "astro:actions";
+import { toast } from "somoto";
 import twemoji from "@twemoji/api";
 import {
 	type Component,
@@ -26,6 +27,7 @@ import { MessageAction } from "./MessageAction";
 import { MessageContextMenu } from "./MessageContextMenu";
 import { MessageDeletionDrawer } from "./MessageDeletionDrawer";
 import { deleteMessage } from "./util";
+import { parseZodToErrorOrDisplay } from "@/utils/parse-zod-to-error-or-display";
 
 /**
  * A rendered message component in a chat.
@@ -34,12 +36,16 @@ export const Message: Component<{
 	data: IndexedMessageData | PendingMessageData;
 	isSubsequent: boolean;
 }> = (props) => {
-	const [messageData, { setReplyingTo, jumpToMessage }] = useMessageContext();
+	const [
+		messageData,
+		{ setReplyingTo, jumpToMessage, setEditingMessage, clearEditingMessage },
+	] = useMessageContext();
 	const [globalData, { addDeletedMessage, addReactionListener }] =
 		useGlobalContext();
 	const isPending = () => "hash" in props.data;
 	const [deletionModalOpen, setDeletionModalOpen] = createSignal(false);
 	const [emojiPopoverOpen, setEmojiPopoverOpen] = createSignal(false);
+	const [debugModalOpen, setDebugModalOpen] = createSignal(false);
 	const [additionalReactions, setAdditionalReactions] = createSignal<
 		Array<ReactionAddedEvent>
 	>([]);
@@ -47,7 +53,9 @@ export const Message: Component<{
 		Array<ReactionRemovedEvent>
 	>([]);
 	const [_, setPendingCounter] = createSignal(0);
-	const [editMode, setEditMode] = createSignal(false);
+	const editMode = () =>
+		!isPending() &&
+		messageData.editingMessageRkey === (props.data as IndexedMessageData).rkey;
 	const [editedText, setEditedText] = createSignal<TextWithFacets>({
 		text: props.data.text,
 		facets: props.data.facets || [],
@@ -86,20 +94,47 @@ export const Message: Component<{
 					setAdditionalReactions((current) =>
 						current.filter((r) => r.rkey !== tempRkey),
 					);
-					alert(result.error);
+					toast.error("Failed to add reaction", {
+						description: parseZodToErrorOrDisplay(result.error.message),
+					});
 					return;
 				}
 
 				const wasRemoved = removedReactions().some((r) => r.rkey === tempRkey);
 
 				if (wasRemoved) {
-					actions.removeReaction({ rkey: result.data.rkey });
+					const removedReaction = actions.removeReaction({
+						rkey: result.data.rkey,
+					});
 					setAdditionalReactions((current) =>
 						current.filter((r) => r.rkey !== tempRkey),
 					);
 					setRemovedReactions((current) =>
 						current.filter((r) => r.rkey !== tempRkey),
 					);
+
+					removedReaction.then((res) => {
+						if (res.error) {
+							toast.error("Failed to remove reaction", {
+								description: parseZodToErrorOrDisplay(res.error.message),
+							});
+
+							setAdditionalReactions((current) => [
+								...current,
+								{
+									author_did: globalData.user.sub,
+									rkey: result.data.rkey,
+									target_rkey: messageRkey,
+									target_author_did: props.data.author_did,
+									channel: props.data.channel,
+									emoji,
+									type: "reaction_added",
+								},
+							]);
+
+							return;
+						}
+					});
 				} else {
 					setAdditionalReactions((current) =>
 						current.map((r) =>
@@ -112,7 +147,6 @@ export const Message: Component<{
 
 	/**
 	 * Enables reply mode.
-	 * @todo Disable once reply has been sent
 	 */
 	const enableReplyMode = () => {
 		if (isPending()) return;
@@ -122,13 +156,10 @@ export const Message: Component<{
 
 	/**
 	 * Enables edit mode for this message.
-	 * @todo
-	 * 1. Show input
-	 * 2. On enter of said input, submit edit request and immediately hide input, replace text with edited one
-	 * 3. We don't care about a websocket response in this case, this can be handled locally
 	 */
 	const enableEditMode = () => {
-		setEditMode(true);
+		if (isPending()) return;
+		setEditingMessage((props.data as IndexedMessageData).rkey);
 	};
 
 	/**
@@ -139,24 +170,37 @@ export const Message: Component<{
 			text: props.data.text,
 			facets: props.data.facets || [],
 		});
-		setEditMode(false);
+		clearEditingMessage();
 	};
 
 	/**
 	 * Saves edits to the PDS.
 	 * @todo If the message is empty, ask to delete.
 	 */
-	const submitEdits = () => {
+	const submitEdits = async () => {
 		if ("hash" in props.data) return;
 
-		actions.editMessage({
+		clearEditingMessage();
+
+		if (editedText().text.length === 0) {
+			setDeletionModalOpen(true);
+			return;
+		}
+
+		const { error } = await actions.editMessage({
 			channel: props.data.channel,
 			facets: editedText().facets,
 			text: editedText().text,
 			rkey: props.data.rkey,
 		});
 
-		setEditMode(false);
+		if (error) {
+			toast.error("Failed to edit message", {
+				description: parseZodToErrorOrDisplay(error.message),
+			});
+			// Restore edit mode so the user can retry without losing their changes
+			setEditingMessage((props.data as IndexedMessageData).rkey);
+		}
 	};
 
 	/**
@@ -302,6 +346,8 @@ export const Message: Component<{
 			messageEditable={messageEditable}
 			deletionModalOpen={deletionModalOpen()}
 			setDeletionModalOpen={setDeletionModalOpen}
+			debugModalOpen={debugModalOpen()}
+			setDebugModalOpen={setDebugModalOpen}
 		>
 			<div
 				class={`w-full h-fit flex flex-col pr-4 pl-3.5 gap-1 group border-l-2 relative hover:bg-card/50 transition-colors duration-75`}
@@ -327,7 +373,10 @@ export const Message: Component<{
 							onClick={() => jumpToMessage(props.data.parent_message!)}
 						>
 							<img
-								src={props.data.parent_message!.avatar_url}
+								src={
+									props.data.parent_message!.avatar_url ||
+									"/user-placeholder.png"
+								}
 								width={16}
 								height={16}
 								alt={props.data.parent_message!.display_name}
@@ -344,7 +393,7 @@ export const Message: Component<{
 					<Switch>
 						<Match when={!isSubsequentMessage()}>
 							<img
-								src={props.data.avatar_url || "/logo.png"}
+								src={props.data.avatar_url || "/user-placeholder.png"}
 								alt={props.data.display_name}
 								class="w-10 h-10 min-w-10 min-h-10 bg-muted rounded-full border border-border"
 								loading="lazy"
@@ -378,6 +427,9 @@ export const Message: Component<{
 										},
 									)}
 								</small>
+								<Show when={props.data.edited}>
+									<small class="text-muted-foreground">(edited)</small>
+								</Show>
 							</div>
 						</Show>
 						<div
@@ -495,9 +547,25 @@ export const Message: Component<{
 										const rkey = item.rkeys[reactionIndex];
 
 										if (!rkey.startsWith("__pending_")) {
-											actions.removeReaction({
-												rkey,
-											});
+											actions
+												.removeReaction({
+													rkey,
+												})
+												.then((res) => {
+													if (res.error) {
+														toast.error("Failed to remove reaction", {
+															description: parseZodToErrorOrDisplay(
+																res.error.message,
+															),
+														});
+
+														setRemovedReactions((current) =>
+															current.filter((r) => r.rkey !== rkey),
+														);
+
+														return;
+													}
+												});
 										}
 
 										setRemovedReactions((current) => [

@@ -1,59 +1,27 @@
 import { ActionError, defineAction } from "astro:actions";
-import { isAtIdentifierString } from "@atproto/lex";
 import { z } from "astro/zod";
 import { client, scopes } from "@/utils/atproto/oauth";
-
-/**
- * Resolves a handle using bluesky as the resolver.
- * @param handle The handle to resolve.
- * @param pds The domain of the PDS.
- * @returns The DID associated with the handle.
- */
-const resolveHandle = async (
-	handle: string,
-	pds: string,
-): Promise<string | undefined> => {
-	try {
-		const res = await fetch(
-			`https://${pds}/xrpc/com.atproto.identity.resolveHandle?handle=${handle}`,
-		);
-		const data = await res.json();
-		return data.did;
-	} catch (e) {
-		console.error(e);
-		return undefined;
-	}
-};
-
-const resolvePotentialHandle = async (
-	handle: string | undefined,
-): Promise<string | ActionError | undefined> => {
-	if (!handle) return undefined;
-
-	if (!isAtIdentifierString(handle)) {
-		return new ActionError({
-			code: "BAD_REQUEST",
-			message: "Invalid handle",
-		});
-	}
-
-	return await resolveHandle(handle, "bsky.social");
-};
 
 export const login = defineAction({
 	accept: "form",
 	input: z.object({
-		handle: z.string().optional(),
+		handle: z.string(),
+		signUp: z.string().optional(),
 	}),
-	handler: async ({ handle }) => {
+	handler: async ({ handle, signUp }) => {
 		try {
-			const didOrError = await resolvePotentialHandle(handle);
+			let authorizerHandle: string = handle;
 
-			if (didOrError instanceof ActionError) return didOrError;
+			if (handle === "__bluesky__") {
+				authorizerHandle = "https://bsky.social";
+			} else if (handle === "__colibri__") {
+				authorizerHandle = "https://colibri.social";
+			}
 
-			const url = await client.authorize(didOrError || "https://bsky.social", {
+			const url = await client.authorize(authorizerHandle, {
 				scope: scopes.join(" "),
 				state: JSON.stringify("{}"),
+				prompt: signUp ? "create" : "login",
 				redirect_uri: import.meta.env.DEV
 					? `http://127.0.0.1:4321/auth/callback`
 					: (`${import.meta.env.SITE}/auth/callback` as any),
@@ -64,7 +32,7 @@ export const login = defineAction({
 			console.error(e);
 
 			throw new ActionError({
-				message: "Internal Server Error while logging in.",
+				message: (e as Error).message,
 				code: "INTERNAL_SERVER_ERROR",
 			});
 		}

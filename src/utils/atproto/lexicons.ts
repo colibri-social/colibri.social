@@ -1,3 +1,4 @@
+import type { LexiconDoc } from "@atproto/lexicon";
 import { Lexicons } from "@atproto/lexicon";
 
 const lex = new Lexicons();
@@ -12,403 +13,490 @@ export const RECORD_IDs: Record<string, `${string}.${string}.${string}`> = {
 	RICHTEXT_FACET: "social.colibri.richtext.facet",
 };
 
-lex.add({
-	lexicon: 1,
-	id: RECORD_IDs.ACTOR_DATA,
-	revision: 1,
-	defs: {
-		main: {
-			description: "The main actor data used in Colibri",
-			key: "tid",
-			record: {
-				properties: {
-					$type: {
-						type: "string",
-						description: "The type of the record.",
-						format: "nsid",
-					},
-					status: {
-						type: "string",
-						description: "The status for the user, displayed on their profile.",
-						maxLength: 32,
-						default: "",
-					},
-					communities: {
-						type: "array",
-						description:
-							"A list of references to communities this user has joined and does not own.",
-						items: {
+export const LEXICON_DOCS: LexiconDoc[] = [];
+
+const def = (doc: LexiconDoc): LexiconDoc => {
+	LEXICON_DOCS.push(doc);
+	return doc;
+};
+
+lex.add(
+	def({
+		lexicon: 1,
+		id: RECORD_IDs.ACTOR_DATA,
+		revision: 1,
+		defs: {
+			main: {
+				description: "The main actor data used in Colibri",
+				key: "tid",
+				record: {
+					properties: {
+						$type: {
 							type: "string",
-							format: "record-key",
+							description: "The type of the record.",
+							format: "nsid",
+						},
+						status: {
+							type: "string",
 							description:
-								"A reference to a community this user has joined and does not own.",
+								"The status for the user, displayed on their profile.",
+							maxLength: 32,
+							default: "",
+						},
+						communities: {
+							type: "array",
+							description:
+								"A list of references to communities this user has joined and does not own.",
+							items: {
+								type: "string",
+								format: "record-key",
+								description:
+									"A reference to a community this user has joined and does not own.",
+							},
 						},
 					},
+					required: ["status", "communities"],
+					type: "object",
 				},
-				required: ["status", "communities"],
-				type: "object",
+				type: "record",
 			},
-			type: "record",
 		},
-	},
-});
+	}),
+);
 
-lex.add({
-	lexicon: 1,
-	id: RECORD_IDs.COMMUNITY,
-	revision: 1,
-	defs: {
-		main: {
-			type: "record",
-			description:
-				'A community, or "server", is where users join to interact with each other on Colibri.',
-			key: "tid",
-			record: {
-				type: "object",
-				required: ["name", "description", "categoryOrder"],
-				properties: {
-					$type: {
-						type: "string",
-						description: "The type of the record.",
-						format: "nsid",
-					},
-					name: {
-						type: "string",
-						description: "The name of the community.",
-						maxLength: 32,
-						minLength: 1,
-						default: "New Community",
-					},
-					description: {
-						type: "string",
-						description: "A description of the community.",
-						maxLength: 256,
-						default: "",
-					},
-					picture: {
-						type: "blob",
-						description:
-							"An image for the community that will be shown to users.",
-						accept: ["image/jpeg", "image/png", "image/gif"],
-					},
-					categoryOrder: {
-						type: "array",
-						description: "The order of the categories in this community.",
-						items: {
+lex.add(
+	def({
+		lexicon: 1,
+		id: RECORD_IDs.COMMUNITY,
+		revision: 1,
+		defs: {
+			main: {
+				type: "record",
+				description:
+					'A community, or "server", is where users join to interact with each other on Colibri.',
+				key: "tid",
+				record: {
+					type: "object",
+					required: ["name", "description", "categoryOrder"],
+					properties: {
+						$type: {
 							type: "string",
-							format: "record-key",
-							description: "A category in this community.",
+							description: "The type of the record.",
+							format: "nsid",
 						},
-					},
-				},
-			},
-		},
-	},
-});
-
-lex.add({
-	lexicon: 1,
-	id: RECORD_IDs.CATEGORY,
-	revision: 1,
-	defs: {
-		main: {
-			description:
-				"A category belongs to a community and contains multiple channels on Colibri.",
-			key: "tid",
-			type: "record",
-			record: {
-				type: "object",
-				required: ["name", "channelOrder", "community"],
-				properties: {
-					$type: {
-						type: "string",
-						description: "The type of the record.",
-						format: "nsid",
-					},
-					name: {
-						type: "string",
-						description: "The name of the category.",
-						maxLength: 32,
-						minLength: 1,
-						default: "New category",
-					},
-					channelOrder: {
-						type: "array",
-						description: "The order of the channels in this category.",
-						items: {
+						name: {
 							type: "string",
-							description: "A channel in this category.",
+							description: "The name of the community.",
+							maxLength: 32,
+							minLength: 1,
+							default: "New Community",
+						},
+						description: {
+							type: "string",
+							description: "A description of the community.",
+							maxLength: 256,
+							default: "",
+						},
+						picture: {
+							type: "blob",
+							description:
+								"An image for the community that will be shown to users.",
+							accept: ["image/jpeg", "image/png", "image/gif"],
+						},
+						categoryOrder: {
+							type: "array",
+							description: "The order of the categories in this community.",
+							items: {
+								type: "string",
+								format: "record-key",
+								description: "A category in this community.",
+							},
+						},
+					},
+				},
+			},
+		},
+	}),
+);
+
+lex.add(
+	def({
+		lexicon: 1,
+		id: RECORD_IDs.CATEGORY,
+		revision: 1,
+		defs: {
+			main: {
+				description:
+					"A category belongs to a community and contains multiple channels on Colibri.",
+				key: "tid",
+				type: "record",
+				record: {
+					type: "object",
+					required: ["name", "channelOrder", "community"],
+					properties: {
+						$type: {
+							type: "string",
+							description: "The type of the record.",
+							format: "nsid",
+						},
+						name: {
+							type: "string",
+							description: "The name of the category.",
+							maxLength: 32,
+							minLength: 1,
+							default: "New category",
+						},
+						channelOrder: {
+							type: "array",
+							description: "The order of the channels in this category.",
+							items: {
+								type: "string",
+								description: "A channel in this category.",
+								format: "record-key",
+							},
+						},
+						community: {
+							type: "string",
+							description: "The community this category belongs to.",
+							format: "record-key",
+						},
+						// TODO: permissions
+					},
+				},
+			},
+		},
+	}),
+);
+
+lex.add(
+	def({
+		lexicon: 1,
+		id: RECORD_IDs.CHANNEL,
+		revision: 1,
+		defs: {
+			main: {
+				type: "record",
+				key: "tid",
+				description: "A channel that belongs to a category on Colibri.",
+				record: {
+					required: ["name", "type", "category", "community"],
+					type: "object",
+					properties: {
+						$type: {
+							type: "string",
+							description: "The type of the record.",
+							format: "nsid",
+						},
+						name: {
+							type: "string",
+							description: "The name of the channel.",
+							maxLength: 32,
+							minLength: 1,
+							default: "New channel",
+						},
+						description: {
+							type: "string",
+							description: "A description of the channel.",
+							maxLength: 256,
+							default: "",
+						},
+						type: {
+							type: "string",
+							description: "The type of the channel.",
+							enum: ["text", "voice", "forum"],
+						},
+						category: {
+							type: "string",
+							description: "The category this channel belongs to.",
+							format: "record-key",
+						},
+						community: {
+							type: "string",
+							description:
+								"The record key of the community this channel belongs to.",
+							format: "record-key",
+						},
+						// TODO: permissions
+					},
+				},
+			},
+		},
+	}),
+);
+
+lex.add(
+	def({
+		lexicon: 1,
+		id: RECORD_IDs.MESSAGE,
+		description: "A message sent in a channel on Colibri.",
+		revision: 2,
+		defs: {
+			main: {
+				type: "record",
+				description: "A message sent in a channel on Colibri",
+				key: "tid",
+				record: {
+					required: ["text", "createdAt", "channel"],
+					type: "object",
+					properties: {
+						$type: {
+							type: "string",
+							description: "The type of the record.",
+							format: "nsid",
+						},
+						text: {
+							type: "string",
+							description: "The message content.",
+							maxLength: 2048,
+						},
+						facets: {
+							type: "array",
+							description: "Annotations of sections of the text.",
+							items: {
+								type: "ref",
+								ref: "social.colibri.richtext.facet",
+							},
+						},
+						createdAt: {
+							type: "string",
+							description: "When the message was sent.",
+							format: "datetime",
+						},
+						channel: {
+							type: "string",
+							description: "The channel this message was sent in.",
+							format: "record-key",
+						},
+						edited: {
+							type: "boolean",
+							description: "Whether this message has been edited.",
+							default: false,
+						},
+						parent: {
+							type: "string",
+							description:
+								"The record key of a message this message is replying to.",
 							format: "record-key",
 						},
 					},
-					community: {
-						type: "string",
-						description: "The community this category belongs to.",
-						format: "record-key",
-					},
-					// TODO: permissions
 				},
 			},
 		},
-	},
-});
+	}),
+);
 
-lex.add({
-	lexicon: 1,
-	id: RECORD_IDs.CHANNEL,
-	revision: 1,
-	defs: {
-		main: {
-			type: "record",
-			key: "tid",
-			description: "A channel that belongs to a category on Colibri.",
-			record: {
-				required: ["name", "type", "category"],
-				type: "object",
-				properties: {
-					$type: {
-						type: "string",
-						description: "The type of the record.",
-						format: "nsid",
-					},
-					name: {
-						type: "string",
-						description: "The name of the channel.",
-						maxLength: 32,
-						minLength: 1,
-						default: "New channel",
-					},
-					description: {
-						type: "string",
-						description: "A description of the channel.",
-						maxLength: 256,
-						default: "",
-					},
-					type: {
-						type: "string",
-						description: "The type of the channel.",
-						enum: ["text", "voice", "forum"],
-					},
-					category: {
-						type: "string",
-						description: "The category this channel belongs to.",
-						format: "record-key",
-					},
-					// TODO: permissions
-				},
-			},
-		},
-	},
-});
-
-lex.add({
-	lexicon: 1,
-	id: RECORD_IDs.MESSAGE,
-	description: "A message sent in a channel on Colibri.",
-	revision: 2,
-	defs: {
-		main: {
-			type: "record",
-			description: "A message sent in a channel on Colibri",
-			key: "tid",
-			record: {
-				required: ["text", "createdAt", "channel"],
-				type: "object",
-				properties: {
-					$type: {
-						type: "string",
-						description: "The type of the record.",
-						format: "nsid",
-					},
-					text: {
-						type: "string",
-						description: "The message content.",
-						maxLength: 2048,
-					},
-					facets: {
-						type: "array",
-						description: "Annotations of sections of the text.",
-						items: {
-							type: "ref",
-							ref: "social.colibri.richtext.facet",
+lex.add(
+	def({
+		lexicon: 1,
+		id: RECORD_IDs.REACTION,
+		revision: 1,
+		defs: {
+			main: {
+				type: "record",
+				key: "tid",
+				description: "A reaction on a Colibri message.",
+				record: {
+					required: ["name", "type", "category"],
+					type: "object",
+					properties: {
+						$type: {
+							type: "string",
+							description: "The type of the record.",
+							format: "nsid",
+						},
+						emoji: {
+							type: "string",
+							description:
+								"The emoji of the reaction. This allows for any string to support for custom emojis later down the line.",
+							default: "New channel",
+						},
+						targetMessage: {
+							type: "string",
+							description: "The message this relation belongs to.",
+							format: "record-key",
 						},
 					},
-					createdAt: {
-						type: "string",
-						description: "When the message was sent.",
-						format: "datetime",
+				},
+			},
+		},
+	}),
+);
+
+lex.add(
+	def({
+		lexicon: 1,
+		id: RECORD_IDs.RICHTEXT_FACET,
+		revision: 1,
+		defs: {
+			main: {
+				type: "object",
+				description: "A rich text facet annotation on a message.",
+				required: ["index", "features"],
+				properties: {
+					index: {
+						type: "ref",
+						ref: "social.colibri.richtext.facet#byteSlice",
 					},
+					features: {
+						type: "array",
+						description: "The features of this facet.",
+						items: {
+							type: "union",
+							refs: [
+								"social.colibri.richtext.facet#channel",
+								"social.colibri.richtext.facet#bold",
+								"social.colibri.richtext.facet#italic",
+								"social.colibri.richtext.facet#underline",
+								"social.colibri.richtext.facet#strikethrough",
+								"social.colibri.richtext.facet#code",
+								"social.colibri.richtext.facet#mention",
+								"social.colibri.richtext.facet#link",
+							],
+						},
+					},
+				},
+			},
+			byteSlice: {
+				type: "object",
+				description:
+					"Specifies the sub-string range a facet feature applies to. Start index is inclusive, end index is exclusive. Indices are zero-based, counting bytes of the UTF-8 encoded text.",
+				required: ["byteStart", "byteEnd"],
+				properties: {
+					byteStart: {
+						type: "integer",
+						description: "The start index of the byte slice (inclusive).",
+						minimum: 0,
+					},
+					byteEnd: {
+						type: "integer",
+						description: "The end index of the byte slice (exclusive).",
+						minimum: 0,
+					},
+				},
+			},
+			channel: {
+				type: "object",
+				description: "A facet feature for a channel reference.",
+				required: ["channel"],
+				properties: {
 					channel: {
 						type: "string",
-						description: "The channel this message was sent in.",
-						format: "record-key",
-					},
-					edited: {
-						type: "boolean",
-						description: "Whether this message has been edited.",
-						default: false,
-					},
-					parent: {
-						type: "string",
-						description:
-							"The record key of a message this message is replying to.",
+						description: "The record key of the referenced channel.",
 						format: "record-key",
 					},
 				},
 			},
-		},
-	},
-});
-
-lex.add({
-	lexicon: 1,
-	id: RECORD_IDs.REACTION,
-	revision: 1,
-	defs: {
-		main: {
-			type: "record",
-			key: "tid",
-			description: "A reaction on a Colibri message.",
-			record: {
-				required: ["name", "type", "category"],
+			bold: {
 				type: "object",
+				description: "A facet feature for bold text.",
+				properties: {},
+			},
+			italic: {
+				type: "object",
+				description: "A facet feature for italic text.",
+				properties: {},
+			},
+			underline: {
+				type: "object",
+				description: "A facet feature for underlined text.",
+				properties: {},
+			},
+			strikethrough: {
+				type: "object",
+				description: "A facet feature for strikethrough text.",
+				properties: {},
+			},
+			code: {
+				type: "object",
+				description: "A facet feature for inline code text.",
+				properties: {},
+			},
+			mention: {
+				type: "object",
+				description: "A facet feature for a user mention.",
+				required: ["did"],
 				properties: {
-					$type: {
+					did: {
 						type: "string",
-						description: "The type of the record.",
-						format: "nsid",
+						description: "The DID of the mentioned user.",
+						format: "did",
 					},
-					emoji: {
+				},
+			},
+			link: {
+				type: "object",
+				description: "A facet feature for a hyperlink.",
+				required: ["uri"],
+				properties: {
+					uri: {
 						type: "string",
-						description:
-							"The emoji of the reaction. This allows for any string to support for custom emojis later down the line.",
-						default: "New channel",
-					},
-					targetMessage: {
-						type: "string",
-						description: "The message this relation belongs to.",
-						format: "record-key",
+						description: "The URI of the link.",
+						format: "uri",
 					},
 				},
 			},
 		},
-	},
-});
+	}),
+);
 
-lex.add({
-	lexicon: 1,
-	id: RECORD_IDs.RICHTEXT_FACET,
-	revision: 1,
-	defs: {
-		main: {
-			type: "object",
-			description: "A rich text facet annotation on a message.",
-			required: ["index", "features"],
-			properties: {
-				index: {
-					type: "ref",
-					ref: "social.colibri.richtext.facet#byteSlice",
-				},
-				features: {
-					type: "array",
-					description: "The features of this facet.",
-					items: {
-						type: "union",
-						refs: [
-							"social.colibri.richtext.facet#channel",
-							"social.colibri.richtext.facet#bold",
-							"social.colibri.richtext.facet#italic",
-							"social.colibri.richtext.facet#underline",
-							"social.colibri.richtext.facet#strikethrough",
-							"social.colibri.richtext.facet#code",
-							"social.colibri.richtext.facet#mention",
-							"social.colibri.richtext.facet#link",
-						],
+lex.add(
+	def({
+		lexicon: 1,
+		id: "social.colibri.membership",
+		description:
+			"A declaration that a user would like to be part of a certain community.",
+		defs: {
+			main: {
+				type: "record",
+				key: "tid",
+				record: {
+					type: "object",
+					required: ["community", "createdAt"],
+					properties: {
+						community: {
+							type: "string",
+							format: "at-uri",
+							description:
+								"AT-URI of the social.colibri.community record being joined",
+						},
+						createdAt: { type: "string", format: "datetime" },
 					},
 				},
 			},
 		},
-		byteSlice: {
-			type: "object",
-			description:
-				"Specifies the sub-string range a facet feature applies to. Start index is inclusive, end index is exclusive. Indices are zero-based, counting bytes of the UTF-8 encoded text.",
-			required: ["byteStart", "byteEnd"],
-			properties: {
-				byteStart: {
-					type: "integer",
-					description: "The start index of the byte slice (inclusive).",
-					minimum: 0,
-				},
-				byteEnd: {
-					type: "integer",
-					description: "The end index of the byte slice (exclusive).",
-					minimum: 0,
-				},
-			},
-		},
-		channel: {
-			type: "object",
-			description: "A facet feature for a channel reference.",
-			required: ["channel"],
-			properties: {
-				channel: {
-					type: "string",
-					description: "The record key of the referenced channel.",
-					format: "record-key",
-				},
-			},
-		},
-		bold: {
-			type: "object",
-			description: "A facet feature for bold text.",
-			properties: {},
-		},
-		italic: {
-			type: "object",
-			description: "A facet feature for italic text.",
-			properties: {},
-		},
-		underline: {
-			type: "object",
-			description: "A facet feature for underlined text.",
-			properties: {},
-		},
-		strikethrough: {
-			type: "object",
-			description: "A facet feature for strikethrough text.",
-			properties: {},
-		},
-		code: {
-			type: "object",
-			description: "A facet feature for inline code text.",
-			properties: {},
-		},
-		mention: {
-			type: "object",
-			description: "A facet feature for a user mention.",
-			required: ["did"],
-			properties: {
-				did: {
-					type: "string",
-					description: "The DID of the mentioned user.",
-					format: "did",
+	}),
+);
+
+lex.add(
+	def({
+		lexicon: 1,
+		id: "social.colibri.approval",
+		defs: {
+			main: {
+				type: "record",
+				key: "tid",
+				record: {
+					type: "object",
+					required: ["membership", "community", "createdAt"],
+					properties: {
+						membership: {
+							type: "string",
+							format: "at-uri",
+							description:
+								"AT-URI of the user's social.colibri.membership record",
+						},
+						community: {
+							type: "string",
+							format: "at-uri",
+							description: "AT-URI of the social.colibri.community record",
+						},
+						createdAt: { type: "string", format: "datetime" },
+					},
 				},
 			},
 		},
-		link: {
-			type: "object",
-			description: "A facet feature for a hyperlink.",
-			required: ["uri"],
-			properties: {
-				uri: {
-					type: "string",
-					description: "The URI of the link.",
-					format: "uri",
-				},
-			},
-		},
-	},
-});
+	}),
+);
 
 /**
  * A lexicon that can be used to validate records before inserting them:

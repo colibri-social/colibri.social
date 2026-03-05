@@ -58,20 +58,21 @@ export const Toolbar: Component<{
 
 	/**
 	 * Opens or closes the link edit popover.
-	 * @param open
+	 * @param open Whether to open or close the popover.
 	 */
 	const handlePopoverOpenChange = (open: boolean) => {
 		setPopoverOpen(open);
+
 		if (!open) {
 			setLink("");
 			setLinkError("");
 		}
+
 		props.onPopoverOpenChange?.(open);
 	};
 
 	/**
 	 * Handles validating a link and adding it.
-	 * @returns
 	 */
 	const handleAddLink = () => {
 		const url = link().trim();

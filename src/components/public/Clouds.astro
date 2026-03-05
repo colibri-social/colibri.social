@@ -1,10 +1,9 @@
 ---
-import { Image } from "astro:assets";
 import Cloud from "./Cloud.astro";
 ---
 
-<div class="w-full absolute transform -translate-y-76 -z-10 overflow-visible">
-	<div class="marquee-track marquee-slow" data-speed="slow">
+<div class="w-screen absolute transform -translate-y-76 -z-10 overflow-hidden">
+	<div class="marquee-track marquee-slow absolute -top-20" data-speed="slow">
 		<div class="marquee-content">
 			<Cloud />
 			<Cloud />
@@ -16,7 +15,7 @@ import Cloud from "./Cloud.astro";
 			<Cloud />
 		</div>
 	</div>
-	<div class="marquee-track marquee-fast absolute top-20" data-speed="fast">
+	<div class="marquee-track marquee-fast" data-speed="fast">
 		<div class="marquee-content">
 			<Cloud />
 			<Cloud />

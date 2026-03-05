@@ -1,4 +1,5 @@
 import { actions } from "astro:actions";
+import { toast } from "somoto";
 import { createSignal, type ParentComponent } from "solid-js";
 import { Spinner } from "../../icons/Spinner";
 import { Button } from "../../shadcn-solid/Button";
@@ -16,6 +17,8 @@ import {
 	TextFieldInput,
 	TextFieldLabel,
 } from "../../shadcn-solid/text-field";
+import { useGlobalContext } from "../../contexts/GlobalContext/index";
+import { parseZodToErrorOrDisplay } from "@/utils/parse-zod-to-error-or-display";
 
 /**
  * A modal for creating a category.
@@ -23,23 +26,36 @@ import {
 export const CategoryCreationModal: ParentComponent<{ community: string }> = (
 	props,
 ) => {
+	const [, { addCategory }] = useGlobalContext();
 	const [name, setName] = createSignal("");
 	const [loading, setLoading] = createSignal(false);
 	const [open, setOpen] = createSignal(false);
 
 	/**
-	 * Creates a new category in the specified community.
-	 * @todo Add new category immediately, don't wait for websocket update
+	 * Creates a new category in the specified community and immediately
+	 * adds it to the global context for optimistic display.
 	 */
 	const createCategory = async () => {
 		setLoading(true);
 
-		const _category = await actions.createCategory({
+		const result = await actions.createCategory({
 			community: props.community,
 			name: name(),
 		});
 
 		setLoading(false);
+
+		if (result.error) {
+			toast.error("Failed to create category", {
+				description: parseZodToErrorOrDisplay(result.error.message),
+			});
+			return;
+		}
+
+		if (result.data) {
+			addCategory(result.data);
+			setOpen(false);
+		}
 	};
 
 	return (

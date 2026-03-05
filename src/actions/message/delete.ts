@@ -6,7 +6,7 @@ import { ColibriSDK } from "@/utils/sdk";
 
 export const deleteMessage = defineAction({
 	input: z.object({
-		rkey: z.string(),
+		rkey: z.string({ message: "No record key given." }),
 	}),
 	handler: async ({ rkey }, { session }) => {
 		try {
@@ -31,7 +31,7 @@ export const deleteMessage = defineAction({
 			console.error(e);
 
 			throw new ActionError({
-				message: "Internal Server Error while posting message.",
+				message: (e as Error).message,
 				code: "INTERNAL_SERVER_ERROR",
 			});
 		}

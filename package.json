@@ -13,7 +13,8 @@
 		"astro": "astro",
 		"lint": "biome check .",
 		"lint:fix": "biome check . --write",
-		"start": "node ./dist/server/entry.mjs"
+		"start": "node ./dist/server/entry.mjs",
+		"publish-lexicons": "node --experimental-strip-types scripts/publish-lexicons.ts"
 	},
 	"dependencies": {
 		"@astrojs/check": "^0.9.6",
@@ -33,8 +34,9 @@
 		"@solid-primitives/websocket": "^1.3.1",
 		"@solidjs/router": "^0.15.4",
 		"@tailwindcss/vite": "^4.1.18",
+		"@thisbeyond/solid-dnd": "^0.7.5",
 		"@twemoji/api": "^17.0.2",
-		"astro": "^5.17.1",
+		"astro": "^5.18.0",
 		"clsx": "^2.1.1",
 		"cobe": "^0.6.5",
 		"cva": "1.0.0-beta.4",
@@ -42,6 +44,7 @@
 		"sharp": "^0.34.5",
 		"solid-emoji-picker": "^0.3.0",
 		"solid-js": "^1.9.11",
+		"somoto": "^0.0.2",
 		"tailwind-merge": "^3.4.0",
 		"tailwindcss": "^4.1.18",
 		"tlds": "^1.261.0",

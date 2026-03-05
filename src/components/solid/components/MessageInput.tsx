@@ -1,4 +1,5 @@
 import { actions } from "astro:actions";
+import { toast } from "somoto";
 import { makePersisted } from "@solid-primitives/storage";
 import { useParams } from "@solidjs/router";
 import stringify from "json-stable-stringify";
@@ -14,6 +15,7 @@ import {
 	type TextWithFacets,
 	trimTextWithFacets,
 } from "./RichTextRenderer";
+import { parseZodToErrorOrDisplay } from "@/utils/parse-zod-to-error-or-display";
 
 /**
  * The message input used to send messages to the currently viewed channel.
@@ -78,7 +80,9 @@ export const MessageInput: Component = () => {
 		const { error } = await actions.postMessage(obj);
 
 		if (error) {
-			alert(error.message);
+			toast.error("Failed to send message", {
+				description: parseZodToErrorOrDisplay(error.message),
+			});
 			removePendingMessage(hash);
 			return false;
 		}

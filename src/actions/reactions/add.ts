@@ -6,8 +6,8 @@ import { ColibriSDK } from "@/utils/sdk";
 
 export const addReaction = defineAction({
 	input: z.object({
-		emoji: z.string(),
-		message: z.string(),
+		emoji: z.string({ message: "No emoji given." }),
+		message: z.string({ message: "No message given." }),
 	}),
 	handler: async ({ emoji, message }, { session }) => {
 		try {
@@ -32,7 +32,7 @@ export const addReaction = defineAction({
 			console.error(e);
 
 			throw new ActionError({
-				message: "Internal Server Error while adding reaction.",
+				message: (e as Error).message,
 				code: "INTERNAL_SERVER_ERROR",
 			});
 		}

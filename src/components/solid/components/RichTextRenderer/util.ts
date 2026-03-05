@@ -12,10 +12,14 @@ export const textDecoder = new TextDecoder();
 
 export type AnyFeature = Facet["features"][number];
 
-/** Convert newline characters to `<br>` tags for HTML output. */
+/**
+ * Convert newline characters to `<br>` tags for HTML output.
+ */
 const nlToBr = (s: string): string => s.replace(/\n/g, "<br>");
 
-/** Escape a string for safe use inside an HTML attribute value. */
+/**
+ * Escape a string for safe use inside an HTML attribute value.
+ */
 const escapeAttr = (s: string): string =>
 	s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
 
@@ -24,7 +28,11 @@ const escapeAttr = (s: string): string =>
  * `data-facet-type` (and any metadata like `data-did`, `data-uri`,
  * `data-channel`) so the reverse parser can reconstruct the facet losslessly.
  */
-const applyStyleForFacet = (text: string, feature: AnyFeature): string => {
+const applyStyleForFacet = (
+	text: string,
+	feature: AnyFeature,
+	community?: string,
+): string => {
 	switch (feature.$type) {
 		case "social.colibri.richtext.facet#mention": {
 			const did = "did" in feature ? escapeAttr(String(feature.did)) : "";
@@ -38,6 +46,10 @@ const applyStyleForFacet = (text: string, feature: AnyFeature): string => {
 		case "social.colibri.richtext.facet#channel": {
 			const channel =
 				"channel" in feature ? escapeAttr(String(feature.channel)) : "";
+			if (community) {
+				const href = escapeAttr(`/c/${community}/${channel}`);
+				return `<a data-facet-type="channel" data-channel="${channel}" href="${href}" class="bg-blue-500/15 hover:bg-blue-500/25 px-1 rounded-xs cursor-pointer inline no-underline text-foreground">${text}</a>`;
+			}
 			return `<div data-facet-type="channel" data-channel="${channel}" class="bg-blue-500/15 hover:bg-blue-500/25 px-1 rounded-xs cursor-pointer inline">${text}</div>`;
 		}
 		case "social.colibri.richtext.facet#bold":
@@ -52,23 +64,24 @@ const applyStyleForFacet = (text: string, feature: AnyFeature): string => {
 			return `<code data-facet-type="code">${text}</code>`;
 	}
 
-	// @ts-expect-error
+	// @ts-expect-error - Fallback just to be sure
 	return `[UNKNOWN FACET: ${feature.$type}]`;
 };
 
 /**
- * Renders text with facets in a single pass. Facets use byte offsets into the
+ * Renders text with facets. Facets use byte offsets into the
  * UTF-8 encoded text, so we work with the encoded bytes directly and build
  * the result string by walking through sorted, non-overlapping segments.
  *
  * When multiple facets share the same byte range, all of their features are
  * applied as nested wrappers.
  */
-export const renderWithFacets = (input: TextWithFacets): string => {
+export const renderWithFacets = (
+	input: TextWithFacets,
+	community?: string,
+): string => {
 	const bytes = textEncoder.encode(input.text);
 
-	// Sort facets by byteStart, then by byteEnd (ascending) so that for
-	// overlapping ranges the narrower one comes first.
 	const sortedFacets = [...input.facets].sort((a, b) => {
 		if (a.index.byteStart !== b.index.byteStart) {
 			return a.index.byteStart - b.index.byteStart;
@@ -76,8 +89,6 @@ export const renderWithFacets = (input: TextWithFacets): string => {
 		return a.index.byteEnd - b.index.byteEnd;
 	});
 
-	// Group facets that cover the exact same byte range so we can apply all
-	// their features together.
 	type FacetGroup = {
 		byteStart: number;
 		byteEnd: number;
@@ -92,7 +103,6 @@ export const renderWithFacets = (input: TextWithFacets): string => {
 			last.byteStart === facet.index.byteStart &&
 			last.byteEnd === facet.index.byteEnd
 		) {
-			// Same range – merge features into the existing group
 			last.features.push(...facet.features);
 		} else {
 			groups.push({
@@ -107,31 +117,41 @@ export const renderWithFacets = (input: TextWithFacets): string => {
 	let cursor = 0;
 
 	for (const group of groups) {
-		// Skip facets that would go backwards (overlapping ranges that aren't
-		// identical – we already grouped identical ranges above).
 		if (group.byteStart < cursor) continue;
 
-		// Append plain text before this facet group
 		if (group.byteStart > cursor) {
 			result += nlToBr(
 				textDecoder.decode(bytes.slice(cursor, group.byteStart)),
 			);
 		}
 
-		// Decode the facet's text and wrap it with all applicable styles
 		let facetText = nlToBr(
 			textDecoder.decode(bytes.slice(group.byteStart, group.byteEnd)),
 		);
 
-		for (const feature of group.features) {
-			facetText = applyStyleForFacet(facetText, feature);
+		// If a channel mention is present, render ONLY the channel mention
+		// style - other formatting features are stripped to prevent forgery.
+		const channelFeature = group.features.find(
+			(f) => f.$type === "social.colibri.richtext.facet#channel",
+		);
+		const mentionFeature = group.features.find(
+			(f) => f.$type === "social.colibri.richtext.facet#mention",
+		);
+
+		if (channelFeature) {
+			facetText = applyStyleForFacet(facetText, channelFeature, community);
+		} else if (mentionFeature) {
+			facetText = applyStyleForFacet(facetText, mentionFeature, community);
+		} else {
+			for (const feature of group.features) {
+				facetText = applyStyleForFacet(facetText, feature, community);
+			}
 		}
 
 		result += facetText;
 		cursor = group.byteEnd;
 	}
 
-	// Append any remaining text after the last facet
 	if (cursor < bytes.length) {
 		result += nlToBr(textDecoder.decode(bytes.slice(cursor)));
 	}
@@ -191,14 +211,14 @@ export const featureFromElement = (el: HTMLElement): AnyFeature | null => {
 
 /**
  * Walk the DOM tree of a `contentEditable` element and produce a
- * {@link TextWithFacets} value that mirrors the visible content plus any
+ * TextWithFacets value that mirrors the visible content plus any
  * facets that were encoded as `data-facet-type` attributes.
  *
- * Special cases handled:
- * - `<img class="emoji">` (twemoji) → original emoji character from `alt`
- * - `<br>` → newline
+ * Special cases:
+ * - `<img class="emoji">` (twemoji) -> original emoji character from `alt`
+ * - `<br>` -> newline
  * - Block-level elements without facet data (e.g. `<div>` wrappers injected
- *   by `contentEditable`) → newline before their content
+ *   by `contentEditable`) -> newline before their content
  */
 export const parseDomToFacets = (root: HTMLElement): TextWithFacets => {
 	const facets: Facet[] = [];
@@ -229,13 +249,13 @@ export const parseDomToFacets = (root: HTMLElement): TextWithFacets => {
 		if (node.nodeType !== Node.ELEMENT_NODE) return;
 		const el = node as HTMLElement;
 
-		// Twemoji images → restore the original emoji from the alt attribute
+		// Twemoji images
 		if (el.tagName === "IMG" && el.classList.contains("emoji")) {
 			text += el.getAttribute("alt") || "";
 			return;
 		}
 
-		// <br> → newline
+		// <br>
 		if (el.tagName === "BR") {
 			text += "\n";
 			return;
@@ -244,8 +264,7 @@ export const parseDomToFacets = (root: HTMLElement): TextWithFacets => {
 		const feature = featureFromElement(el);
 
 		// Non-facet block elements produced by contentEditable (e.g. pressing
-		// Enter wraps the new line in a <div>). Insert a newline before the
-		// block unless we're at the very start.
+		// Enter wraps the new line in a <div>).
 		const isBlockWrapper = !feature && BLOCK_TAGS.has(el.tagName);
 		if (
 			isBlockWrapper &&
@@ -256,7 +275,7 @@ export const parseDomToFacets = (root: HTMLElement): TextWithFacets => {
 			text += "\n";
 		}
 
-		// Record the byte position *before* we recurse into children so we
+		// Record the byte position before we recurse into children so we
 		// know where this facet starts.
 		const byteStart = textEncoder.encode(text).byteLength;
 
@@ -284,7 +303,7 @@ export const parseDomToFacets = (root: HTMLElement): TextWithFacets => {
 
 /**
  * Strip auto-detected link facets from the parsed output so that
- * {@link mergeWithDetectedFacets} can re-detect them with the correct,
+ * mergeWithDetectedFacets can re-detect them with the correct,
  * up-to-date byte range. This is necessary because `contentEditable`
  * browsers often place newly typed characters *outside* the `<a>` tag,
  * causing the DOM-sourced facet to cover only part of the URL while the
@@ -318,15 +337,10 @@ export const stripAutoDetectedLinks = (
 		);
 		const currentUri = "uri" in linkFeature ? String(linkFeature.uri) : "";
 
-		// Auto-detected links have URL-like text (no whitespace) and a
-		// valid stored URI. Strip the link feature so detectFacets can
-		// re-add it at the correct range. Manual labelled links whose
-		// text contains whitespace are kept as-is.
 		const isAutoDetected = !/\s/.test(facetText) && isValidUrl(currentUri);
 
 		if (isAutoDetected) {
 			changed = true;
-			// Preserve any non-link features on this range (e.g. bold)
 			const otherFeatures = facet.features.filter(
 				(f) => f.$type !== "social.colibri.richtext.facet#link",
 			);
@@ -336,7 +350,6 @@ export const stripAutoDetectedLinks = (
 					features: otherFeatures,
 				} as Facet);
 			}
-			// else: drop the entire facet
 		} else {
 			adjustedFacets.push(facet);
 		}
@@ -371,9 +384,9 @@ export const facetsChanged = (a: Facet[], b: Facet[]): boolean => {
 
 /**
  * After the DOM has been parsed back into facets, run the automatic pattern
- * detectors (`detectFacets`) over the plain text to discover any *new*
+ * detectors (`detectFacets`) over the plain text to discover any new
  * mentions, links or channels the user may have typed. Detected facets that
- * overlap with an existing **non-formatting** DOM-sourced facet (i.e. links,
+ * overlap with an existing non-formatting DOM-sourced facet (i.e. links,
  * mentions, channels) are discarded so that metadata-rich facets (e.g. those
  * carrying a resolved DID) are never overwritten. Formatting-only facets
  * (bold, italic, etc.) do not block detection.
@@ -399,7 +412,6 @@ export const mergeWithDetectedFacets = (
 	for (const detectedFacet of detected) {
 		const overlaps = parsed.facets.some(
 			(existing) =>
-				// Only non-formatting facets block detection
 				existing.features.some((f) => !FORMATTING_TYPES.has(f.$type)) &&
 				detectedFacet.index.byteStart < existing.index.byteEnd &&
 				detectedFacet.index.byteEnd > existing.index.byteStart,
@@ -424,7 +436,6 @@ export const mergeWithDetectedFacets = (
 export const trimTextWithFacets = (input: TextWithFacets): TextWithFacets => {
 	const { text, facets } = input;
 
-	// Find leading and trailing whitespace in the original string
 	const leadingMatch = text.match(/^\s+/);
 	const trailingMatch = text.match(/\s+$/);
 	const leadingWs = leadingMatch ? leadingMatch[0] : "";
@@ -437,7 +448,6 @@ export const trimTextWithFacets = (input: TextWithFacets): TextWithFacets => {
 		text.length - (trailingWs.length || 0),
 	);
 
-	// Compute byte-level boundaries for the trimmed region
 	const leadingBytes = textEncoder.encode(leadingWs).length;
 	const totalBytes = textEncoder.encode(text).length;
 	const trailingBytes = textEncoder.encode(trailingWs).length;
@@ -445,12 +455,10 @@ export const trimTextWithFacets = (input: TextWithFacets): TextWithFacets => {
 
 	const newFacets: Facet[] = [];
 	for (const facet of facets) {
-		// Clamp the facet to the trimmed byte region
 		const newStart =
 			Math.max(facet.index.byteStart, leadingBytes) - leadingBytes;
 		const newEnd = Math.min(facet.index.byteEnd, trimmedEndByte) - leadingBytes;
 
-		// Discard facets that are entirely outside the trimmed region
 		if (newStart >= newEnd) continue;
 
 		newFacets.push({
@@ -468,19 +476,20 @@ export const trimTextWithFacets = (input: TextWithFacets): TextWithFacets => {
 	};
 };
 
+/**
+ * Attempts to get pixel values for a selection's bounding box.
+ * @param selection The selection
+ * @returns
+ */
 export const getSelectionPixels = (selection: Selection | null) => {
 	if (!selection || selection.rangeCount === 0) return null;
 
 	const range = selection.getRangeAt(0);
 
-	// Try collapsing to start for a precise caret position
 	const collapsed = range.cloneRange();
 	collapsed.collapse(true);
 	let rect = collapsed.getBoundingClientRect();
 
-	// Fall back to the full range rect when the collapsed rect is degenerate
-	// (e.g. Ctrl+A selects everything and the collapsed range sits at an
-	// element boundary where getBoundingClientRect returns all zeros)
 	if (rect.height === 0) {
 		rect = range.getBoundingClientRect();
 	}
@@ -511,13 +520,12 @@ export type ToolbarState = {
 };
 
 /**
- * Walk the DOM tree of a `contentEditable` element — mirroring the exact same
- * text-construction logic used by {@link parseDomToFacets} — and map a
- * browser {@link Range}'s start/end boundaries to UTF-8 byte offsets within
+ * Walk the DOM tree of a `contentEditable` element, mirroring the exact same
+ * text-construction logic used by parseDomToFacets, and map a
+ * browser Range's start/end boundaries to UTF-8 byte offsets within
  * that text.
- *
- * This correctly handles multi-line selections where `startContainer` and
- * `endContainer` live in completely different DOM subtrees.
+ * @param root The root HTML element to get the selection byte offsets for.
+ * @param range The current selection range.
  */
 export const getSelectionByteOffsets = (
 	root: HTMLElement,
@@ -547,7 +555,11 @@ export const getSelectionByteOffsets = (
 		"H6",
 	]);
 
-	/** Check whether a range boundary targets `container` at child-index `childIndex`. */
+	/**
+	 * Check whether a range boundary targets `container` at child-index `childIndex`.
+	 * @param container The Node to check the boundary for.
+	 * @param childIndex the index of this child.
+	 */
 	const checkElementBoundary = (container: Node, childIndex: number) => {
 		if (
 			range.startContainer === container &&
@@ -565,7 +577,10 @@ export const getSelectionByteOffsets = (
 		}
 	};
 
-	/** Walk all children of `parent`, checking element-level boundaries before each child and after the last. */
+	/**
+	 * Walk all children of `parent`, checking element-level boundaries before each child and after the last.
+	 * @param parent The node to walk the children of.
+	 */
 	const walkChildren = (parent: Node) => {
 		const children = parent.childNodes;
 		for (let i = 0; i < children.length; i++) {
@@ -575,8 +590,12 @@ export const getSelectionByteOffsets = (
 		checkElementBoundary(parent, children.length);
 	};
 
+	/**
+	 * Walk a single node.
+	 * @param node The node to walk
+	 * @param isFirstChild Whether this node is the first child of its parent
+	 */
 	const walk = (node: Node, isFirstChild: boolean): void => {
-		// Plain text
 		if (node.nodeType === Node.TEXT_NODE) {
 			const content = node.textContent || "";
 			const nodeStart = text.length;
@@ -595,13 +614,12 @@ export const getSelectionByteOffsets = (
 		if (node.nodeType !== Node.ELEMENT_NODE) return;
 		const el = node as HTMLElement;
 
-		// Twemoji images → original emoji character from alt
+		// Twemoji images
 		if (el.tagName === "IMG" && el.classList.contains("emoji")) {
 			text += el.getAttribute("alt") || "";
 			return;
 		}
 
-		// <br> → newline
 		if (el.tagName === "BR") {
 			text += "\n";
 			return;
@@ -609,7 +627,6 @@ export const getSelectionByteOffsets = (
 
 		const feature = featureFromElement(el);
 
-		// Non-facet block wrappers injected by contentEditable
 		const isBlockWrapper = !feature && BLOCK_TAGS.has(el.tagName);
 		if (
 			isBlockWrapper &&
@@ -642,7 +659,11 @@ export const getSelectionByteOffsets = (
 	};
 };
 
-/** Map a toolbar format name to the corresponding facet feature. */
+/**
+ * Map a toolbar format name to the corresponding facet feature.
+ * @param type The format type
+ * @param uri The URI of the link facet. Only needed when `type` is a link.
+ */
 export const formatTypeToFeature = (
 	type: string,
 	uri?: string,
@@ -670,6 +691,11 @@ export const formatTypeToFeature = (
  * by facets of the given `featureType`. Multiple adjacent/overlapping facets
  * are merged so that e.g. two bold facets `[0,5)` and `[5,11)` together
  * cover `[0,11)`.
+ *
+ * @param facets A list of active facets
+ * @param byteStart The UTF-8 byte start of the active selection
+ * @param byteEnd The UTF-8 byte end of the active selection
+ * @param featureType The type of feature to check for
  */
 export const isFormatActive = (
 	facets: Facet[],
@@ -709,6 +735,10 @@ export const FORMAT_TYPES = [
 /**
  * Return the set of format names (e.g. `"bold"`, `"italic"`) that fully
  * cover the given byte range in the current facet list.
+ *
+ * @param facets The active facets.
+ * @param byteStart The UTF-8 byte start of the active selection
+ * @param byteEnd The UTF-8 byte end of the active selection
  */
 export const computeActiveFormats = (
 	facets: Facet[],
@@ -733,9 +763,12 @@ export const computeActiveFormats = (
 
 /**
  * Given a character offset into the plain text (as produced by the DOM walk
- * in {@link parseDomToFacets} / {@link getSelectionByteOffsets}), walk the
+ * in parseDomToFacets / getSelectionByteOffsets), walk the
  * (possibly freshly re-rendered) DOM and return the corresponding
- * `{ node, offset }` pair suitable for {@link Selection.collapse}.
+ * `{ node, offset }` pair suitable for Selection.collapse.
+ *
+ * @param root The root element to walk.
+ * @param targetCharOffset The character offset into the plain text.
  */
 export const charOffsetToDomPosition = (
 	root: HTMLElement,
@@ -762,7 +795,6 @@ export const charOffsetToDomPosition = (
 	const walk = (node: Node, isFirstChild: boolean): boolean => {
 		if (result) return true;
 
-		// Plain text
 		if (node.nodeType === Node.TEXT_NODE) {
 			const content = node.textContent || "";
 			const nodeStart = text.length;
@@ -780,14 +812,12 @@ export const charOffsetToDomPosition = (
 		if (node.nodeType !== Node.ELEMENT_NODE) return false;
 		const el = node as HTMLElement;
 
-		// Twemoji images → original emoji character from alt
 		if (el.tagName === "IMG" && el.classList.contains("emoji")) {
 			const alt = el.getAttribute("alt") || "";
 			const nodeStart = text.length;
 			text += alt;
 
 			if (targetCharOffset >= nodeStart && targetCharOffset <= text.length) {
-				// Land cursor right after the <img>
 				const parent = el.parentNode;
 				if (parent) {
 					const idx = Array.from(parent.childNodes).indexOf(el as ChildNode);
@@ -798,7 +828,6 @@ export const charOffsetToDomPosition = (
 			return false;
 		}
 
-		// <br> → newline
 		if (el.tagName === "BR") {
 			text += "\n";
 
@@ -815,7 +844,6 @@ export const charOffsetToDomPosition = (
 
 		const feature = featureFromElement(el);
 
-		// Non-facet block wrappers injected by contentEditable
 		const isBlockWrapper = !feature && BLOCK_TAGS.has(el.tagName);
 		if (
 			isBlockWrapper &&
@@ -839,7 +867,6 @@ export const charOffsetToDomPosition = (
 		if (walk(topChildren[i], i === 0)) break;
 	}
 
-	// Fallback: place cursor at the very end
 	if (!result) {
 		if (root.lastChild && root.lastChild.nodeType === Node.TEXT_NODE) {
 			result = {
@@ -854,7 +881,10 @@ export const charOffsetToDomPosition = (
 	return result;
 };
 
-/** Validate that a string is a well-formed http(s) URL. */
+/**
+ * Validate that a string is a well-formed http(s) URL.
+ * @param value The value to check
+ */
 export const isValidUrl = (value: string): boolean => {
 	try {
 		const url = new URL(value);

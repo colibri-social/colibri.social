@@ -7,10 +7,17 @@ import type { Facet } from "@/utils/atproto/rich-text";
 
 export const editMessage = defineAction({
 	input: z.object({
-		text: z.string().max(2048),
+		text: z
+			.string({ message: "No text given." })
+			.min(1, {
+				message: "Text must contain at least a singular character.",
+			})
+			.max(2048, {
+				message: "Text must be shorter than 2048 characters.",
+			}),
 		facets: z.array(z.custom<Facet>()),
-		rkey: z.string(),
-		channel: z.string(),
+		rkey: z.string({ message: "No record key given." }),
+		channel: z.string({ message: "No channel given." }),
 	}),
 	handler: async ({ text, channel, facets, rkey }, { session }) => {
 		try {
@@ -37,7 +44,7 @@ export const editMessage = defineAction({
 			console.error(e);
 
 			throw new ActionError({
-				message: "Internal Server Error while editing message.",
+				message: (e as Error).message,
 				code: "INTERNAL_SERVER_ERROR",
 			});
 		}
