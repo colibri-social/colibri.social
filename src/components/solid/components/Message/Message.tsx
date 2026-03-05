@@ -175,14 +175,13 @@ export const Message: Component<{
 
 	/**
 	 * Saves edits to the PDS.
-	 * @todo If the message is empty, ask to delete.
 	 */
 	const submitEdits = async () => {
 		if ("hash" in props.data) return;
 
 		clearEditingMessage();
 
-		if (editedText().text.length === 0) {
+		if (editedText().text.trim().length === 0) {
 			setDeletionModalOpen(true);
 			return;
 		}

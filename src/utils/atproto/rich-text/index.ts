@@ -108,8 +108,6 @@ import type {
 // import { sanitizeRichText } from "./sanitization";
 // import { UnicodeString } from "./unicode";
 
-// TODO. See https://github.com/bluesky-social/atproto/blob/main/packages/api/src/client/lexicons.ts and
-// https://github.com/bluesky-social/atproto/blob/main/packages/api/src/client/types/app/bsky/richtext/facet.ts
 export type Facet = ColibriRichTextFacet;
 export type FacetLink = ColibriRichTextLink;
 export type FacetMention = ColibriRichTextMention;

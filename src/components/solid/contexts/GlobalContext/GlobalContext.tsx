@@ -10,6 +10,7 @@ import { GlobalContext } from "./context";
 import type { AppviewSubscriptionData, ReactionEventCallback } from "./events";
 import { handleMessageDeletion, handleNewMessage } from "./handlers";
 import type { GlobalContextData, GlobalContextUtility } from "./types";
+import { actions } from "astro:actions";
 
 export { GlobalContext };
 
@@ -64,6 +65,7 @@ export const GlobalContextProvider: ParentComponent<{
 				);
 			},
 			setCommunities(list) {
+				// TODO: actions.setCommunityOrder
 				setGlobalContext("communities", list);
 			},
 			addCategory(category) {

@@ -40,6 +40,7 @@ const CommunityAvatar = (props: { item: CommunityData; class?: string }) => (
 
 const SortableCommunity = (props: { item: CommunityData }) => {
 	const sortable = createSortable(props.item.rkey);
+	const [globalData] = useGlobalContext();
 	const [, { onDragStart, onDragEnd: onDndDragEnd }] = useDragDropContext()!;
 
 	let didDrag = false;

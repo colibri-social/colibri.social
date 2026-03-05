@@ -832,7 +832,6 @@ export class ColibriSDK {
 			rkey,
 		});
 
-		// TODO
 		return { ...res.data.value, rkey, author_did: did } as PDSMessageData;
 	};
 

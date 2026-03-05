@@ -8,7 +8,6 @@ import "@/styles/emoji-picker.css";
 
 const user = await Astro.session?.get("user");
 
-// TODO: This doesn't account for communities the user doesn't own yet
 let communities: Array<CommunityData> = [];
 
 if (user) {
