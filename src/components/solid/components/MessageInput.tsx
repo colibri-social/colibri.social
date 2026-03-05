@@ -1,11 +1,12 @@
 import { actions } from "astro:actions";
-import { toast } from "somoto";
 import { makePersisted } from "@solid-primitives/storage";
 import { useParams } from "@solidjs/router";
 import stringify from "json-stable-stringify";
 import { type Component, createSignal, Show } from "solid-js";
+import { toast } from "somoto";
 import type { PostMessageInput } from "@/actions/message/post";
 import { generateHash } from "@/utils/generate-hash";
+import { parseZodToErrorOrDisplay } from "@/utils/parse-zod-to-error-or-display";
 import { useGlobalContext } from "../contexts/GlobalContext";
 import { useMessageContext } from "../contexts/MessageContext";
 import { Plus } from "../icons/Plus";
@@ -15,7 +16,6 @@ import {
 	type TextWithFacets,
 	trimTextWithFacets,
 } from "./RichTextRenderer";
-import { parseZodToErrorOrDisplay } from "@/utils/parse-zod-to-error-or-display";
 
 /**
  * The message input used to send messages to the currently viewed channel.

@@ -6,10 +6,10 @@ import {
 import { type ParentComponent, useContext } from "solid-js";
 import { createStore } from "solid-js/store";
 import type { ChannelData, CommunityData } from "@/utils/sdk";
+import { GlobalContext } from "./context";
 import type { AppviewSubscriptionData, ReactionEventCallback } from "./events";
 import { handleMessageDeletion, handleNewMessage } from "./handlers";
 import type { GlobalContextData, GlobalContextUtility } from "./types";
-import { GlobalContext } from "./context";
 
 export { GlobalContext };
 

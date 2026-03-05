@@ -1,12 +1,12 @@
-import { Route, Router } from "@solidjs/router";
 import { ColorModeProvider } from "@kobalte/core";
+import { Route, Router } from "@solidjs/router";
 import type { CommunityData } from "@/utils/sdk";
 import { DevelopmentPlaceholder } from "./components/DevelopmentPlaceholder";
 import { GlobalContextProvider } from "./contexts/GlobalContext";
 import AppLayout from "./layouts/AppLayout";
 import CommunityLayout from "./layouts/CommunityLayout";
-import ChannelView from "./views/ChannelView";
 import { Toaster } from "./shadcn-solid/Sonner";
+import ChannelView from "./views/ChannelView";
 
 /**
  * The entrypoint to the main solid app.

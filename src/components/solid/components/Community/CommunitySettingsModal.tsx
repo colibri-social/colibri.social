@@ -1,11 +1,16 @@
-import { createSignal, Match, Show, Switch, type Component } from "solid-js";
-import {
-	TextField,
-	TextFieldInput,
-	TextFieldLabel,
-} from "../../shadcn-solid/text-field";
-import { useGlobalContext } from "../../contexts/GlobalContext";
+import { actions } from "astro:actions";
+import type { Details } from "@kobalte/core/file-field";
 import { useNavigate, useParams } from "@solidjs/router";
+import type { ParentComponent } from "solid-js";
+import { type Component, createSignal, Match, Switch } from "solid-js";
+import { toast } from "somoto";
+import { RECORD_IDs } from "@/utils/atproto/lexicons";
+import { parseZodToErrorOrDisplay } from "@/utils/parse-zod-to-error-or-display";
+import { useGlobalContext } from "../../contexts/GlobalContext";
+import { Image } from "../../icons/Image";
+import { Spinner } from "../../icons/Spinner";
+import { XCircle } from "../../icons/XCircle";
+import { Button } from "../../shadcn-solid/Button";
 import {
 	FileField,
 	FileFieldDropzone,
@@ -16,18 +21,13 @@ import {
 	FileFieldLabel,
 	FileFieldTrigger,
 } from "../../shadcn-solid/file-field";
-import type { Details } from "@kobalte/core/file-field";
-import { Image } from "../../icons/Image";
-import { XCircle } from "../../icons/XCircle";
-import { Button } from "../../shadcn-solid/Button";
-import { Spinner } from "../../icons/Spinner";
-import { actions } from "astro:actions";
-import { SettingsModal, SettingsPage } from "../SettingsModal";
-import type { ParentComponent } from "solid-js";
-import { toast } from "somoto";
-import { parseZodToErrorOrDisplay } from "@/utils/parse-zod-to-error-or-display";
-import { RECORD_IDs } from "@/utils/atproto/lexicons";
+import {
+	TextField,
+	TextFieldInput,
+	TextFieldLabel,
+} from "../../shadcn-solid/text-field";
 import { SettingsInfoPage } from "../SettingsInfoPage";
+import { SettingsModal, SettingsPage } from "../SettingsModal";
 
 const GeneralSettingsPage: Component = () => {
 	const [globalData, { addCommunity }] = useGlobalContext();

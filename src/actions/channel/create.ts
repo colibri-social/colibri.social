@@ -1,10 +1,10 @@
 import { ActionError, defineAction } from "astro:actions";
 import { Agent } from "@atproto/api";
 import { z } from "astro/zod";
+import { RECORD_IDs } from "@/utils/atproto/lexicons";
 import { client } from "@/utils/atproto/oauth";
 import type { ChannelData } from "@/utils/sdk";
 import { ColibriSDK } from "@/utils/sdk";
-import { RECORD_IDs } from "@/utils/atproto/lexicons";
 
 export const createChannel = defineAction({
 	input: z.object({

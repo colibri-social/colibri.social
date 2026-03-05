@@ -1,14 +1,14 @@
-import { type Component, type Setter } from "solid-js";
+import type { Component, Setter } from "solid-js";
+import { RECORD_IDs } from "@/utils/atproto/lexicons";
+import type { DBMessageData } from "@/utils/sdk";
+import { X } from "../../icons/X";
 import {
 	Dialog,
 	DialogCloseButton,
 	DialogContent,
 	DialogPortal,
 } from "../../shadcn-solid/Dialog";
-import { X } from "../../icons/X";
 import { SettingsInfoPage } from "../SettingsInfoPage";
-import type { DBMessageData } from "@/utils/sdk";
-import { RECORD_IDs } from "@/utils/atproto/lexicons";
 
 export const MessageDebugInfo: Component<{
 	open: boolean;

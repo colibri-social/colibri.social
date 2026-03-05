@@ -4,6 +4,7 @@ import type {
 	GlobalContextUtility,
 	PendingMessageData,
 } from "../../contexts/GlobalContext";
+import { Info } from "../../icons/Info";
 import { Pencil } from "../../icons/Pencil";
 import { Reply } from "../../icons/Reply";
 import { Trash } from "../../icons/Trash";
@@ -14,9 +15,8 @@ import {
 	ContextMenuPortal,
 	ContextMenuTrigger,
 } from "../../shadcn-solid/ContextMenu";
-import { MessageDeletionDrawer } from "./MessageDeletionDrawer";
 import { MessageDebugInfo } from "./MessageDebugInfo";
-import { Info } from "../../icons/Info";
+import { MessageDeletionDrawer } from "./MessageDeletionDrawer";
 
 /**
  * A component handling the right click context menu for messages.

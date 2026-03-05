@@ -1,9 +1,9 @@
 ---
 import { actions } from "astro:actions";
-import PublicLayout from "@/layouts/PublicLayout.astro";
-import Input from "@/components/bearnie/input/Input.astro";
 import Button from "@/components/bearnie/button/Button.astro";
+import Input from "@/components/bearnie/input/Input.astro";
 import BlueskyLogo from "@/components/icons/bluesky.svg";
+import PublicLayout from "@/layouts/PublicLayout.astro";
 
 const user = await Astro.session?.get("user");
 

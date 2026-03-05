@@ -1,5 +1,5 @@
 import { APPVIEW_DOMAIN } from "astro:env/client";
-import { batch, createSignal, type Accessor } from "solid-js";
+import { type Accessor, batch, createSignal } from "solid-js";
 import type { IndexedMessageData } from "@/utils/sdk";
 
 const PAGE_SIZE = 50;

@@ -1,5 +1,4 @@
 import { actions } from "astro:actions";
-import { toast } from "somoto";
 import twemoji from "@twemoji/api";
 import {
 	convertSkinToneToComponent,
@@ -10,11 +9,12 @@ import {
 	getEmojiWithSkinTone,
 } from "solid-emoji-picker";
 import type { Component, JSX, Setter } from "solid-js";
+import { toast } from "somoto";
+import { parseZodToErrorOrDisplay } from "@/utils/parse-zod-to-error-or-display";
 import type { IndexedMessageData } from "@/utils/sdk";
 import type { GlobalContextUtility } from "../../contexts/GlobalContext";
 import { Button } from "../../shadcn-solid/Button";
 import { DialogCloseButton } from "../../shadcn-solid/Dialog";
-import { parseZodToErrorOrDisplay } from "@/utils/parse-zod-to-error-or-display";
 
 /**
  * A utility function to delete a message, then close the modal.

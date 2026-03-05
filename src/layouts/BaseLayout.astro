@@ -18,41 +18,41 @@ const {
 ---
 
 <html lang="en" class="dark">
-	<head>
-		<meta charset="utf-8" />
-		<link rel="icon" type="image/png" href="/favicon-96x96.png" sizes="96x96" />
-		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-		<link rel="shortcut icon" href="/favicon.ico" />
-		<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
-		<meta name="apple-mobile-web-app-title" content="Colibri" />
-		<link rel="manifest" href="/site.webmanifest" />
-		<meta name="viewport" content="width=device-width" />
-		<meta name="generator" content={Astro.generator} />
-		<title>{title}</title>
-		<meta name="description" content={description} />
-		<meta name="theme-color" content="#8e51ff" />
-		<link rel="canonical" href={Astro.site} />
-		<meta property="og:title" content={title} />
-		<meta property="og:description" content={description} />
-		{image !== undefined && <meta property="og:image" content={image} />}
-		<meta property="og:url" content={Astro.site} />
-		<meta property="og:type" content="website" />
-		<meta property="og:locale" content="en" />
-		<meta name="twitter:card" content="summary_large_image" />
-		<meta name="twitter:title" content={title} />
-		<meta name="twitter:description" content={description} />
-		<Font cssVariable="--font-hanken-grotesk" preload />
-		<Font cssVariable="--font-geist-mono" preload />
-		<slot name="head" />
-	</head>
-	<body
-		class="w-screen min-h-screen overflow-x-hidden"
-		class:list={[
-			home &&
-				"bg-[linear-gradient(354deg,#090615_4.83%,#31226D_31.34%,#6C5AA6_58.91%,#AE99CB_84.37%,#E0DEEC_105.04%),linear-gradient(180deg,#553199_74.71%,#8E51FF_100%)]",
-			!home && "bg-gradient-dark",
-		]}
-	>
-		<slot />
-	</body>
+  <head>
+    <meta charset="utf-8" />
+    <link rel="icon" type="image/png" href="/favicon-96x96.png?v=1" sizes="96x96" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=1" />
+    <link rel="shortcut icon" href="/favicon.ico?v=1" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    <meta name="apple-mobile-web-app-title" content="Colibri" />
+    <link rel="manifest" href="/site.webmanifest" />
+    <meta name="viewport" content="width=device-width" />
+    <meta name="generator" content={Astro.generator} />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <meta name="theme-color" content="#8e51ff" />
+    <link rel="canonical" href={Astro.site} />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    {image !== undefined && <meta property="og:image" content={image} />}
+    <meta property="og:url" content={Astro.site} />
+    <meta property="og:type" content="website" />
+    <meta property="og:locale" content="en" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+    <Font cssVariable="--font-hanken-grotesk" preload />
+    <Font cssVariable="--font-geist-mono" preload />
+    <slot name="head" />
+  </head>
+  <body
+    class="w-screen min-h-screen overflow-x-hidden"
+    class:list={[
+      home &&
+        "bg-[linear-gradient(354deg,#090615_4.83%,#31226D_31.34%,#6C5AA6_58.91%,#AE99CB_84.37%,#E0DEEC_105.04%),linear-gradient(180deg,#553199_74.71%,#8E51FF_100%)]",
+      !home && "bg-gradient-dark",
+    ]}
+  >
+    <slot />
+  </body>
 </html>

@@ -11,11 +11,11 @@ import {
 import type { SidebarCategoryData } from "@/utils/sdk";
 import { CaretRight } from "../../icons/CaretRight";
 import { ChatCircleDots } from "../../icons/ChatCircleDots";
+import { Gear } from "../../icons/Gear";
 import { PlusSmall } from "../../icons/PlusSmall";
 import { Button } from "../../shadcn-solid/Button";
-import { ChannelCreationModal } from "./ChannelCreationModal";
 import { CategorySettingsModal } from "./CategorySettingsModal";
-import { Gear } from "../../icons/Gear";
+import { ChannelCreationModal } from "./ChannelCreationModal";
 import { ChannelSettingsModal } from "./ChannelSettingsModal";
 
 /**
