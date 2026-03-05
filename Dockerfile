@@ -1,18 +1,28 @@
 FROM node:22-alpine AS base
 WORKDIR /app
 
-# Enable corepack for pnpm
 RUN corepack enable && corepack prepare pnpm@latest --activate
 
-# Install dependencies
 COPY package.json pnpm-lock.yaml ./
 RUN pnpm install --frozen-lockfile
 
-# Build
+# Declare build args
+ARG PRIVATE_KEY_1
+ARG PRIVATE_KEY_2
+ARG APPVIEW_DOMAIN
+ARG SAME_TLD_DID
+ARG REDIS_PASSWORD
+
+# Make them available to Astro's build step
+ENV PRIVATE_KEY_1=$PRIVATE_KEY_1
+ENV PRIVATE_KEY_2=$PRIVATE_KEY_2
+ENV APPVIEW_DOMAIN=$APPVIEW_DOMAIN
+ENV SAME_TLD_DID=$SAME_TLD_DID
+ENV REDIS_PASSWORD=$REDIS_PASSWORD
+
 COPY . .
 RUN pnpm build
 
-# Production stage — leaner image
 FROM node:22-alpine AS runtime
 WORKDIR /app
 
