@@ -3,6 +3,12 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        - PRIVATE_KEY_1=${PRIVATE_KEY_1}
+        - PRIVATE_KEY_2=${PRIVATE_KEY_2}
+        - APPVIEW_DOMAIN=${APPVIEW_DOMAIN}
+        - SAME_TLD_DID=${SAME_TLD_DID}
+        - REDIS_PASSWORD=${REDIS_PASSWORD}
     container_name: app
     restart: unless-stopped
     ports:
