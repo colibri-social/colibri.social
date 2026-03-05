@@ -28,6 +28,11 @@ export default defineConfig({
 				access: "public",
 				optional: true,
 			}),
+			REDIS_URL: envField.string({
+				context: "server",
+				access: "secret",
+				optional: true,
+			}),
 			REDIS_PASSWORD: envField.string({ context: "server", access: "secret" }),
 		},
 	},

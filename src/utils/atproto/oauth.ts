@@ -6,6 +6,7 @@ import {
 	type NodeSavedState,
 } from "@atproto/oauth-client-node";
 import { createClient } from "redis";
+import { REDIS_URL } from "astro:env/server";
 
 export const scopes = [
 	"atproto",
@@ -28,7 +29,7 @@ let redisClient: ReturnType<typeof createClient> | undefined;
 const getRedisClient = async (): Promise<ReturnType<typeof createClient>> => {
 	if (redisClient) return redisClient;
 
-	redisClient = await createClient({ password: REDIS_PASSWORD })
+	redisClient = await createClient({ password: REDIS_PASSWORD, url: REDIS_URL })
 		.on("error", (err) => console.error("Redis Client Error", err))
 		.connect();
 
