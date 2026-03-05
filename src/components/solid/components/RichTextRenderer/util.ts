@@ -130,7 +130,7 @@ export const renderWithFacets = (
 		);
 
 		// If a channel mention is present, render ONLY the channel mention
-		// style — other formatting features are stripped to prevent forgery.
+		// style - other formatting features are stripped to prevent forgery.
 		const channelFeature = group.features.find(
 			(f) => f.$type === "social.colibri.richtext.facet#channel",
 		);

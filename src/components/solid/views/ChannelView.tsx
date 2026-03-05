@@ -177,7 +177,7 @@ const ChannelView: Component = () => {
 			() => allMessages().length,
 			() => {
 				if (!scrolled()) return;
-				// isAtBottom reads chatContainer — untrack so we don't subscribe to
+				// isAtBottom reads chatContainer - untrack so we don't subscribe to
 				// any signals that might be inside it.
 				if (untrack(isAtBottom)) {
 					requestAnimationFrame(scrollToBottom);

@@ -22,7 +22,7 @@ export function useMessageHistory(channel: Accessor<string>) {
 
 	/**
 	 * Fetches the next page of messages older than the current oldest message.
-	 * Safe to call multiple times — concurrent calls are dropped.
+	 * Safe to call multiple times - concurrent calls are dropped.
 	 */
 	const fetchOlderMessages = async (): Promise<void> => {
 		if (inflight || reachedTop()) return;
