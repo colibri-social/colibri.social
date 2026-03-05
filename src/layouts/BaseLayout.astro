@@ -3,17 +3,17 @@ import "@/styles/global.css";
 import { Font } from "astro:assets";
 
 interface Props {
-  title?: string;
-  description?: string;
-  image?: string;
-  home?: boolean;
+	title?: string;
+	description?: string;
+	image?: string;
+	home?: boolean;
 }
 
 const {
-  title = "Colibri",
-  description = "Work in progress.",
-  image = "/og.png",
-  home,
+	title = "Colibri",
+	description = "Work in progress.",
+	image = "/og.png",
+	home,
 } = Astro.props;
 ---
 

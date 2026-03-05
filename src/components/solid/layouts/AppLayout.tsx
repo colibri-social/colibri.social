@@ -1,21 +1,21 @@
 import { A, useNavigate } from "@solidjs/router";
 import {
+	closestCenter,
+	createSortable,
 	DragDropProvider,
 	DragDropSensors,
+	type DragEvent,
 	DragOverlay,
 	SortableProvider,
-	createSortable,
-	closestCenter,
 	useDragDropContext,
-	type DragEvent,
 } from "@thisbeyond/solid-dnd";
 import { For, Match, type ParentComponent, Show, Switch } from "solid-js";
+import type { CommunityData } from "@/utils/sdk";
 import { NewCommunityModal } from "../components/NewCommunityModal";
 import { useGlobalContext } from "../contexts/GlobalContext";
 import { Gear } from "../icons/Gear";
 import { House } from "../icons/House";
 import { Plus } from "../icons/Plus";
-import type { CommunityData } from "@/utils/sdk";
 
 const CommunityAvatar = (props: { item: CommunityData; class?: string }) => (
 	<Switch>

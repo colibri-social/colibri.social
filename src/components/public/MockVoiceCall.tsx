@@ -7,13 +7,13 @@ import {
 	Show,
 	Switch,
 } from "solid-js";
-import {
-	createAnimationTimeline,
-	type BuildEventsResult,
-	type TimelineEvent,
-} from "@/lib/hooks/createAnimationTimeline";
 import { ChatCircleDots } from "@/components/solid/icons/ChatCircleDots";
 import { SpeakerLow } from "@/components/solid/icons/SpeakerLow";
+import {
+	type BuildEventsResult,
+	createAnimationTimeline,
+	type TimelineEvent,
+} from "@/lib/hooks/createAnimationTimeline";
 import { SpeakerHigh } from "../solid/icons/SpeakerHigh";
 
 type Guest = {
@@ -42,6 +42,7 @@ const ChevronDown: Component = () => (
 		fill="currentColor"
 		height="32"
 		viewBox="0 0 256 256"
+		aria-hidden="true"
 	>
 		<path
 			fill="currentColor"

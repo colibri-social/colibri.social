@@ -1,7 +1,7 @@
+import { APPVIEW_DOMAIN } from "astro:env/client";
 import type { Agent, BlobRef } from "@atproto/api";
 import { lexicon, RECORD_IDs } from "./atproto/lexicons";
 import type { Facet } from "./atproto/rich-text";
-import { APPVIEW_DOMAIN } from "astro:env/client";
 
 type ActorData = {
 	status: string;

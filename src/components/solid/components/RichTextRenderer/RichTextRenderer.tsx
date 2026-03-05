@@ -1,3 +1,4 @@
+import { useNavigate } from "@solidjs/router";
 import twemoji from "@twemoji/api";
 import {
 	type Accessor,
@@ -12,7 +13,6 @@ import {
 	Show,
 } from "solid-js";
 import { Portal } from "solid-js/web";
-import { useNavigate } from "@solidjs/router";
 import type { Facet } from "@/utils/atproto/rich-text";
 import type { ChannelData } from "@/utils/sdk";
 import { useChannelContext } from "../../contexts/ChannelContext";
@@ -20,16 +20,16 @@ import {
 	ChannelMentionPopup,
 	type ChannelMentionState,
 } from "./ChannelMentionPopup";
-import { Toolbar } from "./Toolbar";
+import { handleToolbarFormat, toggleFormat } from "./formatToggle";
 import {
 	createHistoryState,
-	TYPING_BURST_MS,
-	saveForUndo,
-	performUndo,
-	performRedo,
 	type HistoryState,
+	performRedo,
+	performUndo,
+	saveForUndo,
+	TYPING_BURST_MS,
 } from "./history";
-import { handleToolbarFormat, toggleFormat } from "./formatToggle";
+import { Toolbar } from "./Toolbar";
 import {
 	charOffsetToDomPosition,
 	computeActiveFormats,
@@ -41,9 +41,9 @@ import {
 	parseDomToFacets,
 	renderWithFacets,
 	stripAutoDetectedLinks,
-	textEncoder,
 	type TextWithFacets,
 	type ToolbarState,
+	textEncoder,
 } from "./util";
 
 /**

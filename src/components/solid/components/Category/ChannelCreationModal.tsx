@@ -1,7 +1,9 @@
 import { actions } from "astro:actions";
-import { toast } from "somoto";
 import { createSignal, type ParentComponent } from "solid-js";
+import { toast } from "somoto";
+import { parseZodToErrorOrDisplay } from "@/utils/parse-zod-to-error-or-display";
 import type { ChannelType } from "@/utils/sdk";
+import { useGlobalContext } from "../../contexts/GlobalContext/index";
 import { Spinner } from "../../icons/Spinner";
 import { Button } from "../../shadcn-solid/Button";
 import {
@@ -26,9 +28,7 @@ import {
 	TextFieldInput,
 	TextFieldLabel,
 } from "../../shadcn-solid/text-field";
-import { useGlobalContext } from "../../contexts/GlobalContext/index";
 import { ImageForChannelType } from "../IconForChannelType";
-import { parseZodToErrorOrDisplay } from "@/utils/parse-zod-to-error-or-display";
 
 /**
  * The creation modal for a new channel within a category.

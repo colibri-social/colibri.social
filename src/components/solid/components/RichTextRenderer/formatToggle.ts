@@ -1,7 +1,7 @@
 import twemoji from "@twemoji/api";
 import type { Setter } from "solid-js";
 import type { Facet } from "@/utils/atproto/rich-text";
-import { saveForUndo, type HistoryState } from "./history";
+import { type HistoryState, saveForUndo } from "./history";
 import {
 	charOffsetToDomPosition,
 	formatTypeToFeature,

@@ -1,7 +1,23 @@
+export type { ChannelMentionState } from "./RichTextRenderer/ChannelMentionPopup";
+export { ChannelMentionPopup } from "./RichTextRenderer/ChannelMentionPopup";
+export {
+	handleToolbarFormat,
+	toggleFormat,
+} from "./RichTextRenderer/formatToggle";
+export {
+	applyHistoryEntry,
+	cloneContent,
+	createHistoryState,
+	type HistoryEntry,
+	type HistoryState,
+	MAX_HISTORY,
+	performRedo,
+	performUndo,
+	saveForUndo,
+	TYPING_BURST_MS,
+} from "./RichTextRenderer/history";
 export { RichTextRenderer } from "./RichTextRenderer/RichTextRenderer";
 export { Toolbar, ToolbarButton } from "./RichTextRenderer/Toolbar";
-export { ChannelMentionPopup } from "./RichTextRenderer/ChannelMentionPopup";
-export type { ChannelMentionState } from "./RichTextRenderer/ChannelMentionPopup";
 export {
 	type AnyFeature,
 	charOffsetToDomPosition,
@@ -25,19 +41,3 @@ export {
 	textEncoder,
 	trimTextWithFacets,
 } from "./RichTextRenderer/util";
-export {
-	type HistoryEntry,
-	type HistoryState,
-	createHistoryState,
-	cloneContent,
-	saveForUndo,
-	applyHistoryEntry,
-	performUndo,
-	performRedo,
-	MAX_HISTORY,
-	TYPING_BURST_MS,
-} from "./RichTextRenderer/history";
-export {
-	toggleFormat,
-	handleToolbarFormat,
-} from "./RichTextRenderer/formatToggle";

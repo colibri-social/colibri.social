@@ -1,6 +1,5 @@
 import { APPVIEW_DOMAIN } from "astro:env/client";
-import { createAsync, query } from "@solidjs/router";
-import { useParams } from "@solidjs/router";
+import { createAsync, query, useParams } from "@solidjs/router";
 import {
 	createEffect,
 	createMemo,
@@ -15,12 +14,12 @@ import {
 } from "solid-js";
 import type { SidebarData } from "@/utils/sdk";
 import { ChannelList } from "../components/Community/ChannelList";
+import { CommunitySettingsModal } from "../components/Community/CommunitySettingsModal";
 import { MessageInput } from "../components/MessageInput";
 import { UserStatus } from "../components/UserStatus";
 import { ChannelContextProvider } from "../contexts/ChannelContext";
 import { useGlobalContext } from "../contexts/GlobalContext/index";
 import { MessageContextProvider } from "../contexts/MessageContext";
-import { CommunitySettingsModal } from "../components/Community/CommunitySettingsModal";
 
 /**../components/Community/CommunitySettingsModal
  * Fetches the sidebar data (categories + channels) for a community.

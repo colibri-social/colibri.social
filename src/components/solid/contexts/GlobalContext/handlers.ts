@@ -1,6 +1,6 @@
 import stringify from "json-stable-stringify";
 import { generateHash } from "@/utils/generate-hash";
-import type { MessagePostEvent, MessageDeletionEvent } from "./events";
+import type { MessageDeletionEvent, MessagePostEvent } from "./events";
 import type { GlobalContextUtility } from "./types";
 
 /**

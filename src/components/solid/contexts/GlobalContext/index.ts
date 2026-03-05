@@ -1,13 +1,3 @@
-export {
-	GlobalContext,
-	GlobalContextProvider,
-	useGlobalContext,
-} from "./GlobalContext";
-export type {
-	GlobalContextData,
-	GlobalContextUtility,
-	PendingMessageData,
-} from "./types";
 export type {
 	AckEvent,
 	AppviewSubscriptionData,
@@ -28,4 +18,14 @@ export type {
 	ReactionEventCallback,
 	ReactionRemovedEvent,
 } from "./events";
+export {
+	GlobalContext,
+	GlobalContextProvider,
+	useGlobalContext,
+} from "./GlobalContext";
 export { handleMessageDeletion, handleNewMessage } from "./handlers";
+export type {
+	GlobalContextData,
+	GlobalContextUtility,
+	PendingMessageData,
+} from "./types";

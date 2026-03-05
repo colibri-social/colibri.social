@@ -1,7 +1,7 @@
 import { useParams } from "@solidjs/router";
 import {
-	type Component,
 	batch,
+	type Component,
 	createEffect,
 	createMemo,
 	createSignal,
@@ -14,13 +14,13 @@ import {
 } from "solid-js";
 import type { IndexedMessageData } from "@/utils/sdk";
 import { Message } from "../components/Message/Message";
-import { Spinner } from "../icons/Spinner";
 import {
 	type PendingMessageData,
 	useGlobalContext,
 } from "../contexts/GlobalContext";
 import { useMessageContext } from "../contexts/MessageContext";
 import { useMessageHistory } from "../hooks/useMessageHistory";
+import { Spinner } from "../icons/Spinner";
 
 /**
  * How close to the bottom (in px) the user must be for us to consider them

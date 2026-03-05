@@ -1,5 +1,4 @@
 import { actions } from "astro:actions";
-import { toast } from "somoto";
 import twemoji from "@twemoji/api";
 import {
 	type Component,
@@ -9,6 +8,8 @@ import {
 	Show,
 	Switch,
 } from "solid-js";
+import { toast } from "somoto";
+import { parseZodToErrorOrDisplay } from "@/utils/parse-zod-to-error-or-display";
 import type { IndexedMessageData, MessageReactionData } from "@/utils/sdk";
 import {
 	type PendingMessageData,
@@ -27,7 +28,6 @@ import { MessageAction } from "./MessageAction";
 import { MessageContextMenu } from "./MessageContextMenu";
 import { MessageDeletionDrawer } from "./MessageDeletionDrawer";
 import { deleteMessage } from "./util";
-import { parseZodToErrorOrDisplay } from "@/utils/parse-zod-to-error-or-display";
 
 /**
  * A rendered message component in a chat.

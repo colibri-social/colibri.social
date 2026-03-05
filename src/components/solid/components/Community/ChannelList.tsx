@@ -4,9 +4,9 @@ import type {
 	SidebarChannelData,
 	SidebarData,
 } from "@/utils/sdk";
+import { useGlobalContext } from "../../contexts/GlobalContext/index";
 import { Plus } from "../../icons/Plus";
 import { Button } from "../../shadcn-solid/Button";
-import { useGlobalContext } from "../../contexts/GlobalContext/index";
 import { Category } from "../Category/Category";
 import { CategoryCreationModal } from "./CategoryCreationModal";
 

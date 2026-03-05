@@ -1,20 +1,20 @@
-import { createSignal, type Component } from "solid-js";
+import { actions } from "astro:actions";
+import type { ParentComponent } from "solid-js";
+import { type Component, createSignal } from "solid-js";
+import { toast } from "somoto";
+import { RECORD_IDs } from "@/utils/atproto/lexicons";
+import { parseZodToErrorOrDisplay } from "@/utils/parse-zod-to-error-or-display";
+import type { SidebarChannelData } from "@/utils/sdk";
+import { useGlobalContext } from "../../contexts/GlobalContext";
+import { Spinner } from "../../icons/Spinner";
+import { Button } from "../../shadcn-solid/Button";
 import {
 	TextField,
 	TextFieldInput,
 	TextFieldLabel,
 } from "../../shadcn-solid/text-field";
-import { useGlobalContext } from "../../contexts/GlobalContext";
-import { Button } from "../../shadcn-solid/Button";
-import { Spinner } from "../../icons/Spinner";
-import { actions } from "astro:actions";
-import { SettingsModal, SettingsPage } from "../SettingsModal";
-import type { ParentComponent } from "solid-js";
-import { toast } from "somoto";
-import type { SidebarChannelData } from "@/utils/sdk";
-import { parseZodToErrorOrDisplay } from "@/utils/parse-zod-to-error-or-display";
-import { RECORD_IDs } from "@/utils/atproto/lexicons";
 import { SettingsInfoPage } from "../SettingsInfoPage";
+import { SettingsModal, SettingsPage } from "../SettingsModal";
 
 const GeneralSettingsPage: Component<{ channel: SidebarChannelData }> = (
 	props,

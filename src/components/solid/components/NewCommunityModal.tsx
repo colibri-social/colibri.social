@@ -1,8 +1,9 @@
 import { actions } from "astro:actions";
-import { toast } from "somoto";
 import type { Details } from "@kobalte/core/file-field";
 import type { Navigator } from "@solidjs/router";
 import { createSignal, Match, type ParentComponent, Switch } from "solid-js";
+import { toast } from "somoto";
+import { parseZodToErrorOrDisplay } from "@/utils/parse-zod-to-error-or-display";
 import { useGlobalContext } from "../contexts/GlobalContext/index";
 import { Image } from "../icons/Image";
 import { Spinner } from "../icons/Spinner";
@@ -30,7 +31,6 @@ import {
 	TextFieldInput,
 	TextFieldLabel,
 } from "../shadcn-solid/text-field";
-import { parseZodToErrorOrDisplay } from "@/utils/parse-zod-to-error-or-display";
 
 export const NewCommunityModal: ParentComponent<{ navigate: Navigator }> = (
 	props,

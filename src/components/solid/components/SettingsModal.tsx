@@ -1,17 +1,19 @@
 import {
+	type Accessor,
+	type Component,
 	createEffect,
 	createSignal,
 	For,
 	Match,
-	Show,
-	Switch,
-	type Accessor,
 	type ParentComponent,
 	type Setter,
-	type JSX,
-	type Component,
+	Show,
+	Switch,
 } from "solid-js";
 import { Dynamic } from "solid-js/web";
+import { Spinner } from "../icons/Spinner";
+import { X } from "../icons/X";
+import { Button } from "../shadcn-solid/Button";
 import {
 	Dialog,
 	DialogCloseButton,
@@ -19,9 +21,6 @@ import {
 	DialogPortal,
 	DialogTrigger,
 } from "../shadcn-solid/Dialog";
-import { X } from "../icons/X";
-import { Button } from "../shadcn-solid/Button";
-import { Spinner } from "../icons/Spinner";
 
 export const SettingsPage: ParentComponent<{
 	loading: Accessor<boolean>;
