@@ -23,7 +23,11 @@ export default defineConfig({
 			PRIVATE_KEY_1: envField.string({ context: "server", access: "secret" }),
 			PRIVATE_KEY_2: envField.string({ context: "server", access: "secret" }),
 			APPVIEW_DOMAIN: envField.string({ context: "client", access: "public" }),
-			SAME_TLD_DID: envField.string({ context: "server", access: "public" }),
+			SAME_TLD_DID: envField.string({
+				context: "server",
+				access: "public",
+				optional: true,
+			}),
 			REDIS_PASSWORD: envField.string({ context: "server", access: "secret" }),
 		},
 	},
