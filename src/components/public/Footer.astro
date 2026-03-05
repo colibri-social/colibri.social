@@ -45,9 +45,9 @@ const links: Array<LinkData> = [
 	>
 		{links.map(({ text, href }) => <NavLink isFooterLink {text} {href} />)}
 	</div>
-	<hr class="my-4 z-20" />
+	<hr class="my-4 z-20 lg:block hidden" />
 	<div
-		class="w-full z-20 h-50 relative overflow-hidden flex flex-col items-center justify-end bg-clip-text text-transparent bg-[linear-gradient(70deg,rgba(9,6,21,1)_-28.53%,rgba(49,34,109,1)_0.95%,rgba(108,90,166,1)_31.62%,rgba(174,153,203,1)_59.93%,rgba(224,222,236,1)_82.92%)] text-[16.8vw] not-italic font-black"
+		class="w-full z-20 h-50 relative overflow-hidden hidden lg:flex flex-col items-center justify-end bg-clip-text text-transparent bg-[linear-gradient(70deg,rgba(9,6,21,1)_-28.53%,rgba(49,34,109,1)_0.95%,rgba(108,90,166,1)_31.62%,rgba(174,153,203,1)_59.93%,rgba(224,222,236,1)_82.92%)] text-[16.8vw] not-italic font-black"
 	>
 		<span class="relative bottom-14 z-20">colibri.social</span>
 		<span class="bottom-14 text-white absolute blur-xs z-10 opacity-25">
