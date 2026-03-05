@@ -7,6 +7,12 @@ services:
     restart: unless-stopped
     ports:
       - "127.0.0.1:4321:4321"
+    environment:
+      - PRIVATE_KEY_1=${PRIVATE_KEY_1}
+      - PRIVATE_KEY_2=${PRIVATE_KEY_2}
+      - APPVIEW_DOMAIN=${APPVIEW_DOMAIN}
+      - SAME_TLD_DID=${SAME_TLD_DID}
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
     depends_on:
       redis:
         condition: service_healthy
