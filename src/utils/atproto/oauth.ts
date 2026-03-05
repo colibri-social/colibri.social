@@ -86,6 +86,14 @@ const deriveSessionTtlSeconds = (session: NodeSavedSession): number => {
 	return remainingSeconds + GRACE_SECONDS;
 };
 
+/**
+ * Private keys are stored as base64 encrypted single line values.
+ * @param key The key to decode.
+ * @returns The decoded key.
+ */
+const decodePrivateKey = (key: string) =>
+	Buffer.from(key, "base64").toString("utf-8");
+
 // See https://npmx.dev/package/@atproto/oauth-client-node#user-content-from-a-backend-service
 export const client = new NodeOAuthClient({
 	// This object will be used to build the payload of the /client-metadata.json
@@ -117,8 +125,8 @@ export const client = new NodeOAuthClient({
 	// Used to authenticate the client to the token endpoint. Will be used to
 	// build the jwks object to be exposed on the "jwks_uri" endpoint.
 	keyset: await Promise.all([
-		JoseKey.fromImportable(PRIVATE_KEY_1, "key1"),
-		JoseKey.fromImportable(PRIVATE_KEY_2, "key2"),
+		JoseKey.fromImportable(decodePrivateKey(PRIVATE_KEY_1), "key1"),
+		JoseKey.fromImportable(decodePrivateKey(PRIVATE_KEY_2), "key2"),
 	]),
 
 	// Interface to store authorization state data (during authorization flows).

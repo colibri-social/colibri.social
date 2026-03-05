@@ -1,0 +1,39 @@
+# Dependencies
+node_modules
+.pnpm-store
+
+# Build output
+dist
+
+# Environment & secrets
+.env
+.env.*
+
+# Version control
+.git
+.gitignore
+
+# Editor & OS
+.DS_Store
+.vscode
+.idea
+*.swp
+*.swo
+
+# Logs
+logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# Docker files themselves
+Dockerfile
+docker-compose*.yml
+.dockerignore
+
+# Dev & test
+*.test.ts
+*.test.js
+*.spec.ts
+*.spec.js
+coverage

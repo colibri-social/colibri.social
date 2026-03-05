@@ -8,7 +8,7 @@
 	},
 	"scripts": {
 		"dev": "astro dev --host",
-		"docker:dev": "docker compose up",
+		"docker:dev": "docker compose -f docker-compose.dev.yml up",
 		"build": "astro build",
 		"preview": "astro preview",
 		"astro": "astro",
