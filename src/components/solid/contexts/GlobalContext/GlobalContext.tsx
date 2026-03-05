@@ -56,17 +56,31 @@ export const GlobalContextProvider: ParentComponent<{
 						return list.toSpliced(alreadyExistsIndex, 1, community);
 					}
 
-					return [community, ...list];
+					return [...list, community];
 				});
 			},
 			removeCommunity(rkey) {
 				setGlobalContext("communities", (list) =>
 					list.filter((x) => x.rkey !== rkey),
 				);
+
+				actions.removeFromCommunityOrder({ community: rkey });
 			},
-			setCommunities(list) {
-				// TODO: actions.setCommunityOrder
-				setGlobalContext("communities", list);
+			setCommunities(communities) {
+				const rkeys = communities.map((x) => x.rkey);
+
+				actions.setCommunityOrder({
+					communities: rkeys,
+				});
+
+				setGlobalContext((state) => ({
+					...state,
+					user: {
+						...state.user,
+						communities: rkeys,
+					},
+					communities,
+				}));
 			},
 			addCategory(category) {
 				setGlobalContext("categories", (list) => {

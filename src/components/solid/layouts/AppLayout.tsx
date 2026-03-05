@@ -9,7 +9,14 @@ import {
 	SortableProvider,
 	useDragDropContext,
 } from "@thisbeyond/solid-dnd";
-import { For, Match, type ParentComponent, Show, Switch } from "solid-js";
+import {
+	createSignal,
+	For,
+	Match,
+	type ParentComponent,
+	Show,
+	Switch,
+} from "solid-js";
 import type { CommunityData } from "@/utils/sdk";
 import { NewCommunityModal } from "../components/NewCommunityModal";
 import { useGlobalContext } from "../contexts/GlobalContext";
@@ -38,9 +45,11 @@ const CommunityAvatar = (props: { item: CommunityData; class?: string }) => (
 	</Switch>
 );
 
-const SortableCommunity = (props: { item: CommunityData }) => {
+const SortableCommunity = (props: {
+	item: CommunityData;
+	draggedItem: CommunityData | undefined;
+}) => {
 	const sortable = createSortable(props.item.rkey);
-	const [globalData] = useGlobalContext();
 	const [, { onDragStart, onDragEnd: onDndDragEnd }] = useDragDropContext()!;
 
 	let didDrag = false;
@@ -73,10 +82,17 @@ const SortableCommunity = (props: { item: CommunityData }) => {
 				el = node;
 				sortable.ref(node);
 			}}
-			classList={{ "opacity-25": sortable.isActiveDraggable }}
+			classList={{ "opacity-50": sortable.isActiveDraggable }}
 			style={{ "touch-action": "none" }}
 			{...sortable.dragActivators}
 		>
+			<Show when={sortable.isActiveDroppable && props.draggedItem}>
+				{(resolved) => (
+					<div class="absolute inset-0 rounded-md flex items-center justify-center opacity-40 pointer-events-none z-10">
+						<CommunityAvatar item={resolved()} />
+					</div>
+				)}
+			</Show>
 			<A
 				href={`/c/${props.item.rkey}`}
 				class="w-10 h-10 rounded-md bg-muted flex items-center justify-center"
@@ -90,13 +106,24 @@ const SortableCommunity = (props: { item: CommunityData }) => {
 	);
 };
 
-const CommunitySidebar = (props: { communities: CommunityData[] }) => {
+const CommunitySidebar = (props: {
+	communities: CommunityData[];
+	draggedItem: CommunityData | undefined;
+	onItemRef: (rkey: string, el: HTMLElement) => void;
+}) => {
 	return (
 		<>
 			<DragDropSensors />
 			<SortableProvider ids={props.communities.map((c) => c.rkey)}>
 				<For each={props.communities}>
-					{(item) => <SortableCommunity item={item} />}
+					{(item) => (
+						<div
+							class="relative"
+							ref={(node) => props.onItemRef(item.rkey, node)}
+						>
+							<SortableCommunity item={item} draggedItem={props.draggedItem} />
+						</div>
+					)}
 				</For>
 			</SortableProvider>
 			<DragOverlay>
@@ -107,7 +134,7 @@ const CommunitySidebar = (props: { communities: CommunityData[] }) => {
 					return (
 						<Show when={item}>
 							{(resolved) => (
-								<div class="sortable">
+								<div class="w-10 h-10 rounded-md bg-muted flex items-center justify-center opacity-90 shadow-lg">
 									<CommunityAvatar item={resolved()} />
 								</div>
 							)}
@@ -130,18 +157,81 @@ const AppLayout: ParentComponent = (props) => {
 		navigate(`/c/${globalState.communities[0].rkey}`);
 	}
 
-	const onDragEnd = ({ draggable, droppable }: DragEvent) => {
-		if (!draggable || !droppable) return;
+	const sortedCommunities = () =>
+		globalState.communities.toSorted(
+			(a, b) =>
+				globalState.user.communities.indexOf(a.rkey) -
+				globalState.user.communities.indexOf(b.rkey),
+		);
 
-		const communities = globalState.communities;
-		const fromIndex = communities.findIndex((c) => c.rkey === draggable.id);
-		const toIndex = communities.findIndex((c) => c.rkey === droppable.id);
+	const [draggingOrder, setDraggingOrder] = createSignal<
+		CommunityData[] | null
+	>(null);
+	const [draggedItem, setDraggedItem] = createSignal<CommunityData | undefined>(
+		undefined,
+	);
 
-		if (fromIndex === toIndex) return;
+	const itemEls = new Map<string, HTMLElement>();
+	const itemTops = new Map<string, number>();
 
+	const capturePositions = () => {
+		for (const [rkey, el] of itemEls) {
+			itemTops.set(rkey, el.getBoundingClientRect().top);
+		}
+	};
+
+	const animateToNewPositions = () => {
+		for (const [rkey, el] of itemEls) {
+			const oldTop = itemTops.get(rkey);
+			if (oldTop === undefined) continue;
+			const newTop = el.getBoundingClientRect().top;
+			const delta = oldTop - newTop;
+			if (delta === 0) continue;
+			el.animate(
+				[
+					{ transform: `translateY(${delta}px)` },
+					{ transform: "translateY(0px)" },
+				],
+				{ duration: 150, easing: "ease" },
+			);
+		}
+	};
+
+	const reorder = (
+		communities: CommunityData[],
+		fromId: string | number,
+		toId: string | number,
+	) => {
+		const fromIndex = communities.findIndex((c) => c.rkey === fromId);
+		const toIndex = communities.findIndex((c) => c.rkey === toId);
+		if (fromIndex === toIndex || fromIndex === -1 || toIndex === -1)
+			return communities;
 		const reordered = communities.slice();
 		reordered.splice(toIndex, 0, ...reordered.splice(fromIndex, 1));
-		setCommunities(reordered);
+		return reordered;
+	};
+
+	const onDragStart = ({ draggable }: DragEvent) => {
+		setDraggedItem(
+			globalState.communities.find((c) => c.rkey === draggable.id),
+		);
+	};
+
+	const onDragOver = ({ draggable, droppable }: DragEvent) => {
+		if (!draggable || !droppable) return;
+		capturePositions();
+		setDraggingOrder(reorder(sortedCommunities(), draggable.id, droppable.id));
+		// Schedule after SolidJS has flushed DOM updates
+		queueMicrotask(() => animateToNewPositions());
+	};
+
+	const onDragEnd = ({ draggable, droppable }: DragEvent) => {
+		const finalOrder = draggingOrder();
+		setDraggingOrder(null);
+		setDraggedItem(undefined);
+		if (!draggable || !droppable || !finalOrder) return;
+		if (draggable.id === droppable.id) return;
+		setCommunities(finalOrder);
 	};
 
 	return (
@@ -161,10 +251,16 @@ const AppLayout: ParentComponent = (props) => {
 							</div>
 							<hr class="m-0 border-muted" />
 							<DragDropProvider
+								onDragStart={onDragStart}
+								onDragOver={onDragOver}
 								onDragEnd={onDragEnd}
 								collisionDetector={closestCenter}
 							>
-								<CommunitySidebar communities={globalState.communities} />
+								<CommunitySidebar
+									communities={draggingOrder() ?? sortedCommunities()}
+									draggedItem={draggedItem()}
+									onItemRef={(rkey, el) => itemEls.set(rkey, el)}
+								/>
 							</DragDropProvider>
 
 							<NewCommunityModal navigate={navigate}>

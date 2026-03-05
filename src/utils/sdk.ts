@@ -239,12 +239,63 @@ export class ColibriSDK {
 	};
 
 	/**
+	 * Adds a community to the user's defined community order.
+	 * @param did The DID of the user.
+	 * @param community The record key of the community to add.
+	 */
+	public addToCommunityOrder = async (
+		did: string,
+		community: string,
+	): Promise<void> => {
+		const res = await this.getActorData(did, false);
+
+		if (!res) {
+			throw new Error("Unable to get actor data.");
+		}
+
+		await this.agent.com.atproto.repo.putRecord({
+			repo: did,
+			collection: RECORD_IDs.ACTOR_DATA,
+			rkey: "self",
+			record: {
+				communities: [...res.communities, community],
+			},
+		});
+	};
+
+	/**
+	 * Overwrites a user's communities array with new ordered data.
+	 * @param did The DID of the user.
+	 * @param communities The communities in their correct order.
+	 */
+	public setCommunityOrder = async (
+		did: string,
+		communities: Array<string>,
+	): Promise<void> => {
+		const res = await this.getActorData(did, false);
+
+		if (!res) {
+			throw new Error("Unable to get actor data.");
+		}
+
+		await this.agent.com.atproto.repo.putRecord({
+			repo: did,
+			collection: RECORD_IDs.ACTOR_DATA,
+			rkey: "self",
+			record: {
+				status: res.status || "",
+				communities,
+			},
+		});
+	};
+
+	/**
 	 * Creates data for a new community for this user.
 	 * @param did The DID of the user.
 	 * @param name The name of the new community.
 	 * @param description The description of the new community.
 	 * @param _image (Unused) The image for the new community.
-	 * @returns The CID of the newly created community.
+	 * @returns The record key of the newly created community.
 	 */
 	public createCommunityData = async (
 		did: string,
@@ -265,7 +316,11 @@ export class ColibriSDK {
 
 		const res = await this.agent.com.atproto.repo.createRecord(record);
 
-		return res.data.uri.split("/").pop()!;
+		const rkey = res.data.uri.split("/").pop()!;
+
+		await this.addToCommunityOrder(did, rkey);
+
+		return rkey;
 	};
 
 	/**

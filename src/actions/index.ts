@@ -13,6 +13,8 @@ import { editMessage } from "./message/edit";
 import { postMessage } from "./message/post";
 import { addReaction } from "./reactions/add";
 import { removeReaction } from "./reactions/remove";
+import { setCommunityOrder } from "./user/community-order";
+import { removeFromCommunityOrder } from "./user/remove-from-order";
 
 export const server = {
 	createCommunity,
@@ -30,4 +32,6 @@ export const server = {
 	login,
 	addReaction,
 	removeReaction,
+	setCommunityOrder,
+	removeFromCommunityOrder,
 };

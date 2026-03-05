@@ -1,10 +1,11 @@
-import { PRIVATE_KEY_1, PRIVATE_KEY_2 } from "astro:env/server";
+import { PRIVATE_KEY_1, PRIVATE_KEY_2, REDIS_PASSWORD } from "astro:env/server";
 import { JoseKey } from "@atproto/jwk-jose";
 import {
 	NodeOAuthClient,
 	type NodeSavedSession,
 	type NodeSavedState,
 } from "@atproto/oauth-client-node";
+import { createClient } from "redis";
 
 export const scopes = [
 	"atproto",
@@ -19,8 +20,71 @@ export const scopes = [
 	"repo:app.bsky.actor.profile?action=create&action=update",
 ];
 
-const stateMap = new Map();
-const sessionMap = new Map();
+let redisClient: ReturnType<typeof createClient> | undefined;
+
+/**
+ * Returns an existing Redis client instance if available, otherwise creates a new client instance.
+ */
+const getRedisClient = async (): Promise<ReturnType<typeof createClient>> => {
+	if (redisClient) return redisClient;
+
+	redisClient = await createClient({ password: REDIS_PASSWORD })
+		.on("error", (err) => console.error("Redis Client Error", err))
+		.connect();
+
+	return redisClient;
+};
+
+/**
+ * Redis key namespace for OAuth state and session entries.
+ *
+ * - State entries (short-lived, used during the authorization flow):
+ *   `oauth:state:STATE_KEY`
+ *
+ * - Session entries (long-lived, tied to the access/refresh token lifetime):
+ *   `oauth:session:SUB`
+ */
+const stateKey = (key: string) => `oauth:state:${key}`;
+const sessionKey = (sub: string) => `oauth:session:${sub}`;
+
+/**
+ * How long (in seconds) to keep authorization state entries around.
+ * One hour is comfortably more than any real-world authorization round-trip.
+ */
+const STATE_TTL_SECONDS = 60 * 60; // 1 hour
+
+/**
+ * Derive a session TTL from the token set stored inside `NodeSavedSession`.
+ *
+ * - If the token set carries an `expires_at` ISO timestamp we use the
+ *   remaining duration from now, adding a 5-minute grace period so the
+ *   session record is still readable right at the moment the access token
+ *   expires (the client will then use the refresh token to get a new one,
+ *   which triggers a `sessionStore.set` call that will reset the TTL).
+ * - If `expires_at` is absent (e.g. the server did not advertise a lifetime)
+ *   we fall back to 90 days, which covers the typical maximum refresh-token
+ *   lifetime seen in atproto implementations.
+ */
+const deriveSessionTtlSeconds = (session: NodeSavedSession): number => {
+	const FALLBACK_TTL = 60 * 60 * 24 * 90; // 90 days
+	const GRACE_SECONDS = 60 * 5; // 5 minutes
+
+	const expiresAt = session.tokenSet?.expires_at;
+	if (!expiresAt) return FALLBACK_TTL;
+
+	const expiresAtMs = new Date(expiresAt).getTime();
+	if (Number.isNaN(expiresAtMs)) return FALLBACK_TTL;
+
+	const remainingSeconds = Math.floor((expiresAtMs - Date.now()) / 1000);
+
+	// If the access token is already expired the session is still useful as
+	// long as a refresh token is present; keep it for the fallback duration.
+	if (remainingSeconds <= 0) {
+		return session.tokenSet?.refresh_token ? FALLBACK_TTL : 0;
+	}
+
+	return remainingSeconds + GRACE_SECONDS;
+};
 
 // See https://npmx.dev/package/@atproto/oauth-client-node#user-content-from-a-backend-service
 export const client = new NodeOAuthClient({
@@ -57,33 +121,56 @@ export const client = new NodeOAuthClient({
 		JoseKey.fromImportable(PRIVATE_KEY_2, "key2"),
 	]),
 
-	// TODO: Move the following three things to Redis. See https://npmx.dev/package/@atproto/oauth-client-node#user-content-requestlock
-	// for more info.
-	// NOTE: https://npmx.dev/package/@atproto/oauth-client-node#user-content-requestlock could be relevant.
-
-	// Interface to store authorization state data (during authorization flows)
+	// Interface to store authorization state data (during authorization flows).
+	// Entries are short-lived: we apply a fixed 1-hour TTL and delete
+	// explicitly after a successful callback.
 	stateStore: {
 		async set(key: string, internalState: NodeSavedState): Promise<void> {
-			stateMap.set(key, internalState);
+			const redis = await getRedisClient();
+			await redis.set(stateKey(key), JSON.stringify(internalState), {
+				EX: STATE_TTL_SECONDS,
+			});
 		},
 		async get(key: string): Promise<NodeSavedState | undefined> {
-			return stateMap.get(key);
+			const redis = await getRedisClient();
+			const raw = await redis.get(stateKey(key));
+			if (!raw) return undefined;
+			return JSON.parse(raw) as NodeSavedState;
 		},
 		async del(key: string): Promise<void> {
-			stateMap.delete(key);
+			const redis = await getRedisClient();
+			await redis.del(stateKey(key));
 		},
 	},
 
-	// Interface to store authenticated session data
+	// Interface to store authenticated session data.
+	// TTL is derived from the token set's `expires_at` field (access token
+	// lifetime + 5-minute grace), falling back to 90 days when absent so that
+	// long-lived refresh tokens are not evicted prematurely.
 	sessionStore: {
 		async set(sub: string, session: NodeSavedSession): Promise<void> {
-			sessionMap.set(sub, session);
+			const redis = await getRedisClient();
+			const ttl = deriveSessionTtlSeconds(session);
+
+			if (ttl <= 0) {
+				// Token is already expired and has no refresh token — no point storing it.
+				await redis.del(sessionKey(sub));
+				return;
+			}
+
+			await redis.set(sessionKey(sub), JSON.stringify(session), {
+				EX: ttl,
+			});
 		},
 		async get(sub: string): Promise<NodeSavedSession | undefined> {
-			return sessionMap.get(sub);
+			const redis = await getRedisClient();
+			const raw = await redis.get(sessionKey(sub));
+			if (!raw) return undefined;
+			return JSON.parse(raw) as NodeSavedSession;
 		},
 		async del(sub: string): Promise<void> {
-			sessionMap.delete(sub);
+			const redis = await getRedisClient();
+			await redis.del(sessionKey(sub));
 		},
 	},
 

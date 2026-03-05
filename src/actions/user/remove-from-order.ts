@@ -5,11 +5,11 @@ import { z } from "astro/zod";
 import { ActionError } from "astro:actions";
 import { defineAction } from "astro:actions";
 
-export const setCommunityOrder = defineAction({
+export const removeFromCommunityOrder = defineAction({
 	input: z.object({
-		communities: z.array(z.string()),
+		community: z.string(),
 	}),
-	handler: async ({ communities }, { session }) => {
+	handler: async ({ community }, { session }) => {
 		try {
 			if (!session || !session?.has("user")) {
 				throw new ActionError({
@@ -23,8 +23,10 @@ export const setCommunityOrder = defineAction({
 			const agent = new Agent(oauthSession);
 			const sdk = new ColibriSDK(agent);
 
-			session.set("user", { ...user, communities });
-			await sdk.setCommunityOrder(agent.did!, communities);
+			const newList = user.communities.filter((x) => x !== community);
+
+			session.set("user", { ...user, communities: newList });
+			await sdk.setCommunityOrder(agent.did!, newList);
 
 			return;
 		} catch (e) {
