@@ -12,7 +12,7 @@ services:
     container_name: app
     restart: unless-stopped
     ports:
-      - "127.0.0.1:4321:4321"
+      - "0.0.0.0:4321:4321"
     environment:
       - PRIVATE_KEY_1=${PRIVATE_KEY_1}
       - PRIVATE_KEY_2=${PRIVATE_KEY_2}
