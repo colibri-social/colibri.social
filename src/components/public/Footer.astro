@@ -23,7 +23,7 @@ const links: Array<LinkData> = [
 		height={387}
 		quality={100}
 		alt={"Grayscale Plants"}
-		class="absolute -top-72 z-10 -right-44"
+		class="absolute -top-72 z-10 -right-44 hidden md:block"
 	/>
 	<Image
 		src={Plants}
@@ -31,19 +31,19 @@ const links: Array<LinkData> = [
 		height={395}
 		quality={100}
 		alt={"Grayscale Plants"}
-		class="absolute -top-full -left-52 z-10"
+		class="absolute -top-full -left-52 z-10 hidden md:block"
 	/>
 	<div class="w-full h-full bg-gradient-dark absolute rounded-t-xl z-10"></div>
 	<div
-		class="py-6 mx-auto w-full max-w-336 px-16 flex flex-row items-center justify-between z-20"
+		class="py-6 mx-auto w-full max-w-336 md:px-16 px-6 flex flex-row items-center justify-between z-20 flex-wrap"
 	>
 		<HomeLink />
 		<span class="font-light">©️ 2026 Colibri Social Maintainers</span>
 	</div>
 	<div
-		class="flex flex-row items-center justify-between mx-auto w-full max-w-336 px-16 pb-6 z-20"
+		class="flex flex-row items-center justify-between mx-auto w-full max-w-336 md:px-16 px-6 pb-6 z-20 flex-wrap"
 	>
-		{links.map(({ text, href }) => <NavLink {text} {href} />)}
+		{links.map(({ text, href }) => <NavLink isFooterLink {text} {href} />)}
 	</div>
 	<hr class="my-4 z-20" />
 	<div

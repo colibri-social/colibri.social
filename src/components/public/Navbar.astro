@@ -19,24 +19,140 @@ const user = await Astro.session?.get("user");
 	class="w-full h-fit absolute top-0 left-0 flex flex-row justify-between items-center p-6 z-50"
 >
 	<HomeLink />
-	<div class="flex flex-row items-center gap-4">
+
+	<div
+		id="mobile-menu"
+		class="lg:flex fixed inset-0 z-40 flex flex-col items-center justify-center gap-8 lg:gap-4 bg-background text-6xl transition-opacity duration-300 opacity-0 pointer-events-none [&.open]:opacity-100 [&.open]:pointer-events-auto"
+	>
+		{
+			links.map(({ text, href }, i) => (
+				<div
+					class="mobile-link translate-y-6 opacity-0 transition-[transform,opacity] duration-300"
+					style={`transition-delay: ${i * 60}ms`}
+				>
+					<NavLink {text} {href} />
+				</div>
+			))
+		}
+		<div
+			class="mobile-link translate-y-6 opacity-0 transition-[transform,opacity] duration-300 flex gap-3 mt-4"
+			style={`transition-delay: ${links.length * 60}ms`}
+		>
+			{!user && <Button href="/login">Log in</Button>}
+			{user && <Button href="/app">Go to app</Button>}
+			{
+				user && (
+					<Button href="/auth/logout" variant="destructive">
+						Log out
+					</Button>
+				)
+			}
+		</div>
+	</div>
+
+	<div class="hidden lg:flex flex-row items-center gap-4 text-base">
 		{links.map(({ text, href }) => <NavLink {text} {href} />)}
 	</div>
-	{
-		!user && (
-			<div class="w-40 flex justify-end">
-				<Button href="/login">Log in</Button>
-			</div>
-		)
-	}
-	{
-		user && (
-			<div class="w-40 flex justify-end items-center gap-4">
-				<Button href="/app">Go to app</Button>
-				<Button href="/auth/logout" variant="destructive">
+
+	<div class="w-40 flex justify-end items-center gap-4">
+		{
+			!user && (
+				<Button href="/login" class="hidden lg:inline-flex">
+					Log in
+				</Button>
+			)
+		}
+		{
+			user && (
+				<Button href="/app" class="hidden lg:inline-flex">
+					Go to app
+				</Button>
+			)
+		}
+		{
+			user && (
+				<Button
+					href="/auth/logout"
+					variant="destructive"
+					class="hidden lg:inline-flex"
+				>
 					Log out
 				</Button>
-			</div>
-		)
-	}
+			)
+		}
+
+		<button
+			id="menu-toggle"
+			class="lg:hidden relative z-50 flex flex-col justify-center items-center w-9 h-9 gap-1.5 rounded-md hover:bg-accent transition-colors"
+			aria-label="Toggle menu"
+			aria-expanded="false"
+			aria-controls="mobile-menu"
+		>
+			<span
+				class="menu-bar block w-5 h-0.5 bg-foreground rounded-full transition-[transform,opacity] duration-300 origin-center"
+			></span>
+			<span
+				class="menu-bar block w-5 h-0.5 bg-foreground rounded-full transition-[transform,opacity] duration-300 origin-center"
+			></span>
+			<span
+				class="menu-bar block w-5 h-0.5 bg-foreground rounded-full transition-[transform,opacity] duration-300 origin-center"
+			></span>
+		</button>
+	</div>
 </nav>
+
+<script>
+	const toggle = document.getElementById("menu-toggle")!;
+	const menu = document.getElementById("mobile-menu")!;
+	const bars = toggle.querySelectorAll<HTMLElement>(".menu-bar");
+	const mobileLinks = menu.querySelectorAll<HTMLElement>(".mobile-link");
+
+	let isOpen = false;
+
+	function openMenu() {
+		isOpen = true;
+		menu.classList.add("open");
+		document.body.style.overflow = "hidden";
+		toggle.setAttribute("aria-expanded", "true");
+
+		bars[0].style.transform = "translateY(8px) rotate(45deg)";
+		bars[1].style.opacity = "0";
+		bars[2].style.transform = "translateY(-8px) rotate(-45deg)";
+
+		mobileLinks.forEach((link) => {
+			link.classList.remove("translate-y-6", "opacity-0");
+		});
+	}
+
+	function closeMenu() {
+		isOpen = false;
+		document.body.style.overflow = "";
+		toggle.setAttribute("aria-expanded", "false");
+
+		bars[0].style.transform = "";
+		bars[1].style.opacity = "";
+		bars[2].style.transform = "";
+
+		mobileLinks.forEach((link) => {
+			link.classList.add("translate-y-6", "opacity-0");
+		});
+
+		menu.addEventListener(
+			"transitionend",
+			() => {
+				if (!isOpen) menu.classList.remove("open");
+			},
+			{ once: true },
+		);
+		menu.classList.remove("open");
+	}
+
+	toggle.addEventListener("click", () => {
+		if (isOpen) closeMenu();
+		else openMenu();
+	});
+
+	menu.querySelectorAll("a").forEach((link) => {
+		link.addEventListener("click", () => closeMenu());
+	});
+</script>

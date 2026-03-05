@@ -4,23 +4,74 @@ import PublicLayout from "@/layouts/PublicLayout.astro";
 
 <PublicLayout>
 	<section
-		class="py-40 mx-auto w-full max-w-336 px-16 relative flex flex-col items-center gap-8"
+		class="py-40 mx-auto w-full max-w-336 md:px-16 px-6 relative flex flex-col items-center gap-12"
 	>
-		<div class="flex flex-col gap-4 items-center text-center">
+		<div class="flex flex-col gap-4 items-center text-center max-w-[65ch]">
 			<small class="text-primary text-sm">
 				Questions? We've got answers.
 			</small>
-			<h1 class="text-5xl font-black m-0">Frequently Asked Questions</h1>
+			<h1 class="text-5xl font-black m-0 leading-14">
+				Frequently Asked Questions
+			</h1>
 			<p class="m-0 text-muted-foreground">
-				Unsure about anything? You're in the right place, you'll probably find
-				an answer here.
+				Unsure about anything? You'll probably find an answer here.
 			</p>
 		</div>
 		<div
-			class="mx-8 mb-0 w-full border-none h-px bg-border relative prose prose-neutral dark:prose-invert"
+			class="mx-8 mb-0 w-full border-none h-px bg-border relative max-w-[65ch]"
 		>
 		</div>
-		<h2>TODO</h2>
+		<div class="w-full prose prose-neutral dark:prose-invert max-w-[65ch]">
+			<h2>What is the AT Protocol?</h2>
+			<p>
+				The AT Protocol (Authenticated Transfer Protocol) is an open,
+				decentralized network originally created by the team behind Bluesky. It
+				lets you truly own your identity and data — your account, posts, and
+				social graph aren't locked into any single platform. With over 40
+				million users, it's a growing foundation for the next generation of
+				social apps. You can learn more at <a
+					href="https://atproto.com"
+					target="_blank">atproto.com</a
+				>.
+			</p>
+			<h2>Why is Colibri built on the AT Protocol?</h2>
+			<p>
+				We believe your community shouldn't be held hostage by any single
+				company. Building on the AT Protocol means your data is portable, your
+				identity is yours, and Colibri can't lock you in. If you ever want to
+				move, your data comes with you.
+			</p>
+			<h2>Can I use my Bluesky account with Colibri?</h2>
+			<p>
+				Yes! Since Colibri is built on the same AT Protocol that powers Bluesky,
+				you can sign in with your existing Bluesky handle. No need to create a
+				new account — your identity carries over seamlessly. Just log in and
+				you're ready to go.
+			</p>
+			<h2>Can I use my private PDS account?</h2>
+			<p>
+				Absolutely. If you're running your own Personal Data Server, Colibri
+				works with it out of the box. Just sign in with your handle or DID and
+				we'll connect to your PDS directly. You stay in full control of where
+				your data lives — that's the whole point of the AT Protocol.
+			</p>
+			<h2>
+				Do you host a PDS if I want a new account or move my data over to you?
+			</h2>
+			<p>
+				We do! You can sign up with us via the Log-in Page or use a tool like
+				<a href="https://pdsmoover.com/">PDS MOOver</a> to migrate. Our PDS is also
+				hosted at colibri.social.
+			</p>
+			<h2>Where is my private data hosted?</h2>
+			<p>
+				The AT Protocol doesn't support private data yet, so any private
+				community data (like messages in private groups) is stored securely on
+				our EU-based servers. Once the AT Protocol introduces support for
+				private data, we'll handle the migration for you automatically — no
+				action needed on your end.
+			</p>
+		</div>
 	</section>
 </PublicLayout>
 <style is:global>
