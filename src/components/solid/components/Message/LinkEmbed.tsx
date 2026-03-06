@@ -37,14 +37,14 @@ export const LinkEmbed: Component<{ uri: string }> = (props) => {
 				<img
 					width={400}
 					height={210}
-					class="w-full h-auto rounded-xs my-2"
+					class="w-full h-auto rounded-xs my-2 bg-muted border-none"
 					src={
 						new URL(props.uri).protocol +
 						"//" +
 						new URL(props.uri).host +
 						embedData()?.image![0].url
 					}
-					alt={embedData()?.image![0].alt}
+					alt={embedData()?.image![0].alt || ""}
 				/>
 			</Show>
 		</div>
