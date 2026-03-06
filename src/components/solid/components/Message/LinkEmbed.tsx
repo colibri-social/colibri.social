@@ -40,6 +40,7 @@ export const LinkEmbed: Component<{ uri: string }> = (props) => {
 					class="w-full h-auto rounded-xs my-2"
 					src={
 						new URL(props.uri).protocol +
+						"//" +
 						new URL(props.uri).host +
 						embedData()?.image![0].url
 					}
