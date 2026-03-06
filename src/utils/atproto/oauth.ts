@@ -7,6 +7,7 @@ import {
 } from "@atproto/oauth-client-node";
 import { createClient } from "redis";
 import { REDIS_URL } from "astro:env/server";
+import { getRedisClient } from "../redis";
 
 export const scopes = [
 	"atproto",
@@ -20,21 +21,6 @@ export const scopes = [
 	"repo:social.colibri.reaction?action=create&action=delete",
 	"repo:app.bsky.actor.profile?action=create&action=update",
 ];
-
-let redisClient: ReturnType<typeof createClient> | undefined;
-
-/**
- * Returns an existing Redis client instance if available, otherwise creates a new client instance.
- */
-const getRedisClient = async (): Promise<ReturnType<typeof createClient>> => {
-	if (redisClient) return redisClient;
-
-	redisClient = await createClient({ password: REDIS_PASSWORD, url: REDIS_URL })
-		.on("error", (err) => console.error("Redis Client Error", err))
-		.connect();
-
-	return redisClient;
-};
 
 /**
  * Redis key namespace for OAuth state and session entries.

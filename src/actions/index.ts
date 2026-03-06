@@ -8,6 +8,7 @@ import { editChannel } from "./channel/edit";
 import { createCommunity } from "./community/create";
 import { deleteCommunity } from "./community/delete";
 import { editCommunity } from "./community/edit";
+import { getEmbedDataForURI } from "./embeds/get";
 import { deleteMessage } from "./message/delete";
 import { editMessage } from "./message/edit";
 import { postMessage } from "./message/post";
@@ -34,4 +35,5 @@ export const server = {
 	removeReaction,
 	setCommunityOrder,
 	removeFromCommunityOrder,
+	getEmbedDataForURI,
 };

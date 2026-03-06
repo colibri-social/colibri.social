@@ -28,6 +28,8 @@ import { MessageAction } from "./MessageAction";
 import { MessageContextMenu } from "./MessageContextMenu";
 import { MessageDeletionDrawer } from "./MessageDeletionDrawer";
 import { deleteMessage } from "./util";
+import { LinkEmbed } from "./LinkEmbed";
+import type { ColibriRichTextLink } from "@/utils/atproto/rich-text/detection";
 
 /**
  * A rendered message component in a chat.
@@ -333,6 +335,13 @@ export const Message: Component<{
 		}
 	});
 
+	const linkFacets = (): Array<ColibriRichTextLink> =>
+		props.data.facets
+			?.filter(
+				(f) => f.features[0].$type === "social.colibri.richtext.facet#link",
+			)
+			.map((f) => f.features[0] as ColibriRichTextLink) || [];
+
 	return (
 		<MessageContextMenu
 			data={props.data}
@@ -479,6 +488,13 @@ export const Message: Component<{
 								</div>
 							</Show>
 						</div>
+						<Show when={linkFacets().length > 0}>
+							<div class="flex flex-row flex-wrap gap-4">
+								<For each={linkFacets()}>
+									{(item) => <LinkEmbed uri={item.uri} />}
+								</For>
+							</div>
+						</Show>
 					</div>
 					<Show when={!isPending()}>
 						<div
