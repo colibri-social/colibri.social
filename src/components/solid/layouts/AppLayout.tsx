@@ -150,19 +150,19 @@ const AppLayout: ParentComponent = (props) => {
 	const [globalState, { setCommunities }] = useGlobalContext();
 	const navigate = useNavigate();
 
-	if (
-		window.location.pathname === "/app" &&
-		globalState.communities.length > 0
-	) {
-		navigate(`/c/${globalState.communities[0].rkey}`);
-	}
-
 	const sortedCommunities = () =>
 		globalState.communities.toSorted(
 			(a, b) =>
 				globalState.user.communities.indexOf(a.rkey) -
 				globalState.user.communities.indexOf(b.rkey),
 		);
+
+	if (
+		window.location.pathname === "/app" &&
+		globalState.communities.length > 0
+	) {
+		navigate(`/c/${sortedCommunities()[0].rkey}`);
+	}
 
 	const [draggingOrder, setDraggingOrder] = createSignal<
 		CommunityData[] | null
