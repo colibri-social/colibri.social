@@ -29,6 +29,7 @@ export const LinkEmbed: Component<{ uri: string }> = (props) => {
 			<a
 				class="font-medium w-fit text-(--primary-hover)! decoration-(--primary-hover) hover:underline"
 				href={props.uri}
+				target="_blank"
 			>
 				{embedData()?.title}
 			</a>
