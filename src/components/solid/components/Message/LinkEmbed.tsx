@@ -16,7 +16,7 @@ const fetchEmbedData = async (uri: string) => {
 
 /**
  * @todo Display suspense, different twitter card types for images,
- * figure out why links only produce two messages in chat
+ * figure out why links only produce two messages in chat, load on with message
  */
 export const LinkEmbed: Component<{ uri: string }> = (props) => {
 	const [embedData] = createResource(props.uri, fetchEmbedData);
