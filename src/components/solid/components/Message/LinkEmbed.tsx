@@ -24,7 +24,7 @@ export const LinkEmbed: Component<{ uri: string }> = (props) => {
 		<Show
 			when={
 				embedData() &&
-				Object.keys(embedData()!).every(
+				Object.keys(embedData()!).some(
 					(key) => !!embedData()![key as keyof ReturnType<typeof embedData>],
 				)
 			}
