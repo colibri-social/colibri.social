@@ -18,10 +18,10 @@ export const handleNewMessage = async (
 ): Promise<void> => {
 	const string = stringify({
 		text: data.text,
-		facets: [],
+		facets: data.facets ?? [],
 		channel: data.channel,
 		createdAt: data.created_at,
-		parent: data.parent || undefined,
+		parent: data.parent?.rkey || undefined,
 	})!;
 
 	const hash = await generateHash(string);
@@ -36,7 +36,7 @@ export const handleNewMessage = async (
 		created_at: data.created_at,
 		display_name: data.display_name,
 		avatar_url: data.avatar_url,
-		facets: [],
+		facets: data.facets ?? [],
 		reactions: [],
 		parent_message: data.parent ?? null,
 		edited: data.edited,

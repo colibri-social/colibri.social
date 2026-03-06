@@ -230,7 +230,7 @@ const CommunityLayout: ParentComponent = (props) => {
 
 								<UserStatus />
 							</aside>
-							<div class="w-full h-full flex flex-col max-h-[calc(100vh-39px)] max-w-[calc(100vw-576px-56px-1px)]">
+							<div class="w-full h-full flex flex-col max-h-[calc(100vh-41px)] max-w-[calc(100vw-576px-56px-1px)]">
 								<div class="w-full flex-1 min-h-0">{props.children}</div>
 								<Show when={!!params.channel}>
 									<MessageInput />

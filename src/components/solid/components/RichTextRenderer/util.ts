@@ -41,7 +41,7 @@ const applyStyleForFacet = (
 		case "social.colibri.richtext.facet#link": {
 			const uri =
 				"uri" in feature ? escapeAttr(String(feature.uri)) : escapeAttr(text);
-			return `<a data-facet-type="link" title="${uri}" data-uri="${uri}" href="${uri}" class="text-primary-foreground font-medium hover:underline inline w-fit" target="_blank">${text}</a>`;
+			return `<a data-facet-type="link" title="${uri}" data-uri="${uri}" href="${uri}" class="text-(--primary-hover) decoration-(--primary-hover) font-medium hover:underline inline w-fit" target="_blank">${text}</a>`;
 		}
 		case "social.colibri.richtext.facet#channel": {
 			const channel =

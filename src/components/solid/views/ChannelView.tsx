@@ -30,7 +30,7 @@ const BOTTOM_THRESHOLD = 80;
 
 const ChannelView: Component = () => {
 	const params = useParams();
-	const [messageData] = useMessageContext();
+	const [messageData, { registerEmbedLoadCallback }] = useMessageContext();
 	const [
 		globalState,
 		{ sendSocketMessage, clearAdditionalMessages, clearDeletedMessages },
@@ -43,6 +43,7 @@ const ChannelView: Component = () => {
 	let chatContainer: HTMLDivElement | undefined;
 	let topSentinel: HTMLDivElement | undefined;
 	let observer: IntersectionObserver | undefined;
+	let pinnedToBottom = false;
 
 	const allMessages = createMemo(
 		(): Array<IndexedMessageData | PendingMessageData> => {
@@ -118,6 +119,14 @@ const ChannelView: Component = () => {
 
 	onMount(() => {
 		setupIntersectionObserver();
+
+		const unregister = registerEmbedLoadCallback(() => {
+			if (pinnedToBottom || isAtBottom()) {
+				requestAnimationFrame(scrollToBottom);
+			}
+		});
+
+		onCleanup(unregister);
 	});
 
 	onCleanup(() => {
@@ -159,28 +168,29 @@ const ChannelView: Component = () => {
 		clearDeletedMessages();
 	});
 
-	// Once the first fetch completes, scroll to the bottom once.
-	// setScrolled(true) prevents this from ever running again for this channel.
 	createEffect(() => {
 		if (scrolled()) return;
 		if (!history.reachedTop() && allMessages().length === 0) return;
 
-		scrollToBottom();
+		pinnedToBottom = true;
+		requestAnimationFrame(() => {
+			scrollToBottom();
+			pinnedToBottom = false;
+		});
 		setScrolled(true);
 	});
 
-	// When a new message is appended and the user is already near the bottom,
-	// scroll to reveal it. We track message count reactively; the actual scroll
-	// check reads chatContainer untracked so it doesn't create a dependency.
 	createEffect(
 		on(
 			() => allMessages().length,
 			() => {
 				if (!scrolled()) return;
-				// isAtBottom reads chatContainer - untrack so we don't subscribe to
-				// any signals that might be inside it.
 				if (untrack(isAtBottom)) {
-					requestAnimationFrame(scrollToBottom);
+					pinnedToBottom = true;
+					requestAnimationFrame(() => {
+						scrollToBottom();
+						pinnedToBottom = false;
+					});
 				}
 			},
 		),

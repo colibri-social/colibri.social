@@ -1,4 +1,5 @@
 import type { IndexedMessageData } from "@/utils/sdk";
+import type { Facet } from "@/utils/atproto/rich-text";
 
 export type AckEvent = {
 	type: "ack";
@@ -10,6 +11,7 @@ export type MessageEventPayload = {
 	rkey: string;
 	author_did: string;
 	text: string;
+	facets: Facet[];
 	channel: string;
 	created_at: string;
 	indexed_at: string;

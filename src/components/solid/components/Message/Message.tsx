@@ -488,13 +488,6 @@ export const Message: Component<{
 								</div>
 							</Show>
 						</div>
-						<Show when={linkFacets().length > 0}>
-							<div class="flex flex-row flex-wrap gap-4">
-								<For each={linkFacets()}>
-									{(item) => <LinkEmbed uri={item.uri} />}
-								</For>
-							</div>
-						</Show>
 					</div>
 					<Show when={!isPending()}>
 						<div
@@ -607,6 +600,13 @@ export const Message: Component<{
 									</span>
 								</button>
 							)}
+						</For>
+					</div>
+				</Show>
+				<Show when={linkFacets().length > 0 && !("hash" in props.data)}>
+					<div class="flex flex-row flex-wrap gap-4 pl-14">
+						<For each={linkFacets()}>
+							{(item) => <LinkEmbed uri={item.uri} />}
 						</For>
 					</div>
 				</Show>

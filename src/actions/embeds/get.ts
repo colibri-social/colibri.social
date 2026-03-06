@@ -15,7 +15,7 @@ type OgReturnData = OgObject & { themeColor: string | undefined };
 const getOpenGraphData = async (
 	uri: string,
 ): Promise<OgReturnData | undefined> => {
-	const { error, result } = await ogs({
+	const { error, html, result } = await ogs({
 		url: uri,
 		customMetaTags: [
 			{ fieldName: "theme-color", property: "themeColor", multiple: false },
@@ -24,7 +24,12 @@ const getOpenGraphData = async (
 
 	if (error) return undefined;
 
-	return result as OgReturnData;
+	const themeColorRes =
+		/<meta\s+name="theme-color"\s+content="(#[\w\d]+)"/.exec(html);
+
+	const themeColor = themeColorRes ? themeColorRes[1] : undefined;
+
+	return { ...result, themeColor } as OgReturnData;
 };
 
 type TwitterCardStyle = "summary_card" | "summary_large_image";
@@ -47,7 +52,7 @@ const consolidateOpenGraphInfo = (
 		description: info.ogDescription || info.twitterDescription,
 		image: info.ogImage || info.twitterImage,
 		cardStyle: info.twitterCard as TwitterCardStyle | undefined,
-		themeColor: info.themeColor,
+		themeColor: info.themeColor as string | undefined,
 	};
 };
 

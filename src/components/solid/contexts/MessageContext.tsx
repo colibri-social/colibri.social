@@ -2,6 +2,8 @@ import { createContext, type ParentComponent, useContext } from "solid-js";
 import { createStore } from "solid-js/store";
 import type { IndexedMessageData } from "@/utils/sdk";
 
+export type EmbedLoadCallback = () => void;
+
 export type MessageContextData = {
 	replyingTo: IndexedMessageData | undefined;
 	focusedMessage: IndexedMessageData | undefined;
@@ -14,6 +16,8 @@ export type MessageContextUtility = {
 	jumpToMessage: (message: IndexedMessageData) => void;
 	setEditingMessage: (rkey: string) => void;
 	clearEditingMessage: () => void;
+	registerEmbedLoadCallback: (cb: EmbedLoadCallback) => () => void;
+	notifyEmbedLoad: () => void;
 };
 
 export const MessageContext =
@@ -25,6 +29,8 @@ export const MessageContextProvider: ParentComponent = (props) => {
 		focusedMessage: undefined,
 		editingMessageRkey: undefined,
 	});
+
+	const embedLoadCallbacks = new Set<EmbedLoadCallback>();
 
 	const context: [MessageContextData, MessageContextUtility] = [
 		messageContext,
@@ -48,6 +54,13 @@ export const MessageContextProvider: ParentComponent = (props) => {
 			},
 			clearEditingMessage() {
 				setMessageContext("editingMessageRkey", undefined);
+			},
+			registerEmbedLoadCallback(cb) {
+				embedLoadCallbacks.add(cb);
+				return () => embedLoadCallbacks.delete(cb);
+			},
+			notifyEmbedLoad() {
+				for (const cb of embedLoadCallbacks) cb();
 			},
 		},
 	];
