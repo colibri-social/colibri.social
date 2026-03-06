@@ -1,4 +1,13 @@
-import { type Component, createMemo, For } from "solid-js";
+import {
+	closestCenter,
+	createSortable,
+	DragDropProvider,
+	DragDropSensors,
+	type DragEvent,
+	SortableProvider,
+	useDragDropContext,
+} from "@thisbeyond/solid-dnd";
+import { type Component, createMemo, createSignal, For } from "solid-js";
 import type {
 	SidebarCategoryData,
 	SidebarChannelData,
@@ -9,13 +18,87 @@ import { Plus } from "../../icons/Plus";
 import { Button } from "../../shadcn-solid/Button";
 import { Category } from "../Category/Category";
 import { CategoryCreationModal } from "./CategoryCreationModal";
+import { actions } from "astro:actions";
 
-/**
- * A list of channels displayed on the sidebar.
- */
+const capturePositions = (
+	els: Map<string, HTMLElement>,
+	tops: Map<string, number>,
+) => {
+	for (const [rkey, el] of els) {
+		tops.set(rkey, el.getBoundingClientRect().top);
+	}
+};
+
+const animateToNewPositions = (
+	els: Map<string, HTMLElement>,
+	tops: Map<string, number>,
+) => {
+	for (const [rkey, el] of els) {
+		const oldTop = tops.get(rkey);
+		if (oldTop === undefined) continue;
+		const newTop = el.getBoundingClientRect().top;
+		const delta = oldTop - newTop;
+		if (delta === 0) continue;
+		el.animate(
+			[
+				{ transform: `translateY(${delta}px)` },
+				{ transform: "translateY(0px)" },
+			],
+			{ duration: 150, easing: "ease" },
+		);
+	}
+};
+
+const SortableCategory: Component<{
+	category: SidebarCategoryData;
+	community: string;
+	draggedCategory: SidebarCategoryData | undefined;
+}> = (props) => {
+	const sortable = createSortable(props.category.rkey);
+	const [, { onDragStart, onDragEnd: onDndDragEnd }] = useDragDropContext()!;
+
+	let el: HTMLDivElement | undefined;
+
+	onDragStart(({ draggable }) => {
+		if (draggable.id === props.category.rkey) {
+			el?.style.removeProperty("transition");
+		} else {
+			el?.style.setProperty("transition", "transform 200ms ease");
+		}
+	});
+
+	onDndDragEnd(() => {
+		el?.style.removeProperty("transition");
+	});
+
+	return (
+		<div
+			ref={(node) => {
+				el = node;
+				sortable.ref(node);
+			}}
+		>
+			<div
+				style={{
+					"touch-action": "none",
+				}}
+				{...sortable.dragActivators}
+			>
+				<Category
+					category={props.category}
+					community={props.community}
+					activeDraggable={sortable.isActiveDraggable}
+				/>
+			</div>
+		</div>
+	);
+};
+
 export const ChannelList: Component<{
 	data: SidebarData;
 	community: string;
+	onCategoryReorder?: (categories: SidebarCategoryData[]) => void;
+	categoryOrder: Array<string>;
 }> = (props) => {
 	const [globalContext] = useGlobalContext();
 
@@ -42,6 +125,7 @@ export const ChannelList: Component<{
 			);
 
 			const removedChannelRkeys = new Set(globalContext.removedChannels);
+			const removedCategoryRkeys = new Set(globalContext.removedCategories);
 
 			const globalChannelsForCommunity = globalContext.addedChannels.filter(
 				(ch) => ch.community === props.community,
@@ -51,15 +135,14 @@ export const ChannelList: Component<{
 				globalChannelsForCommunity.map((ch) => [ch.rkey, ch]),
 			);
 
-			const serverCategories: Array<SidebarCategoryData> =
-				props.data.categories.map((c) => {
-					// Use the global context version if present (optimistic update wins).
+			const serverCategories: Array<SidebarCategoryData> = props.data.categories
+				.filter((c) => !removedCategoryRkeys.has(c.rkey))
+				.map((c) => {
 					const override = globalCategoryByRkey.get(c.rkey);
 
 					const channels: Array<SidebarChannelData> = c.channels
 						.filter((ch) => !removedChannelRkeys.has(ch.rkey))
 						.map((ch) => {
-							// Use the global context version if present (optimistic update wins).
 							const globalCh = globalChannelByRkey.get(ch.rkey);
 							if (globalCh) {
 								return {
@@ -85,7 +168,11 @@ export const ChannelList: Component<{
 
 			const optimisticCategories: Array<SidebarCategoryData> =
 				globalCategoriesForCommunity
-					.filter((c) => !serverCategoryRkeys.has(c.rkey))
+					.filter(
+						(c) =>
+							!serverCategoryRkeys.has(c.rkey) &&
+							!removedCategoryRkeys.has(c.rkey),
+					)
 					.map((c) => ({
 						uri: "",
 						rkey: c.rkey,
@@ -94,7 +181,13 @@ export const ChannelList: Component<{
 						channels: [],
 					}));
 
-			const categories = [...serverCategories, ...optimisticCategories];
+			const unsortedCategories = [...serverCategories, ...optimisticCategories];
+
+			const categories = unsortedCategories.sort(
+				(a, b) =>
+					props.categoryOrder?.indexOf(a.rkey) -
+					props.categoryOrder?.indexOf(b.rkey),
+			);
 
 			const serverChannelRkeys = new Set([
 				...props.data.categories.flatMap((c) =>
@@ -148,22 +241,130 @@ export const ChannelList: Component<{
 		},
 	);
 
+	const [committedOrder, setCommittedOrder] = createSignal<
+		SidebarCategoryData[] | null
+	>(null);
+
+	let dragBaseOrder: SidebarCategoryData[] | null = null;
+
+	const sortedCategories = () => {
+		const current = committedOrder();
+		if (current) {
+			const byRkey = new Map(processed().categories.map((c) => [c.rkey, c]));
+			return current.map((c) => byRkey.get(c.rkey) ?? c);
+		}
+		return processed().categories;
+	};
+
+	const [draggingOrder, setDraggingOrder] = createSignal<
+		SidebarCategoryData[] | null
+	>(null);
+	const [draggedCategory, setDraggedCategory] = createSignal<
+		SidebarCategoryData | undefined
+	>(undefined);
+
+	const categoryEls = new Map<string, HTMLElement>();
+	const categoryTops = new Map<string, number>();
+
+	const reorder = (
+		list: SidebarCategoryData[],
+		fromId: string | number,
+		toId: string | number,
+	): SidebarCategoryData[] => {
+		const from = list.findIndex((c) => c.rkey === fromId);
+		const to = list.findIndex((c) => c.rkey === toId);
+		if (from === -1 || to === -1 || from === to) return list;
+		const next = list.slice();
+		next.splice(to, 0, ...next.splice(from, 1));
+		return next;
+	};
+
+	const onDragStart = ({ draggable }: DragEvent) => {
+		dragBaseOrder = sortedCategories();
+		setDraggedCategory(dragBaseOrder.find((c) => c.rkey === draggable.id));
+	};
+
+	const onDragOver = ({ draggable, droppable }: DragEvent) => {
+		if (!draggable || !droppable || !dragBaseOrder) return;
+		capturePositions(categoryEls, categoryTops);
+		setDraggingOrder(reorder(dragBaseOrder, draggable.id, droppable.id));
+		queueMicrotask(() => animateToNewPositions(categoryEls, categoryTops));
+	};
+
+	const onDragEnd = ({ draggable, droppable }: DragEvent) => {
+		const final = draggingOrder();
+		dragBaseOrder = null;
+
+		setDraggingOrder(null);
+		setDraggedCategory(undefined);
+
+		if (!draggable || !droppable || !final) return;
+		if (draggable.id === droppable.id) return;
+
+		setCommittedOrder(final);
+
+		actions.editCategoryOrder({
+			community: props.community,
+			categoryOrder: final.map((c) => c.rkey),
+		});
+
+		props.onCategoryReorder?.(final);
+	};
+
+	const visibleCategories = () => draggingOrder() ?? sortedCategories();
+
 	return (
-		<nav class="w-full h-full flex flex-col">
-			<For each={processed().uncategorized}>
-				{(channel) => <div>{channel.name}</div>}
-			</For>
-			<For each={processed().categories}>
-				{(category) => (
-					<Category category={category} community={props.community} />
-				)}
-			</For>
-			<CategoryCreationModal community={props.community}>
-				<Button size="sm" class="w-[calc(100%-2rem)] mx-4 mt-4" variant="ghost">
-					<Plus />
-					<span>Add new category</span>
-				</Button>
-			</CategoryCreationModal>
-		</nav>
+		<DragDropProvider
+			onDragStart={onDragStart}
+			onDragOver={onDragOver}
+			onDragEnd={onDragEnd}
+			collisionDetector={closestCenter}
+		>
+			<DragDropSensors />
+			<nav class="w-full h-full flex flex-col">
+				<SortableProvider ids={visibleCategories().map((c) => c.rkey)}>
+					<For each={visibleCategories()}>
+						{(category) => (
+							<div
+								class="relative"
+								ref={(node) => categoryEls.set(category.rkey, node)}
+							>
+								<SortableCategory
+									category={category}
+									community={props.community}
+									draggedCategory={draggedCategory()}
+								/>
+							</div>
+						)}
+					</For>
+				</SortableProvider>
+				<CategoryCreationModal community={props.community}>
+					<Button
+						size="sm"
+						class="w-[calc(100%-2rem)] mx-4 mt-4"
+						variant="ghost"
+					>
+						<Plus />
+						<span>Add new category</span>
+					</Button>
+				</CategoryCreationModal>
+			</nav>
+			{/*<DragOverlay>
+				{(draggable) => {
+					const cat = draggable
+						? visibleCategories().find((c) => c.rkey === draggable.id)
+						: undefined;
+					return (
+						<Show when={cat}>
+							{(resolved) => (
+								<div class="px-4 py-2 bg-card border border-border rounded-sm shadow-lg opacity-90 text-sm font-medium">
+									{resolved().name}
+								</div>
+							)}
+						</Show>
+					);
+				}}
+			</DragOverlay>*/}
+		</DragDropProvider>
 	);
 };

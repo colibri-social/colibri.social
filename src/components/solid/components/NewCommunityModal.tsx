@@ -81,7 +81,7 @@ export const NewCommunityModal: ParentComponent<{ navigate: Navigator }> = (
 			name: name(),
 			picture: base64Image,
 			description: "",
-			categoryOrder: [],
+			category_order: [],
 			owner_did: globalData.user.sub,
 		});
 

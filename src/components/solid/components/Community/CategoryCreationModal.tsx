@@ -53,6 +53,7 @@ export const CategoryCreationModal: ParentComponent<{ community: string }> = (
 		}
 
 		if (result.data) {
+			setName("");
 			addCategory(result.data);
 			setOpen(false);
 		}

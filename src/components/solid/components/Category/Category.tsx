@@ -24,6 +24,7 @@ import { ChannelSettingsModal } from "./ChannelSettingsModal";
 export const Category: ParentComponent<{
 	category: SidebarCategoryData;
 	community: string;
+	activeDraggable: boolean;
 }> = (props) => {
 	const params = useParams();
 
@@ -32,10 +33,13 @@ export const Category: ParentComponent<{
 	});
 
 	return (
-		<div class="flex flex-col py-4">
+		<div class="flex flex-col py-3">
 			<button
 				type="button"
 				class="flex flex-row items-center justify-between pb-2 px-4 pl-4.5 text-sm text-muted-foreground group/category hover:text-foreground"
+				style={{
+					cursor: props.activeDraggable ? "grabbing" : "grab",
+				}}
 			>
 				<div
 					class="flex flex-row gap-2.5 cursor-pointer items-center"
@@ -76,6 +80,7 @@ export const Category: ParentComponent<{
 				classList={{
 					hidden: !open(),
 				}}
+				onPointerDown={(e) => e.stopPropagation()}
 			>
 				<For each={props.category.channels}>
 					{(channel) => (
@@ -92,7 +97,7 @@ export const Category: ParentComponent<{
 							<ChannelSettingsModal class="w-5 h-5.5 p-0" channel={channel}>
 								<Button
 									size="sm"
-									class="w-5 h-5 cursor-pointer opacity-0 group-hover/channel:opacity-100"
+									class="w-5 h-5 cursor-pointer opacity-0 group-hover/channel:opacity-100 p-0"
 									classList={{
 										"opacity-100!": params.channel === channel.rkey,
 									}}

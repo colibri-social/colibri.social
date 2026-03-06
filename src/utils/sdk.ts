@@ -12,9 +12,13 @@ export type CommunityData = {
 	name: string;
 	picture?: string;
 	description: string;
-	categoryOrder: Array<string>;
+	category_order: Array<string>;
 	rkey: string;
 	owner_did: string;
+};
+
+export type PDSCommunityData = Omit<CommunityData, "category_order"> & {
+	categoryOrder: Array<string>;
 };
 
 type AppviewCommunityImageData = {
@@ -368,6 +372,7 @@ export class ColibriSDK {
 
 		return {
 			...record.record,
+			category_order: record.record.categoryOrder,
 			picture: imageUrl || null,
 			rkey,
 			owner_did: did,
@@ -470,14 +475,17 @@ export class ColibriSDK {
 	public getCommunityData = async (
 		did: string,
 		rkey: string,
-	): Promise<CommunityData> => {
+	): Promise<PDSCommunityData> => {
 		const res = await this.agent.com.atproto.repo.getRecord({
 			collection: RECORD_IDs.COMMUNITY,
 			repo: did,
 			rkey,
 		});
 
-		return { ...res.data.value, rkey } as CommunityData;
+		return {
+			...res.data.value,
+			rkey,
+		} as PDSCommunityData;
 	};
 
 	/**
@@ -588,7 +596,7 @@ export class ColibriSDK {
 	public modifyCommunityData = async (
 		did: string,
 		community: string,
-		data: CommunityData,
+		data: PDSCommunityData,
 	): Promise<void> => {
 		const record = this.constructAtProtoRecord(
 			did,

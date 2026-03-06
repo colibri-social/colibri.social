@@ -39,6 +39,7 @@ export const GlobalContextProvider: ParentComponent<{
 		categories: [],
 		addedChannels: [],
 		removedChannels: [],
+		removedCategories: [],
 		pendingMessages: [],
 		deletedMessages: [],
 	});
@@ -99,6 +100,10 @@ export const GlobalContextProvider: ParentComponent<{
 				setGlobalContext("categories", (list) =>
 					list.filter((x) => x.rkey !== rkey),
 				);
+				setGlobalContext("removedCategories", (list) => {
+					if (list.includes(rkey)) return list;
+					return [...list, rkey];
+				});
 			},
 			addChannel(channel) {
 				setGlobalContext("addedChannels", (list) => {

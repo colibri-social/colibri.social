@@ -30,7 +30,7 @@ export const GET = (async ({ request, session }) => {
 			profile.data.banner !== undefined;
 
 		if (!hasBlueskyProfile) {
-			console.log(
+			console.info(
 				`User ${agent.did} has no Bluesky profile. Creating basic profile from handle.`,
 			);
 			await agent.com.atproto.repo.putRecord({

@@ -16,8 +16,6 @@ import { useMessageContext } from "../../contexts/MessageContext";
 const fetchEmbedData = async (uri: string) => {
 	const { error, data } = await actions.getEmbedDataForURI({ uri });
 
-	console.log(error, data);
-
 	if (error) return undefined;
 
 	return data;

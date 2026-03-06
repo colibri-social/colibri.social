@@ -16,6 +16,7 @@ export type GlobalContextData = {
 	categories: Array<CategoryData>;
 	addedChannels: Array<ChannelData>;
 	removedChannels: Array<string>;
+	removedCategories: Array<string>;
 	pendingMessages: Array<PendingMessageData>;
 	additionalMessages: Array<IndexedMessageData>;
 	user: App.SessionData["user"];
