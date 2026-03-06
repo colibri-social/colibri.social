@@ -540,72 +540,76 @@ export const Message: Component<{
 						</div>
 					</Show>
 				</div>
-				<div class="flex flex-row gap-1 flex-wrap items-center pl-14">
-					<For each={messageReactions()}>
-						{(item) => (
-							<button
-								type="button"
-								class="border rounded-sm hover:bg-card px-1.5 py-1 flex gap-1 items-center cursor-pointer"
-								classList={{
-									"border-primary bg-primary/15 hover:bg-primary/25":
-										item.authors.includes(globalData.user.sub),
-									"border-border bg-card hover:bg-muted":
-										!item.authors.includes(globalData.user.sub),
-								}}
-								onClick={() => {
-									const reactionIndex = item.authors.indexOf(
-										globalData.user.sub,
-									);
+				<Show when={messageReactions().length > 0}>
+					<div class="flex flex-row gap-1 flex-wrap items-center pl-14">
+						<For each={messageReactions()}>
+							{(item) => (
+								<button
+									type="button"
+									class="border rounded-sm hover:bg-card px-1.5 py-1 flex gap-1 items-center cursor-pointer"
+									classList={{
+										"border-primary bg-primary/15 hover:bg-primary/25":
+											item.authors.includes(globalData.user.sub),
+										"border-border bg-card hover:bg-muted":
+											!item.authors.includes(globalData.user.sub),
+									}}
+									onClick={() => {
+										const reactionIndex = item.authors.indexOf(
+											globalData.user.sub,
+										);
 
-									if (reactionIndex !== -1) {
-										const author_did = item.authors[reactionIndex];
-										const rkey = item.rkeys[reactionIndex];
+										if (reactionIndex !== -1) {
+											const author_did = item.authors[reactionIndex];
+											const rkey = item.rkeys[reactionIndex];
 
-										if (!rkey.startsWith("__pending_")) {
-											actions
-												.removeReaction({
+											if (!rkey.startsWith("__pending_")) {
+												actions
+													.removeReaction({
+														rkey,
+													})
+													.then((res) => {
+														if (res.error) {
+															toast.error("Failed to remove reaction", {
+																description: parseZodToErrorOrDisplay(
+																	res.error.message,
+																),
+															});
+
+															setRemovedReactions((current) =>
+																current.filter((r) => r.rkey !== rkey),
+															);
+
+															return;
+														}
+													});
+											}
+
+											setRemovedReactions((current) => [
+												...current,
+												{
+													author_did,
 													rkey,
-												})
-												.then((res) => {
-													if (res.error) {
-														toast.error("Failed to remove reaction", {
-															description: parseZodToErrorOrDisplay(
-																res.error.message,
-															),
-														});
-
-														setRemovedReactions((current) =>
-															current.filter((r) => r.rkey !== rkey),
-														);
-
-														return;
-													}
-												});
+													target_rkey: (props.data as IndexedMessageData).rkey,
+													target_author_did: props.data.author_did,
+													channel: props.data.channel,
+													emoji: item.emoji,
+													type: "reaction_removed",
+												},
+											]);
+										} else {
+											addReactionOptimistic(item.emoji);
 										}
-
-										setRemovedReactions((current) => [
-											...current,
-											{
-												author_did,
-												rkey,
-												target_rkey: (props.data as IndexedMessageData).rkey,
-												target_author_did: props.data.author_did,
-												channel: props.data.channel,
-												emoji: item.emoji,
-												type: "reaction_removed",
-											},
-										]);
-									} else {
-										addReactionOptimistic(item.emoji);
-									}
-								}}
-							>
-								<span class="h-4 w-4" innerHTML={twemoji.parse(item.emoji)} />
-								<span class="text-muted-foreground text-sm">{item.count}</span>
-							</button>
-						)}
-					</For>
-				</div>
+									}}
+								>
+									<span class="h-4 w-4" innerHTML={twemoji.parse(item.emoji)} />
+									<span class="text-muted-foreground text-sm">
+										{item.count}
+									</span>
+								</button>
+							)}
+						</For>
+					</div>
+				</Show>
 			</div>
 		</MessageContextMenu>
 	);
