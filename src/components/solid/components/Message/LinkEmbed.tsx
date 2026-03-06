@@ -38,7 +38,7 @@ export const LinkEmbed: Component<{ uri: string }> = (props) => {
 					width={400}
 					height={210}
 					class="w-full h-auto rounded-xs my-2"
-					src={embedData()?.image![0].url}
+					src={new URL(props.uri).host + embedData()?.image![0].url}
 					alt={embedData()?.image![0].alt}
 				/>
 			</Show>
