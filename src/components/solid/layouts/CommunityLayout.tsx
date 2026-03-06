@@ -192,85 +192,77 @@ const CommunityLayout: ParentComponent = (props) => {
 		<MessageContextProvider>
 			<ChannelContextProvider channels={channels} community={communityRkey}>
 				<div class="bg-background w-full h-full rounded-tl-xl border-t border-l border-border flex">
-					<Suspense
+					<Switch
 						fallback={
-							<div class="w-full h-full flex items-center justify-center text-muted-foreground text-sm">
-								Loading community...
+							<div class="w-full h-full flex items-center justify-center">
+								<p class="text-destructive">Failed to load community data.</p>
 							</div>
 						}
 					>
-						<Switch
-							fallback={
-								<div class="w-full h-full flex items-center justify-center">
-									<p class="text-destructive">Failed to load community data.</p>
-								</div>
-							}
-						>
-							<Match when={sidebarData()}>
-								<aside class="h-full min-w-72 w-72 border-r border-border flex flex-col">
-									<div class="w-full border-b border-border flex flex-col justify-center p-4">
-										<h2 class="m-0 text-xl">{community()?.name}</h2>
-										<div class="flex flex-row items-center gap-2 test-sm">
-											<Suspense
-												fallback={
-													<small class="text-muted-foreground animate-pulse">
-														Loading members...
-													</small>
-												}
-											>
-												<small>
-													{members()?.length ?? "???"} Member
-													{members()?.length === 1 ? "" : "s"}
+						<Match when={sidebarData()}>
+							<aside class="h-full min-w-72 w-72 border-r border-border flex flex-col">
+								<div class="w-full border-b border-border flex flex-col justify-center p-4">
+									<h2 class="m-0 text-xl">{community()?.name}</h2>
+									<div class="flex flex-row items-center gap-2 test-sm">
+										<Suspense
+											fallback={
+												<small class="text-muted-foreground animate-pulse">
+													Loading members...
 												</small>
-											</Suspense>
-											<Show
-												when={community()?.owner_did === globalContext.user.sub}
-											>
-												<div class="w-1 h-1 bg-muted-foreground rounded-full" />
-												<CommunitySettingsModal>
-													<small class="cursor-pointer hover:underline">
-														Settings
-													</small>
-												</CommunitySettingsModal>
-											</Show>
-										</div>
+											}
+										>
+											<small>
+												{members()?.length ?? "???"} Member
+												{members()?.length === 1 ? "" : "s"}
+											</small>
+										</Suspense>
+										<Show
+											when={community()?.owner_did === globalContext.user.sub}
+										>
+											<div class="w-1 h-1 bg-muted-foreground rounded-full" />
+											<CommunitySettingsModal>
+												<small class="cursor-pointer hover:underline">
+													Settings
+												</small>
+											</CommunitySettingsModal>
+										</Show>
 									</div>
-
-									<ChannelList
-										data={sidebarData()!}
-										community={params.community!}
-									/>
-
-									<UserStatus />
-								</aside>
-								<div class="w-full h-full flex flex-col max-h-[calc(100vh-39px)] max-w-[calc(100vw-576px-56px-1px)]">
-									<div class="w-full flex-1 min-h-0">{props.children}</div>
-									<Show when={!!params.channel}>
-										<MessageInput />
-									</Show>
 								</div>
-								<div class="min-w-72 w-72 h-full flex flex-col p-4 border-l gap-3 border-border overflow-y-auto">
-									<span>Members</span>
-									<Suspense fallback={<MemberListSkeleton />}>
-										<For each={members() ?? []}>
-											{(item) => (
-												<div class="flex flex-row gap-2 border border-border bg-card rounded-sm p-2">
-													<img
-														src={item.avatar_url || "/user-placeholder.png"}
-														alt={item.display_name}
-														width={28}
-														height={28}
-														class="rounded-full"
-													/>
-													<span class="font-medium">{item.display_name}</span>
-												</div>
-											)}
-										</For>
-									</Suspense>
-								</div>
-							</Match>
-						</Switch>
-					</Suspense>
+
+								<ChannelList
+									data={sidebarData()!}
+									community={params.community!}
+								/>
+
+								<UserStatus />
+							</aside>
+							<div class="w-full h-full flex flex-col max-h-[calc(100vh-39px)] max-w-[calc(100vw-576px-56px-1px)]">
+								<div class="w-full flex-1 min-h-0">{props.children}</div>
+								<Show when={!!params.channel}>
+									<MessageInput />
+								</Show>
+							</div>
+							<div class="min-w-72 w-72 h-full flex flex-col p-4 border-l gap-3 border-border overflow-y-auto">
+								<span>Members</span>
+								<Suspense fallback={<MemberListSkeleton />}>
+									<For each={members() ?? []}>
+										{(item) => (
+											<div class="flex flex-row gap-2 border border-border bg-card rounded-sm p-2">
+												<img
+													src={item.avatar_url || "/user-placeholder.png"}
+													alt={item.display_name}
+													width={28}
+													height={28}
+													class="rounded-full"
+												/>
+												<span class="font-medium">{item.display_name}</span>
+											</div>
+										)}
+									</For>
+								</Suspense>
+							</div>
+						</Match>
+					</Switch>
 				</div>
 			</ChannelContextProvider>
 		</MessageContextProvider>
