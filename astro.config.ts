@@ -5,19 +5,29 @@ import tailwindcss from "@tailwindcss/vite";
 import solidJs from "@astrojs/solid-js";
 import { loadEnv } from "vite";
 
-const { REDIS_PASSWORD } = loadEnv(process.env.NODE_ENV!, process.cwd(), "");
+const { REDIS_PASSWORD, REDIS_URL } = loadEnv(
+	process.env.NODE_ENV!,
+	process.cwd(),
+	"",
+);
+
 // https://astro.build/config
 export default defineConfig({
 	site: "https://colibri.social",
 	session: {
 		driver: "redis",
-		options: {
-			base: "unstorage",
-			host: "127.0.0.1",
-			port: 6379,
-			password: REDIS_PASSWORD,
-			tls: false as any,
-		},
+		options:
+			process.env.NODE_ENV! === "production"
+				? {
+						url: REDIS_URL,
+					}
+				: {
+						base: "unstorage",
+						host: "127.0.0.1",
+						port: 6379,
+						password: REDIS_PASSWORD,
+						tls: false as any,
+					},
 	},
 	adapter: node({
 		mode: "standalone",
