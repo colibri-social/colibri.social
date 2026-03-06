@@ -192,13 +192,7 @@ const CommunityLayout: ParentComponent = (props) => {
 		<MessageContextProvider>
 			<ChannelContextProvider channels={channels} community={communityRkey}>
 				<div class="bg-background w-full h-full rounded-tl-xl border-t border-l border-border flex">
-					<Switch
-						fallback={
-							<div class="w-full h-full flex items-center justify-center">
-								<p class="text-destructive">Failed to load community data.</p>
-							</div>
-						}
-					>
+					<Switch>
 						<Match when={sidebarData()}>
 							<aside class="h-full min-w-72 w-72 border-r border-border flex flex-col">
 								<div class="w-full border-b border-border flex flex-col justify-center p-4">
