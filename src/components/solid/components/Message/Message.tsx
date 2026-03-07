@@ -9,6 +9,7 @@ import {
 	Switch,
 } from "solid-js";
 import { toast } from "somoto";
+import type { ColibriRichTextLink } from "@/utils/atproto/rich-text/detection";
 import { parseZodToErrorOrDisplay } from "@/utils/parse-zod-to-error-or-display";
 import type { IndexedMessageData, MessageReactionData } from "@/utils/sdk";
 import {
@@ -24,12 +25,11 @@ import { Reply } from "../../icons/Reply";
 import { Trash } from "../../icons/Trash";
 import { RichTextRenderer, type TextWithFacets } from "../RichTextRenderer";
 import { EmojiPopover } from "./EmojiPopover";
+import { LinkEmbed } from "./LinkEmbed";
 import { MessageAction } from "./MessageAction";
 import { MessageContextMenu } from "./MessageContextMenu";
 import { MessageDeletionDrawer } from "./MessageDeletionDrawer";
 import { deleteMessage } from "./util";
-import { LinkEmbed } from "./LinkEmbed";
-import type { ColibriRichTextLink } from "@/utils/atproto/rich-text/detection";
 
 /**
  * A rendered message component in a chat.

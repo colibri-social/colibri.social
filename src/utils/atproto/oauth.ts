@@ -1,12 +1,10 @@
-import { PRIVATE_KEY_1, PRIVATE_KEY_2, REDIS_PASSWORD } from "astro:env/server";
+import { PRIVATE_KEY_1, PRIVATE_KEY_2 } from "astro:env/server";
 import { JoseKey } from "@atproto/jwk-jose";
 import {
 	NodeOAuthClient,
 	type NodeSavedSession,
 	type NodeSavedState,
 } from "@atproto/oauth-client-node";
-import { createClient } from "redis";
-import { REDIS_URL } from "astro:env/server";
 import { getRedisClient } from "../redis";
 
 export const scopes = [

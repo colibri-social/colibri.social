@@ -1,3 +1,4 @@
+import { actions } from "astro:actions";
 import { APPVIEW_DOMAIN } from "astro:env/client";
 import {
 	makeHeartbeatWS,
@@ -10,7 +11,6 @@ import { GlobalContext } from "./context";
 import type { AppviewSubscriptionData, ReactionEventCallback } from "./events";
 import { handleMessageDeletion, handleNewMessage } from "./handlers";
 import type { GlobalContextData, GlobalContextUtility } from "./types";
-import { actions } from "astro:actions";
 
 export { GlobalContext };
 

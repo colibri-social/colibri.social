@@ -1,5 +1,5 @@
-import type { IndexedMessageData } from "@/utils/sdk";
 import type { Facet } from "@/utils/atproto/rich-text";
+import type { IndexedMessageData } from "@/utils/sdk";
 
 export type AckEvent = {
 	type: "ack";

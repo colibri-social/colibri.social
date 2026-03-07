@@ -1,9 +1,8 @@
-import { client } from "@/utils/atproto/oauth";
-import { ColibriSDK } from "@/utils/sdk";
+import { ActionError, defineAction } from "astro:actions";
 import { Agent } from "@atproto/api";
 import { z } from "astro/zod";
-import { ActionError } from "astro:actions";
-import { defineAction } from "astro:actions";
+import { client } from "@/utils/atproto/oauth";
+import { ColibriSDK } from "@/utils/sdk";
 
 export const setCommunityOrder = defineAction({
 	input: z.object({

@@ -1,9 +1,9 @@
-import { generateHash } from "@/utils/generate-hash";
-import { getRedisClient } from "@/utils/redis";
-import { z } from "astro/zod";
 import { ActionError, defineAction } from "astro:actions";
+import { z } from "astro/zod";
 import ogs from "open-graph-scraper";
 import type { ImageObject, OgObject } from "open-graph-scraper/types";
+import { generateHash } from "@/utils/generate-hash";
+import { getRedisClient } from "@/utils/redis";
 
 const cacheKey = async (uri: string) => {
 	const hash = await generateHash(uri);

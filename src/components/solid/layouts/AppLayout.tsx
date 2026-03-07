@@ -23,6 +23,11 @@ import { useGlobalContext } from "../contexts/GlobalContext";
 import { Gear } from "../icons/Gear";
 import { House } from "../icons/House";
 import { Plus } from "../icons/Plus";
+import {
+	animateToNewPositions,
+	capturePositions,
+	reorderList,
+} from "../utils/drag";
 
 const CommunityAvatar = (props: { item: CommunityData; class?: string }) => (
 	<Switch>
@@ -66,7 +71,6 @@ const SortableCommunity = (props: {
 
 	onDndDragEnd(() => {
 		el?.style.removeProperty("transition");
-		// Allow a tick for the click event to fire and be suppressed, then reset
 		didDrag = false;
 	});
 
@@ -174,42 +178,16 @@ const AppLayout: ParentComponent = (props) => {
 	const itemEls = new Map<string, HTMLElement>();
 	const itemTops = new Map<string, number>();
 
-	const capturePositions = () => {
-		for (const [rkey, el] of itemEls) {
-			itemTops.set(rkey, el.getBoundingClientRect().top);
-		}
-	};
-
-	const animateToNewPositions = () => {
-		for (const [rkey, el] of itemEls) {
-			const oldTop = itemTops.get(rkey);
-			if (oldTop === undefined) continue;
-			const newTop = el.getBoundingClientRect().top;
-			const delta = oldTop - newTop;
-			if (delta === 0) continue;
-			el.animate(
-				[
-					{ transform: `translateY(${delta}px)` },
-					{ transform: "translateY(0px)" },
-				],
-				{ duration: 150, easing: "ease" },
-			);
-		}
-	};
-
 	const reorder = (
 		communities: CommunityData[],
 		fromId: string | number,
 		toId: string | number,
-	) => {
-		const fromIndex = communities.findIndex((c) => c.rkey === fromId);
-		const toIndex = communities.findIndex((c) => c.rkey === toId);
-		if (fromIndex === toIndex || fromIndex === -1 || toIndex === -1)
-			return communities;
-		const reordered = communities.slice();
-		reordered.splice(toIndex, 0, ...reordered.splice(fromIndex, 1));
-		return reordered;
-	};
+	) =>
+		reorderList(
+			communities,
+			communities.findIndex((c) => c.rkey === fromId),
+			communities.findIndex((c) => c.rkey === toId),
+		);
 
 	const onDragStart = ({ draggable }: DragEvent) => {
 		setDraggedItem(
@@ -219,10 +197,9 @@ const AppLayout: ParentComponent = (props) => {
 
 	const onDragOver = ({ draggable, droppable }: DragEvent) => {
 		if (!draggable || !droppable) return;
-		capturePositions();
+		capturePositions(itemEls, itemTops);
 		setDraggingOrder(reorder(sortedCommunities(), draggable.id, droppable.id));
-		// Schedule after SolidJS has flushed DOM updates
-		queueMicrotask(() => animateToNewPositions());
+		queueMicrotask(() => animateToNewPositions(itemEls, itemTops));
 	};
 
 	const onDragEnd = ({ draggable, droppable }: DragEvent) => {

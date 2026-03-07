@@ -71,7 +71,10 @@ export const reorderChannels = defineAction({
 				]);
 			} else {
 				// Same-category reorder: only update the one category.
-				const existingRecord = await sdk.getCategoryData(did, sourceCategoryRkey);
+				const existingRecord = await sdk.getCategoryData(
+					did,
+					sourceCategoryRkey,
+				);
 				await sdk.modifyCategoryData(did, sourceCategoryRkey, {
 					...existingRecord,
 					channelOrder: destChannelOrder,

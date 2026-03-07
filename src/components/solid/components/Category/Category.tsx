@@ -25,6 +25,11 @@ import { CategorySettingsModal } from "./CategorySettingsModal";
 import { ChannelCreationModal } from "./ChannelCreationModal";
 import { ChannelSettingsModal } from "./ChannelSettingsModal";
 
+export type ChannelDropTarget = {
+	catRkey: string;
+	insertBeforeId: string | null;
+};
+
 const SortableChannel: Component<{
 	channel: SidebarChannelData;
 	community: string;
@@ -59,7 +64,6 @@ const SortableChannel: Component<{
 			classList={{ "opacity-50": sortable.isActiveDraggable }}
 			{...sortable.dragActivators}
 		>
-			{/* TODO: This doesn't yet account for different channel types */}
 			<A
 				href={`/c/${params.community}/${props.channel.rkey}`}
 				class="flex flex-row items-center gap-2 justify-between text-muted-foreground hover:bg-card cursor-pointer p-1 pr-1.25 py-0.5 rounded-sm group/channel"
@@ -110,28 +114,22 @@ export const Category: ParentComponent<{
 	category: SidebarCategoryData;
 	community: string;
 	activeDraggable: boolean;
-	/** Live channel order managed by the parent drag controller. */
 	channelOrder: string[];
-	/** Called when the user finishes dragging a channel within this category. */
 	onChannelReorder: (categoryRkey: string, newOrder: string[]) => void;
-	/** Channels injected from other categories (cross-category moves). */
 	injectedChannels?: SidebarChannelData[];
-	/** When non-null, shows an insertion indicator for cross-category drag. */
-	dropTarget?: { catRkey: string; insertBeforeId: string | null } | null;
+	dropTarget?: ChannelDropTarget | null;
 }> = (props) => {
 	const [open, setOpen] = makePersisted(createSignal(true), {
 		name: props.category.rkey,
 	});
 
-	// Channel objects in display order.
-	// Uses props.category.channels as primary source; injectedChannels supplements
-	// with channels moved in from other categories.
 	const orderedChannels = createMemo((): SidebarChannelData[] => {
 		const order = props.channelOrder;
 		const channelMap = new Map<string, SidebarChannelData>([
-			...props.category.channels.map(
-				(ch): [string, SidebarChannelData] => [ch.rkey, ch],
-			),
+			...props.category.channels.map((ch): [string, SidebarChannelData] => [
+				ch.rkey,
+				ch,
+			]),
 			...(props.injectedChannels ?? []).map(
 				(ch): [string, SidebarChannelData] => [ch.rkey, ch],
 			),
@@ -141,26 +139,24 @@ export const Category: ParentComponent<{
 			.filter((ch): ch is SidebarChannelData => ch !== undefined);
 	});
 
-	// Subscribe to the parent DragDropProvider's onDragEnd to commit within-category reorders.
-	const [, { onDragStart: onDndDragStart, onDragEnd: onDndDragEnd }] = useDragDropContext()!;
+	const [, { onDragStart: onDndDragStart, onDragEnd: onDndDragEnd }] =
+		useDragDropContext()!;
 
-	// Track whether the currently dragged channel originated in THIS category.
-	// Prevents spurious reorders firing for the destination category after a cross-category drop.
 	let channelWasHere = false;
 	onDndDragStart(({ draggable }) => {
 		channelWasHere = props.channelOrder.includes(String(draggable.id));
 	});
 
 	onDndDragEnd(({ draggable, droppable }) => {
-		if (!channelWasHere) return; // channel started in a different category
+		if (!channelWasHere) return;
 		if (!draggable || !droppable) return;
 
 		const order = props.channelOrder;
 		const from = order.indexOf(String(draggable.id));
-		if (from === -1) return; // dragged item is not a channel in this category
+		if (from === -1) return;
 
 		const to = order.indexOf(String(droppable.id));
-		if (to === -1 || from === to) return; // cross-category drop or same position
+		if (to === -1 || from === to) return;
 
 		const newOrder = order.slice();
 		newOrder.splice(to, 0, ...newOrder.splice(from, 1));
@@ -224,11 +220,16 @@ export const Category: ParentComponent<{
 								<Show when={props.dropTarget?.insertBeforeId === channel.rkey}>
 									<div class="h-0.5 bg-primary rounded mx-1" />
 								</Show>
-								<SortableChannel channel={channel} community={props.community} />
+								<SortableChannel
+									channel={channel}
+									community={props.community}
+								/>
 							</>
 						)}
 					</For>
-					<Show when={props.dropTarget && props.dropTarget.insertBeforeId === null}>
+					<Show
+						when={props.dropTarget && props.dropTarget.insertBeforeId === null}
+					>
 						<div class="h-0.5 bg-primary rounded mx-1" />
 					</Show>
 				</SortableProvider>

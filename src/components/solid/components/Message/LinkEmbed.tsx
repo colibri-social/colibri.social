@@ -1,10 +1,10 @@
 import { actions } from "astro:actions";
 import {
+	type Component,
 	createEffect,
 	createResource,
 	on,
 	Show,
-	type Component,
 } from "solid-js";
 import { useMessageContext } from "../../contexts/MessageContext";
 
