@@ -5,6 +5,7 @@ import { editCategory } from "./category/edit";
 import { createChannel } from "./channel/create";
 import { deleteChannel } from "./channel/delete";
 import { editChannel } from "./channel/edit";
+import { reorderChannels } from "./channel/reorder";
 import { editCategoryOrder } from "./community/category-order";
 import { createCommunity } from "./community/create";
 import { deleteCommunity } from "./community/delete";
@@ -28,6 +29,7 @@ export const server = {
 	createChannel,
 	editChannel,
 	deleteChannel,
+	reorderChannels,
 	postMessage,
 	editMessage,
 	deleteMessage,

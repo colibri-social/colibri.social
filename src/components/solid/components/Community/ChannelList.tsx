@@ -4,6 +4,7 @@ import {
 	DragDropProvider,
 	DragDropSensors,
 	type DragEvent,
+	type Droppable,
 	SortableProvider,
 	useDragDropContext,
 } from "@thisbeyond/solid-dnd";
@@ -266,6 +267,36 @@ export const ChannelList: Component<{
 	const categoryEls = new Map<string, HTMLElement>();
 	const categoryTops = new Map<string, number>();
 
+	// Set of category rkeys — used to distinguish category drags from channel drags.
+	const categoryRkeySet = createMemo(
+		() => new Set(sortedCategories().map((c) => c.rkey)),
+	);
+
+	const isCategoryDrag = (id: string | number) =>
+		categoryRkeySet().has(String(id));
+
+	// Collision detector: categories only collide with categories, channels only
+	// with channels. This prevents a channel drag from snapping to a category.
+	const collisionDetector = (
+		draggable: Parameters<typeof closestCenter>[0],
+		droppables: Parameters<typeof closestCenter>[1],
+		context: Parameters<typeof closestCenter>[2],
+	): Droppable | null => {
+		const catRkeys = categoryRkeySet();
+		if (catRkeys.has(String(draggable.id))) {
+			return closestCenter(
+				draggable,
+				droppables.filter((d) => catRkeys.has(String(d.id))),
+				context,
+			);
+		}
+		return closestCenter(
+			draggable,
+			droppables.filter((d) => !catRkeys.has(String(d.id))),
+			context,
+		);
+	};
+
 	const reorder = (
 		list: SidebarCategoryData[],
 		fromId: string | number,
@@ -280,25 +311,34 @@ export const ChannelList: Component<{
 	};
 
 	const onDragStart = ({ draggable }: DragEvent) => {
+		if (!isCategoryDrag(draggable.id)) return;
 		dragBaseOrder = sortedCategories();
 		setDraggedCategory(dragBaseOrder.find((c) => c.rkey === draggable.id));
 	};
 
 	const onDragOver = ({ draggable, droppable }: DragEvent) => {
-		if (!draggable || !droppable || !dragBaseOrder) return;
+		if (!draggable || !droppable) return;
+		if (!isCategoryDrag(draggable.id) || !dragBaseOrder) return;
 		capturePositions(categoryEls, categoryTops);
 		setDraggingOrder(reorder(dragBaseOrder, draggable.id, droppable.id));
 		queueMicrotask(() => animateToNewPositions(categoryEls, categoryTops));
 	};
 
 	const onDragEnd = ({ draggable, droppable }: DragEvent) => {
+		// Channel drags are handled inside each Category component.
+		if (!draggable || !isCategoryDrag(draggable.id)) {
+			dragBaseOrder = null;
+			setDraggingOrder(null);
+			setDraggedCategory(undefined);
+			return;
+		}
+
 		const final = draggingOrder();
 		dragBaseOrder = null;
-
 		setDraggingOrder(null);
 		setDraggedCategory(undefined);
 
-		if (!draggable || !droppable || !final) return;
+		if (!droppable || !final) return;
 		if (draggable.id === droppable.id) return;
 
 		setCommittedOrder(final);
@@ -318,7 +358,7 @@ export const ChannelList: Component<{
 			onDragStart={onDragStart}
 			onDragOver={onDragOver}
 			onDragEnd={onDragEnd}
-			collisionDetector={closestCenter}
+			collisionDetector={collisionDetector}
 		>
 			<DragDropSensors />
 			<nav class="w-full h-full flex flex-col">
