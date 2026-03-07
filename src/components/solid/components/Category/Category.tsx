@@ -15,7 +15,6 @@ import {
 	Show,
 	Switch,
 } from "solid-js";
-import { actions } from "astro:actions";
 import type { SidebarCategoryData, SidebarChannelData } from "@/utils/sdk";
 import { CaretRight } from "../../icons/CaretRight";
 import { ChatCircleDots } from "../../icons/ChatCircleDots";
@@ -35,8 +34,6 @@ const SortableChannel: Component<{
 		useDragDropContext()!;
 	const params = useParams();
 
-	// Track when this specific channel is being dragged so we can suppress
-	// the click-to-navigate that fires on pointerup.
 	const [isDragging, setIsDragging] = createSignal(false);
 
 	onDndDragStart(({ draggable }) => {
@@ -44,7 +41,6 @@ const SortableChannel: Component<{
 	});
 
 	onDndDragEnd(() => {
-		// Defer past the click event that fires on pointerup.
 		setTimeout(() => setIsDragging(false), 0);
 	});
 
@@ -53,9 +49,6 @@ const SortableChannel: Component<{
 			ref={sortable.ref}
 			style={{
 				"touch-action": "none",
-				// solid-dnd computes this transform to show where the item will land.
-				// Non-active items slide smoothly; the active item has no transition
-				// so it follows the pointer instantly.
 				transform: sortable.transform
 					? `translate(${sortable.transform.x}px, ${sortable.transform.y}px)`
 					: undefined,
@@ -97,10 +90,10 @@ const SortableChannel: Component<{
 };
 
 /**
- * Builds the initial display order for channels: channels present in
+ * Builds the display order for channels: channels present in
  * `channel_order` come first (in that order), then any extras not listed.
  */
-function buildInitialOrder(category: SidebarCategoryData): string[] {
+export function buildChannelOrder(category: SidebarCategoryData): string[] {
 	const order = category.channel_order ?? [];
 	const channelRkeys = new Set(category.channels.map((ch) => ch.rkey));
 	const ordered = order.filter((id) => channelRkeys.has(id));
@@ -117,51 +110,61 @@ export const Category: ParentComponent<{
 	category: SidebarCategoryData;
 	community: string;
 	activeDraggable: boolean;
+	/** Live channel order managed by the parent drag controller. */
+	channelOrder: string[];
+	/** Called when the user finishes dragging a channel within this category. */
+	onChannelReorder: (categoryRkey: string, newOrder: string[]) => void;
+	/** Channels injected from other categories (cross-category moves). */
+	injectedChannels?: SidebarChannelData[];
+	/** When non-null, shows an insertion indicator for cross-category drag. */
+	dropTarget?: { catRkey: string; insertBeforeId: string | null } | null;
 }> = (props) => {
 	const [open, setOpen] = makePersisted(createSignal(true), {
 		name: props.category.rkey,
 	});
 
-	// Local channel order — null means "follow server order".
-	const [localOrder, setLocalOrder] = createSignal<string[] | null>(null);
-
-	// The order used for display and SortableProvider ids.
-	const channelOrder = createMemo(() => {
-		return localOrder() ?? buildInitialOrder(props.category);
-	});
-
-	// Channel objects in display order (stable references for <For>).
+	// Channel objects in display order.
+	// Uses props.category.channels as primary source; injectedChannels supplements
+	// with channels moved in from other categories.
 	const orderedChannels = createMemo((): SidebarChannelData[] => {
-		const order = channelOrder();
-		const channelMap = new Map(
-			props.category.channels.map((ch) => [ch.rkey, ch]),
-		);
+		const order = props.channelOrder;
+		const channelMap = new Map<string, SidebarChannelData>([
+			...props.category.channels.map(
+				(ch): [string, SidebarChannelData] => [ch.rkey, ch],
+			),
+			...(props.injectedChannels ?? []).map(
+				(ch): [string, SidebarChannelData] => [ch.rkey, ch],
+			),
+		]);
 		return order
 			.map((id) => channelMap.get(id))
 			.filter((ch): ch is SidebarChannelData => ch !== undefined);
 	});
 
-	// Subscribe to the parent DragDropProvider's onDragEnd to commit reorders.
-	const [, { onDragEnd: onDndDragEnd }] = useDragDropContext()!;
+	// Subscribe to the parent DragDropProvider's onDragEnd to commit within-category reorders.
+	const [, { onDragStart: onDndDragStart, onDragEnd: onDndDragEnd }] = useDragDropContext()!;
+
+	// Track whether the currently dragged channel originated in THIS category.
+	// Prevents spurious reorders firing for the destination category after a cross-category drop.
+	let channelWasHere = false;
+	onDndDragStart(({ draggable }) => {
+		channelWasHere = props.channelOrder.includes(String(draggable.id));
+	});
 
 	onDndDragEnd(({ draggable, droppable }) => {
+		if (!channelWasHere) return; // channel started in a different category
 		if (!draggable || !droppable) return;
 
-		const order = channelOrder();
+		const order = props.channelOrder;
 		const from = order.indexOf(String(draggable.id));
 		if (from === -1) return; // dragged item is not a channel in this category
 
 		const to = order.indexOf(String(droppable.id));
-		if (to === -1 || from === to) return;
+		if (to === -1 || from === to) return; // cross-category drop or same position
 
 		const newOrder = order.slice();
 		newOrder.splice(to, 0, ...newOrder.splice(from, 1));
-		setLocalOrder(newOrder);
-
-		actions.reorderChannels({
-			categoryRkey: props.category.rkey,
-			channelOrder: newOrder,
-		});
+		props.onChannelReorder(props.category.rkey, newOrder);
 	});
 
 	return (
@@ -214,17 +217,22 @@ export const Category: ParentComponent<{
 				}}
 				onPointerDown={(e) => e.stopPropagation()}
 			>
-				<SortableProvider ids={channelOrder()}>
+				<SortableProvider ids={props.channelOrder}>
 					<For each={orderedChannels()}>
 						{(channel) => (
-							<SortableChannel
-								channel={channel}
-								community={props.community}
-							/>
+							<>
+								<Show when={props.dropTarget?.insertBeforeId === channel.rkey}>
+									<div class="h-0.5 bg-primary rounded mx-1" />
+								</Show>
+								<SortableChannel channel={channel} community={props.community} />
+							</>
 						)}
 					</For>
+					<Show when={props.dropTarget && props.dropTarget.insertBeforeId === null}>
+						<div class="h-0.5 bg-primary rounded mx-1" />
+					</Show>
 				</SortableProvider>
-				<Show when={props.category.channels.length === 0}>
+				<Show when={orderedChannels().length === 0 && !props.dropTarget}>
 					<span class="text-xs text-muted-foreground ml-8">
 						This category is empty.
 					</span>

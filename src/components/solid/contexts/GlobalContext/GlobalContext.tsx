@@ -93,7 +93,7 @@ export const GlobalContextProvider: ParentComponent<{
 						return list.toSpliced(alreadyExistsIndex, 1, category);
 					}
 
-					return [category, ...list];
+					return [...list, category];
 				});
 			},
 			removeCategory(rkey) {

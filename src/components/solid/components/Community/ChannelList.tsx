@@ -8,7 +8,8 @@ import {
 	SortableProvider,
 	useDragDropContext,
 } from "@thisbeyond/solid-dnd";
-import { type Component, createMemo, createSignal, For } from "solid-js";
+import { batch, type Component, createMemo, createSignal, For } from "solid-js";
+import { createStore } from "solid-js/store";
 import type {
 	SidebarCategoryData,
 	SidebarChannelData,
@@ -17,7 +18,7 @@ import type {
 import { useGlobalContext } from "../../contexts/GlobalContext/index";
 import { Plus } from "../../icons/Plus";
 import { Button } from "../../shadcn-solid/Button";
-import { Category } from "../Category/Category";
+import { Category, buildChannelOrder } from "../Category/Category";
 import { CategoryCreationModal } from "./CategoryCreationModal";
 import { actions } from "astro:actions";
 
@@ -54,6 +55,10 @@ const SortableCategory: Component<{
 	category: SidebarCategoryData;
 	community: string;
 	draggedCategory: SidebarCategoryData | undefined;
+	channelOrder: string[];
+	onChannelReorder: (categoryRkey: string, newOrder: string[]) => void;
+	injectedChannels: SidebarChannelData[];
+	dropTarget: { catRkey: string; insertBeforeId: string | null } | null;
 }> = (props) => {
 	const sortable = createSortable(props.category.rkey);
 	const [, { onDragStart, onDragEnd: onDndDragEnd }] = useDragDropContext()!;
@@ -89,6 +94,10 @@ const SortableCategory: Component<{
 					category={props.category}
 					community={props.community}
 					activeDraggable={sortable.isActiveDraggable}
+					channelOrder={props.channelOrder}
+					onChannelReorder={props.onChannelReorder}
+					injectedChannels={props.injectedChannels}
+					dropTarget={props.dropTarget}
 				/>
 			</div>
 		</div>
@@ -264,25 +273,104 @@ export const ChannelList: Component<{
 		SidebarCategoryData | undefined
 	>(undefined);
 
+	const [channelOrders, setChannelOrders] = createStore<
+		Record<string, string[]>
+	>({});
+
+	// Channels that have been moved cross-category, keyed by destination category rkey.
+	const [movedChannels, setMovedChannels] = createStore<
+		Record<string, SidebarChannelData[]>
+	>({});
+
+	// Seed channelOrders for any category not yet tracked, and append new channels
+	// to categories that already have an order (handles optimistic channel creation).
+	// IMPORTANT: Only add a channel to a category if it's not already tracked in
+	// another category's order — prevents re-adding channels moved cross-category
+	// (which are still present in the old category's server data until the server confirms).
+	createMemo(() => {
+		const allOrders = Object.entries(channelOrders as Record<string, string[]>);
+		for (const cat of sortedCategories()) {
+			const current = channelOrders[cat.rkey];
+			if (!current) {
+				setChannelOrders(cat.rkey, buildChannelOrder(cat));
+			} else {
+				const allOtherRkeys = new Set(
+					allOrders
+						.filter(([k]) => k !== cat.rkey)
+						.flatMap(([, v]) => v),
+				);
+				const newRkeys = cat.channels
+					.filter((ch) => !current.includes(ch.rkey) && !allOtherRkeys.has(ch.rkey))
+					.map((ch) => ch.rkey);
+				if (newRkeys.length > 0) {
+					setChannelOrders(cat.rkey, [...current, ...newRkeys]);
+				}
+			}
+		}
+	});
+
+	const handleChannelReorder = (categoryRkey: string, newOrder: string[]) => {
+		setChannelOrders(categoryRkey, newOrder);
+		actions.reorderChannels({
+			channelRkey: "",
+			sourceCategoryRkey: categoryRkey,
+			sourceChannelOrder: newOrder,
+			destCategoryRkey: categoryRkey,
+			destChannelOrder: newOrder,
+		});
+	};
+	const getChannelCategory = (channelId: string | number): string | undefined => {
+		const id = String(channelId);
+		for (const [catRkey, order] of Object.entries(channelOrders)) {
+			if (order.includes(id)) return catRkey;
+		}
+		return undefined;
+	};
+
+	// Find channel data anywhere in the sidebar (searches server data for all categories).
+	const findChannelData = (rkey: string): SidebarChannelData | undefined => {
+		for (const cat of sortedCategories()) {
+			const ch = cat.channels.find((c) => c.rkey === rkey);
+			if (ch) return ch;
+		}
+		// Also check movedChannels in case it was already moved once.
+		for (const channels of Object.values(movedChannels)) {
+			const ch = channels.find((c) => c.rkey === rkey);
+			if (ch) return ch;
+		}
+		return undefined;
+	};
+
+	// Drag state for channel moves.
+	let draggedChannelId: string | undefined;
+	let draggedChannelSourceCat: string | undefined;
+
 	const categoryEls = new Map<string, HTMLElement>();
 	const categoryTops = new Map<string, number>();
 
-	// Set of category rkeys — used to distinguish category drags from channel drags.
 	const categoryRkeySet = createMemo(
 		() => new Set(sortedCategories().map((c) => c.rkey)),
 	);
 
-	const isCategoryDrag = (id: string | number) =>
+	// Signal tracking the cross-category insertion point for visual feedback.
+	const [channelDropTarget, setChannelDropTarget] = createSignal<{
+		catRkey: string;
+		insertBeforeId: string | null; // null = append to end
+	} | null>(null);
+
+	const isCategoryId = (id: string | number) =>
 		categoryRkeySet().has(String(id));
 
-	// Collision detector: categories only collide with categories, channels only
-	// with channels. This prevents a channel drag from snapping to a category.
+	// For channel drags: use bounding-rect lookup on categoryEls to find the
+	// category the cursor is actually over, then find the closest channel within it.
+	// Falls back to closest channel globally if cursor is outside all categories.
 	const collisionDetector = (
 		draggable: Parameters<typeof closestCenter>[0],
 		droppables: Parameters<typeof closestCenter>[1],
 		context: Parameters<typeof closestCenter>[2],
 	): Droppable | null => {
 		const catRkeys = categoryRkeySet();
+
 		if (catRkeys.has(String(draggable.id))) {
 			return closestCenter(
 				draggable,
@@ -290,6 +378,45 @@ export const ChannelList: Component<{
 				context,
 			);
 		}
+
+		// Determine which category the draggable center is over via bounding rects.
+		const cy = draggable.transformed.center.y;
+		let targetCatRkey: string | undefined;
+		for (const [catRkey, el] of categoryEls) {
+			const rect = el.getBoundingClientRect();
+			if (cy >= rect.top && cy <= rect.bottom) {
+				targetCatRkey = catRkey;
+				break;
+			}
+		}
+
+		if (targetCatRkey) {
+			const catChannelIds = channelOrders[targetCatRkey] ?? [];
+			const channelsInCat = droppables.filter((d) =>
+				catChannelIds.includes(String(d.id)),
+			);
+			// Empty category: return the category sortable as the droppable.
+			if (channelsInCat.length === 0) {
+				return (
+					droppables.find((d) => String(d.id) === targetCatRkey) ?? null
+				);
+			}
+			const closest = closestCenter(draggable, channelsInCat, context);
+			if (!closest) return droppables.find((d) => String(d.id) === targetCatRkey) ?? null;
+
+			// When dragging from a different category: if cursor is below the last
+			// channel's center, treat as an append-to-end drop (return the category container).
+			if (draggedChannelSourceCat && draggedChannelSourceCat !== targetCatRkey) {
+				const isLast = catChannelIds.indexOf(String(closest.id)) === catChannelIds.length - 1;
+				if (isLast && draggable.transformed.center.y > closest.transformed.center.y) {
+					return droppables.find((d) => String(d.id) === targetCatRkey) ?? null;
+				}
+			}
+
+			return closest;
+		}
+
+		// Cursor outside all categories — fall back to closest channel anywhere.
 		return closestCenter(
 			draggable,
 			droppables.filter((d) => !catRkeys.has(String(d.id))),
@@ -311,44 +438,121 @@ export const ChannelList: Component<{
 	};
 
 	const onDragStart = ({ draggable }: DragEvent) => {
-		if (!isCategoryDrag(draggable.id)) return;
-		dragBaseOrder = sortedCategories();
-		setDraggedCategory(dragBaseOrder.find((c) => c.rkey === draggable.id));
+		if (isCategoryId(draggable.id)) {
+			dragBaseOrder = sortedCategories();
+			setDraggedCategory(dragBaseOrder.find((c) => c.rkey === draggable.id));
+		} else {
+			draggedChannelId = String(draggable.id);
+			draggedChannelSourceCat = getChannelCategory(draggable.id);
+		}
 	};
 
 	const onDragOver = ({ draggable, droppable }: DragEvent) => {
 		if (!draggable || !droppable) return;
-		if (!isCategoryDrag(draggable.id) || !dragBaseOrder) return;
-		capturePositions(categoryEls, categoryTops);
-		setDraggingOrder(reorder(dragBaseOrder, draggable.id, droppable.id));
-		queueMicrotask(() => animateToNewPositions(categoryEls, categoryTops));
-	};
 
-	const onDragEnd = ({ draggable, droppable }: DragEvent) => {
-		// Channel drags are handled inside each Category component.
-		if (!draggable || !isCategoryDrag(draggable.id)) {
-			dragBaseOrder = null;
-			setDraggingOrder(null);
-			setDraggedCategory(undefined);
+		if (isCategoryId(draggable.id)) {
+			if (!dragBaseOrder) return;
+			capturePositions(categoryEls, categoryTops);
+			setDraggingOrder(reorder(dragBaseOrder, draggable.id, droppable.id));
+			queueMicrotask(() => animateToNewPositions(categoryEls, categoryTops));
 			return;
 		}
 
-		const final = draggingOrder();
-		dragBaseOrder = null;
-		setDraggingOrder(null);
-		setDraggedCategory(undefined);
+		// Track cross-category insertion point for visual feedback.
+		const droppableId = String(droppable.id);
+		const isCatDrop = isCategoryId(droppableId);
+		const hoverCat = isCatDrop
+			? droppableId
+			: (getChannelCategory(droppableId) ?? draggedChannelSourceCat);
 
-		if (!droppable || !final) return;
-		if (draggable.id === droppable.id) return;
+		if (!hoverCat || hoverCat === draggedChannelSourceCat) {
+			setChannelDropTarget(null);
+			return;
+		}
 
-		setCommittedOrder(final);
+		setChannelDropTarget({
+			catRkey: hoverCat,
+			insertBeforeId: isCatDrop ? null : droppableId,
+		});
+	};
 
-		actions.editCategoryOrder({
-			community: props.community,
-			categoryOrder: final.map((c) => c.rkey),
+	const onDragEnd = ({ draggable, droppable }: DragEvent) => {
+		setChannelDropTarget(null);
+
+		if (!draggable || isCategoryId(draggable.id)) {
+			// Category drag end.
+			const final = draggingOrder();
+			dragBaseOrder = null;
+			setDraggingOrder(null);
+			setDraggedCategory(undefined);
+
+			if (!droppable || !final || draggable?.id === droppable.id) return;
+
+			setCommittedOrder(final);
+			actions.editCategoryOrder({
+				community: props.community,
+				categoryOrder: final.map((c) => c.rkey),
+			});
+			props.onCategoryReorder?.(final);
+			return;
+		}
+
+		// Channel drag end — within-category reorders are handled by Category's own
+		// onDragEnd subscription via onChannelReorder. Here we only handle cross-category.
+		const channelId = draggedChannelId;
+		const sourceCat = draggedChannelSourceCat;
+		draggedChannelId = undefined;
+		draggedChannelSourceCat = undefined;
+
+		if (!channelId || !sourceCat || !droppable) return;
+
+		const droppableId = String(droppable.id);
+		const isCatDrop = isCategoryId(droppableId);
+		const destCat = isCatDrop
+			? droppableId
+			: (getChannelCategory(droppableId) ?? sourceCat);
+
+		if (destCat === sourceCat) return; // within-category: handled by Category's subscription
+
+		// Cross-category drop: commit now (drag is over, safe to remount components).
+		const srcOrder = (channelOrders[sourceCat] ?? []).filter(
+			(id) => id !== channelId,
+		);
+
+		const destOrderBefore = channelOrders[destCat] ?? [];
+		let insertAt = isCatDrop
+			? destOrderBefore.length
+			: destOrderBefore.indexOf(droppableId);
+		if (insertAt === -1) insertAt = destOrderBefore.length;
+
+		const destOrder = [
+			...destOrderBefore.slice(0, insertAt),
+			channelId,
+			...destOrderBefore.slice(insertAt),
+		];
+
+		const channelData = findChannelData(channelId);
+
+		batch(() => {
+			setChannelOrders(sourceCat, srcOrder);
+			setChannelOrders(destCat, destOrder);
+			// Remove from source category's injected channels (if it was previously injected).
+			setMovedChannels(sourceCat, (prev) =>
+				(prev ?? []).filter((ch) => ch.rkey !== channelId),
+			);
+			// Add to destination category's injected channels so it renders there.
+			if (channelData) {
+				setMovedChannels(destCat, (prev) => [...(prev ?? []), channelData]);
+			}
 		});
 
-		props.onCategoryReorder?.(final);
+		actions.reorderChannels({
+			channelRkey: channelId,
+			sourceCategoryRkey: sourceCat,
+			sourceChannelOrder: srcOrder,
+			destCategoryRkey: destCat,
+			destChannelOrder: destOrder,
+		});
 	};
 
 	const visibleCategories = () => draggingOrder() ?? sortedCategories();
@@ -373,6 +577,16 @@ export const ChannelList: Component<{
 									category={category}
 									community={props.community}
 									draggedCategory={draggedCategory()}
+									channelOrder={
+										channelOrders[category.rkey] ?? buildChannelOrder(category)
+									}
+									onChannelReorder={handleChannelReorder}
+									injectedChannels={movedChannels[category.rkey] ?? []}
+									dropTarget={
+										channelDropTarget()?.catRkey === category.rkey
+											? channelDropTarget()
+											: null
+									}
 								/>
 							</div>
 						)}
@@ -389,22 +603,6 @@ export const ChannelList: Component<{
 					</Button>
 				</CategoryCreationModal>
 			</nav>
-			{/*<DragOverlay>
-				{(draggable) => {
-					const cat = draggable
-						? visibleCategories().find((c) => c.rkey === draggable.id)
-						: undefined;
-					return (
-						<Show when={cat}>
-							{(resolved) => (
-								<div class="px-4 py-2 bg-card border border-border rounded-sm shadow-lg opacity-90 text-sm font-medium">
-									{resolved().name}
-								</div>
-							)}
-						</Show>
-					);
-				}}
-			</DragOverlay>*/}
 		</DragDropProvider>
 	);
 };

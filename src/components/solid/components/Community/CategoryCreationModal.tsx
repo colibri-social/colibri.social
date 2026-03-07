@@ -97,7 +97,10 @@ export const CategoryCreationModal: ParentComponent<{ community: string }> = (
 						<Button
 							variant="secondary"
 							disabled={loading()}
-							onClick={() => setOpen(false)}
+							onClick={() => {
+								setOpen(false);
+								setName("");
+							}}
 						>
 							Cancel
 						</Button>
