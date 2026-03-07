@@ -278,6 +278,14 @@ lex.add(
 								"The record key of a message this message is replying to.",
 							format: "record-key",
 						},
+						attachments: {
+							type: "array",
+							items: {
+								type: "blob",
+								accept: ["image/*", "video/*", "audio/*", "application/*"],
+							},
+							description: "An array of blobs for attachments of this message.",
+						},
 					},
 				},
 			},

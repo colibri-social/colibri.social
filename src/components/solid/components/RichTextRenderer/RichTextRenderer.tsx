@@ -55,6 +55,7 @@ export const RichTextRenderer: Component<{
 	text: Accessor<TextWithFacets>;
 	setInputContent?: Setter<TextWithFacets>;
 	classList?: Record<string, boolean>;
+	placeholder?: string;
 }> = (props) => {
 	const navigate = useNavigate();
 	let pRef: HTMLParagraphElement | undefined;
@@ -719,7 +720,12 @@ export const RichTextRenderer: Component<{
 	return (
 		<>
 			<p
-				class="m-0 rich-text focus:outline-0 leading-5.5 wrap-break-word"
+				class="m-0 text-foreground rich-text focus:outline-0 leading-5.5 wrap-break-word relative before:absolute before:w-full before:h-full before:content-(--placeholder) before:text-muted-foreground before:pointer-events-none"
+				style={
+					props.placeholder && props.text().text.trim().length === 0
+						? { "--placeholder": `"${props.placeholder}"` }
+						: undefined
+				}
 				contentEditable={props.editable}
 				innerHTML={renderedWithEmojis}
 				classList={props.classList}

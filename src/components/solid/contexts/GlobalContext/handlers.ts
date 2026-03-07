@@ -40,6 +40,7 @@ export const handleNewMessage = async (
 		reactions: [],
 		parent_message: data.parent ?? null,
 		edited: data.edited,
+		attachments: data.attachments ?? [],
 	});
 };
 

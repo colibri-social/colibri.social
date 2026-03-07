@@ -3,6 +3,7 @@ import { createAsync, query, useParams } from "@solidjs/router";
 import {
 	createEffect,
 	createMemo,
+	createSignal,
 	For,
 	Match,
 	onCleanup,
@@ -20,8 +21,15 @@ import { UserStatus } from "../components/UserStatus";
 import { ChannelContextProvider } from "../contexts/ChannelContext";
 import { useGlobalContext } from "../contexts/GlobalContext/index";
 import { MessageContextProvider } from "../contexts/MessageContext";
+import {
+	FileField,
+	FileFieldDropzone,
+	FileFieldHiddenInput,
+} from "../shadcn-solid/file-field";
+import { toast } from "somoto";
+import type { Details } from "@kobalte/core/file-field";
 
-/**../components/Community/CommunitySettingsModal
+/**
  * Fetches the sidebar data (categories + channels) for a community.
  */
 export const fetchSidebarData = query(
@@ -79,6 +87,7 @@ const MemberListSkeleton = () => (
 const CommunityLayout: ParentComponent = (props) => {
 	const params = useParams();
 	const [globalContext, { sendSocketMessage }] = useGlobalContext();
+	const [files, setFiles] = createSignal<Details>();
 
 	const community = createMemo(() =>
 		globalContext.communities.find((x) => x.rkey === params.community),
@@ -232,10 +241,39 @@ const CommunityLayout: ParentComponent = (props) => {
 								<UserStatus />
 							</aside>
 							<div class="w-full h-full flex flex-col max-h-[calc(100vh-41px)] max-w-[calc(100vw-576px-56px-1px)]">
-								<div class="w-full flex-1 min-h-0">{props.children}</div>
-								<Show when={!!params.channel}>
-									<MessageInput />
-								</Show>
+								<FileField
+									class="gap-0!"
+									multiple
+									onFileReject={(data) =>
+										toast.error(`Failed to add file.`, {
+											description: data
+												.map((x) => x.errors.map((y) => y).join(", "))
+												.join(", "),
+										})
+									}
+									onFileChange={setFiles}
+								>
+									<FileFieldDropzone class="border-none gap-0!">
+										<div
+											class="contents"
+											onClick={(e) => e.stopPropagation()}
+											onKeyDown={(e) => e.stopPropagation()}
+										>
+											<div class="w-full flex-1 min-h-0">{props.children}</div>
+											<Show when={!!params.channel}>
+												<MessageInput
+													channelName={
+														channels().find((x) => x.rkey === params.channel)!
+															.name
+													}
+													files={files}
+													clearFiles={() => setFiles(undefined)}
+												/>
+											</Show>
+										</div>
+									</FileFieldDropzone>
+									<FileFieldHiddenInput />
+								</FileField>
 							</div>
 							<div class="min-w-72 w-72 h-full flex flex-col p-4 border-l gap-3 border-border overflow-y-auto">
 								<span>Members</span>

@@ -1,7 +1,9 @@
 import { APPVIEW_DOMAIN } from "astro:env/client";
-import type { Agent, BlobRef } from "@atproto/api";
+import { BlobRef, type Agent } from "@atproto/api";
 import { lexicon, RECORD_IDs } from "./atproto/lexicons";
 import type { Facet } from "./atproto/rich-text";
+import type { BlobObj } from "@/components/solid/contexts/GlobalContext/events";
+import { parseCid } from "@atproto/lex-data";
 
 type ActorData = {
 	status: string;
@@ -119,6 +121,7 @@ export type MessageData = {
 	parent?: string;
 	reactions: Array<MessageReactionData>;
 	parent_message: IndexedMessageData | null;
+	attachments: Array<BlobObj>;
 };
 
 export type PDSMessageData = MessageData & {
@@ -822,6 +825,7 @@ export class ColibriSDK {
 		text: string,
 		createdAt: string,
 		facets: Array<Facet>,
+		attachments: Array<BlobObj>,
 		parent?: string,
 	): Promise<string> => {
 		const record = this.constructAtProtoRecord(did, RECORD_IDs.MESSAGE, {
@@ -830,6 +834,9 @@ export class ColibriSDK {
 			channel,
 			parent,
 			facets,
+			attachments: attachments.map((a) =>
+				BlobRef.fromJsonRef({ ...a, ref: parseCid(a.ref.$link) }),
+			),
 		});
 
 		const res = await this.agent.com.atproto.repo.createRecord(record);
