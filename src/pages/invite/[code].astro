@@ -1,14 +1,17 @@
 ---
 import type { InviteCodeInfo } from "@/actions/community/invite";
+import Button from "@/components/bearnie/button/Button.astro";
 import PublicLayout from "@/layouts/PublicLayout.astro";
 import type { UnresolvedCommunityData } from "@/utils/sdk";
+import { Image } from "astro:assets";
 import { APPVIEW_DOMAIN } from "astro:env/client";
 import { INVITE_API_KEY } from "astro:env/server";
 
 const { code } = Astro.params;
+const user = await Astro.session?.get("user");
 
 if (!code) return Astro.redirect("/");
-if (!Astro.session?.get("user")) return Astro.redirect("/login");
+if (!user) return Astro.redirect("/login");
 
 const communityData = (await (
 	await fetch(`https://${APPVIEW_DOMAIN}/api/invite/${code}`, {
@@ -20,8 +23,6 @@ const communityData = (await (
 ).json()) as InviteCodeInfo & {
 	community: UnresolvedCommunityData;
 };
-
-console.log(communityData);
 ---
 
 <PublicLayout>
@@ -48,9 +49,48 @@ console.log(communityData);
 				Too bad, this feature is not implemented yet. Check back later. It won't
 				be long.
 			</p>
+			<div
+				class="mt-8 rounded-2xl w-full bg-card border border-border p-6 flex flex-col gap-4"
+			>
+				<Button class={"w-full"} id="accept-btn" data-code={code}>
+					<span>Accept as</span>
+					<span class="flex flex-row gap-2 items-center">
+						{
+							user.avatar && (
+								<Image
+									width={24}
+									height={24}
+									alt={user.displayName || ""}
+									src={user.avatar}
+									class={"rounded-full"}
+								/>
+							)
+						}
+						{user.displayName || user.sub}
+					</span>
+				</Button>
+				<Button variant="secondary" id="cancel-btn">
+					<span>No Thanks</span>
+				</Button>
+			</div>
 		</div>
 	</section>
 </PublicLayout>
+<script>
+	import { actions } from "astro:actions";
+
+	const acceptBtn = document.querySelector<HTMLButtonElement>("#accept-btn")!;
+	const cancelBtn = document.querySelector<HTMLButtonElement>("cancel-btn")!;
+
+	const code = acceptBtn.dataset.code as string;
+
+	acceptBtn.addEventListener("click", async () => {
+		// TODO: Error handling
+		await actions.acceptInvitation({
+			code,
+		});
+	});
+</script>
 <style is:global>
 	h2:first-of-type {
 		margin-top: 0;

@@ -11,6 +11,8 @@ export const RECORD_IDs: Record<string, `${string}.${string}.${string}`> = {
 	MESSAGE: "social.colibri.message",
 	REACTION: "social.colibri.reaction",
 	RICHTEXT_FACET: "social.colibri.richtext.facet",
+	MEMBERSHIP: "social.colibri.membership",
+	APPROVAL: "social.colibri.approval",
 };
 
 export const LEXICON_DOCS: LexiconDoc[] = [];
@@ -466,7 +468,7 @@ lex.add(
 lex.add(
 	def({
 		lexicon: 1,
-		id: "social.colibri.membership",
+		id: RECORD_IDs.MEMBERSHIP,
 		description:
 			"A declaration that a user would like to be part of a certain community.",
 		defs: {
@@ -494,7 +496,7 @@ lex.add(
 lex.add(
 	def({
 		lexicon: 1,
-		id: "social.colibri.approval",
+		id: RECORD_IDs.APPROVAL,
 		defs: {
 			main: {
 				type: "record",
