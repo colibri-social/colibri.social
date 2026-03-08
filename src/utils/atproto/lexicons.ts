@@ -281,11 +281,27 @@ lex.add(
 						attachments: {
 							type: "array",
 							items: {
-								type: "blob",
-								accept: ["image/*", "video/*", "audio/*", "application/*"],
+								type: "ref",
+								ref: "social.colibri.message#attachment",
 							},
-							description: "An array of blobs for attachments of this message.",
+							description: "An array of attachment objects for this message.",
 						},
+					},
+				},
+			},
+			attachment: {
+				type: "object",
+				description: "A file attached to a message.",
+				required: ["blob"],
+				properties: {
+					blob: {
+						type: "blob",
+						description: "The attached file.",
+					},
+					name: {
+						type: "string",
+						description: "The original filename.",
+						maxLength: 256,
 					},
 				},
 			},

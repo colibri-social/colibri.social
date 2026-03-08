@@ -26,21 +26,59 @@ import {
 	FileFieldItemSize,
 	FileFieldTrigger,
 } from "../shadcn-solid/file-field";
-import type { BlobObj } from "../contexts/GlobalContext/events";
-import type { BlobRef } from "@atproto/lexicon";
+import type { AttachmentObj, BlobObj } from "../contexts/GlobalContext/events";
 
 const uploadWithProgress = (
 	file: File,
-	onProgress: (loaded: number, total: number) => void,
-): Promise<BlobRef> => {
+	onProgress: (percent: number) => void,
+): Promise<AttachmentObj> => {
 	return new Promise((resolve, reject) => {
 		const xhr = new XMLHttpRequest();
 		xhr.open("POST", "/api/v1/blob/upload");
+
+		// Phase 1: browser → our server (mapped to 0–50%)
 		xhr.upload.onprogress = (e) => {
-			if (e.lengthComputable) onProgress(e.loaded, e.total);
+			if (e.lengthComputable) {
+				onProgress((e.loaded / e.total) * 50);
+			}
 		};
-		xhr.onload = () => resolve(JSON.parse(xhr.responseText));
-		xhr.onerror = () => reject(new Error("Upload failed"));
+
+		// Phase 1 complete; start simulated phase 2 (50–99%) while
+		// the server relays the blob to the PDS.
+		xhr.upload.onload = () => {
+			onProgress(50);
+			let simulated = 50;
+			const interval = setInterval(() => {
+				// Asymptotically approach 99% so it never actually reaches it.
+				simulated += (99 - simulated) * 0.1;
+				onProgress(simulated);
+			}, 200);
+
+			// Store the interval id on the xhr so we can clear it in onload.
+			(xhr as XMLHttpRequest & { _sim?: ReturnType<typeof setInterval> })._sim =
+				interval;
+		};
+
+		xhr.onload = () => {
+			const xhrExt = xhr as XMLHttpRequest & {
+				_sim?: ReturnType<typeof setInterval>;
+			};
+			clearInterval(xhrExt._sim);
+			onProgress(100);
+			resolve({
+				blob: JSON.parse(xhr.responseText) as BlobObj,
+				name: file.name,
+			});
+		};
+
+		xhr.onerror = () => {
+			const xhrExt = xhr as XMLHttpRequest & {
+				_sim?: ReturnType<typeof setInterval>;
+			};
+			clearInterval(xhrExt._sim);
+			reject(new Error("Upload failed"));
+		};
+
 		xhr.send(file);
 	});
 };
@@ -72,23 +110,25 @@ export const MessageInput: Component<{
 		},
 	);
 
-	const uploadFiles = async (files: Array<File>): Promise<Array<BlobObj>> => {
+	const uploadFiles = async (
+		files: Array<File>,
+	): Promise<Array<AttachmentObj>> => {
 		setFileUploadProgress(files.map(() => 0));
-		const promises: Array<Promise<BlobRef>> = [];
+		const promises: Array<Promise<AttachmentObj>> = [];
 
 		files.forEach((file, index) => {
 			promises.push(
-				uploadWithProgress(file, (loaded, total) => {
-					setFileUploadProgress((current) =>
-						current.splice(index, 1, loaded / total),
-					);
+				uploadWithProgress(file, (percent) => {
+					setFileUploadProgress((current) => {
+						const next = [...current];
+						next[index] = percent;
+						return next;
+					});
 				}),
 			);
 		});
 
-		return (await Promise.all(promises)).map(
-			(b) => JSON.parse(JSON.stringify(b)) as BlobObj,
-		);
+		return await Promise.all(promises);
 	};
 
 	/**
@@ -106,56 +146,57 @@ export const MessageInput: Component<{
 
 		setLoading(true);
 
-		const attachments = await uploadFiles(props.files()?.acceptedFiles ?? []);
+		try {
+			const attachments = await uploadFiles(props.files()?.acceptedFiles ?? []);
 
-		const obj: PostMessageInput = {
-			text: trimmed.text,
-			facets: trimmed.facets,
-			channel: channel(),
-			createdAt: new Date().toISOString(),
-			parent: messageData.replyingTo?.rkey,
-			attachments,
-		};
+			const obj: PostMessageInput = {
+				text: trimmed.text,
+				facets: trimmed.facets,
+				channel: channel(),
+				createdAt: new Date().toISOString(),
+				parent: messageData.replyingTo?.rkey,
+				attachments,
+			};
 
-		console.log(obj);
+			const hash = await generateHash(stringify(obj)!);
 
-		const hash = await generateHash(stringify(obj)!);
-
-		addPendingMessage({
-			channel: obj.channel,
-			created_at: obj.createdAt,
-			hash,
-			text: trimmed.text,
-			facets: trimmed.facets,
-			author_did: globalData.user.sub,
-			display_name: globalData.user.displayName!,
-			avatar_url: globalData.user.avatar!,
-			parent: messageData.replyingTo?.rkey,
-			parent_message: messageData.replyingTo || null,
-			reactions: [],
-		});
-
-		setInputContent({
-			text: "",
-			facets: [],
-		});
-
-		clearReplyingTo();
-
-		const { error } = await actions.postMessage(obj);
-
-		setLoading(false);
-		props.clearFiles();
-
-		if (error) {
-			toast.error("Failed to send message", {
-				description: parseZodToErrorOrDisplay(error.message),
+			addPendingMessage({
+				channel: obj.channel,
+				created_at: obj.createdAt,
+				hash,
+				text: trimmed.text,
+				facets: trimmed.facets,
+				author_did: globalData.user.sub,
+				display_name: globalData.user.displayName!,
+				avatar_url: globalData.user.avatar!,
+				parent: messageData.replyingTo?.rkey,
+				parent_message: messageData.replyingTo || null,
+				reactions: [],
 			});
-			removePendingMessage(hash);
-			return false;
-		}
 
-		return true;
+			setInputContent({
+				text: "",
+				facets: [],
+			});
+
+			clearReplyingTo();
+			props.clearFiles();
+			setFileUploadProgress([]);
+
+			const { error } = await actions.postMessage(obj);
+
+			if (error) {
+				toast.error("Failed to send message", {
+					description: parseZodToErrorOrDisplay(error.message),
+				});
+				removePendingMessage(hash);
+				return false;
+			}
+
+			return true;
+		} finally {
+			setLoading(false);
+		}
 	};
 
 	return (
@@ -184,20 +225,25 @@ export const MessageInput: Component<{
 					}}
 				>
 					<FileFieldItemList class="flex flex-row gap-2 m-0 p-0 flex-wrap">
-						{(file) => (
-							<FileFieldItem class="relative">
-								<FileFieldItemPreviewImage />
-								<FileFieldItemName />
-								<FileFieldItemSize />
-								<FileFieldItemDeleteTrigger />
-								<div
-									class="absolute left-0 bottom-0 h-2 bg-primary"
-									style={{
-										width: `${fileUploadProgress()[props.files()?.acceptedFiles.indexOf(file) ?? -1]}%`,
-									}}
-								/>
-							</FileFieldItem>
-						)}
+						{(file) => {
+							console.log(fileUploadProgress());
+							console.log(props.files()?.acceptedFiles);
+							console.log(props.files()?.acceptedFiles.indexOf(file));
+							return (
+								<FileFieldItem class="relative overflow-hidden">
+									<FileFieldItemPreviewImage />
+									<FileFieldItemName />
+									<FileFieldItemSize />
+									<FileFieldItemDeleteTrigger />
+									<div
+										class="absolute left-0 bottom-0 h-1 bg-primary"
+										style={{
+											width: `${fileUploadProgress()[props.files()?.acceptedFiles.indexOf(file) ?? -1]}%`,
+										}}
+									/>
+								</FileFieldItem>
+							);
+						}}
 					</FileFieldItemList>
 				</div>
 			</Show>

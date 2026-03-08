@@ -13,6 +13,11 @@ export type BlobObj = {
 	size: number;
 };
 
+export type AttachmentObj = {
+	blob: BlobObj;
+	name?: string;
+};
+
 export type MessageEventPayload = {
 	id: string;
 	rkey: string;
@@ -24,7 +29,7 @@ export type MessageEventPayload = {
 	indexed_at: string;
 	display_name: string;
 	avatar_url: string;
-	attachments: Array<BlobObj>;
+	attachments: Array<AttachmentObj>;
 	edited: boolean;
 };
 

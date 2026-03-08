@@ -88,6 +88,18 @@ const CommunityLayout: ParentComponent = (props) => {
 	const params = useParams();
 	const [globalContext, { sendSocketMessage }] = useGlobalContext();
 	const [files, setFiles] = createSignal<Details>();
+	/**
+	 * Incrementing this key causes the <For> below to replace the FileField
+	 * with a brand-new instance, which is the only reliable way to reset
+	 * Kobalte's internal accepted-files store (it has no controlled value prop
+	 * and does not listen to the form reset event).
+	 */
+	const [fileFieldKey, setFileFieldKey] = createSignal(0);
+
+	const clearFiles = () => {
+		setFiles(undefined);
+		setFileFieldKey((k) => k + 1);
+	};
 
 	const community = createMemo(() =>
 		globalContext.communities.find((x) => x.rkey === params.community),
@@ -241,39 +253,46 @@ const CommunityLayout: ParentComponent = (props) => {
 								<UserStatus />
 							</aside>
 							<div class="w-full h-full flex flex-col max-h-[calc(100vh-41px)] max-w-[calc(100vw-576px-56px-1px)]">
-								<FileField
-									class="gap-0!"
-									multiple
-									onFileReject={(data) =>
-										toast.error(`Failed to add file.`, {
-											description: data
-												.map((x) => x.errors.map((y) => y).join(", "))
-												.join(", "),
-										})
-									}
-									onFileChange={setFiles}
-								>
-									<FileFieldDropzone class="border-none gap-0!">
-										<div
-											class="contents"
-											onClick={(e) => e.stopPropagation()}
-											onKeyDown={(e) => e.stopPropagation()}
+								<For each={[fileFieldKey()]}>
+									{(_key) => (
+										<FileField
+											class="gap-0!"
+											multiple
+											onFileReject={(data) =>
+												toast.error(`Failed to add file.`, {
+													description: data
+														.map((x) => x.errors.map((y) => y).join(", "))
+														.join(", "),
+												})
+											}
+											onFileChange={setFiles}
 										>
-											<div class="w-full flex-1 min-h-0">{props.children}</div>
-											<Show when={!!params.channel}>
-												<MessageInput
-													channelName={
-														channels().find((x) => x.rkey === params.channel)!
-															.name
-													}
-													files={files}
-													clearFiles={() => setFiles(undefined)}
-												/>
-											</Show>
-										</div>
-									</FileFieldDropzone>
-									<FileFieldHiddenInput />
-								</FileField>
+											<FileFieldDropzone class="border-none gap-0!">
+												<div
+													class="contents"
+													onClick={(e) => e.stopPropagation()}
+													onKeyDown={(e) => e.stopPropagation()}
+												>
+													<div class="w-full flex-1 min-h-0">
+														{props.children}
+													</div>
+													<Show when={!!params.channel}>
+														<MessageInput
+															channelName={
+																channels().find(
+																	(x) => x.rkey === params.channel,
+																)!.name
+															}
+															files={files}
+															clearFiles={clearFiles}
+														/>
+													</Show>
+												</div>
+											</FileFieldDropzone>
+											<FileFieldHiddenInput />
+										</FileField>
+									)}
+								</For>
 							</div>
 							<div class="min-w-72 w-72 h-full flex flex-col p-4 border-l gap-3 border-border overflow-y-auto">
 								<span>Members</span>

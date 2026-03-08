@@ -4,7 +4,7 @@ import { z } from "astro/zod";
 import { client } from "@/utils/atproto/oauth";
 import type { Facet } from "@/utils/atproto/rich-text";
 import { ColibriSDK } from "@/utils/sdk";
-import type { BlobObj } from "@/components/solid/contexts/GlobalContext/events";
+import type { AttachmentObj } from "@/components/solid/contexts/GlobalContext/events";
 
 const input = z
 	.object({
@@ -17,7 +17,7 @@ const input = z
 			.string({ message: "No creation date given." })
 			.datetime({ message: "Creation date must be a valid ISO 8601 date." }),
 		parent: z.string().optional(),
-		attachments: z.array(z.custom<BlobObj>()),
+		attachments: z.array(z.custom<AttachmentObj>()),
 	})
 	.refine((input) => {
 		if (input.attachments.length === 0 && input.text.trim().length === 0)

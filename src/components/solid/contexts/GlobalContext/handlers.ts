@@ -22,6 +22,7 @@ export const handleNewMessage = async (
 		channel: data.channel,
 		createdAt: data.created_at,
 		parent: data.parent?.rkey || undefined,
+		attachments: data.attachments,
 	})!;
 
 	const hash = await generateHash(string);

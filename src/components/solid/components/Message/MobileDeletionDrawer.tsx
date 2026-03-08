@@ -46,7 +46,10 @@ export const MobileDrawer: ParentComponent<{
 						<DialogDescriptionContent />
 					</DrawerDescription>
 				</DrawerHeader>
-				<MockMessage isDesktop={props.isDesktop} message={props.message} />
+				<MockMessage
+					isDesktop={props.isDesktop}
+					message={props.message as DBMessageData}
+				/>
 				<DialogTip />
 				<DrawerFooter>
 					<DialogCancelButton setOpen={props.setOpen} />

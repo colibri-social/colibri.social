@@ -11,7 +11,11 @@ import {
 import { toast } from "somoto";
 import type { ColibriRichTextLink } from "@/utils/atproto/rich-text/detection";
 import { parseZodToErrorOrDisplay } from "@/utils/parse-zod-to-error-or-display";
-import type { IndexedMessageData, MessageReactionData } from "@/utils/sdk";
+import type {
+	DBMessageData,
+	IndexedMessageData,
+	MessageReactionData,
+} from "@/utils/sdk";
 import {
 	type PendingMessageData,
 	type ReactionAddedEvent,
@@ -30,6 +34,7 @@ import { MessageAction } from "./MessageAction";
 import { MessageContextMenu } from "./MessageContextMenu";
 import { MessageDeletionDrawer } from "./MessageDeletionDrawer";
 import { deleteMessage } from "./util";
+import { MessageAttachments } from "./Attachments";
 
 /**
  * A rendered message component in a chat.
@@ -424,12 +429,15 @@ export const Message: Component<{
 					<Show
 						when={
 							!("hash" in props.data) &&
-							props.data.attachments?.length > 0 &&
+							(props.data.attachments || []).length > 0 &&
 							props.data.text.trim().length === 0
 						}
 					>
-						<div class="flex flex-row flex-wrap gap-4 h-8 items-center justify-center">
-							Empty message with attachments! (Not rendered yet, lmao)
+						<div class="py-2">
+							<MessageAttachments
+								did={props.data.author_did}
+								attachments={(props.data as DBMessageData).attachments || []}
+							/>
 						</div>
 					</Show>
 					<Show when={props.data.text.trim().length > 0}>
@@ -549,12 +557,15 @@ export const Message: Component<{
 				<Show
 					when={
 						!("hash" in props.data) &&
-						props.data.attachments?.length > 0 &&
+						(props.data.attachments || []).length > 0 &&
 						props.data.text.trim().length > 0
 					}
 				>
-					<div class="flex flex-row flex-wrap gap-4 pl-14">
-						Has attachments! (Not rendered yet, lmao)
+					<div class="pl-14 pb-2">
+						<MessageAttachments
+							did={props.data.author_did}
+							attachments={(props.data as DBMessageData).attachments || []}
+						/>
 					</div>
 				</Show>
 				<Show when={messageReactions().length > 0}>
