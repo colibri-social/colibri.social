@@ -6,6 +6,18 @@ export type AckEvent = {
 	message: string;
 };
 
+export type BlobObj = {
+	$type: "blob";
+	ref: { $link: string };
+	mimeType: string;
+	size: number;
+};
+
+export type AttachmentObj = {
+	blob: BlobObj;
+	name?: string;
+};
+
 export type MessageEventPayload = {
 	id: string;
 	rkey: string;
@@ -17,6 +29,7 @@ export type MessageEventPayload = {
 	indexed_at: string;
 	display_name: string;
 	avatar_url: string;
+	attachments: Array<AttachmentObj>;
 	edited: boolean;
 };
 

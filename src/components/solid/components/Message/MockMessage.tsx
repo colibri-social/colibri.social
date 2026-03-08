@@ -1,16 +1,15 @@
 import type { Accessor, Component } from "solid-js";
 import type { DBMessageData } from "@/utils/sdk";
-import type { PendingMessageData } from "../../contexts/GlobalContext";
 import { RichTextRenderer } from "../RichTextRenderer";
+import { MessageAttachments } from "./Attachments";
 
 /**
  * A mock render of a message shown in the deletion modal when a message is about to be deleted.
  */
 export const MockMessage: Component<{
-	message: DBMessageData | PendingMessageData;
+	message: DBMessageData;
 	isDesktop: Accessor<boolean>;
 }> = (props) => {
-	const isPending = () => "hash" in props.message;
 	return (
 		<div
 			class={`w-fullh-fit flex flex-row p-2 gap-4 group relative border border-border rounded-sm`}
@@ -41,11 +40,14 @@ export const MockMessage: Component<{
 						text: props.message.text,
 						facets: props.message.facets || [],
 					})}
-					classList={{
-						"text-muted-foreground": isPending(),
-						"text-foreground": !isPending(),
-					}}
 				/>
+				<div classList={{ "mt-2": props.message.text.trim().length === 0 }}>
+					<MessageAttachments
+						did={props.message.author_did}
+						attachments={props.message.attachments || []}
+						disableHover
+					/>
+				</div>
 			</div>
 		</div>
 	);

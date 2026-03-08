@@ -4,30 +4,34 @@ import { z } from "astro/zod";
 import { client } from "@/utils/atproto/oauth";
 import type { Facet } from "@/utils/atproto/rich-text";
 import { ColibriSDK } from "@/utils/sdk";
+import type { AttachmentObj } from "@/components/solid/contexts/GlobalContext/events";
 
-const input = z.object({
-	text: z
-		.string({ message: "No text given." })
-		.min(1, {
-			message: "Text must contain at least a singular character.",
-		})
-		.max(2048, {
+const input = z
+	.object({
+		text: z.string({ message: "No text given." }).max(2048, {
 			message: "Text must be shorter than 2048 characters.",
 		}),
-	facets: z.array(z.custom<Facet>()),
-	channel: z.string({ message: "No channel given." }),
-	createdAt: z
-		.string({ message: "No creation date given." })
-		.datetime({ message: "Creation date must be a valid ISO 8601 date." }),
-	parent: z.string().optional(),
-});
+		facets: z.array(z.custom<Facet>()),
+		channel: z.string({ message: "No channel given." }),
+		createdAt: z
+			.string({ message: "No creation date given." })
+			.datetime({ message: "Creation date must be a valid ISO 8601 date." }),
+		parent: z.string().optional(),
+		attachments: z.array(z.custom<AttachmentObj>()),
+	})
+	.refine((input) => {
+		if (input.attachments.length === 0 && input.text.trim().length === 0)
+			return "No files or text given.";
+
+		return true;
+	});
 
 export type PostMessageInput = z.infer<typeof input>;
 
 export const postMessage = defineAction({
 	input,
 	handler: async (
-		{ text, channel, createdAt, parent, facets },
+		{ text, channel, createdAt, parent, facets, attachments },
 		{ session },
 	) => {
 		try {
@@ -49,6 +53,7 @@ export const postMessage = defineAction({
 				text,
 				createdAt,
 				facets,
+				attachments,
 				parent,
 			);
 

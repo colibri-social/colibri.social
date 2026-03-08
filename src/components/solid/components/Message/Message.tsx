@@ -11,7 +11,11 @@ import {
 import { toast } from "somoto";
 import type { ColibriRichTextLink } from "@/utils/atproto/rich-text/detection";
 import { parseZodToErrorOrDisplay } from "@/utils/parse-zod-to-error-or-display";
-import type { IndexedMessageData, MessageReactionData } from "@/utils/sdk";
+import type {
+	DBMessageData,
+	IndexedMessageData,
+	MessageReactionData,
+} from "@/utils/sdk";
 import {
 	type PendingMessageData,
 	type ReactionAddedEvent,
@@ -30,6 +34,7 @@ import { MessageAction } from "./MessageAction";
 import { MessageContextMenu } from "./MessageContextMenu";
 import { MessageDeletionDrawer } from "./MessageDeletionDrawer";
 import { deleteMessage } from "./util";
+import { MessageAttachments } from "./Attachments";
 
 /**
  * A rendered message component in a chat.
@@ -421,74 +426,90 @@ export const Message: Component<{
 							</div>
 						</Match>
 					</Switch>
-					<div class="flex flex-col w-full justify-center">
-						<Show when={!isSubsequentMessage()}>
-							<div class="flex gap-2 text-sm items-baseline">
-								<span class="font-bold">{props.data.display_name}</span>
-								<small class="text-muted-foreground">
-									{new Date(props.data.created_at).toLocaleDateString()}{" "}
-									{new Date(props.data.created_at).toLocaleTimeString(
-										undefined,
-										{
-											hour: "2-digit",
-											minute: "2-digit",
-										},
-									)}
-								</small>
-								<Show when={props.data.edited}>
-									<small class="text-muted-foreground">(edited)</small>
-								</Show>
-							</div>
-						</Show>
-						<div
-							onKeyDown={(e) => {
-								if (e.key === "Enter" && !e.shiftKey) {
-									e.preventDefault();
-									submitEdits();
-								}
-								if (e.key === "Escape") {
-									cancelEdits();
-								}
-							}}
-						>
-							<RichTextRenderer
-								text={editedText}
-								setInputContent={setEditedText}
-								classList={{
-									"text-muted-foreground": isPending(),
-									"text-foreground": !isPending(),
-									"p-4 py-3 border border-border rounded-sm bg-card":
-										editMode(),
-								}}
-								editable={editMode()}
+					<Show
+						when={
+							!("hash" in props.data) &&
+							(props.data.attachments || []).length > 0 &&
+							props.data.text.trim().length === 0
+						}
+					>
+						<div class="py-2">
+							<MessageAttachments
+								did={props.data.author_did}
+								attachments={(props.data as DBMessageData).attachments || []}
 							/>
-							<Show when={editMode()}>
-								<div class="flex flex-row items-center gap-1">
-									<small>
-										escape to{" "}
-										<button
-											type="button"
-											class="cursor-pointer hover:underline text-primary-foreground"
-											onClick={cancelEdits}
-										>
-											cancel
-										</button>
+						</div>
+					</Show>
+					<Show when={props.data.text.trim().length > 0}>
+						<div class="flex flex-col w-full justify-center">
+							<Show when={!isSubsequentMessage()}>
+								<div class="flex gap-2 text-sm items-baseline">
+									<span class="font-bold">{props.data.display_name}</span>
+									<small class="text-muted-foreground">
+										{new Date(props.data.created_at).toLocaleDateString()}{" "}
+										{new Date(props.data.created_at).toLocaleTimeString(
+											undefined,
+											{
+												hour: "2-digit",
+												minute: "2-digit",
+											},
+										)}
 									</small>
-									<span class="w-1 h-1 bg-muted-foreground rounded-full" />
-									<small>
-										enter to{" "}
-										<button
-											type="button"
-											class="cursor-pointer hover:underline text-primary-foreground"
-											onClick={submitEdits}
-										>
-											submit
-										</button>
-									</small>
+									<Show when={props.data.edited}>
+										<small class="text-muted-foreground">(edited)</small>
+									</Show>
 								</div>
 							</Show>
+							<div
+								onKeyDown={(e) => {
+									if (e.key === "Enter" && !e.shiftKey) {
+										e.preventDefault();
+										submitEdits();
+									}
+									if (e.key === "Escape") {
+										cancelEdits();
+									}
+								}}
+							>
+								<RichTextRenderer
+									text={editedText}
+									setInputContent={setEditedText}
+									classList={{
+										"text-muted-foreground": isPending(),
+										"text-foreground": !isPending(),
+										"p-4 py-3 border border-border rounded-sm bg-card":
+											editMode(),
+									}}
+									editable={editMode()}
+								/>
+								<Show when={editMode()}>
+									<div class="flex flex-row items-center gap-1">
+										<small>
+											escape to{" "}
+											<button
+												type="button"
+												class="cursor-pointer hover:underline text-primary-foreground"
+												onClick={cancelEdits}
+											>
+												cancel
+											</button>
+										</small>
+										<span class="w-1 h-1 bg-muted-foreground rounded-full" />
+										<small>
+											enter to{" "}
+											<button
+												type="button"
+												class="cursor-pointer hover:underline text-primary-foreground"
+												onClick={submitEdits}
+											>
+												submit
+											</button>
+										</small>
+									</div>
+								</Show>
+							</div>
 						</div>
-					</div>
+					</Show>
 					<Show when={!isPending()}>
 						<div
 							class="absolute top-0 right-4 transform -translate-y-1/2 flex flex-row h-8 bg-card border border-border rounded-sm overflow-hidden"
@@ -533,6 +554,20 @@ export const Message: Component<{
 						</div>
 					</Show>
 				</div>
+				<Show
+					when={
+						!("hash" in props.data) &&
+						(props.data.attachments || []).length > 0 &&
+						props.data.text.trim().length > 0
+					}
+				>
+					<div class="pl-14 pb-2">
+						<MessageAttachments
+							did={props.data.author_did}
+							attachments={(props.data as DBMessageData).attachments || []}
+						/>
+					</div>
+				</Show>
 				<Show when={messageReactions().length > 0}>
 					<div class="flex flex-row gap-1 flex-wrap items-center pl-14">
 						<For each={messageReactions()}>

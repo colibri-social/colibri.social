@@ -1,17 +1,13 @@
 {
 	"extends": "astro/tsconfigs/strict",
-	"include": [
-		".astro/types.d.ts",
-		"**/*"
-	],
-	"exclude": [
-		"dist"
-	],
+	"include": [".astro/types.d.ts", "**/*"],
+	"exclude": ["dist"],
 	"compilerOptions": {
+		"types": ["vidstack/solid"],
 		"paths": {
-			"@/*": ["./src/*"]
+			"@/*": ["./src/*"],
 		},
 		"jsx": "preserve",
-		"jsxImportSource": "solid-js"
-	}
+		"jsxImportSource": "solid-js",
+	},
 }

@@ -25,6 +25,7 @@
 		"@atproto/common-web": "^0.4.17",
 		"@atproto/jwk-jose": "^0.1.11",
 		"@atproto/lex": "^0.0.15",
+		"@atproto/lex-data": "^0.0.13",
 		"@atproto/lexicon": "^0.6.1",
 		"@atproto/oauth-client-node": "^0.3.16",
 		"@atproto/ws-client": "^0.0.4",
@@ -54,6 +55,7 @@
 		"tlds": "^1.261.0",
 		"tw-animate-css": "^1.4.0",
 		"typescript": "^5.9.3",
+		"vidstack": "^1.12.13",
 		"vite": "^6.4.1"
 	},
 	"devDependencies": {

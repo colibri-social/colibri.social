@@ -4,6 +4,7 @@ import node from "@astrojs/node";
 import tailwindcss from "@tailwindcss/vite";
 import solidJs from "@astrojs/solid-js";
 import { loadEnv } from "vite";
+import { vite as vidstack } from "vidstack/plugins";
 
 const { REDIS_PASSWORD, REDIS_URL } = loadEnv(
 	process.env.NODE_ENV!,
@@ -34,7 +35,7 @@ export default defineConfig({
 	}),
 	output: "server",
 	vite: {
-		plugins: [tailwindcss()],
+		plugins: [tailwindcss(), vidstack()],
 	},
 	integrations: [solidJs()],
 	env: {

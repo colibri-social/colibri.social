@@ -62,7 +62,10 @@ export const MessageDeletionDrawer: ParentComponent<{
 								<DialogDescriptionContent />
 							</DialogDescription>
 						</DialogHeader>
-						<MockMessage message={props.message} isDesktop={isDesktop} />
+						<MockMessage
+							message={props.message as DBMessageData}
+							isDesktop={isDesktop}
+						/>
 						<DialogTip />
 						<DialogFooter>
 							<DialogCancelButton setOpen={props.setOpen} />

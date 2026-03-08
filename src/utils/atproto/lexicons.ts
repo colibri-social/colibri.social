@@ -278,6 +278,30 @@ lex.add(
 								"The record key of a message this message is replying to.",
 							format: "record-key",
 						},
+						attachments: {
+							type: "array",
+							items: {
+								type: "ref",
+								ref: "social.colibri.message#attachment",
+							},
+							description: "An array of attachment objects for this message.",
+						},
+					},
+				},
+			},
+			attachment: {
+				type: "object",
+				description: "A file attached to a message.",
+				required: ["blob"],
+				properties: {
+					blob: {
+						type: "blob",
+						description: "The attached file.",
+					},
+					name: {
+						type: "string",
+						description: "The original filename.",
+						maxLength: 256,
 					},
 				},
 			},

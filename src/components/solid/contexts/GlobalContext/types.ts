@@ -7,7 +7,10 @@ import type {
 } from "@/utils/sdk";
 import type { MessageDeletionEvent, ReactionEventCallback } from "./events";
 
-export type PendingMessageData = Omit<DBMessageData, "rkey"> & {
+export type PendingMessageData = Omit<
+	Omit<DBMessageData, "rkey">,
+	"attachments"
+> & {
 	hash: string;
 };
 

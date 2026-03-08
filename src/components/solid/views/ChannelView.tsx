@@ -44,6 +44,12 @@ const ChannelView: Component = () => {
 	let topSentinel: HTMLDivElement | undefined;
 	let observer: IntersectionObserver | undefined;
 	let pinnedToBottom = false;
+	// Tracks whether the user is at (or near) the bottom of the chat. Updated
+	// on every scroll event and whenever messages change. This is read by the
+	// embed callback — by the time an embed fires notifyEmbedLoad the DOM has
+	// already grown (isAtBottom() would return false), so we need the value
+	// that was true *before* the layout shift.
+	let atBottom = true;
 
 	const allMessages = createMemo(
 		(): Array<IndexedMessageData | PendingMessageData> => {
@@ -90,6 +96,10 @@ const ChannelView: Component = () => {
 		);
 	};
 
+	const updateAtBottom = () => {
+		atBottom = isAtBottom();
+	};
+
 	const scrollToBottom = () => {
 		if (!chatContainer) return;
 		chatContainer.scrollTop = chatContainer.scrollHeight;
@@ -120,13 +130,24 @@ const ChannelView: Component = () => {
 	onMount(() => {
 		setupIntersectionObserver();
 
+		chatContainer?.addEventListener("scroll", updateAtBottom, {
+			passive: true,
+		});
+
 		const unregister = registerEmbedLoadCallback(() => {
-			if (pinnedToBottom || isAtBottom()) {
+			// atBottom was kept current by the scroll listener and by the message
+			// arrival effect below. By the time this callback fires the embed DOM
+			// has already been inserted (scrollHeight grew), so calling isAtBottom()
+			// here would incorrectly return false. We use the pre-growth snapshot.
+			if (pinnedToBottom || atBottom) {
 				requestAnimationFrame(scrollToBottom);
 			}
 		});
 
-		onCleanup(unregister);
+		onCleanup(() => {
+			chatContainer?.removeEventListener("scroll", updateAtBottom);
+			unregister();
+		});
 	});
 
 	onCleanup(() => {
@@ -172,10 +193,13 @@ const ChannelView: Component = () => {
 		if (scrolled()) return;
 		if (!history.reachedTop() && allMessages().length === 0) return;
 
+		atBottom = true;
 		pinnedToBottom = true;
 		requestAnimationFrame(() => {
 			scrollToBottom();
 			pinnedToBottom = false;
+			// After the initial scroll the user is definitively at the bottom.
+			atBottom = true;
 		});
 		setScrolled(true);
 	});
@@ -186,11 +210,17 @@ const ChannelView: Component = () => {
 			() => {
 				if (!scrolled()) return;
 				if (untrack(isAtBottom)) {
+					// Record that we are at the bottom before the new message's DOM
+					// lands (embeds inside it may fire notifyEmbedLoad shortly after).
+					atBottom = true;
 					pinnedToBottom = true;
 					requestAnimationFrame(() => {
 						scrollToBottom();
 						pinnedToBottom = false;
+						atBottom = true;
 					});
+				} else {
+					atBottom = false;
 				}
 			},
 		),
