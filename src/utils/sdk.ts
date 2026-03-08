@@ -1,12 +1,10 @@
 import { APPVIEW_DOMAIN } from "astro:env/client";
-import { BlobRef, type Agent } from "@atproto/api";
+import { Agent, BlobRef } from "@atproto/api";
 import { lexicon, RECORD_IDs } from "./atproto/lexicons";
 import type { Facet } from "./atproto/rich-text";
-import type {
-	AttachmentObj,
-	BlobObj,
-} from "@/components/solid/contexts/GlobalContext/events";
+import type { AttachmentObj } from "@/components/solid/contexts/GlobalContext/events";
 import { parseCid } from "@atproto/lex-data";
+import { client } from "./atproto/oauth";
 
 type ActorData = {
 	status: string;
@@ -428,20 +426,29 @@ export class ColibriSDK {
 		const promises: Array<Promise<any>> = [];
 
 		for (const reaction of reactions) {
+			let i = 0;
 			for (const rkey of reaction.rkeys) {
 				try {
-					// TODO: Other DIDs and agents from Redis
-					promises.push(this.deleteReaction(did, rkey));
+					const autorDid = reaction.authors[i];
+					const oauthSession = await client.restore(autorDid);
+					const agent = new Agent(oauthSession);
+					const sdk = new ColibriSDK(agent);
+
+					promises.push(sdk.deleteReaction(autorDid, rkey));
 				} catch (e) {
 					console.error(e);
 				}
+				i++;
 			}
 		}
 
 		for (const message of messages) {
 			try {
-				// TODO: Other DIDs and agents from Redis
-				promises.push(this.deleteMessage(did, message.rkey));
+				const oauthSession = await client.restore(message.author_did);
+				const agent = new Agent(oauthSession);
+				const sdk = new ColibriSDK(agent);
+
+				promises.push(sdk.deleteMessage(message.author_did, message.rkey));
 			} catch (e) {
 				console.error(e);
 			}
