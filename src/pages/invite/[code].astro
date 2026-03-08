@@ -1,0 +1,58 @@
+---
+import type { InviteCodeInfo } from "@/actions/community/invite";
+import PublicLayout from "@/layouts/PublicLayout.astro";
+import type { UnresolvedCommunityData } from "@/utils/sdk";
+import { APPVIEW_DOMAIN } from "astro:env/client";
+import { INVITE_API_KEY } from "astro:env/server";
+
+const { code } = Astro.params;
+
+if (!code) return Astro.redirect("/");
+if (!Astro.session?.get("user")) return Astro.redirect("/login");
+
+const communityData = (await (
+	await fetch(`https://${APPVIEW_DOMAIN}/api/invite/${code}`, {
+		method: "GET",
+		headers: new Headers({
+			Authorization: `Bearer ${INVITE_API_KEY}`,
+		}),
+	})
+).json()) as InviteCodeInfo & {
+	community: UnresolvedCommunityData;
+};
+
+console.log(communityData);
+---
+
+<PublicLayout>
+	<section
+		class="py-40 mx-auto w-full max-w-336 md:px-16 px-6 relative flex flex-col items-center gap-12"
+	>
+		<div class="flex flex-col gap-4 items-center text-center">
+			{
+				communityData.community.picture && (
+					<img
+						src={`https://${APPVIEW_DOMAIN}/api/blob?did=${communityData.community.owner_did}&cid=${communityData.community.picture?.ref.$link}`}
+						width="128"
+						height="128"
+						alt={communityData.community.name}
+						class="border border-border rounded-2xl bg-card mb-8 block"
+					/>
+				)
+			}
+			<small class="text-primary text-sm">You've been invited to join</small>
+			<h1 class="text-5xl font-black m-0">
+				{communityData.community.name}
+			</h1>
+			<p class="m-0 text-muted-foreground">
+				Too bad, this feature is not implemented yet. Check back later. It won't
+				be long.
+			</p>
+		</div>
+	</section>
+</PublicLayout>
+<style is:global>
+	h2:first-of-type {
+		margin-top: 0;
+	}
+</style>

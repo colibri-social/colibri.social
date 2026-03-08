@@ -28,6 +28,7 @@ import {
 } from "../shadcn-solid/file-field";
 import { toast } from "somoto";
 import type { Details } from "@kobalte/core/file-field";
+import { InviteLinkCreationModal } from "../components/Community/InviteLinkCreationModal";
 
 /**
  * Fetches the sidebar data (categories + channels) for a community.
@@ -240,6 +241,16 @@ const CommunityLayout: ParentComponent = (props) => {
 													Settings
 												</small>
 											</CommunitySettingsModal>
+										</Show>
+										<Show
+											when={community()?.owner_did === globalContext.user.sub}
+										>
+											<div class="w-1 h-1 bg-muted-foreground rounded-full" />
+											<InviteLinkCreationModal community={community()!.rkey}>
+												<small class="cursor-pointer hover:underline">
+													Create Invitation
+												</small>
+											</InviteLinkCreationModal>
 										</Show>
 									</div>
 								</div>

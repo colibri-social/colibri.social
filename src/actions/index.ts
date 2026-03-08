@@ -10,6 +10,7 @@ import { editCategoryOrder } from "./community/category-order";
 import { createCommunity } from "./community/create";
 import { deleteCommunity } from "./community/delete";
 import { editCommunity } from "./community/edit";
+import { createInviteCode, deleteInviteCode } from "./community/invite";
 import { getEmbedDataForURI } from "./embeds/get";
 import { deleteMessage } from "./message/delete";
 import { editMessage } from "./message/edit";
@@ -40,4 +41,6 @@ export const server = {
 	removeFromCommunityOrder,
 	getEmbedDataForURI,
 	editCategoryOrder,
+	createInviteCode,
+	deleteInviteCode,
 };
