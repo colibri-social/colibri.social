@@ -307,22 +307,24 @@ const CommunityLayout: ParentComponent = (props) => {
 							</div>
 							<div class="min-w-72 w-72 h-full flex flex-col p-4 border-l gap-3 border-border overflow-y-auto">
 								<span>Members</span>
-								<Suspense fallback={<MemberListSkeleton />}>
-									<For each={members() ?? []}>
-										{(item) => (
-											<div class="flex flex-row gap-2 border border-border bg-card rounded-sm p-2">
-												<img
-													src={item.avatar_url || "/user-placeholder.png"}
-													alt={item.display_name}
-													width={28}
-													height={28}
-													class="rounded-full"
-												/>
-												<span class="font-medium">{item.display_name}</span>
-											</div>
-										)}
-									</For>
-								</Suspense>
+								<div class="flex flex-col w-full h-full gap-1">
+									<Suspense fallback={<MemberListSkeleton />}>
+										<For each={members() ?? []}>
+											{(item) => (
+												<div class="flex flex-row gap-2 border border-border bg-card rounded-sm p-2">
+													<img
+														src={item.avatar_url || "/user-placeholder.png"}
+														alt={item.display_name}
+														width={28}
+														height={28}
+														class="rounded-full"
+													/>
+													<span class="font-medium">{item.display_name}</span>
+												</div>
+											)}
+										</For>
+									</Suspense>
+								</div>
 							</div>
 						</Match>
 					</Switch>
