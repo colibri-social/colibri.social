@@ -517,13 +517,14 @@ export class ColibriSDK {
 		};
 
 		const combined = [...communities.owned, ...communities.joined];
-		const pdsUrl = await resolvePdsUrl(did);
 
-		const data = combined.map((record) => {
+		const data = combined.map(async (record) => {
 			let imageUrl: string | false | undefined;
 
+			const pdsUrl = await resolvePdsUrl(record.owner_did);
+
 			if (record.picture?.ref && pdsUrl) {
-				imageUrl = blobRefToUrl(pdsUrl, did, record.picture);
+				imageUrl = blobRefToUrl(pdsUrl, record.owner_did, record.picture);
 			}
 
 			return {
@@ -532,7 +533,7 @@ export class ColibriSDK {
 			} as CommunityData;
 		});
 
-		return data;
+		return await Promise.all(data);
 	};
 
 	/**
@@ -979,13 +980,19 @@ export class ColibriSDK {
 	 * @param did The DID of the user to create the declaration for.
 	 * @param communityAtUri The AT URI of the community.
 	 * @returns The record key of the declaration.
-	 * @todo Timestamp, implementation
 	 */
 	public createMembershipDeclaration = async (
 		did: string,
 		communityAtUri: string,
 	): Promise<string> => {
-		return "";
+		const record = this.constructAtProtoRecord(did, RECORD_IDs.MEMBERSHIP, {
+			community: communityAtUri,
+			createdAt: new Date().toISOString(),
+		});
+
+		const res = await this.agent.com.atproto.repo.createRecord(record);
+
+		return res.data.uri.split("/").pop()!;
 	};
 
 	/**
@@ -998,7 +1005,16 @@ export class ColibriSDK {
 		did: string,
 		declarationAtUri: string,
 		communityAtUri: string,
+		agentOverride?: Agent,
 	): Promise<void> => {
-		return;
+		const record = this.constructAtProtoRecord(did, RECORD_IDs.APPROVAL, {
+			membership: declarationAtUri,
+			community: communityAtUri,
+			createdAt: new Date().toISOString(),
+		});
+
+		const agent = agentOverride || this.agent;
+
+		await agent.com.atproto.repo.createRecord(record);
 	};
 }

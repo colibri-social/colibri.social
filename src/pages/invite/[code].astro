@@ -45,23 +45,27 @@ const communityData = (await (
 			<h1 class="text-5xl font-black m-0">
 				{communityData.community.name}
 			</h1>
-			<p class="m-0 text-muted-foreground">
-				Too bad, this feature is not implemented yet. Check back later. It won't
-				be long.
-			</p>
 			<div
 				class="mt-8 rounded-2xl w-full bg-card border border-border p-6 flex flex-col gap-4"
 			>
 				<Button class={"w-full"} id="accept-btn" data-code={code}>
 					<span>Accept as</span>
-					<span class="flex flex-row gap-2 items-center">
+					<span class="flex flex-row gap-1.5 items-center">
 						{
-							user.avatar && (
+							user.avatar ? (
 								<Image
 									width={24}
 									height={24}
 									alt={user.displayName || ""}
 									src={user.avatar}
+									class={"rounded-full"}
+								/>
+							) : (
+								<Image
+									width={24}
+									height={24}
+									alt={user.displayName || ""}
+									src={"/user-placeholder.png"}
 									class={"rounded-full"}
 								/>
 							)
@@ -80,15 +84,26 @@ const communityData = (await (
 	import { actions } from "astro:actions";
 
 	const acceptBtn = document.querySelector<HTMLButtonElement>("#accept-btn")!;
-	const cancelBtn = document.querySelector<HTMLButtonElement>("cancel-btn")!;
+	const cancelBtn = document.querySelector<HTMLButtonElement>("#cancel-btn")!;
 
 	const code = acceptBtn.dataset.code as string;
 
+	// TODO: Loading state
 	acceptBtn.addEventListener("click", async () => {
-		// TODO: Error handling
-		await actions.acceptInvitation({
+		const { error, data } = await actions.acceptInvitation({
 			code,
 		});
+
+		// TODO: Better error handling
+		if (error || !data) {
+			return alert(error?.message || "Unable to get community.");
+		}
+
+		window.location.href = `/app/c/${data}`;
+	});
+
+	cancelBtn.addEventListener("click", () => {
+		window.close();
 	});
 </script>
 <style is:global>

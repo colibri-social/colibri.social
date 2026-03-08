@@ -59,14 +59,18 @@ export const acceptInvitation = defineAction({
 
 				await sdk.createJoinApproval(
 					owner.did!,
-					`at://${communityData.community.owner_did}/${RECORD_IDs.MEMBERSHIP}/${membershipRkey}`,
+					`at://${agent.did!}/${RECORD_IDs.MEMBERSHIP}/${membershipRkey}`,
 					communityAtUri,
+					owner,
 				);
 			} catch (e) {
+				console.error(e);
 				// TODO: catch and notify user that accepting declaration could not be resolved
 			}
 
-			return;
+			// TODO: wait for websocket
+
+			return communityAtUri.split("/").pop()!;
 		} catch (e) {
 			console.error(e);
 
