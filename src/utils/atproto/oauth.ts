@@ -79,6 +79,138 @@ const deriveSessionTtlSeconds = (session: NodeSavedSession): number => {
 const decodePrivateKey = (key: string) =>
 	Buffer.from(key, "base64").toString("utf-8");
 
+/**
+ * How many seconds before expiry a session is considered "about to expire"
+ * and should be proactively refreshed.
+ */
+const REFRESH_THRESHOLD_SECONDS = 45 * 60; // 45 minutes
+
+/**
+ * Extracts the `sub` (DID) from a Redis session key of the form
+ * `oauth:session:SUB`.
+ */
+const subFromSessionKey = (key: string): string =>
+	key.slice("oauth:session:".length);
+
+/**
+ * Returns true when the session's access token will expire within
+ * `REFRESH_THRESHOLD_SECONDS`, or is already expired but still carries a
+ * refresh token (so `client.restore()` can exchange it for a fresh pair).
+ */
+const sessionNeedsRefresh = (session: NodeSavedSession): boolean => {
+	const expiresAt = session.tokenSet?.expires_at;
+
+	// No expiry information — cannot determine, skip proactive refresh.
+	if (!expiresAt) return false;
+
+	const expiresAtMs = new Date(expiresAt).getTime();
+	if (Number.isNaN(expiresAtMs)) return false;
+
+	const remainingSeconds = Math.floor((expiresAtMs - Date.now()) / 1000);
+
+	// Already expired: only worth refreshing if there is a refresh token.
+	if (remainingSeconds <= 0) return !!session.tokenSet?.refresh_token;
+
+	// Expiring within the threshold window.
+	return remainingSeconds <= REFRESH_THRESHOLD_SECONDS;
+};
+
+/**
+ * Scans all `oauth:session:*` keys in Redis, identifies sessions that are
+ * expiring within the next 45 minutes (or are already expired but still have
+ * a refresh token), and calls `client.restore()` on each one.
+ */
+export const refreshAtprotoSessions = async (): Promise<void> => {
+	const redis = await getRedisClient();
+
+	const sessionKeys: string[] = [];
+	let cursor = "0";
+	do {
+		const result = await redis.scan(cursor, {
+			MATCH: "oauth:session:*",
+			COUNT: 100,
+		});
+		cursor = result.cursor;
+		sessionKeys.push(...result.keys);
+	} while (cursor !== "0");
+
+	if (sessionKeys.length === 0) return;
+
+	const rawSessions = await Promise.all(
+		sessionKeys.map((key) => redis.get(key)),
+	);
+
+	const toRefresh: Array<{ sub: string; session: NodeSavedSession }> = [];
+	for (let i = 0; i < sessionKeys.length; i++) {
+		const raw = rawSessions[i];
+		if (!raw) continue;
+
+		let session: NodeSavedSession;
+		try {
+			session = JSON.parse(raw) as NodeSavedSession;
+		} catch {
+			console.warn(
+				`[oauth] Failed to parse session for key ${sessionKeys[i]}, skipping.`,
+			);
+			continue;
+		}
+
+		if (sessionNeedsRefresh(session)) {
+			toRefresh.push({ sub: subFromSessionKey(sessionKeys[i]), session });
+		}
+	}
+
+	if (toRefresh.length === 0) return;
+
+	console.log(
+		`[oauth] Proactively refreshing ${toRefresh.length} session(s) expiring within ${REFRESH_THRESHOLD_SECONDS / 60} minutes.`,
+	);
+
+	await Promise.allSettled(
+		toRefresh.map(async ({ sub }) => {
+			try {
+				await client.restore(sub);
+				console.log(`[oauth] Session refreshed for ${sub}.`);
+			} catch (err) {
+				if (
+					err instanceof Error &&
+					(err.constructor.name === "TokenRefreshError" ||
+						err.constructor.name === "TokenRevokedError")
+				) {
+					console.warn(
+						`[oauth] Session for ${sub} could not be refreshed (revoked or expired refresh token). It has been removed.`,
+					);
+				} else {
+					console.error(
+						`[oauth] Unexpected error refreshing session for ${sub}:`,
+						err,
+					);
+				}
+			}
+		}),
+	);
+};
+
+/**
+ * Starts a periodic background timer that calls `refreshAtprotoSessions`
+ * every 45 minutes, keeping all active sessions alive.
+ */
+export const startSessionRefreshInterval = (): ReturnType<
+	typeof setInterval
+> => {
+	const INTERVAL_MS = REFRESH_THRESHOLD_SECONDS * 1000; // 45 minutes
+
+	refreshAtprotoSessions().catch((err) =>
+		console.error("[oauth] Initial session refresh sweep failed:", err),
+	);
+
+	return setInterval(() => {
+		refreshAtprotoSessions().catch((err) =>
+			console.error("[oauth] Periodic session refresh sweep failed:", err),
+		);
+	}, INTERVAL_MS);
+};
+
 // See https://npmx.dev/package/@atproto/oauth-client-node#user-content-from-a-backend-service
 export const client = new NodeOAuthClient({
 	// This object will be used to build the payload of the /client-metadata.json
@@ -170,3 +302,5 @@ export const client = new NodeOAuthClient({
 	// A lock to prevent concurrent access to the session store. Optional if only one instance is running.
 	// requestLock,
 });
+
+startSessionRefreshInterval();
