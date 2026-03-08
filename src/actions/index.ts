@@ -17,6 +17,7 @@ import { editMessage } from "./message/edit";
 import { postMessage } from "./message/post";
 import { addReaction } from "./reactions/add";
 import { removeReaction } from "./reactions/remove";
+import { acceptInvitation } from "./user/accept-code";
 import { setCommunityOrder } from "./user/community-order";
 import { removeFromCommunityOrder } from "./user/remove-from-order";
 
@@ -43,4 +44,5 @@ export const server = {
 	editCategoryOrder,
 	createInviteCode,
 	deleteInviteCode,
+	acceptInvitation,
 };

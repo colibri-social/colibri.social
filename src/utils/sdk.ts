@@ -973,4 +973,32 @@ export class ColibriSDK {
 			rkey,
 		});
 	};
+
+	/**
+	 * Creates a membership declaration for a given community.
+	 * @param did The DID of the user to create the declaration for.
+	 * @param communityAtUri The AT URI of the community.
+	 * @returns The record key of the declaration.
+	 * @todo Timestamp, implementation
+	 */
+	public createMembershipDeclaration = async (
+		did: string,
+		communityAtUri: string,
+	): Promise<string> => {
+		return "";
+	};
+
+	/**
+	 * Creates a membership approval for a given community.
+	 * @param did The DID of the community owner.
+	 * @param declarationAtUri The AT URI of the declaration record.
+	 * @param communityAtUri The AT URI of the community.
+	 */
+	public createJoinApproval = async (
+		did: string,
+		declarationAtUri: string,
+		communityAtUri: string,
+	): Promise<void> => {
+		return;
+	};
 }

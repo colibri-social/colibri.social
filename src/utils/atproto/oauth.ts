@@ -262,9 +262,9 @@ export const client = new NodeOAuthClient({
 			if (!raw) return undefined;
 			return JSON.parse(raw) as NodeSavedState;
 		},
-		async del(key: string): Promise<void> {
-			const redis = await getRedisClient();
-			await redis.del(stateKey(key));
+		async del(_key: string): Promise<void> {
+			// const redis = await getRedisClient();
+			// await redis.del(stateKey(key));
 		},
 	},
 
@@ -293,9 +293,9 @@ export const client = new NodeOAuthClient({
 			if (!raw) return undefined;
 			return JSON.parse(raw) as NodeSavedSession;
 		},
-		async del(sub: string): Promise<void> {
-			const redis = await getRedisClient();
-			await redis.del(sessionKey(sub));
+		async del(_sub: string): Promise<void> {
+			// const redis = await getRedisClient();
+			// await redis.del(sessionKey(sub));
 		},
 	},
 
