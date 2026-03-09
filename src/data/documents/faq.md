@@ -47,3 +47,9 @@ community data (like messages in private groups) is stored securely on
 our EU-based servers. Once the AT Protocol introduces support for
 private data, we'll handle the migration for you automatically - no
 action needed on your end.
+
+## Do my messages show up as posts on Bluesky?
+
+No, they don't. While we store data the same way Bluesky does, we use a different
+"collection", meaning your data will stay confined to Colibri. You can use a tool
+like [pdsls.dev](https://pdsls.dev) to inspect your profile and all related data.
