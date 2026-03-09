@@ -147,6 +147,7 @@ const CommunityLayout: ParentComponent = (props) => {
 				(x) =>
 					!optimisticRemovedList.some((y) => y.member_did === x.member_did),
 			)
+			.filter((x) => x.status !== "pending")
 			.sort((a, b) => a.display_name.localeCompare(b.display_name));
 	});
 

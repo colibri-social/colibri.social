@@ -6,6 +6,7 @@ import { createChannel } from "./channel/create";
 import { deleteChannel } from "./channel/delete";
 import { editChannel } from "./channel/edit";
 import { reorderChannels } from "./channel/reorder";
+import { approveJoinRequest } from "./community/approve-join-request";
 import { editCategoryOrder } from "./community/category-order";
 import { createCommunity } from "./community/create";
 import { deleteCommunity } from "./community/delete";
@@ -15,6 +16,7 @@ import {
 	deleteInviteCode,
 	listInviteCodes,
 } from "./community/invite";
+import { listPendingMembers } from "./community/members";
 import { getEmbedDataForURI } from "./embeds/get";
 import { deleteMessage } from "./message/delete";
 import { editMessage } from "./message/edit";
@@ -54,4 +56,6 @@ export const server = {
 	listInviteCodes,
 	getUserProfileData,
 	leaveCommunity,
+	listPendingMembers,
+	approveJoinRequest,
 };

@@ -159,12 +159,18 @@ if (inCommunity) {
 			});
 		}
 
-		if (data.state !== "success") {
-			return window.toast.error({
-				title: "Unable to join community;",
-				description: data.message,
-			});
-		}
+		if (data.state)
+			if (data.state !== "success") {
+				if (data.state === "partial") {
+					window.location.href = `/pending-approval`;
+					return;
+				}
+
+				return window.toast.error({
+					title: "Unable to join community;",
+					description: data.message,
+				});
+			}
 
 		// At this point, the message will be the record key of the community
 		window.location.href = `/app/c/${data.message}`;

@@ -1,5 +1,5 @@
 import { APPVIEW_DOMAIN } from "astro:env/client";
-import { Agent, BlobRef } from "@atproto/api";
+import { Agent, BlobRef, AtpAgent } from "@atproto/api";
 import { parseCid } from "@atproto/lex-data";
 import type { AttachmentObj } from "@/components/solid/contexts/GlobalContext/events";
 import { lexicon, RECORD_IDs } from "./atproto/lexicons";
@@ -998,6 +998,51 @@ export class ColibriSDK {
 	};
 
 	/**
+	 * Finds the membership declaration for a community for a user.
+	 * @param did The DID of the user.
+	 * @param communityAtUri The AT URI of the community to find the declaration for.
+	 */
+	public findMembershipDeclaration = async (
+		did: string,
+		communityAtUri: string,
+	): Promise<string | false> => {
+		let cursor: string | undefined;
+
+		while (true) {
+			const didDoc = await fetch(
+				`https://plc.directory/did:plc:k4xqg24tv4yukmn4jf4pr7wy`,
+			).then((r) => r.json());
+
+			const pdsEndpoint: string = didDoc.service?.find(
+				(s: { id: string }) => s.id === "#atproto_pds",
+			)?.serviceEndpoint;
+
+			const foreignAgent = new AtpAgent({ service: pdsEndpoint });
+
+			const membershipRecords = await foreignAgent.com.atproto.repo.listRecords(
+				{
+					repo: did,
+					collection: RECORD_IDs.MEMBERSHIP,
+					limit: 100,
+					cursor,
+				},
+			);
+
+			for (const record of membershipRecords.data.records) {
+				if (record.value.community === communityAtUri) {
+					return record.uri;
+				}
+			}
+
+			cursor = membershipRecords.data.cursor;
+
+			if (!cursor) break; // No more pages, record not found
+		}
+
+		return false;
+	};
+
+	/**
 	 * Deletes the users membership declaration for a given community.
 	 * @param did The DID of the user.
 	 * @param communityAtUri The AT URI of the community to delete the declaration for.
@@ -1054,6 +1099,8 @@ export class ColibriSDK {
 		const agent = agentOverride || this.agent;
 
 		const res = await agent.com.atproto.repo.createRecord(record);
+
+		console.log(agent, record, res);
 
 		return res.data.uri.split("/").pop()!;
 	};

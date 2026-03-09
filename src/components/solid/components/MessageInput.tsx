@@ -100,7 +100,6 @@ export const MessageInput: Component<{
 	const channel = () => params.channel!;
 	const fileField = useFileFieldContext();
 
-	const [loading, setLoading] = createSignal(false);
 	const [messageData, { clearReplyingTo }] = useMessageContext();
 	const [globalData, { addPendingMessage, removePendingMessage }] =
 		useGlobalContext();
@@ -116,6 +115,11 @@ export const MessageInput: Component<{
 		},
 	);
 
+	/**
+	 * Uploads files and collects progress while we're at it.
+	 * @param files The files to upload
+	 * @todo This is more or less unused - progress should be shown on the pending message with file stubs.
+	 */
 	const uploadFiles = async (
 		files: Array<File>,
 	): Promise<Array<AttachmentObj>> => {
@@ -141,72 +145,66 @@ export const MessageInput: Component<{
 	 * Sends the message currently contained in the input.
 	 */
 	const sendMessage = async (): Promise<boolean> => {
-		if (loading()) return false;
-
 		const trimmed = trimTextWithFacets(inputContent());
-		const hasFiles = (props.files()?.acceptedFiles.length ?? 0) > 0;
+		const files = props.files();
+		const hasFiles = (files?.acceptedFiles.length ?? 0) > 0;
+		const _channel = channel();
 
 		if (trimmed.text.length === 0 && !hasFiles) {
 			return false;
 		}
 
-		setLoading(true);
+		setInputContent({
+			text: "",
+			facets: [],
+		});
 
-		try {
-			const attachments = await uploadFiles(props.files()?.acceptedFiles ?? []);
+		clearReplyingTo();
 
-			const obj: PostMessageInput = {
-				text: trimmed.text,
-				facets: trimmed.facets,
-				channel: channel(),
-				createdAt: new Date().toISOString(),
-				parent: messageData.replyingTo?.rkey,
-				attachments,
-			};
-
-			const hash = await generateHash(stringify(obj)!);
-
-			addPendingMessage({
-				channel: obj.channel,
-				created_at: obj.createdAt,
-				hash,
-				text: trimmed.text,
-				facets: trimmed.facets,
-				author_did: globalData.user.sub,
-				display_name: globalData.user.displayName!,
-				avatar_url: globalData.user.avatar!,
-				parent: messageData.replyingTo?.rkey,
-				parent_message: messageData.replyingTo || null,
-				reactions: [],
-			});
-
-			setInputContent({
-				text: "",
-				facets: [],
-			});
-
-			clearReplyingTo();
-
-			for (const file of fileField.acceptedFiles) {
-				fileField.removeFile(file);
-			}
-
-			setFileUploadProgress([]);
-
-			const { error } = await actions.postMessage(obj);
-
-			if (error) {
-				toast.error("Failed to send message", {
-					description: parseZodToErrorOrDisplay(error.message),
-				});
-				removePendingMessage(hash);
-				return false;
-			}
-
-			return true;
-		} finally {
-			setLoading(false);
+		for (const file of fileField.acceptedFiles) {
+			fileField.removeFile(file);
 		}
+
+		const attachments = await uploadFiles(files?.acceptedFiles ?? []);
+
+		const obj: PostMessageInput = {
+			text: trimmed.text,
+			facets: trimmed.facets,
+			channel: _channel,
+			createdAt: new Date().toISOString(),
+			parent: messageData.replyingTo?.rkey,
+			attachments,
+		};
+
+		const hash = await generateHash(stringify(obj)!);
+
+		addPendingMessage({
+			channel: obj.channel,
+			created_at: obj.createdAt,
+			hash,
+			text: trimmed.text,
+			facets: trimmed.facets,
+			author_did: globalData.user.sub,
+			display_name: globalData.user.displayName!,
+			avatar_url: globalData.user.avatar!,
+			parent: messageData.replyingTo?.rkey,
+			parent_message: messageData.replyingTo || null,
+			reactions: [],
+		});
+
+		const { error } = await actions.postMessage(obj);
+
+		setFileUploadProgress([]);
+
+		if (error) {
+			toast.error("Failed to send message", {
+				description: parseZodToErrorOrDisplay(error.message),
+			});
+			removePendingMessage(hash);
+			return false;
+		}
+
+		return true;
 	};
 
 	createEffect(() => {
@@ -280,7 +278,7 @@ export const MessageInput: Component<{
 					<RichTextRenderer
 						text={inputContent}
 						setInputContent={setInputContent}
-						editable={!loading()}
+						editable={true}
 						placeholder={`Message ${props.channelName}`}
 						id="chat-input"
 					/>

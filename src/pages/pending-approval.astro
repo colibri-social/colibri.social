@@ -1,0 +1,84 @@
+---
+import { Image } from "astro:assets";
+import { APPVIEW_DOMAIN } from "astro:env/client";
+import Button from "@/components/bearnie/button/Button.astro";
+import PublicLayout from "@/layouts/PublicLayout.astro";
+
+const user = await Astro.session?.get("user");
+
+if (!user) return Astro.redirect("/login");
+---
+
+<PublicLayout title={`Request received!`}>
+	<section
+		class="py-40 mx-auto w-full max-w-336 md:px-16 px-6 relative flex flex-col items-center gap-12"
+	>
+		<div class="flex flex-col gap-4 items-center text-center">
+			<small class="text-primary text-sm">It won't be long.</small>
+			<h1 class="text-5xl font-black m-0">Request Received</h1>
+			<div
+				class="mt-8 rounded-2xl w-full bg-card border border-border p-6 flex flex-col gap-4"
+			>
+				<p class="max-w-[65ch]">
+					We were unable to add you to the community right away. You'll have to
+					wait for approval from the community's owner. Please check the app in
+					a bit!
+				</p>
+			</div>
+		</div>
+	</section>
+</PublicLayout>
+<script>
+	import { actions } from "astro:actions";
+	import Spinner from "@/assets/spinner.svg?raw";
+
+	const acceptBtn = document.querySelector<HTMLButtonElement>("#accept-btn");
+	const cancelBtn = document.querySelector<HTMLButtonElement>("#cancel-btn")!;
+
+	const code = acceptBtn?.dataset.code as string;
+
+	// TODO: Loading state
+	acceptBtn?.addEventListener("click", async () => {
+		let prevHtml = `${acceptBtn.innerHTML}`;
+		acceptBtn.innerHTML = Spinner;
+
+		const { error, data } = await actions.acceptInvitation({
+			code,
+		});
+
+		acceptBtn.innerHTML = prevHtml;
+
+		if (error) {
+			return window.toast.error({
+				title: "Unable to join community:",
+				description: error.message,
+			});
+		}
+
+		if (!data) {
+			return window.toast.error({
+				title: "Unable to join community.",
+			});
+		}
+
+		if (data.state)
+			if (data.state !== "success") {
+				if (data.state === "partial") {
+					window.location.href = `/pending-invite`;
+					return;
+				}
+
+				return window.toast.error({
+					title: "Unable to join community;",
+					description: data.message,
+				});
+			}
+
+		// At this point, the message will be the record key of the community
+		window.location.href = `/app/c/${data.message}`;
+	});
+
+	cancelBtn.addEventListener("click", () => {
+		window.close();
+	});
+</script>

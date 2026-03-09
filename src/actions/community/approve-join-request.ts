@@ -3,15 +3,14 @@ import { Agent } from "@atproto/api";
 import { z } from "astro/zod";
 import { client } from "@/utils/atproto/oauth";
 import { ColibriSDK } from "@/utils/sdk";
+import { RECORD_IDs } from "@/utils/atproto/lexicons";
 
-export const editCategoryOrder = defineAction({
+export const approveJoinRequest = defineAction({
 	input: z.object({
+		member: z.string({ message: "No member DID given." }),
 		community: z.string({ message: "No community given." }),
-		categoryOrder: z.array(z.string({ message: "Invalid category." }), {
-			message: "No category order given.",
-		}),
 	}),
-	handler: async ({ community, categoryOrder }, { session }) => {
+	handler: async ({ member, community }, { session }) => {
 		try {
 			if (!session || !session?.has("user")) {
 				throw new ActionError({
@@ -25,12 +24,24 @@ export const editCategoryOrder = defineAction({
 			const agent = new Agent(oauthSession);
 			const sdk = new ColibriSDK(agent);
 
-			const existingRecord = await sdk.getCommunityData(agent.did!, community);
+			const communityAtURI = `at://${agent.did!}/${RECORD_IDs.COMMUNITY}/${community}`;
 
-			await sdk.modifyCommunityData(agent.did!, community, {
-				...existingRecord,
-				categoryOrder,
-			});
+			// TODO: Fetch declaration from member
+			const membership = await sdk.findMembershipDeclaration(
+				member,
+				communityAtURI,
+			);
+
+			if (!membership) {
+				throw new ActionError({
+					message: "Unable to find membership declaration for user.",
+					code: "NOT_FOUND",
+				});
+			}
+
+			console.log(membership, communityAtURI);
+
+			await sdk.createJoinApproval(agent.did!, membership, communityAtURI);
 		} catch (e) {
 			console.error(e);
 

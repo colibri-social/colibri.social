@@ -45,6 +45,8 @@ import {
 } from "../../shadcn-solid/text-field";
 import { SettingsInfoPage } from "../SettingsInfoPage";
 import { SettingsModal, SettingsPage } from "../SettingsModal";
+import { DeleteLinkModal } from "./DeleteLinkModal";
+import type { MemberData } from "../../layouts/CommunityLayout";
 
 const GeneralSettingsPage: Component = () => {
 	const [globalData, { addCommunity }] = useGlobalContext();
@@ -273,7 +275,10 @@ const InviteLinksPage: Component = () => {
 	const params = useParams();
 
 	const [loading] = createSignal<boolean>(false);
-	const [codes] = createResource(() => params.community, fetchCodes);
+	const [codes, { refetch }] = createResource(
+		() => params.community,
+		fetchCodes,
+	);
 
 	return (
 		<SettingsPage loading={loading} title="Invite Links">
@@ -320,9 +325,138 @@ const InviteLinksPage: Component = () => {
 															</Suspense>
 														</TableCell>
 														<TableCell>{code.active ? "Yes" : "No"}</TableCell>
-														<TableCell class="text-right">...</TableCell>
+														<TableCell class="text-right">
+															<DeleteLinkModal
+																code={code.code}
+																ownerDID={code.created_by_did}
+																refetch={refetch}
+															>
+																<Button variant="destructive" size="sm">
+																	Delete
+																</Button>
+															</DeleteLinkModal>
+														</TableCell>
 													</TableRow>
 												)}
+											</For>
+										)}
+									</Match>
+								</Switch>
+							</TableBody>
+						</Table>
+					)}
+				</Match>
+			</Switch>
+		</SettingsPage>
+	);
+};
+
+const fetchPendingMembers = async ([community, owner]: [string, string]) => {
+	return await actions.listPendingMembers({ community, owner });
+};
+
+const JoinRequestApprovals: Component = () => {
+	const params = useParams();
+	const [globalData] = useGlobalContext();
+
+	const community = () => params.community!;
+
+	const [inflightApprovals, setInflightApprovals] = createSignal<
+		Array<MemberData>
+	>([]);
+	const [loading] = createSignal<boolean>(false);
+	const [pendingMembers, { refetch }] = createResource(
+		() => [community(), globalData.user.sub] as [string, string],
+		fetchPendingMembers,
+	);
+
+	const acceptJoinRequest = async (member: MemberData) => {
+		setInflightApprovals((current) => [...current, member]);
+
+		const res = await actions.approveJoinRequest({
+			member: member.member_did,
+			community: community(),
+		});
+
+		setInflightApprovals((current) =>
+			current.filter((x) => x.member_did !== member.member_did),
+		);
+
+		if (res.error) {
+			toast.error("Failed to approve request", {
+				description: parseZodToErrorOrDisplay(res.error.message),
+			});
+			return;
+		}
+
+		// TODO: Band-aid fix, race condition n all that. Wait for member to join via global context.
+		setTimeout(refetch, 1000);
+	};
+
+	return (
+		<SettingsPage loading={loading} title="Join Requests">
+			<Switch>
+				<Match when={!pendingMembers()}>
+					<div class="my-2 flex w-full items-center justify-center">
+						<Spinner />
+					</div>
+				</Match>
+				<Match when={pendingMembers()}>
+					{(member) => (
+						<Table class="h-full">
+							<TableHeader>
+								<TableRow>
+									<TableHead class="w-[150px]">User</TableHead>
+									<TableHead class="text-right">Accept</TableHead>
+								</TableRow>
+							</TableHeader>
+							<TableBody class="relative">
+								<Switch>
+									<Match when={member().error}>
+										<Alert variant="destructive" class="my-2 absolute">
+											<AlertTitle>
+												An error occurred while fetching the data:
+											</AlertTitle>
+											<AlertDescription>
+												{member().error!.message}
+											</AlertDescription>
+										</Alert>
+									</Match>
+									<Match when={member().data}>
+										{(data) => (
+											<For each={data()}>
+												{(data) => {
+													const loading = () =>
+														inflightApprovals().some(
+															(x) => x.member_did === data.member_did,
+														);
+													return (
+														<TableRow>
+															<TableCell>
+																<Suspense fallback={<Spinner />}>
+																	<SmallUser did={data.member_did} />
+																</Suspense>
+															</TableCell>
+															<TableCell class="text-right">
+																<Button
+																	size="sm"
+																	disabled={loading()}
+																	onClick={() => {
+																		acceptJoinRequest(data);
+																	}}
+																>
+																	<Spinner
+																		classList={{
+																			hidden: !loading(),
+																			block: loading(),
+																		}}
+																	/>
+																	Accept
+																</Button>
+															</TableCell>
+														</TableRow>
+													);
+												}}
 											</For>
 										)}
 									</Match>
@@ -427,6 +561,11 @@ export const CommunitySettingsModal: ParentComponent = (props) => {
 					title: "Invite Links",
 					id: "invitations",
 					component: InviteLinksPage,
+				},
+				{
+					title: "Join Requests",
+					id: "joins",
+					component: JoinRequestApprovals,
 				},
 			]}
 			dangerPage={{

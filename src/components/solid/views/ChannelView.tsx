@@ -30,6 +30,7 @@ const BOTTOM_THRESHOLD = 80;
 
 const ChannelView: Component = () => {
 	const params = useParams();
+	const [previousChannel, setPreviousChannel] = createSignal();
 	const channel = createMemo(() => params.channel!);
 	const [messageData, { registerEmbedLoadCallback }] = useMessageContext();
 	const [
@@ -172,6 +173,20 @@ const ChannelView: Component = () => {
 	);
 
 	createEffect(() => {
+		const previous = previousChannel();
+
+		sendSocketMessage({
+			action: "unsubscribe",
+			event_type: "message",
+			channel: previous,
+		});
+
+		clearAdditionalMessages();
+		clearDeletedMessages();
+		clearOptimisticMemberUpdates();
+
+		setPreviousChannel(channel());
+
 		sendSocketMessage({
 			action: "subscribe",
 			event_type: "message",
@@ -180,13 +195,6 @@ const ChannelView: Component = () => {
 	});
 
 	onCleanup(() => {
-		sendSocketMessage({
-			action: "unsubscribe",
-			event_type: "message",
-			channel: channel(),
-		});
-		clearAdditionalMessages();
-		clearDeletedMessages();
 		clearOptimisticMemberUpdates();
 	});
 
