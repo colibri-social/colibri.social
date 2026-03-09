@@ -7,6 +7,7 @@ import {
 	Show,
 } from "solid-js";
 import { useMessageContext } from "../../contexts/MessageContext";
+import { Lightbox } from "../Lightbox";
 
 /**
  * Fetches relevant data for embeds.
@@ -62,20 +63,25 @@ export const LinkEmbed: Component<{ uri: string }> = (props) => {
 				</a>
 				<span class="font-light text-sm">{embedData()!.description}</span>
 				<Show when={embedData()!.image}>
-					<img
-						width={400}
-						height={210}
-						class="w-full h-auto rounded-xs my-2 bg-muted border-none"
-						src={
-							embedData()!.image![0].url.includes("http")
-								? embedData()!.image![0].url
-								: new URL(props.uri).protocol +
-									"//" +
-									new URL(props.uri).host +
-									embedData()!.image![0].url
-						}
-						alt={embedData()!.image![0].alt || ""}
-					/>
+					{(image) => {
+						const imageUrl = image()[0].url.startsWith("http")
+							? image()[0].url
+							: new URL(props.uri).protocol +
+								"//" +
+								new URL(props.uri).host +
+								image()[0].url;
+						return (
+							<Lightbox src={imageUrl}>
+								<img
+									width={400}
+									height={210}
+									class="w-full h-auto rounded-xs my-2 bg-muted border-none cursor-pointer"
+									src={imageUrl}
+									alt={image()[0].alt || ""}
+								/>
+							</Lightbox>
+						);
+					}}
 				</Show>
 			</div>
 		</Show>
