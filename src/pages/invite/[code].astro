@@ -82,6 +82,7 @@ const communityData = (await (
 </PublicLayout>
 <script>
 	import { actions } from "astro:actions";
+	import Spinner from "@/assets/spinner.svg?raw";
 
 	const acceptBtn = document.querySelector<HTMLButtonElement>("#accept-btn")!;
 	const cancelBtn = document.querySelector<HTMLButtonElement>("#cancel-btn")!;
@@ -90,24 +91,33 @@ const communityData = (await (
 
 	// TODO: Loading state
 	acceptBtn.addEventListener("click", async () => {
+		let prevHtml = acceptBtn.innerHTML;
+		acceptBtn.innerHTML = Spinner;
+
 		const { error, data } = await actions.acceptInvitation({
 			code,
 		});
 
+		acceptBtn.innerHTML = prevHtml;
+
 		// TODO: Better error handling
-		if (error || !data) {
-			return alert(error?.message || "Unable to get community.");
+		if (error) {
+			return alert(error?.message);
 		}
 
-		window.location.href = `/app/c/${data}`;
+		if (!data) {
+			return alert("Unable to get community.");
+		}
+
+		if (data.state !== "success") {
+			return alert(data.message);
+		}
+
+		// At this point, the message will be the record key of the community
+		window.location.href = `/app/c/${data.message}`;
 	});
 
 	cancelBtn.addEventListener("click", () => {
 		window.close();
 	});
 </script>
-<style is:global>
-	h2:first-of-type {
-		margin-top: 0;
-	}
-</style>

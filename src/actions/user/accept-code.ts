@@ -8,11 +8,29 @@ import { client } from "@/utils/atproto/oauth";
 import { ColibriSDK, type UnresolvedCommunityData } from "@/utils/sdk";
 import type { InviteCodeInfo } from "../community/invite";
 
+type JetstreamEvent = {
+	did: string;
+	kind: string;
+	commit?: CommitData;
+};
+
+type CommitData = {
+	operation: string;
+	collection: string;
+	rkey: string;
+	record: any;
+};
+
+type JoinState = {
+	state: "success" | "partial" | "failed";
+	message: string;
+};
+
 export const acceptInvitation = defineAction({
 	input: z.object({
 		code: z.string(),
 	}),
-	handler: async ({ code }, { session }) => {
+	handler: async ({ code }, { session }): Promise<JoinState> => {
 		try {
 			if (!session || !session?.has("user")) {
 				throw new ActionError({
@@ -44,8 +62,71 @@ export const acceptInvitation = defineAction({
 				});
 			}
 
-			const communityAtUri = `at://${communityData.community.owner_did}/${RECORD_IDs.COMMUNITY}/${communityData.community.rkey}`;
+			const socket = new WebSocket(
+				`https://jetstream.colibri.social/subscribe?wantedCollections=social.colibri.membership&wantedCollections=social.colibri.approval`,
+			);
 
+			await new Promise((res) => {
+				socket.addEventListener("open", res);
+			});
+
+			let joinApprovalRkey: string | undefined;
+
+			const result = new Promise<JoinState>((res, rej) => {
+				let membershipCreated = false;
+				let membershipApproved = false;
+
+				const timeout = setTimeout(() => {
+					if (!membershipCreated) {
+						return rej({
+							state: "failed",
+							message: "Operation timed out.",
+						});
+					}
+					if (membershipCreated && !membershipApproved) {
+						return rej({
+							state: "partial",
+							message: "Waiting for owner approval.",
+						});
+					}
+					return rej({
+						state: "failed",
+						message: "Unknown error.",
+					});
+				}, 15_000);
+
+				socket.addEventListener("message", (message: MessageEvent<string>) => {
+					const parsedMessage = JSON.parse(message.data) as JetstreamEvent;
+
+					if (parsedMessage.kind !== "commit") return;
+
+					if (parsedMessage.commit) {
+						if (
+							parsedMessage.commit.collection === RECORD_IDs.MEMBERSHIP &&
+							parsedMessage.commit.rkey === membershipRkey
+						) {
+							membershipCreated = true;
+						}
+
+						if (
+							parsedMessage.commit.collection === RECORD_IDs.APPROVAL &&
+							parsedMessage.commit.rkey === joinApprovalRkey
+						) {
+							membershipApproved = true;
+						}
+
+						if (membershipCreated && membershipApproved) {
+							clearTimeout(timeout);
+							res({
+								state: "success",
+								message: communityData.community.rkey,
+							});
+						}
+					}
+				});
+			});
+
+			const communityAtUri = `at://${communityData.community.owner_did}/${RECORD_IDs.COMMUNITY}/${communityData.community.rkey}`;
 			const membershipRkey = await sdk.createMembershipDeclaration(
 				agent.did!,
 				communityAtUri,
@@ -57,7 +138,7 @@ export const acceptInvitation = defineAction({
 				);
 				const owner = new Agent(ownerSession);
 
-				await sdk.createJoinApproval(
+				joinApprovalRkey = await sdk.createJoinApproval(
 					owner.did!,
 					`at://${agent.did!}/${RECORD_IDs.MEMBERSHIP}/${membershipRkey}`,
 					communityAtUri,
@@ -65,12 +146,15 @@ export const acceptInvitation = defineAction({
 				);
 			} catch (e) {
 				console.error(e);
-				// TODO: catch and notify user that accepting declaration could not be resolved
+				return {
+					state: "partial",
+					message: "Waiting for owner approval.",
+				};
 			}
 
-			// TODO: wait for websocket
+			const res = await result;
 
-			return communityAtUri.split("/").pop()!;
+			return res;
 		} catch (e) {
 			console.error(e);
 

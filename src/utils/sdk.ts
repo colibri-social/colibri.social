@@ -1006,7 +1006,7 @@ export class ColibriSDK {
 		declarationAtUri: string,
 		communityAtUri: string,
 		agentOverride?: Agent,
-	): Promise<void> => {
+	): Promise<string> => {
 		const record = this.constructAtProtoRecord(did, RECORD_IDs.APPROVAL, {
 			membership: declarationAtUri,
 			community: communityAtUri,
@@ -1015,6 +1015,8 @@ export class ColibriSDK {
 
 		const agent = agentOverride || this.agent;
 
-		await agent.com.atproto.repo.createRecord(record);
+		const res = await agent.com.atproto.repo.createRecord(record);
+
+		return res.data.uri.split("/").pop()!;
 	};
 }
