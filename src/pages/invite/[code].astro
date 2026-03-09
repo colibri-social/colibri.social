@@ -15,7 +15,6 @@ const user = await Astro.session?.get("user");
 if (!code) return Astro.redirect("/");
 if (!user) {
 	Astro.session?.set("redirectAfterLogin", `/invite/${code}`);
-	return Astro.redirect("/login");
 }
 
 const getCommunityData = async () => {
@@ -35,6 +34,8 @@ const getUserCommunitiesAndCheckJoinStatus = async (
 	owner_did: string,
 	rkey: string,
 ) => {
+	if (!user) return false;
+
 	const oauthSession = await client.restore(user.sub!);
 	const agent = new Agent(oauthSession);
 	const sdk = new ColibriSDK(agent);
@@ -61,7 +62,10 @@ if (inCommunity) {
 }
 ---
 
-<PublicLayout>
+<PublicLayout
+	title={`You've been invited to join ${communityData.community.name}!`}
+	image={`/invitation.png?community=${communityData.community.rkey}`}
+>
 	<section
 		class="py-40 mx-auto w-full max-w-336 md:px-16 px-6 relative flex flex-col items-center gap-12"
 	>
@@ -84,31 +88,37 @@ if (inCommunity) {
 			<div
 				class="mt-8 rounded-2xl w-full bg-card border border-border p-6 flex flex-col gap-4"
 			>
-				<Button class={"w-full"} id="accept-btn" data-code={code}>
-					<span>Accept as</span>
-					<span class="flex flex-row gap-1.5 items-center">
-						{
-							user.avatar ? (
-								<Image
-									width={24}
-									height={24}
-									alt={user.displayName || ""}
-									src={user.avatar}
-									class={"rounded-full"}
-								/>
-							) : (
-								<Image
-									width={24}
-									height={24}
-									alt={user.displayName || ""}
-									src={"/user-placeholder.png"}
-									class={"rounded-full"}
-								/>
-							)
-						}
-						{user.displayName || user.sub}
-					</span>
-				</Button>
+				{
+					user ? (
+						<Button class={"w-full"} id="accept-btn" data-code={code}>
+							<span>Accept as</span>
+							<span class="flex flex-row gap-1.5 items-center">
+								{user.avatar ? (
+									<Image
+										width={24}
+										height={24}
+										alt={user.displayName || ""}
+										src={user.avatar}
+										class={"rounded-full"}
+									/>
+								) : (
+									<Image
+										width={24}
+										height={24}
+										alt={user.displayName || ""}
+										src={"/user-placeholder.png"}
+										class={"rounded-full"}
+									/>
+								)}
+								{user.displayName || user.sub}
+							</span>
+						</Button>
+					) : (
+						<Button href="/login" class={"w-full"} data-code={code}>
+							<span>Join</span>
+						</Button>
+					)
+				}
 				<Button variant="secondary" id="cancel-btn">
 					<span>No Thanks</span>
 				</Button>
@@ -120,13 +130,13 @@ if (inCommunity) {
 	import { actions } from "astro:actions";
 	import Spinner from "@/assets/spinner.svg?raw";
 
-	const acceptBtn = document.querySelector<HTMLButtonElement>("#accept-btn")!;
+	const acceptBtn = document.querySelector<HTMLButtonElement>("#accept-btn");
 	const cancelBtn = document.querySelector<HTMLButtonElement>("#cancel-btn")!;
 
-	const code = acceptBtn.dataset.code as string;
+	const code = acceptBtn?.dataset.code as string;
 
 	// TODO: Loading state
-	acceptBtn.addEventListener("click", async () => {
+	acceptBtn?.addEventListener("click", async () => {
 		let prevHtml = `${acceptBtn.innerHTML}`;
 		acceptBtn.innerHTML = Spinner;
 

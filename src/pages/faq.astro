@@ -7,7 +7,11 @@ const data = await getEntry("documents", "faq")!;
 const { Content } = await render(data);
 ---
 
-<PublicLayout>
+<PublicLayout
+	title="Frequently Asked Questions"
+	description="Unsure about anything Colibri-related? You'll probably find an answer here."
+	image="/og.png"
+>
 	<section
 		class="py-40 mx-auto w-full max-w-336 md:px-16 px-6 relative flex flex-col items-center gap-12"
 	>

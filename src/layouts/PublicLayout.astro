@@ -6,13 +6,14 @@ import Navbar from "@/components/public/Navbar.astro";
 import BaseLayout from "./BaseLayout.astro";
 
 interface Props {
+	title?: string;
+	description?: string;
+	image?: string;
 	home?: boolean;
 }
-
-const { home } = Astro.props;
 ---
 
-<BaseLayout {home}>
+<BaseLayout {...Astro.props}>
 	<Fragment slot="head">
 		<Font cssVariable="--font-stardom" preload />
 	</Fragment>

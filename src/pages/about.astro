@@ -1,5 +1,5 @@
 ---
-import { getCollection, getEntry, render } from "astro:content";
+import { getEntry, render } from "astro:content";
 import PublicLayout from "@/layouts/PublicLayout.astro";
 
 const data = await getEntry("documents", "about")!;
@@ -7,7 +7,11 @@ const data = await getEntry("documents", "about")!;
 const { Content } = await render(data);
 ---
 
-<PublicLayout>
+<PublicLayout
+	title="About Colibri"
+	description="Learn more about what Colibri is, why we built it, and why you should use it."
+	image="/og.png"
+>
 	<section
 		class="py-40 mx-auto w-full max-w-336 md:px-16 px-6 relative flex flex-col items-center gap-12"
 	>
