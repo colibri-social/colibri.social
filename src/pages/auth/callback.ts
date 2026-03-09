@@ -24,9 +24,9 @@ export const GET = (async ({ request, session }) => {
 		// Check if user ever signed up to Bluesky by inspecting their profile fields.
 		// A DID that has never used Bluesky will have no displayName, description, avatar, and banner.
 		const hasBlueskyProfile =
-			profile.data.displayName !== undefined &&
-			profile.data.description !== undefined &&
-			profile.data.avatar !== undefined &&
+			profile.data.displayName !== undefined ||
+			profile.data.description !== undefined ||
+			profile.data.avatar !== undefined ||
 			profile.data.banner !== undefined;
 
 		if (!hasBlueskyProfile) {
