@@ -51,7 +51,7 @@ export const MessageAttachments: Component<{
 									>
 										<img
 											src={`https://${APPVIEW_DOMAIN}/api/blob?did=${props.did}&cid=${item.blob.ref.$link}`}
-											class="max-h-48 max-w-48 object-cover rounded-sm"
+											class="max-h-52 max-w-96 object-cover rounded-sm"
 											classList={{
 												"hover:bg-muted/50 cursor-pointer": !props.disableHover,
 											}}
