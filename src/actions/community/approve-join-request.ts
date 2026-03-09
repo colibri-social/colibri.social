@@ -39,8 +39,6 @@ export const approveJoinRequest = defineAction({
 				});
 			}
 
-			console.log(membership, communityAtURI);
-
 			await sdk.createJoinApproval(agent.did!, membership, communityAtURI);
 		} catch (e) {
 			console.error(e);

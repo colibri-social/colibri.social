@@ -1100,8 +1100,6 @@ export class ColibriSDK {
 
 		const res = await agent.com.atproto.repo.createRecord(record);
 
-		console.log(agent, record, res);
-
 		return res.data.uri.split("/").pop()!;
 	};
 }
