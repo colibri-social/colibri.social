@@ -877,16 +877,15 @@ export class ColibriSDK {
 		facets: Array<Facet>,
 		rkey: string,
 	): Promise<void> => {
-		const { createdAt, parent } = await this.getMessageData(did, rkey);
+		const previous = await this.getMessageData(did, rkey);
 
 		const newRecord = this.constructAtProtoRecord(
 			did,
 			RECORD_IDs.MESSAGE,
 			{
+				...previous,
 				text,
-				createdAt,
 				channel,
-				parent,
 				facets,
 				edited: true,
 			},
