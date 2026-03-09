@@ -25,6 +25,7 @@ export const Lightbox: ParentComponent<{
 								e.preventDefault();
 								e.stopPropagation();
 							}}
+							class="max-w-[calc(100vw-4rem)] max-h-[calc(100vh-4rem)] rounded-sm"
 						/>
 						<Button
 							variant="outline"

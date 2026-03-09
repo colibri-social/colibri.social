@@ -1,5 +1,5 @@
 import { actions } from "astro:actions";
-import type { Details } from "@kobalte/core/file-field";
+import { useFileFieldContext, type Details } from "@kobalte/core/file-field";
 import { makePersisted } from "@solid-primitives/storage";
 import { useParams } from "@solidjs/router";
 import stringify from "json-stable-stringify";
@@ -89,10 +89,10 @@ const uploadWithProgress = (
 export const MessageInput: Component<{
 	files: Accessor<Details | undefined>;
 	channelName: string;
-	clearFiles: () => void;
 }> = (props) => {
 	const params = useParams();
 	const channel = () => params.channel!;
+	const fileField = useFileFieldContext();
 
 	const [loading, setLoading] = createSignal(false);
 	const [messageData, { clearReplyingTo }] = useMessageContext();
@@ -180,7 +180,11 @@ export const MessageInput: Component<{
 			});
 
 			clearReplyingTo();
-			props.clearFiles();
+
+			for (const file of fileField.acceptedFiles) {
+				fileField.removeFile(file);
+			}
+
 			setFileUploadProgress([]);
 
 			const { error } = await actions.postMessage(obj);
