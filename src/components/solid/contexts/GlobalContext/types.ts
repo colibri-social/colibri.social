@@ -5,13 +5,8 @@ import type {
 	DBMessageData,
 	IndexedMessageData,
 } from "@/utils/sdk";
-import type {
-	MemberJoinedEvent,
-	MemberLeftEvent,
-	MessageDeletionEvent,
-	ReactionEventCallback,
-} from "./events";
 import type { MemberData } from "../../layouts/CommunityLayout";
+import type { MessageDeletionEvent, ReactionEventCallback } from "./events";
 
 export type PendingMessageData = Omit<
 	Omit<DBMessageData, "rkey">,

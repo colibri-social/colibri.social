@@ -1,5 +1,5 @@
 import { actions } from "astro:actions";
-import { useFileFieldContext, type Details } from "@kobalte/core/file-field";
+import { type Details, useFileFieldContext } from "@kobalte/core/file-field";
 import { makePersisted } from "@solid-primitives/storage";
 import { useParams } from "@solidjs/router";
 import stringify from "json-stable-stringify";

@@ -2,7 +2,6 @@ import { ActionError, defineAction } from "astro:actions";
 import { Agent } from "@atproto/api";
 import { z } from "astro/zod";
 import { client } from "@/utils/atproto/oauth";
-import { ColibriSDK } from "@/utils/sdk";
 
 export const getUserProfileData = defineAction({
 	input: z.object({
@@ -20,7 +19,6 @@ export const getUserProfileData = defineAction({
 			const user = (await session.get("user"))!;
 			const oauthSession = await client.restore(user.sub!);
 			const agent = new Agent(oauthSession);
-			const sdk = new ColibriSDK(agent);
 
 			const profile = await agent.getProfile({
 				actor: did,

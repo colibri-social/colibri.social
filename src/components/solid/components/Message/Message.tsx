@@ -241,7 +241,7 @@ export const Message: Component<{
 	 * @returns Whether this is a subsequent message or not.
 	 */
 	const isSubsequentMessage = () => {
-		if (!!props.data.parent_message) {
+		if (props.data.parent_message) {
 			return false;
 		}
 

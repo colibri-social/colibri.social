@@ -1,32 +1,32 @@
 ---
-import { cn } from "@/utils/cn";
 import type { HTMLAttributes } from "astro/types";
+import { cn } from "@/utils/cn";
 
 export interface Props extends HTMLAttributes<"div"> {
-  position?:
-    | "top-left"
-    | "top-center"
-    | "top-right"
-    | "bottom-left"
-    | "bottom-center"
-    | "bottom-right";
+	position?:
+		| "top-left"
+		| "top-center"
+		| "top-right"
+		| "bottom-left"
+		| "bottom-center"
+		| "bottom-right";
 }
 
 const { position = "bottom-right", class: className, ...props } = Astro.props;
 
 const positionStyles = {
-  "top-left": "top-4 left-4",
-  "top-center": "top-4 left-1/2 -translate-x-1/2",
-  "top-right": "top-4 right-4",
-  "bottom-left": "bottom-4 left-4",
-  "bottom-center": "bottom-4 left-1/2 -translate-x-1/2",
-  "bottom-right": "bottom-4 right-4",
+	"top-left": "top-4 left-4",
+	"top-center": "top-4 left-1/2 -translate-x-1/2",
+	"top-right": "top-4 right-4",
+	"bottom-left": "bottom-4 left-4",
+	"bottom-center": "bottom-4 left-1/2 -translate-x-1/2",
+	"bottom-right": "bottom-4 right-4",
 };
 
 const classes = cn(
-  "fixed z-50 flex flex-col gap-2 w-full max-w-sm pointer-events-none",
-  positionStyles[position],
-  className
+	"fixed z-50 flex flex-col gap-2 w-full max-w-sm pointer-events-none",
+	positionStyles[position],
+	className,
 );
 ---
 

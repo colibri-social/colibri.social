@@ -18,6 +18,7 @@ import { useGlobalContext } from "../../contexts/GlobalContext";
 import { Image } from "../../icons/Image";
 import { Spinner } from "../../icons/Spinner";
 import { XCircle } from "../../icons/XCircle";
+import { Alert, AlertDescription, AlertTitle } from "../../shadcn-solid/Alert";
 import { Button } from "../../shadcn-solid/Button";
 import {
 	FileField,
@@ -30,23 +31,20 @@ import {
 	FileFieldTrigger,
 } from "../../shadcn-solid/file-field";
 import {
+	Table,
+	TableBody,
+	TableCell,
+	TableHead,
+	TableHeader,
+	TableRow,
+} from "../../shadcn-solid/Table";
+import {
 	TextField,
 	TextFieldInput,
 	TextFieldLabel,
 } from "../../shadcn-solid/text-field";
 import { SettingsInfoPage } from "../SettingsInfoPage";
 import { SettingsModal, SettingsPage } from "../SettingsModal";
-import {
-	Table,
-	TableBody,
-	TableCaption,
-	TableCell,
-	TableFooter,
-	TableHead,
-	TableHeader,
-	TableRow,
-} from "../../shadcn-solid/Table";
-import { Alert, AlertDescription, AlertTitle } from "../../shadcn-solid/Alert";
 
 const GeneralSettingsPage: Component = () => {
 	const [globalData, { addCommunity }] = useGlobalContext();
@@ -274,7 +272,7 @@ const SmallUser: Component<{ did: string }> = (props) => {
 const InviteLinksPage: Component = () => {
 	const params = useParams();
 
-	const [loading, setLoading] = createSignal<boolean>(false);
+	const [loading] = createSignal<boolean>(false);
 	const [codes] = createResource(() => params.community, fetchCodes);
 
 	return (

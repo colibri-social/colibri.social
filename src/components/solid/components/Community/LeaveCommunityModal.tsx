@@ -1,5 +1,6 @@
 import { actions } from "astro:actions";
-import { createSignal, Match, type ParentComponent, Switch } from "solid-js";
+import { useNavigate } from "@solidjs/router";
+import { createSignal, type ParentComponent } from "solid-js";
 import { toast } from "somoto";
 import { parseZodToErrorOrDisplay } from "@/utils/parse-zod-to-error-or-display";
 import { useGlobalContext } from "../../contexts/GlobalContext/index";
@@ -15,7 +16,6 @@ import {
 	DialogPortal,
 	DialogTrigger,
 } from "../../shadcn-solid/Dialog";
-import { useNavigate } from "@solidjs/router";
 
 export const LeaveCommunityModal: ParentComponent<{
 	community: string;

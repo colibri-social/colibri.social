@@ -1,12 +1,12 @@
 ---
-import { cn } from '@/utils/cn';
-import type { HTMLAttributes } from 'astro/types';
+import type { HTMLAttributes } from "astro/types";
+import { cn } from "@/utils/cn";
 
-export interface Props extends HTMLAttributes<'div'> {}
+export interface Props extends HTMLAttributes<"div"> {}
 
 const { class: className, ...props } = Astro.props;
 
-const classes = cn('text-sm opacity-90', className);
+const classes = cn("text-sm opacity-90", className);
 ---
 
 <div class={classes} {...props}>

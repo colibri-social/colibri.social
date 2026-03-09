@@ -1,21 +1,21 @@
 ---
-import { cn } from "@/utils/cn";
-import type { HTMLAttributes } from "astro/types";
 import X from "@lucide/astro/icons/x";
+import type { HTMLAttributes } from "astro/types";
+import { cn } from "@/utils/cn";
 
 export interface Props extends HTMLAttributes<"div"> {
-  variant?: "default" | "destructive";
+	variant?: "default" | "destructive";
 }
 
 const { variant = "default", class: className, ...props } = Astro.props;
 
 const baseStyles =
-  "group pointer-events-auto relative flex w-full items-center justify-between space-x-4 overflow-hidden rounded-lg border p-6 pr-8 shadow-lg transition-all";
+	"group pointer-events-auto relative flex w-full items-center justify-between space-x-4 overflow-hidden rounded-lg border p-6 pr-8 shadow-lg transition-all";
 
 const variantStyles = {
-  default: "bg-background text-foreground border",
-  destructive:
-    "destructive group border-destructive bg-destructive text-destructive-foreground",
+	default: "bg-background text-foreground border",
+	destructive:
+		"destructive group border-destructive bg-destructive text-destructive-foreground",
 };
 
 const classes = cn(baseStyles, variantStyles[variant], className);
