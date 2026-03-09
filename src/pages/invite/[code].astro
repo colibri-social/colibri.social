@@ -5,7 +5,9 @@ import { INVITE_API_KEY } from "astro:env/server";
 import type { InviteCodeInfo } from "@/actions/community/invite";
 import Button from "@/components/bearnie/button/Button.astro";
 import PublicLayout from "@/layouts/PublicLayout.astro";
-import type { UnresolvedCommunityData } from "@/utils/sdk";
+import { ColibriSDK, type UnresolvedCommunityData } from "@/utils/sdk";
+import { client } from "@/utils/atproto/oauth";
+import { Agent } from "@atproto/api";
 
 const { code } = Astro.params;
 const user = await Astro.session?.get("user");
@@ -13,16 +15,47 @@ const user = await Astro.session?.get("user");
 if (!code) return Astro.redirect("/");
 if (!user) return Astro.redirect("/login");
 
-const communityData = (await (
-	await fetch(`https://${APPVIEW_DOMAIN}/api/invite/${code}`, {
-		method: "GET",
-		headers: new Headers({
-			Authorization: `Bearer ${INVITE_API_KEY}`,
-		}),
-	})
-).json()) as InviteCodeInfo & {
-	community: UnresolvedCommunityData;
+const getCommunityData = async () => {
+	return (await (
+		await fetch(`https://${APPVIEW_DOMAIN}/api/invite/${code}`, {
+			method: "GET",
+			headers: new Headers({
+				Authorization: `Bearer ${INVITE_API_KEY}`,
+			}),
+		})
+	).json()) as InviteCodeInfo & {
+		community: UnresolvedCommunityData;
+	};
 };
+
+const getUserCommunitiesAndCheckJoinStatus = async (
+	owner_did: string,
+	rkey: string,
+) => {
+	const oauthSession = await client.restore(user.sub!);
+	const agent = new Agent(oauthSession);
+	const sdk = new ColibriSDK(agent);
+
+	if (owner_did === agent.did!) return true;
+
+	const data = await sdk.getCommunities(agent.did!);
+
+	if (data.some((x) => x.rkey === rkey && x.owner_did === owner_did))
+		return true;
+
+	return false;
+};
+
+const communityData = await getCommunityData();
+
+const inCommunity = await getUserCommunitiesAndCheckJoinStatus(
+	communityData.community.owner_did,
+	communityData.community.rkey,
+);
+
+if (inCommunity) {
+	return Astro.redirect(`/app/c/${communityData.community.rkey}`);
+}
 ---
 
 <PublicLayout>
