@@ -3,4 +3,11 @@ import { Image } from "astro:assets";
 import Cloud from "@/assets/landing/Clouds.webp";
 ---
 
-<Image src={Cloud} width={964} height={484} alt="A cloud." quality={100} />
+<Image
+	src={Cloud}
+	width={964}
+	height={484}
+	alt="A cloud."
+	loading={"eager"}
+	quality={100}
+/>
