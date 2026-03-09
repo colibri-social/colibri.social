@@ -1,8 +1,8 @@
 import { ActionError, defineAction } from "astro:actions";
-import { z } from "astro/zod";
 import { APPVIEW_DOMAIN } from "astro:env/client";
-import { RECORD_IDs } from "@/utils/atproto/lexicons";
 import { INVITE_API_KEY } from "astro:env/server";
+import { z } from "astro/zod";
+import { RECORD_IDs } from "@/utils/atproto/lexicons";
 
 export type InviteCodeInfo = {
 	code: string;

@@ -1,4 +1,5 @@
 import { actions } from "astro:actions";
+import type { Details } from "@kobalte/core/file-field";
 import { makePersisted } from "@solid-primitives/storage";
 import { useParams } from "@solidjs/router";
 import stringify from "json-stable-stringify";
@@ -8,15 +9,10 @@ import type { PostMessageInput } from "@/actions/message/post";
 import { generateHash } from "@/utils/generate-hash";
 import { parseZodToErrorOrDisplay } from "@/utils/parse-zod-to-error-or-display";
 import { useGlobalContext } from "../contexts/GlobalContext";
+import type { AttachmentObj, BlobObj } from "../contexts/GlobalContext/events";
 import { useMessageContext } from "../contexts/MessageContext";
 import { Plus } from "../icons/Plus";
 import { XCircle } from "../icons/XCircle";
-import {
-	RichTextRenderer,
-	type TextWithFacets,
-	trimTextWithFacets,
-} from "./RichTextRenderer";
-import type { Details } from "@kobalte/core/file-field";
 import {
 	FileFieldItem,
 	FileFieldItemDeleteTrigger,
@@ -26,7 +22,11 @@ import {
 	FileFieldItemSize,
 	FileFieldTrigger,
 } from "../shadcn-solid/file-field";
-import type { AttachmentObj, BlobObj } from "../contexts/GlobalContext/events";
+import {
+	RichTextRenderer,
+	type TextWithFacets,
+	trimTextWithFacets,
+} from "./RichTextRenderer";
 
 const uploadWithProgress = (
 	file: File,

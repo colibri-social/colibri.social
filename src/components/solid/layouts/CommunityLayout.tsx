@@ -1,4 +1,5 @@
 import { APPVIEW_DOMAIN } from "astro:env/client";
+import type { Details } from "@kobalte/core/file-field";
 import { createAsync, query, useParams } from "@solidjs/router";
 import {
 	createEffect,
@@ -13,9 +14,11 @@ import {
 	Switch,
 	untrack,
 } from "solid-js";
+import { toast } from "somoto";
 import type { SidebarData } from "@/utils/sdk";
 import { ChannelList } from "../components/Community/ChannelList";
 import { CommunitySettingsModal } from "../components/Community/CommunitySettingsModal";
+import { InviteLinkCreationModal } from "../components/Community/InviteLinkCreationModal";
 import { MessageInput } from "../components/MessageInput";
 import { UserStatus } from "../components/UserStatus";
 import { ChannelContextProvider } from "../contexts/ChannelContext";
@@ -26,9 +29,6 @@ import {
 	FileFieldDropzone,
 	FileFieldHiddenInput,
 } from "../shadcn-solid/file-field";
-import { toast } from "somoto";
-import type { Details } from "@kobalte/core/file-field";
-import { InviteLinkCreationModal } from "../components/Community/InviteLinkCreationModal";
 
 /**
  * Fetches the sidebar data (categories + channels) for a community.

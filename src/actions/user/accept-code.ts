@@ -1,12 +1,12 @@
 import { ActionError, defineAction } from "astro:actions";
+import { APPVIEW_DOMAIN } from "astro:env/client";
+import { INVITE_API_KEY } from "astro:env/server";
 import { Agent } from "@atproto/api";
 import { z } from "astro/zod";
+import { RECORD_IDs } from "@/utils/atproto/lexicons";
 import { client } from "@/utils/atproto/oauth";
 import { ColibriSDK, type UnresolvedCommunityData } from "@/utils/sdk";
-import { INVITE_API_KEY } from "astro:env/server";
-import { APPVIEW_DOMAIN } from "astro:env/client";
 import type { InviteCodeInfo } from "../community/invite";
-import { RECORD_IDs } from "@/utils/atproto/lexicons";
 
 export const acceptInvitation = defineAction({
 	input: z.object({

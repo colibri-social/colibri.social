@@ -1,27 +1,19 @@
 import { actions } from "astro:actions";
-import { createSignal, Match, Switch, type ParentComponent } from "solid-js";
+import { createSignal, Match, type ParentComponent, Switch } from "solid-js";
 import { toast } from "somoto";
 import { parseZodToErrorOrDisplay } from "@/utils/parse-zod-to-error-or-display";
 import { useGlobalContext } from "../../contexts/GlobalContext/index";
 import { Spinner } from "../../icons/Spinner";
+import { X } from "../../icons/X";
 import { Button } from "../../shadcn-solid/Button";
 import {
 	Dialog,
 	DialogCloseButton,
 	DialogContent,
-	DialogFooter,
 	DialogHeader,
 	DialogPortal,
 	DialogTrigger,
 } from "../../shadcn-solid/Dialog";
-import {
-	TextField,
-	TextFieldDescription,
-	TextFieldInput,
-	TextFieldLabel,
-} from "../../shadcn-solid/text-field";
-import { useParams } from "@solidjs/router";
-import { X } from "../../icons/X";
 
 /**
  * A modal for creating an invitation link.
@@ -29,8 +21,6 @@ import { X } from "../../icons/X";
 export const InviteLinkCreationModal: ParentComponent<{ community: string }> = (
 	props,
 ) => {
-	const params = useParams();
-
 	const [globalData] = useGlobalContext();
 	const [link, setLink] = createSignal<string | undefined>();
 	const [loading, setLoading] = createSignal(false);

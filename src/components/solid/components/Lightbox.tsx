@@ -1,7 +1,7 @@
-import { createSignal, Show, type ParentComponent } from "solid-js";
+import { createSignal, type ParentComponent, Show } from "solid-js";
 import { Portal } from "solid-js/web";
-import { Button } from "../shadcn-solid/Button";
 import { X } from "../icons/X";
+import { Button } from "../shadcn-solid/Button";
 
 export const Lightbox: ParentComponent<{
 	src: string;

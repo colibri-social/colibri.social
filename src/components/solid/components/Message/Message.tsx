@@ -28,13 +28,13 @@ import { Pencil } from "../../icons/Pencil";
 import { Reply } from "../../icons/Reply";
 import { Trash } from "../../icons/Trash";
 import { RichTextRenderer, type TextWithFacets } from "../RichTextRenderer";
+import { MessageAttachments } from "./Attachments";
 import { EmojiPopover } from "./EmojiPopover";
 import { LinkEmbed } from "./LinkEmbed";
 import { MessageAction } from "./MessageAction";
 import { MessageContextMenu } from "./MessageContextMenu";
 import { MessageDeletionDrawer } from "./MessageDeletionDrawer";
 import { deleteMessage } from "./util";
-import { MessageAttachments } from "./Attachments";
 
 /**
  * A rendered message component in a chat.

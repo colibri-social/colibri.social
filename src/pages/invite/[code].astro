@@ -1,11 +1,11 @@
 ---
+import { Image } from "astro:assets";
+import { APPVIEW_DOMAIN } from "astro:env/client";
+import { INVITE_API_KEY } from "astro:env/server";
 import type { InviteCodeInfo } from "@/actions/community/invite";
 import Button from "@/components/bearnie/button/Button.astro";
 import PublicLayout from "@/layouts/PublicLayout.astro";
 import type { UnresolvedCommunityData } from "@/utils/sdk";
-import { Image } from "astro:assets";
-import { APPVIEW_DOMAIN } from "astro:env/client";
-import { INVITE_API_KEY } from "astro:env/server";
 
 const { code } = Astro.params;
 const user = await Astro.session?.get("user");

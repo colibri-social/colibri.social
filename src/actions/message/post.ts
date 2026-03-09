@@ -1,10 +1,10 @@
 import { ActionError, defineAction } from "astro:actions";
 import { Agent } from "@atproto/api";
 import { z } from "astro/zod";
+import type { AttachmentObj } from "@/components/solid/contexts/GlobalContext/events";
 import { client } from "@/utils/atproto/oauth";
 import type { Facet } from "@/utils/atproto/rich-text";
 import { ColibriSDK } from "@/utils/sdk";
-import type { AttachmentObj } from "@/components/solid/contexts/GlobalContext/events";
 
 const input = z
 	.object({

@@ -1,7 +1,7 @@
-import { For, Match, Show, Switch, type Component } from "solid-js";
-import { useMessageContext } from "../../contexts/MessageContext";
-import type { AttachmentObj } from "../../contexts/GlobalContext/events";
 import { APPVIEW_DOMAIN } from "astro:env/client";
+import { type Component, For, Match, Show, Switch } from "solid-js";
+import type { AttachmentObj } from "../../contexts/GlobalContext/events";
+import { useMessageContext } from "../../contexts/MessageContext";
 import { Lightbox } from "../Lightbox";
 import "vidstack/bundle";
 import "vidstack/player";
