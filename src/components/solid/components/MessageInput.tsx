@@ -225,25 +225,20 @@ export const MessageInput: Component<{
 					}}
 				>
 					<FileFieldItemList class="flex flex-row gap-2 m-0 p-0 flex-wrap">
-						{(file) => {
-							console.log(fileUploadProgress());
-							console.log(props.files()?.acceptedFiles);
-							console.log(props.files()?.acceptedFiles.indexOf(file));
-							return (
-								<FileFieldItem class="relative overflow-hidden">
-									<FileFieldItemPreviewImage />
-									<FileFieldItemName />
-									<FileFieldItemSize />
-									<FileFieldItemDeleteTrigger />
-									<div
-										class="absolute left-0 bottom-0 h-1 bg-primary"
-										style={{
-											width: `${fileUploadProgress()[props.files()?.acceptedFiles.indexOf(file) ?? -1]}%`,
-										}}
-									/>
-								</FileFieldItem>
-							);
-						}}
+						{(file) => (
+							<FileFieldItem class="relative overflow-hidden">
+								<FileFieldItemPreviewImage />
+								<FileFieldItemName />
+								<FileFieldItemSize />
+								<FileFieldItemDeleteTrigger />
+								<div
+									class="absolute left-0 bottom-0 h-1 bg-primary"
+									style={{
+										width: `${fileUploadProgress()[props.files()?.acceptedFiles.indexOf(file) ?? -1]}%`,
+									}}
+								/>
+							</FileFieldItem>
+						)}
 					</FileFieldItemList>
 				</div>
 			</Show>

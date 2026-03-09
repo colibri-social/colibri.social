@@ -30,13 +30,14 @@ const BOTTOM_THRESHOLD = 80;
 
 const ChannelView: Component = () => {
 	const params = useParams();
+	const channel = createMemo(() => params.channel!);
 	const [messageData, { registerEmbedLoadCallback }] = useMessageContext();
 	const [
 		globalState,
 		{ sendSocketMessage, clearAdditionalMessages, clearDeletedMessages },
 	] = useGlobalContext();
 
-	const history = useMessageHistory(() => params.channel!);
+	const history = useMessageHistory(channel);
 
 	const [scrolled, setScrolled] = createSignal(false);
 
@@ -44,11 +45,6 @@ const ChannelView: Component = () => {
 	let topSentinel: HTMLDivElement | undefined;
 	let observer: IntersectionObserver | undefined;
 	let pinnedToBottom = false;
-	// Tracks whether the user is at (or near) the bottom of the chat. Updated
-	// on every scroll event and whenever messages change. This is read by the
-	// embed callback — by the time an embed fires notifyEmbedLoad the DOM has
-	// already grown (isAtBottom() would return false), so we need the value
-	// that was true *before* the layout shift.
 	let atBottom = true;
 
 	const allMessages = createMemo(
@@ -68,8 +64,12 @@ const ChannelView: Component = () => {
 				return editedVersion ?? msg;
 			});
 
-			return [...updatedHistorical, ...newMessages, ...pendingMessages]
-				.filter((message) => message.channel === params.channel)
+			const resultingArray = [
+				...updatedHistorical,
+				...newMessages,
+				...pendingMessages,
+			]
+				.filter((message) => message.channel === channel())
 				.filter((message) => {
 					if ("hash" in message) return true;
 					return !deletedMessages.find(
@@ -83,6 +83,8 @@ const ChannelView: Component = () => {
 					(a, b) =>
 						new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
 				);
+
+			return resultingArray;
 		},
 	);
 
@@ -135,10 +137,6 @@ const ChannelView: Component = () => {
 		});
 
 		const unregister = registerEmbedLoadCallback(() => {
-			// atBottom was kept current by the scroll listener and by the message
-			// arrival effect below. By the time this callback fires the embed DOM
-			// has already been inserted (scrollHeight grew), so calling isAtBottom()
-			// here would incorrectly return false. We use the pre-growth snapshot.
 			if (pinnedToBottom || atBottom) {
 				requestAnimationFrame(scrollToBottom);
 			}
@@ -154,28 +152,31 @@ const ChannelView: Component = () => {
 		observer?.disconnect();
 	});
 
+	createEffect(() => {
+		console.log(channel());
+	});
+
 	createEffect(
-		on(
-			() => params.channel,
-			(channel) => {
-				if (!channel) return;
+		on(channel, (channel) => {
+			if (!channel) return;
 
-				batch(() => {
-					history.reset();
-					setScrolled(false);
-				});
+			console.log("Resetting...");
 
-				setupIntersectionObserver();
-				history.fetchOlderMessages();
-			},
-		),
+			batch(() => {
+				history.reset();
+				setScrolled(false);
+			});
+
+			setupIntersectionObserver();
+			history.fetchOlderMessages();
+		}),
 	);
 
 	createEffect(() => {
 		sendSocketMessage({
 			action: "subscribe",
 			event_type: "message",
-			channel: params.channel,
+			channel: channel(),
 		});
 	});
 
@@ -183,7 +184,7 @@ const ChannelView: Component = () => {
 		sendSocketMessage({
 			action: "unsubscribe",
 			event_type: "message",
-			channel: params.channel,
+			channel: channel(),
 		});
 		clearAdditionalMessages();
 		clearDeletedMessages();
@@ -198,7 +199,6 @@ const ChannelView: Component = () => {
 		requestAnimationFrame(() => {
 			scrollToBottom();
 			pinnedToBottom = false;
-			// After the initial scroll the user is definitively at the bottom.
 			atBottom = true;
 		});
 		setScrolled(true);
@@ -210,8 +210,6 @@ const ChannelView: Component = () => {
 			() => {
 				if (!scrolled()) return;
 				if (untrack(isAtBottom)) {
-					// Record that we are at the bottom before the new message's DOM
-					// lands (embeds inside it may fire notifyEmbedLoad shortly after).
 					atBottom = true;
 					pinnedToBottom = true;
 					requestAnimationFrame(() => {
@@ -284,14 +282,14 @@ const ChannelView: Component = () => {
 		<div class="w-full h-full relative">
 			<Show when={history.loading() && allMessages().length === 0}>
 				<div class="absolute inset-0 flex items-center justify-center pointer-events-none">
-					<Spinner classList={{}} className="w-5 h-5 text-muted-foreground" />
+					<Spinner className="w-5 h-5 text-muted-foreground" />
 				</div>
 			</Show>
 			<div class="w-full h-full overflow-auto pb-4" ref={chatContainer}>
 				<div ref={topSentinel} class="w-full h-px" aria-hidden="true" />
 				<Show when={history.loading() && allMessages().length > 0}>
 					<div class="w-full flex justify-center py-2">
-						<Spinner classList={{}} className="w-4 h-4 text-muted-foreground" />
+						<Spinner className="w-4 h-4 text-muted-foreground" />
 					</div>
 				</Show>
 				<Show when={history.reachedTop()}>

@@ -3,7 +3,7 @@ import { cn } from "@/utils/cn";
 
 export const Spinner: Component<{
 	className?: string;
-	classList: Record<string, boolean>;
+	classList?: Record<string, boolean>;
 }> = (props) => (
 	<svg
 		xmlns="http://www.w3.org/2000/svg"
