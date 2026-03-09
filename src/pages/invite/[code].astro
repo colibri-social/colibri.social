@@ -13,7 +13,10 @@ const { code } = Astro.params;
 const user = await Astro.session?.get("user");
 
 if (!code) return Astro.redirect("/");
-if (!user) return Astro.redirect("/login");
+if (!user) {
+	Astro.session?.set("redirectAfterLogin", `/invite/${code}`);
+	return Astro.redirect("/login");
+}
 
 const getCommunityData = async () => {
 	return (await (

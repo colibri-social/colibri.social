@@ -57,6 +57,19 @@ export const GET = (async ({ request, session }) => {
 			sub: callbackResult.session.sub,
 		});
 
+		const redirect = await session?.get("redirectAfterLogin");
+
+		if (redirect) {
+			session?.delete("redirectAfterLogin");
+
+			return new Response(null, {
+				status: 302,
+				headers: new Headers({
+					location: redirect,
+				}),
+			});
+		}
+
 		return new Response(JSON.stringify(callbackResult), {
 			status: 302,
 			headers: new Headers({
