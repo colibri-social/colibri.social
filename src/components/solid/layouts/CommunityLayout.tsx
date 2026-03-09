@@ -29,6 +29,8 @@ import {
 	FileFieldDropzone,
 	FileFieldHiddenInput,
 } from "../shadcn-solid/file-field";
+import { LeaveCommunityModal } from "../components/Community/LeaveCommunityModal";
+import { RECORD_IDs } from "@/utils/atproto/lexicons";
 
 /**
  * Fetches the sidebar data (categories + channels) for a community.
@@ -46,7 +48,7 @@ export const fetchSidebarData = query(
 	"sidebarData",
 );
 
-type MemberData = {
+export type MemberData = {
 	member_did: string;
 	status: "owner" | string;
 	display_name: string;
@@ -61,7 +63,7 @@ export const fetchCommunityMembers = query(
 	async (ownerDid: string, community: string): Promise<Array<MemberData>> => {
 		const response = await fetch(
 			`https://${APPVIEW_DOMAIN}/api/members?community=${encodeURIComponent(
-				`at://${ownerDid}/social.colibri.community/${community}`,
+				`at://${ownerDid}/${RECORD_IDs.COMMUNITY}/${community}`,
 			)}`,
 		);
 		return response.json();
@@ -132,6 +134,21 @@ const CommunityLayout: ParentComponent = (props) => {
 		},
 		{ name: "communityMembers", initialValue: [] as Array<MemberData> },
 	);
+
+	const combinedMemberList = createMemo(() => {
+		const serverMemberList = members();
+		const optimisticJoinList = globalContext.joinedMembers;
+		const optimisticRemovedList = globalContext.removedMembers;
+
+		const totalCurrentlyJoined = [...serverMemberList, ...optimisticJoinList];
+
+		return totalCurrentlyJoined
+			.filter(
+				(x) =>
+					!optimisticRemovedList.some((y) => y.member_did === x.member_did),
+			)
+			.sort((a, b) => a.display_name.localeCompare(b.display_name));
+	});
 
 	createEffect(() => {
 		const c = community();
@@ -217,8 +234,8 @@ const CommunityLayout: ParentComponent = (props) => {
 											}
 										>
 											<small>
-												{members()?.length ?? "???"} Member
-												{members()?.length === 1 ? "" : "s"}
+												{combinedMemberList()?.length ?? "???"} Member
+												{combinedMemberList()?.length === 1 ? "" : "s"}
 											</small>
 										</Suspense>
 										<Show
@@ -240,6 +257,19 @@ const CommunityLayout: ParentComponent = (props) => {
 													Create Invitation
 												</small>
 											</InviteLinkCreationModal>
+										</Show>
+										<Show
+											when={community()?.owner_did !== globalContext.user.sub}
+										>
+											<div class="w-1 h-1 bg-muted-foreground rounded-full" />
+											<LeaveCommunityModal
+												ownerDID={community()!.owner_did}
+												community={community()!.rkey}
+											>
+												<small class="cursor-pointer hover:underline">
+													Leave Community
+												</small>
+											</LeaveCommunityModal>
 										</Show>
 									</div>
 								</div>
@@ -290,7 +320,7 @@ const CommunityLayout: ParentComponent = (props) => {
 								<span>Members</span>
 								<div class="flex flex-col w-full h-full gap-1">
 									<Suspense fallback={<MemberListSkeleton />}>
-										<For each={members() ?? []}>
+										<For each={combinedMemberList() ?? []}>
 											{(item) => (
 												<div class="flex flex-row gap-2 border border-border bg-card rounded-sm p-2">
 													<img

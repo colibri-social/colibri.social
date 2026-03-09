@@ -21,7 +21,7 @@ export const handleNewMessage = async (
 		facets: data.facets ?? [],
 		channel: data.channel,
 		createdAt: data.created_at,
-		parent: data.parent?.rkey || undefined,
+		parent: data.parent || undefined,
 		attachments: data.attachments,
 	})!;
 
@@ -39,7 +39,7 @@ export const handleNewMessage = async (
 		avatar_url: data.avatar_url,
 		facets: data.facets ?? [],
 		reactions: [],
-		parent_message: data.parent ?? null,
+		parent_message: data.parent_message ?? null,
 		edited: data.edited,
 		attachments: data.attachments ?? [],
 	});

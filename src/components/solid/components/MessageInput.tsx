@@ -3,7 +3,13 @@ import { useFileFieldContext, type Details } from "@kobalte/core/file-field";
 import { makePersisted } from "@solid-primitives/storage";
 import { useParams } from "@solidjs/router";
 import stringify from "json-stable-stringify";
-import { type Accessor, type Component, createSignal, Show } from "solid-js";
+import {
+	type Accessor,
+	type Component,
+	createEffect,
+	createSignal,
+	Show,
+} from "solid-js";
 import { toast } from "somoto";
 import type { PostMessageInput } from "@/actions/message/post";
 import { generateHash } from "@/utils/generate-hash";
@@ -203,6 +209,17 @@ export const MessageInput: Component<{
 		}
 	};
 
+	createEffect(() => {
+		const target = messageData.replyingTo;
+
+		if (!target) return;
+
+		const richTextMessageInput =
+			document.querySelector<HTMLParagraphElement>("p#chat-input");
+
+		if (richTextMessageInput) richTextMessageInput.focus();
+	});
+
 	return (
 		<div class="w-full flex h-fit flex-col gap-0 relative shrink-0">
 			<Show when={messageData.replyingTo !== undefined}>
@@ -265,6 +282,7 @@ export const MessageInput: Component<{
 						setInputContent={setInputContent}
 						editable={!loading()}
 						placeholder={`Message ${props.channelName}`}
+						id="chat-input"
 					/>
 				</div>
 			</div>

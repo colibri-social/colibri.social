@@ -5,7 +5,13 @@ import type {
 	DBMessageData,
 	IndexedMessageData,
 } from "@/utils/sdk";
-import type { MessageDeletionEvent, ReactionEventCallback } from "./events";
+import type {
+	MemberJoinedEvent,
+	MemberLeftEvent,
+	MessageDeletionEvent,
+	ReactionEventCallback,
+} from "./events";
+import type { MemberData } from "../../layouts/CommunityLayout";
 
 export type PendingMessageData = Omit<
 	Omit<DBMessageData, "rkey">,
@@ -24,6 +30,8 @@ export type GlobalContextData = {
 	additionalMessages: Array<IndexedMessageData>;
 	user: App.SessionData["user"];
 	deletedMessages: Array<Omit<MessageDeletionEvent, "id">>;
+	joinedMembers: Array<MemberData>;
+	removedMembers: Array<MemberData>;
 };
 
 export type GlobalContextUtility = {
@@ -42,4 +50,7 @@ export type GlobalContextUtility = {
 	sendSocketMessage: (message: Record<string, unknown>) => void;
 	clearDeletedMessages: () => void;
 	addReactionListener: (callback: ReactionEventCallback) => () => void;
+	addJoinedMember: (data: MemberData) => void;
+	addRemovedMember: (data: MemberData) => void;
+	clearOptimisticMemberUpdates: () => void;
 };

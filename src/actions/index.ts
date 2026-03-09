@@ -10,7 +10,11 @@ import { editCategoryOrder } from "./community/category-order";
 import { createCommunity } from "./community/create";
 import { deleteCommunity } from "./community/delete";
 import { editCommunity } from "./community/edit";
-import { createInviteCode, deleteInviteCode } from "./community/invite";
+import {
+	createInviteCode,
+	deleteInviteCode,
+	listInviteCodes,
+} from "./community/invite";
 import { getEmbedDataForURI } from "./embeds/get";
 import { deleteMessage } from "./message/delete";
 import { editMessage } from "./message/edit";
@@ -19,6 +23,8 @@ import { addReaction } from "./reactions/add";
 import { removeReaction } from "./reactions/remove";
 import { acceptInvitation } from "./user/accept-code";
 import { setCommunityOrder } from "./user/community-order";
+import { getUserProfileData } from "./user/get-profile-data";
+import { leaveCommunity } from "./user/leave-community";
 import { removeFromCommunityOrder } from "./user/remove-from-order";
 
 export const server = {
@@ -45,4 +51,7 @@ export const server = {
 	createInviteCode,
 	deleteInviteCode,
 	acceptInvitation,
+	listInviteCodes,
+	getUserProfileData,
+	leaveCommunity,
 };

@@ -241,9 +241,11 @@ export const Message: Component<{
 	 * @returns Whether this is a subsequent message or not.
 	 */
 	const isSubsequentMessage = () => {
-		if (!props.isSubsequent || typeof props.data.parent === "string") {
+		if (!!props.data.parent_message) {
 			return false;
 		}
+
+		if (!props.isSubsequent) return false;
 
 		return true;
 	};
@@ -433,7 +435,31 @@ export const Message: Component<{
 							props.data.text.trim().length === 0
 						}
 					>
-						<div class="py-2">
+						<div
+							class="pb-2 flex flex-col gap-1"
+							classList={{
+								"pt-2": isSubsequentMessage(),
+							}}
+						>
+							<Show when={!isSubsequentMessage()}>
+								<div class="flex gap-2 text-sm items-baseline">
+									<span class="font-bold">{props.data.display_name}</span>
+									<small class="text-muted-foreground">
+										{new Date(props.data.created_at).toLocaleDateString()}{" "}
+										{new Date(props.data.created_at).toLocaleTimeString(
+											undefined,
+											{
+												hour: "2-digit",
+												minute: "2-digit",
+											},
+										)}
+									</small>
+									<Show when={props.data.edited}>
+										<small class="text-muted-foreground">(edited)</small>
+									</Show>
+								</div>
+							</Show>
+
 							<MessageAttachments
 								did={props.data.author_did}
 								attachments={(props.data as DBMessageData).attachments || []}

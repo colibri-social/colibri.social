@@ -164,7 +164,7 @@ export const refreshAtprotoSessions = async (): Promise<void> => {
 
 	if (toRefresh.length === 0) return;
 
-	console.log(
+	console.info(
 		`[oauth] Proactively refreshing ${toRefresh.length} session(s) expiring within ${REFRESH_THRESHOLD_SECONDS / 60} minutes.`,
 	);
 
@@ -172,7 +172,7 @@ export const refreshAtprotoSessions = async (): Promise<void> => {
 		toRefresh.map(async ({ sub }) => {
 			try {
 				await client.restore(sub);
-				console.log(`[oauth] Session refreshed for ${sub}.`);
+				console.info(`[oauth] Session refreshed for ${sub}.`);
 			} catch (err) {
 				if (
 					err instanceof Error &&

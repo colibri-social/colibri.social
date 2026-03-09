@@ -124,7 +124,7 @@ if (inCommunity) {
 
 	// TODO: Loading state
 	acceptBtn.addEventListener("click", async () => {
-		let prevHtml = acceptBtn.innerHTML;
+		let prevHtml = `${acceptBtn.innerHTML}`;
 		acceptBtn.innerHTML = Spinner;
 
 		const { error, data } = await actions.acceptInvitation({
@@ -133,17 +133,24 @@ if (inCommunity) {
 
 		acceptBtn.innerHTML = prevHtml;
 
-		// TODO: Better error handling
 		if (error) {
-			return alert(error?.message);
+			return window.toast.error({
+				title: "Unable to join community:",
+				description: error.message,
+			});
 		}
 
 		if (!data) {
-			return alert("Unable to get community.");
+			return window.toast.error({
+				title: "Unable to join community.",
+			});
 		}
 
 		if (data.state !== "success") {
-			return alert(data.message);
+			return window.toast.error({
+				title: "Unable to join community;",
+				description: data.message,
+			});
 		}
 
 		// At this point, the message will be the record key of the community

@@ -6,7 +6,10 @@ import { ColibriSDK } from "@/utils/sdk";
 
 export const setCommunityOrder = defineAction({
 	input: z.object({
-		communities: z.array(z.string()),
+		communities: z.array(
+			z.string({ message: "Invalid community record key." }),
+			{ message: "No communities given." },
+		),
 	}),
 	handler: async ({ communities }, { session }) => {
 		try {

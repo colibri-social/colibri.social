@@ -56,6 +56,7 @@ export const RichTextRenderer: Component<{
 	setInputContent?: Setter<TextWithFacets>;
 	classList?: Record<string, boolean>;
 	placeholder?: string;
+	id?: string;
 }> = (props) => {
 	const navigate = useNavigate();
 	let pRef: HTMLParagraphElement | undefined;
@@ -734,6 +735,7 @@ export const RichTextRenderer: Component<{
 				onBeforeInput={handleBeforeInput}
 				onClick={handleClick}
 				ref={pRef}
+				id={props.id}
 			/>
 			<Show when={props.editable && toolbarState() !== null}>
 				<Portal>

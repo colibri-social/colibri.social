@@ -20,6 +20,7 @@ export const GlobalContextProvider: ParentComponent<{
 		user: App.SessionData["user"];
 	};
 }> = (props) => {
+	const community = () => window.location.href.split("/")[5];
 	const reactionListeners = new Set<ReactionEventCallback>();
 
 	const socket = makeHeartbeatWS(
@@ -42,6 +43,8 @@ export const GlobalContextProvider: ParentComponent<{
 		removedCategories: [],
 		pendingMessages: [],
 		deletedMessages: [],
+		joinedMembers: [],
+		removedMembers: [],
 	});
 
 	const context: [GlobalContextData, GlobalContextUtility] = [
@@ -175,6 +178,28 @@ export const GlobalContextProvider: ParentComponent<{
 					reactionListeners.delete(callback);
 				};
 			},
+			addJoinedMember(member) {
+				setGlobalContext("joinedMembers", (list) => {
+					const alreadyExists = list.find(
+						(x) => x.member_did === member.member_did,
+					);
+					if (alreadyExists) return list;
+					return [...list, member];
+				});
+			},
+			addRemovedMember(member) {
+				setGlobalContext("removedMembers", (list) => {
+					const alreadyExists = list.find(
+						(x) => x.member_did === member.member_did,
+					);
+					if (alreadyExists) return list;
+					return [...list, member];
+				});
+			},
+			clearOptimisticMemberUpdates() {
+				setGlobalContext("joinedMembers", []);
+				setGlobalContext("removedMembers", []);
+			},
 		},
 	];
 
@@ -227,10 +252,24 @@ export const GlobalContextProvider: ParentComponent<{
 				// TODO: handle pending member
 				break;
 			case "member_joined":
-				// TODO: handle member joined
+				if (community() === data.community_uri.split("/").pop()!) {
+					context[1].addJoinedMember({
+						avatar_url: data.avatar_url || "/user-placeholder.png",
+						display_name: data.display_name || data.member_did,
+						member_did: data.member_did,
+						status: "approved",
+					});
+				}
 				break;
 			case "member_left":
-				// TODO: handle member left
+				if (community() === data.community_uri.split("/").pop()!) {
+					context[1].addRemovedMember({
+						avatar_url: data.avatar_url || "/user-placeholder.png",
+						display_name: data.display_name || data.member_did,
+						member_did: data.member_did,
+						status: "approved",
+					});
+				}
 				break;
 			case "ack":
 				break;

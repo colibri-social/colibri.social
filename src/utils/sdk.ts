@@ -20,7 +20,10 @@ export type CommunityData = {
 	owner_did: string;
 };
 
-export type PDSCommunityData = Omit<CommunityData, "category_order"> & {
+export type PDSCommunityData = Omit<
+	Omit<CommunityData, "category_order">,
+	"owner_did"
+> & {
 	categoryOrder: Array<string>;
 };
 
@@ -993,6 +996,42 @@ export class ColibriSDK {
 		const res = await this.agent.com.atproto.repo.createRecord(record);
 
 		return res.data.uri.split("/").pop()!;
+	};
+
+	/**
+	 * Deletes the users membership declaration for a given community.
+	 * @param did The DID of the user.
+	 * @param communityAtUri The AT URI of the community to delete the declaration for.
+	 */
+	public deleteMembershipDeclaration = async (
+		did: string,
+		communityAtUri: string,
+	): Promise<void> => {
+		let cursor: string | undefined;
+
+		while (true) {
+			const membershipRecords = await this.agent.com.atproto.repo.listRecords({
+				repo: did,
+				collection: RECORD_IDs.MEMBERSHIP,
+				limit: 100,
+				cursor,
+			});
+
+			for (const record of membershipRecords.data.records) {
+				if (record.value.community === communityAtUri) {
+					await this.agent.com.atproto.repo.deleteRecord({
+						repo: did,
+						collection: RECORD_IDs.MEMBERSHIP,
+						rkey: record.uri.split("/").pop()!,
+					});
+					return;
+				}
+			}
+
+			cursor = membershipRecords.data.cursor;
+
+			if (!cursor) break; // No more pages, record not found
+		}
 	};
 
 	/**

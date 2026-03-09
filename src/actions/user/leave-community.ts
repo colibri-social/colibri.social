@@ -3,12 +3,14 @@ import { Agent } from "@atproto/api";
 import { z } from "astro/zod";
 import { client } from "@/utils/atproto/oauth";
 import { ColibriSDK } from "@/utils/sdk";
+import { RECORD_IDs } from "@/utils/atproto/lexicons";
 
-export const removeFromCommunityOrder = defineAction({
+export const leaveCommunity = defineAction({
 	input: z.object({
 		community: z.string({ message: "No community given." }),
+		ownerDID: z.string({ message: "No Owner DID given." }),
 	}),
-	handler: async ({ community }, { session }) => {
+	handler: async ({ community, ownerDID }, { session }) => {
 		try {
 			if (!session || !session?.has("user")) {
 				throw new ActionError({
@@ -22,10 +24,10 @@ export const removeFromCommunityOrder = defineAction({
 			const agent = new Agent(oauthSession);
 			const sdk = new ColibriSDK(agent);
 
-			const newList = user.communities.filter((x) => x !== community);
-
-			session.set("user", { ...user, communities: newList });
-			await sdk.setCommunityOrder(agent.did!, newList);
+			await sdk.deleteMembershipDeclaration(
+				agent.did!,
+				`at://${ownerDID}/${RECORD_IDs.COMMUNITY}/${community}`,
+			);
 
 			return;
 		} catch (e) {

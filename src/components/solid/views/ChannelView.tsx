@@ -34,7 +34,12 @@ const ChannelView: Component = () => {
 	const [messageData, { registerEmbedLoadCallback }] = useMessageContext();
 	const [
 		globalState,
-		{ sendSocketMessage, clearAdditionalMessages, clearDeletedMessages },
+		{
+			sendSocketMessage,
+			clearAdditionalMessages,
+			clearDeletedMessages,
+			clearOptimisticMemberUpdates,
+		},
 	] = useGlobalContext();
 
 	const history = useMessageHistory(channel);
@@ -152,15 +157,9 @@ const ChannelView: Component = () => {
 		observer?.disconnect();
 	});
 
-	createEffect(() => {
-		console.log(channel());
-	});
-
 	createEffect(
 		on(channel, (channel) => {
 			if (!channel) return;
-
-			console.log("Resetting...");
 
 			batch(() => {
 				history.reset();
@@ -188,6 +187,7 @@ const ChannelView: Component = () => {
 		});
 		clearAdditionalMessages();
 		clearDeletedMessages();
+		clearOptimisticMemberUpdates();
 	});
 
 	createEffect(() => {

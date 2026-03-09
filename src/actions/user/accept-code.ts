@@ -28,7 +28,7 @@ type JoinState = {
 
 export const acceptInvitation = defineAction({
 	input: z.object({
-		code: z.string(),
+		code: z.string({ message: "No code given." }),
 	}),
 	handler: async ({ code }, { session }): Promise<JoinState> => {
 		try {

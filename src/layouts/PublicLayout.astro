@@ -3,6 +3,7 @@ import { Font } from "astro:assets";
 import Footer from "@/components/public/Footer.astro";
 import Navbar from "@/components/public/Navbar.astro";
 import BaseLayout from "./BaseLayout.astro";
+import Toaster from "@/components/bearnie/toast/Toaster.astro";
 
 interface Props {
 	home?: boolean;
@@ -20,4 +21,5 @@ const { home } = Astro.props;
 		<slot />
 	</main>
 	<Footer />
+	<Toaster />
 </BaseLayout>

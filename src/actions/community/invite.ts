@@ -3,6 +3,9 @@ import { APPVIEW_DOMAIN } from "astro:env/client";
 import { INVITE_API_KEY } from "astro:env/server";
 import { z } from "astro/zod";
 import { RECORD_IDs } from "@/utils/atproto/lexicons";
+import { client } from "@/utils/atproto/oauth";
+import { Agent } from "@atproto/api";
+import { ColibriSDK } from "@/utils/sdk";
 
 export type InviteCodeInfo = {
 	code: string;
@@ -12,6 +15,38 @@ export type InviteCodeInfo = {
 	use_count: number;
 	active: boolean;
 };
+
+export const listInviteCodes = defineAction({
+	input: z.object({
+		community: z.string({ message: "No community given." }),
+	}),
+	handler: async ({ community }, { session }) => {
+		if (!session || !session?.has("user")) {
+			throw new ActionError({
+				message: "Forbidden",
+				code: "FORBIDDEN",
+			});
+		}
+
+		const user = (await session.get("user"))!;
+		const oauthSession = await client.restore(user.sub!);
+		const agent = new Agent(oauthSession);
+		const sdk = new ColibriSDK(agent);
+
+		await sdk.getCommunityData(agent.did!, community);
+
+		const res = await fetch(
+			`https://${APPVIEW_DOMAIN}/api/invites?community=${encodeURIComponent(`at://${agent.did!}/${RECORD_IDs.COMMUNITY}/${community}`)}`,
+			{
+				headers: new Headers({
+					Authorization: `Bearer ${INVITE_API_KEY}`,
+				}),
+			},
+		);
+
+		return (await res.json()) as Array<InviteCodeInfo>;
+	},
+});
 
 /**
  * Checks for existing invite links for a community. If none exist, creates a new one.

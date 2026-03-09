@@ -35,7 +35,8 @@ export type MessageEventPayload = {
 
 export type MessagePostEvent = {
 	type: "message";
-	parent: IndexedMessageData | null;
+	parent: string | null;
+	parent_message: IndexedMessageData | null;
 } & MessageEventPayload;
 
 export type MessageDeletionEvent = {
@@ -127,12 +128,16 @@ export type MemberJoinedEvent = {
 	community_uri: string;
 	member_did: string;
 	membership_uri: string;
+	display_name?: string;
+	avatar_url?: string;
 };
 
 export type MemberLeftEvent = {
 	type: "member_left";
 	community_uri: string;
 	member_did: string;
+	display_name?: string;
+	avatar_url?: string;
 };
 
 export type AppviewSubscriptionData =

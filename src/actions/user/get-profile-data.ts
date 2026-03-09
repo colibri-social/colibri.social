@@ -4,11 +4,11 @@ import { z } from "astro/zod";
 import { client } from "@/utils/atproto/oauth";
 import { ColibriSDK } from "@/utils/sdk";
 
-export const removeFromCommunityOrder = defineAction({
+export const getUserProfileData = defineAction({
 	input: z.object({
-		community: z.string({ message: "No community given." }),
+		did: z.string({ message: "No DID given." }),
 	}),
-	handler: async ({ community }, { session }) => {
+	handler: async ({ did }, { session }) => {
 		try {
 			if (!session || !session?.has("user")) {
 				throw new ActionError({
@@ -22,12 +22,11 @@ export const removeFromCommunityOrder = defineAction({
 			const agent = new Agent(oauthSession);
 			const sdk = new ColibriSDK(agent);
 
-			const newList = user.communities.filter((x) => x !== community);
+			const profile = await agent.getProfile({
+				actor: did,
+			});
 
-			session.set("user", { ...user, communities: newList });
-			await sdk.setCommunityOrder(agent.did!, newList);
-
-			return;
+			return profile.data;
 		} catch (e) {
 			console.error(e);
 

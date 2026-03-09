@@ -2,7 +2,15 @@ import { actions } from "astro:actions";
 import type { Details } from "@kobalte/core/file-field";
 import { useNavigate, useParams } from "@solidjs/router";
 import type { ParentComponent } from "solid-js";
-import { type Component, createSignal, Match, Switch } from "solid-js";
+import {
+	type Component,
+	createResource,
+	createSignal,
+	For,
+	Match,
+	Suspense,
+	Switch,
+} from "solid-js";
 import { toast } from "somoto";
 import { RECORD_IDs } from "@/utils/atproto/lexicons";
 import { parseZodToErrorOrDisplay } from "@/utils/parse-zod-to-error-or-display";
@@ -28,6 +36,17 @@ import {
 } from "../../shadcn-solid/text-field";
 import { SettingsInfoPage } from "../SettingsInfoPage";
 import { SettingsModal, SettingsPage } from "../SettingsModal";
+import {
+	Table,
+	TableBody,
+	TableCaption,
+	TableCell,
+	TableFooter,
+	TableHead,
+	TableHeader,
+	TableRow,
+} from "../../shadcn-solid/Table";
+import { Alert, AlertDescription, AlertTitle } from "../../shadcn-solid/Alert";
 
 const GeneralSettingsPage: Component = () => {
 	const [globalData, { addCommunity }] = useGlobalContext();
@@ -218,6 +237,107 @@ const GeneralSettingsPage: Component = () => {
 	);
 };
 
+const fetchCodes = async (community: string) => {
+	return await actions.listInviteCodes({ community });
+};
+
+const fetchUserData = async (did: string) => {
+	return await actions.getUserProfileData({ did });
+};
+
+const SmallUser: Component<{ did: string }> = (props) => {
+	const [user] = createResource(props.did, fetchUserData);
+
+	return (
+		<Switch>
+			<Match when={user()?.error}>
+				<span>{props.did}</span>
+			</Match>
+			<Match when={user()?.data}>
+				{(data) => (
+					<div class="flex flex-row items-center gap-2">
+						<img
+							src={data().avatar || "/user-placeholder.png"}
+							width={20}
+							height={20}
+							alt={data().displayName || data().handle}
+							class="rounded-full"
+						/>
+						<span>{data().displayName || data().handle}</span>
+					</div>
+				)}
+			</Match>
+		</Switch>
+	);
+};
+
+const InviteLinksPage: Component = () => {
+	const params = useParams();
+
+	const [loading, setLoading] = createSignal<boolean>(false);
+	const [codes] = createResource(() => params.community, fetchCodes);
+
+	return (
+		<SettingsPage loading={loading} title="Invite Links">
+			<Switch>
+				<Match when={!codes()}>
+					<div class="my-2 flex w-full items-center justify-center">
+						<Spinner />
+					</div>
+				</Match>
+				<Match when={codes()}>
+					{(codes) => (
+						<Table class="h-full">
+							<TableHeader>
+								<TableRow>
+									<TableHead class="w-[150px]">Invite ID</TableHead>
+									<TableHead>Created by</TableHead>
+									<TableHead>Active</TableHead>
+									<TableHead class="text-right">Delete</TableHead>
+								</TableRow>
+							</TableHeader>
+							<TableBody class="relative">
+								<Switch>
+									<Match when={codes().error}>
+										<Alert variant="destructive" class="my-2 absolute">
+											<AlertTitle>
+												An error occurred while fetching the data:
+											</AlertTitle>
+											<AlertDescription>
+												{codes().error!.message}
+											</AlertDescription>
+										</Alert>
+									</Match>
+									<Match when={codes().data}>
+										{(data) => (
+											<For each={data()}>
+												{(code) => (
+													<TableRow>
+														<TableCell class="font-medium">
+															{code.code}
+														</TableCell>
+														<TableCell>
+															<Suspense fallback={<Spinner />}>
+																<SmallUser did={code.created_by_did} />
+															</Suspense>
+														</TableCell>
+														<TableCell>{code.active ? "Yes" : "No"}</TableCell>
+														<TableCell class="text-right">...</TableCell>
+													</TableRow>
+												)}
+											</For>
+										)}
+									</Match>
+								</Switch>
+							</TableBody>
+						</Table>
+					)}
+				</Match>
+			</Switch>
+		</SettingsPage>
+	);
+};
+
 const DangerSettingsPage: Component = () => {
 	const [globalData, { removeCommunity }] = useGlobalContext();
 	const params = useParams();
@@ -304,6 +424,11 @@ export const CommunitySettingsModal: ParentComponent = (props) => {
 					title: "Community Profile",
 					id: "general",
 					component: GeneralSettingsPage,
+				},
+				{
+					title: "Invite Links",
+					id: "invitations",
+					component: InviteLinksPage,
 				},
 			]}
 			dangerPage={{

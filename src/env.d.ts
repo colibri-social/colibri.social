@@ -16,3 +16,28 @@ declare namespace App {
 		};
 	}
 }
+
+type ToastArgs =
+	| string
+	| {
+			title?: string;
+			description?: string;
+			type?: ToastType;
+			duration?: number;
+			action?: {
+				label: string;
+				onClick: () => void;
+			};
+	  };
+
+interface ToastFn {
+	(args: ToastArgs): void;
+	success(args: ToastArgs): void;
+	error(args: ToastArgs): void;
+	warning(args: ToastArgs): void;
+	info(args: ToastArgs): void;
+}
+
+interface Window {
+	toast: ToastFn;
+}
