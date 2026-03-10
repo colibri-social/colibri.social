@@ -987,6 +987,13 @@ export class ColibriSDK {
 		did: string,
 		communityAtUri: string,
 	): Promise<string> => {
+		const existingRecord = await this.findMembershipDeclaration(
+			did,
+			communityAtUri,
+		);
+
+		if (existingRecord) return existingRecord.split("/").pop()!;
+
 		const record = this.constructAtProtoRecord(did, RECORD_IDs.MEMBERSHIP, {
 			community: communityAtUri,
 			createdAt: new Date().toISOString(),
