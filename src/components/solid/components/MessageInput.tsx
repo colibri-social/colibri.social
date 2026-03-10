@@ -274,6 +274,15 @@ export const MessageInput: Component<{
 							sendMessage();
 						}
 					}}
+					onPaste={(e) => {
+						if ((e.clipboardData?.files.length || 0) > 0) {
+							e.preventDefault();
+
+							for (const file of e.clipboardData!.files) {
+								fileField.processFiles([file]);
+							}
+						}
+					}}
 				>
 					<RichTextRenderer
 						text={inputContent}

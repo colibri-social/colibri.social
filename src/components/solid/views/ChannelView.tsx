@@ -310,17 +310,39 @@ const ChannelView: Component = () => {
 				</Show>
 				<For each={allMessages()}>
 					{(item, index) => {
+						const msgs = allMessages();
+						const idx = index();
+
+						const isOnNewDay = () => {
+							return (
+								idx !== 0 &&
+								new Date(msgs[idx - 1]?.created_at).getDay() !==
+									new Date(item.created_at).getDay()
+							);
+						};
+
 						const isSubsequent = () => {
-							const idx = index();
-							const msgs = allMessages();
-							return idx !== 0 && msgs[idx - 1]?.author_did === item.author_did;
+							return (
+								idx !== 0 &&
+								msgs[idx - 1]?.author_did === item.author_did &&
+								!isOnNewDay()
+							);
 						};
 
 						return (
-							<Message
-								isSubsequent={isSubsequent()}
-								data={item as PendingMessageData | IndexedMessageData}
-							/>
+							<>
+								<Show when={isOnNewDay()}>
+									<div class="w-[calc(100%-2rem)] h-px m-4 bg-border flex items-center justify-center">
+										<span class="text-sm bg-background px-1">
+											{new Date(item.created_at).toLocaleDateString()}
+										</span>
+									</div>
+								</Show>
+								<Message
+									isSubsequent={isSubsequent()}
+									data={item as PendingMessageData | IndexedMessageData}
+								/>
+							</>
 						);
 					}}
 				</For>
