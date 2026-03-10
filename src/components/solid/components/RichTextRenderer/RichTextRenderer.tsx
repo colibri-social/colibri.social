@@ -45,6 +45,7 @@ import {
 	type ToolbarState,
 	textEncoder,
 } from "./util";
+import { cn } from "@/utils/cn";
 
 /**
  * A rich text renderer component that parses a given text and renders its facets as HTML.
@@ -57,6 +58,7 @@ export const RichTextRenderer: Component<{
 	classList?: Record<string, boolean>;
 	placeholder?: string;
 	id?: string;
+	class?: string;
 }> = (props) => {
 	const navigate = useNavigate();
 	let pRef: HTMLParagraphElement | undefined;
@@ -721,7 +723,10 @@ export const RichTextRenderer: Component<{
 	return (
 		<>
 			<p
-				class="m-0 text-foreground rich-text focus:outline-0 leading-5.5 wrap-break-word relative before:absolute before:w-full before:h-full before:content-(--placeholder) before:text-muted-foreground before:pointer-events-none"
+				class={cn(
+					"m-0 text-foreground rich-text focus:outline-0 leading-5.5 wrap-break-word relative before:absolute before:w-full before:h-full before:content-(--placeholder) before:text-muted-foreground before:pointer-events-none",
+					props.class,
+				)}
 				style={
 					props.placeholder && props.text().text.trim().length === 0
 						? { "--placeholder": `"${props.placeholder}"` }
