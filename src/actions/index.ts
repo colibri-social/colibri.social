@@ -26,9 +26,11 @@ import { addReaction } from "./reactions/add";
 import { removeReaction } from "./reactions/remove";
 import { acceptInvitation } from "./user/accept-code";
 import { setCommunityOrder } from "./user/community-order";
+import { editProfile } from "./user/edit-profile";
 import { getUserProfileData } from "./user/get-profile-data";
 import { leaveCommunity } from "./user/leave-community";
 import { removeFromCommunityOrder } from "./user/remove-from-order";
+import { setStatus } from "./user/set-status";
 
 export const server = {
 	createCommunity,
@@ -60,4 +62,6 @@ export const server = {
 	listPendingMembers,
 	approveJoinRequest,
 	blockMessage,
+	editProfile,
+	setStatus,
 };

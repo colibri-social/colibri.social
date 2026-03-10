@@ -324,6 +324,14 @@ const ChannelView: Component = () => {
 							);
 						};
 
+						const hasSubsequent = () => {
+							return (
+								msgs[idx + 1]?.author_did === item.author_did &&
+								new Date(msgs[idx + 1]?.created_at).getDay() ===
+									new Date(item.created_at).getDay()
+							);
+						};
+
 						const isSubsequent = () => {
 							return (
 								idx !== 0 &&
@@ -343,6 +351,7 @@ const ChannelView: Component = () => {
 								</Show>
 								<Message
 									isSubsequent={isSubsequent()}
+									hasSubsequent={hasSubsequent()}
 									data={item as PendingMessageData | IndexedMessageData}
 									community={community()}
 								/>

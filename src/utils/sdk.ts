@@ -41,7 +41,7 @@ export type UnresolvedCommunityData = Omit<CommunityData, "picture"> &
 
 const pdsUrlCache = new Map<string, string>();
 
-async function resolvePdsUrl(did: string): Promise<string | undefined> {
+export async function resolvePdsUrl(did: string): Promise<string | undefined> {
 	if (pdsUrlCache.has(did)) return pdsUrlCache.get(did)!;
 	try {
 		const res = await fetch(`https://plc.directory/${did}`);
@@ -56,7 +56,7 @@ async function resolvePdsUrl(did: string): Promise<string | undefined> {
 	}
 }
 
-function blobRefToUrl(
+export function blobRefToUrl(
 	pdsUrl: string,
 	did: string,
 	blobRef: AppviewCommunityImageData["picture"] | BlobRef,
@@ -1108,5 +1108,30 @@ export class ColibriSDK {
 		const res = await agent.com.atproto.repo.createRecord(record);
 
 		return res.data.uri.split("/").pop()!;
+	};
+
+	public updateStatus = async (
+		did: string,
+		status: string,
+		emoji?: string,
+	): Promise<void> => {
+		const current = await this.agent.com.atproto.repo.getRecord({
+			rkey: "self",
+			collection: RECORD_IDs.ACTOR_DATA,
+			repo: did,
+		});
+
+		const newRecord = this.constructAtProtoRecord(
+			did,
+			RECORD_IDs.ACTOR_DATA,
+			{
+				...current.data.value,
+				status,
+				emoji,
+			},
+			"self",
+		);
+
+		await this.agent.com.atproto.repo.putRecord(newRecord);
 	};
 }

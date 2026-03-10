@@ -48,4 +48,5 @@ export type GlobalContextUtility = {
 	addJoinedMember: (data: MemberData) => void;
 	addRemovedMember: (data: MemberData) => void;
 	clearOptimisticMemberUpdates: () => void;
+	setUserData: (data: App.SessionData["user"]) => void;
 };

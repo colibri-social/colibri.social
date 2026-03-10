@@ -3,7 +3,8 @@ declare namespace App {
 	interface SessionData {
 		user: {
 			// Provided by `social.colibri.actor.data`
-			status: string;
+			status?: string;
+			emoji?: string;
 			communities: Array<string>;
 			// Provided by `app.bsky.actor.profile`
 			avatar: string | undefined;

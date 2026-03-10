@@ -55,6 +55,7 @@ import { blockMessage, deleteMessage } from "./util";
 export const Message: Component<{
 	data: IndexedMessageData | PendingMessageData;
 	isSubsequent: boolean;
+	hasSubsequent: boolean;
 	community: CommunityData;
 }> = (props) => {
 	const params = useParams();
@@ -422,6 +423,7 @@ export const Message: Component<{
 					"border-transparent": !isRepliedTo(),
 					"bg-primary/15 hover:bg-primary/25 border-primary": isRepliedTo(),
 					"bg-primary/15": isFocused(),
+					"pb-0.5": props.hasSubsequent,
 					"pb-2": messageReactions().length > 0,
 				}}
 			>

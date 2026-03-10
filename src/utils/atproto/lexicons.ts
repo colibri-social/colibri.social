@@ -45,6 +45,10 @@ lex.add(
 							maxLength: 32,
 							default: "",
 						},
+						emoji: {
+							type: "string",
+							description: "The emoji displayed next to status.",
+						},
 						communities: {
 							type: "array",
 							description:
@@ -334,7 +338,6 @@ lex.add(
 							type: "string",
 							description:
 								"The emoji of the reaction. This allows for any string to support for custom emojis later down the line.",
-							default: "New channel",
 						},
 						targetMessage: {
 							type: "string",

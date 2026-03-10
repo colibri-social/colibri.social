@@ -200,6 +200,9 @@ export const GlobalContextProvider: ParentComponent<{
 				setGlobalContext("joinedMembers", []);
 				setGlobalContext("removedMembers", []);
 			},
+			setUserData(data) {
+				setGlobalContext("user", data);
+			},
 		},
 	];
 
@@ -270,6 +273,9 @@ export const GlobalContextProvider: ParentComponent<{
 						status: "approved",
 					});
 				}
+				break;
+			case "user_status_changed":
+				// TODO: Handle user status changed event.
 				break;
 			case "ack":
 				break;

@@ -31,6 +31,7 @@ import {
 	FileFieldDropzone,
 	FileFieldHiddenInput,
 } from "../shadcn-solid/file-field";
+import twemoji from "@twemoji/api";
 
 /**
  * Fetches the sidebar data (categories + channels) for a community.
@@ -53,6 +54,8 @@ export type MemberData = {
 	status: "owner" | string;
 	display_name: string;
 	avatar_url: string;
+	status_text?: string;
+	emoji?: string;
 };
 
 /**
@@ -142,6 +145,7 @@ const CommunityLayout: ParentComponent = (props) => {
 
 		const totalCurrentlyJoined = [...serverMemberList, ...optimisticJoinList];
 
+		// TODO: Status updates
 		return totalCurrentlyJoined
 			.filter(
 				(x) =>
@@ -323,15 +327,30 @@ const CommunityLayout: ParentComponent = (props) => {
 									<Suspense fallback={<MemberListSkeleton />}>
 										<For each={combinedMemberList() ?? []}>
 											{(item) => (
-												<div class="flex flex-row gap-2 border border-border bg-card rounded-sm p-2">
+												<div class="flex flex-row gap-2 rounded-sm px-2 py-1 hover:bg-card items-center cursor-pointer">
 													<img
 														src={item.avatar_url || "/user-placeholder.png"}
 														alt={item.display_name}
-														width={28}
-														height={28}
-														class="rounded-full"
+														width={36}
+														height={36}
+														class="rounded-full w-9 h-9"
 													/>
-													<span class="font-medium">{item.display_name}</span>
+													<div class="flex flex-col">
+														<span class="font-medium leading-5">
+															{item.display_name}
+														</span>
+														<Show when={item.status_text}>
+															<span class="text-sm leading-5 flex flex-row items-center gap-1">
+																<Show when={item.emoji}>
+																	<span
+																		class="[&>img]:w-4 [&>img]:h-4 [&>img]inline"
+																		innerHTML={twemoji.parse(item.emoji!)}
+																	/>
+																</Show>
+																<span>{item.status_text}</span>
+															</span>
+														</Show>
+													</div>
 												</div>
 											)}
 										</For>

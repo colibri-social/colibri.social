@@ -140,6 +140,15 @@ export type MemberLeftEvent = {
 	avatar_url?: string;
 };
 
+export type UserStatusChangedEvent = {
+	type: "user_status_changed";
+	did: string;
+	status: string;
+	emoji?: string;
+	display_name?: string;
+	avatar_url?: string;
+};
+
 export type AppviewSubscriptionData =
 	| AckEvent
 	| MessagePostEvent
@@ -154,7 +163,8 @@ export type AppviewSubscriptionData =
 	| CategoryDeletedEvent
 	| MemberPendingEvent
 	| MemberJoinedEvent
-	| MemberLeftEvent;
+	| MemberLeftEvent
+	| UserStatusChangedEvent;
 
 export type ReactionEventCallback = (
 	data: ReactionAddedEvent | ReactionRemovedEvent,
