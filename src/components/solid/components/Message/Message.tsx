@@ -6,6 +6,7 @@ import {
 	For,
 	Match,
 	Show,
+	Suspense,
 	Switch,
 } from "solid-js";
 import { toast } from "somoto";
@@ -35,6 +36,14 @@ import { MessageAction } from "./MessageAction";
 import { MessageContextMenu } from "./MessageContextMenu";
 import { MessageDeletionDrawer } from "./MessageDeletionDrawer";
 import { deleteMessage } from "./util";
+import {
+	Tooltip,
+	TooltipContent,
+	TooltipPortal,
+	TooltipTrigger,
+	type TooltipTriggerProps,
+} from "../../shadcn-solid/Tooltip";
+import { SmallUser } from "../SmallUser";
 
 /**
  * A rendered message component in a chat.
@@ -90,6 +99,15 @@ export const Message: Component<{
 				type: "reaction_added",
 			},
 		]);
+
+		setRemovedReactions((current) =>
+			current.filter(
+				(x) =>
+					x.emoji !== emoji &&
+					x.author_did !== globalData.user.sub &&
+					x.target_rkey !== (props.data as IndexedMessageData).rkey,
+			),
+		);
 
 		actions
 			.addReaction({
@@ -294,9 +312,11 @@ export const Message: Component<{
 					emoji: reaction.emoji,
 				});
 			} else {
-				existingEntry.authors.push(reaction.author_did);
-				existingEntry.rkeys.push(reaction.rkey);
-				existingEntry.count++;
+				if (!existingEntry.authors.some((x) => x === reaction.author_did)) {
+					existingEntry.authors.push(reaction.author_did);
+					existingEntry.rkeys.push(reaction.rkey);
+					existingEntry.count++;
+				}
 			}
 		}
 
@@ -598,68 +618,108 @@ export const Message: Component<{
 					<div class="flex flex-row gap-1 flex-wrap items-center pl-14">
 						<For each={messageReactions()}>
 							{(item) => (
-								<button
-									type="button"
-									class="border rounded-sm hover:bg-card px-1.5 py-1 flex gap-1 items-center cursor-pointer"
-									classList={{
-										"border-primary bg-primary/15 hover:bg-primary/25":
-											item.authors.includes(globalData.user.sub),
-										"border-border bg-card hover:bg-muted":
-											!item.authors.includes(globalData.user.sub),
-									}}
-									onClick={() => {
-										const reactionIndex = item.authors.indexOf(
-											globalData.user.sub,
-										);
+								<Tooltip>
+									<TooltipTrigger
+										as={(tooltipProps: TooltipTriggerProps) => (
+											<button
+												type="button"
+												class="border rounded-sm hover:bg-card px-1.5 py-1 flex gap-1 items-center cursor-pointer"
+												classList={{
+													"border-primary bg-primary/15 hover:bg-primary/25":
+														item.authors.includes(globalData.user.sub),
+													"border-border bg-card hover:bg-muted":
+														!item.authors.includes(globalData.user.sub),
+												}}
+												{...tooltipProps}
+												onClick={() => {
+													const reactionIndex = item.authors.indexOf(
+														globalData.user.sub,
+													);
 
-										if (reactionIndex !== -1) {
-											const author_did = item.authors[reactionIndex];
-											const rkey = item.rkeys[reactionIndex];
+													if (reactionIndex !== -1) {
+														const author_did = item.authors[reactionIndex];
+														const rkey = item.rkeys[reactionIndex];
 
-											if (!rkey.startsWith("__pending_")) {
-												actions
-													.removeReaction({
-														rkey,
-													})
-													.then((res) => {
-														if (res.error) {
-															toast.error("Failed to remove reaction", {
-																description: parseZodToErrorOrDisplay(
-																	res.error.message,
-																),
-															});
+														if (!rkey.startsWith("__pending_")) {
+															actions
+																.removeReaction({
+																	rkey,
+																})
+																.then((res) => {
+																	if (res.error) {
+																		toast.error("Failed to remove reaction", {
+																			description: parseZodToErrorOrDisplay(
+																				res.error.message,
+																			),
+																		});
 
-															setRemovedReactions((current) =>
-																current.filter((r) => r.rkey !== rkey),
-															);
+																		setRemovedReactions((current) =>
+																			current.filter((r) => r.rkey !== rkey),
+																		);
 
-															return;
+																		return;
+																	}
+																});
 														}
-													});
-											}
 
-											setRemovedReactions((current) => [
-												...current,
-												{
-													author_did,
-													rkey,
-													target_rkey: (props.data as IndexedMessageData).rkey,
-													target_author_did: props.data.author_did,
-													channel: props.data.channel,
-													emoji: item.emoji,
-													type: "reaction_removed",
-												},
-											]);
-										} else {
-											addReactionOptimistic(item.emoji);
-										}
-									}}
-								>
-									<span class="h-4 w-4" innerHTML={twemoji.parse(item.emoji)} />
-									<span class="text-muted-foreground text-sm">
-										{item.count}
-									</span>
-								</button>
+														setRemovedReactions((current) => [
+															...current,
+															{
+																author_did,
+																rkey,
+																target_rkey: (props.data as IndexedMessageData)
+																	.rkey,
+																target_author_did: props.data.author_did,
+																channel: props.data.channel,
+																emoji: item.emoji,
+																type: "reaction_removed",
+															},
+														]);
+
+														setAdditionalReactions((current) =>
+															current.filter(
+																(x) =>
+																	x.emoji !== item.emoji ||
+																	x.author_did !== globalData.user.sub ||
+																	x.target_rkey !==
+																		(props.data as IndexedMessageData).rkey,
+															),
+														);
+													} else {
+														addReactionOptimistic(item.emoji);
+													}
+												}}
+											>
+												<span
+													class="h-4 w-4"
+													innerHTML={twemoji.parse(item.emoji)}
+												/>
+												<span class="text-muted-foreground text-sm">
+													{item.count}
+												</span>
+											</button>
+										)}
+									/>
+									<TooltipPortal>
+										<TooltipContent>
+											<p class="m-0 max-w-64 text-wrap">
+												<span>Reacted by </span>
+												<For each={item.authors}>
+													{(author, index) => (
+														<Suspense
+															fallback={<div class="inline">......, </div>}
+														>
+															<SmallUser did={author} hideImage />
+															<Show when={index() < item.authors.length - 1}>
+																{", "}
+															</Show>
+														</Suspense>
+													)}
+												</For>
+											</p>
+										</TooltipContent>
+									</TooltipPortal>
+								</Tooltip>
 							)}
 						</For>
 					</div>

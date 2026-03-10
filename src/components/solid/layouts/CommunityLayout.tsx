@@ -255,7 +255,7 @@ const CommunityLayout: ParentComponent = (props) => {
 											<div class="w-1 h-1 bg-muted-foreground rounded-full" />
 											<InviteLinkCreationModal community={community()!.rkey}>
 												<small class="cursor-pointer hover:underline">
-													Create Invitation
+													Invite Link
 												</small>
 											</InviteLinkCreationModal>
 										</Show>

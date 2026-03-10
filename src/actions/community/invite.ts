@@ -55,8 +55,14 @@ export const createInviteCode = defineAction({
 	input: z.object({
 		community: z.string({ message: "No community given." }),
 		owner: z.string({ message: "No owner given." }),
+		generateNew: z
+			.boolean({ message: "Generate new must be a boolean." })
+			.optional(),
 	}),
-	handler: async ({ community, owner }, { session }) => {
+	handler: async (
+		{ community, owner, generateNew },
+		{ session },
+	): Promise<string> => {
 		try {
 			if (!session || !session?.has("user")) {
 				throw new ActionError({
@@ -74,20 +80,22 @@ export const createInviteCode = defineAction({
 				});
 			}
 
-			const info = (await (
-				await fetch(
-					`https://${APPVIEW_DOMAIN}/api/invites?community=${encodeURIComponent(`at://${owner}/${RECORD_IDs.COMMUNITY}/${community}`)}`,
-					{
-						method: "GET",
-						headers: new Headers({
-							Authorization: `Bearer ${INVITE_API_KEY}`,
-						}),
-					},
-				)
-			).json()) as Array<InviteCodeInfo>;
+			if (!generateNew) {
+				const info = (await (
+					await fetch(
+						`https://${APPVIEW_DOMAIN}/api/invites?community=${encodeURIComponent(`at://${owner}/${RECORD_IDs.COMMUNITY}/${community}`)}`,
+						{
+							method: "GET",
+							headers: new Headers({
+								Authorization: `Bearer ${INVITE_API_KEY}`,
+							}),
+						},
+					)
+				).json()) as Array<InviteCodeInfo>;
 
-			if (info.length > 0) {
-				return info[0].code;
+				const existingCode = info.find((x) => x.active === true);
+
+				if (existingCode) return existingCode.code;
 			}
 
 			// Create new code if none exists yet

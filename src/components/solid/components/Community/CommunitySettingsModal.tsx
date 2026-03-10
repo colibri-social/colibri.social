@@ -8,6 +8,7 @@ import {
 	createSignal,
 	For,
 	Match,
+	Show,
 	Suspense,
 	Switch,
 } from "solid-js";
@@ -47,6 +48,9 @@ import { SettingsInfoPage } from "../SettingsInfoPage";
 import { SettingsModal, SettingsPage } from "../SettingsModal";
 import { DeleteLinkModal } from "./DeleteLinkModal";
 import type { MemberData } from "../../layouts/CommunityLayout";
+import { Plus } from "../../icons/Plus";
+import { InviteLinkCreationModal } from "../../contexts/GlobalContext/InviteLinkCreationModal";
+import { SmallUser } from "../SmallUser";
 
 const GeneralSettingsPage: Component = () => {
 	const [globalData, { addCommunity }] = useGlobalContext();
@@ -241,36 +245,6 @@ const fetchCodes = async (community: string) => {
 	return await actions.listInviteCodes({ community });
 };
 
-const fetchUserData = async (did: string) => {
-	return await actions.getUserProfileData({ did });
-};
-
-const SmallUser: Component<{ did: string }> = (props) => {
-	const [user] = createResource(props.did, fetchUserData);
-
-	return (
-		<Switch>
-			<Match when={user()?.error}>
-				<span>{props.did}</span>
-			</Match>
-			<Match when={user()?.data}>
-				{(data) => (
-					<div class="flex flex-row items-center gap-2">
-						<img
-							src={data().avatar || "/user-placeholder.png"}
-							width={20}
-							height={20}
-							alt={data().displayName || data().handle}
-							class="rounded-full"
-						/>
-						<span>{data().displayName || data().handle}</span>
-					</div>
-				)}
-			</Match>
-		</Switch>
-	);
-};
-
 const InviteLinksPage: Component = () => {
 	const params = useParams();
 
@@ -290,60 +264,80 @@ const InviteLinksPage: Component = () => {
 				</Match>
 				<Match when={codes()}>
 					{(codes) => (
-						<Table class="h-full">
-							<TableHeader>
-								<TableRow>
-									<TableHead class="w-[150px]">Invite ID</TableHead>
-									<TableHead>Created by</TableHead>
-									<TableHead>Active</TableHead>
-									<TableHead class="text-right">Delete</TableHead>
-								</TableRow>
-							</TableHeader>
-							<TableBody class="relative">
-								<Switch>
-									<Match when={codes().error}>
-										<Alert variant="destructive" class="my-2 absolute">
-											<AlertTitle>
-												An error occurred while fetching the data:
-											</AlertTitle>
-											<AlertDescription>
-												{codes().error!.message}
-											</AlertDescription>
-										</Alert>
-									</Match>
-									<Match when={codes().data}>
-										{(data) => (
-											<For each={data()}>
-												{(code) => (
-													<TableRow>
-														<TableCell class="font-medium">
-															{code.code}
-														</TableCell>
-														<TableCell>
-															<Suspense fallback={<Spinner />}>
-																<SmallUser did={code.created_by_did} />
-															</Suspense>
-														</TableCell>
-														<TableCell>{code.active ? "Yes" : "No"}</TableCell>
-														<TableCell class="text-right">
-															<DeleteLinkModal
-																code={code.code}
-																ownerDID={code.created_by_did}
-																refetch={refetch}
-															>
-																<Button variant="destructive" size="sm">
-																	Delete
-																</Button>
-															</DeleteLinkModal>
-														</TableCell>
-													</TableRow>
-												)}
-											</For>
-										)}
-									</Match>
-								</Switch>
-							</TableBody>
-						</Table>
+						<>
+							<Table class="h-full">
+								<TableHeader>
+									<TableRow>
+										<TableHead class="w-[150px]">Invite ID</TableHead>
+										<TableHead>Created by</TableHead>
+										<TableHead>Active</TableHead>
+										<TableHead class="text-right">Delete</TableHead>
+									</TableRow>
+								</TableHeader>
+								<TableBody class="relative">
+									<Switch>
+										<Match when={codes().error}>
+											<Alert variant="destructive" class="my-2 absolute">
+												<AlertTitle>
+													An error occurred while fetching the data:
+												</AlertTitle>
+												<AlertDescription>
+													{codes().error!.message}
+												</AlertDescription>
+											</Alert>
+										</Match>
+										<Match when={codes().data}>
+											{(data) => (
+												<For each={data().sort((x) => (x.active ? -1 : 1))}>
+													{(code) => (
+														<TableRow
+															classList={{
+																"opacity-50": !code.active,
+															}}
+														>
+															<TableCell class="font-medium">
+																{code.code}
+															</TableCell>
+															<TableCell>
+																<Suspense fallback={<Spinner />}>
+																	<SmallUser did={code.created_by_did} />
+																</Suspense>
+															</TableCell>
+															<TableCell>
+																{code.active ? "Yes" : "No"}
+															</TableCell>
+															<TableCell class="text-right">
+																<Show when={code.active}>
+																	<DeleteLinkModal
+																		code={code.code}
+																		ownerDID={code.created_by_did}
+																		refetch={refetch}
+																	>
+																		<Button variant="destructive" size="sm">
+																			Delete
+																		</Button>
+																	</DeleteLinkModal>
+																</Show>
+															</TableCell>
+														</TableRow>
+													)}
+												</For>
+											)}
+										</Match>
+									</Switch>
+								</TableBody>
+							</Table>
+							<InviteLinkCreationModal
+								generateNew
+								community={(() => params.community!)()}
+								refetch={refetch}
+							>
+								<Button variant="secondary">
+									<Plus />
+									Create new invite
+								</Button>
+							</InviteLinkCreationModal>
+						</>
 					)}
 				</Match>
 			</Switch>

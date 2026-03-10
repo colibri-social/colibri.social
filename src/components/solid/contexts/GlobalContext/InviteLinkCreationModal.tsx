@@ -18,9 +18,11 @@ import {
 /**
  * A modal for creating an invitation link.
  */
-export const InviteLinkCreationModal: ParentComponent<{ community: string }> = (
-	props,
-) => {
+export const InviteLinkCreationModal: ParentComponent<{
+	community: string;
+	generateNew?: boolean;
+	refetch?: (...args: any[]) => void;
+}> = (props) => {
 	const [globalData] = useGlobalContext();
 	const [link, setLink] = createSignal<string | undefined>();
 	const [loading, setLoading] = createSignal(false);
@@ -36,6 +38,7 @@ export const InviteLinkCreationModal: ParentComponent<{ community: string }> = (
 		const { error, data } = await actions.createInviteCode({
 			community: props.community,
 			owner: globalData.user.sub,
+			generateNew: props.generateNew,
 		});
 
 		setLoading(false);
@@ -48,6 +51,8 @@ export const InviteLinkCreationModal: ParentComponent<{ community: string }> = (
 		}
 
 		setLink(data);
+
+		if (props.refetch) props.refetch();
 
 		return;
 	};
