@@ -1009,9 +1009,9 @@ export class ColibriSDK {
 		let cursor: string | undefined;
 
 		while (true) {
-			const didDoc = await fetch(
-				`https://plc.directory/did:plc:k4xqg24tv4yukmn4jf4pr7wy`,
-			).then((r) => r.json());
+			const didDoc = await fetch(`https://plc.directory/${did}`).then((r) =>
+				r.json(),
+			);
 
 			const pdsEndpoint: string = didDoc.service?.find(
 				(s: { id: string }) => s.id === "#atproto_pds",
