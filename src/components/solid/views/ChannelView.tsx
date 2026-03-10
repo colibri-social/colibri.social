@@ -42,6 +42,9 @@ const ChannelView: Component = () => {
 			clearOptimisticMemberUpdates,
 		},
 	] = useGlobalContext();
+	const community = createMemo(
+		() => globalState.communities.find((x) => x.rkey === params.community)!,
+	);
 
 	const history = useMessageHistory(channel);
 
@@ -341,6 +344,7 @@ const ChannelView: Component = () => {
 								<Message
 									isSubsequent={isSubsequent()}
 									data={item as PendingMessageData | IndexedMessageData}
+									community={community()}
 								/>
 							</>
 						);

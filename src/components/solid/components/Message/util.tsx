@@ -46,6 +46,39 @@ export const deleteMessage = (
 };
 
 /**
+ * A utility function to block a message, then close the modal.
+ * @param message The message to block
+ * @param addDeletedMessage The function to add a deleted message to the global context.
+ * @param community The community to block the message in.
+ * @param setOpen The function to set the open state of the modal.
+ */
+export const blockMessage = (
+	message: IndexedMessageData,
+	addDeletedMessage: GlobalContextUtility["addDeletedMessage"],
+	community: string,
+	setOpen?: (open: boolean) => void,
+) => {
+	addDeletedMessage({
+		author_did: message.author_did,
+		channel: message.channel,
+		rkey: message.rkey,
+		type: "message_deleted",
+	});
+
+	setOpen?.(false);
+
+	actions
+		.blockMessage({ rkey: message.rkey, author: message.author_did, community })
+		.then(({ error }) => {
+			if (error) {
+				toast.error("Failed to delete message", {
+					description: parseZodToErrorOrDisplay(error.message),
+				});
+			}
+		});
+};
+
+/**
  * A function to render an emoji as a twemoji image. Will return false if an emoji consists of two
  * images and is not supported by twemoji yet.
  * @param emojis The emoji list to use as a reference.
@@ -86,7 +119,7 @@ export const DialogDescriptionContent: Component = () =>
  */
 export const DialogTip: Component = () => (
 	<p class="text-sm text-muted-foreground my-1">
-		Tip: You can shift-click the delete button to skip this pop-up!
+		Tip: You can shift-click the button to skip this pop-up!
 	</p>
 );
 

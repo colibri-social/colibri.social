@@ -18,6 +18,7 @@ import {
 } from "./community/invite";
 import { listPendingMembers } from "./community/members";
 import { getEmbedDataForURI } from "./embeds/get";
+import { blockMessage } from "./message/block";
 import { deleteMessage } from "./message/delete";
 import { editMessage } from "./message/edit";
 import { postMessage } from "./message/post";
@@ -58,4 +59,5 @@ export const server = {
 	leaveCommunity,
 	listPendingMembers,
 	approveJoinRequest,
+	blockMessage,
 };

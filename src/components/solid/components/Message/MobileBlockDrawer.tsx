@@ -15,14 +15,11 @@ import {
 	DrawerTrigger,
 } from "../../shadcn-solid/Drawer";
 import { MockMessage } from "./MockMessage";
+import { blockMessage, DialogCancelButton } from "./util";
 import {
-	DialogCancelButton,
-	DialogConfirmButton,
-	DialogDescriptionContent,
-	DialogTip,
-	DialogTitleContent,
-	deleteMessage,
-} from "./util";
+	BlockDialogConfirmButton,
+	BlockDialogTitleContent,
+} from "./MessageBlockDrawer";
 
 /**
  * The mobile version of the message deletion drawer used as a warning when a message is about to be deleted.
@@ -32,6 +29,7 @@ export const MobileDrawer: ParentComponent<{
 	setOpen: Setter<boolean>;
 	message: DBMessageData | PendingMessageData;
 	addDeletedMessage: GlobalContextUtility["addDeletedMessage"];
+	community: string;
 	isDesktop: Accessor<boolean>;
 }> = (props) => (
 	<Drawer breakPoints={[0.75]} open={props.open}>
@@ -40,10 +38,10 @@ export const MobileDrawer: ParentComponent<{
 			<DrawerContent>
 				<DrawerHeader>
 					<DrawerLabel class="m-0">
-						<DialogTitleContent />
+						<BlockDialogTitleContent />
 					</DrawerLabel>
 					<DrawerDescription class="m-0">
-						<DialogDescriptionContent />
+						<BlockDialogTitleContent />
 					</DrawerDescription>
 				</DrawerHeader>
 				<MockMessage
@@ -52,11 +50,12 @@ export const MobileDrawer: ParentComponent<{
 				/>
 				<DrawerFooter>
 					<DialogCancelButton setOpen={props.setOpen} />
-					<DialogConfirmButton
+					<BlockDialogConfirmButton
 						onClick={() => {
-							deleteMessage(
+							blockMessage(
 								props.message as IndexedMessageData,
 								props.addDeletedMessage,
+								props.community,
 								props.setOpen,
 							);
 						}}

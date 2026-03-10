@@ -13,6 +13,7 @@ import { toast } from "somoto";
 import type { ColibriRichTextLink } from "@/utils/atproto/rich-text/detection";
 import { parseZodToErrorOrDisplay } from "@/utils/parse-zod-to-error-or-display";
 import type {
+	CommunityData,
 	DBMessageData,
 	IndexedMessageData,
 	MessageReactionData,
@@ -35,7 +36,7 @@ import { LinkEmbed } from "./LinkEmbed";
 import { MessageAction } from "./MessageAction";
 import { MessageContextMenu } from "./MessageContextMenu";
 import { MessageDeletionDrawer } from "./MessageDeletionDrawer";
-import { deleteMessage } from "./util";
+import { blockMessage, deleteMessage } from "./util";
 import {
 	Tooltip,
 	TooltipContent,
@@ -44,6 +45,9 @@ import {
 	type TooltipTriggerProps,
 } from "../../shadcn-solid/Tooltip";
 import { SmallUser } from "../SmallUser";
+import { Prohibit } from "../../icons/Prohibit";
+import { MessageBlockDrawer } from "./MessageBlockDrawer";
+import { useParams } from "@solidjs/router";
 
 /**
  * A rendered message component in a chat.
@@ -51,7 +55,9 @@ import { SmallUser } from "../SmallUser";
 export const Message: Component<{
 	data: IndexedMessageData | PendingMessageData;
 	isSubsequent: boolean;
+	community: CommunityData;
 }> = (props) => {
+	const params = useParams();
 	const [
 		messageData,
 		{ setReplyingTo, jumpToMessage, setEditingMessage, clearEditingMessage },
@@ -59,6 +65,7 @@ export const Message: Component<{
 	const [globalData, { addDeletedMessage, addReactionListener }] =
 		useGlobalContext();
 	const isPending = () => "hash" in props.data;
+	const [blockModalOpen, setBlockModalOpen] = createSignal(false);
 	const [deletionModalOpen, setDeletionModalOpen] = createSignal(false);
 	const [emojiPopoverOpen, setEmojiPopoverOpen] = createSignal(false);
 	const [debugModalOpen, setDebugModalOpen] = createSignal(false);
@@ -76,6 +83,7 @@ export const Message: Component<{
 		text: props.data.text,
 		facets: props.data.facets || [],
 	});
+	const community = () => params.community!;
 
 	/**
 	 * Optimistically add a reaction emoji to a message, even though the server has not responded yet.
@@ -242,6 +250,25 @@ export const Message: Component<{
 	};
 
 	/**
+	 * Handles a potential block by either opening the modal or immediately blocking the message if the shift key is held while clicking.
+	 * @param e The click event.
+	 */
+	const handlePotentialBlock = (e: MouseEvent) => {
+		if (isPending()) return;
+
+		if (e.shiftKey) {
+			return blockMessage(
+				props.data as IndexedMessageData,
+				addDeletedMessage,
+				community(),
+				setBlockModalOpen,
+			);
+		}
+
+		setBlockModalOpen(true);
+	};
+
+	/**
 	 * A derived signal to check whether a message is in reply to another message.
 	 * @returns Whether the message is in reply to another message or not.
 	 */
@@ -368,6 +395,8 @@ export const Message: Component<{
 				(f) => f.features[0].$type === "social.colibri.richtext.facet#link",
 			)
 			.map((f) => f.features[0] as ColibriRichTextLink) || [];
+
+	const isAdmin = () => props.community.owner_did === globalData.user.sub;
 
 	return (
 		<MessageContextMenu
@@ -576,6 +605,29 @@ export const Message: Component<{
 							<MessageAction tooltipText="Reply" onClick={enableReplyMode}>
 								<Reply />
 							</MessageAction>
+							<Show
+								when={
+									isAdmin() && props.data.author_did !== globalData.user.sub
+								}
+							>
+								<MessageBlockDrawer
+									message={props.data}
+									addDeletedMessage={addDeletedMessage}
+									open={blockModalOpen()}
+									setOpen={setBlockModalOpen}
+									community={community()}
+								>
+									<MessageAction
+										tooltipText="Block"
+										buttonClasses="text-destructive"
+										onClick={(e) => {
+											handlePotentialBlock(e);
+										}}
+									>
+										<Prohibit />
+									</MessageAction>
+								</MessageBlockDrawer>
+							</Show>
 							<Show when={messageEditable()}>
 								<MessageAction tooltipText="Edit" onClick={enableEditMode}>
 									<Pencil />
