@@ -61,7 +61,7 @@ const CopyButton: Component<{ value: string }> = (props) => {
 	);
 };
 
-const InfoPageItem: Component<{
+export const InfoPageItem: Component<{
 	title: string;
 	description?: string;
 	value: string;

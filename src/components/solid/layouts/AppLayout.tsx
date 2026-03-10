@@ -28,6 +28,7 @@ import {
 	capturePositions,
 	reorderList,
 } from "../utils/drag";
+import { UserSettingsModal } from "../components/UserSettingsModal";
 
 const CommunityAvatar = (props: { item: CommunityData; class?: string }) => (
 	<Switch>
@@ -250,11 +251,13 @@ const AppLayout: ParentComponent = (props) => {
 							</NewCommunityModal>
 						</div>
 					</nav>
-					<div class="w-10 flex h-10 rounded-md bg-muted items-center justify-center cursor-pointer">
-						<div class="block w-fit h-fit">
-							<Gear />
+					<UserSettingsModal>
+						<div class="w-10 flex h-10 rounded-md bg-muted items-center justify-center cursor-pointer">
+							<div class="block w-fit h-fit">
+								<Gear />
+							</div>
 						</div>
-					</div>
+					</UserSettingsModal>
 				</aside>
 				<main class="w-full h-full">{props.children}</main>
 			</div>
