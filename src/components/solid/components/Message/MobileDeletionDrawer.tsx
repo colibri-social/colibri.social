@@ -19,7 +19,6 @@ import {
 	DialogCancelButton,
 	DialogConfirmButton,
 	DialogDescriptionContent,
-	DialogTip,
 	DialogTitleContent,
 	deleteMessage,
 } from "./util";

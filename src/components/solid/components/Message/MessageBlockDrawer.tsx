@@ -1,8 +1,8 @@
 import {
 	type Component,
+	type JSX,
 	type ParentComponent,
 	type Setter,
-	type JSX,
 	Show,
 } from "solid-js";
 import createMediaQuery from "@/utils/create-media-query";
@@ -11,6 +11,7 @@ import type {
 	GlobalContextUtility,
 	PendingMessageData,
 } from "../../contexts/GlobalContext";
+import { Button } from "../../shadcn-solid/Button";
 import {
 	Dialog,
 	DialogContent,
@@ -24,7 +25,6 @@ import {
 import { MobileDrawer } from "./MobileBlockDrawer";
 import { MockMessage } from "./MockMessage";
 import { blockMessage, DialogCancelButton, DialogTip } from "./util";
-import { Button } from "../../shadcn-solid/Button";
 
 /**
  * The header content used in both the mobile and desktop block dialog.

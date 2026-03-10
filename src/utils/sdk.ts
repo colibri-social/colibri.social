@@ -1,5 +1,5 @@
 import { APPVIEW_DOMAIN } from "astro:env/client";
-import { Agent, BlobRef, AtpAgent } from "@atproto/api";
+import { Agent, AtpAgent, BlobRef } from "@atproto/api";
 import { parseCid } from "@atproto/lex-data";
 import type { AttachmentObj } from "@/components/solid/contexts/GlobalContext/events";
 import { lexicon, RECORD_IDs } from "./atproto/lexicons";

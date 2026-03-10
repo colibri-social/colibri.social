@@ -14,12 +14,12 @@ import {
 	DrawerPortal,
 	DrawerTrigger,
 } from "../../shadcn-solid/Drawer";
-import { MockMessage } from "./MockMessage";
-import { blockMessage, DialogCancelButton } from "./util";
 import {
 	BlockDialogConfirmButton,
 	BlockDialogTitleContent,
 } from "./MessageBlockDrawer";
+import { MockMessage } from "./MockMessage";
+import { blockMessage, DialogCancelButton } from "./util";
 
 /**
  * The mobile version of the message deletion drawer used as a warning when a message is about to be deleted.

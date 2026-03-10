@@ -1,6 +1,6 @@
-import { createAsync, query } from "@solidjs/router";
 import { actions } from "astro:actions";
-import { For, Match, Show, Switch, type Component } from "solid-js";
+import { createAsync, query } from "@solidjs/router";
+import { type Component, Match, Show, Switch } from "solid-js";
 
 const fetchUserData = query(async (did: string) => {
 	return await actions.getUserProfileData({ did });

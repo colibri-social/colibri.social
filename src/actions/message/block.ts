@@ -1,10 +1,10 @@
 import { ActionError, defineAction } from "astro:actions";
+import { APPVIEW_DOMAIN } from "astro:env/client";
+import { INVITE_API_KEY } from "astro:env/server";
 import { Agent } from "@atproto/api";
 import { z } from "astro/zod";
 import { client } from "@/utils/atproto/oauth";
 import { ColibriSDK } from "@/utils/sdk";
-import { APPVIEW_DOMAIN } from "astro:env/client";
-import { INVITE_API_KEY } from "astro:env/server";
 
 export const blockMessage = defineAction({
 	input: z.object({

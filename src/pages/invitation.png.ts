@@ -1,8 +1,8 @@
-import type { UnresolvedCommunityData } from "@/utils/sdk";
-import type { APIRoute } from "astro";
 import { APPVIEW_DOMAIN } from "astro:env/client";
+import type { APIRoute } from "astro";
 import { satoriAstroOG } from "satori-astro";
 import { html } from "satori-html";
+import type { UnresolvedCommunityData } from "@/utils/sdk";
 
 const test = (name: string, image?: { did: string; cid: string }) => {
 	return html`<div
@@ -111,6 +111,7 @@ export const GET: APIRoute = async (request) => {
 			},
 		});
 	} catch (err) {
+		console.error(err);
 		return new Response("Invalid community given.", {
 			status: 400,
 		});

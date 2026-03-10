@@ -1,4 +1,5 @@
 import { actions } from "astro:actions";
+import { useParams } from "@solidjs/router";
 import twemoji from "@twemoji/api";
 import {
 	type Component,
@@ -27,16 +28,9 @@ import {
 import { useMessageContext } from "../../contexts/MessageContext";
 import { Emoji as EmojiIcon } from "../../icons/Emoji";
 import { Pencil } from "../../icons/Pencil";
+import { Prohibit } from "../../icons/Prohibit";
 import { Reply } from "../../icons/Reply";
 import { Trash } from "../../icons/Trash";
-import { RichTextRenderer, type TextWithFacets } from "../RichTextRenderer";
-import { MessageAttachments } from "./Attachments";
-import { EmojiPopover } from "./EmojiPopover";
-import { LinkEmbed } from "./LinkEmbed";
-import { MessageAction } from "./MessageAction";
-import { MessageContextMenu } from "./MessageContextMenu";
-import { MessageDeletionDrawer } from "./MessageDeletionDrawer";
-import { blockMessage, deleteMessage } from "./util";
 import {
 	Tooltip,
 	TooltipContent,
@@ -44,10 +38,16 @@ import {
 	TooltipTrigger,
 	type TooltipTriggerProps,
 } from "../../shadcn-solid/Tooltip";
+import { RichTextRenderer, type TextWithFacets } from "../RichTextRenderer";
 import { SmallUser } from "../SmallUser";
-import { Prohibit } from "../../icons/Prohibit";
+import { MessageAttachments } from "./Attachments";
+import { EmojiPopover } from "./EmojiPopover";
+import { LinkEmbed } from "./LinkEmbed";
+import { MessageAction } from "./MessageAction";
 import { MessageBlockDrawer } from "./MessageBlockDrawer";
-import { useParams } from "@solidjs/router";
+import { MessageContextMenu } from "./MessageContextMenu";
+import { MessageDeletionDrawer } from "./MessageDeletionDrawer";
+import { blockMessage, deleteMessage } from "./util";
 
 /**
  * A rendered message component in a chat.

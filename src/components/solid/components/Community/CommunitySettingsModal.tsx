@@ -16,9 +16,12 @@ import { toast } from "somoto";
 import { RECORD_IDs } from "@/utils/atproto/lexicons";
 import { parseZodToErrorOrDisplay } from "@/utils/parse-zod-to-error-or-display";
 import { useGlobalContext } from "../../contexts/GlobalContext";
+import { InviteLinkCreationModal } from "../../contexts/GlobalContext/InviteLinkCreationModal";
 import { Image } from "../../icons/Image";
+import { Plus } from "../../icons/Plus";
 import { Spinner } from "../../icons/Spinner";
 import { XCircle } from "../../icons/XCircle";
+import type { MemberData } from "../../layouts/CommunityLayout";
 import { Alert, AlertDescription, AlertTitle } from "../../shadcn-solid/Alert";
 import { Button } from "../../shadcn-solid/Button";
 import {
@@ -46,11 +49,8 @@ import {
 } from "../../shadcn-solid/text-field";
 import { SettingsInfoPage } from "../SettingsInfoPage";
 import { SettingsModal, SettingsPage } from "../SettingsModal";
-import { DeleteLinkModal } from "./DeleteLinkModal";
-import type { MemberData } from "../../layouts/CommunityLayout";
-import { Plus } from "../../icons/Plus";
-import { InviteLinkCreationModal } from "../../contexts/GlobalContext/InviteLinkCreationModal";
 import { SmallUser } from "../SmallUser";
+import { DeleteLinkModal } from "./DeleteLinkModal";
 
 const GeneralSettingsPage: Component = () => {
 	const [globalData, { addCommunity }] = useGlobalContext();

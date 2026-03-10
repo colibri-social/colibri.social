@@ -1,11 +1,8 @@
 import { ActionError, defineAction } from "astro:actions";
-import { Agent } from "@atproto/api";
-import { z } from "astro/zod";
-import { client } from "@/utils/atproto/oauth";
-import { ColibriSDK } from "@/utils/sdk";
 import { APPVIEW_DOMAIN } from "astro:env/client";
-import { RECORD_IDs } from "@/utils/atproto/lexicons";
+import { z } from "astro/zod";
 import type { MemberData } from "@/components/solid/layouts/CommunityLayout";
+import { RECORD_IDs } from "@/utils/atproto/lexicons";
 
 export const listPendingMembers = defineAction({
 	input: z.object({
