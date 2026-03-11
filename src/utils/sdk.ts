@@ -1,7 +1,10 @@
 import { APPVIEW_DOMAIN } from "astro:env/client";
 import { Agent, AtpAgent, BlobRef } from "@atproto/api";
 import { parseCid } from "@atproto/lex-data";
-import type { AttachmentObj } from "@/components/solid/contexts/GlobalContext/events";
+import type {
+	AttachmentObj,
+	UserOnlineState,
+} from "@/components/solid/contexts/GlobalContext/events";
 import { lexicon, RECORD_IDs } from "./atproto/lexicons";
 import { client } from "./atproto/oauth";
 import type { Facet } from "./atproto/rich-text";
@@ -9,6 +12,7 @@ import type { Facet } from "./atproto/rich-text";
 type ActorData = {
 	status: string;
 	communities: Array<string>;
+	emoji: string;
 };
 
 export type CommunityData = {
@@ -121,11 +125,17 @@ export type MessageData = {
 	author_did: string;
 	display_name: string;
 	avatar_url: string;
+	banner_url?: string;
+	status?: string;
+	emoji?: string;
+	handle?: string;
 	edited?: boolean;
 	parent?: string;
 	reactions: Array<MessageReactionData>;
 	parent_message: IndexedMessageData | null;
+	description?: string;
 	attachments?: Array<AttachmentObj>;
+	state: UserOnlineState;
 };
 
 export type PDSMessageData = MessageData & {
@@ -206,6 +216,7 @@ export class ColibriSDK {
 			RECORD_IDs.ACTOR_DATA,
 			{
 				status: "",
+				emoji: "",
 				communities: [],
 			},
 			"self",

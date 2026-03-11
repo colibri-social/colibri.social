@@ -330,5 +330,6 @@
 [data-accordion] a {
 	@apply hover:underline!;
 	color: var(--primary-hover) !important;
+	text-decoration: none;
 	text-decoration-color: var(--primary-hover);
 }

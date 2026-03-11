@@ -21,6 +21,7 @@ import {
 import { useMessageContext } from "../contexts/MessageContext";
 import { useMessageHistory } from "../hooks/useMessageHistory";
 import { Spinner } from "../icons/Spinner";
+import { ensureUserStateCached } from "@/utils/ensure-user-state-cached";
 
 /**
  * How close to the bottom (in px) the user must be for us to consider them
@@ -40,6 +41,8 @@ const ChannelView: Component = () => {
 			clearAdditionalMessages,
 			clearDeletedMessages,
 			clearOptimisticMemberUpdates,
+			clearMemberOverrides,
+			updateUserOnlineState,
 		},
 	] = useGlobalContext();
 	const community = createMemo(
@@ -199,6 +202,7 @@ const ChannelView: Component = () => {
 
 	onCleanup(() => {
 		clearOptimisticMemberUpdates();
+		clearMemberOverrides();
 	});
 
 	createEffect(() => {
@@ -340,10 +344,17 @@ const ChannelView: Component = () => {
 							);
 						};
 
+						ensureUserStateCached(
+							item.author_did,
+							item.state,
+							globalState,
+							updateUserOnlineState,
+						);
+
 						return (
 							<>
 								<Show when={isOnNewDay()}>
-									<div class="w-[calc(100%-2rem)] h-px m-4 bg-border flex items-center justify-center">
+									<div class="w-[calc(100%-2rem)] h-px m-4 bg-border flex items-center justify-center select-none">
 										<span class="text-sm bg-background px-1">
 											{new Date(item.created_at).toLocaleDateString()}
 										</span>

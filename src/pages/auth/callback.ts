@@ -16,7 +16,10 @@ export const GET = (async ({ request, session }) => {
 		const agent = new Agent(callbackResult.session);
 		const sdk = new ColibriSDK(agent);
 
-		const { status, communities } = await sdk.getActorData(agent.did!, true);
+		const { status, communities, emoji } = await sdk.getActorData(
+			agent.did!,
+			true,
+		);
 
 		// Make Authenticated API calls
 		const profile = await agent.getProfile({ actor: agent.did! });
@@ -55,6 +58,7 @@ export const GET = (async ({ request, session }) => {
 			displayName: profile.data.displayName,
 			identity: profile.data.handle,
 			sub: callbackResult.session.sub,
+			emoji,
 		});
 
 		const redirect = await session?.get("redirectAfterLogin");

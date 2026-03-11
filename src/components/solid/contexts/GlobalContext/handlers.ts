@@ -1,6 +1,11 @@
 import stringify from "json-stable-stringify";
 import { generateHash } from "@/utils/generate-hash";
-import type { MessageDeletionEvent, MessagePostEvent } from "./events";
+import type {
+	MessageDeletionEvent,
+	MessagePostEvent,
+	UserProfileUpdatedEvent,
+	UserStatusChangedEvent,
+} from "./events";
 import type { GlobalContextUtility } from "./types";
 
 /**
@@ -42,6 +47,7 @@ export const handleNewMessage = async (
 		parent_message: data.parent_message ?? null,
 		edited: data.edited,
 		attachments: data.attachments ?? [],
+		state: "offline",
 	});
 };
 
@@ -57,4 +63,32 @@ export const handleMessageDeletion = (
 	data: MessageDeletionEvent,
 ): void => {
 	context.addDeletedMessage(data);
+};
+
+/**
+ * Handles a status update by a given user.
+ * @param context The global context utility. Needed for UI update trigger functions.
+ * @param data The status data of the user
+ */
+export const handleUserStatusChanged = (
+	context: GlobalContextUtility,
+	data: UserStatusChangedEvent,
+): void => {
+	context.updateUserOnlineState({
+		state: data.state,
+		did: data.did,
+	});
+	context.addMemberStatusOverride(data);
+};
+
+/**
+ * Handles a profile update by a given user.
+ * @param context The global context utility. Needed for UI update trigger functions.
+ * @param data The profile data of the user
+ */
+export const handleUserProfileUpdated = (
+	context: GlobalContextUtility,
+	data: UserProfileUpdatedEvent,
+): void => {
+	context.addMemberProfileOverride(data);
 };

@@ -29,6 +29,8 @@ import {
 	reorderList,
 } from "../utils/drag";
 import { UserSettingsModal } from "../components/UserSettingsModal";
+import { Button } from "../shadcn-solid/Button";
+import { Users } from "../icons/Users";
 
 const CommunityAvatar = (props: { item: CommunityData; class?: string }) => (
 	<Switch>
@@ -152,7 +154,8 @@ const CommunitySidebar = (props: {
 };
 
 const AppLayout: ParentComponent = (props) => {
-	const [globalState, { setCommunities }] = useGlobalContext();
+	const [globalState, { setCommunities, setMemberListVisible }] =
+		useGlobalContext();
 	const navigate = useNavigate();
 
 	const sortedCommunities = () =>
@@ -214,11 +217,28 @@ const AppLayout: ParentComponent = (props) => {
 
 	return (
 		<div class="flex flex-col w-screen h-screen bg-card">
-			<div class="flex w-full h-10 min-h-10 pl-2 items-center gap-2">
-				<img src="/logo.png" width={32} height={32} alt="Colibri Social logo" />
-				<span class="font-black text-lg bg-clip-text text-transparent bg-[linear-gradient(69deg,#090615_-145.97%,#31226D_-87.27%,#6C5AA6_-26.22%,#AE99CB_30.13%,#E0DEEC_75.92%)]">
-					colibri.social
-				</span>
+			<div class="flex w-full h-10 min-h-10 justify-between">
+				<div class="flex w-full h-full pl-2 items-center gap-2">
+					<img
+						src="/logo.png"
+						width={32}
+						height={32}
+						alt="Colibri Social logo"
+					/>
+					<span class="font-black text-lg bg-clip-text text-transparent bg-[linear-gradient(69deg,#090615_-145.97%,#31226D_-87.27%,#6C5AA6_-26.22%,#AE99CB_30.13%,#E0DEEC_75.92%)]">
+						colibri.social
+					</span>
+				</div>
+				<div class="h-full pr-1 flex items-center">
+					<Button
+						size="sm"
+						variant="ghost"
+						class="w-8 h-8"
+						onClick={() => setMemberListVisible((current) => !current)}
+					>
+						<Users />
+					</Button>
+				</div>
 			</div>
 			<div class="flex h-full w-full">
 				<aside class="flex flex-col h-full w-14 p-2 pb-3">

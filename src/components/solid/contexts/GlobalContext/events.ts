@@ -140,6 +140,8 @@ export type MemberLeftEvent = {
 	avatar_url?: string;
 };
 
+export type UserOnlineState = "online" | "away" | "dnd" | "offline";
+
 export type UserStatusChangedEvent = {
 	type: "user_status_changed";
 	did: string;
@@ -147,6 +149,17 @@ export type UserStatusChangedEvent = {
 	emoji?: string;
 	display_name?: string;
 	avatar_url?: string;
+	state: UserOnlineState;
+};
+
+export type UserProfileUpdatedEvent = {
+	type: "user_profile_updated";
+	did: string;
+	display_name?: string;
+	avatar_url?: string;
+	banner_url?: string;
+	description?: string;
+	handle?: string;
 };
 
 export type AppviewSubscriptionData =
@@ -164,7 +177,8 @@ export type AppviewSubscriptionData =
 	| MemberPendingEvent
 	| MemberJoinedEvent
 	| MemberLeftEvent
-	| UserStatusChangedEvent;
+	| UserStatusChangedEvent
+	| UserProfileUpdatedEvent;
 
 export type ReactionEventCallback = (
 	data: ReactionAddedEvent | ReactionRemovedEvent,
