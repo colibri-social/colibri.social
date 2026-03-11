@@ -85,7 +85,7 @@ const decodePrivateKey = (key: string) =>
  * How many seconds before expiry a session is considered "about to expire"
  * and should be proactively refreshed.
  */
-const REFRESH_THRESHOLD_SECONDS = 45 * 60; // 45 minutes
+const REFRESH_THRESHOLD_SECONDS = 30 * 60; // 30 minutes
 
 /**
  * Extracts the `sub` (DID) from a Redis session key of the form

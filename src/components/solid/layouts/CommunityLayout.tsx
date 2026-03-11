@@ -1,6 +1,7 @@
 import { APPVIEW_DOMAIN } from "astro:env/client";
 import type { Details } from "@kobalte/core/file-field";
 import { createAsync, query, useParams } from "@solidjs/router";
+import twemoji from "@twemoji/api";
 import {
 	createEffect,
 	createMemo,
@@ -16,14 +17,18 @@ import {
 } from "solid-js";
 import { toast } from "somoto";
 import { RECORD_IDs } from "@/utils/atproto/lexicons";
+import createMediaQuery from "@/utils/create-media-query";
+import { ensureUserStateCached } from "@/utils/ensure-user-state-cached";
 import type { SidebarData } from "@/utils/sdk";
 import { ChannelList } from "../components/Community/ChannelList";
 import { CommunitySettingsModal } from "../components/Community/CommunitySettingsModal";
 import { InviteLinkCreationModal } from "../components/Community/InviteLinkCreationModal";
 import { LeaveCommunityModal } from "../components/Community/LeaveCommunityModal";
+import { MemberProfilePopover } from "../components/MemberProfilePopover";
 import { MessageInput } from "../components/MessageInput";
 import { UserStatus } from "../components/UserStatus";
 import { ChannelContextProvider } from "../contexts/ChannelContext";
+import type { UserOnlineState } from "../contexts/GlobalContext/events";
 import { useGlobalContext } from "../contexts/GlobalContext/index";
 import { MessageContextProvider } from "../contexts/MessageContext";
 import {
@@ -53,6 +58,12 @@ export type MemberData = {
 	status: "owner" | string;
 	display_name: string;
 	avatar_url: string;
+	status_text?: string;
+	emoji?: string;
+	banner_url?: string;
+	handle?: string;
+	description?: string;
+	state?: UserOnlineState;
 };
 
 /**
@@ -89,8 +100,12 @@ const MemberListSkeleton = () => (
 
 const CommunityLayout: ParentComponent = (props) => {
 	const params = useParams();
-	const [globalContext, { sendSocketMessage }] = useGlobalContext();
+	const [globalContext, { sendSocketMessage, updateUserOnlineState }] =
+		useGlobalContext();
 	const [files, setFiles] = createSignal<Details>();
+
+	const displayMembersAsSheet = createMediaQuery("(max-width: 1280px)");
+
 	let hiddenInput: HTMLInputElement | undefined;
 
 	const community = createMemo(() =>
@@ -142,6 +157,7 @@ const CommunityLayout: ParentComponent = (props) => {
 
 		const totalCurrentlyJoined = [...serverMemberList, ...optimisticJoinList];
 
+		// TODO: Status updates
 		return totalCurrentlyJoined
 			.filter(
 				(x) =>
@@ -149,6 +165,35 @@ const CommunityLayout: ParentComponent = (props) => {
 			)
 			.filter((x) => x.status !== "pending")
 			.sort((a, b) => a.display_name.localeCompare(b.display_name));
+	});
+
+	const membersWithOptimisticUpdates = createMemo(() => {
+		const combinedMembers = combinedMemberList();
+		const statusOverrides = globalContext.memberStatusOverrides;
+		const profileOverrides = globalContext.memberProfileOverrides;
+
+		return combinedMembers.map((member) => {
+			const optimisticStatusUpdate = statusOverrides.find(
+				(x) => x.did === member.member_did,
+			);
+
+			const optimisticProfileUpdate = profileOverrides.find(
+				(x) => x.did === member.member_did,
+			);
+
+			return {
+				member_did: member.member_did,
+				status: member.status,
+				avatar_url: optimisticProfileUpdate?.avatar_url || member.avatar_url,
+				display_name:
+					optimisticProfileUpdate?.display_name || member.display_name,
+				banner_url: optimisticProfileUpdate?.banner_url || member.banner_url,
+				description: optimisticProfileUpdate?.description || member.description,
+				emoji: optimisticStatusUpdate?.emoji || member.emoji,
+				handle: optimisticProfileUpdate?.handle || member.handle,
+				status_text: optimisticStatusUpdate?.status || member.status_text,
+			} as MemberData;
+		});
 	});
 
 	createEffect(() => {
@@ -220,7 +265,7 @@ const CommunityLayout: ParentComponent = (props) => {
 	return (
 		<MessageContextProvider>
 			<ChannelContextProvider channels={channels} community={communityRkey}>
-				<div class="bg-background w-full h-full rounded-tl-xl border-t border-l border-border flex">
+				<div class="bg-background w-full h-full rounded-tl-xl border-t border-l border-border flex relative overflow-hidden">
 					<Switch>
 						<Match when={sidebarData()}>
 							<aside class="h-full min-w-72 w-72 border-r border-border flex flex-col">
@@ -283,7 +328,17 @@ const CommunityLayout: ParentComponent = (props) => {
 
 								<UserStatus />
 							</aside>
-							<div class="w-full h-full flex flex-col max-h-[calc(100vh-41px)] max-w-[calc(100vw-576px-56px-1px)]">
+							<div
+								class="w-full h-full flex flex-col max-h-[calc(100vh-41px)]"
+								classList={{
+									"max-w-[calc(100vw-576px-56px-1px)]":
+										!displayMembersAsSheet() &&
+										globalContext.uiStates.membersListVisible,
+									"max-w-[calc(100vw-288px-56px-1px)]":
+										displayMembersAsSheet() ||
+										!globalContext.uiStates.membersListVisible,
+								}}
+							>
 								<FileField
 									class="gap-0!"
 									multiple
@@ -317,23 +372,85 @@ const CommunityLayout: ParentComponent = (props) => {
 									<FileFieldHiddenInput ref={hiddenInput} />
 								</FileField>
 							</div>
-							<div class="min-w-72 w-72 h-full flex flex-col p-4 border-l gap-3 border-border overflow-y-auto">
+							<div
+								class="min-w-72 flex w-72 h-full flex-col p-4 border-l gap-3 border-border overflow-y-auto bg-background"
+								classList={{
+									"absolute top-0 right-0 h-full drop-shadow-black drop-shadow-2xl":
+										displayMembersAsSheet(),
+									hidden: !globalContext.uiStates.membersListVisible,
+								}}
+							>
 								<span>Members</span>
 								<div class="flex flex-col w-full h-full gap-1">
 									<Suspense fallback={<MemberListSkeleton />}>
-										<For each={combinedMemberList() ?? []}>
-											{(item) => (
-												<div class="flex flex-row gap-2 border border-border bg-card rounded-sm p-2">
-													<img
-														src={item.avatar_url || "/user-placeholder.png"}
-														alt={item.display_name}
-														width={28}
-														height={28}
-														class="rounded-full"
-													/>
-													<span class="font-medium">{item.display_name}</span>
-												</div>
-											)}
+										<For each={membersWithOptimisticUpdates() ?? []}>
+											{(item) => {
+												ensureUserStateCached(
+													item.member_did,
+													item.state || "offline",
+													globalContext,
+													updateUserOnlineState,
+												);
+
+												const state = () =>
+													globalContext.userOnlineStates.find(
+														(x) => x.did === item.member_did,
+													)?.state || "offline";
+
+												return (
+													<MemberProfilePopover
+														banner={item.banner_url}
+														avatar={item.avatar_url}
+														description={item.description}
+														displayName={item.display_name}
+														emoji={item.emoji}
+														handle={item.handle}
+														status={item.status_text}
+														did={item.member_did}
+													>
+														<div class="flex flex-row gap-2 rounded-sm px-2 py-1 hover:bg-card items-center cursor-pointer h-12 flex-1">
+															<div class="relative w-9 h-9">
+																<img
+																	src={
+																		item.avatar_url || "/user-placeholder.png"
+																	}
+																	alt={item.display_name}
+																	width={36}
+																	height={36}
+																	class="rounded-full w-9 h-9"
+																/>
+																<div
+																	class="w-2 h-2 rounded-full absolute bottom-px right-px outline-2 outline-background"
+																	classList={{
+																		"bg-green-500": state() === "online",
+																		"bg-orange-500": state() === "away",
+																		"bg-red-500": state() === "dnd",
+																		"bg-neutral-500": state() === "offline",
+																	}}
+																/>
+															</div>
+															<div class="flex flex-col w-[calc(100%-36px-8px)]">
+																<span class="font-medium leading-5">
+																	{item.display_name}
+																</span>
+																<Show when={item.status_text}>
+																	<span class="text-sm w-full leading-5 flex flex-row items-center gap-2">
+																		<Show when={item.emoji}>
+																			<span
+																				class="[&>img]:min-w-4 [&>img]:min-h-4 [&>img]:w-4 [&>img]:h-4 [&>img]inline"
+																				innerHTML={twemoji.parse(item.emoji!)}
+																			/>
+																		</Show>
+																		<span class="w-full overflow-hidden text-ellipsis whitespace-nowrap">
+																			{item.status_text}
+																		</span>
+																	</span>
+																</Show>
+															</div>
+														</div>
+													</MemberProfilePopover>
+												);
+											}}
 										</For>
 									</Suspense>
 								</div>

@@ -12,6 +12,7 @@ import {
 	Show,
 	untrack,
 } from "solid-js";
+import { ensureUserStateCached } from "@/utils/ensure-user-state-cached";
 import type { IndexedMessageData } from "@/utils/sdk";
 import { Message } from "../components/Message/Message";
 import {
@@ -40,6 +41,8 @@ const ChannelView: Component = () => {
 			clearAdditionalMessages,
 			clearDeletedMessages,
 			clearOptimisticMemberUpdates,
+			clearMemberOverrides,
+			updateUserOnlineState,
 		},
 	] = useGlobalContext();
 	const community = createMemo(
@@ -199,6 +202,7 @@ const ChannelView: Component = () => {
 
 	onCleanup(() => {
 		clearOptimisticMemberUpdates();
+		clearMemberOverrides();
 	});
 
 	createEffect(() => {
@@ -324,6 +328,14 @@ const ChannelView: Component = () => {
 							);
 						};
 
+						const hasSubsequent = () => {
+							return (
+								msgs[idx + 1]?.author_did === item.author_did &&
+								new Date(msgs[idx + 1]?.created_at).getDay() ===
+									new Date(item.created_at).getDay()
+							);
+						};
+
 						const isSubsequent = () => {
 							return (
 								idx !== 0 &&
@@ -332,10 +344,17 @@ const ChannelView: Component = () => {
 							);
 						};
 
+						ensureUserStateCached(
+							item.author_did,
+							item.state,
+							globalState,
+							updateUserOnlineState,
+						);
+
 						return (
 							<>
 								<Show when={isOnNewDay()}>
-									<div class="w-[calc(100%-2rem)] h-px m-4 bg-border flex items-center justify-center">
+									<div class="w-[calc(100%-2rem)] h-px m-4 bg-border flex items-center justify-center select-none">
 										<span class="text-sm bg-background px-1">
 											{new Date(item.created_at).toLocaleDateString()}
 										</span>
@@ -343,6 +362,7 @@ const ChannelView: Component = () => {
 								</Show>
 								<Message
 									isSubsequent={isSubsequent()}
+									hasSubsequent={hasSubsequent()}
 									data={item as PendingMessageData | IndexedMessageData}
 									community={community()}
 								/>

@@ -2,6 +2,7 @@ import {
 	type Emoji,
 	type EmojiComponents,
 	type EmojiData,
+	type EmojiEventHandler,
 	EmojiPicker,
 	type EmojiSkinTone,
 } from "solid-emoji-picker";
@@ -20,7 +21,8 @@ import { getTwemoji } from "./util";
 export const EmojiPopover: ParentComponent<{
 	emojiPopoverOpen: Accessor<boolean>;
 	setEmojiPopoverOpen: (state: boolean) => void;
-	addReactionOptimistic: (emoji: string) => void;
+	addReactionOptimistic?: (emoji: string) => void;
+	onEmojiClick?: EmojiEventHandler<MouseEvent>;
 }> = (props) => {
 	/**
 	 * Renders a given emoji with the a specified skin tone.
@@ -38,7 +40,7 @@ export const EmojiPopover: ParentComponent<{
 	) {
 		const addReaction = () => {
 			props.setEmojiPopoverOpen(false);
-			props.addReactionOptimistic(emoji.emoji);
+			props.addReactionOptimistic?.(emoji.emoji);
 		};
 
 		const twemoji = getTwemoji(emojis, emoji, components, tone);
@@ -64,7 +66,10 @@ export const EmojiPopover: ParentComponent<{
 			<PopoverTrigger as="div">{props.children}</PopoverTrigger>
 			<PopoverPortal>
 				<PopoverContent class="w-74 overflow-auto h-80">
-					<EmojiPicker renderEmoji={renderTwemoji} />
+					<EmojiPicker
+						onEmojiClick={props.onEmojiClick}
+						renderEmoji={renderTwemoji}
+					/>
 				</PopoverContent>
 			</PopoverPortal>
 		</Popover>

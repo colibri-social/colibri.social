@@ -60,7 +60,11 @@ export const createCommunity = defineAction({
 	},
 });
 
-function base64ToBlob(base64: string, contentType = "", sliceSize = 512) {
+export function base64ToBlob(
+	base64: string,
+	contentType = "",
+	sliceSize = 512,
+) {
 	const byteCharacters = atob(base64.split(",")[1]);
 	const byteArrays = [];
 

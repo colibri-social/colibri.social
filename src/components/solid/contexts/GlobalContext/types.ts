@@ -6,13 +6,24 @@ import type {
 	IndexedMessageData,
 } from "@/utils/sdk";
 import type { MemberData } from "../../layouts/CommunityLayout";
-import type { MessageDeletionEvent, ReactionEventCallback } from "./events";
+import type {
+	MessageDeletionEvent,
+	ReactionEventCallback,
+	UserOnlineState,
+	UserProfileUpdatedEvent,
+	UserStatusChangedEvent,
+} from "./events";
 
 export type PendingMessageData = Omit<
 	Omit<DBMessageData, "rkey">,
 	"attachments"
 > & {
 	hash: string;
+};
+
+export type OnlineStateInfo = {
+	state: UserOnlineState;
+	did: string;
 };
 
 export type GlobalContextData = {
@@ -27,6 +38,12 @@ export type GlobalContextData = {
 	deletedMessages: Array<Omit<MessageDeletionEvent, "id">>;
 	joinedMembers: Array<MemberData>;
 	removedMembers: Array<MemberData>;
+	uiStates: {
+		membersListVisible: boolean;
+	};
+	memberProfileOverrides: Array<UserProfileUpdatedEvent>;
+	memberStatusOverrides: Array<UserStatusChangedEvent>;
+	userOnlineStates: Array<OnlineStateInfo>;
 };
 
 export type GlobalContextUtility = {
@@ -48,4 +65,12 @@ export type GlobalContextUtility = {
 	addJoinedMember: (data: MemberData) => void;
 	addRemovedMember: (data: MemberData) => void;
 	clearOptimisticMemberUpdates: () => void;
+	setUserData: (data: App.SessionData["user"]) => void;
+	setMemberListVisible: (
+		state: boolean | ((current: boolean) => boolean),
+	) => void;
+	addMemberProfileOverride: (data: UserProfileUpdatedEvent) => void;
+	addMemberStatusOverride: (data: UserStatusChangedEvent) => void;
+	clearMemberOverrides: () => void;
+	updateUserOnlineState: (state: OnlineStateInfo) => void;
 };

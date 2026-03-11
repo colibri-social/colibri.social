@@ -3,6 +3,7 @@ import { useParams } from "@solidjs/router";
 import twemoji from "@twemoji/api";
 import {
 	type Component,
+	createMemo,
 	createSignal,
 	For,
 	Match,
@@ -38,6 +39,7 @@ import {
 	TooltipTrigger,
 	type TooltipTriggerProps,
 } from "../../shadcn-solid/Tooltip";
+import { MemberProfilePopover } from "../MemberProfilePopover";
 import { RichTextRenderer, type TextWithFacets } from "../RichTextRenderer";
 import { SmallUser } from "../SmallUser";
 import { MessageAttachments } from "./Attachments";
@@ -55,6 +57,7 @@ import { blockMessage, deleteMessage } from "./util";
 export const Message: Component<{
 	data: IndexedMessageData | PendingMessageData;
 	isSubsequent: boolean;
+	hasSubsequent: boolean;
 	community: CommunityData;
 }> = (props) => {
 	const params = useParams();
@@ -398,9 +401,63 @@ export const Message: Component<{
 
 	const isAdmin = () => props.community.owner_did === globalData.user.sub;
 
+	const optimisticUserData = createMemo(() => {
+		const optimisticProfileUpdates = globalData.memberProfileOverrides.find(
+			(x) => x.did === props.data.author_did,
+		);
+		const optimisticStatusUpdates = globalData.memberStatusOverrides.find(
+			(x) => x.did === props.data.author_did,
+		);
+
+		let parent_message: DBMessageData | null = props.data.parent_message;
+
+		if (parent_message) {
+			const optimisticParentProfileUpdates =
+				globalData.memberProfileOverrides.find(
+					(x) => x.did === props.data.author_did,
+				);
+			const optimisticParentStatusUpdates =
+				globalData.memberStatusOverrides.find(
+					(x) => x.did === props.data.author_did,
+				);
+
+			parent_message = {
+				...parent_message,
+				avatar_url:
+					optimisticParentProfileUpdates?.avatar_url || props.data.avatar_url,
+				banner_url:
+					optimisticParentProfileUpdates?.banner_url || props.data.banner_url,
+				display_name:
+					optimisticParentProfileUpdates?.display_name ||
+					props.data.display_name,
+				description:
+					optimisticParentProfileUpdates?.description || props.data.description,
+				handle: optimisticParentProfileUpdates?.handle || props.data.handle,
+				status: optimisticParentStatusUpdates?.status || props.data.status,
+				emoji: optimisticParentStatusUpdates?.emoji || props.data.emoji,
+			};
+		}
+
+		return {
+			avatar_url: optimisticProfileUpdates?.avatar_url || props.data.avatar_url,
+			banner_url: optimisticProfileUpdates?.banner_url || props.data.banner_url,
+			display_name:
+				optimisticProfileUpdates?.display_name || props.data.display_name,
+			description:
+				optimisticProfileUpdates?.description || props.data.description,
+			handle: optimisticProfileUpdates?.handle || props.data.handle,
+			status: optimisticStatusUpdates?.status || props.data.status,
+			emoji: optimisticStatusUpdates?.emoji || props.data.emoji,
+			parent_message,
+		};
+	});
+
 	return (
 		<MessageContextMenu
-			data={props.data}
+			data={{
+				...props.data,
+				...optimisticUserData(),
+			}}
 			disabled={isPending()}
 			enableEditMode={enableEditMode}
 			enableReplyMode={enableReplyMode}
@@ -415,13 +472,17 @@ export const Message: Component<{
 		>
 			<div
 				class={`w-full h-fit flex flex-col pr-4 pl-3.5 gap-1 group border-l-2 relative hover:bg-card/50 transition-colors duration-75`}
-				data-message={JSON.stringify(props.data)}
+				data-message={JSON.stringify({
+					...props.data,
+					...optimisticUserData(),
+				})}
 				classList={{
 					"py-0": isSubsequentMessage(),
 					"pb-0 pt-1 mt-2": !isSubsequentMessage(),
 					"border-transparent": !isRepliedTo(),
 					"bg-primary/15 hover:bg-primary/25 border-primary": isRepliedTo(),
 					"bg-primary/15": isFocused(),
+					"pb-0.5": props.hasSubsequent,
 					"pb-2": messageReactions().length > 0,
 				}}
 			>
@@ -438,30 +499,47 @@ export const Message: Component<{
 						>
 							<img
 								src={
-									props.data.parent_message!.avatar_url ||
+									optimisticUserData().parent_message!.avatar_url ||
 									"/user-placeholder.png"
 								}
 								width={16}
 								height={16}
-								alt={props.data.parent_message!.display_name}
+								alt={optimisticUserData().parent_message!.display_name}
 								class="rounded-full"
 							/>
 							<strong class="text-xs">
-								{props.data.parent_message!.display_name}
+								{optimisticUserData().parent_message!.display_name}
 							</strong>
-							<span class="text-xs">{props.data.parent_message!.text}</span>
+							<span class="text-xs">
+								{optimisticUserData().parent_message!.text}
+							</span>
 						</div>
 					</div>
 				</Show>
 				<div class="flex flex-row gap-4">
 					<Switch>
 						<Match when={!isSubsequentMessage()}>
-							<img
-								src={props.data.avatar_url || "/user-placeholder.png"}
-								alt={props.data.display_name}
-								class="w-10 h-10 min-w-10 min-h-10 bg-muted rounded-full border border-border"
-								loading="lazy"
-							/>
+							<MemberProfilePopover
+								banner={optimisticUserData().banner_url}
+								avatar={optimisticUserData().avatar_url}
+								displayName={optimisticUserData().display_name}
+								description={optimisticUserData().description}
+								emoji={optimisticUserData().emoji}
+								handle={optimisticUserData().handle}
+								status={optimisticUserData().status}
+								did={props.data.author_did}
+								class="w-10 h-10 rounded-full"
+								disabled={"hash" in props.data}
+							>
+								<img
+									src={
+										optimisticUserData().avatar_url || "/user-placeholder.png"
+									}
+									alt={optimisticUserData().display_name}
+									class="w-10 h-10 min-w-10 min-h-10 bg-muted rounded-full border border-border cursor-pointer"
+									loading="lazy"
+								/>
+							</MemberProfilePopover>
 						</Match>
 						<Match when={isSubsequentMessage()}>
 							<div class="w-10 h-8 min-w-10 min-h-8 text-muted-foreground group-hover:opacity-100 opacity-0 text-xs flex items-center justify-center">
@@ -492,7 +570,21 @@ export const Message: Component<{
 						>
 							<Show when={!isSubsequentMessage()}>
 								<div class="flex gap-2 text-sm items-baseline">
-									<span class="font-bold">{props.data.display_name}</span>
+									<MemberProfilePopover
+										banner={optimisticUserData().banner_url}
+										avatar={optimisticUserData().avatar_url}
+										displayName={optimisticUserData().display_name}
+										description={optimisticUserData().description}
+										emoji={optimisticUserData().emoji}
+										handle={optimisticUserData().handle}
+										status={optimisticUserData().status}
+										did={props.data.author_did}
+										disabled={"hash" in props.data}
+									>
+										<span class="font-bold hover:underline cursor-pointer">
+											{optimisticUserData().display_name}
+										</span>
+									</MemberProfilePopover>
 									<small class="text-muted-foreground">
 										{new Date(props.data.created_at).toLocaleDateString()}{" "}
 										{new Date(props.data.created_at).toLocaleTimeString(
@@ -519,7 +611,21 @@ export const Message: Component<{
 						<div class="flex flex-col w-full justify-center">
 							<Show when={!isSubsequentMessage()}>
 								<div class="flex gap-2 text-sm items-baseline">
-									<span class="font-bold">{props.data.display_name}</span>
+									<MemberProfilePopover
+										banner={optimisticUserData().banner_url}
+										avatar={optimisticUserData().avatar_url}
+										displayName={optimisticUserData().display_name}
+										description={optimisticUserData().description}
+										emoji={optimisticUserData().emoji}
+										handle={optimisticUserData().handle}
+										status={optimisticUserData().status}
+										did={props.data.author_did}
+										disabled={"hash" in props.data}
+									>
+										<span class="font-bold hover:underline cursor-pointer">
+											{optimisticUserData().display_name}
+										</span>
+									</MemberProfilePopover>
 									<small class="text-muted-foreground">
 										{new Date(props.data.created_at).toLocaleDateString()}{" "}
 										{new Date(props.data.created_at).toLocaleTimeString(
@@ -611,7 +717,7 @@ export const Message: Component<{
 								}
 							>
 								<MessageBlockDrawer
-									message={props.data}
+									message={{ ...props.data, ...optimisticUserData() }}
 									addDeletedMessage={addDeletedMessage}
 									open={blockModalOpen()}
 									setOpen={setBlockModalOpen}
@@ -633,7 +739,7 @@ export const Message: Component<{
 									<Pencil />
 								</MessageAction>
 								<MessageDeletionDrawer
-									message={props.data}
+									message={{ ...props.data, ...optimisticUserData() }}
 									addDeletedMessage={addDeletedMessage}
 									open={deletionModalOpen()}
 									setOpen={setDeletionModalOpen}

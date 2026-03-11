@@ -9,7 +9,12 @@ import { createStore } from "solid-js/store";
 import type { ChannelData, CommunityData } from "@/utils/sdk";
 import { GlobalContext } from "./context";
 import type { AppviewSubscriptionData, ReactionEventCallback } from "./events";
-import { handleMessageDeletion, handleNewMessage } from "./handlers";
+import {
+	handleMessageDeletion,
+	handleNewMessage,
+	handleUserProfileUpdated,
+	handleUserStatusChanged,
+} from "./handlers";
 import type { GlobalContextData, GlobalContextUtility } from "./types";
 
 export { GlobalContext };
@@ -24,7 +29,9 @@ export const GlobalContextProvider: ParentComponent<{
 	const reactionListeners = new Set<ReactionEventCallback>();
 
 	const socket = makeHeartbeatWS(
-		makeReconnectingWS(`wss://${APPVIEW_DOMAIN}/api/subscribe`),
+		makeReconnectingWS(
+			`wss://${APPVIEW_DOMAIN}/api/subscribe?did=${props.contextData.user.sub}`,
+		),
 		{
 			message: JSON.stringify({
 				action: "heartbeat",
@@ -45,6 +52,13 @@ export const GlobalContextProvider: ParentComponent<{
 		deletedMessages: [],
 		joinedMembers: [],
 		removedMembers: [],
+		uiStates: {
+			membersListVisible: true,
+		},
+		memberProfileOverrides: [],
+		memberStatusOverrides: [],
+		// TODO: This might not reflect the user's preferred state. Update when user can change state themselves.
+		userOnlineStates: [{ did: props.contextData.user.sub, state: "online" }],
 	});
 
 	const context: [GlobalContextData, GlobalContextUtility] = [
@@ -200,6 +214,59 @@ export const GlobalContextProvider: ParentComponent<{
 				setGlobalContext("joinedMembers", []);
 				setGlobalContext("removedMembers", []);
 			},
+			setUserData(data) {
+				setGlobalContext("user", data);
+			},
+			setMemberListVisible(state) {
+				if (typeof state === "boolean") {
+					setGlobalContext("uiStates", (current) => ({
+						...current,
+						membersListVisible: state,
+					}));
+				} else {
+					setGlobalContext("uiStates", (current) => ({
+						...current,
+						membersListVisible: state(current.membersListVisible),
+					}));
+				}
+			},
+			addMemberProfileOverride(data) {
+				const existingIndex = globalContext.memberProfileOverrides.findIndex(
+					(x) => x.did === data.did,
+				);
+
+				if (existingIndex !== -1) {
+					setGlobalContext("memberProfileOverrides", existingIndex, data);
+				} else {
+					setGlobalContext("memberProfileOverrides", (list) => [...list, data]);
+				}
+			},
+			addMemberStatusOverride(data) {
+				const existingIndex = globalContext.memberStatusOverrides.findIndex(
+					(x) => x.did === data.did,
+				);
+
+				if (existingIndex !== -1) {
+					setGlobalContext("memberStatusOverrides", existingIndex, data);
+				} else {
+					setGlobalContext("memberStatusOverrides", (list) => [...list, data]);
+				}
+			},
+			clearMemberOverrides() {
+				setGlobalContext("memberProfileOverrides", []);
+				setGlobalContext("memberStatusOverrides", []);
+			},
+			updateUserOnlineState(state) {
+				const existingIndex = globalContext.userOnlineStates.findIndex(
+					(x) => x.did === state.did,
+				);
+
+				if (existingIndex !== -1) {
+					setGlobalContext("userOnlineStates", existingIndex, state);
+				} else {
+					setGlobalContext("userOnlineStates", (list) => [...list, state]);
+				}
+			},
 		},
 	];
 
@@ -270,6 +337,12 @@ export const GlobalContextProvider: ParentComponent<{
 						status: "approved",
 					});
 				}
+				break;
+			case "user_status_changed":
+				handleUserStatusChanged(context[1], data);
+				break;
+			case "user_profile_updated":
+				handleUserProfileUpdated(context[1], data);
 				break;
 			case "ack":
 				break;

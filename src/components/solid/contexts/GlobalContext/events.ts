@@ -140,6 +140,28 @@ export type MemberLeftEvent = {
 	avatar_url?: string;
 };
 
+export type UserOnlineState = "online" | "away" | "dnd" | "offline";
+
+export type UserStatusChangedEvent = {
+	type: "user_status_changed";
+	did: string;
+	status: string;
+	emoji?: string;
+	display_name?: string;
+	avatar_url?: string;
+	state: UserOnlineState;
+};
+
+export type UserProfileUpdatedEvent = {
+	type: "user_profile_updated";
+	did: string;
+	display_name?: string;
+	avatar_url?: string;
+	banner_url?: string;
+	description?: string;
+	handle?: string;
+};
+
 export type AppviewSubscriptionData =
 	| AckEvent
 	| MessagePostEvent
@@ -154,7 +176,9 @@ export type AppviewSubscriptionData =
 	| CategoryDeletedEvent
 	| MemberPendingEvent
 	| MemberJoinedEvent
-	| MemberLeftEvent;
+	| MemberLeftEvent
+	| UserStatusChangedEvent
+	| UserProfileUpdatedEvent;
 
 export type ReactionEventCallback = (
 	data: ReactionAddedEvent | ReactionRemovedEvent,

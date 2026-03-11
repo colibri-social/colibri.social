@@ -1,12 +1,15 @@
 import type { Component } from "solid-js";
 
-export const PDSls: Component<{ className?: string }> = ({ className }) => (
+export const PDSls: Component<{ className?: string; size?: number }> = ({
+	className,
+	size,
+}) => (
 	<svg
 		xmlns="http://www.w3.org/2000/svg"
-		width="24"
-		height="24"
+		width={size || "24"}
+		height={size || "24"}
 		viewBox="0 0 24 24"
-		fill="#76c4e5"
+		fill="currentColor"
 		aria-hidden="true"
 		class={className}
 	>

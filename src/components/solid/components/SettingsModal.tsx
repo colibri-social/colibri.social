@@ -100,7 +100,7 @@ export type SettingsPageInfo = {
 export const SettingsModal: ParentComponent<{
 	pages: Array<SettingsPageInfo>;
 	debugPage?: SettingsPageInfo;
-	dangerPage: SettingsPageInfo;
+	dangerPage?: SettingsPageInfo;
 	class?: string;
 }> = (props) => {
 	const [activePage, setActivePage] = createSignal<string>(props.pages[0].id);
@@ -122,7 +122,7 @@ export const SettingsModal: ParentComponent<{
 							<X />
 						</DialogCloseButton>
 					</div>
-					<div class="h-full min-h-128 flex flex-col justify-between p-4 w-64 border-r border-border">
+					<div class="min-h-128 h-auto flex flex-col justify-between p-4 w-64 border-r border-border">
 						<div class="h-full flex flex-col gap-1">
 							<For each={props.pages}>
 								{(item) => (
@@ -144,13 +144,15 @@ export const SettingsModal: ParentComponent<{
 									{props.debugPage!.title}
 								</SettingsPageSelector>
 							</Show>
-							<SettingsPageSelector
-								activePage={activePage() === props.dangerPage.id}
-								danger
-								onClick={() => setActivePage(props.dangerPage.id)}
-							>
-								{props.dangerPage.title}
-							</SettingsPageSelector>
+							<Show when={props.dangerPage}>
+								<SettingsPageSelector
+									activePage={activePage() === props.dangerPage!.id}
+									danger
+									onClick={() => setActivePage(props.dangerPage!.id)}
+								>
+									{props.dangerPage!.title}
+								</SettingsPageSelector>
+							</Show>
 						</div>
 					</div>
 					<Switch
@@ -168,8 +170,10 @@ export const SettingsModal: ParentComponent<{
 						>
 							<Dynamic component={props.debugPage!.component} />
 						</Match>
-						<Match when={activePage() === props.dangerPage.id}>
-							<props.dangerPage.component />
+						<Match
+							when={props.dangerPage && activePage() === props.dangerPage.id}
+						>
+							<Dynamic component={props.dangerPage!.component} />
 						</Match>
 					</Switch>
 				</DialogContent>

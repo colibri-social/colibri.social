@@ -1,7 +1,10 @@
 import { APPVIEW_DOMAIN } from "astro:env/client";
 import { Agent, AtpAgent, BlobRef } from "@atproto/api";
 import { parseCid } from "@atproto/lex-data";
-import type { AttachmentObj } from "@/components/solid/contexts/GlobalContext/events";
+import type {
+	AttachmentObj,
+	UserOnlineState,
+} from "@/components/solid/contexts/GlobalContext/events";
 import { lexicon, RECORD_IDs } from "./atproto/lexicons";
 import { client } from "./atproto/oauth";
 import type { Facet } from "./atproto/rich-text";
@@ -9,6 +12,7 @@ import type { Facet } from "./atproto/rich-text";
 type ActorData = {
 	status: string;
 	communities: Array<string>;
+	emoji: string;
 };
 
 export type CommunityData = {
@@ -41,7 +45,7 @@ export type UnresolvedCommunityData = Omit<CommunityData, "picture"> &
 
 const pdsUrlCache = new Map<string, string>();
 
-async function resolvePdsUrl(did: string): Promise<string | undefined> {
+export async function resolvePdsUrl(did: string): Promise<string | undefined> {
 	if (pdsUrlCache.has(did)) return pdsUrlCache.get(did)!;
 	try {
 		const res = await fetch(`https://plc.directory/${did}`);
@@ -56,7 +60,7 @@ async function resolvePdsUrl(did: string): Promise<string | undefined> {
 	}
 }
 
-function blobRefToUrl(
+export function blobRefToUrl(
 	pdsUrl: string,
 	did: string,
 	blobRef: AppviewCommunityImageData["picture"] | BlobRef,
@@ -121,11 +125,17 @@ export type MessageData = {
 	author_did: string;
 	display_name: string;
 	avatar_url: string;
+	banner_url?: string;
+	status?: string;
+	emoji?: string;
+	handle?: string;
 	edited?: boolean;
 	parent?: string;
 	reactions: Array<MessageReactionData>;
 	parent_message: IndexedMessageData | null;
+	description?: string;
 	attachments?: Array<AttachmentObj>;
+	state: UserOnlineState;
 };
 
 export type PDSMessageData = MessageData & {
@@ -206,6 +216,7 @@ export class ColibriSDK {
 			RECORD_IDs.ACTOR_DATA,
 			{
 				status: "",
+				emoji: "",
 				communities: [],
 			},
 			"self",
@@ -1108,5 +1119,30 @@ export class ColibriSDK {
 		const res = await agent.com.atproto.repo.createRecord(record);
 
 		return res.data.uri.split("/").pop()!;
+	};
+
+	public updateStatus = async (
+		did: string,
+		status: string,
+		emoji?: string,
+	): Promise<void> => {
+		const current = await this.agent.com.atproto.repo.getRecord({
+			rkey: "self",
+			collection: RECORD_IDs.ACTOR_DATA,
+			repo: did,
+		});
+
+		const newRecord = this.constructAtProtoRecord(
+			did,
+			RECORD_IDs.ACTOR_DATA,
+			{
+				...current.data.value,
+				status,
+				emoji,
+			},
+			"self",
+		);
+
+		await this.agent.com.atproto.repo.putRecord(newRecord);
 	};
 }
