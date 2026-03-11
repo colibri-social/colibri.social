@@ -1,12 +1,14 @@
-import { createSignal, Show, type ParentComponent } from "solid-js";
+import twemoji from "@twemoji/api";
+import { createSignal, type ParentComponent, Show } from "solid-js";
+import { useGlobalContext } from "../contexts/GlobalContext";
+import { Bluesky } from "../icons/Bluesky";
+import { PDSls } from "../icons/PDSls";
 import {
 	Popover,
 	PopoverContent,
 	PopoverPortal,
 	PopoverTrigger,
 } from "../shadcn-solid/Popover";
-import twemoji from "@twemoji/api";
-import { Bluesky } from "../icons/Bluesky";
 import {
 	Tooltip,
 	TooltipContent,
@@ -19,7 +21,7 @@ import { useGlobalContext } from "../contexts/GlobalContext";
 import { purify } from "@/utils/purify";
 
 const LINK_REGEX =
-	/(?<![^\s])(?!@)(https?:\/\/(www\.)?)?[-a-zA-Z0-9@%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,18}\b([-a-zA-Z0-9()@:%_\+.~#?&\/\/=]*)/gm;
+	/(?<![^\s])(?!@)(https?:\/\/(www\.)?)?[-a-zA-Z0-9@%._+~#=]{1,256}\.[a-zA-Z0-9()]{1,18}\b([-a-zA-Z0-9()@:%_+.~#?&//=]*)/gm;
 
 const MENTION_REGEX = /(?<!\S)@[a-zA-Z0-9._-]+(?:\.[a-zA-Z]{2,})?/gm;
 
@@ -122,7 +124,7 @@ export const MemberProfilePopover: ParentComponent<{
 									class="w-20 h-20 rounded-full outline-4 outline-card"
 								/>
 								<div
-									class="w-4 h-4 rounded-full absolute bottom-0.75 right-0.75 outline-2 outline-card"
+									class="w-4 h-4 rounded-full absolute bottom-0.75 right-0.75 outline-4 outline-card"
 									classList={{
 										"bg-green-500": state() === "online",
 										"bg-orange-500": state() === "away",
@@ -131,7 +133,7 @@ export const MemberProfilePopover: ParentComponent<{
 									}}
 								/>
 							</div>
-							<Show when={props.status}>
+							<Show when={props.status && state() !== "offline"}>
 								<span class="flex flex-row items-start gap-2 bg-card border border-border rounded-sm px-1.5 py-0.5 drop-shadow-black drop-shadow-sm max-w-48 overflow-hidden">
 									<Show when={props.emoji}>
 										<span

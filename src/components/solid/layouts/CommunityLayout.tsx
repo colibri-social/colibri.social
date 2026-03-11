@@ -1,6 +1,7 @@
 import { APPVIEW_DOMAIN } from "astro:env/client";
 import type { Details } from "@kobalte/core/file-field";
 import { createAsync, query, useParams } from "@solidjs/router";
+import twemoji from "@twemoji/api";
 import {
 	createEffect,
 	createMemo,
@@ -16,14 +17,18 @@ import {
 } from "solid-js";
 import { toast } from "somoto";
 import { RECORD_IDs } from "@/utils/atproto/lexicons";
+import createMediaQuery from "@/utils/create-media-query";
+import { ensureUserStateCached } from "@/utils/ensure-user-state-cached";
 import type { SidebarData } from "@/utils/sdk";
 import { ChannelList } from "../components/Community/ChannelList";
 import { CommunitySettingsModal } from "../components/Community/CommunitySettingsModal";
 import { InviteLinkCreationModal } from "../components/Community/InviteLinkCreationModal";
 import { LeaveCommunityModal } from "../components/Community/LeaveCommunityModal";
+import { MemberProfilePopover } from "../components/MemberProfilePopover";
 import { MessageInput } from "../components/MessageInput";
 import { UserStatus } from "../components/UserStatus";
 import { ChannelContextProvider } from "../contexts/ChannelContext";
+import type { UserOnlineState } from "../contexts/GlobalContext/events";
 import { useGlobalContext } from "../contexts/GlobalContext/index";
 import { MessageContextProvider } from "../contexts/MessageContext";
 import {
@@ -31,11 +36,6 @@ import {
 	FileFieldDropzone,
 	FileFieldHiddenInput,
 } from "../shadcn-solid/file-field";
-import twemoji from "@twemoji/api";
-import createMediaQuery from "@/utils/create-media-query";
-import { MemberProfilePopover } from "../components/MemberProfilePopover";
-import type { UserOnlineState } from "../contexts/GlobalContext/events";
-import { ensureUserStateCached } from "@/utils/ensure-user-state-cached";
 
 /**
  * Fetches the sidebar data (categories + channels) for a community.
@@ -433,7 +433,11 @@ const CommunityLayout: ParentComponent = (props) => {
 																<span class="font-medium leading-5">
 																	{item.display_name}
 																</span>
-																<Show when={item.status_text}>
+																<Show
+																	when={
+																		item.status_text && state() !== "offline"
+																	}
+																>
 																	<span class="text-sm w-full leading-5 flex flex-row items-center gap-2">
 																		<Show when={item.emoji}>
 																			<span

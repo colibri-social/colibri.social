@@ -3,6 +3,7 @@ import { useParams } from "@solidjs/router";
 import twemoji from "@twemoji/api";
 import {
 	type Component,
+	createMemo,
 	createSignal,
 	For,
 	Match,
@@ -38,6 +39,7 @@ import {
 	TooltipTrigger,
 	type TooltipTriggerProps,
 } from "../../shadcn-solid/Tooltip";
+import { MemberProfilePopover } from "../MemberProfilePopover";
 import { RichTextRenderer, type TextWithFacets } from "../RichTextRenderer";
 import { SmallUser } from "../SmallUser";
 import { MessageAttachments } from "./Attachments";
