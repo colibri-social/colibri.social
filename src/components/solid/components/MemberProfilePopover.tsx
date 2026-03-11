@@ -121,7 +121,7 @@ export const MemberProfilePopover: ParentComponent<{
 									class="w-20 h-20 rounded-full outline-4 outline-card"
 								/>
 								<div
-									class="w-4 h-4 rounded-full absolute bottom-0.75 right-0.75 outline-2 outline-card"
+									class="w-4 h-4 rounded-full absolute bottom-0.75 right-0.75 outline-4 outline-card"
 									classList={{
 										"bg-green-500": state() === "online",
 										"bg-orange-500": state() === "away",
@@ -130,7 +130,7 @@ export const MemberProfilePopover: ParentComponent<{
 									}}
 								/>
 							</div>
-							<Show when={props.status}>
+							<Show when={props.status && state() !== "offline"}>
 								<span class="flex flex-row items-start gap-2 bg-card border border-border rounded-sm px-1.5 py-0.5 drop-shadow-black drop-shadow-sm max-w-48 overflow-hidden">
 									<Show when={props.emoji}>
 										<span

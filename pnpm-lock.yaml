@@ -62,9 +62,6 @@ importers:
       '@tailwindcss/vite':
         specifier: ^4.1.18
         version: 4.1.18(vite@6.4.1(@types/node@25.2.3)(jiti@2.6.1)(lightningcss@1.30.2)(yaml@2.8.2))
-      '@thednp/solid-color-picker':
-        specifier: ^0.0.14
-        version: 0.0.14(solid-js@1.9.11)
       '@thisbeyond/solid-dnd':
         specifier: ^0.7.5
         version: 0.7.5(solid-js@1.9.11)
@@ -1451,22 +1448,6 @@ packages:
     resolution: {integrity: sha512-jVA+/UpKL1vRLg6Hkao5jldawNmRo7mQYrZtNHMIVpLfLhDml5nMRUo/8MwoX2vNXvnaXNNMedrMfMugAVX1nA==}
     peerDependencies:
       vite: ^5.2.0 || ^6 || ^7
-
-  '@thednp/color-picker@2.0.4':
-    resolution: {integrity: sha512-acxVg+2MdHm8y4gwxnmiY+Y5z25GTcs6FZuWbz6sjX1L+fLjN0aypDU/Es2OibPYwImkLmAzjGpybaDxrEadXQ==}
-
-  '@thednp/color@1.0.14':
-    resolution: {integrity: sha512-MpzcLi2Jb9Xdi/ZbMgrJDxT0HQnZvceTr/t9BKO2A71vBDnPe2gsA6Tx0gYu5jiIagXbZtUwJqBDSLgmRpepew==}
-
-  '@thednp/shorty@2.0.11':
-    resolution: {integrity: sha512-D+rLHt1l7c608yCuzXYJ75aDNWeMVbor+m1HO/XibhiWRbCpD8r6TUv3ayJI+feVfCnBNfrH+p6LSDn9l99uBA==}
-    engines: {node: '>=16', pnpm: '>=8.6.0'}
-
-  '@thednp/solid-color-picker@0.0.14':
-    resolution: {integrity: sha512-tRwCUhwEypIhDsMLWnf9gx5W4rXFmlmG6iD6uWR6i9LYfCENdYoMx97BlSqdvhLyPDTJ0hCD4kHRt65Isef4qw==}
-    engines: {node: '>=18', pnpm: '>=8.6.0'}
-    peerDependencies:
-      solid-js: ^1.6.0
 
   '@thisbeyond/solid-dnd@0.7.5':
     resolution: {integrity: sha512-DfI5ff+yYGpK9M21LhYwIPlbP2msKxN2ARwuu6GF8tT1GgNVDTI8VCQvH4TJFoVApP9d44izmAcTh/iTCH2UUw==}
@@ -4949,22 +4930,6 @@ snapshots:
       '@tailwindcss/oxide': 4.1.18
       tailwindcss: 4.1.18
       vite: 6.4.1(@types/node@25.2.3)(jiti@2.6.1)(lightningcss@1.30.2)(yaml@2.8.2)
-
-  '@thednp/color-picker@2.0.4':
-    dependencies:
-      '@thednp/color': 1.0.14
-      '@thednp/shorty': 2.0.11
-
-  '@thednp/color@1.0.14': {}
-
-  '@thednp/shorty@2.0.11': {}
-
-  '@thednp/solid-color-picker@0.0.14(solid-js@1.9.11)':
-    dependencies:
-      '@thednp/color': 1.0.14
-      '@thednp/color-picker': 2.0.4
-      '@thednp/shorty': 2.0.11
-      solid-js: 1.9.11
 
   '@thisbeyond/solid-dnd@0.7.5(solid-js@1.9.11)':
     dependencies:

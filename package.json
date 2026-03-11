@@ -36,7 +36,6 @@
 		"@solid-primitives/websocket": "^1.3.1",
 		"@solidjs/router": "^0.15.4",
 		"@tailwindcss/vite": "^4.1.18",
-		"@thednp/solid-color-picker": "^0.0.14",
 		"@thisbeyond/solid-dnd": "^0.7.5",
 		"@twemoji/api": "^17.0.2",
 		"astro": "^5.18.0",
