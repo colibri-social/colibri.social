@@ -3,6 +3,7 @@ import { useParams } from "@solidjs/router";
 import twemoji from "@twemoji/api";
 import {
 	type Component,
+	createMemo,
 	createSignal,
 	For,
 	Match,
@@ -13,6 +14,7 @@ import {
 import { toast } from "somoto";
 import type { ColibriRichTextLink } from "@/utils/atproto/rich-text/detection";
 import { parseZodToErrorOrDisplay } from "@/utils/parse-zod-to-error-or-display";
+import { purify } from "@/utils/purify";
 import type {
 	CommunityData,
 	DBMessageData,
@@ -38,6 +40,7 @@ import {
 	TooltipTrigger,
 	type TooltipTriggerProps,
 } from "../../shadcn-solid/Tooltip";
+import { MemberProfilePopover } from "../MemberProfilePopover";
 import { RichTextRenderer, type TextWithFacets } from "../RichTextRenderer";
 import { SmallUser } from "../SmallUser";
 import { MessageAttachments } from "./Attachments";
@@ -48,9 +51,6 @@ import { MessageBlockDrawer } from "./MessageBlockDrawer";
 import { MessageContextMenu } from "./MessageContextMenu";
 import { MessageDeletionDrawer } from "./MessageDeletionDrawer";
 import { blockMessage, deleteMessage } from "./util";
-import { MemberProfilePopover } from "../MemberProfilePopover";
-import { createMemo } from "solid-js";
-import { purify } from "@/utils/purify";
 
 /**
  * A rendered message component in a chat.

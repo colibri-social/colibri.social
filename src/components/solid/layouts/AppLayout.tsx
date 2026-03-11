@@ -19,18 +19,18 @@ import {
 } from "solid-js";
 import type { CommunityData } from "@/utils/sdk";
 import { NewCommunityModal } from "../components/NewCommunityModal";
+import { UserSettingsModal } from "../components/UserSettingsModal";
 import { useGlobalContext } from "../contexts/GlobalContext";
 import { Gear } from "../icons/Gear";
 import { House } from "../icons/House";
 import { Plus } from "../icons/Plus";
+import { Users } from "../icons/Users";
+import { Button } from "../shadcn-solid/Button";
 import {
 	animateToNewPositions,
 	capturePositions,
 	reorderList,
 } from "../utils/drag";
-import { UserSettingsModal } from "../components/UserSettingsModal";
-import { Button } from "../shadcn-solid/Button";
-import { Users } from "../icons/Users";
 
 const CommunityAvatar = (props: { item: CommunityData; class?: string }) => (
 	<Switch>

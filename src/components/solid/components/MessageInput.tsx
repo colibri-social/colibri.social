@@ -14,6 +14,7 @@ import { toast } from "somoto";
 import type { PostMessageInput } from "@/actions/message/post";
 import { generateHash } from "@/utils/generate-hash";
 import { parseZodToErrorOrDisplay } from "@/utils/parse-zod-to-error-or-display";
+import { purify } from "@/utils/purify";
 import { useGlobalContext } from "../contexts/GlobalContext";
 import type { AttachmentObj, BlobObj } from "../contexts/GlobalContext/events";
 import { useMessageContext } from "../contexts/MessageContext";
@@ -33,7 +34,6 @@ import {
 	type TextWithFacets,
 	trimTextWithFacets,
 } from "./RichTextRenderer";
-import { purify } from "@/utils/purify";
 
 const uploadWithProgress = (
 	file: File,

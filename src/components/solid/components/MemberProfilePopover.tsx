@@ -1,25 +1,24 @@
-import { createSignal, Show, type ParentComponent } from "solid-js";
+import twemoji from "@twemoji/api";
+import { createSignal, type ParentComponent, Show } from "solid-js";
+import { purify } from "@/utils/purify";
+import { useGlobalContext } from "../contexts/GlobalContext";
+import { Bluesky } from "../icons/Bluesky";
+import { PDSls } from "../icons/PDSls";
 import {
 	Popover,
 	PopoverContent,
 	PopoverPortal,
 	PopoverTrigger,
 } from "../shadcn-solid/Popover";
-import twemoji from "@twemoji/api";
-import { Bluesky } from "../icons/Bluesky";
 import {
 	Tooltip,
 	TooltipContent,
 	TooltipPortal,
 	TooltipTrigger,
 } from "../shadcn-solid/Tooltip";
-import { PDSls } from "../icons/PDSls";
-import type { UserOnlineState } from "../contexts/GlobalContext/events";
-import { useGlobalContext } from "../contexts/GlobalContext";
-import { purify } from "@/utils/purify";
 
 const LINK_REGEX =
-	/(?<![^\s])(?!@)(https?:\/\/(www\.)?)?[-a-zA-Z0-9@%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,18}\b([-a-zA-Z0-9()@:%_\+.~#?&\/\/=]*)/gm;
+	/(?<![^\s])(?!@)(https?:\/\/(www\.)?)?[-a-zA-Z0-9@%._+~#=]{1,256}\.[a-zA-Z0-9()]{1,18}\b([-a-zA-Z0-9()@:%_+.~#?&//=]*)/gm;
 
 const MENTION_REGEX = /(?<!\S)@[a-zA-Z0-9._-]+(?:\.[a-zA-Z]{2,})?/gm;
 

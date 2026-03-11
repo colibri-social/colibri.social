@@ -15,6 +15,7 @@ import {
 import { Portal } from "solid-js/web";
 import type { Facet } from "@/utils/atproto/rich-text";
 import { cn } from "@/utils/cn";
+import { purify } from "@/utils/purify";
 import type { ChannelData } from "@/utils/sdk";
 import { useChannelContext } from "../../contexts/ChannelContext";
 import {
@@ -46,7 +47,6 @@ import {
 	type ToolbarState,
 	textEncoder,
 } from "./util";
-import { purify } from "@/utils/purify";
 
 /**
  * A rich text renderer component that parses a given text and renders its facets as HTML.

@@ -12,6 +12,7 @@ import {
 	Show,
 	untrack,
 } from "solid-js";
+import { ensureUserStateCached } from "@/utils/ensure-user-state-cached";
 import type { IndexedMessageData } from "@/utils/sdk";
 import { Message } from "../components/Message/Message";
 import {
@@ -21,7 +22,6 @@ import {
 import { useMessageContext } from "../contexts/MessageContext";
 import { useMessageHistory } from "../hooks/useMessageHistory";
 import { Spinner } from "../icons/Spinner";
-import { ensureUserStateCached } from "@/utils/ensure-user-state-cached";
 
 /**
  * How close to the bottom (in px) the user must be for us to consider them

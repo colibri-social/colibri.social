@@ -1,4 +1,4 @@
-import { createMemo, type Component } from "solid-js";
+import { type Component, createMemo } from "solid-js";
 import { useGlobalContext } from "../contexts/GlobalContext";
 
 /**

@@ -1,11 +1,16 @@
 import { actions } from "astro:actions";
+import { APPVIEW_DOMAIN } from "astro:env/client";
 import type { Details } from "@kobalte/core/file-field";
+import twemoji from "@twemoji/api";
 import type { ParentComponent } from "solid-js";
 import { type Component, createSignal, Match, Switch } from "solid-js";
 import { toast } from "somoto";
 import { parseZodToErrorOrDisplay } from "@/utils/parse-zod-to-error-or-display";
 import { useGlobalContext } from "../contexts/GlobalContext";
 import { Image } from "../icons/Image";
+import { PDSls } from "../icons/PDSls";
+import { Smiley } from "../icons/Smiley";
+import { Button } from "../shadcn-solid/Button";
 import {
 	FileField,
 	FileFieldDropzone,
@@ -21,14 +26,9 @@ import {
 	TextFieldLabel,
 	TextFieldTextArea,
 } from "../shadcn-solid/text-field";
+import { EmojiPopover } from "./Message/EmojiPopover";
 import { InfoPageItem } from "./SettingsInfoPage";
 import { SettingsModal, SettingsPage } from "./SettingsModal";
-import { PDSls } from "../icons/PDSls";
-import { APPVIEW_DOMAIN } from "astro:env/client";
-import { EmojiPopover } from "./Message/EmojiPopover";
-import { Button } from "../shadcn-solid/Button";
-import twemoji from "@twemoji/api";
-import { Smiley } from "../icons/Smiley";
 
 const GeneralSettingsPage: Component = () => {
 	const [globalData, { setUserData }] = useGlobalContext();
