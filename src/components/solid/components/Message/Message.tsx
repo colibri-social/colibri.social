@@ -50,6 +50,7 @@ import { MessageDeletionDrawer } from "./MessageDeletionDrawer";
 import { blockMessage, deleteMessage } from "./util";
 import { MemberProfilePopover } from "../MemberProfilePopover";
 import { createMemo } from "solid-js";
+import { purify } from "@/utils/purify";
 
 /**
  * A rendered message component in a chat.
@@ -217,7 +218,7 @@ export const Message: Component<{
 
 		clearEditingMessage();
 
-		if (editedText().text.trim().length === 0) {
+		if (purify(editedText().text).trim().length === 0) {
 			setDeletionModalOpen(true);
 			return;
 		}

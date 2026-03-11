@@ -46,6 +46,7 @@ import {
 	type ToolbarState,
 	textEncoder,
 } from "./util";
+import { purify } from "@/utils/purify";
 
 /**
  * A rich text renderer component that parses a given text and renders its facets as HTML.
@@ -733,7 +734,7 @@ export const RichTextRenderer: Component<{
 						: undefined
 				}
 				contentEditable={props.editable}
-				innerHTML={renderedWithEmojis}
+				innerHTML={purify(renderedWithEmojis)}
 				classList={props.classList}
 				onKeyDown={handleKeyDown}
 				onInput={handleInput}

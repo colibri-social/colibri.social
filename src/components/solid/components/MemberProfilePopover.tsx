@@ -16,6 +16,7 @@ import {
 import { PDSls } from "../icons/PDSls";
 import type { UserOnlineState } from "../contexts/GlobalContext/events";
 import { useGlobalContext } from "../contexts/GlobalContext";
+import { purify } from "@/utils/purify";
 
 const LINK_REGEX =
 	/(?<![^\s])(?!@)(https?:\/\/(www\.)?)?[-a-zA-Z0-9@%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,18}\b([-a-zA-Z0-9()@:%_\+.~#?&\/\/=]*)/gm;
@@ -138,7 +139,13 @@ export const MemberProfilePopover: ParentComponent<{
 											innerHTML={twemoji.parse(props.emoji!)}
 										/>
 									</Show>
-									<span class="leading-5.5 wrap-break-word text-sm w-fit max-w-[calc(100%-22px)]">
+									<span
+										class="leading-5.5 wrap-break-word text-sm w-fit"
+										classList={{
+											"max-w-[calc(100%-22px)]": !!props.emoji,
+											"max-w-full": !props.emoji,
+										}}
+									>
 										{props.status}
 									</span>
 								</span>
@@ -193,7 +200,9 @@ export const MemberProfilePopover: ParentComponent<{
 							<hr class="w-full h-px border-none bg-border m-0" />
 							<p
 								class="prose prose-invert text-sm m-0 px-1"
-								innerHTML={detectLinksAndMentionsAndFormat(props.description!)}
+								innerHTML={purify(
+									detectLinksAndMentionsAndFormat(props.description!),
+								)}
 							/>
 						</Show>
 					</div>
