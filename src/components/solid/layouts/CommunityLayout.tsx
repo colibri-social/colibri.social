@@ -433,7 +433,11 @@ const CommunityLayout: ParentComponent = (props) => {
 																<span class="font-medium leading-5">
 																	{item.display_name}
 																</span>
-																<Show when={item.status_text}>
+																<Show
+																	when={
+																		item.status_text && state() !== "offline"
+																	}
+																>
 																	<span class="text-sm w-full leading-5 flex flex-row items-center gap-2">
 																		<Show when={item.emoji}>
 																			<span

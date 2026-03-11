@@ -129,7 +129,7 @@ export const MemberProfilePopover: ParentComponent<{
 									}}
 								/>
 							</div>
-							<Show when={props.status}>
+							<Show when={props.status && state() !== "offline"}>
 								<span class="flex flex-row items-start gap-2 bg-card border border-border rounded-sm px-1.5 py-0.5 drop-shadow-black drop-shadow-sm max-w-48 overflow-hidden">
 									<Show when={props.emoji}>
 										<span
