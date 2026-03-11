@@ -15,6 +15,7 @@ import {
 import { Portal } from "solid-js/web";
 import type { Facet } from "@/utils/atproto/rich-text";
 import { cn } from "@/utils/cn";
+import { purify } from "@/utils/purify";
 import type { ChannelData } from "@/utils/sdk";
 import { useChannelContext } from "../../contexts/ChannelContext";
 import {
@@ -733,7 +734,7 @@ export const RichTextRenderer: Component<{
 						: undefined
 				}
 				contentEditable={props.editable}
-				innerHTML={renderedWithEmojis}
+				innerHTML={purify(renderedWithEmojis)}
 				classList={props.classList}
 				onKeyDown={handleKeyDown}
 				onInput={handleInput}

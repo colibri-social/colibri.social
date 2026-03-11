@@ -14,6 +14,7 @@ import {
 import { toast } from "somoto";
 import type { ColibriRichTextLink } from "@/utils/atproto/rich-text/detection";
 import { parseZodToErrorOrDisplay } from "@/utils/parse-zod-to-error-or-display";
+import { purify } from "@/utils/purify";
 import type {
 	CommunityData,
 	DBMessageData,
@@ -217,7 +218,7 @@ export const Message: Component<{
 
 		clearEditingMessage();
 
-		if (editedText().text.trim().length === 0) {
+		if (purify(editedText().text).trim().length === 0) {
 			setDeletionModalOpen(true);
 			return;
 		}

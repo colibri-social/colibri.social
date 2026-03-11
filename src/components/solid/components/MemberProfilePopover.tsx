@@ -1,5 +1,6 @@
 import twemoji from "@twemoji/api";
 import { createSignal, type ParentComponent, Show } from "solid-js";
+import { purify } from "@/utils/purify";
 import { useGlobalContext } from "../contexts/GlobalContext";
 import { Bluesky } from "../icons/Bluesky";
 import { PDSls } from "../icons/PDSls";
@@ -137,7 +138,13 @@ export const MemberProfilePopover: ParentComponent<{
 											innerHTML={twemoji.parse(props.emoji!)}
 										/>
 									</Show>
-									<span class="leading-5.5 wrap-break-word text-sm w-fit max-w-[calc(100%-22px)]">
+									<span
+										class="leading-5.5 wrap-break-word text-sm w-fit"
+										classList={{
+											"max-w-[calc(100%-22px)]": !!props.emoji,
+											"max-w-full": !props.emoji,
+										}}
+									>
 										{props.status}
 									</span>
 								</span>
@@ -192,7 +199,9 @@ export const MemberProfilePopover: ParentComponent<{
 							<hr class="w-full h-px border-none bg-border m-0" />
 							<p
 								class="prose prose-invert text-sm m-0 px-1"
-								innerHTML={detectLinksAndMentionsAndFormat(props.description!)}
+								innerHTML={purify(
+									detectLinksAndMentionsAndFormat(props.description!),
+								)}
 							/>
 						</Show>
 					</div>

@@ -14,6 +14,7 @@ import { toast } from "somoto";
 import type { PostMessageInput } from "@/actions/message/post";
 import { generateHash } from "@/utils/generate-hash";
 import { parseZodToErrorOrDisplay } from "@/utils/parse-zod-to-error-or-display";
+import { purify } from "@/utils/purify";
 import { useGlobalContext } from "../contexts/GlobalContext";
 import type { AttachmentObj, BlobObj } from "../contexts/GlobalContext/events";
 import { useMessageContext } from "../contexts/MessageContext";
@@ -148,6 +149,9 @@ export const MessageInput: Component<{
 		const trimmed = trimTextWithFacets(inputContent());
 		const files = props.files();
 		const hasFiles = (files?.acceptedFiles.length ?? 0) > 0;
+		const replyingMessage = messageData.replyingTo
+			? JSON.parse(JSON.stringify(messageData.replyingTo))
+			: undefined;
 		const _channel = channel();
 
 		if (trimmed.text.length === 0 && !hasFiles) {
@@ -168,13 +172,20 @@ export const MessageInput: Component<{
 		const attachments = await uploadFiles(files?.acceptedFiles ?? []);
 
 		const obj: PostMessageInput = {
-			text: trimmed.text,
+			text: purify(trimmed.text),
 			facets: trimmed.facets,
 			channel: _channel,
 			createdAt: new Date().toISOString(),
-			parent: messageData.replyingTo?.rkey,
+			parent: replyingMessage?.rkey,
 			attachments,
 		};
+
+		if (obj.text.trim().length === 0) {
+			toast.error("Failed to send message", {
+				description: "Unable to send empty message.",
+			});
+			return false;
+		}
 
 		const hash = await generateHash(stringify(obj)!);
 
@@ -182,14 +193,15 @@ export const MessageInput: Component<{
 			channel: obj.channel,
 			created_at: obj.createdAt,
 			hash,
-			text: trimmed.text,
+			text: purify(trimmed.text),
 			facets: trimmed.facets,
 			author_did: globalData.user.sub,
 			display_name: globalData.user.displayName!,
 			avatar_url: globalData.user.avatar!,
-			parent: messageData.replyingTo?.rkey,
-			parent_message: messageData.replyingTo || null,
+			parent: replyingMessage?.rkey,
+			parent_message: replyingMessage || null,
 			reactions: [],
+			state: "offline",
 		});
 
 		const { error } = await actions.postMessage(obj);
