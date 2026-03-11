@@ -22,6 +22,8 @@ import {
 	ChannelMentionPopup,
 	type ChannelMentionState,
 } from "./ChannelMentionPopup";
+import { EMOJI_DATA, searchEmoji } from "./emojiData";
+import { EmojiMentionPopup, type EmojiMentionState } from "./EmojiMentionPopup";
 import { handleToolbarFormat, toggleFormat } from "./formatToggle";
 import {
 	createHistoryState,
@@ -93,6 +95,8 @@ export const RichTextRenderer: Component<{
 	const channelCtx = useChannelContext();
 	const [channelMentionState, setChannelMentionState] =
 		createSignal<ChannelMentionState | null>(null);
+	const [emojiMentionState, setEmojiMentionState] =
+		createSignal<EmojiMentionState | null>(null);
 
 	const availableChannels = (): Array<ChannelData> => {
 		return channelCtx?.channels() ?? [];
@@ -244,6 +248,167 @@ export const RichTextRenderer: Component<{
 	 * Scans text before the cursor to find an active `#query` pattern.
 	 * Returns the query string and offsets if found, or null.
 	 */
+	/**
+	 * Detect whether the cursor is currently inside a `:query` emoji trigger.
+	 * Returns the query string and the char offset of the leading colon,
+	 * or null if the cursor is not in such a position.
+	 */
+	const detectEmojiTrigger = (): {
+		query: string;
+		colonCharOffset: number;
+	} | null => {
+		if (!pRef) return null;
+
+		const sel = document.getSelection();
+		if (!sel || sel.rangeCount === 0 || !sel.isCollapsed) return null;
+
+		const offsets = getSelectionByteOffsets(pRef, sel.getRangeAt(0));
+		if (!offsets) return null;
+
+		const currentText = props.text().text;
+		const textBeforeCursor = currentText.substring(0, offsets.charEnd);
+
+		// Find the last unmatched colon before the cursor.
+		const colonIndex = textBeforeCursor.lastIndexOf(":");
+		if (colonIndex === -1) return null;
+
+		// The colon must be preceded by a word boundary (start of text,
+		// whitespace, or newline) so we don't trigger inside URLs etc.
+		if (colonIndex > 0) {
+			const charBefore = textBeforeCursor[colonIndex - 1];
+			if (charBefore !== " " && charBefore !== "\n" && charBefore !== "\t") {
+				return null;
+			}
+		}
+
+		const query = textBeforeCursor.substring(colonIndex + 1);
+
+		// Query must not contain spaces or another colon (that would be a
+		// closed :name: sequence the user already finished typing).
+		if (/[\s:]/.test(query)) return null;
+
+		// Require at least one character typed after the colon so we don't
+		// pop up immediately on every standalone colon.
+		if (query.length === 0) return null;
+
+		return { query, colonCharOffset: colonIndex };
+	};
+
+	const updateEmojiMention = () => {
+		if (!props.editable) {
+			setEmojiMentionState(null);
+			return;
+		}
+
+		const trigger = detectEmojiTrigger();
+		if (!trigger) {
+			setEmojiMentionState(null);
+			return;
+		}
+
+		const caretPos = getCaretPixelPosition();
+		if (!caretPos) {
+			setEmojiMentionState(null);
+			return;
+		}
+
+		// Close channel popup when emoji popup becomes active.
+		setChannelMentionState(null);
+
+		setEmojiMentionState({
+			query: trigger.query,
+			top: caretPos.top,
+			left: caretPos.left,
+			colonCharOffset: trigger.colonCharOffset,
+		});
+	};
+
+	/**
+	 * Called when the user selects an emoji from the autocomplete popup.
+	 * Replaces the `:query` text with the raw Unicode emoji character.
+	 */
+	const handleEmojiSelect = (entry: { name: string; emoji: string }) => {
+		const state = emojiMentionState();
+		if (!state || !pRef || !props.setInputContent) return;
+
+		saveForUndo(history, () => props.text());
+
+		const current = props.text();
+		const currentText = current.text;
+
+		const sel = document.getSelection();
+		if (!sel || sel.rangeCount === 0) return;
+
+		const cursorOffsets = getSelectionByteOffsets(pRef, sel.getRangeAt(0));
+		if (!cursorOffsets) return;
+
+		// Replace from the colon up to (and including) the current cursor
+		// position with the emoji character followed by a space.
+		const beforeColon = currentText.substring(0, state.colonCharOffset);
+		const afterCursor = currentText.substring(cursorOffsets.charEnd);
+		const newText = `${beforeColon}${entry.emoji} ${afterCursor}`;
+
+		const colonByteOffset = textEncoder.encode(beforeColon).byteLength;
+		const emojiBytes = textEncoder.encode(entry.emoji).byteLength;
+		const spaceBytes = 1;
+		const replacedByteStart = colonByteOffset;
+		const replacedByteEnd = cursorOffsets.byteEnd;
+		const insertedBytes = emojiBytes + spaceBytes;
+		const byteShift = insertedBytes - (replacedByteEnd - replacedByteStart);
+
+		// Shift all facets that sit after the replaced range.
+		const newFacets = current.facets
+			.filter(
+				(f) =>
+					!(
+						f.index.byteStart >= replacedByteStart &&
+						f.index.byteEnd <= replacedByteEnd
+					),
+			)
+			.map((f) => {
+				if (f.index.byteEnd <= replacedByteStart) return f;
+				if (f.index.byteStart >= replacedByteEnd) {
+					return {
+						...f,
+						index: {
+							byteStart: f.index.byteStart + byteShift,
+							byteEnd: f.index.byteEnd + byteShift,
+						},
+					} as typeof f;
+				}
+				return f;
+			});
+
+		const newContent: TextWithFacets = { text: newText, facets: newFacets };
+
+		skipNextEffect = true;
+		props.setInputContent(newContent);
+
+		const newRendered = renderWithFacets(newContent, community());
+		pRef.innerHTML = twemoji.parse(newRendered);
+
+		// Place the caret after the inserted emoji + space.
+		const cursorCharOffset =
+			state.colonCharOffset + [...entry.emoji].length + 1; // +1 for space
+		const ref = pRef;
+		requestAnimationFrame(() => {
+			const pos = charOffsetToDomPosition(ref, cursorCharOffset);
+			if (pos) {
+				const domSel = document.getSelection();
+				if (domSel) {
+					domSel.collapse(pos.node, pos.offset);
+				}
+			}
+			ref.focus();
+		});
+
+		setEmojiMentionState(null);
+	};
+
+	const handleEmojiDismiss = () => {
+		setEmojiMentionState(null);
+	};
+
 	const detectChannelMentionTrigger = (): {
 		query: string;
 		hashCharOffset: number;
@@ -305,6 +470,9 @@ export const RichTextRenderer: Component<{
 			setChannelMentionState(null);
 			return;
 		}
+
+		// Close emoji popup when channel popup becomes active.
+		setEmojiMentionState(null);
 
 		setChannelMentionState({
 			query: trigger.query,
@@ -583,6 +751,102 @@ export const RichTextRenderer: Component<{
 		}
 
 		const parsed = parseDomToFacets(e.currentTarget);
+
+		// ── Colon-completion: :name: → emoji ─────────────────────────────
+		// If the character just typed was ":" and the text immediately before
+		// the cursor matches :[validName]:, substitute it now — before any
+		// further processing — so the emoji lands in plain text and twemoji
+		// can render it.
+		if (
+			cursorCharOffset !== null &&
+			props.setInputContent &&
+			pRef &&
+			parsed.text[cursorCharOffset - 1] === ":"
+		) {
+			const textBeforeCursor = parsed.text.substring(0, cursorCharOffset);
+			// Find the opening colon (must be word-boundary-preceded or at start)
+			const openColon = textBeforeCursor.lastIndexOf(":", cursorCharOffset - 2);
+			if (openColon !== -1) {
+				const isWordBoundary =
+					openColon === 0 ||
+					parsed.text[openColon - 1] === " " ||
+					parsed.text[openColon - 1] === "\n" ||
+					parsed.text[openColon - 1] === "\t";
+				if (isWordBoundary) {
+					const maybeName = parsed.text.substring(
+						openColon + 1,
+						cursorCharOffset - 1,
+					);
+					const emojiChar =
+						maybeName.length > 0 ? EMOJI_DATA[maybeName] : undefined;
+					if (emojiChar) {
+						// Perform substitution inline, identically to handleEmojiSelect.
+						const beforeColon = parsed.text.substring(0, openColon);
+						const afterCursor = parsed.text.substring(cursorCharOffset);
+						const newText = `${beforeColon}${emojiChar} ${afterCursor}`;
+
+						const colonByteOffset = textEncoder.encode(beforeColon).byteLength;
+						const emojiByteLen = textEncoder.encode(emojiChar).byteLength;
+						const replacedByteStart = colonByteOffset;
+						const replacedByteEnd = textEncoder.encode(
+							parsed.text.substring(0, cursorCharOffset),
+						).byteLength;
+						const insertedBytes = emojiByteLen + 1; // +1 space
+						const byteShift =
+							insertedBytes - (replacedByteEnd - replacedByteStart);
+
+						const newFacets = parsed.facets
+							.filter(
+								(f) =>
+									!(
+										f.index.byteStart >= replacedByteStart &&
+										f.index.byteEnd <= replacedByteEnd
+									),
+							)
+							.map((f) => {
+								if (f.index.byteEnd <= replacedByteStart) return f;
+								if (f.index.byteStart >= replacedByteEnd) {
+									return {
+										...f,
+										index: {
+											byteStart: f.index.byteStart + byteShift,
+											byteEnd: f.index.byteEnd + byteShift,
+										},
+									} as typeof f;
+								}
+								return f;
+							});
+
+						const newContent: TextWithFacets = {
+							text: newText,
+							facets: newFacets,
+						};
+						skipNextEffect = true;
+						props.setInputContent(newContent);
+
+						const newRendered = renderWithFacets(newContent, community());
+						pRef.innerHTML = twemoji.parse(newRendered);
+
+						const newCursorCharOffset = openColon + [...emojiChar].length + 1;
+						const ref = pRef;
+						requestAnimationFrame(() => {
+							const pos = charOffsetToDomPosition(ref, newCursorCharOffset);
+							if (pos) {
+								const domSel = document.getSelection();
+								if (domSel) domSel.collapse(pos.node, pos.offset);
+							}
+							ref.focus();
+						});
+
+						setEmojiMentionState(null);
+						history.lastCursorCharOffset = newCursorCharOffset;
+						return;
+					}
+				}
+			}
+		}
+		// ─────────────────────────────────────────────────────────────────
+
 		const stripped = stripAutoDetectedLinks(parsed);
 		let result = mergeWithDetectedFacets(stripped);
 
@@ -693,6 +957,7 @@ export const RichTextRenderer: Component<{
 
 		queueMicrotask(() => {
 			updateChannelMention();
+			updateEmojiMention();
 		});
 	};
 
@@ -759,6 +1024,16 @@ export const RichTextRenderer: Component<{
 						channels={availableChannels}
 						onSelect={handleChannelSelect}
 						onDismiss={handleChannelDismiss}
+					/>
+				</Portal>
+			</Show>
+			<Show when={props.editable && emojiMentionState() !== null}>
+				<Portal>
+					<EmojiMentionPopup
+						state={emojiMentionState}
+						results={() => searchEmoji(emojiMentionState()?.query ?? "")}
+						onSelect={handleEmojiSelect}
+						onDismiss={handleEmojiDismiss}
 					/>
 				</Portal>
 			</Show>

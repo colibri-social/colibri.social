@@ -38,7 +38,8 @@ your data lives - that's the whole point of the AT Protocol.
 
 We do! You can sign up with us via the Log-in Page or use a tool like
 [PDS MOOver](https://pdsmoover.com/) to migrate. Our PDS is also
-hosted at colibri.social.
+hosted at colibri.social. If you want to move to our PDS, send a message
+to [@colibri.social on Bluesky](https://bsky.app/profile/colibri.social).
 
 ## Where is my private data hosted?
 
