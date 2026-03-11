@@ -177,7 +177,7 @@ export const MemberProfilePopover: ParentComponent<{
 									<Tooltip open={pdslsTooltipVisible()}>
 										<TooltipTrigger>
 											<a
-												href={`https://bsky.app/profile/${props.handle}`}
+												href={`https://pdsls.dev/at://${props.handle}`}
 												target="_blank"
 												class="hover:text-[#76c4e5] flex flex-row items-center gap-1.5 text-sm text-card-foreground font-normal hover:underline"
 												onMouseEnter={() => setPdslsTooltipVisible(true)}
