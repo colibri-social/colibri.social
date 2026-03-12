@@ -39,6 +39,7 @@
 		"@thisbeyond/solid-dnd": "^0.7.5",
 		"@tiptap/core": "^3.20.1",
 		"@tiptap/extension-bold": "^3.20.1",
+		"@tiptap/extension-bubble-menu": "^3.20.1",
 		"@tiptap/extension-code": "^3.20.1",
 		"@tiptap/extension-document": "^3.20.1",
 		"@tiptap/extension-emoji": "^3.20.1",

@@ -1,6 +1,5 @@
 import { actions } from "astro:actions";
 import { type Details, useFileFieldContext } from "@kobalte/core/file-field";
-import { makePersisted } from "@solid-primitives/storage";
 import { useParams } from "@solidjs/router";
 import stringify from "json-stable-stringify";
 import {
@@ -12,6 +11,7 @@ import {
 } from "solid-js";
 import { toast } from "somoto";
 import type { PostMessageInput } from "@/actions/message/post";
+import type { Facet } from "@/utils/atproto/rich-text";
 import { generateHash } from "@/utils/generate-hash";
 import { parseZodToErrorOrDisplay } from "@/utils/parse-zod-to-error-or-display";
 import { purify } from "@/utils/purify";
@@ -29,11 +29,6 @@ import {
 	FileFieldItemSize,
 	FileFieldTrigger,
 } from "../shadcn-solid/file-field";
-import {
-	RichTextRenderer,
-	type TextWithFacets,
-	trimTextWithFacets,
-} from "./RichTextRenderer";
 import { TextEditor } from "./TextEditor/TextEditor";
 
 const uploadWithProgress = (
@@ -110,12 +105,6 @@ export const MessageInput: Component<{
 	>([]);
 
 	let inputEl!: HTMLDivElement;
-	const [inputContent, setInputContent] = makePersisted(
-		createSignal<TextWithFacets>({ text: "", facets: [] }),
-		{
-			name: `${params.channel}-input`,
-		},
-	);
 
 	/**
 	 * Uploads files and collects progress while we're at it.
@@ -146,8 +135,10 @@ export const MessageInput: Component<{
 	/**
 	 * Sends the message currently contained in the input.
 	 */
-	const sendMessage = async (): Promise<boolean> => {
-		const trimmed = trimTextWithFacets(inputContent());
+	const sendMessage = async (
+		text: string,
+		facets: Array<Facet>,
+	): Promise<boolean> => {
 		const files = props.files();
 		const hasFiles = (files?.acceptedFiles.length ?? 0) > 0;
 		const replyingMessage = messageData.replyingTo
@@ -155,14 +146,9 @@ export const MessageInput: Component<{
 			: undefined;
 		const _channel = channel();
 
-		if (trimmed.text.length === 0 && !hasFiles) {
+		if (text.length === 0 && !hasFiles) {
 			return false;
 		}
-
-		setInputContent({
-			text: "",
-			facets: [],
-		});
 
 		clearReplyingTo();
 
@@ -173,8 +159,8 @@ export const MessageInput: Component<{
 		const attachments = await uploadFiles(files?.acceptedFiles ?? []);
 
 		const obj: PostMessageInput = {
-			text: purify(trimmed.text),
-			facets: trimmed.facets,
+			text: purify(text),
+			facets: facets,
 			channel: _channel,
 			createdAt: new Date().toISOString(),
 			parent: replyingMessage?.rkey,
@@ -194,8 +180,8 @@ export const MessageInput: Component<{
 			channel: obj.channel,
 			created_at: obj.createdAt,
 			hash,
-			text: purify(trimmed.text),
-			facets: trimmed.facets,
+			text: purify(text),
+			facets: facets,
 			author_did: globalData.user.sub,
 			display_name: globalData.user.displayName!,
 			avatar_url: globalData.user.avatar!,
@@ -217,6 +203,7 @@ export const MessageInput: Component<{
 			return false;
 		}
 
+		// return true;
 		return true;
 	};
 
@@ -281,12 +268,6 @@ export const MessageInput: Component<{
 				<div
 					ref={inputEl}
 					class="w-[calc(100%-3.5rem)] max-w-[calc(100%-3.5rem)]"
-					onKeyDown={(e) => {
-						if (e.key === "Enter" && !e.shiftKey) {
-							e.preventDefault();
-							sendMessage();
-						}
-					}}
 					onPaste={(e) => {
 						if ((e.clipboardData?.files.length || 0) > 0) {
 							e.preventDefault();
@@ -300,18 +281,9 @@ export const MessageInput: Component<{
 					<div class="w-full">
 						<TextEditor
 							placeholder={`Message ${props.channelName}`}
-							members={[]}
-							channels={[{ name: "Test", rkey: "--temp--" }]}
+							sendMessage={sendMessage}
 						/>
 					</div>
-					{/*<RichTextRenderer
-						class="w-full min-h-10 px-3 py-2 border border-neutral-700 rounded-lg outline-0 focus-within:border-neutral-400 h-fit max-h-40"
-						text={inputContent}
-						setInputContent={setInputContent}
-						editable={true}
-						placeholder={`Message ${props.channelName}`}
-						id="chat-input"
-					/>*/}
 				</div>
 			</div>
 		</div>

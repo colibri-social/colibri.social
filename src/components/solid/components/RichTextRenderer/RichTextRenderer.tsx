@@ -22,8 +22,8 @@ import {
 	ChannelMentionPopup,
 	type ChannelMentionState,
 } from "./ChannelMentionPopup";
-import { EMOJI_DATA, searchEmoji } from "./emojiData";
 import { EmojiMentionPopup, type EmojiMentionState } from "./EmojiMentionPopup";
+import { EMOJI_DATA, searchEmoji } from "./emojiData";
 import { handleToolbarFormat, toggleFormat } from "./formatToggle";
 import {
 	createHistoryState,

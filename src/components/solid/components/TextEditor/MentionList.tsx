@@ -1,17 +1,17 @@
 import {
-	createEffect,
-	createSignal,
-	For,
-	onMount,
-	Show,
+	type Accessor,
 	type Component,
+	createEffect,
+	For,
+	type Setter,
+	Show,
 } from "solid-js";
-import type { ChannelItem, SuggestionItem } from "./MentionPopupRenderer";
-import type { MemberData } from "../../layouts/CommunityLayout";
+import type { ChannelData } from "@/utils/sdk";
 import { ChatCircleDots } from "../../icons/ChatCircleDots";
-import "./MentionList.css";
+import type { MemberData } from "../../layouts/CommunityLayout";
+import type { SuggestionItem, selectItem } from "./MentionPopupRenderer";
 
-function isMember(item: SuggestionItem): item is MemberData {
+export function isMember(item: SuggestionItem): item is MemberData {
 	return "member_did" in item;
 }
 
@@ -19,48 +19,22 @@ export const MentionList: Component<{
 	items: SuggestionItem[];
 	char: "@" | "#";
 	command: (item: SuggestionItem) => void;
+	selectItem: typeof selectItem;
+	selectedIndex: Accessor<number>;
+	setSelectedIndex: Setter<number>;
 }> = (props) => {
-	const [selectedIndex, setSelectedIndex] = createSignal(0);
-
 	// Reset selection when items change
 	createEffect(() => {
 		props.items; // track
-		setSelectedIndex(0);
-	});
-
-	function selectItem(index: number) {
-		const item = props.items[index];
-		if (item) props.command(item);
-	}
-
-	function upHandler() {
-		setSelectedIndex((i) => (i + props.items.length - 1) % props.items.length);
-	}
-
-	function downHandler() {
-		setSelectedIndex((i) => (i + 1) % props.items.length);
-	}
-
-	function enterHandler() {
-		selectItem(selectedIndex());
-	}
-
-	let listRef!: HTMLDivElement;
-
-	onMount(() => {
-		(listRef as any).__mentionHandlers = {
-			upHandler,
-			downHandler,
-			enterHandler,
-		};
+		props.setSelectedIndex(0);
 	});
 
 	return (
-		<div class="mention-popup" ref={listRef}>
+		<div class="flex flex-col border border-border bg-card rounded-md drop-shadow-black drop-shadow-sm overflow-hidden">
 			<Show
 				when={props.items.length > 0}
 				fallback={
-					<div class="mention-popup-empty">
+					<div class="text-muted-foreground mx-2">
 						No {props.char === "@" ? "members" : "channels"} found
 					</div>
 				}
@@ -68,28 +42,31 @@ export const MentionList: Component<{
 				<For each={props.items}>
 					{(item, index) => (
 						<button
-							class={`mention-popup-item${index() === selectedIndex() ? " selected" : ""}`}
-							onClick={() => selectItem(index())}
-							onMouseEnter={() => setSelectedIndex(index())}
+							class={`flex flex-row gap-1.5 items-center px-2 py-1`}
+							classList={{
+								"bg-muted": index() === props.selectedIndex(),
+							}}
+							onClick={() =>
+								props.selectItem(props.items, props.command, index())
+							}
+							onMouseEnter={() => props.setSelectedIndex(index())}
 							type="button"
 						>
 							<Show
 								when={isMember(item)}
 								fallback={
 									<>
-										<span class="mention-popup-channel-icon">
-											<ChatCircleDots size={14} />
+										<span>
+											<ChatCircleDots size={20} />
 										</span>
-										<span class="mention-popup-name">
-											{(item as ChannelItem).name}
-										</span>
+										<span>{(item as ChannelData).name}</span>
 									</>
 								}
 							>
 								{/* Member row */}
-								<span class="mention-popup-avatar-wrap">
+								<span class="relative">
 									<img
-										class="mention-popup-avatar"
+										class="w-6 h-6 rounded-full"
 										src={(item as MemberData).avatar_url}
 										alt={(item as MemberData).display_name}
 										onError={(e) => {
@@ -97,19 +74,21 @@ export const MentionList: Component<{
 												`/user-placeholder.png`;
 										}}
 									/>
-									<Show when={(item as MemberData).state === "online"}>
-										<span class="mention-popup-online-dot" />
-									</Show>
+									<span
+										class="absolute bottom-1 right-1 rounded-full"
+										classList={{
+											"bg-green-500": (item as MemberData).state === "online",
+											"bg-yellow-500": (item as MemberData).state === "away",
+											"bg-red-500": (item as MemberData).state === "dnd",
+											"bg-neutral-500":
+												(item as MemberData).state === "offline",
+										}}
+									/>
 								</span>
-								<span class="mention-popup-member-info">
+								<span class="flex flex-col items-start">
 									<span class="mention-popup-name">
 										{(item as MemberData).display_name}
 									</span>
-									<Show when={(item as MemberData).handle}>
-										<span class="mention-popup-handle">
-											@{(item as MemberData).handle}
-										</span>
-									</Show>
 								</span>
 							</Show>
 						</button>

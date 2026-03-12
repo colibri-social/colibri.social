@@ -1,22 +1,56 @@
-import { render } from "solid-js/web";
 import type {
-	SuggestionProps,
 	SuggestionKeyDownProps,
+	SuggestionProps,
 } from "@tiptap/suggestion";
+import { createSignal } from "solid-js";
+import { render } from "solid-js/web";
+import type { ChannelData } from "@/utils/sdk";
 import type { MemberData } from "../../layouts/CommunityLayout";
-import { MentionList } from "./MentionList";
+import { isMember, MentionList } from "./MentionList";
 
-export type ChannelItem = { name: string; rkey: string };
-export type SuggestionItem = MemberData | ChannelItem;
+export type SuggestionItem = MemberData | ChannelData;
+
+type Command = (item: SuggestionItem) => void;
+
+export function selectItem(
+	items: SuggestionItem[],
+	command: Command,
+	index: number,
+) {
+	const item = items[index];
+	if (!item) return;
+
+	if (isMember(item)) {
+		command({
+			id: item.member_did,
+			label: item.display_name,
+			handle: item.handle,
+			avatar: item.avatar_url,
+			type: "member",
+		} as any);
+	} else {
+		command({
+			id: item.rkey,
+			label: item.name,
+			type: "channel",
+		} as any);
+	}
+}
 
 export const createMentionRenderer = (char: "@" | "#") => {
 	return () => {
+		const [selectedIndex, setSelectedIndex] = createSignal(0);
+
 		let container: HTMLDivElement | null = null;
 		let dispose: (() => void) | null = null;
-		let listRef: HTMLDivElement | null = null;
+		let currentItems: SuggestionItem[] = [];
+		let currentCommand: Command | null = null;
 
 		return {
 			onStart(props: SuggestionProps) {
+				currentItems = props.items;
+				currentCommand = props.command;
+
 				container = document.createElement("div");
 				container.style.cssText =
 					"position: absolute; z-index: 9999; pointer-events: auto;";
@@ -35,12 +69,12 @@ export const createMentionRenderer = (char: "@" | "#") => {
 				dispose = render(
 					() => (
 						<MentionList
-							ref={(el: HTMLDivElement) => {
-								listRef = el;
-							}}
 							items={props.items as SuggestionItem[]}
 							char={char}
 							command={props.command}
+							selectItem={selectItem}
+							selectedIndex={selectedIndex}
+							setSelectedIndex={setSelectedIndex}
 						/>
 					),
 					container,
@@ -50,11 +84,15 @@ export const createMentionRenderer = (char: "@" | "#") => {
 			onUpdate(props: SuggestionProps) {
 				if (!container) return;
 
+				currentItems = props.items;
+				currentCommand = props.command;
+
 				if (props.clientRect) {
 					const rect = props.clientRect();
 					if (rect) {
 						container.style.left = `${rect.left + window.scrollX}px`;
-						container.style.top = `${rect.bottom + window.scrollY + 4}px`;
+						container.style.top = `${rect.top + window.scrollY}px`;
+						container.style.transform = "translateY(calc(-100% - 4px))";
 					}
 				}
 
@@ -63,12 +101,12 @@ export const createMentionRenderer = (char: "@" | "#") => {
 				dispose = render(
 					() => (
 						<MentionList
-							ref={(el: HTMLDivElement) => {
-								listRef = el;
-							}}
 							items={props.items as SuggestionItem[]}
 							char={char}
 							command={props.command}
+							selectItem={selectItem}
+							selectedIndex={selectedIndex}
+							setSelectedIndex={setSelectedIndex}
 						/>
 					),
 					container,
@@ -76,20 +114,20 @@ export const createMentionRenderer = (char: "@" | "#") => {
 			},
 
 			onKeyDown(props: SuggestionKeyDownProps): boolean {
-				if (!listRef) return false;
-				const handlers = (listRef as any).__mentionHandlers;
-				if (!handlers) return false;
+				if (!currentCommand || !currentItems) return false;
 
 				if (props.event.key === "ArrowUp") {
-					handlers.upHandler();
+					setSelectedIndex(
+						(i) => (i + currentItems.length - 1) % currentItems.length,
+					);
 					return true;
 				}
 				if (props.event.key === "ArrowDown") {
-					handlers.downHandler();
+					setSelectedIndex((i) => (i + 1) % currentItems.length);
 					return true;
 				}
 				if (props.event.key === "Enter") {
-					handlers.enterHandler();
+					selectItem(currentItems, currentCommand, selectedIndex());
 					return true;
 				}
 				return false;
@@ -104,7 +142,6 @@ export const createMentionRenderer = (char: "@" | "#") => {
 					container.remove();
 					container = null;
 				}
-				listRef = null;
 			},
 		};
 	};

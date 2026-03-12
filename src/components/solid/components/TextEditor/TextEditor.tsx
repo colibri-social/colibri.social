@@ -1,26 +1,37 @@
-import { createEffect, createSignal, type Component } from "solid-js";
-import { createEditorTransaction, createTiptapEditor } from "solid-tiptap";
-import { Document } from "@tiptap/extension-document";
-import { Text } from "@tiptap/extension-text";
-import { Link } from "@tiptap/extension-link";
-import { Paragraph } from "@tiptap/extension-paragraph";
-import { HardBreak } from "@tiptap/extension-hard-break";
 import { Bold } from "@tiptap/extension-bold";
 import { Code } from "@tiptap/extension-code";
+import { Document } from "@tiptap/extension-document";
+import { HardBreak } from "@tiptap/extension-hard-break";
 import { Italic } from "@tiptap/extension-italic";
-import { Underline } from "@tiptap/extension-underline";
-import { Strike } from "@tiptap/extension-strike";
-import { CharacterCount, UndoRedo, Placeholder } from "@tiptap/extensions";
+import { Link } from "@tiptap/extension-link";
 import { Mention } from "@tiptap/extension-mention";
+import { Paragraph } from "@tiptap/extension-paragraph";
+import { Strike } from "@tiptap/extension-strike";
+import { Text } from "@tiptap/extension-text";
+import { BubbleMenu } from "@tiptap/extension-bubble-menu";
+import { Bold as BoldIcon } from "../../icons/Bold";
+import { Underline as UnderlineIcon } from "../../icons/Underline";
+import { Strikethrough as StrikethroughIcon } from "../../icons/Strikethrough";
+import { Italic as ItalicIcon } from "../../icons/Italic";
+import { Code as CodeIcon } from "../../icons/Code";
+
+import { Underline } from "@tiptap/extension-underline";
+import { CharacterCount, Placeholder, UndoRedo } from "@tiptap/extensions";
+import { type Component, createEffect, createSignal } from "solid-js";
+import { createEditorTransaction, createTiptapEditor } from "solid-tiptap";
 import "./TextEditor.css";
+import { mergeAttributes } from "@tiptap/core";
+import type { Facet } from "@/utils/atproto/rich-text";
+import { useChannelContext } from "../../contexts/ChannelContext";
+import { useCommunityContext } from "../../contexts/CommunityContext";
 import {
 	Tooltip,
 	TooltipContent,
 	TooltipPortal,
 	TooltipTrigger,
 } from "../../shadcn-solid/Tooltip";
-import type { MemberData } from "../../layouts/CommunityLayout";
 import { buildSuggestions } from "./build-suggestions";
+import { prosemirrorToFacets } from "./prosemirror-to-facets";
 
 const CHARACTER_LIMIT = 2048;
 const CIRCUMFERENCE = 2 * Math.PI * 8;
@@ -39,19 +50,35 @@ const isElInViewport = (el: Element | undefined) => {
 	);
 };
 
+type BubbleMenuMark = "bold" | "strike" | "underline" | "code" | "italic";
+
 export const TextEditor: Component<{
 	placeholder: string;
-	members: Array<MemberData>;
-	channels: Array<{ name: string; rkey: string }>;
+	sendMessage: (text: string, facets: Array<Facet>) => Promise<boolean>;
 }> = (props) => {
 	let ref!: HTMLDivElement;
 
+	const communityContext = useCommunityContext();
+	const channelContext = useChannelContext();
+
+	const [activeMarks, setActiveMarks] = createSignal<Array<BubbleMenuMark>>([]);
 	const [placeholder, setPlaceholder] = createSignal(props.placeholder);
 
 	const editor = createTiptapEditor(() => ({
 		element: ref!,
 		extensions: [
-			Document,
+			Document.extend({
+				addKeyboardShortcuts() {
+					return {
+						Enter: () => {
+							const text = prosemirrorToFacets(this.editor.getJSON());
+							props.sendMessage(text.text, text.facets);
+							this.editor.commands.clearContent();
+							return true;
+						},
+					};
+				},
+			}),
 			Text,
 			Paragraph,
 			HardBreak.configure({
@@ -61,19 +88,71 @@ export const TextEditor: Component<{
 			Code,
 			Italic,
 			Underline,
-			Strike,
+			Strike.extend({
+				addKeyboardShortcuts() {
+					return {
+						"Mod-s": () => this.editor.commands.toggleStrike(),
+					};
+				},
+			}),
 			CharacterCount.configure({
 				limit: CHARACTER_LIMIT,
 			}),
 			UndoRedo,
 			Mention.configure({
-				renderHTML(params) {
+				HTMLAttributes: { "data-type": "mention" },
+				suggestions: buildSuggestions(
+					communityContext?.members() ?? [],
+					channelContext?.channels() ?? [],
+				),
+			}).extend({
+				addAttributes() {
+					return {
+						id: { default: null },
+						label: { default: null },
+						handle: { default: null },
+						avatar: { default: null },
+						type: { default: "member" },
+					};
+				},
+				renderHTML({ node, HTMLAttributes }) {
+					const { type, label, id, handle } = node.attrs;
+
 					return [
-						"div",
-						`${params.options.suggestion.char}${params.node.attrs.label}`,
+						"span",
+						mergeAttributes(HTMLAttributes, {
+							"data-mention-type": type,
+							"data-id": id,
+							class: ` px-1 rounded-xs ${type === "member" ? "bg-primary/25" : "bg-blue-400/25"}`,
+						}),
+						type === "channel" ? `#${label}` : `@${label ?? handle}`,
 					];
 				},
-				suggestions: buildSuggestions(props.members, props.channels),
+			}),
+			BubbleMenu.configure({
+				element: document.querySelector<HTMLElement>(".bubble-menu"),
+				shouldShow: (params) => {
+					if (params.state.selection.$from === params.state.selection.$to)
+						return false;
+
+					const isBold = params.editor.isActive("bold");
+					const isItalic = params.editor.isActive("italic");
+					const isUnderline = params.editor.isActive("underline");
+					const isStrikethrough = params.editor.isActive("strike");
+					const isCode = params.editor.isActive("code");
+
+					setActiveMarks(
+						[
+							isBold && "bold",
+							isItalic && "italic",
+							isUnderline && "underline",
+							isStrikethrough && "strike",
+							isCode && "code",
+						].filter((x) => typeof x === "string") as Array<BubbleMenuMark>,
+					);
+
+					return true;
+				},
 			}),
 			Link.configure({
 				defaultProtocol: "https",
@@ -118,10 +197,60 @@ export const TextEditor: Component<{
 		setPlaceholder(placeholder);
 	});
 
-	createEffect(() => console.log(characterPercentage()));
-
 	return (
 		<div class="relative w-full flex flex-row border border-border rounded-md focus-within:border-neutral-500 gap-2 pr-2 items-start">
+			<div class="bubble-menu bg-card border border-border overflow-hidden absolute opacity-0  flex flex-row items-center rounded-sm drop-shadow-black drop-shadow-sm">
+				<button
+					type="button"
+					class="flex items-center justify-center w-8 h-8 hover:bg-muted cursor-pointer"
+					classList={{
+						"bg-muted": activeMarks().some((x) => x === "bold"),
+					}}
+					onClick={() => editor()?.commands.toggleBold()}
+				>
+					<BoldIcon />
+				</button>
+				<button
+					type="button"
+					class="flex items-center justify-center w-8 h-8 hover:bg-muted cursor-pointer"
+					classList={{
+						"bg-muted": activeMarks().some((x) => x === "italic"),
+					}}
+					onClick={() => editor()?.commands.toggleItalic()}
+				>
+					<ItalicIcon />
+				</button>
+				<button
+					type="button"
+					class="flex items-center justify-center w-8 h-8 hover:bg-muted cursor-pointer"
+					classList={{
+						"bg-muted": activeMarks().some((x) => x === "underline"),
+					}}
+					onClick={() => editor()?.commands.toggleUnderline()}
+				>
+					<UnderlineIcon />
+				</button>
+				<button
+					type="button"
+					class="flex items-center justify-center w-8 h-8 hover:bg-muted cursor-pointer"
+					classList={{
+						"bg-muted": activeMarks().some((x) => x === "strike"),
+					}}
+					onClick={() => editor()?.commands.toggleStrike()}
+				>
+					<StrikethroughIcon />
+				</button>
+				<button
+					type="button"
+					class="flex items-center justify-center w-8 h-8 hover:bg-muted cursor-pointer"
+					classList={{
+						"bg-muted": activeMarks().some((x) => x === "code"),
+					}}
+					onClick={() => editor()?.commands.toggleCode()}
+				>
+					<CodeIcon />
+				</button>
+			</div>
 			<div
 				ref={ref}
 				id="editor"
@@ -131,7 +260,6 @@ export const TextEditor: Component<{
 						e.stopImmediatePropagation();
 						e.stopPropagation();
 						e.preventDefault();
-						editor()?.commands.toggleStrike();
 					}
 				}}
 			/>

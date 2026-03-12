@@ -1,11 +1,12 @@
 import type { MentionNodeAttrs } from "@tiptap/extension-mention";
-import type { MemberData } from "../../layouts/CommunityLayout";
 import type { SuggestionOptions } from "@tiptap/suggestion";
+import type { ChannelData } from "@/utils/sdk";
+import type { MemberData } from "../../layouts/CommunityLayout";
 import { createMentionRenderer } from "./MentionPopupRenderer";
 
 export const buildSuggestions = (
 	members: Array<MemberData>,
-	channels: Array<{ name: string; rkey: string }>,
+	channels: Array<ChannelData>,
 ): Omit<SuggestionOptions<any, MentionNodeAttrs>, "editor">[] => {
 	return [
 		{

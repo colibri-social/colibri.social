@@ -4,6 +4,7 @@
 
 #editor .tiptap.ProseMirror p {
 	margin: 0rem;
+	width: fit-content;
 }
 
 #editor .tiptap.ProseMirror p:last-of-type {
@@ -15,7 +16,7 @@
 	max-height: calc(10rem - 2px);
 	overflow: auto;
 	min-height: calc(2.5rem - 2px);
-	padding: 0.25rem 1.75rem 0.25rem 0.5rem;
+	padding: 0.25rem 0.25rem 0.25rem 0.5rem;
 	color: var(--color-foreground);
 }
 
@@ -25,4 +26,13 @@
 	color: #adb5bd;
 	pointer-events: none;
 	height: 0;
+}
+
+#editor .tiptap.ProseMirror a {
+	color: var(--primary-hover);
+	text-decoration-color: var(--primary-hover);
+}
+
+#editor .tiptap.ProseMirror a:hover {
+	text-decoration: underline;
 }

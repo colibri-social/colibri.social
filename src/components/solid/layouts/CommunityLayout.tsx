@@ -28,6 +28,7 @@ import { MemberProfilePopover } from "../components/MemberProfilePopover";
 import { MessageInput } from "../components/MessageInput";
 import { UserStatus } from "../components/UserStatus";
 import { ChannelContextProvider } from "../contexts/ChannelContext";
+import { CommunityContextProvider } from "../contexts/CommunityContext";
 import type { UserOnlineState } from "../contexts/GlobalContext/events";
 import { useGlobalContext } from "../contexts/GlobalContext/index";
 import { MessageContextProvider } from "../contexts/MessageContext";
@@ -264,205 +265,209 @@ const CommunityLayout: ParentComponent = (props) => {
 
 	return (
 		<MessageContextProvider>
-			<ChannelContextProvider channels={channels} community={communityRkey}>
-				<div class="bg-background w-full h-full rounded-tl-xl border-t border-l border-border flex relative overflow-hidden">
-					<Switch>
-						<Match when={sidebarData()}>
-							<aside class="h-full min-w-72 w-72 border-r border-border flex flex-col">
-								<div class="w-full border-b border-border flex flex-col justify-center p-4">
-									<h2 class="m-0 text-xl">{community()?.name}</h2>
-									<div class="flex flex-row items-center gap-2 test-sm">
-										<Suspense
-											fallback={
-												<small class="text-muted-foreground animate-pulse">
-													Loading members...
-												</small>
-											}
-										>
-											<small>
-												{combinedMemberList()?.length ?? "???"} Member
-												{combinedMemberList()?.length === 1 ? "" : "s"}
-											</small>
-										</Suspense>
-										<Show
-											when={community()?.owner_did === globalContext.user.sub}
-										>
-											<div class="w-1 h-1 bg-muted-foreground rounded-full" />
-											<CommunitySettingsModal>
-												<small class="cursor-pointer hover:underline">
-													Settings
-												</small>
-											</CommunitySettingsModal>
-										</Show>
-										<Show
-											when={community()?.owner_did === globalContext.user.sub}
-										>
-											<div class="w-1 h-1 bg-muted-foreground rounded-full" />
-											<InviteLinkCreationModal community={community()!.rkey}>
-												<small class="cursor-pointer hover:underline">
-													Invite Link
-												</small>
-											</InviteLinkCreationModal>
-										</Show>
-										<Show
-											when={community()?.owner_did !== globalContext.user.sub}
-										>
-											<div class="w-1 h-1 bg-muted-foreground rounded-full" />
-											<LeaveCommunityModal
-												ownerDID={community()!.owner_did}
-												community={community()!.rkey}
+			<CommunityContextProvider members={membersWithOptimisticUpdates}>
+				<ChannelContextProvider channels={channels} community={communityRkey}>
+					<div class="bg-background w-full h-full rounded-tl-xl border-t border-l border-border flex relative overflow-hidden">
+						<Switch>
+							<Match when={sidebarData()}>
+								<aside class="h-full min-w-72 w-72 border-r border-border flex flex-col">
+									<div class="w-full border-b border-border flex flex-col justify-center p-4">
+										<h2 class="m-0 text-xl">{community()?.name}</h2>
+										<div class="flex flex-row items-center gap-2 test-sm">
+											<Suspense
+												fallback={
+													<small class="text-muted-foreground animate-pulse">
+														Loading members...
+													</small>
+												}
 											>
-												<small class="cursor-pointer hover:underline">
-													Leave Community
+												<small>
+													{combinedMemberList()?.length ?? "???"} Member
+													{combinedMemberList()?.length === 1 ? "" : "s"}
 												</small>
-											</LeaveCommunityModal>
-										</Show>
-									</div>
-								</div>
-
-								<ChannelList
-									data={sidebarData()!}
-									community={params.community!}
-									categoryOrder={community()!.category_order}
-								/>
-
-								<UserStatus />
-							</aside>
-							<div
-								class="w-full h-full flex flex-col max-h-[calc(100vh-41px)]"
-								classList={{
-									"max-w-[calc(100vw-576px-56px-1px)]":
-										!displayMembersAsSheet() &&
-										globalContext.uiStates.membersListVisible,
-									"max-w-[calc(100vw-288px-56px-1px)]":
-										displayMembersAsSheet() ||
-										!globalContext.uiStates.membersListVisible,
-								}}
-							>
-								<FileField
-									class="gap-0!"
-									multiple
-									onFileReject={(data) =>
-										toast.error(`Failed to add file.`, {
-											description: data
-												.map((x) => x.errors.map((y) => y).join(", "))
-												.join(", "),
-										})
-									}
-									onFileChange={setFiles}
-								>
-									<FileFieldDropzone class="border-none gap-0!">
-										<div
-											class="contents"
-											onClick={(e) => e.stopPropagation()}
-											onKeyDown={(e) => e.stopPropagation()}
-										>
-											<div class="w-full flex-1 min-h-0">{props.children}</div>
-											<Show when={!!params.channel}>
-												<MessageInput
-													channelName={
-														channels().find((x) => x.rkey === params.channel)!
-															.name
-													}
-													files={files}
-												/>
+											</Suspense>
+											<Show
+												when={community()?.owner_did === globalContext.user.sub}
+											>
+												<div class="w-1 h-1 bg-muted-foreground rounded-full" />
+												<CommunitySettingsModal>
+													<small class="cursor-pointer hover:underline">
+														Settings
+													</small>
+												</CommunitySettingsModal>
+											</Show>
+											<Show
+												when={community()?.owner_did === globalContext.user.sub}
+											>
+												<div class="w-1 h-1 bg-muted-foreground rounded-full" />
+												<InviteLinkCreationModal community={community()!.rkey}>
+													<small class="cursor-pointer hover:underline">
+														Invite Link
+													</small>
+												</InviteLinkCreationModal>
+											</Show>
+											<Show
+												when={community()?.owner_did !== globalContext.user.sub}
+											>
+												<div class="w-1 h-1 bg-muted-foreground rounded-full" />
+												<LeaveCommunityModal
+													ownerDID={community()!.owner_did}
+													community={community()!.rkey}
+												>
+													<small class="cursor-pointer hover:underline">
+														Leave Community
+													</small>
+												</LeaveCommunityModal>
 											</Show>
 										</div>
-									</FileFieldDropzone>
-									<FileFieldHiddenInput ref={hiddenInput} />
-								</FileField>
-							</div>
-							<div
-								class="min-w-72 flex w-72 h-full flex-col p-4 border-l gap-3 border-border overflow-y-auto bg-background"
-								classList={{
-									"absolute top-0 right-0 h-full drop-shadow-black drop-shadow-2xl":
-										displayMembersAsSheet(),
-									hidden: !globalContext.uiStates.membersListVisible,
-								}}
-							>
-								<span>Members</span>
-								<div class="flex flex-col w-full h-full gap-1">
-									<Suspense fallback={<MemberListSkeleton />}>
-										<For each={membersWithOptimisticUpdates() ?? []}>
-											{(item) => {
-												ensureUserStateCached(
-													item.member_did,
-													item.state || "offline",
-													globalContext,
-													updateUserOnlineState,
-												);
+									</div>
 
-												const state = () =>
-													globalContext.userOnlineStates.find(
-														(x) => x.did === item.member_did,
-													)?.state || "offline";
+									<ChannelList
+										data={sidebarData()!}
+										community={params.community!}
+										categoryOrder={community()!.category_order}
+									/>
 
-												return (
-													<MemberProfilePopover
-														banner={item.banner_url}
-														avatar={item.avatar_url}
-														description={item.description}
-														displayName={item.display_name}
-														emoji={item.emoji}
-														handle={item.handle}
-														status={item.status_text}
-														did={item.member_did}
-													>
-														<div class="flex flex-row gap-2 rounded-sm px-2 py-1 hover:bg-card items-center cursor-pointer h-12 flex-1">
-															<div class="relative w-9 h-9">
-																<img
-																	src={
-																		item.avatar_url || "/user-placeholder.png"
-																	}
-																	alt={item.display_name}
-																	width={36}
-																	height={36}
-																	class="rounded-full w-9 h-9"
-																/>
-																<div
-																	class="w-2 h-2 rounded-full absolute bottom-px right-px outline-2 outline-background"
-																	classList={{
-																		"bg-green-500": state() === "online",
-																		"bg-yellow-500": state() === "away",
-																		"bg-red-500": state() === "dnd",
-																		"bg-neutral-500": state() === "offline",
-																	}}
-																/>
-															</div>
-															<div class="flex flex-col w-[calc(100%-36px-8px)]">
-																<span class="font-medium leading-5">
-																	{item.display_name}
-																</span>
-																<Show
-																	when={
-																		item.status_text && state() !== "offline"
-																	}
-																>
-																	<span class="text-sm w-full leading-5 flex flex-row items-center gap-2">
-																		<Show when={item.emoji}>
-																			<span
-																				class="[&>img]:min-w-4 [&>img]:min-h-4 [&>img]:w-4 [&>img]:h-4 [&>img]inline"
-																				innerHTML={twemoji.parse(item.emoji!)}
-																			/>
-																		</Show>
-																		<span class="w-full overflow-hidden text-ellipsis whitespace-nowrap">
-																			{item.status_text}
-																		</span>
-																	</span>
-																</Show>
-															</div>
-														</div>
-													</MemberProfilePopover>
-												);
-											}}
-										</For>
-									</Suspense>
+									<UserStatus />
+								</aside>
+								<div
+									class="w-full h-full flex flex-col max-h-[calc(100vh-41px)]"
+									classList={{
+										"max-w-[calc(100vw-576px-56px-1px)]":
+											!displayMembersAsSheet() &&
+											globalContext.uiStates.membersListVisible,
+										"max-w-[calc(100vw-288px-56px-1px)]":
+											displayMembersAsSheet() ||
+											!globalContext.uiStates.membersListVisible,
+									}}
+								>
+									<FileField
+										class="gap-0!"
+										multiple
+										onFileReject={(data) =>
+											toast.error(`Failed to add file.`, {
+												description: data
+													.map((x) => x.errors.map((y) => y).join(", "))
+													.join(", "),
+											})
+										}
+										onFileChange={setFiles}
+									>
+										<FileFieldDropzone class="border-none gap-0!">
+											<div
+												class="contents"
+												onClick={(e) => e.stopPropagation()}
+												onKeyDown={(e) => e.stopPropagation()}
+											>
+												<div class="w-full flex-1 min-h-0">
+													{props.children}
+												</div>
+												<Show when={!!params.channel}>
+													<MessageInput
+														channelName={
+															channels().find((x) => x.rkey === params.channel)!
+																.name
+														}
+														files={files}
+													/>
+												</Show>
+											</div>
+										</FileFieldDropzone>
+										<FileFieldHiddenInput ref={hiddenInput} />
+									</FileField>
 								</div>
-							</div>
-						</Match>
-					</Switch>
-				</div>
-			</ChannelContextProvider>
+								<div
+									class="min-w-72 flex w-72 h-full flex-col p-4 border-l gap-3 border-border overflow-y-auto bg-background"
+									classList={{
+										"absolute top-0 right-0 h-full drop-shadow-black drop-shadow-2xl":
+											displayMembersAsSheet(),
+										hidden: !globalContext.uiStates.membersListVisible,
+									}}
+								>
+									<span>Members</span>
+									<div class="flex flex-col w-full h-full gap-1">
+										<Suspense fallback={<MemberListSkeleton />}>
+											<For each={membersWithOptimisticUpdates() ?? []}>
+												{(item) => {
+													ensureUserStateCached(
+														item.member_did,
+														item.state || "offline",
+														globalContext,
+														updateUserOnlineState,
+													);
+
+													const state = () =>
+														globalContext.userOnlineStates.find(
+															(x) => x.did === item.member_did,
+														)?.state || "offline";
+
+													return (
+														<MemberProfilePopover
+															banner={item.banner_url}
+															avatar={item.avatar_url}
+															description={item.description}
+															displayName={item.display_name}
+															emoji={item.emoji}
+															handle={item.handle}
+															status={item.status_text}
+															did={item.member_did}
+														>
+															<div class="flex flex-row gap-2 rounded-sm px-2 py-1 hover:bg-card items-center cursor-pointer h-12 flex-1">
+																<div class="relative w-9 h-9">
+																	<img
+																		src={
+																			item.avatar_url || "/user-placeholder.png"
+																		}
+																		alt={item.display_name}
+																		width={36}
+																		height={36}
+																		class="rounded-full w-9 h-9"
+																	/>
+																	<div
+																		class="w-2 h-2 rounded-full absolute bottom-px right-px outline-2 outline-background"
+																		classList={{
+																			"bg-green-500": state() === "online",
+																			"bg-yellow-500": state() === "away",
+																			"bg-red-500": state() === "dnd",
+																			"bg-neutral-500": state() === "offline",
+																		}}
+																	/>
+																</div>
+																<div class="flex flex-col w-[calc(100%-36px-8px)]">
+																	<span class="font-medium leading-5">
+																		{item.display_name}
+																	</span>
+																	<Show
+																		when={
+																			item.status_text && state() !== "offline"
+																		}
+																	>
+																		<span class="text-sm w-full leading-5 flex flex-row items-center gap-2">
+																			<Show when={item.emoji}>
+																				<span
+																					class="[&>img]:min-w-4 [&>img]:min-h-4 [&>img]:w-4 [&>img]:h-4 [&>img]inline"
+																					innerHTML={twemoji.parse(item.emoji!)}
+																				/>
+																			</Show>
+																			<span class="w-full overflow-hidden text-ellipsis whitespace-nowrap">
+																				{item.status_text}
+																			</span>
+																		</span>
+																	</Show>
+																</div>
+															</div>
+														</MemberProfilePopover>
+													);
+												}}
+											</For>
+										</Suspense>
+									</div>
+								</div>
+							</Match>
+						</Switch>
+					</div>
+				</ChannelContextProvider>
+			</CommunityContextProvider>
 		</MessageContextProvider>
 	);
 };
