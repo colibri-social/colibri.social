@@ -9,6 +9,7 @@ import {
 import type { ChannelItem, SuggestionItem } from "./MentionPopupRenderer";
 import type { MemberData } from "../../layouts/CommunityLayout";
 import { ChatCircleDots } from "../../icons/ChatCircleDots";
+import "./MentionList.css";
 
 function isMember(item: SuggestionItem): item is MemberData {
 	return "member_did" in item;
@@ -56,13 +57,6 @@ export const MentionList: Component<{
 
 	return (
 		<div class="mention-popup" ref={listRef}>
-			<Show when={props.char === "@"}>
-				<div class="mention-popup-label">Members</div>
-			</Show>
-			<Show when={props.char === "#"}>
-				<div class="mention-popup-label">Channels</div>
-			</Show>
-
 			<Show
 				when={props.items.length > 0}
 				fallback={
@@ -74,7 +68,7 @@ export const MentionList: Component<{
 				<For each={props.items}>
 					{(item, index) => (
 						<button
-							class={`mention-popup-item${index() === selectedIndex() ? " mention-popup-item--selected" : ""}`}
+							class={`mention-popup-item${index() === selectedIndex() ? " selected" : ""}`}
 							onClick={() => selectItem(index())}
 							onMouseEnter={() => setSelectedIndex(index())}
 							type="button"
@@ -84,7 +78,7 @@ export const MentionList: Component<{
 								fallback={
 									<>
 										<span class="mention-popup-channel-icon">
-											<ChatCircleDots />
+											<ChatCircleDots size={14} />
 										</span>
 										<span class="mention-popup-name">
 											{(item as ChannelItem).name}
@@ -100,7 +94,7 @@ export const MentionList: Component<{
 										alt={(item as MemberData).display_name}
 										onError={(e) => {
 											(e.currentTarget as HTMLImageElement).src =
-												`https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent((item as MemberData).display_name)}`;
+												`/user-placeholder.png`;
 										}}
 									/>
 									<Show when={(item as MemberData).state === "online"}>

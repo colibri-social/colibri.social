@@ -301,7 +301,7 @@ export const MessageInput: Component<{
 						<TextEditor
 							placeholder={`Message ${props.channelName}`}
 							members={[]}
-							channels={[]}
+							channels={[{ name: "Test", rkey: "--temp--" }]}
 						/>
 					</div>
 					{/*<RichTextRenderer

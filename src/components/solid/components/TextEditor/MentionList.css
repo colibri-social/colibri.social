@@ -1,0 +1,26 @@
+.mention-popup {
+	display: flex;
+	flex-direction: column;
+	border: 1px solid var(--border);
+	background: var(--color-card);
+	border-radius: var(--radius-md);
+	filter: drop-shadow(0 4px 4px rgb(0 0 0 / 0.15));
+	font-size: var(--text-sm);
+}
+
+.mention-popup-empty {
+	color: var(--color-muted-foreground);
+	margin: 0 0.5rem;
+}
+
+.mention-popup-item {
+	display: flex;
+	flex-direction: row;
+	gap: 0.5rem;
+	align-items: center;
+	padding: 0.25rem 0.5rem;
+}
+
+.mention-popup-item.selected {
+	background-color: var(--color-muted);
+}

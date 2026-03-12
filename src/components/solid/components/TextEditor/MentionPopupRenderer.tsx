@@ -4,7 +4,6 @@ import type {
 	SuggestionKeyDownProps,
 } from "@tiptap/suggestion";
 import type { MemberData } from "../../layouts/CommunityLayout";
-import "./MentionPopup.css";
 import { MentionList } from "./MentionList";
 
 export type ChannelItem = { name: string; rkey: string };
