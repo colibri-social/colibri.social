@@ -1,0 +1,28 @@
+#editor .tiptap.ProseMirror p:first-of-type {
+	margin-top: 0;
+}
+
+#editor .tiptap.ProseMirror p {
+	margin: 0rem;
+}
+
+#editor .tiptap.ProseMirror p:last-of-type {
+	margin-bottom: 0;
+}
+
+#editor .tiptap.ProseMirror {
+	outline: none;
+	max-height: calc(10rem - 2px);
+	overflow: auto;
+	min-height: calc(2.5rem - 2px);
+	padding: 0.25rem 1.75rem 0.25rem 0.5rem;
+	color: var(--color-foreground);
+}
+
+.ProseMirror p.is-editor-empty:first-child::before {
+	content: attr(data-placeholder);
+	float: left;
+	color: #adb5bd;
+	pointer-events: none;
+	height: 0;
+}

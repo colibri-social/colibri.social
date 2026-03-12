@@ -31,7 +31,7 @@ const GUESTS: Guest[] = [
 	{ id: "04", name: "Dana", color: "bg-emerald-400" },
 	{ id: "05", name: "Louis", color: "bg-red-400" },
 	{ id: "06", name: "Matthew", color: "bg-teal-400" },
-	{ id: "07", name: "Reuben", color: "bg-orange-400" },
+	{ id: "07", name: "Reuben", color: "bg-yellow-400" },
 	{ id: "08", name: "Houston", color: "bg-cyan-400" },
 ] as const;
 

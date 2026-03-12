@@ -34,6 +34,7 @@ import {
 	type TextWithFacets,
 	trimTextWithFacets,
 } from "./RichTextRenderer";
+import { TextEditor } from "./TextEditor/TextEditor";
 
 const uploadWithProgress = (
 	file: File,
@@ -279,7 +280,7 @@ export const MessageInput: Component<{
 				</FileFieldTrigger>
 				<div
 					ref={inputEl}
-					class="w-full"
+					class="w-[calc(100%-3.5rem)] max-w-[calc(100%-3.5rem)]"
 					onKeyDown={(e) => {
 						if (e.key === "Enter" && !e.shiftKey) {
 							e.preventDefault();
@@ -296,14 +297,21 @@ export const MessageInput: Component<{
 						}
 					}}
 				>
-					<RichTextRenderer
+					<div class="w-full">
+						<TextEditor
+							placeholder={`Message ${props.channelName}`}
+							members={[]}
+							channels={[]}
+						/>
+					</div>
+					{/*<RichTextRenderer
 						class="w-full min-h-10 px-3 py-2 border border-neutral-700 rounded-lg outline-0 focus-within:border-neutral-400 h-fit max-h-40"
 						text={inputContent}
 						setInputContent={setInputContent}
 						editable={true}
 						placeholder={`Message ${props.channelName}`}
 						id="chat-input"
-					/>
+					/>*/}
 				</div>
 			</div>
 		</div>

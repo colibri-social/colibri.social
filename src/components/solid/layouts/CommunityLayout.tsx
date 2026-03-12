@@ -423,7 +423,7 @@ const CommunityLayout: ParentComponent = (props) => {
 																	class="w-2 h-2 rounded-full absolute bottom-px right-px outline-2 outline-background"
 																	classList={{
 																		"bg-green-500": state() === "online",
-																		"bg-orange-500": state() === "away",
+																		"bg-yellow-500": state() === "away",
 																		"bg-red-500": state() === "dnd",
 																		"bg-neutral-500": state() === "offline",
 																	}}
