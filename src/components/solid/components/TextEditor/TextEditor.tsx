@@ -61,6 +61,7 @@ export const TextEditor: Component<{
 	const communityContext = useCommunityContext();
 	const channelContext = useChannelContext();
 
+	const [bubbleMenuVisible, setBubbleMenuVisible] = createSignal(false);
 	const [activeMarks, setActiveMarks] = createSignal<Array<BubbleMenuMark>>([]);
 	const [placeholder, setPlaceholder] = createSignal(props.placeholder);
 
@@ -132,8 +133,10 @@ export const TextEditor: Component<{
 			BubbleMenu.configure({
 				element: document.querySelector<HTMLElement>(".bubble-menu"),
 				shouldShow: (params) => {
-					if (params.state.selection.$from === params.state.selection.$to)
+					if (params.state.selection.$from === params.state.selection.$to) {
+						setBubbleMenuVisible(false);
 						return false;
+					}
 
 					const isBold = params.editor.isActive("bold");
 					const isItalic = params.editor.isActive("italic");
@@ -151,6 +154,7 @@ export const TextEditor: Component<{
 						].filter((x) => typeof x === "string") as Array<BubbleMenuMark>,
 					);
 
+					setBubbleMenuVisible(true);
 					return true;
 				},
 			}),
@@ -199,7 +203,12 @@ export const TextEditor: Component<{
 
 	return (
 		<div class="relative w-full flex flex-row border border-border rounded-md focus-within:border-neutral-500 gap-2 pr-2 items-start">
-			<div class="bubble-menu bg-card border border-border overflow-hidden absolute opacity-0  flex flex-row items-center rounded-sm drop-shadow-black drop-shadow-sm">
+			<div
+				class="bubble-menu bg-card border border-border overflow-hidden absolute opacity-0  flex flex-row items-center rounded-sm drop-shadow-black drop-shadow-sm"
+				classList={{
+					"pointer-events-none": !bubbleMenuVisible(),
+				}}
+			>
 				<button
 					type="button"
 					class="flex items-center justify-center w-8 h-8 hover:bg-muted cursor-pointer"
