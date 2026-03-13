@@ -12,6 +12,7 @@ import {
 	Switch,
 } from "solid-js";
 import { toast } from "somoto";
+import type { Facet } from "@/utils/atproto/rich-text";
 import type { ColibriRichTextLink } from "@/utils/atproto/rich-text/detection";
 import { parseZodToErrorOrDisplay } from "@/utils/parse-zod-to-error-or-display";
 import { purify } from "@/utils/purify";
@@ -21,6 +22,8 @@ import type {
 	IndexedMessageData,
 	MessageReactionData,
 } from "@/utils/sdk";
+import { useChannelContext } from "../../contexts/ChannelContext";
+import { useCommunityContext } from "../../contexts/CommunityContext";
 import {
 	type PendingMessageData,
 	type ReactionAddedEvent,
@@ -43,6 +46,8 @@ import {
 import { MemberProfilePopover } from "../MemberProfilePopover";
 import { RichTextRenderer, type TextWithFacets } from "../RichTextRenderer";
 import { SmallUser } from "../SmallUser";
+import { facetsToProseMirror } from "../TextEditor/facets-to-prosemirror";
+import { TextEditor } from "../TextEditor/TextEditor";
 import { MessageAttachments } from "./Attachments";
 import { EmojiPopover } from "./EmojiPopover";
 import { LinkEmbed } from "./LinkEmbed";
@@ -66,8 +71,12 @@ export const Message: Component<{
 		messageData,
 		{ setReplyingTo, jumpToMessage, setEditingMessage, clearEditingMessage },
 	] = useMessageContext();
+
 	const [globalData, { addDeletedMessage, addReactionListener }] =
 		useGlobalContext();
+	const channelContext = useChannelContext();
+	const communityContext = useCommunityContext();
+
 	const isPending = () => "hash" in props.data;
 	const [blockModalOpen, setBlockModalOpen] = createSignal(false);
 	const [deletionModalOpen, setDeletionModalOpen] = createSignal(false);
@@ -84,6 +93,10 @@ export const Message: Component<{
 		!isPending() &&
 		messageData.editingMessageRkey === (props.data as IndexedMessageData).rkey;
 	const [editedText, setEditedText] = createSignal<TextWithFacets>({
+		text: props.data.text,
+		facets: props.data.facets || [],
+	});
+	const [newText, setNewText] = createSignal<TextWithFacets>({
 		text: props.data.text,
 		facets: props.data.facets || [],
 	});
@@ -213,20 +226,23 @@ export const Message: Component<{
 	/**
 	 * Saves edits to the PDS.
 	 */
-	const submitEdits = async () => {
+	const submitEdits = async (text: string, facets: Array<Facet>) => {
 		if ("hash" in props.data) return;
 
+		setNewText({ text, facets });
 		clearEditingMessage();
 
-		if (purify(editedText().text).trim().length === 0) {
+		console.log(text, facets);
+
+		if (purify(text).trim().length === 0) {
 			setDeletionModalOpen(true);
 			return;
 		}
 
 		const { error } = await actions.editMessage({
 			channel: props.data.channel,
-			facets: editedText().facets,
-			text: editedText().text,
+			facets,
+			text,
 			rkey: props.data.rkey,
 		});
 
@@ -236,6 +252,7 @@ export const Message: Component<{
 			});
 			// Restore edit mode so the user can retry without losing their changes
 			setEditingMessage((props.data as IndexedMessageData).rkey);
+			setNewText({ text: props.data.text, facets: props.data.facets || [] });
 		}
 	};
 
@@ -642,53 +659,71 @@ export const Message: Component<{
 									</Show>
 								</div>
 							</Show>
-							<div
-								onKeyDown={(e) => {
-									if (e.key === "Enter" && !e.shiftKey) {
-										e.preventDefault();
-										submitEdits();
-									}
-									if (e.key === "Escape") {
-										cancelEdits();
-									}
-								}}
-							>
-								<RichTextRenderer
-									text={editedText}
-									setInputContent={setEditedText}
-									classList={{
-										"text-muted-foreground": isPending(),
-										"text-foreground": !isPending(),
-										"p-4 py-3 border border-border rounded-sm bg-card":
-											editMode(),
-									}}
-									editable={editMode()}
-								/>
-								<Show when={editMode()}>
-									<div class="flex flex-row items-center gap-1">
-										<small>
-											escape to{" "}
-											<button
-												type="button"
-												class="cursor-pointer hover:underline text-primary-foreground"
-												onClick={cancelEdits}
-											>
-												cancel
-											</button>
-										</small>
-										<span class="w-1 h-1 bg-muted-foreground rounded-full" />
-										<small>
-											enter to{" "}
-											<button
-												type="button"
-												class="cursor-pointer hover:underline text-primary-foreground"
-												onClick={submitEdits}
-											>
-												submit
-											</button>
-										</small>
-									</div>
-								</Show>
+							<div>
+								<Switch>
+									<Match when={!editMode()}>
+										<RichTextRenderer
+											text={newText}
+											isEdited={isSubsequentMessage() && props.data.edited}
+											classList={{
+												"text-muted-foreground": isPending(),
+												"text-foreground": !isPending(),
+											}}
+										/>
+									</Match>
+									<Match when={editMode()}>
+										<div
+											class="w-full"
+											onKeyDown={(e) => {
+												if (e.key === "Escape") {
+													cancelEdits();
+												}
+											}}
+										>
+											<TextEditor
+												text={facetsToProseMirror(
+													newText().text,
+													newText().facets || [],
+													communityContext?.members() || [],
+													channelContext?.channels() || [],
+												)}
+												placeholder=""
+												onChange={(text, facets) => {
+													setEditedText({ text, facets });
+												}}
+												sendMessage={async (text, facets) => {
+													submitEdits(text, facets);
+													return false;
+												}}
+											/>
+										</div>
+										<div class="flex flex-row items-center gap-1">
+											<small>
+												escape to{" "}
+												<button
+													type="button"
+													class="cursor-pointer hover:underline text-primary-foreground"
+													onClick={cancelEdits}
+												>
+													cancel
+												</button>
+											</small>
+											<span class="w-1 h-1 bg-muted-foreground rounded-full" />
+											<small>
+												enter to{" "}
+												<button
+													type="button"
+													class="cursor-pointer hover:underline text-primary-foreground"
+													onClick={() =>
+														submitEdits(editedText().text, editedText().facets)
+													}
+												>
+													submit
+												</button>
+											</small>
+										</div>
+									</Match>
+								</Switch>
 							</div>
 						</div>
 					</Show>

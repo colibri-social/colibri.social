@@ -71,7 +71,10 @@ const ChannelView: Component = () => {
 
 			const updatedHistorical = historicalMessages.map((msg) => {
 				const editedVersion = editedMessages.find(
-					(e) => e.rkey === msg.rkey && e.author_did === msg.author_did,
+					(e) =>
+						e.rkey === msg.rkey &&
+						e.author_did === msg.author_did &&
+						e.author_did !== globalState.user.sub,
 				);
 				return editedVersion ?? msg;
 			});

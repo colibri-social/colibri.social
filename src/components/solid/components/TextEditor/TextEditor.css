@@ -1,0 +1,50 @@
+#editor .tiptap.ProseMirror p:first-of-type {
+	margin-top: 0;
+}
+
+#editor .tiptap.ProseMirror p {
+	margin: 0rem;
+	width: fit-content;
+	line-height: 24px;
+}
+
+#editor .tiptap.ProseMirror p:last-of-type {
+	margin-bottom: 0;
+}
+
+#editor .tiptap.ProseMirror {
+	outline: none;
+	max-height: calc(10rem - 2px);
+	overflow: auto;
+	min-height: calc(2.5rem - 2px);
+	padding: 0.25rem 0.25rem 0.25rem 0.5rem;
+	color: var(--color-foreground);
+	display: flex;
+	flex-direction: row;
+	align-items: center;
+}
+
+.ProseMirror p.is-editor-empty:first-child::before {
+	content: attr(data-placeholder);
+	float: left;
+	color: #adb5bd;
+	pointer-events: none;
+	height: 0;
+}
+
+#editor .tiptap.ProseMirror a {
+	color: var(--primary-hover);
+	text-decoration-color: var(--primary-hover);
+}
+
+#editor .tiptap.ProseMirror a:hover {
+	text-decoration: underline;
+}
+
+#editor .tiptap.ProseMirror img.emoji {
+	display: inline;
+	height: 1.125em;
+	width: 1.125em;
+	margin: 0.1em 0.05em 0 0.1em;
+	vertical-align: text-top;
+}

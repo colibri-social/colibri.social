@@ -17,7 +17,7 @@ import {
 	TooltipTrigger,
 } from "../shadcn-solid/Tooltip";
 
-const LINK_REGEX =
+export const LINK_REGEX =
 	/(?<![^\s])(?!@)(https?:\/\/(www\.)?)?[-a-zA-Z0-9@%._+~#=]{1,256}\.[a-zA-Z0-9()]{1,18}\b([-a-zA-Z0-9()@:%_+.~#?&//=]*)/gm;
 
 const MENTION_REGEX = /(?<!\S)@[a-zA-Z0-9._-]+(?:\.[a-zA-Z]{2,})?/gm;
@@ -124,7 +124,7 @@ export const MemberProfilePopover: ParentComponent<{
 									class="w-4 h-4 rounded-full absolute bottom-0.75 right-0.75 outline-4 outline-card"
 									classList={{
 										"bg-green-500": state() === "online",
-										"bg-orange-500": state() === "away",
+										"bg-yellow-500": state() === "away",
 										"bg-red-500": state() === "dnd",
 										"bg-neutral-500": state() === "offline",
 									}}
