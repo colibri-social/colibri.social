@@ -62,7 +62,7 @@ export const createMentionRenderer = (char: "@" | "#" | ":") => {
 					"position: absolute; z-index: 9999; pointer-events: auto;";
 				document.body.appendChild(container);
 
-				// Position aboce the cursor
+				// Position above the cursor
 				if (props.clientRect) {
 					const rect = props.clientRect();
 					if (rect) {
@@ -135,6 +135,16 @@ export const createMentionRenderer = (char: "@" | "#" | ":") => {
 				if (props.event.key === "Enter") {
 					selectItem(currentItems, currentCommand, selectedIndex());
 					return true;
+				}
+				if (props.event.key === "Escape") {
+					if (dispose) {
+						props.event.preventDefault();
+						props.event.stopPropagation();
+						props.event.stopImmediatePropagation();
+						this.onExit();
+						return true;
+					}
+					return false;
 				}
 				return false;
 			},

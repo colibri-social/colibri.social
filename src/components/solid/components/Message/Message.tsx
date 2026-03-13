@@ -53,6 +53,9 @@ import { MessageDeletionDrawer } from "./MessageDeletionDrawer";
 import { blockMessage, deleteMessage } from "./util";
 import { TextEditor } from "../TextEditor/TextEditor";
 import { facetsToProseMirror } from "../TextEditor/facets-to-prosemirror";
+import { useChannelContext } from "../../contexts/ChannelContext";
+import { useCommunityContext } from "../../contexts/CommunityContext";
+import type { Facet } from "@/utils/atproto/rich-text";
 
 /**
  * A rendered message component in a chat.
@@ -68,8 +71,12 @@ export const Message: Component<{
 		messageData,
 		{ setReplyingTo, jumpToMessage, setEditingMessage, clearEditingMessage },
 	] = useMessageContext();
+
 	const [globalData, { addDeletedMessage, addReactionListener }] =
 		useGlobalContext();
+	const channelContext = useChannelContext();
+	const communityContext = useCommunityContext();
+
 	const isPending = () => "hash" in props.data;
 	const [blockModalOpen, setBlockModalOpen] = createSignal(false);
 	const [deletionModalOpen, setDeletionModalOpen] = createSignal(false);
@@ -86,6 +93,10 @@ export const Message: Component<{
 		!isPending() &&
 		messageData.editingMessageRkey === (props.data as IndexedMessageData).rkey;
 	const [editedText, setEditedText] = createSignal<TextWithFacets>({
+		text: props.data.text,
+		facets: props.data.facets || [],
+	});
+	const [newText, setNewText] = createSignal<TextWithFacets>({
 		text: props.data.text,
 		facets: props.data.facets || [],
 	});
@@ -215,20 +226,23 @@ export const Message: Component<{
 	/**
 	 * Saves edits to the PDS.
 	 */
-	const submitEdits = async () => {
+	const submitEdits = async (text: string, facets: Array<Facet>) => {
 		if ("hash" in props.data) return;
 
+		setNewText({ text, facets });
 		clearEditingMessage();
 
-		if (purify(editedText().text).trim().length === 0) {
+		console.log(text, facets);
+
+		if (purify(text).trim().length === 0) {
 			setDeletionModalOpen(true);
 			return;
 		}
 
 		const { error } = await actions.editMessage({
 			channel: props.data.channel,
-			facets: editedText().facets,
-			text: editedText().text,
+			facets,
+			text,
 			rkey: props.data.rkey,
 		});
 
@@ -238,6 +252,7 @@ export const Message: Component<{
 			});
 			// Restore edit mode so the user can retry without losing their changes
 			setEditingMessage((props.data as IndexedMessageData).rkey);
+			setNewText({ text: props.data.text, facets: props.data.facets || [] });
 		}
 	};
 
@@ -644,21 +659,12 @@ export const Message: Component<{
 									</Show>
 								</div>
 							</Show>
-							<div
-								onKeyDown={(e) => {
-									if (e.key === "Enter" && !e.shiftKey) {
-										e.preventDefault();
-										submitEdits();
-									}
-									if (e.key === "Escape") {
-										cancelEdits();
-									}
-								}}
-							>
+							<div>
 								<Switch>
 									<Match when={!editMode()}>
 										<RichTextRenderer
-											text={editedText}
+											text={newText}
+											isEdited={isSubsequentMessage() && props.data.edited}
 											classList={{
 												"text-muted-foreground": isPending(),
 												"text-foreground": !isPending(),
@@ -666,17 +672,31 @@ export const Message: Component<{
 										/>
 									</Match>
 									<Match when={editMode()}>
-										<TextEditor
-											text={facetsToProseMirror(
-												props.data.text,
-												props.data.facets || [],
-											)}
-											placeholder=""
-											sendMessage={async (text, facets) => {
-												console.log(text, facets);
-												return false;
+										<div
+											class="w-full"
+											onKeyDown={(e) => {
+												if (e.key === "Escape") {
+													cancelEdits();
+												}
 											}}
-										/>
+										>
+											<TextEditor
+												text={facetsToProseMirror(
+													newText().text,
+													newText().facets || [],
+													communityContext?.members() || [],
+													channelContext?.channels() || [],
+												)}
+												placeholder=""
+												onChange={(text, facets) => {
+													setEditedText({ text, facets });
+												}}
+												sendMessage={async (text, facets) => {
+													submitEdits(text, facets);
+													return false;
+												}}
+											/>
+										</div>
 										<div class="flex flex-row items-center gap-1">
 											<small>
 												escape to{" "}
@@ -694,7 +714,9 @@ export const Message: Component<{
 												<button
 													type="button"
 													class="cursor-pointer hover:underline text-primary-foreground"
-													onClick={submitEdits}
+													onClick={() =>
+														submitEdits(editedText().text, editedText().facets)
+													}
 												>
 													submit
 												</button>

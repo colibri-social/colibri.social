@@ -5,6 +5,7 @@
 #editor .tiptap.ProseMirror p {
 	margin: 0rem;
 	width: fit-content;
+	line-height: 24px;
 }
 
 #editor .tiptap.ProseMirror p:last-of-type {

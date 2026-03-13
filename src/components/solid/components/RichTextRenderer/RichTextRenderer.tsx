@@ -14,6 +14,7 @@ export const RichTextRenderer: Component<{
 	classList?: Record<string, boolean>;
 	id?: string;
 	class?: string;
+	isEdited?: boolean;
 }> = (props) => {
 	const channelCtx = useChannelContext();
 
@@ -28,10 +29,15 @@ export const RichTextRenderer: Component<{
 		<>
 			<p
 				class={cn(
-					"m-0 text-foreground rich-text focus:outline-0 leading-5.5 wrap-break-word relative",
+					"m-0 text-foreground rich-text focus:outline-0 leading-6 wrap-break-word relative",
 					props.class,
 				)}
-				innerHTML={purify(renderedWithEmojis)}
+				innerHTML={
+					purify(renderedWithEmojis) +
+					(props.isEdited
+						? '<span class="text-muted-foreground text-xs inline"> (edited)</span>'
+						: "")
+				}
 				classList={props.classList}
 				id={props.id}
 			/>

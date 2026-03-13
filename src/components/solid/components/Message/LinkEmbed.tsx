@@ -53,7 +53,7 @@ export const LinkEmbed: Component<{ uri: string }> = (props) => {
 				class="flex flex-col border-l-2 px-4 p-2 bg-card mb-2 rounded-r-sm max-w-[416px]"
 				style={{ "border-color": embedData()!.themeColor }}
 			>
-				<span class="text-sm">{embedData()!.siteName}</span>
+				<span class="text-xs">{embedData()!.siteName}</span>
 				<a
 					class="font-medium w-fit text-(--primary-hover)! decoration-(--primary-hover) hover:underline"
 					href={props.uri}
@@ -61,7 +61,9 @@ export const LinkEmbed: Component<{ uri: string }> = (props) => {
 				>
 					{embedData()!.title}
 				</a>
-				<span class="font-light text-sm">{embedData()!.description}</span>
+				<span class="font-light text-card-foreground text-sm">
+					{embedData()!.description}
+				</span>
 				<Show when={embedData()!.image}>
 					{(image) => {
 						const imageUrl = image()[0].url.startsWith("http")

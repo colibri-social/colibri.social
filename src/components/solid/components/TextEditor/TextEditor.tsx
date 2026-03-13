@@ -37,6 +37,7 @@ import { EMOJI_DATA } from "../RichTextRenderer/emojiData";
 import { createMentionRenderer } from "./MentionPopupRenderer";
 import twemoji from "@twemoji/api";
 import { htmlToDOMOutputSpec } from "@/utils/html-to-dom-output-spec";
+import { facetsToProseMirror } from "./facets-to-prosemirror";
 
 const CHARACTER_LIMIT = 2048;
 const CIRCUMFERENCE = 2 * Math.PI * 8;
@@ -61,6 +62,7 @@ export const TextEditor: Component<{
 	placeholder: string;
 	text?: ReturnType<Editor["getJSON"]>;
 	sendMessage: (text: string, facets: Array<Facet>) => Promise<boolean>;
+	onChange?: (text: string, facets: Array<Facet>) => void;
 }> = (props) => {
 	let ref!: HTMLDivElement;
 
@@ -200,6 +202,7 @@ export const TextEditor: Component<{
 			}),
 			Emoji.configure(),
 		],
+		content: props.text,
 	}));
 
 	const characterCountTransaction = createEditorTransaction(
@@ -241,10 +244,24 @@ export const TextEditor: Component<{
 		setPlaceholder(placeholder);
 	});
 
+	createEffect(() => {
+		if (!editor() || editor()?.isFocused) return;
+
+		editor()!.commands.focus("end", { scrollIntoView: true });
+	});
+
+	createEffect(() => {
+		if (!editor() || !props.onChange) return;
+
+		const text = proseMirrorToFacets(editor()!.getJSON());
+
+		props.onChange(text.text, text.facets);
+	});
+
 	return (
 		<div class="relative w-full flex flex-row border border-border rounded-md focus-within:border-neutral-500 gap-2 pr-2 items-start">
 			<div
-				class="bubble-menu bg-card border border-border overflow-hidden absolute opacity-0  flex flex-row items-center rounded-sm drop-shadow-black drop-shadow-sm"
+				class="bubble-menu bg-card border border-border overflow-hidden absolute opacity-0 flex flex-row items-center rounded-sm drop-shadow-black drop-shadow-sm"
 				classList={{
 					"pointer-events-none": !bubbleMenuVisible(),
 				}}

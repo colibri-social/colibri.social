@@ -7,7 +7,7 @@ type DocContent =
 	| ReturnType<Editor["getJSON"]>["content"]
 	| (NodeType<any, any, any, any> | TextType<MarkType<any, any>>)[];
 
-type MentionType = {
+export type MentionType = {
 	type: "mention";
 	attrs:
 		| {
@@ -23,6 +23,13 @@ type MentionType = {
 				avatar: null;
 				handle: null;
 				type: "channel";
+		  }
+		| {
+				id: null;
+				label: string;
+				avatar: null;
+				handle: null;
+				type: "emoji";
 		  };
 };
 
@@ -108,13 +115,15 @@ const walkDoc = (content: DocContent, _text: string, _facets: Array<Facet>) => {
 					$type: "social.colibri.richtext.facet#mention",
 					did: mentionNode.attrs.id,
 				});
-			} else {
+			} else if (mentionNode.attrs.type === "channel") {
 				text += `#${mentionNode.attrs.label}`;
 
 				features.push({
 					$type: "social.colibri.richtext.facet#channel",
 					channel: mentionNode.attrs.id,
 				});
+			} else {
+				text += mentionNode.attrs.label;
 			}
 
 			const byteEnd = textEncoder.encode(text).byteLength;
