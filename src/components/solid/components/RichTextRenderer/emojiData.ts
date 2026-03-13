@@ -58,6 +58,7 @@ export const EMOJI_DATA: Record<string, string> = {
 	cowboy_hat_face: "🤠",
 	partying_face: "🥳",
 	sunglasses: "😎",
+	cool_sunglasses: "😎",
 	nerd_face: "🤓",
 	monocle_face: "🧐",
 	confused: "😕",
