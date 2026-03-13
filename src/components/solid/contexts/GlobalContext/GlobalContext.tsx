@@ -4,7 +4,7 @@ import {
 	makeHeartbeatWS,
 	makeReconnectingWS,
 } from "@solid-primitives/websocket";
-import { type ParentComponent, useContext } from "solid-js";
+import { createEffect, type ParentComponent, useContext } from "solid-js";
 import { createStore } from "solid-js/store";
 import type { ChannelData, CommunityData } from "@/utils/sdk";
 import { GlobalContext } from "./context";
@@ -269,6 +269,12 @@ export const GlobalContextProvider: ParentComponent<{
 			},
 		},
 	];
+
+	createEffect(() => {
+		const _ = globalContext; // Track
+
+		context[1].sendSocketMessage({ action: "activity" });
+	});
 
 	socket.addEventListener("message", async (message) => {
 		const data = JSON.parse(message.data) as AppviewSubscriptionData;
