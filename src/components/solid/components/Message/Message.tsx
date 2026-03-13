@@ -51,6 +51,8 @@ import { MessageBlockDrawer } from "./MessageBlockDrawer";
 import { MessageContextMenu } from "./MessageContextMenu";
 import { MessageDeletionDrawer } from "./MessageDeletionDrawer";
 import { blockMessage, deleteMessage } from "./util";
+import { TextEditor } from "../TextEditor/TextEditor";
+import { facetsToProseMirror } from "../TextEditor/facets-to-prosemirror";
 
 /**
  * A rendered message component in a chat.
@@ -653,42 +655,53 @@ export const Message: Component<{
 									}
 								}}
 							>
-								<RichTextRenderer
-									text={editedText}
-									setInputContent={setEditedText}
-									classList={{
-										"text-muted-foreground": isPending(),
-										"text-foreground": !isPending(),
-										"p-4 py-3 border border-border rounded-sm bg-card":
-											editMode(),
-									}}
-									editable={editMode()}
-								/>
-								<Show when={editMode()}>
-									<div class="flex flex-row items-center gap-1">
-										<small>
-											escape to{" "}
-											<button
-												type="button"
-												class="cursor-pointer hover:underline text-primary-foreground"
-												onClick={cancelEdits}
-											>
-												cancel
-											</button>
-										</small>
-										<span class="w-1 h-1 bg-muted-foreground rounded-full" />
-										<small>
-											enter to{" "}
-											<button
-												type="button"
-												class="cursor-pointer hover:underline text-primary-foreground"
-												onClick={submitEdits}
-											>
-												submit
-											</button>
-										</small>
-									</div>
-								</Show>
+								<Switch>
+									<Match when={!editMode()}>
+										<RichTextRenderer
+											text={editedText}
+											classList={{
+												"text-muted-foreground": isPending(),
+												"text-foreground": !isPending(),
+											}}
+										/>
+									</Match>
+									<Match when={editMode()}>
+										<TextEditor
+											text={facetsToProseMirror(
+												props.data.text,
+												props.data.facets || [],
+											)}
+											placeholder=""
+											sendMessage={async (text, facets) => {
+												console.log(text, facets);
+												return false;
+											}}
+										/>
+										<div class="flex flex-row items-center gap-1">
+											<small>
+												escape to{" "}
+												<button
+													type="button"
+													class="cursor-pointer hover:underline text-primary-foreground"
+													onClick={cancelEdits}
+												>
+													cancel
+												</button>
+											</small>
+											<span class="w-1 h-1 bg-muted-foreground rounded-full" />
+											<small>
+												enter to{" "}
+												<button
+													type="button"
+													class="cursor-pointer hover:underline text-primary-foreground"
+													onClick={submitEdits}
+												>
+													submit
+												</button>
+											</small>
+										</div>
+									</Match>
+								</Switch>
 							</div>
 						</div>
 					</Show>

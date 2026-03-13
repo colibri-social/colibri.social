@@ -1,5 +1,6 @@
 import type { Editor, MarkType, NodeType, TextType } from "@tiptap/core";
 import type { Facet } from "@/utils/atproto/rich-text";
+import type { TextWithFacets } from "../RichTextRenderer";
 
 export type ParsedText = { text: string; facets: Array<Facet> };
 type DocContent =
@@ -34,6 +35,54 @@ type UsedMarkType =
 	| MarkType<"link", { href: string }>;
 
 const textEncoder = new TextEncoder();
+
+/**
+ * Strips leading and trailing whitespace from the text and adjusts facet
+ * byte offsets accordingly. Facets that fall entirely within the trimmed
+ * regions are removed; facets that partially overlap are clamped.
+ */
+const trimTextWithFacets = (input: TextWithFacets): TextWithFacets => {
+	const { text, facets } = input;
+
+	const leadingMatch = text.match(/^\s+/);
+	const trailingMatch = text.match(/\s+$/);
+	const leadingWs = leadingMatch ? leadingMatch[0] : "";
+	const trailingWs = trailingMatch ? trailingMatch[0] : "";
+
+	if (!leadingWs && !trailingWs) return input;
+
+	const trimmedText = text.slice(
+		leadingWs.length,
+		text.length - (trailingWs.length || 0),
+	);
+
+	const leadingBytes = textEncoder.encode(leadingWs).length;
+	const totalBytes = textEncoder.encode(text).length;
+	const trailingBytes = textEncoder.encode(trailingWs).length;
+	const trimmedEndByte = totalBytes - trailingBytes;
+
+	const newFacets: Facet[] = [];
+	for (const facet of facets) {
+		const newStart =
+			Math.max(facet.index.byteStart, leadingBytes) - leadingBytes;
+		const newEnd = Math.min(facet.index.byteEnd, trimmedEndByte) - leadingBytes;
+
+		if (newStart >= newEnd) continue;
+
+		newFacets.push({
+			...facet,
+			index: {
+				byteStart: newStart,
+				byteEnd: newEnd,
+			},
+		});
+	}
+
+	return {
+		text: trimmedText,
+		facets: newFacets,
+	};
+};
 
 const walkDoc = (content: DocContent, _text: string, _facets: Array<Facet>) => {
 	let text = _text;
@@ -225,15 +274,15 @@ const mergeFacets = (facets: Array<Facet>): Array<Facet> => {
 	);
 };
 
-export const prosemirrorToFacets = (
+export const proseMirrorToFacets = (
 	json: ReturnType<Editor["getJSON"]>,
 ): ParsedText => {
 	const { text, facets } = walkDoc(json.content, "", []);
 
 	const mergedFacets = mergeFacets(facets);
 
-	return {
+	return trimTextWithFacets({
 		text,
 		facets: mergedFacets,
-	};
+	});
 };

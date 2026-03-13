@@ -159,7 +159,7 @@ export const MessageInput: Component<{
 		const attachments = await uploadFiles(files?.acceptedFiles ?? []);
 
 		const obj: PostMessageInput = {
-			text: purify(text),
+			text: purify(text.trim()),
 			facets: facets,
 			channel: _channel,
 			createdAt: new Date().toISOString(),
@@ -180,7 +180,7 @@ export const MessageInput: Component<{
 			channel: obj.channel,
 			created_at: obj.createdAt,
 			hash,
-			text: purify(text),
+			text: purify(text.trim()),
 			facets: facets,
 			author_did: globalData.user.sub,
 			display_name: globalData.user.displayName!,

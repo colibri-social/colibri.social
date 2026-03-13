@@ -18,6 +18,9 @@
 	min-height: calc(2.5rem - 2px);
 	padding: 0.25rem 0.25rem 0.25rem 0.5rem;
 	color: var(--color-foreground);
+	display: flex;
+	flex-direction: row;
+	align-items: center;
 }
 
 .ProseMirror p.is-editor-empty:first-child::before {

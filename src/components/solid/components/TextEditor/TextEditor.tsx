@@ -21,7 +21,7 @@ import { CharacterCount, Placeholder, UndoRedo } from "@tiptap/extensions";
 import { type Component, createEffect, createSignal } from "solid-js";
 import { createEditorTransaction, createTiptapEditor } from "solid-tiptap";
 import "./TextEditor.css";
-import { mergeAttributes } from "@tiptap/core";
+import { Editor, mergeAttributes } from "@tiptap/core";
 import type { Facet } from "@/utils/atproto/rich-text";
 import { useChannelContext } from "../../contexts/ChannelContext";
 import { useCommunityContext } from "../../contexts/CommunityContext";
@@ -32,7 +32,7 @@ import {
 	TooltipTrigger,
 } from "../../shadcn-solid/Tooltip";
 import { buildSuggestions } from "./build-suggestions";
-import { prosemirrorToFacets } from "./prosemirror-to-facets";
+import { proseMirrorToFacets } from "./prosemirror-to-facets";
 import { EMOJI_DATA } from "../RichTextRenderer/emojiData";
 import { createMentionRenderer } from "./MentionPopupRenderer";
 import twemoji from "@twemoji/api";
@@ -59,6 +59,7 @@ type BubbleMenuMark = "bold" | "strike" | "underline" | "code" | "italic";
 
 export const TextEditor: Component<{
 	placeholder: string;
+	text?: ReturnType<Editor["getJSON"]>;
 	sendMessage: (text: string, facets: Array<Facet>) => Promise<boolean>;
 }> = (props) => {
 	let ref!: HTMLDivElement;
@@ -77,7 +78,7 @@ export const TextEditor: Component<{
 				addKeyboardShortcuts() {
 					return {
 						Enter: () => {
-							const text = prosemirrorToFacets(this.editor.getJSON());
+							const text = proseMirrorToFacets(this.editor.getJSON());
 							props.sendMessage(text.text, text.facets);
 							this.editor.commands.clearContent();
 							return true;
@@ -216,16 +217,21 @@ export const TextEditor: Component<{
 
 	createEffect(() => {
 		const selectionState = selectionStateTransaction();
-
 		const selection = selectionState.state.selection;
+		if (!selection.empty || selection.$from.pos !== selection.$to.pos) return;
 
-		if (selection.empty || selection.$from.pos !== selection.$to.pos) return;
+		const currentEditor = editor();
+		if (!currentEditor || currentEditor.isDestroyed) return;
 
-		const element = selectionState.$pos(selection.$anchor.pos).element;
-		const isInView = isElInViewport(element);
+		const coords = currentEditor.view.coordsAtPos(selection.$anchor.pos);
+		const container = currentEditor.view.dom; // .editor.ProseMirror is the editor's own DOM
+		const containerRect = container.getBoundingClientRect();
 
-		if (!isInView) {
-			editor()!.commands.scrollIntoView();
+		const isOutside =
+			coords.top < containerRect.top || coords.bottom > containerRect.bottom;
+
+		if (isOutside) {
+			currentEditor.view.dispatch(currentEditor.state.tr.scrollIntoView());
 		}
 	});
 
