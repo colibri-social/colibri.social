@@ -1,4 +1,10 @@
 import type { Facet } from "@/utils/atproto/rich-text";
+import twemoji from "@twemoji/api";
+import type { JSX } from "solid-js";
+import { MemberProfilePopover } from "../MemberProfilePopover";
+import { useCommunityContext } from "../../contexts/CommunityContext";
+import { purify } from "@/utils/purify";
+import { A } from "@solidjs/router";
 
 export type TextWithFacets = {
 	text: string;
@@ -30,36 +36,124 @@ const applyStyleForFacet = (
 	text: string,
 	feature: AnyFeature,
 	community?: string,
-): string => {
+): JSX.Element => {
+	const communityContext = useCommunityContext();
+
+	let textWithEmojis = twemoji.parse(purify(text));
+
+	console.log(textWithEmojis);
+
 	switch (feature.$type) {
 		case "social.colibri.richtext.facet#mention": {
 			const did = "did" in feature ? escapeAttr(String(feature.did)) : "";
-			return `<div data-facet-type="mention" data-did="${did}" class="bg-primary/15 hover:bg-primary/25 px-1 rounded-xs cursor-pointer inline">${text}</div>`;
+
+			const member = (communityContext?.members() || []).find(
+				(x) => x.member_did === did,
+			);
+
+			if (!member) {
+				return (
+					<div
+						data-facet-type="mention"
+						data-did={did}
+						class="bg-primary/15 hover:bg-primary/25 px-1 rounded-xs cursor-pointer inline"
+						innerHTML={textWithEmojis}
+					/>
+				);
+			}
+
+			return (
+				<MemberProfilePopover
+					avatar={member!.avatar_url}
+					did={member!.member_did}
+					displayName={member!.display_name}
+					banner={member!.banner_url}
+					description={member!.description}
+					emoji={member!.emoji}
+					handle={member!.handle}
+					status={member!.status}
+					class="inline"
+				>
+					<div
+						data-facet-type="mention"
+						data-did={did}
+						class="bg-primary/15 hover:bg-primary/25 px-1 rounded-xs cursor-pointer inline"
+						innerHTML={textWithEmojis}
+					/>
+				</MemberProfilePopover>
+			);
 		}
 		case "social.colibri.richtext.facet#link": {
 			const uri =
 				"uri" in feature ? escapeAttr(String(feature.uri)) : escapeAttr(text);
-			return `<a data-facet-type="link" title="${uri}" data-uri="${uri}" href="${uri}" class="text-(--primary-hover) decoration-(--primary-hover) font-medium hover:underline inline w-fit" target="_blank">${text}</a>`;
+			return (
+				<a
+					data-facet-type="link"
+					title={uri}
+					data-uri={uri}
+					href={uri}
+					class="text-(--primary-hover) decoration-(--primary-hover) font-medium hover:underline inline w-fit"
+					target="_blank"
+					innerHTML={textWithEmojis}
+				/>
+			);
 		}
 		case "social.colibri.richtext.facet#channel": {
 			const channel =
 				"channel" in feature ? escapeAttr(String(feature.channel)) : "";
+
 			if (community) {
 				const href = escapeAttr(`/c/${community}/${channel}`);
-				return `<a data-facet-type="channel" data-channel="${channel}" href="${href}" class="bg-blue-500/15 hover:bg-blue-500/25 px-1 rounded-xs cursor-pointer inline no-underline text-foreground">${text}</a>`;
+				return (
+					<A
+						data-facet-type="channel"
+						data-channel={channel}
+						href={href}
+						class="bg-blue-500/15 hover:bg-blue-500/25 px-1 rounded-xs cursor-pointer inline no-underline text-foreground"
+						innerHTML={textWithEmojis}
+					/>
+				);
 			}
-			return `<div data-facet-type="channel" data-channel="${channel}" class="bg-blue-500/15 hover:bg-blue-500/25 px-1 rounded-xs cursor-pointer inline">${text}</div>`;
+
+			return (
+				<div
+					data-facet-type="channel"
+					data-channel={channel}
+					class="bg-blue-500/15 hover:bg-blue-500/25 px-1 rounded-xs cursor-pointer inline"
+					innerHTML={textWithEmojis}
+				/>
+			);
 		}
 		case "social.colibri.richtext.facet#bold":
-			return `<b data-facet-type="bold" class="font-bold">${text}</b>`;
+			return (
+				<b
+					data-facet-type="bold"
+					class="font-bold"
+					innerHTML={textWithEmojis}
+				/>
+			);
 		case "social.colibri.richtext.facet#italic":
-			return `<i data-facet-type="italic" class="italic">${text}</i>`;
+			return (
+				<i data-facet-type="italic" class="italic" innerHTML={textWithEmojis} />
+			);
 		case "social.colibri.richtext.facet#underline":
-			return `<u data-facet-type="underline" class="underline">${text}</u>`;
+			return (
+				<u
+					data-facet-type="underline"
+					class="underline"
+					innerHTML={textWithEmojis}
+				/>
+			);
 		case "social.colibri.richtext.facet#strikethrough":
-			return `<span data-facet-type="strikethrough" class="line-through">${text}</span>`;
+			return (
+				<span
+					data-facet-type="strikethrough"
+					class="line-through"
+					innerHTML={textWithEmojis}
+				/>
+			);
 		case "social.colibri.richtext.facet#code":
-			return `<code data-facet-type="code">${text}</code>`;
+			return <code data-facet-type="code" innerHTML={textWithEmojis} />;
 	}
 
 	// @ts-expect-error - Fallback just to be sure
@@ -77,7 +171,7 @@ const applyStyleForFacet = (
 export const renderWithFacets = (
 	input: TextWithFacets,
 	community?: string,
-): string => {
+): Array<JSX.Element> => {
 	const bytes = textEncoder.encode(input.text);
 
 	const sortedFacets = [...input.facets].sort((a, b) => {
@@ -111,19 +205,25 @@ export const renderWithFacets = (
 		}
 	}
 
-	let result = "";
+	let result: Array<JSX.Element> = [];
 	let cursor = 0;
 
 	for (const group of groups) {
 		if (group.byteStart < cursor) continue;
 
 		if (group.byteStart > cursor) {
-			result += nlToBr(
-				textDecoder.decode(bytes.slice(cursor, group.byteStart)),
+			result.push(
+				<span
+					innerHTML={twemoji.parse(
+						purify(
+							nlToBr(textDecoder.decode(bytes.slice(cursor, group.byteStart))),
+						),
+					)}
+				/>,
 			);
 		}
 
-		let facetText = nlToBr(
+		const facetText = nlToBr(
 			textDecoder.decode(bytes.slice(group.byteStart, group.byteEnd)),
 		);
 
@@ -136,23 +236,33 @@ export const renderWithFacets = (
 			(f) => f.$type === "social.colibri.richtext.facet#mention",
 		);
 
+		let component: JSX.Element;
+
 		if (channelFeature) {
-			facetText = applyStyleForFacet(facetText, channelFeature, community);
+			component = applyStyleForFacet(facetText, channelFeature, community);
 		} else if (mentionFeature) {
-			facetText = applyStyleForFacet(facetText, mentionFeature, community);
+			component = applyStyleForFacet(facetText, mentionFeature, community);
 		} else {
 			for (const feature of group.features) {
-				facetText = applyStyleForFacet(facetText, feature, community);
+				component = applyStyleForFacet(facetText, feature, community);
 			}
 		}
 
-		result += facetText;
+		result.push(component);
 		cursor = group.byteEnd;
 	}
 
 	if (cursor < bytes.length) {
-		result += nlToBr(textDecoder.decode(bytes.slice(cursor)));
+		result.push(
+			<span
+				innerHTML={twemoji.parse(
+					purify(nlToBr(textDecoder.decode(bytes.slice(cursor)))),
+				)}
+			/>,
+		);
 	}
+
+	console.log(result);
 
 	return result;
 };

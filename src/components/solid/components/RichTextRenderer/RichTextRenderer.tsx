@@ -4,6 +4,8 @@ import { cn } from "@/utils/cn";
 import { purify } from "@/utils/purify";
 import { useChannelContext } from "../../contexts/ChannelContext";
 import { renderWithFacets, type TextWithFacets } from "./util";
+import { For, Show } from "solid-js";
+import { Dynamic } from "solid-js/web";
 
 /**
  * A rich text renderer component that parses a given text and renders its facets as HTML.
@@ -23,7 +25,6 @@ export const RichTextRenderer: Component<{
 	};
 
 	const rendered = renderWithFacets(props.text(), community());
-	const renderedWithEmojis = twemoji.parse(rendered);
 
 	return (
 		<p
@@ -31,14 +32,13 @@ export const RichTextRenderer: Component<{
 				"m-0 text-foreground rich-text focus:outline-0 leading-6 wrap-break-word relative",
 				props.class,
 			)}
-			innerHTML={
-				purify(renderedWithEmojis) +
-				(props.isEdited
-					? '<span class="text-muted-foreground text-xs inline"> (edited)</span>'
-					: "")
-			}
 			classList={props.classList}
 			id={props.id}
-		/>
+		>
+			<For each={rendered}>{(component) => component}</For>
+			<Show when={props.isEdited}>
+				<span class="text-muted-foreground text-xs inline"> (edited)</span>
+			</Show>
+		</p>
 	);
 };
