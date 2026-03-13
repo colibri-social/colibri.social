@@ -12,6 +12,7 @@ import {
 	Switch,
 } from "solid-js";
 import { toast } from "somoto";
+import type { Facet } from "@/utils/atproto/rich-text";
 import type { ColibriRichTextLink } from "@/utils/atproto/rich-text/detection";
 import { parseZodToErrorOrDisplay } from "@/utils/parse-zod-to-error-or-display";
 import { purify } from "@/utils/purify";
@@ -21,6 +22,8 @@ import type {
 	IndexedMessageData,
 	MessageReactionData,
 } from "@/utils/sdk";
+import { useChannelContext } from "../../contexts/ChannelContext";
+import { useCommunityContext } from "../../contexts/CommunityContext";
 import {
 	type PendingMessageData,
 	type ReactionAddedEvent,
@@ -43,6 +46,8 @@ import {
 import { MemberProfilePopover } from "../MemberProfilePopover";
 import { RichTextRenderer, type TextWithFacets } from "../RichTextRenderer";
 import { SmallUser } from "../SmallUser";
+import { facetsToProseMirror } from "../TextEditor/facets-to-prosemirror";
+import { TextEditor } from "../TextEditor/TextEditor";
 import { MessageAttachments } from "./Attachments";
 import { EmojiPopover } from "./EmojiPopover";
 import { LinkEmbed } from "./LinkEmbed";
@@ -51,11 +56,6 @@ import { MessageBlockDrawer } from "./MessageBlockDrawer";
 import { MessageContextMenu } from "./MessageContextMenu";
 import { MessageDeletionDrawer } from "./MessageDeletionDrawer";
 import { blockMessage, deleteMessage } from "./util";
-import { TextEditor } from "../TextEditor/TextEditor";
-import { facetsToProseMirror } from "../TextEditor/facets-to-prosemirror";
-import { useChannelContext } from "../../contexts/ChannelContext";
-import { useCommunityContext } from "../../contexts/CommunityContext";
-import type { Facet } from "@/utils/atproto/rich-text";
 
 /**
  * A rendered message component in a chat.

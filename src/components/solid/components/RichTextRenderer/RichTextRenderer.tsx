@@ -1,5 +1,5 @@
 import twemoji from "@twemoji/api";
-import { type Accessor, type Component } from "solid-js";
+import type { Accessor, Component } from "solid-js";
 import { cn } from "@/utils/cn";
 import { purify } from "@/utils/purify";
 import { useChannelContext } from "../../contexts/ChannelContext";
@@ -26,21 +26,19 @@ export const RichTextRenderer: Component<{
 	const renderedWithEmojis = twemoji.parse(rendered);
 
 	return (
-		<>
-			<p
-				class={cn(
-					"m-0 text-foreground rich-text focus:outline-0 leading-6 wrap-break-word relative",
-					props.class,
-				)}
-				innerHTML={
-					purify(renderedWithEmojis) +
-					(props.isEdited
-						? '<span class="text-muted-foreground text-xs inline"> (edited)</span>'
-						: "")
-				}
-				classList={props.classList}
-				id={props.id}
-			/>
-		</>
+		<p
+			class={cn(
+				"m-0 text-foreground rich-text focus:outline-0 leading-6 wrap-break-word relative",
+				props.class,
+			)}
+			innerHTML={
+				purify(renderedWithEmojis) +
+				(props.isEdited
+					? '<span class="text-muted-foreground text-xs inline"> (edited)</span>'
+					: "")
+			}
+			classList={props.classList}
+			id={props.id}
+		/>
 	);
 };

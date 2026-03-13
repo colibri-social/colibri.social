@@ -1,7 +1,8 @@
 import { Bold } from "@tiptap/extension-bold";
+import { BubbleMenu } from "@tiptap/extension-bubble-menu";
 import { Code } from "@tiptap/extension-code";
-import Emoji from "@tiptap/extension-emoji";
 import { Document } from "@tiptap/extension-document";
+import Emoji from "@tiptap/extension-emoji";
 import { HardBreak } from "@tiptap/extension-hard-break";
 import { Italic } from "@tiptap/extension-italic";
 import { Link } from "@tiptap/extension-link";
@@ -9,20 +10,20 @@ import { Mention } from "@tiptap/extension-mention";
 import { Paragraph } from "@tiptap/extension-paragraph";
 import { Strike } from "@tiptap/extension-strike";
 import { Text } from "@tiptap/extension-text";
-import { BubbleMenu } from "@tiptap/extension-bubble-menu";
-import { Bold as BoldIcon } from "../../icons/Bold";
-import { Underline as UnderlineIcon } from "../../icons/Underline";
-import { Strikethrough as StrikethroughIcon } from "../../icons/Strikethrough";
-import { Italic as ItalicIcon } from "../../icons/Italic";
-import { Code as CodeIcon } from "../../icons/Code";
-
 import { Underline } from "@tiptap/extension-underline";
 import { CharacterCount, Placeholder, UndoRedo } from "@tiptap/extensions";
 import { type Component, createEffect, createSignal } from "solid-js";
 import { createEditorTransaction, createTiptapEditor } from "solid-tiptap";
+import { Bold as BoldIcon } from "../../icons/Bold";
+import { Code as CodeIcon } from "../../icons/Code";
+import { Italic as ItalicIcon } from "../../icons/Italic";
+import { Strikethrough as StrikethroughIcon } from "../../icons/Strikethrough";
+import { Underline as UnderlineIcon } from "../../icons/Underline";
 import "./TextEditor.css";
-import { Editor, mergeAttributes } from "@tiptap/core";
+import { type Editor, mergeAttributes } from "@tiptap/core";
+import twemoji from "@twemoji/api";
 import type { Facet } from "@/utils/atproto/rich-text";
+import { htmlToDOMOutputSpec } from "@/utils/html-to-dom-output-spec";
 import { useChannelContext } from "../../contexts/ChannelContext";
 import { useCommunityContext } from "../../contexts/CommunityContext";
 import {
@@ -31,30 +32,12 @@ import {
 	TooltipPortal,
 	TooltipTrigger,
 } from "../../shadcn-solid/Tooltip";
+import { EMOJI_DATA } from "../RichTextRenderer/emojiData";
 import { buildSuggestions } from "./build-suggestions";
 import { proseMirrorToFacets } from "./prosemirror-to-facets";
-import { EMOJI_DATA } from "../RichTextRenderer/emojiData";
-import { createMentionRenderer } from "./MentionPopupRenderer";
-import twemoji from "@twemoji/api";
-import { htmlToDOMOutputSpec } from "@/utils/html-to-dom-output-spec";
-import { facetsToProseMirror } from "./facets-to-prosemirror";
 
 const CHARACTER_LIMIT = 2048;
 const CIRCUMFERENCE = 2 * Math.PI * 8;
-
-const isElInViewport = (el: Element | undefined) => {
-	if (!el) return true;
-
-	var rect = el?.getBoundingClientRect();
-
-	return (
-		rect.top >= 0 &&
-		rect.left >= 0 &&
-		rect.bottom <=
-			(window.innerHeight || document.documentElement.clientHeight) &&
-		rect.right <= (window.innerWidth || document.documentElement.clientWidth)
-	);
-};
 
 type BubbleMenuMark = "bold" | "strike" | "underline" | "code" | "italic";
 

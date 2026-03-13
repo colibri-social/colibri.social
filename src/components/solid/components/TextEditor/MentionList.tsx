@@ -1,3 +1,4 @@
+import twemoji from "@twemoji/api";
 import {
 	type Accessor,
 	type Component,
@@ -16,7 +17,6 @@ import type {
 	SuggestionItem,
 	selectItem,
 } from "./MentionPopupRenderer";
-import twemoji from "@twemoji/api";
 
 export function isMember(item: SuggestionItem): item is MemberData {
 	return "member_did" in item;

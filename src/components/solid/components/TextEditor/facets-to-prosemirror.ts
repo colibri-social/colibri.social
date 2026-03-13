@@ -1,8 +1,8 @@
 import type { Editor, TextType } from "@tiptap/core";
-import type { Facet } from "@/utils/atproto/rich-text";
-import type { MemberData } from "../../layouts/CommunityLayout";
-import type { ChannelData } from "@/utils/sdk";
 import twemoji from "@twemoji/api";
+import type { Facet } from "@/utils/atproto/rich-text";
+import type { ChannelData } from "@/utils/sdk";
+import type { MemberData } from "../../layouts/CommunityLayout";
 import type { MentionType } from "./prosemirror-to-facets";
 
 const encoder = new TextEncoder();
@@ -140,12 +140,12 @@ export const facetsToProseMirror = (
 	let offset = 0;
 
 	for (const range of processedRanges) {
-		let startEncoded = baseEncoded.slice(0, range.byteStart - offset);
-		let textToRemove = baseEncoded.slice(
+		const startEncoded = baseEncoded.slice(0, range.byteStart - offset);
+		const textToRemove = baseEncoded.slice(
 			range.byteStart - offset,
 			range.byteEnd - offset,
 		);
-		let endEncoded = baseEncoded.slice(range.byteEnd - offset);
+		const endEncoded = baseEncoded.slice(range.byteEnd - offset);
 
 		const newEncoded = new Uint8Array(
 			startEncoded.length + SPLIT_ENCODED.length + endEncoded.length,
