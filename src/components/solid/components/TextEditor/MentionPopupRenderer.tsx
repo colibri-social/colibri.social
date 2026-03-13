@@ -6,9 +6,10 @@ import { createSignal } from "solid-js";
 import { render } from "solid-js/web";
 import type { ChannelData } from "@/utils/sdk";
 import type { MemberData } from "../../layouts/CommunityLayout";
-import { isMember, MentionList } from "./MentionList";
+import { isChannel, isMember, MentionList } from "./MentionList";
 
-export type SuggestionItem = MemberData | ChannelData;
+export type EmojiSuggestionData = { name: string; emoji: string };
+export type SuggestionItem = MemberData | ChannelData | EmojiSuggestionData;
 
 type Command = (item: SuggestionItem) => void;
 
@@ -28,16 +29,21 @@ export function selectItem(
 			avatar: item.avatar_url,
 			type: "member",
 		} as any);
-	} else {
+	} else if (isChannel(item)) {
 		command({
 			id: item.rkey,
 			label: item.name,
 			type: "channel",
 		} as any);
+	} else {
+		command({
+			label: item.emoji,
+			type: "emoji",
+		} as any);
 	}
 }
 
-export const createMentionRenderer = (char: "@" | "#") => {
+export const createMentionRenderer = (char: "@" | "#" | ":") => {
 	return () => {
 		const [selectedIndex, setSelectedIndex] = createSignal(0);
 

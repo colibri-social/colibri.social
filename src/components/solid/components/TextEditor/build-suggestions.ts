@@ -2,11 +2,15 @@ import type { MentionNodeAttrs } from "@tiptap/extension-mention";
 import type { SuggestionOptions } from "@tiptap/suggestion";
 import type { ChannelData } from "@/utils/sdk";
 import type { MemberData } from "../../layouts/CommunityLayout";
-import { createMentionRenderer } from "./MentionPopupRenderer";
+import {
+	createMentionRenderer,
+	type EmojiSuggestionData,
+} from "./MentionPopupRenderer";
 
 export const buildSuggestions = (
 	members: Array<MemberData>,
 	channels: Array<ChannelData>,
+	emojis: Array<EmojiSuggestionData>,
 ): Omit<SuggestionOptions<any, MentionNodeAttrs>, "editor">[] => {
 	return [
 		{
@@ -28,6 +32,16 @@ export const buildSuggestions = (
 					)
 					.slice(0, 5),
 			render: createMentionRenderer("#"),
+		},
+		{
+			char: ":",
+			items: ({ query }) =>
+				emojis
+					.filter((emoji) =>
+						emoji.name.toLowerCase().startsWith(query.toLowerCase()),
+					)
+					.slice(0, 5),
+			render: createMentionRenderer(":"),
 		},
 	];
 };

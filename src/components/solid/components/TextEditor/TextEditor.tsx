@@ -1,5 +1,6 @@
 import { Bold } from "@tiptap/extension-bold";
 import { Code } from "@tiptap/extension-code";
+import Emoji from "@tiptap/extension-emoji";
 import { Document } from "@tiptap/extension-document";
 import { HardBreak } from "@tiptap/extension-hard-break";
 import { Italic } from "@tiptap/extension-italic";
@@ -32,6 +33,10 @@ import {
 } from "../../shadcn-solid/Tooltip";
 import { buildSuggestions } from "./build-suggestions";
 import { prosemirrorToFacets } from "./prosemirror-to-facets";
+import { EMOJI_DATA } from "../RichTextRenderer/emojiData";
+import { createMentionRenderer } from "./MentionPopupRenderer";
+import twemoji from "@twemoji/api";
+import { htmlToDOMOutputSpec } from "@/utils/html-to-dom-output-spec";
 
 const CHARACTER_LIMIT = 2048;
 const CIRCUMFERENCE = 2 * Math.PI * 8;
@@ -105,6 +110,10 @@ export const TextEditor: Component<{
 				suggestions: buildSuggestions(
 					communityContext?.members() ?? [],
 					channelContext?.channels() ?? [],
+					Object.keys(EMOJI_DATA).map((x: string) => ({
+						name: x,
+						emoji: EMOJI_DATA[x],
+					})) ?? [],
 				),
 			}).extend({
 				addAttributes() {
@@ -116,17 +125,41 @@ export const TextEditor: Component<{
 						type: { default: "member" },
 					};
 				},
+				renderText({ node }) {
+					const { type, label, handle } = node.attrs;
+
+					if (type === "member") {
+						return `@${label ?? handle}`;
+					} else if (type === "channel") {
+						return `#${label}`;
+					} else {
+						return label;
+					}
+				},
 				renderHTML({ node, HTMLAttributes }) {
 					const { type, label, id, handle } = node.attrs;
+
+					let colorClass = "";
+					let contents = "";
+
+					if (type === "member") {
+						colorClass = "bg-primary/25";
+						contents = `@${label ?? handle}`;
+					} else if (type === "channel") {
+						colorClass = "bg-blue-400/25";
+						contents = `#${label}`;
+					} else {
+						return htmlToDOMOutputSpec(twemoji.parse(label))[0];
+					}
 
 					return [
 						"span",
 						mergeAttributes(HTMLAttributes, {
 							"data-mention-type": type,
 							"data-id": id,
-							class: ` px-1 rounded-xs ${type === "member" ? "bg-primary/25" : "bg-blue-400/25"}`,
+							class: ` px-1 rounded-xs ${colorClass}`,
 						}),
-						type === "channel" ? `#${label}` : `@${label ?? handle}`,
+						contents,
 					];
 				},
 			}),
@@ -164,6 +197,7 @@ export const TextEditor: Component<{
 			Placeholder.configure({
 				placeholder: placeholder(),
 			}),
+			Emoji.configure(),
 		],
 	}));
 

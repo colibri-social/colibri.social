@@ -146,6 +146,9 @@ importers:
       open-graph-scraper:
         specifier: ^6.11.0
         version: 6.11.0
+      prosemirror-model:
+        specifier: ^1.25.4
+        version: 1.25.4
       redis:
         specifier: ^5.11.0
         version: 5.11.0
