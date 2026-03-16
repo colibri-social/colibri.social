@@ -110,8 +110,6 @@ export const GlobalContextProvider: ParentComponent<{
 						return list.toSpliced(alreadyExistsIndex, 1, category);
 					}
 
-					console.log([...list, category]);
-
 					return [...list, category];
 				});
 			},
@@ -280,8 +278,6 @@ export const GlobalContextProvider: ParentComponent<{
 
 	socket.addEventListener("message", async (message) => {
 		const data = JSON.parse(message.data) as AppviewSubscriptionData;
-
-		console.log(data);
 
 		switch (data.type) {
 			case "message":

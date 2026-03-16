@@ -232,8 +232,6 @@ export const Message: Component<{
 		setNewText({ text, facets });
 		clearEditingMessage();
 
-		console.log(text, facets);
-
 		if (purify(text).trim().length === 0) {
 			setDeletionModalOpen(true);
 			return;

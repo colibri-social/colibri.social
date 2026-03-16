@@ -8,6 +8,7 @@ import CommunityLayout from "./layouts/CommunityLayout";
 import { Toaster } from "./shadcn-solid/Sonner";
 import ChannelView from "./views/ChannelView";
 import VoiceChannelView from "./views/VoiceChannelView";
+import { VoiceChatContextProvider } from "./contexts/VoiceChatContext";
 
 /**
  * The entrypoint to the main solid app.
@@ -28,26 +29,31 @@ export const App = ({
 					user,
 				}}
 			>
-				<Router base="/app">
-					<Route component={AppLayout}>
-						<Route path="/" component={() => <DevelopmentPlaceholder />} />
-						<Route component={CommunityLayout}>
-							<Route
-								path="/c/:community"
-								component={() => (
-									<div class="w-full h-full flex items-center justify-center">
-										Placeholder community page
-									</div>
-								)}
-							/>
-							<Route path="/c/:community/t/:channel" component={ChannelView} />
-							<Route
-								path="/c/:community/v/:channel"
-								component={VoiceChannelView}
-							/>
+				<VoiceChatContextProvider>
+					<Router base="/app">
+						<Route component={AppLayout}>
+							<Route path="/" component={() => <DevelopmentPlaceholder />} />
+							<Route component={CommunityLayout}>
+								<Route
+									path="/c/:community"
+									component={() => (
+										<div class="w-full h-full flex items-center justify-center">
+											Placeholder community page
+										</div>
+									)}
+								/>
+								<Route
+									path="/c/:community/t/:channel"
+									component={ChannelView}
+								/>
+								<Route
+									path="/c/:community/v/:channel"
+									component={VoiceChannelView}
+								/>
+							</Route>
 						</Route>
-					</Route>
-				</Router>
+					</Router>
+				</VoiceChatContextProvider>
 			</GlobalContextProvider>
 		</ColorModeProvider>
 	);

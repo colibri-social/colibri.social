@@ -89,7 +89,7 @@ const SortableChannel: Component<{
 					</Switch>
 					<span>{props.channel.name}</span>
 				</div>
-				<div>
+				<div class="flex items-center justify-center pb-px">
 					<Show when={props.community.owner_did === globalData.user.sub}>
 						<ChannelSettingsModal class="w-5 h-5.5 p-0" channel={props.channel}>
 							<Button

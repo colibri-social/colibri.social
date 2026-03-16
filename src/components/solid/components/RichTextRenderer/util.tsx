@@ -41,8 +41,6 @@ const applyStyleForFacet = (
 
 	const textWithEmojis = twemoji.parse(purify(text));
 
-	console.log(textWithEmojis);
-
 	switch (feature.$type) {
 		case "social.colibri.richtext.facet#mention": {
 			const did = "did" in feature ? escapeAttr(String(feature.did)) : "";
@@ -262,8 +260,6 @@ export const renderWithFacets = (
 			/>,
 		);
 	}
-
-	console.log(result);
 
 	return result;
 };
