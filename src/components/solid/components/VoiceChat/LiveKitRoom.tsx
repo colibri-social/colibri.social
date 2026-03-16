@@ -129,6 +129,7 @@ const ParticipantVideo: Component<{ tile: ParticipantTile }> = (props) => {
 
 /**
  * A voice/video room.
+ * @todo: Move connection logic to a context so we stay connected while navigating channels/communities
  */
 const LiveKitRoom: Component = () => {
 	// TODO: Use the channel record key and user DID for this
