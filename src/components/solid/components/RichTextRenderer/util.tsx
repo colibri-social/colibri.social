@@ -1,10 +1,10 @@
-import type { Facet } from "@/utils/atproto/rich-text";
+import { A } from "@solidjs/router";
 import twemoji from "@twemoji/api";
 import type { JSX } from "solid-js";
-import { MemberProfilePopover } from "../MemberProfilePopover";
-import { useCommunityContext } from "../../contexts/CommunityContext";
+import type { Facet } from "@/utils/atproto/rich-text";
 import { purify } from "@/utils/purify";
-import { A } from "@solidjs/router";
+import { useCommunityContext } from "../../contexts/CommunityContext";
+import { MemberProfilePopover } from "../MemberProfilePopover";
 
 export type TextWithFacets = {
 	text: string;
@@ -39,7 +39,7 @@ const applyStyleForFacet = (
 ): JSX.Element => {
 	const communityContext = useCommunityContext();
 
-	let textWithEmojis = twemoji.parse(purify(text));
+	const textWithEmojis = twemoji.parse(purify(text));
 
 	console.log(textWithEmojis);
 
@@ -87,6 +87,7 @@ const applyStyleForFacet = (
 			const uri =
 				"uri" in feature ? escapeAttr(String(feature.uri)) : escapeAttr(text);
 			return (
+				// biome-ignore lint/a11y/useAnchorContent: This has innerHTML set.
 				<a
 					data-facet-type="link"
 					title={uri}
@@ -205,7 +206,7 @@ export const renderWithFacets = (
 		}
 	}
 
-	let result: Array<JSX.Element> = [];
+	const result: Array<JSX.Element> = [];
 	let cursor = 0;
 
 	for (const group of groups) {

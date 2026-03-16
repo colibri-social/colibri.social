@@ -7,7 +7,6 @@ import {
 	type ParentComponent,
 	type Setter,
 } from "solid-js";
-import { useGlobalContext } from "../contexts/GlobalContext";
 import {
 	DropdownMenu,
 	DropdownMenuContent,
@@ -18,6 +17,7 @@ import {
 	DropdownMenuRadioItem,
 	DropdownMenuTrigger,
 } from "@/components/solid/shadcn-solid/DropdownMenu";
+import { useGlobalContext } from "../contexts/GlobalContext";
 import type { UserOnlineState } from "../contexts/GlobalContext/events";
 
 const LABEL_MAP: Record<UserOnlineState, string> = {
@@ -46,28 +46,28 @@ const DropdownStatusSelect: ParentComponent<{
 								onSelect={() => props.setValue("online")}
 								class="[&_svg]:text-green-400"
 							>
-								{LABEL_MAP["online"]}
+								{LABEL_MAP.online}
 							</DropdownMenuRadioItem>
 							<DropdownMenuRadioItem
 								value="away"
 								onSelect={() => props.setValue("away")}
 								class="[&_svg]:text-yellow-400"
 							>
-								{LABEL_MAP["away"]}
+								{LABEL_MAP.away}
 							</DropdownMenuRadioItem>
 							<DropdownMenuRadioItem
 								value="dnd"
 								onSelect={() => props.setValue("dnd")}
 								class="[&_svg]:text-red-400"
 							>
-								{LABEL_MAP["dnd"]}
+								{LABEL_MAP.dnd}
 							</DropdownMenuRadioItem>
 							<DropdownMenuRadioItem
 								value="offline"
 								onSelect={() => props.setValue("offline")}
 								class="[&_svg]:text-neutral-400"
 							>
-								{LABEL_MAP["offline"]}
+								{LABEL_MAP.offline}
 							</DropdownMenuRadioItem>
 						</DropdownMenuRadioGroup>
 					</DropdownMenuGroup>

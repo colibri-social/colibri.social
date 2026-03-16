@@ -110,6 +110,8 @@ export const GlobalContextProvider: ParentComponent<{
 						return list.toSpliced(alreadyExistsIndex, 1, category);
 					}
 
+					console.log([...list, category]);
+
 					return [...list, category];
 				});
 			},
@@ -279,6 +281,8 @@ export const GlobalContextProvider: ParentComponent<{
 	socket.addEventListener("message", async (message) => {
 		const data = JSON.parse(message.data) as AppviewSubscriptionData;
 
+		console.log(data);
+
 		switch (data.type) {
 			case "message":
 				handleNewMessage(context[1], data);
@@ -293,6 +297,16 @@ export const GlobalContextProvider: ParentComponent<{
 				});
 				break;
 			case "community_upserted":
+				context[1].addCommunity({
+					rkey: data.rkey,
+					name: data.name,
+					category_order: data.category_order,
+					description: data.description,
+					owner_did: data.owner_did,
+					picture: data.picture
+						? `https://${APPVIEW_DOMAIN}/api/blob?did=${data.owner_did}&cid=${data.picture.ref.$link}`
+						: undefined,
+				});
 				// TODO: handle community upsert
 				break;
 			case "community_deleted":
@@ -308,7 +322,7 @@ export const GlobalContextProvider: ParentComponent<{
 				});
 				break;
 			case "channel_deleted":
-				// TODO: handle channel deletion
+				context[1].removeChannel(data.rkey);
 				break;
 			case "category_created":
 				context[1].addCategory({
@@ -319,7 +333,7 @@ export const GlobalContextProvider: ParentComponent<{
 				});
 				break;
 			case "category_deleted":
-				// TODO: handle category deletion
+				context[1].removeCategory(data.rkey);
 				break;
 			case "member_pending":
 				// TODO: handle pending member

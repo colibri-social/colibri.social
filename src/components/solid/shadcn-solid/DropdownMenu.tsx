@@ -1,6 +1,6 @@
+import { DropdownMenu as DropdownMenuPrimitive } from "@kobalte/core/dropdown-menu";
 import type { ComponentProps, ValidComponent } from "solid-js";
 import { mergeProps, splitProps } from "solid-js";
-import { DropdownMenu as DropdownMenuPrimitive } from "@kobalte/core/dropdown-menu";
 
 import { cx } from "@/lib/cva";
 

@@ -495,7 +495,7 @@ export const Message: Component<{
 					...optimisticUserData(),
 				})}
 				classList={{
-					"py-0": isSubsequentMessage(),
+					"pb-0 pt-0.5": isSubsequentMessage(),
 					"pb-0 pt-1 mt-2": !isSubsequentMessage(),
 					"border-transparent": !isRepliedTo(),
 					"bg-primary/15 hover:bg-primary/25 border-primary": isRepliedTo(),

@@ -92,11 +92,15 @@ export const useProcessedSidebar = (props: {
 
 			const unsortedCategories = [...serverCategories, ...optimisticCategories];
 
-			const categories = unsortedCategories.sort(
-				(a, b) =>
-					props.categoryOrder?.indexOf(a.rkey) -
-					props.categoryOrder?.indexOf(b.rkey),
-			);
+			const categories = unsortedCategories.sort((a, b) => {
+				if (props.categoryOrder.indexOf(a.rkey) === -1) return 1;
+				if (props.categoryOrder.indexOf(b.rkey) === -1) return -1;
+
+				return (
+					props.categoryOrder.indexOf(a.rkey) -
+					props.categoryOrder.indexOf(b.rkey)
+				);
+			});
 
 			const serverChannelRkeys = new Set([
 				...props.data.categories.flatMap((c) =>

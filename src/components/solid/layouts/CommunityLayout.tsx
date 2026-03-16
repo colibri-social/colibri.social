@@ -263,6 +263,8 @@ const CommunityLayout: ParentComponent = (props) => {
 		return [...merged, ...netNew];
 	});
 
+	const channel = () => channels().find((x) => x.rkey === params.channel)!;
+
 	return (
 		<MessageContextProvider>
 			<CommunityContextProvider members={membersWithOptimisticUpdates}>
@@ -362,12 +364,11 @@ const CommunityLayout: ParentComponent = (props) => {
 												<div class="w-full flex-1 min-h-0">
 													{props.children}
 												</div>
-												<Show when={!!params.channel}>
+												<Show
+													when={!!params.channel && channel().type === "text"}
+												>
 													<MessageInput
-														channelName={
-															channels().find((x) => x.rkey === params.channel)!
-																.name
-														}
+														channelName={channel().name}
 														files={files}
 													/>
 												</Show>

@@ -71,7 +71,7 @@ export type CommunityUpsertedEvent = {
 	rkey: string;
 	name: string;
 	description: string;
-	image: Record<string, unknown> | null;
+	picture: BlobObj | null;
 	category_order: Array<string>;
 };
 

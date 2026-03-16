@@ -15,11 +15,17 @@ import {
 	Show,
 	Switch,
 } from "solid-js";
-import type { SidebarCategoryData, SidebarChannelData } from "@/utils/sdk";
+import type {
+	CommunityData,
+	SidebarCategoryData,
+	SidebarChannelData,
+} from "@/utils/sdk";
+import { useGlobalContext } from "../../contexts/GlobalContext";
 import { CaretRight } from "../../icons/CaretRight";
 import { ChatCircleDots } from "../../icons/ChatCircleDots";
 import { Gear } from "../../icons/Gear";
 import { PlusSmall } from "../../icons/PlusSmall";
+import { SpeakerLow } from "../../icons/SpeakerLow";
 import { Button } from "../../shadcn-solid/Button";
 import { CategorySettingsModal } from "./CategorySettingsModal";
 import { ChannelCreationModal } from "./ChannelCreationModal";
@@ -32,11 +38,12 @@ export type ChannelDropTarget = {
 
 const SortableChannel: Component<{
 	channel: SidebarChannelData;
-	community: string;
+	community: CommunityData;
 }> = (props) => {
 	const sortable = createSortable(props.channel.rkey);
 	const [, { onDragStart: onDndDragStart, onDragEnd: onDndDragEnd }] =
 		useDragDropContext()!;
+	const [globalData] = useGlobalContext();
 	const params = useParams();
 
 	const [isDragging, setIsDragging] = createSignal(false);
@@ -65,29 +72,40 @@ const SortableChannel: Component<{
 			{...sortable.dragActivators}
 		>
 			<A
-				href={`/c/${params.community}/${props.channel.rkey}`}
+				href={`/c/${params.community}/${props.channel.channel_type.slice(0, 1)}/${props.channel.rkey}`}
 				class="flex flex-row items-center gap-2 justify-between text-muted-foreground hover:bg-card cursor-pointer p-1 pr-1.25 py-0.5 rounded-sm group/channel"
 				activeClass="bg-card"
 				style={{ "pointer-events": isDragging() ? "none" : undefined }}
 				draggable={false}
 			>
 				<div class="flex flex-row items-center gap-2">
-					<ChatCircleDots />
+					<Switch>
+						<Match when={props.channel.channel_type === "text"}>
+							<ChatCircleDots />
+						</Match>
+						<Match when={props.channel.channel_type === "voice"}>
+							<SpeakerLow />
+						</Match>
+					</Switch>
 					<span>{props.channel.name}</span>
 				</div>
-				<ChannelSettingsModal class="w-5 h-5.5 p-0" channel={props.channel}>
-					<Button
-						size="sm"
-						class="w-5 h-5 cursor-pointer opacity-0 group-hover/channel:opacity-100 p-0"
-						classList={{
-							"opacity-100!": params.channel === props.channel.rkey,
-						}}
-						variant="ghost"
-						onClick={(e) => e.preventDefault()}
-					>
-						<Gear size={16} />
-					</Button>
-				</ChannelSettingsModal>
+				<div>
+					<Show when={props.community.owner_did === globalData.user.sub}>
+						<ChannelSettingsModal class="w-5 h-5.5 p-0" channel={props.channel}>
+							<Button
+								size="sm"
+								class="w-5 h-5 cursor-pointer opacity-0 group-hover/channel:opacity-100 p-0"
+								classList={{
+									"opacity-100!": params.channel === props.channel.rkey,
+								}}
+								variant="ghost"
+								onClick={(e) => e.preventDefault()}
+							>
+								<Gear size={16} />
+							</Button>
+						</ChannelSettingsModal>
+					</Show>
+				</div>
 			</A>
 		</div>
 	);
@@ -112,13 +130,14 @@ export function buildChannelOrder(category: SidebarCategoryData): string[] {
  */
 export const Category: ParentComponent<{
 	category: SidebarCategoryData;
-	community: string;
+	community: CommunityData;
 	activeDraggable: boolean;
 	channelOrder: string[];
 	onChannelReorder: (categoryRkey: string, newOrder: string[]) => void;
 	injectedChannels?: SidebarChannelData[];
 	dropTarget?: ChannelDropTarget | null;
 }> = (props) => {
+	const [globalData] = useGlobalContext();
 	const [open, setOpen] = makePersisted(createSignal(true), {
 		name: props.category.rkey,
 	});
@@ -169,7 +188,12 @@ export const Category: ParentComponent<{
 				type="button"
 				class="flex flex-row items-center justify-between pb-2 px-4 pl-4.5 text-sm text-muted-foreground group/category hover:text-foreground"
 				style={{
-					cursor: props.activeDraggable ? "grabbing" : "grab",
+					cursor:
+						props.community.owner_did === globalData.user.sub
+							? props.activeDraggable
+								? "grabbing"
+								: "grab"
+							: "pointer",
 				}}
 			>
 				<div
@@ -187,23 +211,25 @@ export const Category: ParentComponent<{
 					<span>{props.category.name}</span>
 				</div>
 				<div class="flex flex-row gap-1 items-center">
-					<CategorySettingsModal category={props.category}>
-						<Button
-							size="sm"
-							class="w-5 h-5 cursor-pointer opacity-0 group-hover/category:opacity-100"
-							variant="ghost"
+					<Show when={props.community.owner_did === globalData.user.sub}>
+						<CategorySettingsModal category={props.category}>
+							<Button
+								size="sm"
+								class="w-5 h-5 cursor-pointer opacity-0 group-hover/category:opacity-100"
+								variant="ghost"
+							>
+								<Gear size={16} />
+							</Button>
+						</CategorySettingsModal>
+						<ChannelCreationModal
+							category={props.category.rkey}
+							community={props.community.rkey}
 						>
-							<Gear size={16} />
-						</Button>
-					</CategorySettingsModal>
-					<ChannelCreationModal
-						category={props.category.rkey}
-						community={props.community}
-					>
-						<Button size="sm" class="w-5 h-5 cursor-pointer" variant="ghost">
-							<PlusSmall />
-						</Button>
-					</ChannelCreationModal>
+							<Button size="sm" class="w-5 h-5 cursor-pointer" variant="ghost">
+								<PlusSmall />
+							</Button>
+						</ChannelCreationModal>
+					</Show>
 				</div>
 			</button>
 			<div

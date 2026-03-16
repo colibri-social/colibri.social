@@ -7,13 +7,21 @@ import {
 	type Droppable,
 	SortableProvider,
 } from "@thisbeyond/solid-dnd";
-import { batch, type Component, createMemo, createSignal, For } from "solid-js";
+import {
+	batch,
+	type Component,
+	createMemo,
+	createSignal,
+	For,
+	Show,
+} from "solid-js";
 import { createStore } from "solid-js/store";
 import type {
 	SidebarCategoryData,
 	SidebarChannelData,
 	SidebarData,
 } from "@/utils/sdk";
+import { useGlobalContext } from "../../contexts/GlobalContext";
 import { Plus } from "../../icons/Plus";
 import { Button } from "../../shadcn-solid/Button";
 import {
@@ -37,11 +45,14 @@ export const ChannelList: Component<{
 }> = (props) => {
 	const processed = useProcessedSidebar(props);
 
+	const [globalData] = useGlobalContext();
 	const [committedOrder, setCommittedOrder] = createSignal<
 		SidebarCategoryData[] | null
 	>(null);
 
 	let dragBaseOrder: SidebarCategoryData[] | null = null;
+	const community = () =>
+		globalData.communities.find((x) => x.rkey === props.community)!;
 
 	const sortedCategories = () => {
 		const current = committedOrder();
@@ -212,6 +223,8 @@ export const ChannelList: Component<{
 		);
 
 	const onDragStart = ({ draggable }: DragEvent) => {
+		if (community().owner_did !== globalData.user.sub) return;
+
 		if (isCategoryId(draggable.id)) {
 			dragBaseOrder = sortedCategories();
 			setDraggedCategory(dragBaseOrder.find((c) => c.rkey === draggable.id));
@@ -222,7 +235,12 @@ export const ChannelList: Component<{
 	};
 
 	const onDragOver = ({ draggable, droppable }: DragEvent) => {
-		if (!draggable || !droppable) return;
+		if (
+			!draggable ||
+			!droppable ||
+			community().owner_did !== globalData.user.sub
+		)
+			return;
 
 		if (isCategoryId(draggable.id)) {
 			if (!dragBaseOrder) return;
@@ -252,6 +270,8 @@ export const ChannelList: Component<{
 	};
 
 	const onDragEnd = ({ draggable, droppable }: DragEvent) => {
+		if (community().owner_did !== globalData.user.sub) return;
+
 		setChannelDropTarget(null);
 
 		if (!draggable || isCategoryId(draggable.id)) {
@@ -344,7 +364,7 @@ export const ChannelList: Component<{
 							>
 								<SortableCategory
 									category={category}
-									community={props.community}
+									community={community()}
 									channelOrder={
 										channelOrders[category.rkey] ?? buildChannelOrder(category)
 									}
@@ -360,16 +380,18 @@ export const ChannelList: Component<{
 						)}
 					</For>
 				</SortableProvider>
-				<CategoryCreationModal community={props.community}>
-					<Button
-						size="sm"
-						class="w-[calc(100%-2rem)] mx-4 mt-4"
-						variant="ghost"
-					>
-						<Plus />
-						<span>Add new category</span>
-					</Button>
-				</CategoryCreationModal>
+				<Show when={community().owner_did === globalData.user.sub}>
+					<CategoryCreationModal community={props.community}>
+						<Button
+							size="sm"
+							class="w-[calc(100%-2rem)] mx-4 mt-4"
+							variant="ghost"
+						>
+							<Plus />
+							<span>Add new category</span>
+						</Button>
+					</CategoryCreationModal>
+				</Show>
 			</nav>
 		</DragDropProvider>
 	);

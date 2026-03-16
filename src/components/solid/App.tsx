@@ -7,6 +7,7 @@ import AppLayout from "./layouts/AppLayout";
 import CommunityLayout from "./layouts/CommunityLayout";
 import { Toaster } from "./shadcn-solid/Sonner";
 import ChannelView from "./views/ChannelView";
+import VoiceChannelView from "./views/VoiceChannelView";
 
 /**
  * The entrypoint to the main solid app.
@@ -39,7 +40,11 @@ export const App = ({
 									</div>
 								)}
 							/>
-							<Route path="/c/:community/:channel" component={ChannelView} />
+							<Route path="/c/:community/t/:channel" component={ChannelView} />
+							<Route
+								path="/c/:community/v/:channel"
+								component={VoiceChannelView}
+							/>
 						</Route>
 					</Route>
 				</Router>
