@@ -1,5 +1,6 @@
 import {
 	ConnectionState,
+	LocalAudioTrack,
 	RemoteParticipant,
 	RemoteTrack,
 	RemoteTrackPublication,
@@ -21,6 +22,7 @@ import { createStore } from "solid-js/store";
 import { useGlobalContext } from "./GlobalContext";
 import { fetchToken } from "../components/VoiceChat/livekit";
 import { LIVEKIT_SERVER_URL } from "astro:env/client";
+import { createRnnoiseProcessor } from "@/lib/hooks/createRnnoiseProcessor";
 
 /**
  * Re-builds the tiles shown in the UI.
@@ -114,11 +116,12 @@ export type VoiceChatContextData = {
 	screenEnabled: boolean;
 	tiles: ParticipantTile[];
 	activeSpeakers: Participant[];
+	activeRoom: string | null;
 };
 
 export type VoiceChatContextUtility = {
 	rebuildTiles: () => void;
-	connect: () => Promise<void>;
+	connect: (channel?: string) => Promise<void>;
 	disconnect: () => Promise<void>;
 	toggleCamera: () => Promise<void>;
 	toggleMic: () => Promise<void>;
@@ -152,6 +155,7 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 			room: null,
 			screenEnabled: false,
 			tiles: [],
+			activeRoom: null,
 		});
 
 	const context: [VoiceChatContextData, VoiceChatContextUtility] = [
@@ -167,17 +171,35 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 
 				setVoiceChatContext("tiles", newTiles);
 			},
-			async connect() {
+			async connect(preDeterminedChannel) {
+				if (
+					voiceChatContext.activeRoom === preDeterminedChannel ||
+					(!preDeterminedChannel && voiceChatContext.activeRoom === channel())
+				) {
+					return;
+				}
+
 				setVoiceChatContext("error", null);
 
 				try {
-					const token = await fetchToken(channel(), identity());
+					const token = await fetchToken(
+						preDeterminedChannel ?? channel(),
+						identity(),
+					);
+
+					setVoiceChatContext("activeRoom", preDeterminedChannel ?? channel());
 
 					// TODO: Figure out how to change the video capture options for a single client (different video resolution)
 					const roomOptions: RoomOptions = {
 						adaptiveStream: true,
 						dynacast: true,
 						videoCaptureDefaults: VideoPresets.h1080,
+						audioCaptureDefaults: {
+							echoCancellation: true,
+							noiseSuppression: true,
+							voiceIsolation: true,
+							autoGainControl: true,
+						},
 					};
 
 					const connectOptions: RoomConnectOptions = {
@@ -219,10 +241,17 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 					);
 
 					// Local tracks published (camera, mic, screen)
-					r.on(RoomEvent.LocalTrackPublished, () => {
+					r.on(RoomEvent.LocalTrackPublished, (trackPublication) => {
 						const newTiles = rebuildTiles(r, voiceChatContext.activeSpeakers);
 
 						setVoiceChatContext("tiles", newTiles);
+
+						if (
+							trackPublication.source === Track.Source.Microphone &&
+							trackPublication.track instanceof LocalAudioTrack
+						) {
+							trackPublication.track.setProcessor(createRnnoiseProcessor());
+						}
 					});
 					r.on(RoomEvent.LocalTrackUnpublished, () => {
 						const newTiles = rebuildTiles(r, voiceChatContext.activeSpeakers);
@@ -274,6 +303,7 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 						"error",
 						e instanceof Error ? e.message : String(e),
 					);
+					setVoiceChatContext("activeRoom", null);
 				}
 			},
 			async disconnect() {
@@ -300,7 +330,9 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 				try {
 					await r.localParticipant.setCameraEnabled(next);
 					setVoiceChatContext("camEnabled", next);
-					rebuildTiles(r, voiceChatContext.activeSpeakers);
+					const newTiles = rebuildTiles(r, voiceChatContext.activeSpeakers);
+
+					setVoiceChatContext("tiles", newTiles);
 				} catch (e) {
 					setVoiceChatContext(
 						"error",
@@ -343,7 +375,9 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 						await r.localParticipant.setScreenShareEnabled(false);
 					}
 					setVoiceChatContext("screenEnabled", next);
-					rebuildTiles(r, voiceChatContext.activeSpeakers);
+					const newTiles = rebuildTiles(r, voiceChatContext.activeSpeakers);
+
+					setVoiceChatContext("tiles", newTiles);
 				} catch (_) {
 					// User cancelled the share picker
 					setVoiceChatContext((current) => ({

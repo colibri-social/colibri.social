@@ -35,12 +35,17 @@ export const MessageContextMenu: ParentComponent<{
 	debugModalOpen: boolean;
 	setDebugModalOpen: Setter<boolean>;
 }> = (props) => {
+	const lightboxOpen = () => !!document.querySelector("#lightbox");
+
 	return (
 		<>
 			<ContextMenu>
 				<ContextMenuTrigger
 					disabled={
-						props.disabled || props.debugModalOpen || props.deletionModalOpen
+						props.disabled ||
+						props.debugModalOpen ||
+						props.deletionModalOpen ||
+						lightboxOpen()
 					}
 				>
 					{props.children}

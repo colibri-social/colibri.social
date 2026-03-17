@@ -14,6 +14,7 @@ export const Lightbox: ParentComponent<{
 				<Portal>
 					<div
 						class="absolute top-0 left-0 z-50 bg-background/95 w-screen h-screen flex items-center justify-center"
+						id="lightbox"
 						onClick={() => {
 							setOpen(false);
 						}}

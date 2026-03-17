@@ -84,8 +84,19 @@ const decodePrivateKey = (key: string) =>
 /**
  * How many seconds before expiry a session is considered "about to expire"
  * and should be proactively refreshed.
+ *
+ * Set to 1 hour so the refresh window is wider than the 45-minute sweep
+ * interval, guaranteeing every expiring session is caught by at least one
+ * sweep before it actually expires.
  */
-const REFRESH_THRESHOLD_SECONDS = 30 * 60; // 30 minutes
+const REFRESH_THRESHOLD_SECONDS = 60 * 60; // 1 hour
+
+/**
+ * How often the background sweep runs. Intentionally shorter than
+ * REFRESH_THRESHOLD_SECONDS so there is comfortable overlap and no session
+ * can slip through between two consecutive sweeps.
+ */
+const REFRESH_INTERVAL_MS = 45 * 60 * 1000; // 45 minutes
 
 /**
  * Extracts the `sub` (DID) from a Redis session key of the form
@@ -98,15 +109,20 @@ const subFromSessionKey = (key: string): string =>
  * Returns true when the session's access token will expire within
  * `REFRESH_THRESHOLD_SECONDS`, or is already expired but still carries a
  * refresh token (so `client.restore()` can exchange it for a fresh pair).
+ *
+ * Sessions with no `expires_at` are also flagged for refresh when they have a
+ * refresh token — previously these were silently skipped, causing them to
+ * expire in Redis without ever being refreshed.
  */
 const sessionNeedsRefresh = (session: NodeSavedSession): boolean => {
 	const expiresAt = session.tokenSet?.expires_at;
 
-	// No expiry information — cannot determine, skip proactive refresh.
-	if (!expiresAt) return false;
+	// No expiry information — attempt proactive refresh whenever a refresh
+	// token is present, since we have no other signal to go on.
+	if (!expiresAt) return !!session.tokenSet?.refresh_token;
 
 	const expiresAtMs = new Date(expiresAt).getTime();
-	if (Number.isNaN(expiresAtMs)) return false;
+	if (Number.isNaN(expiresAtMs)) return !!session.tokenSet?.refresh_token;
 
 	const remainingSeconds = Math.floor((expiresAtMs - Date.now()) / 1000);
 
@@ -119,7 +135,7 @@ const sessionNeedsRefresh = (session: NodeSavedSession): boolean => {
 
 /**
  * Scans all `oauth:session:*` keys in Redis, identifies sessions that are
- * expiring within the next 45 minutes (or are already expired but still have
+ * expiring within the next hour (or are already expired but still have
  * a refresh token), and calls `client.restore()` on each one.
  */
 export const refreshAtprotoSessions = async (): Promise<void> => {
@@ -200,8 +216,6 @@ export const refreshAtprotoSessions = async (): Promise<void> => {
 export const startSessionRefreshInterval = (): ReturnType<
 	typeof setInterval
 > => {
-	const INTERVAL_MS = REFRESH_THRESHOLD_SECONDS * 1000; // 45 minutes
-
 	refreshAtprotoSessions().catch((err) =>
 		console.error("[oauth] Initial session refresh sweep failed:", err),
 	);
@@ -210,7 +224,7 @@ export const startSessionRefreshInterval = (): ReturnType<
 		refreshAtprotoSessions().catch((err) =>
 			console.error("[oauth] Periodic session refresh sweep failed:", err),
 		);
-	}, INTERVAL_MS);
+	}, REFRESH_INTERVAL_MS);
 };
 
 // See https://npmx.dev/package/@atproto/oauth-client-node#user-content-from-a-backend-service
@@ -264,9 +278,9 @@ export const client = new NodeOAuthClient({
 			if (!raw) return undefined;
 			return JSON.parse(raw) as NodeSavedState;
 		},
-		async del(_key: string): Promise<void> {
-			// const redis = await getRedisClient();
-			// await redis.del(stateKey(key));
+		async del(key: string): Promise<void> {
+			const redis = await getRedisClient();
+			await redis.del(stateKey(key));
 		},
 	},
 
@@ -280,7 +294,7 @@ export const client = new NodeOAuthClient({
 			const ttl = deriveSessionTtlSeconds(session);
 
 			if (ttl <= 0) {
-				// Token is already expired and has no refresh token — no point storing it.
+				// Token is already expired and has no refresh token
 				await redis.del(sessionKey(sub));
 				return;
 			}
@@ -295,9 +309,9 @@ export const client = new NodeOAuthClient({
 			if (!raw) return undefined;
 			return JSON.parse(raw) as NodeSavedSession;
 		},
-		async del(_sub: string): Promise<void> {
-			// const redis = await getRedisClient();
-			// await redis.del(sessionKey(sub));
+		async del(sub: string): Promise<void> {
+			const redis = await getRedisClient();
+			await redis.del(sessionKey(sub));
 		},
 	},
 

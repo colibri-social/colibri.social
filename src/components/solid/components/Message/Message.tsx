@@ -45,7 +45,7 @@ import {
 } from "../../shadcn-solid/Tooltip";
 import { MemberProfilePopover } from "../MemberProfilePopover";
 import { RichTextRenderer, type TextWithFacets } from "../RichTextRenderer";
-import { SmallUser } from "../SmallUser";
+import { SmallUserAsync } from "../SmallUserAsync";
 import { facetsToProseMirror } from "../TextEditor/facets-to-prosemirror";
 import { TextEditor } from "../TextEditor/TextEditor";
 import { MessageAttachments } from "./Attachments";
@@ -899,9 +899,9 @@ export const Message: Component<{
 												<For each={item.authors}>
 													{(author, index) => (
 														<Suspense
-															fallback={<div class="inline">......, </div>}
+															fallback={<div class="inline">......</div>}
 														>
-															<SmallUser did={author} hideImage />
+															<SmallUserAsync did={author} hideImage />
 															<Show when={index() < item.authors.length - 1}>
 																{", "}
 															</Show>

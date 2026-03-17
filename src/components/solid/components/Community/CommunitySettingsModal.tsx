@@ -49,8 +49,9 @@ import {
 } from "../../shadcn-solid/text-field";
 import { SettingsInfoPage } from "../SettingsInfoPage";
 import { SettingsModal, SettingsPage } from "../SettingsModal";
-import { SmallUser } from "../SmallUser";
+import { SmallUserAsync } from "../SmallUserAsync";
 import { DeleteLinkModal } from "./DeleteLinkModal";
+import { useCommunityContext } from "../../contexts/CommunityContext";
 
 const GeneralSettingsPage: Component = () => {
 	const [globalData, { addCommunity }] = useGlobalContext();
@@ -248,6 +249,8 @@ const fetchCodes = async (community: string) => {
 const InviteLinksPage: Component = () => {
 	const params = useParams();
 
+	const { members } = useCommunityContext()!;
+
 	const [loading] = createSignal<boolean>(false);
 	const [codes, { refetch }] = createResource(
 		() => params.community,
@@ -300,7 +303,7 @@ const InviteLinksPage: Component = () => {
 															</TableCell>
 															<TableCell>
 																<Suspense fallback={<Spinner />}>
-																	<SmallUser did={code.created_by_did} />
+																	<SmallUserAsync did={code.created_by_did} />
 																</Suspense>
 															</TableCell>
 															<TableCell>
@@ -428,7 +431,7 @@ const JoinRequestApprovals: Component = () => {
 														<TableRow>
 															<TableCell>
 																<Suspense fallback={<Spinner />}>
-																	<SmallUser did={data.member_did} />
+																	<SmallUserAsync did={data.member_did} />
 																</Suspense>
 															</TableCell>
 															<TableCell class="text-right">

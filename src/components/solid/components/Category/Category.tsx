@@ -30,6 +30,7 @@ import { Button } from "../../shadcn-solid/Button";
 import { CategorySettingsModal } from "./CategorySettingsModal";
 import { ChannelCreationModal } from "./ChannelCreationModal";
 import { ChannelSettingsModal } from "./ChannelSettingsModal";
+import { useVoiceChatContext } from "../../contexts/VoiceChatContext";
 
 export type ChannelDropTarget = {
 	catRkey: string;
@@ -45,6 +46,7 @@ const SortableChannel: Component<{
 		useDragDropContext()!;
 	const [globalData] = useGlobalContext();
 	const params = useParams();
+	const [, { connect }] = useVoiceChatContext();
 
 	const [isDragging, setIsDragging] = createSignal(false);
 
@@ -55,6 +57,10 @@ const SortableChannel: Component<{
 	onDndDragEnd(() => {
 		setTimeout(() => setIsDragging(false), 0);
 	});
+
+	const handleVoiceChannelJoin = (channel: string) => {
+		connect(channel);
+	};
 
 	return (
 		<div
@@ -77,6 +83,7 @@ const SortableChannel: Component<{
 				activeClass="bg-card"
 				style={{ "pointer-events": isDragging() ? "none" : undefined }}
 				draggable={false}
+				onClick={() => handleVoiceChannelJoin(props.channel.rkey)}
 			>
 				<div class="flex flex-row items-center gap-2">
 					<Switch>
