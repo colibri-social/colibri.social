@@ -1,6 +1,6 @@
-import { cn } from "@/utils/cn";
 import { ConnectionQuality } from "livekit-client";
-import { Match, Switch, type Component } from "solid-js";
+import { type Component, Match, Switch } from "solid-js";
+import { cn } from "@/utils/cn";
 
 export const Wifi: Component<{
 	className?: string;

@@ -51,7 +51,6 @@ import { SettingsInfoPage } from "../SettingsInfoPage";
 import { SettingsModal, SettingsPage } from "../SettingsModal";
 import { SmallUserAsync } from "../SmallUserAsync";
 import { DeleteLinkModal } from "./DeleteLinkModal";
-import { useCommunityContext } from "../../contexts/CommunityContext";
 
 const GeneralSettingsPage: Component = () => {
 	const [globalData, { addCommunity }] = useGlobalContext();
@@ -248,8 +247,6 @@ const fetchCodes = async (community: string) => {
 
 const InviteLinksPage: Component = () => {
 	const params = useParams();
-
-	const { members } = useCommunityContext()!;
 
 	const [loading] = createSignal<boolean>(false);
 	const [codes, { refetch }] = createResource(

@@ -57,7 +57,7 @@
 		"@tiptap/pm": "^3.20.1",
 		"@tiptap/suggestion": "^3.20.1",
 		"@twemoji/api": "^17.0.2",
-		"astro": "^5.18.0",
+		"astro": "5.18.1",
 		"clsx": "^2.1.1",
 		"cobe": "^0.6.5",
 		"cva": "1.0.0-beta.4",

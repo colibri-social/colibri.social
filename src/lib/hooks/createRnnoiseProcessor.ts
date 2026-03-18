@@ -1,12 +1,12 @@
 // rnnoiseProcessor.ts
 import {
-	RnnoiseWorkletNode,
 	loadRnnoise,
+	RnnoiseWorkletNode,
 } from "@sapphi-red/web-noise-suppressor";
-import type { Track, TrackProcessor, ProcessorOptions } from "livekit-client";
-import rnnoiseWorkletPath from "@sapphi-red/web-noise-suppressor/rnnoiseWorklet.js?url";
-import rnnoiseWasmSimdPath from "@sapphi-red/web-noise-suppressor/rnnoise_simd.wasm?url";
 import rnnoiseWasmPath from "@sapphi-red/web-noise-suppressor/rnnoise.wasm?url";
+import rnnoiseWasmSimdPath from "@sapphi-red/web-noise-suppressor/rnnoise_simd.wasm?url";
+import rnnoiseWorkletPath from "@sapphi-red/web-noise-suppressor/rnnoiseWorklet.js?url";
+import type { ProcessorOptions, Track, TrackProcessor } from "livekit-client";
 
 export function createRnnoiseProcessor(): TrackProcessor<Track.Kind.Audio> {
 	let rnnoiseNode: RnnoiseWorkletNode | null = null;

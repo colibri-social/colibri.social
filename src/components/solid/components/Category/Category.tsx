@@ -21,6 +21,7 @@ import type {
 	SidebarChannelData,
 } from "@/utils/sdk";
 import { useGlobalContext } from "../../contexts/GlobalContext";
+import { useVoiceChatContext } from "../../contexts/VoiceChatContext";
 import { CaretRight } from "../../icons/CaretRight";
 import { ChatCircleDots } from "../../icons/ChatCircleDots";
 import { Gear } from "../../icons/Gear";
@@ -30,7 +31,6 @@ import { Button } from "../../shadcn-solid/Button";
 import { CategorySettingsModal } from "./CategorySettingsModal";
 import { ChannelCreationModal } from "./ChannelCreationModal";
 import { ChannelSettingsModal } from "./ChannelSettingsModal";
-import { useVoiceChatContext } from "../../contexts/VoiceChatContext";
 
 export type ChannelDropTarget = {
 	catRkey: string;

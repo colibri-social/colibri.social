@@ -1,17 +1,18 @@
+import { LIVEKIT_SERVER_URL } from "astro:env/client";
 import {
 	ConnectionQuality,
 	ConnectionState,
 	LocalAudioTrack,
-	RemoteParticipant,
-	RemoteTrack,
-	RemoteTrackPublication,
+	type Participant,
+	type RemoteParticipant,
+	type RemoteTrack,
+	type RemoteTrackPublication,
 	Room,
+	type RoomConnectOptions,
 	RoomEvent,
+	type RoomOptions,
 	Track,
 	VideoPresets,
-	type Participant,
-	type RoomConnectOptions,
-	type RoomOptions,
 } from "livekit-client";
 import {
 	createContext,
@@ -23,10 +24,9 @@ import {
 	useContext,
 } from "solid-js";
 import { createStore } from "solid-js/store";
-import { useGlobalContext } from "./GlobalContext";
-import { fetchToken } from "../components/VoiceChat/livekit";
-import { LIVEKIT_SERVER_URL } from "astro:env/client";
 import { createRnnoiseProcessor } from "@/lib/hooks/createRnnoiseProcessor";
+import { fetchToken } from "../components/VoiceChat/livekit";
+import { useGlobalContext } from "./GlobalContext";
 
 /**
  * Re-builds the tiles shown in the UI.
@@ -152,8 +152,28 @@ export interface ParticipantTile {
 export const VoiceChatContext =
 	createContext<[VoiceChatContextData, VoiceChatContextUtility]>();
 
+const SOUNDS = {
+	mute: new Audio("/sounds/mute.mp3"),
+	unmute: new Audio("/sounds/unmute.mp3"),
+	deafen: new Audio("/sounds/deafen.mp3"),
+	undeafen: new Audio("/sounds/undeafen.mp3"),
+	screenShared: new Audio("/sounds/screen-shared.mp3"),
+	screenUnshared: new Audio("/sounds/screen-unshared.mp3"),
+	camOn: new Audio("/sounds/cam-on.mp3"),
+	camOff: new Audio("/sounds/cam-off.mp3"),
+	join: new Audio("/sounds/join.mp3"),
+	leave: new Audio("/sounds/leave.mp3"),
+};
+
 export const VoiceChatContextProvider: ParentComponent = (props) => {
 	const [globalData] = useGlobalContext();
+
+	const playSound = (sound: keyof typeof SOUNDS): void => {
+		const audio = SOUNDS[sound];
+
+		audio.currentTime = 0;
+		audio.play();
+	};
 
 	const channel = () => window.location.href.split("/")[7];
 	const identity = () => globalData.user.sub;
@@ -315,6 +335,7 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 						connectOptions,
 					);
 					setVoiceChatContext("room", r);
+					playSound("join");
 
 					const newTiles = rebuildTiles(r, voiceChatContext.activeSpeakers);
 
@@ -331,6 +352,8 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 			async disconnect() {
 				const r = voiceChatContext.room;
 				if (!r) return;
+
+				playSound("leave");
 				await r.disconnect();
 				setVoiceChatContext(() => ({
 					room: null,
@@ -360,6 +383,12 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 					setVoiceChatContext("camEnabled", next);
 					const newTiles = rebuildTiles(r, voiceChatContext.activeSpeakers);
 
+					if (next) {
+						playSound("camOn");
+					} else {
+						playSound("camOff");
+					}
+
 					setVoiceChatContext("tiles", newTiles);
 				} catch (e) {
 					let errorMessage = e instanceof Error ? e.message : e;
@@ -388,6 +417,12 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 						voiceIsolation: true,
 					});
 					setVoiceChatContext("micEnabled", next);
+
+					if (next) {
+						playSound("unmute");
+					} else {
+						playSound("mute");
+					}
 
 					if (voiceChatContext.isDeafened) {
 						setVoiceChatContext("isDeafened", false);
@@ -422,6 +457,12 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 					}
 					setVoiceChatContext("micEnabled", false);
 					setVoiceChatContext("isDeafened", next);
+
+					if (next) {
+						playSound("undeafen");
+					} else {
+						playSound("deafen");
+					}
 				} catch (e) {
 					setVoiceChatContext(
 						"error",
@@ -445,6 +486,13 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 					} else {
 						await r.localParticipant.setScreenShareEnabled(false);
 					}
+
+					if (next) {
+						playSound("screenShared");
+					} else {
+						playSound("screenUnshared");
+					}
+
 					setVoiceChatContext("screenEnabled", next);
 					const newTiles = rebuildTiles(r, voiceChatContext.activeSpeakers);
 

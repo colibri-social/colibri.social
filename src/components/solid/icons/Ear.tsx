@@ -1,4 +1,4 @@
-import { Match, Switch, type Component } from "solid-js";
+import { type Component, Match, Switch } from "solid-js";
 
 export const Ear: Component<{
 	className?: string;

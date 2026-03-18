@@ -3,12 +3,12 @@ import { Route, Router } from "@solidjs/router";
 import type { CommunityData } from "@/utils/sdk";
 import { DevelopmentPlaceholder } from "./components/DevelopmentPlaceholder";
 import { GlobalContextProvider } from "./contexts/GlobalContext";
+import { VoiceChatContextProvider } from "./contexts/VoiceChatContext";
 import AppLayout from "./layouts/AppLayout";
 import CommunityLayout from "./layouts/CommunityLayout";
 import { Toaster } from "./shadcn-solid/Sonner";
 import ChannelView from "./views/ChannelView";
 import VoiceChannelView from "./views/VoiceChannelView";
-import { VoiceChatContextProvider } from "./contexts/VoiceChatContext";
 
 /**
  * The entrypoint to the main solid app.

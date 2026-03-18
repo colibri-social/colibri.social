@@ -1,3 +1,4 @@
+import { ConnectionQuality, ConnectionState } from "livekit-client";
 import {
 	type Accessor,
 	type Component,
@@ -24,16 +25,13 @@ import {
 import { useGlobalContext } from "../contexts/GlobalContext";
 import type { UserOnlineState } from "../contexts/GlobalContext/events";
 import { useVoiceChatContext } from "../contexts/VoiceChatContext";
-import { ConnectionQuality, ConnectionState } from "livekit-client";
-import { Wifi } from "../icons/Wifi";
-import { createAsync } from "@solidjs/router";
-import { APPVIEW_DOMAIN } from "astro:env/client";
-import { Button } from "../shadcn-solid/Button";
-import { PhoneSlash } from "../icons/PhoneSlash";
-import { Microphone } from "../icons/Microphone";
-import { Ear } from "../icons/Ear";
 import { Camera } from "../icons/Camera";
+import { Ear } from "../icons/Ear";
+import { Microphone } from "../icons/Microphone";
+import { PhoneSlash } from "../icons/PhoneSlash";
 import { Screen } from "../icons/Screen";
+import { Wifi } from "../icons/Wifi";
+import { Button } from "../shadcn-solid/Button";
 
 const LABEL_MAP: Record<UserOnlineState, string> = {
 	online: "Online",

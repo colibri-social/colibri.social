@@ -1,19 +1,19 @@
+import { useParams } from "@solidjs/router";
 import { ConnectionState } from "livekit-client";
 import { type Component, createEffect, For, Show } from "solid-js";
-import {
-	useVoiceChatContext,
-	type ParticipantTile,
-} from "../contexts/VoiceChatContext";
-import { useCommunityContext } from "../contexts/CommunityContext";
 import { createIsSpeaking } from "@/lib/hooks/createIsSpeaking";
-import { Button } from "../shadcn-solid/Button";
 import { useChannelContext } from "../contexts/ChannelContext";
-import { useParams } from "@solidjs/router";
-import { Microphone } from "../icons/Microphone";
-import { Ear } from "../icons/Ear";
+import { useCommunityContext } from "../contexts/CommunityContext";
+import {
+	type ParticipantTile,
+	useVoiceChatContext,
+} from "../contexts/VoiceChatContext";
 import { Camera } from "../icons/Camera";
-import { Screen } from "../icons/Screen";
+import { Ear } from "../icons/Ear";
+import { Microphone } from "../icons/Microphone";
 import { PhoneSlash } from "../icons/PhoneSlash";
+import { Screen } from "../icons/Screen";
+import { Button } from "../shadcn-solid/Button";
 
 /**
  * A single participant video tile
@@ -22,7 +22,6 @@ const ParticipantVideo: Component<{
 	tile: ParticipantTile;
 }> = (props) => {
 	let videoRef: HTMLVideoElement | undefined;
-	let audioRef: HTMLAudioElement | undefined;
 
 	const { members } = useCommunityContext()!;
 

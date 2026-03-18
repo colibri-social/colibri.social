@@ -1,5 +1,5 @@
-import { useGlobalContext } from "@/components/solid/contexts/GlobalContext";
 import { createEffect, createSignal, onCleanup } from "solid-js";
+import { useGlobalContext } from "@/components/solid/contexts/GlobalContext";
 
 export type CreateIsSpeakingOptions = {
 	intervalMs?: number;
