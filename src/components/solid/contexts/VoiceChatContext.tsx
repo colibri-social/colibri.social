@@ -1,4 +1,5 @@
 import {
+	ConnectionQuality,
 	ConnectionState,
 	LocalAudioTrack,
 	RemoteParticipant,
@@ -46,6 +47,7 @@ function rebuildTiles(r: Room, activeSpeakers: Participant[]) {
 		audioTrack: localAudioTrack,
 		isLocal: true,
 		isSpeaking: activeSpeakers.some((x) => x.identity === local.identity),
+		isStream: false,
 	});
 
 	// Screen share as a separate tile
@@ -64,6 +66,7 @@ function rebuildTiles(r: Room, activeSpeakers: Participant[]) {
 			audioTrack: localScreenShareAudioTrack,
 			isLocal: true,
 			isSpeaking: false,
+			isStream: true,
 		});
 	}
 
@@ -82,6 +85,7 @@ function rebuildTiles(r: Room, activeSpeakers: Participant[]) {
 			audioTrack: remoteAudio,
 			isLocal: false,
 			isSpeaking: activeSpeakers.some((x) => x.identity === remote.identity),
+			isStream: false,
 		});
 
 		// Screen share as a separate tile
@@ -93,13 +97,14 @@ function rebuildTiles(r: Room, activeSpeakers: Participant[]) {
 			remote.getTrackPublication(Track.Source.ScreenShareAudio)?.track
 				?.mediaStreamTrack ?? null;
 
-		if (localScreenShareTrack) {
+		if (remoteScreenShareTrack) {
 			next.push({
 				participant: local,
 				videoTrack: remoteScreenShareTrack,
 				audioTrack: remoteScreenShareAudioTrack,
 				isLocal: false,
 				isSpeaking: false,
+				isStream: true,
 			});
 		}
 	});
@@ -110,18 +115,21 @@ function rebuildTiles(r: Room, activeSpeakers: Participant[]) {
 export type VoiceChatContextData = {
 	room: Room | null;
 	connectionState: ConnectionState;
+	connectionQuality: ConnectionQuality;
 	error: string | null;
 	camEnabled: boolean;
 	micEnabled: boolean;
 	screenEnabled: boolean;
+	isDeafened: boolean;
 	tiles: ParticipantTile[];
 	activeSpeakers: Participant[];
 	activeRoom: string | null;
+	activeRoomName: string | null;
 };
 
 export type VoiceChatContextUtility = {
 	rebuildTiles: () => void;
-	connect: (channel?: string) => Promise<void>;
+	connect: (channel: string, name: string) => Promise<void>;
 	disconnect: () => Promise<void>;
 	toggleCamera: () => Promise<void>;
 	toggleMic: () => Promise<void>;
@@ -134,6 +142,7 @@ export interface ParticipantTile {
 	audioTrack: MediaStreamTrack | null;
 	isLocal: boolean;
 	isSpeaking: boolean;
+	isStream: boolean;
 }
 
 export const VoiceChatContext =
@@ -156,6 +165,10 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 			screenEnabled: false,
 			tiles: [],
 			activeRoom: null,
+			activeRoomName: null,
+			connectionQuality: ConnectionQuality.Unknown,
+			// TODO: Functionality
+			isDeafened: false,
 		});
 
 	const context: [VoiceChatContextData, VoiceChatContextUtility] = [
@@ -171,10 +184,10 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 
 				setVoiceChatContext("tiles", newTiles);
 			},
-			async connect(preDeterminedChannel) {
+			async connect(channelRkey, channelName) {
 				if (
-					voiceChatContext.activeRoom === preDeterminedChannel ||
-					(!preDeterminedChannel && voiceChatContext.activeRoom === channel())
+					voiceChatContext.activeRoom === channelRkey ||
+					(!channelRkey && voiceChatContext.activeRoom === channel())
 				) {
 					return;
 				}
@@ -182,12 +195,13 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 				setVoiceChatContext("error", null);
 
 				try {
-					const token = await fetchToken(
-						preDeterminedChannel ?? channel(),
-						identity(),
-					);
+					const token = await fetchToken(channelRkey ?? channel(), identity());
 
-					setVoiceChatContext("activeRoom", preDeterminedChannel ?? channel());
+					setVoiceChatContext("activeRoom", channelRkey ?? channel());
+					setVoiceChatContext(
+						"activeRoomName",
+						channelName ?? channelRkey ?? channel(),
+					);
 
 					// TODO: Figure out how to change the video capture options for a single client (different video resolution)
 					const roomOptions: RoomOptions = {
@@ -211,6 +225,10 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 
 					r.on(RoomEvent.ConnectionStateChanged, (state) => {
 						setVoiceChatContext("connectionState", state);
+					});
+
+					r.on(RoomEvent.ConnectionQualityChanged, (quality) => {
+						setVoiceChatContext("connectionQuality", quality);
 					});
 
 					// A remote track became available and was subscribed to
@@ -285,7 +303,6 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 					// TODO: Handle these events.
 					// RoomEvent.Disconnected, show reconnecting UI, attempt rejoin
 					// RoomEvent.MediaDevicesError, surface a helpful error message
-					// RoomEvent.ConnectionQualityChanged, show quality indicators per participant
 					// RoomEvent.DataReceived, if you add a chat/data channel
 
 					await r.connect(
@@ -304,6 +321,7 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 						e instanceof Error ? e.message : String(e),
 					);
 					setVoiceChatContext("activeRoom", null);
+					setVoiceChatContext("activeRoomName", null);
 				}
 			},
 			async disconnect() {
@@ -334,10 +352,14 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 
 					setVoiceChatContext("tiles", newTiles);
 				} catch (e) {
-					setVoiceChatContext(
-						"error",
-						`Camera error: ${e instanceof Error ? e.message : e}`,
-					);
+					let errorMessage = e instanceof Error ? e.message : e;
+
+					if (errorMessage === "The object can not be found here.") {
+						errorMessage =
+							"Unable to access microphone. Please allow the browser to use it in your system settings.";
+					}
+
+					setVoiceChatContext("error", `Camera error: ${errorMessage}`);
 				}
 			},
 
@@ -349,13 +371,22 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 				if (!r) return;
 				const next = !voiceChatContext.micEnabled;
 				try {
-					await r.localParticipant.setMicrophoneEnabled(next);
+					await r.localParticipant.setMicrophoneEnabled(next, {
+						autoGainControl: true,
+						noiseSuppression: true,
+						echoCancellation: true,
+						voiceIsolation: true,
+					});
 					setVoiceChatContext("micEnabled", next);
 				} catch (e) {
-					setVoiceChatContext(
-						"error",
-						`Mic error: ${e instanceof Error ? e.message : e}`,
-					);
+					let errorMessage = e instanceof Error ? e.message : e;
+
+					if (errorMessage === "The object can not be found here.") {
+						errorMessage =
+							"Unable to access microphone. Please allow the browser to use it in your system settings.";
+					}
+
+					setVoiceChatContext("error", `Mic error: ${errorMessage}`);
 				}
 			},
 

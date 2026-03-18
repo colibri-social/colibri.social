@@ -58,8 +58,8 @@ const SortableChannel: Component<{
 		setTimeout(() => setIsDragging(false), 0);
 	});
 
-	const handleVoiceChannelJoin = (channel: string) => {
-		connect(channel);
+	const handleVoiceChannelJoin = () => {
+		connect(props.channel.rkey, props.channel.name);
 	};
 
 	return (
@@ -83,7 +83,7 @@ const SortableChannel: Component<{
 				activeClass="bg-card"
 				style={{ "pointer-events": isDragging() ? "none" : undefined }}
 				draggable={false}
-				onClick={() => handleVoiceChannelJoin(props.channel.rkey)}
+				onClick={() => handleVoiceChannelJoin()}
 			>
 				<div class="flex flex-row items-center gap-2">
 					<Switch>

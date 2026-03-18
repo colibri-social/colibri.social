@@ -7,6 +7,8 @@ import {
 import { useCommunityContext } from "../contexts/CommunityContext";
 import { createIsSpeaking } from "@/lib/hooks/createIsSpeaking";
 import { Button } from "../shadcn-solid/Button";
+import { useChannelContext } from "../contexts/ChannelContext";
+import { useParams } from "@solidjs/router";
 
 /**
  * A single participant video tile
@@ -80,7 +82,10 @@ const ParticipantVideo: Component<{
 					autoplay
 					muted={props.tile.isLocal}
 					playsinline
-					class="w-full h-full object-cover transform -scale-x-100"
+					class="w-full h-full object-cover transform"
+					classList={{
+						"-scale-x-100": !props.tile.isStream,
+					}}
 				/>
 			</Show>
 
@@ -106,6 +111,13 @@ const LiveKitRoom: Component = () => {
 		voiceChatContext,
 		{ toggleCamera, toggleMic, toggleScreen, connect, disconnect },
 	] = useVoiceChatContext();
+	const channelData = useChannelContext()!;
+	const params = useParams();
+
+	const channel = () => params.channel!;
+
+	const activeChannel = () =>
+		channelData.channels().find((c) => c.rkey === channel())!;
 
 	const isConnected = () =>
 		voiceChatContext.connectionState === ConnectionState.Connected;
@@ -195,7 +207,11 @@ const LiveKitRoom: Component = () => {
 						</>
 					}
 				>
-					<Button onClick={() => connect()}>Join Channel</Button>
+					<Button
+						onClick={() => connect(activeChannel().rkey, activeChannel().name)}
+					>
+						Join Channel
+					</Button>
 				</Show>
 			</div>
 		</div>
