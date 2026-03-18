@@ -64,12 +64,13 @@ const SortableChannel: Component<{
 			target: Element;
 		},
 	) => {
-		if (
-			props.channel.channel_type !== "voice" ||
+		const isDialog = () =>
 			e.target.closest(".channel-settings") ||
 			e.target.classList.contains("channel-settings") ||
-			e.target.closest('[role="alertdialog"]')
-		) {
+			e.target.closest('[role="alertdialog"]') ||
+			e.target.classList.contains('[data-slot="dialog-overlay"]');
+
+		if (props.channel.channel_type !== "voice" || isDialog()) {
 			return;
 		}
 		connect(props.channel.rkey, props.channel.name);
