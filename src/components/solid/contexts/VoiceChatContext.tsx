@@ -125,6 +125,7 @@ export type VoiceChatContextData = {
 	screenEnabled: boolean;
 	isDeafened: boolean;
 	tiles: ParticipantTile[];
+	focusedTile: ParticipantTile | null;
 	activeSpeakers: Participant[];
 	activeRoom: string | null;
 	activeRoomName: string | null;
@@ -138,6 +139,7 @@ export type VoiceChatContextUtility = {
 	toggleMic: () => Promise<void>;
 	toggleDeafen: () => Promise<void>;
 	toggleScreen: () => Promise<void>;
+	toggleFocusedTile: (tile: ParticipantTile | null) => void;
 };
 
 export interface ParticipantTile {
@@ -188,6 +190,7 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 			room: null,
 			screenEnabled: false,
 			tiles: [],
+			focusedTile: null,
 			activeRoom: null,
 			activeRoomName: null,
 			connectionQuality: ConnectionQuality.Unknown,
@@ -207,6 +210,13 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 				);
 
 				setVoiceChatContext("tiles", newTiles);
+			},
+			toggleFocusedTile(tile) {
+				if (
+					voiceChatContext.focusedTile?.participant.sid === tile?.participant.sid &&
+					voiceChatContext.focusedTile?.isStream === tile?.isStream
+				) setVoiceChatContext("focusedTile", null);
+				else setVoiceChatContext("focusedTile", tile);
 			},
 			async connect(channelRkey, channelName) {
 				if (
