@@ -58,8 +58,20 @@ const SortableChannel: Component<{
 		setTimeout(() => setIsDragging(false), 0);
 	});
 
-	const handleVoiceChannelJoin = () => {
-		if (props.channel.channel_type !== "voice") return;
+	const handleVoiceChannelJoin = (
+		e: MouseEvent & {
+			currentTarget: HTMLAnchorElement;
+			target: Element;
+		},
+	) => {
+		if (
+			props.channel.channel_type !== "voice" ||
+			e.target.closest(".channel-settings") ||
+			e.target.classList.contains("channel-settings") ||
+			e.target.closest('[role="alertdialog"]')
+		) {
+			return;
+		}
 		connect(props.channel.rkey, props.channel.name);
 	};
 
@@ -84,7 +96,7 @@ const SortableChannel: Component<{
 				activeClass="bg-card"
 				style={{ "pointer-events": isDragging() ? "none" : undefined }}
 				draggable={false}
-				onClick={() => handleVoiceChannelJoin()}
+				onClick={handleVoiceChannelJoin}
 			>
 				<div class="flex flex-row items-center gap-2">
 					<Switch>
@@ -102,7 +114,7 @@ const SortableChannel: Component<{
 						<ChannelSettingsModal class="p-0 w-5 h-5.5" channel={props.channel}>
 							<Button
 								size="sm"
-								class="opacity-0 group-hover/channel:opacity-100 p-0 w-5 h-5 cursor-pointer"
+								class="opacity-0 group-hover/channel:opacity-100 p-0 w-5 h-5 cursor-pointer channel-settings"
 								classList={{
 									"opacity-100!": params.channel === props.channel.rkey,
 								}}
