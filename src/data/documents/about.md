@@ -20,7 +20,7 @@ Colibri follows the recommended Atproto architecture is a collection of services
 - A public-facing [Jetstream](https://atproto.com/guides/streaming-data) instance, hosted at [jetstream.colibri.social](https://jetstream.colibri.social)
 - A public-facing [App View](https://atproto.com/guides/glossary#app-view), hosted at [appview.colibri.social](https://appview.colibri.social)
 - A [PDS](https://atproto.com/guides/glossary#pds-personal-data-server), hosted at [colibri.social](https://colibri.social)
-- The website and web-abb, also hosted at [colibri.social](https://colibri.social)
+- The website and web-app, also hosted at [colibri.social](https://colibri.social)
 
 When you sign in to Colibri, we contact the PDS hosting your data and redirect you to it, asking you to authenticate. Once you've logged in and are redirected back to us,
 we check for some basic records in your PDS. We then create them if they do not yet exist.
