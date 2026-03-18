@@ -99,8 +99,10 @@ const DropdownStatusSelect: ParentComponent<{
 export const UserStatus: Component = () => {
 	const [value, setValue] = createSignal<UserOnlineState>("online");
 	const [globalData, { sendSocketMessage }] = useGlobalContext();
-	const [voiceData, { disconnect, toggleMic, toggleCamera, toggleScreen }] =
-		useVoiceChatContext();
+	const [
+		voiceData,
+		{ disconnect, toggleMic, toggleCamera, toggleScreen, toggleDeafen },
+	] = useVoiceChatContext();
 
 	const optimisticUserProfile = createMemo(() => {
 		const optimisticProfileUpdates = globalData.memberProfileOverrides.find(
@@ -225,11 +227,9 @@ export const UserStatus: Component = () => {
 							variant={voiceData.isDeafened ? "secondary" : "outline"}
 							classList={{
 								"text-foreground": !voiceData.isDeafened,
-								"text-red-400": voiceData.isDeafened,
+								"text-red-400!": voiceData.isDeafened,
 							}}
-							onClick={() => {
-								// TODO
-							}}
+							onClick={toggleDeafen}
 						>
 							<Ear enabled={voiceData.isDeafened} />
 						</Button>

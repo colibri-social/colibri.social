@@ -9,6 +9,11 @@ import { createIsSpeaking } from "@/lib/hooks/createIsSpeaking";
 import { Button } from "../shadcn-solid/Button";
 import { useChannelContext } from "../contexts/ChannelContext";
 import { useParams } from "@solidjs/router";
+import { Microphone } from "../icons/Microphone";
+import { Ear } from "../icons/Ear";
+import { Camera } from "../icons/Camera";
+import { Screen } from "../icons/Screen";
+import { PhoneSlash } from "../icons/PhoneSlash";
 
 /**
  * A single participant video tile
@@ -36,14 +41,6 @@ const ParticipantVideo: Component<{
 			});
 		} else if (videoRef) {
 			videoRef.srcObject = null;
-		}
-	});
-
-	createEffect(() => {
-		const aTrack = props.tile.audioTrack;
-		if (audioRef && aTrack && !props.tile.isLocal) {
-			audioRef.srcObject = new MediaStream([aTrack]);
-			audioRef.play().catch(() => {});
 		}
 	});
 
@@ -89,10 +86,6 @@ const ParticipantVideo: Component<{
 				/>
 			</Show>
 
-			<Show when={!props.tile.isLocal}>
-				<audio ref={audioRef} autoplay class="hidden" />
-			</Show>
-
 			<div class="absolute bottom-2 left-2 bg-black/90 text-muted-foreground text-sm px-2 py-0.5 rounded-sm backdrop-blur-sm">
 				{props.tile.isLocal
 					? `${member(props.tile.participant.identity).display_name || member(props.tile.participant.identity).handle} (you)`
@@ -109,7 +102,14 @@ const ParticipantVideo: Component<{
 const LiveKitRoom: Component = () => {
 	const [
 		voiceChatContext,
-		{ toggleCamera, toggleMic, toggleScreen, connect, disconnect },
+		{
+			toggleCamera,
+			toggleMic,
+			toggleScreen,
+			toggleDeafen,
+			connect,
+			disconnect,
+		},
 	] = useVoiceChatContext();
 	const channelData = useChannelContext()!;
 	const params = useParams();
@@ -182,25 +182,50 @@ const LiveKitRoom: Component = () => {
 					fallback={
 						<>
 							<Button
-								variant={voiceChatContext.micEnabled ? "default" : "ghost"}
+								variant={voiceChatContext.micEnabled ? "secondary" : "outline"}
+								classList={{
+									"text-(--primary-hover)!": voiceChatContext.micEnabled,
+									"text-red-400": !voiceChatContext.micEnabled,
+								}}
 								onClick={toggleMic}
 							>
-								{voiceChatContext.micEnabled ? "Mic ON" : "Mic OFF"}
+								<Microphone enabled={voiceChatContext.micEnabled} />
 							</Button>
 							<Button
-								variant={voiceChatContext.camEnabled ? "default" : "ghost"}
+								variant={voiceChatContext.isDeafened ? "secondary" : "outline"}
+								classList={{
+									"text-foreground": !voiceChatContext.isDeafened,
+									"text-red-400!": voiceChatContext.isDeafened,
+								}}
+								onClick={toggleDeafen}
+							>
+								<Ear enabled={voiceChatContext.isDeafened} />
+							</Button>
+							<Button
+								variant={voiceChatContext.camEnabled ? "secondary" : "outline"}
+								classList={{
+									"text-(--primary-hover)!": voiceChatContext.camEnabled,
+									"text-foreground": !voiceChatContext.camEnabled,
+								}}
 								onClick={toggleCamera}
 							>
-								{voiceChatContext.camEnabled ? "Cam ON" : "Cam OFF"}
+								<Camera enabled={voiceChatContext.camEnabled} />
 							</Button>
 							<Button
-								variant={voiceChatContext.screenEnabled ? "default" : "ghost"}
+								variant={
+									voiceChatContext.screenEnabled ? "secondary" : "outline"
+								}
+								classList={{
+									"text-(--primary-hover)!": voiceChatContext.screenEnabled,
+									"text-foreground": !voiceChatContext.screenEnabled,
+								}}
 								onClick={toggleScreen}
 							>
-								{voiceChatContext.screenEnabled ? "Stop Share" : "Share Screen"}
+								<Screen enabled={voiceChatContext.screenEnabled} />
 							</Button>
 							<div class="ml-auto">
 								<Button variant={"destructive"} onClick={disconnect}>
+									<PhoneSlash />
 									Leave
 								</Button>
 							</div>

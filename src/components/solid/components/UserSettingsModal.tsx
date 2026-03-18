@@ -211,7 +211,7 @@ const GeneralSettingsPage: Component = () => {
 										<img
 											src={existingBannerUrl()!}
 											alt={name()}
-											class="h-full w-full object-cover"
+											class="h-full w-full object-cover aspect-3/1"
 										/>
 									</div>
 								</Match>

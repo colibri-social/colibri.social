@@ -15,8 +15,11 @@ import {
 } from "livekit-client";
 import {
 	createContext,
+	createEffect,
+	For,
 	onCleanup,
 	type ParentComponent,
+	Show,
 	useContext,
 } from "solid-js";
 import { createStore } from "solid-js/store";
@@ -133,6 +136,7 @@ export type VoiceChatContextUtility = {
 	disconnect: () => Promise<void>;
 	toggleCamera: () => Promise<void>;
 	toggleMic: () => Promise<void>;
+	toggleDeafen: () => Promise<void>;
 	toggleScreen: () => Promise<void>;
 };
 
@@ -328,13 +332,19 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 				const r = voiceChatContext.room;
 				if (!r) return;
 				await r.disconnect();
-				setVoiceChatContext((current) => ({
-					...current,
+				setVoiceChatContext(() => ({
 					room: null,
 					tiles: [],
 					camEnabled: false,
 					micEnabled: false,
 					screenEnabled: false,
+					activeRoom: null,
+					activeRoomName: null,
+					activeSpeakers: [],
+					connectionQuality: ConnectionQuality.Unknown,
+					connectionState: ConnectionState.Disconnected,
+					error: null,
+					isDeafened: false,
 				}));
 			},
 
@@ -378,6 +388,10 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 						voiceIsolation: true,
 					});
 					setVoiceChatContext("micEnabled", next);
+
+					if (voiceChatContext.isDeafened) {
+						setVoiceChatContext("isDeafened", false);
+					}
 				} catch (e) {
 					let errorMessage = e instanceof Error ? e.message : e;
 
@@ -387,6 +401,32 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 					}
 
 					setVoiceChatContext("error", `Mic error: ${errorMessage}`);
+				}
+			},
+
+			/**
+			 * Toggles the deafened state.
+			 */
+			async toggleDeafen() {
+				const r = voiceChatContext.room;
+				if (!r) return;
+				const next = !voiceChatContext.isDeafened;
+				try {
+					if (next === true) {
+						await r.localParticipant.setMicrophoneEnabled(false, {
+							autoGainControl: true,
+							noiseSuppression: true,
+							echoCancellation: true,
+							voiceIsolation: true,
+						});
+					}
+					setVoiceChatContext("micEnabled", false);
+					setVoiceChatContext("isDeafened", next);
+				} catch (e) {
+					setVoiceChatContext(
+						"error",
+						`Mic error: ${e instanceof Error ? e.message : e}`,
+					);
 				}
 			},
 
@@ -426,8 +466,36 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 		voiceChatContext.room?.disconnect();
 	});
 
+	createEffect(() => {
+		const tiles = voiceChatContext.tiles; // Track
+
+		for (const tile of tiles) {
+			const aTrack = tile.audioTrack;
+			const participantAudioTrack = document.querySelector<HTMLAudioElement>(
+				`#audio-${tile.participant.identity.replaceAll(":", "")}`,
+			);
+
+			if (participantAudioTrack && aTrack && !tile.isLocal) {
+				participantAudioTrack.srcObject = new MediaStream([aTrack]);
+				participantAudioTrack.play().catch(() => {});
+			}
+		}
+	});
+
 	return (
 		<VoiceChatContext.Provider value={context}>
+			<For each={voiceChatContext.tiles}>
+				{(item) => (
+					<Show when={!item.isLocal}>
+						<audio
+							autoplay
+							class="hidden"
+							muted={voiceChatContext.isDeafened}
+							id={`audio-${item.participant.identity.replaceAll(":", "")}`}
+						/>
+					</Show>
+				)}
+			</For>
 			{props.children}
 		</VoiceChatContext.Provider>
 	);
