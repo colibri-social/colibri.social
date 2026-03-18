@@ -59,6 +59,7 @@ const SortableChannel: Component<{
 	});
 
 	const handleVoiceChannelJoin = () => {
+		if (props.channel.channel_type !== "voice") return;
 		connect(props.channel.rkey, props.channel.name);
 	};
 
@@ -79,7 +80,7 @@ const SortableChannel: Component<{
 		>
 			<A
 				href={`/c/${params.community}/${props.channel.channel_type.slice(0, 1)}/${props.channel.rkey}`}
-				class="flex flex-row items-center gap-2 justify-between text-muted-foreground hover:bg-card cursor-pointer p-1 pr-1.25 py-0.5 rounded-sm group/channel"
+				class="group/channel flex flex-row justify-between items-center gap-2 hover:bg-card p-1 py-0.5 pr-1.25 rounded-sm text-muted-foreground cursor-pointer"
 				activeClass="bg-card"
 				style={{ "pointer-events": isDragging() ? "none" : undefined }}
 				draggable={false}
@@ -96,12 +97,12 @@ const SortableChannel: Component<{
 					</Switch>
 					<span>{props.channel.name}</span>
 				</div>
-				<div class="flex items-center justify-center pb-px">
+				<div class="flex justify-center items-center pb-px">
 					<Show when={props.community.owner_did === globalData.user.sub}>
-						<ChannelSettingsModal class="w-5 h-5.5 p-0" channel={props.channel}>
+						<ChannelSettingsModal class="p-0 w-5 h-5.5" channel={props.channel}>
 							<Button
 								size="sm"
-								class="w-5 h-5 cursor-pointer opacity-0 group-hover/channel:opacity-100 p-0"
+								class="opacity-0 group-hover/channel:opacity-100 p-0 w-5 h-5 cursor-pointer"
 								classList={{
 									"opacity-100!": params.channel === props.channel.rkey,
 								}}
@@ -193,7 +194,7 @@ export const Category: ParentComponent<{
 		<div class="flex flex-col py-3">
 			<button
 				type="button"
-				class="flex flex-row items-center justify-between pb-2 px-4 pl-4.5 text-sm text-muted-foreground group/category hover:text-foreground"
+				class="group/category flex flex-row justify-between items-center px-4 pb-2 pl-4.5 text-muted-foreground hover:text-foreground text-sm"
 				style={{
 					cursor:
 						props.community.owner_did === globalData.user.sub
@@ -204,7 +205,7 @@ export const Category: ParentComponent<{
 				}}
 			>
 				<div
-					class="flex flex-row gap-2.5 cursor-pointer items-center"
+					class="flex flex-row items-center gap-2.5 cursor-pointer"
 					onClick={() => setOpen((current) => !current)}
 				>
 					<Switch>
@@ -217,12 +218,12 @@ export const Category: ParentComponent<{
 					</Switch>
 					<span>{props.category.name}</span>
 				</div>
-				<div class="flex flex-row gap-1 items-center">
+				<div class="flex flex-row items-center gap-1">
 					<Show when={props.community.owner_did === globalData.user.sub}>
 						<CategorySettingsModal category={props.category}>
 							<Button
 								size="sm"
-								class="w-5 h-5 cursor-pointer opacity-0 group-hover/category:opacity-100"
+								class="opacity-0 group-hover/category:opacity-100 w-5 h-5 cursor-pointer"
 								variant="ghost"
 							>
 								<Gear size={16} />
@@ -251,7 +252,7 @@ export const Category: ParentComponent<{
 						{(channel) => (
 							<>
 								<Show when={props.dropTarget?.insertBeforeId === channel.rkey}>
-									<div class="h-0.5 bg-primary rounded mx-1" />
+									<div class="bg-primary mx-1 rounded h-0.5" />
 								</Show>
 								<SortableChannel
 									channel={channel}
@@ -263,11 +264,11 @@ export const Category: ParentComponent<{
 					<Show
 						when={props.dropTarget && props.dropTarget.insertBeforeId === null}
 					>
-						<div class="h-0.5 bg-primary rounded mx-1" />
+						<div class="bg-primary mx-1 rounded h-0.5" />
 					</Show>
 				</SortableProvider>
 				<Show when={orderedChannels().length === 0 && !props.dropTarget}>
-					<span class="text-xs text-muted-foreground ml-8">
+					<span class="ml-8 text-muted-foreground text-xs">
 						This category is empty.
 					</span>
 				</Show>
