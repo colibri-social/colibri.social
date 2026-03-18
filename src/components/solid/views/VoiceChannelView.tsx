@@ -25,6 +25,7 @@ const ParticipantVideo: Component<{
 	let audioRef: HTMLAudioElement | undefined;
 
 	const { members } = useCommunityContext()!;
+	const [context, utils] = useVoiceChatContext();
 
 	const isSpeaking = createIsSpeaking(props.tile.audioTrack, {
 		threshold: 0.05,
@@ -48,7 +49,8 @@ const ParticipantVideo: Component<{
 
 	return (
 		<div
-			class="relative bg-background aspect-video rounded-md overflow-hidden transition-all duration-75 border border-border outline-2 -outline-offset-2 w-full"
+			class="relative bg-background border border-border rounded-md outline-2 -outline-offset-2 w-full aspect-video overflow-hidden transition-all duration-75"
+			onClick={() => utils.toggleFocusedTile(props.tile)}
 			classList={{
 				"outline-primary": isSpeaking(),
 				"outline-transparent": !isSpeaking(),
@@ -57,7 +59,7 @@ const ParticipantVideo: Component<{
 			<Show
 				when={props.tile.videoTrack?.enabled}
 				fallback={
-					<div class="flex items-center justify-center h-full text-muted-foreground text-sm">
+					<div class="flex justify-center items-center h-full text-muted-foreground text-sm">
 						<img
 							src={
 								member(props.tile.participant.identity).avatar_url ||
@@ -69,7 +71,7 @@ const ParticipantVideo: Component<{
 								member(props.tile.participant.identity).display_name ||
 								member(props.tile.participant.identity).handle
 							}
-							class="rounded-full inline mr-2 relative bottom-0.5"
+							class="inline bottom-0.5 relative mr-2 rounded-full"
 						/>
 					</div>
 				}
@@ -86,7 +88,7 @@ const ParticipantVideo: Component<{
 				/>
 			</Show>
 
-			<div class="absolute bottom-2 left-2 bg-black/90 text-muted-foreground text-sm px-2 py-0.5 rounded-sm backdrop-blur-sm">
+			<div class="bottom-2 left-2 absolute bg-black/90 backdrop-blur-sm px-2 py-0.5 rounded-sm text-muted-foreground text-sm">
 				{props.tile.isLocal
 					? `${member(props.tile.participant.identity).display_name || member(props.tile.participant.identity).handle} (you)`
 					: member(props.tile.participant.identity).display_name ||
@@ -122,7 +124,11 @@ const LiveKitRoom: Component = () => {
 	const isConnected = () =>
 		voiceChatContext.connectionState === ConnectionState.Connected;
 
-	const tiles = () => voiceChatContext.tiles;
+	const focusedTile = () => voiceChatContext.focusedTile;
+
+	const tiles = () => voiceChatContext.tiles.filter(t => 
+		focusedTile()?.participant.sid !== t.participant.sid || focusedTile()?.isStream !== t.isStream
+);
 	const cols = () => Math.min(tiles().length, 3);
 	const rows = () => {
 		const t = tiles();
@@ -133,18 +139,23 @@ const LiveKitRoom: Component = () => {
 	};
 
 	return (
-		<div class="h-full bg-background text-muted-foreground flex flex-col gap-0">
+		<div class="flex flex-col gap-0 bg-background h-full text-muted-foreground">
 			<Show when={voiceChatContext.error}>
-				<div class="p-4 bg-destructive/10 border-b border-destructive text-sm text-foreground">
+				<div class="bg-destructive/10 p-4 border-destructive border-b text-foreground text-sm">
 					{voiceChatContext.error}
 				</div>
 			</Show>
 
-			<div class="flex-1 overflow-y-auto">
-				<div class="p-4 w-full min-h-full flex flex-col gap-4 justify-center">
+			<div class="flex-1 overflow-y-auto flex flex-col gap-4 p-4 w-full min-h-full">
+				<div class="h-fit">
+					<Show when={focusedTile() !== null}>
+						<ParticipantVideo tile={focusedTile()!} />
+					</Show>
+				</div>
+				<div class={`flex flex-col justify-center gap-4 ${focusedTile() ? "" : "h-full"}`}>
 					<For each={rows()}>
 						{(row) => (
-							<div class="flex gap-4 justify-center">
+							<div class="flex justify-center gap-4">
 								<For each={row}>
 									{(tile) => (
 										<div
@@ -169,14 +180,14 @@ const LiveKitRoom: Component = () => {
 					</For>
 
 					<Show when={voiceChatContext.tiles.length === 0 && !isConnected()}>
-						<div class="text-muted-foreground text-sm m-auto text-center">
+						<div class="m-auto text-muted-foreground text-sm text-center">
 							Nobody's here yet.
 						</div>
 					</Show>
 				</div>
 			</div>
 
-			<div class="px-4 flex flex-row flex-wrap items-center gap-2 h-16 border-t border-border">
+			<div class="flex flex-row flex-wrap items-center gap-2 px-4 border-border border-t h-16">
 				<Show
 					when={!isConnected()}
 					fallback={
