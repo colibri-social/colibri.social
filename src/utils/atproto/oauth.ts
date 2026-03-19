@@ -37,7 +37,7 @@ const sessionKey = (sub: string) => `oauth:session:${sub}`;
 /**
  * How long (in seconds) to keep authorization state entries around.
  */
-const STATE_TTL_SECONDS = 60 * 5; // 5 Minutes
+const STATE_TTL_SECONDS = 60 * 60; // 60 Minutes
 
 /**
  * Derive a session TTL from the token set stored inside `NodeSavedSession`.
