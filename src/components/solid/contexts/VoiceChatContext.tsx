@@ -201,7 +201,6 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 			activeRoom: null,
 			activeRoomName: null,
 			connectionQuality: ConnectionQuality.Unknown,
-			// TODO: Functionality
 			isDeafened: false,
 			communityAtUri: null,
 		});
@@ -252,7 +251,7 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 
 					// TODO: Figure out how to change the video capture options for a single client (different video resolution)
 					const roomOptions: RoomOptions = {
-						adaptiveStream: true,
+						adaptiveStream: false,
 						dynacast: true,
 						videoCaptureDefaults: VideoPresets.h1080,
 						audioCaptureDefaults: {

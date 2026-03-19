@@ -12,7 +12,7 @@ export function createIsSpeaking(
 	track: MediaStreamTrack | null,
 	{
 		intervalMs = 100,
-		threshold = 0.05,
+		threshold = 0.01,
 		holdMs = 500,
 	}: CreateIsSpeakingOptions = {},
 ) {

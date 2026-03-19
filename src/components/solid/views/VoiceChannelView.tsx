@@ -1,6 +1,14 @@
 import { useParams } from "@solidjs/router";
 import { ConnectionState } from "livekit-client";
-import { type Component, createEffect, createMemo, For, Show } from "solid-js";
+import {
+	type Component,
+	createEffect,
+	createMemo,
+	createSignal,
+	For,
+	onCleanup,
+	Show,
+} from "solid-js";
 import { createIsSpeaking } from "@/lib/hooks/createIsSpeaking";
 import { useChannelContext } from "../contexts/ChannelContext";
 import { useCommunityContext } from "../contexts/CommunityContext";
@@ -15,6 +23,7 @@ import { PhoneSlash } from "../icons/PhoneSlash";
 import { Screen } from "../icons/Screen";
 import { Button } from "../shadcn-solid/Button";
 import { useGlobalContext } from "../contexts/GlobalContext";
+import type { MemberData } from "../layouts/CommunityLayout";
 
 /**
  * A tile shown when viewing the voice channel without being connected.
@@ -51,30 +60,68 @@ const ParticipantVideo: Component<{
 	tile: ParticipantTile;
 }> = (props) => {
 	let videoRef: HTMLVideoElement | undefined;
+	const [videoRefReady, setVideoRefReady] = createSignal(false);
 
 	const communityData = useCommunityContext()!;
 	const [context, utils] = useVoiceChatContext();
 
 	const isSpeaking = createIsSpeaking(props.tile.audioTrack, {
-		threshold: 0.05,
+		threshold: 0.01,
 		intervalMs: 80,
 	});
 
+	const [videoEnabled, setVideoEnabled] = createSignal(
+		props.tile.videoTrack?.enabled ?? false,
+	);
+
+	const trackId = () => props.tile.videoTrack?.id ?? null;
+
 	createEffect(() => {
+		const _ = trackId();
 		const vTrack = props.tile.videoTrack;
-		if (videoRef && vTrack) {
+
+		setVideoEnabled(vTrack?.enabled ?? false);
+
+		if (!vTrack) return;
+
+		const onUnmute = () => setVideoEnabled(true);
+		const onMute = () => setVideoEnabled(false);
+
+		vTrack.addEventListener("unmute", onUnmute);
+		vTrack.addEventListener("mute", onMute);
+
+		onCleanup(() => {
+			vTrack.removeEventListener("unmute", onUnmute);
+			vTrack.removeEventListener("mute", onMute);
+		});
+	});
+
+	createEffect(() => {
+		videoRefReady();
+		const vTrack = props.tile.videoTrack;
+
+		if (!videoRef) return;
+
+		if (vTrack) {
+			const existing = videoRef.srcObject as MediaStream | null;
+			if (existing?.getTracks()[0]?.id === vTrack.id) return;
+
+			videoRef.pause();
 			videoRef.srcObject = new MediaStream([vTrack]);
-			videoRef.play().catch(() => {
-				// Autoplay may be blocked.
-				// TODO: Click-to-unmute-UI
+
+			videoRef.play().catch((e) => {
+				if (e.name === "AbortError") return;
+				console.error("Error playing video:", e);
 			});
-		} else if (videoRef) {
+		} else {
+			videoRef.pause();
 			videoRef.srcObject = null;
 		}
 	});
 
 	const member = (did: string) =>
-		communityData.members().find((x) => x.member_did === did)!;
+		communityData.members().find((x) => x.member_did === did) ??
+		({} as MemberData);
 
 	return (
 		<div
@@ -90,7 +137,7 @@ const ParticipantVideo: Component<{
 			}}
 		>
 			<Show
-				when={props.tile.videoTrack?.enabled}
+				when={videoEnabled()}
 				fallback={
 					<div class="flex justify-center items-center h-full text-muted-foreground text-sm">
 						<img
@@ -110,7 +157,10 @@ const ParticipantVideo: Component<{
 				}
 			>
 				<video
-					ref={videoRef}
+					ref={(el) => {
+						videoRef = el;
+						setVideoRefReady(true);
+					}}
 					autoplay
 					muted={props.tile.isLocal}
 					playsinline
@@ -152,7 +202,8 @@ const LiveKitRoom: Component = () => {
 	const params = useParams();
 
 	const member = (did: string) =>
-		communityData.members().find((x) => x.member_did === did)!;
+		communityData.members().find((x) => x.member_did === did) ??
+		({} as MemberData);
 
 	const channel = () => params.channel!;
 	const activeChannel = () =>
@@ -236,9 +287,6 @@ const LiveKitRoom: Component = () => {
 											<ParticipantVideo
 												tile={{
 													...tile,
-													isSpeaking: voiceChatContext.activeSpeakers.some(
-														(x) => x.identity === tile.participant.identity,
-													),
 												}}
 											/>
 										</div>
