@@ -327,10 +327,12 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 					// Participant joins/leaves
 					r.on(RoomEvent.ParticipantConnected, () => {
 						const newTiles = rebuildTiles(r, voiceChatContext.activeSpeakers);
+						playSound("join");
 
 						setVoiceChatContext("tiles", newTiles);
 					});
 					r.on(RoomEvent.ParticipantDisconnected, () => {
+						playSound("leave");
 						const newTiles = rebuildTiles(r, voiceChatContext.activeSpeakers);
 
 						setVoiceChatContext("tiles", newTiles);
