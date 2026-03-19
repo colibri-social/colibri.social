@@ -35,6 +35,7 @@ import { SmallUser } from "../SmallUser";
 import { useCommunityContext } from "../../contexts/CommunityContext";
 import { SpeakerHigh } from "../../icons/SpeakerHigh";
 import { ConnectionState } from "livekit-client";
+import type { MemberData } from "../../layouts/CommunityLayout";
 
 export type ChannelDropTarget = {
 	catRkey: string;
@@ -54,7 +55,8 @@ const SortableChannel: Component<{
 	const communityData = useCommunityContext();
 
 	const member = (did: string) =>
-		communityData!.members().find((x) => x.member_did === did)!;
+		communityData!.members().find((x) => x.member_did === did) ??
+		({} as MemberData);
 
 	const [isDragging, setIsDragging] = createSignal(false);
 
