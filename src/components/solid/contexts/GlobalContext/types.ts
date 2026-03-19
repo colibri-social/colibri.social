@@ -12,6 +12,7 @@ import type {
 	UserOnlineState,
 	UserProfileUpdatedEvent,
 	UserStatusChangedEvent,
+	VoiceChannelUpdatedEvent,
 } from "./events";
 
 export type PendingMessageData = Omit<
@@ -44,6 +45,7 @@ export type GlobalContextData = {
 	memberProfileOverrides: Array<UserProfileUpdatedEvent>;
 	memberStatusOverrides: Array<UserStatusChangedEvent>;
 	userOnlineStates: Array<OnlineStateInfo>;
+	knownVoiceChannelStates: Array<VoiceChannelUpdatedEvent>;
 };
 
 export type GlobalContextUtility = {
@@ -73,4 +75,5 @@ export type GlobalContextUtility = {
 	addMemberStatusOverride: (data: UserStatusChangedEvent) => void;
 	clearMemberOverrides: () => void;
 	updateUserOnlineState: (state: OnlineStateInfo) => void;
+	processVoiceChannelUpdate: (data: VoiceChannelUpdatedEvent) => void;
 };

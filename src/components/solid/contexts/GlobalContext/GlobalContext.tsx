@@ -59,6 +59,7 @@ export const GlobalContextProvider: ParentComponent<{
 		memberStatusOverrides: [],
 		// TODO: This might not reflect the user's preferred state. Update when user can change state themselves.
 		userOnlineStates: [{ did: props.contextData.user.sub, state: "online" }],
+		knownVoiceChannelStates: [],
 	});
 
 	const context: [GlobalContextData, GlobalContextUtility] = [
@@ -267,6 +268,27 @@ export const GlobalContextProvider: ParentComponent<{
 					setGlobalContext("userOnlineStates", (list) => [...list, state]);
 				}
 			},
+			processVoiceChannelUpdate(channelInfo) {
+				const existingIndex = globalContext.knownVoiceChannelStates.findIndex(
+					(x) =>
+						x.community_uri === channelInfo.community_uri &&
+						x.channel_rkey === channelInfo.channel_rkey,
+				);
+
+				if (existingIndex !== -1) {
+					const newArray = globalContext.knownVoiceChannelStates.toSpliced(
+						existingIndex,
+						1,
+						channelInfo,
+					);
+					setGlobalContext("knownVoiceChannelStates", newArray);
+				} else {
+					setGlobalContext("knownVoiceChannelStates", (list) => [
+						...list,
+						channelInfo,
+					]);
+				}
+			},
 		},
 	];
 
@@ -359,6 +381,9 @@ export const GlobalContextProvider: ParentComponent<{
 				break;
 			case "user_profile_updated":
 				handleUserProfileUpdated(context[1], data);
+				break;
+			case "voice_channel_updated":
+				context[1].processVoiceChannelUpdate(data);
 				break;
 			case "ack":
 				break;

@@ -1,6 +1,6 @@
 import { useParams } from "@solidjs/router";
 import { ConnectionState } from "livekit-client";
-import { type Component, createEffect, For, Show } from "solid-js";
+import { type Component, createEffect, createMemo, For, Show } from "solid-js";
 import { createIsSpeaking } from "@/lib/hooks/createIsSpeaking";
 import { useChannelContext } from "../contexts/ChannelContext";
 import { useCommunityContext } from "../contexts/CommunityContext";
@@ -14,6 +14,35 @@ import { Microphone } from "../icons/Microphone";
 import { PhoneSlash } from "../icons/PhoneSlash";
 import { Screen } from "../icons/Screen";
 import { Button } from "../shadcn-solid/Button";
+import { useGlobalContext } from "../contexts/GlobalContext";
+
+/**
+ * A tile shown when viewing the voice channel without being connected.
+ */
+const MockTile: Component<{
+	avatar_url: string;
+	display_name: string;
+	did: string;
+	handle?: string;
+}> = (props) => {
+	return (
+		<div class="relative bg-background border border-border rounded-md w-full aspect-video overflow-hidden">
+			<div class="flex justify-center items-center h-full text-muted-foreground text-sm">
+				<img
+					src={props.avatar_url || "/user-placeholder.png"}
+					width={64}
+					height={64}
+					alt={props.display_name || props.handle}
+					class="inline bottom-0.5 relative mr-2 rounded-full"
+				/>
+			</div>
+
+			<div class="bottom-2 left-2 absolute bg-black/90 backdrop-blur-sm px-2 py-0.5 rounded-sm text-muted-foreground text-sm">
+				{props.display_name || props.handle}
+			</div>
+		</div>
+	);
+};
 
 /**
  * A single participant video tile
@@ -23,7 +52,7 @@ const ParticipantVideo: Component<{
 }> = (props) => {
 	let videoRef: HTMLVideoElement | undefined;
 
-	const { members } = useCommunityContext()!;
+	const communityData = useCommunityContext()!;
 	const [context, utils] = useVoiceChatContext();
 
 	const isSpeaking = createIsSpeaking(props.tile.audioTrack, {
@@ -44,15 +73,20 @@ const ParticipantVideo: Component<{
 		}
 	});
 
-	const member = (did: string) => members().find((x) => x.member_did === did)!;
+	const member = (did: string) =>
+		communityData.members().find((x) => x.member_did === did)!;
 
 	return (
 		<div
 			class="relative bg-background border border-border rounded-md outline-2 -outline-offset-2 w-full aspect-video overflow-hidden transition-all duration-75"
-			onClick={() => utils.toggleFocusedTile(props.tile)}
+			onClick={() => {
+				if (context.tiles.length < 2) return;
+				utils.toggleFocusedTile(props.tile);
+			}}
 			classList={{
 				"outline-primary": isSpeaking(),
 				"outline-transparent": !isSpeaking(),
+				"cursor-pointer": context.tiles.length >= 2,
 			}}
 		>
 			<Show
@@ -112,22 +146,43 @@ const LiveKitRoom: Component = () => {
 			disconnect,
 		},
 	] = useVoiceChatContext();
+	const [globalData] = useGlobalContext();
+	const communityData = useCommunityContext()!;
 	const channelData = useChannelContext()!;
 	const params = useParams();
 
-	const channel = () => params.channel!;
+	const member = (did: string) =>
+		communityData.members().find((x) => x.member_did === did)!;
 
+	const channel = () => params.channel!;
 	const activeChannel = () =>
 		channelData.channels().find((c) => c.rkey === channel())!;
+
+	const knownMembers = () => {
+		const category = communityData
+			.sidebar()
+			?.categories.find((x) => x.rkey === activeChannel().category);
+
+		if (!category) return [];
+
+		const sidebarChannel = category.channels.find((x) => x.rkey === channel());
+
+		if (!sidebarChannel) return [];
+
+		return sidebarChannel.voice_members;
+	};
 
 	const isConnected = () =>
 		voiceChatContext.connectionState === ConnectionState.Connected;
 
 	const focusedTile = () => voiceChatContext.focusedTile;
 
-	const tiles = () => voiceChatContext.tiles.filter(t => 
-		focusedTile()?.participant.sid !== t.participant.sid || focusedTile()?.isStream !== t.isStream
-);
+	const tiles = () =>
+		voiceChatContext.tiles.filter(
+			(t) =>
+				focusedTile()?.participant.sid !== t.participant.sid ||
+				focusedTile()?.isStream !== t.isStream,
+		);
 	const cols = () => Math.min(tiles().length, 3);
 	const rows = () => {
 		const t = tiles();
@@ -137,6 +192,19 @@ const LiveKitRoom: Component = () => {
 		return result;
 	};
 
+	const liveVoiceChannelMembers = createMemo<Array<string>>(() => {
+		const updatedMemberState = globalData.knownVoiceChannelStates.find(
+			(x) =>
+				x.channel_rkey === channel() &&
+				x.community_uri.split("/").pop()! === communityData.rkey(),
+		);
+
+		if (updatedMemberState)
+			return updatedMemberState.member_dids.sort((a, b) => a.localeCompare(b));
+
+		return knownMembers().sort((a, b) => a.localeCompare(b));
+	});
+
 	return (
 		<div class="flex flex-col gap-0 bg-background h-full text-muted-foreground">
 			<Show when={voiceChatContext.error}>
@@ -145,13 +213,15 @@ const LiveKitRoom: Component = () => {
 				</div>
 			</Show>
 
-			<div class="flex-1 overflow-y-auto flex flex-col gap-4 p-4 w-full min-h-full">
+			<div class="flex-1 overflow-y-auto flex flex-col gap-4 p-4 w-full h-full max-h-[calc(100%-4rem)]">
 				<div class="h-fit">
 					<Show when={focusedTile() !== null}>
 						<ParticipantVideo tile={focusedTile()!} />
 					</Show>
 				</div>
-				<div class={`flex flex-col justify-center gap-4 ${focusedTile() ? "" : "h-full"}`}>
+				<div
+					class={`flex flex-col justify-center gap-4 ${focusedTile() ? "" : "h-full"}`}
+				>
 					<For each={rows()}>
 						{(row) => (
 							<div class="flex justify-center gap-4">
@@ -178,9 +248,31 @@ const LiveKitRoom: Component = () => {
 						)}
 					</For>
 
-					<Show when={voiceChatContext.tiles.length === 0 && !isConnected()}>
+					<Show when={liveVoiceChannelMembers().length === 0 && !isConnected()}>
 						<div class="m-auto text-muted-foreground text-sm text-center">
 							Nobody's here yet.
+						</div>
+					</Show>
+
+					<Show when={liveVoiceChannelMembers().length > 0 && !isConnected()}>
+						<div class="flex justify-center gap-4">
+							<For each={liveVoiceChannelMembers()}>
+								{(did) => (
+									<div
+										style={{
+											flex: `0 1 calc(${100 / Math.min(liveVoiceChannelMembers().length, 3)}% - ${((Math.min(liveVoiceChannelMembers().length, 3) - 1) * 16) / Math.min(liveVoiceChannelMembers().length, 3)}px)`,
+											"min-width": 0,
+										}}
+									>
+										<MockTile
+											avatar_url={member(did).avatar_url}
+											display_name={member(did).display_name}
+											handle={member(did).handle}
+											did={member(did).member_did}
+										/>
+									</div>
+								)}
+							</For>
 						</div>
 					</Show>
 				</div>
@@ -243,7 +335,14 @@ const LiveKitRoom: Component = () => {
 					}
 				>
 					<Button
-						onClick={() => connect(activeChannel().rkey, activeChannel().name)}
+						onClick={() =>
+							connect(
+								communityData.owner(),
+								communityData.rkey(),
+								activeChannel().rkey,
+								activeChannel().name,
+							)
+						}
 					>
 						Join Channel
 					</Button>

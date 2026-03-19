@@ -36,9 +36,8 @@ const sessionKey = (sub: string) => `oauth:session:${sub}`;
 
 /**
  * How long (in seconds) to keep authorization state entries around.
- * One hour is comfortably more than any real-world authorization round-trip.
  */
-const STATE_TTL_SECONDS = 60 * 60; // 1 hour
+const STATE_TTL_SECONDS = 60 * 5; // 5 Minutes
 
 /**
  * Derive a session TTL from the token set stored inside `NodeSavedSession`.
@@ -54,8 +53,13 @@ const STATE_TTL_SECONDS = 60 * 60; // 1 hour
  */
 const deriveSessionTtlSeconds = (session: NodeSavedSession): number => {
 	const FALLBACK_TTL = 60 * 60 * 24 * 90; // 90 days
-	const GRACE_SECONDS = 60 * 5; // 5 minutes
 
+	// If there's a refresh token, always use the long TTL.
+	// The access token expiry is irrelevant — the client will refresh it.
+	if (session.tokenSet?.refresh_token) return FALLBACK_TTL;
+
+	// No refresh token: use access token expiry with grace period
+	const GRACE_SECONDS = 60 * 5;
 	const expiresAt = session.tokenSet?.expires_at;
 	if (!expiresAt) return FALLBACK_TTL;
 
@@ -63,12 +67,7 @@ const deriveSessionTtlSeconds = (session: NodeSavedSession): number => {
 	if (Number.isNaN(expiresAtMs)) return FALLBACK_TTL;
 
 	const remainingSeconds = Math.floor((expiresAtMs - Date.now()) / 1000);
-
-	// If the access token is already expired the session is still useful as
-	// long as a refresh token is present; keep it for the fallback duration.
-	if (remainingSeconds <= 0) {
-		return session.tokenSet?.refresh_token ? FALLBACK_TTL : 0;
-	}
+	if (remainingSeconds <= 0) return 0;
 
 	return remainingSeconds + GRACE_SECONDS;
 };
@@ -188,6 +187,17 @@ export const refreshAtprotoSessions = async (): Promise<void> => {
 		toRefresh.map(async ({ sub }) => {
 			try {
 				await client.restore(sub);
+
+				const redis = await getRedisClient();
+				const raw = await redis.get(sessionKey(sub));
+				if (raw) {
+					const session = JSON.parse(raw) as NodeSavedSession;
+					const ttl = deriveSessionTtlSeconds(session);
+					if (ttl > 0) {
+						await redis.set(sessionKey(sub), raw, { EX: ttl });
+					}
+				}
+
 				console.info(`[oauth] Session refreshed for ${sub}.`);
 			} catch (err) {
 				if (
@@ -306,6 +316,7 @@ export const client = new NodeOAuthClient({
 		async get(sub: string): Promise<NodeSavedSession | undefined> {
 			const redis = await getRedisClient();
 			const raw = await redis.get(sessionKey(sub));
+
 			if (!raw) return undefined;
 			return JSON.parse(raw) as NodeSavedSession;
 		},

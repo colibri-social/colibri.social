@@ -31,6 +31,9 @@ import { Button } from "../../shadcn-solid/Button";
 import { CategorySettingsModal } from "./CategorySettingsModal";
 import { ChannelCreationModal } from "./ChannelCreationModal";
 import { ChannelSettingsModal } from "./ChannelSettingsModal";
+import { SmallUser } from "../SmallUser";
+import { useCommunityContext } from "../../contexts/CommunityContext";
+import { SpeakerHigh } from "../../icons/SpeakerHigh";
 
 export type ChannelDropTarget = {
 	catRkey: string;
@@ -41,21 +44,40 @@ const SortableChannel: Component<{
 	channel: SidebarChannelData;
 	community: CommunityData;
 }> = (props) => {
+	const params = useParams();
 	const sortable = createSortable(props.channel.rkey);
 	const [, { onDragStart: onDndDragStart, onDragEnd: onDndDragEnd }] =
 		useDragDropContext()!;
 	const [globalData] = useGlobalContext();
-	const params = useParams();
-	const [, { connect }] = useVoiceChatContext();
+	const [voiceData, { connect }] = useVoiceChatContext();
+	const communityData = useCommunityContext();
+
+	const member = (did: string) =>
+		communityData!.members().find((x) => x.member_did === did)!;
 
 	const [isDragging, setIsDragging] = createSignal(false);
 
 	onDndDragStart(({ draggable }) => {
+		if (globalData.user.sub !== props.community.owner_did) return;
 		if (String(draggable.id) === props.channel.rkey) setIsDragging(true);
 	});
 
 	onDndDragEnd(() => {
+		if (globalData.user.sub !== props.community.owner_did) return;
 		setTimeout(() => setIsDragging(false), 0);
+	});
+
+	const liveVoiceChannelMembers = createMemo<Array<string>>(() => {
+		const updatedMemberState = globalData.knownVoiceChannelStates.find(
+			(x) =>
+				x.channel_rkey === props.channel.rkey &&
+				x.community_uri.split("/").pop()! === props.community.rkey,
+		);
+
+		if (updatedMemberState)
+			return updatedMemberState.member_dids.sort((a, b) => a.localeCompare(b));
+
+		return props.channel.voice_members.sort((a, b) => a.localeCompare(b));
 	});
 
 	const handleVoiceChannelJoin = (
@@ -73,12 +95,22 @@ const SortableChannel: Component<{
 		if (props.channel.channel_type !== "voice" || isDialog()) {
 			return;
 		}
-		connect(props.channel.rkey, props.channel.name);
+
+		connect(
+			props.community.owner_did,
+			props.community.rkey,
+			props.channel.rkey,
+			props.channel.name,
+		);
 	};
 
 	return (
 		<div
-			ref={sortable.ref}
+			ref={
+				globalData.user.sub === props.community.owner_did
+					? sortable.ref
+					: undefined
+			}
 			style={{
 				"touch-action": "none",
 				transform: sortable.transform
@@ -88,46 +120,95 @@ const SortableChannel: Component<{
 					? "none"
 					: "transform 150ms ease",
 			}}
-			classList={{ "opacity-50": sortable.isActiveDraggable }}
+			classList={{
+				"opacity-50":
+					sortable.isActiveDraggable &&
+					globalData.user.sub === props.community.owner_did,
+			}}
 			{...sortable.dragActivators}
 		>
-			<A
-				href={`/c/${params.community}/${props.channel.channel_type.slice(0, 1)}/${props.channel.rkey}`}
-				class="group/channel flex flex-row justify-between items-center gap-2 hover:bg-card p-1 py-0.5 pr-1.25 rounded-sm text-muted-foreground cursor-pointer"
-				activeClass="bg-card"
+			<div
+				class="flex flex-col gap-1"
 				style={{ "pointer-events": isDragging() ? "none" : undefined }}
 				draggable={false}
-				onClick={handleVoiceChannelJoin}
 			>
-				<div class="flex flex-row items-center gap-2">
-					<Switch>
-						<Match when={props.channel.channel_type === "text"}>
-							<ChatCircleDots />
-						</Match>
-						<Match when={props.channel.channel_type === "voice"}>
-							<SpeakerLow />
-						</Match>
-					</Switch>
-					<span>{props.channel.name}</span>
-				</div>
-				<div class="flex justify-center items-center pb-px">
-					<Show when={props.community.owner_did === globalData.user.sub}>
-						<ChannelSettingsModal class="p-0 w-5 h-5.5" channel={props.channel}>
-							<Button
-								size="sm"
-								class="opacity-0 group-hover/channel:opacity-100 p-0 w-5 h-5 cursor-pointer channel-settings"
-								classList={{
-									"opacity-100!": params.channel === props.channel.rkey,
-								}}
-								variant="ghost"
-								onClick={(e) => e.preventDefault()}
+				<A
+					class="group/channel text-muted-foreground flex flex-row justify-between items-center gap-2 hover:bg-card rounded-sm cursor-pointer p-1 py-0.5 pr-1.25"
+					onClick={handleVoiceChannelJoin}
+					href={`/c/${params.community}/${props.channel.channel_type.slice(0, 1)}/${props.channel.rkey}`}
+					activeClass="bg-card"
+					classList={{
+						"bg-linear-145 from-[#090615] via-[#31226d70] to-[#e0deec30] text-foreground!":
+							voiceData.activeRoom === props.channel.rkey,
+					}}
+				>
+					<div class="flex flex-row items-center gap-2">
+						<Switch>
+							<Match when={props.channel.channel_type === "text"}>
+								<ChatCircleDots />
+							</Match>
+							<Match when={props.channel.channel_type === "voice"}>
+								<Switch>
+									<Match when={voiceData.activeRoom !== props.channel.rkey}>
+										<SpeakerLow
+											classList={{
+												"text-white": liveVoiceChannelMembers().length > 0,
+											}}
+										/>
+									</Match>
+									<Match when={voiceData.activeRoom === props.channel.rkey}>
+										<SpeakerHigh
+											classList={{
+												"text-primary": liveVoiceChannelMembers().length > 0,
+											}}
+										/>
+									</Match>
+								</Switch>
+							</Match>
+						</Switch>
+						<span>{props.channel.name}</span>
+					</div>
+					<div class="flex justify-center items-center pb-px">
+						<Show when={props.community.owner_did === globalData.user.sub}>
+							<ChannelSettingsModal
+								class="p-0 w-5 h-5.5"
+								channel={props.channel}
 							>
-								<Gear size={16} />
-							</Button>
-						</ChannelSettingsModal>
-					</Show>
-				</div>
-			</A>
+								<Button
+									size="sm"
+									class="opacity-0 group-hover/channel:opacity-100 p-0 w-5 h-5 cursor-pointer channel-settings"
+									classList={{
+										"opacity-100!": params.channel === props.channel.rkey,
+									}}
+									variant="ghost"
+									onClick={(e) => e.preventDefault()}
+								>
+									<Gear size={16} />
+								</Button>
+							</ChannelSettingsModal>
+						</Show>
+					</div>
+				</A>
+				<Show
+					when={
+						props.channel.channel_type === "voice" &&
+						liveVoiceChannelMembers().length > 0
+					}
+				>
+					<div class="pl-8.5 text-muted-foreground flex flex-col select-none">
+						<For each={liveVoiceChannelMembers()}>
+							{(did) => (
+								<SmallUser
+									did={member(did).member_did}
+									avatar={member(did).avatar_url}
+									displayName={member(did).display_name}
+									handle={member(did).handle}
+								/>
+							)}
+						</For>
+					</div>
+				</Show>
+			</div>
 		</div>
 	);
 };
@@ -184,12 +265,14 @@ export const Category: ParentComponent<{
 
 	let channelWasHere = false;
 	onDndDragStart(({ draggable }) => {
+		if (globalData.user.sub !== props.community.owner_did) return;
 		channelWasHere = props.channelOrder.includes(String(draggable.id));
 	});
 
 	onDndDragEnd(({ draggable, droppable }) => {
 		if (!channelWasHere) return;
 		if (!draggable || !droppable) return;
+		if (globalData.user.sub !== props.community.owner_did) return;
 
 		const order = props.channelOrder;
 		const from = order.indexOf(String(draggable.id));

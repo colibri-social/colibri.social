@@ -21,6 +21,7 @@ if (user) {
 		communities = data;
 	} catch (e) {
 		console.error(e);
+		// TODO: Refresh instead
 		return Astro.redirect("/auth/logout");
 	}
 } else {

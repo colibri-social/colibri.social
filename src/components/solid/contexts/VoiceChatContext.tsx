@@ -27,6 +27,7 @@ import { createStore } from "solid-js/store";
 import { createRnnoiseProcessor } from "@/lib/hooks/createRnnoiseProcessor";
 import { fetchToken } from "../components/VoiceChat/livekit";
 import { useGlobalContext } from "./GlobalContext";
+import { RECORD_IDs } from "@/utils/atproto/lexicons";
 
 /**
  * Re-builds the tiles shown in the UI.
@@ -129,11 +130,17 @@ export type VoiceChatContextData = {
 	activeSpeakers: Participant[];
 	activeRoom: string | null;
 	activeRoomName: string | null;
+	communityAtUri: string | null;
 };
 
 export type VoiceChatContextUtility = {
 	rebuildTiles: () => void;
-	connect: (channel: string, name: string) => Promise<void>;
+	connect: (
+		owner: string,
+		community: string,
+		channel: string,
+		name: string,
+	) => Promise<void>;
 	disconnect: () => Promise<void>;
 	toggleCamera: () => Promise<void>;
 	toggleMic: () => Promise<void>;
@@ -168,7 +175,7 @@ const SOUNDS = {
 };
 
 export const VoiceChatContextProvider: ParentComponent = (props) => {
-	const [globalData] = useGlobalContext();
+	const [globalData, { sendSocketMessage }] = useGlobalContext();
 
 	const playSound = (sound: keyof typeof SOUNDS): void => {
 		const audio = SOUNDS[sound];
@@ -196,6 +203,7 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 			connectionQuality: ConnectionQuality.Unknown,
 			// TODO: Functionality
 			isDeafened: false,
+			communityAtUri: null,
 		});
 
 	const context: [VoiceChatContextData, VoiceChatContextUtility] = [
@@ -213,12 +221,14 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 			},
 			toggleFocusedTile(tile) {
 				if (
-					voiceChatContext.focusedTile?.participant.sid === tile?.participant.sid &&
+					voiceChatContext.focusedTile?.participant.sid ===
+						tile?.participant.sid &&
 					voiceChatContext.focusedTile?.isStream === tile?.isStream
-				) setVoiceChatContext("focusedTile", null);
+				)
+					setVoiceChatContext("focusedTile", null);
 				else setVoiceChatContext("focusedTile", tile);
 			},
-			async connect(channelRkey, channelName) {
+			async connect(communityOwner, communityRkey, channelRkey, channelName) {
 				if (
 					voiceChatContext.activeRoom === channelRkey ||
 					(!channelRkey && voiceChatContext.activeRoom === channel())
@@ -226,7 +236,10 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 					return;
 				}
 
+				const atUri = `at://${communityOwner}/${RECORD_IDs.COMMUNITY}/${communityRkey}`;
+
 				setVoiceChatContext("error", null);
+				setVoiceChatContext("communityAtUri", atUri);
 
 				try {
 					const token = await fetchToken(channelRkey ?? channel(), identity());
@@ -346,6 +359,12 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 					);
 					setVoiceChatContext("room", r);
 					playSound("join");
+					sendSocketMessage({
+						action: "voice_event",
+						community_uri: atUri,
+						voice_channel_rkey: channelRkey ?? channel(),
+						voice_action: "join",
+					});
 
 					const newTiles = rebuildTiles(r, voiceChatContext.activeSpeakers);
 
@@ -363,6 +382,13 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 				const r = voiceChatContext.room;
 				if (!r) return;
 
+				sendSocketMessage({
+					action: "voice_event",
+					community_uri: voiceChatContext.communityAtUri!,
+					voice_channel_rkey: voiceChatContext.activeRoom! ?? channel(),
+					voice_action: "leave",
+				});
+
 				playSound("leave");
 				await r.disconnect();
 				setVoiceChatContext(() => ({
@@ -378,6 +404,7 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 					connectionState: ConnectionState.Disconnected,
 					error: null,
 					isDeafened: false,
+					communityAtUri: null,
 				}));
 			},
 
@@ -469,9 +496,9 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 					setVoiceChatContext("isDeafened", next);
 
 					if (next) {
-						playSound("undeafen");
-					} else {
 						playSound("deafen");
+					} else {
+						playSound("undeafen");
 					}
 				} catch (e) {
 					setVoiceChatContext(

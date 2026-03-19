@@ -267,7 +267,12 @@ const CommunityLayout: ParentComponent = (props) => {
 
 	return (
 		<MessageContextProvider>
-			<CommunityContextProvider members={membersWithOptimisticUpdates}>
+			<CommunityContextProvider
+				owner={() => community()!.owner_did}
+				rkey={() => community()!.rkey}
+				members={membersWithOptimisticUpdates}
+				sidebar={sidebarData}
+			>
 				<ChannelContextProvider channels={channels} community={communityRkey}>
 					<div class="bg-background w-full h-full rounded-tl-xl border-t border-l border-border flex relative overflow-hidden">
 						<Switch>
