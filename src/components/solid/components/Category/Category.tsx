@@ -34,6 +34,7 @@ import { ChannelSettingsModal } from "./ChannelSettingsModal";
 import { SmallUser } from "../SmallUser";
 import { useCommunityContext } from "../../contexts/CommunityContext";
 import { SpeakerHigh } from "../../icons/SpeakerHigh";
+import { ConnectionState } from "livekit-client";
 
 export type ChannelDropTarget = {
 	catRkey: string;
@@ -139,7 +140,8 @@ const SortableChannel: Component<{
 					activeClass="bg-card"
 					classList={{
 						"bg-linear-145 from-[#090615] via-[#31226d70] to-[#e0deec30] text-foreground!":
-							voiceData.activeRoom === props.channel.rkey,
+							voiceData.activeRoom === props.channel.rkey &&
+							voiceData.connectionState === ConnectionState.Connected,
 					}}
 				>
 					<div class="flex flex-row items-center gap-2">
@@ -149,14 +151,24 @@ const SortableChannel: Component<{
 							</Match>
 							<Match when={props.channel.channel_type === "voice"}>
 								<Switch>
-									<Match when={voiceData.activeRoom !== props.channel.rkey}>
+									<Match
+										when={
+											voiceData.activeRoom !== props.channel.rkey ||
+											voiceData.connectionState !== ConnectionState.Connected
+										}
+									>
 										<SpeakerLow
 											classList={{
 												"text-white": liveVoiceChannelMembers().length > 0,
 											}}
 										/>
 									</Match>
-									<Match when={voiceData.activeRoom === props.channel.rkey}>
+									<Match
+										when={
+											voiceData.activeRoom === props.channel.rkey &&
+											voiceData.connectionState === ConnectionState.Connected
+										}
+									>
 										<SpeakerHigh
 											classList={{
 												"text-primary": liveVoiceChannelMembers().length > 0,
