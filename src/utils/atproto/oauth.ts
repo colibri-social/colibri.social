@@ -35,207 +35,12 @@ const stateKey = (key: string) => `oauth:state:${key}`;
 const sessionKey = (sub: string) => `oauth:session:${sub}`;
 
 /**
- * How long (in seconds) to keep authorization state entries around.
- */
-const STATE_TTL_SECONDS = 60 * 60; // 60 Minutes
-
-/**
- * Derive a session TTL from the token set stored inside `NodeSavedSession`.
- *
- * - If the token set carries an `expires_at` ISO timestamp we use the
- *   remaining duration from now, adding a 5-minute grace period so the
- *   session record is still readable right at the moment the access token
- *   expires (the client will then use the refresh token to get a new one,
- *   which triggers a `sessionStore.set` call that will reset the TTL).
- * - If `expires_at` is absent (e.g. the server did not advertise a lifetime)
- *   we fall back to 90 days, which covers the typical maximum refresh-token
- *   lifetime seen in atproto implementations.
- */
-const deriveSessionTtlSeconds = (session: NodeSavedSession): number => {
-	const FALLBACK_TTL = 60 * 60 * 24 * 90; // 90 days
-
-	// If there's a refresh token, always use the long TTL.
-	// The access token expiry is irrelevant — the client will refresh it.
-	if (session.tokenSet?.refresh_token) return FALLBACK_TTL;
-
-	// No refresh token: use access token expiry with grace period
-	const GRACE_SECONDS = 60 * 5;
-	const expiresAt = session.tokenSet?.expires_at;
-	if (!expiresAt) return FALLBACK_TTL;
-
-	const expiresAtMs = new Date(expiresAt).getTime();
-	if (Number.isNaN(expiresAtMs)) return FALLBACK_TTL;
-
-	const remainingSeconds = Math.floor((expiresAtMs - Date.now()) / 1000);
-	if (remainingSeconds <= 0) return 0;
-
-	return remainingSeconds + GRACE_SECONDS;
-};
-
-/**
  * Private keys are stored as base64 encrypted single line values.
  * @param key The key to decode.
  * @returns The decoded key.
  */
 const decodePrivateKey = (key: string) =>
 	Buffer.from(key, "base64").toString("utf-8");
-
-/**
- * How many seconds before expiry a session is considered "about to expire"
- * and should be proactively refreshed.
- *
- * Set to 1 hour so the refresh window is wider than the 45-minute sweep
- * interval, guaranteeing every expiring session is caught by at least one
- * sweep before it actually expires.
- */
-const REFRESH_THRESHOLD_SECONDS = 60 * 60; // 1 hour
-
-/**
- * How often the background sweep runs. Intentionally shorter than
- * REFRESH_THRESHOLD_SECONDS so there is comfortable overlap and no session
- * can slip through between two consecutive sweeps.
- */
-const REFRESH_INTERVAL_MS = 45 * 60 * 1000; // 45 minutes
-
-/**
- * Extracts the `sub` (DID) from a Redis session key of the form
- * `oauth:session:SUB`.
- */
-const subFromSessionKey = (key: string): string =>
-	key.slice("oauth:session:".length);
-
-/**
- * Returns true when the session's access token will expire within
- * `REFRESH_THRESHOLD_SECONDS`, or is already expired but still carries a
- * refresh token (so `client.restore()` can exchange it for a fresh pair).
- *
- * Sessions with no `expires_at` are also flagged for refresh when they have a
- * refresh token — previously these were silently skipped, causing them to
- * expire in Redis without ever being refreshed.
- */
-const sessionNeedsRefresh = (session: NodeSavedSession): boolean => {
-	const expiresAt = session.tokenSet?.expires_at;
-
-	// No expiry information — attempt proactive refresh whenever a refresh
-	// token is present, since we have no other signal to go on.
-	if (!expiresAt) return !!session.tokenSet?.refresh_token;
-
-	const expiresAtMs = new Date(expiresAt).getTime();
-	if (Number.isNaN(expiresAtMs)) return !!session.tokenSet?.refresh_token;
-
-	const remainingSeconds = Math.floor((expiresAtMs - Date.now()) / 1000);
-
-	// Already expired: only worth refreshing if there is a refresh token.
-	if (remainingSeconds <= 0) return !!session.tokenSet?.refresh_token;
-
-	// Expiring within the threshold window.
-	return remainingSeconds <= REFRESH_THRESHOLD_SECONDS;
-};
-
-/**
- * Scans all `oauth:session:*` keys in Redis, identifies sessions that are
- * expiring within the next hour (or are already expired but still have
- * a refresh token), and calls `client.restore()` on each one.
- */
-export const refreshAtprotoSessions = async (): Promise<void> => {
-	const redis = await getRedisClient();
-
-	const sessionKeys: string[] = [];
-	let cursor = "0";
-	do {
-		const result = await redis.scan(cursor, {
-			MATCH: "oauth:session:*",
-			COUNT: 100,
-		});
-		cursor = result.cursor;
-		sessionKeys.push(...result.keys);
-	} while (cursor !== "0");
-
-	if (sessionKeys.length === 0) return;
-
-	const rawSessions = await Promise.all(
-		sessionKeys.map((key) => redis.get(key)),
-	);
-
-	const toRefresh: Array<{ sub: string; session: NodeSavedSession }> = [];
-	for (let i = 0; i < sessionKeys.length; i++) {
-		const raw = rawSessions[i];
-		if (!raw) continue;
-
-		let session: NodeSavedSession;
-		try {
-			session = JSON.parse(raw) as NodeSavedSession;
-		} catch {
-			console.warn(
-				`[oauth] Failed to parse session for key ${sessionKeys[i]}, skipping.`,
-			);
-			continue;
-		}
-
-		if (sessionNeedsRefresh(session)) {
-			toRefresh.push({ sub: subFromSessionKey(sessionKeys[i]), session });
-		}
-	}
-
-	if (toRefresh.length === 0) return;
-
-	console.info(
-		`[oauth] Proactively refreshing ${toRefresh.length} session(s) expiring within ${REFRESH_THRESHOLD_SECONDS / 60} minutes.`,
-	);
-
-	await Promise.allSettled(
-		toRefresh.map(async ({ sub }) => {
-			try {
-				await client.restore(sub);
-
-				const redis = await getRedisClient();
-				const raw = await redis.get(sessionKey(sub));
-				if (raw) {
-					const session = JSON.parse(raw) as NodeSavedSession;
-					const ttl = deriveSessionTtlSeconds(session);
-					if (ttl > 0) {
-						await redis.set(sessionKey(sub), raw, { EX: ttl });
-					}
-				}
-
-				console.info(`[oauth] Session refreshed for ${sub}.`);
-			} catch (err) {
-				if (
-					err instanceof Error &&
-					(err.constructor.name === "TokenRefreshError" ||
-						err.constructor.name === "TokenRevokedError")
-				) {
-					console.warn(
-						`[oauth] Session for ${sub} could not be refreshed (revoked or expired refresh token). It has been removed.`,
-					);
-				} else {
-					console.error(
-						`[oauth] Unexpected error refreshing session for ${sub}:`,
-						err,
-					);
-				}
-			}
-		}),
-	);
-};
-
-/**
- * Starts a periodic background timer that calls `refreshAtprotoSessions`
- * every 45 minutes, keeping all active sessions alive.
- */
-export const startSessionRefreshInterval = (): ReturnType<
-	typeof setInterval
-> => {
-	refreshAtprotoSessions().catch((err) =>
-		console.error("[oauth] Initial session refresh sweep failed:", err),
-	);
-
-	return setInterval(() => {
-		refreshAtprotoSessions().catch((err) =>
-			console.error("[oauth] Periodic session refresh sweep failed:", err),
-		);
-	}, REFRESH_INTERVAL_MS);
-};
 
 // See https://npmx.dev/package/@atproto/oauth-client-node#user-content-from-a-backend-service
 export const client = new NodeOAuthClient({
@@ -273,13 +78,14 @@ export const client = new NodeOAuthClient({
 	]),
 
 	// Interface to store authorization state data (during authorization flows).
-	// Entries are short-lived: we apply a fixed 1-hour TTL and delete
-	// explicitly after a successful callback.
 	stateStore: {
 		async set(key: string, internalState: NodeSavedState): Promise<void> {
 			const redis = await getRedisClient();
 			await redis.set(stateKey(key), JSON.stringify(internalState), {
-				EX: STATE_TTL_SECONDS,
+				expiration: {
+					type: "EX",
+					value: 60 * 60,
+				},
 			});
 		},
 		async get(key: string): Promise<NodeSavedState | undefined> {
@@ -295,29 +101,17 @@ export const client = new NodeOAuthClient({
 	},
 
 	// Interface to store authenticated session data.
-	// TTL is derived from the token set's `expires_at` field (access token
-	// lifetime + 5-minute grace), falling back to 90 days when absent so that
-	// long-lived refresh tokens are not evicted prematurely.
 	sessionStore: {
 		async set(sub: string, session: NodeSavedSession): Promise<void> {
 			const redis = await getRedisClient();
-			const ttl = deriveSessionTtlSeconds(session);
-
-			if (ttl <= 0) {
-				// Token is already expired and has no refresh token
-				await redis.del(sessionKey(sub));
-				return;
-			}
-
-			await redis.set(sessionKey(sub), JSON.stringify(session), {
-				EX: ttl,
-			});
+			await redis.set(sessionKey(sub), JSON.stringify(session));
 		},
 		async get(sub: string): Promise<NodeSavedSession | undefined> {
 			const redis = await getRedisClient();
 			const raw = await redis.get(sessionKey(sub));
 
 			if (!raw) return undefined;
+
 			return JSON.parse(raw) as NodeSavedSession;
 		},
 		async del(sub: string): Promise<void> {
@@ -329,5 +123,3 @@ export const client = new NodeOAuthClient({
 	// A lock to prevent concurrent access to the session store. Optional if only one instance is running.
 	// requestLock,
 });
-
-startSessionRefreshInterval();

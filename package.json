@@ -18,9 +18,9 @@
 		"publish-lexicons": "node --experimental-strip-types scripts/publish-lexicons.ts"
 	},
 	"dependencies": {
-		"@astrojs/check": "^0.9.6",
-		"@astrojs/node": "^9.5.4",
-		"@astrojs/solid-js": "^5.1.3",
+		"@astrojs/check": "^0.9.8",
+		"@astrojs/node": "^10.0.3",
+		"@astrojs/solid-js": "^6.0.1",
 		"@atproto/api": "^0.18.21",
 		"@atproto/common-web": "^0.4.17",
 		"@atproto/jwk-jose": "^0.1.11",
@@ -57,7 +57,7 @@
 		"@tiptap/pm": "^3.20.1",
 		"@tiptap/suggestion": "^3.20.1",
 		"@twemoji/api": "^17.0.2",
-		"astro": "5.18.1",
+		"astro": "6.0.8",
 		"clsx": "^2.1.1",
 		"cobe": "^0.6.5",
 		"cva": "1.0.0-beta.4",
@@ -83,7 +83,7 @@
 		"tw-to-css": "^0.0.12",
 		"typescript": "^5.9.3",
 		"vidstack": "^1.12.13",
-		"vite": "^6.4.1"
+		"vite": "^7.3.1"
 	},
 	"devDependencies": {
 		"@tailwindcss/typography": "^0.5.19",

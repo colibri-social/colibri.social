@@ -1,4 +1,9 @@
-import { defineConfig, envField, fontProviders } from "astro/config";
+import {
+	defineConfig,
+	envField,
+	fontProviders,
+	sessionDrivers,
+} from "astro/config";
 
 import node from "@astrojs/node";
 import tailwindcss from "@tailwindcss/vite";
@@ -16,8 +21,7 @@ const { REDIS_PASSWORD, REDIS_URL } = loadEnv(
 export default defineConfig({
 	site: "https://colibri.social",
 	session: {
-		driver: "redis",
-		options:
+		driver: sessionDrivers.redis(
 			process.env.NODE_ENV! === "production"
 				? {
 						url: REDIS_URL,
@@ -29,6 +33,11 @@ export default defineConfig({
 						password: REDIS_PASSWORD,
 						tls: false as any,
 					},
+		),
+		cookie: {
+			name: "astro-session",
+			maxAge: 30 * 60 * 60,
+		},
 	},
 	adapter: node({
 		mode: "standalone",
@@ -73,26 +82,24 @@ export default defineConfig({
 		],
 		actionBodySizeLimit: 10 * 1024 * 1024,
 	},
-	experimental: {
-		fonts: [
-			{
-				provider: fontProviders.google(),
-				name: "Hanken Grotesk",
-				weights: ["100 900"],
-				cssVariable: "--font-hanken-grotesk",
-			},
-			{
-				provider: fontProviders.google(),
-				name: "Geist Mono",
-				weights: ["100 900"],
-				cssVariable: "--font-geist-mono",
-			},
-			{
-				provider: fontProviders.fontshare(),
-				name: "Stardom",
-				weights: ["400"],
-				cssVariable: "--font-stardom",
-			},
-		],
-	},
+	fonts: [
+		{
+			provider: fontProviders.google(),
+			name: "Hanken Grotesk",
+			weights: ["100 900"],
+			cssVariable: "--font-hanken-grotesk",
+		},
+		{
+			provider: fontProviders.google(),
+			name: "Geist Mono",
+			weights: ["100 900"],
+			cssVariable: "--font-geist-mono",
+		},
+		{
+			provider: fontProviders.fontshare(),
+			name: "Stardom",
+			weights: ["400"],
+			cssVariable: "--font-stardom",
+		},
+	],
 });
