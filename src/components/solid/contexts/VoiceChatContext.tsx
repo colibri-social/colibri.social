@@ -25,9 +25,10 @@ import {
 } from "solid-js";
 import { createStore } from "solid-js/store";
 import { createRnnoiseProcessor } from "@/lib/hooks/createRnnoiseProcessor";
+import { RECORD_IDs } from "@/utils/atproto/lexicons";
 import { fetchToken } from "../components/VoiceChat/livekit";
 import { useGlobalContext } from "./GlobalContext";
-import { RECORD_IDs } from "@/utils/atproto/lexicons";
+import { usePreferencesContext } from "./UserPreferencesContext";
 
 /**
  * Re-builds the tiles shown in the UI.
@@ -175,6 +176,7 @@ const SOUNDS = {
 };
 
 export const VoiceChatContextProvider: ParentComponent = (props) => {
+	const [userPreferences] = usePreferencesContext();
 	const [globalData, { sendSocketMessage }] = useGlobalContext();
 
 	const playSound = (sound: keyof typeof SOUNDS): void => {
@@ -249,22 +251,28 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 						channelName ?? channelRkey ?? channel(),
 					);
 
-					// TODO: Figure out how to change the video capture options for a single client (different video resolution)
+					// TODO(launch): Update noise surpression and echo cancellation when value changes
 					const roomOptions: RoomOptions = {
 						adaptiveStream: false,
 						dynacast: true,
 						videoCaptureDefaults: VideoPresets.h1080,
 						audioCaptureDefaults: {
-							echoCancellation: true,
-							noiseSuppression: true,
-							voiceIsolation: true,
+							echoCancellation: userPreferences.voice.input.echoCancellation,
+							noiseSuppression: userPreferences.voice.input.noiseSurpression,
+							voiceIsolation: userPreferences.voice.input.noiseSurpression,
 							autoGainControl: true,
+							deviceId:
+								userPreferences.voice.input.preferredDeviceId ?? undefined,
+						},
+						audioOutput: {
+							deviceId:
+								userPreferences.voice.output.preferredDeviceId ?? undefined,
 						},
 					};
 
 					const connectOptions: RoomConnectOptions = {
 						autoSubscribe: true,
-						maxRetries: 10, // TODO: Error handling
+						maxRetries: 10, // TODO(launch): Error handling
 					};
 
 					const r = new Room(roomOptions);
@@ -312,7 +320,8 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 
 						if (
 							trackPublication.source === Track.Source.Microphone &&
-							trackPublication.track instanceof LocalAudioTrack
+							trackPublication.track instanceof LocalAudioTrack &&
+							userPreferences.voice.input.noiseSurpression
 						) {
 							trackPublication.track.setProcessor(createRnnoiseProcessor());
 						}
@@ -330,6 +339,7 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 
 						setVoiceChatContext("tiles", newTiles);
 					});
+
 					r.on(RoomEvent.ParticipantDisconnected, () => {
 						playSound("leave");
 						const newTiles = rebuildTiles(r, voiceChatContext.activeSpeakers);
@@ -348,7 +358,7 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 						}
 					});
 
-					// TODO: Handle these events.
+					// TODO(launch): Handle these events.
 					// RoomEvent.Disconnected, show reconnecting UI, attempt rejoin
 					// RoomEvent.MediaDevicesError, surface a helpful error message
 					// RoomEvent.DataReceived, if you add a chat/data channel
@@ -519,7 +529,7 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 				try {
 					if (next) {
 						await r.localParticipant.setScreenShareEnabled(true, {
-							audio: true, // capture system audio if the browser supports it. TODO: Give option to share
+							audio: true, // capture system audio if the browser supports it. TODO(app): Give option to share
 						});
 					} else {
 						await r.localParticipant.setScreenShareEnabled(false);

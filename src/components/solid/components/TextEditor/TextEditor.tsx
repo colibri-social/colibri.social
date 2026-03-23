@@ -14,11 +14,6 @@ import { Underline } from "@tiptap/extension-underline";
 import { CharacterCount, Placeholder, UndoRedo } from "@tiptap/extensions";
 import { type Component, createEffect, createSignal } from "solid-js";
 import { createEditorTransaction, createTiptapEditor } from "solid-tiptap";
-import { Bold as BoldIcon } from "../../icons/Bold";
-import { Code as CodeIcon } from "../../icons/Code";
-import { Italic as ItalicIcon } from "../../icons/Italic";
-import { Strikethrough as StrikethroughIcon } from "../../icons/Strikethrough";
-import { Underline as UnderlineIcon } from "../../icons/Underline";
 import "./TextEditor.css";
 import { type Editor, mergeAttributes } from "@tiptap/core";
 import twemoji from "@twemoji/api";
@@ -26,6 +21,7 @@ import type { Facet } from "@/utils/atproto/rich-text";
 import { htmlToDOMOutputSpec } from "@/utils/html-to-dom-output-spec";
 import { useChannelContext } from "../../contexts/ChannelContext";
 import { useCommunityContext } from "../../contexts/CommunityContext";
+import Icon from "../../icons/Icon";
 import {
 	Tooltip,
 	TooltipContent,
@@ -257,7 +253,7 @@ export const TextEditor: Component<{
 					}}
 					onClick={() => editor()?.commands.toggleBold()}
 				>
-					<BoldIcon />
+					<Icon variant="regular" name="text-b-icon" />
 				</button>
 				<button
 					type="button"
@@ -267,7 +263,7 @@ export const TextEditor: Component<{
 					}}
 					onClick={() => editor()?.commands.toggleItalic()}
 				>
-					<ItalicIcon />
+					<Icon variant="regular" name="text-italic-icon" />
 				</button>
 				<button
 					type="button"
@@ -277,7 +273,7 @@ export const TextEditor: Component<{
 					}}
 					onClick={() => editor()?.commands.toggleUnderline()}
 				>
-					<UnderlineIcon />
+					<Icon variant="regular" name="text-underline-icon" />
 				</button>
 				<button
 					type="button"
@@ -287,7 +283,7 @@ export const TextEditor: Component<{
 					}}
 					onClick={() => editor()?.commands.toggleStrike()}
 				>
-					<StrikethroughIcon />
+					<Icon variant="regular" name="text-strikethrough-icon" />
 				</button>
 				<button
 					type="button"
@@ -297,7 +293,7 @@ export const TextEditor: Component<{
 					}}
 					onClick={() => editor()?.commands.toggleCode()}
 				>
-					<CodeIcon />
+					<Icon variant="regular" name="code-icon" />
 				</button>
 			</div>
 			<div

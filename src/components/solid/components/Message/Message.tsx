@@ -12,6 +12,7 @@ import {
 	Switch,
 } from "solid-js";
 import { toast } from "somoto";
+import { Icon } from "@/components/solid/icons/Icon";
 import type { Facet } from "@/utils/atproto/rich-text";
 import type { ColibriRichTextLink } from "@/utils/atproto/rich-text/detection";
 import { parseZodToErrorOrDisplay } from "@/utils/parse-zod-to-error-or-display";
@@ -31,11 +32,6 @@ import {
 	useGlobalContext,
 } from "../../contexts/GlobalContext";
 import { useMessageContext } from "../../contexts/MessageContext";
-import { Emoji as EmojiIcon } from "../../icons/Emoji";
-import { Pencil } from "../../icons/Pencil";
-import { Prohibit } from "../../icons/Prohibit";
-import { Reply } from "../../icons/Reply";
-import { Trash } from "../../icons/Trash";
 import {
 	Tooltip,
 	TooltipContent,
@@ -739,11 +735,11 @@ export const Message: Component<{
 								addReactionOptimistic={addReactionOptimistic}
 							>
 								<MessageAction tooltipText="Add reaction">
-									<EmojiIcon />
+									<Icon variant="regular" name="smiley-icon" />
 								</MessageAction>
 							</EmojiPopover>
 							<MessageAction tooltipText="Reply" onClick={enableReplyMode}>
-								<Reply />
+								<Icon variant="regular" name="arrow-bend-up-left-icon" />
 							</MessageAction>
 							<Show
 								when={
@@ -764,13 +760,13 @@ export const Message: Component<{
 											handlePotentialBlock(e);
 										}}
 									>
-										<Prohibit />
+										<Icon variant="regular" name="prohibit-icon" />
 									</MessageAction>
 								</MessageBlockDrawer>
 							</Show>
 							<Show when={messageEditable()}>
 								<MessageAction tooltipText="Edit" onClick={enableEditMode}>
-									<Pencil />
+									<Icon variant="regular" name="pencil-icon" />
 								</MessageAction>
 								<MessageDeletionDrawer
 									message={{ ...props.data, ...optimisticUserData() }}
@@ -785,7 +781,7 @@ export const Message: Component<{
 											handlePotentialDeletion(e);
 										}}
 									>
-										<Trash />
+										<Icon variant="regular" name="trash-icon" />
 									</MessageAction>
 								</MessageDeletionDrawer>
 							</Show>

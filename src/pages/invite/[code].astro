@@ -135,7 +135,6 @@ if (inCommunity) {
 
 	const code = acceptBtn?.dataset.code as string;
 
-	// TODO: Loading state
 	acceptBtn?.addEventListener("click", async () => {
 		let prevHtml = `${acceptBtn.innerHTML}`;
 		acceptBtn.innerHTML = Spinner;

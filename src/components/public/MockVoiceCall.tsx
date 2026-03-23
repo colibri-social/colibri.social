@@ -7,14 +7,11 @@ import {
 	Show,
 	Switch,
 } from "solid-js";
-import { ChatCircleDots } from "@/components/solid/icons/ChatCircleDots";
-import { SpeakerLow } from "@/components/solid/icons/SpeakerLow";
 import {
 	type BuildEventsResult,
 	createAnimationTimeline,
 	type TimelineEvent,
 } from "@/lib/hooks/createAnimationTimeline";
-import { SpeakerHigh } from "../solid/icons/SpeakerHigh";
 
 type Guest = {
 	id: string;
@@ -34,6 +31,59 @@ const GUESTS: Guest[] = [
 	{ id: "07", name: "Reuben", color: "bg-yellow-400" },
 	{ id: "08", name: "Houston", color: "bg-cyan-400" },
 ] as const;
+
+const SpeakerLow: Component<{
+	className?: string;
+	classList?: Record<string, boolean>;
+}> = (props) => (
+	<svg
+		xmlns="http://www.w3.org/2000/svg"
+		width="20"
+		height="20"
+		fill="currentColor"
+		viewBox="0 0 256 256"
+		aria-hidden="true"
+		class={props.className}
+		classList={props.classList}
+	>
+		<path d="M155.51,24.81a8,8,0,0,0-8.42.88L77.25,80H32A16,16,0,0,0,16,96v64a16,16,0,0,0,16,16H77.25l69.84,54.31A8,8,0,0,0,160,224V32A8,8,0,0,0,155.51,24.81ZM32,96H72v64H32ZM144,207.64,88,164.09V91.91l56-43.55ZM208,128a39.93,39.93,0,0,1-10,26.46,8,8,0,0,1-12-10.58,24,24,0,0,0,0-31.72,8,8,0,1,1,12-10.58A40,40,0,0,1,208,128Z"></path>
+	</svg>
+);
+
+const SpeakerHigh: Component<{
+	className?: string;
+	classList?: Record<string, boolean>;
+}> = (props) => (
+	<svg
+		xmlns="http://www.w3.org/2000/svg"
+		width="20"
+		height="20"
+		fill="currentColor"
+		viewBox="0 0 256 256"
+		aria-hidden="true"
+		class={props.className}
+		classList={props.classList}
+	>
+		<path d="M155.51,24.81a8,8,0,0,0-8.42.88L77.25,80H32A16,16,0,0,0,16,96v64a16,16,0,0,0,16,16H77.25l69.84,54.31A8,8,0,0,0,160,224V32A8,8,0,0,0,155.51,24.81ZM32,96H72v64H32ZM144,207.64,88,164.09V91.91l56-43.55Zm54-106.08a40,40,0,0,1,0,52.88,8,8,0,0,1-12-10.58,24,24,0,0,0,0-31.72,8,8,0,0,1,12-10.58ZM248,128a79.9,79.9,0,0,1-20.37,53.34,8,8,0,0,1-11.92-10.67,64,64,0,0,0,0-85.33,8,8,0,1,1,11.92-10.67A79.83,79.83,0,0,1,248,128Z"></path>
+	</svg>
+);
+
+const ChatCircleDots: Component<{
+	className?: string;
+	size?: number;
+}> = ({ className, size }) => (
+	<svg
+		xmlns="http://www.w3.org/2000/svg"
+		width={size || "20"}
+		height={size || "20"}
+		fill="currentColor"
+		viewBox="0 0 256 256"
+		class={className}
+		aria-hidden="true"
+	>
+		<path d="M140,128a12,12,0,1,1-12-12A12,12,0,0,1,140,128ZM84,116a12,12,0,1,0,12,12A12,12,0,0,0,84,116Zm88,0a12,12,0,1,0,12,12A12,12,0,0,0,172,116Zm60,12A104,104,0,0,1,79.12,219.82L45.07,231.17a16,16,0,0,1-20.24-20.24l11.35-34.05A104,104,0,1,1,232,128Zm-16,0A88,88,0,1,0,51.81,172.06a8,8,0,0,1,.66,6.54L40,216,77.4,203.53a7.85,7.85,0,0,1,2.53-.42,8,8,0,0,1,4,1.08A88,88,0,0,0,216,128Z"></path>
+	</svg>
+);
 
 const ChevronDown: Component = () => (
 	<svg

@@ -1,6 +1,6 @@
 import { createSignal, type ParentComponent, Show } from "solid-js";
 import { Portal } from "solid-js/web";
-import { X } from "../icons/X";
+import { Icon } from "@/components/solid/icons/Icon";
 import { Button } from "../shadcn-solid/Button";
 
 export const Lightbox: ParentComponent<{
@@ -33,7 +33,7 @@ export const Lightbox: ParentComponent<{
 							class="w-10 h-10 absolute top-8 right-8"
 							onClick={() => setOpen(false)}
 						>
-							<X />
+							<Icon variant="regular" name="x-icon" />
 						</Button>
 					</div>
 				</Portal>

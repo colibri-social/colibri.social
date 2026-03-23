@@ -12,6 +12,7 @@ import {
 	Suspense,
 	Switch,
 } from "solid-js";
+import { Icon } from "@/components/solid/icons/Icon";
 import {
 	DropdownMenu,
 	DropdownMenuContent,
@@ -28,7 +29,6 @@ import { useVoiceChatContext } from "../contexts/VoiceChatContext";
 import { Camera } from "../icons/Camera";
 import { Ear } from "../icons/Ear";
 import { Microphone } from "../icons/Microphone";
-import { PhoneSlash } from "../icons/PhoneSlash";
 import { Screen } from "../icons/Screen";
 import { Wifi } from "../icons/Wifi";
 import { Button } from "../shadcn-solid/Button";
@@ -205,7 +205,7 @@ export const UserStatus: Component = () => {
 							class="aspect-square"
 							onClick={disconnect}
 						>
-							<PhoneSlash />
+							<Icon variant="regular" name="phone-slash-icon" />
 						</Button>
 					</div>
 					<div class="grid grid-cols-4 gap-2 w-full">

@@ -5,6 +5,7 @@ import type { Facet } from "@/utils/atproto/rich-text";
 import { purify } from "@/utils/purify";
 import { useCommunityContext } from "../../contexts/CommunityContext";
 import { MemberProfilePopover } from "../MemberProfilePopover";
+import { useChannelContext } from "../../contexts/ChannelContext";
 
 export type TextWithFacets = {
 	text: string;
@@ -38,6 +39,7 @@ const applyStyleForFacet = (
 	community?: string,
 ): JSX.Element => {
 	const communityContext = useCommunityContext();
+	const channelContext = useChannelContext();
 
 	const textWithEmojis = twemoji.parse(purify(text));
 
@@ -75,7 +77,7 @@ const applyStyleForFacet = (
 					<div
 						data-facet-type="mention"
 						data-did={did}
-						class="bg-primary/15 hover:bg-primary/25 px-1 rounded-xs cursor-pointer inline"
+						class="bg-primary/25 hover:bg-primary/35 px-1 rounded-xs cursor-pointer inline"
 						innerHTML={textWithEmojis}
 					/>
 				</MemberProfilePopover>
@@ -101,14 +103,20 @@ const applyStyleForFacet = (
 			const channel =
 				"channel" in feature ? escapeAttr(String(feature.channel)) : "";
 
-			if (community) {
-				const href = escapeAttr(`/c/${community}/${channel}`);
+			const channelData = channelContext
+				?.channels()
+				.find((c) => c.rkey === channel);
+
+			if (channelData) {
+				const href = escapeAttr(
+					`/c/${community}/${channelData.type.slice(0, 1)}/${channel}`,
+				);
 				return (
 					<A
 						data-facet-type="channel"
 						data-channel={channel}
 						href={href}
-						class="bg-blue-500/15 hover:bg-blue-500/25 px-1 rounded-xs cursor-pointer inline no-underline text-foreground"
+						class="bg-blue-500/25 hover:bg-blue-500/35 px-1 rounded-xs cursor-pointer inline no-underline text-foreground"
 						innerHTML={textWithEmojis}
 					/>
 				);
@@ -118,7 +126,7 @@ const applyStyleForFacet = (
 				<div
 					data-facet-type="channel"
 					data-channel={channel}
-					class="bg-blue-500/15 hover:bg-blue-500/25 px-1 rounded-xs cursor-pointer inline"
+					class="bg-blue-500/25 px-1 rounded-xs inline"
 					innerHTML={textWithEmojis}
 				/>
 			);

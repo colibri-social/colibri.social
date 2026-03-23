@@ -1,6 +1,5 @@
 import { type Component, createSignal, Match, Show, Switch } from "solid-js";
-import { Check } from "../icons/Check";
-import { Copy } from "../icons/Copy";
+import { Icon } from "@/components/solid/icons/Icon";
 import { PDSls } from "../icons/PDSls";
 import { Button } from "../shadcn-solid/Button";
 import {
@@ -34,10 +33,10 @@ const CopyButton: Component<{ value: string }> = (props) => {
 				>
 					<Switch>
 						<Match when={active()}>
-							<Check />
+							<Icon variant="regular" name="check-icon" />
 						</Match>
 						<Match when={!active()}>
-							<Copy />
+							<Icon variant="regular" name="copy-icon" />
 						</Match>
 					</Switch>
 				</Button>

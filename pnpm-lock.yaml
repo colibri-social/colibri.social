@@ -128,6 +128,9 @@ importers:
       astro:
         specifier: 6.0.8
         version: 6.0.8(@types/node@25.2.3)(ioredis@5.10.0)(jiti@2.6.1)(lightningcss@1.30.2)(rollup@4.57.1)(typescript@5.9.3)(yaml@2.8.2)
+      chroma-js:
+        specifier: ^3.2.0
+        version: 3.2.0
       clsx:
         specifier: ^2.1.1
         version: 2.1.1
@@ -176,6 +179,9 @@ importers:
       solid-js:
         specifier: ^1.9.11
         version: 1.9.11
+      solid-phosphor:
+        specifier: ^1.0.16
+        version: 1.0.16(solid-js@1.9.11)
       solid-tiptap:
         specifier: ^0.8.0
         version: 0.8.0(@tiptap/core@3.20.1(@tiptap/pm@3.20.1))(@tiptap/pm@3.20.1)(solid-js@1.9.11)
@@ -210,6 +216,9 @@ importers:
       '@tailwindcss/typography':
         specifier: ^0.5.19
         version: 0.5.19(tailwindcss@4.1.18)
+      '@types/chroma-js':
+        specifier: ^3.1.2
+        version: 3.1.2
       '@types/jsdom':
         specifier: ^28.0.0
         version: 28.0.0
@@ -985,6 +994,9 @@ packages:
   '@oslojs/encoding@1.1.0':
     resolution: {integrity: sha512-70wQhgYmndg4GCPxPPxPGevRKqTIJ2Nh4OkiMWmDAVYsTQ+Ta7Sq+rPevXyXGdzr30/qZBnyOalCszoMxlyldQ==}
 
+  '@phosphor-icons/core@2.1.1':
+    resolution: {integrity: sha512-v4ARvrip4qBCImOE5rmPUylOEK4iiED9ZyKjcvzuezqMaiRASCHKcRIuvvxL/twvLpkfnEODCOJp5dM4eZilxQ==}
+
   '@redis/bloom@5.11.0':
     resolution: {integrity: sha512-KYiVilAhAFN3057afUb/tfYJpsEyTkQB+tQcn5gVVA7DgcNOAj8lLxe4j8ov8BF6I9C1Fe/kwlbuAICcTMX8Lw==}
     engines: {node: '>= 18'}
@@ -1519,6 +1531,9 @@ packages:
   '@types/babel__traverse@7.28.0':
     resolution: {integrity: sha512-8PvcXf70gTDZBgt9ptxJ8elBeBjcLOAcOtoO/mPJjtji1+CdGbHgm77om1GrsPxsiE+uXIpNSK64UYaIwQXd4Q==}
 
+  '@types/chroma-js@3.1.2':
+    resolution: {integrity: sha512-YBTQqArPN8A0niHXCwrO1z5x++a+6l0mLBykncUpr23oIPW7L4h39s6gokdK/bDrPmSh8+TjMmrhBPnyiaWPmQ==}
+
   '@types/debug@4.1.12':
     resolution: {integrity: sha512-vIChWdVG3LG1SMxEvI/AK+FWJthlrqlTu7fbrlywTkkaONwk/UAGaULXRlf8vkzFBLVm0zkMdCquhL5aOjhXPQ==}
 
@@ -1785,6 +1800,9 @@ packages:
   chokidar@5.0.0:
     resolution: {integrity: sha512-TQMmc3w+5AxjpL8iIiwebF73dRDF4fBIieAqGn9RGCWaEVwQ6Fb2cGe31Yns0RRIzii5goJ1Y7xbMwo1TxMplw==}
     engines: {node: '>= 20.19.0'}
+
+  chroma-js@3.2.0:
+    resolution: {integrity: sha512-os/OippSlX1RlWWr+QDPcGUZs0uoqr32urfxESG9U93lhUfbnlyckte84Q8P1UQY/qth983AS1JONKmLS4T0nw==}
 
   ci-info@4.4.0:
     resolution: {integrity: sha512-77PSwercCZU2Fc4sX94eF8k8Pxte6JAwL4/ICZLFjJLqegs7kCuAsqqj/70NQF6TvDpgFjkubQB2FW2ZZddvQg==}
@@ -3235,6 +3253,11 @@ packages:
 
   solid-js@1.9.11:
     resolution: {integrity: sha512-WEJtcc5mkh/BnHA6Yrg4whlF8g6QwpmXXRg4P2ztPmcKeHHlH4+djYecBLhSpecZY2RRECXYUwIc/C2r3yzQ4Q==}
+
+  solid-phosphor@1.0.16:
+    resolution: {integrity: sha512-5a0DofAhyzCJ+4zWwW7N0d+7+GTkSXR2cyLWtl0uTzz4zpmLT6hsO1Ax3L5SW7eKhD6QWJvbWBWJ+vsD2br/TA==}
+    peerDependencies:
+      solid-js: ^1.7.3
 
   solid-presence@0.1.8:
     resolution: {integrity: sha512-pWGtXUFWYYUZNbg5YpG5vkQJyOtzn2KXhxYaMx/4I+lylTLYkITOLevaCwMRN+liCVk0pqB6EayLWojNqBFECA==}
@@ -4720,6 +4743,8 @@ snapshots:
 
   '@oslojs/encoding@1.1.0': {}
 
+  '@phosphor-icons/core@2.1.1': {}
+
   '@redis/bloom@5.11.0(@redis/client@5.11.0)':
     dependencies:
       '@redis/client': 5.11.0
@@ -5175,6 +5200,8 @@ snapshots:
     dependencies:
       '@babel/types': 7.29.0
 
+  '@types/chroma-js@3.1.2': {}
+
   '@types/debug@4.1.12':
     dependencies:
       '@types/ms': 2.1.0
@@ -5558,6 +5585,8 @@ snapshots:
   chokidar@5.0.0:
     dependencies:
       readdirp: 5.0.0
+
+  chroma-js@3.2.0: {}
 
   ci-info@4.4.0: {}
 
@@ -7302,6 +7331,11 @@ snapshots:
       csstype: 3.2.3
       seroval: 1.5.0
       seroval-plugins: 1.5.0(seroval@1.5.0)
+
+  solid-phosphor@1.0.16(solid-js@1.9.11):
+    dependencies:
+      '@phosphor-icons/core': 2.1.1
+      solid-js: 1.9.11
 
   solid-presence@0.1.8(solid-js@1.9.11):
     dependencies:

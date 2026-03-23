@@ -158,7 +158,7 @@ const CommunityLayout: ParentComponent = (props) => {
 
 		const totalCurrentlyJoined = [...serverMemberList, ...optimisticJoinList];
 
-		// TODO: Status updates
+		// TODO(launch): Status updates
 		return totalCurrentlyJoined
 			.filter(
 				(x) =>

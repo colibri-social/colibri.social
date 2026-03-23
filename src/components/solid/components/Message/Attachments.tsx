@@ -11,7 +11,7 @@ import "vidstack/player/ui";
 import "vidstack/player/styles/default/theme.css";
 import "vidstack/player/styles/default/layouts/video.css";
 import "vidstack/player/styles/default/layouts/audio.css";
-import { File } from "../../icons/File";
+import { Icon } from "@/components/solid/icons/Icon";
 
 export const MessageAttachments: Component<{
 	did: string;
@@ -120,7 +120,11 @@ export const MessageAttachments: Component<{
 								href={`https://${APPVIEW_DOMAIN}/api/blob?did=${props.did}&cid=${item.blob.ref.$link}`}
 								target="_blank"
 							>
-								<File className="min-w-10 w-10 h-10" />
+								<Icon
+									variant="regular"
+									name="file-icon"
+									class="min-w-10 w-10 h-10"
+								/>
 								<div class="flex flex-col w-full">
 									<span class="text-ellipsis w-[calc(100%-3rem)] text-nowrap overflow-hidden">
 										{item.name ?? item.blob.ref.$link}

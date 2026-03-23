@@ -10,7 +10,7 @@ import {
 	Switch,
 } from "solid-js";
 import type { ChannelData } from "@/utils/sdk";
-import { ChatCircleDots } from "../../icons/ChatCircleDots";
+import Icon from "../../icons/Icon";
 import type { MemberData } from "../../layouts/CommunityLayout";
 import type {
 	EmojiSuggestionData,
@@ -109,7 +109,7 @@ export const MentionList: Component<{
 								</Match>
 								<Match when={isChannel(item)}>
 									<span>
-										<ChatCircleDots size={20} />
+										<Icon variant="regular" name="chat-circle-dots-icon" />
 									</span>
 									<span>{(item as ChannelData).name}</span>
 								</Match>

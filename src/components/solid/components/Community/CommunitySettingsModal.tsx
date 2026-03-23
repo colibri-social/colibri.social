@@ -13,14 +13,12 @@ import {
 	Switch,
 } from "solid-js";
 import { toast } from "somoto";
+import { Icon } from "@/components/solid/icons/Icon";
 import { RECORD_IDs } from "@/utils/atproto/lexicons";
 import { parseZodToErrorOrDisplay } from "@/utils/parse-zod-to-error-or-display";
 import { useGlobalContext } from "../../contexts/GlobalContext";
 import { InviteLinkCreationModal } from "../../contexts/GlobalContext/InviteLinkCreationModal";
-import { Image } from "../../icons/Image";
-import { Plus } from "../../icons/Plus";
 import { Spinner } from "../../icons/Spinner";
-import { XCircle } from "../../icons/XCircle";
 import type { MemberData } from "../../layouts/CommunityLayout";
 import { Alert, AlertDescription, AlertTitle } from "../../shadcn-solid/Alert";
 import { Button } from "../../shadcn-solid/Button";
@@ -205,7 +203,11 @@ const GeneralSettingsPage: Component = () => {
 										onClick={clearNewFile}
 										aria-label="Remove selected image"
 									>
-										<XCircle className="w-5! h-5!" />
+										<Icon
+											variant="regular"
+											name="x-circle-icon"
+											class="w-5! h-5!"
+										/>
 									</button>
 								</div>
 							</Match>
@@ -222,13 +224,17 @@ const GeneralSettingsPage: Component = () => {
 										onClick={removeExistingImage}
 										aria-label="Remove image"
 									>
-										<XCircle className="w-5! h-5!" />
+										<Icon
+											variant="regular"
+											name="x-circle-icon"
+											class="w-5! h-5!"
+										/>
 									</button>
 								</div>
 							</Match>
 							<Match when={true}>
 								<div class="flex flex-col items-center justify-center gap-1">
-									<Image className="w-6! h-6!" />
+									<Icon variant="regular" name="image-icon" class="w-6! h-6!" />
 									<span>Upload</span>
 								</div>
 							</Match>
@@ -333,7 +339,7 @@ const InviteLinksPage: Component = () => {
 								refetch={refetch}
 							>
 								<Button variant="secondary">
-									<Plus />
+									<Icon variant="regular" name="plus-icon" />
 									Create new invite
 								</Button>
 							</InviteLinkCreationModal>
@@ -383,7 +389,7 @@ const JoinRequestApprovals: Component = () => {
 			return;
 		}
 
-		// TODO: Band-aid fix, race condition n all that. Wait for member to join via global context.
+		// TODO(launch): Band-aid fix, race condition n all that. Wait for member to join via global context.
 		setTimeout(refetch, 1000);
 	};
 
@@ -550,22 +556,26 @@ export const CommunitySettingsModal: ParentComponent = (props) => {
 					title: "Community Profile",
 					id: "general",
 					component: GeneralSettingsPage,
+					icon: "wrench-icon",
 				},
 				{
 					title: "Invite Links",
 					id: "invitations",
 					component: InviteLinksPage,
+					icon: "link-icon",
 				},
 				{
 					title: "Join Requests",
 					id: "joins",
 					component: JoinRequestApprovals,
+					icon: "ticket-icon",
 				},
 			]}
 			dangerPage={{
 				title: "Danger Zone",
 				id: "danger",
 				component: DangerSettingsPage,
+				icon: "warning-diamond-icon",
 			}}
 			debugPage={{
 				title: "Debug Information",
@@ -577,6 +587,7 @@ export const CommunitySettingsModal: ParentComponent = (props) => {
 						rkey={community()!.rkey}
 					/>
 				),
+				icon: "bug-icon",
 			}}
 		>
 			{props.children}

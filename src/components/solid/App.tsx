@@ -3,6 +3,7 @@ import { Route, Router } from "@solidjs/router";
 import type { CommunityData } from "@/utils/sdk";
 import { DevelopmentPlaceholder } from "./components/DevelopmentPlaceholder";
 import { GlobalContextProvider } from "./contexts/GlobalContext";
+import { UserPreferencesContextProvider } from "./contexts/UserPreferencesContext";
 import { VoiceChatContextProvider } from "./contexts/VoiceChatContext";
 import AppLayout from "./layouts/AppLayout";
 import CommunityLayout from "./layouts/CommunityLayout";
@@ -23,38 +24,40 @@ export const App = ({
 	return (
 		<ColorModeProvider>
 			<Toaster richColors position="bottom-right" />
-			<GlobalContextProvider
-				contextData={{
-					communities,
-					user,
-				}}
-			>
-				<VoiceChatContextProvider>
-					<Router base="/app">
-						<Route component={AppLayout}>
-							<Route path="/" component={() => <DevelopmentPlaceholder />} />
-							<Route component={CommunityLayout}>
-								<Route
-									path="/c/:community"
-									component={() => (
-										<div class="w-full h-full flex items-center justify-center">
-											Placeholder community page
-										</div>
-									)}
-								/>
-								<Route
-									path="/c/:community/t/:channel"
-									component={ChannelView}
-								/>
-								<Route
-									path="/c/:community/v/:channel"
-									component={VoiceChannelView}
-								/>
+			<UserPreferencesContextProvider>
+				<GlobalContextProvider
+					contextData={{
+						communities,
+						user,
+					}}
+				>
+					<VoiceChatContextProvider>
+						<Router base="/app">
+							<Route component={AppLayout}>
+								<Route path="/" component={() => <DevelopmentPlaceholder />} />
+								<Route component={CommunityLayout}>
+									<Route
+										path="/c/:community"
+										component={() => (
+											<div class="w-full h-full flex items-center justify-center">
+												Placeholder community page
+											</div>
+										)}
+									/>
+									<Route
+										path="/c/:community/t/:channel"
+										component={ChannelView}
+									/>
+									<Route
+										path="/c/:community/v/:channel"
+										component={VoiceChannelView}
+									/>
+								</Route>
 							</Route>
-						</Route>
-					</Router>
-				</VoiceChatContextProvider>
-			</GlobalContextProvider>
+						</Router>
+					</VoiceChatContextProvider>
+				</GlobalContextProvider>
+			</UserPreferencesContextProvider>
 		</ColorModeProvider>
 	);
 };

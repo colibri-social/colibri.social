@@ -16,13 +16,13 @@ import {
 	Show,
 } from "solid-js";
 import { createStore } from "solid-js/store";
+import { Icon } from "@/components/solid/icons/Icon";
 import type {
 	SidebarCategoryData,
 	SidebarChannelData,
 	SidebarData,
 } from "@/utils/sdk";
 import { useGlobalContext } from "../../contexts/GlobalContext";
-import { Plus } from "../../icons/Plus";
 import { Button } from "../../shadcn-solid/Button";
 import {
 	animateToNewPositions,
@@ -387,7 +387,7 @@ export const ChannelList: Component<{
 							class="w-[calc(100%-2rem)] mx-4 mt-4"
 							variant="ghost"
 						>
-							<Plus />
+							<Icon variant="regular" name="plus-icon" />
 							<span>Add new category</span>
 						</Button>
 					</CategoryCreationModal>

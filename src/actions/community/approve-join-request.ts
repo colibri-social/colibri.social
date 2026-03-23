@@ -26,7 +26,6 @@ export const approveJoinRequest = defineAction({
 
 			const communityAtURI = `at://${agent.did!}/${RECORD_IDs.COMMUNITY}/${community}`;
 
-			// TODO: Fetch declaration from member
 			const membership = await sdk.findMembershipDeclaration(
 				member,
 				communityAtURI,

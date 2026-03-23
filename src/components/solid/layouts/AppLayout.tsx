@@ -17,14 +17,11 @@ import {
 	Show,
 	Switch,
 } from "solid-js";
+import { Icon } from "@/components/solid/icons/Icon";
 import type { CommunityData } from "@/utils/sdk";
 import { NewCommunityModal } from "../components/NewCommunityModal";
 import { UserSettingsModal } from "../components/UserSettingsModal";
 import { useGlobalContext } from "../contexts/GlobalContext";
-import { Gear } from "../icons/Gear";
-import { House } from "../icons/House";
-import { Plus } from "../icons/Plus";
-import { Users } from "../icons/Users";
 import { Button } from "../shadcn-solid/Button";
 import {
 	animateToNewPositions,
@@ -236,7 +233,7 @@ const AppLayout: ParentComponent = (props) => {
 						class="w-8 h-8"
 						onClick={() => setMemberListVisible((current) => !current)}
 					>
-						<Users />
+						<Icon variant="regular" name="users-icon" />
 					</Button>
 				</div>
 			</div>
@@ -245,7 +242,7 @@ const AppLayout: ParentComponent = (props) => {
 					<nav class="w-full h-full flex flex-col gap-2">
 						<div class="w-full h-full flex flex-col gap-2">
 							<div class="w-10 flex h-10 rounded-md bg-muted items-center justify-center cursor-pointer">
-								<House />
+								<Icon variant="regular" name="house-icon" />
 							</div>
 							<hr class="m-0 border-muted" />
 							<DragDropProvider
@@ -266,7 +263,7 @@ const AppLayout: ParentComponent = (props) => {
 									type="button"
 									class="w-10 flex h-10 rounded-md bg-muted items-center justify-center cursor-pointer"
 								>
-									<Plus />
+									<Icon variant="regular" name="plus-icon" />
 								</button>
 							</NewCommunityModal>
 						</div>
@@ -274,7 +271,7 @@ const AppLayout: ParentComponent = (props) => {
 					<UserSettingsModal>
 						<div class="w-10 flex h-10 rounded-md bg-muted items-center justify-center cursor-pointer">
 							<div class="block w-fit h-fit">
-								<Gear />
+								<Icon variant="regular" name="gear-icon" />
 							</div>
 						</div>
 					</UserSettingsModal>

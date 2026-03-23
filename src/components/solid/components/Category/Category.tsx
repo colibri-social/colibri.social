@@ -5,6 +5,7 @@ import {
 	SortableProvider,
 	useDragDropContext,
 } from "@thisbeyond/solid-dnd";
+import { ConnectionState } from "livekit-client";
 import {
 	type Component,
 	createMemo,
@@ -20,22 +21,16 @@ import type {
 	SidebarCategoryData,
 	SidebarChannelData,
 } from "@/utils/sdk";
+import { useCommunityContext } from "../../contexts/CommunityContext";
 import { useGlobalContext } from "../../contexts/GlobalContext";
 import { useVoiceChatContext } from "../../contexts/VoiceChatContext";
-import { CaretRight } from "../../icons/CaretRight";
-import { ChatCircleDots } from "../../icons/ChatCircleDots";
-import { Gear } from "../../icons/Gear";
-import { PlusSmall } from "../../icons/PlusSmall";
-import { SpeakerLow } from "../../icons/SpeakerLow";
+import Icon from "../../icons/Icon";
+import type { MemberData } from "../../layouts/CommunityLayout";
 import { Button } from "../../shadcn-solid/Button";
+import { SmallUser } from "../SmallUser";
 import { CategorySettingsModal } from "./CategorySettingsModal";
 import { ChannelCreationModal } from "./ChannelCreationModal";
 import { ChannelSettingsModal } from "./ChannelSettingsModal";
-import { SmallUser } from "../SmallUser";
-import { useCommunityContext } from "../../contexts/CommunityContext";
-import { SpeakerHigh } from "../../icons/SpeakerHigh";
-import { ConnectionState } from "livekit-client";
-import type { MemberData } from "../../layouts/CommunityLayout";
 
 export type ChannelDropTarget = {
 	catRkey: string;
@@ -149,7 +144,11 @@ const SortableChannel: Component<{
 					<div class="flex flex-row items-center gap-2">
 						<Switch>
 							<Match when={props.channel.channel_type === "text"}>
-								<ChatCircleDots />
+								<Icon
+									variant="regular"
+									name="chat-circle-dots-icon"
+									size={20}
+								/>
 							</Match>
 							<Match when={props.channel.channel_type === "voice"}>
 								<Switch>
@@ -159,7 +158,10 @@ const SortableChannel: Component<{
 											voiceData.connectionState !== ConnectionState.Connected
 										}
 									>
-										<SpeakerLow
+										<Icon
+											variant="fill"
+											name="speaker-low-icon"
+											size={20}
 											classList={{
 												"text-white": liveVoiceChannelMembers().length > 0,
 											}}
@@ -171,9 +173,12 @@ const SortableChannel: Component<{
 											voiceData.connectionState === ConnectionState.Connected
 										}
 									>
-										<SpeakerHigh
+										<Icon
+											variant="fill"
+											name="speaker-high-icon"
+											size={20}
 											classList={{
-												"text-primary": liveVoiceChannelMembers().length > 0,
+												"text-primary!": liveVoiceChannelMembers().length > 0,
 											}}
 										/>
 									</Match>
@@ -197,7 +202,7 @@ const SortableChannel: Component<{
 									variant="ghost"
 									onClick={(e) => e.preventDefault()}
 								>
-									<Gear size={16} />
+									<Icon variant="regular" name="gear-icon" size={16} />
 								</Button>
 							</ChannelSettingsModal>
 						</Show>
@@ -320,10 +325,18 @@ export const Category: ParentComponent<{
 				>
 					<Switch>
 						<Match when={open()}>
-							<CaretRight className={"rotate-90"} />
+							<Icon
+								variant="regular"
+								name="caret-right-icon"
+								class="rotate-90"
+							/>
 						</Match>
 						<Match when={!open()}>
-							<CaretRight className={"rotate-0"} />
+							<Icon
+								variant="regular"
+								name="caret-right-icon"
+								class="rotate-0"
+							/>
 						</Match>
 					</Switch>
 					<span>{props.category.name}</span>
@@ -336,7 +349,7 @@ export const Category: ParentComponent<{
 								class="opacity-0 group-hover/category:opacity-100 w-5 h-5 cursor-pointer"
 								variant="ghost"
 							>
-								<Gear size={16} />
+								<Icon variant="regular" name="gear-icon" size={16} />
 							</Button>
 						</CategorySettingsModal>
 						<ChannelCreationModal
@@ -344,7 +357,7 @@ export const Category: ParentComponent<{
 							community={props.community.rkey}
 						>
 							<Button size="sm" class="w-5 h-5 cursor-pointer" variant="ghost">
-								<PlusSmall />
+								<Icon variant="regular" name="plus-icon" size={16} />
 							</Button>
 						</ChannelCreationModal>
 					</Show>

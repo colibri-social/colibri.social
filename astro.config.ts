@@ -36,7 +36,7 @@ export default defineConfig({
 		),
 		cookie: {
 			name: "astro-session",
-			maxAge: 30 * 60 * 60,
+			maxAge: 720 * 60 * 60,
 		},
 	},
 	adapter: node({
@@ -45,6 +45,9 @@ export default defineConfig({
 	output: "server",
 	vite: {
 		plugins: [tailwindcss(), vidstack()],
+		optimizeDeps: {
+			exclude: ["solid-phosphor"], // Vite thinks the JSX here is React
+		},
 	},
 	integrations: [solidJs()],
 	env: {

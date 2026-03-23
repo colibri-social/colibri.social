@@ -2,10 +2,10 @@ import { actions } from "astro:actions";
 import { useNavigate } from "@solidjs/router";
 import { createSignal, type ParentComponent } from "solid-js";
 import { toast } from "somoto";
+import { Icon } from "@/components/solid/icons/Icon";
 import { parseZodToErrorOrDisplay } from "@/utils/parse-zod-to-error-or-display";
 import { useGlobalContext } from "../../contexts/GlobalContext/index";
 import { Spinner } from "../../icons/Spinner";
-import { X } from "../../icons/X";
 import { Button } from "../../shadcn-solid/Button";
 import {
 	Dialog,
@@ -60,7 +60,7 @@ export const LeaveCommunityModal: ParentComponent<{
 						class="absolute top-4 right-4 cursor-pointer hover:bg-muted w-8 h-8 rounded-sm flex items-center justify-center"
 						onClick={() => setOpen(false)}
 					>
-						<X />
+						<Icon variant="regular" name="x-icon" />
 					</DialogCloseButton>
 					<DialogHeader>
 						<h2 class="m-0 text-center">Leave this community?</h2>

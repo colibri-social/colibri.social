@@ -11,6 +11,7 @@ import {
 } from "solid-js";
 import { toast } from "somoto";
 import type { PostMessageInput } from "@/actions/message/post";
+import { Icon } from "@/components/solid/icons/Icon";
 import type { Facet } from "@/utils/atproto/rich-text";
 import { generateHash } from "@/utils/generate-hash";
 import { parseZodToErrorOrDisplay } from "@/utils/parse-zod-to-error-or-display";
@@ -18,8 +19,6 @@ import { purify } from "@/utils/purify";
 import { useGlobalContext } from "../contexts/GlobalContext";
 import type { AttachmentObj, BlobObj } from "../contexts/GlobalContext/events";
 import { useMessageContext } from "../contexts/MessageContext";
-import { Plus } from "../icons/Plus";
-import { XCircle } from "../icons/XCircle";
 import {
 	FileFieldItem,
 	FileFieldItemDeleteTrigger,
@@ -230,7 +229,7 @@ export const MessageInput: Component<{
 						class="cursor-pointer w-6 h-6 flex items-center justify-center text-muted-foreground hover:text-foreground"
 						onClick={clearReplyingTo}
 					>
-						<XCircle />
+						<Icon variant="regular" name="x-circle-icon" />
 					</button>
 				</div>
 			</Show>
@@ -263,7 +262,7 @@ export const MessageInput: Component<{
 			</Show>
 			<div class="w-full min-h-16 h-fit flex flex-row gap-4 px-4 py-3 bg-card">
 				<FileFieldTrigger class="w-10 h-10 min-w-10 bg-muted flex items-center justify-center rounded-lg cursor-pointer">
-					<Plus />
+					<Icon variant="regular" name="plus-icon" />
 				</FileFieldTrigger>
 				<div
 					ref={inputEl}

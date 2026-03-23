@@ -32,15 +32,9 @@ export const GET: APIRoute = async (context) => {
 		);
 	}
 
-	// TODO:
-	// 1. Check if channel exists (by AT-URI)
-	// 2. Check if user is in community that channel is located in
-	// 3. Check that provided identity is the same as the user's DID
-
-	// --- 4. Mint the token --------------------------------------------------
 	const at = new AccessToken(LIVEKIT_API_KEY, LIVEKIT_API_SECRET, {
 		identity,
-		// TODO: Refresh tokens on client every 10 minutes
+		// TODO(launch): Refresh tokens on client every 10 minutes
 		ttl: import.meta.env.DEV ? "24h" : "15min",
 	});
 

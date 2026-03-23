@@ -3,9 +3,9 @@ import type { Details } from "@kobalte/core/file-field";
 import type { Navigator } from "@solidjs/router";
 import { createSignal, Match, type ParentComponent, Switch } from "solid-js";
 import { toast } from "somoto";
+import { Icon } from "@/components/solid/icons/Icon";
 import { parseZodToErrorOrDisplay } from "@/utils/parse-zod-to-error-or-display";
 import { useGlobalContext } from "../contexts/GlobalContext/index";
-import { Image } from "../icons/Image";
 import { Spinner } from "../icons/Spinner";
 import { Button } from "../shadcn-solid/Button";
 import {
@@ -105,7 +105,11 @@ export const NewCommunityModal: ParentComponent<{ navigate: Navigator }> = (
 									<Switch>
 										<Match when={image() === undefined}>
 											<div class="flex flex-col items-center justify-center gap-1">
-												<Image className="w-6! h-6!" />
+												<Icon
+													variant="regular"
+													name="image-icon"
+													class="w-6! h-6!"
+												/>
 												<span>Upload</span>
 											</div>
 										</Match>

@@ -58,6 +58,7 @@
 		"@tiptap/suggestion": "^3.20.1",
 		"@twemoji/api": "^17.0.2",
 		"astro": "6.0.8",
+		"chroma-js": "^3.2.0",
 		"clsx": "^2.1.1",
 		"cobe": "^0.6.5",
 		"cva": "1.0.0-beta.4",
@@ -74,6 +75,7 @@
 		"sharp": "^0.34.5",
 		"solid-emoji-picker": "^0.3.0",
 		"solid-js": "^1.9.11",
+		"solid-phosphor": "^1.0.16",
 		"solid-tiptap": "^0.8.0",
 		"somoto": "^0.0.2",
 		"tailwind-merge": "^3.4.0",
@@ -87,6 +89,7 @@
 	},
 	"devDependencies": {
 		"@tailwindcss/typography": "^0.5.19",
+		"@types/chroma-js": "^3.1.2",
 		"@types/jsdom": "^28.0.0",
 		"@types/ws": "^8.18.1"
 	}

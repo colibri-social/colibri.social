@@ -1,12 +1,12 @@
+import type { AccessorWithLatest } from "@solidjs/router";
 import {
 	type Accessor,
 	createContext,
 	type ParentComponent,
 	useContext,
 } from "solid-js";
-import type { MemberData } from "../layouts/CommunityLayout";
 import type { SidebarData } from "@/utils/sdk";
-import type { AccessorWithLatest } from "@solidjs/router";
+import type { MemberData } from "../layouts/CommunityLayout";
 
 export type CommunityContextData = {
 	members: Accessor<Array<MemberData>>;

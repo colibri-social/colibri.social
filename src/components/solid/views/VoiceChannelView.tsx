@@ -9,9 +9,11 @@ import {
 	onCleanup,
 	Show,
 } from "solid-js";
+import { Icon } from "@/components/solid/icons/Icon";
 import { createIsSpeaking } from "@/lib/hooks/createIsSpeaking";
 import { useChannelContext } from "../contexts/ChannelContext";
 import { useCommunityContext } from "../contexts/CommunityContext";
+import { useGlobalContext } from "../contexts/GlobalContext";
 import {
 	type ParticipantTile,
 	useVoiceChatContext,
@@ -19,11 +21,9 @@ import {
 import { Camera } from "../icons/Camera";
 import { Ear } from "../icons/Ear";
 import { Microphone } from "../icons/Microphone";
-import { PhoneSlash } from "../icons/PhoneSlash";
 import { Screen } from "../icons/Screen";
-import { Button } from "../shadcn-solid/Button";
-import { useGlobalContext } from "../contexts/GlobalContext";
 import type { MemberData } from "../layouts/CommunityLayout";
+import { Button } from "../shadcn-solid/Button";
 
 /**
  * A tile shown when viewing the voice channel without being connected.
@@ -65,7 +65,7 @@ const ParticipantVideo: Component<{
 	const communityData = useCommunityContext()!;
 	const [context, utils] = useVoiceChatContext();
 
-	const isSpeaking = createIsSpeaking(props.tile.audioTrack, {
+	const { isSpeaking } = createIsSpeaking(() => props.tile.audioTrack, {
 		threshold: 0.01,
 		intervalMs: 80,
 	});
@@ -375,7 +375,7 @@ const LiveKitRoom: Component = () => {
 							</Button>
 							<div class="ml-auto">
 								<Button variant={"destructive"} onClick={disconnect}>
-									<PhoneSlash />
+									<Icon variant="regular" name="phone-slash-icon" />
 									Leave
 								</Button>
 							</div>
