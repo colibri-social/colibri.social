@@ -20,10 +20,8 @@ const fetchEmbedData = async (uri: string) => {
 	if (error) return undefined;
 
 	return data;
-};
-
-/**
- * @todo Display suspense, different twitter card types for images,
+}; /**
+ * @todo TODO(launch): Display suspense, different twitter card types for images,
  * figure out why links only produce two messages in chat, re-scroll
  * chat when embeds appear on latest message
  */

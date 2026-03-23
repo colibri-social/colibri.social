@@ -92,7 +92,6 @@ const DropdownStatusSelect: ParentComponent<{
 
 /**
  * The user status visible in the community sidebar.
- * @todo This is mostly static right now.
  */
 export const UserStatus: Component = () => {
 	const [value, setValue] = createSignal<UserOnlineState>("online");
