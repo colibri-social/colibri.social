@@ -1,5 +1,5 @@
-import { splitProps, type ComponentProps, type ValidComponent } from "solid-js";
 import { Switch as SwitchPrimitive } from "@kobalte/core/switch";
+import { type ComponentProps, splitProps, type ValidComponent } from "solid-js";
 
 import { cx } from "@/lib/cva";
 

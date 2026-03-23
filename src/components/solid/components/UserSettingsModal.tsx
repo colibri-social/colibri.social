@@ -1,23 +1,27 @@
 import { actions } from "astro:actions";
 import { APPVIEW_DOMAIN } from "astro:env/client";
 import type { Details } from "@kobalte/core/file-field";
+import { createAsync } from "@solidjs/router";
 import twemoji from "@twemoji/api";
+import chroma from "chroma-js";
+import { createLocalAudioTrack, type LocalAudioTrack } from "livekit-client";
 import type { ParentComponent } from "solid-js";
 import {
 	type Component,
-	createEffect,
 	createSignal,
 	For,
 	Match,
+	onCleanup,
 	Switch,
 } from "solid-js";
 import { toast } from "somoto";
 import { Icon } from "@/components/solid/icons/Icon";
+import { createIsSpeaking } from "@/lib/hooks/createIsSpeaking";
+import { createRnnoiseProcessor } from "@/lib/hooks/createRnnoiseProcessor";
 import { parseZodToErrorOrDisplay } from "@/utils/parse-zod-to-error-or-display";
 import { useGlobalContext } from "../contexts/GlobalContext";
 import { usePreferencesContext } from "../contexts/UserPreferencesContext";
 import { PDSls } from "../icons/PDSls";
-import chroma from "chroma-js";
 import { Button } from "../shadcn-solid/Button";
 import {
 	FileField,
@@ -28,16 +32,6 @@ import {
 	FileFieldItemPreviewImage,
 	FileFieldTrigger,
 } from "../shadcn-solid/file-field";
-import {
-	TextField,
-	TextFieldInput,
-	TextFieldLabel,
-	TextFieldTextArea,
-} from "../shadcn-solid/text-field";
-import { EmojiPopover } from "./Message/EmojiPopover";
-import { InfoPageItem } from "./SettingsInfoPage";
-import { SettingsModal, SettingsPage } from "./SettingsModal";
-import { createAsync } from "@solidjs/router";
 import {
 	Select,
 	SelectContent,
@@ -55,15 +49,23 @@ import {
 	SliderTrack,
 	SliderValueLabel,
 } from "../shadcn-solid/Slider";
-import { createIsSpeaking } from "@/lib/hooks/createIsSpeaking";
 import {
 	Switch as SwitchComp,
-	SwitchLabel,
 	SwitchControl,
 	SwitchDescription,
 	SwitchInput,
+	SwitchLabel,
 	SwitchThumb,
 } from "../shadcn-solid/Switch";
+import {
+	TextField,
+	TextFieldInput,
+	TextFieldLabel,
+	TextFieldTextArea,
+} from "../shadcn-solid/text-field";
+import { EmojiPopover } from "./Message/EmojiPopover";
+import { InfoPageItem } from "./SettingsInfoPage";
+import { SettingsModal, SettingsPage } from "./SettingsModal";
 
 const GeneralSettingsPage: Component = () => {
 	const [globalData, { setUserData }] = useGlobalContext();
@@ -469,12 +471,17 @@ type DeviceOption = {
 
 const MAX = 49;
 
-const lerp = (start: number, end: number, t: number) =>
-	start + t * (end - start);
-
-const VoicePage: Component = () => {
+export const VoicePage: Component = () => {
 	const [userPreferences, setUserPreferences] = usePreferencesContext();
-	const [globalData, { setUserData }] = useGlobalContext();
+
+	const [inputGainNode, setInputGainNode] = createSignal<GainNode | null>(null);
+	const [outputGainNode, setOutputGainNode] = createSignal<GainNode | null>(
+		null,
+	);
+	const [audioCtx, setAudioCtx] = createSignal<AudioContext | null>(null);
+	const [livekitTrack, setLivekitTrack] = createSignal<LocalAudioTrack | null>(
+		null,
+	);
 	const [audioInput, setAudioInput] = createSignal<MediaStreamTrack | null>(
 		null,
 	);
@@ -487,7 +494,6 @@ const VoicePage: Component = () => {
 
 	const getColorForIndex = (index: number) => {
 		const percent = index / MAX;
-
 		return spectrum(percent).hex();
 	};
 
@@ -497,42 +503,165 @@ const VoicePage: Component = () => {
 
 	const microphones = (): Array<DeviceOption> => {
 		const devices = mediaDevices();
-
 		if (!devices) return [];
-
 		return devices
 			.filter((d) => d.kind === "audioinput")
-			.map((d) => ({
-				name: d.label,
-				id: d.deviceId,
-			}));
+			.map((d) => ({ name: d.label, id: d.deviceId }));
 	};
 
 	const speakers = (): Array<DeviceOption> => {
 		const devices = mediaDevices();
-
 		if (!devices) return [];
-
 		return devices
 			.filter((d) => d.kind === "audiooutput")
-			.map((d) => ({
-				name: d.label,
-				id: d.deviceId,
-			}));
+			.map((d) => ({ name: d.label, id: d.deviceId }));
 	};
 
-	const toggleVoiceTest = async () => {
-		if (audioInput()) {
-			audioInput()!.stop();
-			setAudioInput(null);
-		} else {
-			const mediaStream = await navigator.mediaDevices.getUserMedia({
-				audio: true,
-			});
-			const audioTrack = mediaStream.getAudioTracks()[0];
+	const startLocalPlayback = (
+		ctx: AudioContext,
+		track: MediaStreamTrack,
+		inputGain: number,
+		outputGain: number,
+	) => {
+		const source = ctx.createMediaStreamSource(new MediaStream([track]));
+		const delay = ctx.createDelay(0.1);
+		delay.delayTime.value = 0.02;
 
-			setAudioInput(audioTrack);
+		const inGain = ctx.createGain();
+		inGain.gain.value = inputGain;
+
+		const outGain = ctx.createGain();
+		outGain.gain.value = outputGain;
+
+		const destination = ctx.createMediaStreamDestination();
+
+		source.connect(delay);
+		delay.connect(inGain);
+		inGain.connect(outGain);
+		outGain.connect(ctx.destination);
+
+		const audioEl = document.getElementById(
+			"colibri-audio-preview",
+		) as HTMLAudioElement;
+		audioEl.srcObject = destination.stream;
+
+		if ("setSinkId" in ctx) {
+			(ctx as any).setSinkId(
+				userPreferences.voice.output.preferredDeviceId ?? "default",
+			);
 		}
+
+		audioEl.play().catch(() => {});
+
+		return { inGain, outGain };
+	};
+
+	const cleanup = () => {
+		setUserPreferences("voice", (current) => ({
+			...current,
+			output: {
+				...current.output,
+				enabled: true,
+			},
+		}));
+		audioCtx()?.close();
+		setAudioCtx(null);
+		livekitTrack()?.stop();
+		setLivekitTrack(null);
+		setAudioInput(null);
+		setInputGainNode(null);
+		setOutputGainNode(null);
+	};
+
+	onCleanup(cleanup);
+
+	const toggleVoiceTest = async () => {
+		const existing = livekitTrack();
+
+		if (existing) {
+			cleanup();
+			return;
+		}
+
+		setUserPreferences("voice", (current) => ({
+			...current,
+			output: {
+				...current.output,
+				enabled: false,
+			},
+		}));
+
+		const ctx = new AudioContext({
+			latencyHint: "interactive",
+			sampleRate: 48000,
+		});
+
+		const track = await createLocalAudioTrack({
+			noiseSuppression: userPreferences.voice.input.noiseSuppression,
+			echoCancellation: false, // Off for loopback preview
+			autoGainControl: true,
+			deviceId: userPreferences.voice.input.preferredDeviceId,
+		});
+
+		track.setAudioContext(ctx);
+
+		if (userPreferences.voice.input.noiseSuppression) {
+			track.setProcessor(createRnnoiseProcessor());
+		}
+
+		setAudioInput(track.mediaStreamTrack);
+		setLivekitTrack(track);
+
+		const { inGain, outGain } = startLocalPlayback(
+			ctx,
+			track.mediaStreamTrack,
+			userPreferences.voice.input.volume,
+			userPreferences.voice.output.volume,
+		);
+
+		setInputGainNode(inGain);
+		setOutputGainNode(outGain);
+		setAudioCtx(ctx);
+	};
+
+	const restartTrackIfActive = async (
+		inputOverrides?: Partial<typeof userPreferences.voice.input>,
+		outputOverrides?: Partial<typeof userPreferences.voice.output>,
+	) => {
+		if (!livekitTrack()) return;
+		const inputPrefs = { ...userPreferences.voice.input, ...inputOverrides };
+		const outputPrefs = { ...userPreferences.voice.output, ...outputOverrides };
+
+		inputGainNode()?.disconnect();
+		setInputGainNode(null);
+		livekitTrack()!.stop();
+		setLivekitTrack(null);
+		setAudioInput(null);
+
+		const track = await createLocalAudioTrack({
+			noiseSuppression: inputPrefs.noiseSuppression,
+			echoCancellation: false,
+			autoGainControl: true,
+			deviceId: inputPrefs.preferredDeviceId,
+		});
+
+		const ctx = audioCtx()!;
+		track.setAudioContext(ctx);
+
+		if (inputPrefs.noiseSuppression) {
+			await track.setProcessor(createRnnoiseProcessor());
+		}
+
+		setAudioInput(track.mediaStreamTrack);
+		setLivekitTrack(track);
+		const { inGain, outGain } = startLocalPlayback(
+			ctx,
+			track.mediaStreamTrack,
+			inputPrefs.volume,
+			outputPrefs.volume,
+		);
+		setInputGainNode(inGain);
+		setOutputGainNode(outGain);
 	};
 
 	const getActiveMic = () =>
@@ -589,12 +718,17 @@ const VoicePage: Component = () => {
 							maxValue={200}
 							getValueLabel={(params) => `${params.values[0]}%`}
 							onChange={(e) => {
+								const v = e[0] / 100;
+
+								inputGainNode()?.gain.setTargetAtTime(
+									v,
+									audioCtx()!.currentTime,
+									0.01,
+								);
+
 								setUserPreferences("voice", (current) => ({
 									...current,
-									input: {
-										...current.input,
-										volume: e[0] / 100,
-									},
+									input: { ...current.input, volume: v },
 								}));
 							}}
 						>
@@ -654,40 +788,73 @@ const VoicePage: Component = () => {
 						</Select>
 					</div>
 					<div>
-						<div>
-							<Slider
-								defaultValue={[userPreferences.voice.output.volume * 100]}
-								step={1}
-								maxValue={200}
-								getValueLabel={(params) => `${params.values[0]}%`}
-								onChange={(e) => {
-									setUserPreferences("voice", (current) => ({
-										...current,
-										output: {
-											...current.output,
-											volume: e[0] / 100,
-										},
-									}));
-								}}
-							>
-								<SliderGroup>
-									<SliderLabel>Speaker Volume</SliderLabel>
-									<SliderValueLabel />
-								</SliderGroup>
-								<SliderTrack>
-									<SliderFill />
-									<SliderThumb />
-								</SliderTrack>
-							</Slider>
-						</div>
+						<Slider
+							defaultValue={[userPreferences.voice.output.volume * 100]}
+							step={1}
+							maxValue={200}
+							getValueLabel={(params) => `${params.values[0]}%`}
+							onChange={(e) => {
+								const v = e[0] / 100;
+
+								outputGainNode()?.gain.setTargetAtTime(
+									v,
+									audioCtx()!.currentTime,
+									0.01,
+								);
+
+								setUserPreferences("voice", (current) => ({
+									...current,
+									output: { ...current.output, volume: v },
+								}));
+							}}
+						>
+							<SliderGroup>
+								<SliderLabel>Speaker Volume</SliderLabel>
+								<SliderValueLabel />
+							</SliderGroup>
+							<SliderTrack>
+								<SliderFill />
+								<SliderThumb />
+							</SliderTrack>
+						</Slider>
 					</div>
 				</div>
 			</div>
+			<div>
+				<SwitchComp
+					onChange={(e) => {
+						setUserPreferences("voice", (current) => ({
+							...current,
+							input: { ...current.input, noiseSuppression: e },
+						}));
+						restartTrackIfActive({ noiseSuppression: e });
+					}}
+					checked={userPreferences.voice.input.noiseSuppression}
+					class="flex justify-between items-center gap-x-2"
+				>
+					<div>
+						<SwitchLabel>Noise Suppression</SwitchLabel>
+						<SwitchDescription>
+							Whether Colibri should attempt to filter out non-voice sounds.
+						</SwitchDescription>
+					</div>
+					<SwitchInput />
+					<SwitchControl>
+						<SwitchThumb />
+					</SwitchControl>
+				</SwitchComp>
+			</div>
+
+			<hr class="w-full h-px bg-muted border-none m-0" />
 			<div class="flex flex-row items-center gap-4 w-full">
-				<Button onClick={toggleVoiceTest} class="w-28">
+				<Button
+					onClick={toggleVoiceTest}
+					class="w-28"
+					variant={livekitTrack() ? "default" : "secondary"}
+				>
 					<Switch>
-						<Match when={!audioInput()}>Test Input</Match>
-						<Match when={audioInput()}>Speak now...</Match>
+						<Match when={!livekitTrack()}>Test Input</Match>
+						<Match when={livekitTrack()}>Speak now...</Match>
 					</Switch>
 				</Button>
 				<div class="flex flex-row items-center gap-1 w-full h-8 justify-between">
@@ -705,60 +872,7 @@ const VoicePage: Component = () => {
 						)}
 					</For>
 				</div>
-			</div>
-			<hr class="w-full h-px bg-muted border-none m-0" />
-
-			<div>
-				<SwitchComp
-					onChange={(e) => {
-						setUserPreferences("voice", (current) => ({
-							...current,
-							input: {
-								...current.input,
-								noiseSurpression: e,
-							},
-						}));
-					}}
-					checked={userPreferences.voice.input.noiseSurpression}
-					class="flex justify-between items-center gap-x-2"
-				>
-					<div>
-						<SwitchLabel>Noise Surpression</SwitchLabel>
-						<SwitchDescription>
-							Whether Colibri should attempt to filter out non-voice sounds.
-						</SwitchDescription>
-					</div>
-					<SwitchInput />
-					<SwitchControl>
-						<SwitchThumb />
-					</SwitchControl>
-				</SwitchComp>
-			</div>
-			<div>
-				<SwitchComp
-					onChange={(e) => {
-						setUserPreferences("voice", (current) => ({
-							...current,
-							input: {
-								...current.input,
-								echoCancellation: e,
-							},
-						}));
-					}}
-					checked={userPreferences.voice.input.echoCancellation}
-					class="flex justify-between items-center gap-x-2"
-				>
-					<div>
-						<SwitchLabel>Echo Cancellation</SwitchLabel>
-						<SwitchDescription>
-							Whether Colibri should attempt to filter out echoes.
-						</SwitchDescription>
-					</div>
-					<SwitchInput />
-					<SwitchControl>
-						<SwitchThumb />
-					</SwitchControl>
-				</SwitchComp>
+				<audio autoplay class="hidden" id={`colibri-audio-preview`} />
 			</div>
 		</SettingsPage>
 	);
@@ -768,7 +882,7 @@ const VideoPage: Component = () => {
 	const [userPreferences, setUserPreferences] = usePreferencesContext();
 	const [globalData, { setUserData }] = useGlobalContext();
 
-	// Open media stream to camera, display preview
+	// TODO(launch): Open media stream to camera, display preview
 
 	return (
 		<SettingsPage loading={() => false} title="Video">

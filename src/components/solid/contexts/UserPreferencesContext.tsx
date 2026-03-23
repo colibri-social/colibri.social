@@ -12,9 +12,7 @@ interface VoiceIOSettings extends BaseVoiceVideoSettings {
 }
 
 interface VoiceInputSettings extends VoiceIOSettings {
-	gain: "auto" | number;
-	noiseSurpression: boolean;
-	echoCancellation: boolean;
+	noiseSuppression: boolean;
 }
 
 export type UserPreferencesContextData = {
@@ -39,12 +37,10 @@ export const UserPreferencesContextProvider: ParentComponent = (props) => {
 			membersListVisible: false,
 			voice: {
 				input: {
-					gain: "auto",
 					enabled: true,
 					volume: 1,
 					preferredDeviceId: undefined,
-					noiseSurpression: true,
-					echoCancellation: true,
+					noiseSuppression: true,
 				},
 				output: {
 					enabled: true,

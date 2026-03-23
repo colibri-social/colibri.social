@@ -1,6 +1,6 @@
+import type { Accessor } from "solid-js";
 import { createEffect, createSignal, onCleanup } from "solid-js";
 import { useGlobalContext } from "@/components/solid/contexts/GlobalContext";
-import type { Accessor } from "solid-js";
 
 export type CreateIsSpeakingOptions = {
 	intervalMs?: number;

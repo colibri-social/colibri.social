@@ -257,9 +257,9 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 						dynacast: true,
 						videoCaptureDefaults: VideoPresets.h1080,
 						audioCaptureDefaults: {
-							echoCancellation: userPreferences.voice.input.echoCancellation,
-							noiseSuppression: userPreferences.voice.input.noiseSurpression,
-							voiceIsolation: userPreferences.voice.input.noiseSurpression,
+							echoCancellation: false,
+							noiseSuppression: userPreferences.voice.input.noiseSuppression,
+							voiceIsolation: userPreferences.voice.input.noiseSuppression,
 							autoGainControl: true,
 							deviceId:
 								userPreferences.voice.input.preferredDeviceId ?? undefined,
@@ -321,7 +321,7 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 						if (
 							trackPublication.source === Track.Source.Microphone &&
 							trackPublication.track instanceof LocalAudioTrack &&
-							userPreferences.voice.input.noiseSurpression
+							userPreferences.voice.input.noiseSuppression
 						) {
 							trackPublication.track.setProcessor(createRnnoiseProcessor());
 						}
@@ -461,7 +461,7 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 					await r.localParticipant.setMicrophoneEnabled(next, {
 						autoGainControl: true,
 						noiseSuppression: true,
-						echoCancellation: true,
+						echoCancellation: false,
 						voiceIsolation: true,
 					});
 					setVoiceChatContext("micEnabled", next);
@@ -499,7 +499,7 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 						await r.localParticipant.setMicrophoneEnabled(false, {
 							autoGainControl: true,
 							noiseSuppression: true,
-							echoCancellation: true,
+							echoCancellation: false,
 							voiceIsolation: true,
 						});
 					}

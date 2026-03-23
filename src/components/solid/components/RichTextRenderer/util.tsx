@@ -3,9 +3,9 @@ import twemoji from "@twemoji/api";
 import type { JSX } from "solid-js";
 import type { Facet } from "@/utils/atproto/rich-text";
 import { purify } from "@/utils/purify";
+import { useChannelContext } from "../../contexts/ChannelContext";
 import { useCommunityContext } from "../../contexts/CommunityContext";
 import { MemberProfilePopover } from "../MemberProfilePopover";
-import { useChannelContext } from "../../contexts/ChannelContext";
 
 export type TextWithFacets = {
 	text: string;
