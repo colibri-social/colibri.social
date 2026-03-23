@@ -474,6 +474,7 @@ const MAX = 49;
 export const VoicePage: Component = () => {
 	const [userPreferences, setUserPreferences] = usePreferencesContext();
 
+	// TODO(launch): These should probably be global to avoid duplicate nodes. Move them to the voice chat context.
 	const [inputGainNode, setInputGainNode] = createSignal<GainNode | null>(null);
 	const [outputGainNode, setOutputGainNode] = createSignal<GainNode | null>(
 		null,
