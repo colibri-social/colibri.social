@@ -137,8 +137,8 @@ const SortableChannel: Component<{
 					activeClass="bg-card"
 					classList={{
 						"bg-linear-145 from-[#090615] via-[#31226d70] to-[#e0deec30] text-foreground!":
-							voiceData.activeRoom === props.channel.rkey &&
-							voiceData.connectionState === ConnectionState.Connected,
+							voiceData.connection.rkey === props.channel.rkey &&
+							voiceData.connection.state === ConnectionState.Connected,
 					}}
 				>
 					<div class="flex flex-row items-center gap-2">
@@ -154,8 +154,8 @@ const SortableChannel: Component<{
 								<Switch>
 									<Match
 										when={
-											voiceData.activeRoom !== props.channel.rkey ||
-											voiceData.connectionState !== ConnectionState.Connected
+											voiceData.connection.rkey !== props.channel.rkey ||
+											voiceData.connection.state !== ConnectionState.Connected
 										}
 									>
 										<Icon
@@ -169,8 +169,8 @@ const SortableChannel: Component<{
 									</Match>
 									<Match
 										when={
-											voiceData.activeRoom === props.channel.rkey &&
-											voiceData.connectionState === ConnectionState.Connected
+											voiceData.connection.rkey === props.channel.rkey &&
+											voiceData.connection.state === ConnectionState.Connected
 										}
 									>
 										<Icon

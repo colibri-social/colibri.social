@@ -28,7 +28,10 @@ import { createRnnoiseProcessor } from "@/lib/hooks/createRnnoiseProcessor";
 import { RECORD_IDs } from "@/utils/atproto/lexicons";
 import { fetchToken } from "../components/VoiceChat/livekit";
 import { useGlobalContext } from "./GlobalContext";
-import { usePreferencesContext } from "./UserPreferencesContext";
+import {
+	usePreferencesContext,
+	type UserPreferencesContextData,
+} from "./UserPreferencesContext";
 
 /**
  * Re-builds the tiles shown in the UI.
@@ -118,20 +121,28 @@ function rebuildTiles(r: Room, activeSpeakers: Participant[]) {
 }
 
 export type VoiceChatContextData = {
-	room: Room | null;
-	connectionState: ConnectionState;
-	connectionQuality: ConnectionQuality;
-	error: string | null;
-	camEnabled: boolean;
-	micEnabled: boolean;
-	screenEnabled: boolean;
-	isDeafened: boolean;
-	tiles: ParticipantTile[];
-	focusedTile: ParticipantTile | null;
-	activeSpeakers: Participant[];
-	activeRoom: string | null;
-	activeRoomName: string | null;
-	communityAtUri: string | null;
+	connection: {
+		room: Room | null;
+		rkey: string | null;
+		communityAtUri: string | null;
+		state: ConnectionState;
+		quality: ConnectionQuality;
+		error: string | null;
+		tiles: Array<ParticipantTile>;
+		focusedTile: ParticipantTile | null;
+		participants: Participant[];
+	};
+	audio: {
+		context: AudioContext;
+		nodes: {
+			inputGainNode: GainNode;
+			outputGainNode: GainNode;
+		};
+	};
+	states: {
+		screenEnabled: boolean;
+		camEnabled: boolean;
+	};
 };
 
 export type VoiceChatContextUtility = {
@@ -175,8 +186,46 @@ const SOUNDS = {
 	leave: new Audio("/sounds/leave.mp3"),
 };
 
+const makeGainNode = (ctx: AudioContext, gain: number) => {
+	const gainNode = ctx.createGain();
+	gainNode.gain.value = gain;
+
+	return gainNode;
+};
+
+const makeInitialState = (
+	audioCtx: AudioContext,
+	userPreferences: UserPreferencesContextData,
+) => ({
+	connection: {
+		room: null,
+		rkey: null,
+		communityAtUri: null,
+		state: ConnectionState.Disconnected,
+		quality: ConnectionQuality.Unknown,
+		error: null,
+		tiles: [],
+		focusedTile: null,
+		participants: [],
+	},
+	audio: {
+		context: audioCtx,
+		nodes: {
+			inputGainNode: makeGainNode(audioCtx, userPreferences.voice.input.volume),
+			outputGainNode: makeGainNode(
+				audioCtx,
+				userPreferences.voice.output.volume,
+			),
+		},
+	},
+	states: {
+		screenEnabled: false,
+		camEnabled: false,
+	},
+});
+
 export const VoiceChatContextProvider: ParentComponent = (props) => {
-	const [userPreferences] = usePreferencesContext();
+	const [userPreferences, setUserPreferences] = usePreferencesContext();
 	const [globalData, { sendSocketMessage }] = useGlobalContext();
 
 	const playSound = (sound: keyof typeof SOUNDS): void => {
@@ -189,67 +238,66 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 	const channel = () => window.location.href.split("/")[7];
 	const identity = () => globalData.user.sub;
 
+	const audioCtx = new AudioContext({
+		latencyHint: "interactive",
+		sampleRate: 48000,
+	});
+
 	const [voiceChatContext, setVoiceChatContext] =
-		createStore<VoiceChatContextData>({
-			activeSpeakers: [],
-			camEnabled: false,
-			connectionState: ConnectionState.Disconnected,
-			error: null,
-			micEnabled: false,
-			room: null,
-			screenEnabled: false,
-			tiles: [],
-			focusedTile: null,
-			activeRoom: null,
-			activeRoomName: null,
-			connectionQuality: ConnectionQuality.Unknown,
-			isDeafened: false,
-			communityAtUri: null,
-		});
+		createStore<VoiceChatContextData>(
+			makeInitialState(audioCtx, userPreferences),
+		);
 
 	const context: [VoiceChatContextData, VoiceChatContextUtility] = [
 		voiceChatContext,
 		{
 			rebuildTiles() {
-				if (!voiceChatContext.room) return;
+				if (!voiceChatContext.connection.room) return;
 
 				const newTiles = rebuildTiles(
-					voiceChatContext.room,
-					voiceChatContext.activeSpeakers,
+					voiceChatContext.connection.room,
+					voiceChatContext.connection.participants,
 				);
 
-				setVoiceChatContext("tiles", newTiles);
+				setVoiceChatContext("connection", {
+					tiles: newTiles,
+				});
 			},
 			toggleFocusedTile(tile) {
 				if (
-					voiceChatContext.focusedTile?.participant.sid ===
+					voiceChatContext.connection.focusedTile?.participant.sid ===
 						tile?.participant.sid &&
-					voiceChatContext.focusedTile?.isStream === tile?.isStream
-				)
-					setVoiceChatContext("focusedTile", null);
-				else setVoiceChatContext("focusedTile", tile);
+					voiceChatContext.connection.focusedTile?.isStream === tile?.isStream
+				) {
+					setVoiceChatContext("connection", {
+						focusedTile: null,
+					});
+				} else {
+					setVoiceChatContext("connection", {
+						focusedTile: tile,
+					});
+				}
 			},
 			async connect(communityOwner, communityRkey, channelRkey, channelName) {
 				if (
-					voiceChatContext.activeRoom === channelRkey ||
-					(!channelRkey && voiceChatContext.activeRoom === channel())
+					voiceChatContext.connection.rkey === channelRkey ||
+					(!channelRkey && voiceChatContext.connection.rkey === channel())
 				) {
 					return;
 				}
 
-				const atUri = `at://${communityOwner}/${RECORD_IDs.COMMUNITY}/${communityRkey}`;
-
-				setVoiceChatContext("error", null);
-				setVoiceChatContext("communityAtUri", atUri);
-
 				try {
-					const token = await fetchToken(channelRkey ?? channel(), identity());
+					const rkey = channelRkey ?? channel();
+					const usedChannelName = channelName ?? rkey;
+					const atUri = `at://${communityOwner}/${RECORD_IDs.COMMUNITY}/${communityRkey}`;
 
-					setVoiceChatContext("activeRoom", channelRkey ?? channel());
-					setVoiceChatContext(
-						"activeRoomName",
-						channelName ?? channelRkey ?? channel(),
-					);
+					setVoiceChatContext("connection", {
+						error: null,
+						rkey: rkey,
+						communityAtUri: atUri,
+					});
+
+					const token = await fetchToken(usedChannelName, identity());
 
 					// TODO(launch): Update noise surpression and echo cancellation when value changes
 					const roomOptions: RoomOptions = {
@@ -278,11 +326,11 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 					const r = new Room(roomOptions);
 
 					r.on(RoomEvent.ConnectionStateChanged, (state) => {
-						setVoiceChatContext("connectionState", state);
+						setVoiceChatContext("connection", { state });
 					});
 
 					r.on(RoomEvent.ConnectionQualityChanged, (quality) => {
-						setVoiceChatContext("connectionQuality", quality);
+						setVoiceChatContext("connection", { quality });
 					});
 
 					// A remote track became available and was subscribed to
@@ -293,9 +341,12 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 							_pub: RemoteTrackPublication,
 							_participant: RemoteParticipant,
 						) => {
-							const newTiles = rebuildTiles(r, voiceChatContext.activeSpeakers);
+							const newTiles = rebuildTiles(
+								r,
+								voiceChatContext.connection.participants,
+							);
 
-							setVoiceChatContext("tiles", newTiles);
+							setVoiceChatContext("connection", { tiles: newTiles });
 						},
 					);
 
@@ -306,17 +357,23 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 							_pub: RemoteTrackPublication,
 							_participant: RemoteParticipant,
 						) => {
-							const newTiles = rebuildTiles(r, voiceChatContext.activeSpeakers);
+							const newTiles = rebuildTiles(
+								r,
+								voiceChatContext.connection.participants,
+							);
 
-							setVoiceChatContext("tiles", newTiles);
+							setVoiceChatContext("connection", { tiles: newTiles });
 						},
 					);
 
 					// Local tracks published (camera, mic, screen)
 					r.on(RoomEvent.LocalTrackPublished, (trackPublication) => {
-						const newTiles = rebuildTiles(r, voiceChatContext.activeSpeakers);
+						const newTiles = rebuildTiles(
+							r,
+							voiceChatContext.connection.participants,
+						);
 
-						setVoiceChatContext("tiles", newTiles);
+						setVoiceChatContext("connection", { tiles: newTiles });
 
 						if (
 							trackPublication.source === Track.Source.Microphone &&
@@ -327,34 +384,47 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 						}
 					});
 					r.on(RoomEvent.LocalTrackUnpublished, () => {
-						const newTiles = rebuildTiles(r, voiceChatContext.activeSpeakers);
+						const newTiles = rebuildTiles(
+							r,
+							voiceChatContext.connection.participants,
+						);
 
-						setVoiceChatContext("tiles", newTiles);
+						setVoiceChatContext("connection", { tiles: newTiles });
 					});
 
 					// Participant joins/leaves
 					r.on(RoomEvent.ParticipantConnected, () => {
-						const newTiles = rebuildTiles(r, voiceChatContext.activeSpeakers);
 						playSound("join");
+						const newTiles = rebuildTiles(
+							r,
+							voiceChatContext.connection.participants,
+						);
 
-						setVoiceChatContext("tiles", newTiles);
+						setVoiceChatContext("connection", { tiles: newTiles });
 					});
 
 					r.on(RoomEvent.ParticipantDisconnected, () => {
 						playSound("leave");
-						const newTiles = rebuildTiles(r, voiceChatContext.activeSpeakers);
+						const newTiles = rebuildTiles(
+							r,
+							voiceChatContext.connection.participants,
+						);
 
-						setVoiceChatContext("tiles", newTiles);
+						setVoiceChatContext("connection", { tiles: newTiles });
 					});
 
 					r.on(RoomEvent.ActiveSpeakersChanged, (participants) => {
-						setVoiceChatContext("activeSpeakers", participants);
+						setVoiceChatContext("connection", {
+							participants,
+						});
 					});
 
 					// Screen share ended by the OS/browser stop button
 					r.on(RoomEvent.LocalTrackUnpublished, (pub) => {
 						if (pub.source === Track.Source.ScreenShare) {
-							setVoiceChatContext("screenEnabled", false);
+							setVoiceChatContext("states", {
+								screenEnabled: false,
+							});
 						}
 					});
 
@@ -363,13 +433,15 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 					// RoomEvent.MediaDevicesError, surface a helpful error message
 					// RoomEvent.DataReceived, if you add a chat/data channel
 
+					// TODO(launch): Show loading state from here
 					await r.connect(
 						LIVEKIT_SERVER_URL || "ws://localhost:7880",
 						token,
 						connectOptions,
 					);
-					setVoiceChatContext("room", r);
+
 					playSound("join");
+
 					sendSocketMessage({
 						action: "voice_event",
 						community_uri: atUri,
@@ -377,59 +449,63 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 						voice_action: "join",
 					});
 
-					const newTiles = rebuildTiles(r, voiceChatContext.activeSpeakers);
+					setInterval(() => {
+						sendSocketMessage({
+							action: "voice_event",
+							community_uri: atUri,
+							voice_channel_rkey: channelRkey ?? channel(),
+							voice_action: "join",
+						});
+					}, 1000 * 60);
 
-					setVoiceChatContext("tiles", newTiles);
-				} catch (e) {
-					setVoiceChatContext(
-						"error",
-						e instanceof Error ? e.message : String(e),
+					const newTiles = rebuildTiles(
+						r,
+						voiceChatContext.connection.participants,
 					);
-					setVoiceChatContext("activeRoom", null);
-					setVoiceChatContext("activeRoomName", null);
+
+					setVoiceChatContext("connection", { tiles: newTiles, room: r });
+				} catch (e) {
+					setVoiceChatContext("connection", {
+						error: e instanceof Error ? e.message : String(e),
+						room: null,
+					});
 				}
 			},
 			async disconnect() {
-				const r = voiceChatContext.room;
+				const r = voiceChatContext.connection.room;
 				if (!r) return;
 
 				sendSocketMessage({
 					action: "voice_event",
-					community_uri: voiceChatContext.communityAtUri!,
-					voice_channel_rkey: voiceChatContext.activeRoom! ?? channel(),
+					community_uri: voiceChatContext.connection.communityAtUri!,
+					voice_channel_rkey:
+						voiceChatContext.connection.room!.name ?? channel(),
 					voice_action: "leave",
 				});
 
 				playSound("leave");
+
 				await r.disconnect();
-				setVoiceChatContext(() => ({
-					room: null,
-					tiles: [],
-					camEnabled: false,
-					micEnabled: false,
-					screenEnabled: false,
-					activeRoom: null,
-					activeRoomName: null,
-					activeSpeakers: [],
-					connectionQuality: ConnectionQuality.Unknown,
-					connectionState: ConnectionState.Disconnected,
-					error: null,
-					isDeafened: false,
-					communityAtUri: null,
-				}));
+
+				setVoiceChatContext(makeInitialState(audioCtx, userPreferences));
 			},
 
 			/**
 			 * Toggles the camera.
 			 */
 			async toggleCamera() {
-				const r = voiceChatContext.room;
+				const r = voiceChatContext.connection.room;
+
 				if (!r) return;
-				const next = !voiceChatContext.camEnabled;
+
+				const next = !voiceChatContext.states.camEnabled;
+
 				try {
 					await r.localParticipant.setCameraEnabled(next);
-					setVoiceChatContext("camEnabled", next);
-					const newTiles = rebuildTiles(r, voiceChatContext.activeSpeakers);
+					const newTiles = rebuildTiles(
+						r,
+						voiceChatContext.connection.participants,
+					);
 
 					if (next) {
 						playSound("camOn");
@@ -437,16 +513,28 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 						playSound("camOff");
 					}
 
-					setVoiceChatContext("tiles", newTiles);
+					setVoiceChatContext("states", {
+						camEnabled: next,
+					});
+					setVoiceChatContext("connection", {
+						tiles: newTiles,
+					});
 				} catch (e) {
 					let errorMessage = e instanceof Error ? e.message : e;
 
 					if (errorMessage === "The object can not be found here.") {
 						errorMessage =
-							"Unable to access microphone. Please allow the browser to use it in your system settings.";
+							"Unable to access camera. Please allow the browser to use it in your system settings.";
 					}
 
-					setVoiceChatContext("error", `Camera error: ${errorMessage}`);
+					if (errorMessage === "Failed to allocate videosource") {
+						errorMessage =
+							"Unable to access camera. Is it already being used by a different app or not connected?";
+					}
+
+					setVoiceChatContext("connection", {
+						error: `Camera error: ${errorMessage}`,
+					});
 				}
 			},
 
@@ -454,9 +542,11 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 			 * Toggles the microphone.
 			 */
 			async toggleMic() {
-				const r = voiceChatContext.room;
+				const r = voiceChatContext.connection.room;
+
 				if (!r) return;
-				const next = !voiceChatContext.micEnabled;
+
+				const next = !userPreferences.voice.input.enabled;
 				try {
 					await r.localParticipant.setMicrophoneEnabled(next, {
 						autoGainControl: true,
@@ -464,7 +554,6 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 						echoCancellation: false,
 						voiceIsolation: true,
 					});
-					setVoiceChatContext("micEnabled", next);
 
 					if (next) {
 						playSound("unmute");
@@ -472,9 +561,20 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 						playSound("mute");
 					}
 
-					if (voiceChatContext.isDeafened) {
-						setVoiceChatContext("isDeafened", false);
-					}
+					setUserPreferences("voice", (current) => ({
+						...current,
+						input: {
+							...current.input,
+							enabled: next,
+						},
+						output: {
+							...current.output,
+							enabled:
+								current.output.enabled === false && next
+									? true
+									: current.output.enabled,
+						},
+					}));
 				} catch (e) {
 					let errorMessage = e instanceof Error ? e.message : e;
 
@@ -483,7 +583,9 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 							"Unable to access microphone. Please allow the browser to use it in your system settings.";
 					}
 
-					setVoiceChatContext("error", `Mic error: ${errorMessage}`);
+					setVoiceChatContext("connection", {
+						error: `Mic error: ${errorMessage}`,
+					});
 				}
 			},
 
@@ -491,9 +593,9 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 			 * Toggles the deafened state.
 			 */
 			async toggleDeafen() {
-				const r = voiceChatContext.room;
+				const r = voiceChatContext.connection.room;
 				if (!r) return;
-				const next = !voiceChatContext.isDeafened;
+				const next = !userPreferences.voice.output.enabled;
 				try {
 					if (next === true) {
 						await r.localParticipant.setMicrophoneEnabled(false, {
@@ -503,19 +605,30 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 							voiceIsolation: true,
 						});
 					}
-					setVoiceChatContext("micEnabled", false);
-					setVoiceChatContext("isDeafened", next);
 
 					if (next) {
 						playSound("deafen");
 					} else {
 						playSound("undeafen");
 					}
+
+					setUserPreferences("voice", (current) => ({
+						...current,
+						input: {
+							...current.input,
+							enabled: false,
+						},
+						output: {
+							...current.output,
+							enabled: next,
+						},
+					}));
 				} catch (e) {
-					setVoiceChatContext(
-						"error",
-						`Mic error: ${e instanceof Error ? e.message : e}`,
-					);
+					const errorMessage = e instanceof Error ? e.message : e;
+
+					setVoiceChatContext("connection", {
+						error: `Mic error: ${errorMessage}`,
+					});
 				}
 			},
 
@@ -523,9 +636,9 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 			 * Toggles screen share.
 			 */
 			async toggleScreen() {
-				const r = voiceChatContext.room;
+				const r = voiceChatContext.connection.room;
 				if (!r) return;
-				const next = !voiceChatContext.screenEnabled;
+				const next = !voiceChatContext.states.screenEnabled;
 				try {
 					if (next) {
 						await r.localParticipant.setScreenShareEnabled(true, {
@@ -541,16 +654,27 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 						playSound("screenUnshared");
 					}
 
-					setVoiceChatContext("screenEnabled", next);
-					const newTiles = rebuildTiles(r, voiceChatContext.activeSpeakers);
+					setVoiceChatContext("states", {
+						screenEnabled: next,
+					});
+					const newTiles = rebuildTiles(
+						r,
+						voiceChatContext.connection.participants,
+					);
 
-					setVoiceChatContext("tiles", newTiles);
+					setVoiceChatContext("connection", { tiles: newTiles });
 				} catch (_) {
 					// User cancelled the share picker
 					setVoiceChatContext((current) => ({
 						...current,
-						error: null,
-						screenEnabled: false,
+						connection: {
+							...current.connection,
+							error: null,
+						},
+						states: {
+							...current.states,
+							screenEnabled: false,
+						},
 					}));
 				}
 			},
@@ -559,34 +683,95 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 
 	// Clean up on component unmount
 	onCleanup(() => {
-		voiceChatContext.room?.disconnect();
+		voiceChatContext.connection.room?.disconnect();
 	});
 
 	createEffect(() => {
-		const tiles = voiceChatContext.tiles; // Track
+		const tiles = voiceChatContext.connection.tiles; // Track
 
 		for (const tile of tiles) {
 			const aTrack = tile.audioTrack;
+
+			if (!aTrack) continue;
+
+			const source = voiceChatContext.audio.context.createMediaStreamSource(
+				new MediaStream([aTrack]),
+			);
+
+			const destination =
+				voiceChatContext.audio.context.createMediaStreamDestination();
+
+			source.connect(voiceChatContext.audio.nodes.outputGainNode);
+			voiceChatContext.audio.nodes.outputGainNode.connect(destination);
+
 			const participantAudioTrack = document.querySelector<HTMLAudioElement>(
 				`#audio-${tile.participant.identity.replaceAll(":", "")}`,
 			);
 
-			if (participantAudioTrack && aTrack && !tile.isLocal) {
-				participantAudioTrack.srcObject = new MediaStream([aTrack]);
+			if (participantAudioTrack && !tile.isLocal) {
+				participantAudioTrack.srcObject = destination.stream;
 				participantAudioTrack.play().catch(() => {});
 			}
 		}
 	});
 
+	createEffect(async () => {
+		const usesNoiseSuppression = userPreferences.voice.input.noiseSuppression;
+		const preferredDeviceId = userPreferences.voice.input.preferredDeviceId;
+		const room = voiceChatContext.connection.room;
+
+		if (!room) return;
+
+		const micTrack = room.localParticipant.getTrackPublication(
+			Track.Source.Microphone,
+		)?.track as LocalAudioTrack | undefined;
+
+		await room.localParticipant.setMicrophoneEnabled(false);
+		await room.localParticipant.setMicrophoneEnabled(true, {
+			noiseSuppression: userPreferences.voice.input.noiseSuppression,
+			echoCancellation: true,
+			autoGainControl: true,
+			deviceId: preferredDeviceId,
+		});
+
+		if (usesNoiseSuppression) {
+			await micTrack?.setProcessor(createRnnoiseProcessor());
+		}
+
+		// or to remove it:
+		await micTrack?.stopProcessor();
+	});
+
+	createEffect(async () => {
+		const preferredSpeaker = userPreferences.voice.output.preferredDeviceId;
+		const room = voiceChatContext.connection.room;
+
+		if (!room || !preferredSpeaker) return;
+
+		await room.switchActiveDevice("audiooutput", preferredSpeaker);
+	});
+
+	createEffect(async () => {
+		const preferredCamera = userPreferences.voice.camera.preferredDeviceId;
+		const room = voiceChatContext.connection.room;
+
+		if (!room || !preferredCamera) return;
+
+		await room.switchActiveDevice("videoinput", preferredCamera);
+		setVoiceChatContext("connection", {
+			error: null,
+		});
+	});
+
 	return (
 		<VoiceChatContext.Provider value={context}>
-			<For each={voiceChatContext.tiles}>
+			<For each={voiceChatContext.connection.tiles}>
 				{(item) => (
 					<Show when={!item.isLocal}>
 						<audio
 							autoplay
 							class="hidden"
-							muted={voiceChatContext.isDeafened}
+							muted={!userPreferences.voice.output.enabled}
 							id={`audio-${item.participant.identity.replaceAll(":", "")}`}
 						/>
 					</Show>

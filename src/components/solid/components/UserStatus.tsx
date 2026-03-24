@@ -32,6 +32,7 @@ import { Microphone } from "../icons/Microphone";
 import { Screen } from "../icons/Screen";
 import { Wifi } from "../icons/Wifi";
 import { Button } from "../shadcn-solid/Button";
+import { usePreferencesContext } from "../contexts/UserPreferencesContext";
 
 const LABEL_MAP: Record<UserOnlineState, string> = {
 	online: "Online",
@@ -95,6 +96,7 @@ const DropdownStatusSelect: ParentComponent<{
  */
 export const UserStatus: Component = () => {
 	const [value, setValue] = createSignal<UserOnlineState>("online");
+	const [userPreferences] = usePreferencesContext();
 	const [globalData, { sendSocketMessage }] = useGlobalContext();
 	const [
 		voiceData,
@@ -130,13 +132,13 @@ export const UserStatus: Component = () => {
 	});
 
 	const isReconnecting = () =>
-		voiceData.connectionState === ConnectionState.Connecting ||
-		voiceData.connectionState === ConnectionState.Reconnecting ||
-		voiceData.connectionState === ConnectionState.SignalReconnecting;
+		voiceData.connection.state === ConnectionState.Connecting ||
+		voiceData.connection.state === ConnectionState.Reconnecting ||
+		voiceData.connection.state === ConnectionState.SignalReconnecting;
 
 	return (
 		<div class="w-full h-fit flex flex-col">
-			<Show when={voiceData.connectionState === ConnectionState.Connected}>
+			<Show when={voiceData.connection.state === ConnectionState.Connected}>
 				<div class="w-full p-3 border-t border-border flex flex-col gap-2">
 					<div class="flex flex-row items-center gap-2 justify-between">
 						<div class="flex flex-row items-center gap-2">
@@ -144,40 +146,42 @@ export const UserStatus: Component = () => {
 								class="w-8 h-8 bg-muted/50 flex items-center justify-center rounded-sm"
 								classList={{
 									"bg-green-400/15":
-										voiceData.connectionQuality === ConnectionQuality.Excellent,
+										voiceData.connection.quality ===
+										ConnectionQuality.Excellent,
 									"bg-lime-400/15":
-										voiceData.connectionQuality === ConnectionQuality.Good,
+										voiceData.connection.quality === ConnectionQuality.Good,
 									"bg-red-400/15":
-										voiceData.connectionQuality === ConnectionQuality.Poor,
+										voiceData.connection.quality === ConnectionQuality.Poor,
 									"bg-muted/50":
-										voiceData.connectionQuality === ConnectionQuality.Unknown,
+										voiceData.connection.quality === ConnectionQuality.Unknown,
 								}}
 							>
-								<Wifi size={24} quality={voiceData.connectionQuality} />
+								<Wifi size={24} quality={voiceData.connection.quality} />
 							</div>
 							<div class="flex flex-col w-fit">
 								<span
 									class="text-sm text-medium"
 									classList={{
 										"text-green-400":
-											voiceData.connectionQuality ===
+											voiceData.connection.quality ===
 											ConnectionQuality.Excellent,
 										"text-lime-400":
-											voiceData.connectionQuality === ConnectionQuality.Good,
+											voiceData.connection.quality === ConnectionQuality.Good,
 										"text-yellow-400!": isReconnecting(),
 										"text-red-400!":
-											voiceData.connectionQuality === ConnectionQuality.Poor ||
-											voiceData.connectionState ===
+											voiceData.connection.quality === ConnectionQuality.Poor ||
+											voiceData.connection.state ===
 												ConnectionState.Disconnected,
 										"text-foreground":
-											voiceData.connectionQuality === ConnectionQuality.Unknown,
+											voiceData.connection.quality ===
+											ConnectionQuality.Unknown,
 									}}
 								>
 									<Switch>
 										<Match when={isReconnecting()}>Connecting...</Match>
 										<Match
 											when={
-												voiceData.connectionState ===
+												voiceData.connection.state ===
 												ConnectionState.Disconnected
 											}
 										>
@@ -185,7 +189,7 @@ export const UserStatus: Component = () => {
 										</Match>
 										<Match
 											when={
-												voiceData.connectionState === ConnectionState.Connected
+												voiceData.connection.state === ConnectionState.Connected
 											}
 										>
 											Voice Connected
@@ -194,7 +198,8 @@ export const UserStatus: Component = () => {
 								</span>
 								<Suspense>
 									<span class="text-xs text-muted-foreground">
-										{voiceData.activeRoomName!}
+										{voiceData.connection.room?.name ??
+											voiceData.connection.rkey}
 									</span>
 								</Suspense>
 							</div>
@@ -210,47 +215,51 @@ export const UserStatus: Component = () => {
 					<div class="grid grid-cols-4 gap-2 w-full">
 						<Button
 							class="w-full"
-							variant={voiceData.micEnabled ? "secondary" : "outline"}
+							variant={
+								userPreferences.voice.input.enabled ? "secondary" : "outline"
+							}
 							classList={{
-								"text-(--primary-hover)!": voiceData.micEnabled,
-								"text-red-400": !voiceData.micEnabled,
+								"text-(--primary-hover)!": userPreferences.voice.input.enabled,
+								"text-red-400": !userPreferences.voice.input.enabled,
 							}}
 							onClick={toggleMic}
 						>
-							<Microphone enabled={voiceData.micEnabled} />
+							<Microphone enabled={userPreferences.voice.input.enabled} />
 						</Button>
 						<Button
 							class="w-full"
-							variant={voiceData.isDeafened ? "secondary" : "outline"}
+							variant={
+								!userPreferences.voice.output.enabled ? "secondary" : "outline"
+							}
 							classList={{
-								"text-foreground": !voiceData.isDeafened,
-								"text-red-400!": voiceData.isDeafened,
+								"text-foreground": userPreferences.voice.output.enabled,
+								"text-red-400!": !userPreferences.voice.output.enabled,
 							}}
 							onClick={toggleDeafen}
 						>
-							<Ear enabled={voiceData.isDeafened} />
+							<Ear enabled={!userPreferences.voice.output.enabled} />
 						</Button>
 						<Button
 							class="w-full"
-							variant={voiceData.camEnabled ? "secondary" : "outline"}
+							variant={voiceData.states.camEnabled ? "secondary" : "outline"}
 							classList={{
-								"text-(--primary-hover)!": voiceData.camEnabled,
-								"text-foreground": !voiceData.camEnabled,
+								"text-(--primary-hover)!": voiceData.states.camEnabled,
+								"text-foreground": !voiceData.states.camEnabled,
 							}}
 							onClick={toggleCamera}
 						>
-							<Camera enabled={voiceData.camEnabled} />
+							<Camera enabled={voiceData.states.camEnabled} />
 						</Button>
 						<Button
 							class="w-full"
-							variant={voiceData.screenEnabled ? "secondary" : "outline"}
+							variant={voiceData.states.screenEnabled ? "secondary" : "outline"}
 							classList={{
-								"text-(--primary-hover)!": voiceData.screenEnabled,
-								"text-foreground": !voiceData.screenEnabled,
+								"text-(--primary-hover)!": voiceData.states.screenEnabled,
+								"text-foreground": !voiceData.states.screenEnabled,
 							}}
 							onClick={toggleScreen}
 						>
-							<Screen enabled={voiceData.screenEnabled} />
+							<Screen enabled={voiceData.states.screenEnabled} />
 						</Button>
 					</div>
 				</div>
