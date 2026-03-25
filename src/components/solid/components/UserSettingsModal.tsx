@@ -734,7 +734,7 @@ export const VoicePage: Component = () => {
 
 								voiceChatContext.audio.nodes.inputGainNode.gain.setTargetAtTime(
 									v,
-									audioCtx()!.currentTime,
+									voiceChatContext.audio.context.currentTime,
 									0.01,
 								);
 
@@ -769,7 +769,7 @@ export const VoicePage: Component = () => {
 								)?.id || undefined
 							}
 							disallowEmptySelection={true}
-							disabled={microphones().length === 0}
+							disabled={speakers().length === 0}
 							itemComponent={(props) => (
 								<SelectItem
 									item={props.item}
@@ -816,7 +816,7 @@ export const VoicePage: Component = () => {
 
 								voiceChatContext.audio.nodes.outputGainNode.gain.setTargetAtTime(
 									v,
-									audioCtx()!.currentTime,
+									voiceChatContext.audio.context.currentTime,
 									0.01,
 								);
 

@@ -404,6 +404,8 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 							_pub: RemoteTrackPublication,
 							_participant: RemoteParticipant,
 						) => {
+							console.log("TILE RECEIVED!");
+
 							const newTiles = rebuildTiles(
 								r,
 								voiceChatContext.connection.participants,
@@ -420,6 +422,7 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 							_pub: RemoteTrackPublication,
 							_participant: RemoteParticipant,
 						) => {
+							console.log("TILE DROPPED!");
 							const newTiles = rebuildTiles(
 								r,
 								voiceChatContext.connection.participants,
@@ -431,6 +434,8 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 
 					// Local tracks published (camera, mic, screen)
 					r.on(RoomEvent.LocalTrackPublished, (trackPublication) => {
+						console.log("TILE PUBLISHED!", trackPublication.source);
+
 						const newTiles = rebuildTiles(
 							r,
 							voiceChatContext.connection.participants,
@@ -446,6 +451,7 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 							trackPublication.track.setProcessor(createRnnoiseProcessor());
 						}
 					});
+
 					r.on(RoomEvent.LocalTrackUnpublished, () => {
 						const newTiles = rebuildTiles(
 							r,
@@ -485,6 +491,7 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 					// Screen share ended by the OS/browser stop button
 					r.on(RoomEvent.LocalTrackUnpublished, (pub) => {
 						if (pub.source === Track.Source.ScreenShare) {
+							playSound("screenUnshared");
 							setVoiceChatContext("states", {
 								screenEnabled: false,
 							});
@@ -615,8 +622,9 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 				if (!r) return;
 
 				const next = !userPreferences.voice.input.enabled;
+
 				try {
-					const test = await r.localParticipant.setMicrophoneEnabled(
+					await r.localParticipant.setMicrophoneEnabled(
 						next,
 						next
 							? {
@@ -628,8 +636,6 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 								}
 							: undefined,
 					);
-
-					console.log(test);
 
 					if (next) {
 						playSound("unmute");
@@ -776,6 +782,7 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 		const micTrack = micTrackPub?.track as LocalAudioTrack | undefined;
 
 		const currentEnabled = micTrackPub?.isMuted === false;
+		console.log("here", desiredEnabled);
 		if (currentEnabled !== desiredEnabled) {
 			await room.localParticipant.setMicrophoneEnabled(
 				desiredEnabled,

@@ -22,6 +22,7 @@ export type CommunityData = {
 	category_order: Array<string>;
 	rkey: string;
 	owner_did: string;
+	requires_approval_to_join: boolean;
 };
 
 export type PDSCommunityData = Omit<
@@ -335,6 +336,7 @@ export class ColibriSDK {
 			description: description ?? "",
 			categoryOrder: [],
 			picture: blobRef ? blobRef.data.blob : undefined,
+			requiresApprovalToJoin: true,
 		});
 
 		const res = await this.agent.com.atproto.repo.createRecord(record);
@@ -360,6 +362,7 @@ export class ColibriSDK {
 		name: string,
 		description: string,
 		rkey: string,
+		requiresApprovalToJoin: boolean,
 		image?: Blob,
 	): Promise<CommunityData> => {
 		const blobRef = image
@@ -376,6 +379,7 @@ export class ColibriSDK {
 				description: description,
 				picture: blobRef ? blobRef.data.blob : undefined,
 				categoryOrder,
+				requiresApprovalToJoin,
 			},
 			rkey,
 		);
@@ -395,6 +399,7 @@ export class ColibriSDK {
 			picture: imageUrl || null,
 			rkey,
 			owner_did: did,
+			requires_approval_to_join: record.record.requiresApprovalToJoin,
 		} as CommunityData;
 	};
 

@@ -28,8 +28,12 @@ export const editCommunity = defineAction({
 				type: z.string(),
 			})
 			.optional(),
+		requiresApprovalToJoin: z.boolean(),
 	}),
-	handler: async ({ name, description, rkey, image }, { session }) => {
+	handler: async (
+		{ name, description, rkey, image, requiresApprovalToJoin },
+		{ session },
+	) => {
 		try {
 			if (!session || !session?.has("user")) {
 				throw new ActionError({
@@ -48,6 +52,7 @@ export const editCommunity = defineAction({
 				name,
 				description,
 				rkey,
+				requiresApprovalToJoin,
 				image ? base64ToBlob(image.base64, image.type) : undefined,
 			);
 

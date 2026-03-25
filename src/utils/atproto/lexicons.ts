@@ -8,6 +8,7 @@ export const RECORD_IDs: Record<string, `${string}.${string}.${string}`> = {
 	COMMUNITY: "social.colibri.community",
 	CATEGORY: "social.colibri.category",
 	CHANNEL: "social.colibri.channel",
+	CHANNEL_READ_CURSOR: "social.colibri.channel.read",
 	MESSAGE: "social.colibri.message",
 	REACTION: "social.colibri.reaction",
 	RICHTEXT_FACET: "social.colibri.richtext.facet",
@@ -83,7 +84,12 @@ lex.add(
 				key: "tid",
 				record: {
 					type: "object",
-					required: ["name", "description", "categoryOrder"],
+					required: [
+						"name",
+						"description",
+						"categoryOrder",
+						"requiresApprovalToJoin",
+					],
 					properties: {
 						$type: {
 							type: "string",
@@ -117,6 +123,12 @@ lex.add(
 								format: "record-key",
 								description: "A category in this community.",
 							},
+						},
+						requiresApprovalToJoin: {
+							type: "boolean",
+							default: true,
+							description:
+								"Whether users can chat in this community without the owner having to create an acknowledgement record.",
 						},
 					},
 				},
@@ -520,6 +532,43 @@ lex.add(
 							description: "AT-URI of the social.colibri.community record",
 						},
 						createdAt: { type: "string", format: "datetime" },
+					},
+				},
+			},
+		},
+	}),
+);
+
+lex.add(
+	def({
+		lexicon: 1,
+		id: RECORD_IDs.CHANNEL_READ_CURSOR,
+		revision: 1,
+		defs: {
+			main: {
+				type: "record",
+				description:
+					"A read cursor for a Colibri channel, indicating the last read message by a user.",
+				key: "tid",
+				record: {
+					required: ["channel", "cursor"],
+					type: "object",
+					properties: {
+						$type: {
+							type: "string",
+							description: "The type of the record.",
+							format: "nsid",
+						},
+						channel: {
+							type: "string",
+							description: "The channel this message was sent in.",
+							format: "at-uri",
+						},
+						cursor: {
+							type: "string",
+							description: "The timestamp the channel was last read at.",
+							format: "datetime",
+						},
 					},
 				},
 			},

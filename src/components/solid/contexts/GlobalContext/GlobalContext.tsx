@@ -328,6 +328,7 @@ export const GlobalContextProvider: ParentComponent<{
 					picture: data.picture
 						? `https://${APPVIEW_DOMAIN}/api/blob?did=${data.owner_did}&cid=${data.picture.ref.$link}`
 						: undefined,
+					requires_approval_to_join: data.requires_approval_to_join,
 				});
 				break;
 			case "community_deleted":

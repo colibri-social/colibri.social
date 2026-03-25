@@ -73,6 +73,7 @@ export type CommunityUpsertedEvent = {
 	description: string;
 	picture: BlobObj | null;
 	category_order: Array<string>;
+	requires_approval_to_join: boolean;
 };
 
 export type CommunityDeletedEvent = {

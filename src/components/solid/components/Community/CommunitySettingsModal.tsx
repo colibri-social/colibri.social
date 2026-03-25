@@ -23,6 +23,14 @@ import type { MemberData } from "../../layouts/CommunityLayout";
 import { Alert, AlertDescription, AlertTitle } from "../../shadcn-solid/Alert";
 import { Button } from "../../shadcn-solid/Button";
 import {
+	Switch as SwitchComp,
+	SwitchControl,
+	SwitchDescription,
+	SwitchInput,
+	SwitchLabel,
+	SwitchThumb,
+} from "../../shadcn-solid/Switch";
+import {
 	FileField,
 	FileFieldDropzone,
 	FileFieldHiddenInput,
@@ -62,6 +70,9 @@ const GeneralSettingsPage: Component = () => {
 	const [description, setDescription] = createSignal(community().description);
 	const [image, setImage] = createSignal<Details>();
 	const [imageRemoved, setImageRemoved] = createSignal(false);
+	const [requiresApprovalToJoin, setRequiresApprovalToJoin] = createSignal(
+		community().requires_approval_to_join,
+	);
 
 	const existingImageUrl = () =>
 		!imageRemoved() && image() === undefined
@@ -72,7 +83,8 @@ const GeneralSettingsPage: Component = () => {
 		name() !== community().name ||
 		description() !== community().description ||
 		imageRemoved() ||
-		image() !== undefined;
+		image() !== undefined ||
+		requiresApprovalToJoin() !== community().requires_approval_to_join;
 
 	const clearNewFile = (e?: MouseEvent) => {
 		e?.preventDefault();
@@ -127,6 +139,7 @@ const GeneralSettingsPage: Component = () => {
 						type: mimeType!,
 					}
 				: undefined,
+			requiresApprovalToJoin: requiresApprovalToJoin(),
 		});
 
 		if (communityData.error) {
@@ -243,6 +256,25 @@ const GeneralSettingsPage: Component = () => {
 				</FileFieldDropzone>
 				<FileFieldHiddenInput />
 			</FileField>
+			<SwitchComp
+				onChange={(e) => {
+					setRequiresApprovalToJoin(e);
+				}}
+				checked={requiresApprovalToJoin()}
+				class="flex justify-between items-center gap-x-2"
+			>
+				<div>
+					<SwitchLabel>Require Join Approval</SwitchLabel>
+					<SwitchDescription>
+						Whether you want to explicitly need to allow users to chat in this
+						community.
+					</SwitchDescription>
+				</div>
+				<SwitchInput />
+				<SwitchControl>
+					<SwitchThumb />
+				</SwitchControl>
+			</SwitchComp>
 		</SettingsPage>
 	);
 };

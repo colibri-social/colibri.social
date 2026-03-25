@@ -126,6 +126,10 @@ export const acceptInvitation = defineAction({
 				});
 			});
 
+			if (!communityData.community.requires_approval_to_join) {
+				return await result;
+			}
+
 			const communityAtUri = `at://${communityData.community.owner_did}/${RECORD_IDs.COMMUNITY}/${communityData.community.rkey}`;
 			const membershipRkey = await sdk.createMembershipDeclaration(
 				agent.did!,
@@ -153,7 +157,6 @@ export const acceptInvitation = defineAction({
 			}
 
 			const res = await result;
-
 			return res;
 		} catch (e) {
 			console.error(e);
