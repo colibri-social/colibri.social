@@ -119,6 +119,7 @@ export const MessageAttachments: Component<{
 								class="flex flex-row gap-2 items-center border border-border rounded-sm w-[416px] p-2 hover:bg-card"
 								href={`https://${APPVIEW_DOMAIN}/api/blob?did=${props.did}&cid=${item.blob.ref.$link}`}
 								target="_blank"
+								rel="noreferrer"
 							>
 								<Icon
 									variant="regular"

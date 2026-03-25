@@ -1077,6 +1077,7 @@ const DebugPage: Component = () => {
 				<a
 					href={`https://pdsls.dev/${atUri}`}
 					target="_blank"
+					rel="noreferrer"
 					class="font-normal hover:underline w-fit flex flex-row gap-2 items-center mt-4 text-[#76c4e5]"
 				>
 					<PDSls />

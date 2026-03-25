@@ -26,7 +26,7 @@ export const DevelopmentPlaceholder: Component = () => {
 					<a
 						href="https://github.com/colibri-social"
 						target="_blank"
-						rel="noopener"
+						rel="noreferrer"
 					>
 						GitHub
 					</a>
