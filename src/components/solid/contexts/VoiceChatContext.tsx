@@ -537,8 +537,6 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 
 				if (!r) return;
 
-				console.log("clearing");
-
 				sendSocketMessage({
 					action: "voice_event",
 					community_uri: voiceChatContext.connection.communityAtUri!,
