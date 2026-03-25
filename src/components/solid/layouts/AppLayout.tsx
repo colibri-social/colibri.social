@@ -241,9 +241,12 @@ const AppLayout: ParentComponent = (props) => {
 				<aside class="flex flex-col h-full w-14 p-2 pb-3">
 					<nav class="w-full h-full flex flex-col gap-2">
 						<div class="w-full h-full flex flex-col gap-2">
-							<div class="w-10 flex h-10 rounded-md bg-muted items-center justify-center cursor-pointer">
+							<A
+								href="/"
+								class="w-10 flex h-10 rounded-md bg-muted items-center justify-center cursor-pointer"
+							>
 								<Icon variant="regular" name="house-icon" />
-							</div>
+							</A>
 							<hr class="m-0 border-muted" />
 							<DragDropProvider
 								onDragStart={onDragStart}

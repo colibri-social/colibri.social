@@ -1122,7 +1122,7 @@ export const UserSettingsModal: ParentComponent = (props) => {
 				component: DebugPage,
 				icon: "bug-icon",
 			}}
-			contentClass="min-h-192!"
+			contentClass="min-h-[min(48rem,calc(100vh-2rem))]"
 		>
 			{props.children}
 		</SettingsModal>

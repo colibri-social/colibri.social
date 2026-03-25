@@ -40,7 +40,8 @@ export const App = ({
 										path="/c/:community"
 										component={() => (
 											<div class="w-full h-full flex items-center justify-center">
-												Placeholder community page
+												{/* TODO(app): Make this a page people can configure? */}
+												Select a channel to get started!
 											</div>
 										)}
 									/>

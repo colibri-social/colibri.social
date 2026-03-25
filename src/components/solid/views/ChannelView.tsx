@@ -22,6 +22,7 @@ import {
 import { useMessageContext } from "../contexts/MessageContext";
 import { useMessageHistory } from "../hooks/useMessageHistory";
 import { Spinner } from "../icons/Spinner";
+import { useChannelContext } from "../contexts/ChannelContext";
 
 /**
  * How close to the bottom (in px) the user must be for us to consider them
@@ -48,6 +49,7 @@ const ChannelView: Component = () => {
 	const community = createMemo(
 		() => globalState.communities.find((x) => x.rkey === params.community)!,
 	);
+	const channels = () => useChannelContext();
 
 	const history = useMessageHistory(channel);
 
@@ -192,7 +194,6 @@ const ChannelView: Component = () => {
 
 		clearAdditionalMessages();
 		clearDeletedMessages();
-		clearOptimisticMemberUpdates();
 
 		setPreviousChannel(channel());
 
@@ -201,6 +202,14 @@ const ChannelView: Component = () => {
 			event_type: "message",
 			channel: channel(),
 		});
+
+		const channelData = channels()
+			?.channels()
+			.find((x) => x.rkey === channel());
+
+		if (!channelData) return;
+
+		document.title = channelData.name;
 	});
 
 	onCleanup(() => {
