@@ -33,7 +33,7 @@ const detectLinksAndMentionsAndFormat = (text: string) => {
 		const link = match[0];
 
 		const linkWithProtocol = link.startsWith("http") ? link : `https://${link}`;
-		const anchorTag = `<a href="${linkWithProtocol}" target="_blank">${link}</a>`;
+		const anchorTag = `<a href="${linkWithProtocol}" target="_blank" rel="noreferrer">${link}</a>`;
 
 		modifiedText =
 			modifiedText.slice(0, index + additionalOffset) +
@@ -54,7 +54,7 @@ const detectLinksAndMentionsAndFormat = (text: string) => {
 		const index = match.index;
 		const mention = match[0];
 
-		const anchorTag = `<a href="https://bsky.app/profile/${mention.slice(1)}" target="_blank">${mention}</a>`;
+		const anchorTag = `<a href="https://bsky.app/profile/${mention.slice(1)}" target="_blank" rel="noreferrer">${mention}</a>`;
 
 		modifiedText =
 			modifiedText.slice(0, index + additionalOffset) +
@@ -161,6 +161,7 @@ export const MemberProfilePopover: ParentComponent<{
 											<a
 												href={`https://bsky.app/profile/${props.handle}`}
 												target="_blank"
+												rel="noreferrer"
 												class="hover:text-[#1185FE] flex flex-row items-center gap-1.5 text-sm text-card-foreground font-normal hover:underline"
 												onMouseEnter={() => setBskyTooltipVisible(true)}
 												onMouseLeave={() => setBskyTooltipVisible(false)}
@@ -179,6 +180,7 @@ export const MemberProfilePopover: ParentComponent<{
 											<a
 												href={`https://pdsls.dev/at://${props.handle}`}
 												target="_blank"
+												rel="noreferrer"
 												class="hover:text-[#76c4e5] flex flex-row items-center gap-1.5 text-sm text-card-foreground font-normal hover:underline"
 												onMouseEnter={() => setPdslsTooltipVisible(true)}
 												onMouseLeave={() => setPdslsTooltipVisible(false)}

@@ -102,6 +102,7 @@ export type SidebarChannelData = {
 	description: string;
 	channel_type: ChannelType;
 	category_rkey: string | null;
+	voice_members: Array<string>;
 };
 
 export type SidebarCategoryData = {

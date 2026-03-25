@@ -17,6 +17,8 @@ export const useProcessedSidebar = (props: {
 }) => {
 	const [globalContext] = useGlobalContext();
 
+	const categoryCache = new Map<string, SidebarCategoryData>();
+
 	return createMemo(
 		(): {
 			categories: Array<SidebarCategoryData>;
@@ -36,13 +38,43 @@ export const useProcessedSidebar = (props: {
 			const removedChannelRkeys = new Set(globalContext.removedChannels);
 			const removedCategoryRkeys = new Set(globalContext.removedCategories);
 
-			const globalChannelsForCommunity = globalContext.addedChannels.filter(
-				(ch) => ch.community === props.community,
-			);
+			const globalChannelsForCommunity = globalContext.addedChannels
+				.filter((ch) => ch.community === props.community)
+				.map((ch) => ({
+					...ch,
+					voice_members:
+						globalContext.knownVoiceChannelStates.find(
+							(x) => x.channel_rkey === ch.rkey,
+						) ?? [],
+					channel_type: ch.type,
+					category_rkey: ch.category,
+				})) as Array<SidebarChannelData>;
 
 			const globalChannelByRkey = new Map(
 				globalChannelsForCommunity.map((ch) => [ch.rkey, ch]),
 			);
+
+			const buildChannel = (
+				ch:
+					| SidebarChannelData
+					| { rkey: string; uri?: string; name?: string; type?: string },
+				categoryRkey: string | null,
+			): SidebarChannelData => {
+				const globalCh = globalChannelByRkey.get(ch.rkey);
+				if (globalCh) {
+					return {
+						uri: (ch as SidebarChannelData).uri ?? globalCh.uri ?? "",
+						rkey: globalCh.rkey,
+						name: globalCh.name,
+						description: (ch as SidebarChannelData).description ?? "",
+						channel_type: globalCh.channel_type,
+						category_rkey: categoryRkey,
+						voice_members: globalCh.voice_members,
+					};
+				}
+
+				return ch as SidebarChannelData;
+			};
 
 			const serverCategories: Array<SidebarCategoryData> = props.data.categories
 				.filter((c) => !removedCategoryRkeys.has(c.rkey))
@@ -51,28 +83,25 @@ export const useProcessedSidebar = (props: {
 
 					const channels: Array<SidebarChannelData> = c.channels
 						.filter((ch) => !removedChannelRkeys.has(ch.rkey))
-						.map((ch) => {
-							const globalCh = globalChannelByRkey.get(ch.rkey);
-							if (globalCh) {
-								return {
-									uri: ch.uri,
-									rkey: globalCh.rkey,
-									name: globalCh.name,
-									description: ch.description,
-									channel_type: globalCh.type,
-									category_rkey: c.rkey,
-								};
-							}
-							return ch;
-						});
+						.map((ch) => buildChannel(ch, c.rkey));
 
-					return {
-						uri: c.uri,
-						rkey: c.rkey,
-						name: override?.name ?? c.name,
-						channel_order: override?.channelOrder ?? c.channel_order,
-						channels,
-					};
+					let cached = categoryCache.get(c.rkey);
+					if (!cached) {
+						cached = {
+							uri: c.uri,
+							rkey: c.rkey,
+							name: override?.name ?? c.name,
+							channel_order: override?.channelOrder ?? c.channel_order,
+							channels,
+						};
+						categoryCache.set(c.rkey, cached);
+					} else {
+						cached.uri = c.uri;
+						cached.name = override?.name ?? c.name;
+						cached.channel_order = override?.channelOrder ?? c.channel_order;
+						cached.channels = channels;
+					}
+					return cached;
 				});
 
 			const optimisticCategories: Array<SidebarCategoryData> =
@@ -82,21 +111,36 @@ export const useProcessedSidebar = (props: {
 							!serverCategoryRkeys.has(c.rkey) &&
 							!removedCategoryRkeys.has(c.rkey),
 					)
-					.map((c) => ({
-						uri: "",
-						rkey: c.rkey,
-						name: c.name,
-						channel_order: c.channelOrder,
-						channels: [],
-					}));
+					.map((c) => {
+						let cached = categoryCache.get(c.rkey);
+						if (!cached) {
+							cached = {
+								uri: "",
+								rkey: c.rkey,
+								name: c.name,
+								channel_order: c.channelOrder,
+								channels: [],
+							};
+							categoryCache.set(c.rkey, cached);
+						} else {
+							cached.uri = "";
+							cached.name = c.name;
+							cached.channel_order = c.channelOrder;
+							cached.channels = cached.channels ?? [];
+						}
+						return cached;
+					});
 
 			const unsortedCategories = [...serverCategories, ...optimisticCategories];
 
-			const categories = unsortedCategories.sort(
-				(a, b) =>
-					props.categoryOrder?.indexOf(a.rkey) -
-					props.categoryOrder?.indexOf(b.rkey),
-			);
+			const categories = unsortedCategories.sort((a, b) => {
+				const idxA = props.categoryOrder.indexOf(a.rkey);
+				const idxB = props.categoryOrder.indexOf(b.rkey);
+				if (idxA === -1 && idxB === -1) return 0;
+				if (idxA === -1) return 1;
+				if (idxB === -1) return -1;
+				return idxA - idxB;
+			});
 
 			const serverChannelRkeys = new Set([
 				...props.data.categories.flatMap((c) =>
@@ -107,20 +151,7 @@ export const useProcessedSidebar = (props: {
 
 			const uncategorized: Array<SidebarChannelData> = props.data.uncategorized
 				.filter((ch) => !removedChannelRkeys.has(ch.rkey))
-				.map((ch) => {
-					const globalCh = globalChannelByRkey.get(ch.rkey);
-					if (globalCh) {
-						return {
-							uri: ch.uri,
-							rkey: globalCh.rkey,
-							name: globalCh.name,
-							description: ch.description,
-							channel_type: globalCh.type,
-							category_rkey: null,
-						};
-					}
-					return ch;
-				});
+				.map((ch) => buildChannel(ch, null));
 
 			const optimisticChannels = globalChannelsForCommunity.filter(
 				(ch) =>
@@ -128,20 +159,12 @@ export const useProcessedSidebar = (props: {
 			);
 
 			for (const ch of optimisticChannels) {
-				const sidebarChannel: SidebarChannelData = {
-					uri: ch.uri || "",
-					rkey: ch.rkey,
-					name: ch.name,
-					description: "",
-					channel_type: ch.type,
-					category_rkey: ch.category || null,
-				};
-
-				const category = categories.find((c) => c.rkey === ch.category);
+				const category = categories.find((c) => c.rkey === ch.category_rkey);
 				if (category) {
-					category.channels.push(sidebarChannel);
+					category.channels = category.channels ?? [];
+					category.channels.push(ch);
 				} else {
-					uncategorized.push(sidebarChannel);
+					uncategorized.push(ch);
 				}
 			}
 

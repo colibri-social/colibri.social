@@ -15,6 +15,7 @@ import {
 import { ensureUserStateCached } from "@/utils/ensure-user-state-cached";
 import type { IndexedMessageData } from "@/utils/sdk";
 import { Message } from "../components/Message/Message";
+import { useChannelContext } from "../contexts/ChannelContext";
 import {
 	type PendingMessageData,
 	useGlobalContext,
@@ -48,6 +49,7 @@ const ChannelView: Component = () => {
 	const community = createMemo(
 		() => globalState.communities.find((x) => x.rkey === params.community)!,
 	);
+	const channels = () => useChannelContext();
 
 	const history = useMessageHistory(channel);
 
@@ -192,7 +194,6 @@ const ChannelView: Component = () => {
 
 		clearAdditionalMessages();
 		clearDeletedMessages();
-		clearOptimisticMemberUpdates();
 
 		setPreviousChannel(channel());
 
@@ -201,6 +202,14 @@ const ChannelView: Component = () => {
 			event_type: "message",
 			channel: channel(),
 		});
+
+		const channelData = channels()
+			?.channels()
+			.find((x) => x.rkey === channel());
+
+		if (!channelData) return;
+
+		document.title = channelData.name;
 	});
 
 	onCleanup(() => {

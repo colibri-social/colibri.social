@@ -12,6 +12,7 @@ import {
 	Switch,
 } from "solid-js";
 import { toast } from "somoto";
+import { Icon } from "@/components/solid/icons/Icon";
 import type { Facet } from "@/utils/atproto/rich-text";
 import type { ColibriRichTextLink } from "@/utils/atproto/rich-text/detection";
 import { parseZodToErrorOrDisplay } from "@/utils/parse-zod-to-error-or-display";
@@ -31,11 +32,6 @@ import {
 	useGlobalContext,
 } from "../../contexts/GlobalContext";
 import { useMessageContext } from "../../contexts/MessageContext";
-import { Emoji as EmojiIcon } from "../../icons/Emoji";
-import { Pencil } from "../../icons/Pencil";
-import { Prohibit } from "../../icons/Prohibit";
-import { Reply } from "../../icons/Reply";
-import { Trash } from "../../icons/Trash";
 import {
 	Tooltip,
 	TooltipContent,
@@ -45,7 +41,7 @@ import {
 } from "../../shadcn-solid/Tooltip";
 import { MemberProfilePopover } from "../MemberProfilePopover";
 import { RichTextRenderer, type TextWithFacets } from "../RichTextRenderer";
-import { SmallUser } from "../SmallUser";
+import { SmallUserAsync } from "../SmallUserAsync";
 import { facetsToProseMirror } from "../TextEditor/facets-to-prosemirror";
 import { TextEditor } from "../TextEditor/TextEditor";
 import { MessageAttachments } from "./Attachments";
@@ -231,8 +227,6 @@ export const Message: Component<{
 
 		setNewText({ text, facets });
 		clearEditingMessage();
-
-		console.log(text, facets);
 
 		if (purify(text).trim().length === 0) {
 			setDeletionModalOpen(true);
@@ -495,7 +489,7 @@ export const Message: Component<{
 					...optimisticUserData(),
 				})}
 				classList={{
-					"py-0": isSubsequentMessage(),
+					"pb-0 pt-0.5": isSubsequentMessage(),
 					"pb-0 pt-1 mt-2": !isSubsequentMessage(),
 					"border-transparent": !isRepliedTo(),
 					"bg-primary/15 hover:bg-primary/25 border-primary": isRepliedTo(),
@@ -741,11 +735,11 @@ export const Message: Component<{
 								addReactionOptimistic={addReactionOptimistic}
 							>
 								<MessageAction tooltipText="Add reaction">
-									<EmojiIcon />
+									<Icon variant="regular" name="smiley-icon" />
 								</MessageAction>
 							</EmojiPopover>
 							<MessageAction tooltipText="Reply" onClick={enableReplyMode}>
-								<Reply />
+								<Icon variant="regular" name="arrow-bend-up-left-icon" />
 							</MessageAction>
 							<Show
 								when={
@@ -766,13 +760,13 @@ export const Message: Component<{
 											handlePotentialBlock(e);
 										}}
 									>
-										<Prohibit />
+										<Icon variant="regular" name="prohibit-icon" />
 									</MessageAction>
 								</MessageBlockDrawer>
 							</Show>
 							<Show when={messageEditable()}>
 								<MessageAction tooltipText="Edit" onClick={enableEditMode}>
-									<Pencil />
+									<Icon variant="regular" name="pencil-icon" />
 								</MessageAction>
 								<MessageDeletionDrawer
 									message={{ ...props.data, ...optimisticUserData() }}
@@ -787,7 +781,7 @@ export const Message: Component<{
 											handlePotentialDeletion(e);
 										}}
 									>
-										<Trash />
+										<Icon variant="regular" name="trash-icon" />
 									</MessageAction>
 								</MessageDeletionDrawer>
 							</Show>
@@ -901,9 +895,9 @@ export const Message: Component<{
 												<For each={item.authors}>
 													{(author, index) => (
 														<Suspense
-															fallback={<div class="inline">......, </div>}
+															fallback={<div class="inline">......</div>}
 														>
-															<SmallUser did={author} hideImage />
+															<SmallUserAsync did={author} hideImage />
 															<Show when={index() < item.authors.length - 1}>
 																{", "}
 															</Show>

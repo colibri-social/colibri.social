@@ -1,4 +1,9 @@
-import { defineConfig, envField, fontProviders } from "astro/config";
+import {
+	defineConfig,
+	envField,
+	fontProviders,
+	sessionDrivers,
+} from "astro/config";
 
 import node from "@astrojs/node";
 import tailwindcss from "@tailwindcss/vite";
@@ -16,8 +21,7 @@ const { REDIS_PASSWORD, REDIS_URL } = loadEnv(
 export default defineConfig({
 	site: "https://colibri.social",
 	session: {
-		driver: "redis",
-		options:
+		driver: sessionDrivers.redis(
 			process.env.NODE_ENV! === "production"
 				? {
 						url: REDIS_URL,
@@ -29,6 +33,11 @@ export default defineConfig({
 						password: REDIS_PASSWORD,
 						tls: false as any,
 					},
+		),
+		cookie: {
+			name: "astro-session",
+			maxAge: 720 * 60 * 60,
+		},
 	},
 	adapter: node({
 		mode: "standalone",
@@ -36,6 +45,9 @@ export default defineConfig({
 	output: "server",
 	vite: {
 		plugins: [tailwindcss(), vidstack()],
+		optimizeDeps: {
+			exclude: ["solid-phosphor"], // Vite thinks the JSX here is React
+		},
 	},
 	integrations: [solidJs()],
 	env: {
@@ -43,6 +55,15 @@ export default defineConfig({
 			PRIVATE_KEY_1: envField.string({ context: "server", access: "secret" }),
 			PRIVATE_KEY_2: envField.string({ context: "server", access: "secret" }),
 			INVITE_API_KEY: envField.string({ context: "server", access: "secret" }),
+			LIVEKIT_API_KEY: envField.string({ context: "server", access: "secret" }),
+			LIVEKIT_API_SECRET: envField.string({
+				context: "server",
+				access: "secret",
+			}),
+			LIVEKIT_SERVER_URL: envField.string({
+				context: "client",
+				access: "public",
+			}),
 			APPVIEW_DOMAIN: envField.string({ context: "client", access: "public" }),
 			SAME_TLD_DID: envField.string({
 				context: "server",
@@ -64,26 +85,24 @@ export default defineConfig({
 		],
 		actionBodySizeLimit: 10 * 1024 * 1024,
 	},
-	experimental: {
-		fonts: [
-			{
-				provider: fontProviders.google(),
-				name: "Hanken Grotesk",
-				weights: ["100 900"],
-				cssVariable: "--font-hanken-grotesk",
-			},
-			{
-				provider: fontProviders.google(),
-				name: "Geist Mono",
-				weights: ["100 900"],
-				cssVariable: "--font-geist-mono",
-			},
-			{
-				provider: fontProviders.fontshare(),
-				name: "Stardom",
-				weights: ["400"],
-				cssVariable: "--font-stardom",
-			},
-		],
-	},
+	fonts: [
+		{
+			provider: fontProviders.google(),
+			name: "Hanken Grotesk",
+			weights: ["100 900"],
+			cssVariable: "--font-hanken-grotesk",
+		},
+		{
+			provider: fontProviders.google(),
+			name: "Geist Mono",
+			weights: ["100 900"],
+			cssVariable: "--font-geist-mono",
+		},
+		{
+			provider: fontProviders.fontshare(),
+			name: "Stardom",
+			weights: ["400"],
+			cssVariable: "--font-stardom",
+		},
+	],
 });

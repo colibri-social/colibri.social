@@ -158,7 +158,7 @@ const CommunityLayout: ParentComponent = (props) => {
 
 		const totalCurrentlyJoined = [...serverMemberList, ...optimisticJoinList];
 
-		// TODO: Status updates
+		// TODO(launch): Status updates
 		return totalCurrentlyJoined
 			.filter(
 				(x) =>
@@ -263,9 +263,16 @@ const CommunityLayout: ParentComponent = (props) => {
 		return [...merged, ...netNew];
 	});
 
+	const channel = () => channels().find((x) => x.rkey === params.channel)!;
+
 	return (
 		<MessageContextProvider>
-			<CommunityContextProvider members={membersWithOptimisticUpdates}>
+			<CommunityContextProvider
+				owner={() => community()!.owner_did}
+				rkey={() => community()!.rkey}
+				members={membersWithOptimisticUpdates}
+				sidebar={sidebarData}
+			>
 				<ChannelContextProvider channels={channels} community={communityRkey}>
 					<div class="bg-background w-full h-full rounded-tl-xl border-t border-l border-border flex relative overflow-hidden">
 						<Switch>
@@ -362,12 +369,11 @@ const CommunityLayout: ParentComponent = (props) => {
 												<div class="w-full flex-1 min-h-0">
 													{props.children}
 												</div>
-												<Show when={!!params.channel}>
+												<Show
+													when={!!params.channel && channel().type === "text"}
+												>
 													<MessageInput
-														channelName={
-															channels().find((x) => x.rkey === params.channel)!
-																.name
-														}
+														channelName={channel().name}
 														files={files}
 													/>
 												</Show>

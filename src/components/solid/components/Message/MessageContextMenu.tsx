@@ -1,13 +1,10 @@
 import { type ParentComponent, type Setter, Show } from "solid-js";
+import { Icon } from "@/components/solid/icons/Icon";
 import type { DBMessageData, IndexedMessageData } from "@/utils/sdk";
 import type {
 	GlobalContextUtility,
 	PendingMessageData,
 } from "../../contexts/GlobalContext";
-import { Info } from "../../icons/Info";
-import { Pencil } from "../../icons/Pencil";
-import { Reply } from "../../icons/Reply";
-import { Trash } from "../../icons/Trash";
 import {
 	ContextMenu,
 	ContextMenuContent,
@@ -35,12 +32,17 @@ export const MessageContextMenu: ParentComponent<{
 	debugModalOpen: boolean;
 	setDebugModalOpen: Setter<boolean>;
 }> = (props) => {
+	const lightboxOpen = () => !!document.querySelector("#lightbox");
+
 	return (
 		<>
 			<ContextMenu>
 				<ContextMenuTrigger
 					disabled={
-						props.disabled || props.debugModalOpen || props.deletionModalOpen
+						props.disabled ||
+						props.debugModalOpen ||
+						props.deletionModalOpen ||
+						lightboxOpen()
 					}
 				>
 					{props.children}
@@ -48,18 +50,18 @@ export const MessageContextMenu: ParentComponent<{
 				<ContextMenuPortal>
 					<ContextMenuContent>
 						<ContextMenuItem onClick={props.enableReplyMode}>
-							<Reply />
+							<Icon variant="regular" name="arrow-bend-up-left-icon" />
 							<span>Reply</span>
 						</ContextMenuItem>
 						<Show when={!("hash" in props.data)}>
 							<ContextMenuItem onClick={() => props.setDebugModalOpen(true)}>
-								<Info />
+								<Icon variant="regular" name="info-icon" />
 								<span>Show Debug Information</span>
 							</ContextMenuItem>
 						</Show>
 						<Show when={props.messageEditable()}>
 							<ContextMenuItem onClick={props.enableEditMode}>
-								<Pencil />
+								<Icon variant="regular" name="pencil-icon" />
 								<span>Edit</span>
 							</ContextMenuItem>
 							<MessageDeletionDrawer
@@ -74,7 +76,7 @@ export const MessageContextMenu: ParentComponent<{
 										props.handlePotentialDeletion(e);
 									}}
 								>
-									<Trash />
+									<Icon variant="regular" name="trash-icon" />
 									<span>Delete</span>
 								</ContextMenuItem>
 							</MessageDeletionDrawer>

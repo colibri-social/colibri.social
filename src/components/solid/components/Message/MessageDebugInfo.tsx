@@ -1,7 +1,7 @@
 import type { Component, Setter } from "solid-js";
+import { Icon } from "@/components/solid/icons/Icon";
 import { RECORD_IDs } from "@/utils/atproto/lexicons";
 import type { DBMessageData } from "@/utils/sdk";
-import { X } from "../../icons/X";
 import {
 	Dialog,
 	DialogCloseButton,
@@ -24,7 +24,7 @@ export const MessageDebugInfo: Component<{
 							class="absolute cursor-pointer"
 							onClick={() => props.setOpen(false)}
 						>
-							<X />
+							<Icon variant="regular" name="x-icon" />
 						</DialogCloseButton>
 					</div>
 					<SettingsInfoPage

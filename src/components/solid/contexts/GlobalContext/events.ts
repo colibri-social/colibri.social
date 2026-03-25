@@ -71,7 +71,7 @@ export type CommunityUpsertedEvent = {
 	rkey: string;
 	name: string;
 	description: string;
-	image: Record<string, unknown> | null;
+	picture: BlobObj | null;
 	category_order: Array<string>;
 };
 
@@ -162,6 +162,13 @@ export type UserProfileUpdatedEvent = {
 	handle?: string;
 };
 
+export type VoiceChannelUpdatedEvent = {
+	type: "voice_channel_updated";
+	community_uri: string;
+	channel_rkey: string;
+	member_dids: Array<string>;
+};
+
 export type AppviewSubscriptionData =
 	| AckEvent
 	| MessagePostEvent
@@ -178,7 +185,8 @@ export type AppviewSubscriptionData =
 	| MemberJoinedEvent
 	| MemberLeftEvent
 	| UserStatusChangedEvent
-	| UserProfileUpdatedEvent;
+	| UserProfileUpdatedEvent
+	| VoiceChannelUpdatedEvent;
 
 export type ReactionEventCallback = (
 	data: ReactionAddedEvent | ReactionRemovedEvent,

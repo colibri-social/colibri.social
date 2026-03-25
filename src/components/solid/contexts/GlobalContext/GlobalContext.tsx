@@ -7,6 +7,7 @@ import {
 import { createEffect, type ParentComponent, useContext } from "solid-js";
 import { createStore } from "solid-js/store";
 import type { ChannelData, CommunityData } from "@/utils/sdk";
+import { usePreferencesContext } from "../UserPreferencesContext";
 import { GlobalContext } from "./context";
 import type { AppviewSubscriptionData, ReactionEventCallback } from "./events";
 import {
@@ -27,6 +28,7 @@ export const GlobalContextProvider: ParentComponent<{
 }> = (props) => {
 	const community = () => window.location.href.split("/")[5];
 	const reactionListeners = new Set<ReactionEventCallback>();
+	const [userPreferences, setUserPreferences] = usePreferencesContext();
 
 	const socket = makeHeartbeatWS(
 		makeReconnectingWS(
@@ -53,12 +55,13 @@ export const GlobalContextProvider: ParentComponent<{
 		joinedMembers: [],
 		removedMembers: [],
 		uiStates: {
-			membersListVisible: true,
+			membersListVisible: userPreferences.membersListVisible,
 		},
 		memberProfileOverrides: [],
 		memberStatusOverrides: [],
-		// TODO: This might not reflect the user's preferred state. Update when user can change state themselves.
+		// TODO(launch): This might not reflect the user's preferred state. Update when user can change state themselves.
 		userOnlineStates: [{ did: props.contextData.user.sub, state: "online" }],
+		knownVoiceChannelStates: [],
 	});
 
 	const context: [GlobalContextData, GlobalContextUtility] = [
@@ -223,11 +226,13 @@ export const GlobalContextProvider: ParentComponent<{
 						...current,
 						membersListVisible: state,
 					}));
+					setUserPreferences("membersListVisible", state);
 				} else {
 					setGlobalContext("uiStates", (current) => ({
 						...current,
 						membersListVisible: state(current.membersListVisible),
 					}));
+					setUserPreferences("membersListVisible", (current) => state(current));
 				}
 			},
 			addMemberProfileOverride(data) {
@@ -267,6 +272,27 @@ export const GlobalContextProvider: ParentComponent<{
 					setGlobalContext("userOnlineStates", (list) => [...list, state]);
 				}
 			},
+			processVoiceChannelUpdate(channelInfo) {
+				const existingIndex = globalContext.knownVoiceChannelStates.findIndex(
+					(x) =>
+						x.community_uri === channelInfo.community_uri &&
+						x.channel_rkey === channelInfo.channel_rkey,
+				);
+
+				if (existingIndex !== -1) {
+					const newArray = globalContext.knownVoiceChannelStates.toSpliced(
+						existingIndex,
+						1,
+						channelInfo,
+					);
+					setGlobalContext("knownVoiceChannelStates", newArray);
+				} else {
+					setGlobalContext("knownVoiceChannelStates", (list) => [
+						...list,
+						channelInfo,
+					]);
+				}
+			},
 		},
 	];
 
@@ -293,10 +319,19 @@ export const GlobalContextProvider: ParentComponent<{
 				});
 				break;
 			case "community_upserted":
-				// TODO: handle community upsert
+				context[1].addCommunity({
+					rkey: data.rkey,
+					name: data.name,
+					category_order: data.category_order,
+					description: data.description,
+					owner_did: data.owner_did,
+					picture: data.picture
+						? `https://${APPVIEW_DOMAIN}/api/blob?did=${data.owner_did}&cid=${data.picture.ref.$link}`
+						: undefined,
+				});
 				break;
 			case "community_deleted":
-				// TODO: handle community deletion
+				// TODO(launch): handle community deletion
 				break;
 			case "channel_created":
 				context[1].addChannel({
@@ -308,7 +343,7 @@ export const GlobalContextProvider: ParentComponent<{
 				});
 				break;
 			case "channel_deleted":
-				// TODO: handle channel deletion
+				context[1].removeChannel(data.rkey);
 				break;
 			case "category_created":
 				context[1].addCategory({
@@ -319,10 +354,7 @@ export const GlobalContextProvider: ParentComponent<{
 				});
 				break;
 			case "category_deleted":
-				// TODO: handle category deletion
-				break;
-			case "member_pending":
-				// TODO: handle pending member
+				context[1].removeCategory(data.rkey);
 				break;
 			case "member_joined":
 				if (community() === data.community_uri.split("/").pop()!) {
@@ -349,6 +381,10 @@ export const GlobalContextProvider: ParentComponent<{
 				break;
 			case "user_profile_updated":
 				handleUserProfileUpdated(context[1], data);
+				break;
+			case "voice_channel_updated":
+				console.log(data);
+				context[1].processVoiceChannelUpdate(data);
 				break;
 			case "ack":
 				break;

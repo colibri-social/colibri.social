@@ -1,11 +1,15 @@
 import { createSortable, useDragDropContext } from "@thisbeyond/solid-dnd";
 import type { Component } from "solid-js";
-import type { SidebarCategoryData, SidebarChannelData } from "@/utils/sdk";
+import type {
+	CommunityData,
+	SidebarCategoryData,
+	SidebarChannelData,
+} from "@/utils/sdk";
 import { Category, type ChannelDropTarget } from "../Category/Category";
 
 export const SortableCategory: Component<{
 	category: SidebarCategoryData;
-	community: string;
+	community: CommunityData;
 	channelOrder: string[];
 	onChannelReorder: (categoryRkey: string, newOrder: string[]) => void;
 	injectedChannels: SidebarChannelData[];

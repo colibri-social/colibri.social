@@ -1,11 +1,8 @@
-import twemoji from "@twemoji/api";
 import type { Accessor, Component } from "solid-js";
+import { For, Show } from "solid-js";
 import { cn } from "@/utils/cn";
-import { purify } from "@/utils/purify";
 import { useChannelContext } from "../../contexts/ChannelContext";
 import { renderWithFacets, type TextWithFacets } from "./util";
-import { For, Show } from "solid-js";
-import { Dynamic } from "solid-js/web";
 
 /**
  * A rich text renderer component that parses a given text and renders its facets as HTML.

@@ -158,12 +158,14 @@ export const CategorySettingsModal: ParentComponent<{
 					title: "General",
 					id: "general",
 					component: () => <GeneralSettingsPage category={props.category} />,
+					icon: "wrench-icon",
 				},
 			]}
 			dangerPage={{
 				title: "Danger Zone",
 				id: "danger",
 				component: () => <DangerSettingsPage category={props.category} />,
+				icon: "warning-diamond-icon",
 			}}
 			debugPage={{
 				title: "Debug Information",
@@ -175,6 +177,7 @@ export const CategorySettingsModal: ParentComponent<{
 						rkey={props.category.rkey}
 					/>
 				),
+				icon: "bug-icon",
 			}}
 		>
 			{props.children}

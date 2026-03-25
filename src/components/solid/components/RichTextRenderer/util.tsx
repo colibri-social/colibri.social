@@ -1,10 +1,11 @@
-import type { Facet } from "@/utils/atproto/rich-text";
+import { A } from "@solidjs/router";
 import twemoji from "@twemoji/api";
 import type { JSX } from "solid-js";
-import { MemberProfilePopover } from "../MemberProfilePopover";
-import { useCommunityContext } from "../../contexts/CommunityContext";
+import type { Facet } from "@/utils/atproto/rich-text";
 import { purify } from "@/utils/purify";
-import { A } from "@solidjs/router";
+import { useChannelContext } from "../../contexts/ChannelContext";
+import { useCommunityContext } from "../../contexts/CommunityContext";
+import { MemberProfilePopover } from "../MemberProfilePopover";
 
 export type TextWithFacets = {
 	text: string;
@@ -38,10 +39,9 @@ const applyStyleForFacet = (
 	community?: string,
 ): JSX.Element => {
 	const communityContext = useCommunityContext();
+	const channelContext = useChannelContext();
 
-	let textWithEmojis = twemoji.parse(purify(text));
-
-	console.log(textWithEmojis);
+	const textWithEmojis = twemoji.parse(purify(text));
 
 	switch (feature.$type) {
 		case "social.colibri.richtext.facet#mention": {
@@ -77,7 +77,7 @@ const applyStyleForFacet = (
 					<div
 						data-facet-type="mention"
 						data-did={did}
-						class="bg-primary/15 hover:bg-primary/25 px-1 rounded-xs cursor-pointer inline"
+						class="bg-primary/25 hover:bg-primary/35 px-1 rounded-xs cursor-pointer inline"
 						innerHTML={textWithEmojis}
 					/>
 				</MemberProfilePopover>
@@ -87,6 +87,7 @@ const applyStyleForFacet = (
 			const uri =
 				"uri" in feature ? escapeAttr(String(feature.uri)) : escapeAttr(text);
 			return (
+				// biome-ignore lint/a11y/useAnchorContent: This has innerHTML set.
 				<a
 					data-facet-type="link"
 					title={uri}
@@ -94,6 +95,7 @@ const applyStyleForFacet = (
 					href={uri}
 					class="text-(--primary-hover) decoration-(--primary-hover) font-medium hover:underline inline w-fit"
 					target="_blank"
+					rel="noreferrer"
 					innerHTML={textWithEmojis}
 				/>
 			);
@@ -102,14 +104,20 @@ const applyStyleForFacet = (
 			const channel =
 				"channel" in feature ? escapeAttr(String(feature.channel)) : "";
 
-			if (community) {
-				const href = escapeAttr(`/c/${community}/${channel}`);
+			const channelData = channelContext
+				?.channels()
+				.find((c) => c.rkey === channel);
+
+			if (channelData) {
+				const href = escapeAttr(
+					`/c/${community}/${channelData.type.slice(0, 1)}/${channel}`,
+				);
 				return (
 					<A
 						data-facet-type="channel"
 						data-channel={channel}
 						href={href}
-						class="bg-blue-500/15 hover:bg-blue-500/25 px-1 rounded-xs cursor-pointer inline no-underline text-foreground"
+						class="bg-blue-500/25 hover:bg-blue-500/35 px-1 rounded-xs cursor-pointer inline no-underline text-foreground"
 						innerHTML={textWithEmojis}
 					/>
 				);
@@ -119,7 +127,7 @@ const applyStyleForFacet = (
 				<div
 					data-facet-type="channel"
 					data-channel={channel}
-					class="bg-blue-500/15 hover:bg-blue-500/25 px-1 rounded-xs cursor-pointer inline"
+					class="bg-blue-500/25 px-1 rounded-xs inline"
 					innerHTML={textWithEmojis}
 				/>
 			);
@@ -205,7 +213,7 @@ export const renderWithFacets = (
 		}
 	}
 
-	let result: Array<JSX.Element> = [];
+	const result: Array<JSX.Element> = [];
 	let cursor = 0;
 
 	for (const group of groups) {
@@ -261,8 +269,6 @@ export const renderWithFacets = (
 			/>,
 		);
 	}
-
-	console.log(result);
 
 	return result;
 };

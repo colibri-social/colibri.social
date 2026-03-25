@@ -179,12 +179,14 @@ export const ChannelSettingsModal: ParentComponent<{
 					title: "Channel Details",
 					id: "general",
 					component: () => <GeneralSettingsPage channel={props.channel} />,
+					icon: "wrench-icon",
 				},
 			]}
 			dangerPage={{
 				title: "Danger Zone",
 				id: "danger",
 				component: () => <DangerSettingsPage channel={props.channel} />,
+				icon: "warning-diamond-icon",
 			}}
 			debugPage={{
 				title: "Debug Information",
@@ -196,6 +198,7 @@ export const ChannelSettingsModal: ParentComponent<{
 						rkey={props.channel.rkey}
 					/>
 				),
+				icon: "bug-icon",
 			}}
 		>
 			{props.children}
