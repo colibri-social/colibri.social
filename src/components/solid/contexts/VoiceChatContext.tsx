@@ -32,6 +32,7 @@ import {
 	usePreferencesContext,
 	type UserPreferencesContextData,
 } from "./UserPreferencesContext";
+import { createSignal } from "solid-js";
 
 /**
  * Re-builds the tiles shown in the UI.
@@ -227,6 +228,7 @@ const makeInitialState = (
 export const VoiceChatContextProvider: ParentComponent = (props) => {
 	const [userPreferences, setUserPreferences] = usePreferencesContext();
 	const [globalData, { sendSocketMessage }] = useGlobalContext();
+	const [intervalVar, setIntervalVar] = createSignal<NodeJS.Timeout>();
 
 	const playSound = (sound: keyof typeof SOUNDS): void => {
 		const audio = SOUNDS[sound];
@@ -449,7 +451,7 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 						voice_action: "join",
 					});
 
-					setInterval(() => {
+					const interval = setInterval(() => {
 						sendSocketMessage({
 							action: "voice_event",
 							community_uri: atUri,
@@ -457,6 +459,8 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 							voice_action: "join",
 						});
 					}, 1000 * 60);
+
+					setIntervalVar(interval);
 
 					const newTiles = rebuildTiles(
 						r,
@@ -472,7 +476,10 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 				}
 			},
 			async disconnect() {
+				if (intervalVar()) clearInterval(intervalVar());
+
 				const r = voiceChatContext.connection.room;
+
 				if (!r) return;
 
 				sendSocketMessage({
@@ -548,12 +555,20 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 
 				const next = !userPreferences.voice.input.enabled;
 				try {
-					await r.localParticipant.setMicrophoneEnabled(next, {
-						autoGainControl: true,
-						noiseSuppression: true,
-						echoCancellation: false,
-						voiceIsolation: true,
-					});
+					const test = await r.localParticipant.setMicrophoneEnabled(
+						next,
+						next
+							? {
+									autoGainControl: true,
+									noiseSuppression:
+										userPreferences.voice.input.noiseSuppression,
+									echoCancellation: false,
+									voiceIsolation: userPreferences.voice.input.noiseSuppression,
+								}
+							: undefined,
+					);
+
+					console.log(test);
 
 					if (next) {
 						playSound("unmute");
@@ -600,9 +615,9 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 					if (next === true) {
 						await r.localParticipant.setMicrophoneEnabled(false, {
 							autoGainControl: true,
-							noiseSuppression: true,
+							noiseSuppression: userPreferences.voice.input.noiseSuppression,
 							echoCancellation: false,
-							voiceIsolation: true,
+							voiceIsolation: userPreferences.voice.input.noiseSuppression,
 						});
 					}
 
@@ -722,24 +737,36 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 
 		if (!room) return;
 
-		const micTrack = room.localParticipant.getTrackPublication(
+		const desiredEnabled = !!userPreferences.voice.input.enabled;
+		const micTrackPub = room.localParticipant.getTrackPublication(
 			Track.Source.Microphone,
-		)?.track as LocalAudioTrack | undefined;
+		);
+		const micTrack = micTrackPub?.track as LocalAudioTrack | undefined;
 
-		await room.localParticipant.setMicrophoneEnabled(false);
-		await room.localParticipant.setMicrophoneEnabled(true, {
-			noiseSuppression: userPreferences.voice.input.noiseSuppression,
-			echoCancellation: true,
-			autoGainControl: true,
-			deviceId: preferredDeviceId,
-		});
-
-		if (usesNoiseSuppression) {
-			await micTrack?.setProcessor(createRnnoiseProcessor());
+		const currentEnabled = micTrackPub?.isMuted === false;
+		if (currentEnabled !== desiredEnabled) {
+			await room.localParticipant.setMicrophoneEnabled(
+				desiredEnabled,
+				desiredEnabled
+					? {
+							noiseSuppression: usesNoiseSuppression,
+							echoCancellation: true,
+							autoGainControl: true,
+							deviceId: preferredDeviceId,
+						}
+					: undefined,
+			);
 		}
 
-		// or to remove it:
-		await micTrack?.stopProcessor();
+		if (
+			desiredEnabled &&
+			usesNoiseSuppression &&
+			micTrack instanceof LocalAudioTrack
+		) {
+			await micTrack.setProcessor(createRnnoiseProcessor());
+		} else {
+			await micTrack?.stopProcessor();
+		}
 	});
 
 	createEffect(async () => {

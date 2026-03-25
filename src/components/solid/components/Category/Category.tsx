@@ -75,7 +75,7 @@ const SortableChannel: Component<{
 		if (updatedMemberState)
 			return updatedMemberState.member_dids.sort((a, b) => a.localeCompare(b));
 
-		return props.channel.voice_members.sort((a, b) => a.localeCompare(b));
+		return props.channel.voice_members?.sort((a, b) => a.localeCompare(b));
 	});
 
 	const handleVoiceChannelJoin = (
@@ -136,7 +136,7 @@ const SortableChannel: Component<{
 					href={`/c/${params.community}/${props.channel.channel_type.slice(0, 1)}/${props.channel.rkey}`}
 					activeClass="bg-card"
 					classList={{
-						"bg-linear-145 from-[#090615] via-[#31226d70] to-[#e0deec30] text-foreground!":
+						"bg-linear-145 from-[#090615] via-[#31226d70] to-[#e0deec30]":
 							voiceData.connection.rkey === props.channel.rkey &&
 							voiceData.connection.state === ConnectionState.Connected,
 					}}
@@ -176,16 +176,20 @@ const SortableChannel: Component<{
 										<Icon
 											variant="fill"
 											name="speaker-high-icon"
+											class="text-primary"
 											size={20}
-											classList={{
-												"text-primary!": liveVoiceChannelMembers().length > 0,
-											}}
 										/>
 									</Match>
 								</Switch>
 							</Match>
 						</Switch>
-						<span>{props.channel.name}</span>
+						<span
+							classList={{
+								"text-foreground": liveVoiceChannelMembers().length > 0,
+							}}
+						>
+							{props.channel.name}
+						</span>
 					</div>
 					<div class="flex justify-center items-center pb-px">
 						<Show when={props.community.owner_did === globalData.user.sub}>
