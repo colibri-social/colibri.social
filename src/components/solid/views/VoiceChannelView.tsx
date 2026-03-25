@@ -128,7 +128,7 @@ const ParticipantVideo: Component<{
 
 	const isMuted = createMemo(() => {
 		return (
-			userPreferences.voice.participantVolumeOverrides[
+			userPreferences.voice.participantVolumeOverrides?.[
 				props.tile.participant.identity
 			]?.[props.tile.isStream ? "screen" : "voice"]?.muted ?? false
 		);

@@ -33,7 +33,7 @@ export const UserSettingsContextMenu: ParentComponent<{
 
 	const muteUser = (did: string, type: "voice" | "screen", next?: boolean) => {
 		const currentState =
-			userPreferences.voice.participantVolumeOverrides[did]?.[type]?.muted ??
+			userPreferences.voice.participantVolumeOverrides?.[did]?.[type]?.muted ??
 			false;
 		const newState = next ?? !currentState;
 
@@ -84,7 +84,7 @@ export const UserSettingsContextMenu: ParentComponent<{
 
 	const volumeForUser = createMemo(() => {
 		return (
-			userPreferences.voice.participantVolumeOverrides[props.did]?.[
+			userPreferences.voice.participantVolumeOverrides?.[props.did]?.[
 				props.isStream ? "screen" : "voice"
 			]?.volume ?? 1
 		);
@@ -92,7 +92,7 @@ export const UserSettingsContextMenu: ParentComponent<{
 
 	const isMuted = createMemo(() => {
 		return (
-			userPreferences.voice.participantVolumeOverrides[props.did]?.[
+			userPreferences.voice.participantVolumeOverrides?.[props.did]?.[
 				props.isStream ? "screen" : "voice"
 			]?.muted ?? false
 		);
