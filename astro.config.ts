@@ -63,6 +63,8 @@ export default defineConfig({
 			LIVEKIT_SERVER_URL: envField.string({
 				context: "client",
 				access: "public",
+				optional: true,
+				default: "wss://livekit.colibri.social",
 			}),
 			APPVIEW_DOMAIN: envField.string({ context: "client", access: "public" }),
 			SAME_TLD_DID: envField.string({
