@@ -218,7 +218,7 @@ const ParticipantAudio: Component<{
 
 	const targetVolume = createMemo(() => {
 		const override =
-			props.userPreferences.voice.participantVolumeOverrides[identity()]?.[
+			props.userPreferences.voice.participantVolumeOverrides?.[identity()]?.[
 				type()
 			];
 		if (override?.muted) return 0;

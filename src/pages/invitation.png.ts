@@ -24,10 +24,13 @@ const test = (name: string, image?: { did: string; cid: string }) => {
 				src="https://colibri.social/tree.png"
 				style="position: absolute; top: 0px; right: -4px; width: 511.5px; height: 343.5px; border-radius: 37px;"
 			/>
-			<img
+			${() =>
+				image
+					? `<img
 				src="https://${APPVIEW_DOMAIN}/api/blob?did=${image?.did}&cid=${image?.cid}"
 				style="border-radius: 1rem; border: 1px solid #353535; width: 128px; height: 128px; background: #171717; object-fit: cover;"
-			/>
+			/>`
+					: ""}
 			<div
 				style="display: flex; flex-direction: column; align-items: center; justify-content: center;"
 			>
