@@ -41,14 +41,6 @@ We do! You can sign up with us via the Log-in Page or use a tool like
 hosted at colibri.social. If you want to move to our PDS, send a message
 to [@colibri.social on Bluesky](https://bsky.app/profile/colibri.social).
 
-## Where is my private data hosted?
-
-The AT Protocol doesn't support private data yet, so any private
-community data (like messages in private groups) is stored securely on
-our EU-based servers. Once the AT Protocol introduces support for
-private data, we'll handle the migration for you automatically - no
-action needed on your end.
-
 ## Do my messages show up as posts on Bluesky?
 
 No, they don't. While we store data the same way Bluesky does, we use a different
