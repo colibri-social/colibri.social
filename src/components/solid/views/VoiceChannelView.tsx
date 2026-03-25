@@ -187,6 +187,7 @@ const ParticipantVideo: Component<{
 					/>
 				</Show>
 
+				<div>{JSON.stringify(props.tile)}</div>
 				<div class="bottom-2 left-2 absolute bg-black/90 backdrop-blur-sm px-2 py-0.5 rounded-sm text-muted-foreground text-sm">
 					{props.tile.isLocal
 						? `${member(props.tile.participant.identity).display_name || member(props.tile.participant.identity).handle} (you)`

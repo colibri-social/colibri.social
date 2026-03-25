@@ -110,7 +110,7 @@ function rebuildTiles(r: Room, activeSpeakers: Participant[]) {
 
 		if (remoteScreenShareTrack) {
 			next.push({
-				participant: local,
+				participant: remote,
 				videoTrack: remoteScreenShareTrack,
 				audioTrack: remoteScreenShareAudioTrack,
 				isLocal: false,
@@ -230,8 +230,6 @@ const ParticipantAudio: Component<{
 		if (!aTrack || !audioRef || props.tile.isLocal) return;
 
 		audioRef.srcObject = new MediaStream([aTrack]);
-		audioRef.volume = 0; // Keep the stream alive
-
 		audioRef.play().catch(() => {});
 
 		const stream = (audioRef as any).captureStream?.() as
@@ -239,22 +237,31 @@ const ParticipantAudio: Component<{
 			| undefined;
 
 		if (!stream) {
-			audioRef.volume = 1; // Fallback
+			// Safari/Firefox fallback
+			audioRef.volume = Math.min(
+				targetVolume() * props.userPreferences.voice.output.volume,
+				1,
+			);
 			return;
 		}
 
+		audioRef.volume = 0;
 		const ctx = new AudioContext({
 			latencyHint: "interactive",
 			sampleRate: 48000,
 		});
 		const source = ctx.createMediaStreamSource(stream);
-		const gainNode = makeGainNode(
-			ctx,
-			targetVolume() * props.userPreferences.voice.output.volume,
-		);
-
+		const gainNode = makeGainNode(ctx, 1);
 		source.connect(gainNode);
-		gainNode.connect(ctx.destination); // plays through speaker
+		gainNode.connect(ctx.destination);
+
+		createEffect(() => {
+			gainNode.gain.setTargetAtTime(
+				targetVolume() * props.userPreferences.voice.output.volume,
+				ctx.currentTime,
+				0.05,
+			);
+		});
 
 		onCleanup(() => {
 			source.disconnect();
