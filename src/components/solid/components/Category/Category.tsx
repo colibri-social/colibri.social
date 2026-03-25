@@ -90,7 +90,6 @@ const SortableChannel: Component<{
 			e.target.closest('[role="alertdialog"]') ||
 			(e.target as HTMLElement).dataset.slot === "dialog-overlay";
 
-		console.log(e.target);
 		if (props.channel.channel_type !== "voice" || isDialog()) {
 			return;
 		}

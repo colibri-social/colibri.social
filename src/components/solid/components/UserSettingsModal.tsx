@@ -1,7 +1,7 @@
 import { actions } from "astro:actions";
 import { APPVIEW_DOMAIN } from "astro:env/client";
 import type { Details } from "@kobalte/core/file-field";
-import { createAsync } from "@solidjs/router";
+import { createAsync, useNavigate } from "@solidjs/router";
 import twemoji from "@twemoji/api";
 import chroma from "chroma-js";
 import { createLocalAudioTrack, type LocalAudioTrack } from "livekit-client";
@@ -604,7 +604,7 @@ export const VoicePage: Component = () => {
 
 		const track = await createLocalAudioTrack({
 			noiseSuppression: userPreferences.voice.input.noiseSuppression,
-			echoCancellation: false, // Off for loopback preview
+			echoCancellation: true,
 			autoGainControl: true,
 			deviceId: userPreferences.voice.input.preferredDeviceId,
 		});
@@ -646,7 +646,7 @@ export const VoicePage: Component = () => {
 
 		const track = await createLocalAudioTrack({
 			noiseSuppression: inputPrefs.noiseSuppression,
-			echoCancellation: false,
+			echoCancellation: true,
 			autoGainControl: true,
 			deviceId: inputPrefs.preferredDeviceId,
 		});
@@ -732,12 +732,6 @@ export const VoicePage: Component = () => {
 									0.01,
 								);
 
-								voiceChatContext.audio.nodes.inputGainNode.gain.setTargetAtTime(
-									v,
-									voiceChatContext.audio.context.currentTime,
-									0.01,
-								);
-
 								setUserPreferences("voice", (current) => ({
 									...current,
 									input: { ...current.input, volume: v },
@@ -811,12 +805,6 @@ export const VoicePage: Component = () => {
 								outputGainNode()?.gain.setTargetAtTime(
 									v,
 									audioCtx()!.currentTime,
-									0.01,
-								);
-
-								voiceChatContext.audio.nodes.outputGainNode.gain.setTargetAtTime(
-									v,
-									voiceChatContext.audio.context.currentTime,
 									0.01,
 								);
 
@@ -1122,6 +1110,16 @@ export const UserSettingsModal: ParentComponent = (props) => {
 				id: "info",
 				component: DebugPage,
 				icon: "bug-icon",
+			}}
+			dangerPage={{
+				title: "Log out",
+				id: "logout",
+				icon: "arrow-line-left-icon",
+				component: () => {
+					createEffect(() => (window.location.href = "/auth/logout"));
+
+					return (<></>) as any;
+				},
 			}}
 			contentClass="min-h-[min(48rem,calc(100vh-2rem))]"
 		>

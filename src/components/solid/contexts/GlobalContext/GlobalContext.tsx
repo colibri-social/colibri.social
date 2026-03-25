@@ -384,7 +384,6 @@ export const GlobalContextProvider: ParentComponent<{
 				handleUserProfileUpdated(context[1], data);
 				break;
 			case "voice_channel_updated":
-				console.log(data);
 				context[1].processVoiceChannelUpdate(data);
 				break;
 			case "ack":

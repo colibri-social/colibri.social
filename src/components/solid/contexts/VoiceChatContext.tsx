@@ -135,13 +135,6 @@ export type VoiceChatContextData = {
 		focusedTile: ParticipantTile | null;
 		participants: Participant[];
 	};
-	audio: {
-		context: AudioContext;
-		nodes: {
-			inputGainNode: GainNode;
-			outputGainNode: GainNode;
-		};
-	};
 	states: {
 		screenEnabled: boolean;
 		camEnabled: boolean;
@@ -196,10 +189,7 @@ const makeGainNode = (ctx: AudioContext, gain: number) => {
 	return gainNode;
 };
 
-const makeInitialState = (
-	audioCtx: AudioContext,
-	userPreferences: UserPreferencesContextData,
-) => ({
+const makeInitialState = () => ({
 	connection: {
 		room: null,
 		rkey: null,
@@ -211,16 +201,6 @@ const makeInitialState = (
 		focusedTile: null,
 		participants: [],
 	},
-	audio: {
-		context: audioCtx,
-		nodes: {
-			inputGainNode: makeGainNode(audioCtx, userPreferences.voice.input.volume),
-			outputGainNode: makeGainNode(
-				audioCtx,
-				userPreferences.voice.output.volume,
-			),
-		},
-	},
 	states: {
 		screenEnabled: false,
 		camEnabled: false,
@@ -229,7 +209,6 @@ const makeInitialState = (
 
 const ParticipantAudio: Component<{
 	tile: ParticipantTile;
-	voiceChatContext: VoiceChatContextData;
 	userPreferences: UserPreferencesContextData;
 }> = (props) => {
 	let audioRef: HTMLAudioElement | undefined;
@@ -250,26 +229,41 @@ const ParticipantAudio: Component<{
 		const aTrack = props.tile.audioTrack;
 		if (!aTrack || !audioRef || props.tile.isLocal) return;
 
-		const ctx = props.voiceChatContext.audio.context;
-		const source = ctx.createMediaStreamSource(new MediaStream([aTrack]));
-		const gainNode = ctx.createGain();
-		const destination = ctx.createMediaStreamDestination();
+		audioRef.srcObject = new MediaStream([aTrack]);
+		audioRef.volume = 0; // Keep the stream alive
 
-		source.connect(gainNode);
-		gainNode.connect(props.voiceChatContext.audio.nodes.outputGainNode);
-		props.voiceChatContext.audio.nodes.outputGainNode.connect(destination);
-
-		audioRef.srcObject = destination.stream;
 		audioRef.play().catch(() => {});
 
-		createEffect(() => {
-			gainNode.gain.setTargetAtTime(targetVolume(), ctx.currentTime, 0.05);
+		const stream = (audioRef as any).captureStream?.() as
+			| MediaStream
+			| undefined;
+		if (!stream) return;
+
+		const ctx = new AudioContext({
+			latencyHint: "interactive",
+			sampleRate: 48000,
 		});
+		const source = ctx.createMediaStreamSource(stream);
+		const gainNode = makeGainNode(
+			ctx,
+			targetVolume() * props.userPreferences.voice.output.volume,
+		);
+
+		source.connect(gainNode);
+		gainNode.connect(ctx.destination); // plays through speaker
+
+		// createEffect(() => {
+		// 	gainNode.gain.setTargetAtTime(
+		// 		targetVolume() * props.userPreferences.voice.output.volume,
+		// 		ctx.currentTime,
+		// 		0.05,
+		// 	);
+		// });
 
 		onCleanup(() => {
 			source.disconnect();
 			gainNode.disconnect();
-			destination.disconnect();
+			ctx.close();
 		});
 	});
 
@@ -279,7 +273,9 @@ const ParticipantAudio: Component<{
 				ref={audioRef}
 				autoplay
 				class="hidden"
-				muted={!props.userPreferences.voice.output.enabled}
+				muted={
+					!props.userPreferences.voice.output.enabled || props.tile.isLocal
+				}
 				id={`audio-${identity().replaceAll(":", "")}`}
 			/>
 		</Show>
@@ -301,23 +297,14 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 	const channel = () => window.location.href.split("/")[7];
 	const identity = () => globalData.user.sub;
 
-	const audioCtx = new AudioContext({
-		latencyHint: "interactive",
-		sampleRate: 48000,
-	});
-
 	const [voiceChatContext, setVoiceChatContext] =
-		createStore<VoiceChatContextData>(
-			makeInitialState(audioCtx, userPreferences),
-		);
+		createStore<VoiceChatContextData>(makeInitialState());
 
 	const context: [VoiceChatContextData, VoiceChatContextUtility] = [
 		voiceChatContext,
 		{
 			rebuildTiles() {
 				if (!voiceChatContext.connection.room) return;
-
-				console.log("REBUILDING TILES!");
 
 				const newTiles = rebuildTiles(
 					voiceChatContext.connection.room,
@@ -350,7 +337,6 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 				) {
 					return;
 				}
-				console.log("ATTEMPTING TO CONNECT!");
 
 				try {
 					const rkey = channelRkey ?? channel();
@@ -371,7 +357,7 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 						dynacast: true,
 						videoCaptureDefaults: VideoPresets.h1080,
 						audioCaptureDefaults: {
-							echoCancellation: false,
+							echoCancellation: true,
 							noiseSuppression: userPreferences.voice.input.noiseSuppression,
 							voiceIsolation: userPreferences.voice.input.noiseSuppression,
 							autoGainControl: true,
@@ -392,12 +378,10 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 					const r = new Room(roomOptions);
 
 					r.on(RoomEvent.ConnectionStateChanged, (state) => {
-						console.log("STATE CHANGED!", state);
 						setVoiceChatContext("connection", { state });
 					});
 
 					r.on(RoomEvent.ConnectionQualityChanged, (quality) => {
-						console.log("QUALITY CHANGED!", quality);
 						setVoiceChatContext("connection", { quality });
 					});
 
@@ -409,8 +393,6 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 							_pub: RemoteTrackPublication,
 							_participant: RemoteParticipant,
 						) => {
-							console.log("TILE RECEIVED!", _track, _pub, _participant);
-
 							const newTiles = rebuildTiles(
 								r,
 								voiceChatContext.connection.participants,
@@ -427,7 +409,6 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 							_pub: RemoteTrackPublication,
 							_participant: RemoteParticipant,
 						) => {
-							console.log("TILE DROPPED!", _track, _pub, _participant);
 							const newTiles = rebuildTiles(
 								r,
 								voiceChatContext.connection.participants,
@@ -439,8 +420,6 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 
 					// Local tracks published (camera, mic, screen)
 					r.on(RoomEvent.LocalTrackPublished, (trackPublication) => {
-						console.log("TILE PUBLISHED!", trackPublication);
-
 						const newTiles = rebuildTiles(
 							r,
 							voiceChatContext.connection.participants,
@@ -458,7 +437,6 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 					});
 
 					r.on(RoomEvent.LocalTrackUnpublished, () => {
-						console.log("TILE UNPUBLISHED!");
 						const newTiles = rebuildTiles(
 							r,
 							voiceChatContext.connection.participants,
@@ -469,7 +447,6 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 
 					// Participant joins/leaves
 					r.on(RoomEvent.ParticipantConnected, () => {
-						console.log("PARTICIPANT CONNECTED!");
 						playSound("join");
 						const newTiles = rebuildTiles(
 							r,
@@ -480,7 +457,6 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 					});
 
 					r.on(RoomEvent.ParticipantDisconnected, () => {
-						console.log("PARTICIPANT DISCONNECTED!");
 						playSound("leave");
 						const newTiles = rebuildTiles(
 							r,
@@ -491,7 +467,6 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 					});
 
 					r.on(RoomEvent.ActiveSpeakersChanged, (participants) => {
-						console.log("NEW PERSON SPEAKING!");
 						setVoiceChatContext("connection", {
 							participants,
 						});
@@ -500,7 +475,6 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 					// Screen share ended by the OS/browser stop button
 					r.on(RoomEvent.LocalTrackUnpublished, (pub) => {
 						if (pub.source === Track.Source.ScreenShare) {
-							console.log("SCREEN UNSHARED!");
 							playSound("screenUnshared");
 							setVoiceChatContext("states", {
 								screenEnabled: false,
@@ -536,7 +510,7 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 							voice_channel_rkey: channelRkey ?? channel(),
 							voice_action: "join",
 						});
-					}, 1000 * 60);
+					}, 3000 * 60);
 
 					setIntervalVar(interval);
 
@@ -560,6 +534,8 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 
 				if (!r) return;
 
+				console.log("clearing");
+
 				sendSocketMessage({
 					action: "voice_event",
 					community_uri: voiceChatContext.connection.communityAtUri!,
@@ -572,7 +548,7 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 
 				await r.disconnect();
 
-				setVoiceChatContext(makeInitialState(audioCtx, userPreferences));
+				setVoiceChatContext(makeInitialState());
 			},
 
 			/**
@@ -641,7 +617,7 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 									autoGainControl: true,
 									noiseSuppression:
 										userPreferences.voice.input.noiseSuppression,
-									echoCancellation: false,
+									echoCancellation: true,
 									voiceIsolation: userPreferences.voice.input.noiseSuppression,
 								}
 							: undefined,
@@ -693,15 +669,15 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 						await r.localParticipant.setMicrophoneEnabled(false, {
 							autoGainControl: true,
 							noiseSuppression: userPreferences.voice.input.noiseSuppression,
-							echoCancellation: false,
+							echoCancellation: true,
 							voiceIsolation: userPreferences.voice.input.noiseSuppression,
 						});
 					}
 
 					if (next) {
-						playSound("deafen");
-					} else {
 						playSound("undeafen");
+					} else {
+						playSound("deafen");
 					}
 
 					setUserPreferences("voice", (current) => ({
@@ -792,7 +768,6 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 		const micTrack = micTrackPub?.track as LocalAudioTrack | undefined;
 
 		const currentEnabled = micTrackPub?.isMuted === false;
-		console.log("here", desiredEnabled);
 		if (currentEnabled !== desiredEnabled) {
 			await room.localParticipant.setMicrophoneEnabled(
 				desiredEnabled,
@@ -845,7 +820,7 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 				{(item) => (
 					<ParticipantAudio
 						tile={item}
-						voiceChatContext={voiceChatContext}
+						// voiceChatContext={voiceChatContext}
 						userPreferences={userPreferences}
 					/>
 				)}
