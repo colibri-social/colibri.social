@@ -15,8 +15,10 @@ import {
 	VideoPresets,
 } from "livekit-client";
 import {
+	type Component,
 	createContext,
 	createEffect,
+	createMemo,
 	For,
 	onCleanup,
 	type ParentComponent,
@@ -224,6 +226,65 @@ const makeInitialState = (
 		camEnabled: false,
 	},
 });
+
+const ParticipantAudio: Component<{
+	tile: ParticipantTile;
+	voiceChatContext: VoiceChatContextData;
+	userPreferences: UserPreferencesContextData;
+}> = (props) => {
+	let audioRef: HTMLAudioElement | undefined;
+
+	const identity = () => props.tile.participant.identity;
+	const type = () => (props.tile.isStream ? "screen" : "voice");
+
+	const targetVolume = createMemo(() => {
+		const override =
+			props.userPreferences.voice.participantVolumeOverrides[identity()]?.[
+				type()
+			];
+		if (override?.muted) return 0;
+		return override?.volume ?? 1;
+	});
+
+	createEffect(() => {
+		const aTrack = props.tile.audioTrack;
+		if (!aTrack || !audioRef || props.tile.isLocal) return;
+
+		const ctx = props.voiceChatContext.audio.context;
+		const source = ctx.createMediaStreamSource(new MediaStream([aTrack]));
+		const gainNode = ctx.createGain();
+		const destination = ctx.createMediaStreamDestination();
+
+		source.connect(gainNode);
+		gainNode.connect(props.voiceChatContext.audio.nodes.outputGainNode);
+		props.voiceChatContext.audio.nodes.outputGainNode.connect(destination);
+
+		audioRef.srcObject = destination.stream;
+		audioRef.play().catch(() => {});
+
+		createEffect(() => {
+			gainNode.gain.setTargetAtTime(targetVolume(), ctx.currentTime, 0.05);
+		});
+
+		onCleanup(() => {
+			source.disconnect();
+			gainNode.disconnect();
+			destination.disconnect();
+		});
+	});
+
+	return (
+		<Show when={!props.tile.isLocal}>
+			<audio
+				ref={audioRef}
+				autoplay
+				class="hidden"
+				muted={!props.userPreferences.voice.output.enabled}
+				id={`audio-${identity().replaceAll(":", "")}`}
+			/>
+		</Show>
+	);
+};
 
 export const VoiceChatContextProvider: ParentComponent = (props) => {
 	const [userPreferences, setUserPreferences] = usePreferencesContext();
@@ -701,35 +762,6 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 		voiceChatContext.connection.room?.disconnect();
 	});
 
-	createEffect(() => {
-		const tiles = voiceChatContext.connection.tiles; // Track
-
-		for (const tile of tiles) {
-			const aTrack = tile.audioTrack;
-
-			if (!aTrack) continue;
-
-			const source = voiceChatContext.audio.context.createMediaStreamSource(
-				new MediaStream([aTrack]),
-			);
-
-			const destination =
-				voiceChatContext.audio.context.createMediaStreamDestination();
-
-			source.connect(voiceChatContext.audio.nodes.outputGainNode);
-			voiceChatContext.audio.nodes.outputGainNode.connect(destination);
-
-			const participantAudioTrack = document.querySelector<HTMLAudioElement>(
-				`#audio-${tile.participant.identity.replaceAll(":", "")}`,
-			);
-
-			if (participantAudioTrack && !tile.isLocal) {
-				participantAudioTrack.srcObject = destination.stream;
-				participantAudioTrack.play().catch(() => {});
-			}
-		}
-	});
-
 	createEffect(async () => {
 		const usesNoiseSuppression = userPreferences.voice.input.noiseSuppression;
 		const preferredDeviceId = userPreferences.voice.input.preferredDeviceId;
@@ -794,14 +826,11 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 		<VoiceChatContext.Provider value={context}>
 			<For each={voiceChatContext.connection.tiles}>
 				{(item) => (
-					<Show when={!item.isLocal}>
-						<audio
-							autoplay
-							class="hidden"
-							muted={!userPreferences.voice.output.enabled}
-							id={`audio-${item.participant.identity.replaceAll(":", "")}`}
-						/>
-					</Show>
+					<ParticipantAudio
+						tile={item}
+						voiceChatContext={voiceChatContext}
+						userPreferences={userPreferences}
+					/>
 				)}
 			</For>
 			{props.children}

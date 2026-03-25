@@ -15,12 +15,24 @@ interface VoiceInputSettings extends VoiceIOSettings {
 	noiseSuppression: boolean;
 }
 
+export interface VolumeOverrides {
+	voice: {
+		volume: number;
+		muted: boolean;
+	};
+	screen: {
+		volume: number;
+		muted: boolean;
+	};
+}
+
 export type UserPreferencesContextData = {
 	membersListVisible: boolean;
 	voice: {
 		input: VoiceInputSettings;
 		output: VoiceIOSettings;
 		camera: BaseVoiceVideoSettings;
+		participantVolumeOverrides: Record<string, VolumeOverrides>;
 	};
 };
 
@@ -51,6 +63,7 @@ export const UserPreferencesContextProvider: ParentComponent = (props) => {
 					enabled: false,
 					preferredDeviceId: undefined,
 				},
+				participantVolumeOverrides: {},
 			},
 		}),
 	);

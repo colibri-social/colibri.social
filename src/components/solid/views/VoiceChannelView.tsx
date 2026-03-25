@@ -24,7 +24,34 @@ import { Microphone } from "../icons/Microphone";
 import { Screen } from "../icons/Screen";
 import type { MemberData } from "../layouts/CommunityLayout";
 import { Button } from "../shadcn-solid/Button";
-import { usePreferencesContext } from "../contexts/UserPreferencesContext";
+import {
+	usePreferencesContext,
+	type VolumeOverrides,
+} from "../contexts/UserPreferencesContext";
+import {
+	ContextMenu,
+	ContextMenuContent,
+	ContextMenuItem,
+	ContextMenuPortal,
+	ContextMenuSeparator,
+	ContextMenuTrigger,
+} from "../shadcn-solid/ContextMenu";
+import {
+	Slider,
+	SliderFill,
+	SliderGroup,
+	SliderLabel,
+	SliderThumb,
+	SliderTrack,
+	SliderValueLabel,
+} from "../shadcn-solid/Slider";
+import {
+	Checkbox,
+	CheckboxControl,
+	CheckboxInput,
+	CheckboxLabel,
+} from "../shadcn-solid/Checkbox";
+import { UserSettingsContextMenu } from "../components/VoiceChat/UserSettingsContextMenu";
 
 /**
  * A tile shown when viewing the voice channel without being connected.
@@ -62,6 +89,7 @@ const ParticipantVideo: Component<{
 }> = (props) => {
 	let videoRef: HTMLVideoElement | undefined;
 	const [videoRefReady, setVideoRefReady] = createSignal(false);
+	const [userPreferences, setUserPreferences] = usePreferencesContext();
 
 	const communityData = useCommunityContext()!;
 	const [context, utils] = useVoiceChatContext();
@@ -124,61 +152,75 @@ const ParticipantVideo: Component<{
 		communityData.members().find((x) => x.member_did === did) ??
 		({} as MemberData);
 
-	return (
-		<div
-			class="relative bg-background border border-border rounded-md outline-2 -outline-offset-2 w-full aspect-video overflow-hidden transition-all duration-75"
-			onClick={() => {
-				if (context.connection.tiles.length < 2) return;
-				utils.toggleFocusedTile(props.tile);
-			}}
-			classList={{
-				"outline-primary": isSpeaking(),
-				"outline-transparent": !isSpeaking(),
-				"cursor-pointer": context.connection.tiles.length >= 2,
-			}}
-		>
-			<Show
-				when={videoEnabled()}
-				fallback={
-					<div class="flex justify-center items-center h-full text-muted-foreground text-sm">
-						<img
-							src={
-								member(props.tile.participant.identity).avatar_url ||
-								"/user-placeholder.png"
-							}
-							width={64}
-							height={64}
-							alt={
-								member(props.tile.participant.identity).display_name ||
-								member(props.tile.participant.identity).handle
-							}
-							class="inline bottom-0.5 relative mr-2 rounded-full"
-						/>
-					</div>
-				}
-			>
-				<video
-					ref={(el) => {
-						videoRef = el;
-						setVideoRefReady(true);
-					}}
-					autoplay
-					muted={props.tile.isLocal}
-					playsinline
-					class="w-full h-full object-cover transform"
-					classList={{
-						"-scale-x-100": !props.tile.isStream,
-					}}
-				/>
-			</Show>
+	const isMuted = createMemo(() => {
+		return (
+			userPreferences.voice.participantVolumeOverrides[
+				props.tile.participant.identity
+			]?.[props.tile.isStream ? "screen" : "voice"]?.muted ?? false
+		);
+	});
 
-			<div class="bottom-2 left-2 absolute bg-black/90 backdrop-blur-sm px-2 py-0.5 rounded-sm text-muted-foreground text-sm">
-				{props.tile.isLocal
-					? `${member(props.tile.participant.identity).display_name || member(props.tile.participant.identity).handle} (you)`
-					: member(props.tile.participant.identity).display_name ||
-						member(props.tile.participant.identity).handle}
+	return (
+		<UserSettingsContextMenu
+			isLocal={props.tile.isLocal}
+			isStream={props.tile.isStream}
+			did={props.tile.participant.identity}
+		>
+			<div
+				class="relative bg-background border border-border rounded-md outline-2 -outline-offset-2 w-full aspect-video overflow-hidden transition-all duration-75"
+				onClick={() => {
+					if (context.connection.tiles.length < 2) return;
+					utils.toggleFocusedTile(props.tile);
+				}}
+				classList={{
+					"outline-primary": isSpeaking(),
+					"outline-transparent": !isSpeaking(),
+					"cursor-pointer": context.connection.tiles.length >= 2,
+				}}
+			>
+				<Show
+					when={videoEnabled()}
+					fallback={
+						<div class="flex justify-center items-center h-full text-muted-foreground text-sm">
+							<img
+								src={
+									member(props.tile.participant.identity).avatar_url ||
+									"/user-placeholder.png"
+								}
+								width={64}
+								height={64}
+								alt={
+									member(props.tile.participant.identity).display_name ||
+									member(props.tile.participant.identity).handle
+								}
+								class="inline bottom-0.5 relative mr-2 rounded-full"
+							/>
+						</div>
+					}
+				>
+					<video
+						ref={(el) => {
+							videoRef = el;
+							setVideoRefReady(true);
+						}}
+						autoplay
+						muted={props.tile.isLocal || isMuted()}
+						playsinline
+						class="w-full h-full object-cover transform"
+						classList={{
+							"-scale-x-100": !props.tile.isStream,
+						}}
+					/>
+				</Show>
+
+				<div class="bottom-2 left-2 absolute bg-black/90 backdrop-blur-sm px-2 py-0.5 rounded-sm text-muted-foreground text-sm">
+					{props.tile.isLocal
+						? `${member(props.tile.participant.identity).display_name || member(props.tile.participant.identity).handle} (you)`
+						: member(props.tile.participant.identity).display_name ||
+							member(props.tile.participant.identity).handle}
+				</div>
 			</div>
-		</div>
+		</UserSettingsContextMenu>
 	);
 };
 
