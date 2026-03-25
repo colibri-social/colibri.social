@@ -83,7 +83,10 @@ export const MentionList: Component<{
 									<span class="relative">
 										<img
 											class="w-6 h-6 rounded-full"
-											src={(item as MemberData).avatar_url}
+											src={
+												(item as MemberData).avatar_url ||
+												`/user-placeholder.png`
+											}
 											alt={(item as MemberData).display_name}
 											onError={(e) => {
 												(e.currentTarget as HTMLImageElement).src =
