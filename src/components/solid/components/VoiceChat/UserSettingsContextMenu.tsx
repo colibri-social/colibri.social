@@ -1,6 +1,12 @@
 import { createMemo, type ParentComponent } from "solid-js";
 import { usePreferencesContext } from "../../contexts/UserPreferencesContext";
 import {
+	Checkbox,
+	CheckboxControl,
+	CheckboxInput,
+	CheckboxLabel,
+} from "../../shadcn-solid/Checkbox";
+import {
 	ContextMenu,
 	ContextMenuContent,
 	ContextMenuItem,
@@ -17,12 +23,6 @@ import {
 	SliderTrack,
 	SliderValueLabel,
 } from "../../shadcn-solid/Slider";
-import {
-	Checkbox,
-	CheckboxControl,
-	CheckboxInput,
-	CheckboxLabel,
-} from "../../shadcn-solid/Checkbox";
 
 export const UserSettingsContextMenu: ParentComponent<{
 	isLocal: boolean;

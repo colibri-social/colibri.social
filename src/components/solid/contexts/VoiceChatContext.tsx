@@ -19,6 +19,7 @@ import {
 	createContext,
 	createEffect,
 	createMemo,
+	createSignal,
 	For,
 	onCleanup,
 	type ParentComponent,
@@ -31,10 +32,9 @@ import { RECORD_IDs } from "@/utils/atproto/lexicons";
 import { fetchToken } from "../components/VoiceChat/livekit";
 import { useGlobalContext } from "./GlobalContext";
 import {
-	usePreferencesContext,
 	type UserPreferencesContextData,
+	usePreferencesContext,
 } from "./UserPreferencesContext";
-import { createSignal } from "solid-js";
 
 /**
  * Re-builds the tiles shown in the UI.

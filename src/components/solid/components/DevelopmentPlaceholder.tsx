@@ -1,8 +1,7 @@
-import type { Component } from "solid-js";
-import { NewCommunityModal } from "./NewCommunityModal";
 import { useNavigate } from "@solidjs/router";
-import Icon from "../icons/Icon";
+import type { Component } from "solid-js";
 import { Button } from "../shadcn-solid/Button";
+import { NewCommunityModal } from "./NewCommunityModal";
 
 /**
  * A development placeholder to be displayed if a user has no communities.
@@ -24,7 +23,11 @@ export const DevelopmentPlaceholder: Component = () => {
 					Colibri is under active development <b>and in alpha</b>. You can check
 					our <a href="TODO(launch)">announcement post</a> for more information.
 					If you want to get involved in the development, check out our{" "}
-					<a href="https://github.com/colibri-social" target="_blank">
+					<a
+						href="https://github.com/colibri-social"
+						target="_blank"
+						rel="noopener"
+					>
 						GitHub
 					</a>
 					!

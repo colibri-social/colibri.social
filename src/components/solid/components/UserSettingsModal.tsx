@@ -13,6 +13,7 @@ import {
 	For,
 	Match,
 	onCleanup,
+	onMount,
 	Show,
 	Switch,
 } from "solid-js";
@@ -23,6 +24,7 @@ import { createRnnoiseProcessor } from "@/lib/hooks/createRnnoiseProcessor";
 import { parseZodToErrorOrDisplay } from "@/utils/parse-zod-to-error-or-display";
 import { useGlobalContext } from "../contexts/GlobalContext";
 import { usePreferencesContext } from "../contexts/UserPreferencesContext";
+import { useVoiceChatContext } from "../contexts/VoiceChatContext";
 import { PDSls } from "../icons/PDSls";
 import { Button } from "../shadcn-solid/Button";
 import {
@@ -68,8 +70,6 @@ import {
 import { EmojiPopover } from "./Message/EmojiPopover";
 import { InfoPageItem } from "./SettingsInfoPage";
 import { SettingsModal, SettingsPage } from "./SettingsModal";
-import { useVoiceChatContext } from "../contexts/VoiceChatContext";
-import { onMount } from "solid-js";
 
 const GeneralSettingsPage: Component = () => {
 	const [globalData, { setUserData }] = useGlobalContext();

@@ -11,9 +11,11 @@ import {
 } from "solid-js";
 import { Icon } from "@/components/solid/icons/Icon";
 import { createIsSpeaking } from "@/lib/hooks/createIsSpeaking";
+import { UserSettingsContextMenu } from "../components/VoiceChat/UserSettingsContextMenu";
 import { useChannelContext } from "../contexts/ChannelContext";
 import { useCommunityContext } from "../contexts/CommunityContext";
 import { useGlobalContext } from "../contexts/GlobalContext";
+import { usePreferencesContext } from "../contexts/UserPreferencesContext";
 import {
 	type ParticipantTile,
 	useVoiceChatContext,
@@ -24,34 +26,6 @@ import { Microphone } from "../icons/Microphone";
 import { Screen } from "../icons/Screen";
 import type { MemberData } from "../layouts/CommunityLayout";
 import { Button } from "../shadcn-solid/Button";
-import {
-	usePreferencesContext,
-	type VolumeOverrides,
-} from "../contexts/UserPreferencesContext";
-import {
-	ContextMenu,
-	ContextMenuContent,
-	ContextMenuItem,
-	ContextMenuPortal,
-	ContextMenuSeparator,
-	ContextMenuTrigger,
-} from "../shadcn-solid/ContextMenu";
-import {
-	Slider,
-	SliderFill,
-	SliderGroup,
-	SliderLabel,
-	SliderThumb,
-	SliderTrack,
-	SliderValueLabel,
-} from "../shadcn-solid/Slider";
-import {
-	Checkbox,
-	CheckboxControl,
-	CheckboxInput,
-	CheckboxLabel,
-} from "../shadcn-solid/Checkbox";
-import { UserSettingsContextMenu } from "../components/VoiceChat/UserSettingsContextMenu";
 
 /**
  * A tile shown when viewing the voice channel without being connected.
@@ -89,7 +63,7 @@ const ParticipantVideo: Component<{
 }> = (props) => {
 	let videoRef: HTMLVideoElement | undefined;
 	const [videoRefReady, setVideoRefReady] = createSignal(false);
-	const [userPreferences, setUserPreferences] = usePreferencesContext();
+	const [userPreferences] = usePreferencesContext();
 
 	const communityData = useCommunityContext()!;
 	const [context, utils] = useVoiceChatContext();
