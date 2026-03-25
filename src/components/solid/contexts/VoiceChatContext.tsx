@@ -317,6 +317,8 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 			rebuildTiles() {
 				if (!voiceChatContext.connection.room) return;
 
+				console.log("REBUILDING TILES!");
+
 				const newTiles = rebuildTiles(
 					voiceChatContext.connection.room,
 					voiceChatContext.connection.participants,
@@ -348,6 +350,7 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 				) {
 					return;
 				}
+				console.log("ATTEMPTING TO CONNECT!");
 
 				try {
 					const rkey = channelRkey ?? channel();
@@ -389,10 +392,12 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 					const r = new Room(roomOptions);
 
 					r.on(RoomEvent.ConnectionStateChanged, (state) => {
+						console.log("STATE CHANGED!", state);
 						setVoiceChatContext("connection", { state });
 					});
 
 					r.on(RoomEvent.ConnectionQualityChanged, (quality) => {
+						console.log("QUALITY CHANGED!", quality);
 						setVoiceChatContext("connection", { quality });
 					});
 
@@ -404,7 +409,7 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 							_pub: RemoteTrackPublication,
 							_participant: RemoteParticipant,
 						) => {
-							console.log("TILE RECEIVED!");
+							console.log("TILE RECEIVED!", _track, _pub, _participant);
 
 							const newTiles = rebuildTiles(
 								r,
@@ -422,7 +427,7 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 							_pub: RemoteTrackPublication,
 							_participant: RemoteParticipant,
 						) => {
-							console.log("TILE DROPPED!");
+							console.log("TILE DROPPED!", _track, _pub, _participant);
 							const newTiles = rebuildTiles(
 								r,
 								voiceChatContext.connection.participants,
@@ -434,7 +439,7 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 
 					// Local tracks published (camera, mic, screen)
 					r.on(RoomEvent.LocalTrackPublished, (trackPublication) => {
-						console.log("TILE PUBLISHED!", trackPublication.source);
+						console.log("TILE PUBLISHED!", trackPublication);
 
 						const newTiles = rebuildTiles(
 							r,
@@ -453,6 +458,7 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 					});
 
 					r.on(RoomEvent.LocalTrackUnpublished, () => {
+						console.log("TILE UNPUBLISHED!");
 						const newTiles = rebuildTiles(
 							r,
 							voiceChatContext.connection.participants,
@@ -463,6 +469,7 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 
 					// Participant joins/leaves
 					r.on(RoomEvent.ParticipantConnected, () => {
+						console.log("PARTICIPANT CONNECTED!");
 						playSound("join");
 						const newTiles = rebuildTiles(
 							r,
@@ -473,6 +480,7 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 					});
 
 					r.on(RoomEvent.ParticipantDisconnected, () => {
+						console.log("PARTICIPANT DISCONNECTED!");
 						playSound("leave");
 						const newTiles = rebuildTiles(
 							r,
@@ -483,6 +491,7 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 					});
 
 					r.on(RoomEvent.ActiveSpeakersChanged, (participants) => {
+						console.log("NEW PERSON SPEAKING!");
 						setVoiceChatContext("connection", {
 							participants,
 						});
@@ -491,6 +500,7 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 					// Screen share ended by the OS/browser stop button
 					r.on(RoomEvent.LocalTrackUnpublished, (pub) => {
 						if (pub.source === Track.Source.ScreenShare) {
+							console.log("SCREEN UNSHARED!");
 							playSound("screenUnshared");
 							setVoiceChatContext("states", {
 								screenEnabled: false,
