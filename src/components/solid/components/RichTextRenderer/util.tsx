@@ -95,6 +95,7 @@ const applyStyleForFacet = (
 					href={uri}
 					class="text-(--primary-hover) decoration-(--primary-hover) font-medium hover:underline inline w-fit"
 					target="_blank"
+					rel="noreferrer"
 					innerHTML={textWithEmojis}
 				/>
 			);
