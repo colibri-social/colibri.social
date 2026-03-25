@@ -237,7 +237,11 @@ const ParticipantAudio: Component<{
 		const stream = (audioRef as any).captureStream?.() as
 			| MediaStream
 			| undefined;
-		if (!stream) return;
+
+		if (!stream) {
+			audioRef.volume = 1; // Fallback
+			return;
+		}
 
 		const ctx = new AudioContext({
 			latencyHint: "interactive",
