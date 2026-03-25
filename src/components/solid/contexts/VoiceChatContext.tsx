@@ -252,14 +252,6 @@ const ParticipantAudio: Component<{
 		source.connect(gainNode);
 		gainNode.connect(ctx.destination); // plays through speaker
 
-		// createEffect(() => {
-		// 	gainNode.gain.setTargetAtTime(
-		// 		targetVolume() * props.userPreferences.voice.output.volume,
-		// 		ctx.currentTime,
-		// 		0.05,
-		// 	);
-		// });
-
 		onCleanup(() => {
 			source.disconnect();
 			gainNode.disconnect();
