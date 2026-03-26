@@ -112,7 +112,17 @@ export const MentionList: Component<{
 								</Match>
 								<Match when={isChannel(item)}>
 									<span>
-										<Icon variant="regular" name="chat-circle-dots-icon" />
+										<Switch>
+											<Match when={(item as ChannelData).type === "text"}>
+												<Icon variant="regular" name="chat-circle-dots-icon" />
+											</Match>
+											<Match when={(item as ChannelData).type === "voice"}>
+												<Icon variant="regular" name="speaker-low-icon" />
+											</Match>
+											<Match when={(item as ChannelData).type === "voice"}>
+												<Icon variant="regular" name="chats-icon" />
+											</Match>
+										</Switch>
 									</span>
 									<span>{(item as ChannelData).name}</span>
 								</Match>
