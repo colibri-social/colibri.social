@@ -183,6 +183,11 @@ const ChannelView: Component = () => {
 		}),
 	);
 
+	const channelData = () =>
+		channels()
+			?.channels()
+			.find((x) => x.rkey === channel());
+
 	createEffect(() => {
 		const previous = previousChannel();
 
@@ -203,13 +208,9 @@ const ChannelView: Component = () => {
 			channel: channel(),
 		});
 
-		const channelData = channels()
-			?.channels()
-			.find((x) => x.rkey === channel());
+		if (!channelData()) return;
 
-		if (!channelData) return;
-
-		document.title = channelData.name;
+		document.title = channelData().name;
 	});
 
 	onCleanup(() => {
@@ -321,9 +322,14 @@ const ChannelView: Component = () => {
 				</Show>
 				<Show when={history.reachedTop()}>
 					<div class="w-full flex flex-col justify-center items-center px-4 text-center">
-						<h3 class="mb-0">This is the start of this channel.</h3>
+						<h3 class="mb-0">
+							This is the start of{" "}
+							{channelData()?.owner_only ? "this owner-only" : "this"} channel.
+						</h3>
 						<p class="mb-2">
-							Send some messages to get the discussion started!
+							{channelData()?.owner_only
+								? "You are not allowed to send messages in here."
+								: "Send some messages to get the discussion started!"}
 						</p>
 					</div>
 				</Show>

@@ -378,7 +378,9 @@ const CommunityLayout: ParentComponent = (props) => {
 												</div>
 												<Show
 													when={
-														(!!params.channel && channel().type === "text") ||
+														(!!params.channel &&
+															channel().type === "text" &&
+															!channel()?.owner_only) ||
 														(channel()?.owner_only &&
 															globalContext.user.sub === community()?.owner_did)
 													}
