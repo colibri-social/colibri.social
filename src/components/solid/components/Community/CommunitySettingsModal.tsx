@@ -647,7 +647,7 @@ const MemberActionsContextMenu: ParentComponent<{
 				<DropdownMenuTrigger>{props.children}</DropdownMenuTrigger>
 				<DropdownMenuPortal>
 					<DropdownMenuContent>
-						<Show when={community.requiresApprovalToJoin}>
+						<Show when={!community.requiresApprovalToJoin}>
 							<DropdownMenuItem
 								class="text-destructive!"
 								onClick={() => setDialog({ open: true, type: "kick" })}

@@ -271,6 +271,7 @@ const CommunityLayout: ParentComponent = (props) => {
 				rkey={() => community()!.rkey}
 				members={membersWithOptimisticUpdates}
 				sidebar={sidebarData}
+				requiresApprovalToJoin={() => community()!.requires_approval_to_join}
 			>
 				<ChannelContextProvider channels={channels} community={communityRkey}>
 					<div class="bg-background w-full h-full rounded-tl-xl border-t border-l border-border flex relative overflow-hidden">
