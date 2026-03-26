@@ -343,7 +343,7 @@ const CommunityLayout: ParentComponent = (props) => {
 									<ChannelList
 										data={sidebarData()!}
 										community={params.community!}
-										categoryOrder={community()!.category_order}
+										categoryOrder={community()?.category_order || []}
 									/>
 
 									<UserStatus />

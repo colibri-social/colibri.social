@@ -63,14 +63,20 @@ export const TextEditor: Component<{
 					return {
 						Enter: () => {
 							if (props.submitOnEnter === false) return false;
-							const text = proseMirrorToFacets(this.editor.getJSON());
-							Promise.resolve(props.sendMessage(text.text, text.facets)).then(
-								(shouldClear) => {
-									if (shouldClear !== false && !this.editor.isDestroyed) {
-										this.editor.commands.clearContent();
+							const json = this.editor.getJSON();
+							const text = proseMirrorToFacets(json);
+							this.editor.commands.clearContent();
+							Promise.resolve(props.sendMessage(text.text, text.facets))
+								.then((shouldClear) => {
+									if (shouldClear === false && !this.editor.isDestroyed) {
+										this.editor.commands.setContent(json);
 									}
-								},
-							);
+								})
+								.catch(() => {
+									if (!this.editor.isDestroyed) {
+										this.editor.commands.setContent(json);
+									}
+								});
 							return true;
 						},
 						Escape: () => {
