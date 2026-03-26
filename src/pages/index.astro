@@ -139,10 +139,10 @@ import PublicLayout from "@/layouts/PublicLayout.astro";
 						<BinaryMarquee />
 					</div>
 					<h2 class="text-4xl font-black m-0">YOU OWN YOUR DATA.</h2>
-					<p class="m-0">
-						Your data isn’t trapped on our servers. Colibri is built on the AT
-						Protocol, the open network with 40M+ users, where you literally own
-						your profile and messages.
+					<p class="m-0 prose prose-invert prose-neutral">
+						Your data isn’t trapped on our servers, it's stored within the
+						personal data server that hosts your ATmosphere profile. You can
+						check our <a href="/faq">FAQ page</a> for more information.
 					</p>
 				</div>
 				<div class="flex flex-col gap-4 p-6 h-full">
@@ -168,11 +168,11 @@ import PublicLayout from "@/layouts/PublicLayout.astro";
 							alt="A white, 3D User icon with a checkmark."
 						/>
 					</div>
-					<h2 class="text-4xl font-black m-0">ROLES AND MODERATION</h2>
+					<h2 class="text-4xl font-black m-0">EASY MOD TOOLING.</h2>
 					<p class="m-0">
-						Running more than just a group chat? Set up custom roles, manage
-						permissions, and use built-in moderation to keep your community
-						safe.
+						Running more than just a group chat? Colibri allows you to easily
+						block and remove messages, kick members from your community, and
+						stop them from joining again.
 					</p>
 				</div>
 			</div>
@@ -322,6 +322,30 @@ import PublicLayout from "@/layouts/PublicLayout.astro";
 						company. Building on the AT Protocol means your data is portable,
 						your identity is yours, and Colibri can't lock you in. If you ever
 						want to move, your data comes with you.
+					</AccordionContent>
+				</AccordionItem>
+				<AccordionItem value="item-2" class="border rounded-lg px-4">
+					<AccordionTrigger> Where is my data stored? </AccordionTrigger>
+					<AccordionContent>
+						<p class="m-0">
+							Your data is stored on the personal data server that hosts your
+							profile. On the AT protocol, each user has their own profile that
+							isn't specific to any app or service. You can use it to log in
+							anywhere! Because of this, you need a single source of truth that
+							handles logins and data storage for you. The server that does this
+							for you is called your personal data server, or PDS.
+						</p>
+						<p class="mb-0">
+							If you've previously signed up to Bluesky, they will currently be
+							hosting your PDS for you. But it's easy to migrate to a
+							<a href="https://atproto.com/guides/self-hosting"
+								>self-hosted PDS</a
+							>
+							as well! Tools like <a href="https://pdsmoover.com/">PDS MOOver</a
+							>
+							can help you migrate your data to your own servers when you are ready
+							to.
+						</p>
 					</AccordionContent>
 				</AccordionItem>
 				<AccordionItem value="item-3" class="border rounded-lg px-4">

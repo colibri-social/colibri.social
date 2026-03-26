@@ -20,6 +20,19 @@ company. Building on the AT Protocol means your data is portable, your
 identity is yours, and Colibri can't lock you in. If you ever want to
 move, your data comes with you.
 
+## Where is my data stored?
+
+Your data is stored on the personal data server that hosts your profile.
+On the AT protocol, each user has their own profile that isn't specific to
+any app or service. You can use it to log in anywhere! Because of this,
+you need a single source of truth that handles logins and data storage for you.
+The server that does this for you is called your personal data server, or PDS.
+
+If you've previously signed up to Bluesky, they will currently be hosting your PDS
+for you. But it's easy to migrate to a [self-hosted PDS](https://atproto.com/guides/self-hosting)
+as well! Tools like [PDS MOOver](https://pdsmoover.com/) can help you migrate your
+data to your own servers when you are ready to.
+
 ## Can I use my Bluesky account with Colibri?
 
 Yes! Since Colibri is built on the same AT Protocol that powers Bluesky,
