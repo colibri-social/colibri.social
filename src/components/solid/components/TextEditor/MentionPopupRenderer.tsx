@@ -144,7 +144,7 @@ export const createMentionRenderer = (char: "@" | "#" | ":") => {
 					setSelectedIndex((i) => (i + 1) % currentItems.length);
 					return true;
 				}
-				if (props.event.key === "Enter") {
+				if (props.event.key === "Enter" || props.event.key === "Tab") {
 					selectItem(currentItems, currentCommand, selectedIndex());
 					return true;
 				}
