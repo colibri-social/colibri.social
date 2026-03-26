@@ -170,7 +170,11 @@ const CommunityLayout: ParentComponent = (props) => {
 
 				return true;
 			})
-			.sort((a, b) => a.display_name.localeCompare(b.display_name));
+			.sort((a, b) =>
+				(a.display_name ?? a.handle ?? a.member_did)?.localeCompare(
+					b.display_name ?? b.handle ?? b.member_did,
+				),
+			);
 	});
 
 	const membersWithOptimisticUpdates = createMemo(() => {
