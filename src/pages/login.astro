@@ -121,7 +121,7 @@ if (result && !result.error) {
 			</form>
 			<form
 				method="post"
-				class="flex flex-col items-center justify-center relative bottom-3"
+				class="flex flex-col items-center justify-center relative bottom-3 pb-3"
 				action={actions.login}
 			>
 				<Input
@@ -141,6 +141,12 @@ if (result && !result.error) {
 				<Button variant="link" type={"submit"} class="text-muted-foreground">
 					New to the ATmosphere (and have an invite code from us)? Sign up here!
 				</Button>
+				<span class="text-sm text-muted-foreground"
+					>Want to create an account with us? Send us an e-mail: <a
+						class="text-muted-foreground hover:underline decoration-muted-foreground"
+						href="mailto:pds@colibri.social">pds@colibri.social</a
+					>!</span
+				>
 			</form>
 		</div>
 		<div
