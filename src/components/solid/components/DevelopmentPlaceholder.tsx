@@ -1,8 +1,8 @@
-import { A, useNavigate } from "@solidjs/router";
+import { useNavigate } from "@solidjs/router";
 import type { Component } from "solid-js";
+import { Alert, AlertDescription, AlertTitle } from "../shadcn-solid/Alert";
 import { Button } from "../shadcn-solid/Button";
 import { NewCommunityModal } from "./NewCommunityModal";
-import { Alert, AlertDescription, AlertTitle } from "../shadcn-solid/Alert";
 
 /**
  * A development placeholder to be displayed if a user has no communities.
