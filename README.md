@@ -54,6 +54,8 @@ LIVEKIT_SERVER_URL=wss://livekit.colibri.social
 SAME_TLD_DID=optional_did
 ```
 
+Note: `PRIVATE_KEY_1` and `PRIVATE_KEY_2` must be Base-64 encoded private keys compatible with atproto's libraries.
+
 4. Start the development server:
 
 ```bash
