@@ -426,27 +426,30 @@ export const Message: Component<{
 		if (parent_message) {
 			const optimisticParentProfileUpdates =
 				globalData.memberProfileOverrides.find(
-					(x) => x.did === props.data.author_did,
+					(x) => x.did === parent_message.author_did,
 				);
 			const optimisticParentStatusUpdates =
 				globalData.memberStatusOverrides.find(
-					(x) => x.did === props.data.author_did,
+					(x) => x.did === parent_message.author_did,
 				);
 
 			parent_message = {
 				...parent_message,
 				avatar_url:
-					optimisticParentProfileUpdates?.avatar_url || props.data.avatar_url,
+					optimisticParentProfileUpdates?.avatar_url ||
+					parent_message.avatar_url,
 				banner_url:
-					optimisticParentProfileUpdates?.banner_url || props.data.banner_url,
+					optimisticParentProfileUpdates?.banner_url ||
+					parent_message.banner_url,
 				display_name:
 					optimisticParentProfileUpdates?.display_name ||
-					props.data.display_name,
+					parent_message.display_name,
 				description:
-					optimisticParentProfileUpdates?.description || props.data.description,
-				handle: optimisticParentProfileUpdates?.handle || props.data.handle,
-				status: optimisticParentStatusUpdates?.status || props.data.status,
-				emoji: optimisticParentStatusUpdates?.emoji || props.data.emoji,
+					optimisticParentProfileUpdates?.description ||
+					parent_message.description,
+				handle: optimisticParentProfileUpdates?.handle || parent_message.handle,
+				status: optimisticParentStatusUpdates?.status || parent_message.status,
+				emoji: optimisticParentStatusUpdates?.emoji || parent_message.emoji,
 			};
 		}
 
