@@ -2,6 +2,7 @@ import { A, useNavigate } from "@solidjs/router";
 import type { Component } from "solid-js";
 import { Button } from "../shadcn-solid/Button";
 import { NewCommunityModal } from "./NewCommunityModal";
+import { Alert, AlertDescription, AlertTitle } from "../shadcn-solid/Alert";
 
 /**
  * A development placeholder to be displayed if a user has no communities.
@@ -36,6 +37,16 @@ export const DevelopmentPlaceholder: Component = () => {
 					</a>
 					!
 				</p>
+
+				<Alert variant="destructive" class="mb-4">
+					<AlertTitle class="font-bold">
+						Reminder: Messages on Colibri are visible to everyone by default!
+					</AlertTitle>
+					<AlertDescription>
+						Make sure to never share passwords or personal information you do
+						not want to be publically accessible on Colibri.
+					</AlertDescription>
+				</Alert>
 
 				<div class="flex flex-row items-center gap-4">
 					<NewCommunityModal navigate={navigate}>
