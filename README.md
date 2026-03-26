@@ -1,3 +1,6 @@
+> ![warning]
+> Colibri is currently in alpha and the current codebase is not really made to scale all that well. We've planned a refactor, which you can read about [here](https://colibri.leaflet.pub/3mhxzpvpvps2m).
+
 # Colibri
 
 ![Let your community spread it's wings](https://github.com/colibri-social/colibri.social/blob/main/public/og.png)
