@@ -210,7 +210,7 @@ const ChannelView: Component = () => {
 
 		if (!channelData()) return;
 
-		document.title = channelData().name;
+		document.title = channelData()?.name || "Unknown Channel";
 	});
 
 	onCleanup(() => {
