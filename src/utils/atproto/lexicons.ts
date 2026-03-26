@@ -190,7 +190,7 @@ lex.add(
 	def({
 		lexicon: 1,
 		id: RECORD_IDs.CHANNEL,
-		revision: 1,
+		revision: 2,
 		defs: {
 			main: {
 				type: "record",
@@ -233,6 +233,12 @@ lex.add(
 							description:
 								"The record key of the community this channel belongs to.",
 							format: "record-key",
+						},
+						ownerOnly: {
+							type: "boolean",
+							description:
+								"Whether the owner of the community is the only one allowed to post in the channel or not.",
+							default: false,
 						},
 						// TODO: permissions
 					},

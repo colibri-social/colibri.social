@@ -1,5 +1,5 @@
 import { actions } from "astro:actions";
-import { createSignal, type ParentComponent } from "solid-js";
+import { createSignal, Show, type ParentComponent } from "solid-js";
 import { toast } from "somoto";
 import { parseZodToErrorOrDisplay } from "@/utils/parse-zod-to-error-or-display";
 import type { ChannelType } from "@/utils/sdk";
@@ -29,6 +29,13 @@ import {
 	TextFieldLabel,
 } from "../../shadcn-solid/text-field";
 import { ImageForChannelType } from "../IconForChannelType";
+import {
+	Checkbox,
+	CheckboxControl,
+	CheckboxDescription,
+	CheckboxInput,
+	CheckboxLabel,
+} from "../../shadcn-solid/Checkbox";
 
 /**
  * The creation modal for a new channel within a category.
@@ -42,6 +49,7 @@ export const ChannelCreationModal: ParentComponent<{
 	const [channelType, setChannelType] = createSignal<string>("Text");
 	const [loading, setLoading] = createSignal(false);
 	const [open, setOpen] = createSignal(false);
+	const [isOwnerOnly, setIsOwnerOnly] = createSignal(false);
 
 	/**
 	 * Creates a new channel within the specified category and immediately
@@ -55,6 +63,7 @@ export const ChannelCreationModal: ParentComponent<{
 			community: props.community,
 			name: name(),
 			type: channelType().toLowerCase() as ChannelType,
+			ownerOnly: channelType().toLowerCase() === "text" ? isOwnerOnly() : false,
 		});
 
 		setLoading(false);
@@ -137,6 +146,23 @@ export const ChannelCreationModal: ParentComponent<{
 							</SelectTrigger>
 							<SelectContent class="[&>ul]:m-0 [&>ul]:py-0 [&>ul]:px-2" />
 						</Select>
+						<Show when={channelType() === "Text"}>
+							<Checkbox
+								checked={isOwnerOnly()}
+								onChange={setIsOwnerOnly}
+								class="flex justify-between items-center gap-x-2 w-full"
+							>
+								<div class="flex flex-col gap-1">
+									<CheckboxLabel>Owner only?</CheckboxLabel>
+									<CheckboxDescription>
+										Whether you will be the only one able to post in this
+										channel.
+									</CheckboxDescription>
+								</div>
+								<CheckboxInput />
+								<CheckboxControl />
+							</Checkbox>
+						</Show>
 					</div>
 					<DialogFooter>
 						<Button

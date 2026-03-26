@@ -21,8 +21,14 @@ export const createChannel = defineAction({
 			}),
 		category: z.string({ message: "No category given." }),
 		community: z.string({ message: "No community given." }),
+		ownerOnly: z
+			.boolean({ message: "ownerOnly must be a boolean." })
+			.default(false),
 	}),
-	handler: async ({ name, type, category, community }, { session }) => {
+	handler: async (
+		{ name, type, category, community, ownerOnly },
+		{ session },
+	) => {
 		try {
 			if (!session || !session?.has("user")) {
 				throw new ActionError({
@@ -42,6 +48,7 @@ export const createChannel = defineAction({
 				category,
 				name,
 				type,
+				ownerOnly,
 			);
 			await sdk.addChannelToCategory(agent.did!, category, rkey);
 
@@ -52,6 +59,7 @@ export const createChannel = defineAction({
 				category,
 				community,
 				uri: `at://${agent.did!}/${RECORD_IDs.CHANNEL}/${rkey}`,
+				owner_only: ownerOnly,
 			};
 
 			return channelData;
