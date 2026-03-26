@@ -327,7 +327,8 @@ const ChannelView: Component = () => {
 							{channelData()?.owner_only ? "this owner-only" : "this"} channel.
 						</h3>
 						<p class="mb-2">
-							{channelData()?.owner_only
+							{channelData()?.owner_only &&
+							community().owner_did !== globalState.user.sub
 								? "You are not allowed to send messages in here."
 								: "Send some messages to get the discussion started!"}
 						</p>
