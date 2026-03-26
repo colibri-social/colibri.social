@@ -26,7 +26,7 @@ export const RichTextRenderer: Component<{
 	return (
 		<p
 			class={cn(
-				"m-0 text-foreground rich-text focus:outline-0 leading-6 wrap-break-word relative",
+				"m-0 text-foreground rich-text focus:outline-0 leading-7 wrap-break-word relative",
 				props.class,
 			)}
 			classList={props.classList}

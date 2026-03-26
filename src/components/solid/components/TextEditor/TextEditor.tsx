@@ -42,6 +42,7 @@ export const TextEditor: Component<{
 	text?: ReturnType<Editor["getJSON"]>;
 	sendMessage: (text: string, facets: Array<Facet>) => Promise<boolean>;
 	onChange?: (text: string, facets: Array<Facet>) => void;
+	onEscape?: () => void;
 }> = (props) => {
 	let ref!: HTMLDivElement;
 
@@ -51,6 +52,7 @@ export const TextEditor: Component<{
 	const [bubbleMenuVisible, setBubbleMenuVisible] = createSignal(false);
 	const [activeMarks, setActiveMarks] = createSignal<Array<BubbleMenuMark>>([]);
 	const [placeholder, setPlaceholder] = createSignal(props.placeholder);
+	const [isInitializing, setIsInitializing] = createSignal(true);
 
 	const editor = createTiptapEditor(() => ({
 		element: ref!,
@@ -62,6 +64,10 @@ export const TextEditor: Component<{
 							const text = proseMirrorToFacets(this.editor.getJSON());
 							props.sendMessage(text.text, text.facets);
 							this.editor.commands.clearContent();
+							return true;
+						},
+						Escape: () => {
+							props.onEscape?.();
 							return true;
 						},
 					};
@@ -206,7 +212,7 @@ export const TextEditor: Component<{
 		if (!currentEditor || currentEditor.isDestroyed) return;
 
 		const coords = currentEditor.view.coordsAtPos(selection.$anchor.pos);
-		const container = currentEditor.view.dom; // .editor.ProseMirror is the editor's own DOM
+		const container = currentEditor.view.dom;
 		const containerRect = container.getBoundingClientRect();
 
 		const isOutside =
@@ -230,11 +236,17 @@ export const TextEditor: Component<{
 	});
 
 	createEffect(() => {
-		if (!editor() || !props.onChange) return;
+		if (!editor() || !props.onChange || isInitializing()) return;
 
 		const text = proseMirrorToFacets(editor()!.getJSON());
 
 		props.onChange(text.text, text.facets);
+	});
+
+	createEffect(() => {
+		if (!editor()) return;
+
+		setIsInitializing(false);
 	});
 
 	return (

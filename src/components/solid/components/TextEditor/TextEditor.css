@@ -4,8 +4,11 @@
 
 #editor .tiptap.ProseMirror p {
 	margin: 0rem;
-	width: fit-content;
-	line-height: 24px;
+	width: 100%;
+	line-height: 28px;
+	white-space: pre-wrap;
+	overflow-wrap: break-word;
+	word-break: break-word;
 }
 
 #editor .tiptap.ProseMirror p:last-of-type {
@@ -19,9 +22,7 @@
 	min-height: calc(2.5rem - 2px);
 	padding: 0.25rem 0.25rem 0.25rem 0.5rem;
 	color: var(--color-foreground);
-	display: flex;
-	flex-direction: row;
-	align-items: center;
+	display: block;
 }
 
 .ProseMirror p.is-editor-empty:first-child::before {
