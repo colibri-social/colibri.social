@@ -6,7 +6,7 @@ import {
 	EmojiPicker,
 	type EmojiSkinTone,
 } from "solid-emoji-picker";
-import type { Accessor, ParentComponent } from "solid-js";
+import { createSignal, type Accessor, type ParentComponent } from "solid-js";
 import {
 	Popover,
 	PopoverContent,
@@ -14,6 +14,7 @@ import {
 	PopoverTrigger,
 } from "../../shadcn-solid/Popover";
 import { getTwemoji } from "./util";
+import { TextField, TextFieldInput } from "../../shadcn-solid/text-field";
 
 /**
  * An emoji popover picker used for reacting to messages.
@@ -24,6 +25,8 @@ export const EmojiPopover: ParentComponent<{
 	addReactionOptimistic?: (emoji: string) => void;
 	onEmojiClick?: EmojiEventHandler<MouseEvent>;
 }> = (props) => {
+	const [filter, setFilter] = createSignal("");
+
 	/**
 	 * Renders a given emoji with the a specified skin tone.
 	 * @param emojis The emoji data to base the emoji on.
@@ -65,8 +68,19 @@ export const EmojiPopover: ParentComponent<{
 		>
 			<PopoverTrigger as="div">{props.children}</PopoverTrigger>
 			<PopoverPortal>
-				<PopoverContent class="w-74 overflow-auto h-80">
+				<PopoverContent class="w-74 overflow-auto h-80 rounded-xl!">
+					<TextField class="mb-4" value={filter()} onChange={setFilter}>
+						<TextFieldInput type="text" placeholder="joy" />
+					</TextField>
 					<EmojiPicker
+						filter={(emoji) => {
+							const trimmedFilter = filter().trim();
+							if (trimmedFilter.length === 0) return true;
+
+							return emoji.name
+								.toLowerCase()
+								.includes(trimmedFilter.toLowerCase());
+						}}
 						onEmojiClick={props.onEmojiClick}
 						renderEmoji={renderTwemoji}
 					/>

@@ -8,7 +8,6 @@ import {
 	createSignal,
 	For,
 	Match,
-	onCleanup,
 	Show,
 	Suspense,
 	Switch,

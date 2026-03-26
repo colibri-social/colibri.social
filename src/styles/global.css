@@ -333,3 +333,7 @@
 	text-decoration: none;
 	text-decoration-color: var(--primary-hover);
 }
+
+.emoji-section:not(:has(> .emoji-items > *)) {
+	display: none;
+}
