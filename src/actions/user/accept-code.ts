@@ -149,6 +149,7 @@ export const acceptInvitation = defineAction({
 									!communityData.community.requires_approval_to_join
 								) {
 									clearTimeout(timeout);
+									socket.close();
 									res({
 										state: "success",
 										message: communityData.community.rkey,
@@ -157,6 +158,7 @@ export const acceptInvitation = defineAction({
 
 								if (membershipCreated && membershipApproved) {
 									clearTimeout(timeout);
+									socket.close();
 									res({
 										state: "success",
 										message: communityData.community.rkey,
@@ -168,9 +170,11 @@ export const acceptInvitation = defineAction({
 				});
 
 				if (!communityData.community.requires_approval_to_join) {
+					socket.close();
 					return await result;
 				}
 			} else {
+				socket.close();
 				return {
 					state: "success",
 					message: communityData.community.rkey,
