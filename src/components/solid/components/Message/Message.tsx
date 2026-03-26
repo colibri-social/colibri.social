@@ -426,11 +426,11 @@ export const Message: Component<{
 		if (parent_message) {
 			const optimisticParentProfileUpdates =
 				globalData.memberProfileOverrides.find(
-					(x) => x.did === parent_message.author_did,
+					(x) => x.did === parent_message!.author_did,
 				);
 			const optimisticParentStatusUpdates =
 				globalData.memberStatusOverrides.find(
-					(x) => x.did === parent_message.author_did,
+					(x) => x.did === parent_message!.author_did,
 				);
 
 			parent_message = {
