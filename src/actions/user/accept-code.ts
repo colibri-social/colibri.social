@@ -120,10 +120,11 @@ export const acceptInvitation = defineAction({
 						(message: MessageEvent<string>) => {
 							const parsedMessage = JSON.parse(message.data) as JetstreamEvent;
 
-							console.log(message);
 							if (parsedMessage.kind !== "commit") return;
 
 							if (parsedMessage.commit) {
+								console.log(parsedMessage);
+
 								if (
 									parsedMessage.commit.collection === RECORD_IDs.MEMBERSHIP &&
 									parsedMessage.commit.rkey === membershipRkey
