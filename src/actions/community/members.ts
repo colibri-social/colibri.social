@@ -1,6 +1,6 @@
 import { ActionError, defineAction } from "astro:actions";
-import { INVITE_API_KEY } from "astro:env/server";
 import { APPVIEW_DOMAIN } from "astro:env/client";
+import { INVITE_API_KEY } from "astro:env/server";
 import { z } from "astro/zod";
 import type { MemberData } from "@/components/solid/layouts/CommunityLayout";
 import { RECORD_IDs } from "@/utils/atproto/lexicons";

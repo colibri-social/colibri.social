@@ -1,7 +1,7 @@
 import { actions } from "astro:actions";
 import { APPVIEW_DOMAIN } from "astro:env/client";
 import type { Details } from "@kobalte/core/file-field";
-import { createAsync, useNavigate } from "@solidjs/router";
+import { createAsync } from "@solidjs/router";
 import twemoji from "@twemoji/api";
 import chroma from "chroma-js";
 import { createLocalAudioTrack, type LocalAudioTrack } from "livekit-client";
@@ -477,7 +477,6 @@ const MAX = 49;
 
 export const VoicePage: Component = () => {
 	const [userPreferences, setUserPreferences] = usePreferencesContext();
-	const [voiceChatContext] = useVoiceChatContext();
 
 	const [inputGainNode, setInputGainNode] = createSignal<GainNode | null>(null);
 	const [outputGainNode, setOutputGainNode] = createSignal<GainNode | null>(
@@ -1117,6 +1116,7 @@ export const UserSettingsModal: ParentComponent = (props) => {
 				component: () => {
 					createEffect(() => (window.location.href = "/auth/logout"));
 
+					// biome-ignore lint/complexity/noUselessFragments: Needed to make the redirect work
 					return (<></>) as any;
 				},
 			}}

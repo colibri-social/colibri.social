@@ -42,3 +42,7 @@ interface ToastFn {
 interface Window {
 	toast: ToastFn;
 }
+
+declare module "virtual:server-port" {
+	export const serverPort: number;
+}

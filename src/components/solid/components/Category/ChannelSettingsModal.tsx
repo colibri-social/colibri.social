@@ -1,6 +1,6 @@
 import { actions } from "astro:actions";
 import type { ParentComponent } from "solid-js";
-import { type Component, createSignal } from "solid-js";
+import { type Component, createSignal, Show } from "solid-js";
 import { toast } from "somoto";
 import { RECORD_IDs } from "@/utils/atproto/lexicons";
 import { parseZodToErrorOrDisplay } from "@/utils/parse-zod-to-error-or-display";
@@ -9,20 +9,19 @@ import { useGlobalContext } from "../../contexts/GlobalContext";
 import { Spinner } from "../../icons/Spinner";
 import { Button } from "../../shadcn-solid/Button";
 import {
-	TextField,
-	TextFieldInput,
-	TextFieldLabel,
-} from "../../shadcn-solid/text-field";
-import { SettingsInfoPage } from "../SettingsInfoPage";
-import { SettingsModal, SettingsPage } from "../SettingsModal";
-import {
 	Checkbox,
 	CheckboxControl,
 	CheckboxDescription,
 	CheckboxInput,
 	CheckboxLabel,
 } from "../../shadcn-solid/Checkbox";
-import { Show } from "solid-js";
+import {
+	TextField,
+	TextFieldInput,
+	TextFieldLabel,
+} from "../../shadcn-solid/text-field";
+import { SettingsInfoPage } from "../SettingsInfoPage";
+import { SettingsModal, SettingsPage } from "../SettingsModal";
 
 const GeneralSettingsPage: Component<{ channel: SidebarChannelData }> = (
 	props,

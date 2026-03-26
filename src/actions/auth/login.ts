@@ -1,4 +1,5 @@
 import { ActionError, defineAction } from "astro:actions";
+import { serverPort } from "virtual:server-port";
 import { z } from "astro/zod";
 import { client, scopes } from "@/utils/atproto/oauth";
 
@@ -23,7 +24,7 @@ export const login = defineAction({
 				state: JSON.stringify("{}"),
 				prompt: signUp ? "create" : "login",
 				redirect_uri: import.meta.env.DEV
-					? `http://127.0.0.1:4321/auth/callback`
+					? `http://127.0.0.1:${serverPort}/auth/callback`
 					: (`${import.meta.env.SITE}/auth/callback` as any),
 			});
 

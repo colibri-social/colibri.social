@@ -1,4 +1,5 @@
 import { PRIVATE_KEY_1, PRIVATE_KEY_2 } from "astro:env/server";
+import { serverPort } from "virtual:server-port";
 import { JoseKey } from "@atproto/jwk-jose";
 import {
 	NodeOAuthClient,
@@ -48,7 +49,7 @@ export const client = new NodeOAuthClient({
 	// endpoint metadata, exposing the client metadata to the OAuth server.
 	clientMetadata: {
 		client_id: import.meta.env.DEV
-			? `http://localhost/?redirect_uri=${encodeURIComponent("http://127.0.0.1:4321/auth/callback")}&scope=${encodeURIComponent(scopes.join(" "))}`
+			? `http://localhost/?redirect_uri=${encodeURIComponent(`http://127.0.0.1:${serverPort}/auth/callback`)}&scope=${encodeURIComponent(scopes.join(" "))}`
 			: `${import.meta.env.SITE}/oauth-client-metadata.json`,
 		client_name: "Colibri Chat",
 		client_uri: import.meta.env.SITE,

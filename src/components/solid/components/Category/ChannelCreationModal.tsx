@@ -1,11 +1,18 @@
 import { actions } from "astro:actions";
-import { createSignal, Show, type ParentComponent } from "solid-js";
+import { createSignal, type ParentComponent, Show } from "solid-js";
 import { toast } from "somoto";
 import { parseZodToErrorOrDisplay } from "@/utils/parse-zod-to-error-or-display";
 import type { ChannelType } from "@/utils/sdk";
 import { useGlobalContext } from "../../contexts/GlobalContext/index";
 import { Spinner } from "../../icons/Spinner";
 import { Button } from "../../shadcn-solid/Button";
+import {
+	Checkbox,
+	CheckboxControl,
+	CheckboxDescription,
+	CheckboxInput,
+	CheckboxLabel,
+} from "../../shadcn-solid/Checkbox";
 import {
 	Dialog,
 	DialogContent,
@@ -29,13 +36,6 @@ import {
 	TextFieldLabel,
 } from "../../shadcn-solid/text-field";
 import { ImageForChannelType } from "../IconForChannelType";
-import {
-	Checkbox,
-	CheckboxControl,
-	CheckboxDescription,
-	CheckboxInput,
-	CheckboxLabel,
-} from "../../shadcn-solid/Checkbox";
 
 /**
  * The creation modal for a new channel within a category.

@@ -12,7 +12,7 @@ import { Strike } from "@tiptap/extension-strike";
 import { Text } from "@tiptap/extension-text";
 import { Underline } from "@tiptap/extension-underline";
 import { CharacterCount, Placeholder, UndoRedo } from "@tiptap/extensions";
-import { type Component, createEffect, createSignal } from "solid-js";
+import { type Component, createEffect, createSignal, untrack } from "solid-js";
 import { createEditorTransaction, createTiptapEditor } from "solid-tiptap";
 import "./TextEditor.css";
 import { type Editor, mergeAttributes } from "@tiptap/core";
@@ -42,6 +42,7 @@ export const TextEditor: Component<{
 	text?: ReturnType<Editor["getJSON"]>;
 	sendMessage: (text: string, facets: Array<Facet>) => Promise<boolean>;
 	onChange?: (text: string, facets: Array<Facet>) => void;
+	submitOnEnter?: boolean;
 	onEscape?: () => void;
 }> = (props) => {
 	let ref!: HTMLDivElement;
@@ -61,9 +62,15 @@ export const TextEditor: Component<{
 				addKeyboardShortcuts() {
 					return {
 						Enter: () => {
+							if (props.submitOnEnter === false) return false;
 							const text = proseMirrorToFacets(this.editor.getJSON());
-							props.sendMessage(text.text, text.facets);
-							this.editor.commands.clearContent();
+							Promise.resolve(props.sendMessage(text.text, text.facets)).then(
+								(shouldClear) => {
+									if (shouldClear !== false && !this.editor.isDestroyed) {
+										this.editor.commands.clearContent();
+									}
+								},
+							);
 							return true;
 						},
 						Escape: () => {
@@ -203,10 +210,15 @@ export const TextEditor: Component<{
 		(editor) => ({ state: editor!.state, $pos: editor!.$pos }),
 	);
 
+	let previousPos = -1;
+
 	createEffect(() => {
 		const selectionState = selectionStateTransaction();
 		const selection = selectionState.state.selection;
 		if (!selection.empty || selection.$from.pos !== selection.$to.pos) return;
+
+		if (selection.$anchor.pos === previousPos) return;
+		previousPos = selection.$anchor.pos;
 
 		const currentEditor = editor();
 		if (!currentEditor || currentEditor.isDestroyed) return;
@@ -219,7 +231,9 @@ export const TextEditor: Component<{
 			coords.top < containerRect.top || coords.bottom > containerRect.bottom;
 
 		if (isOutside) {
-			currentEditor.view.dispatch(currentEditor.state.tr.scrollIntoView());
+			untrack(() => {
+				currentEditor.view.dispatch(currentEditor.state.tr.scrollIntoView());
+			});
 		}
 	});
 

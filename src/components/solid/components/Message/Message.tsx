@@ -675,10 +675,12 @@ export const Message: Component<{
 													channelContext?.channels() || [],
 												)}
 												placeholder=""
+												submitOnEnter
 												onChange={(text, facets) => {
 													setEditedText({ text, facets });
 												}}
 												sendMessage={async (text, facets) => {
+													console.log("test");
 													submitEdits(text, facets);
 													return false;
 												}}

@@ -1,10 +1,9 @@
 import { actions } from "astro:actions";
 import type { Details } from "@kobalte/core/file-field";
 import { useNavigate, useParams } from "@solidjs/router";
-import type { Accessor, ParentComponent } from "solid-js";
+import type { Accessor, ParentComponent, Setter } from "solid-js";
 import {
 	type Component,
-	createEffect,
 	createResource,
 	createSignal,
 	For,
@@ -17,6 +16,7 @@ import { toast } from "somoto";
 import { Icon } from "@/components/solid/icons/Icon";
 import { RECORD_IDs } from "@/utils/atproto/lexicons";
 import { parseZodToErrorOrDisplay } from "@/utils/parse-zod-to-error-or-display";
+import { useCommunityContext } from "../../contexts/CommunityContext";
 import { useGlobalContext } from "../../contexts/GlobalContext";
 import { InviteLinkCreationModal } from "../../contexts/GlobalContext/InviteLinkCreationModal";
 import { Spinner } from "../../icons/Spinner";
@@ -24,13 +24,19 @@ import type { MemberData } from "../../layouts/CommunityLayout";
 import { Alert, AlertDescription, AlertTitle } from "../../shadcn-solid/Alert";
 import { Button } from "../../shadcn-solid/Button";
 import {
-	Switch as SwitchComp,
-	SwitchControl,
-	SwitchDescription,
-	SwitchInput,
-	SwitchLabel,
-	SwitchThumb,
-} from "../../shadcn-solid/Switch";
+	Dialog,
+	DialogContent,
+	DialogFooter,
+	DialogHeader,
+	DialogPortal,
+} from "../../shadcn-solid/Dialog";
+import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuPortal,
+	DropdownMenuTrigger,
+} from "../../shadcn-solid/DropdownMenu";
 import {
 	FileField,
 	FileFieldDropzone,
@@ -41,6 +47,14 @@ import {
 	FileFieldLabel,
 	FileFieldTrigger,
 } from "../../shadcn-solid/file-field";
+import {
+	Switch as SwitchComp,
+	SwitchControl,
+	SwitchDescription,
+	SwitchInput,
+	SwitchLabel,
+	SwitchThumb,
+} from "../../shadcn-solid/Switch";
 import {
 	Table,
 	TableBody,
@@ -58,23 +72,6 @@ import { SettingsInfoPage } from "../SettingsInfoPage";
 import { SettingsModal, SettingsPage } from "../SettingsModal";
 import { SmallUserAsync } from "../SmallUserAsync";
 import { DeleteLinkModal } from "./DeleteLinkModal";
-import {
-	DropdownMenu,
-	DropdownMenuContent,
-	DropdownMenuItem,
-	DropdownMenuPortal,
-	DropdownMenuTrigger,
-} from "../../shadcn-solid/DropdownMenu";
-import {
-	Dialog,
-	DialogContent,
-	DialogFooter,
-	DialogHeader,
-	DialogPortal,
-	DialogTrigger,
-} from "../../shadcn-solid/Dialog";
-import type { Setter } from "solid-js";
-import { useCommunityContext } from "../../contexts/CommunityContext";
 
 const GeneralSettingsPage: Component = () => {
 	const [globalData, { addCommunity }] = useGlobalContext();
