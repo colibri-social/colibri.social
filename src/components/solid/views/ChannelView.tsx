@@ -69,7 +69,6 @@ const ChannelView: Component = () => {
 			const deletedMessages = globalState.deletedMessages;
 
 			const editedMessages = newlyReceivedMessages.filter((msg) => msg.edited);
-			const newMessages = newlyReceivedMessages.filter((msg) => !msg.edited);
 
 			const updatedHistorical = historicalMessages.map((msg) => {
 				const editedVersion = editedMessages.find(
@@ -80,6 +79,11 @@ const ChannelView: Component = () => {
 				);
 				return editedVersion ?? msg;
 			});
+
+			const historicalRkeys = new Set(updatedHistorical.map((m) => m.rkey));
+			const newMessages = newlyReceivedMessages.filter(
+				(msg) => !historicalRkeys.has(msg.rkey),
+			);
 
 			const resultingArray = [
 				...updatedHistorical,

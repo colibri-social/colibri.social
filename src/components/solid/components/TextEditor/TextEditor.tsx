@@ -109,12 +109,13 @@ export const TextEditor: Component<{
 			Mention.configure({
 				HTMLAttributes: { "data-type": "mention" },
 				suggestions: buildSuggestions(
-					communityContext?.members() ?? [],
-					channelContext?.channels() ?? [],
-					Object.keys(EMOJI_DATA).map((x: string) => ({
-						name: x,
-						emoji: EMOJI_DATA[x],
-					})) ?? [],
+					() => communityContext?.members() ?? [],
+					() => channelContext?.channels() ?? [],
+					() =>
+						Object.keys(EMOJI_DATA).map((x: string) => ({
+							name: x,
+							emoji: EMOJI_DATA[x],
+						})),
 				),
 			}).extend({
 				addAttributes() {
@@ -196,11 +197,11 @@ export const TextEditor: Component<{
 				defaultProtocol: "https",
 			}),
 			Placeholder.configure({
-				placeholder: placeholder(),
+				placeholder: () => placeholder(),
 			}),
 			Emoji.configure(),
 		],
-		content: props.text,
+		content: untrack(() => props.text),
 	}));
 
 	const characterCountTransaction = createEditorTransaction(

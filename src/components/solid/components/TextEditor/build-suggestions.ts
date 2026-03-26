@@ -8,15 +8,15 @@ import {
 } from "./MentionPopupRenderer";
 
 export const buildSuggestions = (
-	members: Array<MemberData>,
-	channels: Array<ChannelData>,
-	emojis: Array<EmojiSuggestionData>,
+	members: () => Array<MemberData>,
+	channels: () => Array<ChannelData>,
+	emojis: () => Array<EmojiSuggestionData>,
 ): Omit<SuggestionOptions<any, MentionNodeAttrs>, "editor">[] => {
 	return [
 		{
 			char: "@",
 			items: ({ query }) =>
-				members
+				members()
 					.filter((member) =>
 						(member.display_name ?? member.handle)
 							?.toLowerCase()
@@ -28,7 +28,7 @@ export const buildSuggestions = (
 		{
 			char: "#",
 			items: ({ query }) =>
-				channels
+				channels()
 					.filter((channel) =>
 						channel.name.toLowerCase().startsWith(query.toLowerCase()),
 					)
@@ -38,7 +38,7 @@ export const buildSuggestions = (
 		{
 			char: ":",
 			items: ({ query }) =>
-				emojis
+				emojis()
 					.filter((emoji) =>
 						emoji.name.toLowerCase().startsWith(query.toLowerCase()),
 					)

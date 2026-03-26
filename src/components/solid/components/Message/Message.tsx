@@ -3,10 +3,12 @@ import { useParams } from "@solidjs/router";
 import twemoji from "@twemoji/api";
 import {
 	type Component,
+	createEffect,
 	createMemo,
 	createSignal,
 	For,
 	Match,
+	onCleanup,
 	Show,
 	Suspense,
 	Switch,
@@ -96,6 +98,14 @@ export const Message: Component<{
 		text: props.data.text,
 		facets: props.data.facets || [],
 	});
+
+	createEffect(() => {
+		setNewText({
+			text: props.data.text,
+			facets: props.data.facets || [],
+		});
+	});
+
 	const community = () => params.community!;
 
 	/**
