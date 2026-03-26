@@ -4,9 +4,12 @@ import atShield from "@/assets/landing/atShield.webp";
 import Branch from "@/assets/landing/branch.webp";
 import Colibri from "@/assets/landing/Colibri.png";
 import IPhone from "@/assets/landing/iPhone.webp";
-import Leaves from "@/assets/landing/Leaves.webp";
-import PrivateDataBG from "@/assets/landing/PrivateDataBG.png";
-import PrivateDataIcons from "@/assets/landing/PrivateDataIcons.png";
+import AppScreenshot from "@/assets/landing/app-screenshot.png";
+import SettingsScreenshot from "@/assets/landing/settings-screenshot.png";
+import VcScreenshot from "@/assets/landing/vc-screenshot.png";
+// import Leaves from "@/assets/landing/Leaves.webp";
+// import PrivateDataBG from "@/assets/landing/PrivateDataBG.png";
+// import PrivateDataIcons from "@/assets/landing/PrivateDataIcons.png";
 import Tools from "@/assets/landing/Tools.png";
 import User from "@/assets/landing/User.png";
 import UserVerified from "@/assets/landing/UserVerified.png";
@@ -17,7 +20,7 @@ import {
 	AccordionTrigger,
 } from "@/components/bearnie/accordion";
 import Button from "@/components/bearnie/button/Button.astro";
-import Download from "@/components/icons/download.svg";
+// import Download from "@/components/icons/download.svg";
 import GitBranch from "@/components/icons/git-branch.svg";
 import Globe from "@/components/icons/globe.svg";
 import BinaryMarquee from "@/components/public/BinaryMarquee.astro";
@@ -192,6 +195,56 @@ import PublicLayout from "@/layouts/PublicLayout.astro";
 			alt="The Colibri logo, a hummingbird as a 3D-looking icon."
 			class="absolute -bottom-64 -left-44 rotate-25 glide"
 		/>
+		<div
+			class="w-full rounded-2xl border-border border drop-shadow-black/25 drop-shadow-2xl overflow-hidden p-4 bg-gradient-dark flex flex-col items-center justify-center gap-4"
+		>
+			<div
+				class="w-full flex flex-col gap-4 justify-center p-8 items-center text-center"
+			>
+				<small class="text-primary text-sm">No need to learn another app.</small
+				>
+				<h2 class="text-4xl font-black m-0">
+					A MODERN, SIMPLE, AND FAMILIAR UI.
+				</h2>
+				<p class="m-0 max-w-[70ch] text-center">
+					Colibri's user interface is inspired by other apps like Discord, Teams
+					and Slack. You'll feel right at home with familiar design elements,
+					structures, and features.
+				</p>
+			</div>
+			<Image
+				src={AppScreenshot}
+				width={1920}
+				height={1150}
+				quality={100}
+				data-lightbox
+				loading="lazy"
+				alt="A screenshot of the Colibri App UI, with a 'General' channel visible, showing a conversation between two users."
+				class="rounded-lg border border-border w-full"
+			/>
+			<div class="grid md:grid-cols-2 grid-cols-1 gap-4">
+				<Image
+					src={SettingsScreenshot}
+					width={1920}
+					height={1150}
+					quality={100}
+					data-lightbox
+					loading="lazy"
+					alt="A screenshot of the Colibri App UI, with the user settings for the user's profile visible."
+					class="rounded-lg border border-border w-full"
+				/>
+				<Image
+					src={VcScreenshot}
+					width={1920}
+					height={1150}
+					quality={100}
+					data-lightbox
+					loading="lazy"
+					alt="A screenshot of the Colibri App UI, with two users in a VC being shown on screen."
+					class="rounded-lg border border-border w-full"
+				/>
+			</div>
+		</div>
 		{
 			/* <div
 			class="bg-gradient-dark w-full rounded-2xl border border-border flex flex-col-reverse lg:flex-row h-fit p-6 relative gap-6 overflow-hidden drop-shadow-black/25 drop-shadow-2xl"
@@ -355,6 +408,7 @@ import PublicLayout from "@/layouts/PublicLayout.astro";
 		}
 	}
 </style>
+<script src="@/scripts/lightbox.ts"></script>
 <script>
 	import createGlobe from "cobe";
 
