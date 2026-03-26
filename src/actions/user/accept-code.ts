@@ -69,6 +69,8 @@ export const acceptInvitation = defineAction({
 				communityAtUri,
 			);
 
+			console.log(hasMembershipDeclaration);
+
 			let result: Promise<JoinState> | undefined;
 			let joinApprovalRkey: string | undefined;
 
@@ -109,6 +111,7 @@ export const acceptInvitation = defineAction({
 						(message: MessageEvent<string>) => {
 							const parsedMessage = JSON.parse(message.data) as JetstreamEvent;
 
+							console.log(message);
 							if (parsedMessage.kind !== "commit") return;
 
 							if (parsedMessage.commit) {
