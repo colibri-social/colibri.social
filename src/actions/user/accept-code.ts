@@ -94,6 +94,15 @@ export const acceptInvitation = defineAction({
 								message: "Operation timed out.",
 							});
 						}
+						if (
+							membershipCreated &&
+							!communityData.community.requires_approval_to_join
+						) {
+							res({
+								state: "success",
+								message: communityData.community.rkey,
+							});
+						}
 						if (membershipCreated && !membershipApproved) {
 							return rej({
 								state: "partial",
@@ -127,6 +136,17 @@ export const acceptInvitation = defineAction({
 									parsedMessage.commit.rkey === joinApprovalRkey
 								) {
 									membershipApproved = true;
+								}
+
+								if (
+									membershipCreated &&
+									!communityData.community.requires_approval_to_join
+								) {
+									clearTimeout(timeout);
+									res({
+										state: "success",
+										message: communityData.community.rkey,
+									});
 								}
 
 								if (membershipCreated && membershipApproved) {
