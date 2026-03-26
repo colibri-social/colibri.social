@@ -18,7 +18,9 @@ export const buildSuggestions = (
 			items: ({ query }) =>
 				members
 					.filter((member) =>
-						member.display_name.toLowerCase().startsWith(query.toLowerCase()),
+						(member.display_name ?? member.handle)
+							?.toLowerCase()
+							.startsWith(query.toLowerCase()),
 					)
 					.slice(0, 5),
 			render: createMentionRenderer("@"),
