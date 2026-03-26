@@ -88,12 +88,15 @@ export const acceptInvitation = defineAction({
 					let membershipApproved = false;
 
 					const timeout = setTimeout(() => {
+						socket.close();
+
 						if (!membershipCreated) {
 							return rej({
 								state: "failed",
 								message: "Operation timed out.",
 							});
 						}
+
 						if (
 							membershipCreated &&
 							!communityData.community.requires_approval_to_join
@@ -103,12 +106,14 @@ export const acceptInvitation = defineAction({
 								message: communityData.community.rkey,
 							});
 						}
+
 						if (membershipCreated && !membershipApproved) {
 							return rej({
 								state: "partial",
 								message: "Waiting for owner approval.",
 							});
 						}
+
 						return rej({
 							state: "failed",
 							message: "Unknown error.",
