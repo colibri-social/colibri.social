@@ -211,8 +211,9 @@ export const MessageInput: Component<{
 
 		if (!target) return;
 
-		const richTextMessageInput =
-			document.querySelector<HTMLParagraphElement>("p#chat-input");
+		const richTextMessageInput = document.querySelector<HTMLParagraphElement>(
+			"#editor .ProseMirror",
+		);
 
 		if (richTextMessageInput) richTextMessageInput.focus();
 	});
