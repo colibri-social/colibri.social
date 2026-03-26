@@ -91,6 +91,7 @@ export type ChannelCreatedEvent = {
 	name: string;
 	channel_type: string;
 	category_rkey: string;
+	owner_only: boolean;
 };
 
 export type ChannelDeletedEvent = {

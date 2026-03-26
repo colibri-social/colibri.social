@@ -3,13 +3,13 @@ import twemoji from "@twemoji/api";
 import type { Facet } from "@/utils/atproto/rich-text";
 import type { ChannelData } from "@/utils/sdk";
 import type { MemberData } from "../../layouts/CommunityLayout";
+import { buildFeatureKey, normalizeFacets } from "../../utils/normalize-facets";
 import type { MentionType } from "./prosemirror-to-facets";
+
+type Feature = Facet["features"][number];
 
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
-
-const SPLIT = "\x00";
-const SPLIT_ENCODED = encoder.encode(SPLIT);
 
 const EMOJI_IMAGE_REGEX = /<img [\s\S\w\W\d\D]+\/>/gm;
 const EMOJI_IMAGE_ALT_REGEX =
@@ -35,171 +35,225 @@ export const facetsToProseMirror = (
 		content: [{ type: "paragraph", content: [], attrs: undefined }],
 	};
 
-	let baseEncoded = encoder.encode(text);
-
-	for (const facet of facets) {
-		const text = decoder.decode(
-			baseEncoded.slice(facet.index.byteStart, facet.index.byteEnd),
-		);
-
-		for (const feature of facet.features) {
-			if (feature.$type === "social.colibri.richtext.facet#mention") {
-				const member = members.find((x) => x.member_did === feature.did);
-				const node: MentionType = {
-					type: "mention",
-					attrs: {
-						id: feature.did,
-						label: member?.display_name || "Unknown User",
-						handle: member?.handle || "handle.invalid",
-						avatar: member?.avatar_url || "/user-placeholder.png",
-						type: "member",
-					},
-				};
-
-				doc.content[0].content!.push(node);
-
-				continue;
-			}
-
-			if (feature.$type === "social.colibri.richtext.facet#channel") {
-				const channel = channels.find((x) => x.rkey === feature.channel);
-				const node: MentionType = {
-					type: "mention",
-					attrs: {
-						id: feature.channel,
-						label: channel?.name || "Unknown Channel",
-						handle: null,
-						avatar: null,
-						type: "channel",
-					},
-				};
-
-				doc.content[0].content!.push(node);
-
-				continue;
-			}
-
-			const node: TextType = {
-				text,
-				type: "text",
-				marks: [],
-			};
-
-			switch (feature.$type) {
-				case "social.colibri.richtext.facet#bold":
-					node.marks.push({
-						type: "bold",
-						attrs: undefined,
-					});
-					break;
-				case "social.colibri.richtext.facet#italic":
-					node.marks.push({
-						type: "italic",
-						attrs: undefined,
-					});
-					break;
-				case "social.colibri.richtext.facet#underline":
-					node.marks.push({
-						type: "underline",
-						attrs: undefined,
-					});
-					break;
-				case "social.colibri.richtext.facet#strikethrough":
-					node.marks.push({
-						type: "strike",
-						attrs: undefined,
-					});
-					break;
-				case "social.colibri.richtext.facet#code":
-					node.marks.push({
-						type: "code",
-						attrs: undefined,
-					});
-					break;
-				case "social.colibri.richtext.facet#link":
-					node.marks.push({
-						type: "link",
-						attrs: {
-							href: feature.uri,
-							target: "_blank",
-							rel: "noopener noreferrer nofollow",
-							class: null,
-							title: null,
-						},
-					});
-					break;
-				default:
-					break;
-			}
-
-			doc.content[0].content!.push(node as any);
-		}
+	if (!text) {
+		return doc;
 	}
 
-	const processedRanges = facets.map((x) => x.index);
-	let offset = 0;
+	const baseEncoded = encoder.encode(text);
+	const paragraph = doc.content[0];
+	const normalizedFacets = normalizeFacets(facets);
 
-	for (const range of processedRanges) {
-		const startEncoded = baseEncoded.slice(0, range.byteStart - offset);
-		const textToRemove = baseEncoded.slice(
-			range.byteStart - offset,
-			range.byteEnd - offset,
-		);
-		const endEncoded = baseEncoded.slice(range.byteEnd - offset);
-
-		const newEncoded = new Uint8Array(
-			startEncoded.length + SPLIT_ENCODED.length + endEncoded.length,
-		);
-		newEncoded.set(startEncoded);
-		newEncoded.set(SPLIT_ENCODED, startEncoded.length);
-		newEncoded.set(endEncoded, startEncoded.length + SPLIT_ENCODED.length);
-
-		baseEncoded = newEncoded;
-		offset += textToRemove.length - SPLIT_ENCODED.length;
-	}
-
-	const splitted = decoder.decode(baseEncoded).split(SPLIT);
-
-	let i = 0;
-	offset = 0;
-
-	for (const text of splitted) {
-		if (text.length !== 0) {
-			const textWithEmojis = twemoji.parse(text);
-
-			const expandedNodes: Array<TextType | MentionType> = textWithEmojis
-				.split(EMOJI_IMAGE_REGEX)
-				.filter((x) => x.length > 0)
-				.map((x) => ({
-					type: "text",
-					text: x,
-					marks: [],
-				}));
-
-			let match: RegExpExecArray | null;
-			let j = 1; // If the emoji is the first thing, an empty string is created
-
-			while ((match = EMOJI_IMAGE_ALT_REGEX.exec(textWithEmojis))) {
-				expandedNodes.splice(j, 0, {
-					type: "mention",
-					attrs: {
-						type: "emoji",
-						label: match[1],
-						avatar: null,
-						handle: null,
-						id: null,
-					},
+	// If no facets, just handle text and newlines
+	if (normalizedFacets.length === 0) {
+		const lines = text.split("\n");
+		for (let i = 0; i < lines.length; i++) {
+			const line = lines[i];
+			if (line.length > 0) {
+				addTextNodesWithEmoji(paragraph, line);
+			}
+			if (i < lines.length - 1) {
+				paragraph.content!.push({
+					type: "hardBreak",
+					attrs: undefined,
 				});
-
-				j++;
 			}
-
-			doc.content[0].content!.splice(i + offset, 0, ...expandedNodes);
-
-			offset += expandedNodes.length;
 		}
-		i++;
+		return doc;
+	}
+
+	const boundaries = new Set<number>([0, baseEncoded.length]);
+	for (const facet of normalizedFacets) {
+		boundaries.add(facet.index.byteStart);
+		boundaries.add(facet.index.byteEnd);
+	}
+	const sortedBoundaries = [...boundaries].sort((a, b) => a - b);
+
+	for (let i = 0; i < sortedBoundaries.length - 1; i++) {
+		const start = sortedBoundaries[i];
+		const end = sortedBoundaries[i + 1];
+		if (start === end) continue;
+
+		const segmentText = decoder.decode(baseEncoded.slice(start, end));
+
+		const covering = normalizedFacets.filter(
+			(facet) => facet.index.byteStart <= start && facet.index.byteEnd >= end,
+		);
+
+		if (covering.length === 0) {
+			addTextWithNewlines(paragraph, segmentText);
+			continue;
+		}
+
+		const features: Feature[] = [];
+		const featureKeys = new Set<string>();
+		for (const facet of covering) {
+			for (const feature of facet.features) {
+				const key = buildFeatureKey(feature);
+				if (featureKeys.has(key)) continue;
+				featureKeys.add(key);
+				features.push(feature);
+			}
+		}
+
+		const channelFeature = features.find(
+			(f) => f.$type === "social.colibri.richtext.facet#channel",
+		);
+		const mentionFeature = features.find(
+			(f) => f.$type === "social.colibri.richtext.facet#mention",
+		);
+
+		if (channelFeature) {
+			const channel = channels.find((x) => x.rkey === channelFeature.channel);
+			paragraph.content!.push({
+				type: "mention",
+				attrs: {
+					id: channelFeature.channel,
+					label: channel?.name || "Unknown Channel",
+					handle: null,
+					avatar: null,
+					type: "channel",
+				},
+			});
+		} else if (mentionFeature) {
+			const member = members.find((x) => x.member_did === mentionFeature.did);
+			paragraph.content!.push({
+				type: "mention",
+				attrs: {
+					id: mentionFeature.did,
+					label: member?.display_name || "Unknown User",
+					handle: member?.handle || "handle.invalid",
+					avatar: member?.avatar_url || "/user-placeholder.png",
+					type: "member",
+				},
+			});
+		} else {
+			const marks = features.reduce<Array<{ type: string; attrs: any }>>(
+				(acc, feature) => {
+					const markType = getMarkType(feature.$type);
+					if (!markType) return acc;
+					acc.push({
+						type: markType,
+						attrs: getMarkAttrs(feature) ?? null,
+					});
+					return acc;
+				},
+				[],
+			);
+
+			addMarkedTextWithNewlines(paragraph, segmentText, marks);
+		}
 	}
 
 	return doc;
 };
+
+/**
+ * Add text to a paragraph, handling newlines as hardBreak nodes and parsing emojis.
+ */
+function addTextWithNewlines(paragraph: any, text: string): void {
+	const lines = text.split("\n");
+	for (let i = 0; i < lines.length; i++) {
+		const line = lines[i];
+		if (line.length > 0) {
+			addTextNodesWithEmoji(paragraph, line);
+		}
+		if (i < lines.length - 1) {
+			paragraph.content!.push({
+				type: "hardBreak",
+				attrs: undefined,
+			});
+		}
+	}
+}
+
+/**
+ * Add text nodes with marks, splitting on newlines.
+ */
+function addMarkedTextWithNewlines(
+	paragraph: any,
+	text: string,
+	marks: Array<{ type: string; attrs: any }>,
+): void {
+	const lines = text.split("\n");
+	for (let i = 0; i < lines.length; i++) {
+		const line = lines[i];
+		if (line.length > 0) {
+			paragraph.content!.push({
+				type: "text",
+				text: line,
+				marks,
+			} as TextType);
+		}
+		if (i < lines.length - 1) {
+			paragraph.content!.push({
+				type: "hardBreak",
+				attrs: undefined,
+			});
+		}
+	}
+}
+
+/**
+ * Add text nodes with emoji support to a paragraph.
+ */
+function addTextNodesWithEmoji(paragraph: any, text: string): void {
+	const textWithEmojis = twemoji.parse(text);
+
+	const expandedNodes: Array<TextType | MentionType> = textWithEmojis
+		.split(EMOJI_IMAGE_REGEX)
+		.filter((x) => x.length > 0)
+		.map((x) => ({
+			type: "text",
+			text: x,
+			marks: [],
+		}));
+
+	let match: RegExpExecArray | null;
+	let j = 1;
+
+	while ((match = EMOJI_IMAGE_ALT_REGEX.exec(textWithEmojis))) {
+		expandedNodes.splice(j, 0, {
+			type: "mention",
+			attrs: {
+				type: "emoji",
+				label: match[1],
+				avatar: null,
+				handle: null,
+				id: null,
+			},
+		});
+		j++;
+	}
+
+	paragraph.content!.push(...expandedNodes);
+}
+
+function getMarkType(featureType: string): string {
+	switch (featureType) {
+		case "social.colibri.richtext.facet#bold":
+			return "bold";
+		case "social.colibri.richtext.facet#italic":
+			return "italic";
+		case "social.colibri.richtext.facet#underline":
+			return "underline";
+		case "social.colibri.richtext.facet#strikethrough":
+			return "strike";
+		case "social.colibri.richtext.facet#code":
+			return "code";
+		case "social.colibri.richtext.facet#link":
+			return "link";
+		default:
+			return "";
+	}
+}
+
+function getMarkAttrs(feature: any): any {
+	if (feature.$type === "social.colibri.richtext.facet#link") {
+		return {
+			href: feature.uri,
+			target: "_blank",
+			rel: "noopener noreferrer nofollow",
+		};
+	}
+	return undefined;
+}

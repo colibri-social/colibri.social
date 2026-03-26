@@ -94,6 +94,7 @@ export type ChannelData = {
 	rkey: string;
 	community: string;
 	uri?: string;
+	owner_only: boolean;
 };
 
 export type SidebarChannelData = {
@@ -104,6 +105,7 @@ export type SidebarChannelData = {
 	channel_type: ChannelType;
 	category_rkey: string | null;
 	voice_members: Array<string>;
+	owner_only: boolean;
 };
 
 export type SidebarCategoryData = {
@@ -711,12 +713,14 @@ export class ColibriSDK {
 		category: string,
 		name: string,
 		type: ChannelType,
+		ownerOnly: boolean,
 	): Promise<string> => {
 		const record = this.constructAtProtoRecord(did, RECORD_IDs.CHANNEL, {
 			name: name,
 			type,
 			category,
 			community,
+			ownerOnly,
 		});
 
 		const res = await this.agent.com.atproto.repo.createRecord(record);
@@ -729,6 +733,7 @@ export class ColibriSDK {
 		name: string,
 		description: string,
 		rkey: string,
+		ownerOnly: boolean,
 	): Promise<ChannelData> => {
 		const { type, community, category } = await this.getChannelData(did, rkey);
 
@@ -741,6 +746,7 @@ export class ColibriSDK {
 				type,
 				community,
 				category,
+				ownerOnly,
 			},
 			rkey,
 		);
@@ -749,6 +755,7 @@ export class ColibriSDK {
 
 		return {
 			...newRecord.record,
+			owner_only: ownerOnly,
 			rkey,
 		} as ChannelData;
 	};

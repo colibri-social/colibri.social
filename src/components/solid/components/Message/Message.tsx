@@ -666,14 +666,7 @@ export const Message: Component<{
 										/>
 									</Match>
 									<Match when={editMode()}>
-										<div
-											class="w-full"
-											onKeyDown={(e) => {
-												if (e.key === "Escape") {
-													cancelEdits();
-												}
-											}}
-										>
+										<div class="w-full">
 											<TextEditor
 												text={facetsToProseMirror(
 													newText().text,
@@ -682,6 +675,7 @@ export const Message: Component<{
 													channelContext?.channels() || [],
 												)}
 												placeholder=""
+												submitOnEnter
 												onChange={(text, facets) => {
 													setEditedText({ text, facets });
 												}}
@@ -689,6 +683,7 @@ export const Message: Component<{
 													submitEdits(text, facets);
 													return false;
 												}}
+												onEscape={cancelEdits}
 											/>
 										</div>
 										<div class="flex flex-row items-center gap-1">

@@ -247,6 +247,7 @@ const CommunityLayout: ParentComponent = (props) => {
 					type: ch.channel_type,
 					category: ch.category_rkey ?? "",
 					community,
+					owner_only: ch.owner_only,
 				})) ?? [];
 
 		const removedRkeys = new Set(globalContext.removedChannels);
@@ -376,7 +377,13 @@ const CommunityLayout: ParentComponent = (props) => {
 													{props.children}
 												</div>
 												<Show
-													when={!!params.channel && channel().type === "text"}
+													when={
+														(!!params.channel &&
+															channel().type === "text" &&
+															!channel()?.owner_only) ||
+														(channel()?.owner_only &&
+															globalContext.user.sub === community()?.owner_did)
+													}
 												>
 													<MessageInput
 														channelName={channel().name}

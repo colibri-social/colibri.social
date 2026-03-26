@@ -3,7 +3,10 @@ import { Image } from "astro:assets";
 import Logo from "@/assets/logo.png";
 ---
 
-<a href="/" class="w-40 flex flex-row gap-2 items-center">
+<a
+	href="/"
+	class="w-40 flex flex-row gap-2 items-center focus:outline outline-primary rounded-sm"
+>
 	<Image
 		src={Logo}
 		width={32}

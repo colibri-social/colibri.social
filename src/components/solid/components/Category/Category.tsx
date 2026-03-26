@@ -27,12 +27,12 @@ import { useVoiceChatContext } from "../../contexts/VoiceChatContext";
 import Icon from "../../icons/Icon";
 import type { MemberData } from "../../layouts/CommunityLayout";
 import { Button } from "../../shadcn-solid/Button";
+import { MemberProfilePopover } from "../MemberProfilePopover";
 import { SmallUser } from "../SmallUser";
+import { UserSettingsContextMenu } from "../VoiceChat/UserSettingsContextMenu";
 import { CategorySettingsModal } from "./CategorySettingsModal";
 import { ChannelCreationModal } from "./ChannelCreationModal";
 import { ChannelSettingsModal } from "./ChannelSettingsModal";
-import { UserSettingsContextMenu } from "../VoiceChat/UserSettingsContextMenu";
-import { MemberProfilePopover } from "../MemberProfilePopover";
 
 export type ChannelDropTarget = {
 	catRkey: string;

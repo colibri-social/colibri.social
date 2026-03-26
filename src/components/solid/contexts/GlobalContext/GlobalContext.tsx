@@ -341,6 +341,7 @@ export const GlobalContextProvider: ParentComponent<{
 					type: data.channel_type as ChannelData["type"],
 					category: data.category_rkey,
 					community: data.community_uri.split("/").pop()!,
+					owner_only: data.owner_only,
 				});
 				break;
 			case "channel_deleted":

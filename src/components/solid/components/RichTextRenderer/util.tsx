@@ -5,6 +5,7 @@ import type { Facet } from "@/utils/atproto/rich-text";
 import { purify } from "@/utils/purify";
 import { useChannelContext } from "../../contexts/ChannelContext";
 import { useCommunityContext } from "../../contexts/CommunityContext";
+import { buildFeatureKey, normalizeFacets } from "../../utils/normalize-facets";
 import { MemberProfilePopover } from "../MemberProfilePopover";
 
 export type TextWithFacets = {
@@ -182,92 +183,122 @@ export const renderWithFacets = (
 ): Array<JSX.Element> => {
 	const bytes = textEncoder.encode(input.text);
 
-	const sortedFacets = [...input.facets].sort((a, b) => {
-		if (a.index.byteStart !== b.index.byteStart) {
-			return a.index.byteStart - b.index.byteStart;
-		}
-		return a.index.byteEnd - b.index.byteEnd;
-	});
+	const normalizedFacets = normalizeFacets(input.facets);
 
-	type FacetGroup = {
-		byteStart: number;
-		byteEnd: number;
-		features: AnyFeature[];
-	};
-	const groups: FacetGroup[] = [];
-
-	for (const facet of sortedFacets) {
-		const last = groups[groups.length - 1];
-		if (
-			last &&
-			last.byteStart === facet.index.byteStart &&
-			last.byteEnd === facet.index.byteEnd
-		) {
-			last.features.push(...facet.features);
-		} else {
-			groups.push({
-				byteStart: facet.index.byteStart,
-				byteEnd: facet.index.byteEnd,
-				features: [...facet.features],
-			});
-		}
+	const boundaries = new Set<number>([0, bytes.length]);
+	for (const facet of normalizedFacets) {
+		boundaries.add(facet.index.byteStart);
+		boundaries.add(facet.index.byteEnd);
 	}
+	const sortedBoundaries = [...boundaries].sort((a, b) => a - b);
 
 	const result: Array<JSX.Element> = [];
-	let cursor = 0;
 
-	for (const group of groups) {
-		if (group.byteStart < cursor) continue;
+	for (let i = 0; i < sortedBoundaries.length - 1; i++) {
+		const start = sortedBoundaries[i];
+		const end = sortedBoundaries[i + 1];
+		if (start === end) continue;
 
-		if (group.byteStart > cursor) {
-			result.push(
-				<span
-					innerHTML={twemoji.parse(
-						purify(
-							nlToBr(textDecoder.decode(bytes.slice(cursor, group.byteStart))),
-						),
-					)}
-				/>,
-			);
+		const segmentText = nlToBr(textDecoder.decode(bytes.slice(start, end)));
+
+		const covering = normalizedFacets.filter(
+			(facet) => facet.index.byteStart <= start && facet.index.byteEnd >= end,
+		);
+
+		if (covering.length === 0) {
+			result.push(<span innerHTML={twemoji.parse(purify(segmentText))} />);
+			continue;
 		}
 
-		const facetText = nlToBr(
-			textDecoder.decode(bytes.slice(group.byteStart, group.byteEnd)),
-		);
+		const features: AnyFeature[] = [];
+		const featureKeys = new Set<string>();
+		for (const facet of covering) {
+			for (const feature of facet.features) {
+				const key = buildFeatureKey(feature);
+				if (featureKeys.has(key)) continue;
+				featureKeys.add(key);
+				features.push(feature);
+			}
+		}
 
-		// If a channel mention is present, render ONLY the channel mention
-		// style - other formatting features are stripped to prevent forgery.
-		const channelFeature = group.features.find(
+		const channelFeature = features.find(
 			(f) => f.$type === "social.colibri.richtext.facet#channel",
 		);
-		const mentionFeature = group.features.find(
+		const mentionFeature = features.find(
 			(f) => f.$type === "social.colibri.richtext.facet#mention",
 		);
 
 		let component: JSX.Element;
 
 		if (channelFeature) {
-			component = applyStyleForFacet(facetText, channelFeature, community);
+			component = applyStyleForFacet(segmentText, channelFeature, community);
 		} else if (mentionFeature) {
-			component = applyStyleForFacet(facetText, mentionFeature, community);
+			component = applyStyleForFacet(segmentText, mentionFeature, community);
 		} else {
-			for (const feature of group.features) {
-				component = applyStyleForFacet(facetText, feature, community);
+			let element: JSX.Element = (
+				<span innerHTML={twemoji.parse(purify(segmentText))} />
+			);
+
+			for (const feature of features) {
+				const wrappedElement = element;
+
+				switch (feature.$type) {
+					case "social.colibri.richtext.facet#bold":
+						element = (
+							<b data-facet-type="bold" class="font-bold">
+								{wrappedElement}
+							</b>
+						);
+						break;
+					case "social.colibri.richtext.facet#italic":
+						element = (
+							<i data-facet-type="italic" class="italic">
+								{wrappedElement}
+							</i>
+						);
+						break;
+					case "social.colibri.richtext.facet#underline":
+						element = (
+							<u data-facet-type="underline" class="underline">
+								{wrappedElement}
+							</u>
+						);
+						break;
+					case "social.colibri.richtext.facet#strikethrough":
+						element = (
+							<span data-facet-type="strikethrough" class="line-through">
+								{wrappedElement}
+							</span>
+						);
+						break;
+					case "social.colibri.richtext.facet#code":
+						element = <code data-facet-type="code">{wrappedElement}</code>;
+						break;
+					case "social.colibri.richtext.facet#link":
+						if ("uri" in feature) {
+							const uri = escapeAttr(String(feature.uri));
+							element = (
+								<a
+									data-facet-type="link"
+									title={uri}
+									data-uri={uri}
+									href={uri}
+									class="text-(--primary-hover) decoration-(--primary-hover) font-medium hover:underline inline w-fit"
+									target="_blank"
+									rel="noreferrer"
+								>
+									{wrappedElement}
+								</a>
+							);
+						}
+						break;
+				}
 			}
+
+			component = element;
 		}
 
 		result.push(component);
-		cursor = group.byteEnd;
-	}
-
-	if (cursor < bytes.length) {
-		result.push(
-			<span
-				innerHTML={twemoji.parse(
-					purify(nlToBr(textDecoder.decode(bytes.slice(cursor)))),
-				)}
-			/>,
-		);
 	}
 
 	return result;

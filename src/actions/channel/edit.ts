@@ -14,8 +14,11 @@ export const editChannel = defineAction({
 			message: "Description must be shorter than 256 characters.",
 		}),
 		rkey: z.string({ message: "No record key given." }),
+		ownerOnly: z
+			.boolean({ message: "ownerOnly must be a boolean." })
+			.default(false),
 	}),
-	handler: async ({ name, description, rkey }, { session }) => {
+	handler: async ({ name, description, rkey, ownerOnly }, { session }) => {
 		try {
 			if (!session || !session?.has("user")) {
 				throw new ActionError({
@@ -34,6 +37,7 @@ export const editChannel = defineAction({
 				name,
 				description,
 				rkey,
+				ownerOnly,
 			);
 
 			return channelData;

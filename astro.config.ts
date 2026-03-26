@@ -10,12 +10,51 @@ import tailwindcss from "@tailwindcss/vite";
 import solidJs from "@astrojs/solid-js";
 import { loadEnv } from "vite";
 import { vite as vidstack } from "vidstack/plugins";
+import type { AstroIntegration } from "astro";
 
 const { REDIS_PASSWORD, REDIS_URL } = loadEnv(
 	process.env.NODE_ENV!,
 	process.cwd(),
 	"",
 );
+
+const serverPortIntegration = (): AstroIntegration => {
+	let serverPort: number | undefined;
+
+	return {
+		name: "server-port-virtual-module",
+		hooks: {
+			"astro:config:setup": ({ updateConfig }) => {
+				updateConfig({
+					vite: {
+						plugins: [
+							{
+								name: "server-port-virtual-module",
+								resolveId(id) {
+									if (id === "virtual:server-port") {
+										return "\0virtual:server-port";
+									}
+									return null;
+								},
+								load(id) {
+									if (id === "\0virtual:server-port") {
+										const port =
+											typeof serverPort === "number" ? serverPort : 4321;
+										return `export const serverPort = ${port};`;
+									}
+									return null;
+								},
+							},
+						],
+					},
+				});
+			},
+			"astro:server:start": ({ address }) => {
+				serverPort = address.port;
+			},
+		},
+	};
+};
 
 // https://astro.build/config
 export default defineConfig({
@@ -49,7 +88,7 @@ export default defineConfig({
 			exclude: ["solid-phosphor"], // Vite thinks the JSX here is React
 		},
 	},
-	integrations: [solidJs()],
+	integrations: [solidJs(), serverPortIntegration()],
 	env: {
 		schema: {
 			PRIVATE_KEY_1: envField.string({ context: "server", access: "secret" }),

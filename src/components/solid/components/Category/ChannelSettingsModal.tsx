@@ -1,6 +1,6 @@
 import { actions } from "astro:actions";
 import type { ParentComponent } from "solid-js";
-import { type Component, createSignal } from "solid-js";
+import { type Component, createSignal, Show } from "solid-js";
 import { toast } from "somoto";
 import { RECORD_IDs } from "@/utils/atproto/lexicons";
 import { parseZodToErrorOrDisplay } from "@/utils/parse-zod-to-error-or-display";
@@ -8,6 +8,13 @@ import type { SidebarChannelData } from "@/utils/sdk";
 import { useGlobalContext } from "../../contexts/GlobalContext";
 import { Spinner } from "../../icons/Spinner";
 import { Button } from "../../shadcn-solid/Button";
+import {
+	Checkbox,
+	CheckboxControl,
+	CheckboxDescription,
+	CheckboxInput,
+	CheckboxLabel,
+} from "../../shadcn-solid/Checkbox";
 import {
 	TextField,
 	TextFieldInput,
@@ -22,6 +29,7 @@ const GeneralSettingsPage: Component<{ channel: SidebarChannelData }> = (
 	const [, { addChannel }] = useGlobalContext();
 
 	const [loading, setLoading] = createSignal<boolean>(false);
+	const [isOwnerOnly, setIsOwnerOnly] = createSignal<boolean>(false);
 	const [name, setName] = createSignal(props.channel.name);
 	const [description, setDescription] = createSignal(
 		props.channel.description || "",
@@ -29,7 +37,8 @@ const GeneralSettingsPage: Component<{ channel: SidebarChannelData }> = (
 
 	const hasEdited = (): boolean =>
 		name() !== props.channel.name ||
-		description() !== props.channel.description;
+		description() !== props.channel.description ||
+		isOwnerOnly() !== props.channel.owner_only;
 
 	const editChannelData = async () => {
 		setLoading(true);
@@ -38,6 +47,7 @@ const GeneralSettingsPage: Component<{ channel: SidebarChannelData }> = (
 			name: name(),
 			description: description(),
 			rkey: props.channel.rkey,
+			ownerOnly: isOwnerOnly(),
 		});
 
 		if (channelData.error) {
@@ -55,6 +65,7 @@ const GeneralSettingsPage: Component<{ channel: SidebarChannelData }> = (
 	const resetChannelData = () => {
 		setName(props.channel.name);
 		setDescription(props.channel.description);
+		setIsOwnerOnly(props.channel.owner_only);
 	};
 
 	return (
@@ -91,6 +102,22 @@ const GeneralSettingsPage: Component<{ channel: SidebarChannelData }> = (
 				<TextFieldLabel>Channel Description</TextFieldLabel>
 				<TextFieldInput maxLength={255} type="text" required />
 			</TextField>
+			<Show when={props.channel.channel_type === "text"}>
+				<Checkbox
+					checked={isOwnerOnly()}
+					onChange={setIsOwnerOnly}
+					class="flex justify-between items-center gap-x-2 w-full"
+				>
+					<div>
+						<CheckboxLabel>Owner only?</CheckboxLabel>
+						<CheckboxDescription>
+							Whether you will be the only one able to post in this channel.
+						</CheckboxDescription>
+					</div>
+					<CheckboxInput />
+					<CheckboxControl />
+				</Checkbox>
+			</Show>
 		</SettingsPage>
 	);
 };

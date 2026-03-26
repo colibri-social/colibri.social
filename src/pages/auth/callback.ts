@@ -1,3 +1,4 @@
+import { serverPort } from "virtual:server-port";
 import { Agent } from "@atproto/api";
 import type { APIRoute } from "astro";
 import { ColibriSDK } from "@/utils/sdk";
@@ -9,7 +10,7 @@ export const GET = (async ({ request, session }) => {
 
 		const callbackResult = await client.callback(params, {
 			redirect_uri: import.meta.env.DEV
-				? "http://127.0.0.1:4321/auth/callback"
+				? `http://127.0.0.1:${serverPort}/auth/callback`
 				: undefined,
 		});
 
