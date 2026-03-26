@@ -69,8 +69,6 @@ export const acceptInvitation = defineAction({
 				communityAtUri,
 			);
 
-			console.log(hasMembershipDeclaration);
-
 			let result: Promise<JoinState> | undefined;
 			let joinApprovalRkey: string | undefined;
 
@@ -128,8 +126,6 @@ export const acceptInvitation = defineAction({
 							if (parsedMessage.kind !== "commit") return;
 
 							if (parsedMessage.commit) {
-								console.log(parsedMessage);
-
 								if (
 									parsedMessage.commit.collection === RECORD_IDs.MEMBERSHIP &&
 									parsedMessage.commit.rkey === membershipRkey
@@ -168,13 +164,7 @@ export const acceptInvitation = defineAction({
 						},
 					);
 				});
-
-				if (!communityData.community.requires_approval_to_join) {
-					socket.close();
-					return await result;
-				}
 			} else {
-				socket.close();
 				return {
 					state: "success",
 					message: communityData.community.rkey,
