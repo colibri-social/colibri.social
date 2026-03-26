@@ -876,6 +876,7 @@ export const CommunitySettingsModal: ParentComponent = (props) => {
 					id: "joins",
 					component: JoinRequestApprovals,
 					icon: "ticket-icon",
+					visible: community()?.requires_approval_to_join ?? true,
 				},
 			]}
 			dangerPage={{

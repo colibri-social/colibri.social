@@ -99,6 +99,7 @@ export type SettingsPageInfo = {
 	id: string;
 	component: Component<any>;
 	icon: IconName;
+	visible?: boolean;
 };
 
 export const SettingsModal: ParentComponent<{
@@ -136,13 +137,15 @@ export const SettingsModal: ParentComponent<{
 						<div class="h-full flex flex-col gap-1">
 							<For each={props.pages}>
 								{(item) => (
-									<SettingsPageSelector
-										icon={item.icon}
-										activePage={activePage() === item.id}
-										onClick={() => setActivePage(item.id)}
-									>
-										{item.title}
-									</SettingsPageSelector>
+									<Show when={item.visible !== false}>
+										<SettingsPageSelector
+											icon={item.icon}
+											activePage={activePage() === item.id}
+											onClick={() => setActivePage(item.id)}
+										>
+											{item.title}
+										</SettingsPageSelector>
+									</Show>
 								)}
 							</For>
 						</div>

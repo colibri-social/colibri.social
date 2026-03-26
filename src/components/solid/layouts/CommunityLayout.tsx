@@ -163,7 +163,13 @@ const CommunityLayout: ParentComponent = (props) => {
 				(x) =>
 					!optimisticRemovedList.some((y) => y.member_did === x.member_did),
 			)
-			.filter((x) => x.status !== "pending")
+			.filter((x) => {
+				if (community()?.requires_approval_to_join) {
+					return x.status !== "pending";
+				}
+
+				return true;
+			})
 			.sort((a, b) => a.display_name.localeCompare(b.display_name));
 	});
 

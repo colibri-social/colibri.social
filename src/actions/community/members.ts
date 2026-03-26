@@ -3,6 +3,7 @@ import { APPVIEW_DOMAIN } from "astro:env/client";
 import { z } from "astro/zod";
 import type { MemberData } from "@/components/solid/layouts/CommunityLayout";
 import { RECORD_IDs } from "@/utils/atproto/lexicons";
+import type { UnresolvedCommunityData } from "@/utils/sdk";
 
 export const listPendingMembers = defineAction({
 	input: z.object({
@@ -54,13 +55,30 @@ export const listMembers = defineAction({
 
 			const atURI = `at://${owner}/${RECORD_IDs.COMMUNITY}/${community}`;
 
-			const memberData = (await (
-				await fetch(
-					`https://${APPVIEW_DOMAIN}/api/members?community=${encodeURIComponent(atURI)}`,
-				)
-			).json()) as Array<MemberData>;
+			const [communityData, memberData] = await Promise.all([
+				(await (
+					await fetch(
+						`https://${APPVIEW_DOMAIN}/api/community?community=${community}`,
+					)
+				).json()) as UnresolvedCommunityData,
+				(await (
+					await fetch(
+						`https://${APPVIEW_DOMAIN}/api/members?community=${encodeURIComponent(atURI)}`,
+					)
+				).json()) as Array<MemberData>,
+			]);
 
-			return memberData.filter((x) => x.status === "approved");
+			const data = memberData.filter(
+				(x) =>
+					x.status ===
+						(communityData.requires_approval_to_join
+							? "approved"
+							: "pending") || x.status === "approved",
+			);
+
+			console.log(data);
+
+			return data;
 		} catch (e) {
 			console.error(e);
 
