@@ -4,6 +4,7 @@ import AppScreenshot from "@/assets/landing/app-screenshot.png";
 import atShield from "@/assets/landing/atShield.webp";
 import Branch from "@/assets/landing/branch.webp";
 import Colibri from "@/assets/landing/Colibri.png";
+import Eye from "@/assets/landing/Eye.png";
 import IPhone from "@/assets/landing/iPhone.webp";
 import SettingsScreenshot from "@/assets/landing/settings-screenshot.png";
 // import Leaves from "@/assets/landing/Leaves.webp";
@@ -104,76 +105,117 @@ import PublicLayout from "@/layouts/PublicLayout.astro";
 	<section class="py-40 mx-auto w-full overflow-hidden">
 		<Clouds />
 		<div
-			class="bg-gradient-dark max-w-304 md:mx-auto mx-6 w-[calc(100%-48px)] md:w-[calc(100%-8rem)] rounded-2xl border border-border flex flex-col lg:flex-row h-fit drop-shadow-black/25 drop-shadow-2xl"
+			class="bg-gradient-dark max-w-304 md:mx-auto mx-6 w-[calc(100%-48px)] md:w-[calc(100%-8rem)] rounded-2xl border border-border flex flex-col h-fit drop-shadow-black/25 drop-shadow-2xl"
 		>
 			<div
-				class="h-auto w-full flex flex-col gap-12 p-6 border-b lg:border-b-0 border-border border-r"
+				class="w-full flex flex-col lg:flex-row p-6 border-b border-border gap-6"
 			>
+				<div class="flex flex-col gap-4 w-[calc(50%-36px)]">
+					<small class="text-primary text-sm">
+						Transparency at the center.
+					</small>
+					<h2 class="text-4xl font-black m-0">OPEN BY DESIGN.</h2>
+					<p class="m-0">
+						Because Colibri is built on the AT Protocol, <strong
+							class="text-foreground"
+							>your community chats are public and visible to everyone by
+							default</strong
+						>. This open ecosystem fosters transparency, makes it easy for new
+						members to discover your community, and ensures your data is never
+						locked behind a walled garden.
+					</p>
+					<p class="m-0">
+						We are closely following the protocol's development, and as soon as
+						it supports secure private data, we will implement private spaces so
+						you can have the best of both worlds!
+					</p>
+				</div>
 				<div
-					class="bg-gradient-feature p-8 rounded-sm h-92 flex items-center justify-center overflow-hidden"
+					class="bg-gradient-feature p-8 rounded-sm h-auto flex items-center justify-center overflow-hidden w-[calc(50%-36px)] ml-auto"
 					style="box-shadow: 0 0 5.625px 0 rgba(14, 0, 23, 0.50) inset;"
 				>
-					<MockVoiceCall client:visible />
-				</div>
-				<div class="flex flex-col gap-4">
-					<h2 class="text-4xl font-black m-0">
-						CHAT, TALK, AND HANG OUT IN REAL TIME.
-					</h2>
-					<p class="m-0">
-						From quick chats and drop-in voice or video calls to organized forum
-						discussions, Colibri gives your community the perfect space to stay
-						connected and share what matters.
-					</p>
+					<Image
+						src={Eye}
+						width={240}
+						height={240}
+						quality={100}
+						alt="A white, 3D eye."
+						class="z-10"
+					/>
 				</div>
 			</div>
-			<div class="h-full w-full flex flex-col">
-				<div class="flex flex-col gap-4 p-6 h-full border-b border-border">
-					<div class="h-30 flex flex-row items-center justify-center relative">
-						<Image
-							src={atShield}
-							width={120}
-							height={120}
-							alt="A white, 3D shield with 'at://' written on it."
-							class="z-10"
-						/>
-						<BinaryMarquee />
+			<div class="w-full h-auto flex flex-col lg:flex-row">
+				<div
+					class="h-auto w-full flex flex-col gap-12 p-6 border-b lg:border-b-0 border-border border-r"
+				>
+					<div
+						class="bg-gradient-feature p-8 rounded-sm h-92 flex items-center justify-center overflow-hidden"
+						style="box-shadow: 0 0 5.625px 0 rgba(14, 0, 23, 0.50) inset;"
+					>
+						<MockVoiceCall client:visible />
 					</div>
-					<h2 class="text-4xl font-black m-0">YOU OWN YOUR DATA.</h2>
-					<p class="m-0 prose prose-invert prose-neutral">
-						Your data isn’t trapped on our servers, it's stored within the
-						personal data server that hosts your ATmosphere profile. You can
-						check our <a href="/faq">FAQ page</a> for more information.
-					</p>
+					<div class="flex flex-col gap-4">
+						<h2 class="text-4xl font-black m-0">
+							CHAT, TALK, AND HANG OUT IN REAL TIME.
+						</h2>
+						<p class="m-0">
+							From quick chats and drop-in voice or video calls to organized
+							forum discussions, Colibri gives your community the perfect space
+							to stay connected and share what matters.
+						</p>
+					</div>
 				</div>
-				<div class="flex flex-col gap-4 p-6 h-full">
-					<div class="h-30 flex flex-row items-center justify-around">
-						<div class="w-23 flex items-center justify-center">
+				<div class="h-full w-full flex flex-col">
+					<div class="flex flex-col gap-4 p-6 h-full border-b border-border">
+						<div
+							class="h-30 flex flex-row items-center justify-center relative"
+						>
 							<Image
-								src={User}
-								width={72}
+								src={atShield}
+								width={120}
+								height={120}
+								alt="A white, 3D shield with 'at://' written on it."
+								class="z-10"
+							/>
+							<BinaryMarquee />
+						</div>
+						<h2 class="text-4xl font-black m-0">YOU OWN YOUR DATA.</h2>
+						<p class="m-0 prose prose-invert prose-neutral">
+							Your data isn’t trapped on our servers, it's stored within the
+							personal data server that hosts your ATmosphere profile. You can
+							check our <a href="/faq">FAQ page</a> for more information.
+						</p>
+					</div>
+					<div class="flex flex-col gap-4 p-6 h-full">
+						<div class="h-30 flex flex-row items-center justify-around">
+							<div class="w-23 flex items-center justify-center">
+								<Image
+									src={User}
+									width={72}
+									height={72}
+									alt="A white, 3D User icon."
+								/>
+							</div>
+							<Image
+								src={Tools}
+								width={120}
+								height={120}
+								alt="A white 3D-looking hammer and wrench."
+							/>
+							<Image
+								src={UserVerified}
+								width={92}
 								height={72}
-								alt="A white, 3D User icon."
+								alt="A white, 3D User icon with a checkmark."
 							/>
 						</div>
-						<Image
-							src={Tools}
-							width={120}
-							height={120}
-							alt="A white 3D-looking hammer and wrench."
-						/>
-						<Image
-							src={UserVerified}
-							width={92}
-							height={72}
-							alt="A white, 3D User icon with a checkmark."
-						/>
+						<h2 class="text-4xl font-black m-0">EASY MOD TOOLING.</h2>
+						<p class="m-0">
+							Running more than just a group chat? Colibri allows you to easily
+							block and remove messages, kick members from your community, and
+							stop them from joining again.
+						</p>
 					</div>
-					<h2 class="text-4xl font-black m-0">EASY MOD TOOLING.</h2>
-					<p class="m-0">
-						Running more than just a group chat? Colibri allows you to easily
-						block and remove messages, kick members from your community, and
-						stop them from joining again.
-					</p>
 				</div>
 			</div>
 		</div>

@@ -680,7 +680,6 @@ export const Message: Component<{
 													setEditedText({ text, facets });
 												}}
 												sendMessage={async (text, facets) => {
-													console.log("test");
 													submitEdits(text, facets);
 													return false;
 												}}

@@ -1,4 +1,4 @@
-import { useNavigate } from "@solidjs/router";
+import { A, useNavigate } from "@solidjs/router";
 import type { Component } from "solid-js";
 import { Button } from "../shadcn-solid/Button";
 import { NewCommunityModal } from "./NewCommunityModal";
@@ -37,9 +37,16 @@ export const DevelopmentPlaceholder: Component = () => {
 					!
 				</p>
 
-				<NewCommunityModal navigate={navigate}>
-					<Button>Create a community</Button>
-				</NewCommunityModal>
+				<div class="flex flex-row items-center gap-4">
+					<NewCommunityModal navigate={navigate}>
+						<Button>Create a community</Button>
+					</NewCommunityModal>
+					<a href="https://colibri.social/invite/1b0e708bd85c414e">
+						<Button variant="secondary">
+							Join the Colibri Social Community
+						</Button>
+					</a>
+				</div>
 			</div>
 		</div>
 	);
