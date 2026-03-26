@@ -37,12 +37,15 @@ export const buildSuggestions = (
 		},
 		{
 			char: ":",
-			items: ({ query }) =>
-				emojis()
+			items: ({ query }) => {
+				if (query.length < 2) return [];
+
+				return emojis()
 					.filter((emoji) =>
 						emoji.name.toLowerCase().startsWith(query.toLowerCase()),
 					)
-					.slice(0, 5),
+					.slice(0, 5);
+			},
 			render: createMentionRenderer(":"),
 		},
 	];

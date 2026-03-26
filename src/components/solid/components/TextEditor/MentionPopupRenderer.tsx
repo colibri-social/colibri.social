@@ -60,6 +60,11 @@ export const createMentionRenderer = (char: "@" | "#" | ":") => {
 				container = document.createElement("div");
 				container.style.cssText =
 					"position: absolute; z-index: 9999; pointer-events: auto;";
+
+				if (char === ":" && props.query.length < 2) {
+					container.style.display = "none";
+				}
+
 				document.body.appendChild(container);
 
 				// Position above the cursor
@@ -93,6 +98,12 @@ export const createMentionRenderer = (char: "@" | "#" | ":") => {
 				currentItems = props.items;
 				currentCommand = props.command;
 
+				if (char === ":" && props.query.length < 2) {
+					container.style.display = "none";
+				} else {
+					container.style.display = "block";
+				}
+
 				if (props.clientRect) {
 					const rect = props.clientRect();
 					if (rect) {
@@ -120,7 +131,8 @@ export const createMentionRenderer = (char: "@" | "#" | ":") => {
 			},
 
 			onKeyDown(props: SuggestionKeyDownProps): boolean {
-				if (!currentCommand || !currentItems) return false;
+				if (!currentCommand || !currentItems || currentItems.length === 0)
+					return false;
 
 				if (props.event.key === "ArrowUp") {
 					setSelectedIndex(
