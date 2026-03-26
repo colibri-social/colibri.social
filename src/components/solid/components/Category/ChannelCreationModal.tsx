@@ -65,7 +65,6 @@ export const ChannelCreationModal: ParentComponent<{
 			});
 			return;
 		}
-
 		if (result.data) {
 			addChannel(result.data);
 			setOpen(false);
@@ -108,6 +107,7 @@ export const ChannelCreationModal: ParentComponent<{
 						<Select
 							options={["Text", "Voice", "Forum"]}
 							placeholder="Channel type"
+							disallowEmptySelection
 							value={channelType()}
 							onChange={setChannelType}
 							itemComponent={(props) => (

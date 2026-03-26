@@ -494,6 +494,7 @@ const JoinRequestApprovals: Component = () => {
 																	onClick={() => {
 																		acceptJoinRequest(data);
 																	}}
+																	variant="secondary"
 																>
 																	<Spinner
 																		classList={{
@@ -771,6 +772,122 @@ const MembersPage: Component = () => {
 	);
 };
 
+const fetchBlockedMembers = async ([community, owner]: [string, string]) => {
+	return await actions.listBlockedMembers({ community, owner });
+};
+
+const BlockedMembersPage: Component = () => {
+	const params = useParams();
+	const [globalData] = useGlobalContext();
+
+	const community = () => params.community!;
+
+	const [loading, setLoading] = createSignal<boolean>(false);
+	const [blockedMembers, { refetch }] = createResource(
+		() => [community(), globalData.user.sub] as [string, string],
+		fetchBlockedMembers,
+		{ initialValue: { data: [], error: undefined } },
+	);
+
+	const unblockMember = async (member: string) => {
+		setLoading(true);
+
+		const unblockRes = await actions.unblockDidFromCommunity({
+			community: community(),
+			member: member,
+		});
+
+		if (unblockRes.error) {
+			setLoading(false);
+			toast.error("Failed to remove unblock user", {
+				description: parseZodToErrorOrDisplay(unblockRes.error.message),
+			});
+			return;
+		}
+
+		setLoading(false);
+
+		// TODO(app): Band-aid fix, race condition n all that. Wait for member to join via global context.
+		setTimeout(refetch, 1000);
+	};
+
+	return (
+		<SettingsPage
+			loading={loading}
+			title={`Blocked Members${(blockedMembers().data ?? []).length > 0 ? ` (${(blockedMembers().data ?? []).length})` : ""}`}
+		>
+			<Switch>
+				<Match when={!blockedMembers()}>
+					<div class="my-2 flex w-full items-center justify-center">
+						<Spinner />
+					</div>
+				</Match>
+				<Match when={blockedMembers()}>
+					{(member) => (
+						<Table class="h-full">
+							<TableHeader>
+								<TableRow>
+									<TableHead class="w-[350px]">User</TableHead>
+									<TableHead class="text-right">Actions</TableHead>
+								</TableRow>
+							</TableHeader>
+							<TableBody class="relative">
+								<Switch>
+									<Match when={member().error}>
+										<Alert variant="destructive" class="my-2 absolute">
+											<AlertTitle>
+												An error occurred while fetching the data:
+											</AlertTitle>
+											<AlertDescription>
+												{member().error!.message}
+											</AlertDescription>
+										</Alert>
+									</Match>
+									<Match when={member().data}>
+										{(data) => (
+											<For each={data()}>
+												{(data) => {
+													return (
+														<TableRow>
+															<TableCell>
+																<Suspense fallback={<Spinner />}>
+																	<SmallUserAsync did={data.member_did} />
+																</Suspense>
+															</TableCell>
+															<TableCell class="text-right">
+																<Button
+																	size="sm"
+																	disabled={loading()}
+																	onClick={() => {
+																		unblockMember(data.member_did);
+																	}}
+																	variant="secondary"
+																>
+																	<Spinner
+																		classList={{
+																			hidden: !loading(),
+																			block: loading(),
+																		}}
+																	/>
+																	Unblock
+																</Button>
+															</TableCell>
+														</TableRow>
+													);
+												}}
+											</For>
+										)}
+									</Match>
+								</Switch>
+							</TableBody>
+						</Table>
+					)}
+				</Match>
+			</Switch>
+		</SettingsPage>
+	);
+};
+
 const DangerSettingsPage: Component = () => {
 	const [globalData, { removeCommunity }] = useGlobalContext();
 	const params = useParams();
@@ -877,6 +994,12 @@ export const CommunitySettingsModal: ParentComponent = (props) => {
 					component: JoinRequestApprovals,
 					icon: "ticket-icon",
 					visible: community()?.requires_approval_to_join ?? true,
+				},
+				{
+					title: "Blocked Users",
+					id: "blocks",
+					component: BlockedMembersPage,
+					icon: "prohibit-icon",
 				},
 			]}
 			dangerPage={{

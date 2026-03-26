@@ -17,13 +17,13 @@ export const useProcessedSidebar = (props: {
 }) => {
 	const [globalContext] = useGlobalContext();
 
-	const categoryCache = new Map<string, SidebarCategoryData>();
-
 	return createMemo(
 		(): {
 			categories: Array<SidebarCategoryData>;
 			uncategorized: Array<SidebarChannelData>;
 		} => {
+			const categoryCache = new Map<string, SidebarCategoryData>();
+
 			const serverCategoryRkeys = new Set(
 				props.data.categories.map((c) => c.rkey),
 			);

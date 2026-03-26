@@ -332,7 +332,6 @@ export const GlobalContextProvider: ParentComponent<{
 				});
 				break;
 			case "community_deleted":
-				console.log("Community deleted", data);
 				context[1].removeCommunity(data.rkey);
 				break;
 			case "channel_created":

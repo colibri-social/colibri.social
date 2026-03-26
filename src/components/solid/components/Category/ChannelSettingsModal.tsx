@@ -169,7 +169,7 @@ export const ChannelSettingsModal: ParentComponent<{
 	channel: SidebarChannelData;
 	class?: string;
 }> = (props) => {
-	const did = props.channel.uri.split("/")[2];
+	const did = props.channel.uri?.split("/")[2];
 
 	return (
 		<SettingsModal

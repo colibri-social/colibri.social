@@ -73,8 +73,6 @@ export const removeApprovalRecord = defineAction({
 
 			const approval = await sdk.findApprovalRecord(member, communityAtURI);
 
-			console.log(approval);
-
 			if (!approval) {
 				throw new ActionError({
 					message: "Unable to find approval record.",

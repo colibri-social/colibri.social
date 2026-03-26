@@ -41,3 +41,37 @@ export const blockDidFromCommunity = defineAction({
 		return;
 	},
 });
+
+export const unblockDidFromCommunity = defineAction({
+	input: z.object({
+		member: z.string({ message: "No member DID given." }),
+		community: z.string({ message: "No community given." }),
+	}),
+	handler: async ({ member, community }, { session }) => {
+		if (!session || !session?.has("user")) {
+			throw new ActionError({
+				message: "Forbidden",
+				code: "FORBIDDEN",
+			});
+		}
+
+		const user = (await session.get("user"))!;
+		const oauthSession = await client.restore(user.sub!);
+		const agent = new Agent(oauthSession);
+		const sdk = new ColibriSDK(agent);
+
+		await sdk.getCommunityData(agent.did!, community);
+
+		await fetch(
+			`https://${APPVIEW_DOMAIN}/api/community/ban?community=${encodeURIComponent(`at://${agent.did!}/${RECORD_IDs.COMMUNITY}/${community}`)}&member_did=${encodeURIComponent(member)}`,
+			{
+				method: "DELETE",
+				headers: new Headers({
+					Authorization: `Bearer ${INVITE_API_KEY}`,
+				}),
+			},
+		);
+
+		return;
+	},
+});
