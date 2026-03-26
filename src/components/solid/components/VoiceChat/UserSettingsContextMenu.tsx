@@ -100,7 +100,7 @@ export const UserSettingsContextMenu: ParentComponent<{
 
 	return (
 		<ContextMenu>
-			<ContextMenuTrigger disabled={props.isLocal}>
+			<ContextMenuTrigger class="w-full" disabled={props.isLocal}>
 				{props.children}
 			</ContextMenuTrigger>
 			<ContextMenuPortal>

@@ -31,6 +31,8 @@ import { SmallUser } from "../SmallUser";
 import { CategorySettingsModal } from "./CategorySettingsModal";
 import { ChannelCreationModal } from "./ChannelCreationModal";
 import { ChannelSettingsModal } from "./ChannelSettingsModal";
+import { UserSettingsContextMenu } from "../VoiceChat/UserSettingsContextMenu";
+import { MemberProfilePopover } from "../MemberProfilePopover";
 
 export type ChannelDropTarget = {
 	catRkey: string;
@@ -218,15 +220,33 @@ const SortableChannel: Component<{
 						liveVoiceChannelMembers().length > 0
 					}
 				>
-					<div class="pl-8.5 text-muted-foreground flex flex-col select-none">
+					<div class="pl-7.5 text-muted-foreground flex flex-col select-none">
 						<For each={liveVoiceChannelMembers()}>
 							{(did) => (
-								<SmallUser
-									did={member(did).member_did}
+								<MemberProfilePopover
+									banner={member(did).banner_url}
 									avatar={member(did).avatar_url}
+									did={member(did).member_did}
 									displayName={member(did).display_name}
+									description={member(did).description}
+									emoji={member(did).emoji}
 									handle={member(did).handle}
-								/>
+									status={member(did).status_text}
+								>
+									<UserSettingsContextMenu
+										isLocal={did === globalData.user.sub}
+										isStream={false}
+										did={did}
+									>
+										<SmallUser
+											hoverable
+											did={member(did).member_did}
+											avatar={member(did).avatar_url}
+											displayName={member(did).display_name}
+											handle={member(did).handle}
+										/>
+									</UserSettingsContextMenu>
+								</MemberProfilePopover>
 							)}
 						</For>
 					</div>

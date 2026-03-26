@@ -1,43 +1,86 @@
-# Astro Starter Kit: Minimal
+# Colibri
 
-```sh
-pnpm create astro@latest -- --template minimal
+![Let your community spread it's wings](https://github.com/colibri-social/colibri.social/blob/main/public/og.png)
+
+Colibri is an open source chat platform built on the AT protocol for communities big and small. It gives you the ability to create communities, manage members, and communicate through text, voice, and forum channels, all while maintaining true ownership of your data.
+
+Visit us at [colibri.social](https://colibri.social)
+
+## What is Colibri?
+
+You can learn more about Colibri on our [about page](https://colibri.social/about).
+
+## Local Development
+
+### Prerequisites
+
+- Node.js 24.13.0 or higher
+- pnpm 10.29.3 or higher
+- Redis server (for session management)
+- Docker and Docker Compose (optional, for containerized deployment)
+
+### Getting Started
+
+1. Clone the repository:
+
+```bash
+git clone https://github.com/colibri-social/colibri.social.git
+cd colibri.social
 ```
 
-> 🧑‍🚀 **Seasoned astronaut?** Delete this file. Have fun!
+2. Install dependencies:
 
-## 🚀 Project Structure
-
-Inside of your Astro project, you'll see the following folders and files:
-
-```text
-/
-├── public/
-├── src/
-│   └── pages/
-│       └── index.astro
-└── package.json
+```bash
+pnpm install
 ```
 
-Astro looks for `.astro` or `.md` files in the `src/pages/` directory. Each page is exposed as a route based on its file name.
+3. Set up environment variables by creating a `.env` file:
 
-There's nothing special about `src/components/`, but that's where we like to put any Astro/React/Vue/Svelte/Preact components.
+```bash
+# Server-only secrets
+PRIVATE_KEY_1=your_private_key_1
+PRIVATE_KEY_2=your_private_key_2
+INVITE_API_KEY=your_invite_api_key
+LIVEKIT_API_KEY=your_livekit_api_key
+LIVEKIT_API_SECRET=your_livekit_api_secret
+REDIS_PASSWORD=your_redis_password
+REDIS_URL=redis://optional_url
 
-Any static assets, like images, can be placed in the `public/` directory.
+# Client-public variables
+APPVIEW_DOMAIN=your_appview_domain
+LIVEKIT_SERVER_URL=wss://livekit.colibri.social
 
-## 🧞 Commands
+# Optional
+SAME_TLD_DID=optional_did
+```
 
-All commands are run from the root of the project, from a terminal:
+4. Start the development server:
 
-| Command                   | Action                                           |
-| :------------------------ | :----------------------------------------------- |
-| `pnpm install`             | Installs dependencies                            |
-| `pnpm dev`             | Starts local dev server at `localhost:4321`      |
-| `pnpm build`           | Build your production site to `./dist/`          |
-| `pnpm preview`         | Preview your build locally, before deploying     |
-| `pnpm astro ...`       | Run CLI commands like `astro add`, `astro check` |
-| `pnpm astro -- --help` | Get help using the Astro CLI                     |
+```bash
+pnpm dev
+```
 
-## 👀 Want to learn more?
+The application will be available at `http://localhost:4321`.
 
-Feel free to check [our documentation](https://docs.astro.build) or jump into our [Discord server](https://astro.build/chat).
+You'll need a local redis instance running alongside the dev server. For this, you can use the docker-compose.dev.yml file.
+
+```bash
+pnpm docker:dev
+```
+
+### Building for Production
+
+```bash
+pnpm build
+pnpm start # You need to provide environment variables here for this to work correctly
+```
+
+## Contributing
+
+Contributions are welcome! Please feel free to open issues and pull requests.
+
+## License
+
+This project is open source. Please check the LICENSE file for details.
+
+## Future Plans

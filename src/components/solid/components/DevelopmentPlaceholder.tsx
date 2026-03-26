@@ -21,8 +21,12 @@ export const DevelopmentPlaceholder: Component = () => {
 				<h3>Welcome to Colibri!</h3>
 				<p>
 					Colibri is under active development <b>and in alpha</b>. You can check
-					our <a href="TODO(launch)">announcement post</a> for more information.
-					If you want to get involved in the development, check out our{" "}
+					our{" "}
+					<a href="https://colibri.leaflet.pub/3mhxzpvpvps2m">
+						announcement post
+					</a>{" "}
+					for more information. If you want to get involved in the development,
+					check out our{" "}
 					<a
 						href="https://github.com/colibri-social"
 						target="_blank"

@@ -6,9 +6,15 @@ export const SmallUser: Component<{
 	displayName?: string;
 	handle?: string;
 	hideAvatar?: boolean;
+	hoverable?: boolean;
 }> = (props) => {
 	return (
-		<div class="inline text-wrap">
+		<div
+			class="inline text-wrap"
+			classList={{
+				"hover:bg-muted/50 w-full block! rounded-sm px-1": props.hoverable,
+			}}
+		>
 			<Show when={!props.hideAvatar}>
 				<img
 					src={props.avatar || "/user-placeholder.png"}
