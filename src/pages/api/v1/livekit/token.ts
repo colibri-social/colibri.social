@@ -34,7 +34,6 @@ export const GET: APIRoute = async (context) => {
 
 	const at = new AccessToken(LIVEKIT_API_KEY, LIVEKIT_API_SECRET, {
 		identity,
-		// TODO(launch): Refresh tokens on client every 10 minutes
 		ttl: import.meta.env.DEV ? "24h" : "15min",
 	});
 

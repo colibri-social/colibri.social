@@ -6,7 +6,11 @@ import { createChannel } from "./channel/create";
 import { deleteChannel } from "./channel/delete";
 import { editChannel } from "./channel/edit";
 import { reorderChannels } from "./channel/reorder";
-import { approveJoinRequest } from "./community/approve-join-request";
+import {
+	approveJoinRequest,
+	removeApprovalRecord,
+} from "./community/approve-join-request";
+import { blockDidFromCommunity } from "./community/block";
 import { editCategoryOrder } from "./community/category-order";
 import { createCommunity } from "./community/create";
 import { deleteCommunity } from "./community/delete";
@@ -16,7 +20,7 @@ import {
 	deleteInviteCode,
 	listInviteCodes,
 } from "./community/invite";
-import { listPendingMembers } from "./community/members";
+import { listMembers, listPendingMembers } from "./community/members";
 import { getEmbedDataForURI } from "./embeds/get";
 import { blockMessage } from "./message/block";
 import { deleteMessage } from "./message/delete";
@@ -60,8 +64,11 @@ export const server = {
 	getUserProfileData,
 	leaveCommunity,
 	listPendingMembers,
+	listMembers,
 	approveJoinRequest,
 	blockMessage,
 	editProfile,
 	setStatus,
+	removeApprovalRecord,
+	blockDidFromCommunity,
 };

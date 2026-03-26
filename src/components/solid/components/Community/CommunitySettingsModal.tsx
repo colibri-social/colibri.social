@@ -1,9 +1,10 @@
 import { actions } from "astro:actions";
 import type { Details } from "@kobalte/core/file-field";
 import { useNavigate, useParams } from "@solidjs/router";
-import type { ParentComponent } from "solid-js";
+import type { Accessor, ParentComponent } from "solid-js";
 import {
 	type Component,
+	createEffect,
 	createResource,
 	createSignal,
 	For,
@@ -57,6 +58,23 @@ import { SettingsInfoPage } from "../SettingsInfoPage";
 import { SettingsModal, SettingsPage } from "../SettingsModal";
 import { SmallUserAsync } from "../SmallUserAsync";
 import { DeleteLinkModal } from "./DeleteLinkModal";
+import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuPortal,
+	DropdownMenuTrigger,
+} from "../../shadcn-solid/DropdownMenu";
+import {
+	Dialog,
+	DialogContent,
+	DialogFooter,
+	DialogHeader,
+	DialogPortal,
+	DialogTrigger,
+} from "../../shadcn-solid/Dialog";
+import type { Setter } from "solid-js";
+import { useCommunityContext } from "../../contexts/CommunityContext";
 
 const GeneralSettingsPage: Component = () => {
 	const [globalData, { addCommunity }] = useGlobalContext();
@@ -421,7 +439,7 @@ const JoinRequestApprovals: Component = () => {
 			return;
 		}
 
-		// TODO(launch): Band-aid fix, race condition n all that. Wait for member to join via global context.
+		// TODO(app): Band-aid fix, race condition n all that. Wait for member to join via global context.
 		setTimeout(refetch, 1000);
 	};
 
@@ -438,7 +456,7 @@ const JoinRequestApprovals: Component = () => {
 						<Table class="h-full">
 							<TableHeader>
 								<TableRow>
-									<TableHead class="w-[150px]">User</TableHead>
+									<TableHead class="w-[350px]">User</TableHead>
 									<TableHead class="text-right">Accept</TableHead>
 								</TableRow>
 							</TableHeader>
@@ -485,6 +503,257 @@ const JoinRequestApprovals: Component = () => {
 																	/>
 																	Accept
 																</Button>
+															</TableCell>
+														</TableRow>
+													);
+												}}
+											</For>
+										)}
+									</Match>
+								</Switch>
+							</TableBody>
+						</Table>
+					)}
+				</Match>
+			</Switch>
+		</SettingsPage>
+	);
+};
+
+type ActionDialogData = {
+	open: boolean;
+	type: "kick" | "block";
+};
+
+const ActionDialog: ParentComponent<{
+	dialog: Accessor<ActionDialogData>;
+	setDialog: Setter<ActionDialogData>;
+	member: MemberData;
+	refetch: () => void;
+}> = (props) => {
+	const community = useCommunityContext()!;
+	const [loading, setLoading] = createSignal(false);
+
+	const header = () =>
+		props.dialog().type === "kick"
+			? `Kick ${props.member.display_name ?? props.member.handle} from this community?`
+			: `Block ${props.member.display_name ?? props.member.handle} from this community?`;
+
+	const description = () =>
+		props.dialog().type === "kick"
+			? "They will be able to re-join with a link."
+			: "They will be unable to rejoin unless you revoke the block.";
+
+	const handleAction = async () => {
+		setLoading(true);
+
+		const kickData = await actions.removeApprovalRecord({
+			community: community.rkey(),
+			member: props.member.member_did,
+		});
+
+		if (kickData.error) {
+			setLoading(false);
+			toast.error("Failed to remove approval record", {
+				description: parseZodToErrorOrDisplay(kickData.error.message),
+			});
+			return;
+		}
+
+		if (props.dialog().type === "block") {
+			const banData = await actions.blockDidFromCommunity({
+				community: community.rkey(),
+				member: props.member.member_did,
+			});
+
+			if (banData.error) {
+				setLoading(false);
+				toast.error("Failed to ban user. They have been kicked instead.", {
+					description: parseZodToErrorOrDisplay(banData.error.message),
+				});
+				return;
+			}
+		}
+
+		setLoading(false);
+
+		// TODO(app): Band-aid fix, race condition n all that. Wait for member to join via global context.
+		setTimeout(props.refetch, 1000);
+	};
+
+	return (
+		<Dialog open={props.dialog().open}>
+			<DialogPortal>
+				<DialogContent class="w-128">
+					<DialogHeader>
+						<h2 class="m-0 text-center">{header()}</h2>
+					</DialogHeader>
+					<div class="flex flex-col gap-4">
+						<p class="m-0 text-center">{description()}</p>
+					</div>
+					<DialogFooter>
+						<Button
+							variant="secondary"
+							disabled={loading()}
+							onClick={() =>
+								props.setDialog((current) => ({
+									open: false,
+									type: current.type,
+								}))
+							}
+						>
+							Cancel
+						</Button>
+						<Button
+							variant="destructive"
+							disabled={loading()}
+							onClick={handleAction}
+						>
+							<Spinner
+								classList={{
+									hidden: !loading(),
+									block: loading(),
+								}}
+							/>
+							{props.dialog().type === "kick" ? "Kick" : "Block"}
+						</Button>
+					</DialogFooter>
+				</DialogContent>
+			</DialogPortal>
+		</Dialog>
+	);
+};
+
+const MemberActionsContextMenu: ParentComponent<{
+	member: MemberData;
+	refetch: () => void;
+}> = (props) => {
+	const community = useCommunityContext()!;
+
+	const [dialog, setDialog] = createSignal<ActionDialogData>({
+		open: false,
+		type: "kick",
+	});
+
+	return (
+		<>
+			<ActionDialog
+				refetch={props.refetch}
+				member={props.member}
+				dialog={dialog}
+				setDialog={setDialog}
+			/>
+			<DropdownMenu placement="bottom-end">
+				<DropdownMenuTrigger>{props.children}</DropdownMenuTrigger>
+				<DropdownMenuPortal>
+					<DropdownMenuContent>
+						<Show when={community.requiresApprovalToJoin}>
+							<DropdownMenuItem
+								class="text-destructive!"
+								onClick={() => setDialog({ open: true, type: "kick" })}
+							>
+								<Icon
+									name="boot-icon"
+									variant="fill"
+									class="text-destructive"
+								/>
+								Kick
+							</DropdownMenuItem>
+						</Show>
+						<DropdownMenuItem
+							class="text-destructive!"
+							onClick={() => setDialog({ open: true, type: "block" })}
+						>
+							<Icon
+								name="prohibit-icon"
+								variant="fill"
+								class="text-destructive"
+							/>
+							Block
+						</DropdownMenuItem>
+					</DropdownMenuContent>
+				</DropdownMenuPortal>
+			</DropdownMenu>
+		</>
+	);
+};
+
+const fetchMembers = async ([community, owner]: [string, string]) => {
+	return await actions.listMembers({ community, owner });
+};
+
+const MembersPage: Component = () => {
+	const params = useParams();
+	const [globalData] = useGlobalContext();
+
+	const community = () => params.community!;
+
+	const [loading] = createSignal<boolean>(false);
+	const [communityMembers, { refetch }] = createResource(
+		() => [community(), globalData.user.sub] as [string, string],
+		fetchMembers,
+		{ initialValue: { data: [], error: undefined } },
+	);
+
+	return (
+		<SettingsPage
+			loading={loading}
+			title={`Members${(communityMembers().data ?? []).length > 0 ? ` (${(communityMembers().data ?? []).length})` : ""}`}
+		>
+			<Switch>
+				<Match when={!communityMembers()}>
+					<div class="my-2 flex w-full items-center justify-center">
+						<Spinner />
+					</div>
+				</Match>
+				<Match when={communityMembers()}>
+					{(member) => (
+						<Table class="h-full">
+							<TableHeader>
+								<TableRow>
+									<TableHead class="w-[350px]">User</TableHead>
+									<TableHead class="text-right">Actions</TableHead>
+								</TableRow>
+							</TableHeader>
+							<TableBody class="relative">
+								<Switch>
+									<Match when={member().error}>
+										<Alert variant="destructive" class="my-2 absolute">
+											<AlertTitle>
+												An error occurred while fetching the data:
+											</AlertTitle>
+											<AlertDescription>
+												{member().error!.message}
+											</AlertDescription>
+										</Alert>
+									</Match>
+									<Match when={member().data}>
+										{(data) => (
+											<For each={data()}>
+												{(data) => {
+													return (
+														<TableRow>
+															<TableCell>
+																<Suspense fallback={<Spinner />}>
+																	<SmallUserAsync did={data.member_did} />
+																</Suspense>
+															</TableCell>
+															<TableCell class="text-right">
+																<MemberActionsContextMenu
+																	member={data}
+																	refetch={refetch}
+																>
+																	<Button
+																		size="sm"
+																		class="p-0 aspect-square"
+																		variant="ghost"
+																	>
+																		<Icon
+																			name="dots-three-outline-vertical-icon"
+																			variant="fill"
+																		/>
+																	</Button>
+																</MemberActionsContextMenu>
 															</TableCell>
 														</TableRow>
 													);
@@ -589,6 +858,12 @@ export const CommunitySettingsModal: ParentComponent = (props) => {
 					id: "general",
 					component: GeneralSettingsPage,
 					icon: "wrench-icon",
+				},
+				{
+					title: "Members",
+					id: "members",
+					component: MembersPage,
+					icon: "users-icon",
 				},
 				{
 					title: "Invite Links",

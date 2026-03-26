@@ -49,3 +49,47 @@ export const approveJoinRequest = defineAction({
 		}
 	},
 });
+
+export const removeApprovalRecord = defineAction({
+	input: z.object({
+		member: z.string({ message: "No member DID given." }),
+		community: z.string({ message: "No community given." }),
+	}),
+	handler: async ({ member, community }, { session }) => {
+		try {
+			if (!session || !session?.has("user")) {
+				throw new ActionError({
+					message: "Forbidden",
+					code: "FORBIDDEN",
+				});
+			}
+
+			const user = (await session.get("user"))!;
+			const oauthSession = await client.restore(user.sub!);
+			const agent = new Agent(oauthSession);
+			const sdk = new ColibriSDK(agent);
+
+			const communityAtURI = `at://${agent.did!}/${RECORD_IDs.COMMUNITY}/${community}`;
+
+			const approval = await sdk.findApprovalRecord(member, communityAtURI);
+
+			console.log(approval);
+
+			if (!approval) {
+				throw new ActionError({
+					message: "Unable to find approval record.",
+					code: "NOT_FOUND",
+				});
+			}
+
+			await sdk.deleteJoinApproval(approval);
+		} catch (e) {
+			console.error(e);
+
+			throw new ActionError({
+				message: (e as Error).message,
+				code: "INTERNAL_SERVER_ERROR",
+			});
+		}
+	},
+});

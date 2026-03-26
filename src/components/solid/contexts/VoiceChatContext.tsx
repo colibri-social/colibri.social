@@ -354,7 +354,6 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 
 					const token = await fetchToken(usedChannelName, identity());
 
-					// TODO(launch): Update noise surpression and echo cancellation when value changes
 					const roomOptions: RoomOptions = {
 						adaptiveStream: false,
 						dynacast: true,
@@ -375,7 +374,7 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 
 					const connectOptions: RoomConnectOptions = {
 						autoSubscribe: true,
-						maxRetries: 10, // TODO(launch): Error handling
+						maxRetries: 10,
 					};
 
 					const r = new Room(roomOptions);
@@ -485,12 +484,28 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 						}
 					});
 
-					// TODO(launch): Handle these events.
-					// RoomEvent.Disconnected, show reconnecting UI, attempt rejoin
-					// RoomEvent.MediaDevicesError, surface a helpful error message
+					r.on(RoomEvent.Disconnected, (reason) => {
+						playSound("leave");
+						setVoiceChatContext("connection", {
+							error: `Disconnected from channel${reason ? `: ${reason.toString()}` : "."}`,
+						});
+					});
+
+					r.on(RoomEvent.MediaDevicesError, (error) => {
+						setVoiceChatContext("connection", {
+							error: error.message,
+						});
+					});
+
+					r.on(RoomEvent.MediaDevicesError, (error) => {
+						setVoiceChatContext("connection", {
+							error: error.message,
+						});
+					});
+
+					// TODO(app): Handle this for muted/deafened/unmuted icons on tiles.
 					// RoomEvent.DataReceived, if you add a chat/data channel
 
-					// TODO(launch): Show loading state from here
 					await r.connect(
 						LIVEKIT_SERVER_URL || "ws://localhost:7880",
 						token,

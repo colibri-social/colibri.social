@@ -59,7 +59,7 @@ export const GlobalContextProvider: ParentComponent<{
 		},
 		memberProfileOverrides: [],
 		memberStatusOverrides: [],
-		// TODO(launch): This might not reflect the user's preferred state. Update when user can change state themselves.
+		// TODO(app): This might not reflect the user's preferred state.
 		userOnlineStates: [{ did: props.contextData.user.sub, state: "online" }],
 		knownVoiceChannelStates: [],
 	});
@@ -332,7 +332,7 @@ export const GlobalContextProvider: ParentComponent<{
 				});
 				break;
 			case "community_deleted":
-				// TODO(launch): handle community deletion
+				context[1].removeCommunity(data.rkey);
 				break;
 			case "channel_created":
 				context[1].addChannel({

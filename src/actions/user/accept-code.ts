@@ -62,75 +62,92 @@ export const acceptInvitation = defineAction({
 				});
 			}
 
-			const socket = new WebSocket(
-				`https://jetstream.colibri.social/subscribe?wantedCollections=social.colibri.membership&wantedCollections=social.colibri.approval`,
+			const communityAtUri = `at://${communityData.community.owner_did}/${RECORD_IDs.COMMUNITY}/${communityData.community.rkey}`;
+
+			const hasMembershipDeclaration = await sdk.findMembershipDeclaration(
+				agent.did!,
+				communityAtUri,
 			);
 
-			await new Promise((res) => {
-				socket.addEventListener("open", res);
-			});
-
+			let result: Promise<JoinState> | undefined;
 			let joinApprovalRkey: string | undefined;
 
-			const result = new Promise<JoinState>((res, rej) => {
-				let membershipCreated = false;
-				let membershipApproved = false;
+			if (!hasMembershipDeclaration) {
+				const socket = new WebSocket(
+					`https://jetstream.colibri.social/subscribe?wantedCollections=social.colibri.membership&wantedCollections=social.colibri.approval`,
+				);
 
-				const timeout = setTimeout(() => {
-					if (!membershipCreated) {
-						return rej({
-							state: "failed",
-							message: "Operation timed out.",
-						});
-					}
-					if (membershipCreated && !membershipApproved) {
-						return rej({
-							state: "partial",
-							message: "Waiting for owner approval.",
-						});
-					}
-					return rej({
-						state: "failed",
-						message: "Unknown error.",
-					});
-				}, 15_000);
+				await new Promise((res) => {
+					socket.addEventListener("open", res);
+				});
 
-				socket.addEventListener("message", (message: MessageEvent<string>) => {
-					const parsedMessage = JSON.parse(message.data) as JetstreamEvent;
+				result = new Promise<JoinState>((res, rej) => {
+					let membershipCreated = false;
+					let membershipApproved = false;
 
-					if (parsedMessage.kind !== "commit") return;
-
-					if (parsedMessage.commit) {
-						if (
-							parsedMessage.commit.collection === RECORD_IDs.MEMBERSHIP &&
-							parsedMessage.commit.rkey === membershipRkey
-						) {
-							membershipCreated = true;
-						}
-
-						if (
-							parsedMessage.commit.collection === RECORD_IDs.APPROVAL &&
-							parsedMessage.commit.rkey === joinApprovalRkey
-						) {
-							membershipApproved = true;
-						}
-
-						if (membershipCreated && membershipApproved) {
-							clearTimeout(timeout);
-							res({
-								state: "success",
-								message: communityData.community.rkey,
+					const timeout = setTimeout(() => {
+						if (!membershipCreated) {
+							return rej({
+								state: "failed",
+								message: "Operation timed out.",
 							});
 						}
-					}
-				});
-			});
+						if (membershipCreated && !membershipApproved) {
+							return rej({
+								state: "partial",
+								message: "Waiting for owner approval.",
+							});
+						}
+						return rej({
+							state: "failed",
+							message: "Unknown error.",
+						});
+					}, 15_000);
 
-			if (!communityData.community.requires_approval_to_join) {
-				return await result;
+					socket.addEventListener(
+						"message",
+						(message: MessageEvent<string>) => {
+							const parsedMessage = JSON.parse(message.data) as JetstreamEvent;
+
+							if (parsedMessage.kind !== "commit") return;
+
+							if (parsedMessage.commit) {
+								if (
+									parsedMessage.commit.collection === RECORD_IDs.MEMBERSHIP &&
+									parsedMessage.commit.rkey === membershipRkey
+								) {
+									membershipCreated = true;
+								}
+
+								if (
+									parsedMessage.commit.collection === RECORD_IDs.APPROVAL &&
+									parsedMessage.commit.rkey === joinApprovalRkey
+								) {
+									membershipApproved = true;
+								}
+
+								if (membershipCreated && membershipApproved) {
+									clearTimeout(timeout);
+									res({
+										state: "success",
+										message: communityData.community.rkey,
+									});
+								}
+							}
+						},
+					);
+				});
+
+				if (!communityData.community.requires_approval_to_join) {
+					return await result;
+				}
+			} else {
+				return {
+					state: "success",
+					message: communityData.community.rkey,
+				};
 			}
 
-			const communityAtUri = `at://${communityData.community.owner_did}/${RECORD_IDs.COMMUNITY}/${communityData.community.rkey}`;
 			const membershipRkey = await sdk.createMembershipDeclaration(
 				agent.did!,
 				communityAtUri,

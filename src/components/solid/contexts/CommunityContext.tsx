@@ -13,6 +13,7 @@ export type CommunityContextData = {
 	owner: Accessor<string>;
 	rkey: Accessor<string>;
 	sidebar: AccessorWithLatest<SidebarData | null | undefined>;
+	requiresApprovalToJoin: Accessor<boolean>;
 };
 
 export const CommunityContext = createContext<CommunityContextData>();
@@ -25,6 +26,7 @@ export const CommunityContextProvider: ParentComponent<CommunityContextData> = (
 		owner: props.owner,
 		rkey: props.rkey,
 		sidebar: props.sidebar,
+		requiresApprovalToJoin: props.requiresApprovalToJoin,
 	};
 
 	return (

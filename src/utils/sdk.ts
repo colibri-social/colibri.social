@@ -1103,6 +1103,66 @@ export class ColibriSDK {
 	};
 
 	/**
+	 * Finds the approval record of a community for a user.
+	 * @param member The DID of the member the approval is for.
+	 * @param communityAtUri The AT URI of the community to find the record in.
+	 */
+	public findApprovalRecord = async (
+		member: string,
+		communityAtUri: string,
+	): Promise<string | false> => {
+		let cursor: string | undefined;
+
+		while (true) {
+			const didDoc = await fetch(
+				`https://plc.directory/${this.agent.did!}`,
+			).then((r) => r.json());
+
+			const pdsEndpoint: string = didDoc.service?.find(
+				(s: { id: string }) => s.id === "#atproto_pds",
+			)?.serviceEndpoint;
+
+			const foreignAgent = new AtpAgent({ service: pdsEndpoint });
+
+			const membershipRecords = await foreignAgent.com.atproto.repo.listRecords(
+				{
+					repo: this.agent.did!,
+					collection: RECORD_IDs.APPROVAL,
+					limit: 100,
+					cursor,
+				},
+			);
+
+			for (const record of membershipRecords.data.records) {
+				if (
+					record.value.community === communityAtUri &&
+					(record.value.membership as string).includes(member)
+				) {
+					return record.uri.split("/").pop()!;
+				}
+			}
+
+			cursor = membershipRecords.data.cursor;
+
+			if (!cursor) break; // No more pages, record not found
+		}
+
+		return false;
+	};
+
+	/**
+	 * Deletes a given join approval record.
+	 * @param rkey The AT URI of the community to find the record in.
+	 */
+	public deleteJoinApproval = async (rkey: string): Promise<void> => {
+		await this.agent.com.atproto.repo.deleteRecord({
+			repo: this.agent.did!,
+			collection: RECORD_IDs.APPROVAL,
+			rkey: rkey,
+		});
+	};
+
+	/**
 	 * Creates a membership approval for a given community.
 	 * @param did The DID of the community owner.
 	 * @param declarationAtUri The AT URI of the declaration record.
