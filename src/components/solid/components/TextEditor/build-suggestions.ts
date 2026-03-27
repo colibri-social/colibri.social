@@ -17,12 +17,14 @@ export const buildSuggestions = (
 			char: "@",
 			items: ({ query }) =>
 				members()
-					.filter((member) =>
-						(member.display_name ?? member.handle)
-							?.toLowerCase()
-							.startsWith(query.toLowerCase()),
+					.filter(
+						(member) =>
+							member.display_name
+								?.toLowerCase()
+								.startsWith(query.toLowerCase()) ||
+							member.handle?.toLowerCase().startsWith(query.toLowerCase()),
 					)
-					.slice(0, 5),
+					.slice(0, 8),
 			render: createMentionRenderer("@"),
 		},
 		{
