@@ -511,14 +511,14 @@ export const Message: Component<{
 				}}
 			>
 				<Show when={props.data.parent_message}>
-					<div class="flex flex-row gap-4 group/reply cursor-pointer w-fit max-w-full">
+					<div class="flex flex-row gap-4 group/reply cursor-pointer w-full max-w-full">
 						<button
 							type="button"
 							class="before:w-8 before:block before:h-2 before:border-t before:border-l before:border-muted-foreground/50 before:rounded-tl-sm w-10 h-4 relative before:absolute before:left-5.5 before:transform before:-translate-x-1 group-hover/reply:before:border-foreground cursor-pointer"
 							onClick={() => jumpToMessage(props.data.parent_message!)}
 						/>
 						<div
-							class="flex flex-row items-center gap-2 group-hover/reply:text-foreground max-w-[calc(100%-5rem)]"
+							class="flex flex-row items-center gap-2 group-hover/reply:text-foreground w-full max-w-[calc(100%-4rem)]"
 							onClick={() => jumpToMessage(props.data.parent_message!)}
 						>
 							<img
