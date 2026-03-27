@@ -511,14 +511,14 @@ export const Message: Component<{
 				}}
 			>
 				<Show when={props.data.parent_message}>
-					<div class="flex flex-row gap-4 group/reply cursor-pointer w-fit">
+					<div class="flex flex-row gap-4 group/reply cursor-pointer w-fit max-w-full">
 						<button
 							type="button"
-							class="before:w-8 before:block before:h-2 before:border-t before:border-l before:border-muted-foreground/50 before:rounded-tl-sm w-10 h-4 relative before:absolute before:left-1/2 before:transform before:-translate-x-1 group-hover/reply:before:border-foreground cursor-pointer"
+							class="before:w-8 before:block before:h-2 before:border-t before:border-l before:border-muted-foreground/50 before:rounded-tl-sm w-10 h-4 relative before:absolute before:left-5.5 before:transform before:-translate-x-1 group-hover/reply:before:border-foreground cursor-pointer"
 							onClick={() => jumpToMessage(props.data.parent_message!)}
 						/>
 						<div
-							class="flex flex-row items-center gap-2 group-hover/reply:text-foreground"
+							class="flex flex-row items-center gap-2 group-hover/reply:text-foreground max-w-full px-10"
 							onClick={() => jumpToMessage(props.data.parent_message!)}
 						>
 							<img
@@ -531,10 +531,11 @@ export const Message: Component<{
 								alt={optimisticUserData().parent_message!.display_name}
 								class="rounded-full"
 							/>
-							<strong class="text-xs">
-								{optimisticUserData().parent_message!.display_name}
+							<strong class="text-xs block">
+								{optimisticUserData().parent_message!.display_name ||
+									optimisticUserData().parent_message!.handle}
 							</strong>
-							<span class="text-xs">
+							<span class="text-xs overflow-hidden text-ellipsis text-nowrap flex-1">
 								{optimisticUserData().parent_message!.text}
 							</span>
 						</div>
