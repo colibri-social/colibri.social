@@ -72,7 +72,7 @@ const applyStyleForFacet = (
 					description={member!.description}
 					emoji={member!.emoji}
 					handle={member!.handle}
-					status={member!.status}
+					status={member!.status_text}
 					class="inline"
 				>
 					<div
