@@ -518,7 +518,7 @@ export const Message: Component<{
 							onClick={() => jumpToMessage(props.data.parent_message!)}
 						/>
 						<div
-							class="flex flex-row items-center gap-2 group-hover/reply:text-foreground max-w-full px-10"
+							class="flex flex-row items-center gap-2 group-hover/reply:text-foreground max-w-[calc(100%-5rem)]"
 							onClick={() => jumpToMessage(props.data.parent_message!)}
 						>
 							<img
