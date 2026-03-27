@@ -151,7 +151,9 @@ export const MemberProfilePopover: ParentComponent<{
 							</Show>
 						</div>
 						<div class="px-1 flex flex-col">
-							<span class="font-black text-xl">{props.displayName}</span>
+							<span class="font-black text-xl">
+								{props.displayName || props.handle}
+							</span>
 							<div class="flex flex-row gap-2 items-center flex-wrap">
 								<span class="text-sm">@{props.handle}</span>
 								<span class="w-1 h-1 rounded-full bg-muted-foreground" />

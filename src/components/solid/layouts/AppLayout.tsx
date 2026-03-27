@@ -237,7 +237,7 @@ const AppLayout: ParentComponent = (props) => {
 					</Button>
 				</div>
 			</div>
-			<div class="flex h-full w-full">
+			<div class="flex h-[calc(100%-40px)] w-full">
 				<aside class="flex flex-col h-full w-14 p-2 pb-3">
 					<nav class="w-full h-full flex flex-col gap-2">
 						<div class="w-full h-full flex flex-col gap-2">

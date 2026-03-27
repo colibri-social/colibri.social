@@ -275,6 +275,16 @@ const CommunityLayout: ParentComponent = (props) => {
 
 	const channel = () => channels().find((x) => x.rkey === params.channel)!;
 
+	const owner = () =>
+		membersWithOptimisticUpdates().find(
+			(x) => x.member_did === community()?.owner_did,
+		) || ({} as MemberData);
+
+	const nonOwnerMembers = () =>
+		membersWithOptimisticUpdates()?.filter(
+			(x) => x.member_did !== community()?.owner_did,
+		) ?? [];
+
 	return (
 		<MessageContextProvider>
 			<CommunityContextProvider
@@ -407,10 +417,69 @@ const CommunityLayout: ParentComponent = (props) => {
 										hidden: !globalContext.uiStates.membersListVisible,
 									}}
 								>
+									<span>Owner</span>
+									<MemberProfilePopover
+										banner={owner().banner_url}
+										avatar={owner().avatar_url}
+										description={owner().description}
+										displayName={owner().display_name}
+										emoji={owner().emoji}
+										handle={owner().handle}
+										status={owner().status_text}
+										did={owner().member_did}
+									>
+										<div class="flex flex-row gap-2 rounded-sm px-2 py-1 hover:bg-card items-center cursor-pointer h-12 flex-1">
+											<div class="relative w-9 h-9">
+												<img
+													src={owner().avatar_url || "/user-placeholder.png"}
+													alt={owner().display_name}
+													width={36}
+													height={36}
+													class="rounded-full w-9 h-9"
+												/>
+												<div
+													class="w-2 h-2 rounded-full absolute bottom-px right-px outline-2 outline-background"
+													classList={{
+														"bg-green-500": owner().state === "online",
+														"bg-yellow-500": owner().state === "away",
+														"bg-red-500": owner().state === "dnd",
+														"bg-neutral-500": owner().state === "offline",
+													}}
+												/>
+											</div>
+											<div class="flex flex-col w-[calc(100%-36px-8px)]">
+												<span class="font-medium leading-5 overflow-hidden text-ellipsis">
+													{owner().display_name || owner().handle}
+												</span>
+												<Show
+													when={
+														owner().status_text && owner().state !== "offline"
+													}
+												>
+													<span class="text-sm w-full leading-5 flex flex-row items-center gap-2">
+														<Show when={owner().emoji}>
+															<span
+																class="[&>img]:min-w-4 [&>img]:min-h-4 [&>img]:w-4 [&>img]:h-4 [&>img]inline"
+																innerHTML={twemoji.parse(owner().emoji!)}
+															/>
+														</Show>
+														<span class="w-full overflow-hidden text-ellipsis whitespace-nowrap">
+															{owner().status_text}
+														</span>
+													</span>
+												</Show>
+											</div>
+										</div>
+									</MemberProfilePopover>
 									<span>Members</span>
-									<div class="flex flex-col w-full h-full gap-1">
+									<div
+										class="flex flex-col w-full gap-1"
+										style={{
+											height: `${nonOwnerMembers().length * 48 + (nonOwnerMembers().length - 1) * 4}px`,
+										}}
+									>
 										<Suspense fallback={<MemberListSkeleton />}>
-											<For each={membersWithOptimisticUpdates() ?? []}>
+											<For each={nonOwnerMembers()}>
 												{(item) => {
 													ensureUserStateCached(
 														item.member_did,
@@ -457,8 +526,8 @@ const CommunityLayout: ParentComponent = (props) => {
 																	/>
 																</div>
 																<div class="flex flex-col w-[calc(100%-36px-8px)]">
-																	<span class="font-medium leading-5">
-																		{item.display_name}
+																	<span class="font-medium leading-5 overflow-hidden text-ellipsis">
+																		{item.display_name || item.handle}
 																	</span>
 																	<Show
 																		when={
