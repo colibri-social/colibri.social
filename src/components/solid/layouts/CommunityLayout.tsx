@@ -280,6 +280,10 @@ const CommunityLayout: ParentComponent = (props) => {
 			(x) => x.member_did === community()?.owner_did,
 		) || ({} as MemberData);
 
+	const ownerState = () =>
+		globalContext.userOnlineStates.find((x) => x.did === community()?.owner_did)
+			?.state || "offline";
+
 	const nonOwnerMembers = () =>
 		membersWithOptimisticUpdates()?.filter(
 			(x) => x.member_did !== community()?.owner_did,
@@ -425,7 +429,7 @@ const CommunityLayout: ParentComponent = (props) => {
 										displayName={owner().display_name}
 										emoji={owner().emoji}
 										handle={owner().handle}
-										status={owner().status_text}
+										status={owner().state}
 										did={owner().member_did}
 									>
 										<div class="flex flex-row gap-2 rounded-sm px-2 py-1 hover:bg-card items-center cursor-pointer h-12 flex-1">
@@ -440,10 +444,10 @@ const CommunityLayout: ParentComponent = (props) => {
 												<div
 													class="w-2 h-2 rounded-full absolute bottom-px right-px outline-2 outline-background"
 													classList={{
-														"bg-green-500": owner().state === "online",
-														"bg-yellow-500": owner().state === "away",
-														"bg-red-500": owner().state === "dnd",
-														"bg-neutral-500": owner().state === "offline",
+														"bg-green-500": ownerState() === "online",
+														"bg-yellow-500": ownerState() === "away",
+														"bg-red-500": ownerState() === "dnd",
+														"bg-neutral-500": ownerState() === "offline",
 													}}
 												/>
 											</div>

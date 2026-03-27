@@ -34,7 +34,10 @@ const ChannelView: Component = () => {
 	const params = useParams();
 	const [previousChannel, setPreviousChannel] = createSignal();
 	const channel = createMemo(() => params.channel!);
-	const [messageData, { registerEmbedLoadCallback }] = useMessageContext();
+	const [
+		messageData,
+		{ registerEmbedLoadCallback, registerScrollToBottomCallback },
+	] = useMessageContext();
 	const [
 		globalState,
 		{
@@ -163,9 +166,18 @@ const ChannelView: Component = () => {
 			}
 		});
 
+		const unregisterScroll = registerScrollToBottomCallback(
+			(force?: boolean) => {
+				if (force || pinnedToBottom || atBottom) {
+					requestAnimationFrame(scrollToBottom);
+				}
+			},
+		);
+
 		onCleanup(() => {
 			chatContainer?.removeEventListener("scroll", updateAtBottom);
 			unregister();
+			unregisterScroll();
 		});
 	});
 

@@ -6,15 +6,15 @@ import {
 	EmojiPicker,
 	type EmojiSkinTone,
 } from "solid-emoji-picker";
-import { createSignal, type Accessor, type ParentComponent } from "solid-js";
+import { type Accessor, createSignal, type ParentComponent } from "solid-js";
 import {
 	Popover,
 	PopoverContent,
 	PopoverPortal,
 	PopoverTrigger,
 } from "../../shadcn-solid/Popover";
-import { getTwemoji } from "./util";
 import { TextField, TextFieldInput } from "../../shadcn-solid/text-field";
+import { getTwemoji } from "./util";
 
 /**
  * An emoji popover picker used for reacting to messages.

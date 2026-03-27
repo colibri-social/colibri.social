@@ -3,6 +3,7 @@ import { createStore } from "solid-js/store";
 import type { IndexedMessageData } from "@/utils/sdk";
 
 export type EmbedLoadCallback = () => void;
+export type ScrollToBottomCallback = (force?: boolean) => void;
 
 export type MessageContextData = {
 	replyingTo: IndexedMessageData | undefined;
@@ -18,6 +19,8 @@ export type MessageContextUtility = {
 	clearEditingMessage: () => void;
 	registerEmbedLoadCallback: (cb: EmbedLoadCallback) => () => void;
 	notifyEmbedLoad: () => void;
+	registerScrollToBottomCallback: (cb: ScrollToBottomCallback) => () => void;
+	triggerScrollToBottom: (force?: boolean) => void;
 };
 
 export const MessageContext =
@@ -31,6 +34,7 @@ export const MessageContextProvider: ParentComponent = (props) => {
 	});
 
 	const embedLoadCallbacks = new Set<EmbedLoadCallback>();
+	const scrollToBottomCallbacks = new Set<ScrollToBottomCallback>();
 
 	const context: [MessageContextData, MessageContextUtility] = [
 		messageContext,
@@ -61,6 +65,13 @@ export const MessageContextProvider: ParentComponent = (props) => {
 			},
 			notifyEmbedLoad() {
 				for (const cb of embedLoadCallbacks) cb();
+			},
+			registerScrollToBottomCallback(cb) {
+				scrollToBottomCallbacks.add(cb);
+				return () => scrollToBottomCallbacks.delete(cb);
+			},
+			triggerScrollToBottom(force) {
+				for (const cb of scrollToBottomCallbacks) cb(force);
 			},
 		},
 	];

@@ -96,7 +96,8 @@ export const MessageInput: Component<{
 	const channel = () => params.channel!;
 	const fileField = useFileFieldContext();
 
-	const [messageData, { clearReplyingTo }] = useMessageContext();
+	const [messageData, { clearReplyingTo, triggerScrollToBottom }] =
+		useMessageContext();
 	const [globalData, { addPendingMessage, removePendingMessage }] =
 		useGlobalContext();
 	const [fileUploadProgress, setFileUploadProgress] = createSignal<
@@ -204,12 +205,15 @@ export const MessageInput: Component<{
 			return false;
 		}
 
-		// return true;
+		triggerScrollToBottom(true);
 		return true;
 	};
 
 	createEffect(() => {
 		const target = messageData.replyingTo;
+		const _files = props.files()?.acceptedFiles.length;
+
+		triggerScrollToBottom();
 
 		if (!target) return;
 
@@ -223,7 +227,7 @@ export const MessageInput: Component<{
 	return (
 		<div class="w-full flex h-fit flex-col gap-0 relative shrink-0">
 			<Show when={messageData.replyingTo !== undefined}>
-				<div class="absolute top-0 left-0 transform -translate-y-full border-y border-border w-full px-4 py-2 bg-primary/5 backdrop-blur-sm text-foreground flex justify-between items-center">
+				<div class="border-y border-border w-full px-4 py-2 bg-blue-500/5 backdrop-blur-sm text-foreground flex justify-between items-center">
 					<span>
 						Replying to <strong>{messageData.replyingTo!.display_name}</strong>
 					</span>
@@ -284,6 +288,7 @@ export const MessageInput: Component<{
 						<TextEditor
 							placeholder={`Message ${props.channelName}`}
 							sendMessage={sendMessage}
+							onEscape={clearReplyingTo}
 						/>
 					</div>
 				</div>

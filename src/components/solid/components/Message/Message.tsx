@@ -299,9 +299,25 @@ export const Message: Component<{
 	const isRepliedTo = () => {
 		if ("hash" in props.data) return;
 
+		return messageData.replyingTo?.rkey === props.data.rkey;
+	};
+
+	/**
+	 * A derived signal to check whether a message is in reply to the user or contains a facet mentioning the user.
+	 * @returns Whether the message is in reply to another message or not.
+	 */
+	const containsMentionOrIsReplyToUser = () => {
+		if ("hash" in props.data) return false;
+
 		return (
-			messageData.replyingTo?.author_did === globalData.user.sub &&
-			messageData.replyingTo?.rkey === props.data.rkey
+			props.data.parent_message?.author_did === globalData.user.sub ||
+			props.data.facets?.some((x) =>
+				x.features.some(
+					(y) =>
+						y.$type === "social.colibri.richtext.facet#mention" &&
+						y.did === globalData.user.sub,
+				),
+			)
 		);
 	};
 
@@ -504,8 +520,10 @@ export const Message: Component<{
 					"pb-0 pt-0.5": isSubsequentMessage(),
 					"pb-0 pt-1 mt-2": !isSubsequentMessage(),
 					"border-transparent": !isRepliedTo(),
-					"bg-primary/15 hover:bg-primary/25 border-primary": isRepliedTo(),
-					"bg-primary/15": isFocused(),
+					"bg-primary/10 hover:bg-primary/15! border-primary!":
+						containsMentionOrIsReplyToUser(),
+					"bg-blue-500/5 hover:bg-blue-500/10! border-blue-500": isRepliedTo(),
+					"bg-blue-500/15": isFocused(),
 					"pb-0.5": props.hasSubsequent,
 					"pb-2": messageReactions().length > 0,
 				}}
