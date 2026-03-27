@@ -87,7 +87,10 @@ export const MentionList: Component<{
 												(item as MemberData).avatar_url ||
 												`/user-placeholder.png`
 											}
-											alt={(item as MemberData).display_name}
+											alt={
+												(item as MemberData).display_name ||
+												(item as MemberData).handle
+											}
 											onError={(e) => {
 												(e.currentTarget as HTMLImageElement).src =
 													`/user-placeholder.png`;
@@ -106,7 +109,8 @@ export const MentionList: Component<{
 									</span>
 									<span class="flex flex-col items-start">
 										<span class="mention-popup-name">
-											{(item as MemberData).display_name}
+											{(item as MemberData).display_name ||
+												(item as MemberData).handle}
 										</span>
 									</span>
 								</Match>
