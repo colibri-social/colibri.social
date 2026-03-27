@@ -1,5 +1,5 @@
 name: "🐛 Bug report"
-description: Create a report to help us improve colibri.social
+description: Create a report to help us improve Colibri
 title: "[BUG]: "
 labels: ["bug"]
 body:
