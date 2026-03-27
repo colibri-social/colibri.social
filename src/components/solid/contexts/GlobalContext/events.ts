@@ -27,10 +27,16 @@ export type MessageEventPayload = {
 	channel: string;
 	created_at: string;
 	indexed_at: string;
-	display_name: string;
-	avatar_url: string;
 	attachments: Array<AttachmentObj>;
 	edited: boolean;
+	display_name: string;
+	avatar_url: string;
+	banner_url: string | null;
+	description: string | null;
+	handle: string | null;
+	status_text: string | null;
+	emoji: string | null;
+	state: UserOnlineState | null;
 };
 
 export type MessagePostEvent = {

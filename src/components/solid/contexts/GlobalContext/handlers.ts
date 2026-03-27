@@ -42,12 +42,18 @@ export const handleNewMessage = async (
 		created_at: data.created_at,
 		display_name: data.display_name,
 		avatar_url: data.avatar_url,
+		banner_url: data.banner_url || undefined,
+		description: data.description || undefined,
+		emoji: data.emoji || undefined,
+		handle: data.handle || undefined,
+		parent: data.parent || undefined,
+		status: data.status_text || undefined,
 		facets: data.facets ?? [],
 		reactions: [],
 		parent_message: data.parent_message ?? null,
 		edited: data.edited,
 		attachments: data.attachments ?? [],
-		state: "offline",
+		state: data.state || "offline",
 	});
 };
 

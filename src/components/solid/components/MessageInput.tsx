@@ -183,6 +183,8 @@ export const MessageInput: Component<{
 			facets: facets,
 			author_did: globalData.user.sub,
 			display_name: globalData.user.displayName!,
+			banner_url: globalData.user.banner,
+			description: globalData.user.description,
 			avatar_url: globalData.user.avatar!,
 			parent: replyingMessage?.rkey,
 			parent_message: replyingMessage || null,
