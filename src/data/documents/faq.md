@@ -58,4 +58,4 @@ to [@colibri.social on Bluesky](https://bsky.app/profile/colibri.social).
 
 No, they don't. While we store data the same way Bluesky does, we use a different
 "collection", meaning your data will stay confined to Colibri. You can use a tool
-like [pdsls.dev](https://pdsls.dev) to inspect your profile and all related data.
+like [atproto.at](https://atproto.at) to inspect your profile and all related data.

@@ -3,7 +3,6 @@ import { createSignal, type ParentComponent, Show } from "solid-js";
 import { purify } from "@/utils/purify";
 import { useGlobalContext } from "../contexts/GlobalContext";
 import { Bluesky } from "../icons/Bluesky";
-import { PDSls } from "../icons/PDSls";
 import {
 	Popover,
 	PopoverContent,
@@ -84,7 +83,8 @@ export const MemberProfilePopover: ParentComponent<{
 }> = (props) => {
 	const [globalData] = useGlobalContext();
 	const [bskyTooltipVisible, setBskyTooltipVisible] = createSignal(false);
-	const [pdslsTooltipVisible, setPdslsTooltipVisible] = createSignal(false);
+	const [atProtoAtTooltipVisible, setAtProtoAtTooltipVisible] =
+		createSignal(false);
 
 	const state = () =>
 		globalData.userOnlineStates.find((x) => x.did === props.did)?.state ||
@@ -177,22 +177,25 @@ export const MemberProfilePopover: ParentComponent<{
 											</TooltipContent>
 										</TooltipPortal>
 									</Tooltip>
-									<Tooltip open={pdslsTooltipVisible()}>
+									<Tooltip open={atProtoAtTooltipVisible()}>
 										<TooltipTrigger>
 											<a
-												href={`https://pdsls.dev/at://${props.handle}`}
+												href={`https://atproto.at/uri/at://${props.handle}`}
 												target="_blank"
 												rel="noreferrer"
-												class="hover:text-[#76c4e5] flex flex-row items-center gap-1.5 text-sm text-card-foreground font-normal hover:underline"
-												onMouseEnter={() => setPdslsTooltipVisible(true)}
-												onMouseLeave={() => setPdslsTooltipVisible(false)}
+												class="hover:text-[#1185fe] flex flex-row items-center gap-1.5 text-sm text-card-foreground font-normal hover:underline"
+												onMouseEnter={() => setAtProtoAtTooltipVisible(true)}
+												onMouseLeave={() => setAtProtoAtTooltipVisible(false)}
 											>
-												<PDSls size={16} />
+												at://
 											</a>
 										</TooltipTrigger>
 										<TooltipPortal>
 											<TooltipContent>
-												<span>View on PDSls</span>
+												<span>
+													View on atproto.
+													<span class="test-[#1185fe]">at://</span>
+												</span>
 											</TooltipContent>
 										</TooltipPortal>
 									</Tooltip>
