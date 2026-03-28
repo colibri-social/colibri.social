@@ -101,7 +101,7 @@ export const NewCommunityModal: ParentComponent<{ navigate: Navigator }> = (
 					<div class="flex flex-col items-center justify-center w-full gap-4">
 						<FileField onFileChange={setImage} maxFiles={1}>
 							<FileFieldDropzone class="w-20 h-20 min-h-0 rounded-full overflow-hidden">
-								<FileFieldTrigger class="h-20 w-20 bg-muted/25 hover:bg-muted/50">
+								<FileFieldTrigger class="h-20 w-20 bg-muted/25 text-muted-foreground hover:bg-muted/50">
 									<Switch>
 										<Match when={image() === undefined}>
 											<div class="flex flex-col items-center justify-center gap-1">

@@ -80,10 +80,10 @@ const SettingsPageSelector: ParentComponent<{
 	return (
 		<button
 			type="button"
-			class="w-full hover:bg-muted/25 px-2 py-1 rounded-sm cursor-pointer text-left flex flex-row items-center gap-2"
+			class="w-full hover:bg-card px-2 py-1 rounded-sm cursor-pointer text-left flex flex-row items-center gap-2"
 			classList={{
 				"text-destructive hover:bg-destructive/15!": props.danger,
-				"bg-muted/25": props.activePage && !props.danger,
+				"bg-muted! text-foreground!": props.activePage && !props.danger,
 				"bg-destructive/10!": props.activePage && props.danger,
 			}}
 			onClick={props.onClick}

@@ -431,6 +431,7 @@ const CommunityLayout: ParentComponent = (props) => {
 										handle={owner().handle}
 										status={owner().state}
 										did={owner().member_did}
+										class="data-expanded:[&>div]:bg-muted!"
 									>
 										<div class="flex flex-row gap-2 rounded-sm px-2 py-1 hover:bg-card items-center cursor-pointer h-12 flex-1">
 											<div class="relative w-9 h-9">
@@ -507,6 +508,7 @@ const CommunityLayout: ParentComponent = (props) => {
 															handle={item.handle}
 															status={item.status_text}
 															did={item.member_did}
+															class="data-expanded:[&>div]:bg-muted!"
 														>
 															<div class="flex flex-row gap-2 rounded-sm px-2 py-1 hover:bg-card items-center cursor-pointer h-12 flex-1">
 																<div class="relative w-9 h-9">
