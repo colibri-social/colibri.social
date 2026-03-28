@@ -1,5 +1,6 @@
 import { APPVIEW_DOMAIN } from "astro:env/client";
 import { Agent, AtpAgent, BlobRef } from "@atproto/api";
+import type { DidDocument } from "@atproto/common-web";
 import { parseCid } from "@atproto/lex-data";
 import type {
 	AttachmentObj,
@@ -8,7 +9,6 @@ import type {
 import { lexicon, RECORD_IDs } from "./atproto/lexicons";
 import { client } from "./atproto/oauth";
 import type { Facet } from "./atproto/rich-text";
-import type { DidDocument } from "@atproto/common-web";
 
 type ActorData = {
 	status: string;
