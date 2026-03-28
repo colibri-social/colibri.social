@@ -828,6 +828,13 @@ export const Message: Component<{
 						/>
 					</div>
 				</Show>
+				<Show when={linkFacets().length > 0 && !("hash" in props.data)}>
+					<div class="flex flex-row flex-wrap gap-4 pl-14">
+						<For each={linkFacets()}>
+							{(item) => <LinkEmbed uri={item.uri} />}
+						</For>
+					</div>
+				</Show>
 				<Show when={messageReactions().length > 0}>
 					<div class="flex flex-row gap-1 flex-wrap items-center pl-14">
 						<For each={messageReactions()}>
@@ -935,13 +942,6 @@ export const Message: Component<{
 									</TooltipPortal>
 								</Tooltip>
 							)}
-						</For>
-					</div>
-				</Show>
-				<Show when={linkFacets().length > 0 && !("hash" in props.data)}>
-					<div class="flex flex-row flex-wrap gap-4 pl-14">
-						<For each={linkFacets()}>
-							{(item) => <LinkEmbed uri={item.uri} />}
 						</For>
 					</div>
 				</Show>
