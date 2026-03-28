@@ -1,9 +1,9 @@
 import { ActionError, defineAction } from "astro:actions";
 import { Agent } from "@atproto/api";
-import { z } from "astro/zod";
-import { client } from "@/utils/atproto/oauth";
-import * as devalue from "devalue";
 import type { ProfileViewDetailed } from "@atproto/api/dist/client/types/app/bsky/actor/defs";
+import { z } from "astro/zod";
+import * as devalue from "devalue";
+import { client } from "@/utils/atproto/oauth";
 
 export const getUserProfileData = defineAction({
 	input: z.object({
