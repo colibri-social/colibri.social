@@ -2,7 +2,6 @@ import { ActionError, defineAction } from "astro:actions";
 import { Agent } from "@atproto/api";
 import type { ProfileViewDetailed } from "@atproto/api/dist/client/types/app/bsky/actor/defs";
 import { z } from "astro/zod";
-import * as devalue from "devalue";
 import { client } from "@/utils/atproto/oauth";
 
 export const getUserProfileData = defineAction({
@@ -25,13 +24,6 @@ export const getUserProfileData = defineAction({
 			const profile = await agent.getProfile({
 				actor: did,
 			});
-
-			try {
-				devalue.stringify(JSON.parse(JSON.stringify(profile.data)));
-			} catch (e) {
-				console.error(e);
-				throw new Error("Panic");
-			}
 
 			return JSON.parse(JSON.stringify(profile.data)) as ProfileViewDetailed;
 		} catch (e) {
