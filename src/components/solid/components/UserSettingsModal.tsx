@@ -25,7 +25,6 @@ import { parseZodToErrorOrDisplay } from "@/utils/parse-zod-to-error-or-display"
 import { useGlobalContext } from "../contexts/GlobalContext";
 import { usePreferencesContext } from "../contexts/UserPreferencesContext";
 import { useVoiceChatContext } from "../contexts/VoiceChatContext";
-import { PDSls } from "../icons/PDSls";
 import { Button } from "../shadcn-solid/Button";
 import {
 	FileField,
@@ -1061,13 +1060,15 @@ const DebugPage: Component = () => {
 				<InfoPageItem title="DID" value={globalData.user.sub} />
 				<InfoPageItem title="AT-URI" value={atUri} />
 				<a
-					href={`https://pdsls.dev/${atUri}`}
+					href={`https://atproto.at/uri/${atUri}`}
 					target="_blank"
 					rel="noreferrer"
-					class="font-normal hover:underline w-fit flex flex-row gap-2 items-center mt-4 text-[#76c4e5]"
+					class="font-normal hover:underline w-fit flex flex-row gap-2 items-center mt-4"
 				>
-					<PDSls />
-					<span class="text-foreground">View on PDSls</span>
+					<span class="text-foreground">
+						View on atproto.
+						<span class="text-[#1185fe]">at://</span>
+					</span>
 				</a>
 			</div>
 		</SettingsPage>
