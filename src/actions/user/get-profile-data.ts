@@ -1,5 +1,6 @@
 import { ActionError, defineAction } from "astro:actions";
 import { Agent } from "@atproto/api";
+import type { ProfileViewDetailed } from "@atproto/api/dist/client/types/app/bsky/actor/defs";
 import { z } from "astro/zod";
 import { client } from "@/utils/atproto/oauth";
 
@@ -24,7 +25,7 @@ export const getUserProfileData = defineAction({
 				actor: did,
 			});
 
-			return profile.data;
+			return JSON.parse(JSON.stringify(profile.data)) as ProfileViewDetailed;
 		} catch (e) {
 			console.error(e);
 
