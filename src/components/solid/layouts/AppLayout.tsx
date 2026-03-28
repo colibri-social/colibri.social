@@ -264,7 +264,7 @@ const AppLayout: ParentComponent = (props) => {
 							<NewCommunityModal navigate={navigate}>
 								<button
 									type="button"
-									class="w-10 flex h-10 rounded-md bg-muted items-center justify-center cursor-pointer"
+									class="w-10 flex h-10 rounded-md bg-muted hover:bg-primary hover:text-primary-foreground items-center justify-center cursor-pointer"
 								>
 									<Icon variant="regular" name="plus-icon" />
 								</button>
@@ -272,7 +272,7 @@ const AppLayout: ParentComponent = (props) => {
 						</div>
 					</nav>
 					<UserSettingsModal>
-						<div class="w-10 flex h-10 rounded-md bg-muted items-center justify-center cursor-pointer">
+						<div class="w-10 flex h-10 rounded-md bg-muted hover:bg-primary hover:text-primary-foreground items-center justify-center cursor-pointer">
 							<div class="block w-fit h-fit">
 								<Icon variant="regular" name="gear-icon" />
 							</div>

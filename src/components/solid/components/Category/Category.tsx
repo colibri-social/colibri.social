@@ -136,7 +136,7 @@ const SortableChannel: Component<{
 					class="group/channel text-muted-foreground flex flex-row justify-between items-center gap-2 hover:bg-card rounded-sm cursor-pointer p-1 py-0.5 pr-1.25"
 					onClick={handleVoiceChannelJoin}
 					href={`/c/${params.community}/${props.channel.channel_type.slice(0, 1)}/${props.channel.rkey}`}
-					activeClass="bg-card"
+					activeClass="bg-muted! text-foreground!"
 					classList={{
 						"bg-linear-145 from-[#090615] via-[#31226d70] to-[#e0deec30]":
 							voiceData.connection.rkey === props.channel.rkey &&

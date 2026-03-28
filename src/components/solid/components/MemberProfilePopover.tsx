@@ -205,7 +205,7 @@ export const MemberProfilePopover: ParentComponent<{
 						<Show when={props.description}>
 							<hr class="w-full h-px border-none bg-border m-0" />
 							<p
-								class="prose prose-invert text-sm m-0 px-1"
+								class="prose dark:prose-invert text-sm m-0 px-1"
 								innerHTML={purify(
 									detectLinksAndMentionsAndFormat(props.description!),
 								)}

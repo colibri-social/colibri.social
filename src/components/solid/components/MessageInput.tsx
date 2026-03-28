@@ -268,7 +268,7 @@ export const MessageInput: Component<{
 				</div>
 			</Show>
 			<div class="w-full min-h-16 h-fit flex flex-row gap-4 px-4 py-3 bg-card">
-				<FileFieldTrigger class="w-10 h-10 min-w-10 bg-muted flex items-center justify-center rounded-lg cursor-pointer">
+				<FileFieldTrigger class="w-10 h-10 min-w-10 bg-muted text-muted-foreground hover:text-primary-foreground flex items-center justify-center rounded-lg cursor-pointer">
 					<Icon variant="regular" name="plus-icon" />
 				</FileFieldTrigger>
 				<div
