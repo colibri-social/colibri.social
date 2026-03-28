@@ -1,10 +1,7 @@
 import {
 	type Emoji,
-	type EmojiComponents,
-	type EmojiData,
 	type EmojiEventHandler,
 	EmojiPicker,
-	type EmojiSkinTone,
 } from "solid-emoji-picker";
 import { type Accessor, createSignal, type ParentComponent } from "solid-js";
 import {
@@ -14,11 +11,7 @@ import {
 	PopoverTrigger,
 } from "../../shadcn-solid/Popover";
 import { TextField, TextFieldInput } from "../../shadcn-solid/text-field";
-import { getTwemoji } from "./util";
 
-/**
- * An emoji popover picker used for reacting to messages.
- */
 export const EmojiPopover: ParentComponent<{
 	emojiPopoverOpen: Accessor<boolean>;
 	setEmojiPopoverOpen: (state: boolean) => void;
@@ -27,35 +20,63 @@ export const EmojiPopover: ParentComponent<{
 }> = (props) => {
 	const [filter, setFilter] = createSignal("");
 
+	// Some emojis in Unicode 15 are not supported
+	const UNICODE_BREAK_VERSION = 14.999;
+
 	/**
-	 * Renders a given emoji with the a specified skin tone.
-	 * @param emojis The emoji data to base the emoji on.
-	 * @param emoji The emoji to render.
-	 * @param components The components to construct the emoji from.
-	 * @param tone The skintone of the emoji.
-	 * @returns The rendered emoji.
+	 * Converts a raw emoji string into a hyphenated hex code for the Twemoji CDN.
 	 */
-	function renderTwemoji(
-		emojis: EmojiData,
-		emoji: Emoji,
-		components: EmojiComponents,
-		tone?: EmojiSkinTone,
-	) {
-		const addReaction = () => {
+	const getEmojiHex = (emoji: string): string => {
+		return (
+			Array.from(emoji)
+				.map((char) => char.codePointAt(0)?.toString(16))
+				// .filter((hex) => hex !== "fe0f")
+				.join("-")
+				.toLowerCase()
+		);
+	};
+
+	/**
+	 * Renders emoji as text using the Twemoji font.
+	 * This is significantly more performant than <img> tags.
+	 */
+	function renderEmoji(emoji: Emoji) {
+		const handleSelect = (e: MouseEvent) => {
 			props.setEmojiPopoverOpen(false);
 			props.addReactionOptimistic?.(emoji.emoji);
+
+			props.onEmojiClick?.(emoji, {
+				...e,
+				currentTarget: e.target! as HTMLButtonElement,
+				target: e.target! as HTMLElement,
+			});
 		};
 
-		const twemoji = getTwemoji(emojis, emoji, components, tone);
+		const isFontSupported =
+			parseFloat(emoji.unicode_version) <= UNICODE_BREAK_VERSION;
 
-		if (!twemoji) return null;
+		if (isFontSupported && emoji.emoji === "🫨") {
+			console.log(emoji);
+		}
 
 		return (
-			<div
-				class="w-8 h-8 p-1 rounded-xs hover:bg-muted cursor-pointer"
-				innerHTML={twemoji}
-				onClick={addReaction}
-			/>
+			<button
+				type="button"
+				title={emoji.name}
+				class="w-9 h-9 flex items-center justify-center rounded-md hover:bg-muted transition-colors cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-ring border-none bg-transparent"
+				onClick={handleSelect}
+			>
+				{isFontSupported ? (
+					<span class="picker-font emoji-render text-2xl">{emoji.emoji}</span>
+				) : (
+					<img
+						src={`https://cdn.jsdelivr.net/gh/jdecked/twemoji@latest/assets/svg/${getEmojiHex(emoji.emoji)}.svg`}
+						alt={emoji.name}
+						class="w-6 h-6"
+						loading="lazy"
+					/>
+				)}
+			</button>
 		);
 	}
 
@@ -64,26 +85,29 @@ export const EmojiPopover: ParentComponent<{
 			open={props.emojiPopoverOpen()}
 			onOpenChange={props.setEmojiPopoverOpen}
 			placement="left-start"
-			hideWhenDetached
 		>
 			<PopoverTrigger as="div">{props.children}</PopoverTrigger>
 			<PopoverPortal>
-				<PopoverContent class="w-74 overflow-auto h-80 rounded-xl!">
-					<TextField class="mb-4" value={filter()} onChange={setFilter}>
-						<TextFieldInput type="text" placeholder="joy" />
+				<PopoverContent class="w-80 p-3 shadow-xl border bg-popover rounded-xl">
+					<TextField class="mb-2" value={filter()} onChange={setFilter}>
+						<TextFieldInput
+							type="text"
+							placeholder="Search emojis..."
+							class="h-9"
+						/>
 					</TextField>
-					<EmojiPicker
-						filter={(emoji) => {
-							const trimmedFilter = filter().trim();
-							if (trimmedFilter.length === 0) return true;
 
-							return emoji.name
-								.toLowerCase()
-								.includes(trimmedFilter.toLowerCase());
-						}}
-						onEmojiClick={props.onEmojiClick}
-						renderEmoji={renderTwemoji}
-					/>
+					<div class="h-72 overflow-y-auto custom-scrollbar">
+						<EmojiPicker
+							filter={(emoji) => {
+								const query = filter().trim().toLowerCase();
+								if (!query) return true;
+
+								return emoji.name.toLowerCase().includes(query);
+							}}
+							renderEmoji={(_data, emoji) => renderEmoji(emoji)}
+						/>
+					</div>
 				</PopoverContent>
 			</PopoverPortal>
 		</Popover>

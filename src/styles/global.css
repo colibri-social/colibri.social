@@ -2,6 +2,17 @@
 @import "tw-animate-css";
 @plugin "@tailwindcss/typography";
 
+@font-face {
+	font-family: "Twemoji";
+	/* Using the 15.x/16.x compatible COLR font */
+	src: url("/twemoji.woff2") format("woff2");
+	/* Encompasses the major emoji blocks for better performance */
+	unicode-range:
+		U+1F000-1F9FF, U+1F600-1F64F, U+2600-26FF, U+2700-27BF, U+1F300-1F5FF,
+		U+1F680-1F6FF, U+1F1E6-1F1FF;
+	font-display: swap;
+}
+
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
@@ -336,4 +347,15 @@
 
 .emoji-section:not(:has(> .emoji-items > *)) {
 	display: none;
+}
+
+.picker-font {
+	font-family:
+		"Apple Color Emoji", "Noto Color Emoji", "Twemoji Mozilla", "Android Emoji",
+		"Segoe UI Emoji", "Segoe UI Symbol", EmojiSymbols, sans-serif;
+}
+
+/* Ensure the emoji characters render as emojis, not text */
+.emoji-render {
+	font-variant-emoji: emoji;
 }
