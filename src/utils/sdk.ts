@@ -8,6 +8,7 @@ import type {
 import { lexicon, RECORD_IDs } from "./atproto/lexicons";
 import { client } from "./atproto/oauth";
 import type { Facet } from "./atproto/rich-text";
+import type { DidDocument } from "@atproto/common-web";
 
 type ActorData = {
 	status: string;
@@ -1039,17 +1040,27 @@ export class ColibriSDK {
 	): Promise<string | false> => {
 		let cursor: string | undefined;
 
-		while (true) {
-			const didDoc = await fetch(`https://plc.directory/${did}`).then((r) =>
+		let didDoc: DidDocument;
+
+		if (did.startsWith("did:web:")) {
+			didDoc = await fetch(
+				`https://${did.replace("did:web:", "")}/.well-known/did.json`,
+			).then((r) => r.json());
+		} else {
+			didDoc = await fetch(`https://plc.directory/${did}`).then((r) =>
 				r.json(),
 			);
+		}
 
-			const pdsEndpoint: string = didDoc.service?.find(
-				(s: { id: string }) => s.id === "#atproto_pds",
-			)?.serviceEndpoint;
+		const pdsEndpoint = didDoc.service?.find(
+			(s: { id: string }) => s.id === "#atproto_pds",
+		)?.serviceEndpoint;
 
-			const foreignAgent = new AtpAgent({ service: pdsEndpoint });
+		if (!pdsEndpoint) return false;
 
+		const foreignAgent = new AtpAgent({ service: pdsEndpoint as string });
+
+		while (true) {
 			const membershipRecords = await foreignAgent.com.atproto.repo.listRecords(
 				{
 					repo: did,
