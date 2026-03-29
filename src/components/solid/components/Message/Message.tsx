@@ -53,6 +53,7 @@ import { MessageBlockDrawer } from "./MessageBlockDrawer";
 import { MessageContextMenu } from "./MessageContextMenu";
 import { MessageDeletionDrawer } from "./MessageDeletionDrawer";
 import { blockMessage, deleteMessage } from "./util";
+import User from '../User'
 
 /**
  * A rendered message component in a chat.
@@ -539,16 +540,7 @@ export const Message: Component<{
 							class="flex flex-row items-center gap-2 group-hover/reply:text-foreground w-full max-w-[calc(100%-4rem)]"
 							onClick={() => jumpToMessage(props.data.parent_message!)}
 						>
-							<img
-								src={
-									optimisticUserData().parent_message!.avatar_url ||
-									"/user-placeholder.png"
-								}
-								width={16}
-								height={16}
-								alt={optimisticUserData().parent_message!.display_name}
-								class="rounded-full"
-							/>
+							<User.Avatar user={{ avatar_url: optimisticUserData().parent_message!.avatar_url, display_name: optimisticUserData().parent_message!.display_name }} size="small" />
 							<strong class="text-xs block">
 								{optimisticUserData().parent_message!.display_name ||
 									optimisticUserData().parent_message!.handle}
@@ -574,14 +566,7 @@ export const Message: Component<{
 								class="w-10 h-10 rounded-full"
 								disabled={"hash" in props.data}
 							>
-								<img
-									src={
-										optimisticUserData().avatar_url || "/user-placeholder.png"
-									}
-									alt={optimisticUserData().display_name}
-									class="w-10 h-10 min-w-10 min-h-10 bg-muted rounded-full border border-border cursor-pointer"
-									loading="lazy"
-								/>
+								<User.Avatar user={{ avatar_url: optimisticUserData().avatar_url, display_name: optimisticUserData().display_name }} />
 							</MemberProfilePopover>
 						</Match>
 						<Match when={isSubsequentMessage()}>

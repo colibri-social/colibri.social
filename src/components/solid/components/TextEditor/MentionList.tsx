@@ -17,6 +17,7 @@ import type {
 	SuggestionItem,
 	selectItem,
 } from "./MentionPopupRenderer";
+import User from '../User'
 
 export function isMember(item: SuggestionItem): item is MemberData {
 	return "member_did" in item;
@@ -81,21 +82,7 @@ export const MentionList: Component<{
 							<Switch>
 								<Match when={isMember(item)}>
 									<span class="relative">
-										<img
-											class="w-6 h-6 rounded-full"
-											src={
-												(item as MemberData).avatar_url ||
-												`/user-placeholder.png`
-											}
-											alt={
-												(item as MemberData).display_name ||
-												(item as MemberData).handle
-											}
-											onError={(e) => {
-												(e.currentTarget as HTMLImageElement).src =
-													`/user-placeholder.png`;
-											}}
-										/>
+										<User.Avatar user={item as MemberData} size="small" />
 										<span
 											class="absolute bottom-1 right-1 rounded-full"
 											classList={{
