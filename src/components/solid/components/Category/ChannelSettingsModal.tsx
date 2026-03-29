@@ -29,7 +29,9 @@ const GeneralSettingsPage: Component<{ channel: SidebarChannelData }> = (
 	const [, { addChannel }] = useGlobalContext();
 
 	const [loading, setLoading] = createSignal<boolean>(false);
-	const [isOwnerOnly, setIsOwnerOnly] = createSignal<boolean>(false);
+	const [isOwnerOnly, setIsOwnerOnly] = createSignal<boolean>(
+		props.channel.owner_only,
+	);
 	const [name, setName] = createSignal(props.channel.name);
 	const [description, setDescription] = createSignal(
 		props.channel.description || "",
