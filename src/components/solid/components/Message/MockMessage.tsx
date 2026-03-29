@@ -1,8 +1,8 @@
 import type { Accessor, Component } from "solid-js";
 import type { DBMessageData } from "@/utils/sdk";
 import { RichTextRenderer } from "../RichTextRenderer";
+import User from "../User";
 import { MessageAttachments } from "./Attachments";
-import User from '../User'
 
 /**
  * A mock render of a message shown in the deletion modal when a message is about to be deleted.
@@ -19,7 +19,12 @@ export const MockMessage: Component<{
 				"w-full mx-0": props.isDesktop(),
 			}}
 		>
-			<User.Avatar user={{ avatar_url: props.message.avatar_url, display_name: props.message.display_name }} />
+			<User.Avatar
+				user={{
+					avatar_url: props.message.avatar_url,
+					display_name: props.message.display_name,
+				}}
+			/>
 			<div class="flex flex-col w-full justify-center">
 				<div class="flex gap-2 text-sm items-baseline">
 					<span class="font-bold">{props.message.display_name}</span>

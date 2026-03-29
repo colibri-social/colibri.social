@@ -45,6 +45,7 @@ import { RichTextRenderer, type TextWithFacets } from "../RichTextRenderer";
 import { SmallUserAsync } from "../SmallUserAsync";
 import { facetsToProseMirror } from "../TextEditor/facets-to-prosemirror";
 import { TextEditor } from "../TextEditor/TextEditor";
+import User from "../User";
 import { MessageAttachments } from "./Attachments";
 import { EmojiPopover } from "./EmojiPopover";
 import { LinkEmbed } from "./LinkEmbed";
@@ -53,7 +54,6 @@ import { MessageBlockDrawer } from "./MessageBlockDrawer";
 import { MessageContextMenu } from "./MessageContextMenu";
 import { MessageDeletionDrawer } from "./MessageDeletionDrawer";
 import { blockMessage, deleteMessage } from "./util";
-import User from '../User'
 
 /**
  * A rendered message component in a chat.
@@ -540,7 +540,14 @@ export const Message: Component<{
 							class="flex flex-row items-center gap-2 group-hover/reply:text-foreground w-full max-w-[calc(100%-4rem)]"
 							onClick={() => jumpToMessage(props.data.parent_message!)}
 						>
-							<User.Avatar user={{ avatar_url: optimisticUserData().parent_message!.avatar_url, display_name: optimisticUserData().parent_message!.display_name }} size="small" />
+							<User.Avatar
+								user={{
+									avatar_url: optimisticUserData().parent_message!.avatar_url,
+									display_name:
+										optimisticUserData().parent_message!.display_name,
+								}}
+								size="small"
+							/>
 							<strong class="text-xs block">
 								{optimisticUserData().parent_message!.display_name ||
 									optimisticUserData().parent_message!.handle}
@@ -566,7 +573,12 @@ export const Message: Component<{
 								class="w-10 h-10 rounded-full"
 								disabled={"hash" in props.data}
 							>
-								<User.Avatar user={{ avatar_url: optimisticUserData().avatar_url, display_name: optimisticUserData().display_name }} />
+								<User.Avatar
+									user={{
+										avatar_url: optimisticUserData().avatar_url,
+										display_name: optimisticUserData().display_name,
+									}}
+								/>
 							</MemberProfilePopover>
 						</Match>
 						<Match when={isSubsequentMessage()}>

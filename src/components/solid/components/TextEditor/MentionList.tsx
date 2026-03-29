@@ -12,12 +12,12 @@ import {
 import type { ChannelData } from "@/utils/sdk";
 import Icon from "../../icons/Icon";
 import type { MemberData } from "../../layouts/CommunityLayout";
+import User from "../User";
 import type {
 	EmojiSuggestionData,
 	SuggestionItem,
 	selectItem,
 } from "./MentionPopupRenderer";
-import User from '../User'
 
 export function isMember(item: SuggestionItem): item is MemberData {
 	return "member_did" in item;

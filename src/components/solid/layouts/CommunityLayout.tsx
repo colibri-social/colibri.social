@@ -26,6 +26,7 @@ import { InviteLinkCreationModal } from "../components/Community/InviteLinkCreat
 import { LeaveCommunityModal } from "../components/Community/LeaveCommunityModal";
 import { MemberProfilePopover } from "../components/MemberProfilePopover";
 import { MessageInput } from "../components/MessageInput";
+import User from "../components/User";
 import { UserStatus } from "../components/UserStatus";
 import { ChannelContextProvider } from "../contexts/ChannelContext";
 import { CommunityContextProvider } from "../contexts/CommunityContext";
@@ -37,7 +38,6 @@ import {
 	FileFieldDropzone,
 	FileFieldHiddenInput,
 } from "../shadcn-solid/file-field";
-import User from '../components/User'
 
 /**
  * Fetches the sidebar data (categories + channels) for a community.

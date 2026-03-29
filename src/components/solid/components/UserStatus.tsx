@@ -33,7 +33,7 @@ import { Microphone } from "../icons/Microphone";
 import { Screen } from "../icons/Screen";
 import { Wifi } from "../icons/Wifi";
 import { Button } from "../shadcn-solid/Button";
-import User from './User'
+import User from "./User";
 
 const LABEL_MAP: Record<UserOnlineState, string> = {
 	online: "Online",
@@ -266,7 +266,10 @@ export const UserStatus: Component = () => {
 				</div>
 			</Show>
 			<div class="w-full h-16 flex items-center gap-3 p-3 bg-card">
-				<User.Avatar user={optimisticUserProfile()} state={optimisticUserProfile().state} />
+				<User.Avatar
+					user={optimisticUserProfile()}
+					state={optimisticUserProfile().state}
+				/>
 				<div class="flex flex-col">
 					<span class="font-bold leading-5">
 						{optimisticUserProfile().display_name}

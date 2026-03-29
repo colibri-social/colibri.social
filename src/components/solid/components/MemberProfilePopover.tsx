@@ -15,7 +15,7 @@ import {
 	TooltipPortal,
 	TooltipTrigger,
 } from "../shadcn-solid/Tooltip";
-import User from './User'
+import User from "./User";
 
 export const LINK_REGEX =
 	/(?<![^\s])(?!@)(https?:\/\/(www\.)?)?[-a-zA-Z0-9@%._+~#=]{1,256}\.[a-zA-Z0-9()]{1,18}\b([-a-zA-Z0-9()@:%_+.~#?&//=]*)/gm;
@@ -115,7 +115,14 @@ export const MemberProfilePopover: ParentComponent<{
 					</div>
 					<div class="mt-12 z-10 relative p-4 flex flex-col gap-2">
 						<div class="flex flex-row items-center gap-4">
-							<User.Avatar user={{ avatar_url: props.avatar, display_name: props.displayName }} state={state()} size="large" />
+							<User.Avatar
+								user={{
+									avatar_url: props.avatar,
+									display_name: props.displayName,
+								}}
+								state={state()}
+								size="large"
+							/>
 							<Show when={props.status && state() !== "offline"}>
 								<span class="flex flex-row items-start gap-2 bg-card border border-border rounded-sm px-1.5 py-0.5 drop-shadow-black drop-shadow-sm max-w-48 overflow-hidden">
 									<Show when={props.emoji}>
