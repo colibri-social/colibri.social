@@ -243,7 +243,7 @@ const AppLayout: ParentComponent = (props) => {
 						<div class="w-full h-full flex flex-col gap-2">
 							<A
 								href="/"
-								class="w-10 flex h-10 rounded-md bg-muted items-center justify-center cursor-pointer"
+								class="w-10 flex h-10 rounded-md bg-muted hover:bg-primary hover:text-primary-foreground items-center justify-center cursor-pointer"
 							>
 								<Icon variant="regular" name="house-icon" />
 							</A>
