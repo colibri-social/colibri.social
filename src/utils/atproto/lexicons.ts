@@ -400,6 +400,7 @@ lex.add(
 								"social.colibri.richtext.facet#mention",
 								"social.colibri.richtext.facet#link",
 								"social.colibri.richtext.facet#time",
+								"social.colibri.richtext.facet#quote",
 							],
 						},
 					},
@@ -456,6 +457,11 @@ lex.add(
 				properties: {},
 			},
 			code: {
+				type: "object",
+				description: "A facet feature for inline code text.",
+				properties: {},
+			},
+			quote: {
 				type: "object",
 				description: "A facet feature for inline code text.",
 				properties: {},

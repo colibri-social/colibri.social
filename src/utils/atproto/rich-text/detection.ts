@@ -30,6 +30,10 @@ export type ColibriRichTextStrikethrough = {
 	$type?: "social.colibri.richtext.facet#strikethrough";
 };
 
+export type ColibriRichTextQuote = {
+	$type?: "social.colibri.richtext.facet#quote";
+};
+
 export type ColibriRichTextCode = {
 	$type?: "social.colibri.richtext.facet#code";
 };
@@ -67,6 +71,7 @@ export interface ColibriRichTextFacet {
 		| $Typed<ColibriRichTextMention>
 		| $Typed<ColibriRichTextLink>
 		| $Typed<ColibriRichTextTime>
+		| $Typed<ColibriRichTextQuote>
 	)[];
 }
 
