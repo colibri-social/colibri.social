@@ -11,6 +11,7 @@ import solidJs from "@astrojs/solid-js";
 import { loadEnv } from "vite";
 import { vite as vidstack } from "vidstack/plugins";
 import type { AstroIntegration } from "astro";
+import { sentryVitePlugin } from "@sentry/vite-plugin";
 
 const { REDIS_PASSWORD, REDIS_URL } = loadEnv(
 	process.env.NODE_ENV!,
@@ -83,7 +84,18 @@ export default defineConfig({
 	}),
 	output: "server",
 	vite: {
-		plugins: [tailwindcss(), vidstack()],
+		build: {
+			sourcemap: true,
+		},
+		plugins: [
+			tailwindcss(),
+			vidstack(),
+			sentryVitePlugin({
+				authToken: process.env.SENTRY_AUTH_TOKEN,
+				org: "colibri-social",
+				project: "javascript-astro",
+			}),
+		],
 		optimizeDeps: {
 			exclude: ["solid-phosphor"], // Vite thinks the JSX here is React
 		},
@@ -117,6 +129,7 @@ export default defineConfig({
 				optional: true,
 			}),
 			REDIS_PASSWORD: envField.string({ context: "server", access: "secret" }),
+			SENTRY_DSN: envField.string({ context: "client", access: "public" }),
 		},
 	},
 	security: {

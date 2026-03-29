@@ -33,6 +33,8 @@
 		"@corvu/drawer": "^0.2.4",
 		"@kobalte/core": "^0.13.11",
 		"@sapphi-red/web-noise-suppressor": "^0.3.5",
+		"@sentry/solid": "^10.46.0",
+		"@sentry/vite-plugin": "^5.1.1",
 		"@solid-primitives/storage": "^4.3.3",
 		"@solid-primitives/websocket": "^1.3.1",
 		"@solidjs/router": "^0.15.4",

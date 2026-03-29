@@ -26,3 +26,6 @@ zsh.exe.stackdump
 
 # Livekit
 livekit-server.exe
+
+# Sentry Config File
+.env.sentry-build-plugin
