@@ -33,6 +33,7 @@ import { Microphone } from "../icons/Microphone";
 import { Screen } from "../icons/Screen";
 import { Wifi } from "../icons/Wifi";
 import { Button } from "../shadcn-solid/Button";
+import User from "./User";
 
 const LABEL_MAP: Record<UserOnlineState, string> = {
 	online: "Online",
@@ -264,30 +265,18 @@ export const UserStatus: Component = () => {
 					</div>
 				</div>
 			</Show>
-			<div class="w-full h-16 flex flex-row gap-3 p-3 bg-card">
-				<img
-					src={optimisticUserProfile().avatar_url || "/user-placeholder.png"}
-					alt={optimisticUserProfile().display_name}
-					class="w-10 h-10 min-w-10 min-h-10 bg-muted rounded-full border border-border"
+			<div class="w-full h-16 flex items-center gap-3 p-3 bg-card">
+				<User.Avatar
+					user={optimisticUserProfile()}
+					state={optimisticUserProfile().state}
 				/>
 				<div class="flex flex-col">
 					<span class="font-bold leading-5">
 						{optimisticUserProfile().display_name}
 					</span>
 					<DropdownStatusSelect value={value} setValue={setValue}>
-						<div class="flex gap-2 items-center hover:underline cursor-pointer">
-							<div
-								class="w-2 h-2 min-w-2 min-h-2 rounded-full"
-								classList={{
-									"bg-green-400": optimisticUserProfile().state === "online",
-									"bg-yellow-400": optimisticUserProfile().state === "away",
-									"bg-red-400": optimisticUserProfile().state === "dnd",
-									"bg-neutral-400": optimisticUserProfile().state === "offline",
-								}}
-							/>
-							<span class="text-sm text-muted-foreground">
-								{LABEL_MAP[optimisticUserProfile().state]}
-							</span>
+						<div class="flex gap-2 items-center text-sm text-muted-foreground hover:underline cursor-pointer">
+							{LABEL_MAP[optimisticUserProfile().state]}
 						</div>
 					</DropdownStatusSelect>
 				</div>

@@ -1,6 +1,7 @@
 import type { Accessor, Component } from "solid-js";
 import type { DBMessageData } from "@/utils/sdk";
 import { RichTextRenderer } from "../RichTextRenderer";
+import User from "../User";
 import { MessageAttachments } from "./Attachments";
 
 /**
@@ -18,11 +19,11 @@ export const MockMessage: Component<{
 				"w-full mx-0": props.isDesktop(),
 			}}
 		>
-			<img
-				src={props.message.avatar_url || "/user-placeholder.png"}
-				alt={props.message.display_name}
-				class="w-10 h-10 min-w-10 min-h-10 bg-muted rounded-full border border-border"
-				loading="lazy"
+			<User.Avatar
+				user={{
+					avatar_url: props.message.avatar_url,
+					display_name: props.message.display_name,
+				}}
 			/>
 			<div class="flex flex-col w-full justify-center">
 				<div class="flex gap-2 text-sm items-baseline">

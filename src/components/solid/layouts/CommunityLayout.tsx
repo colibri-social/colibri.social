@@ -26,6 +26,7 @@ import { InviteLinkCreationModal } from "../components/Community/InviteLinkCreat
 import { LeaveCommunityModal } from "../components/Community/LeaveCommunityModal";
 import { MemberProfilePopover } from "../components/MemberProfilePopover";
 import { MessageInput } from "../components/MessageInput";
+import User from "../components/User";
 import { UserStatus } from "../components/UserStatus";
 import { ChannelContextProvider } from "../contexts/ChannelContext";
 import { CommunityContextProvider } from "../contexts/CommunityContext";
@@ -434,24 +435,7 @@ const CommunityLayout: ParentComponent = (props) => {
 										class="data-expanded:[&>div]:bg-muted!"
 									>
 										<div class="flex flex-row gap-2 rounded-sm px-2 py-1 hover:bg-card items-center cursor-pointer h-12 flex-1">
-											<div class="relative w-9 h-9">
-												<img
-													src={owner().avatar_url || "/user-placeholder.png"}
-													alt={owner().display_name}
-													width={36}
-													height={36}
-													class="rounded-full w-9 h-9"
-												/>
-												<div
-													class="w-2 h-2 rounded-full absolute bottom-px right-px outline-2 outline-background"
-													classList={{
-														"bg-green-500": ownerState() === "online",
-														"bg-yellow-500": ownerState() === "away",
-														"bg-red-500": ownerState() === "dnd",
-														"bg-neutral-500": ownerState() === "offline",
-													}}
-												/>
-											</div>
+											<User.Avatar user={owner()} state={ownerState()} />
 											<div class="flex flex-col w-[calc(100%-36px-8px)]">
 												<span class="font-medium leading-5 overflow-hidden text-ellipsis">
 													{owner().display_name || owner().handle}
@@ -511,26 +495,7 @@ const CommunityLayout: ParentComponent = (props) => {
 															class="data-expanded:[&>div]:bg-muted!"
 														>
 															<div class="flex flex-row gap-2 rounded-sm px-2 py-1 hover:bg-card items-center cursor-pointer h-12 flex-1">
-																<div class="relative w-9 h-9">
-																	<img
-																		src={
-																			item.avatar_url || "/user-placeholder.png"
-																		}
-																		alt={item.display_name}
-																		width={36}
-																		height={36}
-																		class="rounded-full w-9 h-9"
-																	/>
-																	<div
-																		class="w-2 h-2 rounded-full absolute bottom-px right-px outline-2 outline-background"
-																		classList={{
-																			"bg-green-500": state() === "online",
-																			"bg-yellow-500": state() === "away",
-																			"bg-red-500": state() === "dnd",
-																			"bg-neutral-500": state() === "offline",
-																		}}
-																	/>
-																</div>
+																<User.Avatar user={item} state={state()} />
 																<div class="flex flex-col w-[calc(100%-36px-8px)]">
 																	<span class="font-medium leading-5 overflow-hidden text-ellipsis">
 																		{item.display_name || item.handle}
