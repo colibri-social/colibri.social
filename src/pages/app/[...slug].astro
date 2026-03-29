@@ -30,4 +30,22 @@ if (user) {
 
 <BaseLayout title="Colibri">
 	<App {communities} {user} client:only="solid-js" />
+	<script>
+		import * as Sentry from "@sentry/solid";
+		import { SENTRY_DSN } from "astro:env/client";
+
+		Sentry.init({
+			dsn: SENTRY_DSN,
+			sendDefaultPii: true,
+			integrations: [Sentry.browserTracingIntegration()],
+			tracesSampleRate: 1.0,
+			tracePropagationTargets: [
+				"localhost",
+				/^https:\/\/colibri\.social\/_actions/,
+				/^https:\/\/colibri\.social\/api/,
+				/^https:\/\/appview\.colibri\.social/,
+			],
+			enableLogs: true,
+		});
+	</script>
 </BaseLayout>
