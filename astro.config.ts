@@ -129,7 +129,11 @@ export default defineConfig({
 				optional: true,
 			}),
 			REDIS_PASSWORD: envField.string({ context: "server", access: "secret" }),
-			SENTRY_DSN: envField.string({ context: "client", access: "public" }),
+			SENTRY_DSN: envField.string({
+				context: "client",
+				access: "public",
+				optional: true,
+			}),
 		},
 	},
 	security: {
