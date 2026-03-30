@@ -13,7 +13,7 @@ import { vite as vidstack } from "vidstack/plugins";
 import type { AstroIntegration } from "astro";
 import { sentryVitePlugin } from "@sentry/vite-plugin";
 
-const { REDIS_PASSWORD, REDIS_URL } = loadEnv(
+const { REDIS_PASSWORD, REDIS_URL, SENTRY_AUTH_TOKEN } = loadEnv(
 	process.env.NODE_ENV!,
 	process.cwd(),
 	"",
@@ -91,7 +91,7 @@ export default defineConfig({
 			tailwindcss(),
 			vidstack(),
 			sentryVitePlugin({
-				authToken: process.env.SENTRY_AUTH_TOKEN,
+				authToken: SENTRY_AUTH_TOKEN,
 				org: "colibri-social",
 				project: "javascript-astro",
 			}),
