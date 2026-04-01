@@ -1,0 +1,111 @@
+---
+title: AppView
+---
+
+The Colibri AppView is responsible for _insert tasks here_.
+
+DID: `did:web:api.colibri.social#colibri_appview`
+
+## Implemented Endpoints
+
+The AppView supports a range of XRPC methods that PDSs can call. All `com.atproto` endpoints adhere to the original specification. There are also certain `social.colibri` XRPC endpoints which allow for extended functionality. All of these endpoints are available under the `/xrpc/` path.
+
+### GET `com.atproto.identity.resolveDid` (Unauthenticated)
+
+Allows to resolve a DID and cache the result in the AppView.
+
+### GET `com.atproto.identity.resolveHandle` (Unauthenticated)
+
+Allows to resolve a handle and cache the result in the AppView.
+
+### GET `com.atproto.identity.resolveIdentity` (Unauthenticated)
+
+Allows to resolve a DID or handle and cache the result in the AppView.
+
+### GET `com.atproto.repo.getRecord` (Unauthenticated)
+
+Returns a cached record from the AppView.
+
+https://docs.bsky.app/docs/api/com-atproto-repo-get-record
+
+### GET `com.atproto.repo.listRecords` (Unauthenticated)
+
+Returns a list cached records from the AppView.
+
+https://docs.bsky.app/docs/api/com-atproto-repo-list-records
+
+---
+
+### GET `social.colibri.actor.getData` (Unauthenticated)
+
+Returns status data and bluesky profile for a Colibri user.
+
+### POST `social.colibri.actor.setState` (Authenticated)
+
+Sets the presence state for a user (online/offline/away/dnd)
+
+### GET `social.colibri.actor.getCommunities` (Authenticated)
+
+Returns all communities the user is a part of (and not blocked from).
+
+### WS `social.colibri.sync.subscribeEvents` (Authenticated)
+
+A WebSocket stream that contains all relevant events for a user. (Include data structures and event types here)
+
+### GET `social.colibri.community.listBlockedUsers` (Unauthenticated)
+
+An endpoint to get a paginated message history for a channel, newest messages first.
+
+### GET `social.colibri.community.listCategories` (Unauthenticated)
+
+All categories for a community.
+
+### GET `social.colibri.community.listChannels` (Unauthenticated)
+
+All channels for a community.
+
+### GET `social.colibri.community.listMembers` (Unauthenticated)
+
+All members along with their roles, status information and profiles.
+
+### POST `social.colibri.community.blockMessage` (Authenticated)
+
+Allows a community owner to block a message.
+
+### POST `social.colibri.community.blockUser` (Authenticated)
+
+Blocks a user from writing messages in a certain community.
+
+### POST `social.colibri.community.unblockUser` (Authenticated)
+
+Unblocks a user from a community, allowing them to write messages in that communty again.
+
+### POST `social.colibri.community.createInvitation` (Authenticated)
+
+Creates an invitation for the community. The user needs to have the permissions to do so.
+
+### GET `social.colibri.community.listInvitation` (Authenticated)
+
+Lists all invitations for the community. The user needs to have the permissions to do so.
+
+### POST `social.colibri.community.deleteInvitation` (Authenticated)
+
+Deletes an invitation for the community. The user needs to have the permissions to do so.
+
+### GET `social.colibri.channel.listMessages` (Unauthenticated)
+
+An endpoint to get a paginated message history for a channel, newest messages first.
+
+### GET `social.colibri.channel.getReadCursor` (Authenticated)
+
+Read cursor for the current user and given channel.
+
+### GET `social.colibri.message.listReactions` (Unauthenticated)
+
+Reactions for a single message, grouped by emoji with reactor DIDs.
+
+## Humming
+
+The Colibri infrastructure is designed to be easy to host. In cases where people prefer to host their own infrastructure, under normal circumstances, data that is not saved on the protocol (like online/offline status, writing presence, etc.) is not able to be transmitted to other users who use a different app view. The Colibri AppView thus supports a system called "Humming". Other AppView instances which wish to share off-protocol status data with users on other instances can share them via a "Hum", a message sent to another AppView instance, which can then choose to relay it to its clients via its `social.colibri.sync.subscribeEvents` WebSocket stream. Additionally, AppViews that wish to forward these events to other AppViews can expose a [`social.colibri.???`](#) endpoint, to which other AppViews can subscribe.
+
+(Data structure is missing still)

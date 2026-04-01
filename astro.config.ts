@@ -113,6 +113,21 @@ export default defineConfig({
 			expressiveCode: {
 				themes: [colibriLight, colibriDark],
 			},
+			sidebar: [
+				{ slug: "docs" },
+				{
+					label: "Architecture",
+					autogenerate: { directory: "docs/architecture" },
+				},
+				{
+					label: "Specification",
+					autogenerate: { directory: "docs/specification" },
+				},
+				{
+					label: "Contributing",
+					autogenerate: { directory: "docs/contributing" },
+				},
+			],
 		}),
 	],
 	env: {

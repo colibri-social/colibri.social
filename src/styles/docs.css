@@ -11,3 +11,17 @@
 	--sl-color-bg-sidebar: #151515;
 	--sl-color-black: #0b0b0b;
 }
+
+.sl-badge {
+	--sl-badge-tip-text: var(--sl-color-purple-high);
+	--sl-badge-caution-text: var(--sl-color-orange-high);
+	--sl-badge-note-text: var(--sl-color-blue-high);
+	--sl-badge-success-text: var(--sl-color-accent-high);
+	--sl-badge-danger-text: var(--sl-color-red-high);
+}
+
+.sl-badge.default {
+	--sl-color-bg-badge: #1a0f30;
+	--sl-color-border-badge: var(--sl-color-accent-high);
+	--sl-color-text-badge: var(--sl-color-accent-high);
+}
