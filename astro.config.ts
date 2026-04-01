@@ -12,6 +12,9 @@ import { loadEnv } from "vite";
 import { vite as vidstack } from "vidstack/plugins";
 import type { AstroIntegration } from "astro";
 import { sentryVitePlugin } from "@sentry/vite-plugin";
+import starlightThemeRapide from "starlight-theme-rapide";
+import starlight from "@astrojs/starlight";
+import { colibriDark, colibriLight } from "./src/ec-theme.ts";
 
 const { REDIS_PASSWORD, REDIS_URL, SENTRY_AUTH_TOKEN } = loadEnv(
 	process.env.NODE_ENV!,
@@ -100,7 +103,18 @@ export default defineConfig({
 			exclude: ["solid-phosphor"], // Vite thinks the JSX here is React
 		},
 	},
-	integrations: [solidJs(), serverPortIntegration()],
+	integrations: [
+		solidJs(),
+		serverPortIntegration(),
+		starlight({
+			title: "Colibri Social Docs",
+			plugins: [starlightThemeRapide()],
+			customCss: ["./src/styles/docs.css"],
+			expressiveCode: {
+				themes: [colibriLight, colibriDark],
+			},
+		}),
+	],
 	env: {
 		schema: {
 			PRIVATE_KEY_1: envField.string({ context: "server", access: "secret" }),

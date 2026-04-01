@@ -1,0 +1,13 @@
+@layer starlight, rapide, my-overrides;
+
+:root {
+	--sl-color-text-accent: oklch(0.606 0.25 292.717);
+	--sl-color-accent-high: oklch(0.606 0.25 292.717);
+}
+
+[data-theme="dark"] {
+	--sl-rapide-ui-header-bg-color: #151515;
+	--sl-color-gray-5: #353535;
+	--sl-color-bg-sidebar: #151515;
+	--sl-color-black: #0b0b0b;
+}
