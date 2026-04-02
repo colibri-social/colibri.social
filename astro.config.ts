@@ -107,7 +107,7 @@ export default defineConfig({
 		solidJs(),
 		serverPortIntegration(),
 		starlight({
-			title: "Colibri Social Docs",
+			title: "Colibri Social Documentation",
 			plugins: [starlightThemeRapide()],
 			customCss: ["./src/styles/docs.css"],
 			expressiveCode: {
@@ -128,6 +128,8 @@ export default defineConfig({
 					autogenerate: { directory: "docs/contributing" },
 				},
 			],
+			disable404Route: true,
+			favicon: "/logo.png",
 		}),
 	],
 	env: {

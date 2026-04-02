@@ -1,0 +1,67 @@
+---
+import { Badge } from "@astrojs/starlight/components";
+import XRPCParam from "./XRPCParam.astro";
+
+export type ParamInfo = {
+	type: "did";
+	required: boolean;
+	children?: Record<string, ParamInfo>;
+};
+
+interface Props {
+	method: "GET" | "POST" | "WS";
+	nsid: string;
+	queryParams?: Record<string, ParamInfo>;
+	body?: Record<string, ParamInfo>;
+	response?: Record<string, ParamInfo>;
+	authenticated?: boolean;
+}
+
+const { method, nsid, queryParams, body, response, authenticated } = Astro.props;
+---
+
+<div
+	class="w-full rounded-lg border border-(--sl-color-gray-5) flex flex-col p-4 gap-4 not-content"
+>
+	<div class="flex flex-row w-full items-center justify-between">
+		<div class="flex flex-row gap-2 items-center">
+			<Badge text={method} size="large" variant="default" />
+			<span class="flex flex-row items-center">
+				<span class="text-neutral-500">/xrpc/</span><span class="text-neutral-50"
+					>{nsid}</span
+				>
+			</span>
+		</div>
+		<div class:list={[authenticated ? "text-red-400 font-bold" : "text-green-400"]}>{authenticated ? "Requires Authentication": "Unauthenticated"}</div>
+	</div>
+	{
+		queryParams && (
+			<span class="font-bold text-neutral-50">Query Parameters</span>
+			<div>
+				{Object.keys(queryParams).map((key) => (
+					<XRPCParam {key} {...queryParams![key]} />
+				))}
+			</div>
+		)
+	}
+	{
+		body && (
+			<span class="font-bold text-neutral-50">Query Parameters</span>
+			<div>
+				{Object.keys(body).map((key) => (
+					<XRPCParam {key} {...body![key]} />
+				))}
+			</div>
+		)
+	}
+	{
+		response && (
+			<span class="font-bold text-neutral-50">Response</span>
+			<div>
+				{Object.keys(response).map((key) => (
+					<XRPCParam {key} {...response[key]} />
+				))}
+			</div>
+		)
+	}
+</div>

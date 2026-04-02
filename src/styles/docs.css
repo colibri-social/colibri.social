@@ -1,4 +1,8 @@
-@layer starlight, rapide, my-overrides;
+@layer base, starlight, theme, components, utilities, rapide;
+
+@import "@astrojs/starlight-tailwind";
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities);
 
 :root {
 	--sl-color-text-accent: oklch(0.606 0.25 292.717);

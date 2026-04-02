@@ -22,6 +22,7 @@
 		"@astrojs/node": "^10.0.3",
 		"@astrojs/solid-js": "^6.0.1",
 		"@astrojs/starlight": "^0.38.2",
+		"@astrojs/starlight-tailwind": "^5.0.0",
 		"@atproto/api": "^0.18.21",
 		"@atproto/common-web": "^0.4.17",
 		"@atproto/jwk-jose": "^0.1.11",

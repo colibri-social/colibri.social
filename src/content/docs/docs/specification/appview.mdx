@@ -2,110 +2,676 @@
 title: AppView
 ---
 
-The Colibri AppView is responsible for _insert tasks here_.
+import XRPCEndpointCard from "../../../../components/docs/XRPCEndpointCard.astro";
 
-DID: `did:web:api.colibri.social#colibri_appview`
+The Colibri AppView is responsible for aggregating message data from across the network and providing endpoints for interacting with this data. Any requests to the AppView are meant to be proxied via the user's PDS, to which the client application makes the requests. When requests are forwarded, the following DID URI should be used to indicate the target:
+
+```
+did:web:api.colibri.social#colibri_appview
+```
 
 ## Implemented Endpoints
 
 The AppView supports a range of XRPC methods that PDSs can call. All `com.atproto` endpoints adhere to the original specification. There are also certain `social.colibri` XRPC endpoints which allow for extended functionality. All of these endpoints are available under the `/xrpc/` path.
 
-### GET `com.atproto.identity.resolveDid` (Unauthenticated)
+:::danger[Authentication]
+If an endpoint requires authentication, the request needs to be forwarded by a PDS and carry a bearer token.
+:::
 
-Allows to resolve a DID and cache the result in the AppView.
+### `com.atproto.identity.resolveDid`
 
-### GET `com.atproto.identity.resolveHandle` (Unauthenticated)
+Resolves a DID to a DID document. Does not bi-directionally verify the handle.
 
-Allows to resolve a handle and cache the result in the AppView.
+<XRPCEndpointCard
+	method="GET"
+	nsid="com.atproto.identity.resolveDid"
+	queryParams={{
+		did: {
+			type: "did",
+			required: true
+		}
+	}}
+	response={{
+		didDoc: {
+			type: "DID Document",
+			required: true
+		}
+	}}
+/>
 
-### GET `com.atproto.identity.resolveIdentity` (Unauthenticated)
+### `com.atproto.identity.resolveHandle`
 
-Allows to resolve a DID or handle and cache the result in the AppView.
+Resolves an atproto handle (hostname) to a DID. Does not necessarily bi-directionally verify against the the DID document.
 
-### GET `com.atproto.repo.getRecord` (Unauthenticated)
+<XRPCEndpointCard
+	method="GET"
+	nsid="com.atproto.identity.resolveHandle"
+	queryParams={{
+		handle: {
+			type: "handle",
+			required: true
+		}
+	}}
+	response={{
+		did: {
+			type: "did",
+			required: true
+		}
+	}}
+/>
 
-Returns a cached record from the AppView.
+### `com.atproto.identity.resolveIdentity`
 
-https://docs.bsky.app/docs/api/com-atproto-repo-get-record
+Resolves an atproto handle (hostname) to a DID. Does not necessarily bi-directionally verify against the the DID document.
 
-### GET `com.atproto.repo.listRecords` (Unauthenticated)
+<XRPCEndpointCard
+	method="GET"
+	nsid="com.atproto.identity.resolveIdentity"
+	queryParams={{
+		identifier: {
+			type: "did | handle",
+			required: true
+		}
+	}}
+	response={{
+		did: {
+			type: "did",
+			required: true
+		},
+		handle: {
+			type: "handle",
+			required: true
+		},
+		didDoc: {
+			type: "DID Document",
+			required: true
+		}
+	}}
+/>
 
-Returns a list cached records from the AppView.
+### `com.atproto.repo.getRecord`
 
-https://docs.bsky.app/docs/api/com-atproto-repo-list-records
+Get a single cached record from the AppView.
+
+<XRPCEndpointCard
+	method="GET"
+	nsid="com.atproto.repo.getRecord"
+	queryParams={{
+		repo: {
+			type: "at-identifier",
+			required: true
+		},
+		collection: {
+			type: "nsid",
+			required: true
+		},
+		rkey: {
+			type: "record-key",
+			required: true
+		},
+		cid: {
+			type: "cid",
+			required: false
+		}
+	}}
+	response={{
+		uri: {
+			type: "at-uri",
+			required: true
+		},
+		value: {
+			type: "object",
+			required: true
+		},
+		cid: {
+			type: "cid",
+			required: false
+		}
+	}}
+/>
+
+### `com.atproto.repo.listRecords`
+
+List a range of cached records in a repository, matching a specific collection.
+
+<XRPCEndpointCard
+	method="GET"
+	nsid="com.atproto.repo.listRecords"
+	queryParams={{
+		repo: {
+			type: "at-identifier",
+			required: true
+		},
+		collection: {
+			type: "nsid",
+			required: true
+		},
+		limit: {
+			type: "integer",
+			required: false,
+		},
+		cursor: {
+			type: "string",
+			required: false,
+		},
+		reverse: {
+			type: "boolean",
+			required: false,
+		}
+	}}
+	response={{
+		cursor: {
+			type: "string",
+			required: false,
+		},
+		records: {
+			type: "object[]",
+			required: true
+		}
+	}}
+/>
 
 ---
 
-### GET `social.colibri.actor.getData` (Unauthenticated)
+### `social.colibri.actor.getData`
 
-Returns status data and bluesky profile for a Colibri user.
+Get the status data and bluesky profile for a Colibri user.
 
-### POST `social.colibri.actor.setState` (Authenticated)
+<XRPCEndpointCard
+	method="GET"
+	nsid="social.colibri.actor.getData"
+	queryParams={{
+		itendifier: {
+			type: "did | handle",
+			required: true
+		}
+	}}
+	response={{
+		did: {
+			type: "did",
+			required: true,
+		},
+		handle: {
+			type: "handle",
+			required: true,
+		},
+		data: {
+			type: "object",
+			required: true,
+			children: {
+				displayName: {
+					type: "string",
+					required: true,
+				},
+				avatar: {
+					type: "string",
+					required: false,
+				},
+				banner: {
+					type: "string",
+					required: false,
+				},
+				description: {
+					type: "string",
+					required: false,
+				},
+				onlineState: {
+					type: "string",
+					required: true,
+				},
+				status: {
+					type: "object",
+					required: false,
+					children: {
+						emoji: {
+							type: "string",
+							required: false,
+						},
+						text: {
+							type: "string",
+							required: true
+						}
+					}
+				},
+			}
+		}
+	}}
+/>
 
-Sets the presence state for a user (online/offline/away/dnd)
+### `social.colibri.actor.setState`
 
-### GET `social.colibri.actor.getCommunities` (Authenticated)
+Sets the online state for a Colibri user.
 
-Returns all communities the user is a part of (and not blocked from).
+<XRPCEndpointCard
+	method="POST"
+	nsid="social.colibri.actor.setState"
+	authenticated
+	body={{
+		state: {
+			type: "string",
+			required: true
+		}
+	}}
+	response={{
+		state: {
+			type: "string",
+			required: true
+		}
+	}}
+/>
 
-### WS `social.colibri.sync.subscribeEvents` (Authenticated)
+### `social.colibri.actor.listCommunities`
 
-A WebSocket stream that contains all relevant events for a user. (Include data structures and event types here)
+Lists all communities the Colibri user is a part of (and not blocked from).
 
-### GET `social.colibri.community.listBlockedUsers` (Unauthenticated)
+<XRPCEndpointCard
+	method="GET"
+	nsid="social.colibri.actor.listCommunities"
+	authenticated
+	response={{
+		communities: {
+			type: "object[]",
+			required: true,
+			children: {
+				name: {
+					type: "string",
+					required: true
+				},
+				picture: {
+					type: "string",
+					required: false
+				},
+				description: {
+					type: "string",
+					required: false
+				},
+				categoryOrder: {
+					type: "string[]",
+					required: false
+				},
+				uri: {
+					type: "at-uri",
+					required: false
+				},
+				requiresApprovalToJoin: {
+					type: "boolean",
+					required: true
+				},
+			}
+		}
+	}}
+/>
 
-An endpoint to get a paginated message history for a channel, newest messages first.
+### `social.colibri.sync.subscribeEvents`
 
-### GET `social.colibri.community.listCategories` (Unauthenticated)
+Opens a connection with a WebSocket stream that transmits relevant events for the user.
 
-All categories for a community.
+<XRPCEndpointCard
+	method="WS"
+	nsid="social.colibri.sync.subscribeEvents"
+	authenticated
+/>
 
-### GET `social.colibri.community.listChannels` (Unauthenticated)
+#### Events
 
-All channels for a community.
+The event stream can transmit the following events:
 
-### GET `social.colibri.community.listMembers` (Unauthenticated)
+- Example
+- Thing
+- Here
 
-All members along with their roles, status information and profiles.
+#### Messages
 
-### POST `social.colibri.community.blockMessage` (Authenticated)
+The following messages can be sent from the client to the AppView:
 
-Allows a community owner to block a message.
+- Example
+- Thing
+- Here
 
-### POST `social.colibri.community.blockUser` (Authenticated)
+### `social.colibri.community.listBlockedUsers`
 
-Blocks a user from writing messages in a certain community.
+Lists all blocked users for a community.
 
-### POST `social.colibri.community.unblockUser` (Authenticated)
+<XRPCEndpointCard
+	method="GET"
+	nsid="social.colibri.community.listBlockedUsers"
+	body={{
+		'uri': {
+			type: "at-uri",
+			required: true
+		}
+	}}
+	response={{
+		dids: {
+			type: "did[]",
+			required: true,
+		}
+	}}
+/>
 
-Unblocks a user from a community, allowing them to write messages in that communty again.
+### `social.colibri.community.listCategories`
 
-### POST `social.colibri.community.createInvitation` (Authenticated)
+Lists all categories in a community.
 
-Creates an invitation for the community. The user needs to have the permissions to do so.
+<XRPCEndpointCard
+	method="GET"
+	nsid="social.colibri.community.listCategories"
+	body={{
+		'uri': {
+			type: "at-uri",
+			required: true
+		}
+	}}
+	response={{
+		categories: {
+			type: "object[]",
+			required: true,
+			children: {
+				uri: {
+					type: "at-uri",
+					required: true,
+				},
+				name: {
+					type: "string",
+					required: true,
+				},
+				channelOrder: {
+					type: "at-uri[]",
+					required: true,
+				},
+			}
+		}
+	}}
+/>
 
-### GET `social.colibri.community.listInvitation` (Authenticated)
+### `social.colibri.community.listChannels`
 
-Lists all invitations for the community. The user needs to have the permissions to do so.
+Lists all channels in a community.
 
-### POST `social.colibri.community.deleteInvitation` (Authenticated)
+<XRPCEndpointCard
+	method="GET"
+	nsid="social.colibri.community.listChannels"
+	body={{
+		'uri': {
+			type: "at-uri",
+			required: true
+		}
+	}}
+	response={{
+		channels: {
+			type: "object[]",
+			required: true,
+			children: {
+				uri: {
+					type: "at-uri",
+					required: true,
+				},
+				name: {
+					type: "string",
+					required: true,
+				},
+				type: {
+					type: "string",
+					required: true,
+				},
+				category: {
+					type: "at-uri",
+					required: true,
+				},
+			}
+		}
+	}}
+/>
 
-Deletes an invitation for the community. The user needs to have the permissions to do so.
+### `social.colibri.community.listMembers`
 
-### GET `social.colibri.channel.listMessages` (Unauthenticated)
+Lists all members with their roles, status information and Bluesky profiles.
 
-An endpoint to get a paginated message history for a channel, newest messages first.
+<XRPCEndpointCard
+	method="GET"
+	nsid="social.colibri.community.listMembers"
+	body={{
+		'uri': {
+			type: "at-uri",
+			required: true
+		}
+	}}
+	response={{
+		'todo': {
+			type: "TODO",
+			required: false,
+		}
+	}}
+/>
 
-### GET `social.colibri.channel.getReadCursor` (Authenticated)
+### `social.colibri.community.blockMessage`
 
-Read cursor for the current user and given channel.
+Block a message in a given community.
 
-### GET `social.colibri.message.listReactions` (Unauthenticated)
+<XRPCEndpointCard
+	method="POST"
+	nsid="social.colibri.community.blockMessage"
+	authenticated
+	body={{
+		'uri': {
+			type: "at-uri",
+			required: true
+		},
+		'message': {
+			type: "at-uri",
+			required: true
+		},
+	}}
+	response={{
+		'todo': {
+			type: "TODO",
+			required: false,
+		}
+	}}
+/>
 
-Reactions for a single message, grouped by emoji with reactor DIDs.
+### `social.colibri.community.blockUser`
+
+Block a user from writing messages in a given community.
+
+<XRPCEndpointCard
+	method="POST"
+	nsid="social.colibri.community.blockUser"
+	authenticated
+	body={{
+		'uri': {
+			type: "at-uri",
+			required: true
+		},
+		'identifier': {
+			type: "did | handle",
+			required: true
+		}
+	}}
+	response={{
+		'todo': {
+			type: "TODO",
+			required: false,
+		}
+	}}
+/>
+
+### `social.colibri.community.unblockUser`
+
+Unblock a user from a community, allowing them to write messages there again.
+
+<XRPCEndpointCard
+	method="POST"
+	nsid="social.colibri.community.unblockUser"
+	authenticated
+	body={{
+		'uri': {
+			type: "at-uri",
+			required: true
+		},
+		'identifier': {
+			type: "did | handle",
+			required: true
+		}
+	}}
+	response={{
+		'todo': {
+			type: "TODO",
+			required: false,
+		}
+	}}
+/>
+
+### `social.colibri.community.createInvitation`
+
+Create an invitation for the specified community.
+
+<XRPCEndpointCard
+	method="POST"
+	nsid="social.colibri.community.createInvitation"
+	authenticated
+	body={{
+		'uri': {
+			type: "at-uri",
+			required: true
+		},
+	}}
+	response={{
+		'todo': {
+			type: "TODO",
+			required: false,
+		}
+	}}
+/>
+
+### `social.colibri.community.listInvitations`
+
+List all invitations for the specified community.
+
+<XRPCEndpointCard
+	method="POST"
+	nsid="social.colibri.community.listInvitations"
+	authenticated
+	body={{
+		'uri': {
+			type: "at-uri",
+			required: true
+		},
+	}}
+	response={{
+		'todo': {
+			type: "TODO",
+			required: false,
+		}
+	}}
+/>
+
+### `social.colibri.community.deleteInvitation`
+
+Delete an invitation for the specified community.
+
+<XRPCEndpointCard
+	method="POST"
+	nsid="social.colibri.community.deleteInvitation"
+	authenticated
+	body={{
+		'uri': {
+			type: "at-uri",
+			required: true
+		},
+		'code': {
+			type: "string",
+			required: true
+		},
+	}}
+	response={{
+		'todo': {
+			type: "TODO",
+			required: false,
+		}
+	}}
+/>
+
+### `social.colibri.channel.listMessages`
+
+Get a paginated message history for the specified channel, newest messages first.
+
+<XRPCEndpointCard
+	method="GET"
+	nsid="social.colibri.channel.listMessages"
+	body={{
+		'channel': {
+			type: "at-uri",
+			required: true
+		},
+		'limit': {
+			type: "integer",
+			required: false
+		},
+		'cursor': {
+			type: "string",
+			required: false
+		},
+		'all': {
+			type: "boolean",
+			required: false
+		},
+	}}
+	response={{
+		'todo': {
+			type: "TODO",
+			required: false,
+		}
+	}}
+/>
+
+### `social.colibri.channel.getReadCursor`
+
+Get the read cursor for the current user and specified channel.
+
+<XRPCEndpointCard
+	method="GET"
+	nsid="social.colibri.channel.getReadCursor"
+	authenticated
+	body={{
+		'channel': {
+			type: "at-uri",
+			required: true
+		},
+	}}
+	response={{
+		'todo': {
+			type: "TODO",
+			required: false,
+		}
+	}}
+/>
+
+### `social.colibri.message.listReactions`
+
+Get all reactions for a specified message, grouped by emoji with reactor DIDs.
+
+<XRPCEndpointCard
+	method="GET"
+	nsid="social.colibri.channel.listReactions"
+	body={{
+		'message': {
+			type: "at-uri",
+			required: true
+		},
+	}}
+	response={{
+		'todo': {
+			type: "TODO",
+			required: false,
+		}
+	}}
+/>
 
 ## Humming
 
-The Colibri infrastructure is designed to be easy to host. In cases where people prefer to host their own infrastructure, under normal circumstances, data that is not saved on the protocol (like online/offline status, writing presence, etc.) is not able to be transmitted to other users who use a different app view. The Colibri AppView thus supports a system called "Humming". Other AppView instances which wish to share off-protocol status data with users on other instances can share them via a "Hum", a message sent to another AppView instance, which can then choose to relay it to its clients via its `social.colibri.sync.subscribeEvents` WebSocket stream. Additionally, AppViews that wish to forward these events to other AppViews can expose a [`social.colibri.???`](#) endpoint, to which other AppViews can subscribe.
+The Colibri infrastructure is designed to be easy to self-host. In cases where users prefer to host their own infrastructure, under normal circumstances, data that is not saved on the protocol (like online/offline status, writing presence, etc.) is not able to be transmitted to other users who use a different app view.
 
-(Data structure is missing still)
+The Colibri AppView supports a system called **Humming** to curcumvent this. Other AppView instances that wish to share off-protocol status data with users on other instances can share them via a **Hum**, a message sent to another AppView instance, which can then choose to relay it to its clients via its [`social.colibri.sync.subscribeEvents`](#socialcolibrisyncsubscribeevents) WebSocket stream. Additionally, AppViews that wish to forward these events to other AppViews can expose a [`social.colibri.???`](#) endpoint, to which other AppViews can subscribe.
+
+(TODO: Data structure)
