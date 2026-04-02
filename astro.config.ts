@@ -16,7 +16,7 @@ import starlightThemeRapide from "starlight-theme-rapide";
 import starlight from "@astrojs/starlight";
 import { colibriDark, colibriLight } from "./src/ec-theme.ts";
 
-const { REDIS_PASSWORD, REDIS_URL, SENTRY_AUTH_TOKEN } = loadEnv(
+const { REDIS_PASSWORD, REDIS_URL, REDIS_PORT, SENTRY_AUTH_TOKEN } = loadEnv(
 	process.env.NODE_ENV!,
 	process.cwd(),
 	"",
@@ -72,7 +72,7 @@ export default defineConfig({
 				: {
 						base: "unstorage",
 						host: "127.0.0.1",
-						port: 6379,
+						port: parseInt(REDIS_PORT || "6379"),
 						password: REDIS_PASSWORD,
 						tls: false as any,
 					},
