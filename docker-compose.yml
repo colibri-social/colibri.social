@@ -46,7 +46,7 @@ services:
     restart: unless-stopped
     command: redis-server /usr/local/etc/redis/redis.conf --requirepass "${REDIS_PASSWORD}"
     ports:
-      - "127.0.0.1:6380:6379" # TODO
+      - "127.0.0.1:6380:6379" # TODO: Change back to 6379 before merging
     volumes:
       - ./redis/redis.conf:/usr/local/etc/redis/redis.conf:ro
       - redis_data:/data
