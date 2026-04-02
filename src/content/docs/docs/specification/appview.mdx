@@ -314,15 +314,71 @@ Opens a connection with a WebSocket stream that transmits relevant events for th
 
 #### Events
 
-The event stream can transmit the following events:
+The event stream can choose to transmit events to clients who have signed up to receive them.
 
-- TODO
+##### `ack`
+
+Sent when the AppView receives a [`heartbeat`](#heartbeat) message from the client.
+
+##### `community_event`
+
+Events of this type are sent to clients when a community has been updated or deleted.
+
+##### `member_event`
+
+Events of this type are sent to clients when a member has joined or left (or been blocked from) a community.
+
+##### `category_event`
+
+Events of this type are sent to clients when a category has been created, updated, or deleted.
+
+##### `channel_event`
+
+Events of this type are sent to clients when a channel has been created, updated, or deleted.
+
+##### `message_event`
+
+Events of this type are sent to clients when a message has been sent, edited, or deleted.
+
+##### `reaction_event`
+
+Events of this type are sent to clients when a reaction has been added to or removed from a message.
+
+##### `user_event`
+
+Events of this type are sent to clients when a user the client knows about has updated their Bluesky profile or Colibri status.
 
 #### Messages
 
-The following messages can be sent from the client to the AppView:
+The following messages can be sent from the client to the AppView
 
-- TODO
+##### `heartbeat`
+
+A generic event that carries no data. It is used to keep the socket connection alive. The AppView will always respond with an `ack` event.
+
+##### `subscribe`
+
+Clients can send a `subscribe` message to the AppView, supplying a list of communities for which they wish to receive updates. The AppView handles the rest and infers which users, channels, etc. the client needs to know about.
+
+##### `unsubscribe`
+
+Clients can send an `unsubscribe` message to the AppView, supplying a list of communities, for which they wish to no longer receive events.
+
+##### `activity`
+
+A message used to prevent clients from having their online status set to "Away" after a certain amount of time. Clients should send this message periodically while the user actively interacts with the app.
+
+##### `voice_join`
+
+Clients must send a `voice_join` message to the AppView when the user joins a voice channel.
+
+##### `voice_leave`
+
+Clients must send a `voice_leave` message to the AppView when the user leaves a voice channel.
+
+##### `state`
+
+A message used to inform the AppView about the new preferred online state of the user.
 
 ### `social.colibri.community.listBlockedUsers`
 
@@ -332,7 +388,7 @@ Lists all blocked users for a community.
 	method="GET"
 	nsid="social.colibri.community.listBlockedUsers"
 	body={{
-		'uri': {
+		'community': {
 			type: "at-uri",
 			required: true
 		}
@@ -353,7 +409,7 @@ Lists all categories in a community.
 	method="GET"
 	nsid="social.colibri.community.listCategories"
 	body={{
-		'uri': {
+		'community': {
 			type: "at-uri",
 			required: true
 		}
@@ -388,7 +444,7 @@ Lists all channels in a community.
 	method="GET"
 	nsid="social.colibri.community.listChannels"
 	body={{
-		'uri': {
+		'community': {
 			type: "at-uri",
 			required: true
 		}
@@ -427,15 +483,65 @@ Lists all members with their roles, status information and Bluesky profiles.
 	method="GET"
 	nsid="social.colibri.community.listMembers"
 	body={{
-		'uri': {
+		'community': {
 			type: "at-uri",
 			required: true
 		}
 	}}
 	response={{
-		'todo': {
-			type: "TODO",
-			required: false,
+		'members': {
+			type: "object[]",
+			required: true,
+			children: {
+				did: {
+					type: "did",
+					required: true,
+				},
+				handle: {
+					type: "handle",
+					required: true,
+				},
+				data: {
+					type: "object",
+					required: true,
+					children: {
+						displayName: {
+							type: "string",
+							required: true,
+						},
+						avatar: {
+							type: "blob",
+							required: false,
+						},
+						banner: {
+							type: "blob",
+							required: false,
+						},
+						description: {
+							type: "string",
+							required: false,
+						},
+						onlineState: {
+							type: "string",
+							required: true,
+						},
+						status: {
+							type: "object",
+							required: false,
+							children: {
+								emoji: {
+									type: "string",
+									required: false,
+								},
+								text: {
+									type: "string",
+									required: true
+								}
+							}
+						},
+					}
+				}
+			}
 		}
 	}}
 />
@@ -449,7 +555,7 @@ Block a message in a given community.
 	nsid="social.colibri.community.blockMessage"
 	authenticated
 	body={{
-		'uri': {
+		'community': {
 			type: "at-uri",
 			required: true
 		},
@@ -459,9 +565,9 @@ Block a message in a given community.
 		},
 	}}
 	response={{
-		'todo': {
-			type: "TODO",
-			required: false,
+		'message': {
+			type: "at-uri",
+			required: true,
 		}
 	}}
 />
@@ -475,7 +581,7 @@ Block a user from writing messages in a given community.
 	nsid="social.colibri.community.blockUser"
 	authenticated
 	body={{
-		'uri': {
+		'community': {
 			type: "at-uri",
 			required: true
 		},
@@ -485,9 +591,13 @@ Block a user from writing messages in a given community.
 		}
 	}}
 	response={{
-		'todo': {
-			type: "TODO",
-			required: false,
+		'did': {
+			type: "did",
+			required: true,
+		},
+		'handle': {
+			type: "handle",
+			required: true,
 		}
 	}}
 />
@@ -501,7 +611,7 @@ Unblock a user from a community, allowing them to write messages there again.
 	nsid="social.colibri.community.unblockUser"
 	authenticated
 	body={{
-		'uri': {
+		'community': {
 			type: "at-uri",
 			required: true
 		},
@@ -511,9 +621,13 @@ Unblock a user from a community, allowing them to write messages there again.
 		}
 	}}
 	response={{
-		'todo': {
-			type: "TODO",
-			required: false,
+		'did': {
+			type: "did",
+			required: true,
+		},
+		'handle': {
+			type: "handle",
+			required: true,
 		}
 	}}
 />
@@ -527,15 +641,61 @@ Create an invitation for the specified community.
 	nsid="social.colibri.community.createInvitation"
 	authenticated
 	body={{
-		'uri': {
+		'community': {
 			type: "at-uri",
 			required: true
 		},
 	}}
 	response={{
-		'todo': {
-			type: "TODO",
-			required: false,
+		'code': {
+			type: "string",
+			required: true,
+		},
+		'community': {
+			type: "at-uri",
+			required: true,
+		},
+		'createdBy': {
+			type: "did",
+			required: true
+		},
+		'active': {
+			type: "boolean",
+			required: true
+		}
+	}}
+/>
+
+### `social.colibri.community.resolveInvitation`
+
+Get information about a given invitation code.
+
+<XRPCEndpointCard
+	method="GET"
+	nsid="social.colibri.community.getInvitation"
+	authenticated
+	body={{
+		'code': {
+			type: "string",
+			required: true
+		},
+	}}
+	response={{
+		'code': {
+			type: "string",
+			required: true,
+		},
+		'community': {
+			type: "at-uri",
+			required: true,
+		},
+		'createdBy': {
+			type: "did",
+			required: true
+		},
+		'active': {
+			type: "boolean",
+			required: true
 		}
 	}}
 />
@@ -555,9 +715,27 @@ List all invitations for the specified community.
 		},
 	}}
 	response={{
-		'todo': {
-			type: "TODO",
-			required: false,
+		codes: {
+			type: "object[]",
+			required: true,
+			children: {
+				'code': {
+					type: "string",
+					required: true,
+				},
+				'community': {
+					type: "at-uri",
+					required: true,
+				},
+				'createdBy': {
+					type: "did",
+					required: true
+				},
+				'active': {
+					type: "boolean",
+					required: true
+				}
+			}
 		}
 	}}
 />
@@ -581,9 +759,9 @@ Delete an invitation for the specified community.
 		},
 	}}
 	response={{
-		'todo': {
-			type: "TODO",
-			required: false,
+		'code': {
+			type: "string",
+			required: true,
 		}
 	}}
 />
@@ -614,9 +792,43 @@ Get a paginated message history for the specified channel, newest messages first
 		},
 	}}
 	response={{
-		'todo': {
-			type: "TODO",
-			required: false,
+		'messages': {
+			type: "object[]",
+			required: true,
+			children: {
+				uri: {
+					type: "at-uri",
+					required: true,
+				},
+				text: {
+					type: "string",
+					required: true,
+				},
+				facets: {
+					type: "Facet[]",
+					required: true,
+				},
+				channel: {
+					type: "at-uri",
+					required: true,
+				},
+				community: {
+					type: "at-uri",
+					required: true,
+				},
+				author: {
+					type: "did",
+					required: true,
+				},
+				parent: {
+					type: "at-uri",
+					required: true,
+				},
+				attachments: {
+					type: "blob[]",
+					required: true,
+				},
+			}
 		}
 	}}
 />
@@ -636,9 +848,17 @@ Get the read cursor for the current user and specified channel.
 		},
 	}}
 	response={{
-		'todo': {
-			type: "TODO",
-			required: false,
+		'uri': {
+			type: "at-uri",
+			required: true,
+		},
+		'cursor': {
+			type: "string",
+			required: true,
+		},
+		'channel': {
+			type: "at-uri",
+			required: true,
 		}
 	}}
 />
@@ -657,9 +877,23 @@ Get all reactions for a specified message, grouped by emoji with reactor DIDs.
 		},
 	}}
 	response={{
-		'todo': {
-			type: "TODO",
-			required: false,
+		reactions: {
+			type: "object[]",
+			required: true,
+			children: {
+				emoji: {
+					type: "string",
+					required: true,
+				},
+				count: {
+					type: "integer",
+					required: true,
+				},
+				reactorDIDs: {
+					type: "string[]",
+					required: true,
+				},
+			}
 		}
 	}}
 />
@@ -668,6 +902,32 @@ Get all reactions for a specified message, grouped by emoji with reactor DIDs.
 
 The Colibri infrastructure is designed to be easy to self-host. In cases where users prefer to host their own infrastructure, under normal circumstances, data that is not saved on the protocol (like online/offline status, writing presence, etc.) is not able to be transmitted to other users who use a different app view.
 
-The Colibri AppView supports a system called **Humming** to curcumvent this. Other AppView instances that wish to share off-protocol status data with users on other instances can share them via a **Hum**, a message sent to another AppView instance, which can then choose to relay it to its clients via its [`social.colibri.sync.subscribeEvents`](#socialcolibrisyncsubscribeevents) WebSocket stream. Additionally, AppViews that wish to forward these events to other AppViews can expose a [`social.colibri.???`](#) endpoint, to which other AppViews can subscribe.
+The Colibri AppView supports a system called **Humming** to curcumvent this. Other AppView instances that wish to share off-protocol status data with users on other instances can share them via a **Hum**, a message sent to another AppView instance's `social.colibri.sync.sendHum` endpoint, which can then choose to relay it to its clients via its [`social.colibri.sync.subscribeEvents`](#socialcolibrisyncsubscribeevents) WebSocket stream. Additionally, AppViews that wish to forward these events to other AppViews can expose a `social.colibri.sync.subscribeHums` endpoint, to which other AppViews can subscribe.
 
-(TODO: Data structure)
+### `social.colibri.sync.sendHum`
+
+Inform another AppView of an event that has occured.
+
+<XRPCEndpointCard
+	method="POST"
+	nsid="social.colibri.sync.sendHum"
+	body={{
+		'event': {
+			type: "object",
+			required: true
+		}
+	}}
+/>
+
+### `social.colibri.sync.subscribeHums`
+
+<XRPCEndpointCard
+	method="WS"
+	nsid="social.colibri.sync.subscribeHums"
+/>
+
+For transmitted event types, please refer to [`social.colibri.sync.subscribeEvents`](#socialcolibrisyncsubscribeevents).
+
+:::note
+It is not possible to send messages to an AppView via the `social.colibri.sync.subscribeHums` endpoint. It only functions as an egress.
+:::
