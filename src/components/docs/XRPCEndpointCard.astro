@@ -23,11 +23,11 @@ const { method, nsid, queryParams, body, response, authenticated } = Astro.props
 <div
 	class="w-full rounded-lg border border-(--sl-color-gray-5) flex flex-col p-4 gap-4 not-content"
 >
-	<div class="flex flex-row w-full items-center justify-between">
-		<div class="flex flex-row gap-2 items-center">
+	<div class="flex flex-row w-full items-center justify-between flex-wrap">
+		<div class="flex flex-row gap-2 items-center flex-wrap">
 			<Badge text={method} size="large" variant="default" />
-			<span class="flex flex-row items-center">
-				<span class="text-neutral-500">/xrpc/</span><span class="text-neutral-50"
+			<span class="flex flex-row items-start">
+				<span class="text-neutral-500 text-nowrap">/xrpc/</span><span class="text-neutral-50 break-all"
 					>{nsid}</span
 				>
 			</span>
