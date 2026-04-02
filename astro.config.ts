@@ -109,7 +109,10 @@ export default defineConfig({
 		starlight({
 			title: "Colibri Social Documentation",
 			plugins: [starlightThemeRapide()],
-			customCss: ["./src/styles/docs.css"],
+			customCss: [
+				"@fontsource-variable/hanken-grotesk/wght.css",
+				"./src/styles/docs.css",
+			],
 			expressiveCode: {
 				themes: [colibriLight, colibriDark],
 			},

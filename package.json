@@ -33,6 +33,7 @@
 		"@atproto/ws-client": "^0.0.4",
 		"@biomejs/biome": "^2.4.4",
 		"@corvu/drawer": "^0.2.4",
+		"@fontsource-variable/hanken-grotesk": "^5.2.8",
 		"@kobalte/core": "^0.13.11",
 		"@sapphi-red/web-noise-suppressor": "^0.3.5",
 		"@sentry/solid": "^10.46.0",

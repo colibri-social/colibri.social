@@ -7,6 +7,7 @@
 :root {
 	--sl-color-text-accent: oklch(0.606 0.25 292.717);
 	--sl-color-accent-high: oklch(0.606 0.25 292.717);
+	--sl-font: "Hanken Grotesk Variable", sans-serif;
 }
 
 [data-theme="dark"] {
@@ -28,4 +29,9 @@
 	--sl-color-bg-badge: #1a0f30;
 	--sl-color-border-badge: var(--sl-color-accent-high);
 	--sl-color-text-badge: var(--sl-color-accent-high);
+}
+
+ul.top-level > li > a[aria-current="page"] span {
+	color: var(--sl-color-text-accent);
+	font-weight: 600;
 }

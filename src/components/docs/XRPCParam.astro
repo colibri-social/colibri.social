@@ -14,7 +14,7 @@ const { key, type, required, children, level } = Astro.props;
 	<span class="font-medium whitespace-nowrap">{key} <small class="text-neutral-500">({type})</small></span>
 	{required && (
 		<div class="w-full h-px border-b border-dashed border-(--sl-color-gray-5)"></div>
-		<span class="font-medium text-red-400">Required</span>
+		<span class="font-medium">Required</span>
 	)}
 </div>
 {children && (

@@ -27,7 +27,7 @@ const { method, nsid, queryParams, body, response, authenticated } = Astro.props
 		<div class="flex flex-row gap-2 items-center flex-wrap">
 			<Badge text={method} size="large" variant="default" />
 			<span class="flex flex-row items-start">
-				<span class="text-neutral-500 text-nowrap">/xrpc/</span><span class="text-neutral-50 break-all"
+				<span class="text-neutral-500 text-nowrap">/xrpc/</span><span class="dark:text-neutral-50 text-neutral-950 break-all"
 					>{nsid}</span
 				>
 			</span>
@@ -36,7 +36,7 @@ const { method, nsid, queryParams, body, response, authenticated } = Astro.props
 	</div>
 	{
 		queryParams && (
-			<span class="font-bold text-neutral-50">Query Parameters</span>
+			<span class="font-bold dark:text-neutral-50 text-neutral-950">Query Parameters</span>
 			<div>
 				{Object.keys(queryParams).map((key) => (
 					<XRPCParam {key} {...queryParams![key]} />
@@ -46,7 +46,7 @@ const { method, nsid, queryParams, body, response, authenticated } = Astro.props
 	}
 	{
 		body && (
-			<span class="font-bold text-neutral-50">Query Parameters</span>
+			<span class="font-bold dark:text-neutral-50 text-neutral-950">Query Parameters</span>
 			<div>
 				{Object.keys(body).map((key) => (
 					<XRPCParam {key} {...body![key]} />
@@ -56,7 +56,7 @@ const { method, nsid, queryParams, body, response, authenticated } = Astro.props
 	}
 	{
 		response && (
-			<span class="font-bold text-neutral-50">Response</span>
+			<span class="font-bold dark:text-neutral-50 text-neutral-950">Response</span>
 			<div>
 				{Object.keys(response).map((key) => (
 					<XRPCParam {key} {...response[key]} />
