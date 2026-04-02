@@ -16,7 +16,7 @@ services:
         - LIVEKIT_SERVER_URL=${LIVEKIT_SERVER_URL}
         - SENTRY_DSN=${SENTRY_DSN}
         - SENTRY_AUTH_TOKEN=${SENTRY_AUTH_TOKEN}
-    container_name: app
+    container_name: colibri-app
     restart: unless-stopped
     ports:
       - "0.0.0.0:4321:4321"
@@ -42,7 +42,7 @@ services:
 
   redis:
     image: redis:7.2-alpine
-    container_name: redis
+    container_name: colibri-redis
     restart: unless-stopped
     command: redis-server /usr/local/etc/redis/redis.conf --requirepass "${REDIS_PASSWORD}"
     ports:
