@@ -18,8 +18,6 @@ services:
         - SENTRY_AUTH_TOKEN=${SENTRY_AUTH_TOKEN}
     container_name: colibri-app
     restart: unless-stopped
-    ports:
-      - "0.0.0.0:4322:4321"
     environment:
       - PRIVATE_KEY_1=${PRIVATE_KEY_1}
       - PRIVATE_KEY_2=${PRIVATE_KEY_2}
@@ -45,8 +43,6 @@ services:
     container_name: colibri-redis
     restart: unless-stopped
     command: redis-server /usr/local/etc/redis/redis.conf --requirepass "${REDIS_PASSWORD}"
-    ports:
-      - "127.0.0.1:6380:6379" # TODO: Change back to 6379 before merging
     volumes:
       - ./redis/redis.conf:/usr/local/etc/redis/redis.conf:ro
       - redis_data:/data
