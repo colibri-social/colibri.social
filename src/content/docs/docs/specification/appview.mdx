@@ -253,7 +253,7 @@ Sets the online state for a Colibri user.
 		}
 	}}
 	response={{
-		state: {
+		onlineState: {
 			type: "string",
 			required: true
 		}
@@ -314,43 +314,126 @@ Opens a connection with a WebSocket stream that transmits relevant events for th
 
 #### Events
 
-The event stream can choose to transmit events to clients who have signed up to receive them.
+The event stream can choose to transmit events to clients who have signed up to receive them. All events follow the same JSON data structure: they have a `type` (which is the same as the heading below), and an optional `data` field.
 
 ##### `ack`
 
-Sent when the AppView receives a [`heartbeat`](#heartbeat) message from the client.
+Sent when the AppView receives a [`heartbeat`](#heartbeat) message from the client. This event carries no data.
 
 ##### `community_event`
 
-Events of this type are sent to clients when a community has been updated or deleted.
+Events of this type are sent to clients when a community has been updated or deleted. If the `event` is set to `delete`, only the community's `uri` needs to be supplied.
+
+```ts title="data"
+{
+	event: 'upsert' | 'delete';
+	uri: string;
+	name: string;
+	description: string;
+	picture: blob;
+	categoryOrder: string[];
+}
+```
 
 ##### `member_event`
 
-Events of this type are sent to clients when a member has joined or left (or been blocked from) a community.
+Events of this type are sent to clients when a member has joined or left (or been blocked from) a community. The `membership` property is an AT-URI to the user's membership declaration for the community.
+
+```ts title="data"
+{
+	event: 'join' | 'leave';
+	community: string;
+	membership: string;
+}
+```
 
 ##### `category_event`
 
-Events of this type are sent to clients when a category has been created, updated, or deleted.
+Events of this type are sent to clients when a category has been created, updated, or deleted. When the `event` is `delete`, the `name` and `channelOrder` can be omitted.
+
+```ts title="data"
+{
+	event: 'upsert' | 'delete';
+	uri: string;
+	community: string;
+	name: string;
+	channelOrder: string[];
+}
+```
 
 ##### `channel_event`
 
-Events of this type are sent to clients when a channel has been created, updated, or deleted.
+Events of this type are sent to clients when a channel has been created, updated, or deleted. When the `event` is `delete`, the `name`, `description`, and `type` can be omitted.
+
+```ts title="data"
+{
+	event: 'upsert' | 'delete'
+	uri: string;
+	community: string;
+	name: string;
+	description: string;
+	type: string;
+}
+```
 
 ##### `message_event`
 
-Events of this type are sent to clients when a message has been sent, edited, or deleted.
+Events of this type are sent to clients when a message has been sent, edited, or deleted. When the `event` is `delete`, anything but the `uri` and `channel` can be omitted.
+
+```ts title="data"
+{
+	event: 'upsert' | 'delete';
+	uri: string;
+	channel: string;
+	text: string;
+	facets: facet[];
+	createdAt: string;
+	indexedAt: string;
+	edited: boolean;
+	parent: string;
+	attachments: blob[];
+}
+```
 
 ##### `reaction_event`
 
 Events of this type are sent to clients when a reaction has been added to or removed from a message.
 
+```ts title="data"
+{
+	event: 'added' | 'removed';
+	uri: string;
+	emoji: string;
+	target: string;
+	channel: string;
+}
+```
+
 ##### `user_event`
 
 Events of this type are sent to clients when a user the client knows about has updated their Bluesky profile or Colibri status.
 
+```ts title="data"
+{
+	did: string;
+	status?: {
+		emoji?: string;
+		text: string;
+		state: 'online' | 'away' | 'dnd' | 'offline';
+	};
+	profile: {
+		displayName?: string;
+		avatar?: blob;
+		banner?: blob;
+		description?: string;
+		handle: string;
+	};
+}
+```
+
 #### Messages
 
-The following messages can be sent from the client to the AppView
+The following messages can be sent from the client to the AppView.  All messages follow the same JSON data structure: they have a `type` (which is the same as the heading below), and an optional `data` field.
 
 ##### `heartbeat`
 
@@ -360,9 +443,21 @@ A generic event that carries no data. It is used to keep the socket connection a
 
 Clients can send a `subscribe` message to the AppView, supplying a list of communities for which they wish to receive updates. The AppView handles the rest and infers which users, channels, etc. the client needs to know about.
 
+```ts title="data"
+{
+	communities: string[];
+}
+```
+
 ##### `unsubscribe`
 
 Clients can send an `unsubscribe` message to the AppView, supplying a list of communities, for which they wish to no longer receive events.
+
+```ts title="data"
+{
+	communities: string[];
+}
+```
 
 ##### `activity`
 
@@ -372,13 +467,23 @@ A message used to prevent clients from having their online status set to "Away" 
 
 Clients must send a `voice_join` message to the AppView when the user joins a voice channel.
 
+```ts title="data"
+{
+	channel: string;
+	community: string;
+}
+```
+
 ##### `voice_leave`
 
 Clients must send a `voice_leave` message to the AppView when the user leaves a voice channel.
 
-##### `state`
-
-A message used to inform the AppView about the new preferred online state of the user.
+```ts title="data"
+{
+	channel: string;
+	community: string;
+}
+```
 
 ### `social.colibri.community.listBlockedUsers`
 
@@ -828,6 +933,24 @@ Get a paginated message history for the specified channel, newest messages first
 					type: "blob[]",
 					required: true,
 				},
+				reactions: {
+					type: "object[]",
+					required: true,
+					children: {
+						emoji: {
+							type: "string",
+							required: true,
+						},
+						count: {
+							type: "integer",
+							required: true,
+						},
+						reactorDIDs: {
+							type: "string[]",
+							required: true,
+						},
+					}
+				}
 			}
 		}
 	}}
