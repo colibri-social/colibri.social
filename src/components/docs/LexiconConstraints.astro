@@ -1,0 +1,130 @@
+---
+import type { LexiconDoc } from "@atproto/lexicon";
+
+type ExtractedType<T> = T extends Record<string, infer U> ? U : never;
+
+interface Props {
+	defs: ExtractedType<LexiconDoc["defs"]>;
+}
+
+const { defs } = Astro.props;
+---
+
+{
+	defs.type === "integer" && (
+		<div class="flex flex-row items-center gap-2 text-sm not-content">
+			{defs.minimum && (
+				<div class="flex flex-row items-center gap-1">
+					<strong class="text-neutral-800 dark:text-neutral-200">
+						minimum:
+					</strong>{" "}
+					{defs.minimum}
+				</div>
+			)}
+			{defs.maximum && (
+				<div class="flex flex-row items-center gap-1">
+					<strong class="text-neutral-800 dark:text-neutral-200">
+						maximum:
+					</strong>{" "}
+					{defs.maximum}
+				</div>
+			)}
+			{defs.default && (
+				<div class="flex flex-row items-center gap-1">
+					<strong class="text-neutral-800 dark:text-neutral-200">
+						default:
+					</strong>{" "}
+					{defs.default}
+				</div>
+			)}
+		</div>
+	)
+}
+{
+	defs.type === "string" && (
+		<div class="flex flex-row items-center gap-2 text-sm not-content">
+			{defs.minLength && (
+				<div class="flex flex-row items-center gap-1">
+					<strong class="text-neutral-800 dark:text-neutral-200">
+						minLength:
+					</strong>{" "}
+					{defs.minLength}
+				</div>
+			)}
+			{defs.maxLength && (
+				<div class="flex flex-row items-center gap-1">
+					<strong class="text-neutral-800 dark:text-neutral-200">
+						maxLength:
+					</strong>{" "}
+					{defs.maxLength}
+				</div>
+			)}
+			{defs.maxGraphemes && (
+				<div class="flex flex-row items-center gap-1">
+					<strong class="text-neutral-800 dark:text-neutral-200">
+						maxGraphemes:
+					</strong>{" "}
+					{defs.maxGraphemes}
+				</div>
+			)}
+			{defs.enum && (
+				<div class="flex flex-row items-center gap-1">
+					<strong class="text-neutral-800 dark:text-neutral-200">enum:</strong>{" "}
+					{defs.enum.join(", ")}
+				</div>
+			)}
+			{defs.default && (
+				<div class="flex flex-row items-center gap-1">
+					<strong class="text-neutral-800 dark:text-neutral-200">
+						default:
+					</strong>{" "}
+					{defs.default}
+				</div>
+			)}
+			{defs.format && (
+				<div class="flex flex-row items-center gap-1">
+					<strong class="text-neutral-800 dark:text-neutral-200">
+						format:
+					</strong>{" "}
+					{defs.format}
+				</div>
+			)}
+		</div>
+	)
+}
+{
+	defs.type === "blob" && (
+		<div class="flex flex-row items-center gap-2 text-sm not-content">
+			{defs.maxSize && (
+				<div class="flex flex-row items-center gap-1">
+					<strong class="text-neutral-800 dark:text-neutral-200">
+						maxSize:
+					</strong>{" "}
+					{defs.maxSize}
+				</div>
+			)}
+			{defs.accept && (
+				<div class="flex flex-row items-center gap-1">
+					<strong class="text-neutral-800 dark:text-neutral-200">
+						accept:
+					</strong>{" "}
+					{defs.accept.join(", ")}
+				</div>
+			)}
+		</div>
+	)
+}
+{
+	defs.type === "boolean" && (
+		<div class="flex flex-row items-center gap-2 text-sm not-content">
+			{defs.default && (
+				<div class="flex flex-row items-center gap-1">
+					<strong class="text-neutral-800 dark:text-neutral-200">
+						default:
+					</strong>{" "}
+					{defs.default}
+				</div>
+			)}
+		</div>
+	)
+}

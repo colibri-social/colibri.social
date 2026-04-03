@@ -1,0 +1,47 @@
+---
+import { LEXICON_DOCS, RECORD_IDs } from "@/utils/atproto/lexicons";
+import { Badge } from "@astrojs/starlight/components";
+import type { LexiconDoc, LexRecord } from "@atproto/lexicon";
+import LexiconConstraints from "./LexiconConstraints.astro";
+---
+
+{
+	LEXICON_DOCS.filter((lex) => lex.id !== RECORD_IDs.RICHTEXT_FACET).map(
+		(lex) => {
+			return (
+				<>
+					<h2>{lex.id}</h2>
+					<small>Lexicon version: {lex.lexicon}</small>
+					<h3 class="flex flex-row items-center gap-2">
+						Main Definition <Badge text={lex.defs.main.type.toUpperCase()} />
+					</h3>
+					<p>{lex.defs.main.description}</p>
+					<div class="border border-(--sl-color-gray-5) rounded-lg p-4">
+						{Object.keys((lex.defs.main as LexRecord).record.properties).map(
+							(key) => {
+								const property = (lex.defs.main as LexRecord).record.properties[
+									key
+								];
+								return (
+									<div class="not-content">
+										<div class="flex flex-row gap-2 items-center">
+											<span class="font-bold text-neutral-950 dark:text-neutral-50">
+												{key}
+											</span>
+											<div class="text-(sl-color-gray-3)">{property.type}</div>
+											{(lex.defs.main as LexRecord).record.required?.includes(
+												key,
+											) && <div class="text-red-400">required</div>}
+										</div>
+										<LexiconConstraints defs={property as any} />
+										<p>{property.description}</p>
+									</div>
+								);
+							},
+						)}
+					</div>
+				</>
+			);
+		},
+	)
+}
