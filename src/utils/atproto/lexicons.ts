@@ -220,8 +220,9 @@ lex.add(
 						},
 						type: {
 							type: "string",
-							description: "The type of the channel.",
-							enum: ["text", "voice", "forum"],
+							description:
+								"The type of the channel. Colibri provides social.colibri.channel.text, social.colibri.channel.forum, social.colibri.channel.link, and social.colibri.channel.voice.",
+							format: "nsid",
 						},
 						category: {
 							type: "string",
