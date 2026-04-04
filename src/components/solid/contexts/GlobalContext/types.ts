@@ -12,6 +12,7 @@ import type {
 	UserOnlineState,
 	UserProfileUpdatedEvent,
 	UserStatusChangedEvent,
+	UserTypingEvent,
 	VoiceChannelUpdatedEvent,
 } from "./events";
 
@@ -46,6 +47,7 @@ export type GlobalContextData = {
 	memberStatusOverrides: Array<UserStatusChangedEvent>;
 	userOnlineStates: Array<OnlineStateInfo>;
 	knownVoiceChannelStates: Array<VoiceChannelUpdatedEvent>;
+	typing: Array<{ timeout: NodeJS.Timeout; did: string; channel: string }>;
 };
 
 export type GlobalContextUtility = {
@@ -76,4 +78,5 @@ export type GlobalContextUtility = {
 	clearMemberOverrides: () => void;
 	updateUserOnlineState: (state: OnlineStateInfo) => void;
 	processVoiceChannelUpdate: (data: VoiceChannelUpdatedEvent) => void;
+	handleUserTyping: (data: UserTypingEvent) => void;
 };

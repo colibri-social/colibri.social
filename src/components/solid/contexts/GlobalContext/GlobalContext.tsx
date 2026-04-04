@@ -62,6 +62,7 @@ export const GlobalContextProvider: ParentComponent<{
 		// TODO(app): This might not reflect the user's preferred state.
 		userOnlineStates: [{ did: props.contextData.user.sub, state: "online" }],
 		knownVoiceChannelStates: [],
+		typing: [],
 	});
 
 	const context: [GlobalContextData, GlobalContextUtility] = [
@@ -293,6 +294,44 @@ export const GlobalContextProvider: ParentComponent<{
 					]);
 				}
 			},
+			handleUserTyping(data) {
+				if (data.did === context[0].user.sub) return;
+
+				const existingUserIndex = context[0].typing.findIndex(
+					(x) => x.did === data.did,
+				);
+
+				const cb = () => {
+					setGlobalContext("typing", (current) =>
+						current.filter((x) => x.did !== data.did),
+					);
+				};
+
+				if (existingUserIndex >= 0) {
+					setGlobalContext("typing", (current) => {
+						const existing = current.find((x) => x.did === data.did);
+						if (existing) clearTimeout(existing.timeout);
+						return current.map((x) =>
+							x.did === data.did
+								? {
+										timeout: setTimeout(cb, 3000),
+										did: data.did,
+										channel: data.channel,
+									}
+								: x,
+						);
+					});
+				} else {
+					setGlobalContext("typing", (current) => [
+						...current,
+						{
+							timeout: setTimeout(cb, 3000),
+							did: data.did,
+							channel: data.channel,
+						},
+					]);
+				}
+			},
 		},
 	];
 
@@ -387,10 +426,15 @@ export const GlobalContextProvider: ParentComponent<{
 			case "voice_channel_updated":
 				context[1].processVoiceChannelUpdate(data);
 				break;
+			case "user_typing":
+				// Add user to list, start countdown for 3 seconds, reset countdown if user types again
+				context[1].handleUserTyping(data);
+				console.log(data);
+				break;
 			case "ack":
 				break;
 			default:
-				console.error("Unknown event: ", data);
+				console.warn("Unknown event: ", data);
 		}
 	});
 

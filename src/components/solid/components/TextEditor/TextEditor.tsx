@@ -31,6 +31,8 @@ import {
 import { EMOJI_DATA } from "../RichTextRenderer/emojiData";
 import { buildSuggestions } from "./build-suggestions";
 import { proseMirrorToFacets } from "./prosemirror-to-facets";
+import { useGlobalContext } from "../../contexts/GlobalContext";
+import { useParams } from "@solidjs/router";
 
 const CHARACTER_LIMIT = 2048;
 const CIRCUMFERENCE = 2 * Math.PI * 8;
@@ -47,6 +49,10 @@ export const TextEditor: Component<{
 }> = (props) => {
 	let ref!: HTMLDivElement;
 
+	const params = useParams();
+	const channel = () => params.channel!;
+
+	const [, { sendSocketMessage }] = useGlobalContext();
 	const communityContext = useCommunityContext();
 	const channelContext = useChannelContext();
 
@@ -334,6 +340,11 @@ export const TextEditor: Component<{
 				id="editor"
 				class="w-full max-w-[calc(100%-28px)]"
 				onKeyDown={(e) => {
+					sendSocketMessage({
+						action: "typing",
+						channel: channel(),
+					});
+
 					if (e.ctrlKey && e.key === "s") {
 						e.stopImmediatePropagation();
 						e.stopPropagation();
