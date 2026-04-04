@@ -356,11 +356,15 @@ const ChannelView: Component = () => {
 						const idx = index();
 
 						const isOnNewDay = () => {
-							return (
-								idx !== 0 &&
-								new Date(msgs[idx - 1]?.created_at).getDay() !==
-									new Date(item.created_at).getDay()
-							);
+							if (idx === 0) return false;
+
+							const prevDate = new Date(msgs[idx - 1]?.created_at);
+							const itemDate = new Date(item.created_at);
+
+							const prevDateStr = `${prevDate.getDay()}.${prevDate.getMonth()}.${prevDate.getFullYear()}`;
+							const itemDateStr = `${itemDate.getDay()}.${itemDate.getMonth()}.${itemDate.getFullYear()}`;
+
+							return prevDateStr !== itemDateStr;
 						};
 
 						const hasSubsequent = () => {
