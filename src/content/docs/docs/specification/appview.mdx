@@ -431,6 +431,18 @@ Events of this type are sent to clients when a user the client knows about has u
 }
 ```
 
+##### `typing_event`
+
+Events of this type are sent to clients when a user is typing in the channel the user is currently viewing. For notes on how to report this to the AppView, see the [`view`](#view) message type.
+
+```ts title="data"
+{
+	event: 'start' | 'stop';
+	channel: string;
+	did: string;
+}
+```
+
 #### Messages
 
 The following messages can be sent from the client to the AppView.  All messages follow the same JSON data structure: they have a `type` (which is the same as the heading below), and an optional `data` field.
@@ -446,6 +458,16 @@ Clients can send a `subscribe` message to the AppView, supplying a list of commu
 ```ts title="data"
 {
 	communities: string[];
+}
+```
+
+##### `view`
+
+Clients can send a `view` message to the AppView to inform it about the channel the user is currently viewing.
+
+```ts title="data"
+{
+	channel: string;
 }
 ```
 
