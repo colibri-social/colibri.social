@@ -15,12 +15,14 @@ import { CharacterCount, Placeholder, UndoRedo } from "@tiptap/extensions";
 import { type Component, createEffect, createSignal, untrack } from "solid-js";
 import { createEditorTransaction, createTiptapEditor } from "solid-tiptap";
 import "./TextEditor.css";
+import { useParams } from "@solidjs/router";
 import { type Editor, mergeAttributes } from "@tiptap/core";
 import twemoji from "@twemoji/api";
 import type { Facet } from "@/utils/atproto/rich-text";
 import { htmlToDOMOutputSpec } from "@/utils/html-to-dom-output-spec";
 import { useChannelContext } from "../../contexts/ChannelContext";
 import { useCommunityContext } from "../../contexts/CommunityContext";
+import { useGlobalContext } from "../../contexts/GlobalContext";
 import Icon from "../../icons/Icon";
 import {
 	Tooltip,
@@ -47,6 +49,10 @@ export const TextEditor: Component<{
 }> = (props) => {
 	let ref!: HTMLDivElement;
 
+	const params = useParams();
+	const channel = () => params.channel!;
+
+	const [, { sendSocketMessage }] = useGlobalContext();
 	const communityContext = useCommunityContext();
 	const channelContext = useChannelContext();
 
@@ -334,6 +340,11 @@ export const TextEditor: Component<{
 				id="editor"
 				class="w-full max-w-[calc(100%-28px)]"
 				onKeyDown={(e) => {
+					sendSocketMessage({
+						action: "typing",
+						channel: channel(),
+					});
+
 					if (e.ctrlKey && e.key === "s") {
 						e.stopImmediatePropagation();
 						e.stopPropagation();

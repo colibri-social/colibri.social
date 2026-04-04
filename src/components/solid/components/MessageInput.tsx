@@ -7,7 +7,10 @@ import {
 	type Component,
 	createEffect,
 	createSignal,
+	For,
+	Match,
 	Show,
+	Switch,
 } from "solid-js";
 import { toast } from "somoto";
 import type { PostMessageInput } from "@/actions/message/post";
@@ -16,6 +19,7 @@ import type { Facet } from "@/utils/atproto/rich-text";
 import { generateHash } from "@/utils/generate-hash";
 import { parseZodToErrorOrDisplay } from "@/utils/parse-zod-to-error-or-display";
 import { purify } from "@/utils/purify";
+import { useCommunityContext } from "../contexts/CommunityContext";
 import { useGlobalContext } from "../contexts/GlobalContext";
 import type { AttachmentObj, BlobObj } from "../contexts/GlobalContext/events";
 import { useMessageContext } from "../contexts/MessageContext";
@@ -96,6 +100,7 @@ export const MessageInput: Component<{
 	const channel = () => params.channel!;
 	const fileField = useFileFieldContext();
 
+	const community = useCommunityContext()!;
 	const [messageData, { clearReplyingTo, triggerScrollToBottom }] =
 		useMessageContext();
 	const [globalData, { addPendingMessage, removePendingMessage }] =
@@ -238,6 +243,29 @@ export const MessageInput: Component<{
 					>
 						<Icon variant="regular" name="x-circle-icon" />
 					</button>
+				</div>
+			</Show>
+			<Show when={globalData.typing.length > 0}>
+				<div class="w-full px-4 py-2 text-xs text-foreground flex items-center gap-1 border-t border-border">
+					<For each={globalData.typing}>
+						{(item, i) => (
+							<span>
+								<Show when={i() > 0}>, </Show>
+								{community.members().find((x) => x.member_did === item.did)
+									?.display_name ??
+									community.members().find((x) => x.member_did === item.did)
+										?.handle}
+							</span>
+						)}
+					</For>
+					<Switch>
+						<Match when={globalData.typing.length === 1}>
+							<span> is typing...</span>
+						</Match>
+						<Match when={globalData.typing.length > 1}>
+							<span> are typing...</span>
+						</Match>
+					</Switch>
 				</div>
 			</Show>
 			<Show

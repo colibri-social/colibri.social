@@ -177,6 +177,12 @@ export type VoiceChannelUpdatedEvent = {
 	member_dids: Array<string>;
 };
 
+export type UserTypingEvent = {
+	type: "user_typing";
+	did: string;
+	channel: string;
+};
+
 export type AppviewSubscriptionData =
 	| AckEvent
 	| MessagePostEvent
@@ -194,7 +200,8 @@ export type AppviewSubscriptionData =
 	| MemberLeftEvent
 	| UserStatusChangedEvent
 	| UserProfileUpdatedEvent
-	| VoiceChannelUpdatedEvent;
+	| VoiceChannelUpdatedEvent
+	| UserTypingEvent;
 
 export type ReactionEventCallback = (
 	data: ReactionAddedEvent | ReactionRemovedEvent,
