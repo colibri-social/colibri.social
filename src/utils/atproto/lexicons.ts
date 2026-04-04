@@ -373,7 +373,7 @@ lex.add(
 	def({
 		lexicon: 1,
 		id: RECORD_IDs.RICHTEXT_FACET,
-		revision: 1,
+		revision: 2,
 		defs: {
 			main: {
 				type: "object",
@@ -396,8 +396,11 @@ lex.add(
 								"social.colibri.richtext.facet#underline",
 								"social.colibri.richtext.facet#strikethrough",
 								"social.colibri.richtext.facet#code",
+								"social.colibri.richtext.facet#codeblock",
 								"social.colibri.richtext.facet#mention",
 								"social.colibri.richtext.facet#link",
+								"social.colibri.richtext.facet#time",
+								"social.colibri.richtext.facet#quote",
 							],
 						},
 					},
@@ -458,6 +461,21 @@ lex.add(
 				description: "A facet feature for inline code text.",
 				properties: {},
 			},
+			quote: {
+				type: "object",
+				description: "A facet feature for inline code text.",
+				properties: {},
+			},
+			codeblock: {
+				type: "object",
+				description: "A facet feature for a code block.",
+				properties: {
+					lang: {
+						type: "string",
+						description: "The language of the code.",
+					},
+				},
+			},
 			mention: {
 				type: "object",
 				description: "A facet feature for a user mention.",
@@ -479,6 +497,18 @@ lex.add(
 						type: "string",
 						description: "The URI of the link.",
 						format: "uri",
+					},
+				},
+			},
+			time: {
+				type: "object",
+				description: "A facet feature for a timestamp.",
+				required: ["datetime"],
+				properties: {
+					datetime: {
+						type: "string",
+						description: "The timestamp for this facet.",
+						format: "datetime",
 					},
 				},
 			},
