@@ -19,6 +19,7 @@ import type { Facet } from "@/utils/atproto/rich-text";
 import { generateHash } from "@/utils/generate-hash";
 import { parseZodToErrorOrDisplay } from "@/utils/parse-zod-to-error-or-display";
 import { purify } from "@/utils/purify";
+import { useCommunityContext } from "../contexts/CommunityContext";
 import { useGlobalContext } from "../contexts/GlobalContext";
 import type { AttachmentObj, BlobObj } from "../contexts/GlobalContext/events";
 import { useMessageContext } from "../contexts/MessageContext";
@@ -32,7 +33,6 @@ import {
 	FileFieldTrigger,
 } from "../shadcn-solid/file-field";
 import { TextEditor } from "./TextEditor/TextEditor";
-import { useCommunityContext } from "../contexts/CommunityContext";
 
 const uploadWithProgress = (
 	file: File,

@@ -15,12 +15,14 @@ import { CharacterCount, Placeholder, UndoRedo } from "@tiptap/extensions";
 import { type Component, createEffect, createSignal, untrack } from "solid-js";
 import { createEditorTransaction, createTiptapEditor } from "solid-tiptap";
 import "./TextEditor.css";
+import { useParams } from "@solidjs/router";
 import { type Editor, mergeAttributes } from "@tiptap/core";
 import twemoji from "@twemoji/api";
 import type { Facet } from "@/utils/atproto/rich-text";
 import { htmlToDOMOutputSpec } from "@/utils/html-to-dom-output-spec";
 import { useChannelContext } from "../../contexts/ChannelContext";
 import { useCommunityContext } from "../../contexts/CommunityContext";
+import { useGlobalContext } from "../../contexts/GlobalContext";
 import Icon from "../../icons/Icon";
 import {
 	Tooltip,
@@ -31,8 +33,6 @@ import {
 import { EMOJI_DATA } from "../RichTextRenderer/emojiData";
 import { buildSuggestions } from "./build-suggestions";
 import { proseMirrorToFacets } from "./prosemirror-to-facets";
-import { useGlobalContext } from "../../contexts/GlobalContext";
-import { useParams } from "@solidjs/router";
 
 const CHARACTER_LIMIT = 2048;
 const CIRCUMFERENCE = 2 * Math.PI * 8;
