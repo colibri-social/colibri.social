@@ -29,9 +29,13 @@
 }
 
 .sl-badge.default {
-	--sl-color-bg-badge: #1a0f30;
+	--sl-color-bg-badge: transparent;
 	--sl-color-border-badge: var(--sl-color-accent-high);
 	--sl-color-text-badge: var(--sl-color-accent-high);
+}
+
+[data-theme="dark"] .sl-badge.default {
+	--sl-color-bg-badge: #1a0f30;
 }
 
 ul.top-level > li > a[aria-current="page"] span {
