@@ -9,6 +9,7 @@
 	--sl-color-accent-high: oklch(0.606 0.25 292.717);
 	--sl-font: "Hanken Grotesk Variable", sans-serif;
 	--sl-color-text: rgb(25, 25, 25);
+	--sl-color-gray-2: var(--sl-color-text);
 }
 
 [data-theme="dark"] {
