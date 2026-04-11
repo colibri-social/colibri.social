@@ -5,12 +5,12 @@ import {
 	TooltipContent,
 	TooltipPortal,
 	TooltipTrigger,
-} from "../../shadcn-solid/Tooltip";
+} from "../../../shadcn-solid/Tooltip";
 
 /**
- * An action in the message context menu.
+ * An action in the message quick actions menu.
  */
-export const MessageAction: ParentComponent<{
+export const Action: ParentComponent<{
 	tooltipText: string;
 	buttonClasses?: string;
 	onClick?: ((e: MouseEvent) => void) | (() => void);

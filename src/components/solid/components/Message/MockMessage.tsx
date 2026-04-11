@@ -3,20 +3,23 @@ import type { DBMessageData } from "@/utils/sdk";
 import { RichTextRenderer } from "../RichTextRenderer";
 import User from "../User";
 import { MessageAttachments } from "./Attachments";
+import createMediaQuery from "@/utils/create-media-query";
 
 /**
  * A mock render of a message shown in the deletion modal when a message is about to be deleted.
+ * TODO(refactor): Just use the normal message component once refactored and simplified
  */
 export const MockMessage: Component<{
 	message: DBMessageData;
-	isDesktop: Accessor<boolean>;
 }> = (props) => {
+	const isDesktop = createMediaQuery("(min-width: 768px)");
+
 	return (
 		<div
-			class={`w-fullh-fit flex flex-row p-2 gap-4 group relative border border-border rounded-sm`}
+			class={`w-full h-fit flex flex-row p-2 gap-4 group relative border border-border rounded-sm`}
 			classList={{
-				"mx-4": !props.isDesktop(),
-				"w-full mx-0": props.isDesktop(),
+				"mx-4": !isDesktop(),
+				"w-full mx-0": isDesktop(),
 			}}
 		>
 			<User.Avatar

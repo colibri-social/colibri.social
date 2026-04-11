@@ -1,9 +1,9 @@
-import type { Accessor, ParentComponent, Setter } from "solid-js";
+import type { ParentComponent, Setter } from "solid-js";
 import type { DBMessageData, IndexedMessageData } from "@/utils/sdk";
 import type {
 	GlobalContextUtility,
 	PendingMessageData,
-} from "../../contexts/GlobalContext";
+} from "../../../contexts/GlobalContext";
 import {
 	Drawer,
 	DrawerContent,
@@ -13,24 +13,20 @@ import {
 	DrawerLabel,
 	DrawerPortal,
 	DrawerTrigger,
-} from "../../shadcn-solid/Drawer";
-import {
-	BlockDialogConfirmButton,
-	BlockDialogTitleContent,
-} from "./MessageBlockDrawer";
-import { MockMessage } from "./MockMessage";
-import { blockMessage, DialogCancelButton } from "./util";
+} from "../../../shadcn-solid/Drawer";
+import { MockMessage } from "../MockMessage";
+import { DialogDescriptionContent, DialogTitleContent } from "./shared";
+import { deleteMessage } from "../util";
+import { DialogCancelButton, DialogConfirmButton } from "../shared";
 
 /**
  * The mobile version of the message deletion drawer used as a warning when a message is about to be deleted.
  */
-export const MobileDrawer: ParentComponent<{
+export const Mobile: ParentComponent<{
 	open: boolean;
 	setOpen: Setter<boolean>;
 	message: DBMessageData | PendingMessageData;
 	addDeletedMessage: GlobalContextUtility["addDeletedMessage"];
-	community: string;
-	isDesktop: Accessor<boolean>;
 }> = (props) => (
 	<Drawer breakPoints={[0.75]} open={props.open}>
 		<DrawerTrigger>{props.children}</DrawerTrigger>
@@ -38,24 +34,20 @@ export const MobileDrawer: ParentComponent<{
 			<DrawerContent>
 				<DrawerHeader>
 					<DrawerLabel class="m-0">
-						<BlockDialogTitleContent />
+						<DialogTitleContent />
 					</DrawerLabel>
 					<DrawerDescription class="m-0">
-						<BlockDialogTitleContent />
+						<DialogDescriptionContent />
 					</DrawerDescription>
 				</DrawerHeader>
-				<MockMessage
-					isDesktop={props.isDesktop}
-					message={props.message as DBMessageData}
-				/>
+				<MockMessage message={props.message as DBMessageData} />
 				<DrawerFooter>
 					<DialogCancelButton setOpen={props.setOpen} />
-					<BlockDialogConfirmButton
+					<DialogConfirmButton
 						onClick={() => {
-							blockMessage(
+							deleteMessage(
 								props.message as IndexedMessageData,
 								props.addDeletedMessage,
-								props.community,
 								props.setOpen,
 							);
 						}}

@@ -27,7 +27,7 @@ const fetchEmbedData = async (uri: string) => {
  * figure out why links only produce two messages in chat, re-scroll
  * chat when embeds appear on latest message
  */
-export const LinkEmbed: Component<{ uri: string }> = (props) => {
+export const Embed: Component<{ uri: string }> = (props) => {
 	const [, { notifyEmbedLoad }] = useMessageContext();
 	const [embedData] = createResource(props.uri, fetchEmbedData);
 
@@ -50,7 +50,7 @@ export const LinkEmbed: Component<{ uri: string }> = (props) => {
 			}
 		>
 			<div
-				class="flex flex-col border-l-2 px-4 p-2 bg-card mb-2 rounded-r-sm max-w-[416px]"
+				class="flex flex-col border-l-2 px-4 p-2 bg-card mb-2 rounded-r-sm max-w-104"
 				style={{ "border-color": embedData()!.themeColor }}
 			>
 				<span class="text-xs">{embedData()!.siteName}</span>

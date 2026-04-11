@@ -10,7 +10,7 @@ import {
 } from "../../shadcn-solid/Dialog";
 import { SettingsInfoPage } from "../SettingsInfoPage";
 
-export const MessageDebugInfo: Component<{
+export const DebugInfo: Component<{
 	open: boolean;
 	setOpen: Setter<boolean>;
 	message: DBMessageData;
@@ -18,7 +18,7 @@ export const MessageDebugInfo: Component<{
 	return (
 		<Dialog open={props.open} onOpenChange={props.setOpen}>
 			<DialogPortal>
-				<DialogContent class="w-[75vw] min-w-92 h-fit min-h-108 max-w-128! p-0 flex flex-row gap-0">
+				<DialogContent class="w-[75vw] min-w-92 h-fit min-h-108 max-w-lg! p-0 flex flex-row gap-0">
 					<div class="absolute top-4 right-4 flex items-center justify-center w-6 h-6 hover:bg-muted/50 cursor-pointer rounded-sm">
 						<DialogCloseButton
 							class="absolute cursor-pointer"

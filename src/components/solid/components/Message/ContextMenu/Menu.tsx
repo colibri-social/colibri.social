@@ -4,16 +4,16 @@ import type { DBMessageData, IndexedMessageData } from "@/utils/sdk";
 import type {
 	GlobalContextUtility,
 	PendingMessageData,
-} from "../../contexts/GlobalContext";
+} from "../../../contexts/GlobalContext";
 import {
 	ContextMenu,
 	ContextMenuContent,
 	ContextMenuItem,
 	ContextMenuPortal,
 	ContextMenuTrigger,
-} from "../../shadcn-solid/ContextMenu";
-import { MessageDebugInfo } from "./MessageDebugInfo";
-import { MessageDeletionDrawer } from "./MessageDeletionDrawer";
+} from "../../../shadcn-solid/ContextMenu";
+import { DeletionDrawer } from "../DeletionDrawer";
+import { DebugInfo } from "../DebugInfo";
 
 /**
  * A component handling the right click context menu for messages.
@@ -32,19 +32,16 @@ export const MessageContextMenu: ParentComponent<{
 	debugModalOpen: boolean;
 	setDebugModalOpen: Setter<boolean>;
 }> = (props) => {
-	const lightboxOpen = () => !!document.querySelector("#lightbox");
+	const isDisabled = () =>
+		props.disabled ||
+		props.debugModalOpen ||
+		props.deletionModalOpen ||
+		!!document.querySelector("#lightbox");
 
 	return (
 		<>
 			<ContextMenu>
-				<ContextMenuTrigger
-					disabled={
-						props.disabled ||
-						props.debugModalOpen ||
-						props.deletionModalOpen ||
-						lightboxOpen()
-					}
-				>
+				<ContextMenuTrigger disabled={isDisabled()}>
 					{props.children}
 				</ContextMenuTrigger>
 				<ContextMenuPortal>
@@ -64,7 +61,7 @@ export const MessageContextMenu: ParentComponent<{
 								<Icon variant="regular" name="pencil-icon" />
 								<span>Edit</span>
 							</ContextMenuItem>
-							<MessageDeletionDrawer
+							<DeletionDrawer
 								message={props.data}
 								addDeletedMessage={props.addDeletedMessage}
 								open={props.deletionModalOpen}
@@ -79,13 +76,13 @@ export const MessageContextMenu: ParentComponent<{
 									<Icon variant="regular" name="trash-icon" />
 									<span>Delete</span>
 								</ContextMenuItem>
-							</MessageDeletionDrawer>
+							</DeletionDrawer>
 						</Show>
 					</ContextMenuContent>
 				</ContextMenuPortal>
 			</ContextMenu>
 			<Show when={!("hash" in props.data)}>
-				<MessageDebugInfo
+				<DebugInfo
 					message={props.data as DBMessageData}
 					open={props.debugModalOpen}
 					setOpen={props.setDebugModalOpen}

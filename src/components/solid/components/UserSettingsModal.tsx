@@ -66,7 +66,7 @@ import {
 	TextFieldLabel,
 	TextFieldTextArea,
 } from "../shadcn-solid/text-field";
-import { EmojiPopover } from "./Message/EmojiPopover";
+import { EmojiPopover } from "./common/EmojiPopover";
 import { InfoPageItem } from "./SettingsInfoPage";
 import { SettingsModal, SettingsPage } from "./SettingsModal";
 

@@ -47,16 +47,17 @@ import { facetsToProseMirror } from "../TextEditor/facets-to-prosemirror";
 import { TextEditor } from "../TextEditor/TextEditor";
 import User from "../User";
 import { MessageAttachments } from "./Attachments";
-import { EmojiPopover } from "./EmojiPopover";
-import { LinkEmbed } from "./LinkEmbed";
-import { MessageAction } from "./MessageAction";
-import { MessageBlockDrawer } from "./MessageBlockDrawer";
-import { MessageContextMenu } from "./MessageContextMenu";
-import { MessageDeletionDrawer } from "./MessageDeletionDrawer";
+import { EmojiPopover } from "../common/EmojiPopover";
+import { Embed } from "./Embed";
+import { MessageContextMenu } from "./ContextMenu/Menu";
 import { blockMessage, deleteMessage } from "./util";
+import { Action } from "./ContextMenu";
+import { BlockDrawer } from "./BlockDrawer";
+import { DeletionDrawer } from "./DeletionDrawer";
 
 /**
  * A rendered message component in a chat.
+ * TODO(refactor): Once we have a proper message context, refactor this
  */
 export const Message: Component<{
 	data: IndexedMessageData | PendingMessageData;
@@ -757,26 +758,26 @@ export const Message: Component<{
 								setEmojiPopoverOpen={setEmojiPopoverOpen}
 								addReactionOptimistic={addReactionOptimistic}
 							>
-								<MessageAction tooltipText="Add reaction">
+								<Action tooltipText="Add reaction">
 									<Icon variant="regular" name="smiley-icon" />
-								</MessageAction>
+								</Action>
 							</EmojiPopover>
-							<MessageAction tooltipText="Reply" onClick={enableReplyMode}>
+							<Action tooltipText="Reply" onClick={enableReplyMode}>
 								<Icon variant="regular" name="arrow-bend-up-left-icon" />
-							</MessageAction>
+							</Action>
 							<Show
 								when={
 									isAdmin() && props.data.author_did !== globalData.user.sub
 								}
 							>
-								<MessageBlockDrawer
+								<BlockDrawer
 									message={{ ...props.data, ...optimisticUserData() }}
 									addDeletedMessage={addDeletedMessage}
 									open={blockModalOpen()}
 									setOpen={setBlockModalOpen}
 									community={community()}
 								>
-									<MessageAction
+									<Action
 										tooltipText="Block"
 										buttonClasses="text-destructive"
 										onClick={(e) => {
@@ -784,20 +785,20 @@ export const Message: Component<{
 										}}
 									>
 										<Icon variant="regular" name="prohibit-icon" />
-									</MessageAction>
-								</MessageBlockDrawer>
+									</Action>
+								</BlockDrawer>
 							</Show>
 							<Show when={messageEditable()}>
-								<MessageAction tooltipText="Edit" onClick={enableEditMode}>
+								<Action tooltipText="Edit" onClick={enableEditMode}>
 									<Icon variant="regular" name="pencil-icon" />
-								</MessageAction>
-								<MessageDeletionDrawer
+								</Action>
+								<DeletionDrawer
 									message={{ ...props.data, ...optimisticUserData() }}
 									addDeletedMessage={addDeletedMessage}
 									open={deletionModalOpen()}
 									setOpen={setDeletionModalOpen}
 								>
-									<MessageAction
+									<Action
 										tooltipText="Delete"
 										buttonClasses="text-destructive"
 										onClick={(e) => {
@@ -805,8 +806,8 @@ export const Message: Component<{
 										}}
 									>
 										<Icon variant="regular" name="trash-icon" />
-									</MessageAction>
-								</MessageDeletionDrawer>
+									</Action>
+								</DeletionDrawer>
 							</Show>
 						</div>
 					</Show>
@@ -827,9 +828,7 @@ export const Message: Component<{
 				</Show>
 				<Show when={linkFacets().length > 0 && !("hash" in props.data)}>
 					<div class="flex flex-row flex-wrap gap-4 pl-14">
-						<For each={linkFacets()}>
-							{(item) => <LinkEmbed uri={item.uri} />}
-						</For>
+						<For each={linkFacets()}>{(item) => <Embed uri={item.uri} />}</For>
 					</div>
 				</Show>
 				<Show when={messageReactions().length > 0}>
