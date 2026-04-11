@@ -6,7 +6,7 @@ import { purify } from "@/utils/purify";
 import { useChannelContext } from "../../contexts/ChannelContext";
 import { useCommunityContext } from "../../contexts/CommunityContext";
 import { buildFeatureKey, normalizeFacets } from "../../utils/normalize-facets";
-import { MemberProfilePopover } from "../MemberProfilePopover";
+import { ProfilePopover } from "../User/ProfilePopover";
 
 export type TextWithFacets = {
 	text: string;
@@ -64,7 +64,7 @@ const applyStyleForFacet = (
 			}
 
 			return (
-				<MemberProfilePopover
+				<ProfilePopover
 					avatar={member!.avatar_url}
 					did={member!.member_did}
 					displayName={member!.display_name}
@@ -81,7 +81,7 @@ const applyStyleForFacet = (
 						class="bg-primary/25 hover:bg-primary/35 px-1 rounded-xs cursor-pointer inline"
 						innerHTML={textWithEmojis}
 					/>
-				</MemberProfilePopover>
+				</ProfilePopover>
 			);
 		}
 		case "social.colibri.richtext.facet#link": {

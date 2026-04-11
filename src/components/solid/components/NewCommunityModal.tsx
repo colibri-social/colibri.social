@@ -83,6 +83,7 @@ export const NewCommunityModal: ParentComponent<{ navigate: Navigator }> = (
 			description: "",
 			category_order: [],
 			owner_did: globalData.user.sub,
+			requires_approval_to_join: true,
 		});
 
 		setLoading(false);

@@ -5,8 +5,8 @@ import type {
 	GlobalContextUtility,
 	PendingMessageData,
 } from "../../../contexts/GlobalContext";
-import { Mobile } from "./Mobile";
 import { Desktop } from "./Desktop";
+import { Mobile } from "./Mobile";
 
 /**
  * The message deletion drawer used as a warning when a message is about to be deleted.

@@ -1,5 +1,4 @@
-import { type ParentComponent, type Setter, Show } from "solid-js";
-import createMediaQuery from "@/utils/create-media-query";
+import type { ParentComponent, Setter } from "solid-js";
 import type { DBMessageData, IndexedMessageData } from "@/utils/sdk";
 import type {
 	GlobalContextUtility,
@@ -16,9 +15,9 @@ import {
 	DialogTrigger,
 } from "../../../shadcn-solid/Dialog";
 import { MockMessage } from "../MockMessage";
-import { DialogDescriptionContent, DialogTitleContent } from "./shared";
 import { DialogCancelButton, DialogConfirmButton, DialogTip } from "../shared";
 import { deleteMessage } from "../util";
+import { DialogDescriptionContent, DialogTitleContent } from "./shared";
 
 /**
  * The message deletion drawer used as a warning when a message is about to be deleted.

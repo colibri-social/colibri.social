@@ -1,4 +1,4 @@
-import type { Accessor, ParentComponent, Setter } from "solid-js";
+import type { ParentComponent, Setter } from "solid-js";
 import type { DBMessageData, IndexedMessageData } from "@/utils/sdk";
 import type {
 	GlobalContextUtility,
@@ -15,9 +15,9 @@ import {
 	DrawerTrigger,
 } from "../../../shadcn-solid/Drawer";
 import { MockMessage } from "../MockMessage";
+import { DialogCancelButton } from "../shared";
 import { blockMessage } from "../util";
 import { BlockDialogConfirmButton, BlockDialogTitleContent } from "./shared";
-import { DialogCancelButton } from "../shared";
 
 /**
  * The mobile version of the message deletion drawer used as a warning when a message is about to be deleted.

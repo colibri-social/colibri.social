@@ -20,7 +20,7 @@ import {
 import { Icon } from "@/components/solid/icons/Icon";
 import type { CommunityData } from "@/utils/sdk";
 import { NewCommunityModal } from "../components/NewCommunityModal";
-import { UserSettingsModal } from "../components/UserSettingsModal";
+import { UserSettingsModal } from "../components/Settings/index";
 import { useGlobalContext } from "../contexts/GlobalContext";
 import { Button } from "../shadcn-solid/Button";
 import {

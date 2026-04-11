@@ -1,29 +1,32 @@
 import twemoji from "@twemoji/api";
 import { createSignal, type ParentComponent, Show } from "solid-js";
+import { LINK_REGEX } from "@/utils/link-regex";
 import { purify } from "@/utils/purify";
-import { useGlobalContext } from "../contexts/GlobalContext";
-import { Bluesky } from "../icons/Bluesky";
+import { useGlobalContext } from "../../contexts/GlobalContext";
+import { Bluesky } from "../../icons/Bluesky";
 import {
 	Popover,
 	PopoverContent,
 	PopoverPortal,
 	PopoverTrigger,
-} from "../shadcn-solid/Popover";
+} from "../../shadcn-solid/Popover";
 import {
 	Tooltip,
 	TooltipContent,
 	TooltipPortal,
 	TooltipTrigger,
-} from "../shadcn-solid/Tooltip";
-import User from "./User";
-
-export const LINK_REGEX =
-	/(?<![^\s])(?!@)(https?:\/\/(www\.)?)?[-a-zA-Z0-9@%._+~#=]{1,256}\.[a-zA-Z0-9()]{1,18}\b([-a-zA-Z0-9()@:%_+.~#?&//=]*)/gm;
+} from "../../shadcn-solid/Tooltip";
+import User from ".";
 
 const MENTION_REGEX = /(?<!\S)@[a-zA-Z0-9._-]+(?:\.[a-zA-Z]{2,})?/gm;
 
+/**
+ * Takes in some text and automatically detects links and user mentions, then inserts anchor tags.
+ * @param text The text to scan for links and mentions. Will be sanitized before any edits are made.
+ * @returns An HTML string that can be used in the DOM
+ */
 const detectLinksAndMentionsAndFormat = (text: string) => {
-	let modifiedText = `${text}`;
+	let modifiedText = `${purify(text)}`;
 	let match: RegExpExecArray | null;
 
 	let additionalOffset = 0;
@@ -70,7 +73,7 @@ const detectLinksAndMentionsAndFormat = (text: string) => {
 	return modifiedText.replaceAll("\n", "<br>");
 };
 
-export const MemberProfilePopover: ParentComponent<{
+export const ProfilePopover: ParentComponent<{
 	banner?: string;
 	avatar: string;
 	displayName: string;

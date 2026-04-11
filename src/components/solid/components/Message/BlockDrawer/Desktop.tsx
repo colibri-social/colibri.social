@@ -1,4 +1,4 @@
-import { type ParentComponent, type Setter } from "solid-js";
+import type { ParentComponent, Setter } from "solid-js";
 import type { DBMessageData, IndexedMessageData } from "@/utils/sdk";
 import type {
 	GlobalContextUtility,
@@ -15,13 +15,13 @@ import {
 	DialogTrigger,
 } from "../../../shadcn-solid/Dialog";
 import { MockMessage } from "../MockMessage";
+import { DialogCancelButton, DialogTip } from "../shared";
 import { blockMessage } from "../util";
 import {
 	BlockDialogConfirmButton,
 	BlockDialogDescriptionContent,
 	BlockDialogTitleContent,
 } from "./shared";
-import { DialogCancelButton, DialogTip } from "../shared";
 
 /**
  * The message black drawer used as a warning when a message is about to be blocked by an admin.

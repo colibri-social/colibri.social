@@ -1,6 +1,6 @@
 import type { Component, JSX, Setter } from "solid-js";
-import { DialogCloseButton } from "../../shadcn-solid/Dialog";
 import { Button } from "../../shadcn-solid/Button";
+import { DialogCloseButton } from "../../shadcn-solid/Dialog";
 
 /**
  * The dialog tip used in both the mobile and desktop deletion dialog.

@@ -40,20 +40,20 @@ import {
 	TooltipTrigger,
 	type TooltipTriggerProps,
 } from "../../shadcn-solid/Tooltip";
-import { MemberProfilePopover } from "../MemberProfilePopover";
+import { EmojiPopover } from "../common/EmojiPopover";
 import { RichTextRenderer, type TextWithFacets } from "../RichTextRenderer";
 import { SmallUserAsync } from "../SmallUserAsync";
 import { facetsToProseMirror } from "../TextEditor/facets-to-prosemirror";
 import { TextEditor } from "../TextEditor/TextEditor";
 import User from "../User";
+import { ProfilePopover } from "../User/ProfilePopover";
 import { MessageAttachments } from "./Attachments";
-import { EmojiPopover } from "../common/EmojiPopover";
-import { Embed } from "./Embed";
-import { MessageContextMenu } from "./ContextMenu/Menu";
-import { blockMessage, deleteMessage } from "./util";
-import { Action } from "./ContextMenu";
 import { BlockDrawer } from "./BlockDrawer";
+import { Action } from "./ContextMenu";
+import { MessageContextMenu } from "./ContextMenu/Menu";
 import { DeletionDrawer } from "./DeletionDrawer";
+import { Embed } from "./Embed";
+import { blockMessage, deleteMessage } from "./util";
 
 /**
  * A rendered message component in a chat.
@@ -562,7 +562,7 @@ export const Message: Component<{
 				<div class="flex flex-row gap-4">
 					<Switch>
 						<Match when={!isSubsequentMessage()}>
-							<MemberProfilePopover
+							<ProfilePopover
 								banner={optimisticUserData().banner_url}
 								avatar={optimisticUserData().avatar_url}
 								displayName={optimisticUserData().display_name}
@@ -580,7 +580,7 @@ export const Message: Component<{
 										display_name: optimisticUserData().display_name,
 									}}
 								/>
-							</MemberProfilePopover>
+							</ProfilePopover>
 						</Match>
 						<Match when={isSubsequentMessage()}>
 							<div class="w-10 h-8 min-w-10 min-h-8 text-muted-foreground group-hover:opacity-100 opacity-0 text-xs flex items-center justify-center">
@@ -611,7 +611,7 @@ export const Message: Component<{
 						>
 							<Show when={!isSubsequentMessage()}>
 								<div class="flex gap-2 text-sm items-baseline">
-									<MemberProfilePopover
+									<ProfilePopover
 										banner={optimisticUserData().banner_url}
 										avatar={optimisticUserData().avatar_url}
 										displayName={optimisticUserData().display_name}
@@ -625,7 +625,7 @@ export const Message: Component<{
 										<span class="font-bold hover:underline cursor-pointer">
 											{optimisticUserData().display_name}
 										</span>
-									</MemberProfilePopover>
+									</ProfilePopover>
 									<small class="text-muted-foreground">
 										{new Date(props.data.created_at).toLocaleDateString()}{" "}
 										{new Date(props.data.created_at).toLocaleTimeString(
@@ -652,7 +652,7 @@ export const Message: Component<{
 						<div class="flex flex-col w-full justify-center">
 							<Show when={!isSubsequentMessage()}>
 								<div class="flex gap-2 text-sm items-baseline">
-									<MemberProfilePopover
+									<ProfilePopover
 										banner={optimisticUserData().banner_url}
 										avatar={optimisticUserData().avatar_url}
 										displayName={optimisticUserData().display_name}
@@ -666,7 +666,7 @@ export const Message: Component<{
 										<span class="font-bold hover:underline cursor-pointer">
 											{optimisticUserData().display_name}
 										</span>
-									</MemberProfilePopover>
+									</ProfilePopover>
 									<small class="text-muted-foreground">
 										{new Date(props.data.created_at).toLocaleDateString()}{" "}
 										{new Date(props.data.created_at).toLocaleTimeString(

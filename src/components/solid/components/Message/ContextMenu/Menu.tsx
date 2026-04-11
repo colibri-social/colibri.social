@@ -12,8 +12,8 @@ import {
 	ContextMenuPortal,
 	ContextMenuTrigger,
 } from "../../../shadcn-solid/ContextMenu";
-import { DeletionDrawer } from "../DeletionDrawer";
 import { DebugInfo } from "../DebugInfo";
+import { DeletionDrawer } from "../DeletionDrawer";
 
 /**
  * A component handling the right click context menu for messages.

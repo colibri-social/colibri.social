@@ -15,9 +15,9 @@ import {
 	DrawerTrigger,
 } from "../../../shadcn-solid/Drawer";
 import { MockMessage } from "../MockMessage";
-import { DialogDescriptionContent, DialogTitleContent } from "./shared";
-import { deleteMessage } from "../util";
 import { DialogCancelButton, DialogConfirmButton } from "../shared";
+import { deleteMessage } from "../util";
+import { DialogDescriptionContent, DialogTitleContent } from "./shared";
 
 /**
  * The mobile version of the message deletion drawer used as a warning when a message is about to be deleted.

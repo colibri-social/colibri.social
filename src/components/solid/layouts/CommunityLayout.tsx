@@ -24,10 +24,8 @@ import { ChannelList } from "../components/Community/ChannelList";
 import { CommunitySettingsModal } from "../components/Community/CommunitySettingsModal";
 import { InviteLinkCreationModal } from "../components/Community/InviteLinkCreationModal";
 import { LeaveCommunityModal } from "../components/Community/LeaveCommunityModal";
-import { MemberProfilePopover } from "../components/MemberProfilePopover";
 import { MessageInput } from "../components/MessageInput";
 import User from "../components/User";
-import { UserStatus } from "../components/UserStatus";
 import { ChannelContextProvider } from "../contexts/ChannelContext";
 import { CommunityContextProvider } from "../contexts/CommunityContext";
 import type { UserOnlineState } from "../contexts/GlobalContext/events";
@@ -361,7 +359,7 @@ const CommunityLayout: ParentComponent = (props) => {
 										categoryOrder={community()?.category_order || []}
 									/>
 
-									<UserStatus />
+									<User.Status />
 								</aside>
 								<div
 									class="w-full h-full flex flex-col max-h-[calc(100vh-41px)]"
@@ -423,7 +421,7 @@ const CommunityLayout: ParentComponent = (props) => {
 									}}
 								>
 									<span>Owner</span>
-									<MemberProfilePopover
+									<User.ProfilePopover
 										banner={owner().banner_url}
 										avatar={owner().avatar_url}
 										description={owner().description}
@@ -459,7 +457,7 @@ const CommunityLayout: ParentComponent = (props) => {
 												</Show>
 											</div>
 										</div>
-									</MemberProfilePopover>
+									</User.ProfilePopover>
 									<span>Members</span>
 									<div
 										class="flex flex-col w-full gap-1"
@@ -483,7 +481,7 @@ const CommunityLayout: ParentComponent = (props) => {
 														)?.state || "offline";
 
 													return (
-														<MemberProfilePopover
+														<User.ProfilePopover
 															banner={item.banner_url}
 															avatar={item.avatar_url}
 															description={item.description}
@@ -519,7 +517,7 @@ const CommunityLayout: ParentComponent = (props) => {
 																	</Show>
 																</div>
 															</div>
-														</MemberProfilePopover>
+														</User.ProfilePopover>
 													);
 												}}
 											</For>

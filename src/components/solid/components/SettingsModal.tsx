@@ -34,7 +34,7 @@ export const SettingsPage: ParentComponent<{
 		<div class="w-full flex flex-col justify-between gap-4 min-h-108 h-auto overflow-auto">
 			<div class="flex flex-col gap-4 py-4 w-full">
 				<h2 class="m-0 px-4">{props.title}</h2>
-				<div class="w-full h-full flex flex-col gap-4 px-4 max-w-[548px]">
+				<div class="w-full h-full flex flex-col gap-4 px-4 max-w-137">
 					{props.children}
 				</div>
 			</div>
@@ -124,7 +124,7 @@ export const SettingsModal: ParentComponent<{
 			<DialogPortal>
 				<DialogContent
 					class={cn(
-						"w-[75vw] min-w-92 h-fit min-h-128 max-w-192! p-0 flex flex-row gap-0 max-h-[calc(100vh-4rem)]!",
+						"w-[75vw] min-w-92 h-fit min-h-128 max-w-3xl! p-0 flex flex-row gap-0 max-h-[calc(100vh-4rem)]!",
 						props.contentClass,
 					)}
 				>

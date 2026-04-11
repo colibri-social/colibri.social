@@ -1,9 +1,9 @@
-import type { Accessor, Component } from "solid-js";
+import type { Component } from "solid-js";
+import createMediaQuery from "@/utils/create-media-query";
 import type { DBMessageData } from "@/utils/sdk";
 import { RichTextRenderer } from "../RichTextRenderer";
 import User from "../User";
 import { MessageAttachments } from "./Attachments";
-import createMediaQuery from "@/utils/create-media-query";
 
 /**
  * A mock render of a message shown in the deletion modal when a message is about to be deleted.

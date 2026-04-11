@@ -1,6 +1,4 @@
-import type { Component, JSX, Setter } from "solid-js";
-import { Button } from "../../../shadcn-solid/Button";
-import { DialogCloseButton } from "@/components/solid/shadcn-solid/Dialog";
+import type { Component } from "solid-js";
 
 /**
  * The header content used in both the mobile and desktop deletion dialog.

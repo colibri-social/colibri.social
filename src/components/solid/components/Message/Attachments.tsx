@@ -1,5 +1,5 @@
 import { APPVIEW_DOMAIN } from "astro:env/client";
-import { type Component, For, Match, Show, Switch } from "solid-js";
+import { type Component, For, Show } from "solid-js";
 import type { AttachmentObj } from "../../contexts/GlobalContext/events";
 import { useMessageContext } from "../../contexts/MessageContext";
 import { Lightbox } from "../Lightbox";

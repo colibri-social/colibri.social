@@ -27,8 +27,8 @@ import { useVoiceChatContext } from "../../contexts/VoiceChatContext";
 import Icon from "../../icons/Icon";
 import type { MemberData } from "../../layouts/CommunityLayout";
 import { Button } from "../../shadcn-solid/Button";
-import { MemberProfilePopover } from "../MemberProfilePopover";
 import { SmallUser } from "../SmallUser";
+import { ProfilePopover } from "../User/ProfilePopover";
 import { UserSettingsContextMenu } from "../VoiceChat/UserSettingsContextMenu";
 import { CategorySettingsModal } from "./CategorySettingsModal";
 import { ChannelCreationModal } from "./ChannelCreationModal";
@@ -223,7 +223,7 @@ const SortableChannel: Component<{
 					<div class="pl-7.5 text-muted-foreground flex flex-col select-none">
 						<For each={liveVoiceChannelMembers()}>
 							{(did) => (
-								<MemberProfilePopover
+								<ProfilePopover
 									banner={member(did).banner_url}
 									avatar={member(did).avatar_url}
 									did={member(did).member_did}
@@ -246,7 +246,7 @@ const SortableChannel: Component<{
 											handle={member(did).handle}
 										/>
 									</UserSettingsContextMenu>
-								</MemberProfilePopover>
+								</ProfilePopover>
 							)}
 						</For>
 					</div>

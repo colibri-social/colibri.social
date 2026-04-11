@@ -1,12 +1,12 @@
+import { type ParentComponent, type Setter, Show } from "solid-js";
 import type {
 	GlobalContextUtility,
 	PendingMessageData,
 } from "@/components/solid/contexts/GlobalContext";
 import createMediaQuery from "@/utils/create-media-query";
 import type { DBMessageData } from "@/utils/sdk";
-import { Show, type ParentComponent, type Setter } from "solid-js";
-import { Mobile } from "./Mobile";
 import { Desktop } from "./Desktop";
+import { Mobile } from "./Mobile";
 
 export const BlockDrawer: ParentComponent<{
 	message: DBMessageData | PendingMessageData;

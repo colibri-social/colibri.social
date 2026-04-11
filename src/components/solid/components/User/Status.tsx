@@ -23,17 +23,17 @@ import {
 	DropdownMenuRadioItem,
 	DropdownMenuTrigger,
 } from "@/components/solid/shadcn-solid/DropdownMenu";
-import { useGlobalContext } from "../contexts/GlobalContext";
-import type { UserOnlineState } from "../contexts/GlobalContext/events";
-import { usePreferencesContext } from "../contexts/UserPreferencesContext";
-import { useVoiceChatContext } from "../contexts/VoiceChatContext";
-import { Camera } from "../icons/Camera";
-import { Ear } from "../icons/Ear";
-import { Microphone } from "../icons/Microphone";
-import { Screen } from "../icons/Screen";
-import { Wifi } from "../icons/Wifi";
-import { Button } from "../shadcn-solid/Button";
-import User from "./User";
+import { useGlobalContext } from "../../contexts/GlobalContext";
+import type { UserOnlineState } from "../../contexts/GlobalContext/events";
+import { usePreferencesContext } from "../../contexts/UserPreferencesContext";
+import { useVoiceChatContext } from "../../contexts/VoiceChatContext";
+import { Camera } from "../../icons/Camera";
+import { Ear } from "../../icons/Ear";
+import { Microphone } from "../../icons/Microphone";
+import { Screen } from "../../icons/Screen";
+import { Wifi } from "../../icons/Wifi";
+import { Button } from "../../shadcn-solid/Button";
+import { Avatar } from "./Avatar";
 
 const LABEL_MAP: Record<UserOnlineState, string> = {
 	online: "Online",
@@ -95,7 +95,7 @@ const DropdownStatusSelect: ParentComponent<{
 /**
  * The user status visible in the community sidebar.
  */
-export const UserStatus: Component = () => {
+export const Status: Component = () => {
 	const [value, setValue] = createSignal<UserOnlineState>("online");
 	const [userPreferences] = usePreferencesContext();
 	const [globalData, { sendSocketMessage }] = useGlobalContext();
@@ -266,7 +266,7 @@ export const UserStatus: Component = () => {
 				</div>
 			</Show>
 			<div class="w-full h-16 flex items-center gap-3 p-3 bg-card">
-				<User.Avatar
+				<Avatar
 					user={optimisticUserProfile()}
 					state={optimisticUserProfile().state}
 				/>
