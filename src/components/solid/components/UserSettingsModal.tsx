@@ -23,7 +23,6 @@ import { createIsSpeaking } from "@/lib/hooks/createIsSpeaking";
 import { createRnnoiseProcessor } from "@/lib/hooks/createRnnoiseProcessor";
 import { parseZodToErrorOrDisplay } from "@/utils/parse-zod-to-error-or-display";
 import { useGlobalContext } from "../contexts/GlobalContext";
-import { usePreferencesContext } from "../contexts/UserPreferencesContext";
 import { useVoiceChatContext } from "../contexts/VoiceChatContext";
 import { Button } from "../shadcn-solid/Button";
 import {
@@ -475,8 +474,7 @@ type DeviceOption = {
 const MAX = 49;
 
 export const VoicePage: Component = () => {
-	const [userPreferences, setUserPreferences] = usePreferencesContext();
-
+	const [globalData, { setGlobalContext }] = useGlobalContext();
 	const [inputGainNode, setInputGainNode] = createSignal<GainNode | null>(null);
 	const [outputGainNode, setOutputGainNode] = createSignal<GainNode | null>(
 		null,
@@ -550,7 +548,7 @@ export const VoicePage: Component = () => {
 
 		if ("setSinkId" in ctx) {
 			(ctx as any).setSinkId(
-				userPreferences.voice.output.preferredDeviceId ?? "default",
+				globalData.preferences.voice.output.preferredDeviceId ?? "default",
 			);
 		}
 
@@ -560,7 +558,7 @@ export const VoicePage: Component = () => {
 	};
 
 	const cleanup = () => {
-		setUserPreferences("voice", (current) => ({
+		setGlobalContext("preferences", "voice", (current) => ({
 			...current,
 			output: {
 				...current.output,
@@ -586,7 +584,7 @@ export const VoicePage: Component = () => {
 			return;
 		}
 
-		setUserPreferences("voice", (current) => ({
+		setGlobalContext("preferences", "voice", (current) => ({
 			...current,
 			output: {
 				...current.output,
@@ -600,15 +598,15 @@ export const VoicePage: Component = () => {
 		});
 
 		const track = await createLocalAudioTrack({
-			noiseSuppression: userPreferences.voice.input.noiseSuppression,
+			noiseSuppression: globalData.preferences.voice.input.noiseSuppression,
 			echoCancellation: true,
 			autoGainControl: true,
-			deviceId: userPreferences.voice.input.preferredDeviceId,
+			deviceId: globalData.preferences.voice.input.preferredDeviceId,
 		});
 
 		track.setAudioContext(ctx);
 
-		if (userPreferences.voice.input.noiseSuppression) {
+		if (globalData.preferences.voice.input.noiseSuppression) {
 			track.setProcessor(createRnnoiseProcessor());
 		}
 
@@ -618,8 +616,8 @@ export const VoicePage: Component = () => {
 		const { inGain, outGain } = startLocalPlayback(
 			ctx,
 			track.mediaStreamTrack,
-			userPreferences.voice.input.volume,
-			userPreferences.voice.output.volume,
+			globalData.preferences.voice.input.volume,
+			globalData.preferences.voice.output.volume,
 		);
 
 		setInputGainNode(inGain);
@@ -628,12 +626,12 @@ export const VoicePage: Component = () => {
 	};
 
 	const restartTrackIfActive = async (
-		inputOverrides?: Partial<typeof userPreferences.voice.input>,
-		outputOverrides?: Partial<typeof userPreferences.voice.output>,
+		inputOverrides?: Partial<typeof globalData.preferences.voice.input>,
+		outputOverrides?: Partial<typeof globalData.preferences.voice.output>,
 	) => {
 		if (!livekitTrack()) return;
-		const inputPrefs = { ...userPreferences.voice.input, ...inputOverrides };
-		const outputPrefs = { ...userPreferences.voice.output, ...outputOverrides };
+		const inputPrefs = { ...globalData.preferences.voice.input, ...inputOverrides };
+		const outputPrefs = { ...globalData.preferences.voice.output, ...outputOverrides };
 
 		inputGainNode()?.disconnect();
 		setInputGainNode(null);
@@ -669,7 +667,7 @@ export const VoicePage: Component = () => {
 
 	const getActiveMic = () =>
 		microphones().find(
-			(x) => x.id === userPreferences.voice.input.preferredDeviceId,
+			(x) => x.id === globalData.preferences.voice.input.preferredDeviceId,
 		) || undefined;
 
 	return (
@@ -690,7 +688,7 @@ export const VoicePage: Component = () => {
 									item={props.item}
 									class="[&>div]:flex [&>div]:gap-2 [&>div]:items-center"
 									onClick={() => {
-										setUserPreferences("voice", (current) => ({
+										setGlobalContext("preferences", "voice", (current) => ({
 											...current,
 											input: {
 												...current.input,
@@ -716,7 +714,7 @@ export const VoicePage: Component = () => {
 					</div>
 					<div>
 						<Slider
-							defaultValue={[userPreferences.voice.input.volume * 100]}
+							defaultValue={[globalData.preferences.voice.input.volume * 100]}
 							step={1}
 							maxValue={200}
 							getValueLabel={(params) => `${params.values[0]}%`}
@@ -729,7 +727,7 @@ export const VoicePage: Component = () => {
 									0.01,
 								);
 
-								setUserPreferences("voice", (current) => ({
+								setGlobalContext("preferences", "voice", (current) => ({
 									...current,
 									input: { ...current.input, volume: v },
 								}));
@@ -756,7 +754,7 @@ export const VoicePage: Component = () => {
 							value={
 								speakers().find(
 									(x) =>
-										x.id === userPreferences.voice.output.preferredDeviceId,
+										x.id === globalData.preferences.voice.output.preferredDeviceId,
 								)?.id || undefined
 							}
 							disallowEmptySelection={true}
@@ -766,7 +764,7 @@ export const VoicePage: Component = () => {
 									item={props.item}
 									class="[&>div]:flex [&>div]:gap-2 [&>div]:items-center"
 									onClick={() =>
-										setUserPreferences("voice", (current) => ({
+										setGlobalContext("preferences", "voice", (current) => ({
 											...current,
 											output: {
 												...current.output,
@@ -792,7 +790,7 @@ export const VoicePage: Component = () => {
 					</div>
 					<div>
 						<Slider
-							defaultValue={[userPreferences.voice.output.volume * 100]}
+							defaultValue={[globalData.preferences.voice.output.volume * 100]}
 							step={1}
 							maxValue={200}
 							getValueLabel={(params) => `${params.values[0]}%`}
@@ -805,7 +803,7 @@ export const VoicePage: Component = () => {
 									0.01,
 								);
 
-								setUserPreferences("voice", (current) => ({
+								setGlobalContext("preferences", "voice", (current) => ({
 									...current,
 									output: { ...current.output, volume: v },
 								}));
@@ -826,13 +824,13 @@ export const VoicePage: Component = () => {
 			<div>
 				<SwitchComp
 					onChange={(e) => {
-						setUserPreferences("voice", (current) => ({
+						setGlobalContext("preferences", "voice", (current) => ({
 							...current,
 							input: { ...current.input, noiseSuppression: e },
 						}));
 						restartTrackIfActive({ noiseSuppression: e });
 					}}
-					checked={userPreferences.voice.input.noiseSuppression}
+					checked={globalData.preferences.voice.input.noiseSuppression}
 					class="flex justify-between items-center gap-x-2"
 				>
 					<div>
@@ -867,7 +865,7 @@ export const VoicePage: Component = () => {
 								class="w-1 h-full bg-muted rounded-full"
 								style={{
 									background:
-										volume() * userPreferences.voice.input.volume > i() / MAX
+										volume() * globalData.preferences.voice.input.volume > i() / MAX
 											? getColorForIndex(i())
 											: "var(--muted)",
 								}}
@@ -883,7 +881,7 @@ export const VoicePage: Component = () => {
 
 const VideoPage: Component = () => {
 	const [voiceChatContext] = useVoiceChatContext();
-	const [userPreferences, setUserPreferences] = usePreferencesContext();
+	const [globalData, { setGlobalContext }] = useGlobalContext();
 	const [cameraStream, setCameraStream] = createSignal<MediaStream | null>(
 		null,
 	);
@@ -910,7 +908,7 @@ const VideoPage: Component = () => {
 	});
 
 	createEffect(() => {
-		const deviceId = userPreferences.voice.camera.preferredDeviceId;
+		const deviceId = globalData.preferences.voice.camera.preferredDeviceId;
 
 		let stream: MediaStream | null = null;
 		let aborted = false;
@@ -985,7 +983,7 @@ const VideoPage: Component = () => {
 
 	const getActiveCam = () =>
 		cameras().find(
-			(x) => x.id === userPreferences.voice.camera.preferredDeviceId,
+			(x) => x.id === globalData.preferences.voice.camera.preferredDeviceId,
 		) || undefined;
 
 	return (
@@ -1022,7 +1020,7 @@ const VideoPage: Component = () => {
 							item={props.item}
 							class="[&>div]:flex [&>div]:gap-2 [&>div]:items-center"
 							onClick={() => {
-								setUserPreferences("voice", (current) => ({
+								setGlobalContext("preferences", "voice", (current) => ({
 									...current,
 									camera: {
 										...current.camera,

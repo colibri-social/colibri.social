@@ -14,6 +14,7 @@ import type {
 	UserStatusChangedEvent,
 	VoiceChannelUpdatedEvent,
 } from "./events";
+import type { SetStoreFunction } from 'solid-js/store'
 
 export type PendingMessageData = Omit<
 	Omit<DBMessageData, "rkey">,
@@ -39,13 +40,43 @@ export type GlobalContextData = {
 	deletedMessages: Array<Omit<MessageDeletionEvent, "id">>;
 	joinedMembers: Array<MemberData>;
 	removedMembers: Array<MemberData>;
-	uiStates: {
-		membersListVisible: boolean;
-	};
 	memberProfileOverrides: Array<UserProfileUpdatedEvent>;
 	memberStatusOverrides: Array<UserStatusChangedEvent>;
 	userOnlineStates: Array<OnlineStateInfo>;
 	knownVoiceChannelStates: Array<VoiceChannelUpdatedEvent>;
+	preferences: {
+		membersListVisible: boolean;
+		voice: {
+			input: {
+				enabled: boolean;
+				volume: number;
+				preferredDeviceId?: string;
+				noiseSuppression: boolean;
+			};
+			output: {
+				enabled: boolean;
+				volume: number;
+				preferredDeviceId?: string;
+			};
+			camera: {
+				enabled: boolean;
+				preferredDeviceId?: string;
+			};
+			participantVolumeOverrides: Record<
+				string,
+				{
+					voice: {
+						volume: number;
+						muted: boolean;
+					};
+					screen: {
+						volume: number;
+						muted: boolean;
+					};
+				}
+			>;
+		};
+	};
 };
 
 export type GlobalContextUtility = {
@@ -76,4 +107,5 @@ export type GlobalContextUtility = {
 	clearMemberOverrides: () => void;
 	updateUserOnlineState: (state: OnlineStateInfo) => void;
 	processVoiceChannelUpdate: (data: VoiceChannelUpdatedEvent) => void;
+	setGlobalContext: SetStoreFunction<GlobalContextData>;
 };

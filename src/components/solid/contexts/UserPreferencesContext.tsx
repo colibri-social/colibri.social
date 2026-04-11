@@ -15,7 +15,7 @@ interface VoiceInputSettings extends VoiceIOSettings {
 	noiseSuppression: boolean;
 }
 
-export interface VolumeOverrides {
+interface VolumeOverrides {
 	voice: {
 		volume: number;
 		muted: boolean;
@@ -26,7 +26,7 @@ export interface VolumeOverrides {
 	};
 }
 
-export type UserPreferencesContextData = {
+type UserPreferencesContextData = {
 	membersListVisible: boolean;
 	voice: {
 		input: VoiceInputSettings;
@@ -36,14 +36,14 @@ export type UserPreferencesContextData = {
 	};
 };
 
-export type UserPreferencesContextUtility = {};
+type UserPreferencesContextUtility = {};
 
-export const UserPreferencesContext =
+const UserPreferencesContext =
 	createContext<
 		[UserPreferencesContextData, SetStoreFunction<UserPreferencesContextData>]
 	>();
 
-export const UserPreferencesContextProvider: ParentComponent = (props) => {
+const UserPreferencesContextProvider: ParentComponent = (props) => {
 	const [userPreferences, setUserPreferences] = makePersisted(
 		createStore<UserPreferencesContextData>({
 			membersListVisible: false,
@@ -80,7 +80,7 @@ export const UserPreferencesContextProvider: ParentComponent = (props) => {
 	);
 };
 
-export const usePreferencesContext = () => {
+const usePreferencesContext = () => {
 	const ctx = useContext(UserPreferencesContext);
 
 	if (!ctx) throw new Error("Unable to get user preferences context!");

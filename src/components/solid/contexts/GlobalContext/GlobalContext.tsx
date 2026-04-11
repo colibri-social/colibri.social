@@ -7,7 +7,6 @@ import {
 import { createEffect, type ParentComponent, useContext } from "solid-js";
 import { createStore } from "solid-js/store";
 import type { ChannelData, CommunityData } from "@/utils/sdk";
-import { usePreferencesContext } from "../UserPreferencesContext";
 import { GlobalContext } from "./context";
 import type { AppviewSubscriptionData, ReactionEventCallback } from "./events";
 import {
@@ -28,7 +27,6 @@ export const GlobalContextProvider: ParentComponent<{
 }> = (props) => {
 	const community = () => window.location.href.split("/")[5];
 	const reactionListeners = new Set<ReactionEventCallback>();
-	const [userPreferences, setUserPreferences] = usePreferencesContext();
 
 	const socket = makeHeartbeatWS(
 		makeReconnectingWS(
@@ -54,14 +52,32 @@ export const GlobalContextProvider: ParentComponent<{
 		deletedMessages: [],
 		joinedMembers: [],
 		removedMembers: [],
-		uiStates: {
-			membersListVisible: userPreferences.membersListVisible,
-		},
 		memberProfileOverrides: [],
 		memberStatusOverrides: [],
 		// TODO(app): This might not reflect the user's preferred state.
 		userOnlineStates: [{ did: props.contextData.user.sub, state: "online" }],
 		knownVoiceChannelStates: [],
+		preferences: {
+			membersListVisible: false,
+			voice: {
+				input: {
+					enabled: true,
+					volume: 1,
+					preferredDeviceId: undefined,
+					noiseSuppression: true,
+				},
+				output: {
+					enabled: true,
+					volume: 1,
+					preferredDeviceId: undefined,
+				},
+				camera: {
+					enabled: false,
+					preferredDeviceId: undefined,
+				},
+				participantVolumeOverrides: {},
+			},
+		},
 	});
 
 	const context: [GlobalContextData, GlobalContextUtility] = [
@@ -222,17 +238,13 @@ export const GlobalContextProvider: ParentComponent<{
 			},
 			setMemberListVisible(state) {
 				if (typeof state === "boolean") {
-					setGlobalContext("uiStates", (current) => ({
-						...current,
-						membersListVisible: state,
-					}));
-					setUserPreferences("membersListVisible", state);
+					setGlobalContext("preferences", "membersListVisible", state);
 				} else {
-					setGlobalContext("uiStates", (current) => ({
+					setGlobalContext("preferences", (current) => ({
 						...current,
 						membersListVisible: state(current.membersListVisible),
 					}));
-					setUserPreferences("membersListVisible", (current) => state(current));
+					setGlobalContext("preferences", "membersListVisible", (current) => state(current));
 				}
 			},
 			addMemberProfileOverride(data) {
@@ -293,6 +305,7 @@ export const GlobalContextProvider: ParentComponent<{
 					]);
 				}
 			},
+			setGlobalContext,
 		},
 	];
 

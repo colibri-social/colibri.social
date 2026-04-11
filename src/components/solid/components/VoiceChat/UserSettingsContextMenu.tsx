@@ -1,5 +1,4 @@
 import { createMemo, type ParentComponent } from "solid-js";
-import { usePreferencesContext } from "../../contexts/UserPreferencesContext";
 import {
 	Checkbox,
 	CheckboxControl,
@@ -23,21 +22,22 @@ import {
 	SliderTrack,
 	SliderValueLabel,
 } from "../../shadcn-solid/Slider";
+import { useGlobalContext } from '../../contexts/GlobalContext'
 
 export const UserSettingsContextMenu: ParentComponent<{
 	isLocal: boolean;
 	isStream: boolean;
 	did: string;
 }> = (props) => {
-	const [userPreferences, setUserPreferences] = usePreferencesContext();
+	const [globalData, { setGlobalContext }] = useGlobalContext();
 
 	const muteUser = (did: string, type: "voice" | "screen", next?: boolean) => {
 		const currentState =
-			userPreferences.voice.participantVolumeOverrides?.[did]?.[type]?.muted ??
+			globalData.preferences.voice.participantVolumeOverrides?.[did]?.[type]?.muted ??
 			false;
 		const newState = next ?? !currentState;
 
-		setUserPreferences("voice", "participantVolumeOverrides", did, (prev) => {
+		setGlobalContext("preferences", "voice", "participantVolumeOverrides", did, (prev) => {
 			// If the user doesn't exist in the overrides yet, initialize them
 			if (!prev) {
 				return {
@@ -62,7 +62,7 @@ export const UserSettingsContextMenu: ParentComponent<{
 		type: "voice" | "screen",
 		volume: number,
 	) => {
-		setUserPreferences("voice", "participantVolumeOverrides", did, (prev) => {
+		setGlobalContext("preferences", "voice", "participantVolumeOverrides", did, (prev) => {
 			// If the user doesn't exist in the overrides yet, initialize them
 			if (!prev) {
 				return {
@@ -84,7 +84,7 @@ export const UserSettingsContextMenu: ParentComponent<{
 
 	const volumeForUser = createMemo(() => {
 		return (
-			userPreferences.voice.participantVolumeOverrides?.[props.did]?.[
+			globalData.preferences.voice.participantVolumeOverrides?.[props.did]?.[
 				props.isStream ? "screen" : "voice"
 			]?.volume ?? 1
 		);
@@ -92,7 +92,7 @@ export const UserSettingsContextMenu: ParentComponent<{
 
 	const isMuted = createMemo(() => {
 		return (
-			userPreferences.voice.participantVolumeOverrides?.[props.did]?.[
+			globalData.preferences.voice.participantVolumeOverrides?.[props.did]?.[
 				props.isStream ? "screen" : "voice"
 			]?.muted ?? false
 		);

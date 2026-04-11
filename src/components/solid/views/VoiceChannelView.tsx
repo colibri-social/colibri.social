@@ -15,7 +15,6 @@ import { UserSettingsContextMenu } from "../components/VoiceChat/UserSettingsCon
 import { useChannelContext } from "../contexts/ChannelContext";
 import { useCommunityContext } from "../contexts/CommunityContext";
 import { useGlobalContext } from "../contexts/GlobalContext";
-import { usePreferencesContext } from "../contexts/UserPreferencesContext";
 import {
 	type ParticipantTile,
 	useVoiceChatContext,
@@ -63,7 +62,7 @@ const ParticipantVideo: Component<{
 }> = (props) => {
 	let videoRef: HTMLVideoElement | undefined;
 	const [videoRefReady, setVideoRefReady] = createSignal(false);
-	const [userPreferences] = usePreferencesContext();
+	const [globalData] = useGlobalContext();
 
 	const communityData = useCommunityContext()!;
 	const [context, utils] = useVoiceChatContext();
@@ -128,7 +127,7 @@ const ParticipantVideo: Component<{
 
 	const isMuted = createMemo(() => {
 		return (
-			userPreferences.voice.participantVolumeOverrides?.[
+			globalData.preferences.voice.participantVolumeOverrides?.[
 				props.tile.participant.identity
 			]?.[props.tile.isStream ? "screen" : "voice"]?.muted ?? false
 		);
@@ -203,7 +202,6 @@ const ParticipantVideo: Component<{
  * A voice/video room.
  */
 const LiveKitRoom: Component = () => {
-	const [userPreferences] = usePreferencesContext();
 	const [
 		voiceChatContext,
 		{
@@ -352,30 +350,30 @@ const LiveKitRoom: Component = () => {
 						<>
 							<Button
 								variant={
-									userPreferences.voice.input.enabled ? "secondary" : "outline"
+									globalData.preferences.voice.input.enabled ? "secondary" : "outline"
 								}
 								classList={{
 									"text-(--primary-hover)!":
-										userPreferences.voice.input.enabled,
-									"text-red-400": !userPreferences.voice.input.enabled,
+										globalData.preferences.voice.input.enabled,
+									"text-red-400": !globalData.preferences.voice.input.enabled,
 								}}
 								onClick={toggleMic}
 							>
-								<Microphone enabled={userPreferences.voice.input.enabled} />
+								<Microphone enabled={globalData.preferences.voice.input.enabled} />
 							</Button>
 							<Button
 								variant={
-									!userPreferences.voice.output.enabled
+									!globalData.preferences.voice.output.enabled
 										? "secondary"
 										: "outline"
 								}
 								classList={{
-									"text-foreground": userPreferences.voice.output.enabled,
-									"text-red-400!": !userPreferences.voice.output.enabled,
+									"text-foreground": globalData.preferences.voice.output.enabled,
+									"text-red-400!": !globalData.preferences.voice.output.enabled,
 								}}
 								onClick={toggleDeafen}
 							>
-								<Ear enabled={!userPreferences.voice.output.enabled} />
+								<Ear enabled={!globalData.preferences.voice.output.enabled} />
 							</Button>
 							<Button
 								variant={

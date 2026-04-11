@@ -30,11 +30,7 @@ import { createStore } from "solid-js/store";
 import { createRnnoiseProcessor } from "@/lib/hooks/createRnnoiseProcessor";
 import { RECORD_IDs } from "@/utils/atproto/lexicons";
 import { fetchToken } from "../components/VoiceChat/livekit";
-import { useGlobalContext } from "./GlobalContext";
-import {
-	type UserPreferencesContextData,
-	usePreferencesContext,
-} from "./UserPreferencesContext";
+import { useGlobalContext, type GlobalContextData } from "./GlobalContext";
 
 /**
  * Re-builds the tiles shown in the UI.
@@ -209,7 +205,7 @@ const makeInitialState = () => ({
 
 const ParticipantAudio: Component<{
 	tile: ParticipantTile;
-	userPreferences: UserPreferencesContextData;
+	userPreferences: GlobalContextData['preferences'];
 }> = (props) => {
 	let audioRef: HTMLAudioElement | undefined;
 
@@ -286,8 +282,7 @@ const ParticipantAudio: Component<{
 };
 
 export const VoiceChatContextProvider: ParentComponent = (props) => {
-	const [userPreferences, setUserPreferences] = usePreferencesContext();
-	const [globalData, { sendSocketMessage }] = useGlobalContext();
+	const [globalData, { sendSocketMessage, setGlobalContext }] = useGlobalContext();
 	const [intervalVar, setIntervalVar] = createSignal<NodeJS.Timeout>();
 
 	const playSound = (sound: keyof typeof SOUNDS): void => {
@@ -360,15 +355,15 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 						videoCaptureDefaults: VideoPresets.h1080,
 						audioCaptureDefaults: {
 							echoCancellation: true,
-							noiseSuppression: userPreferences.voice.input.noiseSuppression,
-							voiceIsolation: userPreferences.voice.input.noiseSuppression,
+							noiseSuppression: globalData.preferences.voice.input.noiseSuppression,
+							voiceIsolation: globalData.preferences.voice.input.noiseSuppression,
 							autoGainControl: true,
 							deviceId:
-								userPreferences.voice.input.preferredDeviceId ?? undefined,
+								globalData.preferences.voice.input.preferredDeviceId ?? undefined,
 						},
 						audioOutput: {
 							deviceId:
-								userPreferences.voice.output.preferredDeviceId ?? undefined,
+								globalData.preferences.voice.output.preferredDeviceId ?? undefined,
 						},
 					};
 
@@ -432,7 +427,7 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 						if (
 							trackPublication.source === Track.Source.Microphone &&
 							trackPublication.track instanceof LocalAudioTrack &&
-							userPreferences.voice.input.noiseSuppression
+							globalData.preferences.voice.input.noiseSuppression
 						) {
 							trackPublication.track.setProcessor(createRnnoiseProcessor());
 						}
@@ -623,7 +618,7 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 
 				if (!r) return;
 
-				const next = !userPreferences.voice.input.enabled;
+				const next = !globalData.preferences.voice.input.enabled;
 
 				try {
 					await r.localParticipant.setMicrophoneEnabled(
@@ -632,9 +627,9 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 							? {
 									autoGainControl: true,
 									noiseSuppression:
-										userPreferences.voice.input.noiseSuppression,
+										globalData.preferences.voice.input.noiseSuppression,
 									echoCancellation: true,
-									voiceIsolation: userPreferences.voice.input.noiseSuppression,
+									voiceIsolation: globalData.preferences.voice.input.noiseSuppression,
 								}
 							: undefined,
 					);
@@ -645,7 +640,7 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 						playSound("mute");
 					}
 
-					setUserPreferences("voice", (current) => ({
+					setGlobalContext("preferences", "voice", (current) => ({
 						...current,
 						input: {
 							...current.input,
@@ -679,14 +674,14 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 			async toggleDeafen() {
 				const r = voiceChatContext.connection.room;
 				if (!r) return;
-				const next = !userPreferences.voice.output.enabled;
+				const next = !globalData.preferences.voice.output.enabled;
 				try {
 					if (next === true) {
 						await r.localParticipant.setMicrophoneEnabled(false, {
 							autoGainControl: true,
-							noiseSuppression: userPreferences.voice.input.noiseSuppression,
+							noiseSuppression: globalData.preferences.voice.input.noiseSuppression,
 							echoCancellation: true,
-							voiceIsolation: userPreferences.voice.input.noiseSuppression,
+							voiceIsolation: globalData.preferences.voice.input.noiseSuppression,
 						});
 					}
 
@@ -696,7 +691,7 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 						playSound("deafen");
 					}
 
-					setUserPreferences("voice", (current) => ({
+					setGlobalContext("preferences", "voice", (current) => ({
 						...current,
 						input: {
 							...current.input,
@@ -771,13 +766,13 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 	});
 
 	createEffect(async () => {
-		const usesNoiseSuppression = userPreferences.voice.input.noiseSuppression;
-		const preferredDeviceId = userPreferences.voice.input.preferredDeviceId;
+		const usesNoiseSuppression = globalData.preferences.voice.input.noiseSuppression;
+		const preferredDeviceId = globalData.preferences.voice.input.preferredDeviceId;
 		const room = voiceChatContext.connection.room;
 
 		if (!room) return;
 
-		const desiredEnabled = !!userPreferences.voice.input.enabled;
+		const desiredEnabled = !!globalData.preferences.voice.input.enabled;
 		const micTrackPub = room.localParticipant.getTrackPublication(
 			Track.Source.Microphone,
 		);
@@ -810,7 +805,7 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 	});
 
 	createEffect(async () => {
-		const preferredSpeaker = userPreferences.voice.output.preferredDeviceId;
+		const preferredSpeaker = globalData.preferences.voice.output.preferredDeviceId;
 		const room = voiceChatContext.connection.room;
 
 		if (!room || !preferredSpeaker) return;
@@ -819,7 +814,7 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 	});
 
 	createEffect(async () => {
-		const preferredCamera = userPreferences.voice.camera.preferredDeviceId;
+		const preferredCamera = globalData.preferences.voice.camera.preferredDeviceId;
 		const room = voiceChatContext.connection.room;
 
 		if (!room || !preferredCamera) return;
@@ -837,7 +832,7 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 					<ParticipantAudio
 						tile={item}
 						// voiceChatContext={voiceChatContext}
-						userPreferences={userPreferences}
+						userPreferences={globalData.preferences}
 					/>
 				)}
 			</For>

@@ -368,10 +368,10 @@ const CommunityLayout: ParentComponent = (props) => {
 									classList={{
 										"max-w-[calc(100vw-576px-56px-1px)]":
 											!displayMembersAsSheet() &&
-											globalContext.uiStates.membersListVisible,
+											globalContext.preferences.membersListVisible,
 										"max-w-[calc(100vw-288px-56px-1px)]":
 											displayMembersAsSheet() ||
-											!globalContext.uiStates.membersListVisible,
+											!globalContext.preferences.membersListVisible,
 									}}
 								>
 									<FileField
@@ -419,7 +419,7 @@ const CommunityLayout: ParentComponent = (props) => {
 									classList={{
 										"absolute top-0 right-0 h-full drop-shadow-black drop-shadow-2xl":
 											displayMembersAsSheet(),
-										hidden: !globalContext.uiStates.membersListVisible,
+										hidden: !globalContext.preferences.membersListVisible,
 									}}
 								>
 									<span>Owner</span>

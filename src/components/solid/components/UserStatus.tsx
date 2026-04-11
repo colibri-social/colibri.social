@@ -25,7 +25,6 @@ import {
 } from "@/components/solid/shadcn-solid/DropdownMenu";
 import { useGlobalContext } from "../contexts/GlobalContext";
 import type { UserOnlineState } from "../contexts/GlobalContext/events";
-import { usePreferencesContext } from "../contexts/UserPreferencesContext";
 import { useVoiceChatContext } from "../contexts/VoiceChatContext";
 import { Camera } from "../icons/Camera";
 import { Ear } from "../icons/Ear";
@@ -97,7 +96,6 @@ const DropdownStatusSelect: ParentComponent<{
  */
 export const UserStatus: Component = () => {
 	const [value, setValue] = createSignal<UserOnlineState>("online");
-	const [userPreferences] = usePreferencesContext();
 	const [globalData, { sendSocketMessage }] = useGlobalContext();
 	const [
 		voiceData,
@@ -217,28 +215,28 @@ export const UserStatus: Component = () => {
 						<Button
 							class="w-full"
 							variant={
-								userPreferences.voice.input.enabled ? "secondary" : "outline"
+								globalData.preferences.voice.input.enabled ? "secondary" : "outline"
 							}
 							classList={{
-								"text-(--primary-hover)!": userPreferences.voice.input.enabled,
-								"text-red-400": !userPreferences.voice.input.enabled,
+								"text-(--primary-hover)!": globalData.preferences.voice.input.enabled,
+								"text-red-400": !globalData.preferences.voice.input.enabled,
 							}}
 							onClick={toggleMic}
 						>
-							<Microphone enabled={userPreferences.voice.input.enabled} />
+							<Microphone enabled={globalData.preferences.voice.input.enabled} />
 						</Button>
 						<Button
 							class="w-full"
 							variant={
-								!userPreferences.voice.output.enabled ? "secondary" : "outline"
+								!globalData.preferences.voice.output.enabled ? "secondary" : "outline"
 							}
 							classList={{
-								"text-foreground": userPreferences.voice.output.enabled,
-								"text-red-400!": !userPreferences.voice.output.enabled,
+								"text-foreground": globalData.preferences.voice.output.enabled,
+								"text-red-400!": !globalData.preferences.voice.output.enabled,
 							}}
 							onClick={toggleDeafen}
 						>
-							<Ear enabled={!userPreferences.voice.output.enabled} />
+							<Ear enabled={!globalData.preferences.voice.output.enabled} />
 						</Button>
 						<Button
 							class="w-full"
