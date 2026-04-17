@@ -11,7 +11,7 @@ import { getRedisClient } from "../redis";
 export const scopes = [
 	"atproto",
 	"blob:*/*",
-	"rpc:app.bsky.actor.getProfile?aud=did:web:api.bsky.app#bsky_appview",
+	"rpc:app.bsky.actor.getProfile?aud=*",
 	"repo:social.colibri.actor.data?action=create&action=update&action=delete",
 	"repo:social.colibri.community?action=create&action=update&action=delete",
 	"repo:social.colibri.category?action=create&action=update&action=delete",
