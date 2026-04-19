@@ -29,6 +29,7 @@
 		"@atproto/lex": "^0.0.15",
 		"@atproto/lex-data": "^0.0.13",
 		"@atproto/lexicon": "^0.6.1",
+		"@atproto/oauth-client-browser": "^0.3.41",
 		"@atproto/oauth-client-node": "^0.3.16",
 		"@atproto/ws-client": "^0.0.4",
 		"@biomejs/biome": "^2.4.4",
@@ -99,6 +100,8 @@
 		"@tailwindcss/typography": "^0.5.19",
 		"@types/chroma-js": "^3.1.2",
 		"@types/jsdom": "^28.0.0",
-		"@types/ws": "^8.18.1"
+		"@types/ws": "^8.18.1",
+		"tsx": "^4.21.0",
+		"ws": "^8.20.0"
 	}
 }

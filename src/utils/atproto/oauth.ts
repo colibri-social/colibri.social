@@ -7,21 +7,9 @@ import {
 	type NodeSavedState,
 } from "@atproto/oauth-client-node";
 import { getRedisClient } from "../redis";
+import { scopes } from "./scopes";
 
-export const scopes = [
-	"atproto",
-	"blob:*/*",
-	"rpc:app.bsky.actor.getProfile?aud=*",
-	"repo:social.colibri.actor.data?action=create&action=update&action=delete",
-	"repo:social.colibri.community?action=create&action=update&action=delete",
-	"repo:social.colibri.category?action=create&action=update&action=delete",
-	"repo:social.colibri.channel?action=create&action=update&action=delete",
-	"repo:social.colibri.message?action=create&action=update&action=delete",
-	"repo:social.colibri.membership?action=create&action=delete",
-	"repo:social.colibri.approval?action=create&action=delete",
-	"repo:social.colibri.reaction?action=create&action=delete",
-	"repo:app.bsky.actor.profile?action=create&action=update",
-];
+export { scopes };
 
 /**
  * Redis key namespace for OAuth state and session entries.
@@ -49,7 +37,7 @@ export const client = new NodeOAuthClient({
 	// endpoint metadata, exposing the client metadata to the OAuth server.
 	clientMetadata: {
 		client_id: import.meta.env.DEV
-			? `http://localhost/?redirect_uri=${encodeURIComponent(`http://127.0.0.1:${serverPort}/auth/callback`)}&scope=${encodeURIComponent(scopes.join(" "))}`
+			? `http://localhost/?redirect_uri=${encodeURIComponent(`http://127.0.0.1:${serverPort}/login`)}&scope=${encodeURIComponent(scopes.join(" "))}`
 			: `${import.meta.env.SITE}/oauth-client-metadata.json`,
 		client_name: "Colibri Chat",
 		client_uri: import.meta.env.SITE,
@@ -58,8 +46,8 @@ export const client = new NodeOAuthClient({
 		policy_uri: `${import.meta.env.SITE}/policy`,
 		redirect_uris: [
 			import.meta.env.DEV
-				? `http://127.0.0.1:4321/auth/callback`
-				: `${import.meta.env.SITE}/auth/callback`,
+				? `http://127.0.0.1:4321/login`
+				: `${import.meta.env.SITE}/login`,
 		],
 		grant_types: ["authorization_code", "refresh_token"],
 		scope: scopes.join(" "),

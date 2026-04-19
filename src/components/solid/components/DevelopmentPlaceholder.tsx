@@ -48,7 +48,7 @@ export const DevelopmentPlaceholder: Component = () => {
 					</AlertDescription>
 				</Alert>
 
-				<div class="flex flex-row items-center gap-4">
+				{/*<div class="flex flex-row items-center gap-4">
 					<NewCommunityModal navigate={navigate}>
 						<Button>Create a community</Button>
 					</NewCommunityModal>
@@ -57,7 +57,7 @@ export const DevelopmentPlaceholder: Component = () => {
 							Join the Colibri Social Community
 						</Button>
 					</a>
-				</div>
+				</div>*/}
 			</div>
 		</div>
 	);

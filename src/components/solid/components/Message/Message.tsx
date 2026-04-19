@@ -46,7 +46,6 @@ import { SmallUserAsync } from "../SmallUserAsync";
 import { facetsToProseMirror } from "../TextEditor/facets-to-prosemirror";
 import { TextEditor } from "../TextEditor/TextEditor";
 import User from "../User";
-import { ProfilePopover } from "../User/ProfilePopover";
 import { MessageAttachments } from "./Attachments";
 import { BlockDrawer } from "./BlockDrawer";
 import { Action } from "./ContextMenu";
@@ -562,7 +561,7 @@ export const Message: Component<{
 				<div class="flex flex-row gap-4">
 					<Switch>
 						<Match when={!isSubsequentMessage()}>
-							<ProfilePopover
+							<User.ProfilePopover
 								banner={optimisticUserData().banner_url}
 								avatar={optimisticUserData().avatar_url}
 								displayName={optimisticUserData().display_name}
@@ -580,7 +579,7 @@ export const Message: Component<{
 										display_name: optimisticUserData().display_name,
 									}}
 								/>
-							</ProfilePopover>
+							</User.ProfilePopover>
 						</Match>
 						<Match when={isSubsequentMessage()}>
 							<div class="w-10 h-8 min-w-10 min-h-8 text-muted-foreground group-hover:opacity-100 opacity-0 text-xs flex items-center justify-center">
@@ -611,7 +610,7 @@ export const Message: Component<{
 						>
 							<Show when={!isSubsequentMessage()}>
 								<div class="flex gap-2 text-sm items-baseline">
-									<ProfilePopover
+									<User.ProfilePopover
 										banner={optimisticUserData().banner_url}
 										avatar={optimisticUserData().avatar_url}
 										displayName={optimisticUserData().display_name}
@@ -625,7 +624,7 @@ export const Message: Component<{
 										<span class="font-bold hover:underline cursor-pointer">
 											{optimisticUserData().display_name}
 										</span>
-									</ProfilePopover>
+									</User.ProfilePopover>
 									<small class="text-muted-foreground">
 										{new Date(props.data.created_at).toLocaleDateString()}{" "}
 										{new Date(props.data.created_at).toLocaleTimeString(
@@ -652,7 +651,7 @@ export const Message: Component<{
 						<div class="flex flex-col w-full justify-center">
 							<Show when={!isSubsequentMessage()}>
 								<div class="flex gap-2 text-sm items-baseline">
-									<ProfilePopover
+									<User.ProfilePopover
 										banner={optimisticUserData().banner_url}
 										avatar={optimisticUserData().avatar_url}
 										displayName={optimisticUserData().display_name}
@@ -666,7 +665,7 @@ export const Message: Component<{
 										<span class="font-bold hover:underline cursor-pointer">
 											{optimisticUserData().display_name}
 										</span>
-									</ProfilePopover>
+									</User.ProfilePopover>
 									<small class="text-muted-foreground">
 										{new Date(props.data.created_at).toLocaleDateString()}{" "}
 										{new Date(props.data.created_at).toLocaleTimeString(

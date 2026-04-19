@@ -3,6 +3,8 @@ import { actions } from "astro:actions";
 import Button from "@/components/bearnie/button/Button.astro";
 import Input from "@/components/bearnie/input/Input.astro";
 import BlueskyLogo from "@/components/icons/bluesky.svg";
+import ATmosphereAppMarquee from "@/components/public/ATmosphereAppMarquee.astro";
+import { Spinner } from "@/components/solid/icons/Spinner";
 import PublicLayout from "@/layouts/PublicLayout.astro";
 
 const user = await Astro.session?.get("user");
@@ -33,79 +35,23 @@ if (result && !result.error) {
 			</p>
 		</div>
 		<div
-			class="flex flex-col bg-card w-full max-w-xl rounded-2xl border border-border h-fit relative items-center drop-shadow-black/25 drop-shadow-2xl"
+			class="flex flex-col bg-card w-full max-w-xl rounded-2xl border border-border h-fit relative items-center drop-shadow-black/25 drop-shadow-2xl overflow-hidden"
 		>
-			{
-				/*<form
-				method="post"
-				class="flex gap-2 w-full p-6 items-center justify-center"
-				action={actions.login}
-			>
-				<Input
-					type="text"
-					value="__colibri__"
-					id="handle"
-					name="handle"
-					class="hidden"
-				/>
-				<Button
-					id="login-btn"
-					type="submit"
-					class="w-full bg-primary/15 hover:bg-primary/25"
-					variant="secondary"
-				>
-					<img
-						src="/logo.png"
-						alt="Colibri's Logo, a hummingbird."
-						width="24"
-						height="24"
-					/>
-					Login with Colibri
-				</Button>
-			</form>
-			<div class="relative w-full">
+			<div class="flex flex-row gap-4 w-full items-center justify-center">
+				<ATmosphereAppMarquee />
+			</div>
+			<div class="relative w-full mt-4">
 				<hr class="bg-border w-full h-px border-none m-0" />
 				<small
 					class="text-muted-foreground bg-card absolute top-1/2 left-1/2 transform -translate-1/2 px-2"
 				>
-					OR USE BLUESKY
-				</small>
-			</div> */
-			}
-			<form
-				method="post"
-				class="flex gap-2 w-full p-6 items-center justify-center"
-				action={actions.login}
-			>
-				<Input
-					type="text"
-					value="__bluesky__"
-					id="handle"
-					name="handle"
-					class="hidden"
-				/>
-				<Button
-					id="login-btn"
-					type={"submit"}
-					class="w-full bg-[#1185fe]/15 hover:bg-[#1185fe]/25"
-					variant="secondary"
-				>
-					<BlueskyLogo slot="left-icon" />
-					Login with Bluesky
-				</Button>
-			</form>
-			<div class="relative w-full">
-				<hr class="bg-border w-full h-px border-none m-0" />
-				<small
-					class="text-muted-foreground bg-card absolute top-1/2 left-1/2 transform -translate-1/2 px-2"
-				>
-					OR USE YOUR HANDLE
+					ENTER YOUR HANDLE
 				</small>
 			</div>
 			<form
 				method="post"
-				class="flex flex-col gap-4 w-full p-6 items-center justify-center"
-				action={actions.login}
+				class="flex flex-col gap-4 w-full p-6 pb-3 items-center justify-center"
+				id="login-form"
 			>
 				<div class="flex gap-2 w-full">
 					<Input
@@ -114,40 +60,31 @@ if (result && !result.error) {
 						id="handle"
 						name="handle"
 					/>
-					<Button id="login-btn" type={"submit"}>
-						Login with Atmosphere
+					<Button
+						id="login-btn"
+						class="aria-busy:[&_svg]:flex! aria-busy:[&>span]:hidden"
+						type={"submit"}
+						aria-busy="true"
+					>
+						<Spinner client:load className="hidden" />
+						<span>Login</span>
 					</Button>
 				</div>
 			</form>
-			<form
-				method="post"
-				class="flex flex-col items-center justify-center relative bottom-3 pb-3"
-				action={actions.login}
-			>
-				<Input
-					type="text"
-					value="__colibri__"
-					id="handle"
-					name="handle"
-					class="hidden"
-				/>
-				<Input
-					type="text"
-					value="true"
-					id="signUp"
-					name="signUp"
-					class="hidden"
-				/>
-				<Button variant="link" type={"submit"} class="text-muted-foreground">
-					New to the ATmosphere (and have an invite code from us)? Sign up here!
-				</Button>
-				<span class="text-sm text-muted-foreground"
-					>Want to create an account with us? Send us an e-mail: <a
-						class="text-muted-foreground hover:underline decoration-muted-foreground"
-						href="mailto:pds@colibri.social">pds@colibri.social</a
-					>!</span
+			<div class="relative w-full mt-4">
+				<hr class="bg-border w-full h-px border-none m-0" />
+				<small
+					class="text-muted-foreground bg-card absolute top-1/2 left-1/2 transform -translate-1/2 px-2"
 				>
-			</form>
+					DON'T HAVE AN ACCOUNT?
+				</small>
+			</div>
+			<span class="text-sm text-muted-foreground text-center p-6">
+				Send us an e-mail: <a
+					class="text-muted-foreground hover:underline decoration-muted-foreground"
+					href="mailto:pds@colibri.social">pds@colibri.social</a
+				>!
+			</span>
 		</div>
 		<div
 			class="flex flex-row items-center justify-center text-muted-foreground w-full max-w-xl gap-4 text-sm"
@@ -162,3 +99,49 @@ if (result && !result.error) {
 		</div>
 	</section>
 </PublicLayout>
+<script>
+	import { getClient } from "@/utils/atproto/auth";
+
+	const loginButton = document.getElementById("login-btn")!;
+
+	const doLogin = async (handle: string) => {
+		const res = await getClient();
+
+		if (!res) {
+			console.error("Unable to get client");
+			return;
+		}
+
+		loginButton.setAttribute("aria-busy", "true");
+
+		try {
+			await res.client.signIn(handle, {
+				signal: new AbortController().signal,
+			});
+		} catch (err) {
+			console.error(err);
+			// TODO: Toast an error
+		}
+		loginButton.removeAttribute("aria-busy");
+	};
+
+	const init = async () => {
+		const res = await getClient();
+
+		if (res?.loggedIn) {
+			window.location.href = "/app";
+			return;
+		}
+
+		const loginForm = document.getElementById("login-form")!;
+
+		loginForm.addEventListener("submit", (e) => {
+			e.preventDefault();
+			doLogin((e.target as HTMLFormElement).handle!.value);
+		});
+	};
+
+	loginButton.setAttribute("aria-busy", "false");
+
+	init();
+</script>

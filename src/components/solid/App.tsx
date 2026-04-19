@@ -14,33 +14,22 @@ import VoiceChannelView from "./views/VoiceChannelView";
 /**
  * The entrypoint to the main solid app.
  */
-export const App = ({
-	communities,
-	user,
-}: {
-	communities: Array<CommunityData>;
-	user: App.SessionData["user"];
-}) => {
+export const App = () => {
 	return (
 		<ColorModeProvider>
 			<Toaster richColors position="bottom-right" />
 			<UserPreferencesContextProvider>
-				<GlobalContextProvider
-					contextData={{
-						communities,
-						user,
-					}}
-				>
+				<GlobalContextProvider>
 					<VoiceChatContextProvider>
 						<Router base="/app">
 							<Route component={AppLayout}>
 								<Route path="/" component={() => <DevelopmentPlaceholder />} />
-								<Route component={CommunityLayout}>
+								{/*<Route component={CommunityLayout}>
 									<Route
 										path="/c/:community"
 										component={() => (
 											<div class="w-full h-full flex items-center justify-center">
-												{/* TODO(app): Make this a page people can configure? */}
+												TODO(app): Make this a page people can configure?
 												Select a channel to get started!
 											</div>
 										)}
@@ -53,7 +42,7 @@ export const App = ({
 										path="/c/:community/v/:channel"
 										component={VoiceChannelView}
 									/>
-								</Route>
+								</Route>*/}
 							</Route>
 						</Router>
 					</VoiceChatContextProvider>

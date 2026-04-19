@@ -1,12 +1,14 @@
 import { actions } from "astro:actions";
 import { APPVIEW_DOMAIN } from "astro:env/client";
+import { serverPort } from "virtual:server-port";
 import {
 	makeHeartbeatWS,
 	makeReconnectingWS,
 } from "@solid-primitives/websocket";
 import { createEffect, type ParentComponent, useContext } from "solid-js";
 import { createStore } from "solid-js/store";
-import type { ChannelData, CommunityData } from "@/utils/sdk";
+import { getClient } from "@/utils/atproto/auth";
+import type { ChannelData } from "@/utils/sdk";
 import { usePreferencesContext } from "../UserPreferencesContext";
 import { GlobalContext } from "./context";
 import type { AppviewSubscriptionData, ReactionEventCallback } from "./events";
@@ -20,31 +22,53 @@ import type { GlobalContextData, GlobalContextUtility } from "./types";
 
 export { GlobalContext };
 
-export const GlobalContextProvider: ParentComponent<{
-	contextData: {
-		communities: Array<CommunityData>;
-		user: App.SessionData["user"];
-	};
-}> = (props) => {
+export const GlobalContextProvider: ParentComponent = (props) => {
 	const community = () => window.location.href.split("/")[5];
 	const reactionListeners = new Set<ReactionEventCallback>();
 	const [userPreferences, setUserPreferences] = usePreferencesContext();
 
-	const socket = makeHeartbeatWS(
-		makeReconnectingWS(
-			`wss://${APPVIEW_DOMAIN}/api/subscribe?did=${props.contextData.user.sub}`,
-		),
-		{
-			message: JSON.stringify({
-				action: "heartbeat",
-				event_type: "heartbeat",
-			}),
-			interval: 20_000,
-		},
-	);
+	let socket: (WebSocket & { reconnect: () => void }) | undefined;
+
+	const init = async () => {
+		const res = await getClient();
+
+		if (!res?.loggedIn) return;
+
+		res.agent.configureProxy(`did:web:api.colibri.social#colibri_appview`);
+
+		const url = import.meta.env.DEV
+			? `/api/v1/ws-proxy?target=${encodeURIComponent(`wss://${new URL(res.pdsHost).hostname}/xrpc/social.colibri.sync.subscribeEvents`)}`
+			: null; // use WebSocket directly in prod
+
+		if (import.meta.env.DEV && url) {
+			const es = new EventSource(url);
+			console.log(es);
+			es.onmessage = (event) => {
+				const data = JSON.parse(event.data);
+				console.log(data);
+			};
+			es.addEventListener("error", () => es.close());
+		} else {
+			socket = makeHeartbeatWS(
+				makeReconnectingWS(
+					`wss://${res.pdsHost}/xrpc/social.colibri.sync.subscribeEvents`,
+				),
+				{
+					message: JSON.stringify({
+						action: "heartbeat",
+						event_type: "heartbeat",
+					}),
+					interval: 20_000,
+				},
+			);
+
+			socket.addEventListener("message", async (message) => {});
+		}
+	};
+
+	init();
 
 	const [globalContext, setGlobalContext] = createStore<GlobalContextData>({
-		...props.contextData,
 		additionalMessages: [],
 		categories: [],
 		addedChannels: [],
@@ -60,8 +84,20 @@ export const GlobalContextProvider: ParentComponent<{
 		memberProfileOverrides: [],
 		memberStatusOverrides: [],
 		// TODO(app): This might not reflect the user's preferred state.
-		userOnlineStates: [{ did: props.contextData.user.sub, state: "online" }],
+		userOnlineStates: [
+			{ did: "did:plc:w64dlsa4zwjv2wljlvmymldc", state: "online" },
+		],
 		knownVoiceChannelStates: [],
+		communities: [],
+		user: {
+			avatar: undefined,
+			banner: undefined,
+			description: undefined,
+			displayName: undefined,
+			communities: [],
+			identity: "did:plc:w64dlsa4zwjv2wljlvmymldc",
+			sub: "did:plc:w64dlsa4zwjv2wljlvmymldc",
+		},
 	});
 
 	const context: [GlobalContextData, GlobalContextUtility] = [
@@ -172,7 +208,7 @@ export const GlobalContextProvider: ParentComponent<{
 				setGlobalContext("additionalMessages", []);
 			},
 			sendSocketMessage(message) {
-				socket.send(JSON.stringify(message));
+				socket?.send(JSON.stringify(message));
 			},
 			addDeletedMessage(data) {
 				setGlobalContext("deletedMessages", (list) => {
@@ -300,98 +336,6 @@ export const GlobalContextProvider: ParentComponent<{
 		const _ = globalContext; // Track
 
 		context[1].sendSocketMessage({ action: "activity" });
-	});
-
-	socket.addEventListener("message", async (message) => {
-		const data = JSON.parse(message.data) as AppviewSubscriptionData;
-
-		switch (data.type) {
-			case "message":
-				handleNewMessage(context[1], data);
-				break;
-			case "message_deleted":
-				handleMessageDeletion(context[1], data);
-				break;
-			case "reaction_added":
-			case "reaction_removed":
-				reactionListeners.forEach((callback) => {
-					callback(data);
-				});
-				break;
-			case "community_upserted":
-				context[1].addCommunity({
-					rkey: data.rkey,
-					name: data.name,
-					category_order: data.category_order,
-					description: data.description,
-					owner_did: data.owner_did,
-					picture: data.picture
-						? `https://${APPVIEW_DOMAIN}/api/blob?did=${data.owner_did}&cid=${data.picture.ref.$link}`
-						: undefined,
-					requires_approval_to_join: data.requires_approval_to_join,
-				});
-				break;
-			case "community_deleted":
-				context[1].removeCommunity(data.rkey);
-				break;
-			case "channel_created":
-				context[1].addChannel({
-					rkey: data.rkey,
-					name: data.name,
-					type: data.channel_type as ChannelData["type"],
-					category: data.category_rkey,
-					community: data.community_uri.split("/").pop()!,
-					owner_only: data.owner_only,
-				});
-				break;
-			case "channel_deleted":
-				context[1].removeChannel(data.rkey);
-				break;
-			case "category_created":
-				context[1].addCategory({
-					rkey: data.rkey,
-					name: data.name,
-					channelOrder: [],
-					community: data.community_uri.split("/").pop()!,
-				});
-				break;
-			case "category_deleted":
-				context[1].removeCategory(data.rkey);
-				break;
-			case "member_joined":
-				if (community() === data.community_uri.split("/").pop()!) {
-					context[1].addJoinedMember({
-						avatar_url: data.avatar_url || "/user-placeholder.png",
-						display_name: data.display_name || data.member_did,
-						member_did: data.member_did,
-						status: "approved",
-					});
-				}
-				break;
-			case "member_left":
-				if (community() === data.community_uri.split("/").pop()!) {
-					context[1].addRemovedMember({
-						avatar_url: data.avatar_url || "/user-placeholder.png",
-						display_name: data.display_name || data.member_did,
-						member_did: data.member_did,
-						status: "approved",
-					});
-				}
-				break;
-			case "user_status_changed":
-				handleUserStatusChanged(context[1], data);
-				break;
-			case "user_profile_updated":
-				handleUserProfileUpdated(context[1], data);
-				break;
-			case "voice_channel_updated":
-				context[1].processVoiceChannelUpdate(data);
-				break;
-			case "ack":
-				break;
-			default:
-				console.error("Unknown event: ", data);
-		}
 	});
 
 	return (

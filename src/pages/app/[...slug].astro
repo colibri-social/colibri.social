@@ -1,35 +1,11 @@
 ---
-import { Agent } from "@atproto/api";
-import { client } from "@/utils/atproto/oauth";
-import { ColibriSDK, type CommunityData } from "@/utils/sdk";
 import { App } from "../../components/solid/App.tsx";
 import BaseLayout from "../../layouts/BaseLayout.astro";
 import "@/styles/emoji-picker.css";
-
-const user = await Astro.session?.get("user");
-
-let communities: Array<CommunityData> = [];
-
-if (user) {
-	try {
-		const oauthSession = await client.restore(user.sub!);
-		const agent = new Agent(oauthSession);
-		const sdk = new ColibriSDK(agent);
-
-		const data = await sdk.getCommunities(agent.did!);
-
-		communities = data;
-	} catch (e) {
-		console.error(e);
-		return Astro.redirect("/auth/logout");
-	}
-} else {
-	return Astro.redirect("/login");
-}
 ---
 
 <BaseLayout title="Colibri">
-	<App {communities} {user} client:only="solid-js" />
+	<App client:only="solid-js" />
 	{import.meta.env.PROD && (
 		<script>
 			import * as Sentry from "@sentry/solid";
@@ -50,4 +26,18 @@ if (user) {
 			});
 		</script>
 	)}
+	<script>
+		import { getClient } from "@/utils/atproto/auth";
+
+		const init = async () => {
+			const res = await getClient();
+
+			if (!res) {
+				window.location.href = "/login"
+				return;
+			}
+		};
+
+		init();
+</script>
 </BaseLayout>

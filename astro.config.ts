@@ -4,61 +4,22 @@ import {
 	fontProviders,
 	sessionDrivers,
 } from "astro/config";
-
 import node from "@astrojs/node";
 import tailwindcss from "@tailwindcss/vite";
 import solidJs from "@astrojs/solid-js";
 import { loadEnv } from "vite";
 import { vite as vidstack } from "vidstack/plugins";
-import type { AstroIntegration } from "astro";
 import { sentryVitePlugin } from "@sentry/vite-plugin";
 import starlightThemeRapide from "starlight-theme-rapide";
 import starlight from "@astrojs/starlight";
 import { colibriDark, colibriLight } from "./src/ec-theme.ts";
+import { serverPortIntegration } from "./src/integrations/server-port";
 
 const { REDIS_PASSWORD, REDIS_URL, REDIS_PORT, SENTRY_AUTH_TOKEN } = loadEnv(
 	process.env.NODE_ENV!,
 	process.cwd(),
 	"",
 );
-
-const serverPortIntegration = (): AstroIntegration => {
-	let serverPort: number | undefined;
-
-	return {
-		name: "server-port-virtual-module",
-		hooks: {
-			"astro:config:setup": ({ updateConfig }) => {
-				updateConfig({
-					vite: {
-						plugins: [
-							{
-								name: "server-port-virtual-module",
-								resolveId(id) {
-									if (id === "virtual:server-port") {
-										return "\0virtual:server-port";
-									}
-									return null;
-								},
-								load(id) {
-									if (id === "\0virtual:server-port") {
-										const port =
-											typeof serverPort === "number" ? serverPort : 4321;
-										return `export const serverPort = ${port};`;
-									}
-									return null;
-								},
-							},
-						],
-					},
-				});
-			},
-			"astro:server:start": ({ address }) => {
-				serverPort = address.port;
-			},
-		},
-	};
-};
 
 // https://astro.build/config
 export default defineConfig({
