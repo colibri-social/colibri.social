@@ -10,7 +10,7 @@ const makeClientId = () => {
 		// see https://atproto.com/specs/oauth#localhost-client-development
 		return `http://localhost?${new URLSearchParams({
 			scope: scopes.join(" "),
-			redirect_uri: `http://127.0.0.1:${serverPort}/app`,
+			redirect_uri: `http://127.0.0.1:${serverPort}/login`,
 		})}`;
 	}
 
@@ -75,6 +75,9 @@ const init = async () => {
 
 			try {
 				if (window.location.hash.length > 0) {
+					console.info(
+						"Attempting to received session from callback parameters...",
+					);
 					const searchParams = new URLSearchParams(
 						window.location.hash.replace("#", "?"),
 					);
@@ -82,20 +85,29 @@ const init = async () => {
 					const callbackSession = await oAuthClient.callback(searchParams);
 
 					if (callbackSession && !window.location.href.startsWith("/app")) {
+						console.info("Session received from callback parameters.");
 						// TODO: Set a cookie with the sub instead
 						localStorage.setItem("sub", callbackSession.session.sub);
 						window.location.href = "/app";
+						return;
 					}
 				}
 			} catch (e) {
 				console.warn(e);
 			}
 
-			const result = await oAuthClient.init();
+			let result = await oAuthClient.init();
 
 			if (!result) {
-				console.info("No session found.");
-				return;
+				const preSetSub = localStorage.getItem("sub");
+
+				if (preSetSub) {
+					const restored = await oAuthClient.restore(preSetSub);
+					result = { session: restored, state: null };
+				} else {
+					console.info("No session found.");
+					return;
+				}
 			}
 
 			const { session, state } = result;

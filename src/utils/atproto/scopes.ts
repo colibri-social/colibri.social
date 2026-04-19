@@ -2,6 +2,7 @@ export const scopes = [
 	"atproto",
 	"blob:*/*",
 	"rpc:app.bsky.actor.getProfile?aud=*",
+	"rpc:social.colibri.sync.subscribeEvents?aud=*",
 	"repo:social.colibri.actor.data?action=create&action=update&action=delete",
 	"repo:social.colibri.community?action=create&action=update&action=delete",
 	"repo:social.colibri.category?action=create&action=update&action=delete",

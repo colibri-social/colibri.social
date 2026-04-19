@@ -10,12 +10,8 @@ import { client } from "@/utils/atproto/oauth";
 import { ColibriSDK, type UnresolvedCommunityData } from "@/utils/sdk";
 
 const { code } = Astro.params;
-const user = await Astro.session?.get("user");
 
 if (!code) return Astro.redirect("/");
-if (!user) {
-	Astro.session?.set("redirectAfterLogin", `/invite/${code}`);
-}
 
 const getCommunityData = async () => {
 	return (await (

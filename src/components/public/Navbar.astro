@@ -12,8 +12,6 @@ const links: Array<LinkData> = [
 	{ text: "Leaflet.pub", href: "https://colibri.leaflet.pub" },
 	{ text: "FAQ", href: "/faq" },
 ];
-
-const user = await Astro.session?.get("user");
 ---
 
 <nav
@@ -40,15 +38,15 @@ const user = await Astro.session?.get("user");
 			class="flex lg:hidden mobile-link translate-y-6 opacity-0 transition-[transform,opacity] duration-300 gap-3 mt-4"
 			style={`transition-delay: ${links.length * 60}ms`}
 		>
-			{!user && <Button href="/login">Log in</Button>}
-			{user && <Button href="/app">Go to app</Button>}
+			<Button href="/login">Log in</Button>
+			<!-- {user && <Button href="/app">Go to app</Button>}
 			{
 				user && (
 					<Button href="/auth/logout" variant="destructive">
 						Log out
 					</Button>
 				)
-			}
+			} -->
 		</div>
 	</div>
 
@@ -57,14 +55,8 @@ const user = await Astro.session?.get("user");
 	</div>
 
 	<div class="w-40 flex justify-end items-center gap-4">
-		{
-			!user && (
-				<Button href="/login" class="hidden lg:inline-flex">
-					Log in
-				</Button>
-			)
-		}
-		{
+		<Button href="/login" class="hidden lg:inline-flex"> Log in </Button>
+		<!-- {
 			user && (
 				<Button href="/app" class="hidden lg:inline-flex">
 					Go to app
@@ -81,7 +73,7 @@ const user = await Astro.session?.get("user");
 					Log out
 				</Button>
 			)
-		}
+		} -->
 
 		<button
 			id="menu-toggle"

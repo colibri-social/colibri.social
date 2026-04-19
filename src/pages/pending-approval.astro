@@ -3,10 +3,6 @@ import { Image } from "astro:assets";
 import { APPVIEW_DOMAIN } from "astro:env/client";
 import Button from "@/components/bearnie/button/Button.astro";
 import PublicLayout from "@/layouts/PublicLayout.astro";
-
-const user = await Astro.session?.get("user");
-
-if (!user) return Astro.redirect("/login");
 ---
 
 <PublicLayout title={`Request received!`}>

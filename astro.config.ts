@@ -1,9 +1,4 @@
-import {
-	defineConfig,
-	envField,
-	fontProviders,
-	sessionDrivers,
-} from "astro/config";
+import { defineConfig, envField, fontProviders } from "astro/config";
 import node from "@astrojs/node";
 import tailwindcss from "@tailwindcss/vite";
 import solidJs from "@astrojs/solid-js";
@@ -24,25 +19,6 @@ const { REDIS_PASSWORD, REDIS_URL, REDIS_PORT, SENTRY_AUTH_TOKEN } = loadEnv(
 // https://astro.build/config
 export default defineConfig({
 	site: "https://colibri.social",
-	session: {
-		driver: sessionDrivers.redis(
-			process.env.NODE_ENV! === "production"
-				? {
-						url: REDIS_URL,
-					}
-				: {
-						base: "unstorage",
-						host: "127.0.0.1",
-						port: parseInt(REDIS_PORT || "6379"),
-						password: REDIS_PASSWORD,
-						tls: false as any,
-					},
-		),
-		cookie: {
-			name: "astro-session",
-			maxAge: 720 * 60 * 60,
-		},
-	},
 	adapter: node({
 		mode: "standalone",
 	}),

@@ -2,6 +2,7 @@ import { actions } from "astro:actions";
 import { APPVIEW_DOMAIN } from "astro:env/client";
 import { serverPort } from "virtual:server-port";
 import {
+	createReconnectingWS,
 	makeHeartbeatWS,
 	makeReconnectingWS,
 } from "@solid-primitives/websocket";
@@ -34,36 +35,30 @@ export const GlobalContextProvider: ParentComponent = (props) => {
 
 		if (!res?.loggedIn) return;
 
-		res.agent.configureProxy(`did:web:api.colibri.social#colibri_appview`);
+		const { data } = await res.agent.com.atproto.server.getServiceAuth({
+			aud: "did:web:api.colibri.social",
+			lxm: "social.colibri.sync.subscribeEvents",
+			exp: Math.floor(Date.now() / 1000) + 60,
+		});
 
-		const url = import.meta.env.DEV
-			? `/api/v1/ws-proxy?target=${encodeURIComponent(`wss://${new URL(res.pdsHost).hostname}/xrpc/social.colibri.sync.subscribeEvents`)}`
-			: null; // use WebSocket directly in prod
+		const hostWithProtocol = import.meta.env.DEV
+			? `ws://127.0.0.1:8000`
+			: `wss://${res.pdsHost}`;
 
-		if (import.meta.env.DEV && url) {
-			const es = new EventSource(url);
-			console.log(es);
-			es.onmessage = (event) => {
-				const data = JSON.parse(event.data);
-				console.log(data);
-			};
-			es.addEventListener("error", () => es.close());
-		} else {
-			socket = makeHeartbeatWS(
-				makeReconnectingWS(
-					`wss://${res.pdsHost}/xrpc/social.colibri.sync.subscribeEvents`,
-				),
-				{
-					message: JSON.stringify({
-						action: "heartbeat",
-						event_type: "heartbeat",
-					}),
-					interval: 20_000,
-				},
-			);
+		socket = makeHeartbeatWS(
+			createReconnectingWS(
+				`${hostWithProtocol}/xrpc/social.colibri.sync.subscribeEvents?auth=${data.token}`,
+			),
+			{
+				message: JSON.stringify({
+					action: "heartbeat",
+					event_type: "heartbeat",
+				}),
+				interval: 20_000,
+			},
+		);
 
-			socket.addEventListener("message", async (message) => {});
-		}
+		socket.addEventListener("message", async (message) => {});
 	};
 
 	init();

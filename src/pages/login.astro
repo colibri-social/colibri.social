@@ -6,17 +6,6 @@ import BlueskyLogo from "@/components/icons/bluesky.svg";
 import ATmosphereAppMarquee from "@/components/public/ATmosphereAppMarquee.astro";
 import { Spinner } from "@/components/solid/icons/Spinner";
 import PublicLayout from "@/layouts/PublicLayout.astro";
-
-const user = await Astro.session?.get("user");
-
-if (user) {
-	return Astro.redirect("/app");
-}
-
-const result = Astro.getActionResult(actions.login);
-if (result && !result.error) {
-	return Astro.redirect(result.data);
-}
 ---
 
 <PublicLayout
