@@ -12,7 +12,6 @@ import {
 import { Icon } from "@/components/solid/icons/Icon";
 import { createIsSpeaking } from "@/lib/hooks/createIsSpeaking";
 import { UserSettingsContextMenu } from "../components/VoiceChat/UserSettingsContextMenu";
-import { useChannelContext } from "../contexts/ChannelContext";
 import { useCommunityContext } from "../contexts/CommunityContext";
 import { useGlobalContext } from "../contexts/GlobalContext";
 import { usePreferencesContext } from "../contexts/UserPreferencesContext";
@@ -217,7 +216,6 @@ const LiveKitRoom: Component = () => {
 	] = useVoiceChatContext();
 	const [globalData] = useGlobalContext();
 	const communityData = useCommunityContext()!;
-	const channelData = useChannelContext()!;
 	const params = useParams();
 
 	const member = (did: string) =>
@@ -226,7 +224,7 @@ const LiveKitRoom: Component = () => {
 
 	const channel = () => params.channel!;
 	const activeChannel = () =>
-		channelData.channels().find((c) => c.rkey === channel())!;
+		communityData.channels().find((c) => c.rkey === channel())!;
 
 	const knownMembers = () => {
 		const category = communityData

@@ -19,7 +19,6 @@ import { type Editor, mergeAttributes } from "@tiptap/core";
 import twemoji from "@twemoji/api";
 import type { Facet } from "@/utils/atproto/rich-text";
 import { htmlToDOMOutputSpec } from "@/utils/html-to-dom-output-spec";
-import { useChannelContext } from "../../contexts/ChannelContext";
 import { useCommunityContext } from "../../contexts/CommunityContext";
 import Icon from "../../icons/Icon";
 import {
@@ -48,7 +47,6 @@ export const TextEditor: Component<{
 	let ref!: HTMLDivElement;
 
 	const communityContext = useCommunityContext();
-	const channelContext = useChannelContext();
 
 	const [bubbleMenuVisible, setBubbleMenuVisible] = createSignal(false);
 	const [activeMarks, setActiveMarks] = createSignal<Array<BubbleMenuMark>>([]);
@@ -110,7 +108,7 @@ export const TextEditor: Component<{
 				HTMLAttributes: { "data-type": "mention" },
 				suggestions: buildSuggestions(
 					() => communityContext?.members() ?? [],
-					() => channelContext?.channels() ?? [],
+					() => communityContext?.channels() ?? [],
 					() =>
 						Object.keys(EMOJI_DATA).map((x: string) => ({
 							name: x,

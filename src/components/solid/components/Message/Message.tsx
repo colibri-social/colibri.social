@@ -32,7 +32,6 @@ import {
 	type ReactionRemovedEvent,
 	useGlobalContext,
 } from "../../contexts/GlobalContext";
-import { useMessageContext } from "../../contexts/MessageContext";
 import {
 	Tooltip,
 	TooltipContent,
@@ -68,11 +67,10 @@ export const Message: Component<{
 	const [
 		messageData,
 		{ setReplyingTo, jumpToMessage, setEditingMessage, clearEditingMessage },
-	] = useMessageContext();
+	] = useChannelContext();
 
 	const [globalData, { addDeletedMessage, addReactionListener }] =
 		useGlobalContext();
-	const channelContext = useChannelContext();
 	const communityContext = useCommunityContext();
 
 	const isPending = () => "hash" in props.data;
@@ -700,7 +698,7 @@ export const Message: Component<{
 													newText().text,
 													newText().facets || [],
 													communityContext?.members() || [],
-													channelContext?.channels() || [],
+													communityContext?.channels() || [],
 												)}
 												placeholder=""
 												submitOnEnter

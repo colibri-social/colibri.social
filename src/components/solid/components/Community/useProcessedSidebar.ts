@@ -66,6 +66,7 @@ export const useProcessedSidebar = (props: {
 						uri: (ch as SidebarChannelData).uri ?? globalCh.uri ?? "",
 						rkey: globalCh.rkey,
 						name: globalCh.name,
+						owner_only: (ch as SidebarChannelData).owner_only ?? globalCh.owner_only ?? false,
 						description: (ch as SidebarChannelData).description ?? "",
 						channel_type: globalCh.channel_type,
 						category_rkey: categoryRkey,

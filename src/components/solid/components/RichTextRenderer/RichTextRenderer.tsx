@@ -1,7 +1,7 @@
 import type { Accessor, Component } from "solid-js";
 import { For, Show } from "solid-js";
 import { cn } from "@/utils/cn";
-import { useChannelContext } from "../../contexts/ChannelContext";
+import { useCommunityContext } from "../../contexts/CommunityContext";
 import { renderWithFacets, type TextWithFacets } from "./util";
 
 /**
@@ -15,10 +15,10 @@ export const RichTextRenderer: Component<{
 	class?: string;
 	isEdited?: boolean;
 }> = (props) => {
-	const channelCtx = useChannelContext();
+	const communityCtx = useCommunityContext();
 
 	const community = (): string => {
-		return channelCtx?.community() ?? "";
+		return communityCtx?.community() ?? "";
 	};
 
 	const rendered = renderWithFacets(props.text(), community());
