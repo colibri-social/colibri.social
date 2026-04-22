@@ -33,6 +33,7 @@ export const buildFeatureKey = (feature: Feature): string => {
 		case "social.colibri.richtext.facet#code":
 			return feature.$type;
 		default:
+			// @ts-expect-error: nah, this never happens
 			return `${feature.$type}:${stableStringify(feature)}`;
 	}
 };

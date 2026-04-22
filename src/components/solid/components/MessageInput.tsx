@@ -16,9 +16,9 @@ import type { Facet } from "@/utils/atproto/rich-text";
 import { generateHash } from "@/utils/generate-hash";
 import { parseZodToErrorOrDisplay } from "@/utils/parse-zod-to-error-or-display";
 import { purify } from "@/utils/purify";
+import { useChannelContext } from "../contexts/ChannelContext";
 import { useGlobalContext } from "../contexts/GlobalContext";
 import type { AttachmentObj, BlobObj } from "../contexts/GlobalContext/events";
-import { useMessageContext } from "../contexts/MessageContext";
 import {
 	FileFieldItem,
 	FileFieldItemDeleteTrigger,
@@ -97,7 +97,7 @@ export const MessageInput: Component<{
 	const fileField = useFileFieldContext();
 
 	const [messageData, { clearReplyingTo, triggerScrollToBottom }] =
-		useMessageContext();
+		useChannelContext();
 	const [globalData, { addPendingMessage, removePendingMessage }] =
 		useGlobalContext();
 	const [fileUploadProgress, setFileUploadProgress] = createSignal<

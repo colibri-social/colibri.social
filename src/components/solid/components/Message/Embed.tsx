@@ -6,7 +6,7 @@ import {
 	on,
 	Show,
 } from "solid-js";
-import { useMessageContext } from "../../contexts/MessageContext";
+import { useChannelContext } from "../../contexts/ChannelContext";
 import { Lightbox } from "../Lightbox";
 
 /**
@@ -28,7 +28,7 @@ const fetchEmbedData = async (uri: string) => {
  * chat when embeds appear on latest message
  */
 export const Embed: Component<{ uri: string }> = (props) => {
-	const [, { notifyEmbedLoad }] = useMessageContext();
+	const [, { notifyEmbedLoad }] = useChannelContext();
 	const [embedData] = createResource(props.uri, fetchEmbedData);
 
 	createEffect(

@@ -51,14 +51,15 @@ export const GlobalContextProvider: ParentComponent = (props) => {
 			),
 			{
 				message: JSON.stringify({
-					action: "heartbeat",
-					event_type: "heartbeat",
+					type: "heartbeat",
 				}),
 				interval: 20_000,
 			},
 		);
 
-		socket.addEventListener("message", async (message) => {});
+		socket.addEventListener("message", async (message) => {
+			console.log(message);
+		});
 	};
 
 	init();

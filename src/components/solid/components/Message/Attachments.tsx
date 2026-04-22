@@ -1,7 +1,7 @@
 import { APPVIEW_DOMAIN } from "astro:env/client";
 import { type Component, For, Show } from "solid-js";
 import type { AttachmentObj } from "../../contexts/GlobalContext/events";
-import { useMessageContext } from "../../contexts/MessageContext";
+import { useChannelContext } from "../../contexts/ChannelContext";
 import { Lightbox } from "../Lightbox";
 import "vidstack/bundle";
 import "vidstack/player";
@@ -16,7 +16,7 @@ import { Icon } from "@/components/solid/icons/Icon";
 type AttachmentComponent = Component<{ item: AttachmentObj; did: string }>;
 
 export const AudioAttachment: AttachmentComponent = (props) => {
-	const [, { notifyEmbedLoad }] = useMessageContext();
+	const [, { notifyEmbedLoad }] = useChannelContext();
 
 	return (
 		<media-player
@@ -40,7 +40,7 @@ export const AudioAttachment: AttachmentComponent = (props) => {
 };
 
 export const ImageAttachment: AttachmentComponent = (props) => {
-	const [, { notifyEmbedLoad }] = useMessageContext();
+	const [, { notifyEmbedLoad }] = useChannelContext();
 
 	return (
 		<Lightbox
@@ -57,7 +57,7 @@ export const ImageAttachment: AttachmentComponent = (props) => {
 };
 
 export const VideoAttachment: AttachmentComponent = (props) => {
-	const [, { notifyEmbedLoad }] = useMessageContext();
+	const [, { notifyEmbedLoad }] = useChannelContext();
 
 	return (
 		<media-player

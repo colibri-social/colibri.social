@@ -1,80 +1,14 @@
 import { createContext, type ParentComponent, useContext } from "solid-js";
-import { createStore } from "solid-js/store";
-import type { IndexedMessageData } from "@/utils/sdk";
 
-export type EmbedLoadCallback = () => void;
-export type ScrollToBottomCallback = (force?: boolean) => void;
+export type MessageContextData = {};
 
-export type MessageContextData = {
-	replyingTo: IndexedMessageData | undefined;
-	focusedMessage: IndexedMessageData | undefined;
-	editingMessageRkey: string | undefined;
-};
-
-export type MessageContextUtility = {
-	setReplyingTo: (message: IndexedMessageData) => void;
-	clearReplyingTo: () => void;
-	jumpToMessage: (message: IndexedMessageData) => void;
-	setEditingMessage: (rkey: string) => void;
-	clearEditingMessage: () => void;
-	registerEmbedLoadCallback: (cb: EmbedLoadCallback) => () => void;
-	notifyEmbedLoad: () => void;
-	registerScrollToBottomCallback: (cb: ScrollToBottomCallback) => () => void;
-	triggerScrollToBottom: (force?: boolean) => void;
-};
+export type MessageContextUtility = {};
 
 export const MessageContext =
 	createContext<[MessageContextData, MessageContextUtility]>();
 
 export const MessageContextProvider: ParentComponent = (props) => {
-	const [messageContext, setMessageContext] = createStore<MessageContextData>({
-		replyingTo: undefined,
-		focusedMessage: undefined,
-		editingMessageRkey: undefined,
-	});
-
-	const embedLoadCallbacks = new Set<EmbedLoadCallback>();
-	const scrollToBottomCallbacks = new Set<ScrollToBottomCallback>();
-
-	const context: [MessageContextData, MessageContextUtility] = [
-		messageContext,
-		{
-			setReplyingTo(message) {
-				setMessageContext("replyingTo", undefined);
-				setMessageContext("replyingTo", message);
-			},
-			clearReplyingTo() {
-				setMessageContext("replyingTo", undefined);
-			},
-			jumpToMessage(message) {
-				setMessageContext("focusedMessage", undefined);
-				setMessageContext("focusedMessage", message);
-				setTimeout(() => {
-					setMessageContext("focusedMessage", undefined);
-				}, 2000);
-			},
-			setEditingMessage(rkey) {
-				setMessageContext("editingMessageRkey", rkey);
-			},
-			clearEditingMessage() {
-				setMessageContext("editingMessageRkey", undefined);
-			},
-			registerEmbedLoadCallback(cb) {
-				embedLoadCallbacks.add(cb);
-				return () => embedLoadCallbacks.delete(cb);
-			},
-			notifyEmbedLoad() {
-				for (const cb of embedLoadCallbacks) cb();
-			},
-			registerScrollToBottomCallback(cb) {
-				scrollToBottomCallbacks.add(cb);
-				return () => scrollToBottomCallbacks.delete(cb);
-			},
-			triggerScrollToBottom(force) {
-				for (const cb of scrollToBottomCallbacks) cb(force);
-			},
-		},
-	];
+	const context: [MessageContextData, MessageContextUtility] = [{}, {}];
 
 	return (
 		<MessageContext.Provider value={context}>

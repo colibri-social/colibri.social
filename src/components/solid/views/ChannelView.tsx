@@ -15,12 +15,12 @@ import {
 import { ensureUserStateCached } from "@/utils/ensure-user-state-cached";
 import type { IndexedMessageData } from "@/utils/sdk";
 import { Message } from "../components/Message/Message";
-import { useChannelContext } from "../contexts/ChannelContext";
 import {
 	type PendingMessageData,
 	useGlobalContext,
 } from "../contexts/GlobalContext";
-import { useMessageContext } from "../contexts/MessageContext";
+import { useCommunityContext } from "../contexts/CommunityContext";
+import { useChannelContext } from "../contexts/ChannelContext";
 import { useMessageHistory } from "../hooks/useMessageHistory";
 import { Spinner } from "../icons/Spinner";
 
@@ -37,7 +37,7 @@ const ChannelView: Component = () => {
 	const [
 		messageData,
 		{ registerEmbedLoadCallback, registerScrollToBottomCallback },
-	] = useMessageContext();
+	] = useChannelContext();
 	const [
 		globalState,
 		{
@@ -52,7 +52,7 @@ const ChannelView: Component = () => {
 	const community = createMemo(
 		() => globalState.communities.find((x) => x.rkey === params.community)!,
 	);
-	const channels = () => useChannelContext();
+	const communityContext = useCommunityContext();
 
 	const history = useMessageHistory(channel);
 
@@ -200,7 +200,7 @@ const ChannelView: Component = () => {
 	);
 
 	const channelData = () =>
-		channels()
+		communityContext
 			?.channels()
 			.find((x) => x.rkey === channel());
 

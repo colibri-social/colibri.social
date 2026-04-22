@@ -30,7 +30,6 @@ import { ChannelContextProvider } from "../contexts/ChannelContext";
 import { CommunityContextProvider } from "../contexts/CommunityContext";
 import type { UserOnlineState } from "../contexts/GlobalContext/events";
 import { useGlobalContext } from "../contexts/GlobalContext/index";
-import { MessageContextProvider } from "../contexts/MessageContext";
 import {
 	FileField,
 	FileFieldDropzone,
@@ -289,15 +288,16 @@ const CommunityLayout: ParentComponent = (props) => {
 		) ?? [];
 
 	return (
-		<MessageContextProvider>
-			<CommunityContextProvider
-				owner={() => community()!.owner_did}
-				rkey={() => community()!.rkey}
-				members={membersWithOptimisticUpdates}
-				sidebar={sidebarData}
-				requiresApprovalToJoin={() => community()!.requires_approval_to_join}
-			>
-				<ChannelContextProvider channels={channels} community={communityRkey}>
+		<CommunityContextProvider
+			owner={() => community()!.owner_did}
+			rkey={() => community()!.rkey}
+			channels={channels}
+			community={communityRkey}
+			members={membersWithOptimisticUpdates}
+			sidebar={sidebarData}
+			requiresApprovalToJoin={() => community()!.requires_approval_to_join}
+		>
+			<ChannelContextProvider>
 					<div class="bg-background w-full h-full rounded-tl-xl border-t border-l border-border flex relative overflow-hidden">
 						<Switch>
 							<Match when={sidebarData()}>
@@ -527,9 +527,8 @@ const CommunityLayout: ParentComponent = (props) => {
 							</Match>
 						</Switch>
 					</div>
-				</ChannelContextProvider>
-			</CommunityContextProvider>
-		</MessageContextProvider>
+			</ChannelContextProvider>
+		</CommunityContextProvider>
 	);
 };
 

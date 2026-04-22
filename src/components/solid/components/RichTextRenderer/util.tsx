@@ -3,7 +3,6 @@ import twemoji from "@twemoji/api";
 import type { JSX } from "solid-js";
 import type { Facet } from "@/utils/atproto/rich-text";
 import { purify } from "@/utils/purify";
-import { useChannelContext } from "../../contexts/ChannelContext";
 import { useCommunityContext } from "../../contexts/CommunityContext";
 import { buildFeatureKey, normalizeFacets } from "../../utils/normalize-facets";
 import User from "../User";
@@ -40,7 +39,6 @@ const applyStyleForFacet = (
 	community?: string,
 ): JSX.Element => {
 	const communityContext = useCommunityContext();
-	const channelContext = useChannelContext();
 
 	const textWithEmojis = twemoji.parse(purify(text));
 
@@ -105,7 +103,7 @@ const applyStyleForFacet = (
 			const channel =
 				"channel" in feature ? escapeAttr(String(feature.channel)) : "";
 
-			const channelData = channelContext
+			const channelData = communityContext
 				?.channels()
 				.find((c) => c.rkey === channel);
 
