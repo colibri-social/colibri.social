@@ -1,3 +1,363 @@
-@import 'tailwindcss';
+@import "tailwindcss";
+@import "tw-animate-css";
+@plugin "@tailwindcss/typography";
 
 @source ".";
+
+@font-face {
+	font-family: "Twemoji";
+	/* Using the 15.x/16.x compatible COLR font */
+	src: url("/twemoji.woff2") format("woff2");
+	/* Encompasses the major emoji blocks for better performance */
+	unicode-range:
+		U+1F000-1F9FF, U+1F600-1F64F, U+2600-26FF, U+2700-27BF, U+1F300-1F5FF,
+		U+1F680-1F6FF, U+1F1E6-1F1FF;
+	font-display: swap;
+}
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+	--color-background: var(--background);
+	--color-foreground: var(--foreground);
+	--font-display: var(--font-stardom);
+	--font-sans: var(--font-hanken-grotesk);
+	--font-mono: var(--font-geist-mono);
+	--color-sidebar-ring: var(--sidebar-ring);
+	--color-sidebar-border: var(--sidebar-border);
+	--color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+	--color-sidebar-accent: var(--sidebar-accent);
+	--color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+	--color-sidebar-primary: var(--sidebar-primary);
+	--color-sidebar-foreground: var(--sidebar-foreground);
+	--color-sidebar: var(--sidebar);
+	--color-chart-5: var(--chart-5);
+	--color-chart-4: var(--chart-4);
+	--color-chart-3: var(--chart-3);
+	--color-chart-2: var(--chart-2);
+	--color-chart-1: var(--chart-1);
+	--color-ring: var(--ring);
+	--color-input: var(--input);
+	--color-border: var(--border);
+	--color-destructive: var(--destructive);
+	--color-accent-foreground: var(--accent-foreground);
+	--color-accent: var(--accent);
+	--color-muted-foreground: var(--muted-foreground);
+	--color-muted: var(--muted);
+	--color-secondary-foreground: var(--secondary-foreground);
+	--color-secondary: var(--secondary);
+	--color-primary-foreground: var(--primary-foreground);
+	--color-primary: var(--primary);
+	--color-popover-foreground: var(--popover-foreground);
+	--color-popover: var(--popover);
+	--color-card-foreground: var(--card-foreground);
+	--color-card: var(--card);
+	--radius-sm: calc(var(--radius) - 4px);
+	--radius-md: calc(var(--radius) - 2px);
+	--radius-lg: var(--radius);
+	--radius-xl: calc(var(--radius) + 4px);
+	--radius-2xl: calc(var(--radius) + 8px);
+	--radius-3xl: calc(var(--radius) + 12px);
+	--radius-4xl: calc(var(--radius) + 16px);
+}
+
+@layer base {
+	/* Body and Paragraphs */
+	body {
+		@apply text-gray-700 leading-7 dark:text-gray-300;
+	}
+
+	p {
+		@apply mt-5 mb-5;
+	}
+
+	/* Headings */
+	h1,
+	h2,
+	h3,
+	h4 {
+		@apply text-gray-900 font-extrabold tracking-tight dark:text-white font-display;
+	}
+
+	h1 {
+		@apply mt-0 mb-9;
+		background: linear-gradient(
+			135deg,
+			#ffffff 40%,
+			rgba(134, 102, 255, 1) 100%
+		);
+		background-clip: text;
+		-webkit-text-fill-color: transparent;
+	}
+	h1:not(.reset) {
+		@apply text-4xl;
+	}
+	h2 {
+		@apply text-2xl mt-12 mb-6;
+	}
+	h3 {
+		@apply text-xl mt-8 mb-3;
+	}
+	h4 {
+		@apply mt-6 mb-2;
+	}
+
+	/* Links */
+	a {
+		@apply text-gray-900 font-medium decoration-gray-300 underline-offset-4 hover:decoration-gray-900 dark:text-white dark:decoration-gray-600 dark:hover:decoration-white;
+	}
+
+	/* Lists */
+	ul {
+		@apply list-disc pl-7 mt-5 mb-5;
+	}
+
+	ol {
+		@apply list-decimal pl-7 mt-5 mb-5;
+	}
+
+	li {
+		@apply mt-2 mb-2;
+	}
+
+	/* Blockquotes */
+	blockquote {
+		@apply pl-5 italic font-medium text-gray-900 border-l-4 border-gray-200 mt-8 mb-8 dark:text-white dark:border-gray-700;
+	}
+
+	/* Code and Pre */
+	code {
+		@apply text-gray-900 font-semibold text-sm bg-gray-100 px-1 py-0.5 rounded dark:bg-gray-800 dark:text-gray-200;
+		font-family: var(--font-mono);
+	}
+
+	pre {
+		@apply text-gray-200 bg-gray-800 text-sm leading-6 rounded-lg mt-8 mb-8 px-5 py-4 overflow-x-auto dark:bg-gray-900 dark:border dark:border-gray-700;
+	}
+
+	pre code {
+		@apply bg-transparent p-0 text-inherit font-normal;
+	}
+
+	/* Horizontal Rule */
+	hr {
+		@apply border-t border-gray-200 my-12 dark:border-gray-700;
+	}
+}
+
+:root {
+	--gradient-dark: linear-gradient(180deg, #0a0a0a 0%, #151515 100%);
+	--background: oklch(1 0 0);
+	--foreground: oklch(0.145 0 0);
+	--card: oklch(1 0 0);
+	--card-foreground: oklch(0.145 0 0);
+	--popover: oklch(1 0 0);
+	--popover-foreground: oklch(0.145 0 0);
+	--primary: oklch(0.541 0.281 293.009);
+	--primary-foreground: oklch(0.969 0.016 293.756);
+	--primary-hover: oklch(0.77 0.14 300);
+	--secondary: oklch(0.967 0.001 286.375);
+	--secondary-foreground: oklch(0.21 0.006 285.885);
+	--muted: oklch(0.97 0 0);
+	--muted-foreground: oklch(0.556 0 0);
+	--accent: oklch(0.97 0 0);
+	--accent-foreground: oklch(0.205 0 0);
+	--destructive: oklch(0.58 0.22 27);
+	--border: oklch(0.922 0 0);
+	--input: oklch(0.922 0 0);
+	--ring: oklch(0.708 0 0);
+	--chart-1: oklch(0.811 0.111 293.571);
+	--chart-2: oklch(0.606 0.25 292.717);
+	--chart-3: oklch(0.541 0.281 293.009);
+	--chart-4: oklch(0.491 0.27 292.581);
+	--chart-5: oklch(0.432 0.232 292.759);
+	--radius: 0.625rem;
+	--sidebar: oklch(0.985 0 0);
+	--sidebar-foreground: oklch(0.145 0 0);
+	--sidebar-primary: oklch(0.541 0.281 293.009);
+	--sidebar-primary-foreground: oklch(0.969 0.016 293.756);
+	--sidebar-accent: oklch(0.97 0 0);
+	--sidebar-accent-foreground: oklch(0.205 0 0);
+	--sidebar-border: oklch(0.922 0 0);
+	--sidebar-ring: oklch(0.708 0 0);
+}
+
+.dark {
+	--background: oklch(0.145 0 0);
+	--foreground: oklch(0.985 0 0);
+	--card: oklch(0.205 0 0);
+	--card-foreground: oklch(0.985 0 0);
+	--popover: oklch(0.205 0 0);
+	--popover-foreground: oklch(0.985 0 0);
+	--primary: oklch(0.606 0.25 292.717);
+	--primary-foreground: oklch(0.969 0.016 293.756);
+	--primary-hover: oklch(0.77 0.14 300);
+	--secondary: oklch(0.274 0.006 286.033);
+	--secondary-foreground: oklch(0.985 0 0);
+	--muted: oklch(0.269 0 0);
+	--muted-foreground: oklch(0.708 0 0);
+	--accent: oklch(0.371 0 0);
+	--accent-foreground: oklch(0.985 0 0);
+	--destructive: oklch(0.704 0.191 22.216);
+	--border: oklch(1 0 0 / 10%);
+	--input: oklch(1 0 0 / 15%);
+	--ring: oklch(0.556 0 0);
+	--chart-1: oklch(0.811 0.111 293.571);
+	--chart-2: oklch(0.606 0.25 292.717);
+	--chart-3: oklch(0.541 0.281 293.009);
+	--chart-4: oklch(0.491 0.27 292.581);
+	--chart-5: oklch(0.432 0.232 292.759);
+	--sidebar: oklch(0.205 0 0);
+	--sidebar-foreground: oklch(0.985 0 0);
+	--sidebar-primary: oklch(0.606 0.25 292.717);
+	--sidebar-primary-foreground: oklch(0.969 0.016 293.756);
+	--sidebar-accent: oklch(0.269 0 0);
+	--sidebar-accent-foreground: oklch(0.985 0 0);
+	--sidebar-border: oklch(1 0 0 / 10%);
+	--sidebar-ring: oklch(0.556 0 0);
+}
+
+[data-kb-theme="dark"] {
+	--background: oklch(0.145 0 0);
+	--foreground: oklch(0.985 0 0);
+	--card: oklch(0.205 0 0);
+	--card-foreground: oklch(0.985 0 0);
+	--popover: oklch(0.205 0 0);
+	--popover-foreground: oklch(0.985 0 0);
+	--primary: oklch(0.606 0.25 292.717);
+	--primary-foreground: oklch(0.969 0.016 293.756);
+	--primary-hover: oklch(0.77 0.14 300);
+	--secondary: oklch(0.274 0.006 286.033);
+	--secondary-foreground: oklch(0.985 0 0);
+	--muted: oklch(0.269 0 0);
+	--muted-foreground: oklch(0.708 0 0);
+	--accent: oklch(0.371 0 0);
+	--accent-foreground: oklch(0.985 0 0);
+	--destructive: oklch(0.704 0.191 22.216);
+	--border: oklch(1 0 0 / 10%);
+	--input: oklch(1 0 0 / 15%);
+	--ring: oklch(0.556 0 0);
+	--chart-1: oklch(0.811 0.111 293.571);
+	--chart-2: oklch(0.606 0.25 292.717);
+	--chart-3: oklch(0.541 0.281 293.009);
+	--chart-4: oklch(0.491 0.27 292.581);
+	--chart-5: oklch(0.432 0.232 292.759);
+	--sidebar: oklch(0.205 0 0);
+	--sidebar-foreground: oklch(0.985 0 0);
+	--sidebar-primary: oklch(0.606 0.25 292.717);
+	--sidebar-primary-foreground: oklch(0.969 0.016 293.756);
+	--sidebar-accent: oklch(0.269 0 0);
+	--sidebar-accent-foreground: oklch(0.985 0 0);
+	--sidebar-border: oklch(1 0 0 / 10%);
+	--sidebar-ring: oklch(0.556 0 0);
+}
+
+@layer base {
+	:root {
+		--color-gray-50: var(--color-neutral-50);
+		--color-gray-100: var(--color-neutral-100);
+		--color-gray-200: var(--color-neutral-200);
+		--color-gray-300: var(--color-neutral-300);
+		--color-gray-400: var(--color-neutral-400);
+		--color-gray-500: var(--color-neutral-500);
+		--color-gray-600: var(--color-neutral-600);
+		--color-gray-700: var(--color-neutral-700);
+		--color-gray-800: var(--color-neutral-800);
+		--color-gray-900: var(--color-neutral-900);
+		--color-gray-950: var(--color-neutral-950);
+	}
+
+	* {
+		@apply border-border outline-ring/50;
+	}
+
+	body {
+		@apply bg-background text-foreground;
+		font-family: var(--font-sans);
+	}
+
+	.bg-gradient-dark {
+		background: var(--gradient-dark);
+	}
+
+	.bg-gradient-feature {
+		background: linear-gradient(180deg, #171717 0%, #481b5b 100%);
+	}
+
+	.rich-text img.emoji {
+		display: inline;
+		height: 1.125em;
+		width: 1.125em;
+		margin: 0.1em 0.05em 0 0.1em;
+		vertical-align: text-top;
+	}
+
+	.floaty {
+		animation: 6s ease-in-out float infinite;
+	}
+
+	.hero-container::before {
+		content: "";
+		width: 100%;
+		height: 100%;
+		position: absolute;
+		top: 0;
+		left: 0;
+		z-index: -1;
+		opacity: 0.25;
+
+		--square-width: 4vw;
+		--square-1: calc(var(--square-width) - 2px);
+		--square-2: var(--square-width);
+
+		background-image:
+			repeating-linear-gradient(
+				0deg,
+				transparent,
+				transparent var(--square-1),
+				#353535 var(--square-1),
+				#353535 var(--square-2)
+			),
+			repeating-linear-gradient(
+				90deg,
+				transparent,
+				transparent var(--square-1),
+				#353535 var(--square-1),
+				#353535 var(--square-2)
+			);
+		background-size: var(--square-2) var(--square-2);
+	}
+}
+
+@keyframes float {
+	0%,
+	100% {
+		transform: translateY(15px);
+	}
+	50% {
+		transform: translateY(-15px);
+	}
+}
+
+.prose a,
+[data-accordion] a {
+	@apply hover:underline!;
+	color: var(--primary-hover) !important;
+	text-decoration: none;
+	text-decoration-color: var(--primary-hover);
+}
+
+.emoji-section:not(:has(> .emoji-items > *)) {
+	display: none;
+}
+
+.picker-font {
+	font-family:
+		"Twemoji Mozilla", "Apple Color Emoji", "Noto Color Emoji", "Android Emoji",
+		"Segoe UI Emoji", "Segoe UI Symbol", EmojiSymbols, sans-serif;
+}
+
+/* Ensure the emoji characters render as emojis, not text */
+.emoji-render {
+	font-variant-emoji: emoji;
+}

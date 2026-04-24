@@ -48,14 +48,8 @@ export const DevelopmentPlaceholder: Component = () => {
 						not want to be publically accessible on Colibri.
 					</AlertDescription>
 				</Alert>
-
-<<<<<<<< HEAD:apps/website/src/components/solid/components/DevelopmentPlaceholder.tsx
-				{/*<div class="flex flex-row items-center gap-4">
-					<NewCommunityModal navigate={navigate}>
-========
 				<div class="flex flex-row items-center gap-4">
 					<CommunityCreationModal navigate={navigate}>
->>>>>>>> 566f13f (chore: Refactor):apps/website/src/components/solid/components/common/DevelopmentPlaceholder.tsx
 						<Button>Create a community</Button>
 					</CommunityCreationModal>
 					<a href="https://colibri.social/invite/1b0e708bd85c414e">
@@ -63,7 +57,7 @@ export const DevelopmentPlaceholder: Component = () => {
 							Join the Colibri Social Community
 						</Button>
 					</a>
-				</div>*/}
+				</div>
 			</div>
 		</div>
 	);

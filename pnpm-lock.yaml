@@ -263,22 +263,58 @@ importers:
 
   packages/client:
     dependencies:
+      '@atproto/api':
+        specifier: ^0.18.21
+        version: 0.18.21
+      '@atproto/oauth-client-browser':
+        specifier: ^0.3.41
+        version: 0.3.41
+      '@kobalte/core':
+        specifier: ^0.13.11
+        version: 0.13.11(solid-js@1.9.11)
       '@solidjs/router':
         specifier: ^0.15.1
         version: 0.15.4(solid-js@1.9.11)
+      '@tailwindcss/typography':
+        specifier: ^0.5.19
+        version: 0.5.19(tailwindcss@4.2.4)
+      '@thisbeyond/solid-dnd':
+        specifier: ^0.7.5
+        version: 0.7.5(solid-js@1.9.11)
+      cva:
+        specifier: 1.0.0-beta.4
+        version: 1.0.0-beta.4(typescript@5.9.3)
       esbuild-plugin-solid:
         specifier: ^0.6.0
         version: 0.6.0(esbuild@0.27.3)(solid-js@1.9.11)
       solid-js:
         specifier: ^1.9.5
         version: 1.9.11
+      solid-phosphor:
+        specifier: ^1.0.16
+        version: 1.0.16(solid-js@1.9.11)
+      somoto:
+        specifier: ^0.0.2
+        version: 0.0.2(solid-js@1.9.11)
+      tailwind-merge:
+        specifier: ^3.4.0
+        version: 3.4.0
       tsup:
         specifier: ^8.5.1
         version: 8.5.1(jiti@2.6.1)(postcss@8.5.6)(tsx@4.21.0)(typescript@5.9.3)(yaml@2.8.2)
+      tw-animate-css:
+        specifier: ^1.4.0
+        version: 1.4.0
     devDependencies:
+      '@atproto/lexicon':
+        specifier: ^0.6.1
+        version: 0.6.1
       '@tailwindcss/vite':
         specifier: ^4.1.18
         version: 4.1.18(vite@7.3.1(@types/node@25.6.0)(jiti@2.6.1)(lightningcss@1.30.2)(tsx@4.21.0)(yaml@2.8.2))
+      lib:
+        specifier: 'workspace:'
+        version: link:../lib
       solid-devtools:
         specifier: ^0.34.3
         version: 0.34.5(solid-js@1.9.11)(vite@7.3.1(@types/node@25.6.0)(jiti@2.6.1)(lightningcss@1.30.2)(tsx@4.21.0)(yaml@2.8.2))
@@ -6403,6 +6439,11 @@ snapshots:
     dependencies:
       postcss-selector-parser: 6.0.10
       tailwindcss: 4.1.18
+
+  '@tailwindcss/typography@0.5.19(tailwindcss@4.2.4)':
+    dependencies:
+      postcss-selector-parser: 6.0.10
+      tailwindcss: 4.2.4
 
   '@tailwindcss/vite@4.1.18(vite@7.3.1(@types/node@25.6.0)(jiti@2.6.1)(lightningcss@1.30.2)(tsx@4.21.0)(yaml@2.8.2))':
     dependencies:

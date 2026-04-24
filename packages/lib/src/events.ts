@@ -100,22 +100,26 @@ export type Colibri_ReactionEvent = EventBase<
 	}
 >;
 
+export type ColibriStatus = {
+	emoji?: string;
+	text: string;
+	state: OnlineState;
+};
+
+export type BskyProfile = {
+	displayName?: string;
+	avatar?: JsonBlobRef;
+	banner?: JsonBlobRef;
+	description?: string;
+	handle: string;
+};
+
 export type Colibri_UserEvent = EventBase<
 	"user_event",
 	{
 		did: string;
-		status?: {
-			emoji?: string;
-			text: string;
-			state: OnlineState;
-		};
-		profile: {
-			displayName?: string;
-			avatar?: JsonBlobRef;
-			banner?: JsonBlobRef;
-			description?: string;
-			handle: string;
-		};
+		status?: ColibriStatus;
+		profile: BskyProfile;
 	}
 >;
 

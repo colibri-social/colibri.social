@@ -1,14 +1,14 @@
 import { useNavigate } from "@solidjs/router";
 import type { Component } from "solid-js";
-import { Alert, AlertDescription, AlertTitle } from "../../shadcn-solid/Alert";
-import { Button } from "../../shadcn-solid/Button";
-import { CommunityCreationModal } from "../Community/CommunityCreationModal";
+import { Alert, AlertDescription, AlertTitle } from "./ui/Alert";
+import { Button } from "./ui/Button";
+// import { CommunityCreationModal } from "../Community/CommunityCreationModal";
 
 /**
- * A development placeholder to be displayed if a user has no communities.
+ * A welcome screen to be displayed if a user has no communities.
  * @todo This should probably be it's own page, right now it is rendered as a fallback component from App.tsx
  */
-export const DevelopmentPlaceholder: Component = () => {
+export const WelcomeScreen: Component = () => {
 	const navigate = useNavigate();
 
 	return (
@@ -48,22 +48,17 @@ export const DevelopmentPlaceholder: Component = () => {
 						not want to be publically accessible on Colibri.
 					</AlertDescription>
 				</Alert>
-
-<<<<<<<< HEAD:apps/website/src/components/solid/components/DevelopmentPlaceholder.tsx
-				{/*<div class="flex flex-row items-center gap-4">
-					<NewCommunityModal navigate={navigate}>
-========
 				<div class="flex flex-row items-center gap-4">
-					<CommunityCreationModal navigate={navigate}>
->>>>>>>> 566f13f (chore: Refactor):apps/website/src/components/solid/components/common/DevelopmentPlaceholder.tsx
+					{/* FIXME: Re-enable this button */}
+					{/*<CommunityCreationModal navigate={navigate}>
 						<Button>Create a community</Button>
-					</CommunityCreationModal>
+					</CommunityCreationModal>*/}
 					<a href="https://colibri.social/invite/1b0e708bd85c414e">
 						<Button variant="secondary">
 							Join the Colibri Social Community
 						</Button>
 					</a>
-				</div>*/}
+				</div>
 			</div>
 		</div>
 	);

@@ -1,1 +1,1 @@
-{"version":"7.0.0-dev.20260422.1","root":["./src/atproto.ts","./src/events.ts","./src/facets.ts","./src/index.ts","./src/shared.ts"]}
+{"version":"7.0.0-dev.20260422.1","root":["./src/atproto.ts","./src/events.ts","./src/facets.ts","./src/index.ts","./src/shared.ts","./src/xrpc/social.colibri/actor/getdata.ts","./src/xrpc/social.colibri/actor/listcommunities.ts"]}

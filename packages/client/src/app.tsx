@@ -1,46 +1,45 @@
-import { Suspense, type Component } from 'solid-js';
-import { A, useLocation } from '@solidjs/router';
+import { ParentComponent, Suspense } from "solid-js";
+import { AppLoadingScreen } from "./components/AppLoadingScreen";
+import { UserContextProvider } from "./contexts/User";
+import { ColorModeProvider } from "@kobalte/core";
+import { Toaster } from "./components/ui/Sonner";
+import { Route, Router } from "@solidjs/router";
+import AppLayout from "./layouts/AppLayout";
+import { WelcomeScreen } from "./components/WelcomeScreen";
 
-const App: Component<{ children: Element }> = (props) => {
-  const location = useLocation();
+const App: ParentComponent = () => {
+	return (
+		<UserContextProvider>
+			<ColorModeProvider>
+				<Toaster richColors position="bottom-right" />
 
-  return (
-    <>
-      <nav class="bg-gray-200 text-gray-900 px-4">
-        <ul class="flex items-center">
-          <li class="py-2 px-4">
-            <A href="/" class="no-underline hover:underline">
-              Home
-            </A>
-          </li>
-          <li class="py-2 px-4">
-            <A href="/about" class="no-underline hover:underline">
-              About
-            </A>
-          </li>
-          <li class="py-2 px-4">
-            <A href="/error" class="no-underline hover:underline">
-              Error
-            </A>
-          </li>
-
-          <li class="text-sm flex items-center space-x-1 ml-auto">
-            <span>URL:</span>
-            <input
-              class="w-75px p-1 bg-white text-sm rounded-lg"
-              type="text"
-              readOnly
-              value={location.pathname}
-            />
-          </li>
-        </ul>
-      </nav>
-
-      <main>
-        <Suspense>{props.children}</Suspense>
-      </main>
-    </>
-  );
+				<Router base="/app">
+					<Route component={AppLayout}>
+						<Route path="/" component={WelcomeScreen} />
+						{/*<Route component={CommunityLayout}>
+								<Route
+									path="/c/:community"
+									component={() => (
+										<div class="w-full h-full flex items-center justify-center">
+											TODO(app): Make this a page people can configure?
+											Select a channel to get started!
+										</div>
+									)}
+								/>
+								<Route
+									path="/c/:community/t/:channel"
+									component={ChannelView}
+								/>
+								<Route
+									path="/c/:community/v/:channel"
+									component={VoiceChannelView}
+								/>
+							</Route>*/}
+					</Route>
+				</Router>
+			</ColorModeProvider>
+		</UserContextProvider>
+	);
 };
 
 export default App;
