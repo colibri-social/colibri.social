@@ -1,13 +1,14 @@
 import { type Component, Show } from "solid-js";
+import { useCommunityContext } from "../contexts/CommunityContext";
 
 export const SmallUser: Component<{
 	did: string;
-	avatar?: string;
-	displayName?: string;
-	handle?: string;
 	hideAvatar?: boolean;
 	hoverable?: boolean;
 }> = (props) => {
+	const communityContext = useCommunityContext()!;
+	const user = () =>
+		communityContext.members().find((x) => x.member_did === props.did);
 	return (
 		<div
 			class="inline text-wrap"
@@ -17,7 +18,7 @@ export const SmallUser: Component<{
 		>
 			<Show when={!props.hideAvatar}>
 				<img
-					src={props.avatar || "/user-placeholder.png"}
+					src={user()?.avatar_url || "/user-placeholder.png"}
 					width={20}
 					height={20}
 					alt={props.displayName || props.handle}

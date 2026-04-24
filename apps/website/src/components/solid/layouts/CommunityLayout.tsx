@@ -24,7 +24,7 @@ import { ChannelList } from "../components/Community/ChannelList";
 import { CommunitySettingsModal } from "../components/Community/CommunitySettingsModal";
 import { InviteLinkCreationModal } from "../components/Community/InviteLinkCreationModal";
 import { LeaveCommunityModal } from "../components/Community/LeaveCommunityModal";
-import { MessageInput } from "../components/MessageInput";
+import { MessageInput } from "../components/common/MessageInput";
 import User from "../components/User";
 import { ChannelContextProvider } from "../contexts/ChannelContext";
 import { CommunityContextProvider } from "../contexts/CommunityContext";

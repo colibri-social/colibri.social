@@ -35,7 +35,7 @@ import {
 	TextFieldInput,
 	TextFieldLabel,
 } from "../../shadcn-solid/text-field";
-import { ImageForChannelType } from "../IconForChannelType";
+import { ImageForChannelType } from "../common/IconForChannelType";
 
 /**
  * The creation modal for a new channel within a category.

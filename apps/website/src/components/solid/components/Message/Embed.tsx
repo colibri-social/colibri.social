@@ -6,8 +6,13 @@ import {
 	on,
 	Show,
 } from "solid-js";
+<<<<<<< HEAD:apps/website/src/components/solid/components/Message/Embed.tsx
 import { useChannelContext } from "../../contexts/ChannelContext";
 import { Lightbox } from "../Lightbox";
+=======
+import { useMessageContext } from "../../contexts/MessageContext";
+import { Lightbox } from "../common/Lightbox";
+>>>>>>> 566f13f (chore: Refactor):src/components/solid/components/Message/Embed.tsx
 
 /**
  * Fetches relevant data for embeds.

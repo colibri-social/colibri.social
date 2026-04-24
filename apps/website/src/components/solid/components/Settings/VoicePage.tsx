@@ -32,7 +32,7 @@ import {
 	SwitchLabel,
 	SwitchThumb,
 } from "../../shadcn-solid/Switch";
-import { SettingsPage } from "../SettingsModal";
+import { SettingsPage } from "../common/SettingsModal";
 import type { DeviceOption } from "./shared";
 
 const enumerateAudioDevices = async () => {

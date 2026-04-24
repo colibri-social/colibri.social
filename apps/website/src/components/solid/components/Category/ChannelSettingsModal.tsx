@@ -20,8 +20,8 @@ import {
 	TextFieldInput,
 	TextFieldLabel,
 } from "../../shadcn-solid/text-field";
-import { SettingsInfoPage } from "../SettingsInfoPage";
-import { SettingsModal, SettingsPage } from "../SettingsModal";
+import { SettingsInfoPage } from "../common/SettingsInfoPage";
+import { SettingsModal, SettingsPage } from "../common/SettingsModal";
 
 const GeneralSettingsPage: Component<{ channel: SidebarChannelData }> = (
 	props,

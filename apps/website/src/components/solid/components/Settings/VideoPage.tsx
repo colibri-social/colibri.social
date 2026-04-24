@@ -16,7 +16,7 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "../../shadcn-solid/Select";
-import { SettingsPage } from "../SettingsModal";
+import { SettingsPage } from "../common/SettingsModal";
 import type { DeviceOption } from "./shared";
 
 export const VideoPage: Component = () => {

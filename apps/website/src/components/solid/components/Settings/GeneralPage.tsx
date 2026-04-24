@@ -21,7 +21,7 @@ import {
 	TextFieldLabel,
 	TextFieldTextArea,
 } from "../../shadcn-solid/text-field";
-import { SettingsPage } from "../SettingsModal";
+import { SettingsPage } from "../common/SettingsModal";
 
 export const GeneralPage: Component = () => {
 	const [globalData, { setUserData }] = useGlobalContext();
