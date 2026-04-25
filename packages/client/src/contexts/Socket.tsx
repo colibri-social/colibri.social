@@ -58,7 +58,7 @@ export const SocketContextProvider: ParentComponent = (props) => {
 				<span>{`${socket.error}`}</span>
 			</Match>
 			<Match when={socket.loading}>
-				<AppLoadingScreen />
+				<AppLoadingScreen message="Connecting to AppView..." />
 			</Match>
 			<Match when={socket()}>
 				{(resolved) => (

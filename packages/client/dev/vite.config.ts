@@ -8,6 +8,9 @@ export default defineConfig({
 	resolve: {
 		dedupe: ["solid-js", "solid-js/web", "@solidjs/router"],
 	},
+	optimizeDeps: {
+		exclude: ["solid-phosphor"],
+	},
 	server: {
 		host: "0.0.0.0",
 		port: 4321,

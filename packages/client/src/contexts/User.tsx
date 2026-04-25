@@ -7,7 +7,6 @@ import {
 	Switch,
 	useContext,
 } from "solid-js";
-import { getClient } from "../atproto/auth";
 import type { BrowserOAuthClient } from "@atproto/oauth-client-browser";
 import type { Agent } from "@atproto/api";
 import { Community, ActorData } from "lib";
@@ -27,7 +26,9 @@ type User =
 			communities: Array<Community>;
 	  });
 
-export const UserContext = createContext<User>();
+type LoggedInUser = Extract<User, { loggedIn: true }>;
+
+export const UserContext = createContext<LoggedInUser>();
 
 export const UserContextProvider: ParentComponent = (props) => {
 	const client = useAuthContext();
@@ -94,23 +95,29 @@ export const UserContextProvider: ParentComponent = (props) => {
 				<span>{`${user.error}`}</span>
 			</Match>
 			<Match when={user.loading}>
-				<AppLoadingScreen />
+				<AppLoadingScreen message="Fetching user details..." />
 			</Match>
 			<Match when={user()}>
-				{(resolved) => (
-					<UserContext.Provider value={resolved()}>
-						{props.children}
-					</UserContext.Provider>
-				)}
+				{(resolved) => {
+					const value = resolved();
+
+					if (!value.loggedIn) {
+						return <AppLoadingScreen message="Not logged in!" />;
+					}
+
+					return (
+						<UserContext.Provider value={value}>
+							{props.children}
+						</UserContext.Provider>
+					);
+				}}
 			</Match>
 		</Switch>
 	);
 };
 
-export const useUserContext = (): User => {
+export const useUserContext = (): LoggedInUser => {
 	const ctx = useContext(UserContext);
-
-	console.log("Context", ctx);
 
 	if (!ctx) {
 		throw new Error("Unable to get user context.");

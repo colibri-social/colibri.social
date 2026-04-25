@@ -27,11 +27,11 @@ import {
 } from "../utils/drag";
 import Icon from "../components/icons/Icon";
 import { Button } from "../components/ui/Button";
-import { AppLoadingScreen } from "../components/AppLoadingScreen";
 import type { Community } from "lib";
 import { resolveBlob } from "../atproto/resolve-blob";
 import { communityUriToUrlCompatible } from "../atproto/community-uri-to-url-compatible";
 import { useUserContext } from "../contexts/User";
+import ColibriLogo from "../assets/logo.png";
 
 const CommunityAvatar = (props: { item: Community; class?: string }) => {
 	const communityDid = props.item.uri.split("/")[2];
@@ -105,7 +105,7 @@ const SortableCommunity = (props: {
 				)}
 			</Show>
 			<A
-				href={`/c/${communityUriToUrlCompatible(props.item.uri)}`}
+				href={`/app/c/${communityUriToUrlCompatible(props.item.uri)}`}
 				class="w-10 h-10 rounded-md bg-muted flex items-center justify-center"
 				activeClass="outline outline-foreground outline-2 -outline-offset-2"
 				onClick={handleClick}
@@ -161,11 +161,6 @@ const AppLayout: ParentComponent = (props) => {
 	const user = useUserContext();
 	const navigate = useNavigate();
 
-	if (!user.loggedIn) {
-		console.error("User accessed app layout without being logged in!");
-		return;
-	}
-
 	const sortedCommunities = () =>
 		user.communities.toSorted(
 			(a, b) =>
@@ -174,7 +169,9 @@ const AppLayout: ParentComponent = (props) => {
 		);
 
 	if (window.location.pathname === "/app" && user.communities.length > 0) {
-		navigate(`/c/${communityUriToUrlCompatible(sortedCommunities()[0].uri)}`);
+		navigate(
+			`/app/c/${communityUriToUrlCompatible(sortedCommunities()[0].uri)}`,
+		);
 	}
 
 	const [draggingOrder, setDraggingOrder] = createSignal<Community[] | null>(
@@ -223,7 +220,7 @@ const AppLayout: ParentComponent = (props) => {
 			<div class="flex w-full h-10 min-h-10 justify-between">
 				<div class="flex w-full h-full pl-2 items-center gap-2">
 					<img
-						src="/logo.png"
+						src={ColibriLogo}
 						width={32}
 						height={32}
 						alt="Colibri Social logo"
@@ -248,7 +245,7 @@ const AppLayout: ParentComponent = (props) => {
 					<nav class="w-full h-full flex flex-col gap-2">
 						<div class="w-full h-full flex flex-col gap-2">
 							<A
-								href="/"
+								href="/app"
 								class="w-10 flex h-10 rounded-md bg-muted hover:bg-primary hover:text-primary-foreground items-center justify-center cursor-pointer"
 							>
 								<Icon variant="regular" name="house-icon" />

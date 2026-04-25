@@ -2,6 +2,7 @@ import { useNavigate } from "@solidjs/router";
 import type { Component } from "solid-js";
 import { Alert, AlertDescription, AlertTitle } from "./ui/Alert";
 import { Button } from "./ui/Button";
+import ColibriLogo from "../assets/logo.png";
 // import { CommunityCreationModal } from "../Community/CommunityCreationModal";
 
 /**
@@ -15,7 +16,7 @@ export const WelcomeScreen: Component = () => {
 		<div class="bg-neutral-950 w-full h-full rounded-tl-xl border-t border-l border-neutral-800 flex items-center justify-center">
 			<div class="flex flex-col items-center justify-center max-w-2xl text-center">
 				<img
-					src="/logo.png"
+					src={ColibriLogo}
 					width={128}
 					height={128}
 					alt="The Colibri Social logo, a purple hummingbird."
