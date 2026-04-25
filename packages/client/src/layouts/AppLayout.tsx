@@ -161,6 +161,11 @@ const AppLayout: ParentComponent = (props) => {
 	const user = useUserContext();
 	const navigate = useNavigate();
 
+	if (!user.loggedIn) {
+		console.error("User accessed app layout without being logged in!");
+		return;
+	}
+
 	const sortedCommunities = () =>
 		user.communities.toSorted(
 			(a, b) =>

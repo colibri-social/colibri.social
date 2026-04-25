@@ -28,6 +28,7 @@
 		"@atproto/api": "^0.18.21",
 		"@atproto/oauth-client-browser": "^0.3.41",
 		"@kobalte/core": "^0.13.11",
+		"@solid-primitives/websocket": "^1.3.1",
 		"@solidjs/router": "^0.15.1",
 		"@tailwindcss/typography": "^0.5.19",
 		"@thisbeyond/solid-dnd": "^0.7.5",

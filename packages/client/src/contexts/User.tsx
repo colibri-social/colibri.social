@@ -13,32 +13,45 @@ import type { Agent } from "@atproto/api";
 import { Community, ActorData } from "lib";
 import { XrpcClient } from "../atproto/xrpc";
 import { AppLoadingScreen } from "../components/AppLoadingScreen";
+import { useAuthContext } from "./Auth";
 
-export type User = ActorData & {
-	atproto: {
-		client: BrowserOAuthClient;
-		agent: Agent;
-		pdsHost: string;
-	};
-	communities: Array<Community>;
-};
+type User =
+	| { loggedIn: false; atproto: { client: BrowserOAuthClient } }
+	| (ActorData & {
+			loggedIn: true;
+			atproto: {
+				client: BrowserOAuthClient;
+				agent: Agent;
+				pdsHost: string;
+			};
+			communities: Array<Community>;
+	  });
 
 export const UserContext = createContext<User>();
 
 export const UserContextProvider: ParentComponent = (props) => {
-	const [user] = createResource(async (): Promise<User> => {
-		const client = await getClient();
+	const client = useAuthContext();
 
-		if (!client?.loggedIn) {
-			// FIXME: Login screen in-app on different page
-			// window.location.href = "/login";
-			throw new Error("Not logged in!");
+	const [user] = createResource(async (): Promise<User> => {
+		if (!client) {
+			throw new Error("Unable to get client.");
+		}
+
+		if (!client.loggedIn) {
+			return {
+				loggedIn: false,
+				atproto: {
+					client: client.client,
+				},
+			};
 		}
 
 		const xrpc = new XrpcClient(
 			client.pdsHost,
 			"did:web:api.colibri.social#colibri_appview",
+			client.agent,
 		);
+
 		const [actorData, communities] = await Promise.all([
 			xrpc.social.colibri.actor.getData(client.agent.did!),
 			xrpc.social.colibri.actor.listCommunities(),
@@ -53,6 +66,7 @@ export const UserContextProvider: ParentComponent = (props) => {
 		}
 
 		return {
+			loggedIn: true,
 			...actorData,
 			atproto: {
 				agent: client.agent,
@@ -64,7 +78,14 @@ export const UserContextProvider: ParentComponent = (props) => {
 	});
 
 	createEffect(() => {
-		console.log(user());
+		if (user.loading === true) return;
+
+		const loggedIn = user()?.loggedIn;
+		const pathname = () => window.location.pathname;
+
+		if (!loggedIn && pathname() !== "/login") {
+			window.location.href = "/login";
+		}
 	});
 
 	return (
@@ -75,19 +96,25 @@ export const UserContextProvider: ParentComponent = (props) => {
 			<Match when={user.loading}>
 				<AppLoadingScreen />
 			</Match>
-			<Match when={!user.loading}>
-				<UserContext.Provider value={user()}>
-					{props.children}
-				</UserContext.Provider>
+			<Match when={user()}>
+				{(resolved) => (
+					<UserContext.Provider value={resolved()}>
+						{props.children}
+					</UserContext.Provider>
+				)}
 			</Match>
 		</Switch>
 	);
 };
 
-export const useUserContext = () => {
+export const useUserContext = (): User => {
 	const ctx = useContext(UserContext);
 
-	if (!ctx) throw new Error("Unable to get user context!");
+	console.log("Context", ctx);
+
+	if (!ctx) {
+		throw new Error("Unable to get user context.");
+	}
 
 	return ctx;
 };

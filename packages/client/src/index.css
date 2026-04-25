@@ -361,3 +361,20 @@
 .emoji-render {
 	font-variant-emoji: emoji;
 }
+
+@keyframes marquee {
+	0% {
+		transform: translateX(0%);
+	}
+	100% {
+		transform: translateX(-100%);
+	}
+}
+
+.animate-marquee {
+	animation: marquee 20s linear infinite;
+}
+
+.marquee-container:hover .animate-marquee {
+	animation-play-state: paused;
+}

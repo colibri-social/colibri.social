@@ -15,7 +15,7 @@ did:web:api.colibri.social#colibri_appview
 The AppView supports a range of XRPC methods that PDSs can call. All `com.atproto` endpoints adhere to the original specification. There are also certain `social.colibri` XRPC endpoints which allow for extended functionality. All of these endpoints are available under the `/xrpc/` path.
 
 :::danger[Authentication]
-If an endpoint requires authentication, the request needs to be forwarded by a PDS and carry a bearer token.
+If an endpoint requires authentication, the request must be made with a service auth token provided as the `auth` query parameter.
 :::
 
 ### `com.atproto.identity.resolveDid`
@@ -89,13 +89,13 @@ Resolves an atproto handle (hostname) to a DID. Does not necessarily bi-directio
 	}}
 />
 
-### `com.atproto.repo.getRecord`
+### `com.atproto.sync.getRecord`
 
 Get a single cached record from the AppView.
 
 <XRPCEndpointCard
 	method="GET"
-	nsid="com.atproto.repo.getRecord"
+	nsid="com.atproto.sync.getRecord"
 	queryParams={{
 		repo: {
 			type: "at-identifier",
@@ -108,10 +108,6 @@ Get a single cached record from the AppView.
 		rkey: {
 			type: "record-key",
 			required: true
-		},
-		cid: {
-			type: "cid",
-			required: false
 		}
 	}}
 	response={{
@@ -122,10 +118,6 @@ Get a single cached record from the AppView.
 		value: {
 			type: "object",
 			required: true
-		},
-		cid: {
-			type: "cid",
-			required: false
 		}
 	}}
 />
@@ -291,7 +283,7 @@ Lists all communities the Colibri user is a part of (and not blocked from).
 				},
 				uri: {
 					type: "at-uri",
-					required: false
+					required: true
 				},
 				requiresApprovalToJoin: {
 					type: "boolean",

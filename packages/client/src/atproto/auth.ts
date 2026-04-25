@@ -1,5 +1,5 @@
 import { Agent } from "@atproto/api";
-import { BrowserOAuthClient } from "@atproto/oauth-client-browser";
+import { BrowserOAuthClient, DidDocument } from "@atproto/oauth-client-browser";
 import { scopes } from "./scopes";
 
 const makeClientId = () => {
@@ -84,6 +84,7 @@ const init = async () => {
 			if (callbackSession && !window.location.href.startsWith("/app")) {
 				console.info("Session received from callback parameters.");
 				localStorage.setItem("sub", callbackSession.session.sub);
+				window.location.href = "/app";
 				return;
 			}
 		}
@@ -115,16 +116,21 @@ const init = async () => {
 
 		agent = new Agent(session);
 
-		const res = await agent.com.atproto.server.getSession();
+		const didDoc = (await (
+			await fetch(
+				`https://api.colibri.social/xrpc/com.atproto.identity.resolveDid?did=${agent.did!}`,
+			)
+		).json()) as DidDocument;
 
-		if (!res.success) {
-			console.error("getSession failed", res);
-			throw new Error(JSON.stringify(res));
+		if (!didDoc.service) {
+			throw new Error(
+				`DID document for ${agent.did!} did not include any services.`,
+			);
 		}
 
-		pdsHost = (res.data.didDoc?.service as Services).find(
-			(x) => x.id === "#atproto_pds",
-		)?.serviceEndpoint;
+		pdsHost = didDoc.service
+			.find((x) => x.id === "#atproto_pds")
+			?.serviceEndpoint.toString();
 
 		return;
 	} catch (e) {
