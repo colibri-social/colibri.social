@@ -341,7 +341,7 @@ Events of this type are sent to clients when a member has joined or left (or bee
 
 ##### `category_event`
 
-Events of this type are sent to clients when a category has been created, updated, or deleted. When the `event` is `delete`, the `name` and `channelOrder` can be omitted.
+Events of this type are sent to clients when a category has been created, updated, or deleted. When the `event` is `delete`, all data except the `uri` and `event` can be omitted.
 
 ```ts title="data"
 {
@@ -355,7 +355,7 @@ Events of this type are sent to clients when a category has been created, update
 
 ##### `channel_event`
 
-Events of this type are sent to clients when a channel has been created, updated, or deleted. When the `event` is `delete`, the `name`, `description`, and `type` can be omitted.
+Events of this type are sent to clients when a channel has been created, updated, or deleted. When the `event` is `delete`, all data except the `uri` and `event` can be omitted.
 
 ```ts title="data"
 {
@@ -370,7 +370,7 @@ Events of this type are sent to clients when a channel has been created, updated
 
 ##### `message_event`
 
-Events of this type are sent to clients when a message has been sent, edited, or deleted. When the `event` is `delete`, anything but the `uri` and `channel` can be omitted.
+Events of this type are sent to clients when a message has been sent, edited, or deleted. When the `event` is `delete`, all data except the `uri` and `event` can be omitted.
 
 ```ts title="data"
 {
@@ -389,7 +389,7 @@ Events of this type are sent to clients when a message has been sent, edited, or
 
 ##### `reaction_event`
 
-Events of this type are sent to clients when a reaction has been added to or removed from a message.
+Events of this type are sent to clients when a reaction has been added to or removed from a message. When the `event` is `removed`, all data except the `uri` and `event` can be omitted.
 
 ```ts title="data"
 {
@@ -397,7 +397,6 @@ Events of this type are sent to clients when a reaction has been added to or rem
 	uri: string;
 	emoji: string;
 	target: string;
-	channel: string;
 }
 ```
 
