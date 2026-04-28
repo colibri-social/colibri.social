@@ -16,18 +16,12 @@ import type { Facet } from "@/utils/atproto/rich-text";
 import { generateHash } from "@/utils/generate-hash";
 import { parseZodToErrorOrDisplay } from "@/utils/parse-zod-to-error-or-display";
 import { purify } from "@/utils/purify";
-<<<<<<<< HEAD:apps/website/src/components/solid/components/MessageInput.tsx
-import { useChannelContext } from "../contexts/ChannelContext";
-import { useGlobalContext } from "../contexts/GlobalContext";
-import type { AttachmentObj, BlobObj } from "../contexts/GlobalContext/events";
-========
+import { useChannelContext } from "../../contexts/ChannelContext";
 import { useGlobalContext } from "../../contexts/GlobalContext";
 import type {
 	AttachmentObj,
 	BlobObj,
 } from "../../contexts/GlobalContext/events";
-import { useMessageContext } from "../../contexts/MessageContext";
->>>>>>>> 566f13f (chore: Refactor):apps/website/src/components/solid/components/common/MessageInput.tsx
 import {
 	FileFieldItem,
 	FileFieldItemDeleteTrigger,

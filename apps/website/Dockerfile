@@ -1,10 +1,10 @@
-FROM node:22-alpine AS base
+FROM node:24-alpine AS base
 WORKDIR /app
 
 RUN corepack enable && corepack prepare pnpm@latest --activate
 
-COPY package.json pnpm-lock.yaml ./
-RUN pnpm install --frozen-lockfile
+COPY package.json ./
+RUN pnpm install
 
 # Declare build args
 ARG PRIVATE_KEY_1
@@ -37,7 +37,7 @@ ENV INVITE_API_KEY=${INVITE_API_KEY}
 COPY . .
 RUN pnpm build
 
-FROM node:22-alpine AS runtime
+FROM node:24-alpine AS runtime
 WORKDIR /app
 
 RUN corepack enable && corepack prepare pnpm@latest --activate

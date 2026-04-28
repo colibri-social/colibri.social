@@ -1,13 +1,9 @@
 import { APPVIEW_DOMAIN } from "astro:env/client";
 import { type Component, For, Show } from "solid-js";
 import type { AttachmentObj } from "../../contexts/GlobalContext/events";
-<<<<<<< HEAD:apps/website/src/components/solid/components/Message/Attachments.tsx
 import { useChannelContext } from "../../contexts/ChannelContext";
-import { Lightbox } from "../Lightbox";
-=======
 import { useMessageContext } from "../../contexts/MessageContext";
 import { Lightbox } from "../common/Lightbox";
->>>>>>> 566f13f (chore: Refactor):src/components/solid/components/Message/Attachments.tsx
 import "vidstack/bundle";
 import "vidstack/player";
 import "vidstack/player/layouts";
