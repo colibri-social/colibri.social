@@ -1,6 +1,6 @@
 import { Component, createEffect, ParentComponent } from "solid-js";
 import { UserContextProvider } from "./contexts/User";
-import { ColorModeProvider } from "@kobalte/core";
+import { ColorModeProvider } from "@kobalte/core/color-mode";
 import { Toaster } from "./components/ui/Sonner";
 import { Route, Router, useLocation, useNavigate } from "@solidjs/router";
 import AppLayout from "./layouts/AppLayout";
