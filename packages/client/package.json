@@ -17,10 +17,12 @@
 	"license": "MIT",
 	"devDependencies": {
 		"@atproto/lexicon": "^0.6.1",
+		"@iconify-json/ph": "^1.2.2",
 		"@tailwindcss/vite": "^4.1.18",
 		"lib": "workspace:",
 		"solid-devtools": "^0.34.3",
 		"tailwindcss": "^4.2.4",
+		"unplugin-icons": "^23.0.1",
 		"vite": "^7.1.4",
 		"vite-plugin-solid": "^2.11.8"
 	},
@@ -34,8 +36,8 @@
 		"@thisbeyond/solid-dnd": "^0.7.5",
 		"cva": "1.0.0-beta.4",
 		"esbuild-plugin-solid": "^0.6.0",
+		"lib": "workspace:",
 		"solid-js": "^1.9.5",
-		"solid-phosphor": "^1.0.16",
 		"somoto": "^0.0.2",
 		"tailwind-merge": "^3.4.0",
 		"tsup": "^8.5.1",

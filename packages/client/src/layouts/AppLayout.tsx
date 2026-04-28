@@ -25,13 +25,14 @@ import {
 	capturePositions,
 	reorderList,
 } from "../utils/drag";
-import Icon from "../components/icons/Icon";
 import { Button } from "../components/ui/Button";
 import type { Community } from "lib";
 import { resolveBlob } from "../atproto/resolve-blob";
 import { communityUriToUrlCompatible } from "../atproto/community-uri-to-url-compatible";
 import { useUserContext } from "../contexts/User";
 import ColibriLogo from "../assets/logo.png";
+import HouseIcon from "~icons/ph/house";
+import UsersIcon from "~icons/ph/users";
 
 const CommunityAvatar = (props: { item: Community; class?: string }) => {
 	const communityDid = props.item.uri.split("/")[2];
@@ -236,7 +237,7 @@ const AppLayout: ParentComponent = (props) => {
 						class="w-8 h-8"
 						// onClick={() => setMemberListVisible((current) => !current)} FIXME: Re-introduce locally saved preferences
 					>
-						<Icon variant="regular" name="users-icon" />
+						<UsersIcon />
 					</Button>
 				</div>
 			</div>
@@ -248,7 +249,7 @@ const AppLayout: ParentComponent = (props) => {
 								href="/app"
 								class="w-10 flex h-10 rounded-md bg-muted hover:bg-primary hover:text-primary-foreground items-center justify-center cursor-pointer"
 							>
-								<Icon variant="regular" name="house-icon" />
+								<HouseIcon />
 							</A>
 							<hr class="m-0 border-muted" />
 							<DragDropProvider
