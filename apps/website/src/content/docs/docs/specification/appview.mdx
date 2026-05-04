@@ -442,16 +442,6 @@ The following messages can be sent from the client to the AppView.  All messages
 
 A generic event that carries no data. It is used to keep the socket connection alive. The AppView will always respond with an `ack` event.
 
-##### `subscribe`
-
-Clients can send a `subscribe` message to the AppView, supplying a list of communities for which they wish to receive updates. The AppView handles the rest and infers which users, channels, etc. the client needs to know about.
-
-```ts title="data"
-{
-	communities: string[];
-}
-```
-
 ##### `view`
 
 Clients can send a `view` message to the AppView to inform it about the channel the user is currently viewing.
@@ -459,16 +449,6 @@ Clients can send a `view` message to the AppView to inform it about the channel 
 ```ts title="data"
 {
 	channel: string;
-}
-```
-
-##### `unsubscribe`
-
-Clients can send an `unsubscribe` message to the AppView, supplying a list of communities, for which they wish to no longer receive events.
-
-```ts title="data"
-{
-	communities: string[];
 }
 ```
 
