@@ -1,7 +1,13 @@
 import { ActionError, defineAction } from "astro:actions";
+import dns from "node:dns";
+import { promisify } from "node:util";
 import { serverPort } from "virtual:server-port";
 import { z } from "astro/zod";
 import { client, scopes } from "@/utils/atproto/oauth";
+
+dns.setServers(["1.1.1.1", "8.8.8.8"]);
+
+const resolveTxt = promisify(dns.resolveTxt);
 
 const authorize = async (
 	identity: string,
@@ -15,6 +21,16 @@ const authorize = async (
 			? `http://127.0.0.1:${serverPort}/auth/callback`
 			: (`${import.meta.env.SITE}/auth/callback` as any),
 	});
+};
+
+const resolveDnsDID = async (handle: string): Promise<string> => {
+	const txtRecords = await resolveTxt(`_atproto.${handle}`);
+
+	const did = txtRecords.find((x) => x[0].startsWith("did=did:"));
+
+	if (!did) throw new Error("Unable to resolve handle via DNS");
+
+	return did[0].slice(4);
 };
 
 export const login = defineAction({
@@ -33,9 +49,16 @@ export const login = defineAction({
 				authorizerHandle = "https://colibri.social";
 			}
 
-			const url = await authorize(authorizerHandle, signUp);
+			try {
+				const url = await authorize(authorizerHandle, signUp);
 
-			return url.toString();
+				return url.toString();
+			} catch {
+				const didFromDNS = await resolveDnsDID(authorizerHandle);
+				const url = await authorize(didFromDNS, signUp);
+
+				return url.toString();
+			}
 		} catch (e) {
 			console.error(e);
 
