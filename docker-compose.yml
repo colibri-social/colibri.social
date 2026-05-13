@@ -66,6 +66,7 @@ services:
 
 networks:
   internal:
+    enable_ipv6: true
     driver: bridge
 
 volumes:
