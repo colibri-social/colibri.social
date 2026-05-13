@@ -3,6 +3,20 @@ import { serverPort } from "virtual:server-port";
 import { z } from "astro/zod";
 import { client, scopes } from "@/utils/atproto/oauth";
 
+const authorize = async (
+	identity: string,
+	signUp: string | undefined,
+): Promise<URL> => {
+	return await client.authorize(identity, {
+		scope: scopes.join(" "),
+		state: JSON.stringify("{}"),
+		prompt: signUp ? "create" : "login",
+		redirect_uri: import.meta.env.DEV
+			? `http://127.0.0.1:${serverPort}/auth/callback`
+			: (`${import.meta.env.SITE}/auth/callback` as any),
+	});
+};
+
 export const login = defineAction({
 	accept: "form",
 	input: z.object({
@@ -19,14 +33,7 @@ export const login = defineAction({
 				authorizerHandle = "https://colibri.social";
 			}
 
-			const url = await client.authorize(authorizerHandle, {
-				scope: scopes.join(" "),
-				state: JSON.stringify("{}"),
-				prompt: signUp ? "create" : "login",
-				redirect_uri: import.meta.env.DEV
-					? `http://127.0.0.1:${serverPort}/auth/callback`
-					: (`${import.meta.env.SITE}/auth/callback` as any),
-			});
+			const url = await authorize(authorizerHandle, signUp);
 
 			return url.toString();
 		} catch (e) {
