@@ -354,7 +354,7 @@ export const ChannelList: Component<{
 			collisionDetector={collisionDetector}
 		>
 			<DragDropSensors />
-			<nav class="w-full h-full flex flex-col">
+			<nav class="w-full h-full flex flex-col overflow-auto pb-4">
 				<SortableProvider ids={visibleCategories().map((c) => c.rkey)}>
 					<For each={visibleCategories()}>
 						{(category) => (
