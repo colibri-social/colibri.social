@@ -1,7 +1,7 @@
 import { ColorModeProvider } from "@kobalte/core";
 import { Route, Router } from "@solidjs/router";
 import type { CommunityData } from "@/utils/sdk";
-import { DevelopmentPlaceholder } from "./components/DevelopmentPlaceholder";
+import { DevelopmentPlaceholder } from "./components/common/DevelopmentPlaceholder";
 import { GlobalContextProvider } from "./contexts/GlobalContext";
 import { UserPreferencesContextProvider } from "./contexts/UserPreferencesContext";
 import { VoiceChatContextProvider } from "./contexts/VoiceChatContext";

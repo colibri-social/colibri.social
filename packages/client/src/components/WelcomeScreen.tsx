@@ -1,0 +1,66 @@
+import { useNavigate } from "@solidjs/router";
+import type { Component } from "solid-js";
+import { Alert, AlertDescription, AlertTitle } from "./ui/Alert";
+import { Button } from "./ui/Button";
+import ColibriLogo from "../assets/logo.png";
+// import { CommunityCreationModal } from "../Community/CommunityCreationModal";
+
+/**
+ * A welcome screen to be displayed if a user has no communities.
+ * @todo This should probably be it's own page, right now it is rendered as a fallback component from App.tsx
+ */
+export const WelcomeScreen: Component = () => {
+	const navigate = useNavigate();
+
+	return (
+		<div class="bg-neutral-950 w-full h-full rounded-tl-xl border-t border-l border-neutral-800 flex items-center justify-center">
+			<div class="flex flex-col items-center justify-center max-w-2xl text-center">
+				<img
+					src={ColibriLogo}
+					width={128}
+					height={128}
+					alt="The Colibri Social logo, a purple hummingbird."
+				/>
+				<h3>Welcome to Colibri!</h3>
+				<p>
+					Colibri is under active development <b>and in alpha</b>. You can check
+					our{" "}
+					<a href="https://colibri.leaflet.pub/3mhxzpvpvps2m">
+						announcement post
+					</a>{" "}
+					for more information. If you want to get involved in the development,
+					check out our{" "}
+					<a
+						href="https://github.com/colibri-social"
+						target="_blank"
+						rel="noreferrer"
+					>
+						GitHub
+					</a>
+					!
+				</p>
+
+				<Alert variant="destructive" class="mb-4">
+					<AlertTitle class="font-bold">
+						Reminder: Messages on Colibri are visible to everyone by default!
+					</AlertTitle>
+					<AlertDescription>
+						Make sure to never share passwords or personal information you do
+						not want to be publically accessible on Colibri.
+					</AlertDescription>
+				</Alert>
+				<div class="flex flex-row items-center gap-4">
+					{/* FIXME: Re-enable this button */}
+					{/*<CommunityCreationModal navigate={navigate}>
+						<Button>Create a community</Button>
+					</CommunityCreationModal>*/}
+					<a href="https://colibri.social/invite/1b0e708bd85c414e">
+						<Button variant="secondary">
+							Join the Colibri Social Community
+						</Button>
+					</a>
+				</div>
+			</div>
+		</div>
+	);
+};

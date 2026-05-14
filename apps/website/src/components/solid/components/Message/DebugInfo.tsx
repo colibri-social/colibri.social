@@ -8,7 +8,7 @@ import {
 	DialogContent,
 	DialogPortal,
 } from "../../shadcn-solid/Dialog";
-import { SettingsInfoPage } from "../SettingsInfoPage";
+import { SettingsInfoPage } from "../common/SettingsInfoPage";
 
 export const DebugInfo: Component<{
 	open: boolean;

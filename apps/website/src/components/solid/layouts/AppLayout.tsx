@@ -19,7 +19,7 @@ import {
 } from "solid-js";
 import { Icon } from "@/components/solid/icons/Icon";
 import type { CommunityData } from "@/utils/sdk";
-import { NewCommunityModal } from "../components/NewCommunityModal";
+import { CommunityCreationModal } from "../components/Community/CommunityCreationModal";
 import { UserSettingsModal } from "../components/Settings/index";
 import { useGlobalContext } from "../contexts/GlobalContext";
 import { Button } from "../shadcn-solid/Button";
@@ -261,14 +261,14 @@ const AppLayout: ParentComponent = (props) => {
 								/>
 							</DragDropProvider>
 
-							<NewCommunityModal navigate={navigate}>
+							<CommunityCreationModal navigate={navigate}>
 								<button
 									type="button"
 									class="w-10 flex h-10 rounded-md bg-muted hover:bg-primary hover:text-primary-foreground items-center justify-center cursor-pointer"
 								>
 									<Icon variant="regular" name="plus-icon" />
 								</button>
-							</NewCommunityModal>
+							</CommunityCreationModal>
 						</div>
 					</nav>
 					<UserSettingsModal>

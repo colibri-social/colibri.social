@@ -1,5 +1,5 @@
 import { createEffect, type ParentComponent } from "solid-js";
-import { SettingsModal } from "../SettingsModal";
+import { SettingsModal } from "../common/SettingsModal";
 import { DebugPage } from "./DebugPage";
 import { GeneralPage } from "./GeneralPage";
 import { StatusPage } from "./StatusPage";

@@ -1,7 +1,7 @@
 services:
   app:
     build:
-      context: .
+      context: ./apps/website
       dockerfile: Dockerfile
       args:
         - PRIVATE_KEY_1=${PRIVATE_KEY_1}

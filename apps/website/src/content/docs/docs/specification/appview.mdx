@@ -15,7 +15,7 @@ did:web:api.colibri.social#colibri_appview
 The AppView supports a range of XRPC methods that PDSs can call. All `com.atproto` endpoints adhere to the original specification. There are also certain `social.colibri` XRPC endpoints which allow for extended functionality. All of these endpoints are available under the `/xrpc/` path.
 
 :::danger[Authentication]
-If an endpoint requires authentication, the request needs to be forwarded by a PDS and carry a bearer token.
+If an endpoint requires authentication, the request must be made with a service auth token provided as the `auth` query parameter.
 :::
 
 ### `com.atproto.identity.resolveDid`
@@ -89,13 +89,13 @@ Resolves an atproto handle (hostname) to a DID. Does not necessarily bi-directio
 	}}
 />
 
-### `com.atproto.repo.getRecord`
+### `com.atproto.sync.getRecord`
 
 Get a single cached record from the AppView.
 
 <XRPCEndpointCard
 	method="GET"
-	nsid="com.atproto.repo.getRecord"
+	nsid="com.atproto.sync.getRecord"
 	queryParams={{
 		repo: {
 			type: "at-identifier",
@@ -108,10 +108,6 @@ Get a single cached record from the AppView.
 		rkey: {
 			type: "record-key",
 			required: true
-		},
-		cid: {
-			type: "cid",
-			required: false
 		}
 	}}
 	response={{
@@ -122,10 +118,6 @@ Get a single cached record from the AppView.
 		value: {
 			type: "object",
 			required: true
-		},
-		cid: {
-			type: "cid",
-			required: false
 		}
 	}}
 />
@@ -291,7 +283,7 @@ Lists all communities the Colibri user is a part of (and not blocked from).
 				},
 				uri: {
 					type: "at-uri",
-					required: false
+					required: true
 				},
 				requiresApprovalToJoin: {
 					type: "boolean",
@@ -349,7 +341,7 @@ Events of this type are sent to clients when a member has joined or left (or bee
 
 ##### `category_event`
 
-Events of this type are sent to clients when a category has been created, updated, or deleted. When the `event` is `delete`, the `name` and `channelOrder` can be omitted.
+Events of this type are sent to clients when a category has been created, updated, or deleted. When the `event` is `delete`, all data except the `uri` and `event` can be omitted.
 
 ```ts title="data"
 {
@@ -363,7 +355,7 @@ Events of this type are sent to clients when a category has been created, update
 
 ##### `channel_event`
 
-Events of this type are sent to clients when a channel has been created, updated, or deleted. When the `event` is `delete`, the `name`, `description`, and `type` can be omitted.
+Events of this type are sent to clients when a channel has been created, updated, or deleted. When the `event` is `delete`, all data except the `uri` and `event` can be omitted.
 
 ```ts title="data"
 {
@@ -378,7 +370,7 @@ Events of this type are sent to clients when a channel has been created, updated
 
 ##### `message_event`
 
-Events of this type are sent to clients when a message has been sent, edited, or deleted. When the `event` is `delete`, anything but the `uri` and `channel` can be omitted.
+Events of this type are sent to clients when a message has been sent, edited, or deleted. When the `event` is `delete`, all data except the `uri` and `event` can be omitted.
 
 ```ts title="data"
 {
@@ -397,7 +389,7 @@ Events of this type are sent to clients when a message has been sent, edited, or
 
 ##### `reaction_event`
 
-Events of this type are sent to clients when a reaction has been added to or removed from a message.
+Events of this type are sent to clients when a reaction has been added to or removed from a message. When the `event` is `removed`, all data except the `uri` and `event` can be omitted.
 
 ```ts title="data"
 {
@@ -405,7 +397,6 @@ Events of this type are sent to clients when a reaction has been added to or rem
 	uri: string;
 	emoji: string;
 	target: string;
-	channel: string;
 }
 ```
 
@@ -451,16 +442,6 @@ The following messages can be sent from the client to the AppView.  All messages
 
 A generic event that carries no data. It is used to keep the socket connection alive. The AppView will always respond with an `ack` event.
 
-##### `subscribe`
-
-Clients can send a `subscribe` message to the AppView, supplying a list of communities for which they wish to receive updates. The AppView handles the rest and infers which users, channels, etc. the client needs to know about.
-
-```ts title="data"
-{
-	communities: string[];
-}
-```
-
 ##### `view`
 
 Clients can send a `view` message to the AppView to inform it about the channel the user is currently viewing.
@@ -470,20 +451,6 @@ Clients can send a `view` message to the AppView to inform it about the channel 
 	channel: string;
 }
 ```
-
-##### `unsubscribe`
-
-Clients can send an `unsubscribe` message to the AppView, supplying a list of communities, for which they wish to no longer receive events.
-
-```ts title="data"
-{
-	communities: string[];
-}
-```
-
-##### `activity`
-
-A message used to prevent clients from having their online status set to "Away" after a certain amount of time. Clients should send this message periodically while the user actively interacts with the app.
 
 ##### `voice_join`
 
@@ -499,13 +466,6 @@ Clients must send a `voice_join` message to the AppView when the user joins a vo
 ##### `voice_leave`
 
 Clients must send a `voice_leave` message to the AppView when the user leaves a voice channel.
-
-```ts title="data"
-{
-	channel: string;
-	community: string;
-}
-```
 
 ### `social.colibri.community.listBlockedUsers`
 

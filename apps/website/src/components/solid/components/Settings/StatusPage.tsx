@@ -8,7 +8,7 @@ import Icon from "../../icons/Icon";
 import { Button } from "../../shadcn-solid/Button";
 import { TextField, TextFieldInput } from "../../shadcn-solid/text-field";
 import { EmojiPopover } from "../common/EmojiPopover";
-import { SettingsPage } from "../SettingsModal";
+import { SettingsPage } from "../common/SettingsModal";
 
 export const StatusPage: Component = () => {
 	const [globalData, { setUserData }] = useGlobalContext();

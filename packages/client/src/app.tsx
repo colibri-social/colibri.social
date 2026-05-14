@@ -1,46 +1,70 @@
-import { Suspense, type Component } from 'solid-js';
-import { A, useLocation } from '@solidjs/router';
+import { Component, createEffect, ParentComponent } from "solid-js";
+import { UserContextProvider } from "./contexts/User";
+import { ColorModeProvider } from "@kobalte/core/color-mode";
+import { Toaster } from "./components/ui/Sonner";
+import { Route, Router, useLocation, useNavigate } from "@solidjs/router";
+import AppLayout from "./layouts/AppLayout";
+import { WelcomeScreen } from "./components/WelcomeScreen";
+import { LoginScreen } from "./components/LoginScreen";
+import { AuthContextProvider } from "./contexts/Auth";
+import { SocketContextProvider } from "./contexts/Socket";
+import { AppLoadingScreen } from "./components/AppLoadingScreen";
 
-const App: Component<{ children: Element }> = (props) => {
-  const location = useLocation();
+const AppRoute: ParentComponent = (props) => {
+	return (
+		<UserContextProvider>
+			<SocketContextProvider>
+				<AppLayout>{props.children}</AppLayout>
+			</SocketContextProvider>
+		</UserContextProvider>
+	);
+};
 
-  return (
-    <>
-      <nav class="bg-gray-200 text-gray-900 px-4">
-        <ul class="flex items-center">
-          <li class="py-2 px-4">
-            <A href="/" class="no-underline hover:underline">
-              Home
-            </A>
-          </li>
-          <li class="py-2 px-4">
-            <A href="/about" class="no-underline hover:underline">
-              About
-            </A>
-          </li>
-          <li class="py-2 px-4">
-            <A href="/error" class="no-underline hover:underline">
-              Error
-            </A>
-          </li>
+const RedirectToApp: Component = () => {
+	const navigate = useNavigate();
 
-          <li class="text-sm flex items-center space-x-1 ml-auto">
-            <span>URL:</span>
-            <input
-              class="w-75px p-1 bg-white text-sm rounded-lg"
-              type="text"
-              readOnly
-              value={location.pathname}
-            />
-          </li>
-        </ul>
-      </nav>
+	createEffect(() => {
+		navigate("/app", { replace: true });
+	});
 
-      <main>
-        <Suspense>{props.children}</Suspense>
-      </main>
-    </>
-  );
+	return <AppLoadingScreen message="Redirecting to app..." />;
+};
+
+const App: ParentComponent = () => {
+	return (
+		<AuthContextProvider>
+			<ColorModeProvider>
+				<Toaster richColors position="bottom-right" />
+				<Router base="/">
+					<Route path="/" component={RedirectToApp} />
+					<Route path="/login" component={LoginScreen} />
+					<Route path="/app" component={AppRoute}>
+						<Route path="/" component={WelcomeScreen} />
+						<Route path="/c/:community" component={WelcomeScreen} />
+						{/*<Route component={CommunityLayout}>
+								<Route
+									path="/c/:community"
+									component={() => (
+										<div class="w-full h-full flex items-center justify-center">
+											TODO(app): Make this a page people can configure?
+											Select a channel to get started!
+										</div>
+									)}
+								/>
+								<Route
+									path="/c/:community/t/:channel"
+									component={ChannelView}
+								/>
+								<Route
+									path="/c/:community/v/:channel"
+									component={VoiceChannelView}
+								/>
+							</Route>*/}
+					</Route>
+				</Router>
+			</ColorModeProvider>
+		</AuthContextProvider>
+	);
 };
 
 export default App;

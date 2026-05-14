@@ -7,7 +7,8 @@ import {
 	Show,
 } from "solid-js";
 import { useChannelContext } from "../../contexts/ChannelContext";
-import { Lightbox } from "../Lightbox";
+import { useMessageContext } from "../../contexts/MessageContext";
+import { Lightbox } from "../common/Lightbox";
 
 /**
  * Fetches relevant data for embeds.

@@ -16,9 +16,12 @@ import type { Facet } from "@/utils/atproto/rich-text";
 import { generateHash } from "@/utils/generate-hash";
 import { parseZodToErrorOrDisplay } from "@/utils/parse-zod-to-error-or-display";
 import { purify } from "@/utils/purify";
-import { useChannelContext } from "../contexts/ChannelContext";
-import { useGlobalContext } from "../contexts/GlobalContext";
-import type { AttachmentObj, BlobObj } from "../contexts/GlobalContext/events";
+import { useChannelContext } from "../../contexts/ChannelContext";
+import { useGlobalContext } from "../../contexts/GlobalContext";
+import type {
+	AttachmentObj,
+	BlobObj,
+} from "../../contexts/GlobalContext/events";
 import {
 	FileFieldItem,
 	FileFieldItemDeleteTrigger,
@@ -27,9 +30,11 @@ import {
 	FileFieldItemPreviewImage,
 	FileFieldItemSize,
 	FileFieldTrigger,
-} from "../shadcn-solid/file-field";
-import { TextEditor } from "./TextEditor/TextEditor";
+} from "../../shadcn-solid/file-field";
+import { TextEditor } from "../TextEditor/TextEditor";
 
+// TODO: This does not work in Firefox. We might need a different solution for file uploads, but I am
+// not sure if the PDS allows for tracking progress, and I do not want to proxy the files
 const uploadWithProgress = (
 	file: File,
 	onProgress: (percent: number) => void,

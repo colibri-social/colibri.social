@@ -1,8 +1,8 @@
 import type { Component } from "solid-js";
 import { useGlobalContext } from "../../contexts/GlobalContext";
 
-import { InfoPageItem } from "../SettingsInfoPage";
-import { SettingsPage } from "../SettingsModal";
+import { InfoPageItem } from "../common/SettingsInfoPage";
+import { SettingsPage } from "../common/SettingsModal";
 
 export const DebugPage: Component = () => {
 	const [globalData] = useGlobalContext();
