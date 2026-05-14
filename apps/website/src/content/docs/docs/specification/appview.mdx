@@ -514,7 +514,7 @@ Lists all blocked users for a community.
 <XRPCEndpointCard
 	method="GET"
 	nsid="social.colibri.community.listBlockedUsers"
-	body={{
+	queryParams={{
 		'community': {
 			type: "at-uri",
 			required: true
@@ -535,7 +535,7 @@ Lists all categories in a community.
 <XRPCEndpointCard
 	method="GET"
 	nsid="social.colibri.community.listCategories"
-	body={{
+	queryParams={{
 		'community': {
 			type: "at-uri",
 			required: true
@@ -570,7 +570,7 @@ Lists all channels in a community.
 <XRPCEndpointCard
 	method="GET"
 	nsid="social.colibri.community.listChannels"
-	body={{
+	queryParams={{
 		'community': {
 			type: "at-uri",
 			required: true
@@ -609,7 +609,7 @@ Lists all members with their roles, status information and Bluesky profiles.
 <XRPCEndpointCard
 	method="GET"
 	nsid="social.colibri.community.listMembers"
-	body={{
+	queryParams={{
 		'community': {
 			type: "at-uri",
 			required: true
@@ -801,7 +801,7 @@ Get information about a given invitation code.
 	method="GET"
 	nsid="social.colibri.community.getInvitation"
 	authenticated
-	body={{
+	queryParams={{
 		'code': {
 			type: "string",
 			required: true
@@ -900,7 +900,7 @@ Get a paginated message history for the specified channel, newest messages first
 <XRPCEndpointCard
 	method="GET"
 	nsid="social.colibri.channel.listMessages"
-	body={{
+	queryParams={{
 		'channel': {
 			type: "at-uri",
 			required: true
@@ -986,7 +986,7 @@ Get the read cursor for the current user and specified channel.
 	method="GET"
 	nsid="social.colibri.channel.getReadCursor"
 	authenticated
-	body={{
+	queryParams={{
 		'channel': {
 			type: "at-uri",
 			required: true
@@ -1015,7 +1015,7 @@ Get all reactions for a specified message, grouped by emoji with reactor DIDs.
 <XRPCEndpointCard
 	method="GET"
 	nsid="social.colibri.channel.listReactions"
-	body={{
+	queryParams={{
 		'message': {
 			type: "at-uri",
 			required: true
@@ -1042,6 +1042,168 @@ Get all reactions for a specified message, grouped by emoji with reactor DIDs.
 		}
 	}}
 />
+
+### `social.colibri.notification.listNotifications`
+
+Returns a paginated list of notifications for the authenticated user, newest first. Each notification embeds the underlying message body so clients can render the notification without a follow-up fetch. `message` is omitted if the underlying message has been removed from the AppView cache.
+
+<XRPCEndpointCard
+	method="GET"
+	nsid="social.colibri.notification.listNotifications"
+	authenticated
+	queryParams={{
+		limit: {
+			type: "integer",
+			required: false
+		},
+		cursor: {
+			type: "string",
+			required: false
+		}
+	}}
+	response={{
+		cursor: {
+			type: "string",
+			required: false
+		},
+		notifications: {
+			type: "object[]",
+			required: true,
+			children: {
+				id: {
+					type: "integer",
+					required: true
+				},
+				recipientDid: {
+					type: "did",
+					required: true
+				},
+				kind: {
+					type: "string",
+					required: true
+				},
+				messageUri: {
+					type: "at-uri",
+					required: true
+				},
+				authorDid: {
+					type: "did",
+					required: true
+				},
+				channelRkey: {
+					type: "record-key",
+					required: true
+				},
+				indexedAt: {
+					type: "datetime",
+					required: true
+				},
+				seenAt: {
+					type: "datetime",
+					required: false
+				},
+				message: {
+					type: "object",
+					required: false,
+					children: {
+						text: {
+							type: "string",
+							required: true
+						},
+						facets: {
+							type: "Facet[]",
+							required: true
+						},
+						createdAt: {
+							type: "datetime",
+							required: true
+						},
+						parent: {
+							type: "record-key",
+							required: false
+						},
+						attachments: {
+							type: "blob[]",
+							required: true
+						},
+						edited: {
+							type: "boolean",
+							required: false
+						}
+					}
+				}
+			}
+		}
+	}}
+/>
+
+The `kind` value is one of:
+
+- `mention` — the authenticated user appears as a `social.colibri.richtext.facet#mention` feature in the message's facets.
+- `reply` — the message's `parent` resolves to a message authored by the authenticated user.
+
+Mentions and replies are deduplicated per (recipient, message, kind), so a single message that both mentions and replies to the recipient produces two notification rows.
+
+### `social.colibri.notification.getUnreadCount`
+
+Returns the count of unseen notifications for the authenticated user.
+
+<XRPCEndpointCard
+	method="GET"
+	nsid="social.colibri.notification.getUnreadCount"
+	authenticated
+	response={{
+		count: {
+			type: "integer",
+			required: true
+		}
+	}}
+/>
+
+### `social.colibri.notification.updateSeen`
+
+Marks every unseen notification for the authenticated user whose `indexedAt` is at or before `seenAt` as seen. If `seenAt` is omitted, the AppView uses its current clock for both the cutoff and the stamped `seenAt` — equivalent to "mark everything currently indexed as seen now".
+
+<XRPCEndpointCard
+	method="POST"
+	nsid="social.colibri.notification.updateSeen"
+	authenticated
+	queryParams={{
+		seenAt: {
+			type: "datetime",
+			required: false
+		}
+	}}
+	response={{
+		updated: {
+			type: "integer",
+			required: true
+		}
+	}}
+/>
+
+#### `notification_event`
+
+Notification events are emitted over [`social.colibri.sync.subscribeEvents`](#socialcolibrisyncsubscribeevents) immediately after a notification is indexed. The payload mirrors a single entry of [`listNotifications`](#socialcolibrinotificationlistnotifications) and always carries the message body — clients should not need to perform a follow-up fetch.
+
+```ts title="data"
+{
+	id: integer;
+	kind: 'mention' | 'reply';
+	messageUri: string;
+	authorDid: string;
+	channelRkey: string;
+	indexedAt: string;
+	message: {
+		text: string;
+		facets: facet[];
+		createdAt: string;
+		parent?: string;
+		attachments: blob[];
+		edited?: boolean;
+	};
+}
+```
 
 ## Humming
 

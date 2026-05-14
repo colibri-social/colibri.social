@@ -14,6 +14,9 @@ export const RECORD_IDs: Record<string, `${string}.${string}.${string}`> = {
 	RICHTEXT_FACET: "social.colibri.richtext.facet",
 	MEMBERSHIP: "social.colibri.membership",
 	APPROVAL: "social.colibri.approval",
+	ROLE: "social.colibri.role",
+	MEMBER: "social.colibri.member",
+	MODERATION: "social.colibri.moderation",
 };
 
 export const LEXICON_DOCS: LexiconDoc[] = [];
@@ -577,6 +580,213 @@ lex.add(
 							format: "datetime",
 						},
 					},
+				},
+			},
+		},
+	}),
+);
+
+lex.add(
+	def({
+		lexicon: 1,
+		id: RECORD_IDs.ROLE,
+		revision: 1,
+		defs: {
+			main: {
+				type: "record",
+				description:
+					"A named bundle of permissions assignable to community members. Lives on the community repo.",
+				key: "tid",
+				record: {
+					type: "object",
+					required: ["name", "permissions", "position"],
+					properties: {
+						$type: {
+							type: "string",
+							description: "The type of the record.",
+							format: "nsid",
+						},
+						name: {
+							type: "string",
+							description: "Display name of the role.",
+							minLength: 1,
+							maxLength: 32,
+						},
+						color: {
+							type: "string",
+							description:
+								"Optional hex color displayed alongside the role (e.g. '#ff8800').",
+						},
+						permissions: {
+							type: "array",
+							description: "Permission identifiers granted by this role.",
+							items: {
+								type: "string",
+								description:
+									"A namespaced permission identifier. See AppView permission catalog.",
+							},
+						},
+						position: {
+							type: "integer",
+							description:
+								"Hierarchy position. Higher values sit higher in the role hierarchy and outrank lower values.",
+						},
+						hoisted: {
+							type: "boolean",
+							description:
+								"Whether members of this role are displayed separately in the member list.",
+							default: false,
+						},
+						mentionable: {
+							type: "boolean",
+							description: "Whether `@role`-style mentions resolve to this role.",
+							default: false,
+						},
+						channelOverrides: {
+							type: "array",
+							description: "Per-channel permission overrides for this role.",
+							items: {
+								type: "ref",
+								ref: "#channelOverride",
+							},
+						},
+					},
+				},
+			},
+			channelOverride: {
+				type: "object",
+				description: "Allow / deny lists scoped to a single channel.",
+				required: ["channel"],
+				properties: {
+					channel: {
+						type: "string",
+						description: "The channel this override applies to.",
+						format: "record-key",
+					},
+					allow: {
+						type: "array",
+						description: "Permissions granted within this channel.",
+						items: { type: "string" },
+					},
+					deny: {
+						type: "array",
+						description:
+							"Permissions denied within this channel. Deny wins over base permissions and overrides allow.",
+						items: { type: "string" },
+					},
+				},
+			},
+		},
+	}),
+);
+
+lex.add(
+	def({
+		lexicon: 1,
+		id: RECORD_IDs.MEMBER,
+		revision: 1,
+		defs: {
+			main: {
+				type: "record",
+				description:
+					"A community-side member record granting a user roles within the community. Lives on the community repo and is written when an admission is finalized.",
+				key: "tid",
+				record: {
+					type: "object",
+					required: ["subject", "joinedAt"],
+					properties: {
+						$type: {
+							type: "string",
+							description: "The type of the record.",
+							format: "nsid",
+						},
+						subject: {
+							type: "string",
+							description: "DID of the admitted user.",
+							format: "did",
+						},
+						roles: {
+							type: "array",
+							description:
+								"Role record-keys assigned to this member on the same community repo.",
+							items: { type: "string", format: "record-key" },
+						},
+						joinedAt: { type: "string", format: "datetime" },
+						nickname: {
+							type: "string",
+							description:
+								"Optional per-community display-name override for this member.",
+							maxLength: 32,
+						},
+						fromMembership: {
+							type: "string",
+							description:
+								"Optional AT-URI of the user's `social.colibri.membership` declaration this admission was based on.",
+							format: "at-uri",
+						},
+					},
+				},
+			},
+		},
+	}),
+);
+
+lex.add(
+	def({
+		lexicon: 1,
+		id: RECORD_IDs.MODERATION,
+		revision: 1,
+		defs: {
+			main: {
+				type: "record",
+				description:
+					"A moderation event scoped to the community that owns this repo. Acts as an append-only audit log; current state is derived from the action history per subject.",
+				key: "tid",
+				record: {
+					type: "object",
+					required: ["action", "subject", "createdBy", "createdAt"],
+					properties: {
+						$type: {
+							type: "string",
+							description: "The type of the record.",
+							format: "nsid",
+						},
+						action: {
+							type: "string",
+							description: "The moderation action being recorded.",
+							knownValues: [
+								"ban",
+								"unban",
+								"hideMessage",
+								"unhideMessage",
+								"kick",
+							],
+						},
+						subject: {
+							type: "ref",
+							ref: "#subject",
+						},
+						reason: {
+							type: "string",
+							description: "Optional human-readable reason for the action.",
+							maxLength: 512,
+						},
+						createdBy: {
+							type: "string",
+							description: "DID of the issuer (typically a member with the required permission).",
+							format: "did",
+						},
+						createdAt: { type: "string", format: "datetime" },
+					},
+				},
+			},
+			subject: {
+				type: "object",
+				description:
+					"Target of the moderation action. Use `did` for user-targeted actions, `uri` for content-targeted actions.",
+				properties: {
+					did: { type: "string", format: "did" },
+					uri: { type: "string", format: "at-uri" },
 				},
 			},
 		},
