@@ -467,6 +467,104 @@ Clients must send a `voice_join` message to the AppView when the user joins a vo
 
 Clients must send a `voice_leave` message to the AppView when the user leaves a voice channel.
 
+### `social.colibri.community.create`
+
+Mints a new community DID on the AppView's own PDS and bootstraps a fully populated community. The AppView authenticates against `PDS_LOC` using `PDS_ADMIN_USER` / `PDS_ADMIN_PASS` (HTTP Basic) so it can create accounts without an invite code, stores the new account's credentials encrypted in `community_credentials`, and writes five records to the new repo:
+
+- `social.colibri.community` (pinned at `rkey: "self"`)
+- `social.colibri.category` — a default `"General"` category
+- `social.colibri.channel` — a default `"general"` text channel inside that category
+- `social.colibri.role` — an `"Owner"` role with every permission and `protected: true` so role-management endpoints refuse to delete it
+- `social.colibri.member` — `subject` = authenticated caller, holding the Owner role
+
+The caller ends up as an owner-equivalent member of the new community.
+
+<XRPCEndpointCard
+	method="POST"
+	nsid="social.colibri.community.create"
+	authenticated
+	queryParams={{
+		name: {
+			type: "string",
+			required: true
+		},
+		description: {
+			type: "string",
+			required: false
+		},
+		requires_approval_to_join: {
+			type: "boolean",
+			required: false
+		}
+	}}
+	response={{
+		did: {
+			type: "did",
+			required: true
+		},
+		community: {
+			type: "at-uri",
+			required: true
+		},
+		category: {
+			type: "at-uri",
+			required: true
+		},
+		channel: {
+			type: "at-uri",
+			required: true
+		},
+		ownerRole: {
+			type: "at-uri",
+			required: true
+		},
+		member: {
+			type: "at-uri",
+			required: true
+		}
+	}}
+/>
+
+The AppView identifies communities by DID; handles minted alongside the account are an implementation detail of PDS hosting and are not expected to be used for identity resolution. The AppView fails to start if any of `PDS_LOC`, `PDS_ADMIN_USER`, `PDS_ADMIN_PASS`, `APPVIEW_HANDLE_DOMAIN`, or `CREDENTIAL_ENCRYPTION_KEY` are missing.
+
+### `social.colibri.community.registerCredentials`
+
+Registers user-supplied credentials (PDS endpoint + identifier + app password) for an existing community DID hosted on a PDS the AppView doesn't manage. The AppView verifies proof-of-control by performing a `com.atproto.server.createSession` against the supplied PDS — if the resulting session's DID matches the claimed community DID, the credentials are accepted, encrypted with AES-256-GCM, and stored. No bootstrap happens; BYO callers are expected to provision the community records themselves.
+
+<XRPCEndpointCard
+	method="POST"
+	nsid="social.colibri.community.registerCredentials"
+	authenticated
+	queryParams={{
+		did: {
+			type: "did",
+			required: true
+		},
+		pds: {
+			type: "uri",
+			required: true
+		},
+		identifier: {
+			type: "at-identifier",
+			required: true
+		},
+		password: {
+			type: "string",
+			required: true
+		}
+	}}
+	response={{
+		did: {
+			type: "did",
+			required: true
+		},
+		source: {
+			type: "string",
+			required: true
+		}
+	}}
+/>
+
 ### `social.colibri.community.listBlockedUsers`
 
 Lists all blocked users for a community.

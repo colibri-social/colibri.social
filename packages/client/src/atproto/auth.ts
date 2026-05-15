@@ -2,10 +2,11 @@ import { Agent } from "@atproto/api";
 import { BrowserOAuthClient, DidDocument } from "@atproto/oauth-client-browser";
 import { scopes } from "./scopes";
 
-const makeClientId = () => {
-	const isLocal = ["localhost", "127.0.0.1"].includes(window.location.hostname);
+export const isLocal = () =>
+	["localhost", "127.0.0.1"].includes(window.location.hostname);
 
-	if (isLocal) {
+const makeClientId = () => {
+	if (isLocal()) {
 		// see https://atproto.com/specs/oauth#localhost-client-development
 		return `http://localhost?${new URLSearchParams({
 			scope: scopes.join(" "),
@@ -33,12 +34,6 @@ export type Client =
 	| undefined;
 
 type ClientGetter = () => Promise<Client>;
-
-type Services = Array<{
-	id: string;
-	type: string;
-	serviceEndpoint: string;
-}>;
 
 const getClient: ClientGetter = () => {
 	return new Promise((res) => {
@@ -115,10 +110,13 @@ const init = async () => {
 		}
 
 		agent = new Agent(session);
+		const appViewHost = isLocal()
+			? `http://127.0.0.1:8080`
+			: `https://api.colibri.social`;
 
 		const didDoc = (await (
 			await fetch(
-				`https://api.colibri.social/xrpc/com.atproto.identity.resolveDid?did=${agent.did!}`,
+				`${appViewHost}/xrpc/com.atproto.identity.resolveDid?did=${agent.did!}`,
 			)
 		).json()) as DidDocument;
 

@@ -34,7 +34,7 @@ lex.add(
 		defs: {
 			main: {
 				description: "The main actor data used in Colibri",
-				key: "tid",
+				key: "literal:self",
 				record: {
 					properties: {
 						$type: {
@@ -78,13 +78,13 @@ lex.add(
 	def({
 		lexicon: 1,
 		id: RECORD_IDs.COMMUNITY,
-		revision: 1,
+		revision: 2,
 		defs: {
 			main: {
 				type: "record",
 				description:
-					'A community, or "server", is where users join to interact with each other on Colibri.',
-				key: "tid",
+					'A community, or "server", is where users join to interact with each other on Colibri. Singleton record on the community DID\'s repo.',
+				key: "literal:self",
 				record: {
 					type: "object",
 					required: [
@@ -590,7 +590,7 @@ lex.add(
 	def({
 		lexicon: 1,
 		id: RECORD_IDs.ROLE,
-		revision: 1,
+		revision: 2,
 		defs: {
 			main: {
 				type: "record",
@@ -640,6 +640,12 @@ lex.add(
 						mentionable: {
 							type: "boolean",
 							description: "Whether `@role`-style mentions resolve to this role.",
+							default: false,
+						},
+						protected: {
+							type: "boolean",
+							description:
+								"Whether this role is protected from modification or deletion. Set true for system-managed roles (e.g. the bootstrap 'Owner' role minted by `community.create`).",
 							default: false,
 						},
 						channelOverrides: {
