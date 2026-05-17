@@ -111,7 +111,7 @@ const init = async () => {
 
 		agent = new Agent(session);
 		const appViewHost = isLocal()
-			? `http://127.0.0.1:8080`
+			? `http://127.0.0.1:8000`
 			: `https://api.colibri.social`;
 
 		const didDoc = (await (

@@ -33,6 +33,8 @@ import { useUserContext } from "../contexts/User";
 import ColibriLogo from "../assets/logo.png";
 import HouseIcon from "~icons/ph/house";
 import UsersIcon from "~icons/ph/users";
+import { CommunityCreationModal } from "../components/app/CommunityCreationModal";
+import { Plus } from "../components/icons/Plus";
 
 const CommunityAvatar = (props: { item: Community; class?: string }) => {
 	const communityDid = props.item.uri.split("/")[2];
@@ -264,16 +266,14 @@ const AppLayout: ParentComponent = (props) => {
 									onItemRef={(rkey, el) => itemEls.set(rkey, el)}
 								/>
 							</DragDropProvider>
-
-							{/* FIXME: Create community modal */}
-							{/*<CommunityCreationModal navigate={navigate}>
+							<CommunityCreationModal>
 								<button
 									type="button"
 									class="w-10 flex h-10 rounded-md bg-muted hover:bg-primary hover:text-primary-foreground items-center justify-center cursor-pointer"
 								>
-									<Icon variant="regular" name="plus-icon" />
+									<Plus className="w-4 h-4" />
 								</button>
-							</CommunityCreationModal>*/}
+							</CommunityCreationModal>
 						</div>
 					</nav>
 					{/* FIXME: User modal */}
