@@ -72,9 +72,12 @@ export const LinkEmbed: Component<{ uri: string }> = (props) => {
 
 						const imageUrl = image()[0].url.startsWith("http")
 							? givenImageUrl
-							: uri.protocol + "//" + uri.host + givenImageUrl.startsWith("/")
-								? givenImageUrl
-								: uri.pathname + `/${givenImageUrl}`;
+							: uri.protocol +
+								"//" +
+								uri.host +
+								(givenImageUrl.startsWith("/")
+									? givenImageUrl
+									: uri.pathname + `/${givenImageUrl}`);
 
 						console.log(image(), imageUrl);
 						return (
