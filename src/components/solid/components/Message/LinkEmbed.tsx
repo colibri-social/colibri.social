@@ -73,7 +73,7 @@ export const LinkEmbed: Component<{ uri: string }> = (props) => {
 								"//" +
 								new URL(props.uri).host +
 								image()[0].url;
-						console.log(image, imageUrl);
+						console.log(image(), imageUrl);
 						return (
 							<Lightbox src={imageUrl}>
 								<img
