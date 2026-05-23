@@ -67,13 +67,16 @@ export const LinkEmbed: Component<{ uri: string }> = (props) => {
 				</span>
 				<Show when={embedData()!.image}>
 					{(image) => {
+						const uri = new URL(props.uri);
+						const givenImageUrl = image()[0].url;
+
 						const imageUrl = image()[0].url.startsWith("http")
-							? image()[0].url
-							: new URL(props.uri).protocol +
-								"//" +
-								new URL(props.uri).host +
-								image()[0].url;
-						console.log(image(), imageUrl);
+							? givenImageUrl
+							: uri.protocol + "//" + uri.host + givenImageUrl.startsWith("/")
+								? givenImageUrl
+								: uri.pathname + `/${givenImageUrl}`;
+
+						console.log(image(), imageUrl());
 						return (
 							<Lightbox src={imageUrl}>
 								<img
