@@ -1,5 +1,7 @@
 import type { Editor, MarkType, NodeType, TextType } from "@tiptap/core";
+import TLDs from "tlds";
 import type { Facet } from "@/utils/atproto/rich-text";
+import { URL_REGEX } from "@/utils/atproto/rich-text/util";
 import type { TextWithFacets } from "../RichTextRenderer";
 
 export type ParsedText = { text: string; facets: Array<Facet> };
@@ -283,6 +285,89 @@ const mergeFacets = (facets: Array<Facet>): Array<Facet> => {
 	);
 };
 
+const isValidDomain = (str: string): boolean =>
+	!!TLDs.find((tld) => {
+		const i = str.lastIndexOf(tld);
+		if (i === -1) return false;
+		return str.charAt(i - 1) === "." && i === str.length - tld.length;
+	});
+
+/**
+ * Detects URLs in plain text that aren't already covered by a link facet
+ * and adds link facets for them. This handles cases where Tiptap's autolink
+ * hasn't applied the link mark yet (e.g. URL at the end of the message
+ * submitted without a trailing space).
+ */
+const detectMissingLinkFacets = (
+	text: string,
+	facets: Array<Facet>,
+): Array<Facet> => {
+	const linkedRanges: Array<[number, number]> = [];
+	for (const facet of facets) {
+		if (
+			facet.features.some(
+				(f) => f.$type === "social.colibri.richtext.facet#link",
+			)
+		) {
+			linkedRanges.push([facet.index.byteStart, facet.index.byteEnd]);
+		}
+	}
+
+	const newFacets: Array<Facet> = [];
+	const re = new RegExp(URL_REGEX.source, URL_REGEX.flags);
+	let match: RegExpExecArray | null;
+
+	while ((match = re.exec(text))) {
+		let uri = match[2];
+		if (!uri.startsWith("http")) {
+			const domain = match.groups?.domain;
+			if (!domain || !isValidDomain(domain)) continue;
+			uri = `https://${uri}`;
+		}
+
+		const startUtf16 = text.indexOf(match[2], match.index);
+		let endUtf16 = startUtf16 + match[2].length;
+
+		if (/[.,;:!?]$/.test(uri)) {
+			uri = uri.slice(0, -1);
+			endUtf16--;
+		}
+		if (/[)]$/.test(uri) && !uri.includes("(")) {
+			uri = uri.slice(0, -1);
+			endUtf16--;
+		}
+
+		const byteStart = textEncoder.encode(text.slice(0, startUtf16)).length;
+		const byteEnd = textEncoder.encode(text.slice(0, endUtf16)).length;
+
+		const alreadyLinked = linkedRanges.some(
+			([s, e]) => s <= byteStart && e >= byteEnd,
+		);
+		if (alreadyLinked) continue;
+
+		newFacets.push({
+			$type: "social.colibri.richtext.facet",
+			index: {
+				$type: "app.bsky.richtext.facet#byteSlice",
+				byteStart,
+				byteEnd,
+			},
+			features: [
+				{
+					$type: "social.colibri.richtext.facet#link",
+					uri,
+				},
+			],
+		});
+	}
+
+	if (newFacets.length === 0) return facets;
+
+	return [...facets, ...newFacets].sort(
+		(a, b) => a.index.byteStart - b.index.byteStart,
+	);
+};
+
 export const proseMirrorToFacets = (
 	json: ReturnType<Editor["getJSON"]>,
 ): ParsedText => {
@@ -290,8 +375,10 @@ export const proseMirrorToFacets = (
 
 	const mergedFacets = mergeFacets(facets);
 
+	const withDetectedLinks = detectMissingLinkFacets(text, mergedFacets);
+
 	return trimTextWithFacets({
 		text,
-		facets: mergedFacets,
+		facets: withDetectedLinks,
 	});
 };
