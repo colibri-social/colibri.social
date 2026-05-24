@@ -65,12 +65,16 @@ export const LinkEmbed: Component<{ uri: string }> = (props) => {
 				<span class="font-light text-card-foreground text-sm">
 					{embedData()!.description}
 				</span>
-				<Show when={embedData()!.image}>
-					{(image) => {
+				<Show
+					when={
+						embedData()!.image && !embedData()!.image![0].url.endsWith(".svg")
+					}
+				>
+					{(_) => {
 						const uri = new URL(props.uri);
-						const givenImageUrl = image()[0].url;
+						const givenImageUrl = embedData()!.image![0].url;
 
-						const imageUrl = image()[0].url.startsWith("http")
+						const imageUrl = embedData()!.image![0].url.startsWith("http")
 							? givenImageUrl
 							: uri.protocol +
 								"//" +
@@ -86,7 +90,7 @@ export const LinkEmbed: Component<{ uri: string }> = (props) => {
 									height={210}
 									class="w-full h-auto rounded-xs my-2 bg-muted border-none cursor-pointer"
 									src={imageUrl}
-									alt={image()[0].alt || ""}
+									alt={embedData()!.image![0].alt || ""}
 								/>
 							</Lightbox>
 						);
