@@ -20,6 +20,7 @@ const getOpenGraphData = async (
 		customMetaTags: [
 			{ fieldName: "theme-color", property: "themeColor", multiple: false },
 		],
+		onlyGetOpenGraphInfo: true,
 	});
 
 	if (error) return undefined;
