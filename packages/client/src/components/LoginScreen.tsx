@@ -2,16 +2,60 @@ import { Component, createEffect, createSignal } from "solid-js";
 import { ATmosphereAppMarquee } from "./login/ATmosphereAppMarquee";
 import { Button } from "./ui/Button";
 import { Spinner } from "./icons/Spinner";
-import { TextField, TextFieldInput } from "./ui/text-field";
+import {
+	Search,
+	SearchContent,
+	SearchControl,
+	SearchItem,
+	SearchItemDescription,
+	SearchItemLabel,
+	SearchListbox,
+	SearchNoResult,
+	SearchPortal,
+} from "./ui/Search";
 import { toast } from "somoto";
 import { useAuthContext } from "../contexts/Auth";
 import { useNavigate } from "@solidjs/router";
+import {
+	searchActorsTypeahead,
+	type ActorTypeaheadResult,
+} from "../atproto/xrpc/app/bsky/actor/searchActorsTypeahead";
 
 export const LoginScreen: Component = () => {
 	const auth = useAuthContext();
 	const navigate = useNavigate();
 	const [handle, setHandle] = createSignal("");
 	const [loading, setLoading] = createSignal(false);
+	const [options, setOptions] = createSignal<Array<ActorTypeaheadResult>>([]);
+
+	let suggestController: AbortController | undefined;
+
+	const onInput = async (value: string) => {
+		setHandle(value);
+
+		suggestController?.abort();
+
+		if (value.trim().length === 0) {
+			setOptions([]);
+			return;
+		}
+
+		const controller = new AbortController();
+		suggestController = controller;
+
+		const results = await searchActorsTypeahead(value, controller.signal);
+
+		if (controller.signal.aborted) return;
+
+		setOptions(results);
+	};
+
+	const onPick = (picked: ActorTypeaheadResult | null) => {
+		if (picked) {
+			setHandle(picked.handle);
+			triggerLogin();
+		}
+	};
 
 	const triggerLogin = async () => {
 		if (loading() === true || !auth) return;
@@ -57,9 +101,49 @@ export const LoginScreen: Component = () => {
 				</div>
 				<div class="flex flex-col gap-4 w-full p-6 pb-3 items-center justify-center">
 					<div class="flex gap-2 w-full">
-						<TextField value={handle()} onChange={setHandle}>
-							<TextFieldInput type="text" placeholder="alice.bsky.social" />
-						</TextField>
+						<Search<ActorTypeaheadResult>
+							class="flex-1"
+							options={options()}
+							debounceOptionsMillisecond={250}
+							triggerMode="input"
+							optionValue="did"
+							optionLabel="handle"
+							placeholder="alice.bsky.social"
+							onInputChange={onInput}
+							onChange={onPick}
+							itemComponent={(props) => (
+								<SearchItem
+									item={props.item}
+									class="first-of-type:mt-0 last-of-type:mb-0"
+								>
+									<div class="flex items-center gap-2">
+										<img
+											src={props.item.rawValue.avatar}
+											alt=""
+											class="size-6 rounded-full bg-muted shrink-0"
+											loading="lazy"
+										/>
+										<div class="flex flex-col min-w-0">
+											<SearchItemLabel class="text-sm truncate">
+												{props.item.rawValue.displayName ??
+													props.item.rawValue.handle}
+											</SearchItemLabel>
+											<SearchItemDescription class="text-xs truncate">
+												@{props.item.rawValue.handle}
+											</SearchItemDescription>
+										</div>
+									</div>
+								</SearchItem>
+							)}
+						>
+							<SearchControl aria-label="Handle" />
+							<SearchPortal>
+								<SearchContent>
+									<SearchListbox class="m-0" />
+									<SearchNoResult>No accounts found.</SearchNoResult>
+								</SearchContent>
+							</SearchPortal>
+						</Search>
 						<Button
 							id="login-btn"
 							class="aria-busy:[&_svg]:flex! aria-busy:[&>span]:hidden"

@@ -660,6 +660,79 @@ Lists all channels in a community.
 	}}
 />
 
+### `social.colibri.community.listRoles`
+
+Lists all roles cached for a community.
+
+<XRPCEndpointCard
+	method="GET"
+	nsid="social.colibri.community.listRoles"
+	queryParams={{
+		'community': {
+			type: "at-uri",
+			required: true
+		}
+	}}
+	response={{
+		roles: {
+			type: "object[]",
+			required: true,
+			children: {
+				uri: {
+					type: "at-uri",
+					required: true,
+				},
+				name: {
+					type: "string",
+					required: true,
+				},
+				color: {
+					type: "string",
+					required: false,
+				},
+				permissions: {
+					type: "string[]",
+					required: true,
+				},
+				position: {
+					type: "integer",
+					required: true,
+				},
+				hoisted: {
+					type: "boolean",
+					required: false,
+				},
+				mentionable: {
+					type: "boolean",
+					required: false,
+				},
+				protected: {
+					type: "boolean",
+					required: false,
+				},
+				channelOverrides: {
+					type: "object[]",
+					required: true,
+					children: {
+						channel: {
+							type: "at-uri",
+							required: true,
+						},
+						allow: {
+							type: "string[]",
+							required: true,
+						},
+						deny: {
+							type: "string[]",
+							required: true,
+						},
+					}
+				},
+			}
+		}
+	}}
+/>
+
 ### `social.colibri.community.listMembers`
 
 Lists all members with their roles, status information and Bluesky profiles.
@@ -684,6 +757,211 @@ Lists all members with their roles, status information and Bluesky profiles.
 				},
 				handle: {
 					type: "handle",
+					required: true,
+				},
+				roles: {
+					type: "at-uri[]",
+					required: true,
+				},
+				data: {
+					type: "object",
+					required: true,
+					children: {
+						displayName: {
+							type: "string",
+							required: true,
+						},
+						avatar: {
+							type: "blob",
+							required: false,
+						},
+						banner: {
+							type: "blob",
+							required: false,
+						},
+						description: {
+							type: "string",
+							required: false,
+						},
+						onlineState: {
+							type: "string",
+							required: true,
+						},
+						status: {
+							type: "object",
+							required: false,
+							children: {
+								emoji: {
+									type: "string",
+									required: false,
+								},
+								text: {
+									type: "string",
+									required: true
+								}
+							}
+						},
+					}
+				}
+			}
+		}
+	}}
+/>
+
+### `social.colibri.community.getData`
+
+Returns all cached data for a community in a single response: the community record, its categories, channels, roles, and members. Returns `NotFound` if no community record is cached for the given URI.
+
+<XRPCEndpointCard
+	method="GET"
+	nsid="social.colibri.community.getData"
+	queryParams={{
+		'community': {
+			type: "at-uri",
+			required: true
+		}
+	}}
+	response={{
+		community: {
+			type: "object",
+			required: true,
+			children: {
+				uri: {
+					type: "at-uri",
+					required: true,
+				},
+				name: {
+					type: "string",
+					required: true,
+				},
+				description: {
+					type: "string",
+					required: true,
+				},
+				picture: {
+					type: "blob",
+					required: false,
+				},
+				categoryOrder: {
+					type: "at-uri[]",
+					required: true,
+				},
+				requiresApprovalToJoin: {
+					type: "boolean",
+					required: true,
+				},
+			}
+		},
+		categories: {
+			type: "object[]",
+			required: true,
+			children: {
+				uri: {
+					type: "at-uri",
+					required: true,
+				},
+				name: {
+					type: "string",
+					required: true,
+				},
+				channelOrder: {
+					type: "at-uri[]",
+					required: true,
+				},
+			}
+		},
+		channels: {
+			type: "object[]",
+			required: true,
+			children: {
+				uri: {
+					type: "at-uri",
+					required: true,
+				},
+				name: {
+					type: "string",
+					required: true,
+				},
+				type: {
+					type: "string",
+					required: true,
+				},
+				category: {
+					type: "at-uri",
+					required: true,
+				},
+			}
+		},
+		roles: {
+			type: "object[]",
+			required: true,
+			children: {
+				uri: {
+					type: "at-uri",
+					required: true,
+				},
+				name: {
+					type: "string",
+					required: true,
+				},
+				color: {
+					type: "string",
+					required: false,
+				},
+				permissions: {
+					type: "string[]",
+					required: true,
+				},
+				position: {
+					type: "integer",
+					required: true,
+				},
+				hoisted: {
+					type: "boolean",
+					required: false,
+				},
+				mentionable: {
+					type: "boolean",
+					required: false,
+				},
+				protected: {
+					type: "boolean",
+					required: false,
+				},
+				channelOverrides: {
+					type: "object[]",
+					required: true,
+					children: {
+						channel: {
+							type: "at-uri",
+							required: true,
+						},
+						allow: {
+							type: "string[]",
+							required: true,
+						},
+						deny: {
+							type: "string[]",
+							required: true,
+						},
+					}
+				},
+			}
+		},
+		members: {
+			type: "object[]",
+			required: true,
+			children: {
+				did: {
+					type: "did",
+					required: true,
+				},
+				handle: {
+					type: "handle",
+					required: true,
+				},
+				roles: {
+					type: "at-uri[]",
 					required: true,
 				},
 				data: {
@@ -857,7 +1135,7 @@ Get information about a given invitation code.
 
 <XRPCEndpointCard
 	method="GET"
-	nsid="social.colibri.community.getInvitation"
+	nsid="social.colibri.community.resolveInvitation"
 	authenticated
 	queryParams={{
 		'code': {
@@ -1072,7 +1350,7 @@ Get all reactions for a specified message, grouped by emoji with reactor DIDs.
 
 <XRPCEndpointCard
 	method="GET"
-	nsid="social.colibri.channel.listReactions"
+	nsid="social.colibri.message.listReactions"
 	queryParams={{
 		'message': {
 			type: "at-uri",

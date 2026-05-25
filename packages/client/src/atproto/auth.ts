@@ -1,6 +1,7 @@
 import { Agent } from "@atproto/api";
 import { BrowserOAuthClient, DidDocument } from "@atproto/oauth-client-browser";
 import { scopes } from "./scopes";
+import { getAppViewHost } from "../utils/appview";
 
 export const isLocal = () =>
 	["localhost", "127.0.0.1"].includes(window.location.hostname);
@@ -110,13 +111,10 @@ const init = async () => {
 		}
 
 		agent = new Agent(session);
-		const appViewHost = isLocal()
-			? `http://127.0.0.1:8000`
-			: `https://api.colibri.social`;
 
 		const didDoc = (await (
 			await fetch(
-				`${appViewHost}/xrpc/com.atproto.identity.resolveDid?did=${agent.did!}`,
+				`${getAppViewHost("http")}/xrpc/com.atproto.identity.resolveDid?did=${agent.did!}`,
 			)
 		).json()) as DidDocument;
 

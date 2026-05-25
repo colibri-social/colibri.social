@@ -9,6 +9,7 @@ import { LoginScreen } from "./components/LoginScreen";
 import { AuthContextProvider } from "./contexts/Auth";
 import { SocketContextProvider } from "./contexts/Socket";
 import { AppLoadingScreen } from "./components/AppLoadingScreen";
+import CommunityLayoutWithContext from "./layouts/CommunityLayout";
 
 const AppRoute: ParentComponent = (props) => {
 	return (
@@ -40,26 +41,28 @@ const App: ParentComponent = () => {
 					<Route path="/login" component={LoginScreen} />
 					<Route path="/app" component={AppRoute}>
 						<Route path="/" component={WelcomeScreen} />
-						<Route path="/c/:community" component={WelcomeScreen} />
-						{/*<Route component={CommunityLayout}>
-								<Route
-									path="/c/:community"
-									component={() => (
-										<div class="w-full h-full flex items-center justify-center">
-											TODO(app): Make this a page people can configure?
-											Select a channel to get started!
-										</div>
-									)}
-								/>
-								<Route
-									path="/c/:community/t/:channel"
-									component={ChannelView}
-								/>
-								<Route
-									path="/c/:community/v/:channel"
-									component={VoiceChannelView}
-								/>
-							</Route>*/}
+						{/* TODO: */}
+						<Route component={CommunityLayoutWithContext}>
+							<Route
+								path="/c/:community"
+								component={() => (
+									<div class="w-full h-full flex items-center justify-center">
+										TODO(app): Make this a page people can configure? Select a
+										channel to get started!
+									</div>
+								)}
+							/>
+							<Route
+								path="/c/:community/t/:channel"
+								component={() => <div>TextChannelView</div>} /* ChannelView */
+							/>
+							<Route
+								path="/c/:community/v/:channel"
+								component={() => (
+									<div>VoiceChannelView</div>
+								)} /* VoiceChannelView */
+							/>
+						</Route>
 					</Route>
 				</Router>
 			</ColorModeProvider>

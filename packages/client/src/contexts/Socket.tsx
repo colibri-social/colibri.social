@@ -14,6 +14,7 @@ import {
 	makeHeartbeatWS,
 } from "@solid-primitives/websocket";
 import { useAuthContext } from "./Auth";
+import { getAppViewHost } from "../utils/appview";
 
 export const SocketContext = createContext<any>();
 
@@ -29,13 +30,9 @@ export const SocketContextProvider: ParentComponent = (props) => {
 			exp: Math.floor(Date.now() / 1000) + 60,
 		});
 
-		const hostWithProtocol = import.meta.env.DEV
-			? `ws://127.0.0.1:8000`
-			: `wss://api.colibri.social`;
-
 		const socket = makeHeartbeatWS(
 			createReconnectingWS(
-				`${hostWithProtocol}/xrpc/social.colibri.sync.subscribeEvents?auth=${data.token}`,
+				`${getAppViewHost("ws")}/xrpc/social.colibri.sync.subscribeEvents?auth=${data.token}`,
 			),
 			{
 				message: JSON.stringify({

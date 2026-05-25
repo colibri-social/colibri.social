@@ -24,6 +24,7 @@ type User =
 				pdsHost: string;
 			};
 			communities: Array<Community>;
+			xrpc: XrpcClient;
 	  });
 
 type LoggedInUser = Extract<User, { loggedIn: true }>;
@@ -75,6 +76,7 @@ export const UserContextProvider: ParentComponent = (props) => {
 				pdsHost: client.pdsHost,
 			},
 			communities: communities.communities,
+			xrpc: xrpc,
 		};
 	});
 

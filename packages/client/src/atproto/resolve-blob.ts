@@ -6,7 +6,12 @@ import type { JsonBlobRef } from "@atproto/lexicon";
  * @param blob The blob to get the URL for
  * @returns The URL to the file
  */
-export const resolveBlob = (did: string, blob: JsonBlobRef): string => {
+export const resolveBlob = (
+	did: string,
+	blob?: JsonBlobRef,
+): string | undefined => {
+	if (!blob) return undefined;
+
 	let cid = "cid" in blob ? blob.cid : blob.ref.$link;
 
 	return `https://colibri.social/xrpc/com.atproto.sync.getBlob?did=${did}&cid=${cid}`;

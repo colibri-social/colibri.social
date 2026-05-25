@@ -1,4 +1,4 @@
-import type { ActorData, Community } from "lib";
+import type { Community } from "lib";
 import { XrpcRequest } from "../../..";
 
 type Response = {
