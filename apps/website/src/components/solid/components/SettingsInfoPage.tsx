@@ -1,13 +1,13 @@
 import { type Component, createSignal, Match, Show, Switch } from "solid-js";
 import { Icon } from "@/components/solid/icons/Icon";
-import { Button } from "../../shadcn-solid/Button";
+import { SettingsPage } from "./SettingsModal";
+import { Button } from "../shadcn-solid/Button";
 import {
 	Tooltip,
 	TooltipContent,
 	TooltipPortal,
 	TooltipTrigger,
-} from "../../shadcn-solid/Tooltip";
-import { SettingsPage } from "./SettingsModal";
+} from "../shadcn-solid/Tooltip";
 
 const CopyButton: Component<{ value: string }> = (props) => {
 	const [active, setActive] = createSignal(false);

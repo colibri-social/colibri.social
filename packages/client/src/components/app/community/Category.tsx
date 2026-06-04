@@ -24,12 +24,13 @@ import PlusIcon from "~icons/ph/plus";
 import SpeakerHighIcon from "~icons/ph/speaker-high-fill";
 import SpeakerLowIcon from "~icons/ph/speaker-low-fill";
 
-// TODO: Re-introduce these once their backing endpoints/modals exist again in
-// the client package.
-// import { CategorySettingsModal } from "./CategorySettingsModal";
-// import { ChannelCreationModal } from "./ChannelCreationModal";
-// import { ChannelSettingsModal } from "./ChannelSettingsModal";
-// import { useVoiceChatContext } from "../../../contexts/VoiceChat";
+import { CategorySettingsModal } from "./CategorySettingsModal";
+import { ChannelCreationModal } from "./ChannelCreationModal";
+import { ChannelSettingsModal } from "./ChannelSettingsModal";
+import { useVoiceChatContext } from "../../../contexts/VoiceChat";
+import { usePermissions } from "../../../contexts/Community";
+import { useUserContext } from "../../../contexts/User";
+import { ConnectionState } from "livekit-client";
 
 export type ChannelDropTarget = {
 	categoryUri: string;
@@ -55,9 +56,9 @@ const SortableChannel: Component<{
 	const [, { onDragStart: onDndDragStart, onDragEnd: onDndDragEnd }] =
 		useDragDropContext()!;
 
-	// TODO: Replace with a real permission check once role helpers exist.
-	// Previously: `globalData.user.sub === props.community.owner_did`.
-	const canManage = () => true;
+	const user = useUserContext();
+	const { canManage: _canManage } = usePermissions();
+	const canManage = () => _canManage(user.did);
 
 	const [isDragging, setIsDragging] = createSignal(false);
 
@@ -71,12 +72,24 @@ const SortableChannel: Component<{
 		setTimeout(() => setIsDragging(false), 0);
 	});
 
-	// TODO: Re-wire voice channel member list once the VoiceChat context lands.
-	// const [voiceData, { connect }] = useVoiceChatContext();
-	// const liveVoiceChannelMembers = createMemo<Array<string>>(() => { ... });
-	// const handleVoiceChannelJoin = (e: MouseEvent & ...) => { ... };
+	const [voiceData, { connect }] = useVoiceChatContext();
+
+	const liveVoiceChannelMembers = createMemo<string[]>(() => {
+		if (voiceData.connection.state !== ConnectionState.Connected) return [];
+		if (voiceData.connection.rkey !== channelRkey()) return [];
+		return voiceData.participants;
+	});
+
+	const handleVoiceChannelJoin = () => {
+		if (props.channel.type !== "social.colibri.channel.voice") return;
+		connect(channelRkey());
+	};
 
 	const channelRkey = () => props.channel.uri.split("/").pop() ?? "";
+
+	const channelRoutePrefix = () => {
+		return props.channel.type;
+	};
 
 	return (
 		<div
@@ -102,14 +115,13 @@ const SortableChannel: Component<{
 			>
 				<A
 					class="group/channel text-muted-foreground flex flex-row justify-between items-center gap-2 hover:bg-card rounded-sm cursor-pointer p-1 py-0.5 pr-1.25"
-					href={`/app/c/${params.community}/${props.channel.type.slice(0, 1)}/${channelRkey()}`}
+					href={`/app/c/${params.community}/${channelRoutePrefix()}/${channelRkey()}`}
 					activeClass="bg-muted! text-foreground!"
-					// TODO: re-add active-voice gradient once voice chat is wired up.
-					// classList={{
-					// 	"bg-linear-145 from-[#090615] via-[#31226d70] to-[#e0deec30]":
-					// 		voiceData.connection.rkey === channelRkey() &&
-					// 		voiceData.connection.state === ConnectionState.Connected,
-					// }}
+					classList={{
+						"bg-linear-145 from-[#090615] via-[#31226d70] to-[#e0deec30]":
+							voiceData.connection.rkey === channelRkey() &&
+							voiceData.connection.state === ConnectionState.Connected,
+					}}
 				>
 					<div class="flex flex-row items-center gap-2">
 						<Switch>
@@ -127,16 +139,21 @@ const SortableChannel: Component<{
 									props.channel.type === "social.colibri.channel.voice"
 								}
 							>
-								{/* TODO: swap between speaker-low / speaker-high based on
-								    connection state once voice context exists. */}
-								<SpeakerLowIcon width={20} height={20} />
+								<Show
+									when={
+										voiceData.connection.rkey === channelRkey() &&
+										voiceData.connection.state === ConnectionState.Connected &&
+										voiceData.states.micEnabled
+									}
+									fallback={<SpeakerLowIcon width={20} height={20} />}
+								>
+									<SpeakerHighIcon width={20} height={20} />
+								</Show>
 							</Match>
 						</Switch>
 						<span>{props.channel.name}</span>
 					</div>
 					<div class="flex justify-center items-center pb-px">
-						{/* TODO: Re-introduce ChannelSettingsModal (gated on canManage())
-						    once it's ported. Original:
 						<Show when={canManage()}>
 							<ChannelSettingsModal class="p-0 w-5 h-5.5" channel={props.channel}>
 								<Button
@@ -149,19 +166,24 @@ const SortableChannel: Component<{
 									<GearIcon width={16} height={16} />
 								</Button>
 							</ChannelSettingsModal>
-						</Show> */}
+						</Show>
 					</div>
 				</A>
-				{/* TODO: Live voice members display from old code:
 				<Show
-					when={props.channel.type === "voice" && liveVoiceChannelMembers().length > 0}
+					when={
+						(props.channel.type === "voice" ||
+							props.channel.type === "social.colibri.channel.voice") &&
+						liveVoiceChannelMembers().length > 0
+					}
 				>
-					<div class="pl-7.5 text-muted-foreground flex flex-col select-none">
+					<div class="pl-7.5 text-muted-foreground flex flex-col select-none text-xs">
 						<For each={liveVoiceChannelMembers()}>
-							{(did) => ( ... )}
+							{(did) => (
+								<span class="truncate">{did}</span>
+							)}
 						</For>
 					</div>
-				</Show> */}
+				</Show>
 			</div>
 		</div>
 	);
@@ -193,8 +215,9 @@ export const Category: ParentComponent<{
 	injectedChannels?: Channel[];
 	dropTarget?: ChannelDropTarget | null;
 }> = (props) => {
-	// TODO: Replace with a real permission check once role helpers exist.
-	const canManage = () => true;
+	const user = useUserContext();
+	const { canManage: _canManage } = usePermissions();
+	const canManage = () => _canManage(user.did);
 
 	// TODO: Persist collapse state to local storage (was `makePersisted` from
 	// `@solid-primitives/storage` keyed on the category rkey). Skipped here
@@ -269,8 +292,6 @@ export const Category: ParentComponent<{
 					<span>{props.category.name}</span>
 				</div>
 				<div class="flex flex-row items-center gap-1">
-					{/* TODO: Re-introduce CategorySettingsModal + ChannelCreationModal
-					    (gated on canManage()) once they are ported. Original:
 					<Show when={canManage()}>
 						<CategorySettingsModal category={props.category}>
 							<Button
@@ -286,7 +307,7 @@ export const Category: ParentComponent<{
 								<PlusIcon width={16} height={16} />
 							</Button>
 						</ChannelCreationModal>
-					</Show> */}
+					</Show>
 				</div>
 			</button>
 			<div

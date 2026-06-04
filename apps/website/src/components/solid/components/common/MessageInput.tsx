@@ -33,8 +33,6 @@ import {
 } from "../../shadcn-solid/file-field";
 import { TextEditor } from "../TextEditor/TextEditor";
 
-// TODO: This does not work in Firefox. We might need a different solution for file uploads, but I am
-// not sure if the PDS allows for tracking progress, and I do not want to proxy the files
 const uploadWithProgress = (
 	file: File,
 	onProgress: (percent: number) => void,

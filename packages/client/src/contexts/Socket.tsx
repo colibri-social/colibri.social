@@ -1,79 +1,118 @@
 import {
 	createContext,
-	createResource,
-	Match,
-	ParentComponent,
-	Switch,
+	onCleanup,
+	onMount,
+	type ParentComponent,
 	useContext,
 } from "solid-js";
-import { Client, getClient } from "../atproto/auth";
-import { AppLoadingScreen } from "../components/AppLoadingScreen";
-import { useUserContext } from "./User";
-import {
-	createReconnectingWS,
-	makeHeartbeatWS,
-} from "@solid-primitives/websocket";
+import type { ColibriEvent } from "lib";
 import { useAuthContext } from "./Auth";
 import { getAppViewHost } from "../utils/appview";
 
-export const SocketContext = createContext<any>();
+export type SocketContextValue = {
+	/** Send a JSON message to the AppView over the WebSocket. */
+	send: (message: Record<string, unknown>) => void;
+	/**
+	 * Register a handler for all incoming AppView events. The returned
+	 * function removes the handler — call it in `onCleanup`.
+	 */
+	onEvent: (handler: (event: ColibriEvent) => void) => () => void;
+};
+
+export const SocketContext = createContext<SocketContextValue>();
 
 export const SocketContextProvider: ParentComponent = (props) => {
 	const auth = useAuthContext();
 
-	const [socket] = createResource(async () => {
-		if (!auth?.loggedIn) return;
+	const handlers = new Set<(event: ColibriEvent) => void>();
+	let ws: WebSocket | null = null;
+	let heartbeat: ReturnType<typeof setInterval> | null = null;
+	let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+	let destroyed = false;
 
-		const { data } = await auth.agent.com.atproto.server.getServiceAuth({
-			aud: "did:web:api.colibri.social",
-			lxm: "social.colibri.sync.subscribeEvents",
-			exp: Math.floor(Date.now() / 1000) + 60,
-		});
+	const connect = async () => {
+		if (destroyed || !auth?.loggedIn) return;
 
-		const socket = makeHeartbeatWS(
-			createReconnectingWS(
+		try {
+			const { data } = await auth.agent.com.atproto.server.getServiceAuth({
+				aud: "did:web:api.colibri.social",
+				lxm: "social.colibri.sync.subscribeEvents",
+				// 60-second token — we generate a fresh one on every (re)connect
+				exp: Math.floor(Date.now() / 1000) + 60,
+			});
+
+			if (destroyed) return; // cleaned up while awaiting token
+
+			const socket = new WebSocket(
 				`${getAppViewHost("ws")}/xrpc/social.colibri.sync.subscribeEvents?auth=${data.token}`,
-			),
-			{
-				message: JSON.stringify({
-					type: "heartbeat",
-				}),
-				interval: 20_000,
-			},
-		);
+			);
+			ws = socket;
 
-		await new Promise((res) => {
-			socket.addEventListener("open", res);
-		});
+			socket.addEventListener("open", () => {
+				if (destroyed || ws !== socket) return;
+				heartbeat = setInterval(() => {
+					if (socket.readyState === WebSocket.OPEN) {
+						socket.send(JSON.stringify({ type: "heartbeat" }));
+					}
+				}, 20_000);
+			});
 
-		return socket;
+			socket.addEventListener("message", (e) => {
+				try {
+					const event = JSON.parse(e.data as string) as ColibriEvent;
+					handlers.forEach((h) => h(event));
+				} catch {
+					// Ignore malformed frames
+				}
+			});
+
+			socket.addEventListener("close", () => {
+				if (heartbeat) { clearInterval(heartbeat); heartbeat = null; }
+				if (destroyed || ws !== socket) return;
+				// Reconnect after 3 s, generating a fresh token each time
+				reconnectTimer = setTimeout(connect, 3_000);
+			});
+
+			socket.addEventListener("error", () => {
+				// The close event will fire next and trigger reconnection
+			});
+		} catch {
+			// Token fetch failed — retry after a longer delay
+			if (!destroyed) reconnectTimer = setTimeout(connect, 10_000);
+		}
+	};
+
+	onMount(() => { connect(); });
+
+	onCleanup(() => {
+		destroyed = true;
+		if (heartbeat) clearInterval(heartbeat);
+		if (reconnectTimer) clearTimeout(reconnectTimer);
+		ws?.close();
+		handlers.clear();
 	});
 
+	const value: SocketContextValue = {
+		send: (message) => {
+			if (ws?.readyState === WebSocket.OPEN) {
+				ws.send(JSON.stringify(message));
+			}
+		},
+		onEvent: (handler) => {
+			handlers.add(handler);
+			return () => handlers.delete(handler);
+		},
+	};
+
 	return (
-		<Switch>
-			<Match when={socket.error}>
-				<span>{`${socket.error}`}</span>
-			</Match>
-			<Match when={socket.loading}>
-				<AppLoadingScreen message="Connecting to AppView..." />
-			</Match>
-			<Match when={socket()}>
-				{(resolved) => (
-					<SocketContext.Provider value={resolved()}>
-						{props.children}
-					</SocketContext.Provider>
-				)}
-			</Match>
-		</Switch>
+		<SocketContext.Provider value={value}>
+			{props.children}
+		</SocketContext.Provider>
 	);
 };
 
-export const useSocketContext = (): Client => {
+export const useSocketContext = (): SocketContextValue => {
 	const ctx = useContext(SocketContext);
-
-	if (!ctx) {
-		throw new Error("Unable to get socket context.");
-	}
-
+	if (!ctx) throw new Error("useSocketContext called outside SocketContextProvider");
 	return ctx;
 };

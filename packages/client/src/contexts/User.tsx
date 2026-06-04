@@ -27,14 +27,19 @@ type User =
 			xrpc: XrpcClient;
 	  });
 
-type LoggedInUser = Extract<User, { loggedIn: true }>;
+type LoggedInUser = Extract<User, { loggedIn: true }> & {
+	/** Re-fetches the user's community list and updates the context. */
+	refetchCommunities: () => Promise<void>;
+	/** Patches display-name and description in the local actor data without a full refetch. */
+	updateActorData: (patch: { displayName?: string; description?: string }) => void;
+};
 
 export const UserContext = createContext<LoggedInUser>();
 
 export const UserContextProvider: ParentComponent = (props) => {
 	const client = useAuthContext();
 
-	const [user] = createResource(async (): Promise<User> => {
+	const [user, { mutate }] = createResource(async (): Promise<User> => {
 		if (!client) {
 			throw new Error("Unable to get client.");
 		}
@@ -107,11 +112,28 @@ export const UserContextProvider: ParentComponent = (props) => {
 						return <AppLoadingScreen message="Not logged in!" />;
 					}
 
-					return (
-						<UserContext.Provider value={value}>
-							{props.children}
-						</UserContext.Provider>
-					);
+					const refetchCommunities = async () => {
+							const res = await value.xrpc.social.colibri.actor.listCommunities();
+							if (res) {
+								mutate({ ...value, communities: res.communities });
+							}
+						};
+
+						const updateActorData = (patch: {
+							displayName?: string;
+							description?: string;
+						}) => {
+							mutate({
+								...value,
+								data: { ...value.data, ...patch },
+							});
+						};
+
+						return (
+							<UserContext.Provider value={{ ...value, refetchCommunities, updateActorData }}>
+								{props.children}
+							</UserContext.Provider>
+						);
 				}}
 			</Match>
 		</Switch>

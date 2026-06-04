@@ -41,7 +41,7 @@ Resolves a DID to a DID document. Does not bi-directionally verify the handle.
 
 ### `com.atproto.identity.resolveHandle`
 
-Resolves an atproto handle (hostname) to a DID. Does not necessarily bi-directionally verify against the the DID document.
+Resolves an atproto handle (hostname) to a DID. Does not necessarily bi-directionally verify against the DID document.
 
 <XRPCEndpointCard
 	method="GET"
@@ -62,28 +62,45 @@ Resolves an atproto handle (hostname) to a DID. Does not necessarily bi-directio
 
 ### `com.atproto.identity.resolveIdentity`
 
-Resolves an atproto handle (hostname) to a DID. Does not necessarily bi-directionally verify against the the DID document.
+Resolves an atproto handle or DID to a DID document. Handles are resolved to a DID first, then the DID document is fetched.
 
 <XRPCEndpointCard
 	method="GET"
 	nsid="com.atproto.identity.resolveIdentity"
 	queryParams={{
-		identifier: {
+		identity: {
 			type: "did | handle",
 			required: true
 		}
 	}}
 	response={{
+		didDoc: {
+			type: "DID Document",
+			required: true
+		}
+	}}
+/>
+
+### `com.atproto.sync.getBlob`
+
+Proxies a blob fetch to the PDS that hosts the given DID. Blobs are not stored locally — every call resolves the PDS endpoint from the DID document and streams the bytes back transparently.
+
+<XRPCEndpointCard
+	method="GET"
+	nsid="com.atproto.sync.getBlob"
+	queryParams={{
 		did: {
 			type: "did",
 			required: true
 		},
-		handle: {
-			type: "handle",
+		cid: {
+			type: "cid",
 			required: true
-		},
-		didDoc: {
-			type: "DID Document",
+		}
+	}}
+	response={{
+		blob: {
+			type: "bytes",
 			required: true
 		}
 	}}
@@ -122,13 +139,13 @@ Get a single cached record from the AppView.
 	}}
 />
 
-### `com.atproto.repo.listRecords`
+### `com.atproto.sync.listRecords`
 
 List a range of cached records in a repository, matching a specific collection.
 
 <XRPCEndpointCard
 	method="GET"
-	nsid="com.atproto.repo.listRecords"
+	nsid="com.atproto.sync.listRecords"
 	queryParams={{
 		repo: {
 			type: "at-identifier",
@@ -167,13 +184,13 @@ List a range of cached records in a repository, matching a specific collection.
 
 ### `social.colibri.actor.getData`
 
-Get the status data and bluesky profile for a Colibri user.
+Get the status data and Bluesky profile for a Colibri user.
 
 <XRPCEndpointCard
 	method="GET"
 	nsid="social.colibri.actor.getData"
 	queryParams={{
-		itendifier: {
+		identifier: {
 			type: "did | handle",
 			required: true
 		}
@@ -213,7 +230,7 @@ Get the status data and bluesky profile for a Colibri user.
 				},
 				status: {
 					type: "object",
-					required: false,
+					required: true,
 					children: {
 						emoji: {
 							type: "string",
@@ -238,7 +255,7 @@ Sets the online state for a Colibri user.
 	method="POST"
 	nsid="social.colibri.actor.setState"
 	authenticated
-	body={{
+	queryParams={{
 		state: {
 			type: "string",
 			required: true
@@ -320,22 +337,46 @@ Events of this type are sent to clients when a community has been updated or del
 {
 	event: 'upsert' | 'delete';
 	uri: string;
-	name: string;
-	description: string;
-	picture: blob;
-	categoryOrder: string[];
+	name?: string;
+	description?: string;
+	picture?: blob;
+	categoryOrder?: string[];
 }
 ```
 
 ##### `member_event`
 
-Events of this type are sent to clients when a member has joined or left (or been blocked from) a community. The `membership` property is an AT-URI to the user's membership declaration for the community.
+Events of this type are sent to clients when a member joins a community, has their roles changed, or leaves. `member_event` is broadcast to **all** connected clients (not just the subject). Clients should check `community` to scope the update to the right community, and check `member.did` against their own DID to detect when they themselves have been admitted or had their roles updated.
+
+| `event` | When | `membership` | `member` |
+|---|---|---|---|
+| `join` | A new member record is written (auto-admit or `approveMembership`) | AT-URI of the user's membership declaration, if available | Always present |
+| `roles_updated` | An existing member record is updated (e.g. a moderator changes roles) | Absent | Always present with the new `roles` array |
+| `leave` | A member record is deleted (kick, ban, or self-leave) | Absent | Absent |
 
 ```ts title="data"
 {
-	event: 'join' | 'leave';
+	event: 'join' | 'roles_updated' | 'leave';
 	community: string;
-	membership: string;
+	membership?: string;
+	member?: {
+		did: string;
+		handle: string;
+		roles: string[];
+		joinedAt: string;
+		nickname?: string;
+		data: {
+			displayName: string;
+			avatar?: blob;
+			banner?: blob;
+			description?: string;
+			onlineState: string;
+			status: {
+				text: string;
+				emoji?: string;
+			};
+		};
+	};
 }
 ```
 
@@ -347,56 +388,71 @@ Events of this type are sent to clients when a category has been created, update
 {
 	event: 'upsert' | 'delete';
 	uri: string;
-	community: string;
-	name: string;
-	channelOrder: string[];
+	community?: string;
+	name?: string;
+	channelOrder?: string[];
 }
 ```
 
 ##### `channel_event`
 
-Events of this type are sent to clients when a channel has been created, updated, or deleted. When the `event` is `delete`, all data except the `uri` and `event` can be omitted.
-
-```ts title="data"
-{
-	event: 'upsert' | 'delete'
-	uri: string;
-	community: string;
-	name: string;
-	description: string;
-	type: string;
-}
-```
-
-##### `message_event`
-
-Events of this type are sent to clients when a message has been sent, edited, or deleted. When the `event` is `delete`, all data except the `uri` and `event` can be omitted.
+Events of this type are sent to clients when a channel has been created, updated, or deleted. When the `event` is `delete`, all data except the `uri` and `event` can be omitted. On `upsert`, `category` is always present so clients can place the channel in the correct category without a follow-up fetch.
 
 ```ts title="data"
 {
 	event: 'upsert' | 'delete';
 	uri: string;
-	channel: string;
-	text: string;
-	facets: facet[];
-	createdAt: string;
-	indexedAt: string;
-	edited: boolean;
-	parent: string;
-	attachments: blob[];
+	community?: string;
+	category?: string;
+	name?: string;
+	description?: string;
+	type?: string;
+}
+```
+
+##### `message_event`
+
+Events of this type are sent to clients when a message has been sent, edited, or deleted. When the `event` is `delete`, all data except the `uri` and `event` can be omitted. On `upsert`, the `author` object is always present.
+
+```ts title="data"
+{
+	event: 'upsert' | 'delete';
+	uri: string;
+	channel?: string;
+	text?: string;
+	facets?: facet[];
+	createdAt?: string;
+	edited?: boolean;
+	parent?: string;
+	attachments?: { blob: blob; name?: string; }[];
+	author?: {
+		did: string;
+		handle: string;
+		data: {
+			displayName: string;
+			avatar?: blob;
+			banner?: blob;
+			description?: string;
+			onlineState: string;
+			status: {
+				text: string;
+				emoji?: string;
+			};
+		};
+	};
 }
 ```
 
 ##### `reaction_event`
 
-Events of this type are sent to clients when a reaction has been added to or removed from a message. When the `event` is `removed`, all data except the `uri` and `event` can be omitted.
+Events of this type are sent to clients when a reaction has been added to or removed from a message. On `removed`, `emoji` and `target` are populated by looking up the cached reaction record before it is deleted — they should always be present, but may be absent in the unlikely event of a cache miss.
 
 ```ts title="data"
 {
 	event: 'added' | 'removed';
 	uri: string;
-	emoji: string;
-	target: string;
+	emoji?: string;
+	target?: string;
 }
 ```
 
@@ -436,15 +492,25 @@ Events of this type are sent to clients when a user is typing in the channel the
 
 #### Messages
 
-The following messages can be sent from the client to the AppView.  All messages follow the same JSON data structure: they have a `type` (which is the same as the heading below), and an optional `data` field.
+The following messages can be sent from the client to the AppView. All messages follow the same JSON data structure: they have a `type` (which is the same as the heading below), and an optional `data` field.
 
 ##### `heartbeat`
 
 A generic event that carries no data. It is used to keep the socket connection alive. The AppView will always respond with an `ack` event.
 
+##### `typing`
+
+Clients send a `typing` message to report that the current user is typing in a channel. The AppView broadcasts a [`typing_event`](#typing_event) to every other client that is currently viewing the same channel (determined by the last `view` message they sent). No response is sent back to the sender.
+
+```ts title="data"
+{
+	channel: string;
+}
+```
+
 ##### `view`
 
-Clients can send a `view` message to the AppView to inform it about the channel the user is currently viewing.
+Clients can send a `view` message to the AppView to inform it about the channel the user is currently viewing. The AppView uses this to determine who should receive [`typing_event`](#typing_event) broadcasts.
 
 ```ts title="data"
 {
@@ -469,7 +535,7 @@ Clients must send a `voice_leave` message to the AppView when the user leaves a 
 
 ### `social.colibri.community.create`
 
-Mints a new community DID on the AppView's own PDS and bootstraps a fully populated community. The AppView authenticates against `PDS_LOC` using `PDS_ADMIN_USER` / `PDS_ADMIN_PASS` (HTTP Basic) so it can create accounts without an invite code, stores the new account's credentials encrypted in `community_credentials`, and writes five records to the new repo:
+Mints a new community DID on the AppView's own PDS and bootstraps a fully populated community. The AppView authenticates against `PDS_LOC` using admin credentials so it can create accounts without an invite code, stores the new account's credentials encrypted in `community_credentials`, and writes five records to the new repo:
 
 - `social.colibri.community` (pinned at `rkey: "self"`)
 - `social.colibri.category` — a default `"General"` category
@@ -477,7 +543,7 @@ Mints a new community DID on the AppView's own PDS and bootstraps a fully popula
 - `social.colibri.role` — an `"Owner"` role with every permission and `protected: true` so role-management endpoints refuse to delete it
 - `social.colibri.member` — `subject` = authenticated caller, holding the Owner role
 
-The caller ends up as an owner-equivalent member of the new community.
+The caller ends up as an owner-equivalent member of the new community. If `image` and `mime_type` are provided, the picture is base64-decoded, validated against the allowed MIME types (`image/jpeg`, `image/png`, `image/gif`), uploaded to the community's PDS, and stored as the community picture.
 
 <XRPCEndpointCard
 	method="POST"
@@ -494,6 +560,14 @@ The caller ends up as an owner-equivalent member of the new community.
 		},
 		requires_approval_to_join: {
 			type: "boolean",
+			required: false
+		},
+		image: {
+			type: "string (base64)",
+			required: false
+		},
+		mime_type: {
+			type: "string",
 			required: false
 		}
 	}}
@@ -525,7 +599,51 @@ The caller ends up as an owner-equivalent member of the new community.
 	}}
 />
 
-The AppView identifies communities by DID; handles minted alongside the account are an implementation detail of PDS hosting and are not expected to be used for identity resolution. The AppView fails to start if any of `PDS_LOC`, `PDS_ADMIN_USER`, `PDS_ADMIN_PASS`, `APPVIEW_HANDLE_DOMAIN`, or `CREDENTIAL_ENCRYPTION_KEY` are missing.
+The AppView identifies communities by DID; handles minted alongside the account are an implementation detail of PDS hosting and are not expected to be used for identity resolution. The AppView fails to start if any of `PDS_LOC`, `APPVIEW_HANDLE_DOMAIN`, or `CREDENTIAL_ENCRYPTION_KEY` are missing.
+
+### `social.colibri.community.update`
+
+Updates the community's settings. Only fields that are supplied are changed; omitted fields keep their current values.
+
+<XRPCEndpointCard
+	method="POST"
+	nsid="social.colibri.community.update"
+	authenticated
+	queryParams={{
+		community: {
+			type: "at-uri",
+			required: true
+		},
+		name: {
+			type: "string",
+			required: false
+		},
+		description: {
+			type: "string",
+			required: false
+		},
+		picture: {
+			type: "string (base64)",
+			required: false
+		},
+		mime_type: {
+			type: "string",
+			required: false
+		},
+		requires_approval_to_join: {
+			type: "boolean",
+			required: false
+		}
+	}}
+	response={{
+		uri: {
+			type: "at-uri",
+			required: true
+		}
+	}}
+/>
+
+Broadcasts `community_event { event: "upsert", uri, name?, description?, picture?, requiresApprovalToJoin? }`.
 
 ### `social.colibri.community.registerCredentials`
 
@@ -565,6 +683,336 @@ Registers user-supplied credentials (PDS endpoint + identifier + app password) f
 	}}
 />
 
+### `social.colibri.community.approveMembership`
+
+Admits a pending applicant to a closed community (`requiresApprovalToJoin: true`) by writing the community-side `social.colibri.member` record. Requires the caller to hold the `approval.manage` permission. Idempotent — if the subject is already a member, the endpoint succeeds without writing a duplicate record.
+
+<XRPCEndpointCard
+	method="POST"
+	nsid="social.colibri.community.approveMembership"
+	authenticated
+	queryParams={{
+		membership: {
+			type: "at-uri",
+			required: true
+		}
+	}}
+	response={{
+		did: {
+			type: "did",
+			required: true
+		},
+		community: {
+			type: "at-uri",
+			required: true
+		},
+		member: {
+			type: "at-uri",
+			required: false
+		}
+	}}
+/>
+
+### `social.colibri.category.create`
+
+Creates a new category in a community and appends it to the community's `categoryOrder`. Requires `category.create` permission.
+
+<XRPCEndpointCard
+	method="POST"
+	nsid="social.colibri.category.create"
+	authenticated
+	queryParams={{
+		community: {
+			type: "at-uri",
+			required: true
+		},
+		name: {
+			type: "string",
+			required: true
+		}
+	}}
+	response={{
+		uri: {
+			type: "at-uri",
+			required: true
+		}
+	}}
+/>
+
+Broadcasts `category_event { event: "upsert", uri, community, name, channelOrder: [] }` and `community_event { event: "upsert", uri, categoryOrder }`.
+
+### `social.colibri.category.update`
+
+Updates a category's name. Requires `category.update` permission.
+
+<XRPCEndpointCard
+	method="POST"
+	nsid="social.colibri.category.update"
+	authenticated
+	queryParams={{
+		category: {
+			type: "at-uri",
+			required: true
+		},
+		name: {
+			type: "string",
+			required: false
+		}
+	}}
+	response={{
+		uri: {
+			type: "at-uri",
+			required: true
+		}
+	}}
+/>
+
+Broadcasts `category_event { event: "upsert", uri, name }`.
+
+### `social.colibri.category.delete`
+
+Deletes a category and removes it from the community's `categoryOrder`. Requires `category.delete` permission.
+
+<XRPCEndpointCard
+	method="POST"
+	nsid="social.colibri.category.delete"
+	authenticated
+	queryParams={{
+		category: {
+			type: "at-uri",
+			required: true
+		}
+	}}
+	response={{
+		uri: {
+			type: "at-uri",
+			required: true
+		}
+	}}
+/>
+
+Broadcasts `category_event { event: "delete", uri }` and `community_event { event: "upsert", uri, categoryOrder }`.
+
+### `social.colibri.channel.create`
+
+Creates a new channel inside a category and appends it to the category's `channelOrder`. Requires `channel.create` permission.
+
+<XRPCEndpointCard
+	method="POST"
+	nsid="social.colibri.channel.create"
+	authenticated
+	queryParams={{
+		community: {
+			type: "at-uri",
+			required: true
+		},
+		category: {
+			type: "at-uri",
+			required: true
+		},
+		name: {
+			type: "string",
+			required: true
+		},
+		type: {
+			type: "string",
+			required: true
+		},
+		description: {
+			type: "string",
+			required: false
+		}
+	}}
+	response={{
+		uri: {
+			type: "at-uri",
+			required: true
+		}
+	}}
+/>
+
+Broadcasts `channel_event { event: "upsert", uri, community, category, name, type }` and `category_event { event: "upsert", uri, channelOrder }`.
+
+### `social.colibri.channel.update`
+
+Updates a channel's name and/or description. Requires `channel.update` permission.
+
+<XRPCEndpointCard
+	method="POST"
+	nsid="social.colibri.channel.update"
+	authenticated
+	queryParams={{
+		channel: {
+			type: "at-uri",
+			required: true
+		},
+		name: {
+			type: "string",
+			required: false
+		},
+		description: {
+			type: "string",
+			required: false
+		}
+	}}
+	response={{
+		uri: {
+			type: "at-uri",
+			required: true
+		}
+	}}
+/>
+
+Broadcasts `channel_event { event: "upsert", uri, name?, description? }`.
+
+### `social.colibri.channel.delete`
+
+Deletes a channel and removes it from its parent category's `channelOrder`. Requires `channel.delete` permission.
+
+<XRPCEndpointCard
+	method="POST"
+	nsid="social.colibri.channel.delete"
+	authenticated
+	queryParams={{
+		channel: {
+			type: "at-uri",
+			required: true
+		}
+	}}
+	response={{
+		uri: {
+			type: "at-uri",
+			required: true
+		}
+	}}
+/>
+
+Broadcasts `channel_event { event: "delete", uri }` and `category_event { event: "upsert", uri, channelOrder }`.
+
+### `social.colibri.community.reorderChannels`
+
+Persists a new channel order within a category. `channel_order` is provided as **repeated** query-string values. Requires `channel.update` permission.
+
+<XRPCEndpointCard
+	method="POST"
+	nsid="social.colibri.community.reorderChannels"
+	authenticated
+	queryParams={{
+		category: {
+			type: "at-uri",
+			required: true
+		},
+		channel_order: {
+			type: "string[] (repeated)",
+			required: true
+		}
+	}}
+	response={{
+		uri: {
+			type: "at-uri",
+			required: true
+		}
+	}}
+/>
+
+Broadcasts `category_event { event: "upsert", uri, channelOrder }`.
+
+### `social.colibri.community.reorderCategories`
+
+Persists a new category order for the community sidebar. `category_order` is provided as **repeated** query-string values. Requires `category.update` permission.
+
+<XRPCEndpointCard
+	method="POST"
+	nsid="social.colibri.community.reorderCategories"
+	authenticated
+	queryParams={{
+		community: {
+			type: "at-uri",
+			required: true
+		},
+		category_order: {
+			type: "string[] (repeated)",
+			required: true
+		}
+	}}
+	response={{
+		uri: {
+			type: "at-uri",
+			required: true
+		}
+	}}
+/>
+
+Broadcasts `community_event { event: "upsert", uri, categoryOrder }`.
+
+### `social.colibri.community.kick`
+
+Removes a member from the community by DID. Writes a `kick` moderation record and revokes the member record. Unlike `kickUser`, accepts a DID directly (no handle resolution). Requires `member.kick` permission.
+
+<XRPCEndpointCard
+	method="POST"
+	nsid="social.colibri.community.kick"
+	authenticated
+	queryParams={{
+		community: {
+			type: "at-uri",
+			required: true
+		},
+		member: {
+			type: "did",
+			required: true
+		}
+	}}
+	response={{
+		did: {
+			type: "did",
+			required: true
+		},
+		handle: {
+			type: "handle",
+			required: true
+		}
+	}}
+/>
+
+Broadcasts `member_event { event: "leave", community }` via the tap firehose once the member record is deleted.
+
+### `social.colibri.community.setMemberRoles`
+
+Replaces a member's full role set. `roles` is provided as **repeated** query-string values (AT-URIs or bare rkeys). Requires `role.manage` permission.
+
+<XRPCEndpointCard
+	method="POST"
+	nsid="social.colibri.community.setMemberRoles"
+	authenticated
+	queryParams={{
+		community: {
+			type: "at-uri",
+			required: true
+		},
+		member: {
+			type: "did",
+			required: true
+		},
+		roles: {
+			type: "string[] (repeated)",
+			required: true
+		}
+	}}
+	response={{
+		did: {
+			type: "did",
+			required: true
+		},
+		roles: {
+			type: "string[]",
+			required: true
+		}
+	}}
+/>
+
+Broadcasts `member_event { event: "roles_updated", community, member: { did, roles, data... } }` via the tap firehose once the member record is updated.
+
 ### `social.colibri.community.listBlockedUsers`
 
 Lists all blocked users for a community.
@@ -573,7 +1021,7 @@ Lists all blocked users for a community.
 	method="GET"
 	nsid="social.colibri.community.listBlockedUsers"
 	queryParams={{
-		'community': {
+		community: {
 			type: "at-uri",
 			required: true
 		}
@@ -594,7 +1042,7 @@ Lists all categories in a community.
 	method="GET"
 	nsid="social.colibri.community.listCategories"
 	queryParams={{
-		'community': {
+		community: {
 			type: "at-uri",
 			required: true
 		}
@@ -613,7 +1061,7 @@ Lists all categories in a community.
 					required: true,
 				},
 				channelOrder: {
-					type: "at-uri[]",
+					type: "string[]",
 					required: true,
 				},
 			}
@@ -629,7 +1077,7 @@ Lists all channels in a community.
 	method="GET"
 	nsid="social.colibri.community.listChannels"
 	queryParams={{
-		'community': {
+		community: {
 			type: "at-uri",
 			required: true
 		}
@@ -652,7 +1100,7 @@ Lists all channels in a community.
 					required: true,
 				},
 				category: {
-					type: "at-uri",
+					type: "string",
 					required: true,
 				},
 			}
@@ -668,7 +1116,7 @@ Lists all roles cached for a community.
 	method="GET"
 	nsid="social.colibri.community.listRoles"
 	queryParams={{
-		'community': {
+		community: {
 			type: "at-uri",
 			required: true
 		}
@@ -715,7 +1163,7 @@ Lists all roles cached for a community.
 					required: true,
 					children: {
 						channel: {
-							type: "at-uri",
+							type: "string",
 							required: true,
 						},
 						allow: {
@@ -741,13 +1189,13 @@ Lists all members with their roles, status information and Bluesky profiles.
 	method="GET"
 	nsid="social.colibri.community.listMembers"
 	queryParams={{
-		'community': {
+		community: {
 			type: "at-uri",
 			required: true
 		}
 	}}
 	response={{
-		'members': {
+		members: {
 			type: "object[]",
 			required: true,
 			children: {
@@ -760,7 +1208,7 @@ Lists all members with their roles, status information and Bluesky profiles.
 					required: true,
 				},
 				roles: {
-					type: "at-uri[]",
+					type: "string[]",
 					required: true,
 				},
 				data: {
@@ -789,7 +1237,7 @@ Lists all members with their roles, status information and Bluesky profiles.
 						},
 						status: {
 							type: "object",
-							required: false,
+							required: true,
 							children: {
 								emoji: {
 									type: "string",
@@ -816,7 +1264,7 @@ Returns all cached data for a community in a single response: the community reco
 	method="GET"
 	nsid="social.colibri.community.getData"
 	queryParams={{
-		'community': {
+		community: {
 			type: "at-uri",
 			required: true
 		}
@@ -843,7 +1291,7 @@ Returns all cached data for a community in a single response: the community reco
 					required: false,
 				},
 				categoryOrder: {
-					type: "at-uri[]",
+					type: "string[]",
 					required: true,
 				},
 				requiresApprovalToJoin: {
@@ -865,7 +1313,7 @@ Returns all cached data for a community in a single response: the community reco
 					required: true,
 				},
 				channelOrder: {
-					type: "at-uri[]",
+					type: "string[]",
 					required: true,
 				},
 			}
@@ -887,7 +1335,7 @@ Returns all cached data for a community in a single response: the community reco
 					required: true,
 				},
 				category: {
-					type: "at-uri",
+					type: "string",
 					required: true,
 				},
 			}
@@ -933,7 +1381,7 @@ Returns all cached data for a community in a single response: the community reco
 					required: true,
 					children: {
 						channel: {
-							type: "at-uri",
+							type: "string",
 							required: true,
 						},
 						allow: {
@@ -961,7 +1409,7 @@ Returns all cached data for a community in a single response: the community reco
 					required: true,
 				},
 				roles: {
-					type: "at-uri[]",
+					type: "string[]",
 					required: true,
 				},
 				data: {
@@ -990,7 +1438,7 @@ Returns all cached data for a community in a single response: the community reco
 						},
 						status: {
 							type: "object",
-							required: false,
+							required: true,
 							children: {
 								emoji: {
 									type: "string",
@@ -1011,24 +1459,24 @@ Returns all cached data for a community in a single response: the community reco
 
 ### `social.colibri.community.blockMessage`
 
-Block a message in a given community.
+Hides a message in a given community. Requires the caller to hold the `message.hide` permission.
 
 <XRPCEndpointCard
 	method="POST"
 	nsid="social.colibri.community.blockMessage"
 	authenticated
-	body={{
-		'community': {
+	queryParams={{
+		community: {
 			type: "at-uri",
 			required: true
 		},
-		'message': {
+		message: {
 			type: "at-uri",
 			required: true
 		},
 	}}
 	response={{
-		'message': {
+		message: {
 			type: "at-uri",
 			required: true,
 		}
@@ -1037,28 +1485,28 @@ Block a message in a given community.
 
 ### `social.colibri.community.blockUser`
 
-Block a user from writing messages in a given community.
+Bans a user from a community by writing a `ban` moderation record. Requires the `member.ban` permission. Callers can only ban members ranked strictly below them in the role hierarchy.
 
 <XRPCEndpointCard
 	method="POST"
 	nsid="social.colibri.community.blockUser"
 	authenticated
-	body={{
-		'community': {
+	queryParams={{
+		community: {
 			type: "at-uri",
 			required: true
 		},
-		'identifier': {
+		identifier: {
 			type: "did | handle",
 			required: true
 		}
 	}}
 	response={{
-		'did': {
+		did: {
 			type: "did",
 			required: true,
 		},
-		'handle': {
+		handle: {
 			type: "handle",
 			required: true,
 		}
@@ -1067,28 +1515,58 @@ Block a user from writing messages in a given community.
 
 ### `social.colibri.community.unblockUser`
 
-Unblock a user from a community, allowing them to write messages there again.
+Unbans a user from a community, allowing them to write messages there again. Requires the `member.unban` permission.
 
 <XRPCEndpointCard
 	method="POST"
 	nsid="social.colibri.community.unblockUser"
 	authenticated
-	body={{
-		'community': {
+	queryParams={{
+		community: {
 			type: "at-uri",
 			required: true
 		},
-		'identifier': {
+		identifier: {
 			type: "did | handle",
 			required: true
 		}
 	}}
 	response={{
-		'did': {
+		did: {
 			type: "did",
 			required: true,
 		},
-		'handle': {
+		handle: {
+			type: "handle",
+			required: true,
+		}
+	}}
+/>
+
+### `social.colibri.community.kickUser`
+
+Kicks a user from a community by writing a `kick` moderation record and revoking their membership. Unlike a ban, the kicked user is not prevented from rejoining. Requires the `member.ban` permission. Callers can only kick members ranked strictly below them in the role hierarchy.
+
+<XRPCEndpointCard
+	method="POST"
+	nsid="social.colibri.community.kickUser"
+	authenticated
+	queryParams={{
+		community: {
+			type: "at-uri",
+			required: true
+		},
+		identifier: {
+			type: "did | handle",
+			required: true
+		}
+	}}
+	response={{
+		did: {
+			type: "did",
+			required: true,
+		},
+		handle: {
 			type: "handle",
 			required: true,
 		}
@@ -1097,66 +1575,65 @@ Unblock a user from a community, allowing them to write messages there again.
 
 ### `social.colibri.community.createInvitation`
 
-Create an invitation for the specified community.
+Creates an invitation code for the specified community. Requires the `invitation.create` permission.
 
 <XRPCEndpointCard
 	method="POST"
 	nsid="social.colibri.community.createInvitation"
 	authenticated
-	body={{
-		'community': {
+	queryParams={{
+		community: {
 			type: "at-uri",
 			required: true
 		},
 	}}
 	response={{
-		'code': {
+		code: {
 			type: "string",
 			required: true,
 		},
-		'community': {
+		community: {
 			type: "at-uri",
 			required: true,
 		},
-		'createdBy': {
+		createdBy: {
 			type: "did",
 			required: true
 		},
-		'active': {
+		active: {
 			type: "boolean",
 			required: true
 		}
 	}}
 />
 
-### `social.colibri.community.resolveInvitation`
+### `social.colibri.community.getInvitation`
 
-Get information about a given invitation code.
+Get information about a given invitation code. Does not require authentication.
 
 <XRPCEndpointCard
 	method="GET"
-	nsid="social.colibri.community.resolveInvitation"
-	authenticated
+	nsid="social.colibri.community.getInvitation"
 	queryParams={{
-		'code': {
+		code: {
 			type: "string",
 			required: true
 		},
 	}}
 	response={{
-		'code': {
+		code: {
 			type: "string",
 			required: true,
 		},
-		'community': {
+		community: {
 			type: "at-uri",
 			required: true,
 		},
-		'createdBy': {
+		createdBy: {
 			type: "did",
 			required: true
 		},
-		'active': {
+		active: {
 			type: "boolean",
 			required: true
 		}
@@ -1165,14 +1642,14 @@ Get information about a given invitation code.
 
 ### `social.colibri.community.listInvitations`
 
-List all invitations for the specified community.
+List all invitations for the specified community. Requires the `invitation.create` permission.
 
 <XRPCEndpointCard
 	method="POST"
 	nsid="social.colibri.community.listInvitations"
 	authenticated
-	body={{
-		'uri': {
+	queryParams={{
+		uri: {
 			type: "at-uri",
 			required: true
 		},
@@ -1182,19 +1659,19 @@ List all invitations for the specified community.
 			type: "object[]",
 			required: true,
 			children: {
-				'code': {
+				code: {
 					type: "string",
 					required: true,
 				},
-				'community': {
+				community: {
 					type: "at-uri",
 					required: true,
 				},
-				'createdBy': {
+				createdBy: {
 					type: "did",
 					required: true
 				},
-				'active': {
+				active: {
 					type: "boolean",
 					required: true
 				}
@@ -1205,24 +1682,24 @@ List all invitations for the specified community.
 
 ### `social.colibri.community.deleteInvitation`
 
-Delete an invitation for the specified community.
+Deactivates an invitation code for the specified community. Requires the `invitation.delete` permission.
 
 <XRPCEndpointCard
 	method="POST"
 	nsid="social.colibri.community.deleteInvitation"
 	authenticated
-	body={{
-		'uri': {
+	queryParams={{
+		uri: {
 			type: "at-uri",
 			required: true
 		},
-		'code': {
+		code: {
 			type: "string",
 			required: true
 		},
 	}}
 	response={{
-		'code': {
+		code: {
 			type: "string",
 			required: true,
 		}
@@ -1231,31 +1708,35 @@ Delete an invitation for the specified community.
 
 ### `social.colibri.channel.listMessages`
 
-Get a paginated message history for the specified channel, newest messages first.
+Get a paginated message history for the specified channel, newest messages first. Banned users' messages are filtered out. The `createdAt` field reflects when the message was authored (taken directly from the AT Protocol record), not when the AppView indexed it.
 
 <XRPCEndpointCard
 	method="GET"
 	nsid="social.colibri.channel.listMessages"
 	queryParams={{
-		'channel': {
+		channel: {
 			type: "at-uri",
 			required: true
 		},
-		'limit': {
+		limit: {
 			type: "integer",
 			required: false
 		},
-		'cursor': {
+		cursor: {
 			type: "string",
 			required: false
 		},
-		'all': {
+		all: {
 			type: "boolean",
 			required: false
 		},
 	}}
 	response={{
-		'messages': {
+		cursor: {
+			type: "string",
+			required: false,
+		},
+		messages: {
 			type: "object[]",
 			required: true,
 			children: {
@@ -1280,16 +1761,192 @@ Get a paginated message history for the specified channel, newest messages first
 					required: true,
 				},
 				author: {
-					type: "did",
+					type: "object",
 					required: true,
+					children: {
+						did: {
+							type: "did",
+							required: true,
+						},
+						handle: {
+							type: "handle",
+							required: true,
+						},
+						data: {
+							type: "object",
+							required: true,
+							children: {
+								displayName: {
+									type: "string",
+									required: true,
+								},
+								avatar: {
+									type: "blob",
+									required: false,
+								},
+								banner: {
+									type: "blob",
+									required: false,
+								},
+								description: {
+									type: "string",
+									required: false,
+								},
+								onlineState: {
+									type: "string",
+									required: true,
+								},
+								status: {
+									type: "object",
+									required: true,
+									children: {
+										emoji: {
+											type: "string",
+											required: false,
+										},
+										text: {
+											type: "string",
+											required: true,
+										},
+									}
+								},
+							}
+						},
+					}
 				},
 				parent: {
-					type: "at-uri",
-					required: true,
+					type: "object",
+					required: false,
+					children: {
+						uri: {
+							type: "at-uri",
+							required: true,
+						},
+						text: {
+							type: "string",
+							required: true,
+						},
+						facets: {
+							type: "Facet[]",
+							required: true,
+						},
+						channel: {
+							type: "at-uri",
+							required: true,
+						},
+						community: {
+							type: "at-uri",
+							required: true,
+						},
+						author: {
+							type: "object",
+							required: true,
+							children: {
+								did: {
+									type: "did",
+									required: true,
+								},
+								handle: {
+									type: "handle",
+									required: true,
+								},
+								data: {
+									type: "object",
+									required: true,
+									children: {
+										displayName: {
+											type: "string",
+											required: true,
+										},
+										avatar: {
+											type: "blob",
+											required: false,
+										},
+										banner: {
+											type: "blob",
+											required: false,
+										},
+										description: {
+											type: "string",
+											required: false,
+										},
+										onlineState: {
+											type: "string",
+											required: true,
+										},
+										status: {
+											type: "object",
+											required: true,
+											children: {
+												emoji: {
+													type: "string",
+													required: false,
+												},
+												text: {
+													type: "string",
+													required: true,
+												},
+											}
+										},
+									}
+								},
+							}
+						},
+						attachments: {
+							type: "object[]",
+							required: true,
+							children: {
+								blob: {
+									type: "blob",
+									required: true,
+								},
+								name: {
+									type: "string",
+									required: false,
+								},
+							}
+						},
+						reactions: {
+							type: "object[]",
+							required: true,
+							children: {
+								emoji: {
+									type: "string",
+									required: true,
+								},
+								count: {
+									type: "integer",
+									required: true,
+								},
+								reactorDids: {
+									type: "string[]",
+									required: true,
+								},
+							}
+						},
+						createdAt: {
+							type: "datetime",
+							required: true,
+						},
+						edited: {
+							type: "boolean",
+							required: true,
+						},
+					}
 				},
 				attachments: {
-					type: "blob[]",
+					type: "object[]",
 					required: true,
+					children: {
+						blob: {
+							type: "blob",
+							required: true,
+						},
+						name: {
+							type: "string",
+							required: false,
+						},
+					}
 				},
 				reactions: {
 					type: "object[]",
@@ -1303,12 +1960,20 @@ Get a paginated message history for the specified channel, newest messages first
 							type: "integer",
 							required: true,
 						},
-						reactorDIDs: {
+						reactorDids: {
 							type: "string[]",
 							required: true,
 						},
 					}
-				}
+				},
+				createdAt: {
+					type: "datetime",
+					required: true,
+				},
+				edited: {
+					type: "boolean",
+					required: true,
+				},
 			}
 		}
 	}}
@@ -1323,36 +1988,36 @@ Get the read cursor for the current user and specified channel.
 	nsid="social.colibri.channel.getReadCursor"
 	authenticated
 	queryParams={{
-		'channel': {
+		channel: {
 			type: "at-uri",
 			required: true
 		},
 	}}
 	response={{
-		'uri': {
+		uri: {
 			type: "at-uri",
 			required: true,
 		},
-		'cursor': {
+		cursor: {
 			type: "string",
 			required: true,
 		},
-		'channel': {
+		channel: {
 			type: "at-uri",
 			required: true,
 		}
 	}}
 />
 
-### `social.colibri.message.listReactions`
+### `social.colibri.channel.listReactions`
 
 Get all reactions for a specified message, grouped by emoji with reactor DIDs.
 
 <XRPCEndpointCard
 	method="GET"
-	nsid="social.colibri.message.listReactions"
+	nsid="social.colibri.channel.listReactions"
 	queryParams={{
-		'message': {
+		message: {
 			type: "at-uri",
 			required: true
 		},
@@ -1370,7 +2035,7 @@ Get all reactions for a specified message, grouped by emoji with reactor DIDs.
 					type: "integer",
 					required: true,
 				},
-				reactorDIDs: {
+				reactorDids: {
 					type: "string[]",
 					required: true,
 				},
@@ -1459,8 +2124,18 @@ Returns a paginated list of notifications for the authenticated user, newest fir
 							required: false
 						},
 						attachments: {
-							type: "blob[]",
-							required: true
+							type: "object[]",
+							required: true,
+							children: {
+								blob: {
+									type: "blob",
+									required: true,
+								},
+								name: {
+									type: "string",
+									required: false,
+								},
+							}
 						},
 						edited: {
 							type: "boolean",
@@ -1535,7 +2210,7 @@ Notification events are emitted over [`social.colibri.sync.subscribeEvents`](#so
 		facets: facet[];
 		createdAt: string;
 		parent?: string;
-		attachments: blob[];
+		attachments: { blob: blob; name?: string; }[];
 		edited?: boolean;
 	};
 }
@@ -1543,19 +2218,23 @@ Notification events are emitted over [`social.colibri.sync.subscribeEvents`](#so
 
 ## Humming
 
-The Colibri infrastructure is designed to be easy to self-host. In cases where users prefer to host their own infrastructure, under normal circumstances, data that is not saved on the protocol (like online/offline status, writing presence, etc.) is not able to be transmitted to other users who use a different app view.
+:::caution[Not yet implemented]
+The Humming system is designed but not yet implemented in the current AppView. The endpoints described below are not registered and will return 404.
+:::
 
-The Colibri AppView supports a system called **Humming** to curcumvent this. Other AppView instances that wish to share off-protocol status data with users on other instances can share them via a **Hum**, a message sent to another AppView instance's `social.colibri.sync.sendHum` endpoint, which can then choose to relay it to its clients via its [`social.colibri.sync.subscribeEvents`](#socialcolibrisyncsubscribeevents) WebSocket stream. Additionally, AppViews that wish to forward these events to other AppViews can expose a `social.colibri.sync.subscribeHums` endpoint, to which other AppViews can subscribe.
+The Colibri infrastructure is designed to be easy to self-host. In cases where users prefer to host their own infrastructure, under normal circumstances, data that is not saved on the protocol (like online/offline status, writing presence, etc.) is not able to be transmitted to other users who use a different AppView.
+
+The Colibri AppView supports a system called **Humming** to circumvent this. Other AppView instances that wish to share off-protocol status data with users on other instances can share them via a **Hum**, a message sent to another AppView instance's `social.colibri.sync.sendHum` endpoint, which can then choose to relay it to its clients via its [`social.colibri.sync.subscribeEvents`](#socialcolibrisyncsubscribeevents) WebSocket stream. Additionally, AppViews that wish to forward these events to other AppViews can expose a `social.colibri.sync.subscribeHums` endpoint, to which other AppViews can subscribe.
 
 ### `social.colibri.sync.sendHum`
 
-Inform another AppView of an event that has occured.
+Inform another AppView of an event that has occurred.
 
 <XRPCEndpointCard
 	method="POST"
 	nsid="social.colibri.sync.sendHum"
 	body={{
-		'event': {
+		event: {
 			type: "object",
 			required: true
 		}

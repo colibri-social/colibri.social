@@ -1,4 +1,5 @@
 import type { JsonBlobRef } from "@atproto/lexicon";
+import { getAppViewHost } from "../utils/appview";
 
 /**
  * Resolves a blob to it's URL given a DID.
@@ -12,7 +13,8 @@ export const resolveBlob = (
 ): string | undefined => {
 	if (!blob) return undefined;
 
+	const appView = getAppViewHost("http");
 	let cid = "cid" in blob ? blob.cid : blob.ref.$link;
 
-	return `https://colibri.social/xrpc/com.atproto.sync.getBlob?did=${did}&cid=${cid}`;
+	return `${appView}/xrpc/com.atproto.sync.getBlob?did=${did}&cid=${cid}`;
 };

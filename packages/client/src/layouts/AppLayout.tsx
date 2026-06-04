@@ -13,13 +13,18 @@ import {
 	createSignal,
 	For,
 	Match,
+	onCleanup,
+	onMount,
 	type ParentComponent,
 	Show,
 	Switch,
 } from "solid-js";
-// import { CommunityCreationModal } from "../components/Community/CommunityCreationModal";
-// import { UserSettingsModal } from "../components/Settings/index";
-// import { useGlobalContext } from "../contexts/GlobalContext";
+import { UserSettingsModal } from "../components/app/UserSettingsModal";
+import {
+	UserPreferencesContextProvider,
+	useUserPreferences,
+} from "../contexts/UserPreferences";
+import { useSocketContext } from "../contexts/Socket";
 import {
 	animateToNewPositions,
 	capturePositions,
@@ -33,7 +38,9 @@ import { useUserContext } from "../contexts/User";
 import ColibriLogo from "../assets/logo.png";
 import HouseIcon from "~icons/ph/house";
 import UsersIcon from "~icons/ph/users";
+import GearIcon from "~icons/ph/gear";
 import { CommunityCreationModal } from "../components/app/CommunityCreationModal";
+import { NotificationBell } from "../components/app/NotificationBell";
 import { Plus } from "../components/icons/Plus";
 
 const CommunityAvatar = (props: { item: Community; class?: string }) => {
@@ -161,8 +168,27 @@ const CommunitySidebar = (props: {
 };
 
 const AppLayout: ParentComponent = (props) => {
+	const { preferences, toggleMembersVisible } = useUserPreferences();
+	const [userSettingsOpen, setUserSettingsOpen] = createSignal(false);
 	const user = useUserContext();
+	const socket = useSocketContext();
 	const navigate = useNavigate();
+
+	// When we ourselves are admitted to a community (member_event.join for our
+	// own DID), refresh the community list so the new community appears in the
+	// sidebar without a reload.
+	onMount(() => {
+		const cleanup = socket.onEvent((event) => {
+			if (
+				event.type === "member_event" &&
+				event.data?.event === "join" &&
+				event.data.member?.did === user.did
+			) {
+				user.refetchCommunities();
+			}
+		});
+		onCleanup(cleanup);
+	});
 
 	const sortedCommunities = () =>
 		user.communities.toSorted(
@@ -232,12 +258,14 @@ const AppLayout: ParentComponent = (props) => {
 						colibri.social
 					</span>
 				</div>
-				<div class="h-full pr-1 flex items-center">
+				<div class="h-full pr-1 flex items-center gap-1">
+					<NotificationBell />
 					<Button
 						size="sm"
 						variant="ghost"
 						class="w-8 h-8"
-						// onClick={() => setMemberListVisible((current) => !current)} FIXME: Re-introduce locally saved preferences
+						classList={{ "bg-muted!": preferences().membersListVisible }}
+						onClick={toggleMembersVisible}
 					>
 						<UsersIcon />
 					</Button>
@@ -276,19 +304,25 @@ const AppLayout: ParentComponent = (props) => {
 							</CommunityCreationModal>
 						</div>
 					</nav>
-					{/* FIXME: User modal */}
-					{/*<UserSettingsModal>
-						<div class="w-10 flex h-10 rounded-md bg-muted hover:bg-primary hover:text-primary-foreground items-center justify-center cursor-pointer">
-							<div class="block w-fit h-fit">
-								<Icon variant="regular" name="gear-icon" />
-							</div>
-						</div>
-					</UserSettingsModal>*/}
+					<button
+						type="button"
+						class="w-10 flex h-10 rounded-md bg-muted hover:bg-primary hover:text-primary-foreground items-center justify-center cursor-pointer"
+						onClick={() => setUserSettingsOpen(true)}
+					>
+						<GearIcon />
+					</button>
 				</aside>
 				<main class="w-full h-full">{props.children}</main>
 			</div>
+			<UserSettingsModal open={userSettingsOpen} setOpen={setUserSettingsOpen} />
 		</div>
 	);
 };
 
-export default AppLayout;
+const AppLayoutWithPreferences: ParentComponent = (props) => (
+	<UserPreferencesContextProvider>
+		<AppLayout>{props.children}</AppLayout>
+	</UserPreferencesContextProvider>
+);
+
+export default AppLayoutWithPreferences;

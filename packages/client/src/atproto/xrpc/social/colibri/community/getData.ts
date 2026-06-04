@@ -14,7 +14,7 @@ export type CommunityData = {
 	requiresApprovalToJoin: boolean;
 };
 
-export type Response = {
+export type Community = {
 	community: CommunityData;
 	categories: Array<Category>;
 	channels: Array<Channel>;
@@ -24,7 +24,7 @@ export type Response = {
 
 export const getData: XrpcRequest<
 	[string],
-	Promise<Response | undefined>
+	Promise<Community | undefined>
 > = async (fetch, community) => {
 	try {
 		const res = await fetch(

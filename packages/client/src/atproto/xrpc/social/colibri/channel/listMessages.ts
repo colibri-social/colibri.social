@@ -1,26 +1,39 @@
 import type { JsonBlobRef } from "@atproto/lexicon";
-import type { ColibriRichTextFacet } from "lib";
+import type { ActorData, ColibriRichTextFacet } from "lib";
 import { XrpcRequest } from "../../..";
 
-type Reaction = {
+export type Reaction = {
 	emoji: string;
 	count: number;
 	reactorDIDs: Array<string>;
 };
 
-type Message = {
+export type Message = {
 	uri: string;
 	text: string;
 	facets: Array<ColibriRichTextFacet>;
 	channel: string;
 	community: string;
-	author: string;
-	parent: string;
-	attachments: Array<JsonBlobRef>;
+	author: ActorData;
+	parent?: Omit<Message, "parent">;
+	attachments: Array<{
+		name?: string;
+		blob: JsonBlobRef;
+	}>;
 	reactions: Array<Reaction>;
+	createdAt: string;
+	edited: boolean;
 };
 
-type Response = {
+/**
+ * An optimistic message that has been sent to the PDS but not yet
+ * confirmed (or rejected). `uri` is an empty string — `isPending()`
+ * checks `uri.length === 0`. The `hash` field is a random identifier
+ * used to match the pending row against the PDS confirmation.
+ */
+export type PendingMessage = Message & { hash: string };
+
+export type Response = {
 	messages: Array<Message>;
 };
 

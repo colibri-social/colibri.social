@@ -13,15 +13,15 @@ import {
 import { Dynamic } from "solid-js/web";
 import { Icon, type IconName } from "@/components/solid/icons/Icon";
 import { cn } from "@/utils/cn";
-import { Spinner } from "../../icons/Spinner";
-import { Button } from "../../shadcn-solid/Button";
+import { Button } from "../shadcn-solid/Button";
+import { Spinner } from "../icons/Spinner";
 import {
 	Dialog,
 	DialogCloseButton,
 	DialogContent,
 	DialogPortal,
 	DialogTrigger,
-} from "../../shadcn-solid/Dialog";
+} from "../shadcn-solid/Dialog";
 
 export const SettingsPage: ParentComponent<{
 	loading: Accessor<boolean>;

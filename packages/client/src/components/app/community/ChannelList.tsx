@@ -16,7 +16,8 @@ import {
 	Show,
 } from "solid-js";
 import { createStore } from "solid-js/store";
-import { useCommunityContext } from "../../../contexts/Community";
+import { useCommunityContext, usePermissions } from "../../../contexts/Community";
+import { useUserContext } from "../../../contexts/User";
 import { Button } from "../../ui/Button";
 import {
 	animateToNewPositions,
@@ -29,8 +30,7 @@ import {
 	type CategoryWithChannels,
 	type ChannelDropTarget,
 } from "./Category";
-// TODO: Re-introduce CategoryCreationModal once it's ported.
-// import { CategoryCreationModal } from "./CategoryCreationModal";
+import { CategoryCreationModal } from "./CategoryCreationModal";
 import { SortableCategory } from "./SortableCategory";
 import { useProcessedSidebar } from "./useProcessedSidebar";
 import PlusIcon from "~icons/ph/plus";
@@ -40,10 +40,9 @@ export const ChannelList: Component<{
 }> = (props) => {
 	const community = useCommunityContext();
 	const processed = useProcessedSidebar();
-
-	// TODO: Replace with a real permission check once role helpers exist.
-	// Previously: `community.owner_did === globalData.user.sub`.
-	const canManage = () => true;
+	const user = useUserContext();
+	const { canManage: _canManage } = usePermissions();
+	const canManage = () => _canManage(user.did);
 
 	const [committedOrder, setCommittedOrder] = createSignal<
 		CategoryWithChannels[] | null
@@ -101,14 +100,7 @@ export const ChannelList: Component<{
 
 	const handleChannelReorder = (categoryUri: string, newOrder: string[]) => {
 		setChannelOrders(categoryUri, newOrder);
-		// TODO: Persist via the XrpcClient. Previously:
-		// actions.reorderChannels({
-		// 	channelRkey: "",
-		// 	sourceCategoryRkey: categoryUri,
-		// 	sourceChannelOrder: newOrder,
-		// 	destCategoryRkey: categoryUri,
-		// 	destChannelOrder: newOrder,
-		// });
+		user.xrpc.social.colibri.community.reorderChannels(categoryUri, newOrder).catch(() => {});
 	};
 
 	const getChannelCategory = (
@@ -280,11 +272,10 @@ export const ChannelList: Component<{
 			if (!droppable || !final || draggable?.id === droppable.id) return;
 
 			setCommittedOrder(final);
-			// TODO: Persist new category order via the XrpcClient. Previously:
-			// actions.editCategoryOrder({
-			// 	community: communityUri,
-			// 	categoryOrder: final.map((c) => c.uri),
-			// });
+			user.xrpc.social.colibri.community.reorderCategories(
+				community().community.uri,
+				final.map((c) => c.uri),
+			).catch(() => {});
 			props.onCategoryReorder?.(final);
 			return;
 		}
@@ -333,14 +324,8 @@ export const ChannelList: Component<{
 			}
 		});
 
-		// TODO: Persist new channel order(s) via the XrpcClient. Previously:
-		// actions.reorderChannels({
-		// 	channelRkey: channelId,
-		// 	sourceCategoryRkey: sourceCat,
-		// 	sourceChannelOrder: srcOrder,
-		// 	destCategoryRkey: destCat,
-		// 	destChannelOrder: destOrder,
-		// });
+		user.xrpc.social.colibri.community.reorderChannels(sourceCat, srcOrder).catch(() => {});
+		user.xrpc.social.colibri.community.reorderChannels(destCat, destOrder).catch(() => {});
 	};
 
 	const visibleCategories = () => draggingOrder() ?? sortedCategories();
@@ -380,8 +365,6 @@ export const ChannelList: Component<{
 						)}
 					</For>
 				</SortableProvider>
-				{/* TODO: Re-introduce CategoryCreationModal (gated on canManage())
-				    once ported. Original:
 				<Show when={canManage()}>
 					<CategoryCreationModal community={community().community.uri}>
 						<Button
@@ -393,7 +376,7 @@ export const ChannelList: Component<{
 							<span>Add new category</span>
 						</Button>
 					</CategoryCreationModal>
-				</Show> */}
+				</Show>
 			</nav>
 		</DragDropProvider>
 	);

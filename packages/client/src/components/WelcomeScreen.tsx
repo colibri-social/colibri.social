@@ -3,7 +3,7 @@ import type { Component } from "solid-js";
 import { Alert, AlertDescription, AlertTitle } from "./ui/Alert";
 import { Button } from "./ui/Button";
 import ColibriLogo from "../assets/logo.png";
-// import { CommunityCreationModal } from "../Community/CommunityCreationModal";
+import { CommunityCreationModal } from "./app/CommunityCreationModal";
 
 /**
  * A welcome screen to be displayed if a user has no communities.
@@ -50,10 +50,9 @@ export const WelcomeScreen: Component = () => {
 					</AlertDescription>
 				</Alert>
 				<div class="flex flex-row items-center gap-4">
-					{/* FIXME: Re-enable this button */}
-					{/*<CommunityCreationModal navigate={navigate}>
+					<CommunityCreationModal>
 						<Button>Create a community</Button>
-					</CommunityCreationModal>*/}
+					</CommunityCreationModal>
 					<a href="https://colibri.social/invite/1b0e708bd85c414e">
 						<Button variant="secondary">
 							Join the Colibri Social Community

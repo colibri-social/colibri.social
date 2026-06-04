@@ -130,7 +130,7 @@ export const DialogTitle = <T extends ValidComponent = "h2">(
 	return (
 		<DialogPrimitive.Title
 			data-slot="dialog-title"
-			class={cx("text-lg leading-none font-semibold", props.class)}
+			class={cx("text-lg m-0 leading-none font-semibold", props.class)}
 			{...rest}
 		/>
 	);

@@ -9,10 +9,19 @@ import { getData } from "./social/colibri/actor/getData";
 import { listCommunities } from "./social/colibri/actor/listCommunities";
 import { setState } from "./social/colibri/actor/setState";
 import { getReadCursor } from "./social/colibri/channel/getReadCursor";
+import { getVoiceToken } from "./social/colibri/channel/getVoiceToken";
 import { listMessages } from "./social/colibri/channel/listMessages";
 import { blockMessage } from "./social/colibri/community/blockMessage";
 import { blockUser } from "./social/colibri/community/blockUser";
 import { create } from "./social/colibri/community/create";
+import { createCategory } from "./social/colibri/community/createCategory";
+import { editCategory } from "./social/colibri/community/editCategory";
+import { deleteCategory } from "./social/colibri/community/deleteCategory";
+import { createChannel } from "./social/colibri/community/createChannel";
+import { editChannel } from "./social/colibri/community/editChannel";
+import { deleteChannel } from "./social/colibri/community/deleteChannel";
+import { update as updateCommunity } from "./social/colibri/community/update";
+import { leave } from "./social/colibri/community/leave";
 import { createInvitation } from "./social/colibri/community/createInvitation";
 import { deleteInvitation } from "./social/colibri/community/deleteInvitation";
 import { getData as getCommunityData } from "./social/colibri/community/getData";
@@ -22,6 +31,10 @@ import { listChannels } from "./social/colibri/community/listChannels";
 import { listInvitations } from "./social/colibri/community/listInvitations";
 import { listMembers } from "./social/colibri/community/listMembers";
 import { listRoles } from "./social/colibri/community/listRoles";
+import { reorderChannels } from "./social/colibri/community/reorderChannels";
+import { reorderCategories } from "./social/colibri/community/reorderCategories";
+import { kick } from "./social/colibri/community/kick";
+import { setMemberRoles } from "./social/colibri/community/setMemberRoles";
 import { registerCredentials } from "./social/colibri/community/registerCredentials";
 import { resolveInvitation } from "./social/colibri/community/resolveInvitation";
 import { unblockUser } from "./social/colibri/community/unblockUser";
@@ -177,6 +190,84 @@ export class XrpcClient {
 						token,
 					);
 				},
+				update: async (
+					community: string,
+					name?: string,
+					description?: string,
+					picture?: string,
+					mimeType?: string,
+				) => {
+					const token = await this.generateServiceAuthToken(
+						"social.colibri.community.update",
+					);
+					return updateCommunity(this.proxiedFetch, community, name, description, picture, mimeType, token);
+				},
+				leave: async (community: string) => {
+					const token = await this.generateServiceAuthToken(
+						"social.colibri.community.leave",
+					);
+					return leave(this.proxiedFetch, community, token);
+				},
+				createCategory: async (community: string, name: string) => {
+					const token = await this.generateServiceAuthToken(
+						"social.colibri.community.createCategory",
+					);
+					return createCategory(this.proxiedFetch, community, name, token);
+				},
+				editCategory: async (category: string, name: string) => {
+					const token = await this.generateServiceAuthToken(
+						"social.colibri.community.editCategory",
+					);
+					return editCategory(this.proxiedFetch, category, name, token);
+				},
+				deleteCategory: async (category: string) => {
+					const token = await this.generateServiceAuthToken(
+						"social.colibri.community.deleteCategory",
+					);
+					return deleteCategory(this.proxiedFetch, category, token);
+				},
+				createChannel: async (community: string, category: string, name: string, type: string) => {
+					const token = await this.generateServiceAuthToken(
+						"social.colibri.community.createChannel",
+					);
+					return createChannel(this.proxiedFetch, community, category, name, type, token);
+				},
+				editChannel: async (channel: string, name: string) => {
+					const token = await this.generateServiceAuthToken(
+						"social.colibri.community.editChannel",
+					);
+					return editChannel(this.proxiedFetch, channel, name, token);
+				},
+				deleteChannel: async (channel: string) => {
+					const token = await this.generateServiceAuthToken(
+						"social.colibri.community.deleteChannel",
+					);
+					return deleteChannel(this.proxiedFetch, channel, token);
+				},
+				reorderChannels: async (category: string, channelOrder: string[]) => {
+					const token = await this.generateServiceAuthToken(
+						"social.colibri.community.reorderChannels",
+					);
+					return reorderChannels(this.proxiedFetch, category, channelOrder, token);
+				},
+				reorderCategories: async (community: string, categoryOrder: string[]) => {
+					const token = await this.generateServiceAuthToken(
+						"social.colibri.community.reorderCategories",
+					);
+					return reorderCategories(this.proxiedFetch, community, categoryOrder, token);
+				},
+				kick: async (community: string, member: string) => {
+					const token = await this.generateServiceAuthToken(
+						"social.colibri.community.kick",
+					);
+					return kick(this.proxiedFetch, community, member, token);
+				},
+				setMemberRoles: async (community: string, member: string, roles: string[]) => {
+					const token = await this.generateServiceAuthToken(
+						"social.colibri.community.setMemberRoles",
+					);
+					return setMemberRoles(this.proxiedFetch, community, member, roles, token);
+				},
 				getData: (community: string) =>
 					getCommunityData(this.proxiedFetch, community),
 				listBlockedUsers: (community: string) =>
@@ -252,6 +343,13 @@ export class XrpcClient {
 					);
 
 					return getReadCursor(this.proxiedFetch, channel, token);
+				},
+				getVoiceToken: async (channel: string) => {
+					const token = await this.generateServiceAuthToken(
+						"social.colibri.channel.getVoiceToken",
+					);
+
+					return getVoiceToken(this.proxiedFetch, channel, token);
 				},
 			},
 			message: {

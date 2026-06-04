@@ -2,6 +2,7 @@ import type { JsonBlobRef } from "@atproto/lexicon";
 import { AT_URI } from "./atproto.js";
 import { ColibriRichTextFacet } from "./facets.js";
 import { OnlineState } from "./shared.js";
+import { ActorData } from "./xrpc/social.colibri/actor/getData.js";
 
 interface EventBase<T extends string, D = undefined> {
 	type: T;
@@ -15,10 +16,10 @@ export type Colibri_CommunityEvent = EventBase<
 	| {
 			event: "upsert";
 			uri: AT_URI<"social.colibri.community">;
-			name: string;
-			description: string;
-			picture: JsonBlobRef;
-			categoryOrder: Array<string>;
+			name?: string;
+			description?: string;
+			picture?: JsonBlobRef;
+			categoryOrder?: Array<string>;
 	  }
 	| {
 			event: "delete";
@@ -26,13 +27,55 @@ export type Colibri_CommunityEvent = EventBase<
 	  }
 >;
 
+/**
+ * Shape of the member object included in member_event join payloads.
+ * Mirrors the `Member` type from `listMembers.ts` (same fields, kept
+ * local to avoid a cross-package import cycle).
+ */
+export type Colibri_MemberEventMember = {
+	did: string;
+	handle: string;
+	roles: Array<string>;
+	joinedAt?: string;
+	nickname?: string;
+	data: {
+		displayName: string;
+		avatar?: JsonBlobRef;
+		banner?: JsonBlobRef;
+		description?: string;
+		onlineState: OnlineState;
+		status?: { emoji?: string; text: string };
+	};
+};
+
 export type Colibri_MemberEvent = EventBase<
 	"member_event",
-	{
-		event: "join" | "leave";
-		community: AT_URI<"social.colibri.community">;
-		membership: AT_URI<"social.colibri.membership">;
-	}
+	/**
+	 * Broadcast to every client; scope by `community`, not by DID.
+	 * - `join`: a member record was created (auto-admit or approveMembership).
+	 *   Carries the full `member`. When `member.did === currentUserDid` the
+	 *   local user was just admitted — replaces the old community_event upsert.
+	 * - `roles_updated`: a moderator changed a member's roles. Carries the
+	 *   full `member` with the new `roles` array. No `membership` field.
+	 * - `leave`: a member record was deleted (kick, ban, self-leave). No
+	 *   `member` object; only `community` (and optionally `membership`).
+	 */
+	| {
+			event: "join";
+			community: AT_URI<"social.colibri.community">;
+			membership?: AT_URI<"social.colibri.membership">;
+			member: Colibri_MemberEventMember;
+	  }
+	| {
+			event: "roles_updated";
+			community: AT_URI<"social.colibri.community">;
+			member: Colibri_MemberEventMember;
+	  }
+	| {
+			event: "leave";
+			community: AT_URI<"social.colibri.community">;
+			membership?: AT_URI<"social.colibri.membership">;
+	  }
 >;
 
 export type Colibri_CategoryEvent = EventBase<
@@ -40,14 +83,14 @@ export type Colibri_CategoryEvent = EventBase<
 	| {
 			event: "upsert";
 			uri: AT_URI<"social.colibri.category">;
-			community: AT_URI<"social.colibri.community">;
-			name: string;
-			channelOrder: string;
+			community?: AT_URI<"social.colibri.community">;
+			name?: string;
+			channelOrder?: Array<string>;
 	  }
 	| {
 			event: "delete";
 			uri: AT_URI<"social.colibri.category">;
-			community: AT_URI<"social.colibri.community">;
+			community?: AT_URI<"social.colibri.community">;
 	  }
 >;
 
@@ -56,15 +99,15 @@ export type Colibri_ChannelEvent = EventBase<
 	| {
 			event: "upsert";
 			uri: AT_URI<"social.colibri.channel">;
-			community: AT_URI<"social.colibri.community">;
-			name: string;
-			description: string;
-			type: string;
+			community?: AT_URI<"social.colibri.community">;
+			name?: string;
+			description?: string;
+			type?: string;
 	  }
 	| {
 			event: "delete";
 			uri: AT_URI<"social.colibri.channel">;
-			community: AT_URI<"social.colibri.community">;
+			community?: AT_URI<"social.colibri.community">;
 	  }
 >;
 
@@ -77,10 +120,11 @@ export type Colibri_MessageEvent = EventBase<
 			text: string;
 			facets: Array<ColibriRichTextFacet>;
 			createdAt: string;
-			indexedAt: string;
 			edited: boolean;
-			parent: string;
-			attachments: Array<JsonBlobRef>;
+			parent?: string;
+			attachments: Array<{ blob: JsonBlobRef; name?: string }>;
+			/** Fully-hydrated author — always present on upsert. */
+			author: ActorData;
 	  }
 	| {
 			event: "delete";
@@ -91,13 +135,20 @@ export type Colibri_MessageEvent = EventBase<
 
 export type Colibri_ReactionEvent = EventBase<
 	"reaction_event",
-	{
-		event: "added" | "removed";
-		uri: AT_URI<"social.colibri.reaction">;
-		emoji: string;
-		target: AT_URI<"social.colibri.message">;
-		channel: AT_URI<"social.colibri.channel">;
-	}
+	| {
+			event: "added";
+			uri: AT_URI<"social.colibri.reaction">;
+			emoji: string;
+			target: AT_URI<"social.colibri.message">;
+			channel: AT_URI<"social.colibri.channel">;
+	  }
+	| {
+			event: "removed";
+			uri: AT_URI<"social.colibri.reaction">;
+			emoji?: string;
+			target?: AT_URI<"social.colibri.message">;
+			channel?: AT_URI<"social.colibri.channel">;
+	  }
 >;
 
 export type ColibriStatus = {
@@ -132,6 +183,26 @@ export type Colibri_TypingEvent = EventBase<
 	}
 >;
 
+export type Colibri_NotificationEvent = EventBase<
+	"notification_event",
+	{
+		id: number;
+		kind: "mention" | "reply";
+		messageUri: string;
+		authorDid: string;
+		channelRkey: string;
+		indexedAt: string;
+		message?: {
+			text: string;
+			facets: Array<ColibriRichTextFacet>;
+			createdAt: string;
+			parent?: string;
+			attachments: Array<{ blob: JsonBlobRef; name?: string }>;
+			edited?: boolean;
+		};
+	}
+>;
+
 export type ColibriEvent =
 	| AckEvent
 	| Colibri_CommunityEvent
@@ -141,4 +212,5 @@ export type ColibriEvent =
 	| Colibri_MessageEvent
 	| Colibri_ReactionEvent
 	| Colibri_UserEvent
-	| Colibri_TypingEvent;
+	| Colibri_TypingEvent
+	| Colibri_NotificationEvent;

@@ -10,6 +10,17 @@ import { AuthContextProvider } from "./contexts/Auth";
 import { SocketContextProvider } from "./contexts/Socket";
 import { AppLoadingScreen } from "./components/AppLoadingScreen";
 import CommunityLayoutWithContext from "./layouts/CommunityLayout";
+import ChannelLayoutWithContext from "./layouts/ChannelLayout";
+import { VoiceChannelView } from "./components/app/VoiceChannelView";
+
+// Accepted forms of the `:channelType` URL segment. We accept both the
+// short form (legacy records that store `"text"` / `"voice"`) and the full
+// NSID (`"social.colibri.channel.text"` / `"social.colibri.channel.voice"`)
+// — see the `props.channel.type === ...` checks in Category.tsx for the
+// same dual-form handling. Add new variants here when introducing new
+// channel kinds.
+const TEXT_CHANNEL_TYPES = ["text", "social.colibri.channel.text"];
+const VOICE_CHANNEL_TYPES = ["voice", "social.colibri.channel.voice"];
 
 const AppRoute: ParentComponent = (props) => {
 	return (
@@ -41,26 +52,28 @@ const App: ParentComponent = () => {
 					<Route path="/login" component={LoginScreen} />
 					<Route path="/app" component={AppRoute}>
 						<Route path="/" component={WelcomeScreen} />
-						{/* TODO: */}
 						<Route component={CommunityLayoutWithContext}>
 							<Route
 								path="/c/:community"
 								component={() => (
-									<div class="w-full h-full flex items-center justify-center">
-										TODO(app): Make this a page people can configure? Select a
-										channel to get started!
+									<div class="w-full h-full flex flex-col items-center justify-center gap-2 text-muted-foreground select-none">
+										<p class="text-base font-medium">Select a channel to get started</p>
 									</div>
 								)}
 							/>
+							<Route component={ChannelLayoutWithContext}>
+								<Route
+									path="/c/:community/:channelType/:channel"
+									matchFilters={{ channelType: TEXT_CHANNEL_TYPES }}
+									component={() =>
+										null
+									} /* ChannelLayout renders the message list; leaf is empty until a TextChannelView is needed */
+								/>
+							</Route>
 							<Route
-								path="/c/:community/t/:channel"
-								component={() => <div>TextChannelView</div>} /* ChannelView */
-							/>
-							<Route
-								path="/c/:community/v/:channel"
-								component={() => (
-									<div>VoiceChannelView</div>
-								)} /* VoiceChannelView */
+								path="/c/:community/:channelType/:channel"
+								matchFilters={{ channelType: VOICE_CHANNEL_TYPES }}
+								component={VoiceChannelView}
 							/>
 						</Route>
 					</Route>

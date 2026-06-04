@@ -6,7 +6,6 @@ const fetchUserData = query(async (did: string) => {
 	return await actions.getUserProfileData({ did });
 }, "userProfileData");
 
-// TODO: This should be swapped out for SmallUser.tsx everywhere
 export const SmallUserAsync: Component<{
 	did: string;
 	hideImage?: boolean;

@@ -16,9 +16,9 @@ import {
 	TooltipTrigger,
 } from "../../ui/Tooltip";
 import User from ".";
-import { Member } from "../../../atproto/xrpc/social/colibri/community/listMembers";
 import { resolveBlob } from "../../../atproto/resolve-blob";
 import { DisplayableName } from "./DisplayableName";
+import { ActorData } from "lib";
 
 const MENTION_REGEX = /(?<!\S)@[a-zA-Z0-9._-]+(?:\.[a-zA-Z]{2,})?/gm;
 
@@ -76,9 +76,14 @@ const detectLinksAndMentionsAndFormat = (text: string) => {
 };
 
 export const ProfilePopover: ParentComponent<{
-	user: Member;
+	user: ActorData;
 	class?: string;
 	disabled?: boolean;
+	/** Render the trigger as this element. Use "span" when the popover is
+	 *  placed inside inline text (e.g. a mention inside a <p>) so that the
+	 *  DOM stays valid — block-level <div> triggers inside <p> cause browsers
+	 *  to split the paragraph and break Kobalte's trigger detection. */
+	as?: "div" | "span";
 }> = (props) => {
 	const [bskyTooltipVisible, setBskyTooltipVisible] = createSignal(false);
 	const [atProtoAtTooltipVisible, setAtProtoAtTooltipVisible] =
@@ -87,7 +92,7 @@ export const ProfilePopover: ParentComponent<{
 	return (
 		<Popover preventScroll placement="left" flip>
 			<PopoverTrigger
-				as="div"
+				as={props.as ?? "div"}
 				class={props.class}
 				classList={{
 					"pointer-events-none": props.disabled,

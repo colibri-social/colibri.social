@@ -181,7 +181,6 @@ lex.add(
 							description: "The community this category belongs to.",
 							format: "record-key",
 						},
-						// TODO: permissions
 					},
 				},
 			},
@@ -244,7 +243,6 @@ lex.add(
 								"Whether the owner of the community is the only one allowed to post in the channel or not.",
 							default: false,
 						},
-						// TODO: permissions
 					},
 				},
 			},
@@ -639,7 +637,8 @@ lex.add(
 						},
 						mentionable: {
 							type: "boolean",
-							description: "Whether `@role`-style mentions resolve to this role.",
+							description:
+								"Whether `@role`-style mentions resolve to this role.",
 							default: false,
 						},
 						protected: {
@@ -779,7 +778,8 @@ lex.add(
 						},
 						createdBy: {
 							type: "string",
-							description: "DID of the issuer (typically a member with the required permission).",
+							description:
+								"DID of the issuer (typically a member with the required permission).",
 							format: "did",
 						},
 						createdAt: { type: "string", format: "datetime" },

@@ -43,7 +43,10 @@ import {
 	RadioGroupItems,
 	RadioGroupLabel,
 } from "../ui/RadioGroup";
+import { useNavigate } from "@solidjs/router";
+import { communityUriToUrlCompatible } from "../../atproto/community-uri-to-url-compatible";
 import { useUserContext } from "../../contexts/User";
+import type { AT_URI } from "lib";
 
 const OWNERSHIP_CHOICE = 1;
 const BYO_CREDENTIALS = 2;
@@ -76,10 +79,11 @@ const CommunityOwnership: Component = () => {
 			value: "managed",
 		},
 		{
-			title: "Bring your own",
+			title: "Bring your own (coming soon)",
 			description:
 				"You create the community on your own PDS and allow us to manage it.",
 			value: "byo",
+			disabled: true,
 		},
 	];
 
@@ -90,9 +94,14 @@ const CommunityOwnership: Component = () => {
 					<RadioGroupItems>
 						<For each={options}>
 							{(option) => (
-								<RadioGroupItem value={option.value}>
-									<RadioGroupItemInput />
-									<RadioGroupItemLabel class="flex flex-col text-center text-pretty rounded-md p-2 border border-border outline-2 outline-transparent gap-2 data-checked:border-primary data-checked:outline-primary/50 data-checked:bg-primary/10">
+								<RadioGroupItem value={option.value} disabled={option.disabled}>
+									<RadioGroupItemInput disabled={option.disabled} />
+									<RadioGroupItemLabel
+										class="flex flex-col text-center text-pretty rounded-md p-2 border border-border outline-2 outline-transparent gap-2 data-checked:border-primary data-checked:outline-primary/50 data-checked:bg-primary/10"
+										classList={{
+											"opacity-50": option.disabled,
+										}}
+									>
 										<strong class="w-full text-lg">{option.title}</strong>
 										<span>{option.description}</span>
 									</RadioGroupItemLabel>
@@ -254,21 +263,20 @@ const CommunityDetails: Component = () => {
 	);
 };
 
+const resetState = () => {
+	setPdsLoc("");
+	setHandleOrDid("");
+	setPassword("");
+	setName("");
+	setDescription("");
+	setPicture(undefined);
+	setOwnership("managed");
+	setStep(OWNERSHIP_CHOICE);
+};
+
 const LoadingScreen: Component = () => {
 	const user = useUserContext();
-
-	const createCommunity = async () => {
-		setLoading(true);
-
-		// TODO: Create community
-		console.log(name(), picture(), ownership());
-
-		// TODO: Optimistically add community, navigate
-
-		setLoading(false);
-		setOpen(false);
-		// props.navigate(`/c/${data.community}`);
-	};
+	const navigate = useNavigate();
 
 	createEffect(async () => {
 		let base64Picture: string | undefined;
@@ -281,35 +289,38 @@ const LoadingScreen: Component = () => {
 				reader.onerror = reject;
 				reader.readAsDataURL(picture()!.acceptedFiles[0]);
 			});
-
 			mimeType = picture()!.acceptedFiles[0].type;
 		}
 
-		// TODO: Handle BYO flow
-		const res = await user.xrpc.social.colibri.community.create(
-			name(),
-			description(),
-			false, // TODO: Checkbox / Toggle
-			base64Picture,
-			mimeType,
-		);
+		try {
+			const res = await user.xrpc.social.colibri.community.create(
+				name(),
+				description() || undefined,
+				false,
+				base64Picture,
+				mimeType,
+			);
 
-		console.log(res);
+			if (!res) throw new Error("No response from server.");
 
-		// Add community + navigate to it here or handle error
-		const error = undefined;
-		if (error) {
-			setLoading(false);
-			toast.error("Failed to create community", {
-				// description: parseZodToErrorOrDisplay(error.message),
-			});
-			return;
+			await user.refetchCommunities();
+			const url = communityUriToUrlCompatible(
+				res.community as AT_URI<"social.colibri.community">,
+			);
+			resetState();
+			setOpen(false);
+			navigate(`/app/c/${url}`);
+		} catch (err) {
+			console.error("[CommunityCreation]", err);
+			toast.error("Failed to create community.");
+			setStep(COMMUNITY_DETAILS);
 		}
 	});
 
 	return (
-		<div>
-			<span>Creating community...</span>
+		<div class="flex flex-col items-center justify-center gap-3 py-6">
+			<Spinner className="w-8 h-8 animate-spin text-muted-foreground" />
+			<span class="text-sm text-muted-foreground">Creating community…</span>
 		</div>
 	);
 };

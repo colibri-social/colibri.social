@@ -6,12 +6,15 @@ import {
 	createMemo,
 	createSignal,
 	Match,
+	on,
 	type ParentComponent,
 	type Setter,
 	Show,
 	Suspense,
 	Switch,
 } from "solid-js";
+import { useVoiceChatContext } from "../../../contexts/VoiceChat";
+import PhoneSlashIcon from "~icons/ph/phone-slash";
 import {
 	DropdownMenu,
 	DropdownMenuContent,
@@ -88,31 +91,33 @@ const DropdownStatusSelect: ParentComponent<{
 export const Status: Component = () => {
 	const user = useUserContext();
 	const [value, setValue] = createSignal<OnlineState>("online");
-	// TODO: VC
-	// const [
-	// 	voiceData,
-	// 	{ disconnect, toggleMic, toggleCamera, toggleScreen, toggleDeafen },
-	// ] = useVoiceChatContext();
+	const [
+		voiceData,
+		{ disconnect, toggleMic, toggleCamera, toggleScreen, toggleDeafen },
+	] = useVoiceChatContext();
 
-	// TODO: State updates
-	// createEffect(() => {
-	// 	const state = value();
+	// Persist the online-state to the AppView whenever the user changes it.
+	// `defer: true` skips the initial value so we don't re-broadcast the
+	// default "online" on every mount. The AppView fans this out to other
+	// clients as a `user_event`.
+	createEffect(
+		on(
+			value,
+			async (state) => {
+				await user.xrpc.social.colibri.actor.setState(state);
+			},
+			{ defer: true },
+		),
+	);
 
-	// 	sendSocketMessage({
-	// 		action: "set_state",
-	// 		state: state,
-	// 	});
-	// });
-
-	// TODO: VC
-	// const isReconnecting = () =>
-	// 	voiceData.connection.state === ConnectionState.Connecting ||
-	// 	voiceData.connection.state === ConnectionState.Reconnecting ||
-	// 	voiceData.connection.state === ConnectionState.SignalReconnecting;
+	const isReconnecting = () =>
+		voiceData.connection.state === ConnectionState.Connecting ||
+		voiceData.connection.state === ConnectionState.Reconnecting ||
+		voiceData.connection.state === ConnectionState.SignalReconnecting;
 
 	return (
 		<div class="w-full h-fit flex flex-col">
-			{/*<Show when={voiceData.connection.state === ConnectionState.Connected}>
+			<Show when={voiceData.connection.state === ConnectionState.Connected}>
 				<div class="w-full p-3 border-t border-border flex flex-col gap-2">
 					<div class="flex flex-row items-center gap-2 justify-between">
 						<div class="flex flex-row items-center gap-2">
@@ -183,10 +188,12 @@ export const Status: Component = () => {
 							class="aspect-square"
 							onClick={disconnect}
 						>
-							<Icon variant="regular" name="phone-slash-icon" />
+							<PhoneSlashIcon />
 						</Button>
 					</div>
 					<div class="grid grid-cols-4 gap-2 w-full">
+						{/* TODO: userPreferences — uncomment once a user-preferences context exists */}
+						{/*
 						<Button
 							class="w-full"
 							variant={
@@ -213,6 +220,7 @@ export const Status: Component = () => {
 						>
 							<Ear enabled={!userPreferences.voice.output.enabled} />
 						</Button>
+						*/}
 						<Button
 							class="w-full"
 							variant={voiceData.states.camEnabled ? "secondary" : "outline"}
@@ -237,7 +245,7 @@ export const Status: Component = () => {
 						</Button>
 					</div>
 				</div>
-			</Show>*/}
+			</Show>
 			<div class="w-full h-16 flex items-center gap-3 p-3 bg-card">
 				<Avatar user={user} />
 				<div class="flex flex-col">

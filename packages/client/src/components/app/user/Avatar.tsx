@@ -10,10 +10,11 @@ const FALLBACK_AVATAR = "/user-placeholder.png";
 export function Avatar(props: {
 	user: ActorData;
 	size?: "small" | "base" | "large";
+	disableState?: boolean;
 }) {
 	return (
 		<div
-			class={`relative ${props.size === "small" ? "w-6 h-6" : props.size === "large" ? "w-20 h-20" : "w-10 h-10"}`}
+			class={`relative flex shrink-0 ${props.size === "small" ? "w-6 h-6" : props.size === "large" ? "w-20 h-20" : "w-10 h-10"}`}
 		>
 			<img
 				src={
@@ -23,9 +24,9 @@ export function Avatar(props: {
 				onError={(e) => (e.currentTarget.src = FALLBACK_AVATAR)}
 				width={props.size === "small" ? 24 : props.size === "large" ? 80 : 40}
 				height={props.size === "small" ? 24 : props.size === "large" ? 80 : 40}
-				class={`rounded-full outline-card ${props.size === "small" ? "outline" : props.size === "large" ? "outline-4" : "outline-2"}`}
+				class={`rounded-full object-cover outline-card ${props.size === "small" ? "outline" : props.size === "large" ? "outline-4" : "outline-2"}`}
 			/>
-			<Show when={props.user.data.onlineState}>
+			<Show when={props.user.data.onlineState && !props.disableState}>
 				<div
 					class={`rounded-full absolute bottom-px right-px outline-background ${props.size === "small" ? "w-2 h-2 outline-" : props.size === "large" ? "w-4 h-4 outline-4" : "w-2 h-2 outline-2"}`}
 					classList={{
