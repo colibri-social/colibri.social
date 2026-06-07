@@ -6,7 +6,7 @@ import {
 	type NodeSavedSession,
 	type NodeSavedState,
 } from "@atproto/oauth-client-node";
-import { scopes } from "client/scopes";
+import { scopes } from "@colibri-social/client/scopes";
 
 export { scopes };
 
