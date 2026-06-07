@@ -58,8 +58,7 @@ export const UserSettingsModal: ParentComponent = (props) => {
 					const user = useUserContext();
 
 					createEffect(() => {
-						localStorage.removeItem("@@atproto/oauth-client-browser(sub)");
-						auth!.client.revoke(user.atproto.agent.did!);
+						auth?.client.revoke(user.did);
 						window.location.href = "/login";
 					});
 

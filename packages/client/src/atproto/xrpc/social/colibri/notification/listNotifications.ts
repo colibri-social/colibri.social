@@ -34,7 +34,7 @@ export const listNotifications: XrpcRequest<
 > = async (fetch, limit, cursor, auth) => {
 	try {
 		const res = await fetch(
-			`/xrpc/social.colibri.notification.listNotifications?limit=${limit}&cursor=${cursor}&auth=${auth}`,
+			`/xrpc/social.colibri.notification.listNotifications?limit=${limit}&auth=${auth}${cursor ? `&cursor=${cursor}` : ""}`,
 		);
 
 		return res.json();
