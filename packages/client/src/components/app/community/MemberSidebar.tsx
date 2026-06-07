@@ -291,8 +291,6 @@ export const MemberSidebar = () => {
 				resultIndex = noRoleIdx - 1;
 			}
 
-			console.log(result, resultIndex);
-
 			result[resultIndex].members.push(member);
 		}
 
