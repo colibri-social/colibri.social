@@ -346,9 +346,7 @@ export const ChannelContextProvider: ParentComponent<{
 	// ---------------------------------------------------------------------------
 
 	const addPendingMessage = (msg: PendingMessage) => {
-		console.log("test1");
 		setMessages((prev) => [...prev, msg]);
-		console.log("test2");
 	};
 
 	const confirmPendingMessage = (hash: string, confirmedUri: string) => {
