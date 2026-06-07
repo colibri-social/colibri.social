@@ -50,15 +50,19 @@ RUN pnpm --filter @colibri-social/website build
 FROM node:24-alpine AS runtime
 WORKDIR /app
 
-RUN corepack enable && corepack prepare pnpm@latest --activate
-
-COPY --from=base /app/apps/website/dist ./dist
+# Root node_modules contains the .pnpm virtual store (actual package files).
+# apps/website/node_modules contains pnpm's symlinks into that store.
+# Both are needed: Node.js resolves packages by walking up from the entry
+# point's path, and the symlinks in apps/website/node_modules are what make
+# packages like clsx visible in that traversal.
 COPY --from=base /app/node_modules ./node_modules
-COPY --from=base /app/apps/website/package.json ./package.json
+COPY --from=base /app/apps/website/dist ./apps/website/dist
+COPY --from=base /app/apps/website/node_modules ./apps/website/node_modules
+COPY --from=base /app/apps/website/package.json ./apps/website/package.json
 
 ENV HOST=0.0.0.0
 ENV PORT=4321
 ENV NODE_ENV=production
 
 EXPOSE 4321
-CMD ["node", "./dist/server/entry.mjs"]
+CMD ["node", "./apps/website/dist/server/entry.mjs"]
