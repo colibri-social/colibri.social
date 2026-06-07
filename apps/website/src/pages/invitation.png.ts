@@ -1,8 +1,6 @@
-import { APPVIEW_DOMAIN } from "astro:env/client";
 import type { APIRoute } from "astro";
 import { satoriAstroOG } from "satori-astro";
 import { html } from "satori-html";
-import type { UnresolvedCommunityData } from "@/utils/sdk";
 
 const unescapeVNode = (node: any): any => {
 	if (typeof node === "string") {
@@ -100,8 +98,9 @@ const withImage = (name: string, image: { did: string; cid: string }) => {
 					src="https://colibri.social/tree.png"
 					style="position: absolute; top: 0px; right: -4px; width: 511.5px; height: 343.5px; border-radius: 37px; opacity: 0.5;"
 				/>
+				<!-- FIXME: This will break once this goes live -->
 				<img
-					src="https://${APPVIEW_DOMAIN}/api/blob?did=${image?.did}&cid=${image?.cid}"
+					src="https://colibri.social/api/blob?did=${image?.did}&cid=${image?.cid}"
 					style="border-radius: 1rem; border: 1px solid #353535; width: 128px; height: 128px; background: #171717; object-fit: cover;"
 				/>
 				<div
@@ -158,11 +157,12 @@ export const GET: APIRoute = async (request) => {
 		const hankenGroteskFontData: ArrayBuffer =
 			await hankenGroteskFontFile.arrayBuffer();
 
+		// TODO: This will break once this goes live
 		const communityData = (await (
 			await fetch(
-				`https://${APPVIEW_DOMAIN}/api/community?community=${community}`,
+				`https://https://colibri.social/api/community?community=${community}`,
 			)
-		).json()) as UnresolvedCommunityData;
+		).json()) as any;
 
 		return await satoriAstroOG({
 			template: communityData.picture
