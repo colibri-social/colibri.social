@@ -1,4 +1,4 @@
-import { ActorData } from "lib";
+import type { ActorData } from "@colibri-social/lib";
 import { Component } from "solid-js";
 
 export const DisplayableName: Component<{ user: ActorData }> = (props) => {

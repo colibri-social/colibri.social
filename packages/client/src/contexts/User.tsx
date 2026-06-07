@@ -9,7 +9,7 @@ import {
 } from "solid-js";
 import type { BrowserOAuthClient } from "@atproto/oauth-client-browser";
 import type { Agent } from "@atproto/api";
-import { Community, ActorData } from "lib";
+import type { Community, ActorData } from "@colibri-social/lib";
 import { XrpcClient } from "../atproto/xrpc";
 import { AppLoadingScreen } from "../components/AppLoadingScreen";
 import { useAuthContext } from "./Auth";
@@ -31,7 +31,10 @@ type LoggedInUser = Extract<User, { loggedIn: true }> & {
 	/** Re-fetches the user's community list and updates the context. */
 	refetchCommunities: () => Promise<void>;
 	/** Patches display-name and description in the local actor data without a full refetch. */
-	updateActorData: (patch: { displayName?: string; description?: string }) => void;
+	updateActorData: (patch: {
+		displayName?: string;
+		description?: string;
+	}) => void;
 };
 
 export const UserContext = createContext<LoggedInUser>();
@@ -91,8 +94,8 @@ export const UserContextProvider: ParentComponent = (props) => {
 		const loggedIn = user()?.loggedIn;
 		const pathname = () => window.location.pathname;
 
-		if (!loggedIn && pathname() !== "/login") {
-			window.location.href = "/login";
+		if (!loggedIn && pathname() !== "/app/login") {
+			window.location.href = "/app/login";
 		}
 	});
 
@@ -113,27 +116,29 @@ export const UserContextProvider: ParentComponent = (props) => {
 					}
 
 					const refetchCommunities = async () => {
-							const res = await value.xrpc.social.colibri.actor.listCommunities();
-							if (res) {
-								mutate({ ...value, communities: res.communities });
-							}
-						};
+						const res = await value.xrpc.social.colibri.actor.listCommunities();
+						if (res) {
+							mutate({ ...value, communities: res.communities });
+						}
+					};
 
-						const updateActorData = (patch: {
-							displayName?: string;
-							description?: string;
-						}) => {
-							mutate({
-								...value,
-								data: { ...value.data, ...patch },
-							});
-						};
+					const updateActorData = (patch: {
+						displayName?: string;
+						description?: string;
+					}) => {
+						mutate({
+							...value,
+							data: { ...value.data, ...patch },
+						});
+					};
 
-						return (
-							<UserContext.Provider value={{ ...value, refetchCommunities, updateActorData }}>
-								{props.children}
-							</UserContext.Provider>
-						);
+					return (
+						<UserContext.Provider
+							value={{ ...value, refetchCommunities, updateActorData }}
+						>
+							{props.children}
+						</UserContext.Provider>
+					);
 				}}
 			</Match>
 		</Switch>

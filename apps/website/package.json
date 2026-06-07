@@ -1,5 +1,6 @@
 {
-	"name": "colibri-chat",
+	"name": "@colibri-social/website",
+	"private": true,
 	"type": "module",
 	"version": "0.0.1",
 	"packageManager": "pnpm@10.29.3",
@@ -94,7 +95,8 @@
 		"tw-to-css": "^0.0.12",
 		"typescript": "^5.9.3",
 		"vidstack": "^1.12.13",
-		"vite": "^7.3.1"
+		"vite": "^7.3.1",
+		"@colibri-social/client": "workspace:"
 	},
 	"devDependencies": {
 		"@tailwindcss/typography": "^0.5.19",

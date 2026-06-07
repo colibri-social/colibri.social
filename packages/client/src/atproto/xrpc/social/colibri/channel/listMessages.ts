@@ -1,5 +1,5 @@
 import type { JsonBlobRef } from "@atproto/lexicon";
-import type { ActorData, ColibriRichTextFacet } from "lib";
+import type { ActorData, ColibriRichTextFacet } from "@colibri-social/lib";
 import { XrpcRequest } from "../../..";
 
 export type Reaction = {

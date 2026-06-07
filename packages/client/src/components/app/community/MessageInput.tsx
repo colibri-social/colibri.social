@@ -2,7 +2,7 @@ import { JsonBlobRef } from "@atproto/lexicon";
 import { type Details, useFileFieldContext } from "@kobalte/core/file-field";
 import { useParams } from "@solidjs/router";
 import stringify from "json-stable-stringify";
-import { AttachmentObj, ColibriRichTextFacet } from "lib";
+import type { AttachmentObj, ColibriRichTextFacet } from "@colibri-social/lib";
 import {
 	type Accessor,
 	type Component,

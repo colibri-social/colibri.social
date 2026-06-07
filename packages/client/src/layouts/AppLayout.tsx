@@ -30,7 +30,7 @@ import {
 	reorderList,
 } from "../utils/drag";
 import { Button } from "../components/ui/Button";
-import type { Community } from "lib";
+import type { Community } from "@colibri-social/lib";
 import { resolveBlob } from "../atproto/resolve-blob";
 import { communityUriToUrlCompatible } from "../atproto/community-uri-to-url-compatible";
 import { useUserContext } from "../contexts/User";

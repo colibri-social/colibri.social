@@ -1,4 +1,4 @@
-import type { ActorData } from "lib";
+import type { ActorData } from "@colibri-social/lib";
 import { XrpcRequest } from "../../..";
 
 export const getData: XrpcRequest<

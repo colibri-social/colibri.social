@@ -2091,8 +2091,8 @@ Returns a paginated list of notifications for the authenticated user, newest fir
 					type: "did",
 					required: true
 				},
-				channelRkey: {
-					type: "record-key",
+				channelUri: {
+					type: "at-uri",
 					required: true
 				},
 				indexedAt: {
@@ -2203,7 +2203,7 @@ Notification events are emitted over [`social.colibri.sync.subscribeEvents`](#so
 	kind: 'mention' | 'reply';
 	messageUri: string;
 	authorDid: string;
-	channelRkey: string;
+	channelUri: string;
 	indexedAt: string;
 	message: {
 		text: string;

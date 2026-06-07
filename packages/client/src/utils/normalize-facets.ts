@@ -1,4 +1,4 @@
-import type { ColibriRichTextFacet } from "lib";
+import type { ColibriRichTextFacet } from "@colibri-social/lib";
 
 type Feature = ColibriRichTextFacet["features"][number];
 

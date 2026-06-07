@@ -1,6 +1,6 @@
 import { A } from "@solidjs/router";
 import twemoji from "@twemoji/api";
-import { ColibriRichTextFacet } from "lib";
+import type { ColibriRichTextFacet } from "@colibri-social/lib";
 import type { JSX } from "solid-js";
 import { useCommunityContext } from "../../../../contexts/Community";
 import { purify } from "../../../../utils/purify";

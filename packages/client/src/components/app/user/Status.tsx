@@ -32,7 +32,7 @@ import { Screen } from "../../icons/Screen";
 import { Wifi } from "../../icons/Wifi";
 import { Button } from "../../ui/Button";
 import { Avatar } from "./Avatar";
-import { OnlineState } from "lib";
+import type { OnlineState } from "@colibri-social/lib";
 import { useUserContext } from "../../../contexts/User";
 
 const DropdownStatusSelect: ParentComponent<{

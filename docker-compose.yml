@@ -1,8 +1,8 @@
 services:
   app:
     build:
-      context: ./apps/website
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: apps/website/Dockerfile
       args:
         - PRIVATE_KEY_1=${PRIVATE_KEY_1}
         - PRIVATE_KEY_2=${PRIVATE_KEY_2}
@@ -31,39 +31,3 @@ services:
       - LIVEKIT_SERVER_URL=${LIVEKIT_SERVER_URL}
       - SENTRY_DSN=${SENTRY_DSN}
       - SENTRY_AUTH_TOKEN=${SENTRY_AUTH_TOKEN}
-
-    depends_on:
-      redis:
-        condition: service_healthy
-    networks:
-      - internal
-
-  redis:
-    image: redis:7.2-alpine
-    container_name: colibri-redis
-    restart: unless-stopped
-    command: redis-server /usr/local/etc/redis/redis.conf --requirepass "${REDIS_PASSWORD}"
-    volumes:
-      - ./redis/redis.conf:/usr/local/etc/redis/redis.conf:ro
-      - redis_data:/data
-    environment:
-      - REDIS_PASSWORD=${REDIS_PASSWORD}
-    healthcheck:
-      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    deploy:
-      resources:
-        limits:
-          memory: 512m
-    networks:
-      - internal
-
-networks:
-  internal:
-    driver: bridge
-
-volumes:
-  redis_data:
-    driver: local

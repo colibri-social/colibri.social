@@ -5,7 +5,7 @@ import {
 	type ParentComponent,
 	useContext,
 } from "solid-js";
-import type { ColibriEvent } from "lib";
+import type { ColibriEvent } from "@colibri-social/lib";
 import { useAuthContext } from "./Auth";
 import { getAppViewHost } from "../utils/appview";
 

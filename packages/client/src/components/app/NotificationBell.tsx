@@ -22,7 +22,7 @@ type Notification = {
 	kind: string;
 	messageUri: string;
 	authorDid: string;
-	channelRkey: string;
+	channelUri: string;
 	indexedAt: string;
 	seenAt?: string;
 	message?: {
@@ -126,7 +126,10 @@ export const NotificationBell: Component = () => {
 						<Show when={!loading() && notifications()?.length > 0}>
 							<For each={notifications()}>
 								{(n) => (
-									<div class="flex flex-col px-3 py-2 border-b border-border last:border-b-0 hover:bg-muted/50">
+									<a
+										href={`/app/c/${n.channelUri.replace("at://", "")}`}
+										class="flex flex-col px-3 py-2 border-b border-border last:border-b-0 hover:bg-muted/50"
+									>
 										<div class="flex items-center justify-between gap-2">
 											<span class="text-xs text-muted-foreground font-medium uppercase tracking-wide">
 												{kindLabel(n.kind)}
@@ -142,7 +145,7 @@ export const NotificationBell: Component = () => {
 												</p>
 											)}
 										</Show>
-									</div>
+									</a>
 								)}
 							</For>
 						</Show>

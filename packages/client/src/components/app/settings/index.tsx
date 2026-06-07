@@ -59,7 +59,7 @@ export const UserSettingsModal: ParentComponent = (props) => {
 
 					createEffect(() => {
 						auth?.client.revoke(user.did);
-						window.location.href = "/login";
+						window.location.href = "/app/login";
 					});
 
 					// biome-ignore lint/complexity/noUselessFragments: Needed to make the redirect work

@@ -8,7 +8,7 @@ import {
 	useContext,
 } from "solid-js";
 import { toast } from "somoto";
-import { ColibriRichTextFacet } from "lib";
+import type { ColibriRichTextFacet } from "@colibri-social/lib";
 import { purify } from "../utils/purify";
 import type { Message } from "../atproto/xrpc/social/colibri/channel/listMessages";
 import type { TextWithFacets } from "../components/app/common/rich-text-renderer/util";

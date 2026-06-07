@@ -10,11 +10,7 @@ import starlight from "@astrojs/starlight";
 import { colibriDark, colibriLight } from "./src/ec-theme.ts";
 import { serverPortIntegration } from "./src/integrations/server-port";
 
-const { REDIS_PASSWORD, REDIS_URL, REDIS_PORT, SENTRY_AUTH_TOKEN } = loadEnv(
-	process.env.NODE_ENV!,
-	process.cwd(),
-	"",
-);
+const { SENTRY_AUTH_TOKEN } = loadEnv(process.env.NODE_ENV!, process.cwd(), "");
 
 // https://astro.build/config
 export default defineConfig({
@@ -76,30 +72,11 @@ export default defineConfig({
 		schema: {
 			PRIVATE_KEY_1: envField.string({ context: "server", access: "secret" }),
 			PRIVATE_KEY_2: envField.string({ context: "server", access: "secret" }),
-			INVITE_API_KEY: envField.string({ context: "server", access: "secret" }),
-			LIVEKIT_API_KEY: envField.string({ context: "server", access: "secret" }),
-			LIVEKIT_API_SECRET: envField.string({
-				context: "server",
-				access: "secret",
-			}),
-			LIVEKIT_SERVER_URL: envField.string({
-				context: "client",
-				access: "public",
-				optional: true,
-				default: "wss://livekit.colibri.social",
-			}),
-			APPVIEW_DOMAIN: envField.string({ context: "client", access: "public" }),
 			SAME_TLD_DID: envField.string({
 				context: "server",
 				access: "public",
 				optional: true,
 			}),
-			REDIS_URL: envField.string({
-				context: "server",
-				access: "secret",
-				optional: true,
-			}),
-			REDIS_PASSWORD: envField.string({ context: "server", access: "secret" }),
 			SENTRY_DSN: envField.string({
 				context: "client",
 				access: "public",
@@ -108,11 +85,7 @@ export default defineConfig({
 		},
 	},
 	security: {
-		allowedDomains: [
-			{ hostname: "colibri.social", protocol: "https" },
-			{ hostname: "example.com", protocol: "https" }, // Temporary until Astro 5.18
-		],
-		actionBodySizeLimit: 10 * 1024 * 1024,
+		allowedDomains: [{ hostname: "colibri.social", protocol: "https" }],
 	},
 	fonts: [
 		{
@@ -134,4 +107,7 @@ export default defineConfig({
 			cssVariable: "--font-stardom",
 		},
 	],
+	redirects: {
+		"/login": "/app/login",
+	},
 });

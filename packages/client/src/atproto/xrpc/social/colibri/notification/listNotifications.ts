@@ -1,5 +1,5 @@
 import type { JsonBlobRef } from "@atproto/lexicon";
-import type { ColibriRichTextFacet } from "lib";
+import type { ColibriRichTextFacet } from "@colibri-social/lib";
 import { XrpcRequest } from "../../..";
 
 type NotificationMessage = {
@@ -17,7 +17,7 @@ type Notification = {
 	kind: string;
 	messageUri: string;
 	authorDid: string;
-	channelRkey: string;
+	channelUri: string;
 	indexedAt: string;
 	seenAt?: string;
 	message?: NotificationMessage;

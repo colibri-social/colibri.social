@@ -18,7 +18,7 @@ import { DeletionDrawer } from "./DeletionDrawer/index";
 import { Embed } from "./Embed";
 import type { Message as MessageData } from "../../../../atproto/xrpc/social/colibri/channel/listMessages";
 import { useUserContext } from "../../../../contexts/User";
-import { ColibriRichTextLink } from "lib";
+import type { ColibriRichTextLink } from "@colibri-social/lib";
 import { useChannelContext } from "../../../../contexts/Channel";
 import { facetsToProseMirror } from "../../common/text-editor/facets-to-prosemirror";
 import { useCommunityContext } from "../../../../contexts/Community";

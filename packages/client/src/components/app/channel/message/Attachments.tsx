@@ -7,7 +7,7 @@ import "vidstack/player/ui";
 import "vidstack/player/styles/default/theme.css";
 import "vidstack/player/styles/default/layouts/video.css";
 import "vidstack/player/styles/default/layouts/audio.css";
-import { AttachmentObj } from "lib";
+import type { AttachmentObj } from "@colibri-social/lib";
 import { useChannelContext } from "../../../../contexts/Channel";
 import { resolveBlob } from "../../../../atproto/resolve-blob";
 import { Lightbox } from "../../common/Lightbox";

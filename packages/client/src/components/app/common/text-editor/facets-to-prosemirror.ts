@@ -5,7 +5,7 @@ import {
 	normalizeFacets,
 } from "../../../../utils/normalize-facets";
 import type { MentionType } from "./prosemirror-to-facets";
-import { ColibriRichTextFacet } from "lib";
+import type { ColibriRichTextFacet } from "@colibri-social/lib";
 import { Member } from "../../../../atproto/xrpc/social/colibri/community/listMembers";
 import { Channel } from "../../../../atproto/xrpc/social/colibri/community/listChannels";
 import { resolveBlob } from "../../../../atproto/resolve-blob";

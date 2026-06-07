@@ -1,4 +1,4 @@
-import type { Community } from "lib";
+import type { Community } from "@colibri-social/lib";
 import { XrpcRequest } from "../../..";
 
 type Response = {

@@ -1,4 +1,4 @@
-import type { ColibriEvent } from "lib";
+import type { ColibriEvent } from "@colibri-social/lib";
 import { XrpcRequest } from "../../..";
 
 export const sendHum: XrpcRequest<

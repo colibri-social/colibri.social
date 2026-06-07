@@ -1,5 +1,5 @@
 ---
-import { App } from "../../components/solid/App.tsx";
+import { App } from "@colibri-social/client";
 import BaseLayout from "../../layouts/BaseLayout.astro";
 import "@/styles/emoji-picker.css";
 ---
@@ -33,7 +33,7 @@ import "@/styles/emoji-picker.css";
 			const res = await getClient();
 
 			if (!res) {
-				window.location.href = "/login"
+				window.location.href = "/app/login"
 				return;
 			}
 		};

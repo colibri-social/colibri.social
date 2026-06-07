@@ -1,5 +1,5 @@
 import type { Agent } from "@atproto/api";
-import type { ColibriEvent } from "lib";
+import type { ColibriEvent } from "@colibri-social/lib";
 import { resolveDid } from "./com/atproto/identity/resolveDid";
 import { resolveHandle } from "./com/atproto/identity/resolveHandle";
 import { resolveIdentity } from "./com/atproto/identity/resolveIdentity";

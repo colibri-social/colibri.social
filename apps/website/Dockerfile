@@ -3,8 +3,13 @@ WORKDIR /app
 
 RUN corepack enable && corepack prepare pnpm@latest --activate
 
-COPY package.json ./
-RUN pnpm install
+# Copy workspace manifests for layer caching
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY packages/lib/package.json ./packages/lib/
+COPY packages/client/package.json ./packages/client/
+COPY apps/website/package.json ./apps/website/
+
+RUN pnpm install --frozen-lockfile
 
 # Declare build args
 ARG PRIVATE_KEY_1
@@ -34,17 +39,22 @@ ENV SENTRY_DSN=${SENTRY_DSN}
 ENV SENTRY_AUTH_TOKEN=${SENTRY_AUTH_TOKEN}
 ENV INVITE_API_KEY=${INVITE_API_KEY}
 
-COPY . .
-RUN pnpm build
+COPY packages/ ./packages/
+COPY apps/ ./apps/
+
+# Build in dependency order
+RUN pnpm --filter @colibri-social/lib build
+RUN pnpm --filter @colibri-social/client build
+RUN pnpm --filter @colibri-social/website build
 
 FROM node:24-alpine AS runtime
 WORKDIR /app
 
 RUN corepack enable && corepack prepare pnpm@latest --activate
 
-COPY --from=base /app/dist ./dist
+COPY --from=base /app/apps/website/dist ./dist
 COPY --from=base /app/node_modules ./node_modules
-COPY --from=base /app/package.json ./package.json
+COPY --from=base /app/apps/website/package.json ./package.json
 
 ENV HOST=0.0.0.0
 ENV PORT=4321

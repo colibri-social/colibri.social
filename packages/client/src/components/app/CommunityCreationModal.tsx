@@ -46,7 +46,7 @@ import {
 import { useNavigate } from "@solidjs/router";
 import { communityUriToUrlCompatible } from "../../atproto/community-uri-to-url-compatible";
 import { useUserContext } from "../../contexts/User";
-import type { AT_URI } from "lib";
+import type { AT_URI } from "@colibri-social/lib";
 
 const OWNERSHIP_CHOICE = 1;
 const BYO_CREDENTIALS = 2;

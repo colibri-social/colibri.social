@@ -20,7 +20,7 @@ import twemoji from "@twemoji/api";
 import { htmlToDOMOutputSpec } from "../../../../utils/html-to-dom-output-spec";
 import { buildSuggestions } from "./build-suggestions";
 import { proseMirrorToFacets } from "./prosemirror-to-facets";
-import { ColibriRichTextFacet } from "lib";
+import type { ColibriRichTextFacet } from "@colibri-social/lib";
 import { useCommunityContext } from "../../../../contexts/Community";
 import { EMOJI_DATA } from "../rich-text-renderer/emojiData";
 import CodeIcon from "~icons/ph/code";

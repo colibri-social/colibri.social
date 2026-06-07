@@ -18,7 +18,7 @@ import {
 import User from ".";
 import { resolveBlob } from "../../../atproto/resolve-blob";
 import { DisplayableName } from "./DisplayableName";
-import { ActorData } from "lib";
+import type { ActorData } from "@colibri-social/lib";
 
 const MENTION_REGEX = /(?<!\S)@[a-zA-Z0-9._-]+(?:\.[a-zA-Z]{2,})?/gm;
 

@@ -52,7 +52,7 @@ const App: ParentComponent = () => {
 				<Toaster richColors position="bottom-right" />
 				<Router base="/">
 					<Route path="/" component={RedirectToApp} />
-					<Route path="/login" component={LoginScreen} />
+					<Route path="/app/login" component={LoginScreen} />
 					<Route path="/app" component={AppRoute}>
 						<Route path="/" component={WelcomeScreen} />
 						<Route component={CommunityLayoutWithContext}>

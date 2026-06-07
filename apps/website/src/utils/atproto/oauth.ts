@@ -6,8 +6,7 @@ import {
 	type NodeSavedSession,
 	type NodeSavedState,
 } from "@atproto/oauth-client-node";
-import { getRedisClient } from "../redis";
-import { scopes } from "./scopes";
+import { scopes } from "client/scopes";
 
 export { scopes };
 
@@ -37,7 +36,7 @@ export const client = new NodeOAuthClient({
 	// endpoint metadata, exposing the client metadata to the OAuth server.
 	clientMetadata: {
 		client_id: import.meta.env.DEV
-			? `http://localhost/?redirect_uri=${encodeURIComponent(`http://127.0.0.1:${serverPort}/login`)}&scope=${encodeURIComponent(scopes.join(" "))}`
+			? `http://localhost/?redirect_uri=${encodeURIComponent(`http://127.0.0.1:${serverPort}/app/login`)}&scope=${encodeURIComponent(scopes.join(" "))}`
 			: `${import.meta.env.SITE}/oauth-client-metadata.json`,
 		client_name: "Colibri Chat",
 		client_uri: import.meta.env.SITE,
@@ -46,8 +45,8 @@ export const client = new NodeOAuthClient({
 		policy_uri: `${import.meta.env.SITE}/policy`,
 		redirect_uris: [
 			import.meta.env.DEV
-				? `http://127.0.0.1:4321/login`
-				: `${import.meta.env.SITE}/login`,
+				? `http://127.0.0.1:4321/app/login`
+				: `${import.meta.env.SITE}/app/login`,
 		],
 		grant_types: ["authorization_code", "refresh_token"],
 		scope: scopes.join(" "),
@@ -68,45 +67,20 @@ export const client = new NodeOAuthClient({
 
 	// Interface to store authorization state data (during authorization flows).
 	stateStore: {
-		async set(key: string, internalState: NodeSavedState): Promise<void> {
-			const redis = await getRedisClient();
-			await redis.set(stateKey(key), JSON.stringify(internalState), {
-				expiration: {
-					type: "EX",
-					value: 60 * 60,
-				},
-			});
-		},
+		async set(key: string, internalState: NodeSavedState): Promise<void> {},
 		async get(key: string): Promise<NodeSavedState | undefined> {
-			const redis = await getRedisClient();
-			const raw = await redis.get(stateKey(key));
-			if (!raw) return undefined;
-			return JSON.parse(raw) as NodeSavedState;
+			return undefined;
 		},
-		async del(key: string): Promise<void> {
-			const redis = await getRedisClient();
-			await redis.del(stateKey(key));
-		},
+		async del(key: string): Promise<void> {},
 	},
 
 	// Interface to store authenticated session data.
 	sessionStore: {
-		async set(sub: string, session: NodeSavedSession): Promise<void> {
-			const redis = await getRedisClient();
-			await redis.set(sessionKey(sub), JSON.stringify(session));
+		async set(key: string, internalState: NodeSavedSession): Promise<void> {},
+		async get(key: string): Promise<NodeSavedSession | undefined> {
+			return undefined;
 		},
-		async get(sub: string): Promise<NodeSavedSession | undefined> {
-			const redis = await getRedisClient();
-			const raw = await redis.get(sessionKey(sub));
-
-			if (!raw) return undefined;
-
-			return JSON.parse(raw) as NodeSavedSession;
-		},
-		async del(sub: string): Promise<void> {
-			const redis = await getRedisClient();
-			await redis.del(sessionKey(sub));
-		},
+		async del(key: string): Promise<void> {},
 	},
 
 	// A lock to prevent concurrent access to the session store. Optional if only one instance is running.

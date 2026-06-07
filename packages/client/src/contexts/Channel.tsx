@@ -15,7 +15,7 @@ import type {
 	Message,
 	PendingMessage,
 } from "../atproto/xrpc/social/colibri/channel/listMessages";
-import type { ColibriRichTextFacet } from "lib";
+import type { ColibriRichTextFacet } from "@colibri-social/lib";
 import { AtURI } from "../utils/at-uri";
 import { useUserContext } from "./User";
 import { useSocketContext } from "./Socket";
@@ -528,7 +528,7 @@ export const ChannelContextProvider: ParentComponent<{
 		if (event.type === "message_event") {
 			const d = event.data;
 			if (!d) return;
-			if (d.channel !== channelUri()) return;
+			if (d.channel && d.channel !== channelUri()) return;
 
 			if (d.event === "delete") {
 				removeMessage(d.uri);

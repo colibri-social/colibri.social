@@ -1,4 +1,4 @@
-import { AT_URI } from "lib";
+import type { AT_URI } from "@colibri-social/lib";
 
 /**
  * Converts a community's AT URI to a url-safe representation. Supports both the old

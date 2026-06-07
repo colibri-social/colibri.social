@@ -11,7 +11,7 @@ const makeClientId = () => {
 		// see https://atproto.com/specs/oauth#localhost-client-development
 		return `http://localhost?${new URLSearchParams({
 			scope: scopes.join(" "),
-			redirect_uri: `http://127.0.0.1:${window.location.port}/login`,
+			redirect_uri: `http://127.0.0.1:${window.location.port}/app/login`,
 		})}`;
 	}
 
