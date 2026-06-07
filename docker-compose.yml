@@ -4,8 +4,6 @@ services:
       context: .
       dockerfile: apps/website/Dockerfile
       args:
-        - PRIVATE_KEY_1=${PRIVATE_KEY_1}
-        - PRIVATE_KEY_2=${PRIVATE_KEY_2}
         - INVITE_API_KEY=${INVITE_API_KEY}
         - APPVIEW_DOMAIN=${APPVIEW_DOMAIN}
         - SAME_TLD_DID=${SAME_TLD_DID}
@@ -19,8 +17,6 @@ services:
     container_name: colibri-app
     restart: unless-stopped
     environment:
-      - PRIVATE_KEY_1=${PRIVATE_KEY_1}
-      - PRIVATE_KEY_2=${PRIVATE_KEY_2}
       - INVITE_API_KEY=${INVITE_API_KEY}
       - APPVIEW_DOMAIN=${APPVIEW_DOMAIN}
       - SAME_TLD_DID=${SAME_TLD_DID}

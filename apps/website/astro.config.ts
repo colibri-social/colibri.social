@@ -70,8 +70,6 @@ export default defineConfig({
 	],
 	env: {
 		schema: {
-			PRIVATE_KEY_1: envField.string({ context: "server", access: "secret" }),
-			PRIVATE_KEY_2: envField.string({ context: "server", access: "secret" }),
 			LIVEKIT_API_KEY: envField.string({ context: "server", access: "secret" }),
 			LIVEKIT_API_SECRET: envField.string({
 				context: "server",
