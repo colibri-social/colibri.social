@@ -359,7 +359,7 @@ lex.add(
 							description:
 								"The emoji of the reaction. This allows for any string to support for custom emojis later down the line.",
 						},
-						targetMessage: {
+						parent: {
 							type: "string",
 							description: "The message this relation belongs to.",
 							format: "record-key",

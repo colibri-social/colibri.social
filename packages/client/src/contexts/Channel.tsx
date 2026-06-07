@@ -376,11 +376,10 @@ export const ChannelContextProvider: ParentComponent<{
 		uri: string,
 		text: string,
 		facets: ColibriRichTextFacet[],
+		edited: boolean = true,
 	) => {
 		setMessages((prev) =>
-			prev.map((m) =>
-				m.uri === uri ? { ...m, text, facets, edited: true } : m,
-			),
+			prev.map((m) => (m.uri === uri ? { ...m, text, facets, edited } : m)),
 		);
 	};
 
@@ -538,8 +537,22 @@ export const ChannelContextProvider: ParentComponent<{
 
 			// Already have this message (edit from elsewhere, or our own message
 			// already confirmed) — apply the new text/facets.
-			if (messages().some((m) => m.uri === d.uri)) {
-				updateMessageText(d.uri, d.text, d.facets ?? []);
+			const existing = messages().find((m) => m.uri === d.uri);
+			if (existing) {
+				const isSame =
+					d.text === existing.text &&
+					d.facets.every((facet) =>
+						existing.facets.find(
+							(x) =>
+								x.index.byteStart === facet.index.byteStart &&
+								x.index.byteEnd === facet.index.byteEnd &&
+								x.features.every((feature) =>
+									facet.features.find((x) => x.$type === feature.$type),
+								),
+						),
+					);
+
+				updateMessageText(d.uri, d.text, d.facets ?? [], !isSame);
 				return;
 			}
 

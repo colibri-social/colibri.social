@@ -133,7 +133,7 @@ export const SettingsModal: ParentComponent<{
 							<XIcon />
 						</DialogCloseButton>
 					</div>
-					<div class="min-h-128 h-auto flex flex-col justify-between p-4 min-w-52 border-r border-border">
+					<div class="min-h-128 h-auto flex flex-col justify-between p-4 min-w-56 border-r border-border">
 						<div class="h-full flex flex-col gap-1">
 							<For each={props.pages}>
 								{(item) => (

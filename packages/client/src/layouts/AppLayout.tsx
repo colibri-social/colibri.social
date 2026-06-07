@@ -19,7 +19,6 @@ import {
 	Show,
 	Switch,
 } from "solid-js";
-import { UserSettingsModal } from "../components/app/UserSettingsModal";
 import {
 	UserPreferencesContextProvider,
 	useUserPreferences,
@@ -42,6 +41,7 @@ import GearIcon from "~icons/ph/gear";
 import { CommunityCreationModal } from "../components/app/CommunityCreationModal";
 import { NotificationBell } from "../components/app/NotificationBell";
 import { Plus } from "../components/icons/Plus";
+import { UserSettingsModal } from "../components/app/settings";
 
 const CommunityAvatar = (props: { item: Community; class?: string }) => {
 	const communityDid = props.item.uri.split("/")[2];
@@ -304,17 +304,16 @@ const AppLayout: ParentComponent = (props) => {
 							</CommunityCreationModal>
 						</div>
 					</nav>
-					<button
-						type="button"
-						class="w-10 flex h-10 rounded-md bg-muted hover:bg-primary hover:text-primary-foreground items-center justify-center cursor-pointer"
-						onClick={() => setUserSettingsOpen(true)}
-					>
-						<GearIcon />
-					</button>
+					<UserSettingsModal>
+						<div class="w-10 flex h-10 rounded-md bg-muted hover:bg-primary hover:text-primary-foreground items-center justify-center cursor-pointer">
+							<div class="block w-fit h-fit">
+								<GearIcon />
+							</div>
+						</div>
+					</UserSettingsModal>
 				</aside>
 				<main class="w-full h-full">{props.children}</main>
 			</div>
-			<UserSettingsModal open={userSettingsOpen} setOpen={setUserSettingsOpen} />
 		</div>
 	);
 };

@@ -6,21 +6,16 @@ import {
 	type Participant,
 } from "livekit-client";
 import type { Room as RoomType } from "livekit-client";
-import {
-	createContext,
-	type ParentComponent,
-	useContext,
-} from "solid-js";
+import { createContext, type ParentComponent, useContext } from "solid-js";
 import { createStore } from "solid-js/store";
 import { useUserContext } from "./User";
-import { useCommunityContext } from "./Community";
 
 export type VoiceChatConnection = {
 	state: ConnectionState;
 	quality: ConnectionQuality;
 	room: RoomType | null;
-	/** The rkey of the voice channel we are currently connected to, or null. */
-	rkey: string | null;
+	/** The URI of the voice channel we are currently connected to, or null. */
+	uri: string | null;
 };
 
 export type VoiceChatStates = {
@@ -58,14 +53,13 @@ const VoiceChatContext = createContext<VoiceChatContextValue>();
 
 export const VoiceChatContextProvider: ParentComponent = (props) => {
 	const user = useUserContext();
-	const community = useCommunityContext();
 
 	const [voiceData, setVoiceData] = createStore<VoiceChatData>({
 		connection: {
 			state: ConnectionState.Disconnected,
 			quality: ConnectionQuality.Unknown,
 			room: null,
-			rkey: null,
+			uri: null,
 		},
 		states: {
 			camEnabled: false,
@@ -79,22 +73,20 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 
 	const getRoom = (): Room | null => voiceData.connection.room as Room | null;
 
-	const connect = async (channelRkey: string): Promise<void> => {
+	const connect = async (channelUri: string): Promise<void> => {
 		// Already connected to this channel — no-op.
 		if (
 			voiceData.connection.state === ConnectionState.Connected &&
-			voiceData.connection.rkey === channelRkey
-		) return;
+			voiceData.connection.uri === channelUri
+		)
+			return;
 
 		// Disconnect from any existing session first.
 		getRoom()?.disconnect();
 
-		const channelUri = community().channels.find(
-			(c) => c.uri.split("/").pop() === channelRkey,
-		)?.uri;
-		if (!channelUri) return;
-
-		const tokenRes = await user.xrpc.social.colibri.channel.getVoiceToken(channelUri);
+		// TODO: Check if this works as intended
+		const tokenRes =
+			await user.xrpc.social.colibri.channel.getVoiceToken(channelUri);
 		if (!tokenRes) return;
 
 		const room = new Room();
@@ -102,18 +94,31 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 		room.on(RoomEvent.ConnectionStateChanged, (state: ConnectionState) => {
 			setVoiceData("connection", "state", state);
 			if (state === ConnectionState.Disconnected) {
-				setVoiceData("connection", { state, room: null, rkey: null, quality: ConnectionQuality.Unknown });
+				setVoiceData("connection", {
+					state,
+					room: null,
+					uri: null,
+					quality: ConnectionQuality.Unknown,
+				});
 				setVoiceData("participants", []);
 				setVoiceData("activeSpeakers", []);
-				setVoiceData("states", { camEnabled: false, screenEnabled: false, micEnabled: false, deafened: false });
+				setVoiceData("states", {
+					camEnabled: false,
+					screenEnabled: false,
+					micEnabled: false,
+					deafened: false,
+				});
 			}
 		});
 
-		room.on(RoomEvent.ConnectionQualityChanged, (_: ConnectionQuality, participant: Participant) => {
-			if (participant.identity === user.did) {
-				setVoiceData("connection", "quality", participant.connectionQuality);
-			}
-		});
+		room.on(
+			RoomEvent.ConnectionQualityChanged,
+			(_: ConnectionQuality, participant: Participant) => {
+				if (participant.identity === user.did) {
+					setVoiceData("connection", "quality", participant.connectionQuality);
+				}
+			},
+		);
 
 		room.on(RoomEvent.ParticipantConnected, (participant: Participant) => {
 			setVoiceData("participants", (prev) => [...prev, participant.identity]);
@@ -126,7 +131,10 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 		});
 
 		room.on(RoomEvent.ActiveSpeakersChanged, (speakers: Participant[]) => {
-			setVoiceData("activeSpeakers", speakers.map((s) => s.identity));
+			setVoiceData(
+				"activeSpeakers",
+				speakers.map((s) => s.identity),
+			);
 		});
 
 		room.on(RoomEvent.LocalTrackPublished, () => {
@@ -157,7 +165,7 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 			state: ConnectionState.Connected,
 			quality: ConnectionQuality.Unknown,
 			room,
-			rkey: channelRkey,
+			uri: channelUri,
 		});
 		setVoiceData("participants", existingParticipants);
 		setVoiceData("states", "micEnabled", true);
@@ -169,7 +177,7 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 			state: ConnectionState.Disconnected,
 			quality: ConnectionQuality.Unknown,
 			room: null,
-			rkey: null,
+			uri: null,
 		});
 		setVoiceData("participants", []);
 		setVoiceData("activeSpeakers", []);

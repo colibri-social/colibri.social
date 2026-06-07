@@ -13,6 +13,8 @@ export const scopes = [
 	"rpc:social.colibri.community.deleteInvitation?aud=*",
 	"rpc:social.colibri.community.create?aud=*",
 	"rpc:social.colibri.channel.getReadCursor?aud=*",
+	"rpc:social.colibri.notification.getUnreadCount?aud=*",
+	"rpc:social.colibri.notification.listNotifications?aud=*",
 	"repo:social.colibri.actor.data?action=create&action=update&action=delete",
 	"repo:social.colibri.community?action=create&action=update&action=delete",
 	"repo:social.colibri.category?action=create&action=update&action=delete",

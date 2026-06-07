@@ -12,6 +12,7 @@ import { AppLoadingScreen } from "./components/AppLoadingScreen";
 import CommunityLayoutWithContext from "./layouts/CommunityLayout";
 import ChannelLayoutWithContext from "./layouts/ChannelLayout";
 import { VoiceChannelView } from "./components/app/VoiceChannelView";
+import { VoiceChatContextProvider } from "./contexts/VoiceChat";
 
 // Accepted forms of the `:channelType` URL segment. We accept both the
 // short form (legacy records that store `"text"` / `"voice"`) and the full
@@ -26,7 +27,9 @@ const AppRoute: ParentComponent = (props) => {
 	return (
 		<UserContextProvider>
 			<SocketContextProvider>
-				<AppLayout>{props.children}</AppLayout>
+				<VoiceChatContextProvider>
+					<AppLayout>{props.children}</AppLayout>
+				</VoiceChatContextProvider>
 			</SocketContextProvider>
 		</UserContextProvider>
 	);
@@ -57,7 +60,9 @@ const App: ParentComponent = () => {
 								path="/c/:community"
 								component={() => (
 									<div class="w-full h-full flex flex-col items-center justify-center gap-2 text-muted-foreground select-none">
-										<p class="text-base font-medium">Select a channel to get started</p>
+										<p class="text-base font-medium">
+											Select a channel to get started
+										</p>
 									</div>
 								)}
 							/>

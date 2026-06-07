@@ -248,7 +248,7 @@ export const MessageContextProvider: ParentComponent<{ data: Message }> = (
 				user.atproto.agent,
 				user.did,
 				"social.colibri.reaction",
-				{ emoji, targetMessage: props.data.uri },
+				{ emoji, parent: props.data.uri },
 			);
 			channel.cacheReactionRkey(
 				props.data.uri,

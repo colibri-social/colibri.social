@@ -62,7 +62,10 @@ export const NotificationBell: Component = () => {
 
 		setLoading(true);
 		try {
-			const res = await user.xrpc.social.colibri.notification.listNotifications(20, undefined);
+			const res = await user.xrpc.social.colibri.notification.listNotifications(
+				20,
+				undefined,
+			);
 			if (res) setNotifications(res.notifications as Notification[]);
 			await user.xrpc.social.colibri.notification.updateSeen();
 			setUnreadCount(0);
@@ -87,7 +90,11 @@ export const NotificationBell: Component = () => {
 		kind === "reply" ? "replied to you" : "mentioned you";
 
 	return (
-		<Popover open={open()} onOpenChange={handleOpenChange} placement="bottom-end">
+		<Popover
+			open={open()}
+			onOpenChange={handleOpenChange}
+			placement="bottom-end"
+		>
 			<PopoverTrigger
 				as="button"
 				type="button"
@@ -111,12 +118,12 @@ export const NotificationBell: Component = () => {
 								Loading…
 							</div>
 						</Show>
-						<Show when={!loading() && notifications().length === 0}>
+						<Show when={!loading() && notifications()?.length === 0}>
 							<div class="py-6 text-center text-sm text-muted-foreground">
 								No notifications yet.
 							</div>
 						</Show>
-						<Show when={!loading() && notifications().length > 0}>
+						<Show when={!loading() && notifications()?.length > 0}>
 							<For each={notifications()}>
 								{(n) => (
 									<div class="flex flex-col px-3 py-2 border-b border-border last:border-b-0 hover:bg-muted/50">

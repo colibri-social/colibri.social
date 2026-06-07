@@ -127,9 +127,7 @@ const CommunityLayout: ParentComponent = (props) => {
 
 const CommunityLayoutWithContext: ParentComponent = (props) => (
 	<CommunityContextProvider>
-		<VoiceChatContextProvider>
-			<CommunityLayout>{props.children}</CommunityLayout>
-		</VoiceChatContextProvider>
+		<CommunityLayout>{props.children}</CommunityLayout>
 	</CommunityContextProvider>
 );
 

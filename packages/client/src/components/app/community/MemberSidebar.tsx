@@ -264,6 +264,17 @@ export const MemberSidebar = () => {
 			.sort((a, b) => a.position - b.position)
 			.map((x) => ({ role: x, members: [] }));
 
+		const noRoleIdx = result.push({
+			role: {
+				name: "Online",
+				channelOverrides: [],
+				permissions: [],
+				position: 0,
+				uri: "",
+			},
+			members: [],
+		});
+
 		for (const member of community().members) {
 			const sortedMemberRoles = member.roles.sort(
 				(a, b) =>
@@ -272,11 +283,15 @@ export const MemberSidebar = () => {
 			);
 
 			const highestMemberRole = sortedMemberRoles[0];
-			const resultIndex = result.findIndex(
+			let resultIndex = result.findIndex(
 				(x) => x.role.uri === highestMemberRole,
 			);
 
-			if (resultIndex < 0) continue;
+			if (resultIndex < 0) {
+				resultIndex = noRoleIdx - 1;
+			}
+
+			console.log(result, resultIndex);
 
 			result[resultIndex].members.push(member);
 		}
@@ -299,8 +314,8 @@ export const MemberSidebar = () => {
 			<For each={membersByRoles()}>
 				{(role) => (
 					<>
-						<span>
-							{role.role.name} ({role.members.length})
+						<span class="text-sm text-muted-foreground not-first-of-type:mt-4">
+							{role.role.name} — {role.members.length}
 						</span>
 						<For each={role.members}>
 							{(member) => (

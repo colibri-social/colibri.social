@@ -18,23 +18,63 @@ export type VoicePreferences = {
 	outputVolume: number;
 };
 
-export type UserPreferencesData = {
-	voice: VoicePreferences;
-	membersListVisible: boolean;
-};
+interface BaseVoiceVideoSettings {
+	enabled: boolean;
+	preferredDeviceId: string | undefined;
+}
 
-const DEFAULT_PREFERENCES: UserPreferencesData = {
+export interface VoiceIOSettings extends BaseVoiceVideoSettings {
+	volume: number;
+}
+
+export interface VoiceInputSettings extends VoiceIOSettings {
+	noiseSuppression: boolean;
+}
+
+export interface VolumeOverrides {
 	voice: {
-		inputDeviceId: null,
-		outputDeviceId: null,
-		noiseSuppressionEnabled: true,
-		inputVolume: 100,
-		outputVolume: 100,
-	},
-	membersListVisible: true,
+		volume: number;
+		muted: boolean;
+	};
+	screen: {
+		volume: number;
+		muted: boolean;
+	};
+}
+
+export type UserPreferencesContextData = {
+	membersListVisible: boolean;
+	voice: {
+		input: VoiceInputSettings;
+		output: VoiceIOSettings;
+		camera: BaseVoiceVideoSettings;
+		participantVolumeOverrides: Record<string, VolumeOverrides>;
+	};
 };
 
-function loadFromStorage(): UserPreferencesData {
+const DEFAULT_PREFERENCES: UserPreferencesContextData = {
+	membersListVisible: true,
+	voice: {
+		input: {
+			enabled: true,
+			volume: 1,
+			preferredDeviceId: undefined,
+			noiseSuppression: true,
+		},
+		output: {
+			enabled: true,
+			volume: 1,
+			preferredDeviceId: undefined,
+		},
+		camera: {
+			enabled: false,
+			preferredDeviceId: undefined,
+		},
+		participantVolumeOverrides: {},
+	},
+};
+
+function loadFromStorage(): UserPreferencesContextData {
 	try {
 		const raw = localStorage.getItem(STORAGE_KEY);
 		if (!raw) return DEFAULT_PREFERENCES;
@@ -45,8 +85,8 @@ function loadFromStorage(): UserPreferencesData {
 }
 
 type UserPreferencesContextValue = {
-	preferences: Accessor<UserPreferencesData>;
-	setPreferences: Setter<UserPreferencesData>;
+	preferences: Accessor<UserPreferencesContextData>;
+	setPreferences: Setter<UserPreferencesContextData>;
 	updateVoice: (patch: Partial<VoicePreferences>) => void;
 	toggleMembersVisible: () => void;
 };
@@ -55,7 +95,7 @@ const UserPreferencesContext = createContext<UserPreferencesContextValue>();
 
 export const UserPreferencesContextProvider: ParentComponent = (props) => {
 	const [preferences, setPreferences] =
-		createSignal<UserPreferencesData>(loadFromStorage());
+		createSignal<UserPreferencesContextData>(loadFromStorage());
 
 	// Persist to localStorage whenever preferences change.
 	createEffect(() => {
@@ -71,7 +111,10 @@ export const UserPreferencesContextProvider: ParentComponent = (props) => {
 	};
 
 	const toggleMembersVisible = () => {
-		setPreferences((p) => ({ ...p, membersListVisible: !p.membersListVisible }));
+		setPreferences((p) => ({
+			...p,
+			membersListVisible: !p.membersListVisible,
+		}));
 	};
 
 	return (
