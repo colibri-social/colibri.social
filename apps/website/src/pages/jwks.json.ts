@@ -1,6 +1,8 @@
-import { client } from "../utils/atproto/oauth";
+import { getClient } from "../utils/atproto/oauth";
 
-export const GET = () => {
+export const GET = async () => {
+	const client = await getClient();
+
 	return new Response(JSON.stringify(client.jwks), {
 		status: 200,
 		statusText: "OK",

@@ -31,58 +31,83 @@ const decodePrivateKey = (key: string) =>
 	Buffer.from(key, "base64").toString("utf-8");
 
 // See https://npmx.dev/package/@atproto/oauth-client-node#user-content-from-a-backend-service
-export const client = new NodeOAuthClient({
-	// This object will be used to build the payload of the /client-metadata.json
-	// endpoint metadata, exposing the client metadata to the OAuth server.
-	clientMetadata: {
-		client_id: import.meta.env.DEV
-			? `http://localhost/?redirect_uri=${encodeURIComponent(`http://127.0.0.1:${serverPort}/app/login`)}&scope=${encodeURIComponent(scopes.join(" "))}`
-			: `${import.meta.env.SITE}/oauth-client-metadata.json`,
-		client_name: "Colibri Chat",
-		client_uri: import.meta.env.SITE,
-		logo_uri: `${import.meta.env.SITE}/logo.png`,
-		tos_uri: `${import.meta.env.SITE}/tos`,
-		policy_uri: `${import.meta.env.SITE}/policy`,
-		redirect_uris: [
-			import.meta.env.DEV
-				? `http://127.0.0.1:4321/app/login`
-				: `${import.meta.env.SITE}/app/login`,
-		],
-		grant_types: ["authorization_code", "refresh_token"],
-		scope: scopes.join(" "),
-		response_types: ["code"],
-		application_type: "web",
-		token_endpoint_auth_method: "private_key_jwt",
-		token_endpoint_auth_signing_alg: "RS256",
-		dpop_bound_access_tokens: true,
-		jwks_uri: `${import.meta.env.SITE}/jwks.json`,
-	},
+//
+// The client is built lazily on first use rather than at module load. Building
+// it requires a top-level `await` for the keyset, and Astro's production build
+// code-splits this module into an async chunk where that awaited value is not
+// reliably wired into the synchronously-constructed client — leaving the
+// constructor with `keyset: undefined` and throwing "requires a keyset". Astro's
+// dev server runs native ESM, so the top-level await works there, which is why
+// the bug only surfaced in production. Deferring construction to request time
+// (where all consumers already call it) sidesteps the issue entirely.
+let clientPromise: Promise<NodeOAuthClient> | undefined;
 
+const buildClient = async (): Promise<NodeOAuthClient> => {
 	// Used to authenticate the client to the token endpoint. Will be used to
 	// build the jwks object to be exposed on the "jwks_uri" endpoint.
-	keyset: await Promise.all([
+	const keyset = await Promise.all([
 		JoseKey.fromImportable(decodePrivateKey(PRIVATE_KEY_1), "key1"),
 		JoseKey.fromImportable(decodePrivateKey(PRIVATE_KEY_2), "key2"),
-	]),
+	]);
 
-	// Interface to store authorization state data (during authorization flows).
-	stateStore: {
-		async set(key: string, internalState: NodeSavedState): Promise<void> {},
-		async get(key: string): Promise<NodeSavedState | undefined> {
-			return undefined;
+	return new NodeOAuthClient({
+		// This object will be used to build the payload of the /client-metadata.json
+		// endpoint metadata, exposing the client metadata to the OAuth server.
+		clientMetadata: {
+			client_id: import.meta.env.DEV
+				? `http://localhost/?redirect_uri=${encodeURIComponent(`http://127.0.0.1:${serverPort}/app/login`)}&scope=${encodeURIComponent(scopes.join(" "))}`
+				: `${import.meta.env.SITE}/oauth-client-metadata.json`,
+			client_name: "Colibri Chat",
+			client_uri: import.meta.env.SITE,
+			logo_uri: `${import.meta.env.SITE}/logo.png`,
+			tos_uri: `${import.meta.env.SITE}/tos`,
+			policy_uri: `${import.meta.env.SITE}/policy`,
+			redirect_uris: [
+				import.meta.env.DEV
+					? `http://127.0.0.1:4321/app/login`
+					: `${import.meta.env.SITE}/app/login`,
+			],
+			grant_types: ["authorization_code", "refresh_token"],
+			scope: scopes.join(" "),
+			response_types: ["code"],
+			application_type: "web",
+			token_endpoint_auth_method: "private_key_jwt",
+			token_endpoint_auth_signing_alg: "RS256",
+			dpop_bound_access_tokens: true,
+			jwks_uri: `${import.meta.env.SITE}/jwks.json`,
 		},
-		async del(key: string): Promise<void> {},
-	},
 
-	// Interface to store authenticated session data.
-	sessionStore: {
-		async set(key: string, internalState: NodeSavedSession): Promise<void> {},
-		async get(key: string): Promise<NodeSavedSession | undefined> {
-			return undefined;
+		keyset,
+
+		// Interface to store authorization state data (during authorization flows).
+		stateStore: {
+			async set(key: string, internalState: NodeSavedState): Promise<void> {},
+			async get(key: string): Promise<NodeSavedState | undefined> {
+				return undefined;
+			},
+			async del(key: string): Promise<void> {},
 		},
-		async del(key: string): Promise<void> {},
-	},
 
-	// A lock to prevent concurrent access to the session store. Optional if only one instance is running.
-	// requestLock,
-});
+		// Interface to store authenticated session data.
+		sessionStore: {
+			async set(key: string, internalState: NodeSavedSession): Promise<void> {},
+			async get(key: string): Promise<NodeSavedSession | undefined> {
+				return undefined;
+			},
+			async del(key: string): Promise<void> {},
+		},
+
+		// A lock to prevent concurrent access to the session store. Optional if only one instance is running.
+		// requestLock,
+	});
+};
+
+/**
+ * Returns the shared OAuth client, building it once on first call. Memoizes the
+ * promise (not the resolved value) so concurrent requests don't construct
+ * multiple clients while the first build is in flight.
+ */
+export const getClient = (): Promise<NodeOAuthClient> => {
+	clientPromise ??= buildClient();
+	return clientPromise;
+};
