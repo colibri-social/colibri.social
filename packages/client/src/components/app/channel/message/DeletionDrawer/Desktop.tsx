@@ -1,7 +1,4 @@
 import type { ParentComponent } from "solid-js";
-import { DialogCancelButton, DialogConfirmButton, DialogTip } from "../shared";
-import { DialogDescriptionContent, DialogTitleContent } from "./shared";
-import { MessagePreview } from "../MessagePreview";
 import { useMessageContext } from "../../../../../contexts/Message";
 import {
 	Dialog,
@@ -13,6 +10,9 @@ import {
 	DialogTitle,
 	DialogTrigger,
 } from "../../../../ui/Dialog";
+import { MessagePreview } from "../MessagePreview";
+import { DialogCancelButton, DialogConfirmButton, DialogTip } from "../shared";
+import { DialogDescriptionContent, DialogTitleContent } from "./shared";
 
 /**
  * The message deletion drawer used as a warning when a message is about to be deleted.

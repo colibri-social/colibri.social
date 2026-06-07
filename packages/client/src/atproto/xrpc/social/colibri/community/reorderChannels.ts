@@ -1,4 +1,4 @@
-import { XrpcRequest } from "../../..";
+import type { XrpcRequest } from "../../..";
 
 export const reorderChannels: XrpcRequest<
 	[string, string[], string],
@@ -6,7 +6,9 @@ export const reorderChannels: XrpcRequest<
 > = async (fetch, category, channelOrder, auth) => {
 	try {
 		const params = new URLSearchParams({ category, auth });
-		channelOrder.forEach((uri) => params.append("channelOrder", uri));
+		channelOrder.forEach((uri) => {
+			params.append("channelOrder", uri);
+		});
 		const res = await fetch(
 			`/xrpc/social.colibri.community.reorderChannels?${params.toString()}`,
 			{ method: "POST" },

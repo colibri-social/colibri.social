@@ -1,22 +1,38 @@
-import { type Component, createMemo, For, onCleanup, onMount, Show } from "solid-js";
 import { useParams } from "@solidjs/router";
 import { ConnectionState } from "livekit-client";
-import { useCommunityContext } from "../../contexts/Community";
-import { useVoiceChatContext } from "../../contexts/VoiceChat";
-import { Button } from "../ui/Button";
-import User from "./user";
-import { Microphone } from "../icons/Microphone";
-import { Ear } from "../icons/Ear";
-import { Camera } from "../icons/Camera";
-import { Screen } from "../icons/Screen";
+import {
+	type Component,
+	createMemo,
+	For,
+	onCleanup,
+	onMount,
+	Show,
+} from "solid-js";
 import PhoneSlashIcon from "~icons/ph/phone-slash";
 import SpeakerHighIcon from "~icons/ph/speaker-high-fill";
+import { useCommunityContext } from "../../contexts/Community";
+import { useVoiceChatContext } from "../../contexts/VoiceChat";
+import { Camera } from "../icons/Camera";
+import { Ear } from "../icons/Ear";
+import { Microphone } from "../icons/Microphone";
+import { Screen } from "../icons/Screen";
+import { Button } from "../ui/Button";
+import User from "./user";
 
 export const VoiceChannelView: Component = () => {
 	const params = useParams();
 	const community = useCommunityContext();
-	const [voiceData, { connect, disconnect, toggleMic, toggleDeafen, toggleCamera, toggleScreen }] =
-		useVoiceChatContext();
+	const [
+		voiceData,
+		{
+			connect,
+			disconnect,
+			toggleMic,
+			toggleDeafen,
+			toggleCamera,
+			toggleScreen,
+		},
+	] = useVoiceChatContext();
 
 	const channelName = () => {
 		const rkey = params.channel;
@@ -53,20 +69,25 @@ export const VoiceChannelView: Component = () => {
 
 			{/* Participant tiles */}
 			<div class="flex-1 min-h-0 overflow-y-auto p-4">
-				<Show when={participantMembers().length > 0} fallback={
-					<div class="w-full h-full flex items-center justify-center text-muted-foreground">
-						Nobody's here yet.
-					</div>
-				}>
+				<Show
+					when={participantMembers().length > 0}
+					fallback={
+						<div class="w-full h-full flex items-center justify-center text-muted-foreground">
+							Nobody's here yet.
+						</div>
+					}
+				>
 					<div class="grid grid-cols-2 sm:grid-cols-3 gap-4 max-w-3xl mx-auto">
 						<For each={participantMembers()}>
 							{(member) => {
-								const isSpeaking = () => voiceData.activeSpeakers.includes(member!.did);
+								const isSpeaking = () =>
+									voiceData.activeSpeakers.includes(member!.did);
 								return (
 									<div
 										class="aspect-video bg-muted rounded-md flex flex-col items-center justify-center gap-2 p-4 border transition-colors duration-75"
 										classList={{
-											"border-primary shadow-[0_0_0_2px] shadow-primary": isSpeaking(),
+											"border-primary shadow-[0_0_0_2px] shadow-primary":
+												isSpeaking(),
 											"border-border": !isSpeaking(),
 										}}
 									>

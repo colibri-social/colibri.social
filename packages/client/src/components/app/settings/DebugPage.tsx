@@ -1,8 +1,7 @@
 import type { Component } from "solid-js";
-
+import { useUserContext } from "../../../contexts/User";
 import { InfoPageItem } from "../common/SettingsInfoPage";
 import { SettingsPage } from "../common/SettingsModal";
-import { useUserContext } from "../../../contexts/User";
 
 export const DebugPage: Component = () => {
 	const user = useUserContext();

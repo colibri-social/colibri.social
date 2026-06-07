@@ -1,14 +1,14 @@
+import type { ColibriRichTextFacet } from "@colibri-social/lib";
 import { A } from "@solidjs/router";
 import twemoji from "@twemoji/api";
-import type { ColibriRichTextFacet } from "@colibri-social/lib";
 import type { JSX } from "solid-js";
 import { useCommunityContext } from "../../../../contexts/Community";
-import { purify } from "../../../../utils/purify";
-import User from "../../user";
 import {
 	buildFeatureKey,
 	normalizeFacets,
 } from "../../../../utils/normalize-facets";
+import { purify } from "../../../../utils/purify";
+import User from "../../user";
 
 export type TextWithFacets = {
 	text: string;
@@ -163,7 +163,7 @@ const applyStyleForFacet = (text: string, feature: AnyFeature): JSX.Element => {
  */
 export const renderWithFacets = (
 	input: TextWithFacets,
-	community?: string,
+	_community?: string,
 ): Array<JSX.Element> => {
 	const bytes = textEncoder.encode(input.text);
 

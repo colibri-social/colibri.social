@@ -29,9 +29,7 @@ const fetchEmbedData = async (uri: string): Promise<EmbedData | undefined> => {
 					doc
 						.querySelector(`meta[property="${name}"]`)
 						?.getAttribute("content") ??
-					doc
-						.querySelector(`meta[name="${name}"]`)
-						?.getAttribute("content");
+					doc.querySelector(`meta[name="${name}"]`)?.getAttribute("content");
 				if (val) return val;
 			}
 			return undefined;
@@ -46,8 +44,7 @@ const fetchEmbedData = async (uri: string): Promise<EmbedData | undefined> => {
 			"twitter:description",
 			"description",
 		);
-		const siteName =
-			getMeta("og:site_name") ?? new URL(uri).hostname;
+		const siteName = getMeta("og:site_name") ?? new URL(uri).hostname;
 		const themeColor = getMeta("theme-color");
 		const imageUrl = getMeta("og:image", "twitter:image");
 

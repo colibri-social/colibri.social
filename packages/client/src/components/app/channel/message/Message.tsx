@@ -1,6 +1,19 @@
-import { useParams } from "@solidjs/router";
+import type { ColibriRichTextLink } from "@colibri-social/lib";
 import twemoji from "@twemoji/api";
 import { type Component, For, Match, Show, Switch } from "solid-js";
+import ArrowBendUpLeft from "~icons/ph/arrow-bend-up-left";
+import PencilIcon from "~icons/ph/pencil";
+import ProhibitIcon from "~icons/ph/prohibit";
+import SmileyIcon from "~icons/ph/smiley";
+import TrashIcon from "~icons/ph/trash";
+import type { Message as MessageData } from "../../../../atproto/xrpc/social/colibri/channel/listMessages";
+import { useChannelContext } from "../../../../contexts/Channel";
+import { useCommunityContext } from "../../../../contexts/Community";
+import {
+	MessageContextProvider,
+	useMessageContext,
+} from "../../../../contexts/Message";
+import { useUserContext } from "../../../../contexts/User";
 import {
 	Tooltip,
 	TooltipTrigger,
@@ -8,6 +21,7 @@ import {
 } from "../../../ui/Tooltip";
 import { EmojiPopover } from "../../common/EmojiPopover";
 import { RichTextRenderer } from "../../common/rich-text-renderer/RichTextRenderer";
+import { facetsToProseMirror } from "../../common/text-editor/facets-to-prosemirror";
 import { TextEditor } from "../../common/text-editor/TextEditor";
 import User from "../../user";
 import { MessageAttachments } from "./Attachments";
@@ -16,21 +30,6 @@ import { Action } from "./ContextMenu";
 import { MessageContextMenu } from "./ContextMenu/Menu";
 import { DeletionDrawer } from "./DeletionDrawer/index";
 import { Embed } from "./Embed";
-import type { Message as MessageData } from "../../../../atproto/xrpc/social/colibri/channel/listMessages";
-import { useUserContext } from "../../../../contexts/User";
-import type { ColibriRichTextLink } from "@colibri-social/lib";
-import { useChannelContext } from "../../../../contexts/Channel";
-import { facetsToProseMirror } from "../../common/text-editor/facets-to-prosemirror";
-import { useCommunityContext } from "../../../../contexts/Community";
-import {
-	MessageContextProvider,
-	useMessageContext,
-} from "../../../../contexts/Message";
-import SmileyIcon from "~icons/ph/smiley";
-import ArrowBendUpLeft from "~icons/ph/arrow-bend-up-left";
-import ProhibitIcon from "~icons/ph/prohibit";
-import PencilIcon from "~icons/ph/pencil";
-import TrashIcon from "~icons/ph/trash";
 
 /**
  * A rendered message component in a chat.

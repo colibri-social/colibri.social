@@ -1,12 +1,11 @@
 import twemoji from "@twemoji/api";
 import { type Component, createSignal, Match, Switch } from "solid-js";
-import { toast } from "somoto";
+import SmileyIcon from "~icons/ph/smiley";
+import { useUserContext } from "../../../contexts/User";
+import { Button } from "../../ui/Button";
+import { TextField, TextFieldInput } from "../../ui/TextField";
 import { EmojiPopover } from "../common/EmojiPopover";
 import { SettingsPage } from "../common/SettingsModal";
-import { useUserContext } from "../../../contexts/User";
-import { TextField, TextFieldInput } from "../../ui/TextField";
-import { Button } from "../../ui/Button";
-import SmileyIcon from "~icons/ph/smiley";
 
 export const StatusPage: Component = () => {
 	const user = useUserContext();

@@ -1,5 +1,5 @@
 import type { JsonBlobRef } from "@atproto/lexicon";
-import { XrpcRequest } from "../../..";
+import type { XrpcRequest } from "../../..";
 import type { Category } from "./listCategories";
 import type { Channel } from "./listChannels";
 import type { Member } from "./listMembers";

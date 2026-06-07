@@ -1,13 +1,13 @@
 import type { Component } from "solid-js";
+import XIcon from "~icons/ph/x";
+import { useMessageContext } from "../../../../contexts/Message";
 import {
 	Dialog,
 	DialogCloseButton,
 	DialogContent,
 	DialogPortal,
 } from "../../../ui/Dialog";
-import XIcon from "~icons/ph/x";
 import { SettingsInfoPage } from "../../common/SettingsInfoPage";
-import { useMessageContext } from "../../../../contexts/Message";
 
 export const DebugInfo: Component = () => {
 	const { message, debugModalOpen, setDebugModalOpen } = useMessageContext();

@@ -1,15 +1,15 @@
+import type { Agent } from "@atproto/api";
+import type { BrowserOAuthClient } from "@atproto/oauth-client-browser";
+import type { ActorData, Community } from "@colibri-social/lib";
 import {
 	createContext,
 	createEffect,
 	createResource,
 	Match,
-	ParentComponent,
+	type ParentComponent,
 	Switch,
 	useContext,
 } from "solid-js";
-import type { BrowserOAuthClient } from "@atproto/oauth-client-browser";
-import type { Agent } from "@atproto/api";
-import type { Community, ActorData } from "@colibri-social/lib";
 import { XrpcClient } from "../atproto/xrpc";
 import { AppLoadingScreen } from "../components/AppLoadingScreen";
 import { useAuthContext } from "./Auth";

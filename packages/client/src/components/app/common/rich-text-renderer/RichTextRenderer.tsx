@@ -1,8 +1,8 @@
 import type { Accessor, Component } from "solid-js";
 import { For, Show } from "solid-js";
-import { renderWithFacets, type TextWithFacets } from "./util";
 import { useCommunityContext } from "../../../../contexts/Community";
 import { cx } from "../../../../utils/cva";
+import { renderWithFacets, type TextWithFacets } from "./util";
 
 /**
  * A rich text renderer component that parses a given text and renders its facets as HTML.

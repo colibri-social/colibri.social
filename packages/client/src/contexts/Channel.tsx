@@ -1,3 +1,4 @@
+import type { ColibriRichTextFacet } from "@colibri-social/lib";
 import {
 	type Accessor,
 	batch,
@@ -10,16 +11,15 @@ import {
 	type ParentComponent,
 	useContext,
 } from "solid-js";
-import type { Channel } from "../atproto/xrpc/social/colibri/community/listChannels";
 import type {
 	Message,
 	PendingMessage,
 } from "../atproto/xrpc/social/colibri/channel/listMessages";
-import type { ColibriRichTextFacet } from "@colibri-social/lib";
+import type { Channel } from "../atproto/xrpc/social/colibri/community/listChannels";
 import { AtURI } from "../utils/at-uri";
-import { useUserContext } from "./User";
-import { useSocketContext } from "./Socket";
 import { useCommunityContext } from "./Community";
+import { useSocketContext } from "./Socket";
+import { useUserContext } from "./User";
 
 /**
  * How long a typing indicator stays active without a refreshing `start`
@@ -503,7 +503,9 @@ export const ChannelContextProvider: ParentComponent<{
 	// Clear typing state when switching channels.
 	createEffect(
 		on(channelUri, () => {
-			typingTimers.forEach((t) => clearTimeout(t));
+			typingTimers.forEach((t) => {
+				clearTimeout(t);
+			});
 			typingTimers.clear();
 			setTypingUsers([]);
 		}),
@@ -619,7 +621,9 @@ export const ChannelContextProvider: ParentComponent<{
 
 	onCleanup(() => {
 		socketCleanup();
-		typingTimers.forEach((t) => clearTimeout(t));
+		typingTimers.forEach((t) => {
+			clearTimeout(t);
+		});
 		typingTimers.clear();
 	});
 

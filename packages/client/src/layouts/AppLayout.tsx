@@ -1,3 +1,5 @@
+import { logoUrl as ColibriLogo } from "@colibri-social/assets";
+import type { Community } from "@colibri-social/lib";
 import { A, useNavigate } from "@solidjs/router";
 import {
 	closestCenter,
@@ -19,29 +21,27 @@ import {
 	Show,
 	Switch,
 } from "solid-js";
+import GearIcon from "~icons/ph/gear";
+import HouseIcon from "~icons/ph/house";
+import UsersIcon from "~icons/ph/users";
+import { communityUriToUrlCompatible } from "../atproto/community-uri-to-url-compatible";
+import { resolveBlob } from "../atproto/resolve-blob";
+import { CommunityCreationModal } from "../components/app/CommunityCreationModal";
+import { NotificationBell } from "../components/app/NotificationBell";
+import { UserSettingsModal } from "../components/app/settings";
+import { Plus } from "../components/icons/Plus";
+import { Button } from "../components/ui/Button";
+import { useSocketContext } from "../contexts/Socket";
+import { useUserContext } from "../contexts/User";
 import {
 	UserPreferencesContextProvider,
 	useUserPreferences,
 } from "../contexts/UserPreferences";
-import { useSocketContext } from "../contexts/Socket";
 import {
 	animateToNewPositions,
 	capturePositions,
 	reorderList,
 } from "../utils/drag";
-import { Button } from "../components/ui/Button";
-import type { Community } from "@colibri-social/lib";
-import { resolveBlob } from "../atproto/resolve-blob";
-import { communityUriToUrlCompatible } from "../atproto/community-uri-to-url-compatible";
-import { useUserContext } from "../contexts/User";
-import ColibriLogo from "../assets/logo.png";
-import HouseIcon from "~icons/ph/house";
-import UsersIcon from "~icons/ph/users";
-import GearIcon from "~icons/ph/gear";
-import { CommunityCreationModal } from "../components/app/CommunityCreationModal";
-import { NotificationBell } from "../components/app/NotificationBell";
-import { Plus } from "../components/icons/Plus";
-import { UserSettingsModal } from "../components/app/settings";
 
 const CommunityAvatar = (props: { item: Community; class?: string }) => {
 	const communityDid = props.item.uri.split("/")[2];
@@ -169,7 +169,7 @@ const CommunitySidebar = (props: {
 
 const AppLayout: ParentComponent = (props) => {
 	const { preferences, toggleMembersVisible } = useUserPreferences();
-	const [userSettingsOpen, setUserSettingsOpen] = createSignal(false);
+	const [_userSettingsOpen, _setUserSettingsOpen] = createSignal(false);
 	const user = useUserContext();
 	const socket = useSocketContext();
 	const navigate = useNavigate();

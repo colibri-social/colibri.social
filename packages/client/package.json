@@ -34,6 +34,7 @@
 	"dependencies": {
 		"@atproto/api": "^0.18.21",
 		"@atproto/oauth-client-browser": "^0.3.41",
+		"@colibri-social/assets": "workspace:",
 		"@corvu/drawer": "^0.2.4",
 		"@kobalte/core": "^0.13.11",
 		"@sapphi-red/web-noise-suppressor": "^0.3.5",

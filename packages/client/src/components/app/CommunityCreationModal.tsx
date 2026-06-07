@@ -1,14 +1,18 @@
+import type { AT_URI } from "@colibri-social/lib";
 import type { Details } from "@kobalte/core/file-field";
+import { useNavigate } from "@solidjs/router";
 import {
-	Component,
+	type Component,
+	createEffect,
 	createSignal,
+	For,
 	Match,
 	type ParentComponent,
 	Switch,
-	For,
-	createEffect,
 } from "solid-js";
 import { toast } from "somoto";
+import { communityUriToUrlCompatible } from "../../atproto/community-uri-to-url-compatible";
+import { useUserContext } from "../../contexts/User";
 import { Image } from "../icons/Image";
 import { Spinner } from "../icons/Spinner";
 import { Button } from "../ui/Button";
@@ -30,23 +34,18 @@ import {
 	FileFieldTrigger,
 } from "../ui/FileField";
 import {
-	TextField,
-	TextFieldDescription,
-	TextFieldInput,
-	TextFieldLabel,
-} from "../ui/TextField";
-import {
 	RadioGroup,
 	RadioGroupItem,
 	RadioGroupItemInput,
 	RadioGroupItemLabel,
 	RadioGroupItems,
-	RadioGroupLabel,
 } from "../ui/RadioGroup";
-import { useNavigate } from "@solidjs/router";
-import { communityUriToUrlCompatible } from "../../atproto/community-uri-to-url-compatible";
-import { useUserContext } from "../../contexts/User";
-import type { AT_URI } from "@colibri-social/lib";
+import {
+	TextField,
+	TextFieldDescription,
+	TextFieldInput,
+	TextFieldLabel,
+} from "../ui/TextField";
 
 const OWNERSHIP_CHOICE = 1;
 const BYO_CREDENTIALS = 2;
@@ -59,16 +58,14 @@ const [password, setPassword] = createSignal<string>("");
 const [name, setName] = createSignal<string>("");
 const [description, setDescription] = createSignal<string>("");
 const [picture, setPicture] = createSignal<Details>();
-const [loading, setLoading] = createSignal<boolean>(false);
+const [loading, _setLoading] = createSignal<boolean>(false);
 const [open, setOpen] = createSignal(false);
 const [ownership, setOwnership] = createSignal<string>("managed");
 const [step, setStep] = createSignal<number>(OWNERSHIP_CHOICE);
 
 // TODO: These can be better checks
 const allCredentialsValid = () =>
-	pdsLoc().length > 0 && handleOrDid().length > 0 && password().length > 0
-		? false
-		: true;
+	!(pdsLoc().length > 0 && handleOrDid().length > 0 && password().length > 0);
 
 const CommunityOwnership: Component = () => {
 	const options = [

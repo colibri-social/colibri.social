@@ -14,7 +14,7 @@ export const resolveBlob = (
 	if (!blob) return undefined;
 
 	const appView = getAppViewHost("http");
-	let cid = "cid" in blob ? blob.cid : blob.ref.$link;
+	const cid = "cid" in blob ? blob.cid : blob.ref.$link;
 
 	return `${appView}/xrpc/com.atproto.sync.getBlob?did=${did}&cid=${cid}`;
 };

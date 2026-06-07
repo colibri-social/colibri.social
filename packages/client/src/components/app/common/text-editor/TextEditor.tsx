@@ -15,25 +15,25 @@ import { CharacterCount, Placeholder, UndoRedo } from "@tiptap/extensions";
 import { type Component, createEffect, createSignal, untrack } from "solid-js";
 import { createEditorTransaction, createTiptapEditor } from "solid-tiptap";
 import "./TextEditor.css";
+import type { ColibriRichTextFacet } from "@colibri-social/lib";
 import { type Editor, mergeAttributes } from "@tiptap/core";
 import twemoji from "@twemoji/api";
-import { htmlToDOMOutputSpec } from "../../../../utils/html-to-dom-output-spec";
-import { buildSuggestions } from "./build-suggestions";
-import { proseMirrorToFacets } from "./prosemirror-to-facets";
-import type { ColibriRichTextFacet } from "@colibri-social/lib";
-import { useCommunityContext } from "../../../../contexts/Community";
-import { EMOJI_DATA } from "../rich-text-renderer/emojiData";
 import CodeIcon from "~icons/ph/code";
-import TextStrikethroughIcon from "~icons/ph/text-strikethrough";
-import TextUnderlineIcon from "~icons/ph/text-underline";
 import TextBIcon from "~icons/ph/text-b";
 import TextItalicIcon from "~icons/ph/text-italic";
+import TextStrikethroughIcon from "~icons/ph/text-strikethrough";
+import TextUnderlineIcon from "~icons/ph/text-underline";
+import { useCommunityContext } from "../../../../contexts/Community";
+import { htmlToDOMOutputSpec } from "../../../../utils/html-to-dom-output-spec";
 import {
 	Tooltip,
 	TooltipContent,
 	TooltipPortal,
 	TooltipTrigger,
 } from "../../../ui/Tooltip";
+import { EMOJI_DATA } from "../rich-text-renderer/emojiData";
+import { buildSuggestions } from "./build-suggestions";
+import { proseMirrorToFacets } from "./prosemirror-to-facets";
 
 const CHARACTER_LIMIT = 2048;
 const CIRCUMFERENCE = 2 * Math.PI * 8;

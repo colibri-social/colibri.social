@@ -11,11 +11,7 @@ import {
 	DialogTitle,
 	DialogTrigger,
 } from "../../ui/Dialog";
-import {
-	TextField,
-	TextFieldInput,
-	TextFieldLabel,
-} from "../../ui/TextField";
+import { TextField, TextFieldInput, TextFieldLabel } from "../../ui/TextField";
 
 export const CategoryCreationModal: ParentComponent<{
 	/** AT-URI of the community this category will belong to. */
@@ -29,7 +25,10 @@ export const CategoryCreationModal: ParentComponent<{
 	const handleCreate = async () => {
 		setLoading(true);
 		try {
-			await user.xrpc.social.colibri.community.createCategory(props.community, name().trim());
+			await user.xrpc.social.colibri.community.createCategory(
+				props.community,
+				name().trim(),
+			);
 			setOpen(false);
 			setName("");
 		} catch {

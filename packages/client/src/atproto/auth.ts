@@ -1,7 +1,10 @@
 import { Agent } from "@atproto/api";
-import { BrowserOAuthClient, DidDocument } from "@atproto/oauth-client-browser";
-import { scopes } from "./scopes";
+import {
+	BrowserOAuthClient,
+	type DidDocument,
+} from "@atproto/oauth-client-browser";
 import { getAppViewHost } from "../utils/appview";
+import { scopes } from "./scopes";
 
 export const isLocal = () =>
 	["localhost", "127.0.0.1"].includes(window.location.hostname);

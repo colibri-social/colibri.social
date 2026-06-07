@@ -1,9 +1,9 @@
+import type { OnlineState } from "@colibri-social/lib";
 import { ConnectionQuality, ConnectionState } from "livekit-client";
 import {
 	type Accessor,
 	type Component,
 	createEffect,
-	createMemo,
 	createSignal,
 	Match,
 	on,
@@ -13,8 +13,13 @@ import {
 	Suspense,
 	Switch,
 } from "solid-js";
-import { useVoiceChatContext } from "../../../contexts/VoiceChat";
 import PhoneSlashIcon from "~icons/ph/phone-slash";
+import { useUserContext } from "../../../contexts/User";
+import { useVoiceChatContext } from "../../../contexts/VoiceChat";
+import { Camera } from "../../icons/Camera";
+import { Screen } from "../../icons/Screen";
+import { Wifi } from "../../icons/Wifi";
+import { Button } from "../../ui/Button";
 import {
 	DropdownMenu,
 	DropdownMenuContent,
@@ -25,15 +30,7 @@ import {
 	DropdownMenuRadioItem,
 	DropdownMenuTrigger,
 } from "../../ui/DropdownMenu";
-import { Camera } from "../../icons/Camera";
-import { Ear } from "../../icons/Ear";
-import { Microphone } from "../../icons/Microphone";
-import { Screen } from "../../icons/Screen";
-import { Wifi } from "../../icons/Wifi";
-import { Button } from "../../ui/Button";
 import { Avatar } from "./Avatar";
-import type { OnlineState } from "@colibri-social/lib";
-import { useUserContext } from "../../../contexts/User";
 
 const DropdownStatusSelect: ParentComponent<{
 	value: Accessor<OnlineState>;
@@ -91,10 +88,8 @@ const DropdownStatusSelect: ParentComponent<{
 export const Status: Component = () => {
 	const user = useUserContext();
 	const [value, setValue] = createSignal<OnlineState>("online");
-	const [
-		voiceData,
-		{ disconnect, toggleMic, toggleCamera, toggleScreen, toggleDeafen },
-	] = useVoiceChatContext();
+	const [voiceData, { disconnect, toggleCamera, toggleScreen }] =
+		useVoiceChatContext();
 
 	// Persist the online-state to the AppView whenever the user changes it.
 	// `defer: true` skips the initial value so we don't re-broadcast the

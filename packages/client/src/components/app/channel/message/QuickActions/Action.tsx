@@ -1,11 +1,11 @@
 import type { ParentComponent } from "solid-js";
+import { cx } from "../../../../../utils/cva";
 import {
 	Tooltip,
 	TooltipContent,
 	TooltipPortal,
 	TooltipTrigger,
 } from "../../../../ui/Tooltip";
-import { cx } from "../../../../../utils/cva";
 
 /**
  * An action in the message quick actions menu.

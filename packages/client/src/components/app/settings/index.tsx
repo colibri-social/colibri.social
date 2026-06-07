@@ -1,18 +1,18 @@
-import { Accessor, createEffect, Setter, type ParentComponent } from "solid-js";
+import { createEffect, type ParentComponent } from "solid-js";
+import ArrowLineLeftIcon from "~icons/ph/arrow-line-left";
+import BugIcon from "~icons/ph/bug";
+import CameraIcon from "~icons/ph/camera";
+import MicrophoneIcon from "~icons/ph/microphone";
+import SmileyIcon from "~icons/ph/smiley";
+import UserCircleIcon from "~icons/ph/user-circle";
+import { useAuthContext } from "../../../contexts/Auth";
+import { useUserContext } from "../../../contexts/User";
 import { SettingsModal } from "../common/SettingsModal";
 import { DebugPage } from "./DebugPage";
 import { GeneralPage } from "./GeneralPage";
 import { StatusPage } from "./StatusPage";
 import { VideoPage } from "./VideoPage";
 import { VoicePage } from "./VoicePage";
-import UserCircleIcon from "~icons/ph/user-circle";
-import SmileyIcon from "~icons/ph/smiley";
-import MicrophoneIcon from "~icons/ph/microphone";
-import CameraIcon from "~icons/ph/camera";
-import BugIcon from "~icons/ph/bug";
-import ArrowLineLeftIcon from "~icons/ph/arrow-line-left";
-import { useAuthContext } from "../../../contexts/Auth";
-import { useUserContext } from "../../../contexts/User";
 
 export const UserSettingsModal: ParentComponent = (props) => {
 	return (

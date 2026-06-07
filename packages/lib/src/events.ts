@@ -1,8 +1,8 @@
 import type { JsonBlobRef } from "@atproto/lexicon";
-import { AT_URI } from "./atproto.js";
-import { ColibriRichTextFacet } from "./facets.js";
-import { OnlineState } from "./shared.js";
-import { ActorData } from "./xrpc/social.colibri/actor/getData.js";
+import type { AT_URI } from "./atproto.js";
+import type { ColibriRichTextFacet } from "./facets.js";
+import type { OnlineState } from "./shared.js";
+import type { ActorData } from "./xrpc/social.colibri/actor/getData.js";
 
 interface EventBase<T extends string, D = undefined> {
 	type: T;

@@ -1,16 +1,16 @@
+import { logoUrl as ColibriLogo } from "@colibri-social/assets";
 import { useNavigate } from "@solidjs/router";
 import type { Component } from "solid-js";
+import { CommunityCreationModal } from "./app/CommunityCreationModal";
 import { Alert, AlertDescription, AlertTitle } from "./ui/Alert";
 import { Button } from "./ui/Button";
-import ColibriLogo from "../assets/logo.png";
-import { CommunityCreationModal } from "./app/CommunityCreationModal";
 
 /**
  * A welcome screen to be displayed if a user has no communities.
  * @todo This should probably be it's own page, right now it is rendered as a fallback component from App.tsx
  */
 export const WelcomeScreen: Component = () => {
-	const navigate = useNavigate();
+	const _navigate = useNavigate();
 
 	return (
 		<div class="bg-neutral-950 w-full h-full rounded-tl-xl border-t border-l border-neutral-800 flex items-center justify-center">

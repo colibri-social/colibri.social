@@ -1,4 +1,4 @@
-import { XrpcRequest } from "../../..";
+import type { XrpcRequest } from "../../..";
 
 export const leave: XrpcRequest<
 	[string, string],

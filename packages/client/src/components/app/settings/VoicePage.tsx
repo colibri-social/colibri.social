@@ -9,8 +9,6 @@ import {
 	onCleanup,
 	Switch,
 } from "solid-js";
-import { createIsSpeaking } from "../../../hooks/createIsSpeaking";
-import { createRnnoiseProcessor } from "../../../hooks/createRnnoiseProcessor";
 import { Button } from "../../../components/ui/Button";
 import {
 	Select,
@@ -37,13 +35,15 @@ import {
 	SwitchLabel,
 	SwitchThumb,
 } from "../../../components/ui/Switch";
-import { SettingsPage } from "../common/SettingsModal";
-import type { DeviceOption } from "./shared";
 import {
 	useUserPreferences,
-	VoiceInputSettings,
-	VoiceIOSettings,
+	type VoiceInputSettings,
+	type VoiceIOSettings,
 } from "../../../contexts/UserPreferences";
+import { createIsSpeaking } from "../../../hooks/createIsSpeaking";
+import { createRnnoiseProcessor } from "../../../hooks/createRnnoiseProcessor";
+import { SettingsPage } from "../common/SettingsModal";
+import type { DeviceOption } from "./shared";
 
 const enumerateAudioDevices = async () => {
 	const stream = await navigator.mediaDevices.getUserMedia({

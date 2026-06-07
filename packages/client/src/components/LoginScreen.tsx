@@ -1,7 +1,14 @@
-import { Component, createEffect, createSignal } from "solid-js";
+import { useNavigate } from "@solidjs/router";
+import { type Component, createEffect, createSignal } from "solid-js";
+import { toast } from "somoto";
+import {
+	type ActorTypeaheadResult,
+	searchActorsTypeahead,
+} from "../atproto/xrpc/app/bsky/actor/searchActorsTypeahead";
+import { useAuthContext } from "../contexts/Auth";
+import { Spinner } from "./icons/Spinner";
 import { ATmosphereAppMarquee } from "./login/ATmosphereAppMarquee";
 import { Button } from "./ui/Button";
-import { Spinner } from "./icons/Spinner";
 import {
 	Search,
 	SearchContent,
@@ -13,13 +20,6 @@ import {
 	SearchNoResult,
 	SearchPortal,
 } from "./ui/Search";
-import { toast } from "somoto";
-import { useAuthContext } from "../contexts/Auth";
-import { useNavigate } from "@solidjs/router";
-import {
-	searchActorsTypeahead,
-	type ActorTypeaheadResult,
-} from "../atproto/xrpc/app/bsky/actor/searchActorsTypeahead";
 
 export const LoginScreen: Component = () => {
 	const auth = useAuthContext();

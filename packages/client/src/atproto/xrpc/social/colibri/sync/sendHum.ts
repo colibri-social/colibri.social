@@ -1,10 +1,10 @@
 import type { ColibriEvent } from "@colibri-social/lib";
-import { XrpcRequest } from "../../..";
+import type { XrpcRequest } from "../../..";
 
-export const sendHum: XrpcRequest<
-	[ColibriEvent],
-	Promise<boolean>
-> = async (fetch, event) => {
+export const sendHum: XrpcRequest<[ColibriEvent], Promise<boolean>> = async (
+	fetch,
+	event,
+) => {
 	try {
 		const res = await fetch(`/xrpc/social.colibri.sync.sendHum`, {
 			method: "POST",

@@ -1,6 +1,4 @@
 import type { ParentComponent } from "solid-js";
-import { DialogDescriptionContent, DialogTitleContent } from "./shared";
-import { MessagePreview } from "../MessagePreview";
 import { useMessageContext } from "../../../../../contexts/Message";
 import {
 	Drawer,
@@ -12,7 +10,9 @@ import {
 	DrawerPortal,
 	DrawerTrigger,
 } from "../../../../ui/Drawer";
+import { MessagePreview } from "../MessagePreview";
 import { DialogCancelButton, DialogConfirmButton } from "../shared";
+import { DialogDescriptionContent, DialogTitleContent } from "./shared";
 
 /**
  * The mobile version of the message deletion drawer used as a warning when a message is about to be deleted.

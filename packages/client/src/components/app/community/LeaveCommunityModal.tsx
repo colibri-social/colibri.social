@@ -1,4 +1,6 @@
+import { useNavigate } from "@solidjs/router";
 import type { Accessor, Setter } from "solid-js";
+import { createSignal } from "solid-js";
 import { toast } from "somoto";
 import { useUserContext } from "../../../contexts/User";
 import { Button } from "../../ui/Button";
@@ -11,8 +13,6 @@ import {
 	DialogPortal,
 	DialogTitle,
 } from "../../ui/Dialog";
-import { useNavigate } from "@solidjs/router";
-import { createSignal } from "solid-js";
 
 export const LeaveCommunityModal = (props: {
 	open: Accessor<boolean>;

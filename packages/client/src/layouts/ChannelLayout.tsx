@@ -1,3 +1,4 @@
+import type { Details } from "@kobalte/core/file-field";
 import {
 	createEffect,
 	createMemo,
@@ -10,19 +11,18 @@ import {
 	Show,
 	untrack,
 } from "solid-js";
-import { ChannelContextProvider, useChannelContext } from "../contexts/Channel";
-import { Details } from "@kobalte/core/file-field";
+import { toast } from "somoto";
+import type { Message as MessageData } from "../atproto/xrpc/social/colibri/channel/listMessages";
+import { Message } from "../components/app/channel/message/Message";
 import { MessageInput } from "../components/app/community/MessageInput";
 import {
 	FileField,
 	FileFieldDropzone,
 	FileFieldHiddenInput,
 } from "../components/ui/FileField";
-import { toast } from "somoto";
+import { ChannelContextProvider, useChannelContext } from "../contexts/Channel";
 import { useCommunityContext } from "../contexts/Community";
 import { getChannelParam } from "../utils/get-param";
-import { Message } from "../components/app/channel/message/Message";
-import type { Message as MessageData } from "../atproto/xrpc/social/colibri/channel/listMessages";
 
 type MessageMeta = {
 	/** True when the previous message was authored on a different calendar day. */

@@ -1,15 +1,15 @@
 import { type Component, createSignal, Match, Show, Switch } from "solid-js";
-import { SettingsPage } from "./SettingsModal";
+import CheckIcon from "~icons/ph/check";
+import CopyIcon from "~icons/ph/copy";
 import { AtURI } from "../../../utils/at-uri";
+import { Button } from "../../ui/Button";
 import {
 	Tooltip,
 	TooltipContent,
 	TooltipPortal,
 	TooltipTrigger,
 } from "../../ui/Tooltip";
-import { Button } from "../../ui/Button";
-import CheckIcon from "~icons/ph/check";
-import CopyIcon from "~icons/ph/copy";
+import { SettingsPage } from "./SettingsModal";
 
 const CopyButton: Component<{ value: string }> = (props) => {
 	const [active, setActive] = createSignal(false);

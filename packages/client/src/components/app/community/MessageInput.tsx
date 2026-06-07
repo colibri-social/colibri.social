@@ -1,26 +1,22 @@
-import { JsonBlobRef } from "@atproto/lexicon";
-import { type Details, useFileFieldContext } from "@kobalte/core/file-field";
-import { useParams } from "@solidjs/router";
-import stringify from "json-stable-stringify";
+import type { JsonBlobRef } from "@atproto/lexicon";
 import type { AttachmentObj, ColibriRichTextFacet } from "@colibri-social/lib";
+import { type Details, useFileFieldContext } from "@kobalte/core/file-field";
 import {
 	type Accessor,
 	type Component,
 	createEffect,
 	createSignal,
 	Show,
-	untrack,
 } from "solid-js";
 import { toast } from "somoto";
+import CircleIcon from "~icons/ph/circle";
+import PlusIcon from "~icons/ph/plus";
+import { createRecord } from "../../../atproto/pds";
+import type { PendingMessage } from "../../../atproto/xrpc/social/colibri/channel/listMessages";
 import { useChannelContext } from "../../../contexts/Channel";
 import { useCommunityContext } from "../../../contexts/Community";
 import { useUserContext } from "../../../contexts/User";
-import type { PendingMessage } from "../../../atproto/xrpc/social/colibri/channel/listMessages";
-import { createRecord } from "../../../atproto/pds";
 import { purify } from "../../../utils/purify";
-import { DisplayableName } from "../user/DisplayableName";
-import CircleIcon from "~icons/ph/circle";
-import PlusIcon from "~icons/ph/plus";
 import {
 	FileFieldItem,
 	FileFieldItemDeleteTrigger,
@@ -31,6 +27,7 @@ import {
 	FileFieldTrigger,
 } from "../../ui/FileField";
 import { TextEditor } from "../common/text-editor/TextEditor";
+import { DisplayableName } from "../user/DisplayableName";
 
 // TODO: This does not work in Firefox. We might need a different solution for file uploads, but I am
 // not sure if the PDS allows for tracking progress, and I do not want to proxy the files

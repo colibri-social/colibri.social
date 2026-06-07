@@ -9,17 +9,17 @@ import {
 	Show,
 	Switch,
 } from "solid-js";
+import ChatCircleDotsIcon from "~icons/ph/chat-circle-dots";
+import ChatsIcon from "~icons/ph/chats";
+import SpeakerLowIcon from "~icons/ph/speaker-low";
+import type { Channel } from "../../../../atproto/xrpc/social/colibri/community/listChannels";
+import type { Member } from "../../../../atproto/xrpc/social/colibri/community/listMembers";
+import User from "../../user";
 import type {
 	EmojiSuggestionData,
 	SuggestionItem,
 	selectItem,
 } from "./MentionPopupRenderer";
-import User from "../../user";
-import { Member } from "../../../../atproto/xrpc/social/colibri/community/listMembers";
-import { Channel } from "../../../../atproto/xrpc/social/colibri/community/listChannels";
-import ChatCircleDotsIcon from "~icons/ph/chat-circle-dots";
-import SpeakerLowIcon from "~icons/ph/speaker-low";
-import ChatsIcon from "~icons/ph/chats";
 
 export function isMember(item: SuggestionItem): item is Member {
 	return "did" in item;

@@ -1,7 +1,14 @@
-import { XrpcRequest } from "../../..";
+import type { XrpcRequest } from "../../..";
 
 export const update: XrpcRequest<
-	[string, string | undefined, string | undefined, string | undefined, string | undefined, string],
+	[
+		string,
+		string | undefined,
+		string | undefined,
+		string | undefined,
+		string | undefined,
+		string,
+	],
 	Promise<Record<string, never> | undefined>
 > = async (fetch, community, name, description, picture, mimeType, auth) => {
 	try {

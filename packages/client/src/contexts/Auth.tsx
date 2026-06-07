@@ -2,11 +2,11 @@ import {
 	createContext,
 	createResource,
 	Match,
-	ParentComponent,
+	type ParentComponent,
 	Switch,
 	useContext,
 } from "solid-js";
-import { Client, getClient } from "../atproto/auth";
+import { type Client, getClient } from "../atproto/auth";
 import { AppLoadingScreen } from "../components/AppLoadingScreen";
 
 export const AuthContext = createContext<Client>(undefined);

@@ -1,4 +1,4 @@
-import type { ActorData, OnlineState } from "@colibri-social/lib";
+import type { ActorData } from "@colibri-social/lib";
 import { Show } from "solid-js";
 import { resolveBlob } from "../../../atproto/resolve-blob";
 

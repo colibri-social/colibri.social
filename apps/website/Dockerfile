@@ -5,6 +5,7 @@ RUN corepack enable && corepack prepare pnpm@latest --activate
 
 # Copy workspace manifests for layer caching
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY packages/assets/package.json ./packages/assets/
 COPY packages/lib/package.json ./packages/lib/
 COPY packages/client/package.json ./packages/client/
 COPY apps/website/package.json ./apps/website/
@@ -39,6 +40,7 @@ COPY packages/ ./packages/
 COPY apps/ ./apps/
 
 # Build in dependency order
+RUN pnpm --filter @colibri-social/assets build
 RUN pnpm --filter @colibri-social/lib build
 RUN pnpm --filter @colibri-social/client build
 RUN pnpm --filter @colibri-social/website build

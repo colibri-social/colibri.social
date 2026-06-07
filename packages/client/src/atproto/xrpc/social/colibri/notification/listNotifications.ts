@@ -1,6 +1,6 @@
 import type { JsonBlobRef } from "@atproto/lexicon";
 import type { ColibriRichTextFacet } from "@colibri-social/lib";
-import { XrpcRequest } from "../../..";
+import type { XrpcRequest } from "../../..";
 
 type NotificationMessage = {
 	text: string;

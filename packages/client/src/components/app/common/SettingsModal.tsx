@@ -11,6 +11,8 @@ import {
 	Switch,
 } from "solid-js";
 import { Dynamic } from "solid-js/web";
+import XIcon from "~icons/ph/x";
+import { cx } from "../../../utils/cva";
 import { Spinner } from "../../icons/Spinner";
 import { Button } from "../../ui/Button";
 import {
@@ -20,8 +22,6 @@ import {
 	DialogPortal,
 	DialogTrigger,
 } from "../../ui/Dialog";
-import { cx } from "../../../utils/cva";
-import XIcon from "~icons/ph/x";
 
 export const SettingsPage: ParentComponent<{
 	loading: Accessor<boolean>;

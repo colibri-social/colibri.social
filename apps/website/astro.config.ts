@@ -1,12 +1,12 @@
-import { defineConfig, envField, fontProviders } from "astro/config";
 import node from "@astrojs/node";
-import tailwindcss from "@tailwindcss/vite";
 import solidJs from "@astrojs/solid-js";
-import { loadEnv } from "vite";
-import { vite as vidstack } from "vidstack/plugins";
-import { sentryVitePlugin } from "@sentry/vite-plugin";
-import starlightThemeRapide from "starlight-theme-rapide";
 import starlight from "@astrojs/starlight";
+import { sentryVitePlugin } from "@sentry/vite-plugin";
+import tailwindcss from "@tailwindcss/vite";
+import { defineConfig, envField, fontProviders } from "astro/config";
+import starlightThemeRapide from "starlight-theme-rapide";
+import { vite as vidstack } from "vidstack/plugins";
+import { loadEnv } from "vite";
 import { colibriDark, colibriLight } from "./src/ec-theme.ts";
 import { serverPortIntegration } from "./src/integrations/server-port";
 

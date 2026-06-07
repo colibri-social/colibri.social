@@ -1,7 +1,4 @@
 import type { ParentComponent } from "solid-js";
-import { DialogCancelButton } from "../shared";
-import { BlockDialogConfirmButton, BlockDialogTitleContent } from "./shared";
-import { MessagePreview } from "../MessagePreview";
 import { useMessageContext } from "../../../../../contexts/Message";
 import {
 	Drawer,
@@ -13,15 +10,23 @@ import {
 	DrawerPortal,
 	DrawerTrigger,
 } from "../../../../ui/Drawer";
+import { MessagePreview } from "../MessagePreview";
+import { DialogCancelButton } from "../shared";
+import { BlockDialogConfirmButton, BlockDialogTitleContent } from "./shared";
 
 /**
  * The mobile version of the message block drawer used as a warning when a message is about to be blocked.
  */
 export const Mobile: ParentComponent = (props) => {
-	const { message, blockModalOpen, setBlockModalOpen, confirmBlock } = useMessageContext();
+	const { message, blockModalOpen, setBlockModalOpen, confirmBlock } =
+		useMessageContext();
 
 	return (
-		<Drawer breakPoints={[0.75]} open={blockModalOpen()} onOpenChange={setBlockModalOpen}>
+		<Drawer
+			breakPoints={[0.75]}
+			open={blockModalOpen()}
+			onOpenChange={setBlockModalOpen}
+		>
 			<DrawerTrigger>{props.children}</DrawerTrigger>
 			<DrawerPortal>
 				<DrawerContent>

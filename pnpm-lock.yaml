@@ -6,7 +6,11 @@ settings:
 
 importers:
 
-  .: {}
+  .:
+    devDependencies:
+      '@biomejs/biome':
+        specifier: ^2.4.4
+        version: 2.4.4
 
   apps/website:
     dependencies:
@@ -55,6 +59,9 @@ importers:
       '@biomejs/biome':
         specifier: ^2.4.4
         version: 2.4.4
+      '@colibri-social/assets':
+        specifier: 'workspace:'
+        version: link:../../packages/assets
       '@colibri-social/client':
         specifier: 'workspace:'
         version: link:../../packages/client
@@ -264,6 +271,8 @@ importers:
         specifier: ^8.20.0
         version: 8.20.0
 
+  packages/assets: {}
+
   packages/client:
     dependencies:
       '@atproto/api':
@@ -272,6 +281,9 @@ importers:
       '@atproto/oauth-client-browser':
         specifier: ^0.3.41
         version: 0.3.41
+      '@colibri-social/assets':
+        specifier: 'workspace:'
+        version: link:../assets
       '@colibri-social/lib':
         specifier: 'workspace:'
         version: link:../lib

@@ -1,6 +1,6 @@
 import type { JsonBlobRef } from "@atproto/lexicon";
 import type { OnlineState } from "@colibri-social/lib";
-import { XrpcRequest } from "../../..";
+import type { XrpcRequest } from "../../..";
 
 export type Member = {
 	did: string;

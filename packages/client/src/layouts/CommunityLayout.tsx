@@ -1,31 +1,10 @@
-import type { Details } from "@kobalte/core/file-field";
-import { createAsync, query, useParams } from "@solidjs/router";
-import twemoji from "@twemoji/api";
-import {
-	createEffect,
-	createMemo,
-	createSignal,
-	For,
-	Match,
-	onCleanup,
-	type ParentComponent,
-	Show,
-	Suspense,
-	Switch,
-	untrack,
-} from "solid-js";
-import { toast } from "somoto";
-import createMediaQuery from "../utils/create-media-query";
+import { createSignal, type ParentComponent, Suspense } from "solid-js";
+import CaretDownIcon from "~icons/ph/caret-down";
 import { ChannelList } from "../components/app/community/ChannelList";
 import { CommunitySettingsModal } from "../components/app/community/CommunitySettingsModal";
 import { LeaveCommunityModal } from "../components/app/community/LeaveCommunityModal";
-import User from "../components/app/user";
-import {
-	CommunityContextProvider,
-	useCommunityContext,
-} from "../contexts/Community";
-import { VoiceChatContextProvider } from "../contexts/VoiceChat";
 import { MemberSidebar } from "../components/app/community/MemberSidebar";
+import User from "../components/app/user";
 import {
 	DropdownMenu,
 	DropdownMenuContent,
@@ -33,8 +12,12 @@ import {
 	DropdownMenuPortal,
 	DropdownMenuTrigger,
 } from "../components/ui/DropdownMenu";
-import CaretDownIcon from "~icons/ph/caret-down";
+import {
+	CommunityContextProvider,
+	useCommunityContext,
+} from "../contexts/Community";
 import { useUserPreferences } from "../contexts/UserPreferences";
+import createMediaQuery from "../utils/create-media-query";
 
 const CommunityHeader = () => {
 	const community = useCommunityContext();

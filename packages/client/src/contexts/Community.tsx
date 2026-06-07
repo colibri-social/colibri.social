@@ -1,22 +1,22 @@
+import { useNavigate } from "@solidjs/router";
 import {
-	Accessor,
+	type Accessor,
 	createContext,
 	createMemo,
 	createResource,
 	Match,
 	onCleanup,
-	ParentComponent,
+	type ParentComponent,
 	Switch,
 	useContext,
 } from "solid-js";
-import { useNavigate } from "@solidjs/router";
-import { AppLoadingScreen } from "../components/AppLoadingScreen";
 import { urlSegmentToUri } from "../atproto/community-uri-to-url-compatible";
-import { getCommunityParam } from "../utils/get-param";
-import { Community as CommunityResponse } from "../atproto/xrpc/social/colibri/community/getData";
-import { useUserContext } from "./User";
-import { useSocketContext } from "./Socket";
+import type { Community as CommunityResponse } from "../atproto/xrpc/social/colibri/community/getData";
+import { AppLoadingScreen } from "../components/AppLoadingScreen";
 import { AtURI } from "../utils/at-uri";
+import { getCommunityParam } from "../utils/get-param";
+import { useSocketContext } from "./Socket";
+import { useUserContext } from "./User";
 
 export const CommunityContext = createContext<Accessor<CommunityResponse>>();
 
@@ -53,8 +53,12 @@ export const CommunityContextProvider: ParentComponent = (props) => {
 									...(profile.displayName !== undefined && {
 										displayName: profile.displayName,
 									}),
-									...(profile.avatar !== undefined && { avatar: profile.avatar }),
-									...(profile.banner !== undefined && { banner: profile.banner }),
+									...(profile.avatar !== undefined && {
+										avatar: profile.avatar,
+									}),
+									...(profile.banner !== undefined && {
+										banner: profile.banner,
+									}),
 									...(profile.description !== undefined && {
 										description: profile.description,
 									}),
@@ -67,7 +71,6 @@ export const CommunityContextProvider: ParentComponent = (props) => {
 						: m,
 				),
 			});
-
 		} else if (event.type === "member_event" && event.data) {
 			const { data } = event;
 			// Filter: only act on events for the community we're currently viewing.
@@ -107,7 +110,6 @@ export const CommunityContextProvider: ParentComponent = (props) => {
 					refetch();
 				}
 			}
-
 		} else if (event.type === "community_event" && event.data) {
 			const { data } = event;
 			if (data.uri !== communityUri()) return;
@@ -122,13 +124,16 @@ export const CommunityContextProvider: ParentComponent = (props) => {
 				...prev,
 				community: {
 					...prev.community,
-					...(data.name        !== undefined && { name:        data.name        }),
-					...(data.description !== undefined && { description: data.description }),
-					...(data.picture     !== undefined && { picture:     data.picture     }),
-					...(data.categoryOrder !== undefined && { categoryOrder: data.categoryOrder }),
+					...(data.name !== undefined && { name: data.name }),
+					...(data.description !== undefined && {
+						description: data.description,
+					}),
+					...(data.picture !== undefined && { picture: data.picture }),
+					...(data.categoryOrder !== undefined && {
+						categoryOrder: data.categoryOrder,
+					}),
 				},
 			});
-
 		} else if (event.type === "category_event" && event.data) {
 			const { data } = event;
 			if (data.community && data.community !== communityUri()) return;
@@ -160,11 +165,14 @@ export const CommunityContextProvider: ParentComponent = (props) => {
 					...prev,
 					categories: [
 						...prev.categories,
-						{ uri: data.uri, name: data.name ?? "", channelOrder: data.channelOrder ?? [] },
+						{
+							uri: data.uri,
+							name: data.name ?? "",
+							channelOrder: data.channelOrder ?? [],
+						},
 					],
 				});
 			}
-
 		} else if (event.type === "channel_event" && event.data) {
 			const { data } = event;
 			if (data.community && data.community !== communityUri()) return;

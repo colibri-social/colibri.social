@@ -1,6 +1,7 @@
 import type { Details } from "@kobalte/core/file-field";
 import { type Component, createSignal, Match, Switch } from "solid-js";
 import ImageIcon from "~icons/ph/image";
+import { resolveBlob } from "../../../atproto/resolve-blob";
 import {
 	FileField,
 	FileFieldDropzone,
@@ -16,9 +17,8 @@ import {
 	TextFieldLabel,
 	TextFieldTextArea,
 } from "../../../components/ui/TextField";
-import { SettingsPage } from "../common/SettingsModal";
 import { useUserContext } from "../../../contexts/User";
-import { resolveBlob } from "../../../atproto/resolve-blob";
+import { SettingsPage } from "../common/SettingsModal";
 
 export const GeneralPage: Component = () => {
 	const user = useUserContext();
@@ -64,51 +64,51 @@ export const GeneralPage: Component = () => {
 		const existingBanner = resolveBlob(user.did, existingBannerUrl());
 		const reader = new FileReader();
 
-		let imageBase64: string | undefined;
-		let imageMimeType: string | undefined;
-		let bannerBase64: string | undefined;
-		let bannerMimeType: string | undefined;
+		let _imageBase64: string | undefined;
+		let _imageMimeType: string | undefined;
+		let _bannerBase64: string | undefined;
+		let _bannerMimeType: string | undefined;
 
 		if (existingImage) {
 			const originalImage = await (await fetch(existingImage)).blob();
 
-			imageBase64 = await new Promise<string>((resolve, reject) => {
+			_imageBase64 = await new Promise<string>((resolve, reject) => {
 				reader.onload = () => resolve(reader.result as string);
 				reader.onerror = reject;
 				reader.readAsDataURL(originalImage);
 			});
 
-			imageMimeType = originalImage.type;
+			_imageMimeType = originalImage.type;
 			// Get mime type for image, convert to base64
 		} else if (image()) {
-			imageBase64 = await new Promise<string>((resolve, reject) => {
+			_imageBase64 = await new Promise<string>((resolve, reject) => {
 				reader.onload = () => resolve(reader.result as string);
 				reader.onerror = reject;
 				reader.readAsDataURL(image()!.acceptedFiles[0]);
 			});
 
-			imageMimeType = image()!.acceptedFiles[0].type;
+			_imageMimeType = image()!.acceptedFiles[0].type;
 		}
 
 		if (existingBanner) {
 			const originalImage = await (await fetch(existingBanner)).blob();
 
-			bannerBase64 = await new Promise<string>((resolve, reject) => {
+			_bannerBase64 = await new Promise<string>((resolve, reject) => {
 				reader.onload = () => resolve(reader.result as string);
 				reader.onerror = reject;
 				reader.readAsDataURL(originalImage);
 			});
 
-			bannerMimeType = originalImage.type;
+			_bannerMimeType = originalImage.type;
 			// Get mime type for image, convert to base64
 		} else if (banner()) {
-			bannerBase64 = await new Promise<string>((resolve, reject) => {
+			_bannerBase64 = await new Promise<string>((resolve, reject) => {
 				reader.onload = () => resolve(reader.result as string);
 				reader.onerror = reject;
 				reader.readAsDataURL(banner()!.acceptedFiles[0]);
 			});
 
-			bannerMimeType = banner()!.acceptedFiles[0].type;
+			_bannerMimeType = banner()!.acceptedFiles[0].type;
 		}
 
 		// TODO: Use PDS endpoints, maybe use own lexicon for overrides?

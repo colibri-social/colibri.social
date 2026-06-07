@@ -1,5 +1,5 @@
 import type { Community } from "@colibri-social/lib";
-import { XrpcRequest } from "../../..";
+import type { XrpcRequest } from "../../..";
 
 type Response = {
 	communities: Array<Community>;

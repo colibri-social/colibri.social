@@ -1,11 +1,13 @@
 import {
+	type Component,
 	createSignal,
 	For,
 	onCleanup,
 	onMount,
 	Show,
-	type Component,
 } from "solid-js";
+import BellIcon from "~icons/ph/bell";
+import BellRingingIcon from "~icons/ph/bell-ringing-fill";
 import { useSocketContext } from "../../contexts/Socket";
 import { useUserContext } from "../../contexts/User";
 import {
@@ -14,8 +16,6 @@ import {
 	PopoverPortal,
 	PopoverTrigger,
 } from "../ui/Popover";
-import BellIcon from "~icons/ph/bell";
-import BellRingingIcon from "~icons/ph/bell-ringing-fill";
 
 type Notification = {
 	id: number;

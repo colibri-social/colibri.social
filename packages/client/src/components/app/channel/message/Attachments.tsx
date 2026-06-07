@@ -8,16 +8,16 @@ import "vidstack/player/styles/default/theme.css";
 import "vidstack/player/styles/default/layouts/video.css";
 import "vidstack/player/styles/default/layouts/audio.css";
 import type { AttachmentObj } from "@colibri-social/lib";
-import { useChannelContext } from "../../../../contexts/Channel";
-import { resolveBlob } from "../../../../atproto/resolve-blob";
-import { Lightbox } from "../../common/Lightbox";
 import FileIcon from "~icons/ph/file";
-import { Message } from "../../../../atproto/xrpc/social/colibri/channel/listMessages";
+import { resolveBlob } from "../../../../atproto/resolve-blob";
+import type { Message } from "../../../../atproto/xrpc/social/colibri/channel/listMessages";
+import { useChannelContext } from "../../../../contexts/Channel";
+import { Lightbox } from "../../common/Lightbox";
 
 type AttachmentComponent = Component<{ item: AttachmentObj; did: string }>;
 
 export const AudioAttachment: AttachmentComponent = (props) => {
-	const channel = useChannelContext();
+	const _channel = useChannelContext();
 
 	return (
 		// @ts-expect-error - Test

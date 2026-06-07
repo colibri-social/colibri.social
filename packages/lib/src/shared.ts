@@ -1,4 +1,4 @@
-import { JsonBlobRef } from "@atproto/lexicon";
+import type { JsonBlobRef } from "@atproto/lexicon";
 
 export type OnlineState = "online" | "away" | "dnd" | "offline";
 

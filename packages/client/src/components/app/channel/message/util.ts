@@ -1,4 +1,3 @@
-import { actions } from "astro:actions";
 import twemoji from "@twemoji/api";
 import {
 	convertSkinToneToComponent,
@@ -8,11 +7,8 @@ import {
 	type EmojiSkinTone,
 	getEmojiWithSkinTone,
 } from "solid-emoji-picker";
-import { toast } from "somoto";
-import { parseZodToErrorOrDisplay } from "@/utils/parse-zod-to-error-or-display";
 import type { IndexedMessageData } from "@/utils/sdk";
-import type { GlobalContextUtility } from "../../contexts/GlobalContext";
-import { Community } from "../../../../atproto/xrpc/social/colibri/community/getData";
+import type { Community } from "../../../../atproto/xrpc/social/colibri/community/getData";
 
 /**
  * A utility function to delete a message, then close the modal.
@@ -21,8 +17,8 @@ import { Community } from "../../../../atproto/xrpc/social/colibri/community/get
  * @param setOpen The function to set the open state of the modal.
  */
 export const deleteMessage = (
-	message: IndexedMessageData,
-	setOpen?: (open: boolean) => void,
+	_message: IndexedMessageData,
+	_setOpen?: (open: boolean) => void,
 ) => {
 	// TODO: Deletion
 	// addDeletedMessage({
@@ -49,9 +45,9 @@ export const deleteMessage = (
  * @param setOpen The function to set the open state of the modal.
  */
 export const blockMessage = (
-	message: IndexedMessageData,
-	community: Community,
-	setOpen?: (open: boolean) => void,
+	_message: IndexedMessageData,
+	_community: Community,
+	_setOpen?: (open: boolean) => void,
 ) => {
 	// TODO: Block logic
 	// addDeletedMessage({

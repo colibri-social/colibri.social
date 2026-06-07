@@ -12,16 +12,12 @@ import {
 	DialogTrigger,
 } from "../../ui/Dialog";
 import {
-	TextField,
-	TextFieldInput,
-	TextFieldLabel,
-} from "../../ui/TextField";
-import {
 	RadioGroup,
 	RadioGroupItem,
 	RadioGroupItemControl,
 	RadioGroupItemLabel,
 } from "../../ui/RadioGroup";
+import { TextField, TextFieldInput, TextFieldLabel } from "../../ui/TextField";
 
 export const ChannelCreationModal: ParentComponent<{
 	/** AT-URI of the category this channel will belong to. */

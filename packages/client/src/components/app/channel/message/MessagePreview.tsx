@@ -1,8 +1,8 @@
 import type { Component } from "solid-js";
 import type { Message } from "../../../../atproto/xrpc/social/colibri/channel/listMessages";
-import User from "../../user";
 import { RichTextRenderer } from "../../common/rich-text-renderer/RichTextRenderer";
 import type { TextWithFacets } from "../../common/rich-text-renderer/util";
+import User from "../../user";
 
 /**
  * Read-only, non-interactive message preview used inside Block/Deletion

@@ -12,11 +12,7 @@ import {
 	DialogTitle,
 	DialogTrigger,
 } from "../../ui/Dialog";
-import {
-	TextField,
-	TextFieldInput,
-	TextFieldLabel,
-} from "../../ui/TextField";
+import { TextField, TextFieldInput, TextFieldLabel } from "../../ui/TextField";
 
 export const ChannelSettingsModal: ParentComponent<{
 	channel: Channel;
@@ -30,7 +26,10 @@ export const ChannelSettingsModal: ParentComponent<{
 	const handleSave = async () => {
 		setLoading(true);
 		try {
-			await user.xrpc.social.colibri.community.editChannel(props.channel.uri, name().trim());
+			await user.xrpc.social.colibri.community.editChannel(
+				props.channel.uri,
+				name().trim(),
+			);
 			setOpen(false);
 		} catch {
 			toast.error("Failed to save channel.");

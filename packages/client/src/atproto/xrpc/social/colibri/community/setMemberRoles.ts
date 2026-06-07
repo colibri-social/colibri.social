@@ -1,4 +1,4 @@
-import { XrpcRequest } from "../../..";
+import type { XrpcRequest } from "../../..";
 
 export const setMemberRoles: XrpcRequest<
 	[string, string, string[], string],
@@ -10,7 +10,9 @@ export const setMemberRoles: XrpcRequest<
 			member,
 			auth,
 		});
-		roles.forEach((uri) => params.append("roles", uri));
+		roles.forEach((uri) => {
+			params.append("roles", uri);
+		});
 		const res = await fetch(
 			`/xrpc/social.colibri.community.setMemberRoles?${params.toString()}`,
 			{ method: "POST" },

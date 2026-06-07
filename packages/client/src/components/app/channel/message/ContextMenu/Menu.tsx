@@ -1,6 +1,9 @@
 import { type ParentComponent, Show } from "solid-js";
-import { DebugInfo } from "../DebugInfo";
-import { DeletionDrawer } from "../DeletionDrawer";
+import ArrowBendUpLeftIcon from "~icons/ph/arrow-bend-up-left";
+import InfoIcon from "~icons/ph/info";
+import PencilIcon from "~icons/ph/pencil";
+import TrashIcon from "~icons/ph/trash";
+import { useMessageContext } from "../../../../../contexts/Message";
 import {
 	ContextMenu,
 	ContextMenuContent,
@@ -8,11 +11,8 @@ import {
 	ContextMenuPortal,
 	ContextMenuTrigger,
 } from "../../../../ui/ContextMenu";
-import { useMessageContext } from "../../../../../contexts/Message";
-import ArrowBendUpLeftIcon from "~icons/ph/arrow-bend-up-left";
-import InfoIcon from "~icons/ph/info";
-import PencilIcon from "~icons/ph/pencil";
-import TrashIcon from "~icons/ph/trash";
+import { DebugInfo } from "../DebugInfo";
+import { DeletionDrawer } from "../DeletionDrawer";
 
 /**
  * A component handling the right click context menu for messages.
@@ -28,8 +28,7 @@ export const MessageContextMenu: ParentComponent = (props) => {
 		setDebugModalOpen,
 	} = useMessageContext();
 
-	const isDisabled = () =>
-		isPending() || !!document.querySelector("#lightbox");
+	const isDisabled = () => isPending() || !!document.querySelector("#lightbox");
 
 	return (
 		<>

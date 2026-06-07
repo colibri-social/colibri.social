@@ -1,5 +1,5 @@
-import { JsonBlobRef } from "@atproto/lexicon";
-import { OnlineState } from "../../../shared.js";
+import type { JsonBlobRef } from "@atproto/lexicon";
+import type { OnlineState } from "../../../shared.js";
 
 export type ActorData = {
 	did: string;

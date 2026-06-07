@@ -1,3 +1,4 @@
+import type { ColibriEvent } from "@colibri-social/lib";
 import {
 	createContext,
 	onCleanup,
@@ -5,9 +6,8 @@ import {
 	type ParentComponent,
 	useContext,
 } from "solid-js";
-import type { ColibriEvent } from "@colibri-social/lib";
-import { useAuthContext } from "./Auth";
 import { getAppViewHost } from "../utils/appview";
+import { useAuthContext } from "./Auth";
 
 export type SocketContextValue = {
 	/** Send a JSON message to the AppView over the WebSocket. */
@@ -60,14 +60,19 @@ export const SocketContextProvider: ParentComponent = (props) => {
 			socket.addEventListener("message", (e) => {
 				try {
 					const event = JSON.parse(e.data as string) as ColibriEvent;
-					handlers.forEach((h) => h(event));
+					handlers.forEach((h) => {
+						h(event);
+					});
 				} catch {
 					// Ignore malformed frames
 				}
 			});
 
 			socket.addEventListener("close", () => {
-				if (heartbeat) { clearInterval(heartbeat); heartbeat = null; }
+				if (heartbeat) {
+					clearInterval(heartbeat);
+					heartbeat = null;
+				}
 				if (destroyed || ws !== socket) return;
 				// Reconnect after 3 s, generating a fresh token each time
 				reconnectTimer = setTimeout(connect, 3_000);
@@ -82,7 +87,9 @@ export const SocketContextProvider: ParentComponent = (props) => {
 		}
 	};
 
-	onMount(() => { connect(); });
+	onMount(() => {
+		connect();
+	});
 
 	onCleanup(() => {
 		destroyed = true;
@@ -113,6 +120,7 @@ export const SocketContextProvider: ParentComponent = (props) => {
 
 export const useSocketContext = (): SocketContextValue => {
 	const ctx = useContext(SocketContext);
-	if (!ctx) throw new Error("useSocketContext called outside SocketContextProvider");
+	if (!ctx)
+		throw new Error("useSocketContext called outside SocketContextProvider");
 	return ctx;
 };

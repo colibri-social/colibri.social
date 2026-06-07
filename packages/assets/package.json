@@ -1,0 +1,16 @@
+{
+	"name": "@colibri-social/assets",
+	"private": true,
+	"type": "module",
+	"version": "0.0.1",
+	"exports": {
+		".": "./src/index.ts",
+		"./node": "./src/node.js",
+		"./fonts.css": "./files/fonts.css",
+		"./files/*": "./files/*",
+		"./package.json": "./package.json"
+	},
+	"scripts": {
+		"build": "node scripts/generate-manifest.mjs"
+	}
+}

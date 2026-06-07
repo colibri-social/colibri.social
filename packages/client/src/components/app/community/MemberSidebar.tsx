@@ -1,8 +1,9 @@
+import twemoji from "@twemoji/api";
 import { createSignal, For, Show } from "solid-js";
 import { toast } from "somoto";
-import twemoji from "@twemoji/api";
-import { Member } from "../../../atproto/xrpc/social/colibri/community/listMembers";
-import { Role } from "../../../atproto/xrpc/social/colibri/community/listRoles";
+import DotsThreeIcon from "~icons/ph/dots-three";
+import type { Member } from "../../../atproto/xrpc/social/colibri/community/listMembers";
+import type { Role } from "../../../atproto/xrpc/social/colibri/community/listRoles";
 import {
 	useCommunityContext,
 	usePermissions,
@@ -10,7 +11,6 @@ import {
 import { useUserContext } from "../../../contexts/User";
 import { useUserPreferences } from "../../../contexts/UserPreferences";
 import createMediaQuery from "../../../utils/create-media-query";
-import User from "../user";
 import { Button } from "../../ui/Button";
 import {
 	Dialog,
@@ -34,7 +34,7 @@ import {
 	PopoverPortal,
 	PopoverTrigger,
 } from "../../ui/Popover";
-import DotsThreeIcon from "~icons/ph/dots-three";
+import User from "../user";
 
 type MembersByRoles = Array<{
 	role: Role;

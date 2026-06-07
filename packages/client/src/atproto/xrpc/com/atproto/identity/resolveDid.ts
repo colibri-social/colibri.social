@@ -1,4 +1,4 @@
-import { XrpcRequest } from "../../..";
+import type { XrpcRequest } from "../../..";
 
 type Response = {
 	didDoc: unknown;
@@ -9,9 +9,7 @@ export const resolveDid: XrpcRequest<
 	Promise<Response | undefined>
 > = async (fetch, did) => {
 	try {
-		const res = await fetch(
-			`/xrpc/com.atproto.identity.resolveDid?did=${did}`,
-		);
+		const res = await fetch(`/xrpc/com.atproto.identity.resolveDid?did=${did}`);
 
 		return res.json();
 	} catch (err) {

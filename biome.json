@@ -8,7 +8,17 @@
 	},
 	"files": {
 		"ignoreUnknown": false,
-		"includes": ["./src/**"]
+		"includes": [
+			"apps/website/**",
+			"packages/lib/**",
+			"packages/client/**",
+			"packages/assets/**",
+			"!**/dist",
+			"!**/.astro",
+			"!apps/website/public",
+			"!packages/assets/files",
+			"!packages/assets/src/login-manifest.ts"
+		]
 	},
 	"formatter": {
 		"enabled": true,

@@ -1,14 +1,14 @@
-import type { Accessor, JSX } from "solid-js";
-import {
-	Show,
-	splitProps,
-	type ComponentProps,
-	type ValidComponent,
-} from "solid-js";
 import {
 	Search as SearchPrimitive,
 	useSearchContext,
 } from "@kobalte/core/search";
+import type { Accessor, JSX } from "solid-js";
+import {
+	type ComponentProps,
+	Show,
+	splitProps,
+	type ValidComponent,
+} from "solid-js";
 
 import { cx } from "../../utils/cva";
 
@@ -120,7 +120,11 @@ export const SearchControl = <T extends ValidComponent = "div">(
 				<SearchIndicator
 					loadingComponent={
 						<SearchIcon class="animate-spin">
-							<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								viewBox="0 0 24 24"
+								aria-hidden="true"
+							>
 								<path
 									fill="none"
 									stroke="currentColor"
@@ -134,7 +138,11 @@ export const SearchControl = <T extends ValidComponent = "div">(
 					}
 				>
 					<SearchIcon>
-						<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							viewBox="0 0 24 24"
+							aria-hidden="true"
+						>
 							<g
 								fill="none"
 								stroke="currentColor"

@@ -12,11 +12,7 @@ import {
 	DialogTitle,
 	DialogTrigger,
 } from "../../ui/Dialog";
-import {
-	TextField,
-	TextFieldInput,
-	TextFieldLabel,
-} from "../../ui/TextField";
+import { TextField, TextFieldInput, TextFieldLabel } from "../../ui/TextField";
 
 export const CategorySettingsModal: ParentComponent<{
 	category: Category;
@@ -29,7 +25,10 @@ export const CategorySettingsModal: ParentComponent<{
 	const handleSave = async () => {
 		setLoading(true);
 		try {
-			await user.xrpc.social.colibri.community.editCategory(props.category.uri, name().trim());
+			await user.xrpc.social.colibri.community.editCategory(
+				props.category.uri,
+				name().trim(),
+			);
 			setOpen(false);
 		} catch {
 			toast.error("Failed to save category.");
@@ -41,7 +40,9 @@ export const CategorySettingsModal: ParentComponent<{
 	const handleDelete = async () => {
 		setLoading(true);
 		try {
-			await user.xrpc.social.colibri.community.deleteCategory(props.category.uri);
+			await user.xrpc.social.colibri.community.deleteCategory(
+				props.category.uri,
+			);
 			setOpen(false);
 		} catch {
 			toast.error("Failed to delete category.");

@@ -1,0 +1,99 @@
+/*
+ * Shared @font-face declarations for the Colibri client app.
+ *
+ * The font files referenced here as root URLs (e.g. `/twemoji.woff2`) live in
+ * this package's `files/` directory and are provisioned to each host (the
+ * client dev server and the website) at the site root via vite-plugin-static-copy
+ * / the dev server's publicDir. Import this file wherever the app is rendered.
+ */
+
+@font-face {
+	font-family: "Twemoji";
+	/* Using the 15.x/16.x compatible COLR font */
+	src: url("/twemoji.woff2") format("woff2");
+	/* Encompasses the major emoji blocks for better performance */
+	unicode-range:
+		U+1F000-1F9FF, U+1F600-1F64F, U+2600-26FF, U+2700-27BF, U+1F300-1F5FF,
+		U+1F680-1F6FF, U+1F1E6-1F1FF;
+	font-display: swap;
+}
+
+@font-face {
+	font-family: "Hanken Grotesk";
+	src: url("/HankenGrotesk-Italic.ttf") format("truetype");
+	font-display: swap;
+	font-weight: 100 900;
+	font-style: italic;
+}
+
+@font-face {
+	font-family: "Hanken Grotesk";
+	src: url("/HankenGrotesk-Regular.ttf") format("truetype");
+	font-display: swap;
+	font-weight: 100 900;
+	font-style: normal;
+}
+
+@font-face {
+	font-family: "Hanken Grotesk Fallback";
+	src: local("Arial");
+	font-display: swap;
+	font-weight: 100 900;
+	font-style: italic;
+	size-adjust: 102.0635%;
+	ascent-override: 97.9782%;
+	descent-override: 29.6874%;
+	line-gap-override: 0%;
+}
+
+@font-face {
+	font-family: "Hanken Grotesk Fallback";
+	src: local("Arial");
+	font-display: swap;
+	font-weight: 100 900;
+	font-style: normal;
+	size-adjust: 102.0635%;
+	ascent-override: 97.9782%;
+	descent-override: 29.6874%;
+	line-gap-override: 0%;
+}
+
+@font-face {
+	font-family: "Geist Mono";
+	src: url("/GeistMono.ttf") format("truetype");
+	font-display: swap;
+	font-weight: 100 900;
+	font-style: normal;
+}
+
+@font-face {
+	font-family: "Geist Mono Fallback";
+	src: local("Arial");
+	font-display: swap;
+	font-weight: 100 900;
+	font-style: normal;
+	size-adjust: 134.5893%;
+	ascent-override: 74.6716%;
+	descent-override: 21.9185%;
+	line-gap-override: 0%;
+}
+
+@font-face {
+	font-family: Stardom;
+	src: url("/Stardom-Regular.woff") format("woff");
+	font-display: swap;
+	font-weight: 400;
+	font-style: normal;
+}
+
+@font-face {
+	font-family: "Stardom Fallback";
+	src: local("Arial");
+	font-display: swap;
+	font-weight: 400;
+	font-style: normal;
+	size-adjust: 109.6903%;
+	ascent-override: 85.6959%;
+	descent-override: 23.7031%;
+	line-gap-override: 8.2049%;
+}

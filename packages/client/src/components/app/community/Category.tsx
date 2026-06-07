@@ -4,6 +4,7 @@ import {
 	SortableProvider,
 	useDragDropContext,
 } from "@thisbeyond/solid-dnd";
+import { ConnectionState } from "livekit-client";
 import {
 	type Component,
 	createMemo,
@@ -14,23 +15,21 @@ import {
 	Show,
 	Switch,
 } from "solid-js";
-import type { Channel } from "../../../atproto/xrpc/social/colibri/community/listChannels";
-import type { Category as CategoryType } from "../../../atproto/xrpc/social/colibri/community/listCategories";
-import { Button } from "../../ui/Button";
 import CaretRightIcon from "~icons/ph/caret-right";
 import ChatCircleDotsIcon from "~icons/ph/chat-circle-dots";
 import GearIcon from "~icons/ph/gear";
 import PlusIcon from "~icons/ph/plus";
 import SpeakerHighIcon from "~icons/ph/speaker-high-fill";
 import SpeakerLowIcon from "~icons/ph/speaker-low-fill";
-
+import type { Category as CategoryType } from "../../../atproto/xrpc/social/colibri/community/listCategories";
+import type { Channel } from "../../../atproto/xrpc/social/colibri/community/listChannels";
+import { usePermissions } from "../../../contexts/Community";
+import { useUserContext } from "../../../contexts/User";
+import { useVoiceChatContext } from "../../../contexts/VoiceChat";
+import { Button } from "../../ui/Button";
 import { CategorySettingsModal } from "./CategorySettingsModal";
 import { ChannelCreationModal } from "./ChannelCreationModal";
 import { ChannelSettingsModal } from "./ChannelSettingsModal";
-import { useVoiceChatContext } from "../../../contexts/VoiceChat";
-import { usePermissions } from "../../../contexts/Community";
-import { useUserContext } from "../../../contexts/User";
-import { ConnectionState } from "livekit-client";
 
 export type ChannelDropTarget = {
 	categoryUri: string;
@@ -80,7 +79,7 @@ const SortableChannel: Component<{
 		return voiceData.participants;
 	});
 
-	const handleVoiceChannelJoin = () => {
+	const _handleVoiceChannelJoin = () => {
 		if (props.channel.type !== "social.colibri.channel.voice") return;
 		connect(channelRkey());
 	};
@@ -155,11 +154,16 @@ const SortableChannel: Component<{
 					</div>
 					<div class="flex justify-center items-center pb-px">
 						<Show when={canManage()}>
-							<ChannelSettingsModal class="p-0 w-5 h-5.5" channel={props.channel}>
+							<ChannelSettingsModal
+								class="p-0 w-5 h-5.5"
+								channel={props.channel}
+							>
 								<Button
 									size="sm"
 									class="opacity-0 group-hover/channel:opacity-100 p-0 w-5 h-5 cursor-pointer channel-settings"
-									classList={{ "opacity-100!": params.channel === channelRkey() }}
+									classList={{
+										"opacity-100!": params.channel === channelRkey(),
+									}}
 									variant="ghost"
 									onClick={(e) => e.preventDefault()}
 								>
@@ -178,9 +182,7 @@ const SortableChannel: Component<{
 				>
 					<div class="pl-7.5 text-muted-foreground flex flex-col select-none text-xs">
 						<For each={liveVoiceChannelMembers()}>
-							{(did) => (
-								<span class="truncate">{did}</span>
-							)}
+							{(did) => <span class="truncate">{did}</span>}
 						</For>
 					</div>
 				</Show>
@@ -302,7 +304,10 @@ export const Category: ParentComponent<{
 								<GearIcon width={16} height={16} />
 							</Button>
 						</CategorySettingsModal>
-						<ChannelCreationModal category={props.category.uri} community={props.communityUri}>
+						<ChannelCreationModal
+							category={props.category.uri}
+							community={props.communityUri}
+						>
 							<Button size="sm" class="w-5 h-5 cursor-pointer" variant="ghost">
 								<PlusIcon width={16} height={16} />
 							</Button>

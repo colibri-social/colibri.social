@@ -1,11 +1,11 @@
+import type { Room as RoomType } from "livekit-client";
 import {
 	ConnectionQuality,
 	ConnectionState,
+	type Participant,
 	Room,
 	RoomEvent,
-	type Participant,
 } from "livekit-client";
-import type { Room as RoomType } from "livekit-client";
 import { createContext, type ParentComponent, useContext } from "solid-js";
 import { createStore } from "solid-js/store";
 import { useUserContext } from "./User";

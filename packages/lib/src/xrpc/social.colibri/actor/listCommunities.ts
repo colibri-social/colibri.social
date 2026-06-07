@@ -1,5 +1,5 @@
-import { JsonBlobRef } from "@atproto/lexicon";
-import { AT_URI } from "../../../atproto.js";
+import type { JsonBlobRef } from "@atproto/lexicon";
+import type { AT_URI } from "../../../atproto.js";
 
 export type Community = {
 	name: string;

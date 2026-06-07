@@ -6,8 +6,6 @@ import {
 	onMount,
 	Show,
 } from "solid-js";
-import { SettingsPage } from "../common/SettingsModal";
-import type { DeviceOption } from "./shared";
 import { useUserPreferences } from "../../../contexts/UserPreferences";
 import { useVoiceChatContext } from "../../../contexts/VoiceChat";
 import {
@@ -18,6 +16,8 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "../../ui/Select";
+import { SettingsPage } from "../common/SettingsModal";
+import type { DeviceOption } from "./shared";
 
 export const VideoPage: Component = () => {
 	const userPreferences = useUserPreferences();

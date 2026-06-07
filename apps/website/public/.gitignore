@@ -1,0 +1,12 @@
+# Provisioned at dev/build time from @colibri-social/assets by
+# scripts/sync-shared-assets.mjs. Single source of truth is packages/assets/files.
+twemoji.woff2
+GeistMono.ttf
+HankenGrotesk-Regular.ttf
+HankenGrotesk-Italic.ttf
+Stardom-Regular.woff
+user-placeholder.png
+favicon.svg
+logo.png
+fonts.css
+login/

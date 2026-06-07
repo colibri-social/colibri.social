@@ -1,18 +1,18 @@
-import { Component, createEffect, ParentComponent } from "solid-js";
-import { UserContextProvider } from "./contexts/User";
 import { ColorModeProvider } from "@kobalte/core/color-mode";
-import { Toaster } from "./components/ui/Sonner";
-import { Route, Router, useLocation, useNavigate } from "@solidjs/router";
-import AppLayout from "./layouts/AppLayout";
-import { WelcomeScreen } from "./components/WelcomeScreen";
+import { Route, Router, useNavigate } from "@solidjs/router";
+import { type Component, createEffect, type ParentComponent } from "solid-js";
+import { AppLoadingScreen } from "./components/AppLoadingScreen";
+import { VoiceChannelView } from "./components/app/VoiceChannelView";
 import { LoginScreen } from "./components/LoginScreen";
+import { Toaster } from "./components/ui/Sonner";
+import { WelcomeScreen } from "./components/WelcomeScreen";
 import { AuthContextProvider } from "./contexts/Auth";
 import { SocketContextProvider } from "./contexts/Socket";
-import { AppLoadingScreen } from "./components/AppLoadingScreen";
-import CommunityLayoutWithContext from "./layouts/CommunityLayout";
-import ChannelLayoutWithContext from "./layouts/ChannelLayout";
-import { VoiceChannelView } from "./components/app/VoiceChannelView";
+import { UserContextProvider } from "./contexts/User";
 import { VoiceChatContextProvider } from "./contexts/VoiceChat";
+import AppLayout from "./layouts/AppLayout";
+import ChannelLayoutWithContext from "./layouts/ChannelLayout";
+import CommunityLayoutWithContext from "./layouts/CommunityLayout";
 
 // Accepted forms of the `:channelType` URL segment. We accept both the
 // short form (legacy records that store `"text"` / `"voice"`) and the full

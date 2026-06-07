@@ -16,15 +16,19 @@ import {
 	Show,
 } from "solid-js";
 import { createStore } from "solid-js/store";
-import { useCommunityContext, usePermissions } from "../../../contexts/Community";
+import PlusIcon from "~icons/ph/plus";
+import type { Channel } from "../../../atproto/xrpc/social/colibri/community/listChannels";
+import {
+	useCommunityContext,
+	usePermissions,
+} from "../../../contexts/Community";
 import { useUserContext } from "../../../contexts/User";
-import { Button } from "../../ui/Button";
 import {
 	animateToNewPositions,
 	capturePositions,
 	reorderList,
 } from "../../../utils/drag";
-import type { Channel } from "../../../atproto/xrpc/social/colibri/community/listChannels";
+import { Button } from "../../ui/Button";
 import {
 	buildChannelOrder,
 	type CategoryWithChannels,
@@ -33,7 +37,6 @@ import {
 import { CategoryCreationModal } from "./CategoryCreationModal";
 import { SortableCategory } from "./SortableCategory";
 import { useProcessedSidebar } from "./useProcessedSidebar";
-import PlusIcon from "~icons/ph/plus";
 
 export const ChannelList: Component<{
 	onCategoryReorder?: (categories: CategoryWithChannels[]) => void;
@@ -75,9 +78,7 @@ export const ChannelList: Component<{
 	>({});
 
 	createMemo(() => {
-		const allOrders = Object.entries(
-			channelOrders as Record<string, string[]>,
-		);
+		const allOrders = Object.entries(channelOrders as Record<string, string[]>);
 		for (const cat of sortedCategories()) {
 			const current = channelOrders[cat.uri];
 			if (!current) {
@@ -100,7 +101,9 @@ export const ChannelList: Component<{
 
 	const handleChannelReorder = (categoryUri: string, newOrder: string[]) => {
 		setChannelOrders(categoryUri, newOrder);
-		user.xrpc.social.colibri.community.reorderChannels(categoryUri, newOrder).catch(() => {});
+		user.xrpc.social.colibri.community
+			.reorderChannels(categoryUri, newOrder)
+			.catch(() => {});
 	};
 
 	const getChannelCategory = (
@@ -178,10 +181,7 @@ export const ChannelList: Component<{
 			if (!closest)
 				return droppables.find((d) => String(d.id) === targetCatUri) ?? null;
 
-			if (
-				draggedChannelSourceCat &&
-				draggedChannelSourceCat !== targetCatUri
-			) {
+			if (draggedChannelSourceCat && draggedChannelSourceCat !== targetCatUri) {
 				const isLast =
 					catChannelIds.indexOf(String(closest.id)) ===
 					catChannelIds.length - 1;
@@ -189,9 +189,7 @@ export const ChannelList: Component<{
 					isLast &&
 					draggable.transformed.center.y > closest.transformed.center.y
 				) {
-					return (
-						droppables.find((d) => String(d.id) === targetCatUri) ?? null
-					);
+					return droppables.find((d) => String(d.id) === targetCatUri) ?? null;
 				}
 			}
 
@@ -272,10 +270,12 @@ export const ChannelList: Component<{
 			if (!droppable || !final || draggable?.id === droppable.id) return;
 
 			setCommittedOrder(final);
-			user.xrpc.social.colibri.community.reorderCategories(
-				community().community.uri,
-				final.map((c) => c.uri),
-			).catch(() => {});
+			user.xrpc.social.colibri.community
+				.reorderCategories(
+					community().community.uri,
+					final.map((c) => c.uri),
+				)
+				.catch(() => {});
 			props.onCategoryReorder?.(final);
 			return;
 		}
@@ -324,8 +324,12 @@ export const ChannelList: Component<{
 			}
 		});
 
-		user.xrpc.social.colibri.community.reorderChannels(sourceCat, srcOrder).catch(() => {});
-		user.xrpc.social.colibri.community.reorderChannels(destCat, destOrder).catch(() => {});
+		user.xrpc.social.colibri.community
+			.reorderChannels(sourceCat, srcOrder)
+			.catch(() => {});
+		user.xrpc.social.colibri.community
+			.reorderChannels(destCat, destOrder)
+			.catch(() => {});
 	};
 
 	const visibleCategories = () => draggingOrder() ?? sortedCategories();
@@ -350,8 +354,7 @@ export const ChannelList: Component<{
 									category={category}
 									communityUri={community().community.uri}
 									channelOrder={
-										channelOrders[category.uri] ??
-										buildChannelOrder(category)
+										channelOrders[category.uri] ?? buildChannelOrder(category)
 									}
 									onChannelReorder={handleChannelReorder}
 									injectedChannels={movedChannels[category.uri] ?? []}

@@ -1,16 +1,24 @@
 import {
+	type Accessor,
 	createResource,
 	createSignal,
 	For,
 	Match,
+	type Setter,
 	Show,
 	Switch,
-	type Accessor,
-	type Setter,
 } from "solid-js";
 import { toast } from "somoto";
+import CopyIcon from "~icons/ph/copy";
+import GearIcon from "~icons/ph/gear";
+import LinkIcon from "~icons/ph/link";
+import ProhibitIcon from "~icons/ph/prohibit";
+import TrashIcon from "~icons/ph/trash";
+import UsersIcon from "~icons/ph/users";
+import XIcon from "~icons/ph/x";
 import { useCommunityContext } from "../../../contexts/Community";
 import { useUserContext } from "../../../contexts/User";
+import { cx } from "../../../utils/cva";
 import { Button } from "../../ui/Button";
 import {
 	Dialog,
@@ -18,16 +26,8 @@ import {
 	DialogContent,
 	DialogPortal,
 } from "../../ui/Dialog";
-import { SettingsPage, type SettingsPageInfo } from "../common/SettingsModal";
+import { SettingsPage } from "../common/SettingsModal";
 import User from "../user";
-import GearIcon from "~icons/ph/gear";
-import LinkIcon from "~icons/ph/link";
-import UsersIcon from "~icons/ph/users";
-import ProhibitIcon from "~icons/ph/prohibit";
-import XIcon from "~icons/ph/x";
-import CopyIcon from "~icons/ph/copy";
-import TrashIcon from "~icons/ph/trash";
-import { cx } from "../../../utils/cva";
 
 // ---------------------------------------------------------------------------
 // General settings page (stub — AppView edit endpoint is coming)
@@ -38,7 +38,9 @@ const GeneralPage = () => {
 	const user = useUserContext();
 	const [loading, setLoading] = createSignal(false);
 	const [name, setName] = createSignal(community().community.name);
-	const [description, setDescription] = createSignal(community().community.description ?? "");
+	const [description, setDescription] = createSignal(
+		community().community.description ?? "",
+	);
 
 	const isDirty = () =>
 		name() !== community().community.name ||
@@ -49,8 +51,12 @@ const GeneralPage = () => {
 		try {
 			await user.xrpc.social.colibri.community.update(
 				community().community.uri,
-				name().trim() !== community().community.name ? name().trim() : undefined,
-				description().trim() !== (community().community.description ?? "") ? description().trim() : undefined,
+				name().trim() !== community().community.name
+					? name().trim()
+					: undefined,
+				description().trim() !== (community().community.description ?? "")
+					? description().trim()
+					: undefined,
 				undefined,
 				undefined,
 			);
@@ -112,7 +118,9 @@ const InviteLinksPage = () => {
 
 	const handleCreate = async () => {
 		setCreating(true);
-		const res = await user.xrpc.social.colibri.community.createInvitation(uri());
+		const res = await user.xrpc.social.colibri.community.createInvitation(
+			uri(),
+		);
 		setCreating(false);
 		if (!res) {
 			toast.error("Failed to create invite link.");
@@ -357,8 +365,7 @@ export const CommunitySettingsModal = (props: {
 										type="button"
 										class="w-full hover:bg-card px-2 py-1 rounded-sm cursor-pointer text-left flex flex-row items-center gap-2 text-sm"
 										classList={{
-											"bg-muted! text-foreground!":
-												activePage() === page.id,
+											"bg-muted! text-foreground!": activePage() === page.id,
 										}}
 										onClick={() => setActivePage(page.id)}
 									>
