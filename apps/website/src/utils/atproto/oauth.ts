@@ -31,15 +31,7 @@ const decodePrivateKey = (key: string) =>
 	Buffer.from(key, "base64").toString("utf-8");
 
 // See https://npmx.dev/package/@atproto/oauth-client-node#user-content-from-a-backend-service
-//
-// The client is built lazily on first use rather than at module load. Building
-// it requires a top-level `await` for the keyset, and Astro's production build
-// code-splits this module into an async chunk where that awaited value is not
-// reliably wired into the synchronously-constructed client — leaving the
-// constructor with `keyset: undefined` and throwing "requires a keyset". Astro's
-// dev server runs native ESM, so the top-level await works there, which is why
-// the bug only surfaced in production. Deferring construction to request time
-// (where all consumers already call it) sidesteps the issue entirely.
+
 let clientPromise: Promise<NodeOAuthClient> | undefined;
 
 const buildClient = async (): Promise<NodeOAuthClient> => {
