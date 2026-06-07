@@ -14,7 +14,8 @@ const { SENTRY_AUTH_TOKEN } = loadEnv(process.env.NODE_ENV!, process.cwd(), "");
 
 // https://astro.build/config
 export default defineConfig({
-	site: "https://colibri.social",
+	// TODO: Change before release
+	site: "https://next.colibri.social",
 	adapter: node({
 		mode: "standalone",
 	}),
