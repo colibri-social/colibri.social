@@ -26,18 +26,4 @@ import "@/styles/emoji-picker.css";
 			});
 		</script>
 	)}
-	<script>
-		import { getClient } from "@/utils/atproto/auth";
-
-		const init = async () => {
-			const res = await getClient();
-
-			if (!res) {
-				window.location.href = "/app/login"
-				return;
-			}
-		};
-
-		init();
-</script>
 </BaseLayout>
