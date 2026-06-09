@@ -97,6 +97,8 @@ export const UserContextProvider: ParentComponent = (props) => {
 		if (!loggedIn && pathname() !== "/app/login") {
 			window.location.href = "/app/login";
 		}
+
+		console.log(user());
 	});
 
 	return (

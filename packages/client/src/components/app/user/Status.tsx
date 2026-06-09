@@ -7,6 +7,7 @@ import {
 	createSignal,
 	Match,
 	on,
+	onCleanup,
 	type ParentComponent,
 	type Setter,
 	Show,
@@ -31,6 +32,18 @@ import {
 	DropdownMenuTrigger,
 } from "../../ui/DropdownMenu";
 import { Avatar } from "./Avatar";
+import { useUserPreferences } from "../../../contexts/UserPreferences";
+import { Microphone } from "../../icons/Microphone";
+import { Ear } from "../../icons/Ear";
+import { useSocketContext } from "../../../contexts/Socket";
+import User from ".";
+
+const STATE_LABELS: Record<OnlineState, string> = {
+	away: "Away",
+	dnd: "Do Not Disturb",
+	offline: "Offline",
+	online: "Online",
+};
 
 const DropdownStatusSelect: ParentComponent<{
 	value: Accessor<OnlineState>;
@@ -51,28 +64,28 @@ const DropdownStatusSelect: ParentComponent<{
 								onSelect={() => props.setValue("online")}
 								class="[&_svg]:text-green-400"
 							>
-								Online
+								{STATE_LABELS.online}
 							</DropdownMenuRadioItem>
 							<DropdownMenuRadioItem
 								value="away"
 								onSelect={() => props.setValue("away")}
 								class="[&_svg]:text-yellow-400"
 							>
-								Away
+								{STATE_LABELS.away}
 							</DropdownMenuRadioItem>
 							<DropdownMenuRadioItem
 								value="dnd"
 								onSelect={() => props.setValue("dnd")}
 								class="[&_svg]:text-red-400"
 							>
-								Do Not Disturb
+								{STATE_LABELS.dnd}
 							</DropdownMenuRadioItem>
 							<DropdownMenuRadioItem
 								value="offline"
 								onSelect={() => props.setValue("offline")}
 								class="[&_svg]:text-neutral-400"
 							>
-								Offline
+								{STATE_LABELS.offline}
 							</DropdownMenuRadioItem>
 						</DropdownMenuRadioGroup>
 					</DropdownMenuGroup>
@@ -87,28 +100,30 @@ const DropdownStatusSelect: ParentComponent<{
  */
 export const Status: Component = () => {
 	const user = useUserContext();
-	const [value, setValue] = createSignal<OnlineState>("online");
-	const [voiceData, { disconnect, toggleCamera, toggleScreen }] =
-		useVoiceChatContext();
-
-	// Persist the online-state to the AppView whenever the user changes it.
-	// `defer: true` skips the initial value so we don't re-broadcast the
-	// default "online" on every mount. The AppView fans this out to other
-	// clients as a `user_event`.
-	createEffect(
-		on(
-			value,
-			async (state) => {
-				await user.xrpc.social.colibri.actor.setState(state);
-			},
-			{ defer: true },
-		),
-	);
+	const [value, setValue] = createSignal<OnlineState>(user.data.onlineState);
+	const [
+		voiceData,
+		{ disconnect, toggleCamera, toggleScreen, toggleMic, toggleDeafen },
+	] = useVoiceChatContext();
+	const userPreferences = useUserPreferences();
+	const socket = useSocketContext();
 
 	const isReconnecting = () =>
 		voiceData.connection.state === ConnectionState.Connecting ||
 		voiceData.connection.state === ConnectionState.Reconnecting ||
 		voiceData.connection.state === ConnectionState.SignalReconnecting;
+
+	const cleanup = socket.onEvent((e) => {
+		console.log(e);
+		if (e.type === "user_event" && e.data?.did === user.did) {
+			console.log(e.data);
+			if (e.data.status) {
+				setValue(e.data.status.state);
+			}
+		}
+	});
+
+	onCleanup(cleanup);
 
 	return (
 		<div class="w-full h-fit flex flex-col">
@@ -173,7 +188,7 @@ export const Status: Component = () => {
 								<Suspense>
 									<span class="text-xs text-muted-foreground">
 										{voiceData.connection.room?.name ??
-											voiceData.connection.rkey}
+											voiceData.connection.uri}
 									</span>
 								</Suspense>
 							</div>
@@ -187,35 +202,44 @@ export const Status: Component = () => {
 						</Button>
 					</div>
 					<div class="grid grid-cols-4 gap-2 w-full">
-						{/* TODO: userPreferences — uncomment once a user-preferences context exists */}
-						{/*
 						<Button
 							class="w-full"
 							variant={
-								userPreferences.voice.input.enabled ? "secondary" : "outline"
+								userPreferences.preferences().voice.input.enabled
+									? "secondary"
+									: "outline"
 							}
 							classList={{
-								"text-(--primary-hover)!": userPreferences.voice.input.enabled,
-								"text-red-400": !userPreferences.voice.input.enabled,
+								"text-(--primary-hover)!":
+									userPreferences.preferences().voice.input.enabled,
+								"text-red-400":
+									!userPreferences.preferences().voice.input.enabled,
 							}}
 							onClick={toggleMic}
 						>
-							<Microphone enabled={userPreferences.voice.input.enabled} />
+							<Microphone
+								enabled={userPreferences.preferences().voice.input.enabled}
+							/>
 						</Button>
 						<Button
 							class="w-full"
 							variant={
-								!userPreferences.voice.output.enabled ? "secondary" : "outline"
+								!userPreferences.preferences().voice.output.enabled
+									? "secondary"
+									: "outline"
 							}
 							classList={{
-								"text-foreground": userPreferences.voice.output.enabled,
-								"text-red-400!": !userPreferences.voice.output.enabled,
+								"text-foreground":
+									userPreferences.preferences().voice.output.enabled,
+								"text-red-400!":
+									!userPreferences.preferences().voice.output.enabled,
 							}}
 							onClick={toggleDeafen}
 						>
-							<Ear enabled={!userPreferences.voice.output.enabled} />
+							<Ear
+								enabled={!userPreferences.preferences().voice.output.enabled}
+							/>
 						</Button>
-						*/}
 						<Button
 							class="w-full"
 							variant={voiceData.states.camEnabled ? "secondary" : "outline"}
@@ -242,12 +266,31 @@ export const Status: Component = () => {
 				</div>
 			</Show>
 			<div class="w-full h-16 flex items-center gap-3 p-3 bg-card">
-				<Avatar user={user} />
+				<Avatar
+					user={{
+						...user,
+						data: {
+							...user.data,
+							onlineState: value(),
+						},
+					}}
+				/>
 				<div class="flex flex-col">
-					<span class="font-bold leading-5">{user.data.displayName}</span>
-					<DropdownStatusSelect value={value} setValue={setValue}>
+					<span class="font-bold leading-5">
+						<User.DisplayableName user={user} />
+					</span>
+					<DropdownStatusSelect
+						value={value}
+						setValue={(e) => {
+							user.xrpc.social.colibri.actor.setState(
+								typeof e === "string" ? e : e(value()),
+							);
+
+							setValue(e);
+						}}
+					>
 						<div class="flex gap-2 items-center text-sm text-muted-foreground hover:underline cursor-pointer">
-							{user.data.onlineState}
+							{STATE_LABELS[value()]}
 						</div>
 					</DropdownStatusSelect>
 				</div>

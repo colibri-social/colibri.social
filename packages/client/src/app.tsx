@@ -25,13 +25,13 @@ const VOICE_CHANNEL_TYPES = ["voice", "social.colibri.channel.voice"];
 
 const AppRoute: ParentComponent = (props) => {
 	return (
-		<UserContextProvider>
-			<SocketContextProvider>
+		<SocketContextProvider>
+			<UserContextProvider>
 				<VoiceChatContextProvider>
 					<AppLayout>{props.children}</AppLayout>
 				</VoiceChatContextProvider>
-			</SocketContextProvider>
-		</UserContextProvider>
+			</UserContextProvider>
+		</SocketContextProvider>
 	);
 };
 

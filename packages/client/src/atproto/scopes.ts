@@ -16,6 +16,7 @@ export const scopes = [
 	"rpc:social.colibri.notification.updateSeen?aud=*",
 	"rpc:social.colibri.notification.getUnreadCount?aud=*",
 	"rpc:social.colibri.notification.listNotifications?aud=*",
+	"rpc:social.colibri.actor.setState?aud=*",
 	"repo:social.colibri.actor.data?action=create&action=update&action=delete",
 	"repo:social.colibri.community?action=create&action=update&action=delete",
 	"repo:social.colibri.category?action=create&action=update&action=delete",

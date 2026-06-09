@@ -264,9 +264,11 @@ export const TextEditor: Component<{
 	createEffect(() => {
 		if (!editor() || !props.onChange || isInitializing()) return;
 
-		const text = proseMirrorToFacets(editor()!.getJSON());
+		editor()?.on("selectionUpdate", () => {
+			const text = proseMirrorToFacets(editor()!.getJSON());
 
-		props.onChange(text.text, text.facets);
+			props.onChange!(text.text, text.facets);
+		});
 	});
 
 	createEffect(() => {
