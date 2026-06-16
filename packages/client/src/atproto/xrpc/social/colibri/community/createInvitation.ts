@@ -1,15 +1,9 @@
 import type { XrpcRequest } from "../../..";
-
-type Response = {
-	code: string;
-	community: string;
-	createdBy: string;
-	active: boolean;
-};
+import type { Invitation } from "./listInvitations";
 
 export const createInvitation: XrpcRequest<
 	[string, string],
-	Promise<Response | undefined>
+	Promise<Invitation | undefined>
 > = async (fetch, community, auth) => {
 	try {
 		const res = await fetch(

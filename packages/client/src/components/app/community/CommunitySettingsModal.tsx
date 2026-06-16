@@ -118,9 +118,8 @@ const InviteLinksPage = () => {
 
 	const handleCreate = async () => {
 		setCreating(true);
-		const res = await user.xrpc.social.colibri.community.createInvitation(
-			uri(),
-		);
+		const res =
+			await user.xrpc.social.colibri.community.createInvitation(uri());
 		setCreating(false);
 		if (!res) {
 			toast.error("Failed to create invite link.");

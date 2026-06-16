@@ -1,18 +1,20 @@
 import type { XrpcRequest } from "../../..";
 
 type Response = {
-	uri: string;
+	did: string;
+	handle: string;
 };
 
-export const createCategory: XrpcRequest<
+export const kickUser: XrpcRequest<
 	[string, string, string],
 	Promise<Response | undefined>
-> = async (fetch, community, name, auth) => {
+> = async (fetch, community, identifier, auth) => {
 	try {
 		const res = await fetch(
-			`/xrpc/social.colibri.category.create?community=${encodeURIComponent(community)}&name=${encodeURIComponent(name)}&auth=${auth}`,
+			`/xrpc/social.colibri.community.kickUser?community=${encodeURIComponent(community)}&identifier=${encodeURIComponent(identifier)}&auth=${auth}`,
 			{ method: "POST" },
 		);
+
 		return res.json();
 	} catch (err) {
 		console.error(err);

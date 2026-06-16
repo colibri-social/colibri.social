@@ -6,7 +6,7 @@ export const editCategory: XrpcRequest<
 > = async (fetch, category, name, auth) => {
 	try {
 		const res = await fetch(
-			`/xrpc/social.colibri.community.editCategory?category=${encodeURIComponent(category)}&name=${encodeURIComponent(name)}&auth=${auth}`,
+			`/xrpc/social.colibri.category.update?category=${encodeURIComponent(category)}&name=${encodeURIComponent(name)}&auth=${auth}`,
 			{ method: "POST" },
 		);
 		return res.json();

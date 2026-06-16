@@ -1,9 +1,10 @@
+import type { ActorData } from "@colibri-social/lib";
 import type { XrpcRequest } from "../../..";
 
-type Invitation = {
+export type Invitation = {
 	code: string;
 	community: string;
-	createdBy: string;
+	createdBy: ActorData;
 	active: boolean;
 };
 

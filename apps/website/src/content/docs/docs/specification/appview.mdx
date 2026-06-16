@@ -713,6 +713,86 @@ Admits a pending applicant to a closed community (`requiresApprovalToJoin: true`
 	}}
 />
 
+### `social.colibri.community.listApplications`
+
+Lists the pending join applications for a community that requires approval (`requiresApprovalToJoin: true`) — the read-side counterpart to `approveMembership`. A pending application is an indexed `social.colibri.membership` targeting the community whose author does not yet hold a `social.colibri.member` record on the community repo. Open communities auto-admit, so their applications resolve to members immediately and won't appear here. Each entry carries the applicant's `social.colibri.membership` AT-URI, which is fed back into `approveMembership` to admit them. Requires the caller to hold the `approval.manage` permission.
+
+<XRPCEndpointCard
+	method="GET"
+	nsid="social.colibri.community.listApplications"
+	authenticated
+	queryParams={{
+		community: {
+			type: "at-uri",
+			required: true
+		}
+	}}
+	response={{
+		applications: {
+			type: "object[]",
+			required: true,
+			children: {
+				did: {
+					type: "did",
+					required: true,
+				},
+				handle: {
+					type: "handle",
+					required: true,
+				},
+				membership: {
+					type: "at-uri",
+					required: true,
+				},
+				createdAt: {
+					type: "string",
+					required: true,
+				},
+				data: {
+					type: "object",
+					required: true,
+					children: {
+						displayName: {
+							type: "string",
+							required: true,
+						},
+						avatar: {
+							type: "blob",
+							required: false,
+						},
+						banner: {
+							type: "blob",
+							required: false,
+						},
+						description: {
+							type: "string",
+							required: false,
+						},
+						onlineState: {
+							type: "string",
+							required: true,
+						},
+						status: {
+							type: "object",
+							required: true,
+							children: {
+								emoji: {
+									type: "string",
+									required: false,
+								},
+								text: {
+									type: "string",
+									required: true
+								}
+							}
+						},
+					}
+				}
+			}
+		}
+	}}
+/>
+
 ### `social.colibri.category.create`
 
 Creates a new category in a community and appends it to the community's `categoryOrder`. Requires `category.create` permission.

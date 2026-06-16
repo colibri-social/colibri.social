@@ -16,7 +16,7 @@ export const listReactions: XrpcRequest<
 > = async (fetch, message) => {
 	try {
 		const res = await fetch(
-			`/xrpc/social.colibri.message.listReactions?message=${message}`,
+			`/xrpc/social.colibri.channel.listReactions?message=${encodeURIComponent(message)}`,
 		);
 
 		return res.json();

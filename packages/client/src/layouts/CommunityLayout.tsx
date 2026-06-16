@@ -26,18 +26,20 @@ const CommunityHeader = () => {
 
 	return (
 		<>
-			<div class="w-full border-b border-border flex flex-col justify-center p-4">
+			<div class="w-full border-b border-border flex flex-col justify-center py-4 px-3">
 				<DropdownMenu placement="bottom-start">
 					<DropdownMenuTrigger
 						as="button"
 						type="button"
-						class="flex flex-row items-center gap-3 text-left hover:opacity-80 cursor-pointer w-fit aria-expanded:[&>svg]:rotate-180"
+						class="flex flex-row items-center gap-3 text-left px-2 py-1 rounded-md hover:bg-muted/50 transition-all duration-75 cursor-pointer w-fit aria-expanded:[&>svg]:rotate-180 aria-expanded:bg-muted/50"
 					>
-						<h2 class="m-0 text-xl">{community().community.name}</h2>
+						<h2 class="m-0 text-xl w-full text-ellipsis whitespace-nowrap">
+							{community().community.name}
+						</h2>
 						<CaretDownIcon class="text-muted-foreground mt-0.5 text-sm " />
 					</DropdownMenuTrigger>
 					<DropdownMenuPortal>
-						<DropdownMenuContent class="min-w-48">
+						<DropdownMenuContent class="min-w-48 w-66.5">
 							<DropdownMenuItem onSelect={() => setSettingsOpen(true)}>
 								Settings
 							</DropdownMenuItem>
@@ -59,12 +61,12 @@ const CommunityHeader = () => {
 				</DropdownMenu>
 				<Suspense
 					fallback={
-						<small class="text-muted-foreground animate-pulse">
+						<small class="text-muted-foreground animate-pulse px-2">
 							Loading members...
 						</small>
 					}
 				>
-					<small class="text-muted-foreground">
+					<small class="text-muted-foreground px-2">
 						{community().members.length ?? "???"} Member
 						{community().members.length === 1 ? "" : "s"}
 					</small>

@@ -6,7 +6,7 @@ export const deleteChannel: XrpcRequest<
 > = async (fetch, channel, auth) => {
 	try {
 		const res = await fetch(
-			`/xrpc/social.colibri.community.deleteChannel?channel=${encodeURIComponent(channel)}&auth=${auth}`,
+			`/xrpc/social.colibri.channel.delete?channel=${encodeURIComponent(channel)}&auth=${auth}`,
 			{ method: "POST" },
 		);
 		return res.json();

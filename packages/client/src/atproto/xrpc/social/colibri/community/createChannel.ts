@@ -10,7 +10,7 @@ export const createChannel: XrpcRequest<
 > = async (fetch, community, category, name, type, auth) => {
 	try {
 		const res = await fetch(
-			`/xrpc/social.colibri.community.createChannel?community=${encodeURIComponent(community)}&category=${encodeURIComponent(category)}&name=${encodeURIComponent(name)}&type=${encodeURIComponent(type)}&auth=${auth}`,
+			`/xrpc/social.colibri.channel.create?community=${encodeURIComponent(community)}&category=${encodeURIComponent(category)}&name=${encodeURIComponent(name)}&type=${encodeURIComponent(type)}&auth=${auth}`,
 			{ method: "POST" },
 		);
 		return res.json();

@@ -6,7 +6,7 @@ export const deleteCategory: XrpcRequest<
 > = async (fetch, category, auth) => {
 	try {
 		const res = await fetch(
-			`/xrpc/social.colibri.community.deleteCategory?category=${encodeURIComponent(category)}&auth=${auth}`,
+			`/xrpc/social.colibri.category.delete?category=${encodeURIComponent(category)}&auth=${auth}`,
 			{ method: "POST" },
 		);
 		return res.json();

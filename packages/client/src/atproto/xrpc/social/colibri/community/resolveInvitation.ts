@@ -8,12 +8,12 @@ type Response = {
 };
 
 export const resolveInvitation: XrpcRequest<
-	[string, string],
+	[string],
 	Promise<Response | undefined>
-> = async (fetch, code, auth) => {
+> = async (fetch, code) => {
 	try {
 		const res = await fetch(
-			`/xrpc/social.colibri.community.resolveInvitation?code=${code}&auth=${auth}`,
+			`/xrpc/social.colibri.community.getInvitation?code=${encodeURIComponent(code)}`,
 		);
 
 		return res.json();

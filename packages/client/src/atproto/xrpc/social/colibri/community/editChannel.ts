@@ -6,7 +6,7 @@ export const editChannel: XrpcRequest<
 > = async (fetch, channel, name, auth) => {
 	try {
 		const res = await fetch(
-			`/xrpc/social.colibri.community.editChannel?channel=${encodeURIComponent(channel)}&name=${encodeURIComponent(name)}&auth=${auth}`,
+			`/xrpc/social.colibri.channel.update?channel=${encodeURIComponent(channel)}&name=${encodeURIComponent(name)}&auth=${auth}`,
 			{ method: "POST" },
 		);
 		return res.json();

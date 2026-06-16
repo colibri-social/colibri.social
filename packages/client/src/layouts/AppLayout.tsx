@@ -27,6 +27,7 @@ import UsersIcon from "~icons/ph/users";
 import { communityUriToUrlCompatible } from "../atproto/community-uri-to-url-compatible";
 import { resolveBlob } from "../atproto/resolve-blob";
 import { CommunityCreationModal } from "../components/app/CommunityCreationModal";
+import { NativeNotifications } from "../components/app/NativeNotifications";
 import { NotificationBell } from "../components/app/NotificationBell";
 import { UserSettingsModal } from "../components/app/settings";
 import { Plus } from "../components/icons/Plus";
@@ -246,6 +247,7 @@ const AppLayout: ParentComponent = (props) => {
 
 	return (
 		<div class="flex flex-col w-screen h-screen bg-card">
+			<NativeNotifications />
 			<div class="flex w-full h-10 min-h-10 justify-between">
 				<div class="flex w-full h-full pl-2 items-center gap-2">
 					<img

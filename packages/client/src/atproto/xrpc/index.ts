@@ -11,6 +11,7 @@ import { setState } from "./social/colibri/actor/setState";
 import { getReadCursor } from "./social/colibri/channel/getReadCursor";
 import { getVoiceToken } from "./social/colibri/channel/getVoiceToken";
 import { listMessages } from "./social/colibri/channel/listMessages";
+import { approveMembership } from "./social/colibri/community/approveMembership";
 import { blockMessage } from "./social/colibri/community/blockMessage";
 import { blockUser } from "./social/colibri/community/blockUser";
 import { create } from "./social/colibri/community/create";
@@ -24,7 +25,9 @@ import { editCategory } from "./social/colibri/community/editCategory";
 import { editChannel } from "./social/colibri/community/editChannel";
 import { getData as getCommunityData } from "./social/colibri/community/getData";
 import { kick } from "./social/colibri/community/kick";
+import { kickUser } from "./social/colibri/community/kickUser";
 import { leave } from "./social/colibri/community/leave";
+import { listApplications } from "./social/colibri/community/listApplications";
 import { listBlockedUsers } from "./social/colibri/community/listBlockedUsers";
 import { listCategories } from "./social/colibri/community/listCategories";
 import { listChannels } from "./social/colibri/community/listChannels";
@@ -41,6 +44,8 @@ import { update as updateCommunity } from "./social/colibri/community/update";
 import { listReactions } from "./social/colibri/message/listReactions";
 import { getUnreadCount } from "./social/colibri/notification/getUnreadCount";
 import { listNotifications } from "./social/colibri/notification/listNotifications";
+import { registerPush } from "./social/colibri/notification/registerPush";
+import { unregisterPush } from "./social/colibri/notification/unregisterPush";
 import { updateSeen } from "./social/colibri/notification/updateSeen";
 import { sendHum } from "./social/colibri/sync/sendHum";
 
@@ -218,19 +223,19 @@ export class XrpcClient {
 				},
 				createCategory: async (community: string, name: string) => {
 					const token = await this.generateServiceAuthToken(
-						"social.colibri.community.createCategory",
+						"social.colibri.category.create",
 					);
 					return createCategory(this.proxiedFetch, community, name, token);
 				},
 				editCategory: async (category: string, name: string) => {
 					const token = await this.generateServiceAuthToken(
-						"social.colibri.community.editCategory",
+						"social.colibri.category.update",
 					);
 					return editCategory(this.proxiedFetch, category, name, token);
 				},
 				deleteCategory: async (category: string) => {
 					const token = await this.generateServiceAuthToken(
-						"social.colibri.community.deleteCategory",
+						"social.colibri.category.delete",
 					);
 					return deleteCategory(this.proxiedFetch, category, token);
 				},
@@ -241,7 +246,7 @@ export class XrpcClient {
 					type: string,
 				) => {
 					const token = await this.generateServiceAuthToken(
-						"social.colibri.community.createChannel",
+						"social.colibri.channel.create",
 					);
 					return createChannel(
 						this.proxiedFetch,
@@ -254,13 +259,13 @@ export class XrpcClient {
 				},
 				editChannel: async (channel: string, name: string) => {
 					const token = await this.generateServiceAuthToken(
-						"social.colibri.community.editChannel",
+						"social.colibri.channel.update",
 					);
 					return editChannel(this.proxiedFetch, channel, name, token);
 				},
 				deleteChannel: async (channel: string) => {
 					const token = await this.generateServiceAuthToken(
-						"social.colibri.community.deleteChannel",
+						"social.colibri.channel.delete",
 					);
 					return deleteChannel(this.proxiedFetch, channel, token);
 				},
@@ -295,6 +300,18 @@ export class XrpcClient {
 					);
 					return kick(this.proxiedFetch, community, member, token);
 				},
+				kickUser: async (community: string, identifier: string) => {
+					const token = await this.generateServiceAuthToken(
+						"social.colibri.community.kickUser",
+					);
+					return kickUser(this.proxiedFetch, community, identifier, token);
+				},
+				approveMembership: async (membership: string) => {
+					const token = await this.generateServiceAuthToken(
+						"social.colibri.community.approveMembership",
+					);
+					return approveMembership(this.proxiedFetch, membership, token);
+				},
 				setMemberRoles: async (
 					community: string,
 					member: string,
@@ -321,6 +338,12 @@ export class XrpcClient {
 					listChannels(this.proxiedFetch, community),
 				listMembers: (community: string) =>
 					listMembers(this.proxiedFetch, community),
+				listApplications: async (community: string) => {
+					const token = await this.generateServiceAuthToken(
+						"social.colibri.community.listApplications",
+					);
+					return listApplications(this.proxiedFetch, community, token);
+				},
 				listRoles: (community: string) =>
 					listRoles(this.proxiedFetch, community),
 				blockMessage: async (community: string, message: string) => {
@@ -351,13 +374,8 @@ export class XrpcClient {
 
 					return createInvitation(this.proxiedFetch, community, token);
 				},
-				resolveInvitation: async (code: string) => {
-					const token = await this.generateServiceAuthToken(
-						"social.colibri.community.resolveInvitation",
-					);
-
-					return resolveInvitation(this.proxiedFetch, code, token);
-				},
+				resolveInvitation: (code: string) =>
+					resolveInvitation(this.proxiedFetch, code),
 				listInvitations: async (uri: string) => {
 					const token = await this.generateServiceAuthToken(
 						"social.colibri.community.listInvitations",
@@ -420,6 +438,24 @@ export class XrpcClient {
 					);
 
 					return updateSeen(this.proxiedFetch, seenAt, token);
+				},
+				registerPush: async (subscription: {
+					platform: "web" | "tauri";
+					endpoint: string;
+					keys: { p256dh: string; auth: string };
+				}) => {
+					const token = await this.generateServiceAuthToken(
+						"social.colibri.notification.registerPush",
+					);
+
+					return registerPush(this.proxiedFetch, subscription, token);
+				},
+				unregisterPush: async (endpoint: string) => {
+					const token = await this.generateServiceAuthToken(
+						"social.colibri.notification.unregisterPush",
+					);
+
+					return unregisterPush(this.proxiedFetch, endpoint, token);
 				},
 			},
 			sync: {

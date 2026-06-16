@@ -20,6 +20,7 @@ export type Community = {
 	channels: Array<Channel>;
 	roles: Array<Role>;
 	members: Array<Member>;
+	did: string;
 };
 
 export const getData: XrpcRequest<

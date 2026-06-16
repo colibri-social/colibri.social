@@ -44,6 +44,8 @@ export interface VolumeOverrides {
 
 export type UserPreferencesContextData = {
 	membersListVisible: boolean;
+	/** Whether native OS notifications are enabled (opt-in, requires permission). */
+	nativeNotifications: boolean;
 	voice: {
 		input: VoiceInputSettings;
 		output: VoiceIOSettings;
@@ -54,6 +56,7 @@ export type UserPreferencesContextData = {
 
 const DEFAULT_PREFERENCES: UserPreferencesContextData = {
 	membersListVisible: true,
+	nativeNotifications: false,
 	voice: {
 		input: {
 			enabled: true,
@@ -89,6 +92,7 @@ type UserPreferencesContextValue = {
 	setPreferences: Setter<UserPreferencesContextData>;
 	updateVoice: (patch: Partial<VoicePreferences>) => void;
 	toggleMembersVisible: () => void;
+	setNativeNotifications: (enabled: boolean) => void;
 };
 
 const UserPreferencesContext = createContext<UserPreferencesContextValue>();
@@ -117,9 +121,19 @@ export const UserPreferencesContextProvider: ParentComponent = (props) => {
 		}));
 	};
 
+	const setNativeNotifications = (enabled: boolean) => {
+		setPreferences((p) => ({ ...p, nativeNotifications: enabled }));
+	};
+
 	return (
 		<UserPreferencesContext.Provider
-			value={{ preferences, setPreferences, updateVoice, toggleMembersVisible }}
+			value={{
+				preferences,
+				setPreferences,
+				updateVoice,
+				toggleMembersVisible,
+				setNativeNotifications,
+			}}
 		>
 			{props.children}
 		</UserPreferencesContext.Provider>
