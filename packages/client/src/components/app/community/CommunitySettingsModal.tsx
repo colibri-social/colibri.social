@@ -609,7 +609,7 @@ const MembersPage: Component = () => {
 	return (
 		<SettingsPage
 			loading={() => false}
-			title={`Members${members().length > 0 ? `— ${members().length})` : ""}`}
+			title={`Members${members().length > 0 ? ` — ${members().length}` : ""}`}
 		>
 			<Table class="h-full">
 				<TableHeader>
@@ -755,23 +755,18 @@ const DangerSettingsPage: Component = () => {
 	const deleteCommunity = async () => {
 		setLoading(true);
 
-		// TODO: missing endpoint
-		// const res = await user.xrpc.social.colibri.community.delete()
-		//
+		const res = await user.xrpc.social.colibri.community.delete(
+			community().community.uri,
+		);
 
 		setLoading(false);
 
-		console.warn("nope");
+		if (!res) {
+			toast.error("Failed to delete community");
+			return;
+		}
 
-		// if (deletedCommunity) {
-		// 	toast.error("Failed to delete community", {
-		// 		description: parseZodToErrorOrDisplay(deletedCommunity.error.message),
-		// 	});
-		// 	return;
-		// }
-
-		// removeCommunity(community()!.rkey);
-		// navigate("/");
+		navigate("/");
 	};
 
 	return (
@@ -814,11 +809,16 @@ const DangerSettingsPage: Component = () => {
 	);
 };
 
-export const CommunitySettingsModal: ParentComponent = (props) => {
+export const CommunitySettingsModal: ParentComponent<{
+	open: Accessor<boolean>;
+	setOpen: Setter<boolean>;
+}> = (props) => {
 	const community = useCommunityContext();
 
 	return (
 		<SettingsModal
+			open={props.open}
+			setOpen={props.setOpen}
 			pages={[
 				{
 					title: "Community Profile",

@@ -7,7 +7,7 @@ type Response = {
 	active: boolean;
 };
 
-export const resolveInvitation: XrpcRequest<
+export const getInvitation: XrpcRequest<
 	[string],
 	Promise<Response | undefined>
 > = async (fetch, code) => {

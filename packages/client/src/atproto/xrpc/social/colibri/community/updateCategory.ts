@@ -1,6 +1,6 @@
 import type { XrpcRequest } from "../../..";
 
-export const editCategory: XrpcRequest<
+export const updateCategory: XrpcRequest<
 	[string, string, string],
 	Promise<Record<string, never> | undefined>
 > = async (fetch, category, name, auth) => {

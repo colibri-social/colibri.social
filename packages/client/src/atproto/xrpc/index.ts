@@ -16,13 +16,14 @@ import { blockMessage } from "./social/colibri/community/blockMessage";
 import { blockUser } from "./social/colibri/community/blockUser";
 import { create } from "./social/colibri/community/create";
 import { createCategory } from "./social/colibri/community/createCategory";
+import { deleteCommunity } from "./social/colibri/community/deleteCommunity";
 import { createChannel } from "./social/colibri/community/createChannel";
 import { createInvitation } from "./social/colibri/community/createInvitation";
 import { deleteCategory } from "./social/colibri/community/deleteCategory";
 import { deleteChannel } from "./social/colibri/community/deleteChannel";
 import { deleteInvitation } from "./social/colibri/community/deleteInvitation";
-import { editCategory } from "./social/colibri/community/editCategory";
-import { editChannel } from "./social/colibri/community/editChannel";
+import { updateCategory } from "./social/colibri/community/updateCategory";
+import { updateChannel } from "./social/colibri/community/updateChannel";
 import { getData as getCommunityData } from "./social/colibri/community/getData";
 import { kick } from "./social/colibri/community/kick";
 import { kickUser } from "./social/colibri/community/kickUser";
@@ -37,7 +38,7 @@ import { listRoles } from "./social/colibri/community/listRoles";
 import { registerCredentials } from "./social/colibri/community/registerCredentials";
 import { reorderCategories } from "./social/colibri/community/reorderCategories";
 import { reorderChannels } from "./social/colibri/community/reorderChannels";
-import { resolveInvitation } from "./social/colibri/community/resolveInvitation";
+import { getInvitation } from "./social/colibri/community/getInvitation";
 import { setMemberRoles } from "./social/colibri/community/setMemberRoles";
 import { unblockUser } from "./social/colibri/community/unblockUser";
 import { update as updateCommunity } from "./social/colibri/community/update";
@@ -221,17 +222,23 @@ export class XrpcClient {
 					);
 					return leave(this.proxiedFetch, community, token);
 				},
+				delete: async (community: string) => {
+					const token = await this.generateServiceAuthToken(
+						"social.colibri.community.delete",
+					);
+					return deleteCommunity(this.proxiedFetch, community, token);
+				},
 				createCategory: async (community: string, name: string) => {
 					const token = await this.generateServiceAuthToken(
 						"social.colibri.category.create",
 					);
 					return createCategory(this.proxiedFetch, community, name, token);
 				},
-				editCategory: async (category: string, name: string) => {
+				updateCategory: async (category: string, name: string) => {
 					const token = await this.generateServiceAuthToken(
 						"social.colibri.category.update",
 					);
-					return editCategory(this.proxiedFetch, category, name, token);
+					return updateCategory(this.proxiedFetch, category, name, token);
 				},
 				deleteCategory: async (category: string) => {
 					const token = await this.generateServiceAuthToken(
@@ -257,11 +264,11 @@ export class XrpcClient {
 						token,
 					);
 				},
-				editChannel: async (channel: string, name: string) => {
+				updateChannel: async (channel: string, name: string) => {
 					const token = await this.generateServiceAuthToken(
 						"social.colibri.channel.update",
 					);
-					return editChannel(this.proxiedFetch, channel, name, token);
+					return updateChannel(this.proxiedFetch, channel, name, token);
 				},
 				deleteChannel: async (channel: string) => {
 					const token = await this.generateServiceAuthToken(
@@ -374,8 +381,8 @@ export class XrpcClient {
 
 					return createInvitation(this.proxiedFetch, community, token);
 				},
-				resolveInvitation: (code: string) =>
-					resolveInvitation(this.proxiedFetch, code),
+				getInvitation: (code: string) =>
+					getInvitation(this.proxiedFetch, code),
 				listInvitations: async (uri: string) => {
 					const token = await this.generateServiceAuthToken(
 						"social.colibri.community.listInvitations",

@@ -108,6 +108,8 @@ export const SettingsModal: ParentComponent<{
 	dangerPage?: SettingsPageInfo;
 	class?: string;
 	contentClass?: string;
+	open?: Accessor<boolean>;
+	setOpen?: Setter<boolean>;
 }> = (props) => {
 	const [activePage, setActivePage] = createSignal<string>(props.pages[0].id);
 	const [open, setOpen] = createSignal(false);
@@ -119,7 +121,10 @@ export const SettingsModal: ParentComponent<{
 	});
 
 	return (
-		<Dialog open={open()} onOpenChange={setOpen}>
+		<Dialog
+			open={props.open?.() ?? open()}
+			onOpenChange={props.setOpen ?? setOpen}
+		>
 			<DialogTrigger class={props.class}>{props.children}</DialogTrigger>
 			<DialogPortal>
 				<DialogContent

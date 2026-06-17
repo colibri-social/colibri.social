@@ -264,9 +264,20 @@ export const MemberSidebar = () => {
 			.sort((a, b) => a.position - b.position)
 			.map((x) => ({ role: x, members: [] }));
 
-		const noRoleIdx = result.push({
+		const noRoleOnlineIdx = result.push({
 			role: {
 				name: "Online",
+				channelOverrides: [],
+				permissions: [],
+				position: 0,
+				uri: "",
+			},
+			members: [],
+		});
+
+		const offlineIdx = result.push({
+			role: {
+				name: "Offline",
 				channelOverrides: [],
 				permissions: [],
 				position: 0,
@@ -288,7 +299,11 @@ export const MemberSidebar = () => {
 			);
 
 			if (resultIndex < 0) {
-				resultIndex = noRoleIdx - 1;
+				if (member.data.onlineState === "offline") {
+					resultIndex = offlineIdx - 1;
+				} else {
+					resultIndex = noRoleOnlineIdx - 1;
+				}
 			}
 
 			result[resultIndex].members.push(member);
@@ -309,7 +324,7 @@ export const MemberSidebar = () => {
 				hidden: !preferences().membersListVisible,
 			}}
 		>
-			<For each={membersByRoles()}>
+			<For each={membersByRoles().filter((x) => x.members.length > 0)}>
 				{(role) => (
 					<>
 						<span class="text-sm text-muted-foreground not-first-of-type:mt-4">

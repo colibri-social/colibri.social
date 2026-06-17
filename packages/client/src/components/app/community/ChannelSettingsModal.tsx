@@ -26,7 +26,7 @@ export const ChannelSettingsModal: ParentComponent<{
 	const handleSave = async () => {
 		setLoading(true);
 		try {
-			await user.xrpc.social.colibri.community.editChannel(
+			await user.xrpc.social.colibri.community.updateChannel(
 				props.channel.uri,
 				name().trim(),
 			);

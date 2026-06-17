@@ -28,7 +28,7 @@ export function Avatar(props: {
 			/>
 			<Show when={props.user.data.onlineState && !props.disableState}>
 				<div
-					class={`rounded-full absolute bottom-px right-px outline-background ${props.size === "small" ? "w-2 h-2 outline-" : props.size === "large" ? "w-4 h-4 outline-4" : "w-2 h-2 outline-2"}`}
+					class={`rounded-full absolute bottom-px right-px outline-background ${props.size === "small" ? "w-2 h-2 outline" : props.size === "large" ? "w-4 h-4 outline-4" : "w-2 h-2 outline-2"}`}
 					classList={{
 						"bg-green-500": props.user.data.onlineState === "online",
 						"bg-yellow-500": props.user.data.onlineState === "away",

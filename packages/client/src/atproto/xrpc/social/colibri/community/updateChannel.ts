@@ -1,6 +1,6 @@
 import type { XrpcRequest } from "../../..";
 
-export const editChannel: XrpcRequest<
+export const updateChannel: XrpcRequest<
 	[string, string, string],
 	Promise<Record<string, never> | undefined>
 > = async (fetch, channel, name, auth) => {

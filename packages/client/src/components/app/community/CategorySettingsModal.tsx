@@ -25,7 +25,7 @@ export const CategorySettingsModal: ParentComponent<{
 	const handleSave = async () => {
 		setLoading(true);
 		try {
-			await user.xrpc.social.colibri.community.editCategory(
+			await user.xrpc.social.colibri.community.updateCategory(
 				props.category.uri,
 				name().trim(),
 			);

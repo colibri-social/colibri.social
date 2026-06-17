@@ -2,7 +2,7 @@ import type { XrpcRequest } from "../../..";
 import type { Member } from "./listMembers";
 
 type Response = {
-	members: Array<Member>;
+	users: Array<Omit<Member, "roles">>;
 };
 
 export const listBlockedUsers: XrpcRequest<
