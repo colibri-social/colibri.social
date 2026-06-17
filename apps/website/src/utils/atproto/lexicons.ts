@@ -346,7 +346,7 @@ lex.add(
 				key: "tid",
 				description: "A reaction on a Colibri message.",
 				record: {
-					required: ["emoji", "targetMessage"],
+					required: ["emoji", "parent"],
 					type: "object",
 					properties: {
 						$type: {
