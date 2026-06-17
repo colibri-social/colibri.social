@@ -645,6 +645,30 @@ Updates the community's settings. Only fields that are supplied are changed; omi
 
 Broadcasts `community_event { event: "upsert", uri, name?, description?, picture?, requiresApprovalToJoin? }`.
 
+### `social.colibri.community.delete`
+
+Deletes a community. Requires the caller to hold the `community.delete` permission. For AppView-managed communities (those minted via [`create`](#socialcolibricommunitycreate)) the entire PDS account is torn down via `com.atproto.admin.deleteAccount`, removing the repo and every record on it. For BYO communities the AppView does not administer the hosting PDS, so the account is left intact; the AppView only stops tracking it.
+
+In both cases the stored credentials and every locally cached record for the community DID are removed, so the community no longer surfaces through any read endpoint.
+
+<XRPCEndpointCard
+	method="POST"
+	nsid="social.colibri.community.delete"
+	authenticated
+	queryParams={{
+		community: {
+			type: "at-uri",
+			required: true
+		}
+	}}
+	response={{
+		did: {
+			type: "did",
+			required: true
+		}
+	}}
+/>
+
 ### `social.colibri.community.registerCredentials`
 
 Registers user-supplied credentials (PDS endpoint + identifier + app password) for an existing community DID hosted on a PDS the AppView doesn't manage. The AppView verifies proof-of-control by performing a `com.atproto.server.createSession` against the supplied PDS — if the resulting session's DID matches the claimed community DID, the credentials are accepted, encrypted with AES-256-GCM, and stored. No bootstrap happens; BYO callers are expected to provision the community records themselves.
@@ -1095,7 +1119,7 @@ Broadcasts `member_event { event: "roles_updated", community, member: { did, rol
 
 ### `social.colibri.community.listBlockedUsers`
 
-Lists all blocked users for a community.
+Lists all blocked users for a community, each hydrated into their full profile (handle, Bluesky profile, and Colibri status). Blocked users no longer hold a `social.colibri.member` record, so — unlike [`listMembers`](#socialcolibricommunitylistmembers) — the entries carry no `roles`. Entries are ordered by DID.
 
 <XRPCEndpointCard
 	method="GET"
@@ -1107,9 +1131,59 @@ Lists all blocked users for a community.
 		}
 	}}
 	response={{
-		dids: {
-			type: "did[]",
+		users: {
+			type: "object[]",
 			required: true,
+			children: {
+				did: {
+					type: "did",
+					required: true,
+				},
+				handle: {
+					type: "handle",
+					required: true,
+				},
+				data: {
+					type: "object",
+					required: true,
+					children: {
+						displayName: {
+							type: "string",
+							required: true,
+						},
+						avatar: {
+							type: "blob",
+							required: false,
+						},
+						banner: {
+							type: "blob",
+							required: false,
+						},
+						description: {
+							type: "string",
+							required: false,
+						},
+						onlineState: {
+							type: "string",
+							required: true,
+						},
+						status: {
+							type: "object",
+							required: true,
+							children: {
+								emoji: {
+									type: "string",
+									required: false,
+								},
+								text: {
+									type: "string",
+									required: true
+								}
+							}
+						},
+					}
+				}
+			}
 		}
 	}}
 />
