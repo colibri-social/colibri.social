@@ -1,7 +1,8 @@
 import type { XrpcRequest } from "../../..";
+import type { Member } from "./listMembers";
 
 type Response = {
-	dids: Array<string>;
+	members: Array<Member>;
 };
 
 export const listBlockedUsers: XrpcRequest<
