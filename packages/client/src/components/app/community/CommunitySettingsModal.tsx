@@ -660,7 +660,7 @@ const BlockedMembersPage: Component = () => {
 
 	const [blockedMembers, { refetch }] = createResource(uri, async (u) => {
 		const res = await user.xrpc.social.colibri.community.listBlockedUsers(u);
-		return res?.members ?? [];
+		return res?.users ?? [];
 	});
 
 	const unblockMember = async (did: string) => {
