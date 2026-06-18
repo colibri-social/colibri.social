@@ -44,13 +44,6 @@ const CommunityHeader = () => {
 								Settings
 							</DropdownMenuItem>
 							<DropdownMenuItem
-								onSelect={() => {
-									setSettingsOpen(true);
-								}}
-							>
-								Invite Links
-							</DropdownMenuItem>
-							<DropdownMenuItem
 								class="text-destructive data-highlighted:text-destructive"
 								onSelect={() => setLeaveOpen(true)}
 							>

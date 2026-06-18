@@ -25,7 +25,7 @@ export const CategorySettingsModal: ParentComponent<{
 	const handleSave = async () => {
 		setLoading(true);
 		try {
-			await user.xrpc.social.colibri.community.updateCategory(
+			await user.xrpc.social.colibri.category.update(
 				props.category.uri,
 				name().trim(),
 			);
@@ -40,7 +40,7 @@ export const CategorySettingsModal: ParentComponent<{
 	const handleDelete = async () => {
 		setLoading(true);
 		try {
-			await user.xrpc.social.colibri.community.deleteCategory(
+			await user.xrpc.social.colibri.category.delete(
 				props.category.uri,
 			);
 			setOpen(false);

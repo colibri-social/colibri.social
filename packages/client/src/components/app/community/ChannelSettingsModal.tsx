@@ -26,7 +26,7 @@ export const ChannelSettingsModal: ParentComponent<{
 	const handleSave = async () => {
 		setLoading(true);
 		try {
-			await user.xrpc.social.colibri.community.updateChannel(
+			await user.xrpc.social.colibri.channel.update(
 				props.channel.uri,
 				name().trim(),
 			);
@@ -41,7 +41,7 @@ export const ChannelSettingsModal: ParentComponent<{
 	const handleDelete = async () => {
 		setLoading(true);
 		try {
-			await user.xrpc.social.colibri.community.deleteChannel(props.channel.uri);
+			await user.xrpc.social.colibri.channel.delete(props.channel.uri);
 			setOpen(false);
 		} catch {
 			toast.error("Failed to delete channel.");

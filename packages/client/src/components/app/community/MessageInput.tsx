@@ -27,7 +27,7 @@ import {
 	FileFieldTrigger,
 } from "../../ui/FileField";
 import { TextEditor } from "../common/text-editor/TextEditor";
-import { DisplayableName } from "../user/DisplayableName";
+import { DisplayableName, displayableNameFn } from "../user/DisplayableName";
 
 // TODO: This does not work in Firefox. We might need a different solution for file uploads, but I am
 // not sure if the PDS allows for tracking progress, and I do not want to proxy the files
@@ -122,7 +122,10 @@ export const MessageInput: Component<{
 	/** Resolve a typing user's DID to a display name via the member cache. */
 	const typingDisplayName = (did: string): string => {
 		const member = community().members.find((m) => m.did === did);
-		return member?.data.displayName ?? member?.handle ?? did;
+
+		if (!member) return;
+
+		return displayableNameFn(member);
 	};
 
 	/**

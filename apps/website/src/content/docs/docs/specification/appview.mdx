@@ -348,11 +348,11 @@ Events of this type are sent to clients when a community has been updated or del
 
 Events of this type are sent to clients when a member joins a community, has their roles changed, or leaves. `member_event` is broadcast to **all** connected clients (not just the subject). Clients should check `community` to scope the update to the right community, and check `member.did` against their own DID to detect when they themselves have been admitted or had their roles updated.
 
-| `event` | When | `membership` | `member` |
-|---|---|---|---|
-| `join` | A new member record is written (auto-admit or `approveMembership`) | AT-URI of the user's membership declaration, if available | Always present |
-| `roles_updated` | An existing member record is updated (e.g. a moderator changes roles) | Absent | Always present with the new `roles` array |
-| `leave` | A member record is deleted (kick, ban, or self-leave) | Absent | Absent |
+| `event` | When | `membership` | `member` | `memberDid` |
+|---|---|---|---|---|
+| `join` | A new member record is written (auto-admit or `approveMembership`) | AT-URI of the user's membership declaration, if available | Always present | Absent |
+| `roles_updated` | An existing member record is updated (e.g. a moderator changes roles) | Absent | Always present with the new `roles` array | Absent |
+| `leave` | A member record is deleted (kick, ban, or self-leave) — sent to all remaining members; the removed user receives a `community_event { delete }` instead | Absent | Absent | Always present |
 
 ```ts title="data"
 {
@@ -377,6 +377,8 @@ Events of this type are sent to clients when a member joins a community, has the
 			};
 		};
 	};
+	/** DID of the member who left — present only on `leave` events. */
+	memberDid?: string;
 }
 ```
 
@@ -407,6 +409,24 @@ Events of this type are sent to clients when a channel has been created, updated
 	name?: string;
 	description?: string;
 	type?: string;
+}
+```
+
+##### `role_event`
+
+Events of this type are sent to clients when a role has been created, updated, or deleted. When the `event` is `delete`, all data except `uri` is omitted. On `upsert`, `community`, `name`, `permissions`, and `position` are always present.
+
+```ts title="data"
+{
+	event: 'upsert' | 'delete';
+	uri: string;
+	community?: string;
+	name?: string;
+	color?: string;
+	permissions?: string[];
+	position?: number;
+	hoisted?: boolean;
+	mentionable?: boolean;
 }
 ```
 
@@ -1079,7 +1099,7 @@ Removes a member from the community by DID. Writes a `kick` moderation record an
 	}}
 />
 
-Broadcasts `member_event { event: "leave", community }` via the tap firehose once the member record is deleted.
+Broadcasts `member_event { event: "leave", community, memberDid }` via the tap firehose once the member record is deleted.
 
 ### `social.colibri.community.setMemberRoles`
 
@@ -1116,6 +1136,126 @@ Replaces a member's full role set. `roles` is provided as **repeated** query-str
 />
 
 Broadcasts `member_event { event: "roles_updated", community, member: { did, roles, data... } }` via the tap firehose once the member record is updated.
+
+### `social.colibri.role.create`
+
+Creates a new role in a community. Requires `role.manage` permission. `position` sets the role's hierarchy rank; higher values sit higher. `permissions` is provided as **repeated** query-string values.
+
+<XRPCEndpointCard
+	method="POST"
+	nsid="social.colibri.role.create"
+	authenticated
+	queryParams={{
+		community: {
+			type: "at-uri",
+			required: true
+		},
+		name: {
+			type: "string",
+			required: true
+		},
+		position: {
+			type: "integer",
+			required: true
+		},
+		permissions: {
+			type: "string[] (repeated)",
+			required: false
+		},
+		color: {
+			type: "string (hex #rrggbb)",
+			required: false
+		},
+		hoisted: {
+			type: "boolean",
+			required: false
+		},
+		mentionable: {
+			type: "boolean",
+			required: false
+		}
+	}}
+	response={{
+		uri: {
+			type: "at-uri",
+			required: true
+		}
+	}}
+/>
+
+Broadcasts `role_event { event: "upsert", uri, community, name, permissions, position, color?, hoisted?, mentionable? }` via the tap firehose once the role record is written.
+
+### `social.colibri.role.update`
+
+Updates a role's fields. Only supplied fields are changed; omitted fields keep their current values. Supplying a non-empty `permissions` list **replaces** the current permission set. Requires `role.manage` permission. Returns `InvalidRequest` if the role has `protected: true`.
+
+<XRPCEndpointCard
+	method="POST"
+	nsid="social.colibri.role.update"
+	authenticated
+	queryParams={{
+		role: {
+			type: "at-uri",
+			required: true
+		},
+		name: {
+			type: "string",
+			required: false
+		},
+		color: {
+			type: "string (hex #rrggbb)",
+			required: false
+		},
+		permissions: {
+			type: "string[] (repeated)",
+			required: false
+		},
+		position: {
+			type: "integer",
+			required: false
+		},
+		hoisted: {
+			type: "boolean",
+			required: false
+		},
+		mentionable: {
+			type: "boolean",
+			required: false
+		}
+	}}
+	response={{
+		uri: {
+			type: "at-uri",
+			required: true
+		}
+	}}
+/>
+
+Broadcasts `role_event { event: "upsert", uri, community, name, permissions, position, ... }` via the tap firehose once the role record is updated.
+
+### `social.colibri.role.delete`
+
+Deletes a role from a community. Requires `role.manage` permission. Returns `InvalidRequest` if the role has `protected: true` (e.g. the bootstrap Owner role).
+
+<XRPCEndpointCard
+	method="POST"
+	nsid="social.colibri.role.delete"
+	authenticated
+	queryParams={{
+		role: {
+			type: "at-uri",
+			required: true
+		}
+	}}
+	response={{
+		uri: {
+			type: "at-uri",
+			required: true
+		}
+	}}
+/>
+
+Broadcasts `role_event { event: "delete", uri }` via the tap firehose once the role record is deleted.
 
 ### `social.colibri.community.listBlockedUsers`
 
@@ -1637,6 +1777,8 @@ Hides a message in a given community. Requires the caller to hold the `message.h
 	}}
 />
 
+Broadcasts `message_event { event: "delete", uri: <message> }` via the tap firehose once the moderation record is indexed, so connected clients remove the hidden message without a reload.
+
 ### `social.colibri.community.blockUser`
 
 Bans a user from a community by writing a `ban` moderation record. Requires the `member.ban` permission. Callers can only ban members ranked strictly below them in the role hierarchy.
@@ -1697,6 +1839,8 @@ Unbans a user from a community, allowing them to write messages there again. Req
 	}}
 />
 
+Broadcasts `member_event { event: "leave", community, memberDid }` via the tap firehose once the member record is revoked.
+
 ### `social.colibri.community.kickUser`
 
 Kicks a user from a community by writing a `kick` moderation record and revoking their membership. Unlike a ban, the kicked user is not prevented from rejoining. Requires the `member.ban` permission. Callers can only kick members ranked strictly below them in the role hierarchy.
@@ -1726,6 +1870,8 @@ Kicks a user from a community by writing a `kick` moderation record and revoking
 		}
 	}}
 />
+
+Broadcasts `member_event { event: "leave", community, memberDid }` via the tap firehose once the member record is revoked.
 
 ### `social.colibri.community.createInvitation`
 

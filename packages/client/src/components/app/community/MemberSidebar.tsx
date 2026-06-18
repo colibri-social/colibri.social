@@ -1,7 +1,5 @@
 import twemoji from "@twemoji/api";
-import { createSignal, For, Show } from "solid-js";
-import { toast } from "somoto";
-import DotsThreeIcon from "~icons/ph/dots-three";
+import { createMemo, For, Show } from "solid-js";
 import type { Member } from "../../../atproto/xrpc/social/colibri/community/listMembers";
 import type { Role } from "../../../atproto/xrpc/social/colibri/community/listRoles";
 import {
@@ -11,104 +9,13 @@ import {
 import { useUserContext } from "../../../contexts/User";
 import { useUserPreferences } from "../../../contexts/UserPreferences";
 import createMediaQuery from "../../../utils/create-media-query";
-import { Button } from "../../ui/Button";
-import {
-	Dialog,
-	DialogContent,
-	DialogDescription,
-	DialogFooter,
-	DialogHeader,
-	DialogPortal,
-	DialogTitle,
-} from "../../ui/Dialog";
-import {
-	DropdownMenu,
-	DropdownMenuContent,
-	DropdownMenuItem,
-	DropdownMenuPortal,
-	DropdownMenuTrigger,
-} from "../../ui/DropdownMenu";
-import {
-	Popover,
-	PopoverContent,
-	PopoverPortal,
-	PopoverTrigger,
-} from "../../ui/Popover";
 import User from "../user";
+import { MemberContextMenu } from "./MemberContextMenu";
 
 type MembersByRoles = Array<{
 	role: Role;
 	members: Array<Member>;
 }>;
-
-const RolePicker = (props: {
-	member: Member;
-	communityUri: string;
-	roles: Role[];
-	onClose: () => void;
-}) => {
-	const user = useUserContext();
-	const [selected, setSelected] = createSignal<string[]>(props.member.roles);
-	const [loading, setLoading] = createSignal(false);
-
-	const toggle = (roleUri: string) => {
-		setSelected((prev) =>
-			prev.includes(roleUri)
-				? prev.filter((r) => r !== roleUri)
-				: [...prev, roleUri],
-		);
-	};
-
-	const handleSave = async () => {
-		setLoading(true);
-		try {
-			await user.xrpc.social.colibri.community.setMemberRoles(
-				props.communityUri,
-				props.member.did,
-				selected(),
-			);
-			props.onClose();
-		} catch {
-			toast.error("Failed to update roles.");
-		} finally {
-			setLoading(false);
-		}
-	};
-
-	return (
-		<div class="flex flex-col gap-3 p-1">
-			<span class="text-sm font-semibold">Change roles</span>
-			<div class="flex flex-col gap-1">
-				<For each={props.roles}>
-					{(role) => (
-						<label class="flex flex-row items-center gap-2 cursor-pointer rounded-sm px-1 py-0.5 hover:bg-muted text-sm">
-							<input
-								type="checkbox"
-								checked={selected().includes(role.uri)}
-								onChange={() => toggle(role.uri)}
-								class="cursor-pointer"
-							/>
-							<span
-								classList={{ "font-medium": selected().includes(role.uri) }}
-								style={{ color: role.color ?? undefined }}
-							>
-								{role.name}
-							</span>
-						</label>
-					)}
-				</For>
-			</div>
-			<Button
-				size="sm"
-				onClick={handleSave}
-				disabled={loading()}
-				class="self-end"
-			>
-				Save
-			</Button>
-		</div>
-	);
-};
 
 const MemberRow = (props: {
 	member: Member;
@@ -117,35 +24,20 @@ const MemberRow = (props: {
 }) => {
 	const user = useUserContext();
 	const { canManage } = usePermissions();
-	const [kickOpen, setKickOpen] = createSignal(false);
-	const [rolePickerOpen, setRolePickerOpen] = createSignal(false);
-	const [kicking, setKicking] = createSignal(false);
 
 	const isMe = () => props.member.did === user.did;
 	const showActions = () => canManage(user.did) && !isMe();
 
-	const handleKick = async () => {
-		setKicking(true);
-		try {
-			await user.xrpc.social.colibri.community.kick(
-				props.communityUri,
-				props.member.did,
-			);
-			setKickOpen(false);
-		} catch {
-			toast.error("Failed to kick member.");
-		} finally {
-			setKicking(false);
-		}
-	};
-
 	return (
-		<>
+		<MemberContextMenu member={props.member}>
 			<User.ProfilePopover
 				user={props.member}
 				class="data-expanded:[&>div]:bg-muted!"
 			>
-				<div class="group/member flex flex-row gap-2 rounded-sm px-2 py-1 hover:bg-card items-center cursor-pointer h-12 flex-1">
+				<div
+					class="group/member flex flex-row gap-2 rounded-sm px-2 py-1 hover:bg-card items-center cursor-pointer h-12 flex-1"
+					onPointerDown={(e) => e.button !== 0 && e.stopPropagation()}
+				>
 					<User.Avatar user={props.member} />
 					<div class="flex flex-col w-[calc(100%-36px-8px)]">
 						<span class="font-medium leading-5 overflow-hidden text-ellipsis">
@@ -170,88 +62,9 @@ const MemberRow = (props: {
 							</span>
 						</Show>
 					</div>
-					<Show when={showActions()}>
-						<DropdownMenu placement="bottom-end">
-							<DropdownMenuTrigger
-								as="button"
-								type="button"
-								class="opacity-0 group-hover/member:opacity-100 ml-auto p-0.5 rounded-sm hover:bg-muted text-muted-foreground hover:text-foreground cursor-pointer"
-								onClick={(e: MouseEvent) => e.stopPropagation()}
-							>
-								<DotsThreeIcon />
-							</DropdownMenuTrigger>
-							<DropdownMenuPortal>
-								<DropdownMenuContent class="min-w-36">
-									<DropdownMenuItem
-										onSelect={() => {
-											setRolePickerOpen(true);
-										}}
-									>
-										Change roles
-									</DropdownMenuItem>
-									<DropdownMenuItem
-										class="text-destructive data-highlighted:text-destructive"
-										onSelect={() => setKickOpen(true)}
-									>
-										Kick
-									</DropdownMenuItem>
-								</DropdownMenuContent>
-							</DropdownMenuPortal>
-						</DropdownMenu>
-					</Show>
 				</div>
 			</User.ProfilePopover>
-
-			{/* Role picker popover */}
-			<Show when={showActions()}>
-				<Popover
-					open={rolePickerOpen()}
-					onOpenChange={setRolePickerOpen}
-					placement="left"
-				>
-					<PopoverTrigger as="span" class="hidden" />
-					<PopoverPortal>
-						<PopoverContent class="w-56">
-							<RolePicker
-								member={props.member}
-								communityUri={props.communityUri}
-								roles={props.roles}
-								onClose={() => setRolePickerOpen(false)}
-							/>
-						</PopoverContent>
-					</PopoverPortal>
-				</Popover>
-
-				{/* Kick confirmation */}
-				<Dialog open={kickOpen()} onOpenChange={setKickOpen}>
-					<DialogPortal>
-						<DialogContent>
-							<DialogHeader>
-								<DialogTitle>
-									Kick {props.member.data.displayName || props.member.handle}?
-								</DialogTitle>
-								<DialogDescription>
-									They will be removed from the community and can only rejoin
-									with an invite link.
-								</DialogDescription>
-							</DialogHeader>
-							<DialogFooter>
-								<Button variant="secondary" onClick={() => setKickOpen(false)}>
-									Cancel
-								</Button>
-								<Button
-									variant="destructive"
-									onClick={handleKick}
-									disabled={kicking()}
-								>
-									Kick
-								</Button>
-							</DialogFooter>
-						</DialogContent>
-					</DialogPortal>
-				</Dialog>
-			</Show>
-		</>
+		</MemberContextMenu>
 	);
 };
 
@@ -260,7 +73,7 @@ export const MemberSidebar = () => {
 
 	const membersByRoles = (): MembersByRoles => {
 		const result: MembersByRoles = community()
-			.roles.slice()
+			.assignableRoles.slice()
 			.sort((a, b) => a.position - b.position)
 			.map((x) => ({ role: x, members: [] }));
 
@@ -287,7 +100,7 @@ export const MemberSidebar = () => {
 		});
 
 		for (const member of community().members) {
-			const sortedMemberRoles = member.roles.sort(
+			const sortedMemberRoles = [...member.roles].sort(
 				(a, b) =>
 					result.findIndex((y) => y.role.uri === a) -
 					result.findIndex((z) => z.role.uri === b),
@@ -298,19 +111,44 @@ export const MemberSidebar = () => {
 				(x) => x.role.uri === highestMemberRole,
 			);
 
+			if (member.data.onlineState === "offline") {
+				resultIndex = offlineIdx - 1;
+			}
+
 			if (resultIndex < 0) {
-				if (member.data.onlineState === "offline") {
-					resultIndex = offlineIdx - 1;
-				} else {
-					resultIndex = noRoleOnlineIdx - 1;
-				}
+				resultIndex = noRoleOnlineIdx - 1;
 			}
 
 			result[resultIndex].members.push(member);
 		}
 
-		return result;
+		return result.sort((a, b) => b.role.position - a.role.position);
 	};
+
+	// Flatten the grouped roster into a single list keyed by member DID. Because
+	// DIDs are stable primitives, `<For>` reorders existing rows in place when a
+	// member's roles change instead of recreating them — which keeps an open
+	// context menu / profile popover (and the Kobalte body pointer-lock) alive
+	// across the server's `roles_updated` event.
+	const layout = createMemo(() => {
+		const groups = membersByRoles().filter((g) => g.members.length > 0);
+		const dids: string[] = [];
+		const headers: Record<string, { label: string; count: number }> = {};
+
+		for (const group of groups) {
+			group.members.forEach((member, index) => {
+				if (index === 0) {
+					headers[member.did] = {
+						label: group.role.name,
+						count: group.members.length,
+					};
+				}
+				dids.push(member.did);
+			});
+		}
+
+		return { dids, headers };
+	});
 
 	const displayMembersAsSheet = createMediaQuery("(max-width: 1280px)");
 	const { preferences } = useUserPreferences();
@@ -324,23 +162,28 @@ export const MemberSidebar = () => {
 				hidden: !preferences().membersListVisible,
 			}}
 		>
-			<For each={membersByRoles().filter((x) => x.members.length > 0)}>
-				{(role) => (
-					<>
-						<span class="text-sm text-muted-foreground not-first-of-type:mt-4">
-							{role.role.name} — {role.members.length}
-						</span>
-						<For each={role.members}>
-							{(member) => (
-								<MemberRow
-									member={member}
-									communityUri={community().community.uri}
-									roles={community().roles}
-								/>
-							)}
-						</For>
-					</>
-				)}
+			<For each={layout().dids}>
+				{(did) => {
+					const member = () => community().members.find((m) => m.did === did);
+					const header = () => layout().headers[did];
+
+					return (
+						<Show when={member()}>
+							<Show when={header()}>
+								{(h) => (
+									<span class="text-sm text-muted-foreground not-first-of-type:mt-4">
+										{h().label} — {h().count}
+									</span>
+								)}
+							</Show>
+							<MemberRow
+								member={member()!}
+								communityUri={community().community.uri}
+								roles={community().assignableRoles}
+							/>
+						</Show>
+					);
+				}}
 			</For>
 		</div>
 	);

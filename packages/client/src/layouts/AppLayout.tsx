@@ -43,28 +43,45 @@ import {
 	capturePositions,
 	reorderList,
 } from "../utils/drag";
+import {
+	Tooltip,
+	TooltipContent,
+	TooltipPortal,
+	TooltipTrigger,
+} from "../components/ui/Tooltip";
 
 const CommunityAvatar = (props: { item: Community; class?: string }) => {
 	const communityDid = props.item.uri.split("/")[2];
 	return (
-		<Switch>
-			<Match when={props.item.picture}>
-				<img
-					src={resolveBlob(communityDid, props.item.picture)}
-					alt={props.item.name}
-					class={`w-10 h-10 rounded-md pointer-events-none select-none object-cover ${props.class ?? ""}`}
-				/>
-			</Match>
-			<Match when={!props.item.picture}>
-				<span class="font-bold">
-					{props.item.name
-						.split(" ")
-						.map((x) => x.substring(0, 1))
-						.join("")
-						.substring(0, 3)}
-				</span>
-			</Match>
-		</Switch>
+		<Tooltip placement="right">
+			<TooltipTrigger class="cursor-pointer">
+				<Switch>
+					<Match when={props.item.picture}>
+						<img
+							src={resolveBlob(communityDid, props.item.picture)}
+							alt={props.item.name}
+							class={`w-10 h-10 rounded-md pointer-events-none select-none object-cover ${props.class ?? ""}`}
+						/>
+					</Match>
+					<Match when={!props.item.picture}>
+						<div class="w-10 h-10 flex items-center justify-center">
+							<span class="font-bold">
+								{props.item.name
+									.split(" ")
+									.map((x) => x.substring(0, 1))
+									.join("")
+									.substring(0, 3)}
+							</span>
+						</div>
+					</Match>
+				</Switch>
+			</TooltipTrigger>
+			<TooltipPortal>
+				<TooltipContent class="text-base font-medium">
+					{props.item.name}
+				</TooltipContent>
+			</TooltipPortal>
+		</Tooltip>
 	);
 };
 
@@ -117,8 +134,8 @@ const SortableCommunity = (props: {
 			</Show>
 			<A
 				href={`/app/c/${communityUriToUrlCompatible(props.item.uri)}`}
-				class="w-10 h-10 rounded-md bg-muted flex items-center justify-center"
-				activeClass="outline outline-foreground outline-2 -outline-offset-2"
+				class="w-10 h-10 rounded-md bg-muted flex items-center justify-center outline-2 -outline-offset-2 outline-transparent hover:outline-foreground/50 transition-all duration-150"
+				activeClass="outline-foreground!"
 				onClick={handleClick}
 				draggable={false}
 			>

@@ -4,7 +4,7 @@ type Response = {
 	did: string;
 };
 
-export const deleteCommunity: XrpcRequest<
+const del: XrpcRequest<
 	[string, string],
 	Promise<Response | undefined>
 > = async (fetch, community, auth) => {
@@ -19,3 +19,5 @@ export const deleteCommunity: XrpcRequest<
 		return undefined;
 	}
 };
+
+export { del as delete };

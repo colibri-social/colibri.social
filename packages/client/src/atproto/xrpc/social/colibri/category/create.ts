@@ -4,7 +4,7 @@ type Response = {
 	uri: string;
 };
 
-export const createCategory: XrpcRequest<
+export const create: XrpcRequest<
 	[string, string, string],
 	Promise<Response | undefined>
 > = async (fetch, community, name, auth) => {

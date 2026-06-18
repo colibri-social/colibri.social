@@ -149,7 +149,7 @@ export const Status: Component = () => {
 							</div>
 							<div class="flex flex-col w-fit">
 								<span
-									class="text-sm text-medium"
+									class="text-sm font-medium"
 									classList={{
 										"text-green-400":
 											voiceData.connection.quality ===

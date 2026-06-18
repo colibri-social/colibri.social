@@ -57,8 +57,10 @@ export type Colibri_MemberEvent = EventBase<
 	 *   local user was just admitted — replaces the old community_event upsert.
 	 * - `roles_updated`: a moderator changed a member's roles. Carries the
 	 *   full `member` with the new `roles` array. No `membership` field.
-	 * - `leave`: a member record was deleted (kick, ban, self-leave). No
-	 *   `member` object; only `community` (and optionally `membership`).
+	 * - `leave`: a member record was deleted (kick, ban, self-leave). The
+	 *   removed user receives a `community_event { delete }` instead. All
+	 *   other community members receive this event so they can update their
+	 *   member list. `memberDid` identifies who left.
 	 */
 	| {
 			event: "join";
@@ -74,7 +76,7 @@ export type Colibri_MemberEvent = EventBase<
 	| {
 			event: "leave";
 			community: AT_URI<"social.colibri.community">;
-			membership?: AT_URI<"social.colibri.membership">;
+			memberDid: string;
 	  }
 >;
 
@@ -108,6 +110,25 @@ export type Colibri_ChannelEvent = EventBase<
 			event: "delete";
 			uri: AT_URI<"social.colibri.channel">;
 			community?: AT_URI<"social.colibri.community">;
+	  }
+>;
+
+export type Colibri_RoleEvent = EventBase<
+	"role_event",
+	| {
+			event: "upsert";
+			uri: AT_URI<"social.colibri.role">;
+			community: AT_URI<"social.colibri.community">;
+			name?: string;
+			color?: string;
+			permissions?: Array<string>;
+			position?: number;
+			hoisted?: boolean;
+			mentionable?: boolean;
+	  }
+	| {
+			event: "delete";
+			uri: AT_URI<"social.colibri.role">;
 	  }
 >;
 
@@ -209,6 +230,7 @@ export type ColibriEvent =
 	| Colibri_MemberEvent
 	| Colibri_CategoryEvent
 	| Colibri_ChannelEvent
+	| Colibri_RoleEvent
 	| Colibri_MessageEvent
 	| Colibri_ReactionEvent
 	| Colibri_UserEvent

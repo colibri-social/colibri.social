@@ -12,6 +12,25 @@ import {
 	Switch,
 } from "solid-js";
 import { toast } from "somoto";
+import BootIcon from "~icons/ph/boot";
+import BugIcon from "~icons/ph/bug";
+import DotsThreeOutlineVerticalIcon from "~icons/ph/dots-three-outline-vertical";
+import IdentificationBadgeIcon from "~icons/ph/identification-badge";
+import IdentificationBadgeIconFilled from "~icons/ph/identification-badge-fill";
+import ImageIcon from "~icons/ph/image";
+import LinkIcon from "~icons/ph/link";
+import PlusIcon from "~icons/ph/plus";
+import ProhibitIcon from "~icons/ph/prohibit";
+import TicketIcon from "~icons/ph/ticket";
+import UsersIcon from "~icons/ph/users";
+import WarningDiamondIcon from "~icons/ph/warning-diamond";
+import WrenchIcon from "~icons/ph/wrench";
+import XCircleIcon from "~icons/ph/x-circle";
+import { resolveBlob } from "../../../atproto/resolve-blob";
+import type { Applicant } from "../../../atproto/xrpc/social/colibri/community/listApplications";
+import type { Member } from "../../../atproto/xrpc/social/colibri/community/listMembers";
+import { useCommunityContext } from "../../../contexts/Community";
+import { useUserContext } from "../../../contexts/User";
 import { Spinner } from "../../icons/Spinner";
 import { Button } from "../../ui/Button";
 import {
@@ -55,29 +74,13 @@ import {
 	TableRow,
 } from "../../ui/Table";
 import { TextField, TextFieldInput, TextFieldLabel } from "../../ui/TextField";
-import { useCommunityContext } from "../../../contexts/Community";
-import { resolveBlob } from "../../../atproto/resolve-blob";
-import { useUserContext } from "../../../contexts/User";
+import { SettingsInfoPage } from "../common/SettingsInfoPage";
 import { SettingsModal, SettingsPage } from "../common/SettingsModal";
-import XCircleIcon from "~icons/ph/x-circle";
-import ImageIcon from "~icons/ph/image";
 import User from "../user";
-import PlusIcon from "~icons/ph/plus";
+import { displayableNameFn } from "../user/DisplayableName";
 import { DeleteLinkModal } from "./DeleteInvitationModal";
 import { InviteLinkCreationModal } from "./InviteLinkCreationModal";
-import { SettingsInfoPage } from "../common/SettingsInfoPage";
-import type { Member } from "../../../atproto/xrpc/social/colibri/community/listMembers";
-import type { Applicant } from "../../../atproto/xrpc/social/colibri/community/listApplications";
-import { displayableNameFn } from "../user/DisplayableName";
-import BootIcon from "~icons/ph/boot";
-import ProhibitIcon from "~icons/ph/prohibit";
-import DotsThreeOutlineVerticalIcon from "~icons/ph/dots-three-outline-vertical";
-import WrenchIcon from "~icons/ph/wrench";
-import UsersIcon from "~icons/ph/users";
-import LinkIcon from "~icons/ph/link";
-import TicketIcon from "~icons/ph/ticket";
-import WarningDiamondIcon from "~icons/ph/warning-diamond";
-import BugIcon from "~icons/ph/bug";
+import { RoleModal } from "./RoleModal";
 
 const GeneralSettingsPage: Component = () => {
 	const user = useUserContext();
@@ -652,6 +655,68 @@ const MembersPage: Component = () => {
 	);
 };
 
+const RolesPage: Component = () => {
+	const user = useUserContext();
+	const community = useCommunityContext();
+	const roles = () => community().assignableRoles;
+	const membersForRole = (role: string) => {
+		console.log(
+			community().members.filter((x) => x.roles.some((y) => y === role)),
+		);
+		return community().members.filter((x) => x.roles.some((y) => y === role))
+			.length;
+	};
+
+	const [search, setSearch] = createSignal("");
+
+	const filtererdRoles = () =>
+		roles().filter((x) => x.name.toLowerCase().includes(search()));
+
+	return (
+		<SettingsPage loading={() => false} title={`Roles`}>
+			<div class="flex flex-row items-center gap-4">
+				<TextField value={search()} onChange={setSearch}>
+					<TextFieldInput placeholder="Search Roles" />
+				</TextField>
+				<RoleModal>
+					<Button>Create Role</Button>
+				</RoleModal>
+			</div>
+			<Table class="h-full">
+				<TableHeader>
+					<TableRow>
+						<TableHead>Name</TableHead>
+						<TableHead>Members</TableHead>
+						<TableHead class="text-right">Actions</TableHead>
+					</TableRow>
+				</TableHeader>
+				<TableBody class="relative">
+					<For each={filtererdRoles()}>
+						{(role) => {
+							return (
+								<TableRow>
+									<TableCell>
+										<div class="flex flex-row items-center gap-2">
+											<IdentificationBadgeIconFilled
+												style={{
+													color: role.color,
+												}}
+											/>
+											{role.name}
+										</div>
+									</TableCell>
+									<TableCell>{membersForRole(role.uri)}</TableCell>
+									<TableCell class="text-right">Actions</TableCell>
+								</TableRow>
+							);
+						}}
+					</For>
+				</TableBody>
+			</Table>
+		</SettingsPage>
+	);
+};
+
 const BlockedMembersPage: Component = () => {
 	const community = useCommunityContext();
 	const user = useUserContext();
@@ -831,6 +896,12 @@ export const CommunitySettingsModal: ParentComponent<{
 					id: "members",
 					component: MembersPage,
 					icon: () => <UsersIcon />,
+				},
+				{
+					title: "Roles",
+					id: "roles",
+					component: RolesPage,
+					icon: () => <IdentificationBadgeIcon />,
 				},
 				{
 					title: "Invite Links",

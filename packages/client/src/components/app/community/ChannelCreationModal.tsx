@@ -34,7 +34,7 @@ export const ChannelCreationModal: ParentComponent<{
 	const handleCreate = async () => {
 		setLoading(true);
 		try {
-			await user.xrpc.social.colibri.community.createChannel(
+			await user.xrpc.social.colibri.channel.create(
 				props.community,
 				props.category,
 				name().trim(),

@@ -11,14 +11,42 @@ import {
 	useContext,
 } from "solid-js";
 import { urlSegmentToUri } from "../atproto/community-uri-to-url-compatible";
+import {
+	APPROVAL_MANAGE,
+	CATEGORY_CREATE,
+	CATEGORY_DELETE,
+	CATEGORY_UPDATE,
+	CHANNEL_CREATE,
+	CHANNEL_DELETE,
+	CHANNEL_UPDATE,
+	COMMUNITY_DELETE,
+	INVITATION_CREATE,
+	INVITATION_DELETE,
+	MEMBER_BAN,
+	MEMBER_KICK,
+	MEMBER_UNBAN,
+	MESSAGE_HIDE,
+	ROLE_MANAGE,
+} from "../atproto/permissions";
 import type { Community as CommunityResponse } from "../atproto/xrpc/social/colibri/community/getData";
+import type { Role } from "../atproto/xrpc/social/colibri/community/listRoles";
 import { AppLoadingScreen } from "../components/AppLoadingScreen";
 import { AtURI } from "../utils/at-uri";
 import { getCommunityParam } from "../utils/get-param";
 import { useSocketContext } from "./Socket";
 import { useUserContext } from "./User";
 
-export const CommunityContext = createContext<Accessor<CommunityResponse>>();
+type CommunityContextData = CommunityResponse & {
+	/** Non-protected roles — the ones safe to show and assign. */
+	assignableRoles: Array<Role>;
+	utils: {
+		getRolesForUser: (did: string) => Array<Role>;
+		setRolesForUser: (did: string, roles: Array<string>) => void;
+		refetch: () => void;
+	};
+};
+
+export const CommunityContext = createContext<Accessor<CommunityContextData>>();
 
 export const CommunityContextProvider: ParentComponent = (props) => {
 	const user = useUserContext();
@@ -208,8 +236,44 @@ export const CommunityContextProvider: ParentComponent = (props) => {
 
 	onCleanup(cleanup);
 
-	const value: Accessor<CommunityResponse> = () =>
-		community.latest as CommunityResponse;
+	// The single source of truth for "real", user-facing roles. Protected roles
+	// exist only as permission-check markers (there should be exactly one) and
+	// must never be shown or assigned, so they're excluded here and everything
+	// that lists/displays roles reads from this instead of filtering ad-hoc.
+	const assignableRoles = createMemo(() =>
+		(community.latest?.roles ?? []).filter((role) => !role.protected),
+	);
+
+	const getRolesForUser = (did: string) => {
+		const member = community.latest?.members.find((x) => x.did === did);
+		if (!member) return [];
+
+		return assignableRoles()
+			.filter((role) => member.roles.includes(role.uri))
+			.sort((a, b) => b.position - a.position);
+	};
+
+	// Optimistically overwrite a member's roles in the shared context so every
+	// consumer (name colours, profile popover, member grouping) updates
+	// immediately, without waiting for the server's `roles_updated` event.
+	const setRolesForUser = (did: string, roles: Array<string>) => {
+		const prev = community.latest;
+		if (!prev) return;
+		mutate({
+			...prev,
+			members: prev.members.map((m) => (m.did === did ? { ...m, roles } : m)),
+		});
+	};
+
+	const value: Accessor<CommunityContextData> = () => ({
+		...(community.latest as CommunityResponse),
+		assignableRoles: assignableRoles(),
+		utils: {
+			getRolesForUser,
+			setRolesForUser,
+			refetch: () => void refetch(),
+		},
+	});
 
 	return (
 		<Switch>
@@ -228,7 +292,7 @@ export const CommunityContextProvider: ParentComponent = (props) => {
 	);
 };
 
-export const useCommunityContext = (): Accessor<CommunityResponse> => {
+export const useCommunityContext = (): Accessor<CommunityContextData> => {
 	const ctx = useContext(CommunityContext);
 
 	if (!ctx) {
@@ -239,21 +303,64 @@ export const useCommunityContext = (): Accessor<CommunityResponse> => {
 };
 
 /**
- * Returns `isAdmin` and `canManage` helpers scoped to the current community.
+ * Returns permission-checking helpers scoped to the current community.
  *
  * `isAdmin(did)` — true if the DID is the community owner or holds a
  *   protected (admin-level) role.
- * `canManage(did)` — same as `isAdmin` until explicit per-permission strings
- *   are defined in the AppView catalog.
+ * `canManage(did)` — alias for `isAdmin`.
+ * `outranks(actorDid, targetDid)` — true when the actor's highest role
+ *   position is strictly greater than the target's.
+ *
+ * Member-targeting helpers (`canKickMember`, `canBanMember`, `canUnbanMember`,
+ * `canManageRoles`) accept an optional `targetDid`. When provided, the actor
+ * must also outrank the target for the check to pass.
+ *
+ * All other helpers check whether the member holds a role that carries the
+ * specific AppView permission string, or is the community owner (who
+ * implicitly has every permission and the highest possible rank).
  */
 export const usePermissions = () => {
 	const community = useCommunityContext();
 
+	const isOwner = (did: string): boolean => {
+		const c = community();
+		if (!c) return false;
+		return did === AtURI.parseAtURI(c.community.uri).did;
+	};
+
+	// Returns the highest role position held by a member.
+	// The community owner is treated as Infinity so they always outrank everyone.
+	const getRank = (did: string): number => {
+		const c = community();
+		if (!c) return -Infinity;
+		if (isOwner(did)) return Infinity;
+		const member = c.members.find((m) => m.did === did);
+		if (!member) return -Infinity;
+		return member.roles.reduce((max, roleUri) => {
+			const pos = c.roles.find((r) => r.uri === roleUri)?.position ?? -Infinity;
+			return pos > max ? pos : max;
+		}, -Infinity);
+	};
+
+	// True when the actor's highest role position is strictly greater than the target's.
+	const outranks = (actorDid: string, targetDid: string): boolean =>
+		getRank(actorDid) > getRank(targetDid);
+
+	const hasPermission = (did: string, permission: string): boolean => {
+		const c = community();
+		if (!c) return false;
+		if (isOwner(did)) return true;
+		const member = c.members.find((m) => m.did === did);
+		if (!member) return false;
+		return member.roles.some((roleUri) =>
+			c.roles.find((r) => r.uri === roleUri)?.permissions.includes(permission),
+		);
+	};
+
 	const isAdmin = (did: string): boolean => {
 		const c = community();
 		if (!c) return false;
-		const ownerDid = AtURI.parseAtURI(c.community.uri).did;
-		if (did === ownerDid) return true;
+		if (isOwner(did)) return true;
 		const member = c.members.find((m) => m.did === did);
 		if (!member) return false;
 		return member.roles.some(
@@ -263,5 +370,62 @@ export const usePermissions = () => {
 
 	const canManage = (did: string): boolean => isAdmin(did);
 
-	return { isAdmin, canManage };
+	const canDeleteCommunity = (did: string) =>
+		hasPermission(did, COMMUNITY_DELETE);
+
+	const canManageApprovals = (did: string) =>
+		hasPermission(did, APPROVAL_MANAGE);
+
+	const canCreateCategory = (did: string) =>
+		hasPermission(did, CATEGORY_CREATE);
+	const canUpdateCategory = (did: string) =>
+		hasPermission(did, CATEGORY_UPDATE);
+	const canDeleteCategory = (did: string) =>
+		hasPermission(did, CATEGORY_DELETE);
+
+	const canCreateChannel = (did: string) => hasPermission(did, CHANNEL_CREATE);
+	const canUpdateChannel = (did: string) => hasPermission(did, CHANNEL_UPDATE);
+	const canDeleteChannel = (did: string) => hasPermission(did, CHANNEL_DELETE);
+
+	const canKickMember = (actorDid: string, targetDid?: string) =>
+		hasPermission(actorDid, MEMBER_KICK) &&
+		(targetDid === undefined || outranks(actorDid, targetDid));
+	const canBanMember = (actorDid: string, targetDid?: string) =>
+		hasPermission(actorDid, MEMBER_BAN) &&
+		(targetDid === undefined || outranks(actorDid, targetDid));
+	const canUnbanMember = (actorDid: string, targetDid?: string) =>
+		hasPermission(actorDid, MEMBER_UNBAN) &&
+		(targetDid === undefined || outranks(actorDid, targetDid));
+
+	const canManageRoles = (actorDid: string, targetDid?: string) =>
+		hasPermission(actorDid, ROLE_MANAGE) &&
+		(targetDid === undefined || outranks(actorDid, targetDid));
+
+	const canHideMessage = (did: string) => hasPermission(did, MESSAGE_HIDE);
+
+	const canCreateInvitation = (did: string) =>
+		hasPermission(did, INVITATION_CREATE);
+	const canDeleteInvitation = (did: string) =>
+		hasPermission(did, INVITATION_DELETE);
+
+	return {
+		isAdmin,
+		canManage,
+		outranks,
+		canDeleteCommunity,
+		canManageApprovals,
+		canCreateCategory,
+		canUpdateCategory,
+		canDeleteCategory,
+		canCreateChannel,
+		canUpdateChannel,
+		canDeleteChannel,
+		canKickMember,
+		canBanMember,
+		canUnbanMember,
+		canManageRoles,
+		canHideMessage,
+		canCreateInvitation,
+		canDeleteInvitation,
+	};
 };

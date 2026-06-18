@@ -145,7 +145,7 @@ const MessageInner: Component<{
 						<Match when={!isSubsequentMessage()}>
 							<User.ProfilePopover
 								user={message.author}
-								class="w-10 h-10 rounded-full"
+								class="w-10 h-10 rounded-full cursor-pointer"
 								disabled={isPending()}
 							>
 								<User.Avatar user={message.author} disableState />

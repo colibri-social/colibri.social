@@ -25,7 +25,7 @@ export const CategoryCreationModal: ParentComponent<{
 	const handleCreate = async () => {
 		setLoading(true);
 		try {
-			await user.xrpc.social.colibri.community.createCategory(
+			await user.xrpc.social.colibri.category.create(
 				props.community,
 				name().trim(),
 			);

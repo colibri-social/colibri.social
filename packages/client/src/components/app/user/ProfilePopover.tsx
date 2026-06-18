@@ -1,6 +1,6 @@
 import type { ActorData } from "@colibri-social/lib";
 import twemoji from "@twemoji/api";
-import { createSignal, type ParentComponent, Show } from "solid-js";
+import { createSignal, For, type ParentComponent, Show } from "solid-js";
 import { resolveBlob } from "../../../atproto/resolve-blob";
 import { LINK_REGEX } from "../../../utils/link-regex";
 import { purify } from "../../..//utils/purify";
@@ -19,6 +19,8 @@ import {
 } from "../../ui/Tooltip";
 import User from ".";
 import { DisplayableName } from "./DisplayableName";
+import { Role } from "../../../atproto/xrpc/social/colibri/community/listRoles";
+import { useCommunityContext } from "../../../contexts/Community";
 
 const MENTION_REGEX = /(?<!\S)@[a-zA-Z0-9._-]+(?:\.[a-zA-Z]{2,})?/gm;
 
@@ -85,6 +87,9 @@ export const ProfilePopover: ParentComponent<{
 	 *  to split the paragraph and break Kobalte's trigger detection. */
 	as?: "div" | "span";
 }> = (props) => {
+	const community = useCommunityContext();
+	const userRoles = () => community().utils.getRolesForUser(props.user.did);
+
 	const [bskyTooltipVisible, setBskyTooltipVisible] = createSignal(false);
 	const [atProtoAtTooltipVisible, setAtProtoAtTooltipVisible] =
 		createSignal(false);
@@ -101,7 +106,10 @@ export const ProfilePopover: ParentComponent<{
 				{props.children}
 			</PopoverTrigger>
 			<PopoverPortal>
-				<PopoverContent class="w-80 p-0 overflow-hidden relative drop-shadow-black drop-shadow-xl">
+				<PopoverContent
+					class="w-80 p-0 overflow-hidden relative drop-shadow-black drop-shadow-xl"
+					onContextMenu={(e) => e.stopPropagation()}
+				>
 					<div class="w-full aspect-3/1 bg-muted absolute z-0">
 						<Show when={props.user.data.banner}>
 							<img
@@ -200,6 +208,22 @@ export const ProfilePopover: ParentComponent<{
 									detectLinksAndMentionsAndFormat(props.user.data.description!),
 								)}
 							/>
+						</Show>
+						<Show when={userRoles().length > 0}>
+							<hr class="w-full h-px border-none bg-border m-0" />
+							<div class="w-full flex flex-row items-center gap-1 flex-wrap">
+								<For each={userRoles()}>
+									{(role) => (
+										<div class="flex flex-row items-center gap-2 border border-border rounded-full w-fit px-2">
+											<div
+												class="w-2 h-2 rounded-full"
+												style={{ background: role.color ?? "#fff" }}
+											/>
+											<span class="text-sm">{role.name}</span>
+										</div>
+									)}
+								</For>
+							</div>
 						</Show>
 					</div>
 				</PopoverContent>
