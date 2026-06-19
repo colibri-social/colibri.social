@@ -6,6 +6,7 @@ import {
 	createEffect,
 	createResource,
 	Match,
+	onCleanup,
 	type ParentComponent,
 	Switch,
 	useContext,
@@ -13,6 +14,7 @@ import {
 import { XrpcClient } from "../atproto/xrpc";
 import { AppLoadingScreen } from "../components/AppLoadingScreen";
 import { useAuthContext } from "./Auth";
+import { useSocketContext } from "./Socket";
 
 type User =
 	| { loggedIn: false; atproto: { client: BrowserOAuthClient } }
@@ -41,6 +43,7 @@ export const UserContext = createContext<LoggedInUser>();
 
 export const UserContextProvider: ParentComponent = (props) => {
 	const client = useAuthContext();
+	const socket = useSocketContext();
 
 	const [user, { mutate }] = createResource(async (): Promise<User> => {
 		if (!client) {
@@ -134,9 +137,63 @@ export const UserContextProvider: ParentComponent = (props) => {
 						});
 					};
 
+					// Keep our own actor data in sync when a user_event for our DID
+					// arrives (e.g. a profile/status change made from another device).
+					// Community.tsx patches the member roster; this patches the user
+					// context so the own-user panel (name/avatar/status) updates too.
+					const cleanup = socket.onEvent((event) => {
+						if (event.type !== "user_event" || !event.data) return;
+						if (event.data.did !== value.did) return;
+						const current = user();
+						if (!current?.loggedIn) return;
+						const { profile, status } = event.data;
+						mutate({
+							...current,
+							handle: profile.handle ?? current.handle,
+							data: {
+								...current.data,
+								...(profile.displayName !== undefined && {
+									displayName: profile.displayName,
+								}),
+								...(profile.avatar !== undefined && { avatar: profile.avatar }),
+								...(profile.banner !== undefined && { banner: profile.banner }),
+								...(profile.description !== undefined && {
+									description: profile.description,
+								}),
+								...(status && {
+									onlineState: status.state,
+									status: { text: status.text, emoji: status.emoji },
+								}),
+							},
+						});
+					});
+					onCleanup(cleanup);
+
 					return (
 						<UserContext.Provider
-							value={{ ...value, refetchCommunities, updateActorData }}
+							value={{
+								...value,
+								// `value` is captured once by this (non-keyed) Match render
+								// prop, so a plain spread would freeze these fields. Expose
+								// them as getters that read back through the resource signal,
+								// so `mutate()` (refetchCommunities / updateActorData)
+								// reactively re-renders consumers — e.g. the sidebar's <For>
+								// and the own-user panel's name/avatar.
+								get communities() {
+									const u = user();
+									return u?.loggedIn ? u.communities : value.communities;
+								},
+								get data() {
+									const u = user();
+									return u?.loggedIn ? u.data : value.data;
+								},
+								get handle() {
+									const u = user();
+									return u?.loggedIn ? u.handle : value.handle;
+								},
+								refetchCommunities,
+								updateActorData,
+							}}
 						>
 							{props.children}
 						</UserContext.Provider>

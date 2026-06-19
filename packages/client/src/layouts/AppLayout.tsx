@@ -1,6 +1,6 @@
 import { logoUrl as ColibriLogo } from "@colibri-social/assets";
 import type { Community } from "@colibri-social/lib";
-import { A, useNavigate } from "@solidjs/router";
+import { A, useLocation, useNavigate } from "@solidjs/router";
 import {
 	closestCenter,
 	createSortable,
@@ -191,10 +191,15 @@ const AppLayout: ParentComponent = (props) => {
 	const user = useUserContext();
 	const socket = useSocketContext();
 	const navigate = useNavigate();
+	const location = useLocation();
 
-	// When we ourselves are admitted to a community (member_event.join for our
-	// own DID), refresh the community list so the new community appears in the
-	// sidebar without a reload.
+	// Keep the community sidebar in sync with membership changes pushed over the
+	// socket:
+	// - member_event.join for our own DID → we were admitted somewhere, pull the
+	//   new community into the sidebar without a reload.
+	// - community_event.delete → either the community was deleted or we were
+	//   removed (a kicked/banned member receives community_event delete). Drop it
+	//   from the sidebar, and if we're currently viewing it, navigate home.
 	onMount(() => {
 		const cleanup = socket.onEvent((event) => {
 			if (
@@ -202,6 +207,15 @@ const AppLayout: ParentComponent = (props) => {
 				event.data?.event === "join" &&
 				event.data.member?.did === user.did
 			) {
+				user.refetchCommunities();
+			} else if (
+				event.type === "community_event" &&
+				event.data?.event === "delete"
+			) {
+				const segment = communityUriToUrlCompatible(event.data.uri);
+				if (location.pathname.startsWith(`/app/c/${segment}`)) {
+					navigate("/app");
+				}
 				user.refetchCommunities();
 			}
 		});

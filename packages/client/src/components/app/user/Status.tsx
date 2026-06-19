@@ -114,9 +114,7 @@ export const Status: Component = () => {
 		voiceData.connection.state === ConnectionState.SignalReconnecting;
 
 	const cleanup = socket.onEvent((e) => {
-		console.log(e);
 		if (e.type === "user_event" && e.data?.did === user.did) {
-			console.log(e.data);
 			if (e.data.status) {
 				setValue(e.data.status.state);
 			}
