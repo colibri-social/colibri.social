@@ -1,4 +1,4 @@
-import type { ColibriRichTextLink } from "@colibri-social/lib";
+import type { ActorData, ColibriRichTextLink } from "@colibri-social/lib";
 import twemoji from "@twemoji/api";
 import { type Component, For, Match, Show, Switch } from "solid-js";
 import ArrowBendUpLeft from "~icons/ph/arrow-bend-up-left";
@@ -84,6 +84,14 @@ const MessageInner: Component<{
 		removeReaction,
 	} = useMessageContext();
 
+	// `message.author` is a snapshot captured when the message arrived over the
+	// socket; `user_event` only updates the community roster, not stored messages.
+	// Prefer the live member record so profile changes (avatar/name/status)
+	// propagate to already-rendered messages, falling back to the embedded
+	// snapshot for non-members / cross-community authors.
+	const resolveAuthor = (author: ActorData): ActorData =>
+		community().members.find((m) => m.did === author.did) ?? author;
+
 	const isSubsequentMessage = () => {
 		if (message.parent) return false;
 		if (!props.isSubsequent) return false;
@@ -127,12 +135,12 @@ const MessageInner: Component<{
 							onClick={() => channel.jumpToMessage(message.parent!.uri)}
 						>
 							<User.Avatar
-								user={message.parent!.author}
+								user={resolveAuthor(message.parent!.author)}
 								size="small"
 								disableState
 							/>
 							<strong class="text-xs block">
-								<User.DisplayableName user={message.parent!.author} />
+								<User.DisplayableName user={resolveAuthor(message.parent!.author)} />
 							</strong>
 							<span class="text-xs overflow-hidden text-ellipsis text-nowrap flex-1">
 								{message.parent!.text}
@@ -144,11 +152,11 @@ const MessageInner: Component<{
 					<Switch>
 						<Match when={!isSubsequentMessage()}>
 							<User.ProfilePopover
-								user={message.author}
+								user={resolveAuthor(message.author)}
 								class="w-10 h-10 rounded-full cursor-pointer"
 								disabled={isPending()}
 							>
-								<User.Avatar user={message.author} disableState />
+								<User.Avatar user={resolveAuthor(message.author)} disableState />
 							</User.ProfilePopover>
 						</Match>
 						<Match when={isSubsequentMessage()}>
@@ -178,11 +186,11 @@ const MessageInner: Component<{
 							<Show when={!isSubsequentMessage()}>
 								<div class="flex gap-2 text-sm items-baseline">
 									<User.ProfilePopover
-										user={message.author}
+										user={resolveAuthor(message.author)}
 										disabled={isPending()}
 									>
 										<span class="font-bold hover:underline cursor-pointer">
-											<User.DisplayableName user={message.author} />
+											<User.DisplayableName user={resolveAuthor(message.author)} />
 										</span>
 									</User.ProfilePopover>
 									<small class="text-muted-foreground">
@@ -209,11 +217,11 @@ const MessageInner: Component<{
 							<Show when={!isSubsequentMessage()}>
 								<div class="flex gap-2 text-sm items-baseline">
 									<User.ProfilePopover
-										user={message.author}
+										user={resolveAuthor(message.author)}
 										disabled={isPending()}
 									>
 										<span class="font-bold hover:underline cursor-pointer">
-											<User.DisplayableName user={message.author} />
+											<User.DisplayableName user={resolveAuthor(message.author)} />
 										</span>
 									</User.ProfilePopover>
 									<small class="text-muted-foreground">

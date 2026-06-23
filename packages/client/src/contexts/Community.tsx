@@ -1,4 +1,3 @@
-import { useNavigate } from "@solidjs/router";
 import {
 	type Accessor,
 	createContext,
@@ -55,7 +54,6 @@ export const CommunityContext = createContext<Accessor<CommunityContextData>>();
 export const CommunityContextProvider: ParentComponent = (props) => {
 	const user = useUserContext();
 	const socket = useSocketContext();
-	const navigate = useNavigate();
 	const communityUri = createMemo(() => urlSegmentToUri(getCommunityParam()));
 
 	// Latest desired role set per member while an optimistic change is syncing.
@@ -170,15 +168,21 @@ export const CommunityContextProvider: ParentComponent = (props) => {
 					),
 				});
 			} else if (data.event === "leave") {
-				refetch();
+				// Self-removal arrives as `community_event { delete }`, so a leave
+				// event is always about another member.
+				mutate({
+					...prev,
+					members: prev.members.filter((m) => m.did !== data.memberDid),
+				});
 			}
 		} else if (event.type === "community_event" && event.data) {
 			const { data } = event;
 			if (data.uri !== communityUri()) return;
 
 			if (data.event === "delete") {
-				// Community was deleted; the AppLayout will navigate away once the
-				// community is gone from the user's list (on next refetch).
+				// Community was deleted (or we were removed). AppLayout owns the
+				// response — it drops the community from the sidebar and navigates
+				// us home — so there's nothing to patch into the active resource.
 				return;
 			}
 			// Upsert: patch whatever fields are provided.
@@ -269,18 +273,22 @@ export const CommunityContextProvider: ParentComponent = (props) => {
 			const { data } = event;
 
 			if (data.event === "delete") {
+				// Remove the role and scrub it from every member that held it.
 				mutate({
 					...prev,
 					roles: prev.roles.filter((r) => r.uri !== data.uri),
+					members: prev.members.map((m) =>
+						m.roles.includes(data.uri)
+							? { ...m, roles: m.roles.filter((u) => u !== data.uri) }
+							: m,
+					),
 				});
 				return;
 			}
 
+			// upsert (carries `community`) — only touch the active community.
 			if (data.community !== communityUri()) return;
 
-			// Upsert: patch whatever fields are provided on an existing role, or
-			// refetch for a new one (the event omits fields like `channelOverrides`
-			// and `protected` that we need to render it correctly).
 			const existing = prev.roles.find((r) => r.uri === data.uri);
 			if (existing) {
 				mutate({
@@ -297,9 +305,7 @@ export const CommunityContextProvider: ParentComponent = (props) => {
 									...(data.position !== undefined && {
 										position: data.position,
 									}),
-									...(data.hoisted !== undefined && {
-										hoisted: data.hoisted,
-									}),
+									...(data.hoisted !== undefined && { hoisted: data.hoisted }),
 									...(data.mentionable !== undefined && {
 										mentionable: data.mentionable,
 									}),
@@ -308,7 +314,23 @@ export const CommunityContextProvider: ParentComponent = (props) => {
 					),
 				});
 			} else {
-				refetch();
+				// New role — fill required Role fields with sensible defaults.
+				mutate({
+					...prev,
+					roles: [
+						...prev.roles,
+						{
+							uri: data.uri,
+							name: data.name ?? "",
+							color: data.color,
+							permissions: data.permissions ?? [],
+							position: data.position ?? 0,
+							hoisted: data.hoisted,
+							mentionable: data.mentionable,
+							channelOverrides: [],
+						},
+					],
+				});
 			}
 		}
 	});
