@@ -1,4 +1,5 @@
 import { type Component, createResource, Show } from "solid-js";
+import { useStableMedia } from "../../../../contexts/ScrollAnchor";
 import { Lightbox } from "../../common/Lightbox";
 
 type EmbedData = {
@@ -64,6 +65,7 @@ const fetchEmbedData = async (uri: string): Promise<EmbedData | undefined> => {
 
 export const Embed: Component<{ uri: string }> = (props) => {
 	const [embedData] = createResource(props.uri, fetchEmbedData);
+	const stableMedia = useStableMedia();
 
 	return (
 		<Show
@@ -96,6 +98,7 @@ export const Embed: Component<{ uri: string }> = (props) => {
 						return (
 							<Lightbox src={imageUrl}>
 								<img
+									ref={stableMedia}
 									width={400}
 									height={210}
 									class="w-full h-auto rounded-xs my-2 bg-muted border-none cursor-pointer"

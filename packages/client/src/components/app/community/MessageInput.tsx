@@ -207,7 +207,11 @@ export const MessageInput: Component<{
 			facets,
 			channel: channel.channelUri(),
 			community: "",
-			author: { did: user.did, handle: user.handle, data: user.data },
+			author: {
+				did: user.did,
+				handle: user.handle.replaceAll("at://", ""),
+				data: user.data,
+			},
 			parent: replyingMessage,
 			attachments,
 			reactions: [],

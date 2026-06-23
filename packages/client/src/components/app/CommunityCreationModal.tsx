@@ -63,9 +63,49 @@ const [open, setOpen] = createSignal(false);
 const [ownership, setOwnership] = createSignal<string>("managed");
 const [step, setStep] = createSignal<number>(OWNERSHIP_CHOICE);
 
-// TODO: These can be better checks
-const allCredentialsValid = () =>
-	!(pdsLoc().length > 0 && handleOrDid().length > 0 && password().length > 0);
+// A PDS host is accepted either as a bare domain ("colibri.social") or a full
+// URL; it must resolve to a dotted hostname (or localhost) with no path.
+const isValidPdsHost = (value: string): boolean => {
+	const trimmed = value.trim();
+	if (trimmed.length === 0) return false;
+
+	try {
+		const url = new URL(
+			trimmed.includes("://") ? trimmed : `https://${trimmed}`,
+		);
+		return (
+			url.hostname === "localhost" ||
+			/^[a-z0-9-]+(\.[a-z0-9-]+)+$/i.test(url.hostname)
+		);
+	} catch {
+		return false;
+	}
+};
+
+// Either a DID ("did:method:identifier") or a handle (a dotted domain).
+const isValidHandleOrDid = (value: string): boolean => {
+	const trimmed = value.trim().toLowerCase();
+
+	if (trimmed.startsWith("did:")) {
+		const parts = trimmed.split(":");
+		return parts.length >= 3 && parts.every((part) => part.length > 0);
+	}
+
+	return /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)+$/.test(
+		trimmed,
+	);
+};
+
+// App passwords are 19 chars ("xxxx-xxxx-xxxx-xxxx"); account passwords vary,
+// so just require a non-trivial length.
+const isValidPassword = (value: string): boolean => value.trim().length >= 8;
+
+const credentialsInvalid = () =>
+	!(
+		isValidPdsHost(pdsLoc()) &&
+		isValidHandleOrDid(handleOrDid()) &&
+		isValidPassword(password())
+	);
 
 const CommunityOwnership: Component = () => {
 	const options = [
@@ -168,8 +208,8 @@ const CredentialsInput: Component = () => {
 				</Button>
 				<Button
 					onClick={() => setStep(3)}
-					disabled={allCredentialsValid()}
-					aria-disabled={allCredentialsValid()}
+					disabled={credentialsInvalid()}
+					aria-disabled={credentialsInvalid()}
 				>
 					Next
 				</Button>

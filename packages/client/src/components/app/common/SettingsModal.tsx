@@ -99,7 +99,7 @@ export type SettingsPageInfo = {
 	id: string;
 	component: Component<any>;
 	icon: Component<{ variant: string }>;
-	visible?: boolean;
+	visible?: Accessor<boolean>;
 };
 
 export const SettingsModal: ParentComponent<{
@@ -142,7 +142,7 @@ export const SettingsModal: ParentComponent<{
 						<div class="h-full flex flex-col gap-1">
 							<For each={props.pages}>
 								{(item) => (
-									<Show when={item.visible !== false}>
+									<Show when={item.visible?.() !== false}>
 										<SettingsPageSelector
 											icon={item.icon}
 											activePage={activePage() === item.id}
@@ -164,7 +164,11 @@ export const SettingsModal: ParentComponent<{
 									{props.debugPage!.title}
 								</SettingsPageSelector>
 							</Show>
-							<Show when={props.dangerPage}>
+							<Show
+								when={
+									props.dangerPage && props.dangerPage.visible?.() !== false
+								}
+							>
 								<SettingsPageSelector
 									icon={props.dangerPage!.icon}
 									activePage={activePage() === props.dangerPage!.id}

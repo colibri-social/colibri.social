@@ -44,8 +44,12 @@ export const ChannelList: Component<{
 	const community = useCommunityContext();
 	const processed = useProcessedSidebar();
 	const user = useUserContext();
-	const { canManage: _canManage } = usePermissions();
-	const canManage = () => _canManage(user.did);
+	const {
+		canCreateCategory: _canCreateCategory,
+		canUpdateCategory: _canUpdateCategory,
+	} = usePermissions();
+	const canCreateCategory = () => _canCreateCategory(user.did);
+	const canUpdateCategory = () => _canUpdateCategory(user.did);
 
 	const [committedOrder, setCommittedOrder] = createSignal<
 		CategoryWithChannels[] | null
@@ -215,7 +219,7 @@ export const ChannelList: Component<{
 		);
 
 	const onDragStart = ({ draggable }: DragEvent) => {
-		if (!canManage()) return;
+		if (!canUpdateCategory()) return;
 
 		if (isCategoryId(draggable.id)) {
 			dragBaseOrder = sortedCategories();
@@ -227,7 +231,7 @@ export const ChannelList: Component<{
 	};
 
 	const onDragOver = ({ draggable, droppable }: DragEvent) => {
-		if (!draggable || !droppable || !canManage()) return;
+		if (!draggable || !droppable || !canUpdateCategory()) return;
 
 		if (isCategoryId(draggable.id)) {
 			if (!dragBaseOrder) return;
@@ -257,7 +261,7 @@ export const ChannelList: Component<{
 	};
 
 	const onDragEnd = ({ draggable, droppable }: DragEvent) => {
-		if (!canManage()) return;
+		if (!canUpdateCategory()) return;
 
 		setChannelDropTarget(null);
 
@@ -368,7 +372,7 @@ export const ChannelList: Component<{
 						)}
 					</For>
 				</SortableProvider>
-				<Show when={canManage()}>
+				<Show when={canCreateCategory()}>
 					<CategoryCreationModal community={community().community.uri}>
 						<Button
 							size="sm"

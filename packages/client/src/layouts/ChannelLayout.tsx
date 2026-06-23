@@ -22,6 +22,7 @@ import {
 } from "../components/ui/FileField";
 import { ChannelContextProvider, useChannelContext } from "../contexts/Channel";
 import { useCommunityContext } from "../contexts/Community";
+import { ScrollAnchorProvider } from "../contexts/ScrollAnchor";
 import { getChannelParam } from "../utils/get-param";
 
 type MessageMeta = {
@@ -302,82 +303,89 @@ const ChannelLayout: ParentComponent = (props) => {
 
 							{/* messagesWrapper is observed by the ResizeObserver so that
 							    image/embed loads that expand content re-pin the view to
-							    the bottom when the user is already there. */}
-							<div ref={messagesWrapper} class="h-[calc(100%-1px)] w-full">
-								<Show
-									when={channel.loadingOlder() && channel.messages().length > 0}
-								>
-									<div class="w-full text-center py-2 text-xs text-muted-foreground">
-										Loading older messages…
-									</div>
-								</Show>
+							    the bottom when the user is already there. The
+							    ScrollAnchorProvider lets individual media compensate scroll
+							    when they load in above the fold (see useStableMedia). */}
+							<ScrollAnchorProvider container={() => scrollContainer}>
+								<div ref={messagesWrapper} class="h-[calc(100%-1px)] w-full">
+									<Show
+										when={
+											channel.loadingOlder() && channel.messages().length > 0
+										}
+									>
+										<div class="w-full text-center py-2 text-xs text-muted-foreground">
+											Loading older messages…
+										</div>
+									</Show>
 
-								<Show
-									when={!channel.hasMore() && channel.messages().length > 0}
-								>
-									<div class="w-full text-center py-2 text-sm text-muted-foreground">
-										This is the start of the channel.
-									</div>
-								</Show>
+									<Show
+										when={!channel.hasMore() && channel.messages().length > 0}
+									>
+										<div class="w-full text-center py-2 text-sm text-muted-foreground">
+											This is the start of the channel.
+										</div>
+									</Show>
 
-								<Show
-									when={!channel.hasMore() && channel.messages().length === 0}
-								>
-									<div class="w-full h-full flex items-center justify-center text-center py-2 text-sm text-muted-foreground">
-										There's nothing here yet! Be the first to send a message.
-									</div>
-								</Show>
+									<Show
+										when={!channel.hasMore() && channel.messages().length === 0}
+									>
+										<div class="w-full h-full flex items-center justify-center text-center py-2 text-sm text-muted-foreground">
+											There's nothing here yet! Be the first to send a message.
+										</div>
+									</Show>
 
-								<Show
-									when={
-										channel.initialLoading() && channel.messages().length === 0
-									}
-								>
-									<div class="w-full text-center py-4 text-sm text-muted-foreground">
-										Loading messages…
-									</div>
-								</Show>
+									<Show
+										when={
+											channel.initialLoading() &&
+											channel.messages().length === 0
+										}
+									>
+										<div class="w-full text-center py-4 text-sm text-muted-foreground">
+											Loading messages…
+										</div>
+									</Show>
 
-								<Show when={channel.error()}>
-									<div class="w-full text-center py-2 text-xs text-destructive">
-										{`${channel.error()}`}
-									</div>
-								</Show>
+									<Show when={channel.error()}>
+										<div class="w-full text-center py-2 text-xs text-destructive">
+											{`${channel.error()}`}
+										</div>
+									</Show>
 
-								<For each={channel.messages()}>
-									{(message, index) => {
-										const meta = () => messageMeta()[index()] ?? DEFAULT_META;
-										const isLastRead = () =>
-											channel.readCursorUri() === message.uri &&
-											index() < messageMeta().length - 1;
-										return (
-											<>
-												<Show when={meta().dateLabel}>
-													{(label) => (
-														<div class="w-[calc(100%-2rem)] h-px m-4 bg-border flex items-center justify-center select-none">
-															<span class="text-sm bg-background px-1">
-																{label()}
+									<For each={channel.messages()}>
+										{(message, index) => {
+											const meta = () => messageMeta()[index()] ?? DEFAULT_META;
+											const isLastRead = () =>
+												channel.readCursorUri() === message.uri &&
+												index() < messageMeta().length - 1;
+											return (
+												<>
+													<Show when={meta().dateLabel}>
+														{(label) => (
+															<div class="w-[calc(100%-2rem)] h-px m-4 bg-border flex items-center justify-center select-none">
+																<span class="text-sm bg-background px-1">
+																	{label()}
+																</span>
+															</div>
+														)}
+													</Show>
+													<Message
+														data={message}
+														isSubsequent={meta().isSubsequent}
+														hasSubsequent={meta().hasSubsequent}
+													/>
+													<Show when={isLastRead()}>
+														<div class="w-[calc(100%-2rem)] h-px mx-4 my-1 bg-primary flex items-center justify-center select-none">
+															<span class="text-xs bg-background px-1 text-primary font-medium">
+																New messages
 															</span>
 														</div>
-													)}
-												</Show>
-												<Message
-													data={message}
-													isSubsequent={meta().isSubsequent}
-													hasSubsequent={meta().hasSubsequent}
-												/>
-												<Show when={isLastRead()}>
-													<div class="w-[calc(100%-2rem)] h-px mx-4 my-1 bg-primary flex items-center justify-center select-none">
-														<span class="text-xs bg-background px-1 text-primary font-medium">
-															New messages
-														</span>
-													</div>
-												</Show>
-											</>
-										);
-									}}
-								</For>
-							</div>
+													</Show>
+												</>
+											);
+										}}
+									</For>
+								</div>
+							</ScrollAnchorProvider>
 						</div>
 
 						<Show when={channel.data()}>

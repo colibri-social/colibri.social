@@ -3,7 +3,7 @@ import type { Component } from "solid-js";
 import { useCommunityContext } from "../../../contexts/Community";
 
 export const displayableNameFn = (user: ActorData) =>
-	user.data.displayName || user.handle || user.did;
+	user.data.displayName || user.handle.replaceAll("at://", "") || user.did;
 
 export const DisplayableName: Component<{
 	user: ActorData;

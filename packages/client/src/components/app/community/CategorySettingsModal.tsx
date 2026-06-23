@@ -1,4 +1,4 @@
-import { createSignal, type ParentComponent } from "solid-js";
+import { createSignal, Show, type ParentComponent } from "solid-js";
 import { toast } from "somoto";
 import type { Category } from "../../../atproto/xrpc/social/colibri/community/listCategories";
 import { useUserContext } from "../../../contexts/User";
@@ -13,14 +13,18 @@ import {
 	DialogTrigger,
 } from "../../ui/Dialog";
 import { TextField, TextFieldInput, TextFieldLabel } from "../../ui/TextField";
+import { usePermissions } from "../../../contexts/Community";
 
 export const CategorySettingsModal: ParentComponent<{
 	category: Category;
 }> = (props) => {
 	const user = useUserContext();
+	const { canDeleteCategory: _canDeleteCategory } = usePermissions();
 	const [open, setOpen] = createSignal(false);
 	const [name, setName] = createSignal(props.category.name);
 	const [loading, setLoading] = createSignal(false);
+
+	const canDeleteCategory = () => _canDeleteCategory(user.did);
 
 	const handleSave = async () => {
 		setLoading(true);
@@ -40,9 +44,7 @@ export const CategorySettingsModal: ParentComponent<{
 	const handleDelete = async () => {
 		setLoading(true);
 		try {
-			await user.xrpc.social.colibri.category.delete(
-				props.category.uri,
-			);
+			await user.xrpc.social.colibri.category.delete(props.category.uri);
 			setOpen(false);
 		} catch {
 			toast.error("Failed to delete category.");
@@ -67,15 +69,21 @@ export const CategorySettingsModal: ParentComponent<{
 						/>
 					</TextField>
 					<DialogFooter class="flex-col sm:flex-row gap-2">
+						<Show when={canDeleteCategory()}>
+							<Button
+								variant="destructive"
+								onClick={handleDelete}
+								disabled={loading()}
+								class="sm:mr-auto"
+							>
+								Delete Category
+							</Button>
+						</Show>
 						<Button
-							variant="destructive"
-							onClick={handleDelete}
-							disabled={loading()}
-							class="sm:mr-auto"
+							class="ml-auto"
+							variant="secondary"
+							onClick={() => setOpen(false)}
 						>
-							Delete Category
-						</Button>
-						<Button variant="secondary" onClick={() => setOpen(false)}>
 							Cancel
 						</Button>
 						<Button

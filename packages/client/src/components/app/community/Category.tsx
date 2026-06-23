@@ -56,8 +56,8 @@ const SortableChannel: Component<{
 		useDragDropContext()!;
 
 	const user = useUserContext();
-	const { canManage: _canManage } = usePermissions();
-	const canManage = () => _canManage(user.did);
+	const { canUpdateChannel: _canUpdateChannel } = usePermissions();
+	const canManage = () => _canUpdateChannel(user.did);
 
 	const [isDragging, setIsDragging] = createSignal(false);
 
@@ -73,18 +73,19 @@ const SortableChannel: Component<{
 
 	const [voiceData, { connect }] = useVoiceChatContext();
 
+	const ChannelUri = () => props.channel.uri;
+	const ChannelRkey = () => props.channel.uri.split("/").pop();
+
 	const liveVoiceChannelMembers = createMemo<string[]>(() => {
 		if (voiceData.connection.state !== ConnectionState.Connected) return [];
-		if (voiceData.connection.rkey !== channelRkey()) return [];
+		if (voiceData.connection.uri !== ChannelUri()) return [];
 		return voiceData.participants;
 	});
 
 	const _handleVoiceChannelJoin = () => {
 		if (props.channel.type !== "social.colibri.channel.voice") return;
-		connect(channelRkey());
+		connect(ChannelUri());
 	};
-
-	const channelRkey = () => props.channel.uri.split("/").pop() ?? "";
 
 	const channelRoutePrefix = () => {
 		return props.channel.type;
@@ -114,11 +115,11 @@ const SortableChannel: Component<{
 			>
 				<A
 					class="group/channel text-muted-foreground flex flex-row justify-between items-center gap-2 hover:bg-card rounded-sm cursor-pointer p-1 py-0.5 pr-1.25"
-					href={`/app/c/${params.community}/${channelRoutePrefix()}/${channelRkey()}`}
+					href={`/app/c/${params.community}/${channelRoutePrefix()}/${ChannelRkey()}`}
 					activeClass="bg-muted! text-foreground!"
 					classList={{
 						"bg-linear-145 from-[#090615] via-[#31226d70] to-[#e0deec30]":
-							voiceData.connection.rkey === channelRkey() &&
+							voiceData.connection.uri === ChannelUri() &&
 							voiceData.connection.state === ConnectionState.Connected,
 					}}
 				>
@@ -140,7 +141,7 @@ const SortableChannel: Component<{
 							>
 								<Show
 									when={
-										voiceData.connection.rkey === channelRkey() &&
+										voiceData.connection.uri === ChannelUri() &&
 										voiceData.connection.state === ConnectionState.Connected &&
 										voiceData.states.micEnabled
 									}
@@ -162,7 +163,7 @@ const SortableChannel: Component<{
 									size="sm"
 									class="opacity-0 group-hover/channel:opacity-100 p-0 w-5 h-5 cursor-pointer channel-settings"
 									classList={{
-										"opacity-100!": params.channel === channelRkey(),
+										"opacity-100!": params.channel === ChannelUri(),
 									}}
 									variant="ghost"
 									onClick={(e) => e.preventDefault()}
@@ -218,8 +219,12 @@ export const Category: ParentComponent<{
 	dropTarget?: ChannelDropTarget | null;
 }> = (props) => {
 	const user = useUserContext();
-	const { canManage: _canManage } = usePermissions();
-	const canManage = () => _canManage(user.did);
+	const {
+		canUpdateCategory: _canUpdateCategory,
+		canCreateChannel: _canCreateChannel,
+	} = usePermissions();
+	const canUpdateCategory = () => _canUpdateCategory(user.did);
+	const canCreateChannel = () => _canCreateChannel(user.did);
 
 	// TODO: Persist collapse state to local storage (was `makePersisted` from
 	// `@solid-primitives/storage` keyed on the category rkey). Skipped here
@@ -245,14 +250,14 @@ export const Category: ParentComponent<{
 
 	let channelWasHere = false;
 	onDndDragStart(({ draggable }) => {
-		if (!canManage()) return;
+		if (!canUpdateCategory()) return;
 		channelWasHere = props.channelOrder.includes(String(draggable.id));
 	});
 
 	onDndDragEnd(({ draggable, droppable }) => {
 		if (!channelWasHere) return;
 		if (!draggable || !droppable) return;
-		if (!canManage()) return;
+		if (!canUpdateCategory()) return;
 
 		const order = props.channelOrder;
 		const from = order.indexOf(String(draggable.id));
@@ -272,7 +277,7 @@ export const Category: ParentComponent<{
 				type="button"
 				class="group/category flex flex-row justify-between items-center px-4 pb-2 pl-4.5 text-muted-foreground hover:text-foreground text-sm"
 				style={{
-					cursor: canManage()
+					cursor: canUpdateCategory()
 						? props.activeDraggable
 							? "grabbing"
 							: "grab"
@@ -294,7 +299,7 @@ export const Category: ParentComponent<{
 					<span>{props.category.name}</span>
 				</div>
 				<div class="flex flex-row items-center gap-1">
-					<Show when={canManage()}>
+					<Show when={canUpdateCategory()}>
 						<CategorySettingsModal category={props.category}>
 							<Button
 								size="sm"
@@ -304,6 +309,8 @@ export const Category: ParentComponent<{
 								<GearIcon width={16} height={16} />
 							</Button>
 						</CategorySettingsModal>
+					</Show>
+					<Show when={canCreateChannel()}>
 						<ChannelCreationModal
 							category={props.category.uri}
 							community={props.communityUri}

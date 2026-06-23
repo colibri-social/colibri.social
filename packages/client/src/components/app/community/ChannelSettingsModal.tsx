@@ -1,4 +1,4 @@
-import { createSignal, type ParentComponent } from "solid-js";
+import { createSignal, Show, type ParentComponent } from "solid-js";
 import { toast } from "somoto";
 import type { Channel } from "../../../atproto/xrpc/social/colibri/community/listChannels";
 import { useUserContext } from "../../../contexts/User";
@@ -13,15 +13,19 @@ import {
 	DialogTrigger,
 } from "../../ui/Dialog";
 import { TextField, TextFieldInput, TextFieldLabel } from "../../ui/TextField";
+import { usePermissions } from "../../../contexts/Community";
 
 export const ChannelSettingsModal: ParentComponent<{
 	channel: Channel;
 	class?: string;
 }> = (props) => {
 	const user = useUserContext();
+	const { canDeleteChannel: _canDeleteChannel } = usePermissions();
 	const [open, setOpen] = createSignal(false);
 	const [name, setName] = createSignal(props.channel.name);
 	const [loading, setLoading] = createSignal(false);
+
+	const canDeleteChannel = () => _canDeleteChannel(user.did);
 
 	const handleSave = async () => {
 		setLoading(true);
@@ -66,15 +70,21 @@ export const ChannelSettingsModal: ParentComponent<{
 						/>
 					</TextField>
 					<DialogFooter class="flex-col sm:flex-row gap-2">
+						<Show when={canDeleteChannel()}>
+							<Button
+								variant="destructive"
+								onClick={handleDelete}
+								disabled={loading()}
+								class="sm:mr-auto"
+							>
+								Delete Channel
+							</Button>
+						</Show>
 						<Button
-							variant="destructive"
-							onClick={handleDelete}
-							disabled={loading()}
-							class="sm:mr-auto"
+							class="ml-auto"
+							variant="secondary"
+							onClick={() => setOpen(false)}
 						>
-							Delete Channel
-						</Button>
-						<Button variant="secondary" onClick={() => setOpen(false)}>
 							Cancel
 						</Button>
 						<Button

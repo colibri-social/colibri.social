@@ -18,6 +18,8 @@ import {
 } from "../contexts/Community";
 import { useUserPreferences } from "../contexts/UserPreferences";
 import createMediaQuery from "../utils/create-media-query";
+import { MemberProfileContextProvider } from "../contexts/MemberProfile";
+import { MemberProfileModal } from "../components/app/community/MemberProfileModal";
 
 const CommunityHeader = () => {
 	const community = useCommunityContext();
@@ -105,7 +107,10 @@ const CommunityLayout: ParentComponent = (props) => {
 
 const CommunityLayoutWithContext: ParentComponent = (props) => (
 	<CommunityContextProvider>
-		<CommunityLayout>{props.children}</CommunityLayout>
+		<MemberProfileContextProvider>
+			<MemberProfileModal />
+			<CommunityLayout>{props.children}</CommunityLayout>
+		</MemberProfileContextProvider>
 	</CommunityContextProvider>
 );
 

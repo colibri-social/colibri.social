@@ -64,7 +64,7 @@ export const InviteLinkCreationModal: ParentComponent<{
 
 	return (
 		<Dialog open={open()} onOpenChange={checkForLinkAndToggleDialog}>
-			<DialogTrigger>{props.children}</DialogTrigger>
+			<DialogTrigger class="w-fit mx-auto">{props.children}</DialogTrigger>
 			<DialogPortal>
 				<DialogContent class="w-128">
 					<DialogCloseButton

@@ -7,6 +7,7 @@ import {
 	type Setter,
 	useContext,
 } from "solid-js";
+import { BlueskyClientID } from "../atproto/bluesky-alternatives";
 
 const STORAGE_KEY = "colibri:user-preferences";
 
@@ -52,6 +53,7 @@ export type UserPreferencesContextData = {
 		camera: BaseVoiceVideoSettings;
 		participantVolumeOverrides: Record<string, VolumeOverrides>;
 	};
+	preferredBlueskyClient: BlueskyClientID;
 };
 
 const DEFAULT_PREFERENCES: UserPreferencesContextData = {
@@ -75,6 +77,7 @@ const DEFAULT_PREFERENCES: UserPreferencesContextData = {
 		},
 		participantVolumeOverrides: {},
 	},
+	preferredBlueskyClient: "bluesky",
 };
 
 function loadFromStorage(): UserPreferencesContextData {
@@ -93,6 +96,7 @@ type UserPreferencesContextValue = {
 	updateVoice: (patch: Partial<VoicePreferences>) => void;
 	toggleMembersVisible: () => void;
 	setNativeNotifications: (enabled: boolean) => void;
+	setPreferredBlueskyClient: (client: BlueskyClientID) => void;
 };
 
 const UserPreferencesContext = createContext<UserPreferencesContextValue>();
@@ -125,6 +129,10 @@ export const UserPreferencesContextProvider: ParentComponent = (props) => {
 		setPreferences((p) => ({ ...p, nativeNotifications: enabled }));
 	};
 
+	const setPreferredBlueskyClient = (client: BlueskyClientID) => {
+		setPreferences((p) => ({ ...p, preferredBlueskyClient: client }));
+	};
+
 	return (
 		<UserPreferencesContext.Provider
 			value={{
@@ -133,6 +141,7 @@ export const UserPreferencesContextProvider: ParentComponent = (props) => {
 				updateVoice,
 				toggleMembersVisible,
 				setNativeNotifications,
+				setPreferredBlueskyClient,
 			}}
 		>
 			{props.children}

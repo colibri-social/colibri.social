@@ -20,8 +20,11 @@ import {
 	CHANNEL_DELETE,
 	CHANNEL_UPDATE,
 	COMMUNITY_DELETE,
+	COMMUNITY_MANAGE,
+	getPermissionCeiling,
 	INVITATION_CREATE,
 	INVITATION_DELETE,
+	isRoleBelowCeiling,
 	MEMBER_BAN,
 	MEMBER_KICK,
 	MEMBER_UNBAN,
@@ -39,6 +42,7 @@ import { useUserContext } from "./User";
 type CommunityContextData = CommunityResponse & {
 	/** Non-protected roles — the ones safe to show and assign. */
 	assignableRoles: Array<Role>;
+	ownerDid: Accessor<string>;
 	utils: {
 		getRolesForUser: (did: string) => Array<Role>;
 		setRolesForUser: (did: string, roles: Array<string>) => void;
@@ -54,9 +58,16 @@ export const CommunityContextProvider: ParentComponent = (props) => {
 	const navigate = useNavigate();
 	const communityUri = createMemo(() => urlSegmentToUri(getCommunityParam()));
 
+	// Latest desired role set per member while an optimistic change is syncing.
+	// Lets the `roles_updated` handler ignore stale/reordered echoes that would
+	// roll back a change the user just made; cleared whenever we (re)load
+	// authoritative data. Not reactive — only touched imperatively.
+	const pendingRoleIntents = new Map<string, Array<string>>();
+
 	const [community, { mutate, refetch }] = createResource(
 		communityUri,
 		async (uri) => {
+			pendingRoleIntents.clear();
 			return await user.xrpc.social.colibri.community.getData(uri);
 		},
 	);
@@ -109,34 +120,57 @@ export const CommunityContextProvider: ParentComponent = (props) => {
 				if (prev.members.some((m) => m.did === data.member.did)) return;
 				mutate({ ...prev, members: [...prev.members, data.member] });
 			} else if (data.event === "roles_updated") {
-				// A moderator changed this member's roles — patch in place.
+				const did = data.member.did;
+				const existing = prev.members.find((m) => m.did === did);
+
+				// Protected roles (e.g. the owner/admin marker) are managed
+				// separately and never appear in the assignable-role toggle flow or
+				// this event's payload. Carry over any the member already holds, so
+				// removing an assignable role from the owner doesn't strip their
+				// admin rights (and the channel/category edit UI) until a reload.
+				const protectedUris = new Set(
+					prev.roles.filter((r) => r.protected).map((r) => r.uri),
+				);
+				const keptProtected =
+					existing?.roles.filter((uri) => protectedUris.has(uri)) ?? [];
+
+				// If we have an in-flight optimistic change for this member, only
+				// accept the event once it confirms that intent — otherwise a stale
+				// or reordered echo (e.g. of a role we just removed and re-added)
+				// would roll the change back.
+				const intent = pendingRoleIntents.get(did);
+				if (intent) {
+					const intentAssignable = new Set(
+						intent.filter((uri) => !protectedUris.has(uri)),
+					);
+					const incomingAssignable = data.member.roles.filter(
+						(uri) => !protectedUris.has(uri),
+					);
+					const confirmsIntent =
+						intentAssignable.size === incomingAssignable.length &&
+						incomingAssignable.every((uri) => intentAssignable.has(uri));
+					if (!confirmsIntent) return;
+					pendingRoleIntents.delete(did);
+				}
+
+				const mergedRoles = Array.from(
+					new Set([...data.member.roles, ...keptProtected]),
+				);
+
 				mutate({
 					...prev,
 					members: prev.members.map((m) =>
-						m.did === data.member.did
+						m.did === did
 							? {
 									...m,
-									roles: data.member.roles,
+									roles: mergedRoles,
 									data: { ...m.data, ...data.member.data },
 								}
 							: m,
 					),
 				});
 			} else if (data.event === "leave") {
-				if (data.membership) {
-					const leavingDid = AtURI.parseAtURI(data.membership).did;
-					if (leavingDid === user.did) {
-						navigate("/app");
-						return;
-					}
-					mutate({
-						...prev,
-						members: prev.members.filter((m) => m.did !== leavingDid),
-					});
-				} else {
-					// No membership URI to identify the leaver — refetch the roster.
-					refetch();
-				}
+				refetch();
 			}
 		} else if (event.type === "community_event" && event.data) {
 			const { data } = event;
@@ -231,6 +265,51 @@ export const CommunityContextProvider: ParentComponent = (props) => {
 				// New channel: refetch to get its category assignment.
 				refetch();
 			}
+		} else if (event.type === "role_event" && event.data) {
+			const { data } = event;
+
+			if (data.event === "delete") {
+				mutate({
+					...prev,
+					roles: prev.roles.filter((r) => r.uri !== data.uri),
+				});
+				return;
+			}
+
+			if (data.community !== communityUri()) return;
+
+			// Upsert: patch whatever fields are provided on an existing role, or
+			// refetch for a new one (the event omits fields like `channelOverrides`
+			// and `protected` that we need to render it correctly).
+			const existing = prev.roles.find((r) => r.uri === data.uri);
+			if (existing) {
+				mutate({
+					...prev,
+					roles: prev.roles.map((r) =>
+						r.uri === data.uri
+							? {
+									...r,
+									...(data.name !== undefined && { name: data.name }),
+									...(data.color !== undefined && { color: data.color }),
+									...(data.permissions !== undefined && {
+										permissions: data.permissions,
+									}),
+									...(data.position !== undefined && {
+										position: data.position,
+									}),
+									...(data.hoisted !== undefined && {
+										hoisted: data.hoisted,
+									}),
+									...(data.mentionable !== undefined && {
+										mentionable: data.mentionable,
+									}),
+								}
+							: r,
+					),
+				});
+			} else {
+				refetch();
+			}
 		}
 	});
 
@@ -259,15 +338,25 @@ export const CommunityContextProvider: ParentComponent = (props) => {
 	const setRolesForUser = (did: string, roles: Array<string>) => {
 		const prev = community.latest;
 		if (!prev) return;
+		// Record the desired set so the `roles_updated` handler can tell our own
+		// confirming event apart from stale echoes.
+		pendingRoleIntents.set(did, roles);
 		mutate({
 			...prev,
 			members: prev.members.map((m) => (m.did === did ? { ...m, roles } : m)),
 		});
 	};
 
+	const ownerRole = () =>
+		(community.latest?.roles ?? []).find((x) => x.protected)!;
+
 	const value: Accessor<CommunityContextData> = () => ({
 		...(community.latest as CommunityResponse),
 		assignableRoles: assignableRoles(),
+		ownerDid: () =>
+			community.latest!.members.find((x) =>
+				x.roles.some((y) => y === ownerRole().uri || ""),
+			)!.did,
 		utils: {
 			getRolesForUser,
 			setRolesForUser,
@@ -370,6 +459,8 @@ export const usePermissions = () => {
 
 	const canManage = (did: string): boolean => isAdmin(did);
 
+	const canManageCommunity = (did: string) =>
+		hasPermission(did, COMMUNITY_MANAGE);
 	const canDeleteCommunity = (did: string) =>
 		hasPermission(did, COMMUNITY_DELETE);
 
@@ -401,6 +492,28 @@ export const usePermissions = () => {
 		hasPermission(actorDid, ROLE_MANAGE) &&
 		(targetDid === undefined || outranks(actorDid, targetDid));
 
+	// Highest position among the roles `did` holds that themselves grant
+	// `role.manage` — the ceiling below which they're allowed to manage
+	// other roles (assign/unassign/edit/delete). Distinct from `getRank`,
+	// which considers the member's overall highest role regardless of
+	// whether it carries `role.manage`.
+	const getRoleManageCeiling = (did: string): number => {
+		const c = community();
+		if (!c) return -Infinity;
+		const member = c.members.find((m) => m.did === did);
+		return getPermissionCeiling(
+			c.roles,
+			member?.roles ?? [],
+			ROLE_MANAGE,
+			isOwner(did),
+		);
+	};
+
+	// Whether `did` can manage (assign/unassign/edit/delete) the given role.
+	const canManageRole = (did: string, role: Role): boolean =>
+		hasPermission(did, ROLE_MANAGE) &&
+		isRoleBelowCeiling(getRoleManageCeiling(did), role);
+
 	const canHideMessage = (did: string) => hasPermission(did, MESSAGE_HIDE);
 
 	const canCreateInvitation = (did: string) =>
@@ -412,6 +525,7 @@ export const usePermissions = () => {
 		isAdmin,
 		canManage,
 		outranks,
+		canManageCommunity,
 		canDeleteCommunity,
 		canManageApprovals,
 		canCreateCategory,
@@ -424,6 +538,8 @@ export const usePermissions = () => {
 		canBanMember,
 		canUnbanMember,
 		canManageRoles,
+		getRoleManageCeiling,
+		canManageRole,
 		canHideMessage,
 		canCreateInvitation,
 		canDeleteInvitation,

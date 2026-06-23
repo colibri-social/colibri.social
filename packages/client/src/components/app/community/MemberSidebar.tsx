@@ -11,6 +11,8 @@ import { useUserPreferences } from "../../../contexts/UserPreferences";
 import createMediaQuery from "../../../utils/create-media-query";
 import User from "../user";
 import { MemberContextMenu } from "./MemberContextMenu";
+import CrownIcon from "~icons/ph/crown-fill";
+import { Tooltip, TooltipContent, TooltipTrigger } from "../../ui/Tooltip";
 
 type MembersByRoles = Array<{
 	role: Role;
@@ -23,6 +25,7 @@ const MemberRow = (props: {
 	roles: Role[];
 }) => {
 	const user = useUserContext();
+	const community = useCommunityContext();
 	const { canManage } = usePermissions();
 
 	const isMe = () => props.member.did === user.did;
@@ -40,8 +43,16 @@ const MemberRow = (props: {
 				>
 					<User.Avatar user={props.member} />
 					<div class="flex flex-col w-[calc(100%-36px-8px)]">
-						<span class="font-medium leading-5 overflow-hidden text-ellipsis">
+						<span class="font-medium leading-5 overflow-hidden text-ellipsis flex flex-row items-center gap-2">
 							<User.DisplayableName user={props.member} />
+							<Show when={community().ownerDid() === props.member.did}>
+								<Tooltip>
+									<TooltipTrigger>
+										<CrownIcon class="text-yellow-400 w-4 h-4" />
+									</TooltipTrigger>
+									<TooltipContent>Community Owner</TooltipContent>
+								</Tooltip>
+							</Show>
 						</span>
 						<Show
 							when={
@@ -74,7 +85,9 @@ export const MemberSidebar = () => {
 	const membersByRoles = (): MembersByRoles => {
 		const result: MembersByRoles = community()
 			.assignableRoles.slice()
-			.sort((a, b) => a.position - b.position)
+			.filter((x) => !!x.hoisted)
+			.filter((x) => !x.protected)
+			.sort((a, b) => b.position - a.position)
 			.map((x) => ({ role: x, members: [] }));
 
 		const noRoleOnlineIdx = result.push({
@@ -100,16 +113,22 @@ export const MemberSidebar = () => {
 		});
 
 		for (const member of community().members) {
-			const sortedMemberRoles = [...member.roles].sort(
-				(a, b) =>
-					result.findIndex((y) => y.role.uri === a) -
-					result.findIndex((z) => z.role.uri === b),
+			const sortedMemberRoles = [...member.roles]
+				.sort(
+					(a, b) =>
+						result.findIndex((y) => y.role.uri === a) -
+						result.findIndex((z) => z.role.uri === b),
+				)
+				.map((x) => community().roles.find((y) => y.uri === x))
+				.filter((x) => x !== undefined);
+
+			const highestMemberRole = sortedMemberRoles.find(
+				(x) => x.hoisted && !x.protected,
 			);
 
-			const highestMemberRole = sortedMemberRoles[0];
-			let resultIndex = result.findIndex(
-				(x) => x.role.uri === highestMemberRole,
-			);
+			let resultIndex = !highestMemberRole
+				? -5
+				: result.findIndex((x) => x.role.uri === highestMemberRole.uri);
 
 			if (member.data.onlineState === "offline") {
 				resultIndex = offlineIdx - 1;

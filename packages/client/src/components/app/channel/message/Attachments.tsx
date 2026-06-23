@@ -12,16 +12,19 @@ import FileIcon from "~icons/ph/file";
 import { resolveBlob } from "../../../../atproto/resolve-blob";
 import type { Message } from "../../../../atproto/xrpc/social/colibri/channel/listMessages";
 import { useChannelContext } from "../../../../contexts/Channel";
+import { useStableMedia } from "../../../../contexts/ScrollAnchor";
 import { Lightbox } from "../../common/Lightbox";
 
 type AttachmentComponent = Component<{ item: AttachmentObj; did: string }>;
 
 export const AudioAttachment: AttachmentComponent = (props) => {
 	const _channel = useChannelContext();
+	const stableMedia = useStableMedia();
 
 	return (
 		// @ts-expect-error - Test
 		<media-player
+			ref={stableMedia}
 			class="max-h-96 max-w-104 rounded-sm"
 			title={props.item.name ?? "Audio"}
 			load="eager"
@@ -48,22 +51,27 @@ export const AudioAttachment: AttachmentComponent = (props) => {
 };
 
 export const ImageAttachment: AttachmentComponent = (props) => {
+	const stableMedia = useStableMedia();
+
 	return (
 		<Lightbox src={resolveBlob(props.did, props.item.blob)!}>
 			<img
+				ref={stableMedia}
 				src={resolveBlob(props.did, props.item.blob)}
 				class="max-h-52 max-w-96 object-cover rounded-sm"
 				alt={props.item.name ?? ""}
-				// onLoad={() => {}} Notify embed load maybe?
 			/>
 		</Lightbox>
 	);
 };
 
 export const VideoAttachment: AttachmentComponent = (props) => {
+	const stableMedia = useStableMedia();
+
 	return (
 		// @ts-expect-error
 		<media-player
+			ref={stableMedia}
 			class="max-h-96 max-w-104 rounded-sm"
 			title={props.item.name ?? "Video"}
 			load="eager"

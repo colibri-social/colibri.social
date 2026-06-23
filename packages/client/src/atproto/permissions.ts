@@ -1,3 +1,6 @@
+import type { Role } from "./xrpc/social/colibri/community/listRoles";
+
+export const COMMUNITY_MANAGE = "community.manage";
 export const COMMUNITY_DELETE = "community.delete";
 export const APPROVAL_MANAGE = "approval.manage";
 export const CATEGORY_CREATE = "category.create";
@@ -22,6 +25,12 @@ export type Permission = {
 
 export const PERMISSIONS: Record<string, Array<Permission>> = {
 	Community: [
+		{
+			key: COMMUNITY_MANAGE,
+			name: "Manage Community",
+			description:
+				"Edit the community's name, description, icon, and join settings",
+		},
 		{
 			key: COMMUNITY_DELETE,
 			name: "Delete Community",
@@ -90,7 +99,8 @@ export const PERMISSIONS: Record<string, Array<Permission>> = {
 		{
 			key: ROLE_MANAGE,
 			name: "Manage Roles",
-			description: "Create, edit, and assign roles to members",
+			description:
+				"Create, edit, and assign roles to members. Can only manage roles below their highest role with this permission.",
 		},
 	],
 	Messages: [
@@ -113,3 +123,27 @@ export const PERMISSIONS: Record<string, Array<Permission>> = {
 		},
 	],
 };
+
+// Highest position among `memberRoleUris` that grant `permission` — the
+// ceiling below which a member is allowed to manage other roles via that
+// permission. Owners bypass the hierarchy entirely (Infinity); a member
+// holding no role that grants `permission` can manage nothing (-Infinity),
+// even roles below them.
+export const getPermissionCeiling = (
+	roles: Array<Role>,
+	memberRoleUris: Array<string>,
+	permission: string,
+	isOwner: boolean,
+): number => {
+	if (isOwner) return Number.POSITIVE_INFINITY;
+	return memberRoleUris.reduce((max, uri) => {
+		const role = roles.find((r) => r.uri === uri);
+		if (role?.permissions.includes(permission) && role.position > max) {
+			return role.position;
+		}
+		return max;
+	}, Number.NEGATIVE_INFINITY);
+};
+
+export const isRoleBelowCeiling = (ceiling: number, role: Role): boolean =>
+	role.position < ceiling;

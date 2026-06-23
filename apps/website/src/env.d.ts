@@ -1,5 +1,4 @@
 declare namespace App {
-	// TODO(refactor): This should be extracted into a shared package that can be re-used across Colibri apps.
 	interface SessionData {
 		user: {
 			// Provided by `social.colibri.actor.data`

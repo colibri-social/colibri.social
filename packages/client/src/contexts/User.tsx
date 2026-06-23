@@ -6,6 +6,7 @@ import {
 	createEffect,
 	createResource,
 	Match,
+	onCleanup,
 	type ParentComponent,
 	Switch,
 	useContext,
@@ -13,6 +14,7 @@ import {
 import { XrpcClient } from "../atproto/xrpc";
 import { AppLoadingScreen } from "../components/AppLoadingScreen";
 import { useAuthContext } from "./Auth";
+import { useSocketContext } from "./Socket";
 
 type User =
 	| { loggedIn: false; atproto: { client: BrowserOAuthClient } }
@@ -30,17 +32,15 @@ type User =
 type LoggedInUser = Extract<User, { loggedIn: true }> & {
 	/** Re-fetches the user's community list and updates the context. */
 	refetchCommunities: () => Promise<void>;
-	/** Patches display-name and description in the local actor data without a full refetch. */
-	updateActorData: (patch: {
-		displayName?: string;
-		description?: string;
-	}) => void;
+	/** Patches fields in the local actor data without a full refetch. */
+	updateActorData: (patch: Partial<ActorData["data"]>) => void;
 };
 
 export const UserContext = createContext<LoggedInUser>();
 
 export const UserContextProvider: ParentComponent = (props) => {
 	const client = useAuthContext();
+	const socket = useSocketContext();
 
 	const [user, { mutate }] = createResource(async (): Promise<User> => {
 		if (!client) {
@@ -98,7 +98,7 @@ export const UserContextProvider: ParentComponent = (props) => {
 			window.location.href = "/app/login";
 		}
 
-		console.log(user());
+		console.info("User loaded:", user());
 	});
 
 	return (
@@ -124,15 +124,26 @@ export const UserContextProvider: ParentComponent = (props) => {
 						}
 					};
 
-					const updateActorData = (patch: {
-						displayName?: string;
-						description?: string;
-					}) => {
+					const updateActorData = (patch: Partial<ActorData["data"]>) => {
 						mutate({
 							...value,
 							data: { ...value.data, ...patch },
 						});
 					};
+
+					// A `member_event { join }` for the local user means we were just
+					// admitted to a community (auto-admit or an approved application).
+					// The current view's community context only updates the member
+					// list for the community it's already showing, so the sidebar's
+					// community list needs its own refresh here.
+					const cleanup = socket.onEvent((event) => {
+						if (event.type !== "member_event" || !event.data) return;
+						if (event.data.event !== "join") return;
+						if (event.data.member.did !== value.did) return;
+
+						void refetchCommunities();
+					});
+					onCleanup(cleanup);
 
 					return (
 						<UserContext.Provider

@@ -6,6 +6,7 @@ import CameraIcon from "~icons/ph/camera";
 import MicrophoneIcon from "~icons/ph/microphone";
 import SmileyIcon from "~icons/ph/smiley";
 import UserCircleIcon from "~icons/ph/user-circle";
+import WrenchIcon from "~icons/ph/wrench";
 import { useAuthContext } from "../../../contexts/Auth";
 import { useUserContext } from "../../../contexts/User";
 import { isWebRuntime } from "../../../notifications";
@@ -17,6 +18,7 @@ import { NotificationsPage } from "./NotificationsPage";
 import { StatusPage } from "./StatusPage";
 import { VideoPage } from "./VideoPage";
 import { VoicePage } from "./VoicePage";
+import { PreferencesPage } from "./PreferencesPage";
 
 export const UserSettingsModal: ParentComponent = (props) => {
 	return (
@@ -51,6 +53,12 @@ export const UserSettingsModal: ParentComponent = (props) => {
 					id: "video",
 					component: VideoPage,
 					icon: () => <CameraIcon />,
+				},
+				{
+					title: "Preferences",
+					id: "preferences",
+					component: PreferencesPage,
+					icon: () => <WrenchIcon />,
 				},
 			]}
 			debugPage={{

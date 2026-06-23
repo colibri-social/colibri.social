@@ -119,7 +119,7 @@ export const RoleModal: ParentComponent<{
 				mentionable(),
 			);
 		} catch {
-			toast.error("Failed to create category.");
+			toast.error("Failed to update role.");
 		} finally {
 			setLoading(false);
 		}
@@ -140,7 +140,7 @@ export const RoleModal: ParentComponent<{
 
 			setOpen(false);
 		} catch {
-			toast.error("Failed to create category.");
+			toast.error("Failed to create role.");
 		} finally {
 			setLoading(false);
 		}
@@ -153,16 +153,16 @@ export const RoleModal: ParentComponent<{
 		"#10b981",
 		"#06b6d4",
 		"#6366f1",
-		"#d946ef",
+		"#ffffff",
 	];
 
 	onCleanup(() => {
 		setLoading(false);
 		setHoisted(false);
 		setMentionable(false);
-		setName(existingRole()?.name);
-		setColor(existingRole()?.color);
-		setPermissions(existingRole()?.permissions);
+		setName(existingRole()?.name || "New Role");
+		setColor(existingRole()?.color || "#ffffff");
+		setPermissions(existingRole()?.permissions || []);
 	});
 
 	return (

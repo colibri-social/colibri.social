@@ -3,6 +3,7 @@ import { useNavigate } from "@solidjs/router";
 import type { Accessor, ParentComponent, Setter } from "solid-js";
 import {
 	type Component,
+	createEffect,
 	createResource,
 	createSignal,
 	For,
@@ -14,14 +15,17 @@ import {
 import { toast } from "somoto";
 import BootIcon from "~icons/ph/boot";
 import BugIcon from "~icons/ph/bug";
-import DotsThreeOutlineVerticalIcon from "~icons/ph/dots-three-outline-vertical";
+import DotsSixVerticalIcon from "~icons/ph/dots-six-vertical";
+import DotsThreeOutlineVerticalIcon from "~icons/ph/dots-three-outline-vertical-fill";
 import IdentificationBadgeIcon from "~icons/ph/identification-badge";
 import IdentificationBadgeIconFilled from "~icons/ph/identification-badge-fill";
 import ImageIcon from "~icons/ph/image";
 import LinkIcon from "~icons/ph/link";
+import PenIcon from "~icons/ph/pen";
 import PlusIcon from "~icons/ph/plus";
 import ProhibitIcon from "~icons/ph/prohibit";
 import TicketIcon from "~icons/ph/ticket";
+import TrashIcon from "~icons/ph/trash";
 import UsersIcon from "~icons/ph/users";
 import WarningDiamondIcon from "~icons/ph/warning-diamond";
 import WrenchIcon from "~icons/ph/wrench";
@@ -29,7 +33,11 @@ import XCircleIcon from "~icons/ph/x-circle";
 import { resolveBlob } from "../../../atproto/resolve-blob";
 import type { Applicant } from "../../../atproto/xrpc/social/colibri/community/listApplications";
 import type { Member } from "../../../atproto/xrpc/social/colibri/community/listMembers";
-import { useCommunityContext } from "../../../contexts/Community";
+import type { Role } from "../../../atproto/xrpc/social/colibri/community/listRoles";
+import {
+	useCommunityContext,
+	usePermissions,
+} from "../../../contexts/Community";
 import { useUserContext } from "../../../contexts/User";
 import { Spinner } from "../../icons/Spinner";
 import { Button } from "../../ui/Button";
@@ -39,6 +47,7 @@ import {
 	DialogFooter,
 	DialogHeader,
 	DialogPortal,
+	DialogTrigger,
 } from "../../ui/Dialog";
 import {
 	DropdownMenu,
@@ -291,6 +300,7 @@ const GeneralSettingsPage: Component = () => {
 const InviteLinksPage: Component = () => {
 	const user = useUserContext();
 	const community = useCommunityContext();
+	const { canDeleteInvitation } = usePermissions();
 	const uri = () => community().community.uri;
 
 	const [loading] = createSignal<boolean>(false);
@@ -316,7 +326,9 @@ const InviteLinksPage: Component = () => {
 										<TableHead class="w-[150px]">Invite ID</TableHead>
 										<TableHead>Created by</TableHead>
 										<TableHead>Active</TableHead>
-										<TableHead class="text-right">Delete</TableHead>
+										<Show when={canDeleteInvitation(user.did)}>
+											<TableHead class="text-right">Delete</TableHead>
+										</Show>
 									</TableRow>
 								</TableHeader>
 								<TableBody class="relative">
@@ -332,31 +344,36 @@ const InviteLinksPage: Component = () => {
 												</TableCell>
 												<TableCell>
 													<Suspense fallback={<Spinner />}>
-														<User.InlineProfile user={invitation.createdBy} />
+														<User.InlineProfile
+															color={false}
+															user={invitation.createdBy}
+														/>
 													</Suspense>
 												</TableCell>
 												<TableCell>
 													{invitation.active ? "Yes" : "No"}
 												</TableCell>
-												<TableCell class="text-right">
-													<Show when={invitation.active}>
-														<DeleteLinkModal
-															invitation={invitation}
-															refetch={refetch}
-														>
-															<Button variant="destructive" size="sm">
-																Delete
-															</Button>
-														</DeleteLinkModal>
-													</Show>
-												</TableCell>
+												<Show when={canDeleteInvitation(user.did)}>
+													<TableCell class="text-right">
+														<Show when={invitation.active}>
+															<DeleteLinkModal
+																invitation={invitation}
+																refetch={refetch}
+															>
+																<Button variant="destructive" size="sm">
+																	Delete
+																</Button>
+															</DeleteLinkModal>
+														</Show>
+													</TableCell>
+												</Show>
 											</TableRow>
 										)}
 									</For>
 								</TableBody>
 							</Table>
 							<InviteLinkCreationModal generateNew refetch={refetch}>
-								<Button variant="secondary">
+								<Button variant="secondary" class="w-fit">
 									<PlusIcon />
 									Create new invite
 								</Button>
@@ -628,7 +645,7 @@ const MembersPage: Component = () => {
 								<TableRow>
 									<TableCell>
 										<Suspense fallback={<Spinner />}>
-											<User.InlineProfile user={member} />
+											<User.InlineProfile color={false} user={member} />
 										</Suspense>
 									</TableCell>
 									<TableCell class="text-right">
@@ -638,7 +655,7 @@ const MembersPage: Component = () => {
 										>
 											<Button
 												size="sm"
-												class="p-0 aspect-square"
+												class="aspect-square h-6 p-0!"
 												variant="ghost"
 											>
 												<DotsThreeOutlineVerticalIcon />
@@ -655,22 +672,178 @@ const MembersPage: Component = () => {
 	);
 };
 
+const DeleteRoleModal: ParentComponent<{ role: Role }> = (props) => {
+	const user = useUserContext();
+	const community = useCommunityContext();
+
+	const [loading, setLoading] = createSignal(false);
+	const [open, setOpen] = createSignal(false);
+
+	const memberCount = () =>
+		community().members.filter((m) => m.roles.includes(props.role.uri)).length;
+
+	const deleteRole = async () => {
+		setLoading(true);
+		try {
+			const res = await user.xrpc.social.colibri.role.delete(props.role.uri);
+
+			if (!res) {
+				toast.error("Failed to delete role.");
+				return;
+			}
+
+			toast.success("Role deleted.");
+			community().utils.refetch();
+			setOpen(false);
+		} catch {
+			toast.error("Failed to delete role.");
+		} finally {
+			setLoading(false);
+		}
+	};
+
+	return (
+		<Dialog open={open()} onOpenChange={setOpen}>
+			<DialogTrigger>{props.children}</DialogTrigger>
+			<DialogPortal>
+				<DialogContent class="w-128">
+					<DialogHeader>
+						<h2 class="m-0 text-center">
+							Delete the “{props.role.name}” role?
+						</h2>
+					</DialogHeader>
+					<div class="flex flex-col gap-2 text-center">
+						<p class="m-0">
+							{memberCount() > 0
+								? `This role will be removed from ${memberCount()} member${
+										memberCount() === 1 ? "" : "s"
+									}. `
+								: ""}
+							This action cannot be undone.
+						</p>
+					</div>
+					<DialogFooter>
+						<Button
+							variant="secondary"
+							disabled={loading()}
+							onClick={() => setOpen(false)}
+						>
+							Cancel
+						</Button>
+						<Button
+							variant="destructive"
+							disabled={loading()}
+							onClick={deleteRole}
+						>
+							<Spinner
+								classList={{
+									hidden: !loading(),
+									block: loading(),
+								}}
+							/>
+							Delete Role
+						</Button>
+					</DialogFooter>
+				</DialogContent>
+			</DialogPortal>
+		</Dialog>
+	);
+};
+
 const RolesPage: Component = () => {
 	const user = useUserContext();
 	const community = useCommunityContext();
+	const { canManageRole } = usePermissions();
 	const roles = () => community().assignableRoles;
-	const membersForRole = (role: string) => {
-		console.log(
-			community().members.filter((x) => x.roles.some((y) => y === role)),
-		);
-		return community().members.filter((x) => x.roles.some((y) => y === role))
-			.length;
-	};
+	const membersForRole = (role: string) =>
+		community().members.filter((x) => x.roles.some((y) => y === role)).length;
 
 	const [search, setSearch] = createSignal("");
+	const [saving, setSaving] = createSignal(false);
+	// Optimistic ordering applied locally while the reorder request is in flight.
+	// `null` means "follow the server's position-based order".
+	const [override, setOverride] = createSignal<Array<Role> | null>(null);
+	const [dragIndex, setDragIndex] = createSignal<number | null>(null);
 
-	const filtererdRoles = () =>
-		roles().filter((x) => x.name.toLowerCase().includes(search()));
+	// Highest position sits at the top, matching the role hierarchy.
+	const sortedRoles = () =>
+		override() ?? [...roles()].sort((a, b) => b.position - a.position);
+
+	const filteredRoles = () =>
+		sortedRoles().filter((x) =>
+			x.name.toLowerCase().includes(search().toLowerCase()),
+		);
+
+	// Dragging while a search is active would reorder against a filtered view,
+	// so only allow it when the full list is shown.
+	const canReorder = () => search().trim().length === 0 && !saving();
+
+	// Drop the optimistic override once the server order catches up, or if the
+	// set of roles changed underneath us (e.g. one was created/deleted).
+	createEffect(() => {
+		const ov = override();
+		if (!ov) return;
+
+		const serverUris = [...roles()]
+			.sort((a, b) => b.position - a.position)
+			.map((r) => r.uri);
+		const ovUris = ov.map((r) => r.uri);
+
+		const membershipChanged =
+			serverUris.length !== ovUris.length ||
+			ovUris.some((uri) => !serverUris.includes(uri));
+
+		if (membershipChanged || serverUris.join(",") === ovUris.join(",")) {
+			setOverride(null);
+		}
+	});
+
+	const persistOrder = async (ordered: Array<Role>) => {
+		// Top row gets the highest position; only push roles that actually moved.
+		const total = ordered.length;
+		const updates = ordered
+			.map((role, i) => ({ role, position: total - i }))
+			.filter(({ role, position }) => role.position !== position);
+
+		if (updates.length === 0) {
+			setOverride(null);
+			return;
+		}
+
+		setSaving(true);
+		try {
+			await Promise.all(
+				updates.map(({ role, position }) =>
+					user.xrpc.social.colibri.role.update(
+						role.uri,
+						role.name,
+						role.color,
+						role.permissions,
+						position,
+						role.hoisted,
+						role.mentionable,
+					),
+				),
+			);
+			// The authoritative positions arrive via `role_event`s, which reconcile
+			// the optimistic override. Refetching here would race the AppView's
+			// indexing and briefly reintroduce the old order, so we don't.
+		} catch {
+			toast.error("Failed to reorder roles.");
+			setOverride(null);
+			community().utils.refetch();
+		} finally {
+			setSaving(false);
+		}
+	};
+
+	// Live-reorder while dragging so the rows visibly shuffle under the cursor.
+	const moveRole = (from: number, to: number) => {
+		const reordered = [...sortedRoles()];
+		const [moved] = reordered.splice(from, 1);
+		reordered.splice(to, 0, moved);
+		setOverride(reordered);
+	};
 
 	return (
 		<SettingsPage loading={() => false} title={`Roles`}>
@@ -685,16 +858,70 @@ const RolesPage: Component = () => {
 			<Table class="h-full">
 				<TableHeader>
 					<TableRow>
+						<TableHead class="w-8" />
 						<TableHead>Name</TableHead>
 						<TableHead>Members</TableHead>
 						<TableHead class="text-right">Actions</TableHead>
 					</TableRow>
 				</TableHeader>
 				<TableBody class="relative">
-					<For each={filtererdRoles()}>
-						{(role) => {
+					<For each={filteredRoles()}>
+						{(role, index) => {
+							const isDragging = () => dragIndex() === index();
+							const manageable = () => canManageRole(user.did, role);
+							let rowRef: HTMLTableRowElement | undefined;
+
 							return (
-								<TableRow>
+								<TableRow
+									ref={rowRef}
+									classList={{
+										"opacity-50": isDragging() || !manageable(),
+									}}
+									onDragOver={(e) => {
+										const from = dragIndex();
+										if (from === null) return;
+										e.preventDefault();
+										if (e.dataTransfer) e.dataTransfer.dropEffect = "move";
+										const to = index();
+										if (from !== to) {
+											moveRole(from, to);
+											// Keep tracking the dragged row at its new position.
+											setDragIndex(to);
+										}
+									}}
+									onDrop={(e) => {
+										if (dragIndex() !== null) e.preventDefault();
+									}}
+								>
+									<TableCell class="text-muted-foreground w-8">
+										<Show when={canReorder() && manageable()} fallback={<span />}>
+											{/* Only the handle starts a drag, not the whole row. */}
+											<div
+												class="cursor-grab"
+												draggable={true}
+												onDragStart={(e) => {
+													if (!canReorder() || !manageable()) return;
+													setDragIndex(index());
+													if (e.dataTransfer) {
+														e.dataTransfer.effectAllowed = "move";
+														// Required for Firefox to initiate the drag.
+														e.dataTransfer.setData("text/plain", role.uri);
+														// Drag the whole row as the ghost, not just the grip.
+														if (rowRef) {
+															e.dataTransfer.setDragImage(rowRef, 16, 16);
+														}
+													}
+												}}
+												onDragEnd={() => {
+													const from = dragIndex();
+													setDragIndex(null);
+													if (from !== null) persistOrder([...sortedRoles()]);
+												}}
+											>
+												<DotsSixVerticalIcon />
+											</div>
+										</Show>
+									</TableCell>
 									<TableCell>
 										<div class="flex flex-row items-center gap-2">
 											<IdentificationBadgeIconFilled
@@ -706,7 +933,50 @@ const RolesPage: Component = () => {
 										</div>
 									</TableCell>
 									<TableCell>{membersForRole(role.uri)}</TableCell>
-									<TableCell class="text-right">Actions</TableCell>
+									<TableCell class="text-right flex flex-row gap-1 items-center justify-end">
+										<Show
+											when={manageable()}
+											fallback={
+												<>
+													<Button
+														size="sm"
+														class="aspect-square h-6 p-0!"
+														variant="ghost"
+														disabled
+													>
+														<PenIcon />
+													</Button>
+													<Button
+														size="sm"
+														class="aspect-square h-6 p-0! text-destructive hover:text-destructive hover:bg-destructive/25 hover:dark:bg-destructive/25"
+														variant="ghost"
+														disabled
+													>
+														<TrashIcon />
+													</Button>
+												</>
+											}
+										>
+											<RoleModal role={role.uri}>
+												<Button
+													size="sm"
+													class="aspect-square h-6 p-0!"
+													variant="ghost"
+												>
+													<PenIcon />
+												</Button>
+											</RoleModal>
+											<DeleteRoleModal role={role}>
+												<Button
+													size="sm"
+													class="aspect-square h-6 p-0! text-destructive hover:text-destructive hover:bg-destructive/25 hover:dark:bg-destructive/25"
+													variant="ghost"
+												>
+													<TrashIcon />
+												</Button>
+											</DeleteRoleModal>
+										</Show>
+									</TableCell>
 								</TableRow>
 							);
 						}}
@@ -878,7 +1148,17 @@ export const CommunitySettingsModal: ParentComponent<{
 	open: Accessor<boolean>;
 	setOpen: Setter<boolean>;
 }> = (props) => {
+	const user = useUserContext();
 	const community = useCommunityContext();
+	const {
+		canManageRoles,
+		canCreateInvitation,
+		canDeleteInvitation,
+		canManageApprovals,
+		canDeleteCommunity,
+		canUnbanMember,
+		canManageCommunity,
+	} = usePermissions();
 
 	return (
 		<SettingsModal
@@ -890,6 +1170,7 @@ export const CommunitySettingsModal: ParentComponent<{
 					id: "general",
 					component: GeneralSettingsPage,
 					icon: () => <WrenchIcon />,
+					visible: () => canManageCommunity(user.did),
 				},
 				{
 					title: "Members",
@@ -902,25 +1183,31 @@ export const CommunitySettingsModal: ParentComponent<{
 					id: "roles",
 					component: RolesPage,
 					icon: () => <IdentificationBadgeIcon />,
+					visible: () => canManageRoles(user.did),
 				},
 				{
 					title: "Invite Links",
 					id: "invitations",
 					component: InviteLinksPage,
 					icon: () => <LinkIcon />,
+					visible: () =>
+						canCreateInvitation(user.did) || canDeleteInvitation(user.did),
 				},
 				{
 					title: "Join Requests",
 					id: "joins",
 					component: JoinRequestApprovals,
 					icon: () => <TicketIcon />,
-					visible: community().community.requiresApprovalToJoin ?? true,
+					visible: () =>
+						community().community.requiresApprovalToJoin &&
+						canManageApprovals(user.did),
 				},
 				{
 					title: "Blocked Users",
 					id: "blocks",
 					component: BlockedMembersPage,
 					icon: () => <ProhibitIcon />,
+					visible: () => canUnbanMember(user.did),
 				},
 			]}
 			dangerPage={{
@@ -928,6 +1215,7 @@ export const CommunitySettingsModal: ParentComponent<{
 				id: "danger",
 				component: DangerSettingsPage,
 				icon: () => <WarningDiamondIcon />,
+				visible: () => canDeleteCommunity(user.did),
 			}}
 			debugPage={{
 				title: "Debug Information",

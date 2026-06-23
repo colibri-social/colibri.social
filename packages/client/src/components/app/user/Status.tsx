@@ -116,7 +116,6 @@ export const Status: Component = () => {
 	const cleanup = socket.onEvent((e) => {
 		console.log(e);
 		if (e.type === "user_event" && e.data?.did === user.did) {
-			console.log(e.data);
 			if (e.data.status) {
 				setValue(e.data.status.state);
 			}
@@ -277,7 +276,7 @@ export const Status: Component = () => {
 				/>
 				<div class="flex flex-col">
 					<span class="font-bold leading-5">
-						<User.DisplayableName user={user} />
+						<User.DisplayableName color={false} user={user} />
 					</span>
 					<DropdownStatusSelect
 						value={value}

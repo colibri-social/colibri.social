@@ -22,7 +22,10 @@ export const buildSuggestions = (
 							member.display_name
 								?.toLowerCase()
 								.startsWith(query.toLowerCase()) ||
-							member.handle?.toLowerCase().startsWith(query.toLowerCase()),
+							member.handle
+								.replaceAll("at://", "")
+								?.toLowerCase()
+								.startsWith(query.toLowerCase()),
 					)
 					.slice(0, 8),
 			render: createMentionRenderer("@"),

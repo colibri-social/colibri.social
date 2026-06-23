@@ -118,7 +118,9 @@ export const LoginScreen: Component = () => {
 								>
 									<div class="flex items-center gap-2">
 										<img
-											src={props.item.rawValue.avatar}
+											src={
+												props.item.rawValue.avatar ?? "/user-placeholder.png"
+											}
 											alt=""
 											class="size-6 rounded-full bg-muted shrink-0"
 											loading="lazy"

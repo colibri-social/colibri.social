@@ -1,6 +1,6 @@
 import type { ActorData } from "@colibri-social/lib";
 import { For, type ParentComponent } from "solid-js";
-import { useCommunityContext } from "../../../contexts/Community";
+import { useCommunityContext, usePermissions } from "../../../contexts/Community";
 import { useUserContext } from "../../../contexts/User";
 import {
 	Checkbox,
@@ -19,13 +19,17 @@ import {
 	ContextMenuSubTrigger,
 	ContextMenuTrigger,
 } from "../../ui/ContextMenu";
-import { DisplayableName } from "../user/DisplayableName";
+import { DisplayableName, displayableNameFn } from "../user/DisplayableName";
+import { useMemberProfileContext } from "../../../contexts/MemberProfile";
+import { toast } from "somoto";
 
 export const MemberContextMenu: ParentComponent<{ member: ActorData }> = (
 	props,
 ) => {
 	const user = useUserContext();
 	const community = useCommunityContext();
+	const memberProfile = useMemberProfileContext();
+	const { canManageRole } = usePermissions();
 
 	// Read the member's *raw* role set straight from the shared context — not
 	// `getRolesForUser`, which filters out protected roles for display and would
@@ -87,45 +91,81 @@ export const MemberContextMenu: ParentComponent<{ member: ActorData }> = (
 			<ContextMenuTrigger>{props.children}</ContextMenuTrigger>
 			<ContextMenuPortal>
 				<ContextMenuContent>
-					<ContextMenuItem>Profile</ContextMenuItem>
-					<ContextMenuItem>Invite to Server</ContextMenuItem>
-					<ContextMenuSeparator />
+					{/* NOTE: Future implementation of MemberProfileModal.tsx required
+						<ContextMenuItem
+						onClick={() => {
+							memberProfile.setData(props.member);
+							memberProfile.setOpen(true);
+						}}
+					>
+						Profile
+					</ContextMenuItem>
+					<ContextMenuSeparator />*/}
 					<ContextMenuSub>
 						<ContextMenuSubTrigger>Roles</ContextMenuSubTrigger>
 						<ContextMenuPortal>
 							<ContextMenuSubContent>
-								<For each={community().assignableRoles}>
-									{(role) => (
-										<Checkbox class="w-full" checked={hasRole(role.uri)}>
-											<CheckboxInput />
-											<ContextMenuItem
-												closeOnSelect={false}
-												class="flex flex-row items-center gap-4 justify-between cursor-pointer"
-												onClick={() => toggleRole(role.uri)}
-											>
-												<CheckboxLabel class="flex flex-row items-center gap-2">
-													<div
-														class="w-2 h-2 rounded-full"
-														style={{ background: `${role.color ?? "#fff"}` }}
-													/>
-													{role.name}
-												</CheckboxLabel>
-												<CheckboxControl />
-											</ContextMenuItem>
-										</Checkbox>
+								<For
+									each={community().assignableRoles.sort(
+										(a, b) => b.position - a.position,
 									)}
+								>
+									{(role) => {
+										const manageable = () => canManageRole(user.did, role);
+
+										return (
+											<Checkbox
+												class="w-full"
+												checked={hasRole(role.uri)}
+												disabled={!manageable()}
+											>
+												<CheckboxInput />
+												<ContextMenuItem
+													closeOnSelect={false}
+													disabled={!manageable()}
+													class="flex flex-row items-center gap-4 justify-between cursor-pointer"
+													onClick={() => {
+														if (!manageable()) return;
+														toggleRole(role.uri);
+													}}
+												>
+													<CheckboxLabel class="flex flex-row items-center gap-2">
+														<div
+															class="w-2 h-2 rounded-full"
+															style={{ background: `${role.color ?? "#fff"}` }}
+														/>
+														{role.name}
+													</CheckboxLabel>
+													<CheckboxControl />
+												</ContextMenuItem>
+											</Checkbox>
+										);
+									}}
 								</For>
 							</ContextMenuSubContent>
 						</ContextMenuPortal>
 					</ContextMenuSub>
 					<ContextMenuItem class="text-destructive!">
-						Kick <DisplayableName color={false} user={props.member} />
+						<span>
+							Kick <DisplayableName color={false} user={props.member} />
+						</span>
 					</ContextMenuItem>
 					<ContextMenuItem class="text-destructive!">
-						Block <DisplayableName color={false} user={props.member} />
+						<span>
+							Block <DisplayableName color={false} user={props.member} />
+						</span>
 					</ContextMenuItem>
 					<ContextMenuSeparator />
-					<ContextMenuItem>Show Debug Information</ContextMenuItem>
+					<ContextMenuItem
+						onClick={() => {
+							navigator.clipboard.writeText(props.member.did);
+							toast.success(
+								`DID for ${displayableNameFn(props.member)} copied to clipboard!`,
+							);
+						}}
+					>
+						Copy DID
+					</ContextMenuItem>
 				</ContextMenuContent>
 			</ContextMenuPortal>
 		</ContextMenu>

@@ -55,10 +55,6 @@ export const EmojiPopover: ParentComponent<{
 		const isFontSupported =
 			parseFloat(emoji.unicode_version) <= UNICODE_BREAK_VERSION;
 
-		if (isFontSupported && emoji.emoji === "🫨") {
-			console.log(emoji);
-		}
-
 		return (
 			<button
 				type="button"

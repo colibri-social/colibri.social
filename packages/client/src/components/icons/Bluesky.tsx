@@ -3,8 +3,8 @@ import type { Component } from "solid-js";
 export const Bluesky: Component<{ className?: string }> = ({ className }) => (
 	<svg
 		preserveAspectRatio="xMidYMid"
+		height={14.125}
 		width={16}
-		height={16}
 		viewBox="0 0 256 226"
 		aria-hidden="true"
 		class={className}

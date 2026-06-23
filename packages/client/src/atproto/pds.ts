@@ -5,6 +5,7 @@
  * keeps call sites clean.
  */
 import type { Agent } from "@atproto/api";
+import type { BlobRef } from "@atproto/lexicon";
 import { AtURI } from "../utils/at-uri";
 
 export const createRecord = async (
@@ -34,6 +35,20 @@ export const putRecord = async (
 		rkey,
 		record: { $type: collection, ...record },
 	});
+};
+
+/**
+ * Uploads a file to the user's PDS and returns the resulting blob reference,
+ * ready to be embedded in a record (e.g. an avatar or banner on a profile).
+ */
+export const uploadBlob = async (
+	agent: Agent,
+	file: Blob,
+): Promise<BlobRef> => {
+	const res = await agent.com.atproto.repo.uploadBlob(file, {
+		encoding: file.type,
+	});
+	return res.data.blob;
 };
 
 export const deleteRecord = async (

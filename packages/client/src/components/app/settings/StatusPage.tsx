@@ -1,6 +1,8 @@
 import twemoji from "@twemoji/api";
 import { type Component, createSignal, Match, Switch } from "solid-js";
+import { toast } from "somoto";
 import SmileyIcon from "~icons/ph/smiley";
+import { putRecord } from "../../../atproto/pds";
 import { useUserContext } from "../../../contexts/User";
 import { Button } from "../../ui/Button";
 import { TextField, TextFieldInput } from "../../ui/TextField";
@@ -18,28 +20,49 @@ export const StatusPage: Component = () => {
 	const saveStatus = async () => {
 		setLoading(true);
 
-		// TODO: Write to PDS
-		// const statusRes = await actions.setStatus({
-		// 	status: status(),
-		// 	emoji: emoji(),
-		// });
+		try {
+			const { agent } = user.atproto;
+			const repo = user.did;
 
-		// setLoading(false);
+			// Status and emoji live in the `social.colibri.actor.data` record
+			// alongside the user's community list, so read the current record first
+			// to preserve `communities` before writing the new status back.
+			let record: Record<string, unknown> = { status: "", communities: [] };
+			try {
+				const res = await agent.com.atproto.repo.getRecord({
+					repo,
+					collection: "social.colibri.actor.data",
+					rkey: "self",
+				});
+				record = (res.data.value as Record<string, unknown>) ?? record;
+			} catch {
+				// No actor.data record yet — create one from scratch.
+			}
 
-		// if (statusRes.error) {
-		// 	toast.error("Failed to update status", {
-		// 		description: parseZodToErrorOrDisplay(statusRes.error.message),
-		// 	});
-		// 	return;
-		// }
+			const text = status().trim();
+			const emojiValue = emoji().trim();
 
-		// setUserData({
-		// 	...globalData.user,
-		// 	status: status(),
-		// 	emoji: emoji(),
-		// });
+			record.status = text;
+			if (emojiValue) record.emoji = emojiValue;
+			else delete record.emoji;
 
-		resetStatus();
+			await putRecord(agent, repo, "social.colibri.actor.data", "self", record);
+
+			// Patch the local cache so the new status shows without a full refetch.
+			user.updateActorData({
+				status:
+					text || emojiValue
+						? { text, emoji: emojiValue || undefined }
+						: undefined,
+			});
+
+			toast.success("Status updated.");
+		} catch (err) {
+			console.error("[StatusPage] Failed to save status", err);
+			toast.error("Failed to update status.");
+		} finally {
+			setLoading(false);
+		}
 	};
 
 	const resetStatus = async () => {

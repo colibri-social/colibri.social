@@ -1,6 +1,9 @@
+import type { JsonBlobRef } from "@atproto/lexicon";
 import type { Details } from "@kobalte/core/file-field";
 import { type Component, createSignal, Match, Switch } from "solid-js";
+import { toast } from "somoto";
 import ImageIcon from "~icons/ph/image";
+import { putRecord, uploadBlob } from "../../../atproto/pds";
 import { resolveBlob } from "../../../atproto/resolve-blob";
 import {
 	FileField,
@@ -34,8 +37,6 @@ export const GeneralPage: Component = () => {
 	const [imageRemoved, setImageRemoved] = createSignal(false);
 	const [bannerRemoved, setBannerRemoved] = createSignal(false);
 
-	const [status, setStatus] = createSignal(user.data.status);
-
 	const existingImageUrl = () =>
 		!imageRemoved() && image() === undefined
 			? (user.data.avatar ?? undefined)
@@ -49,8 +50,6 @@ export const GeneralPage: Component = () => {
 	const hasEdited = (): boolean =>
 		name() !== user.data.displayName ||
 		description() !== user.data.description ||
-		status()?.emoji !== user.data.status?.emoji ||
-		status()?.text !== user.data.status?.text ||
 		imageRemoved() ||
 		bannerRemoved() ||
 		image() !== undefined ||
@@ -59,93 +58,69 @@ export const GeneralPage: Component = () => {
 	const saveProfile = async () => {
 		setLoading(true);
 
-		// Download original image, convert to base64 if defined and not changed
-		const existingImage = resolveBlob(user.did, existingImageUrl());
-		const existingBanner = resolveBlob(user.did, existingBannerUrl());
-		const reader = new FileReader();
+		try {
+			const { agent } = user.atproto;
+			const repo = user.did;
 
-		let _imageBase64: string | undefined;
-		let _imageMimeType: string | undefined;
-		let _bannerBase64: string | undefined;
-		let _bannerMimeType: string | undefined;
+			// Profile fields (display name, description, avatar, banner) live in the
+			// user's own `app.bsky.actor.profile` record, so we write straight to the
+			// PDS. Read the current record first to preserve fields this form doesn't
+			// manage and to keep blobs the user didn't touch.
+			let record: Record<string, unknown> = {};
+			try {
+				const res = await agent.com.atproto.repo.getRecord({
+					repo,
+					collection: "app.bsky.actor.profile",
+					rkey: "self",
+				});
+				record = (res.data.value as Record<string, unknown>) ?? {};
+			} catch {
+				// No profile record yet — create one from scratch.
+			}
 
-		if (existingImage) {
-			const originalImage = await (await fetch(existingImage)).blob();
+			// Mirror every change into the local cache so the UI updates without a
+			// full refetch. `toJSON()` yields the `{ ref: { $link } }` shape that
+			// `resolveBlob` expects for freshly uploaded blobs.
+			const patch: Partial<typeof user.data> = {
+				displayName: name().trim(),
+				description: description().trim(),
+			};
 
-			_imageBase64 = await new Promise<string>((resolve, reject) => {
-				reader.onload = () => resolve(reader.result as string);
-				reader.onerror = reject;
-				reader.readAsDataURL(originalImage);
-			});
+			// Avatar: upload a new file, clear it on removal, otherwise leave as-is.
+			if (image()) {
+				const blob = await uploadBlob(agent, image()!.acceptedFiles[0]);
+				record.avatar = blob;
+				patch.avatar = blob.toJSON() as unknown as JsonBlobRef;
+			} else if (imageRemoved()) {
+				record.avatar = undefined;
+				patch.avatar = undefined;
+			}
 
-			_imageMimeType = originalImage.type;
-			// Get mime type for image, convert to base64
-		} else if (image()) {
-			_imageBase64 = await new Promise<string>((resolve, reject) => {
-				reader.onload = () => resolve(reader.result as string);
-				reader.onerror = reject;
-				reader.readAsDataURL(image()!.acceptedFiles[0]);
-			});
+			// Banner: same three cases.
+			if (banner()) {
+				const blob = await uploadBlob(agent, banner()!.acceptedFiles[0]);
+				record.banner = blob;
+				patch.banner = blob.toJSON() as unknown as JsonBlobRef;
+			} else if (bannerRemoved()) {
+				record.banner = undefined;
+				patch.banner = undefined;
+			}
 
-			_imageMimeType = image()!.acceptedFiles[0].type;
+			record.displayName = name().trim();
+			record.description = description().trim();
+
+			await putRecord(agent, repo, "app.bsky.actor.profile", "self", record);
+
+			user.updateActorData(patch);
+
+			toast.success("Profile updated.");
+			resetEdits();
+		} catch (err) {
+			console.error("[GeneralPage] Failed to save profile", err);
+			toast.error("Failed to update profile.");
+		} finally {
+			setLoading(false);
 		}
-
-		if (existingBanner) {
-			const originalImage = await (await fetch(existingBanner)).blob();
-
-			_bannerBase64 = await new Promise<string>((resolve, reject) => {
-				reader.onload = () => resolve(reader.result as string);
-				reader.onerror = reject;
-				reader.readAsDataURL(originalImage);
-			});
-
-			_bannerMimeType = originalImage.type;
-			// Get mime type for image, convert to base64
-		} else if (banner()) {
-			_bannerBase64 = await new Promise<string>((resolve, reject) => {
-				reader.onload = () => resolve(reader.result as string);
-				reader.onerror = reject;
-				reader.readAsDataURL(banner()!.acceptedFiles[0]);
-			});
-
-			_bannerMimeType = banner()!.acceptedFiles[0].type;
-		}
-
-		// TODO: Use PDS endpoints, maybe use own lexicon for overrides?
-		// const userData = await actions.editProfile({
-		// 	name: name(),
-		// 	description: description(),
-		// 	image: imageBase64
-		// 		? {
-		// 				base64: imageBase64,
-		// 				type: imageMimeType!,
-		// 			}
-		// 		: undefined,
-		// 	banner: bannerBase64
-		// 		? {
-		// 				base64: bannerBase64,
-		// 				type: bannerMimeType!,
-		// 			}
-		// 		: undefined,
-		// });
-
-		// if (userData.error) {
-		// 	setLoading(false);
-		// 	toast.error("Failed to update profile", {
-		// 		description: parseZodToErrorOrDisplay(userData.error.message),
-		// 	});
-		// 	return;
-		// }
-
-		// setUserData({
-		// 	...globalData.user,
-		// 	displayName: name(),
-		// 	description: description(),
-		// 	avatar: userData.data.imageUrl,
-		// 	banner: userData.data.bannerUrl,
-		// });
-		// resetEdits();
-		// setLoading(false);
 	};
 
 	const resetEdits = () => {
@@ -155,7 +130,6 @@ export const GeneralPage: Component = () => {
 		setBanner(undefined);
 		setImageRemoved(false);
 		setBannerRemoved(false);
-		setStatus(user.data.status);
 	};
 
 	return (
