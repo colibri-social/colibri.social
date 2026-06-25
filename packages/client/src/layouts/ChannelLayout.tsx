@@ -12,9 +12,11 @@ import {
 	untrack,
 } from "solid-js";
 import { toast } from "somoto";
+import ArrowDownIcon from "~icons/ph/arrow-down";
 import type { Message as MessageData } from "../atproto/xrpc/social/colibri/channel/listMessages";
 import { Message } from "../components/app/channel/message/Message";
 import { MessageInput } from "../components/app/community/MessageInput";
+import { Button } from "../components/ui/Button";
 import {
 	FileField,
 	FileFieldDropzone,
@@ -22,45 +24,26 @@ import {
 } from "../components/ui/FileField";
 import { ChannelContextProvider, useChannelContext } from "../contexts/Channel";
 import { useCommunityContext } from "../contexts/Community";
+import { isSameChannelUri, useNotifications } from "../contexts/Notifications";
 import { ScrollAnchorProvider } from "../contexts/ScrollAnchor";
+import { useUserContext } from "../contexts/User";
 import { getChannelParam } from "../utils/get-param";
 
 type MessageMeta = {
-	/** True when the previous message was authored on a different calendar day. */
 	isOnNewDay: boolean;
-	/** True when this row continues a run by the same author on the same day. */
 	isSubsequent: boolean;
-	/** True when the next row will continue the run from this one. */
 	hasSubsequent: boolean;
-	/** When `isOnNewDay`, the localized date string to show in the divider. */
 	dateLabel: string | undefined;
 };
 
-/**
- * Calendar-day comparison. The old Astro `ChannelView` used `Date#getDay()`,
- * which returns the day-of-week (0–6) — that silently wraps every 7 days
- * (e.g. Mon Jan 1 and Mon Jan 8 compared equal). `toDateString()` returns
- * a unique string per calendar date so the divider lands in the right
- * places.
- */
 const sameDay = (a: string, b: string): boolean =>
 	new Date(a).toDateString() === new Date(b).toDateString();
 
-/**
- * Messages from the same author are grouped (subsequent) only when they
- * fall within this window. Keeps the grouping meaningful and avoids
- * collapsing messages hours apart.
- */
 const GROUPING_WINDOW_MS = 5 * 60 * 1000;
 
 const withinGroupingWindow = (a: string, b: string): boolean =>
 	Math.abs(new Date(a).getTime() - new Date(b).getTime()) < GROUPING_WINDOW_MS;
 
-// The `listMessages` response type lacks `createdAt` and `edited` today, but
-// every consumer (Message.tsx, this layout) needs them. Cast through this
-// local alias as a stop-gap until that XRPC type is enriched to match the
-// real record shape.
-// TODO: Drop the cast once `listMessages.ts`'s `Message` carries createdAt.
 type RichMessage = MessageData & { createdAt: string };
 
 const DEFAULT_META: MessageMeta = {
@@ -72,12 +55,10 @@ const DEFAULT_META: MessageMeta = {
 
 const ChannelLayout: ParentComponent = (props) => {
 	const channel = useChannelContext();
+	const notifications = useNotifications();
+	const user = useUserContext();
 	const [files, setFiles] = createSignal<Details>();
 
-	// Per-row meta (isSubsequent / hasSubsequent / new-day divider). Computed
-	// once per messages-array update rather than per-row on every reactivity
-	// tick — each row just indexes in. Ported and cleaned up from the old
-	// Astro `ChannelView`'s inline derived-signal style.
 	const messageMeta = createMemo<MessageMeta[]>(() => {
 		const msgs = channel.messages() as RichMessage[];
 		return msgs.map((m, i): MessageMeta => {
@@ -113,10 +94,25 @@ const ChannelLayout: ParentComponent = (props) => {
 	let hiddenInput: HTMLInputElement | undefined;
 	let observer: IntersectionObserver | undefined;
 	let contentResizeObserver: ResizeObserver | undefined;
+	let readObserver: IntersectionObserver | undefined;
+	let armedFocusUri: string | undefined;
+	let focusWalkUri: string | undefined;
+	let focusWalkAttempts = 0;
+	const FOCUS_WALK_CAP = 50;
+	let cursorWalkAttempts = 0;
 	let didInitialScroll = false;
 	let scrollBottomBeforeFetch: number | null = null;
-	/** True whenever the scroll position is within 80px of the bottom. Updated by handleScroll. */
 	let wasAtBottom = false;
+	let pingObserver: IntersectionObserver | undefined;
+	const [unseenPings, setUnseenPings] = createSignal<Set<string>>(new Set());
+	const [showJumpToLatest, setShowJumpToLatest] = createSignal(false);
+	let jumpObserver: IntersectionObserver | undefined;
+	let jumpSentinel: HTMLElement | undefined;
+
+	const jumpSentinelIndex = createMemo(() => {
+		const n = channel.messages().length;
+		return n > 50 ? n - 50 : -1;
+	});
 
 	const scrollToBottom = () => {
 		if (!scrollContainer) return;
@@ -124,9 +120,12 @@ const ChannelLayout: ParentComponent = (props) => {
 		wasAtBottom = true;
 	};
 
-	// Wire the IntersectionObserver against the top sentinel: as soon as it
-	// scrolls into view (with a 120px head start to feel responsive), kick off
-	// a `loadOlder()`. Disconnect once the channel hits the top.
+	const observeJumpSentinel = (el: HTMLDivElement) => {
+		if (jumpSentinel && jumpObserver) jumpObserver.unobserve(jumpSentinel);
+		jumpSentinel = el;
+		jumpObserver?.observe(el);
+	};
+
 	const setupObserver = () => {
 		observer?.disconnect();
 		if (!scrollContainer || !topSentinel) return;
@@ -154,8 +153,10 @@ const ChannelLayout: ParentComponent = (props) => {
 			scrollContainer.scrollTop -
 			scrollContainer.clientHeight;
 		wasAtBottom = distFromBottom < 80;
-		if (wasAtBottom && channel.readCursorUri()) {
-			channel.markSeen();
+
+		if (wasAtBottom) {
+			channel.advanceReadCursor();
+			notifications.markChannelRead(channel.channelUri());
 		}
 	};
 
@@ -165,8 +166,20 @@ const ChannelLayout: ParentComponent = (props) => {
 			passive: true,
 		});
 
-		// When images or embeds expand the content height, re-pin to the bottom
-		// if the user was already there — without this the view drifts up.
+		jumpObserver = new IntersectionObserver(
+			(entries) => {
+				const entry = entries[0];
+				if (!entry) return;
+				const root = entry.rootBounds;
+				setShowJumpToLatest(
+					!entry.isIntersecting &&
+						!!root &&
+						entry.boundingClientRect.top >= root.bottom,
+				);
+			},
+			{ root: scrollContainer },
+		);
+
 		if (messagesWrapper) {
 			contentResizeObserver = new ResizeObserver(() => {
 				if (!scrollContainer || !didInitialScroll) return;
@@ -181,35 +194,183 @@ const ChannelLayout: ParentComponent = (props) => {
 	onCleanup(() => {
 		observer?.disconnect();
 		contentResizeObserver?.disconnect();
+		readObserver?.disconnect();
+		pingObserver?.disconnect();
+		jumpObserver?.disconnect();
 		scrollContainer?.removeEventListener("scroll", handleScroll);
 	});
 
-	// On every channel switch, rebind the observer (the messages array gets
-	// cleared; the scroll container will be near scrollTop=0 for a moment).
+	createEffect(() => {
+		if (jumpSentinelIndex() !== -1) return;
+		if (jumpSentinel && jumpObserver) jumpObserver.unobserve(jumpSentinel);
+		jumpSentinel = undefined;
+		setShowJumpToLatest(false);
+	});
+
+	createEffect(
+		on(channel.channelUri, async (uri) => {
+			pingObserver?.disconnect();
+			pingObserver = undefined;
+			setUnseenPings(new Set<string>());
+			if (!uri) return;
+
+			const res = await user.xrpc.social.colibri.notification.getUnseen(uri);
+			// Bail if the channel switched while we awaited.
+			if (!res || uri !== channel.channelUri()) return;
+
+			const uris = res.notifications.map((n) => n.messageUri);
+			if (uris.length > 0) setUnseenPings(new Set(uris));
+		}),
+	);
+
+	createEffect(() => {
+		const pending = unseenPings();
+		channel.messages(); // track so newly-mounted rows get observed
+		if (!scrollContainer || pending.size === 0) return;
+
+		if (!pingObserver) {
+			pingObserver = new IntersectionObserver(
+				(entries) => {
+					for (const entry of entries) {
+						if (!entry.isIntersecting) continue;
+						const node = entry.target as HTMLElement;
+						pingObserver?.unobserve(node);
+						const uri = node.getAttribute("data-message-uri");
+						if (!uri) continue;
+						let wasPending = false;
+						setUnseenPings((prev) => {
+							if (!prev.has(uri)) return prev;
+							wasPending = true;
+							const next = new Set(prev);
+							next.delete(uri);
+							return next;
+						});
+						if (wasPending)
+							notifications.markMessageSeen(uri, channel.channelUri());
+					}
+				},
+				{ root: scrollContainer, threshold: 0 },
+			);
+		}
+
+		queueMicrotask(() => {
+			if (!scrollContainer || !pingObserver) return;
+			for (const uri of unseenPings()) {
+				const node = scrollContainer.querySelector<HTMLElement>(
+					`[data-message-uri="${CSS.escape(uri)}"]`,
+				);
+				if (node) pingObserver.observe(node);
+			}
+		});
+	});
+
+	createEffect(() => {
+		const target = notifications.pendingFocus();
+		if (!target || !isSameChannelUri(target.channelUri, channel.channelUri())) {
+			readObserver?.disconnect();
+			readObserver = undefined;
+			armedFocusUri = undefined;
+			return;
+		}
+
+		if (focusWalkUri !== target.messageUri) {
+			focusWalkUri = target.messageUri;
+			focusWalkAttempts = 0;
+		}
+
+		const present = channel.messages().some((m) => m.uri === target.messageUri);
+		if (!present) {
+			if (channel.hasMore() && focusWalkAttempts < FOCUS_WALK_CAP) {
+				focusWalkAttempts++;
+				channel.loadOlder(); // no-op while inflight
+			} else {
+				// Not in this channel's history (deleted, or beyond the cap)
+				notifications.clearPendingFocus();
+			}
+			return;
+		}
+
+		if (armedFocusUri === target.messageUri) return; // already armed
+		armedFocusUri = target.messageUri;
+
+		channel.jumpToMessage(target.messageUri);
+
+		queueMicrotask(() => {
+			if (!scrollContainer) return;
+			const node = scrollContainer.querySelector<HTMLElement>(
+				`[data-message-uri="${CSS.escape(target.messageUri)}"]`,
+			);
+			if (!node) {
+				armedFocusUri = undefined; // let a later messages() change retry
+				return;
+			}
+			readObserver?.disconnect();
+			readObserver = new IntersectionObserver(
+				(entries) => {
+					if (!entries[0]?.isIntersecting) return;
+					readObserver?.disconnect();
+					readObserver = undefined;
+					notifications.markMessageSeen(target.messageUri, target.channelUri);
+					notifications.clearPendingFocus();
+				},
+				{ root: scrollContainer, threshold: 0 },
+			);
+			readObserver.observe(node);
+		});
+	});
+
 	createEffect(
 		on(channel.channelUri, () => {
 			didInitialScroll = false;
 			wasAtBottom = false;
+			cursorWalkAttempts = 0;
 			setupObserver();
 		}),
 	);
 
-	// Once the first page has arrived for a freshly-mounted channel, pin to
-	// the bottom (chat-style: newest message visible on entry).
 	createEffect(() => {
 		if (didInitialScroll) return;
 		if (channel.initialLoading()) return;
 		if (channel.messages().length === 0 && channel.hasMore()) return;
+		if (!channel.readCursorResolved()) return;
+
+		const cursorUri = channel.readCursorUri();
+		const msgs = channel.messages();
+		const cursorIdx = cursorUri
+			? msgs.findIndex((m) => m.uri === cursorUri)
+			: -1;
+
+		if (cursorUri && cursorIdx === -1) {
+			if (channel.hasMore() && cursorWalkAttempts < FOCUS_WALK_CAP) {
+				cursorWalkAttempts++;
+				channel.loadOlder();
+				return;
+			}
+		}
 
 		didInitialScroll = true;
-		requestAnimationFrame(() => scrollToBottom());
+
+		const landOnCursor = cursorIdx >= 0 && cursorIdx < msgs.length - 1;
+
+		requestAnimationFrame(() => {
+			const node =
+				landOnCursor && cursorUri && scrollContainer
+					? scrollContainer.querySelector<HTMLElement>(
+							`[data-message-uri="${CSS.escape(cursorUri)}"]`,
+						)
+					: null;
+
+			if (node) {
+				node.scrollIntoView({ block: "start" });
+			} else {
+				scrollToBottom();
+			}
+
+			channel.advanceReadCursor();
+			notifications.markChannelRead(channel.channelUri());
+		});
 	});
 
-	// Whenever `focusedMessage` flips to a URI, scroll the matching row into
-	// view. The Channel context guarantees the message is loaded by the time
-	// `focusedMessage` is set (via `loadOlder` walks inside `jumpToMessage`),
-	// but a microtask defer ensures the DOM has the freshly-prepended rows
-	// mounted before we query.
 	createEffect(
 		on(
 			() => channel.focusedMessage(),
@@ -226,29 +387,33 @@ const ChannelLayout: ParentComponent = (props) => {
 		),
 	);
 
-	// Auto-scroll to the bottom when a new message arrives from another user
-	// over the socket — but only if the user is already near the bottom, so we
-	// don't yank them down while they're reading scrollback.
 	createEffect(
 		on(
 			() => channel.newIncomingMessage(),
 			(count) => {
 				if (!count) return; // skip initial 0
 				if (!didInitialScroll || !scrollContainer) return;
-				const distFromBottom =
-					scrollContainer.scrollHeight -
-					scrollContainer.scrollTop -
-					scrollContainer.clientHeight;
-				if (distFromBottom < 80) {
-					requestAnimationFrame(() => scrollToBottom());
-				}
+				if (!wasAtBottom) return;
+				requestAnimationFrame(() => scrollToBottom());
+				channel.clearUnreadBoundary();
 			},
 		),
 	);
 
-	// Scroll preservation when older pages get prepended: before the fetch
-	// fires we capture the distance from the bottom; after the prepend
-	// completes we restore that distance so the user's viewport doesn't jump.
+	createEffect(
+		on(
+			() => channel.outgoingMessage(),
+			(count) => {
+				if (!count) return; // skip initial 0
+				if (!scrollContainer) return;
+				// The user just sent a message — always pin to it, even if they'd
+				// scrolled up.
+				requestAnimationFrame(() => scrollToBottom());
+				channel.clearUnreadBoundary();
+			},
+		),
+	);
+
 	createEffect(
 		on(
 			() => channel.loadingOlder(),
@@ -263,9 +428,6 @@ const ChannelLayout: ParentComponent = (props) => {
 					scrollBottomBeforeFetch = null;
 					requestAnimationFrame(() => {
 						if (!scrollContainer) return;
-						// Skip on the very first load — `didInitialScroll` will pin to
-						// bottom; we only want preservation behaviour on subsequent
-						// prepends triggered by the IntersectionObserver.
 						if (!untrack(() => didInitialScroll)) return;
 						scrollContainer.scrollTop = scrollContainer.scrollHeight - saved;
 					});
@@ -294,98 +456,117 @@ const ChannelLayout: ParentComponent = (props) => {
 						onClick={(e) => e.stopPropagation()}
 						onKeyDown={(e) => e.stopPropagation()}
 					>
-						<div
-							class="w-full flex-1 min-h-0 overflow-y-auto mb-4 h-full"
-							style={{ "overflow-anchor": "none" }}
-							ref={scrollContainer}
-						>
-							<div ref={topSentinel} class="w-full h-px" aria-hidden="true" />
+						<div class="relative w-full flex-1 min-h-0 mb-4">
+							<div
+								class="w-full h-full overflow-y-auto"
+								style={{ "overflow-anchor": "none" }}
+								ref={scrollContainer}
+							>
+								<div ref={topSentinel} class="w-full h-px" aria-hidden="true" />
+								<ScrollAnchorProvider container={() => scrollContainer}>
+									<div ref={messagesWrapper} class="h-[calc(100%-1px)] w-full">
+										<Show
+											when={
+												channel.loadingOlder() && channel.messages().length > 0
+											}
+										>
+											<div class="w-full text-center py-2 text-xs text-muted-foreground">
+												Loading older messages…
+											</div>
+										</Show>
 
-							{/* messagesWrapper is observed by the ResizeObserver so that
-							    image/embed loads that expand content re-pin the view to
-							    the bottom when the user is already there. The
-							    ScrollAnchorProvider lets individual media compensate scroll
-							    when they load in above the fold (see useStableMedia). */}
-							<ScrollAnchorProvider container={() => scrollContainer}>
-								<div ref={messagesWrapper} class="h-[calc(100%-1px)] w-full">
-									<Show
-										when={
-											channel.loadingOlder() && channel.messages().length > 0
-										}
-									>
-										<div class="w-full text-center py-2 text-xs text-muted-foreground">
-											Loading older messages…
-										</div>
-									</Show>
+										<Show
+											when={!channel.hasMore() && channel.messages().length > 0}
+										>
+											<div class="w-full text-center py-2 text-sm text-muted-foreground">
+												This is the start of the channel.
+											</div>
+										</Show>
 
-									<Show
-										when={!channel.hasMore() && channel.messages().length > 0}
-									>
-										<div class="w-full text-center py-2 text-sm text-muted-foreground">
-											This is the start of the channel.
-										</div>
-									</Show>
+										<Show
+											when={
+												!channel.hasMore() && channel.messages().length === 0
+											}
+										>
+											<div class="w-full h-full flex items-center justify-center text-center py-2 text-sm text-muted-foreground">
+												There's nothing here yet! Be the first to send a
+												message.
+											</div>
+										</Show>
 
-									<Show
-										when={!channel.hasMore() && channel.messages().length === 0}
-									>
-										<div class="w-full h-full flex items-center justify-center text-center py-2 text-sm text-muted-foreground">
-											There's nothing here yet! Be the first to send a message.
-										</div>
-									</Show>
+										<Show
+											when={
+												channel.initialLoading() &&
+												channel.messages().length === 0
+											}
+										>
+											<div class="w-full text-center py-4 text-sm text-muted-foreground">
+												Loading messages…
+											</div>
+										</Show>
 
-									<Show
-										when={
-											channel.initialLoading() &&
-											channel.messages().length === 0
-										}
-									>
-										<div class="w-full text-center py-4 text-sm text-muted-foreground">
-											Loading messages…
-										</div>
-									</Show>
+										<Show when={channel.error()}>
+											<div class="w-full text-center py-2 text-xs text-destructive">
+												{`${channel.error()}`}
+											</div>
+										</Show>
 
-									<Show when={channel.error()}>
-										<div class="w-full text-center py-2 text-xs text-destructive">
-											{`${channel.error()}`}
-										</div>
-									</Show>
-
-									<For each={channel.messages()}>
-										{(message, index) => {
-											const meta = () => messageMeta()[index()] ?? DEFAULT_META;
-											const isLastRead = () =>
-												channel.readCursorUri() === message.uri &&
-												index() < messageMeta().length - 1;
-											return (
-												<>
-													<Show when={meta().dateLabel}>
-														{(label) => (
-															<div class="w-[calc(100%-2rem)] h-px m-4 bg-border flex items-center justify-center select-none">
-																<span class="text-sm bg-background px-1">
-																	{label()}
+										<For each={channel.messages()}>
+											{(message, index) => {
+												const meta = () =>
+													messageMeta()[index()] ?? DEFAULT_META;
+												const isLastRead = () =>
+													channel.readCursorUri() === message.uri &&
+													index() < messageMeta().length - 1;
+												return (
+													<>
+														<Show when={index() === jumpSentinelIndex()}>
+															<div
+																ref={observeJumpSentinel}
+																class="w-full h-px"
+																aria-hidden="true"
+															/>
+														</Show>
+														<Show when={meta().dateLabel}>
+															{(label) => (
+																<div class="w-[calc(100%-2rem)] h-px m-4 bg-border flex items-center justify-center select-none">
+																	<span class="text-sm bg-background px-1">
+																		{label()}
+																	</span>
+																</div>
+															)}
+														</Show>
+														<Message
+															data={message}
+															isSubsequent={meta().isSubsequent}
+															hasSubsequent={meta().hasSubsequent}
+														/>
+														<Show when={isLastRead()}>
+															<div class="w-[calc(100%-2rem)] h-px mx-4 my-2.5 bg-primary/50 flex items-center justify-center select-none">
+																<span class="text-xs bg-background px-1 text-primary font-medium">
+																	New messages
 																</span>
 															</div>
-														)}
-													</Show>
-													<Message
-														data={message}
-														isSubsequent={meta().isSubsequent}
-														hasSubsequent={meta().hasSubsequent}
-													/>
-													<Show when={isLastRead()}>
-														<div class="w-[calc(100%-2rem)] h-px mx-4 my-1 bg-primary flex items-center justify-center select-none">
-															<span class="text-xs bg-background px-1 text-primary font-medium">
-																New messages
-															</span>
-														</div>
-													</Show>
-												</>
-											);
-										}}
-									</For>
-								</div>
-							</ScrollAnchorProvider>
+														</Show>
+													</>
+												);
+											}}
+										</For>
+									</div>
+								</ScrollAnchorProvider>
+							</div>
+
+							<Show when={showJumpToLatest()}>
+								<Button
+									variant="secondary"
+									size="sm"
+									onClick={() => scrollToBottom()}
+									class="absolute bottom-2 left-1/2 -translate-x-1/2 z-10 rounded-full border shadow-md"
+								>
+									<ArrowDownIcon />
+									Jump to latest
+								</Button>
+							</Show>
 						</div>
 
 						<Show when={channel.data()}>
@@ -404,11 +585,6 @@ const ChannelLayout: ParentComponent = (props) => {
 const ChannelLayoutWithContext: ParentComponent = (props) => {
 	const community = useCommunityContext();
 
-	// Filter the channel record out of the community context using the rkey
-	// from the URL — the route param is just the rkey, so match against the
-	// last segment of each channel's full AT-URI. Wrapped in `createMemo` so
-	// the lookup re-evaluates when either the URL or the community's channel
-	// list changes (e.g. real-time updates).
 	const channel = createMemo(() => {
 		const rkey = getChannelParam();
 		if (!rkey) return undefined;

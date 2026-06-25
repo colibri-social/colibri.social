@@ -24,10 +24,13 @@ import SpeakerLowIcon from "~icons/ph/speaker-low-fill";
 import type { Category as CategoryType } from "../../../atproto/xrpc/social/colibri/community/listCategories";
 import type { Channel } from "../../../atproto/xrpc/social/colibri/community/listChannels";
 import { usePermissions } from "../../../contexts/Community";
+import { useMutes } from "../../../contexts/Mutes";
+import { useNotifications } from "../../../contexts/Notifications";
 import { useUserContext } from "../../../contexts/User";
 import { useVoiceChatContext } from "../../../contexts/VoiceChat";
 import { Button } from "../../ui/Button";
 import { CategorySettingsModal } from "./CategorySettingsModal";
+import { ChannelContextMenu } from "./ChannelContextMenu";
 import { ChannelCreationModal } from "./ChannelCreationModal";
 import { ChannelSettingsModal } from "./ChannelSettingsModal";
 
@@ -59,7 +62,18 @@ const SortableChannel: Component<{
 	const { canUpdateChannel: _canUpdateChannel } = usePermissions();
 	const canManage = () => _canUpdateChannel(user.did);
 
+	const notifications = useNotifications();
+	const pingCount = () => notifications.pingsForChannel(props.channel.uri);
+	const hasUnreadMessages = () =>
+		notifications.hasUnreadMessages(props.channel.uri);
+	const isUnread = () => pingCount() > 0 || hasUnreadMessages();
+
+	const mutes = useMutes();
+	const isActive = () => params.channel === ChannelRkey();
+	const isMuted = () => mutes.isChannelMuted(props.channel.uri) && !isActive();
+
 	const [isDragging, setIsDragging] = createSignal(false);
+	const [channelSettingsOpen, setChannelSettingsOpen] = createSignal(false);
 
 	onDndDragStart(({ draggable }) => {
 		if (!canManage()) return;
@@ -113,52 +127,68 @@ const SortableChannel: Component<{
 				style={{ "pointer-events": isDragging() ? "none" : undefined }}
 				draggable={false}
 			>
-				<A
-					class="group/channel text-muted-foreground flex flex-row justify-between items-center gap-2 hover:bg-card rounded-sm cursor-pointer p-1 py-0.5 pr-1.25"
-					href={`/app/c/${params.community}/${channelRoutePrefix()}/${ChannelRkey()}`}
-					activeClass="bg-muted! text-foreground!"
-					classList={{
-						"bg-linear-145 from-[#090615] via-[#31226d70] to-[#e0deec30]":
-							voiceData.connection.uri === ChannelUri() &&
-							voiceData.connection.state === ConnectionState.Connected,
-					}}
+				<ChannelContextMenu
+					channel={props.channel}
+					onOpenSettings={() => setChannelSettingsOpen(true)}
 				>
-					<div class="flex flex-row items-center gap-2">
-						<Switch>
-							<Match
-								when={
-									props.channel.type === "text" ||
-									props.channel.type === "social.colibri.channel.text"
-								}
-							>
-								<ChatCircleDotsIcon width={20} height={20} />
-							</Match>
-							<Match
-								when={
-									props.channel.type === "voice" ||
-									props.channel.type === "social.colibri.channel.voice"
-								}
-							>
-								<Show
+					<A
+						class="group/channel text-muted-foreground flex flex-row justify-between items-center gap-2 hover:bg-card rounded-sm cursor-pointer p-1 py-0.5 pr-1.25"
+						href={`/app/c/${params.community}/${channelRoutePrefix()}/${ChannelRkey()}`}
+						activeClass="bg-muted! text-foreground!"
+						classList={{
+							"bg-linear-145 from-[#090615] via-[#31226d70] to-[#e0deec30]":
+								voiceData.connection.uri === ChannelUri() &&
+								voiceData.connection.state === ConnectionState.Connected,
+							"opacity-45 hover:opacity-100": isMuted(),
+						}}
+					>
+						<div class="flex flex-row items-center gap-2">
+							<Switch>
+								<Match
 									when={
-										voiceData.connection.uri === ChannelUri() &&
-										voiceData.connection.state === ConnectionState.Connected &&
-										voiceData.states.micEnabled
+										props.channel.type === "text" ||
+										props.channel.type === "social.colibri.channel.text"
 									}
-									fallback={<SpeakerLowIcon width={20} height={20} />}
 								>
-									<SpeakerHighIcon width={20} height={20} />
-								</Show>
-							</Match>
-						</Switch>
-						<span>{props.channel.name}</span>
-					</div>
-					<div class="flex justify-center items-center pb-px">
-						<Show when={canManage()}>
-							<ChannelSettingsModal
-								class="p-0 w-5 h-5.5"
-								channel={props.channel}
+									<ChatCircleDotsIcon width={20} height={20} />
+								</Match>
+								<Match
+									when={
+										props.channel.type === "voice" ||
+										props.channel.type === "social.colibri.channel.voice"
+									}
+								>
+									<Show
+										when={
+											voiceData.connection.uri === ChannelUri() &&
+											voiceData.connection.state ===
+												ConnectionState.Connected &&
+											voiceData.states.micEnabled
+										}
+										fallback={<SpeakerLowIcon width={20} height={20} />}
+									>
+										<SpeakerHighIcon width={20} height={20} />
+									</Show>
+								</Match>
+							</Switch>
+							<span classList={{ "font-semibold text-foreground": isUnread() }}>
+								{props.channel.name}
+							</span>
+						</div>
+						<div class="flex justify-center items-center gap-1.5 pb-px">
+							<Show
+								when={pingCount() > 0}
+								fallback={
+									<Show when={hasUnreadMessages()}>
+										<span class="w-2 h-2 rounded-full bg-white pointer-events-none select-none" />
+									</Show>
+								}
 							>
+								<span class="min-w-4 h-4 px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center pointer-events-none select-none">
+									{pingCount() > 9 ? "9+" : pingCount()}
+								</span>
+							</Show>
+							<Show when={canManage()}>
 								<Button
 									size="sm"
 									class="opacity-0 group-hover/channel:opacity-100 p-0 w-5 h-5 cursor-pointer channel-settings"
@@ -166,14 +196,23 @@ const SortableChannel: Component<{
 										"opacity-100!": params.channel === ChannelUri(),
 									}}
 									variant="ghost"
-									onClick={(e) => e.preventDefault()}
+									onClick={(e) => {
+										e.preventDefault();
+										e.stopPropagation();
+										setChannelSettingsOpen(true);
+									}}
 								>
 									<GearIcon width={16} height={16} />
 								</Button>
-							</ChannelSettingsModal>
-						</Show>
-					</div>
-				</A>
+							</Show>
+						</div>
+					</A>
+				</ChannelContextMenu>
+				<ChannelSettingsModal
+					channel={props.channel}
+					open={channelSettingsOpen}
+					setOpen={setChannelSettingsOpen}
+				/>
 				<Show
 					when={
 						(props.channel.type === "voice" ||

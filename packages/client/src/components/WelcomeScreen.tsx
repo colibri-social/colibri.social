@@ -23,7 +23,7 @@ export const WelcomeScreen: Component = () => {
 				/>
 				<h3>Welcome to Colibri!</h3>
 				<p>
-					Colibri is under active development <b>and in alpha</b>. You can check
+					Colibri is under active development <b>and in beta</b>. You can check
 					our{" "}
 					<a href="https://colibri.leaflet.pub/3mhxzpvpvps2m">
 						announcement post

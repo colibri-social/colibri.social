@@ -56,12 +56,11 @@ lex.add(
 						communities: {
 							type: "array",
 							description:
-								"A list of references to communities this user has joined and does not own.",
+								"The DIDs of the communities this user is a member of, in the user's preferred sidebar order. Read back by `social.colibri.actor.listCommunities` to restore ordering.",
 							items: {
 								type: "string",
-								format: "record-key",
-								description:
-									"A reference to a community this user has joined and does not own.",
+								format: "did",
+								description: "The DID of a community.",
 							},
 						},
 					},

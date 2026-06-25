@@ -1,8 +1,12 @@
-import type { ColibriRichTextFacet } from "@colibri-social/lib";
+import type { AT_URI, ColibriRichTextFacet } from "@colibri-social/lib";
 import { A } from "@solidjs/router";
 import twemoji from "@twemoji/api";
 import type { JSX } from "solid-js";
+import { rewriteBskyUrl } from "../../../../atproto/bsky-post-url";
+import { communityUriToUrlCompatible } from "../../../../atproto/community-uri-to-url-compatible";
 import { useCommunityContext } from "../../../../contexts/Community";
+import { useUserPreferences } from "../../../../contexts/UserPreferences";
+import { AtURI } from "../../../../utils/at-uri";
 import {
 	buildFeatureKey,
 	normalizeFacets,
@@ -38,6 +42,7 @@ const escapeAttr = (s: string): string =>
  */
 const applyStyleForFacet = (text: string, feature: AnyFeature): JSX.Element => {
 	const community = useCommunityContext();
+	const { preferences } = useUserPreferences();
 
 	const textWithEmojis = twemoji.parse(purify(text));
 
@@ -70,19 +75,23 @@ const applyStyleForFacet = (text: string, feature: AnyFeature): JSX.Element => {
 			);
 		}
 		case "social.colibri.richtext.facet#link": {
-			const uri =
-				"uri" in feature ? escapeAttr(String(feature.uri)) : escapeAttr(text);
+			const rawUri = "uri" in feature ? String(feature.uri) : text;
+			const displayHref = () =>
+				rewriteBskyUrl(rawUri, preferences().preferredBlueskyClient);
+			const isBareUrl = text.trim() === rawUri;
 			return (
 				// biome-ignore lint/a11y/useAnchorContent: This has innerHTML set.
 				<a
 					data-facet-type="link"
-					title={uri}
-					data-uri={uri}
-					href={uri}
+					title={displayHref()}
+					data-uri={escapeAttr(rawUri)}
+					href={displayHref()}
 					class="text-(--primary-hover) decoration-(--primary-hover) font-medium hover:underline inline w-fit"
 					target="_blank"
 					rel="noreferrer"
-					innerHTML={textWithEmojis}
+					innerHTML={
+						isBareUrl ? twemoji.parse(purify(displayHref())) : textWithEmojis
+					}
 				/>
 			);
 		}
@@ -90,12 +99,12 @@ const applyStyleForFacet = (text: string, feature: AnyFeature): JSX.Element => {
 			const channel =
 				"channel" in feature ? escapeAttr(String(feature.channel)) : "";
 
-			const channelData = community().channels.find((c) => c.uri === channel);
+			const c = community();
+			const channelData = c.channels.find((c) => c.uri === channel);
 
 			if (channelData) {
-				// TODO: This needs to be fixed so it links correctly
 				const href = escapeAttr(
-					`/c/${community}/${channelData.type.slice(0, 1)}/${channel}`,
+					`/app/c/${communityUriToUrlCompatible(c.community.uri as AT_URI<"social.colibri.community">)}/${channelData.type}/${new AtURI(channelData.uri).identifier}`,
 				);
 				return (
 					<A
@@ -165,6 +174,7 @@ export const renderWithFacets = (
 	input: TextWithFacets,
 	_community?: string,
 ): Array<JSX.Element> => {
+	const { preferences } = useUserPreferences();
 	const bytes = textEncoder.encode(input.text);
 
 	const normalizedFacets = normalizeFacets(input.facets);
@@ -260,18 +270,25 @@ export const renderWithFacets = (
 						break;
 					case "social.colibri.richtext.facet#link":
 						if ("uri" in feature) {
-							const uri = escapeAttr(String(feature.uri));
+							const rawUri = String(feature.uri);
+							const displayHref = () =>
+								rewriteBskyUrl(rawUri, preferences().preferredBlueskyClient);
+							const isBareUrl = segmentText.trim() === rawUri;
 							element = (
 								<a
 									data-facet-type="link"
-									title={uri}
-									data-uri={uri}
-									href={uri}
+									title={displayHref()}
+									data-uri={escapeAttr(rawUri)}
+									href={displayHref()}
 									class="text-(--primary-hover) decoration-(--primary-hover) font-medium hover:underline inline w-fit"
 									target="_blank"
 									rel="noreferrer"
 								>
-									{wrappedElement}
+									{isBareUrl ? (
+										<span innerHTML={twemoji.parse(purify(displayHref()))} />
+									) : (
+										wrappedElement
+									)}
 								</a>
 							);
 						}

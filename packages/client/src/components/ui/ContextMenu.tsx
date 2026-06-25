@@ -9,7 +9,9 @@ export const ContextMenuPortal = ContextMenuPrimitive.Portal;
 export type ContextMenuProps = ComponentProps<typeof ContextMenuPrimitive>;
 
 export const ContextMenu = (props: ContextMenuProps) => {
-	return <ContextMenuPrimitive data-slot="context-menu" {...props} />;
+	return (
+		<ContextMenuPrimitive data-slot="context-menu" modal={false} {...props} />
+	);
 };
 
 export type ContextMenuTriggerProps<T extends ValidComponent = "div"> =

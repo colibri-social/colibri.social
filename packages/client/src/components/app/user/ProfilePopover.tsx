@@ -118,7 +118,7 @@ export const ProfilePopoverContents: Component<{ user: ActorData }> = (
 						when={
 							((props.user.data.status?.text?.length ?? 0) > 0 ||
 								(props.user.data.status?.emoji?.length ?? 0) > 0) &&
-							props.user.data.onlineState !== "offline"
+							props.user.data?.onlineState !== "offline"
 						}
 					>
 						<span class="flex flex-row items-start gap-2 bg-card border border-border rounded-sm px-1.5 py-0.5 drop-shadow-black drop-shadow-sm max-w-48 overflow-hidden">

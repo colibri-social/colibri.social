@@ -31,6 +31,7 @@ import {
 	ROLE_MANAGE,
 } from "../atproto/permissions";
 import type { Community as CommunityResponse } from "../atproto/xrpc/social/colibri/community/getData";
+import type { Applicant } from "../atproto/xrpc/social/colibri/community/listApplications";
 import type { Role } from "../atproto/xrpc/social/colibri/community/listRoles";
 import { AppLoadingScreen } from "../components/AppLoadingScreen";
 import { AtURI } from "../utils/at-uri";
@@ -39,13 +40,15 @@ import { useSocketContext } from "./Socket";
 import { useUserContext } from "./User";
 
 type CommunityContextData = CommunityResponse & {
-	/** Non-protected roles — the ones safe to show and assign. */
 	assignableRoles: Array<Role>;
+	applications: Array<Applicant>;
+	dismissedApplications: Array<Applicant>;
 	ownerDid: Accessor<string>;
 	utils: {
 		getRolesForUser: (did: string) => Array<Role>;
 		setRolesForUser: (did: string, roles: Array<string>) => void;
 		refetch: () => void;
+		refetchApplications: () => void;
 	};
 };
 
@@ -68,6 +71,26 @@ export const CommunityContextProvider: ParentComponent = (props) => {
 			pendingRoleIntents.clear();
 			return await user.xrpc.social.colibri.community.getData(uri);
 		},
+	);
+
+	// Pending join applications (active + moderator-dismissed)
+	const [
+		applications,
+		{ mutate: mutateApplications, refetch: refetchApplications },
+	] = createResource(
+		() =>
+			community.latest?.community.requiresApprovalToJoin
+				? communityUri()
+				: undefined,
+		async (uri) => {
+			const res =
+				await user.xrpc.social.colibri.community.listApplications(uri);
+			return {
+				applications: res?.applications ?? [],
+				dismissed: res?.dismissedApplications ?? [],
+			};
+		},
+		{ initialValue: { applications: [], dismissed: [] } },
 	);
 
 	// Handle updates for community data, members, categories, and channels
@@ -114,6 +137,22 @@ export const CommunityContextProvider: ParentComponent = (props) => {
 			if (data.community !== communityUri()) return;
 
 			if (data.event === "join") {
+				const queues = applications.latest ?? {
+					applications: [],
+					dismissed: [],
+				};
+				const matches = (a: Applicant) =>
+					a.membership === data.membership || a.did === data.member.did;
+				if (
+					queues.applications.some(matches) ||
+					queues.dismissed.some(matches)
+				) {
+					mutateApplications({
+						applications: queues.applications.filter((a) => !matches(a)),
+						dismissed: queues.dismissed.filter((a) => !matches(a)),
+					});
+				}
+
 				// Append the new member if not already present (idempotent).
 				if (prev.members.some((m) => m.did === data.member.did)) return;
 				mutate({ ...prev, members: [...prev.members, data.member] });
@@ -175,6 +214,79 @@ export const CommunityContextProvider: ParentComponent = (props) => {
 					members: prev.members.filter((m) => m.did !== data.memberDid),
 				});
 			}
+		} else if (event.type === "application_event" && event.data) {
+			const { data } = event;
+			if (data.community !== communityUri()) return;
+
+			const queues = applications.latest ?? {
+				applications: [],
+				dismissed: [],
+			};
+
+			if (data.event === "create") {
+				// A new (or kick-resurfaced) pending application.
+				if (queues.applications.some((a) => a.membership === data.membership)) {
+					return;
+				}
+				mutateApplications({
+					applications: [
+						...queues.applications,
+						{
+							did: data.did,
+							handle: data.handle,
+							membership: data.membership,
+							createdAt: data.createdAt,
+							data: data.data,
+						},
+					],
+					dismissed: queues.dismissed.filter(
+						(a) => a.membership !== data.membership,
+					),
+				});
+			} else if (data.event === "dismiss") {
+				const existing = queues.applications.find(
+					(a) => a.membership === data.membership,
+				);
+				if (!existing) {
+					if (!queues.dismissed.some((a) => a.membership === data.membership)) {
+						refetchApplications();
+					}
+					return;
+				}
+				mutateApplications({
+					applications: queues.applications.filter(
+						(a) => a.membership !== data.membership,
+					),
+					dismissed: [...queues.dismissed, existing],
+				});
+			} else if (data.event === "undismiss") {
+				const existing = queues.dismissed.find(
+					(a) => a.membership === data.membership,
+				);
+				if (!existing) {
+					if (
+						!queues.applications.some((a) => a.membership === data.membership)
+					) {
+						refetchApplications();
+					}
+					return;
+				}
+				mutateApplications({
+					applications: [...queues.applications, existing],
+					dismissed: queues.dismissed.filter(
+						(a) => a.membership !== data.membership,
+					),
+				});
+			} else if (data.event === "resolve") {
+				mutateApplications({
+					applications: queues.applications.filter(
+						(a) => a.membership !== data.membership,
+					),
+					dismissed: queues.dismissed.filter(
+						(a) => a.membership !== data.membership,
+					),
+				});
+			}
 		} else if (event.type === "community_event" && event.data) {
 			const { data } = event;
 			if (data.uri !== communityUri()) return;
@@ -197,6 +309,9 @@ export const CommunityContextProvider: ParentComponent = (props) => {
 					...(data.picture !== undefined && { picture: data.picture }),
 					...(data.categoryOrder !== undefined && {
 						categoryOrder: data.categoryOrder,
+					}),
+					...(data.requiresApprovalToJoin !== undefined && {
+						requiresApprovalToJoin: data.requiresApprovalToJoin,
 					}),
 				},
 			});
@@ -375,6 +490,8 @@ export const CommunityContextProvider: ParentComponent = (props) => {
 	const value: Accessor<CommunityContextData> = () => ({
 		...(community.latest as CommunityResponse),
 		assignableRoles: assignableRoles(),
+		applications: applications.latest?.applications ?? [],
+		dismissedApplications: applications.latest?.dismissed ?? [],
 		ownerDid: () =>
 			community.latest!.members.find((x) =>
 				x.roles.some((y) => y === ownerRole().uri || ""),
@@ -383,6 +500,7 @@ export const CommunityContextProvider: ParentComponent = (props) => {
 			getRolesForUser,
 			setRolesForUser,
 			refetch: () => void refetch(),
+			refetchApplications: () => void refetchApplications(),
 		},
 	});
 

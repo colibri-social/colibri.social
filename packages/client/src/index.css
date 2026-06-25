@@ -380,3 +380,7 @@
 .marquee-container:hover .animate-marquee {
 	animation-play-state: paused;
 }
+
+ol[data-somoto-toaster] > li {
+	width: 100% !important;
+}

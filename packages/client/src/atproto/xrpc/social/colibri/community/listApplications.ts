@@ -1,4 +1,5 @@
-import type { ActorData } from "@colibri-social/lib";
+import type { JsonBlobRef } from "@atproto/lexicon";
+import type { OnlineState } from "@colibri-social/lib";
 import type { XrpcRequest } from "../../..";
 
 export type Applicant = {
@@ -6,11 +7,22 @@ export type Applicant = {
 	handle: string;
 	membership: string;
 	createdAt: string;
-	data: ActorData;
+	data: {
+		displayName: string;
+		avatar?: JsonBlobRef;
+		banner?: JsonBlobRef;
+		description?: string;
+		onlineState: OnlineState;
+		status?: {
+			emoji?: string;
+			text: string;
+		};
+	};
 };
 
 type Response = {
 	applications: Array<Applicant>;
+	dismissedApplications: Array<Applicant>;
 };
 
 export const listApplications: XrpcRequest<

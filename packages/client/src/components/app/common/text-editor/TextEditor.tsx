@@ -34,6 +34,8 @@ import {
 import { EMOJI_DATA } from "../rich-text-renderer/emojiData";
 import { buildSuggestions } from "./build-suggestions";
 import { proseMirrorToFacets } from "./prosemirror-to-facets";
+import { useChannelContext } from "../../../../contexts/Channel";
+import { useUserContext } from "../../../../contexts/User";
 
 const CHARACTER_LIMIT = 2048;
 const CIRCUMFERENCE = 2 * Math.PI * 8;
@@ -50,9 +52,12 @@ export const TextEditor: Component<{
 	onChange?: (text: string, facets: Array<ColibriRichTextFacet>) => void;
 	submitOnEnter?: boolean;
 	onEscape?: () => void;
+	mainEditor?: boolean;
 }> = (props) => {
 	let ref!: HTMLDivElement;
 
+	const user = useUserContext();
+	const channel = useChannelContext();
 	const community = useCommunityContext();
 
 	const [bubbleMenuVisible, setBubbleMenuVisible] = createSignal(false);
@@ -86,6 +91,22 @@ export const TextEditor: Component<{
 						},
 						Escape: () => {
 							props.onEscape?.();
+							return true;
+						},
+						ArrowUp: () => {
+							const json = this.editor.getJSON();
+							const text = proseMirrorToFacets(json);
+
+							if (text.text.length > 0) return false;
+
+							const lastMessageByUser = channel
+								.messages()
+								.findLast((x) => x.author.did === user.did);
+
+							if (!lastMessageByUser) return true;
+
+							channel.setEditingMessage(lastMessageByUser);
+
 							return true;
 						},
 					};
@@ -278,9 +299,12 @@ export const TextEditor: Component<{
 	});
 
 	return (
-		<div class="relative w-full flex flex-row border border-border rounded-md focus-within:border-neutral-500 gap-2 pr-2 items-start">
+		<div
+			class="w-full flex flex-row border border-border rounded-md focus-within:border-neutral-500 gap-2 pr-2 items-start"
+			classList={{ relative: !props.mainEditor }}
+		>
 			<div
-				class="bubble-menu bg-card border border-border overflow-hidden absolute opacity-0 flex flex-row items-center rounded-sm drop-shadow-black drop-shadow-sm"
+				class="bubble-menu w-full bg-card border border-border overflow-hidden absolute opacity-0 flex flex-row items-center rounded-sm drop-shadow-black drop-shadow-sm"
 				classList={{
 					"pointer-events-none": !bubbleMenuVisible(),
 				}}

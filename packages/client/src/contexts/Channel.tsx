@@ -11,6 +11,7 @@ import {
 	type ParentComponent,
 	useContext,
 } from "solid-js";
+import { writeReadCursor } from "../atproto/read-cursor";
 import type {
 	Message,
 	PendingMessage,
@@ -160,6 +161,12 @@ export type ChannelContextValue = {
 	 * via the socket. The layout watches this to decide whether to auto-scroll.
 	 */
 	newIncomingMessage: Accessor<number>;
+	/**
+	 * Monotonic counter bumped whenever the local user sends a message (a
+	 * pending message is appended). The layout watches this to scroll the
+	 * newly-sent message into view unconditionally.
+	 */
+	outgoingMessage: Accessor<number>;
 
 	/**
 	 * URI of the last message the current user has read in this channel.
@@ -167,12 +174,9 @@ export type ChannelContextValue = {
 	 * `undefined` when there is no unread boundary (user is up-to-date).
 	 */
 	readCursorUri: Accessor<string | undefined>;
-
-	/**
-	 * Clears the unread divider and calls `updateSeen` on the notification
-	 * service. Call when the user has scrolled to the bottom of the channel.
-	 */
-	markSeen: () => void;
+	readCursorResolved: Accessor<boolean>;
+	advanceReadCursor: () => void;
+	clearUnreadBoundary: () => void;
 };
 
 export const ChannelContext = createContext<ChannelContextValue>();
@@ -347,6 +351,8 @@ export const ChannelContextProvider: ParentComponent<{
 
 	const addPendingMessage = (msg: PendingMessage) => {
 		setMessages((prev) => [...prev, msg]);
+		setReadCursorUri(undefined);
+		setOutgoingMessage((n) => n + 1);
 	};
 
 	const confirmPendingMessage = (hash: string, confirmedUri: string) => {
@@ -516,6 +522,7 @@ export const ChannelContextProvider: ParentComponent<{
 	// ---------------------------------------------------------------------------
 
 	const [newIncomingMessage, setNewIncomingMessage] = createSignal(0);
+	const [outgoingMessage, setOutgoingMessage] = createSignal(0);
 
 	// Inform the AppView which channel the user is viewing (drives typing-event
 	// fan-out and read tracking on the server side).
@@ -635,24 +642,58 @@ export const ChannelContextProvider: ParentComponent<{
 		undefined,
 	);
 
-	// Fetch the read cursor whenever the channel changes, in parallel with the
-	// first message page. Silently ignored if the AppView returns nothing.
+	const [readCursorResolved, setReadCursorResolved] = createSignal(false);
+
 	createEffect(
 		on(channelUri, async (uri) => {
 			setReadCursorUri(undefined);
+			setReadCursorResolved(false);
 			if (!uri) return;
 			try {
 				const res = await user.xrpc.social.colibri.channel.getReadCursor(uri);
+				if (uri !== channelUri()) return;
 				if (res?.cursor) setReadCursorUri(res.cursor);
 			} catch {
-				// Not fatal — just means no unread boundary.
+				// Not fatal
+			} finally {
+				if (uri === channelUri()) setReadCursorResolved(true);
 			}
 		}),
 	);
 
-	const markSeen = () => {
-		setReadCursorUri(undefined);
-		user.xrpc.social.colibri.notification.updateSeen().catch(() => {});
+	/**
+	 * Clears the on-screen unread boundary (the "New messages" divider).
+	 */
+	const clearUnreadBoundary = () => setReadCursorUri(undefined);
+
+	let lastWrittenCursor: string | undefined;
+	createEffect(
+		on(channelUri, () => {
+			lastWrittenCursor = undefined;
+		}),
+	);
+
+	const advanceReadCursor = () => {
+		const uri = channelUri();
+		if (!uri) return;
+
+		// Newest real (non-pending) message
+		const msgs = messages();
+		let newest: string | undefined;
+		for (let i = msgs.length - 1; i >= 0; i--) {
+			const candidate = msgs[i]?.uri;
+			if (candidate?.startsWith("at://")) {
+				newest = candidate;
+				break;
+			}
+		}
+
+		if (!newest || newest === lastWrittenCursor) return;
+		lastWrittenCursor = newest;
+		writeReadCursor(user.atproto.agent, user.did, uri, newest).catch(() => {
+			// Non-fatal
+			if (lastWrittenCursor === newest) lastWrittenCursor = undefined;
+		});
 	};
 
 	const value: ChannelContextValue = {
@@ -684,8 +725,11 @@ export const ChannelContextProvider: ParentComponent<{
 		typingUsers,
 		sendTyping,
 		newIncomingMessage,
+		outgoingMessage,
 		readCursorUri,
-		markSeen,
+		readCursorResolved,
+		advanceReadCursor,
+		clearUnreadBoundary,
 	};
 
 	return (

@@ -1,22 +1,31 @@
 /**
  * Watches `element` for size changes (e.g. an image, video, or embed finishing
- * its async load) and compensates the scroll position of `getContainer()` so
- * the viewport stays visually stable.
+ * its async load) and keeps the viewport visually stable.
  *
- * Without this, media that loads in above the current viewport pushes every
- * following message down, making the whole channel appear to jump. The fix is
- * pure scroll math — no reserved dimensions or schema changes required — which
- * keeps the logic reusable for any growable content (attachments today, link
- * embeds next).
+ * Two cases, re-evaluated on every resize so that multi-stage growth (an embed
+ * card appearing, then its image loading) and multiple growable elements per
+ * message are each handled:
+ *
+ * - **Pinned to the bottom** (`isAtBottom()`): the user is tracking the newest
+ *   messages, so we re-pin to the bottom — newly-loaded media stays in view
+ *   instead of pushing the latest content off-screen. This is the case the old
+ *   implementation missed (the layout's own re-pin observer is inert because the
+ *   messages wrapper has a fixed height).
+ * - **Scrolled up**: only growth that happens above the viewport top would shift
+ *   what the user is looking at, so we add the height delta to `scrollTop` to
+ *   cancel it. Growth at or below the fold is left alone.
  *
  * @param getContainer Resolves the scrollable container lazily, since its ref
  *   may not be assigned yet when this is wired up.
  * @param element The media element whose growth should not shift the viewport.
+ * @param isAtBottom Reports whether the container was pinned to the bottom prior
+ *   to this resize (tracked by the ScrollAnchorProvider via scroll events).
  * @returns A cleanup function that disconnects the observer.
  */
 export const preserveScrollOnResize = (
 	getContainer: () => HTMLElement | undefined,
 	element: HTMLElement,
+	isAtBottom: () => boolean,
 ): (() => void) => {
 	// `null` until the first observation establishes a baseline; we only react
 	// to subsequent changes so the initial layout pass isn't treated as growth.
@@ -37,12 +46,11 @@ export const preserveScrollOnResize = (
 		const container = getContainer();
 		if (!container) return;
 
-		// Only compensate when the growth happens above the visible fold. When the
-		// element starts above the container's top edge, its expansion pushes
-		// everything below it — including the viewport — down by `delta`; adding
-		// the same amount to scrollTop cancels that out. Growth at or below the
-		// fold is either what the user is looking at or already off-screen, so we
-		// leave it alone (the channel's at-bottom re-pin handles the newest row).
+		if (isAtBottom()) {
+			container.scrollTop = container.scrollHeight;
+			return;
+		}
+
 		if (
 			element.getBoundingClientRect().top <
 			container.getBoundingClientRect().top

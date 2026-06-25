@@ -13,8 +13,9 @@ import {
 	Switch,
 } from "solid-js";
 import { toast } from "somoto";
-import BootIcon from "~icons/ph/boot";
+import ArrowCounterClockwiseIcon from "~icons/ph/arrow-counter-clockwise";
 import BugIcon from "~icons/ph/bug";
+import CheckIcon from "~icons/ph/check";
 import DotsSixVerticalIcon from "~icons/ph/dots-six-vertical";
 import DotsThreeOutlineVerticalIcon from "~icons/ph/dots-three-outline-vertical-fill";
 import IdentificationBadgeIcon from "~icons/ph/identification-badge";
@@ -86,9 +87,12 @@ import { TextField, TextFieldInput, TextFieldLabel } from "../../ui/TextField";
 import { SettingsInfoPage } from "../common/SettingsInfoPage";
 import { SettingsModal, SettingsPage } from "../common/SettingsModal";
 import User from "../user";
-import { displayableNameFn } from "../user/DisplayableName";
 import { DeleteLinkModal } from "./DeleteInvitationModal";
 import { InviteLinkCreationModal } from "./InviteLinkCreationModal";
+import {
+	type ActionDialogData,
+	MemberActionDialog,
+} from "./MemberActionDialog";
 import { RoleModal } from "./RoleModal";
 
 const GeneralSettingsPage: Component = () => {
@@ -133,35 +137,20 @@ const GeneralSettingsPage: Component = () => {
 	const editCommunityData = async () => {
 		setLoading(true);
 		try {
-			// Download original image, convert to base64 if defined and not changed
 			const existingImage = existingImageUrl();
-			const reader = new FileReader();
 
-			let base64Image: string | undefined;
+			let picture: Blob | undefined;
 			let mimeType: string | undefined;
 
 			if (existingImage) {
-				const originalImage = await (await fetch(existingImage)).blob();
-
-				base64Image = await new Promise<string>((resolve, reject) => {
-					reader.onload = () => resolve(reader.result as string);
-					reader.onerror = reject;
-					reader.readAsDataURL(originalImage);
-				});
-
-				mimeType = originalImage.type;
-				// Get mime type for image, convert to base64
+				picture = await (await fetch(existingImage)).blob();
+				mimeType = picture.type;
 			} else if (image()) {
-				base64Image = await new Promise<string>((resolve, reject) => {
-					reader.onload = () => resolve(reader.result as string);
-					reader.onerror = reject;
-					reader.readAsDataURL(image()!.acceptedFiles[0]);
-				});
-
-				mimeType = image()!.acceptedFiles[0].type;
+				picture = image()!.acceptedFiles[0];
+				mimeType = picture.type;
 			}
 
-			await user.xrpc.social.colibri.community.update(
+			const res = await user.xrpc.social.colibri.community.update(
 				community().community.uri,
 				name().trim() !== community().community.name
 					? name().trim()
@@ -169,9 +158,15 @@ const GeneralSettingsPage: Component = () => {
 				description().trim() !== (community().community.description ?? "")
 					? description().trim()
 					: undefined,
-				base64Image,
+				picture,
 				mimeType,
+				requiresApprovalToJoin(),
 			);
+
+			if (!res) {
+				toast.error("Failed to save community settings.");
+				return;
+			}
 
 			toast.success("Community settings saved.");
 		} catch {
@@ -186,6 +181,7 @@ const GeneralSettingsPage: Component = () => {
 		setDescription(community().community.description);
 		clearNewFile();
 		setImageRemoved(false);
+		setRequiresApprovalToJoin(community().community.requiresApprovalToJoin);
 	};
 
 	return (
@@ -389,190 +385,179 @@ const InviteLinksPage: Component = () => {
 const JoinRequestApprovals: Component = () => {
 	const user = useUserContext();
 	const community = useCommunityContext();
-	const uri = () => community().community.uri;
 
 	const [loading] = createSignal<boolean>(false);
-	const [pendingMembers, { refetch }] = createResource(uri, async (u) => {
-		const res = await user.xrpc.social.colibri.community.listApplications(u);
-		return res?.applications ?? [];
-	});
+	const pendingMembers = () => community().applications;
+	const dismissedMembers = () => community().dismissedApplications;
 
-	const [inflightApprovals, setInflightApprovals] = createSignal<
-		Array<Applicant>
-	>([]);
+	const [inflight, setInflight] = createSignal<Array<string>>([]);
+	const isInflight = (did: string) => inflight().some((x) => x === did);
 
-	const acceptJoinRequest = async (member: Applicant) => {
-		setInflightApprovals((current) => [...current, member]);
-
-		await user.xrpc.social.colibri.community.approveMembership(
-			member.membership,
-		);
-
-		setInflightApprovals((current) =>
-			current.filter((x) => x.did !== member.did),
-		);
-
-		refetch();
+	const runAction = async (did: string, action: () => Promise<unknown>) => {
+		setInflight((current) => [...current, did]);
+		try {
+			await action();
+		} finally {
+			setInflight((current) => current.filter((x) => x !== did));
+			community().utils.refetchApplications();
+		}
 	};
 
+	const acceptJoinRequest = (member: Applicant) =>
+		runAction(member.did, () =>
+			user.xrpc.social.colibri.community.approveMembership(member.membership),
+		);
+
+	const dismissJoinRequest = (member: Applicant) =>
+		runAction(member.did, () =>
+			user.xrpc.social.colibri.community.dismissApplication(
+				community().community.uri,
+				member.did,
+			),
+		);
+
+	const restoreJoinRequest = (member: Applicant) =>
+		runAction(member.did, () =>
+			user.xrpc.social.colibri.community.undismissApplication(
+				community().community.uri,
+				member.did,
+			),
+		);
+
+	const ApproveButton: Component<{ member: Applicant }> = (props) => (
+		<Button
+			size="sm"
+			class="aspect-square h-6 p-0! text-green-400 hover:text-green-400 hover:bg-green-400/25 hover:dark:bg-green-400/25"
+			disabled={isInflight(props.member.did)}
+			onClick={() => {
+				acceptJoinRequest(props.member);
+			}}
+			variant="ghost"
+		>
+			<Spinner
+				classList={{
+					hidden: !isInflight(props.member.did),
+					block: isInflight(props.member.did),
+				}}
+			/>
+			<CheckIcon
+				classList={{
+					hidden: isInflight(props.member.did),
+				}}
+			/>
+		</Button>
+	);
+
 	return (
-		<SettingsPage loading={loading} title="Join Requests">
+		<SettingsPage
+			loading={loading}
+			title={`Join Requests${pendingMembers().length > 0 ? ` — ${pendingMembers().length}` : ""}`}
+		>
 			<Switch>
-				<Match when={!pendingMembers()}>
-					<div class="my-2 flex w-full items-center justify-center">
-						<Spinner />
-					</div>
+				<Match when={pendingMembers().length === 0}>
+					<p class="text-muted-foreground m-0">No pending join requests.</p>
 				</Match>
-				<Match when={pendingMembers()}>
-					{(member) => (
-						<Table class="h-full">
-							<TableHeader>
-								<TableRow>
-									<TableHead class="w-[350px]">User</TableHead>
-									<TableHead class="text-right">Accept</TableHead>
-								</TableRow>
-							</TableHeader>
-							<TableBody class="relative">
-								<For each={member()}>
-									{(data) => {
-										const loading = () =>
-											inflightApprovals().some((x) => x.did === data.did);
-										return (
-											<TableRow>
-												<TableCell>
-													<Suspense fallback={<Spinner />}>
-														<User.InlineProfile user={data.data} />
-													</Suspense>
-												</TableCell>
-												<TableCell class="text-right">
-													<Button
-														size="sm"
-														disabled={loading()}
-														onClick={() => {
-															acceptJoinRequest(data);
-														}}
-														variant="secondary"
-													>
-														<Spinner
-															classList={{
-																hidden: !loading(),
-																block: loading(),
-															}}
-														/>
-														Accept
-													</Button>
-												</TableCell>
-											</TableRow>
-										);
-									}}
-								</For>
-							</TableBody>
-						</Table>
-					)}
+				<Match when={pendingMembers().length > 0}>
+					<Table class="h-full">
+						<TableHeader>
+							<TableRow>
+								<TableHead class="w-[350px]">User</TableHead>
+								<TableHead class="text-right">Actions</TableHead>
+							</TableRow>
+						</TableHeader>
+						<TableBody class="relative">
+							<For each={pendingMembers()}>
+								{(data) => (
+									<TableRow>
+										<TableCell>
+											<Suspense fallback={<Spinner />}>
+												<User.InlineProfile user={data} />
+											</Suspense>
+										</TableCell>
+										<TableCell class="justify-end items-center flex flex-row gap-1">
+											<ApproveButton member={data} />
+											<Button
+												size="sm"
+												class="aspect-square h-6 p-0! text-destructive hover:text-destructive hover:bg-destructive/25 hover:dark:bg-destructive/25"
+												disabled={isInflight(data.did)}
+												onClick={() => {
+													dismissJoinRequest(data);
+												}}
+												variant="ghost"
+											>
+												<Spinner
+													classList={{
+														hidden: !isInflight(data.did),
+														block: isInflight(data.did),
+													}}
+												/>
+												<XCircleIcon
+													classList={{
+														hidden: isInflight(data.did),
+													}}
+												/>
+											</Button>
+										</TableCell>
+									</TableRow>
+								)}
+							</For>
+						</TableBody>
+					</Table>
 				</Match>
 			</Switch>
+			<Show when={dismissedMembers().length > 0}>
+				<h3 class="m-0 font-semibold">Dismissed</h3>
+				<p class="m-0 text-muted-foreground text-sm">
+					These applications are hidden from the active queue.
+				</p>
+				<Table class="h-full">
+					<TableHeader>
+						<TableRow>
+							<TableHead class="w-[350px]">User</TableHead>
+							<TableHead class="text-right">Actions</TableHead>
+						</TableRow>
+					</TableHeader>
+					<TableBody class="relative">
+						<For each={dismissedMembers()}>
+							{(data) => (
+								<TableRow>
+									<TableCell>
+										<Suspense fallback={<Spinner />}>
+											<User.InlineProfile user={data} />
+										</Suspense>
+									</TableCell>
+									<TableCell class="justify-end items-center flex flex-row gap-1">
+										<ApproveButton member={data} />
+										<Button
+											size="sm"
+											class="aspect-square h-6 p-0!"
+											disabled={isInflight(data.did)}
+											onClick={() => {
+												restoreJoinRequest(data);
+											}}
+											variant="ghost"
+											aria-label="Restore to queue"
+										>
+											<Spinner
+												classList={{
+													hidden: !isInflight(data.did),
+													block: isInflight(data.did),
+												}}
+											/>
+											<ArrowCounterClockwiseIcon
+												classList={{
+													hidden: isInflight(data.did),
+												}}
+											/>
+										</Button>
+									</TableCell>
+								</TableRow>
+							)}
+						</For>
+					</TableBody>
+				</Table>
+			</Show>
 		</SettingsPage>
-	);
-};
-
-type ActionDialogData = {
-	open: boolean;
-	type: "kick" | "block";
-};
-
-const ActionDialog: ParentComponent<{
-	dialog: Accessor<ActionDialogData>;
-	setDialog: Setter<ActionDialogData>;
-	member: Member;
-	refetch: () => void;
-}> = (props) => {
-	const user = useUserContext();
-	const community = useCommunityContext();
-	const [loading, setLoading] = createSignal(false);
-
-	const header = () =>
-		props.dialog().type === "kick"
-			? `Kick ${displayableNameFn(props.member)} from this community?`
-			: `Block ${displayableNameFn(props.member)} from this community?`;
-
-	const description = () =>
-		props.dialog().type === "kick"
-			? "They will be able to re-join with a link."
-			: "They will be unable to rejoin unless you revoke the block.";
-
-	const handleAction = async () => {
-		setLoading(true);
-
-		if (props.dialog().type === "block") {
-			const data = await user.xrpc.social.colibri.community.blockUser(
-				community().community.uri,
-				props.member.did,
-			);
-
-			if (!data) {
-				setLoading(false);
-				toast.error("Failed to ban user.");
-				return;
-			}
-		} else {
-			const data = await user.xrpc.social.colibri.community.kickUser(
-				community().community.uri,
-				props.member.did,
-			);
-
-			if (!data) {
-				setLoading(false);
-				toast.error("Failed to kick user.");
-				return;
-			}
-		}
-
-		setLoading(false);
-
-		// TODO(app): Band-aid fix, race condition n all that. Wait for member to join via global context.
-		setTimeout(props.refetch, 1000);
-	};
-
-	return (
-		<Dialog open={props.dialog().open}>
-			<DialogPortal>
-				<DialogContent class="w-128">
-					<DialogHeader>
-						<h2 class="m-0 text-center">{header()}</h2>
-					</DialogHeader>
-					<div class="flex flex-col gap-4">
-						<p class="m-0 text-center">{description()}</p>
-					</div>
-					<DialogFooter>
-						<Button
-							variant="secondary"
-							disabled={loading()}
-							onClick={() =>
-								props.setDialog((current) => ({
-									open: false,
-									type: current.type,
-								}))
-							}
-						>
-							Cancel
-						</Button>
-						<Button
-							variant="destructive"
-							disabled={loading()}
-							onClick={handleAction}
-						>
-							<Spinner
-								classList={{
-									hidden: !loading(),
-									block: loading(),
-								}}
-							/>
-							{props.dialog().type === "kick" ? "Kick" : "Block"}
-						</Button>
-					</DialogFooter>
-				</DialogContent>
-			</DialogPortal>
-		</Dialog>
 	);
 };
 
@@ -580,7 +565,9 @@ const MemberActionsContextMenu: ParentComponent<{
 	member: Member;
 	refetch: () => void;
 }> = (props) => {
+	const user = useUserContext();
 	const community = useCommunityContext()!;
+	const { canBanMember, canKickMember } = usePermissions();
 
 	const [dialog, setDialog] = createSignal<ActionDialogData>({
 		open: false,
@@ -589,7 +576,7 @@ const MemberActionsContextMenu: ParentComponent<{
 
 	return (
 		<>
-			<ActionDialog
+			<MemberActionDialog
 				refetch={props.refetch}
 				member={props.member}
 				dialog={dialog}
@@ -599,22 +586,27 @@ const MemberActionsContextMenu: ParentComponent<{
 				<DropdownMenuTrigger>{props.children}</DropdownMenuTrigger>
 				<DropdownMenuPortal>
 					<DropdownMenuContent>
-						<Show when={!community().community.requiresApprovalToJoin}>
+						<Show
+							when={
+								community().community.requiresApprovalToJoin &&
+								canKickMember(user.did)
+							}
+						>
 							<DropdownMenuItem
 								class="text-destructive!"
 								onClick={() => setDialog({ open: true, type: "kick" })}
 							>
-								<BootIcon class="text-destructive" />
 								Kick
 							</DropdownMenuItem>
 						</Show>
-						<DropdownMenuItem
-							class="text-destructive!"
-							onClick={() => setDialog({ open: true, type: "block" })}
-						>
-							<ProhibitIcon class="text-destructive" />
-							Block
-						</DropdownMenuItem>
+						<Show when={canBanMember(user.did)}>
+							<DropdownMenuItem
+								class="text-destructive!"
+								onClick={() => setDialog({ open: true, type: "ban" })}
+							>
+								Ban
+							</DropdownMenuItem>
+						</Show>
 					</DropdownMenuContent>
 				</DropdownMenuPortal>
 			</DropdownMenu>
@@ -623,8 +615,10 @@ const MemberActionsContextMenu: ParentComponent<{
 };
 
 const MembersPage: Component = () => {
+	const user = useUserContext();
 	const community = useCommunityContext();
 	const members = () => community().members;
+	const { canBanMember, canKickMember, outranks } = usePermissions();
 
 	return (
 		<SettingsPage
@@ -648,20 +642,28 @@ const MembersPage: Component = () => {
 											<User.InlineProfile color={false} user={member} />
 										</Suspense>
 									</TableCell>
-									<TableCell class="text-right">
-										<MemberActionsContextMenu
-											member={member}
-											refetch={() => {}}
-										>
-											<Button
-												size="sm"
-												class="aspect-square h-6 p-0!"
-												variant="ghost"
+									<Show
+										when={
+											outranks(user.did, member.did) &&
+											(canBanMember(user.did) || canKickMember(user.did))
+										}
+										fallback={<span />}
+									>
+										<TableCell class="text-right">
+											<MemberActionsContextMenu
+												member={member}
+												refetch={() => {}}
 											>
-												<DotsThreeOutlineVerticalIcon />
-											</Button>
-										</MemberActionsContextMenu>
-									</TableCell>
+												<Button
+													size="sm"
+													class="aspect-square h-6 p-0!"
+													variant="ghost"
+												>
+													<DotsThreeOutlineVerticalIcon />
+												</Button>
+											</MemberActionsContextMenu>
+										</TableCell>
+									</Show>
 								</TableRow>
 							);
 						}}
@@ -894,7 +896,10 @@ const RolesPage: Component = () => {
 									}}
 								>
 									<TableCell class="text-muted-foreground w-8">
-										<Show when={canReorder() && manageable()} fallback={<span />}>
+										<Show
+											when={canReorder() && manageable()}
+											fallback={<span />}
+										>
 											{/* Only the handle starts a drag, not the whole row. */}
 											<div
 												class="cursor-grab"
@@ -987,31 +992,31 @@ const RolesPage: Component = () => {
 	);
 };
 
-const BlockedMembersPage: Component = () => {
+const BannedMembersPage: Component = () => {
 	const community = useCommunityContext();
 	const user = useUserContext();
 	const uri = () => community().community.uri;
 	const [loading, setLoading] = createSignal<boolean>(false);
 
-	const [blockedMembers, { refetch }] = createResource(uri, async (u) => {
-		const res = await user.xrpc.social.colibri.community.listBlockedUsers(u);
+	const [bannedMembers, { refetch }] = createResource(uri, async (u) => {
+		const res = await user.xrpc.social.colibri.community.listBannedUsers(u);
 		return res?.users ?? [];
 	});
 
-	const unblockMember = async (did: string) => {
+	const unbanMember = async (did: string) => {
 		try {
 			setLoading(true);
-			const res = await user.xrpc.social.colibri.community.unblockUser(
+			const res = await user.xrpc.social.colibri.community.unbanUser(
 				uri(),
 				did,
 			);
 
 			if (!res) {
-				toast.error("Failed to unblock user.");
+				toast.error("Failed to unban user.");
 				return;
 			}
 
-			toast.success("User unblocked.");
+			toast.success("User unbanned.");
 			refetch();
 		} finally {
 			setLoading(false);
@@ -1021,15 +1026,15 @@ const BlockedMembersPage: Component = () => {
 	return (
 		<SettingsPage
 			loading={loading}
-			title={`Blocked Members${(blockedMembers() ?? []).length > 0 ? ` (${(blockedMembers() ?? []).length})` : ""}`}
+			title={`Banned Members${(bannedMembers() ?? []).length > 0 ? ` — ${(bannedMembers() ?? []).length}` : ""}`}
 		>
 			<Switch>
-				<Match when={!blockedMembers()}>
+				<Match when={!bannedMembers()}>
 					<div class="my-2 flex w-full items-center justify-center">
 						<Spinner />
 					</div>
 				</Match>
-				<Match when={blockedMembers()}>
+				<Match when={bannedMembers()}>
 					{(members) => (
 						<Table class="h-full">
 							<TableHeader>
@@ -1051,7 +1056,7 @@ const BlockedMembersPage: Component = () => {
 														size="sm"
 														disabled={loading()}
 														onClick={() => {
-															unblockMember(data.did);
+															unbanMember(data.did);
 														}}
 														variant="secondary"
 													>
@@ -1061,7 +1066,7 @@ const BlockedMembersPage: Component = () => {
 																block: loading(),
 															}}
 														/>
-														Unblock
+														Unban
 													</Button>
 												</TableCell>
 											</TableRow>
@@ -1201,11 +1206,12 @@ export const CommunitySettingsModal: ParentComponent<{
 					visible: () =>
 						community().community.requiresApprovalToJoin &&
 						canManageApprovals(user.did),
+					badge: () => community().applications.length,
 				},
 				{
-					title: "Blocked Users",
-					id: "blocks",
-					component: BlockedMembersPage,
+					title: "Banned Users",
+					id: "bans",
+					component: BannedMembersPage,
 					icon: () => <ProhibitIcon />,
 					visible: () => canUnbanMember(user.did),
 				},

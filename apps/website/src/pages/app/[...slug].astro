@@ -1,4 +1,5 @@
 ---
+import { PUBLIC_VAPID_KEY } from "astro:env/client";
 import { App } from "@colibri-social/client";
 import BaseLayout from "../../layouts/BaseLayout.astro";
 import "@colibri-social/assets/fonts.css";
@@ -6,6 +7,9 @@ import "@/styles/emoji-picker.css";
 ---
 
 <BaseLayout title="Colibri">
+	<script define:vars={{ key: PUBLIC_VAPID_KEY }} is:inline>
+		if (key) window.__COLIBRI_VAPID_KEY__ = key;
+	</script>
 	<App client:only="solid-js" />
 	{import.meta.env.PROD && (
 		<script>

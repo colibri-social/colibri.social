@@ -8,4 +8,5 @@ export type Community = {
 	categoryOrder: Array<string>;
 	uri: AT_URI<"social.colibri.community">;
 	requiresApprovalToJoin: boolean;
+	isOwner?: boolean;
 };

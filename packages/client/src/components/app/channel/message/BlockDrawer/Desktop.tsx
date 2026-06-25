@@ -1,4 +1,4 @@
-import type { ParentComponent } from "solid-js";
+import type { Component } from "solid-js";
 import { useMessageContext } from "../../../../../contexts/Message";
 import {
 	Dialog,
@@ -8,7 +8,6 @@ import {
 	DialogHeader,
 	DialogPortal,
 	DialogTitle,
-	DialogTrigger,
 } from "../../../../ui/Dialog";
 import { MessagePreview } from "../MessagePreview";
 import { DialogCancelButton, DialogTip } from "../shared";
@@ -21,13 +20,12 @@ import {
 /**
  * The message block drawer used as a warning when a message is about to be blocked by an admin.
  */
-export const Desktop: ParentComponent = (props) => {
+export const Desktop: Component = () => {
 	const { message, blockModalOpen, setBlockModalOpen, confirmBlock } =
 		useMessageContext();
 
 	return (
 		<Dialog open={blockModalOpen()} onOpenChange={setBlockModalOpen}>
-			<DialogTrigger class="w-full">{props.children}</DialogTrigger>
 			<DialogPortal>
 				<DialogContent>
 					<DialogHeader>

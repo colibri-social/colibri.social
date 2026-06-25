@@ -47,7 +47,7 @@ const { method, nsid, queryParams, body, response, authenticated } =
 	}
 	{
 		body && (
-			<span class="font-bold dark:text-neutral-50 text-neutral-950">Query Parameters</span>
+			<span class="font-bold dark:text-neutral-50 text-neutral-950">Request Body</span>
 			<div>
 				{Object.keys(body).map((key) => (
 					<XRPCParam {key} {...body![key]} />

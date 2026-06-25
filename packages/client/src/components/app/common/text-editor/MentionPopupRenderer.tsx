@@ -4,12 +4,14 @@ import type {
 } from "@tiptap/suggestion";
 import { createSignal } from "solid-js";
 import { render } from "solid-js/web";
-import type { ChannelData } from "@/utils/sdk";
-import type { MemberData } from "../../layouts/CommunityLayout";
 import { isChannel, isMember, MentionList } from "./MentionList";
+import { displayableNameFn } from "../../user/DisplayableName";
+import { resolveBlob } from "../../../../atproto/resolve-blob";
+import type { Member } from "../../../../atproto/xrpc/social/colibri/community/listMembers";
+import type { Channel } from "../../../../atproto/xrpc/social/colibri/community/listChannels";
 
 export type EmojiSuggestionData = { name: string; emoji: string };
-export type SuggestionItem = MemberData | ChannelData | EmojiSuggestionData;
+export type SuggestionItem = Member | Channel | EmojiSuggestionData;
 
 type Command = (item: SuggestionItem) => void;
 
@@ -23,15 +25,15 @@ export function selectItem(
 
 	if (isMember(item)) {
 		command({
-			id: item.member_did,
-			label: item.display_name,
-			handle: item.handle,
-			avatar: item.avatar_url,
+			id: item.did,
+			label: displayableNameFn(item),
+			handle: item.handle.replaceAll("at://", ""),
+			avatar: resolveBlob(item.did, item.data.avatar),
 			type: "member",
 		} as any);
 	} else if (isChannel(item)) {
 		command({
-			id: item.rkey,
+			id: item.uri,
 			label: item.name,
 			type: "channel",
 		} as any);
@@ -57,6 +59,10 @@ export const createMentionRenderer = (char: "@" | "#" | ":") => {
 				currentItems = props.items;
 				currentCommand = props.command;
 
+				const chatInputContainer = document.querySelector<HTMLDivElement>(
+					".chat-input-container",
+				)!;
+
 				container = document.createElement("div");
 				container.style.cssText =
 					"position: absolute; z-index: 9999; pointer-events: auto;";
@@ -71,9 +77,12 @@ export const createMentionRenderer = (char: "@" | "#" | ":") => {
 				if (props.clientRect) {
 					const rect = props.clientRect();
 					if (rect) {
-						container.style.left = `${rect.left + window.scrollX}px`;
-						container.style.top = `${rect.top + window.scrollY}px`;
-						container.style.transform = "translateY(calc(-100% - 4px))";
+						const parentContainerRect =
+							chatInputContainer.getBoundingClientRect();
+						container.style.left = `${parentContainerRect.left + 8}px`;
+						container.style.top = `${parentContainerRect.top - 8}px`;
+						container.style.width = `${parentContainerRect.width - 16}px`;
+						container.style.transform = "translateY(calc(-100%))";
 					}
 				}
 
@@ -107,9 +116,16 @@ export const createMentionRenderer = (char: "@" | "#" | ":") => {
 				if (props.clientRect) {
 					const rect = props.clientRect();
 					if (rect) {
-						container.style.left = `${rect.left + window.scrollX}px`;
-						container.style.top = `${rect.top + window.scrollY}px`;
-						container.style.transform = "translateY(calc(-100% - 4px))";
+						const chatInputContainer = document.querySelector<HTMLDivElement>(
+							".chat-input-container",
+						)!;
+
+						const parentContainerRect =
+							chatInputContainer.getBoundingClientRect();
+						container.style.left = `${parentContainerRect.left + 8}px`;
+						container.style.top = `${parentContainerRect.top - 8}px`;
+						container.style.width = `${parentContainerRect.width - 16}px`;
+						container.style.transform = "translateY(calc(-100%))";
 					}
 				}
 

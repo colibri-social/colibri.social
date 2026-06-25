@@ -83,7 +83,7 @@ Resolves an atproto handle or DID to a DID document. Handles are resolved to a D
 
 ### `com.atproto.sync.getBlob`
 
-Proxies a blob fetch to the PDS that hosts the given DID. Blobs are not stored locally — every call resolves the PDS endpoint from the DID document and streams the bytes back transparently.
+Proxies a blob fetch to the PDS that hosts the given DID. Blobs are not stored locally.
 
 <XRPCEndpointCard
 	method="GET"
@@ -271,7 +271,7 @@ Sets the online state for a Colibri user.
 
 ### `social.colibri.actor.listCommunities`
 
-Lists all communities the Colibri user is a part of (and not blocked from).
+Lists all communities the Colibri user is a part of (and not banned from).
 
 <XRPCEndpointCard
 	method="GET"
@@ -306,10 +306,20 @@ Lists all communities the Colibri user is a part of (and not blocked from).
 					type: "boolean",
 					required: true
 				},
+				isLegacy: {
+					type: "boolean",
+					required: false
+				},
+				isOwner: {
+					type: "boolean",
+					required: false
+				},
 			}
 		}
 	}}
 />
+
+`isOwner` reports whether the authenticated caller owns the community (user holding the "Owner" role).
 
 ### `social.colibri.sync.subscribeEvents`
 
@@ -341,18 +351,19 @@ Events of this type are sent to clients when a community has been updated or del
 	description?: string;
 	picture?: blob;
 	categoryOrder?: string[];
+	requiresApprovalToJoin?: boolean;
 }
 ```
 
 ##### `member_event`
 
-Events of this type are sent to clients when a member joins a community, has their roles changed, or leaves. `member_event` is broadcast to **all** connected clients (not just the subject). Clients should check `community` to scope the update to the right community, and check `member.did` against their own DID to detect when they themselves have been admitted or had their roles updated.
+Events of this type are sent to clients when a member joins a community, has their roles changed, or leaves. `member_event` is broadcast to all connected clients (not just the subject). Clients should check `community` to scope the update to the right community, and check `member.did` against their own DID to detect when they themselves have been admitted or had their roles updated.
 
 | `event` | When | `membership` | `member` | `memberDid` |
 |---|---|---|---|---|
 | `join` | A new member record is written (auto-admit or `approveMembership`) | AT-URI of the user's membership declaration, if available | Always present | Absent |
 | `roles_updated` | An existing member record is updated (e.g. a moderator changes roles) | Absent | Always present with the new `roles` array | Absent |
-| `leave` | A member record is deleted (kick, ban, or self-leave) — sent to all remaining members; the removed user receives a `community_event { delete }` instead | Absent | Absent | Always present |
+| `leave` | A member record is deleted (kick, ban, or self-leave). Sent to all remaining members | Absent | Absent | Always present |
 
 ```ts title="data"
 {
@@ -377,8 +388,41 @@ Events of this type are sent to clients when a member joins a community, has the
 			};
 		};
 	};
-	/** DID of the member who left — present only on `leave` events. */
+	/** DID of the member who left, only present on `leave` events. */
 	memberDid?: string;
+}
+```
+
+##### `application_event`
+
+Events of this type are sent to clients for changes to the moderator-facing pending-applications queue of a `requiresApprovalToJoin` community. Broadcast to all connected clients.
+
+| `event` | When | `did` / `handle` / `createdAt` / `data` |
+|---|---|---|
+| `create` | A new `social.colibri.membership` is indexed for a closed community, or a kicked member's original membership record is still on file and the community currently requires approval | Always present |
+| `resolve` | The application was admitted via `approveMembership` | Absent |
+| `dismiss` | A moderator hid the application from the active queue via `dismissApplication` (off-protocol) | Absent |
+| `undismiss` | A dismissed application was restored via `undismissApplication` (off-protocol) | Absent |
+
+```ts title="data"
+{
+	event: 'create' | 'resolve' | 'dismiss' | 'undismiss';
+	community: string;
+	membership: string;
+	did?: string;
+	handle?: string;
+	createdAt?: string;
+	data?: {
+		displayName: string;
+		avatar?: blob;
+		banner?: blob;
+		description?: string;
+		onlineState: string;
+		status: {
+			text: string;
+			emoji?: string;
+		};
+	};
 }
 ```
 
@@ -465,7 +509,7 @@ Events of this type are sent to clients when a message has been sent, edited, or
 
 ##### `reaction_event`
 
-Events of this type are sent to clients when a reaction has been added to or removed from a message. On `removed`, `emoji` and `target` are populated by looking up the cached reaction record before it is deleted — they should always be present, but may be absent in the unlikely event of a cache miss.
+Events of this type are sent to clients when a reaction has been added to or removed from a message.
 
 ```ts title="data"
 {
@@ -558,12 +602,12 @@ Clients must send a `voice_leave` message to the AppView when the user leaves a 
 Mints a new community DID on the AppView's own PDS and bootstraps a fully populated community. The AppView authenticates against `PDS_LOC` using admin credentials so it can create accounts without an invite code, stores the new account's credentials encrypted in `community_credentials`, and writes five records to the new repo:
 
 - `social.colibri.community` (pinned at `rkey: "self"`)
-- `social.colibri.category` — a default `"General"` category
-- `social.colibri.channel` — a default `"general"` text channel inside that category
-- `social.colibri.role` — an `"Owner"` role with every permission and `protected: true` so role-management endpoints refuse to delete it
-- `social.colibri.member` — `subject` = authenticated caller, holding the Owner role
+- `social.colibri.category`: a default `"General"` category
+- `social.colibri.channel`: a default `"general"` text channel inside that category
+- `social.colibri.role`: an `"Owner"` role with every permission and `protected: true` so role-management endpoints refuse to delete it
+- `social.colibri.member`: `subject` = authenticated caller, holding the Owner role
 
-The caller ends up as an owner-equivalent member of the new community. If `image` and `mime_type` are provided, the picture is base64-decoded, validated against the allowed MIME types (`image/jpeg`, `image/png`, `image/gif`), uploaded to the community's PDS, and stored as the community picture.
+The caller ends up as an owner-equivalent member of the new community. A community picture is uploaded by sending its raw bytes as the request body with the image's MIME type declared via the `mimeType` query parameter. If supplied, the picture is validated against the allowed MIME types (`image/jpeg`, `image/png`, `image/gif`), uploaded to the community's PDS, and stored as the community picture. An empty body means no picture.
 
 <XRPCEndpointCard
 	method="POST"
@@ -578,16 +622,18 @@ The caller ends up as an owner-equivalent member of the new community. If `image
 			type: "string",
 			required: false
 		},
-		requires_approval_to_join: {
+		requiresApprovalToJoin: {
 			type: "boolean",
 			required: false
 		},
-		image: {
-			type: "string (base64)",
-			required: false
-		},
-		mime_type: {
+		mimeType: {
 			type: "string",
+			required: false
+		}
+	}}
+	body={{
+		image: {
+			type: "bytes",
 			required: false
 		}
 	}}
@@ -623,7 +669,7 @@ The AppView identifies communities by DID; handles minted alongside the account 
 
 ### `social.colibri.community.update`
 
-Updates the community's settings. Only fields that are supplied are changed; omitted fields keep their current values.
+Updates the community's settings. Only fields that are supplied are changed. A new community picture is uploaded by sending its raw bytes as the request body with the image's MIME type declared via the `mimeType` query parameter. An empty body leaves the existing picture untouched.
 
 <XRPCEndpointCard
 	method="POST"
@@ -642,16 +688,18 @@ Updates the community's settings. Only fields that are supplied are changed; omi
 			type: "string",
 			required: false
 		},
-		picture: {
-			type: "string (base64)",
-			required: false
-		},
-		mime_type: {
+		mimeType: {
 			type: "string",
 			required: false
 		},
-		requires_approval_to_join: {
+		requiresApprovalToJoin: {
 			type: "boolean",
+			required: false
+		}
+	}}
+	body={{
+		image: {
+			type: "bytes",
 			required: false
 		}
 	}}
@@ -691,7 +739,7 @@ In both cases the stored credentials and every locally cached record for the com
 
 ### `social.colibri.community.registerCredentials`
 
-Registers user-supplied credentials (PDS endpoint + identifier + app password) for an existing community DID hosted on a PDS the AppView doesn't manage. The AppView verifies proof-of-control by performing a `com.atproto.server.createSession` against the supplied PDS — if the resulting session's DID matches the claimed community DID, the credentials are accepted, encrypted with AES-256-GCM, and stored. No bootstrap happens; BYO callers are expected to provision the community records themselves.
+Registers user-supplied credentials (PDS endpoint + identifier + app password) for an existing community DID hosted on a PDS the AppView doesn't manage. The AppView verifies proof-of-control by performing a `com.atproto.server.createSession` against the supplied PDS.
 
 <XRPCEndpointCard
 	method="POST"
@@ -729,7 +777,9 @@ Registers user-supplied credentials (PDS endpoint + identifier + app password) f
 
 ### `social.colibri.community.approveMembership`
 
-Admits a pending applicant to a closed community (`requiresApprovalToJoin: true`) by writing the community-side `social.colibri.member` record. Requires the caller to hold the `approval.manage` permission. Idempotent — if the subject is already a member, the endpoint succeeds without writing a duplicate record.
+Admits a pending applicant to a closed community (`requiresApprovalToJoin: true`) by writing the community-side `social.colibri.member` record. Requires `approval.manage` permission.
+
+On admission, broadcasts `application_event` and clears any dismissal row for the subject.
 
 <XRPCEndpointCard
 	method="POST"
@@ -759,7 +809,7 @@ Admits a pending applicant to a closed community (`requiresApprovalToJoin: true`
 
 ### `social.colibri.community.listApplications`
 
-Lists the pending join applications for a community that requires approval (`requiresApprovalToJoin: true`) — the read-side counterpart to `approveMembership`. A pending application is an indexed `social.colibri.membership` targeting the community whose author does not yet hold a `social.colibri.member` record on the community repo. Open communities auto-admit, so their applications resolve to members immediately and won't appear here. Each entry carries the applicant's `social.colibri.membership` AT-URI, which is fed back into `approveMembership` to admit them. Requires the caller to hold the `approval.manage` permission.
+Lists the pending join applications for a community that requires approval (`requiresApprovalToJoin: true`). A pending application is an indexed `social.colibri.membership` targeting the community whose author does not yet hold a `social.colibri.member` record on the community repo.
 
 <XRPCEndpointCard
 	method="GET"
@@ -833,6 +883,82 @@ Lists the pending join applications for a community that requires approval (`req
 					}
 				}
 			}
+		},
+		dismissedApplications: {
+			type: "object[]",
+			required: true,
+			children: {
+				did: {
+					type: "did",
+					required: true,
+				}
+			}
+		}
+	}}
+/>
+
+`dismissedApplications` entries share the exact same shape as `applications`.
+
+### `social.colibri.community.dismissApplication`
+
+Hides a pending join application from the active `listApplications` queue without resolving it. Tracked only in AppView storage. Requires `approval.manage`.
+
+Broadcasts `application_event { event: "dismiss", community, membership, did }`.
+
+<XRPCEndpointCard
+	method="POST"
+	nsid="social.colibri.community.dismissApplication"
+	authenticated
+	queryParams={{
+		community: {
+			type: "at-uri",
+			required: true
+		},
+		did: {
+			type: "did",
+			required: true
+		}
+	}}
+	response={{
+		did: {
+			type: "did",
+			required: true
+		},
+		community: {
+			type: "at-uri",
+			required: true
+		}
+	}}
+/>
+
+### `social.colibri.community.undismissApplication`
+
+The inverse of `dismissApplication`. Requires `approval.manage`.
+
+Broadcasts `application_event { event: "undismiss", community, membership, did }`.
+
+<XRPCEndpointCard
+	method="POST"
+	nsid="social.colibri.community.undismissApplication"
+	authenticated
+	queryParams={{
+		community: {
+			type: "at-uri",
+			required: true
+		},
+		did: {
+			type: "did",
+			required: true
+		}
+	}}
+	response={{
+		did: {
+			type: "did",
+			required: true
+		},
+		community: {
+			type: "at-uri",
+			required: true
 		}
 	}}
 />
@@ -1015,7 +1141,7 @@ Broadcasts `channel_event { event: "delete", uri }` and `category_event { event:
 
 ### `social.colibri.community.reorderChannels`
 
-Persists a new channel order within a category. `channel_order` is provided as **repeated** query-string values. Requires `channel.update` permission.
+Persists a new channel order within a category. `channelOrder` is provided as **repeated** query-string values. Requires `channel.update` permission.
 
 <XRPCEndpointCard
 	method="POST"
@@ -1026,7 +1152,7 @@ Persists a new channel order within a category. `channel_order` is provided as *
 			type: "at-uri",
 			required: true
 		},
-		channel_order: {
+		channelOrder: {
 			type: "string[] (repeated)",
 			required: true
 		}
@@ -1043,7 +1169,7 @@ Broadcasts `category_event { event: "upsert", uri, channelOrder }`.
 
 ### `social.colibri.community.reorderCategories`
 
-Persists a new category order for the community sidebar. `category_order` is provided as **repeated** query-string values. Requires `category.update` permission.
+Persists a new category order for the community sidebar. `categoryOrder` is provided as **repeated** query-string values. Requires `category.update` permission.
 
 <XRPCEndpointCard
 	method="POST"
@@ -1054,7 +1180,7 @@ Persists a new category order for the community sidebar. `category_order` is pro
 			type: "at-uri",
 			required: true
 		},
-		category_order: {
+		categoryOrder: {
 			type: "string[] (repeated)",
 			required: true
 		}
@@ -1257,13 +1383,13 @@ Deletes a role from a community. Requires `role.manage` permission. Returns `Inv
 
 Broadcasts `role_event { event: "delete", uri }` via the tap firehose once the role record is deleted.
 
-### `social.colibri.community.listBlockedUsers`
+### `social.colibri.community.listBannedUsers`
 
-Lists all blocked users for a community, each hydrated into their full profile (handle, Bluesky profile, and Colibri status). Blocked users no longer hold a `social.colibri.member` record, so — unlike [`listMembers`](#socialcolibricommunitylistmembers) — the entries carry no `roles`. Entries are ordered by DID.
+Lists all banned users for a community, each hydrated into their full profile (handle, Bluesky profile, and Colibri status).
 
 <XRPCEndpointCard
 	method="GET"
-	nsid="social.colibri.community.listBlockedUsers"
+	nsid="social.colibri.community.listBannedUsers"
 	queryParams={{
 		community: {
 			type: "at-uri",
@@ -1779,13 +1905,13 @@ Hides a message in a given community. Requires the caller to hold the `message.h
 
 Broadcasts `message_event { event: "delete", uri: <message> }` via the tap firehose once the moderation record is indexed, so connected clients remove the hidden message without a reload.
 
-### `social.colibri.community.blockUser`
+### `social.colibri.community.banUser`
 
 Bans a user from a community by writing a `ban` moderation record. Requires the `member.ban` permission. Callers can only ban members ranked strictly below them in the role hierarchy.
 
 <XRPCEndpointCard
 	method="POST"
-	nsid="social.colibri.community.blockUser"
+	nsid="social.colibri.community.banUser"
 	authenticated
 	queryParams={{
 		community: {
@@ -1809,13 +1935,13 @@ Bans a user from a community by writing a `ban` moderation record. Requires the 
 	}}
 />
 
-### `social.colibri.community.unblockUser`
+### `social.colibri.community.unbanUser`
 
 Unbans a user from a community, allowing them to write messages there again. Requires the `member.unban` permission.
 
 <XRPCEndpointCard
 	method="POST"
-	nsid="social.colibri.community.unblockUser"
+	nsid="social.colibri.community.unbanUser"
 	authenticated
 	queryParams={{
 		community: {
@@ -2008,7 +2134,7 @@ Deactivates an invitation code for the specified community. Requires the `invita
 
 ### `social.colibri.channel.listMessages`
 
-Get a paginated message history for the specified channel, newest messages first. Banned users' messages are filtered out. The `createdAt` field reflects when the message was authored (taken directly from the AT Protocol record), not when the AppView indexed it.
+Get a paginated message history for the specified channel, newest messages first. Banned users' messages are filtered out, as are messages that have been hidden by a `hideMessage` moderation action (and not later un-hidden). Hidden messages are excluded from both the top-level list and any embedded `parent`. Set `all` to `true` to include hidden messages in the response (e.g. for moderation views); it defaults to `false`. The `createdAt` field reflects when the message was authored (taken directly from the AT Protocol record), not when the AppView indexed it.
 
 <XRPCEndpointCard
 	method="GET"
@@ -2309,6 +2435,42 @@ Get the read cursor for the current user and specified channel.
 	}}
 />
 
+### `social.colibri.channel.listUnreadStatus`
+
+Returns per-channel unread status for the authenticated user across every channel in a community.
+
+<XRPCEndpointCard
+	method="GET"
+	nsid="social.colibri.channel.listUnreadStatus"
+	authenticated
+	queryParams={{
+		community: {
+			type: "at-uri",
+			required: true
+		}
+	}}
+	response={{
+		channels: {
+			type: "object[]",
+			required: true,
+			children: {
+				channelUri: {
+					type: "at-uri",
+					required: true,
+				},
+				hasUnreadMessages: {
+					type: "boolean",
+					required: true,
+				},
+				unreadPingCount: {
+					type: "integer",
+					required: true,
+				},
+			}
+		}
+	}}
+/>
+
 ### `social.colibri.channel.listReactions`
 
 Get all reactions for a specified message, grouped by emoji with reactor DIDs.
@@ -2448,10 +2610,7 @@ Returns a paginated list of notifications for the authenticated user, newest fir
 	}}
 />
 
-The `kind` value is one of:
-
-- `mention` — the authenticated user appears as a `social.colibri.richtext.facet#mention` feature in the message's facets.
-- `reply` — the message's `parent` resolves to a message authored by the authenticated user.
+The `kind` value is one of `mention` or `reply`.
 
 Mentions and replies are deduplicated per (recipient, message, kind), so a single message that both mentions and replies to the recipient produces two notification rows.
 
@@ -2473,7 +2632,7 @@ Returns the count of unseen notifications for the authenticated user.
 
 ### `social.colibri.notification.updateSeen`
 
-Marks every unseen notification for the authenticated user whose `indexedAt` is at or before `seenAt` as seen. If `seenAt` is omitted, the AppView uses its current clock for both the cutoff and the stamped `seenAt` — equivalent to "mark everything currently indexed as seen now".
+Marks every unseen notification for the authenticated user whose `indexedAt` is at or before `seenAt` as seen. If `seenAt` is omitted, the AppView uses its current clock for both the cutoff and the stamped `seenAt`.
 
 <XRPCEndpointCard
 	method="POST"
@@ -2493,9 +2652,129 @@ Marks every unseen notification for the authenticated user whose `indexedAt` is 
 	}}
 />
 
+### `social.colibri.notification.getUnseen`
+
+Returns the authenticated user's unseen notifications within a single channel. Clients use this when a channel opens to learn which messages still owe a ping, so each one can be cleared (via [`updateSeenForMessage`](#socialcolibrinotificationupdateseenformessage)) as its message scrolls into view.
+
+<XRPCEndpointCard
+	method="GET"
+	nsid="social.colibri.notification.getUnseen"
+	authenticated
+	queryParams={{
+		channel: {
+			type: "at-uri",
+			required: true
+		}
+	}}
+	response={{
+		notifications: {
+			type: "object[]",
+			required: true,
+			children: {
+				id: {
+					type: "integer",
+					required: true,
+				},
+				messageUri: {
+					type: "at-uri",
+					required: true,
+				},
+				indexedAt: {
+					type: "datetime",
+					required: true,
+				},
+			}
+		}
+	}}
+/>
+
+### `social.colibri.notification.updateSeenForMessage`
+
+Marks the authenticated user's unseen notifications for a single message as seen. When at least one row is cleared, the AppView broadcasts a [`seen_event`](#seen_event) with `event: "message_seen"` to the user's other connected clients so their unread badges update live.
+
+<XRPCEndpointCard
+	method="POST"
+	nsid="social.colibri.notification.updateSeenForMessage"
+	authenticated
+	queryParams={{
+		message: {
+			type: "at-uri",
+			required: true
+		}
+	}}
+	response={{
+		updated: {
+			type: "integer",
+			required: true
+		}
+	}}
+/>
+
+### `social.colibri.notification.registerPush`
+
+Registers a Web Push subscription for the authenticated user so the AppView can deliver background push notifications when the app is closed.
+
+<XRPCEndpointCard
+	method="POST"
+	nsid="social.colibri.notification.registerPush"
+	authenticated
+	body={{
+		platform: {
+			type: "string",
+			required: true
+		},
+		endpoint: {
+			type: "string",
+			required: true
+		},
+		keys: {
+			type: "object",
+			required: true,
+			children: {
+				p256dh: {
+					type: "string",
+					required: true
+				},
+				auth: {
+					type: "string",
+					required: true
+				}
+			}
+		}
+	}}
+	response={{
+		registered: {
+			type: "boolean",
+			required: true
+		}
+	}}
+/>
+
+### `social.colibri.notification.unregisterPush`
+
+Drops a previously registered Web Push subscription for the authenticated user, identified by its `endpoint`. Called when the user disables notifications or the browser rotates/expires the subscription.
+
+<XRPCEndpointCard
+	method="POST"
+	nsid="social.colibri.notification.unregisterPush"
+	authenticated
+	body={{
+		endpoint: {
+			type: "string",
+			required: true
+		}
+	}}
+	response={{
+		unregistered: {
+			type: "boolean",
+			required: true
+		}
+	}}
+/>
+
 #### `notification_event`
 
-Notification events are emitted over [`social.colibri.sync.subscribeEvents`](#socialcolibrisyncsubscribeevents) immediately after a notification is indexed. The payload mirrors a single entry of [`listNotifications`](#socialcolibrinotificationlistnotifications) and always carries the message body — clients should not need to perform a follow-up fetch.
+Notification events are emitted over [`social.colibri.sync.subscribeEvents`](#socialcolibrisyncsubscribeevents) immediately after a notification is indexed. The payload mirrors a single entry of [`listNotifications`](#socialcolibrinotificationlistnotifications) and always carries the message body.
 
 ```ts title="data"
 {
@@ -2513,6 +2792,40 @@ Notification events are emitted over [`social.colibri.sync.subscribeEvents`](#so
 		attachments: { blob: blob; name?: string; }[];
 		edited?: boolean;
 	};
+}
+```
+
+##### Web Push delivery
+
+Alongside each `notification_event` broadcast over the WebSocket, the AppView also sends a [VAPID Web Push](https://datatracker.ietf.org/doc/html/rfc8030) message to every Web Push subscription the recipient has registered via [`registerPush`](#socialcolibrinotificationregisterpush).
+
+The push payload is JSON shaped for the Service Worker that renders it:
+
+```ts title="push payload"
+{
+	title: string;        // "New mention" | "New reply"
+	body: string;         // the message text
+	tag?: string;         // the message URI (collapses duplicates)
+	icon?: string;
+	data: {
+		channelUri: string; // required
+		messageUri: string;
+	};
+}
+```
+
+The AppView owns the VAPID keypair and exposes the public key to clients out of band (as the `PUBLIC_VAPID_KEY` build-time environment variable). Subscriptions that the push service reports as gone (HTTP `404`/`410`) are pruned automatically.
+
+#### `seen_event`
+
+Emitted over [`social.colibri.sync.subscribeEvents`](#socialcolibrisyncsubscribeevents) to keep unread state in sync across a user's devices. Unlike most events, a `seen_event` is delivered only to the originating user's own connected clients (filtered by DID).
+
+```ts title="data"
+{
+	event: 'channel_read' | 'message_seen';
+	channelUri: string;
+	messageUri?: string; // present on message_seen
+	cleared?: number;    // present on message_seen
 }
 ```
 

@@ -76,6 +76,7 @@ const SettingsPageSelector: ParentComponent<{
 	danger?: boolean;
 	activePage: boolean;
 	icon: Component<{ variant: string }>;
+	badge?: Accessor<number | undefined>;
 }> = (props) => {
 	return (
 		<button
@@ -89,7 +90,12 @@ const SettingsPageSelector: ParentComponent<{
 			onClick={props.onClick}
 		>
 			<props.icon variant={"fill"} />
-			{props.children}
+			<span class="w-full">{props.children}</span>
+			<Show when={props.badge?.()}>
+				<span class="text-xs leading-none font-medium bg-primary text-primary-foreground rounded-full px-1.5 py-0.5 min-w-5 text-center">
+					{props.badge?.()}
+				</span>
+			</Show>
 		</button>
 	);
 };
@@ -100,6 +106,7 @@ export type SettingsPageInfo = {
 	component: Component<any>;
 	icon: Component<{ variant: string }>;
 	visible?: Accessor<boolean>;
+	badge?: Accessor<number | undefined>;
 };
 
 export const SettingsModal: ParentComponent<{
@@ -111,7 +118,9 @@ export const SettingsModal: ParentComponent<{
 	open?: Accessor<boolean>;
 	setOpen?: Setter<boolean>;
 }> = (props) => {
-	const [activePage, setActivePage] = createSignal<string>(props.pages[0].id);
+	const [activePage, setActivePage] = createSignal<string>(
+		props.pages.find((x) => x.visible?.() ?? true)?.id || "",
+	);
 	const [open, setOpen] = createSignal(false);
 
 	createEffect(() => {
@@ -147,6 +156,7 @@ export const SettingsModal: ParentComponent<{
 											icon={item.icon}
 											activePage={activePage() === item.id}
 											onClick={() => setActivePage(item.id)}
+											badge={item.badge}
 										>
 											{item.title}
 										</SettingsPageSelector>

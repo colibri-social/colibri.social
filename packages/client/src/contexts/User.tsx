@@ -132,12 +132,6 @@ export const UserContextProvider: ParentComponent = (props) => {
 					};
 
 					const cleanup = socket.onEvent((event) => {
-						// A `member_event { join }` for the local user means we were
-						// just admitted to a community (auto-admit or an approved
-						// application). The current view's community context only
-						// updates the member list for the community it's already
-						// showing, so the sidebar's community list needs its own
-						// refresh here.
 						if (
 							event.type === "member_event" &&
 							event.data &&
@@ -148,11 +142,31 @@ export const UserContextProvider: ParentComponent = (props) => {
 							return;
 						}
 
-						// Keep our own actor data in sync when a user_event for our DID
-						// arrives (e.g. a profile/status change made from another
-						// device). Community.tsx patches the member roster; this patches
-						// the user context so the own-user panel (name/avatar/status)
-						// updates too.
+						if (
+							event.type === "community_event" &&
+							event.data &&
+							event.data.event === "upsert"
+						) {
+							const { data } = event;
+							const current = user();
+							if (!current?.loggedIn) return;
+							mutate({
+								...current,
+								communities: current.communities.map((c) =>
+									c.uri === data.uri
+										? {
+												...c,
+												...(data.name !== undefined && { name: data.name }),
+												...(data.picture !== undefined && {
+													picture: data.picture,
+												}),
+											}
+										: c,
+								),
+							});
+							return;
+						}
+
 						if (
 							event.type === "user_event" &&
 							event.data &&

@@ -58,30 +58,40 @@ export const SocketContextProvider: ParentComponent = (props) => {
 			});
 
 			socket.addEventListener("message", (e) => {
+				let event: ColibriEvent;
 				try {
-					const event = JSON.parse(e.data as string) as ColibriEvent;
-					handlers.forEach((h) => {
-						h(event);
-					});
+					event = JSON.parse(e.data as string) as ColibriEvent;
 				} catch {
 					// Ignore malformed frames
+					return;
 				}
+				handlers.forEach((h) => {
+					// Isolate each handler so one throwing doesn't starve the rest.
+					try {
+						h(event);
+					} catch (err) {
+						console.error("[notif] socket handler threw for", event.type, err);
+					}
+				});
 			});
 
-			socket.addEventListener("close", () => {
+			socket.addEventListener("close", (ev) => {
 				if (heartbeat) {
 					clearInterval(heartbeat);
 					heartbeat = null;
 				}
 				if (destroyed || ws !== socket) return;
+				console.warn("[notif] socket CLOSED", ev.code, ev.reason);
 				// Reconnect after 3 s, generating a fresh token each time
 				reconnectTimer = setTimeout(connect, 3_000);
 			});
 
 			socket.addEventListener("error", () => {
+				console.error("[notif] socket ERROR");
 				// The close event will fire next and trigger reconnection
 			});
-		} catch {
+		} catch (err) {
+			console.error("[notif] socket token fetch failed", err);
 			// Token fetch failed — retry after a longer delay
 			if (!destroyed) reconnectTimer = setTimeout(connect, 10_000);
 		}

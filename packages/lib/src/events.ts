@@ -20,6 +20,7 @@ export type Colibri_CommunityEvent = EventBase<
 			description?: string;
 			picture?: JsonBlobRef;
 			categoryOrder?: Array<string>;
+			requiresApprovalToJoin?: boolean;
 	  }
 	| {
 			event: "delete";
@@ -77,6 +78,47 @@ export type Colibri_MemberEvent = EventBase<
 			event: "leave";
 			community: AT_URI<"social.colibri.community">;
 			memberDid: string;
+	  }
+>;
+
+/**
+ * Sent for changes to the moderator-facing pending-applications queue of a
+ * `requiresApprovalToJoin` community. Broadcast to every client; scope by
+ * `community`, not by DID.
+ *
+ * - `create`: a new `social.colibri.membership` was indexed, or a kicked
+ *   member's original membership is still on file and re-surfaced them as a
+ *   pending applicant. Fully hydrated.
+ * - `resolve`: the application was admitted via `approveMembership`. Also
+ *   arrives as a `member_event { join }` carrying the same `membership`
+ *   AT-URI; consumers should drop the matching entry from their queues when
+ *   either arrives.
+ * - `dismiss`: a moderator hid the application from the active queue via
+ *   `dismissApplication` (off-protocol bookkeeping — the application is still
+ *   pending). Move the matching entry to the dismissed list.
+ * - `undismiss`: a dismissed application was restored via
+ *   `undismissApplication`. Move it back to the active queue.
+ *
+ * Only `create` carries the hydrated applicant (`handle`, `createdAt`,
+ * `data`); the others identify the application by `membership`/`did` alone,
+ * so consumers reuse the entry they already hold locally.
+ */
+export type Colibri_ApplicationEvent = EventBase<
+	"application_event",
+	| {
+			event: "create";
+			community: AT_URI<"social.colibri.community">;
+			did: string;
+			handle: string;
+			membership: AT_URI<"social.colibri.membership">;
+			createdAt: string;
+			data: Colibri_MemberEventMember["data"];
+	  }
+	| {
+			event: "resolve" | "dismiss" | "undismiss";
+			community: AT_URI<"social.colibri.community">;
+			did: string;
+			membership: AT_URI<"social.colibri.membership">;
 	  }
 >;
 
@@ -211,9 +253,9 @@ export type Colibri_NotificationEvent = EventBase<
 		kind: "mention" | "reply";
 		messageUri: string;
 		authorDid: string;
-		channelRkey: string;
+		channelUri: string;
 		indexedAt: string;
-		message?: {
+		message: {
 			text: string;
 			facets: Array<ColibriRichTextFacet>;
 			createdAt: string;
@@ -224,10 +266,53 @@ export type Colibri_NotificationEvent = EventBase<
 	}
 >;
 
+/**
+ * Per-user read-state sync. Pushed by the AppView only to the originating
+ * user's *other* connected clients when their read state changes elsewhere, so
+ * unread badges update live without a reload.
+ *
+ * - `channel_read`: the read cursor advanced — clear the channel's white dot.
+ * - `message_seen`: a message's ping was cleared — decrement the channel's ping
+ *   count by `cleared` (the number of notifications the server cleared).
+ */
+export type Colibri_SeenEvent = EventBase<
+	"seen_event",
+	| {
+			event: "channel_read";
+			channelUri: string;
+	  }
+	| {
+			event: "message_seen";
+			channelUri: string;
+			messageUri: string;
+			cleared: number;
+	  }
+>;
+
+/**
+ * Per-user mute sync. Pushed by the AppView only to the originating user's
+ * *other* connected clients when they mute/unmute a channel or community
+ * elsewhere, so the mute set (and the unread indicators it suppresses) updates
+ * live without a reload.
+ *
+ * - `muted`: a `social.colibri.actor.mute` record was created for `subject`.
+ * - `unmuted`: that record was deleted.
+ *
+ * `subject` is either a channel or a community AT-URI.
+ */
+export type Colibri_MuteEvent = EventBase<
+	"mute_event",
+	{
+		event: "muted" | "unmuted";
+		subject: string;
+	}
+>;
+
 export type ColibriEvent =
 	| AckEvent
 	| Colibri_CommunityEvent
 	| Colibri_MemberEvent
+	| Colibri_ApplicationEvent
 	| Colibri_CategoryEvent
 	| Colibri_ChannelEvent
 	| Colibri_RoleEvent
@@ -235,4 +320,6 @@ export type ColibriEvent =
 	| Colibri_ReactionEvent
 	| Colibri_UserEvent
 	| Colibri_TypingEvent
-	| Colibri_NotificationEvent;
+	| Colibri_NotificationEvent
+	| Colibri_SeenEvent
+	| Colibri_MuteEvent;

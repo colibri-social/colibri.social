@@ -26,7 +26,7 @@ export function Avatar(props: {
 				height={props.size === "small" ? 24 : props.size === "large" ? 80 : 40}
 				class={`rounded-full object-cover outline-card ${props.size === "small" ? "outline" : props.size === "large" ? "outline-4" : "outline-2"}`}
 			/>
-			<Show when={props.user.data.onlineState && !props.disableState}>
+			<Show when={props.user.data?.onlineState && !props.disableState}>
 				<div
 					class={`rounded-full absolute bottom-px right-px outline-background ${props.size === "small" ? "w-2 h-2 outline" : props.size === "large" ? "w-4 h-4 outline-4" : "w-2 h-2 outline-2"}`}
 					classList={{

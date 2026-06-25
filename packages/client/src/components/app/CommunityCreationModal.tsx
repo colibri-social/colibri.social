@@ -114,13 +114,14 @@ const CommunityOwnership: Component = () => {
 			description:
 				"We create the community on our EU-based server host it for you.",
 			value: "managed",
+			disabled: false,
 		},
 		{
-			title: "Bring your own (coming soon)",
+			title: "Bring your own",
 			description:
 				"You create the community on your own PDS and allow us to manage it.",
 			value: "byo",
-			disabled: true,
+			disabled: false,
 		},
 	];
 
@@ -175,13 +176,13 @@ const CredentialsInput: Component = () => {
 			<div class="flex flex-col items-center justify-center w-full gap-4">
 				<TextField value={pdsLoc()} onChange={setPdsLoc}>
 					<TextFieldLabel>
-						PDS HOST <span class="text-destructive">*</span>
+						PDS Host <span class="text-destructive">*</span>
 					</TextFieldLabel>
 					<TextFieldInput
 						minLength={1}
 						type="text"
 						required
-						placeholder="colibri.social"
+						placeholder="https://colibri.social"
 					/>
 				</TextField>
 				<TextField value={handleOrDid()} onChange={setHandleOrDid}>
@@ -316,17 +317,12 @@ const LoadingScreen: Component = () => {
 	const navigate = useNavigate();
 
 	createEffect(async () => {
-		let base64Picture: string | undefined;
+		let pictureBlob: Blob | undefined;
 		let mimeType: string | undefined;
 
 		if (picture()) {
-			base64Picture = await new Promise<string>((resolve, reject) => {
-				const reader = new FileReader();
-				reader.onload = () => resolve(reader.result as string);
-				reader.onerror = reject;
-				reader.readAsDataURL(picture()!.acceptedFiles[0]);
-			});
-			mimeType = picture()!.acceptedFiles[0].type;
+			pictureBlob = picture()!.acceptedFiles[0];
+			mimeType = pictureBlob.type;
 		}
 
 		try {
@@ -334,7 +330,7 @@ const LoadingScreen: Component = () => {
 				name(),
 				description() || undefined,
 				false,
-				base64Picture,
+				pictureBlob,
 				mimeType,
 			);
 
@@ -356,7 +352,6 @@ const LoadingScreen: Component = () => {
 
 	return (
 		<div class="flex flex-col items-center justify-center gap-3 py-6">
-			<Spinner className="w-8 h-8 animate-spin text-muted-foreground" />
 			<span class="text-sm text-muted-foreground">Creating community…</span>
 		</div>
 	);

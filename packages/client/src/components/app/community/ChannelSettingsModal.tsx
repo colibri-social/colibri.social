@@ -1,6 +1,13 @@
-import { createSignal, Show, type ParentComponent } from "solid-js";
+import {
+	type Accessor,
+	createSignal,
+	type ParentComponent,
+	type Setter,
+	Show,
+} from "solid-js";
 import { toast } from "somoto";
 import type { Channel } from "../../../atproto/xrpc/social/colibri/community/listChannels";
+import { usePermissions } from "../../../contexts/Community";
 import { useUserContext } from "../../../contexts/User";
 import { Button } from "../../ui/Button";
 import {
@@ -13,15 +20,19 @@ import {
 	DialogTrigger,
 } from "../../ui/Dialog";
 import { TextField, TextFieldInput, TextFieldLabel } from "../../ui/TextField";
-import { usePermissions } from "../../../contexts/Community";
 
 export const ChannelSettingsModal: ParentComponent<{
 	channel: Channel;
 	class?: string;
+	open?: Accessor<boolean>;
+	setOpen?: Setter<boolean>;
 }> = (props) => {
 	const user = useUserContext();
 	const { canDeleteChannel: _canDeleteChannel } = usePermissions();
-	const [open, setOpen] = createSignal(false);
+	const [internalOpen, setInternalOpen] = createSignal(false);
+	const open = () => props.open?.() ?? internalOpen();
+	const setOpen = (value: boolean) =>
+		props.setOpen ? props.setOpen(value) : setInternalOpen(value);
 	const [name, setName] = createSignal(props.channel.name);
 	const [loading, setLoading] = createSignal(false);
 
@@ -56,7 +67,9 @@ export const ChannelSettingsModal: ParentComponent<{
 
 	return (
 		<Dialog open={open()} onOpenChange={setOpen}>
-			<DialogTrigger class={props.class}>{props.children}</DialogTrigger>
+			<Show when={props.open === undefined}>
+				<DialogTrigger class={props.class}>{props.children}</DialogTrigger>
+			</Show>
 			<DialogPortal>
 				<DialogContent>
 					<DialogHeader>

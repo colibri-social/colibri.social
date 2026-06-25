@@ -359,6 +359,9 @@ importers:
       '@tiptap/extensions':
         specifier: ^3.20.1
         version: 3.20.1(@tiptap/core@3.20.1(@tiptap/pm@3.20.1))(@tiptap/pm@3.20.1)
+      '@tiptap/suggestion':
+        specifier: ^3.20.1
+        version: 3.20.1(@tiptap/core@3.20.1(@tiptap/pm@3.20.1))(@tiptap/pm@3.20.1)
       '@twemoji/api':
         specifier: ^17.0.2
         version: 17.0.2

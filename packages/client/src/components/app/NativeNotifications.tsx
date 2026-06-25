@@ -1,19 +1,21 @@
 import { type Component, onCleanup, onMount } from "solid-js";
+import { useMutes } from "../../contexts/Mutes";
 import { useSocketContext } from "../../contexts/Socket";
+import { useUserContext } from "../../contexts/User";
 import { useUserPreferences } from "../../contexts/UserPreferences";
-import { notify } from "../../notifications";
+import { getBackend, isWebRuntime, notify } from "../../notifications";
+import { subscribeWebPush } from "../../notifications/push-web";
 
 /**
  * Headless component that turns incoming `notification_event`s into native OS
  * notifications while the app is open. Renders nothing.
  *
- * Notifications are only fired when the window/tab is unfocused — while the user
- * is actively looking at the app we rely on the in-app `NotificationBell` badge
- * to avoid duplicate noise. Background delivery (app fully closed) is handled by
- * the Service Worker push path, not this component.
+ * Notifications are only fired when the window/tab is unfocused
  */
 export const NativeNotifications: Component = () => {
 	const socket = useSocketContext();
+	const mutes = useMutes();
+	const user = useUserContext();
 	const { preferences } = useUserPreferences();
 
 	const isUnfocused = (): boolean =>
@@ -22,9 +24,23 @@ export const NativeNotifications: Component = () => {
 		!document.hasFocus();
 
 	onMount(() => {
+		void (async () => {
+			if (
+				isWebRuntime() &&
+				preferences().nativeNotifications &&
+				(await getBackend().getPermission()) === "granted"
+			) {
+				await subscribeWebPush((sub) =>
+					user.xrpc.social.colibri.notification.registerPush(sub),
+				);
+			}
+		})();
+
 		const cleanup = socket.onEvent((event) => {
 			if (event.type !== "notification_event" || !event.data) return;
 			if (!preferences().nativeNotifications) return;
+			if (user.data.onlineState === "dnd") return;
+			if (mutes.isChannelMuted(event.data.channelUri)) return;
 			if (!isUnfocused()) return;
 
 			const { kind, message } = event.data;

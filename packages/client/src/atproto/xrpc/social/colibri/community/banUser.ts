@@ -5,13 +5,13 @@ type Response = {
 	handle: string;
 };
 
-export const unblockUser: XrpcRequest<
+export const banUser: XrpcRequest<
 	[string, string, string],
 	Promise<Response | undefined>
 > = async (fetch, community, identifier, auth) => {
 	try {
 		const res = await fetch(
-			`/xrpc/social.colibri.community.unblockUser?community=${community}&identifier=${identifier}&auth=${auth}`,
+			`/xrpc/social.colibri.community.banUser?community=${community}&identifier=${identifier}&auth=${auth}`,
 			{
 				method: "POST",
 			},

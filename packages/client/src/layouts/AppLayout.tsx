@@ -21,17 +21,30 @@ import {
 	Show,
 	Switch,
 } from "solid-js";
+import { toast } from "somoto";
 import GearIcon from "~icons/ph/gear";
 import HouseIcon from "~icons/ph/house";
 import UsersIcon from "~icons/ph/users";
 import { communityUriToUrlCompatible } from "../atproto/community-uri-to-url-compatible";
+import { putRecord } from "../atproto/pds";
 import { resolveBlob } from "../atproto/resolve-blob";
 import { CommunityCreationModal } from "../components/app/CommunityCreationModal";
+import { CommunityContextMenu } from "../components/app/community/CommunityContextMenu";
 import { NativeNotifications } from "../components/app/NativeNotifications";
-import { NotificationBell } from "../components/app/NotificationBell";
 import { UserSettingsModal } from "../components/app/settings";
 import { Plus } from "../components/icons/Plus";
 import { Button } from "../components/ui/Button";
+import {
+	Tooltip,
+	TooltipContent,
+	TooltipPortal,
+	TooltipTrigger,
+} from "../components/ui/Tooltip";
+import { MutesContextProvider } from "../contexts/Mutes";
+import {
+	NotificationsContextProvider,
+	useNotifications,
+} from "../contexts/Notifications";
 import { useSocketContext } from "../contexts/Socket";
 import { useUserContext } from "../contexts/User";
 import {
@@ -43,12 +56,7 @@ import {
 	capturePositions,
 	reorderList,
 } from "../utils/drag";
-import {
-	Tooltip,
-	TooltipContent,
-	TooltipPortal,
-	TooltipTrigger,
-} from "../components/ui/Tooltip";
+import { SoundsContextProvider } from "../contexts/Sounds";
 
 const CommunityAvatar = (props: { item: Community; class?: string }) => {
 	const communityDid = props.item.uri.split("/")[2];
@@ -91,6 +99,11 @@ const SortableCommunity = (props: {
 }) => {
 	const sortable = createSortable(props.item.uri);
 	const [, { onDragStart, onDragEnd: onDndDragEnd }] = useDragDropContext()!;
+	const notifications = useNotifications();
+
+	const communityDid = () => props.item.uri.split("/")[2];
+	const pingCount = () => notifications.pingsForCommunity(communityDid());
+	const hasUnread = () => notifications.hasUnreadInCommunity(communityDid());
 
 	let didDrag = false;
 	let el: HTMLDivElement | undefined;
@@ -121,10 +134,23 @@ const SortableCommunity = (props: {
 				el = node;
 				sortable.ref(node);
 			}}
+			class="relative"
 			classList={{ "opacity-50": sortable.isActiveDraggable }}
 			style={{ "touch-action": "none" }}
 			{...sortable.dragActivators}
 		>
+			<Show
+				when={pingCount() > 0}
+				fallback={
+					<Show when={hasUnread()}>
+						<span class="absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full bg-white border-2 border-card pointer-events-none select-none z-20" />
+					</Show>
+				}
+			>
+				<span class="absolute -top-1 -right-1 min-w-4.5 h-4.5 px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center pointer-events-none select-none z-20">
+					{pingCount() > 9 ? "9+" : pingCount()}
+				</span>
+			</Show>
 			<Show when={sortable.isActiveDroppable && props.draggedItem}>
 				{(resolved) => (
 					<div class="absolute inset-0 rounded-md flex items-center justify-center opacity-40 pointer-events-none z-10">
@@ -132,15 +158,17 @@ const SortableCommunity = (props: {
 					</div>
 				)}
 			</Show>
-			<A
-				href={`/app/c/${communityUriToUrlCompatible(props.item.uri)}`}
-				class="w-10 h-10 rounded-md bg-muted flex items-center justify-center outline-2 -outline-offset-2 outline-transparent hover:outline-foreground/50 transition-all duration-150"
-				activeClass="outline-foreground!"
-				onClick={handleClick}
-				draggable={false}
-			>
-				<CommunityAvatar item={props.item} />
-			</A>
+			<CommunityContextMenu community={props.item}>
+				<A
+					href={`/app/c/${communityUriToUrlCompatible(props.item.uri)}`}
+					class="w-10 h-10 rounded-md bg-muted flex items-center justify-center outline-2 -outline-offset-2 outline-transparent hover:outline-foreground/50 transition-all duration-150"
+					activeClass="outline-foreground!"
+					onClick={handleClick}
+					draggable={false}
+				>
+					<CommunityAvatar item={props.item} />
+				</A>
+			</CommunityContextMenu>
 		</div>
 	);
 };
@@ -193,13 +221,6 @@ const AppLayout: ParentComponent = (props) => {
 	const navigate = useNavigate();
 	const location = useLocation();
 
-	// Keep the community sidebar in sync with membership changes pushed over the
-	// socket:
-	// - member_event.join for our own DID → we were admitted somewhere, pull the
-	//   new community into the sidebar without a reload.
-	// - community_event.delete → either the community was deleted or we were
-	//   removed (a kicked/banned member receives community_event delete). Drop it
-	//   from the sidebar, and if we're currently viewing it, navigate home.
 	onMount(() => {
 		const cleanup = socket.onEvent((event) => {
 			if (
@@ -222,12 +243,47 @@ const AppLayout: ParentComponent = (props) => {
 		onCleanup(cleanup);
 	});
 
-	const sortedCommunities = () =>
-		user.communities.toSorted(
-			(a, b) =>
-				user.communities.findIndex((x) => x.uri === a.uri) -
-				user.communities.findIndex((x) => x.uri === b.uri),
+	onMount(() => {
+		const suppressNativeMenuWhileOpen = (event: MouseEvent) => {
+			const menuMounted = document.querySelector(
+				"[data-slot='context-menu-content'],[data-slot='context-menu-sub-content']",
+			);
+			if (!menuMounted) return;
+
+			const target = event.target as Element | null;
+			if (target?.closest("[data-slot='context-menu-trigger']")) return;
+
+			event.preventDefault();
+		};
+		document.addEventListener("contextmenu", suppressNativeMenuWhileOpen, {
+			capture: true,
+		});
+		onCleanup(() =>
+			document.removeEventListener("contextmenu", suppressNativeMenuWhileOpen, {
+				capture: true,
+			}),
 		);
+	});
+
+	// Locally-committed sidebar order. Held in a signal (rather than mutating the
+	// shared `user` resource) so a reorder doesn't churn every consumer of
+	// `user.communities` — mirrors the category/channel reorder in ChannelList.
+	const [committedOrder, setCommittedOrder] = createSignal<Community[] | null>(
+		null,
+	);
+
+	const sortedCommunities = () => {
+		const order = committedOrder();
+		if (!order) return user.communities;
+		// Map the committed order back onto the live community objects, then append
+		// any communities that arrived since (e.g. a freshly joined one).
+		const byUri = new Map(user.communities.map((c) => [c.uri, c]));
+		const ordered = order
+			.map((c) => byUri.get(c.uri))
+			.filter((c): c is Community => c !== undefined);
+		const seen = new Set(ordered.map((c) => c.uri));
+		return [...ordered, ...user.communities.filter((c) => !seen.has(c.uri))];
+	};
 
 	if (window.location.pathname === "/app" && user.communities.length > 0) {
 		navigate(
@@ -267,13 +323,53 @@ const AppLayout: ParentComponent = (props) => {
 		queueMicrotask(() => animateToNewPositions(itemEls, itemTops));
 	};
 
+	const persistCommunityOrder = async (
+		order: Community[],
+		previous: Community[] | null,
+	) => {
+		try {
+			const { agent } = user.atproto;
+			const repo = user.did;
+
+			let record: Record<string, unknown> = { status: "", communities: [] };
+			try {
+				const res = await agent.com.atproto.repo.getRecord({
+					repo,
+					collection: "social.colibri.actor.data",
+					rkey: "self",
+				});
+				record = (res.data.value as Record<string, unknown>) ?? record;
+			} catch {
+				// No actor.data record yet
+			}
+
+			// Persist the full sidebar order as community DIDs. The AppView reads
+			// this back in `listCommunities` to restore the order on next load, so
+			// every community must be included — owned ones too, otherwise they
+			// couldn't be reordered relative to the rest.
+			record.communities = order.map((c) => c.uri.split("/")[2]);
+
+			await putRecord(agent, repo, "social.colibri.actor.data", "self", record);
+		} catch (err) {
+			console.error("[AppLayout] Failed to save community order", err);
+			toast.error("Failed to save community order.");
+			setCommittedOrder(previous);
+		}
+	};
+
 	const onDragEnd = ({ draggable, droppable }: DragEvent) => {
 		const finalOrder = draggingOrder();
+
 		setDraggingOrder(null);
 		setDraggedItem(undefined);
+
 		if (!draggable || !droppable || !finalOrder) return;
 		if (draggable.id === droppable.id) return;
-		// setCommunities(finalOrder); FIXME: Save community order
+
+		const previous = committedOrder();
+		setCommittedOrder(finalOrder);
+
+		void persistCommunityOrder(finalOrder, previous);
 	};
 
 	return (
@@ -292,7 +388,6 @@ const AppLayout: ParentComponent = (props) => {
 					</span>
 				</div>
 				<div class="h-full pr-1 flex items-center gap-1">
-					<NotificationBell />
 					<Button
 						size="sm"
 						variant="ghost"
@@ -353,7 +448,13 @@ const AppLayout: ParentComponent = (props) => {
 
 const AppLayoutWithPreferences: ParentComponent = (props) => (
 	<UserPreferencesContextProvider>
-		<AppLayout>{props.children}</AppLayout>
+		<SoundsContextProvider>
+			<MutesContextProvider>
+				<NotificationsContextProvider>
+					<AppLayout>{props.children}</AppLayout>
+				</NotificationsContextProvider>
+			</MutesContextProvider>
+		</SoundsContextProvider>
 	</UserPreferencesContextProvider>
 );
 

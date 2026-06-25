@@ -160,7 +160,11 @@ export const GeneralPage: Component = () => {
 										</FileFieldItemList>
 									</div>
 								</Match>
-								<Match when={existingBannerUrl() !== null}>
+								<Match
+									when={
+										resolveBlob(user.did, existingBannerUrl()!) !== undefined
+									}
+								>
 									<div class="relative h-full w-full">
 										<img
 											src={resolveBlob(user.did, existingBannerUrl()!)}
@@ -196,7 +200,11 @@ export const GeneralPage: Component = () => {
 											</FileFieldItemList>
 										</div>
 									</Match>
-									<Match when={existingImageUrl() !== null}>
+									<Match
+										when={
+											resolveBlob(user.did, existingImageUrl()!) !== undefined
+										}
+									>
 										<div class="relative w-24 h-24">
 											<img
 												src={resolveBlob(user.did, existingImageUrl()!)}

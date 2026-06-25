@@ -1,8 +1,16 @@
-import { createSignal, type ParentComponent, Suspense } from "solid-js";
+import { useSearchParams } from "@solidjs/router";
+import {
+	createEffect,
+	createSignal,
+	type ParentComponent,
+	Show,
+	Suspense,
+} from "solid-js";
 import CaretDownIcon from "~icons/ph/caret-down";
 import { ChannelList } from "../components/app/community/ChannelList";
 import { CommunitySettingsModal } from "../components/app/community/CommunitySettingsModal";
 import { LeaveCommunityModal } from "../components/app/community/LeaveCommunityModal";
+import { MemberProfileModal } from "../components/app/community/MemberProfileModal";
 import { MemberSidebar } from "../components/app/community/MemberSidebar";
 import User from "../components/app/user";
 import {
@@ -15,16 +23,36 @@ import {
 import {
 	CommunityContextProvider,
 	useCommunityContext,
+	usePermissions,
 } from "../contexts/Community";
+import { MemberProfileContextProvider } from "../contexts/MemberProfile";
+import { useNotifications } from "../contexts/Notifications";
+import { useUserContext } from "../contexts/User";
 import { useUserPreferences } from "../contexts/UserPreferences";
 import createMediaQuery from "../utils/create-media-query";
-import { MemberProfileContextProvider } from "../contexts/MemberProfile";
-import { MemberProfileModal } from "../components/app/community/MemberProfileModal";
 
 const CommunityHeader = () => {
+	const user = useUserContext();
 	const community = useCommunityContext();
+	const notifications = useNotifications();
+	const { canManageApprovals } = usePermissions();
 	const [settingsOpen, setSettingsOpen] = createSignal(false);
 	const [leaveOpen, setLeaveOpen] = createSignal(false);
+	const [searchParams, setSearchParams] = useSearchParams();
+
+	const pendingApplications = () =>
+		canManageApprovals(user.did) ? community().applications.length : 0;
+
+	const isOwner = () => community().ownerDid() === user.did;
+
+	// Opened from the sidebar context menu's "Settings": it navigates here with
+	// `?settings=open`, which we honour once and then clear.
+	createEffect(() => {
+		if (searchParams.settings === "open") {
+			setSettingsOpen(true);
+			setSearchParams({ settings: undefined });
+		}
+	});
 
 	return (
 		<>
@@ -38,19 +66,40 @@ const CommunityHeader = () => {
 						<h2 class="m-0 text-xl w-full text-ellipsis whitespace-nowrap">
 							{community().community.name}
 						</h2>
+						<Show when={pendingApplications() > 0}>
+							<span class="text-xs leading-none font-medium bg-primary text-primary-foreground rounded-full px-1.5 py-0.5 min-w-5 text-center">
+								{pendingApplications()}
+							</span>
+						</Show>
 						<CaretDownIcon class="text-muted-foreground mt-0.5 text-sm " />
 					</DropdownMenuTrigger>
 					<DropdownMenuPortal>
 						<DropdownMenuContent class="min-w-48 w-66.5">
+							<DropdownMenuItem
+								onSelect={() =>
+									void notifications.markCommunityAsRead(
+										community().community.uri,
+									)
+								}
+							>
+								Mark everything as read
+							</DropdownMenuItem>
 							<DropdownMenuItem onSelect={() => setSettingsOpen(true)}>
 								Settings
+								<Show when={pendingApplications() > 0}>
+									<span class="ml-auto text-xs leading-none font-medium bg-primary text-primary-foreground rounded-full px-1.5 py-0.5 min-w-5 text-center">
+										{pendingApplications()}
+									</span>
+								</Show>
 							</DropdownMenuItem>
-							<DropdownMenuItem
-								class="text-destructive data-highlighted:text-destructive"
-								onSelect={() => setLeaveOpen(true)}
-							>
-								Leave Community
-							</DropdownMenuItem>
+							<Show when={!isOwner()}>
+								<DropdownMenuItem
+									class="text-destructive data-highlighted:text-destructive"
+									onSelect={() => setLeaveOpen(true)}
+								>
+									Leave Community
+								</DropdownMenuItem>
+							</Show>
 						</DropdownMenuContent>
 					</DropdownMenuPortal>
 				</DropdownMenu>

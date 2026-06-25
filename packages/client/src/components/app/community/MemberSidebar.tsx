@@ -13,6 +13,7 @@ import User from "../user";
 import { MemberContextMenu } from "./MemberContextMenu";
 import CrownIcon from "~icons/ph/crown-fill";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../../ui/Tooltip";
+import { displayableNameFn } from "../user/DisplayableName";
 
 type MembersByRoles = Array<{
 	role: Role;
@@ -24,12 +25,7 @@ const MemberRow = (props: {
 	communityUri: string;
 	roles: Role[];
 }) => {
-	const user = useUserContext();
 	const community = useCommunityContext();
-	const { canManage } = usePermissions();
-
-	const isMe = () => props.member.did === user.did;
-	const showActions = () => canManage(user.did) && !isMe();
 
 	return (
 		<MemberContextMenu member={props.member}>
@@ -141,6 +137,12 @@ export const MemberSidebar = () => {
 			result[resultIndex].members.push(member);
 		}
 
+		for (const entry of result) {
+			entry.members = entry.members.sort((a, b) =>
+				displayableNameFn(a).localeCompare(displayableNameFn(b)),
+			);
+		}
+
 		return result.sort((a, b) => b.role.position - a.role.position);
 	};
 
@@ -151,7 +153,7 @@ export const MemberSidebar = () => {
 	// across the server's `roles_updated` event.
 	const layout = createMemo(() => {
 		const groups = membersByRoles().filter((g) => g.members.length > 0);
-		const dids: string[] = [];
+		const members: Member[] = [];
 		const headers: Record<string, { label: string; count: number }> = {};
 
 		for (const group of groups) {
@@ -162,11 +164,11 @@ export const MemberSidebar = () => {
 						count: group.members.length,
 					};
 				}
-				dids.push(member.did);
+				members.push(member);
 			});
 		}
 
-		return { dids, headers };
+		return { members, headers };
 	});
 
 	const displayMembersAsSheet = createMediaQuery("(max-width: 1280px)");
@@ -174,20 +176,19 @@ export const MemberSidebar = () => {
 
 	return (
 		<div
-			class="min-w-72 flex w-72 h-full flex-col p-4 border-l gap-3 border-border overflow-y-auto bg-background"
+			class="min-w-72 flex w-72 h-full flex-col p-4 border-l z-50 gap-3 border-border overflow-y-auto bg-background"
 			classList={{
 				"absolute top-0 right-0 h-full drop-shadow-black drop-shadow-2xl":
 					displayMembersAsSheet(),
 				hidden: !preferences().membersListVisible,
 			}}
 		>
-			<For each={layout().dids}>
-				{(did) => {
-					const member = () => community().members.find((m) => m.did === did);
-					const header = () => layout().headers[did];
+			<For each={layout().members}>
+				{(member) => {
+					const header = () => layout().headers[member.did];
 
 					return (
-						<Show when={member()}>
+						<>
 							<Show when={header()}>
 								{(h) => (
 									<span class="text-sm text-muted-foreground not-first-of-type:mt-4">
@@ -196,11 +197,11 @@ export const MemberSidebar = () => {
 								)}
 							</Show>
 							<MemberRow
-								member={member()!}
+								member={member}
 								communityUri={community().community.uri}
 								roles={community().assignableRoles}
 							/>
-						</Show>
+						</>
 					);
 				}}
 			</For>

@@ -123,6 +123,8 @@ const MessageInner: Component<{
 					"pb-2": message.reactions.length > 0,
 				}}
 			>
+				<BlockDrawer />
+				<DeletionDrawer />
 				<Show when={message.parent}>
 					<div class="flex flex-row gap-4 group/reply cursor-pointer w-full max-w-full">
 						<button
@@ -140,7 +142,9 @@ const MessageInner: Component<{
 								disableState
 							/>
 							<strong class="text-xs block">
-								<User.DisplayableName user={resolveAuthor(message.parent!.author)} />
+								<User.DisplayableName
+									user={resolveAuthor(message.parent!.author)}
+								/>
 							</strong>
 							<span class="text-xs overflow-hidden text-ellipsis text-nowrap flex-1">
 								{message.parent!.text}
@@ -156,12 +160,15 @@ const MessageInner: Component<{
 								class="w-10 h-10 rounded-full cursor-pointer"
 								disabled={isPending()}
 							>
-								<User.Avatar user={resolveAuthor(message.author)} disableState />
+								<User.Avatar
+									user={resolveAuthor(message.author)}
+									disableState
+								/>
 							</User.ProfilePopover>
 						</Match>
 						<Match when={isSubsequentMessage()}>
 							<div class="w-10 h-8 min-w-10 min-h-8 text-muted-foreground group-hover:opacity-100 opacity-0 text-xs flex items-center justify-center">
-								<span>
+								<span class="whitespace-nowrap">
 									{new Date(message.createdAt).toLocaleTimeString(undefined, {
 										hour: "2-digit",
 										minute: "2-digit",
@@ -190,7 +197,9 @@ const MessageInner: Component<{
 										disabled={isPending()}
 									>
 										<span class="font-bold hover:underline cursor-pointer">
-											<User.DisplayableName user={resolveAuthor(message.author)} />
+											<User.DisplayableName
+												user={resolveAuthor(message.author)}
+											/>
 										</span>
 									</User.ProfilePopover>
 									<small class="text-muted-foreground">
@@ -221,7 +230,9 @@ const MessageInner: Component<{
 										disabled={isPending()}
 									>
 										<span class="font-bold hover:underline cursor-pointer">
-											<User.DisplayableName user={resolveAuthor(message.author)} />
+											<User.DisplayableName
+												user={resolveAuthor(message.author)}
+											/>
 										</span>
 									</User.ProfilePopover>
 									<small class="text-muted-foreground">
@@ -320,33 +331,29 @@ const MessageInner: Component<{
 								<ArrowBendUpLeft />
 							</Action>
 							<Show when={isAdmin() && message.author.did !== user.did}>
-								<BlockDrawer>
-									<Action
-										tooltipText="Block"
-										buttonClasses="text-destructive"
-										onClick={(e) => {
-											handlePotentialBlock(e);
-										}}
-									>
-										<ProhibitIcon />
-									</Action>
-								</BlockDrawer>
+								<Action
+									tooltipText="Block"
+									buttonClasses="text-destructive"
+									onClick={(e) => {
+										handlePotentialBlock(e);
+									}}
+								>
+									<ProhibitIcon />
+								</Action>
 							</Show>
 							<Show when={messageEditable()}>
 								<Action tooltipText="Edit" onClick={enableEditMode}>
 									<PencilIcon />
 								</Action>
-								<DeletionDrawer>
-									<Action
-										tooltipText="Delete"
-										buttonClasses="text-destructive"
-										onClick={(e) => {
-											handlePotentialDeletion(e);
-										}}
-									>
-										<TrashIcon />
-									</Action>
-								</DeletionDrawer>
+								<Action
+									tooltipText="Delete"
+									buttonClasses="text-destructive"
+									onClick={(e) => {
+										handlePotentialDeletion(e);
+									}}
+								>
+									<TrashIcon />
+								</Action>
 							</Show>
 						</div>
 					</Show>

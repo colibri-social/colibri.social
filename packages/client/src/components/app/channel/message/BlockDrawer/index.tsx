@@ -3,12 +3,12 @@ import createMediaQuery from "../../../../../utils/create-media-query";
 import { Desktop } from "./Desktop";
 import { Mobile } from "./Mobile";
 
-export const BlockDrawer: ParentComponent = (props) => {
+export const BlockDrawer: ParentComponent = () => {
 	const isDesktop = createMediaQuery("(min-width: 768px)");
 
 	return (
-		<Show when={isDesktop()} fallback={<Mobile>{props.children}</Mobile>}>
-			<Desktop>{props.children}</Desktop>
+		<Show when={isDesktop()} fallback={<Mobile />}>
+			<Desktop />
 		</Show>
 	);
 };

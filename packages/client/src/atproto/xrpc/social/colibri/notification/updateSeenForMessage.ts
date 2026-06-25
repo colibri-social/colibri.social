@@ -1,17 +1,16 @@
 import type { XrpcRequest } from "../../..";
 
 type Response = {
-	did: string;
-	handle: string;
+	updated: number;
 };
 
-export const blockUser: XrpcRequest<
-	[string, string, string],
+export const updateSeenForMessage: XrpcRequest<
+	[string, string],
 	Promise<Response | undefined>
-> = async (fetch, community, identifier, auth) => {
+> = async (fetch, message, auth) => {
 	try {
 		const res = await fetch(
-			`/xrpc/social.colibri.community.blockUser?community=${community}&identifier=${identifier}&auth=${auth}`,
+			`/xrpc/social.colibri.notification.updateSeenForMessage?message=${message}&auth=${auth}`,
 			{
 				method: "POST",
 			},

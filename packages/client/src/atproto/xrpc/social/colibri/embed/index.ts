@@ -1,0 +1,1 @@
+export { getMetadata } from "./getMetadata";

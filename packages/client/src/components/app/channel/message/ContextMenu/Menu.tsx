@@ -12,12 +12,14 @@ import {
 	ContextMenuTrigger,
 } from "../../../../ui/ContextMenu";
 import { DebugInfo } from "../DebugInfo";
-import { DeletionDrawer } from "../DeletionDrawer";
+import { usePermissions } from "../../../../../contexts/Community";
+import { useUserContext } from "../../../../../contexts/User";
 
 /**
  * A component handling the right click context menu for messages.
  */
 export const MessageContextMenu: ParentComponent = (props) => {
+	const user = useUserContext();
 	const {
 		message,
 		isPending,
@@ -26,9 +28,19 @@ export const MessageContextMenu: ParentComponent = (props) => {
 		enableEditMode,
 		handlePotentialDeletion,
 		setDebugModalOpen,
+		blockModalOpen,
+		deletionModalOpen,
+		handlePotentialBlock,
 	} = useMessageContext();
 
-	const isDisabled = () => isPending() || !!document.querySelector("#lightbox");
+	const { canHideMessage } = usePermissions();
+	const ownsMessage = () => user.did === message.author.did;
+
+	const isDisabled = () =>
+		isPending() ||
+		blockModalOpen() ||
+		deletionModalOpen() ||
+		!!document.querySelector("#lightbox");
 
 	return (
 		<>
@@ -51,17 +63,22 @@ export const MessageContextMenu: ParentComponent = (props) => {
 						<Show when={messageEditable()}>
 							<ContextMenuItem onClick={enableEditMode}>
 								<PencilIcon />
-								<span>Edit</span>
+								<span>Edit Message</span>
 							</ContextMenuItem>
-							<DeletionDrawer>
-								<ContextMenuItem
-									class="text-destructive"
-									onClick={(e) => handlePotentialDeletion(e as MouseEvent)}
-								>
-									<TrashIcon />
-									<span>Delete</span>
-								</ContextMenuItem>
-							</DeletionDrawer>
+							<ContextMenuItem
+								onClick={(e) => handlePotentialDeletion(e as MouseEvent)}
+							>
+								<TrashIcon class="text-destructive" />
+								<span class="text-destructive">Delete Message</span>
+							</ContextMenuItem>
+						</Show>
+						<Show when={!ownsMessage() && canHideMessage(user.did)}>
+							<ContextMenuItem
+								onClick={(e) => handlePotentialBlock(e as MouseEvent)}
+							>
+								<TrashIcon class="text-destructive" />
+								<span class="text-destructive">Block Message</span>
+							</ContextMenuItem>
 						</Show>
 					</ContextMenuContent>
 				</ContextMenuPortal>

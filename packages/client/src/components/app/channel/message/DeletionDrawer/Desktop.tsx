@@ -1,4 +1,4 @@
-import type { ParentComponent } from "solid-js";
+import type { Component } from "solid-js";
 import { useMessageContext } from "../../../../../contexts/Message";
 import {
 	Dialog,
@@ -8,22 +8,26 @@ import {
 	DialogHeader,
 	DialogPortal,
 	DialogTitle,
-	DialogTrigger,
 } from "../../../../ui/Dialog";
 import { MessagePreview } from "../MessagePreview";
 import { DialogCancelButton, DialogConfirmButton, DialogTip } from "../shared";
-import { DialogDescriptionContent, DialogTitleContent } from "./shared";
+import {
+	DialogDescriptionContent,
+	DialogTitleContent,
+	useConfirmOnEnter,
+} from "./shared";
 
 /**
  * The message deletion drawer used as a warning when a message is about to be deleted.
  */
-export const Desktop: ParentComponent = (props) => {
+export const Desktop: Component = () => {
 	const { message, deletionModalOpen, setDeletionModalOpen, confirmDelete } =
 		useMessageContext();
 
+	useConfirmOnEnter(deletionModalOpen, confirmDelete);
+
 	return (
 		<Dialog open={deletionModalOpen()} onOpenChange={setDeletionModalOpen}>
-			<DialogTrigger class="w-full">{props.children}</DialogTrigger>
 			<DialogPortal>
 				<DialogContent>
 					<DialogHeader>
