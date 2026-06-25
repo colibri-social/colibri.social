@@ -473,7 +473,7 @@ const ChannelLayout: ParentComponent = (props) => {
 						onClick={(e) => e.stopPropagation()}
 						onKeyDown={(e) => e.stopPropagation()}
 					>
-						<div class="relative w-full flex-1 min-h-0 mb-4">
+						<div class="relative w-full flex-1 min-h-0">
 							<div
 								class="w-full h-full overflow-y-auto"
 								style={{ "overflow-anchor": "none" }}
