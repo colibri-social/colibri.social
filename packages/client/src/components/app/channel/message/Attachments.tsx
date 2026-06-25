@@ -27,7 +27,7 @@ import SpeakerLowIcon from "~icons/ph/speaker-low-fill";
 import SpeakerMutedIcon from "~icons/ph/speaker-x-fill";
 import SpinnerIcon from "~icons/ph/spinner-gap";
 import XIcon from "~icons/ph/x";
-import { createBlobUrl, createBlobUrls } from "../../../../atproto/resolve-pds";
+import { resolveBlob } from "../../../../atproto/resolve-blob";
 import type { Message } from "../../../../atproto/xrpc/social/colibri/channel/listMessages";
 import { useStableMedia } from "../../../../contexts/ScrollAnchor";
 import { Button } from "../../../ui/Button";
@@ -114,10 +114,7 @@ const TimeDisplay: Component<{ tone: "muted" | "light" }> = (props) => (
 
 export const AudioAttachment: AttachmentComponent = (props) => {
 	const stableMedia = useStableMedia();
-	const src = createBlobUrl(
-		() => props.did,
-		() => props.item.blob,
-	);
+	const src = () => resolveBlob(props.did, props.item.blob);
 	const size = "size" in props.item.blob ? props.item.blob.size : undefined;
 
 	return (
@@ -217,13 +214,11 @@ export const ImageGallery: Component<{
 	did: string;
 }> = (props) => {
 	const stableMedia = useStableMedia();
-	const urls = createBlobUrls(
-		() => props.did,
-		() => props.images.map((i) => i.blob),
-	);
+	const urls = () => props.images.map((i) => resolveBlob(props.did, i.blob));
 
 	const count = () => props.images.length;
 	const [openIndex, setOpenIndex] = createSignal<number | null>(null);
+	let lightboxRef: HTMLDivElement | undefined;
 
 	const close = () => setOpenIndex(null);
 	const next = () => setOpenIndex((i) => (i === null ? i : (i + 1) % count()));
@@ -233,13 +228,29 @@ export const ImageGallery: Component<{
 	// Keyboard controls only while the carousel is open.
 	createEffect(() => {
 		if (openIndex() === null) return;
+
+		// Move focus into the lightbox for accessibility. Deferred to a microtask
+		// since the Portal hasn't mounted `lightboxRef` into the DOM yet at the
+		// point this effect runs.
+		queueMicrotask(() => lightboxRef?.focus());
+
+		// An ancestor in the message list stops keydown propagation
+		// (ChannelLayout's `onKeyDown`), so a bubble-phase listener would only
+		// fire if focus successfully landed inside the portaled lightbox — which
+		// is racy. Listening in the capture phase runs before that ancestor can
+		// swallow the event, so arrow/Escape keys work regardless of focus.
 		const onKey = (e: KeyboardEvent) => {
 			if (e.key === "Escape") close();
-			else if (e.key === "ArrowRight") next();
-			else if (e.key === "ArrowLeft") prev();
+			else if (e.key === "ArrowRight") {
+				e.preventDefault();
+				next();
+			} else if (e.key === "ArrowLeft") {
+				e.preventDefault();
+				prev();
+			}
 		};
-		window.addEventListener("keydown", onKey);
-		onCleanup(() => window.removeEventListener("keydown", onKey));
+		window.addEventListener("keydown", onKey, true);
+		onCleanup(() => window.removeEventListener("keydown", onKey, true));
 	});
 
 	return (
@@ -294,7 +305,9 @@ export const ImageGallery: Component<{
 				<Portal>
 					<div
 						id="lightbox"
-						class="fixed inset-0 z-50 flex items-center justify-center bg-background/95"
+						ref={lightboxRef}
+						tabIndex={-1}
+						class="fixed inset-0 z-50 flex items-center justify-center bg-background/95 outline-none"
 						onClick={close}
 					>
 						<img
@@ -317,7 +330,7 @@ export const ImageGallery: Component<{
 
 						<Show when={count() > 1}>
 							<div
-								class="absolute bottom-8 left-1/2 z-50 flex -translate-x-1/2 items-center gap-2 rounded-full border border-border bg-card px-2 py-1"
+								class="absolute bottom-8 left-1/2 z-50 flex -translate-x-1/2 items-center gap-2 rounded-full border border-border bg-card p-1"
 								onClick={(e) => e.stopPropagation()}
 							>
 								<button
@@ -350,10 +363,7 @@ export const ImageGallery: Component<{
 
 export const VideoAttachment: AttachmentComponent = (props) => {
 	const stableMedia = useStableMedia();
-	const src = createBlobUrl(
-		() => props.did,
-		() => props.item.blob,
-	);
+	const src = () => resolveBlob(props.did, props.item.blob);
 
 	return (
 		<media-player
@@ -366,7 +376,6 @@ export const VideoAttachment: AttachmentComponent = (props) => {
 			playsInline
 		>
 			<a
-				ref={stableMedia}
 				class="absolute z-20 top-4 aspect-square right-4 hidden group-hover:flex items-center justify-center bg-card p-1 rounded-sm hover:bg-muted border border-border"
 				href={src()}
 				target="_blank"
@@ -460,10 +469,7 @@ export const VideoAttachment: AttachmentComponent = (props) => {
 
 export const GenericFileAttachment: AttachmentComponent = (props) => {
 	const stableMedia = useStableMedia();
-	const src = createBlobUrl(
-		() => props.did,
-		() => props.item.blob,
-	);
+	const src = () => resolveBlob(props.did, props.item.blob);
 	const size = "size" in props.item.blob ? props.item.blob.size : undefined;
 
 	return (
