@@ -36,6 +36,14 @@ export const preserveScrollOnResize = (
 
 		if (previousHeight === null) {
 			previousHeight = height;
+			// The element just mounted with its initial size (e.g. a media player
+			// that has a fixed/reserved height and won't grow further). If we were
+			// pinned to the bottom, re-pin so the new content stays in view — the
+			// growth branch below only fires on *subsequent* resizes.
+			if (isAtBottom()) {
+				const container = getContainer();
+				if (container) container.scrollTop = container.scrollHeight;
+			}
 			return;
 		}
 

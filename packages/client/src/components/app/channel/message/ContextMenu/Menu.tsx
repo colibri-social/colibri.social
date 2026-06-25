@@ -61,10 +61,12 @@ export const MessageContextMenu: ParentComponent = (props) => {
 							</ContextMenuItem>
 						</Show>
 						<Show when={messageEditable()}>
-							<ContextMenuItem onClick={enableEditMode}>
-								<PencilIcon />
-								<span>Edit Message</span>
-							</ContextMenuItem>
+							<Show when={message.text.length > 0}>
+								<ContextMenuItem onClick={enableEditMode}>
+									<PencilIcon />
+									<span>Edit Message</span>
+								</ContextMenuItem>
+							</Show>
 							<ContextMenuItem
 								onClick={(e) => handlePotentialDeletion(e as MouseEvent)}
 							>

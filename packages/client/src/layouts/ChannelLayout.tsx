@@ -1,4 +1,4 @@
-import type { Details } from "@kobalte/core/file-field";
+import type { Details, FileError } from "@kobalte/core/file-field";
 import {
 	createEffect,
 	createMemo,
@@ -34,6 +34,25 @@ type MessageMeta = {
 	isSubsequent: boolean;
 	hasSubsequent: boolean;
 	dateLabel: string | undefined;
+};
+
+/** Maximum number of files that can be attached to a single message. */
+const MAX_ATTACHMENTS = 10;
+
+/** Turns a Kobalte file-field rejection code into a human-readable message. */
+const describeFileError = (error: FileError, fileName: string): string => {
+	switch (error) {
+		case "TOO_MANY_FILES":
+			return `You can attach up to ${MAX_ATTACHMENTS} files per message.`;
+		case "FILE_TOO_LARGE":
+			return `"${fileName}" is too large to attach.`;
+		case "FILE_TOO_SMALL":
+			return `"${fileName}" is too small to attach.`;
+		case "FILE_INVALID_TYPE":
+			return `"${fileName}" isn't a supported file type.`;
+		default:
+			return `"${fileName}" couldn't be added.`;
+	}
 };
 
 const sameDay = (a: string, b: string): boolean =>
@@ -402,20 +421,6 @@ const ChannelLayout: ParentComponent = (props) => {
 
 	createEffect(
 		on(
-			() => channel.outgoingMessage(),
-			(count) => {
-				if (!count) return; // skip initial 0
-				if (!scrollContainer) return;
-				// The user just sent a message — always pin to it, even if they'd
-				// scrolled up.
-				requestAnimationFrame(() => scrollToBottom());
-				channel.clearUnreadBoundary();
-			},
-		),
-	);
-
-	createEffect(
-		on(
 			() => channel.loadingOlder(),
 			(isLoading) => {
 				if (isLoading) {
@@ -441,13 +446,25 @@ const ChannelLayout: ParentComponent = (props) => {
 			<FileField
 				class="gap-0! flex flex-col flex-1 min-h-0"
 				multiple
-				onFileReject={(data) =>
-					toast.error(`Failed to add file.`, {
-						description: data
-							.map((x) => x.errors.map((y) => y).join(", "))
-							.join(", "),
-					})
-				}
+				maxFiles={MAX_ATTACHMENTS}
+				onFileReject={(rejections) => {
+					// One toast per distinct reason — TOO_MANY_FILES otherwise repeats
+					// once for every excess file.
+					const messages = [
+						...new Set(
+							rejections.flatMap((r) =>
+								r.errors.map((e) => describeFileError(e, r.file.name)),
+							),
+						),
+					];
+
+					toast.error(
+						rejections.length === 1
+							? "Couldn't add file"
+							: "Couldn't add files",
+						{ description: messages.join("\n") },
+					);
+				}}
 				onFileChange={setFiles}
 			>
 				<FileFieldDropzone class="border-none gap-0! flex flex-col flex-1 min-h-0">

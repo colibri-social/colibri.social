@@ -308,6 +308,20 @@ export type Colibri_MuteEvent = EventBase<
 	}
 >;
 
+/**
+ * Best-effort progress for an in-flight community creation, emitted while the
+ * AppView bootstraps a "bring your own PDS" community (whose external PDS may
+ * be slow). The AppView delivers it only to the creating user's own
+ * connections, so there's no DID to filter on here. `step` advances
+ * `connecting` → `creating` → `registering`.
+ */
+export type Colibri_CommunityCreationProgressEvent = EventBase<
+	"community_creation_progress",
+	{
+		step: "connecting" | "creating" | "registering";
+	}
+>;
+
 export type ColibriEvent =
 	| AckEvent
 	| Colibri_CommunityEvent
@@ -322,4 +336,5 @@ export type ColibriEvent =
 	| Colibri_TypingEvent
 	| Colibri_NotificationEvent
 	| Colibri_SeenEvent
-	| Colibri_MuteEvent;
+	| Colibri_MuteEvent
+	| Colibri_CommunityCreationProgressEvent;

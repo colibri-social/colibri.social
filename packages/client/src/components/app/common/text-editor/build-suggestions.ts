@@ -1,16 +1,17 @@
 import type { MentionNodeAttrs } from "@tiptap/extension-mention";
 import type { SuggestionOptions } from "@tiptap/suggestion";
-import type { ChannelData } from "@/utils/sdk";
-import type { MemberData } from "../../layouts/CommunityLayout";
 import {
 	createMentionRenderer,
 	type EmojiSuggestionData,
 } from "./MentionPopupRenderer";
+import type { Member } from "../../../../atproto/xrpc/social/colibri/community/listMembers";
+import type { Channel } from "../../../../atproto/xrpc/social/colibri/community/listChannels";
 
 export const buildSuggestions = (
-	members: () => Array<MemberData>,
-	channels: () => Array<ChannelData>,
+	members: () => Array<Member>,
+	channels: () => Array<Channel>,
 	emojis: () => Array<EmojiSuggestionData>,
+	mainEditor?: boolean,
 ): Omit<SuggestionOptions<any, MentionNodeAttrs>, "editor">[] => {
 	return [
 		{
@@ -19,7 +20,7 @@ export const buildSuggestions = (
 				members()
 					.filter(
 						(member) =>
-							member.display_name
+							member.data.displayName
 								?.toLowerCase()
 								.startsWith(query.toLowerCase()) ||
 							member.handle
@@ -28,7 +29,7 @@ export const buildSuggestions = (
 								.startsWith(query.toLowerCase()),
 					)
 					.slice(0, 8),
-			render: createMentionRenderer("@"),
+			render: createMentionRenderer("@", mainEditor),
 		},
 		{
 			char: "#",
@@ -38,7 +39,7 @@ export const buildSuggestions = (
 						channel.name.toLowerCase().startsWith(query.toLowerCase()),
 					)
 					.slice(0, 5),
-			render: createMentionRenderer("#"),
+			render: createMentionRenderer("#", mainEditor),
 		},
 		{
 			char: ":",
@@ -51,7 +52,7 @@ export const buildSuggestions = (
 					)
 					.slice(0, 5);
 			},
-			render: createMentionRenderer(":"),
+			render: createMentionRenderer(":", mainEditor),
 		},
 	];
 };

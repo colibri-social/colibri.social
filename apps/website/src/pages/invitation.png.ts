@@ -159,9 +159,7 @@ export const GET: APIRoute = async (request) => {
 
 		// TODO: This will break once this goes live
 		const communityData = (await (
-			await fetch(
-				`https://https://colibri.social/api/community?community=${community}`,
-			)
+			await fetch(`https://colibri.social/api/community?community=${community}`)
 		).json()) as any;
 
 		return await satoriAstroOG({

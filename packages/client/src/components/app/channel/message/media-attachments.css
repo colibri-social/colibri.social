@@ -1,0 +1,102 @@
+/*
+ * Styling for chat media attachments built on Vidstack primitives.
+ *
+ * We deliberately do NOT import Vidstack's default layout CSS — the layout is
+ * hand-built from Vidstack's headless primitives so it matches the rest of the
+ * client. Everything visual lives here or in Tailwind classes on the elements.
+ *
+ * Sliders are headless: Vidstack sets the `--slider-fill` CSS variable (e.g.
+ * `42%`) and `data-*` attributes on the slider element; we render our own
+ * track/fill/thumb that read those (see <SliderVisual> in Attachments.tsx).
+ * Buttons expose their state via `data-*` attributes; we hold one icon per
+ * state inside the button and reveal the active one with the rules below.
+ */
+
+/* Audio has no visual media — hide the provider's <audio> host element. */
+.colibri-media-audio media-provider {
+	display: none;
+}
+
+/* Video fills its container while respecting the chat-bubble size cap. */
+.colibri-media-video media-provider {
+	display: block;
+	line-height: 0;
+}
+
+.colibri-media-video video {
+	display: block;
+	width: 100%;
+	height: auto;
+	max-height: 24rem; /* keep in sync with max-h-96 on the player */
+	object-fit: contain;
+}
+
+/*
+ * With `load="play"` the video has no intrinsic size until the user starts it,
+ * so reserve a 16:9 box up front to avoid a zero-height collapse. Once the
+ * media reports `data-can-play` the real dimensions take over.
+ */
+.colibri-media-video:not([data-can-play]) {
+	aspect-ratio: 16 / 9;
+}
+
+/*
+ * Timestamps: show the `--:-- / --:--` placeholder until the player can play,
+ * then swap in the live <media-time> readout. Avoids flashing 0:00 or a wrong
+ * duration while metadata is still loading.
+ */
+.colibri-media-audio [data-time-real],
+.colibri-media-video [data-time-real] {
+	display: none;
+}
+
+.colibri-media-audio[data-can-play] [data-time-placeholder],
+.colibri-media-video[data-can-play] [data-time-placeholder] {
+	display: none;
+}
+
+.colibri-media-audio[data-can-play] [data-time-real],
+.colibri-media-video[data-can-play] [data-time-real] {
+	display: inline-flex;
+}
+
+/*
+ * Fullscreen: drop the in-feed size caps so the video fills the screen.
+ * Without this the player's max-width (max-w-104) and the video's max-height
+ * keep it at its small in-feed size, centered on a black backdrop. Vidstack
+ * sets `data-fullscreen` on the player for both native and fallback modes.
+ */
+.colibri-media-video[data-fullscreen] {
+	max-width: none;
+	border-radius: 0;
+}
+
+.colibri-media-video[data-fullscreen] video {
+	width: 100%;
+	height: 100vh;
+	max-height: none;
+}
+
+/* Stateful control buttons: hide every icon, then reveal the active state. */
+media-play-button [data-icon],
+media-mute-button [data-icon],
+media-fullscreen-button [data-icon] {
+	display: none;
+}
+
+media-play-button[data-paused] [data-icon="play"],
+media-play-button:not([data-paused]) [data-icon="pause"] {
+	display: block;
+}
+
+media-mute-button[data-state="high"] [data-icon="high"],
+media-mute-button[data-state="low"] [data-icon="low"],
+media-mute-button[data-state="muted"] [data-icon="muted"],
+media-mute-button:not([data-state]) [data-icon="high"] {
+	display: block;
+}
+
+media-fullscreen-button[data-active] [data-icon="exit"],
+media-fullscreen-button:not([data-active]) [data-icon="enter"] {
+	display: block;
+}

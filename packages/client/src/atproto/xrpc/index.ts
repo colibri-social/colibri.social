@@ -134,6 +134,7 @@ export class XrpcClient {
 					requiresApproval: boolean,
 					picture: Blob | undefined,
 					mimeType: string | undefined,
+					byo?: { pds: string; identifier: string; password: string },
 				) => {
 					const token = await this.generateServiceAuthToken(
 						"social.colibri.community.create",
@@ -147,6 +148,7 @@ export class XrpcClient {
 						token,
 						picture,
 						mimeType,
+						byo,
 					);
 				},
 				registerCredentials: async (

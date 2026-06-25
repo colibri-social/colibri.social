@@ -88,7 +88,7 @@ export const MentionList: Component<{
 				<For each={sorted()}>
 					{(item, index) => (
 						<button
-							class={`flex flex-row gap-1.5 items-center justify-between px-2 py-1 rounded-sm`}
+							class={`flex flex-row gap-4 items-center justify-between px-2 py-1 rounded-sm`}
 							classList={{
 								"bg-muted": index() === props.selectedIndex(),
 							}}

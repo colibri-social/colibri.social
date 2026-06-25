@@ -45,7 +45,10 @@ export function selectItem(
 	}
 }
 
-export const createMentionRenderer = (char: "@" | "#" | ":") => {
+export const createMentionRenderer = (
+	char: "@" | "#" | ":",
+	mainEditor?: boolean,
+) => {
 	return () => {
 		const [selectedIndex, setSelectedIndex] = createSignal(0);
 
@@ -59,10 +62,6 @@ export const createMentionRenderer = (char: "@" | "#" | ":") => {
 				currentItems = props.items;
 				currentCommand = props.command;
 
-				const chatInputContainer = document.querySelector<HTMLDivElement>(
-					".chat-input-container",
-				)!;
-
 				container = document.createElement("div");
 				container.style.cssText =
 					"position: absolute; z-index: 9999; pointer-events: auto;";
@@ -73,16 +72,27 @@ export const createMentionRenderer = (char: "@" | "#" | ":") => {
 
 				document.body.appendChild(container);
 
-				// Position above the cursor
-				if (props.clientRect) {
-					const rect = props.clientRect();
-					if (rect) {
-						const parentContainerRect =
-							chatInputContainer.getBoundingClientRect();
-						container.style.left = `${parentContainerRect.left + 8}px`;
-						container.style.top = `${parentContainerRect.top - 8}px`;
-						container.style.width = `${parentContainerRect.width - 16}px`;
-						container.style.transform = "translateY(calc(-100%))";
+				if (mainEditor) {
+					const chatInputContainer = document.querySelector<HTMLDivElement>(
+						".chat-input-container",
+					)!;
+					const parentContainerRect =
+						chatInputContainer.getBoundingClientRect();
+
+					container.style.left = `${parentContainerRect.left + 8}px`;
+					container.style.top = `${parentContainerRect.top - 8}px`;
+					container.style.width = `${parentContainerRect.width - 16}px`;
+					container.style.transform = "translateY(calc(-100%))";
+				} else {
+					if (props.clientRect) {
+						const rect = props.clientRect();
+
+						if (rect) {
+							container.style.minWidth = `400px`;
+							container.style.left = `${rect.left + window.scrollX}px`;
+							container.style.top = `${rect.top + window.scrollY}px`;
+							container.style.transform = "translateY(calc(-100% - 4px))";
+						}
 					}
 				}
 
@@ -113,19 +123,27 @@ export const createMentionRenderer = (char: "@" | "#" | ":") => {
 					container.style.display = "block";
 				}
 
-				if (props.clientRect) {
-					const rect = props.clientRect();
-					if (rect) {
-						const chatInputContainer = document.querySelector<HTMLDivElement>(
-							".chat-input-container",
-						)!;
+				if (mainEditor) {
+					const chatInputContainer = document.querySelector<HTMLDivElement>(
+						".chat-input-container",
+					)!;
+					const parentContainerRect =
+						chatInputContainer.getBoundingClientRect();
 
-						const parentContainerRect =
-							chatInputContainer.getBoundingClientRect();
-						container.style.left = `${parentContainerRect.left + 8}px`;
-						container.style.top = `${parentContainerRect.top - 8}px`;
-						container.style.width = `${parentContainerRect.width - 16}px`;
-						container.style.transform = "translateY(calc(-100%))";
+					container.style.left = `${parentContainerRect.left + 8}px`;
+					container.style.top = `${parentContainerRect.top - 8}px`;
+					container.style.width = `${parentContainerRect.width - 16}px`;
+					container.style.transform = "translateY(calc(-100%))";
+				} else {
+					if (props.clientRect) {
+						const rect = props.clientRect();
+
+						if (rect) {
+							container.style.minWidth = `400px`;
+							container.style.left = `${rect.left + window.scrollX}px`;
+							container.style.top = `${rect.top + window.scrollY}px`;
+							container.style.transform = "translateY(calc(-100% - 4px))";
+						}
 					}
 				}
 

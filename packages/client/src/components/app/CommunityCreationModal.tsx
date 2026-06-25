@@ -3,15 +3,16 @@ import type { Details } from "@kobalte/core/file-field";
 import { useNavigate } from "@solidjs/router";
 import {
 	type Component,
-	createEffect,
 	createSignal,
 	For,
 	Match,
+	onMount,
 	type ParentComponent,
 	Switch,
 } from "solid-js";
 import { toast } from "somoto";
 import { communityUriToUrlCompatible } from "../../atproto/community-uri-to-url-compatible";
+import { useSocketContext } from "../../contexts/Socket";
 import { useUserContext } from "../../contexts/User";
 import { Image } from "../icons/Image";
 import { Spinner } from "../icons/Spinner";
@@ -51,6 +52,14 @@ const OWNERSHIP_CHOICE = 1;
 const BYO_CREDENTIALS = 2;
 const COMMUNITY_DETAILS = 3;
 const LOADING = 4;
+
+// Labels for the BYO bootstrap steps the AppView pushes over the event socket
+// while creating the community on the user's PDS.
+const BYO_PROGRESS_LABELS: Record<string, string> = {
+	connecting: "Connecting to your PDS…",
+	creating: "Creating your community…",
+	registering: "Linking to Colibri…",
+};
 
 const [pdsLoc, setPdsLoc] = createSignal<string>("");
 const [handleOrDid, setHandleOrDid] = createSignal<string>("");
@@ -314,9 +323,26 @@ const resetState = () => {
 
 const LoadingScreen: Component = () => {
 	const user = useUserContext();
+	const socket = useSocketContext();
 	const navigate = useNavigate();
+	const [status, setStatus] = createSignal("Creating community…");
 
-	createEffect(async () => {
+	// A one-shot side effect: `onMount` fires exactly once. (A `createEffect`
+	// would re-run — it reads name/description/picture, which `resetState()`
+	// writes back, looping the create call and minting duplicate communities.)
+	onMount(async () => {
+		const isByo = ownership() === "byo";
+
+		// BYO bootstraps on a (possibly slow) external PDS; the AppView pushes
+		// live step updates over the event socket. It delivers them only to our
+		// own connection, so no client-side DID filtering is needed.
+		const unsubscribe = socket.onEvent((event) => {
+			if (event.type === "community_creation_progress" && event.data) {
+				const label = BYO_PROGRESS_LABELS[event.data.step];
+				if (label) setStatus(label);
+			}
+		});
+
 		let pictureBlob: Blob | undefined;
 		let mimeType: string | undefined;
 
@@ -326,33 +352,47 @@ const LoadingScreen: Component = () => {
 		}
 
 		try {
+			if (isByo) setStatus(BYO_PROGRESS_LABELS.connecting);
+
 			const res = await user.xrpc.social.colibri.community.create(
 				name(),
 				description() || undefined,
 				false,
 				pictureBlob,
 				mimeType,
+				isByo
+					? {
+							pds: pdsLoc(),
+							identifier: handleOrDid(),
+							password: password(),
+						}
+					: undefined,
 			);
 
 			if (!res) throw new Error("No response from server.");
 
+			setStatus("Finishing up…");
 			await user.refetchCommunities();
 			const url = communityUriToUrlCompatible(
 				res.community as AT_URI<"social.colibri.community">,
 			);
 			resetState();
 			setOpen(false);
-			navigate(`/app/c/${url}`);
+			// We explicitly do a manual nav here to prevent some loading issues
+			window.location.href = `/app/c/${url}`;
 		} catch (err) {
 			console.error("[CommunityCreation]", err);
 			toast.error("Failed to create community.");
 			setStep(COMMUNITY_DETAILS);
+		} finally {
+			unsubscribe();
 		}
 	});
 
 	return (
 		<div class="flex flex-col items-center justify-center gap-3 py-6">
-			<span class="text-sm text-muted-foreground">Creating community…</span>
+			<Spinner className="w-8 h-8 animate-spin text-muted-foreground" />
+			<span class="text-sm text-muted-foreground">{status()}</span>
 		</div>
 	);
 };

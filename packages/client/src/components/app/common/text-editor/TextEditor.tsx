@@ -142,6 +142,7 @@ export const TextEditor: Component<{
 							name: x,
 							emoji: EMOJI_DATA[x],
 						})),
+					props.mainEditor,
 				),
 			}).extend({
 				addAttributes() {
@@ -362,8 +363,8 @@ export const TextEditor: Component<{
 			</div>
 			<div
 				ref={ref}
-				id="editor"
-				class="w-full max-w-[calc(100%-28px)]"
+				id={`editor`}
+				class={`${props.mainEditor ? "" : "temp-editor"} w-full max-w-[calc(100%-28px)]`}
 				onKeyDown={(e) => {
 					if (e.ctrlKey && e.key === "s") {
 						e.stopImmediatePropagation();

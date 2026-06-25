@@ -1,17 +1,12 @@
+import type { Agent } from "@atproto/api";
 import type { JsonBlobRef } from "@atproto/lexicon";
 import type { AttachmentObj, ColibriRichTextFacet } from "@colibri-social/lib";
 import { type Details, useFileFieldContext } from "@kobalte/core/file-field";
-import {
-	type Accessor,
-	type Component,
-	createEffect,
-	createSignal,
-	Show,
-} from "solid-js";
+import { type Accessor, type Component, createEffect, Show } from "solid-js";
 import { toast } from "somoto";
 import CircleIcon from "~icons/ph/circle";
 import PlusIcon from "~icons/ph/plus";
-import { createRecord } from "../../../atproto/pds";
+import { createRecord, uploadBlob } from "../../../atproto/pds";
 import type { PendingMessage } from "../../../atproto/xrpc/social/colibri/channel/listMessages";
 import { useChannelContext } from "../../../contexts/Channel";
 import { useCommunityContext } from "../../../contexts/Community";
@@ -29,61 +24,14 @@ import {
 import { TextEditor } from "../common/text-editor/TextEditor";
 import { DisplayableName, displayableNameFn } from "../user/DisplayableName";
 
-// TODO: This does not work in Firefox. We might need a different solution for file uploads, but I am
-// not sure if the PDS allows for tracking progress, and I do not want to proxy the files
-const uploadWithProgress = (
-	file: File,
-	onProgress: (percent: number) => void,
-): Promise<AttachmentObj> => {
-	return new Promise((resolve, reject) => {
-		const xhr = new XMLHttpRequest();
-		xhr.open("POST", "/api/v1/blob/upload");
-
-		// Phase 1: browser → our server (mapped to 0–50%)
-		xhr.upload.onprogress = (e) => {
-			if (e.lengthComputable) {
-				onProgress((e.loaded / e.total) * 50);
-			}
-		};
-
-		// Phase 1 complete; start simulated phase 2 (50–99%) while
-		// the server relays the blob to the PDS.
-		xhr.upload.onload = () => {
-			onProgress(50);
-			let simulated = 50;
-			const interval = setInterval(() => {
-				// Asymptotically approach 99% so it never actually reaches it.
-				simulated += (99 - simulated) * 0.1;
-				onProgress(simulated);
-			}, 200);
-
-			// Store the interval id on the xhr so we can clear it in onload.
-			(xhr as XMLHttpRequest & { _sim?: ReturnType<typeof setInterval> })._sim =
-				interval;
-		};
-
-		xhr.onload = () => {
-			const xhrExt = xhr as XMLHttpRequest & {
-				_sim?: ReturnType<typeof setInterval>;
-			};
-			clearInterval(xhrExt._sim);
-			onProgress(100);
-			resolve({
-				blob: JSON.parse(xhr.responseText) as JsonBlobRef,
-				name: file.name,
-			});
-		};
-
-		xhr.onerror = () => {
-			const xhrExt = xhr as XMLHttpRequest & {
-				_sim?: ReturnType<typeof setInterval>;
-			};
-			clearInterval(xhrExt._sim);
-			reject(new Error("Upload failed"));
-		};
-
-		xhr.send(file);
-	});
+// Uploads a single file straight to the user's PDS via the authenticated
+// (OAuth) agent and resolves to an AttachmentObj ready to embed in a record.
+const uploadFile = async (agent: Agent, file: File): Promise<AttachmentObj> => {
+	const blob = await uploadBlob(agent, file);
+	return {
+		blob: blob.toJSON() as unknown as JsonBlobRef,
+		name: file.name,
+	};
 };
 
 /**
@@ -98,9 +46,6 @@ export const MessageInput: Component<{
 	const channel = useChannelContext();
 	const community = useCommunityContext();
 	const user = useUserContext();
-	const [fileUploadProgress, setFileUploadProgress] = createSignal<
-		Array<number>
-	>([]);
 
 	let inputEl!: HTMLDivElement;
 
@@ -129,29 +74,13 @@ export const MessageInput: Component<{
 	};
 
 	/**
-	 * Uploads files and collects progress while we're at it.
+	 * Uploads the given files to the user's PDS in parallel.
 	 * @param files The files to upload
-	 * @todo This is more or less unused - progress should be shown on the pending message with file stubs.
 	 */
-	const uploadFiles = async (
-		files: Array<File>,
-	): Promise<Array<AttachmentObj>> => {
-		setFileUploadProgress(files.map(() => 0));
-		const promises: Array<Promise<AttachmentObj>> = [];
-
-		files.forEach((file, index) => {
-			promises.push(
-				uploadWithProgress(file, (percent) => {
-					setFileUploadProgress((current) => {
-						const next = [...current];
-						next[index] = percent;
-						return next;
-					});
-				}),
-			);
-		});
-
-		return await Promise.all(promises);
+	const uploadFiles = (files: Array<File>): Promise<Array<AttachmentObj>> => {
+		return Promise.all(
+			files.map((file) => uploadFile(user.atproto.agent, file)),
+		);
 	};
 
 	/**
@@ -181,7 +110,10 @@ export const MessageInput: Component<{
 		// Reset the throttle so the next keystroke after sending pings promptly.
 		lastTypingPing = 0;
 
-		for (const file of fileField.acceptedFiles) {
+		// Snapshot first: `removeFile` mutates the live `acceptedFiles` array, so
+		// iterating it directly shifts elements out from under the loop and leaves
+		// some attachments behind.
+		for (const file of [...fileField.acceptedFiles]) {
 			fileField.removeFile(file);
 		}
 
@@ -189,13 +121,16 @@ export const MessageInput: Component<{
 		if (hasFiles) {
 			try {
 				attachments = await uploadFiles(acceptedFiles);
-			} catch {
-				toast.error("Failed to upload attachments.");
-				setFileUploadProgress([]);
+			} catch (err) {
+				toast.error("Failed to upload attachments.", {
+					description:
+						err instanceof Error
+							? err.message
+							: "An unexpected error occurred while uploading to your PDS.",
+				});
 				return false;
 			}
 		}
-		setFileUploadProgress([]);
 
 		const now = new Date().toISOString();
 		const hash = crypto.randomUUID();
@@ -236,6 +171,7 @@ export const MessageInput: Component<{
 				},
 			);
 			channel.confirmPendingMessage(hash, res.uri);
+			channel.advanceReadCursor();
 		} catch {
 			channel.removePendingMessage(hash);
 			toast.error("Failed to send message.");
@@ -290,18 +226,12 @@ export const MessageInput: Component<{
 					}}
 				>
 					<FileFieldItemList class="flex flex-row gap-2 m-0 p-0 flex-wrap">
-						{(file) => (
-							<FileFieldItem class="relative overflow-hidden">
+						{() => (
+							<FileFieldItem>
 								<FileFieldItemPreviewImage />
 								<FileFieldItemName />
 								<FileFieldItemSize />
 								<FileFieldItemDeleteTrigger />
-								<div
-									class="absolute left-0 bottom-0 h-1 bg-primary"
-									style={{
-										width: `${fileUploadProgress()[props.files()?.acceptedFiles.indexOf(file) ?? -1]}%`,
-									}}
-								/>
 							</FileFieldItem>
 						)}
 					</FileFieldItemList>

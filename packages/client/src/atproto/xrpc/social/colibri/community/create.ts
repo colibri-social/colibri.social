@@ -9,6 +9,17 @@ type Response = {
 	member: string;
 };
 
+/**
+ * Credentials for a "bring your own PDS" community. When supplied, the AppView
+ * bootstraps the community on the user's own PDS under the DID these resolve
+ * to, rather than minting a fresh managed DID.
+ */
+type ByoCredentials = {
+	pds: string;
+	identifier: string;
+	password: string;
+};
+
 export const create: XrpcRequest<
 	[
 		string,
@@ -17,6 +28,7 @@ export const create: XrpcRequest<
 		string,
 		Blob | undefined,
 		string | undefined,
+		ByoCredentials | undefined,
 	],
 	Promise<Response | undefined>
 > = async (
@@ -27,12 +39,18 @@ export const create: XrpcRequest<
 	auth,
 	picture,
 	mimeType,
+	byo,
 ) => {
 	try {
 		const params = new URLSearchParams({ name, auth });
 		if (description !== undefined) params.set("description", description);
 		params.set("requiresApprovalToJoin", `${requiresApproval}`);
 		if (mimeType !== undefined) params.set("mimeType", mimeType);
+		if (byo) {
+			params.set("pds", byo.pds);
+			params.set("identifier", byo.identifier);
+			params.set("password", byo.password);
+		}
 
 		const createRes = await fetch(
 			`/xrpc/social.colibri.community.create?${params.toString()}`,

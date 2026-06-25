@@ -26,11 +26,11 @@ export const Lightbox: ParentComponent<{
 								e.preventDefault();
 								e.stopPropagation();
 							}}
-							class="max-w-[calc(100vw-4rem)] max-h-[calc(100vh-4rem)] rounded-sm"
+							class="max-w-[calc(100vw-4rem)] max-h-[calc(100vh-4rem)] rounded-sm z-40"
 						/>
 						<Button
 							variant="outline"
-							class="w-10 h-10 absolute top-8 right-8"
+							class="w-10 h-10 absolute top-8 right-8 bg-card! z-50"
 							onClick={() => setOpen(false)}
 						>
 							<XIcon />

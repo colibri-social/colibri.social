@@ -185,7 +185,7 @@ const MessageInner: Component<{
 						}
 					>
 						<div
-							class="pb-2 flex flex-col gap-1"
+							class="pb-2 flex flex-col gap-1 w-full"
 							classList={{
 								"pt-2": isSubsequentMessage(),
 							}}
@@ -342,9 +342,11 @@ const MessageInner: Component<{
 								</Action>
 							</Show>
 							<Show when={messageEditable()}>
-								<Action tooltipText="Edit" onClick={enableEditMode}>
-									<PencilIcon />
-								</Action>
+								<Show when={message.text.length > 0}>
+									<Action tooltipText="Edit" onClick={enableEditMode}>
+										<PencilIcon />
+									</Action>
+								</Show>
 								<Action
 									tooltipText="Delete"
 									buttonClasses="text-destructive"
