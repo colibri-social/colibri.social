@@ -9,6 +9,7 @@ export type ActorData = {
 		avatar?: JsonBlobRef;
 		banner?: JsonBlobRef;
 		description?: string;
+		isBot: boolean;
 		onlineState: OnlineState;
 		status?: {
 			emoji?: string;

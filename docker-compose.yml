@@ -27,3 +27,9 @@ services:
       - LIVEKIT_SERVER_URL=${LIVEKIT_SERVER_URL}
       - SENTRY_DSN=${SENTRY_DSN}
       - SENTRY_AUTH_TOKEN=${SENTRY_AUTH_TOKEN}
+    networks:
+      - default
+
+networks:
+  default:
+    enable_ipv6: true

@@ -44,6 +44,7 @@ export type Colibri_MemberEventMember = {
 		avatar?: JsonBlobRef;
 		banner?: JsonBlobRef;
 		description?: string;
+		isBot: boolean;
 		onlineState: OnlineState;
 		status?: { emoji?: string; text: string };
 	};
@@ -225,6 +226,7 @@ export type BskyProfile = {
 	avatar?: JsonBlobRef;
 	banner?: JsonBlobRef;
 	description?: string;
+	isBot: boolean;
 	handle: string;
 };
 

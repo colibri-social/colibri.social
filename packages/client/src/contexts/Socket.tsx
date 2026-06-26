@@ -1,6 +1,8 @@
 import type { ColibriEvent } from "@colibri-social/lib";
 import {
+	type Accessor,
 	createContext,
+	createSignal,
 	onCleanup,
 	onMount,
 	type ParentComponent,
@@ -17,6 +19,16 @@ export type SocketContextValue = {
 	 * function removes the handler — call it in `onCleanup`.
 	 */
 	onEvent: (handler: (event: ColibriEvent) => void) => () => void;
+	/**
+	 * Whether the WebSocket is currently open. `send` silently drops messages
+	 * while this is `false` (no queueing), so consumers that need the server
+	 * to durably know some piece of state (e.g. "view" — which channel the
+	 * user is looking at) should re-send whenever this flips back to `true`,
+	 * not just when their own input changes — otherwise a message sent while
+	 * still connecting, or before a reconnect completes, is lost for the rest
+	 * of the session.
+	 */
+	connected: Accessor<boolean>;
 };
 
 export const SocketContext = createContext<SocketContextValue>();
@@ -25,6 +37,7 @@ export const SocketContextProvider: ParentComponent = (props) => {
 	const auth = useAuthContext();
 
 	const handlers = new Set<(event: ColibriEvent) => void>();
+	const [connected, setConnected] = createSignal(false);
 	let ws: WebSocket | null = null;
 	let heartbeat: ReturnType<typeof setInterval> | null = null;
 	let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
@@ -50,6 +63,7 @@ export const SocketContextProvider: ParentComponent = (props) => {
 
 			socket.addEventListener("open", () => {
 				if (destroyed || ws !== socket) return;
+				setConnected(true);
 				heartbeat = setInterval(() => {
 					if (socket.readyState === WebSocket.OPEN) {
 						socket.send(JSON.stringify({ type: "heartbeat" }));
@@ -81,6 +95,7 @@ export const SocketContextProvider: ParentComponent = (props) => {
 					heartbeat = null;
 				}
 				if (destroyed || ws !== socket) return;
+				setConnected(false);
 				console.warn("[notif] socket CLOSED", ev.code, ev.reason);
 				// Reconnect after 3 s, generating a fresh token each time
 				reconnectTimer = setTimeout(connect, 3_000);
@@ -119,6 +134,7 @@ export const SocketContextProvider: ParentComponent = (props) => {
 			handlers.add(handler);
 			return () => handlers.delete(handler);
 		},
+		connected,
 	};
 
 	return (

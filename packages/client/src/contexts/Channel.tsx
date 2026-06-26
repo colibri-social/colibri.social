@@ -525,13 +525,21 @@ export const ChannelContextProvider: ParentComponent<{
 	const [outgoingMessage, setOutgoingMessage] = createSignal(0);
 
 	// Inform the AppView which channel the user is viewing (drives typing-event
-	// fan-out and read tracking on the server side).
-	createEffect(
-		on(channelUri, (uri) => {
-			if (!uri) return;
-			socket.send({ type: "view", data: { channel: uri } });
-		}),
-	);
+	// fan-out and read tracking on the server side). Re-sends whenever the
+	// socket (re)connects, not just when the channel changes — `socket.send`
+	// drops messages silently while the WebSocket isn't open yet, and the
+	// channel mounts well before the socket finishes its async handshake, so
+	// a channelUri-only effect would lose the very first "view" of a session.
+	createEffect(() => {
+		const uri = channelUri();
+		const isConnected = socket.connected();
+		if (!uri || !isConnected) return;
+		socket.send({ type: "view", data: { channel: uri } });
+		localStorage.setItem(
+			`${community().did}:last-viewed`,
+			JSON.stringify({ type: props.channel()!.type, uri }),
+		);
+	});
 
 	const socketCleanup = socket.onEvent((event) => {
 		if (event.type === "message_event") {

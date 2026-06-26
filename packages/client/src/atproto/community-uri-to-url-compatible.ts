@@ -27,7 +27,7 @@ export const urlSegmentToUri = (
 	const split = segment.split("-");
 
 	if (split.length === 1)
-		return `at://${split[0]}/social.colibri.community/self`;
+		return `at://${split[0]}/social.colibri.community/self` as AT_URI<"social.colibri.community">;
 
-	return `at://${split[0]}/social.colibri.community/${split[1]}`;
+	return `at://${split[0]}/social.colibri.community/${split[1]}` as AT_URI<"social.colibri.community">;
 };

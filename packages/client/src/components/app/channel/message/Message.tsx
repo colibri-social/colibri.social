@@ -129,7 +129,7 @@ const MessageInner: Component<{
 					<div class="flex flex-row gap-4 group/reply cursor-pointer w-full max-w-full">
 						<button
 							type="button"
-							class="before:w-8 before:block before:h-2 before:border-t before:border-l before:border-muted-foreground/50 before:rounded-tl-sm w-10 h-4 relative before:absolute before:left-5.5 before:transform before:-translate-x-1 group-hover/reply:before:border-foreground cursor-pointer"
+							class="before:w-8 before:block before:h-2 before:border-t before:border-l before:border-muted-foreground/50 before:rounded-tl-sm w-10 h-4 relative before:absolute before:translate-y-0.75 before:left-5.5 before:transform before:-translate-x-1 group-hover/reply:before:border-foreground cursor-pointer"
 							onClick={() => channel.jumpToMessage(message.parent!.uri)}
 						/>
 						<div
@@ -229,11 +229,13 @@ const MessageInner: Component<{
 										user={resolveAuthor(message.author)}
 										disabled={isPending()}
 									>
-										<span class="font-bold hover:underline cursor-pointer">
-											<User.DisplayableName
-												user={resolveAuthor(message.author)}
-											/>
-										</span>
+										<div class="flex flex-row items-center gap-2">
+											<span class="font-bold hover:underline cursor-pointer">
+												<User.DisplayableName
+													user={resolveAuthor(message.author)}
+												/>
+											</span>
+										</div>
 									</User.ProfilePopover>
 									<small class="text-muted-foreground">
 										{new Date(message.createdAt).toLocaleDateString()}{" "}

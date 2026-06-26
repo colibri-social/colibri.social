@@ -1,5 +1,5 @@
-import { ActorData } from "@colibri-social/lib";
-import { Component } from "solid-js";
+import type { ActorData } from "@colibri-social/lib";
+import type { Component } from "solid-js";
 import { Avatar } from "./Avatar";
 import { DisplayableName } from "./DisplayableName";
 

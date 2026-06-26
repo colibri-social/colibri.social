@@ -481,7 +481,10 @@ const ChannelLayout: ParentComponent = (props) => {
 							>
 								<div ref={topSentinel} class="w-full h-px" aria-hidden="true" />
 								<ScrollAnchorProvider container={() => scrollContainer}>
-									<div ref={messagesWrapper} class="h-[calc(100%-1px)] w-full">
+									<div
+										ref={messagesWrapper}
+										class="h-[calc(100%-1px)] w-full [&>div]:last-of-type:pb-4"
+									>
 										<Show
 											when={
 												channel.loadingOlder() && channel.messages().length > 0

@@ -1,6 +1,11 @@
 import { ColorModeProvider } from "@kobalte/core/color-mode";
-import { Route, Router, useNavigate } from "@solidjs/router";
-import { type Component, createEffect, type ParentComponent } from "solid-js";
+import { Route, Router, useNavigate, useParams } from "@solidjs/router";
+import {
+	type Component,
+	createEffect,
+	onMount,
+	type ParentComponent,
+} from "solid-js";
 import { AppLoadingScreen } from "./components/AppLoadingScreen";
 import { VoiceChannelView } from "./components/app/VoiceChannelView";
 import { LoginScreen } from "./components/LoginScreen";
@@ -13,6 +18,10 @@ import { VoiceChatContextProvider } from "./contexts/VoiceChat";
 import AppLayout from "./layouts/AppLayout";
 import ChannelLayoutWithContext from "./layouts/ChannelLayout";
 import CommunityLayoutWithContext from "./layouts/CommunityLayout";
+import { getCommunityParam } from "./utils/get-param";
+import { urlSegmentToUri } from "./atproto/community-uri-to-url-compatible";
+import { useCommunityContext } from "./contexts/Community";
+import { AtURI } from "./utils/at-uri";
 
 // Accepted forms of the `:channelType` URL segment. We accept both the
 // short form (legacy records that store `"text"` / `"voice"`) and the full
@@ -58,13 +67,43 @@ const App: ParentComponent = () => {
 						<Route component={CommunityLayoutWithContext}>
 							<Route
 								path="/c/:community"
-								component={() => (
-									<div class="w-full h-full flex flex-col items-center justify-center gap-2 text-muted-foreground select-none">
-										<p class="text-base font-medium">
-											Select a channel to get started
-										</p>
-									</div>
-								)}
+								component={() => {
+									const params = useParams();
+									const navigate = useNavigate();
+									const c = useCommunityContext();
+									const communityUrlSeg = () => params.community!;
+
+									onMount(() => {
+										const mostRecentChannel = localStorage.getItem(
+											`${communityUrlSeg()}:last-viewed`,
+										);
+
+										if (!mostRecentChannel) {
+											const firstChannel = c().channels[0];
+
+											navigate(
+												`/app/c/${communityUrlSeg()}/${firstChannel.type}/${new AtURI(firstChannel.uri).identifier}`,
+											);
+
+											return;
+										}
+
+										const channel: { uri: string; type: string } =
+											JSON.parse(mostRecentChannel);
+
+										navigate(
+											`/app/c/${communityUrlSeg()}/${channel.type}/${new AtURI(channel.uri).identifier}`,
+										);
+									});
+
+									return (
+										<div class="w-full h-full flex flex-col items-center justify-center gap-2 text-muted-foreground select-none">
+											<p class="text-base font-medium">
+												Select a channel to get started
+											</p>
+										</div>
+									);
+								}}
 							/>
 							<Route component={ChannelLayoutWithContext}>
 								<Route

@@ -224,6 +224,10 @@ Get the status data and Bluesky profile for a Colibri user.
 					type: "string",
 					required: false,
 				},
+				isBot: {
+					type: "boolean",
+					required: true,
+				},
 				onlineState: {
 					type: "string",
 					required: true,
@@ -381,6 +385,7 @@ Events of this type are sent to clients when a member joins a community, has the
 			avatar?: blob;
 			banner?: blob;
 			description?: string;
+			isBot: boolean;
 			onlineState: string;
 			status: {
 				text: string;
@@ -417,6 +422,7 @@ Events of this type are sent to clients for changes to the moderator-facing pend
 		avatar?: blob;
 		banner?: blob;
 		description?: string;
+		isBot: boolean;
 		onlineState: string;
 		status: {
 			text: string;
@@ -497,6 +503,7 @@ Events of this type are sent to clients when a message has been sent, edited, or
 			avatar?: blob;
 			banner?: blob;
 			description?: string;
+			isBot: boolean;
 			onlineState: string;
 			status: {
 				text: string;
@@ -537,6 +544,7 @@ Events of this type are sent to clients when a user the client knows about has u
 		avatar?: blob;
 		banner?: blob;
 		description?: string;
+		isBot: boolean;
 		handle: string;
 	};
 }
@@ -861,6 +869,10 @@ Lists the pending join applications for a community that requires approval (`req
 						description: {
 							type: "string",
 							required: false,
+						},
+						isBot: {
+							type: "boolean",
+							required: true,
 						},
 						onlineState: {
 							type: "string",
@@ -1429,6 +1441,10 @@ Lists all banned users for a community, each hydrated into their full profile (h
 							type: "string",
 							required: false,
 						},
+						isBot: {
+							type: "boolean",
+							required: true,
+						},
 						onlineState: {
 							type: "string",
 							required: true,
@@ -1651,6 +1667,10 @@ Lists all members with their roles, status information and Bluesky profiles.
 							type: "string",
 							required: false,
 						},
+						isBot: {
+							type: "boolean",
+							required: true,
+						},
 						onlineState: {
 							type: "string",
 							required: true,
@@ -1851,6 +1871,10 @@ Returns all cached data for a community in a single response: the community reco
 						description: {
 							type: "string",
 							required: false,
+						},
+						isBot: {
+							type: "boolean",
+							required: true,
 						},
 						onlineState: {
 							type: "string",
@@ -2218,6 +2242,10 @@ Get a paginated message history for the specified channel, newest messages first
 									type: "string",
 									required: false,
 								},
+								isBot: {
+									type: "boolean",
+									required: true,
+								},
 								onlineState: {
 									type: "string",
 									required: true,
@@ -2295,6 +2323,10 @@ Get a paginated message history for the specified channel, newest messages first
 										description: {
 											type: "string",
 											required: false,
+										},
+										isBot: {
+											type: "boolean",
+											required: true,
 										},
 										onlineState: {
 											type: "string",

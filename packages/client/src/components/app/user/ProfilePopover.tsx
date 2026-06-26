@@ -1,7 +1,7 @@
 import type { ActorData } from "@colibri-social/lib";
 import twemoji from "@twemoji/api";
 import {
-	Component,
+	type Component,
 	createSignal,
 	For,
 	type ParentComponent,
@@ -10,7 +10,6 @@ import {
 import { resolveBlob } from "../../../atproto/resolve-blob";
 import { LINK_REGEX } from "../../../utils/link-regex";
 import { purify } from "../../..//utils/purify";
-import { Bluesky } from "../../icons/Bluesky";
 import {
 	Popover,
 	PopoverContent,
@@ -25,7 +24,6 @@ import {
 } from "../../ui/Tooltip";
 import User from ".";
 import { DisplayableName } from "./DisplayableName";
-import { Role } from "../../../atproto/xrpc/social/colibri/community/listRoles";
 import { useCommunityContext } from "../../../contexts/Community";
 import { useUserPreferences } from "../../../contexts/UserPreferences";
 import { getBskyAlternativeClientInfo } from "../../../atproto/bluesky-alternatives";

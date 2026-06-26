@@ -1,8 +1,10 @@
+import type { ColibriRichTextFacet } from "@colibri-social/lib";
 import type { Editor, MarkType, NodeType, TextType } from "@tiptap/core";
-import type { Facet } from "@/utils/atproto/rich-text";
-import type { TextWithFacets } from "../RichTextRenderer";
+import type { TextWithFacets } from "../rich-text-renderer/util";
+import TLDs from "tlds";
+import { URL_REGEX } from "@atproto/api";
 
-export type ParsedText = { text: string; facets: Array<Facet> };
+export type ParsedText = { text: string; facets: Array<ColibriRichTextFacet> };
 type DocContent =
 	| ReturnType<Editor["getJSON"]>["content"]
 	| (NodeType<any, any, any, any> | TextType<MarkType<any, any>>)[];
@@ -68,7 +70,7 @@ const trimTextWithFacets = (input: TextWithFacets): TextWithFacets => {
 	const trailingBytes = textEncoder.encode(trailingWs).length;
 	const trimmedEndByte = totalBytes - trailingBytes;
 
-	const newFacets: Facet[] = [];
+	const newFacets: ColibriRichTextFacet[] = [];
 	for (const facet of facets) {
 		const newStart =
 			Math.max(facet.index.byteStart, leadingBytes) - leadingBytes;
@@ -91,9 +93,13 @@ const trimTextWithFacets = (input: TextWithFacets): TextWithFacets => {
 	};
 };
 
-const walkDoc = (content: DocContent, _text: string, _facets: Array<Facet>) => {
+const walkDoc = (
+	content: DocContent,
+	_text: string,
+	_facets: Array<ColibriRichTextFacet>,
+) => {
 	let text = _text;
-	let facets: Array<Facet> = [];
+	let facets: Array<ColibriRichTextFacet> = [];
 
 	for (const item of content) {
 		if (item.type === "hardBreak") {
@@ -106,7 +112,7 @@ const walkDoc = (content: DocContent, _text: string, _facets: Array<Facet>) => {
 
 			const byteStart = textEncoder.encode(text).byteLength;
 
-			const features: Facet["features"] = [];
+			const features: ColibriRichTextFacet["features"] = [];
 
 			if (mentionNode.attrs.type === "member") {
 				text += `@${mentionNode.attrs.label}`;
@@ -148,7 +154,7 @@ const walkDoc = (content: DocContent, _text: string, _facets: Array<Facet>) => {
 			text += textNode.text;
 			const byteEnd = textEncoder.encode(text).byteLength;
 
-			const features: Facet["features"] = [];
+			const features: ColibriRichTextFacet["features"] = [];
 
 			for (const mark of (textNode.marks as Array<UsedMarkType>) || []) {
 				switch (mark.type) {
@@ -220,7 +226,9 @@ const walkDoc = (content: DocContent, _text: string, _facets: Array<Facet>) => {
 	};
 };
 
-const mergeFacets = (facets: Array<Facet>): Array<Facet> => {
+const mergeFacets = (
+	facets: Array<ColibriRichTextFacet>,
+): Array<ColibriRichTextFacet> => {
 	const sorted = [...facets].sort(
 		(a, b) => a.index.byteStart - b.index.byteStart,
 	);
@@ -234,7 +242,7 @@ const mergeFacets = (facets: Array<Facet>): Array<Facet> => {
 	const resultEntries: Array<{
 		byteStart: number;
 		byteEnd: number;
-		feature: Facet["features"][0];
+		feature: ColibriRichTextFacet["features"][0];
 	}> = [];
 
 	for (const featureType of featureTypes) {
@@ -265,7 +273,7 @@ const mergeFacets = (facets: Array<Facet>): Array<Facet> => {
 	}
 
 	// Re-group entries by their (byteStart, byteEnd) span into facets
-	const facetMap = new Map<string, Facet>();
+	const facetMap = new Map<string, ColibriRichTextFacet>();
 	for (const { byteStart, byteEnd, feature } of resultEntries) {
 		const key = `${byteStart}:${byteEnd}`;
 		if (!facetMap.has(key)) {
@@ -283,15 +291,99 @@ const mergeFacets = (facets: Array<Facet>): Array<Facet> => {
 	);
 };
 
+const isValidDomain = (str: string): boolean =>
+	!!TLDs.find((tld) => {
+		const i = str.lastIndexOf(tld);
+		if (i === -1) return false;
+		return str.charAt(i - 1) === "." && i === str.length - tld.length;
+	});
+
+/**
+ * Detects URLs in plain text that aren't already covered by a link facet
+ * and adds link facets for them. This handles cases where Tiptap's autolink
+ * hasn't applied the link mark yet (e.g. URL at the end of the message
+ * submitted without a trailing space).
+ */
+const detectMissingLinkFacets = (
+	text: string,
+	facets: Array<ColibriRichTextFacet>,
+): Array<ColibriRichTextFacet> => {
+	const linkedRanges: Array<[number, number]> = [];
+	for (const facet of facets) {
+		if (
+			facet.features.some(
+				(f) => f.$type === "social.colibri.richtext.facet#link",
+			)
+		) {
+			linkedRanges.push([facet.index.byteStart, facet.index.byteEnd]);
+		}
+	}
+
+	const newFacets: Array<ColibriRichTextFacet> = [];
+	const re = new RegExp(URL_REGEX.source, URL_REGEX.flags);
+	let match: RegExpExecArray | null;
+
+	while ((match = re.exec(text))) {
+		let uri = match[2];
+		if (!uri.startsWith("http")) {
+			const domain = match.groups?.domain;
+			if (!domain || !isValidDomain(domain)) continue;
+			uri = `https://${uri}`;
+		}
+
+		const startUtf16 = text.indexOf(match[2], match.index);
+		let endUtf16 = startUtf16 + match[2].length;
+
+		if (/[.,;:!?]$/.test(uri)) {
+			uri = uri.slice(0, -1);
+			endUtf16--;
+		}
+		if (/[)]$/.test(uri) && !uri.includes("(")) {
+			uri = uri.slice(0, -1);
+			endUtf16--;
+		}
+
+		const byteStart = textEncoder.encode(text.slice(0, startUtf16)).length;
+		const byteEnd = textEncoder.encode(text.slice(0, endUtf16)).length;
+
+		const alreadyLinked = linkedRanges.some(
+			([s, e]) => s <= byteStart && e >= byteEnd,
+		);
+		if (alreadyLinked) continue;
+
+		newFacets.push({
+			$type: "social.colibri.richtext.facet",
+			index: {
+				$type: "app.bsky.richtext.facet#byteSlice",
+				byteStart,
+				byteEnd,
+			},
+			features: [
+				{
+					$type: "social.colibri.richtext.facet#link",
+					uri,
+				},
+			],
+		});
+	}
+
+	if (newFacets.length === 0) return facets;
+
+	return [...facets, ...newFacets].sort(
+		(a, b) => a.index.byteStart - b.index.byteStart,
+	);
+};
+
 export const proseMirrorToFacets = (
 	json: ReturnType<Editor["getJSON"]>,
 ): ParsedText => {
 	const { text, facets } = walkDoc(json.content, "", []);
 
 	const mergedFacets = mergeFacets(facets);
+	const withDetectedLinks = detectMissingLinkFacets(text, mergedFacets);
 
 	return trimTextWithFacets({
 		text,
-		facets: mergedFacets,
+		facets: withDetectedLinks,
 	});
 };
