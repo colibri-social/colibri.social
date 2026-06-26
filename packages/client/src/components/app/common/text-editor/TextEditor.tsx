@@ -80,9 +80,11 @@ const isInFencedCodeBlock = (editor: Editor): boolean => {
 
 	const cursorPos = selection.$from.pos;
 
+	const matches = [...text.matchAll(createFenceRegex())] as FenceMatchIndices[];
+
 	// Inside the body of a complete fence (both markers already present).
-	for (const match of text.matchAll(createFenceRegex())) {
-		const [matchStart, matchEnd] = (match as FenceMatchIndices).indices[0];
+	for (const match of matches) {
+		const [matchStart, matchEnd] = match.indices[0];
 		if (cursorPos > positions[matchStart] && cursorPos < positions[matchEnd]) {
 			return true;
 		}
@@ -98,7 +100,19 @@ const isInFencedCodeBlock = (editor: Editor): boolean => {
 		const lineStart = text.lastIndexOf("\n", cursorIndex - 1) + 1;
 		const nextBreak = text.indexOf("\n", cursorIndex);
 		const lineEnd = nextBreak === -1 ? text.length : nextBreak;
-		if (/^```[a-zA-Z0-9_+-]*$/.test(text.slice(lineStart, lineEnd))) {
+
+		// The closing fence line of a complete block is also just "```", but a
+		// cursor sitting past it should send, not extend the block. A complete
+		// match's `indices[0]` ends right after its closing fence, so a line
+		// whose end coincides with that is the closing marker — skip it.
+		const onClosingFence = matches.some(
+			(m) => m.indices[0][1] === lineEnd && lineStart === lineEnd - 3,
+		);
+
+		if (
+			!onClosingFence &&
+			/^```[a-zA-Z0-9_+-]*$/.test(text.slice(lineStart, lineEnd))
+		) {
 			return true;
 		}
 	}
