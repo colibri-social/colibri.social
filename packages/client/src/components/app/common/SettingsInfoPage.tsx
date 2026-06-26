@@ -1,65 +1,7 @@
-import { type Component, createSignal, Match, Show, Switch } from "solid-js";
-import CheckIcon from "~icons/ph/check";
-import CopyIcon from "~icons/ph/copy";
+import { type Component, Show } from "solid-js";
 import { AtURI } from "../../../utils/at-uri";
-import { Button } from "../../ui/Button";
-import {
-	Tooltip,
-	TooltipContent,
-	TooltipPortal,
-	TooltipTrigger,
-} from "../../ui/Tooltip";
 import { SettingsPage } from "./SettingsModal";
-
-const CopyButton: Component<{ value: string }> = (props) => {
-	const [active, setActive] = createSignal(false);
-
-	const copyToClipboard = () => {
-		navigator.clipboard.writeText(props.value);
-		setActive(true);
-		setTimeout(() => setActive(false), 2000);
-	};
-
-	return (
-		<Tooltip>
-			<TooltipTrigger class="w-6 h-6 p-0">
-				<Button
-					size="sm"
-					class="w-6 h-6 cursor-pointer"
-					classList={{
-						"text-green-500 hover:text-green-500": active(),
-					}}
-					variant="ghost"
-					onClick={copyToClipboard}
-				>
-					<Switch>
-						<Match when={active()}>
-							<CheckIcon />
-						</Match>
-						<Match when={!active()}>
-							<CopyIcon />
-						</Match>
-					</Switch>
-				</Button>
-			</TooltipTrigger>
-			<TooltipPortal>
-				<TooltipContent>
-					<p
-						class="m-0"
-						classList={{
-							"text-green-500": active(),
-						}}
-					>
-						<Switch>
-							<Match when={active()}>Copied!</Match>
-							<Match when={!active()}>Copy to clipboard</Match>
-						</Switch>
-					</p>
-				</TooltipContent>
-			</TooltipPortal>
-		</Tooltip>
-	);
-};
+import { CopyButton } from "./CopyButton";
 
 export const InfoPageItem: Component<{
 	title: string;
@@ -67,15 +9,15 @@ export const InfoPageItem: Component<{
 	value: string;
 }> = (props) => {
 	return (
-		<div class="flex flex-col gap-1">
+		<div class="flex flex-col gap-1 w-full">
 			<span class="font-semibold text-foreground">{props.title}</span>
 			<Show when={props.description}>
 				<small class="text-muted-foreground leading-3.5 mb-1">
 					{props.description}
 				</small>
 			</Show>
-			<div class="flex flex-row gap-1 items-center">
-				<code>{props.value}</code>
+			<div class="flex flex-row gap-1 items-center w-full wrap-break-word">
+				<code class="w-[calc(100%-2rem)]">{props.value}</code>
 				<CopyButton value={props.value} />
 			</div>
 		</div>

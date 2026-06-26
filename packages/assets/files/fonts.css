@@ -64,6 +64,13 @@
 	font-display: swap;
 	font-weight: 100 900;
 	font-style: normal;
+	/*
+	 * Geist Mono is drawn with a noticeably larger x-height (530) and
+	 * cap-height (710) than Hanken Grotesk (493 / 697) at the same units-per-em,
+	 * so at an equal font-size it renders ~7.5% taller and reads as oversized
+	 * next to body text. Scale it down to match Hanken's x-height (493/530).
+	 */
+	size-adjust: 93.0189%;
 }
 
 @font-face {
@@ -72,9 +79,10 @@
 	font-display: swap;
 	font-weight: 100 900;
 	font-style: normal;
-	size-adjust: 134.5893%;
-	ascent-override: 74.6716%;
-	descent-override: 21.9185%;
+	/* Overrides scaled by 0.930189 to track the size-adjusted "Geist Mono" above (avoids CLS on swap). */
+	size-adjust: 125.1931%;
+	ascent-override: 69.4609%;
+	descent-override: 20.3878%;
 	line-gap-override: 0%;
 }
 

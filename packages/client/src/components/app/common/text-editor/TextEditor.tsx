@@ -1,3 +1,4 @@
+import { Blockquote } from "@tiptap/extension-blockquote";
 import { Bold } from "@tiptap/extension-bold";
 import { BubbleMenu } from "@tiptap/extension-bubble-menu";
 import { Code } from "@tiptap/extension-code";
@@ -33,14 +34,77 @@ import {
 } from "../../../ui/Tooltip";
 import { EMOJI_DATA } from "../rich-text-renderer/emojiData";
 import { buildSuggestions } from "./build-suggestions";
+import { MarkdownCodeHighlight } from "./markdown-code-highlight";
 import { proseMirrorToFacets } from "./prosemirror-to-facets";
 import { useChannelContext } from "../../../../contexts/Channel";
 import { useUserContext } from "../../../../contexts/User";
+import { createFenceRegex } from "../../../../utils/fenced-code-regex";
 
 const CHARACTER_LIMIT = 2048;
 const CIRCUMFERENCE = 2 * Math.PI * 8;
 
 type BubbleMenuMark = "bold" | "strike" | "underline" | "code" | "italic";
+
+type FenceMatchIndices = RegExpMatchArray & {
+	indices: Array<[number, number]>;
+};
+
+/**
+ * Whether the cursor currently sits inside a ```lang fenced code block.
+ * Fences aren't a separate node (see MarkdownCodeHighlight) — they're plain
+ * text within a single textblock where newlines are hardBreaks — so we
+ * rebuild the block text with a doc-position map and run the same shared
+ * fence regex used by the highlighter and facet detection.
+ */
+const isInFencedCodeBlock = (editor: Editor): boolean => {
+	const { selection } = editor.state;
+	const block = selection.$from.parent;
+	if (!block.isTextblock) return false;
+
+	const blockStart = selection.$from.start();
+
+	let text = "";
+	const positions: number[] = [];
+	block.forEach((child, offset) => {
+		if (child.isText && child.text) {
+			for (let i = 0; i < child.text.length; i++) {
+				positions.push(blockStart + offset + i);
+			}
+			text += child.text;
+		} else if (child.type.name === "hardBreak") {
+			positions.push(blockStart + offset);
+			text += "\n";
+		}
+	});
+	positions.push(blockStart + block.content.size);
+
+	const cursorPos = selection.$from.pos;
+
+	// Inside the body of a complete fence (both markers already present).
+	for (const match of text.matchAll(createFenceRegex())) {
+		const [matchStart, matchEnd] = (match as FenceMatchIndices).indices[0];
+		if (cursorPos > positions[matchStart] && cursorPos < positions[matchEnd]) {
+			return true;
+		}
+	}
+
+	// On the opening fence marker line (e.g. "```ts") before the closing
+	// fence exists — the regex above can't match an unterminated block, so
+	// detect the marker line itself and keep Enter from sending while the
+	// author is still opening the block. The lang char class mirrors
+	// FENCE_REGEX_SOURCE so both treat the same marker syntax.
+	const cursorIndex = positions.indexOf(cursorPos);
+	if (cursorIndex !== -1) {
+		const lineStart = text.lastIndexOf("\n", cursorIndex - 1) + 1;
+		const nextBreak = text.indexOf("\n", cursorIndex);
+		const lineEnd = nextBreak === -1 ? text.length : nextBreak;
+		if (/^```[a-zA-Z0-9_+-]*$/.test(text.slice(lineStart, lineEnd))) {
+			return true;
+		}
+	}
+
+	return false;
+};
 
 export const TextEditor: Component<{
 	placeholder: string;
@@ -73,6 +137,15 @@ export const TextEditor: Component<{
 					return {
 						Enter: () => {
 							if (props.submitOnEnter === false) return false;
+
+							if (this.editor.isActive("blockquote")) {
+								return false;
+							}
+
+							if (isInFencedCodeBlock(this.editor)) {
+								return this.editor.commands.setHardBreak();
+							}
+
 							const json = this.editor.getJSON();
 							const text = proseMirrorToFacets(json);
 							this.editor.commands.clearContent();
@@ -94,10 +167,7 @@ export const TextEditor: Component<{
 							return true;
 						},
 						ArrowUp: () => {
-							const json = this.editor.getJSON();
-							const text = proseMirrorToFacets(json);
-
-							if (text.text.length > 0) return false;
+							if (!this.editor.isEmpty) return false;
 
 							const lastMessageByUser = channel
 								.messages()
@@ -119,6 +189,8 @@ export const TextEditor: Component<{
 			}),
 			Bold,
 			Code,
+			Blockquote,
+			MarkdownCodeHighlight,
 			Italic,
 			Underline,
 			Strike.extend({
@@ -152,6 +224,8 @@ export const TextEditor: Component<{
 						handle: { default: null },
 						avatar: { default: null },
 						type: { default: "member" },
+						datetime: { default: null },
+						style: { default: null },
 					};
 				},
 				renderText({ node }) {
@@ -177,6 +251,9 @@ export const TextEditor: Component<{
 					} else if (type === "channel") {
 						colorClass = "bg-blue-400/25";
 						contents = `#${label}`;
+					} else if (type === "time") {
+						colorClass = "bg-orange-400/25";
+						contents = label;
 					} else {
 						return htmlToDOMOutputSpec(twemoji.parse(label))[0];
 					}

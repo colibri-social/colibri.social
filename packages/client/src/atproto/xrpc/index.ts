@@ -424,11 +424,33 @@ export class XrpcClient {
 						token,
 					);
 				},
-				update: async (channel: string, name: string) => {
+				update: async (
+					channel: string,
+					name?: string,
+					options?: {
+						description?: string;
+						ownerOnly?: boolean;
+						allowedRoles?: string[];
+						clearAllowedRoles?: boolean;
+						allowedMembers?: string[];
+						clearAllowedMembers?: boolean;
+					},
+				) => {
 					const token = await this.generateServiceAuthToken(
 						"social.colibri.channel.update",
 					);
-					return Channel.update(this.proxiedFetch, channel, name, token);
+					return Channel.update(
+						this.proxiedFetch,
+						channel,
+						name,
+						options?.description,
+						options?.ownerOnly,
+						options?.allowedRoles,
+						options?.clearAllowedRoles,
+						options?.allowedMembers,
+						options?.clearAllowedMembers,
+						token,
+					);
 				},
 				delete: async (channel: string) => {
 					const token = await this.generateServiceAuthToken(

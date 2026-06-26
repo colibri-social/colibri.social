@@ -6,12 +6,14 @@ import {
 } from "@thisbeyond/solid-dnd";
 import { ConnectionState } from "livekit-client";
 import {
+	Accessor,
 	type Component,
 	createMemo,
 	createSignal,
 	For,
 	Match,
 	type ParentComponent,
+	Setter,
 	Show,
 	Switch,
 } from "solid-js";
@@ -52,6 +54,8 @@ export type CategoryWithChannels = CategoryType & {
 const SortableChannel: Component<{
 	channel: Channel;
 	communityUri: string;
+	channelSettingsOpen: Accessor<boolean>;
+	setChannelSettingsOpen: Setter<boolean>;
 }> = (props) => {
 	const params = useParams();
 	const sortable = createSortable(props.channel.uri);
@@ -73,7 +77,6 @@ const SortableChannel: Component<{
 	const isMuted = () => mutes.isChannelMuted(props.channel.uri) && !isActive();
 
 	const [isDragging, setIsDragging] = createSignal(false);
-	const [channelSettingsOpen, setChannelSettingsOpen] = createSignal(false);
 
 	onDndDragStart(({ draggable }) => {
 		if (!canManage()) return;
@@ -129,7 +132,7 @@ const SortableChannel: Component<{
 			>
 				<ChannelContextMenu
 					channel={props.channel}
-					onOpenSettings={() => setChannelSettingsOpen(true)}
+					onOpenSettings={() => props.setChannelSettingsOpen(true)}
 				>
 					<A
 						class="group/channel text-muted-foreground flex flex-row justify-between items-center gap-2 hover:bg-card rounded-sm cursor-pointer p-1 py-0.5 pr-1.25"
@@ -199,7 +202,7 @@ const SortableChannel: Component<{
 									onClick={(e) => {
 										e.preventDefault();
 										e.stopPropagation();
-										setChannelSettingsOpen(true);
+										props.setChannelSettingsOpen(true);
 									}}
 								>
 									<GearIcon width={16} height={16} />
@@ -208,11 +211,6 @@ const SortableChannel: Component<{
 						</div>
 					</A>
 				</ChannelContextMenu>
-				<ChannelSettingsModal
-					channel={props.channel}
-					open={channelSettingsOpen}
-					setOpen={setChannelSettingsOpen}
-				/>
 				<Show
 					when={
 						(props.channel.type === "voice" ||
@@ -370,17 +368,31 @@ export const Category: ParentComponent<{
 			>
 				<SortableProvider ids={props.channelOrder}>
 					<For each={orderedChannels()}>
-						{(channel) => (
-							<>
-								<Show when={props.dropTarget?.insertBeforeUri === channel.uri}>
-									<div class="bg-primary mx-1 rounded h-0.5" />
-								</Show>
-								<SortableChannel
-									channel={channel}
-									communityUri={props.communityUri}
-								/>
-							</>
-						)}
+						{(channel) => {
+							const [channelSettingsOpen, setChannelSettingsOpen] =
+								createSignal(false);
+
+							return (
+								<>
+									<Show
+										when={props.dropTarget?.insertBeforeUri === channel.uri}
+									>
+										<div class="bg-primary mx-1 rounded h-0.5" />
+									</Show>
+									<ChannelSettingsModal
+										channel={channel}
+										open={channelSettingsOpen}
+										setOpen={setChannelSettingsOpen}
+									/>
+									<SortableChannel
+										channel={channel}
+										communityUri={props.communityUri}
+										channelSettingsOpen={channelSettingsOpen}
+										setChannelSettingsOpen={setChannelSettingsOpen}
+									/>
+								</>
+							);
+						}}
 					</For>
 					<Show
 						when={props.dropTarget && props.dropTarget.insertBeforeUri === null}

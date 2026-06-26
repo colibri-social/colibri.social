@@ -26,20 +26,34 @@ import {
 export const SettingsPage: ParentComponent<{
 	loading: Accessor<boolean>;
 	title: string;
+	description?: string;
 	onSave?: () => void;
 	canReset?: boolean;
 	onReset?: () => void;
 }> = (props) => {
 	return (
-		<div class="w-full flex flex-col justify-between gap-4 min-h-108 h-auto overflow-auto">
-			<div class="flex flex-col gap-4 py-4 w-full">
-				<h2 class="m-0 px-4">{props.title}</h2>
-				<div class="w-full h-full flex flex-col gap-4 px-4 max-w-137">
+		<div class="w-full flex flex-col h-144 relative">
+			<div class="px-4 py-4 border-b border-border min-h-16">
+				<h2 class="m-0">{props.title}</h2>
+				<Show when={props.description}>
+					<span class="text-sm leading-5 block mt-2 mb-4">
+						{props.description}
+					</span>
+				</Show>
+			</div>
+			<div
+				class="flex flex-col gap-4 my-4 w-full"
+				classList={{
+					"h-[calc(100%-2rem)]": !props.onSave && !props.onReset,
+					"h-[calc(100%-8rem-1px)]": !!props.onSave || !!props.onReset,
+				}}
+			>
+				<div class="w-full flex flex-col gap-4 px-4 max-w-137 h-full overflow-auto pb-4">
 					{props.children}
 				</div>
 			</div>
 			<Show when={props.onSave || props.onReset}>
-				<div class="w-full border-t border-border p-4 flex flex-row items-center justify-end gap-2">
+				<div class="w-full border-t border-border p-4 flex flex-row items-center justify-end gap-2 h-16 bg-background rounded-br-xl">
 					<Show when={props.canReset && props.onReset}>
 						<Button
 							variant="secondary"
@@ -138,16 +152,16 @@ export const SettingsModal: ParentComponent<{
 			<DialogPortal>
 				<DialogContent
 					class={cx(
-						"w-[75vw] min-w-92 h-fit min-h-128 max-w-3xl! p-0 flex flex-row gap-0 max-h-[calc(100vh-4rem)]!",
+						"w-[75vw] min-w-92 h-fit min-h-144 max-w-3xl! p-0 flex flex-row gap-0 max-h-[calc(100vh-4rem)]!",
 						props.contentClass,
 					)}
 				>
-					<div class="absolute top-4 right-4 flex items-center justify-center w-6 h-6 hover:bg-muted/50 cursor-pointer rounded-sm">
+					<div class="absolute top-5 right-5 flex items-center justify-center w-6 h-6 hover:bg-muted/50 cursor-pointer rounded-sm z-50">
 						<DialogCloseButton class="absolute cursor-pointer">
 							<XIcon />
 						</DialogCloseButton>
 					</div>
-					<div class="min-h-128 h-auto flex flex-col justify-between p-4 min-w-56 border-r border-border">
+					<div class="min-h-144 h-auto flex flex-col justify-between p-4 min-w-56 border-r border-border">
 						<div class="h-full flex flex-col gap-1">
 							<For each={props.pages}>
 								{(item) => (

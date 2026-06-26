@@ -1,4 +1,13 @@
+import "@arborium/arborium/themes/base.css";
+import "@arborium/arborium/themes/tokyo-night.css";
 import { ColorModeProvider } from "@kobalte/core/color-mode";
+
+// The app is always dark-themed (no light mode toggle), but arborium's
+// theme CSS otherwise falls back to `prefers-color-scheme`, which would
+// pick the wrong palette for users on a light OS theme. Force it explicitly.
+if (typeof document !== "undefined") {
+	document.documentElement.dataset.theme = "dark";
+}
 import { Route, Router, useNavigate, useParams } from "@solidjs/router";
 import {
 	type Component,

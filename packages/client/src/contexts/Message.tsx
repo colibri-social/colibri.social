@@ -145,6 +145,14 @@ export const MessageContextProvider: ParentComponent<{ data: Message }> = (
 			facets: props.data.facets || [],
 		});
 		channel.clearEditingMessage();
+		// Return focus to the main composer once the inline editor unmounts.
+		// `:not(.temp-editor)` skips the (now-closing) edit editor, which shares
+		// the `#editor` id and sits earlier in the DOM.
+		setTimeout(() => {
+			document
+				.querySelector<HTMLElement>("#editor:not(.temp-editor) .ProseMirror")
+				?.focus();
+		}, 0);
 	};
 
 	const confirmDelete = async () => {

@@ -1,8 +1,9 @@
-import type { ColibriRichTextFacet } from "@colibri-social/lib";
+import type { ColibriRichTextFacet, TimestampStyle } from "@colibri-social/lib";
 import type { Editor, MarkType, NodeType, TextType } from "@tiptap/core";
 import type { TextWithFacets } from "../rich-text-renderer/util";
 import TLDs from "tlds";
 import { URL_REGEX } from "@atproto/api";
+import { createFenceRegex } from "../../../../utils/fenced-code-regex";
 
 export type ParsedText = { text: string; facets: Array<ColibriRichTextFacet> };
 type DocContent =
@@ -32,6 +33,15 @@ export type MentionType = {
 				avatar: null;
 				handle: null;
 				type: "emoji";
+		  }
+		| {
+				id: null;
+				label: string;
+				avatar: null;
+				handle: null;
+				type: "time";
+				datetime: string;
+				style?: TimestampStyle;
 		  };
 };
 
@@ -102,6 +112,14 @@ const walkDoc = (
 	let facets: Array<ColibriRichTextFacet> = [];
 
 	for (const item of content) {
+		// Block-level siblings (paragraph, blockquote, ...) need a separator
+		// between them; inline items (text/hardBreak/mention) don't.
+		const isBlockLevelItem =
+			item.type !== "text" && item.type !== "hardBreak" && item.type !== "mention";
+		if (isBlockLevelItem && text.length > 0 && !text.endsWith("\n")) {
+			text += "\n";
+		}
+
 		if (item.type === "hardBreak") {
 			text += "\n";
 			continue;
@@ -128,6 +146,14 @@ const walkDoc = (
 					$type: "social.colibri.richtext.facet#channel",
 					channel: mentionNode.attrs.id,
 				});
+			} else if (mentionNode.attrs.type === "time") {
+				text += mentionNode.attrs.label;
+
+				features.push({
+					$type: "social.colibri.richtext.facet#time",
+					datetime: mentionNode.attrs.datetime,
+					...(mentionNode.attrs.style ? { style: mentionNode.attrs.style } : {}),
+				});
 			} else {
 				text += mentionNode.attrs.label;
 			}
@@ -142,6 +168,46 @@ const walkDoc = (
 					byteStart,
 				},
 				features,
+			});
+
+			continue;
+		}
+
+		if (item.type === "blockquote") {
+			const quoteNode = item as unknown as {
+				type: "blockquote";
+				content?: DocContent;
+			};
+
+			const byteStart = textEncoder.encode(text).byteLength;
+
+			// Recurse independently so inline marks (bold/italic/etc) inside
+			// the quote are preserved as their own facets, then re-base them
+			// onto the outer text's byte offsets and keep them alongside the
+			// single facet that spans the whole quote.
+			const { text: innerText, facets: innerFacets } = walkDoc(
+				quoteNode.content ?? [],
+				"",
+				[],
+			);
+
+			text += innerText;
+			const byteEnd = textEncoder.encode(text).byteLength;
+
+			for (const innerFacet of innerFacets) {
+				facets.push({
+					...innerFacet,
+					index: {
+						byteStart: innerFacet.index.byteStart + byteStart,
+						byteEnd: innerFacet.index.byteEnd + byteStart,
+					},
+				});
+			}
+
+			facets.push({
+				$type: "social.colibri.richtext.facet",
+				index: { byteStart, byteEnd },
+				features: [{ $type: "social.colibri.richtext.facet#quote" }],
 			});
 
 			continue;
@@ -212,11 +278,11 @@ const walkDoc = (
 			const { text: newText, facets: newFacets } = walkDoc(
 				item.content,
 				text,
-				facets,
+				[],
 			);
 
-			text += newText;
-			facets = newFacets;
+			text = newText;
+			facets.push(...newFacets);
 		}
 	}
 
@@ -291,6 +357,108 @@ const mergeFacets = (
 	);
 };
 
+type FenceMatchIndices = RegExpMatchArray & { indices: Array<[number, number]> };
+
+/**
+ * Detects ```lang fenced code blocks in the raw message text (kept as plain
+ * markdown while editing — see MarkdownCodeHighlight) and converts them to a
+ * `codeblock` facet, stripping the fence delimiter lines from the stored
+ * text/byte offsets so the rendered message shows a clean highlighted block
+ * instead of literal backticks.
+ */
+const detectFencedCodeBlocks = (
+	text: string,
+	facets: Array<ColibriRichTextFacet>,
+): { text: string; facets: Array<ColibriRichTextFacet> } => {
+	const matches = [...text.matchAll(createFenceRegex())] as FenceMatchIndices[];
+	if (matches.length === 0) return { text, facets };
+
+	const byteOffsetOf = (utf16Index: number): number =>
+		textEncoder.encode(text.slice(0, utf16Index)).byteLength;
+
+	const removedByteRanges: Array<{ byteStart: number; byteEnd: number }> = [];
+	const codeByteRanges: Array<{
+		byteStart: number;
+		byteEnd: number;
+		lang?: string;
+	}> = [];
+
+	let newText = "";
+	let cursor = 0;
+	for (const match of matches) {
+		const [matchStart, matchEnd] = match.indices[0];
+		const [codeStart, codeEnd] = match.indices[2];
+		const lang = match[1];
+
+		newText += text.slice(cursor, matchStart);
+		newText += text.slice(codeStart, codeEnd);
+		cursor = matchEnd;
+
+		removedByteRanges.push({
+			byteStart: byteOffsetOf(matchStart),
+			byteEnd: byteOffsetOf(codeStart),
+		});
+		removedByteRanges.push({
+			byteStart: byteOffsetOf(codeEnd),
+			byteEnd: byteOffsetOf(matchEnd),
+		});
+		codeByteRanges.push({
+			byteStart: byteOffsetOf(codeStart),
+			byteEnd: byteOffsetOf(codeEnd),
+			lang: lang || undefined,
+		});
+	}
+	newText += text.slice(cursor);
+
+	const sortedRemoved = [...removedByteRanges].sort(
+		(a, b) => a.byteStart - b.byteStart,
+	);
+
+	const mapOffset = (oldOffset: number): number => {
+		let delta = 0;
+		for (const r of sortedRemoved) {
+			if (r.byteEnd <= oldOffset) delta += r.byteEnd - r.byteStart;
+		}
+		return oldOffset - delta;
+	};
+
+	const remappedFacets = facets
+		.filter(
+			(f) =>
+				!sortedRemoved.some(
+					(r) => r.byteStart <= f.index.byteStart && r.byteEnd >= f.index.byteEnd,
+				),
+		)
+		.map((f) => ({
+			...f,
+			index: {
+				byteStart: mapOffset(f.index.byteStart),
+				byteEnd: mapOffset(f.index.byteEnd),
+			},
+		}));
+
+	for (const range of codeByteRanges) {
+		remappedFacets.push({
+			$type: "social.colibri.richtext.facet",
+			index: {
+				byteStart: mapOffset(range.byteStart),
+				byteEnd: mapOffset(range.byteEnd),
+			},
+			features: [
+				{
+					$type: "social.colibri.richtext.facet#codeblock",
+					...(range.lang ? { lang: range.lang } : {}),
+				},
+			],
+		});
+	}
+
+	return {
+		text: newText,
+		facets: remappedFacets.sort((a, b) => a.index.byteStart - b.index.byteStart),
+	};
+};
+
 const isValidDomain = (str: string): boolean =>
 	!!TLDs.find((tld) => {
 		const i = str.lastIndexOf(tld);
@@ -312,7 +480,9 @@ const detectMissingLinkFacets = (
 	for (const facet of facets) {
 		if (
 			facet.features.some(
-				(f) => f.$type === "social.colibri.richtext.facet#link",
+				(f) =>
+					f.$type === "social.colibri.richtext.facet#link" ||
+					f.$type === "social.colibri.richtext.facet#codeblock",
 			)
 		) {
 			linkedRanges.push([facet.index.byteStart, facet.index.byteEnd]);
@@ -380,10 +550,15 @@ export const proseMirrorToFacets = (
 	const { text, facets } = walkDoc(json.content, "", []);
 
 	const mergedFacets = mergeFacets(facets);
-	const withDetectedLinks = detectMissingLinkFacets(text, mergedFacets);
+	const { text: textWithCodeBlocks, facets: facetsWithCodeBlocks } =
+		detectFencedCodeBlocks(text, mergedFacets);
+	const withDetectedLinks = detectMissingLinkFacets(
+		textWithCodeBlocks,
+		facetsWithCodeBlocks,
+	);
 
 	return trimTextWithFacets({
-		text,
+		text: textWithCodeBlocks,
 		facets: withDetectedLinks,
 	});
 };

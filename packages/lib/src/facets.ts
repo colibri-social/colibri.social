@@ -26,6 +26,30 @@ export type ColibriRichTextCode = {
 	$type?: "social.colibri.richtext.facet#code";
 };
 
+export type ColibriRichTextCodeblock = {
+	$type?: "social.colibri.richtext.facet#codeblock";
+	lang?: string;
+};
+
+export type ColibriRichTextQuote = {
+	$type?: "social.colibri.richtext.facet#quote";
+};
+
+export type TimestampStyle =
+	| "time-short"
+	| "time-long"
+	| "date-short"
+	| "date-long"
+	| "datetime-short"
+	| "datetime-long"
+	| "relative";
+
+export type ColibriRichTextTime = {
+	$type?: "social.colibri.richtext.facet#time";
+	datetime: string;
+	style?: TimestampStyle;
+};
+
 export type ColibriRichTextMention = {
 	$type?: "social.colibri.richtext.facet#mention";
 	did: string;
@@ -46,7 +70,10 @@ export interface ColibriRichTextFacet {
 		| $Typed<ColibriRichTextUnderline>
 		| $Typed<ColibriRichTextStrikethrough>
 		| $Typed<ColibriRichTextCode>
+		| $Typed<ColibriRichTextCodeblock>
+		| $Typed<ColibriRichTextQuote>
 		| $Typed<ColibriRichTextMention>
 		| $Typed<ColibriRichTextLink>
+		| $Typed<ColibriRichTextTime>
 	)[];
 }

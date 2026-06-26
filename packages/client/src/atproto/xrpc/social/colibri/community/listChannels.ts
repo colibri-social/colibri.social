@@ -3,8 +3,12 @@ import type { XrpcRequest } from "../../..";
 export type Channel = {
 	uri: string;
 	name: string;
+	description?: string;
 	type: string;
 	category: string;
+	ownerOnly?: boolean;
+	allowedRoles?: string[];
+	allowedMembers?: string[];
 };
 
 type Response = {

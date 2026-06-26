@@ -421,6 +421,35 @@ const ChannelLayout: ParentComponent = (props) => {
 
 	createEffect(
 		on(
+			() => channel.outgoingMessage(),
+			(count) => {
+				if (!count) return; // skip initial 0
+				if (!didInitialScroll || !scrollContainer) return;
+				// The user just sent a message — always pin to the bottom.
+				requestAnimationFrame(() => scrollToBottom());
+				channel.clearUnreadBoundary();
+			},
+		),
+	);
+
+	createEffect(
+		on(
+			() => channel.editingMessage(),
+			(editing) => {
+				if (!editing) return;
+				if (!didInitialScroll || !scrollContainer) return;
+				const msgs = channel.messages();
+				const last = msgs[msgs.length - 1];
+				// Only the newest message can grow off the bottom edge when its
+				// inline editor expands — pin to the bottom so it stays in view.
+				if (!last || last.uri !== editing.uri) return;
+				requestAnimationFrame(() => scrollToBottom());
+			},
+		),
+	);
+
+	createEffect(
+		on(
 			() => channel.loadingOlder(),
 			(isLoading) => {
 				if (isLoading) {
@@ -483,7 +512,7 @@ const ChannelLayout: ParentComponent = (props) => {
 								<ScrollAnchorProvider container={() => scrollContainer}>
 									<div
 										ref={messagesWrapper}
-										class="h-[calc(100%-1px)] w-full [&>div]:last-of-type:pb-4"
+										class="h-[calc(100%-1px)] w-full [&>div]:last-of-type:pb-6"
 									>
 										<Show
 											when={

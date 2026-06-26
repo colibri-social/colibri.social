@@ -9,10 +9,7 @@ export const Table = (props: TableProps) => {
 	const [, rest] = splitProps(props, ["class"]);
 
 	return (
-		<div
-			data-slot="table-container"
-			class="relative w-full overflow-x-auto h-full"
-		>
+		<div data-slot="table-container" class="relative w-full overflow-x-auto">
 			<table
 				data-slot="table"
 				class={cx("w-full caption-bottom text-sm", props.class)}

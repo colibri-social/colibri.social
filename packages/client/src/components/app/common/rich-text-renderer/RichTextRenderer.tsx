@@ -20,7 +20,7 @@ export const RichTextRenderer: Component<{
 	const rendered = renderWithFacets(props.text(), community().community.uri);
 
 	return (
-		<p
+		<div
 			class={cx(
 				"m-0 text-foreground rich-text focus:outline-0 leading-7 wrap-break-word relative",
 				props.class,
@@ -32,6 +32,6 @@ export const RichTextRenderer: Component<{
 			<Show when={props.isEdited}>
 				<span class="text-muted-foreground text-xs inline"> (edited)</span>
 			</Show>
-		</p>
+		</div>
 	);
 };

@@ -459,6 +459,9 @@ Events of this type are sent to clients when a channel has been created, updated
 	name?: string;
 	description?: string;
 	type?: string;
+	ownerOnly?: boolean;
+	allowedRoles?: string[];
+	allowedMembers?: string[];
 }
 ```
 
@@ -1097,7 +1100,16 @@ Broadcasts `channel_event { event: "upsert", uri, community, category, name, typ
 
 ### `social.colibri.channel.update`
 
-Updates a channel's name and/or description. Requires `channel.update` permission.
+Updates a channel's name, description, owner-only flag, and/or post restrictions. Requires `channel.update` permission.
+
+`allowedRoles` and `allowedMembers` form an allow-list of who may post in the channel: when both are empty, every community member may post (the default). When either is non-empty, only the community owner, members holding one of the listed roles, or the listed member DIDs may post. `ownerOnly: true` takes precedence over both lists and restricts posting to the owner alone.
+
+Because a non-empty `allowedRoles`/`allowedMembers` list cannot be distinguished from "no change requested" using the list itself, clearing a restriction back to "everyone may post" requires the corresponding `clearAllowedRoles`/`clearAllowedMembers` flag, since passing an empty list is a no-op.
+
+Two hierarchy guards apply, mirroring Discord's permission-overwrite model:
+
+- **`ownerOnly` is owner-only to change.** Holding `channel.update` is not enough — only the community owner may flip this flag, since it overrides every other restriction (including the editor's own access, if they're not the owner).
+- **`allowedRoles`/`allowedMembers` edits are scoped to the editor's hierarchy.** Only the *entries that actually change* (added or removed relative to the channel's current lists) are checked — entries already present that aren't touched are left alone. For each changed role, the editor's highest role position must be strictly greater than that role's position (so an editor can never add or remove their own top role, or anything at or above it). For each changed member, the editor must outrank that member by the same strictly-greater rule applied to roles, computed the same way as the moderation hierarchy check used by `banUser`/`kickUser`. The community owner is exempt from both checks. A violation returns `Forbidden`.
 
 <XRPCEndpointCard
 	method="POST"
@@ -1115,6 +1127,26 @@ Updates a channel's name and/or description. Requires `channel.update` permissio
 		description: {
 			type: "string",
 			required: false
+		},
+		ownerOnly: {
+			type: "boolean",
+			required: false
+		},
+		allowedRoles: {
+			type: "string[] (repeated)",
+			required: false
+		},
+		clearAllowedRoles: {
+			type: "boolean",
+			required: false
+		},
+		allowedMembers: {
+			type: "string[] (repeated)",
+			required: false
+		},
+		clearAllowedMembers: {
+			type: "boolean",
+			required: false
 		}
 	}}
 	response={{
@@ -1125,7 +1157,7 @@ Updates a channel's name and/or description. Requires `channel.update` permissio
 	}}
 />
 
-Broadcasts `channel_event { event: "upsert", uri, name?, description? }`.
+Broadcasts `channel_event { event: "upsert", uri, name?, description?, ownerOnly?, allowedRoles?, allowedMembers? }`.
 
 ### `social.colibri.channel.delete`
 
@@ -1539,6 +1571,22 @@ Lists all channels in a community.
 					type: "string",
 					required: true,
 				},
+				description: {
+					type: "string",
+					required: false,
+				},
+				ownerOnly: {
+					type: "boolean",
+					required: false,
+				},
+				allowedRoles: {
+					type: "string[]",
+					required: false,
+				},
+				allowedMembers: {
+					type: "string[]",
+					required: false,
+				},
 			}
 		}
 	}}
@@ -1777,6 +1825,22 @@ Returns all cached data for a community in a single response: the community reco
 				category: {
 					type: "string",
 					required: true,
+				},
+				description: {
+					type: "string",
+					required: false,
+				},
+				ownerOnly: {
+					type: "boolean",
+					required: false,
+				},
+				allowedRoles: {
+					type: "string[]",
+					required: false,
+				},
+				allowedMembers: {
+					type: "string[]",
+					required: false,
 				},
 			}
 		},

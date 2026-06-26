@@ -7,6 +7,8 @@ import { communityUriToUrlCompatible } from "../../../../atproto/community-uri-t
 import { useCommunityContext } from "../../../../contexts/Community";
 import { useUserPreferences } from "../../../../contexts/UserPreferences";
 import { AtURI } from "../../../../utils/at-uri";
+import { CodeBlock } from "./CodeBlock";
+import { Timestamp } from "./Timestamp";
 import {
 	buildFeatureKey,
 	normalizeFacets,
@@ -156,33 +158,46 @@ const applyStyleForFacet = (text: string, feature: AnyFeature): JSX.Element => {
 			);
 		case "social.colibri.richtext.facet#code":
 			return <code data-facet-type="code" innerHTML={textWithEmojis} />;
+		case "social.colibri.richtext.facet#time": {
+			const datetime = "datetime" in feature ? String(feature.datetime) : "";
+			const style = "style" in feature ? feature.style : undefined;
+			return <Timestamp datetime={datetime} style={style} />;
+		}
 	}
 
-	// @ts-expect-error - Fallback just to be sure
+	// Reached for codeblock/quote, which are rendered as block-level wrappers
+	// by the caller instead of through this inline-feature switch.
 	return `[UNKNOWN FACET: ${feature.$type}]`;
 };
 
+const isBlockFeature = (feature: AnyFeature): boolean =>
+	feature.$type === "social.colibri.richtext.facet#codeblock" ||
+	feature.$type === "social.colibri.richtext.facet#quote";
+
 /**
- * Renders text with facets. Facets use byte offsets into the
- * UTF-8 encoded text, so we work with the encoded bytes directly and build
- * the result string by walking through sorted, non-overlapping segments.
+ * Renders a byte range of inline content (text/marks/mentions/links/time),
+ * walking through sorted, non-overlapping segments within that range.
+ * Codeblock/quote facets are excluded here — they're rendered as block-level
+ * wrappers by the caller instead of inline marks.
  *
  * When multiple facets share the same byte range, all of their features are
  * applied as nested wrappers.
  */
-export const renderWithFacets = (
-	input: TextWithFacets,
-	_community?: string,
+const renderInlineRange = (
+	bytes: Uint8Array,
+	rangeStart: number,
+	rangeEnd: number,
+	normalizedFacets: Array<ColibriRichTextFacet>,
+	preferences: ReturnType<typeof useUserPreferences>["preferences"],
 ): Array<JSX.Element> => {
-	const { preferences } = useUserPreferences();
-	const bytes = textEncoder.encode(input.text);
-
-	const normalizedFacets = normalizeFacets(input.facets);
-
-	const boundaries = new Set<number>([0, bytes.length]);
+	const boundaries = new Set<number>([rangeStart, rangeEnd]);
 	for (const facet of normalizedFacets) {
-		boundaries.add(facet.index.byteStart);
-		boundaries.add(facet.index.byteEnd);
+		if (facet.index.byteStart > rangeStart && facet.index.byteStart < rangeEnd) {
+			boundaries.add(facet.index.byteStart);
+		}
+		if (facet.index.byteEnd > rangeStart && facet.index.byteEnd < rangeEnd) {
+			boundaries.add(facet.index.byteEnd);
+		}
 	}
 	const sortedBoundaries = [...boundaries].sort((a, b) => a - b);
 
@@ -208,6 +223,7 @@ export const renderWithFacets = (
 		const featureKeys = new Set<string>();
 		for (const facet of covering) {
 			for (const feature of facet.features) {
+				if (isBlockFeature(feature)) continue;
 				const key = buildFeatureKey(feature);
 				if (featureKeys.has(key)) continue;
 				featureKeys.add(key);
@@ -221,6 +237,9 @@ export const renderWithFacets = (
 		const mentionFeature = features.find(
 			(f) => f.$type === "social.colibri.richtext.facet#mention",
 		);
+		const timeFeature = features.find(
+			(f) => f.$type === "social.colibri.richtext.facet#time",
+		);
 
 		let component: JSX.Element;
 
@@ -228,6 +247,8 @@ export const renderWithFacets = (
 			component = applyStyleForFacet(segmentText, channelFeature);
 		} else if (mentionFeature) {
 			component = applyStyleForFacet(segmentText, mentionFeature);
+		} else if (timeFeature) {
+			component = applyStyleForFacet(segmentText, timeFeature);
 		} else {
 			let element: JSX.Element = (
 				<span innerHTML={twemoji.parse(purify(segmentText))} />
@@ -300,6 +321,90 @@ export const renderWithFacets = (
 		}
 
 		result.push(component);
+	}
+
+	return result;
+};
+
+/**
+ * Renders text with facets. Facets use byte offsets into the
+ * UTF-8 encoded text, so we work with the encoded bytes directly.
+ *
+ * Codeblock/quote facets are block-level: each spans exactly one normalized
+ * facet covering its whole (possibly multi-line) range, and is rendered as a
+ * single `<pre><code>`/`<blockquote>` rather than as an inline wrapper.
+ * Everything else flows through the inline-segment renderer.
+ */
+export const renderWithFacets = (
+	input: TextWithFacets,
+	_community?: string,
+): Array<JSX.Element> => {
+	const { preferences } = useUserPreferences();
+	const bytes = textEncoder.encode(input.text);
+
+	const normalizedFacets = normalizeFacets(input.facets);
+
+	const blockFacets = normalizedFacets
+		.filter((f) => f.features.some(isBlockFeature))
+		.sort((a, b) => a.index.byteStart - b.index.byteStart);
+
+	if (blockFacets.length === 0) {
+		return renderInlineRange(bytes, 0, bytes.length, normalizedFacets, preferences);
+	}
+
+	const result: Array<JSX.Element> = [];
+	let cursor = 0;
+
+	for (const blockFacet of blockFacets) {
+		if (blockFacet.index.byteStart > cursor) {
+			result.push(
+				...renderInlineRange(
+					bytes,
+					cursor,
+					blockFacet.index.byteStart,
+					normalizedFacets,
+					preferences,
+				),
+			);
+		}
+
+		const codeblockFeature = blockFacet.features.find(
+			(f) => f.$type === "social.colibri.richtext.facet#codeblock",
+		);
+		const quoteFeature = blockFacet.features.find(
+			(f) => f.$type === "social.colibri.richtext.facet#quote",
+		);
+
+		if (codeblockFeature) {
+			const lang = "lang" in codeblockFeature ? codeblockFeature.lang : undefined;
+			const rawText = textDecoder.decode(
+				bytes.slice(blockFacet.index.byteStart, blockFacet.index.byteEnd),
+			);
+			result.push(<CodeBlock lang={lang} code={rawText} />);
+		} else if (quoteFeature) {
+			result.push(
+				<blockquote
+					data-facet-type="quote"
+					class="border-l-2 border-muted-foreground/40 pl-3 my-1 text-muted-foreground block"
+				>
+					{renderInlineRange(
+						bytes,
+						blockFacet.index.byteStart,
+						blockFacet.index.byteEnd,
+						normalizedFacets,
+						preferences,
+					)}
+				</blockquote>,
+			);
+		}
+
+		cursor = blockFacet.index.byteEnd;
+	}
+
+	if (cursor < bytes.length) {
+		result.push(
+			...renderInlineRange(bytes, cursor, bytes.length, normalizedFacets, preferences),
+		);
 	}
 
 	return result;

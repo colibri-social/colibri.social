@@ -1,6 +1,8 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "@colibri-social/assets/fonts.css";
+@import "@arborium/arborium/themes/base.css";
+@import "@arborium/arborium/themes/tokyo-night.css";
 @plugin "@tailwindcss/typography";
 
 @source ".";
@@ -124,21 +126,7 @@
 
 	/* Blockquotes */
 	blockquote {
-		@apply pl-5 italic font-medium text-gray-900 border-l-4 border-gray-200 mt-8 mb-8 dark:text-white dark:border-gray-700;
-	}
-
-	/* Code and Pre */
-	code {
-		@apply text-gray-900 font-semibold text-sm bg-gray-100 px-1 py-0.5 rounded dark:bg-gray-800 dark:text-gray-200;
-		font-family: var(--font-mono);
-	}
-
-	pre {
-		@apply text-gray-200 bg-gray-800 text-sm leading-6 rounded-lg mt-8 mb-8 px-5 py-4 overflow-x-auto dark:bg-gray-900 dark:border dark:border-gray-700;
-	}
-
-	pre code {
-		@apply bg-transparent p-0 text-inherit font-normal;
+		@apply pl-2 font-medium border-l-2 border-gray-200 dark:border-gray-700 text-muted-foreground;
 	}
 
 	/* Horizontal Rule */
@@ -393,4 +381,13 @@ ol[data-somoto-toaster] > li {
 		-ms-overflow-style: none; /* IE and Edge */
 		scrollbar-width: none; /* Firefox */
 	}
+}
+
+pre code,
+.tiptap .font-mono {
+	font-size: 0.825em !important;
+}
+
+.rich-text pre + span br:first-of-type {
+	display: none;
 }

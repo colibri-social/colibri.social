@@ -191,7 +191,7 @@ lex.add(
 	def({
 		lexicon: 1,
 		id: RECORD_IDs.CHANNEL,
-		revision: 2,
+		revision: 3,
 		defs: {
 			main: {
 				type: "record",
@@ -241,6 +241,18 @@ lex.add(
 							description:
 								"Whether the owner of the community is the only one allowed to post in the channel or not.",
 							default: false,
+						},
+						allowedRoles: {
+							type: "array",
+							description:
+								"Role record-keys allowed to post in this channel. Empty/absent means no role restriction.",
+							items: { type: "string", format: "record-key" },
+						},
+						allowedMembers: {
+							type: "array",
+							description:
+								"Member DIDs explicitly allowed to post in this channel, in addition to allowedRoles.",
+							items: { type: "string", format: "did" },
 						},
 					},
 				},
@@ -374,7 +386,7 @@ lex.add(
 	def({
 		lexicon: 1,
 		id: RECORD_IDs.RICHTEXT_FACET,
-		revision: 1,
+		revision: 2,
 		defs: {
 			main: {
 				type: "object",
@@ -397,8 +409,11 @@ lex.add(
 								"social.colibri.richtext.facet#underline",
 								"social.colibri.richtext.facet#strikethrough",
 								"social.colibri.richtext.facet#code",
+								"social.colibri.richtext.facet#codeblock",
+								"social.colibri.richtext.facet#quote",
 								"social.colibri.richtext.facet#mention",
 								"social.colibri.richtext.facet#link",
+								"social.colibri.richtext.facet#time",
 							],
 						},
 					},
@@ -459,6 +474,21 @@ lex.add(
 				description: "A facet feature for inline code text.",
 				properties: {},
 			},
+			codeblock: {
+				type: "object",
+				description: "A facet feature for a multi-line code block.",
+				properties: {
+					lang: {
+						type: "string",
+						description: "The language of the code block, if specified.",
+					},
+				},
+			},
+			quote: {
+				type: "object",
+				description: "A facet feature for a block quote.",
+				properties: {},
+			},
 			mention: {
 				type: "object",
 				description: "A facet feature for a user mention.",
@@ -480,6 +510,32 @@ lex.add(
 						type: "string",
 						description: "The URI of the link.",
 						format: "uri",
+					},
+				},
+			},
+			time: {
+				type: "object",
+				description: "A facet feature for a timestamp.",
+				required: ["datetime"],
+				properties: {
+					datetime: {
+						type: "string",
+						description: "The ISO 8601 timestamp.",
+						format: "datetime",
+					},
+					style: {
+						type: "string",
+						description:
+							"Display style for the timestamp (mirrors Discord-style formats).",
+						knownValues: [
+							"time-short",
+							"time-long",
+							"date-short",
+							"date-long",
+							"datetime-short",
+							"datetime-long",
+							"relative",
+						],
 					},
 				},
 			},

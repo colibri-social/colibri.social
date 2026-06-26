@@ -26,11 +26,16 @@ export const buildFeatureKey = (feature: Feature): string => {
 			return `${feature.$type}:${"channel" in feature ? feature.channel : ""}`;
 		case "social.colibri.richtext.facet#link":
 			return `${feature.$type}:${"uri" in feature ? feature.uri : ""}`;
+		case "social.colibri.richtext.facet#codeblock":
+			return `${feature.$type}:${"lang" in feature ? (feature.lang ?? "") : ""}`;
+		case "social.colibri.richtext.facet#time":
+			return `${feature.$type}:${"datetime" in feature ? feature.datetime : ""}`;
 		case "social.colibri.richtext.facet#bold":
 		case "social.colibri.richtext.facet#italic":
 		case "social.colibri.richtext.facet#underline":
 		case "social.colibri.richtext.facet#strikethrough":
 		case "social.colibri.richtext.facet#code":
+		case "social.colibri.richtext.facet#quote":
 			return feature.$type;
 		default:
 			// @ts-expect-error: nah, this never happens

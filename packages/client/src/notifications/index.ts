@@ -17,11 +17,13 @@ let cached: NotificationBackend | undefined;
 /** The notification backend for the current runtime (memoized). */
 export const getBackend = (): NotificationBackend => {
 	if (cached) return cached;
+
 	cached = isTauriRuntime()
 		? tauriBackend
 		: isWebRuntime()
 			? webBackend
 			: noopBackend;
+
 	return cached;
 };
 

@@ -28,10 +28,10 @@ export const DisplayableName: Component<{
 			style={{
 				color: props.color === false ? undefined : getTopMemberRoleColor(),
 			}}
-			class="flex flex-row items-center gap-2"
+			class="inline-flex flex-row items-center gap-2"
 		>
 			{displayableNameFn(props.user)}
-			<Show when={props.user.data.isBot}>
+			<Show when={props.user.data.isBot && props.color !== false}>
 				<Badge text="BOT" size="xs" style="bot" />
 			</Show>
 		</span>

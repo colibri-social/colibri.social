@@ -16,8 +16,8 @@ export const buildSuggestions = (
 	return [
 		{
 			char: "@",
-			items: ({ query }) =>
-				members()
+			items: ({ query }) => {
+				const matchedMembers = members()
 					.filter(
 						(member) =>
 							member.data.displayName
@@ -28,7 +28,18 @@ export const buildSuggestions = (
 								?.toLowerCase()
 								.startsWith(query.toLowerCase()),
 					)
-					.slice(0, 8),
+					.slice(0, 8);
+
+				// Offer the `@time` shortcut at the bottom of the list while the
+				// query is still a prefix of "time" — so it's there on a bare `@`
+				// and as the user types toward it, but disappears once they're
+				// clearly typing something else.
+				if ("time".startsWith(query.toLowerCase())) {
+					return [...matchedMembers, { timeShortcut: true }];
+				}
+
+				return matchedMembers;
+			},
 			render: createMentionRenderer("@", mainEditor),
 		},
 		{

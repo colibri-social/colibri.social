@@ -26,7 +26,6 @@ import {
 	usePermissions,
 } from "../contexts/Community";
 import { MemberProfileContextProvider } from "../contexts/MemberProfile";
-import { useNotifications } from "../contexts/Notifications";
 import { useUserContext } from "../contexts/User";
 import { useUserPreferences } from "../contexts/UserPreferences";
 import createMediaQuery from "../utils/create-media-query";
@@ -34,7 +33,6 @@ import createMediaQuery from "../utils/create-media-query";
 const CommunityHeader = () => {
 	const user = useUserContext();
 	const community = useCommunityContext();
-	const notifications = useNotifications();
 	const { canManageApprovals } = usePermissions();
 	const [settingsOpen, setSettingsOpen] = createSignal(false);
 	const [leaveOpen, setLeaveOpen] = createSignal(false);
@@ -75,15 +73,6 @@ const CommunityHeader = () => {
 					</DropdownMenuTrigger>
 					<DropdownMenuPortal>
 						<DropdownMenuContent class="min-w-48 w-66.5">
-							<DropdownMenuItem
-								onSelect={() =>
-									void notifications.markCommunityAsRead(
-										community().community.uri,
-									)
-								}
-							>
-								Mark everything as read
-							</DropdownMenuItem>
 							<DropdownMenuItem onSelect={() => setSettingsOpen(true)}>
 								Settings
 								<Show when={pendingApplications() > 0}>
