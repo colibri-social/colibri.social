@@ -153,14 +153,25 @@ export const MarkdownCodeHighlight = Extension.create({
 					code,
 				} = range;
 
+				// spellcheck/autocorrect off: red squiggles and capitalization
+				// fixes don't belong on code. The attrs sit on the body span, so
+				// nested highlight spans inherit the disabled state.
 				decorations.push(
 					Decoration.inline(docFrom, docCodeFrom, {
 						class: "text-muted-foreground/60 font-mono",
+						spellcheck: "false",
+						autocorrect: "off",
 					}),
 					Decoration.inline(docCodeTo, docTo, {
 						class: "text-muted-foreground/60 font-mono",
+						spellcheck: "false",
+						autocorrect: "off",
 					}),
-					Decoration.inline(docCodeFrom, docCodeTo, { class: "font-mono" }),
+					Decoration.inline(docCodeFrom, docCodeTo, {
+						class: "font-mono",
+						spellcheck: "false",
+						autocorrect: "off",
+					}),
 				);
 
 				if (!lang) continue;

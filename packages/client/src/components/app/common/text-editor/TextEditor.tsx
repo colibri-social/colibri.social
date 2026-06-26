@@ -188,7 +188,9 @@ export const TextEditor: Component<{
 				keepMarks: false,
 			}),
 			Bold,
-			Code,
+			Code.configure({
+				HTMLAttributes: { spellcheck: "false", autocorrect: "off" },
+			}),
 			Blockquote,
 			MarkdownCodeHighlight,
 			Italic,
