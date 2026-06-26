@@ -402,7 +402,7 @@ const AppLayout: ParentComponent = (props) => {
 			<div class="flex h-[calc(100%-40px)] w-full">
 				<aside class="flex flex-col h-full w-14 p-2 pb-3">
 					<nav class="w-full h-full flex flex-col gap-2 max-h-[calc(100%-3.25rem-1px)] mb-3.25">
-						<div class="w-full h-full flex flex-col no-scrollbar gap-2 overflow-auto">
+						<div class="w-[calc(100%+0.5rem)] h-full flex flex-col no-scrollbar gap-2 overflow-y-auto overflow-x-clip px-1 -mx-1">
 							<A
 								href="/app"
 								class="min-w-10 flex min-h-10 rounded-md bg-muted hover:bg-primary hover:text-primary-foreground items-center justify-center cursor-pointer"

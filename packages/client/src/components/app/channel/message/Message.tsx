@@ -13,6 +13,7 @@ import {
 	MessageContextProvider,
 	useMessageContext,
 } from "../../../../contexts/Message";
+import { useStableMedia } from "../../../../contexts/ScrollAnchor";
 import { useUserContext } from "../../../../contexts/User";
 import {
 	Tooltip,
@@ -59,6 +60,7 @@ const MessageInner: Component<{
 	const user = useUserContext();
 	const channel = useChannelContext();
 	const community = useCommunityContext();
+	const stableMedia = useStableMedia();
 
 	const {
 		message,
@@ -382,7 +384,10 @@ const MessageInner: Component<{
 					</div>
 				</Show>
 				<Show when={message.reactions.length > 0}>
-					<div class="flex flex-row gap-1 flex-wrap items-center pl-14">
+					<div
+						ref={stableMedia}
+						class="flex flex-row gap-1 flex-wrap items-center pl-14"
+					>
 						<For each={message.reactions}>
 							{(item) => (
 								<Tooltip>
