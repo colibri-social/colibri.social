@@ -35,7 +35,6 @@ import { Avatar } from "./Avatar";
 import { useUserPreferences } from "../../../contexts/UserPreferences";
 import { Microphone } from "../../icons/Microphone";
 import { Ear } from "../../icons/Ear";
-import { useSocketContext } from "../../../contexts/Socket";
 import User from ".";
 
 const STATE_LABELS: Record<OnlineState, string> = {
@@ -46,7 +45,7 @@ const STATE_LABELS: Record<OnlineState, string> = {
 };
 
 const DropdownStatusSelect: ParentComponent<{
-	value: Accessor<OnlineState>;
+	value: OnlineState;
 	setValue: Setter<OnlineState>;
 }> = (props) => {
 	return (
@@ -58,7 +57,7 @@ const DropdownStatusSelect: ParentComponent<{
 						<DropdownMenuGroupLabel class="text-xs text-muted-foreground">
 							Status
 						</DropdownMenuGroupLabel>
-						<DropdownMenuRadioGroup value={props.value()}>
+						<DropdownMenuRadioGroup value={props.value}>
 							<DropdownMenuRadioItem
 								value="online"
 								onSelect={() => props.setValue("online")}
@@ -100,28 +99,18 @@ const DropdownStatusSelect: ParentComponent<{
  */
 export const Status: Component = () => {
 	const user = useUserContext();
-	const [value, setValue] = createSignal<OnlineState>(user.data.onlineState);
 	const [
 		voiceData,
 		{ disconnect, toggleCamera, toggleScreen, toggleMic, toggleDeafen },
 	] = useVoiceChatContext();
 	const userPreferences = useUserPreferences();
-	const socket = useSocketContext();
 
 	const isReconnecting = () =>
 		voiceData.connection.state === ConnectionState.Connecting ||
 		voiceData.connection.state === ConnectionState.Reconnecting ||
 		voiceData.connection.state === ConnectionState.SignalReconnecting;
 
-	const cleanup = socket.onEvent((e) => {
-		if (e.type === "user_event" && e.data?.did === user.did) {
-			if (e.data.status) {
-				setValue(e.data.status.state);
-			}
-		}
-	});
-
-	onCleanup(cleanup);
+	const onlineState = () => user.data.onlineState;
 
 	return (
 		<div class="w-full h-fit flex flex-col">
@@ -264,31 +253,21 @@ export const Status: Component = () => {
 				</div>
 			</Show>
 			<div class="w-full h-16 flex items-center gap-3 p-3 bg-card">
-				<Avatar
-					user={{
-						...user,
-						data: {
-							...user.data,
-							onlineState: value(),
-						},
-					}}
-				/>
+				<Avatar user={user} />
 				<div class="flex flex-col">
 					<span class="font-bold leading-5">
 						<User.DisplayableName color={false} user={user} />
 					</span>
 					<DropdownStatusSelect
-						value={value}
+						value={user.data.onlineState}
 						setValue={(e) => {
-							user.xrpc.social.colibri.actor.setState(
-								typeof e === "string" ? e : e(value()),
-							);
-
-							setValue(e);
+							const next = typeof e === "string" ? e : e(onlineState());
+							user.xrpc.social.colibri.actor.setState(next);
+							user.updateActorData({ onlineState: next });
 						}}
 					>
 						<div class="flex gap-2 items-center text-sm text-muted-foreground hover:underline cursor-pointer">
-							{STATE_LABELS[value()]}
+							{STATE_LABELS[user.data.onlineState]}
 						</div>
 					</DropdownStatusSelect>
 				</div>

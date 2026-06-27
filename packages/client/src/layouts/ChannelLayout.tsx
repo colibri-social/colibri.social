@@ -4,11 +4,13 @@ import {
 	createMemo,
 	createSignal,
 	For,
+	Match,
 	on,
 	onCleanup,
 	onMount,
 	type ParentComponent,
 	Show,
+	Switch,
 	untrack,
 } from "solid-js";
 import { toast } from "somoto";
@@ -28,6 +30,19 @@ import { isSameChannelUri, useNotifications } from "../contexts/Notifications";
 import { ScrollAnchorProvider } from "../contexts/ScrollAnchor";
 import { useUserContext } from "../contexts/User";
 import { getChannelParam } from "../utils/get-param";
+import ChatCircleDotsIcon from "~icons/ph/chat-circle-dots";
+import UsersIcon from "~icons/ph/users";
+import UsersIconFill from "~icons/ph/users-fill";
+import BellIcon from "~icons/ph/bell";
+import BellIconFill from "~icons/ph/bell-fill";
+import { useUserPreferences } from "../contexts/UserPreferences";
+import {
+	Tooltip,
+	TooltipContent,
+	TooltipPortal,
+	TooltipTrigger,
+} from "../components/ui/Tooltip";
+import { useMutes } from "../contexts/Mutes";
 
 type MessageMeta = {
 	isOnNewDay: boolean;
@@ -76,6 +91,18 @@ const ChannelLayout: ParentComponent = (props) => {
 	const channel = useChannelContext();
 	const notifications = useNotifications();
 	const user = useUserContext();
+	const mutes = useMutes();
+	const { preferences, toggleMembersVisible } = useUserPreferences();
+
+	const toggleChannelMute = () => {
+		const channelUri = channel.channelUri();
+		if (mutes.isChannelMuted(channelUri)) {
+			mutes.unmuteChannel(channelUri);
+		} else {
+			mutes.muteChannel(channelUri);
+		}
+	};
+
 	const [files, setFiles] = createSignal<Details>();
 
 	const messageMeta = createMemo<MessageMeta[]>(() => {
@@ -472,6 +499,95 @@ const ChannelLayout: ParentComponent = (props) => {
 
 	return (
 		<div class="w-full h-full flex flex-col min-h-0 flex-1">
+			<div class="sticky top-0 left-0 border-b border-border bg-background h-12 p-2 w-full flex flex-row items-center justify-between">
+				<div class="flex flex-row gap-2 pl-1 items-center">
+					<Switch>
+						<Match
+							when={
+								channel.data()!.type === "text" ||
+								channel.data()!.type === "social.colibri.channel.text"
+							}
+						>
+							<ChatCircleDotsIcon
+								class="text-muted-foreground"
+								width={20}
+								height={20}
+							/>
+						</Match>
+					</Switch>
+					<span>{channel.data()!.name}</span>
+					<Show when={channel.data()!.description}>
+						<span class="text-muted-foreground">—</span>
+						<span class="text-muted-foreground">
+							{channel.data()!.description}
+						</span>
+					</Show>
+				</div>
+				<div class="h-full flex items-center gap-1">
+					<Tooltip>
+						<TooltipTrigger>
+							<Button
+								size="sm"
+								variant="ghost"
+								class="w-8 h-8"
+								onClick={toggleChannelMute}
+							>
+								<Switch>
+									<Match when={mutes.isChannelMuted(channel.channelUri())}>
+										<BellIconFill />
+									</Match>
+									<Match when={!mutes.isChannelMuted(channel.channelUri())}>
+										<BellIcon />
+									</Match>
+								</Switch>
+							</Button>
+						</TooltipTrigger>
+						<TooltipPortal>
+							<TooltipContent>
+								<Switch>
+									<Match when={mutes.isChannelMuted(channel.channelUri())}>
+										Unmute Channel
+									</Match>
+									<Match when={!mutes.isChannelMuted(channel.channelUri())}>
+										Mute Channel
+									</Match>
+								</Switch>
+							</TooltipContent>
+						</TooltipPortal>
+					</Tooltip>
+					<Tooltip>
+						<TooltipTrigger>
+							<Button
+								size="sm"
+								variant="ghost"
+								class="w-8 h-8"
+								onClick={toggleMembersVisible}
+							>
+								<Switch>
+									<Match when={preferences().membersListVisible}>
+										<UsersIconFill />
+									</Match>
+									<Match when={!preferences().membersListVisible}>
+										<UsersIcon />
+									</Match>
+								</Switch>
+							</Button>
+						</TooltipTrigger>
+						<TooltipPortal>
+							<TooltipContent>
+								<Switch>
+									<Match when={preferences().membersListVisible}>
+										Hide Member List
+									</Match>
+									<Match when={!preferences().membersListVisible}>
+										Show Member List
+									</Match>
+								</Switch>
+							</TooltipContent>
+						</TooltipPortal>
+					</Tooltip>
+				</div>
+			</div>
 			<FileField
 				class="gap-0! flex flex-col flex-1 min-h-0"
 				multiple

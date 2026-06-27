@@ -24,7 +24,6 @@ import {
 import { toast } from "somoto";
 import GearIcon from "~icons/ph/gear";
 import HouseIcon from "~icons/ph/house";
-import UsersIcon from "~icons/ph/users";
 import { communityUriToUrlCompatible } from "../atproto/community-uri-to-url-compatible";
 import { putRecord } from "../atproto/pds";
 import { resolveBlob } from "../atproto/resolve-blob";
@@ -33,7 +32,6 @@ import { CommunityContextMenu } from "../components/app/community/CommunityConte
 import { NativeNotifications } from "../components/app/NativeNotifications";
 import { UserSettingsModal } from "../components/app/settings";
 import { Plus } from "../components/icons/Plus";
-import { Button } from "../components/ui/Button";
 import {
 	Tooltip,
 	TooltipContent,
@@ -47,10 +45,7 @@ import {
 } from "../contexts/Notifications";
 import { useSocketContext } from "../contexts/Socket";
 import { useUserContext } from "../contexts/User";
-import {
-	UserPreferencesContextProvider,
-	useUserPreferences,
-} from "../contexts/UserPreferences";
+import { UserPreferencesContextProvider } from "../contexts/UserPreferences";
 import {
 	animateToNewPositions,
 	capturePositions,
@@ -214,7 +209,6 @@ const CommunitySidebar = (props: {
 };
 
 const AppLayout: ParentComponent = (props) => {
-	const { preferences, toggleMembersVisible } = useUserPreferences();
 	const [_userSettingsOpen, _setUserSettingsOpen] = createSignal(false);
 	const user = useUserContext();
 	const socket = useSocketContext();
@@ -386,17 +380,6 @@ const AppLayout: ParentComponent = (props) => {
 					<span class="font-black text-lg bg-clip-text text-transparent bg-[linear-gradient(69deg,#090615_-145.97%,#31226D_-87.27%,#6C5AA6_-26.22%,#AE99CB_30.13%,#E0DEEC_75.92%)]">
 						colibri.social
 					</span>
-				</div>
-				<div class="h-full pr-1 flex items-center gap-1">
-					<Button
-						size="sm"
-						variant="ghost"
-						class="w-8 h-8"
-						classList={{ "bg-muted!": preferences().membersListVisible }}
-						onClick={toggleMembersVisible}
-					>
-						<UsersIcon />
-					</Button>
 				</div>
 			</div>
 			<div class="flex h-[calc(100%-40px)] w-full">

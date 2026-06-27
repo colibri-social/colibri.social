@@ -32,7 +32,7 @@ export const SettingsPage: ParentComponent<{
 	onReset?: () => void;
 }> = (props) => {
 	return (
-		<div class="w-full flex flex-col h-144 relative">
+		<div class="w-full flex flex-col h-auto relative">
 			<div class="px-4 py-4 border-b border-border min-h-16">
 				<h2 class="m-0">{props.title}</h2>
 				<Show when={props.description}>

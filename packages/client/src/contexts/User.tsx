@@ -98,7 +98,7 @@ export const UserContextProvider: ParentComponent = (props) => {
 			window.location.href = "/app/login";
 		}
 
-		console.info("User loaded:", user());
+		console.info("[user] User loaded:", user());
 	});
 
 	return (

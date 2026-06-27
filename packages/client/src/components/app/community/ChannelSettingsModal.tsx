@@ -1,8 +1,10 @@
 import {
 	type Accessor,
 	type Component,
+	createEffect,
 	createSignal,
 	For,
+	on,
 	type ParentComponent,
 	type Setter,
 	Show,
@@ -40,12 +42,23 @@ const GeneralChannelSettings: Component<{ channel: Channel }> = (props) => {
 	const [name, setName] = createSignal(initialName());
 	const [description, setDescription] = createSignal(initialDesc());
 
+	// Re-sync the form when the channel record changes underneath us — e.g. a
+	// `channel_event` upsert arrives over the socket (our own save, or another
+	// moderator's edit). `defer: true` skips the redundant run on mount (the
+	// signals are already seeded) and `on` only fires when the persisted value
+	// actually changes, so casual re-renders won't clobber in-progress typing.
+	createEffect(on(initialName, (n) => setName(n), { defer: true }));
+	createEffect(on(initialDesc, (d) => setDescription(d), { defer: true }));
+
 	const handleSave = async () => {
 		setLoading(true);
 		try {
 			await user.xrpc.social.colibri.channel.update(
 				props.channel.uri,
 				name().trim(),
+				{
+					description: description(),
+				},
 			);
 		} catch {
 			toast.error("Failed to save channel.");
@@ -104,6 +117,10 @@ const PermissionsPage: Component<{ channel: Channel }> = (props) => {
 
 	const [loading, setLoading] = createSignal(false);
 	const [ownerOnly, setOwnerOnly] = createSignal(initialOwnerOnly());
+
+	// Re-sync when the channel record changes underneath us (see the matching
+	// note in GeneralChannelSettings).
+	createEffect(on(initialOwnerOnly, (o) => setOwnerOnly(o), { defer: true }));
 
 	const handleSave = async () => {
 		setLoading(true);

@@ -47,7 +47,7 @@ export const scopes = [
 	"rpc:social.colibri.notification.registerPush?aud=*",
 	"rpc:social.colibri.notification.unregisterPush?aud=*",
 	"repo:social.colibri.actor.data?action=create&action=update&action=delete",
-	"repo:social.colibri.actor.mute?action=create&action=delete",
+	"repo:social.colibri.actor.mute?action=create&action=update&action=delete",
 	"repo:social.colibri.community?action=create&action=update&action=delete",
 	"repo:social.colibri.category?action=create&action=update&action=delete",
 	"repo:social.colibri.channel?action=create&action=update&action=delete",

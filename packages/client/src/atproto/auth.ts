@@ -72,7 +72,7 @@ const init = async () => {
 
 		if (window.location.hash.length > 0) {
 			console.info(
-				"Attempting to received session from callback parameters...",
+				"[auth] Attempting to received session from callback parameters...",
 			);
 			const searchParams = new URLSearchParams(
 				window.location.hash.replace("#", "?"),
@@ -81,7 +81,7 @@ const init = async () => {
 			const callbackSession = await oAuthClient.callback(searchParams);
 
 			if (callbackSession && !window.location.href.startsWith("/app")) {
-				console.info("Session received from callback parameters.");
+				console.info("[auth] Session received from callback parameters.");
 				localStorage.setItem("sub", callbackSession.session.sub);
 				window.location.href = "/app";
 				return;
@@ -98,7 +98,7 @@ const init = async () => {
 				const restored = await oAuthClient.restore(preSetSub);
 				result = { session: restored, state: null };
 			} else {
-				console.info("No session found.");
+				console.info("[auth] No session found.");
 				return;
 			}
 		}
@@ -107,10 +107,10 @@ const init = async () => {
 
 		if (state != null) {
 			console.info(
-				`${session.sub} was successfully authenticated (state: ${state})`,
+				`[auth] ${session.sub} was successfully authenticated (state: ${state})`,
 			);
 		} else {
-			console.info(`${session.sub} was restored (last active session)`);
+			console.info(`[auth] ${session.sub} was restored (last active session)`);
 		}
 
 		agent = new Agent(session);

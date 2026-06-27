@@ -145,9 +145,13 @@ export type Colibri_ChannelEvent = EventBase<
 			event: "upsert";
 			uri: AT_URI<"social.colibri.channel">;
 			community?: AT_URI<"social.colibri.community">;
+			category?: string;
 			name?: string;
 			description?: string;
 			type?: string;
+			ownerOnly?: boolean;
+			allowedRoles?: Array<string>;
+			allowedMembers?: Array<string>;
 	  }
 	| {
 			event: "delete";

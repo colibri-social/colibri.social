@@ -374,8 +374,20 @@ export const CommunityContextProvider: ParentComponent = (props) => {
 						c.uri === data.uri
 							? {
 									...c,
-									...(data.name && { name: data.name }),
-									...(data.type && { type: data.type }),
+									...(data.name !== undefined && { name: data.name }),
+									...(data.description !== undefined && {
+										description: data.description,
+									}),
+									...(data.type !== undefined && { type: data.type }),
+									...(data.ownerOnly !== undefined && {
+										ownerOnly: data.ownerOnly,
+									}),
+									...(data.allowedRoles !== undefined && {
+										allowedRoles: data.allowedRoles,
+									}),
+									...(data.allowedMembers !== undefined && {
+										allowedMembers: data.allowedMembers,
+									}),
 								}
 							: c,
 					),

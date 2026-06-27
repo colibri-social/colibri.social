@@ -569,7 +569,7 @@ export const ChannelContextProvider: ParentComponent<{
 						),
 					);
 
-				updateMessageText(d.uri, d.text, d.facets ?? [], !isSame);
+				updateMessageText(d.uri, d.text, d.facets ?? [], d.edited);
 				return;
 			}
 
@@ -586,8 +586,7 @@ export const ChannelContextProvider: ParentComponent<{
 			// New message from another user — author is fully hydrated on the event.
 			const parentMsg = d.parent
 				? (messages().find((m) => m.uri === d.parent) as
-						| Omit<Message, "parent">
-						| undefined)
+						Omit<Message, "parent"> | undefined)
 				: undefined;
 
 			const newMsg: Message = {

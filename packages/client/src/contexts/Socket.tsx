@@ -79,6 +79,9 @@ export const SocketContextProvider: ParentComponent = (props) => {
 					// Ignore malformed frames
 					return;
 				}
+
+				console.info("[socket] Event received:", event);
+
 				handlers.forEach((h) => {
 					// Isolate each handler so one throwing doesn't starve the rest.
 					try {
