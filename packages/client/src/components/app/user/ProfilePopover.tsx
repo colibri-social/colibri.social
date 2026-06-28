@@ -100,7 +100,18 @@ export const ProfilePopoverContents: Component<{ user: ActorData }> = (
 			class="w-80 relative pt-12 bg-card"
 			onContextMenu={(e) => e.stopPropagation()}
 		>
-			<div class="w-full aspect-3/1 bg-muted absolute z-0 top-0">
+			<div
+				class="w-full aspect-3/1 bg-muted absolute z-0 top-0"
+				style={(() => {
+					const theme = props.user.data.theme;
+					if (theme?.gradient?.primary && theme.gradient.secondary)
+						return {
+							background: `linear-gradient(135deg, ${theme.gradient.primary}, ${theme.gradient.secondary})`,
+						};
+					if (theme?.bannerColor) return { background: theme.bannerColor };
+					return undefined;
+				})()}
+			>
 				<Show when={props.user.data.banner}>
 					<img
 						src={resolveBlob(props.user.did, props.user.data.banner)}

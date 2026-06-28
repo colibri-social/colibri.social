@@ -2,7 +2,10 @@ import type { JsonBlobRef } from "@atproto/lexicon";
 import type { AT_URI } from "./atproto.js";
 import type { ColibriRichTextFacet } from "./facets.js";
 import type { OnlineState } from "./shared.js";
-import type { ActorData } from "./xrpc/social.colibri/actor/getData.js";
+import type {
+	ActorData,
+	ProfileTheme,
+} from "./xrpc/social.colibri/actor/getData.js";
 
 interface EventBase<T extends string, D = undefined> {
 	type: T;
@@ -232,6 +235,8 @@ export type BskyProfile = {
 	description?: string;
 	isBot: boolean;
 	handle: string;
+	/** Colibri-only profile theming, from `social.colibri.actor.profile`. */
+	theme?: ProfileTheme;
 };
 
 export type Colibri_UserEvent = EventBase<

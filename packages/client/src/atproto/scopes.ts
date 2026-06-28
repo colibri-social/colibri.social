@@ -8,5 +8,6 @@ export const scopes = [
 	"include:social.colibri.permission.account?aud=did:web:api.colibri.social#colibri_appview",
 	"include:social.colibri.permission.community?aud=did:web:api.colibri.social#colibri_appview",
 	"include:social.colibri.permission.messaging?aud=did:web:api.colibri.social#colibri_appview",
-	"include:social.colibri.permission.notification?aud=did:web:api.colibri.social#colibri_notif",
+	"include:social.colibri.permission.notification?aud=did:web:api.colibri.social#colibri_appview",
+	"include:social.colibri.permission.push?aud=did:web:api.colibri.social#colibri_notif",
 ];

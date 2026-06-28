@@ -1,5 +1,5 @@
 import type { JsonBlobRef } from "@atproto/lexicon";
-import type { OnlineState } from "@colibri-social/lib";
+import type { OnlineState, ProfileTheme } from "@colibri-social/lib";
 import type { XrpcRequest } from "../../..";
 
 export type Member = {
@@ -13,6 +13,7 @@ export type Member = {
 		description?: string;
 		isBot: boolean;
 		onlineState: OnlineState;
+		theme?: ProfileTheme;
 		status?: {
 			emoji?: string;
 			text: string;

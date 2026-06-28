@@ -130,6 +130,9 @@ export const CommunityContextProvider: ParentComponent = (props) => {
 									...(profile.description !== undefined && {
 										description: profile.description,
 									}),
+									...(profile.theme !== undefined && {
+										theme: profile.theme,
+									}),
 									...(status && {
 										onlineState: status.state,
 										status: { text: status.text, emoji: status.emoji },

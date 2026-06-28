@@ -15,6 +15,14 @@ import {
 	FileFieldTrigger,
 } from "../../../components/ui/FileField";
 import {
+	SwitchControl,
+	SwitchDescription,
+	SwitchInput,
+	SwitchLabel,
+	SwitchThumb,
+	Switch as Toggle,
+} from "../../../components/ui/Switch";
+import {
 	TextField,
 	TextFieldInput,
 	TextFieldLabel,
@@ -22,6 +30,14 @@ import {
 } from "../../../components/ui/TextField";
 import { useUserContext } from "../../../contexts/User";
 import { SettingsPage } from "../common/SettingsModal";
+import {
+	ThemeControls,
+	type ThemeState,
+	themeStateFromTheme,
+	themeStateToRecord,
+} from "../profile/theme";
+
+const COLLECTION = "social.colibri.actor.profile";
 
 export const GeneralPage: Component = () => {
 	const user = useUserContext();
@@ -32,6 +48,12 @@ export const GeneralPage: Component = () => {
 	const [name, setName] = createSignal(user.data.displayName || "");
 	const [description, setDescription] = createSignal(
 		user.data.description || "",
+	);
+	const [syncBluesky, setSyncBluesky] = createSignal(
+		user.data.syncBluesky ?? false,
+	);
+	const [theme, setTheme] = createSignal<ThemeState>(
+		themeStateFromTheme(user.data.theme),
 	);
 
 	const [imageRemoved, setImageRemoved] = createSignal(false);
@@ -47,13 +69,20 @@ export const GeneralPage: Component = () => {
 			? (user.data.banner ?? undefined)
 			: undefined;
 
+	const initialTheme = JSON.stringify(themeStateToRecord(theme()) ?? null);
+
 	const hasEdited = (): boolean =>
 		name() !== user.data.displayName ||
-		description() !== user.data.description ||
+		description() !== (user.data.description ?? "") ||
+		syncBluesky() !== (user.data.syncBluesky ?? false) ||
+		JSON.stringify(themeStateToRecord(theme()) ?? null) !== initialTheme ||
 		imageRemoved() ||
 		bannerRemoved() ||
 		image() !== undefined ||
 		banner() !== undefined;
+
+	const patchTheme = (patch: Partial<ThemeState>) =>
+		setTheme((prev) => ({ ...prev, ...patch }));
 
 	const saveProfile = async () => {
 		setLoading(true);
@@ -61,55 +90,87 @@ export const GeneralPage: Component = () => {
 		try {
 			const { agent } = user.atproto;
 			const repo = user.did;
+			const sync = syncBluesky();
 
-			// Profile fields (display name, description, avatar, banner) live in the
-			// user's own `app.bsky.actor.profile` record, so we write straight to the
-			// PDS. Read the current record first to preserve fields this form doesn't
-			// manage and to keep blobs the user didn't touch.
+			// Profile now lives in Colibri's own `social.colibri.actor.profile`
+			// record — we never touch the Bluesky record, so editing a profile no
+			// longer requires escalated account permissions (see issue #31). Read
+			// the current record first to preserve any fields this form doesn't
+			// manage.
 			let record: Record<string, unknown> = {};
 			try {
 				const res = await agent.com.atproto.repo.getRecord({
 					repo,
-					collection: "app.bsky.actor.profile",
+					collection: COLLECTION,
 					rkey: "self",
 				});
 				record = (res.data.value as Record<string, unknown>) ?? {};
 			} catch {
-				// No profile record yet — create one from scratch.
+				// No record yet — create one from scratch.
 			}
 
-			// Mirror every change into the local cache so the UI updates without a
-			// full refetch. `toJSON()` yields the `{ ref: { $link } }` shape that
-			// `resolveBlob` expects for freshly uploaded blobs.
+			record.syncBluesky = sync;
+
+			const themeRecord = themeStateToRecord(theme());
+			if (themeRecord) record.theme = themeRecord;
+			else record.theme = undefined;
+
 			const patch: Partial<typeof user.data> = {
-				displayName: name().trim(),
-				description: description().trim(),
+				syncBluesky: sync,
+				theme: themeRecord,
 			};
 
-			// Avatar: upload a new file, clear it on removal, otherwise leave as-is.
-			if (image()) {
-				const blob = await uploadBlob(agent, image()!.acceptedFiles[0]);
-				record.avatar = blob;
-				patch.avatar = blob.toJSON() as unknown as JsonBlobRef;
-			} else if (imageRemoved()) {
+			if (sync) {
+				// Bluesky is the live source for the mirrored fields, so drop them
+				// from the record. Reflect the current Bluesky values locally.
+				record.displayName = undefined;
+				record.description = undefined;
 				record.avatar = undefined;
-				patch.avatar = undefined;
-			}
-
-			// Banner: same three cases.
-			if (banner()) {
-				const blob = await uploadBlob(agent, banner()!.acceptedFiles[0]);
-				record.banner = blob;
-				patch.banner = blob.toJSON() as unknown as JsonBlobRef;
-			} else if (bannerRemoved()) {
 				record.banner = undefined;
-				patch.banner = undefined;
+
+				try {
+					const res = await agent.com.atproto.repo.getRecord({
+						repo,
+						collection: "app.bsky.actor.profile",
+						rkey: "self",
+					});
+					const bsky = res.data.value as Record<string, unknown>;
+					patch.displayName = (bsky.displayName as string) ?? user.handle;
+					patch.description = (bsky.description as string) ?? "";
+					patch.avatar = bsky.avatar as JsonBlobRef | undefined;
+					patch.banner = bsky.banner as JsonBlobRef | undefined;
+				} catch {
+					// No Bluesky profile to mirror.
+				}
+			} else {
+				record.displayName = name().trim();
+				record.description = description().trim();
+				patch.displayName = name().trim();
+				patch.description = description().trim();
+
+				// Avatar: upload a new file, clear it on removal, otherwise leave
+				// as-is. `toJSON()` yields the `{ ref: { $link } }` shape that
+				// `resolveBlob` expects for freshly uploaded blobs.
+				if (image()) {
+					const blob = await uploadBlob(agent, image()!.acceptedFiles[0]);
+					record.avatar = blob;
+					patch.avatar = blob.toJSON() as unknown as JsonBlobRef;
+				} else if (imageRemoved()) {
+					record.avatar = undefined;
+					patch.avatar = undefined;
+				}
+
+				if (banner()) {
+					const blob = await uploadBlob(agent, banner()!.acceptedFiles[0]);
+					record.banner = blob;
+					patch.banner = blob.toJSON() as unknown as JsonBlobRef;
+				} else if (bannerRemoved()) {
+					record.banner = undefined;
+					patch.banner = undefined;
+				}
 			}
 
-			record.displayName = name().trim();
-			record.description = description().trim();
-
-			await putRecord(agent, repo, "app.bsky.actor.profile", "self", record);
+			await putRecord(agent, repo, COLLECTION, "self", record);
 
 			user.updateActorData(patch);
 
@@ -126,6 +187,8 @@ export const GeneralPage: Component = () => {
 	const resetEdits = () => {
 		setName(user.data.displayName || "");
 		setDescription(user.data.description || "");
+		setSyncBluesky(user.data.syncBluesky ?? false);
+		setTheme(themeStateFromTheme(user.data.theme));
 		setImage(undefined);
 		setBanner(undefined);
 		setImageRemoved(false);
@@ -145,6 +208,7 @@ export const GeneralPage: Component = () => {
 					class="items-start absolute w-full aspect-3/1 h-auto"
 					onFileChange={setBanner}
 					maxFiles={1}
+					disabled={syncBluesky()}
 				>
 					<FileFieldDropzone class="w-full h-full rounded-none border-none">
 						<FileFieldTrigger class="h-full w-full p-0 bg-muted/25 hover:bg-muted/50 overflow-hidden rounded-none">
@@ -185,7 +249,12 @@ export const GeneralPage: Component = () => {
 					<FileFieldHiddenInput />
 				</FileField>
 				<div class="flex flex-col mt-32 p-4 gap-2">
-					<FileField class="items-start" onFileChange={setImage} maxFiles={1}>
+					<FileField
+						class="items-start"
+						onFileChange={setImage}
+						maxFiles={1}
+						disabled={syncBluesky()}
+					>
 						<FileFieldDropzone class="h-24 w-24 min-h-0 rounded-full">
 							<FileFieldTrigger class="h-24 w-24 p-0 bg-muted/25 hover:bg-muted/50 rounded-full overflow-hidden">
 								<Switch>
@@ -236,7 +305,13 @@ export const GeneralPage: Component = () => {
 						}
 					>
 						<TextFieldLabel>Display Name</TextFieldLabel>
-						<TextFieldInput maxLength={32} minLength={1} type="text" required />
+						<TextFieldInput
+							maxLength={32}
+							minLength={1}
+							type="text"
+							required
+							disabled={syncBluesky()}
+						/>
 					</TextField>
 					<TextField
 						value={description()}
@@ -247,15 +322,40 @@ export const GeneralPage: Component = () => {
 								: "invalid"
 						}
 					>
-						<TextFieldLabel>Community Description</TextFieldLabel>
+						<TextFieldLabel>Bio</TextFieldLabel>
 						<TextFieldTextArea
 							rows={10}
 							maxLength={256}
 							required
+							disabled={syncBluesky()}
 							class="resize-none"
 						/>
 					</TextField>
 				</div>
+			</div>
+
+			<Toggle
+				class="flex flex-row gap-4 items-center w-full justify-between mt-4"
+				checked={syncBluesky()}
+				onChange={setSyncBluesky}
+			>
+				<div>
+					<SwitchLabel>Keep in sync with Bluesky</SwitchLabel>
+					<SwitchDescription>
+						When on, your name, avatar, banner and bio mirror your Bluesky
+						profile and can't be edited here.
+					</SwitchDescription>
+				</div>
+				<div>
+					<SwitchInput />
+					<SwitchControl>
+						<SwitchThumb />
+					</SwitchControl>
+				</div>
+			</Toggle>
+
+			<div class="mt-4">
+				<ThemeControls state={theme()} setState={patchTheme} />
 			</div>
 		</SettingsPage>
 	);

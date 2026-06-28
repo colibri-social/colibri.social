@@ -221,7 +221,9 @@ Identifies the server as a Colibri AppView and reports its flavor and version.
 
 ### `social.colibri.actor.getData`
 
-Get the status data and Bluesky profile for a Colibri user.
+Get the status data and profile for a Colibri user.
+
+Profile fields (`displayName`, `avatar`, `banner`, `description`) are sourced from the user's `social.colibri.actor.profile` record. When that record has `syncBluesky: true`, the AppView instead serves these four fields live from the user's `app.bsky.actor.profile` record (Bluesky stays the source of truth). If the user has no `social.colibri.actor.profile` record yet (not onboarded), the AppView falls back to `app.bsky.actor.profile`. The Colibri-only `theme` is always taken from the Colibri profile record, and `isBot` is always derived from the Bluesky self-label convention.
 
 <XRPCEndpointCard
 	method="GET"
@@ -268,6 +270,38 @@ Get the status data and Bluesky profile for a Colibri user.
 				onlineState: {
 					type: "string",
 					required: true,
+				},
+				syncBluesky: {
+					type: "boolean",
+					required: true,
+				},
+				theme: {
+					type: "object",
+					required: false,
+					children: {
+						accentColor: {
+							type: "string",
+							required: false,
+						},
+						gradient: {
+							type: "object",
+							required: false,
+							children: {
+								primary: {
+									type: "string",
+									required: false,
+								},
+								secondary: {
+									type: "string",
+									required: false,
+								}
+							}
+						},
+						bannerColor: {
+							type: "string",
+							required: false,
+						}
+					}
 				},
 				status: {
 					type: "object",

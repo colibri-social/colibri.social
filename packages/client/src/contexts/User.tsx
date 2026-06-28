@@ -13,6 +13,7 @@ import {
 } from "solid-js";
 import { XrpcClient } from "../atproto/xrpc";
 import { AppLoadingScreen } from "../components/AppLoadingScreen";
+import { ProfileGate } from "../components/app/onboarding/ProfileGate";
 import { useAuthContext } from "./Auth";
 import { useSocketContext } from "./Socket";
 
@@ -191,6 +192,9 @@ export const UserContextProvider: ParentComponent = (props) => {
 									...(profile.description !== undefined && {
 										description: profile.description,
 									}),
+									...(profile.theme !== undefined && {
+										theme: profile.theme,
+									}),
 									...(status && {
 										onlineState: status.state,
 										status: { text: status.text, emoji: status.emoji },
@@ -227,7 +231,7 @@ export const UserContextProvider: ParentComponent = (props) => {
 								updateActorData,
 							}}
 						>
-							{props.children}
+							<ProfileGate>{props.children}</ProfileGate>
 						</UserContext.Provider>
 					);
 				}}

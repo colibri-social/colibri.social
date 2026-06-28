@@ -96,13 +96,18 @@ export class XrpcClient {
 	 * header and lets the PDS-set one through.
 	 *
 	 * @param lxm The method to request the token for.
+	 * @param aud The service-reference audience (DID + `#service` fragment) the
+	 *   token is minted for. OAuth rpc permissions carry a service-reference
+	 *   audience and are matched by exact string equality, so this must equal
+	 *   the audience the granting permission set was `include:`d under (which is
+	 *   the service the request is proxied to). A bare DID never matches.
 	 * @returns The token, or an empty string in production.
 	 */
-	private generateServiceAuthToken = async (lxm: string) => {
+	private generateServiceAuthToken = async (lxm: string, aud: string) => {
 		if (!import.meta.env.DEV) return "";
 
 		const { data } = await this.agent.com.atproto.server.getServiceAuth({
-			aud: "did:web:api.colibri.social",
+			aud,
 			lxm,
 			exp: Math.floor(Date.now() / 1000) + 60,
 		});
@@ -125,8 +130,13 @@ export class XrpcClient {
 	 * @param lxm The method the auth token is scoped to.
 	 */
 	private authed(base: ProxiedFetchFn, lxm: string): ProxiedFetchFn {
+		// The token's audience must match the service the request is proxied to:
+		// the notification service for `notifFetch`, the AppView otherwise. Both
+		// proxy headers are already service references (DID + `#service`), so they
+		// double as the `aud` the granting permission set must be `include:`d under.
+		const aud = base === this.notifFetch ? this.notifProxyHeader : this.proxyHeader;
 		return async (xrpcRoute, init) => {
-			const token = await this.generateServiceAuthToken(lxm);
+			const token = await this.generateServiceAuthToken(lxm, aud);
 			if (!token) return base(xrpcRoute, init);
 
 			return base(xrpcRoute, {
@@ -356,7 +366,10 @@ export class XrpcClient {
 					),
 				unbanUser: (community: string, identifier: string) =>
 					Community.unbanUser(
-						this.authed(this.proxiedFetch, "social.colibri.community.unbanUser"),
+						this.authed(
+							this.proxiedFetch,
+							"social.colibri.community.unbanUser",
+						),
 						community,
 						identifier,
 					),
