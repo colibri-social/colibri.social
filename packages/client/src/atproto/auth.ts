@@ -79,7 +79,10 @@ const init = async () => {
 	try {
 		oAuthClient = await BrowserOAuthClient.load({
 			clientId,
-			handleResolver: "https://colibri.social", // NOTE: This could maybe be made configurable?
+			// Resolve handles via the configured AppView (defaults to
+			// api.colibri.social) rather than a hard-coded origin, so self-hosted
+			// installs stay self-contained and don't depend on colibri.social.
+			handleResolver: getAppViewHost("http"),
 		});
 
 		if (window.location.hash.length > 0) {

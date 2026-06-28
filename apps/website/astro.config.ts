@@ -100,7 +100,10 @@ export default defineConfig({
 		},
 	},
 	security: {
-		allowedDomains: [{ hostname: "colibri.social", protocol: "https" }],
+		allowedDomains: [
+			{ hostname: "colibri.social", protocol: "https" },
+			{ hostname: "next.colibri.social", protocol: "https" },
+		],
 	},
 	fonts: [
 		{
