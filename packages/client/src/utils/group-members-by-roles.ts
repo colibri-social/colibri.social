@@ -8,10 +8,8 @@ export type MembersByRoles = Array<{
 }>;
 
 /**
- * Groups members under their highest hoisted role, falling back to synthetic
- * "Online"/"Offline" buckets — the same layout the member sidebar renders. The
- * member set is a parameter so callers can group a subset (e.g. a channel's
- * allow-list) with identical ordering rules.
+ * Groups members under their highest hoisted role, falling back to
+ * "Online"/"Offline" buckets.
  */
 export const groupMembersByRoles = (opts: {
 	members: Array<Member>;

@@ -4,18 +4,8 @@ import { useUserContext } from "../contexts/User";
 /**
  * Optimistic, debounced role toggling.
  *
- * By default `toggleRole` updates the roles of the member identified by `did`:
- * the change is reflected in the community context immediately and the full role
- * set is debounce-synced to the server (rapid toggles collapse into a single
- * in-flight request that always sends the latest state; on failure the
- * authoritative state is refetched).
- *
- * Pass `onToggle` to override what happens on click — e.g. toggling a role on a
- * channel's allow-list instead of on a member. When provided, the built-in
- * member sync is bypassed entirely.
- *
  * @param opts.did Accessor for the DID of the member whose roles are managed
- *   (required for the default behavior; drives `memberRoles`/`hasRole`).
+ *   (required for the default behavior.
  * @param opts.onToggle Custom click handler, invoked with the role URI.
  * @returns `memberRoles`/`hasRole` accessors and a `toggleRole` action.
  */
