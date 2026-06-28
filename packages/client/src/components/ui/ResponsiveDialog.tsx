@@ -25,7 +25,7 @@ export interface ResponsiveDialogProps {
 	children: JSX.Element;
 	contentClass?: string;
 	mobileBreakPoints?: number[];
-	class: string;
+	class?: string;
 }
 
 /**
