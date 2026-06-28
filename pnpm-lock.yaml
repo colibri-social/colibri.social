@@ -48,8 +48,8 @@ importers:
         specifier: ^0.6.1
         version: 0.6.1
       '@atproto/oauth-client-browser':
-        specifier: ^0.3.41
-        version: 0.3.41
+        specifier: ^0.4.3
+        version: 0.4.3
       '@atproto/oauth-client-node':
         specifier: ^0.3.16
         version: 0.3.16
@@ -731,9 +731,6 @@ packages:
     resolution: {integrity: sha512-WP6ct2rjNCKSJN/VFc+8x6JQ7PvRMlfHUlmQM5hzvE3a6nOjm6kwSicjSIV/QldurdRGJ4FCQZ3uZu9Wqt4SxQ==}
     engines: {node: '>=22'}
 
-  '@atproto/oauth-client-browser@0.3.41':
-    resolution: {integrity: sha512-4QTm8zPgm08vl53flrVmL+MS5IOhvWWctNZmEnPbvQ2t1ISw9Q5m815m2Sszi5ULMFjOqvT7lhKB7zQUn5gq5g==}
-
   '@atproto/oauth-client-browser@0.4.3':
     resolution: {integrity: sha512-0BRy108X9dWPxpNv0RS4mNDjtaRsRTeg13xEFFDPHRAHz3++TBnqPzOkxO4w6f9OwDdG6spzt9OMKkl9l+Ou5g==}
     engines: {node: '>=22'}
@@ -745,18 +742,12 @@ packages:
   '@atproto/oauth-client@0.5.14':
     resolution: {integrity: sha512-sPH+vcdq9maTEAhJI0HzmFcFAMrkCS19np+RUssNkX6kS8Xr3OYr57tvYRCbkcnIyYTfYcxKQgpwHKx3RVEaYw==}
 
-  '@atproto/oauth-client@0.6.0':
-    resolution: {integrity: sha512-F7ZTKzFptXgyihMkd7QTdRSkrh4XqrS+qTw+V81k5Q6Bh3MB1L3ypvfSJ6v7SSUJa6XxoZYJTCahHC1e+ndE6Q==}
-
   '@atproto/oauth-client@0.7.5':
     resolution: {integrity: sha512-B9VLopSCxu8z05+3DwMmhlMR+jIh49FQ/jJN8ZUCFSInRpX/6TcnnwhJWQoYxMaQ0orcul9dCucxTZhtp/W/uA==}
     engines: {node: '>=22'}
 
   '@atproto/oauth-types@0.6.2':
     resolution: {integrity: sha512-2cuboM4RQBCYR8NQC5uGRkW6KgCgKyq/B5/+tnMmWZYtZGVUQvsUWQHK/ZiMCnVXbcDNtc/RIEJQJDZ8FXMoxg==}
-
-  '@atproto/oauth-types@0.6.3':
-    resolution: {integrity: sha512-jdKuoPknJuh/WjI+mYk7agSbx9mNVMbS6Dr3k1z2YMY2oRiCQjxYBuo4MLKATbxj05nMQaZRWlHRUazoAu5Cng==}
 
   '@atproto/oauth-types@0.7.3':
     resolution: {integrity: sha512-ndtwZQDawNLG6UBeJ31oXbtcITFbR+h48vAvyLs1FyZcXX6tEHniuG2Sd+4sUsrzHAMS/PGAEjUpTijObQIXzw==}
@@ -5784,18 +5775,6 @@ snapshots:
       multiformats: 13.4.2
       zod: 3.25.76
 
-  '@atproto/oauth-client-browser@0.3.41':
-    dependencies:
-      '@atproto-labs/did-resolver': 0.2.6
-      '@atproto-labs/handle-resolver': 0.3.6
-      '@atproto-labs/simple-store': 0.3.0
-      '@atproto/did': 0.3.0
-      '@atproto/jwk': 0.6.0
-      '@atproto/jwk-webcrypto': 0.2.0
-      '@atproto/oauth-client': 0.6.0
-      '@atproto/oauth-types': 0.6.3
-      core-js: 3.48.0
-
   '@atproto/oauth-client-browser@0.4.3':
     dependencies:
       '@atproto-labs/did-resolver': 0.3.3
@@ -5836,22 +5815,6 @@ snapshots:
       multiformats: 9.9.0
       zod: 3.25.76
 
-  '@atproto/oauth-client@0.6.0':
-    dependencies:
-      '@atproto-labs/did-resolver': 0.2.6
-      '@atproto-labs/fetch': 0.2.3
-      '@atproto-labs/handle-resolver': 0.3.6
-      '@atproto-labs/identity-resolver': 0.3.6
-      '@atproto-labs/simple-store': 0.3.0
-      '@atproto-labs/simple-store-memory': 0.1.4
-      '@atproto/did': 0.3.0
-      '@atproto/jwk': 0.6.0
-      '@atproto/oauth-types': 0.6.3
-      '@atproto/xrpc': 0.7.7
-      core-js: 3.48.0
-      multiformats: 9.9.0
-      zod: 3.25.76
-
   '@atproto/oauth-client@0.7.5':
     dependencies:
       '@atproto-labs/did-resolver': 0.3.3
@@ -5869,12 +5832,6 @@ snapshots:
       zod: 3.25.76
 
   '@atproto/oauth-types@0.6.2':
-    dependencies:
-      '@atproto/did': 0.3.0
-      '@atproto/jwk': 0.6.0
-      zod: 3.25.76
-
-  '@atproto/oauth-types@0.6.3':
     dependencies:
       '@atproto/did': 0.3.0
       '@atproto/jwk': 0.6.0
