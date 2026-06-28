@@ -5,6 +5,7 @@ const lex = new Lexicons();
 
 export const RECORD_IDs: Record<string, `${string}.${string}.${string}`> = {
 	ACTOR_DATA: "social.colibri.actor.data",
+	ACTOR_PROFILE: "social.colibri.actor.profile",
 	COMMUNITY: "social.colibri.community",
 	CATEGORY: "social.colibri.category",
 	CHANNEL: "social.colibri.channel",
@@ -17,6 +18,24 @@ export const RECORD_IDs: Record<string, `${string}.${string}.${string}`> = {
 	ROLE: "social.colibri.role",
 	MEMBER: "social.colibri.member",
 	MODERATION: "social.colibri.moderation",
+};
+
+/**
+ * NSIDs of the OAuth permission-set lexicons. These bundle the granular
+ * `rpc:`/`repo:` permissions an OAuth client would otherwise have to enumerate
+ * individually, so the client scope string stays small (see
+ * packages/client/src/atproto/scopes.ts for why that matters). They are
+ * published as `com.atproto.lexicon.schema` records alongside the record
+ * lexicons.
+ */
+export const PERMISSION_SET_IDs: Record<
+	string,
+	`${string}.${string}.${string}`
+> = {
+	PERMISSION_ACCOUNT: "social.colibri.permission.account",
+	PERMISSION_COMMUNITY: "social.colibri.permission.community",
+	PERMISSION_MESSAGING: "social.colibri.permission.messaging",
+	PERMISSION_NOTIFICATION: "social.colibri.permission.notification",
 };
 
 export const LEXICON_DOCS: LexiconDoc[] = [];
@@ -68,6 +87,107 @@ lex.add(
 					type: "object",
 				},
 				type: "record",
+			},
+		},
+	}),
+);
+
+lex.add(
+	def({
+		lexicon: 1,
+		id: RECORD_IDs.ACTOR_PROFILE,
+		revision: 1,
+		defs: {
+			main: {
+				description:
+					"A Colibri-specific user profile. Singleton record on the user's own repo, kept separate from app.bsky.actor.profile so Colibri never needs write access to the Bluesky record.",
+				key: "literal:self",
+				type: "record",
+				record: {
+					type: "object",
+					required: [],
+					properties: {
+						$type: {
+							type: "string",
+							description: "The type of the record.",
+							format: "nsid",
+						},
+						displayName: {
+							type: "string",
+							description: "The user's display name.",
+							maxGraphemes: 64,
+							maxLength: 640,
+						},
+						description: {
+							type: "string",
+							description: "The user's profile description / bio.",
+							maxGraphemes: 256,
+							maxLength: 2560,
+						},
+						avatar: {
+							type: "blob",
+							description: "The user's avatar image.",
+							accept: ["image/jpeg", "image/png", "image/gif", "image/webp"],
+						},
+						banner: {
+							type: "blob",
+							description: "The user's profile banner image.",
+							accept: ["image/jpeg", "image/png", "image/gif", "image/webp"],
+						},
+						syncBluesky: {
+							type: "boolean",
+							default: false,
+							description:
+								"When true, the AppView serves displayName/avatar/banner/description from the user's app.bsky.actor.profile record (Bluesky stays the live source); these mirrored fields may be omitted here.",
+						},
+						theme: {
+							type: "ref",
+							ref: "#theme",
+							description:
+								"Colibri-only profile theming. Always sourced from this record regardless of syncBluesky.",
+						},
+					},
+				},
+			},
+			theme: {
+				type: "object",
+				description: "Colibri-only profile theming.",
+				required: [],
+				properties: {
+					accentColor: {
+						type: "string",
+						description: "Accent color as a #rrggbb hex string.",
+						maxLength: 7,
+					},
+					gradient: {
+						type: "ref",
+						ref: "#themeGradient",
+						description: "Two-color gradient profile theme.",
+					},
+					bannerColor: {
+						type: "string",
+						description:
+							"Solid fallback banner color as #rrggbb, used when no banner image is set.",
+						maxLength: 7,
+					},
+				},
+			},
+			themeGradient: {
+				type: "object",
+				description: "Two-color gradient profile theme.",
+				required: [],
+				properties: {
+					primary: {
+						type: "string",
+						description: "Primary gradient color as #rrggbb.",
+						maxLength: 7,
+					},
+					secondary: {
+						type: "string",
+						description: "Secondary gradient color as #rrggbb.",
+						maxLength: 7,
+					},
+				},
 			},
 		},
 	}),
@@ -1093,6 +1213,193 @@ lex.add({
 		},
 	},
 });
+
+// ---------------------------------------------------------------------------
+// OAuth permission sets
+//
+// Each bundles the granular permissions for one area of the app. OAuth clients
+// reference them with a single `include:<nsid>?aud=…` scope instead of listing
+// every method/collection. `rpc` permissions use `inheritAud: true` so they
+// adopt the audience supplied in the `include:` scope; `repo` permissions need
+// no audience. `blob` and `account` permissions cannot live in a permission set
+// and stay as direct scopes on the client.
+// ---------------------------------------------------------------------------
+
+lex.add(
+	def({
+		lexicon: 1,
+		id: PERMISSION_SET_IDs.PERMISSION_ACCOUNT,
+		defs: {
+			main: {
+				type: "permission-set",
+				title: "Account & profile",
+				detail:
+					"Manage your Colibri profile, status, and mutes, and receive realtime updates.",
+				permissions: [
+					{
+						type: "permission",
+						resource: "repo",
+						collection: [
+							"social.colibri.actor.data",
+							"social.colibri.actor.profile",
+							"social.colibri.actor.mute",
+						],
+						action: ["create", "update", "delete"],
+					},
+					{
+						type: "permission",
+						resource: "rpc",
+						inheritAud: true,
+						lxm: [
+							"social.colibri.actor.listCommunities",
+							"social.colibri.actor.listMutes",
+							"social.colibri.actor.setState",
+							"social.colibri.sync.subscribeEvents",
+						],
+					},
+				],
+			},
+		},
+	}),
+);
+
+lex.add(
+	def({
+		lexicon: 1,
+		id: PERMISSION_SET_IDs.PERMISSION_COMMUNITY,
+		defs: {
+			main: {
+				type: "permission-set",
+				title: "Communities & channels",
+				detail:
+					"Create and manage communities, categories, channels, and roles, including moderation and invitations.",
+				permissions: [
+					{
+						type: "permission",
+						resource: "repo",
+						collection: [
+							"social.colibri.community",
+							"social.colibri.category",
+							"social.colibri.channel",
+							"social.colibri.role",
+						],
+						action: ["create", "update", "delete"],
+					},
+					{
+						type: "permission",
+						resource: "repo",
+						collection: ["social.colibri.channel.read"],
+						action: ["create", "update"],
+					},
+					{
+						type: "permission",
+						resource: "rpc",
+						inheritAud: true,
+						lxm: [
+							"social.colibri.community.create",
+							"social.colibri.community.update",
+							"social.colibri.community.delete",
+							"social.colibri.community.registerCredentials",
+							"social.colibri.community.approveMembership",
+							"social.colibri.community.listApplications",
+							"social.colibri.community.dismissApplication",
+							"social.colibri.community.undismissApplication",
+							"social.colibri.community.kick",
+							"social.colibri.community.kickUser",
+							"social.colibri.community.setMemberRoles",
+							"social.colibri.community.leave",
+							"social.colibri.community.reorderChannels",
+							"social.colibri.community.reorderCategories",
+							"social.colibri.community.blockMessage",
+							"social.colibri.community.banUser",
+							"social.colibri.community.unbanUser",
+							"social.colibri.community.createInvitation",
+							"social.colibri.community.listInvitations",
+							"social.colibri.community.deleteInvitation",
+							"social.colibri.category.create",
+							"social.colibri.category.update",
+							"social.colibri.category.delete",
+							"social.colibri.channel.create",
+							"social.colibri.channel.update",
+							"social.colibri.channel.delete",
+							"social.colibri.channel.getReadCursor",
+							"social.colibri.channel.listUnreadStatus",
+							"social.colibri.channel.getVoiceToken",
+							"social.colibri.role.create",
+							"social.colibri.role.update",
+							"social.colibri.role.delete",
+							"social.colibri.embed.getMetadata",
+						],
+					},
+				],
+			},
+		},
+	}),
+);
+
+lex.add(
+	def({
+		lexicon: 1,
+		id: PERMISSION_SET_IDs.PERMISSION_MESSAGING,
+		defs: {
+			main: {
+				type: "permission-set",
+				title: "Messages & membership",
+				detail:
+					"Send and edit messages, react, join communities, and submit membership applications.",
+				permissions: [
+					{
+						type: "permission",
+						resource: "repo",
+						collection: ["social.colibri.message"],
+						action: ["create", "update", "delete"],
+					},
+					{
+						type: "permission",
+						resource: "repo",
+						collection: [
+							"social.colibri.membership",
+							"social.colibri.approval",
+							"social.colibri.reaction",
+						],
+						action: ["create", "delete"],
+					},
+				],
+			},
+		},
+	}),
+);
+
+lex.add(
+	def({
+		lexicon: 1,
+		id: PERMISSION_SET_IDs.PERMISSION_NOTIFICATION,
+		defs: {
+			main: {
+				type: "permission-set",
+				title: "Notifications",
+				detail:
+					"Read your notifications and manage push notification subscriptions.",
+				permissions: [
+					{
+						type: "permission",
+						resource: "rpc",
+						inheritAud: true,
+						lxm: [
+							"social.colibri.notification.listNotifications",
+							"social.colibri.notification.getUnreadCount",
+							"social.colibri.notification.updateSeen",
+							"social.colibri.notification.updateSeenForMessage",
+							"social.colibri.notification.getUnseen",
+							"social.colibri.notification.registerPush",
+							"social.colibri.notification.unregisterPush",
+						],
+					},
+				],
+			},
+		},
+	}),
+);
 
 /**
  * A lexicon that can be used to validate records before inserting them:
