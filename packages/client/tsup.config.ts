@@ -8,4 +8,13 @@ export default defineConfig({
 	dts: true,
 	clean: true,
 	esbuildPlugins: [Icons({ compiler: "solid" }), solidPlugin()],
+	esbuildOptions(options) {
+		options.tsconfig = undefined;
+		options.tsconfigRaw = {
+			compilerOptions: {
+				jsx: "react-jsx",
+				jsxImportSource: "solid-js/h",
+			},
+		};
+	},
 });
