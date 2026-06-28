@@ -10,6 +10,14 @@ export const getData: XrpcRequest<
 			`/xrpc/social.colibri.actor.getData?identifier=${identifier}`,
 		);
 
+		if (!getDataRes.ok) {
+			console.error(
+				`getData failed (${getDataRes.status}):`,
+				await getDataRes.text(),
+			);
+			return undefined;
+		}
+
 		return getDataRes.json();
 	} catch (err) {
 		console.error(err);
