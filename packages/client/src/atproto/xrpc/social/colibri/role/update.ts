@@ -5,11 +5,11 @@ type Response = {
 };
 
 export const update: XrpcRequest<
-	[string, string, string | undefined, string | undefined, string[], number | undefined, boolean | undefined, boolean | undefined],
+	[string, string | undefined, string | undefined, string[], number | undefined, boolean | undefined, boolean | undefined],
 	Promise<Response | undefined>
-> = async (fetch, role, auth, name, color, permissions = [], position, hoisted, mentionable) => {
+> = async (fetch, role, name, color, permissions = [], position, hoisted, mentionable) => {
 	try {
-		const params = new URLSearchParams({ role, auth });
+		const params = new URLSearchParams({ role });
 		if (name !== undefined) params.set("name", name);
 		if (color !== undefined) params.set("color", color);
 		for (const p of permissions) {

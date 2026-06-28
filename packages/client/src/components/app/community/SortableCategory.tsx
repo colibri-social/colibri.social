@@ -14,6 +14,8 @@ export const SortableCategory: Component<{
 	onChannelReorder: (categoryUri: string, newOrder: string[]) => void;
 	injectedChannels: Channel[];
 	dropTarget: ChannelDropTarget | null;
+	onOpenChannelSettings: (channelUri: string) => void;
+	onOpenCategorySettings: (categoryUri: string) => void;
 }> = (props) => {
 	const sortable = createSortable(props.category.uri);
 	const [, { onDragStart, onDragEnd: onDndDragEnd }] = useDragDropContext()!;
@@ -48,6 +50,8 @@ export const SortableCategory: Component<{
 					onChannelReorder={props.onChannelReorder}
 					injectedChannels={props.injectedChannels}
 					dropTarget={props.dropTarget}
+					onOpenChannelSettings={props.onOpenChannelSettings}
+					onOpenCategorySettings={props.onOpenCategorySettings}
 				/>
 			</div>
 		</div>

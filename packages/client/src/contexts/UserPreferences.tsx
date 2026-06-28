@@ -54,6 +54,7 @@ export type UserPreferencesContextData = {
 		participantVolumeOverrides: Record<string, VolumeOverrides>;
 	};
 	preferredBlueskyClient: BlueskyClientID;
+	preferredAppView: string;
 };
 
 const DEFAULT_PREFERENCES: UserPreferencesContextData = {
@@ -78,6 +79,7 @@ const DEFAULT_PREFERENCES: UserPreferencesContextData = {
 		participantVolumeOverrides: {},
 	},
 	preferredBlueskyClient: "bluesky",
+	preferredAppView: "https://api.colibri.social",
 };
 
 function loadFromStorage(): UserPreferencesContextData {
@@ -97,6 +99,7 @@ type UserPreferencesContextValue = {
 	toggleMembersVisible: () => void;
 	setNativeNotifications: (enabled: boolean) => void;
 	setPreferredBlueskyClient: (client: BlueskyClientID) => void;
+	setPreferredAppView: (appView: string) => void;
 };
 
 const UserPreferencesContext = createContext<UserPreferencesContextValue>();
@@ -133,6 +136,10 @@ export const UserPreferencesContextProvider: ParentComponent = (props) => {
 		setPreferences((p) => ({ ...p, preferredBlueskyClient: client }));
 	};
 
+	const setPreferredAppView = (appView: string) => {
+		setPreferences((p) => ({ ...p, preferredAppView: appView }));
+	};
+
 	return (
 		<UserPreferencesContext.Provider
 			value={{
@@ -142,6 +149,7 @@ export const UserPreferencesContextProvider: ParentComponent = (props) => {
 				toggleMembersVisible,
 				setNativeNotifications,
 				setPreferredBlueskyClient,
+				setPreferredAppView,
 			}}
 		>
 			{props.children}

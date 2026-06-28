@@ -57,7 +57,6 @@ export const UserContextProvider: ParentComponent = (props) => {
 		}
 
 		const xrpc = new XrpcClient(
-			client.pdsHost,
 			"did:web:api.colibri.social#colibri_appview",
 			client.agent,
 		);

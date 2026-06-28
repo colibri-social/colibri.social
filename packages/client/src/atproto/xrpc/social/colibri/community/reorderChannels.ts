@@ -1,11 +1,11 @@
 import type { XrpcRequest } from "../../..";
 
 export const reorderChannels: XrpcRequest<
-	[string, string[], string],
+	[string, string[]],
 	Promise<Record<string, never> | undefined>
-> = async (fetch, category, channelOrder, auth) => {
+> = async (fetch, category, channelOrder) => {
 	try {
-		const params = new URLSearchParams({ category, auth });
+		const params = new URLSearchParams({ category });
 		channelOrder.forEach((uri) => {
 			params.append("channelOrder", uri);
 		});

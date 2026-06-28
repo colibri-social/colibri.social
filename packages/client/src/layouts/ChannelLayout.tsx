@@ -88,6 +88,7 @@ const DEFAULT_META: MessageMeta = {
 };
 
 const ChannelLayout: ParentComponent = (props) => {
+	const community = useCommunityContext();
 	const channel = useChannelContext();
 	const notifications = useNotifications();
 	const user = useUserContext();
@@ -497,6 +498,38 @@ const ChannelLayout: ParentComponent = (props) => {
 		),
 	);
 
+	const ownerRole = () => (community().roles ?? []).find((x) => x.protected)!;
+
+	const ownerDid = () =>
+		community().members.find((x) =>
+			x.roles.some((y) => y === ownerRole().uri || ""),
+		)!.did;
+
+	const isRestricted = () =>
+		!!channel.data()?.ownerOnly ||
+		(channel.data()?.allowedRoles?.length ?? 0) > 0 ||
+		(channel.data()?.allowedMembers?.length ?? 0) > 0;
+
+	const canTalk = () => {
+		console.log("[is restricted] ", isRestricted(), channel.data());
+		if (!isRestricted() || ownerDid() === user.did) return true;
+
+		if (channel.data()?.ownerOnly && ownerDid() === user.did) return true;
+		if (channel.data()?.allowedMembers?.includes(user.did)) return true;
+
+		const member = community().members.find((x) => x.did === user.did)!;
+
+		if (
+			member.roles.find((x) =>
+				channel.data()?.allowedRoles?.some((y) => x === y),
+			)
+		) {
+			return true;
+		}
+
+		return false;
+	};
+
 	return (
 		<div class="w-full h-full flex flex-col min-h-0 flex-1">
 			<div class="sticky top-0 left-0 border-b border-border bg-background h-12 p-2 w-full flex flex-row items-center justify-between">
@@ -644,7 +677,16 @@ const ChannelLayout: ParentComponent = (props) => {
 											when={!channel.hasMore() && channel.messages().length > 0}
 										>
 											<div class="w-full text-center py-2 text-sm text-muted-foreground">
-												This is the start of the channel.
+												<span class="flex items-center w-full justify-center">
+													This is the start of{" "}
+													<ChatCircleDotsIcon class="w-4 h-4 inline-block ml-1.5 mr-1" />{" "}
+													{channel.data()!.name}.
+												</span>
+												<Show when={isRestricted()}>
+													{canTalk()
+														? "Send some messages to get the discussion started!"
+														: "You are not allowed to send messages in here."}
+												</Show>
 											</div>
 										</Show>
 
@@ -654,8 +696,8 @@ const ChannelLayout: ParentComponent = (props) => {
 											}
 										>
 											<div class="w-full h-full flex items-center justify-center text-center py-2 text-sm text-muted-foreground">
-												There's nothing here yet! Be the first to send a
-												message.
+												There's nothing here yet!{" "}
+												{canTalk() ? "Be the first to send a message." : ""}
 											</div>
 										</Show>
 
@@ -735,7 +777,13 @@ const ChannelLayout: ParentComponent = (props) => {
 						</div>
 
 						<Show when={channel.data()}>
-							{(ch) => <MessageInput channelName={ch().name} files={files} />}
+							{(ch) => (
+								<MessageInput
+									disabled={!canTalk()}
+									channelName={ch().name}
+									files={files}
+								/>
+							)}
 						</Show>
 
 						{props.children}

@@ -5,12 +5,12 @@ type Response = {
 };
 
 export const getUnreadCount: XrpcRequest<
-	[string],
+	[],
 	Promise<Response | undefined>
-> = async (fetch, auth) => {
+> = async (fetch) => {
 	try {
 		const res = await fetch(
-			`/xrpc/social.colibri.notification.getUnreadCount?auth=${auth}`,
+			`/xrpc/social.colibri.notification.getUnreadCount`,
 		);
 
 		return res.json();

@@ -5,12 +5,12 @@ type Response = {
 };
 
 export const unregisterPush: XrpcRequest<
-	[string, string],
+	[string],
 	Promise<Response | undefined>
-> = async (fetch, endpoint, auth) => {
+> = async (fetch, endpoint) => {
 	try {
 		const res = await fetch(
-			`/xrpc/social.colibri.notification.unregisterPush?auth=${auth}`,
+			`/xrpc/social.colibri.notification.unregisterPush`,
 			{
 				method: "POST",
 				headers: { "content-type": "application/json" },

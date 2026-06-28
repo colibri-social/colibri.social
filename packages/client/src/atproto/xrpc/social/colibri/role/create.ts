@@ -5,15 +5,14 @@ type Response = {
 };
 
 export const create: XrpcRequest<
-	[string, string, number, string, string[], string | undefined, boolean | undefined, boolean | undefined],
+	[string, string, number, string[], string | undefined, boolean | undefined, boolean | undefined],
 	Promise<Response | undefined>
-> = async (fetch, community, name, position, auth, permissions = [], color, hoisted, mentionable) => {
+> = async (fetch, community, name, position, permissions = [], color, hoisted, mentionable) => {
 	try {
 		const params = new URLSearchParams({
 			community,
 			name,
 			position: String(position),
-			auth,
 		});
 		for (const p of permissions) {
 			params.append("permissions", p);

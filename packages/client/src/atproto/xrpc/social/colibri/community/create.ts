@@ -25,7 +25,6 @@ export const create: XrpcRequest<
 		string,
 		string | undefined,
 		boolean,
-		string,
 		Blob | undefined,
 		string | undefined,
 		ByoCredentials | undefined,
@@ -36,13 +35,12 @@ export const create: XrpcRequest<
 	name,
 	description,
 	requiresApproval,
-	auth,
 	picture,
 	mimeType,
 	byo,
 ) => {
 	try {
-		const params = new URLSearchParams({ name, auth });
+		const params = new URLSearchParams({ name });
 		if (description !== undefined) params.set("description", description);
 		params.set("requiresApprovalToJoin", `${requiresApproval}`);
 		if (mimeType !== undefined) params.set("mimeType", mimeType);

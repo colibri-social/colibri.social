@@ -32,23 +32,15 @@ export const SettingsPage: ParentComponent<{
 	onReset?: () => void;
 }> = (props) => {
 	return (
-		<div class="w-full flex flex-col h-auto relative">
-			<div class="px-4 py-4 border-b border-border min-h-16">
+		<div class="w-full flex flex-col h-auto relative max-h-144">
+			<div class="px-4 py-4 border-b border-border h-auto">
 				<h2 class="m-0">{props.title}</h2>
 				<Show when={props.description}>
-					<span class="text-sm leading-5 block mt-2 mb-4">
-						{props.description}
-					</span>
+					<span class="text-sm leading-5 block mt-2">{props.description}</span>
 				</Show>
 			</div>
-			<div
-				class="flex flex-col gap-4 my-4 w-full"
-				classList={{
-					"h-[calc(100%-2rem)]": !props.onSave && !props.onReset,
-					"h-[calc(100%-8rem-1px)]": !!props.onSave || !!props.onReset,
-				}}
-			>
-				<div class="w-full flex flex-col gap-4 px-4 max-w-137 h-full overflow-auto pb-4">
+			<div class="flex flex-col gap-4 w-full flex-1 min-h-0">
+				<div class="w-full flex flex-col gap-4 px-4 max-w-137 h-full overflow-auto py-4">
 					{props.children}
 				</div>
 			</div>
@@ -152,7 +144,7 @@ export const SettingsModal: ParentComponent<{
 			<DialogPortal>
 				<DialogContent
 					class={cx(
-						"w-[75vw] min-w-92 h-fit min-h-144 max-w-3xl! p-0 flex flex-row gap-0 max-h-[calc(100vh-4rem)]!",
+						"w-[75vw] min-w-92 h-fit min-h-144 max-w-3xl! p-0 flex flex-row gap-0 max-h-[calc(100vh-4rem)]! settings-modal",
 						props.contentClass,
 					)}
 				>

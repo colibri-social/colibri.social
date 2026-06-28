@@ -2,7 +2,14 @@ import type { Agent } from "@atproto/api";
 import type { JsonBlobRef } from "@atproto/lexicon";
 import type { AttachmentObj, ColibriRichTextFacet } from "@colibri-social/lib";
 import { type Details, useFileFieldContext } from "@kobalte/core/file-field";
-import { type Accessor, type Component, createEffect, Show } from "solid-js";
+import {
+	type Accessor,
+	type Component,
+	createEffect,
+	Match,
+	Show,
+	Switch,
+} from "solid-js";
 import { toast } from "somoto";
 import CircleIcon from "~icons/ph/circle";
 import PlusIcon from "~icons/ph/plus";
@@ -39,6 +46,7 @@ const uploadFile = async (agent: Agent, file: File): Promise<AttachmentObj> => {
  */
 export const MessageInput: Component<{
 	files: Accessor<Details | undefined>;
+	disabled: boolean;
 	channelName: string;
 }> = (props) => {
 	const fileField = useFileFieldContext();
@@ -259,33 +267,42 @@ export const MessageInput: Component<{
 					</Show>
 				</div>
 			</Show>
-			<div class="w-full min-h-16 h-fit flex flex-row gap-4 px-4 py-3 bg-card relative chat-input-container">
-				<FileFieldTrigger class="w-10 h-10 min-w-10 bg-muted text-muted-foreground hover:text-primary-foreground flex items-center justify-center rounded-lg cursor-pointer">
-					<PlusIcon />
-				</FileFieldTrigger>
-				<div
-					ref={inputEl}
-					class="w-[calc(100%-3.5rem)] max-w-[calc(100%-3.5rem)]"
-					onPaste={(e) => {
-						if ((e.clipboardData?.files.length || 0) > 0) {
-							e.preventDefault();
+			<div class="w-full min-h-16 h-fit flex flex-row gap-4 px-4 py-3 bg-card relative chat-input-container items-center justify-center">
+				<Switch>
+					<Match when={!props.disabled}>
+						<FileFieldTrigger class="w-10 h-10 min-w-10 bg-muted text-muted-foreground hover:text-primary-foreground flex items-center justify-center rounded-lg cursor-pointer">
+							<PlusIcon />
+						</FileFieldTrigger>
+						<div
+							ref={inputEl}
+							class="w-[calc(100%-3.5rem)] max-w-[calc(100%-3.5rem)]"
+							onPaste={(e) => {
+								if ((e.clipboardData?.files.length || 0) > 0) {
+									e.preventDefault();
 
-							for (const file of e.clipboardData!.files) {
-								fileField.processFiles([file]);
-							}
-						}
-					}}
-				>
-					<div class="w-full">
-						<TextEditor
-							mainEditor
-							placeholder={`Message ${props.channelName}`}
-							sendMessage={sendMessage}
-							onChange={handleTypingChange}
-							onEscape={channel.clearReplyingTo}
-						/>
-					</div>
-				</div>
+									for (const file of e.clipboardData!.files) {
+										fileField.processFiles([file]);
+									}
+								}
+							}}
+						>
+							<div class="w-full">
+								<TextEditor
+									mainEditor
+									placeholder={`Message ${props.channelName}`}
+									sendMessage={sendMessage}
+									onChange={handleTypingChange}
+									onEscape={channel.clearReplyingTo}
+								/>
+							</div>
+						</div>
+					</Match>
+					<Match when={props.disabled}>
+						<span class="text-sm">
+							You are not allowed to send messages in this channel.
+						</span>
+					</Match>
+				</Switch>
 			</div>
 		</div>
 	);

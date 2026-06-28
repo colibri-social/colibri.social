@@ -5,12 +5,12 @@ type Response = {
 };
 
 export const blockMessage: XrpcRequest<
-	[string, string, string],
+	[string, string],
 	Promise<Response | undefined>
-> = async (fetch, community, message, auth) => {
+> = async (fetch, community, message) => {
 	try {
 		const res = await fetch(
-			`/xrpc/social.colibri.community.blockMessage?community=${community}&message=${message}&auth=${auth}`,
+			`/xrpc/social.colibri.community.blockMessage?community=${community}&message=${message}`,
 			{
 				method: "POST",
 			},

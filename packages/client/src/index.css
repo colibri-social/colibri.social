@@ -384,7 +384,8 @@ ol[data-somoto-toaster] > li {
 }
 
 pre code,
-.tiptap .font-mono {
+.tiptap .font-mono,
+.settings-modal code {
 	font-size: 0.825em !important;
 }
 

@@ -35,6 +35,8 @@ import {
 	type ChannelDropTarget,
 } from "./Category";
 import { CategoryCreationModal } from "./CategoryCreationModal";
+import { CategorySettingsModal } from "./CategorySettingsModal";
+import { ChannelSettingsModal } from "./ChannelSettingsModal";
 import { SortableCategory } from "./SortableCategory";
 import { useProcessedSidebar } from "./useProcessedSidebar";
 
@@ -338,6 +340,32 @@ export const ChannelList: Component<{
 
 	const visibleCategories = () => draggingOrder() ?? sortedCategories();
 
+	const [settingsChannelUri, setSettingsChannelUri] = createSignal<
+		string | null
+	>(null);
+	const [channelSettingsOpen, setChannelSettingsOpen] = createSignal(false);
+	const settingsChannel = createMemo(() => {
+		const uri = settingsChannelUri();
+		return uri ? (findChannelData(uri) ?? null) : null;
+	});
+	const openChannelSettings = (uri: string) => {
+		setSettingsChannelUri(uri);
+		setChannelSettingsOpen(true);
+	};
+
+	const [settingsCategoryUri, setSettingsCategoryUri] = createSignal<
+		string | null
+	>(null);
+	const [categorySettingsOpen, setCategorySettingsOpen] = createSignal(false);
+	const settingsCategory = createMemo(() => {
+		const uri = settingsCategoryUri();
+		return uri ? (sortedCategories().find((c) => c.uri === uri) ?? null) : null;
+	});
+	const openCategorySettings = (uri: string) => {
+		setSettingsCategoryUri(uri);
+		setCategorySettingsOpen(true);
+	};
+
 	return (
 		<DragDropProvider
 			onDragStart={onDragStart}
@@ -367,11 +395,31 @@ export const ChannelList: Component<{
 											? channelDropTarget()
 											: null
 									}
+									onOpenChannelSettings={openChannelSettings}
+									onOpenCategorySettings={openCategorySettings}
 								/>
 							</div>
 						)}
 					</For>
 				</SortableProvider>
+				<Show when={settingsChannel()}>
+					{(channel) => (
+						<ChannelSettingsModal
+							channel={channel()}
+							open={channelSettingsOpen}
+							setOpen={setChannelSettingsOpen}
+						/>
+					)}
+				</Show>
+				<Show when={settingsCategory()}>
+					{(category) => (
+						<CategorySettingsModal
+							category={category()}
+							open={categorySettingsOpen}
+							setOpen={setCategorySettingsOpen}
+						/>
+					)}
+				</Show>
 				<Show when={canCreateCategory()}>
 					<CategoryCreationModal community={community().community.uri}>
 						<Button

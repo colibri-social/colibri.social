@@ -97,7 +97,7 @@ export const UserSettingsModal: ParentComponent = (props) => {
 					return (<></>) as any;
 				},
 			}}
-			contentClass="min-h-[min(48rem,calc(100vh-2rem))]"
+			contentClass="min-h-[min(48rem,calc(100vh-2rem))] [&>div.max-h-144]:max-h-none"
 		>
 			{props.children}
 		</SettingsModal>

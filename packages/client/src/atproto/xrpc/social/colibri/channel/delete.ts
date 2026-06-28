@@ -1,12 +1,12 @@
 import type { XrpcRequest } from "../../..";
 
 const del: XrpcRequest<
-	[string, string],
+	[string],
 	Promise<Record<string, never> | undefined>
-> = async (fetch, channel, auth) => {
+> = async (fetch, channel) => {
 	try {
 		const res = await fetch(
-			`/xrpc/social.colibri.channel.delete?channel=${encodeURIComponent(channel)}&auth=${auth}`,
+			`/xrpc/social.colibri.channel.delete?channel=${encodeURIComponent(channel)}`,
 			{ method: "POST" },
 		);
 		return res.json();

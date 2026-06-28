@@ -5,12 +5,12 @@ type Response = {
 };
 
 const del: XrpcRequest<
-	[string, string],
+	[string],
 	Promise<Response | undefined>
-> = async (fetch, community, auth) => {
+> = async (fetch, community) => {
 	try {
 		const res = await fetch(
-			`/xrpc/social.colibri.community.delete?community=${encodeURIComponent(community)}&auth=${auth}`,
+			`/xrpc/social.colibri.community.delete?community=${encodeURIComponent(community)}`,
 			{ method: "POST" },
 		);
 		return res.json();

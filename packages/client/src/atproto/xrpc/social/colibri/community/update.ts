@@ -8,7 +8,6 @@ export const update: XrpcRequest<
 		Blob | undefined,
 		string | undefined,
 		boolean,
-		string,
 	],
 	Promise<Record<string, never> | undefined>
 > = async (
@@ -19,10 +18,9 @@ export const update: XrpcRequest<
 	picture,
 	mimeType,
 	requiresApprovalToJoin,
-	auth,
 ) => {
 	try {
-		const params = new URLSearchParams({ community, auth });
+		const params = new URLSearchParams({ community });
 		if (name !== undefined) params.set("name", name);
 		if (description !== undefined) params.set("description", description);
 		if (mimeType !== undefined) params.set("mimeType", mimeType);

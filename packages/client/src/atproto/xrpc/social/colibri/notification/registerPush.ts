@@ -14,12 +14,12 @@ type Response = {
 };
 
 export const registerPush: XrpcRequest<
-	[PushSubscription, string],
+	[PushSubscription],
 	Promise<Response | undefined>
-> = async (fetch, subscription, auth) => {
+> = async (fetch, subscription) => {
 	try {
 		const res = await fetch(
-			`/xrpc/social.colibri.notification.registerPush?auth=${auth}`,
+			`/xrpc/social.colibri.notification.registerPush`,
 			{
 				method: "POST",
 				headers: { "content-type": "application/json" },

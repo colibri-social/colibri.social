@@ -13,12 +13,7 @@ import User from "../user";
 import { MemberContextMenu } from "./MemberContextMenu";
 import CrownIcon from "~icons/ph/crown-fill";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../../ui/Tooltip";
-import { displayableNameFn } from "../user/DisplayableName";
-
-type MembersByRoles = Array<{
-	role: Role;
-	members: Array<Member>;
-}>;
+import { groupMembersByRoles } from "../../../utils/group-members-by-roles";
 
 const MemberRow = (props: {
 	member: Member;
@@ -78,73 +73,12 @@ const MemberRow = (props: {
 export const MemberSidebar = () => {
 	const community = useCommunityContext();
 
-	const membersByRoles = (): MembersByRoles => {
-		const result: MembersByRoles = community()
-			.assignableRoles.slice()
-			.filter((x) => !!x.hoisted)
-			.filter((x) => !x.protected)
-			.sort((a, b) => b.position - a.position)
-			.map((x) => ({ role: x, members: [] }));
-
-		const noRoleOnlineIdx = result.push({
-			role: {
-				name: "Online",
-				channelOverrides: [],
-				permissions: [],
-				position: 0,
-				uri: "",
-			},
-			members: [],
+	const membersByRoles = () =>
+		groupMembersByRoles({
+			members: community().members,
+			assignableRoles: community().assignableRoles,
+			roles: community().roles,
 		});
-
-		const offlineIdx = result.push({
-			role: {
-				name: "Offline",
-				channelOverrides: [],
-				permissions: [],
-				position: 0,
-				uri: "",
-			},
-			members: [],
-		});
-
-		for (const member of community().members) {
-			const sortedMemberRoles = [...member.roles]
-				.sort(
-					(a, b) =>
-						result.findIndex((y) => y.role.uri === a) -
-						result.findIndex((z) => z.role.uri === b),
-				)
-				.map((x) => community().roles.find((y) => y.uri === x))
-				.filter((x) => x !== undefined);
-
-			const highestMemberRole = sortedMemberRoles.find(
-				(x) => x.hoisted && !x.protected,
-			);
-
-			let resultIndex = !highestMemberRole
-				? -5
-				: result.findIndex((x) => x.role.uri === highestMemberRole.uri);
-
-			if (member.data.onlineState === "offline") {
-				resultIndex = offlineIdx - 1;
-			}
-
-			if (resultIndex < 0) {
-				resultIndex = noRoleOnlineIdx - 1;
-			}
-
-			result[resultIndex].members.push(member);
-		}
-
-		for (const entry of result) {
-			entry.members = entry.members.sort((a, b) =>
-				displayableNameFn(a).localeCompare(displayableNameFn(b)),
-			);
-		}
-
-		return result.sort((a, b) => b.role.position - a.role.position);
-	};
 
 	// Flatten the grouped roster into a single list keyed by member DID. Because
 	// DIDs are stable primitives, `<For>` reorders existing rows in place when a

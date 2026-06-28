@@ -5,12 +5,12 @@ type Response = {
 };
 
 export const setState: XrpcRequest<
-	[string, string],
+	[string],
 	Promise<Response | undefined>
-> = async (fetch, state, auth) => {
+> = async (fetch, state) => {
 	try {
 		const res = await fetch(
-			`/xrpc/social.colibri.actor.setState?state=${state}&auth=${auth}`,
+			`/xrpc/social.colibri.actor.setState?state=${state}`,
 			{
 				method: "POST",
 			},

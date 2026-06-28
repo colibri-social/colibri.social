@@ -2,12 +2,12 @@ import type { XrpcRequest } from "../../..";
 import type { Invitation } from "./listInvitations";
 
 export const createInvitation: XrpcRequest<
-	[string, string],
+	[string],
 	Promise<Invitation | undefined>
-> = async (fetch, community, auth) => {
+> = async (fetch, community) => {
 	try {
 		const res = await fetch(
-			`/xrpc/social.colibri.community.createInvitation?community=${community}&auth=${auth}`,
+			`/xrpc/social.colibri.community.createInvitation?community=${community}`,
 			{
 				method: "POST",
 			},

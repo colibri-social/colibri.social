@@ -5,12 +5,12 @@ type Response = {
 };
 
 export const deleteInvitation: XrpcRequest<
-	[string, string, string],
+	[string, string],
 	Promise<Response | undefined>
-> = async (fetch, uri, code, auth) => {
+> = async (fetch, uri, code) => {
 	try {
 		const res = await fetch(
-			`/xrpc/social.colibri.community.deleteInvitation?uri=${uri}&code=${code}&auth=${auth}`,
+			`/xrpc/social.colibri.community.deleteInvitation?uri=${uri}&code=${code}`,
 			{
 				method: "POST",
 			},

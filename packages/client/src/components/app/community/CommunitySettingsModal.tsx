@@ -150,13 +150,14 @@ const GeneralSettingsPage: Component = () => {
 				mimeType = picture.type;
 			}
 
+			const trimmedName = name().trim();
+			const trimmedDescription = description().trim();
+
 			const res = await user.xrpc.social.colibri.community.update(
 				community().community.uri,
-				name().trim() !== community().community.name
-					? name().trim()
-					: undefined,
-				description().trim() !== (community().community.description ?? "")
-					? description().trim()
+				trimmedName !== community().community.name ? trimmedName : undefined,
+				trimmedDescription !== (community().community.description ?? "")
+					? trimmedDescription
 					: undefined,
 				picture,
 				mimeType,
@@ -167,6 +168,17 @@ const GeneralSettingsPage: Component = () => {
 				toast.error("Failed to save community settings.");
 				return;
 			}
+
+			community().utils.patchCommunity({
+				name: trimmedName,
+				description: trimmedDescription,
+				requiresApprovalToJoin: requiresApprovalToJoin(),
+				...(imageRemoved() && { picture: undefined }),
+			});
+			setName(trimmedName);
+			setDescription(trimmedDescription);
+			clearNewFile();
+			setImageRemoved(false);
 
 			toast.success("Community settings saved.");
 		} catch {

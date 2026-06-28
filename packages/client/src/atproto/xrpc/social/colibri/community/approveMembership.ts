@@ -7,12 +7,12 @@ type Response = {
 };
 
 export const approveMembership: XrpcRequest<
-	[string, string],
+	[string],
 	Promise<Response | undefined>
-> = async (fetch, membership, auth) => {
+> = async (fetch, membership) => {
 	try {
 		const res = await fetch(
-			`/xrpc/social.colibri.community.approveMembership?membership=${encodeURIComponent(membership)}&auth=${auth}`,
+			`/xrpc/social.colibri.community.approveMembership?membership=${encodeURIComponent(membership)}`,
 			{ method: "POST" },
 		);
 

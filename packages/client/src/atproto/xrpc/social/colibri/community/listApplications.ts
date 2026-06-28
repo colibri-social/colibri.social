@@ -27,12 +27,12 @@ type Response = {
 };
 
 export const listApplications: XrpcRequest<
-	[string, string],
+	[string],
 	Promise<Response | undefined>
-> = async (fetch, community, auth) => {
+> = async (fetch, community) => {
 	try {
 		const res = await fetch(
-			`/xrpc/social.colibri.community.listApplications?community=${encodeURIComponent(community)}&auth=${auth}`,
+			`/xrpc/social.colibri.community.listApplications?community=${encodeURIComponent(community)}`,
 		);
 
 		return res.json();

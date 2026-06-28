@@ -1,11 +1,11 @@
 import type { XrpcRequest } from "../../..";
 
 export const reorderCategories: XrpcRequest<
-	[string, string[], string],
+	[string, string[]],
 	Promise<Record<string, never> | undefined>
-> = async (fetch, community, categoryOrder, auth) => {
+> = async (fetch, community, categoryOrder) => {
 	try {
-		const params = new URLSearchParams({ community, auth });
+		const params = new URLSearchParams({ community });
 		categoryOrder.forEach((uri) => {
 			params.append("categoryOrder", uri);
 		});

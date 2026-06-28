@@ -10,12 +10,26 @@ The Colibri AppView is responsible for aggregating message data from across the 
 did:web:api.colibri.social#colibri_appview
 ```
 
+The push-registration endpoints [`registerPush`](#socialcolibrinotificationregisterpush) and [`unregisterPush`](#socialcolibrinotificationunregisterpush) instead target the notification service:
+
+```
+did:web:api.colibri.social#colibri_notif
+```
+
+Both services resolve to the same endpoint today, so this only affects which `atproto-proxy` fragment clients send; using `#colibri_notif` for push registration keeps the declared service boundary correct if the notification service is ever split onto its own deployment. The notification *feed* reads (`listNotifications`, `getUnreadCount`, `updateSeen`, `updateSeenForMessage`, `getUnseen`) remain on `#colibri_appview`.
+
 ## Implemented Endpoints
 
 The AppView supports a range of XRPC methods that PDSs can call. All `com.atproto` endpoints adhere to the original specification. There are also certain `social.colibri` XRPC endpoints which allow for extended functionality. All of these endpoints are available under the `/xrpc/` path.
 
 :::danger[Authentication]
-If an endpoint requires authentication, the request must be made with a service auth token provided as the `auth` query parameter.
+If an endpoint requires authentication, the request must carry a [service auth](https://atproto.com/specs/xrpc#inter-service-authentication-jwt) token (a JWT signed by the caller's repo signing key, with `aud` set to `did:web:api.colibri.social` and `lxm` set to the method NSID).
+
+The recommended way to supply it is to call the AppView **through the user's PDS** using standard service proxying: send the request to the PDS with the `atproto-proxy: did:web:api.colibri.social#colibri_appview` header, and the PDS mints the service-auth token and attaches it as the `Authorization: Bearer <jwt>` header on the proxied request.
+
+The [`social.colibri.sync.subscribeEvents`](#socialcolibrisyncsubscribeevents) WebSocket is the exception: browsers cannot set request headers (or use PDS service proxying) on a `WebSocket`, so the token is supplied as a WebSocket subprotocol instead. See that endpoint for details.
+
+For backwards compatibility and for local-dev clients talking straight to the AppView, the token may also be passed directly as the `auth` query parameter. When both a query parameter and an `Authorization` header are present, the header wins.
 :::
 
 ### `com.atproto.identity.resolveDid`
@@ -182,6 +196,29 @@ List a range of cached records in a repository, matching a specific collection.
 
 ---
 
+### `social.colibri.server.describeServer`
+
+Identifies the server as a Colibri AppView and reports its flavor and version.
+	method="GET"
+	nsid="social.colibri.server.describeServer"
+	response={{
+		software: {
+			type: "string",
+			required: true
+		},
+		flavor: {
+			type: "string",
+			required: true
+		},
+		version: {
+			type: "string",
+			required: true
+		}
+	}}
+/>
+
+`software` is always `"colibri-appview"` — this is the field clients key on to decide whether a host is a Colibri AppView. `flavor` identifies the AppView build (`"vanilla"` for the stock AppView; forks may set any arbitrary string). `version` is the running crate version.
+
 ### `social.colibri.actor.getData`
 
 Get the status data and Bluesky profile for a Colibri user.
@@ -325,6 +362,32 @@ Lists all communities the Colibri user is a part of (and not banned from).
 
 `isOwner` reports whether the authenticated caller owns the community (user holding the "Owner" role).
 
+### `social.colibri.actor.listMutes`
+
+Lists every channel or community the authenticated user has muted. Each entry is one `social.colibri.actor.mute` record, `subject` is the AT-URI of the muted channel or community.
+
+<XRPCEndpointCard
+	method="GET"
+	nsid="social.colibri.actor.listMutes"
+	authenticated
+	response={{
+		mutes: {
+			type: "object[]",
+			required: true,
+			children: {
+				uri: {
+					type: "at-uri",
+					required: true,
+				},
+				subject: {
+					type: "at-uri",
+					required: true,
+				}
+			}
+		}
+	}}
+/>
+
 ### `social.colibri.sync.subscribeEvents`
 
 Opens a connection with a WebSocket stream that transmits relevant events for the user.
@@ -334,6 +397,23 @@ Opens a connection with a WebSocket stream that transmits relevant events for th
 	nsid="social.colibri.sync.subscribeEvents"
 	authenticated
 />
+
+#### Authentication
+
+Unlike the HTTP endpoints, this WebSocket cannot be PDS-proxied: browsers expose no way to set an `Authorization` header (or any custom header) on a `WebSocket`. The token is therefore passed through the one handshake field a browser *can* control — the subprotocol list (`Sec-WebSocket-Protocol`).
+
+The client mints a short-lived [service auth](https://atproto.com/specs/xrpc#inter-service-authentication-jwt) token (`aud: did:web:api.colibri.social`, `lxm: social.colibri.sync.subscribeEvents`) and opens the socket offering two subprotocols, in order:
+
+1. `colibri.auth.bearer` — a fixed sentinel marking that the next entry is the token.
+2. the service-auth JWT itself.
+
+```js
+new WebSocket(url, ["colibri.auth.bearer", token]);
+```
+
+A service-auth JWT is base64url (`[A-Za-z0-9._-]`), every character of which is a valid subprotocol token, so it passes through the handshake unmodified. The AppView reads the entry following the `colibri.auth.bearer` sentinel, verifies it, and **echoes the `colibri.auth.bearer` sentinel back** in the response `Sec-WebSocket-Protocol` header — per RFC 6455 a browser that offered a subprotocol fails the connection unless the server selects one, so this echo is required. The JWT itself is never echoed back.
+
+The `auth` query parameter is still accepted as a transitional / local-dev fallback; when both are present, the subprotocol token wins.
 
 #### Events
 
@@ -2602,6 +2682,79 @@ Get all reactions for a specified message, grouped by emoji with reactor DIDs.
 	}}
 />
 
+### `social.colibri.embed.getMetadata`
+
+Fetches a URL server-side and returns its OpenGraph/Twitter-card metadata, so the client's IP is never exposed to the target site. Requires authentication to keep the AppView from becoming a public open URL-fetch proxy. Results are cached, including empty ones, to avoid re-fetching pages that carry no embed tags. The outbound request is guarded against SSRF (private, loopback, and link-local addresses are refused). `largeImage` reflects whether the preview should render large (Discord's `summary_large_image` style) or as a small thumbnail.
+
+<XRPCEndpointCard
+	method="GET"
+	nsid="social.colibri.embed.getMetadata"
+	authenticated
+	queryParams={{
+		uri: {
+			type: "uri",
+			required: true
+		}
+	}}
+	response={{
+		title: {
+			type: "string",
+			required: false,
+		},
+		description: {
+			type: "string",
+			required: false,
+		},
+		siteName: {
+			type: "string",
+			required: false,
+		},
+		themeColor: {
+			type: "string",
+			required: false,
+		},
+		image: {
+			type: "object[]",
+			required: false,
+			children: {
+				url: {
+					type: "uri",
+					required: true,
+				},
+				alt: {
+					type: "string",
+					required: false,
+				}
+			}
+		},
+		largeImage: {
+			type: "boolean",
+			required: false,
+		}
+	}}
+/>
+
+### `social.colibri.embed.getImage`
+
+Proxies a remote embed preview image through the AppView so the client's IP is never exposed to the image host. Unauthenticated, like [`com.atproto.sync.getBlob`](#comatprotosyncgetblob), because it is loaded directly via an `<img src>`, but constrained by the same SSRF guard and an `image/*` content-type requirement: anything that isn't an image is rejected.
+
+<XRPCEndpointCard
+	method="GET"
+	nsid="social.colibri.embed.getImage"
+	queryParams={{
+		url: {
+			type: "uri",
+			required: true
+		}
+	}}
+	response={{
+		image: {
+			type: "bytes",
+			required: true
+		}
+	}}
+/>
+
 ### `social.colibri.notification.listNotifications`
 
 Returns a paginated list of notifications for the authenticated user, newest first. Each notification embeds the underlying message body so clients can render the notification without a follow-up fetch. `message` is omitted if the underlying message has been removed from the AppView cache.
@@ -2809,6 +2962,10 @@ Marks the authenticated user's unseen notifications for a single message as seen
 ### `social.colibri.notification.registerPush`
 
 Registers a Web Push subscription for the authenticated user so the AppView can deliver background push notifications when the app is closed.
+
+:::note[Service routing]
+This endpoint and [`unregisterPush`](#socialcolibrinotificationunregisterpush) belong to the notification service: proxy them with `atproto-proxy: did:web:api.colibri.social#colibri_notif` rather than `#colibri_appview`.
+:::
 
 <XRPCEndpointCard
 	method="POST"

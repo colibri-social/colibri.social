@@ -10,12 +10,12 @@ type Response = {
 };
 
 export const listMutes: XrpcRequest<
-	[string],
+	[],
 	Promise<Response | undefined>
-> = async (fetch, auth) => {
+> = async (fetch) => {
 	try {
 		const res = await fetch(
-			`/xrpc/social.colibri.actor.listMutes?auth=${auth}`,
+			`/xrpc/social.colibri.actor.listMutes`,
 		);
 
 		return res.json();

@@ -29,12 +29,12 @@ type Response = {
 };
 
 export const listNotifications: XrpcRequest<
-	[number | undefined, string | undefined, string],
+	[number | undefined, string | undefined],
 	Promise<Response | undefined>
-> = async (fetch, limit, cursor, auth) => {
+> = async (fetch, limit, cursor) => {
 	try {
 		const res = await fetch(
-			`/xrpc/social.colibri.notification.listNotifications?limit=${limit}&auth=${auth}${cursor ? `&cursor=${cursor}` : ""}`,
+			`/xrpc/social.colibri.notification.listNotifications?limit=${limit}${cursor ? `&cursor=${cursor}` : ""}`,
 		);
 
 		return res.json();

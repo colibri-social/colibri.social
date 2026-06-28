@@ -56,8 +56,13 @@ export const SocketContextProvider: ParentComponent = (props) => {
 
 			if (destroyed) return; // cleaned up while awaiting token
 
+			// Browsers can't set an `Authorization` header on a WebSocket, so the
+			// service-auth token is smuggled through the subprotocol list: the
+			// AppView reads the entry after the `colibri.auth.bearer` sentinel and
+			// echoes the sentinel back so the handshake succeeds.
 			const socket = new WebSocket(
-				`${getAppViewHost("ws")}/xrpc/social.colibri.sync.subscribeEvents?auth=${data.token}`,
+				`${getAppViewHost("ws")}/xrpc/social.colibri.sync.subscribeEvents`,
+				["colibri.auth.bearer", data.token],
 			);
 			ws = socket;
 

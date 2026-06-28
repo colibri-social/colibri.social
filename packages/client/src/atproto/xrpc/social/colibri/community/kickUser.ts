@@ -6,12 +6,12 @@ type Response = {
 };
 
 export const kickUser: XrpcRequest<
-	[string, string, string],
+	[string, string],
 	Promise<Response | undefined>
-> = async (fetch, community, identifier, auth) => {
+> = async (fetch, community, identifier) => {
 	try {
 		const res = await fetch(
-			`/xrpc/social.colibri.community.kickUser?community=${encodeURIComponent(community)}&identifier=${encodeURIComponent(identifier)}&auth=${auth}`,
+			`/xrpc/social.colibri.community.kickUser?community=${encodeURIComponent(community)}&identifier=${encodeURIComponent(identifier)}`,
 			{ method: "POST" },
 		);
 

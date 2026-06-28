@@ -30,8 +30,13 @@ import {
 	MESSAGE_HIDE,
 	ROLE_MANAGE,
 } from "../atproto/permissions";
-import type { Community as CommunityResponse } from "../atproto/xrpc/social/colibri/community/getData";
+import type {
+	CommunityData,
+	Community as CommunityResponse,
+} from "../atproto/xrpc/social/colibri/community/getData";
 import type { Applicant } from "../atproto/xrpc/social/colibri/community/listApplications";
+import type { Category } from "../atproto/xrpc/social/colibri/community/listCategories";
+import type { Channel } from "../atproto/xrpc/social/colibri/community/listChannels";
 import type { Role } from "../atproto/xrpc/social/colibri/community/listRoles";
 import { AppLoadingScreen } from "../components/AppLoadingScreen";
 import { AtURI } from "../utils/at-uri";
@@ -47,6 +52,9 @@ type CommunityContextData = CommunityResponse & {
 	utils: {
 		getRolesForUser: (did: string) => Array<Role>;
 		setRolesForUser: (did: string, roles: Array<string>) => void;
+		patchChannel: (uri: string, patch: Partial<Channel>) => void;
+		patchCategory: (uri: string, patch: Partial<Category>) => void;
+		patchCommunity: (patch: Partial<CommunityData>) => void;
 		refetch: () => void;
 		refetchApplications: () => void;
 	};
@@ -496,6 +504,34 @@ export const CommunityContextProvider: ParentComponent = (props) => {
 		});
 	};
 
+	const patchChannel = (uri: string, patch: Partial<Channel>) => {
+		const prev = community.latest;
+		if (!prev || !prev.channels.some((c) => c.uri === uri)) return;
+		mutate({
+			...prev,
+			channels: prev.channels.map((c) =>
+				c.uri === uri ? { ...c, ...patch } : c,
+			),
+		});
+	};
+
+	const patchCategory = (uri: string, patch: Partial<Category>) => {
+		const prev = community.latest;
+		if (!prev || !prev.categories.some((c) => c.uri === uri)) return;
+		mutate({
+			...prev,
+			categories: prev.categories.map((c) =>
+				c.uri === uri ? { ...c, ...patch } : c,
+			),
+		});
+	};
+
+	const patchCommunity = (patch: Partial<CommunityData>) => {
+		const prev = community.latest;
+		if (!prev) return;
+		mutate({ ...prev, community: { ...prev.community, ...patch } });
+	};
+
 	const ownerRole = () =>
 		(community.latest?.roles ?? []).find((x) => x.protected)!;
 
@@ -511,6 +547,9 @@ export const CommunityContextProvider: ParentComponent = (props) => {
 		utils: {
 			getRolesForUser,
 			setRolesForUser,
+			patchChannel,
+			patchCategory,
+			patchCommunity,
 			refetch: () => void refetch(),
 			refetchApplications: () => void refetchApplications(),
 		},

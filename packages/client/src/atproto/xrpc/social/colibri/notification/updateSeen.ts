@@ -5,12 +5,12 @@ type Response = {
 };
 
 export const updateSeen: XrpcRequest<
-	[string | undefined, string],
+	[string | undefined],
 	Promise<Response | undefined>
-> = async (fetch, seenAt, auth) => {
+> = async (fetch, seenAt) => {
 	try {
 		const res = await fetch(
-			`/xrpc/social.colibri.notification.updateSeen?seenAt=${seenAt}&auth=${auth}`,
+			`/xrpc/social.colibri.notification.updateSeen?seenAt=${seenAt}`,
 			{
 				method: "POST",
 			},

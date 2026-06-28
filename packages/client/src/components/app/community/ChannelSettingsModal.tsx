@@ -11,7 +11,10 @@ import {
 } from "solid-js";
 import { toast } from "somoto";
 import type { Channel } from "../../../atproto/xrpc/social/colibri/community/listChannels";
-import { usePermissions } from "../../../contexts/Community";
+import {
+	useCommunityContext,
+	usePermissions,
+} from "../../../contexts/Community";
 import { useUserContext } from "../../../contexts/User";
 import { Button } from "../../ui/Button";
 import { TextField, TextFieldInput, TextFieldLabel } from "../../ui/TextField";
@@ -31,9 +34,22 @@ import {
 	SwitchLabel,
 	SwitchThumb,
 } from "../../ui/Switch";
+import {
+	Popover,
+	PopoverContent,
+	PopoverPortal,
+	PopoverTrigger,
+} from "../../ui/Popover";
+import type { Role } from "../../../atproto/xrpc/social/colibri/community/listRoles";
+import XIcon from "~icons/ph/x";
+import type { Member } from "../../../atproto/xrpc/social/colibri/community/listMembers";
+import User from "../user";
+import { groupMembersByRoles } from "../../../utils/group-members-by-roles";
+import { displayableNameFn } from "../user/DisplayableName";
 
 const GeneralChannelSettings: Component<{ channel: Channel }> = (props) => {
 	const user = useUserContext();
+	const community = useCommunityContext();
 
 	const initialName = () => props.channel.name;
 	const initialDesc = () => props.channel.description || "";
@@ -42,26 +58,32 @@ const GeneralChannelSettings: Component<{ channel: Channel }> = (props) => {
 	const [name, setName] = createSignal(initialName());
 	const [description, setDescription] = createSignal(initialDesc());
 
-	// Re-sync the form when the channel record changes underneath us — e.g. a
-	// `channel_event` upsert arrives over the socket (our own save, or another
-	// moderator's edit). `defer: true` skips the redundant run on mount (the
-	// signals are already seeded) and `on` only fires when the persisted value
-	// actually changes, so casual re-renders won't clobber in-progress typing.
 	createEffect(on(initialName, (n) => setName(n), { defer: true }));
 	createEffect(on(initialDesc, (d) => setDescription(d), { defer: true }));
 
 	const handleSave = async () => {
 		setLoading(true);
 		try {
-			await user.xrpc.social.colibri.channel.update(
+			const trimmed = name().trim();
+			const res = await user.xrpc.social.colibri.channel.update(
 				props.channel.uri,
-				name().trim(),
+				trimmed,
 				{
 					description: description(),
 				},
 			);
+			if (!res) {
+				toast.error("Failed to save channel settings.");
+				return;
+			}
+			// Optimistically reflect the save so the form leaves its dirty state
+			// immediately; the `channel_event` echo re-applies the same fields.
+			community().utils.patchChannel(props.channel.uri, {
+				name: trimmed,
+				description: description(),
+			});
 		} catch {
-			toast.error("Failed to save channel.");
+			toast.error("Failed to save channel settings.");
 		} finally {
 			setLoading(false);
 		}
@@ -107,45 +129,205 @@ const GeneralChannelSettings: Component<{ channel: Channel }> = (props) => {
 	);
 };
 
+const DisplayedRole: ParentComponent<{
+	role: Role;
+	manageable: () => boolean;
+	toggleRole?: (uri: string) => void;
+}> = (props) => {
+	return (
+		<button
+			type="button"
+			disabled={!props.manageable()}
+			class="flex flex-row items-center gap-4 justify-between rounded-sm w-full"
+			onClick={
+				props.toggleRole
+					? () => {
+							if (!props.manageable() || !props.toggleRole) return;
+							props.toggleRole(props.role.uri);
+						}
+					: undefined
+			}
+			classList={{
+				"hover:bg-muted p-1.5 py-1 cursor-pointer": !props.children,
+			}}
+		>
+			<div class="flex flex-row items-center gap-2 test">
+				<div
+					class="w-2 h-2 rounded-full"
+					style={{
+						background: `${props.role.color ?? "#fff"}`,
+					}}
+				/>
+				{props.role.name}
+			</div>
+			{props.children}
+		</button>
+	);
+};
+
+const DisplayedMember: ParentComponent<{
+	member: Member;
+	manageable: () => boolean;
+	toggleMember?: (did: string) => void;
+}> = (props) => {
+	return (
+		<button
+			type="button"
+			disabled={!props.manageable()}
+			class="flex flex-row items-center gap-4 justify-between rounded-sm w-full"
+			onClick={
+				props.toggleMember
+					? () => {
+							if (!props.manageable() || !props.toggleMember) return;
+							props.toggleMember(props.member.did);
+						}
+					: undefined
+			}
+			classList={{
+				"hover:bg-muted p-1.5 py-1 cursor-pointer": !props.children,
+			}}
+		>
+			<div class="flex flex-row items-center gap-2 test">
+				<User.InlineProfile user={props.member} color={false} />
+			</div>
+			{props.children}
+		</button>
+	);
+};
+
 const PermissionsPage: Component<{ channel: Channel }> = (props) => {
 	const user = useUserContext();
-	const { isAdmin: _isAdmin } = usePermissions();
+	const community = useCommunityContext();
+	const { isAdmin: _isAdmin, canManageRole, outranks } = usePermissions();
 
 	const isAdmin = () => _isAdmin(user.did);
 
 	const initialOwnerOnly = () => props.channel.ownerOnly || false;
+	const initialAllowedRoles = () => props.channel.allowedRoles ?? [];
+	const initialAllowedMembers = () => props.channel.allowedMembers ?? [];
 
 	const [loading, setLoading] = createSignal(false);
 	const [ownerOnly, setOwnerOnly] = createSignal(initialOwnerOnly());
+	// Allow-lists are edited in local state and only committed on save, so adding
+	// or removing a role/member stages the change rather than hitting the server.
+	const [allowedRoles, setAllowedRoles] = createSignal(initialAllowedRoles());
+	const [allowedMembers, setAllowedMembers] = createSignal(
+		initialAllowedMembers(),
+	);
 
 	// Re-sync when the channel record changes underneath us (see the matching
 	// note in GeneralChannelSettings).
 	createEffect(on(initialOwnerOnly, (o) => setOwnerOnly(o), { defer: true }));
+	createEffect(
+		on(initialAllowedRoles, (r) => setAllowedRoles(r), { defer: true }),
+	);
+	createEffect(
+		on(initialAllowedMembers, (m) => setAllowedMembers(m), { defer: true }),
+	);
 
 	const handleSave = async () => {
 		setLoading(true);
 		try {
-			await user.xrpc.social.colibri.channel.update(
+			const roles = allowedRoles();
+			const members = allowedMembers();
+			const res = await user.xrpc.social.colibri.channel.update(
 				props.channel.uri,
 				undefined,
 				{
-					ownerOnly: ownerOnly(),
+					// Only send ownerOnly when it actually changed: the server gates
+					// any ownerOnly write behind an admin check, so sending it on an
+					// allow-list-only edit would reject the whole save for non-admins.
+					ownerOnly:
+						ownerOnly() !== initialOwnerOnly() ? ownerOnly() : undefined,
+					// An empty array appends no params, which the server reads as "no
+					// change"; the explicit clear flags wipe an allow-list instead.
+					allowedRoles: roles.length ? roles : undefined,
+					clearAllowedRoles: roles.length === 0,
+					allowedMembers: members.length ? members : undefined,
+					clearAllowedMembers: members.length === 0,
 				},
 			);
+			if (!res) {
+				toast.error("Failed to save permissions.");
+				return;
+			}
+			community().utils.patchChannel(props.channel.uri, {
+				ownerOnly: ownerOnly(),
+				allowedRoles: roles,
+				allowedMembers: members,
+			});
 		} catch {
-			toast.error("Failed to save channel.");
+			toast.error("Failed to save permissions.");
 		} finally {
 			setLoading(false);
 		}
 	};
 
-	const isDirty = () => {
-		return false;
-	};
+	const sameSet = (a: string[], b: string[]) =>
+		a.length === b.length && a.every((x) => b.includes(x));
+
+	const isDirty = () =>
+		ownerOnly() !== initialOwnerOnly() ||
+		!sameSet(allowedRoles(), initialAllowedRoles()) ||
+		!sameSet(allowedMembers(), initialAllowedMembers());
 
 	const handleReset = () => {
 		setLoading(false);
+		setOwnerOnly(initialOwnerOnly());
+		setAllowedRoles(initialAllowedRoles());
+		setAllowedMembers(initialAllowedMembers());
 	};
+
+	const addAllowedRole = (uri: string) =>
+		setAllowedRoles((prev) => (prev.includes(uri) ? prev : [...prev, uri]));
+
+	const removeAllowedRole = (uri: string) =>
+		setAllowedRoles((prev) => prev.filter((r) => r !== uri));
+
+	const addAllowedUser = (did: string) =>
+		setAllowedMembers((prev) => (prev.includes(did) ? prev : [...prev, did]));
+
+	const removeAllowedUser = (did: string) =>
+		setAllowedMembers((prev) => prev.filter((d) => d !== did));
+
+	// Search query for the "add member" popover; reset whenever it closes.
+	const [memberSearch, setMemberSearch] = createSignal("");
+
+	const nonAllowedRoles = () =>
+		community()
+			.assignableRoles.sort((a, b) => b.position - a.position)
+			.filter((x) => !allowedRoles().some((y) => x.uri === y));
+
+	const nonAllowedMembers = () => {
+		const query = memberSearch().trim().toLowerCase();
+		return community()
+			.members.filter((x) => !allowedMembers().some((y) => x.did === y))
+			.filter(
+				(x) =>
+					!query ||
+					displayableNameFn(x).toLowerCase().includes(query) ||
+					x.handle.toLowerCase().includes(query),
+			);
+	};
+
+	// The already-allowed members, grouped under their roles exactly like the
+	// member sidebar (empty groups dropped).
+	const allowedMembersByRoles = () =>
+		groupMembersByRoles({
+			members: allowedMembers()
+				.map((did) => community().members.find((x) => x.did === did))
+				.filter((x) => x !== undefined),
+			assignableRoles: community().assignableRoles,
+			roles: community().roles,
+		}).filter((g) => g.members.length > 0);
+
+	// The "add member" candidates, grouped under their roles the same way.
+	const nonAllowedMembersByRoles = () =>
+		groupMembersByRoles({
+			members: nonAllowedMembers(),
+			assignableRoles: community().assignableRoles,
+			roles: community().roles,
+		}).filter((g) => g.members.length > 0);
 
 	return (
 		<SettingsPage
@@ -185,23 +367,154 @@ const PermissionsPage: Component<{ channel: Channel }> = (props) => {
 				<div class="flex flex-col gap-2">
 					<div class="flex flex-row items-center w-full justify-between">
 						<h4 class="m-0 font-semibold">Roles</h4>
-						{/* Popover with all roles the user can manage, searchable. Checkbox-system from member context menu. */}
-						<div class="flex items-center justify-center w-6 h-6 hover:bg-muted/50 cursor-pointer rounded-sm text-foreground">
-							<PlusIcon />
-						</div>
+						<Popover placement="bottom-end">
+							<PopoverTrigger>
+								<div class="flex items-center justify-center w-6 h-6 hover:bg-muted/50 cursor-pointer rounded-sm text-foreground">
+									<PlusIcon />
+								</div>
+							</PopoverTrigger>
+							<PopoverPortal>
+								<PopoverContent class="p-1">
+									<For
+										each={nonAllowedRoles()}
+										fallback={
+											<span class="text-sm text-muted-foreground px-2">
+												No roles found.
+											</span>
+										}
+									>
+										{(role) => {
+											const manageable = () => canManageRole(user.did, role);
+
+											return (
+												<DisplayedRole
+													manageable={manageable}
+													role={role}
+													toggleRole={addAllowedRole}
+												/>
+											);
+										}}
+									</For>
+								</PopoverContent>
+							</PopoverPortal>
+						</Popover>
 					</div>
-					<For each={[]}>{(role) => <div>{role}</div>}</For>
+					<For each={allowedRoles()}>
+						{(roleUri) => {
+							const role = community().assignableRoles.find(
+								(x) => x.uri === roleUri,
+							)!;
+							const manageable = () => canManageRole(user.did, role);
+
+							return (
+								<DisplayedRole manageable={manageable} role={role}>
+									<Button
+										size="sm"
+										variant="ghost"
+										class="w-6 h-6 p-0! items-center flex px-0! py-0!"
+										onClick={() => removeAllowedRole(roleUri)}
+									>
+										<XIcon />
+									</Button>
+								</DisplayedRole>
+							);
+						}}
+					</For>
 				</div>
 				<div class="flex flex-col gap-2">
 					<div class="flex flex-row items-center w-full justify-between">
-						{/* Popover with all users the user can manage, searchable. Checkbox-system from member context menu. */}
 						<h4 class="m-0 font-semibold">Members</h4>
-						<div class="flex items-center justify-center w-6 h-6 hover:bg-muted/50 cursor-pointer rounded-sm text-foreground">
-							<PlusIcon />
-						</div>
+						<Popover
+							placement="bottom-end"
+							onOpenChange={(open) => !open && setMemberSearch("")}
+						>
+							<PopoverTrigger>
+								<div class="flex items-center justify-center w-6 h-6 hover:bg-muted/50 cursor-pointer rounded-sm text-foreground">
+									<PlusIcon />
+								</div>
+							</PopoverTrigger>
+							<PopoverPortal>
+								<PopoverContent class="p-1 flex flex-col gap-1">
+									<TextField value={memberSearch()} onChange={setMemberSearch}>
+										<TextFieldInput
+											placeholder="Search members..."
+											autofocus
+											class="h-8"
+										/>
+									</TextField>
+									<div class="flex flex-col gap-1 max-h-64 overflow-y-auto">
+										<For
+											each={nonAllowedMembersByRoles()}
+											fallback={
+												<span class="text-sm text-muted-foreground px-2 py-1">
+													No members found.
+												</span>
+											}
+										>
+											{(group) => (
+												<div class="flex flex-col">
+													<span class="text-sm text-muted-foreground px-2 py-1">
+														{group.role.name} — {group.members.length}
+													</span>
+													<For each={group.members}>
+														{(member) => {
+															const manageable = () =>
+																outranks(user.did, member.did) || isAdmin();
+
+															return (
+																<DisplayedMember
+																	manageable={manageable}
+																	member={member}
+																	toggleMember={addAllowedUser}
+																/>
+															);
+														}}
+													</For>
+												</div>
+											)}
+										</For>
+									</div>
+								</PopoverContent>
+							</PopoverPortal>
+						</Popover>
 					</div>
-					<For each={[]}>{(member) => <div>{member}</div>}</For>
+					<For each={allowedMembersByRoles()}>
+						{(group) => (
+							<div class="flex flex-col gap-2">
+								<span class="text-sm text-muted-foreground">
+									{group.role.name} — {group.members.length}
+								</span>
+								<For each={group.members}>
+									{(member) => {
+										const manageable = () =>
+											outranks(user.did, member.did) || isAdmin();
+
+										return (
+											<DisplayedMember manageable={manageable} member={member}>
+												<Button
+													size="sm"
+													variant="ghost"
+													class="w-6 h-6 p-0! items-center flex px-0! py-0!"
+													onClick={() => removeAllowedUser(member.did)}
+												>
+													<XIcon />
+												</Button>
+											</DisplayedMember>
+										);
+									}}
+								</For>
+							</div>
+						)}
+					</For>
 				</div>
+				<Show
+					when={allowedMembers().length === 0 && allowedRoles().length === 0}
+				>
+					<p class="text-sm text-muted-foreground text-center m-0">
+						No roles or members specified. Everyone will be allowed to chat
+						here!
+					</p>
+				</Show>
 			</div>
 		</SettingsPage>
 	);

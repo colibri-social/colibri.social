@@ -24,39 +24,83 @@ export type XrpcRequest<T extends any[], R> = (
 ) => R;
 
 export class XrpcClient {
-	private pds: string;
 	private proxyHeader: string;
+	private notifProxyHeader: string;
 	private agent: Agent;
 
-	constructor(pds: string, proxyHeader: string, agent: Agent) {
-		this.pds = pds;
+	constructor(proxyHeader: string, agent: Agent) {
 		this.proxyHeader = proxyHeader;
+		// Push registration belongs to the notification service. Both fragments
+		// resolve to the same endpoint today, but routing push calls through
+		// `#colibri_notif` honours the declared service split and future-proofs
+		// moving the notification service to its own deployment. The notification
+		// *feed* reads (list/count/seen) stay on the AppView.
+		this.notifProxyHeader = proxyHeader.replace(/#.*$/, "#colibri_notif");
 		this.agent = agent;
 	}
 
 	/**
-	 * Fetches a specified XRPC route.
-	 * @param xrpcRoute The route to fetch
-	 * @returns The fetched data
+	 * Fetches a specified XRPC route against a Colibri service, selected by the
+	 * `atproto-proxy` fragment in `proxyHeader`.
+	 *
+	 * In production the request is sent through the user's PDS using the
+	 * authenticated (DPoP-bound) session: the `atproto-proxy` header tells the
+	 * PDS which service to forward it to, and the PDS mints the service-auth
+	 * token on our behalf and attaches it as `Authorization: Bearer`. We
+	 * therefore do not mint a token client-side (see
+	 * {@link generateServiceAuthToken}).
+	 *
+	 * In development there is no PDS in the loop — we talk straight to the local
+	 * AppView — so the caller mints the service-auth token itself and attaches
+	 * it as the `Authorization: Bearer` header (see {@link authed}); the
+	 * AppView's request fairing lifts that header into the `?auth=` query its
+	 * handlers read.
+	 *
+	 * @param proxyHeader The `did#service` to proxy to.
+	 * @param xrpcRoute The route to fetch (origin-less: `/xrpc/...`).
+	 * @returns The raw response.
 	 */
-	private proxiedFetch: ProxiedFetchFn = (xrpcRoute, init) => {
-		const host = import.meta.env.DEV ? `http://localhost:8000` : this.pds;
+	private dispatch(
+		proxyHeader: string,
+		xrpcRoute: `/xrpc/${string}`,
+		init?: RequestInit,
+	): Promise<Response> {
+		const headers = { "atproto-proxy": proxyHeader, ...init?.headers };
 
-		return fetch(`${host}${xrpcRoute}`, {
-			...init,
-			headers: new Headers({
-				"atproto-proxy": this.proxyHeader,
-				...init?.headers,
-			}),
-		});
-	};
+		if (import.meta.env.DEV) {
+			return fetch(`http://localhost:8000${xrpcRoute}`, {
+				...init,
+				headers: new Headers(headers),
+			});
+		}
+
+		// `agent.fetchHandler` takes an origin-less URL and supplies the PDS
+		// origin + the user's DPoP-bound auth itself.
+		return this.agent.fetchHandler(xrpcRoute, { ...init, headers });
+	}
+
+	/** Proxied fetch targeting the AppView (`#colibri_appview`). */
+	private proxiedFetch: ProxiedFetchFn = (xrpcRoute, init) =>
+		this.dispatch(this.proxyHeader, xrpcRoute, init);
+
+	/** Proxied fetch targeting the notification service (`#colibri_notif`). */
+	private notifFetch: ProxiedFetchFn = (xrpcRoute, init) =>
+		this.dispatch(this.notifProxyHeader, xrpcRoute, init);
 
 	/**
 	 * Requests a service auth token for the specified lexicon method.
+	 *
+	 * Only used in development: in production the PDS mints the token during
+	 * proxying (see {@link proxiedFetch}), so we skip the extra round-trip and
+	 * return an empty token — {@link authed} then sends no `Authorization`
+	 * header and lets the PDS-set one through.
+	 *
 	 * @param lxm The method to request the token for.
-	 * @returns The token.
+	 * @returns The token, or an empty string in production.
 	 */
 	private generateServiceAuthToken = async (lxm: string) => {
+		if (!import.meta.env.DEV) return "";
+
 		const { data } = await this.agent.com.atproto.server.getServiceAuth({
 			aud: "did:web:api.colibri.social",
 			lxm,
@@ -65,6 +109,32 @@ export class XrpcClient {
 
 		return data.token;
 	};
+
+	/**
+	 * Wraps a base proxied-fetch fn so the request carries service auth for the
+	 * given lexicon method.
+	 *
+	 * In production the PDS mints the token during proxying and attaches the
+	 * `Authorization` header itself, so {@link generateServiceAuthToken} returns
+	 * an empty string and this is a transparent passthrough. In development we
+	 * mint the token client-side and attach it as the `Authorization: Bearer`
+	 * header (the AppView's request fairing lifts it into the `?auth=` query its
+	 * handlers read).
+	 *
+	 * @param base The underlying fetch (AppView or notification service).
+	 * @param lxm The method the auth token is scoped to.
+	 */
+	private authed(base: ProxiedFetchFn, lxm: string): ProxiedFetchFn {
+		return async (xrpcRoute, init) => {
+			const token = await this.generateServiceAuthToken(lxm);
+			if (!token) return base(xrpcRoute, init);
+
+			return base(xrpcRoute, {
+				...init,
+				headers: { ...init?.headers, Authorization: `Bearer ${token}` },
+			});
+		};
+	}
 
 	public com = {
 		atproto: {
@@ -105,195 +175,150 @@ export class XrpcClient {
 			actor: {
 				getData: (identifier: string) =>
 					Actor.getData(this.proxiedFetch, identifier),
-				listCommunities: async () => {
-					const token = await this.generateServiceAuthToken(
-						"social.colibri.actor.listCommunities",
-					);
-
-					return Actor.listCommunities(this.proxiedFetch, token);
-				},
-				listMutes: async () => {
-					const token = await this.generateServiceAuthToken(
-						"social.colibri.actor.listMutes",
-					);
-
-					return Actor.listMutes(this.proxiedFetch, token);
-				},
-				setState: async (state: string) => {
-					const token = await this.generateServiceAuthToken(
-						"social.colibri.actor.setState",
-					);
-
-					return Actor.setState(this.proxiedFetch, state, token);
-				},
+				listCommunities: () =>
+					Actor.listCommunities(
+						this.authed(
+							this.proxiedFetch,
+							"social.colibri.actor.listCommunities",
+						),
+					),
+				listMutes: () =>
+					Actor.listMutes(
+						this.authed(this.proxiedFetch, "social.colibri.actor.listMutes"),
+					),
+				setState: (state: string) =>
+					Actor.setState(
+						this.authed(this.proxiedFetch, "social.colibri.actor.setState"),
+						state,
+					),
 			},
 			community: {
-				create: async (
+				create: (
 					name: string,
 					description: string | undefined,
 					requiresApproval: boolean,
 					picture: Blob | undefined,
 					mimeType: string | undefined,
 					byo?: { pds: string; identifier: string; password: string },
-				) => {
-					const token = await this.generateServiceAuthToken(
-						"social.colibri.community.create",
-					);
-
-					return Community.create(
-						this.proxiedFetch,
+				) =>
+					Community.create(
+						this.authed(this.proxiedFetch, "social.colibri.community.create"),
 						name,
 						description,
 						requiresApproval,
-						token,
 						picture,
 						mimeType,
 						byo,
-					);
-				},
-				registerCredentials: async (
+					),
+				registerCredentials: (
 					did: string,
 					pds: string,
 					identifier: string,
 					password: string,
-				) => {
-					const token = await this.generateServiceAuthToken(
-						"social.colibri.community.registerCredentials",
-					);
-
-					return Community.registerCredentials(
-						this.proxiedFetch,
+				) =>
+					Community.registerCredentials(
+						this.authed(
+							this.proxiedFetch,
+							"social.colibri.community.registerCredentials",
+						),
 						did,
 						pds,
 						identifier,
 						password,
-						token,
-					);
-				},
-				update: async (
+					),
+				update: (
 					community: string,
 					name?: string,
 					description?: string,
 					picture?: Blob,
 					mimeType?: string,
 					requiresApprovalToJoin?: boolean,
-				) => {
-					const token = await this.generateServiceAuthToken(
-						"social.colibri.community.update",
-					);
-					return Community.update(
-						this.proxiedFetch,
+				) =>
+					Community.update(
+						this.authed(this.proxiedFetch, "social.colibri.community.update"),
 						community,
 						name,
 						description,
 						picture,
 						mimeType,
 						requiresApprovalToJoin || false,
-						token,
-					);
-				},
-				leave: async (community: string) => {
-					const token = await this.generateServiceAuthToken(
-						"social.colibri.community.leave",
-					);
-					return Community.leave(this.proxiedFetch, community, token);
-				},
-				delete: async (community: string) => {
-					const token = await this.generateServiceAuthToken(
-						"social.colibri.community.delete",
-					);
-					return Community.delete(this.proxiedFetch, community, token);
-				},
-				reorderChannels: async (category: string, channelOrder: string[]) => {
-					const token = await this.generateServiceAuthToken(
-						"social.colibri.community.reorderChannels",
-					);
-					return Community.reorderChannels(
-						this.proxiedFetch,
+					),
+				leave: (community: string) =>
+					Community.leave(
+						this.authed(this.proxiedFetch, "social.colibri.community.leave"),
+						community,
+					),
+				delete: (community: string) =>
+					Community.delete(
+						this.authed(this.proxiedFetch, "social.colibri.community.delete"),
+						community,
+					),
+				reorderChannels: (category: string, channelOrder: string[]) =>
+					Community.reorderChannels(
+						this.authed(
+							this.proxiedFetch,
+							"social.colibri.community.reorderChannels",
+						),
 						category,
 						channelOrder,
-						token,
-					);
-				},
-				reorderCategories: async (
-					community: string,
-					categoryOrder: string[],
-				) => {
-					const token = await this.generateServiceAuthToken(
-						"social.colibri.community.reorderCategories",
-					);
-					return Community.reorderCategories(
-						this.proxiedFetch,
+					),
+				reorderCategories: (community: string, categoryOrder: string[]) =>
+					Community.reorderCategories(
+						this.authed(
+							this.proxiedFetch,
+							"social.colibri.community.reorderCategories",
+						),
 						community,
 						categoryOrder,
-						token,
-					);
-				},
-				kick: async (community: string, member: string) => {
-					const token = await this.generateServiceAuthToken(
-						"social.colibri.community.kick",
-					);
-					return Community.kick(this.proxiedFetch, community, member, token);
-				},
-				kickUser: async (community: string, identifier: string) => {
-					const token = await this.generateServiceAuthToken(
-						"social.colibri.community.kickUser",
-					);
-					return Community.kickUser(
-						this.proxiedFetch,
+					),
+				kick: (community: string, member: string) =>
+					Community.kick(
+						this.authed(this.proxiedFetch, "social.colibri.community.kick"),
+						community,
+						member,
+					),
+				kickUser: (community: string, identifier: string) =>
+					Community.kickUser(
+						this.authed(this.proxiedFetch, "social.colibri.community.kickUser"),
 						community,
 						identifier,
-						token,
-					);
-				},
-				approveMembership: async (membership: string) => {
-					const token = await this.generateServiceAuthToken(
-						"social.colibri.community.approveMembership",
-					);
-					return Community.approveMembership(
-						this.proxiedFetch,
+					),
+				approveMembership: (membership: string) =>
+					Community.approveMembership(
+						this.authed(
+							this.proxiedFetch,
+							"social.colibri.community.approveMembership",
+						),
 						membership,
-						token,
-					);
-				},
-				dismissApplication: async (community: string, did: string) => {
-					const token = await this.generateServiceAuthToken(
-						"social.colibri.community.dismissApplication",
-					);
-					return Community.dismissApplication(
-						this.proxiedFetch,
+					),
+				dismissApplication: (community: string, did: string) =>
+					Community.dismissApplication(
+						this.authed(
+							this.proxiedFetch,
+							"social.colibri.community.dismissApplication",
+						),
 						community,
 						did,
-						token,
-					);
-				},
-				undismissApplication: async (community: string, did: string) => {
-					const token = await this.generateServiceAuthToken(
-						"social.colibri.community.undismissApplication",
-					);
-					return Community.undismissApplication(
-						this.proxiedFetch,
+					),
+				undismissApplication: (community: string, did: string) =>
+					Community.undismissApplication(
+						this.authed(
+							this.proxiedFetch,
+							"social.colibri.community.undismissApplication",
+						),
 						community,
 						did,
-						token,
-					);
-				},
-				setMemberRoles: async (
-					community: string,
-					member: string,
-					roles: string[],
-				) => {
-					const token = await this.generateServiceAuthToken(
-						"social.colibri.community.setMemberRoles",
-					);
-					return Community.setMemberRoles(
-						this.proxiedFetch,
+					),
+				setMemberRoles: (community: string, member: string, roles: string[]) =>
+					Community.setMemberRoles(
+						this.authed(
+							this.proxiedFetch,
+							"social.colibri.community.setMemberRoles",
+						),
 						community,
 						member,
 						roles,
-						token,
-					);
-				},
+					),
 				getData: (community: string) =>
 					Community.getData(this.proxiedFetch, community),
 				listBannedUsers: (community: string) =>
@@ -304,127 +329,99 @@ export class XrpcClient {
 					Community.listChannels(this.proxiedFetch, community),
 				listMembers: (community: string) =>
 					Community.listMembers(this.proxiedFetch, community),
-				listApplications: async (community: string) => {
-					const token = await this.generateServiceAuthToken(
-						"social.colibri.community.listApplications",
-					);
-					return Community.listApplications(
-						this.proxiedFetch,
+				listApplications: (community: string) =>
+					Community.listApplications(
+						this.authed(
+							this.proxiedFetch,
+							"social.colibri.community.listApplications",
+						),
 						community,
-						token,
-					);
-				},
+					),
 				listRoles: (community: string) =>
 					Community.listRoles(this.proxiedFetch, community),
-				blockMessage: async (community: string, message: string) => {
-					const token = await this.generateServiceAuthToken(
-						"social.colibri.community.blockMessage",
-					);
-
-					return Community.blockMessage(
-						this.proxiedFetch,
+				blockMessage: (community: string, message: string) =>
+					Community.blockMessage(
+						this.authed(
+							this.proxiedFetch,
+							"social.colibri.community.blockMessage",
+						),
 						community,
 						message,
-						token,
-					);
-				},
-				banUser: async (community: string, identifier: string) => {
-					const token = await this.generateServiceAuthToken(
-						"social.colibri.community.banUser",
-					);
-
-					return Community.banUser(
-						this.proxiedFetch,
+					),
+				banUser: (community: string, identifier: string) =>
+					Community.banUser(
+						this.authed(this.proxiedFetch, "social.colibri.community.banUser"),
 						community,
 						identifier,
-						token,
-					);
-				},
-				unbanUser: async (community: string, identifier: string) => {
-					const token = await this.generateServiceAuthToken(
-						"social.colibri.community.unbanUser",
-					);
-
-					return Community.unbanUser(
-						this.proxiedFetch,
+					),
+				unbanUser: (community: string, identifier: string) =>
+					Community.unbanUser(
+						this.authed(this.proxiedFetch, "social.colibri.community.unbanUser"),
 						community,
 						identifier,
-						token,
-					);
-				},
-				createInvitation: async (community: string) => {
-					const token = await this.generateServiceAuthToken(
-						"social.colibri.community.createInvitation",
-					);
-
-					return Community.createInvitation(
-						this.proxiedFetch,
+					),
+				createInvitation: (community: string) =>
+					Community.createInvitation(
+						this.authed(
+							this.proxiedFetch,
+							"social.colibri.community.createInvitation",
+						),
 						community,
-						token,
-					);
-				},
+					),
 				getInvitation: (code: string) =>
 					Community.getInvitation(this.proxiedFetch, code),
-				listInvitations: async (uri: string) => {
-					const token = await this.generateServiceAuthToken(
-						"social.colibri.community.listInvitations",
-					);
-
-					return Community.listInvitations(this.proxiedFetch, uri, token);
-				},
-				deleteInvitation: async (uri: string, code: string) => {
-					const token = await this.generateServiceAuthToken(
-						"social.colibri.community.deleteInvitation",
-					);
-
-					return Community.deleteInvitation(
-						this.proxiedFetch,
+				listInvitations: (uri: string) =>
+					Community.listInvitations(
+						this.authed(
+							this.proxiedFetch,
+							"social.colibri.community.listInvitations",
+						),
+						uri,
+					),
+				deleteInvitation: (uri: string, code: string) =>
+					Community.deleteInvitation(
+						this.authed(
+							this.proxiedFetch,
+							"social.colibri.community.deleteInvitation",
+						),
 						uri,
 						code,
-						token,
-					);
-				},
+					),
 			},
 			category: {
-				create: async (community: string, name: string) => {
-					const token = await this.generateServiceAuthToken(
-						"social.colibri.category.create",
-					);
-					return Category.create(this.proxiedFetch, community, name, token);
-				},
-				update: async (category: string, name: string) => {
-					const token = await this.generateServiceAuthToken(
-						"social.colibri.category.update",
-					);
-					return Category.update(this.proxiedFetch, category, name, token);
-				},
-				delete: async (category: string) => {
-					const token = await this.generateServiceAuthToken(
-						"social.colibri.category.delete",
-					);
-					return Category.delete(this.proxiedFetch, category, token);
-				},
+				create: (community: string, name: string) =>
+					Category.create(
+						this.authed(this.proxiedFetch, "social.colibri.category.create"),
+						community,
+						name,
+					),
+				update: (category: string, name: string) =>
+					Category.update(
+						this.authed(this.proxiedFetch, "social.colibri.category.update"),
+						category,
+						name,
+					),
+				delete: (category: string) =>
+					Category.delete(
+						this.authed(this.proxiedFetch, "social.colibri.category.delete"),
+						category,
+					),
 			},
 			channel: {
-				create: async (
+				create: (
 					community: string,
 					category: string,
 					name: string,
 					type: string,
-				) => {
-					const token = await this.generateServiceAuthToken(
-						"social.colibri.channel.create",
-					);
-					return Channel.create(
-						this.proxiedFetch,
+				) =>
+					Channel.create(
+						this.authed(this.proxiedFetch, "social.colibri.channel.create"),
 						community,
 						category,
 						name,
 						type,
-						token,
-					);
-				},
-				update: async (
+					),
+				update: (
 					channel: string,
 					name?: string,
 					options?: {
@@ -435,12 +432,9 @@ export class XrpcClient {
 						allowedMembers?: string[];
 						clearAllowedMembers?: boolean;
 					},
-				) => {
-					const token = await this.generateServiceAuthToken(
-						"social.colibri.channel.update",
-					);
-					return Channel.update(
-						this.proxiedFetch,
+				) =>
+					Channel.update(
+						this.authed(this.proxiedFetch, "social.colibri.channel.update"),
 						channel,
 						name,
 						options?.description,
@@ -449,15 +443,12 @@ export class XrpcClient {
 						options?.clearAllowedRoles,
 						options?.allowedMembers,
 						options?.clearAllowedMembers,
-						token,
-					);
-				},
-				delete: async (channel: string) => {
-					const token = await this.generateServiceAuthToken(
-						"social.colibri.channel.delete",
-					);
-					return Channel.delete(this.proxiedFetch, channel, token);
-				},
+					),
+				delete: (channel: string) =>
+					Channel.delete(
+						this.authed(this.proxiedFetch, "social.colibri.channel.delete"),
+						channel,
+					),
 				listMessages: (
 					channel: string,
 					limit?: number,
@@ -465,30 +456,33 @@ export class XrpcClient {
 					all?: boolean,
 				) =>
 					Channel.listMessages(this.proxiedFetch, channel, limit, cursor, all),
-				getReadCursor: async (channel: string) => {
-					const token = await this.generateServiceAuthToken(
-						"social.colibri.channel.getReadCursor",
-					);
-
-					return Channel.getReadCursor(this.proxiedFetch, channel, token);
-				},
-				listUnreadStatus: async (community: string) => {
-					const token = await this.generateServiceAuthToken(
-						"social.colibri.channel.listUnreadStatus",
-					);
-
-					return Channel.listUnreadStatus(this.proxiedFetch, community, token);
-				},
-				getVoiceToken: async (channel: string) => {
-					const token = await this.generateServiceAuthToken(
-						"social.colibri.channel.getVoiceToken",
-					);
-
-					return Channel.getVoiceToken(this.proxiedFetch, channel, token);
-				},
+				getReadCursor: (channel: string) =>
+					Channel.getReadCursor(
+						this.authed(
+							this.proxiedFetch,
+							"social.colibri.channel.getReadCursor",
+						),
+						channel,
+					),
+				listUnreadStatus: (community: string) =>
+					Channel.listUnreadStatus(
+						this.authed(
+							this.proxiedFetch,
+							"social.colibri.channel.listUnreadStatus",
+						),
+						community,
+					),
+				getVoiceToken: (channel: string) =>
+					Channel.getVoiceToken(
+						this.authed(
+							this.proxiedFetch,
+							"social.colibri.channel.getVoiceToken",
+						),
+						channel,
+					),
 			},
 			role: {
-				create: async (
+				create: (
 					community: string,
 					name: string,
 					position: number,
@@ -496,23 +490,18 @@ export class XrpcClient {
 					color?: string,
 					hoisted?: boolean,
 					mentionable?: boolean,
-				) => {
-					const token = await this.generateServiceAuthToken(
-						"social.colibri.role.create",
-					);
-					return Role.create(
-						this.proxiedFetch,
+				) =>
+					Role.create(
+						this.authed(this.proxiedFetch, "social.colibri.role.create"),
 						community,
 						name,
 						position,
-						token,
 						permissions,
 						color,
 						hoisted,
 						mentionable,
-					);
-				},
-				update: async (
+					),
+				update: (
 					role: string,
 					name?: string,
 					color?: string,
@@ -520,113 +509,95 @@ export class XrpcClient {
 					position?: number,
 					hoisted?: boolean,
 					mentionable?: boolean,
-				) => {
-					const token = await this.generateServiceAuthToken(
-						"social.colibri.role.update",
-					);
-					return Role.update(
-						this.proxiedFetch,
+				) =>
+					Role.update(
+						this.authed(this.proxiedFetch, "social.colibri.role.update"),
 						role,
-						token,
 						name,
 						color,
 						permissions,
 						position,
 						hoisted,
 						mentionable,
-					);
-				},
-				delete: async (role: string) => {
-					const token = await this.generateServiceAuthToken(
-						"social.colibri.role.delete",
-					);
-					return Role.delete(this.proxiedFetch, role, token);
-				},
+					),
+				delete: (role: string) =>
+					Role.delete(
+						this.authed(this.proxiedFetch, "social.colibri.role.delete"),
+						role,
+					),
 			},
 			message: {
 				listReactions: (message: string) =>
 					Message.listReactions(this.proxiedFetch, message),
 			},
 			embed: {
-				getMetadata: async (uri: string) => {
-					const token = await this.generateServiceAuthToken(
-						"social.colibri.embed.getMetadata",
-					);
-
-					return Embed.getMetadata(this.proxiedFetch, uri, token);
-				},
+				getMetadata: (uri: string) =>
+					Embed.getMetadata(
+						this.authed(this.proxiedFetch, "social.colibri.embed.getMetadata"),
+						uri,
+					),
 			},
 			notification: {
-				listNotifications: async (limit?: number, cursor?: string) => {
-					const token = await this.generateServiceAuthToken(
-						"social.colibri.notification.listNotifications",
-					);
-
-					return Notification.listNotifications(
-						this.proxiedFetch,
+				listNotifications: (limit?: number, cursor?: string) =>
+					Notification.listNotifications(
+						this.authed(
+							this.proxiedFetch,
+							"social.colibri.notification.listNotifications",
+						),
 						limit,
 						cursor,
-						token,
-					);
-				},
-				getUnreadCount: async () => {
-					const token = await this.generateServiceAuthToken(
-						"social.colibri.notification.getUnreadCount",
-					);
-
-					return Notification.getUnreadCount(this.proxiedFetch, token);
-				},
-				updateSeen: async (seenAt?: string) => {
-					const token = await this.generateServiceAuthToken(
-						"social.colibri.notification.updateSeen",
-					);
-
-					return Notification.updateSeen(this.proxiedFetch, seenAt, token);
-				},
-				updateSeenForMessage: async (message: string) => {
-					const token = await this.generateServiceAuthToken(
-						"social.colibri.notification.updateSeenForMessage",
-					);
-
-					return Notification.updateSeenForMessage(
-						this.proxiedFetch,
+					),
+				getUnreadCount: () =>
+					Notification.getUnreadCount(
+						this.authed(
+							this.proxiedFetch,
+							"social.colibri.notification.getUnreadCount",
+						),
+					),
+				updateSeen: (seenAt?: string) =>
+					Notification.updateSeen(
+						this.authed(
+							this.proxiedFetch,
+							"social.colibri.notification.updateSeen",
+						),
+						seenAt,
+					),
+				updateSeenForMessage: (message: string) =>
+					Notification.updateSeenForMessage(
+						this.authed(
+							this.proxiedFetch,
+							"social.colibri.notification.updateSeenForMessage",
+						),
 						message,
-						token,
-					);
-				},
-				getUnseen: async (channel: string) => {
-					const token = await this.generateServiceAuthToken(
-						"social.colibri.notification.getUnseen",
-					);
-
-					return Notification.getUnseen(this.proxiedFetch, channel, token);
-				},
-				registerPush: async (subscription: {
+					),
+				getUnseen: (channel: string) =>
+					Notification.getUnseen(
+						this.authed(
+							this.proxiedFetch,
+							"social.colibri.notification.getUnseen",
+						),
+						channel,
+					),
+				registerPush: (subscription: {
 					platform: "web" | "tauri";
 					endpoint: string;
 					keys: { p256dh: string; auth: string };
-				}) => {
-					const token = await this.generateServiceAuthToken(
-						"social.colibri.notification.registerPush",
-					);
-
-					return Notification.registerPush(
-						this.proxiedFetch,
+				}) =>
+					Notification.registerPush(
+						this.authed(
+							this.notifFetch,
+							"social.colibri.notification.registerPush",
+						),
 						subscription,
-						token,
-					);
-				},
-				unregisterPush: async (endpoint: string) => {
-					const token = await this.generateServiceAuthToken(
-						"social.colibri.notification.unregisterPush",
-					);
-
-					return Notification.unregisterPush(
-						this.proxiedFetch,
+					),
+				unregisterPush: (endpoint: string) =>
+					Notification.unregisterPush(
+						this.authed(
+							this.notifFetch,
+							"social.colibri.notification.unregisterPush",
+						),
 						endpoint,
-						token,
-					);
-				},
+					),
 			},
 			sync: {
 				sendHum: (event: ColibriEvent) =>

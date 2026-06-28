@@ -13,12 +13,12 @@ type Response = {
 };
 
 export const listInvitations: XrpcRequest<
-	[string, string],
+	[string],
 	Promise<Response | undefined>
-> = async (fetch, uri, auth) => {
+> = async (fetch, uri) => {
 	try {
 		const res = await fetch(
-			`/xrpc/social.colibri.community.listInvitations?uri=${uri}&auth=${auth}`,
+			`/xrpc/social.colibri.community.listInvitations?uri=${uri}`,
 			{
 				method: "POST",
 			},

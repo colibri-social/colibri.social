@@ -5,12 +5,12 @@ type Response = {
 };
 
 export const create: XrpcRequest<
-	[string, string, string],
+	[string, string],
 	Promise<Response | undefined>
-> = async (fetch, community, name, auth) => {
+> = async (fetch, community, name) => {
 	try {
 		const res = await fetch(
-			`/xrpc/social.colibri.category.create?community=${encodeURIComponent(community)}&name=${encodeURIComponent(name)}&auth=${auth}`,
+			`/xrpc/social.colibri.category.create?community=${encodeURIComponent(community)}&name=${encodeURIComponent(name)}`,
 			{ method: "POST" },
 		);
 		return res.json();

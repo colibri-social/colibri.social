@@ -11,12 +11,12 @@ type Response = {
 };
 
 export const getUnseen: XrpcRequest<
-	[string, string],
+	[string],
 	Promise<Response | undefined>
-> = async (fetch, channel, auth) => {
+> = async (fetch, channel) => {
 	try {
 		const res = await fetch(
-			`/xrpc/social.colibri.notification.getUnseen?channel=${channel}&auth=${auth}`,
+			`/xrpc/social.colibri.notification.getUnseen?channel=${channel}`,
 		);
 
 		return res.json();

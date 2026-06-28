@@ -11,12 +11,12 @@ type Response = {
 };
 
 export const listUnreadStatus: XrpcRequest<
-	[string, string],
+	[string],
 	Promise<Response | undefined>
-> = async (fetch, community, auth) => {
+> = async (fetch, community) => {
 	try {
 		const res = await fetch(
-			`/xrpc/social.colibri.channel.listUnreadStatus?community=${community}&auth=${auth}`,
+			`/xrpc/social.colibri.channel.listUnreadStatus?community=${community}`,
 		);
 
 		return res.json();

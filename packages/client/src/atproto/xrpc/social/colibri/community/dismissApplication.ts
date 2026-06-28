@@ -6,12 +6,12 @@ type Response = {
 };
 
 export const dismissApplication: XrpcRequest<
-	[string, string, string],
+	[string, string],
 	Promise<Response | undefined>
-> = async (fetch, community, did, auth) => {
+> = async (fetch, community, did) => {
 	try {
 		const res = await fetch(
-			`/xrpc/social.colibri.community.dismissApplication?community=${encodeURIComponent(community)}&did=${encodeURIComponent(did)}&auth=${auth}`,
+			`/xrpc/social.colibri.community.dismissApplication?community=${encodeURIComponent(community)}&did=${encodeURIComponent(did)}`,
 			{ method: "POST" },
 		);
 

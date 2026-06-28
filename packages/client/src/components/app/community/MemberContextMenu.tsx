@@ -24,7 +24,11 @@ import {
 } from "../../ui/ContextMenu";
 import { DisplayableName, displayableNameFn } from "../user/DisplayableName";
 import { toast } from "somoto";
-import { ActionDialogData, MemberActionDialog } from "./MemberActionDialog";
+import {
+	type ActionDialogData,
+	MemberActionDialog,
+} from "./MemberActionDialog";
+import { createRoleSync } from "../../../utils/role-sync";
 
 export const MemberContextMenu: ParentComponent<{ member: ActorData }> = (
 	props,
@@ -34,60 +38,9 @@ export const MemberContextMenu: ParentComponent<{ member: ActorData }> = (
 	const { canManageRole, outranks, canBanMember, canKickMember } =
 		usePermissions();
 
-	// Read the member's *raw* role set straight from the shared context — not
-	// `getRolesForUser`, which filters out protected roles for display and would
-	// therefore strip them from the payload we send back.
-	const memberRoles = () =>
-		community().members.find((m) => m.did === props.member.did)?.roles ?? [];
-	const hasRole = (uri: string) => memberRoles().includes(uri);
-
-	// Serialise role updates so spamming the checkbox can't interleave requests:
-	// `setMemberRoles` replaces the whole array, so two in-flight calls would
-	// clobber one another. Each toggle optimistically updates the shared context
-	// (instant feedback everywhere) and bumps `pending`; the running drainer
-	// re-reads the latest desired set and keeps sending until `pending` settles,
-	// coalescing rapid clicks into the fewest calls.
-	let syncing = false;
-	let pending = 0;
-
-	const flush = async () => {
-		if (syncing) return;
-		syncing = true;
-		let lastSent = -1;
-		try {
-			while (pending !== lastSent) {
-				const gen = pending;
-				const res = await user.xrpc.social.colibri.community.setMemberRoles(
-					community().community.uri,
-					props.member.did,
-					memberRoles(),
-				);
-				lastSent = gen;
-				// The xrpc wrapper swallows errors and returns undefined; on failure
-				// resync the authoritative state and stop.
-				if (res === undefined) {
-					community().utils.refetch();
-					return;
-				}
-			}
-		} finally {
-			syncing = false;
-			// A toggle may have slipped in during the final await/teardown.
-			if (pending !== lastSent) void flush();
-		}
-	};
-
-	const toggleRole = (uri: string) => {
-		const current = memberRoles();
-		community().utils.setRolesForUser(
-			props.member.did,
-			current.includes(uri)
-				? current.filter((r) => r !== uri)
-				: [...current, uri],
-		);
-		pending++;
-		void flush();
-	};
+	const { hasRole, toggleRole } = createRoleSync({
+		did: () => props.member.did,
+	});
 
 	const isMe = () => props.member.did === user.did;
 	const showModActions = () => outranks(user.did, props.member.did) && !isMe();

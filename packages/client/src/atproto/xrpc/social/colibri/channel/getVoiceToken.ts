@@ -6,12 +6,12 @@ type Response = {
 };
 
 export const getVoiceToken: XrpcRequest<
-	[string, string],
+	[string],
 	Promise<Response | undefined>
-> = async (fetch, channel, auth) => {
+> = async (fetch, channel) => {
 	try {
 		const res = await fetch(
-			`/xrpc/social.colibri.channel.getVoiceToken?channel=${encodeURIComponent(channel)}&auth=${auth}`,
+			`/xrpc/social.colibri.channel.getVoiceToken?channel=${encodeURIComponent(channel)}`,
 			{ method: "POST" },
 		);
 		return res.json();

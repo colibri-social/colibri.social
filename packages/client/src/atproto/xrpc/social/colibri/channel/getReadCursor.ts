@@ -7,12 +7,12 @@ type Response = {
 };
 
 export const getReadCursor: XrpcRequest<
-	[string, string],
+	[string],
 	Promise<Response | undefined>
-> = async (fetch, channel, auth) => {
+> = async (fetch, channel) => {
 	try {
 		const res = await fetch(
-			`/xrpc/social.colibri.channel.getReadCursor?channel=${channel}&auth=${auth}`,
+			`/xrpc/social.colibri.channel.getReadCursor?channel=${channel}`,
 		);
 
 		return res.json();

@@ -11,12 +11,12 @@ export type EmbedMetadata = {
 };
 
 export const getMetadata: XrpcRequest<
-	[string, string],
+	[string],
 	Promise<EmbedMetadata | undefined>
-> = async (fetch, uri, auth) => {
+> = async (fetch, uri) => {
 	try {
 		const res = await fetch(
-			`/xrpc/social.colibri.embed.getMetadata?uri=${encodeURIComponent(uri)}&auth=${auth}`,
+			`/xrpc/social.colibri.embed.getMetadata?uri=${encodeURIComponent(uri)}`,
 		);
 
 		if (!res.ok) return undefined;
