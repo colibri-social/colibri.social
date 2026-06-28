@@ -189,7 +189,9 @@ export function RecordBootstrapModal<T>(props: {
 
 	const footerStart = () => (
 		<Show when={props.config.footerStart}>
-			<div class="sm:mr-auto">{props.config.footerStart}</div>
+			<div class="w-full [&>button]:w-full sm:[&>button]:w-fit sm:w-fit sm:mr-auto">
+				{props.config.footerStart}
+			</div>
 		</Show>
 	);
 
@@ -207,7 +209,10 @@ export function RecordBootstrapModal<T>(props: {
 	return (
 		<Dialog open={props.open} onOpenChange={handleOpenChange}>
 			<DialogPortal>
-				<DialogContent class="sm:max-w-2xl" showCloseButton={dismissible()}>
+				<DialogContent
+					class="sm:max-w-2xl max-h-[calc(100svh-2rem)] overflow-auto"
+					showCloseButton={dismissible()}
+				>
 					<DialogHeader>
 						<h2 class="m-0 text-center">{props.config.title}</h2>
 					</DialogHeader>
@@ -215,7 +220,7 @@ export function RecordBootstrapModal<T>(props: {
 						<Match when={step() === "choice"}>
 							<div class="flex flex-row items-center justify-center w-full gap-4">
 								<RadioGroup value={path()} onChange={setPath}>
-									<RadioGroupItems>
+									<RadioGroupItems class="md:flex-row flex-col">
 										<Show when={props.config.importSource}>
 											{(source) => (
 												<RadioGroupItem value={IMPORT}>

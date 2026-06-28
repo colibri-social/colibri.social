@@ -98,7 +98,7 @@ export const LoginScreen: Component = () => {
 				</div>
 				<div class="relative w-full mt-4">
 					<hr class="bg-border w-full h-px border-none m-0" />
-					<small class="text-muted-foreground bg-card absolute top-1/2 left-1/2 transform -translate-1/2 px-2">
+					<small class="text-muted-foreground bg-card absolute top-1/2 left-1/2 transform -translate-1/2 px-2 whitespace-nowrap">
 						ENTER YOUR HANDLE
 					</small>
 				</div>
@@ -163,7 +163,7 @@ export const LoginScreen: Component = () => {
 				</div>
 				<div class="relative w-full mt-4">
 					<hr class="bg-border w-full h-px border-none m-0" />
-					<small class="text-muted-foreground bg-card absolute top-1/2 left-1/2 transform -translate-1/2 px-2">
+					<small class="text-muted-foreground bg-card absolute top-1/2 left-1/2 transform -translate-1/2 px-2 whitespace-nowrap">
 						DON'T HAVE AN ACCOUNT?
 					</small>
 				</div>
@@ -178,7 +178,7 @@ export const LoginScreen: Component = () => {
 					!
 				</span>
 			</div>
-			<div class="flex flex-row items-center justify-center text-muted-foreground w-full max-w-xl gap-4 text-sm">
+			<div class="flex flex-row items-center justify-center text-muted-foreground w-full max-w-xl gap-4 text-sm flex-wrap">
 				<span>Open source</span>
 				<span class="w-1 h-1 rounded-full bg-muted-foreground"></span>
 				<span>EU-based</span>
