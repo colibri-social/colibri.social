@@ -69,13 +69,13 @@ export const GeneralPage: Component = () => {
 			? (user.data.banner ?? undefined)
 			: undefined;
 
-	const initialTheme = JSON.stringify(themeStateToRecord(theme()) ?? null);
+	const initialTheme = JSON.stringify(themeStateToRecord(theme()));
 
 	const hasEdited = (): boolean =>
 		name() !== user.data.displayName ||
 		description() !== (user.data.description ?? "") ||
 		syncBluesky() !== (user.data.syncBluesky ?? false) ||
-		JSON.stringify(themeStateToRecord(theme()) ?? null) !== initialTheme ||
+		JSON.stringify(themeStateToRecord(theme())) !== initialTheme ||
 		imageRemoved() ||
 		bannerRemoved() ||
 		image() !== undefined ||
@@ -92,11 +92,6 @@ export const GeneralPage: Component = () => {
 			const repo = user.did;
 			const sync = syncBluesky();
 
-			// Profile now lives in Colibri's own `social.colibri.actor.profile`
-			// record — we never touch the Bluesky record, so editing a profile no
-			// longer requires escalated account permissions (see issue #31). Read
-			// the current record first to preserve any fields this form doesn't
-			// manage.
 			let record: Record<string, unknown> = {};
 			try {
 				const res = await agent.com.atproto.repo.getRecord({
@@ -112,8 +107,7 @@ export const GeneralPage: Component = () => {
 			record.syncBluesky = sync;
 
 			const themeRecord = themeStateToRecord(theme());
-			if (themeRecord) record.theme = themeRecord;
-			else record.theme = undefined;
+			record.theme = themeRecord;
 
 			const patch: Partial<typeof user.data> = {
 				syncBluesky: sync,
@@ -203,7 +197,7 @@ export const GeneralPage: Component = () => {
 			onSave={saveProfile}
 			onReset={resetEdits}
 		>
-			<div class="w-full flex flex-col rounded-2xl border border-border bg-card text-foreground overflow-hidden relative">
+			<div class="w-full shrink-0 flex flex-col rounded-2xl border border-border bg-card text-foreground overflow-hidden relative">
 				<FileField
 					class="items-start absolute w-full aspect-3/1 h-auto"
 					onFileChange={setBanner}
@@ -311,6 +305,8 @@ export const GeneralPage: Component = () => {
 							type="text"
 							required
 							disabled={syncBluesky()}
+							class="font-bold"
+							style={{ color: theme().accentColor }}
 						/>
 					</TextField>
 					<TextField
@@ -324,7 +320,7 @@ export const GeneralPage: Component = () => {
 					>
 						<TextFieldLabel>Bio</TextFieldLabel>
 						<TextFieldTextArea
-							rows={10}
+							rows={9}
 							maxLength={256}
 							required
 							disabled={syncBluesky()}
@@ -335,7 +331,7 @@ export const GeneralPage: Component = () => {
 			</div>
 
 			<Toggle
-				class="flex flex-row gap-4 items-center w-full justify-between mt-4"
+				class="flex flex-row gap-4 items-center w-full justify-between mt-4 shrink-0"
 				checked={syncBluesky()}
 				onChange={setSyncBluesky}
 			>
@@ -354,7 +350,7 @@ export const GeneralPage: Component = () => {
 				</div>
 			</Toggle>
 
-			<div class="mt-4">
+			<div class="mt-4 shrink-0">
 				<ThemeControls state={theme()} setState={patchTheme} />
 			</div>
 		</SettingsPage>

@@ -1,12 +1,13 @@
 import type { ProfileTheme } from "@colibri-social/lib";
-import { type Component, Show } from "solid-js";
+import type { Component } from "solid-js";
+import { ColorPicker } from "../../ui/ColorPicker";
 import {
-	SwitchControl,
-	SwitchInput,
-	SwitchLabel,
-	SwitchThumb,
-	Switch as Toggle,
-} from "../../ui/Switch";
+	Tabs,
+	TabsContent,
+	TabsIndicator,
+	TabsList,
+	TabsTrigger,
+} from "../../ui/Tabs";
 
 /**
  * Local editing state for the Colibri-only profile theme
@@ -14,7 +15,6 @@ import {
  * and the settings editor so the controls + (de)serialization stay in one place.
  */
 export type ThemeState = {
-	customizeTheme: boolean;
 	accentColor: string;
 	bannerColor: string;
 	useGradient: boolean;
@@ -22,12 +22,11 @@ export type ThemeState = {
 	gradientSecondary: string;
 };
 
-export const DEFAULT_ACCENT = "#6d5ae6";
+export const DEFAULT_ACCENT = "#ffffff";
 export const DEFAULT_BANNER = "#11111b";
 export const DEFAULT_GRADIENT_SECONDARY = "#e64980";
 
 export const emptyThemeState = (): ThemeState => ({
-	customizeTheme: false,
 	accentColor: DEFAULT_ACCENT,
 	bannerColor: DEFAULT_BANNER,
 	useGradient: false,
@@ -39,7 +38,6 @@ export const emptyThemeState = (): ThemeState => ({
 export const themeStateFromTheme = (theme?: ProfileTheme): ThemeState => {
 	if (!theme) return emptyThemeState();
 	return {
-		customizeTheme: true,
 		accentColor: theme.accentColor ?? DEFAULT_ACCENT,
 		bannerColor: theme.bannerColor ?? DEFAULT_BANNER,
 		useGradient: theme.gradient !== undefined,
@@ -48,9 +46,8 @@ export const themeStateFromTheme = (theme?: ProfileTheme): ThemeState => {
 	};
 };
 
-/** Serializes the editing state into a record `theme` object, or `undefined`. */
-export const themeStateToRecord = (s: ThemeState): ProfileTheme | undefined => {
-	if (!s.customizeTheme) return undefined;
+/** Serializes the editing state into a record `theme` object. */
+export const themeStateToRecord = (s: ThemeState): ProfileTheme => {
 	const theme: ProfileTheme = {
 		accentColor: s.accentColor,
 		bannerColor: s.bannerColor,
@@ -69,81 +66,61 @@ const ColorRow: Component<{
 	value: string;
 	onChange: (value: string) => void;
 }> = (props) => (
-	<label class="flex flex-row items-center justify-between text-sm">
+	<div class="flex flex-row items-center justify-between gap-3 text-sm">
 		<span>{props.label}</span>
-		<input
-			type="color"
-			value={props.value}
-			onInput={(e) => props.onChange(e.currentTarget.value)}
-			class="h-8 w-12 rounded border border-border bg-transparent"
-		/>
-	</label>
+		<ColorPicker value={props.value} onChange={props.onChange} />
+	</div>
 );
 
-/** The theming controls (accent / banner color + optional gradient). */
+/**
+ * The theming controls: an accent color (applied to the display name) plus the
+ * banner background, which is either a solid fallback color or a gradient —
+ * chosen via tabs. The active tab drives {@link ThemeState.useGradient}.
+ */
 export const ThemeControls: Component<{
 	state: ThemeState;
 	setState: (patch: Partial<ThemeState>) => void;
 }> = (props) => (
-	<div class="w-full flex flex-col gap-3">
-		<Toggle
-			class="flex flex-row gap-4 items-center w-full justify-between"
-			checked={props.state.customizeTheme}
-			onChange={(c) => props.setState({ customizeTheme: c })}
+	<div class="w-full flex flex-col gap-3 rounded-md border border-border p-3">
+		<ColorRow
+			label="Name color"
+			value={props.state.accentColor}
+			onChange={(v) => props.setState({ accentColor: v })}
+		/>
+		<Tabs
+			value={props.state.useGradient ? "gradient" : "solid"}
+			onChange={(v) => props.setState({ useGradient: v === "gradient" })}
 		>
-			<SwitchLabel>Customize appearance</SwitchLabel>
-			<div>
-				<SwitchInput />
-				<SwitchControl>
-					<SwitchThumb />
-				</SwitchControl>
-			</div>
-		</Toggle>
-
-		<Show when={props.state.customizeTheme}>
-			<div class="w-full flex flex-col gap-3 rounded-md border border-border p-3">
+			<TabsList class="w-full">
+				<TabsTrigger value="solid">Solid color</TabsTrigger>
+				<TabsTrigger value="gradient">Gradient</TabsTrigger>
+				<TabsIndicator />
+			</TabsList>
+			<TabsContent value="solid" class="pt-2">
 				<ColorRow
-					label="Accent color"
-					value={props.state.accentColor}
-					onChange={(v) => props.setState({ accentColor: v })}
-				/>
-				<ColorRow
-					label="Banner fallback color"
+					label="Banner color"
 					value={props.state.bannerColor}
 					onChange={(v) => props.setState({ bannerColor: v })}
 				/>
-				<Toggle
-					class="flex flex-row gap-4 items-center w-full justify-between"
-					checked={props.state.useGradient}
-					onChange={(c) => props.setState({ useGradient: c })}
-				>
-					<SwitchLabel>Use a gradient theme</SwitchLabel>
-					<div>
-						<SwitchInput />
-						<SwitchControl>
-							<SwitchThumb />
-						</SwitchControl>
+			</TabsContent>
+			<TabsContent value="gradient" class="pt-2">
+				<div class="flex flex-col gap-4">
+					<div class="flex-1">
+						<ColorRow
+							label="Primary"
+							value={props.state.gradientPrimary}
+							onChange={(v) => props.setState({ gradientPrimary: v })}
+						/>
 					</div>
-				</Toggle>
-				<Show when={props.state.useGradient}>
-					<div class="flex flex-row gap-4">
-						<div class="flex-1">
-							<ColorRow
-								label="Primary"
-								value={props.state.gradientPrimary}
-								onChange={(v) => props.setState({ gradientPrimary: v })}
-							/>
-						</div>
-						<div class="flex-1">
-							<ColorRow
-								label="Secondary"
-								value={props.state.gradientSecondary}
-								onChange={(v) => props.setState({ gradientSecondary: v })}
-							/>
-						</div>
+					<div class="flex-1">
+						<ColorRow
+							label="Secondary"
+							value={props.state.gradientSecondary}
+							onChange={(v) => props.setState({ gradientSecondary: v })}
+						/>
 					</div>
-				</Show>
-			</div>
-		</Show>
+				</div>
+			</TabsContent>
+		</Tabs>
 	</div>
 );

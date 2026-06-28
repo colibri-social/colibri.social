@@ -13,9 +13,10 @@
 		"build": "tsgo --build"
 	},
 	"devDependencies": {
-		"@atproto/api": "^0.18.21",
-		"@atproto/lexicon": "^0.6.1",
+		"@atproto/api": "^0.20.22",
+		"@atproto/lexicon": "^0.7.3",
+		"@atproto/oauth-client-browser": "^0.4.3",
 		"@types/node": "^25.6.0",
-		"@typescript/native-preview": "7.0.0-dev.20260607.1"
+		"@typescript/native-preview": "7.0.0-dev.20260627.2"
 	}
 }

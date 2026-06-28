@@ -8,7 +8,12 @@ export const displayableNameFn = (user: ActorData) =>
 
 export const DisplayableName: Component<{
 	user: ActorData;
-	color?: boolean;
+	/**
+	 * Name color: `false` disables coloring, a string forces that exact color
+	 * (e.g. a profile's accent on its popover), and anything else falls back to
+	 * the user's top role color.
+	 */
+	color?: boolean | string;
 }> = (props) => {
 	const community = useCommunityContext();
 
@@ -23,11 +28,15 @@ export const DisplayableName: Component<{
 		);
 	};
 
+	const resolvedColor = () => {
+		if (props.color === false) return undefined;
+		if (typeof props.color === "string") return props.color;
+		return getTopMemberRoleColor();
+	};
+
 	return (
 		<span
-			style={{
-				color: props.color === false ? undefined : getTopMemberRoleColor(),
-			}}
+			style={{ color: resolvedColor() }}
 			class="inline-flex flex-row items-center gap-2"
 		>
 			{displayableNameFn(props.user)}

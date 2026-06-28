@@ -37,6 +37,7 @@ import type {
 import type { Applicant } from "../atproto/xrpc/social/colibri/community/listApplications";
 import type { Category } from "../atproto/xrpc/social/colibri/community/listCategories";
 import type { Channel } from "../atproto/xrpc/social/colibri/community/listChannels";
+import type { Member } from "../atproto/xrpc/social/colibri/community/listMembers";
 import type { Role } from "../atproto/xrpc/social/colibri/community/listRoles";
 import { AppLoadingScreen } from "../components/AppLoadingScreen";
 import { AtURI } from "../utils/at-uri";
@@ -55,6 +56,7 @@ type CommunityContextData = CommunityResponse & {
 		patchChannel: (uri: string, patch: Partial<Channel>) => void;
 		patchCategory: (uri: string, patch: Partial<Category>) => void;
 		patchCommunity: (patch: Partial<CommunityData>) => void;
+		patchMember: (did: string, patch: Partial<Member["data"]>) => void;
 		refetch: () => void;
 		refetchApplications: () => void;
 	};
@@ -535,6 +537,18 @@ export const CommunityContextProvider: ParentComponent = (props) => {
 		mutate({ ...prev, community: { ...prev.community, ...patch } });
 	};
 
+	// Optimistically patch a member's profile/presence data
+	const patchMember = (did: string, patch: Partial<Member["data"]>) => {
+		const prev = community.latest;
+		if (!prev || !prev.members.some((m) => m.did === did)) return;
+		mutate({
+			...prev,
+			members: prev.members.map((m) =>
+				m.did === did ? { ...m, data: { ...m.data, ...patch } } : m,
+			),
+		});
+	};
+
 	const ownerRole = () =>
 		(community.latest?.roles ?? []).find((x) => x.protected)!;
 
@@ -553,6 +567,7 @@ export const CommunityContextProvider: ParentComponent = (props) => {
 			patchChannel,
 			patchCategory,
 			patchCommunity,
+			patchMember,
 			refetch: () => void refetch(),
 			refetchApplications: () => void refetchApplications(),
 		},

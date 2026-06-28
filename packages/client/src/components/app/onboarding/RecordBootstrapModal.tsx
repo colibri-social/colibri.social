@@ -78,15 +78,30 @@ export interface RecordBootstrapConfig<T> {
 	scratch: RecordBootstrapScratch<T>;
 	/** Renders the confirm/edit step for the collected field values. */
 	renderFields: (props: RecordBootstrapRenderProps<T>) => JSX.Element;
+	/**
+	 * Optional second edit step shown after the fields (e.g. theming). When
+	 * present, the fields step advances to it instead of submitting directly.
+	 */
+	extraStep?: {
+		render: (props: RecordBootstrapRenderProps<T>) => JSX.Element;
+		/** Label for the button that advances from the fields step. */
+		nextLabel?: string;
+	};
 	/** Persists the record. Receives the final values and the sync choice. */
 	submit: (value: T, opts: { sync: boolean }) => Promise<void>;
 	submitLabel?: string;
+	/**
+	 * Optional element rendered at the start (left) of every step's footer,
+	 * separated from the primary actions. Useful for secondary actions like
+	 * logging out of an undismissable onboarding flow.
+	 */
+	footerStart?: JSX.Element;
 }
 
 const IMPORT = "import";
 const SCRATCH = "scratch";
 
-type Step = "choice" | "loading" | "confirm";
+type Step = "choice" | "loading" | "confirm" | "extra";
 
 export function RecordBootstrapModal<T>(props: {
 	config: RecordBootstrapConfig<T>;
@@ -113,6 +128,16 @@ export function RecordBootstrapModal<T>(props: {
 
 	const setValue = (patch: Partial<T>) =>
 		setVal((prev) => ({ ...(prev as T), ...patch }) as T);
+
+	const renderProps: RecordBootstrapRenderProps<T> = {
+		get value() {
+			return value() as T;
+		},
+		setValue,
+		get syncing() {
+			return syncing();
+		},
+	};
 
 	const handleOpenChange = (open: boolean) => {
 		// A non-dismissible dialog ignores user-initiated closes; only the flow
@@ -162,10 +187,27 @@ export function RecordBootstrapModal<T>(props: {
 	const showSyncToggle = () =>
 		path() === IMPORT && props.config.importSource?.supportsSync === true;
 
+	const footerStart = () => (
+		<Show when={props.config.footerStart}>
+			<div class="sm:mr-auto">{props.config.footerStart}</div>
+		</Show>
+	);
+
+	const submitButton = () => (
+		<Button onClick={save} disabled={submitting()}>
+			<SwitchFlow>
+				<Match when={submitting()}>
+					<Spinner className="w-4 h-4 animate-spin" />
+				</Match>
+				<Match when={!submitting()}>{props.config.submitLabel ?? "Save"}</Match>
+			</SwitchFlow>
+		</Button>
+	);
+
 	return (
 		<Dialog open={props.open} onOpenChange={handleOpenChange}>
 			<DialogPortal>
-				<DialogContent class="w-lg" showCloseButton={dismissible()}>
+				<DialogContent class="sm:max-w-2xl" showCloseButton={dismissible()}>
 					<DialogHeader>
 						<h2 class="m-0 text-center">{props.config.title}</h2>
 					</DialogHeader>
@@ -183,7 +225,9 @@ export function RecordBootstrapModal<T>(props: {
 														<strong class="w-full text-lg">
 															{source().label}
 														</strong>
-														<span>{source().description}</span>
+														<span class="font-normal">
+															{source().description}
+														</span>
 													</RadioGroupItemLabel>
 												</RadioGroupItem>
 											)}
@@ -195,13 +239,16 @@ export function RecordBootstrapModal<T>(props: {
 												<strong class="w-full text-lg">
 													{props.config.scratch.label}
 												</strong>
-												<span>{props.config.scratch.description}</span>
+												<span class="font-normal">
+													{props.config.scratch.description}
+												</span>
 											</RadioGroupItemLabel>
 										</RadioGroupItem>
 									</RadioGroupItems>
 								</RadioGroup>
 							</div>
 							<DialogFooter>
+								{footerStart()}
 								<Show when={dismissible()}>
 									<Button
 										variant="secondary"
@@ -223,11 +270,7 @@ export function RecordBootstrapModal<T>(props: {
 						</Match>
 						<Match when={step() === "confirm" && value() !== undefined}>
 							<div class="flex flex-col items-center justify-center w-full gap-4">
-								{props.config.renderFields({
-									value: value() as T,
-									setValue,
-									syncing: syncing(),
-								})}
+								{props.config.renderFields(renderProps)}
 								<Show when={showSyncToggle()}>
 									<Switch
 										class="flex flex-row gap-4 items-center w-full justify-between"
@@ -253,6 +296,7 @@ export function RecordBootstrapModal<T>(props: {
 								</Show>
 							</div>
 							<DialogFooter>
+								{footerStart()}
 								<Show when={props.config.importSource}>
 									<Button
 										variant="secondary"
@@ -262,16 +306,29 @@ export function RecordBootstrapModal<T>(props: {
 										Back
 									</Button>
 								</Show>
-								<Button onClick={save} disabled={submitting()}>
-									<SwitchFlow>
-										<Match when={submitting()}>
-											<Spinner className="w-4 h-4 animate-spin" />
-										</Match>
-										<Match when={!submitting()}>
-											{props.config.submitLabel ?? "Save"}
-										</Match>
-									</SwitchFlow>
+								<Show when={props.config.extraStep} fallback={submitButton()}>
+									{(extra) => (
+										<Button onClick={() => setStep("extra")}>
+											{extra().nextLabel ?? "Next"}
+										</Button>
+									)}
+								</Show>
+							</DialogFooter>
+						</Match>
+						<Match when={step() === "extra" && value() !== undefined}>
+							<div class="flex flex-col items-center justify-center w-full gap-4">
+								{props.config.extraStep?.render(renderProps)}
+							</div>
+							<DialogFooter>
+								{footerStart()}
+								<Button
+									variant="secondary"
+									disabled={submitting()}
+									onClick={() => setStep("confirm")}
+								>
+									Back
 								</Button>
+								{submitButton()}
 							</DialogFooter>
 						</Match>
 					</SwitchFlow>

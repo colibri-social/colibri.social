@@ -1,4 +1,6 @@
 import { createEffect, createSignal, Show, type Component } from "solid-js";
+import { useAuthContext } from "../../../contexts/Auth";
+import { useUserContext } from "../../../contexts/User";
 import { useUserPreferences } from "../../../contexts/UserPreferences";
 import {
 	Select,
@@ -32,6 +34,8 @@ import { Alert, AlertDescription, AlertTitle } from "../../ui/Alert";
 
 export const PreferencesPage: Component = () => {
 	const userPreferences = useUserPreferences();
+	const auth = useAuthContext();
+	const user = useUserContext();
 	const [appView, setAppView] = createSignal(
 		userPreferences.preferences().preferredAppView,
 	);
@@ -42,7 +46,7 @@ export const PreferencesPage: Component = () => {
 			(alt) => alt.id === userPreferences.preferences().preferredBlueskyClient,
 		);
 
-	const saveAppViewAndReload = async () => {
+	const saveAppViewAndReauth = async () => {
 		if (saving()) return;
 
 		const url = normalizeAppViewUrl(appView());
@@ -68,13 +72,19 @@ export const PreferencesPage: Component = () => {
 		userPreferences.setPreferredAppView(url);
 
 		toast.success(
-			`Connected to Colibri AppView (${description.flavor}) v${description.version}. `,
-			{ id: toastId, description: "Reloading in 3 seconds…" },
+			`Connected to Colibri AppView (${description.flavor}) v${description.version}.`,
+			{
+				id: toastId,
+				description: "Signing you in again to authorise the new AppView…",
+			},
 		);
 
-		setTimeout(() => {
-			window.location.reload();
-		}, 3000);
+		try {
+			await auth?.client.revoke(user.did);
+		} finally {
+			localStorage.removeItem("sub");
+			window.location.href = "/app/login";
+		}
 	};
 
 	createEffect(
@@ -133,7 +143,8 @@ export const PreferencesPage: Component = () => {
 				<TextFieldDescription>
 					The AppView you want to connect to. The AppView is responsible for
 					relaying the messages sent in communities back to your device (the
-					server).{" "}
+					server). Switching AppViews signs you out and back in, since each
+					AppView needs its own authorisation.{" "}
 					<Show when={import.meta.env.DEV}>
 						<Alert variant="info" class="my-4">
 							<AlertTitle>Development Mode</AlertTitle>
@@ -161,9 +172,9 @@ export const PreferencesPage: Component = () => {
 					/>
 					<Button
 						disabled={invalidAppViewUrl() || saving()}
-						onClick={saveAppViewAndReload}
+						onClick={saveAppViewAndReauth}
 					>
-						Save & Reload
+						Save & Sign in
 					</Button>
 				</div>
 			</TextField>

@@ -8,7 +8,7 @@ import {
 	type ParentComponent,
 	useContext,
 } from "solid-js";
-import { getAppViewHost } from "../utils/appview";
+import { getAppViewHost, getAppViewServiceRef } from "../utils/appview";
 import { useAuthContext } from "./Auth";
 
 export type SocketContextValue = {
@@ -48,11 +48,7 @@ export const SocketContextProvider: ParentComponent = (props) => {
 
 		try {
 			const { data } = await auth.agent.com.atproto.server.getServiceAuth({
-				// Service-reference audience (DID + `#service`): OAuth rpc permissions
-				// match the aud by exact string equality, so a bare DID is rejected.
-				// `subscribeEvents` lives in the account permission set, which is
-				// granted for the AppView (`#colibri_appview`).
-				aud: "did:web:api.colibri.social#colibri_appview",
+				aud: getAppViewServiceRef(),
 				lxm: "social.colibri.sync.subscribeEvents",
 				// 60-second token — we generate a fresh one on every (re)connect
 				exp: Math.floor(Date.now() / 1000) + 60,

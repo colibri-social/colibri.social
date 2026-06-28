@@ -32,11 +32,11 @@ export const PERMISSION_SET_IDs: Record<
 	string,
 	`${string}.${string}.${string}`
 > = {
-	PERMISSION_ACCOUNT: "social.colibri.permission.account",
-	PERMISSION_COMMUNITY: "social.colibri.permission.community",
-	PERMISSION_MESSAGING: "social.colibri.permission.messaging",
-	PERMISSION_NOTIFICATION: "social.colibri.permission.notification",
-	PERMISSION_PUSH: "social.colibri.permission.push",
+	PERMISSION_ACCOUNT: "social.colibri.permissionAccount",
+	PERMISSION_COMMUNITY: "social.colibri.permissionCommunity",
+	PERMISSION_MESSAGING: "social.colibri.permissionMessaging",
+	PERMISSION_NOTIFICATION: "social.colibri.permissionNotification",
+	PERMISSION_PUSH: "social.colibri.permissionPush",
 };
 
 export const LEXICON_DOCS: LexiconDoc[] = [];
@@ -1379,8 +1379,7 @@ lex.add(
 			main: {
 				type: "permission-set",
 				title: "Notifications",
-				detail:
-					"Read your notifications and mark them as seen.",
+				detail: "Read your notifications and mark them as seen.",
 				permissions: [
 					{
 						type: "permission",
@@ -1409,12 +1408,6 @@ lex.add(
 				type: "permission-set",
 				title: "Push notifications",
 				detail: "Manage your push notification subscriptions.",
-				// Served by the notification service, so this set is granted for
-				// `#colibri_notif`. The notification *feed* reads live in the
-				// separate `social.colibri.permission.notification` set, which is
-				// served by the AppView (`#colibri_appview`). Splitting them keeps
-				// each set bound to a single audience — rpc permissions match the
-				// aud by exact string equality.
 				permissions: [
 					{
 						type: "permission",

@@ -11,6 +11,12 @@ export function Avatar(props: {
 	user: ActorData;
 	size?: "small" | "base" | "large";
 	disableState?: boolean;
+	/**
+	 * Explicit image source, taking precedence over the resolved blob. Used to
+	 * preview a not-yet-uploaded avatar (e.g. a local object URL during
+	 * onboarding) where the actor has no stored blob ref yet.
+	 */
+	overrideSrc?: string;
 }) {
 	return (
 		<div
@@ -18,7 +24,9 @@ export function Avatar(props: {
 		>
 			<img
 				src={
-					resolveBlob(props.user.did, props.user.data.avatar) || FALLBACK_AVATAR
+					props.overrideSrc ||
+					resolveBlob(props.user.did, props.user.data.avatar) ||
+					FALLBACK_AVATAR
 				}
 				alt={props.user.data.displayName}
 				onError={(e) => (e.currentTarget.src = FALLBACK_AVATAR)}

@@ -130,11 +130,8 @@ export class XrpcClient {
 	 * @param lxm The method the auth token is scoped to.
 	 */
 	private authed(base: ProxiedFetchFn, lxm: string): ProxiedFetchFn {
-		// The token's audience must match the service the request is proxied to:
-		// the notification service for `notifFetch`, the AppView otherwise. Both
-		// proxy headers are already service references (DID + `#service`), so they
-		// double as the `aud` the granting permission set must be `include:`d under.
-		const aud = base === this.notifFetch ? this.notifProxyHeader : this.proxyHeader;
+		const aud =
+			base === this.notifFetch ? this.notifProxyHeader : this.proxyHeader;
 		return async (xrpcRoute, init) => {
 			const token = await this.generateServiceAuthToken(lxm, aud);
 			if (!token) return base(xrpcRoute, init);

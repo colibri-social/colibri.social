@@ -5,7 +5,9 @@ import {
 	type ActorTypeaheadResult,
 	searchActorsTypeahead,
 } from "../atproto/xrpc/app/bsky/actor/searchActorsTypeahead";
+import { buildScopes } from "../atproto/scopes";
 import { useAuthContext } from "../contexts/Auth";
+import { getAppViewDid } from "../utils/appview";
 import { Spinner } from "./icons/Spinner";
 import { ATmosphereAppMarquee } from "./login/ATmosphereAppMarquee";
 import { Button } from "./ui/Button";
@@ -65,6 +67,7 @@ export const LoginScreen: Component = () => {
 		try {
 			await auth.client.signIn(handle(), {
 				signal: new AbortController().signal,
+				scope: buildScopes(getAppViewDid()).join(" "),
 			});
 		} catch (err) {
 			console.error(err);

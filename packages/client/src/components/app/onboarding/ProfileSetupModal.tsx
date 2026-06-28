@@ -1,18 +1,27 @@
 import type { JsonBlobRef } from "@atproto/lexicon";
 import type { Details } from "@kobalte/core/file-field";
-import { type Component, type JSX, Match, Show, Switch } from "solid-js";
+import {
+	type Component,
+	createMemo,
+	type JSX,
+	Match,
+	onCleanup,
+	Switch,
+} from "solid-js";
+import ArrowLineLeftIcon from "~icons/ph/arrow-line-left";
 import { putRecord, uploadBlob } from "../../../atproto/pds";
 import { resolveBlob } from "../../../atproto/resolve-blob";
+import { useAuthContext } from "../../../contexts/Auth";
 import { useUserContext } from "../../../contexts/User";
+import { isWebRuntime } from "../../../notifications";
+import { unsubscribeWebPush } from "../../../notifications/push-web";
 import { Bluesky } from "../../icons/Bluesky";
 import { Image } from "../../icons/Image";
+import { Button } from "../../ui/Button";
 import {
 	FileField,
 	FileFieldDropzone,
 	FileFieldHiddenInput,
-	FileFieldItem,
-	FileFieldItemList,
-	FileFieldItemPreviewImage,
 	FileFieldTrigger,
 } from "../../ui/FileField";
 import {
@@ -79,9 +88,52 @@ const PreviewCard: Component<{ accent: boolean; icon: () => JSX.Element }> = (
 	</div>
 );
 
-/** The confirm/edit step. Mirrors the profile fields from the settings page. */
+/**
+ * Reactive object URL for an unsaved file, revoked as the file changes and on
+ * unmount so blob URLs don't leak.
+ */
+const useObjectUrl = (
+	file: () => Details | undefined,
+): (() => string | undefined) => {
+	const url = createMemo<string | undefined>((prev) => {
+		if (prev) URL.revokeObjectURL(prev);
+		const f = file()?.acceptedFiles[0];
+		return f ? URL.createObjectURL(f) : undefined;
+	});
+
+	onCleanup(() => {
+		const current = url();
+		if (current) URL.revokeObjectURL(current);
+	});
+
+	return url;
+};
+
+/**
+ * Renders a preview of a locally-selected file. Unlike Kobalte's
+ * `FileFieldItemPreviewImage` (which reads the `FileField`'s internal
+ * accepted-files state), this draws straight from the stored {@link Details},
+ * so the preview survives remounts — e.g. stepping forward to the appearance
+ * step and back.
+ */
+const LocalPreviewImage: Component<{
+	file: Details;
+	alt: string;
+	class?: string;
+}> = (props) => {
+	const url = useObjectUrl(() => props.file);
+	return <img src={url()} alt={props.alt} class={props.class} />;
+};
+
+/**
+ * The editable profile card. It doubles as a live preview: the banner dropzone
+ * shows the themed background (gradient or solid fallback color) behind any
+ * uploaded image, and the display name is tinted with the accent color — so
+ * editing the theme on the side updates this card in place.
+ */
 const ProfileFieldsForm: Component<{
 	did: string;
+	handle: string;
 	value: ProfileFields;
 	setValue: (patch: Partial<ProfileFields>) => void;
 	syncing: boolean;
@@ -95,34 +147,45 @@ const ProfileFieldsForm: Component<{
 			? resolveBlob(props.did, props.value.bannerRef)
 			: undefined;
 
+	console.log(avatarUrl(), bannerUrl());
+
+	// The themed banner background, sitting behind any uploaded image — mirrors
+	// the real profile card's gradient → solid-color priority.
+	const bannerStyle = (): JSX.CSSProperties => {
+		const t = props.value.theme;
+		if (t.useGradient)
+			return {
+				background: `linear-gradient(135deg, ${t.gradientPrimary}, ${t.gradientSecondary})`,
+			};
+		return { background: t.bannerColor };
+	};
+
 	return (
 		<div class="w-full flex flex-col gap-4">
-			<Show when={props.syncing}>
-				<p class="text-sm text-muted-foreground m-0">
-					Your name, avatar, banner and bio stay in sync with Bluesky and can't
-					be edited here. You can still customize your Colibri appearance below.
-				</p>
-			</Show>
-
-			<div class="w-full flex flex-col rounded-2xl border border-border bg-card overflow-hidden relative">
+			<div
+				class="w-full flex flex-col rounded-2xl border border-border bg-card overflow-hidden relative"
+				classList={{
+					"pointer-events-none opacity-50": props.syncing,
+				}}
+			>
 				{/* Banner */}
 				<FileField
 					class="items-start absolute w-full aspect-3/1 h-auto"
 					onFileChange={(d) => props.setValue({ bannerFile: d })}
 					maxFiles={1}
-					disabled={props.syncing}
 				>
-					<FileFieldDropzone class="w-full h-full rounded-none border-none">
-						<FileFieldTrigger class="h-full w-full p-0 bg-muted/25 hover:bg-muted/50 overflow-hidden rounded-none">
+					<FileFieldDropzone class="w-full h-full rounded-none border-none min-h-none">
+						<FileFieldTrigger
+							class="h-full w-full p-0 overflow-hidden rounded-none transition hover:brightness-110"
+							style={bannerStyle()}
+						>
 							<Switch>
 								<Match when={props.value.bannerFile !== undefined}>
-									<FileFieldItemList class="h-full w-full m-0 p-0">
-										{() => (
-											<FileFieldItem class="h-full w-full m-0 p-0 border-none block [&>div]:w-full [&>div]:h-full">
-												<FileFieldItemPreviewImage class="h-full w-full aspect-3/1 self-center object-cover rounded-none" />
-											</FileFieldItem>
-										)}
-									</FileFieldItemList>
+									<LocalPreviewImage
+										file={props.value.bannerFile!}
+										alt="Banner"
+										class="h-full w-full object-cover aspect-3/1 rounded-none"
+									/>
 								</Match>
 								<Match when={bannerUrl() !== undefined}>
 									<img
@@ -132,7 +195,7 @@ const ProfileFieldsForm: Component<{
 									/>
 								</Match>
 								<Match when={true}>
-									<div class="flex flex-col items-center justify-center gap-1">
+									<div class="flex flex-col items-center justify-center gap-1 text-white/90 drop-shadow">
 										<Image className="w-6! h-6!" />
 										<span>Upload banner</span>
 									</div>
@@ -143,25 +206,22 @@ const ProfileFieldsForm: Component<{
 					<FileFieldHiddenInput />
 				</FileField>
 
-				<div class="flex flex-col mt-32 p-4 gap-3">
+				<div class="flex flex-col mt-8.5 p-4 gap-3">
 					{/* Avatar */}
 					<FileField
-						class="items-start"
+						class="items-start w-fit z-40 rounded-full"
 						onFileChange={(d) => props.setValue({ avatarFile: d })}
 						maxFiles={1}
-						disabled={props.syncing}
 					>
 						<FileFieldDropzone class="h-24 w-24 min-h-0 rounded-full">
 							<FileFieldTrigger class="h-24 w-24 p-0 bg-muted/25 hover:bg-muted/50 rounded-full overflow-hidden">
 								<Switch>
 									<Match when={props.value.avatarFile !== undefined}>
-										<FileFieldItemList class="w-24 h-24 m-0 p-0">
-											{() => (
-												<FileFieldItem class="w-24 h-24 m-0 p-0 border-none [&>div]:w-24">
-													<FileFieldItemPreviewImage class="w-24 h-24 object-cover" />
-												</FileFieldItem>
-											)}
-										</FileFieldItemList>
+										<LocalPreviewImage
+											file={props.value.avatarFile!}
+											alt="Avatar"
+											class="w-24 h-24 object-cover"
+										/>
 									</Match>
 									<Match when={avatarUrl() !== undefined}>
 										<img
@@ -190,8 +250,9 @@ const ProfileFieldsForm: Component<{
 						<TextFieldInput
 							maxLength={64}
 							type="text"
-							disabled={props.syncing}
-							placeholder="Your name"
+							placeholder={props.handle.replaceAll("at://", "")}
+							class="font-bold"
+							style={{ color: props.value.theme.accentColor }}
 						/>
 					</TextField>
 
@@ -201,23 +262,14 @@ const ProfileFieldsForm: Component<{
 					>
 						<TextFieldLabel>Bio</TextFieldLabel>
 						<TextFieldTextArea
-							rows={4}
+							rows={9}
 							maxLength={256}
-							disabled={props.syncing}
 							class="resize-none"
 							placeholder="Tell others about yourself"
 						/>
 					</TextField>
 				</div>
 			</div>
-
-			{/* Colibri-only theming */}
-			<ThemeControls
-				state={props.value.theme}
-				setState={(patch) =>
-					props.setValue({ theme: { ...props.value.theme, ...patch } })
-				}
-			/>
 		</div>
 	);
 };
@@ -239,10 +291,31 @@ export const ProfileSetupModal: Component<{
 	onComplete: () => void;
 }> = (props) => {
 	const user = useUserContext();
+	const auth = useAuthContext();
+
+	const logout = async () => {
+		try {
+			if (isWebRuntime()) {
+				await unsubscribeWebPush((endpoint) =>
+					user.xrpc.social.colibri.notification.unregisterPush(endpoint),
+				);
+			}
+			await auth?.client.revoke(user.did);
+		} finally {
+			localStorage.removeItem("sub");
+			window.location.href = "/app/login";
+		}
+	};
 
 	const config: RecordBootstrapConfig<ProfileFields> = {
 		title: "Set up your profile",
 		submitLabel: "Create profile",
+		footerStart: (
+			<Button variant="ghost" onClick={logout}>
+				<ArrowLineLeftIcon />
+				Log out
+			</Button>
+		),
 		importSource: props.hasBlueskyProfile
 			? {
 					label: "Use my Bluesky profile",
@@ -289,19 +362,33 @@ export const ProfileSetupModal: Component<{
 			initial: emptyFields,
 		},
 		renderFields: (p) => (
-			<ProfileFieldsForm
-				did={user.did}
-				value={p.value}
-				setValue={p.setValue}
-				syncing={p.syncing}
-			/>
+			<div class="w-full flex flex-col sm:flex-row gap-6">
+				<div class="sm:w-1/2">
+					<ProfileFieldsForm
+						did={user.did}
+						handle={user.handle.replaceAll("at://", "")}
+						value={p.value}
+						setValue={p.setValue}
+						syncing={p.syncing}
+					/>
+				</div>
+				<div class="sm:w-1/2 flex flex-col gap-2">
+					<h3 class="m-0 text-base font-semibold">Appearance</h3>
+					<ThemeControls
+						state={p.value.theme}
+						setState={(patch) =>
+							p.setValue({ theme: { ...p.value.theme, ...patch } })
+						}
+					/>
+				</div>
+			</div>
 		),
 		submit: async (value, { sync }) => {
 			const { agent } = user.atproto;
 			const record: Record<string, unknown> = { syncBluesky: sync };
 
 			const theme = themeStateToRecord(value.theme);
-			if (theme) record.theme = theme;
+			record.theme = theme;
 
 			let avatar: JsonBlobRef | undefined;
 			let banner: JsonBlobRef | undefined;

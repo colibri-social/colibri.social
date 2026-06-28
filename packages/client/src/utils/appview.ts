@@ -1,7 +1,50 @@
-export const getAppViewHost = (protocol: "ws" | "http") =>
-	import.meta.env.DEV
-		? `${protocol}://127.0.0.1:8000`
-		: `${protocol}s://api.colibri.social`;
+const STORAGE_KEY = "colibri:user-preferences";
+
+/**
+ * The AppView every install talks to until the user points themselves at a
+ * different one. Defined here (rather than imported from the preferences
+ * context) so low-level modules like `auth.ts` can resolve it from module scope
+ * without pulling in Solid. Keep in sync with the default DID in
+ * `atproto/scopes.ts`.
+ */
+export const DEFAULT_APPVIEW_URL = "https://api.colibri.social";
+
+export const getAppViewHost = (protocol: "ws" | "http") => {
+	if (import.meta.env.DEV) return `${protocol}://127.0.0.1:8000`;
+	const { host } = new URL(getPreferredAppViewUrl());
+	return `${protocol === "ws" ? "wss" : "https"}://${host}`;
+};
+
+/**
+ * Reads the user's chosen AppView origin from localStorage, falling back to
+ * {@link DEFAULT_APPVIEW_URL}. Synchronous and side-effect free so it can be
+ * called during auth bootstrap, before any context is mounted.
+ */
+export const getPreferredAppViewUrl = (): string => {
+	try {
+		const raw = localStorage.getItem(STORAGE_KEY);
+		if (!raw) return DEFAULT_APPVIEW_URL;
+		const stored = (JSON.parse(raw) as { preferredAppView?: string })
+			.preferredAppView;
+		return normalizeAppViewUrl(stored ?? "") ?? DEFAULT_APPVIEW_URL;
+	} catch {
+		return DEFAULT_APPVIEW_URL;
+	}
+};
+
+/**
+ * The `did:web` identifier for an AppView, derived from its host. This is the
+ * DID our service-auth `aud`s and OAuth permission-set scopes pin to, so it
+ * must match the DID the AppView publishes in its DID document. Defaults to the
+ * user's chosen AppView.
+ */
+export const getAppViewDid = (
+	url: string = getPreferredAppViewUrl(),
+): string => `did:web:${new URL(url).host.replace(/:/g, "%3A")}`;
+
+/** The `did#service` proxy header / service-auth `aud` for the AppView. */
+export const getAppViewServiceRef = (url?: string): string =>
+	`${getAppViewDid(url)}#colibri_appview`;
 
 /**
  * Normalizes a user-entered AppView URL into a bare origin (e.g.

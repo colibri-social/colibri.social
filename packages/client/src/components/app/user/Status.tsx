@@ -1,13 +1,8 @@
 import type { OnlineState } from "@colibri-social/lib";
 import { ConnectionQuality, ConnectionState } from "livekit-client";
 import {
-	type Accessor,
 	type Component,
-	createEffect,
-	createSignal,
 	Match,
-	on,
-	onCleanup,
 	type ParentComponent,
 	type Setter,
 	Show,
@@ -15,6 +10,7 @@ import {
 	Switch,
 } from "solid-js";
 import PhoneSlashIcon from "~icons/ph/phone-slash";
+import { useCommunityContext } from "../../../contexts/Community";
 import { useUserContext } from "../../../contexts/User";
 import { useVoiceChatContext } from "../../../contexts/VoiceChat";
 import { Camera } from "../../icons/Camera";
@@ -99,6 +95,7 @@ const DropdownStatusSelect: ParentComponent<{
  */
 export const Status: Component = () => {
 	const user = useUserContext();
+	const community = useCommunityContext();
 	const [
 		voiceData,
 		{ disconnect, toggleCamera, toggleScreen, toggleMic, toggleDeafen },
@@ -110,7 +107,9 @@ export const Status: Component = () => {
 		voiceData.connection.state === ConnectionState.Reconnecting ||
 		voiceData.connection.state === ConnectionState.SignalReconnecting;
 
-	const onlineState = () => user.data.onlineState;
+	const liveUser = () => community().members.find((m) => m.did === user.did);
+	const onlineState = (): OnlineState =>
+		liveUser()?.data.onlineState ?? user.data.onlineState;
 
 	return (
 		<div class="w-full h-fit flex flex-col">
@@ -253,21 +252,22 @@ export const Status: Component = () => {
 				</div>
 			</Show>
 			<div class="w-full h-16 flex items-center gap-3 p-3 bg-card">
-				<Avatar user={user} />
+				<Avatar user={liveUser() ?? user} />
 				<div class="flex flex-col">
 					<span class="font-bold leading-5">
-						<User.DisplayableName color={false} user={user} />
+						<User.DisplayableName color={false} user={liveUser() ?? user} />
 					</span>
 					<DropdownStatusSelect
-						value={user.data.onlineState}
+						value={onlineState()}
 						setValue={(e) => {
 							const next = typeof e === "string" ? e : e(onlineState());
 							user.xrpc.social.colibri.actor.setState(next);
 							user.updateActorData({ onlineState: next });
+							community().utils.patchMember(user.did, { onlineState: next });
 						}}
 					>
 						<div class="flex gap-2 items-center text-sm text-muted-foreground hover:underline cursor-pointer">
-							{STATE_LABELS[user.data.onlineState]}
+							{STATE_LABELS[onlineState()]}
 						</div>
 					</DropdownStatusSelect>
 				</div>

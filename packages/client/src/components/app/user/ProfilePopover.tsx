@@ -22,12 +22,27 @@ import {
 	TooltipPortal,
 	TooltipTrigger,
 } from "../../ui/Tooltip";
-import User from ".";
-import { DisplayableName } from "./DisplayableName";
+import { Avatar } from "./Avatar";
+import { DisplayableName, displayableNameFn } from "./DisplayableName";
 import { useCommunityContext } from "../../../contexts/Community";
 import { useUserPreferences } from "../../../contexts/UserPreferences";
 import { getBskyAlternativeClientInfo } from "../../../atproto/bluesky-alternatives";
 import { Dynamic } from "solid-js/web";
+import { cx } from "../../../utils/cva";
+
+/**
+ * Overrides for rendering {@link ProfilePopoverContents} as a self-contained
+ * preview — e.g. first-login onboarding, which sits outside the community and
+ * user-preferences providers and whose avatar/banner may be local, not-yet-
+ * uploaded files. When present, the community-dependent role colors/chips and
+ * the external-client links are suppressed.
+ */
+export interface ProfilePreviewOverride {
+	/** Avatar image URL, taking precedence over the actor's stored blob. */
+	avatarUrl?: string;
+	/** Banner image URL, taking precedence over the actor's stored blob. */
+	bannerUrl?: string;
+}
 
 const MENTION_REGEX = /(?<!\S)@[a-zA-Z0-9._-]+(?:\.[a-zA-Z]{2,})?/gm;
 
@@ -84,20 +99,35 @@ const detectLinksAndMentionsAndFormat = (text: string) => {
 	return modifiedText.replaceAll("\n", "<br>");
 };
 
-export const ProfilePopoverContents: Component<{ user: ActorData }> = (
-	props,
-) => {
-	const community = useCommunityContext();
-	const userPreferences = useUserPreferences();
-	const userRoles = () => community().utils.getRolesForUser(props.user.did);
+export const ProfilePopoverContents: Component<{
+	user: ActorData;
+	/** Render as a static preview (see {@link ProfilePreviewOverride}). */
+	preview?: ProfilePreviewOverride;
+	/** Extra classes for the root, merged over the default `w-80`. */
+	class?: string;
+}> = (props) => {
+	const isPreview = () => props.preview !== undefined;
+
+	// Both providers throw when absent, so only read them outside preview mode
+	// (onboarding renders this before any community/preferences provider exists).
+	const community = props.preview ? undefined : useCommunityContext();
+	const userPreferences = props.preview ? undefined : useUserPreferences();
+	const userRoles = () =>
+		community ? community().utils.getRolesForUser(props.user.did) : [];
 
 	const [bskyTooltipVisible, setBskyTooltipVisible] = createSignal(false);
 	const [atProtoAtTooltipVisible, setAtProtoAtTooltipVisible] =
 		createSignal(false);
 
+	const accentColor = () => props.user.data.theme?.accentColor;
+
+	const bannerUrl = () =>
+		props.preview?.bannerUrl ??
+		resolveBlob(props.user.did, props.user.data.banner);
+
 	return (
 		<div
-			class="w-80 relative pt-12 bg-card"
+			class={cx("w-80 relative pt-12 bg-card", props.class)}
 			onContextMenu={(e) => e.stopPropagation()}
 		>
 			<div
@@ -112,17 +142,22 @@ export const ProfilePopoverContents: Component<{ user: ActorData }> = (
 					return undefined;
 				})()}
 			>
-				<Show when={props.user.data.banner}>
+				<Show when={bannerUrl()}>
 					<img
-						src={resolveBlob(props.user.did, props.user.data.banner)}
+						src={bannerUrl()}
 						alt={`${props.user.data.displayName}'s Banner`}
-						class="w-full h-full"
+						class="w-full h-full object-cover"
 					/>
 				</Show>
 			</div>
 			<div class="z-10 relative p-4 flex flex-col gap-2">
-				<div class="flex flex-row items-center gap-4">
-					<User.Avatar user={props.user} size="large" />
+				<div class="flex flex-row items-center gap-4 z-50">
+					<Avatar
+						user={props.user}
+						size="large"
+						overrideSrc={props.preview?.avatarUrl}
+						disableState={isPreview()}
+					/>
 					<Show
 						when={
 							((props.user.data.status?.text?.length ?? 0) > 0 ||
@@ -151,79 +186,92 @@ export const ProfilePopoverContents: Component<{ user: ActorData }> = (
 				</div>
 				<div class="px-1 flex flex-col">
 					<span class="font-black text-xl">
-						<DisplayableName user={props.user} />
+						<Show
+							when={!isPreview()}
+							fallback={
+								<span style={accentColor() ? { color: accentColor() } : undefined}>
+									{displayableNameFn(props.user)}
+								</span>
+							}
+						>
+							<DisplayableName user={props.user} color={accentColor()} />
+						</Show>
 					</span>
 					<div class="flex flex-row gap-2 items-center flex-wrap">
 						<span class="text-sm">
 							@{props.user.handle.replaceAll("at://", "")}
 						</span>
-						<span class="w-1 h-1 rounded-full bg-muted-foreground" />
-						<div class="flex flex-row gap-2 items-center">
-							<Tooltip open={bskyTooltipVisible()}>
-								<TooltipTrigger>
-									<a
-										href={`https://${
-											getBskyAlternativeClientInfo(
-												userPreferences.preferences().preferredBlueskyClient,
-											).base
-										}/profile/${props.user.handle.replaceAll("at://", "")}`}
-										target="_blank"
-										rel="noreferrer"
-										style={{
-											"--hover": getBskyAlternativeClientInfo(
-												userPreferences.preferences().preferredBlueskyClient,
-											).color,
-										}}
-										class="hover:text-(--hover) flex flex-row items-center gap-1.5 text-sm text-card-foreground font-normal hover:underline"
-										onMouseEnter={() => setBskyTooltipVisible(true)}
-										onMouseLeave={() => setBskyTooltipVisible(false)}
-									>
-										<Dynamic
-											component={
+						<Show when={!isPreview()}>
+							<span class="w-1 h-1 rounded-full bg-muted-foreground" />
+							<div class="flex flex-row gap-2 items-center">
+								<Tooltip open={bskyTooltipVisible()}>
+									<TooltipTrigger>
+										<a
+											href={`https://${
 												getBskyAlternativeClientInfo(
-													userPreferences.preferences().preferredBlueskyClient,
-												).icon
-											}
-											className=""
-										/>
-									</a>
-								</TooltipTrigger>
-								<TooltipPortal>
-									<TooltipContent>
-										<span>
-											View on{" "}
-											{
-												getBskyAlternativeClientInfo(
-													userPreferences.preferences().preferredBlueskyClient,
-												).name
-											}
-										</span>
-									</TooltipContent>
-								</TooltipPortal>
-							</Tooltip>
-							<Tooltip open={atProtoAtTooltipVisible()}>
-								<TooltipTrigger>
-									<a
-										href={`https://atproto.at/uri/${props.user.handle}`}
-										target="_blank"
-										rel="noreferrer"
-										class="hover:text-[#1185fe] flex flex-row items-center gap-1.5 text-sm text-card-foreground font-normal hover:underline"
-										onMouseEnter={() => setAtProtoAtTooltipVisible(true)}
-										onMouseLeave={() => setAtProtoAtTooltipVisible(false)}
-									>
-										at://
-									</a>
-								</TooltipTrigger>
-								<TooltipPortal>
-									<TooltipContent>
-										<span>
-											View on atproto.
-											<span class="test-[#1185fe]">at://</span>
-										</span>
-									</TooltipContent>
-								</TooltipPortal>
-							</Tooltip>
-						</div>
+													userPreferences!.preferences().preferredBlueskyClient,
+												).base
+											}/profile/${props.user.handle.replaceAll("at://", "")}`}
+											target="_blank"
+											rel="noreferrer"
+											style={{
+												"--hover": getBskyAlternativeClientInfo(
+													userPreferences!.preferences().preferredBlueskyClient,
+												).color,
+											}}
+											class="hover:text-(--hover) flex flex-row items-center gap-1.5 text-sm text-card-foreground font-normal hover:underline"
+											onMouseEnter={() => setBskyTooltipVisible(true)}
+											onMouseLeave={() => setBskyTooltipVisible(false)}
+										>
+											<Dynamic
+												component={
+													getBskyAlternativeClientInfo(
+														userPreferences!.preferences()
+															.preferredBlueskyClient,
+													).icon
+												}
+												className=""
+											/>
+										</a>
+									</TooltipTrigger>
+									<TooltipPortal>
+										<TooltipContent>
+											<span>
+												View on{" "}
+												{
+													getBskyAlternativeClientInfo(
+														userPreferences!.preferences()
+															.preferredBlueskyClient,
+													).name
+												}
+											</span>
+										</TooltipContent>
+									</TooltipPortal>
+								</Tooltip>
+								<Tooltip open={atProtoAtTooltipVisible()}>
+									<TooltipTrigger>
+										<a
+											href={`https://atproto.at/uri/${props.user.handle}`}
+											target="_blank"
+											rel="noreferrer"
+											class="hover:text-[#1185fe] flex flex-row items-center gap-1.5 text-sm text-card-foreground font-normal hover:underline"
+											onMouseEnter={() => setAtProtoAtTooltipVisible(true)}
+											onMouseLeave={() => setAtProtoAtTooltipVisible(false)}
+										>
+											at://
+										</a>
+									</TooltipTrigger>
+									<TooltipPortal>
+										<TooltipContent>
+											<span>
+												View on atproto.
+												<span class="test-[#1185fe]">at://</span>
+											</span>
+										</TooltipContent>
+									</TooltipPortal>
+								</Tooltip>
+							</div>
+						</Show>
 					</div>
 				</div>
 				<Show when={props.user.data.description}>

@@ -3,8 +3,8 @@ import {
 	BrowserOAuthClient,
 	type DidDocument,
 } from "@atproto/oauth-client-browser";
-import { getAppViewHost } from "../utils/appview";
-import { scopes } from "./scopes";
+import { getAppViewDid, getAppViewHost } from "../utils/appview";
+import { buildScopes } from "./scopes";
 
 export const isLocal = () =>
 	["localhost", "127.0.0.1"].includes(window.location.hostname);
@@ -13,7 +13,7 @@ const makeClientId = () => {
 	if (isLocal()) {
 		// see https://atproto.com/specs/oauth#localhost-client-development
 		return `http://localhost?${new URLSearchParams({
-			scope: scopes.join(" "),
+			scope: buildScopes(getAppViewDid()).join(" "),
 			redirect_uri: `http://127.0.0.1:${window.location.port}/app/login`,
 		})}`;
 	}

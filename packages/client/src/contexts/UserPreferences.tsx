@@ -7,7 +7,8 @@ import {
 	type Setter,
 	useContext,
 } from "solid-js";
-import { BlueskyClientID } from "../atproto/bluesky-alternatives";
+import type { BlueskyClientID } from "../atproto/bluesky-alternatives";
+import { DEFAULT_APPVIEW_URL } from "../utils/appview";
 
 const STORAGE_KEY = "colibri:user-preferences";
 
@@ -79,7 +80,7 @@ const DEFAULT_PREFERENCES: UserPreferencesContextData = {
 		participantVolumeOverrides: {},
 	},
 	preferredBlueskyClient: "bluesky",
-	preferredAppView: "https://api.colibri.social",
+	preferredAppView: DEFAULT_APPVIEW_URL,
 };
 
 function loadFromStorage(): UserPreferencesContextData {

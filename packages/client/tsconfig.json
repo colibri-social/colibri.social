@@ -15,6 +15,7 @@
 
 		// Type Checking & Safety
 		"strict": true,
-		"types": ["vite/client", "unplugin-icons/types/solid", "vidstack/solid"]
-	}
+		"types": ["vite/client", "unplugin-icons/types/solid", "vidstack/solid"],
+	},
+	"exclude": ["node_modules", "dist"],
 }

@@ -12,6 +12,7 @@ import {
 	useContext,
 } from "solid-js";
 import { XrpcClient } from "../atproto/xrpc";
+import { getAppViewServiceRef } from "../utils/appview";
 import { AppLoadingScreen } from "../components/AppLoadingScreen";
 import { ProfileGate } from "../components/app/onboarding/ProfileGate";
 import { useAuthContext } from "./Auth";
@@ -57,10 +58,7 @@ export const UserContextProvider: ParentComponent = (props) => {
 			};
 		}
 
-		const xrpc = new XrpcClient(
-			"did:web:api.colibri.social#colibri_appview",
-			client.agent,
-		);
+		const xrpc = new XrpcClient(getAppViewServiceRef(), client.agent);
 
 		const [actorData, communities] = await Promise.all([
 			xrpc.social.colibri.actor.getData(client.agent.did!),
