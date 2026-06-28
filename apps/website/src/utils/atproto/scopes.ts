@@ -1,1 +1,1 @@
-export { scopes } from "@colibri-social/client/scopes";
+export { scopes, buildScopes } from "@colibri-social/client/scopes";

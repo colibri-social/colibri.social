@@ -3,7 +3,12 @@ import {
 	BrowserOAuthClient,
 	type DidDocument,
 } from "@atproto/oauth-client-browser";
-import { getAppViewDid, getAppViewHost } from "../utils/appview";
+import {
+	DEFAULT_APPVIEW_URL,
+	getAppViewDid,
+	getAppViewHost,
+	getPreferredAppViewUrl,
+} from "../utils/appview";
 import { buildScopes } from "./scopes";
 
 export const isLocal = () =>
@@ -18,7 +23,14 @@ const makeClientId = () => {
 		})}`;
 	}
 
-	return `https://${window.location.host}/oauth-client-metadata.json`;
+	// The conventional document pins the default AppView; a per-AppView document
+	// (served under our own origin) pins any other AppView's `did:web`. Keeping
+	// the default on the conventional path leaves existing sessions — bound to
+	// that `client_id` — valid; only custom AppViews get a distinct client.
+	const host = new URL(getPreferredAppViewUrl()).host;
+	return host === new URL(DEFAULT_APPVIEW_URL).host
+		? `https://${window.location.host}/oauth-client-metadata.json`
+		: `https://${window.location.host}/c/${host}/oauth-client-metadata.json`;
 };
 
 const clientId = makeClientId();
