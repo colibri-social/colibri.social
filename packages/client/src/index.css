@@ -3,6 +3,8 @@
 @import "@colibri-social/assets/fonts.css";
 @import "@arborium/arborium/themes/base.css";
 @import "@arborium/arborium/themes/tokyo-night.css";
+@import "./components/app/common/text-editor/TextEditor.css";
+@import "./components/app/channel/message/media-attachments.css";
 @plugin "@tailwindcss/typography";
 
 @source ".";

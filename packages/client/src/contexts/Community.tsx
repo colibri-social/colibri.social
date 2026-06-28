@@ -93,6 +93,28 @@ export const CommunityContextProvider: ParentComponent = (props) => {
 				? communityUri()
 				: undefined,
 		async (uri) => {
+			const member = community.latest?.members.find((x) => x.did === user.did);
+
+			if (!member) {
+				return {
+					applications: [],
+					dismissed: [],
+				};
+			}
+
+			const canManageApprovals = (community.latest?.roles ?? []).some(
+				(x) =>
+					x.permissions.includes("approval.manage") &&
+					member.roles.some((y) => y === x.uri),
+			);
+
+			if (!canManageApprovals) {
+				return {
+					applications: [],
+					dismissed: [],
+				};
+			}
+
 			const res =
 				await user.xrpc.social.colibri.community.listApplications(uri);
 			return {

@@ -17,7 +17,14 @@ import {
 	ContextMenuSeparator,
 	ContextMenuTrigger,
 } from "../../ui/ContextMenu";
+import {
+	handoffDrawer,
+	MenuDrawer,
+	MenuDrawerItem,
+} from "../../ui/MenuDrawer";
 import { LeaveCommunityModal } from "./LeaveCommunityModal";
+import { useIsMobile } from "../../../utils/mobile-pane";
+import { createLongPress } from "../../../utils/create-long-press";
 
 /**
  * Right-click context menu for a community in the sidebar. Ownership comes
@@ -32,13 +39,86 @@ export const CommunityContextMenu: ParentComponent<{
 	const notifications = useNotifications();
 	const mutes = useMutes();
 	const navigate = useNavigate();
+	const isMobile = useIsMobile();
 
 	const [leaveOpen, setLeaveOpen] = createSignal(false);
+	const [menuOpen, setMenuOpen] = createSignal(false);
 
 	const muted = () => mutes.isCommunityMuted(props.community.uri);
 
+	const markRead = () =>
+		void notifications.markCommunityAsRead(props.community.uri);
+	const toggleMute = () =>
+		void (muted()
+			? mutes.unmuteCommunity(props.community.uri)
+			: mutes.muteCommunity(props.community.uri));
+	const openSettings = () =>
+		navigate(
+			`/app/c/${communityUriToUrlCompatible(props.community.uri)}?settings=open`,
+		);
+
 	return (
 		<>
+			<Show when={isMobile()}>
+				<div
+					style={{ display: "contents" }}
+					ref={(el) =>
+						createLongPress(el, {
+							enabled: () => isMobile(),
+							onLongPress: () => setMenuOpen(true),
+						})
+					}
+				>
+					{props.children}
+				</div>
+				<MenuDrawer
+					open={menuOpen()}
+					onOpenChange={setMenuOpen}
+					title={props.community.name}
+				>
+					<MenuDrawerItem
+						onClick={() => {
+							setMenuOpen(false);
+							markRead();
+						}}
+					>
+						<ChecksIcon />
+						<span>Mark everything as read</span>
+					</MenuDrawerItem>
+					<MenuDrawerItem
+						onClick={() => {
+							setMenuOpen(false);
+							toggleMute();
+						}}
+					>
+						<Show when={muted()} fallback={<BellSlashIcon />}>
+							<BellIcon />
+						</Show>
+						<span>{muted() ? "Unmute Community" : "Mute Community"}</span>
+					</MenuDrawerItem>
+					<MenuDrawerItem
+						onClick={() => handoffDrawer(() => setMenuOpen(false), openSettings)}
+					>
+						<GearIcon />
+						<span>Settings</span>
+					</MenuDrawerItem>
+					<Show when={!props.community.isOwner}>
+						<MenuDrawerItem
+							destructive
+							onClick={() =>
+								handoffDrawer(
+									() => setMenuOpen(false),
+									() => setLeaveOpen(true),
+								)
+							}
+						>
+							<SignOutIcon />
+							<span>Leave Community</span>
+						</MenuDrawerItem>
+					</Show>
+				</MenuDrawer>
+			</Show>
+			<Show when={!isMobile()}>
 			<ContextMenu>
 				<ContextMenuTrigger>{props.children}</ContextMenuTrigger>
 				<ContextMenuPortal>
@@ -86,6 +166,7 @@ export const CommunityContextMenu: ParentComponent<{
 					</ContextMenuContent>
 				</ContextMenuPortal>
 			</ContextMenu>
+			</Show>
 			<LeaveCommunityModal
 				open={leaveOpen}
 				setOpen={setLeaveOpen}

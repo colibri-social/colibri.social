@@ -31,6 +31,8 @@ import { getCommunityParam } from "./utils/get-param";
 import { urlSegmentToUri } from "./atproto/community-uri-to-url-compatible";
 import { useCommunityContext } from "./contexts/Community";
 import { AtURI } from "./utils/at-uri";
+import { isMobileNow, useIsMobile } from "./utils/mobile-pane";
+import { Show } from "solid-js";
 
 // Accepted forms of the `:channelType` URL segment. We accept both the
 // short form (legacy records that store `"text"` / `"voice"`) and the full
@@ -64,10 +66,16 @@ const RedirectToApp: Component = () => {
 };
 
 const App: ParentComponent = () => {
+	const isMobile = useIsMobile();
 	return (
 		<AuthContextProvider>
 			<ColorModeProvider>
-				<Toaster richColors position="bottom-right" />
+				<Show
+					when={isMobile()}
+					fallback={<Toaster richColors position="bottom-right" />}
+				>
+					<Toaster richColors position="top-center" />
+				</Show>
 				<Router base="/">
 					<Route path="/" component={RedirectToApp} />
 					<Route path="/app/login" component={LoginScreen} />
@@ -83,6 +91,11 @@ const App: ParentComponent = () => {
 									const communityUrlSeg = () => params.community!;
 
 									onMount(() => {
+										// On mobile the community placeholder IS the nav-root
+										// pane, don't auto-redirect into a channel. The user
+										// taps a channel to push into chat.
+										if (isMobileNow()) return;
+
 										const mostRecentChannel = localStorage.getItem(
 											`${communityUrlSeg()}:last-viewed`,
 										);

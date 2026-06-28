@@ -1,7 +1,9 @@
 import { createSignal, onCleanup, onMount } from "solid-js";
 
 const createMediaQuery = (query: string) => {
-	const [matches, setMatches] = createSignal(false);
+	const initial =
+		typeof matchMedia !== "undefined" && matchMedia(query).matches;
+	const [matches, setMatches] = createSignal(initial);
 
 	onMount(() => {
 		const onChange = (event: MediaQueryListEvent) => {

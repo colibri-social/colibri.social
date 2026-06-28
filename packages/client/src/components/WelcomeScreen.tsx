@@ -13,8 +13,8 @@ export const WelcomeScreen: Component = () => {
 	const _navigate = useNavigate();
 
 	return (
-		<div class="bg-neutral-950 w-full h-full rounded-tl-xl border-t border-l border-neutral-800 flex items-center justify-center">
-			<div class="flex flex-col items-center justify-center max-w-2xl text-center">
+		<div class="bg-neutral-950 w-full h-full flex items-center justify-center max-md:pl-14 md:rounded-tl-xl md:border-t md:border-l md:border-neutral-800">
+			<div class="flex flex-col items-center justify-center max-w-2xl w-full px-4 text-center">
 				<img
 					src={ColibriLogo}
 					width={128}
@@ -49,7 +49,7 @@ export const WelcomeScreen: Component = () => {
 						not want to be publically accessible on Colibri.
 					</AlertDescription>
 				</Alert>
-				<div class="flex flex-row items-center gap-4">
+				<div class="flex flex-row flex-wrap justify-center items-center gap-4">
 					<CommunityCreationModal>
 						<Button>Create a community</Button>
 					</CommunityCreationModal>

@@ -2,15 +2,8 @@ import { createSignal, type ParentComponent } from "solid-js";
 import { toast } from "somoto";
 import { useUserContext } from "../../../contexts/User";
 import { Button } from "../../ui/Button";
-import {
-	Dialog,
-	DialogContent,
-	DialogFooter,
-	DialogHeader,
-	DialogPortal,
-	DialogTitle,
-	DialogTrigger,
-} from "../../ui/Dialog";
+import { DialogFooter } from "../../ui/Dialog";
+import { ResponsiveDialog } from "../../ui/ResponsiveDialog";
 import {
 	RadioGroup,
 	RadioGroupItem,
@@ -51,53 +44,50 @@ export const ChannelCreationModal: ParentComponent<{
 	};
 
 	return (
-		<Dialog open={open()} onOpenChange={setOpen}>
-			<DialogTrigger>{props.children}</DialogTrigger>
-			<DialogPortal>
-				<DialogContent>
-					<DialogHeader>
-						<DialogTitle>Create Channel</DialogTitle>
-					</DialogHeader>
-					<div class="flex flex-col gap-4">
-						<TextField class="gap-1.5">
-							<TextFieldLabel>Name</TextFieldLabel>
-							<TextFieldInput
-								placeholder="new-channel"
-								value={name()}
-								onInput={(e) => setName(e.currentTarget.value)}
-							/>
-						</TextField>
-						<div class="flex flex-col gap-2">
-							<span class="text-sm font-medium">Channel Type</span>
-							<RadioGroup
-								value={type()}
-								onChange={(v) => setType(v as "text" | "voice")}
-								class="flex flex-col gap-2"
-							>
-								<RadioGroupItem value="text" class="flex items-center gap-2">
-									<RadioGroupItemControl />
-									<RadioGroupItemLabel>Text channel</RadioGroupItemLabel>
-								</RadioGroupItem>
-								<RadioGroupItem value="voice" class="flex items-center gap-2">
-									<RadioGroupItemControl />
-									<RadioGroupItemLabel>Voice channel</RadioGroupItemLabel>
-								</RadioGroupItem>
-							</RadioGroup>
-						</div>
-					</div>
-					<DialogFooter>
-						<Button variant="secondary" onClick={() => setOpen(false)}>
-							Cancel
-						</Button>
-						<Button
-							onClick={handleCreate}
-							disabled={loading() || name().trim().length === 0}
-						>
-							Create
-						</Button>
-					</DialogFooter>
-				</DialogContent>
-			</DialogPortal>
-		</Dialog>
+		<ResponsiveDialog
+			open={open()}
+			onOpenChange={setOpen}
+			trigger={props.children}
+			title="Create Channel"
+		>
+			<div class="flex flex-col gap-4">
+				<TextField class="gap-1.5">
+					<TextFieldLabel>Name</TextFieldLabel>
+					<TextFieldInput
+						placeholder="new-channel"
+						value={name()}
+						onInput={(e) => setName(e.currentTarget.value)}
+					/>
+				</TextField>
+				<div class="flex flex-col gap-2">
+					<span class="text-sm font-medium">Channel Type</span>
+					<RadioGroup
+						value={type()}
+						onChange={(v) => setType(v as "text" | "voice")}
+						class="flex flex-col gap-2"
+					>
+						<RadioGroupItem value="text" class="flex items-center gap-2">
+							<RadioGroupItemControl />
+							<RadioGroupItemLabel>Text channel</RadioGroupItemLabel>
+						</RadioGroupItem>
+						<RadioGroupItem value="voice" class="flex items-center gap-2">
+							<RadioGroupItemControl />
+							<RadioGroupItemLabel>Voice channel</RadioGroupItemLabel>
+						</RadioGroupItem>
+					</RadioGroup>
+				</div>
+			</div>
+			<DialogFooter>
+				<Button variant="secondary" onClick={() => setOpen(false)}>
+					Cancel
+				</Button>
+				<Button
+					onClick={handleCreate}
+					disabled={loading() || name().trim().length === 0}
+				>
+					Create
+				</Button>
+			</DialogFooter>
+		</ResponsiveDialog>
 	);
 };

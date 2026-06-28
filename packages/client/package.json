@@ -6,7 +6,7 @@
 	"scripts": {
 		"start": "vite serve dev",
 		"dev": "vite serve dev",
-		"build": "tsup"
+		"build": "tsup && tailwindcss -i src/index.css -o dist/index.css --minify"
 	},
 	"exports": {
 		".": {
@@ -16,13 +16,15 @@
 		"./scopes": {
 			"import": "./dist/atproto/scopes.js",
 			"types": "./dist/atproto/scopes.d.ts"
-		}
+		},
+		"./index.css": "./dist/index.css"
 	},
 	"license": "MIT",
 	"devDependencies": {
 		"@atproto/lexicon": "^0.6.1",
 		"@colibri-social/lib": "workspace:",
 		"@iconify-json/ph": "^1.2.2",
+		"@tailwindcss/cli": "^4.2.4",
 		"@tailwindcss/vite": "^4.1.18",
 		"@types/chroma-js": "^3.1.2",
 		"solid-devtools": "^0.34.3",

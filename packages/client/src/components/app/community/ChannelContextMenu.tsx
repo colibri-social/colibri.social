@@ -20,6 +20,11 @@ import {
 	ContextMenuTrigger,
 } from "../../ui/ContextMenu";
 import {
+	handoffDrawer,
+	MenuDrawer,
+	MenuDrawerItem,
+} from "../../ui/MenuDrawer";
+import {
 	Dialog,
 	DialogContent,
 	DialogFooter,
@@ -27,6 +32,8 @@ import {
 	DialogPortal,
 	DialogTitle,
 } from "../../ui/Dialog";
+import { useIsMobile } from "../../../utils/mobile-pane";
+import { createLongPress } from "../../../utils/create-long-press";
 
 /**
  * Right-click context menu for a channel in the sidebar. "Settings" is
@@ -47,9 +54,16 @@ export const ChannelContextMenu: ParentComponent<{
 
 	const canUpdate = () => _canUpdateChannel(user.did);
 	const canDelete = () => _canDelete(user.did);
+	const isMobile = useIsMobile();
 
 	const [confirmOpen, setConfirmOpen] = createSignal(false);
 	const [deleting, setDeleting] = createSignal(false);
+	const [menuOpen, setMenuOpen] = createSignal(false);
+
+	const toggleMute = () =>
+		void (muted()
+			? mutes.unmuteChannel(props.channel.uri)
+			: mutes.muteChannel(props.channel.uri));
 
 	const handleDelete = async () => {
 		setDeleting(true);
@@ -65,6 +79,70 @@ export const ChannelContextMenu: ParentComponent<{
 
 	return (
 		<>
+			<Show when={isMobile()}>
+				<div
+					style={{ display: "contents" }}
+					ref={(el) =>
+						createLongPress(el, {
+							enabled: () => isMobile(),
+							onLongPress: () => setMenuOpen(true),
+						})
+					}
+				>
+					{props.children}
+				</div>
+				<MenuDrawer
+					open={menuOpen()}
+					onOpenChange={setMenuOpen}
+					title={props.channel.name}
+				>
+					<MenuDrawerItem
+						onClick={() => {
+							setMenuOpen(false);
+							void notifications.markChannelAsRead(props.channel.uri);
+						}}
+					>
+						<CheckIcon />
+						<span>Mark as read</span>
+					</MenuDrawerItem>
+					<MenuDrawerItem
+						onClick={() => {
+							setMenuOpen(false);
+							toggleMute();
+						}}
+					>
+						<Show when={muted()} fallback={<BellSlashIcon />}>
+							<BellIcon />
+						</Show>
+						<span>{muted() ? "Unmute Channel" : "Mute Channel"}</span>
+					</MenuDrawerItem>
+					<Show when={canUpdate()}>
+						<MenuDrawerItem
+							onClick={() =>
+								handoffDrawer(() => setMenuOpen(false), props.onOpenSettings)
+							}
+						>
+							<GearIcon />
+							<span>Settings</span>
+						</MenuDrawerItem>
+					</Show>
+					<Show when={canDelete()}>
+						<MenuDrawerItem
+							destructive
+							onClick={() =>
+								handoffDrawer(
+									() => setMenuOpen(false),
+									() => setConfirmOpen(true),
+								)
+							}
+						>
+							<TrashIcon />
+							<span>Delete Channel</span>
+						</MenuDrawerItem>
+					</Show>
+				</MenuDrawer>
+			</Show>
+			<Show when={!isMobile()}>
 			<ContextMenu>
 				<ContextMenuTrigger>{props.children}</ContextMenuTrigger>
 				<ContextMenuPortal>
@@ -110,6 +188,7 @@ export const ChannelContextMenu: ParentComponent<{
 					</ContextMenuContent>
 				</ContextMenuPortal>
 			</ContextMenu>
+			</Show>
 
 			<Dialog open={confirmOpen()} onOpenChange={setConfirmOpen}>
 				<DialogPortal>

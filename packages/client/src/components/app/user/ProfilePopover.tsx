@@ -16,6 +16,8 @@ import {
 	PopoverPortal,
 	PopoverTrigger,
 } from "../../ui/Popover";
+import { BottomSheet } from "../../ui/MenuDrawer";
+import { useIsMobile } from "../../../utils/mobile-pane";
 import {
 	Tooltip,
 	TooltipContent,
@@ -127,11 +129,11 @@ export const ProfilePopoverContents: Component<{
 
 	return (
 		<div
-			class={cx("w-80 relative pt-12 bg-card", props.class)}
+			class={cx("w-80 relative bg-card", props.class)}
 			onContextMenu={(e) => e.stopPropagation()}
 		>
 			<div
-				class="w-full aspect-3/1 bg-muted absolute z-0 top-0"
+				class="w-full aspect-3/1 bg-muted"
 				style={(() => {
 					const theme = props.user.data.theme;
 					if (theme?.gradient?.primary && theme.gradient.secondary)
@@ -150,7 +152,7 @@ export const ProfilePopoverContents: Component<{
 					/>
 				</Show>
 			</div>
-			<div class="z-10 relative p-4 flex flex-col gap-2">
+			<div class="z-10 relative -mt-14 p-4 flex flex-col gap-2">
 				<div class="flex flex-row items-center gap-4 z-50">
 					<Avatar
 						user={props.user}
@@ -189,7 +191,9 @@ export const ProfilePopoverContents: Component<{
 						<Show
 							when={!isPreview()}
 							fallback={
-								<span style={accentColor() ? { color: accentColor() } : undefined}>
+								<span
+									style={accentColor() ? { color: accentColor() } : undefined}
+								>
 									{displayableNameFn(props.user)}
 								</span>
 							}
@@ -314,22 +318,51 @@ export const ProfilePopover: ParentComponent<{
 	 *  to split the paragraph and break Kobalte's trigger detection. */
 	as?: "div" | "span";
 }> = (props) => {
+	const isMobile = useIsMobile();
+	const [open, setOpen] = createSignal(false);
+
 	return (
-		<Popover preventScroll placement="left" flip>
-			<PopoverTrigger
-				as={props.as ?? "div"}
+		<Show
+			when={isMobile()}
+			fallback={
+				<Popover preventScroll placement="left" flip>
+					<PopoverTrigger
+						as={props.as ?? "div"}
+						class={props.class}
+						classList={{
+							"pointer-events-none": props.disabled,
+						}}
+					>
+						{props.children}
+					</PopoverTrigger>
+					<PopoverPortal>
+						<PopoverContent class="w-80 p-0 overflow-hidden relative drop-shadow-black drop-shadow-xl">
+							<ProfilePopoverContents user={props.user} />
+						</PopoverContent>
+					</PopoverPortal>
+				</Popover>
+			}
+		>
+			<Dynamic
+				component={props.as ?? "div"}
 				class={props.class}
-				classList={{
-					"pointer-events-none": props.disabled,
+				classList={{ "pointer-events-none": props.disabled }}
+				onClick={() => {
+					if (!props.disabled) setOpen(true);
 				}}
 			>
 				{props.children}
-			</PopoverTrigger>
-			<PopoverPortal>
-				<PopoverContent class="w-80 p-0 overflow-hidden relative drop-shadow-black drop-shadow-xl">
-					<ProfilePopoverContents user={props.user} />
-				</PopoverContent>
-			</PopoverPortal>
-		</Popover>
+			</Dynamic>
+			<BottomSheet
+				open={open()}
+				onOpenChange={setOpen}
+				handleOverlay
+				class="overflow-hidden"
+			>
+				<div class="min-h-0 overflow-y-auto">
+					<ProfilePopoverContents class="w-full" user={props.user} />
+				</div>
+			</BottomSheet>
+		</Show>
 	);
 };

@@ -25,6 +25,8 @@ import { RichTextRenderer } from "../../common/rich-text-renderer/RichTextRender
 import { facetsToProseMirror } from "../../common/text-editor/facets-to-prosemirror";
 import { TextEditor } from "../../common/text-editor/TextEditor";
 import User from "../../user";
+import { useIsMobile } from "../../../../utils/mobile-pane";
+import { createLongPress } from "../../../../utils/create-long-press";
 import { MessageAttachments } from "./Attachments";
 import { BlockDrawer } from "./BlockDrawer";
 import { Action } from "./ContextMenu";
@@ -61,6 +63,7 @@ const MessageInner: Component<{
 	const channel = useChannelContext();
 	const community = useCommunityContext();
 	const stableMedia = useStableMedia();
+	const isMobile = useIsMobile();
 
 	const {
 		message,
@@ -73,6 +76,8 @@ const MessageInner: Component<{
 		isFocused,
 		emojiPopoverOpen,
 		setEmojiPopoverOpen,
+		contextMenuOpen,
+		setContextMenuOpen,
 		newText,
 		editedText,
 		setEditedText,
@@ -110,6 +115,12 @@ const MessageInner: Component<{
 	return (
 		<MessageContextMenu>
 			<div
+				ref={(el) =>
+					createLongPress(el, {
+						enabled: () => isMobile() && !isPending(),
+						onLongPress: () => setContextMenuOpen(true),
+					})
+				}
 				class={`w-full h-fit flex flex-col pr-4 pl-3.5 gap-1 group border-l-2 relative hover:bg-card/50 transition-colors duration-75`}
 				data-message={JSON.stringify(message)}
 				data-message-uri={message.uri}
@@ -121,6 +132,8 @@ const MessageInner: Component<{
 						containsMentionOrIsReplyToUser(),
 					"bg-blue-500/5 hover:bg-blue-500/10! border-blue-500": isRepliedTo(),
 					"bg-blue-500/15": isFocused(),
+					// Long-press highlight while the mobile context-menu drawer is open.
+					"bg-muted/60! hover:bg-muted/60!": contextMenuOpen(),
 					"pb-0.5": props.hasSubsequent,
 					"pb-2": message.reactions.length > 0,
 				}}
@@ -187,7 +200,7 @@ const MessageInner: Component<{
 						}
 					>
 						<div
-							class="pb-2 flex flex-col gap-1 w-full"
+							class="pb-2 flex flex-col gap-1 w-full max-w-[calc(100%-4rem)]"
 							classList={{
 								"pt-2": isSubsequentMessage(),
 							}}
@@ -224,7 +237,7 @@ const MessageInner: Component<{
 						</div>
 					</Show>
 					<Show when={message.text.trim().length > 0}>
-						<div class="flex flex-col w-full justify-center">
+						<div class="flex flex-col w-full min-w-0 justify-center">
 							<Show when={!isSubsequentMessage()}>
 								<div class="flex gap-2 text-sm items-baseline">
 									<User.ProfilePopover
@@ -314,7 +327,7 @@ const MessageInner: Component<{
 							</div>
 						</div>
 					</Show>
-					<Show when={!isPending()}>
+					<Show when={!isPending() && !isMobile()}>
 						<div
 							class="absolute top-0 right-4 transform -translate-y-1/2 flex flex-row h-8 bg-card border border-border rounded-sm overflow-hidden z-10"
 							classList={{

@@ -29,6 +29,9 @@ import { MemberProfileContextProvider } from "../contexts/MemberProfile";
 import { useUserContext } from "../contexts/User";
 import { useUserPreferences } from "../contexts/UserPreferences";
 import createMediaQuery from "../utils/create-media-query";
+import { createMobilePane, useIsMobile } from "../utils/mobile-pane";
+import { createSwipe, type SwipeOptions } from "../utils/create-swipe";
+import { MenuDrawer, MenuDrawerItem } from "../components/ui/MenuDrawer";
 
 const CommunityHeader = () => {
 	const user = useUserContext();
@@ -36,6 +39,8 @@ const CommunityHeader = () => {
 	const { canManageApprovals } = usePermissions();
 	const [settingsOpen, setSettingsOpen] = createSignal(false);
 	const [leaveOpen, setLeaveOpen] = createSignal(false);
+	const [menuOpen, setMenuOpen] = createSignal(false);
+	const isMobile = useIsMobile();
 	const [searchParams, setSearchParams] = useSearchParams();
 
 	const pendingApplications = () =>
@@ -55,11 +60,52 @@ const CommunityHeader = () => {
 	return (
 		<>
 			<div class="w-full border-b border-border flex flex-col justify-center py-4 px-3">
-				<DropdownMenu placement="bottom-start">
-					<DropdownMenuTrigger
-						as="button"
+				<Show
+					when={isMobile()}
+					fallback={
+						<DropdownMenu placement="bottom-start">
+							<DropdownMenuTrigger
+								as="button"
+								type="button"
+								class="flex flex-row items-center gap-3 text-left px-2 py-1 rounded-md hover:bg-muted/50 transition-all duration-75 cursor-pointer w-fit aria-expanded:[&>svg]:rotate-180 aria-expanded:bg-muted/50"
+							>
+								<h2 class="m-0 text-xl w-full text-ellipsis whitespace-nowrap">
+									{community().community.name}
+								</h2>
+								<Show when={pendingApplications() > 0}>
+									<span class="text-xs leading-none font-medium bg-primary text-primary-foreground rounded-full px-1.5 py-0.5 min-w-5 text-center">
+										{pendingApplications()}
+									</span>
+								</Show>
+								<CaretDownIcon class="text-muted-foreground mt-0.5 text-sm " />
+							</DropdownMenuTrigger>
+							<DropdownMenuPortal>
+								<DropdownMenuContent class="min-w-48 w-66.5">
+									<DropdownMenuItem onSelect={() => setSettingsOpen(true)}>
+										Settings
+										<Show when={pendingApplications() > 0}>
+											<span class="ml-auto text-xs leading-none font-medium bg-primary text-primary-foreground rounded-full px-1.5 py-0.5 min-w-5 text-center">
+												{pendingApplications()}
+											</span>
+										</Show>
+									</DropdownMenuItem>
+									<Show when={!isOwner()}>
+										<DropdownMenuItem
+											class="text-destructive data-highlighted:text-destructive"
+											onSelect={() => setLeaveOpen(true)}
+										>
+											Leave Community
+										</DropdownMenuItem>
+									</Show>
+								</DropdownMenuContent>
+							</DropdownMenuPortal>
+						</DropdownMenu>
+					}
+				>
+					<button
 						type="button"
-						class="flex flex-row items-center gap-3 text-left px-2 py-1 rounded-md hover:bg-muted/50 transition-all duration-75 cursor-pointer w-fit aria-expanded:[&>svg]:rotate-180 aria-expanded:bg-muted/50"
+						onClick={() => setMenuOpen(true)}
+						class="flex flex-row items-center gap-3 text-left px-2 py-1 rounded-md hover:bg-muted/50 transition-all duration-75 cursor-pointer w-fit"
 					>
 						<h2 class="m-0 text-xl w-full text-ellipsis whitespace-nowrap">
 							{community().community.name}
@@ -69,29 +115,39 @@ const CommunityHeader = () => {
 								{pendingApplications()}
 							</span>
 						</Show>
-						<CaretDownIcon class="text-muted-foreground mt-0.5 text-sm " />
-					</DropdownMenuTrigger>
-					<DropdownMenuPortal>
-						<DropdownMenuContent class="min-w-48 w-66.5">
-							<DropdownMenuItem onSelect={() => setSettingsOpen(true)}>
-								Settings
-								<Show when={pendingApplications() > 0}>
-									<span class="ml-auto text-xs leading-none font-medium bg-primary text-primary-foreground rounded-full px-1.5 py-0.5 min-w-5 text-center">
-										{pendingApplications()}
-									</span>
-								</Show>
-							</DropdownMenuItem>
-							<Show when={!isOwner()}>
-								<DropdownMenuItem
-									class="text-destructive data-highlighted:text-destructive"
-									onSelect={() => setLeaveOpen(true)}
-								>
-									Leave Community
-								</DropdownMenuItem>
+						<CaretDownIcon class="text-muted-foreground mt-0.5 text-sm" />
+					</button>
+					<MenuDrawer
+						open={menuOpen()}
+						onOpenChange={setMenuOpen}
+						title={community().community.name}
+					>
+						<MenuDrawerItem
+							onClick={() => {
+								setMenuOpen(false);
+								setSettingsOpen(true);
+							}}
+						>
+							Settings
+							<Show when={pendingApplications() > 0}>
+								<span class="ml-auto text-xs leading-none font-medium bg-primary text-primary-foreground rounded-full px-1.5 py-0.5 min-w-5 text-center">
+									{pendingApplications()}
+								</span>
 							</Show>
-						</DropdownMenuContent>
-					</DropdownMenuPortal>
-				</DropdownMenu>
+						</MenuDrawerItem>
+						<Show when={!isOwner()}>
+							<MenuDrawerItem
+								destructive
+								onClick={() => {
+									setMenuOpen(false);
+									setLeaveOpen(true);
+								}}
+							>
+								Leave Community
+							</MenuDrawerItem>
+						</Show>
+					</MenuDrawer>
+				</Show>
 				<Suspense
 					fallback={
 						<small class="text-muted-foreground animate-pulse px-2">
@@ -119,21 +175,52 @@ const CommunityHeader = () => {
 const CommunityLayout: ParentComponent = (props) => {
 	const { preferences } = useUserPreferences();
 	const displayMembersAsSheet = createMediaQuery("(max-width: 1280px)");
+	const { isMobile, currentPane, popPane, pushDeeper } = createMobilePane();
+
+	// Swipe right = back up the stack, swipe left = deeper
+	const swipe: SwipeOptions = {
+		enabled: () => isMobile(),
+		onSwipeRight: () => popPane(),
+		onSwipeLeft: () => pushDeeper(),
+	};
 
 	return (
-		<div class="bg-background w-full h-full rounded-tl-xl border-t border-l border-border flex relative overflow-hidden">
-			<aside class="h-full min-w-72 w-72 border-r border-border flex flex-col">
+		<div
+			class="bg-background w-full h-full flex relative overflow-clip"
+			classList={{
+				"rounded-tl-xl border-t border-l border-border": !isMobile(),
+			}}
+		>
+			<aside
+				ref={(el) => createSwipe(el, swipe)}
+				class="border-border flex flex-col bg-background"
+				classList={{
+					"h-full min-w-72 w-72 border-r": !isMobile(),
+					"absolute inset-0 w-full pl-14 z-30 transition-transform duration-200 ease-out motion-reduce:transition-none":
+						isMobile(),
+					"-translate-x-full": isMobile() && currentPane() !== "nav",
+				}}
+			>
 				<CommunityHeader />
 				<ChannelList />
 				<User.Status />
 			</aside>
 			<div
-				class="w-full h-full flex flex-col max-h-[calc(100vh-41px)]"
+				ref={(el) => createSwipe(el, swipe)}
+				class="flex flex-col"
 				classList={{
+					"w-full h-full max-h-[calc(100vh-41px)]": !isMobile(),
 					"max-w-[calc(100vw-576px-56px-1px)]":
-						!displayMembersAsSheet() && preferences().membersListVisible,
+						!isMobile() &&
+						!displayMembersAsSheet() &&
+						preferences().membersListVisible,
 					"max-w-[calc(100vw-288px-56px-1px)]":
-						displayMembersAsSheet() || !preferences().membersListVisible,
+						!isMobile() &&
+						(displayMembersAsSheet() || !preferences().membersListVisible),
+					"absolute inset-0 w-full h-full max-w-none! z-20 transition-transform duration-200 ease-out motion-reduce:transition-none":
+						isMobile(),
+					"translate-x-full": isMobile() && currentPane() === "nav",
+					"-translate-x-full": isMobile() && currentPane() === "members",
 				}}
 			>
 				{props.children}

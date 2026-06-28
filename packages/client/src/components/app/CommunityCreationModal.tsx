@@ -17,14 +17,8 @@ import { useUserContext } from "../../contexts/User";
 import { Image } from "../icons/Image";
 import { Spinner } from "../icons/Spinner";
 import { Button } from "../ui/Button";
-import {
-	Dialog,
-	DialogContent,
-	DialogFooter,
-	DialogHeader,
-	DialogPortal,
-	DialogTrigger,
-} from "../ui/Dialog";
+import { DialogFooter } from "../ui/Dialog";
+import { ResponsiveDialog } from "../ui/ResponsiveDialog";
 import {
 	FileField,
 	FileFieldDropzone,
@@ -399,29 +393,27 @@ const LoadingScreen: Component = () => {
 
 export const CommunityCreationModal: ParentComponent = (props) => {
 	return (
-		<Dialog open={open()} onOpenChange={setOpen}>
-			<DialogTrigger>{props.children}</DialogTrigger>
-			<DialogPortal>
-				<DialogContent class="w-lg">
-					<DialogHeader>
-						<h2 class="m-0 text-center">Create a community</h2>
-					</DialogHeader>
-					<Switch>
-						<Match when={step() === OWNERSHIP_CHOICE}>
-							<CommunityOwnership />
-						</Match>
-						<Match when={step() === BYO_CREDENTIALS}>
-							<CredentialsInput />
-						</Match>
-						<Match when={step() === COMMUNITY_DETAILS}>
-							<CommunityDetails />
-						</Match>
-						<Match when={step() === LOADING}>
-							<LoadingScreen />
-						</Match>
-					</Switch>
-				</DialogContent>
-			</DialogPortal>
-		</Dialog>
+		<ResponsiveDialog
+			open={open()}
+			onOpenChange={setOpen}
+			trigger={props.children}
+			title={<span class="text-center w-full">Create a community</span>}
+			contentClass="w-lg"
+		>
+			<Switch>
+				<Match when={step() === OWNERSHIP_CHOICE}>
+					<CommunityOwnership />
+				</Match>
+				<Match when={step() === BYO_CREDENTIALS}>
+					<CredentialsInput />
+				</Match>
+				<Match when={step() === COMMUNITY_DETAILS}>
+					<CommunityDetails />
+				</Match>
+				<Match when={step() === LOADING}>
+					<LoadingScreen />
+				</Match>
+			</Switch>
+		</ResponsiveDialog>
 	);
 };

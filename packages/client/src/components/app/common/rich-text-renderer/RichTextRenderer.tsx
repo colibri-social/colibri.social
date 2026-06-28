@@ -22,7 +22,7 @@ export const RichTextRenderer: Component<{
 	return (
 		<div
 			class={cx(
-				"m-0 text-foreground rich-text focus:outline-0 leading-7 wrap-break-word relative",
+				"m-0 text-foreground rich-text focus:outline-0 leading-7 break-after-auto relative min-w-0 [overflow-wrap:anywhere]",
 				props.class,
 			)}
 			classList={props.classList}

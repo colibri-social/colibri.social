@@ -59,7 +59,7 @@ export type UserPreferencesContextData = {
 };
 
 const DEFAULT_PREFERENCES: UserPreferencesContextData = {
-	membersListVisible: true,
+	membersListVisible: false,
 	nativeNotifications: false,
 	voice: {
 		input: {
@@ -87,7 +87,11 @@ function loadFromStorage(): UserPreferencesContextData {
 	try {
 		const raw = localStorage.getItem(STORAGE_KEY);
 		if (!raw) return DEFAULT_PREFERENCES;
-		return { ...DEFAULT_PREFERENCES, ...JSON.parse(raw) };
+		return {
+			...DEFAULT_PREFERENCES,
+			...JSON.parse(raw),
+			membersListVisible: DEFAULT_PREFERENCES.membersListVisible,
+		};
 	} catch {
 		return DEFAULT_PREFERENCES;
 	}

@@ -10,6 +10,8 @@ import {
 } from "solid-js";
 import PhoneSlashIcon from "~icons/ph/phone-slash";
 import SpeakerHighIcon from "~icons/ph/speaker-high-fill";
+import CaretLeftIcon from "~icons/ph/caret-left";
+import { createMobilePane } from "../../utils/mobile-pane";
 import { useCommunityContext } from "../../contexts/Community";
 import { useVoiceChatContext } from "../../contexts/VoiceChat";
 import { Camera } from "../icons/Camera";
@@ -22,6 +24,7 @@ import User from "./user";
 export const VoiceChannelView: Component = () => {
 	const params = useParams();
 	const community = useCommunityContext();
+	const { isMobile, popPane } = createMobilePane();
 	const [
 		voiceData,
 		{
@@ -60,6 +63,16 @@ export const VoiceChannelView: Component = () => {
 		<div class="w-full h-full flex flex-col">
 			{/* Header */}
 			<div class="w-full h-12 min-h-12 border-b border-border flex items-center gap-2 px-4">
+				<Show when={isMobile()}>
+					<button
+						type="button"
+						onClick={() => popPane()}
+						class="w-8 h-8 flex items-center justify-center rounded-md hover:bg-muted/50 cursor-pointer -ml-2"
+						aria-label="Back"
+					>
+						<CaretLeftIcon width={20} height={20} />
+					</button>
+				</Show>
 				<SpeakerHighIcon />
 				<span class="font-medium">{channelName()}</span>
 				<Show when={voiceData.connection.state === ConnectionState.Connecting}>

@@ -34,7 +34,7 @@ import ChatCircleDotsIcon from "~icons/ph/chat-circle-dots";
 import UsersIcon from "~icons/ph/users";
 import UsersIconFill from "~icons/ph/users-fill";
 import BellIcon from "~icons/ph/bell";
-import BellIconFill from "~icons/ph/bell-fill";
+import BellSlashIcon from "~icons/ph/bell-slash";
 import { useUserPreferences } from "../contexts/UserPreferences";
 import {
 	Tooltip,
@@ -43,6 +43,8 @@ import {
 	TooltipTrigger,
 } from "../components/ui/Tooltip";
 import { useMutes } from "../contexts/Mutes";
+import { createMobilePane } from "../utils/mobile-pane";
+import CaretLeftIcon from "~icons/ph/caret-left";
 
 type MessageMeta = {
 	isOnNewDay: boolean;
@@ -94,13 +96,16 @@ const ChannelLayout: ParentComponent = (props) => {
 	const user = useUserContext();
 	const mutes = useMutes();
 	const { preferences, toggleMembersVisible } = useUserPreferences();
+	const { isMobile, popPane, pushPane } = createMobilePane();
 
 	const toggleChannelMute = () => {
 		const channelUri = channel.channelUri();
 		if (mutes.isChannelMuted(channelUri)) {
 			mutes.unmuteChannel(channelUri);
+			if (isMobile()) toast.success("Channel unmuted");
 		} else {
 			mutes.muteChannel(channelUri);
+			if (isMobile()) toast.success("Channel muted");
 		}
 	};
 
@@ -533,7 +538,17 @@ const ChannelLayout: ParentComponent = (props) => {
 	return (
 		<div class="w-full h-full flex flex-col min-h-0 flex-1">
 			<div class="sticky top-0 left-0 border-b border-border bg-background h-12 p-2 w-full flex flex-row items-center justify-between">
-				<div class="flex flex-row gap-2 pl-1 items-center">
+				<div class="flex flex-row gap-2 pl-1 items-center min-w-0 flex-1">
+					<Show when={isMobile()}>
+						<button
+							type="button"
+							onClick={() => popPane()}
+							class="w-8 h-8 shrink-0 flex items-center justify-center rounded-md hover:bg-muted/50 cursor-pointer -ml-1"
+							aria-label="Back"
+						>
+							<CaretLeftIcon width={20} height={20} />
+						</button>
+					</Show>
 					<Switch>
 						<Match
 							when={
@@ -542,16 +557,18 @@ const ChannelLayout: ParentComponent = (props) => {
 							}
 						>
 							<ChatCircleDotsIcon
-								class="text-muted-foreground"
+								class="text-muted-foreground shrink-0"
 								width={20}
 								height={20}
 							/>
 						</Match>
 					</Switch>
-					<span>{channel.data()!.name}</span>
+					<span class="shrink-0 whitespace-nowrap">
+						{channel.data()!.name}
+					</span>
 					<Show when={channel.data()!.description}>
-						<span class="text-muted-foreground">—</span>
-						<span class="text-muted-foreground">
+						<span class="text-muted-foreground shrink-0">—</span>
+						<span class="text-muted-foreground min-w-0 flex-1 overflow-hidden whitespace-nowrap text-ellipsis">
 							{channel.data()!.description}
 						</span>
 					</Show>
@@ -567,7 +584,7 @@ const ChannelLayout: ParentComponent = (props) => {
 							>
 								<Switch>
 									<Match when={mutes.isChannelMuted(channel.channelUri())}>
-										<BellIconFill />
+										<BellSlashIcon />
 									</Match>
 									<Match when={!mutes.isChannelMuted(channel.channelUri())}>
 										<BellIcon />
@@ -594,7 +611,9 @@ const ChannelLayout: ParentComponent = (props) => {
 								size="sm"
 								variant="ghost"
 								class="w-8 h-8"
-								onClick={toggleMembersVisible}
+								onClick={() =>
+									isMobile() ? pushPane("members") : toggleMembersVisible()
+								}
 							>
 								<Switch>
 									<Match when={preferences().membersListVisible}>

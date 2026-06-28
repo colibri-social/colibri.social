@@ -78,11 +78,8 @@ export const BlueskyEmbed: Component<{ uri: string; post: BskyPostRef }> = (
 		<div ref={stableMedia}>
 			<Show when={post()}>
 				{(p) => (
-					<a
-						class="flex flex-col gap-2 border border-border bg-card mb-2 rounded-md p-3 max-w-104 hover:bg-muted/50 group/embed"
-						href={link()}
-						target="_blank"
-						rel="noreferrer"
+					<div
+						class="flex flex-col gap-2 border border-border bg-card mb-2 rounded-md p-3 max-w-104"
 						style={{
 							"--hover": getBskyAlternativeClientInfo(
 								preferences().preferredBlueskyClient,
@@ -111,27 +108,22 @@ export const BlueskyEmbed: Component<{ uri: string; post: BskyPostRef }> = (
 									</span>
 								</div>
 							</div>
-							<div>
+							<a href={link()} target="_blank" rel="noreferrer">
 								<Dynamic
 									component={
 										getBskyAlternativeClientInfo(
 											preferences().preferredBlueskyClient,
 										).icon
 									}
-									className="w-6 h-6 group-hover/embed:text-(--hover)"
+									className="w-6 h-6 hover:text-(--hover)"
 								/>
-							</div>
+							</a>
 						</div>
 
 						<Show when={record()?.text}>
-							<a
-								href={link()}
-								target="_blank"
-								rel="noreferrer"
-								class="text-sm whitespace-pre-wrap break-words text-card-foreground"
-							>
+							<span class="text-sm whitespace-pre-wrap break-words text-card-foreground">
 								{record()!.text}
-							</a>
+							</span>
 						</Show>
 
 						<Show when={images().length > 0}>
@@ -150,7 +142,7 @@ export const BlueskyEmbed: Component<{ uri: string; post: BskyPostRef }> = (
 												<img
 													src={resolveEmbedImage(img.thumb)}
 													alt={img.alt || ""}
-													class="w-full h-auto max-h-72 object-cover rounded-sm bg-muted cursor-pointer"
+													class="w-full h-auto max-h-72 object-cover rounded-sm bg-muted cursor-zoom-in"
 												/>
 											</Lightbox>
 										);
@@ -176,7 +168,7 @@ export const BlueskyEmbed: Component<{ uri: string; post: BskyPostRef }> = (
 								{new Date(p().indexedAt).toLocaleDateString()}
 							</span>
 						</div>
-					</a>
+					</div>
 				)}
 			</Show>
 		</div>

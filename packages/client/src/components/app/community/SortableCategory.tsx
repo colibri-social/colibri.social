@@ -41,7 +41,7 @@ export const SortableCategory: Component<{
 				sortable.ref(node);
 			}}
 		>
-			<div style={{ "touch-action": "none" }} {...sortable.dragActivators}>
+			<div style={{ "touch-action": "pan-y" }} {...sortable.dragActivators}>
 				<Category
 					category={props.category}
 					communityUri={props.communityUri}

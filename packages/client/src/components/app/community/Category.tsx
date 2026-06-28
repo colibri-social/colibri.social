@@ -24,11 +24,13 @@ import SpeakerLowIcon from "~icons/ph/speaker-low-fill";
 import type { Category as CategoryType } from "../../../atproto/xrpc/social/colibri/community/listCategories";
 import type { Channel } from "../../../atproto/xrpc/social/colibri/community/listChannels";
 import { usePermissions } from "../../../contexts/Community";
+import { useIsMobile } from "../../../utils/mobile-pane";
 import { useMutes } from "../../../contexts/Mutes";
 import { useNotifications } from "../../../contexts/Notifications";
 import { useUserContext } from "../../../contexts/User";
 import { useVoiceChatContext } from "../../../contexts/VoiceChat";
 import { Button } from "../../ui/Button";
+import { CategoryContextMenu } from "./CategoryContextMenu";
 import { ChannelContextMenu } from "./ChannelContextMenu";
 import { ChannelCreationModal } from "./ChannelCreationModal";
 
@@ -60,6 +62,7 @@ const SortableChannel: Component<{
 	const user = useUserContext();
 	const { canUpdateChannel: _canUpdateChannel } = usePermissions();
 	const canManage = () => _canUpdateChannel(user.did);
+	const isMobile = useIsMobile();
 
 	const notifications = useNotifications();
 	const pingCount = () => notifications.pingsForChannel(props.channel.uri);
@@ -107,7 +110,7 @@ const SortableChannel: Component<{
 		<div
 			ref={canManage() ? sortable.ref : undefined}
 			style={{
-				"touch-action": "none",
+				"touch-action": "pan-y",
 				transform: sortable.transform
 					? `translate(${sortable.transform.x}px, ${sortable.transform.y}px)`
 					: undefined,
@@ -186,7 +189,7 @@ const SortableChannel: Component<{
 									{pingCount() > 9 ? "9+" : pingCount()}
 								</span>
 							</Show>
-							<Show when={canManage()}>
+							<Show when={canManage() && !isMobile()}>
 								<Button
 									size="sm"
 									class="opacity-0 group-hover/channel:opacity-100 p-0 w-5 h-5 cursor-pointer channel-settings"
@@ -259,6 +262,7 @@ export const Category: ParentComponent<{
 	} = usePermissions();
 	const canUpdateCategory = () => _canUpdateCategory(user.did);
 	const canCreateChannel = () => _canCreateChannel(user.did);
+	const isMobile = useIsMobile();
 
 	// TODO: Persist collapse state to local storage (was `makePersisted` from
 	// `@solid-primitives/storage` keyed on the category rkey). Skipped here
@@ -307,6 +311,11 @@ export const Category: ParentComponent<{
 
 	return (
 		<div class="flex flex-col py-3">
+			<CategoryContextMenu
+				categoryName={props.category.name}
+				canEdit={canUpdateCategory()}
+				onEdit={() => props.onOpenCategorySettings(props.category.uri)}
+			>
 			<button
 				type="button"
 				class="group/category flex flex-row justify-between items-center px-4 pb-2 pl-4.5 text-muted-foreground hover:text-foreground text-sm"
@@ -333,7 +342,7 @@ export const Category: ParentComponent<{
 					<span>{props.category.name}</span>
 				</div>
 				<div class="flex flex-row items-center gap-1">
-					<Show when={canUpdateCategory()}>
+					<Show when={canUpdateCategory() && !isMobile()}>
 						<Button
 							size="sm"
 							class="opacity-0 group-hover/category:opacity-100 w-5 h-5 cursor-pointer"
@@ -359,6 +368,7 @@ export const Category: ParentComponent<{
 					</Show>
 				</div>
 			</button>
+			</CategoryContextMenu>
 			<div
 				class="flex flex-col gap-1 mx-3"
 				classList={{

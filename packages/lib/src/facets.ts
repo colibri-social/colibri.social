@@ -1,5 +1,10 @@
 import type { $Typed } from "@atproto/api";
-import type { ByteSlice } from "@atproto/api/dist/client/types/app/bsky/richtext/facet.js";
+
+interface ByteSlice {
+	$type?: "app.bsky.richtext.facet#byteSlice";
+	byteStart: number;
+	byteEnd: number;
+}
 
 export type ColibriRichTextChannel = {
 	$type?: "social.colibri.richtext.facet#channel";

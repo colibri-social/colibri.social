@@ -2,11 +2,11 @@
 import {
 	closestCenter,
 	DragDropProvider,
-	DragDropSensors,
 	type DragEvent,
 	type Droppable,
 	SortableProvider,
 } from "@thisbeyond/solid-dnd";
+import { LongPressSensors } from "../../../utils/create-longpress-sensor";
 import {
 	batch,
 	type Component,
@@ -373,7 +373,7 @@ export const ChannelList: Component<{
 			onDragEnd={onDragEnd}
 			collisionDetector={collisionDetector}
 		>
-			<DragDropSensors />
+			<LongPressSensors />
 			<nav class="w-full h-full flex flex-col overflow-auto pb-4">
 				<SortableProvider ids={visibleCategories().map((c) => c.uri)}>
 					<For each={visibleCategories()}>

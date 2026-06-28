@@ -53,7 +53,7 @@ export const DrawerContent = <T extends ValidComponent = "div">(
 		<>
 			<DrawerPrimitive.Overlay
 				data-slot="drawer-overlay"
-				class="fixed inset-0 z-50 bg-black/50 data-[transitioning]:transition-colors data-[transitioning]:duration-500 data-[transitioning]:ease-[cubic-bezier(0.32,0.72,0,1)]"
+				class="fixed inset-0 z-50 bg-black/50 data-[transitioning]:transition-colors data-[transitioning]:duration-300 data-[transitioning]:ease-[cubic-bezier(0.32,0.72,0,1)]"
 				style={{
 					"background-color": `rgb(0 0 0 / ${0.5 * context.openPercentage()}`,
 				}}
@@ -61,7 +61,7 @@ export const DrawerContent = <T extends ValidComponent = "div">(
 			<DrawerPrimitive.Content
 				data-slot="drawer-content"
 				class={cx(
-					"bg-background fixed z-50 flex h-auto flex-col after:absolute after:bg-inherit data-[transitioning]:transition-transform data-[transitioning]:duration-500 data-[transitioning]:ease-[cubic-bezier(0.32,0.72,0,1)]",
+					"bg-background fixed z-50 flex h-auto flex-col after:absolute after:bg-inherit data-[transitioning]:transition-transform data-[transitioning]:duration-300 data-[transitioning]:ease-[cubic-bezier(0.32,0.72,0,1)]",
 					context.side() === "bottom" && [
 						"inset-x-0 bottom-0 mt-24 max-h-[80vh] rounded-t-lg border-t",
 						"after:inset-x-0 after:top-[calc(100%-1px)] after:h-1/2",
@@ -85,8 +85,8 @@ export const DrawerContent = <T extends ValidComponent = "div">(
 				<Show when={props.withHandle}>
 					<div
 						class={cx(
-							"bg-muted shrink-0 self-center rounded-full",
-							context.side() === "bottom" && "mt-4 h-1 w-10",
+							"bg-muted-foreground/30 shrink-0 self-center rounded-full",
+							context.side() === "bottom" && "mt-3 mb-1 h-1.5 w-12",
 						)}
 					/>
 				</Show>

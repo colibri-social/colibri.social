@@ -5,6 +5,7 @@ import {
 	createSignal,
 	For,
 	onCleanup,
+	onMount,
 	Show,
 } from "solid-js";
 import { Portal } from "solid-js/web";
@@ -220,7 +221,31 @@ export const ImageGallery: Component<{
 	const [openIndex, setOpenIndex] = createSignal<number | null>(null);
 	let lightboxRef: HTMLDivElement | undefined;
 
-	const close = () => setOpenIndex(null);
+	// Open the lightbox and push a history entry so the browser/Android back
+	// button (and the mobile back-swipe) closes it instead of leaving the view.
+	const open = (i: number) => {
+		setOpenIndex(i);
+		try {
+			history.pushState({ ...history.state, colibriLightbox: true }, "");
+		} catch {
+			// history unavailable
+		}
+	};
+
+	const close = () => {
+		if (openIndex() === null) return;
+		if (history.state?.colibriLightbox) history.back();
+		else setOpenIndex(null);
+	};
+
+	onMount(() => {
+		const onPop = () => {
+			if (openIndex() !== null) setOpenIndex(null);
+		};
+		window.addEventListener("popstate", onPop);
+		onCleanup(() => window.removeEventListener("popstate", onPop));
+	});
+
 	const next = () => setOpenIndex((i) => (i === null ? i : (i + 1) % count()));
 	const prev = () =>
 		setOpenIndex((i) => (i === null ? i : (i - 1 + count()) % count()));
@@ -267,7 +292,7 @@ export const ImageGallery: Component<{
 							class="max-h-96 w-full cursor-zoom-in rounded-lg border border-border object-cover transition-opacity hover:opacity-90"
 							alt={props.images[0].name ?? ""}
 							loading="lazy"
-							onClick={() => setOpenIndex(0)}
+							onClick={() => open(0)}
 						/>
 						<a
 							class="absolute z-20 top-1 right-1 hidden aspect-square -translate-y-1/2 translate-x-1/2 items-center justify-center rounded-sm border border-border bg-card p-1 hover:bg-muted group-hover/image:flex"
@@ -287,7 +312,7 @@ export const ImageGallery: Component<{
 							<button
 								type="button"
 								class="aspect-square cursor-zoom-in overflow-hidden rounded-lg border border-border"
-								onClick={() => setOpenIndex(i())}
+								onClick={() => open(i())}
 							>
 								<img
 									src={urls()?.[i()]}
@@ -475,7 +500,7 @@ export const GenericFileAttachment: AttachmentComponent = (props) => {
 	return (
 		<a
 			ref={stableMedia}
-			class="flex w-104 max-w-full flex-row items-center gap-3 rounded-lg border border-border bg-card p-2.5 transition-colors hover:bg-muted/75"
+			class="flex max-w-104 w-full flex-row items-center gap-3 rounded-lg border border-border bg-card p-2.5 transition-colors hover:bg-muted/75"
 			href={src()}
 			target="_blank"
 			rel="noreferrer"

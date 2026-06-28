@@ -22,6 +22,13 @@ import {
 	DialogPortal,
 	DialogTrigger,
 } from "../../ui/Dialog";
+import {
+	Drawer,
+	DrawerContent,
+	DrawerPortal,
+	DrawerTrigger,
+} from "../../ui/Drawer";
+import { useIsMobile } from "../../../utils/mobile-pane";
 
 export const SettingsPage: ParentComponent<{
 	loading: Accessor<boolean>;
@@ -128,97 +135,139 @@ export const SettingsModal: ParentComponent<{
 		props.pages.find((x) => x.visible?.() ?? true)?.id || "",
 	);
 	const [open, setOpen] = createSignal(false);
+	const isMobile = useIsMobile();
+	const isOpen = () => props.open?.() ?? open();
+	const onOpenChange = props.setOpen ?? setOpen;
 
-	createEffect(() => {
-		if (open() === false) return;
-
-		setActivePage(props.pages[0].id);
-	});
+	// Shared page renderer for both the desktop sidebar layout and the mobile
+	// select-driven drawer
+	const PageContent = () => (
+		<Switch fallback={<div>No settings page for this category found.</div>}>
+			<For each={props.pages}>
+				{(item) => (
+					<Match when={activePage() === item.id}>
+						<item.component />
+					</Match>
+				)}
+			</For>
+			<Match when={props.debugPage && activePage() === props.debugPage.id}>
+				<Dynamic component={props.debugPage!.component} />
+			</Match>
+			<Match when={props.dangerPage && activePage() === props.dangerPage.id}>
+				<Dynamic component={props.dangerPage!.component} />
+			</Match>
+		</Switch>
+	);
 
 	return (
-		<Dialog
-			open={props.open?.() ?? open()}
-			onOpenChange={props.setOpen ?? setOpen}
-		>
-			<DialogTrigger class={props.class}>{props.children}</DialogTrigger>
-			<DialogPortal>
-				<DialogContent
-					class={cx(
-						"w-[75vw] min-w-92 h-fit min-h-144 max-w-3xl! p-0 flex flex-row gap-0 max-h-[calc(100vh-4rem)]! settings-modal",
-						props.contentClass,
-					)}
-				>
-					<div class="absolute top-5 right-5 flex items-center justify-center w-6 h-6 hover:bg-muted/50 cursor-pointer rounded-sm z-50">
-						<DialogCloseButton class="absolute cursor-pointer">
-							<XIcon />
-						</DialogCloseButton>
-					</div>
-					<div class="min-h-144 h-auto flex flex-col justify-between p-4 min-w-56 border-r border-border">
-						<div class="h-full flex flex-col gap-1">
-							<For each={props.pages}>
-								{(item) => (
-									<Show when={item.visible?.() !== false}>
+		<Show
+			when={isMobile()}
+			fallback={
+				<Dialog open={isOpen()} onOpenChange={onOpenChange}>
+					<DialogTrigger class={props.class}>{props.children}</DialogTrigger>
+					<DialogPortal>
+						<DialogContent
+							class={cx(
+								"w-[75vw] min-w-92 h-fit min-h-144 max-w-3xl! p-0 flex flex-row gap-0 max-h-[calc(100vh-4rem)]! settings-modal",
+								props.contentClass,
+							)}
+						>
+							<div class="absolute top-5 right-5 flex items-center justify-center w-6 h-6 hover:bg-muted/50 cursor-pointer rounded-sm z-50">
+								<DialogCloseButton class="absolute cursor-pointer">
+									<XIcon />
+								</DialogCloseButton>
+							</div>
+							<div class="min-h-144 h-auto flex flex-col justify-between p-4 min-w-56 border-r border-border">
+								<div class="h-full flex flex-col gap-1">
+									<For each={props.pages}>
+										{(item) => (
+											<Show when={item.visible?.() !== false}>
+												<SettingsPageSelector
+													icon={item.icon}
+													activePage={activePage() === item.id}
+													onClick={() => setActivePage(item.id)}
+													badge={item.badge}
+												>
+													{item.title}
+												</SettingsPageSelector>
+											</Show>
+										)}
+									</For>
+								</div>
+								<div class="flex flex-col gap-1">
+									<Show when={props.debugPage}>
 										<SettingsPageSelector
-											icon={item.icon}
-											activePage={activePage() === item.id}
-											onClick={() => setActivePage(item.id)}
-											badge={item.badge}
+											icon={props.debugPage!.icon}
+											activePage={activePage() === props.debugPage!.id}
+											onClick={() => setActivePage(props.debugPage!.id)}
 										>
-											{item.title}
+											{props.debugPage!.title}
 										</SettingsPageSelector>
 									</Show>
-								)}
-							</For>
-						</div>
-						<div class="flex flex-col gap-1">
-							<Show when={props.debugPage}>
-								<SettingsPageSelector
-									icon={props.debugPage!.icon}
-									activePage={activePage() === props.debugPage!.id}
-									onClick={() => setActivePage(props.debugPage!.id)}
-								>
-									{props.debugPage!.title}
-								</SettingsPageSelector>
-							</Show>
-							<Show
-								when={
-									props.dangerPage && props.dangerPage.visible?.() !== false
-								}
+									<Show
+										when={
+											props.dangerPage && props.dangerPage.visible?.() !== false
+										}
+									>
+										<SettingsPageSelector
+											icon={props.dangerPage!.icon}
+											activePage={activePage() === props.dangerPage!.id}
+											danger
+											onClick={() => setActivePage(props.dangerPage!.id)}
+										>
+											{props.dangerPage!.title}
+										</SettingsPageSelector>
+									</Show>
+								</div>
+							</div>
+							<PageContent />
+						</DialogContent>
+					</DialogPortal>
+				</Dialog>
+			}
+		>
+			<Drawer open={isOpen()} onOpenChange={onOpenChange}>
+				<DrawerTrigger class={props.class}>{props.children}</DrawerTrigger>
+				<DrawerPortal>
+					<DrawerContent class="max-h-[92dvh] p-0 overflow-hidden">
+						<div class="p-3 border-b border-border">
+							<select
+								value={activePage()}
+								onChange={(e) => setActivePage(e.currentTarget.value)}
+								class="w-full bg-muted/50 border border-border rounded-md px-3 py-2 text-base"
 							>
-								<SettingsPageSelector
-									icon={props.dangerPage!.icon}
-									activePage={activePage() === props.dangerPage!.id}
-									danger
-									onClick={() => setActivePage(props.dangerPage!.id)}
+								<For each={props.pages}>
+									{(item) => (
+										<Show when={item.visible?.() !== false}>
+											<option value={item.id}>{item.title}</option>
+										</Show>
+									)}
+								</For>
+								<Show when={props.debugPage}>
+									<option value={props.debugPage!.id}>
+										{props.debugPage!.title}
+									</option>
+								</Show>
+								<Show
+									when={
+										props.dangerPage && props.dangerPage.visible?.() !== false
+									}
 								>
-									{props.dangerPage!.title}
-								</SettingsPageSelector>
-							</Show>
+									<option value={props.dangerPage!.id}>
+										{props.dangerPage!.title}
+									</option>
+								</Show>
+							</select>
 						</div>
-					</div>
-					<Switch
-						fallback={<div>No settings page for this category found.</div>}
-					>
-						<For each={props.pages}>
-							{(item) => (
-								<Match when={activePage() === item.id}>
-									<item.component />
-								</Match>
-							)}
-						</For>
-						<Match
-							when={props.debugPage && activePage() === props.debugPage.id}
+						<div
+							class="flex-1 min-h-0 overflow-y-auto"
+							data-corvu-no-drag="true"
 						>
-							<Dynamic component={props.debugPage!.component} />
-						</Match>
-						<Match
-							when={props.dangerPage && activePage() === props.dangerPage.id}
-						>
-							<Dynamic component={props.dangerPage!.component} />
-						</Match>
-					</Switch>
-				</DialogContent>
-			</DialogPortal>
-		</Dialog>
+							<PageContent />
+						</div>
+					</DrawerContent>
+				</DrawerPortal>
+			</Drawer>
+		</Show>
 	);
 };

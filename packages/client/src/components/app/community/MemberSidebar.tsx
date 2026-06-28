@@ -9,9 +9,12 @@ import {
 import { useUserContext } from "../../../contexts/User";
 import { useUserPreferences } from "../../../contexts/UserPreferences";
 import createMediaQuery from "../../../utils/create-media-query";
+import { createMobilePane } from "../../../utils/mobile-pane";
+import { createSwipe } from "../../../utils/create-swipe";
 import User from "../user";
 import { MemberContextMenu } from "./MemberContextMenu";
 import CrownIcon from "~icons/ph/crown-fill";
+import CaretLeftIcon from "~icons/ph/caret-left";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../../ui/Tooltip";
 import { groupMembersByRoles } from "../../../utils/group-members-by-roles";
 
@@ -107,38 +110,65 @@ export const MemberSidebar = () => {
 
 	const displayMembersAsSheet = createMediaQuery("(max-width: 1280px)");
 	const { preferences } = useUserPreferences();
+	const { isMobile, currentPane, popPane, pushDeeper } = createMobilePane();
 
 	return (
 		<div
-			class="min-w-72 flex w-72 h-full flex-col p-4 border-l z-50 gap-3 border-border overflow-y-auto bg-background"
+			ref={(el) =>
+				createSwipe(el, {
+					enabled: () => isMobile(),
+					onSwipeRight: () => popPane(),
+					onSwipeLeft: () => pushDeeper(),
+				})
+			}
+			class="flex flex-col border-border bg-background"
 			classList={{
+				"min-w-72 w-72 h-full border-l z-50": !isMobile(),
 				"absolute top-0 right-0 h-full drop-shadow-black drop-shadow-2xl":
-					displayMembersAsSheet(),
-				hidden: !preferences().membersListVisible,
+					!isMobile() && displayMembersAsSheet(),
+				hidden: !isMobile() && !preferences().membersListVisible,
+				"absolute inset-0 w-full h-full z-30 transition-transform duration-200 ease-out motion-reduce:transition-none":
+					isMobile(),
+				"translate-x-full": isMobile() && currentPane() !== "members",
 			}}
 		>
-			<For each={layout().members}>
-				{(member) => {
-					const header = () => layout().headers[member.did];
+			<Show when={isMobile()}>
+				<div class="sticky top-0 left-0 border-b border-border bg-background h-12 min-h-12 p-2 w-full flex flex-row items-center gap-1">
+					<button
+						type="button"
+						onClick={() => popPane()}
+						class="w-8 h-8 flex items-center justify-center rounded-md hover:bg-muted/50 cursor-pointer"
+						aria-label="Back"
+					>
+						<CaretLeftIcon width={20} height={20} />
+					</button>
+					<span class="font-medium">Members</span>
+				</div>
+			</Show>
+			<div class="flex flex-col gap-3 p-4 overflow-y-auto flex-1">
+				<For each={layout().members}>
+					{(member) => {
+						const header = () => layout().headers[member.did];
 
-					return (
-						<>
-							<Show when={header()}>
-								{(h) => (
-									<span class="text-sm text-muted-foreground not-first-of-type:mt-4">
-										{h().label} — {h().count}
-									</span>
-								)}
-							</Show>
-							<MemberRow
-								member={member}
-								communityUri={community().community.uri}
-								roles={community().assignableRoles}
-							/>
-						</>
-					);
-				}}
-			</For>
+						return (
+							<>
+								<Show when={header()}>
+									{(h) => (
+										<span class="text-sm text-muted-foreground not-first-of-type:mt-4">
+											{h().label} — {h().count}
+										</span>
+									)}
+								</Show>
+								<MemberRow
+									member={member}
+									communityUri={community().community.uri}
+									roles={community().assignableRoles}
+								/>
+							</>
+						);
+					}}
+				</For>
+			</div>
 		</div>
 	);
 };

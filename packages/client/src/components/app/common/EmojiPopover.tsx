@@ -3,14 +3,21 @@ import {
 	type EmojiEventHandler,
 	EmojiPicker,
 } from "solid-emoji-picker";
-import { type Accessor, createSignal, type ParentComponent } from "solid-js";
+import {
+	type Accessor,
+	createSignal,
+	type ParentComponent,
+	Show,
+} from "solid-js";
 import {
 	Popover,
 	PopoverContent,
 	PopoverPortal,
 	PopoverTrigger,
 } from "../../ui/Popover";
+import { BottomSheet } from "../../ui/MenuDrawer";
 import { TextField, TextFieldInput } from "../../ui/TextField";
+import { useIsMobile } from "../../../utils/mobile-pane";
 
 export const EmojiPopover: ParentComponent<{
 	emojiPopoverOpen: Accessor<boolean>;
@@ -76,36 +83,66 @@ export const EmojiPopover: ParentComponent<{
 		);
 	}
 
+	const isMobile = useIsMobile();
+
+	const PickerBody = () => (
+		<>
+			<TextField class="mb-2" value={filter()} onChange={setFilter}>
+				<TextFieldInput
+					type="text"
+					placeholder="Search emojis..."
+					class="h-9"
+				/>
+			</TextField>
+
+			<div class="h-72 overflow-y-auto custom-scrollbar">
+				<EmojiPicker
+					filter={(emoji) => {
+						const query = filter().trim().toLowerCase();
+						if (!query) return true;
+
+						return emoji.name.toLowerCase().includes(query);
+					}}
+					renderEmoji={(_data, emoji) => renderEmoji(emoji)}
+				/>
+			</div>
+		</>
+	);
+
 	return (
-		<Popover
-			open={props.emojiPopoverOpen()}
-			onOpenChange={props.setEmojiPopoverOpen}
-			placement="left-start"
+		<Show
+			when={isMobile()}
+			fallback={
+				<Popover
+					open={props.emojiPopoverOpen()}
+					onOpenChange={props.setEmojiPopoverOpen}
+					placement="left-start"
+				>
+					<PopoverTrigger as="div">{props.children}</PopoverTrigger>
+					<PopoverPortal>
+						<PopoverContent class="w-80 p-3 shadow-xl border bg-popover rounded-xl">
+							<PickerBody />
+						</PopoverContent>
+					</PopoverPortal>
+				</Popover>
+			}
 		>
-			<PopoverTrigger as="div">{props.children}</PopoverTrigger>
-			<PopoverPortal>
-				<PopoverContent class="w-80 p-3 shadow-xl border bg-popover rounded-xl">
-					<TextField class="mb-2" value={filter()} onChange={setFilter}>
-						<TextFieldInput
-							type="text"
-							placeholder="Search emojis..."
-							class="h-9"
-						/>
-					</TextField>
-
-					<div class="h-72 overflow-y-auto custom-scrollbar">
-						<EmojiPicker
-							filter={(emoji) => {
-								const query = filter().trim().toLowerCase();
-								if (!query) return true;
-
-								return emoji.name.toLowerCase().includes(query);
-							}}
-							renderEmoji={(_data, emoji) => renderEmoji(emoji)}
-						/>
-					</div>
-				</PopoverContent>
-			</PopoverPortal>
-		</Popover>
+			<Show when={props.children}>
+				<div
+					style={{ display: "contents" }}
+					onClick={() => props.setEmojiPopoverOpen(true)}
+				>
+					{props.children}
+				</div>
+			</Show>
+			<BottomSheet
+				open={props.emojiPopoverOpen()}
+				onOpenChange={props.setEmojiPopoverOpen}
+			>
+				<div class="flex flex-col px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+					<PickerBody />
+				</div>
+			</BottomSheet>
+		</Show>
 	);
 };

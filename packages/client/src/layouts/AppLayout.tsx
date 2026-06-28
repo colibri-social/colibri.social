@@ -5,7 +5,6 @@ import {
 	closestCenter,
 	createSortable,
 	DragDropProvider,
-	DragDropSensors,
 	type DragEvent,
 	DragOverlay,
 	SortableProvider,
@@ -52,6 +51,8 @@ import {
 	reorderList,
 } from "../utils/drag";
 import { SoundsContextProvider } from "../contexts/Sounds";
+import { LongPressSensors } from "../utils/create-longpress-sensor";
+import { createMobilePane } from "../utils/mobile-pane";
 
 const CommunityAvatar = (props: { item: Community; class?: string }) => {
 	const communityDid = props.item.uri.split("/")[2];
@@ -131,7 +132,7 @@ const SortableCommunity = (props: {
 			}}
 			class="relative"
 			classList={{ "opacity-50": sortable.isActiveDraggable }}
-			style={{ "touch-action": "none" }}
+			style={{ "touch-action": "pan-y" }}
 			{...sortable.dragActivators}
 		>
 			<Show
@@ -175,7 +176,7 @@ const CommunitySidebar = (props: {
 }) => {
 	return (
 		<>
-			<DragDropSensors />
+			<LongPressSensors />
 			<SortableProvider ids={props.communities.map((c) => c.uri)}>
 				<For each={props.communities}>
 					{(item) => (
@@ -214,6 +215,7 @@ const AppLayout: ParentComponent = (props) => {
 	const socket = useSocketContext();
 	const navigate = useNavigate();
 	const location = useLocation();
+	const { isMobile, currentPane } = createMobilePane();
 
 	onMount(() => {
 		const cleanup = socket.onEvent((event) => {
@@ -367,9 +369,15 @@ const AppLayout: ParentComponent = (props) => {
 	};
 
 	return (
-		<div class="flex flex-col w-screen h-screen bg-card">
+		<div
+			class="flex flex-col w-screen bg-card"
+			classList={{ "h-[100dvh]": isMobile(), "h-screen": !isMobile() }}
+		>
 			<NativeNotifications />
-			<div class="flex w-full h-10 min-h-10 justify-between">
+			<div
+				class="flex w-full h-10 min-h-10 justify-between"
+				classList={{ hidden: isMobile() }}
+			>
 				<div class="flex w-full h-full pl-2 items-center gap-2">
 					<img
 						src={ColibriLogo}
@@ -382,8 +390,21 @@ const AppLayout: ParentComponent = (props) => {
 					</span>
 				</div>
 			</div>
-			<div class="flex h-[calc(100%-40px)] w-full">
-				<aside class="flex flex-col h-full w-14 p-2 pb-3">
+			<div
+				class="flex w-full"
+				classList={{
+					"h-full": isMobile(),
+					"h-[calc(100%-40px)]": !isMobile(),
+				}}
+			>
+				<aside
+					class="flex flex-col h-full w-14 p-2 pb-3 bg-card"
+					classList={{
+						"absolute left-0 top-0 z-40 transition-transform duration-200 ease-out motion-reduce:transition-none":
+							isMobile(),
+						"-translate-x-full": isMobile() && currentPane() !== "nav",
+					}}
+				>
 					<nav class="w-full h-full flex flex-col gap-2 max-h-[calc(100%-3.25rem-1px)] mb-3.25">
 						<div class="w-[calc(100%+0.5rem)] h-full flex flex-col no-scrollbar gap-2 overflow-y-auto overflow-x-clip px-1 -mx-1">
 							<A

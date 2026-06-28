@@ -29,6 +29,14 @@ import {
 	MemberActionDialog,
 } from "./MemberActionDialog";
 import { createRoleSync } from "../../../utils/role-sync";
+import {
+	handoffDrawer,
+	MenuDrawer,
+	MenuDrawerItem,
+} from "../../ui/MenuDrawer";
+import { useIsMobile } from "../../../utils/mobile-pane";
+import { createLongPress } from "../../../utils/create-long-press";
+import CheckIcon from "~icons/ph/check";
 
 export const MemberContextMenu: ParentComponent<{ member: ActorData }> = (
 	props,
@@ -44,6 +52,18 @@ export const MemberContextMenu: ParentComponent<{ member: ActorData }> = (
 
 	const isMe = () => props.member.did === user.did;
 	const showModActions = () => outranks(user.did, props.member.did) && !isMe();
+	const isMobile = useIsMobile();
+	const [menuOpen, setMenuOpen] = createSignal(false);
+
+	const sortedRoles = () =>
+		community().assignableRoles.sort((a, b) => b.position - a.position);
+
+	const copyDid = () => {
+		navigator.clipboard.writeText(props.member.did);
+		toast.success(
+			`DID for ${displayableNameFn(props.member)} copied to clipboard!`,
+		);
+	};
 
 	const [dialog, setDialog] = createSignal<ActionDialogData>({
 		open: false,
@@ -58,6 +78,95 @@ export const MemberContextMenu: ParentComponent<{ member: ActorData }> = (
 				dialog={dialog}
 				setDialog={setDialog}
 			/>
+			<Show when={isMobile()}>
+				<div
+					style={{ display: "contents" }}
+					ref={(el) =>
+						createLongPress(el, {
+							enabled: () => isMobile(),
+							onLongPress: () => setMenuOpen(true),
+						})
+					}
+				>
+					{props.children}
+				</div>
+				<MenuDrawer
+					open={menuOpen()}
+					onOpenChange={setMenuOpen}
+					title={<DisplayableName color={false} user={props.member} />}
+				>
+					<span class="px-3 pt-1 pb-0.5 text-xs uppercase tracking-wide text-muted-foreground">
+						Roles
+					</span>
+					<For each={sortedRoles()}>
+						{(role) => {
+							const manageable = () => canManageRole(user.did, role);
+							return (
+								<MenuDrawerItem
+									disabled={!manageable()}
+									class="disabled:opacity-50"
+									onClick={() => manageable() && toggleRole(role.uri)}
+								>
+									<div
+										class="w-2.5 h-2.5 rounded-full shrink-0"
+										style={{ background: role.color ?? "#fff" }}
+									/>
+									<span>{role.name}</span>
+									<Show when={hasRole(role.uri)}>
+										<CheckIcon class="ml-auto" />
+									</Show>
+								</MenuDrawerItem>
+							);
+						}}
+					</For>
+					<Show when={showModActions()}>
+						<Show
+							when={
+								canKickMember(user.did) &&
+								community().community.requiresApprovalToJoin
+							}
+						>
+							<MenuDrawerItem
+								destructive
+								onClick={() =>
+									handoffDrawer(
+										() => setMenuOpen(false),
+										() => setDialog({ open: true, type: "kick" }),
+									)
+								}
+							>
+								<span>
+									Kick <DisplayableName color={false} user={props.member} />
+								</span>
+							</MenuDrawerItem>
+						</Show>
+						<Show when={canBanMember(user.did)}>
+							<MenuDrawerItem
+								destructive
+								onClick={() =>
+									handoffDrawer(
+										() => setMenuOpen(false),
+										() => setDialog({ open: true, type: "ban" }),
+									)
+								}
+							>
+								<span>
+									Ban <DisplayableName color={false} user={props.member} />
+								</span>
+							</MenuDrawerItem>
+						</Show>
+					</Show>
+					<MenuDrawerItem
+						onClick={() => {
+							setMenuOpen(false);
+							copyDid();
+						}}
+					>
+						Copy DID
+					</MenuDrawerItem>
+				</MenuDrawer>
+			</Show>
+			<Show when={!isMobile()}>
 			<ContextMenu>
 				<ContextMenuTrigger>{props.children}</ContextMenuTrigger>
 				<ContextMenuPortal>
@@ -159,6 +268,7 @@ export const MemberContextMenu: ParentComponent<{ member: ActorData }> = (
 					</ContextMenuContent>
 				</ContextMenuPortal>
 			</ContextMenu>
+			</Show>
 		</>
 	);
 };

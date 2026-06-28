@@ -1,6 +1,12 @@
 import type { JsonBlobRef } from "@atproto/lexicon";
 import type { Details } from "@kobalte/core/file-field";
-import { type Component, createSignal, Match, Switch } from "solid-js";
+import {
+	type Component,
+	createSignal,
+	type JSX,
+	Match,
+	Switch,
+} from "solid-js";
 import { toast } from "somoto";
 import ImageIcon from "~icons/ph/image";
 import { putRecord, uploadBlob } from "../../../atproto/pds";
@@ -58,6 +64,15 @@ export const GeneralPage: Component = () => {
 
 	const [imageRemoved, setImageRemoved] = createSignal(false);
 	const [bannerRemoved, setBannerRemoved] = createSignal(false);
+
+	const bannerStyle = (): JSX.CSSProperties => {
+		const t = theme();
+		if (t.useGradient)
+			return {
+				background: `linear-gradient(135deg, ${t.gradientPrimary}, ${t.gradientSecondary})`,
+			};
+		return { background: t.bannerColor };
+	};
 
 	const existingImageUrl = () =>
 		!imageRemoved() && image() === undefined
@@ -204,8 +219,11 @@ export const GeneralPage: Component = () => {
 					maxFiles={1}
 					disabled={syncBluesky()}
 				>
-					<FileFieldDropzone class="w-full h-full rounded-none border-none">
-						<FileFieldTrigger class="h-full w-full p-0 bg-muted/25 hover:bg-muted/50 overflow-hidden rounded-none">
+					<FileFieldDropzone class="w-full h-full rounded-none border-none min-h-0">
+						<FileFieldTrigger
+							class="h-full w-full p-0 overflow-hidden rounded-none transition hover:brightness-110"
+							style={bannerStyle()}
+						>
 							<Switch>
 								<Match when={banner() !== undefined}>
 									<div class="relative h-full w-full">
@@ -232,7 +250,7 @@ export const GeneralPage: Component = () => {
 									</div>
 								</Match>
 								<Match when={true}>
-									<div class="flex flex-col items-center justify-center gap-1">
+									<div class="flex flex-col items-center justify-center gap-1 text-white/90 drop-shadow">
 										<ImageIcon class="w-6! h-6!" />
 										<span>Upload</span>
 									</div>

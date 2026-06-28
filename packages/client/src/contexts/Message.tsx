@@ -34,6 +34,8 @@ export type MessageContextValue = {
 	setDebugModalOpen: Setter<boolean>;
 	emojiPopoverOpen: Accessor<boolean>;
 	setEmojiPopoverOpen: Setter<boolean>;
+	contextMenuOpen: Accessor<boolean>;
+	setContextMenuOpen: Setter<boolean>;
 
 	editedText: Accessor<TextWithFacets>;
 	setEditedText: Setter<TextWithFacets>;
@@ -80,6 +82,7 @@ export const MessageContextProvider: ParentComponent<{ data: Message }> = (
 	const [deletionModalOpen, setDeletionModalOpen] = createSignal(false);
 	const [emojiPopoverOpen, setEmojiPopoverOpen] = createSignal(false);
 	const [debugModalOpen, setDebugModalOpen] = createSignal(false);
+	const [contextMenuOpen, setContextMenuOpen] = createSignal(false);
 
 	const editMode = () =>
 		!isPending() && channel.editingMessage()?.uri === props.data.uri;
@@ -307,6 +310,8 @@ export const MessageContextProvider: ParentComponent<{ data: Message }> = (
 		setDebugModalOpen,
 		emojiPopoverOpen,
 		setEmojiPopoverOpen,
+		contextMenuOpen,
+		setContextMenuOpen,
 		editedText,
 		setEditedText,
 		newText,
