@@ -17,6 +17,7 @@ export const ChannelCreationModal: ParentComponent<{
 	category: string;
 	/** AT-URI of the community this channel will belong to. */
 	community: string;
+	class: string;
 }> = (props) => {
 	const user = useUserContext();
 	const [open, setOpen] = createSignal(false);
@@ -49,6 +50,7 @@ export const ChannelCreationModal: ParentComponent<{
 			onOpenChange={setOpen}
 			trigger={props.children}
 			title="Create Channel"
+			class={props.class}
 		>
 			<div class="flex flex-col gap-4">
 				<TextField class="gap-1.5">

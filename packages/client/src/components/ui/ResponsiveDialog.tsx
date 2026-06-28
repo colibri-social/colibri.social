@@ -25,6 +25,7 @@ export interface ResponsiveDialogProps {
 	children: JSX.Element;
 	contentClass?: string;
 	mobileBreakPoints?: number[];
+	class: string;
 }
 
 /**
@@ -41,7 +42,7 @@ export const ResponsiveDialog = (props: ResponsiveDialogProps) => {
 			fallback={
 				<Dialog open={props.open} onOpenChange={props.onOpenChange}>
 					<Show when={props.trigger}>
-						<DialogTrigger>{props.trigger}</DialogTrigger>
+						<DialogTrigger class={props.class}>{props.trigger}</DialogTrigger>
 					</Show>
 					<DialogPortal>
 						<DialogContent class={props.contentClass}>
@@ -62,7 +63,7 @@ export const ResponsiveDialog = (props: ResponsiveDialogProps) => {
 				breakPoints={props.mobileBreakPoints}
 			>
 				<Show when={props.trigger}>
-					<DrawerTrigger>{props.trigger}</DrawerTrigger>
+					<DrawerTrigger class={props.class}>{props.trigger}</DrawerTrigger>
 				</Show>
 				<DrawerPortal>
 					<DrawerContent class="max-h-[85dvh]">

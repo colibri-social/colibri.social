@@ -360,6 +360,7 @@ export const Category: ParentComponent<{
 							<ChannelCreationModal
 								category={props.category.uri}
 								community={props.communityUri}
+								class="w-5 h-5"
 							>
 								<Button
 									size="sm"
