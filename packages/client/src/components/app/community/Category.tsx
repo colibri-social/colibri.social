@@ -316,58 +316,62 @@ export const Category: ParentComponent<{
 				canEdit={canUpdateCategory()}
 				onEdit={() => props.onOpenCategorySettings(props.category.uri)}
 			>
-			<button
-				type="button"
-				class="group/category flex flex-row justify-between items-center px-4 pb-2 pl-4.5 text-muted-foreground hover:text-foreground text-sm"
-				style={{
-					cursor: canUpdateCategory()
-						? props.activeDraggable
-							? "grabbing"
-							: "grab"
-						: "pointer",
-				}}
-			>
-				<div
-					class="flex flex-row items-center gap-2.5 cursor-pointer"
-					onClick={() => setOpen((current) => !current)}
+				<button
+					type="button"
+					class="group/category flex flex-row justify-between w-full items-center px-4 pb-2 pl-4.5 text-muted-foreground hover:text-foreground text-sm"
+					style={{
+						cursor: canUpdateCategory()
+							? props.activeDraggable
+								? "grabbing"
+								: "grab"
+							: "pointer",
+					}}
 				>
-					<Switch>
-						<Match when={open()}>
-							<CaretRightIcon class="rotate-90" />
-						</Match>
-						<Match when={!open()}>
-							<CaretRightIcon class="rotate-0" />
-						</Match>
-					</Switch>
-					<span>{props.category.name}</span>
-				</div>
-				<div class="flex flex-row items-center gap-1">
-					<Show when={canUpdateCategory() && !isMobile()}>
-						<Button
-							size="sm"
-							class="opacity-0 group-hover/category:opacity-100 w-5 h-5 cursor-pointer"
-							variant="ghost"
-							onClick={(e) => {
-								e.preventDefault();
-								e.stopPropagation();
-								props.onOpenCategorySettings(props.category.uri);
-							}}
-						>
-							<GearIcon width={16} height={16} />
-						</Button>
-					</Show>
-					<Show when={canCreateChannel()}>
-						<ChannelCreationModal
-							category={props.category.uri}
-							community={props.communityUri}
-						>
-							<Button size="sm" class="w-5 h-5 cursor-pointer" variant="ghost">
-								<PlusIcon width={16} height={16} />
+					<div
+						class="flex flex-row items-center gap-2.5 cursor-pointer"
+						onClick={() => setOpen((current) => !current)}
+					>
+						<Switch>
+							<Match when={open()}>
+								<CaretRightIcon class="rotate-90" />
+							</Match>
+							<Match when={!open()}>
+								<CaretRightIcon class="rotate-0" />
+							</Match>
+						</Switch>
+						<span>{props.category.name}</span>
+					</div>
+					<div class="flex flex-row items-center gap-1 h-5">
+						<Show when={canUpdateCategory() && !isMobile()}>
+							<Button
+								size="sm"
+								class="opacity-0 group-hover/category:opacity-100 w-5 h-5 cursor-pointer"
+								variant="ghost"
+								onClick={(e) => {
+									e.preventDefault();
+									e.stopPropagation();
+									props.onOpenCategorySettings(props.category.uri);
+								}}
+							>
+								<GearIcon width={16} height={16} />
 							</Button>
-						</ChannelCreationModal>
-					</Show>
-				</div>
-			</button>
+						</Show>
+						<Show when={canCreateChannel()}>
+							<ChannelCreationModal
+								category={props.category.uri}
+								community={props.communityUri}
+							>
+								<Button
+									size="sm"
+									class="w-5 h-5 cursor-pointer"
+									variant="ghost"
+								>
+									<PlusIcon width={16} height={16} />
+								</Button>
+							</ChannelCreationModal>
+						</Show>
+					</div>
+				</button>
 			</CategoryContextMenu>
 			<div
 				class="flex flex-col gap-1 mx-3"
