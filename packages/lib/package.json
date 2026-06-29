@@ -3,19 +3,26 @@
 	"private": true,
 	"type": "module",
 	"version": "0.0.1",
-	"types": "./dist/index.d.ts",
+	"types": "./src/index.ts",
 	"exports": {
 		".": {
-			"types": "./dist/index.d.ts"
+			"types": "./src/index.ts",
+			"default": "./src/index.ts"
 		}
 	},
 	"scripts": {
 		"build": "tsgo --build"
 	},
+	"dependencies": {
+		"mdast-util-from-markdown": "^2.0.2",
+		"mdast-util-gfm-strikethrough": "^2.0.0",
+		"micromark-extension-gfm-strikethrough": "^2.1.0"
+	},
 	"devDependencies": {
 		"@atproto/api": "^0.20.22",
 		"@atproto/lexicon": "^0.7.3",
 		"@atproto/oauth-client-browser": "^0.4.3",
+		"@types/mdast": "^4.0.4",
 		"@types/node": "^25.6.0",
 		"@typescript/native-preview": "7.0.0-dev.20260627.2"
 	}

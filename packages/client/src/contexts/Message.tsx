@@ -163,6 +163,12 @@ export const MessageContextProvider: ParentComponent<{ data: Message }> = (
 		const rkey = AtURI.parseAtURI(props.data.uri).identifier;
 		channel.removeMessage(props.data.uri); // optimistic — instant
 		setDeletionModalOpen(false);
+		// Return focus to the main composer after confirming
+		setTimeout(() => {
+			document
+				.querySelector<HTMLElement>("#editor:not(.temp-editor) .ProseMirror")
+				?.focus();
+		}, 0);
 		try {
 			await deleteRecord(
 				user.atproto.agent,

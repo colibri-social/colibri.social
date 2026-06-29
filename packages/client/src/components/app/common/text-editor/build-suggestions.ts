@@ -1,11 +1,25 @@
 import type { MentionNodeAttrs } from "@tiptap/extension-mention";
 import type { SuggestionOptions } from "@tiptap/suggestion";
+import type { Channel } from "../../../../atproto/xrpc/social/colibri/community/listChannels";
+import type { Member } from "../../../../atproto/xrpc/social/colibri/community/listMembers";
 import {
 	createMentionRenderer,
 	type EmojiSuggestionData,
 } from "./MentionPopupRenderer";
-import type { Member } from "../../../../atproto/xrpc/social/colibri/community/listMembers";
-import type { Channel } from "../../../../atproto/xrpc/social/colibri/community/listChannels";
+
+/**
+ * Inserts the mention atom without TipTap's default trailing space
+ */
+const insertMention: SuggestionOptions<
+	unknown,
+	MentionNodeAttrs
+>["command"] = ({ editor, range, props }) => {
+	editor
+		.chain()
+		.focus()
+		.insertContentAt(range, { type: "mention", attrs: props })
+		.run();
+};
 
 export const buildSuggestions = (
 	members: () => Array<Member>,
@@ -41,6 +55,7 @@ export const buildSuggestions = (
 				return matchedMembers;
 			},
 			render: createMentionRenderer("@", mainEditor),
+			command: insertMention,
 		},
 		{
 			char: "#",
@@ -51,6 +66,7 @@ export const buildSuggestions = (
 					)
 					.slice(0, 5),
 			render: createMentionRenderer("#", mainEditor),
+			command: insertMention,
 		},
 		{
 			char: ":",
@@ -64,6 +80,7 @@ export const buildSuggestions = (
 					.slice(0, 5);
 			},
 			render: createMentionRenderer(":", mainEditor),
+			command: insertMention,
 		},
 	];
 };

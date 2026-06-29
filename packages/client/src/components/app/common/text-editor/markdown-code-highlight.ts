@@ -1,19 +1,15 @@
 import {
 	detectLanguage,
+	type Grammar,
 	highlights,
 	loadGrammar,
 	normalizeLanguage,
-	type Grammar,
 } from "@arborium/arborium";
+import { type MarkdownToken, tokenizeMarkdown } from "@colibri-social/lib";
 import { Extension } from "@tiptap/core";
 import type { Node as ProseMirrorNode } from "prosemirror-model";
 import { Plugin, PluginKey } from "prosemirror-state";
 import { Decoration, DecorationSet, type EditorView } from "prosemirror-view";
-import { createFenceRegex } from "../../../../utils/fenced-code-regex";
-
-type FenceMatchIndices = RegExpMatchArray & {
-	indices: Array<[number, number]>;
-};
 
 const captureToTag = new Map<string, string>(
 	highlights.map((h) => [h.name, h.tag]),
@@ -34,43 +30,65 @@ const resolveTag = (capture: string): string | undefined => {
 type GrammarCacheEntry = Grammar | null | "loading";
 const grammarCache = new Map<string, GrammarCacheEntry>();
 
-// Tree-sitter style parsing is the expensive part of highlighting, so cache
-// spans per (lang, code) pair — typing inside one fence shouldn't force a
-// reparse of every other unchanged fence in the document.
 const SPAN_CACHE_LIMIT = 50;
 const spanCache = new Map<string, ReturnType<Grammar["parse"]>["spans"]>();
 
-const pluginKey = new PluginKey<DecorationSet>("markdownCodeHighlight");
+const pluginKey = new PluginKey<DecorationSet>("markdownDecorations");
 
-interface FenceRange {
-	docFrom: number;
-	docCodeFrom: number;
-	docCodeTo: number;
-	docTo: number;
-	codeStart: number;
+
+const CONTENT_CLASS: Partial<Record<MarkdownToken["kind"], string>> = {
+	bold: "font-bold",
+	italic: "italic",
+	underline: "underline",
+	strikethrough: "line-through",
+	code: "font-mono bg-muted/40 rounded-xs px-0.5",
+	quote: "text-muted-foreground",
+	link: "text-(--primary-hover)",
+};
+
+const MARKER_CLASS = "text-muted-foreground/60";
+
+interface BlockProjection {
+	text: string;
 	positions: number[];
-	lang: string | null;
-	code: string;
 }
 
 /**
- * Live-highlights ```lang fenced code blocks while typing, keeping the raw
- * markdown fence markers visible and editable in the document (no separate
- * codeBlock node/conversion) — mirrors the fence detection in
- * prosemirror-to-facets.ts so what's highlighted here matches what becomes
- * a `codeblock` facet on send.
+ * Builds the raw-text projection of a single textblock and a string-index →
+ * doc-position map
  */
-export const MarkdownCodeHighlight = Extension.create({
-	name: "markdownCodeHighlight",
+const projectBlock = (node: ProseMirrorNode, pos: number): BlockProjection => {
+	let text = "";
+	const positions: number[] = [];
+	node.forEach((child, offset) => {
+		if (child.isText && child.text) {
+			for (let i = 0; i < child.text.length; i++) {
+				positions.push(pos + 1 + offset + i);
+			}
+			text += child.text;
+		} else if (child.type.name === "hardBreak") {
+			positions.push(pos + 1 + offset);
+			text += "\n";
+		} else {
+			positions.push(pos + 1 + offset);
+			text += "￼";
+		}
+	});
+	positions.push(pos + 1 + node.content.size);
+	return { text, positions };
+};
+
+/**
+ * Live markdown decorations: keeps the literal syntax visible but 
+ * dims the markers and styles the content between them
+ */
+export const MarkdownDecorations = Extension.create({
+	name: "markdownDecorations",
 
 	addProseMirrorPlugins() {
 		let view: EditorView | null = null;
 
 		const requestGrammar = (lang: string): GrammarCacheEntry => {
-			// Use `.has()`, not a truthiness check on the value — a failed load
-			// is cached as `null`, which is falsy, so a truthiness check can't
-			// tell "never attempted" apart from "tried and failed" and ends up
-			// retrying (and re-dispatching) forever for any unsupported language.
 			if (grammarCache.has(lang)) return grammarCache.get(lang)!;
 
 			grammarCache.set(lang, "loading");
@@ -78,9 +96,6 @@ export const MarkdownCodeHighlight = Extension.create({
 				.catch(() => null)
 				.then((grammar) => {
 					grammarCache.set(lang, grammar);
-					// Grammars load asynchronously, so the fence that requested this
-					// one was rendered without syntax spans — recompute now that the
-					// grammar is available.
 					if (grammar && view && !view.isDestroyed) {
 						view.dispatch(view.state.tr.setMeta(pluginKey, "full"));
 					}
@@ -88,121 +103,101 @@ export const MarkdownCodeHighlight = Extension.create({
 			return "loading";
 		};
 
-		const findFenceRanges = (doc: ProseMirrorNode): FenceRange[] => {
-			const ranges: FenceRange[] = [];
+		const highlightCodeblock = (
+			decorations: Decoration[],
+			token: MarkdownToken,
+			text: string,
+			positions: number[],
+		): void => {
+			const [openStart, openEnd] = token.markers[0];
+			const [closeStart, closeEnd] = token.markers[1];
+			const [codeStart, codeEnd] = token.content;
+
+			const dim = {
+				class: `${MARKER_CLASS} font-mono`,
+				spellcheck: "false",
+				autocorrect: "off",
+			};
+			decorations.push(
+				Decoration.inline(positions[openStart], positions[openEnd], dim),
+				Decoration.inline(positions[closeStart], positions[closeEnd], dim),
+				Decoration.inline(positions[codeStart], positions[codeEnd], {
+					class: "font-mono",
+					spellcheck: "false",
+					autocorrect: "off",
+				}),
+			);
+
+			const code = text.slice(codeStart, codeEnd);
+			const lang = token.lang
+				? normalizeLanguage(token.lang)
+				: detectLanguage(code);
+			if (!lang) return;
+
+			const grammar = requestGrammar(lang);
+			if (!grammar || grammar === "loading") return;
+
+			const cacheKey = `${lang} ${code}`;
+			let spans = spanCache.get(cacheKey);
+			if (!spans) {
+				try {
+					spans = grammar.parse(code).spans;
+				} catch {
+					return;
+				}
+				if (spanCache.size >= SPAN_CACHE_LIMIT) spanCache.clear();
+				spanCache.set(cacheKey, spans);
+			}
+
+			for (const span of spans) {
+				const tag = resolveTag(span.capture);
+				if (!tag) continue;
+				const from = positions[codeStart + span.start];
+				const to = positions[codeStart + span.end];
+				if (from === undefined || to === undefined || from >= to) continue;
+				decorations.push(Decoration.inline(from, to, { nodeName: `a-${tag}` }));
+			}
+		};
+
+		const computeDecorations = (doc: ProseMirrorNode): DecorationSet => {
+			const decorations: Decoration[] = [];
 
 			doc.descendants((node, pos) => {
 				if (!node.isTextblock) return;
 
-				let text = "";
-				const positions: number[] = [];
-				node.forEach((child, offset) => {
-					if (child.isText && child.text) {
-						for (let i = 0; i < child.text.length; i++) {
-							positions.push(pos + 1 + offset + i);
-						}
-						text += child.text;
-					} else if (child.type.name === "hardBreak") {
-						positions.push(pos + 1 + offset);
-						text += "\n";
-					}
-				});
-				positions.push(pos + 1 + node.content.size);
+				const { text, positions } = projectBlock(node, pos);
+				const tokens = tokenizeMarkdown(text);
 
-				const matches = [
-					...text.matchAll(createFenceRegex()),
-				] as FenceMatchIndices[];
-				for (const match of matches) {
-					const [matchStart, matchEnd] = match.indices[0];
-					const [codeStart, codeEnd] = match.indices[2];
-					const rawLang = match[1];
-					const code = match[2];
-
-					ranges.push({
-						docFrom: positions[matchStart],
-						docCodeFrom: positions[codeStart],
-						docCodeTo: positions[codeEnd],
-						docTo: positions[matchEnd],
-						codeStart,
-						positions,
-						lang: rawLang ? normalizeLanguage(rawLang) : detectLanguage(code),
-						code,
-					});
-				}
-			});
-
-			return ranges;
-		};
-
-		// Adds fence dimming + syntax-highlighted spans via grammar parsing. The
-		// per-(lang, code) spanCache means a recompute only reparses the fence
-		// that actually changed, so this is cheap enough to run synchronously on
-		// every keystroke (messages are capped at 2048 chars).
-		const computeFullDecorations = (doc: ProseMirrorNode): DecorationSet => {
-			const decorations: Decoration[] = [];
-
-			for (const range of findFenceRanges(doc)) {
-				const {
-					docFrom,
-					docCodeFrom,
-					docCodeTo,
-					docTo,
-					codeStart,
-					positions,
-					lang,
-					code,
-				} = range;
-
-				// spellcheck/autocorrect off: red squiggles and capitalization
-				// fixes don't belong on code. The attrs sit on the body span, so
-				// nested highlight spans inherit the disabled state.
-				decorations.push(
-					Decoration.inline(docFrom, docCodeFrom, {
-						class: "text-muted-foreground/60 font-mono",
-						spellcheck: "false",
-						autocorrect: "off",
-					}),
-					Decoration.inline(docCodeTo, docTo, {
-						class: "text-muted-foreground/60 font-mono",
-						spellcheck: "false",
-						autocorrect: "off",
-					}),
-					Decoration.inline(docCodeFrom, docCodeTo, {
-						class: "font-mono",
-						spellcheck: "false",
-						autocorrect: "off",
-					}),
-				);
-
-				if (!lang) continue;
-
-				const grammar = requestGrammar(lang);
-				if (!grammar || grammar === "loading") continue;
-
-				const cacheKey = `${lang} ${code}`;
-				let spans = spanCache.get(cacheKey);
-				if (!spans) {
-					try {
-						spans = grammar.parse(code).spans;
-					} catch {
-						// Parse failed — leave as plain monospace text.
+				for (const token of tokens) {
+					if (token.kind === "codeblock") {
+						highlightCodeblock(decorations, token, text, positions);
 						continue;
 					}
-					if (spanCache.size >= SPAN_CACHE_LIMIT) spanCache.clear();
-					spanCache.set(cacheKey, spans);
-				}
 
-				for (const span of spans) {
-					const tag = resolveTag(span.capture);
-					if (!tag) continue;
-					const from = positions[codeStart + span.start];
-					const to = positions[codeStart + span.end];
-					if (from === undefined || to === undefined || from >= to) continue;
-					decorations.push(
-						Decoration.inline(from, to, { nodeName: `a-${tag}` }),
-					);
+					for (const [markerStart, markerEnd] of token.markers) {
+						if (markerStart === markerEnd) continue;
+						decorations.push(
+							Decoration.inline(positions[markerStart], positions[markerEnd], {
+								class: MARKER_CLASS,
+							}),
+						);
+					}
+
+					const contentClass = CONTENT_CLASS[token.kind];
+					if (contentClass) {
+						const [contentStart, contentEnd] = token.content;
+						if (contentEnd > contentStart) {
+							decorations.push(
+								Decoration.inline(
+									positions[contentStart],
+									positions[contentEnd],
+									{ class: contentClass },
+								),
+							);
+						}
+					}
 				}
-			}
+			});
 
 			return DecorationSet.create(doc, decorations);
 		};
@@ -211,17 +206,13 @@ export const MarkdownCodeHighlight = Extension.create({
 			new Plugin({
 				key: pluginKey,
 				state: {
-					init: (_, state) => computeFullDecorations(state.doc),
+					init: (_, state) => computeDecorations(state.doc),
 					apply: (tr, old, _oldState, newState) => {
 						if (tr.getMeta(pluginKey) === "full") {
-							return computeFullDecorations(newState.doc);
+							return computeDecorations(newState.doc);
 						}
 						if (!tr.docChanged) return old;
-
-						// Recompute synchronously on every edit so highlights track
-						// typing in real time. Unchanged fences hit the spanCache, so
-						// only the actively-edited fence is reparsed.
-						return computeFullDecorations(newState.doc);
+						return computeDecorations(newState.doc);
 					},
 				},
 				props: {

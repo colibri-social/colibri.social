@@ -1,18 +1,12 @@
 import { Blockquote } from "@tiptap/extension-blockquote";
-import { Bold } from "@tiptap/extension-bold";
 import { BubbleMenu } from "@tiptap/extension-bubble-menu";
-import { Code } from "@tiptap/extension-code";
 import { Document } from "@tiptap/extension-document";
 import Emoji from "@tiptap/extension-emoji";
 import { HardBreak } from "@tiptap/extension-hard-break";
-import { Italic } from "@tiptap/extension-italic";
-import { Link } from "@tiptap/extension-link";
 import { Mention } from "@tiptap/extension-mention";
 import { Paragraph } from "@tiptap/extension-paragraph";
-import { Strike } from "@tiptap/extension-strike";
 import { Text } from "@tiptap/extension-text";
-import { Underline } from "@tiptap/extension-underline";
-import { CharacterCount, Placeholder, UndoRedo } from "@tiptap/extensions";
+import { Placeholder, UndoRedo } from "@tiptap/extensions";
 import {
 	type Component,
 	createEffect,
@@ -22,40 +16,135 @@ import {
 } from "solid-js";
 import { createEditorTransaction, createTiptapEditor } from "solid-tiptap";
 import "./TextEditor.css";
-import type { ColibriRichTextFacet } from "@colibri-social/lib";
+import {
+	type ColibriRichTextFacet,
+	tokenizeMarkdown,
+} from "@colibri-social/lib";
 import { type Editor, mergeAttributes } from "@tiptap/core";
 import twemoji from "@twemoji/api";
+import { TextSelection } from "prosemirror-state";
 import CodeIcon from "~icons/ph/code";
 import SmileyIcon from "~icons/ph/smiley";
 import TextBIcon from "~icons/ph/text-b";
 import TextItalicIcon from "~icons/ph/text-italic";
 import TextStrikethroughIcon from "~icons/ph/text-strikethrough";
 import TextUnderlineIcon from "~icons/ph/text-underline";
+import type { GifItem } from "../../../../atproto/xrpc/social/colibri/embed/gifTypes";
+import { useChannelContext } from "../../../../contexts/Channel";
 import { useCommunityContext } from "../../../../contexts/Community";
+import { useUserContext } from "../../../../contexts/User";
+import { useUserPreferences } from "../../../../contexts/UserPreferences";
+import { createFenceRegex } from "../../../../utils/fenced-code-regex";
 import { htmlToDOMOutputSpec } from "../../../../utils/html-to-dom-output-spec";
+import { useIsMobile } from "../../../../utils/mobile-pane";
 import {
 	Tooltip,
 	TooltipContent,
 	TooltipPortal,
 	TooltipTrigger,
 } from "../../../ui/Tooltip";
-import { EMOJI_DATA } from "../rich-text-renderer/emojiData";
 import { ComposerMediaPickers } from "../ComposerMediaPickers";
 import { EmojiPopover } from "../EmojiPopover";
+import { EMOJI_DATA } from "../rich-text-renderer/emojiData";
 import { buildSuggestions } from "./build-suggestions";
-import { MarkdownCodeHighlight } from "./markdown-code-highlight";
+import { MarkdownDecorations } from "./markdown-code-highlight";
 import { proseMirrorToFacets } from "./prosemirror-to-facets";
-import type { GifItem } from "../../../../atproto/xrpc/social/colibri/embed/gifTypes";
-import { useChannelContext } from "../../../../contexts/Channel";
-import { useUserContext } from "../../../../contexts/User";
-import { useUserPreferences } from "../../../../contexts/UserPreferences";
-import { useIsMobile } from "../../../../utils/mobile-pane";
-import { createFenceRegex } from "../../../../utils/fenced-code-regex";
 
 const CHARACTER_LIMIT = 2048;
 const CIRCUMFERENCE = 2 * Math.PI * 8;
 
 type BubbleMenuMark = "bold" | "strike" | "underline" | "code" | "italic";
+
+type ToggleKind = "bold" | "italic" | "underline" | "strikethrough" | "code";
+
+const KIND_MARKER: Record<ToggleKind, string> = {
+	bold: "**",
+	italic: "*",
+	underline: "__",
+	strikethrough: "~~",
+	code: "`",
+};
+
+/**
+ * Toggles literal markdown markers around the current selection
+ */
+const toggleMarker = (editor: Editor, kind: ToggleKind): void => {
+	const marker = KIND_MARKER[kind];
+	const { state } = editor;
+	const { from, to } = state.selection;
+	if (from === to) return;
+
+	const len = marker.length;
+	const simpleWrap = () => {
+		editor
+			.chain()
+			.focus()
+			.insertContentAt(to, marker)
+			.insertContentAt(from, marker)
+			.setTextSelection({ from: from + len, to: to + len })
+			.run();
+	};
+
+	const block = state.selection.$from.parent;
+	if (!block.isTextblock) {
+		simpleWrap();
+		return;
+	}
+	const blockStart = state.selection.$from.start();
+
+	let text = "";
+	const positions: number[] = [];
+	block.forEach((child, offset) => {
+		if (child.isText && child.text) {
+			for (let i = 0; i < child.text.length; i++) {
+				positions.push(blockStart + offset + i);
+			}
+			text += child.text;
+		} else if (child.type.name === "hardBreak") {
+			positions.push(blockStart + offset);
+			text += "\n";
+		} else {
+			positions.push(blockStart + offset);
+			text += "￼";
+		}
+	});
+	positions.push(blockStart + block.content.size);
+
+	const selStart = positions.indexOf(from);
+	const selEnd = positions.indexOf(to);
+	if (selStart === -1 || selEnd === -1) {
+		simpleWrap();
+		return;
+	}
+
+	const containing = tokenizeMarkdown(text)
+		.filter(
+			(t) =>
+				t.kind === kind && t.content[0] <= selStart && t.content[1] >= selEnd,
+		)
+		.sort(
+			(a, b) => a.content[1] - a.content[0] - (b.content[1] - b.content[0]),
+		);
+
+	if (containing.length === 0) {
+		simpleWrap();
+		return;
+	}
+
+	const token = containing[0];
+	const ranges = token.markers
+		.map(([s, e]) => ({ from: positions[s], to: positions[e] }))
+		.sort((a, b) => b.from - a.from);
+	const removedBefore = token.markers
+		.filter(([, e]) => e <= selStart)
+		.reduce((sum, [s, e]) => sum + (positions[e] - positions[s]), 0);
+
+	let chain = editor.chain().focus();
+	for (const range of ranges) chain = chain.deleteRange(range);
+	chain
+		.setTextSelection({ from: from - removedBefore, to: to - removedBefore })
+		.run();
+};
 
 type FenceMatchIndices = RegExpMatchArray & {
 	indices: Array<[number, number]>;
@@ -132,6 +221,135 @@ const isInFencedCodeBlock = (editor: Editor): boolean => {
 	return false;
 };
 
+/**
+ * Smart Shift+Enter inside a blockquote
+ */
+const handleQuoteExit = (editor: Editor): boolean => {
+	const { state } = editor;
+	const sel = state.selection;
+	if (!sel.empty) return false;
+
+	const $from = sel.$from;
+	let bqDepth = -1;
+	for (let d = $from.depth; d > 0; d--) {
+		if ($from.node(d).type.name === "blockquote") {
+			bqDepth = d;
+			break;
+		}
+	}
+	if (bqDepth === -1) return false;
+
+	const block = $from.parent;
+	if (!block.isTextblock) return false;
+	const blockStart = $from.start();
+
+	let text = "";
+	const positions: number[] = [];
+	block.forEach((child, offset) => {
+		if (child.isText && child.text) {
+			for (let i = 0; i < child.text.length; i++) {
+				positions.push(blockStart + offset + i);
+			}
+			text += child.text;
+		} else if (child.type.name === "hardBreak") {
+			positions.push(blockStart + offset);
+			text += "\n";
+		} else {
+			positions.push(blockStart + offset);
+			text += "￼";
+		}
+	});
+	positions.push(blockStart + block.content.size);
+
+	// Only exit from the end of the quote with two trailing empty lines.
+	if ($from.pos !== positions[text.length]) return false;
+	let trailingNewlines = 0;
+	for (let i = text.length - 1; i >= 0 && text[i] === "\n"; i--) {
+		trailingNewlines++;
+	}
+	if (trailingNewlines < 2) return false;
+
+	const delFrom = positions[text.length - 2];
+	const afterBlockquote = $from.after(bqDepth);
+
+	let tr = state.tr.delete(delFrom, $from.pos);
+	const insertAt = tr.mapping.map(afterBlockquote);
+	const paragraph = state.schema.nodes.paragraph.createAndFill();
+	if (paragraph) {
+		tr = tr.insert(insertAt, paragraph);
+		tr = tr.setSelection(TextSelection.near(tr.doc.resolve(insertAt + 1)));
+	}
+	editor.view.dispatch(tr.scrollIntoView());
+	return true;
+};
+
+/**
+ * Backspace at the start of an empty line directly after a blockquote
+ */
+const handleQuoteBackspace = (editor: Editor): boolean => {
+	const { state } = editor;
+	const sel = state.selection;
+	if (!sel.empty) return false;
+
+	const $from = sel.$from;
+	if (!$from.parent.isTextblock) return false;
+
+	if ($from.parentOffset === 0 && $from.parent.content.size === 0) {
+		const paraStart = $from.before($from.depth);
+		const nodeBefore = state.doc.resolve(paraStart).nodeBefore;
+		if (!nodeBefore || nodeBefore.type.name !== "blockquote") return false;
+
+		let tr = state.tr.delete(paraStart, paraStart + $from.parent.nodeSize);
+		tr = tr.setSelection(TextSelection.near(tr.doc.resolve(paraStart - 1), -1));
+		editor.view.dispatch(tr.scrollIntoView());
+		return true;
+	}
+
+	let bqDepth = -1;
+	for (let d = $from.depth; d > 0; d--) {
+		if ($from.node(d).type.name === "blockquote") {
+			bqDepth = d;
+			break;
+		}
+	}
+	if (bqDepth === -1) return false;
+
+	const block = $from.parent;
+	const blockStart = $from.start();
+	let text = "";
+	const positions: number[] = [];
+	block.forEach((child, offset) => {
+		if (child.isText && child.text) {
+			for (let i = 0; i < child.text.length; i++) {
+				positions.push(blockStart + offset + i);
+			}
+			text += child.text;
+		} else if (child.type.name === "hardBreak") {
+			positions.push(blockStart + offset);
+			text += "\n";
+		} else {
+			positions.push(blockStart + offset);
+			text += "￼";
+		}
+	});
+	positions.push(blockStart + block.content.size);
+
+	if ($from.pos !== positions[text.length]) return false;
+	if (text.length === 0 || text[text.length - 1] !== "\n") return false;
+
+	const delFrom = positions[text.length - 1];
+	const afterBlockquote = $from.after(bqDepth);
+	let tr = state.tr.delete(delFrom, $from.pos);
+	const insertAt = tr.mapping.map(afterBlockquote);
+	const paragraph = state.schema.nodes.paragraph.createAndFill();
+	if (paragraph) {
+		tr = tr.insert(insertAt, paragraph);
+		tr = tr.setSelection(TextSelection.near(tr.doc.resolve(insertAt + 1)));
+	}
+	editor.view.dispatch(tr.scrollIntoView());
+	return true;
+};
+
 export const TextEditor: Component<{
 	placeholder: string;
 	text?: ReturnType<Editor["getJSON"]>;
@@ -156,6 +374,7 @@ export const TextEditor: Component<{
 	const runSend = (instance: Editor) => {
 		const json = instance.getJSON();
 		const text = proseMirrorToFacets(json);
+		if (text.text.length > CHARACTER_LIMIT) return;
 		instance.commands.clearContent();
 		Promise.resolve(props.sendMessage(text.text, text.facets))
 			.then((shouldClear) => {
@@ -184,10 +403,6 @@ export const TextEditor: Component<{
 						Enter: () => {
 							if (props.submitOnEnter === false) return false;
 
-							if (this.editor.isActive("blockquote")) {
-								return false;
-							}
-
 							if (isInFencedCodeBlock(this.editor)) {
 								return this.editor.commands.setHardBreak();
 							}
@@ -197,6 +412,23 @@ export const TextEditor: Component<{
 						},
 						Escape: () => {
 							props.onEscape?.();
+							return true;
+						},
+						Backspace: () => handleQuoteBackspace(this.editor),
+						"Mod-b": () => {
+							toggleMarker(this.editor, "bold");
+							return true;
+						},
+						"Mod-i": () => {
+							toggleMarker(this.editor, "italic");
+							return true;
+						},
+						"Mod-u": () => {
+							toggleMarker(this.editor, "underline");
+							return true;
+						},
+						"Mod-s": () => {
+							toggleMarker(this.editor, "strikethrough");
 							return true;
 						},
 						ArrowUp: () => {
@@ -217,27 +449,21 @@ export const TextEditor: Component<{
 			}),
 			Text,
 			Paragraph,
-			HardBreak.configure({
-				keepMarks: false,
-			}),
-			Bold,
-			Code.configure({
-				HTMLAttributes: { spellcheck: "false", autocorrect: "off" },
-			}),
 			Blockquote,
-			MarkdownCodeHighlight,
-			Italic,
-			Underline,
-			Strike.extend({
+			HardBreak.extend({
 				addKeyboardShortcuts() {
 					return {
-						"Mod-s": () => this.editor.commands.toggleStrike(),
+						"Shift-Enter": () => {
+							if (handleQuoteExit(this.editor)) return true;
+							return this.editor.commands.setHardBreak();
+						},
+						"Mod-Enter": () => this.editor.commands.setHardBreak(),
 					};
 				},
+			}).configure({
+				keepMarks: false,
 			}),
-			CharacterCount.configure({
-				limit: CHARACTER_LIMIT,
-			}),
+			MarkdownDecorations,
 			UndoRedo,
 			Mention.configure({
 				HTMLAttributes: { "data-type": "mention" },
@@ -306,34 +532,37 @@ export const TextEditor: Component<{
 			}),
 			BubbleMenu.configure({
 				element: document.querySelector<HTMLElement>(".bubble-menu"),
+				getReferencedVirtualElement: () => {
+					const instance = editor();
+					if (!instance || instance.isDestroyed) return null;
+					const coords = instance.view.coordsAtPos(
+						instance.state.selection.from,
+					);
+					const rect: DOMRect = {
+						width: 0,
+						height: coords.bottom - coords.top,
+						top: coords.top,
+						bottom: coords.bottom,
+						left: coords.left,
+						right: coords.left,
+						x: coords.left,
+						y: coords.top,
+						toJSON: () => ({}),
+					};
+					return { getBoundingClientRect: () => rect };
+				},
+				options: { placement: "top-start", offset: 6 },
 				shouldShow: (params) => {
 					if (params.state.selection.$from === params.state.selection.$to) {
 						setBubbleMenuVisible(false);
 						return false;
 					}
 
-					const isBold = params.editor.isActive("bold");
-					const isItalic = params.editor.isActive("italic");
-					const isUnderline = params.editor.isActive("underline");
-					const isStrikethrough = params.editor.isActive("strike");
-					const isCode = params.editor.isActive("code");
-
-					setActiveMarks(
-						[
-							isBold && "bold",
-							isItalic && "italic",
-							isUnderline && "underline",
-							isStrikethrough && "strike",
-							isCode && "code",
-						].filter((x) => typeof x === "string") as Array<BubbleMenuMark>,
-					);
+					setActiveMarks([]);
 
 					setBubbleMenuVisible(true);
 					return true;
 				},
-			}),
-			Link.configure({
-				defaultProtocol: "https",
 			}),
 			Placeholder.configure({
 				placeholder: () => placeholder(),
@@ -343,13 +572,15 @@ export const TextEditor: Component<{
 		content: untrack(() => props.text),
 	}));
 
-	const characterCountTransaction = createEditorTransaction(
-		editor,
-		(editor) => editor?.storage.characterCount.characters() || 0,
+	const characterCountTransaction = createEditorTransaction(editor, (editor) =>
+		editor ? proseMirrorToFacets(editor.getJSON()).text.length : 0,
 	);
 
 	const characterPercentage = () =>
-		Math.round((100 / CHARACTER_LIMIT) * characterCountTransaction());
+		Math.min(
+			100,
+			Math.round((100 / CHARACTER_LIMIT) * characterCountTransaction()),
+		);
 
 	const isMobile = useIsMobile();
 
@@ -466,7 +697,7 @@ export const TextEditor: Component<{
 			classList={{ relative: !props.mainEditor }}
 		>
 			<div
-				class="bubble-menu w-full bg-card border border-border overflow-hidden absolute opacity-0 flex flex-row items-center rounded-sm drop-shadow-black drop-shadow-sm"
+				class="bubble-menu w-fit bg-card border border-border overflow-hidden absolute opacity-0 flex flex-row items-center rounded-sm drop-shadow-black drop-shadow-sm"
 				classList={{
 					"pointer-events-none": !bubbleMenuVisible(),
 				}}
@@ -477,7 +708,7 @@ export const TextEditor: Component<{
 					classList={{
 						"bg-muted": activeMarks().some((x) => x === "bold"),
 					}}
-					onClick={() => editor()?.commands.toggleBold()}
+					onClick={() => editor() && toggleMarker(editor()!, "bold")}
 				>
 					<TextBIcon />
 				</button>
@@ -487,7 +718,7 @@ export const TextEditor: Component<{
 					classList={{
 						"bg-muted": activeMarks().some((x) => x === "italic"),
 					}}
-					onClick={() => editor()?.commands.toggleItalic()}
+					onClick={() => editor() && toggleMarker(editor()!, "italic")}
 				>
 					<TextItalicIcon />
 				</button>
@@ -497,7 +728,7 @@ export const TextEditor: Component<{
 					classList={{
 						"bg-muted": activeMarks().some((x) => x === "underline"),
 					}}
-					onClick={() => editor()?.commands.toggleUnderline()}
+					onClick={() => editor() && toggleMarker(editor()!, "underline")}
 				>
 					<TextUnderlineIcon />
 				</button>
@@ -507,7 +738,7 @@ export const TextEditor: Component<{
 					classList={{
 						"bg-muted": activeMarks().some((x) => x === "strike"),
 					}}
-					onClick={() => editor()?.commands.toggleStrike()}
+					onClick={() => editor() && toggleMarker(editor()!, "strikethrough")}
 				>
 					<TextStrikethroughIcon />
 				</button>
@@ -517,7 +748,7 @@ export const TextEditor: Component<{
 					classList={{
 						"bg-muted": activeMarks().some((x) => x === "code"),
 					}}
-					onClick={() => editor()?.commands.toggleCode()}
+					onClick={() => editor() && toggleMarker(editor()!, "code")}
 				>
 					<CodeIcon />
 				</button>

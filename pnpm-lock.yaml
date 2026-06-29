@@ -395,6 +395,15 @@ importers:
       livekit-client:
         specifier: ^2.17.3
         version: 2.17.3(@types/dom-mediacapture-record@1.0.22)
+      mdast-util-from-markdown:
+        specifier: ^2.0.2
+        version: 2.0.2
+      mdast-util-gfm-strikethrough:
+        specifier: ^2.0.0
+        version: 2.0.0
+      micromark-extension-gfm-strikethrough:
+        specifier: ^2.1.0
+        version: 2.1.0
       prosemirror-model:
         specifier: ^1.25.9
         version: 1.25.9
@@ -467,6 +476,16 @@ importers:
         version: 2.11.10(solid-js@1.9.11)(vite@7.3.1(@types/node@25.6.0)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.21.0)(yaml@2.8.2))
 
   packages/lib:
+    dependencies:
+      mdast-util-from-markdown:
+        specifier: ^2.0.2
+        version: 2.0.2
+      mdast-util-gfm-strikethrough:
+        specifier: ^2.0.0
+        version: 2.0.0
+      micromark-extension-gfm-strikethrough:
+        specifier: ^2.1.0
+        version: 2.1.0
     devDependencies:
       '@atproto/api':
         specifier: ^0.20.22
@@ -477,6 +496,9 @@ importers:
       '@atproto/oauth-client-browser':
         specifier: ^0.4.3
         version: 0.4.3
+      '@types/mdast':
+        specifier: ^4.0.4
+        version: 4.0.4
       '@types/node':
         specifier: ^25.6.0
         version: 25.6.0
