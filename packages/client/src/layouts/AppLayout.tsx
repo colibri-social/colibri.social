@@ -53,6 +53,7 @@ import {
 import { SoundsContextProvider } from "../contexts/Sounds";
 import { LongPressSensors } from "../utils/create-longpress-sensor";
 import { createMobilePane } from "../utils/mobile-pane";
+import { createViewportMetrics } from "../utils/visual-viewport";
 
 const CommunityAvatar = (props: { item: Community; class?: string }) => {
 	const communityDid = props.item.uri.split("/")[2];
@@ -216,6 +217,12 @@ const AppLayout: ParentComponent = (props) => {
 	const navigate = useNavigate();
 	const location = useLocation();
 	const { isMobile, currentPane } = createMobilePane();
+	const viewport = createViewportMetrics();
+
+	const shellHeight = () =>
+		isMobile() && viewport.height() !== undefined
+			? `${viewport.height()}px`
+			: undefined;
 
 	onMount(() => {
 		const cleanup = socket.onEvent((event) => {
@@ -371,7 +378,16 @@ const AppLayout: ParentComponent = (props) => {
 	return (
 		<div
 			class="flex flex-col w-screen bg-card"
-			classList={{ "h-[100dvh]": isMobile(), "h-screen": !isMobile() }}
+			classList={{
+				"h-[100dvh]": isMobile() && shellHeight() === undefined,
+				"h-screen": !isMobile(),
+			}}
+			style={{
+				...(shellHeight() ? { height: shellHeight() } : {}),
+				...(isMobile() && viewport.offsetTop() > 0
+					? { transform: `translateY(${viewport.offsetTop()}px)` }
+					: {}),
+			}}
 		>
 			<NativeNotifications />
 			<div
