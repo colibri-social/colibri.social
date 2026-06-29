@@ -18,6 +18,7 @@ import { createEditorTransaction, createTiptapEditor } from "solid-tiptap";
 import "./TextEditor.css";
 import {
 	type ColibriRichTextFacet,
+	facetsToSource,
 	parseMarkdown,
 	tokenizeMarkdown,
 } from "@colibri-social/lib";
@@ -25,6 +26,7 @@ import { type Editor, Extension, mergeAttributes } from "@tiptap/core";
 import twemoji from "@twemoji/api";
 import type { Fragment, Node as ProseMirrorNode } from "prosemirror-model";
 import { Plugin, TextSelection } from "prosemirror-state";
+import type { EditorView } from "prosemirror-view";
 import CodeIcon from "~icons/ph/code";
 import SmileyIcon from "~icons/ph/smiley";
 import TextBIcon from "~icons/ph/text-b";
@@ -49,6 +51,7 @@ import { ComposerMediaPickers } from "../ComposerMediaPickers";
 import { EmojiPopover } from "../EmojiPopover";
 import { EMOJI_DATA } from "../rich-text-renderer/emojiData";
 import { buildSuggestions } from "./build-suggestions";
+import { buildClipboardHtml, readClipboardFacets } from "./clipboard-facets";
 import { facetsToProseMirror } from "./facets-to-prosemirror";
 import { MarkdownDecorations } from "./markdown-code-highlight";
 import { proseMirrorToFacets } from "./prosemirror-to-facets";
@@ -550,6 +553,38 @@ const fragmentToMarkdown = (fragment: Fragment): string => {
 	return out;
 };
 
+const fragmentToFacets = (
+	fragment: Fragment,
+): { text: string; facets: Array<ColibriRichTextFacet> } =>
+	proseMirrorToFacets({
+		type: "doc",
+		content: fragment.toJSON() ?? [],
+	} as ReturnType<Editor["getJSON"]>);
+
+const flattenPaste = (
+	content: ReturnType<Editor["getJSON"]>["content"],
+): ReturnType<Editor["getJSON"]>["content"] =>
+	content.length === 1 && content[0]?.type === "paragraph"
+		? ((content[0].content ?? []) as ReturnType<Editor["getJSON"]>["content"])
+		: content;
+
+const writeSelectionToClipboard = (
+	view: EditorView,
+	event: ClipboardEvent,
+): boolean => {
+	const slice = view.state.selection.content();
+	if (slice.size === 0 || !event.clipboardData) return false;
+
+	const { text, facets } = fragmentToFacets(slice.content);
+	if (!text) return false;
+
+	const { source } = facetsToSource(text, facets);
+	event.clipboardData.setData("text/plain", source);
+	event.clipboardData.setData("text/html", buildClipboardHtml(text, facets));
+	event.preventDefault();
+	return true;
+};
+
 export const TextEditor: Component<{
 	placeholder: string;
 	text?: ReturnType<Editor["getJSON"]>;
@@ -774,11 +809,34 @@ export const TextEditor: Component<{
 		],
 		editorProps: {
 			clipboardTextSerializer: (slice) => fragmentToMarkdown(slice.content),
+			handleDOMEvents: {
+				copy: (view, event) => writeSelectionToClipboard(view, event),
+				cut: (view, event) => {
+					if (!writeSelectionToClipboard(view, event)) return false;
+					view.dispatch(view.state.tr.deleteSelection());
+					return true;
+				},
+			},
 			handlePaste: (_view, event) => {
-				const text = event.clipboardData?.getData("text/plain");
-				if (!text || !text.includes("\n")) return false;
 				const instance = editor();
 				if (!instance || instance.isDestroyed) return false;
+
+				const payload = readClipboardFacets(
+					event.clipboardData?.getData("text/html"),
+				);
+				if (payload) {
+					const { content } = facetsToProseMirror(
+						payload.text,
+						payload.facets,
+						community().members ?? [],
+						community().channels ?? [],
+					);
+					instance.chain().focus().insertContent(flattenPaste(content)).run();
+					return true;
+				}
+
+				const text = event.clipboardData?.getData("text/plain");
+				if (!text || !text.includes("\n")) return false;
 
 				const parsed = parseMarkdown(text, []);
 				const { content } = facetsToProseMirror(
@@ -787,12 +845,7 @@ export const TextEditor: Component<{
 					community().members ?? [],
 					community().channels ?? [],
 				);
-
-				const payload =
-					content.length === 1 && content[0]?.type === "paragraph"
-						? (content[0].content ?? [])
-						: content;
-				instance.chain().focus().insertContent(payload).run();
+				instance.chain().focus().insertContent(flattenPaste(content)).run();
 				return true;
 			},
 		},

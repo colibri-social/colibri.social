@@ -1,4 +1,3 @@
-import { facetsToSource } from "@colibri-social/lib";
 import { For, type ParentComponent, Show } from "solid-js";
 import { toast } from "somoto";
 import ArrowBendUpLeftIcon from "~icons/ph/arrow-bend-up-left";
@@ -26,6 +25,7 @@ import {
 } from "../../../../ui/MenuDrawer";
 import { Separator } from "../../../../ui/Separator";
 import { EmojiPopover } from "../../../common/EmojiPopover";
+import { copyMessageToClipboard } from "../../../common/text-editor/clipboard-facets";
 import { DebugInfo } from "../DebugInfo";
 
 /**
@@ -66,8 +66,7 @@ export const MessageContextMenu: ParentComponent = (props) => {
 	const close = () => setContextMenuOpen(false);
 
 	const copyText = () => {
-		const { source } = facetsToSource(message.text, message.facets ?? []);
-		void navigator.clipboard.writeText(source);
+		void copyMessageToClipboard(message.text, message.facets ?? []);
 		toast.success("Message copied");
 	};
 
