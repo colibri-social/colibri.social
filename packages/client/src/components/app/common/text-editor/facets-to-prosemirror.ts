@@ -52,17 +52,29 @@ export const facetsToProseMirror = (
 		return doc;
 	}
 
-	const pushInline = (start: number, end: number): void => {
-		if (end <= start) return;
-		const sub = decoder.decode(bytes.slice(start, end));
+	const NEWLINE = 0x0a;
+
+	const pushInline = (
+		start: number,
+		end: number,
+		afterQuote: boolean,
+		beforeQuote: boolean,
+	): void => {
+		let s = start;
+		let e = end;
+		if (afterQuote && s < e && bytes[s] === NEWLINE) s++;
+		if (beforeQuote && e > s && bytes[e - 1] === NEWLINE) e--;
+		if (e <= s) return;
+		const sub = decoder.decode(bytes.slice(s, e));
 		doc.content.push(
-			buildParagraph(sub, rebase(normalized, start, end), members, channels),
+			buildParagraph(sub, rebase(normalized, s, e), members, channels),
 		);
 	};
 
 	let cursor = 0;
+	let afterQuote = false;
 	for (const quote of quoteFacets) {
-		pushInline(cursor, quote.index.byteStart);
+		pushInline(cursor, quote.index.byteStart, afterQuote, true);
 
 		const innerText = decoder.decode(
 			bytes.slice(quote.index.byteStart, quote.index.byteEnd),
@@ -81,8 +93,9 @@ export const facetsToProseMirror = (
 		});
 
 		cursor = quote.index.byteEnd;
+		afterQuote = true;
 	}
-	pushInline(cursor, bytes.length);
+	pushInline(cursor, bytes.length, afterQuote, false);
 
 	return doc;
 };

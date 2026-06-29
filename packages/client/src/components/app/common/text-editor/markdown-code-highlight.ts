@@ -35,7 +35,6 @@ const spanCache = new Map<string, ReturnType<Grammar["parse"]>["spans"]>();
 
 const pluginKey = new PluginKey<DecorationSet>("markdownDecorations");
 
-
 const CONTENT_CLASS: Partial<Record<MarkdownToken["kind"], string>> = {
 	bold: "font-bold",
 	italic: "italic",
@@ -44,6 +43,8 @@ const CONTENT_CLASS: Partial<Record<MarkdownToken["kind"], string>> = {
 	code: "font-mono bg-muted/40 rounded-xs px-0.5",
 	quote: "text-muted-foreground",
 	link: "text-(--primary-hover)",
+	subtext: "text-xs text-muted-foreground",
+	spoiler: "bg-muted-foreground/30 rounded-xs",
 };
 
 const MARKER_CLASS = "text-muted-foreground/60";
@@ -79,7 +80,7 @@ const projectBlock = (node: ProseMirrorNode, pos: number): BlockProjection => {
 };
 
 /**
- * Live markdown decorations: keeps the literal syntax visible but 
+ * Live markdown decorations: keeps the literal syntax visible but
  * dims the markers and styles the content between them
  */
 export const MarkdownDecorations = Extension.create({
@@ -174,11 +175,13 @@ export const MarkdownDecorations = Extension.create({
 						continue;
 					}
 
+					const markerClass =
+						token.kind === "subtext" ? `${MARKER_CLASS} text-xs` : MARKER_CLASS;
 					for (const [markerStart, markerEnd] of token.markers) {
 						if (markerStart === markerEnd) continue;
 						decorations.push(
 							Decoration.inline(positions[markerStart], positions[markerEnd], {
-								class: MARKER_CLASS,
+								class: markerClass,
 							}),
 						);
 					}

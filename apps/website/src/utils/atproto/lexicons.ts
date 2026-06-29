@@ -507,7 +507,7 @@ lex.add(
 	def({
 		lexicon: 1,
 		id: RECORD_IDs.RICHTEXT_FACET,
-		revision: 2,
+		revision: 3,
 		defs: {
 			main: {
 				type: "object",
@@ -532,6 +532,10 @@ lex.add(
 								"social.colibri.richtext.facet#code",
 								"social.colibri.richtext.facet#codeblock",
 								"social.colibri.richtext.facet#quote",
+								"social.colibri.richtext.facet#heading",
+								"social.colibri.richtext.facet#list",
+								"social.colibri.richtext.facet#subtext",
+								"social.colibri.richtext.facet#spoiler",
 								"social.colibri.richtext.facet#mention",
 								"social.colibri.richtext.facet#link",
 								"social.colibri.richtext.facet#time",
@@ -608,6 +612,41 @@ lex.add(
 			quote: {
 				type: "object",
 				description: "A facet feature for a block quote.",
+				properties: {},
+			},
+			heading: {
+				type: "object",
+				description: "A facet feature for a heading line (levels 1–3).",
+				required: ["level"],
+				properties: {
+					level: {
+						type: "integer",
+						description: "The heading level.",
+						minimum: 1,
+						maximum: 3,
+					},
+				},
+			},
+			list: {
+				type: "object",
+				description: "A facet feature for a single list item line.",
+				required: ["ordered"],
+				properties: {
+					ordered: {
+						type: "boolean",
+						description:
+							"Whether the item belongs to an ordered (numbered) list.",
+					},
+				},
+			},
+			subtext: {
+				type: "object",
+				description: "A facet feature for a subtext line (small, muted).",
+				properties: {},
+			},
+			spoiler: {
+				type: "object",
+				description: "A facet feature for inline spoiler text.",
 				properties: {},
 			},
 			mention: {

@@ -1,20 +1,20 @@
 import type { AT_URI, ColibriRichTextFacet } from "@colibri-social/lib";
 import { A } from "@solidjs/router";
 import twemoji from "@twemoji/api";
-import type { JSX } from "solid-js";
+import { type Component, createSignal, type JSX } from "solid-js";
 import { rewriteBskyUrl } from "../../../../atproto/bsky-post-url";
 import { communityUriToUrlCompatible } from "../../../../atproto/community-uri-to-url-compatible";
 import { useCommunityContext } from "../../../../contexts/Community";
 import { useUserPreferences } from "../../../../contexts/UserPreferences";
 import { AtURI } from "../../../../utils/at-uri";
-import { CodeBlock } from "./CodeBlock";
-import { Timestamp } from "./Timestamp";
 import {
 	buildFeatureKey,
 	normalizeFacets,
 } from "../../../../utils/normalize-facets";
 import { purify } from "../../../../utils/purify";
 import User from "../../user";
+import { CodeBlock } from "./CodeBlock";
+import { Timestamp } from "./Timestamp";
 
 export type TextWithFacets = {
 	text: string;
@@ -25,6 +25,27 @@ export const textEncoder = new TextEncoder();
 export const textDecoder = new TextDecoder();
 
 export type AnyFeature = ColibriRichTextFacet["features"][number];
+
+/**
+ * Click-to-reveal spoiler
+ */
+const Spoiler: Component<{ children: JSX.Element }> = (props) => {
+	const [revealed, setRevealed] = createSignal(false);
+	return (
+		<span
+			data-facet-type="spoiler"
+			class="rounded-xs cursor-pointer transition-colors"
+			classList={{
+				"bg-muted text-transparent select-none [&_*]:text-transparent [&_*]:bg-transparent":
+					!revealed(),
+				"bg-muted-foreground/15": revealed(),
+			}}
+			onClick={() => setRevealed(true)}
+		>
+			{props.children}
+		</span>
+	);
+};
 
 /**
  * Convert newline characters to `<br>` tags for HTML output.
@@ -158,6 +179,12 @@ const applyStyleForFacet = (text: string, feature: AnyFeature): JSX.Element => {
 			);
 		case "social.colibri.richtext.facet#code":
 			return <code data-facet-type="code" innerHTML={textWithEmojis} />;
+		case "social.colibri.richtext.facet#spoiler":
+			return (
+				<Spoiler>
+					<span innerHTML={textWithEmojis} />
+				</Spoiler>
+			);
 		case "social.colibri.richtext.facet#time": {
 			const datetime = "datetime" in feature ? String(feature.datetime) : "";
 			const style = "style" in feature ? feature.style : undefined;
@@ -170,9 +197,16 @@ const applyStyleForFacet = (text: string, feature: AnyFeature): JSX.Element => {
 	return `[UNKNOWN FACET: ${feature.$type}]`;
 };
 
+const BLOCK_FEATURE_TYPES = new Set<string>([
+	"social.colibri.richtext.facet#codeblock",
+	"social.colibri.richtext.facet#quote",
+	"social.colibri.richtext.facet#heading",
+	"social.colibri.richtext.facet#subtext",
+	"social.colibri.richtext.facet#list",
+]);
+
 const isBlockFeature = (feature: AnyFeature): boolean =>
-	feature.$type === "social.colibri.richtext.facet#codeblock" ||
-	feature.$type === "social.colibri.richtext.facet#quote";
+	BLOCK_FEATURE_TYPES.has(feature.$type ?? "");
 
 /**
  * Renders a byte range of inline content (text/marks/mentions/links/time),
@@ -192,7 +226,10 @@ const renderInlineRange = (
 ): Array<JSX.Element> => {
 	const boundaries = new Set<number>([rangeStart, rangeEnd]);
 	for (const facet of normalizedFacets) {
-		if (facet.index.byteStart > rangeStart && facet.index.byteStart < rangeEnd) {
+		if (
+			facet.index.byteStart > rangeStart &&
+			facet.index.byteStart < rangeEnd
+		) {
 			boundaries.add(facet.index.byteStart);
 		}
 		if (facet.index.byteEnd > rangeStart && facet.index.byteEnd < rangeEnd) {
@@ -287,7 +324,14 @@ const renderInlineRange = (
 						);
 						break;
 					case "social.colibri.richtext.facet#code":
-						element = <code data-facet-type="code">{wrappedElement}</code>;
+						element = (
+							<code data-facet-type="code" class="bg-card px-1 rounded-xs">
+								{wrappedElement}
+							</code>
+						);
+						break;
+					case "social.colibri.richtext.facet#spoiler":
+						element = <Spoiler>{wrappedElement}</Spoiler>;
 						break;
 					case "social.colibri.richtext.facet#link":
 						if ("uri" in feature) {
@@ -349,23 +393,80 @@ export const renderWithFacets = (
 		.sort((a, b) => a.index.byteStart - b.index.byteStart);
 
 	if (blockFacets.length === 0) {
-		return renderInlineRange(bytes, 0, bytes.length, normalizedFacets, preferences);
+		return renderInlineRange(
+			bytes,
+			0,
+			bytes.length,
+			normalizedFacets,
+			preferences,
+		);
 	}
 
 	const result: Array<JSX.Element> = [];
 	let cursor = 0;
+	let lastWasBlock = false;
 
-	for (const blockFacet of blockFacets) {
+	const inline = (start: number, end: number): Array<JSX.Element> =>
+		renderInlineRange(bytes, start, end, normalizedFacets, preferences);
+
+	const emitInline = (
+		start: number,
+		end: number,
+		beforeBlock = false,
+	): void => {
+		let s = start;
+		let e = end;
+		if (lastWasBlock && s < e && bytes[s] === 0x0a) s++;
+		if (beforeBlock && e > s && bytes[e - 1] === 0x0a) e--;
+		if (s < e) result.push(...inline(s, e));
+	};
+
+	const listFeatureOf = (facet: ColibriRichTextFacet): AnyFeature | undefined =>
+		facet.features.find(
+			(f) => f.$type === "social.colibri.richtext.facet#list",
+		);
+
+	for (let bi = 0; bi < blockFacets.length;) {
+		const blockFacet = blockFacets[bi];
 		if (blockFacet.index.byteStart > cursor) {
+			emitInline(cursor, blockFacet.index.byteStart, true);
+			lastWasBlock = false;
+		}
+
+		const listFeature = listFeatureOf(blockFacet);
+
+		if (listFeature) {
+			const ordered = "ordered" in listFeature && listFeature.ordered;
+			const items: Array<ColibriRichTextFacet> = [blockFacet];
+			let prevEnd = blockFacet.index.byteEnd;
+			let j = bi + 1;
+			while (j < blockFacets.length) {
+				const next = blockFacets[j];
+				const nextList = listFeatureOf(next);
+				const nextOrdered =
+					!!nextList && "ordered" in nextList && nextList.ordered;
+				if (!nextList || nextOrdered !== ordered) break;
+				if (next.index.byteStart !== prevEnd + 1) break;
+				items.push(next);
+				prevEnd = next.index.byteEnd;
+				j++;
+			}
+
+			const lis = items.map((item) => (
+				<li>{inline(item.index.byteStart, item.index.byteEnd)}</li>
+			));
 			result.push(
-				...renderInlineRange(
-					bytes,
-					cursor,
-					blockFacet.index.byteStart,
-					normalizedFacets,
-					preferences,
+				ordered ? (
+					<ol class="list-decimal list-inside my-1 pl-2">{lis}</ol>
+				) : (
+					<ul class="list-disc list-inside my-1 pl-2">{lis}</ul>
 				),
 			);
+
+			cursor = prevEnd;
+			lastWasBlock = true;
+			bi = j;
+			continue;
 		}
 
 		const codeblockFeature = blockFacet.features.find(
@@ -374,12 +475,19 @@ export const renderWithFacets = (
 		const quoteFeature = blockFacet.features.find(
 			(f) => f.$type === "social.colibri.richtext.facet#quote",
 		);
+		const headingFeature = blockFacet.features.find(
+			(f) => f.$type === "social.colibri.richtext.facet#heading",
+		);
+		const subtextFeature = blockFacet.features.find(
+			(f) => f.$type === "social.colibri.richtext.facet#subtext",
+		);
+
+		const { byteStart, byteEnd } = blockFacet.index;
 
 		if (codeblockFeature) {
-			const lang = "lang" in codeblockFeature ? codeblockFeature.lang : undefined;
-			const rawText = textDecoder.decode(
-				bytes.slice(blockFacet.index.byteStart, blockFacet.index.byteEnd),
-			);
+			const lang =
+				"lang" in codeblockFeature ? codeblockFeature.lang : undefined;
+			const rawText = textDecoder.decode(bytes.slice(byteStart, byteEnd));
 			result.push(<CodeBlock lang={lang} code={rawText} />);
 		} else if (quoteFeature) {
 			result.push(
@@ -387,24 +495,53 @@ export const renderWithFacets = (
 					data-facet-type="quote"
 					class="border-l-2 border-muted-foreground/40 pl-3 my-1 text-muted-foreground block"
 				>
-					{renderInlineRange(
-						bytes,
-						blockFacet.index.byteStart,
-						blockFacet.index.byteEnd,
-						normalizedFacets,
-						preferences,
-					)}
+					{inline(byteStart, byteEnd)}
 				</blockquote>,
+			);
+		} else if (headingFeature) {
+			const level =
+				"level" in headingFeature ? Number(headingFeature.level) : 1;
+			const inner = inline(byteStart, byteEnd);
+			if (level <= 1) {
+				result.push(
+					<h1
+						data-facet-type="heading"
+						class="text-xl font-bold my-1 block font-sans"
+					>
+						{inner}
+					</h1>,
+				);
+			} else if (level === 2) {
+				result.push(
+					<h2 data-facet-type="heading" class="text-lg font-bold my-1 block">
+						{inner}
+					</h2>,
+				);
+			} else {
+				result.push(
+					<h3 data-facet-type="heading" class="text-base font-bold my-1 block">
+						{inner}
+					</h3>,
+				);
+			}
+		} else if (subtextFeature) {
+			result.push(
+				<span
+					data-facet-type="subtext"
+					class="text-xs text-muted-foreground block"
+				>
+					{inline(byteStart, byteEnd)}
+				</span>,
 			);
 		}
 
-		cursor = blockFacet.index.byteEnd;
+		cursor = byteEnd;
+		lastWasBlock = true;
+		bi++;
 	}
 
 	if (cursor < bytes.length) {
-		result.push(
-			...renderInlineRange(bytes, cursor, bytes.length, normalizedFacets, preferences),
-		);
+		emitInline(cursor, bytes.length);
 	}
 
 	return result;

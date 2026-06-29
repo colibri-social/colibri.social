@@ -18,11 +18,13 @@ import { createEditorTransaction, createTiptapEditor } from "solid-tiptap";
 import "./TextEditor.css";
 import {
 	type ColibriRichTextFacet,
+	parseMarkdown,
 	tokenizeMarkdown,
 } from "@colibri-social/lib";
-import { type Editor, mergeAttributes } from "@tiptap/core";
+import { type Editor, Extension, mergeAttributes } from "@tiptap/core";
 import twemoji from "@twemoji/api";
-import { TextSelection } from "prosemirror-state";
+import type { Fragment, Node as ProseMirrorNode } from "prosemirror-model";
+import { Plugin, TextSelection } from "prosemirror-state";
 import CodeIcon from "~icons/ph/code";
 import SmileyIcon from "~icons/ph/smiley";
 import TextBIcon from "~icons/ph/text-b";
@@ -47,6 +49,7 @@ import { ComposerMediaPickers } from "../ComposerMediaPickers";
 import { EmojiPopover } from "../EmojiPopover";
 import { EMOJI_DATA } from "../rich-text-renderer/emojiData";
 import { buildSuggestions } from "./build-suggestions";
+import { facetsToProseMirror } from "./facets-to-prosemirror";
 import { MarkdownDecorations } from "./markdown-code-highlight";
 import { proseMirrorToFacets } from "./prosemirror-to-facets";
 
@@ -350,6 +353,203 @@ const handleQuoteBackspace = (editor: Editor): boolean => {
 	return true;
 };
 
+const ORDERED_MARKER_RE = /^(\s*)(\d+)\.(\s)/;
+const UNORDERED_MARKER_RE = /^(\s*)[-*](\s)/;
+
+const projectCurrentBlock = (
+	editor: Editor,
+): { pos: number; text: string; positions: number[] } => {
+	const { $from } = editor.state.selection;
+	const blockStart = $from.start();
+	let text = "";
+	const positions: number[] = [];
+	$from.parent.forEach((child, offset) => {
+		if (child.isText && child.text) {
+			for (let i = 0; i < child.text.length; i++) {
+				positions.push(blockStart + offset + i);
+			}
+			text += child.text;
+		} else if (child.type.name === "hardBreak") {
+			positions.push(blockStart + offset);
+			text += "\n";
+		} else {
+			positions.push(blockStart + offset);
+			text += "￼";
+		}
+	});
+	positions.push(blockStart + $from.parent.content.size);
+	return { pos: $from.pos, text, positions };
+};
+
+const cursorLine = (
+	text: string,
+	positions: number[],
+	cursorPos: number,
+): { lineStart: number; lineEnd: number; line: string } | null => {
+	const cursorIndex = positions.indexOf(cursorPos);
+	if (cursorIndex === -1) return null;
+	const lineStart = text.lastIndexOf("\n", cursorIndex - 1) + 1;
+	const nl = text.indexOf("\n", cursorIndex);
+	const lineEnd = nl === -1 ? text.length : nl;
+	return { lineStart, lineEnd, line: text.slice(lineStart, lineEnd) };
+};
+
+const handleListContinuation = (editor: Editor): boolean => {
+	const { selection } = editor.state;
+	if (!selection.empty || !selection.$from.parent.isTextblock) return false;
+
+	const { pos, text, positions } = projectCurrentBlock(editor);
+	const found = cursorLine(text, positions, pos);
+	if (!found) return false;
+	const { lineStart, line } = found;
+
+	const ordered = ORDERED_MARKER_RE.exec(line);
+	const unordered = ordered ? null : UNORDERED_MARKER_RE.exec(line);
+	const match = ordered ?? unordered;
+	if (!match) return false;
+
+	const markerLen = match[0].length;
+
+	if (positions.indexOf(pos) < lineStart + markerLen) return false;
+
+	const isEmptyItem = line.slice(markerLen).trim() === "";
+
+	if (isEmptyItem) {
+		const from = positions[lineStart];
+		const to = positions[lineStart + markerLen];
+		editor
+			.chain()
+			.focus()
+			.deleteRange({ from, to })
+			.setTextSelection(from)
+			.run();
+		return true;
+	}
+
+	const nextMarker = ordered
+		? `${Number.parseInt(ordered[2], 10) + 1}. `
+		: "- ";
+	editor.chain().focus().setHardBreak().insertContent(nextMarker).run();
+	return true;
+};
+
+const handleListMarkerDelete = (editor: Editor): boolean => {
+	const { selection } = editor.state;
+	if (!selection.empty || !selection.$from.parent.isTextblock) return false;
+
+	const { pos, text, positions } = projectCurrentBlock(editor);
+	const found = cursorLine(text, positions, pos);
+	if (!found) return false;
+	const { lineStart, line } = found;
+
+	if (positions.indexOf(pos) !== lineStart) return false;
+	const ordered = ORDERED_MARKER_RE.exec(line);
+	if (!ordered) return false;
+
+	const from = positions[lineStart];
+	const to = positions[lineStart + ordered[0].length];
+	editor.chain().focus().deleteRange({ from, to }).setTextSelection(from).run();
+	return true;
+};
+
+const OrderedListAutoNumber = Extension.create({
+	name: "orderedListAutoNumber",
+	addProseMirrorPlugins() {
+		return [
+			new Plugin({
+				appendTransaction: (transactions, _oldState, newState) => {
+					if (!transactions.some((t) => t.docChanged)) return null;
+
+					const edits: Array<{ from: number; to: number; text: string }> = [];
+					newState.doc.descendants((node, pos) => {
+						if (!node.isTextblock) return;
+
+						let text = "";
+						const positions: number[] = [];
+						node.forEach((child, offset) => {
+							if (child.isText && child.text) {
+								for (let i = 0; i < child.text.length; i++) {
+									positions.push(pos + 1 + offset + i);
+								}
+								text += child.text;
+							} else if (child.type.name === "hardBreak") {
+								positions.push(pos + 1 + offset);
+								text += "\n";
+							} else {
+								positions.push(pos + 1 + offset);
+								text += "￼";
+							}
+						});
+						positions.push(pos + 1 + node.content.size);
+
+						let counter = 0;
+						let index = 0;
+						for (const line of text.split("\n")) {
+							const match = ORDERED_MARKER_RE.exec(line);
+							if (match) {
+								counter += 1;
+								const expected = String(counter);
+								if (match[2] !== expected) {
+									const numStart = index + match[1].length;
+									const numEnd = numStart + match[2].length;
+									edits.push({
+										from: positions[numStart],
+										to: positions[numEnd],
+										text: expected,
+									});
+								}
+							} else {
+								counter = 0;
+							}
+							index += line.length + 1;
+						}
+					});
+
+					if (edits.length === 0) return null;
+					const tr = newState.tr;
+					edits.sort((a, b) => b.from - a.from);
+					for (const edit of edits)
+						tr.insertText(edit.text, edit.from, edit.to);
+					return tr.steps.length ? tr : null;
+				},
+			}),
+		];
+	},
+});
+
+const mentionMarkdown = (node: ProseMirrorNode): string => {
+	const { type, label, handle } = node.attrs;
+	if (type === "member") return `@${label ?? handle}`;
+	if (type === "channel") return `#${label}`;
+	return label ?? "";
+};
+
+const fragmentToMarkdown = (fragment: Fragment): string => {
+	let out = "";
+	fragment.forEach((node) => {
+		const name = node.type.name;
+		if (node.isText) {
+			out += node.text ?? "";
+		} else if (name === "hardBreak") {
+			out += "\n";
+		} else if (name === "mention") {
+			out += mentionMarkdown(node);
+		} else if (name === "blockquote") {
+			if (out && !out.endsWith("\n")) out += "\n";
+			out += fragmentToMarkdown(node.content)
+				.split("\n")
+				.map((line) => `> ${line}`)
+				.join("\n");
+		} else if (name === "paragraph") {
+			if (out && !out.endsWith("\n")) out += "\n";
+			out += fragmentToMarkdown(node.content);
+		} else if (node.childCount) {
+			out += fragmentToMarkdown(node.content);
+		}
+	});
+	return out;
+};
+
 export const TextEditor: Component<{
 	placeholder: string;
 	text?: ReturnType<Editor["getJSON"]>;
@@ -415,6 +615,7 @@ export const TextEditor: Component<{
 							return true;
 						},
 						Backspace: () => handleQuoteBackspace(this.editor),
+						Delete: () => handleListMarkerDelete(this.editor),
 						"Mod-b": () => {
 							toggleMarker(this.editor, "bold");
 							return true;
@@ -455,6 +656,7 @@ export const TextEditor: Component<{
 					return {
 						"Shift-Enter": () => {
 							if (handleQuoteExit(this.editor)) return true;
+							if (handleListContinuation(this.editor)) return true;
 							return this.editor.commands.setHardBreak();
 						},
 						"Mod-Enter": () => this.editor.commands.setHardBreak(),
@@ -464,6 +666,7 @@ export const TextEditor: Component<{
 				keepMarks: false,
 			}),
 			MarkdownDecorations,
+			OrderedListAutoNumber,
 			UndoRedo,
 			Mention.configure({
 				HTMLAttributes: { "data-type": "mention" },
@@ -569,6 +772,30 @@ export const TextEditor: Component<{
 			}),
 			Emoji.configure(),
 		],
+		editorProps: {
+			clipboardTextSerializer: (slice) => fragmentToMarkdown(slice.content),
+			handlePaste: (_view, event) => {
+				const text = event.clipboardData?.getData("text/plain");
+				if (!text || !text.includes("\n")) return false;
+				const instance = editor();
+				if (!instance || instance.isDestroyed) return false;
+
+				const parsed = parseMarkdown(text, []);
+				const { content } = facetsToProseMirror(
+					parsed.text,
+					parsed.facets,
+					community().members ?? [],
+					community().channels ?? [],
+				);
+
+				const payload =
+					content.length === 1 && content[0]?.type === "paragraph"
+						? (content[0].content ?? [])
+						: content;
+				instance.chain().focus().insertContent(payload).run();
+				return true;
+			},
+		},
 		content: untrack(() => props.text),
 	}));
 

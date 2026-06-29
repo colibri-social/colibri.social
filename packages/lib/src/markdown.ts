@@ -22,7 +22,11 @@ export type MarkdownTokenKind =
 	| "code"
 	| "codeblock"
 	| "quote"
-	| "link";
+	| "link"
+	| "heading"
+	| "list"
+	| "subtext"
+	| "spoiler";
 
 export interface MarkdownToken {
 	kind: MarkdownTokenKind;
@@ -30,6 +34,8 @@ export interface MarkdownToken {
 	content: [number, number];
 	lang?: string;
 	uri?: string;
+	level?: number;
+	ordered?: boolean;
 }
 
 const FEATURE_TYPE: Record<MarkdownTokenKind, Feature["$type"]> = {
@@ -41,6 +47,10 @@ const FEATURE_TYPE: Record<MarkdownTokenKind, Feature["$type"]> = {
 	codeblock: "social.colibri.richtext.facet#codeblock",
 	quote: "social.colibri.richtext.facet#quote",
 	link: "social.colibri.richtext.facet#link",
+	heading: "social.colibri.richtext.facet#heading",
+	list: "social.colibri.richtext.facet#list",
+	subtext: "social.colibri.richtext.facet#subtext",
+	spoiler: "social.colibri.richtext.facet#spoiler",
 };
 
 const INLINE_MARKER: Partial<Record<MarkdownTokenKind, string>> = {
@@ -49,6 +59,7 @@ const INLINE_MARKER: Partial<Record<MarkdownTokenKind, string>> = {
 	underline: "__",
 	strikethrough: "~~",
 	code: "`",
+	spoiler: "||",
 };
 
 const encoder = new TextEncoder();
@@ -163,6 +174,38 @@ export const tokenizeMarkdown = (source: string): MarkdownToken[] => {
 				}
 				break;
 			}
+			case "heading": {
+				if (node.depth > 3 || source[offset(node)] !== "#") break;
+				const w = wrapMarkers(node);
+				if (w) tokens.push({ kind: "heading", level: node.depth, ...w });
+				break;
+			}
+			case "list": {
+				for (const item of node.children) {
+					if (item.type !== "listItem") continue;
+
+					const para =
+						item.children.find((k) => k.type === "paragraph") ??
+						item.children[0];
+
+					if (!para) continue;
+
+					const contentStart = offset(para);
+					let contentEnd = endOffset(para);
+					const nl = source.indexOf("\n", contentStart);
+
+					if (nl !== -1 && nl < contentEnd) contentEnd = nl;
+					if (contentEnd <= contentStart) continue;
+
+					tokens.push({
+						kind: "list",
+						ordered: Boolean(node.ordered),
+						markers: [[offset(item), contentStart]],
+						content: [contentStart, contentEnd],
+					});
+				}
+				break;
+			}
 			case "blockquote": {
 				const start = offset(node);
 				const end = endOffset(node);
@@ -191,6 +234,53 @@ export const tokenizeMarkdown = (source: string): MarkdownToken[] => {
 	};
 
 	visit(tree);
+
+	const codeRanges = tokens
+		.filter((t) => t.kind === "code" || t.kind === "codeblock")
+		.map(
+			(t) =>
+				[t.markers[0][0], (t.markers[1] ?? t.markers[0])[1]] as [
+					number,
+					number,
+				],
+		);
+	const insideCode = (index: number): boolean =>
+		codeRanges.some(([s, e]) => index >= s && index < e);
+
+	const subtextRe = /(^|\n)([ \t]{0,3}-#[ \t])([^\n]*)/g;
+
+	let sub: RegExpExecArray | null;
+	while ((sub = subtextRe.exec(source))) {
+		const lineStart = sub.index + sub[1].length;
+		const markerEnd = lineStart + sub[2].length;
+		const contentEnd = markerEnd + sub[3].length;
+		if (contentEnd <= markerEnd || insideCode(lineStart)) continue;
+		tokens.push({
+			kind: "subtext",
+			markers: [[lineStart, markerEnd]],
+			content: [markerEnd, contentEnd],
+		});
+	}
+
+	const spoilerRe = /\|\|([^\n]+?)\|\|/g;
+
+	let sp: RegExpExecArray | null;
+	while ((sp = spoilerRe.exec(source))) {
+		const start = sp.index;
+		const end = start + sp[0].length;
+		const contentStart = start + 2;
+		const contentEnd = end - 2;
+		if (contentEnd <= contentStart || insideCode(start)) continue;
+		tokens.push({
+			kind: "spoiler",
+			markers: [
+				[start, contentStart],
+				[contentEnd, end],
+			],
+			content: [contentStart, contentEnd],
+		});
+	}
+
 	return tokens.sort((a, b) => a.content[0] - b.content[0]);
 };
 
@@ -205,6 +295,16 @@ const buildFeature = (token: MarkdownToken): Feature => {
 			return {
 				$type: "social.colibri.richtext.facet#link",
 				uri: token.uri ?? "",
+			};
+		case "heading":
+			return {
+				$type: "social.colibri.richtext.facet#heading",
+				level: token.level ?? 1,
+			};
+		case "list":
+			return {
+				$type: "social.colibri.richtext.facet#list",
+				ordered: Boolean(token.ordered),
 			};
 		default:
 			return { $type: FEATURE_TYPE[token.kind] } as Feature;
@@ -338,6 +438,9 @@ export const facetsToSource = (
 	};
 	const codeblocks: Array<[number, number, string]> = [];
 	const atomStarts = new Map<number, { end: number; feature: Feature }>();
+	const listFacets: Array<{ start: number; end: number; ordered: boolean }> =
+		[];
+	const quoteRanges: Array<[number, number]> = [];
 
 	for (const facet of facets) {
 		const start = toStr(facet.index.byteStart);
@@ -357,13 +460,48 @@ export const facetsToSource = (
 					end,
 					"lang" in feature && feature.lang ? feature.lang : "",
 				]);
+			} else if (kind === "heading") {
+				const level = "level" in feature ? Number(feature.level) || 1 : 1;
+				addMarker(opensAt, start, `${"#".repeat(Math.min(3, level))} `);
+			} else if (kind === "subtext") {
+				addMarker(opensAt, start, "-# ");
+			} else if (kind === "list") {
+				listFacets.push({
+					start,
+					end,
+					ordered: "ordered" in feature && Boolean(feature.ordered),
+				});
+			} else if (kind === "quote") {
+				quoteRanges.push([start, end]);
 			} else if (ATOM_KIND.has(kind)) {
 				atomStarts.set(start, { end, feature });
 			}
 		}
 	}
 
+	listFacets.sort((a, b) => a.start - b.start);
+	let counter = 0;
+	let prevEnd = -2;
+	for (const lf of listFacets) {
+		if (!(lf.ordered && lf.start === prevEnd + 1)) counter = 0;
+		if (lf.ordered) {
+			counter++;
+			addMarker(opensAt, lf.start, `${counter}. `);
+		} else {
+			addMarker(opensAt, lf.start, "- ");
+		}
+		prevEnd = lf.end;
+	}
+
 	codeblocks.sort((a, b) => a[0] - b[0]);
+
+	const quoteLineStarts = new Set<number>();
+	for (const [qs, qe] of quoteRanges) {
+		quoteLineStarts.add(qs);
+		for (let p = qs; p < qe - 1; p++) {
+			if (text[p] === "\n") quoteLineStarts.add(p + 1);
+		}
+	}
 
 	let out = "";
 	let i = 0;
@@ -387,6 +525,8 @@ export const facetsToSource = (
 		const closers = closesAt.get(i);
 		if (closers) for (const m of [...closers].reverse()) out += m;
 		if (i === text.length) break;
+
+		if (quoteLineStarts.has(i)) out += "> ";
 
 		if (fence) {
 			out += `\`\`\`${fence[2]}\n`;

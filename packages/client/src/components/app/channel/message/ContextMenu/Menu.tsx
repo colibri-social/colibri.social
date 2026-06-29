@@ -1,13 +1,16 @@
-import { type ParentComponent, For, Show } from "solid-js";
+import { facetsToSource } from "@colibri-social/lib";
+import { For, type ParentComponent, Show } from "solid-js";
 import { toast } from "somoto";
 import ArrowBendUpLeftIcon from "~icons/ph/arrow-bend-up-left";
 import CopyIcon from "~icons/ph/copy";
 import InfoIcon from "~icons/ph/info";
 import PencilIcon from "~icons/ph/pencil";
-import TrashIcon from "~icons/ph/trash";
 import SmileyIcon from "~icons/ph/smiley";
+import TrashIcon from "~icons/ph/trash";
+import { usePermissions } from "../../../../../contexts/Community";
 import { useMessageContext } from "../../../../../contexts/Message";
-import { EmojiPopover } from "../../../common/EmojiPopover";
+import { useUserContext } from "../../../../../contexts/User";
+import { useIsMobile } from "../../../../../utils/mobile-pane";
 import {
 	ContextMenu,
 	ContextMenuContent,
@@ -21,11 +24,9 @@ import {
 	MenuDrawer,
 	MenuDrawerItem,
 } from "../../../../ui/MenuDrawer";
-import { DebugInfo } from "../DebugInfo";
-import { usePermissions } from "../../../../../contexts/Community";
-import { useUserContext } from "../../../../../contexts/User";
-import { useIsMobile } from "../../../../../utils/mobile-pane";
 import { Separator } from "../../../../ui/Separator";
+import { EmojiPopover } from "../../../common/EmojiPopover";
+import { DebugInfo } from "../DebugInfo";
 
 /**
  * Message context menu. On desktop it's a right-click Kobalte menu; on mobile a
@@ -64,9 +65,9 @@ export const MessageContextMenu: ParentComponent = (props) => {
 
 	const close = () => setContextMenuOpen(false);
 
-	// Copy the plain message text
 	const copyText = () => {
-		void navigator.clipboard.writeText(message.text);
+		const { source } = facetsToSource(message.text, message.facets ?? []);
+		void navigator.clipboard.writeText(source);
 		toast.success("Message copied");
 	};
 

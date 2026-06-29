@@ -40,6 +40,24 @@ export type ColibriRichTextQuote = {
 	$type?: "social.colibri.richtext.facet#quote";
 };
 
+export type ColibriRichTextHeading = {
+	$type?: "social.colibri.richtext.facet#heading";
+	level: number;
+};
+
+export type ColibriRichTextList = {
+	$type?: "social.colibri.richtext.facet#list";
+	ordered: boolean;
+};
+
+export type ColibriRichTextSubtext = {
+	$type?: "social.colibri.richtext.facet#subtext";
+};
+
+export type ColibriRichTextSpoiler = {
+	$type?: "social.colibri.richtext.facet#spoiler";
+};
+
 export type TimestampStyle =
 	| "time-short"
 	| "time-long"
@@ -77,6 +95,10 @@ export interface ColibriRichTextFacet {
 		| $Typed<ColibriRichTextCode>
 		| $Typed<ColibriRichTextCodeblock>
 		| $Typed<ColibriRichTextQuote>
+		| $Typed<ColibriRichTextHeading>
+		| $Typed<ColibriRichTextList>
+		| $Typed<ColibriRichTextSubtext>
+		| $Typed<ColibriRichTextSpoiler>
 		| $Typed<ColibriRichTextMention>
 		| $Typed<ColibriRichTextLink>
 		| $Typed<ColibriRichTextTime>
