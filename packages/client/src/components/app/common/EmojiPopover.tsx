@@ -19,11 +19,27 @@ import { BottomSheet } from "../../ui/MenuDrawer";
 import { TextField, TextFieldInput } from "../../ui/TextField";
 import { useIsMobile } from "../../../utils/mobile-pane";
 
+type Placement =
+	| "bottom"
+	| "bottom-end"
+	| "bottom-start"
+	| "left"
+	| "left-end"
+	| "left-start"
+	| "right"
+	| "right-end"
+	| "right-start"
+	| "top"
+	| "top-end"
+	| "top-start";
+
 export const EmojiPopover: ParentComponent<{
 	emojiPopoverOpen: Accessor<boolean>;
 	setEmojiPopoverOpen: (state: boolean) => void;
 	addReactionOptimistic?: (emoji: string) => void;
 	onEmojiClick?: EmojiEventHandler<MouseEvent>;
+	onEmojiSelect?: (emoji: string) => void;
+	placement?: Placement;
 }> = (props) => {
 	const [filter, setFilter] = createSignal("");
 
@@ -51,6 +67,7 @@ export const EmojiPopover: ParentComponent<{
 		const handleSelect = (e: MouseEvent) => {
 			props.setEmojiPopoverOpen(false);
 			props.addReactionOptimistic?.(emoji.emoji);
+			props.onEmojiSelect?.(emoji.emoji);
 
 			props.onEmojiClick?.(emoji, {
 				...e,
@@ -116,7 +133,7 @@ export const EmojiPopover: ParentComponent<{
 				<Popover
 					open={props.emojiPopoverOpen()}
 					onOpenChange={props.setEmojiPopoverOpen}
-					placement="left-start"
+					placement={props.placement || "left-start"}
 				>
 					<PopoverTrigger as="div">{props.children}</PopoverTrigger>
 					<PopoverPortal>

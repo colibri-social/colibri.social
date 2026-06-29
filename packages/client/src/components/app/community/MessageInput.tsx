@@ -6,13 +6,16 @@ import {
 	type Accessor,
 	type Component,
 	createEffect,
+	createSignal,
 	Match,
 	Show,
 	Switch,
 } from "solid-js";
 import { toast } from "somoto";
 import CircleIcon from "~icons/ph/circle";
+import PaperPlaneRightIcon from "~icons/ph/paper-plane-right-fill";
 import PlusIcon from "~icons/ph/plus";
+import { useIsMobile } from "../../../utils/mobile-pane";
 import { createRecord, uploadBlob } from "../../../atproto/pds";
 import type { PendingMessage } from "../../../atproto/xrpc/social/colibri/channel/listMessages";
 import { useChannelContext } from "../../../contexts/Channel";
@@ -56,6 +59,18 @@ export const MessageInput: Component<{
 	const user = useUserContext();
 
 	let inputEl!: HTMLDivElement;
+
+	const isMobile = useIsMobile();
+
+	const [editorEmpty, setEditorEmpty] = createSignal(true);
+	const [charPercent, setCharPercent] = createSignal(0);
+
+	let submitMessage: (() => void) | undefined;
+
+	const hasAttachments = () => (props.files()?.acceptedFiles.length ?? 0) > 0;
+
+	const showSendButton = () =>
+		isMobile() && (!editorEmpty() || hasAttachments());
 
 	// Typing indicator: ping the AppView at most once every 2s while the user
 	// is actively typing. There's no explicit "stop" — receivers auto-clear
@@ -207,6 +222,19 @@ export const MessageInput: Component<{
 
 	return (
 		<div class="w-full flex h-fit flex-col gap-0 relative shrink-0">
+			<Show when={isMobile()}>
+				<div class="w-full h-0.5 bg-muted/40 overflow-hidden shrink-0">
+					<div
+						class="h-full transition-all duration-150"
+						classList={{
+							"bg-primary": charPercent() < 90,
+							"bg-yellow-500": charPercent() >= 90 && charPercent() < 100,
+							"bg-red-500": charPercent() === 100,
+						}}
+						style={{ width: `${charPercent()}%` }}
+					/>
+				</div>
+			</Show>
 			<Show when={channel.replyingTo() !== undefined}>
 				<div class="border-y border-border w-full px-4 py-2 bg-blue-500/5 backdrop-blur-sm text-foreground flex justify-between items-center">
 					<span>
@@ -275,7 +303,7 @@ export const MessageInput: Component<{
 						</FileFieldTrigger>
 						<div
 							ref={inputEl}
-							class="w-[calc(100%-3.5rem)] max-w-[calc(100%-3.5rem)]"
+							class="flex-1 min-w-0"
 							onPaste={(e) => {
 								if ((e.clipboardData?.files.length || 0) > 0) {
 									e.preventDefault();
@@ -293,9 +321,25 @@ export const MessageInput: Component<{
 									sendMessage={sendMessage}
 									onChange={handleTypingChange}
 									onEscape={channel.clearReplyingTo}
+									submitOnEnter={!isMobile()}
+									onEmptyChange={setEditorEmpty}
+									onProgress={setCharPercent}
+									registerSubmit={(submit) => {
+										submitMessage = submit;
+									}}
 								/>
 							</div>
 						</div>
+						<Show when={showSendButton()}>
+							<button
+								type="button"
+								aria-label="Send message"
+								onClick={() => submitMessage?.()}
+								class="w-10 h-10 min-w-10 shrink-0 bg-primary text-primary-foreground hover:bg-primary/90 flex items-center justify-center rounded-lg cursor-pointer"
+							>
+								<PaperPlaneRightIcon />
+							</button>
+						</Show>
 					</Match>
 					<Match when={props.disabled}>
 						<span class="text-sm">

@@ -299,7 +299,7 @@ export const CommunityCreationModal: ParentComponent = (props) => {
 					<TextField
 						value={description()}
 						onChange={setDescription}
-						validationState={descriptionValid}
+						validationState={descriptionValid()}
 					>
 						<TextFieldLabel>Community Description</TextFieldLabel>
 						<TextFieldInput

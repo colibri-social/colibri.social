@@ -30,7 +30,13 @@ export const RichTextRenderer: Component<{
 		>
 			<For each={rendered}>{(component) => component}</For>
 			<Show when={props.isEdited}>
-				<span class="text-muted-foreground text-xs inline"> (edited)</span>
+				<span
+					class="text-muted-foreground text-xs inline"
+					classList={{ "ml-1": rendered.length === 1 }}
+				>
+					{" "}
+					(edited)
+				</span>
 			</Show>
 		</div>
 	);

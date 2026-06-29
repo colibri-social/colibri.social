@@ -13,13 +13,20 @@ import { Strike } from "@tiptap/extension-strike";
 import { Text } from "@tiptap/extension-text";
 import { Underline } from "@tiptap/extension-underline";
 import { CharacterCount, Placeholder, UndoRedo } from "@tiptap/extensions";
-import { type Component, createEffect, createSignal, untrack } from "solid-js";
+import {
+	type Component,
+	createEffect,
+	createSignal,
+	Show,
+	untrack,
+} from "solid-js";
 import { createEditorTransaction, createTiptapEditor } from "solid-tiptap";
 import "./TextEditor.css";
 import type { ColibriRichTextFacet } from "@colibri-social/lib";
 import { type Editor, mergeAttributes } from "@tiptap/core";
 import twemoji from "@twemoji/api";
 import CodeIcon from "~icons/ph/code";
+import SmileyIcon from "~icons/ph/smiley";
 import TextBIcon from "~icons/ph/text-b";
 import TextItalicIcon from "~icons/ph/text-italic";
 import TextStrikethroughIcon from "~icons/ph/text-strikethrough";
@@ -33,11 +40,13 @@ import {
 	TooltipTrigger,
 } from "../../../ui/Tooltip";
 import { EMOJI_DATA } from "../rich-text-renderer/emojiData";
+import { EmojiPopover } from "../EmojiPopover";
 import { buildSuggestions } from "./build-suggestions";
 import { MarkdownCodeHighlight } from "./markdown-code-highlight";
 import { proseMirrorToFacets } from "./prosemirror-to-facets";
 import { useChannelContext } from "../../../../contexts/Channel";
 import { useUserContext } from "../../../../contexts/User";
+import { useIsMobile } from "../../../../utils/mobile-pane";
 import { createFenceRegex } from "../../../../utils/fenced-code-regex";
 
 const CHARACTER_LIMIT = 2048;
@@ -131,12 +140,32 @@ export const TextEditor: Component<{
 	submitOnEnter?: boolean;
 	onEscape?: () => void;
 	mainEditor?: boolean;
+	onEmptyChange?: (empty: boolean) => void;
+	registerSubmit?: (submit: () => void) => void;
+	onProgress?: (percentage: number) => void;
 }> = (props) => {
 	let ref!: HTMLDivElement;
 
 	const user = useUserContext();
 	const channel = useChannelContext();
 	const community = useCommunityContext();
+
+	const runSend = (instance: Editor) => {
+		const json = instance.getJSON();
+		const text = proseMirrorToFacets(json);
+		instance.commands.clearContent();
+		Promise.resolve(props.sendMessage(text.text, text.facets))
+			.then((shouldClear) => {
+				if (shouldClear === false && !instance.isDestroyed) {
+					instance.commands.setContent(json);
+				}
+			})
+			.catch(() => {
+				if (!instance.isDestroyed) {
+					instance.commands.setContent(json);
+				}
+			});
+	};
 
 	const [bubbleMenuVisible, setBubbleMenuVisible] = createSignal(false);
 	const [activeMarks, setActiveMarks] = createSignal<Array<BubbleMenuMark>>([]);
@@ -160,20 +189,7 @@ export const TextEditor: Component<{
 								return this.editor.commands.setHardBreak();
 							}
 
-							const json = this.editor.getJSON();
-							const text = proseMirrorToFacets(json);
-							this.editor.commands.clearContent();
-							Promise.resolve(props.sendMessage(text.text, text.facets))
-								.then((shouldClear) => {
-									if (shouldClear === false && !this.editor.isDestroyed) {
-										this.editor.commands.setContent(json);
-									}
-								})
-								.catch(() => {
-									if (!this.editor.isDestroyed) {
-										this.editor.commands.setContent(json);
-									}
-								});
+							runSend(this.editor);
 							return true;
 						},
 						Escape: () => {
@@ -332,6 +348,36 @@ export const TextEditor: Component<{
 	const characterPercentage = () =>
 		Math.round((100 / CHARACTER_LIMIT) * characterCountTransaction());
 
+	const isMobile = useIsMobile();
+
+	const [emojiOpen, setEmojiOpen] = createSignal(false);
+
+	const handleEmojiOpenChange = (open: boolean) => {
+		setEmojiOpen(open);
+		if (!open) setTimeout(() => editor()?.commands.focus(), 0);
+	};
+
+	const insertEmoji = (emoji: string) => {
+		const instance = editor();
+		if (!instance || instance.isDestroyed) return;
+		instance.chain().focus().insertContent(emoji).run();
+	};
+
+	createEffect(() => props.onProgress?.(characterPercentage()));
+
+	const isEmptyTransaction = createEditorTransaction(
+		editor,
+		(editor) => editor?.isEmpty ?? true,
+	);
+
+	createEffect(() => props.onEmptyChange?.(isEmptyTransaction()));
+
+	createEffect(() => {
+		const instance = editor();
+		if (!instance) return;
+		props.registerSubmit?.(() => runSend(instance));
+	});
+
 	const selectionStateTransaction = createEditorTransaction(
 		editor,
 		(editor) => ({ state: editor!.state, $pos: editor!.$pos }),
@@ -457,7 +503,7 @@ export const TextEditor: Component<{
 			<div
 				ref={ref}
 				id={`editor`}
-				class={`${props.mainEditor ? "" : "temp-editor"} w-full max-w-[calc(100%-28px)]`}
+				class={`${props.mainEditor ? "" : "temp-editor"} flex-1 min-w-0`}
 				onKeyDown={(e) => {
 					if (e.ctrlKey && e.key === "s") {
 						e.stopImmediatePropagation();
@@ -466,53 +512,69 @@ export const TextEditor: Component<{
 					}
 				}}
 			/>
-			<Tooltip>
-				<TooltipTrigger>
-					<svg
-						height="20"
-						width="20"
-						viewBox="0 0 20 20"
-						aria-hidden="true"
-						class="mt-2"
-						classList={{
-							"text-primary": characterPercentage() < 90,
-							"text-yellow-500":
-								characterPercentage() >= 90 && characterPercentage() < 100,
-							"text-red-500": characterPercentage() === 100,
-						}}
-					>
-						{/* Background track */}
-						<circle
-							r="8"
-							cx="10"
-							cy="10"
-							fill="transparent"
-							stroke="var(--muted-foreground)"
-							stroke-width="2"
-							opacity="0.2"
-						/>
-						{/* Progress arc */}
-						<circle
-							r="8"
-							cx="10"
-							cy="10"
-							fill="transparent"
-							stroke="currentColor"
-							stroke-width="2"
-							stroke-dasharray={`${(characterPercentage() / 100) * CIRCUMFERENCE} ${CIRCUMFERENCE}`}
-							transform="rotate(-90) translate(-20)"
-						/>
-					</svg>
-				</TooltipTrigger>
-				<TooltipPortal>
-					<TooltipContent>
-						<span>
-							{" "}
-							{characterCountTransaction()}/{CHARACTER_LIMIT} characters
-						</span>
-					</TooltipContent>
-				</TooltipPortal>
-			</Tooltip>
+			<EmojiPopover
+				emojiPopoverOpen={emojiOpen}
+				setEmojiPopoverOpen={handleEmojiOpenChange}
+				onEmojiSelect={insertEmoji}
+				placement="top-end"
+			>
+				<button
+					type="button"
+					aria-label="Insert emoji"
+					class="mt-1.5 shrink-0 w-6 h-6 flex items-center justify-center text-muted-foreground hover:text-foreground cursor-pointer bg-transparent border-none"
+				>
+					<SmileyIcon width={20} height={20} />
+				</button>
+			</EmojiPopover>
+			<Show when={!(isMobile() && props.mainEditor)}>
+				<Tooltip>
+					<TooltipTrigger>
+						<svg
+							height="20"
+							width="20"
+							viewBox="0 0 20 20"
+							aria-hidden="true"
+							class="mt-2 shrink-0"
+							classList={{
+								"text-primary": characterPercentage() < 90,
+								"text-yellow-500":
+									characterPercentage() >= 90 && characterPercentage() < 100,
+								"text-red-500": characterPercentage() === 100,
+							}}
+						>
+							{/* Background track */}
+							<circle
+								r="8"
+								cx="10"
+								cy="10"
+								fill="transparent"
+								stroke="var(--muted-foreground)"
+								stroke-width="2"
+								opacity="0.2"
+							/>
+							{/* Progress arc */}
+							<circle
+								r="8"
+								cx="10"
+								cy="10"
+								fill="transparent"
+								stroke="currentColor"
+								stroke-width="2"
+								stroke-dasharray={`${(characterPercentage() / 100) * CIRCUMFERENCE} ${CIRCUMFERENCE}`}
+								transform="rotate(-90) translate(-20)"
+							/>
+						</svg>
+					</TooltipTrigger>
+					<TooltipPortal>
+						<TooltipContent>
+							<span>
+								{" "}
+								{characterCountTransaction()}/{CHARACTER_LIMIT} characters
+							</span>
+						</TooltipContent>
+					</TooltipPortal>
+				</Tooltip>
+			</Show>
 		</div>
 	);
 };

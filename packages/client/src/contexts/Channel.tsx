@@ -556,20 +556,7 @@ export const ChannelContextProvider: ParentComponent<{
 			// already confirmed) — apply the new text/facets.
 			const existing = messages().find((m) => m.uri === d.uri);
 			if (existing) {
-				const isSame =
-					d.text === existing.text &&
-					d.facets.every((facet) =>
-						existing.facets.find(
-							(x) =>
-								x.index.byteStart === facet.index.byteStart &&
-								x.index.byteEnd === facet.index.byteEnd &&
-								x.features.every((feature) =>
-									facet.features.find((x) => x.$type === feature.$type),
-								),
-						),
-					);
-
-				updateMessageText(d.uri, d.text, d.facets ?? [], d.edited);
+				updateMessageText(d.uri, d.text, d.facets ?? [], d.edited ?? false);
 				return;
 			}
 
