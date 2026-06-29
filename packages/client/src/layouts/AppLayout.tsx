@@ -37,6 +37,7 @@ import {
 	TooltipPortal,
 	TooltipTrigger,
 } from "../components/ui/Tooltip";
+import { GifFavoritesContextProvider } from "../contexts/GifFavorites";
 import { MutesContextProvider } from "../contexts/Mutes";
 import {
 	NotificationsContextProvider,
@@ -470,9 +471,11 @@ const AppLayoutWithPreferences: ParentComponent = (props) => (
 	<UserPreferencesContextProvider>
 		<SoundsContextProvider>
 			<MutesContextProvider>
-				<NotificationsContextProvider>
-					<AppLayout>{props.children}</AppLayout>
-				</NotificationsContextProvider>
+				<GifFavoritesContextProvider>
+					<NotificationsContextProvider>
+						<AppLayout>{props.children}</AppLayout>
+					</NotificationsContextProvider>
+				</GifFavoritesContextProvider>
 			</MutesContextProvider>
 		</SoundsContextProvider>
 	</UserPreferencesContextProvider>

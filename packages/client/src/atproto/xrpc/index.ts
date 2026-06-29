@@ -546,6 +546,24 @@ export class XrpcClient {
 						this.authed(this.proxiedFetch, "social.colibri.embed.getMetadata"),
 						uri,
 					),
+				searchGifs: (query: string, page?: number) =>
+					Embed.searchGifs(
+						this.authed(this.proxiedFetch, "social.colibri.embed.searchGifs"),
+						query,
+						page,
+					),
+				trendingGifs: (page?: number) =>
+					Embed.trendingGifs(
+						this.authed(this.proxiedFetch, "social.colibri.embed.trendingGifs"),
+						page,
+					),
+				gifCategories: () =>
+					Embed.gifCategories(
+						this.authed(
+							this.proxiedFetch,
+							"social.colibri.embed.gifCategories",
+						),
+					),
 			},
 			notification: {
 				listNotifications: (limit?: number, cursor?: string) =>

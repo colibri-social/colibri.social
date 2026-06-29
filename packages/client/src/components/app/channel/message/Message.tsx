@@ -32,7 +32,7 @@ import { BlockDrawer } from "./BlockDrawer";
 import { Action } from "./ContextMenu";
 import { MessageContextMenu } from "./ContextMenu/Menu";
 import { DeletionDrawer } from "./DeletionDrawer/index";
-import { Embed } from "./Embed";
+import { Embed, isGifUrl } from "./Embed";
 
 /**
  * A rendered message component in a chat.
@@ -111,6 +111,20 @@ const MessageInner: Component<{
 				(f) => f.features[0].$type === "social.colibri.richtext.facet#link",
 			)
 			.map((f) => f.features[0] as ColibriRichTextLink) || [];
+
+	/**
+	 * True when the whole message is just a single GIF link (a GIF picked from
+	 * the picker). The link itself renders inline via `Embed`, so we hide the
+	 * raw URL text and show only the GIF.
+	 */
+	const isLoneGif = (): boolean => {
+		const links = linkFacets();
+		return (
+			links.length === 1 &&
+			isGifUrl(links[0].uri) &&
+			message.text.trim() === links[0].uri
+		);
+	};
 
 	return (
 		<MessageContextMenu>
@@ -195,8 +209,9 @@ const MessageInner: Component<{
 					<Show
 						when={
 							!("hash" in message) &&
-							(message.attachments || []).length > 0 &&
-							message.text.trim().length === 0
+							(((message.attachments || []).length > 0 &&
+								message.text.trim().length === 0) ||
+								isLoneGif())
 						}
 					>
 						<div
@@ -230,13 +245,20 @@ const MessageInner: Component<{
 								</div>
 							</Show>
 
-							<MessageAttachments
-								did={message.author.did}
-								attachments={message.attachments || []}
-							/>
+							<Show
+								when={isLoneGif()}
+								fallback={
+									<MessageAttachments
+										did={message.author.did}
+										attachments={message.attachments || []}
+									/>
+								}
+							>
+								<Embed uri={linkFacets()[0].uri} />
+							</Show>
 						</div>
 					</Show>
-					<Show when={message.text.trim().length > 0}>
+					<Show when={message.text.trim().length > 0 && !isLoneGif()}>
 						<div class="flex flex-col w-full min-w-0 justify-center">
 							<Show when={!isSubsequentMessage()}>
 								<div class="flex gap-2 text-sm items-baseline">
@@ -391,7 +413,7 @@ const MessageInner: Component<{
 						/>
 					</div>
 				</Show>
-				<Show when={linkFacets().length > 0 && !("hash" in message)}>
+				<Show when={linkFacets().length > 0 && !("hash" in message) && !isLoneGif()}>
 					<div class="flex flex-row flex-wrap gap-4 pl-14">
 						<For each={linkFacets()}>{(item) => <Embed uri={item.uri} />}</For>
 					</div>

@@ -8,9 +8,13 @@ import {
 	useContext,
 } from "solid-js";
 import type { BlueskyClientID } from "../atproto/bluesky-alternatives";
+import type { GifItem } from "../atproto/xrpc/social/colibri/embed/gifTypes";
 import { DEFAULT_APPVIEW_URL } from "../utils/appview";
 
 const STORAGE_KEY = "colibri:user-preferences";
+
+/** How many recently-used GIFs to keep in the picker's Recents row. */
+const MAX_RECENT_GIFS = 24;
 
 export type VoicePreferences = {
 	inputDeviceId: string | null;
@@ -56,6 +60,8 @@ export type UserPreferencesContextData = {
 	};
 	preferredBlueskyClient: BlueskyClientID;
 	preferredAppView: string;
+	/** Most-recently-used GIFs (newest first), shown in the picker's Recents. */
+	recentGifs: Array<GifItem>;
 };
 
 const DEFAULT_PREFERENCES: UserPreferencesContextData = {
@@ -81,6 +87,7 @@ const DEFAULT_PREFERENCES: UserPreferencesContextData = {
 	},
 	preferredBlueskyClient: "bluesky",
 	preferredAppView: DEFAULT_APPVIEW_URL,
+	recentGifs: [],
 };
 
 function loadFromStorage(): UserPreferencesContextData {
@@ -105,6 +112,7 @@ type UserPreferencesContextValue = {
 	setNativeNotifications: (enabled: boolean) => void;
 	setPreferredBlueskyClient: (client: BlueskyClientID) => void;
 	setPreferredAppView: (appView: string) => void;
+	pushRecentGif: (gif: GifItem) => void;
 };
 
 const UserPreferencesContext = createContext<UserPreferencesContextValue>();
@@ -145,6 +153,16 @@ export const UserPreferencesContextProvider: ParentComponent = (props) => {
 		setPreferences((p) => ({ ...p, preferredAppView: appView }));
 	};
 
+	const pushRecentGif = (gif: GifItem) => {
+		setPreferences((p) => ({
+			...p,
+			recentGifs: [
+				gif,
+				...p.recentGifs.filter((g) => g.id !== gif.id),
+			].slice(0, MAX_RECENT_GIFS),
+		}));
+	};
+
 	return (
 		<UserPreferencesContext.Provider
 			value={{
@@ -155,6 +173,7 @@ export const UserPreferencesContextProvider: ParentComponent = (props) => {
 				setNativeNotifications,
 				setPreferredBlueskyClient,
 				setPreferredAppView,
+				pushRecentGif,
 			}}
 		>
 			{props.children}

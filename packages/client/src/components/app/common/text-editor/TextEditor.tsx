@@ -40,12 +40,15 @@ import {
 	TooltipTrigger,
 } from "../../../ui/Tooltip";
 import { EMOJI_DATA } from "../rich-text-renderer/emojiData";
+import { ComposerMediaPickers } from "../ComposerMediaPickers";
 import { EmojiPopover } from "../EmojiPopover";
 import { buildSuggestions } from "./build-suggestions";
 import { MarkdownCodeHighlight } from "./markdown-code-highlight";
 import { proseMirrorToFacets } from "./prosemirror-to-facets";
+import type { GifItem } from "../../../../atproto/xrpc/social/colibri/embed/gifTypes";
 import { useChannelContext } from "../../../../contexts/Channel";
 import { useUserContext } from "../../../../contexts/User";
+import { useUserPreferences } from "../../../../contexts/UserPreferences";
 import { useIsMobile } from "../../../../utils/mobile-pane";
 import { createFenceRegex } from "../../../../utils/fenced-code-regex";
 
@@ -363,6 +366,25 @@ export const TextEditor: Component<{
 		instance.chain().focus().insertContent(emoji).run();
 	};
 
+	const { pushRecentGif } = useUserPreferences();
+
+	/**
+	 * Sends a picked GIF as its own message (Discord-style). The media URL
+	 * becomes the message text wrapped in a link facet so it renders inline (see
+	 * `Embed`), and is recorded in recents.
+	 */
+	const sendGif = (gif: GifItem) => {
+		const byteEnd = new TextEncoder().encode(gif.mediaUrl).length;
+		const facet: ColibriRichTextFacet = {
+			index: { byteStart: 0, byteEnd },
+			features: [
+				{ $type: "social.colibri.richtext.facet#link", uri: gif.mediaUrl },
+			],
+		};
+		pushRecentGif(gif);
+		void props.sendMessage(gif.mediaUrl, [facet]);
+	};
+
 	createEffect(() => props.onProgress?.(characterPercentage()));
 
 	const isEmptyTransaction = createEditorTransaction(
@@ -512,20 +534,30 @@ export const TextEditor: Component<{
 					}
 				}}
 			/>
-			<EmojiPopover
-				emojiPopoverOpen={emojiOpen}
-				setEmojiPopoverOpen={handleEmojiOpenChange}
-				onEmojiSelect={insertEmoji}
-				placement="top-end"
+			<Show
+				when={props.mainEditor}
+				fallback={
+					<EmojiPopover
+						emojiPopoverOpen={emojiOpen}
+						setEmojiPopoverOpen={handleEmojiOpenChange}
+						onEmojiSelect={insertEmoji}
+						placement="top-end"
+					>
+						<button
+							type="button"
+							aria-label="Insert emoji"
+							class="mt-1.5 shrink-0 w-6 h-6 flex items-center justify-center text-muted-foreground hover:text-foreground cursor-pointer bg-transparent border-none"
+						>
+							<SmileyIcon width={20} height={20} />
+						</button>
+					</EmojiPopover>
+				}
 			>
-				<button
-					type="button"
-					aria-label="Insert emoji"
-					class="mt-1.5 shrink-0 w-6 h-6 flex items-center justify-center text-muted-foreground hover:text-foreground cursor-pointer bg-transparent border-none"
-				>
-					<SmileyIcon width={20} height={20} />
-				</button>
-			</EmojiPopover>
+				<ComposerMediaPickers
+					onEmojiSelect={insertEmoji}
+					onGifSelect={sendGif}
+				/>
+			</Show>
 			<Show when={!(isMobile() && props.mainEditor)}>
 				<Tooltip>
 					<TooltipTrigger>

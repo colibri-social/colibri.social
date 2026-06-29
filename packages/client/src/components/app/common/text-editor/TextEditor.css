@@ -25,12 +25,25 @@
 	display: block;
 }
 
+.ProseMirror p.is-editor-empty:first-child {
+	position: relative;
+}
+
 .ProseMirror p.is-editor-empty:first-child::before {
 	content: attr(data-placeholder);
-	float: left;
+	/* Absolutely positioned (not floated) so it sits out of flow: the caret
+	   stays at the start of the empty line and the placeholder overlays it.
+	   left/right:0 bound the width so a long placeholder clips with an ellipsis
+	   instead of wrapping. */
+	position: absolute;
+	top: 0;
+	left: 0;
+	right: 0;
 	color: #adb5bd;
 	pointer-events: none;
-	height: 0;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
 }
 
 #editor .tiptap.ProseMirror a {

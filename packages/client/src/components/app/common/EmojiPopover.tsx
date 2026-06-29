@@ -5,6 +5,7 @@ import {
 } from "solid-emoji-picker";
 import {
 	type Accessor,
+	type Component,
 	createSignal,
 	type ParentComponent,
 	Show,
@@ -33,49 +34,34 @@ type Placement =
 	| "top-end"
 	| "top-start";
 
-export const EmojiPopover: ParentComponent<{
-	emojiPopoverOpen: Accessor<boolean>;
-	setEmojiPopoverOpen: (state: boolean) => void;
-	addReactionOptimistic?: (emoji: string) => void;
-	onEmojiClick?: EmojiEventHandler<MouseEvent>;
-	onEmojiSelect?: (emoji: string) => void;
-	placement?: Placement;
+// Some emojis in Unicode 15 are not supported by the picker font.
+const UNICODE_BREAK_VERSION = 14.999;
+
+/**
+ * Converts a raw emoji string into a hyphenated hex code for the Twemoji CDN.
+ */
+const getEmojiHex = (emoji: string): string =>
+	Array.from(emoji)
+		.map((char) => char.codePointAt(0)?.toString(16))
+		.join("-")
+		.toLowerCase();
+
+/**
+ * The searchable emoji grid, decoupled from any popover/drawer chrome so it can
+ * be embedded directly — e.g. inside the composer's mobile picker drawer
+ * alongside the GIF picker. `onEmoji` receives the picked emoji plus the click
+ * event (the latter is needed by reaction handlers).
+ */
+export const EmojiPickerBody: Component<{
+	onEmoji: (emoji: Emoji, e: MouseEvent) => void;
 }> = (props) => {
 	const [filter, setFilter] = createSignal("");
 
-	// Some emojis in Unicode 15 are not supported
-	const UNICODE_BREAK_VERSION = 14.999;
-
 	/**
-	 * Converts a raw emoji string into a hyphenated hex code for the Twemoji CDN.
-	 */
-	const getEmojiHex = (emoji: string): string => {
-		return (
-			Array.from(emoji)
-				.map((char) => char.codePointAt(0)?.toString(16))
-				// .filter((hex) => hex !== "fe0f")
-				.join("-")
-				.toLowerCase()
-		);
-	};
-
-	/**
-	 * Renders emoji as text using the Twemoji font.
-	 * This is significantly more performant than <img> tags.
+	 * Renders emoji as text using the Twemoji font (much faster than <img>),
+	 * falling back to the Twemoji SVG for unsupported Unicode versions.
 	 */
 	function renderEmoji(emoji: Emoji) {
-		const handleSelect = (e: MouseEvent) => {
-			props.setEmojiPopoverOpen(false);
-			props.addReactionOptimistic?.(emoji.emoji);
-			props.onEmojiSelect?.(emoji.emoji);
-
-			props.onEmojiClick?.(emoji, {
-				...e,
-				currentTarget: e.target! as HTMLButtonElement,
-				target: e.target! as HTMLElement,
-			});
-		};
-
 		const isFontSupported =
 			parseFloat(emoji.unicode_version) <= UNICODE_BREAK_VERSION;
 
@@ -84,7 +70,7 @@ export const EmojiPopover: ParentComponent<{
 				type="button"
 				title={emoji.name}
 				class="w-9 h-9 flex items-center justify-center rounded-md hover:bg-muted transition-colors cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-ring border-none bg-transparent"
-				onClick={handleSelect}
+				onClick={(e) => props.onEmoji(emoji, e)}
 			>
 				{isFontSupported ? (
 					<span class="picker-font emoji-render text-2xl">{emoji.emoji}</span>
@@ -100,9 +86,7 @@ export const EmojiPopover: ParentComponent<{
 		);
 	}
 
-	const isMobile = useIsMobile();
-
-	const PickerBody = () => (
+	return (
 		<>
 			<TextField class="mb-2" value={filter()} onChange={setFilter}>
 				<TextFieldInput
@@ -125,6 +109,29 @@ export const EmojiPopover: ParentComponent<{
 			</div>
 		</>
 	);
+};
+
+export const EmojiPopover: ParentComponent<{
+	emojiPopoverOpen: Accessor<boolean>;
+	setEmojiPopoverOpen: (state: boolean) => void;
+	addReactionOptimistic?: (emoji: string) => void;
+	onEmojiClick?: EmojiEventHandler<MouseEvent>;
+	onEmojiSelect?: (emoji: string) => void;
+	placement?: Placement;
+}> = (props) => {
+	const isMobile = useIsMobile();
+
+	const handleEmoji = (emoji: Emoji, e: MouseEvent) => {
+		props.setEmojiPopoverOpen(false);
+		props.addReactionOptimistic?.(emoji.emoji);
+		props.onEmojiSelect?.(emoji.emoji);
+
+		props.onEmojiClick?.(emoji, {
+			...e,
+			currentTarget: e.target! as HTMLButtonElement,
+			target: e.target! as HTMLElement,
+		});
+	};
 
 	return (
 		<Show
@@ -138,7 +145,7 @@ export const EmojiPopover: ParentComponent<{
 					<PopoverTrigger as="div">{props.children}</PopoverTrigger>
 					<PopoverPortal>
 						<PopoverContent class="w-80 p-3 shadow-xl border bg-popover rounded-xl">
-							<PickerBody />
+							<EmojiPickerBody onEmoji={handleEmoji} />
 						</PopoverContent>
 					</PopoverPortal>
 				</Popover>
@@ -157,7 +164,7 @@ export const EmojiPopover: ParentComponent<{
 				onOpenChange={props.setEmojiPopoverOpen}
 			>
 				<div class="flex flex-col px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
-					<PickerBody />
+					<EmojiPickerBody onEmoji={handleEmoji} />
 				</div>
 			</BottomSheet>
 		</Show>
