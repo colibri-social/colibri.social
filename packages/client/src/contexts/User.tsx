@@ -12,9 +12,10 @@ import {
 	useContext,
 } from "solid-js";
 import { XrpcClient } from "../atproto/xrpc";
-import { getAppViewServiceRef } from "../utils/appview";
 import { AppLoadingScreen } from "../components/AppLoadingScreen";
 import { ProfileGate } from "../components/app/onboarding/ProfileGate";
+import { getAppViewServiceRef } from "../utils/appview";
+import { markBoot } from "../utils/perf";
 import { useAuthContext } from "./Auth";
 import { useSocketContext } from "./Socket";
 
@@ -88,6 +89,8 @@ export const UserContextProvider: ParentComponent = (props) => {
 
 	createEffect(() => {
 		if (user.loading === true) return;
+
+		markBoot("user:ready");
 
 		const loggedIn = user()?.loggedIn;
 		const pathname = () => window.location.pathname;

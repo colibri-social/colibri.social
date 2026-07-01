@@ -1,5 +1,6 @@
 import type { Agent } from "@atproto/api";
 import type { ColibriEvent } from "@colibri-social/lib";
+import { perfNow, recordRequest } from "../../utils/perf";
 import * as Identity from "./com/atproto/identity";
 import * as Repo from "./com/atproto/repo";
 import * as AtprotoSync from "./com/atproto/sync";
@@ -67,16 +68,25 @@ export class XrpcClient {
 	): Promise<Response> {
 		const headers = { "atproto-proxy": proxyHeader, ...init?.headers };
 
-		if (import.meta.env.DEV) {
-			return fetch(`http://localhost:8000${xrpcRoute}`, {
-				...init,
-				headers: new Headers(headers),
-			});
-		}
+		const method = xrpcRoute.replace(/^\/xrpc\//, "").split("?")[0];
+		const start = perfNow();
+		const request = import.meta.env.DEV
+			? fetch(`http://localhost:8000${xrpcRoute}`, {
+					...init,
+					headers: new Headers(headers),
+				})
+			: this.agent.fetchHandler(xrpcRoute, { ...init, headers });
 
-		// `agent.fetchHandler` takes an origin-less URL and supplies the PDS
-		// origin + the user's DPoP-bound auth itself.
-		return this.agent.fetchHandler(xrpcRoute, { ...init, headers });
+		return request.then(
+			(res) => {
+				recordRequest(method, start, perfNow() - start, res.ok);
+				return res;
+			},
+			(err) => {
+				recordRequest(method, start, perfNow() - start, false);
+				throw err;
+			},
+		);
 	}
 
 	/** Proxied fetch targeting the AppView (`#colibri_appview`). */

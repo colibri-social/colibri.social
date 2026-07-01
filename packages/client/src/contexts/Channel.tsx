@@ -18,6 +18,7 @@ import type {
 } from "../atproto/xrpc/social/colibri/channel/listMessages";
 import type { Channel } from "../atproto/xrpc/social/colibri/community/listChannels";
 import { AtURI } from "../utils/at-uri";
+import { markBoot } from "../utils/perf";
 import { useCommunityContext } from "./Community";
 import { useSocketContext } from "./Socket";
 import { useUserContext } from "./User";
@@ -319,6 +320,10 @@ export const ChannelContextProvider: ParentComponent<{
 			loadOlder();
 		}),
 	);
+
+	createEffect(() => {
+		if (!initialLoading()) markBoot("channel:firstPage");
+	});
 
 	const clearReplyingTo = () => setReplyingTo(undefined);
 	const clearEditingMessage = () => setEditingMessage(undefined);

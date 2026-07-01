@@ -1,5 +1,6 @@
 import {
 	createContext,
+	createEffect,
 	createResource,
 	Match,
 	type ParentComponent,
@@ -8,11 +9,16 @@ import {
 } from "solid-js";
 import { type Client, getClient } from "../atproto/auth";
 import { AppLoadingScreen } from "../components/AppLoadingScreen";
+import { markBoot } from "../utils/perf";
 
 export const AuthContext = createContext<Client>(undefined);
 
 export const AuthContextProvider: ParentComponent = (props) => {
 	const [client] = createResource(getClient);
+
+	createEffect(() => {
+		if (!client.loading) markBoot("auth:ready");
+	});
 
 	return (
 		<Switch>

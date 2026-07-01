@@ -1,6 +1,7 @@
 import {
 	type Accessor,
 	createContext,
+	createEffect,
 	createMemo,
 	createResource,
 	Match,
@@ -42,6 +43,7 @@ import type { Role } from "../atproto/xrpc/social/colibri/community/listRoles";
 import { AppLoadingScreen } from "../components/AppLoadingScreen";
 import { AtURI } from "../utils/at-uri";
 import { getCommunityParam } from "../utils/get-param";
+import { markBoot } from "../utils/perf";
 import { useSocketContext } from "./Socket";
 import { useUserContext } from "./User";
 
@@ -82,6 +84,10 @@ export const CommunityContextProvider: ParentComponent = (props) => {
 			return await user.xrpc.social.colibri.community.getData(uri);
 		},
 	);
+
+	createEffect(() => {
+		if (!community.loading && community.latest) markBoot("community:ready");
+	});
 
 	// Pending join applications (active + moderator-dismissed)
 	const [
