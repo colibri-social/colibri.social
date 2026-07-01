@@ -1383,6 +1383,7 @@ lex.add(
 							"social.colibri.community.listRoles",
 							"social.colibri.community.getInvitation",
 							"social.colibri.channel.listMessages",
+							"social.colibri.channel.getChannelView",
 						],
 					},
 				],

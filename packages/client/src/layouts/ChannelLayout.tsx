@@ -15,6 +15,12 @@ import {
 } from "solid-js";
 import { toast } from "somoto";
 import ArrowDownIcon from "~icons/ph/arrow-down";
+import BellIcon from "~icons/ph/bell";
+import BellSlashIcon from "~icons/ph/bell-slash";
+import CaretLeftIcon from "~icons/ph/caret-left";
+import ChatCircleDotsIcon from "~icons/ph/chat-circle-dots";
+import UsersIcon from "~icons/ph/users";
+import UsersIconFill from "~icons/ph/users-fill";
 import type { Message as MessageData } from "../atproto/xrpc/social/colibri/channel/listMessages";
 import { Message } from "../components/app/channel/message/Message";
 import { MessageInput } from "../components/app/community/MessageInput";
@@ -24,27 +30,21 @@ import {
 	FileFieldDropzone,
 	FileFieldHiddenInput,
 } from "../components/ui/FileField";
-import { ChannelContextProvider, useChannelContext } from "../contexts/Channel";
-import { useCommunityContext } from "../contexts/Community";
-import { isSameChannelUri, useNotifications } from "../contexts/Notifications";
-import { ScrollAnchorProvider } from "../contexts/ScrollAnchor";
-import { useUserContext } from "../contexts/User";
-import { getChannelParam } from "../utils/get-param";
-import ChatCircleDotsIcon from "~icons/ph/chat-circle-dots";
-import UsersIcon from "~icons/ph/users";
-import UsersIconFill from "~icons/ph/users-fill";
-import BellIcon from "~icons/ph/bell";
-import BellSlashIcon from "~icons/ph/bell-slash";
-import { useUserPreferences } from "../contexts/UserPreferences";
 import {
 	Tooltip,
 	TooltipContent,
 	TooltipPortal,
 	TooltipTrigger,
 } from "../components/ui/Tooltip";
+import { ChannelContextProvider, useChannelContext } from "../contexts/Channel";
+import { useCommunityContext } from "../contexts/Community";
 import { useMutes } from "../contexts/Mutes";
+import { isSameChannelUri, useNotifications } from "../contexts/Notifications";
+import { ScrollAnchorProvider } from "../contexts/ScrollAnchor";
+import { useUserContext } from "../contexts/User";
+import { useUserPreferences } from "../contexts/UserPreferences";
+import { getChannelParam } from "../utils/get-param";
 import { createMobilePane } from "../utils/mobile-pane";
-import CaretLeftIcon from "~icons/ph/caret-left";
 
 type MessageMeta = {
 	isOnNewDay: boolean;
@@ -259,21 +259,12 @@ const ChannelLayout: ParentComponent = (props) => {
 		setShowJumpToLatest(false);
 	});
 
-	createEffect(
-		on(channel.channelUri, async (uri) => {
-			pingObserver?.disconnect();
-			pingObserver = undefined;
-			setUnseenPings(new Set<string>());
-			if (!uri) return;
-
-			const res = await user.xrpc.social.colibri.notification.getUnseen(uri);
-			// Bail if the channel switched while we awaited.
-			if (!res || uri !== channel.channelUri()) return;
-
-			const uris = res.notifications.map((n) => n.messageUri);
-			if (uris.length > 0) setUnseenPings(new Set(uris));
-		}),
-	);
+	createEffect(() => {
+		const uris = channel.initialUnseen();
+		pingObserver?.disconnect();
+		pingObserver = undefined;
+		setUnseenPings(new Set(uris));
+	});
 
 	createEffect(() => {
 		const pending = unseenPings();
@@ -563,9 +554,7 @@ const ChannelLayout: ParentComponent = (props) => {
 							/>
 						</Match>
 					</Switch>
-					<span class="shrink-0 whitespace-nowrap">
-						{channel.data()!.name}
-					</span>
+					<span class="shrink-0 whitespace-nowrap">{channel.data()!.name}</span>
 					<Show when={channel.data()!.description}>
 						<span class="text-muted-foreground shrink-0">—</span>
 						<span class="text-muted-foreground min-w-0 flex-1 overflow-hidden whitespace-nowrap text-ellipsis">

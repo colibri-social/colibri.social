@@ -476,6 +476,15 @@ export class XrpcClient {
 					all?: boolean,
 				) =>
 					Channel.listMessages(this.proxiedFetch, channel, limit, cursor, all),
+				getChannelView: (channel: string, limit?: number) =>
+					Channel.getChannelView(
+						this.authed(
+							this.proxiedFetch,
+							"social.colibri.channel.getChannelView",
+						),
+						channel,
+						limit,
+					),
 				getReadCursor: (channel: string) =>
 					Channel.getReadCursor(
 						this.authed(

@@ -1,5 +1,6 @@
 export { create } from "./create";
 export { delete } from "./delete";
+export { getChannelView } from "./getChannelView";
 export { getReadCursor } from "./getReadCursor";
 export { getVoiceToken } from "./getVoiceToken";
 export { listMessages } from "./listMessages";

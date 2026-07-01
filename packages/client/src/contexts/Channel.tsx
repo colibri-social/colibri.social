@@ -176,6 +176,7 @@ export type ChannelContextValue = {
 	 */
 	readCursorUri: Accessor<string | undefined>;
 	readCursorResolved: Accessor<boolean>;
+	initialUnseen: Accessor<string[]>;
 	advanceReadCursor: () => void;
 	clearUnreadBoundary: () => void;
 };
@@ -211,6 +212,11 @@ export const ChannelContextProvider: ParentComponent<{
 	const [loadingOlder, setLoadingOlder] = createSignal(false);
 	const [initialLoading, setInitialLoading] = createSignal(true);
 	const [error, setError] = createSignal<unknown>(undefined);
+	const [readCursorUri, setReadCursorUri] = createSignal<string | undefined>(
+		undefined,
+	);
+	const [readCursorResolved, setReadCursorResolved] = createSignal(false);
+	const [initialUnseen, setInitialUnseen] = createSignal<string[]>([]);
 
 	// Reply / edit / focus state. Configured with `equals: false` so that
 	// re-asserting the same message (e.g. clicking "Reply" on the same row
@@ -250,6 +256,9 @@ export const ChannelContextProvider: ParentComponent<{
 			setLoadingOlder(false);
 			setInitialLoading(true);
 			setError(undefined);
+			setReadCursorUri(undefined);
+			setReadCursorResolved(false);
+			setInitialUnseen([]);
 		});
 	};
 
@@ -311,13 +320,56 @@ export const ChannelContextProvider: ParentComponent<{
 		}
 	};
 
+	const loadInitial = async (): Promise<void> => {
+		const uri = channelUri();
+		if (!uri) return;
+
+		inflight = true;
+		setLoadingOlder(true);
+
+		try {
+			const view = await user.xrpc.social.colibri.channel.getChannelView(
+				uri,
+				PAGE_SIZE,
+			);
+
+			if (uri !== channelUri()) return;
+
+			if (!view) {
+				setError(new Error("Failed to fetch channel."));
+				return;
+			}
+
+			const ordered = [...(view.messages ?? [])].reverse();
+
+			batch(() => {
+				setMessages(ordered);
+				const oldest = ordered[0];
+				if (oldest) setCursor(rkeyOf(oldest.uri));
+				if (ordered.length < PAGE_SIZE) setHasMore(false);
+				setReadCursorUri(view.readCursor?.cursor);
+				setInitialUnseen(view.unseen.map((n) => n.messageUri));
+			});
+		} catch (err) {
+			console.error("[ChannelContext] loadInitial failed:", err);
+			setError(err);
+		} finally {
+			inflight = false;
+			batch(() => {
+				setLoadingOlder(false);
+				setInitialLoading(false);
+			});
+			if (uri === channelUri()) setReadCursorResolved(true);
+		}
+	};
+
 	// Reset state and seed the first page whenever the channel URI changes
 	// (including the initial mount). `on` makes the dependency explicit.
 	createEffect(
 		on(channelUri, (uri) => {
 			if (!uri) return;
 			reset();
-			loadOlder();
+			loadInitial();
 		}),
 	);
 
@@ -578,7 +630,8 @@ export const ChannelContextProvider: ParentComponent<{
 			// New message from another user — author is fully hydrated on the event.
 			const parentMsg = d.parent
 				? (messages().find((m) => m.uri === d.parent) as
-						Omit<Message, "parent"> | undefined)
+						| Omit<Message, "parent">
+						| undefined)
 				: undefined;
 
 			const newMsg: Message = {
@@ -636,29 +689,6 @@ export const ChannelContextProvider: ParentComponent<{
 	// ---------------------------------------------------------------------------
 	// Unread markers
 	// ---------------------------------------------------------------------------
-
-	const [readCursorUri, setReadCursorUri] = createSignal<string | undefined>(
-		undefined,
-	);
-
-	const [readCursorResolved, setReadCursorResolved] = createSignal(false);
-
-	createEffect(
-		on(channelUri, async (uri) => {
-			setReadCursorUri(undefined);
-			setReadCursorResolved(false);
-			if (!uri) return;
-			try {
-				const res = await user.xrpc.social.colibri.channel.getReadCursor(uri);
-				if (uri !== channelUri()) return;
-				if (res?.cursor) setReadCursorUri(res.cursor);
-			} catch {
-				// Not fatal
-			} finally {
-				if (uri === channelUri()) setReadCursorResolved(true);
-			}
-		}),
-	);
 
 	/**
 	 * Clears the on-screen unread boundary (the "New messages" divider).
@@ -727,6 +757,7 @@ export const ChannelContextProvider: ParentComponent<{
 		outgoingMessage,
 		readCursorUri,
 		readCursorResolved,
+		initialUnseen,
 		advanceReadCursor,
 		clearUnreadBoundary,
 	};
