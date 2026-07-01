@@ -1,8 +1,9 @@
 import { type Component, createResource, Show } from "solid-js";
-import { parseBskyPostUrl } from "../../../../atproto/bsky-post-url";
-import { resolveEmbedImage } from "../../../../atproto/resolve-blob";
 import StarIcon from "~icons/ph/star";
 import StarFillIcon from "~icons/ph/star-fill";
+import { parseBskyPostUrl } from "../../../../atproto/bsky-post-url";
+import { getMetadataDeduped } from "../../../../atproto/embed-metadata-cache";
+import { resolveEmbedImage } from "../../../../atproto/resolve-blob";
 import type { GifItem } from "../../../../atproto/xrpc/social/colibri/embed/gifTypes";
 import { useGifFavorites } from "../../../../contexts/GifFavorites";
 import { useStableMedia } from "../../../../contexts/ScrollAnchor";
@@ -60,10 +61,7 @@ const InlineGif: Component<{ uri: string }> = (props) => {
 					void toggleFavorite(gif());
 				}}
 			>
-				<Show
-					when={isFavorited(gif())}
-					fallback={<StarIcon class="w-4 h-4" />}
-				>
+				<Show when={isFavorited(gif())} fallback={<StarIcon class="w-4 h-4" />}>
 					<StarFillIcon class="w-4 h-4 text-yellow-400" />
 				</Show>
 			</button>
@@ -95,7 +93,7 @@ const OpenGraphEmbed: Component<{ uri: string }> = (props) => {
 
 	const [embedData] = createResource(
 		() => props.uri,
-		(uri) => user.xrpc.social.colibri.embed.getMetadata(uri),
+		(uri) => getMetadataDeduped(user.xrpc, uri),
 	);
 
 	const data = () => embedData();
