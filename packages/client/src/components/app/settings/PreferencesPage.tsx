@@ -1,7 +1,20 @@
-import { createEffect, createSignal, Show, type Component } from "solid-js";
+import { type Component, createEffect, createSignal, on, Show } from "solid-js";
+import { toast } from "somoto";
+import {
+	type BlueskyAlternative,
+	BSKY_ALTERNATIVES,
+} from "../../../atproto/bluesky-alternatives";
+import { endSession } from "../../../atproto/session";
 import { useAuthContext } from "../../../contexts/Auth";
 import { useUserContext } from "../../../contexts/User";
 import { useUserPreferences } from "../../../contexts/UserPreferences";
+import {
+	isValidAppViewUrl,
+	normalizeAppViewUrl,
+	verifyColibriAppView,
+} from "../../../utils/appview";
+import { Alert, AlertDescription, AlertTitle } from "../../ui/Alert";
+import { Button } from "../../ui/Button";
 import {
 	Select,
 	SelectContent,
@@ -11,26 +24,13 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "../../ui/Select";
-import { SettingsPage } from "../common/SettingsModal";
-import {
-	type BlueskyAlternative,
-	BSKY_ALTERNATIVES,
-} from "../../../atproto/bluesky-alternatives";
 import {
 	TextField,
 	TextFieldDescription,
 	TextFieldInput,
 	TextFieldLabel,
 } from "../../ui/TextField";
-import { Button } from "../../ui/Button";
-import { on } from "solid-js";
-import { toast } from "somoto";
-import {
-	isValidAppViewUrl,
-	normalizeAppViewUrl,
-	verifyColibriAppView,
-} from "../../../utils/appview";
-import { Alert, AlertDescription, AlertTitle } from "../../ui/Alert";
+import { SettingsPage } from "../common/SettingsModal";
 
 export const PreferencesPage: Component = () => {
 	const userPreferences = useUserPreferences();
@@ -82,8 +82,7 @@ export const PreferencesPage: Component = () => {
 		try {
 			await auth?.client.revoke(user.did);
 		} finally {
-			localStorage.removeItem("sub");
-			window.location.href = "/app/login";
+			await endSession();
 		}
 	};
 

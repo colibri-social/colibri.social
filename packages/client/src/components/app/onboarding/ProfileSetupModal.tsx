@@ -11,6 +11,7 @@ import {
 import ArrowLineLeftIcon from "~icons/ph/arrow-line-left";
 import { putRecord, uploadBlob } from "../../../atproto/pds";
 import { resolveBlob } from "../../../atproto/resolve-blob";
+import { endSession } from "../../../atproto/session";
 import { useAuthContext } from "../../../contexts/Auth";
 import { useUserContext } from "../../../contexts/User";
 import { isWebRuntime } from "../../../notifications";
@@ -302,8 +303,7 @@ export const ProfileSetupModal: Component<{
 			}
 			await auth?.client.revoke(user.did);
 		} finally {
-			localStorage.removeItem("sub");
-			window.location.href = "/app/login";
+			await endSession();
 		}
 	};
 

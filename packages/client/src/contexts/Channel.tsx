@@ -11,12 +11,19 @@ import {
 	type ParentComponent,
 	useContext,
 } from "solid-js";
+import { namespace } from "../atproto/cache/keys";
+import {
+	cacheEnabled,
+	readMessages,
+	writeMessages,
+} from "../atproto/cache/store";
 import { writeReadCursor } from "../atproto/read-cursor";
 import type {
 	Message,
 	PendingMessage,
 } from "../atproto/xrpc/social/colibri/channel/listMessages";
 import type { Channel } from "../atproto/xrpc/social/colibri/community/listChannels";
+import { getAppViewDid } from "../utils/appview";
 import { AtURI } from "../utils/at-uri";
 import { markBoot } from "../utils/perf";
 import { useCommunityContext } from "./Community";
@@ -192,6 +199,8 @@ export const ChannelContextProvider: ParentComponent<{
 	const socket = useSocketContext();
 	const community = useCommunityContext();
 
+	const ns = () => namespace(getAppViewDid(), user.did);
+
 	// The channel record is filtered out of the community context by the
 	// layout wrapper and passed in here. We derive the URI from it directly
 	// — no separate `buildChannelUri` helper is required anymore.
@@ -327,6 +336,19 @@ export const ChannelContextProvider: ParentComponent<{
 		inflight = true;
 		setLoadingOlder(true);
 
+		if (cacheEnabled()) {
+			const cached = await readMessages(ns(), uri);
+			if (cached && uri === channelUri() && messages().length === 0) {
+				batch(() => {
+					setMessages(cached.messages);
+					const oldest = cached.messages[0];
+					if (oldest) setCursor(rkeyOf(oldest.uri));
+					setReadCursorUri(cached.readCursor);
+					setInitialLoading(false);
+				});
+			}
+		}
+
 		try {
 			const view = await user.xrpc.social.colibri.channel.getChannelView(
 				uri,
@@ -375,6 +397,28 @@ export const ChannelContextProvider: ParentComponent<{
 
 	createEffect(() => {
 		if (!initialLoading()) markBoot("channel:firstPage");
+	});
+
+	let cacheWriteTimer: ReturnType<typeof setTimeout> | undefined;
+	createEffect(() => {
+		const uri = channelUri();
+		const confirmed = messages().filter((m) => m.uri.startsWith("at://"));
+		if (!cacheEnabled() || !uri || initialLoading() || confirmed.length === 0) {
+			return;
+		}
+		const tail = confirmed.slice(-PAGE_SIZE);
+		const readCursor = readCursorUri();
+		if (cacheWriteTimer) clearTimeout(cacheWriteTimer);
+		cacheWriteTimer = setTimeout(() => {
+			void writeMessages(ns(), uri, {
+				messages: tail,
+				readCursor,
+				ts: Date.now(),
+			});
+		}, 1000);
+	});
+	onCleanup(() => {
+		if (cacheWriteTimer) clearTimeout(cacheWriteTimer);
 	});
 
 	const clearReplyingTo = () => setReplyingTo(undefined);

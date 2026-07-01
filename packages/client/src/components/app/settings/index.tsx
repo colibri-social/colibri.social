@@ -7,6 +7,7 @@ import MicrophoneIcon from "~icons/ph/microphone";
 import SmileyIcon from "~icons/ph/smiley";
 import UserCircleIcon from "~icons/ph/user-circle";
 import WrenchIcon from "~icons/ph/wrench";
+import { endSession } from "../../../atproto/session";
 import { useAuthContext } from "../../../contexts/Auth";
 import { useUserContext } from "../../../contexts/User";
 import { isWebRuntime } from "../../../notifications";
@@ -15,10 +16,10 @@ import { SettingsModal } from "../common/SettingsModal";
 import { DebugPage } from "./DebugPage";
 import { GeneralPage } from "./GeneralPage";
 import { NotificationsPage } from "./NotificationsPage";
+import { PreferencesPage } from "./PreferencesPage";
 import { StatusPage } from "./StatusPage";
 import { VideoPage } from "./VideoPage";
 import { VoicePage } from "./VoicePage";
-import { PreferencesPage } from "./PreferencesPage";
 
 export const UserSettingsModal: ParentComponent = (props) => {
 	return (
@@ -87,8 +88,7 @@ export const UserSettingsModal: ParentComponent = (props) => {
 								}
 								await auth?.client.revoke(user.did);
 							} finally {
-								localStorage.removeItem("sub");
-								window.location.href = "/app/login";
+								await endSession();
 							}
 						})();
 					});

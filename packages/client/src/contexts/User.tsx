@@ -7,14 +7,22 @@ import {
 	createResource,
 	Match,
 	onCleanup,
+	onMount,
 	type ParentComponent,
 	Switch,
 	useContext,
 } from "solid-js";
+import { namespace } from "../atproto/cache/keys";
+import {
+	cacheEnabled,
+	ensureFresh,
+	readUser,
+	writeUser,
+} from "../atproto/cache/store";
 import { XrpcClient } from "../atproto/xrpc";
 import { AppLoadingScreen } from "../components/AppLoadingScreen";
 import { ProfileGate } from "../components/app/onboarding/ProfileGate";
-import { getAppViewServiceRef } from "../utils/appview";
+import { getAppViewDid, getAppViewServiceRef } from "../utils/appview";
 import { markBoot } from "../utils/perf";
 import { useAuthContext } from "./Auth";
 import { useSocketContext } from "./Socket";
@@ -87,6 +95,48 @@ export const UserContextProvider: ParentComponent = (props) => {
 		};
 	});
 
+	onMount(async () => {
+		if (!cacheEnabled() || !client?.loggedIn) return;
+		const did = client.agent.did;
+		if (!did) return;
+		const ns = namespace(getAppViewDid(), did);
+		await ensureFresh(ns);
+		const cached = await readUser(ns);
+		if (cached && user.loading) {
+			mutate({
+				loggedIn: true,
+				...cached.actorData,
+				atproto: {
+					agent: client.agent,
+					client: client.client,
+					pdsHost: client.pdsHost,
+				},
+				communities: cached.communities,
+				xrpc: new XrpcClient(getAppViewServiceRef(), client.agent),
+			});
+		}
+	});
+
+	let cacheWriteTimer: ReturnType<typeof setTimeout> | undefined;
+	createEffect(() => {
+		const u = user.latest;
+		if (!cacheEnabled() || user.loading || !u?.loggedIn || !client?.loggedIn) {
+			return;
+		}
+		const did = client.agent.did;
+		if (!did) return;
+		const ns = namespace(getAppViewDid(), did);
+		const snapshot = {
+			actorData: { did: u.did, handle: u.handle, data: u.data },
+			communities: u.communities,
+		};
+		if (cacheWriteTimer) clearTimeout(cacheWriteTimer);
+		cacheWriteTimer = setTimeout(() => void writeUser(ns, snapshot), 500);
+	});
+	onCleanup(() => {
+		if (cacheWriteTimer) clearTimeout(cacheWriteTimer);
+	});
+
 	createEffect(() => {
 		if (user.loading === true) return;
 
@@ -107,10 +157,10 @@ export const UserContextProvider: ParentComponent = (props) => {
 			<Match when={user.error}>
 				<span>{`${user.error}`}</span>
 			</Match>
-			<Match when={user.loading}>
+			<Match when={user.loading && !user.latest}>
 				<AppLoadingScreen message="Fetching user details..." />
 			</Match>
-			<Match when={user()}>
+			<Match when={user.latest}>
 				{(resolved) => {
 					const value = resolved();
 
@@ -120,15 +170,18 @@ export const UserContextProvider: ParentComponent = (props) => {
 
 					const refetchCommunities = async () => {
 						const res = await value.xrpc.social.colibri.actor.listCommunities();
-						if (res) {
-							mutate({ ...value, communities: res.communities });
+						const cur = user.latest;
+						if (res && cur?.loggedIn) {
+							mutate({ ...cur, communities: res.communities });
 						}
 					};
 
 					const updateActorData = (patch: Partial<ActorData["data"]>) => {
+						const cur = user.latest;
+						if (!cur?.loggedIn) return;
 						mutate({
-							...value,
-							data: { ...value.data, ...patch },
+							...cur,
+							data: { ...cur.data, ...patch },
 						});
 					};
 
@@ -149,7 +202,7 @@ export const UserContextProvider: ParentComponent = (props) => {
 							event.data.event === "upsert"
 						) {
 							const { data } = event;
-							const current = user();
+							const current = user.latest;
 							if (!current?.loggedIn) return;
 							mutate({
 								...current,
@@ -173,7 +226,7 @@ export const UserContextProvider: ParentComponent = (props) => {
 							event.data &&
 							event.data.did === value.did
 						) {
-							const current = user();
+							const current = user.latest;
 							if (!current?.loggedIn) return;
 							const { profile, status } = event.data;
 							mutate({
@@ -217,15 +270,15 @@ export const UserContextProvider: ParentComponent = (props) => {
 								// reactively re-renders consumers — e.g. the sidebar's <For>
 								// and the own-user panel's name/avatar.
 								get communities() {
-									const u = user();
+									const u = user.latest;
 									return u?.loggedIn ? u.communities : value.communities;
 								},
 								get data() {
-									const u = user();
+									const u = user.latest;
 									return u?.loggedIn ? u.data : value.data;
 								},
 								get handle() {
-									const u = user();
+									const u = user.latest;
 									return u?.loggedIn ? u.handle : value.handle;
 								},
 								refetchCommunities,

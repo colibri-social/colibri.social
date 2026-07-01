@@ -5,11 +5,18 @@ import {
 	createMemo,
 	createResource,
 	Match,
+	on,
 	onCleanup,
 	type ParentComponent,
 	Switch,
 	useContext,
 } from "solid-js";
+import { namespace } from "../atproto/cache/keys";
+import {
+	cacheEnabled,
+	readCommunity,
+	writeCommunity,
+} from "../atproto/cache/store";
 import { urlSegmentToUri } from "../atproto/community-uri-to-url-compatible";
 import {
 	APPROVAL_MANAGE,
@@ -41,6 +48,7 @@ import type { Channel } from "../atproto/xrpc/social/colibri/community/listChann
 import type { Member } from "../atproto/xrpc/social/colibri/community/listMembers";
 import type { Role } from "../atproto/xrpc/social/colibri/community/listRoles";
 import { AppLoadingScreen } from "../components/AppLoadingScreen";
+import { getAppViewDid } from "../utils/appview";
 import { AtURI } from "../utils/at-uri";
 import { getCommunityParam } from "../utils/get-param";
 import { markBoot } from "../utils/perf";
@@ -87,6 +95,32 @@ export const CommunityContextProvider: ParentComponent = (props) => {
 
 	createEffect(() => {
 		if (!community.loading && community.latest) markBoot("community:ready");
+	});
+
+	const ns = () => namespace(getAppViewDid(), user.did);
+
+	createEffect(
+		on(communityUri, async (uri) => {
+			if (!cacheEnabled() || !uri) return;
+			const cached = await readCommunity(ns(), uri);
+			if (cached && communityUri() === uri && community.loading) {
+				mutate(cached);
+			}
+		}),
+	);
+
+	let cacheWriteTimer: ReturnType<typeof setTimeout> | undefined;
+	createEffect(() => {
+		const data = community.latest;
+		const uri = communityUri();
+		if (!cacheEnabled() || community.loading || !data || !uri) return;
+		if (cacheWriteTimer) clearTimeout(cacheWriteTimer);
+		cacheWriteTimer = setTimeout(() => {
+			void writeCommunity(ns(), uri, data);
+		}, 500);
+	});
+	onCleanup(() => {
+		if (cacheWriteTimer) clearTimeout(cacheWriteTimer);
 	});
 
 	// Pending join applications (active + moderator-dismissed)
