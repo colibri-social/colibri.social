@@ -280,17 +280,17 @@ export const MessageInput: Component<{
 						fallback={
 							<Show
 								when={channel.typingUsers().length === 2}
-								fallback={<span>Several people are typing…</span>}
+								fallback={<span>Several people are typing...</span>}
 							>
 								<span>
 									{typingDisplayName(channel.typingUsers()[0])} and{" "}
-									{typingDisplayName(channel.typingUsers()[1])} are typing…
+									{typingDisplayName(channel.typingUsers()[1])} are typing...
 								</span>
 							</Show>
 						}
 					>
 						<span>
-							{typingDisplayName(channel.typingUsers()[0])} is typing…
+							{typingDisplayName(channel.typingUsers()[0])} is typing...
 						</span>
 					</Show>
 				</div>

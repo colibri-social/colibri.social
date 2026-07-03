@@ -16,7 +16,7 @@ export type NotificationPayload = {
 export type NotificationPermission = "granted" | "denied" | "default";
 
 /**
- * A concrete notification implementation for a single runtime (web, Tauri, …).
+ * A concrete notification implementation for a single runtime (web, Tauri, ...).
  * `notify()` in `index.ts` selects one of these at runtime.
  */
 export type NotificationBackend = {

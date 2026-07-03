@@ -19,11 +19,7 @@ import {
 	ContextMenuSeparator,
 	ContextMenuTrigger,
 } from "../../ui/ContextMenu";
-import {
-	handoffDrawer,
-	MenuDrawer,
-	MenuDrawerItem,
-} from "../../ui/MenuDrawer";
+import { handoffDrawer, MenuDrawer, MenuDrawerItem } from "../../ui/MenuDrawer";
 import {
 	Dialog,
 	DialogContent,
@@ -143,51 +139,51 @@ export const ChannelContextMenu: ParentComponent<{
 				</MenuDrawer>
 			</Show>
 			<Show when={!isMobile()}>
-			<ContextMenu>
-				<ContextMenuTrigger>{props.children}</ContextMenuTrigger>
-				<ContextMenuPortal>
-					<ContextMenuContent class="min-w-44">
-						<ContextMenuItem
-							onClick={() =>
-								void notifications.markChannelAsRead(props.channel.uri)
-							}
-						>
-							<CheckIcon />
-							<span>Mark as read</span>
-						</ContextMenuItem>
-						<ContextMenuItem
-							onClick={() =>
-								void (muted()
-									? mutes.unmuteChannel(props.channel.uri)
-									: mutes.muteChannel(props.channel.uri))
-							}
-						>
-							<Show when={muted()} fallback={<BellSlashIcon />}>
-								<BellIcon />
-							</Show>
-							<span>{muted() ? "Unmute Channel" : "Mute Channel"}</span>
-						</ContextMenuItem>
-						<Show when={canUpdate() || canDelete()}>
-							<ContextMenuSeparator />
-						</Show>
-						<Show when={canUpdate()}>
-							<ContextMenuItem onClick={() => props.onOpenSettings()}>
-								<GearIcon />
-								<span>Settings</span>
-							</ContextMenuItem>
-						</Show>
-						<Show when={canDelete()}>
+				<ContextMenu>
+					<ContextMenuTrigger>{props.children}</ContextMenuTrigger>
+					<ContextMenuPortal>
+						<ContextMenuContent class="min-w-44">
 							<ContextMenuItem
-								variant="destructive"
-								onClick={() => setConfirmOpen(true)}
+								onClick={() =>
+									void notifications.markChannelAsRead(props.channel.uri)
+								}
 							>
-								<TrashIcon />
-								<span>Delete Channel</span>
+								<CheckIcon />
+								<span>Mark as read</span>
 							</ContextMenuItem>
-						</Show>
-					</ContextMenuContent>
-				</ContextMenuPortal>
-			</ContextMenu>
+							<ContextMenuItem
+								onClick={() =>
+									void (muted()
+										? mutes.unmuteChannel(props.channel.uri)
+										: mutes.muteChannel(props.channel.uri))
+								}
+							>
+								<Show when={muted()} fallback={<BellSlashIcon />}>
+									<BellIcon />
+								</Show>
+								<span>{muted() ? "Unmute Channel" : "Mute Channel"}</span>
+							</ContextMenuItem>
+							<Show when={canUpdate() || canDelete()}>
+								<ContextMenuSeparator />
+							</Show>
+							<Show when={canUpdate()}>
+								<ContextMenuItem onClick={() => props.onOpenSettings()}>
+									<GearIcon />
+									<span>Settings</span>
+								</ContextMenuItem>
+							</Show>
+							<Show when={canDelete()}>
+								<ContextMenuItem
+									variant="destructive"
+									onClick={() => setConfirmOpen(true)}
+								>
+									<TrashIcon />
+									<span>Delete Channel</span>
+								</ContextMenuItem>
+							</Show>
+						</ContextMenuContent>
+					</ContextMenuPortal>
+				</ContextMenu>
 			</Show>
 
 			<Dialog open={confirmOpen()} onOpenChange={setConfirmOpen}>

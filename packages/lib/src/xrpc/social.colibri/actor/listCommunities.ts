@@ -9,4 +9,5 @@ export type Community = {
 	uri: AT_URI<"social.colibri.community">;
 	requiresApprovalToJoin: boolean;
 	isOwner?: boolean;
+	isLegacy?: boolean;
 };

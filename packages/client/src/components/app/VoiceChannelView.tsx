@@ -76,7 +76,9 @@ export const VoiceChannelView: Component = () => {
 				<SpeakerHighIcon />
 				<span class="font-medium">{channelName()}</span>
 				<Show when={voiceData.connection.state === ConnectionState.Connecting}>
-					<span class="text-xs text-muted-foreground ml-auto">Connecting…</span>
+					<span class="text-xs text-muted-foreground ml-auto">
+						Connecting...
+					</span>
 				</Show>
 			</div>
 

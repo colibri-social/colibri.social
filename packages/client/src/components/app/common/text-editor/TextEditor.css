@@ -56,7 +56,8 @@
 }
 
 #editor .tiptap.ProseMirror blockquote {
-	border-left: 2px solid color-mix(in srgb, var(--color-muted-foreground) 40%, transparent);
+	border-left: 2px solid
+		color-mix(in srgb, var(--color-muted-foreground) 40%, transparent);
 	padding-left: 0.75rem;
 	margin: 0.125rem 0;
 	color: var(--color-muted-foreground);

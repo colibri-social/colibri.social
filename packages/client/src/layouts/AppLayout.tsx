@@ -23,6 +23,7 @@ import {
 import { toast } from "somoto";
 import GearIcon from "~icons/ph/gear";
 import HouseIcon from "~icons/ph/house";
+import LockSimpleIcon from "~icons/ph/lock-simple";
 import { communityUriToUrlCompatible } from "../atproto/community-uri-to-url-compatible";
 import { putRecord } from "../atproto/pds";
 import { resolveBlob } from "../atproto/resolve-blob";
@@ -157,10 +158,19 @@ const SortableCommunity = (props: {
 					</div>
 				)}
 			</Show>
+			<Show when={props.item.isLegacy}>
+				<span
+					class="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full bg-card border-2 border-card flex items-center justify-center text-muted-foreground pointer-events-none select-none z-20"
+					title="Legacy community — awaiting migration"
+				>
+					<LockSimpleIcon class="w-2.5 h-2.5" />
+				</span>
+			</Show>
 			<CommunityContextMenu community={props.item}>
 				<A
 					href={`/app/c/${communityUriToUrlCompatible(props.item.uri)}`}
 					class="w-10 h-10 rounded-md bg-muted flex items-center justify-center outline-2 -outline-offset-2 outline-transparent hover:outline-foreground/50 transition-all duration-150"
+					classList={{ "opacity-60": props.item.isLegacy }}
 					activeClass="outline-foreground!"
 					onClick={handleClick}
 					draggable={false}

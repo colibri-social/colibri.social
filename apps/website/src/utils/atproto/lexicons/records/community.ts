@@ -5,7 +5,7 @@ export const communityRecordDocs: LexiconDoc[] = [
 	{
 		lexicon: 1,
 		id: RECORD_IDs.COMMUNITY,
-		revision: 2,
+		revision: 3,
 		defs: {
 			main: {
 				type: "record",
@@ -59,6 +59,18 @@ export const communityRecordDocs: LexiconDoc[] = [
 							default: true,
 							description:
 								"Whether users can chat in this community without the owner having to create an acknowledgement record.",
+						},
+						migratedTo: {
+							type: "string",
+							format: "at-uri",
+							description:
+								"Set on a legacy community record once it has been migrated. Points at the new community record that replaces it; consumers treat this community as retired and hide it.",
+						},
+						migratedFrom: {
+							type: "string",
+							format: "at-uri",
+							description:
+								"Set on a community created by migrating a legacy community. Points at the legacy community record this one replaces.",
 						},
 					},
 				},

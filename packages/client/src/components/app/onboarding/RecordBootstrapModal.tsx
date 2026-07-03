@@ -269,7 +269,7 @@ export function RecordBootstrapModal<T>(props: {
 							<div class="flex flex-col items-center justify-center gap-3 py-6">
 								<Spinner className="w-8 h-8 animate-spin text-muted-foreground" />
 								<span class="text-sm text-muted-foreground">
-									Loading your data…
+									Loading your data...
 								</span>
 							</div>
 						</Match>

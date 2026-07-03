@@ -13,7 +13,7 @@ export default defineConfig({
 		Icons({ compiler: "solid" }),
 	],
 	// Serve the shared @colibri-social/assets files at the dev server root so the
-	// app's root-absolute asset URLs (/twemoji.woff2, /login/*.svg, /logo.png, …) resolve.
+	// app's root-absolute asset URLs (/twemoji.woff2, /login/*.svg, /logo.png, ...) resolve.
 	publicDir: assetsDir,
 	resolve: {
 		dedupe: ["solid-js", "solid-js/web", "@solidjs/router"],

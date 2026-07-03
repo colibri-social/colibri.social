@@ -1,6 +1,9 @@
 import type { TimestampStyle } from "@colibri-social/lib";
 
-const RELATIVE_DIVISIONS: Array<{ amount: number; unit: Intl.RelativeTimeFormatUnit }> = [
+const RELATIVE_DIVISIONS: Array<{
+	amount: number;
+	unit: Intl.RelativeTimeFormatUnit;
+}> = [
 	{ amount: 60, unit: "second" },
 	{ amount: 60, unit: "minute" },
 	{ amount: 24, unit: "hour" },
@@ -53,9 +56,13 @@ export const formatTimestamp = (
 				second: "2-digit",
 			}).format(date);
 		case "date-short":
-			return new Intl.DateTimeFormat(undefined, { dateStyle: "short" }).format(date);
+			return new Intl.DateTimeFormat(undefined, { dateStyle: "short" }).format(
+				date,
+			);
 		case "date-long":
-			return new Intl.DateTimeFormat(undefined, { dateStyle: "long" }).format(date);
+			return new Intl.DateTimeFormat(undefined, { dateStyle: "long" }).format(
+				date,
+			);
 		case "datetime-short":
 			return new Intl.DateTimeFormat(undefined, {
 				dateStyle: "short",

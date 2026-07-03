@@ -5,7 +5,7 @@ import { PERMISSION_SET_IDs } from "./ids.ts";
 // OAuth permission sets
 //
 // Each bundles the granular permissions for one area of the app. OAuth clients
-// reference them with a single `include:<nsid>?aud=…` scope instead of listing
+// reference them with a single `include:<nsid>?aud=...` scope instead of listing
 // every method/collection. `rpc` permissions use `inheritAud: true` so they
 // adopt the audience supplied in the `include:` scope; `repo` permissions need
 // no audience. `blob` and `account` permissions cannot live in a permission set
@@ -84,6 +84,7 @@ export const permissionDocs: LexiconDoc[] = [
 						inheritAud: true,
 						lxm: [
 							"social.colibri.community.create",
+							"social.colibri.community.migrate",
 							"social.colibri.community.update",
 							"social.colibri.community.delete",
 							"social.colibri.community.registerCredentials",

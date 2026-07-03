@@ -4,7 +4,12 @@ import type {
 } from "@tiptap/suggestion";
 import { createSignal } from "solid-js";
 import { render } from "solid-js/web";
-import { isChannel, isMember, isTimeShortcut, MentionList } from "./MentionList";
+import {
+	isChannel,
+	isMember,
+	isTimeShortcut,
+	MentionList,
+} from "./MentionList";
 import { TimePicker } from "./TimePicker";
 import { displayableNameFn } from "../../user/DisplayableName";
 import { resolveBlob } from "../../../../atproto/resolve-blob";

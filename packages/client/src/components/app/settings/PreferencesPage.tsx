@@ -56,7 +56,7 @@ export const PreferencesPage: Component = () => {
 		}
 
 		setSaving(true);
-		const toastId = toast.loading("Verifying AppView…");
+		const toastId = toast.loading("Verifying AppView...");
 
 		const description = await verifyColibriAppView(url);
 
@@ -75,7 +75,7 @@ export const PreferencesPage: Component = () => {
 			`Connected to Colibri AppView (${description.flavor}) v${description.version}.`,
 			{
 				id: toastId,
-				description: "Signing you in again to authorise the new AppView…",
+				description: "Signing you in again to authorise the new AppView...",
 			},
 		);
 

@@ -53,11 +53,12 @@ export const WelcomeScreen: Component = () => {
 					<CommunityCreationModal>
 						<Button>Create a community</Button>
 					</CommunityCreationModal>
-					<a href="https://colibri.social/invite/1b0e708bd85c414e">
+					{/* TODO: Re-enable once new invite link has been created
+						<a href="https://colibri.social/invite/1b0e708bd85c414e">
 						<Button variant="secondary">
 							Join the Colibri Social Community
 						</Button>
-					</a>
+					</a>*/}
 				</div>
 			</div>
 		</div>

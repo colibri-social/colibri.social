@@ -38,9 +38,8 @@ export const getPreferredAppViewUrl = (): string => {
  * must match the DID the AppView publishes in its DID document. Defaults to the
  * user's chosen AppView.
  */
-export const getAppViewDid = (
-	url: string = getPreferredAppViewUrl(),
-): string => `did:web:${new URL(url).host.replace(/:/g, "%3A")}`;
+export const getAppViewDid = (url: string = getPreferredAppViewUrl()): string =>
+	`did:web:${new URL(url).host.replace(/:/g, "%3A")}`;
 
 /** The `did#service` proxy header / service-auth `aud` for the AppView. */
 export const getAppViewServiceRef = (url?: string): string =>

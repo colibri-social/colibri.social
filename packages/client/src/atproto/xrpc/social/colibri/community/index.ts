@@ -18,6 +18,7 @@ export { listChannels } from "./listChannels";
 export { listInvitations } from "./listInvitations";
 export { listMembers } from "./listMembers";
 export { listRoles } from "./listRoles";
+export { migrate, type MigrationKind } from "./migrate";
 export { registerCredentials } from "./registerCredentials";
 export { reorderCategories } from "./reorderCategories";
 export { reorderChannels } from "./reorderChannels";

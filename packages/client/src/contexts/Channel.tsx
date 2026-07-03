@@ -55,7 +55,7 @@ const JUMP_FETCH_CAP = 50;
 
 export type ChannelContextValue = {
 	/**
-	 * The full channel record (name, type, uri, category…) filtered out of
+	 * The full channel record (name, type, uri, category...) filtered out of
 	 * the community context by the layout wrapper. May be `undefined` for a
 	 * brief tick on mount, or if the route param doesn't match any channel
 	 * in the current community (e.g. stale link).

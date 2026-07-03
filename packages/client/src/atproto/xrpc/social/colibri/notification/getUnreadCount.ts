@@ -9,9 +9,7 @@ export const getUnreadCount: XrpcRequest<
 	Promise<Response | undefined>
 > = async (fetch) => {
 	try {
-		const res = await fetch(
-			`/xrpc/social.colibri.notification.getUnreadCount`,
-		);
+		const res = await fetch(`/xrpc/social.colibri.notification.getUnreadCount`);
 
 		return res.json();
 	} catch (err) {

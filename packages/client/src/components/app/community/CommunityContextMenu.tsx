@@ -17,11 +17,7 @@ import {
 	ContextMenuSeparator,
 	ContextMenuTrigger,
 } from "../../ui/ContextMenu";
-import {
-	handoffDrawer,
-	MenuDrawer,
-	MenuDrawerItem,
-} from "../../ui/MenuDrawer";
+import { handoffDrawer, MenuDrawer, MenuDrawerItem } from "../../ui/MenuDrawer";
 import { LeaveCommunityModal } from "./LeaveCommunityModal";
 import { useIsMobile } from "../../../utils/mobile-pane";
 import { createLongPress } from "../../../utils/create-long-press";
@@ -97,7 +93,9 @@ export const CommunityContextMenu: ParentComponent<{
 						<span>{muted() ? "Unmute Community" : "Mute Community"}</span>
 					</MenuDrawerItem>
 					<MenuDrawerItem
-						onClick={() => handoffDrawer(() => setMenuOpen(false), openSettings)}
+						onClick={() =>
+							handoffDrawer(() => setMenuOpen(false), openSettings)
+						}
 					>
 						<GearIcon />
 						<span>Settings</span>
@@ -119,53 +117,53 @@ export const CommunityContextMenu: ParentComponent<{
 				</MenuDrawer>
 			</Show>
 			<Show when={!isMobile()}>
-			<ContextMenu>
-				<ContextMenuTrigger>{props.children}</ContextMenuTrigger>
-				<ContextMenuPortal>
-					<ContextMenuContent class="min-w-52">
-						<ContextMenuItem
-							onClick={() =>
-								void notifications.markCommunityAsRead(props.community.uri)
-							}
-						>
-							<ChecksIcon />
-							<span>Mark everything as read</span>
-						</ContextMenuItem>
-						<ContextMenuItem
-							onClick={() =>
-								void (muted()
-									? mutes.unmuteCommunity(props.community.uri)
-									: mutes.muteCommunity(props.community.uri))
-							}
-						>
-							<Show when={muted()} fallback={<BellSlashIcon />}>
-								<BellIcon />
-							</Show>
-							<span>{muted() ? "Unmute Community" : "Mute Community"}</span>
-						</ContextMenuItem>
-						<ContextMenuItem
-							onClick={() =>
-								navigate(
-									`/app/c/${communityUriToUrlCompatible(props.community.uri)}?settings=open`,
-								)
-							}
-						>
-							<GearIcon />
-							<span>Settings</span>
-						</ContextMenuItem>
-						<Show when={!props.community.isOwner}>
-							<ContextMenuSeparator />
+				<ContextMenu>
+					<ContextMenuTrigger>{props.children}</ContextMenuTrigger>
+					<ContextMenuPortal>
+						<ContextMenuContent class="min-w-52">
 							<ContextMenuItem
-								variant="destructive"
-								onClick={() => setLeaveOpen(true)}
+								onClick={() =>
+									void notifications.markCommunityAsRead(props.community.uri)
+								}
 							>
-								<SignOutIcon />
-								<span>Leave Community</span>
+								<ChecksIcon />
+								<span>Mark everything as read</span>
 							</ContextMenuItem>
-						</Show>
-					</ContextMenuContent>
-				</ContextMenuPortal>
-			</ContextMenu>
+							<ContextMenuItem
+								onClick={() =>
+									void (muted()
+										? mutes.unmuteCommunity(props.community.uri)
+										: mutes.muteCommunity(props.community.uri))
+								}
+							>
+								<Show when={muted()} fallback={<BellSlashIcon />}>
+									<BellIcon />
+								</Show>
+								<span>{muted() ? "Unmute Community" : "Mute Community"}</span>
+							</ContextMenuItem>
+							<ContextMenuItem
+								onClick={() =>
+									navigate(
+										`/app/c/${communityUriToUrlCompatible(props.community.uri)}?settings=open`,
+									)
+								}
+							>
+								<GearIcon />
+								<span>Settings</span>
+							</ContextMenuItem>
+							<Show when={!props.community.isOwner}>
+								<ContextMenuSeparator />
+								<ContextMenuItem
+									variant="destructive"
+									onClick={() => setLeaveOpen(true)}
+								>
+									<SignOutIcon />
+									<span>Leave Community</span>
+								</ContextMenuItem>
+							</Show>
+						</ContextMenuContent>
+					</ContextMenuPortal>
+				</ContextMenu>
 			</Show>
 			<LeaveCommunityModal
 				open={leaveOpen}

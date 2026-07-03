@@ -413,7 +413,9 @@ const MessageInner: Component<{
 						/>
 					</div>
 				</Show>
-				<Show when={linkFacets().length > 0 && !("hash" in message) && !isLoneGif()}>
+				<Show
+					when={linkFacets().length > 0 && !("hash" in message) && !isLoneGif()}
+				>
 					<div class="flex flex-row flex-wrap gap-4 pl-14">
 						<For each={linkFacets()}>{(item) => <Embed uri={item.uri} />}</For>
 					</div>

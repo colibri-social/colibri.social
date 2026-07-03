@@ -297,7 +297,7 @@ export const GifPickerBody: Component<{ onSelect: (gif: GifItem) => void }> = (
 								<p class="text-sm text-muted-foreground text-center py-8">
 									{categoriesLoaded()
 										? "No categories available."
-										: "Loading categories…"}
+										: "Loading categories..."}
 								</p>
 							}
 						>
@@ -329,7 +329,9 @@ export const GifPickerBody: Component<{ onSelect: (gif: GifItem) => void }> = (
 				</Switch>
 
 				<Show when={loading()}>
-					<p class="text-sm text-muted-foreground text-center py-3">Loading…</p>
+					<p class="text-sm text-muted-foreground text-center py-3">
+						Loading...
+					</p>
 				</Show>
 			</div>
 

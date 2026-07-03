@@ -190,7 +190,7 @@ export const AudioAttachment: AttachmentComponent = (props) => {
 						</span>
 					</media-mute-button>
 
-					<media-volume-slider class="group/slider relative flex h-8 w-0 items-center overflow-hidden opacity-0 transition-all duration-200 group-hover/vol:ml-1 group-hover/vol:w-16 group-hover/vol:opacity-100">
+					<media-volume-slider class="group/slider relative flex h-8 w-0 items-center overflow-visible opacity-0 transition-all duration-200 group-hover/vol:ml-1 group-hover/vol:w-16 group-hover/vol:opacity-100">
 						<SliderVisual tone="brand" />
 					</media-volume-slider>
 				</div>

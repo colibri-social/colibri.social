@@ -1,4 +1,4 @@
-import { useSearchParams } from "@solidjs/router";
+import { useParams, useSearchParams } from "@solidjs/router";
 import {
 	createEffect,
 	createSignal,
@@ -7,7 +7,9 @@ import {
 	Suspense,
 } from "solid-js";
 import CaretDownIcon from "~icons/ph/caret-down";
+import { urlSegmentToUri } from "../atproto/community-uri-to-url-compatible";
 import { ChannelList } from "../components/app/community/ChannelList";
+import { LegacyCommunityLock } from "../components/app/community/LegacyCommunityLock";
 import { CommunitySettingsModal } from "../components/app/community/CommunitySettingsModal";
 import { LeaveCommunityModal } from "../components/app/community/LeaveCommunityModal";
 import { MemberProfileModal } from "../components/app/community/MemberProfileModal";
@@ -230,13 +232,31 @@ const CommunityLayout: ParentComponent = (props) => {
 	);
 };
 
-const CommunityLayoutWithContext: ParentComponent = (props) => (
-	<CommunityContextProvider>
-		<MemberProfileContextProvider>
-			<MemberProfileModal />
-			<CommunityLayout>{props.children}</CommunityLayout>
-		</MemberProfileContextProvider>
-	</CommunityContextProvider>
-);
+const CommunityLayoutWithContext: ParentComponent = (props) => {
+	const user = useUserContext();
+	const params = useParams();
+
+	// A legacy (un-migrated) community can't be opened
+	const legacyCommunity = () => {
+		const uri = urlSegmentToUri(params.community!);
+		return user.communities.find((c) => c.uri === uri && c.isLegacy);
+	};
+
+	return (
+		<Show
+			when={legacyCommunity()}
+			fallback={
+				<CommunityContextProvider>
+					<MemberProfileContextProvider>
+						<MemberProfileModal />
+						<CommunityLayout>{props.children}</CommunityLayout>
+					</MemberProfileContextProvider>
+				</CommunityContextProvider>
+			}
+		>
+			{(community) => <LegacyCommunityLock community={community()} />}
+		</Show>
+	);
+};
 
 export default CommunityLayoutWithContext;

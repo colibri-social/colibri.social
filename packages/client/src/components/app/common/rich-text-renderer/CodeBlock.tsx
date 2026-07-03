@@ -44,7 +44,9 @@ export const CodeBlock: Component<{ lang?: string; code: string }> = (
 			<Show
 				when={highlighted()}
 				fallback={
-					<code class="font-mono text-sm whitespace-pre-wrap break-words">{props.code}</code>
+					<code class="font-mono text-sm whitespace-pre-wrap break-words">
+						{props.code}
+					</code>
 				}
 			>
 				{(html) => (

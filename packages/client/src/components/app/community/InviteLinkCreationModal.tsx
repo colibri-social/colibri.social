@@ -34,8 +34,9 @@ export const InviteLinkCreationModal: ParentComponent<{
 	 */
 	const createInviteLink = async () => {
 		setLoading(true);
-		const res =
-			await user.xrpc.social.colibri.community.createInvitation(uri());
+		const res = await user.xrpc.social.colibri.community.createInvitation(
+			uri(),
+		);
 		setLoading(false);
 		if (!res) {
 			toast.error("Failed to create invite link.");

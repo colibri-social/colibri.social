@@ -1,4 +1,5 @@
 import type { AT_URI } from "@colibri-social/lib";
+import type { JsonBlobRef } from "@atproto/lexicon";
 import type { Details } from "@kobalte/core/file-field";
 import {
 	type Component,
@@ -7,10 +8,13 @@ import {
 	Match,
 	onMount,
 	type ParentComponent,
+	Show,
 	Switch,
 } from "solid-js";
 import { toast } from "somoto";
 import { communityUriToUrlCompatible } from "../../atproto/community-uri-to-url-compatible";
+import { getRecord, putRecord } from "../../atproto/pds";
+import { resolveBlob } from "../../atproto/resolve-blob";
 import { useSocketContext } from "../../contexts/Socket";
 import { useUserContext } from "../../contexts/User";
 import { Image } from "../icons/Image";
@@ -49,9 +53,9 @@ const LOADING = 4;
 // Labels for the BYO bootstrap steps the AppView pushes over the event socket
 // while creating the community on the user's PDS.
 const BYO_PROGRESS_LABELS: Record<string, string> = {
-	connecting: "Connecting to your PDS…",
-	creating: "Creating your community…",
-	registering: "Linking to Colibri…",
+	connecting: "Connecting to your PDS...",
+	creating: "Creating your community...",
+	registering: "Linking to Colibri...",
 };
 
 // A PDS host is accepted either as a bare domain ("colibri.social") or a full
@@ -93,12 +97,40 @@ const isValidPassword = (value: string): boolean => value.trim().length >= 8;
 
 let creationInFlight = false;
 
-export const CommunityCreationModal: ParentComponent = (props) => {
+/**
+ * A legacy community to migrate. When supplied, the modal runs in "migration
+ * mode": the details are pre-filled and submitting calls `community.migrate`
+ * (cloning the legacy community onto a fresh DID) instead of `community.create`.
+ */
+export type MigrateTarget = {
+	uri: AT_URI<"social.colibri.community">;
+	name: string;
+	description: string;
+	picture?: JsonBlobRef;
+};
+
+export const CommunityCreationModal: ParentComponent<{
+	migrateFrom?: MigrateTarget;
+}> = (props) => {
+	const isMigration = () => props.migrateFrom !== undefined;
+
+	// URL of the legacy community's existing picture, shown as the default
+	// preview in migration mode until the owner picks a replacement.
+	const legacyPictureUrl = () =>
+		props.migrateFrom
+			? resolveBlob(
+					props.migrateFrom.uri.split("/")[2],
+					props.migrateFrom.picture,
+				)
+			: undefined;
+
 	const [pdsLoc, setPdsLoc] = createSignal<string>("");
 	const [handleOrDid, setHandleOrDid] = createSignal<string>("");
 	const [password, setPassword] = createSignal<string>("");
-	const [name, setName] = createSignal<string>("");
-	const [description, setDescription] = createSignal<string>("");
+	const [name, setName] = createSignal<string>(props.migrateFrom?.name ?? "");
+	const [description, setDescription] = createSignal<string>(
+		props.migrateFrom?.description ?? "",
+	);
 	const [picture, setPicture] = createSignal<Details>();
 	const [loading, _setLoading] = createSignal<boolean>(false);
 	const [open, setOpen] = createSignal(false);
@@ -116,8 +148,8 @@ export const CommunityCreationModal: ParentComponent = (props) => {
 		setPdsLoc("");
 		setHandleOrDid("");
 		setPassword("");
-		setName("");
-		setDescription("");
+		setName(props.migrateFrom?.name ?? "");
+		setDescription(props.migrateFrom?.description ?? "");
 		setPicture(undefined);
 		setOwnership("managed");
 		setStep(OWNERSHIP_CHOICE);
@@ -261,14 +293,27 @@ export const CommunityCreationModal: ParentComponent = (props) => {
 			<>
 				<div class="flex flex-col items-center justify-center w-full gap-4">
 					<FileField onFileChange={setPicture} maxFiles={1}>
-						<FileFieldDropzone class="w-20 h-20 min-h-0 rounded-full overflow-hidden">
-							<FileFieldTrigger class="h-20 w-20 bg-muted/25 text-muted-foreground hover:bg-muted/50">
+						<FileFieldDropzone class="w-20 h-20 min-h-0 rounded-md overflow-hidden">
+							<FileFieldTrigger class="h-20 w-20 bg-muted/25 text-muted-foreground hover:bg-muted/50 p-0">
 								<Switch>
 									<Match when={picture() === undefined}>
-										<div class="flex flex-col items-center justify-center gap-1">
-											<Image className="w-6! h-6!" />
-											<span>Upload</span>
-										</div>
+										<Show
+											when={legacyPictureUrl()}
+											fallback={
+												<div class="flex flex-col items-center justify-center gap-1">
+													<Image className="w-6! h-6!" />
+													<span>Upload</span>
+												</div>
+											}
+										>
+											{(url) => (
+												<img
+													src={url()}
+													alt=""
+													class="w-20 h-20 object-cover"
+												/>
+											)}
+										</Show>
 									</Match>
 									<Match when={picture() !== undefined}>
 										<FileFieldItemList class="w-20 h-20 m-0 p-0 relative">
@@ -338,13 +383,61 @@ export const CommunityCreationModal: ParentComponent = (props) => {
 	const LoadingScreen: Component = () => {
 		const user = useUserContext();
 		const socket = useSocketContext();
-		const [status, setStatus] = createSignal("Creating community…");
+		const [status, setStatus] = createSignal(
+			isMigration() ? "Migrating community..." : "Creating community...",
+		);
+
+		// Resolves the picture bytes to send
+		const resolvePictureBytes = async (): Promise<{
+			blob?: Blob;
+			mimeType?: string;
+		}> => {
+			if (picture()) {
+				const blob = picture()!.acceptedFiles[0];
+				return { blob, mimeType: blob.type };
+			}
+			const url = legacyPictureUrl();
+			if (url) {
+				try {
+					const res = await fetch(url);
+					const blob = await res.blob();
+					return { blob, mimeType: blob.type };
+				} catch (err) {
+					console.error("[CommunityMigration] picture copy failed", err);
+				}
+			}
+			return {};
+		};
+
+		const stampLegacyAsMigrated = async (newCommunityUri: string) => {
+			const legacyUri = props.migrateFrom!.uri;
+			const [, , did, , rkey] = legacyUri.split("/");
+			const current = await getRecord(
+				user.atproto.agent,
+				did,
+				"social.colibri.community",
+				rkey,
+			);
+			await putRecord(
+				user.atproto.agent,
+				did,
+				"social.colibri.community",
+				rkey,
+				{
+					...current,
+					migratedTo: newCommunityUri,
+				},
+			);
+		};
 
 		onMount(async () => {
 			if (creationInFlight) return;
 			creationInFlight = true;
 
 			const isByo = ownership() === "byo";
+			const byo = isByo
+				? { pds: pdsLoc(), identifier: handleOrDid(), password: password() }
+				: undefined;
 
 			const unsubscribe = socket.onEvent((event) => {
 				if (event.type === "community_creation_progress" && event.data) {
@@ -353,38 +446,45 @@ export const CommunityCreationModal: ParentComponent = (props) => {
 				}
 			});
 
-			let pictureBlob: Blob | undefined;
-			let mimeType: string | undefined;
-
-			if (picture()) {
-				pictureBlob = picture()!.acceptedFiles[0];
-				mimeType = pictureBlob.type;
-			}
-
 			try {
 				if (isByo) setStatus(BYO_PROGRESS_LABELS.connecting);
 
-				const res = await user.xrpc.social.colibri.community.create(
-					name(),
-					description() || undefined,
-					false,
-					pictureBlob,
-					mimeType,
-					isByo
-						? {
-								pds: pdsLoc(),
-								identifier: handleOrDid(),
-								password: password(),
-							}
-						: undefined,
-				);
+				const { blob: pictureBlob, mimeType } = await resolvePictureBytes();
 
-				if (!res) throw new Error("No response from server.");
+				let communityUri: string;
 
-				setStatus("Finishing up…");
+				if (isMigration()) {
+					const res = await user.xrpc.social.colibri.community.migrate(
+						"legacy-community",
+						props.migrateFrom!.uri,
+						{ name: name(), description: description() || undefined },
+						pictureBlob,
+						mimeType,
+						byo,
+					);
+					if (!res) throw new Error("No response from server.");
+					communityUri = res.community;
+
+					// Stamp the legacy record so it disappears everywhere.
+					setStatus("Finishing up...");
+					await stampLegacyAsMigrated(communityUri);
+				} else {
+					const res = await user.xrpc.social.colibri.community.create(
+						name(),
+						description() || undefined,
+						false,
+						pictureBlob,
+						mimeType,
+						byo,
+					);
+					if (!res) throw new Error("No response from server.");
+					communityUri = res.community;
+					setStatus("Finishing up...");
+				}
+
 				await user.refetchCommunities();
 				const url = communityUriToUrlCompatible(
-					res.community as AT_URI<"social.colibri.community">,
+					communityUri as AT_URI<"social.colibri.community">,
 				);
 				resetState();
 				setOpen(false);
@@ -392,7 +492,11 @@ export const CommunityCreationModal: ParentComponent = (props) => {
 				window.location.href = `/app/c/${url}`;
 			} catch (err) {
 				console.error("[CommunityCreation]", err);
-				toast.error("Failed to create community.");
+				toast.error(
+					isMigration()
+						? "Failed to migrate community."
+						: "Failed to create community.",
+				);
 				setStep(COMMUNITY_DETAILS);
 			} finally {
 				unsubscribe();
@@ -413,7 +517,11 @@ export const CommunityCreationModal: ParentComponent = (props) => {
 			open={open()}
 			onOpenChange={setOpen}
 			trigger={props.children}
-			title={<span class="text-center w-full">Create a community</span>}
+			title={
+				<span class="text-center w-full">
+					{isMigration() ? "Migrate community" : "Create a community"}
+				</span>
+			}
 			contentClass="w-lg"
 		>
 			<Switch>

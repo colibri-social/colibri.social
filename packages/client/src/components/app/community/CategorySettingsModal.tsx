@@ -176,7 +176,9 @@ export const CategorySettingsModal: Component<{
 				{
 					title: "General",
 					id: "general",
-					component: () => <GeneralCategorySettings category={props.category} />,
+					component: () => (
+						<GeneralCategorySettings category={props.category} />
+					),
 					icon: () => <WrenchIcon />,
 					visible: canUpdateCategory,
 				},
@@ -185,7 +187,10 @@ export const CategorySettingsModal: Component<{
 				title: "Danger Zone",
 				id: "danger",
 				component: () => (
-					<DangerSettingsPage setOpen={props.setOpen} category={props.category} />
+					<DangerSettingsPage
+						setOpen={props.setOpen}
+						category={props.category}
+					/>
 				),
 				icon: () => <WarningDiamondIcon />,
 				visible: canDeleteCategory,

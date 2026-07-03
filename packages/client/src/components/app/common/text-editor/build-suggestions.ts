@@ -10,16 +10,14 @@ import {
 /**
  * Inserts the mention atom without TipTap's default trailing space
  */
-const insertMention: SuggestionOptions<
-	unknown,
-	MentionNodeAttrs
->["command"] = ({ editor, range, props }) => {
-	editor
-		.chain()
-		.focus()
-		.insertContentAt(range, { type: "mention", attrs: props })
-		.run();
-};
+const insertMention: SuggestionOptions<unknown, MentionNodeAttrs>["command"] =
+	({ editor, range, props }) => {
+		editor
+			.chain()
+			.focus()
+			.insertContentAt(range, { type: "mention", attrs: props })
+			.run();
+	};
 
 export const buildSuggestions = (
 	members: () => Array<Member>,

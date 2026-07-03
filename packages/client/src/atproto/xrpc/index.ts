@@ -227,6 +227,29 @@ export class XrpcClient {
 						mimeType,
 						byo,
 					),
+				migrate: (
+					kind: Community.MigrationKind,
+					source: string,
+					overrides:
+						| {
+								name?: string;
+								description?: string;
+								requiresApprovalToJoin?: boolean;
+						  }
+						| undefined,
+					picture: Blob | undefined,
+					mimeType: string | undefined,
+					byo?: { pds: string; identifier: string; password: string },
+				) =>
+					Community.migrate(
+						this.authed(this.proxiedFetch, "social.colibri.community.migrate"),
+						kind,
+						source,
+						overrides,
+						picture,
+						mimeType,
+						byo,
+					),
 				registerCredentials: (
 					did: string,
 					pds: string,

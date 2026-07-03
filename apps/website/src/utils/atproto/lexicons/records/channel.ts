@@ -5,7 +5,7 @@ export const channelRecordDocs: LexiconDoc[] = [
 	{
 		lexicon: 1,
 		id: RECORD_IDs.CHANNEL,
-		revision: 3,
+		revision: 4,
 		defs: {
 			main: {
 				type: "record",
@@ -67,6 +67,12 @@ export const channelRecordDocs: LexiconDoc[] = [
 							description:
 								"Member DIDs explicitly allowed to post in this channel, in addition to allowedRoles.",
 							items: { type: "string", format: "did" },
+						},
+						migratedFrom: {
+							type: "string",
+							format: "at-uri",
+							description:
+								"Set on a channel created by migrating a legacy community. Points at the legacy channel record this one replaces, so message history for the old channel can be surfaced here.",
 						},
 					},
 				},

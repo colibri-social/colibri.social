@@ -22,6 +22,20 @@ export const createRecord = async (
 	return res.data;
 };
 
+export const getRecord = async (
+	agent: Agent,
+	repo: string,
+	collection: string,
+	rkey: string,
+): Promise<Record<string, unknown>> => {
+	const res = await agent.com.atproto.repo.getRecord({
+		repo,
+		collection,
+		rkey,
+	});
+	return res.data.value as Record<string, unknown>;
+};
+
 export const putRecord = async (
 	agent: Agent,
 	repo: string,

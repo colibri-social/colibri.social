@@ -236,6 +236,87 @@ export const communityMethodDocs: LexiconDoc[] = [
 	},
 	{
 		lexicon: 1,
+		id: "social.colibri.community.migrate",
+		defs: {
+			main: {
+				type: "procedure",
+				description:
+					"Migrates a source record into a fresh community, cloning its structure and importing its members. The 'kind' discriminator selects the migration; today only legacy communities are supported, but the endpoint is designed to host future migrations. Provisioning mirrors community.create (managed when no PDS credentials are supplied, bring-your-own otherwise).",
+				parameters: {
+					type: "params",
+					required: ["kind", "source"],
+					properties: {
+						kind: {
+							type: "string",
+							description:
+								"The migration to run. 'legacy-community' migrates a pre-rework community record.",
+							knownValues: ["legacy-community"],
+						},
+						source: {
+							type: "string",
+							format: "at-uri",
+							description:
+								"The record being migrated (e.g. the legacy community).",
+						},
+						name: { type: "string" },
+						description: { type: "string" },
+						requiresApprovalToJoin: { type: "boolean" },
+						mimeType: {
+							type: "string",
+							description: "MIME type of the picture body, if provided.",
+						},
+						pds: {
+							type: "string",
+							description: "Bring-your-own PDS endpoint.",
+						},
+						identifier: {
+							type: "string",
+							description: "Bring-your-own DID or handle.",
+						},
+						password: {
+							type: "string",
+							description: "Bring-your-own account password.",
+						},
+					},
+				},
+				input: {
+					encoding: "*/*",
+					description: "Optional replacement community picture image bytes.",
+				},
+				output: {
+					encoding: "application/json",
+					schema: {
+						type: "object",
+						required: ["did", "community", "channelMap"],
+						properties: {
+							did: { type: "string", format: "did" },
+							community: { type: "string", format: "at-uri" },
+							channelMap: {
+								type: "array",
+								description:
+									"Maps each cloned channel from its old AT-URI to its new AT-URI.",
+								items: {
+									type: "ref",
+									ref: "social.colibri.community.migrate#channelMapping",
+								},
+							},
+						},
+					},
+				},
+			},
+			channelMapping: {
+				type: "object",
+				description: "A single channel's old AT-URI mapped to its new AT-URI.",
+				required: ["old", "new"],
+				properties: {
+					old: { type: "string", format: "at-uri" },
+					new: { type: "string", format: "at-uri" },
+				},
+			},
+		},
+	},
+	{
+		lexicon: 1,
 		id: "social.colibri.community.update",
 		defs: {
 			main: {

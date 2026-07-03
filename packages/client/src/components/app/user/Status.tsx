@@ -66,45 +66,45 @@ const DropdownStatusSelect: ParentComponent<{
 				<DropdownMenu>
 					<DropdownMenuTrigger>{props.children}</DropdownMenuTrigger>
 					<DropdownMenuPortal>
-				<DropdownMenuContent>
-					<DropdownMenuGroup>
-						<DropdownMenuGroupLabel class="text-xs text-muted-foreground">
-							Status
-						</DropdownMenuGroupLabel>
-						<DropdownMenuRadioGroup value={props.value}>
-							<DropdownMenuRadioItem
-								value="online"
-								onSelect={() => props.setValue("online")}
-								class="[&_svg]:text-green-400"
-							>
-								{STATE_LABELS.online}
-							</DropdownMenuRadioItem>
-							<DropdownMenuRadioItem
-								value="away"
-								onSelect={() => props.setValue("away")}
-								class="[&_svg]:text-yellow-400"
-							>
-								{STATE_LABELS.away}
-							</DropdownMenuRadioItem>
-							<DropdownMenuRadioItem
-								value="dnd"
-								onSelect={() => props.setValue("dnd")}
-								class="[&_svg]:text-red-400"
-							>
-								{STATE_LABELS.dnd}
-							</DropdownMenuRadioItem>
-							<DropdownMenuRadioItem
-								value="offline"
-								onSelect={() => props.setValue("offline")}
-								class="[&_svg]:text-neutral-400"
-							>
-								{STATE_LABELS.offline}
-							</DropdownMenuRadioItem>
-						</DropdownMenuRadioGroup>
-					</DropdownMenuGroup>
-				</DropdownMenuContent>
-			</DropdownMenuPortal>
-		</DropdownMenu>
+						<DropdownMenuContent>
+							<DropdownMenuGroup>
+								<DropdownMenuGroupLabel class="text-xs text-muted-foreground">
+									Status
+								</DropdownMenuGroupLabel>
+								<DropdownMenuRadioGroup value={props.value}>
+									<DropdownMenuRadioItem
+										value="online"
+										onSelect={() => props.setValue("online")}
+										class="[&_svg]:text-green-400"
+									>
+										{STATE_LABELS.online}
+									</DropdownMenuRadioItem>
+									<DropdownMenuRadioItem
+										value="away"
+										onSelect={() => props.setValue("away")}
+										class="[&_svg]:text-yellow-400"
+									>
+										{STATE_LABELS.away}
+									</DropdownMenuRadioItem>
+									<DropdownMenuRadioItem
+										value="dnd"
+										onSelect={() => props.setValue("dnd")}
+										class="[&_svg]:text-red-400"
+									>
+										{STATE_LABELS.dnd}
+									</DropdownMenuRadioItem>
+									<DropdownMenuRadioItem
+										value="offline"
+										onSelect={() => props.setValue("offline")}
+										class="[&_svg]:text-neutral-400"
+									>
+										{STATE_LABELS.offline}
+									</DropdownMenuRadioItem>
+								</DropdownMenuRadioGroup>
+							</DropdownMenuGroup>
+						</DropdownMenuContent>
+					</DropdownMenuPortal>
+				</DropdownMenu>
 			}
 		>
 			<div style={{ display: "contents" }} onClick={() => setOpen(true)}>

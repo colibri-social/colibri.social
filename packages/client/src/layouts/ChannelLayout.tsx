@@ -507,7 +507,6 @@ const ChannelLayout: ParentComponent = (props) => {
 		(channel.data()?.allowedMembers?.length ?? 0) > 0;
 
 	const canTalk = () => {
-		console.log("[is restricted] ", isRestricted(), channel.data());
 		if (!isRestricted() || ownerDid() === user.did) return true;
 
 		if (channel.data()?.ownerOnly && ownerDid() === user.did) return true;
@@ -677,7 +676,7 @@ const ChannelLayout: ParentComponent = (props) => {
 											}
 										>
 											<div class="w-full text-center py-2 text-xs text-muted-foreground">
-												Loading older messages…
+												Loading older messages...
 											</div>
 										</Show>
 
@@ -716,7 +715,7 @@ const ChannelLayout: ParentComponent = (props) => {
 											}
 										>
 											<div class="w-full text-center py-4 text-sm text-muted-foreground">
-												Loading messages…
+												Loading messages...
 											</div>
 										</Show>
 

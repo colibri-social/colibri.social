@@ -4,10 +4,10 @@ type Response = {
 	did: string;
 };
 
-const del: XrpcRequest<
-	[string],
-	Promise<Response | undefined>
-> = async (fetch, community) => {
+const del: XrpcRequest<[string], Promise<Response | undefined>> = async (
+	fetch,
+	community,
+) => {
 	try {
 		const res = await fetch(
 			`/xrpc/social.colibri.community.delete?community=${encodeURIComponent(community)}`,

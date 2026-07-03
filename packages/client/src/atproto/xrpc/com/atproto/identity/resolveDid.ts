@@ -1,7 +1,7 @@
 import type { XrpcRequest } from "../../..";
 
 type Response = {
-	didDoc: unknown;
+	alsoKnownAs: Array<string>;
 };
 
 export const resolveDid: XrpcRequest<
