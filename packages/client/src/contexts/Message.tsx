@@ -4,6 +4,7 @@ import {
 	createContext,
 	createEffect,
 	createSignal,
+	onMount,
 	type ParentComponent,
 	type Setter,
 	useContext,
@@ -18,6 +19,11 @@ import {
 import type { Message } from "../atproto/xrpc/social/colibri/channel/listMessages";
 import type { TextWithFacets } from "../components/app/common/rich-text-renderer/util";
 import { AtURI } from "../utils/at-uri";
+import {
+	clearEditDraft,
+	readEditDraft,
+	writeEditDraft,
+} from "../utils/composer-drafts";
 import { purify } from "../utils/purify";
 import { useChannelContext } from "./Channel";
 import { useCommunityContext, usePermissions } from "./Community";
@@ -39,6 +45,7 @@ export type MessageContextValue = {
 
 	editedText: Accessor<TextWithFacets>;
 	setEditedText: Setter<TextWithFacets>;
+	saveEditedText: (text: string, facets: Array<ColibriRichTextFacet>) => void;
 	newText: Accessor<TextWithFacets>;
 	setNewText: Setter<TextWithFacets>;
 
@@ -87,10 +94,18 @@ export const MessageContextProvider: ParentComponent<{ data: Message }> = (
 	const editMode = () =>
 		!isPending() && channel.editingMessage()?.uri === props.data.uri;
 
-	const [editedText, setEditedText] = createSignal<TextWithFacets>({
-		text: props.data.text,
-		facets: props.data.facets || [],
+	const [editedText, setEditedText] = createSignal<TextWithFacets>(
+		readEditDraft(props.data.uri) ?? {
+			text: props.data.text,
+			facets: props.data.facets || [],
+		},
+	);
+
+	onMount(() => {
+		if (isPending()) return;
+		if (readEditDraft(props.data.uri)) channel.setEditingMessage(props.data);
 	});
+
 	const [newText, setNewText] = createSignal<TextWithFacets>({
 		text: props.data.text,
 		facets: props.data.facets || [],
@@ -102,6 +117,14 @@ export const MessageContextProvider: ParentComponent<{ data: Message }> = (
 			facets: props.data.facets || [],
 		});
 	});
+
+	const saveEditedText = (
+		text: string,
+		facets: Array<ColibriRichTextFacet>,
+	) => {
+		setEditedText({ text, facets });
+		if (!isPending()) writeEditDraft(props.data.uri, { text, facets });
+	};
 
 	const isRepliedTo = () => {
 		if (isPending()) return undefined;
@@ -147,6 +170,7 @@ export const MessageContextProvider: ParentComponent<{ data: Message }> = (
 			text: props.data.text,
 			facets: props.data.facets || [],
 		});
+		clearEditDraft(props.data.uri);
 		channel.clearEditingMessage();
 		// Return focus to the main composer once the inline editor unmounts.
 		// `:not(.temp-editor)` skips the (now-closing) edit editor, which shares
@@ -209,6 +233,7 @@ export const MessageContextProvider: ParentComponent<{ data: Message }> = (
 		const originalText = newText();
 
 		setNewText({ text, facets }); // optimistic
+		clearEditDraft(props.data.uri);
 		channel.clearEditingMessage();
 
 		if (purify(text).trim().length === 0) {
@@ -320,6 +345,7 @@ export const MessageContextProvider: ParentComponent<{ data: Message }> = (
 		setContextMenuOpen,
 		editedText,
 		setEditedText,
+		saveEditedText,
 		newText,
 		setNewText,
 		isPending,

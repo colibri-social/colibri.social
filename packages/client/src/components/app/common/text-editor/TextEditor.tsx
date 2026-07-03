@@ -11,6 +11,7 @@ import {
 	type Component,
 	createEffect,
 	createSignal,
+	onCleanup,
 	Show,
 	untrack,
 } from "solid-js";
@@ -40,6 +41,10 @@ import { useUserContext } from "../../../../contexts/User";
 import { useUserPreferences } from "../../../../contexts/UserPreferences";
 import { createFenceRegex } from "../../../../utils/fenced-code-regex";
 import { htmlToDOMOutputSpec } from "../../../../utils/html-to-dom-output-spec";
+import {
+	readComposerDraft,
+	writeComposerDraft,
+} from "../../../../utils/composer-drafts";
 import { useIsMobile } from "../../../../utils/mobile-pane";
 import {
 	Tooltip,
@@ -970,6 +975,74 @@ export const TextEditor: Component<{
 
 		setIsInitializing(false);
 	});
+
+	if (props.mainEditor) {
+		let draftUri: string | undefined;
+		let loadedInstance: Editor | undefined;
+		let latest: ReturnType<Editor["getJSON"]> | undefined;
+		let latestEmpty = true;
+		let saveTimer: ReturnType<typeof setTimeout> | undefined;
+
+		const persist = (uri: string | undefined) => {
+			if (saveTimer) {
+				clearTimeout(saveTimer);
+				saveTimer = undefined;
+			}
+			if (uri) writeComposerDraft(uri, latestEmpty ? undefined : latest);
+		};
+
+		const applyBuffer = (instance: Editor) => {
+			if (!latestEmpty && latest) instance.commands.setContent(latest);
+			else instance.commands.clearContent();
+			latest = instance.getJSON();
+			latestEmpty = instance.isEmpty;
+			if (instance.isFocused) instance.commands.focus("end");
+		};
+
+		createEffect(() => {
+			const instance = editor();
+			const uri = channel.channelUri();
+			if (!instance) return;
+
+			untrack(() => {
+				const channelChanged = draftUri !== uri;
+				if (!channelChanged && loadedInstance === instance) return;
+
+				if (channelChanged) {
+					if (draftUri) persist(draftUri);
+					draftUri = uri;
+					const saved = uri ? readComposerDraft(uri) : undefined;
+					latest = saved;
+					latestEmpty = !saved;
+				}
+
+				loadedInstance = instance;
+				applyBuffer(instance);
+			});
+		});
+
+		createEffect(() => {
+			const instance = editor();
+			if (!instance) return;
+
+			const handler = () => {
+				latest = instance.getJSON();
+				latestEmpty = instance.isEmpty;
+				if (saveTimer) clearTimeout(saveTimer);
+				saveTimer = setTimeout(() => {
+					saveTimer = undefined;
+					if (draftUri) {
+						writeComposerDraft(draftUri, latestEmpty ? undefined : latest);
+					}
+				}, 200);
+			};
+
+			instance.on("update", handler);
+			onCleanup(() => instance.off("update", handler));
+		});
+
+		onCleanup(() => persist(draftUri));
+	}
 
 	return (
 		<div

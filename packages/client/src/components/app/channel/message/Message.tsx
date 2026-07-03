@@ -80,7 +80,7 @@ const MessageInner: Component<{
 		setContextMenuOpen,
 		newText,
 		editedText,
-		setEditedText,
+		saveEditedText,
 		handlePotentialDeletion,
 		handlePotentialBlock,
 		enableReplyMode,
@@ -302,15 +302,15 @@ const MessageInner: Component<{
 										<div class="w-full">
 											<TextEditor
 												text={facetsToProseMirror(
-													newText().text,
-													newText().facets || [],
+													editedText().text,
+													editedText().facets || [],
 													community().members || [],
 													community().channels || [],
 												)}
 												placeholder=""
 												submitOnEnter
 												onChange={(text, facets) => {
-													setEditedText({ text, facets });
+													saveEditedText(text, facets);
 												}}
 												sendMessage={async (text, facets) => {
 													submitEdits(text, facets);
