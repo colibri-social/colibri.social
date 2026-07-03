@@ -1,5 +1,8 @@
+import "./sentry";
+
 import "@arborium/arborium/themes/base.css";
 import "@arborium/arborium/themes/tokyo-night.css";
+import * as Sentry from "@sentry/solid";
 import { ColorModeProvider } from "@kobalte/core/color-mode";
 
 // The app is always dark-themed (no light mode toggle), but arborium's
@@ -10,9 +13,11 @@ if (typeof document !== "undefined") {
 }
 
 import { Route, Router, useNavigate, useParams } from "@solidjs/router";
+import { withSentryRouterRouting } from "@sentry/solid/solidrouter";
 import {
 	type Component,
 	createEffect,
+	ErrorBoundary,
 	onMount,
 	type ParentComponent,
 	Show,
@@ -66,88 +71,110 @@ const RedirectToApp: Component = () => {
 	return <AppLoadingScreen message="Redirecting to app..." />;
 };
 
+const SentryErrorBoundary = Sentry.withSentryErrorBoundary(ErrorBoundary);
+const SentryRouter = withSentryRouterRouting(Router);
+
+const AppErrorScreen: Component<{ reset: () => void }> = (props) => (
+	<div class="w-full h-full absolute top-0 left-0 z-50 flex flex-col items-center justify-center gap-3 text-white select-none">
+		<p class="text-base font-medium">Something went wrong.</p>
+		<button
+			type="button"
+			class="text-sm text-muted-foreground underline"
+			onClick={() => props.reset()}
+		>
+			Try again
+		</button>
+	</div>
+);
+
 const App: ParentComponent = () => {
 	const isMobile = useIsMobile();
 	return (
-		<AuthContextProvider>
-			<ColorModeProvider>
-				<Show
-					when={isMobile()}
-					fallback={<Toaster richColors position="bottom-right" />}
-				>
-					<Toaster richColors position="top-center" />
-				</Show>
-				<Router base="/">
-					<Route path="/" component={RedirectToApp} />
-					<Route path="/app/login" component={LoginScreen} />
-					<Route path="/app" component={AppRoute}>
-						<Route path="/" component={WelcomeScreen} />
-						<Route path="/invite/:code" component={InviteModal} />
-						<Route component={CommunityLayoutWithContext}>
-							<Route
-								path="/c/:community"
-								component={() => {
-									const params = useParams();
-									const navigate = useNavigate();
-									const c = useCommunityContext();
-									const communityUrlSeg = () => params.community!;
+		<SentryErrorBoundary
+			fallback={(_err: unknown, reset: () => void) => (
+				<AppErrorScreen reset={reset} />
+			)}
+		>
+			<AuthContextProvider>
+				<ColorModeProvider>
+					<Show
+						when={isMobile()}
+						fallback={<Toaster richColors position="bottom-right" />}
+					>
+						<Toaster richColors position="top-center" />
+					</Show>
+					<SentryRouter base="/">
+						<Route path="/" component={RedirectToApp} />
+						<Route path="/app/login" component={LoginScreen} />
+						<Route path="/app" component={AppRoute}>
+							<Route path="/" component={WelcomeScreen} />
+							<Route path="/invite/:code" component={InviteModal} />
+							<Route component={CommunityLayoutWithContext}>
+								<Route
+									path="/c/:community"
+									component={() => {
+										const params = useParams();
+										const navigate = useNavigate();
+										const c = useCommunityContext();
+										const communityUrlSeg = () => params.community!;
 
-									onMount(() => {
-										// On mobile the community placeholder IS the nav-root
-										// pane, don't auto-redirect into a channel. The user
-										// taps a channel to push into chat.
-										if (isMobileNow()) return;
+										onMount(() => {
+											// On mobile the community placeholder IS the nav-root
+											// pane, don't auto-redirect into a channel. The user
+											// taps a channel to push into chat.
+											if (isMobileNow()) return;
 
-										const mostRecentChannel = localStorage.getItem(
-											`${communityUrlSeg()}:last-viewed`,
-										);
-
-										if (!mostRecentChannel) {
-											const firstChannel = c().channels[0];
-
-											navigate(
-												`/app/c/${communityUrlSeg()}/${firstChannel.type}/${new AtURI(firstChannel.uri).identifier}`,
+											const mostRecentChannel = localStorage.getItem(
+												`${communityUrlSeg()}:last-viewed`,
 											);
 
-											return;
-										}
+											if (!mostRecentChannel) {
+												const firstChannel = c().channels[0];
 
-										const channel: { uri: string; type: string } =
-											JSON.parse(mostRecentChannel);
+												navigate(
+													`/app/c/${communityUrlSeg()}/${firstChannel.type}/${new AtURI(firstChannel.uri).identifier}`,
+												);
 
-										navigate(
-											`/app/c/${communityUrlSeg()}/${channel.type}/${new AtURI(channel.uri).identifier}`,
+												return;
+											}
+
+											const channel: { uri: string; type: string } =
+												JSON.parse(mostRecentChannel);
+
+											navigate(
+												`/app/c/${communityUrlSeg()}/${channel.type}/${new AtURI(channel.uri).identifier}`,
+											);
+										});
+
+										return (
+											<div class="w-full h-full flex flex-col items-center justify-center gap-2 text-muted-foreground select-none">
+												<p class="text-base font-medium">
+													Select a channel to get started
+												</p>
+											</div>
 										);
-									});
-
-									return (
-										<div class="w-full h-full flex flex-col items-center justify-center gap-2 text-muted-foreground select-none">
-											<p class="text-base font-medium">
-												Select a channel to get started
-											</p>
-										</div>
-									);
-								}}
-							/>
-							<Route component={ChannelLayoutWithContext}>
+									}}
+								/>
+								<Route component={ChannelLayoutWithContext}>
+									<Route
+										path="/c/:community/:channelType/:channel"
+										matchFilters={{ channelType: TEXT_CHANNEL_TYPES }}
+										component={() =>
+											null
+										} /* ChannelLayout renders the message list; leaf is empty until a TextChannelView is needed */
+									/>
+								</Route>
 								<Route
 									path="/c/:community/:channelType/:channel"
-									matchFilters={{ channelType: TEXT_CHANNEL_TYPES }}
-									component={() =>
-										null
-									} /* ChannelLayout renders the message list; leaf is empty until a TextChannelView is needed */
+									matchFilters={{ channelType: VOICE_CHANNEL_TYPES }}
+									component={VoiceChannelView}
 								/>
 							</Route>
-							<Route
-								path="/c/:community/:channelType/:channel"
-								matchFilters={{ channelType: VOICE_CHANNEL_TYPES }}
-								component={VoiceChannelView}
-							/>
 						</Route>
-					</Route>
-				</Router>
-			</ColorModeProvider>
-		</AuthContextProvider>
+					</SentryRouter>
+				</ColorModeProvider>
+			</AuthContextProvider>
+		</SentryErrorBoundary>
 	);
 };
 

@@ -299,6 +299,9 @@ importers:
       '@sapphi-red/web-noise-suppressor':
         specifier: ^0.3.5
         version: 0.3.5
+      '@sentry/solid':
+        specifier: ^10.63.0
+        version: 10.63.0(@solidjs/router@0.16.1(solid-js@1.9.11))(solid-js@1.9.11)
       '@solid-primitives/websocket':
         specifier: ^1.4.0
         version: 1.4.0(solid-js@1.9.11)
@@ -1798,8 +1801,16 @@ packages:
     resolution: {integrity: sha512-x2wEpBHwsTyTF2rWsLKJlzrRF1TTIGOfX+ngdE+Yd5DBkoS58HwQv824QOviPGQRla4/ypISqAXzjdDPL/zalg==}
     engines: {node: '>= 18'}
 
+  '@sentry/browser-utils@10.63.0':
+    resolution: {integrity: sha512-DhUGNN+CH8fzAs6qAsueKPU70qShyTX3NxLhIP+l5DbGXDSXpYXBT6s8ubZus0/LhxpLvI0iSyNIDvZRD/gZaA==}
+    engines: {node: '>=18'}
+
   '@sentry/browser@10.46.0':
     resolution: {integrity: sha512-80DmGlTk5Z2/OxVOzLNxwolMyouuAYKqG8KUcoyintZqHbF6kO1RulI610HmyUt3OagKeBCqt9S7w0VIfCRL+Q==}
+    engines: {node: '>=18'}
+
+  '@sentry/browser@10.63.0':
+    resolution: {integrity: sha512-0mi56YOkwgyjdLOcN5cB1//EcYzEOt3NZ2GLygE92B3zAAwVM1WgbmibZCXToKFClH7z1uH3VWVfBffmkwIMYw==}
     engines: {node: '>=18'}
 
   '@sentry/bundler-plugin-core@5.1.1':
@@ -1862,6 +1873,22 @@ packages:
     resolution: {integrity: sha512-N3fj4zqBQOhXliS1Ne9euqIKuciHCGOJfPGQLwBoW9DNz03jF+NB8+dUKtrJ79YLoftjVgf8nbgwtADK7NR+2Q==}
     engines: {node: '>=18'}
 
+  '@sentry/core@10.63.0':
+    resolution: {integrity: sha512-OtUbsrnbEHffOF2S2+M5zXa3HIM0U2b4CDVLKMY1dgS0J3ivRF8XvkjvyIcEG/y8JXnwXbnprLyjhG+AqMdUZQ==}
+    engines: {node: '>=18'}
+
+  '@sentry/feedback@10.63.0':
+    resolution: {integrity: sha512-If/+72xFg9ylz4twUo3U9gUpZ+Ys+T/3Y09WH7r2gGhWEOF9bp+ta94+Pg7Lb0M2nVD7waz4OxIvB49GEvtLDA==}
+    engines: {node: '>=18'}
+
+  '@sentry/replay-canvas@10.63.0':
+    resolution: {integrity: sha512-1Dg6yo+KDNZcE9M6V2EP4DGgTDJMcUgg5ui69w/E96ZZPWErS/bibK2bGj20H3qwpJXlnEwXB5YAJ2fZ620T1A==}
+    engines: {node: '>=18'}
+
+  '@sentry/replay@10.63.0':
+    resolution: {integrity: sha512-u4fDaLbd4QmJbU0qGzV5g2B2hjw5utdeZzpTrmq565AS5o6mfaZdCz30zF9R2Unkn0g9SJr90piTN2RMwvDrkw==}
+    engines: {node: '>=18'}
+
   '@sentry/rollup-plugin@5.1.1':
     resolution: {integrity: sha512-1d5NkdRR6aKWBP7czkY8sFFWiKnfmfRpQOj+m9bJTsyTjbMiEQJst6315w5pCVlRItPhBqpAraqAhutZFgvyVg==}
     engines: {node: '>= 18'}
@@ -1870,6 +1897,19 @@ packages:
 
   '@sentry/solid@10.46.0':
     resolution: {integrity: sha512-OR/yj/jxs+wCsaJ6Nh7PtS9+FHbezs2oH/ZBfs9438Nqn99iLPYxVpH9CSN+AGtyrPWxSI5MCh5VP8LZTlUDTw==}
+    engines: {node: '>=18'}
+    peerDependencies:
+      '@solidjs/router': ^0.13.4 || ^0.14.0 || ^0.15.0
+      '@tanstack/solid-router': ^1.132.27
+      solid-js: ^1.8.4
+    peerDependenciesMeta:
+      '@solidjs/router':
+        optional: true
+      '@tanstack/solid-router':
+        optional: true
+
+  '@sentry/solid@10.63.0':
+    resolution: {integrity: sha512-Vbc1QNZ5FnuCY0Dx8eIP9IUWxg5saBaUwoZ0jslUc9SJNjRD9wIk5/0GX2xuFQHxw5kmqqV35Euvfvp5l/hdtQ==}
     engines: {node: '>=18'}
     peerDependencies:
       '@solidjs/router': ^0.13.4 || ^0.14.0 || ^0.15.0
@@ -6751,6 +6791,10 @@ snapshots:
 
   '@sentry/babel-plugin-component-annotate@5.1.1': {}
 
+  '@sentry/browser-utils@10.63.0':
+    dependencies:
+      '@sentry/core': 10.63.0
+
   '@sentry/browser@10.46.0':
     dependencies:
       '@sentry-internal/browser-utils': 10.46.0
@@ -6758,6 +6802,14 @@ snapshots:
       '@sentry-internal/replay': 10.46.0
       '@sentry-internal/replay-canvas': 10.46.0
       '@sentry/core': 10.46.0
+
+  '@sentry/browser@10.63.0':
+    dependencies:
+      '@sentry/browser-utils': 10.63.0
+      '@sentry/core': 10.63.0
+      '@sentry/feedback': 10.63.0
+      '@sentry/replay': 10.63.0
+      '@sentry/replay-canvas': 10.63.0
 
   '@sentry/bundler-plugin-core@5.1.1':
     dependencies:
@@ -6818,6 +6870,22 @@ snapshots:
 
   '@sentry/core@10.46.0': {}
 
+  '@sentry/core@10.63.0': {}
+
+  '@sentry/feedback@10.63.0':
+    dependencies:
+      '@sentry/core': 10.63.0
+
+  '@sentry/replay-canvas@10.63.0':
+    dependencies:
+      '@sentry/core': 10.63.0
+      '@sentry/replay': 10.63.0
+
+  '@sentry/replay@10.63.0':
+    dependencies:
+      '@sentry/browser-utils': 10.63.0
+      '@sentry/core': 10.63.0
+
   '@sentry/rollup-plugin@5.1.1(rollup@4.57.1)':
     dependencies:
       '@sentry/bundler-plugin-core': 5.1.1
@@ -6834,6 +6902,14 @@ snapshots:
       solid-js: 1.9.11
     optionalDependencies:
       '@solidjs/router': 0.15.4(solid-js@1.9.11)
+
+  '@sentry/solid@10.63.0(@solidjs/router@0.16.1(solid-js@1.9.11))(solid-js@1.9.11)':
+    dependencies:
+      '@sentry/browser': 10.63.0
+      '@sentry/core': 10.63.0
+      solid-js: 1.9.11
+    optionalDependencies:
+      '@solidjs/router': 0.16.1(solid-js@1.9.11)
 
   '@sentry/vite-plugin@5.1.1(rollup@4.57.1)':
     dependencies:

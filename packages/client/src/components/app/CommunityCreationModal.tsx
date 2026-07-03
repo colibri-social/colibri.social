@@ -128,14 +128,14 @@ export const CommunityCreationModal: ParentComponent = (props) => {
 			{
 				title: "Colibri-managed",
 				description:
-					"We create the community on our EU-based server host it for you.",
+					"We create the community on our EU-based server and host & manage it for you.",
 				value: "managed",
 				disabled: false,
 			},
 			{
 				title: "Bring your own",
 				description:
-					"You create the community on your own PDS and allow us to manage it.",
+					"You create a new community account on your own PDS and allow us to manage it.",
 				value: "byo",
 				disabled: false,
 			},
@@ -145,16 +145,17 @@ export const CommunityCreationModal: ParentComponent = (props) => {
 			<>
 				<div class="flex flex-row items-center justify-center w-full gap-4">
 					<RadioGroup defaultValue={ownership()} onChange={setOwnership}>
-						<RadioGroupItems>
+						<RadioGroupItems class="flex-col sm:flex-row">
 							<For each={options}>
 								{(option) => (
 									<RadioGroupItem
 										value={option.value}
 										disabled={option.disabled}
+										class="w-full"
 									>
 										<RadioGroupItemInput disabled={option.disabled} />
 										<RadioGroupItemLabel
-											class="flex flex-col text-center text-pretty rounded-md p-2 border border-border outline-2 outline-transparent gap-2 data-checked:border-primary data-checked:outline-primary/50 data-checked:bg-primary/10"
+											class="flex flex-col text-center w-full text-pretty rounded-md p-2 border border-border outline-2 outline-transparent gap-2 data-checked:border-primary data-checked:outline-primary/50 data-checked:bg-primary/10"
 											classList={{
 												"opacity-50": option.disabled,
 											}}
