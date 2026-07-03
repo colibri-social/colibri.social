@@ -3,6 +3,7 @@ import ArrowLineLeftIcon from "~icons/ph/arrow-line-left";
 import BellIcon from "~icons/ph/bell";
 import BugIcon from "~icons/ph/bug";
 import CameraIcon from "~icons/ph/camera";
+import FlaskIcon from "~icons/ph/flask";
 import MicrophoneIcon from "~icons/ph/microphone";
 import SmileyIcon from "~icons/ph/smiley";
 import UserCircleIcon from "~icons/ph/user-circle";
@@ -13,7 +14,9 @@ import { useUserContext } from "../../../contexts/User";
 import { isWebRuntime } from "../../../notifications";
 import { unsubscribeWebPush } from "../../../notifications/push-web";
 import { SettingsModal } from "../common/SettingsModal";
+import { EXPERIMENTS } from "../../../experiments";
 import { DebugPage } from "./DebugPage";
+import { ExperimentsPage } from "./ExperimentsPage";
 import { GeneralPage } from "./GeneralPage";
 import { NotificationsPage } from "./NotificationsPage";
 import { PreferencesPage } from "./PreferencesPage";
@@ -60,6 +63,13 @@ export const UserSettingsModal: ParentComponent = (props) => {
 					id: "preferences",
 					component: PreferencesPage,
 					icon: () => <WrenchIcon />,
+				},
+				{
+					title: "Experiments",
+					id: "experiments",
+					component: ExperimentsPage,
+					icon: () => <FlaskIcon />,
+					visible: () => EXPERIMENTS.length > 0,
 				},
 			]}
 			debugPage={{

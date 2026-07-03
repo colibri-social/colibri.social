@@ -62,6 +62,8 @@ export type UserPreferencesContextData = {
 	preferredAppView: string;
 	/** Most-recently-used GIFs (newest first), shown in the picker's Recents. */
 	recentGifs: Array<GifItem>;
+	/** Per-experiment opt-in state, keyed by experiment id. */
+	experiments: Record<string, boolean>;
 };
 
 const DEFAULT_PREFERENCES: UserPreferencesContextData = {
@@ -88,6 +90,7 @@ const DEFAULT_PREFERENCES: UserPreferencesContextData = {
 	preferredBlueskyClient: "bluesky",
 	preferredAppView: DEFAULT_APPVIEW_URL,
 	recentGifs: [],
+	experiments: {},
 };
 
 function loadFromStorage(): UserPreferencesContextData {
@@ -113,6 +116,7 @@ type UserPreferencesContextValue = {
 	setPreferredBlueskyClient: (client: BlueskyClientID) => void;
 	setPreferredAppView: (appView: string) => void;
 	pushRecentGif: (gif: GifItem) => void;
+	setExperiment: (id: string, enabled: boolean) => void;
 };
 
 const UserPreferencesContext = createContext<UserPreferencesContextValue>();
@@ -156,10 +160,17 @@ export const UserPreferencesContextProvider: ParentComponent = (props) => {
 	const pushRecentGif = (gif: GifItem) => {
 		setPreferences((p) => ({
 			...p,
-			recentGifs: [
-				gif,
-				...p.recentGifs.filter((g) => g.id !== gif.id),
-			].slice(0, MAX_RECENT_GIFS),
+			recentGifs: [gif, ...p.recentGifs.filter((g) => g.id !== gif.id)].slice(
+				0,
+				MAX_RECENT_GIFS,
+			),
+		}));
+	};
+
+	const setExperiment = (id: string, enabled: boolean) => {
+		setPreferences((p) => ({
+			...p,
+			experiments: { ...p.experiments, [id]: enabled },
 		}));
 	};
 
@@ -174,6 +185,7 @@ export const UserPreferencesContextProvider: ParentComponent = (props) => {
 				setPreferredBlueskyClient,
 				setPreferredAppView,
 				pushRecentGif,
+				setExperiment,
 			}}
 		>
 			{props.children}
