@@ -11,7 +11,7 @@
  */
 
 import { AtpAgent } from "@atproto/api";
-import { LEXICON_DOCS } from "../src/utils/atproto/lexicons.ts";
+import { LEXICON_DOCS } from "../src/utils/atproto/lexicons/index.ts";
 
 const pds = process.env.LEXICON_PDS;
 const handle = process.env.LEXICON_HANDLE;

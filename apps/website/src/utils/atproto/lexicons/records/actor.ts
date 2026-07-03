@@ -1,0 +1,147 @@
+import type { LexiconDoc } from "@atproto/lexicon";
+import { RECORD_IDs } from "../ids.ts";
+
+export const actorRecordDocs: LexiconDoc[] = [
+	{
+		lexicon: 1,
+		id: RECORD_IDs.ACTOR_DATA,
+		revision: 1,
+		defs: {
+			main: {
+				description: "The main actor data used in Colibri",
+				key: "literal:self",
+				record: {
+					properties: {
+						$type: {
+							type: "string",
+							description: "The type of the record.",
+							format: "nsid",
+						},
+						status: {
+							type: "string",
+							description:
+								"The status for the user, displayed on their profile.",
+							maxLength: 32,
+							default: "",
+						},
+						emoji: {
+							type: "string",
+							description: "The emoji displayed next to status.",
+						},
+						communities: {
+							type: "array",
+							description:
+								"The DIDs of the communities this user is a member of, in the user's preferred sidebar order. Read back by `social.colibri.actor.listCommunities` to restore ordering.",
+							items: {
+								type: "string",
+								format: "did",
+								description: "The DID of a community.",
+							},
+						},
+					},
+					required: ["status", "communities"],
+					type: "object",
+				},
+				type: "record",
+			},
+		},
+	},
+	{
+		lexicon: 1,
+		id: RECORD_IDs.ACTOR_PROFILE,
+		revision: 1,
+		defs: {
+			main: {
+				description:
+					"A Colibri-specific user profile. Singleton record on the user's own repo, kept separate from app.bsky.actor.profile so Colibri never needs write access to the Bluesky record.",
+				key: "literal:self",
+				type: "record",
+				record: {
+					type: "object",
+					required: [],
+					properties: {
+						$type: {
+							type: "string",
+							description: "The type of the record.",
+							format: "nsid",
+						},
+						displayName: {
+							type: "string",
+							description: "The user's display name.",
+							maxGraphemes: 64,
+							maxLength: 640,
+						},
+						description: {
+							type: "string",
+							description: "The user's profile description / bio.",
+							maxGraphemes: 256,
+							maxLength: 2560,
+						},
+						avatar: {
+							type: "blob",
+							description: "The user's avatar image.",
+							accept: ["image/jpeg", "image/png", "image/gif", "image/webp"],
+						},
+						banner: {
+							type: "blob",
+							description: "The user's profile banner image.",
+							accept: ["image/jpeg", "image/png", "image/gif", "image/webp"],
+						},
+						syncBluesky: {
+							type: "boolean",
+							default: false,
+							description:
+								"When true, the AppView serves displayName/avatar/banner/description from the user's app.bsky.actor.profile record (Bluesky stays the live source); these mirrored fields may be omitted here.",
+						},
+						theme: {
+							type: "ref",
+							ref: "#theme",
+							description:
+								"Colibri-only profile theming. Always sourced from this record regardless of syncBluesky.",
+						},
+					},
+				},
+			},
+			theme: {
+				type: "object",
+				description: "Colibri-only profile theming.",
+				required: [],
+				properties: {
+					accentColor: {
+						type: "string",
+						description: "Accent color as a #rrggbb hex string.",
+						maxLength: 7,
+					},
+					gradient: {
+						type: "ref",
+						ref: "#themeGradient",
+						description: "Two-color gradient profile theme.",
+					},
+					bannerColor: {
+						type: "string",
+						description:
+							"Solid fallback banner color as #rrggbb, used when no banner image is set.",
+						maxLength: 7,
+					},
+				},
+			},
+			themeGradient: {
+				type: "object",
+				description: "Two-color gradient profile theme.",
+				required: [],
+				properties: {
+					primary: {
+						type: "string",
+						description: "Primary gradient color as #rrggbb.",
+						maxLength: 7,
+					},
+					secondary: {
+						type: "string",
+						description: "Secondary gradient color as #rrggbb.",
+						maxLength: 7,
+					},
+				},
+			},
+		},
+	},
+];

@@ -1,0 +1,38 @@
+import type { LexiconDoc } from "@atproto/lexicon";
+import { RECORD_IDs } from "../ids.ts";
+
+export const reactionRecordDocs: LexiconDoc[] = [
+	{
+		lexicon: 1,
+		id: RECORD_IDs.REACTION,
+		revision: 1,
+		defs: {
+			main: {
+				type: "record",
+				key: "tid",
+				description: "A reaction on a Colibri message.",
+				record: {
+					required: ["emoji", "parent"],
+					type: "object",
+					properties: {
+						$type: {
+							type: "string",
+							description: "The type of the record.",
+							format: "nsid",
+						},
+						emoji: {
+							type: "string",
+							description:
+								"The emoji of the reaction. This allows for any string to support for custom emojis later down the line.",
+						},
+						parent: {
+							type: "string",
+							description: "The message this relation belongs to.",
+							format: "record-key",
+						},
+					},
+				},
+			},
+		},
+	},
+];

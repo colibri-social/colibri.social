@@ -28,6 +28,7 @@ import { putRecord } from "../atproto/pds";
 import { resolveBlob } from "../atproto/resolve-blob";
 import { CommunityCreationModal } from "../components/app/CommunityCreationModal";
 import { CommunityContextMenu } from "../components/app/community/CommunityContextMenu";
+import { PENDING_INVITE_KEY } from "../components/app/community/InviteModal";
 import { NativeNotifications } from "../components/app/NativeNotifications";
 import { UserSettingsModal } from "../components/app/settings";
 import { Plus } from "../components/icons/Plus";
@@ -44,15 +45,15 @@ import {
 	useNotifications,
 } from "../contexts/Notifications";
 import { useSocketContext } from "../contexts/Socket";
+import { SoundsContextProvider } from "../contexts/Sounds";
 import { useUserContext } from "../contexts/User";
 import { UserPreferencesContextProvider } from "../contexts/UserPreferences";
+import { LongPressSensors } from "../utils/create-longpress-sensor";
 import {
 	animateToNewPositions,
 	capturePositions,
 	reorderList,
 } from "../utils/drag";
-import { SoundsContextProvider } from "../contexts/Sounds";
-import { LongPressSensors } from "../utils/create-longpress-sensor";
 import { createMobilePane } from "../utils/mobile-pane";
 import { createViewportMetrics } from "../utils/visual-viewport";
 
@@ -224,6 +225,16 @@ const AppLayout: ParentComponent = (props) => {
 		isMobile() && viewport.height() !== undefined
 			? `${viewport.height()}px`
 			: undefined;
+
+	onMount(() => {
+		let pending: string | null = null;
+		try {
+			pending = localStorage.getItem(PENDING_INVITE_KEY);
+		} catch {}
+		if (pending && !location.pathname.startsWith("/app/invite/")) {
+			navigate(`/app/invite/${pending}`, { replace: true });
+		}
+	});
 
 	onMount(() => {
 		const cleanup = socket.onEvent((event) => {

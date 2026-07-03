@@ -1,10 +1,17 @@
+import type { JsonBlobRef } from "@atproto/lexicon";
+import type { AT_URI } from "@colibri-social/lib";
 import type { XrpcRequest } from "../../..";
 
 type Response = {
 	code: string;
-	community: string;
+	community: AT_URI<"social.colibri.community">;
 	createdBy: string;
 	active: boolean;
+	name: string;
+	picture?: JsonBlobRef;
+	memberCount: number;
+	onlineCount: number;
+	requiresApprovalToJoin: boolean;
 };
 
 export const getInvitation: XrpcRequest<

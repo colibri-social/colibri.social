@@ -1,0 +1,53 @@
+import type { LexiconDoc } from "@atproto/lexicon";
+import { RECORD_IDs } from "../ids.ts";
+
+export const memberRecordDocs: LexiconDoc[] = [
+	{
+		lexicon: 1,
+		id: RECORD_IDs.MEMBER,
+		revision: 1,
+		defs: {
+			main: {
+				type: "record",
+				description:
+					"A community-side member record granting a user roles within the community. Lives on the community repo and is written when an admission is finalized.",
+				key: "tid",
+				record: {
+					type: "object",
+					required: ["subject", "joinedAt"],
+					properties: {
+						$type: {
+							type: "string",
+							description: "The type of the record.",
+							format: "nsid",
+						},
+						subject: {
+							type: "string",
+							description: "DID of the admitted user.",
+							format: "did",
+						},
+						roles: {
+							type: "array",
+							description:
+								"Role record-keys assigned to this member on the same community repo.",
+							items: { type: "string", format: "record-key" },
+						},
+						joinedAt: { type: "string", format: "datetime" },
+						nickname: {
+							type: "string",
+							description:
+								"Optional per-community display-name override for this member.",
+							maxLength: 32,
+						},
+						fromMembership: {
+							type: "string",
+							description:
+								"Optional AT-URI of the user's `social.colibri.membership` declaration this admission was based on.",
+							format: "at-uri",
+						},
+					},
+				},
+			},
+		},
+	},
+];
