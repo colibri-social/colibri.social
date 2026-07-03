@@ -813,7 +813,16 @@ const ChannelLayoutWithContext: ParentComponent = (props) => {
 
 	return (
 		<ChannelContextProvider channel={channel}>
-			<ChannelLayout>{props.children}</ChannelLayout>
+			<Show
+				when={channel()}
+				fallback={
+					<div class="w-full h-full flex items-center justify-center text-sm text-muted-foreground">
+						Loading channel...
+					</div>
+				}
+			>
+				<ChannelLayout>{props.children}</ChannelLayout>
+			</Show>
 		</ChannelContextProvider>
 	);
 };

@@ -397,6 +397,8 @@ const AppLayout: ParentComponent = (props) => {
 		void persistCommunityOrder(finalOrder, previous);
 	};
 
+	const isInHome = () => location.pathname === "/app";
+
 	return (
 		<div
 			class="flex flex-col w-screen bg-card"
@@ -448,6 +450,9 @@ const AppLayout: ParentComponent = (props) => {
 							<A
 								href="/app"
 								class="min-w-10 flex min-h-10 rounded-md bg-muted hover:bg-primary hover:text-primary-foreground items-center justify-center cursor-pointer"
+								classList={{
+									"bg-primary": isInHome(),
+								}}
 							>
 								<HouseIcon />
 							</A>

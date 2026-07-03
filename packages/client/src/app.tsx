@@ -2,8 +2,8 @@ import "./sentry";
 
 import "@arborium/arborium/themes/base.css";
 import "@arborium/arborium/themes/tokyo-night.css";
-import * as Sentry from "@sentry/solid";
 import { ColorModeProvider } from "@kobalte/core/color-mode";
+import * as Sentry from "@sentry/solid";
 
 // The app is always dark-themed (no light mode toggle), but arborium's
 // theme CSS otherwise falls back to `prefers-color-scheme`, which would
@@ -12,8 +12,8 @@ if (typeof document !== "undefined") {
 	document.documentElement.dataset.theme = "dark";
 }
 
-import { Route, Router, useNavigate, useParams } from "@solidjs/router";
 import { withSentryRouterRouting } from "@sentry/solid/solidrouter";
+import { Route, Router, useNavigate, useParams } from "@solidjs/router";
 import {
 	type Component,
 	createEffect,
@@ -22,6 +22,7 @@ import {
 	type ParentComponent,
 	Show,
 } from "solid-js";
+import { urlSegmentToUri } from "./atproto/community-uri-to-url-compatible";
 import { AppLoadingScreen } from "./components/AppLoadingScreen";
 import { InviteModal } from "./components/app/community/InviteModal";
 import { VoiceChannelView } from "./components/app/VoiceChannelView";
@@ -37,7 +38,6 @@ import AppLayout from "./layouts/AppLayout";
 import ChannelLayoutWithContext from "./layouts/ChannelLayout";
 import CommunityLayoutWithContext from "./layouts/CommunityLayout";
 import { AtURI } from "./utils/at-uri";
-import { getCommunityParam } from "./utils/get-param";
 import { isMobileNow, useIsMobile } from "./utils/mobile-pane";
 
 // Accepted forms of the `:channelType` URL segment. We accept both the
@@ -74,25 +74,32 @@ const RedirectToApp: Component = () => {
 const SentryErrorBoundary = Sentry.withSentryErrorBoundary(ErrorBoundary);
 const SentryRouter = withSentryRouterRouting(Router);
 
-const AppErrorScreen: Component<{ reset: () => void }> = (props) => (
-	<div class="w-full h-full absolute top-0 left-0 z-50 flex flex-col items-center justify-center gap-3 text-white select-none">
-		<p class="text-base font-medium">Something went wrong.</p>
-		<button
-			type="button"
-			class="text-sm text-muted-foreground underline"
-			onClick={() => props.reset()}
-		>
-			Try again
-		</button>
-	</div>
-);
+const AppErrorScreen: Component<{ error: unknown; reset: () => void }> = (
+	props,
+) => {
+	onMount(() => console.error("[App] Uncaught error:", props.error));
+	return (
+		<div class="w-full h-full absolute top-0 left-0 z-50 flex flex-col items-center justify-center gap-3 text-white select-none">
+			<p class="text-base font-medium">
+				Something went wrong. We've received a report and are working on a fix.
+			</p>
+			<button
+				type="button"
+				class="text-sm text-muted-foreground underline cursor-pointer"
+				onClick={() => props.reset()}
+			>
+				Try again
+			</button>
+		</div>
+	);
+};
 
 const App: ParentComponent = () => {
 	const isMobile = useIsMobile();
 	return (
 		<SentryErrorBoundary
-			fallback={(_err: unknown, reset: () => void) => (
-				<AppErrorScreen reset={reset} />
+			fallback={(err: unknown, reset: () => void) => (
+				<AppErrorScreen error={err} reset={reset} />
 			)}
 		>
 			<AuthContextProvider>
@@ -118,31 +125,43 @@ const App: ParentComponent = () => {
 										const c = useCommunityContext();
 										const communityUrlSeg = () => params.community!;
 
-										onMount(() => {
+										createEffect(() => {
 											// On mobile the community placeholder IS the nav-root
 											// pane, don't auto-redirect into a channel. The user
 											// taps a channel to push into chat.
 											if (isMobileNow()) return;
 
-											const mostRecentChannel = localStorage.getItem(
+											if (
+												c().community.uri !== urlSegmentToUri(communityUrlSeg())
+											)
+												return;
+
+											const raw = localStorage.getItem(
 												`${communityUrlSeg()}:last-viewed`,
 											);
 
-											if (!mostRecentChannel) {
-												const firstChannel = c().channels[0];
-
-												navigate(
-													`/app/c/${communityUrlSeg()}/${firstChannel.type}/${new AtURI(firstChannel.uri).identifier}`,
-												);
-
-												return;
+											if (raw) {
+												try {
+													const channel = JSON.parse(raw) as {
+														uri: string;
+														type: string;
+													};
+													if (
+														c().channels.some((ch) => ch.uri === channel.uri)
+													) {
+														navigate(
+															`/app/c/${communityUrlSeg()}/${channel.type}/${new AtURI(channel.uri).identifier}`,
+														);
+														return;
+													}
+												} catch {}
 											}
 
-											const channel: { uri: string; type: string } =
-												JSON.parse(mostRecentChannel);
+											const firstChannel = c().channels[0];
+											if (!firstChannel) return;
 
 											navigate(
-												`/app/c/${communityUrlSeg()}/${channel.type}/${new AtURI(channel.uri).identifier}`,
+												`/app/c/${communityUrlSeg()}/${firstChannel.type}/${new AtURI(firstChannel.uri).identifier}`,
 											);
 										});
 
