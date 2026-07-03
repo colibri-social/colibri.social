@@ -4,6 +4,7 @@ import {
 	type BlueskyAlternative,
 	BSKY_ALTERNATIVES,
 } from "../../../atproto/bluesky-alternatives";
+import { syncPresenceService } from "../../../atproto/presence";
 import { endSession } from "../../../atproto/session";
 import { useAuthContext } from "../../../contexts/Auth";
 import { useUserContext } from "../../../contexts/User";
@@ -24,6 +25,14 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "../../ui/Select";
+import {
+	SwitchControl,
+	SwitchDescription,
+	SwitchInput,
+	SwitchLabel,
+	SwitchThumb,
+	Switch as Toggle,
+} from "../../ui/Switch";
 import {
 	TextField,
 	TextFieldDescription,
@@ -71,6 +80,12 @@ export const PreferencesPage: Component = () => {
 
 		userPreferences.setPreferredAppView(url);
 
+		if (userPreferences.preferences().sharePresence) {
+			try {
+				await syncPresenceService(user.atproto.agent, user.did, true, url);
+			} catch {}
+		}
+
 		toast.success(
 			`Connected to Colibri AppView (${description.flavor}) v${description.version}.`,
 			{
@@ -95,6 +110,13 @@ export const PreferencesPage: Component = () => {
 			},
 		),
 	);
+
+	const toggleSharePresence = async (enabled: boolean) => {
+		userPreferences.setSharePresence(enabled);
+		try {
+			await syncPresenceService(user.atproto.agent, user.did, enabled);
+		} catch {}
+	};
 
 	const invalidAppViewUrl = () => !isValidAppViewUrl(appView());
 
@@ -143,7 +165,10 @@ export const PreferencesPage: Component = () => {
 					The AppView you want to connect to. The AppView is responsible for
 					relaying the messages sent in communities back to your device (the
 					server). Switching AppViews signs you out and back in, since each
-					AppView needs its own authorisation.{" "}
+					AppView needs its own authorisation. Please note that communities are
+					tied to AppViews and cannot currently be migrated, so switching
+					AppView means losing access to previously created communities until
+					you switch back.{" "}
 					<Show when={import.meta.env.DEV}>
 						<Alert variant="info" class="my-4">
 							<AlertTitle>Development Mode</AlertTitle>
@@ -157,6 +182,7 @@ export const PreferencesPage: Component = () => {
 						href="https://github.com/colibri-social/appview"
 						target="_blank"
 						rel="noreferrer"
+						class="text-primary hover:underline"
 					>
 						Read more about self-hosting our AppView.
 					</a>
@@ -177,6 +203,25 @@ export const PreferencesPage: Component = () => {
 					</Button>
 				</div>
 			</TextField>
+			<Toggle
+				class="flex flex-row gap-4 items-center w-full justify-between shrink-0"
+				checked={userPreferences.preferences().sharePresence}
+				onChange={toggleSharePresence}
+			>
+				<div>
+					<SwitchLabel>Share presence across AppViews</SwitchLabel>
+					<SwitchDescription>
+						When on, your online status and typing can reach members of your
+						communities who use a different AppView.
+					</SwitchDescription>
+				</div>
+				<div>
+					<SwitchInput />
+					<SwitchControl>
+						<SwitchThumb />
+					</SwitchControl>
+				</div>
+			</Toggle>
 		</SettingsPage>
 	);
 };

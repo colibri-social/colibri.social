@@ -85,6 +85,10 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 		getRoom()?.disconnect();
 
 		// TODO: Check if this works as intended
+		// When the SFU ships, this token request and the room.connect below must
+		// target the community's home AppView (its `appview` field, the SFU host),
+		// not the user's preferred AppView — every participant has to converge on
+		// the same SFU. Today it rides user.xrpc (the preferred AppView).
 		const tokenRes =
 			await user.xrpc.social.colibri.channel.getVoiceToken(channelUri);
 		if (!tokenRes) return;
