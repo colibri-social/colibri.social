@@ -14,8 +14,10 @@ import { resolveBlob } from "../../../atproto/resolve-blob";
 import { endSession } from "../../../atproto/session";
 import { useAuthContext } from "../../../contexts/Auth";
 import { useUserContext } from "../../../contexts/User";
+import { useUserPreferences } from "../../../contexts/UserPreferences";
 import { isWebRuntime } from "../../../notifications";
 import { unsubscribeWebPush } from "../../../notifications/push-web";
+import { getAppViewDid, getPreferredAppViewUrl } from "../../../utils/appview";
 import { Bluesky } from "../../icons/Bluesky";
 import { Image } from "../../icons/Image";
 import { Button } from "../../ui/Button";
@@ -293,6 +295,7 @@ export const ProfileSetupModal: Component<{
 }> = (props) => {
 	const user = useUserContext();
 	const auth = useAuthContext();
+	const userPreferences = useUserPreferences();
 
 	const logout = async () => {
 		try {
@@ -389,6 +392,10 @@ export const ProfileSetupModal: Component<{
 
 			const theme = themeStateToRecord(value.theme);
 			record.theme = theme;
+
+			if (userPreferences.preferences().sharePresence) {
+				record.presenceService = getAppViewDid(getPreferredAppViewUrl());
+			}
 
 			let avatar: JsonBlobRef | undefined;
 			let banner: JsonBlobRef | undefined;

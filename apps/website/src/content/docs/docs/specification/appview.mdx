@@ -3128,22 +3128,98 @@ Emitted over [`social.colibri.sync.subscribeEvents`](#socialcolibrisyncsubscribe
 
 ## Humming
 
-:::caution[Not yet implemented]
-The Humming system is designed but not yet implemented in the current AppView. The endpoints described below are not registered and will return 404.
+:::caution[Experimental]
+Humming is **enabled by default**. AppViews can opt out out by returning  a `NotEnabled` error on the endpoint below and opening no outbound connections. In the reference AppView, this can be achieved by starting the AppView with `HUMMING_ENABLED=false`. Cross-instance behaviour has not yet been hardened by a large federated deployment, so treat it as experimental.
 :::
 
-The Colibri infrastructure is designed to be easy to self-host. In cases where users prefer to host their own infrastructure, under normal circumstances, data that is not saved on the protocol (like online/offline status, writing presence, etc.) is not able to be transmitted to other users who use a different AppView.
+Colibri is built to be self-hostable, so it's possible that a community's members are spread across several AppViews. On-protocol data reaches every AppView through the tap firehose. **Off-protocol** signals, like online status, typing, voice presence, never touch a repo, so without Humming they are contained within the AppView that produced them. A user on one instance can't see the presence of a community member on another.
 
-The Colibri AppView supports a system called **Humming** to circumvent this. Other AppView instances that wish to share off-protocol status data with users on other instances can share them via a **Hum**, a message sent to another AppView instance's `social.colibri.sync.sendHum` endpoint, which can then choose to relay it to its clients via its [`social.colibri.sync.subscribeEvents`](#socialcolibrisyncsubscribeevents) WebSocket stream. Additionally, AppViews that wish to forward these events to other AppViews can expose a `social.colibri.sync.subscribeHums` endpoint, to which other AppViews can subscribe.
+**Humming** bridges that gap. A **Hum** is a single off-protocol event (a status change, a typing start, a voice join/leave) that one AppView relays to another so it can be delivered to that instance's clients over its ordinary [`social.colibri.sync.subscribeEvents`](#socialcolibrisyncsubscribeevents) stream. Humming carries **only** these ephemeral signals. It cannot carry a message, a membership, or any other on-protocol data.
+
+### Topology: per-community hub
+
+Every community already has exactly one AppView that administers it, the holder of its `community_credentials`, the only party that can write to the community repo. That AppView is the community's **presence hub**. It is discovered from the community record itself: `social.colibri.community` carries an `appview` field (a `did:web`) naming the home AppView.
+
+Presence flows through the hub in a **star** topology, not a gossip mesh:
+
+1. A **leaf** (any AppView with a local, online member of the community) sends the member's Hums to the community's hub via [`sendHum`](#socialcolibrisyncsendhum).
+2. The **hub** injects the Hum for its own local clients and fans it out to every leaf subscribed via [`subscribeHums`](#socialcolibrisyncsubscribehums).
+3. **Leaves never re-forward.** A Hum received over `subscribeHums` is delivered to local clients only.
+
+A Hum therefore makes **at most two hops** (leaf → hub → leaf), and an instance only ever sees traffic for communities its own users belong to. There is no whole-network flood.
+
+### Trust model
+
+A Hum is only acted on if it passes every check below. The design goal is that a forged or abusive Hum can, at worst, cause a cosmetic presence blip for a user who already opted in.
+
+1. **Off-protocol data only.** The wire type for a Hum's event is a closed union of `userEvent`, `typingEvent`, and `voicePresenceEvent`. An on-protocol payload will be ignored.
+2. **The peer AppView is authenticated.** Every Hum carries an [inter-service auth](https://atproto.com/specs/xrpc#inter-service-authentication-jwt) JWT signed by the sending AppView's key (`iss` = its `did:web`, `aud` = the receiver's `did:web`, `lxm` = the method NSID). This is a peer-to-peer AppView token, **not** the user OAuth token used by the rest of the API.
+3. **The origin must be an AppView.** The verified issuer must be a `did:web`. This stops a user from minting a service-auth token under their own `did:plc` and originating presence for themselves.
+4. **The origin must be the subject's declared presence service.** A Hum about a user is dropped unless its `origin` equals that user's `presenceService` (see [Opting in](#opting-in)). A valid signature proves *who sent* the Hum, this check proves *who they may speak for*. A missing `presenceService` means the user hasn't opted in, so the Hum is dropped.
+5. **The subject must be a member.** The subject must hold a `social.colibri.member` record on the target community, so a peer can't inject a user into a community they never joined.
+6. **Channels must belong to the community.** Any channel a typing or voice event references must be an `at-uri` whose authority is the target community.
+
+Finally, the receiver re-derives the subject's identity from its own view of that user's repo and attributes the injected event to the envelope's `subject`. The peer-supplied identity fields inside the event payload (display name, handle, the inner `did`) are discarded and only the ephemeral status/typing/voice signal is taken from the Hum. This closes any attempt to attribute an event to a different user.
+
+### Opting in
+
+Cross-instance presence is **opt-in per user**. A user opts in by publishing a `presenceService` field (a `did:web`) on their `social.colibri.actor.profile`, naming the AppView allowed to speak for their presence. The reference Colibri client keeps this in sync with the AppView the user actually connects to (the one chosen in the settings picker) and exposes a **"Share presence across AppViews"** toggle, on by default.
+
+Turning the toggle off removes the `presenceService` key from the profile. A missing key is the signal for "opted out": every AppView drops Hums about that user, so their presence, typing, and voice never cross an instance boundary. Local, same-AppView presence is unaffected.
+
+### The Hum envelope
+
+Both endpoints exchange the same envelope:
+
+```ts title="humEnvelope"
+{
+	origin: string;      // did:web of the AppView that produced the Hum
+	id: string;          // unique per origin, used for dedup across relay paths
+	ttl: number;         // remaining hops (0..8), starts at 1, hub decrements to 0
+	subject: string;     // did of the user the event is about
+	community: string;   // at-uri of the community the event is scoped to
+	event: UserEvent | TypingEvent | VoicePresenceEvent;
+}
+```
+
+`userEvent` and `typingEvent` are the same shapes emitted over [`subscribeEvents`](#socialcolibrisyncsubscribeevents). `voicePresenceEvent` describes a voice channel join/leave:
+
+```ts title="voicePresenceEvent"
+{
+	event: 'join' | 'leave';
+	channel: string; // at-uri of the voice channel
+	did: string;     // subject (re-derived by the receiver)
+}
+```
 
 ### `social.colibri.sync.sendHum`
 
-Inform another AppView of an event that has occurred.
+Informs this AppView, acting as a community's hub, of an off-protocol event that occurred for one of the calling AppView's users.
 
 <XRPCEndpointCard
 	method="POST"
 	nsid="social.colibri.sync.sendHum"
 	body={{
+		origin: {
+			type: "did",
+			required: true
+		},
+		id: {
+			type: "string",
+			required: true
+		},
+		ttl: {
+			type: "integer",
+			required: true
+		},
+		subject: {
+			type: "did",
+			required: true
+		},
+		community: {
+			type: "at-uri",
+			required: true
+		},
 		event: {
 			type: "object",
 			required: true
@@ -3151,15 +3227,49 @@ Inform another AppView of an event that has occurred.
 	}}
 />
 
+#### Authentication
+
+`sendHum` is authenticated with a peer-AppView **inter-service auth** JWT, not the user OAuth token used elsewhere. The token is supplied as a bearer token (`Authorization: Bearer <jwt>`), with `aud` set to the receiving AppView's `did:web` and `lxm` set to `social.colibri.sync.sendHum`. The receiver resolves the issuer's DID document, verifies the signature, and treats `iss` as the peer AppView identity, which must equal the envelope's `origin`.
+
+The receiver then runs the [trust model](#trust-model) checks, injects the event locally (presence and voice as `Community`-scoped events on `subscribeEvents`, typing as a client-to-client typing event), and, if it is a hub, while `ttl > 0`, decrements `ttl` and republishes the Hum to its `subscribeHums` subscribers.
+
+Errors: `AuthRequired` (missing/invalid token), `Forbidden` (any trust-model check failed), `RateLimited` (peer exceeded its per-peer budget), `UnsupportedEvent` (payload was not an off-protocol event), `NotEnabled` (Humming disabled on this AppView).
+
 ### `social.colibri.sync.subscribeHums`
+
+A peer AppView opens this WebSocket to receive, in real time, the Hums this AppView relays in its hub role.
 
 <XRPCEndpointCard
 	method="WS"
 	nsid="social.colibri.sync.subscribeHums"
 />
 
-For transmitted event types, please refer to [`social.colibri.sync.subscribeEvents`](#socialcolibrisyncsubscribeevents).
+#### Authentication
+
+Like [`subscribeEvents`](#socialcolibrisyncsubscribeevents), a browser-incompatible header can't be set on a `WebSocket`, so the peer's inter-service auth JWT (`aud` = this AppView, `lxm` = `social.colibri.sync.subscribeHums`) is offered through the subprotocol list, after the same `colibri.auth.bearer` sentinel:
+
+```js
+new WebSocket(url, ["colibri.auth.bearer", token]);
+```
+
+The sentinel is echoed back on success, the token is not.
+
+#### Need-to-know egress
+
+A valid token authenticates *who* is connecting, not *what* they may see. Streaming every relayed Hum to any authenticated peer would leak the presence of every user in every community on the hub. Instead, the hub only forwards Hums for a community when that community has a member who declared the connecting peer as their `presenceService`. This authorized set is recomputed periodically as memberships and `presenceService` choices change.
+
+A peer may additionally narrow what it receives by declaring the communities it cares about as repeated `communities` query parameters (`?communities=<did>&communities=<did>`). This is intersected with the authorized set: it can only shrink the stream, never widen it. Omitting it streams everything the peer is authorized for.
 
 :::note
-It is not possible to send messages to an AppView via the `social.colibri.sync.subscribeHums` endpoint. It only functions as an egress.
+`subscribeHums` is egress-only: inbound frames are ignored except the close signal. Peers push Hums with [`sendHum`](#socialcolibrisyncsendhum), never here.
 :::
+
+### Propagation bounds & abuse controls
+
+The star topology bounds propagation structurally (two hops, no re-forwarding), and several additional guards protect self-hosted instances:
+
+- **`ttl`** starts at `1` and the hub decrements it to `0` on rebroadcast; a bound that, combined with leaves never re-forwarding, prevents loops.
+- **Dedup.** Each AppView keeps a bounded set of recently-seen envelope `id`s and drops duplicates that arrive over more than one relay path, along with any Hum it originated itself.
+- **`HUM_MAX_PEERS`** caps the number of distinct remote hubs a leaf will dial (default `32`). Beyond the cap, extra hubs are skipped.
+- **`HUM_MAX_SUBSCRIBERS`** caps concurrent inbound `subscribeHums` streams a hub will hold (default `256`). Further connections are rejected with `TooManySubscribers`.
+- **Per-peer rate limit** on `sendHum` (`HUM_RATE_LIMIT`, default `240`/minute per peer). Presence and typing are inherently low-rate, so a peer exceeding the budget is `RateLimited`.

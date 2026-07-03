@@ -60,6 +60,7 @@ export type UserPreferencesContextData = {
 	};
 	preferredBlueskyClient: BlueskyClientID;
 	preferredAppView: string;
+	sharePresence: boolean;
 	/** Most-recently-used GIFs (newest first), shown in the picker's Recents. */
 	recentGifs: Array<GifItem>;
 	/** Per-experiment opt-in state, keyed by experiment id. */
@@ -89,6 +90,7 @@ const DEFAULT_PREFERENCES: UserPreferencesContextData = {
 	},
 	preferredBlueskyClient: "bluesky",
 	preferredAppView: DEFAULT_APPVIEW_URL,
+	sharePresence: true,
 	recentGifs: [],
 	experiments: {},
 };
@@ -115,6 +117,7 @@ type UserPreferencesContextValue = {
 	setNativeNotifications: (enabled: boolean) => void;
 	setPreferredBlueskyClient: (client: BlueskyClientID) => void;
 	setPreferredAppView: (appView: string) => void;
+	setSharePresence: (enabled: boolean) => void;
 	pushRecentGif: (gif: GifItem) => void;
 	setExperiment: (id: string, enabled: boolean) => void;
 };
@@ -157,6 +160,10 @@ export const UserPreferencesContextProvider: ParentComponent = (props) => {
 		setPreferences((p) => ({ ...p, preferredAppView: appView }));
 	};
 
+	const setSharePresence = (enabled: boolean) => {
+		setPreferences((p) => ({ ...p, sharePresence: enabled }));
+	};
+
 	const pushRecentGif = (gif: GifItem) => {
 		setPreferences((p) => ({
 			...p,
@@ -184,6 +191,7 @@ export const UserPreferencesContextProvider: ParentComponent = (props) => {
 				setNativeNotifications,
 				setPreferredBlueskyClient,
 				setPreferredAppView,
+				setSharePresence,
 				pushRecentGif,
 				setExperiment,
 			}}

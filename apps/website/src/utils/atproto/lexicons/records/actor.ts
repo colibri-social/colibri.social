@@ -99,6 +99,12 @@ export const actorRecordDocs: LexiconDoc[] = [
 							description:
 								"Colibri-only profile theming. Always sourced from this record regardless of syncBluesky.",
 						},
+						presenceService: {
+							type: "string",
+							format: "did",
+							description:
+								"DID of the AppView authorized to emit off-protocol presence (status, typing, voice) for this user via Humming. A receiving AppView MUST drop any Hum about this user whose authenticated origin does not equal this value. Absent means the user has not opted into cross-instance presence.",
+						},
 					},
 				},
 			},
