@@ -327,11 +327,19 @@ export const syncMethodDocs: LexiconDoc[] = [
 					{
 						name: "Forbidden",
 						description:
-							"Origin is not the subject's declared presenceService.",
+							"A trust-model check failed (origin is not the subject's declared presenceService, subject is not a community member, origin is not an AppView, or a channel does not belong to the community).",
 					},
 					{
 						name: "UnsupportedEvent",
 						description: "Event type is not an off-protocol Hum event.",
+					},
+					{
+						name: "RateLimited",
+						description: "The peer exceeded its per-peer sendHum rate budget.",
+					},
+					{
+						name: "NotEnabled",
+						description: "Humming is disabled on this AppView.",
 					},
 				],
 			},
@@ -344,8 +352,18 @@ export const syncMethodDocs: LexiconDoc[] = [
 			main: {
 				type: "subscription",
 				description:
-					"Egress-only WebSocket stream of Hums this AppView is relaying. Peers subscribe to receive off-protocol events for shared communities. Requires inter-service auth (subprotocol-carried, as with subscribeEvents). Clients cannot send messages on this stream.",
-				errors: [{ name: "AuthRequired" }],
+					"Egress-only WebSocket stream of Hums this AppView is relaying. Peers subscribe to receive off-protocol events for shared communities, optionally narrowing to declared `communities` (repeated query param). Requires inter-service auth (subprotocol-carried, as with subscribeEvents). Clients cannot send messages on this stream.",
+				errors: [
+					{ name: "AuthRequired" },
+					{
+						name: "NotEnabled",
+						description: "Humming is disabled on this AppView.",
+					},
+					{
+						name: "TooManySubscribers",
+						description: "The hub is at its subscribeHums connection limit.",
+					},
+				],
 				message: {
 					schema: {
 						type: "union",
