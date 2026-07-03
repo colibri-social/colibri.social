@@ -375,6 +375,12 @@ ol[data-somoto-toaster] > li {
 	width: 100% !important;
 }
 
+@media (max-width: 600px) {
+	ol[data-somoto-toaster] > li {
+		width: calc(100% - var(--mobile-offset, 16px) * 2) !important;
+	}
+}
+
 @layer utilities {
 	.no-scrollbar::-webkit-scrollbar {
 		display: none; /* Chrome, Safari, and Opera */

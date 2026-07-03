@@ -24,15 +24,14 @@ import SpeakerLowIcon from "~icons/ph/speaker-low-fill";
 import type { Category as CategoryType } from "../../../atproto/xrpc/social/colibri/community/listCategories";
 import type { Channel } from "../../../atproto/xrpc/social/colibri/community/listChannels";
 import { usePermissions } from "../../../contexts/Community";
-import { useIsMobile } from "../../../utils/mobile-pane";
 import { useMutes } from "../../../contexts/Mutes";
 import { useNotifications } from "../../../contexts/Notifications";
 import { useUserContext } from "../../../contexts/User";
 import { useVoiceChatContext } from "../../../contexts/VoiceChat";
+import { useIsMobile } from "../../../utils/mobile-pane";
 import { Button } from "../../ui/Button";
 import { CategoryContextMenu } from "./CategoryContextMenu";
 import { ChannelContextMenu } from "./ChannelContextMenu";
-import { ChannelCreationModal } from "./ChannelCreationModal";
 
 export type ChannelDropTarget = {
 	categoryUri: string;
@@ -254,6 +253,7 @@ export const Category: ParentComponent<{
 	dropTarget?: ChannelDropTarget | null;
 	onOpenChannelSettings: (channelUri: string) => void;
 	onOpenCategorySettings: (categoryUri: string) => void;
+	onOpenChannelCreation: (categoryUri: string) => void;
 }> = (props) => {
 	const user = useUserContext();
 	const {
@@ -357,19 +357,18 @@ export const Category: ParentComponent<{
 							</Button>
 						</Show>
 						<Show when={canCreateChannel()}>
-							<ChannelCreationModal
-								category={props.category.uri}
-								community={props.communityUri}
-								class="w-5 h-5"
+							<Button
+								size="sm"
+								class="w-5 h-5 cursor-pointer"
+								variant="ghost"
+								onClick={(e) => {
+									e.preventDefault();
+									e.stopPropagation();
+									props.onOpenChannelCreation(props.category.uri);
+								}}
 							>
-								<Button
-									size="sm"
-									class="w-5 h-5 cursor-pointer"
-									variant="ghost"
-								>
-									<PlusIcon width={16} height={16} />
-								</Button>
-							</ChannelCreationModal>
+								<PlusIcon width={16} height={16} />
+							</Button>
 						</Show>
 					</div>
 				</button>

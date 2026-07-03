@@ -1176,6 +1176,8 @@ Broadcasts `category_event { event: "delete", uri }` and `community_event { even
 
 Creates a new channel inside a category and appends it to the category's `channelOrder`. Requires `channel.create` permission.
 
+`allowedRoles` and `allowedMembers` optionally seed the channel's post allow-list at creation, letting a channel be born restricted (see [`channel.update`](#socialcolibrichannelupdate) for the allow-list semantics). Both are provided as **repeated** query-string values. The same hierarchy guard as `channel.update` applies to every seeded entry: a non-admin creator may only grant access to roles strictly below their own highest role and to members they outrank; the community owner is exempt. A violation returns `Forbidden`.
+
 <XRPCEndpointCard
 	method="POST"
 	nsid="social.colibri.channel.create"
@@ -1200,6 +1202,14 @@ Creates a new channel inside a category and appends it to the category's `channe
 		description: {
 			type: "string",
 			required: false
+		},
+		allowedRoles: {
+			type: "string[] (repeated)",
+			required: false
+		},
+		allowedMembers: {
+			type: "string[] (repeated)",
+			required: false
 		}
 	}}
 	response={{
@@ -1210,7 +1220,7 @@ Creates a new channel inside a category and appends it to the category's `channe
 	}}
 />
 
-Broadcasts `channel_event { event: "upsert", uri, community, category, name, type }` and `category_event { event: "upsert", uri, channelOrder }`.
+Broadcasts `channel_event { event: "upsert", uri, community, category, name, type, allowedRoles, allowedMembers }` and `category_event { event: "upsert", uri, channelOrder }`.
 
 ### `social.colibri.channel.update`
 

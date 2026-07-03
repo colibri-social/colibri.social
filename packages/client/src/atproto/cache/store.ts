@@ -14,10 +14,7 @@ type StoreName = (typeof STORES)[number];
 
 export const cacheEnabled = (): boolean => {
 	try {
-		return (
-			typeof indexedDB !== "undefined" &&
-			localStorage.getItem("colibri:cache") === "on"
-		);
+		return typeof indexedDB !== "undefined";
 	} catch {
 		return false;
 	}

@@ -433,6 +433,8 @@ export class XrpcClient {
 					category: string,
 					name: string,
 					type: string,
+					allowedRoles?: string[],
+					allowedMembers?: string[],
 				) =>
 					Channel.create(
 						this.authed(this.proxiedFetch, "social.colibri.channel.create"),
@@ -440,6 +442,8 @@ export class XrpcClient {
 						category,
 						name,
 						type,
+						allowedRoles,
+						allowedMembers,
 					),
 				update: (
 					channel: string,

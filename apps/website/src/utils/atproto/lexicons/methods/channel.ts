@@ -124,6 +124,14 @@ export const channelMethodDocs: LexiconDoc[] = [
 								"The channel type, e.g. social.colibri.channel.text.",
 						},
 						description: { type: "string" },
+						allowedRoles: {
+							type: "array",
+							items: { type: "string", format: "record-key" },
+						},
+						allowedMembers: {
+							type: "array",
+							items: { type: "string", format: "did" },
+						},
 					},
 				},
 				output: uriResponse,

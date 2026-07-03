@@ -16,6 +16,7 @@ export const SortableCategory: Component<{
 	dropTarget: ChannelDropTarget | null;
 	onOpenChannelSettings: (channelUri: string) => void;
 	onOpenCategorySettings: (categoryUri: string) => void;
+	onOpenChannelCreation: (categoryUri: string) => void;
 }> = (props) => {
 	const sortable = createSortable(props.category.uri);
 	const [, { onDragStart, onDragEnd: onDndDragEnd }] = useDragDropContext()!;
@@ -52,6 +53,7 @@ export const SortableCategory: Component<{
 					dropTarget={props.dropTarget}
 					onOpenChannelSettings={props.onOpenChannelSettings}
 					onOpenCategorySettings={props.onOpenCategorySettings}
+					onOpenChannelCreation={props.onOpenChannelCreation}
 				/>
 			</div>
 		</div>

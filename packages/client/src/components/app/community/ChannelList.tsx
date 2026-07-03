@@ -6,7 +6,6 @@ import {
 	type Droppable,
 	SortableProvider,
 } from "@thisbeyond/solid-dnd";
-import { LongPressSensors } from "../../../utils/create-longpress-sensor";
 import {
 	batch,
 	type Component,
@@ -23,6 +22,7 @@ import {
 	usePermissions,
 } from "../../../contexts/Community";
 import { useUserContext } from "../../../contexts/User";
+import { LongPressSensors } from "../../../utils/create-longpress-sensor";
 import {
 	animateToNewPositions,
 	capturePositions,
@@ -36,6 +36,7 @@ import {
 } from "./Category";
 import { CategoryCreationModal } from "./CategoryCreationModal";
 import { CategorySettingsModal } from "./CategorySettingsModal";
+import { ChannelCreationModal } from "./ChannelCreationModal";
 import { ChannelSettingsModal } from "./ChannelSettingsModal";
 import { SortableCategory } from "./SortableCategory";
 import { useProcessedSidebar } from "./useProcessedSidebar";
@@ -366,6 +367,15 @@ export const ChannelList: Component<{
 		setCategorySettingsOpen(true);
 	};
 
+	const [creationCategoryUri, setCreationCategoryUri] = createSignal<
+		string | null
+	>(null);
+	const [channelCreationOpen, setChannelCreationOpen] = createSignal(false);
+	const openChannelCreation = (uri: string) => {
+		setCreationCategoryUri(uri);
+		setChannelCreationOpen(true);
+	};
+
 	return (
 		<DragDropProvider
 			onDragStart={onDragStart}
@@ -397,6 +407,7 @@ export const ChannelList: Component<{
 									}
 									onOpenChannelSettings={openChannelSettings}
 									onOpenCategorySettings={openCategorySettings}
+									onOpenChannelCreation={openChannelCreation}
 								/>
 							</div>
 						)}
@@ -417,6 +428,16 @@ export const ChannelList: Component<{
 							category={category()}
 							open={categorySettingsOpen}
 							setOpen={setCategorySettingsOpen}
+						/>
+					)}
+				</Show>
+				<Show when={creationCategoryUri()}>
+					{(uri) => (
+						<ChannelCreationModal
+							category={uri()}
+							community={community().community.uri}
+							open={channelCreationOpen}
+							setOpen={setChannelCreationOpen}
 						/>
 					)}
 				</Show>
