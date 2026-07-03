@@ -24,6 +24,7 @@ export const syncMethodDocs: LexiconDoc[] = [
 							"#reactionEvent",
 							"#userEvent",
 							"#typingEvent",
+							"#voicePresenceEvent",
 						],
 					},
 				},
@@ -237,6 +238,70 @@ export const syncMethodDocs: LexiconDoc[] = [
 					did: { type: "string", format: "did" },
 				},
 			},
+
+			voicePresenceEvent: {
+				type: "object",
+				description: "Sent when a user joins or leaves a voice channel.",
+				required: ["type", "data"],
+				properties: {
+					type: { type: "string", const: "voice_presence_event" },
+					data: { type: "ref", ref: "#voicePresenceEventData" },
+				},
+			},
+			voicePresenceEventData: {
+				type: "object",
+				required: ["event", "channel", "did"],
+				properties: {
+					event: { type: "string", knownValues: ["join", "leave"] },
+					channel: { type: "string", format: "at-uri" },
+					did: { type: "string", format: "did" },
+				},
+			},
+
+			humEnvelope: {
+				type: "object",
+				description:
+					"An off-protocol event relayed between AppViews. The authenticated sender (inter-service auth JWT: aud = receiving AppView did:web, lxm = social.colibri.sync.sendHum) is the origin of record; `origin` is echoed for relay/loop control and MUST match the JWT issuer. Only off-protocol event types are permitted — on-protocol events are never carried by a Hum and are derived from the firehose instead.",
+				required: ["origin", "id", "ttl", "subject", "community", "event"],
+				properties: {
+					origin: {
+						type: "string",
+						format: "did",
+						description: "DID of the AppView that first emitted this Hum.",
+					},
+					id: {
+						type: "string",
+						maxLength: 64,
+						description:
+							"Unique id for this Hum, used by receivers to dedup across relay paths.",
+					},
+					ttl: {
+						type: "integer",
+						minimum: 0,
+						maximum: 8,
+						description:
+							"Remaining relay hops. Decremented on each forward; a Hum at ttl 0 is delivered locally but never relayed.",
+					},
+					subject: {
+						type: "string",
+						format: "did",
+						description:
+							"The user this event is about. Receiver MUST verify origin equals subject's declared presenceService before trusting or relaying.",
+					},
+					community: {
+						type: "string",
+						format: "at-uri",
+						description:
+							"Community the event is scoped to. Receiver relays to local clients only if they are members of this community.",
+					},
+					event: {
+						type: "union",
+						description:
+							"Ephemeral event payload. Only off-protocol types are permitted.",
+						refs: ["#userEvent", "#typingEvent", "#voicePresenceEvent"],
+					},
+				},
+			},
 		},
 	},
 	{
@@ -246,19 +311,45 @@ export const syncMethodDocs: LexiconDoc[] = [
 			main: {
 				type: "procedure",
 				description:
-					"Sends a client-to-client 'hum' event (e.g. typing, presence, or channel view) to be broadcast to other connected clients.",
+					"Informs this AppView of an off-protocol event that occurred on a peer AppView. Requires inter-service auth: a JWT signed by the caller's AppView signing key, aud = this AppView's did:web, lxm = social.colibri.sync.sendHum. The receiver drops the Hum unless the JWT issuer equals both the envelope `origin` and the `subject`'s declared presenceService.",
 				input: {
 					encoding: "application/json",
 					schema: {
-						type: "object",
-						required: ["event"],
-						properties: {
-							event: {
-								type: "unknown",
-								description:
-									"A Colibri client event payload. See the client's ColibriEvent union for the exact shapes.",
-							},
-						},
+						type: "ref",
+						ref: "social.colibri.sync.subscribeEvents#humEnvelope",
+					},
+				},
+				errors: [
+					{
+						name: "AuthRequired",
+						description: "Missing or invalid service-auth JWT.",
+					},
+					{
+						name: "Forbidden",
+						description:
+							"Origin is not the subject's declared presenceService.",
+					},
+					{
+						name: "UnsupportedEvent",
+						description: "Event type is not an off-protocol Hum event.",
+					},
+				],
+			},
+		},
+	},
+	{
+		lexicon: 1,
+		id: "social.colibri.sync.subscribeHums",
+		defs: {
+			main: {
+				type: "subscription",
+				description:
+					"Egress-only WebSocket stream of Hums this AppView is relaying. Peers subscribe to receive off-protocol events for shared communities. Requires inter-service auth (subprotocol-carried, as with subscribeEvents). Clients cannot send messages on this stream.",
+				errors: [{ name: "AuthRequired" }],
+				message: {
+					schema: {
+						type: "union",
+						refs: ["social.colibri.sync.subscribeEvents#humEnvelope"],
 					},
 				},
 			},

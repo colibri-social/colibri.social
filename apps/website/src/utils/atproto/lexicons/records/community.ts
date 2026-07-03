@@ -5,7 +5,7 @@ export const communityRecordDocs: LexiconDoc[] = [
 	{
 		lexicon: 1,
 		id: RECORD_IDs.COMMUNITY,
-		revision: 3,
+		revision: 4,
 		defs: {
 			main: {
 				type: "record",
@@ -71,6 +71,12 @@ export const communityRecordDocs: LexiconDoc[] = [
 							format: "at-uri",
 							description:
 								"Set on a community created by migrating a legacy community. Points at the legacy community record this one replaces.",
+						},
+						appview: {
+							type: "string",
+							format: "did",
+							description:
+								"DID of the AppView that administers this community and acts as its off-protocol hub (Humming presence relay and voice SFU host). Written by the credential-holding AppView. Consumers that find this field absent fall back to did:web:api.colibri.social.",
 						},
 					},
 				},
