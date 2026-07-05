@@ -1,56 +1,34 @@
 ---
-import { Badge } from "@astrojs/starlight/components";
-import type { LexiconDoc, LexRecord } from "@atproto/lexicon";
-import { LEXICON_DOCS, RECORD_IDs } from "@/utils/atproto/lexicons";
-import LexiconConstraints from "./LexiconConstraints.astro";
+import { LEXICON_DOCS } from "@/utils/atproto/lexicons";
+import LexiconDef from "./LexiconDef.astro";
+import {
+	defElementId,
+	docCategory,
+	orderedDefs,
+	type LexCategory,
+} from "./lexicon-utils.ts";
+
+interface Props {
+	category: LexCategory;
+}
+
+const { category } = Astro.props;
+const docs = LEXICON_DOCS.filter((doc) => docCategory(doc) === category);
 ---
 
 {
-    LEXICON_DOCS.filter((lex) => lex.id !== RECORD_IDs.RICHTEXT_FACET).map(
-        (lex) => {
-            return (
-                <>
-                    <h2>{lex.id}</h2>
-                    <small>Lexicon version: {lex.lexicon}</small>
-                    <h3 class="flex flex-row items-center gap-2">
-                        Main Definition{" "}
-                        <Badge text={lex.defs.main.type.toUpperCase()} />
-                    </h3>
-                    <p>{lex.defs.main.description}</p>
-                    <div class="border border-(--sl-color-gray-5) rounded-lg p-4">
-                        {Object.keys(
-                            (lex.defs.main as LexRecord).record?.properties ??
-                                [],
-                        ).map((key) => {
-                            const property = (lex.defs.main as LexRecord).record
-                                .properties[key];
-                            return (
-                                <div class="not-content">
-                                    <div class="flex flex-row gap-2 items-center">
-                                        <span class="font-bold text-neutral-950 dark:text-neutral-50">
-                                            {key}
-                                        </span>
-                                        <div class="text-(sl-color-gray-3)">
-                                            {property.type}
-                                        </div>
-                                        {(
-                                            lex.defs.main as LexRecord
-                                        ).record.required?.includes(key) && (
-                                            <div class="text-red-400">
-                                                required
-                                            </div>
-                                        )}
-                                    </div>
-                                    <LexiconConstraints
-                                        defs={property as any}
-                                    />
-                                    <p>{property.description}</p>
-                                </div>
-                            );
-                        })}
-                    </div>
-                </>
-            );
-        },
-    )
+	docs.map((doc) => (
+		<section class="lex-doc not-content">
+			<h3 class="lex-doc-title" id={defElementId(doc.id, "main")}>
+				{doc.id}
+			</h3>
+			<div class="lex-doc-meta">
+				<span>lexicon v{doc.lexicon}</span>
+				{doc.revision && <span>revision {doc.revision}</span>}
+			</div>
+			{orderedDefs(doc).map(([name, def]) => (
+				<LexiconDef docId={doc.id} name={name} def={def} />
+			))}
+		</section>
+	))
 }

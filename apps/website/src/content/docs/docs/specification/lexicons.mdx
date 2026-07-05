@@ -4,6 +4,42 @@ title: "Lexicons"
 
 import LexiconDefinitions from "@/components/docs/LexiconDefinitions.astro";
 
-Colibri includes a few lexicons for various data types. You can find each of them below.
+Colibri defines a set of AT Protocol lexicons for its data types and AppView
+endpoints. They are grouped below by kind.
 
-<LexiconDefinitions />
+## Records
+
+Persisted records that live in a user's or community's repository.
+
+<LexiconDefinitions category="records" />
+
+## Shared definitions
+
+Reusable object definitions (`*.defs`) referenced by records, queries, and
+events across the other lexicons.
+
+<LexiconDefinitions category="shared" />
+
+## Queries
+
+Read-only `GET` endpoints served by the AppView.
+
+<LexiconDefinitions category="queries" />
+
+## Procedures
+
+Mutating `POST` endpoints served by the AppView.
+
+<LexiconDefinitions category="procedures" />
+
+## Subscriptions
+
+WebSocket event streams.
+
+<LexiconDefinitions category="subscriptions" />
+
+## Permission sets
+
+OAuth permission sets bundling the scopes a client can request.
+
+<LexiconDefinitions category="permissions" />

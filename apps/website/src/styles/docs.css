@@ -5,11 +5,13 @@
 @import "tailwindcss/utilities.css" layer(utilities);
 
 :root {
+	--sl-color-white: #ffffff;
 	--sl-color-text-accent: oklch(0.606 0.25 292.717);
 	--sl-color-accent-high: oklch(0.606 0.25 292.717);
 	--sl-font: "Hanken Grotesk Variable", sans-serif;
 	--sl-color-text: rgb(25, 25, 25);
 	--sl-color-gray-2: var(--sl-color-text);
+	--sl-color-gray-3: rgba(151, 151, 151, 1);
 }
 
 [data-theme="dark"] {
@@ -41,4 +43,182 @@
 ul.top-level > li > a[aria-current="page"] span {
 	color: var(--sl-color-text-accent);
 	font-weight: 600;
+}
+
+/* Lexicon reference renderer */
+.lex-doc {
+	margin-top: 2.5rem;
+	padding-top: 1.5rem;
+	border-top: 1px solid var(--sl-color-gray-5);
+}
+
+.lex-doc-title {
+	font-family: var(--font-geist-mono), monospace;
+	font-size: 1.25rem;
+	font-weight: 600;
+	word-break: break-all;
+	scroll-margin-top: 6rem;
+}
+
+.lex-doc-meta {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.75rem;
+	margin-top: 0.25rem;
+	font-size: 0.75rem;
+	text-transform: uppercase;
+	letter-spacing: 0.05em;
+	color: var(--sl-color-gray-3);
+}
+
+.lex-def {
+	margin-top: 1rem;
+	padding: 1rem 1.25rem;
+	border: 1px solid var(--sl-color-gray-5);
+	border-radius: 0.75rem;
+	scroll-margin-top: 6rem;
+}
+
+.lex-def-head {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 0.5rem;
+}
+
+.lex-def-name {
+	font-family: var(--font-geist-mono), monospace;
+	font-weight: 600;
+	color: var(--sl-color-white);
+}
+
+.lex-def-key {
+	font-family: var(--font-geist-mono), monospace;
+	font-size: 0.8rem;
+	color: var(--sl-color-gray-3);
+}
+
+.lex-def-title {
+	font-size: 0.9rem;
+	color: var(--sl-color-gray-2);
+}
+
+.lex-fields,
+.lex-section {
+	margin-top: 0.75rem;
+}
+
+.lex-section-label {
+	display: block;
+	margin-bottom: 0.25rem;
+	font-size: 0.7rem;
+	font-weight: 600;
+	text-transform: uppercase;
+	letter-spacing: 0.08em;
+	color: var(--sl-color-text-accent);
+}
+
+.lex-field {
+	padding: 0.5rem 0;
+	border-top: 1px solid var(--sl-color-gray-6, var(--sl-color-gray-5));
+}
+
+.lex-field:first-child {
+	border-top: none;
+}
+
+.lex-field-head {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 0.4rem;
+}
+
+.lex-field-name {
+	font-family: var(--font-geist-mono), monospace;
+	font-weight: 600;
+	color: var(--sl-color-white);
+}
+
+.lex-type {
+	font-family: var(--font-geist-mono), monospace;
+	font-size: 0.8rem;
+	color: var(--sl-color-gray-3);
+}
+
+.lex-ref {
+	color: var(--sl-color-text-accent);
+	text-decoration: none;
+}
+
+.lex-ref:hover {
+	text-decoration: underline;
+}
+
+.lex-req {
+	font-size: 0.7rem;
+	font-weight: 600;
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+	color: var(--sl-color-red-high, #f87171);
+}
+
+.lex-chip {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.3rem;
+	padding: 0.05rem 0.45rem;
+	border: 1px solid var(--sl-color-gray-5);
+	border-radius: 0.4rem;
+	font-family: var(--font-geist-mono), monospace;
+	font-size: 0.72rem;
+	color: var(--sl-color-gray-2);
+}
+
+.lex-chip-label {
+	font-weight: 600;
+	color: var(--sl-color-gray-3);
+}
+
+.lex-desc {
+	margin: 0.35rem 0 0;
+	font-size: 0.9rem;
+	color: var(--sl-color-gray-2);
+}
+
+.lex-nested {
+	margin-top: 0.5rem;
+	margin-left: 0.75rem;
+	padding-left: 0.75rem;
+	border-left: 2px solid var(--sl-color-gray-5);
+}
+
+.lex-schema {
+	display: flex;
+	flex-direction: column;
+	gap: 0.35rem;
+}
+
+.lex-schema-meta {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 0.5rem;
+}
+
+.lex-perm {
+	padding: 0.5rem 0;
+	border-top: 1px solid var(--sl-color-gray-5);
+}
+
+.lex-perm:first-of-type {
+	border-top: none;
+}
+
+.lex-nsid-list {
+	margin: 0.4rem 0 0;
+	padding-left: 1.1rem;
+	font-family: var(--font-geist-mono), monospace;
+	font-size: 0.8rem;
+	color: var(--sl-color-gray-2);
 }

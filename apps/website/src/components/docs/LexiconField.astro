@@ -1,0 +1,52 @@
+---
+import LexiconTypeLabel from "./LexiconTypeLabel.astro";
+import { constraintChips, type LexField } from "./lexicon-utils.ts";
+
+interface Props {
+	name: string;
+	def: LexField;
+	required?: boolean;
+	docId: string;
+}
+
+const { name, def, required = false, docId } = Astro.props;
+
+const chips = constraintChips(def);
+const nested =
+	def.type === "object"
+		? def
+		: def.type === "array" && def.items?.type === "object"
+			? def.items
+			: null;
+---
+
+<div class="lex-field">
+	<div class="lex-field-head">
+		<span class="lex-field-name">{name}</span>
+		<LexiconTypeLabel def={def} docId={docId} />
+		{required && <span class="lex-req">required</span>}
+		{
+			chips.map((chip) => (
+				<span class="lex-chip">
+					<span class="lex-chip-label">{chip.label}</span>
+					{chip.value}
+				</span>
+			))
+		}
+	</div>
+	{def.description && <p class="lex-desc">{def.description}</p>}
+	{
+		nested?.properties && Object.keys(nested.properties).length > 0 && (
+			<div class="lex-nested">
+				{Object.entries(nested.properties).map(([key, value]) => (
+					<Astro.self
+						name={key}
+						def={value as LexField}
+						required={nested.required?.includes(key)}
+						docId={docId}
+					/>
+				))}
+			</div>
+		)
+	}
+</div>

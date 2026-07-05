@@ -51,7 +51,6 @@ export default defineConfig({
 				themes: [colibriLight, colibriDark],
 			},
 			sidebar: [
-				{ slug: "docs" },
 				{
 					label: "Architecture",
 					autogenerate: { directory: "docs/architecture" },
@@ -63,6 +62,14 @@ export default defineConfig({
 				{
 					label: "Contributing",
 					autogenerate: { directory: "docs/contributing" },
+				},
+				{
+					label: "Self-Hosting",
+					autogenerate: { directory: "docs/self-hosting" },
+				},
+				{
+					label: "Help",
+					autogenerate: { directory: "docs/help" },
 				},
 			],
 			disable404Route: true,

@@ -150,8 +150,6 @@ const ProfileFieldsForm: Component<{
 			? resolveBlob(props.did, props.value.bannerRef)
 			: undefined;
 
-	console.log(avatarUrl(), bannerUrl());
-
 	// The themed banner background, sitting behind any uploaded image — mirrors
 	// the real profile card's gradient → solid-color priority.
 	const bannerStyle = (): JSX.CSSProperties => {

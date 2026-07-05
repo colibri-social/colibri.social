@@ -1,0 +1,40 @@
+---
+import { anchorFromRef, refLabel, type LexField } from "./lexicon-utils.ts";
+
+interface Props {
+	def: LexField;
+	docId: string;
+}
+
+const { def, docId } = Astro.props;
+---
+
+{
+	def.type === "ref" && (
+		<a class="lex-type lex-ref" href={`#${anchorFromRef(def.ref, docId)}`}>{refLabel(def.ref)}</a>
+	)
+}
+{
+	def.type === "array" && (
+		<span class="lex-type"
+			>array&lt;<Astro.self def={def.items} docId={docId} />&gt;</span
+		>
+	)
+}
+{
+	def.type === "union" && (
+		<span class="lex-type"
+			>union&lt;{def.refs.map((ref: string, index: number) => (
+				<>
+					{index > 0 && " | "}
+					<a class="lex-ref" href={`#${anchorFromRef(ref, docId)}`}>{refLabel(ref)}</a>
+				</>
+			))}&gt;</span
+		>
+	)
+}
+{
+	!["ref", "array", "union"].includes(def.type) && (
+		<span class="lex-type">{def.type}</span>
+	)
+}

@@ -1,0 +1,165 @@
+---
+import { Badge } from "@astrojs/starlight/components";
+import LexiconField from "./LexiconField.astro";
+import LexiconSchema from "./LexiconSchema.astro";
+import {
+	constraintChips,
+	defElementId,
+	type LexField,
+} from "./lexicon-utils.ts";
+
+interface Props {
+	docId: string;
+	name: string;
+	def: LexField;
+}
+
+const { docId, name, def } = Astro.props;
+
+const elementId = defElementId(docId, name);
+const type = def.type as string;
+
+const objectSchema =
+	type === "record" ? def.record : type === "object" ? def : null;
+const params = def.parameters;
+const chips =
+	type === "record" || type === "object" ? [] : constraintChips(def);
+---
+
+<div class="lex-def" id={name === "main" ? undefined : elementId}>
+	<div class="lex-def-head">
+		<span class="lex-def-name">{name === "main" ? "main" : `#${name}`}</span>
+		<Badge text={type.toUpperCase()} />
+		{def.key && <span class="lex-def-key">key: {def.key}</span>}
+		{def.title && <span class="lex-def-title">{def.title}</span>}
+	</div>
+	{def.description && <p class="lex-desc">{def.description}</p>}
+	{def.detail && <p class="lex-desc">{def.detail}</p>}
+
+	{
+		chips.length > 0 && (
+			<div class="lex-field-head">
+				{chips.map((chip) => (
+					<span class="lex-chip">
+						<span class="lex-chip-label">{chip.label}</span>
+						{chip.value}
+					</span>
+				))}
+			</div>
+		)
+	}
+
+	{
+		objectSchema && (
+			<div class="lex-fields">
+				{Object.entries(objectSchema.properties ?? {}).map(([key, value]) => (
+					<LexiconField
+						name={key}
+						def={value as LexField}
+						required={objectSchema.required?.includes(key)}
+						docId={docId}
+					/>
+				))}
+			</div>
+		)
+	}
+
+	{
+		params?.properties && (
+			<div class="lex-section">
+				<span class="lex-section-label">Parameters</span>
+				<div class="lex-fields">
+					{Object.entries(params.properties).map(([key, value]) => (
+						<LexiconField
+							name={key}
+							def={value as LexField}
+							required={params.required?.includes(key)}
+							docId={docId}
+						/>
+					))}
+				</div>
+			</div>
+		)
+	}
+
+	{
+		def.input && (
+			<div class="lex-section">
+				<span class="lex-section-label">Input</span>
+				<LexiconSchema
+					schema={def.input.schema}
+					encoding={def.input.encoding}
+					description={def.input.description}
+					docId={docId}
+				/>
+			</div>
+		)
+	}
+
+	{
+		def.output && (
+			<div class="lex-section">
+				<span class="lex-section-label">Output</span>
+				<LexiconSchema
+					schema={def.output.schema}
+					encoding={def.output.encoding}
+					description={def.output.description}
+					docId={docId}
+				/>
+			</div>
+		)
+	}
+
+	{
+		def.message?.schema && (
+			<div class="lex-section">
+				<span class="lex-section-label">Message</span>
+				<LexiconSchema schema={def.message.schema} docId={docId} />
+			</div>
+		)
+	}
+
+	{
+		def.permissions && (
+			<div class="lex-section">
+				<span class="lex-section-label">Permissions</span>
+				{def.permissions.map((perm: LexField) => (
+					<div class="lex-perm">
+						<div class="lex-field-head">
+							<Badge text={perm.resource} variant="note" />
+							{perm.action?.map((action: string) => (
+								<span class="lex-chip">{action}</span>
+							))}
+							{perm.inheritAud && <span class="lex-chip">inheritAud</span>}
+						</div>
+						{(perm.collection ?? perm.lxm) && (
+							<ul class="lex-nsid-list">
+								{(perm.collection ?? perm.lxm).map((nsid: string) => (
+									<li>{nsid}</li>
+								))}
+							</ul>
+						)}
+					</div>
+				))}
+			</div>
+		)
+	}
+
+	{
+		def.errors?.length > 0 && (
+			<div class="lex-section">
+				<span class="lex-section-label">Errors</span>
+				<div class="lex-fields">
+					{def.errors.map((error: LexField) => (
+						<div class="lex-field">
+							<div class="lex-field-head">
+								<span class="lex-field-name">{error.name}</span>
+							</div>
+							{error.description && <p class="lex-desc">{error.description}</p>}
+						</div>
+					))}
+				</div>
+			</div>
+		)
+	}
+</div>

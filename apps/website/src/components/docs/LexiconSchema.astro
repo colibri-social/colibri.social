@@ -1,0 +1,52 @@
+---
+import LexiconField from "./LexiconField.astro";
+import LexiconTypeLabel from "./LexiconTypeLabel.astro";
+import { type LexField } from "./lexicon-utils.ts";
+
+interface Props {
+	schema?: LexField;
+	encoding?: string;
+	description?: string;
+	docId: string;
+}
+
+const { schema, encoding, description, docId } = Astro.props;
+const isObject = schema?.type === "object";
+---
+
+<div class="lex-schema">
+	{
+		(encoding || description) && (
+			<div class="lex-schema-meta">
+				{encoding && (
+					<span class="lex-chip">
+						<span class="lex-chip-label">encoding</span>
+						{encoding}
+					</span>
+				)}
+				{description && <span class="lex-desc">{description}</span>}
+			</div>
+		)
+	}
+	{
+		isObject &&
+			Object.entries(schema.properties ?? {}).map(([key, value]) => (
+				<LexiconField
+					name={key}
+					def={value as LexField}
+					required={schema.required?.includes(key)}
+					docId={docId}
+				/>
+			))
+	}
+	{
+		schema && !isObject && (
+			<div class="lex-field">
+				<div class="lex-field-head">
+					<LexiconTypeLabel def={schema} docId={docId} />
+				</div>
+				{schema.description && <p class="lex-desc">{schema.description}</p>}
+			</div>
+		)
+	}
+</div>
