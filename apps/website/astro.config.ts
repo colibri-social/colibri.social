@@ -51,6 +51,7 @@ export default defineConfig({
 				themes: [colibriLight, colibriDark],
 			},
 			sidebar: [
+				{ slug: "docs", label: "Start here" },
 				{
 					label: "Architecture",
 					autogenerate: { directory: "docs/architecture" },
