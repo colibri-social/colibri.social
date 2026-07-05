@@ -1,84 +1,55 @@
-> [!warning]
-> Colibri is currently in alpha. The current codebase is not really made to scale all that well. We've planned a refactor, which you can read about [here](https://colibri.leaflet.pub/3mhxzpvpvps2m).
-
 # Colibri
 
 ![Let your community spread it's wings](https://github.com/colibri-social/colibri.social/blob/main/public/og.png)
 
-Colibri is an open source chat platform built on the AT protocol for communities big and small. It gives you the ability to create communities, manage members, and communicate through text, voice, and forum channels, all while maintaining true ownership of your data.
+Colibri is an open source chat platform built on the [AT Protocol](https://atproto.com) for communities big and small. It gives you the ability to create communities, manage members, and communicate through text, voice, and forum channels, all while maintaining true ownership of your data.
 
-Visit us at [colibri.social](https://colibri.social)
+Visit us at [colibri.social](https://colibri.social). You can learn more on our [about page](https://colibri.social/about).
 
-## What is Colibri?
+## Repository layout
 
-You can learn more about Colibri on our [about page](https://colibri.social/about).
+This is a [pnpm](https://pnpm.io) monorepo. The deployable app lives in `apps/`, and the code it shares lives in `packages/`.
 
-## Local Development
+| Package                                               | Path              | Description                                                             |
+| ----------------------------------------------------- | ----------------- | ----------------------------------------------------------------------- |
+| [`@colibri-social/website`](apps/website/README.md)   | `apps/website`    | Marketing site, docs, and host for the web client.                      |
+| [`@colibri-social/client`](packages/client/README.md) | `packages/client` | The SolidJS client                                                      |
+| [`@colibri-social/lib`](packages/lib/README.md)       | `packages/lib`    | Shared code: helpers, XRPC types, events, facets, and markdown          |
+| [`@colibri-social/assets`](packages/assets/README.md) | `packages/assets` | Shared static assets (fonts, sounds, logos, emoji) and their manifests. |
+
+## Getting started
 
 ### Prerequisites
 
-- Node.js 24.13.0 or higher
-- pnpm 10.29.3 or higher
-- Redis server (for session management)
-- Docker and Docker Compose (optional, for containerized deployment)
+- Node.js `^24.13.0`
+- pnpm `10.33.0` (run `corepack enable` to have the right one picked up automatically)
 
-### Getting Started
+### Setup
 
-1. Clone the repository:
+1. Clone and install:
 
-```bash
-git clone https://github.com/colibri-social/colibri.social.git
-cd colibri.social
-```
+   ```bash
+   git clone https://github.com/colibri-social/colibri.social.git
+   cd colibri.social
+   pnpm install
+   ```
 
-2. Install dependencies:
+2. Create a `.env` file in the repo root by copying `.env.example`.
+3. Start the dev server. Everything runs through the website app:
 
-```bash
-pnpm install
-```
+   ```bash
+   pnpm dev:client
+   ```
 
-3. Set up environment variables by creating a `.env` file:
+   The app will be available at `http://127.0.0.1:4321`.
 
-```bash
-# Server-only secrets
-PRIVATE_KEY_1=your_private_key_1
-PRIVATE_KEY_2=your_private_key_2
-INVITE_API_KEY=your_invite_api_key
-LIVEKIT_API_KEY=your_livekit_api_key
-LIVEKIT_API_SECRET=your_livekit_api_secret
-REDIS_PASSWORD=your_redis_password
-REDIS_URL=redis://optional_url
+## Common scripts
 
-# Client-public variables
-APPVIEW_DOMAIN=your_appview_domain
-LIVEKIT_SERVER_URL=wss://livekit.colibri.social
+Run from the repository root:
 
-# Optional
-SAME_TLD_DID=optional_did
-```
-
-Note: `PRIVATE_KEY_1` and `PRIVATE_KEY_2` must be Base-64 encoded private keys compatible with atproto's libraries.
-
-4. Start the development server:
-
-```bash
-pnpm dev
-```
-
-The application will be available at `http://localhost:4321`.
-
-You'll need a local redis instance running alongside the dev server. For this, you can use the docker-compose.dev.yml file.
-
-```bash
-pnpm docker:dev
-```
-
-### Building for Production
-
-```bash
-pnpm build
-pnpm start # You need to provide environment variables here for this to work correctly
-```
+- `pnpm lint`: check the whole workspace with [Biome](https://biomejs.dev)
+- `pnpm lint:fix`: check and auto-fix
+- `pnpm format`: format the whole workspace with Biome
 
 ## Contributing
 
@@ -86,6 +57,4 @@ Contributions are welcome! Please feel free to open issues and pull requests.
 
 ## License
 
-This project is open source. Please check the LICENSE file for details.
-
-## Future Plans
+This project is open source. See the [LICENSE](LICENSE) file for details.

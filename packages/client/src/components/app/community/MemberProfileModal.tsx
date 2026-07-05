@@ -1,12 +1,12 @@
-import { Show, type Component } from "solid-js";
+import { type Component, Show } from "solid-js";
+import XIcon from "~icons/ph/x";
+import { useMemberProfileContext } from "../../../contexts/MemberProfile";
 import {
 	Dialog,
 	DialogCloseButton,
 	DialogContent,
 	DialogPortal,
 } from "../../ui/Dialog";
-import { useMemberProfileContext } from "../../../contexts/MemberProfile";
-import XIcon from "~icons/ph/x";
 import User from "../user";
 
 // NOTE: unfinished & left here for future development work

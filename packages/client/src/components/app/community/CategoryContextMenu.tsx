@@ -1,5 +1,7 @@
 import { createSignal, type ParentComponent, Show } from "solid-js";
 import PencilIcon from "~icons/ph/pencil";
+import { createLongPress } from "../../../utils/create-long-press";
+import { useIsMobile } from "../../../utils/mobile-pane";
 import {
 	ContextMenu,
 	ContextMenuContent,
@@ -8,8 +10,6 @@ import {
 	ContextMenuTrigger,
 } from "../../ui/ContextMenu";
 import { MenuDrawer, MenuDrawerItem } from "../../ui/MenuDrawer";
-import { createLongPress } from "../../../utils/create-long-press";
-import { useIsMobile } from "../../../utils/mobile-pane";
 
 /**
  * Context menu for a category in the sidebar. Right-click on desktop / long-press

@@ -4,6 +4,10 @@ import type {
 } from "@tiptap/suggestion";
 import { createSignal } from "solid-js";
 import { render } from "solid-js/web";
+import { resolveBlob } from "../../../../atproto/resolve-blob";
+import type { Channel } from "../../../../atproto/xrpc/social/colibri/community/listChannels";
+import type { Member } from "../../../../atproto/xrpc/social/colibri/community/listMembers";
+import { displayableNameFn } from "../../user/DisplayableName";
 import {
 	isChannel,
 	isMember,
@@ -11,10 +15,6 @@ import {
 	MentionList,
 } from "./MentionList";
 import { TimePicker } from "./TimePicker";
-import { displayableNameFn } from "../../user/DisplayableName";
-import { resolveBlob } from "../../../../atproto/resolve-blob";
-import type { Member } from "../../../../atproto/xrpc/social/colibri/community/listMembers";
-import type { Channel } from "../../../../atproto/xrpc/social/colibri/community/listChannels";
 
 export type EmojiSuggestionData = { name: string; emoji: string };
 /**

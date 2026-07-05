@@ -153,4 +153,4 @@ const init = async () => {
 	}
 };
 
-export { clientId, pdsHost, getClient };
+export { clientId, getClient, pdsHost };

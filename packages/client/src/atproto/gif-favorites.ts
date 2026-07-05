@@ -7,8 +7,8 @@
  * the PDS.
  */
 import type { Agent } from "@atproto/api";
-import type { GifItem } from "./xrpc/social/colibri/embed/gifTypes";
 import { putRecord } from "./pds";
+import type { GifItem } from "./xrpc/social/colibri/embed/gifTypes";
 
 const FAVORITES_COLLECTION = "social.colibri.actor.gifFavorites";
 const FAVORITES_RKEY = "self";

@@ -1,6 +1,7 @@
 import { type Component, Show } from "solid-js";
 import XIcon from "~icons/ph/x";
 import { useMessageContext } from "../../../../contexts/Message";
+import { useIsMobile } from "../../../../utils/mobile-pane";
 import {
 	Dialog,
 	DialogCloseButton,
@@ -9,7 +10,6 @@ import {
 } from "../../../ui/Dialog";
 import { BottomSheet } from "../../../ui/MenuDrawer";
 import { SettingsInfoPage } from "../../common/SettingsInfoPage";
-import { useIsMobile } from "../../../../utils/mobile-pane";
 
 export const DebugInfo: Component = () => {
 	const { message, debugModalOpen, setDebugModalOpen } = useMessageContext();

@@ -1,13 +1,15 @@
+import type { ActorData } from "@colibri-social/lib";
 import {
 	type Accessor,
 	createSignal,
 	type ParentComponent,
 	type Setter,
 } from "solid-js";
-import { useUserContext } from "../../../contexts/User";
-import { useCommunityContext } from "../../../contexts/Community";
-import { displayableNameFn } from "../user/DisplayableName";
 import { toast } from "somoto";
+import { useCommunityContext } from "../../../contexts/Community";
+import { useUserContext } from "../../../contexts/User";
+import { Spinner } from "../../icons/Spinner";
+import { Button } from "../../ui/Button";
 import {
 	Dialog,
 	DialogContent,
@@ -15,9 +17,7 @@ import {
 	DialogHeader,
 	DialogPortal,
 } from "../../ui/Dialog";
-import { Button } from "../../ui/Button";
-import { Spinner } from "../../icons/Spinner";
-import type { ActorData } from "@colibri-social/lib";
+import { displayableNameFn } from "../user/DisplayableName";
 
 export type ActionDialogData = {
 	open: boolean;

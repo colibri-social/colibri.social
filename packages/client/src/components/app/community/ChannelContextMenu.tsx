@@ -10,6 +10,8 @@ import { usePermissions } from "../../../contexts/Community";
 import { useMutes } from "../../../contexts/Mutes";
 import { useNotifications } from "../../../contexts/Notifications";
 import { useUserContext } from "../../../contexts/User";
+import { createLongPress } from "../../../utils/create-long-press";
+import { useIsMobile } from "../../../utils/mobile-pane";
 import { Button } from "../../ui/Button";
 import {
 	ContextMenu,
@@ -19,7 +21,6 @@ import {
 	ContextMenuSeparator,
 	ContextMenuTrigger,
 } from "../../ui/ContextMenu";
-import { handoffDrawer, MenuDrawer, MenuDrawerItem } from "../../ui/MenuDrawer";
 import {
 	Dialog,
 	DialogContent,
@@ -28,8 +29,7 @@ import {
 	DialogPortal,
 	DialogTitle,
 } from "../../ui/Dialog";
-import { useIsMobile } from "../../../utils/mobile-pane";
-import { createLongPress } from "../../../utils/create-long-press";
+import { handoffDrawer, MenuDrawer, MenuDrawerItem } from "../../ui/MenuDrawer";
 
 /**
  * Right-click context menu for a channel in the sidebar. "Settings" is

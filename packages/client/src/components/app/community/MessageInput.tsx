@@ -15,12 +15,12 @@ import { toast } from "somoto";
 import CircleIcon from "~icons/ph/circle";
 import PaperPlaneRightIcon from "~icons/ph/paper-plane-right-fill";
 import PlusIcon from "~icons/ph/plus";
-import { useIsMobile } from "../../../utils/mobile-pane";
 import { createRecord, uploadBlob } from "../../../atproto/pds";
 import type { PendingMessage } from "../../../atproto/xrpc/social/colibri/channel/listMessages";
 import { useChannelContext } from "../../../contexts/Channel";
 import { useCommunityContext } from "../../../contexts/Community";
 import { useUserContext } from "../../../contexts/User";
+import { useIsMobile } from "../../../utils/mobile-pane";
 import { purify } from "../../../utils/purify";
 import {
 	FileFieldItem,

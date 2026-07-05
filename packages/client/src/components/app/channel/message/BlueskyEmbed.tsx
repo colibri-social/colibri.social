@@ -5,9 +5,11 @@ import {
 	type AppBskyFeedPost,
 } from "@atproto/api";
 import { type Component, createResource, For, Show } from "solid-js";
+import { Dynamic } from "solid-js/web";
 import ChatIcon from "~icons/ph/chat-circle";
 import HeartIcon from "~icons/ph/heart";
 import RepeatIcon from "~icons/ph/repeat";
+import { getBskyAlternativeClientInfo } from "../../../../atproto/bluesky-alternatives";
 import {
 	type BskyPostRef,
 	buildBskyPostUrl,
@@ -18,8 +20,6 @@ import { useStableMedia } from "../../../../contexts/ScrollAnchor";
 import { useUserContext } from "../../../../contexts/User";
 import { useUserPreferences } from "../../../../contexts/UserPreferences";
 import { Lightbox } from "../../common/Lightbox";
-import { getBskyAlternativeClientInfo } from "../../../../atproto/bluesky-alternatives";
-import { Dynamic } from "solid-js/web";
 
 /**
  * Renders a native Bluesky post card for a recognized post permalink, fetching

@@ -10,15 +10,15 @@ import {
 	type ParentComponent,
 	Show,
 } from "solid-js";
+import { useIsMobile } from "../../../utils/mobile-pane";
+import { BottomSheet } from "../../ui/MenuDrawer";
 import {
 	Popover,
 	PopoverContent,
 	PopoverPortal,
 	PopoverTrigger,
 } from "../../ui/Popover";
-import { BottomSheet } from "../../ui/MenuDrawer";
 import { TextField, TextFieldInput } from "../../ui/TextField";
-import { useIsMobile } from "../../../utils/mobile-pane";
 
 type Placement =
 	| "bottom"

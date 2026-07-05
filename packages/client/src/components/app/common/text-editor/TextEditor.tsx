@@ -39,12 +39,12 @@ import { useChannelContext } from "../../../../contexts/Channel";
 import { useCommunityContext } from "../../../../contexts/Community";
 import { useUserContext } from "../../../../contexts/User";
 import { useUserPreferences } from "../../../../contexts/UserPreferences";
-import { createFenceRegex } from "../../../../utils/fenced-code-regex";
-import { htmlToDOMOutputSpec } from "../../../../utils/html-to-dom-output-spec";
 import {
 	readComposerDraft,
 	writeComposerDraft,
 } from "../../../../utils/composer-drafts";
+import { createFenceRegex } from "../../../../utils/fenced-code-regex";
+import { htmlToDOMOutputSpec } from "../../../../utils/html-to-dom-output-spec";
 import { useIsMobile } from "../../../../utils/mobile-pane";
 import {
 	Tooltip,

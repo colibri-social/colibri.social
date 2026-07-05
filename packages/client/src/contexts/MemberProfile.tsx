@@ -1,3 +1,4 @@
+import type { ActorData } from "@colibri-social/lib";
 import {
 	type Accessor,
 	createContext,
@@ -7,7 +8,6 @@ import {
 	type Setter,
 	useContext,
 } from "solid-js";
-import type { ActorData } from "@colibri-social/lib";
 
 export type MemberProfileContextValue = {
 	data: Accessor<ActorData | undefined>;

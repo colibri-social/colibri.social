@@ -1,7 +1,6 @@
 import {
 	type Accessor,
 	type Component,
-	createEffect,
 	createSignal,
 	For,
 	Match,
@@ -13,6 +12,7 @@ import {
 import { Dynamic } from "solid-js/web";
 import XIcon from "~icons/ph/x";
 import { cx } from "../../../utils/cva";
+import { useIsMobile } from "../../../utils/mobile-pane";
 import { Spinner } from "../../icons/Spinner";
 import { Button } from "../../ui/Button";
 import {
@@ -28,7 +28,6 @@ import {
 	DrawerPortal,
 	DrawerTrigger,
 } from "../../ui/Drawer";
-import { useIsMobile } from "../../../utils/mobile-pane";
 
 export const SettingsPage: ParentComponent<{
 	loading: Accessor<boolean>;

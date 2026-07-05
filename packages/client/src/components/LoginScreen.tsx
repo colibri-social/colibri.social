@@ -1,11 +1,11 @@
 import { useNavigate } from "@solidjs/router";
 import { type Component, createEffect, createSignal } from "solid-js";
 import { toast } from "somoto";
+import { buildScopes } from "../atproto/scopes";
 import {
 	type ActorTypeaheadResult,
 	searchActorsTypeahead,
 } from "../atproto/xrpc/app/bsky/actor/searchActorsTypeahead";
-import { buildScopes } from "../atproto/scopes";
 import { useAuthContext } from "../contexts/Auth";
 import { getAppViewDid } from "../utils/appview";
 import { Spinner } from "./icons/Spinner";

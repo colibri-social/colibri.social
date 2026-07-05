@@ -16,13 +16,13 @@ import SpeakerLowIcon from "~icons/ph/speaker-low";
 import type { Channel } from "../../../../atproto/xrpc/social/colibri/community/listChannels";
 import type { Member } from "../../../../atproto/xrpc/social/colibri/community/listMembers";
 import User from "../../user";
+import { displayableNameFn } from "../../user/DisplayableName";
 import type {
 	EmojiSuggestionData,
 	SuggestionItem,
-	TimeShortcut,
 	selectItem,
+	TimeShortcut,
 } from "./MentionPopupRenderer";
-import { displayableNameFn } from "../../user/DisplayableName";
 
 export function isMember(item: SuggestionItem): item is Member {
 	return "did" in item;

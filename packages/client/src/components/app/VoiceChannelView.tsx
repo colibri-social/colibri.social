@@ -8,12 +8,12 @@ import {
 	onMount,
 	Show,
 } from "solid-js";
+import CaretLeftIcon from "~icons/ph/caret-left";
 import PhoneSlashIcon from "~icons/ph/phone-slash";
 import SpeakerHighIcon from "~icons/ph/speaker-high-fill";
-import CaretLeftIcon from "~icons/ph/caret-left";
-import { createMobilePane } from "../../utils/mobile-pane";
 import { useCommunityContext } from "../../contexts/Community";
 import { useVoiceChatContext } from "../../contexts/VoiceChat";
+import { createMobilePane } from "../../utils/mobile-pane";
 import { Camera } from "../icons/Camera";
 import { Ear } from "../icons/Ear";
 import { Microphone } from "../icons/Microphone";

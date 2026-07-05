@@ -1,6 +1,6 @@
+import { Root as SeparatorPrimitive } from "@kobalte/core/separator";
 import type { ComponentProps, ValidComponent } from "solid-js";
 import { splitProps } from "solid-js";
-import { Root as SeparatorPrimitive } from "@kobalte/core/separator";
 
 import { cx } from "../../utils/cva";
 

@@ -15,6 +15,8 @@ import {
 } from "../../../../contexts/Message";
 import { useStableMedia } from "../../../../contexts/ScrollAnchor";
 import { useUserContext } from "../../../../contexts/User";
+import { createLongPress } from "../../../../utils/create-long-press";
+import { useIsMobile } from "../../../../utils/mobile-pane";
 import {
 	Tooltip,
 	TooltipTrigger,
@@ -25,8 +27,6 @@ import { RichTextRenderer } from "../../common/rich-text-renderer/RichTextRender
 import { facetsToProseMirror } from "../../common/text-editor/facets-to-prosemirror";
 import { TextEditor } from "../../common/text-editor/TextEditor";
 import User from "../../user";
-import { useIsMobile } from "../../../../utils/mobile-pane";
-import { createLongPress } from "../../../../utils/create-long-press";
 import { MessageAttachments } from "./Attachments";
 import { BlockDrawer } from "./BlockDrawer";
 import { Action } from "./ContextMenu";

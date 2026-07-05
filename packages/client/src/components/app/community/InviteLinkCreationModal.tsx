@@ -1,6 +1,6 @@
 import { createSignal, Match, type ParentComponent, Switch } from "solid-js";
 import { toast } from "somoto";
-import { Spinner } from "../../icons/Spinner";
+import XIcon from "~icons/ph/x";
 import { Button } from "../../../components/ui/Button";
 import {
 	Dialog,
@@ -12,7 +12,7 @@ import {
 } from "../../../components/ui/Dialog";
 import { useCommunityContext } from "../../../contexts/Community";
 import { useUserContext } from "../../../contexts/User";
-import XIcon from "~icons/ph/x";
+import { Spinner } from "../../icons/Spinner";
 
 /**
  * A modal for creating an invitation link.

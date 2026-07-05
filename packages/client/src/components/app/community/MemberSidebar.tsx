@@ -1,22 +1,18 @@
 import twemoji from "@twemoji/api";
 import { createMemo, For, Show } from "solid-js";
+import CaretLeftIcon from "~icons/ph/caret-left";
+import CrownIcon from "~icons/ph/crown-fill";
 import type { Member } from "../../../atproto/xrpc/social/colibri/community/listMembers";
 import type { Role } from "../../../atproto/xrpc/social/colibri/community/listRoles";
-import {
-	useCommunityContext,
-	usePermissions,
-} from "../../../contexts/Community";
-import { useUserContext } from "../../../contexts/User";
+import { useCommunityContext } from "../../../contexts/Community";
 import { useUserPreferences } from "../../../contexts/UserPreferences";
 import createMediaQuery from "../../../utils/create-media-query";
-import { createMobilePane } from "../../../utils/mobile-pane";
 import { createSwipe } from "../../../utils/create-swipe";
+import { groupMembersByRoles } from "../../../utils/group-members-by-roles";
+import { createMobilePane } from "../../../utils/mobile-pane";
+import { Tooltip, TooltipContent, TooltipTrigger } from "../../ui/Tooltip";
 import User from "../user";
 import { MemberContextMenu } from "./MemberContextMenu";
-import CrownIcon from "~icons/ph/crown-fill";
-import CaretLeftIcon from "~icons/ph/caret-left";
-import { Tooltip, TooltipContent, TooltipTrigger } from "../../ui/Tooltip";
-import { groupMembersByRoles } from "../../../utils/group-members-by-roles";
 
 const MemberRow = (props: {
 	member: Member;

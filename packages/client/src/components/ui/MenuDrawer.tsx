@@ -1,10 +1,10 @@
 import {
 	type ComponentProps,
-	type JSX,
-	Show,
 	createEffect,
 	createSignal,
+	type JSX,
 	onCleanup,
+	Show,
 	splitProps,
 } from "solid-js";
 import { Portal } from "solid-js/web";

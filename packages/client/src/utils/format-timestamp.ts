@@ -73,7 +73,6 @@ export const formatTimestamp = (
 				dateStyle: "long",
 				timeStyle: "short",
 			}).format(date);
-		case "relative":
 		default:
 			return formatRelative(date, now);
 	}

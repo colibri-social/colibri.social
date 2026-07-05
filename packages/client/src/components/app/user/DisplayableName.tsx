@@ -1,5 +1,5 @@
 import type { ActorData } from "@colibri-social/lib";
-import { Show, type Component } from "solid-js";
+import { type Component, Show } from "solid-js";
 import { useCommunityContext } from "../../../contexts/Community";
 import { Badge } from "./Badge";
 

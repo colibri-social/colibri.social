@@ -15,8 +15,12 @@ import CheckIcon from "~icons/ph/check";
 import PhoneSlashIcon from "~icons/ph/phone-slash";
 import { useCommunityContext } from "../../../contexts/Community";
 import { useUserContext } from "../../../contexts/User";
+import { useUserPreferences } from "../../../contexts/UserPreferences";
 import { useVoiceChatContext } from "../../../contexts/VoiceChat";
+import { useIsMobile } from "../../../utils/mobile-pane";
 import { Camera } from "../../icons/Camera";
+import { Ear } from "../../icons/Ear";
+import { Microphone } from "../../icons/Microphone";
 import { Screen } from "../../icons/Screen";
 import { Wifi } from "../../icons/Wifi";
 import { Button } from "../../ui/Button";
@@ -30,13 +34,9 @@ import {
 	DropdownMenuRadioItem,
 	DropdownMenuTrigger,
 } from "../../ui/DropdownMenu";
-import { Avatar } from "./Avatar";
-import { useUserPreferences } from "../../../contexts/UserPreferences";
-import { Microphone } from "../../icons/Microphone";
-import { Ear } from "../../icons/Ear";
 import { MenuDrawer, MenuDrawerItem } from "../../ui/MenuDrawer";
-import { useIsMobile } from "../../../utils/mobile-pane";
 import User from ".";
+import { Avatar } from "./Avatar";
 
 const STATE_LABELS: Record<OnlineState, string> = {
 	away: "Away",

@@ -7,17 +7,22 @@ import {
 	type ParentComponent,
 	Show,
 } from "solid-js";
+import { Dynamic } from "solid-js/web";
+import { getBskyAlternativeClientInfo } from "../../../atproto/bluesky-alternatives";
 import { resolveBlob } from "../../../atproto/resolve-blob";
+import { useCommunityContext } from "../../../contexts/Community";
+import { useUserPreferences } from "../../../contexts/UserPreferences";
+import { cx } from "../../../utils/cva";
 import { LINK_REGEX } from "../../../utils/link-regex";
+import { useIsMobile } from "../../../utils/mobile-pane";
 import { purify } from "../../..//utils/purify";
+import { BottomSheet } from "../../ui/MenuDrawer";
 import {
 	Popover,
 	PopoverContent,
 	PopoverPortal,
 	PopoverTrigger,
 } from "../../ui/Popover";
-import { BottomSheet } from "../../ui/MenuDrawer";
-import { useIsMobile } from "../../../utils/mobile-pane";
 import {
 	Tooltip,
 	TooltipContent,
@@ -26,11 +31,6 @@ import {
 } from "../../ui/Tooltip";
 import { Avatar } from "./Avatar";
 import { DisplayableName, displayableNameFn } from "./DisplayableName";
-import { useCommunityContext } from "../../../contexts/Community";
-import { useUserPreferences } from "../../../contexts/UserPreferences";
-import { getBskyAlternativeClientInfo } from "../../../atproto/bluesky-alternatives";
-import { Dynamic } from "solid-js/web";
-import { cx } from "../../../utils/cva";
 
 /**
  * Overrides for rendering {@link ProfilePopoverContents} as a self-contained

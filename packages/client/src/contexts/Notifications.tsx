@@ -13,9 +13,9 @@ import { toast } from "somoto";
 import { writeReadCursor } from "../atproto/read-cursor";
 import { useMutes } from "./Mutes";
 import { useSocketContext } from "./Socket";
+import { useSounds } from "./Sounds";
 import { useUserContext } from "./User";
 import { useUserPreferences } from "./UserPreferences";
-import { useSounds } from "./Sounds";
 
 /**
  * A message the user has been routed to via a notification toast but has not

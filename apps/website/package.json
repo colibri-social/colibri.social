@@ -10,7 +10,6 @@
 	"scripts": {
 		"sync-assets": "node scripts/sync-shared-assets.mjs",
 		"dev": "pnpm sync-assets && astro dev --host",
-		"docker:dev": "docker compose -f docker-compose.dev.yml up",
 		"build": "pnpm sync-assets && astro build",
 		"preview": "pnpm sync-assets && astro preview",
 		"astro": "astro",

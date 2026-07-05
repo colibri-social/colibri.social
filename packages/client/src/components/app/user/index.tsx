@@ -1,9 +1,9 @@
 import { Avatar } from "./Avatar";
+import { Badge } from "./Badge";
 import { DisplayableName } from "./DisplayableName";
+import { InlineProfile } from "./InlineProfile";
 import { ProfilePopover, ProfilePopoverContents } from "./ProfilePopover";
 import { Status } from "./Status";
-import { InlineProfile } from "./InlineProfile";
-import { Badge } from "./Badge";
 
 export default {
 	Avatar,

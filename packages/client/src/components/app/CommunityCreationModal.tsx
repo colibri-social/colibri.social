@@ -1,5 +1,5 @@
-import type { AT_URI } from "@colibri-social/lib";
 import type { JsonBlobRef } from "@atproto/lexicon";
+import type { AT_URI } from "@colibri-social/lib";
 import type { Details } from "@kobalte/core/file-field";
 import {
 	type Component,

@@ -9,6 +9,8 @@ import SignOutIcon from "~icons/ph/sign-out";
 import { communityUriToUrlCompatible } from "../../../atproto/community-uri-to-url-compatible";
 import { useMutes } from "../../../contexts/Mutes";
 import { useNotifications } from "../../../contexts/Notifications";
+import { createLongPress } from "../../../utils/create-long-press";
+import { useIsMobile } from "../../../utils/mobile-pane";
 import {
 	ContextMenu,
 	ContextMenuContent,
@@ -19,8 +21,6 @@ import {
 } from "../../ui/ContextMenu";
 import { handoffDrawer, MenuDrawer, MenuDrawerItem } from "../../ui/MenuDrawer";
 import { LeaveCommunityModal } from "./LeaveCommunityModal";
-import { useIsMobile } from "../../../utils/mobile-pane";
-import { createLongPress } from "../../../utils/create-long-press";
 
 /**
  * Right-click context menu for a community in the sidebar. Ownership comes

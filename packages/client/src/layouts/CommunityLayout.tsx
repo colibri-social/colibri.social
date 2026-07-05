@@ -9,9 +9,9 @@ import {
 import CaretDownIcon from "~icons/ph/caret-down";
 import { urlSegmentToUri } from "../atproto/community-uri-to-url-compatible";
 import { ChannelList } from "../components/app/community/ChannelList";
-import { LegacyCommunityLock } from "../components/app/community/LegacyCommunityLock";
 import { CommunitySettingsModal } from "../components/app/community/CommunitySettingsModal";
 import { LeaveCommunityModal } from "../components/app/community/LeaveCommunityModal";
+import { LegacyCommunityLock } from "../components/app/community/LegacyCommunityLock";
 import { MemberProfileModal } from "../components/app/community/MemberProfileModal";
 import { MemberSidebar } from "../components/app/community/MemberSidebar";
 import User from "../components/app/user";
@@ -22,6 +22,7 @@ import {
 	DropdownMenuPortal,
 	DropdownMenuTrigger,
 } from "../components/ui/DropdownMenu";
+import { MenuDrawer, MenuDrawerItem } from "../components/ui/MenuDrawer";
 import {
 	CommunityContextProvider,
 	useCommunityContext,
@@ -31,9 +32,8 @@ import { MemberProfileContextProvider } from "../contexts/MemberProfile";
 import { useUserContext } from "../contexts/User";
 import { useUserPreferences } from "../contexts/UserPreferences";
 import createMediaQuery from "../utils/create-media-query";
-import { createMobilePane, useIsMobile } from "../utils/mobile-pane";
 import { createSwipe, type SwipeOptions } from "../utils/create-swipe";
-import { MenuDrawer, MenuDrawerItem } from "../components/ui/MenuDrawer";
+import { createMobilePane, useIsMobile } from "../utils/mobile-pane";
 
 const CommunityHeader = () => {
 	const user = useUserContext();

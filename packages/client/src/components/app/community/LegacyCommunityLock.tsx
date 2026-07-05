@@ -1,11 +1,10 @@
 import type { Community } from "@colibri-social/lib";
 import { type Component, createResource, Match, Show, Switch } from "solid-js";
-import LockIcon from "~icons/ph/lock-simple";
+import { resolveBlob } from "../../../atproto/resolve-blob";
 import { useUserContext } from "../../../contexts/User";
+import { AtURI } from "../../../utils/at-uri";
 import { Button } from "../../ui/Button";
 import { CommunityCreationModal } from "../CommunityCreationModal";
-import { resolveBlob } from "../../../atproto/resolve-blob";
-import { AtURI } from "../../../utils/at-uri";
 
 /**
  * Shown instead of the community view when a community is still on the legacy

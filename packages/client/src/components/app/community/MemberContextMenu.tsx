@@ -1,10 +1,15 @@
 import type { ActorData } from "@colibri-social/lib";
-import { createSignal, For, Show, type ParentComponent } from "solid-js";
+import { createSignal, For, type ParentComponent, Show } from "solid-js";
+import { toast } from "somoto";
+import CheckIcon from "~icons/ph/check";
 import {
 	useCommunityContext,
 	usePermissions,
 } from "../../../contexts/Community";
 import { useUserContext } from "../../../contexts/User";
+import { createLongPress } from "../../../utils/create-long-press";
+import { useIsMobile } from "../../../utils/mobile-pane";
+import { createRoleSync } from "../../../utils/role-sync";
 import {
 	Checkbox,
 	CheckboxControl,
@@ -22,17 +27,12 @@ import {
 	ContextMenuSubTrigger,
 	ContextMenuTrigger,
 } from "../../ui/ContextMenu";
+import { handoffDrawer, MenuDrawer, MenuDrawerItem } from "../../ui/MenuDrawer";
 import { DisplayableName, displayableNameFn } from "../user/DisplayableName";
-import { toast } from "somoto";
 import {
 	type ActionDialogData,
 	MemberActionDialog,
 } from "./MemberActionDialog";
-import { createRoleSync } from "../../../utils/role-sync";
-import { handoffDrawer, MenuDrawer, MenuDrawerItem } from "../../ui/MenuDrawer";
-import { useIsMobile } from "../../../utils/mobile-pane";
-import { createLongPress } from "../../../utils/create-long-press";
-import CheckIcon from "~icons/ph/check";
 
 export const MemberContextMenu: ParentComponent<{ member: ActorData }> = (
 	props,

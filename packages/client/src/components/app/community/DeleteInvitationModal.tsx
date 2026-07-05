@@ -1,6 +1,7 @@
 import { createSignal, type ParentComponent } from "solid-js";
 import { toast } from "somoto";
-import { Spinner } from "../../icons/Spinner";
+import XIcon from "~icons/ph/x";
+import type { Invitation } from "../../../atproto/xrpc/social/colibri/community/listInvitations";
 import { Button } from "../../../components/ui/Button";
 import {
 	Dialog,
@@ -11,10 +12,9 @@ import {
 	DialogPortal,
 	DialogTrigger,
 } from "../../../components/ui/Dialog";
-import { useUserContext } from "../../../contexts/User";
-import type { Invitation } from "../../../atproto/xrpc/social/colibri/community/listInvitations";
 import { useCommunityContext } from "../../../contexts/Community";
-import XIcon from "~icons/ph/x";
+import { useUserContext } from "../../../contexts/User";
+import { Spinner } from "../../icons/Spinner";
 
 export const DeleteLinkModal: ParentComponent<{
 	invitation: Invitation;
