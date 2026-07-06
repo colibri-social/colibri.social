@@ -29,7 +29,7 @@ import { putRecord } from "../atproto/pds";
 import { resolveBlob } from "../atproto/resolve-blob";
 import { CommunityCreationModal } from "../components/app/CommunityCreationModal";
 import { CommunityContextMenu } from "../components/app/community/CommunityContextMenu";
-import { PENDING_INVITE_KEY } from "../components/app/community/InviteModal";
+import { PENDING_INVITE_KEY } from "../components/app/community/invite-storage";
 import { NativeNotifications } from "../components/app/NativeNotifications";
 import { UserSettingsModal } from "../components/app/settings";
 import { Plus } from "../components/icons/Plus";

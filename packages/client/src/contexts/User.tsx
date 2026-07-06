@@ -21,6 +21,7 @@ import {
 } from "../atproto/cache/store";
 import { XrpcClient } from "../atproto/xrpc";
 import { AppLoadingScreen } from "../components/AppLoadingScreen";
+import { PENDING_INVITE_KEY } from "../components/app/community/invite-storage";
 import { ProfileGate } from "../components/app/onboarding/ProfileGate";
 import { getAppViewDid, getAppViewServiceRef } from "../utils/appview";
 import { markBoot } from "../utils/perf";
@@ -146,6 +147,15 @@ export const UserContextProvider: ParentComponent = (props) => {
 		const pathname = () => window.location.pathname;
 
 		if (!loggedIn && pathname() !== "/app/login") {
+			const inviteMatch = pathname().match(/^\/app\/invite\/([^/]+)/);
+			if (inviteMatch) {
+				try {
+					localStorage.setItem(
+						PENDING_INVITE_KEY,
+						decodeURIComponent(inviteMatch[1]),
+					);
+				} catch {}
+			}
 			window.location.href = "/app/login";
 		}
 

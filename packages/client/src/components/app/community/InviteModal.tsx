@@ -27,8 +27,7 @@ import {
 	SwitchThumb,
 	Switch as ToggleSwitch,
 } from "../../ui/Switch";
-
-export const PENDING_INVITE_KEY = "colibri:pending-invite";
+import { PENDING_INVITE_KEY } from "./invite-storage";
 
 const clearPendingInvite = () => {
 	try {
@@ -59,7 +58,7 @@ export const InviteModal: Component = () => {
 
 	createEffect(() => {
 		const data = invite();
-		if (!data) return;
+		if (!data?.community) return;
 		const segment = communityUriToUrlCompatible(data.community);
 		const alreadyMember = user.communities.some(
 			(c) => communityUriToUrlCompatible(c.uri) === segment,
@@ -106,7 +105,11 @@ export const InviteModal: Component = () => {
 								<Spinner className="h-8 w-8" />
 							</div>
 						</Match>
-						<Match when={!invite() || invite()?.active === false}>
+						<Match
+							when={
+								!invite() || invite()?.active === false || !invite()?.community
+							}
+						>
 							<div class="flex flex-col items-center text-center gap-4 py-4">
 								<h2 class="text-xl font-bold m-0">Invite invalid</h2>
 								<p class="text-muted-foreground m-0">
@@ -117,7 +120,7 @@ export const InviteModal: Component = () => {
 								</Button>
 							</div>
 						</Match>
-						<Match when={invite()}>
+						<Match when={invite()?.community}>
 							{(data) => {
 								const communityDid = () =>
 									AtURI.parseAtURI(data().community).did;
