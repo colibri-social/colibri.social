@@ -1,0 +1,75 @@
+---
+import { getLinearBlocks } from "@colibri-social/standard-renderer";
+import LeafletDocument from "@colibri-social/standard-renderer/astro/LeafletDocument.astro";
+import PublicLayout from "@/layouts/PublicLayout.astro";
+import { blobUrl } from "@/lib/blog/blob";
+import { documentUri, postUrl } from "@/lib/blog/config";
+import { getPost } from "@/lib/blog/posts";
+
+const { rkey } = Astro.params;
+
+const post = rkey ? await getPost(rkey) : undefined;
+
+if (!post) {
+	return Astro.rewrite("/404");
+}
+
+const { doc } = post;
+const blocks = getLinearBlocks(doc);
+const cover = blobUrl(doc.coverImage);
+const canonical = postUrl(post.rkey);
+
+const dateFormatter = new Intl.DateTimeFormat("en", {
+	year: "numeric",
+	month: "long",
+	day: "numeric",
+});
+---
+
+<PublicLayout
+	title={`${doc.title} | Colibri Blog`}
+	description={doc.description}
+	image={cover}
+	canonical={canonical}
+	ogType="article"
+>
+	<Fragment slot="head">
+		<link rel="site.standard.document" href={documentUri(post.rkey)} />
+		<meta property="article:published_time" content={doc.publishedAt} />
+		{doc.tags?.map((tag) => <meta property="article:tag" content={tag} />)}
+		{cover && <meta name="twitter:image" content={cover} />}
+	</Fragment>
+
+	<article
+		class="py-40 mx-auto w-full max-w-336 md:px-16 px-6 relative flex flex-col items-center gap-8"
+	>
+		<div class="w-full max-w-[65ch] flex flex-col gap-4">
+			<a href="/blog" class="text-sm text-primary hover:underline no-underline"
+				>← Back to blog</a
+			>
+			<h1 class="text-4xl md:text-5xl font-black m-0">{doc.title}</h1>
+			<div
+				class="flex flex-row flex-wrap items-center gap-3 text-sm text-muted-foreground"
+			>
+				<time datetime={doc.publishedAt}>
+					{dateFormatter.format(new Date(doc.publishedAt))}
+				</time>
+				{
+					doc.tags && doc.tags.length > 0 && (
+						<div class="flex flex-row flex-wrap gap-2">
+							{doc.tags.map((tag) => (
+								<span class="text-xs px-2 py-1 rounded-full bg-muted">
+									{tag}
+								</span>
+							))}
+						</div>
+					)
+				}
+			</div>
+		</div>
+
+		<div class="w-full max-w-[65ch]">
+			<LeafletDocument blocks={blocks} resolveBlob={blobUrl} />
+		</div>
+	</article>
+</PublicLayout>

@@ -1,0 +1,33 @@
+---
+import type { ListItem, ResolveBlob, TextBlock } from "../src/index.js";
+import Block from "./Block.astro";
+import List from "./List.astro";
+import RichText from "./RichText.astro";
+
+interface Props {
+	items: ListItem[];
+	resolveBlob: ResolveBlob;
+}
+
+const { items, resolveBlob } = Astro.props;
+---
+
+<ul>
+	{
+		items.map((item) => (
+			<li>
+				{item.content?.$type === "pub.leaflet.blocks.text" ? (
+					<RichText
+						text={(item.content as TextBlock).plaintext}
+						facets={(item.content as TextBlock).facets}
+					/>
+				) : (
+					<Block block={item.content} resolveBlob={resolveBlob} />
+				)}
+				{item.children && item.children.length > 0 && (
+					<List items={item.children} resolveBlob={resolveBlob} />
+				)}
+			</li>
+		))
+	}
+</ul>

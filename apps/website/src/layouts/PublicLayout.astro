@@ -11,6 +11,8 @@ interface Props {
 	description?: string;
 	image?: string;
 	home?: boolean;
+	canonical?: string | URL;
+	ogType?: string;
 }
 ---
 
@@ -22,6 +24,7 @@ interface Props {
 			data-site-id="9bdae4920f8b"
 			defer
 			is:inline></script>
+		<slot name="head" />
 	</Fragment>
 	<Navbar />
 	<main id="main" class="min-h-screen overflow-x-hidden z-20 relative">

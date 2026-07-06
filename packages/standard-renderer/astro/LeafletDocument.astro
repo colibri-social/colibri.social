@@ -1,0 +1,15 @@
+---
+import type { BlockWrapper, ResolveBlob } from "../src/index.js";
+import Block from "./Block.astro";
+
+interface Props {
+	blocks: BlockWrapper[];
+	resolveBlob: ResolveBlob;
+}
+
+const { blocks, resolveBlob } = Astro.props;
+---
+
+<div class="prose prose-neutral dark:prose-invert max-w-none">
+	{blocks.map((wrapper) => <Block block={wrapper.block} resolveBlob={resolveBlob} />)}
+</div>

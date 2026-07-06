@@ -6,9 +6,18 @@ interface Props {
 	description?: string;
 	image?: string;
 	home?: boolean;
+	canonical?: string | URL;
+	ogType?: string;
 }
 
-const { title = "Colibri", description, image, home } = Astro.props;
+const {
+	title = "Colibri",
+	description,
+	image,
+	home,
+	canonical = Astro.site,
+	ogType = "website",
+} = Astro.props;
 ---
 
 <html lang="en" class="dark">
@@ -30,13 +39,13 @@ const { title = "Colibri", description, image, home } = Astro.props;
 		<title>{title}</title>
 		<meta name="description" content={description} />
 		<meta name="theme-color" content="#8e51ff" />
-		<link rel="canonical" href={Astro.site} />
+		<link rel="canonical" href={canonical} />
 		<meta property="og:site_name" content="Colibri" />
 		<meta property="og:title" content={title} />
 		<meta property="og:description" content={description} />
 		{image !== undefined && <meta property="og:image" content={image} />}
-		<meta property="og:url" content={Astro.site} />
-		<meta property="og:type" content="website" />
+		<meta property="og:url" content={canonical} />
+		<meta property="og:type" content={ogType} />
 		<meta property="og:locale" content="en" />
 		<meta name="twitter:card" content="summary_large_image" />
 		<meta name="twitter:title" content={title} />

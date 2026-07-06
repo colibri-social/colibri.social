@@ -1,0 +1,172 @@
+---
+import type {
+	BlockquoteBlock,
+	BskyPostBlock,
+	CodeBlock,
+	HeaderBlock,
+	IframeBlock,
+	ImageBlock,
+	LeafBlock,
+	ResolveBlob,
+	TextBlock,
+	UnorderedListBlock,
+	WebsiteBlock,
+} from "../src/index.js";
+import List from "./List.astro";
+import RichText from "./RichText.astro";
+
+interface Props {
+	block: LeafBlock;
+	resolveBlob: ResolveBlob;
+}
+
+const { block, resolveBlob } = Astro.props;
+const type = block.$type;
+
+const header = block as HeaderBlock;
+const headerLevel = Math.min(Math.max(header.level ?? 2, 2), 6);
+const HeaderTag = `h${headerLevel}` as "h2";
+
+const image = block as ImageBlock;
+const imageSrc = resolveBlob(image.image);
+
+const iframe = block as IframeBlock;
+
+const website = block as WebsiteBlock;
+const websitePreview = resolveBlob(website.previewImage);
+
+const bskyPost = block as BskyPostBlock;
+const bskyHref = bskyPost.postRef?.uri
+	? `https://bsky.app/profile/${bskyPost.postRef.uri.slice("at://".length)}`
+	: undefined;
+
+if (
+	![
+		"pub.leaflet.blocks.text",
+		"pub.leaflet.blocks.header",
+		"pub.leaflet.blocks.blockquote",
+		"pub.leaflet.blocks.image",
+		"pub.leaflet.blocks.iframe",
+		"pub.leaflet.blocks.code",
+		"pub.leaflet.blocks.website",
+		"pub.leaflet.blocks.bskyPost",
+		"pub.leaflet.blocks.horizontalRule",
+		"pub.leaflet.blocks.unorderedList",
+	].includes(type)
+) {
+	console.warn("[standard-renderer] unhandled leaflet block type:", type);
+}
+---
+
+{
+	type === "pub.leaflet.blocks.text" && (
+		<p>
+			<RichText
+				text={(block as TextBlock).plaintext}
+				facets={(block as TextBlock).facets}
+			/>
+		</p>
+	)
+}
+
+{
+	type === "pub.leaflet.blocks.header" && (
+		<HeaderTag>
+			<RichText text={header.plaintext} facets={header.facets} />
+		</HeaderTag>
+	)
+}
+
+{
+	type === "pub.leaflet.blocks.blockquote" && (
+		<blockquote>
+			<RichText
+				text={(block as BlockquoteBlock).plaintext}
+				facets={(block as BlockquoteBlock).facets}
+			/>
+		</blockquote>
+	)
+}
+
+{
+	type === "pub.leaflet.blocks.image" && imageSrc && (
+		<img
+			src={imageSrc}
+			alt={image.alt ?? ""}
+			width={image.aspectRatio?.width}
+			height={image.aspectRatio?.height}
+			loading="lazy"
+			decoding="async"
+			class="rounded-lg w-full h-auto"
+		/>
+	)
+}
+
+{
+	type === "pub.leaflet.blocks.iframe" && (
+		<iframe
+			src={iframe.url}
+			height={iframe.height}
+			loading="lazy"
+			class="w-full rounded-lg border border-border not-prose my-6"
+			style={iframe.height ? `height:${iframe.height}px` : undefined}
+			allowfullscreen
+		/>
+	)
+}
+
+{
+	type === "pub.leaflet.blocks.code" && (
+		<pre><code class={`language-${(block as CodeBlock).language ?? ""}`}>{(block as CodeBlock).plaintext}</code></pre>
+	)
+}
+
+{
+	type === "pub.leaflet.blocks.website" && (
+		<a
+			href={website.src}
+			target="_blank"
+			rel="noopener noreferrer"
+			class="flex no-underline border border-border rounded-lg overflow-hidden my-6 max-w-lg hover:border-primary transition-colors not-prose"
+		>
+			{websitePreview && (
+				<img
+					src={websitePreview}
+					alt=""
+					class="w-36 object-cover border-r border-border"
+				/>
+			)}
+			<span class="flex-1 flex flex-col gap-1 px-4 py-3">
+				{website.title && (
+					<span class="font-bold leading-snug">{website.title}</span>
+				)}
+				{website.description && (
+					<span class="text-sm text-muted-foreground leading-snug">
+						{website.description}
+					</span>
+				)}
+			</span>
+		</a>
+	)
+}
+
+{
+	type === "pub.leaflet.blocks.bskyPost" && bskyHref && (
+		<p>
+			<a href={bskyHref} target="_blank" rel="noopener noreferrer">
+				View post on Bluesky
+			</a>
+		</p>
+	)
+}
+
+{type === "pub.leaflet.blocks.horizontalRule" && <hr />}
+
+{
+	type === "pub.leaflet.blocks.unorderedList" && (
+		<List
+			items={(block as UnorderedListBlock).children ?? []}
+			resolveBlob={resolveBlob}
+		/>
+	)
+}

@@ -2,7 +2,7 @@
 	"scripts": {
 		"dev:client": "pnpm --filter @colibri-social/client dev",
 		"dev:web": "pnpm --filter @colibri-social/website dev",
-		"build": "pnpm --filter colibri-chat build",
+		"build": "pnpm -r build",
 		"lint": "biome check .",
 		"lint:fix": "biome check . --write",
 		"format": "biome format . --write",

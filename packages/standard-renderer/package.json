@@ -1,0 +1,24 @@
+{
+	"name": "@colibri-social/standard-renderer",
+	"private": true,
+	"type": "module",
+	"version": "0.0.1",
+	"types": "./src/index.ts",
+	"exports": {
+		".": {
+			"types": "./src/index.ts",
+			"default": "./src/index.ts"
+		},
+		"./astro/*": "./astro/*"
+	},
+	"scripts": {
+		"build": "tsgo --build"
+	},
+	"peerDependencies": {
+		"astro": "^7.0.0"
+	},
+	"devDependencies": {
+		"@types/node": "^25.6.0",
+		"@typescript/native-preview": "7.0.0-dev.20260627.2"
+	}
+}

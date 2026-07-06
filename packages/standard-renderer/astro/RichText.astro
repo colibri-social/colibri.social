@@ -1,0 +1,58 @@
+---
+import {
+	type Facet,
+	resolveSegmentStyle,
+	type SegmentMark,
+	segmentRichText,
+} from "../src/index.js";
+
+interface Props {
+	text: string;
+	facets?: Facet[];
+}
+
+const { text, facets } = Astro.props;
+
+const classFor = (marks: SegmentMark[], isLink: boolean): string => {
+	const classes: string[] = [];
+	for (const mark of marks) {
+		if (mark.kind === "bold") classes.push("font-bold");
+		if (mark.kind === "italic") classes.push("italic");
+		if (mark.kind === "code")
+			classes.push("font-mono text-[0.9em] bg-muted rounded px-1 py-0.5");
+		if (mark.kind === "underline") classes.push("underline");
+		if (mark.kind === "strikethrough") classes.push("line-through");
+		if (mark.kind === "highlight") classes.push("bg-primary/30 rounded px-0.5");
+	}
+	if (isLink) classes.push("text-primary hover:underline");
+	return classes.join(" ");
+};
+
+const segments = segmentRichText(text, facets).map((segment) => {
+	const style = resolveSegmentStyle(segment.features);
+	return {
+		text: segment.text,
+		href: style.href,
+		class: classFor(style.marks, style.href !== undefined),
+	};
+});
+---
+
+{
+	segments.map((segment) =>
+		segment.href ? (
+			<a
+				href={segment.href}
+				target="_blank"
+				rel="noopener noreferrer nofollow"
+				class={segment.class}
+			>
+				{segment.text}
+			</a>
+		) : segment.class ? (
+			<span class={segment.class}>{segment.text}</span>
+		) : (
+			<Fragment>{segment.text}</Fragment>
+		),
+	)
+}

@@ -1,0 +1,91 @@
+---
+import PublicLayout from "@/layouts/PublicLayout.astro";
+import { blobUrl } from "@/lib/blog/blob";
+import { BLOG_BASE_URL } from "@/lib/blog/config";
+import { listPosts } from "@/lib/blog/posts";
+
+const posts = await listPosts();
+
+const dateFormatter = new Intl.DateTimeFormat("en", {
+	year: "numeric",
+	month: "long",
+	day: "numeric",
+});
+---
+
+<PublicLayout
+	title="Colibri Blog"
+	description="Updates about Colibri Social, the open source chat platform built on atproto."
+	image="/og.png"
+	canonical={BLOG_BASE_URL}
+>
+	<section
+		class="py-40 mx-auto w-full max-w-336 md:px-16 px-6 relative flex flex-col items-center gap-12"
+	>
+		<div class="flex flex-col gap-4 items-center text-center max-w-[65ch]">
+			<small class="text-primary text-sm">Colibri Social Updates</small>
+			<h1 class="text-5xl font-black m-0">Blog</h1>
+			<p class="m-0 text-muted-foreground">
+				News and updates about Colibri, the open source chat platform built on
+				atproto.
+			</p>
+		</div>
+
+		<div class="w-full max-w-[65ch] flex flex-col gap-10">
+			{
+				posts.map(({ rkey, doc }, i) => {
+					const cover = blobUrl(doc.coverImage);
+					return (
+						<a
+							href={`/blog/${rkey}`}
+							class="group flex flex-col gap-4 no-underline"
+						>
+							{cover && (
+								<img
+									src={cover}
+									alt=""
+									loading="lazy"
+									decoding="async"
+									class="w-full h-auto rounded-xl border border-border object-cover aspect-1200/630"
+								/>
+							)}
+							<div class="flex flex-col gap-2">
+								<time
+									datetime={doc.publishedAt}
+									class="text-sm text-muted-foreground"
+								>
+									{dateFormatter.format(new Date(doc.publishedAt))}
+								</time>
+								<h2 class="text-2xl font-bold m-0 group-hover:text-primary transition-colors">
+									{doc.title}
+								</h2>
+								{doc.description && (
+									<p class="m-0 text-muted-foreground">{doc.description}</p>
+								)}
+								{doc.tags && doc.tags.length > 0 && (
+									<div class="flex flex-row flex-wrap gap-2 mt-1">
+										{doc.tags.map((tag) => (
+											<span class="text-xs px-2 py-1 rounded-full bg-muted text-muted-foreground">
+												{tag}
+											</span>
+										))}
+									</div>
+								)}
+							</div>
+						</a>
+						<Fragment>
+							{i < posts.length-1 && (
+								<hr class="my-4" />
+							)}
+						</Fragment>
+					);
+				})
+			}
+			{
+				posts.length === 0 && (
+					<p class="text-center text-muted-foreground">No posts yet.</p>
+				)
+			}
+		</div>
+	</section>
+</PublicLayout>

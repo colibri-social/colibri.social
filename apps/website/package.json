@@ -36,6 +36,7 @@
 		"@biomejs/biome": "^2.4.4",
 		"@colibri-social/assets": "workspace:",
 		"@colibri-social/client": "workspace:",
+		"@colibri-social/standard-renderer": "workspace:",
 		"@corvu/drawer": "^0.2.4",
 		"@fontsource-variable/hanken-grotesk": "^5.2.8",
 		"@kobalte/core": "^0.13.11",
