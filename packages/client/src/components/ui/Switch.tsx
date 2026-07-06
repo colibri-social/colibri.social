@@ -28,7 +28,7 @@ export const SwitchControl = <T extends ValidComponent = "div">(
 				"bg-input inline-flex h-4.5 w-8 items-center rounded-full border border-transparent shadow-xs transition-all",
 				"data-[checked]:bg-primary",
 				"peer-focus-visible/switch-input:border-ring peer-focus-visible/switch-input:ring-ring/50 peer-focus-visible/switch-input:ring-[3px]",
-				"data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50",
+				"data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50 min-w-8",
 				props.class,
 			)}
 			{...rest}
