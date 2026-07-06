@@ -16,6 +16,7 @@ import { toast } from "somoto";
 import ArrowCounterClockwiseIcon from "~icons/ph/arrow-counter-clockwise";
 import BugIcon from "~icons/ph/bug";
 import CheckIcon from "~icons/ph/check";
+import { CopyButton } from "../common/CopyButton";
 import DotsSixVerticalIcon from "~icons/ph/dots-six-vertical";
 import DotsThreeOutlineVerticalIcon from "~icons/ph/dots-three-outline-vertical-fill";
 import IdentificationBadgeIcon from "~icons/ph/identification-badge";
@@ -364,18 +365,9 @@ const InviteLinksPage: Component = () => {
 												</TableCell>
 												<Show when={canDeleteInvitation(user.did)}>
 													<TableCell class="flex flex-row items-center justify-end gap-1">
-														<Button
-															size="sm"
-															class="aspect-square h-6 p-0!"
-															variant="ghost"
-															onClick={() => {
-																navigator.clipboard.writeText(
-																	`https://colibri.social/invite/${invitation.code}`,
-																);
-															}}
-														>
-															<CopyIcon />
-														</Button>
+														<CopyButton
+															value={`https://colibri.social/invite/${invitation.code}`}
+														></CopyButton>
 														<Show when={invitation.active}>
 															<DeleteLinkModal
 																invitation={invitation}
