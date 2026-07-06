@@ -27,6 +27,7 @@ import PlusIcon from "~icons/ph/plus";
 import ProhibitIcon from "~icons/ph/prohibit";
 import TicketIcon from "~icons/ph/ticket";
 import TrashIcon from "~icons/ph/trash";
+import CopyIcon from "~icons/ph/copy";
 import UsersIcon from "~icons/ph/users";
 import WarningDiamondIcon from "~icons/ph/warning-diamond";
 import WrenchIcon from "~icons/ph/wrench";
@@ -335,7 +336,7 @@ const InviteLinksPage: Component = () => {
 										<TableHead>Created by</TableHead>
 										<TableHead>Active</TableHead>
 										<Show when={canDeleteInvitation(user.did)}>
-											<TableHead class="text-right">Delete</TableHead>
+											<TableHead class="text-right">Actions</TableHead>
 										</Show>
 									</TableRow>
 								</TableHeader>
@@ -362,14 +363,30 @@ const InviteLinksPage: Component = () => {
 													{invitation.active ? "Yes" : "No"}
 												</TableCell>
 												<Show when={canDeleteInvitation(user.did)}>
-													<TableCell class="text-right">
+													<TableCell class="flex flex-row items-center justify-end gap-1">
+														<Button
+															size="sm"
+															class="aspect-square h-6 p-0!"
+															variant="ghost"
+															onClick={() => {
+																navigator.clipboard.writeText(
+																	`https://colibri.social/invite/${invitation.code}`,
+																);
+															}}
+														>
+															<CopyIcon />
+														</Button>
 														<Show when={invitation.active}>
 															<DeleteLinkModal
 																invitation={invitation}
 																refetch={refetch}
 															>
-																<Button variant="destructive" size="sm">
-																	Delete
+																<Button
+																	size="sm"
+																	class="aspect-square h-6 p-0! text-destructive hover:text-destructive hover:bg-destructive/25 hover:dark:bg-destructive/25"
+																	variant="ghost"
+																>
+																	<TrashIcon width={16} height={16} />
 																</Button>
 															</DeleteLinkModal>
 														</Show>
