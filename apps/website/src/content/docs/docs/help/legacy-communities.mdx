@@ -2,4 +2,36 @@
 title: Legacy Communities
 ---
 
-(Infos about what happened that legacy communities are a thing, use images)
+import { Image } from 'astro:assets';
+import LockedCommunitySidebar from "../../../../assets/docs/locked-community-sidebar.png";
+import LockedCommunityInfo from "../../../../assets/docs/locked-community-info.png";
+import LockedCommunityOwner from "../../../../assets/docs/locked-community-owner.png";
+
+If you've used Colibri while it was in alpha and have created or joined a community, you might see that it has been locked since the beta release:
+
+<div class="flex flex-row gap-4 w-full items-center not-content">
+	<Image src={LockedCommunitySidebar} alt="A single community in the Colibri sidebar, greyed out with a lock icon." quality={100} class="mx-auto h-fit" />
+	<Image src={LockedCommunityInfo} alt="This community hasn't been migrated to the new format yet. Ask the owner to migrate it so you can keep chatting here." quality={100} class="w-full h-fit" />
+</div>
+
+## Why is this happening?
+
+Communities functioned differently in the alpha version of Colibri. Back then, they were stored on the repo (the account) of the user who created them. Colibri's beta reworked this system so each community has its own account.
+
+## What can I do?
+
+If you're **not** the owner of this community, please contact the owner and ask them to open the Colibri app. They will see a migration option for this community:
+
+<Image src={LockedCommunityOwner} alt="This community is still on the old format and can't be opened. Migrate it to a new community to unlock it. Your channels, messages, and members come along automatically. You will need to re-create server invitations." quality={100} class="w-full h-fit" />
+
+## Will I need to re-invite members?
+
+No, members will still see the community after it has been migrated.
+
+## Will old messages disappear?
+
+No, old messages will be carried over after the migration.
+
+## Why can't the invitation links be carried over?
+
+Colibri's alpha and beta AppViews use very different database structures. To make other parts of the migration easier, we have opted to **not migrate community invitations**. Please re-create any invitation links and update the links.

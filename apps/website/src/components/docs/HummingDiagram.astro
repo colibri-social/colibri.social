@@ -1,0 +1,232 @@
+---
+/**
+ * Humming star-topology diagram for the AppView page. Shows leaf AppViews
+ * relaying a member's off-protocol events to the community's hub, which fans
+ * them back out to the other leaves. Pure SVG + scoped CSS, themed off
+ * Starlight's `--sl-color-*` variables. Motion is disabled under
+ * `prefers-reduced-motion`.
+ */
+---
+
+<div class="humming-diagram not-content">
+	<svg
+		viewBox="0 0 760 420"
+		role="img"
+		aria-label="A community's hub AppView receives Hums from leaf AppViews over sendHum and fans them back out to the other leaves over subscribeHums."
+		xmlns="http://www.w3.org/2000/svg"
+	>
+		<title>Humming star topology</title>
+		<desc>
+			A leaf AppView forwards a local member's off-protocol event to the
+			community's hub via sendHum. The hub delivers it to its own clients and
+			fans it out to every other subscribed leaf via subscribeHums. Leaves never
+			re-forward, so a Hum makes at most two hops.
+		</desc>
+
+		<defs>
+			<marker
+				id="hum-arrow-in"
+				viewBox="0 0 10 10"
+				refX="8"
+				refY="5"
+				markerWidth="6"
+				markerHeight="6"
+				orient="auto-start-reverse"
+			>
+				<path d="M0,0 L10,5 L0,10 z" class="hum-arrowhead-in"></path>
+			</marker>
+			<marker
+				id="hum-arrow-out"
+				viewBox="0 0 10 10"
+				refX="8"
+				refY="5"
+				markerWidth="6"
+				markerHeight="6"
+				orient="auto-start-reverse"
+			>
+				<path d="M0,0 L10,5 L0,10 z" class="hum-arrowhead-out"></path>
+			</marker>
+		</defs>
+
+		<!-- Spokes -->
+		<!-- Sending leaf (left) -> Hub: sendHum -->
+		<path class="edge" d="M168,210 L322,210"></path>
+		<path
+			class="flow flow-in"
+			d="M168,210 L322,210"
+			marker-end="url(#hum-arrow-in)"></path>
+
+		<!-- Hub -> top-right leaf: subscribeHums fan-out -->
+		<path class="edge" d="M438,188 L590,96"></path>
+		<path
+			class="flow flow-out"
+			d="M438,188 L590,96"
+			marker-end="url(#hum-arrow-out)"></path>
+
+		<!-- Hub -> right leaf -->
+		<path class="edge" d="M446,210 L604,210"></path>
+		<path
+			class="flow flow-out"
+			d="M446,210 L604,210"
+			marker-end="url(#hum-arrow-out)"></path>
+
+		<!-- Hub -> bottom-right leaf -->
+		<path class="edge" d="M438,232 L590,324"></path>
+		<path
+			class="flow flow-out"
+			d="M438,232 L590,324"
+			marker-end="url(#hum-arrow-out)"></path>
+
+		<!-- Spoke labels -->
+		<text class="e-label" x="245" y="198" text-anchor="middle">sendHum</text>
+		<text class="e-label" x="548" y="128" text-anchor="middle">subscribeHums</text>
+
+		<!-- Sending leaf (left) -->
+		<g class="node-group">
+			<rect class="node" x="24" y="176" width="144" height="68" rx="12"></rect>
+			<text class="n-title" x="96" y="204" text-anchor="middle">Leaf AppView</text>
+			<text class="n-sub" x="96" y="223" text-anchor="middle">member online</text>
+		</g>
+
+		<!-- Hub (center) -->
+		<g class="node-group">
+			<rect
+				class="node node-hub"
+				x="322"
+				y="170"
+				width="124"
+				height="80"
+				rx="14"></rect>
+			<text class="n-title" x="384" y="205" text-anchor="middle">Hub</text>
+			<text class="n-sub n-sub-hub" x="384" y="224" text-anchor="middle">community appview</text>
+		</g>
+
+		<!-- Receiving leaves (right) -->
+		<g class="node-group">
+			<rect class="node" x="590" y="66" width="146" height="60" rx="12"></rect>
+			<text class="n-title n-title-sm" x="663" y="92" text-anchor="middle">Leaf AppView</text>
+			<text class="n-sub" x="663" y="110" text-anchor="middle">other members</text>
+		</g>
+		<g class="node-group">
+			<rect class="node" x="604" y="180" width="132" height="60" rx="12"></rect>
+			<text class="n-title n-title-sm" x="670" y="206" text-anchor="middle">Leaf AppView</text>
+			<text class="n-sub" x="670" y="224" text-anchor="middle">other members</text>
+		</g>
+		<g class="node-group">
+			<rect class="node" x="590" y="294" width="146" height="60" rx="12"></rect>
+			<text class="n-title n-title-sm" x="663" y="320" text-anchor="middle">Leaf AppView</text>
+			<text class="n-sub" x="663" y="338" text-anchor="middle">other members</text>
+		</g>
+	</svg>
+</div>
+
+<style>
+	.humming-diagram {
+		width: 100%;
+		max-width: 680px;
+		margin: 2rem auto;
+	}
+
+	.humming-diagram svg {
+		width: 100%;
+		height: auto;
+		display: block;
+		overflow: visible;
+	}
+
+	.edge {
+		fill: none;
+		stroke: var(--sl-color-gray-5);
+		stroke-width: 2;
+	}
+
+	.flow {
+		fill: none;
+		stroke-width: 2.5;
+		stroke-linecap: round;
+		stroke-dasharray: 2 10;
+		animation: humming-flow 1.1s linear infinite;
+	}
+
+	/* Inbound (leaf -> hub, sendHum): accent */
+	.flow-in {
+		stroke: var(--sl-color-text-accent);
+	}
+
+	/* Outbound (hub -> leaves, subscribeHums): muted, slightly slower */
+	.flow-out {
+		stroke: var(--sl-color-gray-3);
+		animation-duration: 1.5s;
+	}
+
+	.hum-arrowhead-in {
+		fill: var(--sl-color-text-accent);
+	}
+
+	.hum-arrowhead-out {
+		fill: var(--sl-color-gray-3);
+	}
+
+	.node {
+		fill: color-mix(in srgb, var(--sl-color-text-accent) 5%, transparent);
+		stroke: var(--sl-color-gray-5);
+		stroke-width: 1.5;
+	}
+
+	.node-hub {
+		fill: color-mix(in srgb, var(--sl-color-text-accent) 13%, transparent);
+		stroke: var(--sl-color-text-accent);
+		stroke-width: 1.75;
+		animation: humming-pulse 3s ease-in-out infinite;
+	}
+
+	.n-title {
+		fill: var(--sl-color-text);
+		font-family: var(--sl-font, sans-serif);
+		font-weight: 700;
+		font-size: 16px;
+	}
+
+	.n-title-sm {
+		font-size: 14px;
+	}
+
+	.n-sub {
+		fill: var(--sl-color-gray-3);
+		font-family: var(--font-geist-mono, monospace);
+		font-size: 11px;
+	}
+
+	.n-sub-hub {
+		fill: var(--sl-color-text-accent);
+	}
+
+	.e-label {
+		fill: var(--sl-color-gray-3);
+		font-family: var(--font-geist-mono, monospace);
+		font-size: 11px;
+	}
+
+	@keyframes humming-flow {
+		to {
+			stroke-dashoffset: -12;
+		}
+	}
+
+	@keyframes humming-pulse {
+		0%,
+		100% {
+			stroke-opacity: 1;
+		}
+		50% {
+			stroke-opacity: 0.45;
+		}
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.flow,
+		.node-hub {
+			animation: none;
+		}
+	}
+</style>

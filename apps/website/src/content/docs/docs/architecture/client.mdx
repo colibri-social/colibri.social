@@ -1,5 +1,30 @@
 ---
-title: App
+title: Client
 ---
 
-Architecture for the App (code structure and fundementals)
+Colibri's client is the frontend that connects to an AppView. It is written in [SolidJS](https://solidjs.com) (as well as other open source libraries) and contains the UI and most of the logic that you interact with when using Colibri.
+
+:::note
+When talking about the "client", we refer to the shared reference UI that both the website and the desktop/mobile apps use.
+:::
+
+The client handles all communication with an AppView. When you log in using your Atmosphere account, a session is created in your browser. From that point, any requests (except the WebSocket connection) you make to an AppView are proxied through your PDS for privacy reasons. As you might notice from the wording, the client is not tied to any specific AppView: it is possible to configure it via the user settings.
+
+## Usage on different platforms
+
+The client is published as a library that different shells consume. The website is an [Astro](https://astro.build) app that embeds it, and the desktop and mobile apps are [Tauri](https://tauri.app) shells around the same code. All of the UI, state, and AppView communication lives in the library, so every platform behaves identically.
+
+## Live events
+
+Alongside the proxied HTTP requests, the client holds a single long-lived [`subscribeEvents`](/docs/specification/appview#socialcolibrisyncsubscribeevents) WebSocket open to the AppView. This is what keeps the UI in sync in real time. New messages, membership changes, typing indicators, and profile updates all arrive as events pushed over this socket rather than through polling.
+
+This socket is the one connection that is **not** proxied through your PDS: browsers can't attach service-proxy headers to a `WebSocket`, so the client connects to the AppView directly and authenticates by passing a short-lived service-auth token as a WebSocket subprotocol. The client keeps the connection alive with periodic heartbeats.
+
+## Choosing an AppView
+
+Because the client isn't bound to a single AppView, the AppView origin is a user setting stored locally in the browser, defaulting to `https://api.colibri.social`. When you point the client at a different origin, it first probes [`describeServer`](/docs/specification/appview#socialcolibriserverdescribeserver) and only accepts hosts that report `software: "colibri-appview"`.
+
+## See also
+
+- [AppView Architecture](/docs/architecture/appview): the backend the client talks to.
+- [AppView Specification](/docs/specification/appview): the XRPC endpoints and event types the client consumes.

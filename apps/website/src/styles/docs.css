@@ -5,7 +5,7 @@
 @import "tailwindcss/utilities.css" layer(utilities);
 
 :root {
-	--sl-color-white: #ffffff;
+	--sl-color-white: #0b0b0b;
 	--sl-color-text-accent: oklch(0.606 0.25 292.717);
 	--sl-color-accent-high: oklch(0.606 0.25 292.717);
 	--sl-font: "Hanken Grotesk Variable", sans-serif;
@@ -20,6 +20,7 @@
 	--sl-color-bg-sidebar: #151515;
 	--sl-color-text: rgb(200, 200, 200);
 	--sl-color-black: #0b0b0b;
+	--sl-color-white: #ffffff;
 }
 
 .sl-badge {

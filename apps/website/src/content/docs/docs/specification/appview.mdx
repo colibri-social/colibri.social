@@ -28,8 +28,6 @@ If an endpoint requires authentication, the request must carry a [service auth](
 The recommended way to supply it is to call the AppView **through the user's PDS** using standard service proxying: send the request to the PDS with the `atproto-proxy: did:web:api.colibri.social#colibri_appview` header, and the PDS mints the service-auth token and attaches it as the `Authorization: Bearer <jwt>` header on the proxied request.
 
 The [`social.colibri.sync.subscribeEvents`](#socialcolibrisyncsubscribeevents) WebSocket is the exception: browsers cannot set request headers (or use PDS service proxying) on a `WebSocket`, so the token is supplied as a WebSocket subprotocol instead. See that endpoint for details.
-
-For backwards compatibility and for local-dev clients talking straight to the AppView, the token may also be passed directly as the `auth` query parameter. When both a query parameter and an `Authorization` header are present, the header wins.
 :::
 
 ### `com.atproto.identity.resolveDid`
@@ -217,7 +215,7 @@ Identifies the server as a Colibri AppView and reports its flavor and version.
 	}}
 />
 
-`software` is always `"colibri-appview"` — this is the field clients key on to decide whether a host is a Colibri AppView. `flavor` identifies the AppView build (`"vanilla"` for the stock AppView; forks may set any arbitrary string). `version` is the running crate version.
+`software` is always `"colibri-appview"`. This is the field clients key on to decide whether a host is a Colibri AppView. `flavor` identifies the AppView build (`"vanilla"` for the stock AppView; forks may set any arbitrary string). `version` is the running crate version.
 
 ### `social.colibri.actor.getData`
 
@@ -434,18 +432,18 @@ Opens a connection with a WebSocket stream that transmits relevant events for th
 
 #### Authentication
 
-Unlike the HTTP endpoints, this WebSocket cannot be PDS-proxied: browsers expose no way to set an `Authorization` header (or any custom header) on a `WebSocket`. The token is therefore passed through the one handshake field a browser *can* control — the subprotocol list (`Sec-WebSocket-Protocol`).
+Unlike the HTTP endpoints, this WebSocket cannot be PDS-proxied: browsers expose no way to set an `Authorization` header (or any custom header) on a `WebSocket`. The token is therefore passed through the one handshake field a browser *can* control: the subprotocol list (`Sec-WebSocket-Protocol`).
 
 The client mints a short-lived [service auth](https://atproto.com/specs/xrpc#inter-service-authentication-jwt) token (`aud: did:web:api.colibri.social`, `lxm: social.colibri.sync.subscribeEvents`) and opens the socket offering two subprotocols, in order:
 
-1. `colibri.auth.bearer` — a fixed sentinel marking that the next entry is the token.
+1. `colibri.auth.bearer`: a fixed sentinel marking that the next entry is the token.
 2. the service-auth JWT itself.
 
 ```js
 new WebSocket(url, ["colibri.auth.bearer", token]);
 ```
 
-A service-auth JWT is base64url (`[A-Za-z0-9._-]`), every character of which is a valid subprotocol token, so it passes through the handshake unmodified. The AppView reads the entry following the `colibri.auth.bearer` sentinel, verifies it, and **echoes the `colibri.auth.bearer` sentinel back** in the response `Sec-WebSocket-Protocol` header — per RFC 6455 a browser that offered a subprotocol fails the connection unless the server selects one, so this echo is required. The JWT itself is never echoed back.
+A service-auth JWT is base64url (`[A-Za-z0-9._-]`), every character of which is a valid subprotocol token, so it passes through the handshake unmodified. The AppView reads the entry following the `colibri.auth.bearer` sentinel, verifies it, and **echoes the `colibri.auth.bearer` sentinel back** in the response `Sec-WebSocket-Protocol` header, per RFC 6455 a browser that offered a subprotocol fails the connection unless the server selects one, so this echo is required. The JWT itself is never echoed back.
 
 The `auth` query parameter is still accepted as a transitional / local-dev fallback; when both are present, the subprotocol token wins.
 
@@ -1230,10 +1228,10 @@ Updates a channel's name, description, owner-only flag, and/or post restrictions
 
 Because a non-empty `allowedRoles`/`allowedMembers` list cannot be distinguished from "no change requested" using the list itself, clearing a restriction back to "everyone may post" requires the corresponding `clearAllowedRoles`/`clearAllowedMembers` flag, since passing an empty list is a no-op.
 
-Two hierarchy guards apply, mirroring Discord's permission-overwrite model:
+Two hierarchy guards apply:
 
-- **`ownerOnly` is owner-only to change.** Holding `channel.update` is not enough — only the community owner may flip this flag, since it overrides every other restriction (including the editor's own access, if they're not the owner).
-- **`allowedRoles`/`allowedMembers` edits are scoped to the editor's hierarchy.** Only the *entries that actually change* (added or removed relative to the channel's current lists) are checked — entries already present that aren't touched are left alone. For each changed role, the editor's highest role position must be strictly greater than that role's position (so an editor can never add or remove their own top role, or anything at or above it). For each changed member, the editor must outrank that member by the same strictly-greater rule applied to roles, computed the same way as the moderation hierarchy check used by `banUser`/`kickUser`. The community owner is exempt from both checks. A violation returns `Forbidden`.
+- **`ownerOnly` is owner-only to change.** Holding `channel.update` is not enough. Only the community owner may flip this flag, since it overrides every other restriction (including the editor's own access, if they're not the owner).
+- **`allowedRoles`/`allowedMembers` edits are scoped to the editor's hierarchy.** Only the *entries that actually change* (added or removed relative to the channel's current lists) are checked, entries already present that aren't touched are left alone. For each changed role, the editor's highest role position must be strictly greater than that role's position (so an editor can never add or remove their own top role, or anything at or above it). For each changed member, the editor must outrank that member by the same strictly-greater rule applied to roles, computed the same way as the moderation hierarchy check used by `banUser`/`kickUser`. The community owner is exempt from both checks. A violation returns `Forbidden`.
 
 <XRPCEndpointCard
 	method="POST"
@@ -2728,7 +2726,7 @@ Get all reactions for a specified message, grouped by emoji with reactor DIDs.
 
 ### `social.colibri.embed.getMetadata`
 
-Fetches a URL server-side and returns its OpenGraph/Twitter-card metadata, so the client's IP is never exposed to the target site. Requires authentication to keep the AppView from becoming a public open URL-fetch proxy. Results are cached, including empty ones, to avoid re-fetching pages that carry no embed tags. The outbound request is guarded against SSRF (private, loopback, and link-local addresses are refused). `largeImage` reflects whether the preview should render large (Discord's `summary_large_image` style) or as a small thumbnail.
+Fetches a URL server-side and returns its OpenGraph/Twitter-card metadata, so the client's IP is never exposed to the target site. Requires authentication to keep the AppView from becoming a public open URL-fetch proxy. Results are cached, including empty ones, to avoid re-fetching pages that carry no embed tags. The outbound request is guarded against SSRF (private, loopback, and link-local addresses are refused). `largeImage` reflects whether the preview should render large or as a small thumbnail.
 
 <XRPCEndpointCard
 	method="GET"

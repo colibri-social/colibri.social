@@ -1,0 +1,66 @@
+---
+title: Communities
+description: How Colibri communities work and where their records are stored.
+---
+
+import CommunityRecordsDiagram from "../../../../components/docs/CommunityRecordsDiagram.astro";
+
+A **community** (what other chat apps might call a "server") is where people gather into categories and channels to talk. In a conventional app the backend owns all of that data. Colibri works differently: a community is itself an AT Protocol identity. It has its own DID and repository, and everything about it (channels, roles, members, etc.) is stored as ordinary atproto records, exactly like the records on a user's own repo.
+
+Almost nothing about a community lives only inside the AppView. The AppView is an *index*: it aggregates records from across the network and serves a fast, assembled view of them. The source of truth is always a repo somewhere. The exception to this are invitation links (also called invitations or invites), which are kept inside the AppView for obvious reasons.
+
+<CommunityRecordsDiagram />
+
+## One community, one repo
+
+Every community is a single repo identified by a DID. The community itself is a singleton record stored at the record key `self` (`social.colibri.community`), so there is exactly one community per repo. Its categories, channels, and roles live in that same repo as separate records.
+
+That repo needs an account on a PDS to exist. There are two ways it comes to be:
+
+- **AppView-managed.** When you create a community through the app and choose the *Managed* option, the AppView mints a fresh account on its configured PDS and writes the initial records. It keeps that account's credentials (encrypted) and is the only party that can write to the repo afterwards.
+- **Bring-your-own.** You can host the community repo on a PDS you control and register its credentials with an AppView by choosing the *Bring Your Own* option. The AppView then administers it the same way, without owning the hosting.
+
+Either way, the community record carries an `appview` field naming the AppView that administers it. This AppView is considered its **home**, which also acts as its [presence hub](/docs/architecture/appview#humming) and voice host.
+
+## Where records live
+
+Colibri records have two homes, and which repo a record lives on tells you who owns it.
+
+### The community's repo
+
+Written by the AppView that holds the community's credentials. This is the community's structure and its authoritative state:
+
+| Record | What it is |
+| --- | --- |
+| `social.colibri.community` | The community definition (singleton, key `self`). |
+| `social.colibri.category` | A category grouping channels. |
+| `social.colibri.channel` | A channel within a category. |
+| `social.colibri.role` | A role and its permissions. |
+| `social.colibri.member` | The authoritative membership: a user's DID plus the roles they hold. |
+| `social.colibri.moderation` | An append-only audit log of bans, kicks, and hidden messages. |
+
+### The member's own repo
+
+Written by each user, on their own PDS:
+
+| Record | What it is |
+| --- | --- |
+| `social.colibri.message` | A message, referencing the channel it was sent in. |
+| `social.colibri.reaction` | A reaction to a message. |
+| `social.colibri.membership` | A request / declaration that the user wants to join a community. |
+| `social.colibri.actor.profile` | The user's Colibri profile. |
+| `social.colibri.actor.data` | The user's status and presence data. |
+| `social.colibri.actor.mute` | A muted channel or community. |
+| `social.colibri.channel.read` | A read cursor tracking how far a user has read in each channel. |
+
+This record structure means **your messages are stored in your repo.** You own them, they travel with your atproto identity, and deleting one is just a normal record deletion on your own PDS. The AppView removes it from its index when the deletion crosses the firehose. The community, in turn, owns its structure and the authoritative record of who is a member and what has been moderated.
+
+:::note[`membership` vs `member`]
+Joining is a two-sided handshake across two repos. A user writes a `social.colibri.membership` on **their** repo to declare they want in, the community writes a `social.colibri.member` on **its** repo to actually grant access and assign roles. For communities that require approval, a moderator finalizes the second half. A `membership` without a matching `member` is a pending application.
+:::
+
+## See also
+
+- [AppView Architecture](/docs/architecture/appview): the index that aggregates these records.
+- [AppView Specification](/docs/specification/appview): the endpoints that read and write them, and the full record schemas.
+- [Self-Hosting](/docs/self-hosting/getting-started): running the AppView that hosts and administers communities.

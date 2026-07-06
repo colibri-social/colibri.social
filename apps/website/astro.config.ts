@@ -54,23 +54,23 @@ export default defineConfig({
 				{ slug: "docs", label: "Start here" },
 				{
 					label: "Architecture",
-					autogenerate: { directory: "docs/architecture" },
+					items: [{ autogenerate: { directory: "docs/architecture" } }],
 				},
 				{
 					label: "Specification",
-					autogenerate: { directory: "docs/specification" },
+					items: [{ autogenerate: { directory: "docs/specification" } }],
 				},
 				{
 					label: "Contributing",
-					autogenerate: { directory: "docs/contributing" },
+					items: [{ autogenerate: { directory: "docs/contributing" } }],
 				},
 				{
 					label: "Self-Hosting",
-					autogenerate: { directory: "docs/self-hosting" },
+					items: [{ autogenerate: { directory: "docs/self-hosting" } }],
 				},
 				{
 					label: "Help",
-					autogenerate: { directory: "docs/help" },
+					items: [{ autogenerate: { directory: "docs/help" } }],
 				},
 			],
 			disable404Route: true,

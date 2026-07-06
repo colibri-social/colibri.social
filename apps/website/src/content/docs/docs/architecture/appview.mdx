@@ -2,4 +2,60 @@
 title: AppView
 ---
 
-Architecture for the AppView (code structure and fundementals)
+import AppViewDiagram from "../../../../components/docs/AppViewDiagram.astro";
+import HummingDiagram from "../../../../components/docs/HummingDiagram.astro";
+
+Colibri's AppView is what you would call the "Backend" in a normal full-stack application. It handles HTTP requests and WebSocket connections from clients and stores AT protocol records for caching.
+
+:::note
+This page is about the [reference implementation](https://github.com/colibri-social/appview). For information about the specification this AppView follows, see the [specification page](/docs/specification/appview).
+:::
+
+The reference AppView is written in Rust using the framework [Rocket](https://rocket.rs) and a few other libraries. Since backfilling is very difficult to implement, we have opted to use [Tap](https://github.com/bluesky-social/indigo/blob/main/cmd/tap/README.md), an ATproto firehose consumer, to handle backfill. The AppView connects to Tap for live events via a WebSocket connection. They both connect to a single PostgreSQL database.
+
+<AppViewDiagram />
+
+All three services can be deployed using a single Docker compose file. The entire setup is meant to be easily [self-hostable](/docs/self-hosting/getting-started), so it's designed to use very little RAM.
+
+| Service  | Average RAM usage        |
+| -------- | ------------------------ |
+| Tap      | ~60 MiB - 1 GiB          |
+| Postgres | ~70 MiB - 120 MiB        |
+| AppView  | ~40 MiB - 1 GiB          |
+
+These are baseline figures.
+
+A small VPS with 2+ CPU cores and 4+ GB of RAM should be able to handle basic usage. **A system with 4+ CPU cores and 6+ GB of RAM is recommended.**
+
+## Humming
+
+:::caution[Experimental]
+Humming is enabled by default but has not yet been hardened by a large federated deployment, so treat it as experimental. The reference AppView can opt out entirely by starting with `HUMMING_ENABLED=false`, in which case it opens no outbound connections and rejects the relay endpoints.
+:::
+
+Because Colibri is self-hostable, a single community's members can be spread across several independent AppViews. On-protocol data (messages, memberships, roles, and so on) lives in repositories, so it reaches every AppView through the tap firehose regardless of where it originated. **Off-protocol** signals like online status, typing indicators, and voice presence never touch a repo. Without help they stay trapped inside the AppView that produced them, so a member on one instance would appear permanently offline to members on another.
+
+**Humming** bridges that gap. A *Hum* is a single off-protocol event that one AppView relays to another, where it is delivered to that instance's clients over their ordinary [`subscribeEvents`](/docs/specification/appview#socialcolibrisyncsubscribeevents) stream. Humming carries **only** these ephemeral signals, never data about messages, memberships, or any other on-protocol record, all of which continue to flow through the firehose.
+
+### Per-community hub
+
+Every community names a single AppView as its hub through the `appview` field on its community record, the same instance that administers the community and hosts its voice SFU. Presence then flows through that hub in a star topology:
+
+1. A **leaf** (any AppView with a local, online member of the community) forwards that member's Hums to the hub via [`sendHum`](/docs/specification/appview#socialcolibrisyncsendhum).
+2. The **hub** delivers the Hum to its own local clients and fans it out to every leaf subscribed over [`subscribeHums`](/docs/specification/appview#socialcolibrisyncsubscribehums).
+3. **Leaves never re-forward** what they receive.
+
+<HummingDiagram />
+
+A Hum therefore makes at most two hops, and an instance only ever sees traffic for communities its own users belong to. There is no whole-network flood, and propagation is bounded structurally as well as by a TTL, per-peer rate limits, and connection caps.
+
+### Opt-in and trust
+
+Cross-instance presence is **opt-in per user**. A user opts in by publishing a `presenceService` DID on their profile record, naming the one AppView allowed to speak for their presence. The reference client keeps this in sync with the AppView you actually connect to and exposes a "Share presence across AppViews" toggle (on by default). Removing the field opts out, meaning every AppView then drops Hums about that user, while their local, same-instance presence is unaffected.
+
+The full wire format, endpoint contracts, and the complete trust-model checklist are documented on the [specification page](/docs/specification/appview#humming).
+
+## See also
+
+- [Client Architecture](/docs/architecture/client): the frontend that talks to this AppView.
+- [AppView Specification](/docs/specification/appview): the full XRPC endpoint and event reference.

@@ -1,3 +1,124 @@
 ---
 title: "Getting Started"
+description: "Run your own Colibri AppView and connect a client to it."
 ---
+
+import { Steps } from "@astrojs/starlight/components";
+
+This guide covers running your own Colibri **AppView** and pointing a **client** at it. It does not cover deploying the colibri.social website.
+
+:::note
+The reference AppView lives in its own repository: [colibri-social/appview](https://github.com/colibri-social/appview). The repository's `README.md` and its `.env.example` are the authoritative source for the exact configuration values.
+:::
+
+## What you'll run
+
+An AppView deployment is three services:
+
+- The **AppView** itself (Rust/Rocket), which serves the XRPC API on port `8000`.
+- **Tap**, an ATproto firehose consumer that handles backfill and streams live events to the AppView.
+- A single **PostgreSQL** database that both Tap and the AppView share.
+
+In production, `docker-compose.yml` builds and runs all three together. For local development you run Postgres and Tap from the `docker-compose.dev.yml` compose file and the AppView with `cargo run`. See the [AppView architecture page](/docs/architecture/appview) for how these fit together and for RAM/CPU sizing guidance.
+
+## Prerequisites
+
+- **A PDS you control**, plus its admin password. This is where the AppView mints and hosts the repositories for communities created on your instance.
+- **A domain with TLS**, e.g. `appview.example.com`. This is not optional: the AppView identifies itself with a `did:web` derived from a hostname, it serves its DID document at `/.well-known/did.json`, and user PDSs proxy authenticated requests to it over HTTPS. A bare IP will not work.
+- **Docker** and **Docker Compose**.
+- **Rust `1.93`+**, if you build locally with `cargo run`. On Windows, building pulls in OpenSSL and needs Strawberry Perl + NASM on your `PATH`, see the repository's README.
+- A server meeting the [recommended specs](/docs/architecture/appview).
+
+## Run it locally
+
+<Steps>
+
+1. Clone the repository and create your config from the template:
+
+   ```sh
+   git clone https://github.com/colibri-social/appview.git
+   cd appview
+   cp .env.example .env
+   ```
+
+2. Fill in the .env file, then start the dependencies (Postgres and Tap) with the dev compose file:
+
+   ```sh
+   docker compose -f docker-compose.dev.yml up
+   ```
+
+3. Run the AppView. Database migrations run automatically on boot:
+
+   ```sh
+   cargo run
+   ```
+
+   It listens on `http://127.0.0.1:8000`; API routes live under `/xrpc/`.
+
+</Steps>
+
+## Deploy to production
+
+The production `docker-compose.yml` builds the release image from the `Dockerfile` and runs the AppView alongside Postgres and Tap, reading the same `.env`.
+
+<Steps>
+
+1. Fill in `.env` (see [Configuration](#configuration)), then bring the whole stack up:
+
+   ```sh
+   docker compose up -d
+   ```
+
+2. Put the AppView behind a TLS-terminating reverse proxy (Caddy, nginx, Traefik, etc.) on your domain, forwarding to port `8000`.
+
+3. Confirm your DID document resolves at your domain and lists the `#colibri_appview`, `#colibri_notif`, and `#colibri_hum` service endpoints:
+
+   ```sh
+   curl https://appview.example.com/.well-known/did.json
+   ```
+
+4. Confirm the AppView identifies itself correctly:
+
+   ```sh
+   curl https://appview.example.com/xrpc/social.colibri.server.describeServer
+   ```
+
+   You should get back JSON with `"software": "colibri-appview"`.
+
+</Steps>
+
+## Configuration
+
+Configuration is read from environment variables (via a `.env` file in the repo root). The ones you're most likely to touch:
+
+| Variable                    | Required | Purpose                                                                                                          |
+| --------------------------- | -------- | --------------------------------------------------------------------------------------------------------------- |
+| `APPVIEW_DID`               | Yes | The `did:web` this instance identifies as, e.g. `did:web:appview.example.com`. **Defaults to `did:web:api.colibri.social`**, so a self-hosted instance must set it. |
+| `DATABASE_URL`              | Yes      | Connection string for the shared Postgres database.                                                             |
+| `K256_PRIVATE_KEY`          | Yes      | secp256k1 private key used to sign ATproto operations, service-auth tokens, and the DID document. Hex-encoded 32-byte key (64 hex chars, no `0x`). Generate one with `openssl rand -hex 32` |
+| `PDS_LOC`                   | Yes      | URL of the PDS where the AppView creates and hosts community repositories.                                      |
+| `PDS_ADMIN_PASS`            | Yes      | Admin password for that PDS, so the AppView can create community accounts.                                       |
+| `APPVIEW_HANDLE_DOMAIN`     | Yes      | Domain communities get their handles from (a community `example` becomes `example.${APPVIEW_HANDLE_DOMAIN}`).    |
+| `CREDENTIAL_ENCRYPTION_KEY` | Yes      | Base64-encoded 32-byte key used to encrypt stored community credentials at rest. Generate one with `openssl rand -base64 32` |
+| `TAP_HOSTNAME` / `TAP_ADMIN_PASSWORD` | Yes | Where the AppView reaches Tap, and Tap's admin password.                                                    |
+| `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` / `VAPID_SUBJECT` | No | Web Push keypair for background notifications. Unset disables background push. Generate a keypair with `npx web-push generate-vapid-keys` |
+| `KLIPY_API_KEY`             | No       | Enables the GIF picker endpoints. Unset disables them.                                                          |
+| `HUMMING_ENABLED`           | No       | Cross-instance presence relaying. On by default, set to `false` to opt out entirely.                            |
+
+`.env.example` documents the remaining tuning knobs (`DATABASE_MAX_CONNECTIONS`, `TAP_WORKERS`, `RUST_LOG`, the `HUM_*` federation caps, and so on). Prefer it for other variables and explainers, the table above only covers the essentials.
+
+## Connecting a client
+
+The client isn't tied to any particular AppView. In a running client, open the user settings, then **Preferences** and set the AppView URL to your instance (`https://appview.example.com`). The client probes [`describeServer`](/docs/specification/appview#socialcolibriserverdescribeserver), accepts the host only if it reports `software: "colibri-appview"`, and then re-authenticates so your session is scoped to the new AppView.
+
+Authentication scopes are pinned to the AppView's `did:web` and cannot use a wildcard, so a client will only authorize AppViews it has been configured to trust. That means you generally can't point an arbitrary hosted client at a brand-new self-hosted AppView and log in. Building and hosting that client UI is out of scope for this guide, the shared UI is published as the `@colibri-social/client` library (see the [client architecture page](/docs/architecture/client)).
+
+## Federation between instances
+
+If your community's members are spread across more than one AppView, off-protocol signals (online status, typing, voice presence) are relayed between instances by **Humming**, which is on by default. To run a fully isolated instance that never talks to other AppViews, start with `HUMMING_ENABLED=false`. See the [Humming overview](/docs/architecture/appview#humming) for more information.
+
+## See also
+
+- [AppView Architecture](/docs/architecture/appview): the services, sizing, and how they connect.
+- [Client Architecture](/docs/architecture/client): how the client talks to an AppView and how it's packaged.
+- [AppView Specification](/docs/specification/appview): the full XRPC endpoint and event reference.

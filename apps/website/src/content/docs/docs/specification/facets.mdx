@@ -1,0 +1,207 @@
+---
+title: Facets
+description: How Colibri rich-text facets are encoded, rendered, and which take precedence.
+---
+
+Colibri messages store their text as plain UTF-8. All formatting is carried separately as a list of **facets**: annotations that each apply one or more features to a byte range of that text.
+
+Keeping formatting out of the text itself means the raw message stays readable and searchable, and a client that doesn't understand a given feature can always fall back to rendering the plain text.
+
+:::note
+The AppView treats facets opaquely. It stores and relays them verbatim without validating their contents, and does not render them. Interpreting facets is entirely the client's job. The one exception is push notifications, where the AppView redacts any text covered by a [`spoiler`](#spoiler) facet from the notification body. Everything else on this page describes the rendering contract clients are expected to follow.
+:::
+
+## The facet shape
+
+A facet is an `index` (the byte range it covers) plus a list of `features` (what to do with that range):
+
+```ts title="social.colibri.richtext.facet"
+{
+	index: {
+		byteStart: number; // inclusive, zero-based
+		byteEnd: number;   // exclusive
+	};
+	features: Feature[]; // one or more features applied to this range
+}
+```
+
+- **Offsets are byte offsets into the UTF-8 encoded text**, not character/code-point offsets. A multi-byte character (an emoji, an accented letter) advances the index by its byte length. Renderers must slice the encoded bytes, not the JavaScript string, or ranges will drift on non-ASCII text.
+- `byteStart` is inclusive, `byteEnd` is exclusive, both zero-based.
+- A single facet may carry **multiple features** over the same range (e.g. bold *and* italic).
+
+## Feature types
+
+Features fall into two groups that are rendered very differently:
+
+| Group | Features | Rendered as |
+| --- | --- | --- |
+| **Inline** | `bold`, `italic`, `underline`, `strikethrough`, `code`, `spoiler`, `mention`, `link`, `channel`, `time` | Wrappers/elements *within* a line of text |
+| **Block** | `codeblock`, `quote`, `heading`, `list`, `subtext` | Block-level elements that own their whole range |
+
+The distinction drives the whole [resolution algorithm](#precedence-and-resolution): block features define the document's structure, and inline features decorate the text inside it.
+
+### Inline features
+
+#### `bold`, `italic`, `underline`, `strikethrough`
+
+The basic text marks. No properties. Rendered as `<b>`, `<i>`, `<u>`, and strikethrough text respectively. They combine freely (see [combining marks](#combining-inline-marks)).
+
+#### `code`
+
+Inline monospace code. No properties. Rendered as an inline `<code>` element. The text inside is shown literally, other inline marks may still be applied around it.
+
+#### `spoiler`
+
+Click-to-reveal text. No properties. Rendered hidden (text and background masked) until the reader clicks it. As noted above, spoiler-covered text is also stripped from push-notification bodies by the AppView.
+
+#### `mention`
+
+A reference to a user.
+
+```ts title="#mention"
+{ did: string } // DID of the mentioned user
+```
+
+The facet's covered text is the visible label (e.g. `@alice`). The renderer resolves `did` against the community's members: a known member renders as an interactive mention (with a profile popover), an unknown DID still renders as a styled mention but without navigation.
+
+#### `channel`
+
+A reference to a channel in the same community.
+
+```ts title="#channel"
+{ channel: string } // record-key of the referenced channel
+```
+
+Resolved against the community's channels and rendered as a link to that channel. An unresolved channel key still renders styled but non-navigable.
+
+#### `link`
+
+A hyperlink.
+
+```ts title="#link"
+{ uri: string } // the link target
+```
+
+Rendered as an `<a>` opening in a new tab. The covered text is the link label. When the label text is exactly equal to `uri` (a "bare" URL), the client may rewrite the displayed href, for example, rewriting a Bluesky URL to the reader's preferred Bluesky client.
+
+#### `time`
+
+A timestamp, rendered in the reader's locale and timezone.
+
+```ts title="#time"
+{
+	datetime: string; // ISO 8601 timestamp
+	style?: "time-short" | "time-long" | "date-short" | "date-long"
+	      | "datetime-short" | "datetime-long" | "relative";
+}
+```
+
+`relative` renders a live "in 5 minutes" / "2 hours ago" label. The covered text is replaced by the formatted timestamp.
+
+### Block features
+
+Each block feature covers a whole line (or, for `codeblock`, a whole multi-line region). Inline features may still apply *inside* a block's range.
+
+#### `heading`
+
+```ts title="#heading"
+{ level: 1 | 2 | 3 }
+```
+
+Rendered as `<h1>`, `<h2>`, or `<h3>`. Levels are clamped: `1` (or lower) = `<h1>`, `2` = `<h2>`, `3` (or higher) = `<h3>`.
+
+#### `list`
+
+```ts title="#list"
+{ ordered: boolean } // true = numbered, false = bulleted
+```
+
+Each `list` facet is one list item. Consecutive list facets are grouped into a single `<ul>`/`<ol>` when they have the same `ordered` value and are directly adjacent, meaning each item's `byteStart` is exactly one byte (the separating newline) after the previous item's `byteEnd`. A change in `ordered`, a gap, or any intervening content ends the list and starts a new one.
+
+#### `quote`
+
+A block quote. No properties. Rendered as a `<blockquote>`.
+
+#### `subtext`
+
+Small, muted text. No properties. Rendered as a block-level element in a smaller, dimmed style.
+
+#### `codeblock`
+
+A multi-line, preformatted code block.
+
+```ts title="#codeblock"
+{ lang?: string } // optional language hint for syntax highlighting
+```
+
+Rendered as `<pre><code>`. Unlike every other feature, the text inside a `codeblock` is emitted **verbatim**. Inline facets are not applied within it, so markup characters show literally.
+
+## Precedence and resolution
+
+Because features can overlap and even conflict, rendering follows a defined order. A conformant renderer should reproduce these results.
+
+### 1. Normalize first
+
+Before rendering, facets are normalized:
+
+- Facets that share the **exact same byte range** are merged into one, and duplicate features within a range are removed.
+- Facets are sorted by `byteStart`, then `byteEnd`.
+
+### 2. Block structure wins the outer layer
+
+Block features are extracted first and define the top-level structure of the message. The text is walked as an alternating sequence of block regions and the inline runs between them.
+
+Inline features are still rendered **inside** a block's range (a heading can contain bold text, a bare link, etc.), but block features are ignored during the inline pass. Newlines that merely separate blocks are consumed and not rendered as blank lines.
+
+### 3. One block wrapper per range
+
+If a single range somehow carries more than one block feature, exactly one wins, in this order:
+
+<div class="not-content">
+
+**`list` > `codeblock` > `quote` > `heading` > `subtext`**
+
+</div>
+
+The highest-precedence block feature present is rendered, the others on that range are dropped.
+
+### 4. Inline entities are terminal
+
+Within an inline segment, three features take over the entire segment and suppress any other inline marks on it. If more than one is present, they win in this order:
+
+<div class="not-content">
+
+**`channel` > `mention` > `time`**
+
+</div>
+
+A segment that is both a `mention` and `bold` renders as a mention only. These entity features produce a single leaf element and never nest other marks.
+
+### 5. Combining inline marks
+
+If no entity feature is present, the remaining marks (`bold`, `italic`, `underline`, `strikethrough`, `code`, `spoiler`, `link`) are applied as nested wrappers around the text, so they compose: a range that is bold *and* italic renders as bold italic text. Order of nesting follows the feature list and is visually equivalent for the standard marks.
+
+### 6. Overlapping ranges are split
+
+Partially overlapping facets (as opposed to identical ranges, which were merged in step 1) are resolved by splitting the text at every facet boundary. Each resulting segment is rendered with the features of every facet that fully covers it. For example, if `bold` covers bytes `0–6` and `italic` covers `3–9`, the result is three segments: `0–3` bold, `3–6` bold + italic, `6–9` italic.
+
+## Worked example
+
+Text: `Hello world` with `Hello` bold and `world` a mention.
+
+```ts
+{
+	text: "Hello world",
+	facets: [
+		{ index: { byteStart: 0, byteEnd: 5 },  features: [{ $type: "social.colibri.richtext.facet#bold" }] },
+		{ index: { byteStart: 6, byteEnd: 11 }, features: [{ $type: "social.colibri.richtext.facet#mention", did: "did:plc:..." }] },
+	],
+}
+```
+
+Renders as **Hello** (bold) followed by a mention chip for `world`. If the mention facet also carried `bold`, the mention would still render as a plain mention chip, because [inline entities are terminal](#4-inline-entities-are-terminal).
+
+## See also
+
+- [Lexicons](/docs/specification/lexicons): the full lexicon schemas, including `social.colibri.richtext.facet`.
+- [AppView Specification](/docs/specification/appview): messages and the `facets` field on the wire.
