@@ -120,7 +120,7 @@ export const InviteModal: Component = () => {
 								</Button>
 							</div>
 						</Match>
-						<Match when={invite()?.community}>
+						<Match when={invite()}>
 							{(data) => {
 								const communityDid = () =>
 									AtURI.parseAtURI(data().community).did;
