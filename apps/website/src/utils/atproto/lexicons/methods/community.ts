@@ -170,6 +170,32 @@ export const communityMethodDocs: LexiconDoc[] = [
 					active: { type: "boolean" },
 				},
 			},
+			resolvedInvitationView: {
+				type: "object",
+				description:
+					"An invitation hydrated with its community's public details, for the invite accept screen.",
+				required: [
+					"code",
+					"community",
+					"createdBy",
+					"active",
+					"name",
+					"memberCount",
+					"onlineCount",
+					"requiresApprovalToJoin",
+				],
+				properties: {
+					code: { type: "string" },
+					community: { type: "string", format: "at-uri" },
+					createdBy: { type: "string", format: "did" },
+					active: { type: "boolean" },
+					name: { type: "string" },
+					picture: { type: "blob" },
+					memberCount: { type: "integer" },
+					onlineCount: { type: "integer" },
+					requiresApprovalToJoin: { type: "boolean" },
+				},
+			},
 		},
 	},
 	{
@@ -954,7 +980,8 @@ export const communityMethodDocs: LexiconDoc[] = [
 		defs: {
 			main: {
 				type: "query",
-				description: "Resolves an invitation code to its community.",
+				description:
+					"Resolves an invitation code to its community, hydrated with the community's public details for the invite accept screen.",
 				parameters: {
 					type: "params",
 					required: ["code"],
@@ -966,7 +993,7 @@ export const communityMethodDocs: LexiconDoc[] = [
 					encoding: "application/json",
 					schema: {
 						type: "ref",
-						ref: "social.colibri.community.defs#invitationView",
+						ref: "social.colibri.community.defs#resolvedInvitationView",
 					},
 				},
 			},
