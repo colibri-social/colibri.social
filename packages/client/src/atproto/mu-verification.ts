@@ -128,6 +128,14 @@ const getMuTrustedVerifierProfiles = (): Promise<
 	return promise;
 };
 
+/**
+ * Whether `did` is itself a member of Mu's trusted-verifier list
+ */
+export const isMuTrustedVerifier = async (did: string): Promise<boolean> => {
+	const profiles = await getMuTrustedVerifierProfiles();
+	return profiles.has(did);
+};
+
 const fetchVerificationIssuers = async (
 	subjectDid: string,
 ): Promise<Array<string>> => {

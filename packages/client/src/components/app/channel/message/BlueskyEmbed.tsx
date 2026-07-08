@@ -7,6 +7,7 @@ import {
 } from "@atproto/api";
 import { type Component, createResource, For, Show } from "solid-js";
 import { Dynamic } from "solid-js/web";
+import CheckCircleIcon from "~icons/ph/check-circle-fill";
 import ChatIcon from "~icons/ph/chat-circle";
 import HeartIcon from "~icons/ph/heart";
 import RepeatIcon from "~icons/ph/repeat";
@@ -22,7 +23,10 @@ import {
 	buildBskyProfileUrl,
 	rewriteBskyUrl,
 } from "../../../../atproto/bsky-post-url";
-import { getMuVerification } from "../../../../atproto/mu-verification";
+import {
+	getMuVerification,
+	isMuTrustedVerifier,
+} from "../../../../atproto/mu-verification";
 import { resolveEmbedImage } from "../../../../atproto/resolve-blob";
 import { useStableMedia } from "../../../../contexts/ScrollAnchor";
 import { useUserPreferences } from "../../../../contexts/UserPreferences";
@@ -77,7 +81,7 @@ export const BlueskyEmbed: Component<{ uri: string; post: BskyPostRef }> = (
 		(did) => getMuVerification(did),
 	);
 
-	const badgeTitle = () => {
+	const verifiedTitle = () => {
 		const names: string[] = [];
 		const bskyNames = verifiedIssuers();
 		if (bskyNames) names.push(bskyNames);
@@ -85,6 +89,15 @@ export const BlueskyEmbed: Component<{ uri: string; post: BskyPostRef }> = (
 		if (mu) names.push(mu.issuerDisplayName || mu.issuerHandle);
 		return names.length > 0 ? names.join(", ") : undefined;
 	};
+
+	const [isMuVerifier] = createResource(
+		() => post()?.author.did,
+		(did) => isMuTrustedVerifier(did),
+	);
+
+	const isTrustedVerifier = () =>
+		post()?.author.verification?.trustedVerifierStatus === "valid" ||
+		isMuVerifier() === true;
 
 	const images = (): AppBskyEmbedImages.ViewImage[] => {
 		const embed = post()?.embed;
@@ -134,15 +147,27 @@ export const BlueskyEmbed: Component<{ uri: string; post: BskyPostRef }> = (
 								<div class="flex flex-col leading-tight min-w-0">
 									<span class="font-semibold text-sm truncate flex items-center gap-1">
 										{p().author.displayName || p().author.handle}
-										<Show when={badgeTitle()}>
-											{(title) => (
-												<span
-													title={title()}
-													class="shrink-0 inline-flex text-(--hover)"
-												>
-													<SealCheckIcon class="w-3.5 h-3.5" />
-												</span>
-											)}
+										<Show
+											when={isTrustedVerifier()}
+											fallback={
+												<Show when={verifiedTitle()}>
+													{(title) => (
+														<span
+															title={title()}
+															class="shrink-0 inline-flex text-(--hover)"
+														>
+															<CheckCircleIcon class="w-3.5 h-3.5" />
+														</span>
+													)}
+												</Show>
+											}
+										>
+											<span
+												title="Trusted verifier"
+												class="shrink-0 inline-flex text-(--hover)"
+											>
+												<SealCheckIcon class="w-3.5 h-3.5" />
+											</span>
 										</Show>
 									</span>
 									<span class="text-xs text-card-foreground/70 truncate">
