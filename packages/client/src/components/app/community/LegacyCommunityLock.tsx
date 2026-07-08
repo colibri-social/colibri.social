@@ -22,7 +22,7 @@ export const LegacyCommunityLock: Component<{ community: Community }> = (
 		async (uri) => {
 			const did = uri.split("/")[2];
 			const res = await user.xrpc.com.atproto.identity.resolveDid(did);
-			const aka = res?.alsoKnownAs?.[0];
+			const aka = (res?.data?.alsoKnownAs ?? res?.alsoKnownAs)?.[0];
 			return typeof aka === "string" ? aka.replace("at://", "") : did;
 		},
 	);

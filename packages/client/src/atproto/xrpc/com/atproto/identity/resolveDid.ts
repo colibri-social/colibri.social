@@ -1,9 +1,11 @@
 import type { XrpcRequest } from "../../..";
 
+// Our appview and the PDS have a mismatch here, the AppView needs to be updated
 type Response = {
-	data: {
+	data?: {
 		alsoKnownAs: Array<string>;
 	};
+	alsoKnownAs?: Array<string>;
 };
 
 export const resolveDid: XrpcRequest<
