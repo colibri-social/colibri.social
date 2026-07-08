@@ -171,7 +171,7 @@ const ProfileFieldsForm: Component<{
 			>
 				{/* Banner */}
 				<FileField
-					class="items-start absolute w-full aspect-3/1 h-auto"
+					class="items-start absolute w-full aspect-3/1 h-auto min-h-42"
 					onFileChange={(d) => props.setValue({ bannerFile: d })}
 					maxFiles={1}
 				>

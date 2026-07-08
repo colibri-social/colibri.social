@@ -32,9 +32,11 @@ export type MuVerification = {
 type TrustedProfile = { handle: string; displayName?: string };
 
 let trustedVerifierCache:
-	{ profiles: Map<string, TrustedProfile>; expiresAt: number } | undefined;
+	| { profiles: Map<string, TrustedProfile>; expiresAt: number }
+	| undefined;
 let inflightTrustedVerifierProfiles:
-	Promise<Map<string, TrustedProfile>> | undefined;
+	| Promise<Map<string, TrustedProfile>>
+	| undefined;
 const verificationCache = new Map<
 	string,
 	{ result: MuVerification | undefined; expiresAt: number }

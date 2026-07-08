@@ -9,7 +9,7 @@ import {
 	getAppViewHost,
 	getPreferredAppViewUrl,
 } from "../utils/appview";
-import { buildScopes } from "./scopes";
+import { buildScopes, getMissingScopeSets } from "./scopes";
 
 export const isLocal = () =>
 	["localhost", "127.0.0.1"].includes(window.location.hostname);
@@ -38,6 +38,7 @@ const clientId = makeClientId();
 let oAuthClient: undefined | BrowserOAuthClient;
 let agent: undefined | Agent;
 let pdsHost: undefined | string;
+let grantedScopes: undefined | string;
 
 export type Client =
 	| {
@@ -45,6 +46,7 @@ export type Client =
 			agent: Agent;
 			client: BrowserOAuthClient;
 			pdsHost: string;
+			grantedScopes: string | undefined;
 	  }
 	| { loggedIn: false; client: BrowserOAuthClient }
 	| undefined;
@@ -60,6 +62,7 @@ const getClient: ClientGetter = () => {
 					client: oAuthClient,
 					agent,
 					pdsHost,
+					grantedScopes,
 				});
 			} else if (oAuthClient && !agent) {
 				res({
@@ -129,6 +132,23 @@ const init = async () => {
 		}
 
 		agent = new Agent(session);
+
+		try {
+			grantedScopes = (await session.getTokenInfo(false)).scope;
+		} catch {}
+
+		if (
+			state == null &&
+			navigator.onLine &&
+			grantedScopes !== undefined &&
+			getMissingScopeSets(grantedScopes).length === 0
+		) {
+			try {
+				grantedScopes = (await session.getTokenInfo(true)).scope;
+			} catch (e) {
+				console.warn("[auth] Forced token refresh failed", e);
+			}
+		}
 
 		const didDoc = (await (
 			await fetch(

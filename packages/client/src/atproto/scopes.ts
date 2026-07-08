@@ -14,3 +14,32 @@ export const buildScopes = (appViewDid: string) => [
 ];
 
 export const scopes = buildScopes("did:web:api.colibri.social");
+
+export const PERMISSION_SET_LABELS: Record<string, string> = {
+	"social.colibri.permissionAccount": "Account & profile",
+	"social.colibri.permissionCommunity": "Communities & channels",
+	"social.colibri.permissionMessaging": "Messages & membership",
+	"social.colibri.permissionNotification": "Notifications",
+	"social.colibri.permissionPush": "Push notifications",
+};
+
+const PERMISSION_SET_MARKERS: Record<string, string> = {
+	"social.colibri.permissionAccount": "social.colibri.actor.getData",
+	"social.colibri.permissionCommunity": "social.colibri.community.getData",
+	"social.colibri.permissionMessaging": "social.colibri.membership",
+	"social.colibri.permissionNotification":
+		"social.colibri.notification.listNotifications",
+	"social.colibri.permissionPush": "social.colibri.notification.registerPush",
+};
+
+export const scopeSetLabel = (nsid: string): string =>
+	PERMISSION_SET_LABELS[nsid] ?? "Core access";
+
+export const getMissingScopeSets = (
+	grantedScope: string | undefined,
+): string[] => {
+	if (!grantedScope) return [];
+	return Object.entries(PERMISSION_SET_MARKERS)
+		.filter(([, marker]) => !grantedScope.includes(marker))
+		.map(([nsid]) => nsid);
+};

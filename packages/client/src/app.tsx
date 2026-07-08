@@ -25,6 +25,7 @@ import {
 import { urlSegmentToUri } from "./atproto/community-uri-to-url-compatible";
 import { AppLoadingScreen } from "./components/AppLoadingScreen";
 import { InviteModal } from "./components/app/community/InviteModal";
+import { ScopeGate } from "./components/app/onboarding/ScopeGate";
 import { VoiceChannelView } from "./components/app/VoiceChannelView";
 import { LoginScreen } from "./components/LoginScreen";
 import { Toaster } from "./components/ui/Sonner";
@@ -33,13 +34,13 @@ import { AuthContextProvider } from "./contexts/Auth";
 import { useCommunityContext } from "./contexts/Community";
 import { SocketContextProvider } from "./contexts/Socket";
 import { UserContextProvider } from "./contexts/User";
+import { UserPreferencesContextProvider } from "./contexts/UserPreferences";
 import { VoiceChatContextProvider } from "./contexts/VoiceChat";
 import AppLayout from "./layouts/AppLayout";
 import ChannelLayoutWithContext from "./layouts/ChannelLayout";
 import CommunityLayoutWithContext from "./layouts/CommunityLayout";
 import { AtURI } from "./utils/at-uri";
 import { isMobileNow, useIsMobile } from "./utils/mobile-pane";
-import { UserPreferencesContextProvider } from "./contexts/UserPreferences";
 
 // Accepted forms of the `:channelType` URL segment. We accept both the
 // short form (legacy records that store `"text"` / `"voice"`) and the full
@@ -52,13 +53,15 @@ const VOICE_CHANNEL_TYPES = ["voice", "social.colibri.channel.voice"];
 
 const AppRoute: ParentComponent = (props) => {
 	return (
-		<SocketContextProvider>
-			<UserContextProvider>
-				<VoiceChatContextProvider>
-					<AppLayout>{props.children}</AppLayout>
-				</VoiceChatContextProvider>
-			</UserContextProvider>
-		</SocketContextProvider>
+		<ScopeGate>
+			<SocketContextProvider>
+				<UserContextProvider>
+					<VoiceChatContextProvider>
+						<AppLayout>{props.children}</AppLayout>
+					</VoiceChatContextProvider>
+				</UserContextProvider>
+			</SocketContextProvider>
+		</ScopeGate>
 	);
 };
 

@@ -4,7 +4,9 @@ import { useCommunityContext } from "../../../contexts/Community";
 import { Badge } from "./Badge";
 
 export const displayableNameFn = (user: ActorData) =>
-	user.data.displayName || user.handle?.replaceAll("at://", "") || user.did;
+	(user.data.displayName === user.handle ? undefined : user.data.displayName) ||
+	user.handle?.replaceAll("at://", "") ||
+	user.did;
 
 export const DisplayableName: Component<{
 	user: ActorData;

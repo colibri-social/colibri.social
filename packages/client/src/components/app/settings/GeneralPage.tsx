@@ -36,6 +36,7 @@ import {
 } from "../../../components/ui/TextField";
 import { useUserContext } from "../../../contexts/User";
 import { SettingsPage } from "../common/SettingsModal";
+import { displayableNameFn } from "../user/DisplayableName";
 import {
 	ThemeControls,
 	type ThemeState,
@@ -51,7 +52,7 @@ export const GeneralPage: Component = () => {
 
 	const [banner, setBanner] = createSignal<Details>();
 	const [image, setImage] = createSignal<Details>();
-	const [name, setName] = createSignal(user.data.displayName || "");
+	const [name, setName] = createSignal(displayableNameFn(user));
 	const [description, setDescription] = createSignal(
 		user.data.description || "",
 	);
@@ -87,7 +88,7 @@ export const GeneralPage: Component = () => {
 	const initialTheme = JSON.stringify(themeStateToRecord(theme()));
 
 	const hasEdited = (): boolean =>
-		name() !== user.data.displayName ||
+		name() !== displayableNameFn(user) ||
 		description() !== (user.data.description ?? "") ||
 		syncBluesky() !== (user.data.syncBluesky ?? false) ||
 		JSON.stringify(themeStateToRecord(theme())) !== initialTheme ||
@@ -194,7 +195,7 @@ export const GeneralPage: Component = () => {
 	};
 
 	const resetEdits = () => {
-		setName(user.data.displayName || "");
+		setName(displayableNameFn(user));
 		setDescription(user.data.description || "");
 		setSyncBluesky(user.data.syncBluesky ?? false);
 		setTheme(themeStateFromTheme(user.data.theme));
@@ -214,7 +215,7 @@ export const GeneralPage: Component = () => {
 		>
 			<div class="w-full shrink-0 flex flex-col rounded-2xl border border-border bg-card text-foreground overflow-hidden relative">
 				<FileField
-					class="items-start absolute w-full aspect-3/1 h-auto"
+					class="items-start absolute w-full aspect-3/1 h-auto min-h-42"
 					onFileChange={setBanner}
 					maxFiles={1}
 					disabled={syncBluesky()}
@@ -260,7 +261,7 @@ export const GeneralPage: Component = () => {
 					</FileFieldDropzone>
 					<FileFieldHiddenInput />
 				</FileField>
-				<div class="flex flex-col mt-32 p-4 gap-2">
+				<div class="flex flex-col mt-26 p-4 gap-2 z-20">
 					<FileField
 						class="items-start"
 						onFileChange={setImage}
