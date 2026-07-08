@@ -97,103 +97,101 @@ const AppErrorScreen: Component<{ error: unknown; reset: () => void }> = (
 const App: ParentComponent = () => {
 	const isMobile = useIsMobile();
 	return (
-		<SentryErrorBoundary
-			fallback={(err: unknown, reset: () => void) => (
-				<AppErrorScreen error={err} reset={reset} />
-			)}
-		>
-			<AuthContextProvider>
-				<ColorModeProvider>
-					<Show
-						when={isMobile()}
-						fallback={<Toaster richColors position="bottom-right" />}
-					>
-						<Toaster richColors position="top-center" />
-					</Show>
-					<SentryRouter base="/">
-						<Route path="/" component={RedirectToApp} />
-						<Route path="/app/login" component={LoginScreen} />
-						<Route path="/app" component={AppRoute}>
-							<Route path="/" component={WelcomeScreen} />
-							<Route path="/invite/:code" component={InviteModal} />
-							<Route component={CommunityLayoutWithContext}>
-								<Route
-									path="/c/:community"
-									component={() => {
-										const params = useParams();
-										const navigate = useNavigate();
-										const c = useCommunityContext();
-										const communityUrlSeg = () => params.community!;
+		// <SentryErrorBoundary
+		// 	fallback={(err: unknown, reset: () => void) => (
+		// 		<AppErrorScreen error={err} reset={reset} />
+		// 	)}
+		// >
+		<AuthContextProvider>
+			<ColorModeProvider>
+				<Show
+					when={isMobile()}
+					fallback={<Toaster richColors position="bottom-right" />}
+				>
+					<Toaster richColors position="top-center" />
+				</Show>
+				<SentryRouter base="/">
+					<Route path="/" component={RedirectToApp} />
+					<Route path="/app/login" component={LoginScreen} />
+					<Route path="/app" component={AppRoute}>
+						<Route path="/" component={WelcomeScreen} />
+						<Route path="/invite/:code" component={InviteModal} />
+						<Route component={CommunityLayoutWithContext}>
+							<Route
+								path="/c/:community"
+								component={() => {
+									const params = useParams();
+									const navigate = useNavigate();
+									const c = useCommunityContext();
+									const communityUrlSeg = () => params.community!;
 
-										createEffect(() => {
-											// On mobile the community placeholder IS the nav-root
-											// pane, don't auto-redirect into a channel. The user
-											// taps a channel to push into chat.
-											if (isMobileNow()) return;
+									createEffect(() => {
+										// On mobile the community placeholder IS the nav-root
+										// pane, don't auto-redirect into a channel. The user
+										// taps a channel to push into chat.
+										if (isMobileNow()) return;
 
-											if (
-												c().community.uri !== urlSegmentToUri(communityUrlSeg())
-											)
-												return;
+										if (
+											c().community.uri !== urlSegmentToUri(communityUrlSeg())
+										)
+											return;
 
-											const raw = localStorage.getItem(
-												`${communityUrlSeg()}:last-viewed`,
-											);
-
-											if (raw) {
-												try {
-													const channel = JSON.parse(raw) as {
-														uri: string;
-														type: string;
-													};
-													if (
-														c().channels.some((ch) => ch.uri === channel.uri)
-													) {
-														navigate(
-															`/app/c/${communityUrlSeg()}/${channel.type}/${new AtURI(channel.uri).identifier}`,
-														);
-														return;
-													}
-												} catch {}
-											}
-
-											const firstChannel = c().channels[0];
-											if (!firstChannel) return;
-
-											navigate(
-												`/app/c/${communityUrlSeg()}/${firstChannel.type}/${new AtURI(firstChannel.uri).identifier}`,
-											);
-										});
-
-										return (
-											<div class="w-full h-full flex flex-col items-center justify-center gap-2 text-muted-foreground select-none">
-												<p class="text-base font-medium">
-													Select a channel to get started
-												</p>
-											</div>
+										const raw = localStorage.getItem(
+											`${communityUrlSeg()}:last-viewed`,
 										);
-									}}
-								/>
-								<Route component={ChannelLayoutWithContext}>
-									<Route
-										path="/c/:community/:channelType/:channel"
-										matchFilters={{ channelType: TEXT_CHANNEL_TYPES }}
-										component={() =>
-											null
-										} /* ChannelLayout renders the message list; leaf is empty until a TextChannelView is needed */
-									/>
-								</Route>
+
+										if (raw) {
+											try {
+												const channel = JSON.parse(raw) as {
+													uri: string;
+													type: string;
+												};
+												if (c().channels.some((ch) => ch.uri === channel.uri)) {
+													navigate(
+														`/app/c/${communityUrlSeg()}/${channel.type}/${new AtURI(channel.uri).identifier}`,
+													);
+													return;
+												}
+											} catch {}
+										}
+
+										const firstChannel = c().channels[0];
+										if (!firstChannel) return;
+
+										navigate(
+											`/app/c/${communityUrlSeg()}/${firstChannel.type}/${new AtURI(firstChannel.uri).identifier}`,
+										);
+									});
+
+									return (
+										<div class="w-full h-full flex flex-col items-center justify-center gap-2 text-muted-foreground select-none">
+											<p class="text-base font-medium">
+												Select a channel to get started
+											</p>
+										</div>
+									);
+								}}
+							/>
+							<Route component={ChannelLayoutWithContext}>
 								<Route
 									path="/c/:community/:channelType/:channel"
-									matchFilters={{ channelType: VOICE_CHANNEL_TYPES }}
-									component={VoiceChannelView}
+									matchFilters={{ channelType: TEXT_CHANNEL_TYPES }}
+									component={() =>
+										null
+									} /* ChannelLayout renders the message list; leaf is empty until a TextChannelView is needed */
 								/>
 							</Route>
+							<Route
+								path="/c/:community/:channelType/:channel"
+								matchFilters={{ channelType: VOICE_CHANNEL_TYPES }}
+								component={VoiceChannelView}
+							/>
 						</Route>
-					</SentryRouter>
-				</ColorModeProvider>
-			</AuthContextProvider>
-		</SentryErrorBoundary>
+					</Route>
+				</SentryRouter>
+			</ColorModeProvider>
+		</AuthContextProvider>
+		// </SentryErrorBoundary>
 	);
 };
 
