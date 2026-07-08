@@ -494,17 +494,15 @@ const AppLayout: ParentComponent = (props) => {
 };
 
 const AppLayoutWithPreferences: ParentComponent = (props) => (
-	<UserPreferencesContextProvider>
-		<SoundsContextProvider>
-			<MutesContextProvider>
-				<GifFavoritesContextProvider>
-					<NotificationsContextProvider>
-						<AppLayout>{props.children}</AppLayout>
-					</NotificationsContextProvider>
-				</GifFavoritesContextProvider>
-			</MutesContextProvider>
-		</SoundsContextProvider>
-	</UserPreferencesContextProvider>
+	<SoundsContextProvider>
+		<MutesContextProvider>
+			<GifFavoritesContextProvider>
+				<NotificationsContextProvider>
+					<AppLayout>{props.children}</AppLayout>
+				</NotificationsContextProvider>
+			</GifFavoritesContextProvider>
+		</MutesContextProvider>
+	</SoundsContextProvider>
 );
 
 export default AppLayoutWithPreferences;
