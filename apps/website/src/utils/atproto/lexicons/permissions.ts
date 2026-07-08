@@ -45,6 +45,7 @@ export const permissionDocs: LexiconDoc[] = [
 							"social.colibri.actor.setState",
 							"social.colibri.sync.subscribeEvents",
 							"social.colibri.sync.sendHum",
+							"com.atproto.identity.resolveDid",
 						],
 					},
 				],
