@@ -5,6 +5,7 @@ export const buildScopes = (appViewDid: string) => [
 	"atproto",
 	"blob:*/*",
 	"rpc:app.bsky.actor.getProfile?aud=*",
+	"rpc:com.atproto.identity.resolveDid?aud=*",
 	`include:social.colibri.permissionAccount?aud=${appViewDid}#colibri_appview`,
 	`include:social.colibri.permissionCommunity?aud=${appViewDid}#colibri_appview`,
 	`include:social.colibri.permissionMessaging?aud=${appViewDid}#colibri_appview`,
