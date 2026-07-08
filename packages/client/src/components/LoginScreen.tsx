@@ -84,7 +84,7 @@ export const LoginScreen: Component = () => {
 	});
 
 	return (
-		<section class="py-40 mx-auto w-full max-w-336 md:px-16 px-6 relative flex flex-col items-center gap-12 h-screen">
+		<section class="pt-40 mx-auto w-full max-w-336 md:px-16 px-6 relative flex flex-col items-center gap-12 h-screen">
 			<div class="flex flex-col gap-4 items-center text-center">
 				<small class="text-primary text-sm">Welcome back.</small>
 				<h1 class="text-5xl font-black m-0">SIGN IN</h1>
