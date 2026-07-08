@@ -43,6 +43,18 @@ export const buildBskyPostUrl = (
 	return `https://${info.base}/profile/${authority}/post/${rkey}`;
 };
 
+/**
+ * Builds a profile permalink pointing at the user's preferred Bluesky client.
+ * `identifier` may be a handle or a DID — every supported client resolves both.
+ */
+export const buildBskyProfileUrl = (
+	client: BlueskyClientID,
+	identifier: string,
+): string => {
+	const info = getBskyAlternativeClientInfo(client);
+	return `https://${info.base}/profile/${identifier}`;
+};
+
 export const rewriteBskyUrl = (
 	uri: string,
 	client: BlueskyClientID,

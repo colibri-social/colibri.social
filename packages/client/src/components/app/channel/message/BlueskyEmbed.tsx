@@ -3,16 +3,20 @@ import {
 	AppBskyEmbedRecordWithMedia,
 	type AppBskyFeedDefs,
 	type AppBskyFeedPost,
+	RichText,
 } from "@atproto/api";
 import { type Component, createResource, For, Show } from "solid-js";
 import { Dynamic } from "solid-js/web";
 import ChatIcon from "~icons/ph/chat-circle";
 import HeartIcon from "~icons/ph/heart";
 import RepeatIcon from "~icons/ph/repeat";
+import SealCheckIcon from "~icons/ph/seal-check-fill";
 import { getBskyAlternativeClientInfo } from "../../../../atproto/bluesky-alternatives";
 import {
 	type BskyPostRef,
 	buildBskyPostUrl,
+	buildBskyProfileUrl,
+	rewriteBskyUrl,
 } from "../../../../atproto/bsky-post-url";
 import { resolveEmbedImage } from "../../../../atproto/resolve-blob";
 import { getPosts } from "../../../../atproto/xrpc/app/bsky/feed/getPosts";
@@ -53,6 +57,21 @@ export const BlueskyEmbed: Component<{ uri: string; post: BskyPostRef }> = (
 	);
 
 	const record = () => post()?.record as AppBskyFeedPost.Record | undefined;
+
+	const postSegments = () => {
+		const r = record();
+		if (!r?.text) return [];
+		return [...new RichText({ text: r.text, facets: r.facets }).segments()];
+	};
+
+	const verifiedIssuers = () => {
+		const verification = post()?.author.verification;
+		if (verification?.verifiedStatus !== "valid") return undefined;
+		const names = verification.verifications
+			.filter((v) => v.isValid)
+			.map((v) => v.issuerDisplayName || v.issuerHandle);
+		return names.length > 0 ? names.join(", ") : undefined;
+	};
 
 	const images = (): AppBskyEmbedImages.ViewImage[] => {
 		const embed = post()?.embed;
@@ -100,8 +119,18 @@ export const BlueskyEmbed: Component<{ uri: string; post: BskyPostRef }> = (
 									)}
 								</Show>
 								<div class="flex flex-col leading-tight min-w-0">
-									<span class="font-semibold text-sm truncate">
+									<span class="font-semibold text-sm truncate flex items-center gap-1">
 										{p().author.displayName || p().author.handle}
+										<Show when={verifiedIssuers()}>
+											{(title) => (
+												<span
+													title={title()}
+													class="shrink-0 inline-flex text-(--hover)"
+												>
+													<SealCheckIcon class="w-3.5 h-3.5" />
+												</span>
+											)}
+										</Show>
 									</span>
 									<span class="text-xs text-card-foreground/70 truncate">
 										@{p().author.handle}
@@ -122,7 +151,63 @@ export const BlueskyEmbed: Component<{ uri: string; post: BskyPostRef }> = (
 
 						<Show when={record()?.text}>
 							<span class="text-sm whitespace-pre-wrap break-words text-card-foreground">
-								{record()!.text}
+								<For each={postSegments()}>
+									{(segment) => {
+										if (segment.isMention() && segment.mention) {
+											return (
+												<a
+													href={buildBskyProfileUrl(
+														preferences().preferredBlueskyClient,
+														segment.mention.did,
+													)}
+													target="_blank"
+													rel="noreferrer"
+													class="bg-primary/15 hover:bg-primary/25 px-1 rounded-xs"
+												>
+													{segment.text}
+												</a>
+											);
+										}
+
+										if (segment.isLink() && segment.link) {
+											const href = rewriteBskyUrl(
+												segment.link.uri,
+												preferences().preferredBlueskyClient,
+											);
+											return (
+												<a
+													href={href}
+													title={href}
+													target="_blank"
+													rel="noreferrer"
+													class="text-(--primary-hover) decoration-(--primary-hover) font-medium hover:underline"
+												>
+													{segment.text}
+												</a>
+											);
+										}
+
+										if (segment.isTag() && segment.tag) {
+											const href = `https://${
+												getBskyAlternativeClientInfo(
+													preferences().preferredBlueskyClient,
+												).base
+											}/search?q=${encodeURIComponent(`#${segment.tag.tag}`)}`;
+											return (
+												<a
+													href={href}
+													target="_blank"
+													rel="noreferrer"
+													class="text-(--primary-hover) decoration-(--primary-hover) font-medium hover:underline"
+												>
+													{segment.text}
+												</a>
+											);
+										}
+
+										return <>{segment.text}</>;
+									}}
+								</For>
 							</span>
 						</Show>
 
