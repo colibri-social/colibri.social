@@ -1,5 +1,16 @@
-import { communityKey, messagesKey } from "./keys";
+import {
+	BSKY_MU_TRUSTED_LIST_KEY,
+	bskyHandleKey,
+	bskyMuVerificationKey,
+	bskyPostKey,
+	communityKey,
+	messagesKey,
+} from "./keys";
 import type {
+	BskyHandleSnapshot,
+	BskyMuTrustedListSnapshot,
+	BskyMuVerificationSnapshot,
+	BskyPostSnapshot,
 	CommunitySnapshot,
 	MessagesSnapshot,
 	UserSnapshot,
@@ -7,9 +18,16 @@ import type {
 import { SCHEMA_VERSION } from "./schema";
 
 const DB_NAME = "colibri-cache";
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const MAX_CHANNELS = 50;
-const STORES = ["meta", "user", "community", "messages"] as const;
+const MAX_BSKY_ENTRIES = 1000;
+
+/**
+ * Permission-scoped stores: wiped on logout/account-switch and on
+ * `SCHEMA_VERSION` bumps
+ */
+const USER_SCOPED_STORES = ["meta", "user", "community", "messages"] as const;
+const STORES = [...USER_SCOPED_STORES, "bsky"] as const;
 type StoreName = (typeof STORES)[number];
 
 export const cacheEnabled = (): boolean => {
@@ -31,7 +49,9 @@ const openDb = (): Promise<IDBDatabase> => {
 			for (const name of STORES) {
 				if (db.objectStoreNames.contains(name)) continue;
 				const store = db.createObjectStore(name);
-				if (name === "messages") store.createIndex("ts", "ts");
+				if (name === "messages" || name === "bsky") {
+					store.createIndex("ts", "ts");
+				}
 			}
 		};
 		req.onsuccess = () => resolve(req.result);
@@ -64,22 +84,22 @@ const write = (store: StoreName, key: string, value: unknown): Promise<void> =>
 		.then(() => undefined)
 		.catch(() => undefined);
 
-const evictMessages = (): Promise<void> =>
+const evictOldest = (store: StoreName, maxCount: number): Promise<void> =>
 	openDb()
 		.then(
 			(db) =>
 				new Promise<void>((resolve, reject) => {
-					const store = db
-						.transaction("messages", "readwrite")
-						.objectStore("messages");
-					const countReq = store.count();
+					const objectStore = db
+						.transaction(store, "readwrite")
+						.objectStore(store);
+					const countReq = objectStore.count();
 					countReq.onsuccess = () => {
-						let excess = countReq.result - MAX_CHANNELS;
+						let excess = countReq.result - maxCount;
 						if (excess <= 0) {
 							resolve();
 							return;
 						}
-						const cursorReq = store.index("ts").openCursor();
+						const cursorReq = objectStore.index("ts").openCursor();
 						cursorReq.onsuccess = () => {
 							const cursor = cursorReq.result;
 							if (!cursor || excess <= 0) {
@@ -126,15 +146,68 @@ export const writeMessages = (
 	channelUri: string,
 	snap: MessagesSnapshot,
 ): Promise<void> =>
-	write("messages", messagesKey(ns, channelUri), snap).then(evictMessages);
+	write("messages", messagesKey(ns, channelUri), snap).then(() =>
+		evictOldest("messages", MAX_CHANNELS),
+	);
 
-export const clearAll = (): Promise<void> =>
+export const readBskyPost = (
+	atUri: string,
+): Promise<BskyPostSnapshot | undefined> =>
+	read<BskyPostSnapshot>("bsky", bskyPostKey(atUri));
+
+export const writeBskyPost = (
+	atUri: string,
+	snap: BskyPostSnapshot,
+): Promise<void> =>
+	write("bsky", bskyPostKey(atUri), snap).then(() =>
+		evictOldest("bsky", MAX_BSKY_ENTRIES),
+	);
+
+export const readBskyHandle = (
+	handle: string,
+): Promise<BskyHandleSnapshot | undefined> =>
+	read<BskyHandleSnapshot>("bsky", bskyHandleKey(handle));
+
+export const writeBskyHandle = (
+	handle: string,
+	snap: BskyHandleSnapshot,
+): Promise<void> =>
+	write("bsky", bskyHandleKey(handle), snap).then(() =>
+		evictOldest("bsky", MAX_BSKY_ENTRIES),
+	);
+
+export const readBskyMuVerification = (
+	did: string,
+): Promise<BskyMuVerificationSnapshot | undefined> =>
+	read<BskyMuVerificationSnapshot>("bsky", bskyMuVerificationKey(did));
+
+export const writeBskyMuVerification = (
+	did: string,
+	snap: BskyMuVerificationSnapshot,
+): Promise<void> =>
+	write("bsky", bskyMuVerificationKey(did), snap).then(() =>
+		evictOldest("bsky", MAX_BSKY_ENTRIES),
+	);
+
+export const readBskyMuTrustedList = (): Promise<
+	BskyMuTrustedListSnapshot | undefined
+> => read<BskyMuTrustedListSnapshot>("bsky", BSKY_MU_TRUSTED_LIST_KEY);
+
+export const writeBskyMuTrustedList = (
+	snap: BskyMuTrustedListSnapshot,
+): Promise<void> => write("bsky", BSKY_MU_TRUSTED_LIST_KEY, snap);
+
+/**
+ * Clears every permission-scoped store (not `"bsky"`, which is
+ * viewer-independent and survives logout/account-switch)
+ */
+export const clearUserScoped = (): Promise<void> =>
 	openDb()
 		.then(
 			(db) =>
 				new Promise<void>((resolve, reject) => {
-					const t = db.transaction(STORES, "readwrite");
-					for (const name of STORES) t.objectStore(name).clear();
+					const t = db.transaction(USER_SCOPED_STORES, "readwrite");
+					for (const name of USER_SCOPED_STORES) t.objectStore(name).clear();
 					t.oncomplete = () => resolve();
 					t.onerror = () => reject(t.error);
 				}),
@@ -144,6 +217,6 @@ export const clearAll = (): Promise<void> =>
 export const ensureFresh = async (ns: string): Promise<void> => {
 	const meta = await read<{ version: number; owner: string }>("meta", "meta");
 	if (meta?.version === SCHEMA_VERSION && meta.owner === ns) return;
-	await clearAll();
+	await clearUserScoped();
 	await write("meta", "meta", { version: SCHEMA_VERSION, owner: ns });
 };

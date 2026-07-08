@@ -13,6 +13,10 @@ import RepeatIcon from "~icons/ph/repeat";
 import SealCheckIcon from "~icons/ph/seal-check-fill";
 import { getBskyAlternativeClientInfo } from "../../../../atproto/bluesky-alternatives";
 import {
+	getPostDeduped,
+	resolveHandleDeduped,
+} from "../../../../atproto/bsky-post-cache";
+import {
 	type BskyPostRef,
 	buildBskyPostUrl,
 	buildBskyProfileUrl,
@@ -20,9 +24,7 @@ import {
 } from "../../../../atproto/bsky-post-url";
 import { getMuVerification } from "../../../../atproto/mu-verification";
 import { resolveEmbedImage } from "../../../../atproto/resolve-blob";
-import { getPosts } from "../../../../atproto/xrpc/app/bsky/feed/getPosts";
 import { useStableMedia } from "../../../../contexts/ScrollAnchor";
-import { useUserContext } from "../../../../contexts/User";
 import { useUserPreferences } from "../../../../contexts/UserPreferences";
 import { Lightbox } from "../../common/Lightbox";
 
@@ -34,26 +36,22 @@ import { Lightbox } from "../../common/Lightbox";
 export const BlueskyEmbed: Component<{ uri: string; post: BskyPostRef }> = (
 	props,
 ) => {
-	const user = useUserContext();
 	const { preferences } = useUserPreferences();
 	const stableMedia = useStableMedia();
 
 	const [post] = createResource(
 		() => props.post,
 		async (ref): Promise<AppBskyFeedDefs.PostView | undefined> => {
-			// getPosts needs an at:// URI with a DID — resolve the handle first.
+			// getPostDeduped needs an at:// URI with a DID — resolve the handle first.
 			let did = ref.authority;
 			if (!did.startsWith("did:")) {
-				const resolved = await user.xrpc.com.atproto.identity.resolveHandle(
-					ref.authority,
-				);
-				if (!resolved?.did) return undefined;
-				did = resolved.did;
+				const resolved = await resolveHandleDeduped(ref.authority);
+				if (!resolved) return undefined;
+				did = resolved;
 			}
 
 			const atUri = `at://${did}/app.bsky.feed.post/${ref.rkey}`;
-			const posts = await getPosts([atUri]);
-			return posts[0];
+			return getPostDeduped(atUri);
 		},
 	);
 
@@ -177,7 +175,7 @@ export const BlueskyEmbed: Component<{ uri: string; post: BskyPostRef }> = (
 													)}
 													target="_blank"
 													rel="noreferrer"
-													class="bg-primary/15 hover:bg-primary/25 px-1 rounded-xs"
+													class="text-(--primary-hover) decoration-(--primary-hover) font-medium hover:underline inline"
 												>
 													{segment.text}
 												</a>
@@ -195,7 +193,7 @@ export const BlueskyEmbed: Component<{ uri: string; post: BskyPostRef }> = (
 													title={href}
 													target="_blank"
 													rel="noreferrer"
-													class="text-(--primary-hover) decoration-(--primary-hover) font-medium hover:underline"
+													class="text-(--primary-hover) decoration-(--primary-hover) font-medium hover:underline inline"
 												>
 													{segment.text}
 												</a>
@@ -213,7 +211,7 @@ export const BlueskyEmbed: Component<{ uri: string; post: BskyPostRef }> = (
 													href={href}
 													target="_blank"
 													rel="noreferrer"
-													class="text-(--primary-hover) decoration-(--primary-hover) font-medium hover:underline"
+													class="text-(--primary-hover) decoration-(--primary-hover) font-medium hover:underline inline"
 												>
 													{segment.text}
 												</a>
