@@ -334,6 +334,9 @@ export const MessageInput: Component<{
 							<button
 								type="button"
 								aria-label="Send message"
+								// Keep focus (and the mobile keyboard) on the editor instead of
+								// letting the tap shift it to this button.
+								onMouseDown={(e) => e.preventDefault()}
 								onClick={() => submitMessage?.()}
 								class="w-10 h-10 min-w-10 shrink-0 bg-primary text-primary-foreground hover:bg-primary/90 flex items-center justify-center rounded-lg cursor-pointer"
 							>
