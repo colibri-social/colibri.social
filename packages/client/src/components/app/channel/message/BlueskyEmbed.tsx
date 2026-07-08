@@ -18,6 +18,7 @@ import {
 	buildBskyProfileUrl,
 	rewriteBskyUrl,
 } from "../../../../atproto/bsky-post-url";
+import { getMuVerification } from "../../../../atproto/mu-verification";
 import { resolveEmbedImage } from "../../../../atproto/resolve-blob";
 import { getPosts } from "../../../../atproto/xrpc/app/bsky/feed/getPosts";
 import { useStableMedia } from "../../../../contexts/ScrollAnchor";
@@ -73,6 +74,20 @@ export const BlueskyEmbed: Component<{ uri: string; post: BskyPostRef }> = (
 		return names.length > 0 ? names.join(", ") : undefined;
 	};
 
+	const [muVerification] = createResource(
+		() => post()?.author.did,
+		(did) => getMuVerification(did),
+	);
+
+	const badgeTitle = () => {
+		const names: string[] = [];
+		const bskyNames = verifiedIssuers();
+		if (bskyNames) names.push(bskyNames);
+		const mu = muVerification();
+		if (mu) names.push(mu.issuerDisplayName || mu.issuerHandle);
+		return names.length > 0 ? names.join(", ") : undefined;
+	};
+
 	const images = (): AppBskyEmbedImages.ViewImage[] => {
 		const embed = post()?.embed;
 		if (AppBskyEmbedImages.isView(embed)) return embed.images;
@@ -121,7 +136,7 @@ export const BlueskyEmbed: Component<{ uri: string; post: BskyPostRef }> = (
 								<div class="flex flex-col leading-tight min-w-0">
 									<span class="font-semibold text-sm truncate flex items-center gap-1">
 										{p().author.displayName || p().author.handle}
-										<Show when={verifiedIssuers()}>
+										<Show when={badgeTitle()}>
 											{(title) => (
 												<span
 													title={title()}
