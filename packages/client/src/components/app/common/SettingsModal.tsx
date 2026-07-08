@@ -167,7 +167,7 @@ export const SettingsModal: ParentComponent<{
 					<DialogPortal>
 						<DialogContent
 							class={cx(
-								"w-[75vw] min-w-92 h-fit min-h-144 max-w-3xl! p-0 flex flex-row gap-0 max-h-192! settings-modal",
+								"w-[75vw] min-w-92 h-fit min-h-[min(36rem,calc(100vh-2rem))] max-w-3xl! p-0 flex flex-row gap-0 max-h-[max(48rem,calc(100vh-2rem))]! settings-modal",
 								props.contentClass,
 							)}
 						>
