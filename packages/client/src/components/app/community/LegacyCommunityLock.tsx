@@ -67,7 +67,12 @@ export const LegacyCommunityLock: Component<{ community: Community }> = (
 							</Show>{" "}
 							to migrate it so you can keep chatting here.
 						</p>
-						<a href="#TODO" class="hover:underline text-primary">
+						<a
+							href="/docs/help/legacy-communities"
+							target="_blank"
+							rel="noopener"
+							class="hover:underline text-primary"
+						>
 							Read more about legacy communities
 						</a>
 					</>
@@ -79,7 +84,12 @@ export const LegacyCommunityLock: Component<{ community: Community }> = (
 					members come along automatically.{" "}
 					<b>You will need to re-create server invitations.</b>
 				</p>
-				<a href="#TODO" class="hover:underline text-primary">
+				<a
+					href="/docs/help/legacy-communities"
+					target="_blank"
+					rel="noopener"
+					class="hover:underline text-primary"
+				>
 					Read more about legacy communities
 				</a>
 				<CommunityCreationModal
