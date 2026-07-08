@@ -43,6 +43,9 @@ export default defineConfig({
 		starlight({
 			title: "Colibri Social Documentation",
 			plugins: [starlightThemeRapide()],
+			components: {
+				Head: "./src/components/docs/Head.astro",
+			},
 			customCss: [
 				"@fontsource-variable/hanken-grotesk/wght.css",
 				"./src/styles/docs.css",
@@ -130,7 +133,7 @@ export default defineConfig({
 			provider: fontProviders.fontsource(),
 			name: "Redaction 50",
 			weights: ["400", "700"],
-			cssVariable: "--font-stardom",
+			cssVariable: "--font-redaction-50",
 		},
 	],
 	redirects: {

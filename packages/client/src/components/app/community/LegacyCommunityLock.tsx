@@ -29,7 +29,7 @@ export const LegacyCommunityLock: Component<{ community: Community }> = (
 	);
 
 	return (
-		<div class="w-full h-full flex flex-col items-center justify-center gap-4 p-8 text-center select-none">
+		<div class="w-full h-full flex flex-col items-center justify-center gap-4 p-4 pl-20 sm:p-8! text-center select-none">
 			<div class="w-14 h-14 overflow-hidden rounded-md bg-muted flex items-center justify-center text-muted-foreground">
 				<Switch>
 					<Match when={props.community.picture}>
