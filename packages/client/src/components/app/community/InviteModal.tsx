@@ -28,6 +28,7 @@ import {
 	Switch as ToggleSwitch,
 } from "../../ui/Switch";
 import { PENDING_INVITE_KEY } from "./invite-storage";
+import { displayableNameFn } from "../user/DisplayableName";
 
 const clearPendingInvite = () => {
 	try {
@@ -93,7 +94,6 @@ export const InviteModal: Component = () => {
 	};
 
 	const avatarUrl = () => resolveBlob(user.did, user.data.avatar);
-	const displayName = () => user.data.displayName || user.handle;
 
 	return (
 		<Dialog open onOpenChange={(open) => !open && dismiss()}>
@@ -186,11 +186,11 @@ export const InviteModal: Component = () => {
 														<img
 															width="24"
 															height="24"
-															alt={displayName()}
+															alt={displayableNameFn(user)}
 															src={avatarUrl() ?? "/user-placeholder.png"}
 															class="rounded-full"
 														/>
-														{displayName()}
+														{displayableNameFn(user)}
 													</span>
 												</Show>
 											</Button>
