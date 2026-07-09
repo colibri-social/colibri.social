@@ -10,6 +10,7 @@ import {
 import type { BlueskyClientID } from "../atproto/bluesky-alternatives";
 import type { GifItem } from "../atproto/xrpc/social/colibri/embed/gifTypes";
 import { DEFAULT_APPVIEW_URL } from "../utils/appview";
+import { isMobileNow } from "../utils/mobile-pane";
 
 const STORAGE_KEY = "colibri:user-preferences";
 
@@ -53,6 +54,8 @@ export interface VolumeOverrides {
 
 export type UserPreferencesContextData = {
 	membersListVisible: boolean;
+	/** Whether the "messages are public" reminder banner has been dismissed. */
+	publicReminderDismissed: boolean;
 	/** Whether native OS notifications are enabled (opt-in, requires permission). */
 	nativeNotifications: boolean;
 	voice: {
@@ -75,7 +78,8 @@ export type UserPreferencesContextData = {
 };
 
 const DEFAULT_PREFERENCES: UserPreferencesContextData = {
-	membersListVisible: false,
+	membersListVisible: !isMobileNow(),
+	publicReminderDismissed: false,
 	nativeNotifications: false,
 	voice: {
 		input: {
@@ -161,6 +165,7 @@ type UserPreferencesContextValue = {
 		showOwnCamera?: boolean;
 	}) => void;
 	toggleMembersVisible: () => void;
+	setPublicReminderDismissed: (dismissed: boolean) => void;
 	setNativeNotifications: (enabled: boolean) => void;
 	setPreferredBlueskyClient: (client: BlueskyClientID) => void;
 	setPreferredAppView: (appView: string) => void;
@@ -250,6 +255,10 @@ export const UserPreferencesContextProvider: ParentComponent = (props) => {
 		}));
 	};
 
+	const setPublicReminderDismissed = (dismissed: boolean) => {
+		setPreferences((p) => ({ ...p, publicReminderDismissed: dismissed }));
+	};
+
 	const setNativeNotifications = (enabled: boolean) => {
 		setPreferences((p) => ({ ...p, nativeNotifications: enabled }));
 	};
@@ -295,6 +304,7 @@ export const UserPreferencesContextProvider: ParentComponent = (props) => {
 				setNoiseSuppressionLevel,
 				setVoiceView,
 				toggleMembersVisible,
+				setPublicReminderDismissed,
 				setNativeNotifications,
 				setPreferredBlueskyClient,
 				setPreferredAppView,

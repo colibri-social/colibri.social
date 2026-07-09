@@ -50,6 +50,8 @@ export interface RecordBootstrapImportSource<T> {
 	load: () => Promise<T>;
 	/** Whether this source can be kept in sync (shows the toggle on confirm). */
 	supportsSync: boolean;
+	/** Whether the keep-in-sync toggle starts on when this path is chosen. */
+	defaultSync?: boolean;
 	syncLabel?: string;
 	syncDescription?: string;
 }
@@ -153,6 +155,7 @@ export function RecordBootstrapModal<T>(props: {
 			try {
 				const loaded = await source.load();
 				setVal(() => loaded);
+				setSyncing(source.supportsSync && source.defaultSync === true);
 				setStep("confirm");
 			} catch (err) {
 				console.error("[RecordBootstrap] import failed", err);

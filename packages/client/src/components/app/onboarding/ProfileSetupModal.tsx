@@ -171,7 +171,7 @@ const ProfileFieldsForm: Component<{
 			>
 				{/* Banner */}
 				<FileField
-					class="items-start absolute w-full aspect-3/1 h-auto min-h-42"
+					class="items-start absolute w-full aspect-3/1 h-auto"
 					onFileChange={(d) => props.setValue({ bannerFile: d })}
 					maxFiles={1}
 				>
@@ -328,6 +328,7 @@ export const ProfileSetupModal: Component<{
 						/>
 					),
 					supportsSync: true,
+					defaultSync: true,
 					syncLabel: "Keep in sync with Bluesky",
 					syncDescription:
 						"Automatically reflect changes you make to your Bluesky profile.",
