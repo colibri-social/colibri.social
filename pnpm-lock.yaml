@@ -441,6 +441,9 @@ importers:
       '@atproto/lexicon':
         specifier: ^0.6.1
         version: 0.6.1
+      '@iconify-json/lucide':
+        specifier: ^1.2.116
+        version: 1.2.116
       '@iconify-json/ph':
         specifier: ^1.2.2
         version: 1.2.2
@@ -1515,6 +1518,9 @@ packages:
 
   '@fontsource-variable/hanken-grotesk@5.2.8':
     resolution: {integrity: sha512-K7hu09ZKReBc7EifRLeM4K94NZBrxFEg0nGcISmVwlFQOJo4EmYkLXTWEwr5JcNW4z2hr5zy8vLS2sxC8JDmrQ==}
+
+  '@iconify-json/lucide@1.2.116':
+    resolution: {integrity: sha512-mbwPmiUXaZyLMSeQOxiTqz2fmZikD9qiGnMBiev47UUNY9uGCEgMg9iUYwaJzCtJTDtAIyK4vokfIpqsVorgSw==}
 
   '@iconify-json/ph@1.2.2':
     resolution: {integrity: sha512-PgkEZNtqa8hBGjHXQa4pMwZa93hmfu8FUSjs/nv4oUU6yLsgv+gh9nu28Kqi8Fz9CCVu4hj1MZs9/60J57IzFw==}
@@ -6814,6 +6820,10 @@ snapshots:
   '@floating-ui/utils@0.2.10': {}
 
   '@fontsource-variable/hanken-grotesk@5.2.8': {}
+
+  '@iconify-json/lucide@1.2.116':
+    dependencies:
+      '@iconify/types': 2.0.0
 
   '@iconify-json/ph@1.2.2':
     dependencies:

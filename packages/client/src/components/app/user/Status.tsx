@@ -12,6 +12,7 @@ import {
 } from "solid-js";
 import CheckIcon from "~icons/ph/check";
 import PhoneSlashIcon from "~icons/ph/phone-slash";
+import PictureInPictureIcon from "~icons/ph/picture-in-picture";
 import { useCommunityContext } from "../../../contexts/Community";
 import { useUserContext } from "../../../contexts/User";
 import {
@@ -37,6 +38,12 @@ import {
 	DropdownMenuTrigger,
 } from "../../ui/DropdownMenu";
 import { MenuDrawer, MenuDrawerItem } from "../../ui/MenuDrawer";
+import {
+	Tooltip,
+	TooltipContent,
+	TooltipPortal,
+	TooltipTrigger,
+} from "../../ui/Tooltip";
 import User from ".";
 import { Avatar } from "./Avatar";
 
@@ -142,7 +149,14 @@ export const Status: Component = () => {
 	const community = useCommunityContext();
 	const [
 		voiceData,
-		{ disconnect, toggleCamera, toggleScreen, toggleMic, toggleDeafen },
+		{
+			disconnect,
+			toggleCamera,
+			toggleScreen,
+			toggleMic,
+			toggleDeafen,
+			setOverlayDismissed,
+		},
 	] = useVoiceChatContext();
 
 	const isReconnecting = () =>
@@ -158,28 +172,56 @@ export const Status: Component = () => {
 			.filter(Boolean)
 			.join(" / ");
 
+	const qualityColorClass = (): string => {
+		switch (voiceData.connection.quality) {
+			case ConnectionQuality.Excellent:
+				return "text-green-400!";
+			case ConnectionQuality.Good:
+				return "text-lime-400!";
+			case ConnectionQuality.Poor:
+			case ConnectionQuality.Lost:
+				return "text-red-400!";
+			default:
+				return "text-foreground!";
+		}
+	};
+
+	const latencyLabel = (): string =>
+		voiceData.connection.latency != null
+			? `${voiceData.connection.latency} ms`
+			: "Measuring…";
+
 	return (
 		<div class="w-full h-fit flex flex-col">
 			<Show when={voiceData.connection.state === ConnectionState.Connected}>
 				<div class="w-full p-3 border-t border-border flex flex-col gap-2">
 					<div class="flex flex-row items-center gap-2 justify-between">
 						<div class="flex flex-row items-center gap-2 w-[calc(100%-40px)] overflow-hidden">
-							<div
-								class="min-w-8 h-8 bg-muted/50 flex items-center justify-center rounded-sm"
-								classList={{
-									"bg-green-400/15":
-										voiceData.connection.quality ===
-										ConnectionQuality.Excellent,
-									"bg-lime-400/15":
-										voiceData.connection.quality === ConnectionQuality.Good,
-									"bg-red-400/15":
-										voiceData.connection.quality === ConnectionQuality.Poor,
-									"bg-muted/50":
-										voiceData.connection.quality === ConnectionQuality.Unknown,
-								}}
-							>
-								<Wifi size={24} quality={voiceData.connection.quality} />
-							</div>
+							<Tooltip placement="top">
+								<TooltipTrigger
+									as="div"
+									class="min-w-8 h-8 bg-muted/50 flex items-center justify-center rounded-sm cursor-default"
+									classList={{
+										"bg-green-400/15":
+											voiceData.connection.quality ===
+											ConnectionQuality.Excellent,
+										"bg-lime-400/15":
+											voiceData.connection.quality === ConnectionQuality.Good,
+										"bg-red-400/15":
+											voiceData.connection.quality === ConnectionQuality.Poor,
+										"bg-muted/50":
+											voiceData.connection.quality ===
+											ConnectionQuality.Unknown,
+									}}
+								>
+									<Wifi size={24} quality={voiceData.connection.quality} />
+								</TooltipTrigger>
+								<TooltipPortal>
+									<TooltipContent class={qualityColorClass()}>
+										{latencyLabel()}
+									</TooltipContent>
+								</TooltipPortal>
+							</Tooltip>
 							<div class="flex flex-col w-[calc(100%-36px)] overflow-hidden">
 								<span
 									class="text-sm font-medium"
@@ -279,6 +321,16 @@ export const Status: Component = () => {
 							<Screen enabled={voiceData.states.screenEnabled} />
 						</Button>
 					</div>
+					<Show when={voiceData.overlayDismissed}>
+						<Button
+							variant="outline"
+							class="w-full gap-2"
+							onClick={() => setOverlayDismissed(false)}
+						>
+							<PictureInPictureIcon />
+							<span>Show floating window</span>
+						</Button>
+					</Show>
 				</div>
 			</Show>
 			<div class="w-full h-16 flex items-center gap-3 p-3 bg-card">

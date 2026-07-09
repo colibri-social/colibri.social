@@ -38,6 +38,7 @@ export type ConnectionQuality =
 export type VoiceChatConnection = {
 	state: ConnectionState;
 	quality: ConnectionQuality;
+	latency: number | null;
 	uri: string | null;
 	channelName: string | null;
 	communityName: string | null;
@@ -70,6 +71,8 @@ export type VoiceChatData = {
 	activeSpeakers: string[];
 	videoStreams: Record<string, VideoTileData>;
 	memberStates: Record<string, VoiceMemberState>;
+	focusedKey: string | null;
+	overlayDismissed: boolean;
 };
 
 export type VoiceChatActions = {
@@ -82,6 +85,8 @@ export type VoiceChatActions = {
 	toggleCamera: () => void;
 	toggleScreen: () => void;
 	toggleDeafen: () => void;
+	setFocusedKey: (key: string | null) => void;
+	setOverlayDismissed: (dismissed: boolean) => void;
 	seedPresence: (
 		members: Array<{
 			did: string;
@@ -150,6 +155,7 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 		connection: {
 			state: ConnectionState.Disconnected,
 			quality: ConnectionQuality.Unknown,
+			latency: null,
 			uri: null,
 			channelName: null,
 			communityName: null,
@@ -164,6 +170,8 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 		activeSpeakers: [],
 		videoStreams: {},
 		memberStates: {},
+		focusedKey: null,
+		overlayDismissed: false,
 	});
 
 	let ws: WebSocket | null = null;
@@ -207,7 +215,7 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 	};
 
 	const waitForAction = (action: string): Promise<ServerMessage> => {
-		new Promise((resolve, reject) => {
+		return new Promise((resolve, reject) => {
 			const queue = pendingByAction.get(action) ?? [];
 			queue.push({ resolve, reject });
 			pendingByAction.set(action, queue);
@@ -215,7 +223,7 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 	};
 
 	const waitForConsumed = (producerId: string): Promise<ServerMessage> => {
-		new Promise((resolve, reject) => {
+		return new Promise((resolve, reject) => {
 			pendingConsumed.set(producerId, { resolve, reject });
 		});
 	};
@@ -341,7 +349,9 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 
 		if (!rtts.length) return false;
 
-		setVoiceData("connection", "quality", rttToQuality(Math.min(...rtts)));
+		const min = Math.min(...rtts);
+		setVoiceData("connection", "quality", rttToQuality(min));
+		setVoiceData("connection", "latency", Math.round(min * 1000));
 
 		return true;
 	};
@@ -375,6 +385,7 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 		setVoiceData("connection", {
 			state: ConnectionState.Disconnected,
 			quality: ConnectionQuality.Unknown,
+			latency: null,
 			uri: null,
 			channelName: null,
 			communityName: null,
@@ -388,6 +399,7 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 		setVoiceData("activeSpeakers", []);
 		setVoiceData("videoStreams", {});
 		setVoiceData("memberStates", {});
+		setVoiceData("focusedKey", null);
 	};
 
 	const teardownMedia = (): void => {
@@ -756,6 +768,7 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 		reconnectAttempts += 1;
 		setVoiceData("connection", "state", ConnectionState.Reconnecting);
 		setVoiceData("connection", "quality", ConnectionQuality.Lost);
+		setVoiceData("connection", "latency", null);
 		setVoiceData("states", "camEnabled", false);
 		setVoiceData("states", "screenEnabled", false);
 		setVoiceData("videoStreams", {});
@@ -785,9 +798,11 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 
 		reconnectAttempts = 0;
 
+		setVoiceData("overlayDismissed", false);
 		setVoiceData("connection", {
 			state: ConnectionState.Connecting,
 			quality: ConnectionQuality.Unknown,
+			latency: null,
 			uri: channelUri,
 			channelName: meta?.channelName ?? null,
 			communityName: meta?.communityName ?? null,
@@ -1016,6 +1031,29 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 		}
 	});
 
+	const setFocusedKey = (key: string | null): void => {
+		setVoiceData("focusedKey", key);
+	};
+
+	const setOverlayDismissed = (dismissed: boolean): void => {
+		setVoiceData("overlayDismissed", dismissed);
+	};
+
+	const focusedKeyValid = (): boolean => {
+		const key = voiceData.focusedKey;
+		if (!key) return true;
+		if (key.startsWith("s:")) return !!voiceData.videoStreams[key.slice(2)];
+		if (key.startsWith("p:")) {
+			const uri = voiceData.connection.uri;
+			return !!uri && (voiceData.presence[uri] ?? []).includes(key.slice(2));
+		}
+		return false;
+	};
+
+	createEffect(() => {
+		if (!focusedKeyValid()) setVoiceData("focusedKey", null);
+	});
+
 	const actions: VoiceChatActions = {
 		connect,
 		disconnect,
@@ -1023,6 +1061,8 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 		toggleCamera: () => void toggleCamera(),
 		toggleScreen: () => void toggleScreen(),
 		toggleDeafen,
+		setFocusedKey,
+		setOverlayDismissed,
 		seedPresence,
 	};
 

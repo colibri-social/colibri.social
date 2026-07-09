@@ -22,6 +22,7 @@ import {
 import { createLongPress } from "../../../utils/create-long-press";
 import { useIsMobile } from "../../../utils/mobile-pane";
 import { createRoleSync } from "../../../utils/role-sync";
+import { Button } from "../../ui/Button";
 import {
 	Checkbox,
 	CheckboxControl,
@@ -63,7 +64,8 @@ export const MemberContextMenu: ParentComponent<{
 	const user = useUserContext();
 	const community = useCommunityContext();
 	const preferences = useUserPreferences();
-	const [voiceData, { toggleMic, toggleDeafen }] = useVoiceChatContext();
+	const [voiceData, { toggleMic, toggleDeafen, toggleCamera }] =
+		useVoiceChatContext();
 	const { canManageRole, outranks, canBanMember, canKickMember } =
 		usePermissions();
 
@@ -178,10 +180,22 @@ export const MemberContextMenu: ParentComponent<{
 				onOpenChange={setCameraPreviewOpen}
 				title="Camera Preview"
 			>
-				<video
-					ref={previewVideo}
-					class="w-full aspect-video rounded-md object-cover bg-muted -scale-x-100"
-				/>
+				<div class="flex flex-col gap-3">
+					<video
+						ref={previewVideo}
+						class="w-full aspect-video rounded-md object-cover bg-muted -scale-x-100"
+					/>
+					<Button
+						class="w-full"
+						disabled={voiceData.states.camEnabled}
+						onClick={() => {
+							if (!voiceData.states.camEnabled) toggleCamera();
+							setCameraPreviewOpen(false);
+						}}
+					>
+						{voiceData.states.camEnabled ? "Camera On" : "Turn On Camera"}
+					</Button>
+				</div>
 			</ResponsiveDialog>
 			<Show when={isMobile()}>
 				<div

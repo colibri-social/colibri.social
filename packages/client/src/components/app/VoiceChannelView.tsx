@@ -31,7 +31,7 @@ import { DEFAULT_BANNER } from "./profile/theme";
 import User from "./user";
 import { displayableNameFn } from "./user/DisplayableName";
 
-const VideoTile: Component<{
+export const VideoTile: Component<{
 	stream: MediaStream;
 	mirror?: boolean;
 	debugLabel?: string;
@@ -136,6 +136,7 @@ export const VoiceChannelView: Component = () => {
 			toggleDeafen,
 			toggleCamera,
 			toggleScreen,
+			setFocusedKey,
 		},
 	] = useVoiceChatContext();
 
@@ -260,15 +261,8 @@ export const VoiceChannelView: Component = () => {
 		return { w: tileW, h: tileW * (9 / 16) };
 	});
 
-	const [focusedKey, setFocusedKey] = createSignal<string | null>(null);
-
-	createEffect(() => {
-		const key = focusedKey();
-		if (key && !tiles().some((t) => t.key === key)) setFocusedKey(null);
-	});
-
 	const toggleFocus = (key: string): void => {
-		setFocusedKey((prev) => (prev === key ? null : key));
+		setFocusedKey(voiceData.focusedKey === key ? null : key);
 	};
 
 	/** Open the member context menu at the clicked options button. */
@@ -521,7 +515,7 @@ export const VoiceChannelView: Component = () => {
 						}
 					>
 						<Show
-							when={focusedKey()}
+							when={voiceData.focusedKey}
 							fallback={
 								<Show
 									when={tiles().length >= SCROLL_THRESHOLD}
@@ -570,7 +564,7 @@ export const VoiceChannelView: Component = () => {
 							<div class="flex-1 min-h-0 flex items-center justify-center px-4 pt-4">
 								<For each={tiles()}>
 									{(t) => (
-										<Show when={t.key === focusedKey()}>
+										<Show when={t.key === voiceData.focusedKey}>
 											<div class="w-full h-full">{renderTile(t)}</div>
 										</Show>
 									)}
@@ -582,7 +576,8 @@ export const VoiceChannelView: Component = () => {
 										<div
 											class="h-full aspect-video shrink-0 transition-opacity"
 											classList={{
-												"opacity-40 hover:opacity-100": t.key === focusedKey(),
+												"opacity-40 hover:opacity-100":
+													t.key === voiceData.focusedKey,
 											}}
 										>
 											{renderTile(t, true)}

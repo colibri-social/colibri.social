@@ -32,6 +32,7 @@ import { CommunityContextMenu } from "../components/app/community/CommunityConte
 import { PENDING_INVITE_KEY } from "../components/app/community/invite-storage";
 import { NativeNotifications } from "../components/app/NativeNotifications";
 import { UserSettingsModal } from "../components/app/settings";
+import { VoiceOverlay } from "../components/app/VoiceOverlay";
 import { Plus } from "../components/icons/Plus";
 import {
 	Tooltip,
@@ -487,6 +488,7 @@ const AppLayout: ParentComponent = (props) => {
 				</aside>
 				<main class="w-full h-full">{props.children}</main>
 			</div>
+			<VoiceOverlay />
 		</div>
 	);
 };

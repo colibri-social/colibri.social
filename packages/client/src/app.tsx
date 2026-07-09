@@ -30,6 +30,7 @@ import { VoiceChannelView } from "./components/app/VoiceChannelView";
 import { LoginScreen } from "./components/LoginScreen";
 import { Toaster } from "./components/ui/Sonner";
 import { WelcomeScreen } from "./components/WelcomeScreen";
+import { ActorCacheProvider } from "./contexts/ActorCache";
 import { AuthContextProvider } from "./contexts/Auth";
 import { useCommunityContext } from "./contexts/Community";
 import { SocketContextProvider } from "./contexts/Socket";
@@ -57,11 +58,13 @@ const AppRoute: ParentComponent = (props) => {
 		<ScopeGate>
 			<SocketContextProvider>
 				<UserContextProvider>
-					<SoundsContextProvider>
-						<VoiceChatContextProvider>
-							<AppLayout>{props.children}</AppLayout>
-						</VoiceChatContextProvider>
-					</SoundsContextProvider>
+					<ActorCacheProvider>
+						<SoundsContextProvider>
+							<VoiceChatContextProvider>
+								<AppLayout>{props.children}</AppLayout>
+							</VoiceChatContextProvider>
+						</SoundsContextProvider>
+					</ActorCacheProvider>
 				</UserContextProvider>
 			</SocketContextProvider>
 		</ScopeGate>
