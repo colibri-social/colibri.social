@@ -639,10 +639,28 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 	const setupDevice = async (message: ServerMessage): Promise<void> => {
 		if (message.action !== "init") return;
 
+		const describeCandidates = (
+			cands: Array<Record<string, unknown>> | undefined,
+		): string =>
+			(cands ?? [])
+				.map(
+					(c) =>
+						`${c.protocol}://${(c.ip ?? c.address) as string}:${c.port} (${c.type})`,
+				)
+				.join(", ") || "(none)";
 		dbg("init received", {
 			iceServers: message.iceServers,
-			producerIceCandidates: message.producerTransportOptions.iceCandidates,
-			consumerIceCandidates: message.consumerTransportOptions.iceCandidates,
+			iceServerCount: message.iceServers?.length ?? 0,
+			producerCandidates: describeCandidates(
+				message.producerTransportOptions.iceCandidates as unknown as Array<
+					Record<string, unknown>
+				>,
+			),
+			consumerCandidates: describeCandidates(
+				message.consumerTransportOptions.iceCandidates as unknown as Array<
+					Record<string, unknown>
+				>,
+			),
 		});
 
 		setVoiceData(
@@ -675,14 +693,34 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 				});
 		});
 
+		let sendConnected = false;
 		sendTransport.on("connectionstatechange", (state) => {
 			dbg("sendTransport connectionstatechange →", state);
+			if (state === "connected") sendConnected = true;
 			if (state === "failed" || state === "disconnected") {
 				dbg(
 					"✗ sendTransport ICE/DTLS unreachable — check SFU UDP ports 20000-20019 / announced IP",
 				);
 			}
 		});
+
+		setTimeout(() => {
+			if (sendConnected || !sendTransport) return;
+			dbg("⏱ sendTransport still not connected after 8s — dumping ICE stats");
+			void sendTransport.getStats().then((stats) => {
+				const pairs: unknown[] = [];
+				const local = new Map<string, Record<string, unknown>>();
+				const remote = new Map<string, Record<string, unknown>>();
+				stats.forEach((r: { type?: string } & Record<string, unknown>) => {
+					if (r.type === "candidate-pair") pairs.push(r);
+					else if (r.type === "local-candidate") local.set(r.id as string, r);
+					else if (r.type === "remote-candidate") remote.set(r.id as string, r);
+				});
+				dbg("ICE candidate-pairs", pairs);
+				dbg("ICE local-candidates", [...local.values()]);
+				dbg("ICE remote-candidates", [...remote.values()]);
+			});
+		}, 8000);
 
 		sendTransport.observer.on("close", () => dbg("sendTransport closed"));
 
