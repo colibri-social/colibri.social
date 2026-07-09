@@ -354,13 +354,16 @@ export const VoiceChannelView: Component = () => {
 							"gap-1 px-1.5 h-6 text-xs bottom-1 left-1": props.compact,
 							"opacity-0 group-hover/vc:opacity-100":
 								!voiceData.memberStates[props.member.did]?.muted &&
-								!voiceData.memberStates[props.member.did]?.deafened,
+								!voiceData.memberStates[props.member.did]?.deafened &&
+								!voiceData.memberStates[props.member.did]?.serverMuted &&
+								!voiceData.memberStates[props.member.did]?.serverDeafened,
 						}}
 					>
 						<Show
 							when={
 								voiceData.memberStates[props.member.did]?.muted &&
-								!voiceData.memberStates[props.member.did]?.deafened
+								!voiceData.memberStates[props.member.did]?.deafened &&
+								!voiceData.memberStates[props.member.did]?.serverMuted
 							}
 						>
 							<Microphone
@@ -369,9 +372,25 @@ export const VoiceChannelView: Component = () => {
 								enabled={false}
 							/>
 						</Show>
+						<Show when={voiceData.memberStates[props.member.did]?.serverMuted}>
+							<Microphone
+								className="text-amber-500"
+								size={props.compact ? 12 : 16}
+								enabled={false}
+							/>
+						</Show>
 						<Show when={voiceData.memberStates[props.member.did]?.deafened}>
 							<Ear
 								className="text-destructive"
+								size={props.compact ? 12 : 16}
+								enabled={true}
+							/>
+						</Show>
+						<Show
+							when={voiceData.memberStates[props.member.did]?.serverDeafened}
+						>
+							<Ear
+								className="text-amber-500"
 								size={props.compact ? 12 : 16}
 								enabled={true}
 							/>

@@ -66,8 +66,13 @@ export const MemberContextMenu: ParentComponent<{
 	const preferences = useUserPreferences();
 	const [voiceData, { toggleMic, toggleDeafen, toggleCamera }] =
 		useVoiceChatContext();
-	const { canManageRole, outranks, canBanMember, canKickMember } =
-		usePermissions();
+	const {
+		canManageRole,
+		outranks,
+		canBanMember,
+		canKickMember,
+		canModerateVoice,
+	} = usePermissions();
 
 	const { hasRole, toggleRole } = createRoleSync({
 		did: () => props.member.did,
@@ -84,6 +89,35 @@ export const MemberContextMenu: ParentComponent<{
 	const [menuOpen, setMenuOpen] = createSignal(false);
 
 	const inVc = () => voiceData.connection.state === ConnectionState.Connected;
+
+	const targetVoiceChannel = () => {
+		for (const [uri, dids] of Object.entries(voiceData.presence)) {
+			if (dids.includes(props.member.did)) return uri;
+		}
+		return null;
+	};
+	const canVoiceModerate = () =>
+		!isMe() &&
+		!!targetVoiceChannel() &&
+		canModerateVoice(user.did, props.member.did);
+	const targetServerMuted = () =>
+		!!voiceData.memberStates[props.member.did]?.serverMuted;
+	const targetServerDeafened = () =>
+		!!voiceData.memberStates[props.member.did]?.serverDeafened;
+
+	const moderateVoice = async (
+		action: "mute" | "unmute" | "deafen" | "undeafen" | "disconnect",
+	): Promise<void> => {
+		const channel = targetVoiceChannel();
+		if (!channel) return;
+		const res = await user.xrpc.social.colibri.voice.moderate(
+			community().community.uri,
+			channel,
+			props.member.did,
+			action,
+		);
+		if (!res) toast.error("Failed to moderate voice participant.");
+	};
 
 	const participantVolume = () =>
 		Math.round(
@@ -361,6 +395,52 @@ export const MemberContextMenu: ParentComponent<{
 							</MenuDrawerItem>
 						</Show>
 					</Show>
+					<Show when={canVoiceModerate()}>
+						<MenuDrawerItem
+							onClick={() =>
+								handoffDrawer(
+									() => setMenuOpen(false),
+									() =>
+										void moderateVoice(targetServerMuted() ? "unmute" : "mute"),
+								)
+							}
+						>
+							<span>
+								{targetServerMuted() ? "Server unmute" : "Server mute"}{" "}
+								<DisplayableName color={false} user={props.member} />
+							</span>
+						</MenuDrawerItem>
+						<MenuDrawerItem
+							onClick={() =>
+								handoffDrawer(
+									() => setMenuOpen(false),
+									() =>
+										void moderateVoice(
+											targetServerDeafened() ? "undeafen" : "deafen",
+										),
+								)
+							}
+						>
+							<span>
+								{targetServerDeafened() ? "Server undeafen" : "Server deafen"}{" "}
+								<DisplayableName color={false} user={props.member} />
+							</span>
+						</MenuDrawerItem>
+						<MenuDrawerItem
+							destructive
+							onClick={() =>
+								handoffDrawer(
+									() => setMenuOpen(false),
+									() => void moderateVoice("disconnect"),
+								)
+							}
+						>
+							<span>
+								Disconnect <DisplayableName color={false} user={props.member} />{" "}
+								from voice
+							</span>
+						</MenuDrawerItem>
+					</Show>
 					<MenuDrawerItem
 						onClick={() => {
 							setMenuOpen(false);
@@ -536,7 +616,51 @@ export const MemberContextMenu: ParentComponent<{
 									</ContextMenuItem>
 								</Show>
 							</Show>
-							<Show when={inVc() || canManageAnyRole() || hasModActions()}>
+							<Show when={canVoiceModerate()}>
+								<ContextMenuSeparator />
+								<ContextMenuItem
+									onClick={() =>
+										moderateVoice(targetServerMuted() ? "unmute" : "mute")
+									}
+								>
+									<span>
+										{targetServerMuted() ? "Server unmute" : "Server mute"}{" "}
+										<DisplayableName color={false} user={props.member} />
+									</span>
+								</ContextMenuItem>
+								<ContextMenuItem
+									onClick={() =>
+										moderateVoice(
+											targetServerDeafened() ? "undeafen" : "deafen",
+										)
+									}
+								>
+									<span>
+										{targetServerDeafened()
+											? "Server undeafen"
+											: "Server deafen"}{" "}
+										<DisplayableName color={false} user={props.member} />
+									</span>
+								</ContextMenuItem>
+								<ContextMenuItem
+									class="text-destructive!"
+									onClick={() => moderateVoice("disconnect")}
+								>
+									<span>
+										Disconnect{" "}
+										<DisplayableName color={false} user={props.member} /> from
+										voice
+									</span>
+								</ContextMenuItem>
+							</Show>
+							<Show
+								when={
+									inVc() ||
+									canManageAnyRole() ||
+									hasModActions() ||
+									canVoiceModerate()
+								}
+							>
 								<ContextMenuSeparator />
 							</Show>
 							<ContextMenuItem

@@ -16,6 +16,7 @@ export const ROLE_MANAGE = "role.manage";
 export const MESSAGE_HIDE = "message.hide";
 export const INVITATION_CREATE = "invitation.create";
 export const INVITATION_DELETE = "invitation.delete";
+export const VOICE_MODERATE = "voice.moderate";
 
 export type Permission = {
 	key: string;
@@ -120,6 +121,14 @@ export const PERMISSIONS: Record<string, Array<Permission>> = {
 			key: INVITATION_DELETE,
 			name: "Delete Invitations",
 			description: "Revoke existing invitation links",
+		},
+	],
+	Voice: [
+		{
+			key: VOICE_MODERATE,
+			name: "Moderate Voice",
+			description:
+				"Server-mute, server-deafen, and disconnect members in voice channels",
 		},
 	],
 };

@@ -10,6 +10,7 @@ import {
 	Show,
 	Switch,
 } from "solid-js";
+import { toast } from "somoto";
 import { Button } from "../../../components/ui/Button";
 import {
 	Select,
@@ -29,7 +30,6 @@ import {
 	SliderValueLabel,
 } from "../../../components/ui/Slider";
 import {
-	effectiveNoiseSuppressionMode,
 	type NoiseSuppressionMode,
 	useUserPreferences,
 	type VoiceInputSettings,
@@ -92,6 +92,13 @@ export const VoicePage: Component = () => {
 			preloadNoiseSuppressor();
 		}
 	});
+
+	const handleSuppressorFallback = () => {
+		userPreferences.setNoiseSuppressionMode("rnnoise");
+		toast("Switched to standard noise suppression", {
+			description: "High quality mode couldn't run smoothly on this device.",
+		});
+	};
 
 	const openMic = (input: VoiceInputSettings): Promise<MediaStream> =>
 		navigator.mediaDevices.getUserMedia({
@@ -231,8 +238,9 @@ export const VoicePage: Component = () => {
 		const rawTrack = stream.getAudioTracks()[0];
 
 		const ns = await createNoiseSuppressor(rawTrack, {
-			desiredMode: effectiveNoiseSuppressionMode(input),
-			onFallback: () => userPreferences.flagNoiseSuppressionDowngrade(),
+			desiredMode: input.noiseSuppressionMode,
+			suppressionLevel: input.noiseSuppressionLevel,
+			onFallback: handleSuppressorFallback,
 		});
 		setSuppressor(ns);
 
@@ -282,8 +290,9 @@ export const VoicePage: Component = () => {
 		const rawTrack = stream.getAudioTracks()[0];
 
 		const ns = await createNoiseSuppressor(rawTrack, {
-			desiredMode: effectiveNoiseSuppressionMode(inputPrefs),
-			onFallback: () => userPreferences.flagNoiseSuppressionDowngrade(),
+			desiredMode: inputPrefs.noiseSuppressionMode,
+			suppressionLevel: inputPrefs.noiseSuppressionLevel,
+			onFallback: handleSuppressorFallback,
 		});
 		setSuppressor(ns);
 
@@ -308,176 +317,178 @@ export const VoicePage: Component = () => {
 
 	return (
 		<SettingsPage loading={() => false} title="Voice">
-			<div class="w-full flex flex-row gap-4">
-				<div class="w-full flex flex-col gap-4 min-w-[calc(50%-0.5rem)]">
-					<div>
-						<Select
-							options={microphones()}
-							optionValue={"id" as any}
-							optionTextValue={"name" as any}
-							placeholder="Default Input"
-							value={getActiveMic()}
-							disallowEmptySelection={true}
-							disabled={microphones().length === 0}
-							itemComponent={(props) => (
-								<SelectItem
-									item={props.item}
-									class="[&>div]:flex [&>div]:gap-2 [&>div]:items-center"
-									onClick={() => {
-										userPreferences.setPreferences((current) => ({
-											...current,
-											voice: {
-												...current.voice,
-												input: {
-													...current.voice.input,
-													preferredDeviceId: (
-														props.item.rawValue as unknown as DeviceOption
-													).id,
+			<div class="@container w-full">
+				<div class="grid grid-cols-1 @min-[500px]:grid-cols-2 gap-4">
+					<div class="flex flex-col gap-4 min-w-0">
+						<div>
+							<Select
+								options={microphones()}
+								optionValue={"id" as any}
+								optionTextValue={"name" as any}
+								placeholder="Default Input"
+								value={getActiveMic()}
+								disallowEmptySelection={true}
+								disabled={microphones().length === 0}
+								itemComponent={(props) => (
+									<SelectItem
+										item={props.item}
+										class="[&>div]:flex [&>div]:gap-2 [&>div]:items-center"
+										onClick={() => {
+											userPreferences.setPreferences((current) => ({
+												...current,
+												voice: {
+													...current.voice,
+													input: {
+														...current.voice.input,
+														preferredDeviceId: (
+															props.item.rawValue as unknown as DeviceOption
+														).id,
+													},
 												},
+											}));
+										}}
+									>
+										{(props.item.rawValue as unknown as DeviceOption).name}
+									</SelectItem>
+								)}
+							>
+								<SelectLabel>Microphone</SelectLabel>
+								<SelectTrigger class="w-full" aria-label="Microphone">
+									<SelectValue<DeviceOption>>
+										{(state) => state.selectedOption()?.name}
+									</SelectValue>
+								</SelectTrigger>
+								<SelectContent class="[&>ul]:m-0 [&>ul]:py-0 [&>ul]:px-2" />
+							</Select>
+						</div>
+						<div>
+							<Slider
+								defaultValue={[
+									userPreferences.preferences().voice.input.volume * 100,
+								]}
+								step={1}
+								maxValue={200}
+								getValueLabel={(params) => `${params.values[0]}%`}
+								onChange={(e) => {
+									const v = e[0] / 100;
+
+									inputGainNode()?.gain.setTargetAtTime(
+										v,
+										audioCtx()!.currentTime,
+										0.01,
+									);
+
+									userPreferences.setPreferences((current) => ({
+										...current,
+										voice: {
+											...current.voice,
+											input: {
+												...current.voice.input,
+												volume: v,
 											},
-										}));
-									}}
-								>
-									{(props.item.rawValue as unknown as DeviceOption).name}
-								</SelectItem>
-							)}
-						>
-							<SelectLabel>Microphone</SelectLabel>
-							<SelectTrigger class="w-full" aria-label="Microphone">
-								<SelectValue<DeviceOption>>
-									{(state) => state.selectedOption()?.name}
-								</SelectValue>
-							</SelectTrigger>
-							<SelectContent class="[&>ul]:m-0 [&>ul]:py-0 [&>ul]:px-2" />
-						</Select>
-					</div>
-					<div>
-						<Slider
-							defaultValue={[
-								userPreferences.preferences().voice.input.volume * 100,
-							]}
-							step={1}
-							maxValue={200}
-							getValueLabel={(params) => `${params.values[0]}%`}
-							onChange={(e) => {
-								const v = e[0] / 100;
-
-								inputGainNode()?.gain.setTargetAtTime(
-									v,
-									audioCtx()!.currentTime,
-									0.01,
-								);
-
-								userPreferences.setPreferences((current) => ({
-									...current,
-									voice: {
-										...current.voice,
-										input: {
-											...current.voice.input,
-											volume: v,
 										},
-									},
-								}));
-							}}
-						>
-							<SliderGroup>
-								<SliderLabel>Microphone Volume</SliderLabel>
-								<SliderValueLabel />
-							</SliderGroup>
-							<SliderTrack>
-								<SliderFill />
-								<SliderThumb />
-							</SliderTrack>
-						</Slider>
+									}));
+								}}
+							>
+								<SliderGroup>
+									<SliderLabel>Microphone Volume</SliderLabel>
+									<SliderValueLabel />
+								</SliderGroup>
+								<SliderTrack>
+									<SliderFill />
+									<SliderThumb />
+								</SliderTrack>
+							</Slider>
+						</div>
 					</div>
-				</div>
-				<div class="w-full flex flex-col gap-4 min-w-[calc(50%-0.5rem)]">
-					<div>
-						<Select
-							options={speakers()}
-							optionValue={"value" as any}
-							optionTextValue={"name" as any}
-							placeholder="Default Output"
-							value={
-								speakers().find(
-									(x) =>
-										x.id ===
-										userPreferences.preferences().voice.output
-											.preferredDeviceId,
-								)?.id || undefined
-							}
-							disallowEmptySelection={true}
-							disabled={speakers().length === 0}
-							itemComponent={(props) => (
-								<SelectItem
-									item={props.item}
-									class="[&>div]:flex [&>div]:gap-2 [&>div]:items-center"
-									onClick={() =>
-										userPreferences.setPreferences((current) => ({
-											...current,
-											voice: {
-												...current.voice,
-												output: {
-													...current.voice.output,
-													preferredDeviceId: (
-														props.item.rawValue as unknown as DeviceOption
-													).id,
+					<div class="flex flex-col gap-4 min-w-0">
+						<div>
+							<Select
+								options={speakers()}
+								optionValue={"value" as any}
+								optionTextValue={"name" as any}
+								placeholder="Default Output"
+								value={
+									speakers().find(
+										(x) =>
+											x.id ===
+											userPreferences.preferences().voice.output
+												.preferredDeviceId,
+									)?.id || undefined
+								}
+								disallowEmptySelection={true}
+								disabled={speakers().length === 0}
+								itemComponent={(props) => (
+									<SelectItem
+										item={props.item}
+										class="[&>div]:flex [&>div]:gap-2 [&>div]:items-center"
+										onClick={() =>
+											userPreferences.setPreferences((current) => ({
+												...current,
+												voice: {
+													...current.voice,
+													output: {
+														...current.voice.output,
+														preferredDeviceId: (
+															props.item.rawValue as unknown as DeviceOption
+														).id,
+													},
 												},
+											}))
+										}
+									>
+										{(props.item.rawValue as unknown as DeviceOption).name}
+									</SelectItem>
+								)}
+							>
+								<SelectLabel>Speaker</SelectLabel>
+								<SelectTrigger class="w-full" aria-label="Speaker">
+									<SelectValue<DeviceOption>>
+										{(state) => state.selectedOption().name}
+									</SelectValue>
+								</SelectTrigger>
+								<SelectContent class="[&>ul]:m-0 [&>ul]:py-0 [&>ul]:px-2" />
+							</Select>
+						</div>
+						<div>
+							<Slider
+								defaultValue={[
+									userPreferences.preferences().voice.output.volume * 100,
+								]}
+								step={1}
+								maxValue={200}
+								getValueLabel={(params) => `${params.values[0]}%`}
+								onChange={(e) => {
+									const v = e[0] / 100;
+
+									outputGainNode()?.gain.setTargetAtTime(
+										v,
+										audioCtx()!.currentTime,
+										0.01,
+									);
+
+									userPreferences.setPreferences((current) => ({
+										...current,
+										voice: {
+											...current.voice,
+											output: {
+												...current.voice.output,
+												volume: v,
 											},
-										}))
-									}
-								>
-									{(props.item.rawValue as unknown as DeviceOption).name}
-								</SelectItem>
-							)}
-						>
-							<SelectLabel>Speaker</SelectLabel>
-							<SelectTrigger class="w-full" aria-label="Speaker">
-								<SelectValue<DeviceOption>>
-									{(state) => state.selectedOption().name}
-								</SelectValue>
-							</SelectTrigger>
-							<SelectContent class="[&>ul]:m-0 [&>ul]:py-0 [&>ul]:px-2" />
-						</Select>
-					</div>
-					<div>
-						<Slider
-							defaultValue={[
-								userPreferences.preferences().voice.output.volume * 100,
-							]}
-							step={1}
-							maxValue={200}
-							getValueLabel={(params) => `${params.values[0]}%`}
-							onChange={(e) => {
-								const v = e[0] / 100;
-
-								outputGainNode()?.gain.setTargetAtTime(
-									v,
-									audioCtx()!.currentTime,
-									0.01,
-								);
-
-								userPreferences.setPreferences((current) => ({
-									...current,
-									voice: {
-										...current.voice,
-										output: {
-											...current.voice.output,
-											volume: v,
 										},
-									},
-								}));
-							}}
-						>
-							<SliderGroup>
-								<SliderLabel>Speaker Volume</SliderLabel>
-								<SliderValueLabel />
-							</SliderGroup>
-							<SliderTrack>
-								<SliderFill />
-								<SliderThumb />
-							</SliderTrack>
-						</Slider>
+									}));
+								}}
+							>
+								<SliderGroup>
+									<SliderLabel>Speaker Volume</SliderLabel>
+									<SliderValueLabel />
+								</SliderGroup>
+								<SliderTrack>
+									<SliderFill />
+									<SliderThumb />
+								</SliderTrack>
+							</Slider>
+						</div>
 					</div>
 				</div>
 			</div>
@@ -515,7 +526,7 @@ export const VoicePage: Component = () => {
 					</SelectTrigger>
 					<SelectContent class="[&>ul]:m-0 [&>ul]:py-0 [&>ul]:px-2" />
 				</Select>
-				<p class="text-sm text-muted-foreground">
+				<p class="text-sm text-muted-foreground my-1">
 					How aggressively Colibri filters out non-voice sounds. High quality
 					uses DeepFilterNet and automatically falls back to Standard if this
 					device can't keep up.
@@ -523,15 +534,31 @@ export const VoicePage: Component = () => {
 				<Show
 					when={
 						userPreferences.preferences().voice.input.noiseSuppressionMode ===
-							"deepfilternet" &&
-						userPreferences.preferences().voice.input
-							.noiseSuppressionAutoDowngraded
+						"deepfilternet"
 					}
 				>
-					<p class="text-sm text-yellow-500">
-						High quality was switched off because this device couldn't keep up.
-						Select it again to retry.
-					</p>
+					<Slider
+						defaultValue={[
+							userPreferences.preferences().voice.input.noiseSuppressionLevel,
+						]}
+						step={1}
+						maxValue={100}
+						getValueLabel={(params) => `${params.values[0]}%`}
+						onChange={(e) => {
+							const v = e[0];
+							userPreferences.setNoiseSuppressionLevel(v);
+							suppressor()?.setSuppressionLevel(v);
+						}}
+					>
+						<SliderGroup>
+							<SliderLabel>Suppression Strength</SliderLabel>
+							<SliderValueLabel />
+						</SliderGroup>
+						<SliderTrack>
+							<SliderFill />
+							<SliderThumb />
+						</SliderTrack>
+					</Slider>
 				</Show>
 			</div>
 
@@ -539,7 +566,7 @@ export const VoicePage: Component = () => {
 			<div class="flex flex-row items-center gap-4 w-full">
 				<Button
 					onClick={toggleVoiceTest}
-					class="w-28"
+					class="w-28 shrink-0"
 					variant={testStream() ? "default" : "secondary"}
 				>
 					<Switch>
@@ -551,11 +578,11 @@ export const VoicePage: Component = () => {
 						</Match>
 					</Switch>
 				</Button>
-				<div class="flex flex-row items-center gap-1 w-full h-8 justify-between">
+				<div class="flex flex-row items-center gap-0.5 h-8 flex-1 min-w-0">
 					<For each={Array.from({ length: MAX })}>
 						{(_, i) => (
 							<div
-								class="w-1 h-full bg-muted rounded-full"
+								class="flex-1 min-w-0 h-full bg-muted rounded-full"
 								style={{
 									background:
 										volume() *

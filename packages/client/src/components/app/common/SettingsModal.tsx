@@ -46,7 +46,7 @@ export const SettingsPage: ParentComponent<{
 				</Show>
 			</div>
 			<div class="flex flex-col gap-4 w-full flex-1 min-h-0">
-				<div class="w-full flex flex-col gap-4 px-4 max-w-137 h-full overflow-auto py-4">
+				<div class="w-full flex flex-col gap-4 px-4 lg:max-w-137 h-full overflow-auto py-4">
 					{props.children}
 				</div>
 			</div>

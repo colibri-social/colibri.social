@@ -40,6 +40,7 @@ import { Button } from "../../ui/Button";
 import User from "../user";
 import { CategoryContextMenu } from "./CategoryContextMenu";
 import { ChannelContextMenu } from "./ChannelContextMenu";
+import { MemberContextMenu } from "./MemberContextMenu";
 
 export type ChannelDropTarget = {
 	categoryUri: string;
@@ -249,39 +250,44 @@ const SortableChannel: Component<{
 										when={member()}
 										fallback={<span class="truncate px-1 py-1">{did}</span>}
 									>
-										<User.ProfilePopover
-											user={member()!}
-											class="flex items-center gap-2 hover:bg-card rounded-sm p-1 cursor-pointer"
-										>
-											<div
-												class="rounded-full transition-shadow"
-												classList={{
-													"ring-2 ring-primary": isSpeaking(),
-												}}
+										<MemberContextMenu member={member()!}>
+											<User.ProfilePopover
+												user={member()!}
+												class="flex items-center gap-2 hover:bg-card rounded-sm p-1 cursor-pointer"
 											>
-												<User.Avatar
-													user={member()!}
-													size="small"
-													disableState={true}
-												/>
-											</div>
-											<span class="truncate flex-1 text-sm">
-												<User.DisplayableName color={false} user={member()!} />
-											</span>
-											<span class="flex items-center gap-1 [&_svg]:w-3.5 [&_svg]:h-3.5 [&_svg]:shrink-0 [&_svg]:text-red-400">
-												<Show
-													when={
-														voiceData.memberStates[did]?.muted &&
-														!voiceData.memberStates[did]?.deafened
-													}
+												<div
+													class="rounded-full transition-shadow"
+													classList={{
+														"ring-2 ring-primary": isSpeaking(),
+													}}
 												>
-													<Microphone enabled={false} />
-												</Show>
-												<Show when={voiceData.memberStates[did]?.deafened}>
-													<Ear enabled={true} />
-												</Show>
-											</span>
-										</User.ProfilePopover>
+													<User.Avatar
+														user={member()!}
+														size="small"
+														disableState={true}
+													/>
+												</div>
+												<span class="truncate flex-1 text-sm">
+													<User.DisplayableName
+														color={false}
+														user={member()!}
+													/>
+												</span>
+												<span class="flex items-center gap-1 [&_svg]:w-3.5 [&_svg]:h-3.5 [&_svg]:shrink-0 [&_svg]:text-red-400">
+													<Show
+														when={
+															voiceData.memberStates[did]?.muted &&
+															!voiceData.memberStates[did]?.deafened
+														}
+													>
+														<Microphone enabled={false} />
+													</Show>
+													<Show when={voiceData.memberStates[did]?.deafened}>
+														<Ear enabled={true} />
+													</Show>
+												</span>
+											</User.ProfilePopover>
+										</MemberContextMenu>
 									</Show>
 								);
 							}}

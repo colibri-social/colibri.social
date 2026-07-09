@@ -9,6 +9,7 @@ import {
 	onCleanup,
 	onMount,
 	type ParentComponent,
+	Show,
 	Switch,
 	useContext,
 } from "solid-js";
@@ -21,6 +22,7 @@ import {
 } from "../atproto/cache/store";
 import { XrpcClient } from "../atproto/xrpc";
 import { AppLoadingScreen } from "../components/AppLoadingScreen";
+import { AppViewUnreachableModal } from "../components/app/AppViewUnreachableModal";
 import { PENDING_INVITE_KEY } from "../components/app/community/invite-storage";
 import { ProfileGate } from "../components/app/onboarding/ProfileGate";
 import { getAppViewDid, getAppViewServiceRef } from "../utils/appview";
@@ -165,7 +167,12 @@ export const UserContextProvider: ParentComponent = (props) => {
 	return (
 		<Switch>
 			<Match when={user.error}>
-				<span>{`${user.error}`}</span>
+				<Show
+					when={!import.meta.env.DEV}
+					fallback={<span>{`${user.error}`}</span>}
+				>
+					<AppViewUnreachableModal />
+				</Show>
 			</Match>
 			<Match when={user.loading && !user.latest}>
 				<AppLoadingScreen message="Fetching user details..." />

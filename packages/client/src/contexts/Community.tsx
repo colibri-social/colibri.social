@@ -37,6 +37,7 @@ import {
 	MEMBER_UNBAN,
 	MESSAGE_HIDE,
 	ROLE_MANAGE,
+	VOICE_MODERATE,
 } from "../atproto/permissions";
 import type {
 	CommunityData,
@@ -805,6 +806,10 @@ export const usePermissions = () => {
 	const canDeleteInvitation = (did: string) =>
 		hasPermission(did, INVITATION_DELETE);
 
+	const canModerateVoice = (actorDid: string, targetDid?: string) =>
+		hasPermission(actorDid, VOICE_MODERATE) &&
+		(targetDid === undefined || outranks(actorDid, targetDid));
+
 	return {
 		isAdmin,
 		canManage,
@@ -827,5 +832,6 @@ export const usePermissions = () => {
 		canHideMessage,
 		canCreateInvitation,
 		canDeleteInvitation,
+		canModerateVoice,
 	};
 };

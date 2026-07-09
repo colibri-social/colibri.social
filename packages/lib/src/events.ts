@@ -271,8 +271,10 @@ export type Colibri_VoiceStateEvent = EventBase<
 	{
 		channel: AT_URI<"social.colibri.channel">;
 		did: string;
-		muted: boolean;
-		deafened: boolean;
+		muted?: boolean;
+		deafened?: boolean;
+		serverMuted?: boolean;
+		serverDeafened?: boolean;
 	}
 >;
 

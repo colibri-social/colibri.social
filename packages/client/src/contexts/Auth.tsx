@@ -9,6 +9,7 @@ import {
 } from "solid-js";
 import { type Client, getClient } from "../atproto/auth";
 import { AppLoadingScreen } from "../components/AppLoadingScreen";
+import { AppViewUnreachableModal } from "../components/app/AppViewUnreachableModal";
 import { markBoot } from "../utils/perf";
 
 export const AuthContext = createContext<Client>(undefined);
@@ -31,6 +32,9 @@ export const AuthContextProvider: ParentComponent = (props) => {
 						{props.children}
 					</AuthContext.Provider>
 				)}
+			</Match>
+			<Match when={!client.loading && !client() && !import.meta.env.DEV}>
+				<AppViewUnreachableModal />
 			</Match>
 		</Switch>
 	);

@@ -1,4 +1,5 @@
 import { assetsDir } from "@colibri-social/assets/node";
+import { verbatimNoiseAssets } from "@colibri-social/assets/vite-verbatim-noise";
 import tailwindcss from "@tailwindcss/vite";
 import devtools from "solid-devtools/vite";
 import Icons from "unplugin-icons/vite";
@@ -7,6 +8,7 @@ import solidPlugin from "vite-plugin-solid";
 
 export default defineConfig({
 	plugins: [
+		verbatimNoiseAssets(),
 		devtools(),
 		solidPlugin(),
 		tailwindcss(),

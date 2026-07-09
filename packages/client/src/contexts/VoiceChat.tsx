@@ -9,6 +9,7 @@ import {
 	useContext,
 } from "solid-js";
 import { createStore } from "solid-js/store";
+import { toast } from "somoto";
 import {
 	createNoiseSuppressor,
 	type NoiseSuppressor,
@@ -18,10 +19,7 @@ import { useAuthContext } from "./Auth";
 import { useSocketContext } from "./Socket";
 import { useSounds } from "./Sounds";
 import { useUserContext } from "./User";
-import {
-	effectiveNoiseSuppressionMode,
-	useUserPreferences,
-} from "./UserPreferences";
+import { useUserPreferences } from "./UserPreferences";
 
 export const ConnectionState = {
 	Disconnected: "disconnected",
@@ -56,6 +54,8 @@ export type VoiceChatStates = {
 	screenEnabled: boolean;
 	micEnabled: boolean;
 	deafened: boolean;
+	serverMuted: boolean;
+	serverDeafened: boolean;
 };
 
 export type VideoSource = "cam" | "screen";
@@ -69,6 +69,8 @@ export type VideoTileData = {
 export type VoiceMemberState = {
 	muted: boolean;
 	deafened: boolean;
+	serverMuted?: boolean;
+	serverDeafened?: boolean;
 };
 
 export type VoiceChatData = {
@@ -142,6 +144,9 @@ type ServerMessage =
 	  }
 	| { action: "producerRemoved"; did: string; producerId: string }
 	| { action: "activeSpeakers"; dids: string[] }
+	| { action: "serverMuted"; muted: boolean }
+	| { action: "serverDeafened"; deafened: boolean }
+	| { action: "kicked" }
 	| { action: "error"; message: string };
 
 const communityUriForChannel = (channelUri: string): string | null => {
@@ -172,6 +177,8 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 			screenEnabled: false,
 			micEnabled: false,
 			deafened: false,
+			serverMuted: false,
+			serverDeafened: false,
 		},
 		presence: {},
 		activeSpeakers: [],
@@ -402,6 +409,8 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 			screenEnabled: false,
 			micEnabled: false,
 			deafened: false,
+			serverMuted: false,
+			serverDeafened: false,
 		});
 		setVoiceData("activeSpeakers", []);
 		setVoiceData("videoStreams", {});
@@ -521,8 +530,15 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 		const rawTrack = micStream.getAudioTracks()[0];
 
 		const ns = await createNoiseSuppressor(rawTrack, {
-			desiredMode: effectiveNoiseSuppressionMode(input),
-			onFallback: () => userPreferences.flagNoiseSuppressionDowngrade(),
+			desiredMode: input.noiseSuppressionMode,
+			suppressionLevel: input.noiseSuppressionLevel,
+			onFallback: () => {
+				userPreferences.setNoiseSuppressionMode("rnnoise");
+				toast("Switched to standard noise suppression", {
+					description:
+						"High quality mode couldn't run smoothly on this device.",
+				});
+			},
 		});
 		suppressor = ns;
 
@@ -717,6 +733,28 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 			case "activeSpeakers":
 				serverSpeakers = message.dids;
 				recomputeSpeakers();
+				break;
+			case "serverMuted":
+				setVoiceData("states", "serverMuted", message.muted);
+				setVoiceData("memberStates", user.did, (prev) => ({
+					muted: prev?.muted ?? false,
+					deafened: prev?.deafened ?? false,
+					...prev,
+					serverMuted: message.muted,
+				}));
+				break;
+			case "serverDeafened":
+				setVoiceData("states", "serverDeafened", message.deafened);
+				setVoiceData("memberStates", user.did, (prev) => ({
+					muted: prev?.muted ?? false,
+					deafened: prev?.deafened ?? false,
+					...prev,
+					serverDeafened: message.deafened,
+				}));
+				break;
+			case "kicked":
+				toast("You were removed from the voice channel.");
+				disconnect();
 				break;
 			case "error":
 				console.error("[voice] server error:", message.message);
@@ -993,12 +1031,19 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 
 	createEffect(
 		on(
-			() =>
-				effectiveNoiseSuppressionMode(
-					userPreferences.preferences().voice.input,
-				),
+			() => userPreferences.preferences().voice.input.noiseSuppressionMode,
 			(mode) => {
 				void suppressor?.setMode(mode);
+			},
+			{ defer: true },
+		),
+	);
+
+	createEffect(
+		on(
+			() => userPreferences.preferences().voice.input.noiseSuppressionLevel,
+			(level) => {
+				suppressor?.setSuppressionLevel(level);
 			},
 			{ defer: true },
 		),
@@ -1045,10 +1090,31 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 
 			if (!data) return;
 
-			setVoiceData("memberStates", data.did, {
-				muted: data.muted,
-				deafened: data.deafened,
+			setVoiceData("memberStates", data.did, (prev) => {
+				const next: VoiceMemberState = {
+					muted: prev?.muted ?? false,
+					deafened: prev?.deafened ?? false,
+					...prev,
+				};
+
+				if (data.muted !== undefined) next.muted = data.muted;
+				if (data.deafened !== undefined) next.deafened = data.deafened;
+				if (data.serverMuted !== undefined) next.serverMuted = data.serverMuted;
+				if (data.serverDeafened !== undefined)
+					next.serverDeafened = data.serverDeafened;
+
+				return next;
 			});
+
+			if (data.did === user.did) {
+				if (data.serverMuted !== undefined) {
+					setVoiceData("states", "serverMuted", data.serverMuted);
+				}
+
+				if (data.serverDeafened !== undefined) {
+					setVoiceData("states", "serverDeafened", data.serverDeafened);
+				}
+			}
 		}
 	});
 

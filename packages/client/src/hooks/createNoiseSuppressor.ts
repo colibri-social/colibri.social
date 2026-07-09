@@ -13,6 +13,10 @@ import type { NoiseSuppressionMode } from "../contexts/UserPreferences";
 
 const DFN_ASSET_BASE = "/noise/deepfilternet3";
 const DFN_SAMPLE_RATE = 48000;
+const DFN_DEFAULT_LEVEL = 80;
+
+const clampLevel = (level: number): number =>
+	Math.max(0, Math.min(100, Math.round(level)));
 
 const WATCHDOG_UPDATE_INTERVAL = 1;
 const WATCHDOG_UNDERRUN_THRESHOLD = 0.1;
@@ -41,12 +45,14 @@ interface AudioRenderCapacity {
 export interface NoiseSuppressor {
 	readonly outputTrack: MediaStreamTrack;
 	setMode(mode: NoiseSuppressionMode): Promise<void>;
+	setSuppressionLevel(level: number): void;
 	getActiveMode(): NoiseSuppressionMode;
 	destroy(): void;
 }
 
 export interface NoiseSuppressorOptions {
 	desiredMode: NoiseSuppressionMode;
+	suppressionLevel?: number;
 	onFallback?: (from: NoiseSuppressionMode, to: NoiseSuppressionMode) => void;
 }
 
@@ -111,8 +117,8 @@ export async function createNoiseSuppressor(
 	const destination = ctx.createMediaStreamDestination();
 
 	let currentNode: AudioNode | null = null;
-	let activeMode: NoiseSuppressionMode = "off";
-	let pendingMode: NoiseSuppressionMode = "off";
+	let activeMode: NoiseSuppressionMode | null = null;
+	let pendingMode: NoiseSuppressionMode | null = null;
 	let destroyed = false;
 
 	let rnnoiseNode: RnnoiseWorkletNode | null = null;
@@ -121,6 +127,8 @@ export async function createNoiseSuppressor(
 	let dfnNode: AudioWorkletNode | null = null;
 	let dfnCore: DeepFilterNet3Core | null = null;
 	let dfnPromise: Promise<AudioWorkletNode> | null = null;
+
+	let currentLevel = clampLevel(options.suppressionLevel ?? DFN_DEFAULT_LEVEL);
 
 	let capacity: AudioRenderCapacity | null = null;
 	let overBudgetStreak = 0;
@@ -143,7 +151,7 @@ export async function createNoiseSuppressor(
 
 		if (overBudgetStreak >= WATCHDOG_STREAK) {
 			stopWatchdog();
-			const from = activeMode;
+			const from = activeMode ?? "deepfilternet";
 			void setMode("rnnoise").then(() => {
 				options.onFallback?.(from, "rnnoise");
 			});
@@ -185,6 +193,7 @@ export async function createNoiseSuppressor(
 			await assertDfnModelReachable();
 			const core = new DeepFilterNet3Core({
 				sampleRate: DFN_SAMPLE_RATE,
+				noiseReductionLevel: currentLevel,
 				assetConfig: { cdnUrl: DFN_ASSET_BASE },
 			});
 			await core.initialize();
@@ -192,6 +201,10 @@ export async function createNoiseSuppressor(
 			dfnCore = core;
 			return dfnNode;
 		})().catch((err) => {
+			console.warn(
+				"[noise] DeepFilterNet unavailable, falling back to RNNoise:",
+				err instanceof Error ? err.message : err,
+			);
 			dfnPromise = null;
 			throw err;
 		});
@@ -247,7 +260,11 @@ export async function createNoiseSuppressor(
 	return {
 		outputTrack: destination.stream.getAudioTracks()[0],
 		setMode,
-		getActiveMode: () => activeMode,
+		setSuppressionLevel: (level) => {
+			currentLevel = clampLevel(level);
+			dfnCore?.setSuppressionLevel(currentLevel);
+		},
+		getActiveMode: () => activeMode ?? "off",
 		destroy: () => {
 			destroyed = true;
 			stopWatchdog();

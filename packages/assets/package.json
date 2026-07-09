@@ -6,6 +6,7 @@
 	"exports": {
 		".": "./src/index.ts",
 		"./node": "./src/node.js",
+		"./vite-verbatim-noise": "./src/vite-verbatim-noise.js",
 		"./fonts.css": "./files/fonts.css",
 		"./files/*": "./files/*",
 		"./package.json": "./package.json"

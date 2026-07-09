@@ -37,23 +37,7 @@ export type NoiseSuppressionMode = "off" | "rnnoise" | "deepfilternet";
 
 export interface VoiceInputSettings extends VoiceIOSettings {
 	noiseSuppressionMode: NoiseSuppressionMode;
-	noiseSuppressionAutoDowngraded: boolean;
-}
-
-/**
- * Resolves the noise-suppression mode that should actually run
- */
-export function effectiveNoiseSuppressionMode(
-	input: VoiceInputSettings,
-): NoiseSuppressionMode {
-	if (
-		input.noiseSuppressionMode === "deepfilternet" &&
-		input.noiseSuppressionAutoDowngraded
-	) {
-		return "rnnoise";
-	}
-
-	return input.noiseSuppressionMode;
+	noiseSuppressionLevel: number;
 }
 
 export interface VolumeOverrides {
@@ -99,7 +83,7 @@ const DEFAULT_PREFERENCES: UserPreferencesContextData = {
 			volume: 1,
 			preferredDeviceId: undefined,
 			noiseSuppressionMode: "deepfilternet",
-			noiseSuppressionAutoDowngraded: false,
+			noiseSuppressionLevel: 80,
 		},
 		output: {
 			enabled: true,
@@ -144,8 +128,10 @@ function loadFromStorage(): UserPreferencesContextData {
 						? "deepfilternet"
 						: "off"
 					: defaultInput.noiseSuppressionMode),
-			noiseSuppressionAutoDowngraded:
-				parsedInput.noiseSuppressionAutoDowngraded ?? false,
+			noiseSuppressionLevel:
+				typeof parsedInput.noiseSuppressionLevel === "number"
+					? parsedInput.noiseSuppressionLevel
+					: defaultInput.noiseSuppressionLevel,
 		};
 
 		return {
@@ -169,7 +155,7 @@ type UserPreferencesContextValue = {
 	}) => void;
 	setParticipantVolume: (did: string, volume: number) => void;
 	setNoiseSuppressionMode: (mode: NoiseSuppressionMode) => void;
-	flagNoiseSuppressionDowngrade: () => void;
+	setNoiseSuppressionLevel: (level: number) => void;
 	setVoiceView: (patch: {
 		showNonVideoParticipants?: boolean;
 		showOwnCamera?: boolean;
@@ -234,27 +220,20 @@ export const UserPreferencesContextProvider: ParentComponent = (props) => {
 			...p,
 			voice: {
 				...p.voice,
-				input: {
-					...p.voice.input,
-					noiseSuppressionMode: mode,
-					noiseSuppressionAutoDowngraded: false,
-				},
+				input: { ...p.voice.input, noiseSuppressionMode: mode },
 			},
 		}));
 	};
 
-	const flagNoiseSuppressionDowngrade = () => {
-		setPreferences((p) =>
-			p.voice.input.noiseSuppressionAutoDowngraded
-				? p
-				: {
-						...p,
-						voice: {
-							...p.voice,
-							input: { ...p.voice.input, noiseSuppressionAutoDowngraded: true },
-						},
-					},
-		);
+	const setNoiseSuppressionLevel = (level: number) => {
+		const clamped = Math.max(0, Math.min(100, Math.round(level)));
+		setPreferences((p) => ({
+			...p,
+			voice: {
+				...p.voice,
+				input: { ...p.voice.input, noiseSuppressionLevel: clamped },
+			},
+		}));
 	};
 
 	const setVoiceView = (patch: {
@@ -313,7 +292,7 @@ export const UserPreferencesContextProvider: ParentComponent = (props) => {
 				setVoiceSelfState,
 				setParticipantVolume,
 				setNoiseSuppressionMode,
-				flagNoiseSuppressionDowngrade,
+				setNoiseSuppressionLevel,
 				setVoiceView,
 				toggleMembersVisible,
 				setNativeNotifications,

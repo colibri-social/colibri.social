@@ -13,6 +13,7 @@ import * as Message from "./social/colibri/message";
 import * as Notification from "./social/colibri/notification";
 import * as Role from "./social/colibri/role";
 import * as Sync from "./social/colibri/sync";
+import * as Voice from "./social/colibri/voice";
 
 type ProxiedFetchFn = (
 	xrpcRoute: `/xrpc/${string}`,
@@ -601,6 +602,21 @@ export class XrpcClient {
 							this.proxiedFetch,
 							"social.colibri.embed.gifCategories",
 						),
+					),
+			},
+			voice: {
+				moderate: (
+					community: string,
+					channel: string,
+					target: string,
+					action: Voice.VoiceModerationAction,
+				) =>
+					Voice.moderate(
+						this.authed(this.proxiedFetch, "social.colibri.voice.moderate"),
+						community,
+						channel,
+						target,
+						action,
 					),
 			},
 			notification: {
