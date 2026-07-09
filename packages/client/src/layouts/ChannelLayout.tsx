@@ -21,6 +21,7 @@ import CaretLeftIcon from "~icons/ph/caret-left";
 import ChatCircleDotsIcon from "~icons/ph/chat-circle-dots";
 import UsersIcon from "~icons/ph/users";
 import UsersIconFill from "~icons/ph/users-fill";
+import XIcon from "~icons/ph/x";
 import type { Message as MessageData } from "../atproto/xrpc/social/colibri/channel/listMessages";
 import { Message } from "../components/app/channel/message/Message";
 import { MessageInput } from "../components/app/community/MessageInput";
@@ -79,6 +80,8 @@ const GROUPING_WINDOW_MS = 5 * 60 * 1000;
 
 const withinGroupingWindow = (a: string, b: string): boolean =>
 	Math.abs(new Date(a).getTime() - new Date(b).getTime()) < GROUPING_WINDOW_MS;
+
+const rkeyOf = (uri: string): string => uri.split("/").pop() ?? "";
 
 type RichMessage = MessageData & { createdAt: string };
 
@@ -157,6 +160,8 @@ const ChannelLayout: ParentComponent = (props) => {
 	let wasAtBottom = false;
 	let pingObserver: IntersectionObserver | undefined;
 	const [unseenPings, setUnseenPings] = createSignal<Set<string>>(new Set());
+	const [deletedPingBanner, setDeletedPingBanner] = createSignal(false);
+	let handledOrphans = new Set<string>();
 	const [showJumpToLatest, setShowJumpToLatest] = createSignal(false);
 	let jumpObserver: IntersectionObserver | undefined;
 	let jumpSentinel: HTMLElement | undefined;
@@ -308,6 +313,34 @@ const ChannelLayout: ParentComponent = (props) => {
 	});
 
 	createEffect(() => {
+		const uri = channel.channelUri();
+		if (!uri || channel.initialLoading()) return;
+		if (mutes.isChannelMuted(uri)) return;
+
+		const unseen = channel.initialUnseen();
+		if (unseen.length === 0) return;
+
+		const msgs = channel.messages();
+		const present = new Set(msgs.map((m) => m.uri));
+		const oldestRkey = msgs[0] ? rkeyOf(msgs[0].uri) : undefined;
+		const allLoaded = !channel.hasMore();
+
+		const orphans = unseen.filter(
+			(u) =>
+				!present.has(u) &&
+				!handledOrphans.has(u) &&
+				(allLoaded || (oldestRkey !== undefined && rkeyOf(u) > oldestRkey)),
+		);
+		if (orphans.length === 0) return;
+
+		for (const u of orphans) {
+			handledOrphans.add(u);
+			notifications.markMessageSeen(u, uri);
+		}
+		setDeletedPingBanner(true);
+	});
+
+	createEffect(() => {
 		const target = notifications.pendingFocus();
 		if (!target || !isSameChannelUri(target.channelUri, channel.channelUri())) {
 			readObserver?.disconnect();
@@ -367,6 +400,8 @@ const ChannelLayout: ParentComponent = (props) => {
 			didInitialScroll = false;
 			wasAtBottom = false;
 			cursorWalkAttempts = 0;
+			handledOrphans = new Set();
+			setDeletedPingBanner(false);
 			setupObserver();
 		}),
 	);
@@ -782,6 +817,20 @@ const ChannelLayout: ParentComponent = (props) => {
 								</Button>
 							</Show>
 						</div>
+
+						<Show when={deletedPingBanner()}>
+							<div class="border-t border-border w-full px-4 py-2 bg-destructive/10 text-destructive flex justify-between items-center text-sm">
+								<span>The message that caused this ping has been deleted.</span>
+								<button
+									type="button"
+									aria-label="Dismiss"
+									onClick={() => setDeletedPingBanner(false)}
+									class="cursor-pointer w-6 h-6 flex items-center justify-center hover:text-foreground"
+								>
+									<XIcon />
+								</button>
+							</div>
+						</Show>
 
 						<Show when={channel.data()}>
 							{(ch) => (

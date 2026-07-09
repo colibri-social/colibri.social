@@ -3,6 +3,7 @@ import type { Message } from "../../../../atproto/xrpc/social/colibri/channel/li
 import { RichTextRenderer } from "../../common/rich-text-renderer/RichTextRenderer";
 import type { TextWithFacets } from "../../common/rich-text-renderer/util";
 import User from "../../user";
+import { MessageTimestamp } from "./MessageTimestamp";
 
 /**
  * Read-only, non-interactive message preview used inside Block/Deletion
@@ -25,11 +26,7 @@ export const MessagePreview: Component<{ data: Message }> = (props) => {
 						<User.DisplayableName color={false} user={props.data.author} />
 					</span>
 					<small class="text-muted-foreground">
-						{new Date(props.data.createdAt).toLocaleDateString()}{" "}
-						{new Date(props.data.createdAt).toLocaleTimeString(undefined, {
-							hour: "2-digit",
-							minute: "2-digit",
-						})}
+						<MessageTimestamp datetime={props.data.createdAt} />
 					</small>
 				</div>
 				<RichTextRenderer text={text} />

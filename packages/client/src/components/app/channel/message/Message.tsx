@@ -33,6 +33,7 @@ import { Action } from "./ContextMenu";
 import { MessageContextMenu } from "./ContextMenu/Menu";
 import { DeletionDrawer } from "./DeletionDrawer/index";
 import { Embed, isGifUrl } from "./Embed";
+import { MessageTimestamp } from "./MessageTimestamp";
 
 /**
  * A rendered message component in a chat.
@@ -234,11 +235,7 @@ const MessageInner: Component<{
 										</span>
 									</User.ProfilePopover>
 									<small class="text-muted-foreground">
-										{new Date(message.createdAt).toLocaleDateString()}{" "}
-										{new Date(message.createdAt).toLocaleTimeString(undefined, {
-											hour: "2-digit",
-											minute: "2-digit",
-										})}
+										<MessageTimestamp datetime={message.createdAt} />
 									</small>
 									<Show when={message.edited}>
 										<small class="text-muted-foreground">(edited)</small>
@@ -277,11 +274,7 @@ const MessageInner: Component<{
 										</div>
 									</User.ProfilePopover>
 									<small class="text-muted-foreground">
-										{new Date(message.createdAt).toLocaleDateString()}{" "}
-										{new Date(message.createdAt).toLocaleTimeString(undefined, {
-											hour: "2-digit",
-											minute: "2-digit",
-										})}
+										<MessageTimestamp datetime={message.createdAt} />
 									</small>
 									<Show when={message.edited}>
 										<small class="text-muted-foreground">(edited)</small>

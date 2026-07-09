@@ -7,15 +7,15 @@ import {
 	type EmojiSuggestionData,
 } from "./MentionPopupRenderer";
 
-/**
- * Inserts the mention atom without TipTap's default trailing space
- */
 const insertMention: SuggestionOptions<unknown, MentionNodeAttrs>["command"] =
 	({ editor, range, props }) => {
 		editor
 			.chain()
 			.focus()
-			.insertContentAt(range, { type: "mention", attrs: props })
+			.insertContentAt(range, [
+				{ type: "mention", attrs: props },
+				{ type: "text", text: " " },
+			])
 			.run();
 	};
 

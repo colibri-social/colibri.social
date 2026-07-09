@@ -77,3 +77,20 @@ export const formatTimestamp = (
 			return formatRelative(date, now);
 	}
 };
+
+const RELATIVE_MESSAGE_THRESHOLD_MS = 24 * 60 * 60 * 1000;
+
+export const formatMessageTimestamp = (
+	datetime: string,
+	now: Date = new Date(),
+): string => {
+	const date = new Date(datetime);
+	if (Number.isNaN(date.getTime())) return datetime;
+
+	if (
+		Math.abs(date.getTime() - now.getTime()) < RELATIVE_MESSAGE_THRESHOLD_MS
+	) {
+		return formatTimestamp(datetime, "time-short", now);
+	}
+	return formatTimestamp(datetime, "datetime-short", now);
+};

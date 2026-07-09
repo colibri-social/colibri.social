@@ -3,18 +3,25 @@ import { Device } from "mediasoup-client";
 import {
 	createContext,
 	createEffect,
+	on,
 	onCleanup,
 	type ParentComponent,
 	useContext,
 } from "solid-js";
 import { createStore } from "solid-js/store";
-import { processTrackWithRnnoise } from "../hooks/createRnnoiseProcessor";
+import {
+	createNoiseSuppressor,
+	type NoiseSuppressor,
+} from "../hooks/createNoiseSuppressor";
 import { getAppViewHost, getAppViewServiceRef } from "../utils/appview";
 import { useAuthContext } from "./Auth";
 import { useSocketContext } from "./Socket";
 import { useSounds } from "./Sounds";
 import { useUserContext } from "./User";
-import { useUserPreferences } from "./UserPreferences";
+import {
+	effectiveNoiseSuppressionMode,
+	useUserPreferences,
+} from "./UserPreferences";
 
 export const ConnectionState = {
 	Disconnected: "disconnected",
@@ -103,7 +110,7 @@ const VoiceChatContext = createContext<VoiceChatContextValue>();
 
 const AUTH_SUBPROTOCOL = "colibri.auth.bearer";
 const LXM = "social.colibri.voice.signal";
-const SPEAKING_THRESHOLD = 0.02;
+const SPEAKING_THRESHOLD = 0.007;
 const MAX_RECONNECT_ATTEMPTS = 6;
 const STATS_INTERVAL_MS = 3000;
 const STATS_FAST_MS = 400;
@@ -182,7 +189,7 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 	let camProducer: types.Producer | null = null;
 	let screenProducer: types.Producer | null = null;
 	let micStream: MediaStream | null = null;
-	let audioContext: AudioContext | null = null;
+	let suppressor: NoiseSuppressor | null = null;
 	let speakingContext: AudioContext | null = null;
 	let speakingInterval: ReturnType<typeof setInterval> | null = null;
 	let localSpeaking = false;
@@ -441,10 +448,10 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 		recvTransport = null;
 		device = null;
 
+		suppressor?.destroy();
+		suppressor = null;
 		for (const t of micStream?.getTracks() ?? []) t.stop();
 		micStream = null;
-		audioContext?.close().catch(() => {});
-		audioContext = null;
 
 		ready = false;
 	};
@@ -503,7 +510,8 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 			audio: {
 				echoCancellation: true,
 				autoGainControl: true,
-				noiseSuppression: input.noiseSuppression,
+				// Our own suppressor (RNNoise / DeepFilterNet) handles noise removal
+				noiseSuppression: false,
 				deviceId: input.preferredDeviceId
 					? { ideal: input.preferredDeviceId }
 					: undefined,
@@ -511,15 +519,15 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 		});
 
 		const rawTrack = micStream.getAudioTracks()[0];
-		let track = rawTrack;
 
-		if (input.noiseSuppression) {
-			audioContext = new AudioContext({ sampleRate: 48000 });
-			track = await processTrackWithRnnoise(rawTrack, audioContext);
-		}
+		const ns = await createNoiseSuppressor(rawTrack, {
+			desiredMode: effectiveNoiseSuppressionMode(input),
+			onFallback: () => userPreferences.flagNoiseSuppressionDowngrade(),
+		});
+		suppressor = ns;
 
 		micProducer = await sendTransport.produce({
-			track,
+			track: ns.outputTrack,
 			appData: { source: "mic" },
 		});
 		const muted = userPreferences.preferences().voice.selfMuted;
@@ -982,6 +990,19 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 		userPreferences.preferences();
 		for (const { el, did } of audioEls.values()) applyAudioSettings(el, did);
 	});
+
+	createEffect(
+		on(
+			() =>
+				effectiveNoiseSuppressionMode(
+					userPreferences.preferences().voice.input,
+				),
+			(mode) => {
+				void suppressor?.setMode(mode);
+			},
+			{ defer: true },
+		),
+	);
 
 	let mainSocketWasConnected = socket.connected();
 	createEffect(() => {

@@ -6,6 +6,8 @@ import {
 	For,
 	Match,
 	onCleanup,
+	onMount,
+	Show,
 	Switch,
 } from "solid-js";
 import { Button } from "../../../components/ui/Button";
@@ -27,20 +29,18 @@ import {
 	SliderValueLabel,
 } from "../../../components/ui/Slider";
 import {
-	Switch as SwitchComp,
-	SwitchControl,
-	SwitchDescription,
-	SwitchInput,
-	SwitchLabel,
-	SwitchThumb,
-} from "../../../components/ui/Switch";
-import {
+	effectiveNoiseSuppressionMode,
+	type NoiseSuppressionMode,
 	useUserPreferences,
 	type VoiceInputSettings,
 	type VoiceIOSettings,
 } from "../../../contexts/UserPreferences";
 import { createIsSpeaking } from "../../../hooks/createIsSpeaking";
-import { processTrackWithRnnoise } from "../../../hooks/createRnnoiseProcessor";
+import {
+	createNoiseSuppressor,
+	type NoiseSuppressor,
+	preloadNoiseSuppressor,
+} from "../../../hooks/createNoiseSuppressor";
 import { SettingsPage } from "../common/SettingsModal";
 import type { DeviceOption } from "./shared";
 
@@ -60,6 +60,14 @@ const enumerateAudioDevices = async () => {
 
 const MAX = 49;
 
+type NoiseModeOption = { id: NoiseSuppressionMode; name: string };
+
+const NOISE_MODE_OPTIONS: Array<NoiseModeOption> = [
+	{ id: "off", name: "Off" },
+	{ id: "rnnoise", name: "Standard (RNNoise)" },
+	{ id: "deepfilternet", name: "High quality (DeepFilterNet)" },
+];
+
 export const VoicePage: Component = () => {
 	const userPreferences = useUserPreferences();
 
@@ -72,13 +80,26 @@ export const VoicePage: Component = () => {
 	const [audioInput, setAudioInput] = createSignal<MediaStreamTrack | null>(
 		null,
 	);
+	const [suppressor, setSuppressor] = createSignal<NoiseSuppressor | null>(
+		null,
+	);
+
+	onMount(() => {
+		if (
+			userPreferences.preferences().voice.input.noiseSuppressionMode ===
+			"deepfilternet"
+		) {
+			preloadNoiseSuppressor();
+		}
+	});
 
 	const openMic = (input: VoiceInputSettings): Promise<MediaStream> =>
 		navigator.mediaDevices.getUserMedia({
 			audio: {
 				echoCancellation: true,
 				autoGainControl: true,
-				noiseSuppression: input.noiseSuppression,
+				// The suppressor handles noise removal
+				noiseSuppression: false,
 				deviceId: input.preferredDeviceId
 					? { ideal: input.preferredDeviceId }
 					: undefined,
@@ -170,6 +191,9 @@ export const VoicePage: Component = () => {
 		audioCtx()?.close();
 		setAudioCtx(null);
 
+		suppressor()?.destroy();
+		setSuppressor(null);
+
 		for (const t of testStream()?.getTracks() ?? []) t.stop();
 
 		setTestStream(null);
@@ -204,18 +228,20 @@ export const VoicePage: Component = () => {
 
 		const input = userPreferences.preferences().voice.input;
 		const stream = await openMic(input);
-		let track = stream.getAudioTracks()[0];
+		const rawTrack = stream.getAudioTracks()[0];
 
-		if (input.noiseSuppression) {
-			track = await processTrackWithRnnoise(track, ctx);
-		}
+		const ns = await createNoiseSuppressor(rawTrack, {
+			desiredMode: effectiveNoiseSuppressionMode(input),
+			onFallback: () => userPreferences.flagNoiseSuppressionDowngrade(),
+		});
+		setSuppressor(ns);
 
-		setAudioInput(track);
+		setAudioInput(ns.outputTrack);
 		setTestStream(stream);
 
 		const { inGain, outGain } = startLocalPlayback(
 			ctx,
-			track,
+			ns.outputTrack,
 			input.volume,
 			userPreferences.preferences().voice.output.volume,
 		);
@@ -243,6 +269,9 @@ export const VoicePage: Component = () => {
 		inputGainNode()?.disconnect();
 		setInputGainNode(null);
 
+		suppressor()?.destroy();
+		setSuppressor(null);
+
 		for (const t of testStream()?.getTracks() ?? []) t.stop();
 
 		setTestStream(null);
@@ -250,18 +279,20 @@ export const VoicePage: Component = () => {
 
 		const ctx = audioCtx()!;
 		const stream = await openMic(inputPrefs);
-		let track = stream.getAudioTracks()[0];
+		const rawTrack = stream.getAudioTracks()[0];
 
-		if (inputPrefs.noiseSuppression) {
-			track = await processTrackWithRnnoise(track, ctx);
-		}
+		const ns = await createNoiseSuppressor(rawTrack, {
+			desiredMode: effectiveNoiseSuppressionMode(inputPrefs),
+			onFallback: () => userPreferences.flagNoiseSuppressionDowngrade(),
+		});
+		setSuppressor(ns);
 
-		setAudioInput(track);
+		setAudioInput(ns.outputTrack);
 		setTestStream(stream);
 
 		const { inGain, outGain } = startLocalPlayback(
 			ctx,
-			track,
+			ns.outputTrack,
 			inputPrefs.volume,
 			outputPrefs.volume,
 		);
@@ -450,35 +481,58 @@ export const VoicePage: Component = () => {
 					</div>
 				</div>
 			</div>
-			<div>
-				<SwitchComp
-					onChange={(e) => {
-						userPreferences.setPreferences((current) => ({
-							...current,
-							voice: {
-								...current.voice,
-								input: {
-									...current.voice.input,
-									noiseSuppression: e,
-								},
-							},
-						}));
-						restartTrackIfActive({ noiseSuppression: e });
-					}}
-					checked={userPreferences.preferences().voice.input.noiseSuppression}
-					class="flex justify-between items-center gap-x-2"
+			<div class="flex flex-col gap-1">
+				<Select
+					options={NOISE_MODE_OPTIONS}
+					optionValue={"id" as any}
+					optionTextValue={"name" as any}
+					value={NOISE_MODE_OPTIONS.find(
+						(o) =>
+							o.id ===
+							userPreferences.preferences().voice.input.noiseSuppressionMode,
+					)}
+					disallowEmptySelection={true}
+					itemComponent={(props) => (
+						<SelectItem
+							item={props.item}
+							class="[&>div]:flex [&>div]:gap-2 [&>div]:items-center"
+							onClick={() => {
+								userPreferences.setNoiseSuppressionMode(
+									(props.item.rawValue as unknown as NoiseModeOption).id,
+								);
+								restartTrackIfActive();
+							}}
+						>
+							{(props.item.rawValue as unknown as NoiseModeOption).name}
+						</SelectItem>
+					)}
 				>
-					<div>
-						<SwitchLabel>Noise Suppression</SwitchLabel>
-						<SwitchDescription>
-							Whether Colibri should attempt to filter out non-voice sounds.
-						</SwitchDescription>
-					</div>
-					<SwitchInput />
-					<SwitchControl>
-						<SwitchThumb />
-					</SwitchControl>
-				</SwitchComp>
+					<SelectLabel>Noise Suppression</SelectLabel>
+					<SelectTrigger class="w-full" aria-label="Noise Suppression">
+						<SelectValue<NoiseModeOption>>
+							{(state) => state.selectedOption()?.name}
+						</SelectValue>
+					</SelectTrigger>
+					<SelectContent class="[&>ul]:m-0 [&>ul]:py-0 [&>ul]:px-2" />
+				</Select>
+				<p class="text-sm text-muted-foreground">
+					How aggressively Colibri filters out non-voice sounds. High quality
+					uses DeepFilterNet and automatically falls back to Standard if this
+					device can't keep up.
+				</p>
+				<Show
+					when={
+						userPreferences.preferences().voice.input.noiseSuppressionMode ===
+							"deepfilternet" &&
+						userPreferences.preferences().voice.input
+							.noiseSuppressionAutoDowngraded
+					}
+				>
+					<p class="text-sm text-yellow-500">
+						High quality was switched off because this device couldn't keep up.
+						Select it again to retry.
+					</p>
+				</Show>
 			</div>
 
 			<hr class="w-full h-px bg-muted border-none m-0" />

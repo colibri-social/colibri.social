@@ -6,6 +6,7 @@ import {
 	createSignal,
 	For,
 	onCleanup,
+	onMount,
 	Show,
 } from "solid-js";
 import CaretLeftIcon from "~icons/ph/caret-left";
@@ -19,6 +20,7 @@ import { useCommunityContext } from "../../contexts/Community";
 import { useUserContext } from "../../contexts/User";
 import { useUserPreferences } from "../../contexts/UserPreferences";
 import { ConnectionState, useVoiceChatContext } from "../../contexts/VoiceChat";
+import { preloadNoiseSuppressor } from "../../hooks/createNoiseSuppressor";
 import { getAverageColorFromUrl } from "../../utils/get-average-color";
 import { createMobilePane } from "../../utils/mobile-pane";
 import { Camera } from "../icons/Camera";
@@ -139,6 +141,17 @@ export const VoiceChannelView: Component = () => {
 			setFocusedKey,
 		},
 	] = useVoiceChatContext();
+
+	// Warm the DeepFilterNet assets while the user is looking at a voice channel,
+	// so joining swaps from RNNoise to the high-quality model instantly
+	onMount(() => {
+		if (
+			preferences.preferences().voice.input.noiseSuppressionMode ===
+			"deepfilternet"
+		) {
+			preloadNoiseSuppressor();
+		}
+	});
 
 	const channelName = () => {
 		const rkey = params.channel;
