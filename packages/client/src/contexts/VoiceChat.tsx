@@ -224,8 +224,19 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 		{ resolve: (m: ServerMessage) => void; reject: (e: unknown) => void }
 	>();
 
+	const dbg = (...args: unknown[]): void => {
+		console.info("[voice/debug]", ...args);
+	};
+
 	const send = (message: Record<string, unknown>): void => {
-		if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify(message));
+		if (ws?.readyState === WebSocket.OPEN) {
+			dbg("→ send", message.action, message);
+			ws.send(JSON.stringify(message));
+		} else {
+			dbg("✗ send dropped (socket not open)", message.action, {
+				readyState: ws?.readyState,
+			});
+		}
 	};
 
 	const waitForAction = (action: string): Promise<ServerMessage> => {
@@ -513,6 +524,7 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 
 	const startMic = async (): Promise<void> => {
 		if (!sendTransport) return;
+		dbg("startMic() — requesting getUserMedia + producing");
 		const input = userPreferences.preferences().voice.input;
 
 		micStream = await navigator.mediaDevices.getUserMedia({
@@ -557,13 +569,15 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 	const consumeProducer = async (producerId: string): Promise<void> => {
 		if (!recvTransport) return;
 		const owner = producerOwners.get(producerId);
+		dbg("consumeProducer()", { producerId, owner });
 
 		send({ action: "consume", producerId });
 		let message: ServerMessage;
 
 		try {
 			message = await waitForConsumed(producerId);
-		} catch {
+		} catch (err) {
+			dbg("✗ consume rejected", { producerId, err });
 			return;
 		}
 
@@ -625,6 +639,12 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 	const setupDevice = async (message: ServerMessage): Promise<void> => {
 		if (message.action !== "init") return;
 
+		dbg("init received", {
+			iceServers: message.iceServers,
+			producerIceCandidates: message.producerTransportOptions.iceCandidates,
+			consumerIceCandidates: message.consumerTransportOptions.iceCandidates,
+		});
+
 		setVoiceData(
 			"states",
 			"deafened",
@@ -633,29 +653,56 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 
 		device = new Device();
 		await device.load({ routerRtpCapabilities: message.routerRtpCapabilities });
+		dbg("device loaded", { canProduceAudio: device.canProduce("audio") });
 
 		sendTransport = device.createSendTransport({
 			...message.producerTransportOptions,
 			iceServers: message.iceServers,
 		});
+		dbg("sendTransport created", { id: sendTransport.id });
 
 		sendTransport.on("connect", ({ dtlsParameters }, callback, errback) => {
+			dbg("sendTransport 'connect' fired → sending DTLS params");
 			send({ action: "connectProducerTransport", dtlsParameters });
 			waitForAction("connectedProducerTransport")
-				.then(() => callback())
-				.catch(errback);
+				.then(() => {
+					dbg("sendTransport DTLS confirmed by server");
+					callback();
+				})
+				.catch((err) => {
+					dbg("✗ sendTransport connect failed", err);
+					errback(err as Error);
+				});
 		});
+
+		sendTransport.on("connectionstatechange", (state) => {
+			dbg("sendTransport connectionstatechange →", state);
+			if (state === "failed" || state === "disconnected") {
+				dbg(
+					"✗ sendTransport ICE/DTLS unreachable — check SFU UDP ports 20000-20019 / announced IP",
+				);
+			}
+		});
+
+		sendTransport.observer.on("close", () => dbg("sendTransport closed"));
 
 		sendTransport.on(
 			"produce",
 			({ kind, rtpParameters, appData }, callback, errback) => {
 				const source = (appData as { source?: string }).source ?? "mic";
+				dbg("sendTransport 'produce' fired", { kind, source });
 				send({ action: "produce", kind, rtpParameters, source });
 				waitForAction("produced")
 					.then((m) => {
-						if (m.action === "produced") callback({ id: m.id });
+						if (m.action === "produced") {
+							dbg("produce confirmed", { id: m.id, kind, source });
+							callback({ id: m.id });
+						}
 					})
-					.catch(errback);
+					.catch((err) => {
+						dbg("✗ produce failed", err);
+						errback(err as Error);
+					});
 			},
 		);
 
@@ -663,13 +710,32 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 			...message.consumerTransportOptions,
 			iceServers: message.iceServers,
 		});
+		dbg("recvTransport created", { id: recvTransport.id });
 
 		recvTransport.on("connect", ({ dtlsParameters }, callback, errback) => {
+			dbg("recvTransport 'connect' fired → sending DTLS params");
 			send({ action: "connectConsumerTransport", dtlsParameters });
 			waitForAction("connectedConsumerTransport")
-				.then(() => callback())
-				.catch(errback);
+				.then(() => {
+					dbg("recvTransport DTLS confirmed by server");
+					callback();
+				})
+				.catch((err) => {
+					dbg("✗ recvTransport connect failed", err);
+					errback(err as Error);
+				});
 		});
+
+		recvTransport.on("connectionstatechange", (state) => {
+			dbg("recvTransport connectionstatechange →", state);
+			if (state === "failed" || state === "disconnected") {
+				dbg(
+					"✗ recvTransport ICE/DTLS unreachable — check SFU UDP ports 20000-20019 / announced IP",
+				);
+			}
+		});
+
+		recvTransport.observer.on("close", () => dbg("recvTransport closed"));
 
 		send({ action: "init", rtpCapabilities: device.rtpCapabilities });
 
@@ -702,6 +768,7 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 	};
 
 	const handleServerMessage = (message: ServerMessage): void => {
+		dbg("← recv", message.action, message);
 		switch (message.action) {
 			case "init":
 				void setupDevice(message);
@@ -781,22 +848,36 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 
 		intentionalClose = false;
 		const url = `${getAppViewHost("ws")}/xrpc/${LXM}?channel=${encodeURIComponent(channelUri)}`;
+		dbg("opening signaling socket", { url });
 		const socketConn = new WebSocket(url, [AUTH_SUBPROTOCOL, token]);
 		ws = socketConn;
+
+		socketConn.onopen = () =>
+			dbg("signaling socket open", { protocol: socketConn.protocol });
 
 		socketConn.onmessage = (event) => {
 			let message: ServerMessage;
 			try {
 				message = JSON.parse(event.data as string) as ServerMessage;
 			} catch {
+				dbg("✗ failed to parse server message", event.data);
 				return;
 			}
 			handleServerMessage(message);
 		};
 
-		socketConn.onerror = () => console.error("[voice] signaling socket error");
+		socketConn.onerror = (event) => {
+			dbg("✗ signaling socket error", event);
+			console.error("[voice] signaling socket error");
+		};
 
-		socketConn.onclose = () => {
+		socketConn.onclose = (event) => {
+			dbg("signaling socket closed", {
+				code: event.code,
+				reason: event.reason,
+				wasClean: event.wasClean,
+				intentional: intentionalClose,
+			});
 			if (ws !== socketConn || intentionalClose) return;
 			teardownMedia();
 			scheduleReconnect(channelUri);
@@ -842,6 +923,7 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 		}
 		if (!auth?.loggedIn) return;
 
+		dbg("connect()", { channelUri, appViewHost: getAppViewHost("ws") });
 		reconnectAttempts = 0;
 
 		setVoiceData("overlayDismissed", false);
