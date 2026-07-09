@@ -3,12 +3,25 @@ import {
 	createEffect,
 	createSignal,
 	For,
+	type JSX,
 	onCleanup,
 	type ParentComponent,
 	Show,
 } from "solid-js";
 import { toast } from "somoto";
 import CheckIcon from "~icons/ph/check";
+import CopyIcon from "~icons/ph/copy";
+import IdentificationBadgeIcon from "~icons/ph/identification-badge";
+import MicrophoneIcon from "~icons/ph/microphone";
+import MicrophoneSlashIcon from "~icons/ph/microphone-slash";
+import PhoneSlashIcon from "~icons/ph/phone-slash";
+import ProhibitIcon from "~icons/ph/prohibit";
+import SpeakerHighIcon from "~icons/ph/speaker-high";
+import SpeakerSlashIcon from "~icons/ph/speaker-slash";
+import UserMinusIcon from "~icons/ph/user-minus";
+import UsersThreeIcon from "~icons/ph/users-three";
+import VideoCameraIcon from "~icons/ph/video-camera";
+import WebcamIcon from "~icons/ph/webcam";
 import {
 	useCommunityContext,
 	usePermissions,
@@ -175,6 +188,7 @@ export const MemberContextMenu: ParentComponent<{
 	const VoiceCheckItem: ParentComponent<{
 		checked: boolean;
 		onToggle: () => void;
+		icon?: JSX.Element;
 	}> = (p) => (
 		<Checkbox class="w-full" checked={p.checked}>
 			<CheckboxInput />
@@ -183,7 +197,10 @@ export const MemberContextMenu: ParentComponent<{
 				class="flex flex-row items-center gap-4 justify-between cursor-pointer"
 				onClick={() => p.onToggle()}
 			>
-				<CheckboxLabel>{p.children}</CheckboxLabel>
+				<CheckboxLabel class="flex flex-row items-center gap-2">
+					{p.icon}
+					{p.children}
+				</CheckboxLabel>
 				<CheckboxControl />
 			</ContextMenuItem>
 		</Checkbox>
@@ -279,12 +296,14 @@ export const MemberContextMenu: ParentComponent<{
 							}
 						>
 							<MenuDrawerItem onClick={() => toggleMic()}>
+								<MicrophoneSlashIcon />
 								<span>Mute</span>
 								<Show when={!voiceData.states.micEnabled}>
 									<CheckIcon class="ml-auto" />
 								</Show>
 							</MenuDrawerItem>
 							<MenuDrawerItem onClick={() => toggleDeafen()}>
+								<SpeakerSlashIcon />
 								<span>Deafen</span>
 								<Show when={voiceData.states.deafened}>
 									<CheckIcon class="ml-auto" />
@@ -298,7 +317,8 @@ export const MemberContextMenu: ParentComponent<{
 									)
 								}
 							>
-								Preview Camera
+								<VideoCameraIcon />
+								<span>Preview Camera</span>
 							</MenuDrawerItem>
 							<MenuDrawerItem
 								onClick={() =>
@@ -308,6 +328,7 @@ export const MemberContextMenu: ParentComponent<{
 									})
 								}
 							>
+								<UsersThreeIcon />
 								<span>Show non-video participants</span>
 								<Show
 									when={
@@ -325,6 +346,7 @@ export const MemberContextMenu: ParentComponent<{
 									})
 								}
 							>
+								<WebcamIcon />
 								<span>Show own camera feed</span>
 								<Show when={preferences.preferences().voice.showOwnCamera}>
 									<CheckIcon class="ml-auto" />
@@ -333,7 +355,8 @@ export const MemberContextMenu: ParentComponent<{
 						</Show>
 					</Show>
 					<Show when={canManageAnyRole()}>
-						<span class="px-3 pt-1 pb-0.5 text-xs uppercase tracking-wide text-muted-foreground">
+						<span class="px-3 pt-1 pb-0.5 text-xs uppercase tracking-wide text-muted-foreground flex flex-row items-center gap-1.5">
+							<IdentificationBadgeIcon class="size-3.5" />
 							Roles
 						</span>
 						<For each={sortedRoles()}>
@@ -374,6 +397,7 @@ export const MemberContextMenu: ParentComponent<{
 									)
 								}
 							>
+								<UserMinusIcon />
 								<span>
 									Kick <DisplayableName color={false} user={props.member} />
 								</span>
@@ -389,6 +413,7 @@ export const MemberContextMenu: ParentComponent<{
 									)
 								}
 							>
+								<ProhibitIcon />
 								<span>
 									Ban <DisplayableName color={false} user={props.member} />
 								</span>
@@ -405,6 +430,11 @@ export const MemberContextMenu: ParentComponent<{
 								)
 							}
 						>
+							{targetServerMuted() ? (
+								<MicrophoneIcon />
+							) : (
+								<MicrophoneSlashIcon />
+							)}
 							<span>
 								{targetServerMuted() ? "Server unmute" : "Server mute"}{" "}
 								<DisplayableName color={false} user={props.member} />
@@ -421,6 +451,11 @@ export const MemberContextMenu: ParentComponent<{
 								)
 							}
 						>
+							{targetServerDeafened() ? (
+								<SpeakerHighIcon />
+							) : (
+								<SpeakerSlashIcon />
+							)}
 							<span>
 								{targetServerDeafened() ? "Server undeafen" : "Server deafen"}{" "}
 								<DisplayableName color={false} user={props.member} />
@@ -435,6 +470,7 @@ export const MemberContextMenu: ParentComponent<{
 								)
 							}
 						>
+							<PhoneSlashIcon />
 							<span>
 								Disconnect <DisplayableName color={false} user={props.member} />{" "}
 								from voice
@@ -447,7 +483,8 @@ export const MemberContextMenu: ParentComponent<{
 							copyDid();
 						}}
 					>
-						Copy DID
+						<CopyIcon />
+						<span>Copy DID</span>
 					</MenuDrawerItem>
 				</MenuDrawer>
 			</Show>
@@ -491,17 +528,20 @@ export const MemberContextMenu: ParentComponent<{
 									<VoiceCheckItem
 										checked={!voiceData.states.micEnabled}
 										onToggle={() => toggleMic()}
+										icon={<MicrophoneSlashIcon />}
 									>
 										Mute
 									</VoiceCheckItem>
 									<VoiceCheckItem
 										checked={voiceData.states.deafened}
 										onToggle={() => toggleDeafen()}
+										icon={<SpeakerSlashIcon />}
 									>
 										Deafen
 									</VoiceCheckItem>
 									<ContextMenuItem onSelect={() => setCameraPreviewOpen(true)}>
-										Preview Camera
+										<VideoCameraIcon />
+										<span>Preview Camera</span>
 									</ContextMenuItem>
 									<VoiceCheckItem
 										checked={
@@ -515,6 +555,7 @@ export const MemberContextMenu: ParentComponent<{
 														.showNonVideoParticipants === false,
 											})
 										}
+										icon={<UsersThreeIcon />}
 									>
 										Show non-video participants
 									</VoiceCheckItem>
@@ -529,6 +570,7 @@ export const MemberContextMenu: ParentComponent<{
 													false,
 											})
 										}
+										icon={<WebcamIcon />}
 									>
 										Show own camera feed
 									</VoiceCheckItem>
@@ -539,7 +581,10 @@ export const MemberContextMenu: ParentComponent<{
 									<ContextMenuSeparator />
 								</Show>
 								<ContextMenuSub>
-									<ContextMenuSubTrigger>Roles</ContextMenuSubTrigger>
+									<ContextMenuSubTrigger class="gap-2">
+										<IdentificationBadgeIcon />
+										<span>Roles</span>
+									</ContextMenuSubTrigger>
 									<ContextMenuPortal>
 										<ContextMenuSubContent>
 											<For
@@ -600,6 +645,7 @@ export const MemberContextMenu: ParentComponent<{
 										class="text-destructive!"
 										onClick={() => setDialog({ open: true, type: "kick" })}
 									>
+										<UserMinusIcon class="text-destructive" />
 										<span>
 											Kick <DisplayableName color={false} user={props.member} />
 										</span>
@@ -610,6 +656,7 @@ export const MemberContextMenu: ParentComponent<{
 										class="text-destructive!"
 										onClick={() => setDialog({ open: true, type: "ban" })}
 									>
+										<ProhibitIcon class="text-destructive" />
 										<span>
 											Ban <DisplayableName color={false} user={props.member} />
 										</span>
@@ -623,6 +670,11 @@ export const MemberContextMenu: ParentComponent<{
 										moderateVoice(targetServerMuted() ? "unmute" : "mute")
 									}
 								>
+									{targetServerMuted() ? (
+										<MicrophoneIcon />
+									) : (
+										<MicrophoneSlashIcon />
+									)}
 									<span>
 										{targetServerMuted() ? "Server unmute" : "Server mute"}{" "}
 										<DisplayableName color={false} user={props.member} />
@@ -635,6 +687,11 @@ export const MemberContextMenu: ParentComponent<{
 										)
 									}
 								>
+									{targetServerDeafened() ? (
+										<SpeakerHighIcon />
+									) : (
+										<SpeakerSlashIcon />
+									)}
 									<span>
 										{targetServerDeafened()
 											? "Server undeafen"
@@ -646,6 +703,7 @@ export const MemberContextMenu: ParentComponent<{
 									class="text-destructive!"
 									onClick={() => moderateVoice("disconnect")}
 								>
+									<PhoneSlashIcon class="text-destructive" />
 									<span>
 										Disconnect{" "}
 										<DisplayableName color={false} user={props.member} /> from
@@ -671,7 +729,8 @@ export const MemberContextMenu: ParentComponent<{
 									);
 								}}
 							>
-								Copy DID
+								<CopyIcon />
+								<span>Copy DID</span>
 							</ContextMenuItem>
 						</ContextMenuContent>
 					</ContextMenuPortal>

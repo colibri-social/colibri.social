@@ -4,6 +4,7 @@ import ArrowBendUpLeftIcon from "~icons/ph/arrow-bend-up-left";
 import CopyIcon from "~icons/ph/copy";
 import InfoIcon from "~icons/ph/info";
 import PencilIcon from "~icons/ph/pencil";
+import ProhibitIcon from "~icons/ph/prohibit";
 import SmileyIcon from "~icons/ph/smiley";
 import TrashIcon from "~icons/ph/trash";
 import { usePermissions } from "../../../../../contexts/Community";
@@ -119,7 +120,7 @@ export const MessageContextMenu: ParentComponent = (props) => {
 									<ContextMenuItem
 										onClick={(e) => handlePotentialBlock(e as MouseEvent)}
 									>
-										<TrashIcon class="text-destructive" />
+										<ProhibitIcon class="text-destructive" />
 										<span class="text-destructive">Block Message</span>
 									</ContextMenuItem>
 								</Show>
@@ -225,7 +226,7 @@ export const MessageContextMenu: ParentComponent = (props) => {
 								)
 							}
 						>
-							<TrashIcon />
+							<ProhibitIcon />
 							<span>Block Message</span>
 						</MenuDrawerItem>
 					</Show>

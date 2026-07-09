@@ -7,6 +7,8 @@ import {
 	Suspense,
 } from "solid-js";
 import CaretDownIcon from "~icons/ph/caret-down";
+import GearIcon from "~icons/ph/gear";
+import SignOutIcon from "~icons/ph/sign-out";
 import { urlSegmentToUri } from "../atproto/community-uri-to-url-compatible";
 import { ChannelList } from "../components/app/community/ChannelList";
 import { CommunitySettingsModal } from "../components/app/community/CommunitySettingsModal";
@@ -84,7 +86,8 @@ const CommunityHeader = () => {
 							<DropdownMenuPortal>
 								<DropdownMenuContent class="min-w-48 w-66.5">
 									<DropdownMenuItem onSelect={() => setSettingsOpen(true)}>
-										Settings
+										<GearIcon />
+										<span>Settings</span>
 										<Show when={pendingApplications() > 0}>
 											<span class="ml-auto text-xs leading-none font-medium bg-primary text-primary-foreground rounded-full px-1.5 py-0.5 min-w-5 text-center">
 												{pendingApplications()}
@@ -96,7 +99,8 @@ const CommunityHeader = () => {
 											class="text-destructive data-highlighted:text-destructive"
 											onSelect={() => setLeaveOpen(true)}
 										>
-											Leave Community
+											<SignOutIcon />
+											<span>Leave Community</span>
 										</DropdownMenuItem>
 									</Show>
 								</DropdownMenuContent>
@@ -130,7 +134,8 @@ const CommunityHeader = () => {
 								setSettingsOpen(true);
 							}}
 						>
-							Settings
+							<GearIcon />
+							<span>Settings</span>
 							<Show when={pendingApplications() > 0}>
 								<span class="ml-auto text-xs leading-none font-medium bg-primary text-primary-foreground rounded-full px-1.5 py-0.5 min-w-5 text-center">
 									{pendingApplications()}
@@ -145,7 +150,8 @@ const CommunityHeader = () => {
 									setLeaveOpen(true);
 								}}
 							>
-								Leave Community
+								<SignOutIcon />
+								<span>Leave Community</span>
 							</MenuDrawerItem>
 						</Show>
 					</MenuDrawer>

@@ -28,7 +28,7 @@ import PlusIcon from "~icons/ph/plus";
 import ProhibitIcon from "~icons/ph/prohibit";
 import TicketIcon from "~icons/ph/ticket";
 import TrashIcon from "~icons/ph/trash";
-import CopyIcon from "~icons/ph/copy";
+import UserMinusIcon from "~icons/ph/user-minus";
 import UsersIcon from "~icons/ph/users";
 import WarningDiamondIcon from "~icons/ph/warning-diamond";
 import WrenchIcon from "~icons/ph/wrench";
@@ -617,7 +617,8 @@ const MemberActionsContextMenu: ParentComponent<{
 								class="text-destructive!"
 								onClick={() => setDialog({ open: true, type: "kick" })}
 							>
-								Kick
+								<UserMinusIcon />
+								<span>Kick</span>
 							</DropdownMenuItem>
 						</Show>
 						<Show when={canBanMember(user.did)}>
@@ -625,7 +626,8 @@ const MemberActionsContextMenu: ParentComponent<{
 								class="text-destructive!"
 								onClick={() => setDialog({ open: true, type: "ban" })}
 							>
-								Ban
+								<ProhibitIcon />
+								<span>Ban</span>
 							</DropdownMenuItem>
 						</Show>
 					</DropdownMenuContent>
