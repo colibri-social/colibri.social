@@ -67,6 +67,7 @@ export type UserPreferencesContextData = {
 		selfDeafened: boolean;
 		showNonVideoParticipants: boolean;
 		showOwnCamera: boolean;
+		noiseSuppressionHints: boolean;
 	};
 	preferredBlueskyClient: BlueskyClientID;
 	preferredAppView: string;
@@ -103,6 +104,7 @@ const DEFAULT_PREFERENCES: UserPreferencesContextData = {
 		selfDeafened: false,
 		showNonVideoParticipants: true,
 		showOwnCamera: true,
+		noiseSuppressionHints: true,
 	},
 	preferredBlueskyClient: "bluesky",
 	preferredAppView: DEFAULT_APPVIEW_URL,
@@ -167,6 +169,7 @@ type UserPreferencesContextValue = {
 	toggleMembersVisible: () => void;
 	setPublicReminderDismissed: (dismissed: boolean) => void;
 	setNativeNotifications: (enabled: boolean) => void;
+	setNoiseSuppressionHints: (enabled: boolean) => void;
 	setPreferredBlueskyClient: (client: BlueskyClientID) => void;
 	setPreferredAppView: (appView: string) => void;
 	setSharePresence: (enabled: boolean) => void;
@@ -263,6 +266,13 @@ export const UserPreferencesContextProvider: ParentComponent = (props) => {
 		setPreferences((p) => ({ ...p, nativeNotifications: enabled }));
 	};
 
+	const setNoiseSuppressionHints = (enabled: boolean) => {
+		setPreferences((p) => ({
+			...p,
+			voice: { ...p.voice, noiseSuppressionHints: enabled },
+		}));
+	};
+
 	const setPreferredBlueskyClient = (client: BlueskyClientID) => {
 		setPreferences((p) => ({ ...p, preferredBlueskyClient: client }));
 	};
@@ -306,6 +316,7 @@ export const UserPreferencesContextProvider: ParentComponent = (props) => {
 				toggleMembersVisible,
 				setPublicReminderDismissed,
 				setNativeNotifications,
+				setNoiseSuppressionHints,
 				setPreferredBlueskyClient,
 				setPreferredAppView,
 				setSharePresence,

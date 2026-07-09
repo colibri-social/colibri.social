@@ -43,9 +43,15 @@ export const NativeNotifications: Component = () => {
 			if (mutes.isChannelMuted(event.data.channelUri)) return;
 			if (!isUnfocused()) return;
 
-			const { kind, message } = event.data;
+			const { kind, message, mentionRoleName } = event.data;
+			const title =
+				kind === "reply"
+					? "New reply"
+					: mentionRoleName
+						? `Mentioned via @${mentionRoleName}`
+						: "New mention";
 			notify({
-				title: kind === "reply" ? "New reply" : "New mention",
+				title,
 				body: message?.text ?? "You have a new notification.",
 				tag: event.data.messageUri,
 				data: { messageUri: event.data.messageUri },

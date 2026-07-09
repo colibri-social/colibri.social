@@ -2856,6 +2856,10 @@ Returns a paginated list of notifications for the authenticated user, newest fir
 					type: "datetime",
 					required: false
 				},
+				mentionRoleName: {
+					type: "string",
+					required: false
+				},
 				message: {
 					type: "object",
 					required: false,
@@ -2904,6 +2908,21 @@ Returns a paginated list of notifications for the authenticated user, newest fir
 The `kind` value is one of `mention` or `reply`.
 
 Mentions and replies are deduplicated per (recipient, message, kind), so a single message that both mentions and replies to the recipient produces two notification rows.
+
+#### Role mention expansion
+
+A message facet of type `social.colibri.richtext.facet#role` (see [`#role`](/docs/specification/facets#role)) is expanded at index time into one `mention`-kind notification per member holding the role. Because expansion happens where the message is indexed, not where it is written, the client cannot forge a ping.
+
+For each role facet the AppView:
+
+1. Ignores the facet if the role URI's authority doesn't match the message's community (no cross-community pings).
+2. Loads the role record and checks its `mentionable` flag. If set, the role is pingable by anyone.
+3. If not marked mentionable, expands the role only when the message **author** holds the `mention.roles` permission.
+4. Notifies every member whose `roles` include the role, skipping the author. These share the `(recipient, message, kind)` dedup with direct mentions, so a member both `@`-mentioned and role-mentioned receives a single row.
+
+Delivery (live WebSocket and Web Push, including per-recipient DND/mute filtering) is unchanged.
+
+Each role-triggered notification is tagged with the display name of the role that produced it, captured at index time, so clients can render "mentioned via @&lt;role&gt;". This surfaces as `mentionRoleName` on the [`listNotifications`](#socialcolibrinotificationlistnotifications) view and the [`notification_event`](#notification_event) payload, and as the Web Push title (`Mentioned via @&lt;role&gt;`). When a member holds several of the mentioned roles they are attributed to the first one in the message's facet order. A member who is both directly mentioned and role-mentioned keeps the direct mention with no role tag.
 
 ### `social.colibri.notification.getUnreadCount`
 
@@ -3079,6 +3098,7 @@ Notification events are emitted over [`social.colibri.sync.subscribeEvents`](#so
 	authorDid: string;
 	channelUri: string;
 	indexedAt: string;
+	mentionRoleName?: string; // set when a role mention triggered this notification
 	message: {
 		text: string;
 		facets: facet[];
@@ -3098,7 +3118,7 @@ The push payload is JSON shaped for the Service Worker that renders it:
 
 ```ts title="push payload"
 {
-	title: string;        // "New mention" | "New reply"
+	title: string;        // "New mention" | "New reply" | "Mentioned via @<role>"
 	body: string;         // the message text
 	tag?: string;         // the message URI (collapses duplicates)
 	icon?: string;

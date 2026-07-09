@@ -30,17 +30,35 @@ import {
 	SliderValueLabel,
 } from "../../../components/ui/Slider";
 import {
+	SwitchControl,
+	SwitchDescription,
+	SwitchLabel,
+	SwitchThumb,
+	Switch as ToggleSwitch,
+} from "../../../components/ui/Switch";
+import { useAuthContext } from "../../../contexts/Auth";
+import { useUserContext } from "../../../contexts/User";
+import {
 	type NoiseSuppressionMode,
 	useUserPreferences,
 	type VoiceInputSettings,
 	type VoiceIOSettings,
 } from "../../../contexts/UserPreferences";
+import { useVoiceChatContext } from "../../../contexts/VoiceChat";
 import { createIsSpeaking } from "../../../hooks/createIsSpeaking";
 import {
 	createNoiseSuppressor,
 	type NoiseSuppressor,
 	preloadNoiseSuppressor,
 } from "../../../hooks/createNoiseSuppressor";
+import {
+	createSuppressionMonitor,
+	type SuppressionMonitor,
+} from "../../../hooks/createSuppressionMonitor";
+import {
+	createVoiceLoopback,
+	type VoiceLoopback,
+} from "../../../hooks/createVoiceLoopback";
 import { SettingsPage } from "../common/SettingsModal";
 import type { DeviceOption } from "./shared";
 
@@ -70,11 +88,11 @@ const NOISE_MODE_OPTIONS: Array<NoiseModeOption> = [
 
 export const VoicePage: Component = () => {
 	const userPreferences = useUserPreferences();
+	const auth = useAuthContext();
+	const user = useUserContext();
+	const [voiceData, { toggleMic }] = useVoiceChatContext();
 
-	const [inputGainNode, setInputGainNode] = createSignal<GainNode | null>(null);
-	const [outputGainNode, setOutputGainNode] = createSignal<GainNode | null>(
-		null,
-	);
+	const [loopback, setLoopback] = createSignal<VoiceLoopback | null>(null);
 	const [audioCtx, setAudioCtx] = createSignal<AudioContext | null>(null);
 	const [testStream, setTestStream] = createSignal<MediaStream | null>(null);
 	const [audioInput, setAudioInput] = createSignal<MediaStreamTrack | null>(
@@ -83,6 +101,8 @@ export const VoicePage: Component = () => {
 	const [suppressor, setSuppressor] = createSignal<NoiseSuppressor | null>(
 		null,
 	);
+	const [monitor, setMonitor] = createSignal<SuppressionMonitor | null>(null);
+	const [wasLiveMicOn, setWasLiveMicOn] = createSignal(false);
 
 	onMount(() => {
 		if (
@@ -144,47 +164,60 @@ export const VoicePage: Component = () => {
 			.map((d) => ({ name: d.label, id: d.deviceId }));
 	};
 
-	const startLocalPlayback = (
+	const startLoopback = (
 		ctx: AudioContext,
 		track: MediaStreamTrack,
 		inputGain: number,
 		outputGain: number,
 	) => {
-		const source = ctx.createMediaStreamSource(new MediaStream([track]));
-		const delay = ctx.createDelay(0.1);
-		delay.delayTime.value = 0.02;
+		if (!auth?.loggedIn) return;
 
-		const inGain = ctx.createGain();
-		inGain.gain.value = inputGain;
-
-		const outGain = ctx.createGain();
-		outGain.gain.value = outputGain;
-
-		const destination = ctx.createMediaStreamDestination();
-
-		source.connect(delay);
-		delay.connect(inGain);
-		inGain.connect(outGain);
-		outGain.connect(ctx.destination);
-
-		const audioEl = document.getElementById(
-			"colibri-audio-preview",
-		) as HTMLAudioElement;
-		audioEl.srcObject = destination.stream;
-
-		if ("setSinkId" in ctx) {
-			(ctx as any).setSinkId(
+		const lb = createVoiceLoopback({
+			agent: auth.agent,
+			did: user.did,
+			sourceTrack: track,
+			audioCtx: ctx,
+			outputDeviceId:
 				userPreferences.preferences().voice.output.preferredDeviceId ??
-					"default",
-			);
-		}
+				undefined,
+		});
 
-		audioEl.play().catch(() => {});
+		lb.inGain.gain.value = inputGain;
+		lb.setOutputVolume(outputGain);
 
-		return { inGain, outGain };
+		setLoopback(lb);
+	};
+
+	const startMonitor = (
+		rawTrack: MediaStreamTrack,
+		processedTrack: MediaStreamTrack,
+	) => {
+		setMonitor(
+			createSuppressionMonitor({
+				rawTrack,
+				processedTrack,
+				isActive: () => !!testStream(),
+				isDeepFilter: () => suppressor()?.getActiveMode() === "deepfilternet",
+				hintsEnabled: () =>
+					userPreferences.preferences().voice.noiseSuppressionHints,
+				getLevel: () =>
+					userPreferences.preferences().voice.input.noiseSuppressionLevel,
+				setLevel: (level) => {
+					userPreferences.setNoiseSuppressionLevel(level);
+					suppressor()?.setSuppressionLevel(level);
+				},
+				disableHints: () => userPreferences.setNoiseSuppressionHints(false),
+			}),
+		);
 	};
 
 	const cleanup = () => {
+		monitor()?.destroy();
+		setMonitor(null);
+
+		loopback()?.destroy();
+		setLoopback(null);
+
 		userPreferences.setPreferences((current) => ({
 			...current,
 			voice: {
@@ -205,8 +238,11 @@ export const VoicePage: Component = () => {
 
 		setTestStream(null);
 		setAudioInput(null);
-		setInputGainNode(null);
-		setOutputGainNode(null);
+
+		if (wasLiveMicOn()) {
+			toggleMic();
+			setWasLiveMicOn(false);
+		}
 	};
 
 	onCleanup(cleanup);
@@ -215,6 +251,11 @@ export const VoicePage: Component = () => {
 		if (testStream()) {
 			cleanup();
 			return;
+		}
+
+		if (voiceData.states.micEnabled) {
+			setWasLiveMicOn(true);
+			toggleMic();
 		}
 
 		userPreferences.setPreferences((current) => ({
@@ -247,15 +288,14 @@ export const VoicePage: Component = () => {
 		setAudioInput(ns.outputTrack);
 		setTestStream(stream);
 
-		const { inGain, outGain } = startLocalPlayback(
+		startLoopback(
 			ctx,
 			ns.outputTrack,
 			input.volume,
 			userPreferences.preferences().voice.output.volume,
 		);
+		startMonitor(rawTrack, ns.outputTrack);
 
-		setInputGainNode(inGain);
-		setOutputGainNode(outGain);
 		setAudioCtx(ctx);
 	};
 
@@ -274,8 +314,11 @@ export const VoicePage: Component = () => {
 			...outputOverrides,
 		};
 
-		inputGainNode()?.disconnect();
-		setInputGainNode(null);
+		monitor()?.destroy();
+		setMonitor(null);
+
+		loopback()?.destroy();
+		setLoopback(null);
 
 		suppressor()?.destroy();
 		setSuppressor(null);
@@ -299,14 +342,8 @@ export const VoicePage: Component = () => {
 		setAudioInput(ns.outputTrack);
 		setTestStream(stream);
 
-		const { inGain, outGain } = startLocalPlayback(
-			ctx,
-			ns.outputTrack,
-			inputPrefs.volume,
-			outputPrefs.volume,
-		);
-		setInputGainNode(inGain);
-		setOutputGainNode(outGain);
+		startLoopback(ctx, ns.outputTrack, inputPrefs.volume, outputPrefs.volume);
+		startMonitor(rawTrack, ns.outputTrack);
 	};
 
 	const getActiveMic = () =>
@@ -372,7 +409,7 @@ export const VoicePage: Component = () => {
 								onChange={(e) => {
 									const v = e[0] / 100;
 
-									inputGainNode()?.gain.setTargetAtTime(
+									loopback()?.inGain.gain.setTargetAtTime(
 										v,
 										audioCtx()!.currentTime,
 										0.01,
@@ -461,11 +498,7 @@ export const VoicePage: Component = () => {
 								onChange={(e) => {
 									const v = e[0] / 100;
 
-									outputGainNode()?.gain.setTargetAtTime(
-										v,
-										audioCtx()!.currentTime,
-										0.01,
-									);
+									loopback()?.setOutputVolume(v);
 
 									userPreferences.setPreferences((current) => ({
 										...current,
@@ -560,6 +593,22 @@ export const VoicePage: Component = () => {
 						</SliderTrack>
 					</Slider>
 				</Show>
+				<ToggleSwitch
+					class="flex flex-row items-center justify-between gap-4 mt-1"
+					checked={userPreferences.preferences().voice.noiseSuppressionHints}
+					onChange={(v) => userPreferences.setNoiseSuppressionHints(v)}
+				>
+					<div class="flex flex-col gap-1">
+						<SwitchLabel>Suppression tips</SwitchLabel>
+						<SwitchDescription class="text-sm text-muted-foreground max-w-120">
+							Occasionally suggest adjusting the strength during calls when your
+							voice gets cut off or background noise comes through.
+						</SwitchDescription>
+					</div>
+					<SwitchControl>
+						<SwitchThumb />
+					</SwitchControl>
+				</ToggleSwitch>
 			</div>
 
 			<hr class="w-full h-px bg-muted border-none m-0" />
@@ -595,7 +644,6 @@ export const VoicePage: Component = () => {
 						)}
 					</For>
 				</div>
-				<audio autoplay class="hidden" id={`colibri-audio-preview`} />
 			</div>
 		</SettingsPage>
 	);

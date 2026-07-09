@@ -133,13 +133,18 @@ export const MessageContextProvider: ParentComponent<{ data: Message }> = (
 
 	const containsMentionOrIsReplyToUser = () => {
 		if ("hash" in props.data) return false;
+		const ownRoleUris = new Set(
+			community().members.find((m) => m.did === user.did)?.roles ?? [],
+		);
 		return (
 			props.data.parent?.author.did === user.did ||
 			props.data.facets?.some((x) =>
 				x.features.some(
 					(y) =>
-						y.$type === "social.colibri.richtext.facet#mention" &&
-						y.did === user.did,
+						(y.$type === "social.colibri.richtext.facet#mention" &&
+							y.did === user.did) ||
+						(y.$type === "social.colibri.richtext.facet#role" &&
+							ownRoleUris.has(y.role)),
 				),
 			) === true
 		);

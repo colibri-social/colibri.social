@@ -329,6 +329,7 @@ export const Category: ParentComponent<{
 	onOpenChannelCreation: (categoryUri: string) => void;
 }> = (props) => {
 	const user = useUserContext();
+	const notifications = useNotifications();
 	const {
 		canUpdateCategory: _canUpdateCategory,
 		canCreateChannel: _canCreateChannel,
@@ -336,6 +337,17 @@ export const Category: ParentComponent<{
 	const canUpdateCategory = () => _canUpdateCategory(user.did);
 	const canCreateChannel = () => _canCreateChannel(user.did);
 	const isMobile = useIsMobile();
+
+	const markAllRead = () =>
+		void notifications.markCategoryAsRead(
+			props.communityUri,
+			props.category.channels
+				.filter(
+					(ch) =>
+						ch.type !== "voice" && ch.type !== "social.colibri.channel.voice",
+				)
+				.map((ch) => ch.uri),
+		);
 
 	// TODO: Persist collapse state to local storage (was `makePersisted` from
 	// `@solid-primitives/storage` keyed on the category rkey). Skipped here
@@ -388,6 +400,7 @@ export const Category: ParentComponent<{
 				categoryName={props.category.name}
 				canEdit={canUpdateCategory()}
 				onEdit={() => props.onOpenCategorySettings(props.category.uri)}
+				onMarkAllRead={markAllRead}
 			>
 				<button
 					type="button"

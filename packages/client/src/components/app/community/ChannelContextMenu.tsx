@@ -4,12 +4,21 @@ import BellIcon from "~icons/ph/bell";
 import BellSlashIcon from "~icons/ph/bell-slash";
 import CheckIcon from "~icons/ph/check";
 import GearIcon from "~icons/ph/gear";
+import PhoneCallIcon from "~icons/ph/phone-call";
+import PhoneSlashIcon from "~icons/ph/phone-slash";
 import TrashIcon from "~icons/ph/trash";
 import type { Channel } from "../../../atproto/xrpc/social/colibri/community/listChannels";
-import { usePermissions } from "../../../contexts/Community";
+import {
+	useCommunityContext,
+	usePermissions,
+} from "../../../contexts/Community";
 import { useMutes } from "../../../contexts/Mutes";
 import { useNotifications } from "../../../contexts/Notifications";
 import { useUserContext } from "../../../contexts/User";
+import {
+	ConnectionState,
+	useVoiceChatContext,
+} from "../../../contexts/VoiceChat";
 import { createLongPress } from "../../../utils/create-long-press";
 import { useIsMobile } from "../../../utils/mobile-pane";
 import { Button } from "../../ui/Button";
@@ -41,8 +50,10 @@ export const ChannelContextMenu: ParentComponent<{
 	onOpenSettings: () => void;
 }> = (props) => {
 	const user = useUserContext();
+	const community = useCommunityContext();
 	const notifications = useNotifications();
 	const mutes = useMutes();
+	const [voiceData, { connect, disconnect }] = useVoiceChatContext();
 	const { canUpdateChannel: _canUpdateChannel, canDeleteChannel: _canDelete } =
 		usePermissions();
 
@@ -51,6 +62,18 @@ export const ChannelContextMenu: ParentComponent<{
 	const isVoice = () =>
 		props.channel.type === "voice" ||
 		props.channel.type === "social.colibri.channel.voice";
+
+	const isConnectedHere = () =>
+		voiceData.connection.uri === props.channel.uri &&
+		voiceData.connection.state !== ConnectionState.Disconnected;
+
+	const toggleConnection = () =>
+		isConnectedHere()
+			? disconnect()
+			: connect(props.channel.uri, {
+					channelName: props.channel.name,
+					communityName: community().community.name,
+				});
 
 	const canUpdate = () => _canUpdateChannel(user.did);
 	const canDelete = () => _canDelete(user.did);
@@ -96,6 +119,18 @@ export const ChannelContextMenu: ParentComponent<{
 					onOpenChange={setMenuOpen}
 					title={props.channel.name}
 				>
+					<Show when={isVoice()}>
+						<MenuDrawerItem
+							onClick={() =>
+								handoffDrawer(() => setMenuOpen(false), toggleConnection)
+							}
+						>
+							<Show when={isConnectedHere()} fallback={<PhoneCallIcon />}>
+								<PhoneSlashIcon />
+							</Show>
+							<span>{isConnectedHere() ? "Leave Voice" : "Join Voice"}</span>
+						</MenuDrawerItem>
+					</Show>
 					<Show when={!isVoice()}>
 						<MenuDrawerItem
 							onClick={() => {
@@ -149,6 +184,19 @@ export const ChannelContextMenu: ParentComponent<{
 					<ContextMenuTrigger>{props.children}</ContextMenuTrigger>
 					<ContextMenuPortal>
 						<ContextMenuContent class="min-w-44">
+							<Show when={isVoice()}>
+								<ContextMenuItem onClick={toggleConnection}>
+									<Show when={isConnectedHere()} fallback={<PhoneCallIcon />}>
+										<PhoneSlashIcon />
+									</Show>
+									<span>
+										{isConnectedHere() ? "Leave Voice" : "Join Voice"}
+									</span>
+								</ContextMenuItem>
+								<Show when={canUpdate() || canDelete()}>
+									<ContextMenuSeparator />
+								</Show>
+							</Show>
 							<Show when={!isVoice()}>
 								<ContextMenuItem
 									onClick={() =>

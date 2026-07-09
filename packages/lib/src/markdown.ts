@@ -390,7 +390,7 @@ export const parseMarkdown = (
 	return { text, facets };
 };
 
-const ATOM_KIND = new Set(["mention", "channel", "time"]);
+const ATOM_KIND = new Set(["mention", "channel", "role", "time"]);
 
 export interface SourceAtom {
 	start: number;

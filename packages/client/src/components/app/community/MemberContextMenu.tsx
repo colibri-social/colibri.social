@@ -499,7 +499,7 @@ export const MemberContextMenu: ParentComponent<{
 								<Show
 									when={isMe()}
 									fallback={
-										<div class="px-2 py-1.5 w-56">
+										<div class="px-2 py-1.5">
 											<Slider
 												value={[participantVolume()]}
 												minValue={0}

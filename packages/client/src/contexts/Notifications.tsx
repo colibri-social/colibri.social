@@ -39,6 +39,10 @@ type NotificationsContextValue = {
 	markChannelRead: (channelUri: string) => void;
 	markChannelAsRead: (channelUri: string) => Promise<void>;
 	markCommunityAsRead: (communityUri: string) => Promise<void>;
+	markCategoryAsRead: (
+		communityUri: string,
+		channelUris: string[],
+	) => Promise<void>;
 };
 
 const NotificationsContext = createContext<NotificationsContextValue>();
@@ -77,8 +81,11 @@ const isViewingChannel = (pathname: string, channelUri: string): boolean => {
 	);
 };
 
-const kindLabel = (kind: string): string =>
-	kind === "reply" ? "Replied to you" : "Mentioned you";
+const kindLabel = (kind: string, mentionRoleName?: string): string => {
+	if (kind === "reply") return "Replied to you";
+	if (mentionRoleName) return `Mentioned you via @${mentionRoleName}`;
+	return "Mentioned you";
+};
 
 export const NotificationsContextProvider: ParentComponent = (props) => {
 	const user = useUserContext();
@@ -232,6 +239,25 @@ export const NotificationsContextProvider: ParentComponent = (props) => {
 		}
 	};
 
+	const markCategoryAsRead = async (
+		communityUri: string,
+		channelUris: string[],
+	): Promise<void> => {
+		const status =
+			await user.xrpc.social.colibri.channel.listUnreadStatus(communityUri);
+		if (!status) return;
+		const inCategory = new Set(channelUris);
+		for (const channel of status.channels) {
+			if (!inCategory.has(channel.channelUri)) continue;
+			if (channel.hasUnreadMessages) {
+				await advanceCursorToNewest(channel.channelUri);
+			}
+			if (channel.unreadPingCount > 0) {
+				await clearChannelPings(channel.channelUri);
+			}
+		}
+	};
+
 	// ---- Seeding -----------------------------------------------------------
 
 	const seeded = new Set<string>();
@@ -309,7 +335,7 @@ export const NotificationsContextProvider: ParentComponent = (props) => {
 							class="flex w-full flex-col items-start gap-0.5 rounded-md border border-border bg-popover p-3 text-left text-popover-foreground shadow-md cursor-pointer hover:bg-muted/50"
 						>
 							<span class="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-								{kindLabel(data.kind)}
+								{kindLabel(data.kind, data.mentionRoleName)}
 							</span>
 							{data.message.text ? (
 								<span class="line-clamp-2 text-sm">{data.message.text}</span>
@@ -365,6 +391,7 @@ export const NotificationsContextProvider: ParentComponent = (props) => {
 		markChannelRead,
 		markChannelAsRead,
 		markCommunityAsRead,
+		markCategoryAsRead,
 	};
 
 	return (

@@ -17,6 +17,7 @@ export const MESSAGE_HIDE = "message.hide";
 export const INVITATION_CREATE = "invitation.create";
 export const INVITATION_DELETE = "invitation.delete";
 export const VOICE_MODERATE = "voice.moderate";
+export const MENTION_ROLES = "mention.roles";
 
 export type Permission = {
 	key: string;
@@ -129,6 +130,13 @@ export const PERMISSIONS: Record<string, Array<Permission>> = {
 			name: "Moderate Voice",
 			description:
 				"Server-mute, server-deafen, and disconnect members in voice channels",
+		},
+	],
+	Mentions: [
+		{
+			key: MENTION_ROLES,
+			name: "Mention All Roles",
+			description: "Ping roles that aren't marked as mentionable.",
 		},
 	],
 };

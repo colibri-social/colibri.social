@@ -1,4 +1,5 @@
 import { createSignal, type ParentComponent, Show } from "solid-js";
+import ChecksIcon from "~icons/ph/checks";
 import PencilIcon from "~icons/ph/pencil";
 import { createLongPress } from "../../../utils/create-long-press";
 import { useIsMobile } from "../../../utils/mobile-pane";
@@ -7,25 +8,27 @@ import {
 	ContextMenuContent,
 	ContextMenuItem,
 	ContextMenuPortal,
+	ContextMenuSeparator,
 	ContextMenuTrigger,
 } from "../../ui/ContextMenu";
 import { MenuDrawer, MenuDrawerItem } from "../../ui/MenuDrawer";
 
 /**
  * Context menu for a category in the sidebar. Right-click on desktop / long-press
- * on mobile opens an "Edit" action, gated on the caller's permission check. When
- * the user can't edit, the children render plain (no menu wrapper).
+ * on mobile. "Mark all as read" is available to every member, "Edit Category" is
+ * gated on the caller's permission check and, when present, sits below a separator.
  */
 export const CategoryContextMenu: ParentComponent<{
 	categoryName: string;
 	canEdit: boolean;
 	onEdit: () => void;
+	onMarkAllRead: () => void;
 }> = (props) => {
 	const isMobile = useIsMobile();
 	const [menuOpen, setMenuOpen] = createSignal(false);
 
 	return (
-		<Show when={props.canEdit} fallback={props.children}>
+		<>
 			<Show when={isMobile()}>
 				<div
 					style={{ display: "contents" }}
@@ -46,12 +49,23 @@ export const CategoryContextMenu: ParentComponent<{
 					<MenuDrawerItem
 						onClick={() => {
 							setMenuOpen(false);
-							props.onEdit();
+							props.onMarkAllRead();
 						}}
 					>
-						<PencilIcon />
-						<span>Edit Category</span>
+						<ChecksIcon />
+						<span>Mark all as read</span>
 					</MenuDrawerItem>
+					<Show when={props.canEdit}>
+						<MenuDrawerItem
+							onClick={() => {
+								setMenuOpen(false);
+								props.onEdit();
+							}}
+						>
+							<PencilIcon />
+							<span>Edit Category</span>
+						</MenuDrawerItem>
+					</Show>
 				</MenuDrawer>
 			</Show>
 			<Show when={!isMobile()}>
@@ -59,14 +73,21 @@ export const CategoryContextMenu: ParentComponent<{
 					<ContextMenuTrigger>{props.children}</ContextMenuTrigger>
 					<ContextMenuPortal>
 						<ContextMenuContent class="min-w-44">
-							<ContextMenuItem onClick={() => props.onEdit()}>
-								<PencilIcon />
-								<span>Edit Category</span>
+							<ContextMenuItem onClick={() => props.onMarkAllRead()}>
+								<ChecksIcon />
+								<span>Mark all as read</span>
 							</ContextMenuItem>
+							<Show when={props.canEdit}>
+								<ContextMenuSeparator />
+								<ContextMenuItem onClick={() => props.onEdit()}>
+									<PencilIcon />
+									<span>Edit Category</span>
+								</ContextMenuItem>
+							</Show>
 						</ContextMenuContent>
 					</ContextMenuPortal>
 				</ContextMenu>
 			</Show>
-		</Show>
+		</>
 	);
 };

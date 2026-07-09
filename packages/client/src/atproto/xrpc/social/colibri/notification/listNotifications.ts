@@ -20,6 +20,7 @@ type Notification = {
 	channelUri: string;
 	indexedAt: string;
 	seenAt?: string;
+	mentionRoleName?: string;
 	message?: NotificationMessage;
 };
 

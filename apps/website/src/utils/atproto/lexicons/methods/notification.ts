@@ -36,6 +36,11 @@ export const notificationMethodDocs: LexiconDoc[] = [
 					channelUri: { type: "string", format: "at-uri" },
 					indexedAt: { type: "string", format: "datetime" },
 					seenAt: { type: "string", format: "datetime" },
+					mentionRoleName: {
+						type: "string",
+						description:
+							"Display name of the role that triggered this notification, when it was a role mention rather than a direct mention.",
+					},
 					message: { type: "ref", ref: "#notificationMessage" },
 				},
 			},

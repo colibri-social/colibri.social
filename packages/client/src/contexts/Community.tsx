@@ -35,6 +35,7 @@ import {
 	MEMBER_BAN,
 	MEMBER_KICK,
 	MEMBER_UNBAN,
+	MENTION_ROLES,
 	MESSAGE_HIDE,
 	ROLE_MANAGE,
 	VOICE_MODERATE,
@@ -810,6 +811,8 @@ export const usePermissions = () => {
 		hasPermission(actorDid, VOICE_MODERATE) &&
 		(targetDid === undefined || outranks(actorDid, targetDid));
 
+	const canMentionRoles = (did: string) => hasPermission(did, MENTION_ROLES);
+
 	return {
 		isAdmin,
 		canManage,
@@ -833,5 +836,6 @@ export const usePermissions = () => {
 		canCreateInvitation,
 		canDeleteInvitation,
 		canModerateVoice,
+		canMentionRoles,
 	};
 };

@@ -301,6 +301,7 @@ const MessageInner: Component<{
 													editedText().facets || [],
 													community().members || [],
 													community().channels || [],
+													community().assignableRoles || [],
 												)}
 												placeholder=""
 												submitOnEnter

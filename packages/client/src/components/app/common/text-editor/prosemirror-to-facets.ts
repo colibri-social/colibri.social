@@ -32,6 +32,14 @@ export type MentionType = {
 				type: "channel";
 		  }
 		| {
+				id: string;
+				label: string;
+				avatar: null;
+				handle: null;
+				color?: string;
+				type: "role";
+		  }
+		| {
 				id: null;
 				label: string;
 				avatar: null;
@@ -148,6 +156,18 @@ const docToSource = (
 							{
 								$type: "social.colibri.richtext.facet#channel",
 								channel: mention.attrs.id,
+							},
+						],
+					});
+				} else if (mention.attrs.type === "role") {
+					source += `@${mention.attrs.label}`;
+					atoms.push({
+						start,
+						end: source.length,
+						features: [
+							{
+								$type: "social.colibri.richtext.facet#role",
+								role: mention.attrs.id,
 							},
 						],
 					});

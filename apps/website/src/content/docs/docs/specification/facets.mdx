@@ -35,7 +35,7 @@ Features fall into two groups that are rendered very differently:
 
 | Group | Features | Rendered as |
 | --- | --- | --- |
-| **Inline** | `bold`, `italic`, `underline`, `strikethrough`, `code`, `spoiler`, `mention`, `link`, `channel`, `time` | Wrappers/elements *within* a line of text |
+| **Inline** | `bold`, `italic`, `underline`, `strikethrough`, `code`, `spoiler`, `mention`, `role`, `link`, `channel`, `time` | Wrappers/elements *within* a line of text |
 | **Block** | `codeblock`, `quote`, `heading`, `list`, `subtext` | Block-level elements that own their whole range |
 
 The distinction drives the whole [resolution algorithm](#precedence-and-resolution): block features define the document's structure, and inline features decorate the text inside it.
@@ -63,6 +63,18 @@ A reference to a user.
 ```
 
 The facet's covered text is the visible label (e.g. `@alice`). The renderer resolves `did` against the community's members: a known member renders as an interactive mention (with a profile popover), an unknown DID still renders as a styled mention but without navigation.
+
+#### `role`
+
+A reference to a role in the same community.
+
+```ts title="#role"
+{ role: string } // AT-URI of the referenced role record
+```
+
+The covered text is the visible label (e.g. `@Moderators`). Resolved against the community's roles and rendered as a colored chip using the role's `color`. An unresolved role URI renders as a styled `@Unknown Role` chip.
+
+Unlike a user mention, a role mention fans out at index time: the AppView notifies every member holding the role. Whether the ping fires is gated (see [role mention expansion](/docs/specification/appview#role-mention-expansion)). A role is pingable by anyone when its record's `mentionable` flag is set, roles not marked mentionable can only be pinged by authors holding the `mention.roles` permission. The chip renders for everyone regardless, the gate only governs the notification.
 
 #### `channel`
 
@@ -171,7 +183,7 @@ Within an inline segment, three features take over the entire segment and suppre
 
 <div class="not-content">
 
-**`channel` > `mention` > `time`**
+**`channel` > `mention` > `role` > `time`**
 
 </div>
 

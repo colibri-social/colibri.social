@@ -14,6 +14,10 @@ import {
 	createNoiseSuppressor,
 	type NoiseSuppressor,
 } from "../hooks/createNoiseSuppressor";
+import {
+	createSuppressionMonitor,
+	type SuppressionMonitor,
+} from "../hooks/createSuppressionMonitor";
 import { getAppViewHost, getAppViewServiceRef } from "../utils/appview";
 import { useAuthContext } from "./Auth";
 import { useSocketContext } from "./Socket";
@@ -199,6 +203,7 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 	let suppressor: NoiseSuppressor | null = null;
 	let speakingContext: AudioContext | null = null;
 	let speakingInterval: ReturnType<typeof setInterval> | null = null;
+	let suppressionMonitor: SuppressionMonitor | null = null;
 	let localSpeaking = false;
 	let serverSpeakers: string[] = [];
 	let ready = false;
@@ -436,6 +441,8 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 			clearInterval(speakingInterval);
 			speakingInterval = null;
 		}
+		suppressionMonitor?.destroy();
+		suppressionMonitor = null;
 		stopStatsMonitor();
 		speakingContext?.close().catch(() => {});
 		speakingContext = null;
@@ -564,6 +571,18 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 
 		setVoiceData("states", "micEnabled", !muted);
 		setupLocalSpeaking(rawTrack);
+		suppressionMonitor = createSuppressionMonitor({
+			rawTrack,
+			processedTrack: ns.outputTrack,
+			isActive: () => voiceData.states.micEnabled,
+			isDeepFilter: () => suppressor?.getActiveMode() === "deepfilternet",
+			hintsEnabled: () =>
+				userPreferences.preferences().voice.noiseSuppressionHints,
+			getLevel: () =>
+				userPreferences.preferences().voice.input.noiseSuppressionLevel,
+			setLevel: (level) => userPreferences.setNoiseSuppressionLevel(level),
+			disableHints: () => userPreferences.setNoiseSuppressionHints(false),
+		});
 	};
 
 	const consumeProducer = async (producerId: string): Promise<void> => {

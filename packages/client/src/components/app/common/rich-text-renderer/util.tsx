@@ -12,6 +12,7 @@ import {
 	normalizeFacets,
 } from "../../../../utils/normalize-facets";
 import { purify } from "../../../../utils/purify";
+import { RoleMentionPopover } from "../../community/RoleMentionPopover";
 import User from "../../user";
 import { CodeBlock } from "./CodeBlock";
 import { Timestamp } from "./Timestamp";
@@ -149,6 +150,35 @@ const applyStyleForFacet = (text: string, feature: AnyFeature): JSX.Element => {
 				/>
 			);
 		}
+		case "social.colibri.richtext.facet#role": {
+			const roleUri = "role" in feature ? escapeAttr(String(feature.role)) : "";
+			const role = community().assignableRoles.find((r) => r.uri === roleUri);
+			const color = role?.color;
+			const pill = (
+				<span
+					data-facet-type="role"
+					data-role={roleUri}
+					class="px-1 rounded-xs inline"
+					classList={{ "cursor-pointer": !!role }}
+					style={
+						color
+							? `background-color: color-mix(in srgb, ${color} 15%, transparent); color: ${color};`
+							: "background-color: color-mix(in srgb, currentColor 15%, transparent);"
+					}
+					innerHTML={
+						role ? textWithEmojis : twemoji.parse(purify("@Unknown Role"))
+					}
+				/>
+			);
+
+			if (!role) return pill;
+
+			return (
+				<RoleMentionPopover role={role} as="span" class="inline">
+					{pill}
+				</RoleMentionPopover>
+			);
+		}
 		case "social.colibri.richtext.facet#bold":
 			return (
 				<b
@@ -274,6 +304,9 @@ const renderInlineRange = (
 		const mentionFeature = features.find(
 			(f) => f.$type === "social.colibri.richtext.facet#mention",
 		);
+		const roleFeature = features.find(
+			(f) => f.$type === "social.colibri.richtext.facet#role",
+		);
 		const timeFeature = features.find(
 			(f) => f.$type === "social.colibri.richtext.facet#time",
 		);
@@ -284,6 +317,8 @@ const renderInlineRange = (
 			component = applyStyleForFacet(segmentText, channelFeature);
 		} else if (mentionFeature) {
 			component = applyStyleForFacet(segmentText, mentionFeature);
+		} else if (roleFeature) {
+			component = applyStyleForFacet(segmentText, roleFeature);
 		} else if (timeFeature) {
 			component = applyStyleForFacet(segmentText, timeFeature);
 		} else {

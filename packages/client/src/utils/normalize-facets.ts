@@ -24,6 +24,8 @@ export const buildFeatureKey = (feature: Feature): string => {
 			return `${feature.$type}:${"did" in feature ? feature.did : ""}`;
 		case "social.colibri.richtext.facet#channel":
 			return `${feature.$type}:${"channel" in feature ? feature.channel : ""}`;
+		case "social.colibri.richtext.facet#role":
+			return `${feature.$type}:${"role" in feature ? feature.role : ""}`;
 		case "social.colibri.richtext.facet#link":
 			return `${feature.$type}:${"uri" in feature ? feature.uri : ""}`;
 		case "social.colibri.richtext.facet#codeblock":

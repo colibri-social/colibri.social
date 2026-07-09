@@ -15,6 +15,7 @@ import ClockIcon from "~icons/ph/clock";
 import SpeakerLowIcon from "~icons/ph/speaker-low";
 import type { Channel } from "../../../../atproto/xrpc/social/colibri/community/listChannels";
 import type { Member } from "../../../../atproto/xrpc/social/colibri/community/listMembers";
+import type { Role } from "../../../../atproto/xrpc/social/colibri/community/listRoles";
 import User from "../../user";
 import { displayableNameFn } from "../../user/DisplayableName";
 import type {
@@ -26,6 +27,10 @@ import type {
 
 export function isMember(item: SuggestionItem): item is Member {
 	return "did" in item;
+}
+
+export function isRole(item: SuggestionItem): item is Role {
+	return "permissions" in item;
 }
 
 export function isChannel(item: SuggestionItem): item is Channel {
@@ -65,14 +70,23 @@ export const MentionList: Component<{
 		}
 	};
 
+	const groupRank = (item: SuggestionItem): number => {
+		if (isTimeShortcut(item)) return 3;
+		if (isMember(item)) return 0;
+		if (isRole(item)) return 1;
+		return 2;
+	};
+
 	const sorted: Accessor<SuggestionItem[]> = () =>
 		props.items.sort((a, b) => {
-			// The time shortcut always sinks to the bottom of the list.
-			if (isTimeShortcut(a)) return 1;
-			if (isTimeShortcut(b)) return -1;
+			const ra = groupRank(a);
+			const rb = groupRank(b);
+			if (ra !== rb) return ra - rb;
 
 			if (isMember(a) && isMember(b)) {
 				return displayableNameFn(a).localeCompare(displayableNameFn(b));
+			} else if (isRole(a) && isRole(b)) {
+				return a.name.localeCompare(b.name);
 			} else if (isChannel(a) && isChannel(b)) {
 				return a.name.localeCompare(b.name);
 			} else if (isEmoji(a) && isEmoji(b)) {
@@ -82,12 +96,119 @@ export const MentionList: Component<{
 			return 0;
 		});
 
-	// Regular items are kept first by the sort, so each one's position within
-	// this slice equals its index in the full list — which keeps keyboard
-	// selection (driven off the full `sorted()` indices) in sync. The time
-	// shortcut is the trailing entry, rendered under its own heading.
+	const members = () => sorted().filter(isMember);
+	const roles = () => sorted().filter(isRole);
+	const others = () =>
+		sorted().filter(
+			(item) => !isMember(item) && !isRole(item) && !isTimeShortcut(item),
+		);
 	const regular = () => sorted().filter((item) => !isTimeShortcut(item));
 	const hasTimeShortcut = () => sorted().some(isTimeShortcut);
+
+	const ItemButton: Component<{
+		item: SuggestionItem;
+		index: Accessor<number>;
+	}> = (bprops) => (
+		<button
+			class={`flex flex-row gap-4 items-center justify-between px-2 py-1 rounded-sm`}
+			classList={{
+				"bg-muted": bprops.index() === props.selectedIndex(),
+			}}
+			onClick={() => props.selectItem(sorted(), props.command, bprops.index())}
+			onMouseEnter={() => props.setSelectedIndex(bprops.index())}
+			type="button"
+		>
+			<Switch>
+				<Match when={isMember(bprops.item)}>
+					<div class="flex flex-row items-center justify-between gap-1.5">
+						<span class="relative">
+							<User.Avatar user={bprops.item as Member} size="small" />
+							<span
+								class="absolute bottom-1 right-1 rounded-full"
+								classList={{
+									"bg-green-500":
+										(bprops.item as Member).data.onlineState === "online",
+									"bg-yellow-500":
+										(bprops.item as Member).data.onlineState === "away",
+									"bg-red-500":
+										(bprops.item as Member).data.onlineState === "dnd",
+									"bg-neutral-500":
+										(bprops.item as Member).data.onlineState === "offline",
+								}}
+							/>
+						</span>
+						<span class="flex flex-col items-start">
+							<span class="text-sm">
+								{displayableNameFn(bprops.item as Member)}
+							</span>
+						</span>
+					</div>
+					<span class="text-sm text-muted-foreground">
+						{(bprops.item as Member).handle.replaceAll("at://", "") ||
+							(bprops.item as Member).did}
+					</span>
+				</Match>
+				<Match when={isRole(bprops.item)}>
+					<div class="flex flex-row items-center gap-1.5">
+						<span
+							class="size-3 rounded-full"
+							style={{
+								"background-color":
+									(bprops.item as Role).color || "currentColor",
+							}}
+						/>
+						<span class="text-sm">{(bprops.item as Role).name}</span>
+					</div>
+				</Match>
+				<Match when={isChannel(bprops.item)}>
+					<div class="flex flex-row items-center justify-between gap-1.5">
+						<span>
+							<Switch>
+								<Match
+									when={
+										(bprops.item as Channel).type === "text" ||
+										"social.colibri.channel.text"
+									}
+								>
+									<ChatCircleDotsIcon />
+								</Match>
+								<Match
+									when={
+										(bprops.item as Channel).type === "voice" ||
+										"social.colibri.channel.voice"
+									}
+								>
+									<SpeakerLowIcon />
+								</Match>
+								<Match
+									when={
+										(bprops.item as Channel).type === "forum" ||
+										"social.colibri.channel.forum"
+									}
+								>
+									<ChatsIcon />
+								</Match>
+							</Switch>
+						</span>
+						<span class="text-sm">{(bprops.item as Channel).name}</span>
+					</div>
+				</Match>
+				<Match when={isEmoji}>
+					<div class="flex flex-row items-center justify-between gap-1.5">
+						<span
+							innerHTML={twemoji.parse(
+								(bprops.item as EmojiSuggestionData).emoji,
+							)}
+							class="[&>img]:w-5 [&>img]:h-5"
+						/>
+						<span class="text-sm">
+							{(bprops.item as EmojiSuggestionData).name}
+						</span>
+					</div>
+				</Match>
+			</Switch>
+		</button>
+	);
 
 	return (
 		<div class="flex flex-col border border-border bg-card rounded-md drop-shadow-black drop-shadow-sm overflow-hidden p-2">
@@ -99,102 +220,38 @@ export const MentionList: Component<{
 					</div>
 				}
 			>
-				<Show when={regular().length > 0}>
+				<Show when={members().length > 0}>
+					<span class="text-xs text-muted-foreground mb-2">MEMBERS</span>
+					<For each={members()}>
+						{(item, index) => <ItemButton item={item} index={index} />}
+					</For>
+				</Show>
+				<Show when={roles().length > 0}>
+					<span
+						class="text-xs text-muted-foreground mb-2"
+						classList={{ "mt-3": members().length > 0 }}
+					>
+						ROLES
+					</span>
+					<For each={roles()}>
+						{(item, index) => (
+							<ItemButton
+								item={item}
+								index={() => members().length + index()}
+							/>
+						)}
+					</For>
+				</Show>
+				<Show when={others().length > 0}>
 					<span class="text-xs text-muted-foreground mb-2">
 						{emptyPopupStr().toUpperCase()}
 					</span>
-					<For each={regular()}>
+					<For each={others()}>
 						{(item, index) => (
-							<button
-								class={`flex flex-row gap-4 items-center justify-between px-2 py-1 rounded-sm`}
-								classList={{
-									"bg-muted": index() === props.selectedIndex(),
-								}}
-								onClick={() =>
-									props.selectItem(sorted(), props.command, index())
-								}
-								onMouseEnter={() => props.setSelectedIndex(index())}
-								type="button"
-							>
-								<Switch>
-									<Match when={isMember(item)}>
-										<div class="flex flex-row items-center justify-between gap-1.5">
-											{/* Note: We cannot use the inline profile here as we don't have access to the community context. */}
-											<span class="relative">
-												<User.Avatar user={item as Member} size="small" />
-												<span
-													class="absolute bottom-1 right-1 rounded-full"
-													classList={{
-														"bg-green-500":
-															(item as Member).data.onlineState === "online",
-														"bg-yellow-500":
-															(item as Member).data.onlineState === "away",
-														"bg-red-500":
-															(item as Member).data.onlineState === "dnd",
-														"bg-neutral-500":
-															(item as Member).data.onlineState === "offline",
-													}}
-												/>
-											</span>
-											<span class="flex flex-col items-start">
-												<span class="text-sm">
-													{displayableNameFn(item as Member)}
-												</span>
-											</span>
-										</div>
-										<span class="text-sm text-muted-foreground">
-											{(item as Member).handle.replaceAll("at://", "") ||
-												(item as Member).did}
-										</span>
-									</Match>
-									<Match when={isChannel(item)}>
-										<div class="flex flex-row items-center justify-between gap-1.5">
-											<span>
-												<Switch>
-													<Match
-														when={
-															(item as Channel).type === "text" ||
-															"social.colibri.channel.text"
-														}
-													>
-														<ChatCircleDotsIcon />
-													</Match>
-													<Match
-														when={
-															(item as Channel).type === "voice" ||
-															"social.colibri.channel.voice"
-														}
-													>
-														<SpeakerLowIcon />
-													</Match>
-													<Match
-														when={
-															(item as Channel).type === "forum" ||
-															"social.colibri.channel.forum"
-														}
-													>
-														<ChatsIcon />
-													</Match>
-												</Switch>
-											</span>
-											<span class="text-sm">{(item as Channel).name}</span>
-										</div>
-									</Match>
-									<Match when={isEmoji}>
-										<div class="flex flex-row items-center justify-between gap-1.5">
-											<span
-												innerHTML={twemoji.parse(
-													(item as EmojiSuggestionData).emoji,
-												)}
-												class="[&>img]:w-5 [&>img]:h-5"
-											/>
-											<span class="text-sm">
-												{(item as EmojiSuggestionData).name}
-											</span>
-										</div>
-									</Match>
-								</Switch>
-							</button>
+							<ItemButton
+								item={item}
+								index={() => members().length + roles().length + index()}
+							/>
 						)}
 					</For>
 				</Show>

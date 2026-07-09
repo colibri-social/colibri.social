@@ -7,10 +7,12 @@ import { render } from "solid-js/web";
 import { resolveBlob } from "../../../../atproto/resolve-blob";
 import type { Channel } from "../../../../atproto/xrpc/social/colibri/community/listChannels";
 import type { Member } from "../../../../atproto/xrpc/social/colibri/community/listMembers";
+import type { Role } from "../../../../atproto/xrpc/social/colibri/community/listRoles";
 import { displayableNameFn } from "../../user/DisplayableName";
 import {
 	isChannel,
 	isMember,
+	isRole,
 	isTimeShortcut,
 	MentionList,
 } from "./MentionList";
@@ -24,6 +26,7 @@ export type EmojiSuggestionData = { name: string; emoji: string };
 export type TimeShortcut = { timeShortcut: true };
 export type SuggestionItem =
 	| Member
+	| Role
 	| Channel
 	| EmojiSuggestionData
 	| TimeShortcut;
@@ -49,6 +52,13 @@ export function selectItem(
 			handle: item.handle.replaceAll("at://", ""),
 			avatar: resolveBlob(item.did, item.data.avatar),
 			type: "member",
+		} as any);
+	} else if (isRole(item)) {
+		command({
+			id: item.uri,
+			label: item.name,
+			color: item.color,
+			type: "role",
 		} as any);
 	} else if (isChannel(item)) {
 		command({

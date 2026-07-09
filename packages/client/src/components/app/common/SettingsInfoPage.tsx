@@ -2,6 +2,7 @@ import { type Component, Show } from "solid-js";
 import { AtURI } from "../../../utils/at-uri";
 import { CopyButton } from "./CopyButton";
 import { SettingsPage } from "./SettingsModal";
+import { Button } from "../../ui/Button";
 
 export const InfoPageItem: Component<{
 	title: string;
@@ -36,17 +37,18 @@ export const SettingsInfoPage: Component<{
 				<InfoPageItem title="Collection" value={collection} />
 				<InfoPageItem title="Identifier" value={identifier} />
 				<InfoPageItem title="AT-URI" value={props.uri} />
-				<a
+				<Button
+					as="a"
 					href={`https://atproto.at/uri/${props.uri}`}
 					target="_blank"
 					rel="noreferrer"
-					class="font-normal hover:underline w-fit flex flex-row gap-2 items-center mt-4"
+					class="font-medium w-fit flex flex-row gap-2 items-center bg-foreground hover:bg-foreground/90"
 				>
-					<span class="text-foreground">
+					<span class="text-background">
 						View on atproto.
 						<span class="text-[#1185fe]">at://</span>
 					</span>
-				</a>
+				</Button>
 			</div>
 		</SettingsPage>
 	);

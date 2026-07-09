@@ -4,6 +4,7 @@ import twemoji from "@twemoji/api";
 import { resolveBlob } from "../../../../atproto/resolve-blob";
 import type { Channel } from "../../../../atproto/xrpc/social/colibri/community/listChannels";
 import type { Member } from "../../../../atproto/xrpc/social/colibri/community/listMembers";
+import type { Role } from "../../../../atproto/xrpc/social/colibri/community/listRoles";
 import { formatTimestamp } from "../../../../utils/format-timestamp";
 import { normalizeFacets } from "../../../../utils/normalize-facets";
 import type { MentionType } from "./prosemirror-to-facets";
@@ -29,6 +30,7 @@ export const facetsToProseMirror = (
 	facets: Array<ColibriRichTextFacet>,
 	members: Array<Member>,
 	channels: Array<Channel>,
+	roles: Array<Role>,
 ): ReturnType<Editor["getJSON"]> => {
 	const doc: ReturnType<Editor["getJSON"]> = {
 		type: "doc",
@@ -48,7 +50,9 @@ export const facetsToProseMirror = (
 		.sort((a, b) => a.index.byteStart - b.index.byteStart);
 
 	if (quoteFacets.length === 0) {
-		doc.content.push(buildParagraph(text, normalized, members, channels));
+		doc.content.push(
+			buildParagraph(text, normalized, members, channels, roles),
+		);
 		return doc;
 	}
 
@@ -67,7 +71,7 @@ export const facetsToProseMirror = (
 		if (e <= s) return;
 		const sub = decoder.decode(bytes.slice(s, e));
 		doc.content.push(
-			buildParagraph(sub, rebase(normalized, s, e), members, channels),
+			buildParagraph(sub, rebase(normalized, s, e), members, channels, roles),
 		);
 	};
 
@@ -87,6 +91,7 @@ export const facetsToProseMirror = (
 					rebase(normalized, quote.index.byteStart, quote.index.byteEnd),
 					members,
 					channels,
+					roles,
 				),
 			],
 			attrs: undefined,
@@ -127,6 +132,7 @@ function buildParagraph(
 	facets: Array<ColibriRichTextFacet>,
 	members: Array<Member>,
 	channels: Array<Channel>,
+	roles: Array<Role>,
 ): DocNode {
 	const paragraph: DocNode = {
 		type: "paragraph",
@@ -144,7 +150,7 @@ function buildParagraph(
 		if (atom.start > cursor) {
 			addTextWithNewlines(paragraph, source.slice(cursor, atom.start));
 		}
-		paragraph.content!.push(atomNode(atom.feature, members, channels));
+		paragraph.content!.push(atomNode(atom.feature, members, channels, roles));
 		cursor = atom.end;
 	}
 	if (cursor < source.length) {
@@ -158,6 +164,7 @@ function atomNode(
 	feature: Feature,
 	members: Array<Member>,
 	channels: Array<Channel>,
+	roles: Array<Role>,
 ): MentionType {
 	if (feature.$type === "social.colibri.richtext.facet#channel") {
 		const channel = channels.find((x) => x.uri === feature.channel);
@@ -169,6 +176,21 @@ function atomNode(
 				handle: null,
 				avatar: null,
 				type: "channel",
+			},
+		};
+	}
+
+	if (feature.$type === "social.colibri.richtext.facet#role") {
+		const role = roles.find((x) => x.uri === feature.role);
+		return {
+			type: "mention",
+			attrs: {
+				id: feature.role,
+				label: role?.name || "Unknown Role",
+				handle: null,
+				avatar: null,
+				color: role?.color,
+				type: "role",
 			},
 		};
 	}

@@ -78,6 +78,11 @@ export type ColibriRichTextMention = {
 	did: string;
 };
 
+export type ColibriRichTextRole = {
+	$type?: "social.colibri.richtext.facet#role";
+	role: string;
+};
+
 export type ColibriRichTextLink = {
 	$type?: "social.colibri.richtext.facet#link";
 	uri: string;
@@ -100,6 +105,7 @@ export interface ColibriRichTextFacet {
 		| $Typed<ColibriRichTextSubtext>
 		| $Typed<ColibriRichTextSpoiler>
 		| $Typed<ColibriRichTextMention>
+		| $Typed<ColibriRichTextRole>
 		| $Typed<ColibriRichTextLink>
 		| $Typed<ColibriRichTextTime>
 	)[];

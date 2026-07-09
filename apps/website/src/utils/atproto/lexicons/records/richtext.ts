@@ -5,7 +5,7 @@ export const richtextRecordDocs: LexiconDoc[] = [
 	{
 		lexicon: 1,
 		id: RECORD_IDs.RICHTEXT_FACET,
-		revision: 3,
+		revision: 4,
 		defs: {
 			main: {
 				type: "object",
@@ -35,6 +35,7 @@ export const richtextRecordDocs: LexiconDoc[] = [
 								"social.colibri.richtext.facet#subtext",
 								"social.colibri.richtext.facet#spoiler",
 								"social.colibri.richtext.facet#mention",
+								"social.colibri.richtext.facet#role",
 								"social.colibri.richtext.facet#link",
 								"social.colibri.richtext.facet#time",
 							],
@@ -156,6 +157,19 @@ export const richtextRecordDocs: LexiconDoc[] = [
 						type: "string",
 						description: "The DID of the mentioned user.",
 						format: "did",
+					},
+				},
+			},
+			role: {
+				type: "object",
+				description:
+					"A facet feature for a role mention. Resolves to a community role, at index time the AppView notifies every member holding the role (gated by the role's `mentionable` flag or the author's `mention.roles` permission).",
+				required: ["role"],
+				properties: {
+					role: {
+						type: "string",
+						description: "The AT-URI of the mentioned role record.",
+						format: "at-uri",
 					},
 				},
 			},

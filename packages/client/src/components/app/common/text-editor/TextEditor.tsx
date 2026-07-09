@@ -36,7 +36,10 @@ import TextStrikethroughIcon from "~icons/ph/text-strikethrough";
 import TextUnderlineIcon from "~icons/ph/text-underline";
 import type { GifItem } from "../../../../atproto/xrpc/social/colibri/embed/gifTypes";
 import { useChannelContext } from "../../../../contexts/Channel";
-import { useCommunityContext } from "../../../../contexts/Community";
+import {
+	useCommunityContext,
+	usePermissions,
+} from "../../../../contexts/Community";
 import { useUserContext } from "../../../../contexts/User";
 import { useUserPreferences } from "../../../../contexts/UserPreferences";
 import {
@@ -529,6 +532,7 @@ const mentionMarkdown = (node: ProseMirrorNode): string => {
 	const { type, label, handle } = node.attrs;
 	if (type === "member") return `@${label ?? handle}`;
 	if (type === "channel") return `#${label}`;
+	if (type === "role") return `@${label}`;
 	return label ?? "";
 };
 
@@ -610,6 +614,12 @@ export const TextEditor: Component<{
 	const user = useUserContext();
 	const channel = useChannelContext();
 	const community = useCommunityContext();
+	const permissions = usePermissions();
+
+	const mentionableRoles = () =>
+		(community().assignableRoles ?? []).filter(
+			(role) => role.mentionable || permissions.canMentionRoles(user.did),
+		);
 
 	const runSend = (instance: Editor) => {
 		const json = instance.getJSON();
@@ -713,6 +723,7 @@ export const TextEditor: Component<{
 				suggestions: buildSuggestions(
 					() => community().members ?? [],
 					() => community().channels ?? [],
+					() => mentionableRoles(),
 					() =>
 						Object.keys(EMOJI_DATA).map((x: string) => ({
 							name: x,
@@ -727,6 +738,7 @@ export const TextEditor: Component<{
 						label: { default: null },
 						handle: { default: null },
 						avatar: { default: null },
+						color: { default: null },
 						type: { default: "member" },
 						datetime: { default: null },
 						style: { default: null },
@@ -739,12 +751,14 @@ export const TextEditor: Component<{
 						return `@${label ?? handle}`;
 					} else if (type === "channel") {
 						return `#${label}`;
+					} else if (type === "role") {
+						return `@${label}`;
 					} else {
 						return label;
 					}
 				},
 				renderHTML({ node, HTMLAttributes }) {
-					const { type, label, id, handle } = node.attrs;
+					const { type, label, id, handle, color } = node.attrs;
 
 					let colorClass = "";
 					let contents = "";
@@ -755,6 +769,20 @@ export const TextEditor: Component<{
 					} else if (type === "channel") {
 						colorClass = "bg-blue-400/25";
 						contents = `#${label}`;
+					} else if (type === "role") {
+						contents = `@${label}`;
+						return [
+							"span",
+							mergeAttributes(HTMLAttributes, {
+								"data-mention-type": type,
+								"data-id": id,
+								class: " px-1 rounded-xs",
+								style: color
+									? `background-color: color-mix(in srgb, ${color} 25%, transparent); color: ${color};`
+									: "background-color: color-mix(in srgb, currentColor 25%, transparent);",
+							}),
+							contents,
+						];
 					} else if (type === "time") {
 						colorClass = "bg-orange-400/25";
 						contents = label;
@@ -835,6 +863,7 @@ export const TextEditor: Component<{
 						payload.facets,
 						community().members ?? [],
 						community().channels ?? [],
+						community().assignableRoles ?? [],
 					);
 					instance.chain().focus().insertContent(flattenPaste(content)).run();
 					return true;
@@ -849,6 +878,7 @@ export const TextEditor: Component<{
 					parsed.facets,
 					community().members ?? [],
 					community().channels ?? [],
+					community().assignableRoles ?? [],
 				);
 				instance.chain().focus().insertContent(flattenPaste(content)).run();
 				return true;

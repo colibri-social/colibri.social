@@ -287,6 +287,7 @@ export type Colibri_NotificationEvent = EventBase<
 		authorDid: string;
 		channelUri: string;
 		indexedAt: string;
+		mentionRoleName?: string;
 		message: {
 			text: string;
 			facets: Array<ColibriRichTextFacet>;

@@ -20,7 +20,7 @@ export const MemberProfileModal: Component = () => {
 					<Show when={memberProfile.data()}>
 						{(resolved) => (
 							<>
-								<div class="absolute top-4 right-4 flex items-center justify-center w-6 h-6 hover:bg-muted/50 cursor-pointer rounded-sm">
+								<div class="absolute top-4 right-4 flex items-center justify-center w-6 h-6 hover:bg-muted/50 cursor-pointer rounded-sm z-20">
 									<DialogCloseButton class="absolute cursor-pointer">
 										<XIcon />
 									</DialogCloseButton>

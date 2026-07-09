@@ -21,6 +21,7 @@ import {
 	Popover,
 	PopoverContent,
 	PopoverPortal,
+	type PopoverProps,
 	PopoverTrigger,
 } from "../../ui/Popover";
 import {
@@ -255,7 +256,7 @@ export const ProfilePopoverContents: Component<{
 								<Tooltip open={atProtoAtTooltipVisible()}>
 									<TooltipTrigger>
 										<a
-											href={`https://atproto.at/uri/${props.user.handle}`}
+											href={`https://atproto.at/uri/at://${props.user.handle}`}
 											target="_blank"
 											rel="noreferrer"
 											class="hover:text-[#1185fe] flex flex-row items-center gap-1.5 text-sm text-card-foreground font-normal hover:underline"
@@ -317,6 +318,8 @@ export const ProfilePopover: ParentComponent<{
 	 *  DOM stays valid — block-level <div> triggers inside <p> cause browsers
 	 *  to split the paragraph and break Kobalte's trigger detection. */
 	as?: "div" | "span";
+	/** Which side of the trigger the popover opens on. Defaults to "left". */
+	placement?: PopoverProps["placement"];
 }> = (props) => {
 	const isMobile = useIsMobile();
 	const [open, setOpen] = createSignal(false);
@@ -325,7 +328,7 @@ export const ProfilePopover: ParentComponent<{
 		<Show
 			when={isMobile()}
 			fallback={
-				<Popover preventScroll placement="left" flip>
+				<Popover preventScroll placement={props.placement ?? "left"} flip>
 					<PopoverTrigger
 						as={props.as ?? "div"}
 						class={props.class}
