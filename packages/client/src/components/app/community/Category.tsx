@@ -4,7 +4,6 @@ import {
 	SortableProvider,
 	useDragDropContext,
 } from "@thisbeyond/solid-dnd";
-import { ConnectionState } from "livekit-client";
 import {
 	type Component,
 	createMemo,
@@ -23,13 +22,22 @@ import SpeakerHighIcon from "~icons/ph/speaker-high-fill";
 import SpeakerLowIcon from "~icons/ph/speaker-low-fill";
 import type { Category as CategoryType } from "../../../atproto/xrpc/social/colibri/community/listCategories";
 import type { Channel } from "../../../atproto/xrpc/social/colibri/community/listChannels";
-import { usePermissions } from "../../../contexts/Community";
+import {
+	useCommunityContext,
+	usePermissions,
+} from "../../../contexts/Community";
 import { useMutes } from "../../../contexts/Mutes";
 import { useNotifications } from "../../../contexts/Notifications";
 import { useUserContext } from "../../../contexts/User";
-import { useVoiceChatContext } from "../../../contexts/VoiceChat";
+import {
+	ConnectionState,
+	useVoiceChatContext,
+} from "../../../contexts/VoiceChat";
 import { useIsMobile } from "../../../utils/mobile-pane";
+import { Ear } from "../../icons/Ear";
+import { Microphone } from "../../icons/Microphone";
 import { Button } from "../../ui/Button";
+import User from "../user";
 import { CategoryContextMenu } from "./CategoryContextMenu";
 import { ChannelContextMenu } from "./ChannelContextMenu";
 
@@ -85,20 +93,32 @@ const SortableChannel: Component<{
 		setTimeout(() => setIsDragging(false), 0);
 	});
 
+	const community = useCommunityContext();
 	const [voiceData, { connect }] = useVoiceChatContext();
 
 	const ChannelUri = () => props.channel.uri;
 	const ChannelRkey = () => props.channel.uri.split("/").pop();
 
-	const liveVoiceChannelMembers = createMemo<string[]>(() => {
-		if (voiceData.connection.state !== ConnectionState.Connected) return [];
-		if (voiceData.connection.uri !== ChannelUri()) return [];
-		return voiceData.participants;
-	});
+	const liveVoiceChannelMembers = createMemo<string[]>(
+		() => voiceData.presence[ChannelUri()] ?? [],
+	);
 
-	const _handleVoiceChannelJoin = () => {
-		if (props.channel.type !== "social.colibri.channel.voice") return;
-		connect(ChannelUri());
+	const isVoiceChannel = () =>
+		props.channel.type === "voice" ||
+		props.channel.type === "social.colibri.channel.voice";
+
+	const isConnectedHere = () =>
+		voiceData.connection.uri === ChannelUri() &&
+		voiceData.connection.state === ConnectionState.Connected;
+
+	const handleChannelClick = (e: MouseEvent) => {
+		if (isVoiceChannel() && !isConnectedHere()) {
+			e.preventDefault();
+			connect(ChannelUri(), {
+				channelName: props.channel.name,
+				communityName: community().community.name,
+			});
+		}
 	};
 
 	const channelRoutePrefix = () => {
@@ -134,6 +154,7 @@ const SortableChannel: Component<{
 					<A
 						class="group/channel text-muted-foreground flex flex-row justify-between items-center gap-2 hover:bg-card rounded-sm cursor-pointer p-1 py-0.5 pr-1.25"
 						href={`/app/c/${params.community}/${channelRoutePrefix()}/${ChannelRkey()}`}
+						onClick={handleChannelClick}
 						activeClass="bg-muted! text-foreground!"
 						classList={{
 							"bg-linear-145 from-[#090615] via-[#31226d70] to-[#e0deec30]":
@@ -161,13 +182,15 @@ const SortableChannel: Component<{
 									<Show
 										when={
 											voiceData.connection.uri === ChannelUri() &&
-											voiceData.connection.state ===
-												ConnectionState.Connected &&
-											voiceData.states.micEnabled
+											voiceData.connection.state === ConnectionState.Connected
 										}
 										fallback={<SpeakerLowIcon width={20} height={20} />}
 									>
-										<SpeakerHighIcon width={20} height={20} />
+										<SpeakerHighIcon
+											width={20}
+											height={20}
+											class="text-primary"
+										/>
 									</Show>
 								</Match>
 							</Switch>
@@ -215,9 +238,53 @@ const SortableChannel: Component<{
 						liveVoiceChannelMembers().length > 0
 					}
 				>
-					<div class="pl-7.5 text-muted-foreground flex flex-col select-none text-xs">
+					<div class="pl-6 text-muted-foreground flex flex-col gap-0.5 select-none text-xs">
 						<For each={liveVoiceChannelMembers()}>
-							{(did) => <span class="truncate">{did}</span>}
+							{(did) => {
+								const member = () =>
+									community().members.find((m) => m.did === did);
+								const isSpeaking = () => voiceData.activeSpeakers.includes(did);
+								return (
+									<Show
+										when={member()}
+										fallback={<span class="truncate px-1 py-1">{did}</span>}
+									>
+										<User.ProfilePopover
+											user={member()!}
+											class="flex items-center gap-2 hover:bg-card rounded-sm p-1 cursor-pointer"
+										>
+											<div
+												class="rounded-full transition-shadow"
+												classList={{
+													"ring-2 ring-primary": isSpeaking(),
+												}}
+											>
+												<User.Avatar
+													user={member()!}
+													size="small"
+													disableState={true}
+												/>
+											</div>
+											<span class="truncate flex-1 text-sm">
+												<User.DisplayableName color={false} user={member()!} />
+											</span>
+											<span class="flex items-center gap-1 [&_svg]:w-3.5 [&_svg]:h-3.5 [&_svg]:shrink-0 [&_svg]:text-red-400">
+												<Show
+													when={
+														voiceData.memberStates[did]?.muted &&
+														!voiceData.memberStates[did]?.deafened
+													}
+												>
+													<Microphone enabled={false} />
+												</Show>
+												<Show when={voiceData.memberStates[did]?.deafened}>
+													<Ear enabled={true} />
+												</Show>
+											</span>
+										</User.ProfilePopover>
+									</Show>
+								);
+							}}
 						</For>
 					</div>
 				</Show>

@@ -6,6 +6,9 @@ export type Member = {
 	did: string;
 	handle: string;
 	roles: Array<string>;
+	vc?: string;
+	vcMuted?: boolean;
+	vcDeafened?: boolean;
 	data: {
 		displayName: string;
 		avatar?: JsonBlobRef;

@@ -61,7 +61,7 @@ const CommunityHeader = () => {
 
 	return (
 		<>
-			<div class="w-full border-b border-border flex flex-col justify-center py-4 px-3">
+			<div class="w-full border-b border-border flex flex-col justify-center pb-4 pt-3 px-3">
 				<Show
 					when={isMobile()}
 					fallback={

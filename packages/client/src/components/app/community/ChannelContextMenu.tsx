@@ -48,6 +48,10 @@ export const ChannelContextMenu: ParentComponent<{
 
 	const muted = () => mutes.isChannelMuted(props.channel.uri);
 
+	const isVoice = () =>
+		props.channel.type === "voice" ||
+		props.channel.type === "social.colibri.channel.voice";
+
 	const canUpdate = () => _canUpdateChannel(user.did);
 	const canDelete = () => _canDelete(user.did);
 	const isMobile = useIsMobile();
@@ -92,26 +96,28 @@ export const ChannelContextMenu: ParentComponent<{
 					onOpenChange={setMenuOpen}
 					title={props.channel.name}
 				>
-					<MenuDrawerItem
-						onClick={() => {
-							setMenuOpen(false);
-							void notifications.markChannelAsRead(props.channel.uri);
-						}}
-					>
-						<CheckIcon />
-						<span>Mark as read</span>
-					</MenuDrawerItem>
-					<MenuDrawerItem
-						onClick={() => {
-							setMenuOpen(false);
-							toggleMute();
-						}}
-					>
-						<Show when={muted()} fallback={<BellSlashIcon />}>
-							<BellIcon />
-						</Show>
-						<span>{muted() ? "Unmute Channel" : "Mute Channel"}</span>
-					</MenuDrawerItem>
+					<Show when={!isVoice()}>
+						<MenuDrawerItem
+							onClick={() => {
+								setMenuOpen(false);
+								void notifications.markChannelAsRead(props.channel.uri);
+							}}
+						>
+							<CheckIcon />
+							<span>Mark as read</span>
+						</MenuDrawerItem>
+						<MenuDrawerItem
+							onClick={() => {
+								setMenuOpen(false);
+								toggleMute();
+							}}
+						>
+							<Show when={muted()} fallback={<BellSlashIcon />}>
+								<BellIcon />
+							</Show>
+							<span>{muted() ? "Unmute Channel" : "Mute Channel"}</span>
+						</MenuDrawerItem>
+					</Show>
 					<Show when={canUpdate()}>
 						<MenuDrawerItem
 							onClick={() =>
@@ -143,27 +149,29 @@ export const ChannelContextMenu: ParentComponent<{
 					<ContextMenuTrigger>{props.children}</ContextMenuTrigger>
 					<ContextMenuPortal>
 						<ContextMenuContent class="min-w-44">
-							<ContextMenuItem
-								onClick={() =>
-									void notifications.markChannelAsRead(props.channel.uri)
-								}
-							>
-								<CheckIcon />
-								<span>Mark as read</span>
-							</ContextMenuItem>
-							<ContextMenuItem
-								onClick={() =>
-									void (muted()
-										? mutes.unmuteChannel(props.channel.uri)
-										: mutes.muteChannel(props.channel.uri))
-								}
-							>
-								<Show when={muted()} fallback={<BellSlashIcon />}>
-									<BellIcon />
-								</Show>
-								<span>{muted() ? "Unmute Channel" : "Mute Channel"}</span>
-							</ContextMenuItem>
-							<Show when={canUpdate() || canDelete()}>
+							<Show when={!isVoice()}>
+								<ContextMenuItem
+									onClick={() =>
+										void notifications.markChannelAsRead(props.channel.uri)
+									}
+								>
+									<CheckIcon />
+									<span>Mark as read</span>
+								</ContextMenuItem>
+								<ContextMenuItem
+									onClick={() =>
+										void (muted()
+											? mutes.unmuteChannel(props.channel.uri)
+											: mutes.muteChannel(props.channel.uri))
+									}
+								>
+									<Show when={muted()} fallback={<BellSlashIcon />}>
+										<BellIcon />
+									</Show>
+									<span>{muted() ? "Unmute Channel" : "Mute Channel"}</span>
+								</ContextMenuItem>
+							</Show>
+							<Show when={!isVoice() && (canUpdate() || canDelete())}>
 								<ContextMenuSeparator />
 							</Show>
 							<Show when={canUpdate()}>

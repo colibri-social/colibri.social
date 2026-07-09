@@ -257,6 +257,25 @@ export type Colibri_TypingEvent = EventBase<
 	}
 >;
 
+export type Colibri_VoicePresenceEvent = EventBase<
+	"voice_presence_event",
+	{
+		event: "join" | "leave";
+		channel: AT_URI<"social.colibri.channel">;
+		did: string;
+	}
+>;
+
+export type Colibri_VoiceStateEvent = EventBase<
+	"voice_state_event",
+	{
+		channel: AT_URI<"social.colibri.channel">;
+		did: string;
+		muted: boolean;
+		deafened: boolean;
+	}
+>;
+
 export type Colibri_NotificationEvent = EventBase<
 	"notification_event",
 	{
@@ -345,6 +364,8 @@ export type ColibriEvent =
 	| Colibri_ReactionEvent
 	| Colibri_UserEvent
 	| Colibri_TypingEvent
+	| Colibri_VoicePresenceEvent
+	| Colibri_VoiceStateEvent
 	| Colibri_NotificationEvent
 	| Colibri_SeenEvent
 	| Colibri_MuteEvent

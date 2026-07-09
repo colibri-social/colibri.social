@@ -1,5 +1,4 @@
 import type { OnlineState } from "@colibri-social/lib";
-import { ConnectionQuality, ConnectionState } from "livekit-client";
 import {
 	type Component,
 	createSignal,
@@ -15,8 +14,11 @@ import CheckIcon from "~icons/ph/check";
 import PhoneSlashIcon from "~icons/ph/phone-slash";
 import { useCommunityContext } from "../../../contexts/Community";
 import { useUserContext } from "../../../contexts/User";
-import { useUserPreferences } from "../../../contexts/UserPreferences";
-import { useVoiceChatContext } from "../../../contexts/VoiceChat";
+import {
+	ConnectionQuality,
+	ConnectionState,
+	useVoiceChatContext,
+} from "../../../contexts/VoiceChat";
 import { useIsMobile } from "../../../utils/mobile-pane";
 import { Camera } from "../../icons/Camera";
 import { Ear } from "../../icons/Ear";
@@ -142,25 +144,28 @@ export const Status: Component = () => {
 		voiceData,
 		{ disconnect, toggleCamera, toggleScreen, toggleMic, toggleDeafen },
 	] = useVoiceChatContext();
-	const userPreferences = useUserPreferences();
 
 	const isReconnecting = () =>
 		voiceData.connection.state === ConnectionState.Connecting ||
-		voiceData.connection.state === ConnectionState.Reconnecting ||
-		voiceData.connection.state === ConnectionState.SignalReconnecting;
+		voiceData.connection.state === ConnectionState.Reconnecting;
 
 	const liveUser = () => community().members.find((m) => m.did === user.did);
 	const onlineState = (): OnlineState =>
 		liveUser()?.data.onlineState ?? user.data.onlineState;
+
+	const voiceLabel = (): string =>
+		[voiceData.connection.channelName, voiceData.connection.communityName]
+			.filter(Boolean)
+			.join(" / ");
 
 	return (
 		<div class="w-full h-fit flex flex-col">
 			<Show when={voiceData.connection.state === ConnectionState.Connected}>
 				<div class="w-full p-3 border-t border-border flex flex-col gap-2">
 					<div class="flex flex-row items-center gap-2 justify-between">
-						<div class="flex flex-row items-center gap-2">
+						<div class="flex flex-row items-center gap-2 w-[calc(100%-40px)] overflow-hidden">
 							<div
-								class="w-8 h-8 bg-muted/50 flex items-center justify-center rounded-sm"
+								class="min-w-8 h-8 bg-muted/50 flex items-center justify-center rounded-sm"
 								classList={{
 									"bg-green-400/15":
 										voiceData.connection.quality ===
@@ -175,7 +180,7 @@ export const Status: Component = () => {
 							>
 								<Wifi size={24} quality={voiceData.connection.quality} />
 							</div>
-							<div class="flex flex-col w-fit">
+							<div class="flex flex-col w-[calc(100%-36px)] overflow-hidden">
 								<span
 									class="text-sm font-medium"
 									classList={{
@@ -214,9 +219,8 @@ export const Status: Component = () => {
 									</Switch>
 								</span>
 								<Suspense>
-									<span class="text-xs text-muted-foreground">
-										{voiceData.connection.room?.name ??
-											voiceData.connection.uri}
+									<span class="text-xs text-muted-foreground whitespace-nowrap text-ellipsis overflow-hidden">
+										{voiceLabel()}
 									</span>
 								</Suspense>
 							</div>
@@ -232,41 +236,25 @@ export const Status: Component = () => {
 					<div class="grid grid-cols-4 gap-2 w-full">
 						<Button
 							class="w-full"
-							variant={
-								userPreferences.preferences().voice.input.enabled
-									? "secondary"
-									: "outline"
-							}
+							variant={voiceData.states.micEnabled ? "secondary" : "outline"}
 							classList={{
-								"text-(--primary-hover)!":
-									userPreferences.preferences().voice.input.enabled,
-								"text-red-400":
-									!userPreferences.preferences().voice.input.enabled,
+								"text-(--primary-hover)!": voiceData.states.micEnabled,
+								"text-red-400": !voiceData.states.micEnabled,
 							}}
 							onClick={toggleMic}
 						>
-							<Microphone
-								enabled={userPreferences.preferences().voice.input.enabled}
-							/>
+							<Microphone enabled={voiceData.states.micEnabled} />
 						</Button>
 						<Button
 							class="w-full"
-							variant={
-								!userPreferences.preferences().voice.output.enabled
-									? "secondary"
-									: "outline"
-							}
+							variant={voiceData.states.deafened ? "secondary" : "outline"}
 							classList={{
-								"text-foreground":
-									userPreferences.preferences().voice.output.enabled,
-								"text-red-400!":
-									!userPreferences.preferences().voice.output.enabled,
+								"text-foreground": !voiceData.states.deafened,
+								"text-red-400!": voiceData.states.deafened,
 							}}
 							onClick={toggleDeafen}
 						>
-							<Ear
-								enabled={!userPreferences.preferences().voice.output.enabled}
-							/>
+							<Ear enabled={voiceData.states.deafened} />
 						</Button>
 						<Button
 							class="w-full"

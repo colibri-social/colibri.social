@@ -226,9 +226,10 @@ const MessageInner: Component<{
 										user={resolveAuthor(message.author)}
 										disabled={isPending()}
 									>
-										<span class="font-bold hover:underline cursor-pointer">
+										<span class="font-bold cursor-pointer">
 											<User.DisplayableName
 												user={resolveAuthor(message.author)}
+												className="hover:underline"
 											/>
 										</span>
 									</User.ProfilePopover>
@@ -270,6 +271,7 @@ const MessageInner: Component<{
 											<span class="font-bold hover:underline cursor-pointer">
 												<User.DisplayableName
 													user={resolveAuthor(message.author)}
+													className="hover:underline"
 												/>
 											</span>
 										</div>

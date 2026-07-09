@@ -130,6 +130,21 @@ export const communityMethodDocs: LexiconDoc[] = [
 						type: "array",
 						items: { type: "string", format: "at-uri" },
 					},
+					vc: {
+						type: "string",
+						format: "at-uri",
+						description:
+							"AT-URI of the voice channel the member is currently connected to, if any.",
+					},
+					vcMuted: {
+						type: "boolean",
+						description:
+							"Whether the member's microphone is muted in the voice channel.",
+					},
+					vcDeafened: {
+						type: "boolean",
+						description: "Whether the member is deafened in the voice channel.",
+					},
 					data: { type: "ref", ref: "social.colibri.actor.defs#actorData" },
 				},
 			},

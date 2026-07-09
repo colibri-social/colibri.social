@@ -7,7 +7,10 @@ import {
 	Show,
 } from "solid-js";
 import { useUserPreferences } from "../../../contexts/UserPreferences";
-import { useVoiceChatContext } from "../../../contexts/VoiceChat";
+import {
+	ConnectionState,
+	useVoiceChatContext,
+} from "../../../contexts/VoiceChat";
 import {
 	Select,
 	SelectContent,
@@ -55,7 +58,10 @@ export const VideoPage: Component = () => {
 		let aborted = false;
 
 		(async () => {
-			if (voiceChat.connection.room && voiceChat.states.camEnabled) {
+			if (
+				voiceChat.connection.state === ConnectionState.Connected &&
+				voiceChat.states.camEnabled
+			) {
 				voiceChat.states.camEnabled = false;
 				setPreviouslyEnabled(true);
 			}
@@ -114,7 +120,10 @@ export const VideoPage: Component = () => {
 				t.stop();
 			});
 		setCameraStream(null);
-		if (voiceChat.connection.room && previouslyEnabled()) {
+		if (
+			voiceChat.connection.state === ConnectionState.Connected &&
+			previouslyEnabled()
+		) {
 			voiceChat.states.camEnabled = true;
 		}
 	});

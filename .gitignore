@@ -24,8 +24,5 @@ pnpm-debug.log*
 .idea/
 zsh.exe.stackdump
 
-# Livekit
-livekit-server.exe
-
 # Sentry Config File
 .env.sentry-build-plugin

@@ -2,6 +2,7 @@ import type { ActorData } from "@colibri-social/lib";
 import { type Component, Show } from "solid-js";
 import { useCommunityContext } from "../../../contexts/Community";
 import { Badge } from "./Badge";
+import { cx } from "../../../utils/cva";
 
 export const displayableNameFn = (user: ActorData) =>
 	(user.data.displayName === user.handle ? undefined : user.data.displayName) ||
@@ -16,6 +17,7 @@ export const DisplayableName: Component<{
 	 * the user's top role color.
 	 */
 	color?: boolean | string;
+	className?: string;
 }> = (props) => {
 	const community = useCommunityContext();
 
@@ -39,7 +41,7 @@ export const DisplayableName: Component<{
 	return (
 		<span
 			style={{ color: resolvedColor() }}
-			class="inline-flex flex-row items-center gap-2"
+			class={cx("inline-flex flex-row items-center gap-2", props.className)}
 		>
 			{displayableNameFn(props.user)}
 			<Show when={props.user.data.isBot && props.color !== false}>

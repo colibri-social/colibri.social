@@ -1,5 +1,12 @@
 import type { ActorData } from "@colibri-social/lib";
-import { createSignal, For, type ParentComponent, Show } from "solid-js";
+import {
+	createEffect,
+	createSignal,
+	For,
+	onCleanup,
+	type ParentComponent,
+	Show,
+} from "solid-js";
 import { toast } from "somoto";
 import CheckIcon from "~icons/ph/check";
 import {
@@ -7,6 +14,11 @@ import {
 	usePermissions,
 } from "../../../contexts/Community";
 import { useUserContext } from "../../../contexts/User";
+import { useUserPreferences } from "../../../contexts/UserPreferences";
+import {
+	ConnectionState,
+	useVoiceChatContext,
+} from "../../../contexts/VoiceChat";
 import { createLongPress } from "../../../utils/create-long-press";
 import { useIsMobile } from "../../../utils/mobile-pane";
 import { createRoleSync } from "../../../utils/role-sync";
@@ -28,17 +40,30 @@ import {
 	ContextMenuTrigger,
 } from "../../ui/ContextMenu";
 import { handoffDrawer, MenuDrawer, MenuDrawerItem } from "../../ui/MenuDrawer";
+import { ResponsiveDialog } from "../../ui/ResponsiveDialog";
+import {
+	Slider,
+	SliderFill,
+	SliderGroup,
+	SliderLabel,
+	SliderThumb,
+	SliderTrack,
+	SliderValueLabel,
+} from "../../ui/Slider";
 import { DisplayableName, displayableNameFn } from "../user/DisplayableName";
 import {
 	type ActionDialogData,
 	MemberActionDialog,
 } from "./MemberActionDialog";
 
-export const MemberContextMenu: ParentComponent<{ member: ActorData }> = (
-	props,
-) => {
+export const MemberContextMenu: ParentComponent<{
+	member: ActorData;
+	class?: string;
+}> = (props) => {
 	const user = useUserContext();
 	const community = useCommunityContext();
+	const preferences = useUserPreferences();
+	const [voiceData, { toggleMic, toggleDeafen }] = useVoiceChatContext();
 	const { canManageRole, outranks, canBanMember, canKickMember } =
 		usePermissions();
 
@@ -48,11 +73,85 @@ export const MemberContextMenu: ParentComponent<{ member: ActorData }> = (
 
 	const isMe = () => props.member.did === user.did;
 	const showModActions = () => outranks(user.did, props.member.did) && !isMe();
+	const hasModActions = () =>
+		showModActions() &&
+		((canKickMember(user.did) &&
+			community().community.requiresApprovalToJoin) ||
+			canBanMember(user.did));
 	const isMobile = useIsMobile();
 	const [menuOpen, setMenuOpen] = createSignal(false);
 
+	const inVc = () => voiceData.connection.state === ConnectionState.Connected;
+
+	const participantVolume = () =>
+		Math.round(
+			(preferences.preferences().voice.participantVolumeOverrides[
+				props.member.did
+			]?.voice.volume ?? 1) * 100,
+		);
+
+	const [cameraPreviewOpen, setCameraPreviewOpen] = createSignal(false);
+	const [previewStream, setPreviewStream] = createSignal<MediaStream | null>(
+		null,
+	);
+	let previewVideo: HTMLVideoElement | undefined;
+
+	const stopPreview = () => {
+		for (const t of previewStream()?.getTracks() ?? []) t.stop();
+		setPreviewStream(null);
+	};
+
+	createEffect(() => {
+		if (!cameraPreviewOpen()) {
+			stopPreview();
+			return;
+		}
+		const deviceId = preferences.preferences().voice.camera.preferredDeviceId;
+		navigator.mediaDevices
+			.getUserMedia({
+				video: deviceId ? { deviceId: { ideal: deviceId } } : true,
+			})
+			.then((stream) => {
+				if (cameraPreviewOpen()) setPreviewStream(stream);
+				else for (const t of stream.getTracks()) t.stop();
+			})
+			.catch(() => {});
+	});
+
+	createEffect(() => {
+		const el = previewVideo;
+		const stream = previewStream();
+		if (!el || !stream) return;
+		el.srcObject = stream;
+		el.muted = true;
+		el.play().catch(() => {});
+	});
+
+	onCleanup(stopPreview);
+
 	const sortedRoles = () =>
 		community().assignableRoles.sort((a, b) => b.position - a.position);
+
+	const canManageAnyRole = () =>
+		sortedRoles().some((role) => canManageRole(user.did, role));
+
+	/** A desktop context-menu toggle styled like the role checkboxes. */
+	const VoiceCheckItem: ParentComponent<{
+		checked: boolean;
+		onToggle: () => void;
+	}> = (p) => (
+		<Checkbox class="w-full" checked={p.checked}>
+			<CheckboxInput />
+			<ContextMenuItem
+				closeOnSelect={false}
+				class="flex flex-row items-center gap-4 justify-between cursor-pointer"
+				onClick={() => p.onToggle()}
+			>
+				<CheckboxLabel>{p.children}</CheckboxLabel>
+				<CheckboxControl />
+			</ContextMenuItem>
+		</Checkbox>
+	);
 
 	const copyDid = () => {
 		navigator.clipboard.writeText(props.member.did);
@@ -74,6 +173,16 @@ export const MemberContextMenu: ParentComponent<{ member: ActorData }> = (
 				dialog={dialog}
 				setDialog={setDialog}
 			/>
+			<ResponsiveDialog
+				open={cameraPreviewOpen()}
+				onOpenChange={setCameraPreviewOpen}
+				title="Camera Preview"
+			>
+				<video
+					ref={previewVideo}
+					class="w-full aspect-video rounded-md object-cover bg-muted -scale-x-100"
+				/>
+			</ResponsiveDialog>
 			<Show when={isMobile()}>
 				<div
 					style={{ display: "contents" }}
@@ -91,30 +200,116 @@ export const MemberContextMenu: ParentComponent<{ member: ActorData }> = (
 					onOpenChange={setMenuOpen}
 					title={<DisplayableName color={false} user={props.member} />}
 				>
-					<span class="px-3 pt-1 pb-0.5 text-xs uppercase tracking-wide text-muted-foreground">
-						Roles
-					</span>
-					<For each={sortedRoles()}>
-						{(role) => {
-							const manageable = () => canManageRole(user.did, role);
-							return (
-								<MenuDrawerItem
-									disabled={!manageable()}
-									class="disabled:opacity-50"
-									onClick={() => manageable() && toggleRole(role.uri)}
+					<Show when={inVc()}>
+						<Show
+							when={isMe()}
+							fallback={
+								<div class="px-3 py-2">
+									<Slider
+										value={[participantVolume()]}
+										minValue={0}
+										maxValue={200}
+										step={1}
+										getValueLabel={(p) => `${p.values[0]}%`}
+										onChange={(e) =>
+											preferences.setParticipantVolume(
+												props.member.did,
+												e[0] / 100,
+											)
+										}
+									>
+										<SliderGroup>
+											<SliderLabel>Volume</SliderLabel>
+											<SliderValueLabel />
+										</SliderGroup>
+										<SliderTrack>
+											<SliderFill />
+											<SliderThumb />
+										</SliderTrack>
+									</Slider>
+								</div>
+							}
+						>
+							<MenuDrawerItem onClick={() => toggleMic()}>
+								<span>Mute</span>
+								<Show when={!voiceData.states.micEnabled}>
+									<CheckIcon class="ml-auto" />
+								</Show>
+							</MenuDrawerItem>
+							<MenuDrawerItem onClick={() => toggleDeafen()}>
+								<span>Deafen</span>
+								<Show when={voiceData.states.deafened}>
+									<CheckIcon class="ml-auto" />
+								</Show>
+							</MenuDrawerItem>
+							<MenuDrawerItem
+								onClick={() =>
+									handoffDrawer(
+										() => setMenuOpen(false),
+										() => setCameraPreviewOpen(true),
+									)
+								}
+							>
+								Preview Camera
+							</MenuDrawerItem>
+							<MenuDrawerItem
+								onClick={() =>
+									preferences.setVoiceView({
+										showNonVideoParticipants:
+											!preferences.preferences().voice.showNonVideoParticipants,
+									})
+								}
+							>
+								<span>Show non-video participants</span>
+								<Show
+									when={
+										preferences.preferences().voice.showNonVideoParticipants
+									}
 								>
-									<div
-										class="w-2.5 h-2.5 rounded-full shrink-0"
-										style={{ background: role.color ?? "#fff" }}
-									/>
-									<span>{role.name}</span>
-									<Show when={hasRole(role.uri)}>
-										<CheckIcon class="ml-auto" />
-									</Show>
-								</MenuDrawerItem>
-							);
-						}}
-					</For>
+									<CheckIcon class="ml-auto" />
+								</Show>
+							</MenuDrawerItem>
+							<MenuDrawerItem
+								onClick={() =>
+									preferences.setVoiceView({
+										showOwnCamera:
+											!preferences.preferences().voice.showOwnCamera,
+									})
+								}
+							>
+								<span>Show own camera feed</span>
+								<Show when={preferences.preferences().voice.showOwnCamera}>
+									<CheckIcon class="ml-auto" />
+								</Show>
+							</MenuDrawerItem>
+						</Show>
+					</Show>
+					<Show when={canManageAnyRole()}>
+						<span class="px-3 pt-1 pb-0.5 text-xs uppercase tracking-wide text-muted-foreground">
+							Roles
+						</span>
+						<For each={sortedRoles()}>
+							{(role) => {
+								const manageable = () => canManageRole(user.did, role);
+								return (
+									<MenuDrawerItem
+										disabled={!manageable()}
+										class="disabled:opacity-50"
+										onClick={() => manageable() && toggleRole(role.uri)}
+									>
+										<div
+											class="w-2.5 h-2.5 rounded-full shrink-0"
+											style={{ background: role.color ?? "#fff" }}
+										/>
+										<span>{role.name}</span>
+										<Show when={hasRole(role.uri)}>
+											<CheckIcon class="ml-auto" />
+										</Show>
+									</MenuDrawerItem>
+								);
+							}}
+						</For>
+					</Show>
 					<Show when={showModActions()}>
 						<Show
 							when={
@@ -164,66 +359,143 @@ export const MemberContextMenu: ParentComponent<{ member: ActorData }> = (
 			</Show>
 			<Show when={!isMobile()}>
 				<ContextMenu>
-					<ContextMenuTrigger>{props.children}</ContextMenuTrigger>
+					<ContextMenuTrigger class={props.class}>
+						{props.children}
+					</ContextMenuTrigger>
 					<ContextMenuPortal>
 						<ContextMenuContent>
-							{/* NOTE: Future implementation of MemberProfileModal.tsx required
-							<ContextMenuItem
-							onClick={() => {
-								memberProfile.setData(props.member);
-								memberProfile.setOpen(true);
-							}}
-						>
-							Profile
-						</ContextMenuItem>
-						<ContextMenuSeparator />*/}
-							<ContextMenuSub>
-								<ContextMenuSubTrigger>Roles</ContextMenuSubTrigger>
-								<ContextMenuPortal>
-									<ContextMenuSubContent>
-										<For
-											each={community().assignableRoles.sort(
-												(a, b) => b.position - a.position,
-											)}
-										>
-											{(role) => {
-												const manageable = () => canManageRole(user.did, role);
+							<Show when={inVc()}>
+								<Show
+									when={isMe()}
+									fallback={
+										<div class="px-2 py-1.5 w-56">
+											<Slider
+												value={[participantVolume()]}
+												minValue={0}
+												maxValue={200}
+												step={1}
+												getValueLabel={(p) => `${p.values[0]}%`}
+												onChange={(e) =>
+													preferences.setParticipantVolume(
+														props.member.did,
+														e[0] / 100,
+													)
+												}
+											>
+												<SliderGroup>
+													<SliderLabel>Volume</SliderLabel>
+													<SliderValueLabel />
+												</SliderGroup>
+												<SliderTrack>
+													<SliderFill />
+													<SliderThumb />
+												</SliderTrack>
+											</Slider>
+										</div>
+									}
+								>
+									<VoiceCheckItem
+										checked={!voiceData.states.micEnabled}
+										onToggle={() => toggleMic()}
+									>
+										Mute
+									</VoiceCheckItem>
+									<VoiceCheckItem
+										checked={voiceData.states.deafened}
+										onToggle={() => toggleDeafen()}
+									>
+										Deafen
+									</VoiceCheckItem>
+									<ContextMenuItem onSelect={() => setCameraPreviewOpen(true)}>
+										Preview Camera
+									</ContextMenuItem>
+									<VoiceCheckItem
+										checked={
+											preferences.preferences().voice
+												.showNonVideoParticipants !== false
+										}
+										onToggle={() =>
+											preferences.setVoiceView({
+												showNonVideoParticipants:
+													preferences.preferences().voice
+														.showNonVideoParticipants === false,
+											})
+										}
+									>
+										Show non-video participants
+									</VoiceCheckItem>
+									<VoiceCheckItem
+										checked={
+											preferences.preferences().voice.showOwnCamera !== false
+										}
+										onToggle={() =>
+											preferences.setVoiceView({
+												showOwnCamera:
+													preferences.preferences().voice.showOwnCamera ===
+													false,
+											})
+										}
+									>
+										Show own camera feed
+									</VoiceCheckItem>
+								</Show>
+							</Show>
+							<Show when={canManageAnyRole()}>
+								<Show when={inVc()}>
+									<ContextMenuSeparator />
+								</Show>
+								<ContextMenuSub>
+									<ContextMenuSubTrigger>Roles</ContextMenuSubTrigger>
+									<ContextMenuPortal>
+										<ContextMenuSubContent>
+											<For
+												each={community().assignableRoles.sort(
+													(a, b) => b.position - a.position,
+												)}
+											>
+												{(role) => {
+													const manageable = () =>
+														canManageRole(user.did, role);
 
-												return (
-													<Checkbox
-														class="w-full"
-														checked={hasRole(role.uri)}
-														disabled={!manageable()}
-													>
-														<CheckboxInput />
-														<ContextMenuItem
-															closeOnSelect={false}
+													return (
+														<Checkbox
+															class="w-full"
+															checked={hasRole(role.uri)}
 															disabled={!manageable()}
-															class="flex flex-row items-center gap-4 justify-between cursor-pointer"
-															onClick={() => {
-																if (!manageable()) return;
-																toggleRole(role.uri);
-															}}
 														>
-															<CheckboxLabel class="flex flex-row items-center gap-2">
-																<div
-																	class="w-2 h-2 rounded-full"
-																	style={{
-																		background: `${role.color ?? "#fff"}`,
-																	}}
-																/>
-																{role.name}
-															</CheckboxLabel>
-															<CheckboxControl />
-														</ContextMenuItem>
-													</Checkbox>
-												);
-											}}
-										</For>
-									</ContextMenuSubContent>
-								</ContextMenuPortal>
-							</ContextMenuSub>
-							<Show when={showModActions()}>
+															<CheckboxInput />
+															<ContextMenuItem
+																closeOnSelect={false}
+																disabled={!manageable()}
+																class="flex flex-row items-center gap-4 justify-between cursor-pointer"
+																onClick={() => {
+																	if (!manageable()) return;
+																	toggleRole(role.uri);
+																}}
+															>
+																<CheckboxLabel class="flex flex-row items-center gap-2">
+																	<div
+																		class="w-2 h-2 rounded-full"
+																		style={{
+																			background: `${role.color ?? "#fff"}`,
+																		}}
+																	/>
+																	{role.name}
+																</CheckboxLabel>
+																<CheckboxControl />
+															</ContextMenuItem>
+														</Checkbox>
+													);
+												}}
+											</For>
+										</ContextMenuSubContent>
+									</ContextMenuPortal>
+								</ContextMenuSub>
+							</Show>
+							<Show when={hasModActions()}>
+								<Show when={inVc() || canManageAnyRole()}>
+									<ContextMenuSeparator />
+								</Show>
 								<Show
 									when={
 										canKickMember(user.did) &&
@@ -250,7 +522,9 @@ export const MemberContextMenu: ParentComponent<{ member: ActorData }> = (
 									</ContextMenuItem>
 								</Show>
 							</Show>
-							<ContextMenuSeparator />
+							<Show when={inVc() || canManageAnyRole() || hasModActions()}>
+								<ContextMenuSeparator />
+							</Show>
 							<ContextMenuItem
 								onClick={() => {
 									navigator.clipboard.writeText(props.member.did);

@@ -57,6 +57,10 @@ export type UserPreferencesContextData = {
 		output: VoiceIOSettings;
 		camera: BaseVoiceVideoSettings;
 		participantVolumeOverrides: Record<string, VolumeOverrides>;
+		selfMuted: boolean;
+		selfDeafened: boolean;
+		showNonVideoParticipants: boolean;
+		showOwnCamera: boolean;
 	};
 	preferredBlueskyClient: BlueskyClientID;
 	preferredAppView: string;
@@ -87,6 +91,10 @@ const DEFAULT_PREFERENCES: UserPreferencesContextData = {
 			preferredDeviceId: undefined,
 		},
 		participantVolumeOverrides: {},
+		selfMuted: false,
+		selfDeafened: false,
+		showNonVideoParticipants: true,
+		showOwnCamera: true,
 	},
 	preferredBlueskyClient: "bluesky",
 	preferredAppView: DEFAULT_APPVIEW_URL,
@@ -99,10 +107,12 @@ function loadFromStorage(): UserPreferencesContextData {
 	try {
 		const raw = localStorage.getItem(STORAGE_KEY);
 		if (!raw) return DEFAULT_PREFERENCES;
+		const parsed = JSON.parse(raw);
 		return {
 			...DEFAULT_PREFERENCES,
-			...JSON.parse(raw),
+			...parsed,
 			membersListVisible: DEFAULT_PREFERENCES.membersListVisible,
+			voice: { ...DEFAULT_PREFERENCES.voice, ...(parsed.voice ?? {}) },
 		};
 	} catch {
 		return DEFAULT_PREFERENCES;
@@ -113,6 +123,15 @@ type UserPreferencesContextValue = {
 	preferences: Accessor<UserPreferencesContextData>;
 	setPreferences: Setter<UserPreferencesContextData>;
 	updateVoice: (patch: Partial<VoicePreferences>) => void;
+	setVoiceSelfState: (patch: {
+		selfMuted?: boolean;
+		selfDeafened?: boolean;
+	}) => void;
+	setParticipantVolume: (did: string, volume: number) => void;
+	setVoiceView: (patch: {
+		showNonVideoParticipants?: boolean;
+		showOwnCamera?: boolean;
+	}) => void;
 	toggleMembersVisible: () => void;
 	setNativeNotifications: (enabled: boolean) => void;
 	setPreferredBlueskyClient: (client: BlueskyClientID) => void;
@@ -138,6 +157,40 @@ export const UserPreferencesContextProvider: ParentComponent = (props) => {
 	});
 
 	const updateVoice = (patch: Partial<VoicePreferences>) => {
+		setPreferences((p) => ({ ...p, voice: { ...p.voice, ...patch } }));
+	};
+
+	const setVoiceSelfState = (patch: {
+		selfMuted?: boolean;
+		selfDeafened?: boolean;
+	}) => {
+		setPreferences((p) => ({ ...p, voice: { ...p.voice, ...patch } }));
+	};
+
+	const setParticipantVolume = (did: string, volume: number) => {
+		setPreferences((p) => {
+			const existing = p.voice.participantVolumeOverrides[did] ?? {
+				voice: { volume: 1, muted: false },
+				screen: { volume: 1, muted: false },
+			};
+
+			return {
+				...p,
+				voice: {
+					...p.voice,
+					participantVolumeOverrides: {
+						...p.voice.participantVolumeOverrides,
+						[did]: { ...existing, voice: { ...existing.voice, volume } },
+					},
+				},
+			};
+		});
+	};
+
+	const setVoiceView = (patch: {
+		showNonVideoParticipants?: boolean;
+		showOwnCamera?: boolean;
+	}) => {
 		setPreferences((p) => ({ ...p, voice: { ...p.voice, ...patch } }));
 	};
 
@@ -187,6 +240,9 @@ export const UserPreferencesContextProvider: ParentComponent = (props) => {
 				preferences,
 				setPreferences,
 				updateVoice,
+				setVoiceSelfState,
+				setParticipantVolume,
+				setVoiceView,
 				toggleMembersVisible,
 				setNativeNotifications,
 				setPreferredBlueskyClient,

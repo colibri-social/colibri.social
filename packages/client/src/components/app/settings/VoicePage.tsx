@@ -1,6 +1,5 @@
 import { createAsync } from "@solidjs/router";
 import chroma from "chroma-js";
-import { createLocalAudioTrack, type LocalAudioTrack } from "livekit-client";
 import {
 	type Component,
 	createSignal,
@@ -41,7 +40,7 @@ import {
 	type VoiceIOSettings,
 } from "../../../contexts/UserPreferences";
 import { createIsSpeaking } from "../../../hooks/createIsSpeaking";
-import { createRnnoiseProcessor } from "../../../hooks/createRnnoiseProcessor";
+import { processTrackWithRnnoise } from "../../../hooks/createRnnoiseProcessor";
 import { SettingsPage } from "../common/SettingsModal";
 import type { DeviceOption } from "./shared";
 
@@ -69,12 +68,22 @@ export const VoicePage: Component = () => {
 		null,
 	);
 	const [audioCtx, setAudioCtx] = createSignal<AudioContext | null>(null);
-	const [livekitTrack, setLivekitTrack] = createSignal<LocalAudioTrack | null>(
-		null,
-	);
+	const [testStream, setTestStream] = createSignal<MediaStream | null>(null);
 	const [audioInput, setAudioInput] = createSignal<MediaStreamTrack | null>(
 		null,
 	);
+
+	const openMic = (input: VoiceInputSettings): Promise<MediaStream> =>
+		navigator.mediaDevices.getUserMedia({
+			audio: {
+				echoCancellation: true,
+				autoGainControl: true,
+				noiseSuppression: input.noiseSuppression,
+				deviceId: input.preferredDeviceId
+					? { ideal: input.preferredDeviceId }
+					: undefined,
+			},
+		});
 
 	const spectrum = chroma
 		.scale([[5, 223, 114] as any, [252, 200, 0] as any, [255, 100, 103] as any])
@@ -160,8 +169,10 @@ export const VoicePage: Component = () => {
 		}));
 		audioCtx()?.close();
 		setAudioCtx(null);
-		livekitTrack()?.stop();
-		setLivekitTrack(null);
+
+		for (const t of testStream()?.getTracks() ?? []) t.stop();
+
+		setTestStream(null);
 		setAudioInput(null);
 		setInputGainNode(null);
 		setOutputGainNode(null);
@@ -170,9 +181,7 @@ export const VoicePage: Component = () => {
 	onCleanup(cleanup);
 
 	const toggleVoiceTest = async () => {
-		const existing = livekitTrack();
-
-		if (existing) {
+		if (testStream()) {
 			cleanup();
 			return;
 		}
@@ -193,27 +202,21 @@ export const VoicePage: Component = () => {
 			sampleRate: 48000,
 		});
 
-		const track = await createLocalAudioTrack({
-			noiseSuppression:
-				userPreferences.preferences().voice.input.noiseSuppression,
-			echoCancellation: true,
-			autoGainControl: true,
-			deviceId: userPreferences.preferences().voice.input.preferredDeviceId,
-		});
+		const input = userPreferences.preferences().voice.input;
+		const stream = await openMic(input);
+		let track = stream.getAudioTracks()[0];
 
-		track.setAudioContext(ctx);
-
-		if (userPreferences.preferences().voice.input.noiseSuppression) {
-			track.setProcessor(createRnnoiseProcessor());
+		if (input.noiseSuppression) {
+			track = await processTrackWithRnnoise(track, ctx);
 		}
 
-		setAudioInput(track.mediaStreamTrack);
-		setLivekitTrack(track);
+		setAudioInput(track);
+		setTestStream(stream);
 
 		const { inGain, outGain } = startLocalPlayback(
 			ctx,
-			track.mediaStreamTrack,
-			userPreferences.preferences().voice.input.volume,
+			track,
+			input.volume,
 			userPreferences.preferences().voice.output.volume,
 		);
 
@@ -226,7 +229,7 @@ export const VoicePage: Component = () => {
 		inputOverrides?: Partial<VoiceInputSettings>,
 		outputOverrides?: Partial<VoiceIOSettings>,
 	) => {
-		if (!livekitTrack()) return;
+		if (!testStream()) return;
 
 		const inputPrefs = {
 			...userPreferences.preferences().voice.input,
@@ -239,29 +242,26 @@ export const VoicePage: Component = () => {
 
 		inputGainNode()?.disconnect();
 		setInputGainNode(null);
-		livekitTrack()!.stop();
-		setLivekitTrack(null);
+
+		for (const t of testStream()?.getTracks() ?? []) t.stop();
+
+		setTestStream(null);
 		setAudioInput(null);
 
-		const track = await createLocalAudioTrack({
-			noiseSuppression: inputPrefs.noiseSuppression,
-			echoCancellation: true,
-			autoGainControl: true,
-			deviceId: inputPrefs.preferredDeviceId,
-		});
-
 		const ctx = audioCtx()!;
-		track.setAudioContext(ctx);
+		const stream = await openMic(inputPrefs);
+		let track = stream.getAudioTracks()[0];
 
 		if (inputPrefs.noiseSuppression) {
-			await track.setProcessor(createRnnoiseProcessor());
+			track = await processTrackWithRnnoise(track, ctx);
 		}
 
-		setAudioInput(track.mediaStreamTrack);
-		setLivekitTrack(track);
+		setAudioInput(track);
+		setTestStream(stream);
+
 		const { inGain, outGain } = startLocalPlayback(
 			ctx,
-			track.mediaStreamTrack,
+			track,
 			inputPrefs.volume,
 			outputPrefs.volume,
 		);
@@ -486,13 +486,13 @@ export const VoicePage: Component = () => {
 				<Button
 					onClick={toggleVoiceTest}
 					class="w-28"
-					variant={livekitTrack() ? "default" : "secondary"}
+					variant={testStream() ? "default" : "secondary"}
 				>
 					<Switch>
-						<Match when={!livekitTrack()}>
+						<Match when={!testStream()}>
 							<span>Test Input</span>
 						</Match>
-						<Match when={livekitTrack()}>
+						<Match when={testStream()}>
 							<span>Speak now...</span>
 						</Match>
 					</Switch>

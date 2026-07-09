@@ -104,8 +104,17 @@ Configuration is read from environment variables (via a `.env` file in the repo 
 | `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` / `VAPID_SUBJECT` | No | Web Push keypair for background notifications. Unset disables background push. Generate a keypair with `npx web-push generate-vapid-keys` |
 | `KLIPY_API_KEY`             | No       | Enables the GIF picker endpoints. Unset disables them.                                                          |
 | `HUMMING_ENABLED`           | No       | Cross-instance presence relaying. On by default, set to `false` to opt out entirely.                            |
+| `SFU_ANNOUNCED_IP`          | No\*     | Public IP announced in the voice SFU's ICE candidates. **Required behind NAT** (most cloud hosts) or clients can't reach the media ports. See _Voice_ below. |
 
-`.env.example` documents the remaining tuning knobs (`DATABASE_MAX_CONNECTIONS`, `TAP_WORKERS`, `RUST_LOG`, the `HUM_*` federation caps, and so on). Prefer it for other variables and explainers, the table above only covers the essentials.
+`.env.example` documents the remaining options. Prefer it for other variables and explainers, the table above only covers the essentials.
+
+## Voice
+
+Community voice/video runs on an SFU ([mediasoup](https://mediasoup.org)) embedded in the AppView. A few things to get right when self-hosting:
+
+- **Announced IP & media ports.** WebRTC media flows directly to the AppView host, not through the reverse proxy. Set `SFU_ANNOUNCED_IP` to your server's public IP, and open the port range `SFU_RTC_MIN_PORT` - `SFU_RTC_MAX_PORT` (default `40000` - `40100`) on your firewall for **both UDP and TCP** (the SFU falls back to ICE-over-TCP when UDP is blocked). The production `docker-compose.yml` already publishes this range on the host from those same variables. Without this, users connect but hear no audio.
+- **TURN for restrictive networks.** A direct path to the media ports fails for clients behind symmetric NAT or strict firewalls. Point them at a TURN server via `SFU_ICE_SERVERS`, a JSON array of [`RTCIceServer`](https://developer.mozilla.org/en-US/docs/Web/API/RTCIceServer) objects, e.g. `[{"urls":["turn:turn.example.com:3478"],"username":"user","credential":"pass"}]`. The AppView hands these to every client at call setup. Run your own [coturn](https://github.com/coturn/coturn) or use a managed TURN provider. Unset means direct connection only.
+- **Native Windows can't build it.** mediasoup does not compile on native Windows. Deploy on Linux, or for local development, use WSL2 or Docker Desktop.
 
 ## Connecting a client
 

@@ -528,14 +528,6 @@ export class XrpcClient {
 						),
 						community,
 					),
-				getVoiceToken: (channel: string) =>
-					Channel.getVoiceToken(
-						this.authed(
-							this.proxiedFetch,
-							"social.colibri.channel.getVoiceToken",
-						),
-						channel,
-					),
 			},
 			role: {
 				create: (

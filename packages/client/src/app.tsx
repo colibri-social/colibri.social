@@ -33,6 +33,7 @@ import { WelcomeScreen } from "./components/WelcomeScreen";
 import { AuthContextProvider } from "./contexts/Auth";
 import { useCommunityContext } from "./contexts/Community";
 import { SocketContextProvider } from "./contexts/Socket";
+import { SoundsContextProvider } from "./contexts/Sounds";
 import { UserContextProvider } from "./contexts/User";
 import { UserPreferencesContextProvider } from "./contexts/UserPreferences";
 import { VoiceChatContextProvider } from "./contexts/VoiceChat";
@@ -56,9 +57,11 @@ const AppRoute: ParentComponent = (props) => {
 		<ScopeGate>
 			<SocketContextProvider>
 				<UserContextProvider>
-					<VoiceChatContextProvider>
-						<AppLayout>{props.children}</AppLayout>
-					</VoiceChatContextProvider>
+					<SoundsContextProvider>
+						<VoiceChatContextProvider>
+							<AppLayout>{props.children}</AppLayout>
+						</VoiceChatContextProvider>
+					</SoundsContextProvider>
 				</UserContextProvider>
 			</SocketContextProvider>
 		</ScopeGate>

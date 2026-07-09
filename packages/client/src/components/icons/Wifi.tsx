@@ -1,5 +1,5 @@
-import { ConnectionQuality } from "livekit-client";
 import { type Component, Match, Switch } from "solid-js";
+import { ConnectionQuality } from "../../contexts/VoiceChat";
 import { cx } from "../../utils/cva";
 
 export const Wifi: Component<{

@@ -110,7 +110,7 @@ const OpenGraphEmbed: Component<{ uri: string }> = (props) => {
 		<div ref={stableMedia}>
 			<Show when={hasContent()}>
 				<div
-					class="flex flex-col border-l-4 pl-3 pr-4 py-2 bg-card mb-2 rounded-r-md max-w-104"
+					class="flex flex-col border-l-4 p-3 pt-2 bg-card mb-2 rounded-r-md max-w-104"
 					style={{ "border-color": data()!.themeColor || "var(--border)" }}
 				>
 					<div

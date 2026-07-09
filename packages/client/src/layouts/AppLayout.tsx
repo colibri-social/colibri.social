@@ -46,9 +46,7 @@ import {
 	useNotifications,
 } from "../contexts/Notifications";
 import { useSocketContext } from "../contexts/Socket";
-import { SoundsContextProvider } from "../contexts/Sounds";
 import { useUserContext } from "../contexts/User";
-import { UserPreferencesContextProvider } from "../contexts/UserPreferences";
 import { LongPressSensors } from "../utils/create-longpress-sensor";
 import {
 	animateToNewPositions,
@@ -494,15 +492,13 @@ const AppLayout: ParentComponent = (props) => {
 };
 
 const AppLayoutWithPreferences: ParentComponent = (props) => (
-	<SoundsContextProvider>
-		<MutesContextProvider>
-			<GifFavoritesContextProvider>
-				<NotificationsContextProvider>
-					<AppLayout>{props.children}</AppLayout>
-				</NotificationsContextProvider>
-			</GifFavoritesContextProvider>
-		</MutesContextProvider>
-	</SoundsContextProvider>
+	<MutesContextProvider>
+		<GifFavoritesContextProvider>
+			<NotificationsContextProvider>
+				<AppLayout>{props.children}</AppLayout>
+			</NotificationsContextProvider>
+		</GifFavoritesContextProvider>
+	</MutesContextProvider>
 );
 
 export default AppLayoutWithPreferences;

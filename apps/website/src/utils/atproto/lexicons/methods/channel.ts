@@ -366,33 +366,4 @@ export const channelMethodDocs: LexiconDoc[] = [
 			},
 		},
 	},
-	{
-		lexicon: 1,
-		id: "social.colibri.channel.getVoiceToken",
-		defs: {
-			main: {
-				type: "procedure",
-				description:
-					"Mints a voice session token and server URL for joining a voice channel.",
-				parameters: {
-					type: "params",
-					required: ["channel"],
-					properties: {
-						channel: { type: "string", format: "at-uri" },
-					},
-				},
-				output: {
-					encoding: "application/json",
-					schema: {
-						type: "object",
-						required: ["token", "url"],
-						properties: {
-							token: { type: "string" },
-							url: { type: "string", format: "uri" },
-						},
-					},
-				},
-			},
-		},
-	},
 ];

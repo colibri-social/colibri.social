@@ -82,17 +82,6 @@ export default defineConfig({
 	],
 	env: {
 		schema: {
-			LIVEKIT_API_KEY: envField.string({ context: "server", access: "secret" }),
-			LIVEKIT_API_SECRET: envField.string({
-				context: "server",
-				access: "secret",
-			}),
-			LIVEKIT_SERVER_URL: envField.string({
-				context: "client",
-				access: "public",
-				optional: true,
-				default: "wss://livekit.colibri.social",
-			}),
 			SAME_TLD_DID: envField.string({
 				context: "server",
 				access: "public",

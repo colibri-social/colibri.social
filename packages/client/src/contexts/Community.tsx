@@ -54,6 +54,7 @@ import { getCommunityParam } from "../utils/get-param";
 import { markBoot } from "../utils/perf";
 import { useSocketContext } from "./Socket";
 import { useUserContext } from "./User";
+import { useVoiceChatContext } from "./VoiceChat";
 
 type CommunityContextData = CommunityResponse & {
 	assignableRoles: Array<Role>;
@@ -77,6 +78,7 @@ export const CommunityContext = createContext<Accessor<CommunityContextData>>();
 export const CommunityContextProvider: ParentComponent = (props) => {
 	const user = useUserContext();
 	const socket = useSocketContext();
+	const [, { seedPresence }] = useVoiceChatContext();
 	const communityUri = createMemo(() => urlSegmentToUri(getCommunityParam()));
 
 	// Latest desired role set per member while an optimistic change is syncing.
@@ -95,6 +97,17 @@ export const CommunityContextProvider: ParentComponent = (props) => {
 
 	createEffect(() => {
 		if (!community.loading && community.latest) markBoot("community:ready");
+	});
+
+	let seededUri: string | null = null;
+	createEffect(() => {
+		const uri = communityUri();
+		const data = community.latest;
+
+		if (!uri || !data || community.loading || seededUri === uri) return;
+
+		seededUri = uri;
+		seedPresence(data.members);
 	});
 
 	const ns = () => namespace(getAppViewDid(), user.did);

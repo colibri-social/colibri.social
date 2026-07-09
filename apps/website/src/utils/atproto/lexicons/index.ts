@@ -9,6 +9,7 @@ import { notificationMethodDocs } from "./methods/notification.ts";
 import { roleMethodDocs } from "./methods/role.ts";
 import { serverMethodDocs } from "./methods/server.ts";
 import { syncMethodDocs } from "./methods/sync.ts";
+import { voiceMethodDocs } from "./methods/voice.ts";
 import { permissionDocs } from "./permissions.ts";
 import { actorRecordDocs } from "./records/actor.ts";
 import { approvalRecordDocs } from "./records/approval.ts";
@@ -47,6 +48,7 @@ export const LEXICON_DOCS: LexiconDoc[] = [
 	...notificationMethodDocs,
 	...syncMethodDocs,
 	...serverMethodDocs,
+	...voiceMethodDocs,
 	...permissionDocs,
 ];
 
