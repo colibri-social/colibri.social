@@ -122,9 +122,9 @@ export default defineConfig({
 		},
 		{
 			provider: fontProviders.fontsource(),
-			name: "Redaction 50",
+			name: "Stardom",
 			weights: ["400", "700"],
-			cssVariable: "--font-redaction-50",
+			cssVariable: "--font-stardom",
 		},
 	],
 	redirects: {

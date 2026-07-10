@@ -18,7 +18,7 @@
 @theme inline {
 	--color-background: var(--background);
 	--color-foreground: var(--foreground);
-	--font-display: var(--font-redaction-50);
+	--font-display: var(--font-stardom);
 	--font-sans: var(--font-hanken-grotesk);
 	--font-mono: var(--font-geist-mono);
 	--color-sidebar-ring: var(--sidebar-ring);

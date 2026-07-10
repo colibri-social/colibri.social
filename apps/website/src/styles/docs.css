@@ -20,7 +20,7 @@
 .sl-markdown-content h4,
 .sl-markdown-content h5,
 .sl-markdown-content h6 {
-	font-family: var(--font-redaction-50), var(--sl-font);
+	font-family: var(--font-stardom), var(--sl-font);
 }
 
 [data-theme="dark"] {

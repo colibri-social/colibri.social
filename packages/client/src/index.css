@@ -10,7 +10,7 @@
 @source ".";
 
 :root {
-	--font-redaction-50: Stardom, "Stardom Fallback", sans-serif;
+	--font-stardom: Stardom, "Stardom Fallback", sans-serif;
 	--font-geist-mono: "Geist Mono", "Geist Mono Fallback", sans-serif;
 	--font-hanken-grotesk:
 		"Hanken Grotesk", "Hanken Grotesk Fallback", sans-serif;
@@ -21,7 +21,7 @@
 @theme inline {
 	--color-background: var(--background);
 	--color-foreground: var(--foreground);
-	--font-display: var(--font-redaction-50);
+	--font-display: var(--font-stardom);
 	--font-sans: var(--font-hanken-grotesk);
 	--font-mono: var(--font-geist-mono);
 	--color-sidebar-ring: var(--sidebar-ring);

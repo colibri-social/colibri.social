@@ -1,6 +1,7 @@
 import { useNavigate } from "@solidjs/router";
 import { type Component, createEffect, createSignal } from "solid-js";
 import { toast } from "somoto";
+import CaretRightIcon from "~icons/ph/caret-right";
 import { buildScopes } from "../atproto/scopes";
 import {
 	type ActorTypeaheadResult,
@@ -84,12 +85,12 @@ export const LoginScreen: Component = () => {
 	});
 
 	return (
-		<section class="pt-40 mx-auto w-full max-w-336 md:px-16 px-6 relative flex flex-col items-center gap-12 h-screen">
+		<section class="pt-40 mx-auto w-full max-w-336 md:px-16 px-6 relative flex flex-col items-center gap-8 h-screen animate-in fade-in-0 slide-in-from-bottom-2 duration-500 motion-reduce:animate-none">
 			<div class="flex flex-col gap-4 items-center text-center">
 				<small class="text-primary text-sm">Welcome back.</small>
 				<h1 class="text-5xl font-black m-0">SIGN IN</h1>
 				<p class="m-0 text-muted-foreground">
-					Log in with your ATmostphere acccount (e.g. Bluesky) to continue.
+					Log in with your ATmostphere acccount to continue.
 				</p>
 			</div>
 			<div class="flex flex-col bg-card w-full max-w-xl rounded-2xl border border-border h-fit relative items-center drop-shadow-black/25 drop-shadow-2xl overflow-hidden">
@@ -160,6 +161,29 @@ export const LoginScreen: Component = () => {
 							<span>Login</span>
 						</Button>
 					</div>
+					<div class="flex flex-col gap-3 w-full">
+						<details class="w-full">
+							<summary class="list-none [&::-webkit-details-marker]:hidden cursor-pointer text-sm text-muted-foreground text-center hover:text-foreground select-none">
+								What's an ATmosphere account?
+							</summary>
+							<p class="text-sm text-foreground leading-relaxed bg-muted rounded-md p-3 mt-2 mb-0">
+								Colibri runs on the AT Protocol, an open social network built on
+								open standards. One account works across every app on the
+								network, and there's no lock-in: you can move your data to
+								another provider, or host it yourself, at any time. You can read
+								more at{" "}
+								<a
+									href="https://atmosphereaccount.com"
+									target="_blank"
+									rel="noreferrer"
+									class="text-primary hover:underline"
+								>
+									atmosphereaccount.com
+								</a>
+								.
+							</p>
+						</details>
+					</div>
 				</div>
 				<div class="relative w-full mt-4">
 					<hr class="bg-border w-full h-px border-none m-0" />
@@ -167,16 +191,15 @@ export const LoginScreen: Component = () => {
 						DON'T HAVE AN ACCOUNT?
 					</small>
 				</div>
-				<span class="text-sm text-muted-foreground text-center p-6">
-					Send us an e-mail:{" "}
-					<a
-						class="text-muted-foreground hover:underline decoration-muted-foreground"
-						href="mailto:pds@colibri.social"
+				<div class="w-full p-6">
+					<Button
+						variant="secondary"
+						class="w-full"
+						onClick={() => navigate("/app/register")}
 					>
-						pds@colibri.social
-					</a>
-					!
-				</span>
+						Sign up
+					</Button>
+				</div>
 			</div>
 			<div class="flex flex-row items-center justify-center text-muted-foreground w-full max-w-xl gap-4 text-sm flex-wrap">
 				<span>Open source</span>
