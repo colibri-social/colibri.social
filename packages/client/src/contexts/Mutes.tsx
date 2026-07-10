@@ -125,7 +125,7 @@ export const MutesContextProvider: ParentComponent = (props) => {
 	onMount(() => {
 		void (async () => {
 			const res = await user.xrpc.social.colibri.actor.listMutes();
-			if (!res) return;
+			if (!res?.mutes || !Array.isArray(res?.mutes)) return;
 			for (const mute of res.mutes) applySubject(mute.subject, true);
 		})();
 
