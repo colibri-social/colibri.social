@@ -17,7 +17,10 @@ import {
 	putRecord,
 } from "../atproto/pds";
 import type { Message } from "../atproto/xrpc/social/colibri/channel/listMessages";
-import type { TextWithFacets } from "../components/app/common/rich-text-renderer/util";
+import {
+	type TextWithFacets,
+	trimWithFacets,
+} from "../components/app/common/rich-text-renderer/util";
 import { AtURI } from "../utils/at-uri";
 import {
 	clearEditDraft,
@@ -237,11 +240,15 @@ export const MessageContextProvider: ParentComponent<{ data: Message }> = (
 		const rkey = AtURI.parseAtURI(props.data.uri).identifier;
 		const originalText = newText();
 
-		setNewText({ text, facets }); // optimistic
+		const trimmed = trimWithFacets({ text, facets });
+		const cleanText = purify(trimmed.text);
+		const cleanFacets = trimmed.facets;
+
+		setNewText({ text: cleanText, facets: cleanFacets }); // optimistic
 		clearEditDraft(props.data.uri);
 		channel.clearEditingMessage();
 
-		if (purify(text).trim().length === 0) {
+		if (cleanText.length === 0) {
 			setDeletionModalOpen(true);
 			return;
 		}
@@ -253,15 +260,15 @@ export const MessageContextProvider: ParentComponent<{ data: Message }> = (
 				"social.colibri.message",
 				rkey,
 				{
-					text: purify(text.trim()),
-					facets,
+					text: cleanText,
+					facets: cleanFacets,
 					channel: props.data.channel,
 					createdAt: props.data.createdAt,
 					edited: true,
 					...(props.data.parent ? { parent: props.data.parent.uri } : {}),
 				},
 			);
-			channel.updateMessageText(props.data.uri, purify(text.trim()), facets);
+			channel.updateMessageText(props.data.uri, cleanText, cleanFacets);
 		} catch {
 			setNewText(originalText); // revert
 			channel.setEditingMessage(props.data);

@@ -31,6 +31,7 @@ import {
 	FileFieldItemSize,
 	FileFieldTrigger,
 } from "../../ui/FileField";
+import { trimWithFacets } from "../common/rich-text-renderer/util";
 import { TextEditor } from "../common/text-editor/TextEditor";
 import { DisplayableName, displayableNameFn } from "../user/DisplayableName";
 
@@ -120,7 +121,9 @@ export const MessageInput: Component<{
 			? JSON.parse(JSON.stringify(channel.replyingTo()))
 			: undefined;
 
-		const cleanText = purify(text.trim());
+		const trimmed = trimWithFacets({ text, facets });
+		const cleanText = purify(trimmed.text);
+		const cleanFacets = trimmed.facets;
 
 		if (cleanText.length === 0 && !hasFiles) {
 			toast.error("Failed to send message", {
@@ -162,7 +165,7 @@ export const MessageInput: Component<{
 			hash,
 			uri: "",
 			text: cleanText,
-			facets,
+			facets: cleanFacets,
 			channel: channel.channelUri(),
 			community: "",
 			author: {
@@ -186,7 +189,7 @@ export const MessageInput: Component<{
 				"social.colibri.message",
 				{
 					text: cleanText,
-					facets,
+					facets: cleanFacets,
 					channel: channel.channelUri(),
 					createdAt: now,
 					...(replyingMessage ? { parent: replyingMessage.uri } : {}),

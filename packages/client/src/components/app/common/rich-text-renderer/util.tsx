@@ -28,6 +28,37 @@ export const textDecoder = new TextDecoder();
 export type AnyFeature = ColibriRichTextFacet["features"][number];
 
 /**
+ * Strip leading/trailing whitespace from the text while keeping facet byte
+ * offsets aligned
+ */
+export const trimWithFacets = (input: TextWithFacets): TextWithFacets => {
+	const trimmed = input.text.trim();
+
+	if (trimmed === input.text) return input;
+
+	const leadingBytes = textEncoder.encode(
+		input.text.slice(0, input.text.length - input.text.trimStart().length),
+	).length;
+	const trimmedBytes = textEncoder.encode(trimmed).length;
+
+	const facets = (input.facets ?? [])
+		.map((facet) => {
+			const byteStart = Math.min(
+				Math.max(facet.index.byteStart - leadingBytes, 0),
+				trimmedBytes,
+			);
+			const byteEnd = Math.min(
+				Math.max(facet.index.byteEnd - leadingBytes, 0),
+				trimmedBytes,
+			);
+			return { ...facet, index: { ...facet.index, byteStart, byteEnd } };
+		})
+		.filter((facet) => facet.index.byteEnd > facet.index.byteStart);
+
+	return { text: trimmed, facets };
+};
+
+/**
  * Click-to-reveal spoiler
  */
 const Spoiler: Component<{ children: JSX.Element }> = (props) => {
@@ -419,9 +450,10 @@ export const renderWithFacets = (
 	_community?: string,
 ): Array<JSX.Element> => {
 	const { preferences } = useUserPreferences();
-	const bytes = textEncoder.encode(input.text);
+	const trimmed = trimWithFacets(input);
+	const bytes = textEncoder.encode(trimmed.text);
 
-	const normalizedFacets = normalizeFacets(input.facets);
+	const normalizedFacets = normalizeFacets(trimmed.facets);
 
 	const blockFacets = normalizedFacets
 		.filter((f) => f.features.some(isBlockFeature))
@@ -461,7 +493,7 @@ export const renderWithFacets = (
 			(f) => f.$type === "social.colibri.richtext.facet#list",
 		);
 
-	for (let bi = 0; bi < blockFacets.length; ) {
+	for (let bi = 0; bi < blockFacets.length;) {
 		const blockFacet = blockFacets[bi];
 		if (blockFacet.index.byteStart > cursor) {
 			emitInline(cursor, blockFacet.index.byteStart, true);
