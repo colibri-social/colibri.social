@@ -221,7 +221,6 @@ export const MemberContextMenu: ParentComponent<{
 	return (
 		<>
 			<MemberActionDialog
-				refetch={() => {}}
 				member={props.member}
 				dialog={dialog}
 				setDialog={setDialog}

@@ -1,4 +1,3 @@
-// import { actions } from "astro:actions"; // TODO: replace with the new XrpcClient persistence layer.
 import {
 	closestCenter,
 	DragDropProvider,

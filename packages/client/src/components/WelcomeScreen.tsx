@@ -8,7 +8,6 @@ import { Button } from "./ui/Button";
 
 /**
  * A welcome screen to be displayed if a user has no communities.
- * @todo This should probably be it's own page, right now it is rendered as a fallback component from App.tsx
  */
 export const WelcomeScreen: Component = () => {
 	const _navigate = useNavigate();

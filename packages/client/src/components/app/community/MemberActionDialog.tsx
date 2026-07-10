@@ -28,7 +28,6 @@ export const MemberActionDialog: ParentComponent<{
 	dialog: Accessor<ActionDialogData>;
 	setDialog: Setter<ActionDialogData>;
 	member: ActorData;
-	refetch: () => void;
 }> = (props) => {
 	const user = useUserContext();
 	const community = useCommunityContext();
@@ -72,9 +71,7 @@ export const MemberActionDialog: ParentComponent<{
 		}
 
 		setLoading(false);
-
-		// TODO(app): Band-aid fix, race condition n all that. Wait for member to join via global context.
-		setTimeout(props.refetch, 1000);
+		props.setDialog((current) => ({ open: false, type: current.type }));
 	};
 
 	return (

@@ -16,7 +16,6 @@ import { toast } from "somoto";
 import ArrowCounterClockwiseIcon from "~icons/ph/arrow-counter-clockwise";
 import BugIcon from "~icons/ph/bug";
 import CheckIcon from "~icons/ph/check";
-import { CopyButton } from "../common/CopyButton";
 import DotsSixVerticalIcon from "~icons/ph/dots-six-vertical";
 import DotsThreeOutlineVerticalIcon from "~icons/ph/dots-three-outline-vertical-fill";
 import IdentificationBadgeIcon from "~icons/ph/identification-badge";
@@ -86,6 +85,7 @@ import {
 	TableRow,
 } from "../../ui/Table";
 import { TextField, TextFieldInput, TextFieldLabel } from "../../ui/TextField";
+import { CopyButton } from "../common/CopyButton";
 import { SettingsInfoPage } from "../common/SettingsInfoPage";
 import { SettingsModal, SettingsPage } from "../common/SettingsModal";
 import User from "../user";
@@ -584,7 +584,6 @@ const JoinRequestApprovals: Component = () => {
 
 const MemberActionsContextMenu: ParentComponent<{
 	member: Member;
-	refetch: () => void;
 }> = (props) => {
 	const user = useUserContext();
 	const community = useCommunityContext()!;
@@ -598,7 +597,6 @@ const MemberActionsContextMenu: ParentComponent<{
 	return (
 		<>
 			<MemberActionDialog
-				refetch={props.refetch}
 				member={props.member}
 				dialog={dialog}
 				setDialog={setDialog}
@@ -673,10 +671,7 @@ const MembersPage: Component = () => {
 										fallback={<span />}
 									>
 										<TableCell class="text-right">
-											<MemberActionsContextMenu
-												member={member}
-												refetch={() => {}}
-											>
+											<MemberActionsContextMenu member={member}>
 												<Button
 													size="sm"
 													class="aspect-square h-6 p-0!"

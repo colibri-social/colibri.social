@@ -6,6 +6,7 @@ import {
 } from "@thisbeyond/solid-dnd";
 import {
 	type Component,
+	createEffect,
 	createMemo,
 	createSignal,
 	For,
@@ -45,6 +46,23 @@ import { MemberContextMenu } from "./MemberContextMenu";
 export type ChannelDropTarget = {
 	categoryUri: string;
 	insertBeforeUri: string | null;
+};
+
+const collapseKey = (uri: string) => `colibri:category-collapsed:${uri}`;
+
+const loadCollapsed = (uri: string): boolean => {
+	try {
+		return localStorage.getItem(collapseKey(uri)) === "1";
+	} catch {
+		return false;
+	}
+};
+
+const saveCollapsed = (uri: string, collapsed: boolean) => {
+	try {
+		if (collapsed) localStorage.setItem(collapseKey(uri), "1");
+		else localStorage.removeItem(collapseKey(uri));
+	} catch {}
 };
 
 /**
@@ -349,10 +367,8 @@ export const Category: ParentComponent<{
 				.map((ch) => ch.uri),
 		);
 
-	// TODO: Persist collapse state to local storage (was `makePersisted` from
-	// `@solid-primitives/storage` keyed on the category rkey). Skipped here
-	// because the dependency isn't installed in the client package yet.
-	const [open, setOpen] = createSignal(true);
+	const [open, setOpen] = createSignal(!loadCollapsed(props.category.uri));
+	createEffect(() => saveCollapsed(props.category.uri, !open()));
 
 	const orderedChannels = createMemo((): Channel[] => {
 		const order = props.channelOrder;

@@ -7,11 +7,6 @@ import type { CategoryWithChannels } from "./Category";
  * Reactive sidebar projection. Builds categories (with nested channels) in
  * the community's preferred order, plus any channels that aren't pinned to
  * a category.
- *
- * TODO: The Astro version of this also merged in optimistic state from
- * `useGlobalContext` (added/removed categories & channels, name overrides,
- * channel-order overrides). The client package doesn't have that context
- * yet, so for now this just projects whatever the AppView returned.
  */
 export const useProcessedSidebar = () => {
 	const community = useCommunityContext();
