@@ -77,8 +77,9 @@ export const DeepLinkListener: Component = () => {
 		};
 
 		void (async () => {
-			const { getCurrent, onOpenUrl } =
-				await import("@tauri-apps/plugin-deep-link");
+			const { getCurrent, onOpenUrl } = await import(
+				"@tauri-apps/plugin-deep-link"
+			);
 			// A URL the app was cold-launched with, then any received while running.
 			try {
 				await route(await getCurrent());
