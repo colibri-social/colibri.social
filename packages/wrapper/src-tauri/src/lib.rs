@@ -1,0 +1,72 @@
+use tauri::Manager;
+
+// Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
+#[tauri::command]
+fn greet(name: &str) -> String {
+    format!("Hello, {}! You've been greeted from Rust!", name)
+}
+
+/// Initialize the native Sentry client. The DSN is read at runtime from
+/// `SENTRY_DSN`, falling back to a value baked in at build time. When neither
+/// is set, the guard is `None` and no events are sent. The returned guard must
+/// be held for the lifetime of the process, so it lives in `run`.
+///
+/// Compiled out entirely when the `sentry` feature is disabled.
+#[cfg(feature = "sentry")]
+fn init_sentry() -> Option<sentry::ClientInitGuard> {
+    let dsn = std::env::var("SENTRY_DSN")
+        .ok()
+        .or_else(|| option_env!("SENTRY_DSN").map(str::to_owned))?;
+
+    Some(sentry::init((
+        dsn,
+        sentry::ClientOptions {
+            release: sentry::release_name!(),
+            ..Default::default()
+        },
+    )))
+}
+
+#[cfg_attr(mobile, tauri::mobile_entry_point)]
+pub fn run() {
+    #[cfg(feature = "sentry")]
+    let _sentry = init_sentry();
+
+    let mut builder = tauri::Builder::default();
+
+    // The single-instance plugin must be the first one registered. With the
+    // `deep-link` feature it also forwards deep links opened while the app is
+    // already running to the deep-link plugin.
+    #[cfg(desktop)]
+    {
+        builder = builder
+            .plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
+                if let Some(window) = app.get_webview_window("main") {
+                    let _ = window.unminimize();
+                    let _ = window.set_focus();
+                }
+            }))
+            .plugin(tauri_plugin_window_state::Builder::default().build())
+            .plugin(tauri_plugin_updater::Builder::new().build());
+    }
+
+    builder
+        .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_notification::init())
+        .plugin(tauri_plugin_deep_link::init())
+        .setup(|app| {
+            // On Linux and Windows deep-link schemes aren't registered by an
+            // installer during development, so register them at runtime.
+            #[cfg(any(target_os = "linux", windows))]
+            {
+                use tauri_plugin_deep_link::DeepLinkExt;
+                let _ = app.deep_link().register_all();
+            }
+            #[cfg(not(any(target_os = "linux", windows)))]
+            let _ = app;
+            Ok(())
+        })
+        .invoke_handler(tauri::generate_handler![greet])
+        .run(tauri::generate_context!())
+        .expect("error while running tauri application");
+}

@@ -1,0 +1,12 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Cross-platform capabilities for the main window (all targets).",
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    "opener:default",
+    "notification:default",
+    "deep-link:default"
+  ]
+}

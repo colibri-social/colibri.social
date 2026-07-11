@@ -22,6 +22,7 @@ import {
 } from "solid-js";
 import { urlSegmentToUri } from "./atproto/community-uri-to-url-compatible";
 import { AppLoadingScreen } from "./components/AppLoadingScreen";
+import { DeepLinkListener } from "./components/DeepLinkListener";
 import { InviteModal } from "./components/app/community/InviteModal";
 import { ScopeGate } from "./components/app/onboarding/ScopeGate";
 import { VoiceChannelView } from "./components/app/VoiceChannelView";
@@ -103,6 +104,16 @@ const AppErrorScreen: Component<{ error: unknown; reset: () => void }> = (
 	);
 };
 
+// Rendered inside the router (so it has routing context) around every route,
+// hosting global listeners like deep-link handling that must work regardless of
+// the current screen (e.g. an invite link opened on the login screen)
+const RootLayout: ParentComponent = (props) => (
+	<>
+		<DeepLinkListener />
+		{props.children}
+	</>
+);
+
 const App: ParentComponent = () => {
 	const isMobile = useIsMobile();
 	return (
@@ -120,7 +131,7 @@ const App: ParentComponent = () => {
 						>
 							<Toaster richColors position="top-center" />
 						</Show>
-						<SentryRouter base="/">
+						<SentryRouter root={RootLayout} base="/">
 							<Route path="/" component={RedirectToApp} />
 							<Route path="/app/login" component={LoginScreen} />
 							<Route path="/app/register" component={RegisterScreen} />

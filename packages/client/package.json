@@ -48,6 +48,7 @@
 		"@solidjs/router": "^0.16.1",
 		"@tailwindcss/typography": "^0.5.20",
 		"@tauri-apps/api": "^2.11.1",
+		"@tauri-apps/plugin-deep-link": "^2.4.9",
 		"@tauri-apps/plugin-notification": "^2.3.3",
 		"@thisbeyond/solid-dnd": "^0.7.5",
 		"@tiptap/core": "^3.20.1",

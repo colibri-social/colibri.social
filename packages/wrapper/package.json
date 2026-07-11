@@ -1,0 +1,31 @@
+{
+	"name": "@colibri-social/wrapper",
+	"version": "0.1.0",
+	"description": "",
+	"type": "module",
+	"scripts": {
+		"start": "vite",
+		"dev": "vite",
+		"build": "vite build",
+		"serve": "vite preview",
+		"tauri": "node scripts/tauri.mjs"
+	},
+	"license": "MIT",
+	"dependencies": {
+		"@colibri-social/assets": "workspace:",
+		"@colibri-social/client": "workspace:",
+		"solid-js": "^1.9.14",
+		"@tauri-apps/api": "^2",
+		"@tauri-apps/plugin-deep-link": "^2",
+		"@tauri-apps/plugin-notification": "^2",
+		"@tauri-apps/plugin-opener": "^2",
+		"@tauri-apps/plugin-updater": "^2",
+		"@tauri-apps/plugin-window-state": "^2"
+	},
+	"devDependencies": {
+		"typescript": "^5.9.3",
+		"vite": "^8.1.3",
+		"vite-plugin-solid": "^2.11.12",
+		"@tauri-apps/cli": "^2"
+	}
+}
