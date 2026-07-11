@@ -1,15 +1,21 @@
 import twemoji from "@twemoji/api";
-import { createMemo, For, Show } from "solid-js";
+import { createMemo, For, Match, Show, Switch } from "solid-js";
+import BellIcon from "~icons/ph/bell";
+import BellSlashIcon from "~icons/ph/bell-slash";
 import CaretLeftIcon from "~icons/ph/caret-left";
 import CrownIcon from "~icons/ph/crown-fill";
+import UsersIconFill from "~icons/ph/users-fill";
 import type { Member } from "../../../atproto/xrpc/social/colibri/community/listMembers";
 import type { Role } from "../../../atproto/xrpc/social/colibri/community/listRoles";
 import { useCommunityContext } from "../../../contexts/Community";
+import { useMutes } from "../../../contexts/Mutes";
 import { useUserPreferences } from "../../../contexts/UserPreferences";
 import createMediaQuery from "../../../utils/create-media-query";
 import { createSwipe } from "../../../utils/create-swipe";
+import { getChannelParam } from "../../../utils/get-param";
 import { groupMembersByRoles } from "../../../utils/group-members-by-roles";
 import { createMobilePane } from "../../../utils/mobile-pane";
+import { Button } from "../../ui/Button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../../ui/Tooltip";
 import User from "../user";
 import { MemberContextMenu } from "./MemberContextMenu";
@@ -105,8 +111,16 @@ export const MemberSidebar = () => {
 	});
 
 	const displayMembersAsSheet = createMediaQuery("(max-width: 1280px)");
-	const { preferences } = useUserPreferences();
+	const { preferences, toggleMembersVisible } = useUserPreferences();
 	const { isMobile, currentPane, popPane, pushDeeper } = createMobilePane();
+	const mutes = useMutes();
+
+	const currentChannelUri = createMemo(() => {
+		const rkey = getChannelParam();
+		if (!rkey) return undefined;
+		return community().channels.find((c) => c.uri.split("/").pop() === rkey)
+			?.uri;
+	});
 
 	return (
 		<div
@@ -139,6 +153,58 @@ export const MemberSidebar = () => {
 						<CaretLeftIcon width={20} height={20} />
 					</button>
 					<span class="font-medium">Members</span>
+				</div>
+			</Show>
+			<Show when={!isMobile() && displayMembersAsSheet()}>
+				<div class="border-b border-border h-12 min-h-12 p-2 w-full flex flex-row items-center gap-1">
+					<Show when={currentChannelUri()}>
+						{(uri) => (
+							<Tooltip>
+								<TooltipTrigger>
+									<Button
+										size="icon-sm"
+										variant="ghost"
+										onClick={() =>
+											mutes.isChannelMuted(uri())
+												? mutes.unmuteChannel(uri())
+												: mutes.muteChannel(uri())
+										}
+									>
+										<Switch>
+											<Match when={mutes.isChannelMuted(uri())}>
+												<BellSlashIcon />
+											</Match>
+											<Match when={!mutes.isChannelMuted(uri())}>
+												<BellIcon />
+											</Match>
+										</Switch>
+									</Button>
+								</TooltipTrigger>
+								<TooltipContent>
+									<Switch>
+										<Match when={mutes.isChannelMuted(uri())}>
+											Unmute Channel
+										</Match>
+										<Match when={!mutes.isChannelMuted(uri())}>
+											Mute Channel
+										</Match>
+									</Switch>
+								</TooltipContent>
+							</Tooltip>
+						)}
+					</Show>
+					<Tooltip>
+						<TooltipTrigger>
+							<Button
+								size="icon-sm"
+								variant="ghost"
+								onClick={() => toggleMembersVisible()}
+							>
+								<UsersIconFill />
+							</Button>
+						</TooltipTrigger>
+						<TooltipContent>Hide Member List</TooltipContent>
+					</Tooltip>
 				</div>
 			</Show>
 			<div class="flex flex-col gap-3 p-4 overflow-y-auto flex-1">
