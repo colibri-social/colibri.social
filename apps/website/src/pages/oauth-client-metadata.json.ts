@@ -26,6 +26,7 @@ export const GET: APIRoute = () => {
 		statusText: "OK",
 		headers: new Headers({
 			"content-type": "application/json",
+			"access-control-allow-origin": "*",
 		}),
 	});
 };
