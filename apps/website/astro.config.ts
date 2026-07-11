@@ -15,7 +15,7 @@ const { SENTRY_AUTH_TOKEN } = loadEnv(process.env.NODE_ENV!, process.cwd(), "");
 
 // https://astro.build/config
 export default defineConfig({
-	// TODO: Change before release
+	// TODO(release): Change before release
 	site: "https://next.colibri.social",
 	adapter: node({
 		mode: "standalone",
@@ -104,6 +104,7 @@ export default defineConfig({
 	security: {
 		allowedDomains: [
 			{ hostname: "colibri.social", protocol: "https" },
+			// TODO(release): drop this staging domain once colibri.social is primary
 			{ hostname: "next.colibri.social", protocol: "https" },
 		],
 	},

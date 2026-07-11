@@ -67,7 +67,7 @@ export const WelcomeScreen: Component = () => {
 						<CommunityCreationModal>
 							<Button>Create a community</Button>
 						</CommunityCreationModal>
-						{/* TODO: Re-enable once new invite link has been created
+						{/* TODO(release): Re-enable once new invite link has been created
 							<a href="https://colibri.social/invite/1b0e708bd85c414e">
 							<Button variant="secondary">
 								Join the Colibri Social Community

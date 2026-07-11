@@ -157,7 +157,7 @@ export const GET: APIRoute = async (request) => {
 		const hankenGroteskFontData: ArrayBuffer =
 			await hankenGroteskFontFile.arrayBuffer();
 
-		// TODO: This will break once this goes live
+		// TODO(release): This will break once this goes live
 		const communityData = (await (
 			await fetch(`https://colibri.social/api/community?community=${community}`)
 		).json()) as any;

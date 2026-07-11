@@ -47,7 +47,7 @@
 		},
 		"deep-link": {
 			"desktop": {
-				"schemes": ["social.colibri"]
+				"schemes": ["social.colibri", "social.colibri.next"]
 			}
 		}
 	}

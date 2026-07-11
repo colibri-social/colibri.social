@@ -4,12 +4,12 @@ import { completeNativeOAuth } from "../atproto/auth";
 import { useAuthContext } from "../contexts/Auth";
 import { isTauriRuntime } from "../notifications/environment";
 
-/** True for the native OAuth callback deep link (`social.colibri:/oauth/...`) */
+/** True for a native OAuth callback deep link (`social.colibri[.*]:/oauth/...`) */
 const isOAuthCallback = (url: string): boolean => {
 	try {
 		const parsed = new URL(url);
 		return (
-			parsed.protocol === "social.colibri:" &&
+			parsed.protocol.startsWith("social.colibri") &&
 			parsed.pathname.startsWith("/oauth")
 		);
 	} catch {

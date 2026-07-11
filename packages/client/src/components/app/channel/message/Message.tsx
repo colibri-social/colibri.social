@@ -1,6 +1,13 @@
 import type { ActorData, ColibriRichTextLink } from "@colibri-social/lib";
 import twemoji from "@twemoji/api";
-import { type Component, For, Match, Show, Switch } from "solid-js";
+import {
+	type Component,
+	createSignal,
+	For,
+	Match,
+	Show,
+	Switch,
+} from "solid-js";
 import ArrowBendUpLeft from "~icons/ph/arrow-bend-up-left";
 import PencilIcon from "~icons/ph/pencil";
 import ProhibitIcon from "~icons/ph/prohibit";
@@ -19,6 +26,8 @@ import { createLongPress } from "../../../../utils/create-long-press";
 import { useIsMobile } from "../../../../utils/mobile-pane";
 import {
 	Tooltip,
+	TooltipContent,
+	TooltipPortal,
 	TooltipTrigger,
 	type TooltipTriggerProps,
 } from "../../../ui/Tooltip";
@@ -27,6 +36,7 @@ import { RichTextRenderer } from "../../common/rich-text-renderer/RichTextRender
 import { facetsToProseMirror } from "../../common/text-editor/facets-to-prosemirror";
 import { TextEditor } from "../../common/text-editor/TextEditor";
 import User from "../../user";
+import { displayableNameFn } from "../../user/DisplayableName";
 import { MessageAttachments } from "./Attachments";
 import { BlockDrawer } from "./BlockDrawer";
 import { Action } from "./ContextMenu";
@@ -34,6 +44,7 @@ import { MessageContextMenu } from "./ContextMenu/Menu";
 import { DeletionDrawer } from "./DeletionDrawer/index";
 import { Embed, isGifUrl } from "./Embed";
 import { MessageTimestamp } from "./MessageTimestamp";
+import { ReactorsModal } from "./ReactorsModal";
 
 /**
  * A rendered message component in a chat.
@@ -100,10 +111,31 @@ const MessageInner: Component<{
 	const resolveAuthor = (author: ActorData): ActorData =>
 		community().members.find((m) => m.did === author.did) ?? author;
 
+	const [reactorsModalOpen, setReactorsModalOpen] = createSignal(false);
+
 	const isSubsequentMessage = () => {
 		if (message.parent) return false;
 		if (!props.isSubsequent) return false;
 		return true;
+	};
+
+	// Resolve a reactor DID to a display name via the member roster, falling back
+	// to the raw handle/DID for anyone no longer in the community.
+	const reactorName = (did: string): string => {
+		const member = community().members.find((m) => m.did === did);
+		return member ? displayableNameFn(member) : did.replace("at://", "");
+	};
+
+	// "A", "A and B", "A, B and C", then "A, B, C and N others" past three.
+	const reactedByLabel = (dids: Array<string>): string => {
+		const names = dids.slice(0, 3).map(reactorName);
+		const remaining = dids.length - names.length;
+
+		if (remaining > 0) {
+			return `${names.join(", ")} and ${remaining} ${remaining === 1 ? "other" : "others"}`;
+		}
+		if (names.length <= 1) return names.join("");
+		return `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
 	};
 
 	const linkFacets = (): Array<ColibriRichTextLink> =>
@@ -458,30 +490,33 @@ const MessageInner: Component<{
 											</button>
 										)}
 									/>
-									{/*TODO: Investigate feasability for this */}
-									{/*<TooltipPortal>
+									<TooltipPortal>
 										<TooltipContent>
 											<p class="m-0 max-w-64 text-wrap">
-												<span>Reacted by </span>
-												<For each={item.reactorDIDs}>
-													{(author, index) => (
-														<Suspense
-															fallback={<div class="inline">......</div>}
-														>
-															<SmallUserAsync did={author} hideImage />
-															<Show when={index() < item.authors.length - 1}>
-																{", "}
-															</Show>
-														</Suspense>
-													)}
-												</For>
+												Reacted by {reactedByLabel(item.reactorDIDs)}
 											</p>
 										</TooltipContent>
-									</TooltipPortal>*/}
+									</TooltipPortal>
 								</Tooltip>
 							)}
 						</For>
+						<Show
+							when={message.reactions.some((r) => r.reactorDIDs.length > 3)}
+						>
+							<button
+								type="button"
+								class="text-muted-foreground hover:text-foreground text-sm px-1.5 py-1 cursor-pointer hover:underline"
+								onClick={() => setReactorsModalOpen(true)}
+							>
+								View all
+							</button>
+						</Show>
 					</div>
+					<ReactorsModal
+						reactions={message.reactions}
+						open={reactorsModalOpen()}
+						setOpen={setReactorsModalOpen}
+					/>
 				</Show>
 			</div>
 		</MessageContextMenu>

@@ -24,12 +24,6 @@ const NATIVE_CLIENT_ORIGIN =
 		(window as { __COLIBRI_WEB_ORIGIN__?: string }).__COLIBRI_WEB_ORIGIN__) ||
 	"https://colibri.social";
 
-// Custom-scheme redirect for the native OAuth flow. atproto requires the scheme
-// to be the `client_id` host in reverse-domain order (colibri.social ->
-// social.colibri) and the `scheme:/path` single-slash form. Must match the
-// scheme registered by the wrapper (tauri.conf.json + platform manifests)
-export const NATIVE_OAUTH_REDIRECT = "social.colibri:/oauth/callback";
-
 const makeClientId = () => {
 	// The conventional document pins the default AppView, a per-AppView document
 	// pins any other AppView's `did:web`. Keeping  the default on the conventional path
@@ -242,9 +236,7 @@ export const completeNativeOAuth = async (
 		return false;
 	}
 
-	const { session } = await client.callback(params, {
-		redirect_uri: NATIVE_OAUTH_REDIRECT,
-	});
+	const { session } = await client.callback(params);
 	localStorage.setItem("sub", session.sub);
 	return true;
 };

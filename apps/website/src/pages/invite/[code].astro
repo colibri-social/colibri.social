@@ -34,10 +34,31 @@ if (!code) return Astro.redirect("/");
 		localStorage.setItem(PENDING_INVITE_KEY, code);
 	} catch {}
 
-	// TODO(app): Once native desktop/mobile apps exist, first try to open them
-	// via a registered deep link (e.g. `colibri://invite/${code}`) and only fall
-	// back to the web app below if that fails. No protocol scheme is registered
-	// yet, so we always open the web app for now.
+	const encoded = encodeURIComponent(code);
+	const scheme = window.location.hostname.split(".").reverse().join(".");
+	const webUrl = `/app/invite/${encoded}`;
+	const nativeUrl = `${scheme}:/invite/${encoded}`;
 
-	window.location.replace(`/app/invite/${code}`);
+	let handedOffToApp = false;
+	const markHandedOff = () => {
+		handedOffToApp = true;
+	};
+
+	document.addEventListener("visibilitychange", () => {
+		if (document.visibilityState === "hidden") handedOffToApp = true;
+	});
+	window.addEventListener("pagehide", markHandedOff);
+	window.addEventListener("blur", markHandedOff);
+
+	window.setTimeout(() => {
+		if (!handedOffToApp && document.visibilityState === "visible") {
+			window.location.replace(webUrl);
+		}
+	}, 2000);
+
+	try {
+		window.location.href = nativeUrl;
+	} catch {
+		window.location.replace(webUrl);
+	}
 </script>

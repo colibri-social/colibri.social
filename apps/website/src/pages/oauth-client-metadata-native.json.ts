@@ -1,4 +1,5 @@
 import type { APIRoute } from "astro";
+import { nativeRedirectUri } from "@/utils/atproto/native-scheme";
 import { scopes } from "@/utils/atproto/scopes";
 
 /**
@@ -16,7 +17,7 @@ export const GET: APIRoute = () => {
 		logo_uri: `${import.meta.env.SITE}/logo.png`,
 		tos_uri: `${import.meta.env.SITE}/tos`,
 		policy_uri: `${import.meta.env.SITE}/policy`,
-		redirect_uris: ["social.colibri:/oauth/callback"],
+		redirect_uris: [nativeRedirectUri()],
 		scope: scopes.join(" "),
 		grant_types: ["authorization_code", "refresh_token"],
 		response_types: ["code"],
