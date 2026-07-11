@@ -1,3 +1,5 @@
 import App from "./app";
+import { initSentry } from "./sentry";
 
-export { App };
+export { App, initSentry };
+export type { InitSentryOptions } from "./sentry";

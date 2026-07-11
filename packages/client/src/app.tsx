@@ -1,5 +1,3 @@
-import "./sentry";
-
 import "@arborium/arborium/themes/base.css";
 import "@arborium/arborium/themes/tokyo-night.css";
 import { ColorModeProvider } from "@kobalte/core/color-mode";

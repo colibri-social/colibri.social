@@ -493,7 +493,7 @@ export const renderWithFacets = (
 			(f) => f.$type === "social.colibri.richtext.facet#list",
 		);
 
-	for (let bi = 0; bi < blockFacets.length;) {
+	for (let bi = 0; bi < blockFacets.length; ) {
 		const blockFacet = blockFacets[bi];
 		if (blockFacet.index.byteStart > cursor) {
 			emitInline(cursor, blockFacet.index.byteStart, true);

@@ -11,25 +11,13 @@ import "@/styles/emoji-picker.css";
 	<script define:vars={{ key: PUBLIC_VAPID_KEY }} is:inline>
 		if (key) window.__COLIBRI_VAPID_KEY__ = key;
 	</script>
-	<App client:only="solid-js" />
 	{import.meta.env.PROD && (
 		<script>
-			import * as Sentry from "@sentry/solid";
+			import { initSentry } from "@colibri-social/client";
 			import { SENTRY_DSN } from "astro:env/client";
 
-			Sentry.init({
-				dsn: SENTRY_DSN,
-				sendDefaultPii: false,
-				integrations: [Sentry.browserTracingIntegration()],
-				tracesSampleRate: 1.0,
-				tracePropagationTargets: [
-					"localhost",
-					/^https:\/\/colibri\.social\/_actions/,
-					/^https:\/\/colibri\.social\/api/,
-					/^https:\/\/appview\.colibri\.social/,
-				],
-				enableLogs: true,
-			});
+			initSentry({ dsn: SENTRY_DSN, environment: "production" });
 		</script>
 	)}
+	<App client:only="solid-js" />
 </BaseLayout>
