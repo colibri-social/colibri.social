@@ -5,7 +5,7 @@ Sentry.init({
 	dsn: "https://df35547ef99d80129488681e91b90774@o4511127838916608.ingest.de.sentry.io/4511671478976592",
 	enabled: !import.meta.env.DEV,
 	environment: import.meta.env.DEV ? "development" : "production",
-	sendDefaultPii: true,
+	sendDefaultPii: false,
 	integrations: [solidRouterBrowserTracingIntegration()],
 	tracesSampleRate: 1,
 	tracePropagationTargets: [

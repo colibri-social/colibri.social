@@ -19,7 +19,7 @@ import "@/styles/emoji-picker.css";
 
 			Sentry.init({
 				dsn: SENTRY_DSN,
-				sendDefaultPii: true,
+				sendDefaultPii: false,
 				integrations: [Sentry.browserTracingIntegration()],
 				tracesSampleRate: 1.0,
 				tracePropagationTargets: [

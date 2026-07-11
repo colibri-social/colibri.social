@@ -19,7 +19,7 @@ Atmosphere identity, and your messages, images, and identity stay in your own PD
 them, and they travel with you across the network instead of being locked inside our servers. Communities work the
 same way: each one is its own repository on the network, so a community's data isn't trapped in any single app either.
 
-Tying it all together is our App View, the service that reads everything happening across the network and stitches it
+Tying it all together is our AppView, the service that reads everything happening across the network and stitches it
 into the fast, real-time experience you get at [colibri.social](https://colibri.social).
 
 That's the short version. If you're curious about the technical side (how data flows through the network, how
@@ -35,7 +35,7 @@ aren't tied to us: anyone can [run their own Colibri AppView](/docs/self-hosting
 
 ## I like what I'm reading. Can I help out?
 
-Yes, please! All the pieces of software we've made, the [App View](https://github.com/colibri-social/appview) and
+Yes, please! All the pieces of software we've made, the [AppView](https://github.com/colibri-social/appview) and
 [Website & App](https://github.com/colibri-social/colibri.social), are open source. We encourage contributions from the
 community, be it new features, small fixes or adjustments, or even large additions to the system. Have a look at the
 [contributing guide](/docs/contributing/overview) to get started.
