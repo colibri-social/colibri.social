@@ -1,11 +1,5 @@
 use tauri::Manager;
 
-// Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
-#[tauri::command]
-fn greet(name: &str) -> String {
-    format!("Hello, {}! You've been greeted from Rust!", name)
-}
-
 /// Initialize the native Sentry client. The DSN is read at runtime from
 /// `SENTRY_DSN`, falling back to a value baked in at build time. When neither
 /// is set, the guard is `None` and no events are sent. The returned guard must
@@ -66,7 +60,6 @@ pub fn run() {
             let _ = app;
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![greet])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
