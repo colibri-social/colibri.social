@@ -219,7 +219,8 @@ const CommunityLayout: ParentComponent = (props) => {
 				ref={(el) => createSwipe(el, swipe)}
 				class="flex flex-col"
 				classList={{
-					"w-full h-full max-h-[calc(100vh-41px)]": !isMobile(),
+					"w-full h-full max-h-[calc(100vh-41px)]":
+						!isMobile() && !isTauriRuntime(),
 					"max-w-[calc(100vw-576px-56px-1px)]":
 						!isMobile() &&
 						!displayMembersAsSheet() &&
