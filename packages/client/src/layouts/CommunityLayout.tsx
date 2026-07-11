@@ -36,6 +36,7 @@ import { useUserPreferences } from "../contexts/UserPreferences";
 import createMediaQuery from "../utils/create-media-query";
 import { createSwipe, type SwipeOptions } from "../utils/create-swipe";
 import { createMobilePane, useIsMobile } from "../utils/mobile-pane";
+import { isTauriRuntime } from "../notifications";
 
 const CommunityHeader = () => {
 	const user = useUserContext();
@@ -196,7 +197,8 @@ const CommunityLayout: ParentComponent = (props) => {
 		<div
 			class="bg-background w-full h-full flex relative overflow-clip"
 			classList={{
-				"rounded-tl-xl border-t border-l border-border": !isMobile(),
+				"rounded-tl-xl border-t border-l border-border":
+					!isMobile() && !isTauriRuntime(),
 			}}
 		>
 			<aside

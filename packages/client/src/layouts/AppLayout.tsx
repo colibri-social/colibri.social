@@ -58,6 +58,8 @@ import {
 } from "../utils/drag";
 import { createMobilePane } from "../utils/mobile-pane";
 import { createViewportMetrics } from "../utils/visual-viewport";
+import { isTauriRuntime } from "../notifications/environment";
+import { isTauri } from "@tauri-apps/api/core";
 
 const CommunityAvatar = (props: { item: Community; class?: string }) => {
 	const communityDid = props.item.uri.split("/")[2];
@@ -440,7 +442,7 @@ const AppLayout: ParentComponent = (props) => {
 			<NativeNotifications />
 			<div
 				class="flex w-full h-10 min-h-10 justify-between"
-				classList={{ hidden: isMobile() }}
+				classList={{ hidden: isMobile() || isTauriRuntime() }}
 			>
 				<div class="flex w-full h-full pl-2 items-center gap-2">
 					<img
@@ -457,8 +459,8 @@ const AppLayout: ParentComponent = (props) => {
 			<div
 				class="flex w-full"
 				classList={{
-					"h-full": isMobile(),
-					"h-[calc(100%-40px)]": !isMobile(),
+					"h-full": isMobile() || isTauriRuntime(),
+					"h-[calc(100%-40px)]": !isMobile() && !isTauriRuntime(),
 				}}
 			>
 				<aside
