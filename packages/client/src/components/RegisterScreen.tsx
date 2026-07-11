@@ -9,6 +9,7 @@ import {
 import { toast } from "somoto";
 import ArrowUpRightIcon from "~icons/ph/arrow-up-right";
 import CaretRightIcon from "~icons/ph/caret-right";
+import { startOAuthSignIn } from "../atproto/auth";
 import { buildScopes } from "../atproto/scopes";
 import { useAuthContext } from "../contexts/Auth";
 import { getAppViewDid } from "../utils/appview";
@@ -110,7 +111,7 @@ export const RegisterScreen: Component = () => {
 		setPending(provider.id);
 
 		try {
-			await auth.client.signIn(`https://${provider.host}`, {
+			await startOAuthSignIn(auth.client, `https://${provider.host}`, {
 				scope: buildScopes(getAppViewDid()).join(" "),
 				prompt: "create",
 			});

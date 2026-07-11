@@ -1,7 +1,7 @@
 import { useNavigate } from "@solidjs/router";
 import { type Component, createEffect, createSignal } from "solid-js";
 import { toast } from "somoto";
-import CaretRightIcon from "~icons/ph/caret-right";
+import { startOAuthSignIn } from "../atproto/auth";
 import { buildScopes } from "../atproto/scopes";
 import {
 	type ActorTypeaheadResult,
@@ -66,8 +66,7 @@ export const LoginScreen: Component = () => {
 		setLoading(true);
 
 		try {
-			await auth.client.signIn(handle(), {
-				signal: new AbortController().signal,
+			await startOAuthSignIn(auth.client, handle(), {
 				scope: buildScopes(getAppViewDid()).join(" "),
 			});
 		} catch (err) {

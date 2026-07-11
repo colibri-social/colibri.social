@@ -1,7 +1,7 @@
 [package]
-name = "wrapper"
+name = "colibri-social"
 version = "0.1.0"
-description = "A Tauri App"
+description = "Colibri is a next-generation social chat app built on the AT protocol. "
 authors = ["you"]
 edition = "2021"
 
@@ -37,4 +37,3 @@ tauri-plugin-deep-link = "2.4.9"
 tauri-plugin-single-instance = { version = "2.4.2", features = ["deep-link"] }
 tauri-plugin-updater = "2.10.1"
 tauri-plugin-window-state = "2.4.1"
-

@@ -2,6 +2,9 @@
 	"scripts": {
 		"dev:client": "pnpm --filter @colibri-social/client dev",
 		"dev:web": "pnpm --filter @colibri-social/website dev",
+		"dev:tauri": "pnpm --filter @colibri-social/wrapper tauri dev",
+		"dev:tauri:android": "pnpm --filter @colibri-social/wrapper tauri android dev",
+		"dev:tauri:ios": "pnpm --filter @colibri-social/wrapper tauri ios dev",
 		"build": "pnpm -r build",
 		"lint": "biome check .",
 		"lint:fix": "biome check . --write",

@@ -2,6 +2,7 @@ import type { BrowserOAuthClient } from "@atproto/oauth-client-browser";
 import { createSignal, For } from "solid-js";
 import { toast } from "somoto";
 import ArrowLineLeftIcon from "~icons/ph/arrow-line-left";
+import { startOAuthSignIn } from "../../../atproto/auth";
 import { buildScopes, scopeSetLabel } from "../../../atproto/scopes";
 import { endSession } from "../../../atproto/session";
 import { getAppViewDid } from "../../../utils/appview";
@@ -32,8 +33,7 @@ export function ScopeRefreshModal(props: {
 		setLoading(true);
 		try {
 			sessionStorage.setItem(SCOPE_REAUTH_FLAG, "1");
-			await props.client.signIn(props.did, {
-				signal: new AbortController().signal,
+			await startOAuthSignIn(props.client, props.did, {
 				scope: buildScopes(getAppViewDid()).join(" "),
 			});
 		} catch (err) {

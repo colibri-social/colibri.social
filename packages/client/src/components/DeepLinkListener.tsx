@@ -1,12 +1,23 @@
 import { useNavigate } from "@solidjs/router";
 import { type Component, onCleanup, onMount } from "solid-js";
+import { completeNativeOAuth } from "../atproto/auth";
+import { useAuthContext } from "../contexts/Auth";
 import { isTauriRuntime } from "../notifications/environment";
 
-/**
- * Extract an invite code from a deep-link URL. Handles the custom scheme
- * `colibri://invite/<code>` (where `invite` is parsed as the URL host) as well
- * as any `.../invite/<code>` path form
- */
+/** True for the native OAuth callback deep link (`social.colibri:/oauth/...`) */
+const isOAuthCallback = (url: string): boolean => {
+	try {
+		const parsed = new URL(url);
+		return (
+			parsed.protocol === "social.colibri:" &&
+			parsed.pathname.startsWith("/oauth")
+		);
+	} catch {
+		return false;
+	}
+};
+
+/** Extract an invite code from a `social.colibri:/invite/<code>` deep link */
 const parseInviteCode = (url: string): string | null => {
 	try {
 		const parsed = new URL(url);
@@ -22,14 +33,18 @@ const parseInviteCode = (url: string): string | null => {
 };
 
 /**
- * Headless component that routes incoming Tauri deep links. Currently handles
- * community invites (`colibri://invite/<code>`) by navigating to the in-app
- * invite screen, which drives the existing join / pre-login pending-invite flow
- * (see InviteModal + AppLayout). Renders nothing and is a no-op outside the
- * Tauri runtime
+ * Headless component that routes incoming Tauri deep links:
+ * - `social.colibri:/oauth/callback?...` — finishes the external-browser OAuth
+ *   sign-in (see startOAuthSignIn in auth.ts), then reloads into the app.
+ * - `social.colibri:/invite/<code>` — opens the in-app invite screen, driving
+ *   the existing join / pre-login pending-invite flow (InviteModal + AppLayout).
+ *
+ * Renders nothing and is a no-op outside the Tauri runtime, so it's safe to
+ * mount in the shared client on the web too
  */
 export const DeepLinkListener: Component = () => {
 	const navigate = useNavigate();
+	const auth = useAuthContext();
 
 	onMount(() => {
 		if (!isTauriRuntime()) return;
@@ -37,9 +52,22 @@ export const DeepLinkListener: Component = () => {
 		let disposed = false;
 		let unlisten: (() => void) | undefined;
 
-		const route = (urls: readonly string[] | null) => {
+		const route = async (urls: readonly string[] | null) => {
 			if (!urls) return;
 			for (const url of urls) {
+				if (isOAuthCallback(url)) {
+					try {
+						if (auth && (await completeNativeOAuth(auth.client, url))) {
+							// Reload so the auth bootstrap picks up the restored session.
+							window.location.href = "/app";
+							return;
+						}
+					} catch (err) {
+						console.error("[deep-link] OAuth callback failed", err);
+					}
+					continue;
+				}
+
 				const code = parseInviteCode(url);
 				if (code) {
 					navigate(`/app/invite/${code}`);
@@ -53,10 +81,10 @@ export const DeepLinkListener: Component = () => {
 				await import("@tauri-apps/plugin-deep-link");
 			// A URL the app was cold-launched with, then any received while running.
 			try {
-				route(await getCurrent());
+				await route(await getCurrent());
 			} catch {}
 			if (disposed) return;
-			unlisten = await onOpenUrl((urls) => route(urls));
+			unlisten = await onOpenUrl((urls) => void route(urls));
 		})();
 
 		onCleanup(() => {
