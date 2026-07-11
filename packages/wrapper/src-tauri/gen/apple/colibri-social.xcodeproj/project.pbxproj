@@ -1,0 +1,460 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		042BCF43A2C2A2704918C8B1 /* libapp.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 2381A5815BBB759639B6B97F /* libapp.a */; };
+		07728968E370873295808823 /* main.mm in Sources */ = {isa = PBXBuildFile; fileRef = EDA1032A4BF1DB787769D94F /* main.mm */; };
+		20ADE81D8B13F10CD53AEDDD /* UIKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 23F92E71B3C59D62A5115BB8 /* UIKit.framework */; };
+		2F139F11E0E7E8F139F2020C /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 33EEEEEE430CFB4960970B87 /* LaunchScreen.storyboard */; };
+		4B92D1B35B5AD5B3546508E9 /* CoreGraphics.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 932F4D78F5E2340766504215 /* CoreGraphics.framework */; };
+		786EB06D44A0D25D6BCE0616 /* QuartzCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B972DDDF4E6E36CAC7072E2B /* QuartzCore.framework */; };
+		B3C29F6433EAB7E11DE194DD /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 50765EB523701966B25949CA /* Assets.xcassets */; };
+		BE124219C3D392E07473F2C6 /* assets in Resources */ = {isa = PBXBuildFile; fileRef = 3B4087853713445F7F9F602C /* assets */; };
+		C73E598DCB507F87FD36E0AA /* WebKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0A1A312706C37641916B0EC4 /* WebKit.framework */; };
+		D03CB0CE111E71A0F1237385 /* MetalKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B95D904107C622AE7EF9BD2D /* MetalKit.framework */; };
+		EEA74BECB5D2035D83A582FC /* Metal.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D51A5144CE637D91656CF10F /* Metal.framework */; };
+		FA94483809A67F8354AC6D6D /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E0E40CBCE3EC8FD99C884C08 /* Security.framework */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		0A1A312706C37641916B0EC4 /* WebKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WebKit.framework; path = System/Library/Frameworks/WebKit.framework; sourceTree = SDKROOT; };
+		2381A5815BBB759639B6B97F /* libapp.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = libapp.a; sourceTree = "<group>"; };
+		23F92E71B3C59D62A5115BB8 /* UIKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = UIKit.framework; path = System/Library/Frameworks/UIKit.framework; sourceTree = SDKROOT; };
+		33EEEEEE430CFB4960970B87 /* LaunchScreen.storyboard */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; path = LaunchScreen.storyboard; sourceTree = "<group>"; };
+		3B4087853713445F7F9F602C /* assets */ = {isa = PBXFileReference; lastKnownFileType = folder; path = assets; sourceTree = SOURCE_ROOT; };
+		50765EB523701966B25949CA /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		5FDAC522F447AFAEB03509C0 /* bindings.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = bindings.h; sourceTree = "<group>"; };
+		78CAC261C8931EA913041F5C /* colibri-social_iOS.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = "colibri-social_iOS.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		932F4D78F5E2340766504215 /* CoreGraphics.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreGraphics.framework; path = System/Library/Frameworks/CoreGraphics.framework; sourceTree = SDKROOT; };
+		969998B8BCBCB17448F091C1 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		B95D904107C622AE7EF9BD2D /* MetalKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MetalKit.framework; path = System/Library/Frameworks/MetalKit.framework; sourceTree = SDKROOT; };
+		B972DDDF4E6E36CAC7072E2B /* QuartzCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = QuartzCore.framework; path = System/Library/Frameworks/QuartzCore.framework; sourceTree = SDKROOT; };
+		D1CA0BAFCAEFC1C03B2B7BF7 /* lib.rs */ = {isa = PBXFileReference; path = lib.rs; sourceTree = "<group>"; };
+		D51A5144CE637D91656CF10F /* Metal.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Metal.framework; path = System/Library/Frameworks/Metal.framework; sourceTree = SDKROOT; };
+		E0E40CBCE3EC8FD99C884C08 /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = System/Library/Frameworks/Security.framework; sourceTree = SDKROOT; };
+		EDA1032A4BF1DB787769D94F /* main.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = main.mm; sourceTree = "<group>"; };
+		F0A9F8EDF7AF07ED882CD0B8 /* main.rs */ = {isa = PBXFileReference; path = main.rs; sourceTree = "<group>"; };
+		F7B3C1071A3246B1B9F6A3A7 /* colibri-social_iOS.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = "colibri-social_iOS.entitlements"; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		015DE870942E7B9871DE049C /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				042BCF43A2C2A2704918C8B1 /* libapp.a in Frameworks */,
+				4B92D1B35B5AD5B3546508E9 /* CoreGraphics.framework in Frameworks */,
+				EEA74BECB5D2035D83A582FC /* Metal.framework in Frameworks */,
+				D03CB0CE111E71A0F1237385 /* MetalKit.framework in Frameworks */,
+				786EB06D44A0D25D6BCE0616 /* QuartzCore.framework in Frameworks */,
+				FA94483809A67F8354AC6D6D /* Security.framework in Frameworks */,
+				20ADE81D8B13F10CD53AEDDD /* UIKit.framework in Frameworks */,
+				C73E598DCB507F87FD36E0AA /* WebKit.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		01F175F4904DFB9A2366EAF0 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				78CAC261C8931EA913041F5C /* colibri-social_iOS.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		1F18FE7F90A76D538FD5816A /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				932F4D78F5E2340766504215 /* CoreGraphics.framework */,
+				2381A5815BBB759639B6B97F /* libapp.a */,
+				D51A5144CE637D91656CF10F /* Metal.framework */,
+				B95D904107C622AE7EF9BD2D /* MetalKit.framework */,
+				B972DDDF4E6E36CAC7072E2B /* QuartzCore.framework */,
+				E0E40CBCE3EC8FD99C884C08 /* Security.framework */,
+				23F92E71B3C59D62A5115BB8 /* UIKit.framework */,
+				0A1A312706C37641916B0EC4 /* WebKit.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		234D70556009D4FDA4B70755 /* Sources */ = {
+			isa = PBXGroup;
+			children = (
+				451CBAF617EB66A0D2FFF16A /* colibri-social */,
+			);
+			path = Sources;
+			sourceTree = "<group>";
+		};
+		3478076C934A357C3D27E74F /* bindings */ = {
+			isa = PBXGroup;
+			children = (
+				5FDAC522F447AFAEB03509C0 /* bindings.h */,
+			);
+			path = bindings;
+			sourceTree = "<group>";
+		};
+		451CBAF617EB66A0D2FFF16A /* colibri-social */ = {
+			isa = PBXGroup;
+			children = (
+				EDA1032A4BF1DB787769D94F /* main.mm */,
+				3478076C934A357C3D27E74F /* bindings */,
+			);
+			path = "colibri-social";
+			sourceTree = "<group>";
+		};
+		54AF2488524C169A51141132 /* Externals */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = Externals;
+			sourceTree = "<group>";
+		};
+		69165A6FF40572CD434A2230 /* src */ = {
+			isa = PBXGroup;
+			children = (
+				D1CA0BAFCAEFC1C03B2B7BF7 /* lib.rs */,
+				F0A9F8EDF7AF07ED882CD0B8 /* main.rs */,
+			);
+			name = src;
+			path = ../../src;
+			sourceTree = "<group>";
+		};
+		CD2D2A0C7173F8DC6ADE7B9C /* colibri-social_iOS */ = {
+			isa = PBXGroup;
+			children = (
+				F7B3C1071A3246B1B9F6A3A7 /* colibri-social_iOS.entitlements */,
+				969998B8BCBCB17448F091C1 /* Info.plist */,
+			);
+			path = "colibri-social_iOS";
+			sourceTree = "<group>";
+		};
+		D472E04D020F7F1B2CF5D75A = {
+			isa = PBXGroup;
+			children = (
+				3B4087853713445F7F9F602C /* assets */,
+				50765EB523701966B25949CA /* Assets.xcassets */,
+				33EEEEEE430CFB4960970B87 /* LaunchScreen.storyboard */,
+				CD2D2A0C7173F8DC6ADE7B9C /* colibri-social_iOS */,
+				54AF2488524C169A51141132 /* Externals */,
+				234D70556009D4FDA4B70755 /* Sources */,
+				69165A6FF40572CD434A2230 /* src */,
+				1F18FE7F90A76D538FD5816A /* Frameworks */,
+				01F175F4904DFB9A2366EAF0 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		A235D283518EBE6C98F7FB16 /* colibri-social_iOS */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = D759AF5D5EFF31DF88839FDD /* Build configuration list for PBXNativeTarget "colibri-social_iOS" */;
+			buildPhases = (
+				E6B7FA0320793277E15358D5 /* Build Rust Code */,
+				D2DAEC80D27DC6F07066442D /* Sources */,
+				F8EDAFC13998377E51F0A1FC /* Resources */,
+				015DE870942E7B9871DE049C /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = "colibri-social_iOS";
+			packageProductDependencies = (
+			);
+			productName = "colibri-social_iOS";
+			productReference = 78CAC261C8931EA913041F5C /* colibri-social_iOS.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		BAA9FCFDC443CAD060CF9E4B /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+				};
+			};
+			buildConfigurationList = D687E0259945ADBAF8509F6B /* Build configuration list for PBXProject "colibri-social" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = D472E04D020F7F1B2CF5D75A;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 01F175F4904DFB9A2366EAF0 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				A235D283518EBE6C98F7FB16 /* colibri-social_iOS */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		F8EDAFC13998377E51F0A1FC /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B3C29F6433EAB7E11DE194DD /* Assets.xcassets in Resources */,
+				2F139F11E0E7E8F139F2020C /* LaunchScreen.storyboard in Resources */,
+				BE124219C3D392E07473F2C6 /* assets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		E6B7FA0320793277E15358D5 /* Build Rust Code */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Build Rust Code";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(SRCROOT)/Externals/x86_64/${CONFIGURATION}/libapp.a",
+				"$(SRCROOT)/Externals/arm64/${CONFIGURATION}/libapp.a",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "pnpm tauri ios xcode-script -v --platform ${PLATFORM_DISPLAY_NAME:?} --sdk-root ${SDKROOT:?} --framework-search-paths \"${FRAMEWORK_SEARCH_PATHS:?}\" --header-search-paths \"${HEADER_SEARCH_PATHS:?}\" --gcc-preprocessor-definitions \"${GCC_PREPROCESSOR_DEFINITIONS:-}\" --configuration ${CONFIGURATION:?} ${FORCE_COLOR} ${ARCHS:?}";
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		D2DAEC80D27DC6F07066442D /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				07728968E370873295808823 /* main.mm in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		572CBF4BCD10F8E97A39183E /* release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 14.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+			};
+			name = release;
+		};
+		63CCFF8DF88B46D32CE27530 /* release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
+				ARCHS = (
+					arm64,
+				);
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = "colibri-social_iOS/colibri-social_iOS.entitlements";
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				ENABLE_BITCODE = NO;
+				"EXCLUDED_ARCHS[sdk=iphoneos*]" = x86_64;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"\".\"",
+				);
+				INFOPLIST_FILE = "colibri-social_iOS/Info.plist";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				"LIBRARY_SEARCH_PATHS[arch=arm64]" = "$(inherited) $(PROJECT_DIR)/Externals/arm64/$(CONFIGURATION) $(SDKROOT)/usr/lib/swift $(DEVELOPER_DIR)/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/$(PLATFORM_NAME) $(DEVELOPER_DIR)/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift-5.0/$(PLATFORM_NAME)";
+				"LIBRARY_SEARCH_PATHS[arch=x86_64]" = "$(inherited) $(PROJECT_DIR)/Externals/x86_64/$(CONFIGURATION) $(SDKROOT)/usr/lib/swift $(DEVELOPER_DIR)/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/$(PLATFORM_NAME) $(DEVELOPER_DIR)/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift-5.0/$(PLATFORM_NAME)";
+				PRODUCT_BUNDLE_IDENTIFIER = social.colibri.app;
+				PRODUCT_NAME = "Colbiri Social";
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALID_ARCHS = arm64;
+			};
+			name = release;
+		};
+		95AD5B6C4724DF95959F84D5 /* debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 14.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+			};
+			name = debug;
+		};
+		9A49B7EC97EA6A2FAD566718 /* debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
+				ARCHS = (
+					arm64,
+				);
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = "colibri-social_iOS/colibri-social_iOS.entitlements";
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				ENABLE_BITCODE = NO;
+				"EXCLUDED_ARCHS[sdk=iphoneos*]" = x86_64;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"\".\"",
+				);
+				INFOPLIST_FILE = "colibri-social_iOS/Info.plist";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				"LIBRARY_SEARCH_PATHS[arch=arm64]" = "$(inherited) $(PROJECT_DIR)/Externals/arm64/$(CONFIGURATION) $(SDKROOT)/usr/lib/swift $(DEVELOPER_DIR)/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/$(PLATFORM_NAME) $(DEVELOPER_DIR)/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift-5.0/$(PLATFORM_NAME)";
+				"LIBRARY_SEARCH_PATHS[arch=x86_64]" = "$(inherited) $(PROJECT_DIR)/Externals/x86_64/$(CONFIGURATION) $(SDKROOT)/usr/lib/swift $(DEVELOPER_DIR)/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/$(PLATFORM_NAME) $(DEVELOPER_DIR)/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift-5.0/$(PLATFORM_NAME)";
+				PRODUCT_BUNDLE_IDENTIFIER = social.colibri.app;
+				PRODUCT_NAME = "Colbiri Social";
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALID_ARCHS = arm64;
+			};
+			name = debug;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		D687E0259945ADBAF8509F6B /* Build configuration list for PBXProject "colibri-social" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				95AD5B6C4724DF95959F84D5 /* debug */,
+				572CBF4BCD10F8E97A39183E /* release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = debug;
+		};
+		D759AF5D5EFF31DF88839FDD /* Build configuration list for PBXNativeTarget "colibri-social_iOS" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				9A49B7EC97EA6A2FAD566718 /* debug */,
+				63CCFF8DF88B46D32CE27530 /* release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = debug;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = BAA9FCFDC443CAD060CF9E4B /* Project object */;
+}
