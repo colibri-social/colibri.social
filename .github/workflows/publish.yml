@@ -139,6 +139,30 @@ jobs:
           echo "$ANDROID_KEY_BASE64" | base64 --decode > $RUNNER_TEMP/keystore/release.jks
           echo "storeFile=$RUNNER_TEMP/keystore/release.jks" >> keystore.properties
 
+      # openssl-sys builds vendored OpenSSL from source for the Android targets
+      # (no prebuilt ships for them)
+      - name: Alias NDK binutils for openssl-src (Android only)
+        if: matrix.is-android
+        shell: bash
+        run: |
+          set -eu
+          NDK="${ANDROID_NDK_ROOT:-${ANDROID_NDK_LATEST_HOME:-${NDK_HOME:-}}}"
+          if [ -z "$NDK" ]; then
+            echo "No Android NDK path found (ANDROID_NDK_ROOT/ANDROID_NDK_LATEST_HOME/NDK_HOME)" >&2
+            exit 1
+          fi
+          BIN=$(echo "$NDK"/toolchains/llvm/prebuilt/*/bin)
+          echo "Using NDK llvm bin dir: $BIN"
+          test -x "$BIN/llvm-ranlib"
+          for prefix in aarch64-linux-android arm-linux-androideabi armv7a-linux-androideabi i686-linux-android x86_64-linux-android; do
+            ln -sf "$BIN/llvm-ranlib" "$BIN/${prefix}-ranlib"
+            ln -sf "$BIN/llvm-ar" "$BIN/${prefix}-ar"
+          done
+          ls -l "$BIN"/*-ranlib
+          # OpenSSL's Makefile calls ranlib by bare name, so the aliases must be
+          # on PATH when tauri-action runs cargo build in the following step.
+          echo "$BIN" >> "$GITHUB_PATH"
+
       - uses: tauri-apps/tauri-action@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
