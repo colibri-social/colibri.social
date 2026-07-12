@@ -30,13 +30,11 @@ jobs:
         id: changesets
         uses: changesets/action@v1.9.0
         with:
-          version: pnpm changeset version
-          publish: pnpm exec changeset publish
           commit: "[ci] release"
           title: "[ci] release"
 
       - name: Publish workflow
-        if: steps.changesets.outputs.published == 'true'
+        if: steps.changesets.outputs.hasChangesets == 'false'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: gh workflow run publish.yml --ref main
