@@ -28,3 +28,9 @@ jobs:
 
       - name: Create Release Pull Request
         uses: changesets/action@v1.9.0
+
+      - name: Send a Slack notification if a publish happens
+        if: steps.changesets.outputs.published == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh workflow run publish.yml --ref main
