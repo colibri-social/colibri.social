@@ -53,6 +53,10 @@ jobs:
             args: ""
           - platform: "windows-latest"
             args: ""
+          # Android configuration targeting ubuntu-latest
+          - platform: "ubuntu-latest"
+            args: "android --apk"
+            is-android: true
 
     runs-on: ${{ matrix.platform }}
     steps:
@@ -61,8 +65,8 @@ jobs:
         with:
           name: frontend-assets
 
-      - name: install dependencies (ubuntu only)
-        if: matrix.platform == 'ubuntu-24.04' || matrix.platform == 'ubuntu-24.04-arm'
+      - name: install dependencies (ubuntu desktop only)
+        if: (matrix.platform == 'ubuntu-24.04' || matrix.platform == 'ubuntu-24.04-arm') && !matrix.is-android
         run: |
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf xdg-utils
@@ -79,10 +83,24 @@ jobs:
       - name: install frontend dependencies (for CLI access)
         run: pnpm install --frozen-lockfile
 
+      # Android Prerequisites: JDK & Android NDK/SDK configuration
+      - name: set up JDK 17 (Android only)
+        if: matrix.is-android
+        uses: actions/setup-java@v4
+        with:
+          distribution: "zulu"
+          java-version: "17"
+
+      - name: setup Android SDK (Android only)
+        if: matrix.is-android
+        uses: android-actions/setup-android@v3
+
       - name: install Rust stable
         uses: dtolnay/rust-toolchain@stable
         with:
-          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+          targets: |
+            ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+            ${{ matrix.is-android && 'aarch64-linux-android,armv7-linux-androideabi,i686-linux-android,x86_64-linux-android' || '' }}
 
       - name: Rust cache
         uses: swatinem/rust-cache@v2
@@ -105,17 +123,34 @@ jobs:
           echo "$APPLE_API_KEY_P8" > ~/.appstoreconnect/private_keys/AuthKey.p8
           echo "APPLE_API_KEY_PATH=$HOME/.appstoreconnect/private_keys/AuthKey.p8" >> "$GITHUB_ENV"
 
+      # Android Code Signing setup matching official docs
+      - name: Setup Android signing (Android only)
+        if: matrix.is-android
+        env:
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          ANDROID_KEY_BASE64: ${{ secrets.ANDROID_KEY_BASE64 }}
+        run: |
+          mkdir -p packages/wrapper/src-tauri/gen/android
+          cd packages/wrapper/src-tauri/gen/android
+          echo "keyAlias=${{ env.ANDROID_KEY_ALIAS }}" > keystore.properties
+          echo "password=${{ env.ANDROID_KEY_PASSWORD }}" >> keystore.properties
+          mkdir -p $RUNNER_TEMP/keystore
+          echo "$ANDROID_KEY_BASE64" | base64 --decode > $RUNNER_TEMP/keystore/release.jks
+          echo "storeFile=$RUNNER_TEMP/keystore/release.jks" >> keystore.properties
+
       - uses: tauri-apps/tauri-action@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_UPDATER_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_UPDATER_PASSWORD }}
+          # macOS Environment Variables
           APPLE_CERTIFICATE: ${{ matrix.platform == 'macos-latest' && secrets.APPLE_CERTIFICATE || '' }}
           APPLE_CERTIFICATE_PASSWORD: ${{ matrix.platform == 'macos-latest' && secrets.APPLE_CERTIFICATE_PASSWORD || '' }}
           APPLE_SIGNING_IDENTITY: ${{ matrix.platform == 'macos-latest' && secrets.APPLE_SIGNING_IDENTITY || '' }}
           APPLE_API_ISSUER: ${{ matrix.platform == 'macos-latest' && secrets.APPLE_API_ISSUER || '' }}
           APPLE_API_KEY: ${{ matrix.platform == 'macos-latest' && secrets.APPLE_API_KEY || '' }}
           APPLE_API_KEY_PATH: ${{ env.APPLE_API_KEY_PATH }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_UPDATER_PASSWORD }}
         with:
           projectPath: "packages/wrapper"
           tagName: v__VERSION__
