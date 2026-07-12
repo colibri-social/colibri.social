@@ -110,7 +110,7 @@ function createField(layer: HTMLElement, opts: FieldOpts) {
 				else if (p.y < -m) p.y += H + 2 * m;
 				if (p.x > W + m) p.x -= W + 2 * m;
 				else if (p.x < -m) p.x += W + 2 * m;
-			} else if (p.age >= p.life || p.y > H + 60 || p.x < -60 || p.x > W + 60) {
+			} else if (p.age >= p.life) {
 				p.el.remove();
 				bodies.splice(i, 1);
 				continue;
