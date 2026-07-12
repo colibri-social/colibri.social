@@ -155,6 +155,9 @@ jobs:
           APPLE_API_ISSUER: ${{ matrix.platform == 'macos-latest' && secrets.APPLE_API_ISSUER || '' }}
           APPLE_API_KEY: ${{ matrix.platform == 'macos-latest' && secrets.APPLE_API_KEY || '' }}
           APPLE_API_KEY_PATH: ${{ env.APPLE_API_KEY_PATH }}
+          ANDROID_KEY_ALIAS: ${{ matrix.platform == 'ubuntu-latest' && secrets.ANDROID_KEY_ALIAS || '' }}
+          ANDROID_KEY_BASE64: ${{ matrix.platform == 'ubuntu-latest' && secrets.ANDROID_KEY_BASE64 || '' }}
+          ANDROID_KEY_PASSWORD: ${{ matrix.platform == 'ubuntu-latest' && env.ANDROID_KEY_PASSWORD || '' }}
         with:
           projectPath: "packages/wrapper"
           tagName: v__VERSION__
