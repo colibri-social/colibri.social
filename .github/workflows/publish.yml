@@ -4,39 +4,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  build-prerequisites:
-    runs-on: ubuntu-latest
-    outputs:
-      artifact-name: frontend-assets
-    steps:
-      - uses: actions/checkout@v7
-
-      - name: setup pnpm
-        uses: pnpm/action-setup@v6
-
-      - name: setup node
-        uses: actions/setup-node@v6
-        with:
-          node-version: lts/*
-          cache: "pnpm"
-
-      - name: install frontend dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Build app
-        run: pnpm build
-
-      - name: Upload built assets
-        uses: actions/upload-artifact@v7
-        with:
-          name: frontend-assets
-          path: |
-            .
-            !.git
-            !node_modules
-
   publish-tauri:
-    needs: build-prerequisites
     permissions:
       contents: write
     strategy:
@@ -55,15 +23,27 @@ jobs:
             args: ""
           # Android configuration targeting ubuntu-latest
           - platform: "ubuntu-latest"
-            args: "-- android --apk"
+            mobile: "android"
             is-android: true
 
     runs-on: ${{ matrix.platform }}
     steps:
-      - name: Download built assets
-        uses: actions/download-artifact@v4
+      - uses: actions/checkout@v7
+
+      - name: setup pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: setup node
+        uses: actions/setup-node@v6
         with:
-          name: frontend-assets
+          node-version: lts/*
+          cache: "pnpm"
+
+      - name: install frontend dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build app
+        run: pnpm build
 
       - name: install dependencies (ubuntu desktop only)
         if: (matrix.platform == 'ubuntu-24.04' || matrix.platform == 'ubuntu-24.04-arm') && !matrix.is-android
@@ -183,3 +163,4 @@ jobs:
           releaseDraft: true
           prerelease: false
           args: ${{ matrix.args }}
+          mobile: ${{ matrix.mobile }}
