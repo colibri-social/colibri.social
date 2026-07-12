@@ -27,15 +27,14 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Create Release Pull Request
+        id: changesets
         uses: changesets/action@v1.9.0
         with:
-          version: pnpm changeset version
-          publish: echo "Version PR merged. Initializing app compilation..."
           commit: "[ci] release"
           title: "[ci] release"
 
-      - name: Send a Slack notification if a publish happens
-        if: steps.changesets.outputs.published == 'true'
+      - name: Publish workflow
+        if: steps.changesets.outputs.hasChangesets == 'false'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: gh workflow run publish.yml --ref main
