@@ -1,6 +1,7 @@
 import { logoUrl as ColibriLogo } from "@colibri-social/assets";
 import type { Community } from "@colibri-social/lib";
 import { A, useLocation, useNavigate } from "@solidjs/router";
+import { isTauri } from "@tauri-apps/api/core";
 import {
 	closestCenter,
 	createSortable,
@@ -50,6 +51,7 @@ import {
 } from "../contexts/Notifications";
 import { useSocketContext } from "../contexts/Socket";
 import { useUserContext } from "../contexts/User";
+import { isTauriRuntime } from "../notifications/environment";
 import { LongPressSensors } from "../utils/create-longpress-sensor";
 import {
 	animateToNewPositions,
@@ -58,8 +60,6 @@ import {
 } from "../utils/drag";
 import { createMobilePane } from "../utils/mobile-pane";
 import { createViewportMetrics } from "../utils/visual-viewport";
-import { isTauriRuntime } from "../notifications/environment";
-import { isTauri } from "@tauri-apps/api/core";
 
 const CommunityAvatar = (props: { item: Community; class?: string }) => {
 	const communityDid = props.item.uri.split("/")[2];

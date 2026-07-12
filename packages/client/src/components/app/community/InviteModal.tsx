@@ -27,8 +27,8 @@ import {
 	SwitchThumb,
 	Switch as ToggleSwitch,
 } from "../../ui/Switch";
-import { PENDING_INVITE_KEY } from "./invite-storage";
 import { displayableNameFn } from "../user/DisplayableName";
+import { PENDING_INVITE_KEY } from "./invite-storage";
 
 const clearPendingInvite = () => {
 	try {

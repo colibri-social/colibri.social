@@ -7,8 +7,8 @@ import {
 } from "@atproto/api";
 import { type Component, createResource, For, Show } from "solid-js";
 import { Dynamic } from "solid-js/web";
-import CheckCircleIcon from "~icons/ph/check-circle-fill";
 import ChatIcon from "~icons/ph/chat-circle";
+import CheckCircleIcon from "~icons/ph/check-circle-fill";
 import HeartIcon from "~icons/ph/heart";
 import RepeatIcon from "~icons/ph/repeat";
 import SealCheckIcon from "~icons/ph/seal-check-fill";

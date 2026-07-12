@@ -1,8 +1,8 @@
 import { type Component, Show } from "solid-js";
 import { AtURI } from "../../../utils/at-uri";
+import { Button } from "../../ui/Button";
 import { CopyButton } from "./CopyButton";
 import { SettingsPage } from "./SettingsModal";
-import { Button } from "../../ui/Button";
 
 export const InfoPageItem: Component<{
 	title: string;

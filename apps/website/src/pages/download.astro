@@ -1,0 +1,410 @@
+---
+import Button from "@/components/bearnie/button/Button.astro";
+import Android from "@/components/icons/android.svg";
+import Apple from "@/components/icons/apple.svg";
+import Check from "@/components/icons/check.svg";
+import Copy from "@/components/icons/copy.svg";
+import Download from "@/components/icons/download.svg";
+import Linux from "@/components/icons/linux.svg";
+import Package from "@/components/icons/package.svg";
+import Store from "@/components/icons/store.svg";
+import Terminal from "@/components/icons/terminal.svg";
+import Windows from "@/components/icons/windows.svg";
+import PublicLayout from "@/layouts/PublicLayout.astro";
+
+const RELEASES =
+	"https://github.com/colibri-social/colibri.social/releases/latest";
+
+type Method = {
+	name: string;
+	desc: string;
+	icon: "store" | "package" | "download" | "terminal";
+	href?: string;
+	command?: string;
+};
+
+type Platform = {
+	id: string;
+	name: string;
+	tabIcon: "apple" | "android" | "windows" | "linux";
+	methods: Method[];
+};
+
+const platforms: Array<Platform> = [
+	{
+		id: "android",
+		name: "Android",
+		tabIcon: "android",
+		methods: [
+			{
+				name: "Google Play",
+				desc: "Recommended for most Android devices",
+				icon: "store",
+				href: "https://play.google.com/store/apps/details?id=social.colibri",
+			},
+			{
+				name: "F-Droid",
+				desc: "The open-source app store",
+				icon: "package",
+				href: "https://f-droid.org/packages/social.colibri",
+			},
+			{
+				name: "APK",
+				desc: "Direct download, sideload it yourself",
+				icon: "download",
+				href: RELEASES,
+			},
+		],
+	},
+	{
+		id: "ios",
+		name: "iOS",
+		tabIcon: "apple",
+		methods: [
+			{
+				name: "App Store",
+				desc: "Recommended, straight from Apple",
+				icon: "store",
+				href: "https://apps.apple.com/app/colibri/id000000000",
+			},
+			{
+				name: "AltStore PAL",
+				desc: "Alternative marketplace (EU only)",
+				icon: "package",
+				href: "https://altstore.io/",
+			},
+		],
+	},
+	{
+		id: "macos",
+		name: "macOS",
+		tabIcon: "apple",
+		methods: [
+			{
+				name: "Mac App Store",
+				desc: "Recommended",
+				icon: "store",
+				href: "https://apps.apple.com/app/colibri/id000000000",
+			},
+			{
+				name: "Homebrew",
+				desc: "For terminal fans",
+				icon: "terminal",
+				command: "brew install --cask colibri-social/tap/colibri",
+			},
+			{
+				name: "DMG",
+				desc: "Direct download, drag to Applications",
+				icon: "download",
+				href: RELEASES,
+			},
+		],
+	},
+	{
+		id: "windows",
+		name: "Windows",
+		tabIcon: "windows",
+		methods: [
+			{
+				name: "Microsoft Store",
+				desc: "Recommended",
+				icon: "store",
+				href: "https://apps.microsoft.com/detail/colibri",
+			},
+			{
+				name: "Installer",
+				desc: "Direct .exe download",
+				icon: "download",
+				href: RELEASES,
+			},
+			{
+				name: "Winget",
+				desc: "Windows Package Manager",
+				icon: "terminal",
+				command: "winget install Colibri.Colibri",
+			},
+			{
+				name: "Scoop",
+				desc: "Command-line installer",
+				icon: "terminal",
+				command:
+					"scoop bucket add colibri-social https://github.com/colibri-social/scoop-bucket && scoop install colibri",
+			},
+		],
+	},
+	{
+		id: "linux",
+		name: "Linux",
+		tabIcon: "linux",
+		methods: [
+			{
+				name: "Flatpak",
+				desc: "Recommended, works on most distros",
+				icon: "terminal",
+				command: "flatpak install flathub social.colibri",
+			},
+			{
+				name: "AppImage",
+				desc: "Portable, no installation needed",
+				icon: "download",
+				href: RELEASES,
+			},
+			{
+				name: "Snap",
+				desc: "For Ubuntu and friends",
+				icon: "terminal",
+				command: "snap install colibri",
+			},
+		],
+	},
+];
+
+const tabIcons = {
+	apple: Apple,
+	android: Android,
+	windows: Windows,
+	linux: Linux,
+};
+
+const methodIcons = {
+	store: Store,
+	package: Package,
+	download: Download,
+	terminal: Terminal,
+};
+---
+
+<PublicLayout
+	title="Download Colibri"
+	description="Get the Colibri app for Android, iOS, macOS, Windows and Linux."
+	image="/og.png"
+>
+	<section
+		class="py-40 mx-auto w-full max-w-336 md:px-16 px-6 relative flex flex-col items-center gap-8 animate-in fade-in-0 slide-in-from-bottom-2 duration-500 motion-reduce:animate-none"
+	>
+		<div class="flex flex-col gap-4 items-center text-center">
+			<small class="text-primary text-sm">
+				On your desktop, in your pocket.
+			</small>
+			<h1 class="text-5xl font-black m-0">DOWNLOAD</h1>
+			<p class="m-0 text-muted-foreground max-w-[48ch]">
+				Get the Colibri app for your favorite devices and go for a flight.
+			</p>
+		</div>
+
+		<div
+			id="download-card"
+			class="flex flex-col bg-card w-full max-w-2xl rounded-2xl border border-border relative drop-shadow-black/25 drop-shadow-2xl overflow-hidden"
+		>
+			<p
+				id="dl-hint"
+				aria-live="polite"
+				class="text-sm text-muted-foreground text-center px-6 pt-4 m-0 min-h-5 empty:hidden"
+			>
+			</p>
+
+			<div class="p-6">
+				<div
+					role="tablist"
+					aria-label="Choose your platform"
+					class="grid grid-cols-3 sm:grid-cols-5 gap-1.5 p-1.5 rounded-xl bg-muted/40 border border-border"
+				>
+					{
+						platforms.map((pf) => {
+							const TabIcon = tabIcons[pf.tabIcon];
+							return (
+								<button
+									type="button"
+									role="tab"
+									data-tab={pf.id}
+									aria-selected="false"
+									aria-controls={`panel-${pf.id}`}
+									class="dl-tab group flex flex-col items-center justify-center gap-1.5 h-16 rounded-lg text-muted-foreground transition-colors cursor-pointer hover:text-foreground aria-selected:bg-card aria-selected:text-foreground aria-selected:shadow-sm"
+								>
+									<TabIcon class="size-5 shrink-0" />
+									<span class="text-xs font-medium">{pf.name}</span>
+								</button>
+							);
+						})
+					}
+				</div>
+			</div>
+
+			<div class="px-4 pb-6 sm:px-6">
+				{
+					platforms.map((pf) => (
+						<div
+							id={`panel-${pf.id}`}
+							role="tabpanel"
+							data-panel={pf.id}
+							hidden
+							class="flex flex-col gap-2.5 animate-in fade-in-0 duration-300 motion-reduce:animate-none"
+						>
+							{pf.methods.map((m, i) => {
+								const MethodIcon = methodIcons[m.icon];
+								const recommended = i === 0;
+								return (
+									<div
+										class:list={[
+											"rounded-xl border p-3 transition-colors",
+											recommended
+												? "border-primary/40 bg-primary/5"
+												: "border-border bg-muted/20 hover:bg-muted/40",
+										]}
+									>
+										<div class="flex items-center gap-3">
+											<span
+												class:list={[
+													"grid place-items-center size-10 shrink-0 rounded-lg [&_svg]:size-5",
+													recommended
+														? "bg-primary/10 text-primary"
+														: "bg-muted text-foreground",
+												]}
+											>
+												<MethodIcon />
+											</span>
+											<div class="flex flex-col min-w-0 gap-0.5">
+												<div class="flex items-center gap-2 flex-wrap">
+													<span class="text-sm font-semibold text-foreground leading-none">
+														{m.name}
+													</span>
+													{recommended && (
+														<span class="text-[10px] uppercase tracking-wide font-semibold text-primary bg-primary/10 rounded px-1.5 py-0.5 leading-none">
+															Recommended
+														</span>
+													)}
+												</div>
+												<span class="text-xs text-muted-foreground truncate">
+													{m.desc}
+												</span>
+											</div>
+											{m.href && (
+												<Button
+													href={m.href}
+													variant={recommended ? "default" : "secondary"}
+													size="sm"
+													class="ml-auto shrink-0"
+													target="_blank"
+													rel="noreferrer"
+												>
+													Get
+													<Download slot="right-icon" />
+												</Button>
+											)}
+											{m.command && (
+												<button
+													type="button"
+													class="dl-copy ml-auto shrink-0 inline-flex items-center justify-center size-8 rounded-md bg-secondary text-secondary-foreground hover:bg-secondary/80 transition-colors cursor-pointer [&_svg]:size-4"
+													data-copy={m.command}
+													aria-label={`Copy ${m.name} command`}
+												>
+													<Copy class="dl-copy-icon" />
+													<Check class="dl-check-icon hidden text-green-500" />
+												</button>
+											)}
+										</div>
+										{m.command && (
+											<div class="mt-2.5 flex items-center gap-2 rounded-lg bg-background border border-border px-3 py-2 font-mono text-xs overflow-x-auto">
+												<span class="text-primary select-none shrink-0">$</span>
+												<code class="text-foreground whitespace-nowrap text-xs bg-transparent">
+													{m.command}
+												</code>
+											</div>
+										)}
+									</div>
+								);
+							})}
+						</div>
+					))
+				}
+			</div>
+		</div>
+
+		<div
+			class="flex flex-row items-center justify-center text-muted-foreground w-full max-w-2xl gap-4 text-sm flex-wrap"
+		>
+			<a href="/app" class="text-primary hover:underline">
+				Or just open it in your browser
+			</a>
+		</div>
+	</section>
+</PublicLayout>
+
+<script>
+	const card = document.getElementById("download-card");
+	if (card) {
+		const tabs = Array.from(
+			card.querySelectorAll<HTMLButtonElement>(".dl-tab"),
+		);
+		const panels = Array.from(
+			card.querySelectorAll<HTMLElement>("[data-panel]"),
+		);
+		const hint = document.getElementById("dl-hint");
+
+		const labels: Record<string, string> = {
+			android: "Android",
+			ios: "iOS",
+			macos: "macOS",
+			windows: "Windows",
+			linux: "Linux",
+		};
+
+		const activate = (id: string) => {
+			for (const tab of tabs) {
+				tab.setAttribute(
+					"aria-selected",
+					tab.dataset.tab === id ? "true" : "false",
+				);
+			}
+			for (const panel of panels) {
+				panel.hidden = panel.dataset.panel !== id;
+			}
+		};
+
+		const detect = (): string => {
+			const ua = navigator.userAgent;
+			const touch = navigator.maxTouchPoints > 1;
+			if (/android/i.test(ua)) return "android";
+			if (/iphone|ipad|ipod/i.test(ua)) return "ios";
+			if (/mac/i.test(ua)) return touch ? "ios" : "macos";
+			if (/win/i.test(ua)) return "windows";
+			if (/linux/i.test(ua)) return "linux";
+			return "";
+		};
+
+		for (const tab of tabs) {
+			tab.addEventListener("click", () => {
+				const id = tab.dataset.tab;
+				if (id) activate(id);
+			});
+		}
+
+		const detected = detect();
+		const initial = detected || tabs[0]?.dataset.tab || "android";
+		activate(initial);
+
+		if (detected && hint) {
+			hint.textContent = `Looks like you're on ${labels[detected]}. Here's what we'd grab.`;
+		}
+
+		for (const btn of card.querySelectorAll<HTMLButtonElement>(".dl-copy")) {
+			btn.addEventListener("click", async () => {
+				const command = btn.dataset.copy;
+				if (!command) return;
+				try {
+					await navigator.clipboard.writeText(command);
+				} catch {
+					return;
+				}
+				const copyIcon = btn.querySelector(".dl-copy-icon");
+				const checkIcon = btn.querySelector(".dl-check-icon");
+				copyIcon?.classList.add("hidden");
+				checkIcon?.classList.remove("hidden");
+				window.setTimeout(() => {
+					copyIcon?.classList.remove("hidden");
+					checkIcon?.classList.add("hidden");
+				}, 1600);
+			});
+		}
+	}
+</script>

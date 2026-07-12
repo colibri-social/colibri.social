@@ -360,3 +360,8 @@
 .emoji-render {
 	font-variant-emoji: emoji;
 }
+
+.hero-anim .hero-reveal {
+	opacity: 0;
+	transform: translateY(24px);
+}

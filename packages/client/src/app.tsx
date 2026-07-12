@@ -22,10 +22,10 @@ import {
 } from "solid-js";
 import { urlSegmentToUri } from "./atproto/community-uri-to-url-compatible";
 import { AppLoadingScreen } from "./components/AppLoadingScreen";
-import { DeepLinkListener } from "./components/DeepLinkListener";
 import { InviteModal } from "./components/app/community/InviteModal";
 import { ScopeGate } from "./components/app/onboarding/ScopeGate";
 import { VoiceChannelView } from "./components/app/VoiceChannelView";
+import { DeepLinkListener } from "./components/DeepLinkListener";
 import { LoginScreen } from "./components/LoginScreen";
 import { RegisterScreen } from "./components/RegisterScreen";
 import { Toaster } from "./components/ui/Sonner";

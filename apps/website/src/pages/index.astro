@@ -5,11 +5,7 @@ import atShield from "@/assets/landing/atShield.webp";
 import Branch from "@/assets/landing/branch.webp";
 import Colibri from "@/assets/landing/Colibri.png";
 import Eye from "@/assets/landing/Eye.png";
-import IPhone from "@/assets/landing/iPhone.png";
 import SettingsScreenshot from "@/assets/landing/settings-screenshot.png";
-// import Leaves from "@/assets/landing/Leaves.webp";
-// import PrivateDataBG from "@/assets/landing/PrivateDataBG.png";
-// import PrivateDataIcons from "@/assets/landing/PrivateDataIcons.png";
 import Tools from "@/assets/landing/Tools.png";
 import User from "@/assets/landing/User.png";
 import UserVerified from "@/assets/landing/UserVerified.png";
@@ -21,12 +17,14 @@ import {
 	AccordionTrigger,
 } from "@/components/bearnie/accordion";
 import Button from "@/components/bearnie/button/Button.astro";
-// import Download from "@/components/icons/download.svg";
+import Download from "@/components/icons/download.svg";
 import GitBranch from "@/components/icons/git-branch.svg";
 import Globe from "@/components/icons/globe.svg";
 import BinaryMarquee from "@/components/public/BinaryMarquee.astro";
 import Clouds from "@/components/public/Clouds.astro";
+import HeroDevices from "@/components/public/HeroDevices.astro";
 import MockVoiceCall from "@/components/public/MockVoiceCall.tsx";
+import PetalField from "@/components/public/nature/PetalField.astro";
 import PublicLayout from "@/layouts/PublicLayout.astro";
 ---
 
@@ -37,73 +35,107 @@ import PublicLayout from "@/layouts/PublicLayout.astro";
 	image="/og.png"
 	home
 >
-	<section
-		class="w-screen flex flex-row gap-12 py-40 bg-gradient-dark rounded-b-xl drop-shadow-md drop-shadow-black/50 hero-container overflow-hidden"
-	>
-		<div class="flex flex-row gap-12 mx-auto w-full max-w-336 md:px-16 px-6">
-			<div class="w-full flex flex-col justify-center gap-4 z-20">
-				<small class="text-primary text-sm">
-					Chats where you truly own your data.
-				</small>
-				<h1 class="text-5xl font-black m-0">
-					LET YOUR COMMUNITY SPREAD ITS WINGS.
-				</h1>
-				<p class="m-0">
-					Colibri is an open source chat platform built on the AT protocol for
-					communities big and small.
-				</p>
-				<div class="flex flex-row items-start align-center gap-4 flex-wrap">
-					{
-						/* <Button variant="default" class="cursor-pointer" href="/download">
+	<script is:inline>
+		if (!window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+			document.documentElement.classList.add("hero-anim");
+		}
+	</script>
+
+	<div class="hero-sky" aria-hidden="true"></div>
+	<PetalField count={70} />
+
+	<section class="hero relative w-full">
+		<div class="hero-fog"></div>
+		<div class="hero-petals" aria-hidden="true"></div>
+
+		<div
+			class="hero-branch-wrap lg:block hidden"
+			data-branch="right"
+			data-parallax="0.18"
+			aria-hidden="true"
+		>
+			<canvas
+				class="branch-gl"
+				data-branch="right"
+				data-branch-src={Branch.src}
+				data-draw-w="800"
+				data-draw-h="519"></canvas>
+			<Image
+				src={Branch}
+				width={800}
+				height={519}
+				quality={100}
+				alt=""
+				class="branch-fallback"
+				loading="eager"
+			/>
+			<div class="branch-hit" data-branch-hit="right"></div>
+		</div>
+		<div
+			class="hero-branch-wrap sm:block hidden"
+			data-branch="left"
+			data-parallax="0.26"
+			aria-hidden="true"
+		>
+			<canvas
+				class="branch-gl"
+				data-branch="left"
+				data-branch-src={Branch.src}
+				data-draw-w="800"
+				data-draw-h="519"></canvas>
+			<Image
+				src={Branch}
+				width={800}
+				height={519}
+				quality={100}
+				alt=""
+				class="branch-fallback"
+				loading="eager"
+			/>
+			<div class="branch-hit" data-branch-hit="left"></div>
+		</div>
+
+		<div
+			class="hero-inner relative z-20 mx-auto w-full max-w-336 md:px-16 px-6 pt-40 flex flex-col items-center text-center gap-5"
+		>
+			<small class="hero-eyebrow hero-reveal text-primary text-sm">
+				Chats where you truly own your data.
+			</small>
+			<h1 class="hero-title hero-reveal text-5xl md:text-7xl font-black">
+				LET YOUR COMMUNITY SPREAD ITS WINGS.
+			</h1>
+			<p class="hero-sub hero-reveal m-0 max-w-[52ch] text-balance">
+				Colibri is an open source chat platform built on the AT protocol for
+				communities big and small.
+			</p>
+			<div
+				class="hero-reveal flex flex-row items-start justify-center gap-4 flex-wrap mt-2"
+			>
+				<span class="hero-cta inline-flex">
+					<Button variant="default" href="/download">
 						<Download slot="left-icon" />
 						Download
-					</Button> */
-					}
-					<Button variant="default" href="/app">
+					</Button>
+				</span>
+				<span class="hero-cta inline-flex">
+					<Button variant="secondary" href="/app">
 						<Globe slot="left-icon" />
 						Open in Browser
 					</Button>
-					<Button variant="secondary" href="https://github.com/colibri-social">
-						<GitBranch slot="left-icon" />
-						View Source Code
-					</Button>
-				</div>
-			</div>
-			<div class="relative items-center justify-center lg:flex hidden">
-				<canvas id="cobe" class="w-128 h-128" width="1000" height="1000"
-				></canvas>
-				<Image
-					src={IPhone}
-					width={240}
-					height={406}
-					quality={100}
-					alt={"An iPhone with the spellcast logo in the center of the screen."}
-					class="absolute top-1/2 left-1/2 transform -translate-1/2 floaty"
-					loading="eager"
-				/>
+				</span>
 			</div>
 		</div>
-		<Image
-			src={Branch}
-			width={800}
-			height={519}
-			quality={100}
-			alt={"A desaturated cherry blossom branch."}
-			class="absolute -right-40 -bottom-20 pointer-events-none lg:block hidden"
-			loading="eager"
-		/>
-		<Image
-			src={Branch}
-			width={800}
-			height={519}
-			quality={100}
-			alt={"A desaturated cherry blossom branch."}
-			class="absolute -left-80 -bottom-50 transform -scale-x-100 sm:block hidden pointer-events-none"
-			loading="eager"
-		/>
+
+		<div class="hero-devices-wrap hero-reveal w-full mt-16 md:mt-20">
+			<HeroDevices />
+		</div>
+
+		<div class="hero-seam" aria-hidden="true">
+			<Clouds />
+		</div>
 	</section>
-	<section class="py-40 mx-auto w-full overflow-hidden">
-		<Clouds />
+
+	<section class="py-40 mx-auto w-full overflow-hidden relative z-40">
 		<div
 			class="bg-gradient-dark max-w-304 md:mx-auto mx-6 w-[calc(100%-48px)] md:w-[calc(100%-8rem)] rounded-2xl border border-border flex flex-col h-fit drop-shadow-black/25 drop-shadow-2xl"
 		>
@@ -287,55 +319,10 @@ import PublicLayout from "@/layouts/PublicLayout.astro";
 				/>
 			</div>
 		</div>
-		{
-			/* <div
-			class="bg-gradient-dark w-full rounded-2xl border border-border flex flex-col-reverse lg:flex-row h-fit p-6 relative gap-6 overflow-hidden drop-shadow-black/25 drop-shadow-2xl"
-		>
-			<Image
-				src={Leaves}
-				width={512}
-				height={344}
-				quality={100}
-				alt="Leaves hanging down from some branches."
-				class="absolute top-0 -right-2 opacity-50"
-			/>
-			<div class="w-full flex flex-col gap-4 justify-center">
-				<small class="text-primary text-sm">Future-proofed.</small>
-				<h2 class="text-4xl font-black m-0">
-					BUILT ON OPEN STANDARDS. PRIVATE WHEN NEEDED.
-				</h2>
-				<p class="m-0">
-					Running a private group chat? As soon as the AT protocol supports
-					private data, we'll work on implementing it and giving you the option
-					to create private communities.
-				</p>
-			</div>
-			<div
-				class="lg:min-w-120 w-full min-h-fit aspect-square sm:aspect-auto sm:min-h-108 flex items-center justify-center"
-			>
-				<Image
-					width={480}
-					height={480}
-					src={PrivateDataBG}
-					quality={100}
-					alt="A big 3D purple shield."
-					class="absolute w-full h-auto max-w-108"
-				/>
-				<Image
-					width={320}
-					height={120}
-					src={PrivateDataIcons}
-					quality={100}
-					class="z-10 w-full max-w-80"
-					alt="A 3D-looking database icon with a lock, a 3D-looking lock icon with the text 'at://' on it, and a 3D-looking arrow icon pointing from the database to the lock."
-				/>
-			</div>
-		</div> */
-		}
 	</section>
 	<section class="py-40 mx-auto w-full max-w-336 md:px-16 px-6 relative z-20">
 		<div
-			class="bg-gradient-dark w-full rounded-2xl border border-border flex flex-col gap-8 h-fit p-6 relative items-center drop-shadow-black/25 drop-shadow-2xl"
+			class="bg-gradient-dark w-full rounded-2xl border border-border flex flex-col gap-8 h-fit p-6 relative z-10 items-center drop-shadow-black/25 drop-shadow-2xl"
 		>
 			<div class="flex flex-col gap-4 items-center text-center">
 				<small class="text-primary text-sm">Stuff you might ask about.</small>
@@ -379,12 +366,12 @@ import PublicLayout from "@/layouts/PublicLayout.astro";
 						</p>
 						<p class="mb-0">
 							If you've previously signed up to Bluesky, they will currently be
-							hosting your PDS for you. But it's easy to migrate to a
+							hosting your PDS for you. But it's easy to migrate to a{" "}
 							<a href="https://atproto.com/guides/self-hosting"
 								>self-hosted PDS</a
-							>
+							>{" "}
 							as well! Tools like <a href="https://pdsmoover.com/">PDS MOOver</a
-							>
+							>{" "}
 							can help you migrate your data to your own servers when you are ready
 							to.
 						</p>
@@ -437,9 +424,9 @@ import PublicLayout from "@/layouts/PublicLayout.astro";
 					<AccordionContent>
 						No, they don't. While we store data the same way Bluesky does, we
 						use a different "collection", meaning your data will stay confined
-						to Colibri. You can use a tool like
-						<a href="https://atproto.at">atproto.at://</a> to inspect your profile
-						and all related data.
+						to Colibri. You can use a tool like{" "}
+						<a href="https://atproto.at">atproto.at</a> to inspect your profile and
+						all related data.
 					</AccordionContent>
 				</AccordionItem>
 			</Accordion>
@@ -447,6 +434,179 @@ import PublicLayout from "@/layouts/PublicLayout.astro";
 	</section>
 </PublicLayout>
 <style>
+	.hero {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		padding-bottom: 7rem;
+		overflow-x: clip;
+	}
+
+	.hero-sky {
+		position: absolute;
+		top: 0;
+		left: 0;
+		right: 0;
+		height: 100vh;
+		z-index: -2;
+		pointer-events: none;
+		background:
+			radial-gradient(
+				90% 55% at 50% 10%,
+				rgba(134, 102, 255, 0.16) 0%,
+				rgba(134, 102, 255, 0) 60%
+			),
+			linear-gradient(180deg, #17112b 0%, #100d1a 45%, var(--background) 100%);
+	}
+
+	.hero-fog {
+		position: absolute;
+		left: 50%;
+		top: 34%;
+		width: 85%;
+		height: 70%;
+		transform: translateX(-50%);
+		background: radial-gradient(
+			closest-side,
+			rgba(134, 102, 255, 0.3) 0%,
+			rgba(134, 102, 255, 0.12) 40%,
+			rgba(134, 102, 255, 0) 74%
+		);
+		opacity: 0.85;
+		z-index: 0;
+		pointer-events: none;
+	}
+
+	.hero-petals {
+		position: absolute;
+		inset: 0;
+		z-index: 15;
+		pointer-events: none;
+		overflow: hidden;
+	}
+
+	:global(.phys-petal) {
+		position: absolute;
+		top: 0;
+		left: 0;
+		will-change: transform, opacity;
+	}
+
+	:global(.phys-petal svg) {
+		display: block;
+		width: 100%;
+		height: 100%;
+	}
+
+	.hero-branch-wrap {
+		--bmx: 200px;
+		--bmy: 70px;
+		position: absolute;
+		z-index: 10;
+		pointer-events: none;
+		width: calc(800px + 2 * var(--bmx));
+		height: calc(519px + 2 * var(--bmy));
+	}
+
+	.hero-branch-wrap[data-branch="right"] {
+		right: calc(-16rem - var(--bmx));
+		top: calc(-1rem - var(--bmy));
+	}
+
+	.hero-branch-wrap[data-branch="left"] {
+		left: calc(-28rem - var(--bmx));
+		top: calc(8rem - var(--bmy));
+	}
+
+	.branch-gl {
+		position: absolute;
+		inset: 0;
+		width: 100%;
+		height: 100%;
+		display: none;
+		pointer-events: none;
+	}
+
+	.branch-fallback {
+		position: absolute;
+		top: var(--bmy);
+		left: var(--bmx);
+	}
+
+	.hero-branch-wrap[data-branch="left"] .branch-fallback {
+		transform: scaleX(-1);
+	}
+
+	.branch-hit {
+		position: absolute;
+		pointer-events: auto;
+	}
+
+	.hero-branch-wrap[data-branch="right"] .branch-hit {
+		top: calc(var(--bmy) + 8rem);
+		left: var(--bmx);
+		width: 24rem;
+		height: 15rem;
+	}
+
+	.hero-branch-wrap[data-branch="left"] .branch-hit {
+		top: calc(var(--bmy) + 8rem);
+		right: var(--bmx);
+		width: 24rem;
+		height: 15rem;
+	}
+
+	.hero-inner::before {
+		content: "";
+		position: absolute;
+		inset: -3rem -6rem 0;
+		z-index: -1;
+		pointer-events: none;
+		background: radial-gradient(
+			58% 52% at 50% 40%,
+			rgba(16, 13, 26, 0.82) 0%,
+			rgba(16, 13, 26, 0.55) 42%,
+			rgba(16, 13, 26, 0) 76%
+		);
+	}
+
+	.hero-title {
+		margin: 0;
+		line-height: 1.02;
+		max-width: 18ch;
+	}
+
+	.hero-eyebrow,
+	.hero-sub {
+		text-shadow: 0 1px 14px rgba(16, 13, 26, 0.65);
+	}
+
+	.hero-devices-wrap {
+		position: relative;
+		z-index: 5;
+	}
+
+	.hero-seam {
+		position: absolute;
+		left: 0;
+		right: 0;
+		bottom: -4rem;
+		height: 12rem;
+		z-index: 30;
+		pointer-events: none;
+	}
+
+	.hero-seam :global(> div) {
+		position: absolute;
+		left: 0;
+		right: 0;
+		bottom: -32rem;
+		top: auto;
+		width: 100%;
+		transform: none;
+		z-index: 30;
+	}
+
 	.glide {
 		animation: glide 8s ease-in-out infinite;
 		transform-origin: center center;
@@ -473,40 +633,12 @@ import PublicLayout from "@/layouts/PublicLayout.astro";
 			transform: translateY(0px) rotate(var(--tw-rotate, 0deg));
 		}
 	}
+
+	@media (max-width: 768px) {
+		.hero-title {
+			max-width: 14ch;
+		}
+	}
 </style>
+<script src="@/scripts/landing.ts"></script>
 <script src="@/scripts/lightbox.ts"></script>
-<script>
-	import createGlobe from "cobe";
-
-	let phi = 0;
-	let canvas = document.querySelector<HTMLCanvasElement>("#cobe")!;
-
-	const globe = createGlobe(canvas, {
-		devicePixelRatio: 2,
-		width: 1000,
-		height: 1000,
-		phi: 0,
-		theta: 0,
-		mapSamples: 16000,
-		mapBrightness: 6,
-		mapBaseBrightness: 0,
-		diffuse: 1.2,
-		dark: 1,
-		baseColor: [0.2, 0.1, 0.3],
-		markerColor: [1, 1, 1],
-		glowColor: [0.556, 0.317, 1],
-		scale: 1,
-		offset: [0, 0],
-		opacity: 0.9,
-		markers: [
-			// { location: [37.7595, -122.4367], size: 0.03 },
-			// { location: [40.7128, -74.006], size: 0.1 },
-		],
-		onRender: (state) => {
-			// Called on every animation frame.
-			// `state` will be an empty object, return updated params.
-			state.phi = phi;
-			phi += 0.001;
-		},
-	});
-</script>

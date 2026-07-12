@@ -1,5 +1,5 @@
-import type { ActorData, Community } from "@colibri-social/lib";
 import type { AppBskyFeedDefs } from "@atproto/api";
+import type { ActorData, Community } from "@colibri-social/lib";
 import type { Message } from "../xrpc/social/colibri/channel/listMessages";
 import type { Community as CommunityDetail } from "../xrpc/social/colibri/community/getData";
 

@@ -1,0 +1,84 @@
+---
+import { Image } from "astro:assets";
+import DesktopMockup from "@/assets/landing/desktop-mockup.png";
+import IPhone from "@/assets/landing/iPhone.png";
+---
+
+<div class="hero-devices">
+	<div class="device device-browser">
+		<Image
+			src={DesktopMockup}
+			width={1600}
+			height={1114}
+			quality={92}
+			loading="eager"
+			alt="The Colibri app open in a desktop browser."
+			class="device-screen"
+		/>
+	</div>
+
+	<div class="device device-phone">
+		<Image
+			src={IPhone}
+			width={240}
+			height={406}
+			quality={100}
+			loading="eager"
+			alt="The Colibri app on a phone."
+			class="phone-img"
+		/>
+	</div>
+</div>
+
+<style>
+	.hero-devices {
+		position: relative;
+		display: flex;
+		align-items: flex-end;
+		justify-content: center;
+		width: 100%;
+		max-width: 90rem;
+		margin: 0 auto;
+	}
+
+	.device {
+		position: relative;
+	}
+
+	.device-browser {
+		z-index: 3;
+		width: clamp(460px, 48vw, 1360px);
+		filter: drop-shadow(0 40px 80px rgba(0, 0, 0, 0.55))
+			drop-shadow(0 0 60px rgba(134, 102, 255, 0.12));
+	}
+
+	.device-screen {
+		display: block;
+		width: 100%;
+		height: auto;
+	}
+
+	.device-phone {
+		z-index: 4;
+		width: clamp(110px, 9.5vw, 270px);
+		margin-left: -4.5rem;
+		margin-bottom: 0.5rem;
+		transform: rotate(3deg);
+		filter: drop-shadow(0 24px 44px rgba(0, 0, 0, 0.55));
+	}
+
+	.phone-img {
+		display: block;
+		width: 100%;
+		height: auto;
+	}
+
+	@media (max-width: 1024px) {
+		.device-phone {
+			display: none;
+		}
+		.device-browser {
+			width: min(94vw, 820px);
+		}
+	}
+</style>

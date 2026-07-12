@@ -33,10 +33,10 @@ import {
 import { MemberProfileContextProvider } from "../contexts/MemberProfile";
 import { useUserContext } from "../contexts/User";
 import { useUserPreferences } from "../contexts/UserPreferences";
+import { isTauriRuntime } from "../notifications";
 import createMediaQuery from "../utils/create-media-query";
 import { createSwipe, type SwipeOptions } from "../utils/create-swipe";
 import { createMobilePane, useIsMobile } from "../utils/mobile-pane";
-import { isTauriRuntime } from "../notifications";
 
 const CommunityHeader = () => {
 	const user = useUserContext();

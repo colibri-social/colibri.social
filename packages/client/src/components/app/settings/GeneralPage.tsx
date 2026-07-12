@@ -36,13 +36,13 @@ import {
 } from "../../../components/ui/TextField";
 import { useUserContext } from "../../../contexts/User";
 import { SettingsPage } from "../common/SettingsModal";
-import { displayableNameFn } from "../user/DisplayableName";
 import {
 	ThemeControls,
 	type ThemeState,
 	themeStateFromTheme,
 	themeStateToRecord,
 } from "../profile/theme";
+import { displayableNameFn } from "../user/DisplayableName";
 
 const COLLECTION = "social.colibri.actor.profile";
 
