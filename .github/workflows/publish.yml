@@ -4,7 +4,39 @@ on:
   workflow_dispatch:
 
 jobs:
+  build-prerequisites:
+    runs-on: ubuntu-latest
+    outputs:
+      artifact-name: frontend-assets
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: setup node
+        uses: actions/setup-node@v6
+        with:
+          node-version: lts/*
+          cache: "pnpm"
+
+      - name: install frontend dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build app
+        run: pnpm build
+
+      - name: Upload built assets
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-assets
+          path: |
+            .
+            !.git
+            !node_modules
+
   publish-tauri:
+    needs: build-prerequisites
     permissions:
       contents: write
     strategy:
@@ -24,7 +56,10 @@ jobs:
 
     runs-on: ${{ matrix.platform }}
     steps:
-      - uses: actions/checkout@v7
+      - name: Download built assets
+        uses: actions/download-artifact@v4
+        with:
+          name: frontend-assets
 
       - name: install dependencies (ubuntu only)
         if: matrix.platform == 'ubuntu-24.04' || matrix.platform == 'ubuntu-24.04-arm'
@@ -41,6 +76,9 @@ jobs:
           node-version: lts/*
           cache: "pnpm"
 
+      - name: install frontend dependencies (for CLI access)
+        run: pnpm install --frozen-lockfile
+
       - name: install Rust stable
         uses: dtolnay/rust-toolchain@stable
         with:
@@ -50,12 +88,6 @@ jobs:
         uses: swatinem/rust-cache@v2
         with:
           workspaces: "packages/wrapper/src-tauri -> target"
-
-      - name: install frontend dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Build app
-        run: pnpm build
 
       - name: install Apple provisioning profile (macOS only)
         if: matrix.platform == 'macos-latest'
@@ -86,9 +118,9 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_UPDATER_PASSWORD }}
         with:
           projectPath: "packages/wrapper"
-          tagName: app-v__VERSION__
-          releaseName: "App v__VERSION__"
-          releaseBody: "See the assets to download this version and install."
+          tagName: v__VERSION__
+          releaseName: "Colibri Desktop __VERSION__"
+          releaseBody: ""
           releaseDraft: true
           prerelease: false
           args: ${{ matrix.args }}
