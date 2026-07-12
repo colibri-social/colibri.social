@@ -18,18 +18,8 @@
 	<string>0.1.0</string>
 	<key>CFBundleVersion</key>
 	<string>0.1.0</string>
-	<key>CFBundleURLTypes</key>
-	<array>
-		<dict>
-			<key>CFBundleURLName</key>
-			<string>social.colibri.app</string>
-			<key>CFBundleURLSchemes</key>
-			<array>
-				<string>social.colibri</string>
-				<string>social.colibri.next</string>
-			</array>
-		</dict>
-	</array>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<true/>
 	<key>NSCameraUsageDescription</key>
 	<string>Colibri uses your camera for video in voice channels and calls.</string>
 	<key>NSMicrophoneUsageDescription</key>
@@ -56,7 +46,5 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
-	<key>ITSAppUsesNonExemptEncryption</key>
-	<true/>
 </dict>
 </plist>
