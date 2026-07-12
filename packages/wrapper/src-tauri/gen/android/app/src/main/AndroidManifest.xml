@@ -46,6 +46,9 @@
                 <!-- TODO(release): social.colibri.next is the staging (next.colibri.social) scheme, can be dropped from a colibri.social-only build. Also update tauri.conf.json plugins.deep-link.desktop.schemes. -->
                 <data android:scheme="social.colibri.next" />
             </intent-filter>
+            <!-- DEEP LINK PLUGIN. AUTO-GENERATED. DO NOT REMOVE. -->
+            
+            <!-- DEEP LINK PLUGIN. AUTO-GENERATED. DO NOT REMOVE. -->
         </activity>
 
         <provider
