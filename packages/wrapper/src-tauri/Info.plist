@@ -7,5 +7,7 @@
 	<string>Colibri uses your microphone for voice channels and calls.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>Colibri uses your camera for video in voice channels and calls.</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<true/>
 </dict>
 </plist>
