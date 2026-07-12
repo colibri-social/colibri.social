@@ -57,10 +57,32 @@ jobs:
       - name: Build app
         run: pnpm build
 
+      - name: install Apple provisioning profile (macOS only)
+        if: matrix.platform == 'macos-latest'
+        env:
+          MAC_PROVISIONPROFILE: ${{ secrets.MAC_PROVISIONPROFILE }}
+        run: |
+          echo "$MAC_PROVISIONPROFILE" | base64 --decode > packages/wrapper/src-tauri/Colibri_Mac.provisionprofile
+
+      - name: install App Store Connect API key (macOS only)
+        if: matrix.platform == 'macos-latest'
+        env:
+          APPLE_API_KEY_P8: ${{ secrets.APPLE_API_KEY_P8 }}
+        run: |
+          mkdir -p ~/.appstoreconnect/private_keys
+          echo "$APPLE_API_KEY_P8" > ~/.appstoreconnect/private_keys/AuthKey.p8
+          echo "APPLE_API_KEY_PATH=$HOME/.appstoreconnect/private_keys/AuthKey.p8" >> "$GITHUB_ENV"
+
       - uses: tauri-apps/tauri-action@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_UPDATER_PRIVATE_KEY }}
+          APPLE_CERTIFICATE: ${{ matrix.platform == 'macos-latest' && secrets.APPLE_CERTIFICATE || '' }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ matrix.platform == 'macos-latest' && secrets.APPLE_CERTIFICATE_PASSWORD || '' }}
+          APPLE_SIGNING_IDENTITY: ${{ matrix.platform == 'macos-latest' && secrets.APPLE_SIGNING_IDENTITY || '' }}
+          APPLE_API_ISSUER: ${{ matrix.platform == 'macos-latest' && secrets.APPLE_API_ISSUER || '' }}
+          APPLE_API_KEY: ${{ matrix.platform == 'macos-latest' && secrets.APPLE_API_KEY || '' }}
+          APPLE_API_KEY_PATH: ${{ env.APPLE_API_KEY_PATH }}
         with:
           projectPath: "packages/wrapper"
           tagName: app-v__VERSION__
