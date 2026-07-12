@@ -55,8 +55,7 @@ jobs:
             args: ""
           # Android configuration targeting ubuntu-latest
           - platform: "ubuntu-latest"
-            args: "-- android --apk"
-            is-android: true
+            mobile: "android"
 
     runs-on: ${{ matrix.platform }}
     steps:
@@ -159,3 +158,4 @@ jobs:
           releaseDraft: true
           prerelease: false
           args: ${{ matrix.args }}
+          mobile: ${{ matrix.mobile }}
