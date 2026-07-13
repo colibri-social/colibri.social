@@ -22,7 +22,7 @@ jobs:
           - platform: "ubuntu-24.04-arm"
             args: ""
           - platform: "windows-latest"
-            args: ""
+            args: "--bundles nsis"
           # Android configuration targeting ubuntu-latest
           - platform: "ubuntu-latest"
             mobile: "android"
