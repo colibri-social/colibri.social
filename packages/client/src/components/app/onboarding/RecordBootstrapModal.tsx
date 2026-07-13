@@ -222,13 +222,13 @@ export function RecordBootstrapModal<T>(props: {
 					<SwitchFlow>
 						<Match when={step() === "choice"}>
 							<div class="flex flex-row items-center justify-center w-full gap-4">
-								<RadioGroup value={path()} onChange={setPath}>
-									<RadioGroupItems class="md:flex-row flex-col">
+								<RadioGroup class="w-full" value={path()} onChange={setPath}>
+									<RadioGroupItems class="w-full md:flex-row flex-col">
 										<Show when={props.config.importSource}>
 											{(source) => (
-												<RadioGroupItem value={IMPORT}>
+												<RadioGroupItem class="w-full md:flex-1" value={IMPORT}>
 													<RadioGroupItemInput />
-													<RadioGroupItemLabel class="flex flex-col text-center text-pretty rounded-md p-2 border border-border outline-2 outline-transparent gap-2 data-checked:border-primary data-checked:outline-primary/50 data-checked:bg-primary/10">
+													<RadioGroupItemLabel class="flex w-full flex-col text-center text-pretty rounded-md p-2 border border-border outline-2 outline-transparent gap-2 data-checked:border-primary data-checked:outline-primary/50 data-checked:bg-primary/10">
 														{source().card}
 														<strong class="w-full text-lg">
 															{source().label}
@@ -240,9 +240,9 @@ export function RecordBootstrapModal<T>(props: {
 												</RadioGroupItem>
 											)}
 										</Show>
-										<RadioGroupItem value={SCRATCH}>
+										<RadioGroupItem class="w-full md:flex-1" value={SCRATCH}>
 											<RadioGroupItemInput />
-											<RadioGroupItemLabel class="flex flex-col text-center text-pretty rounded-md p-2 border border-border outline-2 outline-transparent gap-2 data-checked:border-primary data-checked:outline-primary/50 data-checked:bg-primary/10">
+											<RadioGroupItemLabel class="flex w-full flex-col text-center text-pretty rounded-md p-2 border border-border outline-2 outline-transparent gap-2 data-checked:border-primary data-checked:outline-primary/50 data-checked:bg-primary/10">
 												{props.config.scratch.card}
 												<strong class="w-full text-lg">
 													{props.config.scratch.label}
