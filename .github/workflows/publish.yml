@@ -163,6 +163,7 @@ jobs:
           ANDROID_KEY_ALIAS: ${{ matrix.platform == 'ubuntu-latest' && secrets.ANDROID_KEY_ALIAS || '' }}
           ANDROID_KEY_BASE64: ${{ matrix.platform == 'ubuntu-latest' && secrets.ANDROID_KEY_BASE64 || '' }}
           ANDROID_KEY_PASSWORD: ${{ matrix.platform == 'ubuntu-latest' && env.ANDROID_KEY_PASSWORD || '' }}
+          ANDROID_VERSION_CODE: ${{ 1000 + github.run_number }}
         with:
           projectPath: "packages/wrapper"
           tagName: v${{ inputs.version }}
@@ -172,6 +173,28 @@ jobs:
           prerelease: true
           args: ${{ matrix.args }}
           mobile: ${{ matrix.mobile }}
+
+      - name: Route AAB to Play, remove from release (Android only)
+        if: matrix.is-android
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          TAG="v$VERSION"
+          REPO="${{ github.repository }}"
+          AAB=$(gh release view "$TAG" --repo "$REPO" --json assets --jq '[.assets[].name | select(test("\\.aab$"))][0] // ""')
+          test -n "$AAB"
+          gh release download "$TAG" --repo "$REPO" --pattern "$AAB" --dir aab-out
+          gh release delete-asset "$TAG" "$AAB" --yes
+
+      - name: Upload AAB artifact (Android only)
+        if: matrix.is-android
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-aab
+          path: aab-out/*.aab
+          if-no-files-found: error
 
   homebrew:
     needs: publish-tauri
@@ -279,3 +302,22 @@ jobs:
           git commit -m "colibri-social $VERSION"
           git branch -M main
           git push origin HEAD:main
+
+  play:
+    needs: publish-tauri
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download AAB artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: android-aab
+          path: dl
+
+      - name: Upload to Play (closed testing)
+        uses: r0adkll/upload-google-play@v1
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+          packageName: social.colibri.app
+          releaseFiles: dl/*.aab
+          track: alpha
+          status: completed

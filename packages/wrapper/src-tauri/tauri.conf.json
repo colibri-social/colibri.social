@@ -55,6 +55,7 @@
 			"pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEQ3NkY0NTJDMDNDREY5RkYKUldULytjMERMRVZ2MXhOWGlSTHZJbGFFV1lUbFZBQUJSSmN2VTE1clhmWnEyNjRFd0hFK3AvWkoK"
 		},
 		"deep-link": {
+			"mobile": [{ "scheme": ["social.colibri", "social.colibri.next"] }],
 			"desktop": {
 				"schemes": ["social.colibri", "social.colibri.next"]
 			}
