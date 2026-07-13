@@ -1,0 +1,136 @@
+name: Build
+
+on:
+  pull_request:
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  web:
+    name: Web & packages
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: lts/*
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build
+        run: pnpm build
+
+  tauri:
+    name: Build (${{ matrix.label }})
+    runs-on: ${{ matrix.platform }}
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: "macos-latest"
+            label: "macOS"
+            args: "--target universal-apple-darwin"
+          - platform: "ubuntu-24.04"
+            label: "Linux x64"
+            args: ""
+          - platform: "ubuntu-24.04-arm"
+            label: "Linux arm64"
+            args: ""
+          - platform: "windows-latest"
+            label: "Windows"
+            args: ""
+          - platform: "ubuntu-latest"
+            label: "Android"
+            is-android: true
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: lts/*
+          cache: "pnpm"
+
+      - name: Install dependencies (ubuntu desktop only)
+        if: (matrix.platform == 'ubuntu-24.04' || matrix.platform == 'ubuntu-24.04-arm') && !matrix.is-android
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf xdg-utils
+
+      - name: Set up JDK 17 (Android only)
+        if: matrix.is-android
+        uses: actions/setup-java@v4
+        with:
+          distribution: "zulu"
+          java-version: "17"
+
+      - name: Setup Android SDK (Android only)
+        if: matrix.is-android
+        uses: android-actions/setup-android@v3
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: |
+            ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+            ${{ matrix.is-android && 'aarch64-linux-android,armv7-linux-androideabi,i686-linux-android,x86_64-linux-android' || '' }}
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: "packages/wrapper/src-tauri -> target"
+
+      - name: Install frontend dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Alias NDK binutils for openssl-src (Android only)
+        if: matrix.is-android
+        shell: bash
+        run: |
+          set -eu
+          NDK="${ANDROID_NDK_ROOT:-${ANDROID_NDK_LATEST_HOME:-${NDK_HOME:-}}}"
+          if [ -z "$NDK" ]; then
+            echo "No Android NDK path found (ANDROID_NDK_ROOT/ANDROID_NDK_LATEST_HOME/NDK_HOME)" >&2
+            exit 1
+          fi
+          BIN=$(echo "$NDK"/toolchains/llvm/prebuilt/*/bin)
+          echo "Using NDK llvm bin dir: $BIN"
+          test -x "$BIN/llvm-ranlib"
+          for prefix in aarch64-linux-android arm-linux-androideabi armv7a-linux-androideabi i686-linux-android x86_64-linux-android; do
+            ln -sf "$BIN/llvm-ranlib" "$BIN/${prefix}-ranlib"
+            ln -sf "$BIN/llvm-ar" "$BIN/${prefix}-ar"
+          done
+          ls -l "$BIN"/*-ranlib
+          echo "$BIN" >> "$GITHUB_PATH"
+
+      - name: Build frontend
+        run: pnpm build
+
+      - name: Build app (desktop)
+        if: "!matrix.is-android"
+        run: pnpm --filter @colibri-social/wrapper tauri build --no-bundle ${{ matrix.args }}
+
+      - name: Build app (Android)
+        if: matrix.is-android
+        run: pnpm --filter @colibri-social/wrapper tauri android build --apk --debug
