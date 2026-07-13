@@ -127,7 +127,7 @@ export const RegisterScreen: Component = () => {
 	});
 
 	return (
-		<section class="pt-[min(10rem,12vh)] pb-8 mx-auto w-full max-w-336 md:px-16 px-6 relative flex flex-col items-center gap-8 min-h-screen animate-in fade-in-0 slide-in-from-bottom-2 duration-500 motion-reduce:animate-none">
+		<section class="pt-[calc(min(10rem,12vh)+var(--safe-area-top))] pb-[calc(2rem+var(--safe-area-bottom))] mx-auto w-full max-w-336 md:px-16 px-6 relative flex flex-col items-center gap-8 min-h-screen animate-in fade-in-0 slide-in-from-bottom-2 duration-500 motion-reduce:animate-none">
 			<div class="flex flex-col gap-4 items-center text-center">
 				<small class="text-primary text-sm">Join Colibri.</small>
 				<h1 class="text-5xl font-black m-0">CREATE ACCOUNT</h1>

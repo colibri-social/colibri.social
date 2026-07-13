@@ -197,8 +197,7 @@ const CommunityLayout: ParentComponent = (props) => {
 		<div
 			class="bg-background w-full h-full flex relative overflow-clip"
 			classList={{
-				"rounded-tl-xl border-t border-l border-border":
-					!isMobile() && !isTauriRuntime(),
+				"rounded-tl-xl border-t border-l border-border": !isMobile(),
 			}}
 		>
 			<aside

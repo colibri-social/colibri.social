@@ -46,6 +46,30 @@ const WIDTH_KEY = "colibri:voice-overlay-width";
 const clamp = (v: number, lo: number, hi: number): number =>
 	Math.max(lo, Math.min(hi, v));
 
+type Insets = { top: number; bottom: number; left: number; right: number };
+
+const readSafeInsets = (): Insets => {
+	if (typeof document === "undefined")
+		return { top: 0, bottom: 0, left: 0, right: 0 };
+	const probe = document.createElement("div");
+	probe.style.cssText =
+		"position:fixed;visibility:hidden;pointer-events:none;padding-top:var(--safe-area-top);padding-bottom:var(--safe-area-bottom);padding-left:var(--safe-area-left);padding-right:var(--safe-area-right);";
+	document.body.appendChild(probe);
+	const cs = getComputedStyle(probe);
+	const px = (v: string): number => {
+		const n = Number.parseFloat(v);
+		return Number.isFinite(n) ? n : 0;
+	};
+	const insets: Insets = {
+		top: px(cs.paddingTop),
+		bottom: px(cs.paddingBottom),
+		left: px(cs.paddingLeft),
+		right: px(cs.paddingRight),
+	};
+	probe.remove();
+	return insets;
+};
+
 const loadCorner = (): Corner => {
 	const raw = localStorage.getItem(CORNER_KEY);
 	return raw === "tl" || raw === "tr" || raw === "bl" || raw === "br"
@@ -207,11 +231,16 @@ export const VoiceOverlay: Component = () => {
 	const [vp, setVp] = createSignal({
 		w: window.innerWidth,
 		h: window.innerHeight,
+		insets: readSafeInsets(),
 	});
 
 	onMount(() => {
 		const onResizeWindow = () =>
-			setVp({ w: window.innerWidth, h: window.innerHeight });
+			setVp({
+				w: window.innerWidth,
+				h: window.innerHeight,
+				insets: readSafeInsets(),
+			});
 		window.addEventListener("resize", onResizeWindow);
 		onCleanup(() => window.removeEventListener("resize", onResizeWindow));
 	});
@@ -222,10 +251,16 @@ export const VoiceOverlay: Component = () => {
 	let boxRef: HTMLDivElement | undefined;
 
 	const restPos = (): { x: number; y: number } => {
-		const { w: vw, h: vh } = vp();
+		const { w: vw, h: vh, insets } = vp();
 		const c = corner();
-		const left = c === "tl" || c === "bl" ? MARGIN : vw - MARGIN - width();
-		const top = c === "tl" || c === "tr" ? MARGIN : vh - MARGIN - height();
+		const left =
+			c === "tl" || c === "bl"
+				? MARGIN + insets.left
+				: vw - MARGIN - insets.right - width();
+		const top =
+			c === "tl" || c === "tr"
+				? MARGIN + insets.top
+				: vh - MARGIN - insets.bottom - height();
 		return { x: left, y: top };
 	};
 
@@ -249,9 +284,10 @@ export const VoiceOverlay: Component = () => {
 
 		if (Math.abs(dx) > 3 || Math.abs(dy) > 3) moved = true;
 
+		const { w: vw, h: vh, insets } = vp();
 		setDrag({
-			x: clamp(moveState.x + dx, 0, vp().w - width()),
-			y: clamp(moveState.y + dy, 0, vp().h - height()),
+			x: clamp(moveState.x + dx, insets.left, vw - insets.right - width()),
+			y: clamp(moveState.y + dy, insets.top, vh - insets.bottom - height()),
 		});
 	};
 

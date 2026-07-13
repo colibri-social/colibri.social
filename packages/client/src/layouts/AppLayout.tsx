@@ -261,6 +261,13 @@ const AppLayout: ParentComponent = (props) => {
 			? `${viewport.height()}px`
 			: undefined;
 
+	const keyboardOpen = () => {
+		const h = viewport.height();
+		if (!isMobile() || h === undefined || typeof document === "undefined")
+			return false;
+		return document.documentElement.clientHeight - h > 100;
+	};
+
 	onMount(() => {
 		let pending: string | null = null;
 		try {
@@ -430,6 +437,8 @@ const AppLayout: ParentComponent = (props) => {
 			classList={{
 				"h-[100dvh]": isMobile() && shellHeight() === undefined,
 				"h-screen": !isMobile(),
+				"pt-[var(--safe-area-top)]": isMobile(),
+				"pb-[var(--safe-area-bottom)]": isMobile() && !keyboardOpen(),
 			}}
 			style={{
 				...(shellHeight() ? { height: shellHeight() } : {}),
@@ -456,7 +465,7 @@ const AppLayout: ParentComponent = (props) => {
 				</div>
 			</div>
 			<div
-				class="flex w-full"
+				class="flex w-full relative"
 				classList={{
 					"h-full": isMobile() || isTauriRuntime(),
 					"h-[calc(100%-40px)]": !isMobile() && !isTauriRuntime(),

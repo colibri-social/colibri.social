@@ -51,7 +51,7 @@ export const SettingsPage: ParentComponent<{
 				</div>
 			</div>
 			<Show when={props.onSave || props.onReset}>
-				<div class="w-full border-t border-border p-4 flex flex-row items-center justify-end gap-2 h-16 bg-background rounded-br-xl">
+				<div class="w-full border-t border-border px-4 pt-4 pb-[calc(1rem+var(--safe-area-bottom))] flex flex-row items-center justify-end gap-2 min-h-16 bg-background rounded-br-xl">
 					<Show when={props.canReset && props.onReset}>
 						<Button
 							variant="secondary"

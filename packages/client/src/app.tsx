@@ -129,7 +129,11 @@ const App: ParentComponent = () => {
 							when={isMobile()}
 							fallback={<Toaster richColors position="bottom-right" />}
 						>
-							<Toaster richColors position="top-center" />
+							<Toaster
+								richColors
+								position="top-center"
+								offset="max(32px,var(--safe-area-top))"
+							/>
 						</Show>
 						<SentryRouter root={RootLayout} base="/">
 							<Route path="/" component={RedirectToApp} />
