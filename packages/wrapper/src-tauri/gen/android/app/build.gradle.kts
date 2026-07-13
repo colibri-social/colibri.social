@@ -22,7 +22,7 @@ android {
         applicationId = "social.colibri.app"
         minSdk = 24
         targetSdk = 36
-        versionCode = tauriProperties.getProperty("tauri.android.versionCode", "1").toInt()
+        versionCode = (System.getenv("ANDROID_VERSION_CODE") ?: tauriProperties.getProperty("tauri.android.versionCode", "1")).toInt()
         versionName = tauriProperties.getProperty("tauri.android.versionName", "1.0")
     }
     signingConfigs {
