@@ -1,0 +1,13 @@
+{
+  "mode": "pre",
+  "tag": "rc",
+  "initialVersions": {
+    "@colibri-social/website": "0.0.1",
+    "@colibri-social/assets": "0.0.1",
+    "@colibri-social/client": "0.0.0",
+    "@colibri-social/lib": "0.0.1",
+    "@colibri-social/standard-renderer": "0.0.1",
+    "@colibri-social/wrapper": "0.1.0"
+  },
+  "changesets": []
+}
