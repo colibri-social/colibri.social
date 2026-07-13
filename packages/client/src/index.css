@@ -15,6 +15,8 @@
 	--font-geist-mono: "Geist Mono", "Geist Mono Fallback", sans-serif;
 	--font-hanken-grotesk:
 		"Hanken Grotesk", "Hanken Grotesk Fallback", sans-serif;
+	--safe-area-top: env(safe-area-inset-top);
+	--safe-area-bottom: env(safe-area-inset-bottom);
 }
 
 @custom-variant dark (&:is(.dark *));
