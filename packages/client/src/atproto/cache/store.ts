@@ -18,7 +18,7 @@ import type {
 import { SCHEMA_VERSION } from "./schema";
 
 const DB_NAME = "colibri-cache";
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 const MAX_CHANNELS = 50;
 const MAX_BSKY_ENTRIES = 1000;
 
@@ -27,7 +27,7 @@ const MAX_BSKY_ENTRIES = 1000;
  * `SCHEMA_VERSION` bumps
  */
 const USER_SCOPED_STORES = ["meta", "user", "community", "messages"] as const;
-const STORES = [...USER_SCOPED_STORES, "bsky"] as const;
+const STORES = [...USER_SCOPED_STORES, "bsky", "outbox"] as const;
 type StoreName = (typeof STORES)[number];
 
 export const cacheEnabled = (): boolean => {
@@ -48,7 +48,10 @@ const openDb = (): Promise<IDBDatabase> => {
 			const db = req.result;
 			for (const name of STORES) {
 				if (db.objectStoreNames.contains(name)) continue;
-				const store = db.createObjectStore(name);
+				const store = db.createObjectStore(
+					name,
+					name === "outbox" ? { autoIncrement: true } : undefined,
+				);
 				if (name === "messages" || name === "bsky") {
 					store.createIndex("ts", "ts");
 				}
@@ -220,3 +223,42 @@ export const ensureFresh = async (ns: string): Promise<void> => {
 	await clearUserScoped();
 	await write("meta", "meta", { version: SCHEMA_VERSION, owner: ns });
 };
+
+export const outboxAppend = (entry: unknown): Promise<number> =>
+	request<IDBValidKey>("outbox", "readwrite", (s) => s.add(entry)).then(
+		(key) => key as number,
+	);
+
+export const outboxAll = <T>(): Promise<Array<{ seq: number; entry: T }>> =>
+	openDb()
+		.then(
+			(db) =>
+				new Promise<Array<{ seq: number; entry: T }>>((resolve, reject) => {
+					const out: Array<{ seq: number; entry: T }> = [];
+					const cursorReq = db
+						.transaction("outbox", "readonly")
+						.objectStore("outbox")
+						.openCursor();
+					cursorReq.onsuccess = () => {
+						const cursor = cursorReq.result;
+						if (!cursor) {
+							resolve(out);
+							return;
+						}
+						out.push({ seq: cursor.key as number, entry: cursor.value as T });
+						cursor.continue();
+					};
+					cursorReq.onerror = () => reject(cursorReq.error);
+				}),
+		)
+		.catch(() => []);
+
+export const outboxDelete = (seq: number): Promise<void> =>
+	request("outbox", "readwrite", (s) => s.delete(seq))
+		.then(() => undefined)
+		.catch(() => undefined);
+
+export const outboxUpdate = (seq: number, entry: unknown): Promise<void> =>
+	request("outbox", "readwrite", (s) => s.put(entry, seq))
+		.then(() => undefined)
+		.catch(() => undefined);

@@ -26,10 +26,12 @@ export type Message = {
 };
 
 /**
- * An optimistic message that has been sent to the PDS but not yet
- * confirmed (or rejected). `uri` is an empty string — `isPending()`
- * checks `uri.length === 0`. The `hash` field is a random identifier
- * used to match the pending row against the PDS confirmation.
+ * An optimistic message queued in the offline outbox but not yet confirmed
+ * by the AppView. `uri` is the deterministic `at://` URI assigned at send
+ * time (from the client-generated rkey), so replies/reactions can reference
+ * it while still queued. The presence of `hash` is what marks a row pending —
+ * `isPending()` checks `"hash" in message` — and it's cleared once the
+ * AppView echoes the message back over the socket.
  */
 export type PendingMessage = Message & { hash: string };
 

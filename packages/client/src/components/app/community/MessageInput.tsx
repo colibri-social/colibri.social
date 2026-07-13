@@ -15,7 +15,8 @@ import { toast } from "somoto";
 import CircleIcon from "~icons/ph/circle";
 import PaperPlaneRightIcon from "~icons/ph/paper-plane-right-fill";
 import PlusIcon from "~icons/ph/plus";
-import { createRecord, uploadBlob } from "../../../atproto/pds";
+import { enqueueCreate } from "../../../atproto/outbox/outbox";
+import { uploadBlob } from "../../../atproto/pds";
 import type { PendingMessage } from "../../../atproto/xrpc/social/colibri/channel/listMessages";
 import { useChannelContext } from "../../../contexts/Channel";
 import { useCommunityContext } from "../../../contexts/Community";
@@ -161,9 +162,29 @@ export const MessageInput: Component<{
 		const now = new Date().toISOString();
 		const hash = crypto.randomUUID();
 
+		let uri: string;
+		try {
+			({ uri } = await enqueueCreate(
+				user.did,
+				"social.colibri.message",
+				{
+					text: cleanText,
+					facets: cleanFacets,
+					channel: channel.channelUri(),
+					createdAt: now,
+					...(replyingMessage ? { parent: replyingMessage.uri } : {}),
+					...(attachments.length > 0 ? { attachments } : {}),
+				},
+				{ label: "Failed to send message." },
+			));
+		} catch {
+			toast.error("Failed to send message.");
+			return false;
+		}
+
 		const pending: PendingMessage = {
 			hash,
-			uri: "",
+			uri,
 			text: cleanText,
 			facets: cleanFacets,
 			channel: channel.channelUri(),
@@ -181,28 +202,7 @@ export const MessageInput: Component<{
 		};
 
 		channel.addPendingMessage(pending);
-
-		try {
-			const res = await createRecord(
-				user.atproto.agent,
-				user.did,
-				"social.colibri.message",
-				{
-					text: cleanText,
-					facets: cleanFacets,
-					channel: channel.channelUri(),
-					createdAt: now,
-					...(replyingMessage ? { parent: replyingMessage.uri } : {}),
-					...(attachments.length > 0 ? { attachments } : {}),
-				},
-			);
-			channel.confirmPendingMessage(hash, res.uri);
-			channel.advanceReadCursor();
-		} catch {
-			channel.removePendingMessage(hash);
-			toast.error("Failed to send message.");
-			return false;
-		}
+		channel.advanceReadCursor();
 
 		return true;
 	};

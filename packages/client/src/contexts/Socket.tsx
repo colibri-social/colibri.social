@@ -11,6 +11,8 @@ import {
 import { getAppViewHost, getAppViewServiceRef } from "../utils/appview";
 import { useAuthContext } from "./Auth";
 
+export type SocketStatus = "connecting" | "connected" | "reconnecting";
+
 export type SocketContextValue = {
 	/** Send a JSON message to the AppView over the WebSocket. */
 	send: (message: Record<string, unknown>) => void;
@@ -19,6 +21,7 @@ export type SocketContextValue = {
 	 * function removes the handler — call it in `onCleanup`.
 	 */
 	onEvent: (handler: (event: ColibriEvent) => void) => () => void;
+	status: Accessor<SocketStatus>;
 	/**
 	 * Whether the WebSocket is currently open. `send` silently drops messages
 	 * while this is `false` (no queueing), so consumers that need the server
@@ -31,20 +34,39 @@ export type SocketContextValue = {
 	connected: Accessor<boolean>;
 };
 
+const RECONNECT_BASE_MS = 1_000;
+const RECONNECT_MAX_MS = 30_000;
+const HEARTBEAT_MS = 20_000;
+const STALE_MS = 30_000;
+
+const backoffMs = (attempt: number): number => {
+	const capped = Math.min(RECONNECT_BASE_MS * 2 ** attempt, RECONNECT_MAX_MS);
+	return capped * (0.8 + Math.random() * 0.4);
+};
+
 export const SocketContext = createContext<SocketContextValue>();
 
 export const SocketContextProvider: ParentComponent = (props) => {
 	const auth = useAuthContext();
 
 	const handlers = new Set<(event: ColibriEvent) => void>();
-	const [connected, setConnected] = createSignal(false);
+	const [status, setStatus] = createSignal<SocketStatus>("connecting");
+	const connected = () => status() === "connected";
 	let ws: WebSocket | null = null;
 	let heartbeat: ReturnType<typeof setInterval> | null = null;
 	let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 	let destroyed = false;
+	let hadConnectedOnce = false;
+	let attempt = 0;
+	let lastFrameAt = Date.now();
 
 	const connect = async () => {
 		if (destroyed || !auth?.loggedIn) return;
+
+		if (reconnectTimer) {
+			clearTimeout(reconnectTimer);
+			reconnectTimer = null;
+		}
 
 		try {
 			const { data } = await auth.agent.com.atproto.server.getServiceAuth({
@@ -68,15 +90,22 @@ export const SocketContextProvider: ParentComponent = (props) => {
 
 			socket.addEventListener("open", () => {
 				if (destroyed || ws !== socket) return;
-				setConnected(true);
+				setStatus("connected");
+				hadConnectedOnce = true;
+				attempt = 0;
+				lastFrameAt = Date.now();
 				heartbeat = setInterval(() => {
-					if (socket.readyState === WebSocket.OPEN) {
-						socket.send(JSON.stringify({ type: "heartbeat" }));
+					if (destroyed || ws !== socket) return;
+					if (socket.readyState !== WebSocket.OPEN) {
+						forceReconnect();
+						return;
 					}
-				}, 20_000);
+					socket.send(JSON.stringify({ type: "heartbeat" }));
+				}, HEARTBEAT_MS);
 			});
 
 			socket.addEventListener("message", (e) => {
+				lastFrameAt = Date.now();
 				let event: ColibriEvent;
 				try {
 					event = JSON.parse(e.data as string) as ColibriEvent;
@@ -103,10 +132,9 @@ export const SocketContextProvider: ParentComponent = (props) => {
 					heartbeat = null;
 				}
 				if (destroyed || ws !== socket) return;
-				setConnected(false);
+				setStatus(hadConnectedOnce ? "reconnecting" : "connecting");
 				console.warn("[notif] socket CLOSED", ev.code, ev.reason);
-				// Reconnect after 3 s, generating a fresh token each time
-				reconnectTimer = setTimeout(connect, 3_000);
+				reconnectTimer = setTimeout(connect, backoffMs(attempt++));
 			});
 
 			socket.addEventListener("error", () => {
@@ -115,17 +143,46 @@ export const SocketContextProvider: ParentComponent = (props) => {
 			});
 		} catch (err) {
 			console.error("[notif] socket token fetch failed", err);
-			// Token fetch failed — retry after a longer delay
-			if (!destroyed) reconnectTimer = setTimeout(connect, 10_000);
+			if (!destroyed) {
+				setStatus(hadConnectedOnce ? "reconnecting" : "connecting");
+				reconnectTimer = setTimeout(connect, backoffMs(attempt++));
+			}
 		}
+	};
+
+	const forceReconnect = () => {
+		if (destroyed || !auth?.loggedIn) return;
+		const healthy =
+			ws?.readyState === WebSocket.OPEN && Date.now() - lastFrameAt < STALE_MS;
+		if (healthy) return;
+		if (reconnectTimer) {
+			clearTimeout(reconnectTimer);
+			reconnectTimer = null;
+		}
+		attempt = 0;
+		const stale = ws;
+		ws = null;
+		stale?.close();
+		if (hadConnectedOnce) setStatus("reconnecting");
+		connect();
+	};
+
+	const onVisible = () => {
+		if (document.visibilityState === "visible") forceReconnect();
 	};
 
 	onMount(() => {
 		connect();
+		document.addEventListener("visibilitychange", onVisible);
+		window.addEventListener("online", forceReconnect);
+		window.addEventListener("focus", forceReconnect);
 	});
 
 	onCleanup(() => {
 		destroyed = true;
+		document.removeEventListener("visibilitychange", onVisible);
+		window.removeEventListener("online", forceReconnect);
+		window.removeEventListener("focus", forceReconnect);
 		if (heartbeat) clearInterval(heartbeat);
 		if (reconnectTimer) clearTimeout(reconnectTimer);
 		ws?.close();
@@ -142,6 +199,7 @@ export const SocketContextProvider: ParentComponent = (props) => {
 			handlers.add(handler);
 			return () => handlers.delete(handler);
 		},
+		status,
 		connected,
 	};
 

@@ -209,7 +209,7 @@ export const NotificationsContextProvider: ParentComponent = (props) => {
 		);
 		const newest = res?.messages?.[0]?.uri;
 		if (!newest) return;
-		await writeReadCursor(user.atproto.agent, user.did, channelUri, newest);
+		await writeReadCursor(user.did, channelUri, newest);
 		markChannelRead(channelUri);
 	};
 
