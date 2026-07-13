@@ -11,11 +11,12 @@ import {
 } from "solid-js";
 import { toast } from "somoto";
 import {
-	createRecord,
-	deleteRecord,
-	findReactionRkey,
-	putRecord,
-} from "../atproto/pds";
+	enqueueCreate,
+	enqueueDelete,
+	enqueuePut,
+} from "../atproto/outbox/outbox";
+import { nextTid } from "../atproto/outbox/tid";
+import { findReactionRkey } from "../atproto/pds";
 import type { Message } from "../atproto/xrpc/social/colibri/channel/listMessages";
 import {
 	type TextWithFacets,
@@ -86,7 +87,7 @@ export const MessageContextProvider: ParentComponent<{ data: Message }> = (
 	const channel = useChannelContext();
 	const community = useCommunityContext();
 
-	const isPending = () => props.data.uri.length === 0;
+	const isPending = () => "hash" in props.data;
 
 	const [blockModalOpen, setBlockModalOpen] = createSignal(false);
 	const [deletionModalOpen, setDeletionModalOpen] = createSignal(false);
@@ -202,12 +203,9 @@ export const MessageContextProvider: ParentComponent<{ data: Message }> = (
 				?.focus();
 		}, 0);
 		try {
-			await deleteRecord(
-				user.atproto.agent,
-				user.did,
-				"social.colibri.message",
-				rkey,
-			);
+			await enqueueDelete(user.did, "social.colibri.message", rkey, {
+				label: "Failed to delete message.",
+			});
 		} catch {
 			toast.error("Failed to delete message.");
 			// The message is already gone from the local list; it will reappear
@@ -254,8 +252,7 @@ export const MessageContextProvider: ParentComponent<{ data: Message }> = (
 		}
 
 		try {
-			await putRecord(
-				user.atproto.agent,
+			await enqueuePut(
 				user.did,
 				"social.colibri.message",
 				rkey,
@@ -267,6 +264,7 @@ export const MessageContextProvider: ParentComponent<{ data: Message }> = (
 					edited: true,
 					...(props.data.parent ? { parent: props.data.parent.uri } : {}),
 				},
+				{ label: "Failed to edit message." },
 			);
 			channel.updateMessageText(props.data.uri, cleanText, cleanFacets);
 		} catch {
@@ -297,17 +295,14 @@ export const MessageContextProvider: ParentComponent<{ data: Message }> = (
 	const addReactionOptimistic = async (emoji: string) => {
 		if (isPending()) return;
 		channel.addReactionOptimistic(props.data.uri, emoji, user.did); // instant
+		const rkey = nextTid();
+		channel.cacheReactionRkey(props.data.uri, emoji, rkey);
 		try {
-			const res = await createRecord(
-				user.atproto.agent,
+			await enqueueCreate(
 				user.did,
 				"social.colibri.reaction",
 				{ emoji, parent: props.data.uri },
-			);
-			channel.cacheReactionRkey(
-				props.data.uri,
-				emoji,
-				AtURI.parseAtURI(res.uri).identifier,
+				{ rkey, label: "Failed to add reaction." },
 			);
 		} catch {
 			channel.removeReactionOptimistic(props.data.uri, emoji, user.did); // revert
@@ -329,12 +324,9 @@ export const MessageContextProvider: ParentComponent<{ data: Message }> = (
 				);
 			}
 			if (!rkey) throw new Error("Reaction record not found.");
-			await deleteRecord(
-				user.atproto.agent,
-				user.did,
-				"social.colibri.reaction",
-				rkey,
-			);
+			await enqueueDelete(user.did, "social.colibri.reaction", rkey, {
+				label: "Failed to remove reaction.",
+			});
 		} catch {
 			channel.addReactionOptimistic(props.data.uri, emoji, user.did); // revert
 			toast.error("Failed to remove reaction.");

@@ -11,7 +11,6 @@ import {
 	useDragDropContext,
 } from "@thisbeyond/solid-dnd";
 import {
-	createEffect,
 	createSignal,
 	For,
 	Match,
@@ -28,7 +27,7 @@ import LockSimpleIcon from "~icons/ph/lock-simple";
 import { communityUriToUrlCompatible } from "../atproto/community-uri-to-url-compatible";
 import { putRecord } from "../atproto/pds";
 import { resolveBlob } from "../atproto/resolve-blob";
-import { AppViewUnreachableModal } from "../components/app/AppViewUnreachableModal";
+import { AppReconnectingIndicator } from "../components/app/AppReconnectingIndicator";
 import { CommunityCreationModal } from "../components/app/CommunityCreationModal";
 import { CommunityContextMenu } from "../components/app/community/CommunityContextMenu";
 import { PENDING_INVITE_KEY } from "../components/app/community/invite-storage";
@@ -232,29 +231,6 @@ const AppLayout: ParentComponent = (props) => {
 	const location = useLocation();
 	const { isMobile, currentPane } = createMobilePane();
 	const viewport = createViewportMetrics();
-
-	const [showDisconnected, setShowDisconnected] = createSignal(false);
-	let wasConnected = false;
-	let disconnectTimer: ReturnType<typeof setTimeout> | undefined;
-	createEffect(() => {
-		if (socket.connected()) {
-			wasConnected = true;
-			if (disconnectTimer) {
-				clearTimeout(disconnectTimer);
-				disconnectTimer = undefined;
-			}
-			setShowDisconnected(false);
-			return;
-		}
-		if (!wasConnected || disconnectTimer) return;
-		disconnectTimer = setTimeout(() => {
-			disconnectTimer = undefined;
-			if (!socket.connected()) setShowDisconnected(true);
-		}, 10_000);
-	});
-	onCleanup(() => {
-		if (disconnectTimer) clearTimeout(disconnectTimer);
-	});
 
 	const shellHeight = () =>
 		isMobile() && viewport.height() !== undefined
@@ -524,9 +500,7 @@ const AppLayout: ParentComponent = (props) => {
 				<main class="w-full h-full">{props.children}</main>
 			</div>
 			<VoiceOverlay />
-			<Show when={showDisconnected() && !import.meta.env.DEV}>
-				<AppViewUnreachableModal />
-			</Show>
+			<AppReconnectingIndicator />
 		</div>
 	);
 };

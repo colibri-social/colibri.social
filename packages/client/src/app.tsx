@@ -21,6 +21,7 @@ import {
 	Show,
 } from "solid-js";
 import { urlSegmentToUri } from "./atproto/community-uri-to-url-compatible";
+import { OutboxController } from "./atproto/outbox/OutboxController";
 import { AppLoadingScreen } from "./components/AppLoadingScreen";
 import { InviteModal } from "./components/app/community/InviteModal";
 import { ScopeGate } from "./components/app/onboarding/ScopeGate";
@@ -58,13 +59,15 @@ const AppRoute: ParentComponent = (props) => {
 		<ScopeGate>
 			<SocketContextProvider>
 				<UserContextProvider>
-					<ActorCacheProvider>
-						<SoundsContextProvider>
-							<VoiceChatContextProvider>
-								<AppLayout>{props.children}</AppLayout>
-							</VoiceChatContextProvider>
-						</SoundsContextProvider>
-					</ActorCacheProvider>
+					<OutboxController>
+						<ActorCacheProvider>
+							<SoundsContextProvider>
+								<VoiceChatContextProvider>
+									<AppLayout>{props.children}</AppLayout>
+								</VoiceChatContextProvider>
+							</SoundsContextProvider>
+						</ActorCacheProvider>
+					</OutboxController>
 				</UserContextProvider>
 			</SocketContextProvider>
 		</ScopeGate>

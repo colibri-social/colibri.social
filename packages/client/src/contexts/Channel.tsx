@@ -17,6 +17,7 @@ import {
 	readMessages,
 	writeMessages,
 } from "../atproto/cache/store";
+import { onOutboxSent } from "../atproto/outbox/outbox";
 import { writeReadCursor } from "../atproto/read-cursor";
 import type {
 	Message,
@@ -402,7 +403,9 @@ export const ChannelContextProvider: ParentComponent<{
 	let cacheWriteTimer: ReturnType<typeof setTimeout> | undefined;
 	createEffect(() => {
 		const uri = channelUri();
-		const confirmed = messages().filter((m) => m.uri.startsWith("at://"));
+		const confirmed = messages().filter(
+			(m) => !("hash" in m) && m.uri.startsWith("at://"),
+		);
 		if (!cacheEnabled() || !uri || initialLoading() || confirmed.length === 0) {
 			return;
 		}
@@ -653,16 +656,21 @@ export const ChannelContextProvider: ParentComponent<{
 				return;
 			}
 
-			// Already have this message (edit from elsewhere, or our own message
-			// already confirmed) — apply the new text/facets.
+			// Already have this message. A pending row shares the deterministic
+			// URI we assigned at send time — confirm it. Otherwise it's an edit
+			// from elsewhere (or an already-confirmed message) — apply the text.
 			const existing = messages().find((m) => m.uri === d.uri);
 			if (existing) {
-				updateMessageText(d.uri, d.text, d.facets ?? [], d.edited ?? false);
+				if ("hash" in existing) {
+					confirmPendingMessage((existing as PendingMessage).hash, d.uri);
+				} else {
+					updateMessageText(d.uri, d.text, d.facets ?? [], d.edited ?? false);
+				}
 				return;
 			}
 
-			// Our own message arriving via socket before `createRecord` resolved:
-			// match it to a pending row by text + channel and confirm it.
+			// Fallback for any pending row without a URI match (e.g. legacy): our
+			// own message echoed back, matched by text + channel.
 			if (d.author.did === user.did) {
 				const pending = messages().find(
 					(m) => "hash" in m && m.text === d.text && m.channel === d.channel,
@@ -722,8 +730,17 @@ export const ChannelContextProvider: ParentComponent<{
 		}
 	});
 
+	const outboxCleanup = onOutboxSent(({ uri, collection }) => {
+		if (collection !== "social.colibri.message") return;
+		const pending = messages().find((m) => m.uri === uri && "hash" in m) as
+			| PendingMessage
+			| undefined;
+		if (pending) confirmPendingMessage(pending.hash, uri);
+	});
+
 	onCleanup(() => {
 		socketCleanup();
+		outboxCleanup();
 		typingTimers.forEach((t) => {
 			clearTimeout(t);
 		});
@@ -750,21 +767,21 @@ export const ChannelContextProvider: ParentComponent<{
 		const uri = channelUri();
 		if (!uri) return;
 
-		// Newest real (non-pending) message
+		// Newest confirmed (non-pending) message. Pending rows now carry a
+		// deterministic `at://` URI too, so detect them by the `hash` flag.
 		const msgs = messages();
 		let newest: string | undefined;
 		for (let i = msgs.length - 1; i >= 0; i--) {
-			const candidate = msgs[i]?.uri;
-			if (candidate?.startsWith("at://")) {
-				newest = candidate;
+			const m = msgs[i];
+			if (m && !("hash" in m) && m.uri.startsWith("at://")) {
+				newest = m.uri;
 				break;
 			}
 		}
 
 		if (!newest || newest === lastWrittenCursor) return;
 		lastWrittenCursor = newest;
-		writeReadCursor(user.atproto.agent, user.did, uri, newest).catch(() => {
-			// Non-fatal
+		void writeReadCursor(user.did, uri, newest).catch(() => {
 			if (lastWrittenCursor === newest) lastWrittenCursor = undefined;
 		});
 	};
