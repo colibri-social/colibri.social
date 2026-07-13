@@ -1,8 +1,10 @@
 [package]
 name = "colibri-social"
 version = "0.1.0"
-description = "Colibri is a next-generation social chat app built on the AT protocol. "
-authors = ["you"]
+description = "Colibri is a next-generation social chat app built on the AT protocol."
+authors = ["Louis Escher", "Reuben Tier"]
+homepage = "https://colibri.social"
+license = "MIT"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html

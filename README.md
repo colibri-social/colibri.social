@@ -35,13 +35,13 @@ This is a [pnpm](https://pnpm.io) monorepo. The deployable app lives in `apps/`,
    ```
 
 2. Create a `.env` file in the repo root by copying `.env.example`.
-3. Start the dev server. Everything runs through the website app:
+3. Start the client dev server:
 
    ```bash
    pnpm dev:client
    ```
 
-   The app will be available at `http://127.0.0.1:4321`.
+   The app will be available at `http://127.0.0.1:4321`. You must also run the AppView development server alondside this, please see the [AppView repository](https://github.com/colibri-social/appview) for more information.
 
 ## Common scripts
 

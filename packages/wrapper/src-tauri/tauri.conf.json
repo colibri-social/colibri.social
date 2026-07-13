@@ -40,7 +40,12 @@
 				"embedded.provisionprofile": "./Colibri_Mac.provisionprofile"
 			}
 		},
-		"category": "SocialNetworking"
+		"category": "SocialNetworking",
+		"publisher": "Colibri",
+		"homepage": "https://colibri.social",
+		"copyright": "Copyright © 2026 Louis Escher, Reuben Tier",
+		"shortDescription": "Next-generation social chat on the AT Protocol",
+		"longDescription": "Colibri is a next-generation social chat app built on the AT Protocol."
 	},
 	"plugins": {
 		"updater": {

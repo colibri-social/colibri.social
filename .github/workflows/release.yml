@@ -37,4 +37,6 @@ jobs:
         if: steps.changesets.outputs.hasChangesets == 'false'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh workflow run publish.yml --ref main
+        run: |
+          VERSION=$(node -p "require('./packages/wrapper/package.json').version")
+          gh workflow run publish.yml --ref main -f version="$VERSION"

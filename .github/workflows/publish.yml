@@ -2,6 +2,10 @@ name: Publish
 
 on:
   workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to build (e.g. 0.1.0-rc.3)."
+        required: true
 
 jobs:
   publish-tauri:
@@ -11,10 +15,8 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # - platform: "macos-latest"
-          #   args: "--target aarch64-apple-darwin"
-          # - platform: "macos-latest"
-          #   args: "--target x86_64-apple-darwin"
+          - platform: "macos-latest"
+            args: "--target universal-apple-darwin"
           - platform: "ubuntu-24.04"
             args: ""
           - platform: "ubuntu-24.04-arm"
@@ -143,6 +145,9 @@ jobs:
           # on PATH when tauri-action runs cargo build in the following step.
           echo "$BIN" >> "$GITHUB_PATH"
 
+      - name: Sync version
+        run: node packages/wrapper/scripts/set-version.mjs "${{ inputs.version }}" "${{ github.run_number }}"
+
       - uses: tauri-apps/tauri-action@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -160,10 +165,117 @@ jobs:
           ANDROID_KEY_PASSWORD: ${{ matrix.platform == 'ubuntu-latest' && env.ANDROID_KEY_PASSWORD || '' }}
         with:
           projectPath: "packages/wrapper"
-          tagName: v__VERSION__
-          releaseName: "Colibri Desktop __VERSION__"
+          tagName: v${{ inputs.version }}
+          releaseName: "Colibri Social ${{ inputs.version }}"
           releaseBody: ""
-          releaseDraft: true
-          prerelease: false
+          releaseDraft: false
+          prerelease: true
           args: ${{ matrix.args }}
           mobile: ${{ matrix.mobile }}
+
+  homebrew:
+    needs: publish-tauri
+    runs-on: ubuntu-latest
+    steps:
+      - name: Mint tap token
+        id: app-token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.RELEASE_APP_ID }}
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+          owner: colibri-social
+          repositories: homebrew-tap
+
+      - name: Update Homebrew cask
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TOKEN: ${{ steps.app-token.outputs.token }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          TAG="v$VERSION"
+          REPO="${{ github.repository }}"
+          ASSET=$(gh release view "$TAG" --repo "$REPO" --json assets --jq '[.assets[].name | select(test("\\.dmg$"))][0] // ""')
+          test -n "$ASSET"
+          gh release download "$TAG" --repo "$REPO" --pattern "$ASSET" --dir dl
+          SHA=$(sha256sum "dl/$ASSET" | cut -d' ' -f1)
+          ENC=$(jq -rn --arg s "$ASSET" '$s|@uri')
+          URL="https://github.com/$REPO/releases/download/$TAG/$ENC"
+          git clone --depth 1 "https://x-access-token:$TOKEN@github.com/colibri-social/homebrew-tap.git" tap
+          mkdir -p tap/Casks
+          cat > tap/Casks/colibri-social.rb <<RUBY
+          cask "colibri-social" do
+            version "$VERSION"
+            sha256 "$SHA"
+
+            url "$URL"
+            name "Colibri Social"
+            desc "Next-generation social chat app built on the AT Protocol"
+            homepage "https://colibri.social"
+
+            app "Colibri Social.app"
+
+            zap trash: [
+              "~/Library/Application Support/social.colibri.app",
+              "~/Library/Caches/social.colibri.app",
+              "~/Library/Preferences/social.colibri.app.plist",
+              "~/Library/Saved Application State/social.colibri.app.savedState",
+            ]
+          end
+          RUBY
+          cd tap
+          git config user.name "colibri-release[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Casks/colibri-social.rb
+          git diff --cached --quiet && exit 0
+          git commit -m "colibri-social $VERSION"
+          git branch -M main
+          git push origin HEAD:main
+
+  scoop:
+    needs: publish-tauri
+    runs-on: ubuntu-latest
+    steps:
+      - name: Mint bucket token
+        id: app-token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.RELEASE_APP_ID }}
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+          owner: colibri-social
+          repositories: scoop-bucket
+
+      - name: Update Scoop manifest
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TOKEN: ${{ steps.app-token.outputs.token }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          TAG="v$VERSION"
+          REPO="${{ github.repository }}"
+          ASSET=$(gh release view "$TAG" --repo "$REPO" --json assets --jq '[.assets[].name | select(test("setup\\.exe$"))][0] // ""')
+          test -n "$ASSET"
+          gh release download "$TAG" --repo "$REPO" --pattern "$ASSET" --dir dl
+          SHA=$(sha256sum "dl/$ASSET" | cut -d' ' -f1)
+          ENC=$(jq -rn --arg s "$ASSET" '$s|@uri')
+          URL="https://github.com/$REPO/releases/download/$TAG/$ENC#/dl.7z"
+          git clone --depth 1 "https://x-access-token:$TOKEN@github.com/colibri-social/scoop-bucket.git" bucket
+          mkdir -p bucket/bucket
+          jq -n --arg v "$VERSION" --arg url "$URL" --arg hash "$SHA" '{
+            version: $v,
+            description: "Next-generation social chat app built on the AT Protocol",
+            homepage: "https://colibri.social",
+            license: "MIT",
+            architecture: { "64bit": { url: $url, hash: $hash } },
+            post_install: ["Remove-Item \"$dir\\`$PLUGINSDIR\" -Recurse -Force -ErrorAction SilentlyContinue"],
+            shortcuts: [["Colibri Social.exe", "Colibri Social"]]
+          }' > bucket/bucket/colibri-social.json
+          cd bucket
+          git config user.name "colibri-release[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add bucket/colibri-social.json
+          git diff --cached --quiet && exit 0
+          git commit -m "colibri-social $VERSION"
+          git branch -M main
+          git push origin HEAD:main
