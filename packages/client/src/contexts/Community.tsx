@@ -588,7 +588,7 @@ export const CommunityContextProvider: ParentComponent = (props) => {
 
 	const patchChannel = (uri: string, patch: Partial<Channel>) => {
 		const prev = community.latest;
-		if (!prev || !prev.channels.some((c) => c.uri === uri)) return;
+		if (!prev?.channels.some((c) => c.uri === uri)) return;
 		mutate({
 			...prev,
 			channels: prev.channels.map((c) =>
@@ -599,7 +599,7 @@ export const CommunityContextProvider: ParentComponent = (props) => {
 
 	const patchCategory = (uri: string, patch: Partial<Category>) => {
 		const prev = community.latest;
-		if (!prev || !prev.categories.some((c) => c.uri === uri)) return;
+		if (!prev?.categories.some((c) => c.uri === uri)) return;
 		mutate({
 			...prev,
 			categories: prev.categories.map((c) =>
@@ -617,7 +617,7 @@ export const CommunityContextProvider: ParentComponent = (props) => {
 	// Optimistically patch a member's profile/presence data
 	const patchMember = (did: string, patch: Partial<Member["data"]>) => {
 		const prev = community.latest;
-		if (!prev || !prev.members.some((m) => m.did === did)) return;
+		if (!prev?.members.some((m) => m.did === did)) return;
 		mutate({
 			...prev,
 			members: prev.members.map((m) =>

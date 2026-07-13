@@ -348,7 +348,7 @@ export const NotificationsContextProvider: ParentComponent = (props) => {
 			}
 
 			if (event.type === "message_event") {
-				if (!event.data || event.data.event !== "upsert") return;
+				if (event.data?.event !== "upsert") return;
 				const data = event.data;
 
 				if (data.author.did === user.did) return;

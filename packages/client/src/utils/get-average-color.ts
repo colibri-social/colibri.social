@@ -33,8 +33,7 @@ export const getAverageColor = (
 	g = Math.round(g / pixelCount);
 	b = Math.round(b / pixelCount);
 
-	const hex =
-		"#" + [r, g, b].map((c) => c.toString(16).padStart(2, "0")).join("");
+	const hex = `#${[r, g, b].map((c) => c.toString(16).padStart(2, "0")).join("")}`;
 
 	return { r, g, b, hex };
 };

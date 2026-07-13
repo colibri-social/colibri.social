@@ -135,7 +135,6 @@ const applyStyleForFacet = (text: string, feature: AnyFeature): JSX.Element => {
 				rewriteBskyUrl(rawUri, preferences().preferredBlueskyClient);
 			const isBareUrl = text.trim() === rawUri;
 			return (
-				// biome-ignore lint/a11y/useAnchorContent: This has innerHTML set.
 				<a
 					data-facet-type="link"
 					title={displayHref()}

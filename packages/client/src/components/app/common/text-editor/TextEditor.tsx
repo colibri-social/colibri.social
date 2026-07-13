@@ -311,7 +311,7 @@ const handleQuoteBackspace = (editor: Editor): boolean => {
 	if ($from.parentOffset === 0 && $from.parent.content.size === 0) {
 		const paraStart = $from.before($from.depth);
 		const nodeBefore = state.doc.resolve(paraStart).nodeBefore;
-		if (!nodeBefore || nodeBefore.type.name !== "blockquote") return false;
+		if (nodeBefore?.type.name !== "blockquote") return false;
 
 		let tr = state.tr.delete(paraStart, paraStart + $from.parent.nodeSize);
 		tr = tr.setSelection(TextSelection.near(tr.doc.resolve(paraStart - 1), -1));
@@ -870,7 +870,7 @@ export const TextEditor: Component<{
 				}
 
 				const text = event.clipboardData?.getData("text/plain");
-				if (!text || !text.includes("\n")) return false;
+				if (!text?.includes("\n")) return false;
 
 				const parsed = parseMarkdown(text, []);
 				const { content } = facetsToProseMirror(

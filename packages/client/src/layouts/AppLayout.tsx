@@ -1,7 +1,6 @@
 import { logoUrl as ColibriLogo } from "@colibri-social/assets";
 import type { Community } from "@colibri-social/lib";
 import { A, useLocation, useNavigate } from "@solidjs/router";
-import { isTauri } from "@tauri-apps/api/core";
 import {
 	closestCenter,
 	createSortable,
