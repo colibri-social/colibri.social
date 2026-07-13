@@ -1,9 +1,18 @@
+import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { assetsDir } from "@colibri-social/assets/node";
+import { sentryVitePlugin } from "@sentry/vite-plugin";
 import { defineConfig } from "vite";
 import solid from "vite-plugin-solid";
 
 const host = process.env.TAURI_DEV_HOST;
+
+const appVersion = JSON.parse(
+	readFileSync(
+		fileURLToPath(new URL("./src-tauri/tauri.conf.json", import.meta.url)),
+		"utf8",
+	),
+).version as string;
 
 // The client library externalizes `@sentry/solid`, so it gets re-bundled here.
 // When DISABLE_SENTRY is set, alias it to local no-op stubs so the Sentry SDK
@@ -27,9 +36,39 @@ const sentryAlias = disableSentry
 		]
 	: [];
 
+const sentryPlugins =
+	!disableSentry && process.env.SENTRY_AUTH_TOKEN
+		? [
+				sentryVitePlugin({
+					authToken: process.env.SENTRY_AUTH_TOKEN,
+					org: "colibri-social",
+					project: "javascript-solid",
+					release: {
+						name: appVersion,
+						setCommits: process.env.GITHUB_SHA
+							? {
+									repo: "colibri-social/colibri.social",
+									commit: process.env.GITHUB_SHA,
+									auto: false,
+									ignoreMissing: true,
+								}
+							: undefined,
+						deploy: { env: "production" },
+					},
+					sourcemaps: {
+						filesToDeleteAfterUpload: ["./dist/**/*.map"],
+					},
+				}),
+			]
+		: [];
+
 // https://vite.dev/config/
 export default defineConfig(async () => ({
-	plugins: [solid()],
+	plugins: [solid(), ...sentryPlugins],
+
+	define: {
+		"import.meta.env.VITE_APP_VERSION": JSON.stringify(appVersion),
+	},
 
 	// Serve the shared @colibri-social/assets files at the dev/build root so the
 	// embedded client app's root-absolute asset URLs (/twemoji.woff2, /login/*.svg,
@@ -47,6 +86,7 @@ export default defineConfig(async () => ({
 
 	build: {
 		target: "esnext",
+		sourcemap: true,
 	},
 
 	// Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`

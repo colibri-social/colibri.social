@@ -567,6 +567,9 @@ importers:
         specifier: ^1.9.14
         version: 1.9.14
     devDependencies:
+      '@sentry/vite-plugin':
+        specifier: ^5.3.0
+        version: 5.3.0(rollup@4.57.1)
       '@tauri-apps/cli':
         specifier: ^2
         version: 2.11.4
