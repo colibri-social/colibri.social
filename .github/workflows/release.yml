@@ -14,6 +14,8 @@ jobs:
     steps:
       - name: Checkout Repo
         uses: actions/checkout@v6
+        with:
+          fetch-depth: 2
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v6
@@ -33,10 +35,19 @@ jobs:
           commit: "[ci] release"
           title: "[ci] release"
 
+      - name: Detect version bump
+        id: bump
+        run: |
+          CURR=$(node -p "require('./packages/wrapper/package.json').version")
+          PREV=""
+          if git rev-parse HEAD~1 >/dev/null 2>&1; then
+            PREV=$(git show HEAD~1:packages/wrapper/package.json 2>/dev/null | node -p "(()=>{try{return JSON.parse(require('fs').readFileSync(0,'utf8')).version}catch(e){return ''}})()" || true)
+          fi
+          echo "version=$CURR" >> "$GITHUB_OUTPUT"
+          [ "$CURR" != "$PREV" ] && echo "changed=true" >> "$GITHUB_OUTPUT" || echo "changed=false" >> "$GITHUB_OUTPUT"
+
       - name: Publish workflow
-        if: steps.changesets.outputs.hasChangesets == 'false'
+        if: steps.changesets.outputs.hasChangesets == 'false' && steps.bump.outputs.changed == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          VERSION=$(node -p "require('./packages/wrapper/package.json').version")
-          gh workflow run publish.yml --ref main -f version="$VERSION"
+        run: gh workflow run publish.yml --ref main -f version="${{ steps.bump.outputs.version }}"
