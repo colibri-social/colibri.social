@@ -10,8 +10,12 @@
     "@colibri-social/wrapper": "0.0.0"
   },
   "changesets": [
+    "curvy-humans-do",
+    "empty-papers-cross",
     "first-rc",
+    "mighty-llamas-open",
     "ripe-horses-pump",
+    "strict-icons-repair",
     "whole-rules-stop"
   ]
 }

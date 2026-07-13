@@ -2,7 +2,7 @@
 	"name": "@colibri-social/standard-renderer",
 	"private": true,
 	"type": "module",
-	"version": "0.0.1",
+	"version": "0.0.2-rc.0",
 	"types": "./src/index.ts",
 	"exports": {
 		".": {

@@ -160,7 +160,7 @@ export const LoginScreen: Component = () => {
 					<small class="text-primary text-sm">Welcome back.</small>
 					<h1 class="text-5xl font-black m-0">SIGN IN</h1>
 					<p class="m-0 text-muted-foreground">
-						Log in with your ATmostphere acccount to continue.
+						Log in with your ATmosphere acccount to continue.
 					</p>
 				</div>
 				<div class="flex flex-col bg-card w-full max-w-xl rounded-2xl border border-border h-fit relative items-center drop-shadow-black/25 drop-shadow-2xl overflow-hidden">

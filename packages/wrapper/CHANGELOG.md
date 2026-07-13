@@ -1,5 +1,16 @@
 # @colibri-social/wrapper
 
+## 0.1.0-rc.2
+
+### Patch Changes
+
+- c30cba7: fix: Padding issues on Android devices
+- 24ce2db: feat: Sentry releases setup
+- 4bf4d94: Fixes the profile cards on the profile setup screen not filling available space on mobile
+- Updated dependencies [c30cba7]
+- Updated dependencies [2ceec79]
+  - @colibri-social/client@0.0.1-rc.0
+
 ## 0.1.0-rc.1
 
 ### Patch Changes
