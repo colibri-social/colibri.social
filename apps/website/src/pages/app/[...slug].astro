@@ -14,9 +14,13 @@ import "@/styles/emoji-picker.css";
 	{import.meta.env.PROD && (
 		<script>
 			import { initSentry } from "@colibri-social/client";
-			import { SENTRY_DSN } from "astro:env/client";
+			import { SENTRY_DSN, SENTRY_RELEASE } from "astro:env/client";
 
-			initSentry({ dsn: SENTRY_DSN, environment: "production" });
+			initSentry({
+				dsn: SENTRY_DSN,
+				release: SENTRY_RELEASE,
+				environment: "production",
+			});
 		</script>
 	)}
 	<App client:only="solid-js" />

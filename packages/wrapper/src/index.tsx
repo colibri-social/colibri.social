@@ -8,6 +8,7 @@ import { render } from "solid-js/web";
 if (import.meta.env.PROD) {
 	initSentry({
 		dsn: import.meta.env.VITE_SENTRY_DSN,
+		release: import.meta.env.VITE_APP_VERSION,
 		environment: "production",
 	});
 }

@@ -11,7 +11,11 @@ import { loadEnv } from "vite";
 import { colibriDark, colibriLight } from "./src/ec-theme.ts";
 import { serverPortIntegration } from "./src/integrations/server-port";
 
-const { SENTRY_AUTH_TOKEN } = loadEnv(process.env.NODE_ENV!, process.cwd(), "");
+const { SENTRY_AUTH_TOKEN, SENTRY_RELEASE } = loadEnv(
+	process.env.NODE_ENV!,
+	process.cwd(),
+	"",
+);
 
 // https://astro.build/config
 export default defineConfig({
@@ -33,6 +37,21 @@ export default defineConfig({
 				authToken: SENTRY_AUTH_TOKEN,
 				org: "colibri-social",
 				project: "javascript-astro",
+				release: SENTRY_RELEASE
+					? {
+							name: SENTRY_RELEASE,
+							setCommits: {
+								repo: "colibri-social/colibri.social",
+								commit: SENTRY_RELEASE,
+								auto: false,
+								ignoreMissing: true,
+							},
+							deploy: { env: "production" },
+						}
+					: undefined,
+				sourcemaps: {
+					filesToDeleteAfterUpload: ["./dist/**/*.map"],
+				},
 			}),
 		],
 		optimizeDeps: {
@@ -90,6 +109,11 @@ export default defineConfig({
 				optional: true,
 			}),
 			SENTRY_DSN: envField.string({
+				context: "client",
+				access: "public",
+				optional: true,
+			}),
+			SENTRY_RELEASE: envField.string({
 				context: "client",
 				access: "public",
 				optional: true,
