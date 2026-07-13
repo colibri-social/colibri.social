@@ -10,6 +10,7 @@ import sifaLogo from "../../assets/login/sifa.id.svg";
 import streamPlaceLogo from "../../assets/login/stream.place.png";
 import tangledLogo from "../../assets/login/tangled.org.svg";
 import colibriLogo from "../../assets/logo.png";
+import "marqy/dist/marqy.css";
 
 const logos = [
 	{
@@ -52,61 +53,30 @@ const imageWrapperBase =
 	"w-16! h-16! rounded-md border flex items-center justify-center shrink-0 overflow-hidden";
 ---
 
-<div class="marquee-container w-full py-6 overflow-hidden flex">
-	<div class="flex shrink-0 animate-marquee gap-6 min-w-full pr-6">
-		{
-			logos.map((logo) => (
-				<a
-					href={logo.href}
-					rel="nofollow noreferrer"
-					class={cn(imageWrapperBase, logo.class)}
-				>
-					<Image
-						src={logo.src}
-						alt={logo.alt}
-						width={logo.src.width}
-						height={logo.src.height}
-						class="max-w-full max-h-full object-contain"
-					/>
-				</a>
-			))
-		}
-	</div>
-	<div
-		class="flex shrink-0 animate-marquee gap-6 min-w-full pr-6"
-		aria-hidden="true"
-	>
-		{
-			logos.map((logo) => (
-				<a
-					href={logo.href}
-					rel="nofollow noreferrer"
-					class={cn(imageWrapperBase, logo.class)}
-				>
-					<Image
-						src={logo.src}
-						alt={logo.alt}
-						width={logo.src.width}
-						height={logo.src.height}
-						class="max-w-full max-h-full object-contain"
-					/>
-				</a>
-			))
-		}
-	</div>
+<div class="w-full py-6 overflow-hidden">
+	<marqy-loop speed="0.7">
+		<div class="flex gap-6 pr-6">
+			{
+				logos.map((logo) => (
+					<a
+						href={logo.href}
+						rel="nofollow noreferrer"
+						class={cn(imageWrapperBase, logo.class)}
+					>
+						<Image
+							src={logo.src}
+							alt={logo.alt}
+							width={logo.src.width}
+							height={logo.src.height}
+							class="max-w-full max-h-full object-contain"
+						/>
+					</a>
+				))
+			}
+		</div>
+	</marqy-loop>
 </div>
 
-<style>
-	@keyframes marquee {
-		0% {
-			transform: translateX(0%);
-		}
-		100% {
-			transform: translateX(-100%);
-		}
-	}
-
-	.animate-marquee {
-		animation: marquee 40s linear infinite;
-	}
-</style>
+<script>
+	import "marqy/vanilla";
+</script>

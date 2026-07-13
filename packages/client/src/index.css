@@ -3,6 +3,7 @@
 @import "@colibri-social/assets/fonts.css";
 @import "@arborium/arborium/themes/base.css";
 @import "@arborium/arborium/themes/tokyo-night.css";
+@import "marqy/dist/marqy.css";
 @import "./components/app/common/text-editor/TextEditor.css";
 @import "./components/app/channel/message/media-attachments.css";
 @plugin "@tailwindcss/typography";
@@ -352,19 +353,6 @@
 /* Ensure the emoji characters render as emojis, not text */
 .emoji-render {
 	font-variant-emoji: emoji;
-}
-
-@keyframes marquee {
-	0% {
-		transform: translateX(0%);
-	}
-	100% {
-		transform: translateX(-100%);
-	}
-}
-
-.animate-marquee {
-	animation: marquee 40s linear infinite;
 }
 
 ol[data-somoto-toaster] > li {
