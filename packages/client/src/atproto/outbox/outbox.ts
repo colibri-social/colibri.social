@@ -8,7 +8,7 @@ import {
 	outboxUpdate,
 } from "../cache/store";
 import { nextTid } from "./tid";
-import type { OutboxEntry, OutboxRecord } from "./types";
+import type { AppviewKind, OutboxEntry, OutboxRecord } from "./types";
 
 const MAX_ATTEMPTS = 8;
 const RETRY_BASE_MS = 2_000;
@@ -25,6 +25,14 @@ let loaded = false;
 let flushing = false;
 let flushQueued = false;
 let retryTimer: ReturnType<typeof setTimeout> | null = null;
+
+let appviewExecutor: ((kind: AppviewKind) => Promise<Response>) | null = null;
+
+export const setAppviewExecutor = (
+	executor: (kind: AppviewKind) => Promise<Response>,
+): void => {
+	appviewExecutor = executor;
+};
 
 type SentListener = (info: { uri: string; collection: string }) => void;
 const sentListeners = new Set<SentListener>();
@@ -80,8 +88,20 @@ const classify = (err: unknown): "terminal" | "retry" => {
 const execute = async (
 	entry: OutboxEntry,
 ): Promise<"success" | "terminal" | "retry"> => {
-	if (!agent) return "retry";
 	const k = entry.kind;
+	if (k.t === "appview") {
+		if (!appviewExecutor) return "retry";
+		try {
+			const res = await appviewExecutor(k);
+			if (res.ok) return "success";
+			if (res.status === 429 || res.status >= 500) return "retry";
+			if (res.status >= 400) return "terminal";
+			return "success";
+		} catch (err) {
+			return classify(err);
+		}
+	}
+	if (!agent) return "retry";
 	try {
 		if (k.t === "delete") {
 			await agent.com.atproto.repo.deleteRecord({
@@ -161,7 +181,10 @@ export const flush = async (): Promise<void> => {
 
 			if (outcome === "terminal" || entry.attempts >= MAX_ATTEMPTS) {
 				surfaceTerminal(entry);
-			} else if (outcome === "success" && entry.kind.t !== "delete") {
+			} else if (
+				outcome === "success" &&
+				(entry.kind.t === "create" || entry.kind.t === "put")
+			) {
 				emitSent(
 					buildUri(entry.kind.repo, entry.kind.collection, entry.kind.rkey),
 					entry.kind.collection,
@@ -270,6 +293,29 @@ export const enqueueDelete = async (
 		owner: activeOwner(),
 		kind: { t: "delete", repo, collection, rkey },
 		label: opts?.label,
+		createdAt: Date.now(),
+		attempts: 0,
+	});
+	scheduleFlush();
+};
+
+export const enqueueAppview = async (params: {
+	service: "appview" | "notif";
+	lxm: string;
+	route: string;
+	method: string;
+	label?: string;
+}): Promise<void> => {
+	await persist({
+		owner: activeOwner(),
+		kind: {
+			t: "appview",
+			service: params.service,
+			lxm: params.lxm,
+			route: params.route,
+			method: params.method,
+		},
+		label: params.label,
 		createdAt: Date.now(),
 		attempts: 0,
 	});

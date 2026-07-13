@@ -13,7 +13,16 @@ export type OutboxKind =
 			rkey: string;
 			record: Record<string, unknown>;
 	  }
-	| { t: "delete"; repo: string; collection: string; rkey: string };
+	| { t: "delete"; repo: string; collection: string; rkey: string }
+	| {
+			t: "appview";
+			service: "appview" | "notif";
+			lxm: string;
+			route: string;
+			method: string;
+	  };
+
+export type AppviewKind = Extract<OutboxKind, { t: "appview" }>;
 
 export type OutboxRecord = {
 	owner: string;

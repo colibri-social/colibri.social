@@ -133,6 +133,14 @@ export const MessageInput: Component<{
 			return false;
 		}
 
+		if (hasFiles && typeof navigator !== "undefined" && !navigator.onLine) {
+			toast.error("You're offline", {
+				description:
+					"Attachments can't be sent until you're back online. Your message is still here.",
+			});
+			return false;
+		}
+
 		channel.clearReplyingTo();
 		// Reset the throttle so the next keystroke after sending pings promptly.
 		lastTypingPing = 0;
