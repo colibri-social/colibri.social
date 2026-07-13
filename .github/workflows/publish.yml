@@ -148,6 +148,10 @@ jobs:
       - name: Sync version
         run: node packages/wrapper/scripts/set-version.mjs "${{ inputs.version }}" "${{ github.run_number }}"
 
+      - name: Compute Android version code (Android only)
+        if: matrix.is-android
+        run: echo "ANDROID_VERSION_CODE=$((1000 + GITHUB_RUN_NUMBER))" >> "$GITHUB_ENV"
+
       - uses: tauri-apps/tauri-action@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -163,7 +167,7 @@ jobs:
           ANDROID_KEY_ALIAS: ${{ matrix.platform == 'ubuntu-latest' && secrets.ANDROID_KEY_ALIAS || '' }}
           ANDROID_KEY_BASE64: ${{ matrix.platform == 'ubuntu-latest' && secrets.ANDROID_KEY_BASE64 || '' }}
           ANDROID_KEY_PASSWORD: ${{ matrix.platform == 'ubuntu-latest' && env.ANDROID_KEY_PASSWORD || '' }}
-          ANDROID_VERSION_CODE: ${{ 1000 + github.run_number }}
+          ANDROID_VERSION_CODE: ${{ env.ANDROID_VERSION_CODE }}
         with:
           projectPath: "packages/wrapper"
           tagName: v${{ inputs.version }}
