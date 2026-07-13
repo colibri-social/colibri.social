@@ -89,7 +89,7 @@ export const ComposerMediaPickers: Component<{
 				<SmileyIcon width={20} height={20} />
 			</button>
 			<BottomSheet open={drawerOpen()} onOpenChange={setDrawerOpen}>
-				<div class="flex flex-col px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+				<div class="flex flex-col px-3 pb-[calc(0.75rem+var(--safe-area-bottom))]">
 					<Show when={drawerOpen()}>
 						<Tabs
 							value={tab()}
