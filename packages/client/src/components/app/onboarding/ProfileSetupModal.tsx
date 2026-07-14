@@ -9,6 +9,7 @@ import {
 	Switch,
 } from "solid-js";
 import ArrowLineLeftIcon from "~icons/ph/arrow-line-left";
+import InfoIcon from "~icons/ph/info";
 import { putRecord, uploadBlob } from "../../../atproto/pds";
 import { resolveBlob } from "../../../atproto/resolve-blob";
 import { endSession } from "../../../atproto/session";
@@ -289,6 +290,7 @@ const ProfileFieldsForm: Component<{
 export const ProfileSetupModal: Component<{
 	open: boolean;
 	hasBlueskyProfile: boolean;
+	returning: boolean;
 	onComplete: () => void;
 }> = (props) => {
 	const user = useUserContext();
@@ -311,6 +313,17 @@ export const ProfileSetupModal: Component<{
 	const config: RecordBootstrapConfig<ProfileFields> = {
 		title: "Set up your profile",
 		submitLabel: "Create profile",
+		notice: props.returning ? (
+			<div class="flex flex-row items-start gap-3 rounded-lg border border-border bg-muted/30 p-3 text-sm text-muted-foreground">
+				<InfoIcon class="mt-0.5 shrink-0 text-primary" />
+				<p class="m-0">
+					<strong class="text-foreground">Welcome back!</strong> Your
+					communities, messages, and account are safe. Colibri now uses its own
+					profile, separate from Bluesky. Set it up below to pick up where you
+					left off. You can import your Bluesky profile or start fresh.
+				</p>
+			</div>
+		) : undefined,
 		footerStart: (
 			<Button variant="ghost" onClick={logout}>
 				<ArrowLineLeftIcon />
