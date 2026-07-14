@@ -1,5 +1,11 @@
 # @colibri-social/client
 
+## 0.0.1-rc.3
+
+### Patch Changes
+
+- e48ba9b: Fixes a race condition in the deep link listener that caused logins to not work as intended.
+
 ## 0.0.1-rc.2
 
 ### Patch Changes
