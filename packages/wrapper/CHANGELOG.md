@@ -1,5 +1,14 @@
 # @colibri-social/wrapper
 
+## 0.1.0-rc.3
+
+### Patch Changes
+
+- a5ea422: fix: On-screen keyboard no longer overlaps the message input on Android
+- Updated dependencies [b315479]
+- Updated dependencies [bf105c0]
+  - @colibri-social/client@0.0.1-rc.1
+
 ## 0.1.0-rc.2
 
 ### Patch Changes
