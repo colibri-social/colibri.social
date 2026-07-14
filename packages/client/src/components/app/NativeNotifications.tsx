@@ -3,7 +3,12 @@ import { useMutes } from "../../contexts/Mutes";
 import { useSocketContext } from "../../contexts/Socket";
 import { useUserContext } from "../../contexts/User";
 import { useUserPreferences } from "../../contexts/UserPreferences";
-import { getBackend, isWebRuntime, notify } from "../../notifications";
+import {
+	getBackend,
+	isTauriRuntime,
+	isWebRuntime,
+	notify,
+} from "../../notifications";
 import { subscribeWebPush } from "../../notifications/push-web";
 
 /**
@@ -16,7 +21,7 @@ export const NativeNotifications: Component = () => {
 	const socket = useSocketContext();
 	const mutes = useMutes();
 	const user = useUserContext();
-	const { preferences } = useUserPreferences();
+	const { preferences, setNativeNotifications } = useUserPreferences();
 
 	const isUnfocused = (): boolean =>
 		typeof document === "undefined" ||
@@ -25,6 +30,17 @@ export const NativeNotifications: Component = () => {
 
 	onMount(() => {
 		void (async () => {
+			if (isTauriRuntime()) {
+				const backend = getBackend();
+				// OS permission is only ever "default" before the user has been
+				// asked, so this only prompts once per install
+				if ((await backend.getPermission()) === "default") {
+					const permission = await backend.requestPermission();
+					if (permission === "granted") setNativeNotifications(true);
+				}
+				return;
+			}
+
 			if (
 				isWebRuntime() &&
 				preferences().nativeNotifications &&
