@@ -1,5 +1,14 @@
 # @colibri-social/wrapper
 
+## 0.1.0-rc.4
+
+### Patch Changes
+
+- Updated dependencies [17e109e]
+- Updated dependencies [5cdb331]
+- Updated dependencies [3560f64]
+  - @colibri-social/client@0.0.1-rc.2
+
 ## 0.1.0-rc.3
 
 ### Patch Changes
