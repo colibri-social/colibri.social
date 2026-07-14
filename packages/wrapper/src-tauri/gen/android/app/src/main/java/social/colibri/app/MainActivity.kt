@@ -10,11 +10,15 @@ import androidx.activity.enableEdgeToEdge
 import androidx.core.graphics.Insets
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import androidx.webkit.ScriptHandler
+import androidx.webkit.WebViewCompat
+import androidx.webkit.WebViewFeature
 
 class MainActivity : TauriActivity() {
   private val handler = Handler(Looper.getMainLooper())
   private var lastBars: Insets = Insets.NONE
   private var lastImeBottom: Int = 0
+  private var insetsScriptHandler: ScriptHandler? = null
 
   override fun onCreate(savedInstanceState: Bundle?) {
     enableEdgeToEdge(
@@ -30,19 +34,18 @@ class MainActivity : TauriActivity() {
         WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout()
       )
       lastImeBottom = insets.getInsets(WindowInsetsCompat.Type.ime()).bottom
-      injectInsets(webView, lastBars, lastImeBottom)
+      registerInsetsScript(webView, lastBars, lastImeBottom)
       insets
     }
     ViewCompat.requestApplyInsets(webView)
     for (delay in longArrayOf(250L, 750L, 1500L, 3000L)) {
-      handler.postDelayed({ injectInsets(webView, lastBars, lastImeBottom) }, delay)
+      handler.postDelayed({ registerInsetsScript(webView, lastBars, lastImeBottom) }, delay)
     }
   }
 
-  private fun injectInsets(webView: WebView, bars: Insets, imeBottom: Int) {
+  private fun buildInsetsScript(webView: WebView, bars: Insets, imeBottom: Int): String {
     val d = webView.resources.displayMetrics.density
-    webView.evaluateJavascript(
-      """
+    return """
       (function () {
         var s = document.documentElement.style;
         s.setProperty('--safe-area-top', '${bars.top / d}px');
@@ -51,8 +54,15 @@ class MainActivity : TauriActivity() {
         s.setProperty('--safe-area-right', '${bars.right / d}px');
         window.dispatchEvent(new CustomEvent('colibri-keyboard-inset', { detail: ${imeBottom / d} }));
       })();
-      """.trimIndent(),
-      null,
-    )
+      """.trimIndent()
+  }
+
+  private fun registerInsetsScript(webView: WebView, bars: Insets, imeBottom: Int) {
+    val script = buildInsetsScript(webView, bars, imeBottom)
+    if (WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)) {
+      insetsScriptHandler?.remove()
+      insetsScriptHandler = WebViewCompat.addDocumentStartJavaScript(webView, script, setOf("*"))
+    }
+    webView.evaluateJavascript(script, null)
   }
 }
