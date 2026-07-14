@@ -32,6 +32,10 @@ const parseInviteCode = (url: string): string | null => {
 	}
 };
 
+const deepLinkPluginPromise = isTauriRuntime()
+	? import("@tauri-apps/plugin-deep-link")
+	: undefined;
+
 /**
  * Headless component that routes incoming Tauri deep links:
  * - `social.colibri:/oauth/callback?...` — finishes the external-browser OAuth
@@ -47,7 +51,7 @@ export const DeepLinkListener: Component = () => {
 	const auth = useAuthContext();
 
 	onMount(() => {
-		if (!isTauriRuntime()) return;
+		if (!isTauriRuntime() || !deepLinkPluginPromise) return;
 
 		let disposed = false;
 		let unlisten: (() => void) | undefined;
@@ -77,15 +81,15 @@ export const DeepLinkListener: Component = () => {
 		};
 
 		void (async () => {
-			const { getCurrent, onOpenUrl } = await import(
-				"@tauri-apps/plugin-deep-link"
-			);
-			// A URL the app was cold-launched with, then any received while running.
+			const { getCurrent, onOpenUrl } = await deepLinkPluginPromise;
+			if (disposed) return;
+			// Subscribe before pulling the cold-launch URL, so a deep link that
+			// arrives while we're still starting up isn't missed.
+			unlisten = await onOpenUrl((urls) => void route(urls));
+			if (disposed) return;
 			try {
 				await route(await getCurrent());
 			} catch {}
-			if (disposed) return;
-			unlisten = await onOpenUrl((urls) => void route(urls));
 		})();
 
 		onCleanup(() => {
