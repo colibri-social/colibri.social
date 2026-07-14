@@ -49,6 +49,7 @@ import {
 } from "../contexts/Notifications";
 import { useSocketContext } from "../contexts/Socket";
 import { useUserContext } from "../contexts/User";
+import { useViewport } from "../contexts/Viewport";
 import { isTauriRuntime } from "../notifications/environment";
 import { LongPressSensors } from "../utils/create-longpress-sensor";
 import {
@@ -57,7 +58,6 @@ import {
 	reorderList,
 } from "../utils/drag";
 import { createMobilePane } from "../utils/mobile-pane";
-import { createViewportMetrics } from "../utils/visual-viewport";
 
 const CommunityAvatar = (props: { item: Community; class?: string }) => {
 	const communityDid = props.item.uri.split("/")[2];
@@ -230,7 +230,7 @@ const AppLayout: ParentComponent = (props) => {
 	const navigate = useNavigate();
 	const location = useLocation();
 	const { isMobile, currentPane } = createMobilePane();
-	const viewport = createViewportMetrics();
+	const viewport = useViewport();
 
 	const shellHeight = () =>
 		isMobile() && viewport.height() !== undefined
