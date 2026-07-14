@@ -1,5 +1,13 @@
 # @colibri-social/wrapper
 
+## 0.1.0-rc.5
+
+### Patch Changes
+
+- e509882: fix: Safe-area padding no longer disappears after an Android WebView reload
+- Updated dependencies [e48ba9b]
+  - @colibri-social/client@0.0.1-rc.3
+
 ## 0.1.0-rc.4
 
 ### Patch Changes
