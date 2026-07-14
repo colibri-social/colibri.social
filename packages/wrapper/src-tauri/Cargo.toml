@@ -20,7 +20,7 @@ name = "wrapper_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
-tauri-build = { version = "2", features = [] }
+tauri-build = { version = "2" }
 
 [features]
 # Sentry is on by default. Disable it (`--no-default-features`, wired to the
@@ -30,7 +30,7 @@ default = ["sentry"]
 sentry = ["dep:sentry"]
 
 [dependencies]
-tauri = { version = "2", features = [] }
+tauri = { version = "2", features = ["config-json5"] }
 tauri-plugin-opener = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"

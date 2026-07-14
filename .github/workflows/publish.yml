@@ -89,12 +89,14 @@ jobs:
         with:
           workspaces: "packages/wrapper/src-tauri -> target"
 
-      - name: install Apple provisioning profile (macOS only)
-        if: matrix.platform == 'macos-latest'
-        env:
-          MAC_PROVISIONPROFILE: ${{ secrets.MAC_PROVISIONPROFILE }}
-        run: |
-          echo "$MAC_PROVISIONPROFILE" | base64 --decode > packages/wrapper/src-tauri/Colibri_Mac.provisionprofile
+      # TODO(appstore): Only needed for Mac App Store submissions.
+      # Uncomment when producing a MAS build:
+      # - name: install Apple provisioning profile (macOS only)
+      #   if: matrix.platform == 'macos-latest'
+      #   env:
+      #     MAC_PROVISIONPROFILE: ${{ secrets.MAC_PROVISIONPROFILE }}
+      #   run: |
+      #     echo "$MAC_PROVISIONPROFILE" | base64 --decode > packages/wrapper/src-tauri/Colibri_Mac.provisionprofile
 
       - name: install App Store Connect API key (macOS only)
         if: matrix.platform == 'macos-latest'

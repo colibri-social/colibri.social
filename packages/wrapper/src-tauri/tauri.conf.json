@@ -35,10 +35,7 @@
 			"icons/icon.ico"
 		],
 		"macOS": {
-			"entitlements": "Entitlements.plist",
-			"files": {
-				"embedded.provisionprofile": "./Colibri_Mac.provisionprofile"
-			}
+			"entitlements": "Entitlements.plist"
 		},
 		"category": "SocialNetworking",
 		"publisher": "Colibri",
