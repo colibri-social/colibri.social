@@ -39,7 +39,7 @@ export const AppReconnectingIndicator: Component = () => {
 
 	return (
 		<Show when={visible()}>
-			<div class="fixed top-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 rounded-full bg-muted px-3 py-1.5 text-sm text-muted-foreground shadow-md">
+			<div class="fixed top-[calc(1rem+var(--safe-area-top))] left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 rounded-full bg-muted px-3 py-1.5 text-sm text-muted-foreground shadow-md">
 				<SpinnerIcon class="animate-spin" />
 				<span>
 					Reconnecting…
