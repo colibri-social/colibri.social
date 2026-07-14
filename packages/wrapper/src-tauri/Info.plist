@@ -8,6 +8,6 @@
 	<key>NSCameraUsageDescription</key>
 	<string>Colibri uses your camera for video in voice channels and calls.</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
-	<true/>
+	<false/>
 </dict>
 </plist>

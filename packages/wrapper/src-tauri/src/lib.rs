@@ -28,6 +28,11 @@ pub fn run() {
 
     let mut builder = tauri::Builder::default();
 
+    #[cfg(target_os = "ios")]
+    {
+        builder = builder.plugin(tauri_plugin_ios_webview_insets::init());
+    }
+
     // The single-instance plugin must be the first one registered. With the
     // `deep-link` feature it also forwards deep links opened while the app is
     // already running to the deep-link plugin.

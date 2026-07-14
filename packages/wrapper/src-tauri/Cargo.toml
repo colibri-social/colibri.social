@@ -48,3 +48,6 @@ tauri-plugin-window-state = "2.4.1"
 # so build OpenSSL from source for those instead of relying on pkg-config.
 [target.'cfg(any(target_os = "android", target_os = "ios"))'.dependencies]
 openssl = { version = "0.10", features = ["vendored"] }
+
+[target.'cfg(target_os = "ios")'.dependencies]
+tauri-plugin-ios-webview-insets = "0.1"

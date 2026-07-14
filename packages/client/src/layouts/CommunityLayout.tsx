@@ -33,7 +33,7 @@ import {
 import { MemberProfileContextProvider } from "../contexts/MemberProfile";
 import { useUserContext } from "../contexts/User";
 import { useUserPreferences } from "../contexts/UserPreferences";
-import { isTauriRuntime } from "../notifications";
+import { isMacosTauriRuntime, isTauriRuntime } from "../notifications";
 import createMediaQuery from "../utils/create-media-query";
 import { createSwipe, type SwipeOptions } from "../utils/create-swipe";
 import { createMobilePane, useIsMobile } from "../utils/mobile-pane";
@@ -197,7 +197,8 @@ const CommunityLayout: ParentComponent = (props) => {
 		<div
 			class="bg-background w-full h-full flex relative overflow-clip"
 			classList={{
-				"rounded-tl-xl border-t border-l border-border": !isMobile(),
+				"rounded-tl-xl border-t border-l border-border":
+					!isMobile() && !isMacosTauriRuntime(),
 			}}
 		>
 			<aside

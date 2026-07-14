@@ -678,6 +678,7 @@ dependencies = [
  "tauri",
  "tauri-build",
  "tauri-plugin-deep-link",
+ "tauri-plugin-ios-webview-insets",
  "tauri-plugin-notification",
  "tauri-plugin-opener",
  "tauri-plugin-single-instance",
@@ -4454,6 +4455,16 @@ dependencies = [
  "url",
  "windows-registry",
  "windows-result 0.3.4",
+]
+
+[[package]]
+name = "tauri-plugin-ios-webview-insets"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4d2e24b38fab352e96d412c5a97e45fc3542dc28159ab9111470a653fa8b98e4"
+dependencies = [
+ "tauri",
+ "tauri-plugin",
 ]
 
 [[package]]

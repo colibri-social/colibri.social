@@ -20,7 +20,7 @@ import type { PendingMessage } from "../../../atproto/xrpc/social/colibri/channe
 import { useChannelContext } from "../../../contexts/Channel";
 import { useCommunityContext } from "../../../contexts/Community";
 import { useUserContext } from "../../../contexts/User";
-import { useIsMobile } from "../../../utils/mobile-pane";
+import { canAutofocusComposer, useIsMobile } from "../../../utils/mobile-pane";
 import { purify } from "../../../utils/purify";
 import {
 	FileFieldItem,
@@ -212,7 +212,7 @@ export const MessageInput: Component<{
 		// Tracking
 		const _ = props.files()?.acceptedFiles.length;
 
-		if (!target) return;
+		if (!target || !canAutofocusComposer()) return;
 
 		const richTextMessageInput = document.querySelector<HTMLParagraphElement>(
 			"#editor .ProseMirror",

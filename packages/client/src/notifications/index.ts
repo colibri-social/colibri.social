@@ -46,7 +46,11 @@ export const notify = async (payload: NotificationPayload): Promise<void> => {
 	toast(payload.title, { description: payload.body });
 };
 
-export { isTauriRuntime, isWebRuntime } from "./environment";
+export {
+	isMacosTauriRuntime,
+	isTauriRuntime,
+	isWebRuntime,
+} from "./environment";
 export type {
 	NotificationBackend,
 	NotificationPayload,

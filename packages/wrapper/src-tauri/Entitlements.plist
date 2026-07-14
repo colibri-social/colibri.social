@@ -10,8 +10,6 @@
 	<key>com.apple.security.app-sandbox</key>
 	<true/>
 	<key>com.apple.application-identifier</key>
-	<string>social.colibri.app</string>
-	<key>com.apple.team-identifier</key>
-	<string>8V8SWK3942</string>
+	<string>8V8SWK3942.social.colibri.app</string>
 </dict>
 </plist>

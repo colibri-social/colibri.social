@@ -27,6 +27,7 @@ import {
 	readEditDraft,
 	writeEditDraft,
 } from "../utils/composer-drafts";
+import { canAutofocusComposer } from "../utils/mobile-pane";
 import { purify } from "../utils/purify";
 import { useChannelContext } from "./Channel";
 import { useCommunityContext, usePermissions } from "./Community";
@@ -183,11 +184,13 @@ export const MessageContextProvider: ParentComponent<{ data: Message }> = (
 		// Return focus to the main composer once the inline editor unmounts.
 		// `:not(.temp-editor)` skips the (now-closing) edit editor, which shares
 		// the `#editor` id and sits earlier in the DOM.
-		setTimeout(() => {
-			document
-				.querySelector<HTMLElement>("#editor:not(.temp-editor) .ProseMirror")
-				?.focus();
-		}, 0);
+		if (canAutofocusComposer()) {
+			setTimeout(() => {
+				document
+					.querySelector<HTMLElement>("#editor:not(.temp-editor) .ProseMirror")
+					?.focus();
+			}, 0);
+		}
 	};
 
 	const confirmDelete = async () => {
@@ -196,11 +199,13 @@ export const MessageContextProvider: ParentComponent<{ data: Message }> = (
 		channel.removeMessage(props.data.uri); // optimistic — instant
 		setDeletionModalOpen(false);
 		// Return focus to the main composer after confirming
-		setTimeout(() => {
-			document
-				.querySelector<HTMLElement>("#editor:not(.temp-editor) .ProseMirror")
-				?.focus();
-		}, 0);
+		if (canAutofocusComposer()) {
+			setTimeout(() => {
+				document
+					.querySelector<HTMLElement>("#editor:not(.temp-editor) .ProseMirror")
+					?.focus();
+			}, 0);
+		}
 		try {
 			await deleteRecord(
 				user.atproto.agent,

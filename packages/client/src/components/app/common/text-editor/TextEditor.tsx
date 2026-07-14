@@ -48,7 +48,10 @@ import {
 } from "../../../../utils/composer-drafts";
 import { createFenceRegex } from "../../../../utils/fenced-code-regex";
 import { htmlToDOMOutputSpec } from "../../../../utils/html-to-dom-output-spec";
-import { useIsMobile } from "../../../../utils/mobile-pane";
+import {
+	canAutofocusComposer,
+	useIsMobile,
+} from "../../../../utils/mobile-pane";
 import {
 	Tooltip,
 	TooltipContent,
@@ -1026,7 +1029,14 @@ export const TextEditor: Component<{
 			else instance.commands.clearContent();
 			latest = instance.getJSON();
 			latestEmpty = instance.isEmpty;
-			if (instance.isFocused) instance.commands.focus("end");
+
+			if (instance.isFocused) {
+				if (canAutofocusComposer()) {
+					instance.commands.focus("end");
+				} else {
+					instance.commands.blur();
+				}
+			}
 		};
 
 		createEffect(() => {

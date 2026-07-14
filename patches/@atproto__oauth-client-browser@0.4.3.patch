@@ -1,0 +1,72 @@
+diff --git a/dist/browser-oauth-client.js b/dist/browser-oauth-client.js
+index 82e957444a392a5ba34d4fd2f3c36c8e7b362625..632247d52b6288f7663810b274573deec5e638eb 100644
+--- a/dist/browser-oauth-client.js
++++ b/dist/browser-oauth-client.js
+@@ -65,7 +65,7 @@ export class BrowserOAuthClient extends OAuthClient {
+             onUpdate: async (sub, session) => {
+                 syncChannel.postMessage({
+                     name: 'onUpdate',
+-                    args: [sub, session],
++                    args: [sub],
+                 });
+                 return options.onUpdate?.call(null, sub, session);
+             },
+diff --git a/dist/browser-oauth-database.js b/dist/browser-oauth-database.js
+index d35656518ba2f180510f54570a1ac34f07b1604c..9dcb9adad7b3bf4deb1f3341cfdc93eb03e7bcfd 100644
+--- a/dist/browser-oauth-database.js
++++ b/dist/browser-oauth-database.js
+@@ -1,15 +1,40 @@
+ import { WebcryptoKey } from '@atproto/jwk-webcrypto';
+ import { DB } from './indexed-db/index.js';
++function subtleImportParams(alg) {
++    switch (alg) {
++        case 'ES256': return { name: 'ECDSA', namedCurve: 'P-256' };
++        case 'ES384': return { name: 'ECDSA', namedCurve: 'P-384' };
++        case 'ES512': return { name: 'ECDSA', namedCurve: 'P-521' };
++        case 'EdDSA': return { name: 'Ed25519' };
++        case 'RS256': return { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' };
++        case 'RS384': return { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-384' };
++        case 'RS512': return { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-512' };
++        case 'PS256': return { name: 'RSA-PSS', hash: 'SHA-256' };
++        case 'PS384': return { name: 'RSA-PSS', hash: 'SHA-384' };
++        case 'PS512': return { name: 'RSA-PSS', hash: 'SHA-512' };
++        default: throw new Error(`Unsupported DPoP key algorithm: ${alg}`);
++    }
++}
+ function encodeKey(key) {
+     if (!(key instanceof WebcryptoKey) || !key.kid) {
+         throw new Error('Invalid key object');
+     }
+     return {
+         keyId: key.kid,
+-        keyPair: key.cryptoKeyPair,
++        jwk: key.jwk,
+     };
+ }
+ async function decodeKey(encoded) {
++    if (encoded.jwk) {
++        const jwk = encoded.jwk;
++        const params = subtleImportParams(jwk.alg);
++        const { d, key_ops, use, ...publicJwk } = jwk;
++        const [privateKey, publicKey] = await Promise.all([
++            crypto.subtle.importKey('jwk', jwk, params, true, ['sign']),
++            crypto.subtle.importKey('jwk', publicJwk, params, true, ['verify']),
++        ]);
++        return new WebcryptoKey(jwk, { privateKey, publicKey });
++    }
+     return WebcryptoKey.fromKeypair(encoded.keyPair, encoded.keyId);
+ }
+ const STORES = [
+diff --git a/dist/browser-runtime-implementation.js b/dist/browser-runtime-implementation.js
+index 599f9b81fee5c87cc006fbab8902779f21a9a17c..e9a15956a53df7d617dc34cd8819f34915d4e059 100644
+--- a/dist/browser-runtime-implementation.js
++++ b/dist/browser-runtime-implementation.js
+@@ -19,7 +19,7 @@ export class BrowserRuntimeImplementation {
+         }
+     }
+     async createKey(algs) {
+-        return WebcryptoKey.generate(algs);
++        return WebcryptoKey.generate(algs, undefined, { extractable: true });
+     }
+     getRandomValues(byteLength) {
+         return crypto.getRandomValues(new Uint8Array(byteLength));

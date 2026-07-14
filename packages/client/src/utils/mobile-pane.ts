@@ -1,4 +1,5 @@
 import { useLocation, useNavigate, useSearchParams } from "@solidjs/router";
+import { isTauriRuntime } from "../notifications/environment";
 import createMediaQuery from "./create-media-query";
 
 const CHANNEL_PATH = /^\/app\/c\/[^/]+\/[^/]+\/[^/]+/;
@@ -11,6 +12,11 @@ export const useIsMobile = () => createMediaQuery(MOBILE_QUERY);
 
 export const isMobileNow = () =>
 	typeof matchMedia !== "undefined" && matchMedia(MOBILE_QUERY).matches;
+
+/**
+ * False for the native app at a non-mobile viewport width (iPad)
+ */
+export const canAutofocusComposer = () => !isTauriRuntime() || isMobileNow();
 
 /**
  * Mobile navigation stack. The desktop layout shows every pane at once, on

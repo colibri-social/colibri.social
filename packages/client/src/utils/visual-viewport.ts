@@ -24,9 +24,26 @@ export const createViewportMetrics = (): ViewportMetrics => {
 	update();
 	vv.addEventListener("resize", update);
 	vv.addEventListener("scroll", update);
+
+	let rafId: number | undefined;
+	let rafCount = 0;
+	const recheck = () => {
+		update();
+		rafCount += 1;
+		if (rafCount < 10) rafId = requestAnimationFrame(recheck);
+	};
+	rafId = requestAnimationFrame(recheck);
+
+	const onVisibility = () => {
+		if (document.visibilityState === "visible") update();
+	};
+	document.addEventListener("visibilitychange", onVisibility);
+
 	onCleanup(() => {
 		vv.removeEventListener("resize", update);
 		vv.removeEventListener("scroll", update);
+		document.removeEventListener("visibilitychange", onVisibility);
+		if (rafId !== undefined) cancelAnimationFrame(rafId);
 	});
 
 	return { height, offsetTop };

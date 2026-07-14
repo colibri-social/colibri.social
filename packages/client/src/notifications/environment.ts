@@ -15,3 +15,15 @@ export const isWebRuntime = (): boolean =>
 	typeof window !== "undefined" &&
 	!isTauriRuntime() &&
 	"Notification" in window;
+
+/**
+ * True for the native desktop macOS app specifically, not iOS/Android. iPadOS
+ * deliberately reports a "Macintosh" user agent (to get the desktop site), so
+ * that alone can't distinguish real macOS from an iPad; `maxTouchPoints` can,
+ * since only a genuine non-touch Mac reports 0 (this is Apple's own
+ * documented technique for detecting iPad-pretending-to-be-Mac).
+ */
+export const isMacosTauriRuntime = (): boolean =>
+	isTauriRuntime() &&
+	typeof navigator !== "undefined" &&
+	navigator.maxTouchPoints === 0;
