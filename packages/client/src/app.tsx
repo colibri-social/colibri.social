@@ -38,6 +38,7 @@ import { SocketContextProvider } from "./contexts/Socket";
 import { SoundsContextProvider } from "./contexts/Sounds";
 import { UserContextProvider } from "./contexts/User";
 import { UserPreferencesContextProvider } from "./contexts/UserPreferences";
+import { ViewportProvider } from "./contexts/Viewport";
 import { VoiceChatContextProvider } from "./contexts/VoiceChat";
 import AppLayout from "./layouts/AppLayout";
 import ChannelLayoutWithContext from "./layouts/ChannelLayout";
@@ -63,7 +64,9 @@ const AppRoute: ParentComponent = (props) => {
 						<ActorCacheProvider>
 							<SoundsContextProvider>
 								<VoiceChatContextProvider>
-									<AppLayout>{props.children}</AppLayout>
+									<ViewportProvider>
+										<AppLayout>{props.children}</AppLayout>
+									</ViewportProvider>
 								</VoiceChatContextProvider>
 							</SoundsContextProvider>
 						</ActorCacheProvider>
