@@ -14,6 +14,7 @@ import androidx.core.view.WindowInsetsCompat
 class MainActivity : TauriActivity() {
   private val handler = Handler(Looper.getMainLooper())
   private var lastBars: Insets = Insets.NONE
+  private var lastImeBottom: Int = 0
 
   override fun onCreate(savedInstanceState: Bundle?) {
     enableEdgeToEdge(
@@ -28,16 +29,17 @@ class MainActivity : TauriActivity() {
       lastBars = insets.getInsets(
         WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout()
       )
-      injectInsets(webView, lastBars)
+      lastImeBottom = insets.getInsets(WindowInsetsCompat.Type.ime()).bottom
+      injectInsets(webView, lastBars, lastImeBottom)
       insets
     }
     ViewCompat.requestApplyInsets(webView)
     for (delay in longArrayOf(250L, 750L, 1500L, 3000L)) {
-      handler.postDelayed({ injectInsets(webView, lastBars) }, delay)
+      handler.postDelayed({ injectInsets(webView, lastBars, lastImeBottom) }, delay)
     }
   }
 
-  private fun injectInsets(webView: WebView, bars: Insets) {
+  private fun injectInsets(webView: WebView, bars: Insets, imeBottom: Int) {
     val d = webView.resources.displayMetrics.density
     webView.evaluateJavascript(
       """
@@ -47,6 +49,7 @@ class MainActivity : TauriActivity() {
         s.setProperty('--safe-area-bottom', '${bars.bottom / d}px');
         s.setProperty('--safe-area-left', '${bars.left / d}px');
         s.setProperty('--safe-area-right', '${bars.right / d}px');
+        window.dispatchEvent(new CustomEvent('colibri-keyboard-inset', { detail: ${imeBottom / d} }));
       })();
       """.trimIndent(),
       null,
