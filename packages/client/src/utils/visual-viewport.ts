@@ -15,9 +15,7 @@ export const createViewportMetrics = (): ViewportMetrics => {
 	const [keyboardInset, setKeyboardInset] = createSignal(0);
 
 	const height = () =>
-		keyboardInset() > 0
-			? window.innerHeight - keyboardInset()
-			: vvHeight();
+		keyboardInset() > 0 ? window.innerHeight - keyboardInset() : vvHeight();
 
 	if (typeof window !== "undefined") {
 		const onKeyboardInset = (event: Event) => {
