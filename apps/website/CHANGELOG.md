@@ -1,5 +1,13 @@
 # @colibri-social/website
 
+## 0.0.2-rc.1
+
+### Patch Changes
+
+- Updated dependencies [b315479]
+- Updated dependencies [bf105c0]
+  - @colibri-social/client@0.0.1-rc.1
+
 ## 0.0.2-rc.0
 
 ### Patch Changes
