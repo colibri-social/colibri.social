@@ -367,6 +367,10 @@ jobs:
         shell: bash
         run: cargo install msixbundle-cli --locked
 
+      - name: verify msixbundle-cli runs
+        shell: pwsh
+        run: msixbundle-cli --version
+
       - name: Compute Store version and Windows build overrides
         shell: bash
         run: |
@@ -391,7 +395,7 @@ jobs:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
           VITE_SENTRY_DSN: ${{ secrets.WRAPPER_SENTRY_DSN }}
           SENTRY_DSN: ${{ secrets.NATIVE_SENTRY_DSN }}
-        run: pnpm dlx @choochmeque/tauri-windows-bundle@0.1.28 build --arch x64 --runner pnpm --verbose
+        run: pnpm dlx --config.optional=false @choochmeque/tauri-windows-bundle@0.1.28 build --arch x64 --runner pnpm --verbose
 
       - name: Upload MSIX artifact
         uses: actions/upload-artifact@v4
