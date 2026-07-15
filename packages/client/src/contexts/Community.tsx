@@ -62,7 +62,7 @@ type CommunityContextData = CommunityResponse & {
 	assignableRoles: Array<Role>;
 	applications: Array<Applicant>;
 	dismissedApplications: Array<Applicant>;
-	ownerDid: Accessor<string>;
+	ownerDid: Accessor<string | undefined>;
 	utils: {
 		getRolesForUser: (did: string) => Array<Role>;
 		setRolesForUser: (did: string, roles: Array<string>) => void;
@@ -627,7 +627,7 @@ export const CommunityContextProvider: ParentComponent = (props) => {
 	};
 
 	const ownerRole = () =>
-		(community.latest?.roles ?? []).find((x) => x.protected)!;
+		(community.latest?.roles ?? []).find((x) => x.protected);
 
 	const value: Accessor<CommunityContextData> = () => ({
 		...(community.latest as CommunityResponse),
@@ -635,9 +635,9 @@ export const CommunityContextProvider: ParentComponent = (props) => {
 		applications: applications.latest?.applications ?? [],
 		dismissedApplications: applications.latest?.dismissed ?? [],
 		ownerDid: () =>
-			community.latest!.members.find((x) =>
-				x.roles.some((y) => y === ownerRole().uri || ""),
-			)!.did,
+			community.latest?.members.find((x) =>
+				x.roles.some((y) => y === ownerRole()?.uri),
+			)?.did,
 		utils: {
 			getRolesForUser,
 			setRolesForUser,
