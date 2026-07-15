@@ -570,22 +570,16 @@ const ChannelLayout: ParentComponent = (props) => {
 		),
 	);
 
-	const ownerRole = () => (community().roles ?? []).find((x) => x.protected)!;
-
-	const ownerDid = () =>
-		community().members.find((x) =>
-			x.roles.some((y) => y === ownerRole().uri || ""),
-		)!.did;
-
 	const isRestricted = () =>
 		!!channel.data()?.ownerOnly ||
 		(channel.data()?.allowedRoles?.length ?? 0) > 0 ||
 		(channel.data()?.allowedMembers?.length ?? 0) > 0;
 
 	const canTalk = () => {
-		if (!isRestricted() || ownerDid() === user.did) return true;
+		if (!isRestricted() || community().ownerDid() === user.did) return true;
 
-		if (channel.data()?.ownerOnly && ownerDid() === user.did) return true;
+		if (channel.data()?.ownerOnly && community().ownerDid() === user.did)
+			return true;
 		if (channel.data()?.allowedMembers?.includes(user.did)) return true;
 
 		const member = community().members.find((x) => x.did === user.did)!;
@@ -874,13 +868,11 @@ const ChannelLayout: ParentComponent = (props) => {
 						</Show>
 
 						<Show when={channel.data()}>
-							{(ch) => (
-								<MessageInput
-									disabled={!canTalk()}
-									channelName={ch().name}
-									files={files}
-								/>
-							)}
+							<MessageInput
+								disabled={!canTalk()}
+								channelName={channel.data()?.name ?? ""}
+								files={files}
+							/>
 						</Show>
 
 						{props.children}
