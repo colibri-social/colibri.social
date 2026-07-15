@@ -31,6 +31,7 @@ export default defineConfig({
 	format: ["esm"],
 	dts: true,
 	clean: true,
+	sourcemap: true,
 	// Dependencies are externalized by default, opt `@sentry/solid` back into
 	// bundling so the stub redirect below can take effect and the real SDK is
 	// dropped rather than left as an external import

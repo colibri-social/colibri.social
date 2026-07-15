@@ -1,0 +1,70 @@
+name: MSIX Build (test)
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to build (e.g. 0.1.0-rc.3)."
+        required: true
+
+jobs:
+  msstore-build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: setup pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: setup node
+        uses: actions/setup-node@v6
+        with:
+          node-version: lts/*
+          cache: "pnpm"
+
+      - name: install frontend dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build app
+        run: pnpm build
+
+      - name: install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: "packages/wrapper/src-tauri -> target"
+
+      - name: Compute Store version and Windows build overrides
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP_MAJOR=$(echo "${{ inputs.version }}" | cut -d. -f1)
+          APP_MINOR=$(echo "${{ inputs.version }}" | cut -d. -f2)
+          STORE_MINOR=$((10#$APP_MAJOR * 1000 + 10#$APP_MINOR))
+          STORE_VERSION="1.${STORE_MINOR}.${GITHUB_RUN_NUMBER}"
+          echo "MSIX Store version (padded to .0 by the bundler): ${STORE_VERSION}.0"
+          cat > packages/wrapper/src-tauri/tauri.windows.conf.json <<JSON
+          {
+            "version": "${STORE_VERSION}",
+            "mainBinaryName": "ColibriSocial"
+          }
+          JSON
+
+      - name: Build MSIX bundle (x64)
+        working-directory: packages/wrapper
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_UPDATER_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_UPDATER_PASSWORD }}
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          VITE_SENTRY_DSN: ${{ secrets.WRAPPER_SENTRY_DSN }}
+          SENTRY_DSN: ${{ secrets.NATIVE_SENTRY_DSN }}
+        run: pnpm dlx @choochmeque/tauri-windows-bundle@0.1.28 build --arch x64 --runner pnpm --verbose
+
+      - name: Upload MSIX artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: msix-store
+          path: packages/wrapper/src-tauri/target/msix/*.msixbundle
+          if-no-files-found: error
