@@ -363,6 +363,10 @@ jobs:
         with:
           workspaces: "packages/wrapper/src-tauri -> target"
 
+      - name: install msixbundle-cli
+        shell: bash
+        run: cargo install msixbundle-cli --locked
+
       - name: Compute Store version and Windows build overrides
         shell: bash
         run: |
