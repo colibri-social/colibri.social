@@ -3,6 +3,7 @@ import { type Accessor, createSignal, onCleanup } from "solid-js";
 export type ViewportMetrics = {
 	height: Accessor<number | undefined>;
 	offsetTop: Accessor<number>;
+	keyboardInset: Accessor<number>;
 };
 
 /**
@@ -28,7 +29,7 @@ export const createViewportMetrics = (): ViewportMetrics => {
 	}
 
 	const vv = typeof window !== "undefined" ? window.visualViewport : undefined;
-	if (!vv) return { height, offsetTop };
+	if (!vv) return { height, offsetTop, keyboardInset };
 
 	const update = () => {
 		setVvHeight(vv.height);
@@ -43,5 +44,5 @@ export const createViewportMetrics = (): ViewportMetrics => {
 		vv.removeEventListener("scroll", update);
 	});
 
-	return { height, offsetTop };
+	return { height, offsetTop, keyboardInset };
 };

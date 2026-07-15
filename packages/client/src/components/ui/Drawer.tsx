@@ -1,9 +1,11 @@
 import type { DynamicProps } from "@corvu/drawer";
 import DrawerPrimitive from "@corvu/drawer";
 import type { ComponentProps, ValidComponent } from "solid-js";
-import { mergeProps, Show, splitProps } from "solid-js";
+import { mergeProps, Show, splitProps, useContext } from "solid-js";
 
+import { ViewportContext } from "../../contexts/Viewport";
 import { cx } from "../../utils/cva";
+import { useIsMobile } from "../../utils/mobile-pane";
 
 export const DrawerPortal = DrawerPrimitive.Portal;
 
@@ -40,6 +42,13 @@ export const DrawerContent = <T extends ValidComponent = "div">(
 	props: DrawerContentProps<T>,
 ) => {
 	const context = DrawerPrimitive.useContext();
+	const viewportCtx = useContext(ViewportContext);
+	const isMobile = useIsMobile();
+	const isBottom = () => context.side() === "bottom";
+	const keyboardOffset = () =>
+		isMobile() && isBottom() ? (viewportCtx?.keyboardInset() ?? 0) : 0;
+	const maxHeightPx = () =>
+		isMobile() && isBottom() ? viewportCtx?.height() : undefined;
 
 	const merge = mergeProps<DrawerContentProps[]>(
 		{
@@ -47,7 +56,12 @@ export const DrawerContent = <T extends ValidComponent = "div">(
 		},
 		props as DrawerContentProps,
 	);
-	const [, rest] = splitProps(merge, ["class", "children", "withHandle"]);
+	const [local, rest] = splitProps(merge, [
+		"class",
+		"children",
+		"withHandle",
+		"style",
+	]);
 
 	return (
 		<>
@@ -81,6 +95,13 @@ export const DrawerContent = <T extends ValidComponent = "div">(
 					props.class,
 				)}
 				{...rest}
+				style={{
+					...(typeof local.style === "object" ? local.style : {}),
+					...(keyboardOffset() > 0 ? { bottom: `${keyboardOffset()}px` } : {}),
+					...(maxHeightPx() !== undefined
+						? { "max-height": `${maxHeightPx()}px` }
+						: {}),
+				}}
 			>
 				<Show when={props.withHandle}>
 					<div
