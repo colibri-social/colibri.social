@@ -6,9 +6,12 @@ import {
 	onCleanup,
 	Show,
 	splitProps,
+	useContext,
 } from "solid-js";
 import { Portal } from "solid-js/web";
+import { ViewportContext } from "../../contexts/Viewport";
 import { cx } from "../../utils/cva";
+import { useIsMobile } from "../../utils/mobile-pane";
 
 export const DRAWER_TRANSITION_MS = 300;
 
@@ -34,6 +37,12 @@ export const BottomSheet = (props: BottomSheetProps) => {
 	const [shown, setShown] = createSignal(false);
 	const [dragOffset, setDragOffset] = createSignal(0);
 	const [dragging, setDragging] = createSignal(false);
+
+	const viewportCtx = useContext(ViewportContext);
+	const isMobile = useIsMobile();
+	const keyboardOffset = () =>
+		isMobile() ? (viewportCtx?.keyboardInset() ?? 0) : 0;
+	const maxHeightPx = () => (isMobile() ? viewportCtx?.height() : undefined);
 
 	let closeTimer: number | undefined;
 	let raf1 = 0;
@@ -126,7 +135,7 @@ export const BottomSheet = (props: BottomSheetProps) => {
 	return (
 		<Show when={mounted()}>
 			<Portal>
-				<div class="fixed inset-0 z-50">
+				<div class="fixed inset-0 z-50 pointer-events-auto">
 					<div
 						class="absolute inset-0 bg-black/50 transition-opacity duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]"
 						classList={{ "opacity-100": shown(), "opacity-0": !shown() }}
@@ -141,7 +150,15 @@ export const BottomSheet = (props: BottomSheetProps) => {
 								"transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]",
 							props.class,
 						)}
-						style={{ transform: sheetTransform() }}
+						style={{
+							transform: sheetTransform(),
+							...(keyboardOffset() > 0
+								? { bottom: `${keyboardOffset()}px` }
+								: {}),
+							...(maxHeightPx() !== undefined
+								? { "max-height": `${maxHeightPx()}px` }
+								: {}),
+						}}
 					>
 						<Show when={!props.hideHandle}>
 							<div
