@@ -1,5 +1,13 @@
 # @colibri-social/client
 
+## 0.0.1-rc.4
+
+### Patch Changes
+
+- 5480a4d: Fixes drawer behavior on mobile devices
+- a7ca279: Fixes a stale read error and undefined read in the community context and channel layout.
+- 2cdb3cf: Fixes sourcemap generation and adjusts the publish workflow to upload them to Sentry
+
 ## 0.0.1-rc.3
 
 ### Patch Changes
