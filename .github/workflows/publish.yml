@@ -6,6 +6,10 @@ on:
       version:
         description: "Version to build (e.g. 0.1.0-rc.3)."
         required: true
+      publish:
+        description: "Publish the built MSIX to the Microsoft Store."
+        type: boolean
+        default: false
 
 jobs:
   publish-tauri:
@@ -381,7 +385,7 @@ jobs:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
           VITE_SENTRY_DSN: ${{ secrets.WRAPPER_SENTRY_DSN }}
           SENTRY_DSN: ${{ secrets.NATIVE_SENTRY_DSN }}
-        run: pnpm dlx @choochmeque/tauri-windows-bundle@0.1.28 build --arch x64 --runner pnpm --regenerate-assets --verbose
+        run: pnpm dlx @choochmeque/tauri-windows-bundle@0.1.28 build --arch x64 --runner pnpm --verbose
 
       - name: Upload MSIX artifact
         uses: actions/upload-artifact@v4
@@ -392,6 +396,7 @@ jobs:
 
   msstore-deploy:
     needs: msstore-build
+    if: ${{ inputs.publish }}
     runs-on: windows-latest
     steps:
       - name: Download MSIX artifact
