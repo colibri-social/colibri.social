@@ -163,7 +163,7 @@ export const EmojiPopover: ParentComponent<{
 				open={props.emojiPopoverOpen()}
 				onOpenChange={props.setEmojiPopoverOpen}
 			>
-				<div class="flex flex-col px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+				<div class="flex flex-col px-3 pb-[calc(0.75rem+var(--safe-area-bottom))]">
 					<EmojiPickerBody onEmoji={handleEmoji} />
 				</div>
 			</BottomSheet>

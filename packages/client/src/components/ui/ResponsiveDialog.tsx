@@ -74,7 +74,7 @@ export const ResponsiveDialog = (props: ResponsiveDialogProps) => {
 								</DrawerLabel>
 							</DrawerHeader>
 						</Show>
-						<div class="flex flex-col gap-4 overflow-y-auto px-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+						<div class="flex flex-col gap-4 overflow-y-auto px-4 pb-[calc(1rem+var(--safe-area-bottom))]">
 							{props.children}
 						</div>
 					</DrawerContent>

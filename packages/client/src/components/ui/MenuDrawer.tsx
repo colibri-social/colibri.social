@@ -191,7 +191,7 @@ export const MenuDrawer = (props: MenuDrawerProps) => {
 					</span>
 				</div>
 			</Show>
-			<div class="flex flex-col gap-0.5 px-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] overflow-y-auto">
+			<div class="flex flex-col gap-0.5 px-2 pb-[calc(0.5rem+var(--safe-area-bottom))] overflow-y-auto">
 				{props.children}
 			</div>
 		</BottomSheet>

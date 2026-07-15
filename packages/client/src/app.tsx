@@ -21,6 +21,7 @@ import {
 	Show,
 } from "solid-js";
 import { urlSegmentToUri } from "./atproto/community-uri-to-url-compatible";
+import { OutboxController } from "./atproto/outbox/OutboxController";
 import { AppLoadingScreen } from "./components/AppLoadingScreen";
 import { InviteModal } from "./components/app/community/InviteModal";
 import { ScopeGate } from "./components/app/onboarding/ScopeGate";
@@ -37,6 +38,7 @@ import { SocketContextProvider } from "./contexts/Socket";
 import { SoundsContextProvider } from "./contexts/Sounds";
 import { UserContextProvider } from "./contexts/User";
 import { UserPreferencesContextProvider } from "./contexts/UserPreferences";
+import { ViewportProvider } from "./contexts/Viewport";
 import { VoiceChatContextProvider } from "./contexts/VoiceChat";
 import AppLayout from "./layouts/AppLayout";
 import ChannelLayoutWithContext from "./layouts/ChannelLayout";
@@ -58,13 +60,17 @@ const AppRoute: ParentComponent = (props) => {
 		<ScopeGate>
 			<SocketContextProvider>
 				<UserContextProvider>
-					<ActorCacheProvider>
-						<SoundsContextProvider>
-							<VoiceChatContextProvider>
-								<AppLayout>{props.children}</AppLayout>
-							</VoiceChatContextProvider>
-						</SoundsContextProvider>
-					</ActorCacheProvider>
+					<OutboxController>
+						<ActorCacheProvider>
+							<SoundsContextProvider>
+								<VoiceChatContextProvider>
+									<ViewportProvider>
+										<AppLayout>{props.children}</AppLayout>
+									</ViewportProvider>
+								</VoiceChatContextProvider>
+							</SoundsContextProvider>
+						</ActorCacheProvider>
+					</OutboxController>
 				</UserContextProvider>
 			</SocketContextProvider>
 		</ScopeGate>
@@ -129,7 +135,11 @@ const App: ParentComponent = () => {
 							when={isMobile()}
 							fallback={<Toaster richColors position="bottom-right" />}
 						>
-							<Toaster richColors position="top-center" />
+							<Toaster
+								richColors
+								position="top-center"
+								offset="max(32px,var(--safe-area-top))"
+							/>
 						</Show>
 						<SentryRouter root={RootLayout} base="/">
 							<Route path="/" component={RedirectToApp} />

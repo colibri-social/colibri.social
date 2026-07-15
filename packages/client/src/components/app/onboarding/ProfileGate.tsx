@@ -10,7 +10,11 @@ import { ProfileSetupModal } from "./ProfileSetupModal";
  * indexing lag. If it's missing, the (non-dismissible) {@link ProfileSetupModal}
  * is shown until the user completes setup.
  */
-type GateState = { needsSetup: boolean; hasBluesky: boolean };
+type GateState = {
+	needsSetup: boolean;
+	hasBluesky: boolean;
+	returning: boolean;
+};
 
 export const ProfileGate: ParentComponent = (props) => {
 	const user = useUserContext();
@@ -29,12 +33,27 @@ export const ProfileGate: ParentComponent = (props) => {
 		}
 	};
 
+	// Any `social.colibri.*` record (other than the profile, which we know is
+	// absent when setup is showing) means the account used Colibri before, so we
+	// can reassure them rather than treat them as brand new. Fails safe to false.
+	const isReturning = async (): Promise<boolean> => {
+		try {
+			const res = await user.atproto.agent.com.atproto.repo.describeRepo({
+				repo: user.did,
+			});
+			return res.data.collections.some((c) => c.startsWith("social.colibri."));
+		} catch {
+			return false;
+		}
+	};
+
 	const [gate, { mutate }] = createResource(async (): Promise<GateState> => {
-		const [hasColibri, hasBluesky] = await Promise.all([
+		const [hasColibri, hasBluesky, returning] = await Promise.all([
 			recordExists("social.colibri.actor.profile"),
 			recordExists("app.bsky.actor.profile"),
+			isReturning(),
 		]);
-		return { needsSetup: !hasColibri, hasBluesky };
+		return { needsSetup: !hasColibri, hasBluesky, returning };
 	});
 
 	return (
@@ -46,6 +65,7 @@ export const ProfileGate: ParentComponent = (props) => {
 				<ProfileSetupModal
 					open
 					hasBlueskyProfile={gate()?.hasBluesky ?? false}
+					returning={gate()?.returning ?? false}
 					onComplete={() => mutate((prev) => ({ ...prev!, needsSetup: false }))}
 				/>
 			</Match>

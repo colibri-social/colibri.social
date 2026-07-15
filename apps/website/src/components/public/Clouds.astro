@@ -1,62 +1,25 @@
 ---
 import Cloud from "./Cloud.astro";
+import "marqy/dist/marqy.css";
 ---
 
 <div class="w-screen absolute transform -translate-y-76 -z-10">
-	<div class="marquee-track marquee-slow absolute -top-20" data-speed="slow">
-		<div class="marquee-content">
+	<marqy-loop class="absolute! bottom-0" direction="left" speed="0.3">
+		<div class="flex gap-8 pr-8">
 			<Cloud />
 			<Cloud />
 			<Cloud />
 		</div>
-		<div class="marquee-content" aria-hidden="true">
+	</marqy-loop>
+	<marqy-loop direction="left" speed="0.6">
+		<div class="flex gap-8 pr-8">
 			<Cloud />
 			<Cloud />
 			<Cloud />
 		</div>
-	</div>
-	<div class="marquee-track marquee-fast" data-speed="fast">
-		<div class="marquee-content">
-			<Cloud />
-			<Cloud />
-			<Cloud />
-		</div>
-		<div class="marquee-content" aria-hidden="true">
-			<Cloud />
-			<Cloud />
-			<Cloud />
-		</div>
-	</div>
+	</marqy-loop>
 </div>
 
-<style>
-	.marquee-track {
-		display: flex;
-		width: max-content;
-	}
-
-	.marquee-content {
-		display: flex;
-		flex-shrink: 0;
-		gap: 2rem;
-		padding-right: 2rem;
-		animation: scroll var(--marquee-duration, 120s) linear infinite;
-	}
-
-	.marquee-slow .marquee-content {
-		--marquee-duration: 140s;
-	}
-
-	.marquee-fast .marquee-content {
-		--marquee-duration: 80s;
-	}
-
-	@keyframes scroll {
-		0% {
-			transform: translateX(-20%);
-		}
-		100% {
-			transform: translateX(-120%);
-		}
-	}
-</style>
+<script>
+	import "marqy/vanilla";
+</script>

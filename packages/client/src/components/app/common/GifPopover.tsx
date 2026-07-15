@@ -388,7 +388,7 @@ export const GifPopover: ParentComponent<{
 				</div>
 			</Show>
 			<BottomSheet open={props.open()} onOpenChange={props.setOpen}>
-				<div class="flex flex-col px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+				<div class="flex flex-col px-3 pb-[calc(0.75rem+var(--safe-area-bottom))]">
 					<Show when={props.open()}>
 						<GifPickerBody onSelect={handleSelect} />
 					</Show>

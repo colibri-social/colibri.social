@@ -10,8 +10,20 @@
     "@colibri-social/wrapper": "0.0.0"
   },
   "changesets": [
+    "curvy-humans-do",
+    "eight-coins-press",
+    "empty-papers-cross",
     "first-rc",
+    "giant-dancers-grab",
+    "mighty-llamas-open",
+    "old-mangos-grab",
+    "plain-bags-play",
+    "polite-hotels-flow",
     "ripe-horses-pump",
+    "strict-icons-repair",
+    "tame-ducks-relax",
+    "tame-otters-flow",
+    "tidy-hats-clap",
     "whole-rules-stop"
   ]
 }

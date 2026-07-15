@@ -44,6 +44,7 @@ import { isSameChannelUri, useNotifications } from "../contexts/Notifications";
 import { ScrollAnchorProvider } from "../contexts/ScrollAnchor";
 import { useUserContext } from "../contexts/User";
 import { useUserPreferences } from "../contexts/UserPreferences";
+import { useViewport } from "../contexts/Viewport";
 import { getChannelParam } from "../utils/get-param";
 import { createMobilePane } from "../utils/mobile-pane";
 
@@ -100,6 +101,7 @@ const ChannelLayout: ParentComponent = (props) => {
 	const mutes = useMutes();
 	const { preferences, toggleMembersVisible } = useUserPreferences();
 	const { isMobile, popPane, pushPane } = createMobilePane();
+	const viewport = useViewport();
 
 	const toggleChannelMute = () => {
 		const channelUri = channel.channelUri();
@@ -177,6 +179,32 @@ const ChannelLayout: ParentComponent = (props) => {
 		wasAtBottom = true;
 	};
 
+	const REPIN_MAX_FRAMES = 20;
+	const REPIN_STABLE_FRAMES = 2;
+
+	const pinToBottomStable = () => {
+		if (!scrollContainer) return;
+		let lastHeight = -1;
+		let stable = 0;
+		let frames = 0;
+		const step = () => {
+			if (!scrollContainer || !wasAtBottom) return;
+			if (scrollBottomBeforeFetch !== null) return;
+			const h = scrollContainer.scrollHeight;
+			scrollContainer.scrollTop = h;
+			wasAtBottom = true;
+			if (h === lastHeight) {
+				stable++;
+			} else {
+				stable = 0;
+				lastHeight = h;
+			}
+			if (stable >= REPIN_STABLE_FRAMES || ++frames >= REPIN_MAX_FRAMES) return;
+			requestAnimationFrame(step);
+		};
+		requestAnimationFrame(step);
+	};
+
 	const observeJumpSentinel = (el: HTMLDivElement) => {
 		if (jumpSentinel && jumpObserver) jumpObserver.unobserve(jumpSentinel);
 		jumpSentinel = el;
@@ -241,8 +269,7 @@ const ChannelLayout: ParentComponent = (props) => {
 			contentResizeObserver = new ResizeObserver(() => {
 				if (!scrollContainer || !didInitialScroll) return;
 				if (scrollBottomBeforeFetch !== null) return; // prepend in progress
-				if (wasAtBottom)
-					scrollContainer.scrollTop = scrollContainer.scrollHeight;
+				if (wasAtBottom) pinToBottomStable();
 			});
 			contentResizeObserver.observe(messagesWrapper);
 		}
@@ -441,13 +468,27 @@ const ChannelLayout: ParentComponent = (props) => {
 			if (node) {
 				node.scrollIntoView({ block: "start" });
 			} else {
-				scrollToBottom();
+				wasAtBottom = true;
+				pinToBottomStable();
 			}
 
 			channel.advanceReadCursor();
 			notifications.markChannelRead(channel.channelUri());
 		});
 	});
+
+	createEffect(
+		on(
+			viewport.height,
+			() => {
+				if (!didInitialScroll || !scrollContainer) return;
+				if (!wasAtBottom) return;
+				if (scrollBottomBeforeFetch !== null) return;
+				pinToBottomStable();
+			},
+			{ defer: true },
+		),
+	);
 
 	createEffect(
 		on(

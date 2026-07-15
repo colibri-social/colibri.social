@@ -1,6 +1,7 @@
 import type { Agent } from "@atproto/api";
 import type { ColibriEvent } from "@colibri-social/lib";
 import { perfNow, recordRequest } from "../../utils/perf";
+import { enqueueAppview, setAppviewExecutor } from "../outbox/outbox";
 import * as Identity from "./com/atproto/identity";
 import * as Repo from "./com/atproto/repo";
 import * as AtprotoSync from "./com/atproto/sync";
@@ -39,6 +40,47 @@ export class XrpcClient {
 		// *feed* reads (list/count/seen) stay on the AppView.
 		this.notifProxyHeader = proxyHeader.replace(/#.*$/, "#colibri_notif");
 		this.agent = agent;
+
+		setAppviewExecutor((kind) =>
+			this.authed(
+				kind.service === "notif" ? this.notifFetch : this.proxiedFetch,
+				kind.lxm,
+			)(kind.route as `/xrpc/${string}`, { method: kind.method }),
+		);
+	}
+
+	private queued(
+		lxm: string,
+		opts?: {
+			service?: "appview" | "notif";
+			label?: string;
+			syntheticBody?: unknown;
+		},
+	): ProxiedFetchFn {
+		const service = opts?.service ?? "appview";
+		const base = this.authed(
+			service === "notif" ? this.notifFetch : this.proxiedFetch,
+			lxm,
+		);
+		return async (route, init) => {
+			try {
+				const res = await base(route, init);
+				if (res.ok) return res;
+				if (res.status >= 400 && res.status < 500 && res.status !== 429)
+					return res;
+			} catch {}
+			await enqueueAppview({
+				service,
+				lxm,
+				route,
+				method: init?.method ?? "GET",
+				label: opts?.label,
+			});
+			return new Response(JSON.stringify(opts?.syntheticBody ?? {}), {
+				status: 200,
+				headers: { "content-type": "application/json" },
+			});
+		};
 	}
 
 	/**
@@ -296,57 +338,56 @@ export class XrpcClient {
 					),
 				reorderChannels: (category: string, channelOrder: string[]) =>
 					Community.reorderChannels(
-						this.authed(
-							this.proxiedFetch,
-							"social.colibri.community.reorderChannels",
-						),
+						this.queued("social.colibri.community.reorderChannels", {
+							label: "Failed to reorder channels.",
+						}),
 						category,
 						channelOrder,
 					),
 				reorderCategories: (community: string, categoryOrder: string[]) =>
 					Community.reorderCategories(
-						this.authed(
-							this.proxiedFetch,
-							"social.colibri.community.reorderCategories",
-						),
+						this.queued("social.colibri.community.reorderCategories", {
+							label: "Failed to reorder categories.",
+						}),
 						community,
 						categoryOrder,
 					),
 				kick: (community: string, member: string) =>
 					Community.kick(
-						this.authed(this.proxiedFetch, "social.colibri.community.kick"),
+						this.queued("social.colibri.community.kick", {
+							label: "Failed to remove member.",
+						}),
 						community,
 						member,
 					),
 				kickUser: (community: string, identifier: string) =>
 					Community.kickUser(
-						this.authed(this.proxiedFetch, "social.colibri.community.kickUser"),
+						this.queued("social.colibri.community.kickUser", {
+							label: "Failed to remove member.",
+						}),
 						community,
 						identifier,
 					),
 				approveMembership: (membership: string) =>
 					Community.approveMembership(
-						this.authed(
-							this.proxiedFetch,
-							"social.colibri.community.approveMembership",
-						),
+						this.queued("social.colibri.community.approveMembership", {
+							label: "Failed to approve request.",
+						}),
 						membership,
 					),
 				dismissApplication: (community: string, did: string) =>
 					Community.dismissApplication(
-						this.authed(
-							this.proxiedFetch,
-							"social.colibri.community.dismissApplication",
-						),
+						this.queued("social.colibri.community.dismissApplication", {
+							label: "Failed to dismiss request.",
+						}),
 						community,
 						did,
 					),
 				undismissApplication: (community: string, did: string) =>
 					Community.undismissApplication(
-						this.authed(
-							this.proxiedFetch,
-							"social.colibri.community.undismissApplication",
-						),
+						this.queued("social.colibri.community.undismissApplication", {
+							label: "Failed to restore request.",
+						}),
 						community,
 						did,
 					),
@@ -382,25 +423,25 @@ export class XrpcClient {
 					Community.listRoles(this.proxiedFetch, community),
 				blockMessage: (community: string, message: string) =>
 					Community.blockMessage(
-						this.authed(
-							this.proxiedFetch,
-							"social.colibri.community.blockMessage",
-						),
+						this.queued("social.colibri.community.blockMessage", {
+							label: "Failed to block message.",
+						}),
 						community,
 						message,
 					),
 				banUser: (community: string, identifier: string) =>
 					Community.banUser(
-						this.authed(this.proxiedFetch, "social.colibri.community.banUser"),
+						this.queued("social.colibri.community.banUser", {
+							label: "Failed to ban user.",
+						}),
 						community,
 						identifier,
 					),
 				unbanUser: (community: string, identifier: string) =>
 					Community.unbanUser(
-						this.authed(
-							this.proxiedFetch,
-							"social.colibri.community.unbanUser",
-						),
+						this.queued("social.colibri.community.unbanUser", {
+							label: "Failed to unban user.",
+						}),
 						community,
 						identifier,
 					),
@@ -447,7 +488,9 @@ export class XrpcClient {
 					),
 				delete: (category: string) =>
 					Category.delete(
-						this.authed(this.proxiedFetch, "social.colibri.category.delete"),
+						this.queued("social.colibri.category.delete", {
+							label: "Failed to delete category.",
+						}),
 						category,
 					),
 			},
@@ -494,7 +537,9 @@ export class XrpcClient {
 					),
 				delete: (channel: string) =>
 					Channel.delete(
-						this.authed(this.proxiedFetch, "social.colibri.channel.delete"),
+						this.queued("social.colibri.channel.delete", {
+							label: "Failed to delete channel.",
+						}),
 						channel,
 					),
 				listMessages: (
@@ -571,7 +616,9 @@ export class XrpcClient {
 					),
 				delete: (role: string) =>
 					Role.delete(
-						this.authed(this.proxiedFetch, "social.colibri.role.delete"),
+						this.queued("social.colibri.role.delete", {
+							label: "Failed to delete role.",
+						}),
 						role,
 					),
 			},
@@ -638,18 +685,16 @@ export class XrpcClient {
 					),
 				updateSeen: (seenAt?: string) =>
 					Notification.updateSeen(
-						this.authed(
-							this.proxiedFetch,
-							"social.colibri.notification.updateSeen",
-						),
+						this.queued("social.colibri.notification.updateSeen", {
+							syntheticBody: { updated: 1 },
+						}),
 						seenAt,
 					),
 				updateSeenForMessage: (message: string) =>
 					Notification.updateSeenForMessage(
-						this.authed(
-							this.proxiedFetch,
-							"social.colibri.notification.updateSeenForMessage",
-						),
+						this.queued("social.colibri.notification.updateSeenForMessage", {
+							syntheticBody: { updated: 1 },
+						}),
 						message,
 					),
 				getUnseen: (channel: string) =>

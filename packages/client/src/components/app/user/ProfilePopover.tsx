@@ -362,7 +362,7 @@ export const ProfilePopover: ParentComponent<{
 				handleOverlay
 				class="overflow-hidden"
 			>
-				<div class="min-h-0 overflow-y-auto">
+				<div class="min-h-0 overflow-y-auto pb-[calc(0.75rem+var(--safe-area-bottom))]">
 					<ProfilePopoverContents class="w-full" user={props.user} />
 				</div>
 			</BottomSheet>

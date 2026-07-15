@@ -92,6 +92,8 @@ export interface RecordBootstrapConfig<T> {
 	/** Persists the record. Receives the final values and the sync choice. */
 	submit: (value: T, opts: { sync: boolean }) => Promise<void>;
 	submitLabel?: string;
+	/** Optional informational callout rendered below the title on every step. */
+	notice?: JSX.Element;
 	/**
 	 * Optional element rendered at the start (left) of every step's footer,
 	 * separated from the primary actions. Useful for secondary actions like
@@ -213,12 +215,13 @@ export function RecordBootstrapModal<T>(props: {
 		<Dialog open={props.open} onOpenChange={handleOpenChange}>
 			<DialogPortal>
 				<DialogContent
-					class="sm:max-w-2xl max-h-[calc(100svh-2rem)] overflow-auto"
+					class="sm:max-w-2xl max-h-[calc(100svh-2rem-var(--safe-area-top)-var(--safe-area-bottom))] overflow-auto"
 					showCloseButton={dismissible()}
 				>
 					<DialogHeader>
 						<h2 class="m-0 text-center">{props.config.title}</h2>
 					</DialogHeader>
+					<Show when={props.config.notice}>{props.config.notice}</Show>
 					<SwitchFlow>
 						<Match when={step() === "choice"}>
 							<div class="flex flex-row items-center justify-center w-full gap-4">

@@ -37,7 +37,7 @@ export const DebugInfo: Component = () => {
 			}
 		>
 			<BottomSheet open={debugModalOpen()} onOpenChange={setDebugModalOpen}>
-				<div class="overflow-y-auto pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+				<div class="overflow-y-auto pb-[calc(0.75rem+var(--safe-area-bottom))]">
 					<SettingsInfoPage uri={message.uri} />
 				</div>
 			</BottomSheet>

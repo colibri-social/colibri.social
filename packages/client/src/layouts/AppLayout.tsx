@@ -11,7 +11,6 @@ import {
 	useDragDropContext,
 } from "@thisbeyond/solid-dnd";
 import {
-	createEffect,
 	createSignal,
 	For,
 	Match,
@@ -28,7 +27,7 @@ import LockSimpleIcon from "~icons/ph/lock-simple";
 import { communityUriToUrlCompatible } from "../atproto/community-uri-to-url-compatible";
 import { putRecord } from "../atproto/pds";
 import { resolveBlob } from "../atproto/resolve-blob";
-import { AppViewUnreachableModal } from "../components/app/AppViewUnreachableModal";
+import { AppReconnectingIndicator } from "../components/app/AppReconnectingIndicator";
 import { CommunityCreationModal } from "../components/app/CommunityCreationModal";
 import { CommunityContextMenu } from "../components/app/community/CommunityContextMenu";
 import { PENDING_INVITE_KEY } from "../components/app/community/invite-storage";
@@ -50,6 +49,7 @@ import {
 } from "../contexts/Notifications";
 import { useSocketContext } from "../contexts/Socket";
 import { useUserContext } from "../contexts/User";
+import { useViewport } from "../contexts/Viewport";
 import { isTauriRuntime } from "../notifications/environment";
 import { LongPressSensors } from "../utils/create-longpress-sensor";
 import {
@@ -58,7 +58,6 @@ import {
 	reorderList,
 } from "../utils/drag";
 import { createMobilePane } from "../utils/mobile-pane";
-import { createViewportMetrics } from "../utils/visual-viewport";
 
 const CommunityAvatar = (props: { item: Community; class?: string }) => {
 	const communityDid = props.item.uri.split("/")[2];
@@ -231,35 +230,19 @@ const AppLayout: ParentComponent = (props) => {
 	const navigate = useNavigate();
 	const location = useLocation();
 	const { isMobile, currentPane } = createMobilePane();
-	const viewport = createViewportMetrics();
-
-	const [showDisconnected, setShowDisconnected] = createSignal(false);
-	let wasConnected = false;
-	let disconnectTimer: ReturnType<typeof setTimeout> | undefined;
-	createEffect(() => {
-		if (socket.connected()) {
-			wasConnected = true;
-			if (disconnectTimer) {
-				clearTimeout(disconnectTimer);
-				disconnectTimer = undefined;
-			}
-			setShowDisconnected(false);
-			return;
-		}
-		if (!wasConnected || disconnectTimer) return;
-		disconnectTimer = setTimeout(() => {
-			disconnectTimer = undefined;
-			if (!socket.connected()) setShowDisconnected(true);
-		}, 10_000);
-	});
-	onCleanup(() => {
-		if (disconnectTimer) clearTimeout(disconnectTimer);
-	});
+	const viewport = useViewport();
 
 	const shellHeight = () =>
 		isMobile() && viewport.height() !== undefined
 			? `${viewport.height()}px`
 			: undefined;
+
+	const keyboardOpen = () => {
+		const h = viewport.height();
+		if (!isMobile() || h === undefined || typeof document === "undefined")
+			return false;
+		return document.documentElement.clientHeight - h > 100;
+	};
 
 	onMount(() => {
 		let pending: string | null = null;
@@ -430,6 +413,8 @@ const AppLayout: ParentComponent = (props) => {
 			classList={{
 				"h-[100dvh]": isMobile() && shellHeight() === undefined,
 				"h-screen": !isMobile(),
+				"pt-[var(--safe-area-top)]": isMobile(),
+				"pb-[var(--safe-area-bottom)]": isMobile() && !keyboardOpen(),
 			}}
 			style={{
 				...(shellHeight() ? { height: shellHeight() } : {}),
@@ -456,7 +441,7 @@ const AppLayout: ParentComponent = (props) => {
 				</div>
 			</div>
 			<div
-				class="flex w-full"
+				class="flex w-full relative"
 				classList={{
 					"h-full": isMobile() || isTauriRuntime(),
 					"h-[calc(100%-40px)]": !isMobile() && !isTauriRuntime(),
@@ -515,9 +500,7 @@ const AppLayout: ParentComponent = (props) => {
 				<main class="w-full h-full">{props.children}</main>
 			</div>
 			<VoiceOverlay />
-			<Show when={showDisconnected() && !import.meta.env.DEV}>
-				<AppViewUnreachableModal />
-			</Show>
+			<AppReconnectingIndicator />
 		</div>
 	);
 };

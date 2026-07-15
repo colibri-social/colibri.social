@@ -7,11 +7,18 @@
 	<true/>
 	<key>com.apple.security.device.camera</key>
 	<true/>
+	<!-- TODO(appstore): The following are only needed for Mac App Store submissions
 	<key>com.apple.security.app-sandbox</key>
 	<true/>
 	<key>com.apple.application-identifier</key>
 	<string>social.colibri.app</string>
 	<key>com.apple.team-identifier</key>
 	<string>8V8SWK3942</string>
+
+	Also add the following in tauri.conf.json `bundle.macos` for appstore builds only
+	"files": {
+		"embedded.provisionprofile": "./Colibri_Mac.provisionprofile"
+	}
+	-->
 </dict>
 </plist>
