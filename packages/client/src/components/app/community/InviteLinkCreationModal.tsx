@@ -75,13 +75,15 @@ export const InviteLinkCreationModal: ParentComponent<{
 						<XIcon />
 					</DialogCloseButton>
 					<DialogHeader>
-						<h2 class="m-0 text-center">Create an invitation</h2>
+						<h2 class="m-0 text-center text-xl font-semibold">
+							Create an invitation
+						</h2>
 					</DialogHeader>
-					<div class="flex flex-col gap-2">
-						<p class="m-0">
+					<div class="flex flex-col gap-4">
+						<p class="m-0 text-sm text-muted-foreground">
 							Give this link to anyone you want to join this community!
 						</p>
-						<div class="flex flex-row items-center border border-border p-1 py-0.5 rounded-xl pl-4">
+						<div class="flex flex-row items-center border border-border p-2 rounded-xl pl-4">
 							<Switch>
 								<Match when={!code()}>
 									<Spinner
@@ -93,10 +95,17 @@ export const InviteLinkCreationModal: ParentComponent<{
 									/>
 								</Match>
 								<Match when={code()}>
-									<span class="w-full h-10 flex items-center">
+									<span
+										class="flex-1 text-sm break-words"
+										style={{
+											"word-wrap": "break-word",
+											"overflow-wrap": "break-word",
+										}}
+									>
 										{linkText()}
 									</span>
 									<Button
+										class="ml-2 px-4 py-2 text-sm"
 										classList={{
 											"bg-green-500! hover:bg-green-400! text-black!": copied(),
 										}}
@@ -109,9 +118,8 @@ export const InviteLinkCreationModal: ParentComponent<{
 									</Button>
 								</Match>
 							</Switch>
-							<span>{}</span>
 						</div>
-						<small class="text-muted-foreground">
+						<small class="text-xs text-muted-foreground">
 							You can manage invite links via the community settings.
 						</small>
 					</div>
