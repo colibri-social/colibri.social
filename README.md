@@ -1,6 +1,6 @@
 # Colibri
 
-![Let your community spread it's wings](https://github.com/colibri-social/colibri.social/blob/main/public/og.png)
+![Let your community spread it's wings](https://github.com/colibri.social/og.png)
 
 Colibri is an open source chat platform built on the [AT Protocol](https://atproto.com) for communities big and small. It gives you the ability to create communities, manage members, and communicate through text, voice, and forum channels, all while maintaining true ownership of your data.
 
