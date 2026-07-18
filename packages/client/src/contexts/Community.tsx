@@ -1,3 +1,4 @@
+import { useNavigate } from "@solidjs/router";
 import {
 	type Accessor,
 	createContext,
@@ -80,6 +81,7 @@ export const CommunityContext = createContext<Accessor<CommunityContextData>>();
 export const CommunityContextProvider: ParentComponent = (props) => {
 	const user = useUserContext();
 	const socket = useSocketContext();
+	const navigate = useNavigate();
 	const [, { seedPresence }] = useVoiceChatContext();
 	const communityUri = createMemo(() => urlSegmentToUri(getCommunityParam()));
 
@@ -99,6 +101,13 @@ export const CommunityContextProvider: ParentComponent = (props) => {
 
 	createEffect(() => {
 		if (!community.loading && community.latest) markBoot("community:ready");
+	});
+
+	// The fetch settled (or threw) without giving us usable data, meaning the
+	// community was deleted, we lost access, or it never existed
+	createEffect(() => {
+		if (community.loading || community.latest) return;
+		navigate("/app", { replace: true });
 	});
 
 	let seededUri: string | null = null;
@@ -652,11 +661,11 @@ export const CommunityContextProvider: ParentComponent = (props) => {
 
 	return (
 		<Switch>
-			<Match when={community.error}>
-				<span>{`${community.error}`}</span>
-			</Match>
 			<Match when={community.loading && !community.latest}>
 				<AppLoadingScreen message="Fetching community details..." />
+			</Match>
+			<Match when={!community.loading && !community.latest}>
+				<AppLoadingScreen message="Redirecting..." />
 			</Match>
 			<Match when={community.latest}>
 				<CommunityContext.Provider value={value}>
