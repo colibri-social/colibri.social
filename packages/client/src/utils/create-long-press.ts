@@ -19,7 +19,7 @@ export const createLongPress = (el: HTMLElement, opts: LongPressOptions) => {
 	let startY = 0;
 	let pressing = false;
 	let moved = false;
-	let armed = false;
+	let lastEvent: PointerEvent | undefined;
 	let armTimer: number | undefined;
 	let suppressClickUntil = 0;
 
@@ -53,33 +53,31 @@ export const createLongPress = (el: HTMLElement, opts: LongPressOptions) => {
 		startY = e.clientY;
 		pressing = true;
 		moved = false;
-		armed = false;
+		lastEvent = e;
 		disarm();
 		armTimer = window.setTimeout(() => {
-			armed = true;
+			armTimer = undefined;
+			if (pressing && !moved && lastEvent) fire(lastEvent);
 		}, delay);
 	};
 
 	const onPointerMove = (e: PointerEvent) => {
 		if (!pressing || moved) return;
+		lastEvent = e;
 		if (Math.hypot(e.clientX - startX, e.clientY - startY) > moveCancel) {
 			moved = true;
 			disarm();
 		}
 	};
 
-	const onPointerUp = (e: PointerEvent) => {
-		if (!pressing) return;
+	const onPointerUp = () => {
 		pressing = false;
 		disarm();
-		if (armed && !moved) fire(e);
 	};
 
-	const onPointerCancel = (e: PointerEvent) => {
-		if (!pressing) return;
+	const onPointerCancel = () => {
 		pressing = false;
 		disarm();
-		if (armed && !moved) fire(e);
 	};
 
 	const onContextMenu = (e: Event) => {
