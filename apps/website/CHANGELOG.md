@@ -1,5 +1,19 @@
 # @colibri-social/website
 
+## 0.0.2-rc.5
+
+### Patch Changes
+
+- df106e7: Adds a missing permission to the permission set
+- Updated dependencies [df106e7]
+- Updated dependencies [8ddea05]
+- Updated dependencies [75bfff8]
+- Updated dependencies [5855f50]
+- Updated dependencies [7ae9314]
+- Updated dependencies [3f1f55d]
+- Updated dependencies [0ec83ae]
+  - @colibri-social/client@0.0.1-rc.5
+
 ## 0.0.2-rc.4
 
 ### Patch Changes
