@@ -986,6 +986,7 @@ export const TextEditor: Component<{
 
 	createEffect(() => {
 		if (!editor() || editor()?.isFocused) return;
+		if (props.mainEditor && isMobile()) return;
 
 		editor()!.commands.focus("end", { scrollIntoView: true });
 	});
@@ -1026,7 +1027,7 @@ export const TextEditor: Component<{
 			else instance.commands.clearContent();
 			latest = instance.getJSON();
 			latestEmpty = instance.isEmpty;
-			if (instance.isFocused) instance.commands.focus("end");
+			if (instance.isFocused && !isMobile()) instance.commands.focus("end");
 		};
 
 		createEffect(() => {
