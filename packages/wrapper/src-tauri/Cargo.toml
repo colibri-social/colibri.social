@@ -11,6 +11,7 @@ edition = "2021"
 
 [profile.release]
 debug = "line-tables-only"
+split-debuginfo = "packed"
 
 [lib]
 # The `_lib` suffix may seem redundant but it is necessary

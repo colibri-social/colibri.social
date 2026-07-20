@@ -256,7 +256,7 @@ export const ProfilePopoverContents: Component<{
 								<Tooltip open={atProtoAtTooltipVisible()}>
 									<TooltipTrigger>
 										<a
-											href={`https://atproto.at/uri/at://${props.user.handle}`}
+											href={`https://atproto.at/uri/at://${props.user.handle.replaceAll("at://", "")}`}
 											target="_blank"
 											rel="noreferrer"
 											class="hover:text-[#1185fe] flex flex-row items-center gap-1.5 text-sm text-card-foreground font-normal hover:underline"

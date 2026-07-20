@@ -39,6 +39,18 @@ pub fn run() {
                     let _ = window.unminimize();
                     let _ = window.set_focus();
                 }
+
+                #[cfg(any(target_os = "linux", windows))]
+                if _argv.len() != 2 {
+                    use tauri_plugin_deep_link::DeepLinkExt;
+                    if let Some(url) = _argv.iter().find(|arg| {
+                        arg.starts_with("social.colibri:")
+                            || arg.starts_with("social.colibri.next:")
+                    }) {
+                        app.deep_link()
+                            .handle_cli_arguments([String::new(), url.clone()].into_iter());
+                    }
+                }
             }))
             .plugin(tauri_plugin_window_state::Builder::default().build())
             .plugin(tauri_plugin_updater::Builder::new().build());

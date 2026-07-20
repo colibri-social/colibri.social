@@ -187,6 +187,14 @@ jobs:
           args: ${{ matrix.args }}
           mobile: ${{ matrix.mobile }}
 
+      - name: Upload Rust debug symbols to Sentry
+        if: env.SENTRY_AUTH_TOKEN != ''
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: colibri-social
+          SENTRY_PROJECT: rust-native-app
+        run: pnpm dlx @sentry/cli debug-files upload --include-sources packages/wrapper/src-tauri/target
+
       - name: Route AAB to Play, remove from release (Android only)
         if: matrix.is-android
         env:

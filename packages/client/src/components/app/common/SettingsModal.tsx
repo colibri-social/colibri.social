@@ -39,6 +39,7 @@ export const SettingsPage: ParentComponent<{
 	onReset?: () => void;
 }> = (props) => {
 	const isMobile = useIsMobile();
+	const hasFooter = () => !!(props.onSave || props.onReset);
 	return (
 		<div class="w-full flex flex-col h-auto relative max-h-144">
 			<Show when={!isMobile() || props.description}>
@@ -57,7 +58,13 @@ export const SettingsPage: ParentComponent<{
 				</div>
 			</Show>
 			<div class="flex flex-col gap-4 w-full flex-1 min-h-0">
-				<div class="w-full flex flex-col gap-4 px-4 lg:max-w-137 h-full overflow-auto py-4">
+				<div
+					class="w-full flex flex-col gap-4 px-4 lg:max-w-137 h-full overflow-auto pt-4"
+					classList={{
+						"pb-4": hasFooter(),
+						"pb-[calc(1rem+var(--safe-area-bottom))]": !hasFooter(),
+					}}
+				>
 					{props.children}
 				</div>
 			</div>

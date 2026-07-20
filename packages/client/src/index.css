@@ -365,6 +365,14 @@ ol[data-somoto-toaster] > li {
 	ol[data-somoto-toaster] > li {
 		width: calc(100% - var(--mobile-offset, 16px) * 2) !important;
 	}
+
+	ol[data-somoto-toaster][data-y-position="top"] {
+		top: max(var(--offset), var(--safe-area-top)) !important;
+	}
+
+	ol[data-somoto-toaster][data-y-position="bottom"] {
+		bottom: max(var(--offset), var(--safe-area-bottom)) !important;
+	}
 }
 
 @layer utilities {

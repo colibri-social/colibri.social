@@ -1,5 +1,28 @@
 # @colibri-social/wrapper
 
+## 0.1.0-rc.7
+
+### Patch Changes
+
+- Updated dependencies [df106e7]
+- Updated dependencies [8ddea05]
+- Updated dependencies [75bfff8]
+- Updated dependencies [5855f50]
+- Updated dependencies [7ae9314]
+- Updated dependencies [3f1f55d]
+- Updated dependencies [0ec83ae]
+  - @colibri-social/client@0.0.1-rc.5
+
+## 0.1.0-rc.6
+
+### Patch Changes
+
+- 2cdb3cf: Fixes sourcemap generation and adjusts the publish workflow to upload them to Sentry
+- Updated dependencies [5480a4d]
+- Updated dependencies [a7ca279]
+- Updated dependencies [2cdb3cf]
+  - @colibri-social/client@0.0.1-rc.4
+
 ## 0.1.0-rc.5
 
 ### Patch Changes

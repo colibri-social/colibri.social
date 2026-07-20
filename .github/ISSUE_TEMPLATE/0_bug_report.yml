@@ -26,6 +26,45 @@ body:
         4. See error
     validations:
       required: true
+  - type: dropdown
+    id: device
+    attributes:
+      label: "💻 Operating System"
+      description: What kind of OS were you using?
+      options:
+        - iOS/iPadOS
+        - MacOS
+        - Android (Phone / Tablet)
+        - Windows
+        - Linux
+    validations:
+      required: true
+  - type: dropdown
+    id: installation-method
+    attributes:
+      label: "📦 Installation Method"
+      description: How are you accessing Colibri?
+      options:
+        - App Store
+        - Play Store
+        - Microsoft Store
+        - Homebrew
+        - DMG
+        - Windows Installer
+        - Scoop
+        - AppImage
+        - .rpm
+        - .deb
+    validations:
+      required: true
+  - type: input
+    id: os-version
+    attributes:
+      label: "🖥️ OS Version"
+      description: Which operating system and version are you running?
+      placeholder: e.g. macOS 15.1, Windows 11 23H2, iOS 18.1, Android 15
+    validations:
+      required: true
   - type: textarea
     id: context
     attributes:

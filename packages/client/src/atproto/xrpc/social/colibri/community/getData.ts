@@ -32,6 +32,8 @@ export const getData: XrpcRequest<
 			`/xrpc/social.colibri.community.getData?community=${community}`,
 		);
 
+		if (!res.ok) return undefined;
+
 		return res.json();
 	} catch (err) {
 		console.error(err);

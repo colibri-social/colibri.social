@@ -149,7 +149,7 @@ export const permissionDocs: LexiconDoc[] = [
 					{
 						type: "permission",
 						resource: "repo",
-						collection: ["social.colibri.message"],
+						collection: ["social.colibri.message", "social.colibri.reaction"],
 						action: ["create", "update", "delete"],
 					},
 					{
@@ -158,7 +158,6 @@ export const permissionDocs: LexiconDoc[] = [
 						collection: [
 							"social.colibri.membership",
 							"social.colibri.approval",
-							"social.colibri.reaction",
 						],
 						action: ["create", "delete"],
 					},

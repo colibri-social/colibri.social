@@ -3,6 +3,7 @@ import { A } from "@solidjs/router";
 import twemoji from "@twemoji/api";
 import { type Component, createSignal, type JSX } from "solid-js";
 import { rewriteBskyUrl } from "../../../../atproto/bsky-post-url";
+import { parseColibriInviteUrl } from "../../../../atproto/colibri-invite-url";
 import { communityUriToUrlCompatible } from "../../../../atproto/community-uri-to-url-compatible";
 import { useCommunityContext } from "../../../../contexts/Community";
 import { useUserPreferences } from "../../../../contexts/UserPreferences";
@@ -90,6 +91,9 @@ const nlToBr = (s: string): string => s.replace(/\n/g, "<br>");
 const escapeAttr = (s: string): string =>
 	s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
 
+const LINK_CLASS =
+	"text-(--primary-hover) decoration-(--primary-hover) font-medium hover:underline inline w-fit";
+
 /**
  * Wraps the facet's text content in the appropriate HTML element, embedding
  * `data-facet-type` (and any metadata like `data-did`, `data-uri`,
@@ -131,16 +135,30 @@ const applyStyleForFacet = (text: string, feature: AnyFeature): JSX.Element => {
 		}
 		case "social.colibri.richtext.facet#link": {
 			const rawUri = "uri" in feature ? String(feature.uri) : text;
+			const inviteCode = parseColibriInviteUrl(rawUri);
+			const isBareUrl = text.trim() === rawUri;
+
+			if (inviteCode) {
+				return (
+					<A
+						data-facet-type="link"
+						data-uri={escapeAttr(rawUri)}
+						href={`/app/invite/${inviteCode}`}
+						class={LINK_CLASS}
+						innerHTML={textWithEmojis}
+					/>
+				);
+			}
+
 			const displayHref = () =>
 				rewriteBskyUrl(rawUri, preferences().preferredBlueskyClient);
-			const isBareUrl = text.trim() === rawUri;
 			return (
 				<a
 					data-facet-type="link"
 					title={displayHref()}
 					data-uri={escapeAttr(rawUri)}
 					href={displayHref()}
-					class="text-(--primary-hover) decoration-(--primary-hover) font-medium hover:underline inline w-fit"
+					class={LINK_CLASS}
 					target="_blank"
 					rel="noreferrer"
 					innerHTML={
@@ -401,6 +419,22 @@ const renderInlineRange = (
 					case "social.colibri.richtext.facet#link":
 						if ("uri" in feature) {
 							const rawUri = String(feature.uri);
+							const inviteCode = parseColibriInviteUrl(rawUri);
+
+							if (inviteCode) {
+								element = (
+									<A
+										data-facet-type="link"
+										data-uri={escapeAttr(rawUri)}
+										href={`/app/invite/${inviteCode}`}
+										class={LINK_CLASS}
+									>
+										{wrappedElement}
+									</A>
+								);
+								break;
+							}
+
 							const displayHref = () =>
 								rewriteBskyUrl(rawUri, preferences().preferredBlueskyClient);
 							const isBareUrl = segmentText.trim() === rawUri;
@@ -410,7 +444,7 @@ const renderInlineRange = (
 									title={displayHref()}
 									data-uri={escapeAttr(rawUri)}
 									href={displayHref()}
-									class="text-(--primary-hover) decoration-(--primary-hover) font-medium hover:underline inline w-fit"
+									class={LINK_CLASS}
 									target="_blank"
 									rel="noreferrer"
 								>
