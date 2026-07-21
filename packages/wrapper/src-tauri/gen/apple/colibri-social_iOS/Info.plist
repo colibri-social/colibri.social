@@ -46,5 +46,17 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>social.colibri</string>
+				<string>social.colibri.next</string>
+			</array>
+			<key>CFBundleURLName</key>
+			<string>social.colibri</string>
+		</dict>
+	</array>
 </dict>
 </plist>

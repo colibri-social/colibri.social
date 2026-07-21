@@ -65,6 +65,12 @@ const describeOAuthError = (params: URLSearchParams): string => {
 };
 
 const describeThrownError = (err: unknown): string => {
+	if (
+		err instanceof DOMException &&
+		(err.name === "TimeoutError" || err.name === "AbortError")
+	) {
+		return "Sign-in timed out. Check your connection and try again.";
+	}
 	if (err instanceof Error && err.message) return err.message;
 	if (typeof err === "string" && err) return err;
 	return "Something went wrong. Please try again.";

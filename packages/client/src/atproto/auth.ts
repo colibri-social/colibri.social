@@ -199,25 +199,26 @@ type SignInOptions = NonNullable<Parameters<BrowserOAuthClient["signIn"]>[1]>;
  * authorization server (the SPA redirect flow). In the native app it instead
  * opens the authorization URL in the system browser and returns immediately.
  */
+const OAUTH_RESOLVE_TIMEOUT_MS = 20_000;
+
 export const startOAuthSignIn = async (
 	client: BrowserOAuthClient,
 	input: string,
 	options: SignInOptions,
 ): Promise<void> => {
+	const signal = AbortSignal.timeout(OAUTH_RESOLVE_TIMEOUT_MS);
+
 	if (isTauriRuntime()) {
 		// `authorize` returns the URL without navigating and defaults to the
 		// metadata's first redirect_uri (our custom scheme)
-		const url = await client.authorize(input, options);
+		const url = await client.authorize(input, { ...options, signal });
 		const { openUrl } = await import("@tauri-apps/plugin-opener");
 		await openUrl(url.toString());
 		toast("Continue in your browser to finish signing in.");
 		return;
 	}
 
-	await client.signIn(input, {
-		...options,
-		signal: new AbortController().signal,
-	});
+	await client.signIn(input, { ...options, signal });
 };
 
 /**
