@@ -2,6 +2,8 @@ import { createEffect, onCleanup } from "solid-js";
 
 const HISTORY_MARKER = "colibriOverlay";
 
+let nextInstanceId = 0;
+
 /**
  * Pushes a history entry while `open()` is true so the mobile back
  * gesture / hardware back button closes the overlay (drawer, sheet, ...)
@@ -15,10 +17,12 @@ export const createHistoryBackClose = (
 	createEffect(() => {
 		if (!open()) return;
 
-		history.pushState({ [HISTORY_MARKER]: true }, "");
+		const id = ++nextInstanceId;
+		history.pushState({ [HISTORY_MARKER]: id }, "");
 		let closedByPopState = false;
 
 		const onPopState = () => {
+			if (history.state?.[HISTORY_MARKER] === id) return;
 			closedByPopState = true;
 			onBack();
 		};
@@ -26,7 +30,7 @@ export const createHistoryBackClose = (
 
 		onCleanup(() => {
 			window.removeEventListener("popstate", onPopState);
-			if (!closedByPopState && history.state?.[HISTORY_MARKER]) {
+			if (!closedByPopState && history.state?.[HISTORY_MARKER] === id) {
 				history.back();
 			}
 		});
