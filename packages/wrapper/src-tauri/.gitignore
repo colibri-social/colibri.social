@@ -8,7 +8,7 @@
 
 # Files required for builds & code signing
 Colibri_Mac.provisionprofile
-Colibri Social.pkg
+*.pkg
 
 # Generated at release time by the Microsoft Store build leg
 tauri.windows.conf.json

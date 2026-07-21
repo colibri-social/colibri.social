@@ -1,0 +1,11 @@
+{
+	"bundle": {
+		"createUpdaterArtifacts": false,
+		"macOS": {
+			"entitlements": "Entitlements.appstore.plist",
+			"files": {
+				"embedded.provisionprofile": "./Colibri_Mac.provisionprofile"
+			}
+		}
+	}
+}

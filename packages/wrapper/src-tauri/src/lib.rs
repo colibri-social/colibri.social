@@ -52,8 +52,12 @@ pub fn run() {
                     }
                 }
             }))
-            .plugin(tauri_plugin_window_state::Builder::default().build())
-            .plugin(tauri_plugin_updater::Builder::new().build());
+            .plugin(tauri_plugin_window_state::Builder::default().build());
+
+        #[cfg(feature = "updater")]
+        {
+            builder = builder.plugin(tauri_plugin_updater::Builder::new().build());
+        }
     }
 
     builder

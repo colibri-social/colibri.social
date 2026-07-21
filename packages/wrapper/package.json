@@ -8,7 +8,9 @@
 		"dev": "vite",
 		"build": "vite build",
 		"serve": "vite preview",
-		"tauri": "node scripts/tauri.mjs"
+		"tauri": "node scripts/tauri.mjs",
+		"build:macos:direct": "bash scripts/build-macos-direct.sh",
+		"build:macos:appstore": "bash scripts/build-macos-appstore.sh"
 	},
 	"license": "MIT",
 	"dependencies": {
