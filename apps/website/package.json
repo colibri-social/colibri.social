@@ -2,7 +2,7 @@
 	"name": "@colibri-social/website",
 	"private": true,
 	"type": "module",
-	"version": "0.0.2-rc.5",
+	"version": "0.0.2-rc.6",
 	"packageManager": "pnpm@10.29.3",
 	"engines": {
 		"node": "^24.13.0"
@@ -35,7 +35,7 @@
 		"@atproto/ws-client": "^0.0.4",
 		"@biomejs/biome": "^2.4.4",
 		"@colibri-social/assets": "workspace:",
-		"@colibri-social/client": "workspace:0.0.1-rc.5",
+		"@colibri-social/client": "workspace:0.1.0-rc.6",
 		"@colibri-social/standard-renderer": "workspace:0.0.2-rc.0",
 		"@corvu/drawer": "^0.2.4",
 		"@fontsource-variable/hanken-grotesk": "^5.2.8",
