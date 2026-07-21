@@ -17,6 +17,7 @@ import {
 	PopoverPortal,
 	PopoverTrigger,
 } from "../../ui/Popover";
+import { ScrollFadeBottom } from "../../ui/ScrollFadeBottom";
 import User from "../user";
 import { MemberContextMenu } from "./MemberContextMenu";
 
@@ -110,9 +111,9 @@ export const RoleMentionPopover: ParentComponent<{
 				handleOverlay
 				class="overflow-hidden"
 			>
-				<div class="min-h-0 overflow-y-auto pb-[calc(0.75rem+var(--safe-area-bottom))]">
+				<ScrollFadeBottom class="pb-[calc(0.75rem+var(--safe-area-bottom))]">
 					<RolePopoverContents class="w-full" role={props.role} />
-				</div>
+				</ScrollFadeBottom>
 			</BottomSheet>
 		</Show>
 	);

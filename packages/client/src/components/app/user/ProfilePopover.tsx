@@ -24,6 +24,7 @@ import {
 	type PopoverProps,
 	PopoverTrigger,
 } from "../../ui/Popover";
+import { ScrollFadeBottom } from "../../ui/ScrollFadeBottom";
 import {
 	Tooltip,
 	TooltipContent,
@@ -153,7 +154,7 @@ export const ProfilePopoverContents: Component<{
 					/>
 				</Show>
 			</div>
-			<div class="z-10 relative -mt-14 p-4 flex flex-col gap-2">
+			<div class="z-10 relative -mt-14 p-4 flex flex-col gap-2 pb-[calc(0.75rem+var(--safe-area-bottom))]">
 				<div class="flex flex-row items-center gap-4 z-50">
 					<Avatar
 						user={props.user}
@@ -282,7 +283,7 @@ export const ProfilePopoverContents: Component<{
 				<Show when={props.user.data.description}>
 					<hr class="w-full h-px border-none bg-border m-0" />
 					<p
-						class="prose dark:prose-invert text-sm m-0 px-1"
+						class="prose dark:prose-invert text-sm m-0 px-1 wrap-anywhere"
 						innerHTML={purify(
 							detectLinksAndMentionsAndFormat(props.user.data.description!),
 						)}
@@ -362,7 +363,7 @@ export const ProfilePopover: ParentComponent<{
 				handleOverlay
 				class="overflow-hidden"
 			>
-				<div class="min-h-0 overflow-y-auto pb-[calc(0.75rem+var(--safe-area-bottom))]">
+				<div class="min-h-0 overflow-y-auto">
 					<ProfilePopoverContents class="w-full" user={props.user} />
 				</div>
 			</BottomSheet>

@@ -10,6 +10,7 @@ import {
 	type ParentComponent,
 	Show,
 } from "solid-js";
+import { createScrollFade } from "../../../hooks/createScrollFade";
 import { useIsMobile } from "../../../utils/mobile-pane";
 import { BottomSheet } from "../../ui/MenuDrawer";
 import {
@@ -54,8 +55,10 @@ const getEmojiHex = (emoji: string): string =>
  */
 export const EmojiPickerBody: Component<{
 	onEmoji: (emoji: Emoji, e: MouseEvent) => void;
+	edgeFade?: boolean;
 }> = (props) => {
 	const [filter, setFilter] = createSignal("");
+	const { ref: gridRef, canScrollDown } = createScrollFade();
 
 	/**
 	 * Renders emoji as text using the Twemoji font (much faster than <img>),
@@ -96,16 +99,25 @@ export const EmojiPickerBody: Component<{
 				/>
 			</TextField>
 
-			<div class="h-72 overflow-y-auto custom-scrollbar">
-				<EmojiPicker
-					filter={(emoji) => {
-						const query = filter().trim().toLowerCase();
-						if (!query) return true;
+			<div class="relative h-72">
+				<div ref={gridRef} class="h-full overflow-y-auto custom-scrollbar">
+					<EmojiPicker
+						filter={(emoji) => {
+							const query = filter().trim().toLowerCase();
+							if (!query) return true;
 
-						return emoji.name.toLowerCase().includes(query);
-					}}
-					renderEmoji={(_data, emoji) => renderEmoji(emoji)}
-				/>
+							return emoji.name.toLowerCase().includes(query);
+						}}
+						renderEmoji={(_data, emoji) => renderEmoji(emoji)}
+					/>
+				</div>
+				<Show when={props.edgeFade}>
+					<div
+						class="scroll-edge-fade pointer-events-none absolute inset-x-0 bottom-0 h-4 transition-opacity duration-150"
+						classList={{ "opacity-0": !canScrollDown() }}
+						aria-hidden="true"
+					/>
+				</Show>
 			</div>
 		</>
 	);
@@ -163,8 +175,8 @@ export const EmojiPopover: ParentComponent<{
 				open={props.emojiPopoverOpen()}
 				onOpenChange={props.setEmojiPopoverOpen}
 			>
-				<div class="flex flex-col px-3 pb-[calc(0.75rem+var(--safe-area-bottom))]">
-					<EmojiPickerBody onEmoji={handleEmoji} />
+				<div class="flex flex-col px-3 pb-[calc(0.75rem+var(--safe-area-bottom))] pt-2">
+					<EmojiPickerBody onEmoji={handleEmoji} edgeFade />
 				</div>
 			</BottomSheet>
 		</Show>

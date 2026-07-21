@@ -1,6 +1,7 @@
 import {
 	type ComponentProps,
 	createEffect,
+	createMemo,
 	createSignal,
 	type JSX,
 	onCleanup,
@@ -10,8 +11,10 @@ import {
 } from "solid-js";
 import { Portal } from "solid-js/web";
 import { ViewportContext } from "../../contexts/Viewport";
+import { createHistoryBackClose } from "../../hooks/createHistoryBackClose";
 import { cx } from "../../utils/cva";
 import { useIsMobile } from "../../utils/mobile-pane";
+import { ScrollFadeBottom } from "./ScrollFadeBottom";
 
 export const DRAWER_TRANSITION_MS = 300;
 
@@ -29,30 +32,79 @@ export interface BottomSheetProps {
 	handleOverlay?: boolean;
 }
 
+const HALF_VIEWPORT = 0.5;
+const MAX_VIEWPORT = 0.92;
+const FLICK_VELOCITY = 0.5;
+const FLICK_DISTANCE = 40;
+const CLOSE_DISTANCE = 120;
+
+const clamp = (value: number, min: number, max: number) =>
+	Math.min(max, Math.max(min, value));
+
 /**
- * A self-contained mobile bottom sheet
+ * A self-contained mobile bottom sheet. Short content hugs its natural
+ * height like a normal sheet; content taller than half the viewport opens
+ * collapsed to ~50dvh and can be dragged up via the handle to ~92dvh,
+ * matching native bottom sheet detents.
  */
 export const BottomSheet = (props: BottomSheetProps) => {
 	const [mounted, setMounted] = createSignal(props.open);
 	const [shown, setShown] = createSignal(false);
-	const [dragOffset, setDragOffset] = createSignal(0);
 	const [dragging, setDragging] = createSignal(false);
+	const [dragDeltaY, setDragDeltaY] = createSignal(0);
+	const [expanded, setExpanded] = createSignal(false);
+	const [contentEl, setContentEl] = createSignal<HTMLElement>();
+	const [contentHeight, setContentHeight] = createSignal(0);
 
 	const viewportCtx = useContext(ViewportContext);
 	const isMobile = useIsMobile();
 	const keyboardOffset = () =>
 		isMobile() ? (viewportCtx?.keyboardInset() ?? 0) : 0;
-	const maxHeightPx = () => (isMobile() ? viewportCtx?.height() : undefined);
+	const viewportHeightPx = () =>
+		(isMobile() ? viewportCtx?.height() : undefined) ?? window.innerHeight;
+	const halfHeightPx = () => viewportHeightPx() * HALF_VIEWPORT;
+	// Never ask for more than the content actually has — natural content is
+	// always >= halfHeightPx here since isTall() gates it, but it can be
+	// less than the 92% ceiling, in which case there's nothing more to
+	// reveal past the content's own natural height.
+	const fullHeightPx = () =>
+		Math.min(viewportHeightPx() * MAX_VIEWPORT, contentHeight());
+	const isTall = () => contentHeight() > halfHeightPx();
 
 	let closeTimer: number | undefined;
 	let raf1 = 0;
 	let raf2 = 0;
 	let openedAt = 0;
 
+	// Measure the sheet's natural (unconstrained) content height exactly
+	// once per open. We can't keep re-measuring reactively: as soon as a
+	// height constraint is applied below, flex-shrink children collapse to
+	// fit it, which would shrink the very value we're measuring and create
+	// a feedback loop (constrain -> measure smaller -> un-constrain -> ...).
+	createEffect(() => {
+		const node = contentEl();
+		if (!node || !mounted()) return;
+		let measured = false;
+		const update = () => {
+			if (measured) return;
+			const height = node.scrollHeight;
+			if (height > 0) {
+				measured = true;
+				setContentHeight(height);
+			}
+		};
+		update();
+		const resizeObserver = new ResizeObserver(update);
+		resizeObserver.observe(node);
+		onCleanup(() => resizeObserver.disconnect());
+	});
+
 	createEffect(() => {
 		if (props.open) {
 			clearTimeout(closeTimer);
-			setDragOffset(0);
+			setDragDeltaY(0);
+			setExpanded(false);
+			setContentHeight(0);
 			setMounted(true);
 			openedAt = performance.now();
 			raf1 = requestAnimationFrame(() => {
@@ -62,7 +114,7 @@ export const BottomSheet = (props: BottomSheetProps) => {
 			setShown(false);
 			closeTimer = window.setTimeout(() => {
 				setMounted(false);
-				setDragOffset(0);
+				setDragDeltaY(0);
 			}, DRAWER_TRANSITION_MS);
 		}
 	});
@@ -85,6 +137,8 @@ export const BottomSheet = (props: BottomSheetProps) => {
 
 	const close = () => props.onOpenChange(false);
 
+	createHistoryBackClose(() => isMobile() && props.open, close);
+
 	// Close on a fresh tap outside
 	const onBackdropPointerDown = () => {
 		if (performance.now() - openedAt < 150) return;
@@ -95,7 +149,7 @@ export const BottomSheet = (props: BottomSheetProps) => {
 	let dragStartT = 0;
 
 	const onHandlePointerMove = (e: PointerEvent) => {
-		setDragOffset(Math.max(0, e.clientY - dragStartY));
+		setDragDeltaY(e.clientY - dragStartY);
 	};
 
 	const endHandleDrag = () => {
@@ -106,12 +160,30 @@ export const BottomSheet = (props: BottomSheetProps) => {
 
 	const onHandlePointerUp = (e: PointerEvent) => {
 		endHandleDrag();
-		const dy = Math.max(0, e.clientY - dragStartY);
+		const dy = e.clientY - dragStartY;
 		const dt = performance.now() - dragStartT || 1;
-		const flick = dy / dt > 0.5 && dy > 40;
+		const flickDown = dy / dt > FLICK_VELOCITY && dy > FLICK_DISTANCE;
+		const flickUp = -dy / dt > FLICK_VELOCITY && dy < -FLICK_DISTANCE;
 		setDragging(false);
-		if (dy > 120 || flick) close();
-		else setDragOffset(0);
+
+		if (!isTall()) {
+			if (dy > CLOSE_DISTANCE || flickDown) close();
+		} else if (dy < 0) {
+			const growRoom = fullHeightPx() - halfHeightPx();
+			if (!expanded() && (flickUp || -dy > growRoom / 2)) setExpanded(true);
+		} else if (expanded()) {
+			const shrinkRoom = fullHeightPx() - halfHeightPx();
+			if (dy <= shrinkRoom) {
+				if (dy > shrinkRoom / 2 || flickDown) setExpanded(false);
+			} else {
+				const remainder = dy - shrinkRoom;
+				if (remainder > CLOSE_DISTANCE || flickDown) close();
+				else setExpanded(false);
+			}
+		} else if (dy > CLOSE_DISTANCE || flickDown) {
+			close();
+		}
+		setDragDeltaY(0);
 	};
 
 	const onHandlePointerDown = (e: PointerEvent) => {
@@ -127,9 +199,38 @@ export const BottomSheet = (props: BottomSheetProps) => {
 		document.removeEventListener("pointermove", onHandlePointerMove),
 	);
 
+	// While collapsed/expanded around the tall-content anchors, dragging
+	// changes height (grow/shrink) before it changes translate (close).
+	const liveMaxHeight = createMemo(() => {
+		if (!isTall()) return undefined;
+		if (!dragging()) return expanded() ? fullHeightPx() : halfHeightPx();
+		const dy = dragDeltaY();
+		if (dy < 0) {
+			if (expanded()) return fullHeightPx();
+			return clamp(halfHeightPx() - dy, halfHeightPx(), fullHeightPx());
+		}
+		if (expanded()) {
+			return clamp(fullHeightPx() - dy, halfHeightPx(), fullHeightPx());
+		}
+		return halfHeightPx();
+	});
+
+	const liveTranslate = createMemo(() => {
+		if (!dragging()) return 0;
+		const dy = dragDeltaY();
+		if (dy <= 0) return 0;
+		if (!isTall()) return dy;
+		if (expanded()) {
+			const shrinkRoom = fullHeightPx() - halfHeightPx();
+			return dy > shrinkRoom ? dy - shrinkRoom : 0;
+		}
+		return dy;
+	});
+
 	const sheetTransform = () => {
 		if (!shown()) return "translateY(100%)";
-		return dragOffset() > 0 ? `translateY(${dragOffset()}px)` : "translateY(0)";
+		const t = liveTranslate();
+		return t > 0 ? `translateY(${t}px)` : "translateY(0)";
 	};
 
 	return (
@@ -144,19 +245,24 @@ export const BottomSheet = (props: BottomSheetProps) => {
 					<div
 						role="dialog"
 						aria-modal="true"
+						ref={setContentEl}
 						class={cx(
-							"bg-background absolute inset-x-0 bottom-0 flex max-h-[85dvh] flex-col rounded-t-lg border-t will-change-transform",
+							"bg-background absolute inset-x-0 bottom-0 flex max-h-[92dvh] flex-col rounded-t-lg border-t will-change-transform",
 							!dragging() &&
-								"transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]",
+								"transition-[max-height,transform] duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]",
 							props.class,
 						)}
+						classList={{
+							"overflow-hidden": isTall() && !expanded(),
+							"overflow-y-auto": !isTall() || expanded(),
+						}}
 						style={{
 							transform: sheetTransform(),
+							...(liveMaxHeight() !== undefined
+								? { "max-height": `${liveMaxHeight()}px` }
+								: {}),
 							...(keyboardOffset() > 0
 								? { bottom: `${keyboardOffset()}px` }
-								: {}),
-							...(maxHeightPx() !== undefined
-								? { "max-height": `${maxHeightPx()}px` }
 								: {}),
 						}}
 					>
@@ -208,9 +314,9 @@ export const MenuDrawer = (props: MenuDrawerProps) => {
 					</span>
 				</div>
 			</Show>
-			<div class="flex flex-col gap-0.5 px-2 pb-[calc(0.5rem+var(--safe-area-bottom))] overflow-y-auto">
+			<ScrollFadeBottom class="flex flex-col gap-0.5 px-2 pb-[calc(0.5rem+var(--safe-area-bottom))]">
 				{props.children}
-			</div>
+			</ScrollFadeBottom>
 		</BottomSheet>
 	);
 };

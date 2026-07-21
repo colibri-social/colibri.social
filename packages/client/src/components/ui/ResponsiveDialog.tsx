@@ -8,14 +8,8 @@ import {
 	DialogTitle,
 	DialogTrigger,
 } from "./Dialog";
-import {
-	Drawer,
-	DrawerContent,
-	DrawerHeader,
-	DrawerLabel,
-	DrawerPortal,
-	DrawerTrigger,
-} from "./Drawer";
+import { BottomSheet } from "./MenuDrawer";
+import { ScrollFadeBottom } from "./ScrollFadeBottom";
 
 export interface ResponsiveDialogProps {
 	open?: boolean;
@@ -24,7 +18,6 @@ export interface ResponsiveDialogProps {
 	title?: JSX.Element;
 	children: JSX.Element;
 	contentClass?: string;
-	mobileBreakPoints?: number[];
 	class?: string;
 }
 
@@ -57,29 +50,28 @@ export const ResponsiveDialog = (props: ResponsiveDialogProps) => {
 				</Dialog>
 			}
 		>
-			<Drawer
-				open={props.open}
-				onOpenChange={props.onOpenChange}
-				breakPoints={props.mobileBreakPoints}
+			<Show when={props.trigger}>
+				<button
+					type="button"
+					class={props.class}
+					onClick={() => props.onOpenChange?.(true)}
+				>
+					{props.trigger}
+				</button>
+			</Show>
+			<BottomSheet
+				open={props.open ?? false}
+				onOpenChange={props.onOpenChange ?? (() => {})}
 			>
-				<Show when={props.trigger}>
-					<DrawerTrigger class={props.class}>{props.trigger}</DrawerTrigger>
+				<Show when={props.title}>
+					<div class="flex flex-col gap-1.5 px-4 pt-4 pb-2">
+						<h2 class="m-0 text-lg font-semibold">{props.title}</h2>
+					</div>
 				</Show>
-				<DrawerPortal>
-					<DrawerContent class="max-h-[85dvh]">
-						<Show when={props.title}>
-							<DrawerHeader class="pb-2">
-								<DrawerLabel class="m-0 text-lg font-semibold">
-									{props.title}
-								</DrawerLabel>
-							</DrawerHeader>
-						</Show>
-						<div class="flex flex-col gap-4 overflow-y-auto px-4 pb-[calc(1rem+var(--safe-area-bottom))]">
-							{props.children}
-						</div>
-					</DrawerContent>
-				</DrawerPortal>
-			</Drawer>
+				<ScrollFadeBottom class="flex flex-col gap-4 px-4 pb-[calc(1rem+var(--safe-area-bottom))]">
+					{props.children}
+				</ScrollFadeBottom>
+			</BottomSheet>
 		</Show>
 	);
 };

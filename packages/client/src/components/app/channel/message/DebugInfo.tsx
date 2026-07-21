@@ -9,6 +9,7 @@ import {
 	DialogPortal,
 } from "../../../ui/Dialog";
 import { BottomSheet } from "../../../ui/MenuDrawer";
+import { ScrollFadeBottom } from "../../../ui/ScrollFadeBottom";
 import { SettingsInfoPage } from "../../common/SettingsInfoPage";
 
 export const DebugInfo: Component = () => {
@@ -37,9 +38,9 @@ export const DebugInfo: Component = () => {
 			}
 		>
 			<BottomSheet open={debugModalOpen()} onOpenChange={setDebugModalOpen}>
-				<div class="overflow-y-auto pb-[calc(0.75rem+var(--safe-area-bottom))]">
+				<ScrollFadeBottom class="pb-[calc(0.75rem+var(--safe-area-bottom))]">
 					<SettingsInfoPage uri={message.uri} />
-				</div>
+				</ScrollFadeBottom>
 			</BottomSheet>
 		</Show>
 	);

@@ -296,9 +296,6 @@ importers:
       '@colibri-social/lib':
         specifier: 'workspace:'
         version: link:../lib
-      '@corvu/drawer':
-        specifier: ^0.2.4
-        version: 0.2.4(solid-js@1.9.14)
       '@kobalte/core':
         specifier: ^0.13.11
         version: 0.13.11(solid-js@1.9.14)

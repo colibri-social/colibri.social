@@ -1,14 +1,6 @@
 import type { Component } from "solid-js";
 import { useMessageContext } from "../../../../../contexts/Message";
-import {
-	Drawer,
-	DrawerContent,
-	DrawerDescription,
-	DrawerFooter,
-	DrawerHeader,
-	DrawerLabel,
-	DrawerPortal,
-} from "../../../../ui/Drawer";
+import { BottomSheet } from "../../../../ui/MenuDrawer";
 import { MessagePreview } from "../MessagePreview";
 import { DialogCancelButton } from "../shared";
 import { BlockDialogConfirmButton, BlockDialogTitleContent } from "./shared";
@@ -21,28 +13,20 @@ export const Mobile: Component = () => {
 		useMessageContext();
 
 	return (
-		<Drawer
-			breakPoints={[0.75]}
-			open={blockModalOpen()}
-			onOpenChange={setBlockModalOpen}
-		>
-			<DrawerPortal>
-				<DrawerContent>
-					<DrawerHeader>
-						<DrawerLabel class="m-0">
-							<BlockDialogTitleContent />
-						</DrawerLabel>
-						<DrawerDescription class="m-0">
-							<BlockDialogTitleContent />
-						</DrawerDescription>
-					</DrawerHeader>
-					<MessagePreview data={message} />
-					<DrawerFooter>
-						<DialogCancelButton setOpen={setBlockModalOpen} />
-						<BlockDialogConfirmButton onClick={confirmBlock} />
-					</DrawerFooter>
-				</DrawerContent>
-			</DrawerPortal>
-		</Drawer>
+		<BottomSheet open={blockModalOpen()} onOpenChange={setBlockModalOpen}>
+			<div class="flex flex-col gap-1.5 p-4">
+				<h2 class="m-0 text-foreground font-semibold">
+					<BlockDialogTitleContent />
+				</h2>
+				<p class="m-0 text-sm text-muted-foreground">
+					<BlockDialogTitleContent />
+				</p>
+			</div>
+			<MessagePreview data={message} />
+			<div class="mt-auto flex flex-col gap-2 p-4 pb-[calc(1rem+var(--safe-area-bottom))]">
+				<DialogCancelButton setOpen={setBlockModalOpen} />
+				<BlockDialogConfirmButton onClick={confirmBlock} />
+			</div>
+		</BottomSheet>
 	);
 };

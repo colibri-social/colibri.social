@@ -23,12 +23,8 @@ import {
 	DialogPortal,
 	DialogTrigger,
 } from "../../ui/Dialog";
-import {
-	Drawer,
-	DrawerContent,
-	DrawerPortal,
-	DrawerTrigger,
-} from "../../ui/Drawer";
+import { BottomSheet } from "../../ui/MenuDrawer";
+import { ScrollFadeBottom } from "../../ui/ScrollFadeBottom";
 
 export const SettingsPage: ParentComponent<{
 	loading: Accessor<boolean>;
@@ -41,7 +37,7 @@ export const SettingsPage: ParentComponent<{
 	const isMobile = useIsMobile();
 	const hasFooter = () => !!(props.onSave || props.onReset);
 	return (
-		<div class="w-full flex flex-col h-auto relative max-h-144">
+		<div class="w-full flex flex-col h-auto min-h-0 relative max-h-144">
 			<Show when={!isMobile() || props.description}>
 				<div class="px-4 py-4 border-b border-border h-auto">
 					<Show when={!isMobile()}>
@@ -57,17 +53,16 @@ export const SettingsPage: ParentComponent<{
 					</Show>
 				</div>
 			</Show>
-			<div class="flex flex-col gap-4 w-full flex-1 min-h-0">
-				<div
-					class="w-full flex flex-col gap-4 px-4 lg:max-w-137 h-full overflow-auto pt-4"
-					classList={{
-						"pb-4": hasFooter(),
-						"pb-[calc(1rem+var(--safe-area-bottom))]": !hasFooter(),
-					}}
-				>
-					{props.children}
-				</div>
-			</div>
+			<ScrollFadeBottom
+				wrapperClass="flex-1"
+				class="w-full flex flex-col gap-4 px-4 lg:max-w-137 pt-4"
+				classList={{
+					"pb-4": hasFooter(),
+					"pb-[calc(1rem+var(--safe-area-bottom))]": !hasFooter(),
+				}}
+			>
+				{props.children}
+			</ScrollFadeBottom>
 			<Show when={props.onSave || props.onReset}>
 				<div class="w-full border-t border-border px-4 pt-4 pb-[calc(1rem+var(--safe-area-bottom))] flex flex-row items-center justify-end gap-2 min-h-16 bg-background rounded-br-xl">
 					<Show when={props.canReset && props.onReset}>
@@ -243,51 +238,50 @@ export const SettingsModal: ParentComponent<{
 				</Dialog>
 			}
 		>
-			<Drawer open={isOpen()} onOpenChange={onOpenChange}>
-				<DrawerTrigger class={props.class}>{props.children}</DrawerTrigger>
-				<DrawerPortal>
-					<DrawerContent class="max-h-[92dvh] p-0 overflow-hidden">
-						<div class="p-3 border-b border-border">
-							<div class="relative">
-								<select
-									value={activePage()}
-									onChange={(e) => setActivePage(e.currentTarget.value)}
-									class="w-full appearance-none bg-muted/50 border border-border rounded-md pl-3 pr-9 py-2 text-base"
-								>
-									<For each={props.pages}>
-										{(item) => (
-											<Show when={item.visible?.() !== false}>
-												<option value={item.id}>{item.title}</option>
-											</Show>
-										)}
-									</For>
-									<Show when={props.debugPage}>
-										<option value={props.debugPage!.id}>
-											{props.debugPage!.title}
-										</option>
-									</Show>
-									<Show
-										when={
-											props.dangerPage && props.dangerPage.visible?.() !== false
-										}
-									>
-										<option value={props.dangerPage!.id}>
-											{props.dangerPage!.title}
-										</option>
-									</Show>
-								</select>
-								<CaretDownIcon class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-							</div>
-						</div>
-						<div
-							class="flex-1 min-h-0 overflow-y-auto"
-							data-corvu-no-drag="true"
+			<button
+				type="button"
+				class={props.class}
+				onClick={() => onOpenChange(true)}
+			>
+				{props.children}
+			</button>
+			<BottomSheet open={isOpen()} onOpenChange={onOpenChange} class="p-0">
+				<div class="p-3 border-b border-border">
+					<div class="relative">
+						<select
+							value={activePage()}
+							onChange={(e) => setActivePage(e.currentTarget.value)}
+							class="w-full appearance-none bg-muted/50 border border-border rounded-md pl-3 pr-9 py-2 text-base"
 						>
-							<PageContent />
-						</div>
-					</DrawerContent>
-				</DrawerPortal>
-			</Drawer>
+							<For each={props.pages}>
+								{(item) => (
+									<Show when={item.visible?.() !== false}>
+										<option value={item.id}>{item.title}</option>
+									</Show>
+								)}
+							</For>
+							<Show when={props.debugPage}>
+								<option value={props.debugPage!.id}>
+									{props.debugPage!.title}
+								</option>
+							</Show>
+							<Show
+								when={
+									props.dangerPage && props.dangerPage.visible?.() !== false
+								}
+							>
+								<option value={props.dangerPage!.id}>
+									{props.dangerPage!.title}
+								</option>
+							</Show>
+						</select>
+						<CaretDownIcon class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+					</div>
+				</div>
+				<div class="flex-1 min-h-0 flex flex-col">
+					<PageContent />
+				</div>
+			</BottomSheet>
 		</Show>
 	);
 };

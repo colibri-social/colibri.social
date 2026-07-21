@@ -19,6 +19,7 @@ import type {
 import { useGifFavorites } from "../../../contexts/GifFavorites";
 import { useUserContext } from "../../../contexts/User";
 import { useUserPreferences } from "../../../contexts/UserPreferences";
+import { createScrollFade } from "../../../hooks/createScrollFade";
 import { useIsMobile } from "../../../utils/mobile-pane";
 import { BottomSheet } from "../../ui/MenuDrawer";
 import {
@@ -60,12 +61,14 @@ const TABS: Array<{ id: GifTab; label: string }> = [
  * The actual picker UI, kept in a child component so it mounts (and starts
  * fetching) only when the popover opens, and tears down when it closes.
  */
-export const GifPickerBody: Component<{ onSelect: (gif: GifItem) => void }> = (
-	props,
-) => {
+export const GifPickerBody: Component<{
+	onSelect: (gif: GifItem) => void;
+	edgeFade?: boolean;
+}> = (props) => {
 	const user = useUserContext();
 	const { preferences } = useUserPreferences();
 	const { favorites, isFavorited, toggleFavorite } = useGifFavorites();
+	const { ref: gridRef, canScrollDown } = createScrollFade();
 
 	const [tab, setTab] = createSignal<GifTab>("trending");
 	const [rawQuery, setRawQuery] = createSignal("");
@@ -243,95 +246,108 @@ export const GifPickerBody: Component<{ onSelect: (gif: GifItem) => void }> = (
 				</For>
 			</div>
 
-			<div class="h-72 overflow-y-auto custom-scrollbar" onScroll={onScroll}>
-				<Switch>
-					{/* Searching overrides the tab. */}
-					<Match when={mode() === "search"}>
-						<Show
-							when={!errored()}
-							fallback={
-								<p class="text-sm text-muted-foreground text-center py-8">
-									Couldn't load GIFs. Try again.
-								</p>
-							}
-						>
-							<Grid gifs={items()} empty="No GIFs found." />
-						</Show>
-					</Match>
-
-					<Match when={mode() === "trending"}>
-						<Show
-							when={!errored()}
-							fallback={
-								<p class="text-sm text-muted-foreground text-center py-8">
-									Couldn't load GIFs. Try again.
-								</p>
-							}
-						>
-							<Show when={recents().length > 0}>
-								<p class="text-xs font-semibold text-muted-foreground mb-1 mt-0">
-									Recent
-								</p>
-								<div class="columns-2 gap-2 mb-3">
-									<For each={recents()}>{(gif) => <GifTile gif={gif} />}</For>
-								</div>
-								<p class="text-xs font-semibold text-muted-foreground my-1">
-									Trending
-								</p>
+			<div class="relative h-72">
+				<div
+					ref={gridRef}
+					class="h-full overflow-y-auto custom-scrollbar"
+					onScroll={onScroll}
+				>
+					<Switch>
+						{/* Searching overrides the tab. */}
+						<Match when={mode() === "search"}>
+							<Show
+								when={!errored()}
+								fallback={
+									<p class="text-sm text-muted-foreground text-center py-8">
+										Couldn't load GIFs. Try again.
+									</p>
+								}
+							>
+								<Grid gifs={items()} empty="No GIFs found." />
 							</Show>
-							<Grid gifs={items()} empty="Nothing trending right now." />
-						</Show>
-					</Match>
+						</Match>
 
-					<Match when={mode() === "favorites"}>
-						<Grid
-							gifs={favorites()}
-							empty="No favorites yet. Tap the star on a GIF to save it."
-						/>
-					</Match>
+						<Match when={mode() === "trending"}>
+							<Show
+								when={!errored()}
+								fallback={
+									<p class="text-sm text-muted-foreground text-center py-8">
+										Couldn't load GIFs. Try again.
+									</p>
+								}
+							>
+								<Show when={recents().length > 0}>
+									<p class="text-xs font-semibold text-muted-foreground mb-1 mt-0">
+										Recent
+									</p>
+									<div class="columns-2 gap-2 mb-3">
+										<For each={recents()}>{(gif) => <GifTile gif={gif} />}</For>
+									</div>
+									<p class="text-xs font-semibold text-muted-foreground my-1">
+										Trending
+									</p>
+								</Show>
+								<Grid gifs={items()} empty="Nothing trending right now." />
+							</Show>
+						</Match>
 
-					<Match when={mode() === "categories"}>
-						<Show
-							when={categories().length > 0}
-							fallback={
-								<p class="text-sm text-muted-foreground text-center py-8">
-									{categoriesLoaded()
-										? "No categories available."
-										: "Loading categories..."}
-								</p>
-							}
-						>
-							<div class="grid grid-cols-2 gap-2">
-								<For each={categories()}>
-									{(cat) => (
-										<button
-											type="button"
-											class="relative h-20 rounded-md overflow-hidden bg-muted cursor-pointer border-none p-0 outline-none focus-visible:ring-2 focus-visible:ring-ring"
-											onClick={() => runSearch(cat.query ?? cat.name)}
-										>
-											<Show when={cat.previewUrl}>
-												<img
-													src={cat.previewUrl}
-													alt=""
-													loading="lazy"
-													class="absolute inset-0 w-full h-full object-cover opacity-60"
-												/>
-											</Show>
-											<span class="absolute inset-0 flex items-center justify-center font-semibold text-white drop-shadow">
-												{cat.name}
-											</span>
-										</button>
-									)}
-								</For>
-							</div>
-						</Show>
-					</Match>
-				</Switch>
+						<Match when={mode() === "favorites"}>
+							<Grid
+								gifs={favorites()}
+								empty="No favorites yet. Tap the star on a GIF to save it."
+							/>
+						</Match>
 
-				<Show when={loading()}>
-					<p class="text-sm text-muted-foreground text-center py-3">
-						Loading...
-					</p>
+						<Match when={mode() === "categories"}>
+							<Show
+								when={categories().length > 0}
+								fallback={
+									<p class="text-sm text-muted-foreground text-center py-8">
+										{categoriesLoaded()
+											? "No categories available."
+											: "Loading categories..."}
+									</p>
+								}
+							>
+								<div class="grid grid-cols-2 gap-2">
+									<For each={categories()}>
+										{(cat) => (
+											<button
+												type="button"
+												class="relative h-20 rounded-md overflow-hidden bg-muted cursor-pointer border-none p-0 outline-none focus-visible:ring-2 focus-visible:ring-ring"
+												onClick={() => runSearch(cat.query ?? cat.name)}
+											>
+												<Show when={cat.previewUrl}>
+													<img
+														src={cat.previewUrl}
+														alt=""
+														loading="lazy"
+														class="absolute inset-0 w-full h-full object-cover opacity-60"
+													/>
+												</Show>
+												<span class="absolute inset-0 flex items-center justify-center font-semibold text-white drop-shadow">
+													{cat.name}
+												</span>
+											</button>
+										)}
+									</For>
+								</div>
+							</Show>
+						</Match>
+					</Switch>
+
+					<Show when={loading()}>
+						<p class="text-sm text-muted-foreground text-center py-3">
+							Loading...
+						</p>
+					</Show>
+				</div>
+				<Show when={props.edgeFade}>
+					<div
+						class="scroll-edge-fade pointer-events-none absolute inset-x-0 bottom-0 h-4 transition-opacity duration-150"
+						classList={{ "opacity-0": !canScrollDown() }}
+						aria-hidden="true"
+					/>
 				</Show>
 			</div>
 
@@ -388,9 +404,9 @@ export const GifPopover: ParentComponent<{
 				</div>
 			</Show>
 			<BottomSheet open={props.open()} onOpenChange={props.setOpen}>
-				<div class="flex flex-col px-3 pb-[calc(0.75rem+var(--safe-area-bottom))]">
+				<div class="flex flex-col px-3 pb-[calc(0.75rem+var(--safe-area-bottom))] pt-2">
 					<Show when={props.open()}>
-						<GifPickerBody onSelect={handleSelect} />
+						<GifPickerBody onSelect={handleSelect} edgeFade />
 					</Show>
 				</div>
 			</BottomSheet>

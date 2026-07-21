@@ -383,6 +383,10 @@ ol[data-somoto-toaster] > li {
 		-ms-overflow-style: none; /* IE and Edge */
 		scrollbar-width: none; /* Firefox */
 	}
+
+	.scroll-edge-fade {
+		background: linear-gradient(to bottom, transparent, var(--background) 80%);
+	}
 }
 
 pre code,

@@ -11,13 +11,7 @@ import {
 	DialogPortal,
 	DialogTitle,
 } from "../../../ui/Dialog";
-import {
-	Drawer,
-	DrawerContent,
-	DrawerHeader,
-	DrawerLabel,
-	DrawerPortal,
-} from "../../../ui/Drawer";
+import { BottomSheet } from "../../../ui/MenuDrawer";
 import User from "../../user";
 
 const ReactorsList: Component<{ reactions: Array<Reaction> }> = (props) => {
@@ -68,22 +62,14 @@ export const ReactorsModal: Component<{
 		<Show
 			when={isDesktop()}
 			fallback={
-				<Drawer
-					breakPoints={[0.75]}
-					open={props.open}
-					onOpenChange={props.setOpen}
-				>
-					<DrawerPortal>
-						<DrawerContent>
-							<DrawerHeader>
-								<DrawerLabel class="m-0">Reactions</DrawerLabel>
-							</DrawerHeader>
-							<div class="p-4 pt-0 max-h-[60vh] overflow-y-auto">
-								<ReactorsList reactions={props.reactions} />
-							</div>
-						</DrawerContent>
-					</DrawerPortal>
-				</Drawer>
+				<BottomSheet open={props.open} onOpenChange={props.setOpen}>
+					<div class="flex flex-col gap-1.5 p-4">
+						<h2 class="m-0 text-foreground font-semibold">Reactions</h2>
+					</div>
+					<div class="px-4 pb-[calc(1rem+var(--safe-area-bottom))] max-h-[60vh] overflow-y-auto">
+						<ReactorsList reactions={props.reactions} />
+					</div>
+				</BottomSheet>
 			}
 		>
 			<Dialog open={props.open} onOpenChange={props.setOpen}>

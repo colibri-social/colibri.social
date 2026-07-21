@@ -41,7 +41,6 @@
 		"@atproto/oauth-client-browser": "^0.4.3",
 		"@colibri-social/assets": "workspace:",
 		"@colibri-social/lib": "workspace:",
-		"@corvu/drawer": "^0.2.4",
 		"@kobalte/core": "^0.13.11",
 		"@sapphi-red/web-noise-suppressor": "^0.3.5",
 		"@sentry/solid": "^10.63.0",
