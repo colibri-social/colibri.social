@@ -421,7 +421,7 @@ const MessageInner: Component<{
 														community().assignableRoles || [],
 													)}
 													placeholder=""
-													submitOnEnter
+													submitOnEnter={!isMobile()}
 													onChange={(text, facets) => {
 														saveEditedText(text, facets);
 													}}
@@ -432,23 +432,48 @@ const MessageInner: Component<{
 													onEscape={cancelEdits}
 												/>
 											</div>
-											<div class="flex flex-row items-center gap-1">
-												<small>
-													escape to{" "}
+											<Show when={!isMobile()}>
+												<div class="flex flex-row items-center gap-1">
+													<small>
+														escape to{" "}
+														<button
+															type="button"
+															class="cursor-pointer hover:underline text-primary-foreground"
+															onClick={cancelEdits}
+														>
+															cancel
+														</button>
+													</small>
+													<span class="w-1 h-1 bg-muted-foreground rounded-full" />
+													<small>
+														enter to{" "}
+														<button
+															type="button"
+															class="cursor-pointer hover:underline text-primary-foreground"
+															onClick={() =>
+																submitEdits(
+																	editedText().text,
+																	editedText().facets,
+																)
+															}
+														>
+															submit
+														</button>
+													</small>
+												</div>
+											</Show>
+											<Show when={isMobile()}>
+												<div class="flex flex-row items-center gap-3">
 													<button
 														type="button"
-														class="cursor-pointer hover:underline text-primary-foreground"
+														class="cursor-pointer hover:underline text-muted-foreground"
 														onClick={cancelEdits}
 													>
-														cancel
+														Cancel
 													</button>
-												</small>
-												<span class="w-1 h-1 bg-muted-foreground rounded-full" />
-												<small>
-													enter to{" "}
 													<button
 														type="button"
-														class="cursor-pointer hover:underline text-primary-foreground"
+														class="cursor-pointer hover:underline text-primary-foreground font-medium"
 														onClick={() =>
 															submitEdits(
 																editedText().text,
@@ -456,10 +481,10 @@ const MessageInner: Component<{
 															)
 														}
 													>
-														submit
+														Save
 													</button>
-												</small>
-											</div>
+												</div>
+											</Show>
 										</Match>
 									</Switch>
 								</div>

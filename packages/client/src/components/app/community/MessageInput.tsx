@@ -306,7 +306,10 @@ export const MessageInput: Component<{
 					</Show>
 				</div>
 			</Show>
-			<div class="w-full min-h-16 h-fit flex flex-row gap-4 px-4 py-3 bg-card relative chat-input-container items-center justify-center">
+			<div
+				class="w-full min-h-16 h-fit flex flex-row gap-4 px-4 py-3 bg-card relative chat-input-container justify-center"
+				classList={{ "items-end": isMobile(), "items-center": !isMobile() }}
+			>
 				<Switch>
 					<Match when={!props.disabled}>
 						<FileFieldTrigger class="w-10 h-10 min-w-10 bg-muted text-muted-foreground hover:text-primary-foreground flex items-center justify-center rounded-lg cursor-pointer">
