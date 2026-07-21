@@ -398,3 +398,14 @@ pre code,
 .rich-text pre + span br:first-of-type {
 	display: none;
 }
+
+@media (max-width: 767px) {
+	* {
+		touch-action: pan-y;
+	}
+
+	.overflow-x-auto,
+	.overflow-x-auto * {
+		touch-action: auto;
+	}
+}

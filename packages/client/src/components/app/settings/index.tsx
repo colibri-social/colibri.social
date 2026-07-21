@@ -9,6 +9,7 @@ import BellIcon from "~icons/ph/bell";
 import BugIcon from "~icons/ph/bug";
 import CameraIcon from "~icons/ph/camera";
 import FlaskIcon from "~icons/ph/flask";
+import HandTapIcon from "~icons/ph/hand-tap";
 import MicrophoneIcon from "~icons/ph/microphone";
 import SmileyIcon from "~icons/ph/smiley";
 import UserCircleIcon from "~icons/ph/user-circle";
@@ -20,6 +21,7 @@ import { EXPERIMENTS } from "../../../experiments";
 import { isWebRuntime } from "../../../notifications";
 import { unsubscribeWebPush } from "../../../notifications/push-web";
 import { SettingsModal } from "../common/SettingsModal";
+import { ControlsPage } from "./ControlsPage";
 import { DebugPage } from "./DebugPage";
 import { ExperimentsPage } from "./ExperimentsPage";
 import { GeneralPage } from "./GeneralPage";
@@ -28,6 +30,7 @@ import { PreferencesPage } from "./PreferencesPage";
 import { StatusPage } from "./StatusPage";
 import { VideoPage } from "./VideoPage";
 import { VoicePage } from "./VoicePage";
+import { isMobileNow } from "../../../utils/mobile-pane";
 
 export const UserSettingsModal: ParentComponent<{
 	open?: Accessor<boolean>;
@@ -73,6 +76,13 @@ export const UserSettingsModal: ParentComponent<{
 					id: "preferences",
 					component: PreferencesPage,
 					icon: () => <WrenchIcon />,
+				},
+				{
+					title: "Controls",
+					id: "controls",
+					component: ControlsPage,
+					icon: () => <HandTapIcon />,
+					visible: isMobileNow,
 				},
 				{
 					title: "Experiments",

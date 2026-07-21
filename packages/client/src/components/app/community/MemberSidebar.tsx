@@ -112,7 +112,15 @@ export const MemberSidebar = () => {
 
 	const displayMembersAsSheet = createMediaQuery("(max-width: 1280px)");
 	const { preferences, toggleMembersVisible } = useUserPreferences();
-	const { isMobile, currentPane, popPane, pushDeeper } = createMobilePane();
+	const {
+		isMobile,
+		currentPane,
+		popPane,
+		pushDeeper,
+		updateDrag,
+		paneTransform,
+		isDragging,
+	} = createMobilePane();
 	const mutes = useMutes();
 
 	const currentChannelUri = createMemo(() => {
@@ -129,16 +137,19 @@ export const MemberSidebar = () => {
 					enabled: () => isMobile(),
 					onSwipeRight: () => popPane(),
 					onSwipeLeft: () => pushDeeper(),
+					onSwipeMove: updateDrag,
 				})
 			}
 			class="flex flex-col border-border bg-background"
+			style={{ transform: paneTransform("members") }}
 			classList={{
 				"min-w-72 w-72 h-full border-l z-50": !isMobile(),
 				"absolute top-0 right-0 h-full drop-shadow-black drop-shadow-2xl":
 					!isMobile() && displayMembersAsSheet(),
 				hidden: !isMobile() && !preferences().membersListVisible,
-				"absolute inset-0 w-full h-full z-30 transition-transform duration-200 ease-out motion-reduce:transition-none":
-					isMobile(),
+				"absolute inset-0 w-full h-full z-30": isMobile(),
+				"transition-transform duration-200 ease-out motion-reduce:transition-none":
+					isMobile() && !isDragging(),
 				"translate-x-full": isMobile() && currentPane() !== "members",
 			}}
 		>
