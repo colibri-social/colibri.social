@@ -39,6 +39,49 @@ self.addEventListener("push", (event) => {
 	);
 });
 
+// Fires when the browser invalidates/rotates our subscription on its own
+// (independent of anything the AppView does) — e.g. periodic push-service key
+// rotation. We must re-subscribe before this handler returns or the new
+// subscription is lost, but we can't reach the AppView from here (no access
+// to the app's authenticated XRPC client). Instead we just re-subscribe
+// locally and nudge any open windows; the client re-registers the resulting
+// subscription with the AppView using its own (already-authenticated)
+// registerPush call — see `listenForPushSubscriptionChanges` in
+// `packages/client/src/notifications/push-web.ts`.
+self.addEventListener("pushsubscriptionchange", (event) => {
+	const oldSubscription = event.oldSubscription;
+	const applicationServerKey =
+		oldSubscription && oldSubscription.options
+			? oldSubscription.options.applicationServerKey
+			: undefined;
+
+	event.waitUntil(
+		self.registration.pushManager
+			.subscribe(
+				applicationServerKey
+					? { userVisibleOnly: true, applicationServerKey }
+					: { userVisibleOnly: true },
+			)
+			.then(() =>
+				self.clients.matchAll({ type: "window", includeUncontrolled: true }),
+			)
+			.then((clientList) => {
+				for (const client of clientList) {
+					client.postMessage({ type: "colibri-push-subscription-changed" });
+				}
+			})
+			.catch((err) => {
+				// Nothing more we can do from here — if no subscription survives,
+				// the app's periodic re-assertion (see push-web.ts) will notice
+				// there's none and re-subscribe from scratch next time it runs.
+				console.error(
+					"[push-sw] resubscribe after pushsubscriptionchange failed",
+					err,
+				);
+			}),
+	);
+});
+
 self.addEventListener("notificationclick", (event) => {
 	event.notification.close();
 

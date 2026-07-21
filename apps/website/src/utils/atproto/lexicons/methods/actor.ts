@@ -179,6 +179,30 @@ export const actorMethodDocs: LexiconDoc[] = [
 	},
 	{
 		lexicon: 1,
+		id: "social.colibri.actor.getNotificationPreference",
+		defs: {
+			main: {
+				type: "query",
+				description:
+					"Returns the authenticated user's notification level, defaulting to 'all' when they haven't set one.",
+				output: {
+					encoding: "application/json",
+					schema: {
+						type: "object",
+						required: ["level"],
+						properties: {
+							level: {
+								type: "string",
+								knownValues: ["all", "mentionsAndReplies"],
+							},
+						},
+					},
+				},
+			},
+		},
+	},
+	{
+		lexicon: 1,
 		id: "social.colibri.actor.setState",
 		defs: {
 			main: {

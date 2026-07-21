@@ -246,6 +246,13 @@ export class XrpcClient {
 					Actor.listMutes(
 						this.authed(this.proxiedFetch, "social.colibri.actor.listMutes"),
 					),
+				getNotificationPreference: () =>
+					Actor.getNotificationPreference(
+						this.authed(
+							this.proxiedFetch,
+							"social.colibri.actor.getNotificationPreference",
+						),
+					),
 				setState: (state: string) =>
 					Actor.setState(
 						this.authed(this.proxiedFetch, "social.colibri.actor.setState"),

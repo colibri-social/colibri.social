@@ -89,6 +89,24 @@ export const subscribeWebPush = async (
 	return true;
 };
 
+export const listenForPushSubscriptionChanges = (
+	onChange: () => void,
+): (() => void) => {
+	if (!isPushSupported()) return () => {};
+
+	const handler = (event: MessageEvent) => {
+		if (
+			event.data &&
+			(event.data as { type?: string }).type ===
+				"colibri-push-subscription-changed"
+		) {
+			onChange();
+		}
+	};
+	navigator.serviceWorker.addEventListener("message", handler);
+	return () => navigator.serviceWorker.removeEventListener("message", handler);
+};
+
 /**
  * Tear down the local push subscription and notify the AppView to drop it.
  */

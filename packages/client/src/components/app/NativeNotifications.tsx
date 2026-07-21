@@ -9,7 +9,18 @@ import {
 	isWebRuntime,
 	notify,
 } from "../../notifications";
-import { subscribeWebPush } from "../../notifications/push-web";
+import {
+	listenForPushSubscriptionChanges,
+	subscribeWebPush,
+} from "../../notifications/push-web";
+
+// Re-assert the web push subscription this often while the app stays open,
+// on top of the on-foreground re-assertion below. Self-healing for the case
+// where the AppView pruned our `push_subscriptions` row (e.g. after a 404/410
+// from the push service) without us knowing — `subscribeWebPush` reuses the
+// existing browser subscription and re-registers it, so this is a cheap
+// idempotent no-op when nothing was actually lost.
+const PUSH_REASSERT_INTERVAL_MS = 24 * 60 * 60 * 1000;
 
 /**
  * Headless component that turns incoming `notification_event`s into native OS
@@ -28,6 +39,14 @@ export const NativeNotifications: Component = () => {
 		document.visibilityState === "hidden" ||
 		!document.hasFocus();
 
+	const reassertWebPushRegistration = async (): Promise<void> => {
+		if (!isWebRuntime() || !preferences().nativeNotifications) return;
+		if ((await getBackend().getPermission()) !== "granted") return;
+		await subscribeWebPush((sub) =>
+			user.xrpc.social.colibri.notification.registerPush(sub),
+		);
+	};
+
 	onMount(() => {
 		void (async () => {
 			if (isTauriRuntime()) {
@@ -41,16 +60,27 @@ export const NativeNotifications: Component = () => {
 				return;
 			}
 
-			if (
-				isWebRuntime() &&
-				preferences().nativeNotifications &&
-				(await getBackend().getPermission()) === "granted"
-			) {
-				await subscribeWebPush((sub) =>
-					user.xrpc.social.colibri.notification.registerPush(sub),
-				);
-			}
+			await reassertWebPushRegistration();
 		})();
+
+		const handleVisibilityChange = () => {
+			if (document.visibilityState === "visible") {
+				void reassertWebPushRegistration();
+			}
+		};
+		document.addEventListener("visibilitychange", handleVisibilityChange);
+		const intervalId = window.setInterval(
+			() => void reassertWebPushRegistration(),
+			PUSH_REASSERT_INTERVAL_MS,
+		);
+		const cleanupPushChangeListener = listenForPushSubscriptionChanges(() => {
+			void reassertWebPushRegistration();
+		});
+		onCleanup(() => {
+			document.removeEventListener("visibilitychange", handleVisibilityChange);
+			window.clearInterval(intervalId);
+			cleanupPushChangeListener();
+		});
 
 		const cleanup = socket.onEvent((event) => {
 			if (event.type !== "notification_event" || !event.data) return;
@@ -63,9 +93,11 @@ export const NativeNotifications: Component = () => {
 			const title =
 				kind === "reply"
 					? "New reply"
-					: mentionRoleName
-						? `Mentioned via @${mentionRoleName}`
-						: "New mention";
+					: kind === "message"
+						? "New message"
+						: mentionRoleName
+							? `Mentioned via @${mentionRoleName}`
+							: "New mention";
 			notify({
 				title,
 				body: message?.text ?? "You have a new notification.",

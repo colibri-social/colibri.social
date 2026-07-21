@@ -282,7 +282,7 @@ export type Colibri_NotificationEvent = EventBase<
 	"notification_event",
 	{
 		id: number;
-		kind: "mention" | "reply";
+		kind: "mention" | "reply" | "message";
 		messageUri: string;
 		authorDid: string;
 		channelUri: string;
