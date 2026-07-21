@@ -1,5 +1,28 @@
 # @colibri-social/client
 
+## 0.1.0-rc.6
+
+### Minor Changes
+
+- 9c7af6d: Adds configurable swipe controls on mobile apps and the web
+
+### Patch Changes
+
+- 9f5b509: Makes multiple improvements to the way drawers are handled:
+  - Drawers now fade instead of hard-cut at the bottom to indicate whether the user can scroll
+  - Drawers have better gesture support (back gesture closes them)
+  - Drawers can be extended up if they're scrollable by dragging the handle
+  - All drawers use the same system now
+
+- 7f4ad84: Fixes a crash that would occur when leaving a VC soon after disabling a camera/screen share.
+- 7696331: Adds support for team and play store tester labels and auto updating on supported platforms
+- 042f2c0: Fixes emoji and text input related issues
+- 5160d9f: Adds better handling for the status changing mechanism
+- 7696331: Adds support for custom badges and auto-updating where supported, and fixes an issue where mobile invite modals would overflow
+- ec472e1: Adds proper error handling and a timeout to the login screen
+- 7696331: Fixes the invite link creation modal not fitting mobile screens by rendering it as a bottom drawer on mobile instead of a centered dialog.
+- e7b2afe: Fixes a crash on mobile layouts causing you to be unable to delete messages.
+
 ## 0.0.1-rc.5
 
 ### Patch Changes
