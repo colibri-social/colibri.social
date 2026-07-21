@@ -27,7 +27,10 @@ export const DialogConfirmButton: Component<{
 );
 
 /**
- * The cancellation button used in both the mobile and desktop deletion dialog.
+ * The cancellation button used in the desktop deletion/block dialog. Relies on
+ * Kobalte's `DialogCloseButton`, which requires an ancestor `Dialog` context —
+ * use `MobileCancelButton` inside the mobile `BottomSheet`, which has no such
+ * context.
  */
 export const DialogCancelButton: Component<{ setOpen: Setter<boolean> }> = (
 	props,
@@ -41,4 +44,19 @@ export const DialogCancelButton: Component<{ setOpen: Setter<boolean> }> = (
 			Cancel
 		</Button>
 	</DialogCloseButton>
+);
+
+/**
+ * The cancellation button used in the mobile deletion/block bottom sheet.
+ */
+export const MobileCancelButton: Component<{ setOpen: Setter<boolean> }> = (
+	props,
+) => (
+	<Button
+		variant="secondary"
+		class="cursor-pointer"
+		onClick={() => props.setOpen(false)}
+	>
+		Cancel
+	</Button>
 );

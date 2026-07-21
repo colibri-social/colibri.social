@@ -2,7 +2,7 @@ import type { Component } from "solid-js";
 import { useMessageContext } from "../../../../../contexts/Message";
 import { BottomSheet } from "../../../../ui/MenuDrawer";
 import { MessagePreview } from "../MessagePreview";
-import { DialogCancelButton, DialogConfirmButton } from "../shared";
+import { DialogConfirmButton, MobileCancelButton } from "../shared";
 import {
 	DialogDescriptionContent,
 	DialogTitleContent,
@@ -30,7 +30,7 @@ export const Mobile: Component = () => {
 			</div>
 			<MessagePreview data={message} />
 			<div class="mt-auto flex flex-col gap-2 p-4 pb-[calc(1rem+var(--safe-area-bottom))]">
-				<DialogCancelButton setOpen={setDeletionModalOpen} />
+				<MobileCancelButton setOpen={setDeletionModalOpen} />
 				<DialogConfirmButton onClick={confirmDelete} />
 			</div>
 		</BottomSheet>

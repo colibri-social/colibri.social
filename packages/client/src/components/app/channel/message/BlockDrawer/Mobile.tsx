@@ -2,8 +2,12 @@ import type { Component } from "solid-js";
 import { useMessageContext } from "../../../../../contexts/Message";
 import { BottomSheet } from "../../../../ui/MenuDrawer";
 import { MessagePreview } from "../MessagePreview";
-import { DialogCancelButton } from "../shared";
-import { BlockDialogConfirmButton, BlockDialogTitleContent } from "./shared";
+import { MobileCancelButton } from "../shared";
+import {
+	BlockDialogConfirmButton,
+	BlockDialogDescriptionContent,
+	BlockDialogTitleContent,
+} from "./shared";
 
 /**
  * The mobile version of the message block drawer used as a warning when a message is about to be blocked.
@@ -19,12 +23,12 @@ export const Mobile: Component = () => {
 					<BlockDialogTitleContent />
 				</h2>
 				<p class="m-0 text-sm text-muted-foreground">
-					<BlockDialogTitleContent />
+					<BlockDialogDescriptionContent />
 				</p>
 			</div>
 			<MessagePreview data={message} />
 			<div class="mt-auto flex flex-col gap-2 p-4 pb-[calc(1rem+var(--safe-area-bottom))]">
-				<DialogCancelButton setOpen={setBlockModalOpen} />
+				<MobileCancelButton setOpen={setBlockModalOpen} />
 				<BlockDialogConfirmButton onClick={confirmBlock} />
 			</div>
 		</BottomSheet>
