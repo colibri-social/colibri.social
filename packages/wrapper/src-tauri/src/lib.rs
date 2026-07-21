@@ -56,7 +56,10 @@ pub fn run() {
 
         #[cfg(feature = "updater")]
         {
-            builder = builder.plugin(tauri_plugin_updater::Builder::new().build());
+            builder = builder
+                .plugin(tauri_plugin_updater::Builder::new().build())
+                .plugin(tauri_plugin_process::init())
+                .plugin(tauri_plugin_fs::init());
         }
     }
 
@@ -64,6 +67,7 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_deep_link::init())
+        .plugin(tauri_plugin_os::init())
         .setup(|app| {
             // On Linux and Windows deep-link schemes aren't registered by an
             // installer during development, so register them at runtime.

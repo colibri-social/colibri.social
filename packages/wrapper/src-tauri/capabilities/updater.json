@@ -4,5 +4,12 @@
   "description": "Updater plugin capability, compiled out for Mac App Store builds.",
   "platforms": ["linux", "macOS", "windows"],
   "windows": ["main"],
-  "permissions": ["updater:default"]
+  "permissions": [
+    "updater:default",
+    "process:allow-restart",
+    {
+      "identifier": "fs:allow-exists",
+      "allow": [{ "path": "$RESOURCE/.install-channel" }]
+    }
+  ]
 }

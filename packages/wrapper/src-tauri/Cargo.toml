@@ -29,7 +29,7 @@ tauri-build = { version = "2", features = [] }
 # the build entirely for no-track distributions like F-Droid.
 default = ["sentry", "updater"]
 sentry = ["dep:sentry"]
-updater = ["dep:tauri-plugin-updater"]
+updater = ["dep:tauri-plugin-updater", "dep:tauri-plugin-process", "dep:tauri-plugin-fs"]
 
 [dependencies]
 tauri = { version = "2", features = ["config-json5"] }
@@ -39,11 +39,14 @@ serde_json = "1"
 sentry = { version = "0.48.4", optional = true }
 tauri-plugin-notification = "2.3.3"
 tauri-plugin-deep-link = "2.4.9"
+tauri-plugin-os = "2"
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 tauri-plugin-single-instance = { version = "2.4.2", features = ["deep-link"] }
 tauri-plugin-updater = { version = "2.10.1", optional = true }
 tauri-plugin-window-state = "2.4.1"
+tauri-plugin-process = { version = "2", optional = true }
+tauri-plugin-fs = { version = "2", optional = true }
 
 # native-tls (pulled in transitively via reqwest, used by sentry/tauri plugins)
 # needs a prebuilt OpenSSL per target. None ships for Android/iOS cross targets,

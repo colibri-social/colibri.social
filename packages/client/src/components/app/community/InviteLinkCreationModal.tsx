@@ -1,15 +1,7 @@
 import { createSignal, Match, type ParentComponent, Switch } from "solid-js";
 import { toast } from "somoto";
-import XIcon from "~icons/ph/x";
 import { Button } from "../../../components/ui/Button";
-import {
-	Dialog,
-	DialogCloseButton,
-	DialogContent,
-	DialogHeader,
-	DialogPortal,
-	DialogTrigger,
-} from "../../../components/ui/Dialog";
+import { ResponsiveDialog } from "../../../components/ui/ResponsiveDialog";
 import { useCommunityContext } from "../../../contexts/Community";
 import { useUserContext } from "../../../contexts/User";
 import { Spinner } from "../../icons/Spinner";
@@ -64,59 +56,47 @@ export const InviteLinkCreationModal: ParentComponent<{
 	};
 
 	return (
-		<Dialog open={open()} onOpenChange={checkForLinkAndToggleDialog}>
-			<DialogTrigger class="w-fit mx-auto">{props.children}</DialogTrigger>
-			<DialogPortal>
-				<DialogContent class="w-128">
-					<DialogCloseButton
-						class="absolute top-4 right-4 cursor-pointer hover:bg-muted w-8 h-8 rounded-sm flex items-center justify-center"
-						onClick={() => setOpen(false)}
-					>
-						<XIcon />
-					</DialogCloseButton>
-					<DialogHeader>
-						<h2 class="m-0 text-center">Create an invitation</h2>
-					</DialogHeader>
-					<div class="flex flex-col gap-2">
-						<p class="m-0">
-							Give this link to anyone you want to join this community!
-						</p>
-						<div class="flex flex-row items-center border border-border p-1 py-0.5 rounded-xl pl-4">
+		<ResponsiveDialog
+			open={open()}
+			onOpenChange={checkForLinkAndToggleDialog}
+			trigger={props.children}
+			class="w-fit mx-auto"
+			title="Create an invitation"
+			contentClass="w-128"
+		>
+			<p class="m-0">
+				Give this link to anyone you want to join this community!
+			</p>
+			<div class="flex flex-row items-center border border-border p-1 py-0.5 rounded-xl pl-4">
+				<Switch>
+					<Match when={!code()}>
+						<Spinner
+							className="h-10"
+							classList={{
+								hidden: !loading(),
+								block: loading(),
+							}}
+						/>
+					</Match>
+					<Match when={code()}>
+						<span class="w-full h-10 flex items-center">{linkText()}</span>
+						<Button
+							classList={{
+								"bg-green-500! hover:bg-green-400! text-black!": copied(),
+							}}
+							onClick={copyLink}
+						>
 							<Switch>
-								<Match when={!code()}>
-									<Spinner
-										className="h-10"
-										classList={{
-											hidden: !loading(),
-											block: loading(),
-										}}
-									/>
-								</Match>
-								<Match when={code()}>
-									<span class="w-full h-10 flex items-center">
-										{linkText()}
-									</span>
-									<Button
-										classList={{
-											"bg-green-500! hover:bg-green-400! text-black!": copied(),
-										}}
-										onClick={copyLink}
-									>
-										<Switch>
-											<Match when={copied()}>Copied!</Match>
-											<Match when={!copied()}>Copy</Match>
-										</Switch>
-									</Button>
-								</Match>
+								<Match when={copied()}>Copied!</Match>
+								<Match when={!copied()}>Copy</Match>
 							</Switch>
-							<span>{}</span>
-						</div>
-						<small class="text-muted-foreground">
-							You can manage invite links via the community settings.
-						</small>
-					</div>
-				</DialogContent>
-			</DialogPortal>
-		</Dialog>
+						</Button>
+					</Match>
+				</Switch>
+			</div>
+			<small class="text-muted-foreground">
+				You can manage invite links via the community settings.
+			</small>
+		</ResponsiveDialog>
 	);
 };

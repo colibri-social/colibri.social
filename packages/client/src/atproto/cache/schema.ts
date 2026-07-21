@@ -38,3 +38,7 @@ export type BskyMuTrustedListSnapshot = {
 	profiles: Map<string, { handle: string; displayName?: string }>;
 	ts: number;
 };
+
+export type LabelerLabel = { val: string; neg: boolean; exp?: string };
+
+export type LabelerLabelsSnapshot = { labels: Array<LabelerLabel>; ts: number };

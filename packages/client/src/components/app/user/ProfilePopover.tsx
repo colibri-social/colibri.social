@@ -20,6 +20,7 @@ import { cx } from "../../../utils/cva";
 import { LINK_REGEX } from "../../../utils/link-regex";
 import { useIsMobile } from "../../../utils/mobile-pane";
 import { purify } from "../../..//utils/purify";
+import { badgeText, useUserBadges } from "../../../utils/user-badges";
 import { BottomSheet } from "../../ui/MenuDrawer";
 import {
 	Popover,
@@ -36,6 +37,7 @@ import {
 	TooltipTrigger,
 } from "../../ui/Tooltip";
 import { Avatar } from "./Avatar";
+import { Badge } from "./Badge";
 import { DisplayableName, displayableNameFn } from "./DisplayableName";
 import { SelfStatusEditor } from "./SelfStatusEditor";
 
@@ -133,6 +135,8 @@ export const ProfilePopoverContents: Component<{
 
 	const accentColor = () => props.user.data.theme?.accentColor;
 
+	const { all: allBadges } = useUserBadges(() => props.user);
+
 	const bannerUrl = () =>
 		props.preview?.bannerUrl ??
 		resolveBlob(props.user.did, props.user.data.banner);
@@ -217,7 +221,11 @@ export const ProfilePopoverContents: Component<{
 								</span>
 							}
 						>
-							<DisplayableName user={props.user} color={accentColor()} />
+							<DisplayableName
+								user={props.user}
+								color={accentColor()}
+								badge={false}
+							/>
 						</Show>
 					</span>
 					<div class="flex flex-row gap-2 items-center flex-wrap">
@@ -293,6 +301,16 @@ export const ProfilePopoverContents: Component<{
 										</TooltipContent>
 									</TooltipPortal>
 								</Tooltip>
+							</div>
+						</Show>
+						<Show when={allBadges().length > 0}>
+							<span class="w-1 h-1 rounded-full bg-muted-foreground" />
+							<div class="flex flex-row gap-2 items-center flex-wrap">
+								<For each={allBadges()}>
+									{(val) => (
+										<Badge text={badgeText(val)} size="sm" style={val} />
+									)}
+								</For>
 							</div>
 						</Show>
 					</div>
