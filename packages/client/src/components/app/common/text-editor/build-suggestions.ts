@@ -8,19 +8,17 @@ import {
 	type EmojiSuggestionData,
 } from "./MentionPopupRenderer";
 
-const insertMention: SuggestionOptions<
-	unknown,
-	MentionNodeAttrs
->["command"] = ({ editor, range, props }) => {
-	editor
-		.chain()
-		.focus()
-		.insertContentAt(range, [
-			{ type: "mention", attrs: props },
-			{ type: "text", text: " " },
-		])
-		.run();
-};
+const insertMention: SuggestionOptions<unknown, MentionNodeAttrs>["command"] =
+	({ editor, range, props }) => {
+		editor
+			.chain()
+			.focus()
+			.insertContentAt(range, [
+				{ type: "mention", attrs: props },
+				{ type: "text", text: " " },
+			])
+			.run();
+	};
 
 export const buildSuggestions = (
 	members: () => Array<Member>,
