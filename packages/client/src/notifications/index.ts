@@ -12,6 +12,14 @@ const noopBackend: NotificationBackend = {
 	show: async () => {},
 };
 
+const STALE_NOTIFICATION_PING_MS = 5000;
+
+/** Whether a `notification_event` arrived too long after `indexedAt` to still show a live ping for. */
+export const isStaleNotificationEvent = (
+	indexedAt: string,
+	thresholdMs = STALE_NOTIFICATION_PING_MS,
+): boolean => Date.now() - Date.parse(indexedAt) > thresholdMs;
+
 let cached: NotificationBackend | undefined;
 
 /** The notification backend for the current runtime (memoized). */

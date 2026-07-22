@@ -507,6 +507,7 @@ export const ChannelContextProvider: ParentComponent<{
 				if (m.uri !== messageUri) return m;
 				const existing = m.reactions.find((r) => r.emoji === emoji);
 				if (existing) {
+					if (existing.reactorDIDs.includes(reactorDid)) return m;
 					return {
 						...m,
 						reactions: m.reactions.map((r) =>
@@ -539,6 +540,8 @@ export const ChannelContextProvider: ParentComponent<{
 		setMessages((prev) =>
 			prev.map((m) => {
 				if (m.uri !== messageUri) return m;
+				const existing = m.reactions.find((r) => r.emoji === emoji);
+				if (!existing?.reactorDIDs.includes(reactorDid)) return m;
 				return {
 					...m,
 					reactions: m.reactions
@@ -706,8 +709,6 @@ export const ChannelContextProvider: ParentComponent<{
 			const d = event.data;
 			if (!d) return;
 			const reactorDid = AtURI.parseAtURI(d.uri).did;
-			// We already applied our own reactions optimistically.
-			if (reactorDid === user.did) return;
 
 			if (d.event === "added") {
 				if (!d.target || !d.emoji) return;
