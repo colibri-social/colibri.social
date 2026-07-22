@@ -9,7 +9,7 @@
 
 @font-face {
 	font-family: "Twemoji";
-	/* Using the 15.x/16.x compatible COLR font */
+	/* mrdrogdrog/twemoji-color-font v15.0.3 (npm: twemoji-colr-font), see twemoji.LICENSE.txt */
 	src: url("/twemoji.woff2") format("woff2");
 	/* Encompasses the major emoji blocks for better performance */
 	unicode-range:

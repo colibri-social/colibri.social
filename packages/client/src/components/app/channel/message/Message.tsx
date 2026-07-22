@@ -1,5 +1,4 @@
 import type { ActorData, ColibriRichTextLink } from "@colibri-social/lib";
-import twemoji from "@twemoji/api";
 import {
 	batch,
 	type Component,
@@ -27,6 +26,7 @@ import { useUserPreferences } from "../../../../contexts/UserPreferences";
 import { createDoubleTap } from "../../../../utils/create-double-tap";
 import { createLongPress } from "../../../../utils/create-long-press";
 import { createSwipe } from "../../../../utils/create-swipe";
+import { parseEmojiText } from "../../../../utils/emoji";
 import { useIsMobile } from "../../../../utils/mobile-pane";
 import {
 	Tooltip,
@@ -623,7 +623,7 @@ const MessageInner: Component<{
 												>
 													<span
 														class="h-4 w-4"
-														innerHTML={twemoji.parse(item.emoji)}
+														innerHTML={parseEmojiText(item.emoji)}
 													/>
 													<span class="text-muted-foreground text-sm">
 														{item.count}

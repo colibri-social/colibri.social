@@ -75,11 +75,15 @@ export const buildSuggestions = (
 			items: ({ query }) => {
 				if (query.length < 2) return [];
 
-				return emojis()
-					.filter((emoji) =>
-						emoji.name.toLowerCase().startsWith(query.toLowerCase()),
-					)
-					.slice(0, 5);
+				const q = query.toLowerCase();
+				const prefix: EmojiSuggestionData[] = [];
+				const substring: EmojiSuggestionData[] = [];
+				for (const emoji of emojis()) {
+					const name = emoji.name.toLowerCase();
+					if (name.startsWith(q)) prefix.push(emoji);
+					else if (name.includes(q)) substring.push(emoji);
+				}
+				return [...prefix, ...substring].slice(0, 5);
 			},
 			render: createMentionRenderer(":", mainEditor),
 			command: insertMention,

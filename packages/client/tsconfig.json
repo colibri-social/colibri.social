@@ -12,6 +12,7 @@
 		"module": "ESNext",
 		"moduleResolution": "bundler",
 		"noEmit": true,
+		"resolveJsonModule": true,
 
 		// Type Checking & Safety
 		"strict": true,

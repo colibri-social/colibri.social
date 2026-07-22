@@ -1,9 +1,9 @@
-import twemoji from "@twemoji/api";
 import { type Component, createSignal, Match, Show, Switch } from "solid-js";
 import SmileyIcon from "~icons/ph/smiley";
 import XIcon from "~icons/ph/x";
 import { useUserContext } from "../../../contexts/User";
 import { createStatusEditor } from "../../../hooks/createStatusEditor";
+import { parseEmojiText } from "../../../utils/emoji";
 import { Button } from "../../ui/Button";
 import { DialogFooter } from "../../ui/Dialog";
 import { ResponsiveDialog } from "../../ui/ResponsiveDialog";
@@ -72,7 +72,7 @@ export const QuickStatusDialog: Component<{
 						>
 							<Switch>
 								<Match when={emoji()}>
-									<div innerHTML={twemoji.parse(emoji())} />
+									<div innerHTML={parseEmojiText(emoji())} />
 								</Match>
 								<Match when={!emoji()}>
 									<SmileyIcon />

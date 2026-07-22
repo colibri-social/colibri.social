@@ -1,7 +1,7 @@
-import twemoji from "@twemoji/api";
 import { type Component, createSignal, Match, Switch } from "solid-js";
 import SmileyIcon from "~icons/ph/smiley";
 import { createStatusEditor } from "../../../hooks/createStatusEditor";
+import { parseEmojiText } from "../../../utils/emoji";
 import { Button } from "../../ui/Button";
 import { TextField, TextFieldInput } from "../../ui/TextField";
 import { EmojiPopover } from "../common/EmojiPopover";
@@ -50,7 +50,7 @@ export const StatusPage: Component = () => {
 					>
 						<Switch>
 							<Match when={emoji()}>
-								<div innerHTML={twemoji.parse(emoji())} />
+								<div innerHTML={parseEmojiText(emoji())} />
 							</Match>
 							<Match when={!emoji()}>
 								<SmileyIcon />

@@ -67,7 +67,7 @@
 		"@tiptap/extensions": "^3.20.1",
 		"@tiptap/pm": "^3.20.1",
 		"@tiptap/suggestion": "^3.20.1",
-		"@twemoji/api": "^17.0.2",
+		"@twemoji/api": "^17.0.3",
 		"astro": "7.0.6",
 		"chroma-js": "^3.2.0",
 		"clsx": "^2.1.1",

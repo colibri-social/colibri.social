@@ -62,11 +62,3 @@
 	margin: 0.125rem 0;
 	color: var(--color-muted-foreground);
 }
-
-#editor .tiptap.ProseMirror img.emoji {
-	display: inline;
-	height: 1.125em;
-	width: 1.125em;
-	margin: 0.1em 0.05em 0 0.1em;
-	vertical-align: text-top;
-}

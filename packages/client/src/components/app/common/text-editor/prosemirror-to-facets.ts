@@ -6,8 +6,9 @@ import {
 	type TimestampStyle,
 } from "@colibri-social/lib";
 import type { Editor, MarkType, NodeType, TextType } from "@tiptap/core";
-import { emojis, shortcodeToEmoji } from "@tiptap/extension-emoji";
+import { shortcodeToEmoji } from "@tiptap/extension-emoji";
 import TLDs from "tlds";
+import { TIPTAP_EMOJIS } from "../../../../utils/emoji-data";
 import type { TextWithFacets } from "../rich-text-renderer/util";
 
 export type ParsedText = { text: string; facets: Array<ColibriRichTextFacet> };
@@ -196,7 +197,7 @@ const docToSource = (
 			if (item.type === "emoji") {
 				const name = (item as unknown as { attrs: { name: string } }).attrs
 					.name;
-				const emojiItem = shortcodeToEmoji(name, emojis);
+				const emojiItem = shortcodeToEmoji(name, TIPTAP_EMOJIS);
 				source += emojiItem?.emoji ?? `:${name}:`;
 				continue;
 			}

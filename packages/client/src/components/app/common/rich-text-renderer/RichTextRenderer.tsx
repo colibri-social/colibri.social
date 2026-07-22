@@ -1,7 +1,10 @@
 import type { Accessor, Component } from "solid-js";
-import { For, Show } from "solid-js";
+import { createSignal, For, Show } from "solid-js";
 import { useCommunityContext } from "../../../../contexts/Community";
 import { cx } from "../../../../utils/cva";
+import { EMOJI_IMG_CLASS, emojiOnlyCount } from "../../../../utils/emoji";
+import { slugForEmoji } from "../../../../utils/emoji-data";
+import { EmojiInfo, type EmojiInfoTarget } from "./EmojiInfo";
 import { renderWithFacets, type TextWithFacets } from "./util";
 
 /**
@@ -17,7 +20,48 @@ export const RichTextRenderer: Component<{
 }> = (props) => {
 	const community = useCommunityContext();
 
-	const rendered = renderWithFacets(props.text(), community().community.uri);
+	const content = props.text();
+	const rendered = renderWithFacets(content, community().community.uri);
+
+	const emojiCount =
+		!content.facets || content.facets.length === 0
+			? emojiOnlyCount(content.text)
+			: 0;
+	const jumbomoji = emojiCount > 0 && emojiCount <= 27;
+
+	const [emojiTarget, setEmojiTarget] = createSignal<EmojiInfoTarget | null>(
+		null,
+	);
+	let openEmojiEl: HTMLImageElement | null = null;
+
+	const closeEmojiInfo = () => {
+		openEmojiEl = null;
+		setEmojiTarget(null);
+	};
+
+	const handleClick = (event: MouseEvent) => {
+		const target = event.target;
+		if (
+			!(target instanceof HTMLImageElement) ||
+			!target.classList.contains(EMOJI_IMG_CLASS)
+		) {
+			return;
+		}
+		const slug = slugForEmoji(target.alt);
+		if (!slug) return;
+		event.preventDefault();
+		event.stopPropagation();
+		if (emojiTarget() && openEmojiEl === target) {
+			closeEmojiInfo();
+			return;
+		}
+		openEmojiEl = target;
+		setEmojiTarget({
+			char: target.alt,
+			slug,
+			rect: target.getBoundingClientRect(),
+		});
+	};
 
 	return (
 		<div
@@ -25,8 +69,9 @@ export const RichTextRenderer: Component<{
 				"m-0 text-foreground rich-text focus:outline-0 leading-7 break-after-auto relative min-w-0 [overflow-wrap:anywhere]",
 				props.class,
 			)}
-			classList={props.classList}
+			classList={{ ...props.classList, jumbomoji }}
 			id={props.id}
+			onClick={handleClick}
 		>
 			<For each={rendered}>{(component) => component}</For>
 			<Show when={props.isEdited}>
@@ -37,6 +82,9 @@ export const RichTextRenderer: Component<{
 					{" "}
 					(edited)
 				</span>
+			</Show>
+			<Show when={emojiTarget()} keyed>
+				{(target) => <EmojiInfo target={target} onClose={closeEmojiInfo} />}
 			</Show>
 		</div>
 	);

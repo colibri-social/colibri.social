@@ -31,7 +31,7 @@ export const Desktop: Component = () => {
 			<DialogPortal>
 				<DialogContent>
 					<DialogHeader>
-						<DialogTitle class="m-0">
+						<DialogTitle class="m-0 text-foreground">
 							<DialogTitleContent />
 						</DialogTitle>
 						<DialogDescription class="m-0">

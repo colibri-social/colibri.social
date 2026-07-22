@@ -1,7 +1,7 @@
-import twemoji from "@twemoji/api";
 import { type Component, Show } from "solid-js";
 import PlusIcon from "~icons/ph/plus";
 import { useUserContext } from "../../../contexts/User";
+import { parseEmojiText } from "../../../utils/emoji";
 
 export const SelfStatusEditor: Component<{ onEditRequested: () => void }> = (
 	props,
@@ -32,7 +32,7 @@ export const SelfStatusEditor: Component<{ onEditRequested: () => void }> = (
 				<Show when={user.data.status?.emoji}>
 					<span
 						class="h-5.5 w-5.5 [&>img]:min-w-4.5 [&>img]:min-h-4.5 [&>img]:w-4.5 [&>img]:h-4.5 [&>img]inline flex items-center justify-center"
-						innerHTML={twemoji.parse(user.data.status!.emoji!)}
+						innerHTML={parseEmojiText(user.data.status!.emoji!)}
 					/>
 				</Show>
 				<span class="leading-5.5 text-sm w-fit truncate">

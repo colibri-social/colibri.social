@@ -1,4 +1,3 @@
-import twemoji from "@twemoji/api";
 import { createMemo, For, Match, Show, Switch } from "solid-js";
 import BellIcon from "~icons/ph/bell";
 import BellSlashIcon from "~icons/ph/bell-slash";
@@ -12,6 +11,7 @@ import { useMutes } from "../../../contexts/Mutes";
 import { useUserPreferences } from "../../../contexts/UserPreferences";
 import createMediaQuery from "../../../utils/create-media-query";
 import { createSwipe } from "../../../utils/create-swipe";
+import { parseEmojiText } from "../../../utils/emoji";
 import { getChannelParam } from "../../../utils/get-param";
 import { groupMembersByRoles } from "../../../utils/group-members-by-roles";
 import { createMobilePane } from "../../../utils/mobile-pane";
@@ -63,7 +63,7 @@ const MemberRow = (props: {
 								<Show when={props.member.data.status!.emoji}>
 									<span
 										class="[&>img]:min-w-4 [&>img]:min-h-4 [&>img]:w-4 [&>img]:h-4 [&>img]inline"
-										innerHTML={twemoji.parse(props.member.data.status!.emoji!)}
+										innerHTML={parseEmojiText(props.member.data.status!.emoji!)}
 									/>
 								</Show>
 								<span class="w-full overflow-hidden text-ellipsis whitespace-nowrap">
