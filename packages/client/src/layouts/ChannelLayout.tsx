@@ -52,6 +52,7 @@ type MessageMeta = {
 	isOnNewDay: boolean;
 	isSubsequent: boolean;
 	hasSubsequent: boolean;
+	isLast: boolean;
 	dateLabel: string | undefined;
 };
 
@@ -90,6 +91,7 @@ const DEFAULT_META: MessageMeta = {
 	isOnNewDay: false,
 	isSubsequent: false,
 	hasSubsequent: false,
+	isLast: false,
 	dateLabel: undefined,
 };
 
@@ -138,6 +140,7 @@ const ChannelLayout: ParentComponent = (props) => {
 				isOnNewDay,
 				isSubsequent,
 				hasSubsequent,
+				isLast: i === msgs.length - 1,
 				dateLabel: isOnNewDay
 					? new Date(m.createdAt).toLocaleDateString()
 					: undefined,
@@ -730,16 +733,13 @@ const ChannelLayout: ParentComponent = (props) => {
 					>
 						<div class="relative w-full flex-1 min-h-0">
 							<div
-								class="w-full h-full overflow-y-auto"
+								class="w-full h-full overflow-y-auto pb-6"
 								style={{ "overflow-anchor": "none" }}
 								ref={scrollContainer}
 							>
 								<div ref={topSentinel} class="w-full h-px" aria-hidden="true" />
 								<ScrollAnchorProvider container={() => scrollContainer}>
-									<div
-										ref={messagesWrapper}
-										class="h-[calc(100%-1px)] w-full [&>div]:last-of-type:pb-6"
-									>
+									<div ref={messagesWrapper} class="w-full">
 										<Show
 											when={
 												channel.loadingOlder() && channel.messages().length > 0
@@ -824,6 +824,7 @@ const ChannelLayout: ParentComponent = (props) => {
 															data={message}
 															isSubsequent={meta().isSubsequent}
 															hasSubsequent={meta().hasSubsequent}
+															isLast={meta().isLast}
 														/>
 														<Show when={isLastRead()}>
 															<div class="w-[calc(100%-2rem)] h-px mx-4 my-2.5 bg-primary/50 flex items-center justify-center select-none">

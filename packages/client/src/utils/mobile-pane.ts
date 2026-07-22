@@ -3,6 +3,22 @@ import { createSignal } from "solid-js";
 import createMediaQuery from "./create-media-query";
 
 const CHANNEL_PATH = /^\/app\/c\/[^/]+\/[^/]+\/[^/]+/;
+const COMMUNITY_SEGMENT = /^\/app\/c\/([^/]+)/;
+
+const lastViewedChannelPath = (pathname: string): string | undefined => {
+	const segment = COMMUNITY_SEGMENT.exec(pathname)?.[1];
+	if (!segment) return undefined;
+	const raw = localStorage.getItem(`${segment}:last-viewed`);
+	if (!raw) return undefined;
+	try {
+		const channel = JSON.parse(raw) as { uri: string; type: string };
+		const identifier = channel.uri.split("/").pop();
+		if (!identifier) return undefined;
+		return `/app/c/${segment}/${channel.type}/${identifier}`;
+	} catch {
+		return undefined;
+	}
+};
 
 export type Pane = "nav" | "chat" | "members";
 
@@ -53,7 +69,12 @@ export const createMobilePane = () => {
 
 	const pushDeeper = () => {
 		const from = currentPane();
-		if (from === "nav" && hasChannel()) return setPane("chat");
+		if (from === "nav") {
+			if (hasChannel()) return setPane("chat");
+			const target = lastViewedChannelPath(location.pathname);
+			if (target) return navigate(target);
+			return;
+		}
 		if (from === "chat") return setPane("members");
 		// members is the deepest pane
 	};
@@ -65,15 +86,22 @@ export const createMobilePane = () => {
 		}
 		const from = currentPane();
 		if (dx > 0 && from === "nav") dx = 0; // popPane() would no-op here
+		if (
+			dx < 0 &&
+			from === "nav" &&
+			!hasChannel() &&
+			!lastViewedChannelPath(location.pathname)
+		)
+			dx = 0; // pushDeeper() would no-op here — no channel to jump to
 		if (dx < 0 && from === "members") dx = 0; // pushDeeper() would no-op here
 		const max = typeof window !== "undefined" ? window.innerWidth : Infinity;
 		setDragDx(Math.max(-max, Math.min(max, dx)));
 	};
 
-	const paneTransform = (pane: Pane): string | undefined => {
+	const paneTranslate = (pane: Pane): string | undefined => {
 		if (!isMobile() || dragDx() === 0) return undefined;
 		const offset = (paneIndex(pane) - paneIndex(currentPane())) * 100;
-		return `translateX(calc(${offset}% + ${dragDx()}px))`;
+		return `calc(${offset}% + ${dragDx()}px)`;
 	};
 
 	const isDragging = () => dragDx() !== 0;
@@ -87,7 +115,7 @@ export const createMobilePane = () => {
 		pushDeeper,
 		setPane,
 		updateDrag,
-		paneTransform,
+		paneTranslate,
 		isDragging,
 	};
 };

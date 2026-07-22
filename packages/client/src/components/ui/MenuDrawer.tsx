@@ -23,6 +23,9 @@ export const handoffDrawer = (close: () => void, open: () => void) => {
 	window.setTimeout(open, DRAWER_TRANSITION_MS + 30);
 };
 
+const [openDrawerCount, setOpenDrawerCount] = createSignal(0);
+export const isDrawerOpen = () => openDrawerCount() > 0;
+
 export interface BottomSheetProps {
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
@@ -123,6 +126,13 @@ export const BottomSheet = (props: BottomSheetProps) => {
 		clearTimeout(closeTimer);
 		cancelAnimationFrame(raf1);
 		cancelAnimationFrame(raf2);
+	});
+
+	// Keep pane-swipe gestures disarmed while any sheet is open or mid-close
+	createEffect(() => {
+		if (!mounted()) return;
+		setOpenDrawerCount((c) => c + 1);
+		onCleanup(() => setOpenDrawerCount((c) => c - 1));
 	});
 
 	// Lock body scroll while a sheet is mounted
@@ -274,6 +284,7 @@ export const BottomSheet = (props: BottomSheetProps) => {
 										? "absolute inset-x-0 top-0 z-20 pt-2 pb-3"
 										: "shrink-0 pt-2 pb-1",
 								)}
+								style={{ "touch-action": "none" }}
 								onPointerDown={onHandlePointerDown}
 							>
 								<div
