@@ -8,6 +8,7 @@ import type { GifItem } from "../../../../atproto/xrpc/social/colibri/embed/gifT
 import { useGifFavorites } from "../../../../contexts/GifFavorites";
 import { useStableMedia } from "../../../../contexts/ScrollAnchor";
 import { useUserContext } from "../../../../contexts/User";
+import { openExternalLink } from "../../../../utils/open-external-link";
 import { Lightbox } from "../../common/Lightbox";
 import { MediaLightboxGallery } from "./Attachments";
 import { BlueskyEmbed } from "./BlueskyEmbed";
@@ -184,6 +185,7 @@ const OpenGraphEmbed: Component<{ uri: string }> = (props) => {
 									href={props.uri}
 									target="_blank"
 									rel="noreferrer"
+									onClick={(e) => openExternalLink(props.uri, e)}
 								>
 									{data()!.title}
 								</a>

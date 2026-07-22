@@ -31,6 +31,7 @@ import { resolveBlob } from "../../../../atproto/resolve-blob";
 import type { Message } from "../../../../atproto/xrpc/social/colibri/channel/listMessages";
 import { useStableMedia } from "../../../../contexts/ScrollAnchor";
 import { isTauriRuntime } from "../../../../notifications/environment";
+import { openExternalLink } from "../../../../utils/open-external-link";
 import { Button } from "../../../ui/Button";
 
 type AttachmentComponent = Component<{ item: AttachmentObj; did: string }>;
@@ -139,6 +140,7 @@ export const AudioAttachment: AttachmentComponent = (props) => {
 				href={src()}
 				target="_blank"
 				rel="noreferrer"
+				onClick={(e) => openExternalLink(src(), e)}
 				title={props.item.name ?? "Audio"}
 			>
 				<div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-muted text-primary">
@@ -297,6 +299,7 @@ export const MediaLightboxGallery: Component<{
 							href={props.images[0]?.url}
 							target="_blank"
 							rel="noreferrer"
+							onClick={(e) => openExternalLink(props.images[0]?.url, e)}
 							title={props.images[0]?.name ?? "Image"}
 						>
 							<DownloadIcon class="h-5 w-5 shrink-0 text-muted-foreground" />
@@ -447,6 +450,7 @@ export const VideoAttachment: AttachmentComponent = (props) => {
 				href={src()}
 				target="_blank"
 				rel="noreferrer"
+				onClick={(e) => openExternalLink(src(), e)}
 				title={props.item.name ?? "File"}
 			>
 				<DownloadIcon class="ml-auto h-5 w-5 shrink-0 text-muted-foreground" />
@@ -564,6 +568,7 @@ export const GenericFileAttachment: AttachmentComponent = (props) => {
 			href={src()}
 			target="_blank"
 			rel="noreferrer"
+			onClick={(e) => openExternalLink(src(), e)}
 			title={props.item.name ?? "File"}
 		>
 			<div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">

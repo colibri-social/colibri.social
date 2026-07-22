@@ -12,6 +12,7 @@ import {
 	buildFeatureKey,
 	normalizeFacets,
 } from "../../../../utils/normalize-facets";
+import { openExternalLink } from "../../../../utils/open-external-link";
 import { purify } from "../../../../utils/purify";
 import { RoleMentionPopover } from "../../community/RoleMentionPopover";
 import User from "../../user";
@@ -161,6 +162,7 @@ const applyStyleForFacet = (text: string, feature: AnyFeature): JSX.Element => {
 					class={LINK_CLASS}
 					target="_blank"
 					rel="noreferrer"
+					onClick={(e) => openExternalLink(displayHref(), e)}
 					innerHTML={
 						isBareUrl ? parseEmojiText(purify(displayHref())) : textWithEmojis
 					}
@@ -447,6 +449,7 @@ const renderInlineRange = (
 									class={LINK_CLASS}
 									target="_blank"
 									rel="noreferrer"
+									onClick={(e) => openExternalLink(displayHref(), e)}
 								>
 									{isBareUrl ? (
 										<span innerHTML={parseEmojiText(purify(displayHref()))} />
