@@ -34,6 +34,7 @@ import {
 import { trimWithFacets } from "../common/rich-text-renderer/util";
 import { TextEditor } from "../common/text-editor/TextEditor";
 import { DisplayableName, displayableNameFn } from "../user/DisplayableName";
+import { Lightbox } from "../common/Lightbox";
 
 // Uploads a single file straight to the user's PDS via the authenticated
 // (OAuth) agent and resolves to an AttachmentObj ready to embed in a record.
@@ -259,15 +260,21 @@ export const MessageInput: Component<{
 			</Show>
 			<Show when={fileField.acceptedFiles.length > 0}>
 				<div
-					class="left-0 border-y border-border w-full px-4 py-2 bg-background/75 backdrop-blur-sm text-foreground flex justify-between items-center"
+					class="left-0 border-t border-border w-full px-4 py-2 bg-background/75 backdrop-blur-sm text-foreground flex justify-between items-center"
 					classList={{
 						"border-t-0": channel.replyingTo() !== undefined,
 					}}
 				>
 					<FileFieldItemList class="flex flex-row gap-2 m-0 p-0 flex-wrap">
-						{() => (
+						{(item) => (
 							<FileFieldItem>
-								<FileFieldItemPreviewImage />
+								<Switch fallback={<FileFieldItemPreviewImage />}>
+									<Match when={item.type.includes("image")}>
+										<Lightbox src={URL.createObjectURL(item)}>
+											<FileFieldItemPreviewImage class="cursor-pointer" />
+										</Lightbox>
+									</Match>
+								</Switch>
 								<FileFieldItemName />
 								<FileFieldItemSize />
 								<FileFieldItemDeleteTrigger />
