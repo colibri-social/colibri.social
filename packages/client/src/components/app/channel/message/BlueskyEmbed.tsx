@@ -30,6 +30,7 @@ import {
 import { resolveEmbedImage } from "../../../../atproto/resolve-blob";
 import { useStableMedia } from "../../../../contexts/ScrollAnchor";
 import { useUserPreferences } from "../../../../contexts/UserPreferences";
+import { openExternalLink } from "../../../../utils/open-external-link";
 import { Lightbox } from "../../common/Lightbox";
 
 /**
@@ -175,7 +176,12 @@ export const BlueskyEmbed: Component<{ uri: string; post: BskyPostRef }> = (
 									</span>
 								</div>
 							</div>
-							<a href={link()} target="_blank" rel="noreferrer">
+							<a
+								href={link()}
+								target="_blank"
+								rel="noreferrer"
+								onClick={(e) => openExternalLink(link(), e)}
+							>
 								<Dynamic
 									component={
 										getBskyAlternativeClientInfo(
@@ -192,14 +198,16 @@ export const BlueskyEmbed: Component<{ uri: string; post: BskyPostRef }> = (
 								<For each={postSegments()}>
 									{(segment) => {
 										if (segment.isMention() && segment.mention) {
+											const mentionHref = buildBskyProfileUrl(
+												preferences().preferredBlueskyClient,
+												segment.mention.did,
+											);
 											return (
 												<a
-													href={buildBskyProfileUrl(
-														preferences().preferredBlueskyClient,
-														segment.mention.did,
-													)}
+													href={mentionHref}
 													target="_blank"
 													rel="noreferrer"
+													onClick={(e) => openExternalLink(mentionHref, e)}
 													class="text-(--primary-hover) decoration-(--primary-hover) font-medium hover:underline inline"
 												>
 													{segment.text}
@@ -218,6 +226,7 @@ export const BlueskyEmbed: Component<{ uri: string; post: BskyPostRef }> = (
 													title={href}
 													target="_blank"
 													rel="noreferrer"
+													onClick={(e) => openExternalLink(href, e)}
 													class="text-(--primary-hover) decoration-(--primary-hover) font-medium hover:underline inline"
 												>
 													{segment.text}
@@ -236,6 +245,7 @@ export const BlueskyEmbed: Component<{ uri: string; post: BskyPostRef }> = (
 													href={href}
 													target="_blank"
 													rel="noreferrer"
+													onClick={(e) => openExternalLink(href, e)}
 													class="text-(--primary-hover) decoration-(--primary-hover) font-medium hover:underline inline"
 												>
 													{segment.text}

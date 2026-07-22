@@ -14,6 +14,7 @@ import {
 	searchActorsTypeahead,
 } from "../atproto/xrpc/app/bsky/actor/searchActorsTypeahead";
 import { useAuthContext } from "../contexts/Auth";
+import { useViewport, ViewportProvider } from "../contexts/Viewport";
 import { getAppViewDid } from "../utils/appview";
 import { AppLoadingScreen } from "./AppLoadingScreen";
 import { Spinner } from "./icons/Spinner";
@@ -77,11 +78,34 @@ const describeThrownError = (err: unknown): string => {
 };
 
 export const LoginScreen: Component = () => {
+	return (
+		<ViewportProvider>
+			<LoginScreenContent />
+		</ViewportProvider>
+	);
+};
+
+const LoginScreenContent: Component = () => {
 	const auth = useAuthContext();
 	const navigate = useNavigate();
+	const viewport = useViewport();
 	const [handle, setHandle] = createSignal("");
 	const [loading, setLoading] = createSignal(false);
 	const [options, setOptions] = createSignal<Array<ActorTypeaheadResult>>([]);
+
+	const keyboardVisible = () => {
+		const h = viewport.height();
+		return (
+			h !== undefined &&
+			typeof window !== "undefined" &&
+			window.innerHeight - h > 100
+		);
+	};
+
+	const dropdownMaxHeight = () => {
+		const h = viewport.height();
+		return h === undefined ? undefined : `${Math.max(h - 32, 120)}px`;
+	};
 
 	const callbackParams = readCallbackParams();
 	const callback = classifyCallback(callbackParams);
@@ -189,6 +213,7 @@ export const LoginScreen: Component = () => {
 								optionValue="did"
 								optionLabel="handle"
 								placeholder="alice.bsky.social"
+								placement={keyboardVisible() ? "top-start" : "bottom-start"}
 								onInputChange={onInput}
 								onChange={onPick}
 								itemComponent={(props) => (
@@ -220,7 +245,7 @@ export const LoginScreen: Component = () => {
 							>
 								<SearchControl aria-label="Handle" />
 								<SearchPortal>
-									<SearchContent>
+									<SearchContent style={{ "max-height": dropdownMaxHeight() }}>
 										<SearchListbox class="m-0" />
 										<SearchNoResult>No accounts found.</SearchNoResult>
 									</SearchContent>

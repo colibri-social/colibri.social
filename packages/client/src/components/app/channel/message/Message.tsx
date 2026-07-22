@@ -2,6 +2,7 @@ import type { ActorData, ColibriRichTextLink } from "@colibri-social/lib";
 import {
 	batch,
 	type Component,
+	createEffect,
 	createSignal,
 	For,
 	Match,
@@ -98,6 +99,7 @@ const MessageInner: Component<{
 		setEmojiPopoverOpen,
 		contextMenuOpen,
 		setContextMenuOpen,
+		setDeletionModalOpen,
 		newText,
 		editedText,
 		saveEditedText,
@@ -120,6 +122,13 @@ const MessageInner: Component<{
 		community().members.find((m) => m.did === author.did) ?? author;
 
 	const [reactorsModalOpen, setReactorsModalOpen] = createSignal(false);
+
+	createEffect(() => {
+		if (channel.emptyEditPendingDeletion()?.uri === message.uri) {
+			setDeletionModalOpen(true);
+			channel.clearEmptyEditPendingDeletion();
+		}
+	});
 
 	const isSubsequentMessage = () => {
 		if (message.parent) return false;
@@ -281,6 +290,7 @@ const MessageInner: Component<{
 							containsMentionOrIsReplyToUser(),
 						"bg-blue-500/5 hover:bg-blue-500/10! border-blue-500":
 							isRepliedTo(),
+						"bg-yellow-500/10 border-yellow-500": editMode() && isMobile(),
 						"bg-blue-500/15": isFocused(),
 						"bg-muted/60! hover:bg-muted/60!": contextMenuOpen(),
 						"bg-card!": dragging(),
@@ -422,7 +432,7 @@ const MessageInner: Component<{
 								</Show>
 								<div>
 									<Switch>
-										<Match when={!editMode()}>
+										<Match when={!editMode() || isMobile()}>
 											<RichTextRenderer
 												text={newText}
 												isEdited={isSubsequentMessage() && message.edited}
@@ -432,7 +442,7 @@ const MessageInner: Component<{
 												}}
 											/>
 										</Match>
-										<Match when={editMode()}>
+										<Match when={editMode() && !isMobile()}>
 											<div class="w-full">
 												<TextEditor
 													text={facetsToProseMirror(
@@ -454,48 +464,23 @@ const MessageInner: Component<{
 													onEscape={cancelEdits}
 												/>
 											</div>
-											<Show when={!isMobile()}>
-												<div class="flex flex-row items-center gap-1">
-													<small>
-														escape to{" "}
-														<button
-															type="button"
-															class="cursor-pointer hover:underline text-primary-foreground"
-															onClick={cancelEdits}
-														>
-															cancel
-														</button>
-													</small>
-													<span class="w-1 h-1 bg-muted-foreground rounded-full" />
-													<small>
-														enter to{" "}
-														<button
-															type="button"
-															class="cursor-pointer hover:underline text-primary-foreground"
-															onClick={() =>
-																submitEdits(
-																	editedText().text,
-																	editedText().facets,
-																)
-															}
-														>
-															submit
-														</button>
-													</small>
-												</div>
-											</Show>
-											<Show when={isMobile()}>
-												<div class="flex flex-row items-center gap-3">
+											<div class="flex flex-row items-center gap-1">
+												<small>
+													escape to{" "}
 													<button
 														type="button"
-														class="cursor-pointer hover:underline text-muted-foreground"
+														class="cursor-pointer hover:underline text-primary-foreground"
 														onClick={cancelEdits}
 													>
-														Cancel
+														cancel
 													</button>
+												</small>
+												<span class="w-1 h-1 bg-muted-foreground rounded-full" />
+												<small>
+													enter to{" "}
 													<button
 														type="button"
-														class="cursor-pointer hover:underline text-primary-foreground font-medium"
+														class="cursor-pointer hover:underline text-primary-foreground"
 														onClick={() =>
 															submitEdits(
 																editedText().text,
@@ -503,10 +488,10 @@ const MessageInner: Component<{
 															)
 														}
 													>
-														Save
+														submit
 													</button>
-												</div>
-											</Show>
+												</small>
+											</div>
 										</Match>
 									</Switch>
 								</div>

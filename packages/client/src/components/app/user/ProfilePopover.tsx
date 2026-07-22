@@ -23,6 +23,10 @@ import { cx } from "../../../utils/cva";
 import { parseEmojiText } from "../../../utils/emoji";
 import { LINK_REGEX } from "../../../utils/link-regex";
 import { useIsMobile } from "../../../utils/mobile-pane";
+import {
+	handleExternalLinkClick,
+	openExternalLink,
+} from "../../../utils/open-external-link";
 import { purify } from "../../..//utils/purify";
 import { badgeText, useUserBadges } from "../../../utils/user-badges";
 import { BottomSheet } from "../../ui/MenuDrawer";
@@ -33,7 +37,6 @@ import {
 	type PopoverProps,
 	PopoverTrigger,
 } from "../../ui/Popover";
-import { ScrollFadeBottom } from "../../ui/ScrollFadeBottom";
 import {
 	Tooltip,
 	TooltipContent,
@@ -140,6 +143,16 @@ export const ProfilePopoverContents: Component<{
 	const [atProtoAtTooltipVisible, setAtProtoAtTooltipVisible] =
 		createSignal(false);
 
+	const bskyProfileHref = () =>
+		`https://${
+			getBskyAlternativeClientInfo(
+				userPreferences!.preferences().preferredBlueskyClient,
+			).base
+		}/profile/${props.user.handle.replaceAll("at://", "")}`;
+
+	const atProtoAtHref = () =>
+		`https://atproto.at/uri/at://${props.user.handle.replaceAll("at://", "")}`;
+
 	const accentColor = () => props.user.data.theme?.accentColor;
 
 	const { all: allBadges } = useUserBadges(() => props.user);
@@ -245,13 +258,10 @@ export const ProfilePopoverContents: Component<{
 								<Tooltip open={bskyTooltipVisible()}>
 									<TooltipTrigger>
 										<a
-											href={`https://${
-												getBskyAlternativeClientInfo(
-													userPreferences!.preferences().preferredBlueskyClient,
-												).base
-											}/profile/${props.user.handle.replaceAll("at://", "")}`}
+											href={bskyProfileHref()}
 											target="_blank"
 											rel="noreferrer"
+											onClick={(e) => openExternalLink(bskyProfileHref(), e)}
 											style={{
 												"--hover": getBskyAlternativeClientInfo(
 													userPreferences!.preferences().preferredBlueskyClient,
@@ -289,9 +299,10 @@ export const ProfilePopoverContents: Component<{
 								<Tooltip open={atProtoAtTooltipVisible()}>
 									<TooltipTrigger>
 										<a
-											href={`https://atproto.at/uri/at://${props.user.handle.replaceAll("at://", "")}`}
+											href={atProtoAtHref()}
 											target="_blank"
 											rel="noreferrer"
+											onClick={(e) => openExternalLink(atProtoAtHref(), e)}
 											class="hover:text-[#1185fe] flex flex-row items-center gap-1.5 text-sm text-card-foreground font-normal hover:underline"
 											onMouseEnter={() => setAtProtoAtTooltipVisible(true)}
 											onMouseLeave={() => setAtProtoAtTooltipVisible(false)}
@@ -322,6 +333,7 @@ export const ProfilePopoverContents: Component<{
 					<hr class="w-full h-px border-none bg-border m-0" />
 					<p
 						class="prose dark:prose-invert text-sm m-0 px-1 wrap-anywhere"
+						onClick={handleExternalLinkClick}
 						innerHTML={detectLinksAndMentionsAndFormat(
 							props.user.data.description!,
 							userPreferences?.preferences().preferredBlueskyClient ??

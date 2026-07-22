@@ -11,22 +11,26 @@ import {
 	type ParentComponent,
 	useContext,
 } from "solid-js";
+import { toast } from "somoto";
 import { namespace } from "../atproto/cache/keys";
 import {
 	cacheEnabled,
 	readMessages,
 	writeMessages,
 } from "../atproto/cache/store";
-import { onOutboxSent } from "../atproto/outbox/outbox";
+import { enqueuePut, onOutboxSent } from "../atproto/outbox/outbox";
 import { writeReadCursor } from "../atproto/read-cursor";
 import type {
 	Message,
 	PendingMessage,
 } from "../atproto/xrpc/social/colibri/channel/listMessages";
 import type { Channel } from "../atproto/xrpc/social/colibri/community/listChannels";
+import { trimWithFacets } from "../components/app/common/rich-text-renderer/util";
 import { getAppViewDid } from "../utils/appview";
 import { AtURI } from "../utils/at-uri";
+import { clearEditDraft } from "../utils/composer-drafts";
 import { markBoot } from "../utils/perf";
+import { purify } from "../utils/purify";
 import { useCommunityContext } from "./Community";
 import { useSocketContext } from "./Socket";
 import { useUserContext } from "./User";
@@ -87,6 +91,13 @@ export type ChannelContextValue = {
 	editingMessage: Accessor<Message | undefined>;
 	setEditingMessage: (message: Message) => void;
 	clearEditingMessage: () => void;
+	submitMessageEdit: (
+		text: string,
+		facets: ColibriRichTextFacet[],
+	) => Promise<boolean>;
+	cancelMessageEdit: () => void;
+	emptyEditPendingDeletion: Accessor<Message | undefined>;
+	clearEmptyEditPendingDeletion: () => void;
 
 	/**
 	 * The URI of the message that should be scrolled into view + highlighted.
@@ -242,6 +253,11 @@ export const ChannelContextProvider: ParentComponent<{
 		undefined,
 		{ equals: false },
 	);
+	const [emptyEditPendingDeletion, setEmptyEditPendingDeletion] = createSignal<
+		Message | undefined
+	>(undefined, { equals: false });
+	const clearEmptyEditPendingDeletion = () =>
+		setEmptyEditPendingDeletion(undefined);
 	const [focusedMessage, setFocusedMessage] = createSignal<string | undefined>(
 		undefined,
 		{ equals: false },
@@ -491,6 +507,68 @@ export const ChannelContextProvider: ParentComponent<{
 		setMessages((prev) =>
 			prev.map((m) => (m.uri === uri ? { ...m, text, facets, edited } : m)),
 		);
+	};
+
+	const submitMessageEdit = async (
+		text: string,
+		facets: ColibriRichTextFacet[],
+	): Promise<boolean> => {
+		const target = editingMessage();
+		if (!target) return false;
+
+		const rkey = AtURI.parseAtURI(target.uri).identifier;
+		const trimmed = trimWithFacets({ text, facets });
+		const cleanText = purify(trimmed.text);
+		const cleanFacets = trimmed.facets;
+
+		if (cleanText.length === 0) {
+			clearEditDraft(target.uri);
+			clearEditingMessage();
+			setEmptyEditPendingDeletion(target);
+			return true;
+		}
+
+		const originalText = target.text;
+		const originalFacets = target.facets;
+		const originalEdited = target.edited;
+
+		updateMessageText(target.uri, cleanText, cleanFacets, true); // optimistic
+		clearEditDraft(target.uri);
+		clearEditingMessage();
+
+		try {
+			await enqueuePut(
+				user.did,
+				"social.colibri.message",
+				rkey,
+				{
+					text: cleanText,
+					facets: cleanFacets,
+					channel: target.channel,
+					createdAt: target.createdAt,
+					edited: true,
+					...(target.parent ? { parent: target.parent.uri } : {}),
+				},
+				{ label: "Failed to edit message." },
+			);
+		} catch {
+			updateMessageText(
+				target.uri,
+				originalText,
+				originalFacets,
+				originalEdited,
+			);
+			setEditingMessage(target);
+			toast.error("Failed to edit message.");
+		}
+
+		return true;
+	};
+
+	const cancelMessageEdit = () => {
+		const target = editingMessage();
+		if (target) clearEditDraft(target.uri);
+		clearEditingMessage();
 	};
 
 	// ---------------------------------------------------------------------------
@@ -802,6 +880,10 @@ export const ChannelContextProvider: ParentComponent<{
 		editingMessage,
 		setEditingMessage,
 		clearEditingMessage,
+		submitMessageEdit,
+		cancelMessageEdit,
+		emptyEditPendingDeletion,
+		clearEmptyEditPendingDeletion,
 		focusedMessage,
 		jumpToMessage,
 		addPendingMessage,

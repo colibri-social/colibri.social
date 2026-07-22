@@ -92,14 +92,16 @@ export const CommunityContextMenu: ParentComponent<{
 						</Show>
 						<span>{muted() ? "Unmute Community" : "Mute Community"}</span>
 					</MenuDrawerItem>
-					<MenuDrawerItem
-						onClick={() =>
-							handoffDrawer(() => setMenuOpen(false), openSettings)
-						}
-					>
-						<GearIcon />
-						<span>Settings</span>
-					</MenuDrawerItem>
+					<Show when={props.community.isOwner}>
+						<MenuDrawerItem
+							onClick={() =>
+								handoffDrawer(() => setMenuOpen(false), openSettings)
+							}
+						>
+							<GearIcon />
+							<span>Settings</span>
+						</MenuDrawerItem>
+					</Show>
 					<Show when={!props.community.isOwner}>
 						<MenuDrawerItem
 							destructive
@@ -141,16 +143,18 @@ export const CommunityContextMenu: ParentComponent<{
 								</Show>
 								<span>{muted() ? "Unmute Community" : "Mute Community"}</span>
 							</ContextMenuItem>
-							<ContextMenuItem
-								onClick={() =>
-									navigate(
-										`/app/c/${communityUriToUrlCompatible(props.community.uri)}?settings=open`,
-									)
-								}
-							>
-								<GearIcon />
-								<span>Settings</span>
-							</ContextMenuItem>
+							<Show when={props.community.isOwner}>
+								<ContextMenuItem
+									onClick={() =>
+										navigate(
+											`/app/c/${communityUriToUrlCompatible(props.community.uri)}?settings=open`,
+										)
+									}
+								>
+									<GearIcon />
+									<span>Settings</span>
+								</ContextMenuItem>
+							</Show>
 							<Show when={!props.community.isOwner}>
 								<ContextMenuSeparator />
 								<ContextMenuItem
