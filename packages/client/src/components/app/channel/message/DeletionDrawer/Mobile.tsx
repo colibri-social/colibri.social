@@ -1,16 +1,8 @@
 import type { Component } from "solid-js";
 import { useMessageContext } from "../../../../../contexts/Message";
-import {
-	Drawer,
-	DrawerContent,
-	DrawerDescription,
-	DrawerFooter,
-	DrawerHeader,
-	DrawerLabel,
-	DrawerPortal,
-} from "../../../../ui/Drawer";
+import { BottomSheet } from "../../../../ui/MenuDrawer";
 import { MessagePreview } from "../MessagePreview";
-import { DialogCancelButton, DialogConfirmButton } from "../shared";
+import { DialogConfirmButton, MobileCancelButton } from "../shared";
 import {
 	DialogDescriptionContent,
 	DialogTitleContent,
@@ -27,28 +19,20 @@ export const Mobile: Component = () => {
 	useConfirmOnEnter(deletionModalOpen, confirmDelete);
 
 	return (
-		<Drawer
-			breakPoints={[0.75]}
-			open={deletionModalOpen()}
-			onOpenChange={setDeletionModalOpen}
-		>
-			<DrawerPortal>
-				<DrawerContent>
-					<DrawerHeader>
-						<DrawerLabel class="m-0">
-							<DialogTitleContent />
-						</DrawerLabel>
-						<DrawerDescription class="m-0">
-							<DialogDescriptionContent />
-						</DrawerDescription>
-					</DrawerHeader>
-					<MessagePreview data={message} />
-					<DrawerFooter>
-						<DialogCancelButton setOpen={setDeletionModalOpen} />
-						<DialogConfirmButton onClick={confirmDelete} />
-					</DrawerFooter>
-				</DrawerContent>
-			</DrawerPortal>
-		</Drawer>
+		<BottomSheet open={deletionModalOpen()} onOpenChange={setDeletionModalOpen}>
+			<div class="flex flex-col gap-1.5 p-4">
+				<h2 class="m-0 text-foreground font-semibold">
+					<DialogTitleContent />
+				</h2>
+				<p class="m-0 text-sm text-muted-foreground">
+					<DialogDescriptionContent />
+				</p>
+			</div>
+			<MessagePreview data={message} />
+			<div class="mt-auto flex flex-col gap-2 p-4 pb-[calc(1rem+var(--safe-area-bottom))]">
+				<MobileCancelButton setOpen={setDeletionModalOpen} />
+				<DialogConfirmButton onClick={confirmDelete} />
+			</div>
+		</BottomSheet>
 	);
 };

@@ -6,6 +6,7 @@ import {
 	type TimestampStyle,
 } from "@colibri-social/lib";
 import type { Editor, MarkType, NodeType, TextType } from "@tiptap/core";
+import { emojis, shortcodeToEmoji } from "@tiptap/extension-emoji";
 import TLDs from "tlds";
 import type { TextWithFacets } from "../rich-text-renderer/util";
 
@@ -121,7 +122,8 @@ const docToSource = (
 			const isBlockLevelItem =
 				item.type !== "text" &&
 				item.type !== "hardBreak" &&
-				item.type !== "mention";
+				item.type !== "mention" &&
+				item.type !== "emoji";
 			if (isBlockLevelItem && source.length > 0 && !source.endsWith("\n")) {
 				source += "\n";
 			}
@@ -188,6 +190,14 @@ const docToSource = (
 					source += mention.attrs.label;
 				}
 
+				continue;
+			}
+
+			if (item.type === "emoji") {
+				const name = (item as unknown as { attrs: { name: string } }).attrs
+					.name;
+				const emojiItem = shortcodeToEmoji(name, emojis);
+				source += emojiItem?.emoji ?? `:${name}:`;
 				continue;
 			}
 

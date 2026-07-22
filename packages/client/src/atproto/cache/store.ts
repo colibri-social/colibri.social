@@ -4,6 +4,7 @@ import {
 	bskyMuVerificationKey,
 	bskyPostKey,
 	communityKey,
+	labelerLabelsKey,
 	messagesKey,
 } from "./keys";
 import type {
@@ -12,6 +13,7 @@ import type {
 	BskyMuVerificationSnapshot,
 	BskyPostSnapshot,
 	CommunitySnapshot,
+	LabelerLabelsSnapshot,
 	MessagesSnapshot,
 	UserSnapshot,
 } from "./schema";
@@ -189,6 +191,19 @@ export const writeBskyMuVerification = (
 	snap: BskyMuVerificationSnapshot,
 ): Promise<void> =>
 	write("bsky", bskyMuVerificationKey(did), snap).then(() =>
+		evictOldest("bsky", MAX_BSKY_ENTRIES),
+	);
+
+export const readLabelerLabels = (
+	did: string,
+): Promise<LabelerLabelsSnapshot | undefined> =>
+	read<LabelerLabelsSnapshot>("bsky", labelerLabelsKey(did));
+
+export const writeLabelerLabels = (
+	did: string,
+	snap: LabelerLabelsSnapshot,
+): Promise<void> =>
+	write("bsky", labelerLabelsKey(did), snap).then(() =>
 		evictOldest("bsky", MAX_BSKY_ENTRIES),
 	);
 

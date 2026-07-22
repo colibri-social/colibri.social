@@ -108,6 +108,11 @@ export default defineConfig({
 				access: "public",
 				optional: true,
 			}),
+			GITHUB_TOKEN: envField.string({
+				context: "server",
+				access: "secret",
+				optional: true,
+			}),
 			SENTRY_DSN: envField.string({
 				context: "client",
 				access: "public",

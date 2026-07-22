@@ -1,5 +1,23 @@
 # @colibri-social/website
 
+## 0.0.2-rc.6
+
+### Patch Changes
+
+- 7696331: Adds support for team and play store tester labels and auto updating on supported platforms
+- 7696331: Adds support for custom badges and auto-updating where supported, and fixes an issue where mobile invite modals would overflow
+- Updated dependencies [9f5b509]
+- Updated dependencies [9c7af6d]
+- Updated dependencies [7f4ad84]
+- Updated dependencies [7696331]
+- Updated dependencies [042f2c0]
+- Updated dependencies [5160d9f]
+- Updated dependencies [7696331]
+- Updated dependencies [ec472e1]
+- Updated dependencies [7696331]
+- Updated dependencies [e7b2afe]
+  - @colibri-social/client@0.1.0-rc.6
+
 ## 0.0.2-rc.5
 
 ### Patch Changes

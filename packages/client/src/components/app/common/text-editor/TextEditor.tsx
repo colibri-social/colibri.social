@@ -954,6 +954,8 @@ export const TextEditor: Component<{
 	let previousPos = -1;
 
 	createEffect(() => {
+		if (isMobile()) return;
+
 		const selectionState = selectionStateTransaction();
 		const selection = selectionState.state.selection;
 		if (!selection.empty || selection.$from.pos !== selection.$to.pos) return;
@@ -986,7 +988,7 @@ export const TextEditor: Component<{
 
 	createEffect(() => {
 		if (!editor() || editor()?.isFocused) return;
-		if (props.mainEditor && isMobile()) return;
+		if (isMobile()) return;
 
 		editor()!.commands.focus("end", { scrollIntoView: true });
 	});

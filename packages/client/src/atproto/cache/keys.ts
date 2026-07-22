@@ -14,3 +14,5 @@ export const bskyMuVerificationKey = (did: string): string =>
 	`muVerification:${did}`;
 
 export const BSKY_MU_TRUSTED_LIST_KEY = "muTrustedList";
+
+export const labelerLabelsKey = (did: string): string => `labels:${did}`;

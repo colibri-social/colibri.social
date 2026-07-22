@@ -47,6 +47,10 @@ import {
 	NotificationsContextProvider,
 	useNotifications,
 } from "../contexts/Notifications";
+import {
+	SettingsModalContextProvider,
+	useSettingsModalContext,
+} from "../contexts/SettingsModal";
 import { useSocketContext } from "../contexts/Socket";
 import { useUserContext } from "../contexts/User";
 import { useViewport } from "../contexts/Viewport";
@@ -224,7 +228,7 @@ const CommunitySidebar = (props: {
 };
 
 const AppLayout: ParentComponent = (props) => {
-	const [_userSettingsOpen, _setUserSettingsOpen] = createSignal(false);
+	const settingsModal = useSettingsModalContext();
 	const user = useUserContext();
 	const socket = useSocketContext();
 	const navigate = useNavigate();
@@ -489,7 +493,10 @@ const AppLayout: ParentComponent = (props) => {
 							</CommunityCreationModal>
 						</div>
 					</nav>
-					<UserSettingsModal>
+					<UserSettingsModal
+						open={settingsModal.open}
+						setOpen={settingsModal.setOpen}
+					>
 						<div class="w-10 flex h-10 rounded-md bg-muted hover:bg-primary hover:text-primary-foreground items-center justify-center cursor-pointer">
 							<div class="block w-fit h-fit">
 								<GearIcon />
@@ -509,7 +516,9 @@ const AppLayoutWithPreferences: ParentComponent = (props) => (
 	<MutesContextProvider>
 		<GifFavoritesContextProvider>
 			<NotificationsContextProvider>
-				<AppLayout>{props.children}</AppLayout>
+				<SettingsModalContextProvider>
+					<AppLayout>{props.children}</AppLayout>
+				</SettingsModalContextProvider>
 			</NotificationsContextProvider>
 		</GifFavoritesContextProvider>
 	</MutesContextProvider>

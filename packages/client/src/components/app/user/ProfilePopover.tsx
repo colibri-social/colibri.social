@@ -4,18 +4,23 @@ import {
 	type Component,
 	createSignal,
 	For,
+	type JSX,
 	type ParentComponent,
 	Show,
 } from "solid-js";
 import { Dynamic } from "solid-js/web";
+import PencilSimpleIcon from "~icons/ph/pencil-simple";
 import { getBskyAlternativeClientInfo } from "../../../atproto/bluesky-alternatives";
 import { resolveBlob } from "../../../atproto/resolve-blob";
 import { useCommunityContext } from "../../../contexts/Community";
+import { useSettingsModalContext } from "../../../contexts/SettingsModal";
+import { useUserContext } from "../../../contexts/User";
 import { useUserPreferences } from "../../../contexts/UserPreferences";
 import { cx } from "../../../utils/cva";
 import { LINK_REGEX } from "../../../utils/link-regex";
 import { useIsMobile } from "../../../utils/mobile-pane";
 import { purify } from "../../..//utils/purify";
+import { badgeText, useUserBadges } from "../../../utils/user-badges";
 import { BottomSheet } from "../../ui/MenuDrawer";
 import {
 	Popover,
@@ -24,6 +29,7 @@ import {
 	type PopoverProps,
 	PopoverTrigger,
 } from "../../ui/Popover";
+import { ScrollFadeBottom } from "../../ui/ScrollFadeBottom";
 import {
 	Tooltip,
 	TooltipContent,
@@ -31,7 +37,9 @@ import {
 	TooltipTrigger,
 } from "../../ui/Tooltip";
 import { Avatar } from "./Avatar";
+import { Badge } from "./Badge";
 import { DisplayableName, displayableNameFn } from "./DisplayableName";
+import { SelfStatusEditor } from "./SelfStatusEditor";
 
 /**
  * Overrides for rendering {@link ProfilePopoverContents} as a self-contained
@@ -65,7 +73,7 @@ const detectLinksAndMentionsAndFormat = (text: string) => {
 		const link = match[0];
 
 		const linkWithProtocol = link.startsWith("http") ? link : `https://${link}`;
-		const anchorTag = `<a href="${linkWithProtocol}" target="_blank" rel="noreferrer">${link}</a>`;
+		const anchorTag = `<a href="${linkWithProtocol}" rel="noreferrer" target="_blank">${link}</a>`;
 
 		modifiedText =
 			modifiedText.slice(0, index + additionalOffset) +
@@ -104,25 +112,30 @@ const detectLinksAndMentionsAndFormat = (text: string) => {
 
 export const ProfilePopoverContents: Component<{
 	user: ActorData;
-	/** Render as a static preview (see {@link ProfilePreviewOverride}). */
 	preview?: ProfilePreviewOverride;
-	/** Extra classes for the root, merged over the default `w-80`. */
 	class?: string;
+	actions?: JSX.Element;
+	onEditStatus?: () => void;
+	hideDescription?: boolean;
+	onRequestClose?: () => void;
 }> = (props) => {
 	const isPreview = () => props.preview !== undefined;
 
-	// Both providers throw when absent, so only read them outside preview mode
-	// (onboarding renders this before any community/preferences provider exists).
 	const community = props.preview ? undefined : useCommunityContext();
 	const userPreferences = props.preview ? undefined : useUserPreferences();
+	const viewer = props.preview ? undefined : useUserContext();
+	const settingsModal = props.preview ? undefined : useSettingsModalContext();
 	const userRoles = () =>
 		community ? community().utils.getRolesForUser(props.user.did) : [];
+	const isSelf = () => !isPreview() && viewer?.did === props.user.did;
 
 	const [bskyTooltipVisible, setBskyTooltipVisible] = createSignal(false);
 	const [atProtoAtTooltipVisible, setAtProtoAtTooltipVisible] =
 		createSignal(false);
 
 	const accentColor = () => props.user.data.theme?.accentColor;
+
+	const { all: allBadges } = useUserBadges(() => props.user);
 
 	const bannerUrl = () =>
 		props.preview?.bannerUrl ??
@@ -153,7 +166,7 @@ export const ProfilePopoverContents: Component<{
 					/>
 				</Show>
 			</div>
-			<div class="z-10 relative -mt-14 p-4 flex flex-col gap-2">
+			<div class="z-10 relative -mt-14 p-4 flex flex-col gap-2 pb-[calc(1rem+var(--safe-area-bottom))]">
 				<div class="flex flex-row items-center gap-4 z-50">
 					<Avatar
 						user={props.user}
@@ -162,29 +175,38 @@ export const ProfilePopoverContents: Component<{
 						disableState={isPreview()}
 					/>
 					<Show
-						when={
-							((props.user.data.status?.text?.length ?? 0) > 0 ||
-								(props.user.data.status?.emoji?.length ?? 0) > 0) &&
-							props.user.data?.onlineState !== "offline"
+						when={props.onEditStatus}
+						fallback={
+							<Show
+								when={
+									((props.user.data.status?.text?.length ?? 0) > 0 ||
+										(props.user.data.status?.emoji?.length ?? 0) > 0) &&
+									props.user.data?.onlineState !== "offline"
+								}
+							>
+								<span class="flex flex-row items-start gap-2 bg-card border border-border rounded-sm px-1.5 py-0.5 drop-shadow-black drop-shadow-sm max-w-48 overflow-hidden">
+									<Show when={props.user.data.status!.emoji}>
+										<span
+											class="h-5.5 w-5.5 [&>img]:min-w-4.5 [&>img]:min-h-4.5 [&>img]:w-4.5 [&>img]:h-4.5 [&>img]inline flex items-center justify-center"
+											innerHTML={twemoji.parse(props.user.data.status!.emoji!)}
+										/>
+									</Show>
+									<span
+										class="leading-5.5 wrap-break-word text-sm w-fit"
+										classList={{
+											"max-w-[calc(100%-22px)]":
+												!!props.user.data.status!.emoji,
+											"max-w-full": !props.user.data.status!.emoji,
+											hidden: props.user.data.status!.text.length === 0,
+										}}
+									>
+										{props.user.data.status!.text}
+									</span>
+								</span>
+							</Show>
 						}
 					>
-						<span class="flex flex-row items-start gap-2 bg-card border border-border rounded-sm px-1.5 py-0.5 drop-shadow-black drop-shadow-sm max-w-48 overflow-hidden">
-							<Show when={props.user.data.status!.emoji}>
-								<span
-									class="h-5.5 w-5.5 [&>img]:min-w-4.5 [&>img]:min-h-4.5 [&>img]:w-4.5 [&>img]:h-4.5 [&>img]inline flex items-center justify-center"
-									innerHTML={twemoji.parse(props.user.data.status!.emoji!)}
-								/>
-							</Show>
-							<span
-								class="leading-5.5 wrap-break-word text-sm w-fit"
-								classList={{
-									"max-w-[calc(100%-22px)]": !!props.user.data.status!.emoji,
-									"max-w-full": !props.user.data.status!.emoji,
-								}}
-							>
-								{props.user.data.status!.text}
-							</span>
-						</span>
+						<SelfStatusEditor onEditRequested={props.onEditStatus!} />
 					</Show>
 				</div>
 				<div class="px-1 flex flex-col">
@@ -199,7 +221,11 @@ export const ProfilePopoverContents: Component<{
 								</span>
 							}
 						>
-							<DisplayableName user={props.user} color={accentColor()} />
+							<DisplayableName
+								user={props.user}
+								color={accentColor()}
+								badge={false}
+							/>
 						</Show>
 					</span>
 					<div class="flex flex-row gap-2 items-center flex-wrap">
@@ -277,14 +303,20 @@ export const ProfilePopoverContents: Component<{
 								</Tooltip>
 							</div>
 						</Show>
+						<Show when={allBadges().length > 0}>
+							<span class="w-1 h-1 rounded-full bg-muted-foreground" />
+							<For each={allBadges()}>
+								{(val) => <Badge text={badgeText(val)} size="sm" style={val} />}
+							</For>
+						</Show>
 					</div>
 				</div>
-				<Show when={props.user.data.description}>
+				<Show when={props.user.data.description && !props.hideDescription}>
 					<hr class="w-full h-px border-none bg-border m-0" />
 					<p
-						class="prose dark:prose-invert text-sm m-0 px-1"
-						innerHTML={purify(
-							detectLinksAndMentionsAndFormat(props.user.data.description!),
+						class="prose dark:prose-invert text-sm m-0 px-1 wrap-anywhere"
+						innerHTML={detectLinksAndMentionsAndFormat(
+							props.user.data.description!,
 						)}
 					/>
 				</Show>
@@ -304,6 +336,25 @@ export const ProfilePopoverContents: Component<{
 						</For>
 					</div>
 				</Show>
+				<Show when={(isSelf() || props.actions) && !props.hideDescription}>
+					<hr class="w-full h-px border-none bg-border m-0" />
+					<div class="flex flex-col gap-1">
+						<Show when={isSelf()}>
+							<button
+								type="button"
+								class="w-full flex flex-row items-center gap-3 px-2 py-2 rounded-sm hover:bg-muted/50 cursor-pointer text-left text-sm"
+								onClick={() => {
+									props.onRequestClose?.();
+									settingsModal?.setOpen(true);
+								}}
+							>
+								<PencilSimpleIcon />
+								<span>Edit Profile</span>
+							</button>
+						</Show>
+						{props.actions}
+					</div>
+				</Show>
 			</div>
 		</div>
 	);
@@ -313,22 +364,26 @@ export const ProfilePopover: ParentComponent<{
 	user: ActorData;
 	class?: string;
 	disabled?: boolean;
-	/** Render the trigger as this element. Use "span" when the popover is
-	 *  placed inside inline text (e.g. a mention inside a <p>) so that the
-	 *  DOM stays valid — block-level <div> triggers inside <p> cause browsers
-	 *  to split the paragraph and break Kobalte's trigger detection. */
 	as?: "div" | "span";
-	/** Which side of the trigger the popover opens on. Defaults to "left". */
 	placement?: PopoverProps["placement"];
+	actions?: (close: () => void) => JSX.Element;
+	onEditStatus?: () => void;
 }> = (props) => {
 	const isMobile = useIsMobile();
 	const [open, setOpen] = createSignal(false);
+	const close = () => setOpen(false);
 
 	return (
 		<Show
 			when={isMobile()}
 			fallback={
-				<Popover preventScroll placement={props.placement ?? "left"} flip>
+				<Popover
+					preventScroll
+					placement={props.placement ?? "left"}
+					flip
+					open={open()}
+					onOpenChange={setOpen}
+				>
 					<PopoverTrigger
 						as={props.as ?? "div"}
 						class={props.class}
@@ -340,7 +395,12 @@ export const ProfilePopover: ParentComponent<{
 					</PopoverTrigger>
 					<PopoverPortal>
 						<PopoverContent class="w-80 p-0 overflow-hidden relative drop-shadow-black drop-shadow-xl">
-							<ProfilePopoverContents user={props.user} />
+							<ProfilePopoverContents
+								user={props.user}
+								actions={props.actions?.(close)}
+								onEditStatus={props.onEditStatus}
+								onRequestClose={close}
+							/>
 						</PopoverContent>
 					</PopoverPortal>
 				</Popover>
@@ -362,8 +422,14 @@ export const ProfilePopover: ParentComponent<{
 				handleOverlay
 				class="overflow-hidden"
 			>
-				<div class="min-h-0 overflow-y-auto pb-[calc(0.75rem+var(--safe-area-bottom))]">
-					<ProfilePopoverContents class="w-full" user={props.user} />
+				<div class="min-h-0 overflow-y-auto">
+					<ProfilePopoverContents
+						class="w-full"
+						user={props.user}
+						actions={props.actions?.(close)}
+						onEditStatus={props.onEditStatus}
+						onRequestClose={close}
+					/>
 				</div>
 			</BottomSheet>
 		</Show>

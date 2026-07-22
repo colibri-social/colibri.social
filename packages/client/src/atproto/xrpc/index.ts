@@ -246,6 +246,13 @@ export class XrpcClient {
 					Actor.listMutes(
 						this.authed(this.proxiedFetch, "social.colibri.actor.listMutes"),
 					),
+				getNotificationPreference: () =>
+					Actor.getNotificationPreference(
+						this.authed(
+							this.proxiedFetch,
+							"social.colibri.actor.getNotificationPreference",
+						),
+					),
 				setState: (state: string) =>
 					Actor.setState(
 						this.authed(this.proxiedFetch, "social.colibri.actor.setState"),
@@ -705,11 +712,7 @@ export class XrpcClient {
 						),
 						channel,
 					),
-				registerPush: (subscription: {
-					platform: "web" | "tauri";
-					endpoint: string;
-					keys: { p256dh: string; auth: string };
-				}) =>
+				registerPush: (subscription: Notification.PushSubscription) =>
 					Notification.registerPush(
 						this.authed(
 							this.notifFetch,
@@ -717,13 +720,14 @@ export class XrpcClient {
 						),
 						subscription,
 					),
-				unregisterPush: (endpoint: string) =>
+				unregisterPush: (endpoint: string, provider?: string) =>
 					Notification.unregisterPush(
 						this.authed(
 							this.notifFetch,
 							"social.colibri.notification.unregisterPush",
 						),
 						endpoint,
+						provider,
 					),
 			},
 			sync: {

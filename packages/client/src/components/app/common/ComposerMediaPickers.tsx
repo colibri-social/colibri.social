@@ -89,7 +89,7 @@ export const ComposerMediaPickers: Component<{
 				<SmileyIcon width={20} height={20} />
 			</button>
 			<BottomSheet open={drawerOpen()} onOpenChange={setDrawerOpen}>
-				<div class="flex flex-col px-3 pb-[calc(0.75rem+var(--safe-area-bottom))]">
+				<div class="flex flex-col px-3 pb-[calc(0.75rem+var(--safe-area-bottom))] pt-2">
 					<Show when={drawerOpen()}>
 						<Tabs
 							value={tab()}
@@ -107,6 +107,7 @@ export const ComposerMediaPickers: Component<{
 										props.onEmojiSelect(emoji.emoji);
 										setDrawerOpen(false);
 									}}
+									edgeFade
 								/>
 							</TabsContent>
 							<TabsContent value="gif">
@@ -115,6 +116,7 @@ export const ComposerMediaPickers: Component<{
 										props.onGifSelect(gif);
 										setDrawerOpen(false);
 									}}
+									edgeFade
 								/>
 							</TabsContent>
 						</Tabs>

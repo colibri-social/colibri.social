@@ -23,6 +23,7 @@ import {
 import { urlSegmentToUri } from "./atproto/community-uri-to-url-compatible";
 import { OutboxController } from "./atproto/outbox/OutboxController";
 import { AppLoadingScreen } from "./components/AppLoadingScreen";
+import { AutoUpdater } from "./components/app/AutoUpdater";
 import { InviteModal } from "./components/app/community/InviteModal";
 import { ScopeGate } from "./components/app/onboarding/ScopeGate";
 import { VoiceChannelView } from "./components/app/VoiceChannelView";
@@ -116,6 +117,7 @@ const AppErrorScreen: Component<{ error: unknown; reset: () => void }> = (
 const RootLayout: ParentComponent = (props) => (
 	<>
 		<DeepLinkListener />
+		<AutoUpdater />
 		{props.children}
 	</>
 );

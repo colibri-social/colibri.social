@@ -343,7 +343,7 @@ export const GeneralPage: Component = () => {
 							maxLength={256}
 							required
 							disabled={syncBluesky()}
-							class="resize-none"
+							class="resize-none text-sm sm:text-base"
 						/>
 					</TextField>
 				</div>

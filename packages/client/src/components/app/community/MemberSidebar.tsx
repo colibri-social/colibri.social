@@ -38,16 +38,18 @@ const MemberRow = (props: {
 					onPointerDown={(e) => e.button !== 0 && e.stopPropagation()}
 				>
 					<User.Avatar user={props.member} />
-					<div class="flex flex-col w-[calc(100%-36px-8px)]">
-						<span class="font-medium leading-5 overflow-hidden text-ellipsis flex flex-row items-center gap-2">
-							<User.DisplayableName user={props.member} />
+					<div class="flex flex-col w-[calc(100%-36px-8px)] min-w-0">
+						<span class="font-medium leading-5 flex flex-row items-center gap-2">
+							<User.DisplayableName user={props.member} className="min-w-0" />
 							<Show when={community().ownerDid() === props.member.did}>
-								<Tooltip>
-									<TooltipTrigger>
-										<CrownIcon class="text-yellow-400 w-4 h-4" />
-									</TooltipTrigger>
-									<TooltipContent>Community Owner</TooltipContent>
-								</Tooltip>
+								<span class="shrink-0 flex">
+									<Tooltip>
+										<TooltipTrigger>
+											<CrownIcon class="text-yellow-400 w-4 h-4" />
+										</TooltipTrigger>
+										<TooltipContent>Community Owner</TooltipContent>
+									</Tooltip>
+								</span>
 							</Show>
 						</span>
 						<Show
@@ -112,7 +114,15 @@ export const MemberSidebar = () => {
 
 	const displayMembersAsSheet = createMediaQuery("(max-width: 1280px)");
 	const { preferences, toggleMembersVisible } = useUserPreferences();
-	const { isMobile, currentPane, popPane, pushDeeper } = createMobilePane();
+	const {
+		isMobile,
+		currentPane,
+		popPane,
+		pushDeeper,
+		updateDrag,
+		paneTransform,
+		isDragging,
+	} = createMobilePane();
 	const mutes = useMutes();
 
 	const currentChannelUri = createMemo(() => {
@@ -129,16 +139,19 @@ export const MemberSidebar = () => {
 					enabled: () => isMobile(),
 					onSwipeRight: () => popPane(),
 					onSwipeLeft: () => pushDeeper(),
+					onSwipeMove: updateDrag,
 				})
 			}
 			class="flex flex-col border-border bg-background"
+			style={{ transform: paneTransform("members") }}
 			classList={{
 				"min-w-72 w-72 h-full border-l z-50": !isMobile(),
 				"absolute top-0 right-0 h-full drop-shadow-black drop-shadow-2xl":
 					!isMobile() && displayMembersAsSheet(),
 				hidden: !isMobile() && !preferences().membersListVisible,
-				"absolute inset-0 w-full h-full z-30 transition-transform duration-200 ease-out motion-reduce:transition-none":
-					isMobile(),
+				"absolute inset-0 w-full h-full z-30": isMobile(),
+				"transition-transform duration-200 ease-out motion-reduce:transition-none":
+					isMobile() && !isDragging(),
 				"translate-x-full": isMobile() && currentPane() !== "members",
 			}}
 		>

@@ -212,6 +212,8 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 	let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 	let statsTimer: ReturnType<typeof setTimeout> | null = null;
 	let statsGen = 0;
+	let pendingVideoTeardown: Promise<void> | null = null;
+	const videoTrackListeners = new Map<VideoSource, () => void>();
 
 	const consumers = new Map<string, types.Consumer>();
 	const audioEls = new Map<string, { el: HTMLAudioElement; did: string }>();
@@ -449,9 +451,15 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 		localSpeaking = false;
 		serverSpeakers = [];
 
+		// Only stop the local tracks here — do NOT call producer.close(). That
+		// triggers mediasoup-client's async stopSending() renegotiation
+		// (createOffer/setLocalDescription/setRemoteDescription on the real
+		// RTCPeerConnection), which sendTransport.close() below can then abort
+		// mid-flight by closing the underlying RTCPeerConnection out from
+		// under it. Closing the transport already closes every producer on it
+		// synchronously via transportClosed(), with no renegotiation involved.
 		for (const producer of [micProducer, camProducer, screenProducer]) {
 			producer?.track?.stop();
-			producer?.close();
 		}
 		micProducer = null;
 		camProducer = null;
@@ -1009,8 +1017,17 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 
 		if (uri) applyPresence("leave", uri, user.did);
 
-		teardown();
-		resetState();
+		const wait = pendingVideoTeardown;
+		pendingVideoTeardown = null;
+		if (wait) {
+			void wait.then(() => {
+				teardown();
+				resetState();
+			});
+		} else {
+			teardown();
+			resetState();
+		}
 	};
 
 	const setMic = (enabled: boolean): void => {
@@ -1069,10 +1086,9 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 		if (which === "cam") camProducer = producer;
 		else screenProducer = producer;
 
-		track.addEventListener("ended", () => {
-			if (which === "cam") stopVideo("cam");
-			else stopVideo("screen");
-		});
+		const onEnded = (): void => stopVideo(which);
+		videoTrackListeners.set(which, onEnded);
+		track.addEventListener("ended", onEnded);
 	};
 
 	const stopVideo = (which: VideoSource): void => {
@@ -1081,10 +1097,22 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 
 		if (!producer) return;
 
+		const onEnded = videoTrackListeners.get(which);
+		if (onEnded) {
+			producer.track?.removeEventListener("ended", onEnded);
+			videoTrackListeners.delete(which);
+		}
+
 		send({ action: "closeProducer", producerId: producer.id });
 
 		producer.track?.stop();
 		producer.close();
+		// producer.close() kicks off mediasoup-client's async stopSending()
+		// renegotiation on the RTCPeerConnection. If the user hits "Leave"
+		// right after toggling off cam/screen, disconnect() waits this out
+		// before closing the transport, so it can't abort that renegotiation
+		// mid-flight (a real cause of native WebRTC crashes on close).
+		pendingVideoTeardown = new Promise((resolve) => setTimeout(resolve, 300));
 
 		if (which === "cam") {
 			camProducer = null;

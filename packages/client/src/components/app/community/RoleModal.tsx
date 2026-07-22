@@ -284,7 +284,7 @@ export const RoleModal: ParentComponent<{
 															<CheckboxInput />
 														</div>
 													</Checkbox>
-													<Separator class="my-2" />
+													<Separator class="my-1" />
 												</>
 											)}
 										</For>

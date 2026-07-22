@@ -1,9 +1,16 @@
-import { createEffect, type ParentComponent } from "solid-js";
+import {
+	type Accessor,
+	createEffect,
+	type ParentComponent,
+	type Setter,
+} from "solid-js";
 import ArrowLineLeftIcon from "~icons/ph/arrow-line-left";
 import BellIcon from "~icons/ph/bell";
 import BugIcon from "~icons/ph/bug";
 import CameraIcon from "~icons/ph/camera";
 import FlaskIcon from "~icons/ph/flask";
+import HandTapIcon from "~icons/ph/hand-tap";
+import InfoIcon from "~icons/ph/info";
 import MicrophoneIcon from "~icons/ph/microphone";
 import SmileyIcon from "~icons/ph/smiley";
 import UserCircleIcon from "~icons/ph/user-circle";
@@ -14,7 +21,10 @@ import { useUserContext } from "../../../contexts/User";
 import { EXPERIMENTS } from "../../../experiments";
 import { isWebRuntime } from "../../../notifications";
 import { unsubscribeWebPush } from "../../../notifications/push-web";
+import { isMobileNow } from "../../../utils/mobile-pane";
 import { SettingsModal } from "../common/SettingsModal";
+import { AboutPage } from "./AboutPage";
+import { ControlsPage } from "./ControlsPage";
 import { DebugPage } from "./DebugPage";
 import { ExperimentsPage } from "./ExperimentsPage";
 import { GeneralPage } from "./GeneralPage";
@@ -24,9 +34,14 @@ import { StatusPage } from "./StatusPage";
 import { VideoPage } from "./VideoPage";
 import { VoicePage } from "./VoicePage";
 
-export const UserSettingsModal: ParentComponent = (props) => {
+export const UserSettingsModal: ParentComponent<{
+	open?: Accessor<boolean>;
+	setOpen?: Setter<boolean>;
+}> = (props) => {
 	return (
 		<SettingsModal
+			open={props.open}
+			setOpen={props.setOpen}
 			pages={[
 				{
 					title: "Profile",
@@ -65,11 +80,24 @@ export const UserSettingsModal: ParentComponent = (props) => {
 					icon: () => <WrenchIcon />,
 				},
 				{
+					title: "Controls",
+					id: "controls",
+					component: ControlsPage,
+					icon: () => <HandTapIcon />,
+					visible: isMobileNow,
+				},
+				{
 					title: "Experiments",
 					id: "experiments",
 					component: ExperimentsPage,
 					icon: () => <FlaskIcon />,
 					visible: () => EXPERIMENTS.length > 0,
+				},
+				{
+					title: "About",
+					id: "about",
+					component: AboutPage,
+					icon: () => <InfoIcon />,
 				},
 			]}
 			debugPage={{

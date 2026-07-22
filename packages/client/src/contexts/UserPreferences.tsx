@@ -52,6 +52,16 @@ export interface VolumeOverrides {
 	};
 }
 
+export type SwipeLeftAction = "members" | "reply";
+export type DoubleTapAction = "react" | "editOrReply";
+
+export interface ControlsPreferences {
+	swipeLeftAction: SwipeLeftAction;
+	doubleTapEnabled: boolean;
+	doubleTapAction: DoubleTapAction;
+	doubleTapReactionEmoji: string;
+}
+
 export type UserPreferencesContextData = {
 	membersListVisible: boolean;
 	/** Whether the "messages are public" reminder banner has been dismissed. */
@@ -76,6 +86,7 @@ export type UserPreferencesContextData = {
 	recentGifs: Array<GifItem>;
 	/** Per-experiment opt-in state, keyed by experiment id. */
 	experiments: Record<string, boolean>;
+	controls: ControlsPreferences;
 };
 
 const DEFAULT_PREFERENCES: UserPreferencesContextData = {
@@ -111,6 +122,12 @@ const DEFAULT_PREFERENCES: UserPreferencesContextData = {
 	sharePresence: true,
 	recentGifs: [],
 	experiments: {},
+	controls: {
+		swipeLeftAction: "members",
+		doubleTapEnabled: false,
+		doubleTapAction: "react",
+		doubleTapReactionEmoji: "👍",
+	},
 };
 
 function loadFromStorage(): UserPreferencesContextData {
@@ -145,6 +162,7 @@ function loadFromStorage(): UserPreferencesContextData {
 			...parsed,
 			membersListVisible: DEFAULT_PREFERENCES.membersListVisible,
 			voice: { ...DEFAULT_PREFERENCES.voice, ...parsedVoice, input },
+			controls: { ...DEFAULT_PREFERENCES.controls, ...(parsed.controls ?? {}) },
 		};
 	} catch {
 		return DEFAULT_PREFERENCES;
@@ -175,6 +193,7 @@ type UserPreferencesContextValue = {
 	setSharePresence: (enabled: boolean) => void;
 	pushRecentGif: (gif: GifItem) => void;
 	setExperiment: (id: string, enabled: boolean) => void;
+	updateControls: (patch: Partial<ControlsPreferences>) => void;
 };
 
 const UserPreferencesContext = createContext<UserPreferencesContextValue>();
@@ -302,6 +321,10 @@ export const UserPreferencesContextProvider: ParentComponent = (props) => {
 		}));
 	};
 
+	const updateControls = (patch: Partial<ControlsPreferences>) => {
+		setPreferences((p) => ({ ...p, controls: { ...p.controls, ...patch } }));
+	};
+
 	return (
 		<UserPreferencesContext.Provider
 			value={{
@@ -322,6 +345,7 @@ export const UserPreferencesContextProvider: ParentComponent = (props) => {
 				setSharePresence,
 				pushRecentGif,
 				setExperiment,
+				updateControls,
 			}}
 		>
 			{props.children}

@@ -83,6 +83,7 @@ const isViewingChannel = (pathname: string, channelUri: string): boolean => {
 
 const kindLabel = (kind: string, mentionRoleName?: string): string => {
 	if (kind === "reply") return "Replied to you";
+	if (kind === "message") return "New message";
 	if (mentionRoleName) return `Mentioned you via @${mentionRoleName}`;
 	return "Mentioned you";
 };

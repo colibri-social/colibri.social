@@ -1,6 +1,7 @@
 import type { ActorData, ColibriRichTextLink } from "@colibri-social/lib";
 import twemoji from "@twemoji/api";
 import {
+	batch,
 	type Component,
 	createSignal,
 	For,
@@ -22,7 +23,10 @@ import {
 } from "../../../../contexts/Message";
 import { useStableMedia } from "../../../../contexts/ScrollAnchor";
 import { useUserContext } from "../../../../contexts/User";
+import { useUserPreferences } from "../../../../contexts/UserPreferences";
+import { createDoubleTap } from "../../../../utils/create-double-tap";
 import { createLongPress } from "../../../../utils/create-long-press";
+import { createSwipe } from "../../../../utils/create-swipe";
 import { useIsMobile } from "../../../../utils/mobile-pane";
 import {
 	Tooltip,
@@ -76,6 +80,7 @@ const MessageInner: Component<{
 	const community = useCommunityContext();
 	const stableMedia = useStableMedia();
 	const isMobile = useIsMobile();
+	const { preferences } = useUserPreferences();
 
 	const {
 		message,
@@ -159,365 +164,478 @@ const MessageInner: Component<{
 		);
 	};
 
+	const REPLY_SWIPE_THRESHOLD = 60;
+	const MAX_REPLY_DRAG = 88;
+
+	const [dragX, setDragX] = createSignal(0);
+	const [dragging, setDragging] = createSignal(false);
+
+	const swipeReplyEnabled = () =>
+		isMobile() &&
+		!isPending() &&
+		preferences().controls.swipeLeftAction === "reply";
+	const doubleTapEnabled = () =>
+		isMobile() && !isPending() && preferences().controls.doubleTapEnabled;
+
+	const replyRevealProgress = () =>
+		Math.min(1, Math.abs(dragX()) / REPLY_SWIPE_THRESHOLD);
+
+	const bottomSpacingClass = () => {
+		if (message.reactions.length > 0) return "pb-2";
+		if (props.hasSubsequent) return "pb-0.5";
+		return "pb-0";
+	};
+
+	const handleDoubleTap = () => {
+		const controls = preferences().controls;
+		if (controls.doubleTapAction === "react") {
+			addReactionOptimistic(controls.doubleTapReactionEmoji);
+		} else if (messageEditable()) {
+			enableEditMode();
+		} else {
+			enableReplyMode();
+		}
+	};
+
 	return (
 		<MessageContextMenu>
 			<div
-				ref={(el) =>
-					createLongPress(el, {
-						enabled: () => isMobile() && !isPending(),
-						onLongPress: () => setContextMenuOpen(true),
-					})
-				}
-				class={`w-full h-fit flex flex-col pr-4 pl-3.5 gap-1 group border-l-2 relative hover:bg-card/50 transition-colors duration-75`}
-				data-message={JSON.stringify(message)}
-				data-message-uri={message.uri}
-				classList={{
-					"pb-0 pt-0.5": isSubsequentMessage(),
-					"pb-0 pt-1 mt-2": !isSubsequentMessage(),
-					"border-transparent": !isRepliedTo(),
-					"bg-primary/10 hover:bg-primary/15! border-primary!":
-						containsMentionOrIsReplyToUser(),
-					"bg-blue-500/5 hover:bg-blue-500/10! border-blue-500": isRepliedTo(),
-					"bg-blue-500/15": isFocused(),
-					// Long-press highlight while the mobile context-menu drawer is open.
-					"bg-muted/60! hover:bg-muted/60!": contextMenuOpen(),
-					"pb-0.5": props.hasSubsequent,
-					"pb-2": message.reactions.length > 0,
-				}}
+				class="relative w-full"
+				classList={{ "overflow-x-hidden": swipeReplyEnabled() }}
 			>
-				<BlockDrawer />
-				<DeletionDrawer />
-				<Show when={message.parent}>
-					<div class="flex flex-row gap-4 group/reply cursor-pointer w-full max-w-full">
-						<button
-							type="button"
-							class="before:w-8 before:block before:h-2 before:border-t before:border-l before:border-muted-foreground/50 before:rounded-tl-sm w-10 h-4 relative before:absolute before:translate-y-0.75 before:left-5.5 before:transform before:-translate-x-1 group-hover/reply:before:border-foreground cursor-pointer"
-							onClick={() => channel.jumpToMessage(message.parent!.uri)}
-						/>
+				<Show when={swipeReplyEnabled() && dragging()}>
+					<div class="absolute inset-0 bg-primary pointer-events-none">
 						<div
-							class="flex flex-row items-center gap-2 group-hover/reply:text-foreground w-full max-w-[calc(100%-4rem)]"
-							onClick={() => channel.jumpToMessage(message.parent!.uri)}
+							class="absolute top-1/2 text-white"
+							style={{
+								right: `${Math.max(4, Math.abs(dragX()) / 2 - 10)}px`,
+								opacity: replyRevealProgress(),
+								transform: `translateY(-50%) translateX(${(1 - replyRevealProgress()) * 24}px)`,
+							}}
 						>
-							<User.Avatar
-								user={resolveAuthor(message.parent!.author)}
-								size="small"
-								disableState
-							/>
-							<strong class="text-xs block">
-								<User.DisplayableName
-									user={resolveAuthor(message.parent!.author)}
-								/>
-							</strong>
-							<span class="text-xs overflow-hidden text-ellipsis text-nowrap flex-1">
-								{message.parent!.text}
-							</span>
+							<ArrowBendUpLeft class="size-5" />
 						</div>
 					</div>
 				</Show>
-				<div class="flex flex-row gap-4">
-					<Switch>
-						<Match when={!isSubsequentMessage()}>
-							<User.ProfilePopover
-								user={resolveAuthor(message.author)}
-								class="w-10 h-10 rounded-full cursor-pointer"
-								disabled={isPending()}
+				<div
+					ref={(el) => {
+						createLongPress(el, {
+							enabled: () => isMobile() && !isPending(),
+							onLongPress: () => setContextMenuOpen(true),
+						});
+						createSwipe(el, {
+							enabled: swipeReplyEnabled,
+							threshold: REPLY_SWIPE_THRESHOLD,
+							onSwipeLeft: enableReplyMode,
+							onSwipeMove: (dx) => {
+								batch(() => {
+									if (dx === null) {
+										setDragging(false);
+										setDragX(0);
+										return;
+									}
+									setDragging(true);
+									setDragX(Math.min(0, Math.max(dx, -MAX_REPLY_DRAG)));
+								});
+							},
+						});
+						createDoubleTap(el, {
+							enabled: doubleTapEnabled,
+							onDoubleTap: handleDoubleTap,
+						});
+					}}
+					class={`w-full h-fit flex flex-col pr-4 pl-3.5 gap-1 group border-l-2 relative hover:bg-card/50`}
+					style={{
+						transform: dragX() !== 0 ? `translateX(${dragX()}px)` : undefined,
+						"border-radius": dragging()
+							? `${replyRevealProgress() * 16}px`
+							: undefined,
+					}}
+					data-message={JSON.stringify(message)}
+					data-message-uri={message.uri}
+					classList={{
+						"pt-0.5": isSubsequentMessage(),
+						"pt-1 mt-2": !isSubsequentMessage(),
+						"border-transparent": !isRepliedTo(),
+						"bg-primary/10 hover:bg-primary/15! border-primary!":
+							containsMentionOrIsReplyToUser(),
+						"bg-blue-500/5 hover:bg-blue-500/10! border-blue-500":
+							isRepliedTo(),
+						"bg-blue-500/15": isFocused(),
+						"bg-muted/60! hover:bg-muted/60!": contextMenuOpen(),
+						"bg-card": dragging(),
+						"transition-colors duration-75": !dragging(),
+						"transition-[transform,border-radius] duration-150 ease-out":
+							!dragging(),
+						[bottomSpacingClass()]: true,
+					}}
+				>
+					<BlockDrawer />
+					<DeletionDrawer />
+					<Show when={message.parent}>
+						<div class="flex flex-row gap-4 group/reply cursor-pointer w-full max-w-full">
+							<button
+								type="button"
+								class="before:w-8 before:block before:h-2 before:border-t before:border-l before:border-muted-foreground/50 before:rounded-tl-sm w-10 h-4 relative before:absolute before:translate-y-0.75 before:left-5.5 before:transform before:-translate-x-1 group-hover/reply:before:border-foreground cursor-pointer"
+								onClick={() => channel.jumpToMessage(message.parent!.uri)}
+							/>
+							<div
+								class="flex flex-row items-center gap-2 group-hover/reply:text-foreground w-full max-w-[calc(100%-4rem)]"
+								onClick={() => channel.jumpToMessage(message.parent!.uri)}
 							>
 								<User.Avatar
-									user={resolveAuthor(message.author)}
+									user={resolveAuthor(message.parent!.author)}
+									size="small"
 									disableState
 								/>
-							</User.ProfilePopover>
-						</Match>
-						<Match when={isSubsequentMessage()}>
-							<div class="w-10 h-8 min-w-10 min-h-8 text-muted-foreground group-hover:opacity-100 opacity-0 text-xs flex items-center justify-center">
-								<span class="whitespace-nowrap">
-									{new Date(message.createdAt).toLocaleTimeString(undefined, {
-										hour: "2-digit",
-										minute: "2-digit",
-									})}
+								<strong class="text-xs block">
+									<User.DisplayableName
+										user={resolveAuthor(message.parent!.author)}
+									/>
+								</strong>
+								<span class="text-xs overflow-hidden text-ellipsis text-nowrap flex-1">
+									{message.parent!.text}
 								</span>
 							</div>
-						</Match>
-					</Switch>
-					<Show
-						when={
-							!("hash" in message) &&
-							(((message.attachments || []).length > 0 &&
-								message.text.trim().length === 0) ||
-								isLoneGif())
-						}
-					>
-						<div
-							class="pb-2 flex flex-col gap-1 w-full max-w-[calc(100%-4rem)]"
-							classList={{
-								"pt-2": isSubsequentMessage(),
-							}}
-						>
-							<Show when={!isSubsequentMessage()}>
-								<div class="flex gap-2 text-sm items-baseline">
-									<User.ProfilePopover
-										user={resolveAuthor(message.author)}
-										disabled={isPending()}
-									>
-										<span class="font-bold cursor-pointer">
-											<User.DisplayableName
-												user={resolveAuthor(message.author)}
-												className="hover:underline"
-											/>
-										</span>
-									</User.ProfilePopover>
-									<small class="text-muted-foreground">
-										<MessageTimestamp datetime={message.createdAt} />
-									</small>
-									<Show when={message.edited}>
-										<small class="text-muted-foreground">(edited)</small>
-									</Show>
-								</div>
-							</Show>
-
-							<Show
-								when={isLoneGif()}
-								fallback={
-									<MessageAttachments
-										did={message.author.did}
-										attachments={message.attachments || []}
-									/>
-								}
-							>
-								<Embed uri={linkFacets()[0].uri} />
-							</Show>
 						</div>
 					</Show>
-					<Show when={message.text.trim().length > 0 && !isLoneGif()}>
-						<div class="flex flex-col w-full min-w-0 justify-center">
-							<Show when={!isSubsequentMessage()}>
-								<div class="flex gap-2 text-sm items-baseline">
-									<User.ProfilePopover
+					<div class="flex flex-row gap-4">
+						<Switch>
+							<Match when={!isSubsequentMessage()}>
+								<User.ProfilePopover
+									user={resolveAuthor(message.author)}
+									class="w-10 h-10 rounded-full cursor-pointer pt-0.5"
+									disabled={isPending()}
+								>
+									<User.Avatar
 										user={resolveAuthor(message.author)}
-										disabled={isPending()}
-									>
-										<div class="flex flex-row items-center gap-2">
-											<span class="font-bold hover:underline cursor-pointer">
+										disableState
+									/>
+								</User.ProfilePopover>
+							</Match>
+							<Match when={isSubsequentMessage()}>
+								<div class="w-10 h-8 min-w-10 min-h-8 text-muted-foreground group-hover:opacity-100 opacity-0 text-xs flex items-center justify-center">
+									<span class="whitespace-nowrap">
+										{new Date(message.createdAt).toLocaleTimeString(undefined, {
+											hour: "2-digit",
+											minute: "2-digit",
+										})}
+									</span>
+								</div>
+							</Match>
+						</Switch>
+						<Show
+							when={
+								!("hash" in message) &&
+								(((message.attachments || []).length > 0 &&
+									message.text.trim().length === 0) ||
+									isLoneGif())
+							}
+						>
+							<div
+								class="pb-2 flex flex-col gap-1 w-full max-w-[calc(100%-4rem)]"
+								classList={{
+									"pt-2": isSubsequentMessage(),
+								}}
+							>
+								<Show when={!isSubsequentMessage()}>
+									<div class="flex gap-2 text-sm items-baseline">
+										<User.ProfilePopover
+											user={resolveAuthor(message.author)}
+											disabled={isPending()}
+										>
+											<span class="font-bold cursor-pointer">
 												<User.DisplayableName
 													user={resolveAuthor(message.author)}
 													className="hover:underline"
 												/>
 											</span>
-										</div>
-									</User.ProfilePopover>
-									<small class="text-muted-foreground">
-										<MessageTimestamp datetime={message.createdAt} />
-									</small>
-									<Show when={message.edited}>
-										<small class="text-muted-foreground">(edited)</small>
-									</Show>
-								</div>
-							</Show>
-							<div>
-								<Switch>
-									<Match when={!editMode()}>
-										<RichTextRenderer
-											text={newText}
-											isEdited={isSubsequentMessage() && message.edited}
-											classList={{
-												"text-muted-foreground": isPending(),
-												"text-foreground": !isPending(),
-											}}
+										</User.ProfilePopover>
+										<small class="text-muted-foreground">
+											<MessageTimestamp datetime={message.createdAt} />
+										</small>
+										<Show when={message.edited}>
+											<small class="text-muted-foreground">(edited)</small>
+										</Show>
+									</div>
+								</Show>
+
+								<Show
+									when={isLoneGif()}
+									fallback={
+										<MessageAttachments
+											did={message.author.did}
+											attachments={message.attachments || []}
 										/>
-									</Match>
-									<Match when={editMode()}>
-										<div class="w-full">
-											<TextEditor
-												text={facetsToProseMirror(
-													editedText().text,
-													editedText().facets || [],
-													community().members || [],
-													community().channels || [],
-													community().assignableRoles || [],
-												)}
-												placeholder=""
-												submitOnEnter
-												onChange={(text, facets) => {
-													saveEditedText(text, facets);
-												}}
-												sendMessage={async (text, facets) => {
-													submitEdits(text, facets);
-													return false;
-												}}
-												onEscape={cancelEdits}
-											/>
-										</div>
-										<div class="flex flex-row items-center gap-1">
-											<small>
-												escape to{" "}
-												<button
-													type="button"
-													class="cursor-pointer hover:underline text-primary-foreground"
-													onClick={cancelEdits}
-												>
-													cancel
-												</button>
-											</small>
-											<span class="w-1 h-1 bg-muted-foreground rounded-full" />
-											<small>
-												enter to{" "}
-												<button
-													type="button"
-													class="cursor-pointer hover:underline text-primary-foreground"
-													onClick={() =>
-														submitEdits(editedText().text, editedText().facets)
-													}
-												>
-													submit
-												</button>
-											</small>
-										</div>
-									</Match>
-								</Switch>
-							</div>
-						</div>
-					</Show>
-					<Show when={!isPending() && !isMobile()}>
-						<div
-							class="absolute top-0 right-4 transform -translate-y-1/2 flex flex-row h-8 bg-card border border-border rounded-sm overflow-hidden z-10"
-							classList={{
-								"invisible pointer-events-none group-hover:visible group-hover:pointer-events-auto":
-									!emojiPopoverOpen(),
-							}}
-						>
-							<EmojiPopover
-								emojiPopoverOpen={emojiPopoverOpen}
-								setEmojiPopoverOpen={setEmojiPopoverOpen}
-								addReactionOptimistic={addReactionOptimistic}
-							>
-								<Action tooltipText="Add reaction">
-									<SmileyIcon />
-								</Action>
-							</EmojiPopover>
-							<Action tooltipText="Reply" onClick={enableReplyMode}>
-								<ArrowBendUpLeft />
-							</Action>
-							<Show when={isAdmin() && message.author.did !== user.did}>
-								<Action
-									tooltipText="Block"
-									buttonClasses="text-destructive"
-									onClick={(e) => {
-										handlePotentialBlock(e);
-									}}
+									}
 								>
-									<ProhibitIcon />
+									<Embed uri={linkFacets()[0].uri} />
+								</Show>
+							</div>
+						</Show>
+						<Show when={message.text.trim().length > 0 && !isLoneGif()}>
+							<div class="flex flex-col w-full min-w-0 justify-center">
+								<Show when={!isSubsequentMessage()}>
+									<div class="flex gap-2 text-sm items-baseline">
+										<User.ProfilePopover
+											user={resolveAuthor(message.author)}
+											disabled={isPending()}
+										>
+											<div class="flex flex-row items-center gap-2">
+												<span class="font-bold hover:underline cursor-pointer">
+													<User.DisplayableName
+														user={resolveAuthor(message.author)}
+														className="hover:underline"
+													/>
+												</span>
+											</div>
+										</User.ProfilePopover>
+										<small class="text-muted-foreground">
+											<MessageTimestamp datetime={message.createdAt} />
+										</small>
+										<Show when={message.edited}>
+											<small class="text-muted-foreground">(edited)</small>
+										</Show>
+									</div>
+								</Show>
+								<div>
+									<Switch>
+										<Match when={!editMode()}>
+											<RichTextRenderer
+												text={newText}
+												isEdited={isSubsequentMessage() && message.edited}
+												classList={{
+													"text-muted-foreground": isPending(),
+													"text-foreground": !isPending(),
+												}}
+											/>
+										</Match>
+										<Match when={editMode()}>
+											<div class="w-full">
+												<TextEditor
+													text={facetsToProseMirror(
+														editedText().text,
+														editedText().facets || [],
+														community().members || [],
+														community().channels || [],
+														community().assignableRoles || [],
+													)}
+													placeholder=""
+													submitOnEnter={!isMobile()}
+													onChange={(text, facets) => {
+														saveEditedText(text, facets);
+													}}
+													sendMessage={async (text, facets) => {
+														submitEdits(text, facets);
+														return false;
+													}}
+													onEscape={cancelEdits}
+												/>
+											</div>
+											<Show when={!isMobile()}>
+												<div class="flex flex-row items-center gap-1">
+													<small>
+														escape to{" "}
+														<button
+															type="button"
+															class="cursor-pointer hover:underline text-primary-foreground"
+															onClick={cancelEdits}
+														>
+															cancel
+														</button>
+													</small>
+													<span class="w-1 h-1 bg-muted-foreground rounded-full" />
+													<small>
+														enter to{" "}
+														<button
+															type="button"
+															class="cursor-pointer hover:underline text-primary-foreground"
+															onClick={() =>
+																submitEdits(
+																	editedText().text,
+																	editedText().facets,
+																)
+															}
+														>
+															submit
+														</button>
+													</small>
+												</div>
+											</Show>
+											<Show when={isMobile()}>
+												<div class="flex flex-row items-center gap-3">
+													<button
+														type="button"
+														class="cursor-pointer hover:underline text-muted-foreground"
+														onClick={cancelEdits}
+													>
+														Cancel
+													</button>
+													<button
+														type="button"
+														class="cursor-pointer hover:underline text-primary-foreground font-medium"
+														onClick={() =>
+															submitEdits(
+																editedText().text,
+																editedText().facets,
+															)
+														}
+													>
+														Save
+													</button>
+												</div>
+											</Show>
+										</Match>
+									</Switch>
+								</div>
+							</div>
+						</Show>
+						<Show when={!isPending() && !isMobile()}>
+							<div
+								class="absolute top-0 right-4 transform -translate-y-1/2 flex flex-row h-8 bg-card border border-border rounded-sm overflow-hidden z-10"
+								classList={{
+									"invisible pointer-events-none group-hover:visible group-hover:pointer-events-auto":
+										!emojiPopoverOpen(),
+								}}
+							>
+								<EmojiPopover
+									emojiPopoverOpen={emojiPopoverOpen}
+									setEmojiPopoverOpen={setEmojiPopoverOpen}
+									addReactionOptimistic={addReactionOptimistic}
+								>
+									<Action tooltipText="Add reaction">
+										<SmileyIcon />
+									</Action>
+								</EmojiPopover>
+								<Action tooltipText="Reply" onClick={enableReplyMode}>
+									<ArrowBendUpLeft />
 								</Action>
-							</Show>
-							<Show when={messageEditable()}>
-								<Show when={message.text.length > 0}>
-									<Action tooltipText="Edit" onClick={enableEditMode}>
-										<PencilIcon />
+								<Show when={isAdmin() && message.author.did !== user.did}>
+									<Action
+										tooltipText="Block"
+										buttonClasses="text-destructive"
+										onClick={(e) => {
+											handlePotentialBlock(e);
+										}}
+									>
+										<ProhibitIcon />
 									</Action>
 								</Show>
-								<Action
-									tooltipText="Delete"
-									buttonClasses="text-destructive"
-									onClick={(e) => {
-										handlePotentialDeletion(e);
-									}}
-								>
-									<TrashIcon />
-								</Action>
-							</Show>
-						</div>
-					</Show>
-				</div>
-				<Show
-					when={
-						!("hash" in message) &&
-						(message.attachments || []).length > 0 &&
-						message.text.trim().length > 0
-					}
-				>
-					<div class="pl-14 pb-2">
-						<MessageAttachments
-							did={message.author.did}
-							attachments={message.attachments || []}
-						/>
-					</div>
-				</Show>
-				<Show
-					when={linkFacets().length > 0 && !("hash" in message) && !isLoneGif()}
-				>
-					<div class="flex flex-row flex-wrap gap-4 pl-14">
-						<For each={linkFacets()}>{(item) => <Embed uri={item.uri} />}</For>
-					</div>
-				</Show>
-				<Show when={message.reactions.length > 0}>
-					<div
-						ref={stableMedia}
-						class="flex flex-row gap-1 flex-wrap items-center pl-14"
-					>
-						<For each={message.reactions}>
-							{(item) => (
-								<Tooltip>
-									<TooltipTrigger
-										as={(tooltipProps: TooltipTriggerProps) => (
-											<button
-												type="button"
-												class="border rounded-sm hover:bg-card px-1.5 py-1 flex gap-1 items-center cursor-pointer"
-												classList={{
-													"border-primary bg-primary/15 hover:bg-primary/25":
-														item.reactorDIDs.includes(user.did),
-													"border-border bg-card hover:bg-muted":
-														!item.reactorDIDs.includes(user.did),
-												}}
-												{...tooltipProps}
-												onClick={() => {
-													const reactionIndex = item.reactorDIDs.indexOf(
-														user.did,
-													);
-
-													if (reactionIndex !== -1) {
-														removeReaction(item.emoji);
-													} else {
-														addReactionOptimistic(item.emoji);
-													}
-												}}
-											>
-												<span
-													class="h-4 w-4"
-													innerHTML={twemoji.parse(item.emoji)}
-												/>
-												<span class="text-muted-foreground text-sm">
-													{item.count}
-												</span>
-											</button>
-										)}
-									/>
-									<TooltipPortal>
-										<TooltipContent>
-											<p class="m-0 max-w-64 text-wrap">
-												Reacted by {reactedByLabel(item.reactorDIDs)}
-											</p>
-										</TooltipContent>
-									</TooltipPortal>
-								</Tooltip>
-							)}
-						</For>
-						<Show
-							when={message.reactions.some((r) => r.reactorDIDs.length > 3)}
-						>
-							<button
-								type="button"
-								class="text-muted-foreground hover:text-foreground text-sm px-1.5 py-1 cursor-pointer hover:underline"
-								onClick={() => setReactorsModalOpen(true)}
-							>
-								View all
-							</button>
+								<Show when={messageEditable()}>
+									<Show when={message.text.length > 0}>
+										<Action tooltipText="Edit" onClick={enableEditMode}>
+											<PencilIcon />
+										</Action>
+									</Show>
+									<Action
+										tooltipText="Delete"
+										buttonClasses="text-destructive"
+										onClick={(e) => {
+											handlePotentialDeletion(e);
+										}}
+									>
+										<TrashIcon />
+									</Action>
+								</Show>
+							</div>
 						</Show>
 					</div>
-					<ReactorsModal
-						reactions={message.reactions}
-						open={reactorsModalOpen()}
-						setOpen={setReactorsModalOpen}
-					/>
-				</Show>
+					<Show
+						when={
+							!("hash" in message) &&
+							(message.attachments || []).length > 0 &&
+							message.text.trim().length > 0
+						}
+					>
+						<div class="pl-14 pb-2">
+							<MessageAttachments
+								did={message.author.did}
+								attachments={message.attachments || []}
+							/>
+						</div>
+					</Show>
+					<Show
+						when={
+							linkFacets().length > 0 && !("hash" in message) && !isLoneGif()
+						}
+					>
+						<div class="flex flex-row flex-wrap gap-4 pl-14">
+							<For each={linkFacets()}>
+								{(item) => <Embed uri={item.uri} />}
+							</For>
+						</div>
+					</Show>
+					<Show when={message.reactions.length > 0}>
+						<div
+							ref={stableMedia}
+							class="flex flex-row gap-1 flex-wrap items-center pl-14"
+						>
+							<For each={message.reactions}>
+								{(item) => (
+									<Tooltip>
+										<TooltipTrigger
+											as={(tooltipProps: TooltipTriggerProps) => (
+												<button
+													type="button"
+													class="border rounded-sm hover:bg-card px-1.5 py-1 flex gap-1 items-center cursor-pointer"
+													classList={{
+														"border-primary bg-primary/15 hover:bg-primary/25":
+															item.reactorDIDs.includes(user.did),
+														"border-border bg-card hover:bg-muted":
+															!item.reactorDIDs.includes(user.did),
+													}}
+													{...tooltipProps}
+													onClick={() => {
+														const reactionIndex = item.reactorDIDs.indexOf(
+															user.did,
+														);
+
+														if (reactionIndex !== -1) {
+															removeReaction(item.emoji);
+														} else {
+															addReactionOptimistic(item.emoji);
+														}
+													}}
+												>
+													<span
+														class="h-4 w-4"
+														innerHTML={twemoji.parse(item.emoji)}
+													/>
+													<span class="text-muted-foreground text-sm">
+														{item.count}
+													</span>
+												</button>
+											)}
+										/>
+										<TooltipPortal>
+											<TooltipContent>
+												<p class="m-0 max-w-64 text-wrap">
+													Reacted by {reactedByLabel(item.reactorDIDs)}
+												</p>
+											</TooltipContent>
+										</TooltipPortal>
+									</Tooltip>
+								)}
+							</For>
+							<Show
+								when={message.reactions.some((r) => r.reactorDIDs.length > 3)}
+							>
+								<button
+									type="button"
+									class="text-muted-foreground hover:text-foreground text-sm px-1.5 py-1 cursor-pointer hover:underline"
+									onClick={() => setReactorsModalOpen(true)}
+								>
+									View all
+								</button>
+							</Show>
+						</div>
+						<ReactorsModal
+							reactions={message.reactions}
+							open={reactorsModalOpen()}
+							setOpen={setReactorsModalOpen}
+						/>
+					</Show>
+				</div>
 			</div>
 		</MessageContextMenu>
 	);

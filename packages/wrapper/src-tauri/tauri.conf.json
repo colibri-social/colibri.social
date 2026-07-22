@@ -1,7 +1,7 @@
 {
 	"$schema": "https://schema.tauri.app/config/2",
 	"productName": "Colibri Social",
-	"version": "0.1.0",
+	"version": "0.1.1",
 	"identifier": "social.colibri.app",
 	"build": {
 		"beforeDevCommand": "pnpm dev",
@@ -52,9 +52,19 @@
 			"pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEQ3NkY0NTJDMDNDREY5RkYKUldULytjMERMRVZ2MXhOWGlSTHZJbGFFV1lUbFZBQUJSSmN2VTE1clhmWnEyNjRFd0hFK3AvWkoK"
 		},
 		"deep-link": {
-			"mobile": [{ "scheme": ["social.colibri", "social.colibri.next"] }],
+			"mobile": [
+				{
+					"scheme": [
+						"social.colibri",
+						"social.colibri.next"
+					]
+				}
+			],
 			"desktop": {
-				"schemes": ["social.colibri", "social.colibri.next"]
+				"schemes": [
+					"social.colibri",
+					"social.colibri.next"
+				]
 			}
 		}
 	}

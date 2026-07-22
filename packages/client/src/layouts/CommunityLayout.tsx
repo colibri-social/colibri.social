@@ -184,13 +184,22 @@ const CommunityHeader = () => {
 const CommunityLayout: ParentComponent = (props) => {
 	const { preferences } = useUserPreferences();
 	const displayMembersAsSheet = createMediaQuery("(max-width: 1280px)");
-	const { isMobile, currentPane, popPane, pushDeeper } = createMobilePane();
+	const {
+		isMobile,
+		currentPane,
+		popPane,
+		pushDeeper,
+		updateDrag,
+		paneTransform,
+		isDragging,
+	} = createMobilePane();
 
 	// Swipe right = back up the stack, swipe left = deeper
 	const swipe: SwipeOptions = {
 		enabled: () => isMobile(),
 		onSwipeRight: () => popPane(),
 		onSwipeLeft: () => pushDeeper(),
+		onSwipeMove: updateDrag,
 	};
 
 	return (
@@ -203,10 +212,12 @@ const CommunityLayout: ParentComponent = (props) => {
 			<aside
 				ref={(el) => createSwipe(el, swipe)}
 				class="border-border flex flex-col bg-background"
+				style={{ transform: paneTransform("nav") }}
 				classList={{
 					"h-full min-w-72 w-72 border-r": !isMobile(),
-					"absolute inset-0 w-full pl-14 z-30 transition-transform duration-200 ease-out motion-reduce:transition-none":
-						isMobile(),
+					"absolute inset-0 w-full pl-14 z-30": isMobile(),
+					"transition-transform duration-200 ease-out motion-reduce:transition-none":
+						isMobile() && !isDragging(),
 					"-translate-x-full": isMobile() && currentPane() !== "nav",
 				}}
 			>
@@ -217,6 +228,7 @@ const CommunityLayout: ParentComponent = (props) => {
 			<div
 				ref={(el) => createSwipe(el, swipe)}
 				class="flex flex-col"
+				style={{ transform: paneTransform("chat") }}
 				classList={{
 					"w-full h-full": !isMobile(),
 					"max-h-[calc(100vh-41px)]": !isMobile() && !isTauriRuntime(),
@@ -227,8 +239,9 @@ const CommunityLayout: ParentComponent = (props) => {
 					"max-w-[calc(100vw-288px-56px-1px)]":
 						!isMobile() &&
 						(displayMembersAsSheet() || !preferences().membersListVisible),
-					"absolute inset-0 w-full h-full max-w-none! z-20 transition-transform duration-200 ease-out motion-reduce:transition-none":
-						isMobile(),
+					"absolute inset-0 w-full h-full max-w-none! z-20": isMobile(),
+					"transition-transform duration-200 ease-out motion-reduce:transition-none":
+						isMobile() && !isDragging(),
 					"translate-x-full": isMobile() && currentPane() === "nav",
 					"-translate-x-full": isMobile() && currentPane() === "members",
 				}}

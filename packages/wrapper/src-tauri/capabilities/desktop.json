@@ -1,8 +1,8 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "desktop",
-  "description": "Desktop-only capabilities (updater + window-state plugins are compiled out on mobile).",
+  "description": "Desktop-only capabilities (window-state plugin is compiled out on mobile).",
   "platforms": ["linux", "macOS", "windows"],
   "windows": ["main"],
-  "permissions": ["updater:default", "window-state:default"]
+  "permissions": ["window-state:default"]
 }

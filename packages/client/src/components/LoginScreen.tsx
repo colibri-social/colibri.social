@@ -65,6 +65,12 @@ const describeOAuthError = (params: URLSearchParams): string => {
 };
 
 const describeThrownError = (err: unknown): string => {
+	if (
+		err instanceof DOMException &&
+		(err.name === "TimeoutError" || err.name === "AbortError")
+	) {
+		return "Sign-in timed out. Check your connection and try again.";
+	}
 	if (err instanceof Error && err.message) return err.message;
 	if (typeof err === "string" && err) return err;
 	return "Something went wrong. Please try again.";
@@ -155,7 +161,7 @@ export const LoginScreen: Component = () => {
 				</div>
 			}
 		>
-			<section class="pt-[calc(min(10rem,12vh)+var(--safe-area-top))] pb-[var(--safe-area-bottom)] mx-auto w-full max-w-336 md:px-16 px-6 relative flex flex-col items-center gap-8 h-screen animate-in fade-in-0 slide-in-from-bottom-2 duration-500 motion-reduce:animate-none">
+			<section class="pt-[calc(min(10rem,12vh)+var(--safe-area-top))] pb-[var(--safe-area-bottom)] mx-auto w-full max-w-336 md:px-16 px-6 relative flex flex-col items-center gap-8 min-h-screen animate-in fade-in-0 slide-in-from-bottom-2 duration-500 motion-reduce:animate-none">
 				<div class="flex flex-col gap-4 items-center text-center">
 					<small class="text-primary text-sm">Welcome back.</small>
 					<h1 class="text-5xl font-black m-0">SIGN IN</h1>

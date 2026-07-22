@@ -2,6 +2,7 @@ import type { ActorData } from "@colibri-social/lib";
 import { type Component, Show } from "solid-js";
 import { useCommunityContext } from "../../../contexts/Community";
 import { cx } from "../../../utils/cva";
+import { badgeText, useUserBadges } from "../../../utils/user-badges";
 import { Badge } from "./Badge";
 
 export const displayableNameFn = (user: ActorData) =>
@@ -11,13 +12,9 @@ export const displayableNameFn = (user: ActorData) =>
 
 export const DisplayableName: Component<{
 	user: ActorData;
-	/**
-	 * Name color: `false` disables coloring, a string forces that exact color
-	 * (e.g. a profile's accent on its popover), and anything else falls back to
-	 * the user's top role color.
-	 */
 	color?: boolean | string;
 	className?: string;
+	badge?: boolean;
 }> = (props) => {
 	const community = useCommunityContext();
 
@@ -38,14 +35,19 @@ export const DisplayableName: Component<{
 		return getTopMemberRoleColor();
 	};
 
+	const { primary } = useUserBadges(() => props.user);
+
 	return (
 		<span
 			style={{ color: resolvedColor() }}
-			class={cx("inline-flex flex-row items-center gap-2", props.className)}
+			class={cx(
+				"inline-flex flex-row items-center gap-2 max-w-full",
+				props.className,
+			)}
 		>
-			{displayableNameFn(props.user)}
-			<Show when={props.user.data.isBot && props.color !== false}>
-				<Badge text="BOT" size="xs" style="bot" />
+			<span class="truncate min-w-0">{displayableNameFn(props.user)}</span>
+			<Show when={primary() && props.color !== false && props.badge !== false}>
+				<Badge text={badgeText(primary()!)} size="xs" style={primary()!} />
 			</Show>
 		</span>
 	);

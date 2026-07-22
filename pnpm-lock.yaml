@@ -66,7 +66,7 @@ importers:
         specifier: 'workspace:'
         version: link:../../packages/assets
       '@colibri-social/client':
-        specifier: workspace:0.0.1-rc.5
+        specifier: workspace:0.1.0-rc.6
         version: link:../../packages/client
       '@colibri-social/standard-renderer':
         specifier: workspace:0.0.2-rc.0
@@ -296,9 +296,6 @@ importers:
       '@colibri-social/lib':
         specifier: 'workspace:'
         version: link:../lib
-      '@corvu/drawer':
-        specifier: ^0.2.4
-        version: 0.2.4(solid-js@1.9.14)
       '@kobalte/core':
         specifier: ^0.13.11
         version: 0.13.11(solid-js@1.9.14)
@@ -323,12 +320,24 @@ importers:
       '@tauri-apps/plugin-deep-link':
         specifier: ^2.4.9
         version: 2.4.9
+      '@tauri-apps/plugin-fs':
+        specifier: ^2.5.1
+        version: 2.5.1
       '@tauri-apps/plugin-notification':
         specifier: ^2.3.3
         version: 2.3.3
       '@tauri-apps/plugin-opener':
         specifier: ^2.5.4
         version: 2.5.4
+      '@tauri-apps/plugin-os':
+        specifier: ^2.3.2
+        version: 2.3.2
+      '@tauri-apps/plugin-process':
+        specifier: ^2.3.1
+        version: 2.3.1
+      '@tauri-apps/plugin-updater':
+        specifier: ^2.10.1
+        version: 2.10.1
       '@thisbeyond/solid-dnd':
         specifier: ^0.7.5
         version: 0.7.5(solid-js@1.9.14)
@@ -452,6 +461,9 @@ importers:
       tailwind-merge:
         specifier: ^3.4.0
         version: 3.4.0
+      tauri-plugin-fcm:
+        specifier: ^0.2.0
+        version: 0.2.0
       tlds:
         specifier: ^1.261.0
         version: 1.261.0
@@ -549,7 +561,7 @@ importers:
         specifier: 'workspace:'
         version: link:../assets
       '@colibri-social/client':
-        specifier: workspace:0.0.1-rc.5
+        specifier: workspace:0.1.0-rc.6
         version: link:../client
       '@tauri-apps/api':
         specifier: ^2
@@ -557,12 +569,21 @@ importers:
       '@tauri-apps/plugin-deep-link':
         specifier: ^2
         version: 2.4.9
+      '@tauri-apps/plugin-fs':
+        specifier: ^2
+        version: 2.5.1
       '@tauri-apps/plugin-notification':
         specifier: ^2
         version: 2.3.3
       '@tauri-apps/plugin-opener':
         specifier: ^2
         version: 2.5.4
+      '@tauri-apps/plugin-os':
+        specifier: ^2
+        version: 2.3.2
+      '@tauri-apps/plugin-process':
+        specifier: ^2
+        version: 2.3.1
       '@tauri-apps/plugin-updater':
         specifier: ^2
         version: 2.10.1
@@ -572,6 +593,9 @@ importers:
       solid-js:
         specifier: ^1.9.14
         version: 1.9.14
+      tauri-plugin-fcm:
+        specifier: ^0.2.0
+        version: 0.2.0
     devDependencies:
       '@choochmeque/tauri-windows-bundle':
         specifier: ^0.1.28
@@ -2859,11 +2883,20 @@ packages:
   '@tauri-apps/plugin-deep-link@2.4.9':
     resolution: {integrity: sha512-u0SKOUHnJ1wqeqXsDFq2+kASCBj9xxbG0g9XZWPy9SOmU4wXtp6b/wiYpm6oH6/5fBTQsLqnLhIvqLBRpgHJlA==}
 
+  '@tauri-apps/plugin-fs@2.5.1':
+    resolution: {integrity: sha512-9Lz+Jopp6QyeEWhlpkMx4R/+P9HgR+AVAI4vOZhlT8Xaymtz8iVI/Ov984/XTqgJz/5gz5NretqPB/XEMS3NhQ==}
+
   '@tauri-apps/plugin-notification@2.3.3':
     resolution: {integrity: sha512-Zw+ZH18RJb41G4NrfHgIuofJiymusqN+q8fGUIIV7vyCH+5sSn5coqRv/MWB9qETsUs97vmU045q7OyseCV3Qg==}
 
   '@tauri-apps/plugin-opener@2.5.4':
     resolution: {integrity: sha512-1HnPkb+AmgO29HBazm4uPLKB+r7zzcTBW1d0fyYp1uP+jwtpoiNDGKMMzz58SFp49nOIrxdE3aUJtT57lfO9CQ==}
+
+  '@tauri-apps/plugin-os@2.3.2':
+    resolution: {integrity: sha512-n+nXWeuSeF9wcEsSPmRnBEGrRgOy6jjkSU+UVCOV8YUGKb2erhDOxis7IqRXiRVHhY8XMKks00BJ0OAdkpf6+A==}
+
+  '@tauri-apps/plugin-process@2.3.1':
+    resolution: {integrity: sha512-nCa4fGVaDL/B9ai03VyPOjfAHRHSBz5v6F/ObsB73r/dA3MHHhZtldaDMIc0V/pnUw9ehzr2iEG+XkSEyC0JJA==}
 
   '@tauri-apps/plugin-updater@2.10.1':
     resolution: {integrity: sha512-NFYMg+tWOZPJdzE/PpFj2qfqwAWwNS3kXrb1tm1gnBJ9mYzZ4WDRrwy8udzWoAnfGCHLuePNLY1WVCNHnh3eRA==}
@@ -5651,6 +5684,10 @@ packages:
   tapable@2.3.3:
     resolution: {integrity: sha512-uxc/zpqFg6x7C8vOE7lh6Lbda8eEL9zmVm/PLeTPBRhh1xCgdWaQ+J1CUieGpIfm2HdtsUpRv+HshiasBMcc6A==}
     engines: {node: '>=6'}
+
+  tauri-plugin-fcm@0.2.0:
+    resolution: {integrity: sha512-8GmSUlpjUKjDekqPaAKntxbzmt7P2kicAC55kGqdHILtwU25Ja1N7rhmWjp9XZJnybWmdaQqi0Wxx/YLQoEw3w==}
+    engines: {node: '>=18'}
 
   term-size@2.2.1:
     resolution: {integrity: sha512-wK0Ri4fOGjv/XPy8SBHZChl8CM7uMc5VML7SqiQ0zG7+J5Vr+RMQDoHa2CNT6KHUnTGIXH34UDMkPzAUyapBZg==}
@@ -8620,11 +8657,23 @@ snapshots:
     dependencies:
       '@tauri-apps/api': 2.11.1
 
+  '@tauri-apps/plugin-fs@2.5.1':
+    dependencies:
+      '@tauri-apps/api': 2.11.1
+
   '@tauri-apps/plugin-notification@2.3.3':
     dependencies:
       '@tauri-apps/api': 2.11.1
 
   '@tauri-apps/plugin-opener@2.5.4':
+    dependencies:
+      '@tauri-apps/api': 2.11.1
+
+  '@tauri-apps/plugin-os@2.3.2':
+    dependencies:
+      '@tauri-apps/api': 2.11.1
+
+  '@tauri-apps/plugin-process@2.3.1':
     dependencies:
       '@tauri-apps/api': 2.11.1
 
@@ -12130,6 +12179,10 @@ snapshots:
   tailwindcss@4.3.2: {}
 
   tapable@2.3.3: {}
+
+  tauri-plugin-fcm@0.2.0:
+    dependencies:
+      '@tauri-apps/api': 2.11.1
 
   term-size@2.2.1: {}
 

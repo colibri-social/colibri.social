@@ -2,15 +2,11 @@ import type { OnlineState } from "@colibri-social/lib";
 import {
 	type Component,
 	createSignal,
-	For,
 	Match,
-	type ParentComponent,
-	type Setter,
 	Show,
 	Suspense,
 	Switch,
 } from "solid-js";
-import CheckIcon from "~icons/ph/check";
 import PhoneSlashIcon from "~icons/ph/phone-slash";
 import PictureInPictureIcon from "~icons/ph/picture-in-picture";
 import { useCommunityContext } from "../../../contexts/Community";
@@ -20,24 +16,12 @@ import {
 	ConnectionState,
 	useVoiceChatContext,
 } from "../../../contexts/VoiceChat";
-import { useIsMobile } from "../../../utils/mobile-pane";
 import { Camera } from "../../icons/Camera";
 import { Ear } from "../../icons/Ear";
 import { Microphone } from "../../icons/Microphone";
 import { Screen } from "../../icons/Screen";
 import { Wifi } from "../../icons/Wifi";
 import { Button } from "../../ui/Button";
-import {
-	DropdownMenu,
-	DropdownMenuContent,
-	DropdownMenuGroup,
-	DropdownMenuGroupLabel,
-	DropdownMenuPortal,
-	DropdownMenuRadioGroup,
-	DropdownMenuRadioItem,
-	DropdownMenuTrigger,
-} from "../../ui/DropdownMenu";
-import { MenuDrawer, MenuDrawerItem } from "../../ui/MenuDrawer";
 import {
 	Tooltip,
 	TooltipContent,
@@ -46,100 +30,10 @@ import {
 } from "../../ui/Tooltip";
 import User from ".";
 import { Avatar } from "./Avatar";
-
-const STATE_LABELS: Record<OnlineState, string> = {
-	away: "Away",
-	dnd: "Do Not Disturb",
-	offline: "Offline",
-	online: "Online",
-};
-
-const STATE_OPTIONS: Array<{ value: OnlineState; dot: string }> = [
-	{ value: "online", dot: "bg-green-400" },
-	{ value: "away", dot: "bg-yellow-400" },
-	{ value: "dnd", dot: "bg-red-400" },
-	{ value: "offline", dot: "bg-neutral-400" },
-];
-
-const DropdownStatusSelect: ParentComponent<{
-	value: OnlineState;
-	setValue: Setter<OnlineState>;
-}> = (props) => {
-	const isMobile = useIsMobile();
-	const [open, setOpen] = createSignal(false);
-
-	return (
-		<Show
-			when={isMobile()}
-			fallback={
-				<DropdownMenu>
-					<DropdownMenuTrigger>{props.children}</DropdownMenuTrigger>
-					<DropdownMenuPortal>
-						<DropdownMenuContent>
-							<DropdownMenuGroup>
-								<DropdownMenuGroupLabel class="text-xs text-muted-foreground">
-									Status
-								</DropdownMenuGroupLabel>
-								<DropdownMenuRadioGroup value={props.value}>
-									<DropdownMenuRadioItem
-										value="online"
-										onSelect={() => props.setValue("online")}
-										class="[&_svg]:text-green-400"
-									>
-										{STATE_LABELS.online}
-									</DropdownMenuRadioItem>
-									<DropdownMenuRadioItem
-										value="away"
-										onSelect={() => props.setValue("away")}
-										class="[&_svg]:text-yellow-400"
-									>
-										{STATE_LABELS.away}
-									</DropdownMenuRadioItem>
-									<DropdownMenuRadioItem
-										value="dnd"
-										onSelect={() => props.setValue("dnd")}
-										class="[&_svg]:text-red-400"
-									>
-										{STATE_LABELS.dnd}
-									</DropdownMenuRadioItem>
-									<DropdownMenuRadioItem
-										value="offline"
-										onSelect={() => props.setValue("offline")}
-										class="[&_svg]:text-neutral-400"
-									>
-										{STATE_LABELS.offline}
-									</DropdownMenuRadioItem>
-								</DropdownMenuRadioGroup>
-							</DropdownMenuGroup>
-						</DropdownMenuContent>
-					</DropdownMenuPortal>
-				</DropdownMenu>
-			}
-		>
-			<div style={{ display: "contents" }} onClick={() => setOpen(true)}>
-				{props.children}
-			</div>
-			<MenuDrawer open={open()} onOpenChange={setOpen} title="Status">
-				<For each={STATE_OPTIONS}>
-					{(s) => (
-						<MenuDrawerItem
-							onClick={() => {
-								setOpen(false);
-								props.setValue(s.value);
-							}}
-						>
-							<span class={`w-2.5 h-2.5 rounded-full shrink-0 ${s.dot}`} />
-							<span>{STATE_LABELS[s.value]}</span>
-							<Show when={props.value === s.value}>
-								<CheckIcon class="ml-auto" />
-							</Show>
-						</MenuDrawerItem>
-					)}
-				</For>
-			</MenuDrawer>
-		</Show>
-	);
-};
+import { ProfilePopover } from "./ProfilePopover";
+import { QuickStatusDialog } from "./QuickStatusDialog";
+import { SelfProfileActions } from "./SelfProfileActions";
+import { STATE_LABELS } from "./StatusSelect";
 
 /**
  * The user status visible in the community sidebar.
@@ -147,6 +41,7 @@ const DropdownStatusSelect: ParentComponent<{
 export const Status: Component = () => {
 	const user = useUserContext();
 	const community = useCommunityContext();
+	const [statusDialogOpen, setStatusDialogOpen] = createSignal(false);
 	const [
 		voiceData,
 		{
@@ -333,27 +228,29 @@ export const Status: Component = () => {
 					</Show>
 				</div>
 			</Show>
-			<div class="w-full h-16 flex items-center gap-3 p-3 bg-card">
-				<Avatar user={liveUser() ?? user} />
-				<div class="flex flex-col">
-					<span class="font-bold leading-5">
-						<User.DisplayableName color={false} user={liveUser() ?? user} />
-					</span>
-					<DropdownStatusSelect
-						value={onlineState()}
-						setValue={(e) => {
-							const next = typeof e === "string" ? e : e(onlineState());
-							user.xrpc.social.colibri.actor.setState(next);
-							user.updateActorData({ onlineState: next });
-							community().utils.patchMember(user.did, { onlineState: next });
-						}}
-					>
-						<div class="flex gap-2 items-center text-sm text-muted-foreground hover:underline cursor-pointer">
+			<ProfilePopover
+				user={liveUser() ?? user}
+				placement="top"
+				class="w-full"
+				onEditStatus={() => setStatusDialogOpen(true)}
+				actions={() => <SelfProfileActions />}
+			>
+				<div class="w-full h-16 flex items-center gap-3 p-3 bg-card hover:bg-muted/50 cursor-pointer">
+					<Avatar user={liveUser() ?? user} />
+					<div class="flex flex-col">
+						<span class="font-bold leading-5">
+							<User.DisplayableName color={false} user={liveUser() ?? user} />
+						</span>
+						<span class="text-sm text-muted-foreground">
 							{STATE_LABELS[onlineState()]}
-						</div>
-					</DropdownStatusSelect>
+						</span>
+					</div>
 				</div>
-			</div>
+			</ProfilePopover>
+			<QuickStatusDialog
+				open={statusDialogOpen()}
+				onOpenChange={setStatusDialogOpen}
+			/>
 		</div>
 	);
 };

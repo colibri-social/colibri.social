@@ -3,6 +3,7 @@ import { onCleanup } from "solid-js";
 export interface SwipeOptions {
 	onSwipeRight?: () => void;
 	onSwipeLeft?: () => void;
+	onSwipeMove?: (dx: number | null) => void;
 	threshold?: number;
 	velocity?: number;
 	enabled?: () => boolean;
@@ -33,6 +34,13 @@ export const createSwipe = (el: HTMLElement, opts: SwipeOptions) => {
 	let startT = 0;
 	let tracking = false;
 	let locked: boolean | null = null; // null = undecided, true = horizontal
+	let claimed = false; // true once this gesture's direction is one we handle
+
+	const reset = () => {
+		tracking = false;
+		locked = null;
+		claimed = false;
+	};
 
 	const onPointerDown = (e: PointerEvent) => {
 		if (opts.enabled && !opts.enabled()) return;
@@ -43,33 +51,54 @@ export const createSwipe = (el: HTMLElement, opts: SwipeOptions) => {
 		startT = performance.now();
 		tracking = true;
 		locked = null;
+		claimed = false;
 	};
 
 	const onPointerMove = (e: PointerEvent) => {
-		if (!tracking || locked !== null) return;
+		if (!tracking) return;
 		const dx = e.clientX - startX;
 		const dy = e.clientY - startY;
-		if (Math.hypot(dx, dy) < 10) return;
-		locked = Math.abs(dx) > Math.abs(dy) * 1.3;
-		if (!locked) tracking = false;
+
+		if (locked === null) {
+			if (Math.hypot(dx, dy) < 10) return;
+			locked = Math.abs(dx) > Math.abs(dy) * 1.3;
+			if (!locked) {
+				tracking = false;
+				return;
+			}
+			const wantsThisDirection =
+				dx < 0 ? !!opts.onSwipeLeft : !!opts.onSwipeRight;
+			if (!wantsThisDirection) {
+				// Not interested in this direction
+				tracking = false;
+				return;
+			}
+			claimed = true;
+		}
+
+		if (!claimed) return;
+		e.stopPropagation();
+		opts.onSwipeMove?.(dx);
 	};
 
 	const onPointerUp = (e: PointerEvent) => {
-		if (!tracking || !locked) {
-			tracking = false;
+		if (!tracking || !claimed) {
+			reset();
 			return;
 		}
-		tracking = false;
+		e.stopPropagation();
 		const dx = e.clientX - startX;
 		const dt = performance.now() - startT;
 		const flick = Math.abs(dx) / dt > velocity && Math.abs(dx) > 24;
 		if (dx > threshold || (flick && dx > 0)) opts.onSwipeRight?.();
 		else if (dx < -threshold || (flick && dx < 0)) opts.onSwipeLeft?.();
+		opts.onSwipeMove?.(null);
+		reset();
 	};
 
 	const onPointerCancel = () => {
-		tracking = false;
-		locked = null;
+		if (claimed) opts.onSwipeMove?.(null);
+		reset();
 	};
 
 	el.addEventListener("pointerdown", onPointerDown, { passive: true });

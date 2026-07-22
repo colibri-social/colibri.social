@@ -1,4 +1,5 @@
 import { useLocation, useNavigate, useSearchParams } from "@solidjs/router";
+import { createSignal } from "solid-js";
 import createMediaQuery from "./create-media-query";
 
 const CHANNEL_PATH = /^\/app\/c\/[^/]+\/[^/]+\/[^/]+/;
@@ -11,6 +12,11 @@ export const useIsMobile = () => createMediaQuery(MOBILE_QUERY);
 
 export const isMobileNow = () =>
 	typeof matchMedia !== "undefined" && matchMedia(MOBILE_QUERY).matches;
+
+const [dragDx, setDragDx] = createSignal(0);
+
+const paneIndex = (pane: Pane) =>
+	pane === "nav" ? -1 : pane === "chat" ? 0 : 1;
 
 /**
  * Mobile navigation stack. The desktop layout shows every pane at once, on
@@ -52,6 +58,26 @@ export const createMobilePane = () => {
 		// members is the deepest pane
 	};
 
+	const updateDrag = (dx: number | null) => {
+		if (dx === null) {
+			setDragDx(0);
+			return;
+		}
+		const from = currentPane();
+		if (dx > 0 && from === "nav") dx = 0; // popPane() would no-op here
+		if (dx < 0 && from === "members") dx = 0; // pushDeeper() would no-op here
+		const max = typeof window !== "undefined" ? window.innerWidth : Infinity;
+		setDragDx(Math.max(-max, Math.min(max, dx)));
+	};
+
+	const paneTransform = (pane: Pane): string | undefined => {
+		if (!isMobile() || dragDx() === 0) return undefined;
+		const offset = (paneIndex(pane) - paneIndex(currentPane())) * 100;
+		return `translateX(calc(${offset}% + ${dragDx()}px))`;
+	};
+
+	const isDragging = () => dragDx() !== 0;
+
 	return {
 		isMobile,
 		currentPane,
@@ -60,5 +86,8 @@ export const createMobilePane = () => {
 		popPane,
 		pushDeeper,
 		setPane,
+		updateDrag,
+		paneTransform,
+		isDragging,
 	};
 };

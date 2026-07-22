@@ -259,6 +259,10 @@ jobs:
 
             app "Colibri Social.app"
 
+            postflight do
+              File.write("#{appdir}/Colibri Social.app/Contents/Resources/.install-channel", "homebrew")
+            end
+
             zap trash: [
               "~/Library/Application Support/social.colibri.app",
               "~/Library/Caches/social.colibri.app",
