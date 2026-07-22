@@ -1,5 +1,24 @@
 # @colibri-social/client
 
+## 0.1.0-rc.7
+
+### Patch Changes
+
+- abc0d59: Adds better emoji handling and twemoji fallbacks
+- cfabe53: Improves mention handling in the text editor and user bio
+- 171968c: Adds native FCM notifications for Android apps
+- 835198b: Fixes swiping/dragging functionality as well as padding inconsistencies
+- a924645: Adds better handling for links to images and image uploads as well as videos on mobile
+- 0eea035: Makes a community's "settings" option only available to users who are allowed to change things, makes all links open in a browser instead of in-app for native apps, fixes mobile edit behavior, ensures login autocomplete always shows above keyboard
+- 702c3ae: Fixes iOS app issues related to login and padding
+- 297bf92: Adds support for web push notifications for all messages
+- 4536e73: Fixes issues with reactions not being applied, as well as empty attachment notifications
+- 7cd245e: Improves typing UX by adjusting line height and typing indicator
+- Updated dependencies [abc0d59]
+- Updated dependencies [297bf92]
+  - @colibri-social/assets@0.0.2-rc.0
+  - @colibri-social/lib@0.0.2-rc.0
+
 ## 0.1.0-rc.6
 
 ### Minor Changes
