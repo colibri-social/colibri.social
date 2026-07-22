@@ -10,7 +10,11 @@ import {
 } from "solid-js";
 import { Dynamic } from "solid-js/web";
 import PencilSimpleIcon from "~icons/ph/pencil-simple";
-import { getBskyAlternativeClientInfo } from "../../../atproto/bluesky-alternatives";
+import {
+	type BlueskyClientID,
+	getBskyAlternativeClientInfo,
+} from "../../../atproto/bluesky-alternatives";
+import { buildBskyProfileUrl } from "../../../atproto/bsky-post-url";
 import { resolveBlob } from "../../../atproto/resolve-blob";
 import { useCommunityContext } from "../../../contexts/Community";
 import { useSettingsModalContext } from "../../../contexts/SettingsModal";
@@ -62,7 +66,10 @@ const MENTION_REGEX = /(?<!\S)@[a-zA-Z0-9._-]+(?:\.[a-zA-Z]{2,})?/gm;
  * @param text The text to scan for links and mentions. Will be sanitized before any edits are made.
  * @returns An HTML string that can be used in the DOM
  */
-const detectLinksAndMentionsAndFormat = (text: string) => {
+const detectLinksAndMentionsAndFormat = (
+	text: string,
+	preferredBlueskyClient: BlueskyClientID,
+) => {
 	let modifiedText = `${purify(text)}`;
 	let match: RegExpExecArray | null;
 
@@ -94,7 +101,7 @@ const detectLinksAndMentionsAndFormat = (text: string) => {
 		const index = match.index;
 		const mention = match[0];
 
-		const anchorTag = `<a href="https://bsky.app/profile/${mention.slice(1)}" target="_blank" rel="noreferrer">${mention}</a>`;
+		const anchorTag = `<a href="${buildBskyProfileUrl(preferredBlueskyClient, mention.slice(1))}" target="_blank" rel="noreferrer">${mention}</a>`;
 
 		modifiedText =
 			modifiedText.slice(0, index + additionalOffset) +
@@ -317,6 +324,8 @@ export const ProfilePopoverContents: Component<{
 						class="prose dark:prose-invert text-sm m-0 px-1 wrap-anywhere"
 						innerHTML={detectLinksAndMentionsAndFormat(
 							props.user.data.description!,
+							userPreferences?.preferences().preferredBlueskyClient ??
+								"bluesky",
 						)}
 					/>
 				</Show>
