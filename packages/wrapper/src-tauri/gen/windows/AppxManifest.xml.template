@@ -8,7 +8,7 @@
   xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities">
 
   <Identity
-    Name="LouisEscher.ColibriSocial"
+    Name="{{PACKAGE_NAME}}"
     Publisher="{{PUBLISHER}}"
     Version="{{VERSION}}"
     ProcessorArchitecture="{{ARCH}}" />
