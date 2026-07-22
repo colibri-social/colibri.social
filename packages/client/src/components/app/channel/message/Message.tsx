@@ -46,7 +46,7 @@ import { BlockDrawer } from "./BlockDrawer";
 import { Action } from "./ContextMenu";
 import { MessageContextMenu } from "./ContextMenu/Menu";
 import { DeletionDrawer } from "./DeletionDrawer/index";
-import { Embed, isGifUrl } from "./Embed";
+import { Embed, isBrokenMediaLink, isDirectMediaUrl } from "./Embed";
 import { MessageTimestamp } from "./MessageTimestamp";
 import { ReactorsModal } from "./ReactorsModal";
 
@@ -150,16 +150,12 @@ const MessageInner: Component<{
 			)
 			.map((f) => f.features[0] as ColibriRichTextLink) || [];
 
-	/**
-	 * True when the whole message is just a single GIF link (a GIF picked from
-	 * the picker). The link itself renders inline via `Embed`, so we hide the
-	 * raw URL text and show only the GIF.
-	 */
-	const isLoneGif = (): boolean => {
+	const isLoneMediaLink = (): boolean => {
 		const links = linkFacets();
 		return (
 			links.length === 1 &&
-			isGifUrl(links[0].uri) &&
+			isDirectMediaUrl(links[0].uri) &&
+			!isBrokenMediaLink(links[0].uri) &&
 			message.text.trim() === links[0].uri
 		);
 	};
@@ -329,7 +325,7 @@ const MessageInner: Component<{
 								!("hash" in message) &&
 								(((message.attachments || []).length > 0 &&
 									message.text.trim().length === 0) ||
-									isLoneGif())
+									isLoneMediaLink())
 							}
 						>
 							<div
@@ -361,7 +357,7 @@ const MessageInner: Component<{
 								</Show>
 
 								<Show
-									when={isLoneGif()}
+									when={isLoneMediaLink()}
 									fallback={
 										<MessageAttachments
 											did={message.author.did}
@@ -373,7 +369,7 @@ const MessageInner: Component<{
 								</Show>
 							</div>
 						</Show>
-						<Show when={message.text.trim().length > 0 && !isLoneGif()}>
+						<Show when={message.text.trim().length > 0 && !isLoneMediaLink()}>
 							<div class="flex flex-col w-full min-w-0 justify-center">
 								<Show when={!isSubsequentMessage()}>
 									<div class="flex gap-2 text-sm items-baseline">
@@ -556,7 +552,9 @@ const MessageInner: Component<{
 					</Show>
 					<Show
 						when={
-							linkFacets().length > 0 && !("hash" in message) && !isLoneGif()
+							linkFacets().length > 0 &&
+							!("hash" in message) &&
+							!isLoneMediaLink()
 						}
 					>
 						<div class="flex flex-row flex-wrap gap-4 pl-14">

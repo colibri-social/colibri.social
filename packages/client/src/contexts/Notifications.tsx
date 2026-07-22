@@ -314,8 +314,12 @@ export const NotificationsContextProvider: ParentComponent = (props) => {
 
 				if (mutes.isChannelMuted(data.channelUri)) return;
 
-				adjustPings(data.channelUri, 1);
-				playSound("ping");
+				const isPing = data.kind === "mention" || data.kind === "reply";
+
+				if (isPing) {
+					adjustPings(data.channelUri, 1);
+					playSound("ping");
+				}
 
 				if (preferences().nativeNotifications) return;
 
