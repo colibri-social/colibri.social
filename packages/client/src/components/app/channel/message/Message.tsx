@@ -290,6 +290,7 @@ const MessageInner: Component<{
 							containsMentionOrIsReplyToUser(),
 						"bg-blue-500/5 hover:bg-blue-500/10! border-blue-500":
 							isRepliedTo(),
+						"bg-yellow-500/10 border-yellow-500": editMode() && isMobile(),
 						"bg-blue-500/15": isFocused(),
 						"bg-muted/60! hover:bg-muted/60!": contextMenuOpen(),
 						"bg-card!": dragging(),
@@ -438,8 +439,6 @@ const MessageInner: Component<{
 												classList={{
 													"text-muted-foreground": isPending(),
 													"text-foreground": !isPending(),
-													"bg-yellow-500/10 outline outline-yellow-500/40 rounded-sm":
-														editMode() && isMobile(),
 												}}
 											/>
 										</Match>
