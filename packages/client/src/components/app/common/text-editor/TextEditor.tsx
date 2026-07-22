@@ -43,7 +43,9 @@ import { useUserContext } from "../../../../contexts/User";
 import { useUserPreferences } from "../../../../contexts/UserPreferences";
 import {
 	readComposerDraft,
+	readEditDraft,
 	writeComposerDraft,
+	writeEditDraft,
 } from "../../../../utils/composer-drafts";
 import { hasEmoji, parseEmojiText } from "../../../../utils/emoji";
 import { EMOJI_SUGGESTIONS, TIPTAP_EMOJIS } from "../../../../utils/emoji-data";
@@ -1014,47 +1016,79 @@ export const TextEditor: Component<{
 	});
 
 	if (props.mainEditor) {
-		let draftUri: string | undefined;
+		type BufferKey =
+			| { kind: "channel"; uri: string }
+			| { kind: "edit"; uri: string };
+
+		let bufferKey: BufferKey | undefined;
 		let loadedInstance: Editor | undefined;
 		let latest: ReturnType<Editor["getJSON"]> | undefined;
 		let latestEmpty = true;
 		let saveTimer: ReturnType<typeof setTimeout> | undefined;
 
-		const persist = (uri: string | undefined) => {
+		const sameKey = (a: BufferKey | undefined, b: BufferKey) =>
+			a !== undefined && a.kind === b.kind && a.uri === b.uri;
+
+		const persist = (key: BufferKey | undefined) => {
 			if (saveTimer) {
 				clearTimeout(saveTimer);
 				saveTimer = undefined;
 			}
-			if (uri) writeComposerDraft(uri, latestEmpty ? undefined : latest);
+			if (key?.kind === "channel") {
+				writeComposerDraft(key.uri, latestEmpty ? undefined : latest);
+			}
 		};
 
-		const applyBuffer = (instance: Editor) => {
+		const applyBuffer = (instance: Editor, forceFocus: boolean) => {
 			if (!latestEmpty && latest) instance.commands.setContent(latest);
 			else instance.commands.clearContent();
 			latest = instance.getJSON();
 			latestEmpty = instance.isEmpty;
-			if (instance.isFocused && !isMobile()) instance.commands.focus("end");
+			if (forceFocus) {
+				setTimeout(
+					() => instance.commands.focus("end", { scrollIntoView: true }),
+					0,
+				);
+			} else if (instance.isFocused && !isMobile()) {
+				instance.commands.focus("end");
+			}
 		};
 
 		createEffect(() => {
 			const instance = editor();
-			const uri = channel.channelUri();
+			const editingMsg = isMobile() ? channel.editingMessage() : undefined;
+			const key: BufferKey = editingMsg
+				? { kind: "edit", uri: editingMsg.uri }
+				: { kind: "channel", uri: channel.channelUri() };
 			if (!instance) return;
 
 			untrack(() => {
-				const channelChanged = draftUri !== uri;
-				if (!channelChanged && loadedInstance === instance) return;
+				const keyChanged = !sameKey(bufferKey, key);
+				if (!keyChanged && loadedInstance === instance) return;
 
-				if (channelChanged) {
-					if (draftUri) persist(draftUri);
-					draftUri = uri;
-					const saved = uri ? readComposerDraft(uri) : undefined;
-					latest = saved;
-					latestEmpty = !saved;
+				if (keyChanged) {
+					persist(bufferKey);
+					bufferKey = key;
+
+					if (key.kind === "edit" && editingMsg) {
+						const draft = readEditDraft(editingMsg.uri);
+						latest = facetsToProseMirror(
+							draft?.text ?? editingMsg.text,
+							draft?.facets ?? editingMsg.facets ?? [],
+							community().members ?? [],
+							community().channels ?? [],
+							community().assignableRoles ?? [],
+						);
+						latestEmpty = false;
+					} else {
+						const saved = key.uri ? readComposerDraft(key.uri) : undefined;
+						latest = saved;
+						latestEmpty = !saved;
+					}
 				}
 
 				loadedInstance = instance;
-				applyBuffer(instance);
+				applyBuffer(instance, keyChanged && key.kind === "edit");
 			});
 		});
 
@@ -1068,8 +1102,11 @@ export const TextEditor: Component<{
 				if (saveTimer) clearTimeout(saveTimer);
 				saveTimer = setTimeout(() => {
 					saveTimer = undefined;
-					if (draftUri) {
-						writeComposerDraft(draftUri, latestEmpty ? undefined : latest);
+					if (!bufferKey) return;
+					if (bufferKey.kind === "channel") {
+						writeComposerDraft(bufferKey.uri, latestEmpty ? undefined : latest);
+					} else if (!latestEmpty && latest) {
+						writeEditDraft(bufferKey.uri, proseMirrorToFacets(latest));
 					}
 				}, 200);
 			};
@@ -1078,7 +1115,7 @@ export const TextEditor: Component<{
 			onCleanup(() => instance.off("update", handler));
 		});
 
-		onCleanup(() => persist(draftUri));
+		onCleanup(() => persist(bufferKey));
 	}
 
 	return (

@@ -209,6 +209,17 @@ export const MessageInput: Component<{
 		return true;
 	};
 
+	const isEditingOnMobile = () =>
+		isMobile() && channel.editingMessage() !== undefined;
+
+	const handleSubmit = (
+		text: string,
+		facets: Array<ColibriRichTextFacet>,
+	): Promise<boolean> =>
+		isEditingOnMobile()
+			? channel.submitMessageEdit(text, facets)
+			: sendMessage(text, facets);
+
 	createEffect(() => {
 		const target = channel.replyingTo();
 		// Tracking
@@ -240,7 +251,19 @@ export const MessageInput: Component<{
 					/>
 				</div>
 			</Show>
-			<Show when={channel.replyingTo() !== undefined}>
+			<Show when={isEditingOnMobile()}>
+				<div class="border-y border-border w-full px-4 py-2 bg-primary/5 backdrop-blur-sm text-foreground flex justify-between items-center">
+					<span>Editing message</span>
+					<button
+						type="button"
+						class="cursor-pointer w-6 h-6 flex items-center justify-center text-muted-foreground hover:text-foreground"
+						onClick={channel.cancelMessageEdit}
+					>
+						<CircleIcon />
+					</button>
+				</div>
+			</Show>
+			<Show when={channel.replyingTo() !== undefined && !isEditingOnMobile()}>
 				<div class="border-y border-border w-full px-4 py-2 bg-blue-500/5 backdrop-blur-sm text-foreground flex justify-between items-center">
 					<span>
 						Replying to{" "}
@@ -324,9 +347,13 @@ export const MessageInput: Component<{
 								<TextEditor
 									mainEditor
 									placeholder={`Message ${props.channelName}`}
-									sendMessage={sendMessage}
+									sendMessage={handleSubmit}
 									onChange={handleTypingChange}
-									onEscape={channel.clearReplyingTo}
+									onEscape={() =>
+										isEditingOnMobile()
+											? channel.cancelMessageEdit()
+											: channel.clearReplyingTo()
+									}
 									submitOnEnter={!isMobile()}
 									onEmptyChange={setEditorEmpty}
 									onProgress={setCharPercent}

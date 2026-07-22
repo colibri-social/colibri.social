@@ -45,7 +45,7 @@ import { createMobilePane, useIsMobile } from "../utils/mobile-pane";
 const CommunityHeader = () => {
 	const user = useUserContext();
 	const community = useCommunityContext();
-	const { canManageApprovals } = usePermissions();
+	const { canManageApprovals, canManageCommunity } = usePermissions();
 	const [settingsOpen, setSettingsOpen] = createSignal(false);
 	const [leaveOpen, setLeaveOpen] = createSignal(false);
 	const [menuOpen, setMenuOpen] = createSignal(false);
@@ -90,15 +90,17 @@ const CommunityHeader = () => {
 							</DropdownMenuTrigger>
 							<DropdownMenuPortal>
 								<DropdownMenuContent class="min-w-48 w-66.5">
-									<DropdownMenuItem onSelect={() => setSettingsOpen(true)}>
-										<GearIcon />
-										<span>Settings</span>
-										<Show when={pendingApplications() > 0}>
-											<span class="ml-auto text-xs leading-none font-medium bg-primary text-primary-foreground rounded-full px-1.5 py-0.5 min-w-5 text-center">
-												{pendingApplications()}
-											</span>
-										</Show>
-									</DropdownMenuItem>
+									<Show when={canManageCommunity(user.did)}>
+										<DropdownMenuItem onSelect={() => setSettingsOpen(true)}>
+											<GearIcon />
+											<span>Settings</span>
+											<Show when={pendingApplications() > 0}>
+												<span class="ml-auto text-xs leading-none font-medium bg-primary text-primary-foreground rounded-full px-1.5 py-0.5 min-w-5 text-center">
+													{pendingApplications()}
+												</span>
+											</Show>
+										</DropdownMenuItem>
+									</Show>
 									<Show when={!isOwner()}>
 										<DropdownMenuItem
 											class="text-destructive data-highlighted:text-destructive"
@@ -133,20 +135,22 @@ const CommunityHeader = () => {
 						onOpenChange={setMenuOpen}
 						title={community().community.name}
 					>
-						<MenuDrawerItem
-							onClick={() => {
-								setMenuOpen(false);
-								setSettingsOpen(true);
-							}}
-						>
-							<GearIcon />
-							<span>Settings</span>
-							<Show when={pendingApplications() > 0}>
-								<span class="ml-auto text-xs leading-none font-medium bg-primary text-primary-foreground rounded-full px-1.5 py-0.5 min-w-5 text-center">
-									{pendingApplications()}
-								</span>
-							</Show>
-						</MenuDrawerItem>
+						<Show when={canManageCommunity(user.did)}>
+							<MenuDrawerItem
+								onClick={() => {
+									setMenuOpen(false);
+									setSettingsOpen(true);
+								}}
+							>
+								<GearIcon />
+								<span>Settings</span>
+								<Show when={pendingApplications() > 0}>
+									<span class="ml-auto text-xs leading-none font-medium bg-primary text-primary-foreground rounded-full px-1.5 py-0.5 min-w-5 text-center">
+										{pendingApplications()}
+									</span>
+								</Show>
+							</MenuDrawerItem>
+						</Show>
 						<Show when={!isOwner()}>
 							<MenuDrawerItem
 								destructive
