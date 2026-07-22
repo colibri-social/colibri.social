@@ -209,19 +209,21 @@ export const notificationMethodDocs: LexiconDoc[] = [
 			main: {
 				type: "procedure",
 				description:
-					"Registers a Web Push subscription for the authenticated user.",
+					"Registers a push subscription (Web Push or FCM) for the authenticated user.",
 				input: {
 					encoding: "application/json",
 					schema: {
 						type: "object",
-						required: ["platform", "endpoint", "keys"],
+						required: ["platform", "subscription"],
 						properties: {
 							platform: {
 								type: "string",
-								knownValues: ["web", "tauri"],
+								knownValues: ["web", "tauri", "android"],
 							},
-							endpoint: { type: "string", format: "uri" },
-							keys: { type: "ref", ref: "#pushKeys" },
+							subscription: {
+								type: "union",
+								refs: ["#webPushSubscription", "#fcmSubscription"],
+							},
 						},
 					},
 				},
@@ -231,6 +233,27 @@ export const notificationMethodDocs: LexiconDoc[] = [
 						type: "object",
 						required: ["registered"],
 						properties: { registered: { type: "boolean" } },
+					},
+				},
+			},
+			webPushSubscription: {
+				type: "object",
+				description: "A browser Web Push subscription.",
+				required: ["endpoint", "keys"],
+				properties: {
+					endpoint: { type: "string", format: "uri" },
+					keys: { type: "ref", ref: "#pushKeys" },
+				},
+			},
+			fcmSubscription: {
+				type: "object",
+				description: "A Firebase Cloud Messaging registration token.",
+				required: ["token"],
+				properties: {
+					token: {
+						type: "string",
+						description:
+							"FCM registration token from FirebaseMessaging.getInstance().token.",
 					},
 				},
 			},
@@ -251,14 +274,23 @@ export const notificationMethodDocs: LexiconDoc[] = [
 		defs: {
 			main: {
 				type: "procedure",
-				description: "Removes a Web Push subscription.",
+				description: "Removes a push subscription.",
 				input: {
 					encoding: "application/json",
 					schema: {
 						type: "object",
 						required: ["endpoint"],
 						properties: {
-							endpoint: { type: "string", format: "uri" },
+							provider: {
+								type: "string",
+								knownValues: ["web", "fcm"],
+								description: 'Defaults to "web" if omitted.',
+							},
+							endpoint: {
+								type: "string",
+								description:
+									"The Web Push endpoint URL or FCM registration token to remove.",
+							},
 						},
 					},
 				},

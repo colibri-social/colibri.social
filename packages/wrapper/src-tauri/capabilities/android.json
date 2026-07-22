@@ -1,0 +1,8 @@
+{
+  "$schema": "../gen/schemas/android-schema.json",
+  "identifier": "android",
+  "description": "Android-only capabilities (tauri-plugin-fcm is only registered for that target).",
+  "platforms": ["android"],
+  "windows": ["main"],
+  "permissions": ["fcm:default"]
+}

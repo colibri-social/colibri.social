@@ -5,20 +5,26 @@ import { useUserContext } from "../../contexts/User";
 import { useUserPreferences } from "../../contexts/UserPreferences";
 import {
 	getBackend,
+	isAndroidTauriRuntime,
 	isTauriRuntime,
 	isWebRuntime,
 	notify,
 } from "../../notifications";
 import {
+	listenForFcmTokenRefresh,
+	subscribeFcmPush,
+} from "../../notifications/push-fcm";
+import {
 	listenForPushSubscriptionChanges,
 	subscribeWebPush,
 } from "../../notifications/push-web";
 
-// Re-assert the web push subscription this often while the app stays open,
-// on top of the on-foreground re-assertion below. Self-healing for the case
+// Re-assert the push registration this often while the app stays open, on
+// top of the on-foreground re-assertion below. Self-healing for the case
 // where the AppView pruned our `push_subscriptions` row (e.g. after a 404/410
-// from the push service) without us knowing — `subscribeWebPush` reuses the
-// existing browser subscription and re-registers it, so this is a cheap
+// from Web Push or an `UNREGISTERED` FCM response) without us knowing —
+// `subscribeWebPush`/`subscribeFcmPush` reuse the existing
+// browser/device subscription and re-register it, so this is a cheap
 // idempotent no-op when nothing was actually lost.
 const PUSH_REASSERT_INTERVAL_MS = 24 * 60 * 60 * 1000;
 
@@ -47,6 +53,14 @@ export const NativeNotifications: Component = () => {
 		);
 	};
 
+	const reassertFcmRegistration = async (): Promise<void> => {
+		if (!preferences().nativeNotifications) return;
+		if (!(await isAndroidTauriRuntime())) return;
+		await subscribeFcmPush((sub) =>
+			user.xrpc.social.colibri.notification.registerPush(sub),
+		);
+	};
+
 	onMount(() => {
 		void (async () => {
 			if (isTauriRuntime()) {
@@ -57,6 +71,7 @@ export const NativeNotifications: Component = () => {
 					const permission = await backend.requestPermission();
 					if (permission === "granted") setNativeNotifications(true);
 				}
+				await reassertFcmRegistration();
 				return;
 			}
 
@@ -66,20 +81,28 @@ export const NativeNotifications: Component = () => {
 		const handleVisibilityChange = () => {
 			if (document.visibilityState === "visible") {
 				void reassertWebPushRegistration();
+				void reassertFcmRegistration();
 			}
 		};
 		document.addEventListener("visibilitychange", handleVisibilityChange);
-		const intervalId = window.setInterval(
-			() => void reassertWebPushRegistration(),
-			PUSH_REASSERT_INTERVAL_MS,
-		);
+		const intervalId = window.setInterval(() => {
+			void reassertWebPushRegistration();
+			void reassertFcmRegistration();
+		}, PUSH_REASSERT_INTERVAL_MS);
 		const cleanupPushChangeListener = listenForPushSubscriptionChanges(() => {
 			void reassertWebPushRegistration();
+		});
+		let cleanupFcmTokenRefreshListener = () => {};
+		void listenForFcmTokenRefresh(() => {
+			void reassertFcmRegistration();
+		}).then((cleanup) => {
+			cleanupFcmTokenRefreshListener = cleanup;
 		});
 		onCleanup(() => {
 			document.removeEventListener("visibilitychange", handleVisibilityChange);
 			window.clearInterval(intervalId);
 			cleanupPushChangeListener();
+			cleanupFcmTokenRefreshListener();
 		});
 
 		const cleanup = socket.onEvent((event) => {

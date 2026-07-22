@@ -305,13 +305,9 @@ export const ProfilePopoverContents: Component<{
 						</Show>
 						<Show when={allBadges().length > 0}>
 							<span class="w-1 h-1 rounded-full bg-muted-foreground" />
-							<div class="flex flex-row gap-2 items-center flex-wrap">
-								<For each={allBadges()}>
-									{(val) => (
-										<Badge text={badgeText(val)} size="sm" style={val} />
-									)}
-								</For>
-							</div>
+							<For each={allBadges()}>
+								{(val) => <Badge text={badgeText(val)} size="sm" style={val} />}
+							</For>
 						</Show>
 					</div>
 				</div>

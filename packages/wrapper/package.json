@@ -26,7 +26,8 @@
 		"@tauri-apps/plugin-os": "^2",
 		"@tauri-apps/plugin-process": "^2",
 		"@tauri-apps/plugin-updater": "^2",
-		"@tauri-apps/plugin-window-state": "^2"
+		"@tauri-apps/plugin-window-state": "^2",
+		"tauri-plugin-fcm": "^0.2.0"
 	},
 	"devDependencies": {
 		"@sentry/vite-plugin": "^5.3.0",

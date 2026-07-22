@@ -6,6 +6,10 @@ import { useUserContext } from "../../../contexts/User";
 import { useUserPreferences } from "../../../contexts/UserPreferences";
 import { getBackend, isWebRuntime } from "../../../notifications";
 import {
+	subscribeFcmPush,
+	unsubscribeFcmPush,
+} from "../../../notifications/push-fcm";
+import {
 	subscribeWebPush,
 	unsubscribeWebPush,
 } from "../../../notifications/push-web";
@@ -64,12 +68,16 @@ export const NotificationsPage: Component = () => {
 				setNativeNotifications(true);
 
 				// On the web, also register a push subscription so notifications
-				// arrive while the app is closed.
+				// arrive while the app is closed. On Android, register with FCM
+				// for the same reason.
 				if (isWebRuntime()) {
 					await subscribeWebPush((sub) =>
 						user.xrpc.social.colibri.notification.registerPush(sub),
 					);
 				}
+				await subscribeFcmPush((sub) =>
+					user.xrpc.social.colibri.notification.registerPush(sub),
+				);
 			} else {
 				setNativeNotifications(false);
 				if (isWebRuntime()) {
@@ -77,6 +85,9 @@ export const NotificationsPage: Component = () => {
 						user.xrpc.social.colibri.notification.unregisterPush(endpoint),
 					);
 				}
+				await unsubscribeFcmPush((token) =>
+					user.xrpc.social.colibri.notification.unregisterPush(token, "fcm"),
+				);
 			}
 		} catch (err) {
 			console.error(err);
@@ -95,7 +106,7 @@ export const NotificationsPage: Component = () => {
 				disabled={busy()}
 			>
 				<div class="flex flex-col gap-1">
-					<SwitchLabel>Desktop notifications</SwitchLabel>
+					<SwitchLabel>Notifications</SwitchLabel>
 					<SwitchDescription class="max-w-120">
 						Show native OS notifications when the app is unfocused or closed.
 					</SwitchDescription>

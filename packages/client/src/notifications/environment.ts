@@ -15,3 +15,9 @@ export const isWebRuntime = (): boolean =>
 	typeof window !== "undefined" &&
 	!isTauriRuntime() &&
 	"Notification" in window;
+
+export const isAndroidTauriRuntime = async (): Promise<boolean> => {
+	if (!isTauriRuntime()) return false;
+	const { platform } = await import("@tauri-apps/plugin-os");
+	return platform() === "android";
+};

@@ -32,6 +32,32 @@ const parseInviteCode = (url: string): string | null => {
 	}
 };
 
+type ChannelDeepLink = {
+	community: string;
+	channelType: string;
+	channel: string;
+};
+
+const parseChannelDeepLink = (url: string): ChannelDeepLink | null => {
+	try {
+		const parsed = new URL(url);
+		const segments = [parsed.host, ...parsed.pathname.split("/")].filter(
+			Boolean,
+		);
+		const idx = segments.indexOf("channel");
+		if (idx === -1) return null;
+		const [community, channelType, channel] = segments.slice(idx + 1);
+		if (!community || !channelType || !channel) return null;
+		return {
+			community: decodeURIComponent(community),
+			channelType: decodeURIComponent(channelType),
+			channel: decodeURIComponent(channel),
+		};
+	} catch {
+		return null;
+	}
+};
+
 const deepLinkPluginPromise = isTauriRuntime()
 	? import("@tauri-apps/plugin-deep-link")
 	: undefined;
@@ -42,6 +68,9 @@ const deepLinkPluginPromise = isTauriRuntime()
  *   sign-in (see startOAuthSignIn in auth.ts), then reloads into the app.
  * - `social.colibri:/invite/<code>` — opens the in-app invite screen, driving
  *   the existing join / pre-login pending-invite flow (InviteModal + AppLayout).
+ * - `social.colibri:/channel/<community>/<channelType>/<channel>` — opens a
+ *   specific channel, e.g. from tapping an Android push notification (see
+ *   `ColibriFirebaseMessagingService`'s tap `PendingIntent`).
  *
  * Renders nothing and is a no-op outside the Tauri runtime, so it's safe to
  * mount in the shared client on the web too
@@ -75,6 +104,14 @@ export const DeepLinkListener: Component = () => {
 				const code = parseInviteCode(url);
 				if (code) {
 					navigate(`/app/invite/${code}`);
+					return;
+				}
+
+				const channelLink = parseChannelDeepLink(url);
+				if (channelLink) {
+					navigate(
+						`/app/c/${channelLink.community}/${channelLink.channelType}/${channelLink.channel}`,
+					);
 					return;
 				}
 			}

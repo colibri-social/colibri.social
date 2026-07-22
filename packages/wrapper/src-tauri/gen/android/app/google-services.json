@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "278712451441",
+    "project_id": "colibri-social-notifs",
+    "storage_bucket": "colibri-social-notifs.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:278712451441:android:5bc139a7d8ca3f3f37b6d0",
+        "android_client_info": {
+          "package_name": "social.colibri.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDBBHAn29SoM0NaVkWpSjGZz1vdwHZf0Uk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

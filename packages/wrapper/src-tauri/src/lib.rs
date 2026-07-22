@@ -63,6 +63,11 @@ pub fn run() {
         }
     }
 
+    #[cfg(target_os = "android")]
+    {
+        builder = builder.plugin(tauri_plugin_fcm::init());
+    }
+
     builder
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_notification::init())

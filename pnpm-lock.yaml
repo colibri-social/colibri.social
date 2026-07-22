@@ -461,6 +461,9 @@ importers:
       tailwind-merge:
         specifier: ^3.4.0
         version: 3.4.0
+      tauri-plugin-fcm:
+        specifier: ^0.2.0
+        version: 0.2.0
       tlds:
         specifier: ^1.261.0
         version: 1.261.0
@@ -590,6 +593,9 @@ importers:
       solid-js:
         specifier: ^1.9.14
         version: 1.9.14
+      tauri-plugin-fcm:
+        specifier: ^0.2.0
+        version: 0.2.0
     devDependencies:
       '@sentry/vite-plugin':
         specifier: ^5.3.0
@@ -5515,6 +5521,10 @@ packages:
   tapable@2.3.3:
     resolution: {integrity: sha512-uxc/zpqFg6x7C8vOE7lh6Lbda8eEL9zmVm/PLeTPBRhh1xCgdWaQ+J1CUieGpIfm2HdtsUpRv+HshiasBMcc6A==}
     engines: {node: '>=6'}
+
+  tauri-plugin-fcm@0.2.0:
+    resolution: {integrity: sha512-8GmSUlpjUKjDekqPaAKntxbzmt7P2kicAC55kGqdHILtwU25Ja1N7rhmWjp9XZJnybWmdaQqi0Wxx/YLQoEw3w==}
+    engines: {node: '>=18'}
 
   term-size@2.2.1:
     resolution: {integrity: sha512-wK0Ri4fOGjv/XPy8SBHZChl8CM7uMc5VML7SqiQ0zG7+J5Vr+RMQDoHa2CNT6KHUnTGIXH34UDMkPzAUyapBZg==}
@@ -11773,6 +11783,10 @@ snapshots:
   tailwindcss@4.3.2: {}
 
   tapable@2.3.3: {}
+
+  tauri-plugin-fcm@0.2.0:
+    dependencies:
+      '@tauri-apps/api': 2.11.1
 
   term-size@2.2.1: {}
 
