@@ -1,4 +1,4 @@
-import type { Details, FileError } from "@kobalte/core/file-field";
+import type { FileError } from "@kobalte/core/file-field";
 import {
 	createEffect,
 	createMemo,
@@ -115,8 +115,6 @@ const ChannelLayout: ParentComponent = (props) => {
 			if (isMobile()) toast.success("Channel muted");
 		}
 	};
-
-	const [files, setFiles] = createSignal<Details>();
 
 	const messageMeta = createMemo<MessageMeta[]>(() => {
 		const msgs = channel.messages() as RichMessage[];
@@ -723,7 +721,6 @@ const ChannelLayout: ParentComponent = (props) => {
 						{ description: messages.join("\n") },
 					);
 				}}
-				onFileChange={setFiles}
 			>
 				<FileFieldDropzone class="border-none gap-0! flex flex-col flex-1 min-h-0">
 					<div
@@ -872,7 +869,6 @@ const ChannelLayout: ParentComponent = (props) => {
 							<MessageInput
 								disabled={!canTalk()}
 								channelName={channel.data()?.name ?? ""}
-								files={files}
 							/>
 						</Show>
 

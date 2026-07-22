@@ -1,9 +1,8 @@
 import type { Agent } from "@atproto/api";
 import type { JsonBlobRef } from "@atproto/lexicon";
 import type { AttachmentObj, ColibriRichTextFacet } from "@colibri-social/lib";
-import { type Details, useFileFieldContext } from "@kobalte/core/file-field";
+import { useFileFieldContext } from "@kobalte/core/file-field";
 import {
-	type Accessor,
 	type Component,
 	createEffect,
 	createSignal,
@@ -50,7 +49,6 @@ const uploadFile = async (agent: Agent, file: File): Promise<AttachmentObj> => {
  * The message input used to send messages to the currently viewed channel.
  */
 export const MessageInput: Component<{
-	files: Accessor<Details | undefined>;
 	disabled: boolean;
 	channelName: string;
 }> = (props) => {
@@ -69,7 +67,7 @@ export const MessageInput: Component<{
 
 	let submitMessage: (() => void) | undefined;
 
-	const hasAttachments = () => (props.files()?.acceptedFiles.length ?? 0) > 0;
+	const hasAttachments = () => fileField.acceptedFiles.length > 0;
 
 	const showSendButton = () =>
 		isMobile() && (!editorEmpty() || hasAttachments());
@@ -115,8 +113,7 @@ export const MessageInput: Component<{
 		text: string,
 		facets: Array<ColibriRichTextFacet>,
 	): Promise<boolean> => {
-		const files = props.files();
-		const acceptedFiles = files?.acceptedFiles ?? [];
+		const acceptedFiles = [...fileField.acceptedFiles];
 		const hasFiles = acceptedFiles.length > 0;
 		const replyingMessage = channel.replyingTo()
 			? JSON.parse(JSON.stringify(channel.replyingTo()))
@@ -145,10 +142,7 @@ export const MessageInput: Component<{
 		// Reset the throttle so the next keystroke after sending pings promptly.
 		lastTypingPing = 0;
 
-		// Snapshot first: `removeFile` mutates the live `acceptedFiles` array, so
-		// iterating it directly shifts elements out from under the loop and leaves
-		// some attachments behind.
-		for (const file of [...fileField.acceptedFiles]) {
+		for (const file of acceptedFiles) {
 			fileField.removeFile(file);
 		}
 
@@ -218,7 +212,7 @@ export const MessageInput: Component<{
 	createEffect(() => {
 		const target = channel.replyingTo();
 		// Tracking
-		const _ = props.files()?.acceptedFiles.length;
+		const _ = fileField.acceptedFiles.length;
 
 		if (!target) return;
 
@@ -263,9 +257,7 @@ export const MessageInput: Component<{
 					</button>
 				</div>
 			</Show>
-			<Show
-				when={(props.files() || { acceptedFiles: [] }).acceptedFiles.length > 0}
-			>
+			<Show when={fileField.acceptedFiles.length > 0}>
 				<div
 					class="left-0 border-y border-border w-full px-4 py-2 bg-background/75 backdrop-blur-sm text-foreground flex justify-between items-center"
 					classList={{
