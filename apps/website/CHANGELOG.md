@@ -1,5 +1,25 @@
 # @colibri-social/website
 
+## 0.0.2-rc.7
+
+### Patch Changes
+
+- abc0d59: Adds better emoji handling and twemoji fallbacks
+- 171968c: Adds native FCM notifications for Android apps
+- 297bf92: Adds support for web push notifications for all messages
+- Updated dependencies [abc0d59]
+- Updated dependencies [cfabe53]
+- Updated dependencies [171968c]
+- Updated dependencies [835198b]
+- Updated dependencies [a924645]
+- Updated dependencies [0eea035]
+- Updated dependencies [702c3ae]
+- Updated dependencies [297bf92]
+- Updated dependencies [4536e73]
+- Updated dependencies [7cd245e]
+  - @colibri-social/assets@0.0.2-rc.0
+  - @colibri-social/client@0.1.0-rc.7
+
 ## 0.0.2-rc.6
 
 ### Patch Changes

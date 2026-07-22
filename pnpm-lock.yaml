@@ -68,10 +68,10 @@ importers:
         specifier: ^2.4.4
         version: 2.5.2
       '@colibri-social/assets':
-        specifier: 'workspace:'
+        specifier: workspace:0.0.2-rc.0
         version: link:../../packages/assets
       '@colibri-social/client':
-        specifier: workspace:0.1.0-rc.6
+        specifier: workspace:0.1.0-rc.7
         version: link:../../packages/client
       '@colibri-social/standard-renderer':
         specifier: workspace:0.0.2-rc.0
@@ -300,10 +300,10 @@ importers:
         specifier: ^0.4.3
         version: 0.4.3(patch_hash=ef34bd8a2f7c578250a334e2edf3593a5846e940e5e4608c13d13b3dbfc5fd89)
       '@colibri-social/assets':
-        specifier: 'workspace:'
+        specifier: workspace:0.0.2-rc.0
         version: link:../assets
       '@colibri-social/lib':
-        specifier: 'workspace:'
+        specifier: workspace:0.0.2-rc.0
         version: link:../lib
       '@kobalte/core':
         specifier: ^0.13.11
@@ -570,10 +570,10 @@ importers:
   packages/wrapper:
     dependencies:
       '@colibri-social/assets':
-        specifier: 'workspace:'
+        specifier: workspace:0.0.2-rc.0
         version: link:../assets
       '@colibri-social/client':
-        specifier: workspace:0.1.0-rc.6
+        specifier: workspace:0.1.0-rc.7
         version: link:../client
       '@tauri-apps/api':
         specifier: ^2
