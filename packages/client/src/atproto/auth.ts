@@ -61,7 +61,8 @@ const withFetchTimeout =
 	(input, init) => {
 		const controller = new AbortController();
 		const timer = setTimeout(
-			() => controller.abort(new DOMException("Sign-in timed out", "TimeoutError")),
+			() =>
+				controller.abort(new DOMException("Sign-in timed out", "TimeoutError")),
 			ms,
 		);
 
