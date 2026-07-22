@@ -55,6 +55,7 @@ jobs:
           echo "MSIX Store version (padded to .0 by the bundler): ${STORE_VERSION}.0"
           cat > packages/wrapper/src-tauri/tauri.windows.conf.json <<JSON
           {
+            "identifier": "LouisEscher.ColibriSocial",
             "version": "${STORE_VERSION}",
             "mainBinaryName": "ColibriSocial"
           }
