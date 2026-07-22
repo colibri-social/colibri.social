@@ -37,7 +37,6 @@ import {
 	type PopoverProps,
 	PopoverTrigger,
 } from "../../ui/Popover";
-import { ScrollFadeBottom } from "../../ui/ScrollFadeBottom";
 import {
 	Tooltip,
 	TooltipContent,
