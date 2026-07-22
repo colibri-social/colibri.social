@@ -277,7 +277,7 @@ export const MessageInput: Component<{
 				</div>
 			</Show>
 			<Show when={channel.typingUsers().length > 0}>
-				<div class="px-4 py-1 text-xs text-foreground pointer-events-none z-50 h-20 pt-14 overflow-hidden absolute top-0 left-0 bg-linear-to-b from-background/0 from-0% via-background/70 via-35% to-background to-90% -translate-y-full w-full">
+				<div class="px-4 py-2 text-xs text-foreground pointer-events-none z-50 h-8 pt-1 overflow-hidden absolute top-0 left-0 bg-linear-to-b from-background/0 from-0% via-background/70 via-35% to-background to-90% -translate-y-full w-full flex flex-col justify-end">
 					<Show
 						when={channel.typingUsers().length === 1}
 						fallback={
