@@ -9,3 +9,6 @@ onlyBuiltDependencies:
   - core-js
   - esbuild
   - sharp
+
+patchedDependencies:
+  '@atproto/oauth-client-browser@0.4.3': patches/@atproto__oauth-client-browser@0.4.3.patch
