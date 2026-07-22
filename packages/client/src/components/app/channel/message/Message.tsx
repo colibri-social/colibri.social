@@ -57,6 +57,7 @@ export const Message: Component<{
 	data: MessageData;
 	isSubsequent: boolean;
 	hasSubsequent: boolean;
+	isLast: boolean;
 	disabled?: boolean;
 }> = (props) => {
 	return (
@@ -64,6 +65,7 @@ export const Message: Component<{
 			<MessageInner
 				isSubsequent={props.isSubsequent}
 				hasSubsequent={props.hasSubsequent}
+				isLast={props.isLast}
 				disabled={props.disabled}
 			/>
 		</MessageContextProvider>
@@ -73,6 +75,7 @@ export const Message: Component<{
 const MessageInner: Component<{
 	isSubsequent: boolean;
 	hasSubsequent: boolean;
+	isLast: boolean;
 	disabled?: boolean;
 }> = (props) => {
 	const user = useUserContext();
@@ -180,7 +183,20 @@ const MessageInner: Component<{
 	const replyRevealProgress = () =>
 		Math.min(1, Math.abs(dragX()) / REPLY_SWIPE_THRESHOLD);
 
-	const bottomSpacingClass = () => {
+	const needsMarginSpacing = () =>
+		props.isLast || containsMentionOrIsReplyToUser();
+
+	const innerTopSpacingClass = () => (isSubsequentMessage() ? "pt-0" : "pt-1");
+
+	const outerBottomSpacingClass = () => {
+		if (!needsMarginSpacing()) return "";
+		if (message.reactions.length > 0) return "mb-2";
+		if (props.hasSubsequent) return "mb-0.5";
+		return "";
+	};
+
+	const innerBottomSpacingClass = () => {
+		if (needsMarginSpacing()) return "";
 		if (message.reactions.length > 0) return "pb-2";
 		if (props.hasSubsequent) return "pb-0.5";
 		return "pb-0";
@@ -198,10 +214,19 @@ const MessageInner: Component<{
 	};
 
 	return (
-		<MessageContextMenu>
+		<MessageContextMenu
+			classList={{
+				"mt-2": !isSubsequentMessage(),
+			}}
+		>
 			<div
 				class="relative w-full"
-				classList={{ "overflow-x-hidden": swipeReplyEnabled() }}
+				classList={{
+					"overflow-x-hidden": swipeReplyEnabled(),
+					...(outerBottomSpacingClass()
+						? { [outerBottomSpacingClass()]: true }
+						: {}),
+				}}
 			>
 				<Show when={swipeReplyEnabled() && dragging()}>
 					<div class="absolute inset-0 bg-primary pointer-events-none">
@@ -254,8 +279,7 @@ const MessageInner: Component<{
 					data-message={JSON.stringify(message)}
 					data-message-uri={message.uri}
 					classList={{
-						"pt-0.5": isSubsequentMessage(),
-						"pt-1 mt-2": !isSubsequentMessage(),
+						[innerTopSpacingClass()]: true,
 						"border-transparent": !isRepliedTo(),
 						"bg-primary/10 hover:bg-primary/15! border-primary!":
 							containsMentionOrIsReplyToUser(),
@@ -263,11 +287,13 @@ const MessageInner: Component<{
 							isRepliedTo(),
 						"bg-blue-500/15": isFocused(),
 						"bg-muted/60! hover:bg-muted/60!": contextMenuOpen(),
-						"bg-card": dragging(),
+						"bg-card!": dragging(),
 						"transition-colors duration-75": !dragging(),
 						"transition-[transform,border-radius] duration-150 ease-out":
 							!dragging(),
-						[bottomSpacingClass()]: true,
+						...(innerBottomSpacingClass()
+							? { [innerBottomSpacingClass()]: true }
+							: {}),
 					}}
 				>
 					<BlockDrawer />

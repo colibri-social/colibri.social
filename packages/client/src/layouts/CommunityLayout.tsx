@@ -24,7 +24,11 @@ import {
 	DropdownMenuPortal,
 	DropdownMenuTrigger,
 } from "../components/ui/DropdownMenu";
-import { MenuDrawer, MenuDrawerItem } from "../components/ui/MenuDrawer";
+import {
+	isDrawerOpen,
+	MenuDrawer,
+	MenuDrawerItem,
+} from "../components/ui/MenuDrawer";
 import {
 	CommunityContextProvider,
 	useCommunityContext,
@@ -190,13 +194,13 @@ const CommunityLayout: ParentComponent = (props) => {
 		popPane,
 		pushDeeper,
 		updateDrag,
-		paneTransform,
+		paneTranslate,
 		isDragging,
 	} = createMobilePane();
 
 	// Swipe right = back up the stack, swipe left = deeper
 	const swipe: SwipeOptions = {
-		enabled: () => isMobile(),
+		enabled: () => isMobile() && !isDrawerOpen(),
 		onSwipeRight: () => popPane(),
 		onSwipeLeft: () => pushDeeper(),
 		onSwipeMove: updateDrag,
@@ -212,7 +216,7 @@ const CommunityLayout: ParentComponent = (props) => {
 			<aside
 				ref={(el) => createSwipe(el, swipe)}
 				class="border-border flex flex-col bg-background"
-				style={{ transform: paneTransform("nav") }}
+				style={{ translate: paneTranslate("nav") }}
 				classList={{
 					"h-full min-w-72 w-72 border-r": !isMobile(),
 					"absolute inset-0 w-full pl-14 z-30": isMobile(),
@@ -228,7 +232,7 @@ const CommunityLayout: ParentComponent = (props) => {
 			<div
 				ref={(el) => createSwipe(el, swipe)}
 				class="flex flex-col"
-				style={{ transform: paneTransform("chat") }}
+				style={{ translate: paneTranslate("chat") }}
 				classList={{
 					"w-full h-full": !isMobile(),
 					"max-h-[calc(100vh-41px)]": !isMobile() && !isTauriRuntime(),

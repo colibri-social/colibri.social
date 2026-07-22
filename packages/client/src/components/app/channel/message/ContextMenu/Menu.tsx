@@ -33,7 +33,9 @@ import { DebugInfo } from "../DebugInfo";
  * Message context menu. On desktop it's a right-click Kobalte menu; on mobile a
  * long-press (wired in Message.tsx) opens the same actions as a bottom drawer.
  */
-export const MessageContextMenu: ParentComponent = (props) => {
+export const MessageContextMenu: ParentComponent<{
+	classList?: Record<string, boolean>;
+}> = (props) => {
 	const user = useUserContext();
 	const {
 		message,
@@ -77,7 +79,10 @@ export const MessageContextMenu: ParentComponent = (props) => {
 				when={isMobile()}
 				fallback={
 					<ContextMenu>
-						<ContextMenuTrigger disabled={isDisabled()}>
+						<ContextMenuTrigger
+							classList={props.classList}
+							disabled={isDisabled()}
+						>
 							{props.children}
 						</ContextMenuTrigger>
 						<ContextMenuPortal>
@@ -129,7 +134,7 @@ export const MessageContextMenu: ParentComponent = (props) => {
 					</ContextMenu>
 				}
 			>
-				{props.children}
+				<div classList={props.classList}>{props.children}</div>
 				<MenuDrawer open={contextMenuOpen()} onOpenChange={setContextMenuOpen}>
 					<Show when={!isPending()}>
 						<div class="flex flex-row items-center justify-between gap-1 px-2 pb-2 mb-1 border-b border-border">

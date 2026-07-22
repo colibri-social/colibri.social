@@ -16,6 +16,7 @@ import { getChannelParam } from "../../../utils/get-param";
 import { groupMembersByRoles } from "../../../utils/group-members-by-roles";
 import { createMobilePane } from "../../../utils/mobile-pane";
 import { Button } from "../../ui/Button";
+import { isDrawerOpen } from "../../ui/MenuDrawer";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../../ui/Tooltip";
 import User from "../user";
 import { MemberContextMenu } from "./MemberContextMenu";
@@ -120,7 +121,7 @@ export const MemberSidebar = () => {
 		popPane,
 		pushDeeper,
 		updateDrag,
-		paneTransform,
+		paneTranslate,
 		isDragging,
 	} = createMobilePane();
 	const mutes = useMutes();
@@ -136,14 +137,14 @@ export const MemberSidebar = () => {
 		<div
 			ref={(el) =>
 				createSwipe(el, {
-					enabled: () => isMobile(),
+					enabled: () => isMobile() && !isDrawerOpen(),
 					onSwipeRight: () => popPane(),
 					onSwipeLeft: () => pushDeeper(),
 					onSwipeMove: updateDrag,
 				})
 			}
 			class="flex flex-col border-border bg-background"
-			style={{ transform: paneTransform("members") }}
+			style={{ translate: paneTranslate("members") }}
 			classList={{
 				"min-w-72 w-72 h-full border-l z-50": !isMobile(),
 				"absolute top-0 right-0 h-full drop-shadow-black drop-shadow-2xl":
