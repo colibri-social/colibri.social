@@ -4,6 +4,11 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+patchedDependencies:
+  '@atproto/oauth-client-browser@0.4.3':
+    hash: ef34bd8a2f7c578250a334e2edf3593a5846e940e5e4608c13d13b3dbfc5fd89
+    path: patches/@atproto__oauth-client-browser@0.4.3.patch
+
 importers:
 
   .:
@@ -52,7 +57,7 @@ importers:
         version: 0.6.1
       '@atproto/oauth-client-browser':
         specifier: ^0.4.3
-        version: 0.4.3
+        version: 0.4.3(patch_hash=ef34bd8a2f7c578250a334e2edf3593a5846e940e5e4608c13d13b3dbfc5fd89)
       '@atproto/oauth-client-node':
         specifier: ^0.3.16
         version: 0.3.16
@@ -289,7 +294,7 @@ importers:
         version: 0.20.22
       '@atproto/oauth-client-browser':
         specifier: ^0.4.3
-        version: 0.4.3
+        version: 0.4.3(patch_hash=ef34bd8a2f7c578250a334e2edf3593a5846e940e5e4608c13d13b3dbfc5fd89)
       '@colibri-social/assets':
         specifier: 'workspace:'
         version: link:../assets
@@ -531,7 +536,7 @@ importers:
         version: 0.7.3
       '@atproto/oauth-client-browser':
         specifier: ^0.4.3
-        version: 0.4.3
+        version: 0.4.3(patch_hash=ef34bd8a2f7c578250a334e2edf3593a5846e940e5e4608c13d13b3dbfc5fd89)
       '@types/mdast':
         specifier: ^4.0.4
         version: 4.0.4
@@ -6861,7 +6866,7 @@ snapshots:
       multiformats: 13.4.2
       zod: 3.25.76
 
-  '@atproto/oauth-client-browser@0.4.3':
+  '@atproto/oauth-client-browser@0.4.3(patch_hash=ef34bd8a2f7c578250a334e2edf3593a5846e940e5e4608c13d13b3dbfc5fd89)':
     dependencies:
       '@atproto-labs/did-resolver': 0.3.3
       '@atproto-labs/handle-resolver': 0.4.3

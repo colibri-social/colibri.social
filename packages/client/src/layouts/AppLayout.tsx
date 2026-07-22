@@ -236,14 +236,20 @@ const AppLayout: ParentComponent = (props) => {
 	const { isMobile, currentPane } = createMobilePane();
 	const viewport = useViewport();
 
+	const needsShellInsets = () => isMobile() || isTauriRuntime();
+
 	const shellHeight = () =>
-		isMobile() && viewport.height() !== undefined
+		needsShellInsets() && viewport.height() !== undefined
 			? `${viewport.height()}px`
 			: undefined;
 
 	const keyboardOpen = () => {
 		const h = viewport.height();
-		if (!isMobile() || h === undefined || typeof document === "undefined")
+		if (
+			!needsShellInsets() ||
+			h === undefined ||
+			typeof document === "undefined"
+		)
 			return false;
 		return document.documentElement.clientHeight - h > 100;
 	};
@@ -415,14 +421,14 @@ const AppLayout: ParentComponent = (props) => {
 		<div
 			class="flex flex-col w-screen bg-card"
 			classList={{
-				"h-[100dvh]": isMobile() && shellHeight() === undefined,
-				"h-screen": !isMobile(),
-				"pt-[var(--safe-area-top)]": isMobile(),
-				"pb-[var(--safe-area-bottom)]": isMobile() && !keyboardOpen(),
+				"h-[100dvh]": needsShellInsets() && shellHeight() === undefined,
+				"h-screen": !needsShellInsets(),
+				"pt-[var(--safe-area-top)]": needsShellInsets(),
+				"pb-[var(--safe-area-bottom)]": needsShellInsets() && !keyboardOpen(),
 			}}
 			style={{
 				...(shellHeight() ? { height: shellHeight() } : {}),
-				...(isMobile() && viewport.offsetTop() > 0
+				...(needsShellInsets() && viewport.offsetTop() > 0
 					? { transform: `translateY(${viewport.offsetTop()}px)` }
 					: {}),
 			}}
