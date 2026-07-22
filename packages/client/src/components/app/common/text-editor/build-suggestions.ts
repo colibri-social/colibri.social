@@ -42,13 +42,13 @@ export const buildSuggestions = (
 								?.toLowerCase()
 								.startsWith(query.toLowerCase()),
 					)
-					.slice(0, 8);
+					.slice(0, 3);
 
 				const matchedRoles = roles()
 					.filter((role) =>
 						role.name.toLowerCase().startsWith(query.toLowerCase()),
 					)
-					.slice(0, 8);
+					.slice(0, 3);
 
 				if ("time".startsWith(query.toLowerCase())) {
 					return [...matchedMembers, ...matchedRoles, { timeShortcut: true }];
