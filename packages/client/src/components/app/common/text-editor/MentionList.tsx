@@ -1,4 +1,3 @@
-import twemoji from "@twemoji/api";
 import {
 	type Accessor,
 	type Component,
@@ -16,6 +15,7 @@ import SpeakerLowIcon from "~icons/ph/speaker-low";
 import type { Channel } from "../../../../atproto/xrpc/social/colibri/community/listChannels";
 import type { Member } from "../../../../atproto/xrpc/social/colibri/community/listMembers";
 import type { Role } from "../../../../atproto/xrpc/social/colibri/community/listRoles";
+import { parseEmojiText } from "../../../../utils/emoji";
 import User from "../../user";
 import { displayableNameFn } from "../../user/DisplayableName";
 import type {
@@ -196,7 +196,7 @@ export const MentionList: Component<{
 				<Match when={isEmoji}>
 					<div class="flex flex-row items-center justify-between gap-1.5">
 						<span
-							innerHTML={twemoji.parse(
+							innerHTML={parseEmojiText(
 								(bprops.item as EmojiSuggestionData).emoji,
 							)}
 							class="[&>img]:w-5 [&>img]:h-5"

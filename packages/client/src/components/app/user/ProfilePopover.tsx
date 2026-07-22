@@ -1,5 +1,4 @@
 import type { ActorData } from "@colibri-social/lib";
-import twemoji from "@twemoji/api";
 import {
 	type Component,
 	createSignal,
@@ -17,6 +16,7 @@ import { useSettingsModalContext } from "../../../contexts/SettingsModal";
 import { useUserContext } from "../../../contexts/User";
 import { useUserPreferences } from "../../../contexts/UserPreferences";
 import { cx } from "../../../utils/cva";
+import { parseEmojiText } from "../../../utils/emoji";
 import { LINK_REGEX } from "../../../utils/link-regex";
 import { useIsMobile } from "../../../utils/mobile-pane";
 import { purify } from "../../..//utils/purify";
@@ -188,7 +188,7 @@ export const ProfilePopoverContents: Component<{
 									<Show when={props.user.data.status!.emoji}>
 										<span
 											class="h-5.5 w-5.5 [&>img]:min-w-4.5 [&>img]:min-h-4.5 [&>img]:w-4.5 [&>img]:h-4.5 [&>img]inline flex items-center justify-center"
-											innerHTML={twemoji.parse(props.user.data.status!.emoji!)}
+											innerHTML={parseEmojiText(props.user.data.status!.emoji!)}
 										/>
 									</Show>
 									<span

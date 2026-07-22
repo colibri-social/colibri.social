@@ -11,9 +11,12 @@ import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.app.Person
+import androidx.core.content.FileProvider
 import androidx.core.graphics.drawable.IconCompat
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
+import java.io.File
+import java.io.FileOutputStream
 import java.net.URL
 
 private const val CHANNEL_ID = "colibri_messages"
@@ -29,14 +32,16 @@ class ColibriFirebaseMessagingService : FirebaseMessagingService() {
 		val communityAvatarUrl = data["communityAvatarUrl"]
 		val authorName = data["authorName"] ?: "Someone"
 		val authorAvatarUrl = data["authorAvatarUrl"]
+		val imageUrl = data["imageUrl"]
 
 		ensureNotificationChannel()
 
-		// onMessageReceived runs on the main thread; fetching the avatars is
-		// network I/O and must not block it.
+		// onMessageReceived runs on the main thread; fetching the avatars and
+		// the attachment image is network I/O and must not block it.
 		Thread {
 			val communityAvatar = communityAvatarUrl?.let(::fetchBitmap)
 			val authorAvatar = authorAvatarUrl?.let(::fetchBitmap)
+			val attachmentImage = imageUrl?.let(::fetchBitmap)
 			showNotification(
 				channelUri,
 				authorName,
@@ -45,6 +50,7 @@ class ColibriFirebaseMessagingService : FirebaseMessagingService() {
 				communityName,
 				communityAvatar,
 				authorAvatar,
+				attachmentImage,
 			)
 		}.start()
 	}
@@ -65,6 +71,21 @@ class ColibriFirebaseMessagingService : FirebaseMessagingService() {
 			null
 		}
 
+	// MessagingStyle can only inline an image via a content Uri, so the fetched
+	// bitmap is written to the cache dir and handed out through the app's
+	// FileProvider. The system grants SystemUI temporary read access to content
+	// Uris referenced by a posted notification, so no extra permission grant is
+	// needed here.
+	private fun cacheImageUri(bitmap: Bitmap): Uri? =
+		try {
+			val dir = File(cacheDir, "notification_images").apply { mkdirs() }
+			val file = File(dir, "notif_${System.currentTimeMillis()}.jpg")
+			FileOutputStream(file).use { bitmap.compress(Bitmap.CompressFormat.JPEG, 90, it) }
+			FileProvider.getUriForFile(this, "$packageName.fileprovider", file)
+		} catch (e: Exception) {
+			null
+		}
+
 	private fun showNotification(
 		channelUri: String,
 		authorName: String,
@@ -73,6 +94,7 @@ class ColibriFirebaseMessagingService : FirebaseMessagingService() {
 		communityName: String?,
 		communityAvatar: Bitmap?,
 		authorAvatar: Bitmap?,
+		attachmentImage: Bitmap?,
 	) {
 		val notificationId = channelUri.hashCode()
 		val manager = getSystemService(NotificationManager::class.java)
@@ -93,7 +115,10 @@ class ColibriFirebaseMessagingService : FirebaseMessagingService() {
 			(existingStyle ?: NotificationCompat.MessagingStyle(Person.Builder().setName("You").build()))
 				.also { style ->
 					communityName?.let { style.conversationTitle = it }
-					style.addMessage(body, System.currentTimeMillis(), sender)
+					val message =
+						NotificationCompat.MessagingStyle.Message(body, System.currentTimeMillis(), sender)
+					attachmentImage?.let(::cacheImageUri)?.let { message.setData("image/jpeg", it) }
+					style.addMessage(message)
 				}
 
 		val contentIntent =

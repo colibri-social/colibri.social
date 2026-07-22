@@ -24,7 +24,6 @@ import {
 	tokenizeMarkdown,
 } from "@colibri-social/lib";
 import { type Editor, Extension, mergeAttributes } from "@tiptap/core";
-import twemoji from "@twemoji/api";
 import type { Fragment, Node as ProseMirrorNode } from "prosemirror-model";
 import { Plugin, TextSelection } from "prosemirror-state";
 import type { EditorView } from "prosemirror-view";
@@ -46,6 +45,8 @@ import {
 	readComposerDraft,
 	writeComposerDraft,
 } from "../../../../utils/composer-drafts";
+import { hasEmoji, parseEmojiText } from "../../../../utils/emoji";
+import { EMOJI_SUGGESTIONS, TIPTAP_EMOJIS } from "../../../../utils/emoji-data";
 import { createFenceRegex } from "../../../../utils/fenced-code-regex";
 import { htmlToDOMOutputSpec } from "../../../../utils/html-to-dom-output-spec";
 import { useIsMobile } from "../../../../utils/mobile-pane";
@@ -57,7 +58,6 @@ import {
 } from "../../../ui/Tooltip";
 import { ComposerMediaPickers } from "../ComposerMediaPickers";
 import { EmojiPopover } from "../EmojiPopover";
-import { EMOJI_DATA } from "../rich-text-renderer/emojiData";
 import { buildSuggestions } from "./build-suggestions";
 import { buildClipboardHtml, readClipboardFacets } from "./clipboard-facets";
 import { facetsToProseMirror } from "./facets-to-prosemirror";
@@ -724,11 +724,7 @@ export const TextEditor: Component<{
 					() => community().members ?? [],
 					() => community().channels ?? [],
 					() => mentionableRoles(),
-					() =>
-						Object.keys(EMOJI_DATA).map((x: string) => ({
-							name: x,
-							emoji: EMOJI_DATA[x],
-						})),
+					() => EMOJI_SUGGESTIONS,
 					props.mainEditor,
 				),
 			}).extend({
@@ -787,7 +783,7 @@ export const TextEditor: Component<{
 						colorClass = "bg-orange-400/25";
 						contents = label;
 					} else {
-						return htmlToDOMOutputSpec(twemoji.parse(label))[0];
+						return htmlToDOMOutputSpec(parseEmojiText(label))[0];
 					}
 
 					return [
@@ -838,7 +834,7 @@ export const TextEditor: Component<{
 			Placeholder.configure({
 				placeholder: () => placeholder(),
 			}),
-			Emoji.configure(),
+			Emoji.configure({ emojis: TIPTAP_EMOJIS }),
 		],
 		editorProps: {
 			clipboardTextSerializer: (slice) => fragmentToMarkdown(slice.content),
@@ -870,7 +866,8 @@ export const TextEditor: Component<{
 				}
 
 				const text = event.clipboardData?.getData("text/plain");
-				if (!text?.includes("\n")) return false;
+				if (!text) return false;
+				if (!text.includes("\n") && !hasEmoji(text)) return false;
 
 				const parsed = parseMarkdown(text, []);
 				const { content } = facetsToProseMirror(
@@ -909,7 +906,14 @@ export const TextEditor: Component<{
 	const insertEmoji = (emoji: string) => {
 		const instance = editor();
 		if (!instance || instance.isDestroyed) return;
-		instance.chain().focus().insertContent(emoji).run();
+		instance
+			.chain()
+			.focus()
+			.insertContent({
+				type: "mention",
+				attrs: { type: "emoji", label: emoji },
+			})
+			.run();
 	};
 
 	const { pushRecentGif } = useUserPreferences();

@@ -279,14 +279,6 @@
 		background: linear-gradient(180deg, #171717 0%, #481b5b 100%);
 	}
 
-	.rich-text img.emoji {
-		display: inline;
-		height: 1.125em;
-		width: 1.125em;
-		margin: 0.1em 0.05em 0 0.1em;
-		vertical-align: text-top;
-	}
-
 	.floaty {
 		animation: 6s ease-in-out float infinite;
 	}
@@ -348,13 +340,45 @@
 
 .picker-font {
 	font-family:
-		"Twemoji Mozilla", "Apple Color Emoji", "Noto Color Emoji", "Android Emoji",
+		"Twemoji", "Apple Color Emoji", "Noto Color Emoji", "Android Emoji",
 		"Segoe UI Emoji", "Segoe UI Symbol", EmojiSymbols, sans-serif;
 }
 
 /* Ensure the emoji characters render as emojis, not text */
 .emoji-render {
 	font-variant-emoji: emoji;
+}
+
+.rich-text h1 {
+	background: none;
+	-webkit-text-fill-color: currentColor;
+}
+
+img.emoji {
+	display: inline-block;
+	height: 1.35em;
+	width: 1.35em;
+	margin: 0 0.05em;
+	vertical-align: middle;
+	object-fit: contain;
+}
+
+.rich-text img.emoji,
+#editor .tiptap.ProseMirror img.emoji {
+	height: calc(1lh - 7px);
+	width: calc(1lh - 6px);
+	margin: 0;
+	vertical-align: middle;
+	transform: translateY(-1.5px);
+}
+
+.rich-text img.emoji {
+	cursor: pointer;
+}
+
+.rich-text.jumbomoji img.emoji {
+	height: 2.5em;
+	width: 2.5em;
 }
 
 ol[data-somoto-toaster] > li {

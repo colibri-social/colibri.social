@@ -1,6 +1,5 @@
 import type { AT_URI, ColibriRichTextFacet } from "@colibri-social/lib";
 import { A } from "@solidjs/router";
-import twemoji from "@twemoji/api";
 import { type Component, createSignal, type JSX } from "solid-js";
 import { rewriteBskyUrl } from "../../../../atproto/bsky-post-url";
 import { parseColibriInviteUrl } from "../../../../atproto/colibri-invite-url";
@@ -8,6 +7,7 @@ import { communityUriToUrlCompatible } from "../../../../atproto/community-uri-t
 import { useCommunityContext } from "../../../../contexts/Community";
 import { useUserPreferences } from "../../../../contexts/UserPreferences";
 import { AtURI } from "../../../../utils/at-uri";
+import { parseEmojiText } from "../../../../utils/emoji";
 import {
 	buildFeatureKey,
 	normalizeFacets,
@@ -103,7 +103,7 @@ const applyStyleForFacet = (text: string, feature: AnyFeature): JSX.Element => {
 	const community = useCommunityContext();
 	const { preferences } = useUserPreferences();
 
-	const textWithEmojis = twemoji.parse(purify(text));
+	const textWithEmojis = parseEmojiText(purify(text));
 
 	switch (feature.$type) {
 		case "social.colibri.richtext.facet#mention": {
@@ -162,7 +162,7 @@ const applyStyleForFacet = (text: string, feature: AnyFeature): JSX.Element => {
 					target="_blank"
 					rel="noreferrer"
 					innerHTML={
-						isBareUrl ? twemoji.parse(purify(displayHref())) : textWithEmojis
+						isBareUrl ? parseEmojiText(purify(displayHref())) : textWithEmojis
 					}
 				/>
 			);
@@ -214,7 +214,7 @@ const applyStyleForFacet = (text: string, feature: AnyFeature): JSX.Element => {
 							: "background-color: color-mix(in srgb, currentColor 15%, transparent);"
 					}
 					innerHTML={
-						role ? textWithEmojis : twemoji.parse(purify("@Unknown Role"))
+						role ? textWithEmojis : parseEmojiText(purify("@Unknown Role"))
 					}
 				/>
 			);
@@ -330,7 +330,7 @@ const renderInlineRange = (
 		);
 
 		if (covering.length === 0) {
-			result.push(<span innerHTML={twemoji.parse(purify(segmentText))} />);
+			result.push(<span innerHTML={parseEmojiText(purify(segmentText))} />);
 			continue;
 		}
 
@@ -371,7 +371,7 @@ const renderInlineRange = (
 			component = applyStyleForFacet(segmentText, timeFeature);
 		} else {
 			let element: JSX.Element = (
-				<span innerHTML={twemoji.parse(purify(segmentText))} />
+				<span innerHTML={parseEmojiText(purify(segmentText))} />
 			);
 
 			for (const feature of features) {
@@ -449,7 +449,7 @@ const renderInlineRange = (
 									rel="noreferrer"
 								>
 									{isBareUrl ? (
-										<span innerHTML={twemoji.parse(purify(displayHref()))} />
+										<span innerHTML={parseEmojiText(purify(displayHref()))} />
 									) : (
 										wrappedElement
 									)}
