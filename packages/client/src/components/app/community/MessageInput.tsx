@@ -31,10 +31,10 @@ import {
 	FileFieldItemSize,
 	FileFieldTrigger,
 } from "../../ui/FileField";
+import { Lightbox } from "../common/Lightbox";
 import { trimWithFacets } from "../common/rich-text-renderer/util";
 import { TextEditor } from "../common/text-editor/TextEditor";
 import { DisplayableName, displayableNameFn } from "../user/DisplayableName";
-import { Lightbox } from "../common/Lightbox";
 
 // Uploads a single file straight to the user's PDS via the authenticated
 // (OAuth) agent and resolves to an AttachmentObj ready to embed in a record.
