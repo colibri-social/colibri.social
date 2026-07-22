@@ -54,6 +54,36 @@ const makeClientId = () => {
 
 const clientId = makeClientId();
 
+const OAUTH_RESOLVE_TIMEOUT_MS = 20_000;
+
+const withFetchTimeout =
+	(ms: number): typeof fetch =>
+	(input, init) => {
+		const controller = new AbortController();
+		const timer = setTimeout(
+			() =>
+				controller.abort(new DOMException("Sign-in timed out", "TimeoutError")),
+			ms,
+		);
+
+		const externalSignal = init?.signal;
+		if (externalSignal) {
+			if (externalSignal.aborted) {
+				controller.abort(externalSignal.reason);
+			} else {
+				externalSignal.addEventListener(
+					"abort",
+					() => controller.abort(externalSignal.reason),
+					{ once: true },
+				);
+			}
+		}
+
+		return fetch(input, { ...init, signal: controller.signal }).finally(() =>
+			clearTimeout(timer),
+		);
+	};
+
 let oAuthClient: undefined | BrowserOAuthClient;
 let agent: undefined | Agent;
 let pdsHost: undefined | string;
@@ -105,6 +135,7 @@ const init = async () => {
 			// api.colibri.social) rather than a hard-coded origin, so self-hosted
 			// installs stay self-contained and don't depend on colibri.social.
 			handleResolver: getAppViewHost("http"),
+			fetch: withFetchTimeout(OAUTH_RESOLVE_TIMEOUT_MS),
 		});
 
 		if (window.location.hash.length > 0) {
@@ -194,13 +225,29 @@ const init = async () => {
 
 type SignInOptions = NonNullable<Parameters<BrowserOAuthClient["signIn"]>[1]>;
 
+const withTimeout = <T>(promise: Promise<T>, ms: number): Promise<T> =>
+	new Promise((resolve, reject) => {
+		const timer = setTimeout(
+			() => reject(new DOMException("Sign-in timed out", "TimeoutError")),
+			ms,
+		);
+		promise.then(
+			(value) => {
+				clearTimeout(timer);
+				resolve(value);
+			},
+			(err) => {
+				clearTimeout(timer);
+				reject(err);
+			},
+		);
+	});
+
 /**
  * Begin an OAuth sign-in. On the web this navigates the current tab to the
  * authorization server (the SPA redirect flow). In the native app it instead
  * opens the authorization URL in the system browser and returns immediately.
  */
-const OAUTH_RESOLVE_TIMEOUT_MS = 20_000;
-
 export const startOAuthSignIn = async (
 	client: BrowserOAuthClient,
 	input: string,
@@ -211,14 +258,20 @@ export const startOAuthSignIn = async (
 	if (isTauriRuntime()) {
 		// `authorize` returns the URL without navigating and defaults to the
 		// metadata's first redirect_uri (our custom scheme)
-		const url = await client.authorize(input, { ...options, signal });
+		const url = await withTimeout(
+			client.authorize(input, { ...options, signal }),
+			OAUTH_RESOLVE_TIMEOUT_MS,
+		);
 		const { openUrl } = await import("@tauri-apps/plugin-opener");
 		await openUrl(url.toString());
 		toast("Continue in your browser to finish signing in.");
 		return;
 	}
 
-	await client.signIn(input, { ...options, signal });
+	await withTimeout(
+		client.signIn(input, { ...options, signal }),
+		OAUTH_RESOLVE_TIMEOUT_MS,
+	);
 };
 
 /**

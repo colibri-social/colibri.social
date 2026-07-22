@@ -118,6 +118,7 @@ export const RegisterScreen: Component = () => {
 		} catch (err) {
 			console.error(err);
 			toast.error(err as any);
+		} finally {
 			setPending(null);
 		}
 	};
