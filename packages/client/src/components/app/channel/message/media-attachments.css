@@ -64,17 +64,25 @@
  * Fullscreen: drop the in-feed size caps so the video fills the screen.
  * Without this the player's max-width (max-w-104) and the video's max-height
  * keep it at its small in-feed size, centered on a black backdrop. Vidstack
- * sets `data-fullscreen` on the player for both native and fallback modes.
+ * sets `data-fullscreen` on the player for both native and fallback modes
  */
-.colibri-media-video[data-fullscreen] {
+.colibri-media-video[data-fullscreen],
+.colibri-media-video.colibri-pseudo-fullscreen {
 	max-width: none;
 	border-radius: 0;
 }
 
-.colibri-media-video[data-fullscreen] video {
+.colibri-media-video[data-fullscreen] video,
+.colibri-media-video.colibri-pseudo-fullscreen video {
 	width: 100%;
 	height: 100vh;
 	max-height: none;
+}
+
+.colibri-media-video.colibri-pseudo-fullscreen {
+	position: fixed;
+	inset: 0;
+	z-index: 100;
 }
 
 /* Stateful control buttons: hide every icon, then reveal the active state. */

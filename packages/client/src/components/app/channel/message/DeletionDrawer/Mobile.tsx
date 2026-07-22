@@ -28,7 +28,9 @@ export const Mobile: Component = () => {
 					<DialogDescriptionContent />
 				</p>
 			</div>
-			<MessagePreview data={message} />
+			<div class="px-4">
+				<MessagePreview data={message} />
+			</div>
 			<div class="mt-auto flex flex-col gap-2 p-4 pb-[calc(1rem+var(--safe-area-bottom))]">
 				<MobileCancelButton setOpen={setDeletionModalOpen} />
 				<DialogConfirmButton onClick={confirmDelete} />

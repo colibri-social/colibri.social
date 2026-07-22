@@ -1,4 +1,4 @@
-import { type Component, createResource, Show } from "solid-js";
+import { type Component, createResource, createSignal, Show } from "solid-js";
 import StarIcon from "~icons/ph/star";
 import StarFillIcon from "~icons/ph/star-fill";
 import { parseBskyPostUrl } from "../../../../atproto/bsky-post-url";
@@ -9,10 +9,14 @@ import { useGifFavorites } from "../../../../contexts/GifFavorites";
 import { useStableMedia } from "../../../../contexts/ScrollAnchor";
 import { useUserContext } from "../../../../contexts/User";
 import { Lightbox } from "../../common/Lightbox";
+import { MediaLightboxGallery } from "./Attachments";
 import { BlueskyEmbed } from "./BlueskyEmbed";
 
 /** Matches direct GIF/animated-image media URLs (ignoring query/hash). */
 const GIF_MEDIA_EXT = /\.(gif|gifv|webp)(\?|#|$)/i;
+
+/** Matches direct static raster image URLs (ignoring query/hash). */
+const STATIC_IMAGE_EXT = /\.(png|jpe?g|avif|bmp)(\?|#|$)/i;
 
 /**
  * True for links that point at an animated image we can show inline (Discord-
@@ -26,6 +30,31 @@ export const isGifUrl = (uri: string): boolean => {
 	} catch {
 		return false;
 	}
+};
+
+export const isStaticImageUrl = (uri: string): boolean => {
+	try {
+		const url = new URL(uri);
+		return STATIC_IMAGE_EXT.test(url.pathname);
+	} catch {
+		return false;
+	}
+};
+
+export const isDirectMediaUrl = (uri: string): boolean =>
+	isGifUrl(uri) || isStaticImageUrl(uri);
+
+const [brokenMediaLinks, setBrokenMediaLinks] = createSignal<
+	ReadonlySet<string>
+>(new Set());
+
+export const isBrokenMediaLink = (uri: string): boolean =>
+	brokenMediaLinks().has(uri);
+
+const markMediaLinkBroken = (uri: string) => {
+	setBrokenMediaLinks((prev) =>
+		prev.has(uri) ? prev : new Set(prev).add(uri),
+	);
 };
 
 /** Renders a GIF link as the animated image itself, hotlinked from its CDN. */
@@ -49,6 +78,7 @@ const InlineGif: Component<{ uri: string }> = (props) => {
 					src={props.uri}
 					alt="GIF"
 					loading="lazy"
+					onError={() => markMediaLinkBroken(props.uri)}
 				/>
 			</Lightbox>
 			<button
@@ -69,6 +99,18 @@ const InlineGif: Component<{ uri: string }> = (props) => {
 	);
 };
 
+const InlineImage: Component<{ uri: string }> = (props) => {
+	const stableMedia = useStableMedia();
+
+	return (
+		<MediaLightboxGallery
+			images={[{ url: props.uri }]}
+			ref={stableMedia}
+			onImageError={() => markMediaLinkBroken(props.uri)}
+		/>
+	);
+};
+
 export const Embed: Component<{ uri: string }> = (props) => {
 	// Bluesky post links get a native post card instead of OG scraping
 	const bskyPost = () => parseBskyPostUrl(props.uri);
@@ -77,8 +119,18 @@ export const Embed: Component<{ uri: string }> = (props) => {
 		<Show
 			when={isGifUrl(props.uri)}
 			fallback={
-				<Show when={bskyPost()} fallback={<OpenGraphEmbed uri={props.uri} />}>
-					{(post) => <BlueskyEmbed uri={props.uri} post={post()} />}
+				<Show
+					when={isStaticImageUrl(props.uri)}
+					fallback={
+						<Show
+							when={bskyPost()}
+							fallback={<OpenGraphEmbed uri={props.uri} />}
+						>
+							{(post) => <BlueskyEmbed uri={props.uri} post={post()} />}
+						</Show>
+					}
+				>
+					<InlineImage uri={props.uri} />
 				</Show>
 			}
 		>

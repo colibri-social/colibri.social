@@ -21,7 +21,6 @@ import DownloadIcon from "~icons/ph/download-simple";
 import FileIcon from "~icons/ph/file";
 import FileAudioIcon from "~icons/ph/file-audio-fill";
 import PauseIcon from "~icons/ph/pause-fill";
-import PipIcon from "~icons/ph/picture-in-picture";
 import PlayIcon from "~icons/ph/play-fill";
 import SpeakerHighIcon from "~icons/ph/speaker-high-fill";
 import SpeakerLowIcon from "~icons/ph/speaker-low-fill";
@@ -31,6 +30,7 @@ import XIcon from "~icons/ph/x";
 import { resolveBlob } from "../../../../atproto/resolve-blob";
 import type { Message } from "../../../../atproto/xrpc/social/colibri/channel/listMessages";
 import { useStableMedia } from "../../../../contexts/ScrollAnchor";
+import { isTauriRuntime } from "../../../../notifications/environment";
 import { Button } from "../../../ui/Button";
 
 type AttachmentComponent = Component<{ item: AttachmentObj; did: string }>;
@@ -200,23 +200,20 @@ export const AudioAttachment: AttachmentComponent = (props) => {
 };
 
 /** Grid column layout for a set of image thumbnails. */
-const imageGridClass = (count: number): string => {
-	if (count <= 4) return "grid grid-cols-2 gap-1 w-full max-w-104";
-	return "grid grid-cols-3 gap-1 w-full max-w-104";
+const imageGridClass = (count: number, sizeClass: string): string => {
+	if (count <= 4) return `grid grid-cols-2 gap-1 w-full ${sizeClass}`;
+	return `grid grid-cols-3 gap-1 w-full ${sizeClass}`;
 };
 
-/**
- * Renders a message's images. A single image shows at its natural size; two or
- * more lay out in a square grid. Clicking any image opens a fullscreen carousel
- * with arrow buttons, a counter, and ←/→/Esc keyboard controls.
- */
-export const ImageGallery: Component<{
-	images: AttachmentObj[];
-	did: string;
-}> = (props) => {
-	const stableMedia = useStableMedia();
-	const urls = () => props.images.map((i) => resolveBlob(props.did, i.blob));
+export type GalleryImage = { url?: string; name?: string };
 
+export const MediaLightboxGallery: Component<{
+	images: GalleryImage[];
+	ref?: (el: HTMLDivElement) => void;
+	sizeClass?: string;
+	onImageError?: (index: number) => void;
+}> = (props) => {
+	const sizeClass = () => props.sizeClass ?? "max-w-104";
 	const count = () => props.images.length;
 	const [openIndex, setOpenIndex] = createSignal<number | null>(null);
 	let lightboxRef: HTMLDivElement | undefined;
@@ -284,29 +281,30 @@ export const ImageGallery: Component<{
 				when={count() > 1}
 				fallback={
 					<div
-						ref={stableMedia}
-						class="group/image relative max-h-96 w-full max-w-104"
+						ref={props.ref}
+						class={`group/image relative max-h-96 w-full ${sizeClass()}`}
 					>
 						<img
-							src={urls()?.[0]}
+							src={props.images[0]?.url}
 							class="max-h-96 w-full cursor-zoom-in rounded-lg border border-border object-cover transition-opacity hover:opacity-90"
-							alt={props.images[0].name ?? ""}
+							alt={props.images[0]?.name ?? ""}
 							loading="lazy"
 							onClick={() => open(0)}
+							onError={() => props.onImageError?.(0)}
 						/>
 						<a
 							class="absolute z-20 top-1 right-1 hidden aspect-square -translate-y-1/2 translate-x-1/2 items-center justify-center rounded-sm border border-border bg-card p-1 hover:bg-muted group-hover/image:flex"
-							href={urls()?.[0]}
+							href={props.images[0]?.url}
 							target="_blank"
 							rel="noreferrer"
-							title={props.images[0].name ?? "Image"}
+							title={props.images[0]?.name ?? "Image"}
 						>
 							<DownloadIcon class="h-5 w-5 shrink-0 text-muted-foreground" />
 						</a>
 					</div>
 				}
 			>
-				<div ref={stableMedia} class={imageGridClass(count())}>
+				<div ref={props.ref} class={imageGridClass(count(), sizeClass())}>
 					<For each={props.images}>
 						{(image, i) => (
 							<button
@@ -315,10 +313,11 @@ export const ImageGallery: Component<{
 								onClick={() => open(i())}
 							>
 								<img
-									src={urls()?.[i()]}
+									src={image.url}
 									class="h-full w-full object-cover transition-opacity hover:opacity-90"
 									alt={image.name ?? ""}
 									loading="lazy"
+									onError={() => props.onImageError?.(i())}
 								/>
 							</button>
 						)}
@@ -336,7 +335,7 @@ export const ImageGallery: Component<{
 						onClick={close}
 					>
 						<img
-							src={urls()?.[openIndex()!]}
+							src={props.images[openIndex()!]?.url}
 							alt={props.images[openIndex()!]?.name ?? ""}
 							class="max-h-[calc(100vh-8rem)] max-w-[calc(100vw-4rem)] rounded-sm"
 							onClick={(e) => e.stopPropagation()}
@@ -344,7 +343,7 @@ export const ImageGallery: Component<{
 
 						<Button
 							variant="outline"
-							class="absolute top-8 right-8 z-50 h-10 w-10 bg-card!"
+							class="absolute top-[calc(var(--safe-area-top)+2rem)] right-[calc(env(safe-area-inset-right)+2rem)] z-50 h-10 w-10 bg-card!"
 							onClick={(e) => {
 								e.stopPropagation();
 								close();
@@ -386,14 +385,57 @@ export const ImageGallery: Component<{
 	);
 };
 
+export const ImageGallery: Component<{
+	images: AttachmentObj[];
+	did: string;
+}> = (props) => {
+	const stableMedia = useStableMedia();
+	const items = (): GalleryImage[] =>
+		props.images.map((i) => ({
+			url: resolveBlob(props.did, i.blob),
+			name: i.name,
+		}));
+
+	return <MediaLightboxGallery images={items()} ref={stableMedia} />;
+};
+
 export const VideoAttachment: AttachmentComponent = (props) => {
 	const stableMedia = useStableMedia();
 	const src = () => resolveBlob(props.did, props.item.blob);
+
+	const usePseudoFullscreen = isTauriRuntime();
+	const [pseudoFullscreen, setPseudoFullscreen] = createSignal(false);
+
+	const enterPseudoFullscreen = () => {
+		setPseudoFullscreen(true);
+		try {
+			history.pushState({ ...history.state, colibriVideoFullscreen: true }, "");
+		} catch {
+			// history unavailable
+		}
+	};
+
+	const exitPseudoFullscreen = () => {
+		if (!pseudoFullscreen()) return;
+		if (history.state?.colibriVideoFullscreen) history.back();
+		else setPseudoFullscreen(false);
+	};
+
+	onMount(() => {
+		if (!usePseudoFullscreen) return;
+
+		const onPop = () => {
+			if (pseudoFullscreen()) setPseudoFullscreen(false);
+		};
+		window.addEventListener("popstate", onPop);
+		onCleanup(() => window.removeEventListener("popstate", onPop));
+	});
 
 	return (
 		<media-player
 			ref={stableMedia}
 			class="colibri-media-video group relative w-full max-w-104 rounded-lg bg-black overflow-hidden"
+			classList={{ "colibri-pseudo-fullscreen": pseudoFullscreen() }}
 			title={props.item.name ?? "Video"}
 			viewType="video"
 			streamType="on-demand"
@@ -428,7 +470,7 @@ export const VideoAttachment: AttachmentComponent = (props) => {
 				<SpinnerIcon class="h-8 w-8 animate-spin text-white/90" />
 			</div>
 
-			<media-controls class="absolute inset-x-0 bottom-0 z-10 flex flex-col gap-1 bg-gradient-to-t from-black/70 via-black/30 to-transparent px-3 pb-2 pt-10 opacity-0 transition-opacity pointer-events-none group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100 group-[[data-paused]]:pointer-events-auto group-[[data-paused]]:opacity-100">
+			<media-controls class="absolute inset-x-0 bottom-0 z-10 flex flex-col gap-1 bg-gradient-to-t from-black/70 via-black/30 to-transparent px-3 pb-2 pt-10 opacity-0 transition-opacity pointer-events-none group-[[data-controls]]:pointer-events-auto group-[[data-controls]]:opacity-100 group-[[data-paused]]:pointer-events-auto group-[[data-paused]]:opacity-100 pointer-coarse:pointer-events-auto pointer-coarse:opacity-100">
 				<media-controls-group class="flex items-center">
 					<media-time-slider
 						class="group/slider relative flex h-6 flex-1 items-center"
@@ -468,24 +510,42 @@ export const VideoAttachment: AttachmentComponent = (props) => {
 
 					<div class="flex-1" />
 
-					<media-pip-button
-						class={videoBtnClass}
-						aria-label="Picture in picture"
+					<Show
+						when={!usePseudoFullscreen}
+						fallback={
+							<button
+								type="button"
+								class={videoBtnClass}
+								aria-label={
+									pseudoFullscreen() ? "Exit fullscreen" : "Fullscreen"
+								}
+								onClick={() =>
+									pseudoFullscreen()
+										? exitPseudoFullscreen()
+										: enterPseudoFullscreen()
+								}
+							>
+								<Show
+									when={pseudoFullscreen()}
+									fallback={<CornersOutIcon class="h-5 w-5" />}
+								>
+									<CornersInIcon class="h-5 w-5" />
+								</Show>
+							</button>
+						}
 					>
-						<PipIcon class="h-5 w-5" />
-					</media-pip-button>
-
-					<media-fullscreen-button
-						class={videoBtnClass}
-						aria-label="Fullscreen"
-					>
-						<span data-icon="enter">
-							<CornersOutIcon class="h-5 w-5" />
-						</span>
-						<span data-icon="exit">
-							<CornersInIcon class="h-5 w-5" />
-						</span>
-					</media-fullscreen-button>
+						<media-fullscreen-button
+							class={videoBtnClass}
+							aria-label="Fullscreen"
+						>
+							<span data-icon="enter">
+								<CornersOutIcon class="h-5 w-5" />
+							</span>
+							<span data-icon="exit">
+								<CornersInIcon class="h-5 w-5" />
+							</span>
+						</media-fullscreen-button>
+					</Show>
 				</media-controls-group>
 			</media-controls>
 		</media-player>
