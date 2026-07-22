@@ -6,6 +6,7 @@ import { useUserPreferences } from "../../contexts/UserPreferences";
 import {
 	getBackend,
 	isAndroidTauriRuntime,
+	isStaleNotificationEvent,
 	isTauriRuntime,
 	isWebRuntime,
 	notify,
@@ -111,6 +112,7 @@ export const NativeNotifications: Component = () => {
 			if (user.data.onlineState === "dnd") return;
 			if (mutes.isChannelMuted(event.data.channelUri)) return;
 			if (!isUnfocused()) return;
+			if (isStaleNotificationEvent(event.data.indexedAt)) return;
 
 			const { kind, message, mentionRoleName } = event.data;
 			const title =
@@ -123,7 +125,7 @@ export const NativeNotifications: Component = () => {
 							: "New mention";
 			notify({
 				title,
-				body: message?.text ?? "You have a new notification.",
+				body: message?.text || "You have a new notification.",
 				tag: event.data.messageUri,
 				data: { messageUri: event.data.messageUri },
 			});

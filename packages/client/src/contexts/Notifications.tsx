@@ -11,6 +11,7 @@ import {
 } from "solid-js";
 import { toast } from "somoto";
 import { writeReadCursor } from "../atproto/read-cursor";
+import { isStaleNotificationEvent } from "../notifications";
 import { useMutes } from "./Mutes";
 import { useSocketContext } from "./Socket";
 import { useSounds } from "./Sounds";
@@ -315,13 +316,15 @@ export const NotificationsContextProvider: ParentComponent = (props) => {
 				if (mutes.isChannelMuted(data.channelUri)) return;
 
 				const isPing = data.kind === "mention" || data.kind === "reply";
+				const isStale = isStaleNotificationEvent(data.indexedAt);
 
 				if (isPing) {
 					adjustPings(data.channelUri, 1);
-					playSound("ping");
+					if (!isStale) playSound("ping");
 				}
 
 				if (preferences().nativeNotifications) return;
+				if (isStale) return;
 
 				const target: PendingNotificationFocus = {
 					channelUri: data.channelUri,
