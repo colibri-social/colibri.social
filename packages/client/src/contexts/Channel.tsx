@@ -8,6 +8,7 @@ import {
 	createSignal,
 	on,
 	onCleanup,
+	onMount,
 	type ParentComponent,
 	useContext,
 } from "solid-js";
@@ -817,9 +818,61 @@ export const ChannelContextProvider: ParentComponent<{
 		if (pending) confirmPendingMessage(pending.hash, uri);
 	});
 
+	const catchUp = async (): Promise<void> => {
+		const uri = channelUri();
+		if (!uri || initialLoading() || inflight) return;
+
+		inflight = true;
+		try {
+			const view = await user.xrpc.social.colibri.channel.getChannelView(
+				uri,
+				PAGE_SIZE,
+			);
+
+			if (uri !== channelUri() || !view) return;
+
+			const ordered = [...(view.messages ?? [])].reverse();
+			const existingUris = new Set(messages().map((m) => m.uri));
+			const novel = ordered.filter((m) => !existingUris.has(m.uri));
+
+			batch(() => {
+				if (novel.length > 0) {
+					setMessages((prev) => [...prev, ...novel]);
+					setNewIncomingMessage((n) => n + 1);
+				}
+				setReadCursorUri(view.readCursor?.cursor);
+				setInitialUnseen(view.unseen.map((n) => n.messageUri));
+			});
+		} catch (err) {
+			console.error("[ChannelContext] catchUp failed:", err);
+		} finally {
+			inflight = false;
+		}
+	};
+
+	let sawConnected = false;
+	createEffect(() => {
+		const isConnected = socket.connected();
+		if (!isConnected) return;
+		if (sawConnected) void catchUp();
+		sawConnected = true;
+	});
+
+	const onVisible = () => {
+		if (document.visibilityState === "visible") void catchUp();
+	};
+	const onFocus = () => void catchUp();
+
+	onMount(() => {
+		document.addEventListener("visibilitychange", onVisible);
+		window.addEventListener("focus", onFocus);
+	});
+
 	onCleanup(() => {
 		socketCleanup();
 		outboxCleanup();
+		document.removeEventListener("visibilitychange", onVisible);
+		window.removeEventListener("focus", onFocus);
 		typingTimers.forEach((t) => {
 			clearTimeout(t);
 		});
