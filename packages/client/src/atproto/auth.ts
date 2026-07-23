@@ -54,17 +54,33 @@ const makeClientId = () => {
 
 const clientId = makeClientId();
 
-const OAUTH_RESOLVE_TIMEOUT_MS = 20_000;
+const OAUTH_FETCH_TIMEOUT_MS = 15_000;
+const OAUTH_SIGNIN_TIMEOUT_MS = 60_000;
+
+let unreachableHost: string | undefined;
+
+const requestHost = (input: Parameters<typeof fetch>[0]): string => {
+	try {
+		const url =
+			typeof input === "string"
+				? input
+				: input instanceof URL
+					? input.href
+					: input.url;
+		return new URL(url, window.location.href).host;
+	} catch {
+		return "";
+	}
+};
 
 const withFetchTimeout =
 	(ms: number): typeof fetch =>
 	(input, init) => {
 		const controller = new AbortController();
-		const timer = setTimeout(
-			() =>
-				controller.abort(new DOMException("Sign-in timed out", "TimeoutError")),
-			ms,
-		);
+		const timer = setTimeout(() => {
+			unreachableHost = requestHost(input) || unreachableHost;
+			controller.abort(new DOMException("Sign-in timed out", "TimeoutError"));
+		}, ms);
 
 		const externalSignal = init?.signal;
 		if (externalSignal) {
@@ -135,7 +151,7 @@ const init = async () => {
 			// api.colibri.social) rather than a hard-coded origin, so self-hosted
 			// installs stay self-contained and don't depend on colibri.social.
 			handleResolver: getAppViewHost("http"),
-			fetch: withFetchTimeout(OAUTH_RESOLVE_TIMEOUT_MS),
+			fetch: withFetchTimeout(OAUTH_FETCH_TIMEOUT_MS),
 		});
 	} catch (e) {
 		console.error(e);
@@ -266,25 +282,54 @@ export const startOAuthSignIn = async (
 	input: string,
 	options: SignInOptions,
 ): Promise<void> => {
-	const signal = AbortSignal.timeout(OAUTH_RESOLVE_TIMEOUT_MS);
+	unreachableHost = undefined;
+	const signal = AbortSignal.timeout(OAUTH_SIGNIN_TIMEOUT_MS);
 
-	if (isTauriRuntime()) {
-		// `authorize` returns the URL without navigating and defaults to the
-		// metadata's first redirect_uri (our custom scheme)
-		const url = await withTimeout(
-			client.authorize(input, { ...options, signal }),
-			OAUTH_RESOLVE_TIMEOUT_MS,
+	try {
+		if (isTauriRuntime()) {
+			// `authorize` returns the URL without navigating and defaults to the
+			// metadata's first redirect_uri (our custom scheme)
+			const url = await withTimeout(
+				client.authorize(input, { ...options, signal }),
+				OAUTH_SIGNIN_TIMEOUT_MS,
+			);
+			const { platform } = await import("@tauri-apps/plugin-os");
+			if (platform() === "macos") {
+				const redirectUri = client.clientMetadata.redirect_uris[0];
+				const { invoke } = await import("@tauri-apps/api/core");
+				let callbackUrl: string;
+				try {
+					callbackUrl = await invoke<string>("start_web_auth", {
+						url: url.toString(),
+						scheme: new URL(redirectUri).protocol.replace(":", ""),
+					});
+				} catch (err) {
+					if (err === "canceled") return;
+					throw err instanceof Error ? err : new Error(String(err));
+				}
+				if (await completeNativeOAuth(client, callbackUrl)) {
+					window.location.href = "/app";
+				}
+				return;
+			}
+			const { openUrl } = await import("@tauri-apps/plugin-opener");
+			await openUrl(url.toString());
+			toast("Continue in your browser to finish signing in.");
+			return;
+		}
+
+		await withTimeout(
+			client.signIn(input, { ...options, signal }),
+			OAUTH_SIGNIN_TIMEOUT_MS,
 		);
-		const { openUrl } = await import("@tauri-apps/plugin-opener");
-		await openUrl(url.toString());
-		toast("Continue in your browser to finish signing in.");
-		return;
+	} catch (err) {
+		if (unreachableHost) {
+			throw new Error(
+				`Couldn't reach ${unreachableHost}. Check your connection and try again.`,
+			);
+		}
+		throw err;
 	}
-
-	await withTimeout(
-		client.signIn(input, { ...options, signal }),
-		OAUTH_RESOLVE_TIMEOUT_MS,
-	);
 };
 
 /**

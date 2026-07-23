@@ -669,8 +669,9 @@ dependencies = [
 
 [[package]]
 name = "colibri-social"
-version = "0.1.2"
+version = "0.1.4"
 dependencies = [
+ "cc",
  "openssl",
  "sentry",
  "serde",

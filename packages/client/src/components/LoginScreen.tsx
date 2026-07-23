@@ -91,6 +91,7 @@ const LoginScreenContent: Component = () => {
 	const viewport = useViewport();
 	const [handle, setHandle] = createSignal("");
 	const [loading, setLoading] = createSignal(false);
+	const [missingHandle, setMissingHandle] = createSignal(false);
 	const [options, setOptions] = createSignal<Array<ActorTypeaheadResult>>([]);
 
 	const keyboardVisible = () => {
@@ -126,6 +127,7 @@ const LoginScreenContent: Component = () => {
 
 	const onInput = async (value: string) => {
 		setHandle(value);
+		setMissingHandle(false);
 
 		suggestController?.abort();
 
@@ -154,10 +156,16 @@ const LoginScreenContent: Component = () => {
 	const triggerLogin = async () => {
 		if (loading() === true || !auth) return;
 
+		const input = handle().trim();
+		if (input.length === 0) {
+			setMissingHandle(true);
+			return;
+		}
+
 		setLoading(true);
 
 		try {
-			await startOAuthSignIn(auth.client, handle(), {
+			await startOAuthSignIn(auth.client, input, {
 				scope: buildScopes(getAppViewDid()).join(" "),
 			});
 		} catch (err) {
@@ -262,6 +270,16 @@ const LoginScreenContent: Component = () => {
 								<span>Login</span>
 							</Button>
 						</div>
+						<Show when={missingHandle()}>
+							<p class="text-sm text-destructive m-0 w-full text-center">
+								Enter your handle to sign in — for example alice.bsky.social.
+							</p>
+						</Show>
+						<Show when={loading()}>
+							<p class="text-sm text-muted-foreground m-0 w-full text-center animate-pulse">
+								Contacting your provider…
+							</p>
+						</Show>
 						<div class="flex flex-col gap-3 w-full">
 							<details class="w-full">
 								<summary class="list-none [&::-webkit-details-marker]:hidden cursor-pointer text-sm text-muted-foreground text-center hover:text-foreground select-none">
