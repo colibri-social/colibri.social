@@ -282,11 +282,7 @@ importers:
         specifier: ^8.20.0
         version: 8.20.0
 
-  packages/assets:
-    dependencies:
-      twemoji-colr-font:
-        specifier: 15.0.3
-        version: 15.0.3
+  packages/assets: {}
 
   packages/client:
     dependencies:
@@ -5637,10 +5633,6 @@ packages:
   tw-to-css@0.0.12:
     resolution: {integrity: sha512-rQAsQvOtV1lBkyCw+iypMygNHrShYAItES5r8fMsrhhaj5qrV2LkZyXc8ccEH+u5bFjHjQ9iuxe90I7Kykf6pw==}
     engines: {node: '>=16.0.0'}
-
-  twemoji-colr-font@15.0.3:
-    resolution: {integrity: sha512-UsK4JUpaczeVoMGeYMnKaMTxKt7fujg1nQOk4NaC0teZmdOo+uAai0DIuaSzsMkShtG4J75F0OEsVdGJ+Q1pHQ==}
-    deprecated: Package no longer supported. Contact Support at https://www.npmjs.com/support for more info.
 
   typed-emitter@2.1.0:
     resolution: {integrity: sha512-g/KzbYKbH5C2vPkaXGu8DJlHrGKHLsM25Zg9WuC9pMGfuvT+X25tZQWo5fK1BjBm8+UrVE9LDCvaY0CQk+fXDA==}
@@ -11905,8 +11897,6 @@ snapshots:
       tailwindcss: 3.3.2
     transitivePeerDependencies:
       - ts-node
-
-  twemoji-colr-font@15.0.3: {}
 
   typed-emitter@2.1.0:
     optionalDependencies:
