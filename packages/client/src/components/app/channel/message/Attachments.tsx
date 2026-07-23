@@ -31,6 +31,7 @@ import { resolveBlob } from "../../../../atproto/resolve-blob";
 import type { Message } from "../../../../atproto/xrpc/social/colibri/channel/listMessages";
 import { useStableMedia } from "../../../../contexts/ScrollAnchor";
 import { isTauriRuntime } from "../../../../notifications/environment";
+import { createSwipe } from "../../../../utils/create-swipe";
 import { openExternalLink } from "../../../../utils/open-external-link";
 import { Button } from "../../../ui/Button";
 
@@ -332,7 +333,14 @@ export const MediaLightboxGallery: Component<{
 				<Portal>
 					<div
 						id="lightbox"
-						ref={lightboxRef}
+						ref={(el) => {
+							lightboxRef = el;
+							createSwipe(el, {
+								enabled: () => count() > 1,
+								onSwipeLeft: next,
+								onSwipeRight: prev,
+							});
+						}}
 						tabIndex={-1}
 						class="fixed inset-0 z-50 flex items-center justify-center bg-background/95 outline-none"
 						onClick={close}
