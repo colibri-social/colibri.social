@@ -8,7 +8,7 @@
 		"node": "^24.13.0"
 	},
 	"scripts": {
-		"sync-assets": "pnpm --filter @colibri-social/assets fetch-models && node scripts/sync-shared-assets.mjs",
+		"sync-assets": "pnpm --filter @colibri-social/assets fetch-all && node scripts/sync-shared-assets.mjs",
 		"dev": "pnpm sync-assets && astro dev --host",
 		"build": "pnpm sync-assets && astro build",
 		"preview": "pnpm sync-assets && astro preview",

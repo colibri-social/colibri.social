@@ -338,12 +338,6 @@
 	display: none;
 }
 
-.picker-font {
-	font-family:
-		"Twemoji", "Apple Color Emoji", "Noto Color Emoji", "Android Emoji",
-		"Segoe UI Emoji", "Segoe UI Symbol", EmojiSymbols, sans-serif;
-}
-
 /* Ensure the emoji characters render as emojis, not text */
 .emoji-render {
 	font-variant-emoji: emoji;

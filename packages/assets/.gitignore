@@ -1,2 +1,5 @@
 # Fetched at dev/build time by scripts/fetch-model-assets.mjs
 files/noise/
+
+# Fetched at dev/build time by scripts/fetch-emoji-assets.mjs
+files/twemoji/
