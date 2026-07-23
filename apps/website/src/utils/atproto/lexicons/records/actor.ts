@@ -49,7 +49,7 @@ export const actorRecordDocs: LexiconDoc[] = [
 	{
 		lexicon: 1,
 		id: RECORD_IDs.ACTOR_PROFILE,
-		revision: 1,
+		revision: 2,
 		defs: {
 			main: {
 				description:
@@ -104,6 +104,12 @@ export const actorRecordDocs: LexiconDoc[] = [
 							format: "did",
 							description:
 								"DID of the AppView authorized to emit off-protocol presence (status, typing, voice) for this user via Humming. A receiving AppView MUST drop any Hum about this user whose authenticated origin does not equal this value. Absent means the user has not opted into cross-instance presence.",
+						},
+						preferredBadge: {
+							type: "string",
+							description:
+								"Label value of the badge the user chose to display as their primary badge. Absent means automatic (highest-priority badge).",
+							maxLength: 64,
 						},
 					},
 				},

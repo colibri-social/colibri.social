@@ -1,11 +1,13 @@
-import type { Component } from "solid-js";
+import { type Component, createMemo, Show } from "solid-js";
 import {
 	type BlueskyAlternative,
 	BSKY_ALTERNATIVES,
 } from "../../../atproto/bluesky-alternatives";
+import { syncPreferredBadge } from "../../../atproto/preferred-badge";
 import { syncPresenceService } from "../../../atproto/presence";
 import { useUserContext } from "../../../contexts/User";
 import { useUserPreferences } from "../../../contexts/UserPreferences";
+import { badgeText, useUserBadges } from "../../../utils/user-badges";
 import {
 	Select,
 	SelectContent,
@@ -24,6 +26,7 @@ import {
 	Switch as Toggle,
 } from "../../ui/Switch";
 import { SettingsPage } from "../common/SettingsModal";
+import { Badge } from "../user/Badge";
 import { AppViewSwitcher } from "./AppViewSwitcher";
 
 export const PreferencesPage: Component = () => {
@@ -35,6 +38,30 @@ export const PreferencesPage: Component = () => {
 			(alt) => alt.id === userPreferences.preferences().preferredBlueskyClient,
 		);
 
+	const { all: allBadges, primary: primaryBadge } = useUserBadges(() => user);
+
+	type BadgeOption = { value: string; label: string };
+	const AUTOMATIC_BADGE: BadgeOption = {
+		value: "",
+		label: "Automatic (highest priority)",
+	};
+	const badgeOptions = createMemo<BadgeOption[]>(() => [
+		AUTOMATIC_BADGE,
+		...allBadges().map((val) => ({ value: val, label: badgeText(val) })),
+	]);
+	const selectedBadge = () =>
+		badgeOptions().find(
+			(option) => option.value === (user.data.preferredBadge ?? ""),
+		) ?? AUTOMATIC_BADGE;
+
+	const selectPreferredBadge = async (value: string) => {
+		const badge = value || undefined;
+		user.updateActorData({ preferredBadge: badge });
+		try {
+			await syncPreferredBadge(user.atproto.agent, user.did, badge);
+		} catch {}
+	};
+
 	const toggleSharePresence = async (enabled: boolean) => {
 		userPreferences.setSharePresence(enabled);
 		try {
@@ -44,11 +71,85 @@ export const PreferencesPage: Component = () => {
 
 	return (
 		<SettingsPage loading={() => false} title="Preferences">
+			<Show when={allBadges().length >= 2}>
+				<div class="flex flex-col gap-3 mb-4">
+					<Select
+						options={badgeOptions()}
+						optionValue={"value" as any}
+						optionTextValue={"label" as any}
+						value={selectedBadge()}
+						defaultValue={selectedBadge()}
+						disallowEmptySelection={true}
+						itemComponent={(props) => (
+							<SelectItem
+								item={props.item}
+								class="[&>div]:flex [&>div]:gap-2 [&>div]:items-center"
+								onClick={() =>
+									selectPreferredBadge(
+										(props.item.rawValue as unknown as BadgeOption).value,
+									)
+								}
+							>
+								<Show
+									when={(props.item.rawValue as unknown as BadgeOption).value}
+									fallback={
+										(props.item.rawValue as unknown as BadgeOption).label
+									}
+								>
+									{(value) => (
+										<div class="pointer-events-none">
+											<Badge
+												text={badgeText(value())}
+												size="xs"
+												style={value()}
+											/>
+										</div>
+									)}
+								</Show>
+							</SelectItem>
+						)}
+					>
+						<SelectLabel>Displayed Badge</SelectLabel>
+						<SelectDescription>
+							Choose which of your badges shows next to your name. Everyone sees
+							your choice; the rest still appear on your profile.
+						</SelectDescription>
+						<SelectTrigger class="w-full" aria-label="Displayed Badge">
+							<SelectValue<BadgeOption>>
+								{(state) => {
+									const option = state.selectedOption();
+									return option?.value ? (
+										<div class="pointer-events-none">
+											<Badge
+												text={badgeText(option.value)}
+												size="xs"
+												style={option.value}
+											/>
+										</div>
+									) : (
+										option?.label
+									);
+								}}
+							</SelectValue>
+						</SelectTrigger>
+						<SelectContent class="[&>ul]:m-0 [&>ul]:py-0 [&>ul]:px-2" />
+					</Select>
+					<Show when={primaryBadge()}>
+						{(badge) => (
+							<div class="flex flex-row items-center gap-2">
+								<span class="text-muted-foreground text-sm">Preview</span>
+								<Badge text={badgeText(badge())} size="xs" style={badge()} />
+							</div>
+						)}
+					</Show>
+				</div>
+			</Show>
 			<Select
 				options={BSKY_ALTERNATIVES}
 				optionValue={"id" as any}
 				optionTextValue={"name" as any}
 				placeholder="Bluesky"
+				class="mb-4"
 				defaultValue={selectedClient()}
 				value={selectedClient()}
 				disallowEmptySelection={true}
@@ -83,7 +184,7 @@ export const PreferencesPage: Component = () => {
 			</Select>
 			<AppViewSwitcher />
 			<Toggle
-				class="flex flex-row gap-4 items-center w-full justify-between shrink-0"
+				class="flex flex-row gap-4 items-center w-full justify-between shrink-0 mt-4"
 				checked={userPreferences.preferences().sharePresence}
 				onChange={toggleSharePresence}
 			>

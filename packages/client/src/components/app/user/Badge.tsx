@@ -13,6 +13,9 @@ const BADGE_STYLE_CLASSES: Record<string, string> = {
 	team: "bg-primary",
 	"play-store-tester":
 		"text-white rounded-full border-1 border-transparent [background:linear-gradient(90deg,color-mix(in_srgb,#ff4d4d_18%,black),color-mix(in_srgb,#ffcc00_18%,black),color-mix(in_srgb,#22c55e_18%,black),color-mix(in_srgb,#3b82f6_18%,black))_padding-box,linear-gradient(90deg,#ff4d4d,#ffcc00,#22c55e,#3b82f6)_border-box]",
+	"backer-five": "bg-lime-500 text-black",
+	"sponsor-twenty-five": "bg-teal-500 text-white",
+	donator: "bg-fuchsia-500 text-white",
 };
 
 const DEFAULT_BADGE_CLASSES = "bg-secondary";
@@ -21,6 +24,7 @@ export const Badge: ParentComponent<{
 	text: string;
 	size: "lg" | "base" | "sm" | "xs";
 	style: string;
+	class?: string;
 }> = (props) => {
 	const content = () => (
 		<span
@@ -50,7 +54,7 @@ export const Badge: ParentComponent<{
 				<Popover placement="top" gutter={4}>
 					<PopoverTrigger
 						as="span"
-						class="cursor-pointer"
+						class={cx("cursor-pointer", props.class)}
 						onClick={(e) => e.stopPropagation()}
 					>
 						{content()}

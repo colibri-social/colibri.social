@@ -33,5 +33,7 @@ export type ActorData = {
 			emoji?: string;
 			text: string;
 		};
+		/** Label value of the badge the user chose as primary; absent = automatic. */
+		preferredBadge?: string;
 	};
 };

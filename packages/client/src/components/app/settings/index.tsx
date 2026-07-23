@@ -10,6 +10,7 @@ import BugIcon from "~icons/ph/bug";
 import CameraIcon from "~icons/ph/camera";
 import FlaskIcon from "~icons/ph/flask";
 import HandTapIcon from "~icons/ph/hand-tap";
+import HeartIcon from "~icons/ph/heart";
 import InfoIcon from "~icons/ph/info";
 import MicrophoneIcon from "~icons/ph/microphone";
 import SmileyIcon from "~icons/ph/smiley";
@@ -31,6 +32,7 @@ import { GeneralPage } from "./GeneralPage";
 import { NotificationsPage } from "./NotificationsPage";
 import { PreferencesPage } from "./PreferencesPage";
 import { StatusPage } from "./StatusPage";
+import { SupportPage } from "./SupportPage";
 import { VideoPage } from "./VideoPage";
 import { VoicePage } from "./VoicePage";
 
@@ -92,6 +94,12 @@ export const UserSettingsModal: ParentComponent<{
 					component: ExperimentsPage,
 					icon: () => <FlaskIcon />,
 					visible: () => EXPERIMENTS.length > 0,
+				},
+				{
+					title: "Support Colibri",
+					id: "support",
+					component: SupportPage,
+					icon: () => <HeartIcon />,
 				},
 				{
 					title: "About",

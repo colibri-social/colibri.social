@@ -38,6 +38,7 @@ export const actorMethodDocs: LexiconDoc[] = [
 					syncBluesky: { type: "boolean" },
 					theme: { type: "ref", ref: "#profileTheme" },
 					status: { type: "ref", ref: "#actorStatus" },
+					preferredBadge: { type: "string" },
 				},
 			},
 			actorStatus: {
