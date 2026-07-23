@@ -27,8 +27,9 @@ export const reactionRecordDocs: LexiconDoc[] = [
 						},
 						parent: {
 							type: "string",
-							description: "The message this relation belongs to.",
-							format: "record-key",
+							description:
+								"The AT-URI of the message this reaction belongs to.",
+							format: "at-uri",
 						},
 					},
 				},
