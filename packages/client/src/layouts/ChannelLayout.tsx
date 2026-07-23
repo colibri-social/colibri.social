@@ -884,6 +884,7 @@ const ChannelLayout: ParentComponent = (props) => {
 							<MessageInput
 								disabled={!canTalk()}
 								channelName={channel.data()?.name ?? ""}
+								maxAttachments={MAX_ATTACHMENTS}
 							/>
 						</Show>
 

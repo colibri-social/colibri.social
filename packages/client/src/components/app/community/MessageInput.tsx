@@ -6,14 +6,19 @@ import {
 	type Component,
 	createEffect,
 	createSignal,
+	For,
 	Match,
 	Show,
 	Switch,
 } from "solid-js";
 import { toast } from "somoto";
+import CheckIcon from "~icons/ph/check";
 import CircleIcon from "~icons/ph/circle";
+import FileIcon from "~icons/ph/file";
 import PaperPlaneRightIcon from "~icons/ph/paper-plane-right-fill";
 import PlusIcon from "~icons/ph/plus";
+import SpinnerIcon from "~icons/ph/spinner-gap";
+import XIcon from "~icons/ph/x";
 import { enqueueCreate } from "../../../atproto/outbox/outbox";
 import { uploadBlob } from "../../../atproto/pds";
 import type { PendingMessage } from "../../../atproto/xrpc/social/colibri/channel/listMessages";
@@ -52,6 +57,7 @@ const uploadFile = async (agent: Agent, file: File): Promise<AttachmentObj> => {
 export const MessageInput: Component<{
 	disabled: boolean;
 	channelName: string;
+	maxAttachments: number;
 }> = (props) => {
 	const fileField = useFileFieldContext();
 
@@ -65,6 +71,22 @@ export const MessageInput: Component<{
 
 	const [editorEmpty, setEditorEmpty] = createSignal(true);
 	const [charPercent, setCharPercent] = createSignal(0);
+	const [isSending, setIsSending] = createSignal(false);
+	const [uploadedFiles, setUploadedFiles] = createSignal<Set<File>>(new Set());
+
+	createEffect(() => {
+		const excess = fileField.acceptedFiles.length - props.maxAttachments;
+		if (excess <= 0) return;
+
+		const overflow = fileField.acceptedFiles.slice(
+			fileField.acceptedFiles.length - excess,
+		);
+		for (const file of overflow) fileField.removeFile(file);
+
+		toast.error("Too many attachments", {
+			description: `You can attach up to ${props.maxAttachments} files per message.`,
+		});
+	});
 
 	let submitMessage: (() => void) | undefined;
 
@@ -103,7 +125,11 @@ export const MessageInput: Component<{
 	 */
 	const uploadFiles = (files: Array<File>): Promise<Array<AttachmentObj>> => {
 		return Promise.all(
-			files.map((file) => uploadFile(user.atproto.agent, file)),
+			files.map(async (file) => {
+				const attachment = await uploadFile(user.atproto.agent, file);
+				setUploadedFiles((prev) => new Set(prev).add(file));
+				return attachment;
+			}),
 		);
 	};
 
@@ -143,71 +169,80 @@ export const MessageInput: Component<{
 		// Reset the throttle so the next keystroke after sending pings promptly.
 		lastTypingPing = 0;
 
-		for (const file of acceptedFiles) {
-			fileField.removeFile(file);
+		if (hasFiles) {
+			setUploadedFiles(new Set());
+			setIsSending(true);
 		}
 
-		let attachments: AttachmentObj[] = [];
-		if (hasFiles) {
+		try {
+			let attachments: AttachmentObj[] = [];
+			if (hasFiles) {
+				try {
+					attachments = await uploadFiles(acceptedFiles);
+				} catch (err) {
+					toast.error("Failed to upload attachments.", {
+						description:
+							err instanceof Error
+								? err.message
+								: "An unexpected error occurred while uploading to your PDS.",
+					});
+					return false;
+				}
+			}
+
+			const now = new Date().toISOString();
+			const hash = crypto.randomUUID();
+
+			let uri: string;
 			try {
-				attachments = await uploadFiles(acceptedFiles);
-			} catch (err) {
-				toast.error("Failed to upload attachments.", {
-					description:
-						err instanceof Error
-							? err.message
-							: "An unexpected error occurred while uploading to your PDS.",
-				});
+				({ uri } = await enqueueCreate(
+					user.did,
+					"social.colibri.message",
+					{
+						text: cleanText,
+						facets: cleanFacets,
+						channel: channel.channelUri(),
+						createdAt: now,
+						...(replyingMessage ? { parent: replyingMessage.uri } : {}),
+						...(attachments.length > 0 ? { attachments } : {}),
+					},
+					{ label: "Failed to send message." },
+				));
+			} catch {
+				toast.error("Failed to send message.");
 				return false;
 			}
-		}
 
-		const now = new Date().toISOString();
-		const hash = crypto.randomUUID();
-
-		let uri: string;
-		try {
-			({ uri } = await enqueueCreate(
-				user.did,
-				"social.colibri.message",
-				{
-					text: cleanText,
-					facets: cleanFacets,
-					channel: channel.channelUri(),
-					createdAt: now,
-					...(replyingMessage ? { parent: replyingMessage.uri } : {}),
-					...(attachments.length > 0 ? { attachments } : {}),
+			const pending: PendingMessage = {
+				hash,
+				uri,
+				text: cleanText,
+				facets: cleanFacets,
+				channel: channel.channelUri(),
+				community: "",
+				author: {
+					did: user.did,
+					handle: user.handle.replaceAll("at://", ""),
+					data: user.data,
 				},
-				{ label: "Failed to send message." },
-			));
-		} catch {
-			toast.error("Failed to send message.");
-			return false;
+				parent: replyingMessage,
+				attachments,
+				reactions: [],
+				createdAt: now,
+				edited: false,
+			};
+
+			channel.addPendingMessage(pending);
+			channel.advanceReadCursor();
+
+			for (const file of acceptedFiles) {
+				fileField.removeFile(file);
+			}
+
+			return true;
+		} finally {
+			if (hasFiles) setIsSending(false);
 		}
-
-		const pending: PendingMessage = {
-			hash,
-			uri,
-			text: cleanText,
-			facets: cleanFacets,
-			channel: channel.channelUri(),
-			community: "",
-			author: {
-				did: user.did,
-				handle: user.handle.replaceAll("at://", ""),
-				data: user.data,
-			},
-			parent: replyingMessage,
-			attachments,
-			reactions: [],
-			createdAt: now,
-			edited: false,
-		};
-
-		channel.addPendingMessage(pending);
-		channel.advanceReadCursor();
-
-		return true;
 	};
 
 	const isEditingOnMobile = () =>
@@ -283,27 +318,115 @@ export const MessageInput: Component<{
 			</Show>
 			<Show when={fileField.acceptedFiles.length > 0}>
 				<div
-					class="left-0 border-t border-border w-full px-4 py-2 bg-background/75 backdrop-blur-sm text-foreground flex justify-between items-center"
+					class="left-0 border-t border-border w-full px-4 py-2 bg-background/75 backdrop-blur-sm text-foreground flex flex-col gap-2"
 					classList={{
 						"border-t-0": channel.replyingTo() !== undefined,
 					}}
 				>
-					<FileFieldItemList class="flex flex-row gap-2 m-0 p-0 flex-wrap">
-						{(item) => (
-							<FileFieldItem>
-								<Switch fallback={<FileFieldItemPreviewImage />}>
-									<Match when={item.type.includes("image")}>
-										<Lightbox src={URL.createObjectURL(item)}>
-											<FileFieldItemPreviewImage class="cursor-pointer" />
-										</Lightbox>
-									</Match>
-								</Switch>
-								<FileFieldItemName />
-								<FileFieldItemSize />
-								<FileFieldItemDeleteTrigger />
-							</FileFieldItem>
-						)}
-					</FileFieldItemList>
+					<div class="flex items-center justify-between text-xs">
+						<Show
+							when={isSending()}
+							fallback={
+								<span class="text-muted-foreground">
+									{fileField.acceptedFiles.length}/{props.maxAttachments}{" "}
+									attachments
+								</span>
+							}
+						>
+							<span class="flex items-center gap-1.5 text-foreground">
+								<SpinnerIcon class="size-4 animate-spin" />
+								Uploading {uploadedFiles().size} of{" "}
+								{fileField.acceptedFiles.length}…
+							</span>
+						</Show>
+					</div>
+					<Show
+						when={isMobile()}
+						fallback={
+							<FileFieldItemList
+								class="flex flex-row gap-2 m-0 p-0 flex-wrap"
+								classList={{ "pointer-events-none": isSending() }}
+							>
+								{(item) => (
+									<FileFieldItem>
+										<Switch fallback={<FileFieldItemPreviewImage />}>
+											<Match when={item.type.includes("image")}>
+												<Lightbox src={URL.createObjectURL(item)}>
+													<FileFieldItemPreviewImage class="cursor-pointer" />
+												</Lightbox>
+											</Match>
+										</Switch>
+										<FileFieldItemName />
+										<FileFieldItemSize />
+										<Switch fallback={<FileFieldItemDeleteTrigger />}>
+											<Match when={isSending() && uploadedFiles().has(item)}>
+												<span class="[grid-area:delete] self-center flex items-center justify-center p-0.5 text-green-500">
+													<CheckIcon class="size-4" />
+												</span>
+											</Match>
+											<Match when={isSending()}>
+												<span class="[grid-area:delete] self-center flex items-center justify-center p-0.5 text-muted-foreground">
+													<SpinnerIcon class="size-4 animate-spin" />
+												</span>
+											</Match>
+										</Switch>
+									</FileFieldItem>
+								)}
+							</FileFieldItemList>
+						}
+					>
+						<div class="flex flex-row gap-2 overflow-x-auto pb-1 max-w-full">
+							<For each={fileField.acceptedFiles}>
+								{(item) => {
+									const isImage = item.type.includes("image");
+									const src = isImage ? URL.createObjectURL(item) : undefined;
+
+									return (
+										<div class="relative shrink-0 size-14 rounded-md border border-border bg-secondary/30 overflow-hidden">
+											<Show
+												when={isImage}
+												fallback={
+													<div class="w-full h-full flex items-center justify-center text-muted-foreground">
+														<FileIcon class="size-6" />
+													</div>
+												}
+											>
+												<Lightbox src={src!} class="w-full h-full">
+													<img
+														src={src}
+														alt={item.name}
+														class="w-full h-full object-cover cursor-pointer"
+													/>
+												</Lightbox>
+											</Show>
+											<Switch>
+												<Match when={isSending() && uploadedFiles().has(item)}>
+													<div class="absolute inset-0 flex items-center justify-center bg-black/40 text-green-400">
+														<CheckIcon class="size-5" />
+													</div>
+												</Match>
+												<Match when={isSending()}>
+													<div class="absolute inset-0 flex items-center justify-center bg-black/40 text-white">
+														<SpinnerIcon class="size-5 animate-spin" />
+													</div>
+												</Match>
+												<Match when={!isSending()}>
+													<button
+														type="button"
+														aria-label="Remove attachment"
+														onClick={() => fileField.removeFile(item)}
+														class="absolute top-0.5 right-0.5 size-5 flex items-center justify-center rounded-full bg-background/90 text-destructive"
+													>
+														<XIcon class="size-3.5" />
+													</button>
+												</Match>
+											</Switch>
+										</div>
+									);
+								}}
+							</For>
+						</div>
+					</Show>
 				</div>
 			</Show>
 			<Show when={channel.typingUsers().length > 0}>
@@ -334,13 +457,17 @@ export const MessageInput: Component<{
 			>
 				<Switch>
 					<Match when={!props.disabled}>
-						<FileFieldTrigger class="w-10 h-10 min-w-10 bg-muted text-muted-foreground hover:text-primary-foreground flex items-center justify-center rounded-lg cursor-pointer">
+						<FileFieldTrigger
+							disabled={isSending()}
+							class="w-10 h-10 min-w-10 bg-muted text-muted-foreground hover:text-primary-foreground flex items-center justify-center rounded-lg cursor-pointer disabled:pointer-events-none disabled:opacity-50"
+						>
 							<PlusIcon />
 						</FileFieldTrigger>
 						<div ref={inputEl} class="flex-1 min-w-0">
 							<div class="w-full">
 								<TextEditor
 									mainEditor
+									blocked={isSending}
 									placeholder={`Message ${props.channelName}`}
 									sendMessage={handleSubmit}
 									onChange={handleTypingChange}
@@ -363,11 +490,12 @@ export const MessageInput: Component<{
 							<button
 								type="button"
 								aria-label="Send message"
+								disabled={isSending()}
 								// Keep focus (and the mobile keyboard) on the editor instead of
 								// letting the tap shift it to this button.
 								onMouseDown={(e) => e.preventDefault()}
 								onClick={() => submitMessage?.()}
-								class="w-10 h-10 min-w-10 shrink-0 bg-primary text-primary-foreground hover:bg-primary/90 flex items-center justify-center rounded-lg cursor-pointer"
+								class="w-10 h-10 min-w-10 shrink-0 bg-primary text-primary-foreground hover:bg-primary/90 flex items-center justify-center rounded-lg cursor-pointer disabled:pointer-events-none disabled:opacity-50"
 							>
 								<PaperPlaneRightIcon />
 							</button>

@@ -261,7 +261,10 @@ export const CommunityCreationModal: ParentComponent<{
 							<div class="flex flex-col gap-4 border-t border-border p-3">
 								<p class="text-sm text-muted-foreground m-0">
 									If you run your own AT Protocol server (PDS), you can create
-									the community there and let Colibri manage it for you.
+									the community there and let Colibri manage it for you.{" "}
+									<b class="text-foreground">
+										Do not use your personal account for this!
+									</b>
 								</p>
 								<TextField value={pdsLoc()} onChange={setPdsLoc}>
 									<TextFieldLabel>
@@ -285,7 +288,7 @@ export const CommunityCreationModal: ParentComponent<{
 										minLength={1}
 										type="text"
 										required
-										placeholder="alice.colibri.social"
+										placeholder="community.example.com"
 									/>
 									<TextFieldDescription>
 										The handle (or DID) you sign in with on that server.
@@ -297,8 +300,8 @@ export const CommunityCreationModal: ParentComponent<{
 									</TextFieldLabel>
 									<TextFieldInput minLength={1} type="password" required />
 									<TextFieldDescription>
-										Create an app password in your account settings. Don't use
-										your main password.
+										Create an app password in the account settings. Don't use
+										the main password.
 									</TextFieldDescription>
 								</TextField>
 							</div>

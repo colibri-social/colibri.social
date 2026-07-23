@@ -5,11 +5,14 @@ import { Button } from "../../ui/Button";
 
 export const Lightbox: ParentComponent<{
 	src: string;
+	class?: string;
 }> = (props) => {
 	const [open, setOpen] = createSignal(false);
 	return (
 		<>
-			<div onClick={() => setOpen(true)}>{props.children}</div>
+			<div class={props.class} onClick={() => setOpen(true)}>
+				{props.children}
+			</div>
 			<Show when={open()}>
 				<Portal>
 					<div

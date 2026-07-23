@@ -649,6 +649,7 @@ export const TextEditor: Component<{
 	registerSubmit?: (submit: () => void) => void;
 	onProgress?: (percentage: number) => void;
 	onImagePaste?: (files: Array<File>) => void;
+	blocked?: () => boolean;
 }> = (props) => {
 	let ref!: HTMLDivElement;
 
@@ -663,6 +664,7 @@ export const TextEditor: Component<{
 		);
 
 	const runSend = (instance: Editor) => {
+		if (props.blocked?.()) return;
 		const json = instance.getJSON();
 		const text = proseMirrorToFacets(json);
 		if (text.text.length > CHARACTER_LIMIT) return;
@@ -1012,6 +1014,12 @@ export const TextEditor: Component<{
 		const instance = editor();
 		if (!instance) return;
 		props.registerSubmit?.(() => runSend(instance));
+	});
+
+	createEffect(() => {
+		const instance = editor();
+		if (!instance) return;
+		instance.setEditable(!props.blocked?.());
 	});
 
 	const selectionStateTransaction = createEditorTransaction(
