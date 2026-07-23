@@ -596,6 +596,44 @@ const writeSelectionToClipboard = (
 	return true;
 };
 
+/**
+ * Pulls image files out of a `DataTransfer`. Works for both `ClipboardEvent`
+ * (paste gesture) and `InputEvent` (Android IME rich-content insertion, e.g.
+ * tapping the Gboard clipboard image chip)
+ */
+const extractImageFiles = (data: DataTransfer | null): Array<File> => {
+	if (!data) return [];
+
+	const files: Array<File> = [];
+	const seen = new Set<File>();
+
+	const add = (file: File | null) => {
+		if (!file || seen.has(file) || !file.type.startsWith("image/")) return;
+		seen.add(file);
+		const ext = file.type.split("/")[1] || "png";
+		const named =
+			file.name.trim().length > 0
+				? file
+				: new File(
+						[file],
+						`pasted-image-${Date.now()}-${files.length}.${ext}`,
+						{
+							type: file.type,
+						},
+					);
+		files.push(named);
+	};
+
+	for (const item of data.items) {
+		if (item.kind === "file" && item.type.startsWith("image/")) {
+			add(item.getAsFile());
+		}
+	}
+	for (const file of data.files) add(file);
+
+	return files;
+};
+
 export const TextEditor: Component<{
 	placeholder: string;
 	text?: ReturnType<Editor["getJSON"]>;
@@ -610,6 +648,7 @@ export const TextEditor: Component<{
 	onEmptyChange?: (empty: boolean) => void;
 	registerSubmit?: (submit: () => void) => void;
 	onProgress?: (percentage: number) => void;
+	onImagePaste?: (files: Array<File>) => void;
 }> = (props) => {
 	let ref!: HTMLDivElement;
 
@@ -847,10 +886,33 @@ export const TextEditor: Component<{
 					view.dispatch(view.state.tr.deleteSelection());
 					return true;
 				},
+				beforeinput: (_view, event) => {
+					if (!props.onImagePaste) return false;
+					const inputEvent = event as InputEvent;
+					if (
+						inputEvent.inputType !== "insertFromPaste" &&
+						inputEvent.inputType !== "insertReplacementText"
+					) {
+						return false;
+					}
+					const images = extractImageFiles(inputEvent.dataTransfer);
+					if (images.length === 0) return false;
+					props.onImagePaste(images);
+					event.preventDefault();
+					return true;
+				},
 			},
 			handlePaste: (_view, event) => {
 				const instance = editor();
 				if (!instance || instance.isDestroyed) return false;
+
+				if (props.onImagePaste) {
+					const images = extractImageFiles(event.clipboardData);
+					if (images.length > 0) {
+						props.onImagePaste(images);
+						return true;
+					}
+				}
 
 				const payload = readClipboardFacets(
 					event.clipboardData?.getData("text/html"),

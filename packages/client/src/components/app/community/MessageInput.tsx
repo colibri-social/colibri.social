@@ -337,25 +337,14 @@ export const MessageInput: Component<{
 						<FileFieldTrigger class="w-10 h-10 min-w-10 bg-muted text-muted-foreground hover:text-primary-foreground flex items-center justify-center rounded-lg cursor-pointer">
 							<PlusIcon />
 						</FileFieldTrigger>
-						<div
-							ref={inputEl}
-							class="flex-1 min-w-0"
-							onPaste={(e) => {
-								if ((e.clipboardData?.files.length || 0) > 0) {
-									e.preventDefault();
-
-									for (const file of e.clipboardData!.files) {
-										fileField.processFiles([file]);
-									}
-								}
-							}}
-						>
+						<div ref={inputEl} class="flex-1 min-w-0">
 							<div class="w-full">
 								<TextEditor
 									mainEditor
 									placeholder={`Message ${props.channelName}`}
 									sendMessage={handleSubmit}
 									onChange={handleTypingChange}
+									onImagePaste={(files) => fileField.processFiles(files)}
 									onEscape={() =>
 										isEditingOnMobile()
 											? channel.cancelMessageEdit()
