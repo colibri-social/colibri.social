@@ -217,6 +217,75 @@ jobs:
           path: aab-out/*.aab
           if-no-files-found: error
 
+  publish-ios:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: setup pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: setup node
+        uses: actions/setup-node@v6
+        with:
+          node-version: lts/*
+          cache: "pnpm"
+
+      - name: install frontend dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build app
+        run: pnpm build
+
+      - name: install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-ios
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: "packages/wrapper/src-tauri -> target"
+
+      - name: install App Store Connect API key
+        env:
+          APPLE_API_KEY_P8: ${{ secrets.APPLE_API_KEY_P8 }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+        run: |
+          mkdir -p ~/.appstoreconnect/private_keys
+          echo "$APPLE_API_KEY_P8" > "$HOME/.appstoreconnect/private_keys/AuthKey_${APPLE_API_KEY}.p8"
+          echo "APPLE_API_KEY_PATH=$HOME/.appstoreconnect/private_keys/AuthKey_${APPLE_API_KEY}.p8" >> "$GITHUB_ENV"
+
+      - name: Sync version
+        run: node packages/wrapper/scripts/set-version.mjs "${{ inputs.version }}" "${{ github.run_number }}"
+
+      - name: Build and upload iOS IPA for notarization
+        env:
+          IOS_CERTIFICATE: ${{ secrets.IOS_CERTIFICATE }}
+          IOS_CERTIFICATE_PASSWORD: ${{ secrets.IOS_CERTIFICATE_PASSWORD }}
+          IOS_MOBILE_PROVISION: ${{ secrets.IOS_PROVISIONING_PROFILE_BASE64 }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          VITE_SENTRY_DSN: ${{ secrets.WRAPPER_SENTRY_DSN }}
+          SENTRY_DSN: ${{ secrets.NATIVE_SENTRY_DSN }}
+        run: pnpm --filter @colibri-social/wrapper build:ios:altstore
+
+      - name: Upload Rust debug symbols to Sentry
+        if: env.SENTRY_AUTH_TOKEN != ''
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: colibri-social
+          SENTRY_PROJECT: rust-native-app
+        run: pnpm dlx @sentry/cli debug-files upload --include-sources packages/wrapper/src-tauri/target
+
+      - name: Upload IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-ipa
+          path: packages/wrapper/src-tauri/gen/apple/build/arm64/*.ipa
+          if-no-files-found: error
+
   homebrew:
     needs: publish-tauri
     runs-on: ubuntu-latest
