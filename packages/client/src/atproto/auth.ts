@@ -137,7 +137,12 @@ const init = async () => {
 			handleResolver: getAppViewHost("http"),
 			fetch: withFetchTimeout(OAUTH_RESOLVE_TIMEOUT_MS),
 		});
+	} catch (e) {
+		console.error(e);
+		return;
+	}
 
+	try {
 		if (window.location.hash.length > 0) {
 			console.info(
 				"[auth] Attempting to received session from callback parameters...",
@@ -199,7 +204,18 @@ const init = async () => {
 				console.warn("[auth] Forced token refresh failed", e);
 			}
 		}
+	} catch (e) {
+		console.error(e);
+		localStorage.removeItem("sub");
+		agent = undefined;
+		pdsHost = undefined;
+		grantedScopes = undefined;
+		return;
+	}
 
+	if (!agent) return;
+
+	try {
 		const didDoc = (await (
 			await fetch(
 				`${getAppViewHost("http")}/xrpc/com.atproto.identity.resolveDid?did=${agent.did!}`,
@@ -215,11 +231,8 @@ const init = async () => {
 		pdsHost = didDoc.service
 			.find((x) => x.id === "#atproto_pds")
 			?.serviceEndpoint.toString();
-
-		return;
 	} catch (e) {
 		console.error(e);
-		// Show login
 	}
 };
 
