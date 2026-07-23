@@ -6,10 +6,6 @@ on:
       version:
         description: "Version to build (e.g. 0.1.0-rc.3)."
         required: true
-      publish:
-        description: "Publish the built MSIX to the Microsoft Store."
-        type: boolean
-        default: false
 
 jobs:
   publish-tauri:
@@ -394,6 +390,7 @@ jobs:
           echo "MSIX Store version (padded to .0 by the bundler): ${STORE_VERSION}.0"
           cat > packages/wrapper/src-tauri/tauri.windows.conf.json <<JSON
           {
+            "identifier": "LouisEscher.ColibriSocial",
             "version": "${STORE_VERSION}",
             "mainBinaryName": "ColibriSocial"
           }
@@ -418,7 +415,6 @@ jobs:
 
   msstore-deploy:
     needs: msstore-build
-    if: ${{ inputs.publish }}
     runs-on: windows-latest
     steps:
       - name: Download MSIX artifact
