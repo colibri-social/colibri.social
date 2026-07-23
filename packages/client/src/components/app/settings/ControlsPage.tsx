@@ -1,7 +1,7 @@
-import twemoji from "@twemoji/api";
 import { type Component, createSignal, Show } from "solid-js";
 import type { DoubleTapAction } from "../../../contexts/UserPreferences";
 import { useUserPreferences } from "../../../contexts/UserPreferences";
+import { parseEmojiText } from "../../../utils/emoji";
 import { Button } from "../../ui/Button";
 import {
 	RadioGroup,
@@ -124,7 +124,7 @@ export const ControlsPage: Component = () => {
 							<Button variant="secondary" size="icon-sm">
 								<span
 									class="h-4 w-4"
-									innerHTML={twemoji.parse(
+									innerHTML={parseEmojiText(
 										preferences().controls.doubleTapReactionEmoji,
 									)}
 								/>

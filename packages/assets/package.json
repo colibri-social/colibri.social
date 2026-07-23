@@ -14,5 +14,8 @@
 	"scripts": {
 		"build": "node scripts/generate-manifest.mjs",
 		"fetch-models": "node scripts/fetch-model-assets.mjs"
+	},
+	"dependencies": {
+		"twemoji-colr-font": "15.0.3"
 	}
 }

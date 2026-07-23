@@ -1,9 +1,9 @@
 import type { ActorData } from "@colibri-social/lib";
-import twemoji from "@twemoji/api";
 import { type Component, For, Show } from "solid-js";
 import type { Reaction } from "../../../../atproto/xrpc/social/colibri/channel/listMessages";
 import { useCommunityContext } from "../../../../contexts/Community";
 import createMediaQuery from "../../../../utils/create-media-query";
+import { parseEmojiText } from "../../../../utils/emoji";
 import {
 	Dialog,
 	DialogContent,
@@ -32,7 +32,10 @@ const ReactorsList: Component<{ reactions: Array<Reaction> }> = (props) => {
 				{(reaction) => (
 					<div class="flex flex-col gap-2">
 						<div class="flex flex-row items-center gap-2 text-sm text-muted-foreground">
-							<span class="h-4 w-4" innerHTML={twemoji.parse(reaction.emoji)} />
+							<span
+								class="h-4 w-4"
+								innerHTML={parseEmojiText(reaction.emoji)}
+							/>
 							<span>{reaction.count}</span>
 						</div>
 						<div class="flex flex-col gap-2 pl-1">

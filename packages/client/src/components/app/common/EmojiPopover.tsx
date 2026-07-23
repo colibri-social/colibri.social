@@ -2,6 +2,9 @@ import {
 	type Emoji,
 	type EmojiEventHandler,
 	EmojiPicker,
+	setEmojiComponents,
+	setEmojiData,
+	setEmojiGroupURL,
 } from "solid-emoji-picker";
 import {
 	type Accessor,
@@ -11,6 +14,13 @@ import {
 	Show,
 } from "solid-js";
 import { createScrollFade } from "../../../hooks/createScrollFade";
+import { isFontRenderable, twemojiImageSrc } from "../../../utils/emoji";
+import {
+	aliasesForSlug,
+	EMOJI_COMPONENTS,
+	EMOJI_DATA_RECORD,
+	EMOJI_GROUPS,
+} from "../../../utils/emoji-data";
 import { useIsMobile } from "../../../utils/mobile-pane";
 import { BottomSheet } from "../../ui/MenuDrawer";
 import {
@@ -20,6 +30,14 @@ import {
 	PopoverTrigger,
 } from "../../ui/Popover";
 import { TextField, TextFieldInput } from "../../ui/TextField";
+
+setEmojiData(EMOJI_DATA_RECORD);
+setEmojiComponents(EMOJI_COMPONENTS);
+setEmojiGroupURL(
+	URL.createObjectURL(
+		new Blob([JSON.stringify(EMOJI_GROUPS)], { type: "application/json" }),
+	),
+);
 
 type Placement =
 	| "bottom"
@@ -34,18 +52,6 @@ type Placement =
 	| "top"
 	| "top-end"
 	| "top-start";
-
-// Some emojis in Unicode 15 are not supported by the picker font.
-const UNICODE_BREAK_VERSION = 14.999;
-
-/**
- * Converts a raw emoji string into a hyphenated hex code for the Twemoji CDN.
- */
-const getEmojiHex = (emoji: string): string =>
-	Array.from(emoji)
-		.map((char) => char.codePointAt(0)?.toString(16))
-		.join("-")
-		.toLowerCase();
 
 /**
  * The searchable emoji grid, decoupled from any popover/drawer chrome so it can
@@ -65,9 +71,6 @@ export const EmojiPickerBody: Component<{
 	 * falling back to the Twemoji SVG for unsupported Unicode versions.
 	 */
 	function renderEmoji(emoji: Emoji) {
-		const isFontSupported =
-			parseFloat(emoji.unicode_version) <= UNICODE_BREAK_VERSION;
-
 		return (
 			<button
 				type="button"
@@ -75,11 +78,11 @@ export const EmojiPickerBody: Component<{
 				class="w-9 h-9 flex items-center justify-center rounded-md hover:bg-muted transition-colors cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-ring border-none bg-transparent"
 				onClick={(e) => props.onEmoji(emoji, e)}
 			>
-				{isFontSupported ? (
+				{isFontRenderable(emoji.emoji) ? (
 					<span class="picker-font emoji-render text-2xl">{emoji.emoji}</span>
 				) : (
 					<img
-						src={`https://cdn.jsdelivr.net/gh/jdecked/twemoji@latest/assets/svg/${getEmojiHex(emoji.emoji)}.svg`}
+						src={twemojiImageSrc(emoji.emoji)}
 						alt={emoji.name}
 						class="w-6 h-6"
 						loading="lazy"
@@ -106,7 +109,13 @@ export const EmojiPickerBody: Component<{
 							const query = filter().trim().toLowerCase();
 							if (!query) return true;
 
-							return emoji.name.toLowerCase().includes(query);
+							return (
+								emoji.name.toLowerCase().includes(query) ||
+								emoji.slug.toLowerCase().includes(query) ||
+								aliasesForSlug(emoji.slug).some((alias) =>
+									alias.includes(query),
+								)
+							);
 						}}
 						renderEmoji={(_data, emoji) => renderEmoji(emoji)}
 					/>

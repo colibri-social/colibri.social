@@ -167,7 +167,7 @@ importers:
         specifier: ^3.20.1
         version: 3.20.1(@tiptap/core@3.20.1(@tiptap/pm@3.27.1))(@tiptap/pm@3.27.1)
       '@twemoji/api':
-        specifier: ^17.0.2
+        specifier: ^17.0.3
         version: 17.0.3
       astro:
         specifier: 7.0.6
@@ -282,7 +282,11 @@ importers:
         specifier: ^8.20.0
         version: 8.20.0
 
-  packages/assets: {}
+  packages/assets:
+    dependencies:
+      twemoji-colr-font:
+        specifier: 15.0.3
+        version: 15.0.3
 
   packages/client:
     dependencies:
@@ -478,6 +482,9 @@ importers:
       tw-animate-css:
         specifier: ^1.4.0
         version: 1.4.0
+      unicode-emoji-json:
+        specifier: ^0.9.0
+        version: 0.9.0
       vidstack:
         specifier: ^1.12.13
         version: 1.12.13
@@ -5800,11 +5807,17 @@ packages:
     resolution: {integrity: sha512-rQAsQvOtV1lBkyCw+iypMygNHrShYAItES5r8fMsrhhaj5qrV2LkZyXc8ccEH+u5bFjHjQ9iuxe90I7Kykf6pw==}
     engines: {node: '>=16.0.0'}
 
+<<<<<<< HEAD
   two-product@1.0.2:
     resolution: {integrity: sha512-vOyrqmeYvzjToVM08iU52OFocWT6eB/I5LUWYnxeAPGXAhAxXYU/Yr/R2uY5/5n4bvJQL9AQulIuxpIsMoT8XQ==}
 
   two-sum@1.0.0:
     resolution: {integrity: sha512-phP48e8AawgsNUjEY2WvoIWqdie8PoiDZGxTDv70LDr01uX5wLEQbOgSP7Z/B6+SW5oLtbe8qaYX2fKJs3CGTw==}
+=======
+  twemoji-colr-font@15.0.3:
+    resolution: {integrity: sha512-UsK4JUpaczeVoMGeYMnKaMTxKt7fujg1nQOk4NaC0teZmdOo+uAai0DIuaSzsMkShtG4J75F0OEsVdGJ+Q1pHQ==}
+    deprecated: Package no longer supported. Contact Support at https://www.npmjs.com/support for more info.
+>>>>>>> abc0d59 (feat: Better emoji handling & fallbacks)
 
   typed-emitter@2.1.0:
     resolution: {integrity: sha512-g/KzbYKbH5C2vPkaXGu8DJlHrGKHLsM25Zg9WuC9pMGfuvT+X25tZQWo5fK1BjBm8+UrVE9LDCvaY0CQk+fXDA==}
@@ -5854,6 +5867,9 @@ packages:
   undici@7.22.0:
     resolution: {integrity: sha512-RqslV2Us5BrllB+JeiZnK4peryVTndy9Dnqq62S3yYRRTj0tFQCwEniUy2167skdGOy3vqRzEvl1Dm4sV2ReDg==}
     engines: {node: '>=20.18.1'}
+
+  unicode-emoji-json@0.9.0:
+    resolution: {integrity: sha512-HdrQW/7SdbXUsTd8uTATv7LvQJkCSgbAgRCDCtOhQ6xn3EAx+xZHQtRniOXWJK3ywIqPegkNhP4U4EbuFsiQng==}
 
   unicode-segmenter@0.14.5:
     resolution: {integrity: sha512-jHGmj2LUuqDcX3hqY12Ql+uhUTn8huuxNZGq7GvtF6bSybzH3aFgedYu/KTzQStEgt1Ra2F3HxadNXsNjb3m3g==}
@@ -12295,9 +12311,13 @@ snapshots:
     transitivePeerDependencies:
       - ts-node
 
+<<<<<<< HEAD
   two-product@1.0.2: {}
 
   two-sum@1.0.0: {}
+=======
+  twemoji-colr-font@15.0.3: {}
+>>>>>>> abc0d59 (feat: Better emoji handling & fallbacks)
 
   typed-emitter@2.1.0:
     optionalDependencies:
@@ -12336,6 +12356,8 @@ snapshots:
   undici@6.23.0: {}
 
   undici@7.22.0: {}
+
+  unicode-emoji-json@0.9.0: {}
 
   unicode-segmenter@0.14.5: {}
 
