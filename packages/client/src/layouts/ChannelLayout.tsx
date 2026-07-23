@@ -153,6 +153,7 @@ const ChannelLayout: ParentComponent = (props) => {
 	let hiddenInput: HTMLInputElement | undefined;
 	let observer: IntersectionObserver | undefined;
 	let contentResizeObserver: ResizeObserver | undefined;
+	let containerResizeObserver: ResizeObserver | undefined;
 	let readObserver: IntersectionObserver | undefined;
 	let armedFocusUri: string | undefined;
 	let focusWalkUri: string | undefined;
@@ -276,11 +277,21 @@ const ChannelLayout: ParentComponent = (props) => {
 			});
 			contentResizeObserver.observe(messagesWrapper);
 		}
+
+		if (scrollContainer) {
+			containerResizeObserver = new ResizeObserver(() => {
+				if (!scrollContainer || !didInitialScroll) return;
+				if (scrollBottomBeforeFetch !== null) return; // prepend in progress
+				if (wasAtBottom) pinToBottomStable();
+			});
+			containerResizeObserver.observe(scrollContainer);
+		}
 	});
 
 	onCleanup(() => {
 		observer?.disconnect();
 		contentResizeObserver?.disconnect();
+		containerResizeObserver?.disconnect();
 		readObserver?.disconnect();
 		pingObserver?.disconnect();
 		jumpObserver?.disconnect();
