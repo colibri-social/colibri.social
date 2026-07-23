@@ -230,7 +230,7 @@ const methodIcons = {
 				<div
 					role="tablist"
 					aria-label="Choose your platform"
-					class="grid grid-cols-3 sm:grid-cols-5 gap-1.5 p-1.5 rounded-xl bg-muted/40 border border-border"
+					class="flex flex-wrap gap-1.5 p-1.5 rounded-xl bg-muted/40 border border-border"
 				>
 					{
 						platforms.map((pf) => {
@@ -242,7 +242,7 @@ const methodIcons = {
 									data-tab={pf.id}
 									aria-selected="false"
 									aria-controls={`panel-${pf.id}`}
-									class="dl-tab group flex flex-col items-center justify-center gap-1.5 h-16 rounded-lg text-muted-foreground transition-colors cursor-pointer hover:text-foreground aria-selected:bg-card aria-selected:text-foreground aria-selected:shadow-sm"
+									class="dl-tab group grow basis-[calc(33.333%-0.5rem)] sm:basis-[calc(20%-0.6rem)] flex flex-col items-center justify-center gap-1.5 h-16 rounded-lg text-muted-foreground transition-colors cursor-pointer hover:text-foreground aria-selected:bg-card aria-selected:text-foreground aria-selected:shadow-sm"
 								>
 									<TabIcon class="size-5 shrink-0" />
 									<span class="text-xs font-medium">{pf.name}</span>
@@ -276,39 +276,42 @@ const methodIcons = {
 												: "border-border bg-muted/20 hover:bg-muted/40",
 										]}
 									>
-										<div class="flex items-center gap-3">
-											<span
-												class:list={[
-													"grid place-items-center size-10 shrink-0 rounded-lg [&_svg]:size-5",
-													recommended
-														? "bg-primary/10 text-primary"
-														: "bg-muted text-foreground",
-												]}
-											>
-												<MethodIcon />
-											</span>
-											<div class="flex flex-col min-w-0 gap-0.5">
-												<div class="flex items-center gap-2 flex-wrap">
-													<span class="text-sm font-semibold text-foreground leading-none">
-														{m.name}
-													</span>
+										<div class="flex flex-col gap-3 sm:flex-row sm:items-center">
+											<div class="flex items-center gap-3 min-w-0 sm:flex-1">
+												<span
+													class:list={[
+														"grid place-items-center size-10 shrink-0 rounded-lg [&_svg]:size-5",
+														recommended
+															? "bg-primary/10 text-primary"
+															: "bg-muted text-foreground",
+													]}
+												>
+													<MethodIcon />
+												</span>
+												<div class="flex flex-col gap-1.5 min-w-0 items-start sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-2 sm:gap-y-0.5">
 													{(m.badge || recommended) && (
-														<span class="text-[10px] uppercase tracking-wide font-semibold text-primary bg-primary/10 rounded px-1.5 py-0.5 leading-none">
+														<span class="order-1 text-[10px] uppercase tracking-wide font-semibold text-primary rounded leading-none sm:order-2 sm:bg-primary/10 sm:px-1.5 sm:py-0.5">
 															{m.badge ?? "Recommended"}
 														</span>
 													)}
+													<span class="order-2 text-sm font-semibold text-foreground leading-none sm:order-1">
+														{m.name}
+													</span>
+													<span class="order-3 hidden text-xs text-muted-foreground break-words max-w-full sm:order-3 sm:block sm:basis-full sm:truncate">
+														{m.desc}
+													</span>
 												</div>
-												<span class="text-xs text-muted-foreground truncate">
-													{m.desc}
-												</span>
 											</div>
+											<span class="text-xs text-muted-foreground break-words max-w-full sm:hidden">
+												{m.desc}
+											</span>
 											{m.href && (
 												<Button
 													href={m.href}
 													data-deep-link={m.deepLink}
 													variant={recommended ? "default" : "secondary"}
 													size="sm"
-													class="ml-auto shrink-0"
+													class="w-full justify-center shrink-0 sm:w-auto"
 													target={isMail ? undefined : "_blank"}
 													rel={isMail ? undefined : "noreferrer"}
 												>
@@ -323,12 +326,13 @@ const methodIcons = {
 											{m.command && (
 												<button
 													type="button"
-													class="dl-copy ml-auto shrink-0 inline-flex items-center justify-center size-8 rounded-md bg-secondary text-secondary-foreground hover:bg-secondary/80 transition-colors cursor-pointer [&_svg]:size-4"
+													class="dl-copy shrink-0 inline-flex items-center justify-center gap-2 w-full h-9 rounded-md bg-secondary text-secondary-foreground hover:bg-secondary/80 transition-colors cursor-pointer [&_svg]:size-4 sm:w-8 sm:h-8 sm:gap-0"
 													data-copy={m.command}
 													aria-label={`Copy ${m.name} command`}
 												>
 													<Copy class="dl-copy-icon" />
 													<Check class="dl-check-icon hidden text-green-500" />
+													<span class="text-xs font-medium sm:hidden">Copy command</span>
 												</button>
 											)}
 										</div>
