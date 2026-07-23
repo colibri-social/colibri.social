@@ -11,7 +11,8 @@
 		"tauri": "node scripts/tauri.mjs",
 		"icon": "node scripts/tauri.mjs icon src-tauri/icons/icon.png --ios-color \"#0b0b0b\" && node scripts/strip-ios-icon-alpha.mjs",
 		"build:macos:direct": "bash scripts/build-macos-direct.sh",
-		"build:macos:appstore": "bash scripts/build-macos-appstore.sh"
+		"build:macos:appstore": "bash scripts/build-macos-appstore.sh",
+		"tauri:windows:build": "tauri-windows-bundle build"
 	},
 	"license": "MIT",
 	"dependencies": {
@@ -35,6 +36,7 @@
 		"vite": "^8.1.3",
 		"vite-plugin-solid": "^2.11.12",
 		"@tauri-apps/cli": "^2",
-		"sharp": "^0.34.5"
+		"sharp": "^0.34.5",
+		"@choochmeque/tauri-windows-bundle": "^0.1.28"
 	}
 }

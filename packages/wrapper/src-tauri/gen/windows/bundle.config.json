@@ -1,0 +1,28 @@
+{
+	"publisher": "CN=3BA81CA6-5059-4A72-98C2-CEE8F5E62394",
+	"publisherDisplayName": "Louis Escher",
+	"capabilities": {
+		"general": ["internetClient"],
+		"device": ["microphone", "webcam"]
+	},
+	"extensions": {
+		"shareTarget": false,
+		"fileAssociations": [],
+		"protocolHandlers": [
+			{
+				"name": "social.colibri.next"
+			},
+			{
+				"name": "social.colibri"
+			}
+		]
+	},
+	"signing": {
+		"pfx": null,
+		"pfxPassword": null
+	},
+	"resourceIndex": {
+		"enabled": false,
+		"keepConfig": false
+	}
+}

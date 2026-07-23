@@ -11,7 +11,10 @@ import {
 } from "solid-js";
 import { toast } from "somoto";
 import { writeReadCursor } from "../atproto/read-cursor";
-import { isStaleNotificationEvent } from "../notifications";
+import {
+	cancelChannelTrayNotification,
+	isStaleNotificationEvent,
+} from "../notifications";
 import { useMutes } from "./Mutes";
 import { useSocketContext } from "./Socket";
 import { useSounds } from "./Sounds";
@@ -108,6 +111,7 @@ export const NotificationsContextProvider: ParentComponent = (props) => {
 	>({});
 
 	const accountedMessages = new Set<string>();
+	const locallyReadChannels = new Set<string>();
 
 	const clearPendingFocus = () => setPendingFocus(undefined);
 
@@ -163,7 +167,8 @@ export const NotificationsContextProvider: ParentComponent = (props) => {
 			return { ...prev, [key]: true };
 		});
 
-	const markChannelRead = (channelUri: string) =>
+	const markChannelRead = (channelUri: string) => {
+		locallyReadChannels.add(channelKey(channelUri));
 		setUnreadChannels((prev) => {
 			const key = channelKey(channelUri);
 			if (!prev[key]) return prev;
@@ -171,6 +176,7 @@ export const NotificationsContextProvider: ParentComponent = (props) => {
 			delete next[key];
 			return next;
 		});
+	};
 
 	const markMessageSeen = async (
 		messageUri: string,
@@ -178,6 +184,7 @@ export const NotificationsContextProvider: ParentComponent = (props) => {
 	): Promise<void> => {
 		if (accountedMessages.has(messageUri)) return;
 		accountedMessages.add(messageUri);
+		void cancelChannelTrayNotification(channelUri);
 
 		adjustPings(channelUri, -1);
 		try {
@@ -287,6 +294,10 @@ export const NotificationsContextProvider: ParentComponent = (props) => {
 			for (const ch of res.channels) {
 				const key = channelKey(ch.channelUri);
 				if (mutes.isChannelMuted(ch.channelUri)) {
+					delete next[key];
+					continue;
+				}
+				if (locallyReadChannels.has(key)) {
 					delete next[key];
 					continue;
 				}

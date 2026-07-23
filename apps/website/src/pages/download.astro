@@ -36,6 +36,7 @@ type Method = {
 	desc: string;
 	icon: "store" | "package" | "download" | "terminal" | "mail";
 	href?: string;
+	deepLink?: string;
 	command?: string;
 	cta?: string;
 	badge?: string;
@@ -125,12 +126,13 @@ const platforms: Array<Platform> = [
 		name: "Windows",
 		tabIcon: "windows",
 		methods: [
-			// {
-			// 	name: "Microsoft Store",
-			// 	desc: "Recommended",
-			// 	icon: "store",
-			// 	href: "https://apps.microsoft.com/detail/colibri",
-			// },
+			{
+				name: "Microsoft Store",
+				desc: "Get it from the Microsoft Store",
+				icon: "store",
+				href: "https://apps.microsoft.com/detail/9P8Q77FCCSWR",
+				deepLink: "ms-windows-store://pdp/?productid=9P8Q77FCCSWR",
+			},
 			{
 				name: "Installer",
 				desc: "Direct .exe download",
@@ -148,7 +150,7 @@ const platforms: Array<Platform> = [
 				desc: "Command-line installer",
 				icon: "terminal",
 				command:
-					"scoop bucket add colibri-social https://github.com/colibri-social/scoop-bucket && scoop install colibri",
+					"scoop bucket add colibri-social https://github.com/colibri-social/scoop-bucket && scoop install colibri-social",
 			},
 		],
 	},
@@ -303,6 +305,7 @@ const methodIcons = {
 											{m.href && (
 												<Button
 													href={m.href}
+													data-deep-link={m.deepLink}
 													variant={recommended ? "default" : "secondary"}
 													size="sm"
 													class="ml-auto shrink-0"
@@ -421,6 +424,19 @@ const methodIcons = {
 
 		if (detected && hint) {
 			hint.textContent = `Looks like you're on ${labels[detected]}. Here's what we'd grab.`;
+		}
+
+		if (detected === "windows") {
+			for (const link of card.querySelectorAll<HTMLAnchorElement>(
+				"a[data-deep-link]",
+			)) {
+				const deepLink = link.dataset.deepLink;
+				if (deepLink) {
+					link.href = deepLink;
+					link.removeAttribute("target");
+					link.removeAttribute("rel");
+				}
+			}
 		}
 
 		for (const btn of card.querySelectorAll<HTMLButtonElement>(".dl-copy")) {
