@@ -4,7 +4,6 @@ import type { Details } from "@kobalte/core/file-field";
 import {
 	type Component,
 	createSignal,
-	For,
 	Match,
 	onMount,
 	type ParentComponent,
@@ -17,6 +16,7 @@ import { getRecord, putRecord } from "../../atproto/pds";
 import { resolveBlob } from "../../atproto/resolve-blob";
 import { useSocketContext } from "../../contexts/Socket";
 import { useUserContext } from "../../contexts/User";
+import { Chevron } from "../icons/Chevron";
 import { Image } from "../icons/Image";
 import { Spinner } from "../icons/Spinner";
 import { Button } from "../ui/Button";
@@ -30,13 +30,6 @@ import {
 	FileFieldItemPreviewImage,
 	FileFieldTrigger,
 } from "../ui/FileField";
-import {
-	RadioGroup,
-	RadioGroupItem,
-	RadioGroupItemInput,
-	RadioGroupItemLabel,
-	RadioGroupItems,
-} from "../ui/RadioGroup";
 import { ResponsiveDialog } from "../ui/ResponsiveDialog";
 import {
 	TextField,
@@ -45,15 +38,13 @@ import {
 	TextFieldLabel,
 } from "../ui/TextField";
 
-const OWNERSHIP_CHOICE = 1;
-const BYO_CREDENTIALS = 2;
-const COMMUNITY_DETAILS = 3;
-const LOADING = 4;
+const COMMUNITY_DETAILS = 1;
+const LOADING = 2;
 
-// Labels for the BYO bootstrap steps the AppView pushes over the event socket
-// while creating the community on the user's PDS.
+// Labels for the self-hosting bootstrap steps the AppView pushes over the event
+// socket while creating the community on the user's own server.
 const BYO_PROGRESS_LABELS: Record<string, string> = {
-	connecting: "Connecting to your PDS...",
+	connecting: "Connecting to your server...",
 	creating: "Creating your community...",
 	registering: "Linking to Colibri...",
 };
@@ -134,8 +125,8 @@ export const CommunityCreationModal: ParentComponent<{
 	const [picture, setPicture] = createSignal<Details>();
 	const [loading, _setLoading] = createSignal<boolean>(false);
 	const [open, setOpen] = createSignal(false);
-	const [ownership, setOwnership] = createSignal<string>("managed");
-	const [step, setStep] = createSignal<number>(OWNERSHIP_CHOICE);
+	const [selfHost, setSelfHost] = createSignal<boolean>(false);
+	const [step, setStep] = createSignal<number>(COMMUNITY_DETAILS);
 
 	const credentialsInvalid = () =>
 		!(
@@ -151,124 +142,8 @@ export const CommunityCreationModal: ParentComponent<{
 		setName(props.migrateFrom?.name ?? "");
 		setDescription(props.migrateFrom?.description ?? "");
 		setPicture(undefined);
-		setOwnership("managed");
-		setStep(OWNERSHIP_CHOICE);
-	};
-
-	const CommunityOwnership: Component = () => {
-		const options = [
-			{
-				title: "Colibri-managed",
-				description:
-					"We create the community on our EU-based server and host & manage it for you.",
-				value: "managed",
-				disabled: false,
-			},
-			{
-				title: "Bring your own",
-				description:
-					"You create a new community account on your own PDS and allow us to manage it.",
-				value: "byo",
-				disabled: false,
-			},
-		];
-
-		return (
-			<>
-				<div class="flex flex-row items-center justify-center w-full gap-4">
-					<RadioGroup defaultValue={ownership()} onChange={setOwnership}>
-						<RadioGroupItems class="flex-col sm:flex-row">
-							<For each={options}>
-								{(option) => (
-									<RadioGroupItem
-										value={option.value}
-										disabled={option.disabled}
-										class="w-full"
-									>
-										<RadioGroupItemInput disabled={option.disabled} />
-										<RadioGroupItemLabel
-											class="flex flex-col text-center w-full text-pretty rounded-md p-2 border border-border outline-2 outline-transparent gap-2 data-checked:border-primary data-checked:outline-primary/50 data-checked:bg-primary/10"
-											classList={{
-												"opacity-50": option.disabled,
-											}}
-										>
-											<strong class="w-full text-lg">{option.title}</strong>
-											<span>{option.description}</span>
-										</RadioGroupItemLabel>
-									</RadioGroupItem>
-								)}
-							</For>
-						</RadioGroupItems>
-					</RadioGroup>
-				</div>
-				<DialogFooter>
-					<Button
-						variant="secondary"
-						disabled={loading()}
-						onClick={() => setOpen(false)}
-					>
-						Cancel
-					</Button>
-					<Switch>
-						<Match when={ownership() === "byo"}>
-							<Button onClick={() => setStep(2)}>Next</Button>
-						</Match>
-						<Match when={ownership() === "managed"}>
-							<Button onClick={() => setStep(3)}>Next</Button>
-						</Match>
-					</Switch>
-				</DialogFooter>
-			</>
-		);
-	};
-
-	const CredentialsInput: Component = () => {
-		return (
-			<>
-				<div class="flex flex-col items-center justify-center w-full gap-4">
-					<TextField value={pdsLoc()} onChange={setPdsLoc}>
-						<TextFieldLabel>
-							PDS Host <span class="text-destructive">*</span>
-						</TextFieldLabel>
-						<TextFieldInput
-							minLength={1}
-							type="text"
-							required
-							placeholder="https://colibri.social"
-						/>
-					</TextField>
-					<TextField value={handleOrDid()} onChange={setHandleOrDid}>
-						<TextFieldLabel>
-							Account Handle (or DID) <span class="text-destructive">*</span>
-						</TextFieldLabel>
-						<TextFieldInput
-							minLength={1}
-							type="text"
-							required
-							placeholder="alice.colibri.social"
-						/>
-					</TextField>
-					<TextField value={password()} onChange={setPassword}>
-						<TextFieldLabel>
-							Account Password <span class="text-destructive">*</span>
-						</TextFieldLabel>
-						<TextFieldInput minLength={1} type="password" required />
-					</TextField>
-				</div>
-				<DialogFooter>
-					<Button variant="secondary" onClick={() => setStep(1)}>
-						Back
-					</Button>
-					<Button
-						onClick={() => setStep(3)}
-						disabled={credentialsInvalid()}
-						aria-disabled={credentialsInvalid()}
-					>
-						Next
-					</Button>
-				</DialogFooter>
-			</>
-		);
+		setSelfHost(false);
+		setStep(COMMUNITY_DETAILS);
 	};
 
 	const CommunityDetails: Component = () => {
@@ -287,7 +162,9 @@ export const CommunityCreationModal: ParentComponent<{
 		};
 
 		const canCreate = () =>
-			nameValid() === "valid" && descriptionValid() === "valid";
+			nameValid() === "valid" &&
+			descriptionValid() === "valid" &&
+			(!selfHost() || !credentialsInvalid());
 
 		return (
 			<>
@@ -358,21 +235,85 @@ export const CommunityCreationModal: ParentComponent<{
 							Tell others what your community is about! Max. 256 characters.
 						</TextFieldDescription>
 					</TextField>
+					<div class="w-full rounded-md border border-border">
+						<button
+							type="button"
+							onClick={() => setSelfHost((v) => !v)}
+							aria-expanded={selfHost()}
+							class="flex w-full items-center justify-between gap-2 p-3 text-left text-sm text-muted-foreground hover:text-foreground"
+						>
+							<span class="flex flex-col">
+								<span class="font-medium text-foreground">
+									Advanced: host it yourself
+								</span>
+								<span>
+									By default, Colibri hosts your community on our EU servers.
+								</span>
+							</span>
+							<span
+								class="shrink-0 transition-transform duration-200"
+								classList={{ "rotate-90": selfHost() }}
+							>
+								<Chevron className="w-4! h-4!" />
+							</span>
+						</button>
+						<Show when={selfHost()}>
+							<div class="flex flex-col gap-4 border-t border-border p-3">
+								<p class="text-sm text-muted-foreground m-0">
+									If you run your own AT Protocol server (PDS), you can create
+									the community there and let Colibri manage it for you.
+								</p>
+								<TextField value={pdsLoc()} onChange={setPdsLoc}>
+									<TextFieldLabel>
+										Server address <span class="text-destructive">*</span>
+									</TextFieldLabel>
+									<TextFieldInput
+										minLength={1}
+										type="text"
+										required
+										placeholder="https://colibri.social"
+									/>
+									<TextFieldDescription>
+										The address of your AT Protocol server (your PDS host).
+									</TextFieldDescription>
+								</TextField>
+								<TextField value={handleOrDid()} onChange={setHandleOrDid}>
+									<TextFieldLabel>
+										Account username <span class="text-destructive">*</span>
+									</TextFieldLabel>
+									<TextFieldInput
+										minLength={1}
+										type="text"
+										required
+										placeholder="alice.colibri.social"
+									/>
+									<TextFieldDescription>
+										The handle (or DID) you sign in with on that server.
+									</TextFieldDescription>
+								</TextField>
+								<TextField value={password()} onChange={setPassword}>
+									<TextFieldLabel>
+										App password <span class="text-destructive">*</span>
+									</TextFieldLabel>
+									<TextFieldInput minLength={1} type="password" required />
+									<TextFieldDescription>
+										Create an app password in your account settings. Don't use
+										your main password.
+									</TextFieldDescription>
+								</TextField>
+							</div>
+						</Show>
+					</div>
 				</div>
 				<DialogFooter>
-					<Switch>
-						<Match when={ownership() === "managed"}>
-							<Button variant="secondary" onClick={() => setStep(1)}>
-								Back
-							</Button>
-						</Match>
-						<Match when={ownership() === "byo"}>
-							<Button variant="secondary" onClick={() => setStep(2)}>
-								Back
-							</Button>
-						</Match>
-					</Switch>
-					<Button disabled={!canCreate()} onClick={() => setStep(4)}>
+					<Button
+						variant="secondary"
+						disabled={loading()}
+						onClick={() => setOpen(false)}
+					>
+						Cancel
+					</Button>
+					<Button disabled={!canCreate()} onClick={() => setStep(LOADING)}>
 						Create
 					</Button>
 				</DialogFooter>
@@ -434,7 +375,7 @@ export const CommunityCreationModal: ParentComponent<{
 			if (creationInFlight) return;
 			creationInFlight = true;
 
-			const isByo = ownership() === "byo";
+			const isByo = selfHost();
 			const byo = isByo
 				? { pds: pdsLoc(), identifier: handleOrDid(), password: password() }
 				: undefined;
@@ -525,12 +466,6 @@ export const CommunityCreationModal: ParentComponent<{
 			contentClass="w-lg"
 		>
 			<Switch>
-				<Match when={step() === OWNERSHIP_CHOICE}>
-					<CommunityOwnership />
-				</Match>
-				<Match when={step() === BYO_CREDENTIALS}>
-					<CredentialsInput />
-				</Match>
 				<Match when={step() === COMMUNITY_DETAILS}>
 					<CommunityDetails />
 				</Match>

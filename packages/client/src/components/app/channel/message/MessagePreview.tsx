@@ -21,7 +21,7 @@ export const MessagePreview: Component<{ data: Message }> = (props) => {
 		<div class="w-full h-fit flex flex-row gap-4 pr-4 pl-3.5 pb-1 pt-2 bg-card/50 rounded-sm border border-border">
 			<User.Avatar disableState user={props.data.author} />
 			<div class="flex flex-col w-full justify-center gap-0">
-				<div class="flex gap-2 text-sm items-baseline">
+				<div class="flex gap-2 text-sm items-baseline flex-wrap">
 					<span class="font-bold">
 						<User.DisplayableName color={false} user={props.data.author} />
 					</span>
