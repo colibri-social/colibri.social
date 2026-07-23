@@ -5,6 +5,7 @@ RUN corepack enable && corepack prepare pnpm@latest --activate
 
 # Copy workspace manifests for layer caching
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY patches/ ./patches/
 COPY packages/assets/package.json ./packages/assets/
 COPY packages/lib/package.json ./packages/lib/
 COPY packages/client/package.json ./packages/client/
