@@ -388,6 +388,36 @@ export const NotificationsContextProvider: ParentComponent = (props) => {
 		onCleanup(cleanup);
 	});
 
+	const reseedAll = (): void => {
+		for (const community of user.communities) {
+			seeded.delete(community.uri);
+			void seedCommunity(community.uri);
+		}
+	};
+
+	let sawConnected = false;
+	createEffect(() => {
+		const isConnected = socket.connected();
+		if (!isConnected) return;
+		if (sawConnected) reseedAll();
+		sawConnected = true;
+	});
+
+	const onVisible = () => {
+		if (document.visibilityState === "visible") reseedAll();
+	};
+	const onFocus = () => reseedAll();
+
+	onMount(() => {
+		document.addEventListener("visibilitychange", onVisible);
+		window.addEventListener("focus", onFocus);
+	});
+
+	onCleanup(() => {
+		document.removeEventListener("visibilitychange", onVisible);
+		window.removeEventListener("focus", onFocus);
+	});
+
 	const value: NotificationsContextValue = {
 		pendingFocus,
 		clearPendingFocus,
