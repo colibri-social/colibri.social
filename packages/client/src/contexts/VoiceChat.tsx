@@ -18,7 +18,11 @@ import {
 	createSuppressionMonitor,
 	type SuppressionMonitor,
 } from "../hooks/createSuppressionMonitor";
-import { getAppViewHost, getAppViewServiceRef } from "../utils/appview";
+import {
+	getAppViewHost,
+	getAppViewHostFromDid,
+	getAppViewServiceRef,
+} from "../utils/appview";
 import { useAuthContext } from "./Auth";
 import { useSocketContext } from "./Socket";
 import { useSounds } from "./Sounds";
@@ -51,6 +55,7 @@ export type VoiceChatConnection = {
 	uri: string | null;
 	channelName: string | null;
 	communityName: string | null;
+	hubDid: string | null;
 };
 
 export type VoiceChatStates = {
@@ -91,7 +96,7 @@ export type VoiceChatData = {
 export type VoiceChatActions = {
 	connect: (
 		channelUri: string,
-		meta?: { channelName?: string; communityName?: string },
+		meta?: { channelName?: string; communityName?: string; hubDid?: string },
 	) => Promise<void>;
 	disconnect: () => void;
 	toggleMic: () => void;
@@ -175,6 +180,7 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 			uri: null,
 			channelName: null,
 			communityName: null,
+			hubDid: null,
 		},
 		states: {
 			camEnabled: false,
@@ -421,6 +427,7 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 			uri: null,
 			channelName: null,
 			communityName: null,
+			hubDid: null,
 		});
 		setVoiceData("states", {
 			camEnabled: false,
@@ -897,10 +904,17 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 	const openSignaling = async (channelUri: string): Promise<void> => {
 		if (!auth?.loggedIn) return;
 
+		const hubDid = voiceData.connection.hubDid;
+		const serviceRef = hubDid
+			? `${hubDid}#colibri_appview`
+			: getAppViewServiceRef();
+		const host =
+			(hubDid && getAppViewHostFromDid(hubDid, "ws")) || getAppViewHost("ws");
+
 		let token: string;
 		try {
 			const { data } = await auth.agent.com.atproto.server.getServiceAuth({
-				aud: getAppViewServiceRef(),
+				aud: serviceRef,
 				lxm: LXM,
 				exp: Math.floor(Date.now() / 1000) + 60,
 			});
@@ -912,7 +926,7 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 		}
 
 		intentionalClose = false;
-		const url = `${getAppViewHost("ws")}/xrpc/${LXM}?channel=${encodeURIComponent(channelUri)}`;
+		const url = `${host}/xrpc/${LXM}?channel=${encodeURIComponent(channelUri)}`;
 		dbg("opening signaling socket", { url });
 		const socketConn = new WebSocket(url, [AUTH_SUBPROTOCOL, token]);
 		ws = socketConn;
@@ -974,7 +988,7 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 
 	const connect = async (
 		channelUri: string,
-		meta?: { channelName?: string; communityName?: string },
+		meta?: { channelName?: string; communityName?: string; hubDid?: string },
 	): Promise<void> => {
 		if (
 			voiceData.connection.uri === channelUri &&
@@ -988,7 +1002,13 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 		}
 		if (!auth?.loggedIn) return;
 
-		dbg("connect()", { channelUri, appViewHost: getAppViewHost("ws") });
+		dbg("connect()", {
+			channelUri,
+			hubDid: meta?.hubDid ?? null,
+			appViewHost:
+				(meta?.hubDid && getAppViewHostFromDid(meta.hubDid, "ws")) ||
+				getAppViewHost("ws"),
+		});
 		reconnectAttempts = 0;
 
 		setVoiceData("overlayDismissed", false);
@@ -999,6 +1019,7 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 			uri: channelUri,
 			channelName: meta?.channelName ?? null,
 			communityName: meta?.communityName ?? null,
+			hubDid: meta?.hubDid ?? null,
 		});
 
 		playSound("join");

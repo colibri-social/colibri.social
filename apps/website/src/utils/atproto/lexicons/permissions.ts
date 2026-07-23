@@ -114,8 +114,6 @@ export const permissionDocs: LexiconDoc[] = [
 							"social.colibri.channel.delete",
 							"social.colibri.channel.getReadCursor",
 							"social.colibri.channel.listUnreadStatus",
-							"social.colibri.voice.signal",
-							"social.colibri.voice.moderate",
 							"social.colibri.role.create",
 							"social.colibri.role.update",
 							"social.colibri.role.delete",

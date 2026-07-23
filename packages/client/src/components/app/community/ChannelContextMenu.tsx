@@ -73,6 +73,7 @@ export const ChannelContextMenu: ParentComponent<{
 			: connect(props.channel.uri, {
 					channelName: props.channel.name,
 					communityName: community().community.name,
+					hubDid: community().community.appview,
 				});
 
 	const canUpdate = () => _canUpdateChannel(user.did);

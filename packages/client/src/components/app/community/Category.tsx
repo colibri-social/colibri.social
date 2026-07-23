@@ -136,6 +136,7 @@ const SortableChannel: Component<{
 			connect(ChannelUri(), {
 				channelName: props.channel.name,
 				communityName: community().community.name,
+				hubDid: community().community.appview,
 			});
 		}
 	};

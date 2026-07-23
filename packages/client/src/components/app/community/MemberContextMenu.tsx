@@ -124,6 +124,7 @@ export const MemberContextMenu: ParentComponent<{
 		const channel = targetVoiceChannel();
 		if (!channel) return;
 		const res = await user.xrpc.social.colibri.voice.moderate(
+			community().community.appview,
 			community().community.uri,
 			channel,
 			props.member.did,

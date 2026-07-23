@@ -607,7 +607,7 @@ const MessageInner: Component<{
 													}}
 												>
 													<span
-														class="h-4 w-4"
+														class="h-4 w-4 flex items-center justify-center"
 														innerHTML={parseEmojiText(item.emoji)}
 													/>
 													<span class="text-muted-foreground text-sm">

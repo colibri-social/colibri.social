@@ -41,6 +41,25 @@ export const getPreferredAppViewUrl = (): string => {
 export const getAppViewDid = (url: string = getPreferredAppViewUrl()): string =>
 	`did:web:${new URL(url).host.replace(/:/g, "%3A")}`;
 
+/**
+ * The host URL for an AppView addressed by its `did:web` DID — the inverse of
+ * {@link getAppViewDid}. Used to dial an AppView the user hasn't configured as
+ * their preferred one (e.g. a community's hub AppView for voice signaling).
+ * Strips the `did:web:` prefix and decodes the `%3A` port separator. Mirrors
+ * {@link getAppViewHost}'s DEV special-case so local development still targets
+ * the dev AppView. Returns `null` when the DID isn't a usable `did:web`.
+ */
+export const getAppViewHostFromDid = (
+	did: string,
+	protocol: "ws" | "http",
+): string | null => {
+	if (import.meta.env.DEV) return `${protocol}://127.0.0.1:8000`;
+	if (!did.startsWith("did:web:")) return null;
+	const host = decodeURIComponent(did.slice("did:web:".length));
+	if (!host) return null;
+	return `${protocol === "ws" ? "wss" : "https"}://${host}`;
+};
+
 /** The `did#service` proxy header / service-auth `aud` for the AppView. */
 export const getAppViewServiceRef = (url?: string): string =>
 	`${getAppViewDid(url)}#colibri_appview`;

@@ -176,6 +176,7 @@ export const VoiceChannelView: Component = () => {
 			connect(channel, {
 				channelName: channelName(),
 				communityName: community().community.name,
+				hubDid: community().community.appview,
 			});
 		}
 	};

@@ -185,6 +185,20 @@ export class XrpcClient {
 	private authed(base: ProxiedFetchFn, lxm: string): ProxiedFetchFn {
 		const aud =
 			base === this.notifFetch ? this.notifProxyHeader : this.proxyHeader;
+		return this.authedWithAud(base, lxm, aud);
+	}
+
+	/**
+	 * Like {@link authed}, but with an explicit service-reference audience rather
+	 * than the client's configured AppView. Used to call a service the user
+	 * hasn't configured as their preferred AppView — e.g. a community's hub
+	 * AppView, which hosts the voice SFU that must action moderation.
+	 */
+	private authedWithAud(
+		base: ProxiedFetchFn,
+		lxm: string,
+		aud: string,
+	): ProxiedFetchFn {
 		return async (xrpcRoute, init) => {
 			const token = await this.generateServiceAuthToken(lxm, aud);
 			if (!token) return base(xrpcRoute, init);
@@ -194,6 +208,11 @@ export class XrpcClient {
 				headers: { ...init?.headers, Authorization: `Bearer ${token}` },
 			});
 		};
+	}
+
+	/** Proxied fetch targeting an arbitrary AppView service-reference. */
+	private proxiedFetchTo(serviceRef: string): ProxiedFetchFn {
+		return (xrpcRoute, init) => this.dispatch(serviceRef, xrpcRoute, init);
 	}
 
 	public com = {
@@ -660,18 +679,25 @@ export class XrpcClient {
 			},
 			voice: {
 				moderate: (
+					hubDid: string,
 					community: string,
 					channel: string,
 					target: string,
 					action: Voice.VoiceModerationAction,
-				) =>
-					Voice.moderate(
-						this.authed(this.proxiedFetch, "social.colibri.voice.moderate"),
+				) => {
+					const hubServiceRef = `${hubDid}#colibri_appview`;
+					return Voice.moderate(
+						this.authedWithAud(
+							this.proxiedFetchTo(hubServiceRef),
+							"social.colibri.voice.moderate",
+							hubServiceRef,
+						),
 						community,
 						channel,
 						target,
 						action,
-					),
+					);
+				},
 			},
 			notification: {
 				listNotifications: (limit?: number, cursor?: string) =>

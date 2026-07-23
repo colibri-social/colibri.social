@@ -47,6 +47,7 @@ export const communityMethodDocs: LexiconDoc[] = [
 					"description",
 					"categoryOrder",
 					"requiresApprovalToJoin",
+					"appview",
 				],
 				properties: {
 					uri: { type: "string", format: "at-uri" },
@@ -58,6 +59,7 @@ export const communityMethodDocs: LexiconDoc[] = [
 						items: { type: "string", format: "at-uri" },
 					},
 					requiresApprovalToJoin: { type: "boolean" },
+					appview: { type: "string", format: "did" },
 				},
 			},
 			categoryView: {
