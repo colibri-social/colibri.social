@@ -78,6 +78,35 @@ pub fn run() {
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_deep_link::init())
         .plugin(tauri_plugin_os::init())
+        .register_uri_scheme_protocol("emoji", |ctx, request| {
+            let not_found = || {
+                tauri::http::Response::builder()
+                    .status(404)
+                    .body(Vec::new())
+                    .unwrap()
+            };
+            let rel = request.uri().path().trim_start_matches('/').to_string();
+            if rel.contains("..") {
+                return not_found();
+            }
+            let Ok(dir) = ctx.app_handle().path().resource_dir() else {
+                return not_found();
+            };
+            let candidates = [
+                dir.join("twemoji").join(&rel),
+                dir.join("assets").join("twemoji").join(&rel),
+            ];
+            for path in candidates {
+                if let Ok(bytes) = std::fs::read(&path) {
+                    return tauri::http::Response::builder()
+                        .header("Content-Type", "image/png")
+                        .header("Access-Control-Allow-Origin", "*")
+                        .body(bytes)
+                        .unwrap();
+                }
+            }
+            not_found()
+        })
         .setup(|app| {
             // On Linux and Windows deep-link schemes aren't registered by an
             // installer during development, so register them at runtime.

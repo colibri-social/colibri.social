@@ -1,8 +1,21 @@
+import { isTauri } from "@tauri-apps/api/core";
+import { platform } from "@tauri-apps/plugin-os";
 import twemoji from "@twemoji/api";
 
 export const EMOJI_IMG_CLASS = "emoji";
 
-twemoji.base = "/twemoji/";
+function emojiAssetBase(): string {
+	const bundled =
+		isTauri() &&
+		(location.protocol === "tauri:" || location.hostname === "tauri.localhost");
+	if (!bundled) return "/twemoji/";
+	const os = platform();
+	if (os === "android") return "/twemoji/";
+	if (os === "windows") return "http://emoji.localhost/";
+	return "emoji://localhost/";
+}
+
+twemoji.base = emojiAssetBase();
 
 function toEmojiCodepoint(rawEmoji: string): string {
 	const hasZwj = rawEmoji.includes("\u200D");
