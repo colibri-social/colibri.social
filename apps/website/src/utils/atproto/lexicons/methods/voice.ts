@@ -62,6 +62,7 @@ export const voiceMethodDocs: LexiconDoc[] = [
 							"serverMuted",
 							"serverDeafened",
 							"kicked",
+							"superseded",
 							"error",
 						],
 					},

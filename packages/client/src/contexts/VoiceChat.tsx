@@ -156,6 +156,7 @@ type ServerMessage =
 	| { action: "serverMuted"; muted: boolean }
 	| { action: "serverDeafened"; deafened: boolean }
 	| { action: "kicked" }
+	| { action: "superseded" }
 	| { action: "error"; message: string };
 
 const communityUriForChannel = (channelUri: string): string | null => {
@@ -895,6 +896,10 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 				toast("You were removed from the voice channel.");
 				disconnect();
 				break;
+			case "superseded":
+				toast("You joined the voice channel on another device.");
+				disconnect({ notifyServer: false });
+				break;
 			case "error":
 				console.error("[voice] server error:", message.message);
 				break;
@@ -1027,12 +1032,13 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 		await openSignaling(channelUri);
 	};
 
-	const disconnect = (): void => {
+	const disconnect = (opts?: { notifyServer?: boolean }): void => {
+		const notifyServer = opts?.notifyServer ?? true;
 		intentionalClose = true;
 
 		const uri = voiceData.connection.uri;
 		if (voiceData.connection.state !== ConnectionState.Disconnected) {
-			socket.send({ type: "voice_leave" });
+			if (notifyServer) socket.send({ type: "voice_leave" });
 			playSound("leave");
 		}
 
