@@ -59,6 +59,7 @@ export {
 	isTauriRuntime,
 	isWebRuntime,
 } from "./environment";
+export { cancelChannelTrayNotification } from "./tauri";
 export type {
 	NotificationBackend,
 	NotificationPayload,
