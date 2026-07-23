@@ -92,7 +92,7 @@ export const findReactionRkey = async (
 	});
 	const match = res.data.records.find(
 		(r) =>
-			(r.value as Record<string, unknown>).targetMessage === messageUri &&
+			(r.value as Record<string, unknown>).parent === messageUri &&
 			(r.value as Record<string, unknown>).emoji === emoji,
 	);
 	return match ? AtURI.parseAtURI(match.uri).identifier : undefined;
