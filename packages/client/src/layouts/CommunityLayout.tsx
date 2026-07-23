@@ -25,6 +25,7 @@ import {
 	DropdownMenuTrigger,
 } from "../components/ui/DropdownMenu";
 import {
+	handoffDrawer,
 	isDrawerOpen,
 	MenuDrawer,
 	MenuDrawerItem,
@@ -137,10 +138,12 @@ const CommunityHeader = () => {
 					>
 						<Show when={canManageCommunity(user.did)}>
 							<MenuDrawerItem
-								onClick={() => {
-									setMenuOpen(false);
-									setSettingsOpen(true);
-								}}
+								onClick={() =>
+									handoffDrawer(
+										() => setMenuOpen(false),
+										() => setSettingsOpen(true),
+									)
+								}
 							>
 								<GearIcon />
 								<span>Settings</span>
@@ -154,10 +157,12 @@ const CommunityHeader = () => {
 						<Show when={!isOwner()}>
 							<MenuDrawerItem
 								destructive
-								onClick={() => {
-									setMenuOpen(false);
-									setLeaveOpen(true);
-								}}
+								onClick={() =>
+									handoffDrawer(
+										() => setMenuOpen(false),
+										() => setLeaveOpen(true),
+									)
+								}
 							>
 								<SignOutIcon />
 								<span>Leave Community</span>
