@@ -5807,17 +5807,15 @@ packages:
     resolution: {integrity: sha512-rQAsQvOtV1lBkyCw+iypMygNHrShYAItES5r8fMsrhhaj5qrV2LkZyXc8ccEH+u5bFjHjQ9iuxe90I7Kykf6pw==}
     engines: {node: '>=16.0.0'}
 
-<<<<<<< HEAD
+  twemoji-colr-font@15.0.3:
+    resolution: {integrity: sha512-UsK4JUpaczeVoMGeYMnKaMTxKt7fujg1nQOk4NaC0teZmdOo+uAai0DIuaSzsMkShtG4J75F0OEsVdGJ+Q1pHQ==}
+    deprecated: Package no longer supported. Contact Support at https://www.npmjs.com/support for more info.
+
   two-product@1.0.2:
     resolution: {integrity: sha512-vOyrqmeYvzjToVM08iU52OFocWT6eB/I5LUWYnxeAPGXAhAxXYU/Yr/R2uY5/5n4bvJQL9AQulIuxpIsMoT8XQ==}
 
   two-sum@1.0.0:
     resolution: {integrity: sha512-phP48e8AawgsNUjEY2WvoIWqdie8PoiDZGxTDv70LDr01uX5wLEQbOgSP7Z/B6+SW5oLtbe8qaYX2fKJs3CGTw==}
-=======
-  twemoji-colr-font@15.0.3:
-    resolution: {integrity: sha512-UsK4JUpaczeVoMGeYMnKaMTxKt7fujg1nQOk4NaC0teZmdOo+uAai0DIuaSzsMkShtG4J75F0OEsVdGJ+Q1pHQ==}
-    deprecated: Package no longer supported. Contact Support at https://www.npmjs.com/support for more info.
->>>>>>> abc0d59 (feat: Better emoji handling & fallbacks)
 
   typed-emitter@2.1.0:
     resolution: {integrity: sha512-g/KzbYKbH5C2vPkaXGu8DJlHrGKHLsM25Zg9WuC9pMGfuvT+X25tZQWo5fK1BjBm8+UrVE9LDCvaY0CQk+fXDA==}
@@ -12311,13 +12309,11 @@ snapshots:
     transitivePeerDependencies:
       - ts-node
 
-<<<<<<< HEAD
+  twemoji-colr-font@15.0.3: {}
+
   two-product@1.0.2: {}
 
   two-sum@1.0.0: {}
-=======
-  twemoji-colr-font@15.0.3: {}
->>>>>>> abc0d59 (feat: Better emoji handling & fallbacks)
 
   typed-emitter@2.1.0:
     optionalDependencies:

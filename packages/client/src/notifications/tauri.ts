@@ -1,4 +1,4 @@
-import { isTauriRuntime } from "./environment";
+import { isAndroidTauriRuntime, isTauriRuntime } from "./environment";
 import type {
 	NotificationBackend,
 	NotificationPayload,
@@ -13,6 +13,24 @@ import type {
  * never runs.
  */
 const loadPlugin = () => import("@tauri-apps/plugin-notification");
+
+const javaStringHashCode = (value: string): number => {
+	let hash = 0;
+	for (let i = 0; i < value.length; i++) {
+		hash = (Math.imul(31, hash) + value.charCodeAt(i)) | 0;
+	}
+	return hash;
+};
+
+export const cancelChannelTrayNotification = async (
+	channelUri: string,
+): Promise<void> => {
+	if (!(await isAndroidTauriRuntime())) return;
+	try {
+		const { removeActive } = await loadPlugin();
+		await removeActive([{ id: javaStringHashCode(channelUri) }]);
+	} catch {}
+};
 
 export const tauriBackend: NotificationBackend = {
 	name: "tauri",

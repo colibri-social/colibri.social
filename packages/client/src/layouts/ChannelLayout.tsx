@@ -45,6 +45,7 @@ import { ScrollAnchorProvider } from "../contexts/ScrollAnchor";
 import { useUserContext } from "../contexts/User";
 import { useUserPreferences } from "../contexts/UserPreferences";
 import { useViewport } from "../contexts/Viewport";
+import { cancelChannelTrayNotification } from "../notifications";
 import { getChannelParam } from "../utils/get-param";
 import { createMobilePane } from "../utils/mobile-pane";
 
@@ -243,6 +244,7 @@ const ChannelLayout: ParentComponent = (props) => {
 		if (wasAtBottom) {
 			channel.advanceReadCursor();
 			notifications.markChannelRead(channel.channelUri());
+			void cancelChannelTrayNotification(channel.channelUri());
 		}
 	};
 
@@ -466,15 +468,28 @@ const ChannelLayout: ParentComponent = (props) => {
 						)
 					: null;
 
+			const markReadNow = () => {
+				channel.advanceReadCursor();
+				notifications.markChannelRead(channel.channelUri());
+				void cancelChannelTrayNotification(channel.channelUri());
+			};
+
 			if (node) {
 				node.scrollIntoView({ block: "start" });
+				const distFromBottom = scrollContainer
+					? scrollContainer.scrollHeight -
+						scrollContainer.scrollTop -
+						scrollContainer.clientHeight
+					: Number.POSITIVE_INFINITY;
+				if (distFromBottom < 80) {
+					wasAtBottom = true;
+					markReadNow();
+				}
 			} else {
 				wasAtBottom = true;
 				pinToBottomStable();
+				markReadNow();
 			}
-
-			channel.advanceReadCursor();
-			notifications.markChannelRead(channel.channelUri());
 		});
 	});
 
