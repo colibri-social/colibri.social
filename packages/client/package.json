@@ -5,8 +5,8 @@
 	"description": "",
 	"type": "module",
 	"scripts": {
-		"start": "pnpm --filter @colibri-social/assets fetch-models && vite serve dev",
-		"dev": "pnpm --filter @colibri-social/assets fetch-models && vite serve dev",
+		"start": "pnpm --filter @colibri-social/assets fetch-all && vite serve dev",
+		"dev": "pnpm --filter @colibri-social/assets fetch-all && vite serve dev",
 		"build": "tsup && tailwindcss -i src/index.css -o dist/index.css --minify"
 	},
 	"exports": {

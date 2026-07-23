@@ -13,9 +13,8 @@
 	},
 	"scripts": {
 		"build": "node scripts/generate-manifest.mjs",
-		"fetch-models": "node scripts/fetch-model-assets.mjs"
-	},
-	"dependencies": {
-		"twemoji-colr-font": "15.0.3"
+		"fetch-models": "node scripts/fetch-model-assets.mjs",
+		"fetch-emoji": "node scripts/fetch-emoji-assets.mjs",
+		"fetch-all": "pnpm fetch-models && pnpm fetch-emoji"
 	}
 }

@@ -14,7 +14,7 @@ import {
 	Show,
 } from "solid-js";
 import { createScrollFade } from "../../../hooks/createScrollFade";
-import { isFontRenderable, twemojiImageSrc } from "../../../utils/emoji";
+import { twemojiImageSrc } from "../../../utils/emoji";
 import {
 	aliasesForSlug,
 	EMOJI_COMPONENTS,
@@ -53,6 +53,25 @@ type Placement =
 	| "top-end"
 	| "top-start";
 
+const PickerEmoji: Component<{ emoji: Emoji }> = (props) => {
+	const [failed, setFailed] = createSignal(false);
+	return (
+		<Show
+			when={!failed()}
+			fallback={<span class="emoji-render text-2xl">{props.emoji.emoji}</span>}
+		>
+			<img
+				src={twemojiImageSrc(props.emoji.emoji)}
+				alt={props.emoji.name}
+				class="w-6 h-6"
+				loading="lazy"
+				decoding="async"
+				onError={() => setFailed(true)}
+			/>
+		</Show>
+	);
+};
+
 /**
  * The searchable emoji grid, decoupled from any popover/drawer chrome so it can
  * be embedded directly — e.g. inside the composer's mobile picker drawer
@@ -66,10 +85,6 @@ export const EmojiPickerBody: Component<{
 	const [filter, setFilter] = createSignal("");
 	const { ref: gridRef, canScrollDown } = createScrollFade();
 
-	/**
-	 * Renders emoji as text using the Twemoji font (much faster than <img>),
-	 * falling back to the Twemoji SVG for unsupported Unicode versions.
-	 */
 	function renderEmoji(emoji: Emoji) {
 		return (
 			<button
@@ -78,16 +93,7 @@ export const EmojiPickerBody: Component<{
 				class="w-9 h-9 flex items-center justify-center rounded-md hover:bg-muted transition-colors cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-ring border-none bg-transparent"
 				onClick={(e) => props.onEmoji(emoji, e)}
 			>
-				{isFontRenderable(emoji.emoji) ? (
-					<span class="picker-font emoji-render text-2xl">{emoji.emoji}</span>
-				) : (
-					<img
-						src={twemojiImageSrc(emoji.emoji)}
-						alt={emoji.name}
-						class="w-6 h-6"
-						loading="lazy"
-					/>
-				)}
+				<PickerEmoji emoji={emoji} />
 			</button>
 		);
 	}
