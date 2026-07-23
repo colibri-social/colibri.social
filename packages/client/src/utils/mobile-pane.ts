@@ -60,10 +60,18 @@ export const createMobilePane = () => {
 
 	const pushPane = (target: Pane) => setPane(target);
 
+	const dismissKeyboard = () => {
+		if (!isMobile()) return;
+		(document.activeElement as HTMLElement | null)?.blur();
+	};
+
 	const popPane = () => {
 		const from = currentPane();
 		if (from === "members") return setPane("chat");
-		if (from === "chat") return setPane("nav");
+		if (from === "chat") {
+			dismissKeyboard();
+			return setPane("nav");
+		}
 		// already at nav root
 	};
 
@@ -75,7 +83,10 @@ export const createMobilePane = () => {
 			if (target) return navigate(target);
 			return;
 		}
-		if (from === "chat") return setPane("members");
+		if (from === "chat") {
+			dismissKeyboard();
+			return setPane("members");
+		}
 		// members is the deepest pane
 	};
 
