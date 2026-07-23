@@ -371,7 +371,7 @@ const MessageInner: Component<{
 								}}
 							>
 								<Show when={!isSubsequentMessage()}>
-									<div class="flex gap-2 text-sm items-baseline">
+									<div class="flex gap-2 text-sm items-baseline flex-wrap">
 										<User.ProfilePopover
 											user={resolveAuthor(message.author)}
 											disabled={isPending()}
@@ -408,7 +408,7 @@ const MessageInner: Component<{
 						<Show when={message.text.trim().length > 0 && !isLoneMediaLink()}>
 							<div class="flex flex-col w-full min-w-0 justify-center">
 								<Show when={!isSubsequentMessage()}>
-									<div class="flex gap-2 text-sm items-baseline">
+									<div class="flex gap-2 text-sm items-baseline flex-wrap">
 										<User.ProfilePopover
 											user={resolveAuthor(message.author)}
 											disabled={isPending()}
