@@ -1,5 +1,35 @@
 # @colibri-social/website
 
+## 0.0.2-rc.8
+
+### Patch Changes
+
+- 764a8bc: Adds new badge types, a preferred badge selector, and a support page
+- 1cde6b4: Gates allowed DIDs to an allowlist for sign ins and hides sign-up
+- 85385b3: Makes cross-appview voice channels work
+- 32fd184: Improves emoji handling by serving images locally instead of relying on CDN
+- 9faa84c: Adds single-user voice exclusivity.
+- b3c9635: Moves twemoji to tauri bundled resources
+- Updated dependencies [764a8bc]
+- Updated dependencies [342ee16]
+- Updated dependencies [6cb2c4f]
+- Updated dependencies [fa5297b]
+- Updated dependencies [1cde6b4]
+- Updated dependencies [85385b3]
+- Updated dependencies [d526785]
+- Updated dependencies [f1597ae]
+- Updated dependencies [32fd184]
+- Updated dependencies [cd33c8c]
+- Updated dependencies [9faa84c]
+- Updated dependencies [0c87079]
+- Updated dependencies [dc43c69]
+- Updated dependencies [9becfc4]
+- Updated dependencies [b3c9635]
+- Updated dependencies [5019928]
+- Updated dependencies [cb3eaa4]
+  - @colibri-social/client@0.1.0-rc.8
+  - @colibri-social/assets@0.0.2-rc.1
+
 ## 0.0.2-rc.7
 
 ### Patch Changes

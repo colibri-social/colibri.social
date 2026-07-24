@@ -1,5 +1,32 @@
 # @colibri-social/client
 
+## 0.1.0-rc.8
+
+### Patch Changes
+
+- 764a8bc: Adds new badge types, a preferred badge selector, and a support page
+- 342ee16: Fixes an issue on mobile devices that would cause the chat input to gradually be shown over the latest message and eventually "un-pin" the channel view if lots of text were to be inputted.
+- 6cb2c4f: Fixes issues related to messages not being displayed and invalid notification counts
+- fa5297b: Adds clipboard support for iOS and Android
+- 1cde6b4: Gates allowed DIDs to an allowlist for sign ins and hides sign-up
+- 85385b3: Makes cross-appview voice channels work
+- d526785: Fixes for iOS and macOS login flows
+- f1597ae: Automatically dismisses notifications if a channel is opened and the notification is still there.
+- 32fd184: Improves emoji handling by serving images locally instead of relying on CDN
+- cd33c8c: Improves the attachment experience for multi-attachment messages, mobile, and message sending
+- 9faa84c: Adds single-user voice exclusivity.
+- 0c87079: Fixes an error that would occur if a session got only partially removed
+- dc43c69: Adds swipe controls to lightbox carousel
+- 9becfc4: Fixes an issue that caused the keyboard to be displyed on the member and channel lists in certain cases
+- b3c9635: Moves twemoji to tauri bundled resources
+- 5019928: Improves wording and flow around community creation to be less technical
+- cb3eaa4: Improves swipe controls
+- Updated dependencies [764a8bc]
+- Updated dependencies [32fd184]
+- Updated dependencies [b3c9635]
+  - @colibri-social/lib@0.0.2-rc.1
+  - @colibri-social/assets@0.0.2-rc.1
+
 ## 0.1.0-rc.7
 
 ### Patch Changes
