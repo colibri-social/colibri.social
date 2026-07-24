@@ -16,6 +16,7 @@ import { isTauriRuntime } from "../notifications/environment";
 import { getAppViewHost } from "../utils/appview";
 import { AppLoadingScreen } from "./AppLoadingScreen";
 import { Spinner } from "./icons/Spinner";
+import { Button } from "./ui/Button";
 import {
 	Search,
 	SearchContent,
@@ -27,7 +28,6 @@ import {
 	SearchNoResult,
 	SearchPortal,
 } from "./ui/Search";
-import { Button } from "./ui/Button";
 
 const WAITLIST_SCOPE = "atproto transition:email";
 

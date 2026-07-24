@@ -1,9 +1,9 @@
 ---
+import { Image } from "astro:assets";
 import PublicLayout from "@/layouts/PublicLayout.astro";
 import { blobUrl } from "@/lib/blog/blob";
 import { BLOG_BASE_URL } from "@/lib/blog/config";
 import { listPosts } from "@/lib/blog/posts";
-import { Image } from "astro:assets";
 
 const posts = await listPosts();
 

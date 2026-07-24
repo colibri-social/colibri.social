@@ -19,7 +19,8 @@ export const POST: APIRoute = async ({ request }) => {
 
 	const did = typeof payload.did === "string" ? payload.did : "";
 	const email = typeof payload.email === "string" ? payload.email : "";
-	const handle = typeof payload.handle === "string" ? payload.handle : undefined;
+	const handle =
+		typeof payload.handle === "string" ? payload.handle : undefined;
 
 	if (!did.startsWith("did:") || !email.includes("@")) {
 		return json({ error: "A valid did and email are required." }, 400);

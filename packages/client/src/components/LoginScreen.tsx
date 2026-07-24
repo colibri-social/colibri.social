@@ -9,7 +9,6 @@ import {
 import { toast } from "somoto";
 import { isAllowedDid } from "../atproto/allowlist";
 import { startOAuthSignIn } from "../atproto/auth";
-import { hasJoinedWaitlist } from "./WaitlistScreen";
 import { buildScopes } from "../atproto/scopes";
 import {
 	type ActorTypeaheadResult,
@@ -33,6 +32,7 @@ import {
 	SearchNoResult,
 	SearchPortal,
 } from "./ui/Search";
+import { hasJoinedWaitlist } from "./WaitlistScreen";
 
 type CallbackState = "in-progress" | "failed" | null;
 

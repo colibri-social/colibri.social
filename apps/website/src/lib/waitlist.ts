@@ -1,5 +1,5 @@
-import { createClient, type Client } from "@libsql/client";
 import { TURSO_AUTH_TOKEN, TURSO_DATABASE_URL } from "astro:env/server";
+import { type Client, createClient } from "@libsql/client";
 
 let client: Client | undefined;
 let ready: Promise<void> | undefined;
