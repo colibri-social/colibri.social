@@ -3,6 +3,7 @@ import PublicLayout from "@/layouts/PublicLayout.astro";
 import { blobUrl } from "@/lib/blog/blob";
 import { BLOG_BASE_URL } from "@/lib/blog/config";
 import { listPosts } from "@/lib/blog/posts";
+import { Image } from "astro:assets";
 
 const posts = await listPosts();
 
@@ -41,9 +42,10 @@ const dateFormatter = new Intl.DateTimeFormat("en", {
 							class="group flex flex-col gap-4 no-underline"
 						>
 							{cover && (
-								<img
+								<Image
+									inferSize
 									src={cover}
-									alt=""
+									alt={doc.title}
 									loading="lazy"
 									decoding="async"
 									class="w-full h-auto rounded-xl border border-border object-cover aspect-1200/630"
