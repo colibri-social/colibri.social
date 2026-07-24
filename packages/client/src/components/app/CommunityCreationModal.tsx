@@ -353,6 +353,14 @@ export const CommunityCreationModal: ParentComponent<{
 			return {};
 		};
 
+		const waitForCommunityIndexed = async (uri: string) => {
+			for (let attempt = 0; attempt < 10; attempt++) {
+				const res = await user.xrpc.social.colibri.actor.listCommunities();
+				if (res?.communities?.some((c) => c.uri === uri)) return;
+				await new Promise((resolve) => setTimeout(resolve, 1000));
+			}
+		};
+
 		const stampLegacyAsMigrated = async (newCommunityUri: string) => {
 			const legacyUri = props.migrateFrom!.uri;
 			const [, , did, , rkey] = legacyUri.split("/");
@@ -411,7 +419,14 @@ export const CommunityCreationModal: ParentComponent<{
 
 					// Stamp the legacy record so it disappears everywhere.
 					setStatus("Finishing up...");
-					await stampLegacyAsMigrated(communityUri);
+					try {
+						await stampLegacyAsMigrated(communityUri);
+					} catch (err) {
+						console.error(
+							"[CommunityMigration] failed to stamp legacy record",
+							err,
+						);
+					}
 				} else {
 					const res = await user.xrpc.social.colibri.community.create(
 						name(),
@@ -426,6 +441,7 @@ export const CommunityCreationModal: ParentComponent<{
 					setStatus("Finishing up...");
 				}
 
+				await waitForCommunityIndexed(communityUri);
 				await user.refetchCommunities();
 				const url = communityUriToUrlCompatible(
 					communityUri as AT_URI<"social.colibri.community">,
