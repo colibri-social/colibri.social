@@ -20,6 +20,15 @@ company. Building on the AT Protocol means your data is portable, your
 identity is yours, and Colibri can't lock you in. If you ever want to
 move, your data comes with you.
 
+## Can I sign up right now?
+
+Not yet. Colibri is in **limited early access** while we wait for the AT
+Protocol to officially support **permissioned data**, the upcoming way to
+keep some data private within a space instead of broadcasting it to the whole
+network. Since private spaces are core to what we're building, we're holding
+off on opening things up until that lands. In the meantime, join the waitlist
+from the sign-in page and we'll email you the moment there's room.
+
 ## Where is my data stored?
 
 Your data is stored on the personal data server that hosts your profile.
@@ -37,8 +46,9 @@ data to your own servers when you are ready to.
 
 Yes! Since Colibri is built on the same AT Protocol that powers Bluesky,
 you can sign in with your existing Bluesky handle. No need to create a
-new account - your identity carries over seamlessly. Just log in and
-you're ready to go.
+new account - your identity carries over seamlessly. Note that Colibri is
+currently in limited early access, so sign-in is invite-only for now. Join
+the waitlist and we'll let you in soon.
 
 ## Can I use my private PDS account?
 
@@ -49,10 +59,12 @@ your data lives - that's the whole point of the AT Protocol.
 
 ## Do you host a PDS if I want a new account or move my data over to you?
 
-We do! You can sign up with us via the Log-in Page or use a tool like
-[PDS MOOver](https://pdsmoover.com/) to migrate. Our PDS is also
-hosted at colibri.social. If you want to move to our PDS, send a message
-to [@colibri.social on Bluesky](https://bsky.app/profile/colibri.social).
+We do, though new accounts aren't open yet while we're in limited early
+access. Once we open up, you'll be able to create an account or use a tool
+like [PDS MOOver](https://pdsmoover.com/) to migrate your data over. Our PDS
+is hosted at colibri.social. For now, join the waitlist, and feel free to
+reach out to [@colibri.social on Bluesky](https://bsky.app/profile/colibri.social)
+with any questions.
 
 ## Do my messages show up as posts on Bluesky?
 

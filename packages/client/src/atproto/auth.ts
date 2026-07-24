@@ -11,6 +11,7 @@ import {
 	getAppViewHost,
 	getPreferredAppViewUrl,
 } from "../utils/appview";
+import { isAllowedDid } from "./allowlist";
 import { buildScopes, getMissingScopeSets } from "./scopes";
 
 export const isLocal = () =>
@@ -105,6 +106,16 @@ let agent: undefined | Agent;
 let pdsHost: undefined | string;
 let grantedScopes: undefined | string;
 
+const clearDisallowedSession = async (sub: string) => {
+	try {
+		await oAuthClient?.revoke(sub);
+	} catch {}
+	localStorage.removeItem("sub");
+	agent = undefined;
+	pdsHost = undefined;
+	grantedScopes = undefined;
+};
+
 export type Client =
 	| {
 			loggedIn: true;
@@ -158,6 +169,13 @@ const init = async () => {
 		return;
 	}
 
+	if (
+		typeof window !== "undefined" &&
+		window.location.pathname === "/app/waitlist"
+	) {
+		return;
+	}
+
 	try {
 		if (window.location.hash.length > 0) {
 			console.info(
@@ -170,6 +188,13 @@ const init = async () => {
 			const callbackSession = await oAuthClient.callback(searchParams);
 
 			if (callbackSession && !window.location.href.startsWith("/app")) {
+				if (!isAllowedDid(callbackSession.session.sub)) {
+					console.info(
+						`[auth] ${callbackSession.session.sub} is not in the early-access allowlist.`,
+					);
+					await clearDisallowedSession(callbackSession.session.sub);
+					return;
+				}
 				console.info("[auth] Session received from callback parameters.");
 				localStorage.setItem("sub", callbackSession.session.sub);
 				window.location.href = "/app";
@@ -193,6 +218,14 @@ const init = async () => {
 		}
 
 		const { session, state } = result;
+
+		if (!isAllowedDid(session.sub)) {
+			console.info(
+				`[auth] ${session.sub} is not in the early-access allowlist.`,
+			);
+			await clearDisallowedSession(session.sub);
+			return;
+		}
 
 		if (state != null) {
 			console.info(
@@ -349,6 +382,13 @@ export const completeNativeOAuth = async (
 	}
 
 	const { session } = await client.callback(params);
+	if (!isAllowedDid(session.sub)) {
+		try {
+			await client.revoke(session.sub);
+		} catch {}
+		localStorage.removeItem("sub");
+		return false;
+	}
 	localStorage.setItem("sub", session.sub);
 	return true;
 };

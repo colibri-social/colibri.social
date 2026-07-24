@@ -113,6 +113,16 @@ export default defineConfig({
 				access: "secret",
 				optional: true,
 			}),
+			TURSO_DATABASE_URL: envField.string({
+				context: "server",
+				access: "secret",
+				optional: false,
+			}),
+			TURSO_AUTH_TOKEN: envField.string({
+				context: "server",
+				access: "secret",
+				optional: false,
+			}),
 			SENTRY_DSN: envField.string({
 				context: "client",
 				access: "public",

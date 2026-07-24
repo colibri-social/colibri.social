@@ -29,8 +29,8 @@ import { ScopeGate } from "./components/app/onboarding/ScopeGate";
 import { VoiceChannelView } from "./components/app/VoiceChannelView";
 import { DeepLinkListener } from "./components/DeepLinkListener";
 import { LoginScreen } from "./components/LoginScreen";
-import { RegisterScreen } from "./components/RegisterScreen";
 import { Toaster } from "./components/ui/Sonner";
+import { WaitlistScreen } from "./components/WaitlistScreen";
 import { WelcomeScreen } from "./components/WelcomeScreen";
 import { ActorCacheProvider } from "./contexts/ActorCache";
 import { AuthContextProvider } from "./contexts/Auth";
@@ -146,7 +146,7 @@ const App: ParentComponent = () => {
 						<SentryRouter root={RootLayout} base="/">
 							<Route path="/" component={RedirectToApp} />
 							<Route path="/app/login" component={LoginScreen} />
-							<Route path="/app/register" component={RegisterScreen} />
+							<Route path="/app/waitlist" component={WaitlistScreen} />
 							<Route path="/app" component={AppRoute}>
 								<Route path="/" component={WelcomeScreen} />
 								<Route path="/invite/:code" component={InviteModal} />

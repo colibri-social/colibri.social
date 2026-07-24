@@ -7,7 +7,9 @@ import {
 	Show,
 } from "solid-js";
 import { toast } from "somoto";
+import { isAllowedDid } from "../atproto/allowlist";
 import { startOAuthSignIn } from "../atproto/auth";
+import { hasJoinedWaitlist } from "./WaitlistScreen";
 import { buildScopes } from "../atproto/scopes";
 import {
 	type ActorTypeaheadResult,
@@ -15,7 +17,7 @@ import {
 } from "../atproto/xrpc/app/bsky/actor/searchActorsTypeahead";
 import { useAuthContext } from "../contexts/Auth";
 import { useViewport, ViewportProvider } from "../contexts/Viewport";
-import { getAppViewDid } from "../utils/appview";
+import { getAppViewDid, getAppViewHost } from "../utils/appview";
 import { AppLoadingScreen } from "./AppLoadingScreen";
 import { Spinner } from "./icons/Spinner";
 import { ATmosphereAppMarquee } from "./login/ATmosphereAppMarquee";
@@ -65,6 +67,23 @@ const describeOAuthError = (params: URLSearchParams): string => {
 	);
 };
 
+const HANDLE_NOT_FOUND =
+	"We couldn't find that handle. Double-check it and try again.";
+
+const resolveHandleToDid = async (input: string): Promise<string> => {
+	if (input.startsWith("did:")) return input;
+
+	const res = await fetch(
+		`${getAppViewHost("http")}/xrpc/com.atproto.identity.resolveHandle?handle=${encodeURIComponent(input)}`,
+	);
+	if (!res.ok) throw new Error(HANDLE_NOT_FOUND);
+
+	const data = (await res.json()) as { did?: string };
+	if (!data.did) throw new Error(HANDLE_NOT_FOUND);
+
+	return data.did;
+};
+
 const describeThrownError = (err: unknown): string => {
 	if (
 		err instanceof DOMException &&
@@ -92,6 +111,8 @@ const LoginScreenContent: Component = () => {
 	const [handle, setHandle] = createSignal("");
 	const [loading, setLoading] = createSignal(false);
 	const [missingHandle, setMissingHandle] = createSignal(false);
+	const [notAllowed, setNotAllowed] = createSignal(false);
+	const [joinedWaitlist] = createSignal(hasJoinedWaitlist());
 	const [options, setOptions] = createSignal<Array<ActorTypeaheadResult>>([]);
 
 	const keyboardVisible = () => {
@@ -128,6 +149,7 @@ const LoginScreenContent: Component = () => {
 	const onInput = async (value: string) => {
 		setHandle(value);
 		setMissingHandle(false);
+		setNotAllowed(false);
 
 		suggestController?.abort();
 
@@ -149,22 +171,31 @@ const LoginScreenContent: Component = () => {
 	const onPick = (picked: ActorTypeaheadResult | null) => {
 		if (picked) {
 			setHandle(picked.handle);
-			triggerLogin();
+			triggerLogin(picked.did);
 		}
 	};
 
-	const triggerLogin = async () => {
+	const triggerLogin = async (knownDid?: string) => {
 		if (loading() === true || !auth) return;
 
-		const input = handle().trim();
+		const input = handle().trim().replace(/^@/, "");
 		if (input.length === 0) {
 			setMissingHandle(true);
 			return;
 		}
 
 		setLoading(true);
+		setNotAllowed(false);
 
 		try {
+			const did = knownDid ?? (await resolveHandleToDid(input));
+
+			if (!isAllowedDid(did)) {
+				setNotAllowed(true);
+				setLoading(false);
+				return;
+			}
+
 			await startOAuthSignIn(auth.client, input, {
 				scope: buildScopes(getAppViewDid()).join(" "),
 			});
@@ -264,7 +295,7 @@ const LoginScreenContent: Component = () => {
 								class="aria-busy:[&_svg]:flex! aria-busy:[&>span]:hidden"
 								type={"submit"}
 								aria-busy={loading()}
-								onClick={triggerLogin}
+								onClick={() => triggerLogin()}
 							>
 								<Spinner className="hidden" />
 								<span>Login</span>
@@ -273,6 +304,22 @@ const LoginScreenContent: Component = () => {
 						<Show when={missingHandle()}>
 							<p class="text-sm text-destructive m-0 w-full text-center">
 								Enter your handle to sign in — for example alice.bsky.social.
+							</p>
+						</Show>
+						<Show when={notAllowed()}>
+							<p class="text-sm text-destructive m-0 w-full text-center">
+								Colibri is in limited early access right now, and your account
+								isn't on the list yet.{" "}
+								<button
+									type="button"
+									class="text-primary hover:underline"
+									onClick={() => navigate("/app/waitlist")}
+								>
+									{joinedWaitlist()
+										? "check your waitlist status"
+										: "join the waitlist"}
+								</button>{" "}
+								and we'll let you in soon.
 							</p>
 						</Show>
 						<Show when={loading()}>
@@ -307,16 +354,25 @@ const LoginScreenContent: Component = () => {
 					<div class="relative w-full mt-4">
 						<hr class="bg-border w-full h-px border-none m-0" />
 						<small class="text-muted-foreground bg-card absolute top-1/2 left-1/2 transform -translate-1/2 px-2 whitespace-nowrap">
-							DON'T HAVE AN ACCOUNT?
+							{joinedWaitlist() ? "YOU'RE ON THE LIST" : "NOT ON THE LIST YET?"}
 						</small>
 					</div>
-					<div class="w-full p-6">
+					<div class="w-full p-6 flex flex-col gap-3">
+						<p class="text-sm text-muted-foreground m-0 text-center">
+							<Show
+								when={joinedWaitlist()}
+								fallback="Colibri is in limited early access while we wait on the AT Protocol's permissioned data support. Leave your email and we'll reach out when there's room."
+							>
+								You've joined the waitlist — we'll email you the moment there's
+								room. No need to sign up again.
+							</Show>
+						</p>
 						<Button
 							variant="secondary"
 							class="w-full"
-							onClick={() => navigate("/app/register")}
+							onClick={() => navigate("/app/waitlist")}
 						>
-							Sign up
+							{joinedWaitlist() ? "View waitlist status" : "Join the waitlist"}
 						</Button>
 					</div>
 				</div>
