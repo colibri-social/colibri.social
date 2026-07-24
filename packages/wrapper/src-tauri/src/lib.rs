@@ -106,7 +106,6 @@ pub fn run() {
                     use tauri_plugin_deep_link::DeepLinkExt;
                     if let Some(url) = _argv.iter().find(|arg| {
                         arg.starts_with("social.colibri:")
-                            || arg.starts_with("social.colibri.next:")
                     }) {
                         app.deep_link()
                             .handle_cli_arguments([String::new(), url.clone()].into_iter());

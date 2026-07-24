@@ -44,8 +44,6 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="social.colibri" />
-                <!-- TODO(release): social.colibri.next is the staging (next.colibri.social) scheme, can be dropped from a colibri.social-only build. Also update tauri.conf.json plugins.deep-link.desktop.schemes. -->
-                <data android:scheme="social.colibri.next" />
             </intent-filter>
             <!-- DEEP LINK PLUGIN. AUTO-GENERATED. DO NOT REMOVE. -->
             <intent-filter >
@@ -55,7 +53,6 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="social.colibri" />
-                <data android:scheme="social.colibri.next" />
                 
                 
                 

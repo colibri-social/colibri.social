@@ -10,9 +10,6 @@
 		"fileAssociations": [],
 		"protocolHandlers": [
 			{
-				"name": "social.colibri.next"
-			},
-			{
 				"name": "social.colibri"
 			}
 		]
