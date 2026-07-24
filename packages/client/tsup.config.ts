@@ -29,7 +29,11 @@ const disableSentryPlugin: EsbuildPlugin = {
 export default defineConfig({
 	entry: ["src/index.ts", "src/atproto/scopes.ts"],
 	format: ["esm"],
-	dts: true,
+	dts: {
+		compilerOptions: {
+			ignoreDeprecations: "6.0",
+		},
+	},
 	clean: true,
 	sourcemap: true,
 	// Dependencies are externalized by default, opt `@sentry/solid` back into
