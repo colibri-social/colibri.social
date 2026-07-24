@@ -1,6 +1,5 @@
 import { type Component, For, Show } from "solid-js";
 import ArrowSquareOutIcon from "~icons/ph/arrow-square-out";
-import HandHeartIcon from "~icons/ph/hand-heart-fill";
 import HeartIcon from "~icons/ph/heart-fill";
 import { useUserContext } from "../../../contexts/User";
 import { cx } from "../../../utils/cva";
