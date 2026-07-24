@@ -41,7 +41,11 @@ const MemberRow = (props: {
 					<User.Avatar user={props.member} />
 					<div class="flex flex-col w-[calc(100%-36px-8px)] min-w-0">
 						<span class="font-medium leading-5 flex flex-row items-center gap-2">
-							<User.DisplayableName user={props.member} className="min-w-0" />
+							<User.DisplayableName
+								badge={false}
+								user={props.member}
+								className="min-w-0"
+							/>
 							<Show when={community().ownerDid() === props.member.did}>
 								<span class="shrink-0 flex">
 									<Tooltip>
@@ -138,6 +142,7 @@ export const MemberSidebar = () => {
 			ref={(el) =>
 				createSwipe(el, {
 					enabled: () => isMobile() && !isDrawerOpen(),
+					commitRatio: 0.45,
 					onSwipeRight: () => popPane(),
 					onSwipeLeft: () => pushDeeper(),
 					onSwipeMove: updateDrag,
@@ -151,7 +156,7 @@ export const MemberSidebar = () => {
 					!isMobile() && displayMembersAsSheet(),
 				hidden: !isMobile() && !preferences().membersListVisible,
 				"absolute inset-0 w-full h-full z-30": isMobile(),
-				"transition-transform duration-200 ease-out motion-reduce:transition-none":
+				"transition-transform duration-300 ease-[cubic-bezier(0.25,1,0.5,1)] motion-reduce:transition-none":
 					isMobile() && !isDragging(),
 				"translate-x-full": isMobile() && currentPane() !== "members",
 			}}

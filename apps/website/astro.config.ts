@@ -147,6 +147,13 @@ export default defineConfig({
 			{ hostname: "next.colibri.social", protocol: "https" },
 		],
 	},
+	image: {
+		remotePatterns: [
+			{
+				protocol: "https",
+			},
+		],
+	},
 	fonts: [
 		{
 			provider: fontProviders.google(),

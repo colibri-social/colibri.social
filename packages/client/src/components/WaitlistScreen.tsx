@@ -6,6 +6,7 @@ import {
 import { useNavigate } from "@solidjs/router";
 import { type Component, createSignal, onMount, Show } from "solid-js";
 import { toast } from "somoto";
+import { isAllowedDid } from "../atproto/allowlist";
 import {
 	type ActorTypeaheadResult,
 	searchActorsTypeahead,
@@ -131,7 +132,25 @@ const WaitlistScreenContent: Component = () => {
 		}
 	};
 
-	const submit = async (session: OAuthSession) => {
+	const submit = async (
+		session: OAuthSession,
+	): Promise<"added" | "already-has-access"> => {
+		if (isAllowedDid(session.sub)) {
+			toast("You already have access to Colibri!", {
+				description:
+					"Your account is already approved, no need to join the waitlist.",
+				duration: Number.POSITIVE_INFINITY,
+				action: {
+					label: "Sign in",
+					onClick: () => navigate("/app/login"),
+				},
+			});
+			try {
+				await client?.revoke(session.sub);
+			} catch {}
+			return "already-has-access";
+		}
+
 		const agent = new Agent(session);
 		const res = await agent.com.atproto.server.getSession();
 		const { did, handle: resolvedHandle, email } = res.data;
@@ -161,6 +180,8 @@ const WaitlistScreenContent: Component = () => {
 		try {
 			await client?.revoke(session.sub);
 		} catch {}
+
+		return "added";
 	};
 
 	onMount(async () => {
@@ -192,8 +213,8 @@ const WaitlistScreenContent: Component = () => {
 
 		try {
 			const { session } = await client.callback(params);
-			await submit(session);
-			setPhase("done");
+			const outcome = await submit(session);
+			setPhase(outcome === "already-has-access" ? "idle" : "done");
 		} catch (err) {
 			console.error(err);
 			setErrorMessage(

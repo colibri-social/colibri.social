@@ -5,9 +5,12 @@ export interface SwipeOptions {
 	onSwipeLeft?: () => void;
 	onSwipeMove?: (dx: number | null) => void;
 	threshold?: number;
+	commitRatio?: number;
 	velocity?: number;
 	enabled?: () => boolean;
 }
+
+const VELOCITY_WINDOW = 120;
 
 const isInScrollableX = (target: EventTarget | null, root: HTMLElement) => {
 	let node = target as HTMLElement | null;
@@ -26,20 +29,20 @@ const isInScrollableX = (target: EventTarget | null, root: HTMLElement) => {
 };
 
 export const createSwipe = (el: HTMLElement, opts: SwipeOptions) => {
-	const threshold = opts.threshold ?? 60;
-	const velocity = opts.velocity ?? 0.3;
+	const velocity = opts.velocity ?? 0.35;
 
 	let startX = 0;
 	let startY = 0;
-	let startT = 0;
 	let tracking = false;
 	let locked: boolean | null = null; // null = undecided, true = horizontal
 	let claimed = false; // true once this gesture's direction is one we handle
+	let samples: { x: number; t: number }[] = [];
 
 	const reset = () => {
 		tracking = false;
 		locked = null;
 		claimed = false;
+		samples = [];
 	};
 
 	const onPointerDown = (e: PointerEvent) => {
@@ -48,10 +51,10 @@ export const createSwipe = (el: HTMLElement, opts: SwipeOptions) => {
 		if (isInScrollableX(e.target, el)) return;
 		startX = e.clientX;
 		startY = e.clientY;
-		startT = performance.now();
 		tracking = true;
 		locked = null;
 		claimed = false;
+		samples = [{ x: e.clientX, t: performance.now() }];
 	};
 
 	const onPointerMove = (e: PointerEvent) => {
@@ -78,6 +81,11 @@ export const createSwipe = (el: HTMLElement, opts: SwipeOptions) => {
 
 		if (!claimed) return;
 		e.stopPropagation();
+		const now = performance.now();
+		samples.push({ x: e.clientX, t: now });
+		while (samples.length > 2 && now - samples[0].t > VELOCITY_WINDOW) {
+			samples.shift();
+		}
 		opts.onSwipeMove?.(dx);
 	};
 
@@ -88,10 +96,16 @@ export const createSwipe = (el: HTMLElement, opts: SwipeOptions) => {
 		}
 		e.stopPropagation();
 		const dx = e.clientX - startX;
-		const dt = performance.now() - startT;
-		const flick = Math.abs(dx) / dt > velocity && Math.abs(dx) > 24;
-		if (dx > threshold || (flick && dx > 0)) opts.onSwipeRight?.();
-		else if (dx < -threshold || (flick && dx < 0)) opts.onSwipeLeft?.();
+		const commitDist = opts.commitRatio
+			? el.clientWidth * opts.commitRatio
+			: (opts.threshold ?? 60);
+		const first = samples[0];
+		const last = samples[samples.length - 1];
+		const dt = last.t - first.t;
+		const vx = dt > 0 ? (last.x - first.x) / dt : 0;
+		const flick = Math.abs(vx) > velocity && Math.abs(dx) > 24;
+		if (dx > commitDist || (flick && vx > 0)) opts.onSwipeRight?.();
+		else if (dx < -commitDist || (flick && vx < 0)) opts.onSwipeLeft?.();
 		opts.onSwipeMove?.(null);
 		reset();
 	};

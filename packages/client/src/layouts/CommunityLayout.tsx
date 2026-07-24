@@ -210,6 +210,7 @@ const CommunityLayout: ParentComponent = (props) => {
 	// Swipe right = back up the stack, swipe left = deeper
 	const swipe: SwipeOptions = {
 		enabled: () => isMobile() && !isDrawerOpen(),
+		commitRatio: 0.45,
 		onSwipeRight: () => popPane(),
 		onSwipeLeft: () => pushDeeper(),
 		onSwipeMove: updateDrag,
@@ -229,7 +230,7 @@ const CommunityLayout: ParentComponent = (props) => {
 				classList={{
 					"h-full min-w-72 w-72 border-r": !isMobile(),
 					"absolute inset-0 w-full pl-14 z-30": isMobile(),
-					"transition-transform duration-200 ease-out motion-reduce:transition-none":
+					"transition-transform duration-300 ease-[cubic-bezier(0.25,1,0.5,1)] motion-reduce:transition-none":
 						isMobile() && !isDragging(),
 					"-translate-x-full": isMobile() && currentPane() !== "nav",
 				}}
@@ -253,7 +254,7 @@ const CommunityLayout: ParentComponent = (props) => {
 						!isMobile() &&
 						(displayMembersAsSheet() || !preferences().membersListVisible),
 					"absolute inset-0 w-full h-full max-w-none! z-20": isMobile(),
-					"transition-transform duration-200 ease-out motion-reduce:transition-none":
+					"transition-transform duration-300 ease-[cubic-bezier(0.25,1,0.5,1)] motion-reduce:transition-none":
 						isMobile() && !isDragging(),
 					"translate-x-full": isMobile() && currentPane() === "nav",
 					"-translate-x-full": isMobile() && currentPane() === "members",

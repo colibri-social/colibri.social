@@ -46,9 +46,10 @@ const dateFormatter = new Intl.DateTimeFormat("en", {
 									inferSize
 									src={cover}
 									alt={doc.title}
-									loading="lazy"
+									loading="eager"
 									decoding="async"
 									class="w-full h-auto rounded-xl border border-border object-cover aspect-1200/630"
+									quality={90}
 								/>
 							)}
 							<div class="flex flex-col gap-2">

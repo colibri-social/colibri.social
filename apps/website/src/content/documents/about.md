@@ -22,6 +22,9 @@ same way: each one is its own repository on the network, so a community's data i
 Tying it all together is our AppView, the service that reads everything happening across the network and stitches it
 into the fast, real-time experience you get at [colibri.social](https://colibri.social).
 
+Right now, Colibri is in **limited early access** while we wait for the AT Protocol to officially support permissioned
+data. If you'd like in, [join the waitlist](/app/waitlist) and we'll email you the moment there's room.
+
 That's the short version. If you're curious about the technical side (how data flows through the network, how
 communities store their records, or how you can run Colibri yourself), it's all covered in the [documentation](/docs).
 

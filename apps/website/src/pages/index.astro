@@ -17,7 +17,7 @@ import {
 	AccordionTrigger,
 } from "@/components/bearnie/accordion";
 import Button from "@/components/bearnie/button/Button.astro";
-import Download from "@/components/icons/download.svg";
+// import Download from "@/components/icons/download.svg";
 import GitBranch from "@/components/icons/git-branch.svg";
 import Globe from "@/components/icons/globe.svg";
 import BinaryMarquee from "@/components/public/BinaryMarquee.astro";
@@ -134,12 +134,16 @@ try {
 			<div
 				class="hero-reveal flex flex-row items-start justify-center gap-4 flex-wrap mt-2"
 			>
+				{
+					/*
 				<span class="hero-cta inline-flex">
 					<Button variant="default" href="/download">
 						<Download slot="left-icon" />
 						Download
 					</Button>
 				</span>
+				*/
+				}
 				<span class="hero-cta inline-flex">
 					<Button variant="secondary" href="/app">
 						<Globe slot="left-icon" />
@@ -176,7 +180,7 @@ try {
 						Colibri stays in <strong class="text-foreground"
 							>limited early access</strong
 						>: we won't promise private spaces we can't yet secure. The moment
-						permissioned data is launch, Colibri will too.
+						permissioned data launches, Colibri will too.
 					</p>
 					<Button href="/app/waitlist">Join the Waitlist</Button>
 				</div>
@@ -371,7 +375,22 @@ try {
 						want to move, your data comes with you.
 					</AccordionContent>
 				</AccordionItem>
-				<AccordionItem value="item-2" class="border rounded-lg px-4">
+				<AccordionItem value="item-signup" class="border rounded-lg px-4">
+					<AccordionTrigger>Can I sign up right now?</AccordionTrigger>
+					<AccordionContent>
+						Not yet. Colibri is in <strong class="text-foreground"
+							>limited early access</strong
+						> while we wait for the AT Protocol to officially support <strong
+							class="text-foreground">permissioned data</strong
+						>, the upcoming way to keep some data private within a space instead
+						of broadcasting it to the whole network. Since private spaces are
+						core to what we're building, we're holding off on opening things up
+						until that lands. In the meantime, <a href="/app/waitlist"
+							>join the waitlist</a
+						> and we'll email you the moment there's room.
+					</AccordionContent>
+				</AccordionItem>
+				<AccordionItem value="item-3" class="border rounded-lg px-4">
 					<AccordionTrigger> Where is my data stored? </AccordionTrigger>
 					<AccordionContent>
 						<p class="m-0">
@@ -403,7 +422,9 @@ try {
 						Yes! Since Colibri is built on the same AT Protocol that powers
 						Bluesky, you can sign in with your existing Bluesky handle. No need
 						to create a new account - your identity carries over seamlessly.
-						Just log in and you're ready to go.
+						Note that Colibri is currently in limited early access, so sign-in
+						is invite-only for now. <a href="/app/waitlist">Join the waitlist</a
+						> and we'll let you in soon.
 					</AccordionContent>
 				</AccordionItem>
 				<AccordionItem value="item-4" class="border rounded-lg px-4">
@@ -423,16 +444,18 @@ try {
 						you?
 					</AccordionTrigger>
 					<AccordionContent>
-						We do! You can sign up with us via the Log-in Page or use a tool
-						like <a href="https://pdsmoover.com/">PDS MOOver</a> to migrate. Our PDS
-						is also hosted at colibri.social. If you want to move to our PDS, send
-						a message to <a
+						We do, though new accounts aren't open yet while we're in limited
+						early access. Once we open up, you'll be able to create an account
+						or use a tool like <a href="https://pdsmoover.com/">PDS MOOver</a> to
+						migrate your data over. Our PDS is hosted at colibri.social. For now,
+						<a href="/app/waitlist">join the waitlist</a>, and feel free to
+						reach out to <a
 							href="https://bsky.app/profile/colibri.social"
 							target="_blank"
 							rel="noreferrer"
 						>
 							@colibri.social on Bluesky
-						</a>.
+						</a> with any questions.
 					</AccordionContent>
 				</AccordionItem>
 				<AccordionItem value="item-7" class="border rounded-lg px-4">

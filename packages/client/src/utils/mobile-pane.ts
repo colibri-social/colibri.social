@@ -96,15 +96,15 @@ export const createMobilePane = () => {
 			return;
 		}
 		const from = currentPane();
-		if (dx > 0 && from === "nav") dx = 0; // popPane() would no-op here
+		if (dx > 0 && from === "nav") dx *= 0.15; // popPane() would no-op here
 		if (
 			dx < 0 &&
 			from === "nav" &&
 			!hasChannel() &&
 			!lastViewedChannelPath(location.pathname)
 		)
-			dx = 0; // pushDeeper() would no-op here — no channel to jump to
-		if (dx < 0 && from === "members") dx = 0; // pushDeeper() would no-op here
+			dx *= 0.15; // pushDeeper() would no-op here
+		if (dx < 0 && from === "members") dx *= 0.15; // pushDeeper() would no-op here
 		const max = typeof window !== "undefined" ? window.innerWidth : Infinity;
 		setDragDx(Math.max(-max, Math.min(max, dx)));
 	};
