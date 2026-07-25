@@ -253,9 +253,13 @@ jobs:
           SHA=$(shasum -a 256 "dl/$ASSET" | cut -d' ' -f1)
           ENC=$(jq -rn --arg s "$ASSET" '$s|@uri')
           URL="https://github.com/$REPO/releases/download/$TAG/$ENC"
-          git clone --depth 1 "https://x-access-token:$TOKEN@github.com/colibri-social/homebrew-tap.git" tap
-          mkdir -p tap/Casks
-          cat > tap/Casks/colibri-social.rb <<RUBY
+          TAP_DIR="$(brew --repository)/Library/Taps/colibri-social/homebrew-tap"
+          rm -rf "$TAP_DIR"
+          mkdir -p "$(dirname "$TAP_DIR")"
+          git clone --depth 1 "https://x-access-token:$TOKEN@github.com/colibri-social/homebrew-tap.git" "$TAP_DIR"
+          echo "TAP_DIR=$TAP_DIR" >> "$GITHUB_ENV"
+          mkdir -p "$TAP_DIR/Casks"
+          cat > "$TAP_DIR/Casks/colibri-social.rb" <<RUBY
           cask "colibri-social" do
             version "$VERSION"
             sha256 "$SHA"
@@ -285,7 +289,7 @@ jobs:
           HOMEBREW_NO_AUTO_UPDATE: "1"
         run: |
           set -euo pipefail
-          brew install --cask "$PWD/tap/Casks/colibri-social.rb"
+          brew install --cask colibri-social/tap/colibri-social
           APP="/Applications/Colibri Social.app"
           test -d "$APP"
           codesign --verify --deep --strict --verbose=2 "$APP"
@@ -297,7 +301,7 @@ jobs:
           VERSION: ${{ inputs.version }}
         run: |
           set -euo pipefail
-          cd tap
+          cd "$TAP_DIR"
           git config user.name "colibri-release[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add Casks/colibri-social.rb
@@ -458,7 +462,36 @@ jobs:
 
       - name: Reconfigure store credentials
         shell: pwsh
-        run: msstore reconfigure --tenantId ${{ secrets.AZURE_AD_TENANT_ID }} --sellerId ${{ secrets.SELLER_ID }} --clientId ${{ secrets.AZURE_AD_APPLICATION_CLIENT_ID }} --clientSecret ${{ secrets.AZURE_AD_APPLICATION_SECRET }}
+        env:
+          STORE_TENANT_ID: ${{ secrets.AZURE_AD_TENANT_ID }}
+          STORE_SELLER_ID: ${{ secrets.SELLER_ID }}
+          STORE_CLIENT_ID: ${{ secrets.AZURE_AD_APPLICATION_CLIENT_ID }}
+          STORE_CLIENT_SECRET: ${{ secrets.AZURE_AD_APPLICATION_SECRET }}
+        run: |
+          $ErrorActionPreference = "Stop"
+          $tenantId = "$env:STORE_TENANT_ID".Trim()
+          $sellerId = "$env:STORE_SELLER_ID".Trim()
+          $clientId = "$env:STORE_CLIENT_ID".Trim()
+          $clientSecret = "$env:STORE_CLIENT_SECRET".Trim()
+          foreach ($pair in @(
+            @("AZURE_AD_TENANT_ID", $tenantId),
+            @("SELLER_ID", $sellerId),
+            @("AZURE_AD_APPLICATION_CLIENT_ID", $clientId),
+            @("AZURE_AD_APPLICATION_SECRET", $clientSecret)
+          )) {
+            if ([string]::IsNullOrWhiteSpace($pair[1])) { throw "Repository secret $($pair[0]) is empty or unset." }
+          }
+          if ($sellerId -notmatch '^\d+$') {
+            throw "Repository secret SELLER_ID must be the numeric Seller Id from Partner Center (Account settings > Organization profile > Legal info). The stored value is $($sellerId.Length) characters and is not all digits."
+          }
+          if ($tenantId -notmatch '^[0-9a-fA-F]{8}-([0-9a-fA-F]{4}-){3}[0-9a-fA-F]{12}$') {
+            throw "Repository secret AZURE_AD_TENANT_ID must be a GUID."
+          }
+          if ($clientId -notmatch '^[0-9a-fA-F]{8}-([0-9a-fA-F]{4}-){3}[0-9a-fA-F]{12}$') {
+            throw "Repository secret AZURE_AD_APPLICATION_CLIENT_ID must be a GUID."
+          }
+          msstore reconfigure --tenantId $tenantId --sellerId $sellerId --clientId $clientId --clientSecret $clientSecret
+          if ($LASTEXITCODE -ne 0) { throw "msstore reconfigure exited with code $LASTEXITCODE" }
 
       - name: Publish MSIX to Microsoft Store
         shell: pwsh
