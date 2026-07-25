@@ -499,4 +499,4 @@ jobs:
           $bundle = Get-ChildItem -Path dl -Filter *.msixbundle | Select-Object -First 1
           if (-not $bundle) { throw "No .msixbundle found in dl/" }
           Write-Host "Publishing $($bundle.Name) to product 9P8Q77FCCSWR"
-          msstore publish $bundle.FullName -id 9P8Q77FCCSWR
+          msstore publish $bundle.FullName -id 9P8Q77FCCSWR --verbose
