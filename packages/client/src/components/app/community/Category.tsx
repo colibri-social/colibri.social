@@ -101,15 +101,29 @@ const SortableChannel: Component<{
 	const isMuted = () => mutes.isChannelMuted(props.channel.uri) && !isActive();
 
 	const [isDragging, setIsDragging] = createSignal(false);
+	let didDrag = false;
 
 	onDndDragStart(({ draggable }) => {
 		if (!canManage()) return;
-		if (String(draggable.id) === props.channel.uri) setIsDragging(true);
+		if (String(draggable.id) === props.channel.uri) {
+			didDrag = false;
+			setIsDragging(true);
+		}
 	});
 
 	onDndDragEnd(() => {
 		if (!canManage()) return;
-		setTimeout(() => setIsDragging(false), 0);
+		setTimeout(() => {
+			setIsDragging(false);
+			didDrag = false;
+		}, 0);
+	});
+
+	createEffect(() => {
+		if (!isDragging()) return;
+		const transform = sortable.transform;
+		if (!transform) return;
+		if (Math.abs(transform.x) > 4 || Math.abs(transform.y) > 4) didDrag = true;
 	});
 
 	const community = useCommunityContext();
@@ -131,6 +145,10 @@ const SortableChannel: Component<{
 		voiceData.connection.state === ConnectionState.Connected;
 
 	const handleChannelClick = (e: MouseEvent) => {
+		if (didDrag) {
+			e.preventDefault();
+			return;
+		}
 		if (isVoiceChannel() && !isConnectedHere()) {
 			e.preventDefault();
 			connect(ChannelUri(), {
@@ -147,7 +165,7 @@ const SortableChannel: Component<{
 
 	return (
 		<div
-			ref={canManage() ? sortable.ref : undefined}
+			ref={sortable.ref}
 			style={{
 				"touch-action": "pan-y",
 				transform: sortable.transform
@@ -160,7 +178,7 @@ const SortableChannel: Component<{
 			classList={{
 				"opacity-50": sortable.isActiveDraggable && canManage(),
 			}}
-			{...sortable.dragActivators}
+			{...(canManage() ? sortable.dragActivators : {})}
 		>
 			<div
 				class="flex flex-col gap-1"
@@ -175,6 +193,7 @@ const SortableChannel: Component<{
 						class="group/channel text-muted-foreground flex flex-row justify-between items-center gap-2 hover:bg-card rounded-sm cursor-pointer p-1 py-0.5 pr-1.25"
 						href={`/app/c/${params.community}/${channelRoutePrefix()}/${ChannelRkey()}`}
 						onClick={handleChannelClick}
+						draggable={false}
 						activeClass="bg-muted! text-foreground!"
 						classList={{
 							"bg-linear-145 from-[#090615] via-[#31226d70] to-[#e0deec30]":
@@ -351,9 +370,11 @@ export const Category: ParentComponent<{
 	const notifications = useNotifications();
 	const {
 		canUpdateCategory: _canUpdateCategory,
+		canUpdateChannel: _canUpdateChannel,
 		canCreateChannel: _canCreateChannel,
 	} = usePermissions();
 	const canUpdateCategory = () => _canUpdateCategory(user.did);
+	const canUpdateChannel = () => _canUpdateChannel(user.did);
 	const canCreateChannel = () => _canCreateChannel(user.did);
 	const isMobile = useIsMobile();
 
@@ -390,20 +411,25 @@ export const Category: ParentComponent<{
 
 	let channelWasHere = false;
 	onDndDragStart(({ draggable }) => {
-		if (!canUpdateCategory()) return;
-		channelWasHere = props.channelOrder.includes(String(draggable.id));
+		channelWasHere =
+			canUpdateChannel() && props.channelOrder.includes(String(draggable.id));
 	});
 
 	onDndDragEnd(({ draggable, droppable }) => {
 		if (!channelWasHere) return;
+		channelWasHere = false;
 		if (!draggable || !droppable) return;
-		if (!canUpdateCategory()) return;
+		if (!canUpdateChannel()) return;
 
 		const order = props.channelOrder;
 		const from = order.indexOf(String(draggable.id));
 		if (from === -1) return;
 
-		const to = order.indexOf(String(droppable.id));
+		const droppableId = String(droppable.id);
+		const to =
+			droppableId === props.category.uri
+				? order.length - 1
+				: order.indexOf(droppableId);
 		if (to === -1 || from === to) return;
 
 		const newOrder = order.slice();

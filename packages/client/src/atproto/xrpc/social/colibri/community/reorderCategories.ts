@@ -13,6 +13,7 @@ export const reorderCategories: XrpcRequest<
 			`/xrpc/social.colibri.community.reorderCategories?${params.toString()}`,
 			{ method: "POST" },
 		);
+		if (!res.ok) return undefined;
 		return res.json();
 	} catch (err) {
 		console.error(err);

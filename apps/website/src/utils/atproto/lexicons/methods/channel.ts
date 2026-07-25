@@ -150,6 +150,7 @@ export const channelMethodDocs: LexiconDoc[] = [
 					required: ["channel"],
 					properties: {
 						channel: { type: "string", format: "at-uri" },
+						category: { type: "string", format: "at-uri" },
 						name: { type: "string" },
 						description: { type: "string" },
 						ownerOnly: { type: "boolean" },

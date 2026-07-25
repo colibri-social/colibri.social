@@ -10,6 +10,7 @@ export const update: XrpcRequest<
 		boolean | undefined,
 		string[] | undefined,
 		boolean | undefined,
+		string | undefined,
 	],
 	Promise<Record<string, never> | undefined>
 > = async (
@@ -22,11 +23,13 @@ export const update: XrpcRequest<
 	clearAllowedRoles,
 	allowedMembers,
 	clearAllowedMembers,
+	category,
 ) => {
 	try {
 		const params = new URLSearchParams({ channel });
 		if (name !== undefined) params.set("name", name);
 		if (description !== undefined) params.set("description", description);
+		if (category !== undefined) params.set("category", category);
 		if (ownerOnly !== undefined) params.set("ownerOnly", String(ownerOnly));
 		for (const r of allowedRoles ?? []) params.append("allowedRoles", r);
 		if (clearAllowedRoles !== undefined)

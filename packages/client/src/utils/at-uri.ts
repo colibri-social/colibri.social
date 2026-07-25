@@ -1,3 +1,16 @@
+/**
+ * Resolves a record reference that may be either a full AT URI or a bare
+ * record key into a full AT URI within the given repo and collection.
+ */
+export const toRecordUri = (
+	did: string,
+	collection: string,
+	rkeyOrUri: string,
+): string =>
+	rkeyOrUri.startsWith("at://")
+		? rkeyOrUri
+		: `at://${did}/${collection}/${rkeyOrUri}`;
+
 export class AtURI {
 	public uri: string;
 	public did: string;

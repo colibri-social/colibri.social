@@ -451,6 +451,8 @@ The `auth` query parameter is still accepted as a transitional / local-dev fallb
 
 The event stream can choose to transmit events to clients who have signed up to receive them. All events follow the same JSON data structure: they have a `type` (which is the same as the heading below), and an optional `data` field.
 
+Events are derived from the underlying records, which reference sibling records by bare record key. Every record reference in an event payload — `categoryOrder`, `channelOrder`, `category`, `community`, `roles`, `allowedRoles` — is nonetheless emitted as a **full AT URI**, matching what the read endpoints return, so clients can compare the two without translating.
+
 ##### `ack`
 
 Sent when the AppView receives a [`heartbeat`](#heartbeat) message from the client. This event carries no data.
@@ -1222,7 +1224,9 @@ Broadcasts `channel_event { event: "upsert", uri, community, category, name, typ
 
 ### `social.colibri.channel.update`
 
-Updates a channel's name, description, owner-only flag, and/or post restrictions. Requires `channel.update` permission.
+Updates a channel's name, description, category, owner-only flag, and/or post restrictions. Requires `channel.update` permission.
+
+Passing a `category` that differs from the channel's current one **moves** the channel: the channel record's `category` is rewritten, the rkey is removed from the old category's `channelOrder`, and appended to the new one. The destination category must already be indexed, otherwise the request is rejected with `InvalidRequest` before anything is written. Passing the channel's current category is a no-op. To place the channel at a specific index in its new category, follow the move with `social.colibri.community.reorderChannels`.
 
 `allowedRoles` and `allowedMembers` form an allow-list of who may post in the channel: when both are empty, every community member may post (the default). When either is non-empty, only the community owner, members holding one of the listed roles, or the listed member DIDs may post. `ownerOnly: true` takes precedence over both lists and restricts posting to the owner alone.
 
@@ -1241,6 +1245,10 @@ Two hierarchy guards apply:
 		channel: {
 			type: "at-uri",
 			required: true
+		},
+		category: {
+			type: "at-uri",
+			required: false
 		},
 		name: {
 			type: "string",
@@ -1279,7 +1287,7 @@ Two hierarchy guards apply:
 	}}
 />
 
-Broadcasts `channel_event { event: "upsert", uri, name?, description?, ownerOnly?, allowedRoles?, allowedMembers? }`.
+Broadcasts `channel_event { event: "upsert", uri, category, name?, description?, ownerOnly?, allowedRoles?, allowedMembers? }`, plus a `category_event { event: "upsert", uri, channelOrder }` for each affected category when the channel moved.
 
 ### `social.colibri.channel.delete`
 
@@ -1307,7 +1315,7 @@ Broadcasts `channel_event { event: "delete", uri }` and `category_event { event:
 
 ### `social.colibri.community.reorderChannels`
 
-Persists a new channel order within a category. `channelOrder` is provided as **repeated** query-string values. Requires `channel.update` permission.
+Persists a new channel order within a category. `channelOrder` is provided as **repeated** query-string values, each either an AT URI or a bare record key; anything else is rejected with `InvalidRequest`. An empty `channelOrder` is also rejected when the category currently has one, so a dropped query param can't silently wipe the order. Requires `channel.update` permission.
 
 <XRPCEndpointCard
 	method="POST"
@@ -1335,7 +1343,7 @@ Broadcasts `category_event { event: "upsert", uri, channelOrder }`.
 
 ### `social.colibri.community.reorderCategories`
 
-Persists a new category order for the community sidebar. `categoryOrder` is provided as **repeated** query-string values. Requires `category.update` permission.
+Persists a new category order for the community sidebar. `categoryOrder` is provided as **repeated** query-string values, each either an AT URI or a bare record key; anything else is rejected with `InvalidRequest`. An empty `categoryOrder` is also rejected when the community currently has one. Requires `category.update` permission.
 
 <XRPCEndpointCard
 	method="POST"

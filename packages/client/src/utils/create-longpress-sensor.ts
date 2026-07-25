@@ -44,6 +44,7 @@ export const createLongPressSensor = (
 
 	let armed = false;
 	let dragging = false;
+	let canceled = false;
 
 	const attach = (event: PointerEvent, draggableId: string | number) => {
 		if (event.button !== 0) return;
@@ -62,8 +63,11 @@ export const createLongPressSensor = (
 			return;
 		}
 
+		canceled = false;
 		document.addEventListener("pointermove", onPointerMove);
 		document.addEventListener("pointerup", onPointerUp);
+		document.addEventListener("pointercancel", onPointerCancel);
+		document.addEventListener("dragstart", onPointerCancel);
 		activationTimeoutId = window.setTimeout(onActivate, ACTIVATION_DELAY);
 	};
 
@@ -74,10 +78,13 @@ export const createLongPressSensor = (
 		}
 		document.removeEventListener("pointermove", onPointerMove);
 		document.removeEventListener("pointerup", onPointerUp);
+		document.removeEventListener("pointercancel", onPointerCancel);
+		document.removeEventListener("dragstart", onPointerCancel);
 		document.removeEventListener("selectionchange", clearSelection);
 	};
 
 	const onActivate = () => {
+		if (canceled) return;
 		if (!state.active.sensor) {
 			sensorStart(id, { ...initialCoordinates });
 			dragStart(activationDraggableId!);
@@ -107,6 +114,16 @@ export const createLongPressSensor = (
 		detach();
 		if (isActiveSensor()) {
 			event.preventDefault();
+			dragEnd();
+			sensorEnd();
+		}
+	};
+
+	const onPointerCancel = () => {
+		const wasActive = isActiveSensor();
+		canceled = true;
+		detach();
+		if (wasActive) {
 			dragEnd();
 			sensorEnd();
 		}

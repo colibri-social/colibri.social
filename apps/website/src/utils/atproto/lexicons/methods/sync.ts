@@ -57,7 +57,10 @@ export const syncMethodDocs: LexiconDoc[] = [
 					name: { type: "string" },
 					description: { type: "string" },
 					picture: { type: "blob" },
-					categoryOrder: { type: "array", items: { type: "string" } },
+					categoryOrder: {
+						type: "array",
+						items: { type: "string", format: "at-uri" },
+					},
 				},
 			},
 
@@ -98,7 +101,10 @@ export const syncMethodDocs: LexiconDoc[] = [
 					uri: { type: "string", format: "at-uri" },
 					community: { type: "string", format: "at-uri" },
 					name: { type: "string" },
-					channelOrder: { type: "array", items: { type: "string" } },
+					channelOrder: {
+						type: "array",
+						items: { type: "string", format: "at-uri" },
+					},
 				},
 			},
 
@@ -119,6 +125,7 @@ export const syncMethodDocs: LexiconDoc[] = [
 					event: { type: "string", knownValues: ["upsert", "delete"] },
 					uri: { type: "string", format: "at-uri" },
 					community: { type: "string", format: "at-uri" },
+					category: { type: "string", format: "at-uri" },
 					name: { type: "string" },
 					description: { type: "string" },
 					type: { type: "string" },

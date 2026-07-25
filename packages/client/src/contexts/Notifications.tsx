@@ -281,6 +281,8 @@ export const NotificationsContextProvider: ParentComponent = (props) => {
 			return;
 		}
 
+		if (!res.channels) return;
+
 		setPingCounts((prev) => {
 			const next = { ...prev };
 			for (const ch of res.channels) {
@@ -289,6 +291,7 @@ export const NotificationsContextProvider: ParentComponent = (props) => {
 			}
 			return next;
 		});
+
 		setUnreadChannels((prev) => {
 			const next = { ...prev };
 			for (const ch of res.channels) {

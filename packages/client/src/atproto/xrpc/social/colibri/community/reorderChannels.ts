@@ -13,6 +13,7 @@ export const reorderChannels: XrpcRequest<
 			`/xrpc/social.colibri.community.reorderChannels?${params.toString()}`,
 			{ method: "POST" },
 		);
+		if (!res.ok) return undefined;
 		return res.json();
 	} catch (err) {
 		console.error(err);

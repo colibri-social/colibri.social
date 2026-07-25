@@ -52,7 +52,7 @@ import type { Member } from "../atproto/xrpc/social/colibri/community/listMember
 import type { Role } from "../atproto/xrpc/social/colibri/community/listRoles";
 import { AppLoadingScreen } from "../components/AppLoadingScreen";
 import { getAppViewDid } from "../utils/appview";
-import { AtURI } from "../utils/at-uri";
+import { AtURI, toRecordUri } from "../utils/at-uri";
 import { getCommunityParam } from "../utils/get-param";
 import { markBoot } from "../utils/perf";
 import { useSocketContext } from "./Socket";
@@ -84,6 +84,20 @@ export const CommunityContextProvider: ParentComponent = (props) => {
 	const navigate = useNavigate();
 	const [, { seedPresence }] = useVoiceChatContext();
 	const communityUri = createMemo(() => urlSegmentToUri(getCommunityParam()));
+
+	const communityDid = () => AtURI.parseAtURI(communityUri()).did;
+	const toChannelUri = (rkeyOrUri: string) => {
+		const did = communityDid();
+		return did
+			? toRecordUri(did, "social.colibri.channel", rkeyOrUri)
+			: rkeyOrUri;
+	};
+	const toCategoryUri = (rkeyOrUri: string) => {
+		const did = communityDid();
+		return did
+			? toRecordUri(did, "social.colibri.category", rkeyOrUri)
+			: rkeyOrUri;
+	};
 
 	// Latest desired role set per member while an optimistic change is syncing.
 	// Lets the `roles_updated` handler ignore stale/reordered echoes that would
@@ -407,7 +421,7 @@ export const CommunityContextProvider: ParentComponent = (props) => {
 					}),
 					...(data.picture !== undefined && { picture: data.picture }),
 					...(data.categoryOrder !== undefined && {
-						categoryOrder: data.categoryOrder,
+						categoryOrder: data.categoryOrder.map(toCategoryUri),
 					}),
 					...(data.requiresApprovalToJoin !== undefined && {
 						requiresApprovalToJoin: data.requiresApprovalToJoin,
@@ -435,7 +449,9 @@ export const CommunityContextProvider: ParentComponent = (props) => {
 							? {
 									...c,
 									...(data.name && { name: data.name }),
-									...(data.channelOrder && { channelOrder: data.channelOrder }),
+									...(data.channelOrder && {
+										channelOrder: data.channelOrder.map(toChannelUri),
+									}),
 								}
 							: c,
 					),
@@ -448,7 +464,7 @@ export const CommunityContextProvider: ParentComponent = (props) => {
 						{
 							uri: data.uri,
 							name: data.name ?? "",
-							channelOrder: data.channelOrder ?? [],
+							channelOrder: (data.channelOrder ?? []).map(toChannelUri),
 						},
 					],
 				});
@@ -464,7 +480,7 @@ export const CommunityContextProvider: ParentComponent = (props) => {
 				});
 				return;
 			}
-			// Upsert: update if exists, or refetch if new (category is unknown from event).
+			// Upsert: update if exists, or refetch if new.
 			const existing = prev.channels.find((c) => c.uri === data.uri);
 			if (existing) {
 				mutate({
@@ -476,6 +492,9 @@ export const CommunityContextProvider: ParentComponent = (props) => {
 									...(data.name !== undefined && { name: data.name }),
 									...(data.description !== undefined && {
 										description: data.description,
+									}),
+									...(data.category !== undefined && {
+										category: toCategoryUri(data.category),
 									}),
 									...(data.type !== undefined && { type: data.type }),
 									...(data.ownerOnly !== undefined && {

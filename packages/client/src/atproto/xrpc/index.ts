@@ -373,17 +373,19 @@ export class XrpcClient {
 					),
 				reorderChannels: (category: string, channelOrder: string[]) =>
 					Community.reorderChannels(
-						this.queued("social.colibri.community.reorderChannels", {
-							label: "Failed to reorder channels.",
-						}),
+						this.authed(
+							this.proxiedFetch,
+							"social.colibri.community.reorderChannels",
+						),
 						category,
 						channelOrder,
 					),
 				reorderCategories: (community: string, categoryOrder: string[]) =>
 					Community.reorderCategories(
-						this.queued("social.colibri.community.reorderCategories", {
-							label: "Failed to reorder categories.",
-						}),
+						this.authed(
+							this.proxiedFetch,
+							"social.colibri.community.reorderCategories",
+						),
 						community,
 						categoryOrder,
 					),
@@ -557,6 +559,7 @@ export class XrpcClient {
 						clearAllowedRoles?: boolean;
 						allowedMembers?: string[];
 						clearAllowedMembers?: boolean;
+						category?: string;
 					},
 				) =>
 					Channel.update(
@@ -569,6 +572,7 @@ export class XrpcClient {
 						options?.clearAllowedRoles,
 						options?.allowedMembers,
 						options?.clearAllowedMembers,
+						options?.category,
 					),
 				delete: (channel: string) =>
 					Channel.delete(
