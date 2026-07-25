@@ -84,6 +84,10 @@ export default defineConfig({
 					items: [{ autogenerate: { directory: "docs/specification" } }],
 				},
 				{
+					label: "Development",
+					items: [{ autogenerate: { directory: "docs/development" } }],
+				},
+				{
 					label: "Contributing",
 					items: [{ autogenerate: { directory: "docs/contributing" } }],
 				},

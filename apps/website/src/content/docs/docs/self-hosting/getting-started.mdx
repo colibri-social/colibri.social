@@ -13,20 +13,21 @@ The reference AppView lives in its own repository: [colibri-social/appview](http
 
 ## What you'll run
 
-An AppView deployment is three services:
+An AppView deployment is three services, plus a PDS:
 
 - The **AppView** itself (Rust/Rocket), which serves the XRPC API on port `8000`.
 - **Tap**, an ATproto firehose consumer that handles backfill and streams live events to the AppView.
 - A single **PostgreSQL** database that both Tap and the AppView share.
+- A **PDS**, which hosts the repository of every community created on your instance. Either one you already run, or the reference one in `docker-compose.pds.yml`.
 
-In production, `docker-compose.yml` builds and runs all three together. For local development you run Postgres and Tap from the `docker-compose.dev.yml` compose file and the AppView with `cargo run`. See the [AppView architecture page](/docs/architecture/appview) for how these fit together and for RAM/CPU sizing guidance.
+In production, `docker-compose.yml` pulls the published release image and runs the first three together. For local development you run Postgres and Tap from the `docker-compose.dev.yml` compose file and the AppView with `cargo run`. See the [AppView architecture page](/docs/architecture/appview) for how these fit together and for RAM/CPU sizing guidance, and [Development](/docs/development/overview) if you're working on Colibri rather than deploying it.
 
 ## Prerequisites
 
-- **A PDS you control**, plus its admin password. This is where the AppView mints and hosts the repositories for communities created on your instance.
+- **A PDS you control**, plus its admin password. This is **required**: communities are AT Protocol accounts, and the AppView creates and hosts them on this PDS. Community creation, deletion and migration all fail without it. See [The PDS](#the-pds) below.
 - **A domain with TLS**, e.g. `appview.example.com`. This is not optional: the AppView identifies itself with a `did:web` derived from a hostname, it serves its DID document at `/.well-known/did.json`, and user PDSs proxy authenticated requests to it over HTTPS. A bare IP will not work.
 - **Docker** and **Docker Compose**.
-- **Rust `1.93`+**, if you build locally with `cargo run`.
+- **Rust `1.96`+**, if you build locally with `cargo run`
 - A **Linux** server meeting the [recommended specs](/docs/architecture/appview). Linux is the only supported and tested platform.
 
 ## Run it locally
@@ -59,7 +60,7 @@ In production, `docker-compose.yml` builds and runs all three together. For loca
 
 ## Deploy to production
 
-The production `docker-compose.yml` builds the release image from the `Dockerfile` and runs the AppView alongside Postgres and Tap, reading the same `.env`.
+The production `docker-compose.yml` pulls the published release image (`ghcr.io/colibri-social/appview:latest`, built from the repository's `Dockerfile`) and runs the AppView alongside Postgres and Tap, reading the same `.env`.
 
 <Steps>
 
@@ -67,6 +68,10 @@ The production `docker-compose.yml` builds the release image from the `Dockerfil
 
    ```sh
    docker compose up -d
+
+   # ...or, to run the reference PDS in the same stack (this file is
+   # docker-compose.yml plus a `pds` service, so use it instead of that one):
+   docker compose -f docker-compose.pds.yml up -d
    ```
 
 2. Put the AppView behind a TLS-terminating reverse proxy (Caddy, nginx, Traefik, etc.) on your domain, forwarding to port `8000`.
@@ -87,6 +92,21 @@ The production `docker-compose.yml` builds the release image from the `Dockerfil
 
 </Steps>
 
+## The PDS
+
+Communities are not rows in the AppView's database. Each one is an AT Protocol account with its own repository, and the PDS at `PDS_LOC` is what hosts them. `social.colibri.community.create` mints an invite code and then an account there using `PDS_ADMIN_PASS`, stores the resulting credentials encrypted, and writes the community's records to the new repo. Deletion and [migration](/docs/help/legacy-communities) use the same admin access.
+
+`PDS_LOC` is checked at boot but only used by those endpoints, so a misconfigured PDS doesn't stop the AppView from starting. It instead fails the first time somebody tries to create a community.
+
+If you don't already run a PDS, the AppView repository ships `docker-compose.pds.yml`, `docker-compose.yml` plus a `pds` service running the [official Bluesky PDS](https://github.com/bluesky-social/pds) preconfigured for this: admin password shared with the AppView, handle domain derived from `APPVIEW_HANDLE_DOMAIN`, invite-gated account creation, blobs on a named volume. Run it instead of the plain compose file. It needs `PDS_HOSTNAME`, `PDS_JWT_SECRET` and `PDS_PLC_ROTATION_KEY` in your `.env` (the file itself documents how to generate the keys), and two things you have to arrange yourself:
+
+- **TLS on `PDS_HOSTNAME`.** The PDS publishes `https://${PDS_HOSTNAME}` as the service endpoint in every community DID document it registers with the PLC directory, so that's the URL everyone else will resolve. The compose file publishes the container on `127.0.0.1:3000` by default, for a reverse proxy on the same host, set `PDS_BIND_ADDR=0.0.0.0` or attach the service to your proxy's network if the proxy lives elsewhere.
+- **Wildcard DNS for community handles.** Handles like `c-3lk2....${APPVIEW_HANDLE_DOMAIN}` are answered by the PDS, so `*.${APPVIEW_HANDLE_DOMAIN}` must resolve to it under a certificate that covers it. The simplest correct setup is `APPVIEW_HANDLE_DOMAIN` equal to `PDS_HOSTNAME`.
+
+Back up `PDS_PLC_ROTATION_KEY`. It's the key that can update the DID documents of every community hosted on that PDS, and losing it is not recoverable.
+
+For running one on a laptop, where a separate `docker-compose.pds.dev.yml` pairs a `localhost` PDS with its own private PLC directory, see [Running a PDS](/docs/development/pds).
+
 ## Configuration
 
 Configuration is read from environment variables (via a `.env` file in the repo root). The ones you're most likely to touch:
@@ -96,9 +116,10 @@ Configuration is read from environment variables (via a `.env` file in the repo 
 | `APPVIEW_DID`               | Yes | The `did:web` this instance identifies as, e.g. `did:web:appview.example.com`. **Defaults to `did:web:api.colibri.social`**, so a self-hosted instance must set it. |
 | `DATABASE_URL`              | Yes      | Connection string for the shared Postgres database.                                                             |
 | `K256_PRIVATE_KEY`          | Yes      | secp256k1 private key used to sign ATproto operations, service-auth tokens, and the DID document. Hex-encoded 32-byte key (64 hex chars, no `0x`). Generate one with `openssl rand -hex 32` |
-| `PDS_LOC`                   | Yes      | URL of the PDS where the AppView creates and hosts community repositories.                                      |
+| `PDS_LOC`                   | Yes      | URL of the PDS where the AppView creates and hosts community repositories. See [The PDS](#the-pds).             |
 | `PDS_ADMIN_PASS`            | Yes      | Admin password for that PDS, so the AppView can create community accounts.                                       |
-| `APPVIEW_HANDLE_DOMAIN`     | Yes      | Domain communities get their handles from (a community `example` becomes `example.${APPVIEW_HANDLE_DOMAIN}`).    |
+| `APPVIEW_HANDLE_DOMAIN`     | Yes      | Domain communities get their handles from (a community `example` becomes `example.${APPVIEW_HANDLE_DOMAIN}`). `*.${APPVIEW_HANDLE_DOMAIN}` must resolve to the PDS. |
+| `PDS_HOSTNAME` / `PDS_JWT_SECRET` / `PDS_PLC_ROTATION_KEY` | Only for the reference PDS | Read by the PDS compose files, not by the AppView. Ignored if you point `PDS_LOC` at a PDS you already operate. |
 | `CREDENTIAL_ENCRYPTION_KEY` | Yes      | Base64-encoded 32-byte key used to encrypt stored community credentials at rest. Generate one with `openssl rand -base64 32` |
 | `TAP_HOSTNAME` / `TAP_ADMIN_PASSWORD` | Yes | Where the AppView reaches Tap, and Tap's admin password.                                                    |
 | `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` / `VAPID_SUBJECT` | No | Web Push keypair for background notifications. Unset disables background push. Generate a keypair with `npx web-push generate-vapid-keys` |
@@ -130,3 +151,5 @@ If your community's members are spread across more than one AppView, off-protoco
 - [AppView Architecture](/docs/architecture/appview): the services, sizing, and how they connect.
 - [Client Architecture](/docs/architecture/client): how the client talks to an AppView and how it's packaged.
 - [AppView Specification](/docs/specification/appview): the full XRPC endpoint and event reference.
+- [Development](/docs/development/overview): running the stack locally to work on it.
+- [Running a PDS](/docs/development/pds): the PDS requirement in detail.

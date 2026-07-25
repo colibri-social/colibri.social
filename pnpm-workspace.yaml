@@ -4,6 +4,7 @@ packages:
 
 ignoredBuiltDependencies:
   - core-js
+  - skia-canvas
 
 onlyBuiltDependencies:
   - core-js

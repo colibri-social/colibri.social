@@ -1,0 +1,114 @@
+---
+title: Client development
+description: "Work on the SolidJS client, the Astro website that hosts it, and the native Tauri shell."
+sidebar:
+  order: 3
+---
+
+import { Steps, FileTree } from "@astrojs/starlight/components";
+
+Everything a user sees lives in the [colibri-social/colibri.social](https://github.com/colibri-social/colibri.social) monorepo: the client library, the website that embeds it, the native shell, and these docs. It's a [pnpm](https://pnpm.io) workspace.
+
+<FileTree>
+- apps
+  - website Astro app: marketing site, docs, hosted web client
+- packages
+  - client the SolidJS UI
+  - wrapper the Tauri v2 desktop/mobile shell around the client
+  - lib shared helpers, XRPC types, events, facets, markdown
+  - assets fonts, sounds, logos, emoji, and their manifests
+  - standard-renderer renderer for [standard.site](https://standard.site) documents
+</FileTree>
+
+The client is packaged as a library because more than one shell consumes it. The website and the native app both mount the same `App`. See the [client architecture page](/docs/architecture/client) for the design behind that.
+
+## Setup
+
+<Steps>
+
+1. Install dependencies (`corepack enable` first, so the pinned pnpm version is used):
+
+   ```sh
+   git clone https://github.com/colibri-social/colibri.social.git
+   cd colibri.social
+   pnpm install
+   ```
+
+2. Create a `.env` from `.env.example`. Nothing in it is required for client work; `PUBLIC_VAPID_KEY` only matters if you're testing Web Push, and must match the AppView's `VAPID_PUBLIC_KEY`.
+
+3. Start the client dev server:
+
+   ```sh
+   pnpm dev:client
+   ```
+
+   Then open **`http://127.0.0.1:4321`**. Vite binds `0.0.0.0:4321`, but the OAuth redirect URI is registered against `127.0.0.1`, so `localhost` will fail at login.
+
+</Steps>
+
+You also need [the AppView running](/docs/development/appview) on `127.0.0.1:8000`. In dev mode the client talks to it directly instead of proxying through your PDS, and mints its own service-auth tokens, so a local AppView isn't optional, and the AppView switcher in settings is ignored.
+
+## Logging in locally
+
+Login uses a real Atmosphere account through OAuth, against whatever PDS that account lives on. Two things trip people up:
+
+- **The early-access allowlist.** `packages/client/src/atproto/allowlist.ts` is a hardcoded set of DIDs, enforced in dev exactly as in production: a session for a DID that isn't in it is cleared and you land on the waitlist screen. Add your own DID while developing.
+- **Localhost OAuth clients.** In dev the client id is the [localhost development form](https://atproto.com/specs/oauth#localhost-client-development), `http://localhost?scope=...&redirect_uri=http://127.0.0.1:<port>/app/login`, instead of a hosted client metadata document. Scopes are built from the AppView's `did:web`, so they're derived from what your local install points at.
+
+## Running the website
+
+The website hosts the client, the marketing pages, and this documentation:
+
+```sh
+pnpm build
+pnpm dev:web
+```
+
+The website consumes the client's built `dist/`, not its source, so build the workspace once before starting it (and rebuild the client after changing it, or run `pnpm dev:client` for UI work, which serves from source with HMR).
+
+Its `dev`, `build` and `preview` scripts all run `sync-assets` first, which fetches shared assets out of `@colibri-social/assets` and copies them into place. `TURSO_DATABASE_URL` and `TURSO_AUTH_TOKEN` are declared as required server env vars, so the site won't boot without them.
+
+Documentation pages are Markdown/MDX under `apps/website/src/content/docs/docs/`, rendered by [Starlight](https://starlight.astro.build). The sidebar is assembled in `apps/website/astro.config.ts`: each group autogenerates from a directory, and page order inside a group comes from `sidebar.order` in the frontmatter.
+
+## Running the native app
+
+The shell renders the client's **built** output, so build the client first:
+
+```sh
+pnpm --filter @colibri-social/client build
+pnpm dev:tauri              # desktop
+pnpm dev:tauri:android      # Android, needs the Android SDK/NDK
+pnpm dev:tauri:ios          # iOS, needs Xcode
+```
+
+Useful flags, all documented in `packages/wrapper/README.md`: `DISABLE_SENTRY` strips Sentry from both the frontend bundle and the Rust binary (used for no-track distributions like F-Droid), and `tauri build` requires `TAURI_SIGNING_PRIVATE_KEY` because updater artifacts are enabled.
+
+The native app can't use a localhost OAuth client (the `tauri://localhost` origin isn't publicly fetchable), so its client metadata is served from a fixed public origin. That means native login always goes through a hosted metadata document, even in development.
+
+## Formatting and linting
+
+The workspace uses [Biome](https://biomejs.dev) for both:
+
+```sh
+pnpm lint       # check
+pnpm lint:fix   # check and fix
+pnpm format     # format only
+```
+
+Run these before opening a PR. CI checks the same thing.
+
+## Changesets
+
+Changes to anything under `apps/` or `packages/` need a changeset, which drives versioning and the changelog:
+
+```sh
+pnpm exec changeset
+```
+
+Changes limited to the website's content, the docs, or repository configuration don't need one. More detail on the [contributing page](/docs/contributing/overview).
+
+## See also
+
+- [Client Architecture](/docs/architecture/client): how the client talks to an AppView.
+- [Development Overview](/docs/development/overview): the dev-mode shortcuts in full.
+- [Facets](/docs/specification/facets): how rich text is encoded and rendered.

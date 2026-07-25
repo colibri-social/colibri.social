@@ -1,0 +1,103 @@
+---
+title: Overview
+description: "Set up a full local Colibri stack: the AppView, its dependencies, a PDS, and the client."
+sidebar:
+  order: 1
+---
+
+import { Steps, CardGrid, LinkCard } from "@astrojs/starlight/components";
+
+This section is the practical counterpart to the [architecture pages](/docs/architecture/appview): how to get Colibri running on your own machine and what to expect once it is. If you want to run an instance for other people rather than hack on one, read [Self-Hosting](/docs/self-hosting/getting-started) instead.
+
+## What you're going to run
+
+Colibri is split across two repositories, and local development normally involves both:
+
+| Repository | Contains | Runs as |
+| --- | --- | --- |
+| [colibri-social/appview](https://github.com/colibri-social/appview) | The AppView (Rust/Rocket), its migrations, and the compose files for its dependencies | `cargo run` on `127.0.0.1:8000` |
+| [colibri-social/colibri.social](https://github.com/colibri-social/colibri.social) | The client library, the website that hosts it, the native shell, and this documentation | `pnpm dev:client` on `127.0.0.1:4321` |
+
+Around the AppView sit a handful of containers, all from `docker-compose.dev.yml` and `docker-compose.pds.dev.yml` in the AppView repository:
+
+- **PostgreSQL**, shared by the AppView and Tap.
+- **[Tap](https://github.com/bluesky-social/indigo/blob/main/cmd/tap/README.md)**, the firehose consumer that backfills repositories and streams live records to the AppView.
+- **A PDS**, which hosts the repository of every community you create, plus a small private PLC directory so the DIDs it mints stay local. Both come from `docker-compose.pds.dev.yml`, see [Running a PDS](/docs/development/pds).
+
+Your own account is *not* part of the local stack. You log in with a real Atmosphere account on a real PDS (`bsky.social` or wherever your account lives), and only community repositories live on the PDS you configure.
+
+## Prerequisites
+
+- **Linux**, ideally. The AppView is only tested there, and its voice SFU ([mediasoup](https://mediasoup.org)) does not build on Windows. macOS works for most day-to-day work.
+- **Rust `1.96`+** (`rust-toolchain.toml` pins it, so `rustup` picks it up automatically).
+- **Node.js `^24.13.0`** and **pnpm `10.33.0`**: run `corepack enable` and the right pnpm is used for you.
+- **Docker** and **Docker Compose**.
+- An **Atmosphere account** whose DID is in the client's early-access allowlist (see [Client development](/docs/development/client#logging-in-locally)).
+
+## The short path
+
+<Steps>
+
+1. Start the AppView's dependencies and run it:
+
+   ```sh
+   git clone https://github.com/colibri-social/appview.git
+   cd appview
+   cp .env.example .env
+   # fill in .env, then:
+   docker compose -f docker-compose.dev.yml -f docker-compose.pds.dev.yml up -d
+   cargo run
+   ```
+
+   The second compose file adds a local PDS and PLC directory. Drop it if you
+   don't need to create communities.
+
+2. In a second checkout, start the client:
+
+   ```sh
+   git clone https://github.com/colibri-social/colibri.social.git
+   cd colibri.social
+   pnpm install
+   cp .env.example .env
+   pnpm dev:client
+   ```
+
+3. Open **`http://127.0.0.1:4321`** (not `localhost`, see [below](#dev-mode-is-not-production)) and log in with your Atmosphere account.
+
+</Steps>
+
+That gives you a working client against a local AppView, communities included. Set `PDS_LOC=http://localhost:3000` and `APPVIEW_HANDLE_DOMAIN=test` in `.env` and the local PDS handles the rest. [Running a PDS](/docs/development/pds) explains how that works and where its limits are.
+
+## Dev mode is not production
+
+The client takes several shortcuts when Vite is in dev mode. They are worth knowing, because they change how requests flow and they hide a few classes of bug until you build for production:
+
+- **Requests bypass your PDS.** In production every XRPC call is proxied through the user's PDS with an `atproto-proxy` header, and the PDS mints the service-auth token. In dev the client calls `http://localhost:8000/xrpc/...` directly and mints the service-auth token itself with `com.atproto.server.getServiceAuth`. Proxy-only breakage therefore doesn't show up locally.
+- **The AppView origin is pinned.** `getAppViewHost()` returns `127.0.0.1:8000` whenever `import.meta.env.DEV` is set, so the AppView switcher in settings has no effect locally.
+- **The OAuth client is a localhost client.** Per the [AT Protocol localhost client rules](https://atproto.com/specs/oauth#localhost-client-development), the client id is `http://localhost?...` with a `redirect_uri` of `http://127.0.0.1:<port>/app/login`. That redirect URI is why you must browse to `127.0.0.1`, not `localhost`.
+- **Early access is still enforced.** The allowlist in `packages/client/src/atproto/allowlist.ts` is compiled into the client, in dev too.
+
+## Where to go next
+
+<CardGrid>
+  <LinkCard
+    title="AppView development"
+    href="/docs/development/appview"
+    description="Running the Rust service, its dependencies, migrations, and tests."
+  />
+  <LinkCard
+    title="Client development"
+    href="/docs/development/client"
+    description="The SolidJS client, the Astro website, and the native shell."
+  />
+  <LinkCard
+    title="Running a PDS"
+    href="/docs/development/pds"
+    description="The PDS communities live on, and how to run one locally."
+  />
+  <LinkCard
+    title="Contributing"
+    href="/docs/contributing/overview"
+    description="Changesets, reviews, and how to get your work merged."
+  />
+</CardGrid>

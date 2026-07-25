@@ -1,0 +1,124 @@
+---
+title: Running a PDS
+description: "Why a Colibri AppView needs a PDS, and how to run the reference one locally or in production."
+sidebar:
+  order: 4
+---
+
+import { Steps } from "@astrojs/starlight/components";
+
+:::danger[A PDS is required]
+An AppView without a PDS cannot create communities. This is not a caching or performance detail. Communities *are* AT Protocol accounts, and something has to host their repositories.
+:::
+
+## Why
+
+Every Colibri community is a real account with its own repository, holding its community record, categories, channels, roles, members, and messages (see [Communities](/docs/architecture/communities)). When a user calls [`social.colibri.community.create`](/docs/specification/appview), the AppView:
+
+<Steps>
+
+1. Mints an invite code on the PDS at `PDS_LOC`, authenticating as admin with `PDS_ADMIN_PASS`.
+2. Creates a fresh account with a placeholder handle, `c-<tid>.${APPVIEW_HANDLE_DOMAIN}`, which gives the community a `did:plc` identity.
+3. Stores that account's credentials, encrypted with `CREDENTIAL_ENCRYPTION_KEY`, in its own database.
+4. Writes the community's bootstrap records to the new repository, then registers the DID with Tap so the records flow back into the index.
+
+</Steps>
+
+From then on, the AppView writes to that repository on the community's behalf using the stored credentials. Community deletion and [migration](/docs/help/legacy-communities) use the same admin access. Users bringing their own PDS (BYO) is supported for communities, but the AppView still needs one of its own for the managed path.
+
+`PDS_LOC` is checked at boot but only *used* by those endpoints, so an AppView with a bogus `PDS_LOC` starts, serves reads and writes fine, and fails only when someone creates a community.
+
+## The two compose files
+
+The AppView repository ships two, both running the [official Bluesky PDS](https://github.com/bluesky-social/pds) with the admin password shared with the AppView, the handle domain kept in sync with `APPVIEW_HANDLE_DOMAIN`, invite-gated account creation, and disk-backed blobs in a named volume.
+
+**`docker-compose.pds.yml`** is the production one: `docker-compose.yml` plus a `pds` service, so you run it *instead of* the plain file.
+
+```sh
+docker compose -f docker-compose.pds.yml up -d
+```
+
+**`docker-compose.pds.dev.yml`** is an overlay for local work, a PDS on `localhost` plus its own private PLC directory.
+
+```sh
+docker compose -f docker-compose.dev.yml -f docker-compose.pds.dev.yml up -d
+```
+
+On top of the variables the AppView already reads, both need three of their own in `.env`:
+
+| Variable | Purpose |
+| --- | --- |
+| `PDS_HOSTNAME` | The PDS's **public** hostname. It ends up in every community DID document, so in production this cannot be an internal name. Usually the host part of `PDS_LOC`. The dev file defaults it to `localhost`. |
+| `PDS_JWT_SECRET` | Secret the PDS signs its own session tokens with. Generate with `openssl rand --hex 16`. |
+| `PDS_PLC_ROTATION_KEY` | The PDS's `did:plc` rotation key. **Back this up**, losing it means losing the ability to update the DID documents of every community hosted there. Generate it with the command below. |
+
+```sh
+openssl ecparam --name secp256k1 --genkey --noout --outform DER \
+  | tail -c +8 | head -c 32 | xxd -p -c 32
+```
+
+`PDS_BIND_ADDR` and `PDS_HOST_PORT` control where the container is published; the default is `127.0.0.1:3000`, i.e. reachable only by a reverse proxy on the same host.
+
+## Two things compose can't do for you (in production)
+
+**TLS.** The PDS announces `https://${PDS_HOSTNAME}` as the service endpoint in every DID document it registers with the PLC directory. Everything that later resolves a community DID, Tap, other AppViews, other people's clients, will try that URL. Put a TLS-terminating reverse proxy in front of it.
+
+**Wildcard DNS for handles.** Community handles live under `APPVIEW_HANDLE_DOMAIN` and are answered by the PDS itself, so `*.${APPVIEW_HANDLE_DOMAIN}` has to resolve to the PDS, under a certificate that covers it. The simplest correct configuration is `APPVIEW_HANDLE_DOMAIN` equal to `PDS_HOSTNAME`, which makes community handles `c-<tid>.pds.example.com` and needs a single wildcard record.
+
+## Developing against the local PDS
+
+```ini
+PDS_LOC=http://localhost:3000
+APPVIEW_HANDLE_DOMAIN=test
+```
+
+That's the whole configuration. Bring up the dev overlay, `cargo run`, and creating a community through the client works end to end.
+
+Understanding *why* it works explains its limits. Three things are going on:
+
+- **`PDS_DEV_MODE=true`**, which the dev compose file sets for you. The PDS refuses to boot when its public URL isn't HTTPS, and `PDS_HOSTNAME=localhost` is the one hostname it renders as `http://localhost:3000`. Dev mode lifts that check, and separately disables the PDS's own SSRF protection, without which it would refuse to talk to a PLC directory on a private address.
+- **A private PLC directory.** Community DIDs are `did:plc:*`, and something has to accept the genesis operation. Pointing that at the public `plc.directory` would mean every throwaway test community becomes a permanent public entry whose endpoint is `http://localhost:3000`, so the dev file runs a [did-method-plc](https://github.com/did-method-plc/did-method-plc) server next door instead and sets `PDS_DID_PLC_URL` to it. Only the PDS talks to it. Tap keeps using the public directory, because it still has to resolve *your* real account.
+- **The AppView indexes its own writes.** This is the part that makes a local PDS viable at all. `community.create` writes each bootstrap record into `record_data` as it lands, so the community is readable the moment the call returns. It has to be: the endpoint in those DID documents is `http://localhost:3000`, which inside Tap's container means Tap itself, so Tap can never fetch the repository. The AppView notices a loopback endpoint and skips registering the DID with Tap rather than leaving it to retry forever.
+
+### What that costs you
+
+- **Anything written to that PDS by something other than your AppView is invisible.** Poking the PDS with `curl`, or a second AppView sharing the community, won't show up.
+- **`record_data` is the only copy of those records.** Wiping the dev database loses local test communities permanently, and **`REFILL_FROM_SCRATCH` is destructive here**. It clears the index and relies on Tap to rebuild it, which for a local PDS it cannot do.
+- **Community DIDs resolve only inside your stack.** Federating with another AppView, or pointing a client on another machine at your instance, still needs a public PDS or a tunnel (Cloudflare Tunnel, ngrok, Tailscale Funnel) with `PDS_HOSTNAME` set to the tunnel's hostname.
+- **Live events for community-structure changes still come from the firehose.** Creating a channel or assigning a role updates what the read endpoints return, but doesn't push a `subscribeEvents` event, so the client needs a refetch. Messages are unaffected, they live in *users'* repos on real PDSes and flow through Tap normally.
+
+If you aren't working on community creation at all, you can skip the PDS entirely: leave `PDS_LOC` at a placeholder. It's only read when a community is created, deleted, or migrated, and login, messaging, notifications and voice are unaffected.
+
+## Verifying
+
+```sh
+# the PDS is up
+curl http://127.0.0.1:3000/xrpc/_health
+
+# locally, so is its PLC directory
+curl http://127.0.0.1:2582/_health
+
+# the admin password works (this is the call community.create makes first)
+curl -u "admin:$PDS_ADMIN_PASS" -X POST \
+  -H 'Content-Type: application/json' -d '{"useCount":1}' \
+  http://127.0.0.1:3000/xrpc/com.atproto.server.createInviteCode
+```
+
+After creating a community through the client, the end-to-end check is that the AppView returns it and that its DID resolves in whichever PLC directory you pointed the PDS at:
+
+```sh
+curl "http://127.0.0.1:8000/xrpc/social.colibri.community.getData?community=at://<community-did>/social.colibri.community/self"
+
+# locally
+curl http://127.0.0.1:2582/<community-did>
+# in production
+curl https://plc.directory/<community-did>
+```
+
+Locally the first command is the one that matters, and it should succeed immediately, the records are indexed on write. In production, if the DID resolves to your PDS but `getData` comes up empty, the problem is on the Tap side: the DID was registered but the repository couldn't be fetched.
+
+## See also
+
+- [Communities](/docs/architecture/communities): what lives in a community repository.
+- [Self-Hosting](/docs/self-hosting/getting-started): the full production checklist.
+- [PDS installation guide](https://github.com/bluesky-social/pds) upstream, if you'd rather run it outside Compose.

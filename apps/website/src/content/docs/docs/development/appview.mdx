@@ -1,0 +1,145 @@
+---
+title: AppView development
+description: "Run and work on the reference AppView: dependencies, configuration, migrations, and tests."
+sidebar:
+  order: 2
+---
+
+import { Steps, FileTree } from "@astrojs/starlight/components";
+
+The reference AppView lives in [colibri-social/appview](https://github.com/colibri-social/appview). It's a Rust service built on [Rocket](https://rocket.rs), talking to PostgreSQL through [SeaORM](https://www.sea-ql.org/SeaORM/) and to the firehose through [Tap](https://github.com/bluesky-social/indigo/blob/main/cmd/tap/README.md). See the [architecture page](/docs/architecture/appview) for how the pieces fit together, and the [specification](/docs/specification/appview) for what the endpoints have to do.
+
+## Running it
+
+<Steps>
+
+1. Clone it and create your configuration:
+
+   ```sh
+   git clone https://github.com/colibri-social/appview.git
+   cd appview
+   cp .env.example .env
+   ```
+
+2. Fill in `.env`. For the dev compose file the local values are:
+
+   ```ini
+   DATABASE_URL=postgres://root:colibri@127.0.0.1:5432/colibri
+   TAP_HOSTNAME=127.0.0.1:2480
+   TAP_ADMIN_PASSWORD=<anything, Tap reads the same variable>
+   RUST_LOG=colibri_appview=debug,rocket=info
+   ```
+
+   Generate the two keys the AppView refuses to start without:
+
+   ```sh
+   openssl rand -hex 32      # K256_PRIVATE_KEY
+   openssl rand -base64 32   # CREDENTIAL_ENCRYPTION_KEY
+   ```
+
+   `PDS_LOC` and `APPVIEW_HANDLE_DOMAIN` are also checked at boot. See [Running a PDS](/docs/development/pds) for what to put there.
+
+3. Start PostgreSQL and Tap, plus a local PDS if you want to create communities:
+
+   ```sh
+   docker compose -f docker-compose.dev.yml up -d
+
+   # ...with a local PDS + PLC directory (see Running a PDS):
+   docker compose -f docker-compose.dev.yml -f docker-compose.pds.dev.yml up -d
+   ```
+
+   Postgres is published on `5432` and Tap on `2480`. The `app` service in the dev file sits behind the `app` Compose profile, so it stays down and you run the AppView yourself.
+
+4. Run the AppView. Migrations are applied on boot, so there is no separate step:
+
+   ```sh
+   cargo run
+   ```
+
+   It listens on `http://127.0.0.1:8000`, prints a banner at `/`, and serves the API under `/xrpc/`.
+
+</Steps>
+
+Two quick checks that it came up correctly:
+
+```sh
+curl http://127.0.0.1:8000/xrpc/social.colibri.server.describeServer
+curl http://127.0.0.1:8000/.well-known/did.json
+```
+
+The first should report `"software": "colibri-appview"`. The second is the DID document derived from `APPVIEW_DID` and `K256_PRIVATE_KEY`.
+
+## Configuration that matters locally
+
+`.env.example` documents every variable, these are the ones that change how the service behaves while you develop.
+
+| Variable | Effect |
+| --- | --- |
+| `RUST_LOG` | Rocket and AppView log filters. `colibri_appview=debug` is what you want while working on handlers. |
+| `DATABASE_MAX_CONNECTIONS` | Pool ceiling (default `20`, `.env.example` suggests `40`). Keep it comfortably above `TAP_WORKERS`, since every Tap worker holds a connection while it writes. |
+| `TAP_WORKERS` | How many workers process firehose events. Lower it if Tap floods your machine. |
+| `REFILL_FROM_SCRATCH` | Set to any non-empty value to clear the local `record_data` cache at boot and have Tap re-backfill every DID the AppView knows about. A recovery knob, not something you want on by default. It's slow, and **destructive against a local PDS**, whose repos Tap cannot re-fetch. |
+| `HUMMING_ENABLED` | Set `false` to stop the AppView from opening outbound connections to other AppViews (see [Humming](/docs/architecture/appview#humming)). Sensible for local work. |
+| `VAPID_*`, `FCM_SERVICE_ACCOUNT_JSON`, `KLIPY_API_KEY` | Optional. Unset means background Web Push, Android push and the GIF picker are disabled, which the AppView says clearly in its boot logs. |
+| `SFU_ANNOUNCED_IP` | Only needed if you test voice from another device, `127.0.0.1` is fine on one machine. |
+
+## Source layout
+
+<FileTree>
+- src
+  - main.rs Rocket setup, boot-time invariant checks, route mounting
+  - lib/ the bulk of the logic
+  - xrpc/ one module per lexicon method
+  - models/ SeaORM entities for the AppView's own tables
+  - migrations/ SeaORM migrations, applied automatically on boot
+  - well_known.rs the `did:web` document
+  - sfu.rs the mediasoup voice SFU
+- scripts/ operational helpers for community credentials
+- tests/ fixtures for the unit tests that live next to the code
+</FileTree>
+
+A new endpoint is usually: a handler module under `src/xrpc/social/colibri/...`, its route registered in `main.rs`, plus an entry in the [AppView specification](/docs/specification/appview) so other implementations can follow.
+
+## Migrations
+
+Migrations are plain SeaORM migration structs in `src/migrations/`, named `m<UTC timestamp>_<description>.rs`. Adding one means creating the file, then registering it in `src/migrations/mod.rs` twice: once as a `mod` declaration and once in the `migrations()` vector. Order in that vector is the order they run in, so append rather than insert.
+
+They run inside the AppView's boot sequence, which means a failing migration prevents startup. There is no separate migration binary to invoke.
+
+## Tests, formatting, linting
+
+CI runs three jobs, all of which you can reproduce locally:
+
+```sh
+cargo fmt --all --check
+cargo clippy -- -D warnings
+cargo test --all-features
+```
+
+Unit tests live in `#[cfg(test)]` modules next to the code they cover. Handlers are written against injected function seams (`create_with` takes `create_account_fn`, `create_record_fn`, and friends) precisely so they can be tested without a PDS or a database, [`wiremock`](https://docs.rs/wiremock) stands in for HTTP services where a seam isn't enough. When you add a handler, prefer that shape over reaching for the real thing.
+
+## Working without a PDS
+
+`PDS_LOC` is only *used* when a community is created, deleted, or migrated. It's merely checked for presence at boot. Everything else (login, reading and writing messages in an existing community, notifications, voice) works with a placeholder value. If community creation isn't what you're working on, that's the cheapest setup. Otherwise run the local PDS overlay: [Running a PDS](/docs/development/pds).
+
+## Write-through indexing
+
+Read endpoints serve from the local `record_data` index, which Tap fills from the firehose. But every write the AppView makes on a community's behalf, including the bootstrap records in `community.create`, is also indexed as it lands, via `community_write::cache_upsert`. Two things follow:
+
+- A new community, channel or role is readable the moment the call returns, rather than after firehose latency.
+- The upsert is keyed on `(did, nsid, rkey)`, the same unique key Tap's indexer writes through, so a later firehose delivery of the same record is a no-op.
+
+When you add a write path, follow that pattern: it's what makes a local PDS (whose repos Tap can't reach) usable at all.
+
+## Operational scripts
+
+`scripts/` holds two helpers for the credentials the AppView stores encrypted in `community_credentials`:
+
+- `import-community-credentials.sh` inserts a community's PDS credentials into a deployment, encrypting them with that deployment's `CREDENTIAL_ENCRYPTION_KEY`. The manual counterpart to `registerCredentials`. It does **not** register the DID with Tap, so records that aren't in `record_data` yet won't be backfilled.
+- `get-community-password.sh` is the read side: it decrypts and prints a community's app password.
+
+## See also
+
+- [AppView Architecture](/docs/architecture/appview): services, sizing, and Humming.
+- [AppView Specification](/docs/specification/appview): the endpoint and event contract.
+- [Self-Hosting](/docs/self-hosting/getting-started): running an instance for real users.
