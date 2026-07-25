@@ -2,7 +2,7 @@
 	"name": "@colibri-social/lib",
 	"private": true,
 	"type": "module",
-	"version": "0.0.2-rc.1",
+	"version": "0.0.2-rc.2",
 	"types": "./src/index.ts",
 	"exports": {
 		".": {

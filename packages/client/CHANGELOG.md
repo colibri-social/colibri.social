@@ -1,5 +1,19 @@
 # @colibri-social/client
 
+## 0.1.0-rc.9
+
+### Patch Changes
+
+- e7d5e80: Fixes issues related to swipe controls
+- 1a0b6b5: Optimizes image loading for Avatars with a new "size" prop and better HTML attributes
+- 5258c62: Fixes Homebrew installs failing to launch on macOS with "the application is damaged and can't be opened".
+
+  The Homebrew cask wrote an install-channel marker into `Colibri Social.app/Contents/Resources/`, which invalidated the app bundle's code signature. Since Homebrew quarantines the app, Gatekeeper rejected it on first launch. Homebrew installs are now detected via the Caskroom directory instead, so nothing touches the signed bundle.
+
+- 5258c62: Fixes issues related to FCM notifications and pings in-app
+- Updated dependencies [5258c62]
+  - @colibri-social/lib@0.0.2-rc.2
+
 ## 0.1.0-rc.8
 
 ### Patch Changes

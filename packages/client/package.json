@@ -1,7 +1,7 @@
 {
 	"name": "@colibri-social/client",
 	"private": true,
-	"version": "0.1.0-rc.8",
+	"version": "0.1.0-rc.9",
 	"description": "",
 	"type": "module",
 	"scripts": {
@@ -23,7 +23,7 @@
 	"license": "MIT",
 	"devDependencies": {
 		"@atproto/lexicon": "^0.6.1",
-		"@colibri-social/lib": "workspace:0.0.2-rc.1",
+		"@colibri-social/lib": "workspace:0.0.2-rc.2",
 		"@iconify-json/lucide": "^1.2.116",
 		"@iconify-json/ph": "^1.2.2",
 		"@tailwindcss/cli": "^4.2.4",
@@ -40,7 +40,7 @@
 		"@atproto/api": "^0.20.22",
 		"@atproto/oauth-client-browser": "^0.4.3",
 		"@colibri-social/assets": "workspace:0.0.2-rc.1",
-		"@colibri-social/lib": "workspace:0.0.2-rc.1",
+		"@colibri-social/lib": "workspace:0.0.2-rc.2",
 		"@kobalte/core": "^0.13.11",
 		"@sapphi-red/web-noise-suppressor": "^0.3.5",
 		"@sentry/solid": "^10.63.0",
