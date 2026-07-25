@@ -50,7 +50,7 @@ export interface TextBlock {
 	$type: "pub.leaflet.blocks.text";
 	plaintext: string;
 	facets?: Facet[];
-	textSize?: number;
+	textSize?: "default" | "small" | "large";
 }
 
 export interface HeaderBlock {
@@ -108,12 +108,27 @@ export interface ListItem {
 	$type: "pub.leaflet.blocks.unorderedList#listItem";
 	content: LeafBlock;
 	children?: ListItem[];
+	orderedListChildren?: OrderedListBlock;
 	checked?: boolean;
 }
 
 export interface UnorderedListBlock {
 	$type: "pub.leaflet.blocks.unorderedList";
 	children: ListItem[];
+}
+
+export interface OrderedListItem {
+	$type: "pub.leaflet.blocks.orderedList#listItem";
+	content: LeafBlock;
+	children?: OrderedListItem[];
+	unorderedListChildren?: UnorderedListBlock;
+	checked?: boolean;
+}
+
+export interface OrderedListBlock {
+	$type: "pub.leaflet.blocks.orderedList";
+	children: OrderedListItem[];
+	startIndex?: number;
 }
 
 export type LeafBlock =
@@ -127,6 +142,7 @@ export type LeafBlock =
 	| BskyPostBlock
 	| HorizontalRuleBlock
 	| UnorderedListBlock
+	| OrderedListBlock
 	| (FacetFeature & { $type: string });
 
 export interface BlockWrapper {

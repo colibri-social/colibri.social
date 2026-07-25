@@ -1,21 +1,32 @@
 ---
-import type { ListItem, ResolveBlob, TextBlock } from "../src/index.js";
+import type {
+	ListItem,
+	OrderedListItem,
+	ResolveBlob,
+	TextBlock,
+} from "../src/index.js";
 import Block from "./Block.astro";
 import List from "./List.astro";
 import RichText from "./RichText.astro";
 
 interface Props {
-	items: ListItem[];
+	items: (ListItem | OrderedListItem)[];
 	resolveBlob: ResolveBlob;
+	ordered?: boolean;
+	startIndex?: number;
 }
 
-const { items, resolveBlob } = Astro.props;
+const { items, resolveBlob, ordered = false, startIndex } = Astro.props;
+const ListTag = ordered ? "ol" : "ul";
 ---
 
-<ul>
+<ListTag start={ordered ? startIndex : undefined}>
 	{
 		items.map((item) => (
-			<li>
+			<li class={typeof item.checked === "boolean" ? "list-none" : undefined}>
+				{typeof item.checked === "boolean" && (
+					<input type="checkbox" checked={item.checked} disabled class="mr-2 align-middle" />
+				)}
 				{item.content?.$type === "pub.leaflet.blocks.text" ? (
 					<RichText
 						text={(item.content as TextBlock).plaintext}
@@ -24,10 +35,22 @@ const { items, resolveBlob } = Astro.props;
 				) : (
 					<Block block={item.content} resolveBlob={resolveBlob} />
 				)}
-				{item.children && item.children.length > 0 && (
-					<List items={item.children} resolveBlob={resolveBlob} />
-				)}
+				{item.children && item.children.length > 0 ? (
+					<List items={item.children} resolveBlob={resolveBlob} ordered={ordered} />
+				) : "orderedListChildren" in item && item.orderedListChildren ? (
+					<List
+						items={item.orderedListChildren.children ?? []}
+						resolveBlob={resolveBlob}
+						ordered
+						startIndex={item.orderedListChildren.startIndex}
+					/>
+				) : "unorderedListChildren" in item && item.unorderedListChildren ? (
+					<List
+						items={item.unorderedListChildren.children ?? []}
+						resolveBlob={resolveBlob}
+					/>
+				) : null}
 			</li>
 		))
 	}
-</ul>
+</ListTag>

@@ -8,8 +8,27 @@ interface Props {
 }
 
 const { blocks, resolveBlob } = Astro.props;
+
+const alignmentClass = (alignment?: string): string | undefined => {
+	if (!alignment) return undefined;
+	if (alignment.endsWith("#textAlignCenter")) return "text-center";
+	if (alignment.endsWith("#textAlignRight")) return "text-right";
+	if (alignment.endsWith("#textAlignJustify")) return "text-justify";
+	return undefined;
+};
 ---
 
 <div class="prose prose-neutral dark:prose-invert max-w-none">
-	{blocks.map((wrapper) => <Block block={wrapper.block} resolveBlob={resolveBlob} />)}
+	{
+		blocks.map((wrapper) => {
+			const alignment = alignmentClass(wrapper.alignment);
+			return alignment ? (
+				<div class={alignment}>
+					<Block block={wrapper.block} resolveBlob={resolveBlob} />
+				</div>
+			) : (
+				<Block block={wrapper.block} resolveBlob={resolveBlob} />
+			);
+		})
+	}
 </div>

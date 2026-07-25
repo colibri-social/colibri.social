@@ -7,6 +7,7 @@ import type {
 	IframeBlock,
 	ImageBlock,
 	LeafBlock,
+	OrderedListBlock,
 	ResolveBlob,
 	TextBlock,
 	UnorderedListBlock,
@@ -22,6 +23,14 @@ interface Props {
 
 const { block, resolveBlob } = Astro.props;
 const type = block.$type;
+
+const text = block as TextBlock;
+const textSizeClass =
+	text.textSize === "small"
+		? "text-sm"
+		: text.textSize === "large"
+			? "text-lg"
+			: undefined;
 
 const header = block as HeaderBlock;
 const headerLevel = Math.min(Math.max(header.level ?? 2, 2), 6);
@@ -52,6 +61,7 @@ if (
 		"pub.leaflet.blocks.bskyPost",
 		"pub.leaflet.blocks.horizontalRule",
 		"pub.leaflet.blocks.unorderedList",
+		"pub.leaflet.blocks.orderedList",
 	].includes(type)
 ) {
 	console.warn("[standard-renderer] unhandled leaflet block type:", type);
@@ -60,11 +70,8 @@ if (
 
 {
 	type === "pub.leaflet.blocks.text" && (
-		<p>
-			<RichText
-				text={(block as TextBlock).plaintext}
-				facets={(block as TextBlock).facets}
-			/>
+		<p class={textSizeClass}>
+			<RichText text={text.plaintext} facets={text.facets} />
 		</p>
 	)
 }
@@ -167,6 +174,17 @@ if (
 		<List
 			items={(block as UnorderedListBlock).children ?? []}
 			resolveBlob={resolveBlob}
+		/>
+	)
+}
+
+{
+	type === "pub.leaflet.blocks.orderedList" && (
+		<List
+			items={(block as OrderedListBlock).children ?? []}
+			resolveBlob={resolveBlob}
+			ordered
+			startIndex={(block as OrderedListBlock).startIndex}
 		/>
 	)
 }
