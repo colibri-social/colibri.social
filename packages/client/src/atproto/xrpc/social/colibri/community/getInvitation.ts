@@ -9,6 +9,7 @@ type Response = {
 	active: boolean;
 	name: string;
 	picture?: JsonBlobRef;
+	banner?: JsonBlobRef;
 	memberCount: number;
 	onlineCount: number;
 	requiresApprovalToJoin: boolean;

@@ -57,6 +57,7 @@ export const syncMethodDocs: LexiconDoc[] = [
 					name: { type: "string" },
 					description: { type: "string" },
 					picture: { type: "blob" },
+					banner: { type: "blob" },
 					categoryOrder: {
 						type: "array",
 						items: { type: "string", format: "at-uri" },

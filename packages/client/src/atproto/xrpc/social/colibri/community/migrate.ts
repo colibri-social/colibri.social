@@ -35,11 +35,10 @@ export const migrate: XrpcRequest<
 		string,
 		Overrides | undefined,
 		Blob | undefined,
-		string | undefined,
 		ByoCredentials | undefined,
 	],
 	Promise<Response | undefined>
-> = async (fetch, kind, source, overrides, picture, mimeType, byo) => {
+> = async (fetch, kind, source, overrides, picture, byo) => {
 	try {
 		const params = new URLSearchParams({ kind, source });
 		if (overrides?.name !== undefined) params.set("name", overrides.name);
@@ -50,23 +49,19 @@ export const migrate: XrpcRequest<
 				"requiresApprovalToJoin",
 				`${overrides.requiresApprovalToJoin}`,
 			);
-		if (mimeType !== undefined) params.set("mimeType", mimeType);
 		if (byo) {
 			params.set("pds", byo.pds);
 			params.set("identifier", byo.identifier);
 			params.set("password", byo.password);
 		}
+		const formData = new FormData();
+		if (picture !== undefined) formData.append("picture", picture);
 
 		const res = await fetch(
 			`/xrpc/social.colibri.community.migrate?${params.toString()}`,
 			{
 				method: "POST",
-				...(picture
-					? {
-							body: picture,
-							headers: { "Content-Type": mimeType ?? picture.type },
-						}
-					: {}),
+				body: formData,
 			},
 		);
 

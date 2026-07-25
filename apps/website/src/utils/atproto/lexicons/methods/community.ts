@@ -54,6 +54,7 @@ export const communityMethodDocs: LexiconDoc[] = [
 					name: { type: "string" },
 					description: { type: "string" },
 					picture: { type: "blob" },
+					banner: { type: "blob" },
 					categoryOrder: {
 						type: "array",
 						items: { type: "string", format: "at-uri" },
@@ -208,6 +209,7 @@ export const communityMethodDocs: LexiconDoc[] = [
 					active: { type: "boolean" },
 					name: { type: "string" },
 					picture: { type: "blob" },
+					banner: { type: "blob" },
 					memberCount: { type: "integer" },
 					onlineCount: { type: "integer" },
 					requiresApprovalToJoin: { type: "boolean" },
@@ -230,10 +232,6 @@ export const communityMethodDocs: LexiconDoc[] = [
 						name: { type: "string" },
 						description: { type: "string" },
 						requiresApprovalToJoin: { type: "boolean" },
-						mimeType: {
-							type: "string",
-							description: "MIME type of the picture body, if provided.",
-						},
 						pds: {
 							type: "string",
 							description: "Bring-your-own PDS endpoint.",
@@ -249,8 +247,8 @@ export const communityMethodDocs: LexiconDoc[] = [
 					},
 				},
 				input: {
-					encoding: "*/*",
-					description: "Optional community picture image bytes.",
+					encoding: "multipart/form-data",
+					description: "Optional community image blobs.",
 				},
 				output: {
 					encoding: "application/json",
@@ -304,10 +302,6 @@ export const communityMethodDocs: LexiconDoc[] = [
 						name: { type: "string" },
 						description: { type: "string" },
 						requiresApprovalToJoin: { type: "boolean" },
-						mimeType: {
-							type: "string",
-							description: "MIME type of the picture body, if provided.",
-						},
 						pds: {
 							type: "string",
 							description: "Bring-your-own PDS endpoint.",
@@ -323,8 +317,8 @@ export const communityMethodDocs: LexiconDoc[] = [
 					},
 				},
 				input: {
-					encoding: "*/*",
-					description: "Optional replacement community picture image bytes.",
+					encoding: "multipart/form-data",
+					description: "Optional replacement community image blobs.",
 				},
 				output: {
 					encoding: "application/json",
@@ -373,13 +367,12 @@ export const communityMethodDocs: LexiconDoc[] = [
 						community: { type: "string", format: "at-uri" },
 						name: { type: "string" },
 						description: { type: "string" },
-						mimeType: { type: "string" },
 						requiresApprovalToJoin: { type: "boolean" },
 					},
 				},
 				input: {
-					encoding: "*/*",
-					description: "Optional replacement community picture image bytes.",
+					encoding: "multipart/form-data",
+					description: "Optional replacement community image blobs.",
 				},
 				output: uriResponse,
 			},

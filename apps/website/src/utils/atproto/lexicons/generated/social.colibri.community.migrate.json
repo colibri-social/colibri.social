@@ -33,10 +33,6 @@
 					"requiresApprovalToJoin": {
 						"type": "boolean"
 					},
-					"mimeType": {
-						"type": "string",
-						"description": "MIME type of the picture body, if provided."
-					},
 					"pds": {
 						"type": "string",
 						"description": "Bring-your-own PDS endpoint."
@@ -52,8 +48,8 @@
 				}
 			},
 			"input": {
-				"encoding": "*/*",
-				"description": "Optional replacement community picture image bytes."
+				"encoding": "multipart/form-data",
+				"description": "Optional replacement community image blobs."
 			},
 			"output": {
 				"encoding": "application/json",

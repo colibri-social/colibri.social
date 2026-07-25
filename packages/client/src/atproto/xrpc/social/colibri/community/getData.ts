@@ -10,6 +10,7 @@ export type CommunityData = {
 	name: string;
 	description: string;
 	picture?: JsonBlobRef;
+	banner?: JsonBlobRef;
 	categoryOrder: Array<string>;
 	requiresApprovalToJoin: boolean;
 	appview: string;

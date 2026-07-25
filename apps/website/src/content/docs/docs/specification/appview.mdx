@@ -732,7 +732,7 @@ Mints a new community DID on the AppView's own PDS and bootstraps a fully popula
 - `social.colibri.role`: an `"Owner"` role with every permission and `protected: true` so role-management endpoints refuse to delete it
 - `social.colibri.member`: `subject` = authenticated caller, holding the Owner role
 
-The caller ends up as an owner-equivalent member of the new community. A community picture is uploaded by sending its raw bytes as the request body with the image's MIME type declared via the `mimeType` query parameter. If supplied, the picture is validated against the allowed MIME types (`image/jpeg`, `image/png`, `image/gif`), uploaded to the community's PDS, and stored as the community picture. An empty body means no picture.
+The caller ends up as an owner-equivalent member of the new community. Community picture and banner are uploaded by sending their contents as a multipart body. If supplied, the picture is validated against the allowed MIME types (`image/jpeg`, `image/png`, `image/gif`), uploaded to the community's PDS, and stored as the community picture. An empty body means no picture.
 
 <XRPCEndpointCard
 	method="POST"
@@ -751,10 +751,6 @@ The caller ends up as an owner-equivalent member of the new community. A communi
 			type: "boolean",
 			required: false
 		},
-		mimeType: {
-			type: "string",
-			required: false
-		}
 	}}
 	body={{
 		image: {
@@ -794,7 +790,7 @@ The AppView identifies communities by DID; handles minted alongside the account 
 
 ### `social.colibri.community.update`
 
-Updates the community's settings. Only fields that are supplied are changed. A new community picture is uploaded by sending its raw bytes as the request body with the image's MIME type declared via the `mimeType` query parameter. An empty body leaves the existing picture untouched.
+Updates the community's settings. Only fields that are supplied are changed. New community picture and banner are uploaded by sending their contents as a multipart body.
 
 <XRPCEndpointCard
 	method="POST"
@@ -810,10 +806,6 @@ Updates the community's settings. Only fields that are supplied are changed. A n
 			required: false
 		},
 		description: {
-			type: "string",
-			required: false
-		},
-		mimeType: {
 			type: "string",
 			required: false
 		},

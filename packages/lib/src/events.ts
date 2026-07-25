@@ -22,6 +22,7 @@ export type Colibri_CommunityEvent = EventBase<
 			name?: string;
 			description?: string;
 			picture?: JsonBlobRef;
+			banner?: JsonBlobRef;
 			categoryOrder?: Array<string>;
 			requiresApprovalToJoin?: boolean;
 	  }

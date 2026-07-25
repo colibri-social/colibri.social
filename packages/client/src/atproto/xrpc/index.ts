@@ -293,7 +293,7 @@ export class XrpcClient {
 					description: string | undefined,
 					requiresApproval: boolean,
 					picture: Blob | undefined,
-					mimeType: string | undefined,
+					banner: Blob | undefined,
 					byo?: { pds: string; identifier: string; password: string },
 				) =>
 					Community.create(
@@ -302,7 +302,7 @@ export class XrpcClient {
 						description,
 						requiresApproval,
 						picture,
-						mimeType,
+						banner,
 						byo,
 					),
 				migrate: (
@@ -316,7 +316,6 @@ export class XrpcClient {
 						  }
 						| undefined,
 					picture: Blob | undefined,
-					mimeType: string | undefined,
 					byo?: { pds: string; identifier: string; password: string },
 				) =>
 					Community.migrate(
@@ -325,7 +324,6 @@ export class XrpcClient {
 						source,
 						overrides,
 						picture,
-						mimeType,
 						byo,
 					),
 				registerCredentials: (
@@ -349,7 +347,7 @@ export class XrpcClient {
 					name?: string,
 					description?: string,
 					picture?: Blob,
-					mimeType?: string,
+					banner?: Blob,
 					requiresApprovalToJoin?: boolean,
 				) =>
 					Community.update(
@@ -358,7 +356,7 @@ export class XrpcClient {
 						name,
 						description,
 						picture,
-						mimeType,
+						banner,
 						requiresApprovalToJoin || false,
 					),
 				leave: (community: string) =>

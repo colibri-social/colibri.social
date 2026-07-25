@@ -87,6 +87,9 @@
 				"picture": {
 					"type": "blob"
 				},
+				"banner": {
+					"type": "blob"
+				},
 				"categoryOrder": {
 					"type": "array",
 					"items": {

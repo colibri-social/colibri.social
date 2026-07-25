@@ -27,6 +27,9 @@
 				"picture": {
 					"type": "blob"
 				},
+				"banner": {
+					"type": "blob"
+				},
 				"categoryOrder": {
 					"type": "array",
 					"items": {
@@ -344,6 +347,9 @@
 					"type": "string"
 				},
 				"picture": {
+					"type": "blob"
+				},
+				"banner": {
 					"type": "blob"
 				},
 				"memberCount": {
