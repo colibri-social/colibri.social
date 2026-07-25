@@ -16,12 +16,9 @@ const isInScrollableX = (target: EventTarget | null, root: HTMLElement) => {
 	let node = target as HTMLElement | null;
 	while (node && node !== root) {
 		if (node.tagName?.startsWith("MEDIA-")) return true;
-		const style = getComputedStyle(node);
-		if (
-			(style.overflowX === "auto" || style.overflowX === "scroll") &&
-			node.scrollWidth > node.clientWidth + 1
-		) {
-			return true;
+		if (node.scrollWidth > node.clientWidth + 1) {
+			const overflowX = getComputedStyle(node).overflowX;
+			if (overflowX === "auto" || overflowX === "scroll") return true;
 		}
 		node = node.parentElement;
 	}

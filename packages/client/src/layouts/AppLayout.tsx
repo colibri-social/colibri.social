@@ -233,7 +233,7 @@ const AppLayout: ParentComponent = (props) => {
 	const socket = useSocketContext();
 	const navigate = useNavigate();
 	const location = useLocation();
-	const { isMobile, currentPane, paneTranslate, isDragging } =
+	const { isMobile, currentPane, railTranslate, isDragging } =
 		createMobilePane();
 	const viewport = useViewport();
 
@@ -460,9 +460,9 @@ const AppLayout: ParentComponent = (props) => {
 			>
 				<aside
 					class="flex flex-col h-full w-14 p-2 pb-3 bg-card"
-					style={{ translate: paneTranslate("nav") }}
+					style={{ translate: railTranslate() }}
 					classList={{
-						"absolute left-0 top-0 z-40": isMobile(),
+						"absolute left-0 top-0 z-40 will-change-transform": isMobile(),
 						"transition-transform duration-300 ease-[cubic-bezier(0.25,1,0.5,1)] motion-reduce:transition-none":
 							isMobile() && !isDragging(),
 						"-translate-x-full": isMobile() && currentPane() !== "nav",

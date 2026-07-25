@@ -34,6 +34,15 @@ const [dragDx, setDragDx] = createSignal(0);
 const paneIndex = (pane: Pane) =>
 	pane === "nav" ? -1 : pane === "chat" ? 0 : 1;
 
+const RAIL_WIDTH = 56;
+
+const navRevealProgress = (current: Pane) => {
+	const width = typeof window !== "undefined" ? window.innerWidth : 0;
+	if (!width) return 1;
+	const offset = (paneIndex("nav") - paneIndex(current)) * width + dragDx();
+	return Math.max(0, Math.min(1, 1 + offset / width));
+};
+
 /**
  * Mobile navigation stack. The desktop layout shows every pane at once, on
  * mobile only one is visible at a time and the visible pane is derived from
@@ -90,21 +99,23 @@ export const createMobilePane = () => {
 		// members is the deepest pane
 	};
 
+	let canPushDeeper: boolean | null = null;
+
 	const updateDrag = (dx: number | null) => {
 		if (dx === null) {
+			canPushDeeper = null;
 			setDragDx(0);
 			return;
 		}
 		const from = currentPane();
+		if (canPushDeeper === null) {
+			canPushDeeper =
+				from === "chat" ||
+				(from === "nav" &&
+					(hasChannel() || !!lastViewedChannelPath(location.pathname)));
+		}
 		if (dx > 0 && from === "nav") dx *= 0.15; // popPane() would no-op here
-		if (
-			dx < 0 &&
-			from === "nav" &&
-			!hasChannel() &&
-			!lastViewedChannelPath(location.pathname)
-		)
-			dx *= 0.15; // pushDeeper() would no-op here
-		if (dx < 0 && from === "members") dx *= 0.15; // pushDeeper() would no-op here
+		if (dx < 0 && !canPushDeeper) dx *= 0.15; // pushDeeper() would no-op here
 		const max = typeof window !== "undefined" ? window.innerWidth : Infinity;
 		setDragDx(Math.max(-max, Math.min(max, dx)));
 	};
@@ -113,6 +124,12 @@ export const createMobilePane = () => {
 		if (!isMobile() || dragDx() === 0) return undefined;
 		const offset = (paneIndex(pane) - paneIndex(currentPane())) * 100;
 		return `calc(${offset}% + ${dragDx()}px)`;
+	};
+
+	const railTranslate = (): string | undefined => {
+		if (!isMobile() || dragDx() === 0) return undefined;
+		const hidden = 1 - navRevealProgress(currentPane());
+		return `${-RAIL_WIDTH * hidden}px`;
 	};
 
 	const isDragging = () => dragDx() !== 0;
@@ -127,6 +144,7 @@ export const createMobilePane = () => {
 		setPane,
 		updateDrag,
 		paneTranslate,
+		railTranslate,
 		isDragging,
 	};
 };

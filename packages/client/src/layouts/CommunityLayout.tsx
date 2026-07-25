@@ -229,7 +229,8 @@ const CommunityLayout: ParentComponent = (props) => {
 				style={{ translate: paneTranslate("nav") }}
 				classList={{
 					"h-full min-w-72 w-72 border-r": !isMobile(),
-					"absolute inset-0 w-full pl-14 z-30": isMobile(),
+					"absolute inset-0 w-full pl-14 z-30 will-change-transform":
+						isMobile(),
 					"transition-transform duration-300 ease-[cubic-bezier(0.25,1,0.5,1)] motion-reduce:transition-none":
 						isMobile() && !isDragging(),
 					"-translate-x-full": isMobile() && currentPane() !== "nav",
@@ -253,7 +254,8 @@ const CommunityLayout: ParentComponent = (props) => {
 					"max-w-[calc(100vw-288px-56px-1px)]":
 						!isMobile() &&
 						(displayMembersAsSheet() || !preferences().membersListVisible),
-					"absolute inset-0 w-full h-full max-w-none! z-20": isMobile(),
+					"absolute inset-0 w-full h-full max-w-none! z-20 will-change-transform":
+						isMobile(),
 					"transition-transform duration-300 ease-[cubic-bezier(0.25,1,0.5,1)] motion-reduce:transition-none":
 						isMobile() && !isDragging(),
 					"translate-x-full": isMobile() && currentPane() === "nav",

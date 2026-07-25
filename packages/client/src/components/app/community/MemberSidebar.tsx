@@ -155,7 +155,7 @@ export const MemberSidebar = () => {
 				"absolute top-0 right-0 h-full drop-shadow-black drop-shadow-2xl":
 					!isMobile() && displayMembersAsSheet(),
 				hidden: !isMobile() && !preferences().membersListVisible,
-				"absolute inset-0 w-full h-full z-30": isMobile(),
+				"absolute inset-0 w-full h-full z-30 will-change-transform": isMobile(),
 				"transition-transform duration-300 ease-[cubic-bezier(0.25,1,0.5,1)] motion-reduce:transition-none":
 					isMobile() && !isDragging(),
 				"translate-x-full": isMobile() && currentPane() !== "members",
