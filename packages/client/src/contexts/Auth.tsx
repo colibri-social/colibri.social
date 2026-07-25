@@ -10,6 +10,8 @@ import {
 import { type Client, getClient } from "../atproto/auth";
 import { AppLoadingScreen } from "../components/AppLoadingScreen";
 import { AppViewUnreachableModal } from "../components/app/AppViewUnreachableModal";
+import { getAppViewHost, verifyColibriAppView } from "../utils/appview";
+import { reportPdsStatus } from "../utils/dev-diagnostics";
 import { markBoot } from "../utils/perf";
 
 export const AuthContext = createContext<Client>(undefined);
@@ -20,6 +22,14 @@ export const AuthContextProvider: ParentComponent = (props) => {
 	createEffect(() => {
 		if (!client.loading) markBoot("auth:ready");
 	});
+
+	// An AppView with no usable PDS serves every read fine and fails every
+	// write. Ask once at startup so that shows up before the first one does.
+	if (import.meta.env.DEV) {
+		void verifyColibriAppView(getAppViewHost("http")).then((description) =>
+			reportPdsStatus(description?.pds),
+		);
+	}
 
 	return (
 		<Switch>

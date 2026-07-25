@@ -90,10 +90,22 @@ export const normalizeAppViewUrl = (raw: string): string | null => {
 export const isValidAppViewUrl = (raw: string): boolean =>
 	normalizeAppViewUrl(raw) !== null;
 
+/**
+ * Result of the AppView's boot-time probe of its own PDS. Debug builds only —
+ * this endpoint is public, so released AppViews report no deployment state.
+ * Mirrors `PdsStatusReport` in the AppView's `src/lib/pds_status.rs`.
+ */
+export interface PdsStatusReport {
+	configured: boolean;
+	reachable: boolean;
+	status: "reachable" | "notAPds" | "unreachable" | "unconfigured";
+}
+
 export interface ColibriServerDescription {
 	software: string;
 	flavor: string;
 	version: string;
+	pds?: PdsStatusReport;
 }
 
 /**

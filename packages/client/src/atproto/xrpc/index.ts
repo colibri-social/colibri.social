@@ -1,5 +1,9 @@
 import type { Agent } from "@atproto/api";
 import type { ColibriEvent } from "@colibri-social/lib";
+import {
+	reportXrpcFailure,
+	reportXrpcNetworkError,
+} from "../../utils/dev-diagnostics";
 import { perfNow, recordRequest } from "../../utils/perf";
 import { enqueueAppview, setAppviewExecutor } from "../outbox/outbox";
 import * as Identity from "./com/atproto/identity";
@@ -123,10 +127,15 @@ export class XrpcClient {
 		return request.then(
 			(res) => {
 				recordRequest(method, start, perfNow() - start, res.ok);
+				// Wrappers swallow failures into `undefined`, so explain what
+				// broke first.
+				if (import.meta.env.DEV && !res.ok)
+					void reportXrpcFailure(method, res.clone());
 				return res;
 			},
 			(err) => {
 				recordRequest(method, start, perfNow() - start, false);
+				reportXrpcNetworkError(method, err);
 				throw err;
 			},
 		);
