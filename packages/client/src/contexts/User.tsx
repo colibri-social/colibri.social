@@ -85,6 +85,12 @@ export const UserContextProvider: ParentComponent = (props) => {
 			throw new Error("Unable to get actor communities!");
 		}
 
+		if (!communities.communities && import.meta.env.DEV) {
+			throw new Error(
+				"Actor communities response was faulty. This often happens when backfill isn't complete yet. Check your local AppView logs.",
+			);
+		}
+
 		return {
 			loggedIn: true,
 			...actorData,

@@ -138,6 +138,21 @@ When you add a write path, follow that pattern: it's what makes a local PDS (who
 - `import-community-credentials.sh` inserts a community's PDS credentials into a deployment, encrypting them with that deployment's `CREDENTIAL_ENCRYPTION_KEY`. The manual counterpart to `registerCredentials`. It does **not** register the DID with Tap, so records that aren't in `record_data` yet won't be backfilled.
 - `get-community-password.sh` is the read side: it decrypts and prints a community's app password.
 
+## Helpful tips
+
+Below, you'll find guides on situations you might run into.
+
+### Resetting local state
+
+In certain cases, you may want to start clean on your local state.
+
+1. If you use an external PDS, not the local one: use `get-community-password.sh` (see [Operational scripts](#operational-scripts)) to extract the passwords for the communities and save them for later.
+2. Stop the appview, then stop the docker compose if it is running.
+3. Delete the volume associated with the compose file.
+4. Start the compose file
+5. Start the appview
+6. Wait for backfill to complete
+
 ## See also
 
 - [AppView Architecture](/docs/architecture/appview): services, sizing, and Humming.
