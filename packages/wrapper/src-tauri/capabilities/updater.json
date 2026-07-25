@@ -9,7 +9,10 @@
     "process:allow-restart",
     {
       "identifier": "fs:allow-exists",
-      "allow": [{ "path": "$RESOURCE/.install-channel" }]
+      "allow": [
+        { "path": "/opt/homebrew/Caskroom/colibri-social" },
+        { "path": "/usr/local/Caskroom/colibri-social" }
+      ]
     }
   ]
 }

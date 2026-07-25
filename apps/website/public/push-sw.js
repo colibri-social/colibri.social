@@ -7,6 +7,10 @@
  *
  * Expected push payload (JSON):
  *   { "title": string, "body": string, "tag"?: string, "data"?: { "channelUri"?: string } }
+ *
+ * Dismissal payload (sent when the underlying message was deleted; closes the
+ * matching notification instead of showing one):
+ *   { "type": "dismiss", "tag": string, "data"?: { "channelUri"?: string, "messageUri"?: string } }
  */
 
 const DEFAULT_ICON = "/web-app-manifest-192x192.png";
@@ -25,6 +29,18 @@ self.addEventListener("push", (event) => {
 		payload = event.data ? event.data.json() : {};
 	} catch {
 		payload = { title: "Colibri", body: event.data ? event.data.text() : "" };
+	}
+
+	if (payload.type === "dismiss") {
+		if (!payload.tag) return;
+		event.waitUntil(
+			self.registration
+				.getNotifications({ tag: payload.tag })
+				.then((notifications) => {
+					for (const notification of notifications) notification.close();
+				}),
+		);
+		return;
 	}
 
 	const title = payload.title || "Colibri";

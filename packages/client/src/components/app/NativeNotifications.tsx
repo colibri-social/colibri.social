@@ -54,11 +54,15 @@ export const NativeNotifications: Component = () => {
 		);
 	};
 
+	let fcmActive = false;
+
 	const reassertFcmRegistration = async (): Promise<void> => {
 		if (!preferences().nativeNotifications) return;
 		if (!(await isAndroidTauriRuntime())) return;
-		await subscribeFcmPush((sub) =>
-			user.xrpc.social.colibri.notification.registerPush(sub),
+		fcmActive = await subscribeFcmPush(
+			(sub) => user.xrpc.social.colibri.notification.registerPush(sub),
+			(token) =>
+				user.xrpc.social.colibri.notification.unregisterPush(token, "fcm"),
 		);
 	};
 
@@ -108,6 +112,7 @@ export const NativeNotifications: Component = () => {
 
 		const cleanup = socket.onEvent((event) => {
 			if (event.type !== "notification_event" || !event.data) return;
+			if (fcmActive) return;
 			if (!preferences().nativeNotifications) return;
 			if (user.data.onlineState === "dnd") return;
 			if (mutes.isChannelMuted(event.data.channelUri)) return;

@@ -192,8 +192,8 @@ export const NotificationsContextProvider: ParentComponent = (props) => {
 				await user.xrpc.social.colibri.notification.updateSeenForMessage(
 					messageUri,
 				);
-			const updated = res?.updated ?? 0;
-			if (updated !== 1) adjustPings(channelUri, 1 - updated);
+			const cleared = res?.clearedPings ?? 0;
+			if (cleared !== 1) adjustPings(channelUri, 1 - cleared);
 		} catch {
 			adjustPings(channelUri, 1);
 		}

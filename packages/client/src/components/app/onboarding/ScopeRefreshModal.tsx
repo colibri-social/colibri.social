@@ -5,6 +5,7 @@ import ArrowLineLeftIcon from "~icons/ph/arrow-line-left";
 import { startOAuthSignIn } from "../../../atproto/auth";
 import { buildScopes, scopeSetLabel } from "../../../atproto/scopes";
 import { endSession } from "../../../atproto/session";
+import { unregisterAllPush } from "../../../notifications";
 import { getAppViewDid } from "../../../utils/appview";
 import { Spinner } from "../../icons/Spinner";
 import { Button } from "../../ui/Button";
@@ -47,6 +48,7 @@ export function ScopeRefreshModal(props: {
 	const logout = async () => {
 		if (loading()) return;
 		try {
+			await unregisterAllPush();
 			await props.client.revoke(props.did);
 		} finally {
 			await endSession();

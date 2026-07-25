@@ -2,6 +2,7 @@ import type { XrpcRequest } from "../../..";
 
 export type UnseenNotification = {
 	id: number;
+	kind: "mention" | "reply" | "message";
 	messageUri: string;
 	indexedAt: string;
 };

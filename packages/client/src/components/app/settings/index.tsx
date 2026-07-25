@@ -20,8 +20,7 @@ import { endSession } from "../../../atproto/session";
 import { useAuthContext } from "../../../contexts/Auth";
 import { useUserContext } from "../../../contexts/User";
 import { EXPERIMENTS } from "../../../experiments";
-import { isWebRuntime } from "../../../notifications";
-import { unsubscribeWebPush } from "../../../notifications/push-web";
+import { unregisterAllPush } from "../../../notifications";
 import { isMobileNow } from "../../../utils/mobile-pane";
 import { SettingsModal } from "../common/SettingsModal";
 import { AboutPage } from "./AboutPage";
@@ -125,13 +124,12 @@ export const UserSettingsModal: ParentComponent<{
 					createEffect(() => {
 						(async () => {
 							try {
-								if (isWebRuntime()) {
-									await unsubscribeWebPush((endpoint) =>
-										user.xrpc.social.colibri.notification.unregisterPush(
-											endpoint,
-										),
-									);
-								}
+								await unregisterAllPush((endpoint, provider) =>
+									user.xrpc.social.colibri.notification.unregisterPush(
+										endpoint,
+										provider,
+									),
+								);
 								await auth?.client.revoke(user.did);
 							} finally {
 								await endSession();

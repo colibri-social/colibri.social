@@ -2,6 +2,7 @@ import type { XrpcRequest } from "../../..";
 
 type Response = {
 	updated: number;
+	clearedPings: number;
 };
 
 export const updateSeenForMessage: XrpcRequest<

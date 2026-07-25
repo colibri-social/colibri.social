@@ -183,6 +183,18 @@ jobs:
           args: ${{ matrix.args }}
           mobile: ${{ matrix.mobile }}
 
+      - name: Verify macOS signing and notarization
+        if: matrix.platform == 'macos-latest'
+        run: |
+          set -euo pipefail
+          DMG=$(ls packages/wrapper/src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg | head -1)
+          hdiutil attach -nobrowse -readonly "$DMG" -mountpoint /tmp/colibri-verify
+          trap 'hdiutil detach /tmp/colibri-verify || true' EXIT
+          APP=$(ls -d /tmp/colibri-verify/*.app | head -1)
+          codesign --verify --deep --strict --verbose=2 "$APP"
+          xcrun stapler validate "$APP"
+          spctl --assess --type exec --verbose=4 "$APP"
+
       - name: Upload Rust debug symbols to Sentry
         if: env.SENTRY_AUTH_TOKEN != ''
         env:
@@ -215,7 +227,7 @@ jobs:
 
   homebrew:
     needs: publish-tauri
-    runs-on: ubuntu-latest
+    runs-on: macos-latest
     steps:
       - name: Mint tap token
         id: app-token
@@ -238,7 +250,7 @@ jobs:
           ASSET=$(gh release view "$TAG" --repo "$REPO" --json assets --jq '[.assets[].name | select(test("\\.dmg$"))][0] // ""')
           test -n "$ASSET"
           gh release download "$TAG" --repo "$REPO" --pattern "$ASSET" --dir dl
-          SHA=$(sha256sum "dl/$ASSET" | cut -d' ' -f1)
+          SHA=$(shasum -a 256 "dl/$ASSET" | cut -d' ' -f1)
           ENC=$(jq -rn --arg s "$ASSET" '$s|@uri')
           URL="https://github.com/$REPO/releases/download/$TAG/$ENC"
           git clone --depth 1 "https://x-access-token:$TOKEN@github.com/colibri-social/homebrew-tap.git" tap
@@ -255,10 +267,6 @@ jobs:
 
             app "Colibri Social.app"
 
-            postflight do
-              File.write("#{appdir}/Colibri Social.app/Contents/Resources/.install-channel", "homebrew")
-            end
-
             zap trash: [
               "~/Library/Application Support/social.colibri.app",
               "~/Library/Caches/social.colibri.app",
@@ -267,6 +275,28 @@ jobs:
             ]
           end
           RUBY
+
+      # Installs the generated cask exactly as a user would, then checks the
+      # bundle seal, notarization ticket and Gatekeeper verdict. Anything the
+      # cask does to the app bundle that invalidates its signature fails here,
+      # before the tap ever serves it.
+      - name: Verify cask install
+        env:
+          HOMEBREW_NO_AUTO_UPDATE: "1"
+        run: |
+          set -euo pipefail
+          brew install --cask "$PWD/tap/Casks/colibri-social.rb"
+          APP="/Applications/Colibri Social.app"
+          test -d "$APP"
+          codesign --verify --deep --strict --verbose=2 "$APP"
+          xcrun stapler validate "$APP"
+          spctl --assess --type exec --verbose=4 "$APP"
+
+      - name: Push cask
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
           cd tap
           git config user.name "colibri-release[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"

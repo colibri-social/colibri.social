@@ -197,7 +197,7 @@ export type ChannelContextValue = {
 	readCursorUri: Accessor<string | undefined>;
 	readCursorResolved: Accessor<boolean>;
 	initialUnseen: Accessor<string[]>;
-	advanceReadCursor: () => void;
+	advanceReadCursor: (explicitUri?: string) => void;
 	clearUnreadBoundary: () => void;
 };
 
@@ -895,23 +895,33 @@ export const ChannelContextProvider: ParentComponent<{
 		}),
 	);
 
-	const advanceReadCursor = () => {
+	const messageRkey = (uri: string) => uri.slice(uri.lastIndexOf("/") + 1);
+
+	const advanceReadCursor = (explicitUri?: string) => {
 		const uri = channelUri();
 		if (!uri) return;
 
-		// Newest confirmed (non-pending) message. Pending rows now carry a
-		// deterministic `at://` URI too, so detect them by the `hash` flag.
-		const msgs = messages();
-		let newest: string | undefined;
-		for (let i = msgs.length - 1; i >= 0; i--) {
-			const m = msgs[i];
-			if (m && !("hash" in m) && m.uri.startsWith("at://")) {
-				newest = m.uri;
-				break;
+		let newest = explicitUri;
+		if (!newest) {
+			// Newest confirmed (non-pending) message. Pending rows now carry a
+			// deterministic `at://` URI too, so detect them by the `hash` flag.
+			const msgs = messages();
+			for (let i = msgs.length - 1; i >= 0; i--) {
+				const m = msgs[i];
+				if (m && !("hash" in m) && m.uri.startsWith("at://")) {
+					newest = m.uri;
+					break;
+				}
 			}
 		}
 
 		if (!newest || newest === lastWrittenCursor) return;
+		if (
+			lastWrittenCursor &&
+			messageRkey(newest) <= messageRkey(lastWrittenCursor)
+		) {
+			return;
+		}
 		lastWrittenCursor = newest;
 		void writeReadCursor(user.did, uri, newest).catch(() => {
 			if (lastWrittenCursor === newest) lastWrittenCursor = undefined;

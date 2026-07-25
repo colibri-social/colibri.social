@@ -75,8 +75,10 @@ export const NotificationsPage: Component = () => {
 						user.xrpc.social.colibri.notification.registerPush(sub),
 					);
 				}
-				await subscribeFcmPush((sub) =>
-					user.xrpc.social.colibri.notification.registerPush(sub),
+				await subscribeFcmPush(
+					(sub) => user.xrpc.social.colibri.notification.registerPush(sub),
+					(token) =>
+						user.xrpc.social.colibri.notification.unregisterPush(token, "fcm"),
 				);
 			} else {
 				setNativeNotifications(false);

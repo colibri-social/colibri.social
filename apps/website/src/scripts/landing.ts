@@ -59,6 +59,14 @@ function branchInteractions() {
 
 	const petalsApi = initHeroPetals();
 
+	const regions = gsap.utils
+		.toArray<HTMLElement>("[data-branch-hit]")
+		.map((el) => ({
+			el,
+			side: (el.dataset.branchHit ?? "right") as "left" | "right",
+			inside: false,
+		}));
+
 	let pointerVX = 0;
 	let pointerVY = 0;
 	let prevX = 0;
@@ -76,24 +84,30 @@ function branchInteractions() {
 			prevX = e.clientX;
 			prevY = e.clientY;
 			prevT = now;
+
+			for (const region of regions) {
+				const rect = region.el.getBoundingClientRect();
+				const isInside =
+					rect.width > 0 &&
+					e.clientX >= rect.left &&
+					e.clientX <= rect.right &&
+					e.clientY >= rect.top &&
+					e.clientY <= rect.bottom;
+
+				if (isInside && !region.inside) {
+					const speed = Math.hypot(pointerVX, pointerVY);
+					const strength = 0.6 + Math.min(speed / 1200, 1);
+					const dx = speed > 1 ? pointerVX / speed : 0;
+					const dy = speed > 1 ? pointerVY / speed : 0;
+					wind?.gust(region.side, strength, dx, -dy);
+					petalsApi.burst(rect, 6 + Math.floor(Math.random() * 9));
+				}
+
+				region.inside = isInside;
+			}
 		},
 		{ passive: true },
 	);
-
-	for (const hit of gsap.utils.toArray<HTMLElement>("[data-branch-hit]")) {
-		const side = hit.dataset.branchHit ?? "right";
-		hit.addEventListener("pointerenter", () => {
-			const speed = Math.hypot(pointerVX, pointerVY);
-			const strength = 0.6 + Math.min(speed / 1200, 1);
-			const dx = speed > 1 ? pointerVX / speed : 0;
-			const dy = speed > 1 ? pointerVY / speed : 0;
-			wind?.gust(side as "left" | "right", strength, dx, -dy);
-			petalsApi.burst(
-				hit.getBoundingClientRect(),
-				6 + Math.floor(Math.random() * 9),
-			);
-		});
-	}
 }
 
 sizeSky();

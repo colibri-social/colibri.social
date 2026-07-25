@@ -16,8 +16,7 @@ import { endSession } from "../../../atproto/session";
 import { useAuthContext } from "../../../contexts/Auth";
 import { useUserContext } from "../../../contexts/User";
 import { useUserPreferences } from "../../../contexts/UserPreferences";
-import { isWebRuntime } from "../../../notifications";
-import { unsubscribeWebPush } from "../../../notifications/push-web";
+import { unregisterAllPush } from "../../../notifications";
 import { getAppViewDid, getPreferredAppViewUrl } from "../../../utils/appview";
 import { Bluesky } from "../../icons/Bluesky";
 import { Image } from "../../icons/Image";
@@ -299,11 +298,12 @@ export const ProfileSetupModal: Component<{
 
 	const logout = async () => {
 		try {
-			if (isWebRuntime()) {
-				await unsubscribeWebPush((endpoint) =>
-					user.xrpc.social.colibri.notification.unregisterPush(endpoint),
-				);
-			}
+			await unregisterAllPush((endpoint, provider) =>
+				user.xrpc.social.colibri.notification.unregisterPush(
+					endpoint,
+					provider,
+				),
+			);
 			await auth?.client.revoke(user.did);
 		} finally {
 			await endSession();

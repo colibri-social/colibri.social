@@ -1,5 +1,7 @@
 import { toast } from "somoto";
 import { isTauriRuntime, isWebRuntime } from "./environment";
+import { unsubscribeFcmPush } from "./push-fcm";
+import { unsubscribeWebPush } from "./push-web";
 import { tauriBackend } from "./tauri";
 import type { NotificationBackend, NotificationPayload } from "./types";
 import { webBackend } from "./web";
@@ -52,6 +54,20 @@ export const notify = async (payload: NotificationPayload): Promise<void> => {
 	}
 
 	toast(payload.title, { description: payload.body });
+};
+
+export const unregisterAllPush = async (
+	unregisterPush?: (endpoint: string, provider?: string) => Promise<unknown>,
+): Promise<void> => {
+	const unregister = unregisterPush ?? (async () => {});
+	if (isWebRuntime()) {
+		try {
+			await unsubscribeWebPush((endpoint) => unregister(endpoint));
+		} catch {}
+	}
+	try {
+		await unsubscribeFcmPush((token) => unregister(token, "fcm"));
+	} catch {}
 };
 
 export {

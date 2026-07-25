@@ -12,6 +12,7 @@ import { syncPresenceService } from "../../../atproto/presence";
 import { endSession } from "../../../atproto/session";
 import { AuthContext } from "../../../contexts/Auth";
 import { useUserPreferences } from "../../../contexts/UserPreferences";
+import { unregisterAllPush } from "../../../notifications";
 import {
 	isValidAppViewUrl,
 	normalizeAppViewUrl,
@@ -109,6 +110,7 @@ export const AppViewSwitcher: Component<{
 		);
 
 		try {
+			await unregisterAllPush();
 			if (auth?.loggedIn && did) await auth.client.revoke(did);
 		} finally {
 			await endSession();

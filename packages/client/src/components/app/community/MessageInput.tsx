@@ -233,7 +233,7 @@ export const MessageInput: Component<{
 			};
 
 			channel.addPendingMessage(pending);
-			channel.advanceReadCursor();
+			channel.advanceReadCursor(uri);
 
 			for (const file of acceptedFiles) {
 				fileField.removeFile(file);

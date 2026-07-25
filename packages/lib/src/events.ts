@@ -305,8 +305,9 @@ export type Colibri_NotificationEvent = EventBase<
  * unread badges update live without a reload.
  *
  * - `channel_read`: the read cursor advanced — clear the channel's white dot.
- * - `message_seen`: a message's ping was cleared — decrement the channel's ping
- *   count by `cleared` (the number of notifications the server cleared).
+ * - `message_seen`: a message's pings were cleared — decrement the channel's
+ *   ping count by `cleared` (the number of mention/reply notifications the
+ *   server cleared for that message).
  */
 export type Colibri_SeenEvent = EventBase<
 	"seen_event",

@@ -15,6 +15,11 @@ export type UpdateCheckResult =
 			download: () => Promise<void>;
 	  };
 
+const HOMEBREW_CASKROOM_PATHS = [
+	"/opt/homebrew/Caskroom/colibri-social",
+	"/usr/local/Caskroom/colibri-social",
+];
+
 const detectPackageManagerChannel =
 	async (): Promise<InstallChannel | null> => {
 		try {
@@ -22,11 +27,9 @@ const detectPackageManagerChannel =
 			const os = platform();
 
 			if (os === "macos") {
-				const { exists, BaseDirectory } = await import("@tauri-apps/plugin-fs");
-				if (
-					await exists(".install-channel", { baseDir: BaseDirectory.Resource })
-				) {
-					return "homebrew";
+				const { exists } = await import("@tauri-apps/plugin-fs");
+				for (const caskroom of HOMEBREW_CASKROOM_PATHS) {
+					if (await exists(caskroom)) return "homebrew";
 				}
 			} else if (os === "windows") {
 				const { resourceDir } = await import("@tauri-apps/api/path");
