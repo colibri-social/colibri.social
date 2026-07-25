@@ -25,11 +25,17 @@ export function Avatar(props: {
 			<img
 				src={
 					props.overrideSrc ||
-					resolveBlob(props.user.did, props.user.data.avatar) ||
+					resolveBlob(
+						props.user.did,
+						props.user.data.avatar,
+						props.size ?? "base",
+					) ||
 					FALLBACK_AVATAR
 				}
 				alt={props.user.data.displayName}
 				onError={(e) => (e.currentTarget.src = FALLBACK_AVATAR)}
+				loading="lazy"
+				decoding="async"
 				width={props.size === "small" ? 24 : props.size === "large" ? 80 : 40}
 				height={props.size === "small" ? 24 : props.size === "large" ? 80 : 40}
 				class={`rounded-full object-cover outline-card ${props.size === "small" ? "outline" : props.size === "large" ? "outline-4" : "outline-2"}`}

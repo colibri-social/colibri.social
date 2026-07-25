@@ -2,14 +2,24 @@ import type { JsonBlobRef } from "@atproto/lexicon";
 import { getAppViewHost } from "../utils/appview";
 
 /**
+ * A downscaled, square rendition the AppView can derive from an image blob.
+ * Matches the `size` prop on {@link Avatar}.
+ */
+export type BlobVariant = "small" | "base" | "large";
+
+/**
  * Resolves a blob to it's URL given a DID.
  * @param did The DID of the owner
  * @param blob The blob to get the URL for
+ * @param variant Optional downscaled rendition to request. Omit for the
+ * original bytes, required for anything that isn't a square image (banners,
+ * attachments, media that needs Range requests).
  * @returns The URL to the file
  */
 export const resolveBlob = (
 	did: string,
 	blob?: JsonBlobRef,
+	variant?: BlobVariant,
 ): string | undefined => {
 	if (!blob) return undefined;
 
@@ -21,7 +31,9 @@ export const resolveBlob = (
 				? blob.ref.$link
 				: blob.ref.link().toString();
 
-	return `${appView}/xrpc/com.atproto.sync.getBlob?did=${did}&cid=${cid}`;
+	const query = variant ? `&variant=${variant}` : "";
+
+	return `${appView}/xrpc/com.atproto.sync.getBlob?did=${did}&cid=${cid}${query}`;
 };
 
 /**
