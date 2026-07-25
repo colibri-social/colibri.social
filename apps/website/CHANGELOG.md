@@ -1,5 +1,16 @@
 # @colibri-social/website
 
+## 0.0.2-rc.9
+
+### Patch Changes
+
+- 5258c62: Fixes issues related to FCM notifications and pings in-app
+- Updated dependencies [e7d5e80]
+- Updated dependencies [1a0b6b5]
+- Updated dependencies [5258c62]
+- Updated dependencies [5258c62]
+  - @colibri-social/client@0.1.0-rc.9
+
 ## 0.0.2-rc.8
 
 ### Patch Changes

@@ -75,7 +75,7 @@ importers:
         specifier: workspace:0.0.2-rc.1
         version: link:../../packages/assets
       '@colibri-social/client':
-        specifier: workspace:0.1.0-rc.8
+        specifier: workspace:0.1.0-rc.9
         version: link:../../packages/client
       '@colibri-social/standard-renderer':
         specifier: workspace:0.0.2-rc.0
@@ -306,7 +306,7 @@ importers:
         specifier: workspace:0.0.2-rc.1
         version: link:../assets
       '@colibri-social/lib':
-        specifier: workspace:0.0.2-rc.1
+        specifier: workspace:0.0.2-rc.2
         version: link:../lib
       '@kobalte/core':
         specifier: ^0.13.11
@@ -576,7 +576,7 @@ importers:
         specifier: workspace:0.0.2-rc.1
         version: link:../assets
       '@colibri-social/client':
-        specifier: workspace:0.1.0-rc.8
+        specifier: workspace:0.1.0-rc.9
         version: link:../client
       '@tauri-apps/api':
         specifier: ^2
