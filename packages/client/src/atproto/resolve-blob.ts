@@ -3,9 +3,7 @@ import { getAppViewHost } from "../utils/appview";
 
 /**
  * A downscaled, square rendition the AppView can derive from an image blob.
- * Matches the `size` prop on {@link Avatar} — the original blob is routinely
- * hundreds of kilobytes, which is wasteful for something drawn at 40px and
- * ruinous for a member list that renders hundreds of them.
+ * Matches the `size` prop on {@link Avatar}.
  */
 export type BlobVariant = "small" | "base" | "large";
 
@@ -14,7 +12,7 @@ export type BlobVariant = "small" | "base" | "large";
  * @param did The DID of the owner
  * @param blob The blob to get the URL for
  * @param variant Optional downscaled rendition to request. Omit for the
- * original bytes — required for anything that isn't a square image (banners,
+ * original bytes, required for anything that isn't a square image (banners,
  * attachments, media that needs Range requests).
  * @returns The URL to the file
  */
