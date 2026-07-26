@@ -405,6 +405,13 @@ ol[data-somoto-toaster] > li {
 	.scroll-edge-fade {
 		background: linear-gradient(to bottom, transparent, var(--background) 80%);
 	}
+
+	/* The mobile panes animate `translate`, not `transform`. `transform` stays in
+	   the list because WebKit builds that predate the individual transform
+	   properties parse a bare `translate` as a custom ident and promote nothing. */
+	.will-change-pane {
+		will-change: transform, translate;
+	}
 }
 
 pre code,

@@ -568,7 +568,7 @@ const MessageInner: Component<{
 							!isLoneMediaLink()
 						}
 					>
-						<div class="flex flex-row flex-wrap gap-4 pl-14">
+						<div class="flex flex-row flex-wrap gap-4 pl-14 min-w-0">
 							<For each={linkFacets()}>
 								{(item) => <Embed uri={item.uri} />}
 							</For>

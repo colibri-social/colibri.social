@@ -1,4 +1,3 @@
-import { Blockquote } from "@tiptap/extension-blockquote";
 import { BubbleMenu } from "@tiptap/extension-bubble-menu";
 import { Document } from "@tiptap/extension-document";
 import Emoji from "@tiptap/extension-emoji";
@@ -25,7 +24,7 @@ import {
 } from "@colibri-social/lib";
 import { type Editor, Extension, mergeAttributes } from "@tiptap/core";
 import type { Fragment, Node as ProseMirrorNode } from "prosemirror-model";
-import { Plugin, TextSelection } from "prosemirror-state";
+import { Plugin } from "prosemirror-state";
 import type { EditorView } from "prosemirror-view";
 import CodeIcon from "~icons/ph/code";
 import SmileyIcon from "~icons/ph/smiley";
@@ -237,136 +236,8 @@ const isInFencedCodeBlock = (editor: Editor): boolean => {
 	return false;
 };
 
-/**
- * Smart Shift+Enter inside a blockquote
- */
-const handleQuoteExit = (editor: Editor): boolean => {
-	const { state } = editor;
-	const sel = state.selection;
-	if (!sel.empty) return false;
-
-	const $from = sel.$from;
-	let bqDepth = -1;
-	for (let d = $from.depth; d > 0; d--) {
-		if ($from.node(d).type.name === "blockquote") {
-			bqDepth = d;
-			break;
-		}
-	}
-	if (bqDepth === -1) return false;
-
-	const block = $from.parent;
-	if (!block.isTextblock) return false;
-	const blockStart = $from.start();
-
-	let text = "";
-	const positions: number[] = [];
-	block.forEach((child, offset) => {
-		if (child.isText && child.text) {
-			for (let i = 0; i < child.text.length; i++) {
-				positions.push(blockStart + offset + i);
-			}
-			text += child.text;
-		} else if (child.type.name === "hardBreak") {
-			positions.push(blockStart + offset);
-			text += "\n";
-		} else {
-			positions.push(blockStart + offset);
-			text += "￼";
-		}
-	});
-	positions.push(blockStart + block.content.size);
-
-	// Only exit from the end of the quote with two trailing empty lines.
-	if ($from.pos !== positions[text.length]) return false;
-	let trailingNewlines = 0;
-	for (let i = text.length - 1; i >= 0 && text[i] === "\n"; i--) {
-		trailingNewlines++;
-	}
-	if (trailingNewlines < 2) return false;
-
-	const delFrom = positions[text.length - 2];
-	const afterBlockquote = $from.after(bqDepth);
-
-	let tr = state.tr.delete(delFrom, $from.pos);
-	const insertAt = tr.mapping.map(afterBlockquote);
-	const paragraph = state.schema.nodes.paragraph.createAndFill();
-	if (paragraph) {
-		tr = tr.insert(insertAt, paragraph);
-		tr = tr.setSelection(TextSelection.near(tr.doc.resolve(insertAt + 1)));
-	}
-	editor.view.dispatch(tr.scrollIntoView());
-	return true;
-};
-
-/**
- * Backspace at the start of an empty line directly after a blockquote
- */
-const handleQuoteBackspace = (editor: Editor): boolean => {
-	const { state } = editor;
-	const sel = state.selection;
-	if (!sel.empty) return false;
-
-	const $from = sel.$from;
-	if (!$from.parent.isTextblock) return false;
-
-	if ($from.parentOffset === 0 && $from.parent.content.size === 0) {
-		const paraStart = $from.before($from.depth);
-		const nodeBefore = state.doc.resolve(paraStart).nodeBefore;
-		if (nodeBefore?.type.name !== "blockquote") return false;
-
-		let tr = state.tr.delete(paraStart, paraStart + $from.parent.nodeSize);
-		tr = tr.setSelection(TextSelection.near(tr.doc.resolve(paraStart - 1), -1));
-		editor.view.dispatch(tr.scrollIntoView());
-		return true;
-	}
-
-	let bqDepth = -1;
-	for (let d = $from.depth; d > 0; d--) {
-		if ($from.node(d).type.name === "blockquote") {
-			bqDepth = d;
-			break;
-		}
-	}
-	if (bqDepth === -1) return false;
-
-	const block = $from.parent;
-	const blockStart = $from.start();
-	let text = "";
-	const positions: number[] = [];
-	block.forEach((child, offset) => {
-		if (child.isText && child.text) {
-			for (let i = 0; i < child.text.length; i++) {
-				positions.push(blockStart + offset + i);
-			}
-			text += child.text;
-		} else if (child.type.name === "hardBreak") {
-			positions.push(blockStart + offset);
-			text += "\n";
-		} else {
-			positions.push(blockStart + offset);
-			text += "￼";
-		}
-	});
-	positions.push(blockStart + block.content.size);
-
-	if ($from.pos !== positions[text.length]) return false;
-	if (text.length === 0 || text[text.length - 1] !== "\n") return false;
-
-	const delFrom = positions[text.length - 1];
-	const afterBlockquote = $from.after(bqDepth);
-	let tr = state.tr.delete(delFrom, $from.pos);
-	const insertAt = tr.mapping.map(afterBlockquote);
-	const paragraph = state.schema.nodes.paragraph.createAndFill();
-	if (paragraph) {
-		tr = tr.insert(insertAt, paragraph);
-		tr = tr.setSelection(TextSelection.near(tr.doc.resolve(insertAt + 1)));
-	}
-	editor.view.dispatch(tr.scrollIntoView());
-	return true;
-};
-
 const ORDERED_MARKER_RE = /^(\s*)(\d+)\.(\s)/;
+const QUOTE_MARKER_RE = /^ {0,3}> ?/;
 const UNORDERED_MARKER_RE = /^(\s*)[-*](\s)/;
 
 const projectCurrentBlock = (
@@ -443,6 +314,41 @@ const handleListContinuation = (editor: Editor): boolean => {
 		? `${Number.parseInt(ordered[2], 10) + 1}. `
 		: "- ";
 	editor.chain().focus().setHardBreak().insertContent(nextMarker).run();
+	return true;
+};
+
+/**
+ * Shift+Enter on a quote line continues the quote on the next line, or clears
+ * the marker when the line holds nothing but the marker
+ */
+const handleQuoteContinuation = (editor: Editor): boolean => {
+	const { selection } = editor.state;
+	if (!selection.empty || !selection.$from.parent.isTextblock) return false;
+
+	const { pos, text, positions } = projectCurrentBlock(editor);
+	const found = cursorLine(text, positions, pos);
+	if (!found) return false;
+	const { lineStart, line } = found;
+
+	const match = QUOTE_MARKER_RE.exec(line);
+	if (!match) return false;
+
+	const markerLen = match[0].length;
+	if (positions.indexOf(pos) < lineStart + markerLen) return false;
+
+	if (line.slice(markerLen).trim() === "") {
+		const from = positions[lineStart];
+		const to = positions[lineStart + markerLen];
+		editor
+			.chain()
+			.focus()
+			.deleteRange({ from, to })
+			.setTextSelection(from)
+			.run();
+		return true;
+	}
+
+	editor.chain().focus().setHardBreak().insertContent("> ").run();
 	return true;
 };
 
@@ -548,12 +454,6 @@ const fragmentToMarkdown = (fragment: Fragment): string => {
 			out += "\n";
 		} else if (name === "mention") {
 			out += mentionMarkdown(node);
-		} else if (name === "blockquote") {
-			if (out && !out.endsWith("\n")) out += "\n";
-			out += fragmentToMarkdown(node.content)
-				.split("\n")
-				.map((line) => `> ${line}`)
-				.join("\n");
 		} else if (name === "paragraph") {
 			if (out && !out.endsWith("\n")) out += "\n";
 			out += fragmentToMarkdown(node.content);
@@ -707,7 +607,6 @@ export const TextEditor: Component<{
 							props.onEscape?.();
 							return true;
 						},
-						Backspace: () => handleQuoteBackspace(this.editor),
 						Delete: () => handleListMarkerDelete(this.editor),
 						"Mod-b": () => {
 							toggleMarker(this.editor, "bold");
@@ -743,12 +642,11 @@ export const TextEditor: Component<{
 			}),
 			Text,
 			Paragraph,
-			Blockquote,
 			HardBreak.extend({
 				addKeyboardShortcuts() {
 					return {
 						"Shift-Enter": () => {
-							if (handleQuoteExit(this.editor)) return true;
+							if (handleQuoteContinuation(this.editor)) return true;
 							if (handleListContinuation(this.editor)) return true;
 							return this.editor.commands.setHardBreak();
 						},

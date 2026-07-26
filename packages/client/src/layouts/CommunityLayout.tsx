@@ -41,7 +41,11 @@ import { useUserPreferences } from "../contexts/UserPreferences";
 import { isTauriRuntime } from "../notifications";
 import createMediaQuery from "../utils/create-media-query";
 import { createSwipe, type SwipeOptions } from "../utils/create-swipe";
-import { createMobilePane, useIsMobile } from "../utils/mobile-pane";
+import {
+	createMobilePane,
+	PANE_COMMIT_RATIO,
+	useIsMobile,
+} from "../utils/mobile-pane";
 
 const CommunityHeader = () => {
 	const user = useUserContext();
@@ -207,10 +211,20 @@ const CommunityLayout: ParentComponent = (props) => {
 		isDragging,
 	} = createMobilePane();
 
+	// With swipe-to-reply turned on, a left swipe over a channel belongs to the
+	// message row, so the members pane is not reachable by gesture at all — not
+	// over a message, and not over the gaps between them either. The channel
+	// header's members button is the way in. Anywhere else in the stack (nav to
+	// chat, and every swipe right) is unaffected.
+	const swipeLeftOpensMembers = () =>
+		preferences().controls.swipeLeftAction !== "reply";
+
 	// Swipe right = back up the stack, swipe left = deeper
 	const swipe: SwipeOptions = {
 		enabled: () => isMobile() && !isDrawerOpen(),
-		commitRatio: 0.45,
+		commitRatio: PANE_COMMIT_RATIO,
+		canSwipe: (dx) =>
+			dx > 0 || currentPane() !== "chat" || swipeLeftOpensMembers(),
 		onSwipeRight: () => popPane(),
 		onSwipeLeft: () => pushDeeper(),
 		onSwipeMove: updateDrag,
@@ -229,11 +243,9 @@ const CommunityLayout: ParentComponent = (props) => {
 				style={{ translate: paneTranslate("nav") }}
 				classList={{
 					"h-full min-w-72 w-72 border-r": !isMobile(),
-					"absolute inset-0 w-full pl-14 z-30 will-change-transform":
-						isMobile(),
+					"absolute inset-0 w-full pl-14 z-30 will-change-pane": isMobile(),
 					"transition-transform duration-300 ease-[cubic-bezier(0.25,1,0.5,1)] motion-reduce:transition-none":
 						isMobile() && !isDragging(),
-					"-translate-x-full": isMobile() && currentPane() !== "nav",
 				}}
 			>
 				<CommunityHeader />
@@ -254,12 +266,10 @@ const CommunityLayout: ParentComponent = (props) => {
 					"max-w-[calc(100vw-288px-56px-1px)]":
 						!isMobile() &&
 						(displayMembersAsSheet() || !preferences().membersListVisible),
-					"absolute inset-0 w-full h-full max-w-none! z-20 will-change-transform":
+					"absolute inset-0 w-full h-full max-w-none! z-20 will-change-pane":
 						isMobile(),
 					"transition-transform duration-300 ease-[cubic-bezier(0.25,1,0.5,1)] motion-reduce:transition-none":
 						isMobile() && !isDragging(),
-					"translate-x-full": isMobile() && currentPane() === "nav",
-					"-translate-x-full": isMobile() && currentPane() === "members",
 				}}
 			>
 				{props.children}

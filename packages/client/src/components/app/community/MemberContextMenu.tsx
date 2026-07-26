@@ -1,6 +1,7 @@
 import type { ActorData } from "@colibri-social/lib";
 import {
 	createEffect,
+	createMemo,
 	createSignal,
 	For,
 	type JSX,
@@ -179,8 +180,13 @@ export const MemberContextMenu: ParentComponent<{
 
 	onCleanup(stopPreview);
 
-	const sortedRoles = () =>
-		community().assignableRoles.sort((a, b) => b.position - a.position);
+	// `.slice()` first — `assignableRoles` is a shared memoised array, and sorting
+	// it in place reordered it for every other consumer.
+	const sortedRoles = createMemo(() =>
+		community()
+			.assignableRoles.slice()
+			.sort((a, b) => b.position - a.position),
+	);
 
 	const canManageAnyRole = () =>
 		sortedRoles().some((role) => canManageRole(user.did, role));
@@ -219,35 +225,50 @@ export const MemberContextMenu: ParentComponent<{
 		type: "kick",
 	});
 
+	// A member row that nobody has touched needs none of the overlays below. They
+	// are only built on first use and then stay mounted so their close
+	// animations still play. Without this, opening the member list in a large
+	// community built a dialog, a camera preview dialog and a bottom sheet per
+	// member up front.
+	const [overlaysMounted, setOverlaysMounted] = createSignal(false);
+
+	createEffect(() => {
+		if (menuOpen() || dialog().open || cameraPreviewOpen()) {
+			setOverlaysMounted(true);
+		}
+	});
+
 	return (
 		<>
-			<MemberActionDialog
-				member={props.member}
-				dialog={dialog}
-				setDialog={setDialog}
-			/>
-			<ResponsiveDialog
-				open={cameraPreviewOpen()}
-				onOpenChange={setCameraPreviewOpen}
-				title="Camera Preview"
-			>
-				<div class="flex flex-col gap-3">
-					<video
-						ref={previewVideo}
-						class="w-full aspect-video rounded-md object-cover bg-muted -scale-x-100"
-					/>
-					<Button
-						class="w-full"
-						disabled={voiceData.states.camEnabled}
-						onClick={() => {
-							if (!voiceData.states.camEnabled) toggleCamera();
-							setCameraPreviewOpen(false);
-						}}
-					>
-						{voiceData.states.camEnabled ? "Camera On" : "Turn On Camera"}
-					</Button>
-				</div>
-			</ResponsiveDialog>
+			<Show when={overlaysMounted()}>
+				<MemberActionDialog
+					member={props.member}
+					dialog={dialog}
+					setDialog={setDialog}
+				/>
+				<ResponsiveDialog
+					open={cameraPreviewOpen()}
+					onOpenChange={setCameraPreviewOpen}
+					title="Camera Preview"
+				>
+					<div class="flex flex-col gap-3">
+						<video
+							ref={previewVideo}
+							class="w-full aspect-video rounded-md object-cover bg-muted -scale-x-100"
+						/>
+						<Button
+							class="w-full"
+							disabled={voiceData.states.camEnabled}
+							onClick={() => {
+								if (!voiceData.states.camEnabled) toggleCamera();
+								setCameraPreviewOpen(false);
+							}}
+						>
+							{voiceData.states.camEnabled ? "Camera On" : "Turn On Camera"}
+						</Button>
+					</div>
+				</ResponsiveDialog>
+			</Show>
 			<Show when={isMobile()}>
 				<div
 					style={{ display: "contents" }}
@@ -260,233 +281,239 @@ export const MemberContextMenu: ParentComponent<{
 				>
 					{props.children}
 				</div>
-				<MenuDrawer
-					open={menuOpen()}
-					onOpenChange={setMenuOpen}
-					title={<DisplayableName color={false} user={props.member} />}
-				>
-					<Show when={inVc()}>
-						<Show
-							when={isMe()}
-							fallback={
-								<div class="px-3 py-2">
-									<Slider
-										value={[participantVolume()]}
-										minValue={0}
-										maxValue={200}
-										step={1}
-										getValueLabel={(p) => `${p.values[0]}%`}
-										onChange={(e) =>
-											preferences.setParticipantVolume(
-												props.member.did,
-												e[0] / 100,
-											)
-										}
-									>
-										<SliderGroup>
-											<SliderLabel>Volume</SliderLabel>
-											<SliderValueLabel />
-										</SliderGroup>
-										<SliderTrack>
-											<SliderFill />
-											<SliderThumb />
-										</SliderTrack>
-									</Slider>
-								</div>
-							}
-						>
-							<MenuDrawerItem onClick={() => toggleMic()}>
-								<MicrophoneSlashIcon />
-								<span>Mute</span>
-								<Show when={!voiceData.states.micEnabled}>
-									<CheckIcon class="ml-auto" />
-								</Show>
-							</MenuDrawerItem>
-							<MenuDrawerItem onClick={() => toggleDeafen()}>
-								<SpeakerSlashIcon />
-								<span>Deafen</span>
-								<Show when={voiceData.states.deafened}>
-									<CheckIcon class="ml-auto" />
-								</Show>
-							</MenuDrawerItem>
-							<MenuDrawerItem
-								onClick={() =>
-									handoffDrawer(
-										() => setMenuOpen(false),
-										() => setCameraPreviewOpen(true),
-									)
+				<Show when={overlaysMounted()}>
+					<MenuDrawer
+						open={menuOpen()}
+						onOpenChange={setMenuOpen}
+						title={<DisplayableName color={false} user={props.member} />}
+					>
+						<Show when={inVc()}>
+							<Show
+								when={isMe()}
+								fallback={
+									<div class="px-3 py-2">
+										<Slider
+											value={[participantVolume()]}
+											minValue={0}
+											maxValue={200}
+											step={1}
+											getValueLabel={(p) => `${p.values[0]}%`}
+											onChange={(e) =>
+												preferences.setParticipantVolume(
+													props.member.did,
+													e[0] / 100,
+												)
+											}
+										>
+											<SliderGroup>
+												<SliderLabel>Volume</SliderLabel>
+												<SliderValueLabel />
+											</SliderGroup>
+											<SliderTrack>
+												<SliderFill />
+												<SliderThumb />
+											</SliderTrack>
+										</Slider>
+									</div>
 								}
 							>
-								<VideoCameraIcon />
-								<span>Preview Camera</span>
-							</MenuDrawerItem>
-							<MenuDrawerItem
-								onClick={() =>
-									preferences.setVoiceView({
-										showNonVideoParticipants:
-											!preferences.preferences().voice.showNonVideoParticipants,
-									})
-								}
-							>
-								<UsersThreeIcon />
-								<span>Show non-video participants</span>
-								<Show
-									when={
-										preferences.preferences().voice.showNonVideoParticipants
+								<MenuDrawerItem onClick={() => toggleMic()}>
+									<MicrophoneSlashIcon />
+									<span>Mute</span>
+									<Show when={!voiceData.states.micEnabled}>
+										<CheckIcon class="ml-auto" />
+									</Show>
+								</MenuDrawerItem>
+								<MenuDrawerItem onClick={() => toggleDeafen()}>
+									<SpeakerSlashIcon />
+									<span>Deafen</span>
+									<Show when={voiceData.states.deafened}>
+										<CheckIcon class="ml-auto" />
+									</Show>
+								</MenuDrawerItem>
+								<MenuDrawerItem
+									onClick={() =>
+										handoffDrawer(
+											() => setMenuOpen(false),
+											() => setCameraPreviewOpen(true),
+										)
 									}
 								>
-									<CheckIcon class="ml-auto" />
-								</Show>
-							</MenuDrawerItem>
-							<MenuDrawerItem
-								onClick={() =>
-									preferences.setVoiceView({
-										showOwnCamera:
-											!preferences.preferences().voice.showOwnCamera,
-									})
-								}
-							>
-								<WebcamIcon />
-								<span>Show own camera feed</span>
-								<Show when={preferences.preferences().voice.showOwnCamera}>
-									<CheckIcon class="ml-auto" />
-								</Show>
-							</MenuDrawerItem>
-						</Show>
-					</Show>
-					<Show when={canManageAnyRole()}>
-						<span class="px-3 pt-1 pb-0.5 text-xs uppercase tracking-wide text-muted-foreground flex flex-row items-center gap-1.5">
-							<IdentificationBadgeIcon class="size-3.5" />
-							Roles
-						</span>
-						<For each={sortedRoles()}>
-							{(role) => {
-								const manageable = () => canManageRole(user.did, role);
-								return (
-									<MenuDrawerItem
-										disabled={!manageable()}
-										class="disabled:opacity-50"
-										onClick={() => manageable() && toggleRole(role.uri)}
+									<VideoCameraIcon />
+									<span>Preview Camera</span>
+								</MenuDrawerItem>
+								<MenuDrawerItem
+									onClick={() =>
+										preferences.setVoiceView({
+											showNonVideoParticipants:
+												!preferences.preferences().voice
+													.showNonVideoParticipants,
+										})
+									}
+								>
+									<UsersThreeIcon />
+									<span>Show non-video participants</span>
+									<Show
+										when={
+											preferences.preferences().voice.showNonVideoParticipants
+										}
 									>
-										<div
-											class="w-2.5 h-2.5 rounded-full shrink-0"
-											style={{ background: role.color ?? "#fff" }}
-										/>
-										<span>{role.name}</span>
-										<Show when={hasRole(role.uri)}>
-											<CheckIcon class="ml-auto" />
-										</Show>
-									</MenuDrawerItem>
-								);
+										<CheckIcon class="ml-auto" />
+									</Show>
+								</MenuDrawerItem>
+								<MenuDrawerItem
+									onClick={() =>
+										preferences.setVoiceView({
+											showOwnCamera:
+												!preferences.preferences().voice.showOwnCamera,
+										})
+									}
+								>
+									<WebcamIcon />
+									<span>Show own camera feed</span>
+									<Show when={preferences.preferences().voice.showOwnCamera}>
+										<CheckIcon class="ml-auto" />
+									</Show>
+								</MenuDrawerItem>
+							</Show>
+						</Show>
+						<Show when={canManageAnyRole()}>
+							<span class="px-3 pt-1 pb-0.5 text-xs uppercase tracking-wide text-muted-foreground flex flex-row items-center gap-1.5">
+								<IdentificationBadgeIcon class="size-3.5" />
+								Roles
+							</span>
+							<For each={sortedRoles()}>
+								{(role) => {
+									const manageable = () => canManageRole(user.did, role);
+									return (
+										<MenuDrawerItem
+											disabled={!manageable()}
+											class="disabled:opacity-50"
+											onClick={() => manageable() && toggleRole(role.uri)}
+										>
+											<div
+												class="w-2.5 h-2.5 rounded-full shrink-0"
+												style={{ background: role.color ?? "#fff" }}
+											/>
+											<span>{role.name}</span>
+											<Show when={hasRole(role.uri)}>
+												<CheckIcon class="ml-auto" />
+											</Show>
+										</MenuDrawerItem>
+									);
+								}}
+							</For>
+						</Show>
+						<Show when={showModActions()}>
+							<Show
+								when={
+									canKickMember(user.did) &&
+									community().community.requiresApprovalToJoin
+								}
+							>
+								<MenuDrawerItem
+									destructive
+									onClick={() =>
+										handoffDrawer(
+											() => setMenuOpen(false),
+											() => setDialog({ open: true, type: "kick" }),
+										)
+									}
+								>
+									<UserMinusIcon />
+									<span>
+										Kick <DisplayableName color={false} user={props.member} />
+									</span>
+								</MenuDrawerItem>
+							</Show>
+							<Show when={canBanMember(user.did)}>
+								<MenuDrawerItem
+									destructive
+									onClick={() =>
+										handoffDrawer(
+											() => setMenuOpen(false),
+											() => setDialog({ open: true, type: "ban" }),
+										)
+									}
+								>
+									<ProhibitIcon />
+									<span>
+										Ban <DisplayableName color={false} user={props.member} />
+									</span>
+								</MenuDrawerItem>
+							</Show>
+						</Show>
+						<Show when={canVoiceModerate()}>
+							<MenuDrawerItem
+								onClick={() =>
+									handoffDrawer(
+										() => setMenuOpen(false),
+										() =>
+											void moderateVoice(
+												targetServerMuted() ? "unmute" : "mute",
+											),
+									)
+								}
+							>
+								{targetServerMuted() ? (
+									<MicrophoneIcon />
+								) : (
+									<MicrophoneSlashIcon />
+								)}
+								<span>
+									{targetServerMuted() ? "Server unmute" : "Server mute"}{" "}
+									<DisplayableName color={false} user={props.member} />
+								</span>
+							</MenuDrawerItem>
+							<MenuDrawerItem
+								onClick={() =>
+									handoffDrawer(
+										() => setMenuOpen(false),
+										() =>
+											void moderateVoice(
+												targetServerDeafened() ? "undeafen" : "deafen",
+											),
+									)
+								}
+							>
+								{targetServerDeafened() ? (
+									<SpeakerHighIcon />
+								) : (
+									<SpeakerSlashIcon />
+								)}
+								<span>
+									{targetServerDeafened() ? "Server undeafen" : "Server deafen"}{" "}
+									<DisplayableName color={false} user={props.member} />
+								</span>
+							</MenuDrawerItem>
+							<MenuDrawerItem
+								destructive
+								onClick={() =>
+									handoffDrawer(
+										() => setMenuOpen(false),
+										() => void moderateVoice("disconnect"),
+									)
+								}
+							>
+								<PhoneSlashIcon />
+								<span>
+									Disconnect{" "}
+									<DisplayableName color={false} user={props.member} /> from
+									voice
+								</span>
+							</MenuDrawerItem>
+						</Show>
+						<MenuDrawerItem
+							onClick={() => {
+								setMenuOpen(false);
+								copyDid();
 							}}
-						</For>
-					</Show>
-					<Show when={showModActions()}>
-						<Show
-							when={
-								canKickMember(user.did) &&
-								community().community.requiresApprovalToJoin
-							}
 						>
-							<MenuDrawerItem
-								destructive
-								onClick={() =>
-									handoffDrawer(
-										() => setMenuOpen(false),
-										() => setDialog({ open: true, type: "kick" }),
-									)
-								}
-							>
-								<UserMinusIcon />
-								<span>
-									Kick <DisplayableName color={false} user={props.member} />
-								</span>
-							</MenuDrawerItem>
-						</Show>
-						<Show when={canBanMember(user.did)}>
-							<MenuDrawerItem
-								destructive
-								onClick={() =>
-									handoffDrawer(
-										() => setMenuOpen(false),
-										() => setDialog({ open: true, type: "ban" }),
-									)
-								}
-							>
-								<ProhibitIcon />
-								<span>
-									Ban <DisplayableName color={false} user={props.member} />
-								</span>
-							</MenuDrawerItem>
-						</Show>
-					</Show>
-					<Show when={canVoiceModerate()}>
-						<MenuDrawerItem
-							onClick={() =>
-								handoffDrawer(
-									() => setMenuOpen(false),
-									() =>
-										void moderateVoice(targetServerMuted() ? "unmute" : "mute"),
-								)
-							}
-						>
-							{targetServerMuted() ? (
-								<MicrophoneIcon />
-							) : (
-								<MicrophoneSlashIcon />
-							)}
-							<span>
-								{targetServerMuted() ? "Server unmute" : "Server mute"}{" "}
-								<DisplayableName color={false} user={props.member} />
-							</span>
+							<CopyIcon />
+							<span>Copy DID</span>
 						</MenuDrawerItem>
-						<MenuDrawerItem
-							onClick={() =>
-								handoffDrawer(
-									() => setMenuOpen(false),
-									() =>
-										void moderateVoice(
-											targetServerDeafened() ? "undeafen" : "deafen",
-										),
-								)
-							}
-						>
-							{targetServerDeafened() ? (
-								<SpeakerHighIcon />
-							) : (
-								<SpeakerSlashIcon />
-							)}
-							<span>
-								{targetServerDeafened() ? "Server undeafen" : "Server deafen"}{" "}
-								<DisplayableName color={false} user={props.member} />
-							</span>
-						</MenuDrawerItem>
-						<MenuDrawerItem
-							destructive
-							onClick={() =>
-								handoffDrawer(
-									() => setMenuOpen(false),
-									() => void moderateVoice("disconnect"),
-								)
-							}
-						>
-							<PhoneSlashIcon />
-							<span>
-								Disconnect <DisplayableName color={false} user={props.member} />{" "}
-								from voice
-							</span>
-						</MenuDrawerItem>
-					</Show>
-					<MenuDrawerItem
-						onClick={() => {
-							setMenuOpen(false);
-							copyDid();
-						}}
-					>
-						<CopyIcon />
-						<span>Copy DID</span>
-					</MenuDrawerItem>
-				</MenuDrawer>
+					</MenuDrawer>
+				</Show>
 			</Show>
 			<Show when={!isMobile()}>
 				<ContextMenu>

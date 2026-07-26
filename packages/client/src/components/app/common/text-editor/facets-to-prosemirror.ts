@@ -12,15 +12,9 @@ import type { MentionType } from "./prosemirror-to-facets";
 type Feature = ColibriRichTextFacet["features"][number];
 type DocNode = ReturnType<Editor["getJSON"]>["content"][number];
 
-const encoder = new TextEncoder();
-const decoder = new TextDecoder();
-
 const EMOJI_IMAGE_REGEX = /<img [\s\S\w\W\d\D]+\/>/gm;
 const EMOJI_IMAGE_ALT_REGEX =
 	/<img [\s\S\w\W\d\D]+ alt="([\W]+)" [\s\S\w\W\d\D]+\/>/gm;
-
-const isQuote = (facet: ColibriRichTextFacet): boolean =>
-	facet.features.some((f) => f.$type === "social.colibri.richtext.facet#quote");
 
 /**
  * Formats stored text + facets back into a ProseMirror document for editing.
@@ -43,88 +37,12 @@ export const facetsToProseMirror = (
 		return doc;
 	}
 
-	const normalized = normalizeFacets(facets);
-	const bytes = encoder.encode(text);
-	const quoteFacets = normalized
-		.filter(isQuote)
-		.sort((a, b) => a.index.byteStart - b.index.byteStart);
-
-	if (quoteFacets.length === 0) {
-		doc.content.push(
-			buildParagraph(text, normalized, members, channels, roles),
-		);
-		return doc;
-	}
-
-	const NEWLINE = 0x0a;
-
-	const pushInline = (
-		start: number,
-		end: number,
-		afterQuote: boolean,
-		beforeQuote: boolean,
-	): void => {
-		let s = start;
-		let e = end;
-		if (afterQuote && s < e && bytes[s] === NEWLINE) s++;
-		if (beforeQuote && e > s && bytes[e - 1] === NEWLINE) e--;
-		if (e <= s) return;
-		const sub = decoder.decode(bytes.slice(s, e));
-		doc.content.push(
-			buildParagraph(sub, rebase(normalized, s, e), members, channels, roles),
-		);
-	};
-
-	let cursor = 0;
-	let afterQuote = false;
-	for (const quote of quoteFacets) {
-		pushInline(cursor, quote.index.byteStart, afterQuote, true);
-
-		const innerText = decoder.decode(
-			bytes.slice(quote.index.byteStart, quote.index.byteEnd),
-		);
-		doc.content.push({
-			type: "blockquote",
-			content: [
-				buildParagraph(
-					innerText,
-					rebase(normalized, quote.index.byteStart, quote.index.byteEnd),
-					members,
-					channels,
-					roles,
-				),
-			],
-			attrs: undefined,
-		});
-
-		cursor = quote.index.byteEnd;
-		afterQuote = true;
-	}
-	pushInline(cursor, bytes.length, afterQuote, false);
+	doc.content.push(
+		buildParagraph(text, normalizeFacets(facets), members, channels, roles),
+	);
 
 	return doc;
 };
-
-/** Facets fully inside [start,end) (excluding quotes), re-based to that range */
-function rebase(
-	facets: Array<ColibriRichTextFacet>,
-	start: number,
-	end: number,
-): Array<ColibriRichTextFacet> {
-	return facets
-		.filter(
-			(f) =>
-				!isQuote(f) && f.index.byteStart >= start && f.index.byteEnd <= end,
-		)
-		.map((f) => ({
-			...f,
-			index: {
-				...f.index,
-				byteStart: f.index.byteStart - start,
-				byteEnd: f.index.byteEnd - start,
-			},
-		}));
-}
 
 /** Builds a paragraph node */
 function buildParagraph(

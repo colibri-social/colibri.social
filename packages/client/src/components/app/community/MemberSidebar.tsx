@@ -1,4 +1,12 @@
-import { createMemo, For, Match, Show, Switch } from "solid-js";
+import {
+	createMemo,
+	createSignal,
+	For,
+	Match,
+	onCleanup,
+	Show,
+	Switch,
+} from "solid-js";
 import BellIcon from "~icons/ph/bell";
 import BellSlashIcon from "~icons/ph/bell-slash";
 import CaretLeftIcon from "~icons/ph/caret-left";
@@ -14,12 +22,33 @@ import { createSwipe } from "../../../utils/create-swipe";
 import { parseEmojiText } from "../../../utils/emoji";
 import { getChannelParam } from "../../../utils/get-param";
 import { groupMembersByRoles } from "../../../utils/group-members-by-roles";
-import { createMobilePane } from "../../../utils/mobile-pane";
+import {
+	createMobilePane,
+	PANE_COMMIT_RATIO,
+} from "../../../utils/mobile-pane";
 import { Button } from "../../ui/Button";
 import { isDrawerOpen } from "../../ui/MenuDrawer";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../../ui/Tooltip";
 import User from "../user";
 import { MemberContextMenu } from "./MemberContextMenu";
+
+// Exact row geometry, so the window never has to measure the DOM.
+const ROW_GAP = 12; // was `gap-3` on the flex column
+const MEMBER_HEIGHT = 48; // `h-12`
+const HEADER_HEIGHT = 20; // one line of `text-sm`
+const HEADER_TOP_GAP = 16; // was `not-first-of-type:mt-4`
+const OVERSCAN = 6; // rows rendered beyond each edge of the viewport
+
+type Row =
+	| {
+			kind: "header";
+			key: string;
+			label: string;
+			count: number;
+			size: number;
+			spaced: boolean;
+	  }
+	| { kind: "member"; key: string; member: Member; size: number };
 
 const MemberRow = (props: {
 	member: Member;
@@ -92,36 +121,50 @@ export const MemberSidebar = () => {
 			roles: community().roles,
 		});
 
-	// Flatten the grouped roster into a single list keyed by member DID. Because
-	// DIDs are stable primitives, `<For>` reorders existing rows in place when a
-	// member's roles change instead of recreating them — which keeps an open
-	// context menu / profile popover (and the Kobalte body pointer-lock) alive
-	// across the server's `roles_updated` event.
+	// Flatten the grouped roster into a windowed list. Every row's height is known
+	// up front — member rows are a fixed `h-12`, group headers a single line of
+	// `text-sm` — so the offsets can be prefix-summed and nothing needs measuring
+	// after layout.
 	const layout = createMemo(() => {
 		const groups = membersByRoles().filter((g) => g.members.length > 0);
-		const members: Member[] = [];
-		const headers: Record<string, { label: string; count: number }> = {};
+		const result: Row[] = [];
 
 		for (const group of groups) {
-			group.members.forEach((member, index) => {
-				if (index === 0) {
-					headers[member.did] = {
-						label: group.role.name,
-						count: group.members.length,
-					};
-				}
-				members.push(member);
+			const first = result.length === 0;
+			result.push({
+				kind: "header",
+				key: `header:${group.role.uri || group.role.name}`,
+				label: group.role.name,
+				count: group.members.length,
+				size: HEADER_HEIGHT + ROW_GAP + (first ? 0 : HEADER_TOP_GAP),
+				spaced: !first,
 			});
+
+			for (const member of group.members) {
+				result.push({
+					kind: "member",
+					key: member.did,
+					member,
+					size: MEMBER_HEIGHT + ROW_GAP,
+				});
+			}
 		}
 
-		return { members, headers };
+		// Running offsets, so `offsets[i]` is where row `i` starts and the last
+		// entry is the full scroll height.
+		const offsets = new Array<number>(result.length + 1);
+		offsets[0] = 0;
+		for (let i = 0; i < result.length; i++) {
+			offsets[i + 1] = offsets[i] + result[i].size;
+		}
+
+		return { rows: result, offsets, total: offsets[result.length] };
 	});
 
 	const displayMembersAsSheet = createMediaQuery("(max-width: 1280px)");
 	const { preferences, toggleMembersVisible } = useUserPreferences();
 	const {
 		isMobile,
-		currentPane,
 		popPane,
 		pushDeeper,
 		updateDrag,
@@ -137,12 +180,82 @@ export const MemberSidebar = () => {
 			?.uri;
 	});
 
+	const [viewport, setViewport] = createSignal({ top: 0, height: 0 });
+
+	// A community can hold hundreds of members, and every row carries a context
+	// menu, a profile popover and an avatar. Rendering them all kept the whole
+	// roster live inside a permanently composited full-viewport layer, which is
+	// what made the pane swipe stutter once the sidebar had been opened.
+	const attachScroller = (el: HTMLDivElement) => {
+		const sync = () =>
+			setViewport({ top: el.scrollTop, height: el.clientHeight });
+
+		sync();
+		el.addEventListener("scroll", sync, { passive: true });
+		// The sidebar is laid out off-screen and, on desktop, toggled with
+		// `display: none`, so its height only becomes real after this runs.
+		const observer = new ResizeObserver(sync);
+		observer.observe(el);
+
+		onCleanup(() => {
+			el.removeEventListener("scroll", sync);
+			observer.disconnect();
+		});
+	};
+
+	const visible = createMemo(() => {
+		const { rows, offsets } = layout();
+		if (rows.length === 0) return [];
+		const { top, height } = viewport();
+
+		// First row whose bottom edge is past the top of the viewport.
+		let lo = 0;
+		let hi = rows.length - 1;
+		let first = rows.length - 1;
+		while (lo <= hi) {
+			const mid = (lo + hi) >> 1;
+			if (offsets[mid + 1] <= top) {
+				lo = mid + 1;
+			} else {
+				first = mid;
+				hi = mid - 1;
+			}
+		}
+
+		let last = first;
+		while (last < rows.length - 1 && offsets[last + 1] < top + height) last++;
+
+		const from = Math.max(0, first - OVERSCAN);
+		const to = Math.min(rows.length - 1, last + OVERSCAN);
+
+		const window: Array<{ key: string; row: Row; start: number }> = [];
+		for (let i = from; i <= to; i++) {
+			window.push({ key: rows[i].key, row: rows[i], start: offsets[i] });
+		}
+		return window;
+	});
+
+	// Iterate over the visible *keys* rather than the window entries. Keys are
+	// strings, so `<For>` reuses a row's DOM and component state for as long as
+	// that key stays on screen — which is what keeps an open context menu or
+	// profile popover (and the Kobalte body pointer lock) alive across a
+	// `roles_updated` event that reorders the roster.
+	const visibleKeys = createMemo(() => visible().map((entry) => entry.key));
+
+	const rowByKey = createMemo(
+		() => new Map(visible().map((entry) => [entry.key, entry.row] as const)),
+	);
+
+	const placementByKey = createMemo(
+		() => new Map(visible().map((entry) => [entry.key, entry.start] as const)),
+	);
+
 	return (
 		<div
 			ref={(el) =>
 				createSwipe(el, {
 					enabled: () => isMobile() && !isDrawerOpen(),
-					commitRatio: 0.45,
+					commitRatio: PANE_COMMIT_RATIO,
 					onSwipeRight: () => popPane(),
 					onSwipeLeft: () => pushDeeper(),
 					onSwipeMove: updateDrag,
@@ -155,10 +268,9 @@ export const MemberSidebar = () => {
 				"absolute top-0 right-0 h-full drop-shadow-black drop-shadow-2xl":
 					!isMobile() && displayMembersAsSheet(),
 				hidden: !isMobile() && !preferences().membersListVisible,
-				"absolute inset-0 w-full h-full z-30 will-change-transform": isMobile(),
+				"absolute inset-0 w-full h-full z-30 will-change-pane": isMobile(),
 				"transition-transform duration-300 ease-[cubic-bezier(0.25,1,0.5,1)] motion-reduce:transition-none":
 					isMobile() && !isDragging(),
-				"translate-x-full": isMobile() && currentPane() !== "members",
 			}}
 		>
 			<Show when={isMobile()}>
@@ -226,29 +338,54 @@ export const MemberSidebar = () => {
 					</Tooltip>
 				</div>
 			</Show>
-			<div class="flex flex-col gap-3 p-4 overflow-y-auto flex-1">
-				<For each={layout().members}>
-					{(member) => {
-						const header = () => layout().headers[member.did];
+			<div
+				ref={attachScroller}
+				class="p-4 overflow-y-auto overflow-x-clip flex-1"
+			>
+				<div class="relative w-full" style={{ height: `${layout().total}px` }}>
+					<For each={visibleKeys()}>
+						{(key) => {
+							const row = () => rowByKey().get(key);
+							const header = () => {
+								const entry = row();
+								return entry?.kind === "header" ? entry : undefined;
+							};
+							const member = () => {
+								const entry = row();
+								return entry?.kind === "member" ? entry : undefined;
+							};
+							const start = () => placementByKey().get(key) ?? 0;
 
-						return (
-							<>
-								<Show when={header()}>
-									{(h) => (
-										<span class="text-sm text-muted-foreground not-first-of-type:mt-4">
-											{h().label} — {h().count}
-										</span>
-									)}
-								</Show>
-								<MemberRow
-									member={member}
-									communityUri={community().community.uri}
-									roles={community().assignableRoles}
-								/>
-							</>
-						);
-					}}
-				</For>
+							return (
+								<div
+									class="absolute top-0 left-0 w-full pb-3"
+									classList={{ "pt-4": !!header()?.spaced }}
+									style={{
+										height: `${row()?.size ?? 0}px`,
+										transform: `translateY(${start()}px)`,
+									}}
+								>
+									<Show when={header()}>
+										{(entry) => (
+											<span class="text-sm text-muted-foreground block leading-5">
+												{entry().label} — {entry().count}
+											</span>
+										)}
+									</Show>
+									<Show when={member()}>
+										{(entry) => (
+											<MemberRow
+												member={entry().member}
+												communityUri={community().community.uri}
+												roles={community().assignableRoles}
+											/>
+										)}
+									</Show>
+								</div>
+							);
+						}}
+					</For>
+				</div>
 			</div>
 		</div>
 	);

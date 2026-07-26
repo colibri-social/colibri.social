@@ -163,7 +163,7 @@ const OpenGraphEmbed: Component<{ uri: string }> = (props) => {
 		<div ref={stableMedia}>
 			<Show when={hasContent()}>
 				<div
-					class="flex flex-col border-l-4 p-3 pt-2 bg-card mb-2 rounded-r-md max-w-104"
+					class="flex flex-col border-l-4 p-3 pt-2 bg-card mb-2 rounded-r-md max-w-104 min-w-0"
 					style={{ "border-color": data()!.themeColor || "var(--border)" }}
 				>
 					<div
@@ -181,7 +181,7 @@ const OpenGraphEmbed: Component<{ uri: string }> = (props) => {
 							</Show>
 							<Show when={data()!.title}>
 								<a
-									class="font-semibold w-fit text-(--primary-hover)! decoration-(--primary-hover) hover:underline"
+									class="font-semibold w-fit wrap-anywhere text-(--primary-hover)! decoration-(--primary-hover) hover:underline"
 									href={props.uri}
 									target="_blank"
 									rel="noreferrer"

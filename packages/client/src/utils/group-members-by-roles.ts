@@ -7,6 +7,11 @@ export type MembersByRoles = Array<{
 	members: Array<Member>;
 }>;
 
+// One collator for the whole app. `String.localeCompare` builds a fresh one on
+// every call, and this runs O(n log n) times per regrouping. Left at the default
+// options so the ordering matches `localeCompare` exactly.
+const collator = new Intl.Collator();
+
 /**
  * Groups members under their highest hoisted role, falling back to
  * "Online"/"Offline" buckets.
@@ -47,38 +52,40 @@ export const groupMembersByRoles = (opts: {
 		members: [],
 	});
 
+	// Index the buckets and the role table up front — these used to be linear
+	// scans run from inside a sort comparator, once per member.
+	const bucketIndexByRoleUri = new Map<string, number>();
+	result.forEach((entry, index) => {
+		if (entry.role.uri) bucketIndexByRoleUri.set(entry.role.uri, index);
+	});
+	const roleByUri = new Map(roles.map((role) => [role.uri, role]));
+
 	for (const member of members) {
-		const sortedMemberRoles = [...member.roles]
-			.sort(
-				(a, b) =>
-					result.findIndex((y) => y.role.uri === a) -
-					result.findIndex((z) => z.role.uri === b),
-			)
-			.map((x) => roles.find((y) => y.uri === x))
-			.filter((x) => x !== undefined);
-
-		const highestMemberRole = sortedMemberRoles.find(
-			(x) => x.hoisted && !x.protected,
-		);
-
-		let resultIndex = !highestMemberRole
-			? -5
-			: result.findIndex((x) => x.role.uri === highestMemberRole.uri);
-
-		if (member.data.onlineState === "offline") {
-			resultIndex = offlineIdx - 1;
+		// The highest hoisted role is the one sitting in the earliest bucket, and
+		// the buckets are already ordered by descending position.
+		let bucket = -1;
+		for (const roleUri of member.roles) {
+			const role = roleByUri.get(roleUri);
+			if (!role?.hoisted || role.protected) continue;
+			const index = bucketIndexByRoleUri.get(roleUri);
+			if (index === undefined) continue;
+			if (bucket === -1 || index < bucket) bucket = index;
 		}
 
-		if (resultIndex < 0) {
-			resultIndex = noRoleOnlineIdx - 1;
-		}
+		if (member.data.onlineState === "offline") bucket = offlineIdx - 1;
+		else if (bucket === -1) bucket = noRoleOnlineIdx - 1;
 
-		result[resultIndex].members.push(member);
+		result[bucket].members.push(member);
 	}
 
+	// Sort on a precomputed key so the display name is derived once per member
+	// instead of twice per comparison.
 	for (const entry of result) {
-		entry.members = entry.members.sort((a, b) =>
-			displayableNameFn(a).localeCompare(displayableNameFn(b)),
+		const names = new Map(
+			entry.members.map((member) => [member, displayableNameFn(member)]),
+		);
+		entry.members.sort((a, b) =>
+			collator.compare(names.get(a) ?? "", names.get(b) ?? ""),
 		);
 	}
 

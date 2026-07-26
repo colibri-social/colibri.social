@@ -233,8 +233,7 @@ const AppLayout: ParentComponent = (props) => {
 	const socket = useSocketContext();
 	const navigate = useNavigate();
 	const location = useLocation();
-	const { isMobile, currentPane, railTranslate, isDragging } =
-		createMobilePane();
+	const { isMobile, railTranslate, isDragging } = createMobilePane();
 	const viewport = useViewport();
 
 	const needsShellInsets = () => isMobile() || isTauriRuntime();
@@ -462,10 +461,9 @@ const AppLayout: ParentComponent = (props) => {
 					class="flex flex-col h-full w-14 p-2 pb-3 bg-card"
 					style={{ translate: railTranslate() }}
 					classList={{
-						"absolute left-0 top-0 z-40 will-change-transform": isMobile(),
+						"absolute left-0 top-0 z-40 will-change-pane": isMobile(),
 						"transition-transform duration-300 ease-[cubic-bezier(0.25,1,0.5,1)] motion-reduce:transition-none":
 							isMobile() && !isDragging(),
-						"-translate-x-full": isMobile() && currentPane() !== "nav",
 					}}
 				>
 					<nav class="w-full h-full flex flex-col gap-2 max-h-[calc(100%-3.25rem-1px)] mb-3.25">

@@ -11,7 +11,8 @@
 		}
 	},
 	"scripts": {
-		"build": "tsgo --build"
+		"build": "tsgo --build",
+		"test": "vitest run"
 	},
 	"dependencies": {
 		"mdast-util-from-markdown": "^2.0.2",
@@ -24,6 +25,7 @@
 		"@atproto/oauth-client-browser": "^0.4.3",
 		"@types/mdast": "^4.0.4",
 		"@types/node": "^25.6.0",
-		"@typescript/native-preview": "7.0.0-dev.20260627.2"
+		"@typescript/native-preview": "7.0.0-dev.20260627.2",
+		"vitest": "^4.1.10"
 	}
 }

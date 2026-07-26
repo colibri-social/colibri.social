@@ -21,7 +21,11 @@ export const createLongPress = (el: HTMLElement, opts: LongPressOptions) => {
 	let moved = false;
 	let lastEvent: PointerEvent | undefined;
 	let armTimer: number | undefined;
+	let suppressTimer: number | undefined;
 	let suppressClickUntil = 0;
+	let suppressing = false;
+
+	const SUPPRESS_WINDOW = 700;
 
 	const isEnabled = () => !opts.enabled || opts.enabled();
 
@@ -32,18 +36,47 @@ export const createLongPress = (el: HTMLElement, opts: LongPressOptions) => {
 		}
 	};
 
+	// Only listen on `document` while a long press has actually fired. This used
+	// to be attached for the lifetime of every element the primitive was applied
+	// to, which meant one document-wide capture listener per message and per
+	// member row.
+	const stopSuppressing = () => {
+		if (suppressTimer !== undefined) {
+			clearTimeout(suppressTimer);
+			suppressTimer = undefined;
+		}
+		if (!suppressing) return;
+		document.removeEventListener("click", onClickCapture, { capture: true });
+		suppressing = false;
+	};
+
+	const startSuppressing = () => {
+		suppressClickUntil = performance.now() + SUPPRESS_WINDOW;
+		if (suppressTimer !== undefined) clearTimeout(suppressTimer);
+		// The click that follows a long press may never arrive — whatever the press
+		// opened can swallow it — so give the listener a hard expiry too.
+		suppressTimer = window.setTimeout(stopSuppressing, SUPPRESS_WINDOW + 50);
+		if (suppressing) return;
+		document.addEventListener("click", onClickCapture, { capture: true });
+		suppressing = true;
+	};
+
 	const fire = (e: PointerEvent) => {
-		suppressClickUntil = performance.now() + 700;
+		startSuppressing();
 		opts.onLongPress(e);
 	};
 
 	const onClickCapture = (e: MouseEvent) => {
-		if (performance.now() > suppressClickUntil) return;
+		if (performance.now() > suppressClickUntil) {
+			stopSuppressing();
+			return;
+		}
 		const target = e.target as Node | null;
 		if (!target || !el.contains(target)) return;
 		e.stopPropagation();
 		e.preventDefault();
 		suppressClickUntil = 0;
+		stopSuppressing();
 	};
 
 	const onPointerDown = (e: PointerEvent) => {
@@ -103,16 +136,15 @@ export const createLongPress = (el: HTMLElement, opts: LongPressOptions) => {
 	el.addEventListener("pointercancel", onPointerCancel, { passive: true });
 	el.addEventListener("contextmenu", onContextMenu);
 	el.addEventListener("selectstart", onSelectStart);
-	document.addEventListener("click", onClickCapture, { capture: true });
 
 	onCleanup(() => {
 		disarm();
+		stopSuppressing();
 		el.removeEventListener("pointerdown", onPointerDown);
 		el.removeEventListener("pointermove", onPointerMove);
 		el.removeEventListener("pointerup", onPointerUp);
 		el.removeEventListener("pointercancel", onPointerCancel);
 		el.removeEventListener("contextmenu", onContextMenu);
 		el.removeEventListener("selectstart", onSelectStart);
-		document.removeEventListener("click", onClickCapture, { capture: true });
 	});
 };

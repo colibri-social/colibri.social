@@ -207,19 +207,6 @@ const docToSource = (
 				continue;
 			}
 
-			if (item.type === "blockquote") {
-				const innerStart = source.length;
-				walk((item as { content?: DocContent }).content ?? []);
-				if (source.length > innerStart) {
-					atoms.push({
-						start: innerStart,
-						end: source.length,
-						features: [{ $type: "social.colibri.richtext.facet#quote" }],
-					});
-				}
-				continue;
-			}
-
 			if ("content" in item && item.content) {
 				walk(item.content);
 			}

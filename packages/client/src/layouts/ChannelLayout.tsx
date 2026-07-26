@@ -756,7 +756,7 @@ const ChannelLayout: ParentComponent = (props) => {
 					>
 						<div class="relative w-full flex-1 min-h-0">
 							<div
-								class="w-full h-full overflow-y-auto pb-6"
+								class="w-full h-full overflow-y-auto overflow-x-clip pb-6"
 								style={{ "overflow-anchor": "none" }}
 								ref={scrollContainer}
 							>

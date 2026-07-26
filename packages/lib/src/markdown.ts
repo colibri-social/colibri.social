@@ -86,10 +86,176 @@ const wrapMarkers = (
 	};
 };
 
+const QUOTE_MARKER_MAX_INDENT = 3;
+const FENCE_LINE = /^ {0,3}(?:`{3,}|~{3,})/;
+
+interface QuoteScan {
+	runs: Array<[number, number]>;
+	markers: Array<[number, number]>;
+}
+
+/**
+ * Finds runs of consecutive quote lines: up to three spaces, a `>`, then either
+ * a space or the end of the line. Lines inside a fenced code block opened on an
+ * unquoted line do not count.
+ */
+const scanQuoteLines = (source: string): QuoteScan => {
+	const runs: Array<[number, number]> = [];
+	const markers: Array<[number, number]> = [];
+
+	let runStart = -1;
+	let runEnd = -1;
+	let fenceOpen = false;
+	let fenceQuoted = false;
+	let lineStart = 0;
+
+	for (;;) {
+		const nl = source.indexOf("\n", lineStart);
+		const lineEnd = nl === -1 ? source.length : nl;
+
+		let p = lineStart;
+		while (
+			p < lineEnd &&
+			source[p] === " " &&
+			p - lineStart < QUOTE_MARKER_MAX_INDENT
+		) {
+			p++;
+		}
+
+		let quoted = false;
+		let markerEnd = lineStart;
+
+		if (p < lineEnd && source[p] === ">") {
+			const after = p + 1;
+			const atLineEnd =
+				after >= lineEnd || (source[after] === "\r" && after + 1 === lineEnd);
+			if (source[after] === " " || atLineEnd) {
+				quoted = !(fenceOpen && !fenceQuoted);
+				markerEnd = source[after] === " " ? after + 1 : after;
+			}
+		}
+
+		if (quoted) {
+			markers.push([lineStart, markerEnd]);
+			if (runStart === -1) runStart = lineStart;
+			runEnd = lineEnd;
+		} else if (runStart !== -1) {
+			runs.push([runStart, runEnd]);
+			runStart = -1;
+			if (fenceQuoted) {
+				fenceOpen = false;
+				fenceQuoted = false;
+			}
+		}
+
+		const contentStart = quoted ? markerEnd : lineStart;
+		if (FENCE_LINE.test(source.slice(contentStart, lineEnd))) {
+			if (fenceOpen) {
+				fenceOpen = false;
+				fenceQuoted = false;
+			} else {
+				fenceOpen = true;
+				fenceQuoted = quoted;
+			}
+		}
+
+		if (nl === -1) break;
+		lineStart = nl + 1;
+	}
+
+	if (runStart !== -1) runs.push([runStart, runEnd]);
+
+	return { runs, markers };
+};
+
+/**
+ * Removes every quote marker, returning the stripped text and a map from each
+ * of its indices back to the source index it came from
+ */
+const stripQuoteMarkers = (
+	source: string,
+	markers: Array<[number, number]>,
+): { stripped: string; toSource: number[] } => {
+	let stripped = "";
+	const toSource: number[] = [];
+	let cursor = 0;
+
+	for (const [start, end] of markers) {
+		for (let i = cursor; i < start; i++) {
+			toSource.push(i);
+			stripped += source[i];
+		}
+		cursor = Math.max(cursor, end);
+	}
+	for (let i = cursor; i < source.length; i++) {
+		toSource.push(i);
+		stripped += source[i];
+	}
+	toSource.push(source.length);
+
+	return { stripped, toSource };
+};
+
+const MULTILINE_BLOCK_KINDS = new Set<MarkdownTokenKind>([
+	"codeblock",
+	"heading",
+	"list",
+	"subtext",
+]);
+
+/**
+ * Whether a block token starts inside a quote and ends outside it, or vice
+ * versa. Inline tokens are allowed to straddle a quote.
+ */
+const crossesQuoteBoundary = (
+	token: MarkdownToken,
+	runs: Array<[number, number]>,
+): boolean => {
+	if (!MULTILINE_BLOCK_KINDS.has(token.kind)) return false;
+	const inQuote = (index: number): boolean =>
+		runs.some(([start, end]) => index >= start && index < end);
+	const [start, end] = token.content;
+	return inQuote(start) !== inQuote(Math.max(start, end - 1));
+};
+
 /**
  * Walks the mdast tree for a raw message and returns every formatting span
  */
 export const tokenizeMarkdown = (source: string): MarkdownToken[] => {
+	const { runs, markers } = scanQuoteLines(source);
+	if (markers.length === 0) return tokenizeUnquoted(source);
+
+	const { stripped, toSource } = stripQuoteMarkers(source, markers);
+	const at = (index: number): number => toSource[index] ?? source.length;
+
+	const tokens: MarkdownToken[] = [];
+
+	for (const token of tokenizeUnquoted(stripped)) {
+		const mapped: MarkdownToken = {
+			...token,
+			markers: token.markers.map(
+				([start, end]) => [at(start), at(end)] as [number, number],
+			),
+			content: [at(token.content[0]), at(token.content[1])],
+		};
+		if (crossesQuoteBoundary(mapped, runs)) continue;
+		tokens.push(mapped);
+	}
+
+	for (const [start, end] of runs) {
+		tokens.push({
+			kind: "quote",
+			markers: markers.filter(
+				([markerStart]) => markerStart >= start && markerStart < end,
+			),
+			content: [start, end],
+		});
+	}
+
+	return tokens.sort((a, b) => a.content[0] - b.content[0]);
+};
+
+const tokenizeUnquoted = (source: string): MarkdownToken[] => {
 	const tree = fromMarkdown(source, FROM_MARKDOWN_OPTIONS);
 	const tokens: MarkdownToken[] = [];
 
@@ -206,26 +372,6 @@ export const tokenizeMarkdown = (source: string): MarkdownToken[] => {
 				}
 				break;
 			}
-			case "blockquote": {
-				const start = offset(node);
-				const end = endOffset(node);
-				const markers: Array<[number, number]> = [];
-				let lineStart = start;
-				while (lineStart < end) {
-					let p = lineStart;
-					while (p < end && source[p] === " " && p - lineStart < 3) p++;
-					if (source[p] === ">") {
-						let markerEnd = p + 1;
-						if (source[markerEnd] === " ") markerEnd++;
-						markers.push([lineStart, markerEnd]);
-					}
-					const nl = source.indexOf("\n", lineStart);
-					if (nl === -1 || nl >= end) break;
-					lineStart = nl + 1;
-				}
-				tokens.push({ kind: "quote", markers, content: [start, end] });
-				break;
-			}
 		}
 
 		if ("children" in node) {
@@ -326,6 +472,28 @@ export interface ParsedMarkdown {
 }
 
 /**
+ * Collapses spans into an ascending, non-overlapping list
+ */
+const mergeSpans = (
+	spans: Array<[number, number]>,
+): Array<[number, number]> => {
+	const sorted = [...spans]
+		.filter(([start, end]) => end > start)
+		.sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+
+	const merged: Array<[number, number]> = [];
+	for (const [start, end] of sorted) {
+		const last = merged[merged.length - 1];
+		if (last && start <= last[1]) {
+			if (end > last[1]) last[1] = end;
+		} else {
+			merged.push([start, end]);
+		}
+	}
+	return merged;
+};
+
+/**
  * Parses raw markdown source into the stored representation
  */
 export const parseMarkdown = (
@@ -333,12 +501,11 @@ export const parseMarkdown = (
 	extra: SourceFacet[] = [],
 ): ParsedMarkdown => {
 	const tokens = tokenizeMarkdown(source);
-	const removed = tokens.flatMap((t) => t.markers).sort((a, b) => a[0] - b[0]);
+	const removed = mergeSpans(tokens.flatMap((t) => t.markers));
 
 	let text = "";
 	let cursor = 0;
 	for (const [start, end] of removed) {
-		if (start < cursor) continue;
 		text += source.slice(cursor, start);
 		cursor = end;
 	}
@@ -363,6 +530,7 @@ export const parseMarkdown = (
 	): void => {
 		const cleanStart = mapToClean(startStr);
 		const cleanEnd = mapToClean(endStr);
+		if (cleanEnd <= cleanStart) return;
 		facets.push({
 			$type: "social.colibri.richtext.facet",
 			index: {
@@ -375,6 +543,7 @@ export const parseMarkdown = (
 	};
 
 	for (const token of tokens) {
+		if (token.content[1] <= token.content[0]) continue;
 		pushFacet(token.content[0], token.content[1], [buildFeature(token)]);
 	}
 	for (const ex of extra) {
@@ -455,11 +624,13 @@ export const facetsToSource = (
 				addMarker(opensAt, start, "[");
 				addMarker(closesAt, end, `](${"uri" in feature ? feature.uri : ""})`);
 			} else if (kind === "codeblock") {
-				codeblocks.push([
-					start,
-					end,
-					"lang" in feature && feature.lang ? feature.lang : "",
-				]);
+				if (end > start) {
+					codeblocks.push([
+						start,
+						end,
+						"lang" in feature && feature.lang ? feature.lang : "",
+					]);
+				}
 			} else if (kind === "heading") {
 				const level = "level" in feature ? Number(feature.level) || 1 : 1;
 				addMarker(opensAt, start, `${"#".repeat(Math.min(3, level))} `);
@@ -498,10 +669,13 @@ export const facetsToSource = (
 	const quoteLineStarts = new Set<number>();
 	for (const [qs, qe] of quoteRanges) {
 		quoteLineStarts.add(qs);
-		for (let p = qs; p < qe - 1; p++) {
+		for (let p = qs; p < qe; p++) {
 			if (text[p] === "\n") quoteLineStarts.add(p + 1);
 		}
 	}
+
+	const insideQuote = (index: number): boolean =>
+		quoteRanges.some(([qs, qe]) => index >= qs && index < qe);
 
 	let out = "";
 	let i = 0;
@@ -524,15 +698,20 @@ export const facetsToSource = (
 		}
 		const closers = closesAt.get(i);
 		if (closers) for (const m of [...closers].reverse()) out += m;
-		if (i === text.length) break;
 
 		if (quoteLineStarts.has(i)) out += "> ";
+		if (i === text.length) break;
 
 		if (fence) {
+			const prefix = insideQuote(i) ? "> " : "";
 			out += `\`\`\`${fence[2]}\n`;
-			out += text.slice(i, fence[1]);
-			out += "\n```";
-			i = fence[1];
+			out += text
+				.slice(i, fence[1])
+				.split("\n")
+				.map((line) => prefix + line)
+				.join("\n");
+			out += `\n${prefix}\`\`\``;
+			i = Math.max(fence[1], i + 1);
 			continue;
 		}
 

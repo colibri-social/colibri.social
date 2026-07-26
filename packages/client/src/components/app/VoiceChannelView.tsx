@@ -504,7 +504,7 @@ export const VoiceChannelView: Component = () => {
 			<Show
 				when={isActiveHere()}
 				fallback={
-					<div class="flex-1 min-h-0 overflow-y-auto p-6 flex flex-col items-center justify-center gap-6 text-center">
+					<div class="flex-1 min-h-0 overflow-y-auto overflow-x-clip p-6 flex flex-col items-center justify-center gap-6 text-center">
 						<Show when={participantMembers().length > 0}>
 							<div class="flex flex-row flex-wrap items-center justify-center gap-3 max-w-2xl">
 								<For each={participantMembers()}>
@@ -584,7 +584,7 @@ export const VoiceChannelView: Component = () => {
 										</div>
 									}
 								>
-									<div class="flex-1 min-h-0 overflow-y-auto p-4">
+									<div class="flex-1 min-h-0 overflow-y-auto overflow-x-clip p-4">
 										<div class="grid grid-cols-3 gap-3">
 											<For each={tiles()}>
 												{(t) => <div class="aspect-video">{renderTile(t)}</div>}

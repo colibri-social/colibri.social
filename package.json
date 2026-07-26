@@ -6,6 +6,7 @@
 		"dev:tauri:android": "pnpm --filter @colibri-social/wrapper tauri android dev",
 		"dev:tauri:ios": "pnpm --filter @colibri-social/wrapper tauri ios dev",
 		"build": "pnpm -r build",
+		"test": "pnpm -r test",
 		"lint": "biome check .",
 		"lint:fix": "biome check . --write",
 		"format": "biome format . --write",

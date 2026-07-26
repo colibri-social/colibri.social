@@ -481,7 +481,7 @@ export const ChannelList: Component<{
 			collisionDetector={collisionDetector}
 		>
 			<LongPressSensors />
-			<nav class="w-full h-full flex flex-col overflow-auto pb-4">
+			<nav class="w-full h-full flex flex-col overflow-y-auto overflow-x-clip pb-4">
 				<SortableProvider ids={visibleCategories().map((c) => c.uri)}>
 					<For each={visibleCategories()}>
 						{(category) => (

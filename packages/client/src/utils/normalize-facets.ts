@@ -51,6 +51,16 @@ export const buildFeatureKey = (feature: Feature): string => {
 	}
 };
 
+const QUOTE_TYPE = "social.colibri.richtext.facet#quote";
+
+const hasQuote = (facet: ColibriRichTextFacet): boolean =>
+	facet.features.some((f) => f.$type === QUOTE_TYPE);
+
+/**
+ * Groups facets sharing a byte range and merges their features. A quote is
+ * kept in its own group so that a same-range heading, list, subtext or
+ * codeblock stays a separate facet and can be nested inside it.
+ */
 export const normalizeFacets = (
 	facets: Array<ColibriRichTextFacet>,
 ): Array<ColibriRichTextFacet> => {
@@ -68,7 +78,9 @@ export const normalizeFacets = (
 	>();
 
 	for (const facet of facets) {
-		const key = `${facet.index.byteStart}:${facet.index.byteEnd}`;
+		if (facet.index.byteEnd <= facet.index.byteStart) continue;
+
+		const key = `${facet.index.byteStart}:${facet.index.byteEnd}:${hasQuote(facet)}`;
 		let entry = grouped.get(key);
 
 		if (!entry) {

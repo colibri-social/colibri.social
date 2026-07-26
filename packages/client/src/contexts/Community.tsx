@@ -65,6 +65,10 @@ type CommunityContextData = CommunityResponse & {
 	dismissedApplications: Array<Applicant>;
 	ownerDid: Accessor<string | undefined>;
 	utils: {
+		// Indexed lookups. The permission helpers below run several times per
+		// rendered member row, so they must not scan the member/role arrays.
+		getMember: (did: string) => Member | undefined;
+		getRole: (uri: string) => Role | undefined;
 		getRolesForUser: (did: string) => Array<Role>;
 		setRolesForUser: (did: string, roles: Array<string>) => void;
 		patchChannel: (uri: string, patch: Partial<Channel>) => void;
@@ -590,8 +594,22 @@ export const CommunityContextProvider: ParentComponent = (props) => {
 		(community.latest?.roles ?? []).filter((role) => !role.protected),
 	);
 
+	// The member and role lists are scanned per rendered row by name colours,
+	// permission checks and the owner crown, so they get indexed once per change
+	// instead.
+	const membersByDid = createMemo(
+		() => new Map((community.latest?.members ?? []).map((m) => [m.did, m])),
+	);
+
+	const rolesByUri = createMemo(
+		() => new Map((community.latest?.roles ?? []).map((r) => [r.uri, r])),
+	);
+
+	const getMember = (did: string) => membersByDid().get(did);
+	const getRole = (uri: string) => rolesByUri().get(uri);
+
 	const getRolesForUser = (did: string) => {
-		const member = community.latest?.members.find((x) => x.did === did);
+		const member = membersByDid().get(did);
 		if (!member) return [];
 
 		return assignableRoles()
@@ -654,19 +672,28 @@ export const CommunityContextProvider: ParentComponent = (props) => {
 		});
 	};
 
-	const ownerRole = () =>
-		(community.latest?.roles ?? []).find((x) => x.protected);
+	const ownerRole = createMemo(() =>
+		(community.latest?.roles ?? []).find((x) => x.protected),
+	);
 
-	const value: Accessor<CommunityContextData> = () => ({
+	const ownerDid = createMemo(() => {
+		const role = ownerRole()?.uri;
+		if (!role) return undefined;
+		return community.latest?.members.find((x) => x.roles.includes(role))?.did;
+	});
+
+	// Memoised rather than a plain accessor: every read used to re-spread the
+	// whole community payload and reallocate the `utils` closures, and the socket
+	// replaces the payload object on every presence tick.
+	const value: Accessor<CommunityContextData> = createMemo(() => ({
 		...(community.latest as CommunityResponse),
 		assignableRoles: assignableRoles(),
 		applications: applications.latest?.applications ?? [],
 		dismissedApplications: applications.latest?.dismissed ?? [],
-		ownerDid: () =>
-			community.latest?.members.find((x) =>
-				x.roles.some((y) => y === ownerRole()?.uri),
-			)?.did,
+		ownerDid,
 		utils: {
+			getMember,
+			getRole,
 			getRolesForUser,
 			setRolesForUser,
 			patchChannel,
@@ -676,7 +703,7 @@ export const CommunityContextProvider: ParentComponent = (props) => {
 			refetch: () => void refetch(),
 			refetchApplications: () => void refetchApplications(),
 		},
-	});
+	}));
 
 	return (
 		<Switch>
@@ -737,10 +764,10 @@ export const usePermissions = () => {
 		const c = community();
 		if (!c) return -Infinity;
 		if (isOwner(did)) return Infinity;
-		const member = c.members.find((m) => m.did === did);
+		const member = c.utils.getMember(did);
 		if (!member) return -Infinity;
 		return member.roles.reduce((max, roleUri) => {
-			const pos = c.roles.find((r) => r.uri === roleUri)?.position ?? -Infinity;
+			const pos = c.utils.getRole(roleUri)?.position ?? -Infinity;
 			return pos > max ? pos : max;
 		}, -Infinity);
 	};
@@ -753,10 +780,10 @@ export const usePermissions = () => {
 		const c = community();
 		if (!c) return false;
 		if (isOwner(did)) return true;
-		const member = c.members.find((m) => m.did === did);
+		const member = c.utils.getMember(did);
 		if (!member) return false;
 		return member.roles.some((roleUri) =>
-			c.roles.find((r) => r.uri === roleUri)?.permissions.includes(permission),
+			c.utils.getRole(roleUri)?.permissions.includes(permission),
 		);
 	};
 
@@ -764,11 +791,9 @@ export const usePermissions = () => {
 		const c = community();
 		if (!c) return false;
 		if (isOwner(did)) return true;
-		const member = c.members.find((m) => m.did === did);
+		const member = c.utils.getMember(did);
 		if (!member) return false;
-		return member.roles.some(
-			(roleUri) => c.roles.find((r) => r.uri === roleUri)?.protected,
-		);
+		return member.roles.some((roleUri) => c.utils.getRole(roleUri)?.protected);
 	};
 
 	const canManage = (did: string): boolean => isAdmin(did);

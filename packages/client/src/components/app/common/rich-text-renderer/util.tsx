@@ -288,6 +288,33 @@ const BLOCK_FEATURE_TYPES = new Set<string>([
 const isBlockFeature = (feature: AnyFeature): boolean =>
 	BLOCK_FEATURE_TYPES.has(feature.$type ?? "");
 
+const QUOTE_TYPE = "social.colibri.richtext.facet#quote";
+
+const isQuoteFacet = (facet: ColibriRichTextFacet): boolean =>
+	facet.features.some((f) => f.$type === QUOTE_TYPE);
+
+const withoutQuote = (facet: ColibriRichTextFacet): ColibriRichTextFacet => ({
+	...facet,
+	features: facet.features.filter((f) => f.$type !== QUOTE_TYPE),
+});
+
+/**
+ * Orders block facets so that a containing facet always comes before the facets
+ * nested inside it, and a quote comes before a block sharing its exact range.
+ */
+const compareBlockFacets = (
+	a: ColibriRichTextFacet,
+	b: ColibriRichTextFacet,
+): number => {
+	if (a.index.byteStart !== b.index.byteStart) {
+		return a.index.byteStart - b.index.byteStart;
+	}
+	if (a.index.byteEnd !== b.index.byteEnd) {
+		return b.index.byteEnd - a.index.byteEnd;
+	}
+	return Number(isQuoteFacet(b)) - Number(isQuoteFacet(a));
+};
+
 /**
  * Renders a byte range of inline content (text/marks/mentions/links/time),
  * walking through sorted, non-overlapping segments within that range.
@@ -476,10 +503,10 @@ const renderInlineRange = (
  * Renders text with facets. Facets use byte offsets into the
  * UTF-8 encoded text, so we work with the encoded bytes directly.
  *
- * Codeblock/quote facets are block-level: each spans exactly one normalized
- * facet covering its whole (possibly multi-line) range, and is rendered as a
- * single `<pre><code>`/`<blockquote>` rather than as an inline wrapper.
- * Everything else flows through the inline-segment renderer.
+ * Block-level facets (codeblock, quote, heading, subtext, list) each cover a
+ * whole, possibly multi-line range and are rendered as a wrapper element rather
+ * than an inline mark. Everything else flows through the inline-segment
+ * renderer.
  */
 export const renderWithFacets = (
 	input: TextWithFacets,
@@ -493,7 +520,7 @@ export const renderWithFacets = (
 
 	const blockFacets = normalizedFacets
 		.filter((f) => f.features.some(isBlockFeature))
-		.sort((a, b) => a.index.byteStart - b.index.byteStart);
+		.sort(compareBlockFacets);
 
 	if (blockFacets.length === 0) {
 		return renderInlineRange(
@@ -505,12 +532,30 @@ export const renderWithFacets = (
 		);
 	}
 
-	const result: Array<JSX.Element> = [];
-	let cursor = 0;
-	let lastWasBlock = false;
-
 	const inline = (start: number, end: number): Array<JSX.Element> =>
 		renderInlineRange(bytes, start, end, normalizedFacets, preferences);
+
+	return renderBlockRange(bytes, 0, bytes.length, blockFacets, inline);
+};
+
+const listFeatureOf = (facet: ColibriRichTextFacet): AnyFeature | undefined =>
+	facet.features.find((f) => f.$type === "social.colibri.richtext.facet#list");
+
+/**
+ * Renders the block facets covering a byte range, recursing into quotes so that
+ * a heading, list, subtext or codeblock nested in a quote is rendered once,
+ * inside it.
+ */
+const renderBlockRange = (
+	bytes: Uint8Array,
+	rangeStart: number,
+	rangeEnd: number,
+	blockFacets: Array<ColibriRichTextFacet>,
+	inline: (start: number, end: number) => Array<JSX.Element>,
+): Array<JSX.Element> => {
+	const result: Array<JSX.Element> = [];
+	let cursor = rangeStart;
+	let lastWasBlock = false;
 
 	const emitInline = (
 		start: number,
@@ -524,16 +569,58 @@ export const renderWithFacets = (
 		if (s < e) result.push(...inline(s, e));
 	};
 
-	const listFeatureOf = (facet: ColibriRichTextFacet): AnyFeature | undefined =>
-		facet.features.find(
-			(f) => f.$type === "social.colibri.richtext.facet#list",
-		);
+	const separatedByWhitespace = (from: number, to: number): boolean => {
+		for (let i = from; i < to; i++) {
+			const byte = bytes[i];
+			if (byte !== 0x0a && byte !== 0x20 && byte !== 0x09 && byte !== 0x0d) {
+				return false;
+			}
+		}
+		return true;
+	};
 
 	for (let bi = 0; bi < blockFacets.length; ) {
 		const blockFacet = blockFacets[bi];
-		if (blockFacet.index.byteStart > cursor) {
-			emitInline(cursor, blockFacet.index.byteStart, true);
+		const byteStart = Math.max(blockFacet.index.byteStart, rangeStart, cursor);
+		const byteEnd = Math.min(blockFacet.index.byteEnd, rangeEnd);
+
+		if (byteEnd <= byteStart || byteEnd <= cursor) {
+			bi++;
+			continue;
+		}
+
+		if (byteStart > cursor) {
+			emitInline(cursor, byteStart, true);
 			lastWasBlock = false;
+		}
+
+		if (isQuoteFacet(blockFacet)) {
+			const children: Array<ColibriRichTextFacet> = [];
+			const inner = withoutQuote(blockFacet);
+			if (inner.features.some(isBlockFeature)) children.push(inner);
+
+			let j = bi + 1;
+			while (
+				j < blockFacets.length &&
+				blockFacets[j].index.byteStart < byteEnd
+			) {
+				children.push(blockFacets[j]);
+				j++;
+			}
+
+			result.push(
+				<blockquote
+					data-facet-type="quote"
+					class="border-l-2 border-muted-foreground/40 pl-3 my-1 text-muted-foreground block"
+				>
+					{renderBlockRange(bytes, byteStart, byteEnd, children, inline)}
+				</blockquote>,
+			);
+
+			cursor = byteEnd;
+			lastWasBlock = true;
+			bi = j;
+			continue;
 		}
 
 		const listFeature = listFeatureOf(blockFacet);
@@ -541,7 +628,7 @@ export const renderWithFacets = (
 		if (listFeature) {
 			const ordered = "ordered" in listFeature && listFeature.ordered;
 			const items: Array<ColibriRichTextFacet> = [blockFacet];
-			let prevEnd = blockFacet.index.byteEnd;
+			let prevEnd = byteEnd;
 			let j = bi + 1;
 			while (j < blockFacets.length) {
 				const next = blockFacets[j];
@@ -549,7 +636,9 @@ export const renderWithFacets = (
 				const nextOrdered =
 					!!nextList && "ordered" in nextList && nextList.ordered;
 				if (!nextList || nextOrdered !== ordered) break;
-				if (next.index.byteStart !== prevEnd + 1) break;
+				if (next.index.byteEnd > rangeEnd) break;
+				if (next.index.byteStart < prevEnd) break;
+				if (!separatedByWhitespace(prevEnd, next.index.byteStart)) break;
 				items.push(next);
 				prevEnd = next.index.byteEnd;
 				j++;
@@ -575,9 +664,6 @@ export const renderWithFacets = (
 		const codeblockFeature = blockFacet.features.find(
 			(f) => f.$type === "social.colibri.richtext.facet#codeblock",
 		);
-		const quoteFeature = blockFacet.features.find(
-			(f) => f.$type === "social.colibri.richtext.facet#quote",
-		);
 		const headingFeature = blockFacet.features.find(
 			(f) => f.$type === "social.colibri.richtext.facet#heading",
 		);
@@ -585,22 +671,11 @@ export const renderWithFacets = (
 			(f) => f.$type === "social.colibri.richtext.facet#subtext",
 		);
 
-		const { byteStart, byteEnd } = blockFacet.index;
-
 		if (codeblockFeature) {
 			const lang =
 				"lang" in codeblockFeature ? codeblockFeature.lang : undefined;
 			const rawText = textDecoder.decode(bytes.slice(byteStart, byteEnd));
 			result.push(<CodeBlock lang={lang} code={rawText} />);
-		} else if (quoteFeature) {
-			result.push(
-				<blockquote
-					data-facet-type="quote"
-					class="border-l-2 border-muted-foreground/40 pl-3 my-1 text-muted-foreground block"
-				>
-					{inline(byteStart, byteEnd)}
-				</blockquote>,
-			);
 		} else if (headingFeature) {
 			const level =
 				"level" in headingFeature ? Number(headingFeature.level) : 1;
@@ -643,8 +718,8 @@ export const renderWithFacets = (
 		bi++;
 	}
 
-	if (cursor < bytes.length) {
-		emitInline(cursor, bytes.length);
+	if (cursor < rangeEnd) {
+		emitInline(cursor, rangeEnd);
 	}
 
 	return result;
