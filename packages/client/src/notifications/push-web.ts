@@ -32,7 +32,7 @@ const isPushSupported = (): boolean =>
 	isWebRuntime() && "serviceWorker" in navigator && "PushManager" in window;
 
 /** Decode a base64url VAPID key into the Uint8Array the Push API expects. */
-const urlBase64ToUint8Array = (base64: string): Uint8Array => {
+const urlBase64ToUint8Array = (base64: string): Uint8Array<ArrayBuffer> => {
 	const padding = "=".repeat((4 - (base64.length % 4)) % 4);
 	const normalized = (base64 + padding).replace(/-/g, "+").replace(/_/g, "/");
 	const raw = atob(normalized);

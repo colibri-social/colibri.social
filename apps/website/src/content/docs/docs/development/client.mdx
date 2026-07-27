@@ -55,6 +55,24 @@ Login uses a real Atmosphere account through OAuth, against whatever PDS that ac
 - **The early-access allowlist.** `packages/client/src/atproto/allowlist.ts` is a hardcoded set of DIDs, enforced in dev exactly as in production: a session for a DID that isn't in it is cleared and you land on the waitlist screen. Add your own DID while developing.
 - **Localhost OAuth clients.** In dev the client id is the [localhost development form](https://atproto.com/specs/oauth#localhost-client-development), `http://localhost?scope=...&redirect_uri=http://127.0.0.1:<port>/app/login`, instead of a hosted client metadata document. Scopes are built from the AppView's `did:web`, so they're derived from what your local install points at.
 
+## Tests
+
+CI runs Biome, the test suite, and a typecheck of the client, all of which you
+can reproduce locally:
+
+```sh
+pnpm lint
+pnpm test
+pnpm --filter @colibri-social/client typecheck
+```
+
+Tests are [Vitest](https://vitest.dev) files sitting next to the code they
+cover, configured by a small `vitest.config.ts` in each tested package.
+Everything covered so far is plain TypeScript that runs in Node. The XRPC wrappers are the most valuable thing to
+add to. Each one is a plain function of `(fetch, ...args)`, so a mocked fetch
+is the whole harness. See [Testing](/docs/development/testing) for what belongs
+where, the component sandbox, and how the AppView is kept in sync.
+
 ## Running the website
 
 The website hosts the client, the marketing pages, and this documentation:

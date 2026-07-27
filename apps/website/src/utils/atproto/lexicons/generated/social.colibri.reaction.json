@@ -1,0 +1,35 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.reaction",
+	"revision": 1,
+	"defs": {
+		"main": {
+			"type": "record",
+			"key": "tid",
+			"description": "A reaction on a Colibri message.",
+			"record": {
+				"required": [
+					"emoji",
+					"parent"
+				],
+				"type": "object",
+				"properties": {
+					"$type": {
+						"type": "string",
+						"description": "The type of the record.",
+						"format": "nsid"
+					},
+					"emoji": {
+						"type": "string",
+						"description": "The emoji of the reaction. This allows for any string to support for custom emojis later down the line."
+					},
+					"parent": {
+						"type": "string",
+						"description": "The AT-URI of the message this reaction belongs to.",
+						"format": "at-uri"
+					}
+				}
+			}
+		}
+	}
+}

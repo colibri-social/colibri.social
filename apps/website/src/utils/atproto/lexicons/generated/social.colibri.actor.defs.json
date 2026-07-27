@@ -1,0 +1,123 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.actor.defs",
+	"defs": {
+		"actorView": {
+			"type": "object",
+			"description": "A hydrated Colibri actor: identity plus profile data.",
+			"required": [
+				"did",
+				"handle",
+				"data"
+			],
+			"properties": {
+				"did": {
+					"type": "string",
+					"format": "did"
+				},
+				"handle": {
+					"type": "string",
+					"format": "handle"
+				},
+				"data": {
+					"type": "ref",
+					"ref": "lex:social.colibri.actor.defs#actorData"
+				}
+			}
+		},
+		"actorData": {
+			"type": "object",
+			"description": "The profile and presence data for a Colibri actor.",
+			"required": [
+				"displayName",
+				"isBot",
+				"onlineState",
+				"syncBluesky",
+				"status"
+			],
+			"properties": {
+				"displayName": {
+					"type": "string"
+				},
+				"avatar": {
+					"type": "blob"
+				},
+				"banner": {
+					"type": "blob"
+				},
+				"description": {
+					"type": "string"
+				},
+				"isBot": {
+					"type": "boolean"
+				},
+				"onlineState": {
+					"type": "string",
+					"knownValues": [
+						"online",
+						"away",
+						"dnd",
+						"offline"
+					]
+				},
+				"syncBluesky": {
+					"type": "boolean"
+				},
+				"theme": {
+					"type": "ref",
+					"ref": "lex:social.colibri.actor.defs#profileTheme"
+				},
+				"status": {
+					"type": "ref",
+					"ref": "lex:social.colibri.actor.defs#actorStatus"
+				},
+				"preferredBadge": {
+					"type": "string"
+				}
+			}
+		},
+		"actorStatus": {
+			"type": "object",
+			"description": "A user's Colibri status line.",
+			"required": [
+				"text"
+			],
+			"properties": {
+				"text": {
+					"type": "string"
+				},
+				"emoji": {
+					"type": "string"
+				}
+			}
+		},
+		"profileTheme": {
+			"type": "object",
+			"description": "Colibri-only profile theming.",
+			"properties": {
+				"accentColor": {
+					"type": "string"
+				},
+				"gradient": {
+					"type": "ref",
+					"ref": "lex:social.colibri.actor.defs#profileGradient"
+				},
+				"bannerColor": {
+					"type": "string"
+				}
+			}
+		},
+		"profileGradient": {
+			"type": "object",
+			"description": "Two-color gradient profile theme.",
+			"properties": {
+				"primary": {
+					"type": "string"
+				},
+				"secondary": {
+					"type": "string"
+				}
+			}
+		}
+	}
+}

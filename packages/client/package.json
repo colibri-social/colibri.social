@@ -7,7 +7,10 @@
 	"scripts": {
 		"start": "pnpm --filter @colibri-social/assets fetch-all && vite serve dev",
 		"dev": "pnpm --filter @colibri-social/assets fetch-all && vite serve dev",
-		"build": "tsup && tailwindcss -i src/index.css -o dist/index.css --minify"
+		"build": "tsup && tailwindcss -i src/index.css -o dist/index.css --minify",
+		"test": "vitest run",
+		"typecheck": "tsc --noEmit",
+		"sandbox": "pnpm --filter @colibri-social/assets fetch-emoji && vite serve dev --open /sandbox.html"
 	},
 	"exports": {
 		".": {
@@ -33,7 +36,8 @@
 		"tailwindcss": "^4.2.4",
 		"unplugin-icons": "^23.0.1",
 		"vite": "^7.1.4",
-		"vite-plugin-solid": "^2.11.8"
+		"vite-plugin-solid": "^2.11.8",
+		"vitest": "^4.1.10"
 	},
 	"dependencies": {
 		"@arborium/arborium": "^2.18.1",

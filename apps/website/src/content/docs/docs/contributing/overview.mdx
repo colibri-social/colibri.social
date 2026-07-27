@@ -33,6 +33,12 @@ When making a pull request, be sure to add a changeset when something has change
 pnpm exec changeset
 ```
 
+Add tests alongside your change where there is something to assert. Pure
+helpers and XRPC wrappers are cheap to cover and are where regressions actually
+bite. [Testing](/docs/development/testing) explains what belongs where. If you
+touched a lexicon, run `pnpm lexicons:export` and commit the generated JSON, or
+CI will reject the PR.
+
 ---
 
 Based on [Astro's Contributor Guide](https://contribute.docs.astro.build/welcome/)

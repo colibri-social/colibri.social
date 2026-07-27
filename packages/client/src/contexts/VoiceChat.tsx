@@ -877,18 +877,18 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 			case "serverMuted":
 				setVoiceData("states", "serverMuted", message.muted);
 				setVoiceData("memberStates", user.did, (prev) => ({
+					...prev,
 					muted: prev?.muted ?? false,
 					deafened: prev?.deafened ?? false,
-					...prev,
 					serverMuted: message.muted,
 				}));
 				break;
 			case "serverDeafened":
 				setVoiceData("states", "serverDeafened", message.deafened);
 				setVoiceData("memberStates", user.did, (prev) => ({
+					...prev,
 					muted: prev?.muted ?? false,
 					deafened: prev?.deafened ?? false,
-					...prev,
 					serverDeafened: message.deafened,
 				}));
 				break;
@@ -1286,9 +1286,9 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 
 			setVoiceData("memberStates", data.did, (prev) => {
 				const next: VoiceMemberState = {
+					...prev,
 					muted: prev?.muted ?? false,
 					deafened: prev?.deafened ?? false,
-					...prev,
 				};
 
 				if (data.muted !== undefined) next.muted = data.muted;

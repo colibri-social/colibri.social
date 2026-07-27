@@ -1,0 +1,47 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.community.kickUser",
+	"defs": {
+		"main": {
+			"type": "procedure",
+			"description": "Kicks a user from a community by DID or handle.",
+			"parameters": {
+				"type": "params",
+				"required": [
+					"community",
+					"identifier"
+				],
+				"properties": {
+					"community": {
+						"type": "string",
+						"format": "at-uri"
+					},
+					"identifier": {
+						"type": "string",
+						"description": "DID or handle of the user to kick."
+					}
+				}
+			},
+			"output": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"did",
+						"handle"
+					],
+					"properties": {
+						"did": {
+							"type": "string",
+							"format": "did"
+						},
+						"handle": {
+							"type": "string",
+							"format": "handle"
+						}
+					}
+				}
+			}
+		}
+	}
+}

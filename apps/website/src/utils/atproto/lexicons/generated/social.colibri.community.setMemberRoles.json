@@ -1,0 +1,57 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.community.setMemberRoles",
+	"defs": {
+		"main": {
+			"type": "procedure",
+			"description": "Replaces the set of roles assigned to a member.",
+			"parameters": {
+				"type": "params",
+				"required": [
+					"community",
+					"member",
+					"roles"
+				],
+				"properties": {
+					"community": {
+						"type": "string",
+						"format": "at-uri"
+					},
+					"member": {
+						"type": "string",
+						"format": "did"
+					},
+					"roles": {
+						"type": "array",
+						"items": {
+							"type": "string"
+						}
+					}
+				}
+			},
+			"output": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"did",
+						"roles"
+					],
+					"properties": {
+						"did": {
+							"type": "string",
+							"format": "did"
+						},
+						"roles": {
+							"type": "array",
+							"items": {
+								"type": "string",
+								"format": "at-uri"
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+}

@@ -44,8 +44,13 @@ export const listMessages: XrpcRequest<
 	Promise<Response | undefined>
 > = async (fetch, channel, limit, cursor, all) => {
 	try {
+		const params = new URLSearchParams({ channel });
+		if (limit !== undefined) params.set("limit", String(limit));
+		if (cursor !== undefined) params.set("cursor", cursor);
+		if (all !== undefined) params.set("all", String(all));
+
 		const res = await fetch(
-			`/xrpc/social.colibri.channel.listMessages?channel=${channel}&limit=${limit}&cursor=${cursor}&all=${all}`,
+			`/xrpc/social.colibri.channel.listMessages?${params.toString()}`,
 		);
 
 		return res.json();

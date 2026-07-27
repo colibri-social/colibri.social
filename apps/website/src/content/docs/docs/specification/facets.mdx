@@ -8,7 +8,7 @@ Colibri messages store their text as plain UTF-8. All formatting is carried sepa
 Keeping formatting out of the text itself means the raw message stays readable and searchable, and a client that doesn't understand a given feature can always fall back to rendering the plain text.
 
 :::note
-The AppView treats facets opaquely. It stores and relays them verbatim without validating their contents, and does not render them. Interpreting facets is entirely the client's job. The one exception is push notifications, where the AppView redacts any text covered by a [`spoiler`](#spoiler) facet from the notification body. Everything else on this page describes the rendering contract clients are expected to follow.
+The AppView treats facets opaquely. It stores and relays them verbatim without validating their contents, and does not render them. Interpreting facets is entirely the client's job. The one exception is push notifications, where the AppView redacts any text covered by a [`spoiler`](#spoiler) facet from the notification body. Everything else on this page describes the rendering rules clients are expected to follow.
 :::
 
 ## The facet shape

@@ -1,0 +1,45 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.actor.data",
+	"revision": 1,
+	"defs": {
+		"main": {
+			"description": "The main actor data used in Colibri",
+			"key": "literal:self",
+			"record": {
+				"properties": {
+					"$type": {
+						"type": "string",
+						"description": "The type of the record.",
+						"format": "nsid"
+					},
+					"status": {
+						"type": "string",
+						"description": "The status for the user, displayed on their profile.",
+						"maxLength": 32,
+						"default": ""
+					},
+					"emoji": {
+						"type": "string",
+						"description": "The emoji displayed next to status."
+					},
+					"communities": {
+						"type": "array",
+						"description": "The DIDs of the communities this user is a member of, in the user's preferred sidebar order. Read back by `social.colibri.actor.listCommunities` to restore ordering.",
+						"items": {
+							"type": "string",
+							"format": "did",
+							"description": "The DID of a community."
+						}
+					}
+				},
+				"required": [
+					"status",
+					"communities"
+				],
+				"type": "object"
+			},
+			"type": "record"
+		}
+	}
+}

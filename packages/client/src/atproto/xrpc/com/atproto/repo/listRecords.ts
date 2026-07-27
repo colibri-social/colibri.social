@@ -10,8 +10,13 @@ export const listRecords: XrpcRequest<
 	Promise<Response | undefined>
 > = async (fetch, repo, collection, limit, cursor, reverse) => {
 	try {
+		const params = new URLSearchParams({ repo, collection });
+		if (limit !== undefined) params.set("limit", String(limit));
+		if (cursor !== undefined) params.set("cursor", cursor);
+		if (reverse !== undefined) params.set("reverse", String(reverse));
+
 		const res = await fetch(
-			`/xrpc/com.atproto.repo.listRecords?repo=${repo}&collection=${collection}&limit=${limit}&cursor=${cursor}&reverse=${reverse}`,
+			`/xrpc/com.atproto.repo.listRecords?${params.toString()}`,
 		);
 
 		return res.json();

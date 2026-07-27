@@ -48,3 +48,39 @@ jobs:
 
       - name: Run tests
         run: pnpm test
+
+      - name: Typecheck the client
+        run: pnpm --filter @colibri-social/client typecheck
+
+  lexicons:
+    name: Lexicons
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: lts/*
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # The AppView consumes the generated JSON, not the TypeScript docs, so a
+      # lexicon edit that was never exported would silently never reach it.
+      - name: Check the generated lexicons are up to date
+        run: |
+          pnpm lexicons:export
+          if ! git diff --exit-code --stat; then
+            echo "::error::Generated lexicons are stale. Run 'pnpm lexicons:export' and commit the result."
+            exit 1
+          fi

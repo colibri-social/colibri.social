@@ -1,0 +1,361 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.community.defs",
+	"defs": {
+		"communityInfo": {
+			"type": "object",
+			"description": "Core community record data, hydrated with its AT-URI.",
+			"required": [
+				"uri",
+				"name",
+				"description",
+				"categoryOrder",
+				"requiresApprovalToJoin",
+				"appview"
+			],
+			"properties": {
+				"uri": {
+					"type": "string",
+					"format": "at-uri"
+				},
+				"name": {
+					"type": "string"
+				},
+				"description": {
+					"type": "string"
+				},
+				"picture": {
+					"type": "blob"
+				},
+				"categoryOrder": {
+					"type": "array",
+					"items": {
+						"type": "string",
+						"format": "at-uri"
+					}
+				},
+				"requiresApprovalToJoin": {
+					"type": "boolean"
+				},
+				"appview": {
+					"type": "string",
+					"format": "did"
+				}
+			}
+		},
+		"categoryView": {
+			"type": "object",
+			"required": [
+				"uri",
+				"name",
+				"channelOrder"
+			],
+			"properties": {
+				"uri": {
+					"type": "string",
+					"format": "at-uri"
+				},
+				"name": {
+					"type": "string"
+				},
+				"channelOrder": {
+					"type": "array",
+					"items": {
+						"type": "string",
+						"format": "at-uri"
+					}
+				}
+			}
+		},
+		"channelView": {
+			"type": "object",
+			"required": [
+				"uri",
+				"name",
+				"type",
+				"category"
+			],
+			"properties": {
+				"uri": {
+					"type": "string",
+					"format": "at-uri"
+				},
+				"name": {
+					"type": "string"
+				},
+				"type": {
+					"type": "string",
+					"format": "nsid"
+				},
+				"category": {
+					"type": "string",
+					"format": "at-uri"
+				},
+				"description": {
+					"type": "string"
+				},
+				"ownerOnly": {
+					"type": "boolean"
+				},
+				"allowedRoles": {
+					"type": "array",
+					"items": {
+						"type": "string",
+						"format": "at-uri"
+					}
+				},
+				"allowedMembers": {
+					"type": "array",
+					"items": {
+						"type": "string",
+						"format": "did"
+					}
+				}
+			}
+		},
+		"roleView": {
+			"type": "object",
+			"required": [
+				"uri",
+				"name",
+				"permissions",
+				"position"
+			],
+			"properties": {
+				"uri": {
+					"type": "string",
+					"format": "at-uri"
+				},
+				"name": {
+					"type": "string"
+				},
+				"color": {
+					"type": "string"
+				},
+				"permissions": {
+					"type": "array",
+					"items": {
+						"type": "string"
+					}
+				},
+				"position": {
+					"type": "integer"
+				},
+				"hoisted": {
+					"type": "boolean"
+				},
+				"mentionable": {
+					"type": "boolean"
+				},
+				"protected": {
+					"type": "boolean"
+				},
+				"channelOverrides": {
+					"type": "array",
+					"items": {
+						"type": "ref",
+						"ref": "lex:social.colibri.community.defs#channelOverrideView"
+					}
+				}
+			}
+		},
+		"channelOverrideView": {
+			"type": "object",
+			"required": [
+				"channel"
+			],
+			"properties": {
+				"channel": {
+					"type": "string",
+					"format": "at-uri"
+				},
+				"allow": {
+					"type": "array",
+					"items": {
+						"type": "string"
+					}
+				},
+				"deny": {
+					"type": "array",
+					"items": {
+						"type": "string"
+					}
+				}
+			}
+		},
+		"memberView": {
+			"type": "object",
+			"description": "A community member, hydrated with their actor data.",
+			"required": [
+				"did",
+				"handle",
+				"roles",
+				"data"
+			],
+			"properties": {
+				"did": {
+					"type": "string",
+					"format": "did"
+				},
+				"handle": {
+					"type": "string",
+					"format": "handle"
+				},
+				"roles": {
+					"type": "array",
+					"items": {
+						"type": "string",
+						"format": "at-uri"
+					}
+				},
+				"vc": {
+					"type": "string",
+					"format": "at-uri",
+					"description": "AT-URI of the voice channel the member is currently connected to, if any."
+				},
+				"vcMuted": {
+					"type": "boolean",
+					"description": "Whether the member's microphone is muted in the voice channel."
+				},
+				"vcDeafened": {
+					"type": "boolean",
+					"description": "Whether the member is deafened in the voice channel."
+				},
+				"data": {
+					"type": "ref",
+					"ref": "lex:social.colibri.actor.defs#actorData"
+				}
+			}
+		},
+		"applicationView": {
+			"type": "object",
+			"description": "A pending or dismissed membership application.",
+			"required": [
+				"did",
+				"handle",
+				"membership",
+				"createdAt",
+				"data"
+			],
+			"properties": {
+				"did": {
+					"type": "string",
+					"format": "did"
+				},
+				"handle": {
+					"type": "string",
+					"format": "handle"
+				},
+				"membership": {
+					"type": "string",
+					"format": "at-uri"
+				},
+				"createdAt": {
+					"type": "string",
+					"format": "datetime"
+				},
+				"data": {
+					"type": "ref",
+					"ref": "lex:social.colibri.actor.defs#actorData"
+				}
+			}
+		},
+		"invitationView": {
+			"type": "object",
+			"description": "An invitation with its creator as a bare DID.",
+			"required": [
+				"code",
+				"community",
+				"createdBy",
+				"active"
+			],
+			"properties": {
+				"code": {
+					"type": "string"
+				},
+				"community": {
+					"type": "string",
+					"format": "at-uri"
+				},
+				"createdBy": {
+					"type": "string",
+					"format": "did"
+				},
+				"active": {
+					"type": "boolean"
+				}
+			}
+		},
+		"invitationProfileView": {
+			"type": "object",
+			"description": "An invitation with its creator hydrated as an actor.",
+			"required": [
+				"code",
+				"community",
+				"createdBy",
+				"active"
+			],
+			"properties": {
+				"code": {
+					"type": "string"
+				},
+				"community": {
+					"type": "string",
+					"format": "at-uri"
+				},
+				"createdBy": {
+					"type": "ref",
+					"ref": "lex:social.colibri.actor.defs#actorView"
+				},
+				"active": {
+					"type": "boolean"
+				}
+			}
+		},
+		"resolvedInvitationView": {
+			"type": "object",
+			"description": "An invitation hydrated with its community's public details, for the invite accept screen.",
+			"required": [
+				"code",
+				"community",
+				"createdBy",
+				"active",
+				"name",
+				"memberCount",
+				"onlineCount",
+				"requiresApprovalToJoin"
+			],
+			"properties": {
+				"code": {
+					"type": "string"
+				},
+				"community": {
+					"type": "string",
+					"format": "at-uri"
+				},
+				"createdBy": {
+					"type": "string",
+					"format": "did"
+				},
+				"active": {
+					"type": "boolean"
+				},
+				"name": {
+					"type": "string"
+				},
+				"picture": {
+					"type": "blob"
+				},
+				"memberCount": {
+					"type": "integer"
+				},
+				"onlineCount": {
+					"type": "integer"
+				},
+				"requiresApprovalToJoin": {
+					"type": "boolean"
+				}
+			}
+		}
+	}
+}

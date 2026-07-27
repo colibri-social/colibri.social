@@ -42,7 +42,7 @@ export const messageRecordDocs: LexiconDoc[] = [
 						channel: {
 							type: "string",
 							description: "The channel this message was sent in.",
-							format: "record-key",
+							format: "at-uri",
 						},
 						edited: {
 							type: "boolean",

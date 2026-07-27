@@ -1,0 +1,600 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.sync.subscribeEvents",
+	"revision": 1,
+	"defs": {
+		"main": {
+			"type": "subscription",
+			"description": "Opens a WebSocket stream that transmits relevant events for the authenticated user.",
+			"errors": [
+				{
+					"name": "AuthRequired"
+				}
+			],
+			"message": {
+				"schema": {
+					"type": "union",
+					"refs": [
+						"lex:social.colibri.sync.subscribeEvents#ack",
+						"lex:social.colibri.sync.subscribeEvents#communityEvent",
+						"lex:social.colibri.sync.subscribeEvents#memberEvent",
+						"lex:social.colibri.sync.subscribeEvents#categoryEvent",
+						"lex:social.colibri.sync.subscribeEvents#channelEvent",
+						"lex:social.colibri.sync.subscribeEvents#messageEvent",
+						"lex:social.colibri.sync.subscribeEvents#reactionEvent",
+						"lex:social.colibri.sync.subscribeEvents#userEvent",
+						"lex:social.colibri.sync.subscribeEvents#typingEvent",
+						"lex:social.colibri.sync.subscribeEvents#voicePresenceEvent"
+					]
+				}
+			}
+		},
+		"ack": {
+			"type": "object",
+			"description": "Sent in response to a heartbeat message.",
+			"required": [
+				"type"
+			],
+			"properties": {
+				"type": {
+					"type": "string",
+					"const": "ack"
+				}
+			}
+		},
+		"communityEvent": {
+			"type": "object",
+			"description": "Sent when a community has been updated or deleted.",
+			"required": [
+				"type",
+				"data"
+			],
+			"properties": {
+				"type": {
+					"type": "string",
+					"const": "community_event"
+				},
+				"data": {
+					"type": "ref",
+					"ref": "lex:social.colibri.sync.subscribeEvents#communityEventData"
+				}
+			}
+		},
+		"communityEventData": {
+			"type": "object",
+			"required": [
+				"event",
+				"uri"
+			],
+			"properties": {
+				"event": {
+					"type": "string",
+					"knownValues": [
+						"upsert",
+						"delete"
+					]
+				},
+				"uri": {
+					"type": "string",
+					"format": "at-uri"
+				},
+				"name": {
+					"type": "string"
+				},
+				"description": {
+					"type": "string"
+				},
+				"picture": {
+					"type": "blob"
+				},
+				"categoryOrder": {
+					"type": "array",
+					"items": {
+						"type": "string",
+						"format": "at-uri"
+					}
+				}
+			}
+		},
+		"memberEvent": {
+			"type": "object",
+			"description": "Sent when a member has joined or left a community.",
+			"required": [
+				"type",
+				"data"
+			],
+			"properties": {
+				"type": {
+					"type": "string",
+					"const": "member_event"
+				},
+				"data": {
+					"type": "ref",
+					"ref": "lex:social.colibri.sync.subscribeEvents#memberEventData"
+				}
+			}
+		},
+		"memberEventData": {
+			"type": "object",
+			"required": [
+				"event",
+				"community",
+				"membership"
+			],
+			"properties": {
+				"event": {
+					"type": "string",
+					"knownValues": [
+						"join",
+						"leave"
+					]
+				},
+				"community": {
+					"type": "string",
+					"format": "at-uri"
+				},
+				"membership": {
+					"type": "string",
+					"format": "at-uri"
+				}
+			}
+		},
+		"categoryEvent": {
+			"type": "object",
+			"description": "Sent when a category has been created, updated, or deleted.",
+			"required": [
+				"type",
+				"data"
+			],
+			"properties": {
+				"type": {
+					"type": "string",
+					"const": "category_event"
+				},
+				"data": {
+					"type": "ref",
+					"ref": "lex:social.colibri.sync.subscribeEvents#categoryEventData"
+				}
+			}
+		},
+		"categoryEventData": {
+			"type": "object",
+			"required": [
+				"event",
+				"uri",
+				"community"
+			],
+			"properties": {
+				"event": {
+					"type": "string",
+					"knownValues": [
+						"upsert",
+						"delete"
+					]
+				},
+				"uri": {
+					"type": "string",
+					"format": "at-uri"
+				},
+				"community": {
+					"type": "string",
+					"format": "at-uri"
+				},
+				"name": {
+					"type": "string"
+				},
+				"channelOrder": {
+					"type": "array",
+					"items": {
+						"type": "string",
+						"format": "at-uri"
+					}
+				}
+			}
+		},
+		"channelEvent": {
+			"type": "object",
+			"description": "Sent when a channel has been created, updated, or deleted.",
+			"required": [
+				"type",
+				"data"
+			],
+			"properties": {
+				"type": {
+					"type": "string",
+					"const": "channel_event"
+				},
+				"data": {
+					"type": "ref",
+					"ref": "lex:social.colibri.sync.subscribeEvents#channelEventData"
+				}
+			}
+		},
+		"channelEventData": {
+			"type": "object",
+			"required": [
+				"event",
+				"uri",
+				"community"
+			],
+			"properties": {
+				"event": {
+					"type": "string",
+					"knownValues": [
+						"upsert",
+						"delete"
+					]
+				},
+				"uri": {
+					"type": "string",
+					"format": "at-uri"
+				},
+				"community": {
+					"type": "string",
+					"format": "at-uri"
+				},
+				"category": {
+					"type": "string",
+					"format": "at-uri"
+				},
+				"name": {
+					"type": "string"
+				},
+				"description": {
+					"type": "string"
+				},
+				"type": {
+					"type": "string"
+				}
+			}
+		},
+		"messageEvent": {
+			"type": "object",
+			"description": "Sent when a message has been sent, edited, or deleted.",
+			"required": [
+				"type",
+				"data"
+			],
+			"properties": {
+				"type": {
+					"type": "string",
+					"const": "message_event"
+				},
+				"data": {
+					"type": "ref",
+					"ref": "lex:social.colibri.sync.subscribeEvents#messageEventData"
+				}
+			}
+		},
+		"messageEventData": {
+			"type": "object",
+			"required": [
+				"event",
+				"uri",
+				"channel"
+			],
+			"properties": {
+				"event": {
+					"type": "string",
+					"knownValues": [
+						"upsert",
+						"delete"
+					]
+				},
+				"uri": {
+					"type": "string",
+					"format": "at-uri"
+				},
+				"channel": {
+					"type": "string",
+					"format": "at-uri"
+				},
+				"text": {
+					"type": "string"
+				},
+				"facets": {
+					"type": "array",
+					"items": {
+						"type": "ref",
+						"ref": "lex:social.colibri.richtext.facet"
+					}
+				},
+				"createdAt": {
+					"type": "string",
+					"format": "datetime"
+				},
+				"indexedAt": {
+					"type": "string",
+					"format": "datetime"
+				},
+				"edited": {
+					"type": "boolean"
+				},
+				"parent": {
+					"type": "string",
+					"format": "at-uri"
+				},
+				"attachments": {
+					"type": "array",
+					"items": {
+						"type": "blob"
+					}
+				}
+			}
+		},
+		"reactionEvent": {
+			"type": "object",
+			"description": "Sent when a reaction has been added to or removed from a message.",
+			"required": [
+				"type",
+				"data"
+			],
+			"properties": {
+				"type": {
+					"type": "string",
+					"const": "reaction_event"
+				},
+				"data": {
+					"type": "ref",
+					"ref": "lex:social.colibri.sync.subscribeEvents#reactionEventData"
+				}
+			}
+		},
+		"reactionEventData": {
+			"type": "object",
+			"required": [
+				"event",
+				"uri",
+				"emoji",
+				"target",
+				"channel"
+			],
+			"properties": {
+				"event": {
+					"type": "string",
+					"knownValues": [
+						"added",
+						"removed"
+					]
+				},
+				"uri": {
+					"type": "string",
+					"format": "at-uri"
+				},
+				"emoji": {
+					"type": "string"
+				},
+				"target": {
+					"type": "string",
+					"format": "at-uri"
+				},
+				"channel": {
+					"type": "string",
+					"format": "at-uri"
+				}
+			}
+		},
+		"userEvent": {
+			"type": "object",
+			"description": "Sent when a known user has updated their profile or Colibri status.",
+			"required": [
+				"type",
+				"data"
+			],
+			"properties": {
+				"type": {
+					"type": "string",
+					"const": "user_event"
+				},
+				"data": {
+					"type": "ref",
+					"ref": "lex:social.colibri.sync.subscribeEvents#userEventData"
+				}
+			}
+		},
+		"userEventData": {
+			"type": "object",
+			"required": [
+				"did",
+				"profile"
+			],
+			"properties": {
+				"did": {
+					"type": "string",
+					"format": "did"
+				},
+				"status": {
+					"type": "ref",
+					"ref": "lex:social.colibri.sync.subscribeEvents#userStatus"
+				},
+				"profile": {
+					"type": "ref",
+					"ref": "lex:social.colibri.sync.subscribeEvents#userProfile"
+				}
+			}
+		},
+		"userStatus": {
+			"type": "object",
+			"required": [
+				"state",
+				"text"
+			],
+			"properties": {
+				"emoji": {
+					"type": "string"
+				},
+				"text": {
+					"type": "string"
+				},
+				"state": {
+					"type": "string",
+					"knownValues": [
+						"online",
+						"away",
+						"dnd",
+						"offline"
+					]
+				}
+			}
+		},
+		"userProfile": {
+			"type": "object",
+			"required": [
+				"handle"
+			],
+			"properties": {
+				"displayName": {
+					"type": "string"
+				},
+				"avatar": {
+					"type": "blob"
+				},
+				"banner": {
+					"type": "blob"
+				},
+				"description": {
+					"type": "string"
+				},
+				"handle": {
+					"type": "string",
+					"format": "handle"
+				}
+			}
+		},
+		"typingEvent": {
+			"type": "object",
+			"description": "Sent when a user is typing in a channel the client is viewing.",
+			"required": [
+				"type",
+				"data"
+			],
+			"properties": {
+				"type": {
+					"type": "string",
+					"const": "typing_event"
+				},
+				"data": {
+					"type": "ref",
+					"ref": "lex:social.colibri.sync.subscribeEvents#typingEventData"
+				}
+			}
+		},
+		"typingEventData": {
+			"type": "object",
+			"required": [
+				"event",
+				"channel",
+				"did"
+			],
+			"properties": {
+				"event": {
+					"type": "string",
+					"knownValues": [
+						"start",
+						"stop"
+					]
+				},
+				"channel": {
+					"type": "string",
+					"format": "at-uri"
+				},
+				"did": {
+					"type": "string",
+					"format": "did"
+				}
+			}
+		},
+		"voicePresenceEvent": {
+			"type": "object",
+			"description": "Sent when a user joins or leaves a voice channel.",
+			"required": [
+				"type",
+				"data"
+			],
+			"properties": {
+				"type": {
+					"type": "string",
+					"const": "voice_presence_event"
+				},
+				"data": {
+					"type": "ref",
+					"ref": "lex:social.colibri.sync.subscribeEvents#voicePresenceEventData"
+				}
+			}
+		},
+		"voicePresenceEventData": {
+			"type": "object",
+			"required": [
+				"event",
+				"channel",
+				"did"
+			],
+			"properties": {
+				"event": {
+					"type": "string",
+					"knownValues": [
+						"join",
+						"leave"
+					]
+				},
+				"channel": {
+					"type": "string",
+					"format": "at-uri"
+				},
+				"did": {
+					"type": "string",
+					"format": "did"
+				}
+			}
+		},
+		"humEnvelope": {
+			"type": "object",
+			"description": "An off-protocol event relayed between AppViews. The authenticated sender (inter-service auth JWT: aud = receiving AppView did:web, lxm = social.colibri.sync.sendHum) is the origin of record; `origin` is echoed for relay/loop control and MUST match the JWT issuer. Only off-protocol event types are permitted — on-protocol events are never carried by a Hum and are derived from the firehose instead.",
+			"required": [
+				"origin",
+				"id",
+				"ttl",
+				"subject",
+				"community",
+				"event"
+			],
+			"properties": {
+				"origin": {
+					"type": "string",
+					"format": "did",
+					"description": "DID of the AppView that first emitted this Hum."
+				},
+				"id": {
+					"type": "string",
+					"maxLength": 64,
+					"description": "Unique id for this Hum, used by receivers to dedup across relay paths."
+				},
+				"ttl": {
+					"type": "integer",
+					"minimum": 0,
+					"maximum": 8,
+					"description": "Remaining relay hops. Decremented on each forward; a Hum at ttl 0 is delivered locally but never relayed."
+				},
+				"subject": {
+					"type": "string",
+					"format": "did",
+					"description": "The user this event is about. Receiver MUST verify origin equals subject's declared presenceService before trusting or relaying."
+				},
+				"community": {
+					"type": "string",
+					"format": "at-uri",
+					"description": "Community the event is scoped to. Receiver relays to local clients only if they are members of this community."
+				},
+				"event": {
+					"type": "union",
+					"description": "Ephemeral event payload. Only off-protocol types are permitted.",
+					"refs": [
+						"lex:social.colibri.sync.subscribeEvents#userEvent",
+						"lex:social.colibri.sync.subscribeEvents#typingEvent",
+						"lex:social.colibri.sync.subscribeEvents#voicePresenceEvent"
+					]
+				}
+			}
+		}
+	}
+}

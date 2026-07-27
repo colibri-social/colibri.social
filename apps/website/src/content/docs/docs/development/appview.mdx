@@ -116,6 +116,20 @@ cargo clippy -- -D warnings
 cargo test --all-features
 ```
 
+`cargo test` also runs `tests/lexicons.rs`, which checks every route against
+the lexicons vendored in `lexicons/`. It reads files only, no database, no
+network, and fails just when a route would actually break a client, so a
+lexicon that has not caught up with the AppView is reported rather than
+rejected. Run `./scripts/sync-lexicons.sh` to refresh the vendored copy,
+[Testing](/docs/development/testing) covers the rules and the escape hatch in
+full.
+
+`src/lib/response_snapshots.rs` pins what the response structs actually
+serialise to, against `tests/fixtures/responses/`, and checks each one still
+carries every property its lexicon marks required. It lives in `src/` because
+a binary crate's `tests/` cannot import crate types. After a deliberate shape
+change, regenerate with `UPDATE_FIXTURES=1 cargo test` and review the diff.
+
 Unit tests live in `#[cfg(test)]` modules next to the code they cover. Handlers are written against injected function seams (`create_with` takes `create_account_fn`, `create_record_fn`, and friends) precisely so they can be tested without a PDS or a database, [`wiremock`](https://docs.rs/wiremock) stands in for HTTP services where a seam isn't enough. When you add a handler, prefer that shape over reaching for the real thing.
 
 ## Working without a PDS
@@ -156,5 +170,5 @@ In certain cases, you may want to start clean on your local state.
 ## See also
 
 - [AppView Architecture](/docs/architecture/appview): services, sizing, and Humming.
-- [AppView Specification](/docs/specification/appview): the endpoint and event contract.
+- [AppView Specification](/docs/specification/appview): what every endpoint and event must do.
 - [Self-Hosting](/docs/self-hosting/getting-started): running an instance for real users.

@@ -1,0 +1,44 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.sync.subscribeHums",
+	"defs": {
+		"main": {
+			"type": "subscription",
+			"description": "Egress-only WebSocket stream of Hums this AppView is relaying. Peers subscribe to receive off-protocol events for shared communities, optionally narrowing to declared `communities` (repeated query param). Requires inter-service auth (subprotocol-carried, as with subscribeEvents). Clients cannot send messages on this stream.",
+			"parameters": {
+				"type": "params",
+				"properties": {
+					"communities": {
+						"type": "array",
+						"description": "DIDs of the communities the peer wants Hums for, repeated once per community. Narrowing only: the intersection with what the peer is authorised for is what gets streamed, so declaring a community grants nothing. Omit it entirely to receive every authorised community.",
+						"items": {
+							"type": "string",
+							"format": "did"
+						}
+					}
+				}
+			},
+			"errors": [
+				{
+					"name": "AuthRequired"
+				},
+				{
+					"name": "NotEnabled",
+					"description": "Humming is disabled on this AppView."
+				},
+				{
+					"name": "TooManySubscribers",
+					"description": "The hub is at its subscribeHums connection limit."
+				}
+			],
+			"message": {
+				"schema": {
+					"type": "union",
+					"refs": [
+						"lex:social.colibri.sync.subscribeEvents#humEnvelope"
+					]
+				}
+			}
+		}
+	}
+}

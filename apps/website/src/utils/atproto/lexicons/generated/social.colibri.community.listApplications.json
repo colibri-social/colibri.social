@@ -1,0 +1,48 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.community.listApplications",
+	"defs": {
+		"main": {
+			"type": "query",
+			"description": "Lists pending and dismissed membership applications for a community.",
+			"parameters": {
+				"type": "params",
+				"required": [
+					"community"
+				],
+				"properties": {
+					"community": {
+						"type": "string",
+						"format": "at-uri"
+					}
+				}
+			},
+			"output": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"applications",
+						"dismissedApplications"
+					],
+					"properties": {
+						"applications": {
+							"type": "array",
+							"items": {
+								"type": "ref",
+								"ref": "lex:social.colibri.community.defs#applicationView"
+							}
+						},
+						"dismissedApplications": {
+							"type": "array",
+							"items": {
+								"type": "ref",
+								"ref": "lex:social.colibri.community.defs#applicationView"
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+}

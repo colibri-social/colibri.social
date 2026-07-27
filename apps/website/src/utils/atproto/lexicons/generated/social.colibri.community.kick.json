@@ -1,0 +1,47 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.community.kick",
+	"defs": {
+		"main": {
+			"type": "procedure",
+			"description": "Kicks a member from a community by member record.",
+			"parameters": {
+				"type": "params",
+				"required": [
+					"community",
+					"member"
+				],
+				"properties": {
+					"community": {
+						"type": "string",
+						"format": "at-uri"
+					},
+					"member": {
+						"type": "string",
+						"format": "at-uri"
+					}
+				}
+			},
+			"output": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"did",
+						"handle"
+					],
+					"properties": {
+						"did": {
+							"type": "string",
+							"format": "did"
+						},
+						"handle": {
+							"type": "string",
+							"format": "handle"
+						}
+					}
+				}
+			}
+		}
+	}
+}

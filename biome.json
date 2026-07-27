@@ -16,6 +16,7 @@
 			"!**/dist",
 			"!**/.astro",
 			"!apps/website/public",
+			"!apps/website/src/utils/atproto/lexicons/generated",
 			"!packages/assets/files",
 			"!packages/assets/src/login-manifest.ts"
 		]

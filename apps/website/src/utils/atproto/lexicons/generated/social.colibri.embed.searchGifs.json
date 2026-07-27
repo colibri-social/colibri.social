@@ -1,0 +1,50 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.embed.searchGifs",
+	"defs": {
+		"main": {
+			"type": "query",
+			"description": "Searches GIFs by query.",
+			"parameters": {
+				"type": "params",
+				"required": [
+					"q"
+				],
+				"properties": {
+					"q": {
+						"type": "string"
+					},
+					"page": {
+						"type": "integer"
+					}
+				}
+			},
+			"output": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"items",
+						"page",
+						"hasNext"
+					],
+					"properties": {
+						"items": {
+							"type": "array",
+							"items": {
+								"type": "ref",
+								"ref": "lex:social.colibri.embed.defs#gifItem"
+							}
+						},
+						"page": {
+							"type": "integer"
+						},
+						"hasNext": {
+							"type": "boolean"
+						}
+					}
+				}
+			}
+		}
+	}
+}

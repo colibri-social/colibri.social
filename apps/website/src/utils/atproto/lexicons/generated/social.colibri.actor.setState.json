@@ -1,0 +1,42 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.actor.setState",
+	"defs": {
+		"main": {
+			"type": "procedure",
+			"description": "Sets the authenticated user's online presence state.",
+			"parameters": {
+				"type": "params",
+				"required": [
+					"state"
+				],
+				"properties": {
+					"state": {
+						"type": "string",
+						"description": "The presence state to set.",
+						"knownValues": [
+							"online",
+							"away",
+							"dnd",
+							"offline"
+						]
+					}
+				}
+			},
+			"output": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"onlineState"
+					],
+					"properties": {
+						"onlineState": {
+							"type": "string"
+						}
+					}
+				}
+			}
+		}
+	}
+}

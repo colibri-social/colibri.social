@@ -1,0 +1,40 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.notification.getUnseen",
+	"defs": {
+		"main": {
+			"type": "query",
+			"description": "Returns unseen notifications for a specific channel.",
+			"parameters": {
+				"type": "params",
+				"required": [
+					"channel"
+				],
+				"properties": {
+					"channel": {
+						"type": "string",
+						"format": "at-uri"
+					}
+				}
+			},
+			"output": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"notifications"
+					],
+					"properties": {
+						"notifications": {
+							"type": "array",
+							"items": {
+								"type": "ref",
+								"ref": "lex:social.colibri.notification.defs#unseenNotification"
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+}

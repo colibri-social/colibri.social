@@ -1,0 +1,29 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.actor.getData",
+	"defs": {
+		"main": {
+			"type": "query",
+			"description": "Resolves an identifier (DID or handle) to its hydrated Colibri actor data.",
+			"parameters": {
+				"type": "params",
+				"required": [
+					"identifier"
+				],
+				"properties": {
+					"identifier": {
+						"type": "string",
+						"description": "The DID or handle to resolve."
+					}
+				}
+			},
+			"output": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "ref",
+					"ref": "lex:social.colibri.actor.defs#actorView"
+				}
+			}
+		}
+	}
+}

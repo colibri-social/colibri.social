@@ -170,7 +170,7 @@ export const MessageInput: Component<{
 		lastTypingPing = 0;
 
 		if (hasFiles) {
-			setUploadedFiles(new Set());
+			setUploadedFiles(new Set<File>());
 			setIsSending(true);
 		}
 

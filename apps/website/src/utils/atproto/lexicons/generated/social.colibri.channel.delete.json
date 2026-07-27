@@ -1,0 +1,37 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.channel.delete",
+	"defs": {
+		"main": {
+			"type": "procedure",
+			"description": "Deletes a channel.",
+			"parameters": {
+				"type": "params",
+				"required": [
+					"channel"
+				],
+				"properties": {
+					"channel": {
+						"type": "string",
+						"format": "at-uri"
+					}
+				}
+			},
+			"output": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"uri"
+					],
+					"properties": {
+						"uri": {
+							"type": "string",
+							"format": "at-uri"
+						}
+					}
+				}
+			}
+		}
+	}
+}

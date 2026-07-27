@@ -1,0 +1,46 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.actor.listMutes",
+	"defs": {
+		"main": {
+			"type": "query",
+			"description": "Lists the subjects the authenticated user has muted.",
+			"output": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"mutes"
+					],
+					"properties": {
+						"mutes": {
+							"type": "array",
+							"items": {
+								"type": "ref",
+								"ref": "lex:social.colibri.actor.listMutes#mute"
+							}
+						}
+					}
+				}
+			}
+		},
+		"mute": {
+			"type": "object",
+			"required": [
+				"uri",
+				"subject"
+			],
+			"properties": {
+				"uri": {
+					"type": "string",
+					"format": "at-uri",
+					"description": "AT-URI of the mute record."
+				},
+				"subject": {
+					"type": "string",
+					"description": "The muted subject (a DID)."
+				}
+			}
+		}
+	}
+}

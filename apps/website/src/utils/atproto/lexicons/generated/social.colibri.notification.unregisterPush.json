@@ -1,0 +1,47 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.notification.unregisterPush",
+	"defs": {
+		"main": {
+			"type": "procedure",
+			"description": "Removes a push subscription.",
+			"input": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"endpoint"
+					],
+					"properties": {
+						"provider": {
+							"type": "string",
+							"knownValues": [
+								"web",
+								"fcm"
+							],
+							"description": "Defaults to \"web\" if omitted."
+						},
+						"endpoint": {
+							"type": "string",
+							"description": "The Web Push endpoint URL or FCM registration token to remove."
+						}
+					}
+				}
+			},
+			"output": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"unregistered"
+					],
+					"properties": {
+						"unregistered": {
+							"type": "boolean"
+						}
+					}
+				}
+			}
+		}
+	}
+}

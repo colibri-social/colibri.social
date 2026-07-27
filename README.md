@@ -47,9 +47,11 @@ This is a [pnpm](https://pnpm.io) monorepo. The deployable app lives in `apps/`,
 
 Run from the repository root:
 
+- `pnpm test`: run the test suite (packages without tests are skipped)
 - `pnpm lint`: check the whole workspace with [Biome](https://biomejs.dev)
 - `pnpm lint:fix`: check and auto-fix
 - `pnpm format`: format the whole workspace with Biome
+- `pnpm lexicons:export`: re-export the lexicons to JSON after changing one
 
 ## Contributing
 

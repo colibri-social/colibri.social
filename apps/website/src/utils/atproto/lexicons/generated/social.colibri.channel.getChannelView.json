@@ -1,0 +1,58 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.channel.getChannelView",
+	"defs": {
+		"main": {
+			"type": "query",
+			"description": "Returns the initial view of a channel: recent messages, the read cursor, and unseen notifications.",
+			"parameters": {
+				"type": "params",
+				"required": [
+					"channel"
+				],
+				"properties": {
+					"channel": {
+						"type": "string",
+						"format": "at-uri"
+					},
+					"limit": {
+						"type": "integer"
+					}
+				}
+			},
+			"output": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"messages",
+						"unseen"
+					],
+					"properties": {
+						"cursor": {
+							"type": "string"
+						},
+						"messages": {
+							"type": "array",
+							"items": {
+								"type": "ref",
+								"ref": "lex:social.colibri.channel.defs#message"
+							}
+						},
+						"readCursor": {
+							"type": "ref",
+							"ref": "lex:social.colibri.channel.defs#readCursor"
+						},
+						"unseen": {
+							"type": "array",
+							"items": {
+								"type": "ref",
+								"ref": "lex:social.colibri.notification.defs#unseenNotification"
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+}

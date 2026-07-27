@@ -15,8 +15,10 @@
 		"astro": "astro",
 		"lint": "biome check .",
 		"lint:fix": "biome check . --write",
+		"test": "vitest run",
 		"start": "node ./dist/server/entry.mjs",
-		"publish-lexicons": "node --experimental-strip-types scripts/publish-lexicons.ts"
+		"publish-lexicons": "node --experimental-strip-types scripts/publish-lexicons.ts",
+		"lexicons:export": "node --experimental-strip-types scripts/export-lexicons.ts"
 	},
 	"dependencies": {
 		"@astrojs/check": "^0.9.9",
@@ -107,6 +109,7 @@
 		"@types/jsdom": "^28.0.0",
 		"@types/ws": "^8.18.1",
 		"tsx": "^4.21.0",
+		"vitest": "^4.1.10",
 		"ws": "^8.20.0"
 	}
 }

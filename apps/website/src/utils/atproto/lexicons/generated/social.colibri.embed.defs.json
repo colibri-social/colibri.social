@@ -1,0 +1,50 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.embed.defs",
+	"defs": {
+		"gifItem": {
+			"type": "object",
+			"description": "A single GIF result.",
+			"required": [
+				"id",
+				"mediaUrl",
+				"previewUrl"
+			],
+			"properties": {
+				"id": {
+					"type": "string"
+				},
+				"mediaUrl": {
+					"type": "string",
+					"format": "uri"
+				},
+				"previewUrl": {
+					"type": "string",
+					"format": "uri"
+				},
+				"width": {
+					"type": "integer"
+				},
+				"height": {
+					"type": "integer"
+				}
+			}
+		},
+		"embedImage": {
+			"type": "object",
+			"description": "An image referenced by link metadata.",
+			"required": [
+				"url"
+			],
+			"properties": {
+				"url": {
+					"type": "string",
+					"format": "uri"
+				},
+				"alt": {
+					"type": "string"
+				}
+			}
+		}
+	}
+}

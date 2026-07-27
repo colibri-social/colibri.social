@@ -1,0 +1,37 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.category.delete",
+	"defs": {
+		"main": {
+			"type": "procedure",
+			"description": "Deletes a category.",
+			"parameters": {
+				"type": "params",
+				"required": [
+					"category"
+				],
+				"properties": {
+					"category": {
+						"type": "string",
+						"format": "at-uri"
+					}
+				}
+			},
+			"output": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"uri"
+					],
+					"properties": {
+						"uri": {
+							"type": "string",
+							"format": "at-uri"
+						}
+					}
+				}
+			}
+		}
+	}
+}

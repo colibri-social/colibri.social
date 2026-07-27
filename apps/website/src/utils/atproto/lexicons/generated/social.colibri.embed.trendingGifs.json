@@ -1,0 +1,44 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.embed.trendingGifs",
+	"defs": {
+		"main": {
+			"type": "query",
+			"description": "Returns trending GIFs.",
+			"parameters": {
+				"type": "params",
+				"properties": {
+					"page": {
+						"type": "integer"
+					}
+				}
+			},
+			"output": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"items",
+						"page",
+						"hasNext"
+					],
+					"properties": {
+						"items": {
+							"type": "array",
+							"items": {
+								"type": "ref",
+								"ref": "lex:social.colibri.embed.defs#gifItem"
+							}
+						},
+						"page": {
+							"type": "integer"
+						},
+						"hasNext": {
+							"type": "boolean"
+						}
+					}
+				}
+			}
+		}
+	}
+}

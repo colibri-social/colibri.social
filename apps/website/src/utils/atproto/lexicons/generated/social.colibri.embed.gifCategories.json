@@ -1,0 +1,46 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.embed.gifCategories",
+	"defs": {
+		"main": {
+			"type": "query",
+			"description": "Lists GIF categories for the picker.",
+			"output": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"categories"
+					],
+					"properties": {
+						"categories": {
+							"type": "array",
+							"items": {
+								"type": "ref",
+								"ref": "lex:social.colibri.embed.gifCategories#gifCategory"
+							}
+						}
+					}
+				}
+			}
+		},
+		"gifCategory": {
+			"type": "object",
+			"required": [
+				"name"
+			],
+			"properties": {
+				"name": {
+					"type": "string"
+				},
+				"query": {
+					"type": "string"
+				},
+				"previewUrl": {
+					"type": "string",
+					"format": "uri"
+				}
+			}
+		}
+	}
+}

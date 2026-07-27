@@ -7,6 +7,7 @@
 		"dev:tauri:ios": "pnpm --filter @colibri-social/wrapper tauri ios dev",
 		"build": "pnpm -r build",
 		"test": "pnpm -r test",
+		"lexicons:export": "pnpm --filter @colibri-social/website lexicons:export",
 		"lint": "biome check .",
 		"lint:fix": "biome check . --write",
 		"format": "biome format . --write",

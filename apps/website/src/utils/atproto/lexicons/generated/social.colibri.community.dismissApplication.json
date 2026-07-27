@@ -1,0 +1,47 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.community.dismissApplication",
+	"defs": {
+		"main": {
+			"type": "procedure",
+			"description": "Dismisses a membership application without approving it.",
+			"parameters": {
+				"type": "params",
+				"required": [
+					"community",
+					"did"
+				],
+				"properties": {
+					"community": {
+						"type": "string",
+						"format": "at-uri"
+					},
+					"did": {
+						"type": "string",
+						"format": "did"
+					}
+				}
+			},
+			"output": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"did",
+						"community"
+					],
+					"properties": {
+						"did": {
+							"type": "string",
+							"format": "did"
+						},
+						"community": {
+							"type": "string",
+							"format": "at-uri"
+						}
+					}
+				}
+			}
+		}
+	}
+}
