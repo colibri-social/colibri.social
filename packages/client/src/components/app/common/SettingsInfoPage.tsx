@@ -1,5 +1,6 @@
 import { type Component, Show } from "solid-js";
 import { AtURI } from "../../../utils/at-uri";
+import { openExternalLink } from "../../../utils/open-external-link";
 import { Button } from "../../ui/Button";
 import { CopyButton } from "./CopyButton";
 import { SettingsPage } from "./SettingsModal";
@@ -29,6 +30,7 @@ export const SettingsInfoPage: Component<{
 	uri: string;
 }> = (props) => {
 	const { did, collection, identifier } = AtURI.parseAtURI(props.uri);
+	const atprotoAtHref = `https://atproto.at/uri/${props.uri}`;
 
 	return (
 		<SettingsPage loading={() => false} title="Debug Information">
@@ -39,9 +41,10 @@ export const SettingsInfoPage: Component<{
 				<InfoPageItem title="AT-URI" value={props.uri} />
 				<Button
 					as="a"
-					href={`https://atproto.at/uri/${props.uri}`}
+					href={atprotoAtHref}
 					target="_blank"
 					rel="noreferrer"
+					onClick={(e) => openExternalLink(atprotoAtHref, e)}
 					class="font-medium w-fit flex flex-row gap-2 items-center bg-foreground hover:bg-foreground/90"
 				>
 					<span class="text-background">
