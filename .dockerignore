@@ -1,9 +1,13 @@
 # Dependencies
-node_modules
+**/node_modules
 .pnpm-store
 
 # Build output
-dist
+**/dist
+
+# Native build output, never needed by the website image
+**/src-tauri/gen
+**/src-tauri/target
 
 # Environment & secrets
 .env

@@ -14,7 +14,7 @@ export type WebPushSubscription = {
 
 /**
  * Resolve the VAPID public key. Accessed defensively because the client is
- * built by tsup but re-bundled by the host (Astro uses `PUBLIC_*`, a standalone
+ * built by tsdown but re-bundled by the host (Astro uses `PUBLIC_*`, a standalone
  * Vite dev server uses `VITE_*`); a host may also inject it as a global.
  */
 const getVapidPublicKey = (): string | undefined => {

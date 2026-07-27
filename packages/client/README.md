@@ -9,7 +9,7 @@ Most of the time you work the client by running `pnpm dev:client` from the root.
 ## Scripts
 
 - `dev` / `start`: serve the app with Vite
-- `build`: bundle the library with [tsup](https://tsup.egoist.dev) and compile Tailwind to `dist/index.css`
+- `build`: bundle the library with [tsdown](https://tsdown.dev) and compile Tailwind to `dist/index.css`
 
 ## Exports
 

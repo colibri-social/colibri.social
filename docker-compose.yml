@@ -13,6 +13,7 @@ services:
         - SENTRY_RELEASE=${SENTRY_RELEASE}
         - TURSO_AUTH_TOKEN=${TURSO_AUTH_TOKEN}
         - TURSO_DATABASE_URL=${TURSO_DATABASE_URL}
+        - PUBLIC_VAPID_KEY=${PUBLIC_VAPID_KEY}
     container_name: colibri-app
     restart: unless-stopped
     environment:

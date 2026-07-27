@@ -11,7 +11,6 @@ import {
 import { Portal } from "solid-js/web";
 import "vidstack/player";
 import "vidstack/player/ui";
-import "./media-attachments.css";
 
 import CaretLeftIcon from "~icons/ph/caret-left";
 import CaretRightIcon from "~icons/ph/caret-right";

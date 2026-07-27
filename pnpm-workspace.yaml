@@ -2,14 +2,13 @@ packages:
   - apps/*
   - packages/*
 
-ignoredBuiltDependencies:
-  - core-js
-  - skia-canvas
-
-onlyBuiltDependencies:
-  - core-js
-  - esbuild
-  - sharp
+allowBuilds:
+  '@parcel/watcher': false
+  '@sentry/cli': false
+  core-js: false
+  esbuild: true
+  sharp: true
+  skia-canvas: false
 
 patchedDependencies:
   '@atproto/oauth-client-browser@0.4.3': patches/@atproto__oauth-client-browser@0.4.3.patch

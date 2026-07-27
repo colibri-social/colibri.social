@@ -1,9 +1,7 @@
 import { fileURLToPath } from "node:url";
-import { solidPlugin } from "esbuild-plugin-solid";
-import { defineConfig, type Options } from "tsup";
-import Icons from "unplugin-icons/esbuild";
-
-type EsbuildPlugin = NonNullable<Options["esbuildPlugins"]>[number];
+import { defineConfig } from "tsdown";
+import Icons from "unplugin-icons/rolldown";
+import Solid from "unplugin-solid/rolldown";
 
 // When DISABLE_SENTRY is set, redirect the Sentry imports to local no-op stubs
 // so `@sentry/solid` is never pulled into the bundle. This lets us ship builds
@@ -14,44 +12,33 @@ const disableSentry =
 const stub = (relative: string) =>
 	fileURLToPath(new URL(relative, import.meta.url));
 
-const disableSentryPlugin: EsbuildPlugin = {
+const disableSentryPlugin = {
 	name: "disable-sentry",
-	setup(build) {
-		build.onResolve({ filter: /^@sentry\/solid\/solidrouter$/ }, () => ({
-			path: stub("./src/stubs/sentry-solidrouter.ts"),
-		}));
-		build.onResolve({ filter: /^@sentry\/solid$/ }, () => ({
-			path: stub("./src/stubs/sentry-solid.ts"),
-		}));
+	resolveId(id: string) {
+		if (id === "@sentry/solid/solidrouter")
+			return stub("./src/stubs/sentry-solidrouter.ts");
+		if (id === "@sentry/solid") return stub("./src/stubs/sentry-solid.ts");
+		return null;
 	},
 };
 
 export default defineConfig({
 	entry: ["src/index.ts", "src/atproto/scopes.ts"],
 	format: ["esm"],
-	dts: {
-		compilerOptions: {
-			ignoreDeprecations: "6.0",
-		},
-	},
+	dts: true,
 	clean: true,
 	sourcemap: true,
 	// Dependencies are externalized by default, opt `@sentry/solid` back into
 	// bundling so the stub redirect below can take effect and the real SDK is
 	// dropped rather than left as an external import
-	noExternal: disableSentry ? [/^@sentry\/solid/] : [],
-	esbuildPlugins: [
+	deps: {
+		alwaysBundle: disableSentry
+			? [/^@colibri-social\//, /^@sentry\/solid/]
+			: [/^@colibri-social\//],
+	},
+	plugins: [
 		...(disableSentry ? [disableSentryPlugin] : []),
 		Icons({ compiler: "solid" }),
-		solidPlugin(),
+		Solid(),
 	],
-	esbuildOptions(options) {
-		options.tsconfig = undefined;
-		options.tsconfigRaw = {
-			compilerOptions: {
-				jsx: "react-jsx",
-				jsxImportSource: "solid-js/h",
-			},
-		};
-	},
 });

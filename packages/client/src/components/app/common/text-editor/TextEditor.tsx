@@ -1,3 +1,10 @@
+import {
+	type ColibriRichTextFacet,
+	facetsToSource,
+	parseMarkdown,
+	tokenizeMarkdown,
+} from "@colibri-social/lib";
+import { type Editor, Extension, mergeAttributes } from "@tiptap/core";
 import { BubbleMenu } from "@tiptap/extension-bubble-menu";
 import { Document } from "@tiptap/extension-document";
 import Emoji from "@tiptap/extension-emoji";
@@ -6,6 +13,9 @@ import { Mention } from "@tiptap/extension-mention";
 import { Paragraph } from "@tiptap/extension-paragraph";
 import { Text } from "@tiptap/extension-text";
 import { Placeholder, UndoRedo } from "@tiptap/extensions";
+import type { Fragment, Node as ProseMirrorNode } from "prosemirror-model";
+import { Plugin } from "prosemirror-state";
+import type { EditorView } from "prosemirror-view";
 import {
 	type Component,
 	createEffect,
@@ -15,17 +25,6 @@ import {
 	untrack,
 } from "solid-js";
 import { createEditorTransaction, createTiptapEditor } from "solid-tiptap";
-import "./TextEditor.css";
-import {
-	type ColibriRichTextFacet,
-	facetsToSource,
-	parseMarkdown,
-	tokenizeMarkdown,
-} from "@colibri-social/lib";
-import { type Editor, Extension, mergeAttributes } from "@tiptap/core";
-import type { Fragment, Node as ProseMirrorNode } from "prosemirror-model";
-import { Plugin } from "prosemirror-state";
-import type { EditorView } from "prosemirror-view";
 import CodeIcon from "~icons/ph/code";
 import SmileyIcon from "~icons/ph/smiley";
 import TextBIcon from "~icons/ph/text-b";
