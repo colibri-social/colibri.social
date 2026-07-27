@@ -32,6 +32,7 @@ import { CommunityCreationModal } from "../components/app/CommunityCreationModal
 import { CommunityContextMenu } from "../components/app/community/CommunityContextMenu";
 import { PENDING_INVITE_KEY } from "../components/app/community/invite-storage";
 import { NativeNotifications } from "../components/app/NativeNotifications";
+import { NotificationPromptDialog } from "../components/app/onboarding/NotificationPromptDialog";
 import { UserSettingsModal } from "../components/app/settings";
 import { VoiceOverlay } from "../components/app/VoiceOverlay";
 import { Plus } from "../components/icons/Plus";
@@ -434,6 +435,7 @@ const AppLayout: ParentComponent = (props) => {
 			}}
 		>
 			<NativeNotifications />
+			<NotificationPromptDialog />
 			<div
 				class="flex w-full h-10 min-h-10 justify-between"
 				classList={{ hidden: isMobile() || isTauriRuntime() }}

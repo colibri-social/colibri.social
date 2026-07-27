@@ -4,15 +4,9 @@ import { writeNotificationPreference } from "../../../atproto/notificationPrefer
 import type { NotificationLevel } from "../../../atproto/xrpc/social/colibri/actor";
 import { useUserContext } from "../../../contexts/User";
 import { useUserPreferences } from "../../../contexts/UserPreferences";
-import { getBackend, isWebRuntime } from "../../../notifications";
-import {
-	subscribeFcmPush,
-	unsubscribeFcmPush,
-} from "../../../notifications/push-fcm";
-import {
-	subscribeWebPush,
-	unsubscribeWebPush,
-} from "../../../notifications/push-web";
+import { enablePushNotifications, isWebRuntime } from "../../../notifications";
+import { unsubscribeFcmPush } from "../../../notifications/push-fcm";
+import { unsubscribeWebPush } from "../../../notifications/push-web";
 import {
 	Switch,
 	SwitchControl,
@@ -58,28 +52,20 @@ export const NotificationsPage: Component = () => {
 		setBusy(true);
 		try {
 			if (enabled) {
-				// Permission must be requested from this user gesture.
-				const permission = await getBackend().requestPermission();
+				const permission = await enablePushNotifications(
+					(sub) => user.xrpc.social.colibri.notification.registerPush(sub),
+					(endpoint, provider) =>
+						user.xrpc.social.colibri.notification.unregisterPush(
+							endpoint,
+							provider,
+						),
+				);
 				if (permission !== "granted") {
 					toast.error("Notification permission was not granted.");
 					return;
 				}
 
 				setNativeNotifications(true);
-
-				// On the web, also register a push subscription so notifications
-				// arrive while the app is closed. On Android, register with FCM
-				// for the same reason.
-				if (isWebRuntime()) {
-					await subscribeWebPush((sub) =>
-						user.xrpc.social.colibri.notification.registerPush(sub),
-					);
-				}
-				await subscribeFcmPush(
-					(sub) => user.xrpc.social.colibri.notification.registerPush(sub),
-					(token) =>
-						user.xrpc.social.colibri.notification.unregisterPush(token, "fcm"),
-				);
 			} else {
 				setNativeNotifications(false);
 				if (isWebRuntime()) {

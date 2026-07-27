@@ -1,9 +1,21 @@
 import { toast } from "somoto";
 import { isTauriRuntime, isWebRuntime } from "./environment";
-import { unsubscribeFcmPush } from "./push-fcm";
-import { unsubscribeWebPush } from "./push-web";
+import {
+	type FcmSubscription,
+	subscribeFcmPush,
+	unsubscribeFcmPush,
+} from "./push-fcm";
+import {
+	subscribeWebPush,
+	unsubscribeWebPush,
+	type WebPushSubscription,
+} from "./push-web";
 import { tauriBackend } from "./tauri";
-import type { NotificationBackend, NotificationPayload } from "./types";
+import type {
+	NotificationBackend,
+	NotificationPayload,
+	NotificationPermission,
+} from "./types";
 import { webBackend } from "./web";
 
 const noopBackend: NotificationBackend = {
@@ -54,6 +66,23 @@ export const notify = async (payload: NotificationPayload): Promise<void> => {
 	}
 
 	toast(payload.title, { description: payload.body });
+};
+
+export const enablePushNotifications = async (
+	registerPush: (
+		sub: WebPushSubscription | FcmSubscription,
+	) => Promise<unknown>,
+	unregisterPush: (endpoint: string, provider?: string) => Promise<unknown>,
+): Promise<NotificationPermission> => {
+	const permission = await getBackend().requestPermission();
+	if (permission !== "granted") return permission;
+
+	if (isWebRuntime()) {
+		await subscribeWebPush(registerPush);
+	}
+	await subscribeFcmPush(registerPush, (token) => unregisterPush(token, "fcm"));
+
+	return permission;
 };
 
 export const unregisterAllPush = async (

@@ -28,7 +28,7 @@ const getVapidPublicKey = (): string | undefined => {
 	);
 };
 
-const isPushSupported = (): boolean =>
+export const isPushSupported = (): boolean =>
 	isWebRuntime() && "serviceWorker" in navigator && "PushManager" in window;
 
 /** Decode a base64url VAPID key into the Uint8Array the Push API expects. */

@@ -14,7 +14,6 @@ import { isMobileNow } from "../utils/mobile-pane";
 
 const STORAGE_KEY = "colibri:user-preferences";
 
-/** How many recently-used GIFs to keep in the picker's Recents row. */
 const MAX_RECENT_GIFS = 24;
 
 export type VoicePreferences = {
@@ -64,10 +63,9 @@ export interface ControlsPreferences {
 
 export type UserPreferencesContextData = {
 	membersListVisible: boolean;
-	/** Whether the "messages are public" reminder banner has been dismissed. */
 	publicReminderDismissed: boolean;
-	/** Whether native OS notifications are enabled (opt-in, requires permission). */
 	nativeNotifications: boolean;
+	notificationPromptDismissed: boolean;
 	voice: {
 		input: VoiceInputSettings;
 		output: VoiceIOSettings;
@@ -82,9 +80,7 @@ export type UserPreferencesContextData = {
 	preferredBlueskyClient: BlueskyClientID;
 	preferredAppView: string;
 	sharePresence: boolean;
-	/** Most-recently-used GIFs (newest first), shown in the picker's Recents. */
 	recentGifs: Array<GifItem>;
-	/** Per-experiment opt-in state, keyed by experiment id. */
 	experiments: Record<string, boolean>;
 	controls: ControlsPreferences;
 };
@@ -93,6 +89,7 @@ const DEFAULT_PREFERENCES: UserPreferencesContextData = {
 	membersListVisible: !isMobileNow(),
 	publicReminderDismissed: false,
 	nativeNotifications: false,
+	notificationPromptDismissed: false,
 	voice: {
 		input: {
 			enabled: true,
@@ -187,6 +184,7 @@ type UserPreferencesContextValue = {
 	toggleMembersVisible: () => void;
 	setPublicReminderDismissed: (dismissed: boolean) => void;
 	setNativeNotifications: (enabled: boolean) => void;
+	setNotificationPromptDismissed: (dismissed: boolean) => void;
 	setNoiseSuppressionHints: (enabled: boolean) => void;
 	setPreferredBlueskyClient: (client: BlueskyClientID) => void;
 	setPreferredAppView: (appView: string) => void;
@@ -285,6 +283,10 @@ export const UserPreferencesContextProvider: ParentComponent = (props) => {
 		setPreferences((p) => ({ ...p, nativeNotifications: enabled }));
 	};
 
+	const setNotificationPromptDismissed = (dismissed: boolean) => {
+		setPreferences((p) => ({ ...p, notificationPromptDismissed: dismissed }));
+	};
+
 	const setNoiseSuppressionHints = (enabled: boolean) => {
 		setPreferences((p) => ({
 			...p,
@@ -339,6 +341,7 @@ export const UserPreferencesContextProvider: ParentComponent = (props) => {
 				toggleMembersVisible,
 				setPublicReminderDismissed,
 				setNativeNotifications,
+				setNotificationPromptDismissed,
 				setNoiseSuppressionHints,
 				setPreferredBlueskyClient,
 				setPreferredAppView,
