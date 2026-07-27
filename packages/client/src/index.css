@@ -271,6 +271,43 @@
 		font-family: var(--font-sans);
 	}
 
+	@media (pointer: fine) {
+		*::-webkit-scrollbar {
+			width: 8px;
+			height: 8px;
+		}
+
+		*::-webkit-scrollbar-track,
+		*::-webkit-scrollbar-corner {
+			background: transparent;
+		}
+
+		*::-webkit-scrollbar-thumb {
+			background: color-mix(in oklab, var(--muted-foreground) 25%, transparent);
+			border-radius: 9999px;
+		}
+
+		*::-webkit-scrollbar-thumb:hover {
+			background: color-mix(in oklab, var(--muted-foreground) 45%, transparent);
+		}
+
+		*::-webkit-scrollbar-button {
+			display: none;
+		}
+
+		@supports not selector(::-webkit-scrollbar) {
+			* {
+				scrollbar-width: thin;
+				scrollbar-color: color-mix(
+						in oklab,
+						var(--muted-foreground) 30%,
+						transparent
+					)
+					transparent;
+			}
+		}
+	}
+
 	.bg-gradient-dark {
 		background: var(--gradient-dark);
 	}
