@@ -1,4 +1,10 @@
-import { type Component, createSignal, onMount } from "solid-js";
+import {
+	type Component,
+	createEffect,
+	createSignal,
+	onCleanup,
+	onMount,
+} from "solid-js";
 import { toast } from "somoto";
 import { useUserContext } from "../../../contexts/User";
 import { useUserPreferences } from "../../../contexts/UserPreferences";
@@ -8,6 +14,7 @@ import {
 	isWebRuntime,
 } from "../../../notifications";
 import { isPushSupported } from "../../../notifications/push-web";
+import { claimBlockingDialog } from "../../../utils/blocking-dialog";
 import { Button } from "../../ui/Button";
 import { ResponsiveDialog } from "../../ui/ResponsiveDialog";
 
@@ -33,6 +40,11 @@ export const NotificationPromptDialog: Component = () => {
 			}
 			setOpen(true);
 		})();
+	});
+
+	createEffect(() => {
+		if (!open()) return;
+		onCleanup(claimBlockingDialog());
 	});
 
 	const dismiss = () => {

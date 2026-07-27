@@ -14,6 +14,7 @@ import HeartIcon from "~icons/ph/heart";
 import InfoIcon from "~icons/ph/info";
 import MicrophoneIcon from "~icons/ph/microphone";
 import SmileyIcon from "~icons/ph/smiley";
+import SparkleIcon from "~icons/ph/sparkle";
 import UserCircleIcon from "~icons/ph/user-circle";
 import WrenchIcon from "~icons/ph/wrench";
 import { endSession } from "../../../atproto/session";
@@ -21,6 +22,7 @@ import { useAuthContext } from "../../../contexts/Auth";
 import { useUserContext } from "../../../contexts/User";
 import { EXPERIMENTS } from "../../../experiments";
 import { unregisterAllPush } from "../../../notifications";
+import { RELEASE_NOTES } from "../../../release-notes";
 import { useIsTouch } from "../../../utils/touch";
 import { SettingsModal } from "../common/SettingsModal";
 import { AboutPage } from "./AboutPage";
@@ -34,6 +36,7 @@ import { StatusPage } from "./StatusPage";
 import { SupportPage } from "./SupportPage";
 import { VideoPage } from "./VideoPage";
 import { VoicePage } from "./VoicePage";
+import { WhatsNewPage } from "./WhatsNewPage";
 
 export const UserSettingsModal: ParentComponent<{
 	open?: Accessor<boolean>;
@@ -101,6 +104,13 @@ export const UserSettingsModal: ParentComponent<{
 					id: "support",
 					component: SupportPage,
 					icon: () => <HeartIcon />,
+				},
+				{
+					title: "What's New",
+					id: "whats-new",
+					component: WhatsNewPage,
+					icon: () => <SparkleIcon />,
+					visible: () => RELEASE_NOTES.length > 0,
 				},
 				{
 					title: "About",

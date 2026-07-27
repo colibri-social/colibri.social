@@ -125,6 +125,55 @@ pnpm exec changeset
 
 Changes limited to the website's content, the docs, or repository configuration don't need one. More detail on the [contributing page](/docs/contributing/overview).
 
+## Announcing a change in-app
+
+The client shows a "What's New" popup once per release, plus a settings page with the last five releases. Its content comes from the changesets themselves, so anything you want users to read about is written where you already write the changeset.
+
+Use the wrapper instead of `pnpm exec changeset`, and it walks you through the entry after the usual prompts:
+
+```sh
+pnpm changeset:feature
+```
+
+It asks whether to announce the change (defaulting to yes for a `minor` or `major` bump and no for a `patch`), whether it is a feature or a fix, then a title, a body, and an icon. The icon step is a live search over [Phosphor](https://phosphoricons.com) that narrows as you type, and it renders each match inline if your terminal supports the Kitty graphics protocol, as Ghostty, Kitty and WezTerm do. Set `COLIBRI_NO_ICON_PREVIEW=1` to fall back to names only.
+
+Only the `-fill` weight is offered, so the popup stays visually consistent. Search by the base name and the suffix is added for you: typing `microphone` finds `microphone-fill`.
+
+To see your entry in the running app before it ships:
+
+```sh
+pnpm whats-new:preview   # writes a throwaway 0.0.0-preview release
+pnpm dev:client
+pnpm whats-new:generate  # removes it again
+```
+
+The popup opens once per unseen release, so if you have already dismissed it, clear `lastSeenReleaseNote` inside the `colibri:user-preferences` entry in local storage to bring it back. A browser profile with no stored preferences at all counts as a new install and is deliberately left alone.
+
+The result is an HTML comment in the changeset body, which you can also write or edit by hand:
+
+```md
+---
+"@colibri-social/client": minor
+---
+
+Adds voice channels with screen sharing
+
+<!-- whatsnew
+title: Voice channels
+icon: microphone
+body: Hop into a voice channel and talk without leaving the app.
+kind: feature
+-->
+```
+
+`title`, `icon` and `body` are required. `kind` is optional and defaults to `fix` for a `patch` bump and `feature` otherwise. A long `body` can wrap onto indented continuation lines. Colons inside values are fine, so no quoting is needed.
+
+Two optional release-level keys, `releaseTitle` and `heroImage`, can be set by any one changeset in a release. Setting either from two changesets in the same release is an error.
+
+CI fails a `minor` or `major` client changeset that has no block, so features never ship unannounced, and prints a ready-to-paste block in the failure. A `patch` without one only gets a hint, since most fixes are not worth a popup.
+
+The generated files under `packages/client/src/release-notes/` are written by `pnpm ci:version` during a release. If you edit them by hand, run `pnpm whats-new:generate` and commit the result, which CI also verifies.
+
 ## See also
 
 - [Client Architecture](/docs/architecture/client): how the client talks to an AppView.

@@ -52,6 +52,59 @@ jobs:
       - name: Typecheck the client
         run: pnpm --filter @colibri-social/client typecheck
 
+      - name: Typecheck the repository scripts
+        run: pnpm typecheck:scripts
+
+  whats-new:
+    name: What's New
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: lts/*
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Check the What's New entries
+        env:
+          WHATS_NEW_COMMENT_FILE: whats-new-comment.md
+        run: pnpm whats-new:check
+
+      - name: Check the generated release notes are up to date
+        run: |
+          pnpm whats-new:generate
+          if ! git diff --exit-code --stat; then
+            echo "::error::Generated release notes are stale. Run 'pnpm whats-new:generate' and commit the result."
+            exit 1
+          fi
+
+      - name: Comment on the pull request
+        if: >-
+          always() &&
+          hashFiles('whats-new-comment.md') != '' &&
+          github.event.pull_request.head.repo.full_name == github.repository
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr comment "${{ github.event.pull_request.number }}" \
+            --body-file whats-new-comment.md \
+            --edit-last --create-if-none
+
   lexicons:
     name: Lexicons
     runs-on: ubuntu-latest

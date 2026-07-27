@@ -3,4 +3,11 @@
 "@colibri-social/client": patch
 ---
 
-Better keyboard pinning on Android, emoji grid spacing, font size handling, back behavior, fixed invite modal terminology
+Improves keyboard pinning on Android
+
+<!-- whatsnew
+title: Keyboard pinning
+icon: keyboard-fill
+body: The channel should now stay pinned to the bottom after sending a message.
+kind: fix
+-->
