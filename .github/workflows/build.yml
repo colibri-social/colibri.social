@@ -8,6 +8,25 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  changes:
+    name: Detect changes
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      client: ${{ steps.filter.outputs.client }}
+    steps:
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            client:
+              - 'packages/wrapper/**'
+              - 'packages/client/**'
+              - 'packages/assets/**'
+              - 'packages/lib/**'
+
   web:
     name: Web & packages
     runs-on: ubuntu-latest
@@ -35,6 +54,8 @@ jobs:
 
   tauri:
     name: Build (${{ matrix.label }})
+    needs: changes
+    if: needs.changes.outputs.client == 'true'
     runs-on: ${{ matrix.platform }}
     permissions:
       contents: read
