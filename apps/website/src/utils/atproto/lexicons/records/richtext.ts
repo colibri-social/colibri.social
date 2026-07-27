@@ -69,7 +69,7 @@ export const richtextRecordDocs: LexiconDoc[] = [
 					channel: {
 						type: "string",
 						description: "The record key of the referenced channel.",
-						format: "record-key",
+						format: "at-uri",
 					},
 				},
 			},
