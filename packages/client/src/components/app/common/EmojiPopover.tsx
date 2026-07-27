@@ -14,6 +14,7 @@ import {
 	Show,
 } from "solid-js";
 import { createScrollFade } from "../../../hooks/createScrollFade";
+import { cx } from "../../../utils/cva";
 import { twemojiImageSrc } from "../../../utils/emoji";
 import {
 	aliasesForSlug,
@@ -81,6 +82,7 @@ const PickerEmoji: Component<{ emoji: Emoji }> = (props) => {
 export const EmojiPickerBody: Component<{
 	onEmoji: (emoji: Emoji, e: MouseEvent) => void;
 	edgeFade?: boolean;
+	heightClass?: string;
 }> = (props) => {
 	const [filter, setFilter] = createSignal("");
 	const { ref: gridRef, canScrollDown } = createScrollFade();
@@ -100,7 +102,7 @@ export const EmojiPickerBody: Component<{
 
 	return (
 		<>
-			<TextField class="mb-2" value={filter()} onChange={setFilter}>
+			<TextField class="mb-2 shrink-0" value={filter()} onChange={setFilter}>
 				<TextFieldInput
 					type="text"
 					placeholder="Search emojis..."
@@ -108,8 +110,8 @@ export const EmojiPickerBody: Component<{
 				/>
 			</TextField>
 
-			<div class="relative h-72">
-				<div ref={gridRef} class="h-full overflow-y-auto custom-scrollbar">
+			<div class={cx("relative", props.heightClass ?? "h-72")}>
+				<div ref={gridRef} class="h-full overflow-y-auto">
 					<EmojiPicker
 						filter={(emoji) => {
 							const query = filter().trim().toLowerCase();
@@ -190,8 +192,12 @@ export const EmojiPopover: ParentComponent<{
 				open={props.emojiPopoverOpen()}
 				onOpenChange={props.setEmojiPopoverOpen}
 			>
-				<div class="flex flex-col px-3 pb-[calc(0.75rem+var(--safe-area-bottom))] pt-2">
-					<EmojiPickerBody onEmoji={handleEmoji} edgeFade />
+				<div class="flex min-h-0 flex-col px-3 pb-[calc(0.75rem+var(--safe-area-bottom))] pt-2">
+					<EmojiPickerBody
+						onEmoji={handleEmoji}
+						edgeFade
+						heightClass="h-[70dvh] min-h-0 shrink"
+					/>
 				</div>
 			</BottomSheet>
 		</Show>

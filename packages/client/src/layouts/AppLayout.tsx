@@ -332,6 +332,7 @@ const AppLayout: ParentComponent = (props) => {
 	if (window.location.pathname === "/app" && user.communities.length > 0) {
 		navigate(
 			`/app/c/${communityUriToUrlCompatible(sortedCommunities()[0].uri)}`,
+			{ replace: true },
 		);
 	}
 

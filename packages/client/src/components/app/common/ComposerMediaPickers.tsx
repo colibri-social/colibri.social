@@ -16,7 +16,7 @@ import { GifPickerBody, GifPopover } from "./GifPopover";
 
 /** Shared styling for the inline trigger buttons (matches the emoji button). */
 const TRIGGER_CLASS =
-	"mt-1.5 shrink-0 w-6 h-6 flex items-center justify-center text-muted-foreground hover:text-foreground cursor-pointer bg-transparent border-none";
+	"mt-1 shrink-0 w-6 h-[1lh] min-h-6 flex items-center justify-center text-muted-foreground hover:text-foreground cursor-pointer bg-transparent border-none";
 
 type MediaTab = "emoji" | "gif";
 
@@ -89,34 +89,36 @@ export const ComposerMediaPickers: Component<{
 				<SmileyIcon width={20} height={20} />
 			</button>
 			<BottomSheet open={drawerOpen()} onOpenChange={setDrawerOpen}>
-				<div class="flex flex-col px-3 pb-[calc(0.75rem+var(--safe-area-bottom))] pt-2">
+				<div class="flex min-h-0 flex-col px-3 pb-[calc(0.75rem+var(--safe-area-bottom))] pt-2">
 					<Show when={drawerOpen()}>
 						<Tabs
 							value={tab()}
 							onChange={(value) => setTab(value as MediaTab)}
-							class="w-full"
+							class="w-full flex min-h-0 flex-col"
 						>
-							<TabsList class="w-full mb-2">
+							<TabsList class="w-full mb-2 shrink-0">
 								<TabsTrigger value="emoji">Emoji</TabsTrigger>
 								<TabsTrigger value="gif">GIF</TabsTrigger>
 								<TabsIndicator />
 							</TabsList>
-							<TabsContent value="emoji">
+							<TabsContent value="emoji" class="flex min-h-0 flex-col">
 								<EmojiPickerBody
 									onEmoji={(emoji) => {
 										props.onEmojiSelect(emoji.emoji);
 										setDrawerOpen(false);
 									}}
 									edgeFade
+									heightClass="h-[70dvh] min-h-0 shrink"
 								/>
 							</TabsContent>
-							<TabsContent value="gif">
+							<TabsContent value="gif" class="flex min-h-0 flex-col">
 								<GifPickerBody
 									onSelect={(gif) => {
 										props.onGifSelect(gif);
 										setDrawerOpen(false);
 									}}
 									edgeFade
+									heightClass="h-[70dvh] min-h-0 shrink"
 								/>
 							</TabsContent>
 						</Tabs>

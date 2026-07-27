@@ -5,7 +5,7 @@
 #editor .tiptap.ProseMirror p {
 	margin: 0rem;
 	width: 100%;
-	line-height: 1.75rem;
+	line-height: 1.75;
 	white-space: pre-wrap;
 	overflow-wrap: break-word;
 	word-break: break-word;
@@ -17,9 +17,10 @@
 
 #editor .tiptap.ProseMirror {
 	outline: none;
-	max-height: calc(10rem - 2px);
+	line-height: 1.75;
+	max-height: calc(5lh + 0.5rem);
 	overflow: auto;
-	min-height: calc(2.5rem - 2px);
+	min-height: calc(1lh + 0.5rem);
 	padding: 0.25rem 0.25rem 0.25rem 0.5rem;
 	color: var(--color-foreground);
 	display: block;

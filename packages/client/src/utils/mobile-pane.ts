@@ -1,4 +1,5 @@
 import {
+	type Navigator,
 	useIsRouting,
 	useLocation,
 	useNavigate,
@@ -44,6 +45,67 @@ const [dragging, setDragging] = createSignal(false);
 // the panes would fall back to their previous resting offsets the instant the
 // drag is released and only slide to the new ones once the route lands.
 const [pendingPane, setPendingPane] = createSignal<Pane | null>(null);
+const [awaitingPop, setAwaitingPop] = createSignal(false);
+
+const PANE_HISTORY_KEY = "colibriPane";
+
+const paneMarker = (): string | undefined => {
+	const state = window.history.state as Record<string, unknown> | null;
+	const marker = state?.[PANE_HISTORY_KEY];
+	return typeof marker === "string" ? marker : undefined;
+};
+
+const historyDepth = () =>
+	(window.history.state as { _depth?: number } | null)?._depth;
+
+export const openChannel = (navigate: Navigator, path: string) => {
+	if (!isMobileNow()) {
+		navigate(path);
+		return;
+	}
+	if (paneMarker() === "chat") {
+		navigate(path, {
+			replace: true,
+			state: { [PANE_HISTORY_KEY]: "chat" },
+		});
+		return;
+	}
+	window.history.replaceState(
+		{ _depth: historyDepth(), [PANE_HISTORY_KEY]: "list" },
+		"",
+		`${path}?pane=nav`,
+	);
+	batch(() => {
+		setPendingPane("chat");
+		navigate(path, { state: { [PANE_HISTORY_KEY]: "chat" } });
+	});
+};
+
+export const createChannelHistoryNormalizer = () => {
+	const [searchParams] = useSearchParams();
+	const location = useLocation();
+	const navigate = useNavigate();
+	const isRouting = useIsRouting();
+	const isMobile = createMediaQuery(MOBILE_QUERY);
+
+	createEffect(() => {
+		if (!isMobile() || isRouting()) return;
+		if (pendingPane() !== null || awaitingPop()) return;
+		if (searchParams.pane) return;
+		const path = location.pathname;
+		if (!CHANNEL_PATH.test(path)) return;
+		if (paneMarker() === "chat") return;
+		window.history.replaceState(
+			{ _depth: historyDepth(), [PANE_HISTORY_KEY]: "list" },
+			"",
+			`${path}?pane=nav`,
+		);
+		navigate(path, {
+			state: { [PANE_HISTORY_KEY]: "chat" },
+			scroll: false,
+		});
+	});
+};
 
 const paneIndex = (pane: Pane) =>
 	pane === "nav" ? -1 : pane === "chat" ? 0 : 1;
@@ -97,6 +159,7 @@ export const createMobilePane = () => {
 	// only wake on a URL or routing change — neither of which happens — and the
 	// pane would stay stuck on a target it already reached.
 	createEffect(() => {
+		if (awaitingPop()) return;
 		if (isRouting()) return;
 		paneFromUrl();
 		if (pendingPane() !== null) setPendingPane(null);
@@ -112,18 +175,42 @@ export const createMobilePane = () => {
 	// The optimistic write and the navigation have to land in one batch, or the
 	// effect above runs in between — `pendingPane` set, `isRouting()` still
 	// false — and clears it immediately.
-	const commit = (pane: Pane, url: string, replace?: boolean) =>
+	const commit = (
+		pane: Pane,
+		url: string,
+		opts?: { replace?: boolean; state?: unknown },
+	) =>
 		batch(() => {
 			setPendingPane(pane);
-			navigate(url, { replace });
+			navigate(url, { replace: opts?.replace, state: opts?.state });
 		});
 
-	const setPane = (target: Pane, opts?: { replace?: boolean }) => {
+	const setPane = (
+		target: Pane,
+		opts?: { replace?: boolean; marker?: Pane },
+	) => {
 		const search = target === "chat" ? "" : `?pane=${target}`;
-		commit(target, `${location.pathname}${search}`, opts?.replace);
+		commit(target, `${location.pathname}${search}`, {
+			replace: opts?.replace,
+			state: opts?.marker ? { [PANE_HISTORY_KEY]: opts.marker } : undefined,
+		});
 	};
 
-	const pushPane = (target: Pane) => setPane(target);
+	const goBack = (target: Pane) => {
+		const settle = () => {
+			window.removeEventListener("popstate", settle);
+			setAwaitingPop(false);
+		};
+		window.addEventListener("popstate", settle);
+		batch(() => {
+			setPendingPane(target);
+			setAwaitingPop(true);
+		});
+		navigate(-1);
+	};
+
+	const pushPane = (target: Pane) =>
+		setPane(target, target === "nav" ? undefined : { marker: target });
 
 	const dismissKeyboard = () => {
 		if (!isMobile()) return;
@@ -134,7 +221,12 @@ export const createMobilePane = () => {
 		const from = currentPane();
 		if (!canPop(from)) return;
 		if (from === "chat") dismissKeyboard();
-		setPane(from === "members" ? "chat" : "nav");
+		if (from === "members") {
+			if (paneMarker() === "members") return goBack("chat");
+			return setPane("chat", { replace: true });
+		}
+		if (paneMarker() === "chat") return goBack("nav");
+		setPane("nav", { replace: true });
 	};
 
 	const pushDeeper = () => {
@@ -142,13 +234,11 @@ export const createMobilePane = () => {
 		if (!canPush(from)) return;
 		if (from === "chat") {
 			dismissKeyboard();
-			return setPane("members");
+			return setPane("members", { marker: "members" });
 		}
-		if (hasChannel()) return setPane("chat");
+		if (hasChannel()) return setPane("chat", { marker: "chat" });
 		const target = lastViewedChannelPath(location.pathname);
-		// A pathname change rather than a pane change, but it moves the carousel
-		// all the same, so it needs the same optimism as `setPane()`.
-		if (target) commit("chat", target);
+		if (target) openChannel(navigate, target);
 	};
 
 	// Snapshotted once per gesture so the rubber banding and the release commit

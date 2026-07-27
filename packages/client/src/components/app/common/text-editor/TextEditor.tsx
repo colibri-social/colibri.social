@@ -1088,7 +1088,7 @@ export const TextEditor: Component<{
 
 	return (
 		<div
-			class="w-full flex flex-row border border-border rounded-md focus-within:border-neutral-500 gap-2 pr-2 items-start"
+			class="w-full flex flex-row border border-border rounded-md focus-within:border-neutral-500 gap-2 pr-2 items-start leading-[1.75]"
 			classList={{ relative: !props.mainEditor }}
 		>
 			<div
@@ -1172,7 +1172,7 @@ export const TextEditor: Component<{
 						<button
 							type="button"
 							aria-label="Insert emoji"
-							class="mt-1.5 shrink-0 w-6 h-6 flex items-center justify-center text-muted-foreground hover:text-foreground cursor-pointer bg-transparent border-none"
+							class="mt-1 shrink-0 w-6 h-[1lh] min-h-6 flex items-center justify-center text-muted-foreground hover:text-foreground cursor-pointer bg-transparent border-none"
 						>
 							<SmileyIcon width={20} height={20} />
 						</button>
@@ -1186,13 +1186,13 @@ export const TextEditor: Component<{
 			</Show>
 			<Show when={!(isMobile() && props.mainEditor)}>
 				<Tooltip>
-					<TooltipTrigger>
+					<TooltipTrigger class="mt-1 h-[1lh] min-h-6 flex items-center shrink-0 bg-transparent border-none p-0">
 						<svg
 							height="20"
 							width="20"
 							viewBox="0 0 20 20"
 							aria-hidden="true"
-							class="mt-2 shrink-0"
+							class="shrink-0"
 							classList={{
 								"text-primary": characterPercentage() < 90,
 								"text-yellow-500":

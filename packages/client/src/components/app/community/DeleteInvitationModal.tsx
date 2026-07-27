@@ -1,15 +1,14 @@
 import { createSignal, type ParentComponent } from "solid-js";
 import { toast } from "somoto";
-import XIcon from "~icons/ph/x";
 import type { Invitation } from "../../../atproto/xrpc/social/colibri/community/listInvitations";
 import { Button } from "../../../components/ui/Button";
 import {
 	Dialog,
-	DialogCloseButton,
 	DialogContent,
 	DialogFooter,
 	DialogHeader,
 	DialogPortal,
+	DialogTitle,
 	DialogTrigger,
 } from "../../../components/ui/Dialog";
 import { useCommunityContext } from "../../../contexts/Community";
@@ -42,6 +41,7 @@ export const DeleteLinkModal: ParentComponent<{
 				return;
 			}
 			props.refetch();
+			setOpen(false);
 		} catch {
 			toast.error("Failed to delete invite link.");
 		} finally {
@@ -54,22 +54,23 @@ export const DeleteLinkModal: ParentComponent<{
 			<DialogTrigger>{props.children}</DialogTrigger>
 			<DialogPortal>
 				<DialogContent class="w-128">
-					<DialogCloseButton
-						class="absolute top-4 right-4 cursor-pointer hover:bg-muted w-8 h-8 rounded-sm flex items-center justify-center"
-						onClick={() => setOpen(false)}
-					>
-						<XIcon />
-					</DialogCloseButton>
 					<DialogHeader>
-						<h2 class="m-0 text-center">Delete this invite link?</h2>
+						<DialogTitle>Delete this invite link?</DialogTitle>
 					</DialogHeader>
-					<div class="flex flex-col gap-2 text-center">
-						<p class="m-0">You can create new links to allow others to join.</p>
-					</div>
-					<DialogFooter>
+					<p class="text-sm text-muted-foreground">
+						This link will stop working immediately. You can create new links to
+						allow others to join.
+					</p>
+					<DialogFooter class="flex-col sm:flex-row gap-2">
+						<Button
+							class="ml-auto"
+							variant="secondary"
+							onClick={() => setOpen(false)}
+						>
+							Cancel
+						</Button>
 						<Button
 							variant="destructive"
-							class="w-full"
 							disabled={loading()}
 							onClick={deleteInviteLink}
 						>
@@ -79,7 +80,7 @@ export const DeleteLinkModal: ParentComponent<{
 									block: loading(),
 								}}
 							/>
-							Leave
+							Delete Link
 						</Button>
 					</DialogFooter>
 				</DialogContent>

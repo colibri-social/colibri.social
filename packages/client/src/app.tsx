@@ -186,6 +186,7 @@ const App: ParentComponent = () => {
 														) {
 															navigate(
 																`/app/c/${communityUrlSeg()}/${channel.type}/${new AtURI(channel.uri).identifier}`,
+																{ replace: true },
 															);
 															return;
 														}
@@ -197,6 +198,7 @@ const App: ParentComponent = () => {
 
 												navigate(
 													`/app/c/${communityUrlSeg()}/${firstChannel.type}/${new AtURI(firstChannel.uri).identifier}`,
+													{ replace: true },
 												);
 											});
 

@@ -1,4 +1,4 @@
-import { A, useParams } from "@solidjs/router";
+import { A, useNavigate, useParams } from "@solidjs/router";
 import {
 	createSortable,
 	SortableProvider,
@@ -34,7 +34,7 @@ import {
 	ConnectionState,
 	useVoiceChatContext,
 } from "../../../contexts/VoiceChat";
-import { useIsMobile } from "../../../utils/mobile-pane";
+import { openChannel, useIsMobile } from "../../../utils/mobile-pane";
 import { Ear } from "../../icons/Ear";
 import { Microphone } from "../../icons/Microphone";
 import { Button } from "../../ui/Button";
@@ -81,6 +81,7 @@ const SortableChannel: Component<{
 	onOpenSettings: () => void;
 }> = (props) => {
 	const params = useParams();
+	const navigate = useNavigate();
 	const sortable = createSortable(props.channel.uri);
 	const [, { onDragStart: onDndDragStart, onDragEnd: onDndDragEnd }] =
 		useDragDropContext()!;
@@ -156,12 +157,20 @@ const SortableChannel: Component<{
 				communityName: community().community.name,
 				hubDid: community().community.appview,
 			});
+			return;
+		}
+		if (isMobile()) {
+			e.preventDefault();
+			openChannel(navigate, channelHref());
 		}
 	};
 
 	const channelRoutePrefix = () => {
 		return props.channel.type;
 	};
+
+	const channelHref = () =>
+		`/app/c/${params.community}/${channelRoutePrefix()}/${ChannelRkey()}`;
 
 	return (
 		<div
@@ -191,7 +200,7 @@ const SortableChannel: Component<{
 				>
 					<A
 						class="group/channel text-muted-foreground flex flex-row justify-between items-center gap-2 hover:bg-card rounded-sm cursor-pointer p-1 py-0.5 pr-1.25"
-						href={`/app/c/${params.community}/${channelRoutePrefix()}/${ChannelRkey()}`}
+						href={channelHref()}
 						onClick={handleChannelClick}
 						draggable={false}
 						activeClass="bg-muted! text-foreground!"

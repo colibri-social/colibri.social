@@ -338,6 +338,32 @@
 	display: none;
 }
 
+.emoji-picker .emoji-items {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(2.5rem, 1fr));
+	justify-items: center;
+}
+
+.emoji-picker .emoji-button {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 100%;
+	padding: 0;
+	margin: 0;
+	background: none;
+	border: none;
+}
+
+.emoji-picker .emoji-section-title {
+	display: block;
+	margin: 0.5rem 0 0.25rem;
+	font-size: 0.75rem;
+	line-height: 1rem;
+	font-weight: 600;
+	color: var(--color-muted-foreground);
+}
+
 /* Ensure the emoji characters render as emojis, not text */
 .emoji-render {
 	font-variant-emoji: emoji;
@@ -359,11 +385,11 @@ img.emoji {
 
 .rich-text img.emoji,
 #editor .tiptap.ProseMirror img.emoji {
-	height: calc(1lh - 7px);
-	width: calc(1lh - 6px);
+	height: calc(1lh - 0.44em);
+	width: calc(1lh - 0.375em);
 	margin: 0;
 	vertical-align: middle;
-	transform: translateY(-1.5px);
+	transform: translateY(-0.09em);
 }
 
 .rich-text img.emoji {

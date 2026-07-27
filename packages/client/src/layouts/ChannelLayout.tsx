@@ -163,6 +163,9 @@ const ChannelLayout: ParentComponent = (props) => {
 	let didInitialScroll = false;
 	let scrollBottomBeforeFetch: number | null = null;
 	let wasAtBottom = false;
+	let pinInterrupted = false;
+	let editorFocusAtBottom = false;
+	let editorFocusAt = 0;
 	let pingObserver: IntersectionObserver | undefined;
 	const [unseenPings, setUnseenPings] = createSignal<Set<string>>(new Set());
 	const [deletedPingBanner, setDeletedPingBanner] = createSignal(false);
@@ -182,25 +185,29 @@ const ChannelLayout: ParentComponent = (props) => {
 		wasAtBottom = true;
 	};
 
-	const REPIN_MAX_FRAMES = 20;
+	const REPIN_MAX_FRAMES = 60;
 	const REPIN_STABLE_FRAMES = 2;
 
 	const pinToBottomStable = () => {
 		if (!scrollContainer) return;
-		let lastHeight = -1;
+		pinInterrupted = false;
+		let lastScrollHeight = -1;
+		let lastClientHeight = -1;
 		let stable = 0;
 		let frames = 0;
 		const step = () => {
-			if (!scrollContainer || !wasAtBottom) return;
+			if (!scrollContainer || pinInterrupted) return;
 			if (scrollBottomBeforeFetch !== null) return;
 			const h = scrollContainer.scrollHeight;
+			const c = scrollContainer.clientHeight;
 			scrollContainer.scrollTop = h;
 			wasAtBottom = true;
-			if (h === lastHeight) {
+			if (h === lastScrollHeight && c === lastClientHeight) {
 				stable++;
 			} else {
 				stable = 0;
-				lastHeight = h;
+				lastScrollHeight = h;
+				lastClientHeight = c;
 			}
 			if (stable >= REPIN_STABLE_FRAMES || ++frames >= REPIN_MAX_FRAMES) return;
 			requestAnimationFrame(step);
@@ -249,9 +256,38 @@ const ChannelLayout: ParentComponent = (props) => {
 		}
 	};
 
+	const keyboardRepinArmed = () =>
+		editorFocusAtBottom && performance.now() - editorFocusAt < 2000;
+
+	const handleEditorFocusIn = (e: FocusEvent) => {
+		if (!scrollContainer) return;
+		const target = e.target as HTMLElement | null;
+		if (!target?.closest("#editor")) return;
+		const distFromBottom =
+			scrollContainer.scrollHeight -
+			scrollContainer.scrollTop -
+			scrollContainer.clientHeight;
+		editorFocusAtBottom = distFromBottom < 80;
+		editorFocusAt = performance.now();
+	};
+
+	const markPinInterrupted = () => {
+		pinInterrupted = true;
+	};
+
 	onMount(() => {
 		setupObserver();
 		scrollContainer?.addEventListener("scroll", handleScroll, {
+			passive: true,
+		});
+		document.addEventListener("focusin", handleEditorFocusIn);
+		scrollContainer?.addEventListener("pointerdown", markPinInterrupted, {
+			passive: true,
+		});
+		scrollContainer?.addEventListener("wheel", markPinInterrupted, {
+			passive: true,
+		});
+		scrollContainer?.addEventListener("touchstart", markPinInterrupted, {
 			passive: true,
 		});
 
@@ -282,7 +318,9 @@ const ChannelLayout: ParentComponent = (props) => {
 			containerResizeObserver = new ResizeObserver(() => {
 				if (!scrollContainer || !didInitialScroll) return;
 				if (scrollBottomBeforeFetch !== null) return; // prepend in progress
-				if (wasAtBottom) pinToBottomStable();
+				if (!wasAtBottom && !keyboardRepinArmed()) return;
+				wasAtBottom = true;
+				pinToBottomStable();
 			});
 			containerResizeObserver.observe(scrollContainer);
 		}
@@ -296,6 +334,10 @@ const ChannelLayout: ParentComponent = (props) => {
 		pingObserver?.disconnect();
 		jumpObserver?.disconnect();
 		scrollContainer?.removeEventListener("scroll", handleScroll);
+		document.removeEventListener("focusin", handleEditorFocusIn);
+		scrollContainer?.removeEventListener("pointerdown", markPinInterrupted);
+		scrollContainer?.removeEventListener("wheel", markPinInterrupted);
+		scrollContainer?.removeEventListener("touchstart", markPinInterrupted);
 	});
 
 	createEffect(() => {
@@ -509,8 +551,9 @@ const ChannelLayout: ParentComponent = (props) => {
 			viewport.height,
 			() => {
 				if (!didInitialScroll || !scrollContainer) return;
-				if (!wasAtBottom) return;
 				if (scrollBottomBeforeFetch !== null) return;
+				if (!wasAtBottom && !keyboardRepinArmed()) return;
+				wasAtBottom = true;
 				pinToBottomStable();
 			},
 			{ defer: true },

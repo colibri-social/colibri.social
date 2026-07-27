@@ -9,6 +9,7 @@ import androidx.activity.SystemBarStyle
 import androidx.activity.enableEdgeToEdge
 import androidx.core.graphics.Insets
 import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsAnimationCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.webkit.ScriptHandler
 import androidx.webkit.WebViewCompat
@@ -37,6 +38,24 @@ class MainActivity : TauriActivity() {
       registerInsetsScript(webView, lastBars, lastImeBottom)
       insets
     }
+    ViewCompat.setWindowInsetsAnimationCallback(webView, object :
+      WindowInsetsAnimationCompat.Callback(WindowInsetsAnimationCompat.Callback.DISPATCH_MODE_STOP) {
+      override fun onProgress(
+        insets: WindowInsetsCompat,
+        runningAnimations: MutableList<WindowInsetsAnimationCompat>
+      ): WindowInsetsCompat {
+        val imeBottom = insets.getInsets(WindowInsetsCompat.Type.ime()).bottom
+        if (imeBottom != lastImeBottom) {
+          lastImeBottom = imeBottom
+          val d = webView.resources.displayMetrics.density
+          webView.evaluateJavascript(
+            "window.dispatchEvent(new CustomEvent('colibri-keyboard-inset', { detail: ${imeBottom / d} }));",
+            null
+          )
+        }
+        return insets
+      }
+    })
     ViewCompat.requestApplyInsets(webView)
     for (delay in longArrayOf(250L, 750L, 1500L, 3000L)) {
       handler.postDelayed({ registerInsetsScript(webView, lastBars, lastImeBottom) }, delay)

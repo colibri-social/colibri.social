@@ -42,6 +42,7 @@ import { isTauriRuntime } from "../notifications";
 import createMediaQuery from "../utils/create-media-query";
 import { createSwipe, type SwipeOptions } from "../utils/create-swipe";
 import {
+	createChannelHistoryNormalizer,
 	createMobilePane,
 	PANE_COMMIT_RATIO,
 	useIsMobile,
@@ -210,6 +211,7 @@ const CommunityLayout: ParentComponent = (props) => {
 		paneTranslate,
 		isDragging,
 	} = createMobilePane();
+	createChannelHistoryNormalizer();
 
 	// With swipe-to-reply turned on, a left swipe over a channel belongs to the
 	// message row, so the members pane is not reachable by gesture at all — not

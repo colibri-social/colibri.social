@@ -1,4 +1,4 @@
-import type { ColibriRichTextFacet } from "@colibri-social/lib";
+import type { AT_URI, ColibriRichTextFacet } from "@colibri-social/lib";
 import {
 	type Accessor,
 	batch,
@@ -19,6 +19,7 @@ import {
 	readMessages,
 	writeMessages,
 } from "../atproto/cache/store";
+import { communityUriToUrlCompatible } from "../atproto/community-uri-to-url-compatible";
 import { enqueuePut, onOutboxSent } from "../atproto/outbox/outbox";
 import { writeReadCursor } from "../atproto/read-cursor";
 import type {
@@ -722,7 +723,7 @@ export const ChannelContextProvider: ParentComponent<{
 		if (!uri || !isConnected) return;
 		socket.send({ type: "view", data: { channel: uri } });
 		localStorage.setItem(
-			`${community().did}:last-viewed`,
+			`${communityUriToUrlCompatible(community().community.uri as AT_URI<"social.colibri.community">)}:last-viewed`,
 			JSON.stringify({ type: props.channel()!.type, uri }),
 		);
 	});

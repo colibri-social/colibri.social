@@ -20,6 +20,7 @@ import { useGifFavorites } from "../../../contexts/GifFavorites";
 import { useUserContext } from "../../../contexts/User";
 import { useUserPreferences } from "../../../contexts/UserPreferences";
 import { createScrollFade } from "../../../hooks/createScrollFade";
+import { cx } from "../../../utils/cva";
 import { useIsMobile } from "../../../utils/mobile-pane";
 import { BottomSheet } from "../../ui/MenuDrawer";
 import {
@@ -64,6 +65,7 @@ const TABS: Array<{ id: GifTab; label: string }> = [
 export const GifPickerBody: Component<{
 	onSelect: (gif: GifItem) => void;
 	edgeFade?: boolean;
+	heightClass?: string;
 }> = (props) => {
 	const user = useUserContext();
 	const { preferences } = useUserPreferences();
@@ -222,12 +224,16 @@ export const GifPickerBody: Component<{
 	const recents = () => preferences().recentGifs;
 
 	return (
-		<div class="flex flex-col">
-			<TextField class="mb-2" value={rawQuery()} onChange={setRawQuery}>
+		<div class="flex min-h-0 flex-col">
+			<TextField
+				class="mb-2 shrink-0"
+				value={rawQuery()}
+				onChange={setRawQuery}
+			>
 				<TextFieldInput type="text" placeholder="Search KLIPY" class="h-9" />
 			</TextField>
 
-			<div class="flex flex-row gap-1 mb-2">
+			<div class="flex flex-row gap-1 mb-2 shrink-0">
 				<For each={TABS}>
 					{(t) => (
 						<button
@@ -246,12 +252,8 @@ export const GifPickerBody: Component<{
 				</For>
 			</div>
 
-			<div class="relative h-72">
-				<div
-					ref={gridRef}
-					class="h-full overflow-y-auto custom-scrollbar"
-					onScroll={onScroll}
-				>
+			<div class={cx("relative", props.heightClass ?? "h-72")}>
+				<div ref={gridRef} class="h-full overflow-y-auto" onScroll={onScroll}>
 					<Switch>
 						{/* Searching overrides the tab. */}
 						<Match when={mode() === "search"}>
@@ -351,7 +353,7 @@ export const GifPickerBody: Component<{
 				</Show>
 			</div>
 
-			<p class="text-[10px] text-muted-foreground text-right mt-2 mb-0">
+			<p class="text-[10px] text-muted-foreground text-right mt-2 mb-0 shrink-0">
 				Powered by KLIPY
 			</p>
 		</div>
@@ -404,9 +406,13 @@ export const GifPopover: ParentComponent<{
 				</div>
 			</Show>
 			<BottomSheet open={props.open()} onOpenChange={props.setOpen}>
-				<div class="flex flex-col px-3 pb-[calc(0.75rem+var(--safe-area-bottom))] pt-2">
+				<div class="flex min-h-0 flex-col px-3 pb-[calc(0.75rem+var(--safe-area-bottom))] pt-2">
 					<Show when={props.open()}>
-						<GifPickerBody onSelect={handleSelect} edgeFade />
+						<GifPickerBody
+							onSelect={handleSelect}
+							edgeFade
+							heightClass="h-[70dvh] min-h-0 shrink"
+						/>
 					</Show>
 				</div>
 			</BottomSheet>
