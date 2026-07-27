@@ -118,7 +118,7 @@
 
 	/* Lists */
 	ul {
-		@apply list-disc pl-7 mt-5 mb-5;
+		@apply list-disc pl-7 mt-2 mb-2;
 	}
 
 	ol {

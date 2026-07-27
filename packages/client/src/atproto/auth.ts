@@ -12,6 +12,7 @@ import {
 	getAppViewHost,
 	getPreferredAppViewUrl,
 } from "../utils/appview";
+import { deviceContext, getConnection } from "../utils/device-context";
 import { isAllowedDid } from "./allowlist";
 import { buildScopes, getMissingScopeSets } from "./scopes";
 
@@ -210,80 +211,6 @@ const handleDomain = (input: string): string => {
 	const trimmed = input.trim().replace(/^@/, "");
 	const dot = trimmed.indexOf(".");
 	return dot === -1 ? "" : trimmed.slice(dot + 1);
-};
-
-type NetworkInformation = {
-	effectiveType?: string;
-	downlink?: number;
-	rtt?: number;
-	saveData?: boolean;
-	type?: string;
-};
-
-const getConnection = (): NetworkInformation | undefined => {
-	if (typeof navigator === "undefined") return undefined;
-	const nav = navigator as Navigator & {
-		connection?: NetworkInformation;
-		mozConnection?: NetworkInformation;
-		webkitConnection?: NetworkInformation;
-	};
-	return nav.connection ?? nav.mozConnection ?? nav.webkitConnection;
-};
-
-const timeZone = (): string => {
-	try {
-		return Intl.DateTimeFormat().resolvedOptions().timeZone;
-	} catch {
-		return "unknown";
-	}
-};
-
-const nativeOsInfo = async () => {
-	if (!isTauriRuntime()) return {};
-	try {
-		const os = await import("@tauri-apps/plugin-os");
-		return {
-			platform: os.platform(),
-			osVersion: os.version(),
-			osType: os.type(),
-			arch: os.arch(),
-		};
-	} catch {
-		return {};
-	}
-};
-
-const deviceContext = async () => {
-	const nav =
-		typeof navigator === "undefined"
-			? undefined
-			: (navigator as Navigator & {
-					deviceMemory?: number;
-					standalone?: boolean;
-				});
-
-	return {
-		...(await nativeOsInfo()),
-		native: isTauriRuntime(),
-		userAgent: nav?.userAgent,
-		language: nav?.language,
-		languages: nav?.languages?.join(","),
-		timeZone: timeZone(),
-		utcOffsetMinutes: new Date().getTimezoneOffset(),
-		hardwareConcurrency: nav?.hardwareConcurrency,
-		deviceMemory: nav?.deviceMemory,
-		maxTouchPoints: nav?.maxTouchPoints,
-		screen:
-			typeof screen === "undefined"
-				? undefined
-				: `${screen.width}x${screen.height}`,
-		viewport:
-			typeof window === "undefined"
-				? undefined
-				: `${window.innerWidth}x${window.innerHeight}`,
-		pixelRatio: typeof window === "undefined" ? undefined : devicePixelRatio,
-		standalone: nav?.standalone,
-	};
 };
 
 const networkContext = () => {

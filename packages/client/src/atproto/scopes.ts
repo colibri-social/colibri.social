@@ -44,14 +44,24 @@ const STANDALONE_SCOPE_MARKERS: Record<string, string> = {
 export const scopeSetLabel = (nsid: string): string =>
 	PERMISSION_SET_LABELS[nsid] ?? "Core access";
 
+const SCOPE_SET_MARKERS: Record<string, string> = {
+	...PERMISSION_SET_MARKERS,
+	...STANDALONE_SCOPE_MARKERS,
+};
+
 export const getMissingScopeSets = (
 	grantedScope: string | undefined,
 ): string[] => {
 	if (!grantedScope) return [];
-	return Object.entries({
-		...PERMISSION_SET_MARKERS,
-		...STANDALONE_SCOPE_MARKERS,
-	})
+	return Object.entries(SCOPE_SET_MARKERS)
 		.filter(([, marker]) => !grantedScope.includes(marker))
 		.map(([nsid]) => nsid);
+};
+
+export const getGrantedScopeSets = (
+	grantedScope: string | undefined,
+): string[] => {
+	if (!grantedScope) return [];
+	const missing = new Set(getMissingScopeSets(grantedScope));
+	return Object.keys(SCOPE_SET_MARKERS).filter((nsid) => !missing.has(nsid));
 };

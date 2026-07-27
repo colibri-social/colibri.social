@@ -24,6 +24,8 @@ const storeLastToken = (token: string | null): void => {
 	} catch {}
 };
 
+export const hasCachedFcmToken = (): boolean => readLastToken() !== null;
+
 export const subscribeFcmPush = async (
 	register: (sub: FcmSubscription) => Promise<unknown>,
 	unregister?: (token: string) => Promise<unknown>,

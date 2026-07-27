@@ -1,5 +1,25 @@
-import { type Component, createSignal, Match, onMount, Switch } from "solid-js";
+import {
+	type Component,
+	createSignal,
+	For,
+	Match,
+	onMount,
+	Show,
+	Switch,
+} from "solid-js";
+import { toast } from "somoto";
+import CheckIcon from "~icons/ph/check";
+import CopyIcon from "~icons/ph/copy";
+import { useAuthContext } from "../../../contexts/Auth";
+import { useSocketContext } from "../../../contexts/Socket";
+import { useUserContext } from "../../../contexts/User";
+import { useUserPreferences } from "../../../contexts/UserPreferences";
 import { isTauriRuntime } from "../../../notifications/environment";
+import {
+	collectDiagnostics,
+	type DiagnosticsSection,
+	formatDiagnostics,
+} from "../../../utils/diagnostics";
 import {
 	getAppVersion,
 	type InstallChannel,
@@ -8,6 +28,7 @@ import {
 	upgradeCommandFor,
 } from "../../../utils/updater";
 import { Button } from "../../ui/Button";
+import { Separator } from "../../ui/Separator";
 import { SettingsPage } from "../common/SettingsModal";
 
 type Status =
@@ -41,6 +62,11 @@ const storeNameFor = async (): Promise<string> => {
 };
 
 export const AboutPage: Component = () => {
+	const user = useUserContext();
+	const auth = useAuthContext();
+	const socket = useSocketContext();
+	const { preferences } = useUserPreferences();
+
 	const [version, setVersion] = createSignal("");
 	const [storeName, setStoreName] = createSignal("app store");
 	const [status, setStatus] = createSignal<Status>("idle");
@@ -49,10 +75,36 @@ export const AboutPage: Component = () => {
 		createSignal<InstallChannel>("direct");
 	const [errorMessage, setErrorMessage] = createSignal("");
 
+	const [diagnostics, setDiagnostics] = createSignal<Array<DiagnosticsSection>>(
+		[],
+	);
+	const [copied, setCopied] = createSignal(false);
+
 	onMount(async () => {
 		setVersion(await getAppVersion());
 		setStoreName(await storeNameFor());
+		setDiagnostics(
+			await collectDiagnostics({
+				did: user.did,
+				handle: user.handle,
+				pdsHost: user.atproto.pdsHost,
+				grantedScopes: auth?.loggedIn ? auth.grantedScopes : undefined,
+				socketStatus: socket.status(),
+				nativeNotifications: preferences().nativeNotifications,
+				experiments: preferences().experiments,
+			}),
+		);
 	});
+
+	const copyDiagnostics = async () => {
+		try {
+			await navigator.clipboard.writeText(formatDiagnostics(diagnostics()));
+			setCopied(true);
+			setTimeout(() => setCopied(false), 2000);
+		} catch {
+			toast.error("Failed to copy debug information.");
+		}
+	};
 
 	const check = async () => {
 		setStatus("checking");
@@ -157,6 +209,88 @@ export const AboutPage: Component = () => {
 					</div>
 				</Match>
 			</Switch>
+
+			<Separator class="my-2" />
+
+			<div class="flex flex-col gap-3">
+				<div class="flex flex-row flex-wrap items-center justify-between gap-4">
+					<div class="flex flex-col gap-1">
+						<span class="text-sm font-medium">Debug information</span>
+						<span class="text-sm text-muted-foreground">
+							Include this when reporting a problem.
+						</span>
+					</div>
+					<Button
+						variant="secondary"
+						onClick={() => void copyDiagnostics()}
+						disabled={diagnostics().length === 0}
+					>
+						<Switch>
+							<Match when={copied()}>
+								<CheckIcon class="text-green-500" />
+								Copied
+							</Match>
+							<Match when={!copied()}>
+								<CopyIcon />
+								Copy debug information
+							</Match>
+						</Switch>
+					</Button>
+				</div>
+
+				<Show
+					when={diagnostics().length > 0}
+					fallback={
+						<span class="text-sm text-muted-foreground">Gathering…</span>
+					}
+				>
+					<div class="flex flex-col gap-3">
+						<For each={diagnostics()}>
+							{(section) => (
+								<div class="flex flex-col gap-3 rounded-xl border border-border bg-card p-4">
+									<span class="text-sm font-semibold">{section.title}</span>
+									<div class="flex flex-col gap-2.5">
+										<For each={section.fields}>
+											{(field) => (
+												<div class="flex flex-col gap-0.5">
+													<span class="text-xs text-muted-foreground">
+														{field.label}
+													</span>
+													<Switch>
+														<Match when={field.kind === "value" && field}>
+															{(f) => (
+																<code class="text-xs break-all leading-relaxed line-clamp-3">
+																	{f().value}
+																</code>
+															)}
+														</Match>
+														<Match when={field.kind === "list" && field}>
+															{(f) => (
+																<Show
+																	when={f().items.length > 0}
+																	fallback={<span class="text-xs">None</span>}
+																>
+																	<ul class="flex flex-col gap-0.5 list-disc pl-4">
+																		<For each={f().items}>
+																			{(item) => (
+																				<li class="text-xs">{item}</li>
+																			)}
+																		</For>
+																	</ul>
+																</Show>
+															)}
+														</Match>
+													</Switch>
+												</div>
+											)}
+										</For>
+									</div>
+								</div>
+							)}
+						</For>
+					</div>
+				</Show>
+			</div>
 		</SettingsPage>
 	);
 };

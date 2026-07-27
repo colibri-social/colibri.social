@@ -20,7 +20,7 @@ const HOMEBREW_CASKROOM_PATHS = [
 	"/usr/local/Caskroom/colibri-social",
 ];
 
-const detectPackageManagerChannel =
+export const detectPackageManagerChannel =
 	async (): Promise<InstallChannel | null> => {
 		try {
 			const { platform } = await import("@tauri-apps/plugin-os");

@@ -31,6 +31,13 @@ const getVapidPublicKey = (): string | undefined => {
 export const isPushSupported = (): boolean =>
 	isWebRuntime() && "serviceWorker" in navigator && "PushManager" in window;
 
+export const hasWebPushSubscription = async (): Promise<boolean> => {
+	if (!isPushSupported()) return false;
+	const registration = await navigator.serviceWorker.getRegistration(SW_URL);
+	const subscription = await registration?.pushManager.getSubscription();
+	return subscription !== undefined && subscription !== null;
+};
+
 /** Decode a base64url VAPID key into the Uint8Array the Push API expects. */
 const urlBase64ToUint8Array = (base64: string): Uint8Array<ArrayBuffer> => {
 	const padding = "=".repeat((4 - (base64.length % 4)) % 4);
