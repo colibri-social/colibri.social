@@ -497,3 +497,7 @@ pre code,
 		touch-action: auto;
 	}
 }
+
+.swipe-owns-x {
+	touch-action: pan-y pinch-zoom;
+}

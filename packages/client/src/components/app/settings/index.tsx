@@ -21,7 +21,7 @@ import { useAuthContext } from "../../../contexts/Auth";
 import { useUserContext } from "../../../contexts/User";
 import { EXPERIMENTS } from "../../../experiments";
 import { unregisterAllPush } from "../../../notifications";
-import { isMobileNow } from "../../../utils/mobile-pane";
+import { useIsTouch } from "../../../utils/touch";
 import { SettingsModal } from "../common/SettingsModal";
 import { AboutPage } from "./AboutPage";
 import { ControlsPage } from "./ControlsPage";
@@ -39,6 +39,8 @@ export const UserSettingsModal: ParentComponent<{
 	open?: Accessor<boolean>;
 	setOpen?: Setter<boolean>;
 }> = (props) => {
+	const isTouch = useIsTouch();
+
 	return (
 		<SettingsModal
 			open={props.open}
@@ -85,7 +87,7 @@ export const UserSettingsModal: ParentComponent<{
 					id: "controls",
 					component: ControlsPage,
 					icon: () => <HandTapIcon />,
-					visible: isMobileNow,
+					visible: isTouch,
 				},
 				{
 					title: "Experiments",

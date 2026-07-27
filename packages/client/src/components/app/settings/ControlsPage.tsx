@@ -31,7 +31,7 @@ export const ControlsPage: Component = () => {
 		<SettingsPage
 			loading={() => false}
 			title="Controls"
-			description="Customize the touch gestures used while chatting on mobile."
+			description="Customize the touch gestures used while chatting on touchscreens."
 		>
 			<Toggle
 				class="flex flex-row gap-4 items-center w-full justify-between shrink-0"

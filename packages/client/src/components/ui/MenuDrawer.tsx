@@ -14,6 +14,7 @@ import { ViewportContext } from "../../contexts/Viewport";
 import { createHistoryBackClose } from "../../hooks/createHistoryBackClose";
 import { cx } from "../../utils/cva";
 import { useIsMobile } from "../../utils/mobile-pane";
+import { useIsTouch } from "../../utils/touch";
 import { ScrollFadeBottom } from "./ScrollFadeBottom";
 
 export const DRAWER_TRANSITION_MS = 300;
@@ -61,10 +62,13 @@ export const BottomSheet = (props: BottomSheetProps) => {
 
 	const viewportCtx = useContext(ViewportContext);
 	const isMobile = useIsMobile();
+	const isTouch = useIsTouch();
+	const tracksViewport = () => isMobile() || isTouch();
 	const keyboardOffset = () =>
-		isMobile() ? (viewportCtx?.keyboardInset() ?? 0) : 0;
+		tracksViewport() ? (viewportCtx?.keyboardInset() ?? 0) : 0;
 	const viewportHeightPx = () =>
-		(isMobile() ? viewportCtx?.height() : undefined) ?? window.innerHeight;
+		(tracksViewport() ? viewportCtx?.height() : undefined) ??
+		window.innerHeight;
 	const halfHeightPx = () => viewportHeightPx() * HALF_VIEWPORT;
 	// Never ask for more than the content actually has — natural content is
 	// always >= halfHeightPx here since isTall() gates it, but it can be
@@ -147,7 +151,7 @@ export const BottomSheet = (props: BottomSheetProps) => {
 
 	const close = () => props.onOpenChange(false);
 
-	createHistoryBackClose(() => isMobile() && props.open, close);
+	createHistoryBackClose(() => tracksViewport() && props.open, close);
 
 	// Close on a fresh tap outside
 	const onBackdropPointerDown = () => {

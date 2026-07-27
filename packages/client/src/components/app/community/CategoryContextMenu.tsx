@@ -2,7 +2,7 @@ import { createSignal, type ParentComponent, Show } from "solid-js";
 import ChecksIcon from "~icons/ph/checks";
 import PencilIcon from "~icons/ph/pencil";
 import { createLongPress } from "../../../utils/create-long-press";
-import { useIsMobile } from "../../../utils/mobile-pane";
+import { useIsTouch } from "../../../utils/touch";
 import {
 	ContextMenu,
 	ContextMenuContent,
@@ -24,17 +24,17 @@ export const CategoryContextMenu: ParentComponent<{
 	onEdit: () => void;
 	onMarkAllRead: () => void;
 }> = (props) => {
-	const isMobile = useIsMobile();
+	const isTouch = useIsTouch();
 	const [menuOpen, setMenuOpen] = createSignal(false);
 
 	return (
 		<>
-			<Show when={isMobile()}>
+			<Show when={isTouch()}>
 				<div
 					style={{ display: "contents" }}
 					ref={(el) =>
 						createLongPress(el, {
-							enabled: () => isMobile(),
+							enabled: () => isTouch(),
 							onLongPress: () => setMenuOpen(true),
 						})
 					}
@@ -68,7 +68,7 @@ export const CategoryContextMenu: ParentComponent<{
 					</Show>
 				</MenuDrawer>
 			</Show>
-			<Show when={!isMobile()}>
+			<Show when={!isTouch()}>
 				<ContextMenu>
 					<ContextMenuTrigger>{props.children}</ContextMenuTrigger>
 					<ContextMenuPortal>

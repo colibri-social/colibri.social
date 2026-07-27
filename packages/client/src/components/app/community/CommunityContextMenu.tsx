@@ -10,7 +10,7 @@ import { communityUriToUrlCompatible } from "../../../atproto/community-uri-to-u
 import { useMutes } from "../../../contexts/Mutes";
 import { useNotifications } from "../../../contexts/Notifications";
 import { createLongPress } from "../../../utils/create-long-press";
-import { useIsMobile } from "../../../utils/mobile-pane";
+import { useIsTouch } from "../../../utils/touch";
 import {
 	ContextMenu,
 	ContextMenuContent,
@@ -35,7 +35,7 @@ export const CommunityContextMenu: ParentComponent<{
 	const notifications = useNotifications();
 	const mutes = useMutes();
 	const navigate = useNavigate();
-	const isMobile = useIsMobile();
+	const isTouch = useIsTouch();
 
 	const [leaveOpen, setLeaveOpen] = createSignal(false);
 	const [menuOpen, setMenuOpen] = createSignal(false);
@@ -55,12 +55,12 @@ export const CommunityContextMenu: ParentComponent<{
 
 	return (
 		<>
-			<Show when={isMobile()}>
+			<Show when={isTouch()}>
 				<div
 					style={{ display: "contents" }}
 					ref={(el) =>
 						createLongPress(el, {
-							enabled: () => isMobile(),
+							enabled: () => isTouch(),
 							onLongPress: () => setMenuOpen(true),
 						})
 					}
@@ -118,7 +118,7 @@ export const CommunityContextMenu: ParentComponent<{
 					</Show>
 				</MenuDrawer>
 			</Show>
-			<Show when={!isMobile()}>
+			<Show when={!isTouch()}>
 				<ContextMenu>
 					<ContextMenuTrigger>{props.children}</ContextMenuTrigger>
 					<ContextMenuPortal>

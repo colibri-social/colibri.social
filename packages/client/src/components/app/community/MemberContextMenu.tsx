@@ -34,8 +34,8 @@ import {
 	useVoiceChatContext,
 } from "../../../contexts/VoiceChat";
 import { createLongPress } from "../../../utils/create-long-press";
-import { useIsMobile } from "../../../utils/mobile-pane";
 import { createRoleSync } from "../../../utils/role-sync";
+import { useIsTouch } from "../../../utils/touch";
 import { Button } from "../../ui/Button";
 import {
 	Checkbox,
@@ -99,7 +99,7 @@ export const MemberContextMenu: ParentComponent<{
 		((canKickMember(user.did) &&
 			community().community.requiresApprovalToJoin) ||
 			canBanMember(user.did));
-	const isMobile = useIsMobile();
+	const isTouch = useIsTouch();
 	const [menuOpen, setMenuOpen] = createSignal(false);
 
 	const inVc = () => voiceData.connection.state === ConnectionState.Connected;
@@ -269,12 +269,13 @@ export const MemberContextMenu: ParentComponent<{
 					</div>
 				</ResponsiveDialog>
 			</Show>
-			<Show when={isMobile()}>
+			<Show when={isTouch()}>
 				<div
-					style={{ display: "contents" }}
+					class={props.class}
+					style={props.class ? undefined : { display: "contents" }}
 					ref={(el) =>
 						createLongPress(el, {
-							enabled: () => isMobile(),
+							enabled: () => isTouch(),
 							onLongPress: () => setMenuOpen(true),
 						})
 					}
@@ -515,7 +516,7 @@ export const MemberContextMenu: ParentComponent<{
 					</MenuDrawer>
 				</Show>
 			</Show>
-			<Show when={!isMobile()}>
+			<Show when={!isTouch()}>
 				<ContextMenu>
 					<ContextMenuTrigger class={props.class}>
 						{props.children}

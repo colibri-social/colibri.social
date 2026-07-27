@@ -29,6 +29,7 @@ import { createLongPress } from "../../../../utils/create-long-press";
 import { createSwipe } from "../../../../utils/create-swipe";
 import { parseEmojiText } from "../../../../utils/emoji";
 import { useIsMobile } from "../../../../utils/mobile-pane";
+import { useIsTouch } from "../../../../utils/touch";
 import {
 	Tooltip,
 	TooltipContent,
@@ -84,6 +85,7 @@ const MessageInner: Component<{
 	const community = useCommunityContext();
 	const stableMedia = useStableMedia();
 	const isMobile = useIsMobile();
+	const isTouch = useIsTouch();
 	const { preferences } = useUserPreferences();
 
 	const {
@@ -179,11 +181,11 @@ const MessageInner: Component<{
 	const [dragging, setDragging] = createSignal(false);
 
 	const swipeReplyEnabled = () =>
-		isMobile() &&
+		isTouch() &&
 		!isPending() &&
 		preferences().controls.swipeLeftAction === "reply";
 	const doubleTapEnabled = () =>
-		isMobile() && !isPending() && preferences().controls.doubleTapEnabled;
+		isTouch() && !isPending() && preferences().controls.doubleTapEnabled;
 
 	const replyRevealProgress = () =>
 		Math.min(1, Math.abs(dragX()) / REPLY_SWIPE_THRESHOLD);
@@ -250,7 +252,7 @@ const MessageInner: Component<{
 				<div
 					ref={(el) => {
 						createLongPress(el, {
-							enabled: () => isMobile() && !isPending(),
+							enabled: () => isTouch() && !isPending(),
 							onLongPress: () => setContextMenuOpen(true),
 						});
 						createSwipe(el, {
@@ -285,6 +287,7 @@ const MessageInner: Component<{
 					data-message-uri={message.uri}
 					classList={{
 						[innerTopSpacingClass()]: true,
+						"swipe-owns-x": swipeReplyEnabled(),
 						"border-transparent": !isRepliedTo(),
 						"bg-primary/10 hover:bg-primary/15! border-primary!":
 							containsMentionOrIsReplyToUser(),

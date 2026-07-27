@@ -10,7 +10,7 @@ import TrashIcon from "~icons/ph/trash";
 import { usePermissions } from "../../../../../contexts/Community";
 import { useMessageContext } from "../../../../../contexts/Message";
 import { useUserContext } from "../../../../../contexts/User";
-import { useIsMobile } from "../../../../../utils/mobile-pane";
+import { useIsTouch } from "../../../../../utils/touch";
 import {
 	ContextMenu,
 	ContextMenuContent,
@@ -56,7 +56,7 @@ export const MessageContextMenu: ParentComponent<{
 	} = useMessageContext();
 
 	const { canHideMessage } = usePermissions();
-	const isMobile = useIsMobile();
+	const isTouch = useIsTouch();
 	const ownsMessage = () => user.did === message.author.did;
 	const QUICK_REACTIONS = ["👍", "❤️", "😂", "😮"];
 
@@ -76,7 +76,7 @@ export const MessageContextMenu: ParentComponent<{
 	return (
 		<>
 			<Show
-				when={isMobile()}
+				when={isTouch()}
 				fallback={
 					<ContextMenu>
 						<ContextMenuTrigger
@@ -237,6 +237,7 @@ export const MessageContextMenu: ParentComponent<{
 					</Show>
 				</MenuDrawer>
 				<EmojiPopover
+					asSheet
 					emojiPopoverOpen={emojiPopoverOpen}
 					setEmojiPopoverOpen={setEmojiPopoverOpen}
 					addReactionOptimistic={(emoji) => void addReactionOptimistic(emoji)}

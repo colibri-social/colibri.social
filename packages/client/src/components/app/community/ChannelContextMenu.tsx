@@ -20,7 +20,7 @@ import {
 	useVoiceChatContext,
 } from "../../../contexts/VoiceChat";
 import { createLongPress } from "../../../utils/create-long-press";
-import { useIsMobile } from "../../../utils/mobile-pane";
+import { useIsTouch } from "../../../utils/touch";
 import { Button } from "../../ui/Button";
 import {
 	ContextMenu,
@@ -78,7 +78,7 @@ export const ChannelContextMenu: ParentComponent<{
 
 	const canUpdate = () => _canUpdateChannel(user.did);
 	const canDelete = () => _canDelete(user.did);
-	const isMobile = useIsMobile();
+	const isTouch = useIsTouch();
 
 	const [confirmOpen, setConfirmOpen] = createSignal(false);
 	const [deleting, setDeleting] = createSignal(false);
@@ -103,12 +103,12 @@ export const ChannelContextMenu: ParentComponent<{
 
 	return (
 		<>
-			<Show when={isMobile()}>
+			<Show when={isTouch()}>
 				<div
 					style={{ display: "contents" }}
 					ref={(el) =>
 						createLongPress(el, {
-							enabled: () => isMobile(),
+							enabled: () => isTouch(),
 							onLongPress: () => setMenuOpen(true),
 						})
 					}
@@ -180,7 +180,7 @@ export const ChannelContextMenu: ParentComponent<{
 					</Show>
 				</MenuDrawer>
 			</Show>
-			<Show when={!isMobile()}>
+			<Show when={!isTouch()}>
 				<ContextMenu>
 					<ContextMenuTrigger>{props.children}</ContextMenuTrigger>
 					<ContextMenuPortal>

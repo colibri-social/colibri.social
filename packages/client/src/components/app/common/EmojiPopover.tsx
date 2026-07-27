@@ -147,6 +147,7 @@ export const EmojiPopover: ParentComponent<{
 	onEmojiClick?: EmojiEventHandler<MouseEvent>;
 	onEmojiSelect?: (emoji: string) => void;
 	placement?: Placement;
+	asSheet?: boolean;
 }> = (props) => {
 	const isMobile = useIsMobile();
 
@@ -164,7 +165,7 @@ export const EmojiPopover: ParentComponent<{
 
 	return (
 		<Show
-			when={isMobile()}
+			when={isMobile() || props.asSheet}
 			fallback={
 				<Popover
 					open={props.emojiPopoverOpen()}
