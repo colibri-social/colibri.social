@@ -13,6 +13,7 @@ import { startOAuthSignIn } from "../atproto/auth";
 import { buildScopes } from "../atproto/scopes";
 import { useAuthContext } from "../contexts/Auth";
 import { getAppViewDid } from "../utils/appview";
+import { openExternalLink } from "../utils/open-external-link";
 import { Spinner } from "./icons/Spinner";
 import { Button } from "./ui/Button";
 
@@ -252,6 +253,9 @@ export const RegisterScreen: Component = () => {
 						href="https://atmosphereaccount.com/hosts"
 						target="_blank"
 						rel="noreferrer"
+						onClick={(e) =>
+							openExternalLink("https://atmosphereaccount.com/hosts", e)
+						}
 					>
 						Browse all providers
 						<ArrowUpRightIcon />
@@ -263,6 +267,9 @@ export const RegisterScreen: Component = () => {
 						href="https://atproto.com/guides/self-hosting"
 						target="_blank"
 						rel="noreferrer"
+						onClick={(e) =>
+							openExternalLink("https://atproto.com/guides/self-hosting", e)
+						}
 					>
 						Run your own
 						<ArrowUpRightIcon />

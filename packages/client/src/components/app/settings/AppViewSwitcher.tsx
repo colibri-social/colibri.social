@@ -18,6 +18,7 @@ import {
 	normalizeAppViewUrl,
 	verifyColibriAppView,
 } from "../../../utils/appview";
+import { openExternalLink } from "../../../utils/open-external-link";
 import { Alert, AlertDescription, AlertTitle } from "../../ui/Alert";
 import { Button } from "../../ui/Button";
 import {
@@ -49,6 +50,9 @@ const DefaultDescription = () => (
 			target="_blank"
 			rel="noreferrer"
 			class="text-primary hover:underline"
+			onClick={(e) =>
+				openExternalLink("https://github.com/colibri-social/appview", e)
+			}
 		>
 			Read more about self-hosting our AppView.
 		</a>

@@ -3,7 +3,12 @@ import { type Component, createResource, Match, Show, Switch } from "solid-js";
 import { resolveBlob } from "../../../atproto/resolve-blob";
 import { useUserContext } from "../../../contexts/User";
 import { AtURI } from "../../../utils/at-uri";
+import { openExternalLink } from "../../../utils/open-external-link";
 import { Button } from "../../ui/Button";
+
+const LEGACY_COMMUNITY_HELP_URL =
+	"https://colibri.social/docs/help/legacy-communities";
+
 import { CommunityCreationModal } from "../CommunityCreationModal";
 
 /**
@@ -68,10 +73,11 @@ export const LegacyCommunityLock: Component<{ community: Community }> = (
 							to migrate it so you can keep chatting here.
 						</p>
 						<a
-							href="/docs/help/legacy-communities"
+							href={LEGACY_COMMUNITY_HELP_URL}
 							target="_blank"
 							rel="noopener"
 							class="hover:underline text-primary"
+							onClick={(e) => openExternalLink(LEGACY_COMMUNITY_HELP_URL, e)}
 						>
 							Read more about legacy communities
 						</a>
@@ -85,10 +91,11 @@ export const LegacyCommunityLock: Component<{ community: Community }> = (
 					<b>You will need to re-create server invitations.</b>
 				</p>
 				<a
-					href="/docs/help/legacy-communities"
+					href={LEGACY_COMMUNITY_HELP_URL}
 					target="_blank"
 					rel="noopener"
 					class="hover:underline text-primary"
+					onClick={(e) => openExternalLink(LEGACY_COMMUNITY_HELP_URL, e)}
 				>
 					Read more about legacy communities
 				</a>

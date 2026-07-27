@@ -3,6 +3,7 @@ import { useNavigate } from "@solidjs/router";
 import { type Component, Show } from "solid-js";
 import XIcon from "~icons/ph/x";
 import { useUserPreferences } from "../contexts/UserPreferences";
+import { openExternalLink } from "../utils/open-external-link";
 import { CommunityCreationModal } from "./app/CommunityCreationModal";
 import { Button } from "./ui/Button";
 
@@ -48,7 +49,14 @@ export const WelcomeScreen: Component = () => {
 					<p>
 						Colibri is under active development <b>and in beta</b>. You can
 						check our{" "}
-						<a href="https://colibri.leaflet.pub/3mhxzpvpvps2m">
+						<a
+							href="https://colibri.leaflet.pub/3mhxzpvpvps2m"
+							target="_blank"
+							rel="noreferrer"
+							onClick={(e) =>
+								openExternalLink("https://colibri.leaflet.pub/3mhxzpvpvps2m", e)
+							}
+						>
 							announcement post
 						</a>{" "}
 						for more information. If you want to get involved in the
@@ -57,6 +65,9 @@ export const WelcomeScreen: Component = () => {
 							href="https://github.com/colibri-social"
 							target="_blank"
 							rel="noreferrer"
+							onClick={(e) =>
+								openExternalLink("https://github.com/colibri-social", e)
+							}
 						>
 							GitHub
 						</a>

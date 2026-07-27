@@ -24,6 +24,7 @@ import {
 import { useAuthContext } from "../contexts/Auth";
 import { useViewport, ViewportProvider } from "../contexts/Viewport";
 import { getAppViewDid, getAppViewHost } from "../utils/appview";
+import { openExternalLink } from "../utils/open-external-link";
 import { AppLoadingScreen } from "./AppLoadingScreen";
 import { Spinner } from "./icons/Spinner";
 import { ATmosphereAppMarquee } from "./login/ATmosphereAppMarquee";
@@ -370,6 +371,9 @@ const LoginScreenContent: Component = () => {
 										target="_blank"
 										rel="noreferrer"
 										class="text-primary hover:underline"
+										onClick={(e) =>
+											openExternalLink("https://atmosphereaccount.com", e)
+										}
 									>
 										atmosphereaccount.com
 									</a>
