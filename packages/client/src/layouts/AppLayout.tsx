@@ -33,6 +33,7 @@ import { CommunityContextMenu } from "../components/app/community/CommunityConte
 import { PENDING_INVITE_KEY } from "../components/app/community/invite-storage";
 import { NativeNotifications } from "../components/app/NativeNotifications";
 import { NotificationPromptDialog } from "../components/app/onboarding/NotificationPromptDialog";
+import { ReleaseNotesModal } from "../components/app/ReleaseNotes";
 import { UserSettingsModal } from "../components/app/settings";
 import { VoiceOverlay } from "../components/app/VoiceOverlay";
 import { Plus } from "../components/icons/Plus";
@@ -518,6 +519,7 @@ const AppLayout: ParentComponent = (props) => {
 			</div>
 			<VoiceOverlay />
 			<AppReconnectingIndicator />
+			<ReleaseNotesModal />
 		</div>
 	);
 };

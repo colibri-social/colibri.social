@@ -9,6 +9,7 @@ import {
 } from "solid-js";
 import type { BlueskyClientID } from "../atproto/bluesky-alternatives";
 import type { GifItem } from "../atproto/xrpc/social/colibri/embed/gifTypes";
+import { newestReleaseNoteVersion } from "../release-notes";
 import { DEFAULT_APPVIEW_URL } from "../utils/appview";
 import { isMobileNow } from "../utils/mobile-pane";
 
@@ -66,6 +67,7 @@ export type UserPreferencesContextData = {
 	publicReminderDismissed: boolean;
 	nativeNotifications: boolean;
 	notificationPromptDismissed: boolean;
+	lastSeenReleaseNote: string | null;
 	voice: {
 		input: VoiceInputSettings;
 		output: VoiceIOSettings;
@@ -90,6 +92,7 @@ const DEFAULT_PREFERENCES: UserPreferencesContextData = {
 	publicReminderDismissed: false,
 	nativeNotifications: false,
 	notificationPromptDismissed: false,
+	lastSeenReleaseNote: null,
 	voice: {
 		input: {
 			enabled: true,
@@ -130,7 +133,12 @@ const DEFAULT_PREFERENCES: UserPreferencesContextData = {
 function loadFromStorage(): UserPreferencesContextData {
 	try {
 		const raw = localStorage.getItem(STORAGE_KEY);
-		if (!raw) return DEFAULT_PREFERENCES;
+		if (!raw) {
+			return {
+				...DEFAULT_PREFERENCES,
+				lastSeenReleaseNote: newestReleaseNoteVersion(),
+			};
+		}
 		const parsed = JSON.parse(raw);
 		const parsedVoice = parsed.voice ?? {};
 		const parsedInput = parsedVoice.input ?? {};
@@ -185,6 +193,7 @@ type UserPreferencesContextValue = {
 	setPublicReminderDismissed: (dismissed: boolean) => void;
 	setNativeNotifications: (enabled: boolean) => void;
 	setNotificationPromptDismissed: (dismissed: boolean) => void;
+	setLastSeenReleaseNote: (version: string | null) => void;
 	setNoiseSuppressionHints: (enabled: boolean) => void;
 	setPreferredBlueskyClient: (client: BlueskyClientID) => void;
 	setPreferredAppView: (appView: string) => void;
@@ -287,6 +296,10 @@ export const UserPreferencesContextProvider: ParentComponent = (props) => {
 		setPreferences((p) => ({ ...p, notificationPromptDismissed: dismissed }));
 	};
 
+	const setLastSeenReleaseNote = (version: string | null) => {
+		setPreferences((p) => ({ ...p, lastSeenReleaseNote: version }));
+	};
+
 	const setNoiseSuppressionHints = (enabled: boolean) => {
 		setPreferences((p) => ({
 			...p,
@@ -342,6 +355,7 @@ export const UserPreferencesContextProvider: ParentComponent = (props) => {
 				setPublicReminderDismissed,
 				setNativeNotifications,
 				setNotificationPromptDismissed,
+				setLastSeenReleaseNote,
 				setNoiseSuppressionHints,
 				setPreferredBlueskyClient,
 				setPreferredAppView,
