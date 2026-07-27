@@ -16,6 +16,7 @@
 
 		// Type Checking & Safety
 		"strict": true,
+		"skipLibCheck": true,
 		"types": ["vite/client", "unplugin-icons/types/solid", "vidstack/solid"]
 	},
 	"exclude": ["node_modules", "dist"]

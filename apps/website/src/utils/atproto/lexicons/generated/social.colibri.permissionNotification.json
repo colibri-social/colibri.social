@@ -1,0 +1,25 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.permissionNotification",
+	"defs": {
+		"main": {
+			"type": "permission-set",
+			"title": "Notifications",
+			"detail": "Read your notifications and mark them as seen.",
+			"permissions": [
+				{
+					"type": "permission",
+					"resource": "rpc",
+					"inheritAud": true,
+					"lxm": [
+						"social.colibri.notification.listNotifications",
+						"social.colibri.notification.getUnreadCount",
+						"social.colibri.notification.updateSeen",
+						"social.colibri.notification.updateSeenForMessage",
+						"social.colibri.notification.getUnseen"
+					]
+				}
+			]
+		}
+	}
+}

@@ -1,0 +1,54 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.embed.getMetadata",
+	"defs": {
+		"main": {
+			"type": "query",
+			"description": "Fetches Open Graph-style link preview metadata for a URL.",
+			"parameters": {
+				"type": "params",
+				"required": [
+					"uri"
+				],
+				"properties": {
+					"uri": {
+						"type": "string"
+					}
+				}
+			},
+			"output": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"image"
+					],
+					"properties": {
+						"title": {
+							"type": "string"
+						},
+						"description": {
+							"type": "string"
+						},
+						"siteName": {
+							"type": "string"
+						},
+						"themeColor": {
+							"type": "string"
+						},
+						"image": {
+							"type": "array",
+							"items": {
+								"type": "ref",
+								"ref": "lex:social.colibri.embed.defs#embedImage"
+							}
+						},
+						"largeImage": {
+							"type": "boolean"
+						}
+					}
+				}
+			}
+		}
+	}
+}

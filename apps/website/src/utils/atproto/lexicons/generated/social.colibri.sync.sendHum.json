@@ -1,0 +1,39 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.sync.sendHum",
+	"defs": {
+		"main": {
+			"type": "procedure",
+			"description": "Informs this AppView of an off-protocol event that occurred on a peer AppView. Requires inter-service auth: a JWT signed by the caller's AppView signing key, aud = this AppView's did:web, lxm = social.colibri.sync.sendHum. The receiver drops the Hum unless the JWT issuer equals both the envelope `origin` and the `subject`'s declared presenceService.",
+			"input": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "ref",
+					"ref": "lex:social.colibri.sync.subscribeEvents#humEnvelope"
+				}
+			},
+			"errors": [
+				{
+					"name": "AuthRequired",
+					"description": "Missing or invalid service-auth JWT."
+				},
+				{
+					"name": "Forbidden",
+					"description": "A trust-model check failed (origin is not the subject's declared presenceService, subject is not a community member, origin is not an AppView, or a channel does not belong to the community)."
+				},
+				{
+					"name": "UnsupportedEvent",
+					"description": "Event type is not an off-protocol Hum event."
+				},
+				{
+					"name": "RateLimited",
+					"description": "The peer exceeded its per-peer sendHum rate budget."
+				},
+				{
+					"name": "NotEnabled",
+					"description": "Humming is disabled on this AppView."
+				}
+			]
+		}
+	}
+}

@@ -1,0 +1,74 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.community.getData",
+	"defs": {
+		"main": {
+			"type": "query",
+			"description": "Returns the full state of a community: metadata, categories, channels, roles, and members.",
+			"parameters": {
+				"type": "params",
+				"required": [
+					"community"
+				],
+				"properties": {
+					"community": {
+						"type": "string",
+						"format": "at-uri"
+					}
+				}
+			},
+			"output": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"community",
+						"categories",
+						"channels",
+						"roles",
+						"members",
+						"did"
+					],
+					"properties": {
+						"community": {
+							"type": "ref",
+							"ref": "lex:social.colibri.community.defs#communityInfo"
+						},
+						"categories": {
+							"type": "array",
+							"items": {
+								"type": "ref",
+								"ref": "lex:social.colibri.community.defs#categoryView"
+							}
+						},
+						"channels": {
+							"type": "array",
+							"items": {
+								"type": "ref",
+								"ref": "lex:social.colibri.community.defs#channelView"
+							}
+						},
+						"roles": {
+							"type": "array",
+							"items": {
+								"type": "ref",
+								"ref": "lex:social.colibri.community.defs#roleView"
+							}
+						},
+						"members": {
+							"type": "array",
+							"items": {
+								"type": "ref",
+								"ref": "lex:social.colibri.community.defs#memberView"
+							}
+						},
+						"did": {
+							"type": "string",
+							"format": "did"
+						}
+					}
+				}
+			}
+		}
+	}
+}

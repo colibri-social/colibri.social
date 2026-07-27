@@ -1,0 +1,24 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.notification.getUnreadCount",
+	"defs": {
+		"main": {
+			"type": "query",
+			"description": "Returns the count of unread notifications.",
+			"output": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"count"
+					],
+					"properties": {
+						"count": {
+							"type": "integer"
+						}
+					}
+				}
+			}
+		}
+	}
+}

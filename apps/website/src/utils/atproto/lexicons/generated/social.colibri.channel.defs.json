@@ -1,0 +1,158 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.channel.defs",
+	"defs": {
+		"message": {
+			"type": "object",
+			"description": "A hydrated message as served by the AppView.",
+			"required": [
+				"uri",
+				"text",
+				"facets",
+				"channel",
+				"community",
+				"author",
+				"attachments",
+				"reactions",
+				"createdAt",
+				"edited"
+			],
+			"properties": {
+				"uri": {
+					"type": "string",
+					"format": "at-uri"
+				},
+				"text": {
+					"type": "string"
+				},
+				"facets": {
+					"type": "array",
+					"items": {
+						"type": "ref",
+						"ref": "lex:social.colibri.richtext.facet"
+					}
+				},
+				"channel": {
+					"type": "string",
+					"format": "at-uri"
+				},
+				"community": {
+					"type": "string",
+					"format": "at-uri"
+				},
+				"author": {
+					"type": "ref",
+					"ref": "lex:social.colibri.actor.defs#actorView"
+				},
+				"parent": {
+					"type": "ref",
+					"ref": "lex:social.colibri.channel.defs#message",
+					"description": "The message this one replies to, if any. Never itself nested (the parent's own parent is omitted)."
+				},
+				"attachments": {
+					"type": "array",
+					"items": {
+						"type": "ref",
+						"ref": "lex:social.colibri.channel.defs#attachment"
+					}
+				},
+				"reactions": {
+					"type": "array",
+					"items": {
+						"type": "ref",
+						"ref": "lex:social.colibri.channel.defs#reactionView"
+					}
+				},
+				"createdAt": {
+					"type": "string",
+					"format": "datetime"
+				},
+				"edited": {
+					"type": "boolean"
+				}
+			}
+		},
+		"attachment": {
+			"type": "object",
+			"description": "A file attached to a message.",
+			"required": [
+				"blob"
+			],
+			"properties": {
+				"blob": {
+					"type": "blob"
+				},
+				"name": {
+					"type": "string"
+				}
+			}
+		},
+		"reactionView": {
+			"type": "object",
+			"description": "An aggregated reaction on a message.",
+			"required": [
+				"emoji",
+				"count",
+				"reactorDIDs"
+			],
+			"properties": {
+				"emoji": {
+					"type": "string"
+				},
+				"count": {
+					"type": "integer"
+				},
+				"reactorDIDs": {
+					"type": "array",
+					"items": {
+						"type": "string",
+						"format": "did"
+					}
+				}
+			}
+		},
+		"readCursor": {
+			"type": "object",
+			"description": "The authenticated user's read cursor for a channel.",
+			"required": [
+				"uri",
+				"cursor",
+				"channel"
+			],
+			"properties": {
+				"uri": {
+					"type": "string",
+					"format": "at-uri"
+				},
+				"cursor": {
+					"type": "string"
+				},
+				"channel": {
+					"type": "string",
+					"format": "at-uri"
+				}
+			}
+		},
+		"unreadStatus": {
+			"type": "object",
+			"description": "Per-channel unread state for the authenticated user.",
+			"required": [
+				"channelUri",
+				"hasUnreadMessages",
+				"unreadPingCount"
+			],
+			"properties": {
+				"channelUri": {
+					"type": "string",
+					"format": "at-uri"
+				},
+				"hasUnreadMessages": {
+					"type": "boolean"
+				},
+				"unreadPingCount": {
+					"type": "integer"
+				}
+			}
+		}
+	}
+}

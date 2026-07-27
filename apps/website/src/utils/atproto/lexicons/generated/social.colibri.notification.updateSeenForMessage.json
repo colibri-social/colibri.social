@@ -1,0 +1,36 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.notification.updateSeenForMessage",
+	"defs": {
+		"main": {
+			"type": "procedure",
+			"description": "Marks notifications for a specific message as seen.",
+			"parameters": {
+				"type": "params",
+				"required": [
+					"message"
+				],
+				"properties": {
+					"message": {
+						"type": "string",
+						"format": "at-uri"
+					}
+				}
+			},
+			"output": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"updated"
+					],
+					"properties": {
+						"updated": {
+							"type": "integer"
+						}
+					}
+				}
+			}
+		}
+	}
+}

@@ -1,0 +1,40 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.channel.listReactions",
+	"defs": {
+		"main": {
+			"type": "query",
+			"description": "Lists the aggregated reactions on a message.",
+			"parameters": {
+				"type": "params",
+				"required": [
+					"message"
+				],
+				"properties": {
+					"message": {
+						"type": "string",
+						"format": "at-uri"
+					}
+				}
+			},
+			"output": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"reactions"
+					],
+					"properties": {
+						"reactions": {
+							"type": "array",
+							"items": {
+								"type": "ref",
+								"ref": "lex:social.colibri.channel.defs#reactionView"
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+}

@@ -1,0 +1,46 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.community.approveMembership",
+	"defs": {
+		"main": {
+			"type": "procedure",
+			"description": "Approves a pending membership application, minting the member record.",
+			"parameters": {
+				"type": "params",
+				"required": [
+					"membership"
+				],
+				"properties": {
+					"membership": {
+						"type": "string",
+						"format": "at-uri"
+					}
+				}
+			},
+			"output": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"did",
+						"community"
+					],
+					"properties": {
+						"did": {
+							"type": "string",
+							"format": "did"
+						},
+						"community": {
+							"type": "string",
+							"format": "at-uri"
+						},
+						"member": {
+							"type": "string",
+							"format": "at-uri"
+						}
+					}
+				}
+			}
+		}
+	}
+}

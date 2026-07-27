@@ -1,0 +1,37 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.role.delete",
+	"defs": {
+		"main": {
+			"type": "procedure",
+			"description": "Deletes a role.",
+			"parameters": {
+				"type": "params",
+				"required": [
+					"role"
+				],
+				"properties": {
+					"role": {
+						"type": "string",
+						"format": "at-uri"
+					}
+				}
+			},
+			"output": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"uri"
+					],
+					"properties": {
+						"uri": {
+							"type": "string",
+							"format": "at-uri"
+						}
+					}
+				}
+			}
+		}
+	}
+}

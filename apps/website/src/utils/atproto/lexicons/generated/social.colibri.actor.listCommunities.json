@@ -1,0 +1,67 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.actor.listCommunities",
+	"defs": {
+		"main": {
+			"type": "query",
+			"description": "Lists the communities the authenticated user is a member of, in their preferred sidebar order.",
+			"output": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"communities"
+					],
+					"properties": {
+						"communities": {
+							"type": "array",
+							"items": {
+								"type": "ref",
+								"ref": "lex:social.colibri.actor.listCommunities#communityView"
+							}
+						}
+					}
+				}
+			}
+		},
+		"communityView": {
+			"type": "object",
+			"description": "A community summary as seen from the member's perspective.",
+			"required": [
+				"name",
+				"requiresApprovalToJoin"
+			],
+			"properties": {
+				"name": {
+					"type": "string"
+				},
+				"picture": {
+					"type": "blob"
+				},
+				"description": {
+					"type": "string"
+				},
+				"categoryOrder": {
+					"type": "array",
+					"items": {
+						"type": "string",
+						"format": "record-key"
+					}
+				},
+				"requiresApprovalToJoin": {
+					"type": "boolean"
+				},
+				"uri": {
+					"type": "string",
+					"format": "at-uri"
+				},
+				"isLegacy": {
+					"type": "boolean"
+				},
+				"isOwner": {
+					"type": "boolean"
+				}
+			}
+		}
+	}
+}

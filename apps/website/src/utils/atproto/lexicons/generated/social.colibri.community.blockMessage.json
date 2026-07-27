@@ -1,0 +1,42 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.community.blockMessage",
+	"defs": {
+		"main": {
+			"type": "procedure",
+			"description": "Hides (moderates) a message within a community.",
+			"parameters": {
+				"type": "params",
+				"required": [
+					"community",
+					"message"
+				],
+				"properties": {
+					"community": {
+						"type": "string",
+						"format": "at-uri"
+					},
+					"message": {
+						"type": "string",
+						"format": "at-uri"
+					}
+				}
+			},
+			"output": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"message"
+					],
+					"properties": {
+						"message": {
+							"type": "string",
+							"format": "at-uri"
+						}
+					}
+				}
+			}
+		}
+	}
+}

@@ -34,8 +34,13 @@ export const listNotifications: XrpcRequest<
 	Promise<Response | undefined>
 > = async (fetch, limit, cursor) => {
 	try {
+		const params = new URLSearchParams();
+		if (limit !== undefined) params.set("limit", String(limit));
+		if (cursor !== undefined) params.set("cursor", cursor);
+		const qs = params.toString();
+
 		const res = await fetch(
-			`/xrpc/social.colibri.notification.listNotifications?limit=${limit}${cursor ? `&cursor=${cursor}` : ""}`,
+			`/xrpc/social.colibri.notification.listNotifications${qs ? `?${qs}` : ""}`,
 		);
 
 		return res.json();

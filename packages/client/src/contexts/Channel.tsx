@@ -103,7 +103,7 @@ export type ChannelContextValue = {
 	/**
 	 * The URI of the message that should be scrolled into view + highlighted.
 	 * Auto-clears after `FOCUS_HOLD_MS`. Set via `jumpToMessage`, never via
-	 * a direct setter — the auto-clear is part of the contract.
+	 * a direct setter. The auto-clear is deliberate.
 	 */
 	focusedMessage: Accessor<string | undefined>;
 

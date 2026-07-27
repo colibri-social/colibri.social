@@ -9,8 +9,12 @@ export const updateSeen: XrpcRequest<
 	Promise<Response | undefined>
 > = async (fetch, seenAt) => {
 	try {
+		const params = new URLSearchParams();
+		if (seenAt !== undefined) params.set("seenAt", seenAt);
+		const qs = params.toString();
+
 		const res = await fetch(
-			`/xrpc/social.colibri.notification.updateSeen?seenAt=${seenAt}`,
+			`/xrpc/social.colibri.notification.updateSeen${qs ? `?${qs}` : ""}`,
 			{
 				method: "POST",
 			},

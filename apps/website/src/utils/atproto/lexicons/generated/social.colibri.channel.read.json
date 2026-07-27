@@ -1,0 +1,36 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.channel.read",
+	"revision": 1,
+	"defs": {
+		"main": {
+			"type": "record",
+			"description": "A read cursor for a Colibri channel, indicating the last read message by a user.",
+			"key": "tid",
+			"record": {
+				"required": [
+					"channel",
+					"cursor"
+				],
+				"type": "object",
+				"properties": {
+					"$type": {
+						"type": "string",
+						"description": "The type of the record.",
+						"format": "nsid"
+					},
+					"channel": {
+						"type": "string",
+						"description": "The channel this message was sent in.",
+						"format": "at-uri"
+					},
+					"cursor": {
+						"type": "string",
+						"description": "The timestamp the channel was last read at.",
+						"format": "datetime"
+					}
+				}
+			}
+		}
+	}
+}

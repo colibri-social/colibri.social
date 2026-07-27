@@ -1,0 +1,87 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.community.create",
+	"defs": {
+		"main": {
+			"type": "procedure",
+			"description": "Creates a community, bootstrapping its DID repo with a default category, channel, owner role, and member record.",
+			"parameters": {
+				"type": "params",
+				"required": [
+					"name"
+				],
+				"properties": {
+					"name": {
+						"type": "string"
+					},
+					"description": {
+						"type": "string"
+					},
+					"requiresApprovalToJoin": {
+						"type": "boolean"
+					},
+					"mimeType": {
+						"type": "string",
+						"description": "MIME type of the picture body, if provided."
+					},
+					"pds": {
+						"type": "string",
+						"description": "Bring-your-own PDS endpoint."
+					},
+					"identifier": {
+						"type": "string",
+						"description": "Bring-your-own DID or handle."
+					},
+					"password": {
+						"type": "string",
+						"description": "Bring-your-own account password."
+					}
+				}
+			},
+			"input": {
+				"encoding": "*/*",
+				"description": "Optional community picture image bytes."
+			},
+			"output": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"did",
+						"community",
+						"category",
+						"channel",
+						"ownerRole",
+						"member"
+					],
+					"properties": {
+						"did": {
+							"type": "string",
+							"format": "did"
+						},
+						"community": {
+							"type": "string",
+							"format": "at-uri"
+						},
+						"category": {
+							"type": "string",
+							"format": "at-uri"
+						},
+						"channel": {
+							"type": "string",
+							"format": "at-uri"
+						},
+						"ownerRole": {
+							"type": "string",
+							"format": "at-uri"
+						},
+						"member": {
+							"type": "string",
+							"format": "at-uri"
+						}
+					}
+				}
+			}
+		}
+	}
+}

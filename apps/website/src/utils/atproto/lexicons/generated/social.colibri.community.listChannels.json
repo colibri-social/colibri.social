@@ -1,0 +1,40 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.community.listChannels",
+	"defs": {
+		"main": {
+			"type": "query",
+			"description": "Lists the channels of a community.",
+			"parameters": {
+				"type": "params",
+				"required": [
+					"community"
+				],
+				"properties": {
+					"community": {
+						"type": "string",
+						"format": "at-uri"
+					}
+				}
+			},
+			"output": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"channels"
+					],
+					"properties": {
+						"channels": {
+							"type": "array",
+							"items": {
+								"type": "ref",
+								"ref": "lex:social.colibri.community.defs#channelView"
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+}

@@ -1,0 +1,61 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.role.create",
+	"defs": {
+		"main": {
+			"type": "procedure",
+			"description": "Creates a role in a community.",
+			"parameters": {
+				"type": "params",
+				"required": [
+					"community",
+					"name",
+					"permissions",
+					"position"
+				],
+				"properties": {
+					"community": {
+						"type": "string",
+						"format": "at-uri"
+					},
+					"name": {
+						"type": "string"
+					},
+					"color": {
+						"type": "string"
+					},
+					"permissions": {
+						"type": "array",
+						"items": {
+							"type": "string"
+						}
+					},
+					"position": {
+						"type": "integer"
+					},
+					"hoisted": {
+						"type": "boolean"
+					},
+					"mentionable": {
+						"type": "boolean"
+					}
+				}
+			},
+			"output": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"uri"
+					],
+					"properties": {
+						"uri": {
+							"type": "string",
+							"format": "at-uri"
+						}
+					}
+				}
+			}
+		}
+	}
+}

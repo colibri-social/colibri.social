@@ -1,0 +1,75 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.voice.moderate",
+	"revision": 1,
+	"defs": {
+		"main": {
+			"type": "procedure",
+			"description": "Moderates a member's participation in a voice channel: server-mute, server-deafen, or force-disconnect. Requires the `voice.moderate` community permission and the caller must outrank the target. Server-mute/deafen are enforced by the SFU and persist for the room's lifetime, disconnect is transient (the target may rejoin).",
+			"parameters": {
+				"type": "params",
+				"required": [
+					"community",
+					"channel",
+					"target",
+					"action"
+				],
+				"properties": {
+					"community": {
+						"type": "string",
+						"format": "at-uri",
+						"description": "AT-URI of the community the channel belongs to."
+					},
+					"channel": {
+						"type": "string",
+						"format": "at-uri",
+						"description": "AT-URI of the voice channel."
+					},
+					"target": {
+						"type": "string",
+						"format": "did",
+						"description": "DID of the member to moderate."
+					},
+					"action": {
+						"type": "string",
+						"knownValues": [
+							"mute",
+							"unmute",
+							"deafen",
+							"undeafen",
+							"disconnect"
+						],
+						"description": "The moderation action to apply."
+					}
+				}
+			},
+			"output": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"did"
+					],
+					"properties": {
+						"did": {
+							"type": "string",
+							"format": "did",
+							"description": "DID of the moderated member."
+						}
+					}
+				}
+			},
+			"errors": [
+				{
+					"name": "AuthRequired"
+				},
+				{
+					"name": "Forbidden"
+				},
+				{
+					"name": "InvalidRequest"
+				}
+			]
+		}
+	}
+}

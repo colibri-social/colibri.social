@@ -1,0 +1,122 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.notification.defs",
+	"defs": {
+		"notificationView": {
+			"type": "object",
+			"description": "A notification in the authenticated user's feed.",
+			"required": [
+				"id",
+				"recipientDid",
+				"kind",
+				"messageUri",
+				"authorDid",
+				"channelUri",
+				"indexedAt",
+				"message"
+			],
+			"properties": {
+				"id": {
+					"type": "integer"
+				},
+				"recipientDid": {
+					"type": "string",
+					"format": "did"
+				},
+				"kind": {
+					"type": "string"
+				},
+				"messageUri": {
+					"type": "string",
+					"format": "at-uri"
+				},
+				"authorDid": {
+					"type": "string",
+					"format": "did"
+				},
+				"channelUri": {
+					"type": "string",
+					"format": "at-uri"
+				},
+				"indexedAt": {
+					"type": "string",
+					"format": "datetime"
+				},
+				"seenAt": {
+					"type": "string",
+					"format": "datetime"
+				},
+				"mentionRoleName": {
+					"type": "string",
+					"description": "Display name of the role that triggered this notification, when it was a role mention rather than a direct mention."
+				},
+				"message": {
+					"type": "ref",
+					"ref": "lex:social.colibri.notification.defs#notificationMessage"
+				}
+			}
+		},
+		"notificationMessage": {
+			"type": "object",
+			"description": "The message a notification refers to.",
+			"required": [
+				"text",
+				"facets",
+				"createdAt",
+				"attachments"
+			],
+			"properties": {
+				"text": {
+					"type": "string"
+				},
+				"facets": {
+					"type": "array",
+					"items": {
+						"type": "ref",
+						"ref": "lex:social.colibri.richtext.facet"
+					}
+				},
+				"createdAt": {
+					"type": "string",
+					"format": "datetime"
+				},
+				"parent": {
+					"type": "string",
+					"format": "at-uri"
+				},
+				"attachments": {
+					"type": "array",
+					"items": {
+						"type": "ref",
+						"ref": "lex:social.colibri.channel.defs#attachment"
+					}
+				},
+				"edited": {
+					"type": "boolean"
+				}
+			}
+		},
+		"unseenNotification": {
+			"type": "object",
+			"description": "A minimal unseen-notification pointer.",
+			"required": [
+				"id",
+				"messageUri",
+				"indexedAt"
+			],
+			"properties": {
+				"id": {
+					"type": "integer"
+				},
+				"messageUri": {
+					"type": "string",
+					"format": "at-uri"
+				},
+				"indexedAt": {
+					"type": "string",
+					"format": "datetime"
+				}
+			}
+		}
+	}
+}

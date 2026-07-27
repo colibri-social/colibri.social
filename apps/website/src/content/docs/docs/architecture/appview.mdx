@@ -53,7 +53,7 @@ A Hum therefore makes at most two hops, and an instance only ever sees traffic f
 
 Cross-instance presence is **opt-in per user**. A user opts in by publishing a `presenceService` DID on their profile record, naming the one AppView allowed to speak for their presence. The reference client keeps this in sync with the AppView you actually connect to and exposes a "Share presence across AppViews" toggle (on by default). Removing the field opts out, meaning every AppView then drops Hums about that user, while their local, same-instance presence is unaffected.
 
-The full wire format, endpoint contracts, and the complete trust-model checklist are documented on the [specification page](/docs/specification/appview#humming).
+The full wire format, endpoint behaviour, and the complete trust-model checklist are documented on the [specification page](/docs/specification/appview#humming).
 
 ## See also
 

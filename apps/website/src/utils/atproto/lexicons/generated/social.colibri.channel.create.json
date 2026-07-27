@@ -1,0 +1,69 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.channel.create",
+	"defs": {
+		"main": {
+			"type": "procedure",
+			"description": "Creates a channel in a category of a community.",
+			"parameters": {
+				"type": "params",
+				"required": [
+					"community",
+					"category",
+					"name",
+					"type"
+				],
+				"properties": {
+					"community": {
+						"type": "string",
+						"format": "at-uri"
+					},
+					"category": {
+						"type": "string",
+						"format": "at-uri"
+					},
+					"name": {
+						"type": "string"
+					},
+					"type": {
+						"type": "string",
+						"format": "nsid",
+						"description": "The channel type, e.g. social.colibri.channel.text."
+					},
+					"description": {
+						"type": "string"
+					},
+					"allowedRoles": {
+						"type": "array",
+						"items": {
+							"type": "string",
+							"format": "record-key"
+						}
+					},
+					"allowedMembers": {
+						"type": "array",
+						"items": {
+							"type": "string",
+							"format": "did"
+						}
+					}
+				}
+			},
+			"output": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"uri"
+					],
+					"properties": {
+						"uri": {
+							"type": "string",
+							"format": "at-uri"
+						}
+					}
+				}
+			}
+		}
+	}
+}

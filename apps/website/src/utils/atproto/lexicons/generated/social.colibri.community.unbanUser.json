@@ -1,0 +1,47 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.community.unbanUser",
+	"defs": {
+		"main": {
+			"type": "procedure",
+			"description": "Lifts a ban on a user.",
+			"parameters": {
+				"type": "params",
+				"required": [
+					"community",
+					"identifier"
+				],
+				"properties": {
+					"community": {
+						"type": "string",
+						"format": "at-uri"
+					},
+					"identifier": {
+						"type": "string",
+						"description": "DID or handle of the user to unban."
+					}
+				}
+			},
+			"output": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"did",
+						"handle"
+					],
+					"properties": {
+						"did": {
+							"type": "string",
+							"format": "did"
+						},
+						"handle": {
+							"type": "string",
+							"format": "handle"
+						}
+					}
+				}
+			}
+		}
+	}
+}

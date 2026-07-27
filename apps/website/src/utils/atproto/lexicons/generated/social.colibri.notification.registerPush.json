@@ -1,0 +1,98 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.notification.registerPush",
+	"defs": {
+		"main": {
+			"type": "procedure",
+			"description": "Registers a push subscription (Web Push or FCM) for the authenticated user.",
+			"input": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"platform",
+						"subscription"
+					],
+					"properties": {
+						"platform": {
+							"type": "string",
+							"knownValues": [
+								"web",
+								"tauri",
+								"android"
+							]
+						},
+						"subscription": {
+							"type": "union",
+							"refs": [
+								"lex:social.colibri.notification.registerPush#webPushSubscription",
+								"lex:social.colibri.notification.registerPush#fcmSubscription"
+							]
+						}
+					}
+				}
+			},
+			"output": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"registered"
+					],
+					"properties": {
+						"registered": {
+							"type": "boolean"
+						}
+					}
+				}
+			}
+		},
+		"webPushSubscription": {
+			"type": "object",
+			"description": "A browser Web Push subscription.",
+			"required": [
+				"endpoint",
+				"keys"
+			],
+			"properties": {
+				"endpoint": {
+					"type": "string",
+					"format": "uri"
+				},
+				"keys": {
+					"type": "ref",
+					"ref": "lex:social.colibri.notification.registerPush#pushKeys"
+				}
+			}
+		},
+		"fcmSubscription": {
+			"type": "object",
+			"description": "A Firebase Cloud Messaging registration token.",
+			"required": [
+				"token"
+			],
+			"properties": {
+				"token": {
+					"type": "string",
+					"description": "FCM registration token from FirebaseMessaging.getInstance().token."
+				}
+			}
+		},
+		"pushKeys": {
+			"type": "object",
+			"description": "Web Push subscription keys.",
+			"required": [
+				"p256dh",
+				"auth"
+			],
+			"properties": {
+				"p256dh": {
+					"type": "string"
+				},
+				"auth": {
+					"type": "string"
+				}
+			}
+		}
+	}
+}

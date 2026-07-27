@@ -1,0 +1,28 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.community.getInvitation",
+	"defs": {
+		"main": {
+			"type": "query",
+			"description": "Resolves an invitation code to its community, hydrated with the community's public details for the invite accept screen.",
+			"parameters": {
+				"type": "params",
+				"required": [
+					"code"
+				],
+				"properties": {
+					"code": {
+						"type": "string"
+					}
+				}
+			},
+			"output": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "ref",
+					"ref": "lex:social.colibri.community.defs#resolvedInvitationView"
+				}
+			}
+		}
+	}
+}

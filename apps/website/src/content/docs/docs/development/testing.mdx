@@ -1,0 +1,289 @@
+---
+title: Testing
+description: "What is tested where, how to run it locally, and how the AppView and the client are kept in sync."
+sidebar:
+  order: 5
+---
+
+import { Steps, FileTree } from "@astrojs/starlight/components";
+
+Colibri is two repositories that have to agree on the HTTP communication, and almost
+every change lands in the [AppView](/docs/development/appview) before the
+[client](/docs/development/client) catches up. The test suite is shaped around
+that: everything runs on every pull request, and nothing needs a database, a
+network or a running stack.
+
+## What is tested where
+
+| Layer | Lives in | Runs with |
+| --- | --- | --- |
+| AppView unit tests | `#[cfg(test)]` modules next to the code | `cargo test` |
+| AppView route parity | `tests/lexicons.rs` | `cargo test` |
+| AppView response shapes | `src/lib/response_snapshots.rs` | `cargo test` |
+| Lexicons and wrapper parity | `apps/website/src/utils/atproto/lexicons/lexicons.test.ts` | `pnpm test` |
+| Shared helpers | `packages/lib/src/*.test.ts` | `pnpm test` |
+| Client logic | `packages/client/src/**/*.test.ts` | `pnpm test` |
+| XRPC wrappers | `packages/client/src/atproto/xrpc/*.test.ts` | `pnpm test` |
+
+Each XRPC method exists three times: as a lexicon document, as a Rocket route
+with serde response structs, and as a hand-written TypeScript wrapper. Three of
+the rows above exist to keep those copies honest, one per pair.
+
+## Running tests locally
+
+```sh
+# Everything in the client monorepo. Packages without a `test` script are skipped.
+pnpm test
+
+# One package
+pnpm --filter @colibri-social/client test
+
+# Watch mode while you work
+pnpm --filter @colibri-social/client exec vitest
+
+# The AppView, including the lexicon checks
+cargo test --all-features
+
+# Rewrite the AppView's response fixtures after a deliberate shape change
+UPDATE_FIXTURES=1 cargo test --all-features
+```
+
+Client tests run under [Vitest](https://vitest.dev). Each tested package has a
+small `vitest.config.ts` that limits discovery to `src/**/*.test.ts` and pins
+the test environment to Node. Everything covered so far is plain TypeScript,
+so there is no DOM, no IndexedDB, and no JSX in the test environment. Before
+reaching for `jsdom`, `fake-indexeddb`, or `vite-plugin-solid`, try extracting
+the pure logic instead.
+
+## Writing client tests
+
+The XRPC wrappers are the highest-value thing to cover and the easiest. Every
+leaf is a plain function of `(fetch, ...args)` with no runtime imports, so a
+mocked fetch is all you need:
+
+```ts
+const fetch = vi.fn().mockResolvedValue(
+  new Response(JSON.stringify({ messages: [] })),
+);
+
+await listMessages(fetch, channel, undefined, undefined, undefined);
+
+expect(fetch.mock.calls[0][0]).not.toContain("undefined");
+```
+
+That last assertion is not hypothetical. Four wrappers used to interpolate
+optional arguments straight into a template literal, so omitting them sent the
+literal string `undefined` over the wire. Build query strings with
+`URLSearchParams` and let it handle both omission and escaping.
+
+Note that the wrapper argument tuples type optional parameters as
+`T | undefined` rather than `T?`, so callers must pass `undefined` explicitly.
+
+## The AppView lexicon check
+
+`tests/lexicons.rs` in the AppView repository compares the Rocket routes
+against the lexicons. It runs as part of `cargo test`, needs no database and no
+network, and takes milliseconds.
+
+### How the lexicons get there
+
+The lexicons are authored as TypeScript in
+`apps/website/src/utils/atproto/lexicons/`, because the website needs a runtime
+`Lexicons` object to validate with. The AppView cannot execute TypeScript, so
+they are exported to plain JSON and vendored:
+
+<Steps>
+
+1. After changing any lexicon, re-export it:
+
+   ```sh
+   pnpm lexicons:export
+   ```
+
+   This writes `apps/website/src/utils/atproto/lexicons/generated/*.json`.
+   Commit the result. CI re-runs the export and fails on a dirty tree, so
+   a lexicon edit that was never exported cannot merge.
+
+2. In the AppView, pull the export in:
+
+   ```sh
+   ./scripts/sync-lexicons.sh                    # from the client repo's main
+   ./scripts/sync-lexicons.sh ../colibri.social  # from a local checkout
+   ```
+
+   This populates `lexicons/` and records the source commit in `lexicons/SOURCE`.
+   A weekly workflow does the same and opens a PR when anything changed.
+
+</Steps>
+
+### What it checks, and what it deliberately ignores
+
+The check parses every `#[get("/xrpc/…?<a>&<b>")]` attribute out of `src/`,
+along with the handler signature that follows it, so it knows whether Rocket
+treats each parameter as required (`&str`) or optional (`Option<T>`, `Vec<T>`).
+
+The rule is: **fail only when a real client request would break.**
+Everything else is a warning. This matters because the vendored lexicons are
+almost always slightly behind the AppView.
+
+At the route level:
+
+| Situation | Verdict |
+| --- | --- |
+| Route has no lexicon yet | skipped, listed in the output |
+| Lexicon method has no route | skipped, listed in the output |
+| HTTP verb disagrees with `query`/`procedure` | **fail**, callers get a 405 |
+
+At the parameter level:
+
+| Lexicon ↓ / Route → | absent | optional | required |
+| --- | --- | --- | --- |
+| **absent** | - | warn | **fail**: existing clients omit it and 404 |
+| **optional** | warn: silently ignored | pass | **fail**: clients omitting it 404 |
+| **required** | **fail**: the AppView cannot honour it | pass | pass |
+
+So the everyday changes behave the way you would want:
+
+- **Adding an optional query parameter** warns and stays green. The lexicon
+  catches up whenever the client PR lands.
+- **Adding a whole endpoint** is skipped and stays green.
+- **Adding a *required* parameter** fails, correctly: it 404s every client that
+  has not updated. Ship it as `Option<T>` with a default instead.
+- **Renaming or removing a parameter** fails in the pull request that caused it.
+
+Response *bodies* are not validated here. AT Protocol object validation is
+open-world, so a stale lexicon would accept an additive change anyway. Bodies
+are pinned separately, by
+[the response snapshots](#the-appviews-response-snapshots).
+
+### When you genuinely need to break the lexicon parity
+
+`lexicons/exceptions.toml` suppresses a single `nsid` + `param` failure:
+
+```toml
+[[exception]]
+nsid = "social.colibri.channel.listMessages"
+param = "someNewRequiredParam"
+reason = "Shipped ahead of the lexicon for the 0.2 migration, client PR #123."
+expires = "2026-09-01"
+```
+
+The `expires` date is enforced. Once it passes, the build fails until the entry
+is resolved or the date is deliberately extended, so exceptions cannot quietly
+accumulate.
+
+## The AppView's response snapshots
+
+`src/lib/response_snapshots.rs` builds representative responses out of the real
+serde structs, serialises them, and compares the result to
+`tests/fixtures/responses/<nsid>.json`. It lives inside `src/` rather than
+`tests/` because the AppView is a binary-only crate: an integration test cannot
+import the response types.
+
+That catches the failure mode nothing else does. A dropped `rename`, a new
+`skip_serializing_if`, a field renamed in a refactor: none of it breaks the
+build, none of it trips the route check, and all of it breaks a client. One
+snapshot covers `listMessages`, which pulls in `Message`, `ParentMessage`,
+`MessageAuthor`, `ActorData`, `ActorStatus`, `Attachment` and `ReactionSummary`
+at once, so most of the shared wire types are pinned by a single fixture.
+
+When the change is deliberate:
+
+```sh
+UPDATE_FIXTURES=1 cargo test --all-features
+```
+
+Read the diff before committing it. That is the whole review step.
+
+Alongside the snapshot, every response is checked against the property list the
+vendored lexicon marks `required` for that method, following an output schema
+that is a `ref` into the definition it points at. That assertion runs whether or
+not you are regenerating, so a regenerated fixture cannot quietly launder away a
+field the lexicon promises. Methods with no vendored lexicon yet are skipped,
+the same skip-on-absence rule the route check uses.
+
+## The client's lexicon check
+
+`apps/website/src/utils/atproto/lexicons/lexicons.test.ts` closes the third
+side. It reads every wrapper under `packages/client/src/atproto/xrpc/`, works
+out the method and query parameters each one sends, and compares that to the
+lexicon documents in the same directory it lives in. It is the mirror image of
+`tests/lexicons.rs`, pointed at the client instead of the AppView.
+
+It fails when:
+
+- A wrapper calls a method no lexicon defines.
+- A wrapper sends a parameter the lexicon does not declare.
+- A wrapper never sends a parameter the lexicon marks required.
+- A wrapper uses `POST` for a `query`, or `GET` for a `procedure`.
+- A lexicon `ref` or union member points at a definition that does not exist.
+- A method declares no output schema.
+
+That last one matters more than it looks. `assertValidXrpcOutput` returns
+quietly when a method has no `output.schema`, so an undeclared output silently
+turns every validation of that method into a pass. Two methods legitimately have
+none, `sync.sendHum` and `embed.getImage`, and both are listed by name with a
+reason. A third has to be added deliberately, and the list is itself checked, so
+an entry that stops being true fails the build.
+
+`com.atproto.*` wrappers are skipped: those are upstream methods with no
+document in this repository.
+
+## Component sandbox
+
+Components are reviewed by eye rather than by assertion:
+
+```sh
+pnpm --filter @colibri-social/client sandbox
+```
+
+This serves one short page per component, grouped by category, in both themes
+and at both viewport widths. Keeping each component on its own page means
+overlays that position against the document, like the lightbox, behave exactly
+as they do in the app's non-scrolling layout. The viewport toggle uses an
+iframe rather than a resizable container, because breakpoints are decided in
+JavaScript (`useIsMobile()` wraps `window.matchMedia`), not in CSS. A narrow
+`div` would not change what those components render.
+
+## Continuous integration
+
+| Repository | Job | What it does |
+| --- | --- | --- |
+| client | Lint | `biome ci .` |
+| client | Test | `pnpm test`, then a typecheck of the client |
+| client | Lexicons | re-exports and fails if the committed JSON is stale |
+| AppView | Format | `cargo fmt --all --check` |
+| AppView | Lint | `cargo clippy -- -D warnings` |
+| AppView | Test | `cargo test --all-features`, lexicon check and snapshots included |
+
+Neither repository needs extra CI wiring for any of the parity checks. They are
+ordinary tests, picked up by `cargo test` and `pnpm test` respectively.
+
+Where everything lives, in the client repository:
+
+<FileTree>
+- apps
+  - website
+    - src/utils/atproto/lexicons
+      - methods/ the lexicons, authored as TypeScript
+      - generated/ exported JSON, committed, consumed by the AppView
+      - lexicons.test.ts the lexicon and wrapper parity check
+      - wrapper-calls.ts reads the client's wrappers for that check
+    - scripts/export-lexicons.ts run by `pnpm lexicons:export`
+- packages
+  - client/src tests sit next to the code they cover
+  - lib/src same
+</FileTree>
+
+and in the AppView repository:
+
+<FileTree>
+- lexicons
+  - SOURCE the client commit the vendored copy came from
+  - exceptions.toml dated suppressions
+- scripts/sync-lexicons.sh refreshes the vendored copy
+- src/lib/response_snapshots.rs builds and pins the responses
+- tests
+  - lexicons.rs the route/lexicon check
+  - fixtures/responses/ the pinned response bodies
+</FileTree>

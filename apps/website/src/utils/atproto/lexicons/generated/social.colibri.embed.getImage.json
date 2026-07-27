@@ -1,0 +1,26 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.embed.getImage",
+	"defs": {
+		"main": {
+			"type": "query",
+			"description": "Proxies and returns an external image, guarding against SSRF.",
+			"parameters": {
+				"type": "params",
+				"required": [
+					"url"
+				],
+				"properties": {
+					"url": {
+						"type": "string",
+						"format": "uri"
+					}
+				}
+			},
+			"output": {
+				"encoding": "*/*",
+				"description": "The proxied image bytes (Content-Type is image/*)."
+			}
+		}
+	}
+}

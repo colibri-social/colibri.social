@@ -1,0 +1,37 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.community.delete",
+	"defs": {
+		"main": {
+			"type": "procedure",
+			"description": "Deletes a community.",
+			"parameters": {
+				"type": "params",
+				"required": [
+					"community"
+				],
+				"properties": {
+					"community": {
+						"type": "string",
+						"format": "at-uri"
+					}
+				}
+			},
+			"output": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"did"
+					],
+					"properties": {
+						"did": {
+							"type": "string",
+							"format": "did"
+						}
+					}
+				}
+			}
+		}
+	}
+}

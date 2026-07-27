@@ -1,0 +1,70 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.channel.update",
+	"defs": {
+		"main": {
+			"type": "procedure",
+			"description": "Updates a channel's settings.",
+			"parameters": {
+				"type": "params",
+				"required": [
+					"channel"
+				],
+				"properties": {
+					"channel": {
+						"type": "string",
+						"format": "at-uri"
+					},
+					"category": {
+						"type": "string",
+						"format": "at-uri"
+					},
+					"name": {
+						"type": "string"
+					},
+					"description": {
+						"type": "string"
+					},
+					"ownerOnly": {
+						"type": "boolean"
+					},
+					"allowedRoles": {
+						"type": "array",
+						"items": {
+							"type": "string",
+							"format": "record-key"
+						}
+					},
+					"clearAllowedRoles": {
+						"type": "boolean"
+					},
+					"allowedMembers": {
+						"type": "array",
+						"items": {
+							"type": "string",
+							"format": "did"
+						}
+					},
+					"clearAllowedMembers": {
+						"type": "boolean"
+					}
+				}
+			},
+			"output": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"uri"
+					],
+					"properties": {
+						"uri": {
+							"type": "string",
+							"format": "at-uri"
+						}
+					}
+				}
+			}
+		}
+	}
+}
