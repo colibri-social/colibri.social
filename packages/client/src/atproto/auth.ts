@@ -3,6 +3,7 @@ import {
 	BrowserOAuthClient,
 	type DidDocument,
 } from "@atproto/oauth-client-browser";
+import * as Sentry from "@sentry/solid";
 import { toast } from "somoto";
 import { isTauriRuntime } from "../notifications/environment";
 import {
@@ -55,10 +56,24 @@ const makeClientId = () => {
 
 const clientId = makeClientId();
 
-const OAUTH_FETCH_TIMEOUT_MS = 15_000;
-const OAUTH_SIGNIN_TIMEOUT_MS = 60_000;
+const OAUTH_FETCH_TIMEOUT_MS = 12_000;
+const OAUTH_FETCH_ATTEMPTS = 2;
+const OAUTH_RETRY_BASE_DELAY_MS = 750;
+const OAUTH_SIGNIN_TIMEOUT_MS = 75_000;
+const MAX_TRAIL_ENTRIES = 24;
+
+type RequestAttempt = {
+	host: string;
+	attempt: number;
+	ms: number;
+	status?: number;
+	error?: string;
+};
 
 let unreachableHost: string | undefined;
+let attemptStartedAt: number | undefined;
+let clockSkewMs: number | undefined;
+let requestTrail: Array<RequestAttempt> = [];
 
 const requestHost = (input: Parameters<typeof fetch>[0]): string => {
 	try {
@@ -74,32 +89,310 @@ const requestHost = (input: Parameters<typeof fetch>[0]): string => {
 	}
 };
 
+const errorLabel = (err: unknown): string => {
+	if (err instanceof DOMException) return err.name;
+	if (err instanceof Error)
+		return err.name === "Error" ? err.message : err.name;
+	return String(err);
+};
+
+const isConnectivityError = (err: unknown): boolean =>
+	err instanceof TypeError ||
+	(err instanceof DOMException && err.name === "TimeoutError");
+
+const isRepeatable = (
+	input: Parameters<typeof fetch>[0],
+	init?: RequestInit,
+): boolean =>
+	(typeof input === "string" || input instanceof URL) &&
+	!(init?.body instanceof ReadableStream);
+
+const wait = (ms: number) =>
+	new Promise<void>((resolve) => setTimeout(resolve, ms));
+
+const trackClockSkew = (response: Response, receivedAt: number) => {
+	const header = response.headers.get("date");
+	if (!header) return;
+	const serverTime = Date.parse(header);
+	if (Number.isNaN(serverTime)) return;
+	clockSkewMs = receivedAt - serverTime;
+};
+
+const recordAttempt = (entry: RequestAttempt) => {
+	requestTrail.push(entry);
+	if (requestTrail.length > MAX_TRAIL_ENTRIES) requestTrail.shift();
+	Sentry.addBreadcrumb({
+		category: "oauth.fetch",
+		level: entry.error ? "warning" : "info",
+		message: `${entry.host} #${entry.attempt} ${entry.error ?? entry.status} ${entry.ms}ms`,
+	});
+};
+
 const withFetchTimeout =
 	(ms: number): typeof fetch =>
-	(input, init) => {
-		const controller = new AbortController();
-		const timer = setTimeout(() => {
-			unreachableHost = requestHost(input) || unreachableHost;
-			controller.abort(new DOMException("Sign-in timed out", "TimeoutError"));
-		}, ms);
+	async (input, init) => {
+		const host = requestHost(input);
+		const repeatable = isRepeatable(input, init);
+		let lastError: unknown;
 
-		const externalSignal = init?.signal;
-		if (externalSignal) {
-			if (externalSignal.aborted) {
-				controller.abort(externalSignal.reason);
-			} else {
-				externalSignal.addEventListener(
-					"abort",
-					() => controller.abort(externalSignal.reason),
-					{ once: true },
-				);
+		for (let attempt = 1; attempt <= OAUTH_FETCH_ATTEMPTS; attempt++) {
+			const startedAt = Date.now();
+			const controller = new AbortController();
+			let timedOut = false;
+			const timer = setTimeout(() => {
+				timedOut = true;
+				controller.abort(new DOMException("Sign-in timed out", "TimeoutError"));
+			}, ms);
+
+			const externalSignal = init?.signal;
+			const forwardAbort = () => controller.abort(externalSignal?.reason);
+			if (externalSignal) {
+				if (externalSignal.aborted) {
+					controller.abort(externalSignal.reason);
+				} else {
+					externalSignal.addEventListener("abort", forwardAbort, {
+						once: true,
+					});
+				}
 			}
+
+			try {
+				const response = await fetch(input, {
+					...init,
+					signal: controller.signal,
+				});
+				const receivedAt = Date.now();
+				trackClockSkew(response, receivedAt);
+				recordAttempt({
+					host,
+					attempt,
+					ms: receivedAt - startedAt,
+					status: response.status,
+				});
+				return response;
+			} catch (err) {
+				lastError = timedOut
+					? new DOMException("Sign-in timed out", "TimeoutError")
+					: err;
+				recordAttempt({
+					host,
+					attempt,
+					ms: Date.now() - startedAt,
+					error: errorLabel(lastError),
+				});
+
+				const givingUp =
+					externalSignal?.aborted === true ||
+					!repeatable ||
+					!isConnectivityError(lastError) ||
+					attempt === OAUTH_FETCH_ATTEMPTS;
+
+				if (givingUp) {
+					if (isConnectivityError(lastError)) {
+						unreachableHost = host || unreachableHost;
+					}
+					throw lastError;
+				}
+			} finally {
+				clearTimeout(timer);
+				externalSignal?.removeEventListener("abort", forwardAbort);
+			}
+
+			await wait(OAUTH_RETRY_BASE_DELAY_MS * attempt);
 		}
 
-		return fetch(input, { ...init, signal: controller.signal }).finally(() =>
-			clearTimeout(timer),
-		);
+		throw lastError;
 	};
+
+export const preflightFetch = withFetchTimeout(OAUTH_FETCH_TIMEOUT_MS);
+
+const handleDomain = (input: string): string => {
+	const trimmed = input.trim().replace(/^@/, "");
+	const dot = trimmed.indexOf(".");
+	return dot === -1 ? "" : trimmed.slice(dot + 1);
+};
+
+type NetworkInformation = {
+	effectiveType?: string;
+	downlink?: number;
+	rtt?: number;
+	saveData?: boolean;
+	type?: string;
+};
+
+const getConnection = (): NetworkInformation | undefined => {
+	if (typeof navigator === "undefined") return undefined;
+	const nav = navigator as Navigator & {
+		connection?: NetworkInformation;
+		mozConnection?: NetworkInformation;
+		webkitConnection?: NetworkInformation;
+	};
+	return nav.connection ?? nav.mozConnection ?? nav.webkitConnection;
+};
+
+const timeZone = (): string => {
+	try {
+		return Intl.DateTimeFormat().resolvedOptions().timeZone;
+	} catch {
+		return "unknown";
+	}
+};
+
+const nativeOsInfo = async () => {
+	if (!isTauriRuntime()) return {};
+	try {
+		const os = await import("@tauri-apps/plugin-os");
+		return {
+			platform: os.platform(),
+			osVersion: os.version(),
+			osType: os.type(),
+			arch: os.arch(),
+		};
+	} catch {
+		return {};
+	}
+};
+
+const deviceContext = async () => {
+	const nav =
+		typeof navigator === "undefined"
+			? undefined
+			: (navigator as Navigator & {
+					deviceMemory?: number;
+					standalone?: boolean;
+				});
+
+	return {
+		...(await nativeOsInfo()),
+		native: isTauriRuntime(),
+		userAgent: nav?.userAgent,
+		language: nav?.language,
+		languages: nav?.languages?.join(","),
+		timeZone: timeZone(),
+		utcOffsetMinutes: new Date().getTimezoneOffset(),
+		hardwareConcurrency: nav?.hardwareConcurrency,
+		deviceMemory: nav?.deviceMemory,
+		maxTouchPoints: nav?.maxTouchPoints,
+		screen:
+			typeof screen === "undefined"
+				? undefined
+				: `${screen.width}x${screen.height}`,
+		viewport:
+			typeof window === "undefined"
+				? undefined
+				: `${window.innerWidth}x${window.innerHeight}`,
+		pixelRatio: typeof window === "undefined" ? undefined : devicePixelRatio,
+		standalone: nav?.standalone,
+	};
+};
+
+const networkContext = () => {
+	const connection = getConnection();
+	const failures = requestTrail.filter((entry) => entry.error);
+	const slowest = requestTrail.reduce(
+		(worst, entry) => (worst && worst.ms >= entry.ms ? worst : entry),
+		undefined as RequestAttempt | undefined,
+	);
+
+	return {
+		online: typeof navigator === "undefined" ? undefined : navigator.onLine,
+		effectiveType: connection?.effectiveType ?? "unavailable",
+		downlinkMbps: connection?.downlink,
+		roundTripMs: connection?.rtt,
+		saveData: connection?.saveData,
+		connectionType: connection?.type,
+		clockSkewMs: clockSkewMs ?? null,
+		requestCount: requestTrail.length,
+		failureCount: failures.length,
+		slowestRequest: slowest
+			? `${slowest.host} ${slowest.ms}ms`
+			: "none recorded",
+		hostsContacted: [...new Set(requestTrail.map((entry) => entry.host))].join(
+			", ",
+		),
+	};
+};
+
+const signInContext = (input: string) => ({
+	elapsedMs: Date.now() - (attemptStartedAt ?? Date.now()),
+	clientId,
+	appView: getPreferredAppViewUrl(),
+	native: isTauriRuntime(),
+	online: typeof navigator === "undefined" ? undefined : navigator.onLine,
+	handleDomain: handleDomain(input),
+	unreachableHost: unreachableHost ?? null,
+	requests: requestTrail.map(
+		(entry) =>
+			`${entry.host} #${entry.attempt} ${entry.error ?? entry.status} ${entry.ms}ms`,
+	),
+});
+
+export const beginSignInAttempt = () => {
+	attemptStartedAt = Date.now();
+	unreachableHost = undefined;
+	clockSkewMs = undefined;
+	requestTrail = [];
+};
+
+export const endSignInAttempt = () => {
+	attemptStartedAt = undefined;
+};
+
+const applySignInScope = (
+	scope: {
+		setTag: (key: string, value: string) => unknown;
+		setContext: (key: string, context: Record<string, unknown>) => unknown;
+	},
+	input: string,
+	stage: string,
+	device: Awaited<ReturnType<typeof deviceContext>>,
+	network: ReturnType<typeof networkContext>,
+) => {
+	scope.setTag("oauth.stage", stage);
+	scope.setTag("oauth.unreachable_host", unreachableHost ?? "none");
+	scope.setTag("oauth.handle_domain", handleDomain(input) || "unknown");
+	scope.setTag("oauth.platform", device.platform ?? "web");
+	scope.setTag("oauth.os_version", device.osVersion ?? "unknown");
+	scope.setTag("oauth.time_zone", device.timeZone);
+	scope.setTag("oauth.effective_type", String(network.effectiveType));
+	scope.setContext("oauth", signInContext(input));
+	scope.setContext("device", device);
+	scope.setContext("network", network);
+};
+
+export const reportSignInFailure = async (
+	err: unknown,
+	input: string,
+	stage: string,
+) => {
+	const device = await deviceContext();
+	const network = networkContext();
+	Sentry.withScope((scope) => {
+		applySignInScope(scope, input, stage, device, network);
+		Sentry.captureException(
+			err instanceof Error ? err : new Error(String(err)),
+		);
+	});
+};
+
+const reportSignInRecovered = async (input: string) => {
+	if (!requestTrail.some((entry) => entry.error)) return;
+	const device = await deviceContext();
+	const network = networkContext();
+	Sentry.withScope((scope) => {
+		applySignInScope(scope, input, "recovered", device, network);
+		Sentry.captureMessage("Sign-in succeeded after retrying", "info");
+	});
+};
+
+export const asSignInError = (err: unknown): Error => {
+	if (unreachableHost) {
+		return new Error(
+			`Couldn't reach ${unreachableHost}. Check your connection and try again.`,
+		);
+	}
+	return err instanceof Error ? err : new Error(String(err));
+};
 
 let oAuthClient: undefined | BrowserOAuthClient;
 let agent: undefined | Agent;
@@ -162,7 +455,7 @@ const init = async () => {
 			// api.colibri.social) rather than a hard-coded origin, so self-hosted
 			// installs stay self-contained and don't depend on colibri.social.
 			handleResolver: getAppViewHost("http"),
-			fetch: withFetchTimeout(OAUTH_FETCH_TIMEOUT_MS),
+			fetch: preflightFetch,
 		});
 	} catch (e) {
 		console.error(e);
@@ -310,59 +603,66 @@ const withTimeout = <T>(promise: Promise<T>, ms: number): Promise<T> =>
  * authorization server (the SPA redirect flow). In the native app it instead
  * opens the authorization URL in the system browser and returns immediately.
  */
+const runSignIn = async (
+	client: BrowserOAuthClient,
+	input: string,
+	options: SignInOptions,
+	signal: AbortSignal,
+): Promise<void> => {
+	if (isTauriRuntime()) {
+		// `authorize` returns the URL without navigating and defaults to the
+		// metadata's first redirect_uri (our custom scheme)
+		const url = await withTimeout(
+			client.authorize(input, { ...options, signal }),
+			OAUTH_SIGNIN_TIMEOUT_MS,
+		);
+		const { platform } = await import("@tauri-apps/plugin-os");
+		if (platform() === "macos") {
+			const redirectUri = client.clientMetadata.redirect_uris[0];
+			const { invoke } = await import("@tauri-apps/api/core");
+			let callbackUrl: string;
+			try {
+				callbackUrl = await invoke<string>("start_web_auth", {
+					url: url.toString(),
+					scheme: new URL(redirectUri).protocol.replace(":", ""),
+				});
+			} catch (err) {
+				if (err === "canceled") return;
+				throw err instanceof Error ? err : new Error(String(err));
+			}
+			if (await completeNativeOAuth(client, callbackUrl)) {
+				window.location.href = "/app";
+			}
+			return;
+		}
+		const { openUrl } = await import("@tauri-apps/plugin-opener");
+		await openUrl(url.toString());
+		toast("Continue in your browser to finish signing in.");
+		return;
+	}
+
+	await withTimeout(
+		client.signIn(input, { ...options, signal }),
+		OAUTH_SIGNIN_TIMEOUT_MS,
+	);
+};
+
 export const startOAuthSignIn = async (
 	client: BrowserOAuthClient,
 	input: string,
 	options: SignInOptions,
 ): Promise<void> => {
-	unreachableHost = undefined;
+	if (attemptStartedAt === undefined) beginSignInAttempt();
 	const signal = AbortSignal.timeout(OAUTH_SIGNIN_TIMEOUT_MS);
 
 	try {
-		if (isTauriRuntime()) {
-			// `authorize` returns the URL without navigating and defaults to the
-			// metadata's first redirect_uri (our custom scheme)
-			const url = await withTimeout(
-				client.authorize(input, { ...options, signal }),
-				OAUTH_SIGNIN_TIMEOUT_MS,
-			);
-			const { platform } = await import("@tauri-apps/plugin-os");
-			if (platform() === "macos") {
-				const redirectUri = client.clientMetadata.redirect_uris[0];
-				const { invoke } = await import("@tauri-apps/api/core");
-				let callbackUrl: string;
-				try {
-					callbackUrl = await invoke<string>("start_web_auth", {
-						url: url.toString(),
-						scheme: new URL(redirectUri).protocol.replace(":", ""),
-					});
-				} catch (err) {
-					if (err === "canceled") return;
-					throw err instanceof Error ? err : new Error(String(err));
-				}
-				if (await completeNativeOAuth(client, callbackUrl)) {
-					window.location.href = "/app";
-				}
-				return;
-			}
-			const { openUrl } = await import("@tauri-apps/plugin-opener");
-			await openUrl(url.toString());
-			toast("Continue in your browser to finish signing in.");
-			return;
-		}
-
-		await withTimeout(
-			client.signIn(input, { ...options, signal }),
-			OAUTH_SIGNIN_TIMEOUT_MS,
-		);
+		await runSignIn(client, input, options, signal);
 	} catch (err) {
-		if (unreachableHost) {
-			throw new Error(
-				`Couldn't reach ${unreachableHost}. Check your connection and try again.`,
-			);
-		}
-		throw err;
+		await reportSignInFailure(err, input, "authorize");
+		throw asSignInError(err);
 	}
+
+	await reportSignInRecovered(input);
 };
 
 /**

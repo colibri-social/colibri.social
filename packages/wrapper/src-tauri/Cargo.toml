@@ -1,6 +1,6 @@
 [package]
 name = "colibri-social"
-version = "0.1.4"
+version = "0.1.5"
 description = "Colibri is a next-generation social chat app built on the AT protocol."
 authors = ["Louis Escher", "Reuben Tier"]
 homepage = "https://colibri.social"

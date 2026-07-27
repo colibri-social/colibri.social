@@ -8,7 +8,14 @@ import {
 } from "solid-js";
 import { toast } from "somoto";
 import { isAllowedDid } from "../atproto/allowlist";
-import { startOAuthSignIn } from "../atproto/auth";
+import {
+	asSignInError,
+	beginSignInAttempt,
+	endSignInAttempt,
+	preflightFetch,
+	reportSignInFailure,
+	startOAuthSignIn,
+} from "../atproto/auth";
 import { buildScopes } from "../atproto/scopes";
 import {
 	type ActorTypeaheadResult,
@@ -73,10 +80,29 @@ const HANDLE_NOT_FOUND =
 const resolveHandleToDid = async (input: string): Promise<string> => {
 	if (input.startsWith("did:")) return input;
 
-	const res = await fetch(
-		`${getAppViewHost("http")}/xrpc/com.atproto.identity.resolveHandle?handle=${encodeURIComponent(input)}`,
-	);
-	if (!res.ok) throw new Error(HANDLE_NOT_FOUND);
+	let res: Response;
+	try {
+		res = await preflightFetch(
+			`${getAppViewHost("http")}/xrpc/com.atproto.identity.resolveHandle?handle=${encodeURIComponent(input)}`,
+		);
+	} catch (err) {
+		await reportSignInFailure(err, input, "resolve-handle");
+		throw asSignInError(err);
+	}
+
+	if (!res.ok) {
+		if (res.status === 400 || res.status === 404) {
+			throw new Error(HANDLE_NOT_FOUND);
+		}
+		await reportSignInFailure(
+			new Error(`resolveHandle returned ${res.status}`),
+			input,
+			"resolve-handle",
+		);
+		throw new Error(
+			`${new URL(getAppViewHost("http")).host} isn't responding right now. Try again shortly.`,
+		);
+	}
 
 	const data = (await res.json()) as { did?: string };
 	if (!data.did) throw new Error(HANDLE_NOT_FOUND);
@@ -186,13 +212,13 @@ const LoginScreenContent: Component = () => {
 
 		setLoading(true);
 		setNotAllowed(false);
+		beginSignInAttempt();
 
 		try {
 			const did = knownDid ?? (await resolveHandleToDid(input));
 
 			if (!isAllowedDid(did)) {
 				setNotAllowed(true);
-				setLoading(false);
 				return;
 			}
 
@@ -204,9 +230,10 @@ const LoginScreenContent: Component = () => {
 			toast.error("Sign-in failed", {
 				description: describeThrownError(err),
 			});
+		} finally {
+			endSignInAttempt();
+			setLoading(false);
 		}
-
-		setLoading(false);
 	};
 
 	createEffect(() => {
@@ -303,7 +330,7 @@ const LoginScreenContent: Component = () => {
 						</div>
 						<Show when={missingHandle()}>
 							<p class="text-sm text-destructive m-0 w-full text-center">
-								Enter your handle to sign in — for example alice.bsky.social.
+								Enter your handle to sign in, for example alice.bsky.social.
 							</p>
 						</Show>
 						<Show when={notAllowed()}>
