@@ -45,6 +45,12 @@ export const communityRecordDocs: LexiconDoc[] = [
 								"An image for the community that will be shown to users.",
 							accept: ["image/jpeg", "image/png", "image/gif"],
 						},
+						banner: {
+							type: "blob",
+							description:
+								"A banner for the community that will be shown to users.",
+							accept: ["image/jpeg", "image/png", "image/gif"],
+						},
 						categoryOrder: {
 							type: "array",
 							description: "The order of the categories in this community.",

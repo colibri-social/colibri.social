@@ -9,7 +9,9 @@ import {
 import CaretDownIcon from "~icons/ph/caret-down";
 import GearIcon from "~icons/ph/gear";
 import SignOutIcon from "~icons/ph/sign-out";
+import UsersIcon from "~icons/ph/users-fill";
 import { urlSegmentToUri } from "../atproto/community-uri-to-url-compatible";
+import { resolveBlob } from "../atproto/resolve-blob";
 import { ChannelList } from "../components/app/community/ChannelList";
 import { CommunitySettingsModal } from "../components/app/community/CommunitySettingsModal";
 import { LeaveCommunityModal } from "../components/app/community/LeaveCommunityModal";
@@ -74,7 +76,18 @@ const CommunityHeader = () => {
 
 	return (
 		<>
-			<div class="w-full border-b border-border flex flex-col justify-center pb-4 pt-3 px-3">
+			<div
+				class="w-full border-b border-border flex flex-col pb-4 pt-3 px-3 relative"
+				classList={{ "h-40": community().community.banner !== undefined }}
+			>
+				<div class="absolute top-0 z-1 bg-linear-to-b from-black via-black/50 to-transparent w-full h-full left-0"></div>
+				<Show when={community().community.banner !== undefined}>
+					<img
+						class="absolute top-0 left-0 right-0 w-full h-full object-cover"
+						src={resolveBlob(user.did, community().community.banner)}
+						alt=""
+					/>
+				</Show>
 				<Show
 					when={isMobile()}
 					fallback={
@@ -82,7 +95,7 @@ const CommunityHeader = () => {
 							<DropdownMenuTrigger
 								as="button"
 								type="button"
-								class="flex flex-row items-center gap-3 text-left px-2 py-1 rounded-md hover:bg-muted/50 transition-all duration-75 cursor-pointer w-fit aria-expanded:[&>svg]:rotate-180 aria-expanded:bg-muted/50"
+								class="flex flex-row items-center gap-3 text-left px-2 py-1 rounded-md hover:bg-muted/50 transition-all duration-75 cursor-pointer w-fit aria-expanded:[&>svg]:rotate-180 aria-expanded:bg-muted/50 z-10"
 							>
 								<h2 class="m-0 text-xl w-full text-ellipsis whitespace-nowrap">
 									{community().community.name}
@@ -92,7 +105,7 @@ const CommunityHeader = () => {
 										{pendingApplications()}
 									</span>
 								</Show>
-								<CaretDownIcon class="text-muted-foreground mt-0.5 text-sm " />
+								<CaretDownIcon class="text-muted-foreground mt-0.5 text-sm" />
 							</DropdownMenuTrigger>
 							<DropdownMenuPortal>
 								<DropdownMenuContent class="min-w-48 w-66.5">
@@ -124,7 +137,7 @@ const CommunityHeader = () => {
 					<button
 						type="button"
 						onClick={() => setMenuOpen(true)}
-						class="flex flex-row items-center gap-3 text-left px-2 py-1 rounded-md hover:bg-muted/50 transition-all duration-75 cursor-pointer w-fit"
+						class="flex flex-row items-center gap-3 text-left px-2 py-1 rounded-md hover:bg-muted/50 transition-all duration-75 cursor-pointer w-fit z-10"
 					>
 						<h2 class="m-0 text-xl w-full text-ellipsis whitespace-nowrap">
 							{community().community.name}
@@ -175,18 +188,6 @@ const CommunityHeader = () => {
 						</Show>
 					</MenuDrawer>
 				</Show>
-				<Suspense
-					fallback={
-						<small class="text-muted-foreground animate-pulse px-2">
-							Loading members...
-						</small>
-					}
-				>
-					<small class="text-muted-foreground px-2">
-						{community().members.length ?? "???"} Member
-						{community().members.length === 1 ? "" : "s"}
-					</small>
-				</Suspense>
 			</div>
 			<CommunitySettingsModal open={settingsOpen} setOpen={setSettingsOpen} />
 			<LeaveCommunityModal
@@ -201,6 +202,7 @@ const CommunityHeader = () => {
 
 const CommunityLayout: ParentComponent = (props) => {
 	const { preferences } = useUserPreferences();
+	const community = useCommunityContext();
 	const displayMembersAsSheet = createMediaQuery("(max-width: 1280px)");
 	const {
 		isMobile,
@@ -251,6 +253,23 @@ const CommunityLayout: ParentComponent = (props) => {
 				}}
 			>
 				<CommunityHeader />
+				<div class="p-4 flex flex-col gap-2 border-b border-border">
+					<div class="flex flex-row justify-between items-center gap-2 pl-0.5 pr-1.5">
+						<div class="flex flex-row justify-between items-center gap-2">
+							<UsersIcon class="text-muted-foreground size-4.5" />
+							<small class="text-muted-foreground pl-0.25">Members</small>
+						</div>
+						<Suspense
+							fallback={
+								<small class="text-muted-foreground animate-pulse">??</small>
+							}
+						>
+							<small class="text-muted-foreground">
+								{community().members.length ?? "??"}
+							</small>
+						</Suspense>
+					</div>
+				</div>
 				<ChannelList />
 				<User.Status />
 			</aside>

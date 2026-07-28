@@ -106,51 +106,70 @@ const GeneralSettingsPage: Component = () => {
 	const [description, setDescription] = createSignal(
 		community().community.description,
 	);
-	const [image, setImage] = createSignal<Details>();
-	const [imageRemoved, setImageRemoved] = createSignal(false);
+	const [picture, setPicture] = createSignal<Details>();
+	const [banner, setBanner] = createSignal<Details>();
+	const [pictureRemoved, setPictureRemoved] = createSignal(false);
+	const [bannerRemoved, setBannerRemoved] = createSignal(false);
 	const [requiresApprovalToJoin, setRequiresApprovalToJoin] = createSignal(
 		community().community.requiresApprovalToJoin,
 	);
 
-	const existingImageUrl = () =>
-		!imageRemoved() && image() === undefined
+	const existingPictureUrl = () =>
+		!pictureRemoved() && picture() === undefined
 			? (resolveBlob(community().did, community().community.picture) ?? null)
+			: null;
+
+	const existingBannerUrl = () =>
+		!bannerRemoved() && banner() === undefined
+			? (resolveBlob(community().did, community().community.banner) ?? null)
 			: null;
 
 	const hasEdited = (): boolean =>
 		name() !== community().community.name ||
 		description() !== community().community.description ||
-		imageRemoved() ||
-		image() !== undefined ||
+		pictureRemoved() ||
+		picture() !== undefined ||
+		bannerRemoved() ||
+		banner() !== undefined ||
 		requiresApprovalToJoin() !== community().community.requiresApprovalToJoin;
 
-	const clearNewFile = (e?: MouseEvent) => {
+	const clearNewPicture = (e?: MouseEvent) => {
 		e?.preventDefault();
 		e?.stopPropagation();
-		setImage(undefined);
+		setPicture(undefined);
 	};
 
-	const removeExistingImage = (e: MouseEvent) => {
+	const clearNewBanner = (e?: MouseEvent) => {
+		e?.preventDefault();
+		e?.stopPropagation();
+		setBanner(undefined);
+	};
+
+	const removeExistingPicture = (e: MouseEvent) => {
 		e.preventDefault();
 		e.stopPropagation();
-		setImageRemoved(true);
+		setPictureRemoved(true);
+	};
+
+	const removeExistingBanner = (e: MouseEvent) => {
+		e.preventDefault();
+		e.stopPropagation();
+		setBannerRemoved(true);
 	};
 
 	const editCommunityData = async () => {
 		setLoading(true);
 		try {
-			const existingImage = existingImageUrl();
+			const existingPicture = existingPictureUrl();
+			const existingBanner = existingBannerUrl();
 
-			let picture: Blob | undefined;
-			let mimeType: string | undefined;
+			const pictureBlob = existingPicture
+				? await (await fetch(existingPicture)).blob()
+				: picture()!.acceptedFiles[0];
 
-			if (existingImage) {
-				picture = await (await fetch(existingImage)).blob();
-				mimeType = picture.type;
-			} else if (image()) {
-				picture = image()!.acceptedFiles[0];
-				mimeType = picture.type;
-			}
+			const bannerBlob = existingBanner
+				? await (await fetch(existingBanner)).blob()
+				: banner()!.acceptedFiles[0];
 
 			const trimmedName = name().trim();
 			const trimmedDescription = description().trim();
@@ -161,8 +180,8 @@ const GeneralSettingsPage: Component = () => {
 				trimmedDescription !== (community().community.description ?? "")
 					? trimmedDescription
 					: undefined,
-				picture,
-				mimeType,
+				pictureBlob,
+				bannerBlob,
 				requiresApprovalToJoin(),
 			);
 
@@ -175,12 +194,14 @@ const GeneralSettingsPage: Component = () => {
 				name: trimmedName,
 				description: trimmedDescription,
 				requiresApprovalToJoin: requiresApprovalToJoin(),
-				...(imageRemoved() && { picture: undefined }),
+				...(pictureRemoved() && { picture: undefined }),
 			});
 			setName(trimmedName);
 			setDescription(trimmedDescription);
-			clearNewFile();
-			setImageRemoved(false);
+			clearNewPicture();
+			clearNewBanner();
+			setPictureRemoved(false);
+			setBannerRemoved(false);
 
 			toast.success("Community settings saved.");
 		} catch {
@@ -193,8 +214,10 @@ const GeneralSettingsPage: Component = () => {
 	const resetCommunityData = () => {
 		setName(community().community.name);
 		setDescription(community().community.description);
-		clearNewFile();
-		setImageRemoved(false);
+		clearNewPicture();
+		clearNewBanner();
+		setPictureRemoved(false);
+		setBannerRemoved(false);
 		setRequiresApprovalToJoin(community().community.requiresApprovalToJoin);
 	};
 
@@ -232,58 +255,116 @@ const GeneralSettingsPage: Component = () => {
 				<TextFieldLabel>Community Description</TextFieldLabel>
 				<TextFieldInput maxLength={256} minLength={1} type="text" required />
 			</TextField>
-			<FileField class="items-start" onFileChange={setImage} maxFiles={1}>
-				<FileFieldLabel>Community Image</FileFieldLabel>
-				<FileFieldDropzone class="h-32 w-32 min-h-0">
-					<FileFieldTrigger class="h-32 w-32 p-0 bg-muted/25 hover:bg-muted/50 rounded-sm overflow-hidden">
-						<Switch>
-							<Match when={image() !== undefined}>
-								<div class="relative w-32 h-32">
-									<FileFieldItemList class="w-32 h-32 m-0 p-0">
-										{() => (
-											<FileFieldItem class="w-32 h-32 m-0 p-0 border-none [&>div]:w-32">
-												<FileFieldItemPreviewImage class="w-32 h-32 object-cover" />
-											</FileFieldItem>
-										)}
-									</FileFieldItemList>
-									<button
-										type="button"
-										class="absolute top-1 right-1 text-white drop-shadow cursor-pointer"
-										onClick={clearNewFile}
-										aria-label="Remove selected image"
-									>
-										<XCircleIcon />
-									</button>
-								</div>
-							</Match>
-							<Match when={existingImageUrl() !== null}>
-								<div class="relative w-32 h-32">
-									<img
-										src={existingImageUrl()!}
-										alt={community().community.name}
-										class="w-32 h-32 object-cover"
-									/>
-									<button
-										type="button"
-										class="absolute top-1 right-1 text-white drop-shadow cursor-pointer"
-										onClick={removeExistingImage}
-										aria-label="Remove image"
-									>
-										<XCircleIcon />
-									</button>
-								</div>
-							</Match>
-							<Match when={true}>
-								<div class="flex flex-col items-center justify-center gap-1">
-									<ImageIcon class="w-6! h-6!" />
-									<span>Upload</span>
-								</div>
-							</Match>
-						</Switch>
-					</FileFieldTrigger>
-				</FileFieldDropzone>
-				<FileFieldHiddenInput />
-			</FileField>
+			<div class="flex gap-6">
+				<FileField
+					class="items-start -size-full"
+					onFileChange={setPicture}
+					maxFiles={1}
+				>
+					<FileFieldLabel>Community Picture</FileFieldLabel>
+					<FileFieldDropzone class="h-32 w-32 min-h-0">
+						<FileFieldTrigger class="h-32 w-32 p-0 bg-muted/25 hover:bg-muted/50 rounded-sm overflow-hidden">
+							<Switch>
+								<Match when={picture() !== undefined}>
+									<div class="relative w-32 h-32">
+										<FileFieldItemList class="w-full h-full m-0 p-0">
+											{() => (
+												<FileFieldItem class="w-full h-full m-0 p-0 border-none [&>div]:w-32">
+													<FileFieldItemPreviewImage class="w-full h-full object-cover" />
+												</FileFieldItem>
+											)}
+										</FileFieldItemList>
+										<button
+											type="button"
+											class="absolute top-1 right-1 text-white drop-shadow drop-shadow-black cursor-pointer"
+											onClick={clearNewPicture}
+											aria-label="Remove selected picture"
+										>
+											<XCircleIcon />
+										</button>
+									</div>
+								</Match>
+								<Match when={existingPictureUrl() !== null}>
+									<div class="relative w-32 h-32">
+										<img
+											src={existingPictureUrl()!}
+											alt={community().community.name}
+											class="w-full h-full object-cover"
+										/>
+										<button
+											type="button"
+											class="absolute top-1 right-1 text-white drop-shadow drop-shadow-black cursor-pointer"
+											onClick={removeExistingPicture}
+											aria-label="Remove picture"
+										>
+											<XCircleIcon />
+										</button>
+									</div>
+								</Match>
+								<Match when={true}>
+									<div class="flex flex-col items-center justify-center gap-1">
+										<ImageIcon class="w-6! h-6!" />
+										<span>Upload</span>
+									</div>
+								</Match>
+							</Switch>
+						</FileFieldTrigger>
+					</FileFieldDropzone>
+					<FileFieldHiddenInput />
+				</FileField>
+				<FileField class="items-start" onFileChange={setBanner} maxFiles={1}>
+					<FileFieldLabel>Community Banner</FileFieldLabel>
+					<FileFieldDropzone class="h-32 w-full min-h-0">
+						<FileFieldTrigger class="h-full w-full p-0 bg-muted/25 hover:bg-muted/50 rounded-sm overflow-hidden">
+							<Switch>
+								<Match when={banner() !== undefined}>
+									<div class="relative w-full h-full">
+										<FileFieldItemList class="w-full h-full m-0 p-0">
+											{() => (
+												<FileFieldItem class="w-full h-full m-0 p-0 border-none -grid [&>div]:h-full">
+													<FileFieldItemPreviewImage class="w-full h-full object-cover object-center" />
+												</FileFieldItem>
+											)}
+										</FileFieldItemList>
+										<button
+											type="button"
+											class="absolute top-1 right-1 text-white drop-shadow drop-shadow-black cursor-pointer"
+											onClick={clearNewBanner}
+											aria-label="Remove selected banner"
+										>
+											<XCircleIcon />
+										</button>
+									</div>
+								</Match>
+								<Match when={existingBannerUrl() !== null}>
+									<div class="relative w-full h-full">
+										<img
+											src={existingBannerUrl()!}
+											alt=""
+											class="w-full h-full object-cover object-center"
+										/>
+										<button
+											type="button"
+											class="absolute top-1 right-1 text-white drop-shadow drop-shadow-black cursor-pointer"
+											onClick={removeExistingBanner}
+											aria-label="Remove banner"
+										>
+											<XCircleIcon />
+										</button>
+									</div>
+								</Match>
+								<Match when={true}>
+									<div class="flex flex-col items-center justify-center gap-1">
+										<ImageIcon class="w-6! h-6!" />
+										<span>Upload</span>
+									</div>
+								</Match>
+							</Switch>
+						</FileFieldTrigger>
+					</FileFieldDropzone>
+					<FileFieldHiddenInput />
+				</FileField>
+			</div>
 			<SwitchComp
 				onChange={(e) => {
 					setRequiresApprovalToJoin(e);

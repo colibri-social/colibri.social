@@ -26,7 +26,7 @@ export const create: XrpcRequest<
 		string | undefined,
 		boolean,
 		Blob | undefined,
-		string | undefined,
+		Blob | undefined,
 		ByoCredentials | undefined,
 	],
 	Promise<Response | undefined>
@@ -36,30 +36,27 @@ export const create: XrpcRequest<
 	description,
 	requiresApproval,
 	picture,
-	mimeType,
+	banner,
 	byo,
 ) => {
 	try {
 		const params = new URLSearchParams({ name });
 		if (description !== undefined) params.set("description", description);
 		params.set("requiresApprovalToJoin", `${requiresApproval}`);
-		if (mimeType !== undefined) params.set("mimeType", mimeType);
 		if (byo) {
 			params.set("pds", byo.pds);
 			params.set("identifier", byo.identifier);
 			params.set("password", byo.password);
 		}
+		const formData = new FormData();
+		if (picture !== undefined) formData.append("picture", picture);
+		if (banner !== undefined) formData.append("banner", banner);
 
 		const createRes = await fetch(
 			`/xrpc/social.colibri.community.create?${params.toString()}`,
 			{
 				method: "POST",
-				...(picture
-					? {
-							body: picture,
-							headers: { "Content-Type": mimeType ?? picture.type },
-						}
-					: {}),
+				body: formData,
 			},
 		);
 

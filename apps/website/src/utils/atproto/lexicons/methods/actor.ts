@@ -127,6 +127,7 @@ export const actorMethodDocs: LexiconDoc[] = [
 				properties: {
 					name: { type: "string" },
 					picture: { type: "blob" },
+					banner: { type: "blob" },
 					description: { type: "string" },
 					categoryOrder: {
 						type: "array",
