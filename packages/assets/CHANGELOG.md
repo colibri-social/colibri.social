@@ -1,5 +1,11 @@
 # @colibri-social/assets
 
+## 0.0.2-rc.2
+
+### Patch Changes
+
+- c57c2ea: Make `tsc --noEmit` pass on the client: enable `skipLibCheck`, fix the duplicate-key spreads in the voice member-state updates, type the uploaded-files reset as `Set<File>`, return an `ArrayBuffer`-backed `Uint8Array` from the VAPID key decoder, and add type declarations for the assets package's `node` and `vite-verbatim-noise` entries. No runtime behaviour changes.
+
 ## 0.0.2-rc.1
 
 ### Patch Changes
