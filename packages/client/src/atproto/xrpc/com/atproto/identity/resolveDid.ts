@@ -1,4 +1,5 @@
 import type { XrpcRequest } from "../../..";
+import { readJson } from "../../../read-json";
 
 // Our appview and the PDS have a mismatch here, the AppView needs to be updated
 type Response = {
@@ -15,7 +16,7 @@ export const resolveDid: XrpcRequest<
 	try {
 		const res = await fetch(`/xrpc/com.atproto.identity.resolveDid?did=${did}`);
 
-		return res.json();
+		return await readJson<Response>(res);
 	} catch (err) {
 		console.error(err);
 		return undefined;

@@ -1,4 +1,5 @@
 import type { XrpcRequest } from "../../..";
+import { readJson } from "../../../read-json";
 
 const del: XrpcRequest<
 	[string],
@@ -9,7 +10,7 @@ const del: XrpcRequest<
 			`/xrpc/social.colibri.channel.delete?channel=${encodeURIComponent(channel)}`,
 			{ method: "POST" },
 		);
-		return res.json();
+		return await readJson<Record<string, never>>(res);
 	} catch (err) {
 		console.error(err);
 		return undefined;

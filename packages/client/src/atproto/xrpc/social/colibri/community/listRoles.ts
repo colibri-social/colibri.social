@@ -1,4 +1,5 @@
 import type { XrpcRequest } from "../../..";
+import { readJson } from "../../../read-json";
 
 export type RoleChannelOverride = {
 	channel: string;
@@ -31,7 +32,7 @@ export const listRoles: XrpcRequest<
 			`/xrpc/social.colibri.community.listRoles?community=${community}`,
 		);
 
-		return res.json();
+		return await readJson<Response>(res);
 	} catch (err) {
 		console.error(err);
 		return undefined;

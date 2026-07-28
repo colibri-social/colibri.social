@@ -1,5 +1,6 @@
 import type { JsonBlobRef } from "@atproto/lexicon";
 import type { XrpcRequest } from "../../..";
+import { readJson } from "../../../read-json";
 import type { Category } from "./listCategories";
 import type { Channel } from "./listChannels";
 import type { Member } from "./listMembers";
@@ -36,7 +37,7 @@ export const getData: XrpcRequest<
 
 		if (!res.ok) return undefined;
 
-		return res.json();
+		return await readJson<Community>(res);
 	} catch (err) {
 		console.error(err);
 		return undefined;

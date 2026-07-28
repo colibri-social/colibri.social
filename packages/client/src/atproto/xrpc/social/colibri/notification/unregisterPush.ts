@@ -1,4 +1,5 @@
 import type { XrpcRequest } from "../../..";
+import { readJson } from "../../../read-json";
 
 type Response = {
 	unregistered: boolean;
@@ -22,7 +23,7 @@ export const unregisterPush: XrpcRequest<
 			console.error(`unregisterPush failed: ${res.status} ${await res.text()}`);
 			return undefined;
 		}
-		return res.json();
+		return await readJson<Response>(res);
 	} catch (err) {
 		console.error(err);
 		return undefined;

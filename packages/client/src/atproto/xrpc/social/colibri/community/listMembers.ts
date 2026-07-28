@@ -1,6 +1,7 @@
 import type { JsonBlobRef } from "@atproto/lexicon";
 import type { OnlineState, ProfileTheme } from "@colibri-social/lib";
 import type { XrpcRequest } from "../../..";
+import { readJson } from "../../../read-json";
 
 export type Member = {
 	did: string;
@@ -37,7 +38,7 @@ export const listMembers: XrpcRequest<
 			`/xrpc/social.colibri.community.listMembers?community=${community}`,
 		);
 
-		return res.json();
+		return await readJson<Response>(res);
 	} catch (err) {
 		console.error(err);
 		return undefined;

@@ -1,4 +1,5 @@
 import type { XrpcRequest } from "../../..";
+import { readJson } from "../../../read-json";
 import type { GifCategory } from "./gifTypes";
 
 export const gifCategories: XrpcRequest<
@@ -8,9 +9,9 @@ export const gifCategories: XrpcRequest<
 	try {
 		const res = await fetch("/xrpc/social.colibri.embed.gifCategories");
 
-		if (!res.ok) return undefined;
+		const data = await readJson<{ categories?: Array<GifCategory> }>(res);
+		if (!data) return undefined;
 
-		const data: { categories?: Array<GifCategory> } = await res.json();
 		return data.categories ?? [];
 	} catch (err) {
 		console.error(err);

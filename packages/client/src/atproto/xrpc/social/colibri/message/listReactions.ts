@@ -1,4 +1,5 @@
 import type { XrpcRequest } from "../../..";
+import { readJson } from "../../../read-json";
 
 type Reaction = {
 	emoji: string;
@@ -19,7 +20,7 @@ export const listReactions: XrpcRequest<
 			`/xrpc/social.colibri.channel.listReactions?message=${encodeURIComponent(message)}`,
 		);
 
-		return res.json();
+		return await readJson<Response>(res);
 	} catch (err) {
 		console.error(err);
 		return undefined;

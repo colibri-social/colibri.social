@@ -1,4 +1,5 @@
 import type { XrpcRequest } from "../../..";
+import { readJson } from "../../../read-json";
 
 type Response = {
 	did: string;
@@ -15,7 +16,7 @@ export const kickUser: XrpcRequest<
 			{ method: "POST" },
 		);
 
-		return res.json();
+		return await readJson<Response>(res);
 	} catch (err) {
 		console.error(err);
 		return undefined;

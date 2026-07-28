@@ -1,4 +1,5 @@
 import type { XrpcRequest } from "../../..";
+import { readJson } from "../../../read-json";
 
 /**
  * The migration to run. Kept as an open discriminator so future migrations can
@@ -65,7 +66,7 @@ export const migrate: XrpcRequest<
 			},
 		);
 
-		return res.json();
+		return await readJson<Response>(res);
 	} catch (err) {
 		console.error(err);
 		return undefined;

@@ -1,4 +1,5 @@
 import type { XrpcRequest } from "../../..";
+import { readJson } from "../../../read-json";
 import type { Member } from "./listMembers";
 
 type Response = {
@@ -14,7 +15,7 @@ export const listBannedUsers: XrpcRequest<
 			`/xrpc/social.colibri.community.listBannedUsers?community=${community}`,
 		);
 
-		return res.json();
+		return await readJson<Response>(res);
 	} catch (err) {
 		console.error(err);
 		return undefined;

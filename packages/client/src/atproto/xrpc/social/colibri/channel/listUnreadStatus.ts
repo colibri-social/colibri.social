@@ -1,4 +1,5 @@
 import type { XrpcRequest } from "../../..";
+import { readJson } from "../../../read-json";
 
 export type ChannelUnreadStatus = {
 	channelUri: string;
@@ -19,7 +20,7 @@ export const listUnreadStatus: XrpcRequest<
 			`/xrpc/social.colibri.channel.listUnreadStatus?community=${community}`,
 		);
 
-		return res.json();
+		return await readJson<Response>(res);
 	} catch (err) {
 		console.error(err);
 		return undefined;

@@ -1,4 +1,5 @@
 import type { XrpcRequest } from "../../..";
+import { readJson } from "../../../read-json";
 
 export type WebPushSubscription = {
 	platform: "web";
@@ -56,7 +57,7 @@ export const registerPush: XrpcRequest<
 			console.error(`registerPush failed: ${res.status} ${await res.text()}`);
 			return undefined;
 		}
-		return res.json();
+		return await readJson<Response>(res);
 	} catch (err) {
 		console.error(err);
 		return undefined;

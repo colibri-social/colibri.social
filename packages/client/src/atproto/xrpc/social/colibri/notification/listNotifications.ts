@@ -1,6 +1,7 @@
 import type { JsonBlobRef } from "@atproto/lexicon";
 import type { ColibriRichTextFacet } from "@colibri-social/lib";
 import type { XrpcRequest } from "../../..";
+import { readJson } from "../../../read-json";
 
 type NotificationMessage = {
 	text: string;
@@ -43,7 +44,7 @@ export const listNotifications: XrpcRequest<
 			`/xrpc/social.colibri.notification.listNotifications${qs ? `?${qs}` : ""}`,
 		);
 
-		return res.json();
+		return await readJson<Response>(res);
 	} catch (err) {
 		console.error(err);
 		return undefined;

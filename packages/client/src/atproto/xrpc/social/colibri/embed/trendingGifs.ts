@@ -1,4 +1,5 @@
 import type { XrpcRequest } from "../../..";
+import { readJson } from "../../../read-json";
 import type { GifPage } from "./gifTypes";
 
 export const trendingGifs: XrpcRequest<
@@ -16,7 +17,7 @@ export const trendingGifs: XrpcRequest<
 
 		if (!res.ok) return undefined;
 
-		return res.json();
+		return await readJson<GifPage>(res);
 	} catch (err) {
 		console.error(err);
 		return undefined;

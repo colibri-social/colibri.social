@@ -1,4 +1,5 @@
 import type { XrpcRequest } from "../../..";
+import { readJson } from "../../../read-json";
 
 type Response = {
 	did: string;
@@ -60,7 +61,7 @@ export const create: XrpcRequest<
 			},
 		);
 
-		return createRes.json();
+		return await readJson<Response>(createRes);
 	} catch (err) {
 		console.error(err);
 		return undefined;

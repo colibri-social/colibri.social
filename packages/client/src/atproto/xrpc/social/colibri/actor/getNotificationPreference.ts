@@ -1,4 +1,5 @@
 import type { XrpcRequest } from "../../..";
+import { readJson } from "../../../read-json";
 
 export type NotificationLevel = "all" | "mentionsAndReplies";
 
@@ -15,7 +16,7 @@ export const getNotificationPreference: XrpcRequest<
 			`/xrpc/social.colibri.actor.getNotificationPreference`,
 		);
 
-		return res.json();
+		return await readJson<Response>(res);
 	} catch (err) {
 		console.error(err);
 		return undefined;

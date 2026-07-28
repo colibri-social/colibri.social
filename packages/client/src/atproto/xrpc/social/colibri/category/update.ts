@@ -1,4 +1,5 @@
 import type { XrpcRequest } from "../../..";
+import { readJson } from "../../../read-json";
 
 export const update: XrpcRequest<
 	[string, string],
@@ -9,7 +10,7 @@ export const update: XrpcRequest<
 			`/xrpc/social.colibri.category.update?category=${encodeURIComponent(category)}&name=${encodeURIComponent(name)}`,
 			{ method: "POST" },
 		);
-		return res.json();
+		return await readJson<Record<string, never>>(res);
 	} catch (err) {
 		console.error(err);
 		return undefined;

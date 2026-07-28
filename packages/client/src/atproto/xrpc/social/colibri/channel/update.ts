@@ -1,4 +1,5 @@
 import type { XrpcRequest } from "../../..";
+import { readJson } from "../../../read-json";
 
 export const update: XrpcRequest<
 	[
@@ -46,7 +47,7 @@ export const update: XrpcRequest<
 		// carries a JSON body, so callers checking the resolved value would treat
 		// it as success. Surface the failure as `undefined` instead.
 		if (!res.ok) return undefined;
-		return res.json();
+		return await readJson<Record<string, never>>(res);
 	} catch (err) {
 		console.error(err);
 		return undefined;

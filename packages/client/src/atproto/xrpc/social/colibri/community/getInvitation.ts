@@ -1,6 +1,7 @@
 import type { JsonBlobRef } from "@atproto/lexicon";
 import type { AT_URI } from "@colibri-social/lib";
 import type { XrpcRequest } from "../../..";
+import { readJson } from "../../../read-json";
 
 type Response = {
 	code: string;
@@ -24,9 +25,7 @@ export const getInvitation: XrpcRequest<
 			`/xrpc/social.colibri.community.getInvitation?code=${encodeURIComponent(code)}`,
 		);
 
-		if (!res.ok) return undefined;
-
-		return await res.json();
+		return await readJson<Response>(res);
 	} catch (err) {
 		console.error(err);
 		return undefined;

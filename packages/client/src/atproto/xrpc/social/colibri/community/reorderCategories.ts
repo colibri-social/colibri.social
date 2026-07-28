@@ -1,4 +1,5 @@
 import type { XrpcRequest } from "../../..";
+import { readJson } from "../../../read-json";
 
 export const reorderCategories: XrpcRequest<
 	[string, string[]],
@@ -14,7 +15,7 @@ export const reorderCategories: XrpcRequest<
 			{ method: "POST" },
 		);
 		if (!res.ok) return undefined;
-		return res.json();
+		return await readJson<Record<string, never>>(res);
 	} catch (err) {
 		console.error(err);
 		return undefined;

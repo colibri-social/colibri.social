@@ -192,10 +192,15 @@ export const UserContextProvider: ParentComponent = (props) => {
 					}
 
 					const refetchCommunities = async () => {
-						const res = await value.xrpc.social.colibri.actor.listCommunities();
-						const cur = user.latest;
-						if (res && cur?.loggedIn) {
-							mutate({ ...cur, communities: res.communities });
+						try {
+							const res =
+								await value.xrpc.social.colibri.actor.listCommunities();
+							const cur = user.latest;
+							if (res && cur?.loggedIn) {
+								mutate({ ...cur, communities: res.communities });
+							}
+						} catch (err) {
+							console.error(err);
 						}
 					};
 

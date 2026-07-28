@@ -1,4 +1,5 @@
 import type { XrpcRequest } from "../../..";
+import { readJson } from "../../../read-json";
 
 export type EmbedMetadata = {
 	title?: string;
@@ -21,7 +22,7 @@ export const getMetadata: XrpcRequest<
 
 		if (!res.ok) return undefined;
 
-		return res.json();
+		return await readJson<EmbedMetadata>(res);
 	} catch (err) {
 		console.error(err);
 		return undefined;

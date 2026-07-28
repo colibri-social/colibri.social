@@ -1,4 +1,5 @@
 import type { XrpcRequest } from "../../..";
+import { readJson } from "../../../read-json";
 
 export const update: XrpcRequest<
 	[
@@ -35,7 +36,7 @@ export const update: XrpcRequest<
 				body: formData,
 			},
 		);
-		return res.json();
+		return await readJson<Record<string, never>>(res);
 	} catch (err) {
 		console.error(err);
 		return undefined;

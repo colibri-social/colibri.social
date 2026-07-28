@@ -1,5 +1,6 @@
 import type { ActorData } from "@colibri-social/lib";
 import type { XrpcRequest } from "../../..";
+import { readJson } from "../../../read-json";
 
 export const getData: XrpcRequest<
 	[string],
@@ -18,7 +19,7 @@ export const getData: XrpcRequest<
 			return undefined;
 		}
 
-		return getDataRes.json();
+		return await readJson<ActorData>(getDataRes);
 	} catch (err) {
 		console.error(err);
 		return undefined;

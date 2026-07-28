@@ -1,4 +1,5 @@
 import type { AppBskyFeedDefs } from "@atproto/api";
+import { readJson } from "../../../read-json";
 
 type Response = {
 	posts: Array<AppBskyFeedDefs.PostView>;
@@ -21,9 +22,8 @@ export const getPosts = async (
 
 	try {
 		const res = await fetch(url);
-		if (!res.ok) return [];
-		const body = (await res.json()) as Response;
-		return body.posts ?? [];
+		const body = await readJson<Response>(res);
+		return body?.posts ?? [];
 	} catch (err) {
 		console.error(err);
 		return [];

@@ -1,4 +1,5 @@
 import type { XrpcRequest } from "../../..";
+import { readJson } from "../../../read-json";
 
 export const setMemberRoles: XrpcRequest<
 	[string, string, string[]],
@@ -16,7 +17,7 @@ export const setMemberRoles: XrpcRequest<
 			`/xrpc/social.colibri.community.setMemberRoles?${params.toString()}`,
 			{ method: "POST" },
 		);
-		return res.json();
+		return await readJson<Record<string, never>>(res);
 	} catch (err) {
 		console.error(err);
 		return undefined;

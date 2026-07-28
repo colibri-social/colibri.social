@@ -1,4 +1,5 @@
 import type { XrpcRequest } from "../../..";
+import { readJson } from "../../../read-json";
 
 type Response = {
 	uri: string;
@@ -14,7 +15,7 @@ export const getRecord: XrpcRequest<
 			`/xrpc/com.atproto.sync.getRecord?repo=${repo}&collection=${collection}&rkey=${rkey}`,
 		);
 
-		return res.json();
+		return await readJson<Response>(res);
 	} catch (err) {
 		console.error(err);
 		return undefined;

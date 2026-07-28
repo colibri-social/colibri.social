@@ -1,4 +1,5 @@
 import type { XrpcRequest } from "../../..";
+import { readJson } from "../../../read-json";
 
 type Response = {
 	uri: string;
@@ -15,7 +16,7 @@ export const getReadCursor: XrpcRequest<
 			`/xrpc/social.colibri.channel.getReadCursor?channel=${channel}`,
 		);
 
-		return res.json();
+		return await readJson<Response>(res);
 	} catch (err) {
 		console.error(err);
 		return undefined;

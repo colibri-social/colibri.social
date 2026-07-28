@@ -1,4 +1,5 @@
 import type { XrpcRequest } from "../../..";
+import { readJson } from "../../../read-json";
 import type { UnseenNotification } from "../notification/getUnseen";
 import type { Message } from "./listMessages";
 
@@ -26,7 +27,7 @@ export const getChannelView: XrpcRequest<
 			}`,
 		);
 
-		return res.json();
+		return await readJson<Response>(res);
 	} catch (err) {
 		console.error(err);
 		return undefined;

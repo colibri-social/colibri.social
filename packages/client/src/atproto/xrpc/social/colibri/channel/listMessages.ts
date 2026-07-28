@@ -1,6 +1,7 @@
 import type { JsonBlobRef } from "@atproto/lexicon";
 import type { ActorData, ColibriRichTextFacet } from "@colibri-social/lib";
 import type { XrpcRequest } from "../../..";
+import { readJson } from "../../../read-json";
 
 export type Reaction = {
 	emoji: string;
@@ -53,7 +54,7 @@ export const listMessages: XrpcRequest<
 			`/xrpc/social.colibri.channel.listMessages?${params.toString()}`,
 		);
 
-		return res.json();
+		return await readJson<Response>(res);
 	} catch (err) {
 		console.error(err);
 		return undefined;

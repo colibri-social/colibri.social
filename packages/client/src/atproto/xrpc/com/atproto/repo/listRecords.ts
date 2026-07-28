@@ -1,4 +1,5 @@
 import type { XrpcRequest } from "../../..";
+import { readJson } from "../../../read-json";
 
 type Response = {
 	cursor?: string;
@@ -19,7 +20,7 @@ export const listRecords: XrpcRequest<
 			`/xrpc/com.atproto.repo.listRecords?${params.toString()}`,
 		);
 
-		return res.json();
+		return await readJson<Response>(res);
 	} catch (err) {
 		console.error(err);
 		return undefined;

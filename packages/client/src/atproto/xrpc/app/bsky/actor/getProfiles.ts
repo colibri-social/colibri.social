@@ -1,4 +1,5 @@
 import type { AppBskyActorDefs } from "@atproto/api";
+import { readJson } from "../../../read-json";
 
 type Response = {
 	profiles: Array<AppBskyActorDefs.ProfileViewDetailed>;
@@ -22,9 +23,8 @@ export const getProfiles = async (
 
 	try {
 		const res = await fetch(url);
-		if (!res.ok) return [];
-		const body = (await res.json()) as Response;
-		return body.profiles ?? [];
+		const body = await readJson<Response>(res);
+		return body?.profiles ?? [];
 	} catch (err) {
 		console.error(err);
 		return [];

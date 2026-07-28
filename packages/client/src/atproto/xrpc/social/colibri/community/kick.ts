@@ -1,4 +1,5 @@
 import type { XrpcRequest } from "../../..";
+import { readJson } from "../../../read-json";
 
 export const kick: XrpcRequest<
 	[string, string],
@@ -9,7 +10,7 @@ export const kick: XrpcRequest<
 			`/xrpc/social.colibri.community.kick?community=${encodeURIComponent(community)}&member=${encodeURIComponent(member)}`,
 			{ method: "POST" },
 		);
-		return res.json();
+		return await readJson<Record<string, never>>(res);
 	} catch (err) {
 		console.error(err);
 		return undefined;

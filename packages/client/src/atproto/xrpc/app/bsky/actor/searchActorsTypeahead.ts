@@ -1,3 +1,5 @@
+import { readJson } from "../../../read-json";
+
 export type ActorTypeaheadResult = {
 	did: string;
 	handle: string;
@@ -22,9 +24,8 @@ export const searchActorsTypeahead = async (
 
 	try {
 		const res = await fetch(url, { signal });
-		if (!res.ok) return [];
-		const body = (await res.json()) as Response;
-		return body.actors ?? [];
+		const body = await readJson<Response>(res);
+		return body?.actors ?? [];
 	} catch (err) {
 		if ((err as DOMException)?.name === "AbortError") return [];
 		console.error(err);

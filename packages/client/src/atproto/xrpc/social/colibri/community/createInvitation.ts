@@ -1,4 +1,5 @@
 import type { XrpcRequest } from "../../..";
+import { readJson } from "../../../read-json";
 import type { Invitation } from "./listInvitations";
 
 export const createInvitation: XrpcRequest<
@@ -13,7 +14,7 @@ export const createInvitation: XrpcRequest<
 			},
 		);
 
-		return res.json();
+		return await readJson<Invitation>(res);
 	} catch (err) {
 		console.error(err);
 		return undefined;

@@ -9,8 +9,34 @@ export interface InitSentryOptions {
 	dist?: string;
 }
 
+type GlobalHandlerKey = "onerror" | "onunhandledrejection";
+
+function dropUnreachableHandler(key: GlobalHandlerKey): void {
+	if (typeof window === "undefined") return;
+
+	const target = window as unknown as Record<GlobalHandlerKey, unknown>;
+	let callable: boolean;
+
+	try {
+		const existing = target[key];
+		if (existing == null) return;
+		callable = typeof (existing as { apply?: unknown }).apply === "function";
+	} catch {
+		callable = false;
+	}
+
+	if (callable) return;
+
+	try {
+		target[key] = null;
+	} catch {}
+}
+
 export function initSentry(options: InitSentryOptions): void {
 	if (!options.dsn) return;
+
+	dropUnreachableHandler("onerror");
+	dropUnreachableHandler("onunhandledrejection");
 
 	Sentry.init({
 		dsn: options.dsn,

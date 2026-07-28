@@ -274,41 +274,48 @@ export const NotificationsContextProvider: ParentComponent = (props) => {
 		if (seeded.has(communityUri)) return;
 		seeded.add(communityUri);
 
-		const res =
-			await user.xrpc.social.colibri.channel.listUnreadStatus(communityUri);
-		if (!res) {
-			seeded.delete(communityUri);
-			return;
+		let reached = false;
+
+		try {
+			const res =
+				await user.xrpc.social.colibri.channel.listUnreadStatus(communityUri);
+			if (!res) return;
+
+			reached = true;
+
+			if (!res.channels) return;
+
+			setPingCounts((prev) => {
+				const next = { ...prev };
+				for (const ch of res.channels) {
+					if (mutes.isChannelMuted(ch.channelUri)) continue;
+					next[channelKey(ch.channelUri)] = ch.unreadPingCount;
+				}
+				return next;
+			});
+
+			setUnreadChannels((prev) => {
+				const next = { ...prev };
+				for (const ch of res.channels) {
+					const key = channelKey(ch.channelUri);
+					if (mutes.isChannelMuted(ch.channelUri)) {
+						delete next[key];
+						continue;
+					}
+					if (locallyReadChannels.has(key)) {
+						delete next[key];
+						continue;
+					}
+					if (ch.hasUnreadMessages) next[key] = true;
+					else delete next[key];
+				}
+				return next;
+			});
+		} catch (err) {
+			console.error(err);
+		} finally {
+			if (!reached) seeded.delete(communityUri);
 		}
-
-		if (!res.channels) return;
-
-		setPingCounts((prev) => {
-			const next = { ...prev };
-			for (const ch of res.channels) {
-				if (mutes.isChannelMuted(ch.channelUri)) continue;
-				next[channelKey(ch.channelUri)] = ch.unreadPingCount;
-			}
-			return next;
-		});
-
-		setUnreadChannels((prev) => {
-			const next = { ...prev };
-			for (const ch of res.channels) {
-				const key = channelKey(ch.channelUri);
-				if (mutes.isChannelMuted(ch.channelUri)) {
-					delete next[key];
-					continue;
-				}
-				if (locallyReadChannels.has(key)) {
-					delete next[key];
-					continue;
-				}
-				if (ch.hasUnreadMessages) next[key] = true;
-				else delete next[key];
-			}
-			return next;
-		});
 	};
 
 	createEffect(() => {
