@@ -1,5 +1,51 @@
 # @colibri-social/website
 
+## 0.1.0-rc.10
+
+### Minor Changes
+
+- 1a88b5d: Add community banners
+
+  <!-- whatsnew
+  title: Community banners
+  icon: image-fill
+  body: Set a community banner to be displayed in the channel sidebar.
+  kind: feature
+  -->
+
+### Patch Changes
+
+- 0de7ee1: Fixes drag/drop handling issues with channels
+
+  <!-- whatsnew
+  title: Improved Drag/Drop Handling
+  icon: hand-grabbing-fill
+  body: Issues with dragging and dropping channels on Desktop should be resolved now.
+  kind: fix
+  -->
+
+- Updated dependencies [57f95ee]
+- Updated dependencies [1a88b5d]
+- Updated dependencies [ce7d4d5]
+- Updated dependencies [536b3a3]
+- Updated dependencies [0de7ee1]
+- Updated dependencies [5d90118]
+- Updated dependencies [0b6cd46]
+- Updated dependencies [fd0c7c7]
+- Updated dependencies [fd0c7c7]
+- Updated dependencies [fd0c7c7]
+- Updated dependencies [fd0c7c7]
+- Updated dependencies [2c24e97]
+- Updated dependencies [c57c2ea]
+- Updated dependencies [985043a]
+- Updated dependencies [733fa34]
+- Updated dependencies [c57c2ea]
+- Updated dependencies [733fa34]
+- Updated dependencies [fd0c7c7]
+- Updated dependencies [9dedb4a]
+  - @colibri-social/client@0.1.0-rc.10
+  - @colibri-social/assets@0.0.2-rc.2
+
 ## 0.0.2-rc.9
 
 ### Patch Changes

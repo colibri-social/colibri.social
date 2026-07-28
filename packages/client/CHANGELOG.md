@@ -1,5 +1,87 @@
 # @colibri-social/client
 
+## 0.1.0-rc.10
+
+### Minor Changes
+
+- 57f95ee: Prompt web users once after logging in to enable notifications, with a dialog that requests browser permission and registers web push on accept. Also shrink the badges in the profile card to the same size used in messages.
+- 1a88b5d: Add community banners
+
+  <!-- whatsnew
+  title: Community banners
+  icon: image-fill
+  body: Set a community banner to be displayed in the channel sidebar.
+  kind: feature
+  -->
+
+- 5d90118: Adds a debug information section to the About settings page, with a button to copy everything (app/build, device, account, and runtime state) as a paste-ready block. Web builds now also report a real client version and commit instead of just "Web".
+
+  <!-- whatsnew
+  title: Debug Information
+  icon: bug-fill
+  body: The "About" page in the settings now contains debug information that can easily be copied.
+  kind: feature
+  -->
+
+- fd0c7c7: Adds a "What's New" popup that appears once per release, listing the features and fixes that shipped, plus a settings page with the last five releases.
+
+  <!-- whatsnew
+  title: What's New popup
+  icon: sparkle-fill
+  body: This popup you're seeing!
+  kind: feature
+  -->
+
+### Patch Changes
+
+- ce7d4d5: Add login telemetry
+- 536b3a3: Adds custom scrollbar styling
+- 0de7ee1: Fixes drag/drop handling issues with channels
+
+  <!-- whatsnew
+  title: Improved Drag/Drop Handling
+  icon: hand-grabbing-fill
+  body: Issues with dragging and dropping channels on Desktop should be resolved now.
+  kind: fix
+  -->
+
+- 0b6cd46: Makes touch interactions work on tablets
+- fd0c7c7: Better emoji grid spacing on mobile
+- fd0c7c7: Proper font size handling
+- fd0c7c7: Improves native back behavior on mobile devices
+
+  <!-- whatsnew
+  title: Back Behavior
+  icon: rewind-fill
+  body: Using your mobile device's "navigate back" action should behave more predictably.
+  kind: fix
+  -->
+
+- fd0c7c7: Fixes invite modal terminology
+- 2c24e97: Improves keyboard pinning on Android
+
+  <!-- whatsnew
+  title: Keyboard pinning
+  icon: keyboard-fill
+  body: The channel should now stay pinned to the bottom after sending a message.
+  kind: fix
+  -->
+
+- c57c2ea: Make `tsc --noEmit` pass on the client: enable `skipLibCheck`, fix the duplicate-key spreads in the voice member-state updates, type the uploaded-files reset as `Set<File>`, return an `ArrayBuffer`-backed `Uint8Array` from the VAPID key decoder, and add type declarations for the assets package's `node` and `vite-verbatim-noise` entries. No runtime behaviour changes.
+- 985043a: Fixes an issue with the debug buttons not opening outside the app
+- 733fa34: Improves blockquote handling
+
+  <!-- whatsnew
+  title: Blockquotes
+  icon: quotes-fill
+  body: Improves the way blockquotes are handled in the chat input
+  kind: fix
+  -->
+
+- c57c2ea: Fix XRPC wrappers sending the literal string `undefined` for omitted optional query parameters (`listRecords`, `listMessages`, `listNotifications`, `updateSeen`), and percent-encode the credentials passed to `registerCredentials` so a password containing `&` or `=` can no longer truncate the request or inject query parameters.
+- 733fa34: Fixes three mobile swipe issues: a pane could stay partly on screen when swiping back, swiping was dead in channels containing an overflowing message, and swiping stuttered in communities with large member lists. Turning on swipe-to-reply now also disables swipe-to-open-members entirely, so the two gestures no longer compete — the member list stays reachable from the channel header
+- 9dedb4a: Hides the "support" page in the settings on apps which get distributed to app stores
+
 ## 0.1.0-rc.9
 
 ### Patch Changes

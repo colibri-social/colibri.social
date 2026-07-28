@@ -1,5 +1,54 @@
 # @colibri-social/wrapper
 
+## 0.1.0-rc.12
+
+### Patch Changes
+
+- ce7d4d5: Add login telemetry
+- fd0c7c7: Better emoji grid spacing on mobile
+- fd0c7c7: Proper font size handling
+- fd0c7c7: Improves native back behavior on mobile devices
+
+  <!-- whatsnew
+  title: Back Behavior
+  icon: rewind-fill
+  body: Using your mobile device's "navigate back" action should behave more predictably.
+  kind: fix
+  -->
+
+- fd0c7c7: Fixes invite modal terminology
+- 2c24e97: Improves keyboard pinning on Android
+
+  <!-- whatsnew
+  title: Keyboard pinning
+  icon: keyboard-fill
+  body: The channel should now stay pinned to the bottom after sending a message.
+  kind: fix
+  -->
+
+- 9dedb4a: Hides the "support" page in the settings on apps which get distributed to app stores
+- Updated dependencies [57f95ee]
+- Updated dependencies [1a88b5d]
+- Updated dependencies [ce7d4d5]
+- Updated dependencies [536b3a3]
+- Updated dependencies [0de7ee1]
+- Updated dependencies [5d90118]
+- Updated dependencies [0b6cd46]
+- Updated dependencies [fd0c7c7]
+- Updated dependencies [fd0c7c7]
+- Updated dependencies [fd0c7c7]
+- Updated dependencies [fd0c7c7]
+- Updated dependencies [2c24e97]
+- Updated dependencies [c57c2ea]
+- Updated dependencies [985043a]
+- Updated dependencies [733fa34]
+- Updated dependencies [c57c2ea]
+- Updated dependencies [733fa34]
+- Updated dependencies [fd0c7c7]
+- Updated dependencies [9dedb4a]
+  - @colibri-social/client@0.1.0-rc.10
+  - @colibri-social/assets@0.0.2-rc.2
+
 ## 0.1.0-rc.11
 
 ### Patch Changes
