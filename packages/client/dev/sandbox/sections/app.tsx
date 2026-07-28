@@ -1,5 +1,5 @@
 import type { ActorData, OnlineState } from "@colibri-social/lib";
-import { createSignal, For } from "solid-js";
+import { createSignal, For, type ParentComponent } from "solid-js";
 import { CopyButton } from "../../../src/components/app/common/CopyButton";
 import { Lightbox } from "../../../src/components/app/common/Lightbox";
 import {
@@ -9,6 +9,7 @@ import {
 } from "../../../src/components/app/profile/theme";
 import { Avatar } from "../../../src/components/app/user/Avatar";
 import { Badge } from "../../../src/components/app/user/Badge";
+import { ProfilePopoverContents } from "../../../src/components/app/user/ProfilePopover";
 import { DropdownStatusSelect } from "../../../src/components/app/user/StatusSelect";
 import { ATmosphereAppMarquee } from "../../../src/components/login/ATmosphereAppMarquee";
 import { Button } from "../../../src/components/ui/Button";
@@ -124,12 +125,68 @@ const MarqueeDemo = () => (
 	</Demo>
 );
 
+const KIRA: ActorData = {
+	did: "did:plc:kirasandbox",
+	handle: "kira.colibri.social",
+	data: {
+		displayName: "Kira",
+		isBot: false,
+		onlineState: "online",
+		description:
+			"Building on atproto, mostly in the open. Writing things down at colibri.social, and reachable as @kira.colibri.social if you want to talk shop.",
+		status: { emoji: "✨", text: "shipping" },
+		theme: {
+			accentColor: "#8e51ff",
+			gradient: { primary: "#8e51ff", secondary: "#38bdf8" },
+		},
+	},
+};
+
+const KIRA_MINIMAL: ActorData = {
+	did: "did:plc:kirasandbox",
+	handle: "kira.colibri.social",
+	data: {
+		displayName: "Kira",
+		isBot: false,
+		onlineState: "offline",
+		theme: { bannerColor: "#2b2b3a" },
+	},
+};
+
+const PopoverCard: ParentComponent = (props) => (
+	<div class="bg-popover text-popover-foreground relative w-80 overflow-hidden rounded-md border p-0 drop-shadow-black drop-shadow-xl">
+		{props.children}
+	</div>
+);
+
+const ProfilePopoverDemo = () => (
+	<Demo label="ProfilePopoverContents">
+		<PopoverCard>
+			<ProfilePopoverContents
+				user={KIRA}
+				preview={{ avatarUrl: "/user-placeholder.png" }}
+			/>
+		</PopoverCard>
+		<PopoverCard>
+			<ProfilePopoverContents
+				user={KIRA_MINIMAL}
+				preview={{ avatarUrl: "/user-placeholder.png" }}
+			/>
+		</PopoverCard>
+	</Demo>
+);
+
 export const APP: SandboxCategory = {
 	id: "app",
 	title: "App components",
 	items: [
 		{ id: "avatar", title: "Avatar", component: AvatarDemo },
 		{ id: "badge", title: "Badge", component: BadgeDemo },
+		{
+			id: "profile-popover",
+			title: "ProfilePopover",
+			component: ProfilePopoverDemo,
+		},
 		{ id: "copy-button", title: "CopyButton", component: CopyButtonDemo },
 		{
 			id: "status-select",

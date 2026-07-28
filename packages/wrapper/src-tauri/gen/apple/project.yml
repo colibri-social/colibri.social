@@ -51,8 +51,8 @@ targets:
           - UIInterfaceOrientationPortraitUpsideDown
           - UIInterfaceOrientationLandscapeLeft
           - UIInterfaceOrientationLandscapeRight
-        CFBundleShortVersionString: 0.1.5
-        CFBundleVersion: "0.1.5"
+        CFBundleShortVersionString: 0.1.7
+        CFBundleVersion: "0.1.7"
     entitlements:
       path: colibri-social_iOS/colibri-social_iOS.entitlements
     scheme:

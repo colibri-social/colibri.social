@@ -18,6 +18,8 @@ export interface Props extends HTMLAttributes<"button"> {
 	pill?: boolean;
 	href?: string;
 	disabled?: boolean;
+	target?: HTMLAttributes<"a">["target"];
+	rel?: HTMLAttributes<"a">["rel"];
 }
 
 const {

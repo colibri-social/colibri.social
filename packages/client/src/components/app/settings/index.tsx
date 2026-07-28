@@ -23,6 +23,7 @@ import { useUserContext } from "../../../contexts/User";
 import { EXPERIMENTS } from "../../../experiments";
 import { unregisterAllPush } from "../../../notifications";
 import { RELEASE_NOTES } from "../../../release-notes";
+import { requiresInAppPurchase } from "../../../utils/platform";
 import { useIsTouch } from "../../../utils/touch";
 import { SettingsModal } from "../common/SettingsModal";
 import { AboutPage } from "./AboutPage";
@@ -104,6 +105,7 @@ export const UserSettingsModal: ParentComponent<{
 					id: "support",
 					component: SupportPage,
 					icon: () => <HeartIcon />,
+					visible: () => !requiresInAppPurchase(),
 				},
 				{
 					title: "What's New",

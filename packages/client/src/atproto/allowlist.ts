@@ -20,6 +20,7 @@ export const ALLOWED_DIDS = new Set<string>([
 	"did:plc:32rr3w2fhhx36oukhhkamndv",
 	"did:plc:34jj3u665cbmkr6aklhtqmsc",
 	"did:plc:34tl4n4hwizkuksfbii4n4wa",
+	"did:plc:3aelwvb7fei3wj2ekfuaafeo",
 	"did:plc:3cyqvlagjczg4br7a3phsgij",
 	"did:plc:3danwc67lo7obz2fmdg6jxcr",
 	"did:plc:3hmjgevts6on2f3cuuo55kdj",

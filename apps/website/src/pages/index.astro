@@ -34,6 +34,49 @@ try {
 } catch {
 	latestPost = null;
 }
+
+const COLLECTIVE_URL = "https://opencollective.com/colibri-social";
+
+const BADGE_BASE =
+	"px-1.5 rounded-sm inline-flex shrink-0 whitespace-nowrap w-fit";
+
+const tiers = [
+	{
+		val: "backer-five",
+		badge: "$5 BACKER",
+		badgeClass: "bg-lime-500 text-black",
+		price: "$5",
+		cadence: "/ month",
+		blurb:
+			"Keep the lights on and get the lime $5 Backer badge on your profile.",
+		url: `${COLLECTIVE_URL}/contribute/backers-100302/checkout?interval=month&amount=5&name=&legalName=&email=`,
+		highlight: false,
+	},
+	{
+		val: "sponsor-twenty-five",
+		badge: "$25 SPONSOR",
+		badgeClass: "bg-teal-500 text-white",
+		price: "$25",
+		cadence: "/ month",
+		blurb:
+			"Seriously move the needle on development and wear the teal $25 Sponsor badge.",
+		url: `${COLLECTIVE_URL}/contribute/sponsor-100710/checkout?interval=month&amount=25&name=&legalName=&email=`,
+		highlight: true,
+	},
+	{
+		val: "donator",
+		badge: "DONATOR",
+		badgeClass: "bg-fuchsia-500 text-white",
+		price: "Custom",
+		cadence: "one-time",
+		blurb:
+			"Chip in any amount, whenever you like, and earn the fuchsia Donator badge.",
+		url: `${COLLECTIVE_URL}/donate?interval=oneTime&amount=20&name=&legalName=&email=`,
+		highlight: false,
+	},
+];
+
+const defaultTier = tiers.find((tier) => tier.highlight) ?? tiers[0];
 ---
 
 <PublicLayout
@@ -342,6 +385,165 @@ try {
 				/>
 			</div>
 		</div>
+	</section>
+
+	<section class="py-32 mx-auto w-full max-w-336 md:px-16 px-6 relative">
+		<div
+			class="bg-gradient-dark w-full rounded-2xl border border-border flex flex-col gap-8 h-fit p-6 relative z-10 items-center drop-shadow-black/25 drop-shadow-2xl"
+		>
+			<div class="flex flex-col gap-4 items-center text-center">
+				<span
+					data-badge-preview
+					data-badge-base={BADGE_BASE}
+					class:list={[BADGE_BASE, defaultTier.badgeClass]}
+				>
+					<span class="font-bold text-sm">{defaultTier.badge}</span>
+				</span>
+				<h2 class="text-4xl font-black m-0">KEEP COLIBRI IN THE AIR.</h2>
+				<p class="m-0 max-w-[70ch]">
+					Colibri is paid for by the people who use it. Contributions cover the
+					servers that keep the network running and the work that goes into
+					building it, and every expense is public on Open Collective. Chip in
+					and you'll get a supporter badge next to your name everywhere on
+					Colibri.
+				</p>
+			</div>
+			<div class="grid lg:grid-cols-2 grid-cols-1 gap-6 w-full items-stretch">
+				<div class="flex flex-col gap-4">
+					{
+						tiers.map((tier) => (
+							<div
+								data-tier
+								data-badge-text={tier.badge}
+								data-badge-class={tier.badgeClass}
+								class:list={[
+									"flex flex-col gap-3 p-6 rounded-lg border cursor-pointer transition-colors",
+									tier.val === defaultTier.val
+										? "border-primary"
+										: "border-border hover:border-primary/50",
+								]}
+							>
+								<div class="flex flex-row items-center justify-between gap-3">
+									<span class:list={[BADGE_BASE, tier.badgeClass]}>
+										<span class="font-bold text-sm">{tier.badge}</span>
+									</span>
+									<div class="flex flex-row items-baseline gap-2">
+										<span class="text-2xl font-black">{tier.price}</span>
+										<span class="text-muted-foreground text-sm">
+											{tier.cadence}
+										</span>
+									</div>
+								</div>
+								<p class="m-0 text-sm">{tier.blurb}</p>
+								<Button
+									href={tier.url}
+									target="_blank"
+									rel="noreferrer"
+									variant={tier.highlight ? "default" : "secondary"}
+								>
+									Contribute
+								</Button>
+							</div>
+						))
+					}
+				</div>
+				<div
+					class="rounded-lg border border-border bg-gradient-feature flex items-center justify-center overflow-hidden p-6 pb-0 lg:p-8 lg:pb-0"
+					style="box-shadow: 0 0 5.625px 0 rgba(14, 0, 23, 0.50) inset;"
+				>
+					<div
+						class="w-80 max-w-full bg-card text-card-foreground text-left rounded-xl border border-border overflow-hidden select-none relative drop-shadow-black drop-shadow-xl"
+					>
+						<div
+							class="w-full aspect-3/1"
+							style="background: linear-gradient(135deg, #8e51ff, #38bdf8);"
+						>
+						</div>
+						<div class="relative z-10 -mt-14 p-4 flex flex-col gap-2">
+							<div class="flex flex-row items-center gap-4">
+								<img
+									src="/user-placeholder.png"
+									width="80"
+									height="80"
+									alt=""
+									class="size-20 shrink-0 rounded-full object-cover bg-muted outline-4 outline-card"
+								/>
+								<span
+									class="flex flex-row items-start gap-2 bg-card border border-border rounded-sm px-1.5 py-0.5 drop-shadow-black drop-shadow-sm"
+								>
+									<span class="size-5.5 flex items-center justify-center">
+										✨
+									</span>
+									<span class="leading-5.5 text-sm">shipping</span>
+								</span>
+							</div>
+							<div class="px-1 flex flex-col">
+								<span class="font-black text-xl" style="color: #8e51ff;">
+									Kira
+								</span>
+								<div class="flex flex-row gap-2 items-center flex-wrap">
+									<span class="text-sm">@kira.colibri.social</span>
+									<span class="w-1 h-1 rounded-full bg-muted-foreground"></span>
+									<span
+										data-profile-badge
+										data-badge-base={BADGE_BASE}
+										class:list={[BADGE_BASE, defaultTier.badgeClass]}
+									>
+										<span class="font-bold text-xs">{defaultTier.badge}</span>
+									</span>
+								</div>
+							</div>
+							<hr class="w-full h-px border-none bg-border m-0" />
+							<p
+								class="prose prose-invert prose-neutral prose-sm m-0 px-1 text-sm wrap-anywhere"
+							>
+								Building on atproto, mostly in the open. Writing things down at
+								colibri.social, and (not actually) reachable as
+								@kira.colibri.social if you want to talk shop!
+							</p>
+						</div>
+					</div>
+				</div>
+			</div>
+			<a
+				href={COLLECTIVE_URL}
+				target="_blank"
+				rel="noreferrer"
+				class="text-sm text-muted-foreground hover:text-foreground underline underline-offset-4"
+			>
+				See the whole ledger on Open Collective
+			</a>
+		</div>
+		<script>
+			const tierCards = document.querySelectorAll<HTMLElement>("[data-tier]");
+			const badgePreviews = document.querySelectorAll<HTMLElement>(
+				"[data-badge-preview], [data-profile-badge]",
+			);
+
+			function selectTier(card: HTMLElement) {
+				const badgeClass = card.dataset.badgeClass ?? "";
+				const badgeText = card.dataset.badgeText ?? "";
+
+				tierCards.forEach((other) => {
+					const active = other === card;
+					other.classList.toggle("border-primary", active);
+					other.classList.toggle("border-border", !active);
+					other.classList.toggle("hover:border-primary/50", !active);
+				});
+
+				badgePreviews.forEach((preview) => {
+					preview.className = `${preview.dataset.badgeBase ?? ""} ${badgeClass}`;
+					const label = preview.querySelector("span");
+					if (label) label.textContent = badgeText;
+				});
+			}
+
+			tierCards.forEach((card) => {
+				card.addEventListener("click", () => selectTier(card));
+				card.addEventListener("mouseenter", () => selectTier(card));
+				card.addEventListener("focusin", () => selectTier(card));
+			});
+		</script>
 	</section>
 	<section class="py-40 mx-auto w-full max-w-336 md:px-16 px-6 relative z-20">
 		<div
