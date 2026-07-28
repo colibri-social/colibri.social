@@ -15,6 +15,12 @@ import {
 import { deviceContext, getConnection } from "../utils/device-context";
 import { isAllowedDid } from "./allowlist";
 import { buildScopes, getMissingScopeSets } from "./scopes";
+import {
+	probeIndicatesStall,
+	probeStorage,
+	type StorageProbe,
+	summarizeProbe,
+} from "./storage-probe";
 
 export const isLocal = () =>
 	["localhost", "127.0.0.1"].includes(window.location.hostname);
@@ -61,6 +67,8 @@ const OAUTH_FETCH_TIMEOUT_MS = 12_000;
 const OAUTH_FETCH_ATTEMPTS = 2;
 const OAUTH_RETRY_BASE_DELAY_MS = 750;
 const OAUTH_SIGNIN_TIMEOUT_MS = 75_000;
+const OAUTH_PRE_NETWORK_TIMEOUT_MS = 15_000;
+const OAUTH_FALLBACK_DELAY_MS = 1_000;
 const MAX_TRAIL_ENTRIES = 24;
 
 type RequestAttempt = {
@@ -74,6 +82,8 @@ type RequestAttempt = {
 let unreachableHost: string | undefined;
 let attemptStartedAt: number | undefined;
 let clockSkewMs: number | undefined;
+let storageProbe: StorageProbe | undefined;
+let requestsStarted = 0;
 let requestTrail: Array<RequestAttempt> = [];
 
 const requestHost = (input: Parameters<typeof fetch>[0]): string => {
@@ -134,6 +144,7 @@ const withFetchTimeout =
 	async (input, init) => {
 		const host = requestHost(input);
 		const repeatable = isRepeatable(input, init);
+		requestsStarted += 1;
 		let lastError: unknown;
 
 		for (let attempt = 1; attempt <= OAUTH_FETCH_ATTEMPTS; attempt++) {
@@ -213,6 +224,15 @@ const handleDomain = (input: string): string => {
 	return dot === -1 ? "" : trimmed.slice(dot + 1);
 };
 
+let signInHandleDomain: string | undefined;
+
+export const noteSignInHandle = (handle: string) => {
+	signInHandleDomain = handleDomain(handle) || undefined;
+};
+
+const reportedHandleDomain = (input: string): string =>
+	signInHandleDomain ?? handleDomain(input);
+
 const networkContext = () => {
 	const connection = getConnection();
 	const failures = requestTrail.filter((entry) => entry.error);
@@ -246,8 +266,10 @@ const signInContext = (input: string) => ({
 	appView: getPreferredAppViewUrl(),
 	native: isTauriRuntime(),
 	online: typeof navigator === "undefined" ? undefined : navigator.onLine,
-	handleDomain: handleDomain(input),
+	handleDomain: reportedHandleDomain(input),
 	unreachableHost: unreachableHost ?? null,
+	storageBackend: usingFallbackStorage ? "localstorage" : "indexeddb",
+	requestsStarted,
 	requests: requestTrail.map(
 		(entry) =>
 			`${entry.host} #${entry.attempt} ${entry.error ?? entry.status} ${entry.ms}ms`,
@@ -258,6 +280,9 @@ export const beginSignInAttempt = () => {
 	attemptStartedAt = Date.now();
 	unreachableHost = undefined;
 	clockSkewMs = undefined;
+	storageProbe = undefined;
+	signInHandleDomain = undefined;
+	requestsStarted = 0;
 	requestTrail = [];
 };
 
@@ -277,14 +302,28 @@ const applySignInScope = (
 ) => {
 	scope.setTag("oauth.stage", stage);
 	scope.setTag("oauth.unreachable_host", unreachableHost ?? "none");
-	scope.setTag("oauth.handle_domain", handleDomain(input) || "unknown");
+	scope.setTag("oauth.handle_domain", reportedHandleDomain(input) || "unknown");
 	scope.setTag("oauth.platform", device.platform ?? "web");
 	scope.setTag("oauth.os_version", device.osVersion ?? "unknown");
 	scope.setTag("oauth.time_zone", device.timeZone);
 	scope.setTag("oauth.effective_type", String(network.effectiveType));
+	scope.setTag("idb.scratch", storageProbe?.scratch.status ?? "not-run");
+	scope.setTag("idb.oauth_db", storageProbe?.oauthDb.status ?? "not-run");
+	scope.setTag(
+		"oauth.storage_backend",
+		usingFallbackStorage ? "localstorage" : "indexeddb",
+	);
 	scope.setContext("oauth", signInContext(input));
 	scope.setContext("device", device);
 	scope.setContext("network", network);
+	scope.setContext("storage", {
+		scratchStatus: storageProbe?.scratch.status ?? "not-run",
+		scratchMs: storageProbe?.scratch.ms,
+		scratchDetail: storageProbe?.scratch.detail,
+		oauthDbStatus: storageProbe?.oauthDb.status ?? "not-run",
+		oauthDbMs: storageProbe?.oauthDb.ms,
+		oauthDbDetail: storageProbe?.oauthDb.detail,
+	});
 };
 
 export const reportSignInFailure = async (
@@ -303,7 +342,11 @@ export const reportSignInFailure = async (
 };
 
 const reportSignInRecovered = async (input: string) => {
-	if (!requestTrail.some((entry) => entry.error)) return;
+	const worthReporting =
+		requestTrail.some((entry) => entry.error) ||
+		probeIndicatesStall(storageProbe) ||
+		usingFallbackStorage;
+	if (!worthReporting) return;
 	const device = await deviceContext();
 	const network = networkContext();
 	Sentry.withScope((scope) => {
@@ -318,6 +361,11 @@ export const asSignInError = (err: unknown): Error => {
 			`Couldn't reach ${unreachableHost}. Check your connection and try again.`,
 		);
 	}
+	if (probeIndicatesStall(storageProbe) || isStorageFailure(err)) {
+		return new Error(
+			"Sign-in couldn't start because this device's local storage stopped responding. Restarting the app usually clears it.",
+		);
+	}
 	return err instanceof Error ? err : new Error(String(err));
 };
 
@@ -325,6 +373,60 @@ let oAuthClient: undefined | BrowserOAuthClient;
 let agent: undefined | Agent;
 let pdsHost: undefined | string;
 let grantedScopes: undefined | string;
+let usingFallbackStorage = false;
+
+const FALLBACK_FLAG_KEY = "colibri:oauth-storage-fallback";
+
+const PRIMARY_DATABASE = {
+	durability: "relaxed",
+	cleanupInterval: 300_000,
+} as const;
+
+const FALLBACK_DATABASE = {
+	backend: "localstorage",
+	name: "@atproto-oauth-client-fallback",
+	cleanupInterval: 300_000,
+} as const;
+
+const fallbackStorageRequested = (): boolean => {
+	try {
+		return localStorage.getItem(FALLBACK_FLAG_KEY) === "1";
+	} catch {
+		return false;
+	}
+};
+
+const markFallbackStorage = () => {
+	try {
+		localStorage.setItem(FALLBACK_FLAG_KEY, "1");
+	} catch {}
+};
+
+export const isStorageFailure = (err: unknown): boolean =>
+	err instanceof Error &&
+	(err.name === "DBUnavailableError" ||
+		err.name === "StorageStallError" ||
+		err.message.includes("IndexedDB unavailable"));
+
+class StorageStallError extends Error {
+	constructor(message: string) {
+		super(message);
+		this.name = "StorageStallError";
+	}
+}
+
+const loadOAuthClient = (
+	databaseOptions: typeof PRIMARY_DATABASE | typeof FALLBACK_DATABASE,
+) =>
+	BrowserOAuthClient.load({
+		clientId,
+		// Resolve handles via the configured AppView (defaults to
+		// api.colibri.social) rather than a hard-coded origin, so self-hosted
+		// installs stay self-contained and don't depend on colibri.social.
+		handleResolver: getAppViewHost("http"),
+		fetch: preflightFetch,
+		databaseOptions,
+	});
 
 const clearDisallowedSession = async (sub: string) => {
 	try {
@@ -372,18 +474,22 @@ const getClient: ClientGetter = () => {
 	});
 };
 
+const resetSession = () => {
+	localStorage.removeItem("sub");
+	agent = undefined;
+	pdsHost = undefined;
+	grantedScopes = undefined;
+};
+
 const init = async () => {
 	if (oAuthClient) return;
 
+	usingFallbackStorage = fallbackStorageRequested();
+
 	try {
-		oAuthClient = await BrowserOAuthClient.load({
-			clientId,
-			// Resolve handles via the configured AppView (defaults to
-			// api.colibri.social) rather than a hard-coded origin, so self-hosted
-			// installs stay self-contained and don't depend on colibri.social.
-			handleResolver: getAppViewHost("http"),
-			fetch: preflightFetch,
-		});
+		oAuthClient = await loadOAuthClient(
+			usingFallbackStorage ? FALLBACK_DATABASE : PRIMARY_DATABASE,
+		);
 	} catch (e) {
 		console.error(e);
 		return;
@@ -397,6 +503,62 @@ const init = async () => {
 	}
 
 	try {
+		await restoreExistingSession();
+	} catch (e) {
+		if (isStorageFailure(e) && !usingFallbackStorage) {
+			console.warn(
+				"[auth] IndexedDB is unusable, retrying with localStorage-backed OAuth storage",
+				e,
+			);
+			Sentry.addBreadcrumb({
+				category: "oauth.storage",
+				level: "warning",
+				message: "restore fell back to localStorage storage",
+			});
+			markFallbackStorage();
+			usingFallbackStorage = true;
+			resetSession();
+			try {
+				oAuthClient = await loadOAuthClient(FALLBACK_DATABASE);
+				await restoreExistingSession();
+			} catch (fallbackError) {
+				console.error(fallbackError);
+				resetSession();
+			}
+		} else {
+			console.error(e);
+			resetSession();
+		}
+	}
+
+	if (!agent) return;
+
+	try {
+		const didDoc = (await (
+			await fetch(
+				`${getAppViewHost("http")}/xrpc/com.atproto.identity.resolveDid?did=${agent.did!}`,
+			)
+		).json()) as DidDocument;
+
+		if (!didDoc.service) {
+			throw new Error(
+				`DID document for ${agent.did!} did not include any services.`,
+			);
+		}
+
+		pdsHost = didDoc.service
+			.find((x) => x.id === "#atproto_pds")
+			?.serviceEndpoint.toString();
+	} catch (e) {
+		console.error(e);
+	}
+};
+
+const restoreExistingSession = async () => {
+	const client = oAuthClient;
+	if (!client) return;
+
+	{
 		if (window.location.hash.length > 0) {
 			console.info(
 				"[auth] Attempting to received session from callback parameters...",
@@ -405,7 +567,7 @@ const init = async () => {
 				window.location.hash.replace("#", "?"),
 			);
 
-			const callbackSession = await oAuthClient.callback(searchParams);
+			const callbackSession = await client.callback(searchParams);
 
 			if (callbackSession && !window.location.href.startsWith("/app")) {
 				if (!isAllowedDid(callbackSession.session.sub)) {
@@ -422,14 +584,14 @@ const init = async () => {
 			}
 		}
 
-		let result = await oAuthClient.init();
+		let result = await client.init();
 
 		// We recover the sub from local storage to restore the session
 		if (!result) {
 			const preSetSub = localStorage.getItem("sub");
 
 			if (preSetSub) {
-				const restored = await oAuthClient.restore(preSetSub);
+				const restored = await client.restore(preSetSub);
 				result = { session: restored, state: null };
 			} else {
 				console.info("[auth] No session found.");
@@ -473,35 +635,6 @@ const init = async () => {
 				console.warn("[auth] Forced token refresh failed", e);
 			}
 		}
-	} catch (e) {
-		console.error(e);
-		localStorage.removeItem("sub");
-		agent = undefined;
-		pdsHost = undefined;
-		grantedScopes = undefined;
-		return;
-	}
-
-	if (!agent) return;
-
-	try {
-		const didDoc = (await (
-			await fetch(
-				`${getAppViewHost("http")}/xrpc/com.atproto.identity.resolveDid?did=${agent.did!}`,
-			)
-		).json()) as DidDocument;
-
-		if (!didDoc.service) {
-			throw new Error(
-				`DID document for ${agent.did!} did not include any services.`,
-			);
-		}
-
-		pdsHost = didDoc.service
-			.find((x) => x.id === "#atproto_pds")
-			?.serviceEndpoint.toString();
-	} catch (e) {
-		console.error(e);
 	}
 };
 
@@ -574,19 +707,98 @@ const runSignIn = async (
 	);
 };
 
+const withPreNetworkWatchdog = <T>(work: Promise<T>): Promise<T> => {
+	const baseline = requestsStarted;
+
+	return new Promise<T>((resolve, reject) => {
+		const timer = setTimeout(() => {
+			if (requestsStarted === baseline) {
+				reject(
+					new StorageStallError(
+						"Sign-in made no network request before timing out",
+					),
+				);
+			}
+		}, OAUTH_PRE_NETWORK_TIMEOUT_MS);
+
+		work.then(
+			(value) => {
+				clearTimeout(timer);
+				resolve(value);
+			},
+			(err) => {
+				clearTimeout(timer);
+				reject(err);
+			},
+		);
+	});
+};
+
+const attemptSignIn = (
+	client: BrowserOAuthClient,
+	input: string,
+	options: SignInOptions,
+): Promise<void> =>
+	withPreNetworkWatchdog(
+		runSignIn(
+			client,
+			input,
+			options,
+			AbortSignal.timeout(OAUTH_SIGNIN_TIMEOUT_MS),
+		),
+	);
+
 export const startOAuthSignIn = async (
 	client: BrowserOAuthClient,
 	input: string,
 	options: SignInOptions,
 ): Promise<void> => {
 	if (attemptStartedAt === undefined) beginSignInAttempt();
-	const signal = AbortSignal.timeout(OAUTH_SIGNIN_TIMEOUT_MS);
+
+	storageProbe = await probeStorage();
+	const probeSummary = summarizeProbe(storageProbe);
+	console.info(`[auth] storage probe: ${probeSummary}`);
+	Sentry.addBreadcrumb({
+		category: "oauth.storage",
+		level: probeIndicatesStall(storageProbe) ? "warning" : "info",
+		message: probeSummary,
+	});
 
 	try {
-		await runSignIn(client, input, options, signal);
+		await attemptSignIn(client, input, options);
 	} catch (err) {
-		await reportSignInFailure(err, input, "authorize");
-		throw asSignInError(err);
+		const storageAtFault =
+			isStorageFailure(err) || probeIndicatesStall(storageProbe);
+
+		if (!storageAtFault || usingFallbackStorage) {
+			await reportSignInFailure(err, input, "authorize");
+			throw asSignInError(err);
+		}
+
+		console.warn(
+			"[auth] sign-in stalled in local storage, retrying with localStorage-backed OAuth storage",
+			err,
+		);
+		Sentry.addBreadcrumb({
+			category: "oauth.storage",
+			level: "warning",
+			message: "sign-in fell back to localStorage storage",
+		});
+
+		await wait(OAUTH_FALLBACK_DELAY_MS);
+
+		try {
+			markFallbackStorage();
+			usingFallbackStorage = true;
+			oAuthClient = await loadOAuthClient(FALLBACK_DATABASE);
+			await attemptSignIn(oAuthClient, input, options);
+		} catch (fallbackError) {
+			await reportSignInFailure(fallbackError, input, "authorize-fallback");
+			throw asSignInError(fallbackError);
+		}
+
+		await reportSignInRecovered(input);
+		return;
 	}
 
 	await reportSignInRecovered(input);
@@ -600,6 +812,7 @@ export const completeNativeOAuth = async (
 	client: BrowserOAuthClient,
 	callbackUrl: string,
 ): Promise<boolean> => {
+	const active = oAuthClient ?? client;
 	const url = new URL(callbackUrl);
 	const raw = url.search ? url.search.slice(1) : url.hash.slice(1);
 	const params = new URLSearchParams(raw);
@@ -608,10 +821,10 @@ export const completeNativeOAuth = async (
 		return false;
 	}
 
-	const { session } = await client.callback(params);
+	const { session } = await active.callback(params);
 	if (!isAllowedDid(session.sub)) {
 		try {
-			await client.revoke(session.sub);
+			await active.revoke(session.sub);
 		} catch {}
 		localStorage.removeItem("sub");
 		return false;

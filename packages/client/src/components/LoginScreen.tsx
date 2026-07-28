@@ -12,6 +12,7 @@ import {
 	asSignInError,
 	beginSignInAttempt,
 	endSignInAttempt,
+	noteSignInHandle,
 	preflightFetch,
 	reportSignInFailure,
 	startOAuthSignIn,
@@ -205,7 +206,7 @@ const LoginScreenContent: Component = () => {
 	const triggerLogin = async (knownDid?: string) => {
 		if (loading() === true || !auth) return;
 
-		const input = handle().trim().replace(/^@/, "");
+		const input = handle().trim().replace(/^@/, "").toLowerCase();
 		if (input.length === 0) {
 			setMissingHandle(true);
 			return;
@@ -214,6 +215,7 @@ const LoginScreenContent: Component = () => {
 		setLoading(true);
 		setNotAllowed(false);
 		beginSignInAttempt();
+		noteSignInHandle(input);
 
 		try {
 			const did = knownDid ?? (await resolveHandleToDid(input));
@@ -223,7 +225,7 @@ const LoginScreenContent: Component = () => {
 				return;
 			}
 
-			await startOAuthSignIn(auth.client, input, {
+			await startOAuthSignIn(auth.client, did, {
 				scope: buildScopes(getAppViewDid()).join(" "),
 			});
 		} catch (err) {
@@ -310,7 +312,15 @@ const LoginScreenContent: Component = () => {
 									</SearchItem>
 								)}
 							>
-								<SearchControl aria-label="Handle" />
+								<SearchControl
+									aria-label="Handle"
+									inputProps={{
+										autocapitalize: "none",
+										autocorrect: "off",
+										autocomplete: "username",
+										spellcheck: false,
+									}}
+								/>
 								<SearchPortal>
 									<SearchContent style={{ "max-height": dropdownMaxHeight() }}>
 										<SearchListbox class="m-0" />

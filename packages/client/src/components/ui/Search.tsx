@@ -80,6 +80,7 @@ export type SearchControlProps<T extends ValidComponent = "div"> =
 	ComponentProps<typeof SearchPrimitive.Control<T>> & {
 		leftIndicator?: Accessor<JSX.Element>;
 		rightIndicator?: Accessor<JSX.Element>;
+		inputProps?: ComponentProps<typeof SearchPrimitive.Input>;
 	};
 
 export const SearchControl = <T extends ValidComponent = "div">(
@@ -89,6 +90,7 @@ export const SearchControl = <T extends ValidComponent = "div">(
 		"class",
 		"leftIndicator",
 		"rightIndicator",
+		"inputProps",
 	]);
 
 	return (
@@ -112,6 +114,7 @@ export const SearchControl = <T extends ValidComponent = "div">(
 						? "pr-3"
 						: null,
 				)}
+				{...props.inputProps}
 			/>
 			<Show
 				when={!props.rightIndicator?.() && !props.leftIndicator?.()}

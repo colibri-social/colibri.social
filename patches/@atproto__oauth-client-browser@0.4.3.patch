@@ -1,7 +1,45 @@
+diff --git a/dist/browser-oauth-client.d.ts b/dist/browser-oauth-client.d.ts
+index e2f90a417dcf1f09993aaeed21cbc272300b5163..3e50099015a2413d838c2d2d66e9aa874fb64d09 100644
+--- a/dist/browser-oauth-client.d.ts
++++ b/dist/browser-oauth-client.d.ts
+@@ -1,10 +1,12 @@
+ import { AuthorizeOptions, Fetch, OAuthClient, OAuthClientOptions, OAuthSession } from '@atproto/oauth-client';
+ import { OAuthClientMetadataInput, OAuthResponseMode } from '@atproto/oauth-types';
++import { BrowserOAuthDatabaseOptions } from './browser-oauth-database.js';
+ import { Simplify } from './util.js';
+ export type BrowserOAuthClientOptions = Simplify<{
+     clientMetadata?: Readonly<OAuthClientMetadataInput>;
+     responseMode?: Exclude<OAuthResponseMode, 'form_post'>;
+     fetch?: Fetch;
++    databaseOptions?: BrowserOAuthDatabaseOptions;
+ } & Omit<OAuthClientOptions, 'clientMetadata' | 'responseMode' | 'keyset' | 'fetch' | 'runtimeImplementation' | 'sessionStore' | 'stateStore' | 'didCache' | 'handleCache' | 'dpopNonceCache' | 'authorizationServerMetadataCache' | 'protectedResourceMetadataCache'>>;
+ export type BrowserOAuthClientLoadOptions = Simplify<{
+     clientId: string;
 diff --git a/dist/browser-oauth-client.js b/dist/browser-oauth-client.js
-index 82e957444a392a5ba34d4fd2f3c36c8e7b362625..632247d52b6288f7663810b274573deec5e638eb 100644
+index 82e957444a392a5ba34d4fd2f3c36c8e7b362625..9f4e6b07fc99428a9aac57d659f4f11007bedc27 100644
 --- a/dist/browser-oauth-client.js
 +++ b/dist/browser-oauth-client.js
+@@ -28,9 +28,9 @@ export class BrowserOAuthClient extends OAuthClient {
+             throw new TypeError(`Invalid client id: ${clientId}`);
+         }
+     }
+-    constructor({ clientMetadata = atprotoLoopbackClientMetadata(buildLoopbackClientId(window.location)), 
++    constructor({ clientMetadata = atprotoLoopbackClientMetadata(buildLoopbackClientId(window.location)),
+     // "fragment" is a safer default as the query params will not be sent to the server
+-    responseMode = 'fragment', ...options }) {
++    responseMode = 'fragment', databaseOptions, ...options }) {
+         if (!globalThis.crypto?.subtle) {
+             throw new Error('WebCrypto API is required');
+         }
+@@ -38,7 +38,7 @@ export class BrowserOAuthClient extends OAuthClient {
+             // Make sure "form_post" is not used as it is not supported in the browser
+             throw new TypeError(`Invalid response mode: ${responseMode}`);
+         }
+-        const database = new BrowserOAuthDatabase();
++        const database = new BrowserOAuthDatabase(databaseOptions);
+         super({
+             ...options,
+             clientMetadata,
 @@ -65,7 +65,7 @@ export class BrowserOAuthClient extends OAuthClient {
              onUpdate: async (sub, session) => {
                  syncChannel.postMessage({
@@ -11,8 +49,25 @@ index 82e957444a392a5ba34d4fd2f3c36c8e7b362625..632247d52b6288f7663810b274573dee
                  });
                  return options.onUpdate?.call(null, sub, session);
              },
+diff --git a/dist/browser-oauth-database.d.ts b/dist/browser-oauth-database.d.ts
+index 14c1c57a665854fb3ebe4789f59e317f4d305d3c..19a1faea169e478ce0396c469b74f0d4d5611873 100644
+--- a/dist/browser-oauth-database.d.ts
++++ b/dist/browser-oauth-database.d.ts
+@@ -30,10 +30,12 @@ export type BrowserOAuthDatabaseOptions = {
+     name?: string;
+     durability?: 'strict' | 'relaxed';
+     cleanupInterval?: number;
++    backend?: 'indexeddb' | 'localstorage';
+ };
+ export declare class BrowserOAuthDatabase {
+     #private;
+     constructor(options?: BrowserOAuthDatabaseOptions);
++    get backend(): 'indexeddb' | 'localstorage';
+     protected run<N extends keyof Schema, R>(storeName: N, mode: 'readonly' | 'readwrite', fn: (s: DBObjectStore<Schema[N]>) => R | Promise<R>): Promise<R>;
+     protected createStore<N extends keyof Schema, V extends Value>(name: N, { encode, decode, expiresAt, }: {
+         encode: (value: V) => Schema[N]['value'] | PromiseLike<Schema[N]['value']>;
 diff --git a/dist/browser-oauth-database.js b/dist/browser-oauth-database.js
-index d35656518ba2f180510f54570a1ac34f07b1604c..9dcb9adad7b3bf4deb1f3341cfdc93eb03e7bcfd 100644
+index d35656518ba2f180510f54570a1ac34f07b1604c..3b3dbf32aa2dc0f83f4b9712fa0fcb8106426f4d 100644
 --- a/dist/browser-oauth-database.js
 +++ b/dist/browser-oauth-database.js
 @@ -1,15 +1,40 @@
@@ -57,6 +112,110 @@ index d35656518ba2f180510f54570a1ac34f07b1604c..9dcb9adad7b3bf4deb1f3341cfdc93eb
      return WebcryptoKey.fromKeypair(encoded.keyPair, encoded.keyId);
  }
  const STORES = [
+@@ -21,23 +46,59 @@ const STORES = [
+     'authorizationServerMetadataCache',
+     'protectedResourceMetadataCache',
+ ];
++function localStorageBackedStore(prefix, storeName) {
++    const keyOf = (key) => `${prefix}:${storeName}:${String(key)}`;
++    return {
++        get: (key) => {
++            const raw = localStorage.getItem(keyOf(key));
++            if (raw == null)
++                return undefined;
++            try {
++                return JSON.parse(raw);
++            }
++            catch {
++                localStorage.removeItem(keyOf(key));
++                return undefined;
++            }
++        },
++        put: (item, key) => {
++            localStorage.setItem(keyOf(key), JSON.stringify(item));
++        },
++        delete: (key) => {
++            localStorage.removeItem(keyOf(key));
++        },
++    };
++}
+ export class BrowserOAuthDatabase {
+     #dbPromise;
+     #cleanupInterval;
++    #backend;
++    #name;
+     constructor(options) {
+-        this.#dbPromise = DB.open(options?.name ?? '@atproto-oauth-client', [
+-            (db) => {
+-                for (const name of STORES) {
+-                    const store = db.createObjectStore(name, { autoIncrement: true });
+-                    store.createIndex('expiresAt', 'expiresAt', { unique: false });
+-                }
+-            },
+-        ], { durability: options?.durability ?? 'strict' });
++        this.#backend = options?.backend ?? 'indexeddb';
++        this.#name = options?.name ?? '@atproto-oauth-client';
++        this.#dbPromise =
++            this.#backend === 'localstorage'
++                ? undefined
++                : DB.open(this.#name, [
++                    (db) => {
++                        for (const name of STORES) {
++                            const store = db.createObjectStore(name, { autoIncrement: true });
++                            store.createIndex('expiresAt', 'expiresAt', { unique: false });
++                        }
++                    },
++                ], { durability: options?.durability ?? 'strict' });
+         this.#cleanupInterval = setInterval(() => {
+-            void this.cleanup();
++            void this.cleanup().catch(() => null);
+         }, options?.cleanupInterval ?? 30e3);
+     }
++    get backend() {
++        return this.#backend;
++    }
+     async run(storeName, mode, fn) {
++        if (this.#backend === 'localstorage') {
++            return await fn(localStorageBackedStore(this.#name, storeName));
++        }
+         const db = await this.#dbPromise;
+         return await db.transaction([storeName], mode, (tx) => fn(tx.objectStore(storeName)));
+     }
+@@ -136,6 +197,25 @@ export class BrowserOAuthDatabase {
+         });
+     }
+     async cleanup() {
++        if (this.#backend === 'localstorage') {
++            const now = Date.now();
++            const prefix = `${this.#name}:`;
++            for (let i = localStorage.length - 1; i >= 0; --i) {
++                const key = localStorage.key(i);
++                if (key == null || !key.startsWith(prefix))
++                    continue;
++                try {
++                    const item = JSON.parse(localStorage.getItem(key) ?? 'null');
++                    if (item?.expiresAt != null && new Date(item.expiresAt).getTime() < now) {
++                        localStorage.removeItem(key);
++                    }
++                }
++                catch {
++                    localStorage.removeItem(key);
++                }
++            }
++            return;
++        }
+         const db = await this.#dbPromise;
+         for (const name of STORES) {
+             await db.transaction([name], 'readwrite', (tx) => tx
+@@ -147,6 +227,8 @@ export class BrowserOAuthDatabase {
+     async [Symbol.asyncDispose]() {
+         clearInterval(this.#cleanupInterval);
+         this.#cleanupInterval = undefined;
++        if (this.#backend === 'localstorage')
++            return;
+         const dbPromise = this.#dbPromise;
+         this.#dbPromise = Promise.reject(new Error('Database has been disposed'));
+         // Avoid "unhandled promise rejection"
 diff --git a/dist/browser-runtime-implementation.js b/dist/browser-runtime-implementation.js
 index 599f9b81fee5c87cc006fbab8902779f21a9a17c..e9a15956a53df7d617dc34cd8819f34915d4e059 100644
 --- a/dist/browser-runtime-implementation.js
@@ -70,3 +229,100 @@ index 599f9b81fee5c87cc006fbab8902779f21a9a17c..e9a15956a53df7d617dc34cd8819f349
      }
      getRandomValues(byteLength) {
          return crypto.getRandomValues(new Uint8Array(byteLength));
+diff --git a/dist/indexed-db/db.js b/dist/indexed-db/db.js
+index d28c3f95a7a40fb0e2489e57e1fd8636513bd90d..f07e08a7235e371de6f327999c43a992f5ffe71b 100644
+--- a/dist/indexed-db/db.js
++++ b/dist/indexed-db/db.js
+@@ -1,11 +1,32 @@
+ import 'core-js/es/symbol/dispose.js';
+ import { DBTransaction } from './db-transaction.js';
++export const DB_OPEN_TIMEOUT_MS = 8000;
++export const DB_TRANSACTION_TIMEOUT_MS = 8000;
++export class DBUnavailableError extends Error {
++    constructor(reason, cause) {
++        super(`IndexedDB unavailable: ${reason}`, cause ? { cause } : undefined);
++        this.name = 'DBUnavailableError';
++        this.reason = reason;
++    }
++}
+ export class DB {
+     static async open(dbName, migrations, txOptions) {
+         const db = await new Promise((resolve, reject) => {
++            let settled = false;
++            const settle = (fn, value) => {
++                if (settled)
++                    return;
++                settled = true;
++                clearTimeout(timer);
++                fn(value);
++            };
++            const timer = setTimeout(() => {
++                settle(reject, new DBUnavailableError('open timed out'));
++            }, DB_OPEN_TIMEOUT_MS);
+             const request = indexedDB.open(dbName, migrations.length);
+-            request.onerror = () => reject(request.error);
+-            request.onsuccess = () => resolve(request.result);
++            request.onerror = () => settle(reject, new DBUnavailableError('open failed', request.error));
++            request.onsuccess = () => settle(resolve, request.result);
++            request.onblocked = () => settle(reject, new DBUnavailableError('open blocked by another connection'));
+             request.onupgradeneeded = ({ oldVersion, newVersion }) => {
+                 const db = request.result;
+                 try {
+@@ -19,7 +40,7 @@ export class DB {
+                 }
+                 catch (err) {
+                     db.close();
+-                    reject(err);
++                    settle(reject, err);
+                 }
+             };
+         });
+@@ -55,17 +76,35 @@ export class DB {
+     async transaction(storeNames, mode, run) {
+         // eslint-disable-next-line no-async-promise-executor
+         return new Promise(async (resolve, reject) => {
++            let settled = false;
++            let timer;
++            const settle = (fn, value) => {
++                if (settled)
++                    return;
++                settled = true;
++                clearTimeout(timer);
++                fn(value);
++            };
+             try {
+                 const tx = this.db.transaction(storeNames, mode, this.txOptions);
++                timer = setTimeout(() => {
++                    try {
++                        tx.abort();
++                    }
++                    catch {
++                        // the transaction may already be finishing
++                    }
++                    settle(reject, new DBUnavailableError(`transaction on ${String(storeNames)} timed out`));
++                }, DB_TRANSACTION_TIMEOUT_MS);
+                 let result = { done: false };
+                 tx.oncomplete = () => {
+                     if (result.done)
+-                        resolve(result.value);
++                        settle(resolve, result.value);
+                     else
+-                        reject(new Error('Transaction completed without result'));
++                        settle(reject, new Error('Transaction completed without result'));
+                 };
+-                tx.onerror = () => reject(tx.error);
+-                tx.onabort = () => reject(tx.error || new Error('Transaction aborted'));
++                tx.onerror = () => settle(reject, tx.error);
++                tx.onabort = () => settle(reject, tx.error || new Error('Transaction aborted'));
+                 try {
+                     const value = await run(new DBTransaction(tx));
+                     result = { done: true, value };
+@@ -77,7 +116,7 @@ export class DB {
+                 }
+             }
+             catch (err) {
+-                reject(err);
++                settle(reject, err);
+             }
+         });
+     }
