@@ -442,7 +442,7 @@ importers:
         specifier: ^2.0.0
         version: 2.0.0(supports-color@10.2.2)
       mediasoup-client:
-        specifier: ^3.7.0
+        specifier: ^3.21.0
         version: 3.21.0
       micromark-extension-gfm-strikethrough:
         specifier: ^2.1.0

@@ -1,3 +1,4 @@
+import * as Sentry from "@sentry/solid";
 import type { types } from "mediasoup-client";
 import { Device } from "mediasoup-client";
 import {
@@ -23,6 +24,7 @@ import {
 	getAppViewHostFromDid,
 	getAppViewServiceRef,
 } from "../utils/appview";
+import { pickVoiceHandler } from "../utils/voice-device";
 import { useAuthContext } from "./Auth";
 import { useSocketContext } from "./Socket";
 import { useSounds } from "./Sounds";
@@ -240,6 +242,40 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 
 	const dbg = (...args: unknown[]): void => {
 		console.info("[voice/debug]", ...args);
+	};
+
+	const reportVoiceFailure = (err: unknown, stage: string): void => {
+		Sentry.withScope((scope) => {
+			scope.setTag("voice.stage", stage);
+			scope.setContext("voice", {
+				handler: device?.handlerName ?? "none",
+				userAgent:
+					typeof navigator === "undefined" ? "unknown" : navigator.userAgent,
+				channel: voiceData.connection.uri,
+				hubDid: voiceData.connection.hubDid,
+				state: voiceData.connection.state,
+			});
+			Sentry.captureException(
+				err instanceof Error ? err : new Error(String(err)),
+			);
+		});
+	};
+
+	const failSetup = (err: unknown): void => {
+		if (voiceData.connection.state === ConnectionState.Disconnected) return;
+
+		dbg("✗ setupDevice failed", err);
+		console.error("[voice] setup failed", err);
+		reportVoiceFailure(err, "setup");
+
+		toast.error("Couldn't join the voice channel", {
+			description:
+				err instanceof Error && err.name === "UnsupportedError"
+					? "Voice isn't supported by this device's browser engine yet."
+					: "Something went wrong while setting up the connection.",
+		});
+
+		disconnect();
 	};
 
 	const send = (message: Record<string, unknown>): void => {
@@ -704,7 +740,15 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 			userPreferences.preferences().voice.selfDeafened,
 		);
 
-		device = new Device();
+		const handlerName = pickVoiceHandler();
+		dbg("device handler", { handlerName, userAgent: navigator.userAgent });
+		Sentry.addBreadcrumb({
+			category: "voice.device",
+			level: handlerName ? "info" : "warning",
+			message: `handler ${handlerName ?? "none"}`,
+		});
+
+		device = new Device({ handlerName });
 		await device.load({ routerRtpCapabilities: message.routerRtpCapabilities });
 		dbg("device loaded", { canProduceAudio: device.canProduce("audio") });
 
@@ -816,6 +860,10 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 			await startMic();
 		} catch (err) {
 			console.error("[voice] microphone unavailable, joining listen-only", err);
+			reportVoiceFailure(err, "mic");
+			toast("Joined without a microphone", {
+				description: "Colibri couldn't access your input device.",
+			});
 		}
 
 		ready = true;
@@ -837,14 +885,18 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 		startStatsMonitor();
 
 		const queued = pendingConsume.splice(0, pendingConsume.length);
-		for (const producerId of queued) void consumeProducer(producerId);
+		for (const producerId of queued) {
+			consumeProducer(producerId).catch((err) =>
+				reportVoiceFailure(err, "consume"),
+			);
+		}
 	};
 
 	const handleServerMessage = (message: ServerMessage): void => {
 		dbg("← recv", message.action, message);
 		switch (message.action) {
 			case "init":
-				void setupDevice(message);
+				setupDevice(message).catch(failSetup);
 				break;
 			case "connectedProducerTransport":
 			case "connectedConsumerTransport":
@@ -864,8 +916,11 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 					kind: message.kind,
 					source: message.source,
 				});
-				if (ready) void consumeProducer(message.producerId);
-				else pendingConsume.push(message.producerId);
+				if (ready) {
+					consumeProducer(message.producerId).catch((err) =>
+						reportVoiceFailure(err, "consume"),
+					);
+				} else pendingConsume.push(message.producerId);
 				break;
 			case "producerRemoved":
 				removeProducer(message.producerId);
