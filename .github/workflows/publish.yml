@@ -21,6 +21,7 @@ concurrency:
 
 jobs:
   publish-tauri:
+    name: Publish (${{ matrix.label }})
     if: ${{ !inputs.appstore_only }}
     permissions:
       contents: write
@@ -29,16 +30,21 @@ jobs:
       matrix:
         include:
           - platform: "macos-latest"
+            label: "macOS"
             args: "--target universal-apple-darwin"
           - platform: "ubuntu-24.04"
+            label: "Linux x64"
             args: ""
             sentry-release: true
           - platform: "ubuntu-24.04-arm"
+            label: "Linux arm64"
             args: ""
           - platform: "windows-latest"
+            label: "Windows"
             args: "--bundles nsis"
           # Android configuration targeting ubuntu-latest
           - platform: "ubuntu-latest"
+            label: "Android"
             mobile: "android"
             is-android: true
 
@@ -373,15 +379,41 @@ jobs:
           fi
           exit 1
 
-      - name: Upload package to App Store Connect
+      - name: Render App Store release notes
         if: steps.validate.outputs.validated == 'true'
-        env:
-          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
-          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
         run: |
           set -euo pipefail
-          xcrun altool --upload-app -f "$PKG_PATH" -t macos \
-            --apiKey "$APPLE_API_KEY" --apiIssuer "$APPLE_API_ISSUER"
+          node --experimental-strip-types scripts/render-release-notes.ts \
+            --version="${{ inputs.version }}" --max=4000 \
+            --out="$RUNNER_TEMP/whats-new.txt"
+          cat "$RUNNER_TEMP/whats-new.txt"
+
+      - name: Set up Python
+        if: steps.validate.outputs.validated == 'true'
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install App Store Connect CLI
+        if: steps.validate.outputs.validated == 'true'
+        run: pip install --disable-pip-version-check codemagic-cli-tools==0.69.0
+
+      - name: Upload and submit to App Store
+        if: steps.validate.outputs.validated == 'true'
+        env:
+          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APPLE_API_ISSUER }}
+          APP_STORE_CONNECT_KEY_IDENTIFIER: ${{ secrets.APPLE_API_KEY }}
+        run: |
+          set -euo pipefail
+          app-store-connect publish \
+            --path "$PKG_PATH" \
+            --app-store \
+            --platform MAC_OS \
+            --version-string "$MAS_VERSION" \
+            --release-type AFTER_APPROVAL \
+            --cancel-previous-submissions \
+            --whats-new "@file:$RUNNER_TEMP/whats-new.txt" \
+            --max-build-processing-wait 45
 
       - name: Upload package artifact
         if: always()
@@ -535,11 +567,29 @@ jobs:
     needs: publish-tauri
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: setup node
+        uses: actions/setup-node@v6
+        with:
+          node-version: lts/*
+
       - name: Download AAB artifact
         uses: actions/download-artifact@v4
         with:
           name: android-aab
           path: dl
+
+      - name: Render Play release notes
+        run: |
+          set -euo pipefail
+          mkdir -p whatsnew
+          node --experimental-strip-types scripts/render-release-notes.ts \
+            --version="${{ inputs.version }}" --max=500 \
+            --out=whatsnew/whatsnew-en-US
+          cat whatsnew/whatsnew-en-US
 
       - name: Upload to Play (closed testing)
         uses: r0adkll/upload-google-play@v1
@@ -549,6 +599,7 @@ jobs:
           releaseFiles: dl/*.aab
           track: alpha
           status: completed
+          whatsNewDirectory: whatsnew
 
   msstore-build:
     if: ${{ !inputs.appstore_only }}

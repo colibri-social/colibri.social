@@ -56,6 +56,19 @@ Apple closes a version permanently once it has been approved: further uploads ar
 build number is. The `mas` job treats those two codes as benign, warns, keeps the signed `.pkg` as an
 artifact and skips the upload rather than failing the release. Any other error code still fails.
 
+### Review submission
+
+After a successful upload the `mas` job submits the build to App Review automatically, via
+`app-store-connect publish --app-store` from `codemagic-cli-tools`. It waits for Apple to finish
+processing the binary, creates the App Store version, attaches the build and submits, with
+`--release-type AFTER_APPROVAL` so an approved version goes live on its own, and
+`--cancel-previous-submissions` so a new release supersedes one still sitting in review.
+
+"What's New" is required for updates and is generated rather than written twice:
+`scripts/render-release-notes.ts` renders the entry for the release version out of `RELEASE_NOTES`
+(falling back to the newest entry if that exact version has none). The same script feeds the Play
+Store listing, trimmed to whole entries within Play's 500-character limit.
+
 To resubmit without cutting a release, dispatch `publish.yml` with `appstore_only` set. That skips
 every other channel, so it will not touch the GitHub release, the Homebrew cask, Scoop, Play or the
 Microsoft Store:
