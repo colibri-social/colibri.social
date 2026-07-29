@@ -6,6 +6,14 @@ on:
       version:
         description: "Version to build (e.g. 0.1.0-rc.3)."
         required: true
+      appstore:
+        description: "Also build and upload the Mac App Store package."
+        type: boolean
+        default: true
+
+concurrency:
+  group: publish-${{ inputs.version }}
+  cancel-in-progress: false
 
 jobs:
   publish-tauri:
@@ -19,6 +27,7 @@ jobs:
             args: "--target universal-apple-darwin"
           - platform: "ubuntu-24.04"
             args: ""
+            sentry-release: true
           - platform: "ubuntu-24.04-arm"
             args: ""
           - platform: "windows-latest"
@@ -44,26 +53,20 @@ jobs:
       - name: install frontend dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Build app
-        run: pnpm build
+      - name: Cache twemoji assets
+        uses: actions/cache@v4
+        with:
+          path: packages/assets/files/twemoji
+          key: twemoji-${{ runner.os }}-${{ hashFiles('packages/assets/scripts/fetch-emoji-assets.mjs', 'packages/client/package.json') }}
+
+      - name: Build frontend dependencies
+        run: pnpm --filter "@colibri-social/wrapper^..." build
 
       - name: install dependencies (ubuntu desktop only)
         if: (matrix.platform == 'ubuntu-24.04' || matrix.platform == 'ubuntu-24.04-arm') && !matrix.is-android
         run: |
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf xdg-utils
-
-      - name: setup pnpm
-        uses: pnpm/action-setup@v4
-
-      - name: setup node
-        uses: actions/setup-node@v6
-        with:
-          node-version: lts/*
-          cache: "pnpm"
-
-      - name: install frontend dependencies (for CLI access)
-        run: pnpm install --frozen-lockfile
 
       # Android Prerequisites: JDK & Android NDK/SDK configuration
       - name: set up JDK 17 (Android only)
@@ -88,15 +91,9 @@ jobs:
         uses: swatinem/rust-cache@v2
         with:
           workspaces: "packages/wrapper/src-tauri -> target"
-
-      # TODO(appstore): Only needed for Mac App Store submissions.
-      # Uncomment when producing a MAS build:
-      # - name: install Apple provisioning profile (macOS only)
-      #   if: matrix.platform == 'macos-latest'
-      #   env:
-      #     MAC_PROVISIONPROFILE: ${{ secrets.MAC_PROVISIONPROFILE }}
-      #   run: |
-      #     echo "$MAC_PROVISIONPROFILE" | base64 --decode > packages/wrapper/src-tauri/Colibri_Mac.provisionprofile
+          shared-key: tauri-${{ matrix.platform }}${{ matrix.is-android && '-android' || '' }}
+          cache-on-failure: true
+          save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - name: install App Store Connect API key (macOS only)
         if: matrix.platform == 'macos-latest'
@@ -160,6 +157,7 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_UPDATER_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_UPDATER_PASSWORD }}
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_RELEASE_UPLOAD: ${{ matrix.sentry-release && '1' || '' }}
           VITE_SENTRY_DSN: ${{ secrets.WRAPPER_SENTRY_DSN }}
           SENTRY_DSN: ${{ secrets.NATIVE_SENTRY_DSN }}
           # macOS Environment Variables
@@ -196,12 +194,17 @@ jobs:
           spctl --assess --type exec --verbose=4 "$APP"
 
       - name: Upload Rust debug symbols to Sentry
-        if: env.SENTRY_AUTH_TOKEN != ''
+        shell: bash
         env:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
           SENTRY_ORG: colibri-social
           SENTRY_PROJECT: rust-native-app
-        run: pnpm dlx @sentry/cli debug-files upload --include-sources packages/wrapper/src-tauri/target
+        run: |
+          if [ -z "${SENTRY_AUTH_TOKEN:-}" ]; then
+            echo "SENTRY_AUTH_TOKEN is not set, skipping debug symbol upload."
+            exit 0
+          fi
+          pnpm dlx @sentry/cli debug-files upload --include-sources packages/wrapper/src-tauri/target
 
       - name: Route AAB to Play, remove from release (Android only)
         if: matrix.is-android
@@ -224,6 +227,156 @@ jobs:
           name: android-aab
           path: aab-out/*.aab
           if-no-files-found: error
+
+  mas:
+    name: Mac App Store
+    if: ${{ inputs.appstore }}
+    runs-on: macos-latest
+    permissions:
+      contents: read
+    env:
+      APPLE_APP_SIGNING_IDENTITY: "Apple Distribution: Louis Escher (8V8SWK3942)"
+      APPLE_INSTALLER_SIGNING_IDENTITY: "3rd Party Mac Developer Installer: Louis Escher (8V8SWK3942)"
+      PKG_PATH: "packages/wrapper/src-tauri/Colibri Social (App Store).pkg"
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: setup pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: setup node
+        uses: actions/setup-node@v6
+        with:
+          node-version: lts/*
+          cache: "pnpm"
+
+      - name: install frontend dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Cache twemoji assets
+        uses: actions/cache@v4
+        with:
+          path: packages/assets/files/twemoji
+          key: twemoji-${{ runner.os }}-${{ hashFiles('packages/assets/scripts/fetch-emoji-assets.mjs', 'packages/client/package.json') }}
+
+      - name: Build frontend dependencies
+        run: pnpm --filter "@colibri-social/wrapper^..." build
+
+      - name: install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: "packages/wrapper/src-tauri -> target"
+          shared-key: mas-macos
+          cache-on-failure: true
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+
+      - name: install Apple provisioning profile
+        env:
+          MAC_PROVISIONPROFILE: ${{ secrets.MAC_PROVISIONPROFILE }}
+        run: |
+          set -euo pipefail
+          echo "$MAC_PROVISIONPROFILE" | base64 --decode > packages/wrapper/src-tauri/Colibri_Mac.provisionprofile
+          test -s packages/wrapper/src-tauri/Colibri_Mac.provisionprofile
+
+      - name: import signing certificates
+        env:
+          APPLE_DISTRIBUTION_CERTIFICATE: ${{ secrets.IOS_CERTIFICATE }}
+          APPLE_DISTRIBUTION_CERTIFICATE_PASSWORD: ${{ secrets.IOS_CERTIFICATE_PASSWORD }}
+          MAC_INSTALLER_CERTIFICATE: ${{ secrets.MAC_INSTALLER_CERTIFICATE }}
+          MAC_INSTALLER_CERTIFICATE_PASSWORD: ${{ secrets.MAC_INSTALLER_CERTIFICATE_PASSWORD }}
+        run: |
+          set -euo pipefail
+          KEYCHAIN="$RUNNER_TEMP/colibri-mas.keychain-db"
+          KEYCHAIN_PASSWORD=$(uuidgen)
+          echo "MAS_KEYCHAIN=$KEYCHAIN" >> "$GITHUB_ENV"
+
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+
+          echo "$APPLE_DISTRIBUTION_CERTIFICATE" | base64 --decode > "$RUNNER_TEMP/distribution.p12"
+          echo "$MAC_INSTALLER_CERTIFICATE" | base64 --decode > "$RUNNER_TEMP/installer.p12"
+
+          security import "$RUNNER_TEMP/distribution.p12" -k "$KEYCHAIN" \
+            -P "$APPLE_DISTRIBUTION_CERTIFICATE_PASSWORD" -A
+          security import "$RUNNER_TEMP/installer.p12" -k "$KEYCHAIN" \
+            -P "$MAC_INSTALLER_CERTIFICATE_PASSWORD" -A
+          rm -f "$RUNNER_TEMP/distribution.p12" "$RUNNER_TEMP/installer.p12"
+
+          security set-key-partition-list -S apple-tool:,apple:,codesign: \
+            -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN" >/dev/null
+
+          EXISTING=$(security list-keychains -d user | tr -d '"' | tr '\n' ' ')
+          security list-keychains -d user -s "$KEYCHAIN" $EXISTING
+          security default-keychain -s "$KEYCHAIN"
+
+          security find-identity -v "$KEYCHAIN"
+          security find-identity -v "$KEYCHAIN" | grep -qF "$APPLE_APP_SIGNING_IDENTITY"
+          security find-identity -v "$KEYCHAIN" | grep -qF "$APPLE_INSTALLER_SIGNING_IDENTITY"
+
+      - name: install App Store Connect API key
+        env:
+          APPLE_API_KEY_P8: ${{ secrets.APPLE_API_KEY_P8 }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.appstoreconnect/private_keys
+          echo "$APPLE_API_KEY_P8" > "$HOME/.appstoreconnect/private_keys/AuthKey_${APPLE_API_KEY}.p8"
+
+      - name: Sync App Store version
+        run: |
+          set -euo pipefail
+          MAS_VERSION=$(node -p "require('./packages/wrapper/src-tauri/tauri.appstore.conf.json').version")
+          echo "App Store marketing version: $MAS_VERSION (build $GITHUB_RUN_NUMBER)"
+          node packages/wrapper/scripts/set-version.mjs "$MAS_VERSION" --bundle-version="$GITHUB_RUN_NUMBER"
+
+      - name: Build and sign App Store package
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_RELEASE_UPLOAD: "1"
+          VITE_SENTRY_DSN: ${{ secrets.WRAPPER_SENTRY_DSN }}
+          SENTRY_DSN: ${{ secrets.NATIVE_SENTRY_DSN }}
+        run: pnpm --filter @colibri-social/wrapper build:macos:appstore
+
+      - name: Validate package with App Store Connect
+        env:
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+        run: |
+          set -euo pipefail
+          xcrun altool --validate-app -f "$PKG_PATH" -t macos \
+            --apiKey "$APPLE_API_KEY" --apiIssuer "$APPLE_API_ISSUER"
+
+      - name: Upload package to App Store Connect
+        env:
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+        run: |
+          set -euo pipefail
+          xcrun altool --upload-app -f "$PKG_PATH" -t macos \
+            --apiKey "$APPLE_API_KEY" --apiIssuer "$APPLE_API_ISSUER"
+
+      - name: Upload package artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-appstore-pkg
+          path: packages/wrapper/src-tauri/*.pkg
+          if-no-files-found: warn
+
+      - name: Clean up keychain
+        if: always()
+        run: |
+          if [ -n "${MAS_KEYCHAIN:-}" ] && [ -f "$MAS_KEYCHAIN" ]; then
+            security delete-keychain "$MAS_KEYCHAIN" || true
+          fi
 
   homebrew:
     needs: publish-tauri
@@ -394,8 +547,14 @@ jobs:
       - name: install frontend dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Build app
-        run: pnpm build
+      - name: Cache twemoji assets
+        uses: actions/cache@v4
+        with:
+          path: packages/assets/files/twemoji
+          key: twemoji-${{ runner.os }}-${{ hashFiles('packages/assets/scripts/fetch-emoji-assets.mjs', 'packages/client/package.json') }}
+
+      - name: Build frontend dependencies
+        run: pnpm --filter "@colibri-social/wrapper^..." build
 
       - name: install Rust stable
         uses: dtolnay/rust-toolchain@stable
@@ -404,6 +563,9 @@ jobs:
         uses: swatinem/rust-cache@v2
         with:
           workspaces: "packages/wrapper/src-tauri -> target"
+          shared-key: tauri-windows-latest
+          cache-on-failure: true
+          save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - name: install msixbundle-cli
         shell: bash
@@ -412,6 +574,9 @@ jobs:
       - name: verify msixbundle-cli runs
         shell: pwsh
         run: msixbundle-cli --version
+
+      - name: Sync version
+        run: node packages/wrapper/scripts/set-version.mjs "${{ inputs.version }}"
 
       - name: Compute Store version and Windows build overrides
         shell: bash

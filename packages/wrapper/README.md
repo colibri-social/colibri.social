@@ -22,6 +22,33 @@ The shell renders the client's built output, so build the client first (`pnpm --
 - `SENTRY_DSN`: enables the native (Rust) Sentry client at runtime, also bakeable at build time. No DSN → no-op.
 - `TAURI_SIGNING_PRIVATE_KEY` (+ `_PASSWORD`): required by `tauri build` because updater artifacts are enabled. Generate a keypair with `pnpm tauri signer generate` and set the matching `plugins.updater.pubkey` in `src-tauri/tauri.conf.json`.
 
+## Distribution channels
+
+macOS ships through two channels, built from the same source by two separate jobs in `publish.yml`:
+
+- **Direct / Homebrew**: `src-tauri/tauri.conf.json` as-is. Notarized with the _Developer ID
+  Application_ identity, unsandboxed (`Entitlements.plist`), updater plugin enabled. Its version comes
+  from the release train, i.e. the version `release.yml` passes to `publish.yml`.
+- **Mac App Store**: overlaid with `src-tauri/tauri.appstore.conf.json`. Signed with the _Apple
+  Distribution_ identity, sandboxed (`Entitlements.appstore.plist`), `embedded.provisionprofile`
+  bundled, and the `updater` Cargo feature plus `capabilities/updater.json` compiled out (App Review
+  guideline 3.3.2). `scripts/build-macos-appstore.sh` does the build and wraps the result with
+  `productbuild` using the _3rd Party Mac Developer Installer_ identity.
+
+### App Store versioning
+
+The App Store marketing version lives in `src-tauri/tauri.appstore.conf.json`'s top-level `version`
+and is **deliberately independent of the release train**. Two reasons: `CFBundleShortVersionString`
+must be at most three period-separated integers, so an rc version like `0.1.0-rc.12` is rejected on
+upload; and the listing has its own history that release candidates should not disturb.
+
+`CFBundleVersion` is not stored in the repo. CI passes the workflow run number via
+`scripts/set-version.mjs --bundle-version=<n>`, which keeps it monotonic across uploads of the same
+marketing version.
+
+It is currently pinned at **0.1.9**. **Raise it to `0.2.0` when the
+project leaves RC mode.**
+
 ## Layout
 
 - `src/`: the frontend entry that mounts the client's `App`

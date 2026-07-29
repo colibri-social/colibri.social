@@ -36,6 +36,8 @@ const sentryAlias = disableSentry
 		]
 	: [];
 
+const uploadSentryRelease = process.env.SENTRY_RELEASE_UPLOAD === "1";
+
 const sentryPlugins =
 	!disableSentry && process.env.SENTRY_AUTH_TOKEN
 		? [
@@ -45,17 +47,21 @@ const sentryPlugins =
 					project: "javascript-solid",
 					release: {
 						name: appVersion,
-						setCommits: process.env.GITHUB_SHA
-							? {
-									repo: "colibri-social/colibri.social",
-									commit: process.env.GITHUB_SHA,
-									auto: false,
-									ignoreMissing: true,
-								}
-							: undefined,
-						deploy: { env: "production" },
+						create: uploadSentryRelease,
+						finalize: uploadSentryRelease,
+						setCommits:
+							uploadSentryRelease && process.env.GITHUB_SHA
+								? {
+										repo: "colibri-social/colibri.social",
+										commit: process.env.GITHUB_SHA,
+										auto: false,
+										ignoreMissing: true,
+									}
+								: false,
+						deploy: uploadSentryRelease ? { env: "production" } : false,
 					},
 					sourcemaps: {
+						disable: uploadSentryRelease ? undefined : "disable-upload",
 						filesToDeleteAfterUpload: ["./dist/**/*.map"],
 					},
 				}),

@@ -121,9 +121,18 @@ jobs:
         uses: swatinem/rust-cache@v2
         with:
           workspaces: "packages/wrapper/src-tauri -> target"
+          shared-key: tauri-${{ matrix.platform }}${{ matrix.is-android && '-android' || '' }}
+          cache-on-failure: true
+          save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - name: Install frontend dependencies
         run: pnpm install --frozen-lockfile
+
+      - name: Cache twemoji assets
+        uses: actions/cache@v4
+        with:
+          path: packages/assets/files/twemoji
+          key: twemoji-${{ runner.os }}-${{ hashFiles('packages/assets/scripts/fetch-emoji-assets.mjs', 'packages/client/package.json') }}
 
       - name: Alias NDK binutils for openssl-src (Android only)
         if: matrix.is-android
@@ -145,8 +154,8 @@ jobs:
           ls -l "$BIN"/*-ranlib
           echo "$BIN" >> "$GITHUB_PATH"
 
-      - name: Build frontend
-        run: pnpm build
+      - name: Build frontend dependencies
+        run: pnpm --filter "@colibri-social/wrapper^..." build
 
       - name: Build app (desktop)
         if: "!matrix.is-android"

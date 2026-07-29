@@ -2,12 +2,24 @@ import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const version = (process.argv[2] ?? "").replace(/^v/, "").trim();
+const argv = process.argv.slice(2);
+const flags = new Map();
+const positional = [];
+for (const arg of argv) {
+	const match = /^--([^=]+)=(.*)$/.exec(arg);
+	if (match) flags.set(match[1], match[2]);
+	else positional.push(arg);
+}
+
+const version = (positional[0] ?? "").replace(/^v/, "").trim();
 if (!version) {
-	console.error("usage: set-version.mjs <version> [versionCode]");
+	console.error(
+		"usage: set-version.mjs <version> [versionCode] [--bundle-version=<n>]",
+	);
 	process.exit(1);
 }
-const versionCode = process.argv[3]?.trim();
+const versionCode = positional[1]?.trim();
+const bundleVersion = flags.get("bundle-version")?.trim();
 
 const src = join(dirname(fileURLToPath(import.meta.url)), "..", "src-tauri");
 
@@ -62,6 +74,16 @@ patch("gen/apple/colibri-social_iOS/Info.plist", (text) =>
 		),
 );
 
+if (bundleVersion) {
+	patch("tauri.appstore.conf.json", (text) => {
+		const conf = JSON.parse(text);
+		conf.bundle ??= {};
+		conf.bundle.macOS ??= {};
+		conf.bundle.macOS.bundleVersion = bundleVersion;
+		return `${JSON.stringify(conf, null, "\t")}\n`;
+	});
+}
+
 console.log(
-	`set version to ${version}${versionCode ? ` (versionCode ${versionCode})` : ""}`,
+	`set version to ${version}${versionCode ? ` (versionCode ${versionCode})` : ""}${bundleVersion ? ` (App Store bundleVersion ${bundleVersion})` : ""}`,
 );
