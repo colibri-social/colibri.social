@@ -16,9 +16,9 @@ export const DisplayableName: Component<{
 	className?: string;
 	badge?: boolean;
 }> = (props) => {
-	const community = useCommunityContext();
-
 	const getTopMemberRoleColor = () => {
+		const community = useCommunityContext();
+
 		// getRolesForUser already excludes protected roles and is sorted by
 		// position (highest first), so the first coloured role wins.
 		const rolesForUser = community().utils.getRolesForUser(props.user.did);

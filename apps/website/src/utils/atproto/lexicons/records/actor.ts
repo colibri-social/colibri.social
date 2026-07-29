@@ -135,6 +135,11 @@ export const actorRecordDocs: LexiconDoc[] = [
 							"Solid fallback banner color as #rrggbb, used when no banner image is set.",
 						maxLength: 7,
 					},
+					plate: {
+						type: "ref",
+						ref: RECORD_IDs.ACTOR_PLATE,
+						description: "Name plate currently in use.",
+					},
 				},
 			},
 			themeGradient: {

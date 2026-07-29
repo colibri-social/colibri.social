@@ -36,6 +36,18 @@ export const getRecord = async (
 	return res.data.value as Record<string, unknown>;
 };
 
+export const listRecords = async (
+	agent: Agent,
+	repo: string,
+	collection: string,
+): Promise<Record<string, unknown>[]> => {
+	const res = await agent.com.atproto.repo.listRecords({
+		repo,
+		collection,
+	});
+	return res.data.records as unknown as Record<string, unknown>[];
+};
+
 export const putRecord = async (
 	agent: Agent,
 	repo: string,

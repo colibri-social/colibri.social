@@ -12,6 +12,7 @@
 					"resource": "repo",
 					"collection": [
 						"social.colibri.actor.data",
+						"social.colibri.actor.plate",
 						"social.colibri.actor.profile",
 						"social.colibri.actor.mute",
 						"social.colibri.actor.notificationPreference",

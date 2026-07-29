@@ -1,3 +1,4 @@
+import type { ActorData } from "@colibri-social/lib";
 import {
 	createMemo,
 	createSignal,
@@ -30,7 +31,6 @@ import { Button } from "../../ui/Button";
 import { isDrawerOpen } from "../../ui/MenuDrawer";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../../ui/Tooltip";
 import User from "../user";
-import { MemberContextMenu } from "./MemberContextMenu";
 
 // Exact row geometry, so the window never has to measure the DOM.
 const ROW_GAP = 12; // was `gap-3` on the flex column
@@ -50,64 +50,82 @@ type Row =
 	  }
 	| { kind: "member"; key: string; member: Member; size: number };
 
-const MemberRow = (props: {
-	member: Member;
-	communityUri: string;
-	roles: Role[];
+// TODO: omixann: move somewhere else?
+export const MemberRow = (props: {
+	member: Member | ActorData;
+	communityUri?: string;
+	roles?: Role[];
+	overridePlate?: {
+		image?: string;
+		color?: string;
+	};
 }) => {
-	const community = useCommunityContext();
+	const community = props.communityUri ? useCommunityContext() : undefined;
+
+	const plateStyle = () => {
+		const color =
+			props.overridePlate !== undefined ? props.overridePlate.color : "#130208";
+		const image =
+			props.overridePlate !== undefined
+				? props.overridePlate.image
+				: "https://media.discordapp.net/attachments/1487037947147456524/1531758993087795490/image0.gif?ex=6a6a613a&is=6a690fba&hm=86f706f563a7945e578a91a03c13b3a63353f97ea5f53919ba41c1d62131cd14&=";
+
+		return `linear-gradient(135deg, ${color}, ${color}, transparent), url(${image})`;
+	};
 
 	return (
-		<MemberContextMenu member={props.member}>
-			<User.ProfilePopover
-				user={props.member}
-				class="data-expanded:[&>div]:bg-muted!"
+		<User.ProfilePopover
+			user={props.member}
+			class="data-expanded:[&>div]:bg-muted!"
+		>
+			<div
+				class="group/member flex flex-row gap-2 rounded-sm px-2 py-1 hover:bg-card items-center cursor-pointer h-12 flex-1 bg-cover"
+				style={{ "background-image": plateStyle() }}
+				onPointerDown={(e) => e.button !== 0 && e.stopPropagation()}
 			>
-				<div
-					class="group/member flex flex-row gap-2 rounded-sm px-2 py-1 hover:bg-card items-center cursor-pointer h-12 flex-1"
-					onPointerDown={(e) => e.button !== 0 && e.stopPropagation()}
-				>
-					<User.Avatar user={props.member} />
-					<div class="flex flex-col w-[calc(100%-36px-8px)] min-w-0">
-						<span class="font-medium leading-5 flex flex-row items-center gap-2">
-							<User.DisplayableName
-								badge={false}
-								user={props.member}
-								className="min-w-0"
-							/>
-							<Show when={community().ownerDid() === props.member.did}>
-								<span class="shrink-0 flex">
-									<Tooltip>
-										<TooltipTrigger>
-											<CrownIcon class="text-yellow-400 w-4 h-4" />
-										</TooltipTrigger>
-										<TooltipContent>Community Owner</TooltipContent>
-									</Tooltip>
-								</span>
-							</Show>
-						</span>
+				<User.Avatar user={props.member} />
+				<div class="flex flex-col w-[calc(100%-36px-8px)] min-w-0 ">
+					<span class="leading-5 flex flex-row items-center gap-2">
+						<User.DisplayableName
+							badge={false}
+							user={props.member}
+							color={community ? undefined : false}
+							className="min-w-0"
+						/>
 						<Show
-							when={
-								props.member.data.status &&
-								props.member.data.onlineState !== "offline"
-							}
+							when={community && community().ownerDid() === props.member.did}
 						>
-							<span class="text-sm w-full leading-5 flex flex-row items-center gap-2">
-								<Show when={props.member.data.status!.emoji}>
-									<span
-										class="[&>img]:min-w-4 [&>img]:min-h-4 [&>img]:w-4 [&>img]:h-4 [&>img]inline"
-										innerHTML={parseEmojiText(props.member.data.status!.emoji!)}
-									/>
-								</Show>
-								<span class="w-full overflow-hidden text-ellipsis whitespace-nowrap">
-									{props.member.data.status!.text}
-								</span>
+							<span class="shrink-0 flex">
+								<Tooltip>
+									<TooltipTrigger>
+										<CrownIcon class="text-yellow-400 w-4 h-4" />
+									</TooltipTrigger>
+									<TooltipContent>Community Owner</TooltipContent>
+								</Tooltip>
 							</span>
 						</Show>
-					</div>
+					</span>
+					<Show
+						when={
+							props.member.data.status &&
+							props.member.data.onlineState !== "offline"
+						}
+					>
+						<span class="text-sm w-full leading-5 flex flex-row items-center gap-2">
+							<Show when={props.member.data.status!.emoji}>
+								<span
+									class="[&>img]:min-w-4 [&>img]:min-h-4 [&>img]:w-4 [&>img]:h-4 [&>img]inline"
+									innerHTML={parseEmojiText(props.member.data.status!.emoji!)}
+								/>
+							</Show>
+							<span class="w-full overflow-hidden text-ellipsis whitespace-nowrap inline-flex">
+								{props.member.data.status!.text}
+							</span>
+						</span>
+					</Show>
 				</div>
-			</User.ProfilePopover>
-		</MemberContextMenu>
+			</div>
+		</User.ProfilePopover>
 	);
 };
 

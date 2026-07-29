@@ -1,5 +1,6 @@
 export const RECORD_IDs: Record<string, `${string}.${string}.${string}`> = {
 	ACTOR_DATA: "social.colibri.actor.data",
+	ACTOR_PLATE: "social.colibri.actor.plate",
 	ACTOR_PROFILE: "social.colibri.actor.profile",
 	COMMUNITY: "social.colibri.community",
 	CATEGORY: "social.colibri.category",

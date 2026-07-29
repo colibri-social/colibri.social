@@ -90,6 +90,11 @@
 					"type": "string",
 					"description": "Solid fallback banner color as #rrggbb, used when no banner image is set.",
 					"maxLength": 7
+				},
+				"plate": {
+					"type": "ref",
+					"ref": "lex:social.colibri.actor.plate",
+					"description": "Name plate currently in use."
 				}
 			}
 		},

@@ -1,6 +1,5 @@
 import type { ProfileTheme } from "@colibri-social/lib";
 import type { Component } from "solid-js";
-import { ColorPicker } from "../../ui/ColorPicker";
 import {
 	Tabs,
 	TabsContent,
@@ -8,6 +7,7 @@ import {
 	TabsList,
 	TabsTrigger,
 } from "../../ui/Tabs";
+import { ColorRow } from "./common";
 
 /**
  * Local editing state for the Colibri-only profile theme
@@ -60,17 +60,6 @@ export const themeStateToRecord = (s: ThemeState): ProfileTheme => {
 	}
 	return theme;
 };
-
-const ColorRow: Component<{
-	label: string;
-	value: string;
-	onChange: (value: string) => void;
-}> = (props) => (
-	<div class="flex flex-row items-center justify-between gap-3 text-sm">
-		<span>{props.label}</span>
-		<ColorPicker value={props.value} onChange={props.onChange} />
-	</div>
-);
 
 /**
  * The theming controls: an accent color (applied to the display name) plus the
