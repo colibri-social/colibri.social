@@ -82,7 +82,7 @@ importers:
         specifier: workspace:0.0.2-rc.2
         version: link:../../packages/assets
       '@colibri-social/client':
-        specifier: workspace:0.1.0-rc.10
+        specifier: workspace:0.1.0-rc.11
         version: link:../../packages/client
       '@colibri-social/standard-renderer':
         specifier: workspace:0.0.2-rc.0
@@ -497,7 +497,7 @@ importers:
         specifier: workspace:0.0.2-rc.2
         version: link:../assets
       '@colibri-social/lib':
-        specifier: workspace:0.1.0-rc.3
+        specifier: workspace:0.1.0-rc.4
         version: link:../lib
       '@iconify-json/lucide':
         specifier: ^1.2.116
@@ -592,7 +592,7 @@ importers:
         specifier: workspace:0.0.2-rc.2
         version: link:../assets
       '@colibri-social/client':
-        specifier: workspace:0.1.0-rc.10
+        specifier: workspace:0.1.0-rc.11
         version: link:../client
       '@tauri-apps/api':
         specifier: ^2
