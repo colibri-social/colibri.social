@@ -8,7 +8,7 @@ export const actorRecordDocs: LexiconDoc[] = [
 		revision: 1,
 		defs: {
 			main: {
-				description: "A Colibri name plate used do decorate member cards.",
+				description: "A Colibri name plate used to decorate member rows.",
 				key: "tid",
 				record: {
 					properties: {
