@@ -1,7 +1,7 @@
 import type { LexiconDoc } from "@atproto/lexicon";
 import { RECORD_IDs } from "../ids.ts";
 
-export const actorRecordDocs: LexiconDoc[] = [
+export const plateRecordDocs: LexiconDoc[] = [
 	{
 		lexicon: 1,
 		id: RECORD_IDs.ACTOR_PLATE,

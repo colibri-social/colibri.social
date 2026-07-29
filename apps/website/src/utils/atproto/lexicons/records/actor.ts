@@ -49,7 +49,7 @@ export const actorRecordDocs: LexiconDoc[] = [
 	{
 		lexicon: 1,
 		id: RECORD_IDs.ACTOR_PROFILE,
-		revision: 2,
+		revision: 3,
 		defs: {
 			main: {
 				description:
@@ -136,9 +136,9 @@ export const actorRecordDocs: LexiconDoc[] = [
 						maxLength: 7,
 					},
 					plate: {
-						type: "ref",
-						ref: RECORD_IDs.ACTOR_PLATE,
+						type: "string",
 						description: "Name plate currently in use.",
+						format: "at-uri",
 					},
 				},
 			},

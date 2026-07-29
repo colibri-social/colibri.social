@@ -460,7 +460,7 @@ const NewPlateDialog: Component<{
 		await createRecord(user.atproto.agent, user.did, PLATE_COLLECTION, {
 			name: name(),
 			color: color(),
-			image: await uploadBlob(user.atproto.agent, image()?.acceptedFiles[0]!),
+			picture: await uploadBlob(user.atproto.agent, image()?.acceptedFiles[0]!),
 		});
 		handleClose(false);
 	};

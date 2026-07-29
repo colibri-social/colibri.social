@@ -57,6 +57,7 @@ export const actorMethodDocs: LexiconDoc[] = [
 					accentColor: { type: "string" },
 					gradient: { type: "ref", ref: "#profileGradient" },
 					bannerColor: { type: "string" },
+					plate: { type: "ref", ref: "#plateView" },
 				},
 			},
 			profileGradient: {
@@ -65,6 +66,18 @@ export const actorMethodDocs: LexiconDoc[] = [
 				properties: {
 					primary: { type: "string" },
 					secondary: { type: "string" },
+				},
+			},
+			plateView: {
+				type: "object",
+				description:
+					"The name plate the actor has selected, resolved from the `social.colibri.actor.plate` record their profile points at. The picture blob lives in the actor's own repo, so it resolves against the same DID as their avatar.",
+				required: ["uri", "name", "color", "picture"],
+				properties: {
+					uri: { type: "string", format: "at-uri" },
+					name: { type: "string" },
+					color: { type: "string" },
+					picture: { type: "blob" },
 				},
 			},
 		},

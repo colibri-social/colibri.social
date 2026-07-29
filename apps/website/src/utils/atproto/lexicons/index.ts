@@ -20,6 +20,7 @@ import { memberRecordDocs } from "./records/member.ts";
 import { membershipRecordDocs } from "./records/membership.ts";
 import { messageRecordDocs } from "./records/message.ts";
 import { moderationRecordDocs } from "./records/moderation.ts";
+import { plateRecordDocs } from "./records/plate.ts";
 import { reactionRecordDocs } from "./records/reaction.ts";
 import { richtextRecordDocs } from "./records/richtext.ts";
 import { roleRecordDocs } from "./records/role.ts";
@@ -28,6 +29,7 @@ export { PERMISSION_SET_IDs, RECORD_IDs } from "./ids.ts";
 
 export const LEXICON_DOCS: LexiconDoc[] = [
 	...actorRecordDocs,
+	...plateRecordDocs,
 	...communityRecordDocs,
 	...categoryRecordDocs,
 	...channelRecordDocs,

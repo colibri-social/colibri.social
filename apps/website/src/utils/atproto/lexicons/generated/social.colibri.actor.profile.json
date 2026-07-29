@@ -1,7 +1,7 @@
 {
 	"lexicon": 1,
 	"id": "social.colibri.actor.profile",
-	"revision": 2,
+	"revision": 3,
 	"defs": {
 		"main": {
 			"description": "A Colibri-specific user profile. Singleton record on the user's own repo, kept separate from app.bsky.actor.profile so Colibri never needs write access to the Bluesky record.",
@@ -92,9 +92,9 @@
 					"maxLength": 7
 				},
 				"plate": {
-					"type": "ref",
-					"ref": "lex:social.colibri.actor.plate",
-					"description": "Name plate currently in use."
+					"type": "string",
+					"description": "Name plate currently in use.",
+					"format": "at-uri"
 				}
 			}
 		},
