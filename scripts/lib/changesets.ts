@@ -5,13 +5,41 @@ import { parseChangesetFile } from "../../packages/lib/src/release-notes.ts";
 export const CLIENT_PACKAGE = "@colibri-social/client";
 export const CHANGESET_DIR = new URL("../../.changeset/", import.meta.url);
 
-export const listChangesetFiles = async (): Promise<Array<string>> => {
+const PRE_FILE = new URL("pre.json", CHANGESET_DIR);
+
+const listChangesetFiles = async (): Promise<Array<string>> => {
 	const files = await readdir(CHANGESET_DIR);
 	return files
 		.filter((file) => file.endsWith(".md"))
 		.filter((file) => !file.startsWith("."))
 		.filter((file) => file.toLowerCase() !== "readme.md")
 		.sort();
+};
+
+const changesetName = (file: string): string => file.replace(/\.md$/, "");
+
+const releasedChangesets = async (): Promise<Set<string>> => {
+	let contents: string;
+	try {
+		contents = await readFile(PRE_FILE, "utf8");
+	} catch {
+		return new Set();
+	}
+
+	try {
+		const parsed = JSON.parse(contents) as { changesets?: Array<string> };
+		return new Set(parsed.changesets ?? []);
+	} catch {
+		return new Set();
+	}
+};
+
+export const listPendingChangesetFiles = async (): Promise<Array<string>> => {
+	const [files, released] = await Promise.all([
+		listChangesetFiles(),
+		releasedChangesets(),
+	]);
+	return files.filter((file) => !released.has(changesetName(file)));
 };
 
 export interface LoadedChangeset extends ParsedChangeset {

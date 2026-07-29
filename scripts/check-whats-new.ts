@@ -8,7 +8,7 @@ import {
 import {
 	CLIENT_PACKAGE,
 	clientBump,
-	listChangesetFiles,
+	listPendingChangesetFiles,
 	readChangeset,
 } from "./lib/changesets.ts";
 import { iconProblem, searchIcons } from "./lib/icons.ts";
@@ -105,7 +105,7 @@ const main = async () => {
 	const errors: Array<Problem> = [];
 	const hints: Array<Problem> = [];
 
-	const present = new Set(await listChangesetFiles());
+	const present = new Set(await listPendingChangesetFiles());
 	const touched = touchedChangesets();
 	const files =
 		touched === undefined

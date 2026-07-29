@@ -10,7 +10,7 @@ import { kindForBump } from "../packages/lib/src/release-notes.ts";
 import {
 	CHANGESET_DIR,
 	clientBump,
-	listChangesetFiles,
+	listPendingChangesetFiles,
 	readChangeset,
 } from "./lib/changesets.ts";
 import { iconProblem } from "./lib/icons.ts";
@@ -53,7 +53,7 @@ const fail = (message: string): never => {
 };
 
 const gather = async (): Promise<Staged | undefined> => {
-	const files = await listChangesetFiles();
+	const files = await listPendingChangesetFiles();
 
 	const collected: Array<{ entry: ReleaseNoteEntry; rank: number }> = [];
 	let releaseTitle: string | undefined;
