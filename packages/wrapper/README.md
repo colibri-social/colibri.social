@@ -51,6 +51,19 @@ the release version:
 `scripts/set-version.mjs --bundle-version=<n>`, keeping it monotonic across uploads of the same
 marketing version.
 
+Apple closes a version permanently once it has been approved: further uploads are rejected with
+`90062` (must be higher than the approved version) or `90186` (pre-release train closed), whatever the
+build number is. The `mas` job treats those two codes as benign, warns, keeps the signed `.pkg` as an
+artifact and skips the upload rather than failing the release. Any other error code still fails.
+
+To resubmit without cutting a release, dispatch `publish.yml` with `appstore_only` set. That skips
+every other channel, so it will not touch the GitHub release, the Homebrew cask, Scoop, Play or the
+Microsoft Store:
+
+```sh
+gh workflow run publish.yml --ref main -f version=<release-version> -f appstore_only=true
+```
+
 ## Layout
 
 - `src/`: the frontend entry that mounts the client's `App`

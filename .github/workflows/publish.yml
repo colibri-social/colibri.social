@@ -10,13 +10,18 @@ on:
         description: "Also build and upload the Mac App Store package."
         type: boolean
         default: true
+      appstore_only:
+        description: "Only build and upload the Mac App Store package, skipping every other channel."
+        type: boolean
+        default: false
 
 concurrency:
-  group: publish-${{ inputs.version }}
+  group: publish-${{ inputs.version }}-${{ inputs.appstore_only }}
   cancel-in-progress: false
 
 jobs:
   publish-tauri:
+    if: ${{ !inputs.appstore_only }}
     permissions:
       contents: write
     strategy:
@@ -230,7 +235,7 @@ jobs:
 
   mas:
     name: Mac App Store
-    if: ${{ inputs.appstore }}
+    if: ${{ inputs.appstore || inputs.appstore_only }}
     runs-on: macos-latest
     permissions:
       contents: read
@@ -546,6 +551,7 @@ jobs:
           status: completed
 
   msstore-build:
+    if: ${{ !inputs.appstore_only }}
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v7
