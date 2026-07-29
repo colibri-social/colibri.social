@@ -25,6 +25,7 @@ export const syncMethodDocs: LexiconDoc[] = [
 							"#userEvent",
 							"#typingEvent",
 							"#voicePresenceEvent",
+							"#voiceStateEvent",
 						],
 					},
 				},
@@ -77,11 +78,50 @@ export const syncMethodDocs: LexiconDoc[] = [
 			},
 			memberEventData: {
 				type: "object",
-				required: ["event", "community", "membership"],
+				required: ["event", "community"],
 				properties: {
-					event: { type: "string", knownValues: ["join", "leave"] },
+					event: {
+						type: "string",
+						knownValues: ["join", "leave", "roles_updated"],
+					},
 					community: { type: "string", format: "at-uri" },
 					membership: { type: "string", format: "at-uri" },
+					member: {
+						type: "ref",
+						ref: "#memberEventMember",
+						description:
+							"The affected member, hydrated. Present on `join` and `roles_updated`.",
+					},
+					memberDid: {
+						type: "string",
+						format: "did",
+						description: "DID of the member who left. Present on `leave`.",
+					},
+				},
+			},
+			memberEventMember: {
+				type: "object",
+				description:
+					"The affected member as carried by a member event. Mirrors `social.colibri.community.defs#memberView`, including the member's current voice channel state so a receiving client can place them in a voice channel without refetching.",
+				required: ["did", "handle", "roles", "data"],
+				properties: {
+					did: { type: "string", format: "did" },
+					handle: { type: "string", format: "handle" },
+					roles: {
+						type: "array",
+						items: { type: "string", format: "at-uri" },
+					},
+					joinedAt: { type: "string", format: "datetime" },
+					nickname: { type: "string" },
+					vc: {
+						type: "string",
+						format: "at-uri",
+						description:
+							"AT-URI of the voice channel the member is currently connected to, if any. Only set when that channel belongs to `community`.",
+					},
+					vcMuted: { type: "boolean" },
+					vcDeafened: { type: "boolean" },
+					data: { type: "ref", ref: "social.colibri.actor.defs#actorData" },
 				},
 			},
 
@@ -267,6 +307,29 @@ export const syncMethodDocs: LexiconDoc[] = [
 				},
 			},
 
+			voiceStateEvent: {
+				type: "object",
+				description:
+					"Sent when a user's voice state changes within a voice channel. `muted` and `deafened` are the user's own choices; `serverMuted` and `serverDeafened` are moderator-applied and enforced by the SFU. Each field is absent when unchanged.",
+				required: ["type", "data"],
+				properties: {
+					type: { type: "string", const: "voice_state_event" },
+					data: { type: "ref", ref: "#voiceStateEventData" },
+				},
+			},
+			voiceStateEventData: {
+				type: "object",
+				required: ["channel", "did"],
+				properties: {
+					channel: { type: "string", format: "at-uri" },
+					did: { type: "string", format: "did" },
+					muted: { type: "boolean" },
+					deafened: { type: "boolean" },
+					serverMuted: { type: "boolean" },
+					serverDeafened: { type: "boolean" },
+				},
+			},
+
 			humEnvelope: {
 				type: "object",
 				description:
@@ -307,7 +370,12 @@ export const syncMethodDocs: LexiconDoc[] = [
 						type: "union",
 						description:
 							"Ephemeral event payload. Only off-protocol types are permitted.",
-						refs: ["#userEvent", "#typingEvent", "#voicePresenceEvent"],
+						refs: [
+							"#userEvent",
+							"#typingEvent",
+							"#voicePresenceEvent",
+							"#voiceStateEvent",
+						],
 					},
 				},
 			},

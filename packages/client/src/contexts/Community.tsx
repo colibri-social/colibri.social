@@ -86,7 +86,7 @@ export const CommunityContextProvider: ParentComponent = (props) => {
 	const user = useUserContext();
 	const socket = useSocketContext();
 	const navigate = useNavigate();
-	const [, { seedPresence }] = useVoiceChatContext();
+	const [, { syncPresence, addPresence }] = useVoiceChatContext();
 	const communityUri = createMemo(() => urlSegmentToUri(getCommunityParam()));
 
 	const communityDid = () => AtURI.parseAtURI(communityUri()).did;
@@ -109,11 +109,15 @@ export const CommunityContextProvider: ParentComponent = (props) => {
 	// authoritative data. Not reactive — only touched imperatively.
 	const pendingRoleIntents = new Map<string, Array<string>>();
 
+	let lastFetched: CommunityResponse | undefined;
+
 	const [community, { mutate, refetch }] = createResource(
 		communityUri,
 		async (uri) => {
 			pendingRoleIntents.clear();
-			return await user.xrpc.social.colibri.community.getData(uri);
+			const data = await user.xrpc.social.colibri.community.getData(uri);
+			lastFetched = data;
+			return data;
 		},
 	);
 
@@ -128,15 +132,57 @@ export const CommunityContextProvider: ParentComponent = (props) => {
 		navigate("/app", { replace: true });
 	});
 
-	let seededUri: string | null = null;
+	const MEMBERSHIP_RETRY_DELAYS = [1000, 2000, 4000, 8000];
+	let membershipRetries = 0;
+	let membershipRetryTimer: ReturnType<typeof setTimeout> | undefined;
+
+	const cancelMembershipRetry = () => {
+		if (membershipRetryTimer) clearTimeout(membershipRetryTimer);
+		membershipRetryTimer = undefined;
+	};
+
+	createEffect(
+		on(communityUri, () => {
+			cancelMembershipRetry();
+			membershipRetries = 0;
+		}),
+	);
+
+	let syncedPayload: CommunityResponse | undefined;
 	createEffect(() => {
 		const uri = communityUri();
 		const data = community.latest;
 
-		if (!uri || !data || community.loading || seededUri === uri) return;
+		if (!uri || !data || community.loading) return;
+		if (data !== lastFetched || data === syncedPayload) return;
 
-		seededUri = uri;
-		seedPresence(data.members);
+		syncedPayload = data;
+		syncPresence(uri, data.members);
+
+		if (data.members.some((m) => m.did === user.did)) {
+			cancelMembershipRetry();
+			membershipRetries = 0;
+			return;
+		}
+
+		const delay = MEMBERSHIP_RETRY_DELAYS[membershipRetries];
+		if (delay === undefined || membershipRetryTimer) return;
+
+		membershipRetries += 1;
+		membershipRetryTimer = setTimeout(() => {
+			membershipRetryTimer = undefined;
+			if (communityUri() === uri) void refetch();
+		}, delay);
+	});
+
+	onCleanup(cancelMembershipRetry);
+
+	let wasConnected = socket.connected();
+	createEffect(() => {
+		const isConnected = socket.connected();
+		const reconnected = isConnected && !wasConnected;
+		wasConnected = isConnected;
+		if (reconnected && lastFetched) void refetch();
 	});
 
 	const ns = () => namespace(getAppViewDid(), user.did);
@@ -273,6 +319,8 @@ export const CommunityContextProvider: ParentComponent = (props) => {
 				// Append the new member if not already present (idempotent).
 				if (prev.members.some((m) => m.did === data.member.did)) return;
 				mutate({ ...prev, members: [...prev.members, data.member] });
+
+				addPresence(data.member);
 			} else if (data.event === "roles_updated") {
 				const did = data.member.did;
 				const existing = prev.members.find((m) => m.did === did);

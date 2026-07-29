@@ -43,6 +43,9 @@ export type Colibri_MemberEventMember = {
 	roles: Array<string>;
 	joinedAt?: string;
 	nickname?: string;
+	vc?: string;
+	vcMuted?: boolean;
+	vcDeafened?: boolean;
 	data: {
 		displayName: string;
 		avatar?: JsonBlobRef;

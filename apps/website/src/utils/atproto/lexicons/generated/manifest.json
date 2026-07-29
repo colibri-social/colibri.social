@@ -31,7 +31,7 @@
 		"social.colibri.community.blockMessage": "dcda3afb1b0d7d53bf4688856e7eecad0774ea66ca40f5f8d6dff59ef8927dc1",
 		"social.colibri.community.create": "812fb88e4019d0c266d8bdef5194376b15d7cf9ac4dd08198bf92a3301ca5564",
 		"social.colibri.community.createInvitation": "9e72faf5168a7b2eeb7e1f7669d0531051f11048953ef9c9856576d8c835c3bd",
-		"social.colibri.community.defs": "0a8fa3d9937cf397ac8dfe2a55feb32437d16ce339412461e86393d84c95a2c8",
+		"social.colibri.community.defs": "3cfd9373eea3b3d8c8ef84dc241fa3608b048dbf8452abdbe99e2b162aa79f17",
 		"social.colibri.community.delete": "47219125c4479609e9ef31c1f2a1a1beea4359b79489c9a4417a41e57ff66a43",
 		"social.colibri.community.deleteInvitation": "f25794e9942e6a80b46bd6cd9f77e937baebdc7f1e72aed3645f56ad8a81972c",
 		"social.colibri.community.dismissApplication": "4f16b322a2d92d0463415423f25cbac04284e545f3d152e4afcf7595ed659b16",
@@ -86,7 +86,7 @@
 		"social.colibri.role.update": "e8f0fb0c1862f66baff0eb83efdc79d99b17e1232da6aa84d4cc799252f465c0",
 		"social.colibri.server.describeServer": "329ebfcf0315559194c2c6f9a39337f778f25cf81d0b4785189e5a159166cd19",
 		"social.colibri.sync.sendHum": "9f06f472ca68765e3599b5ba8fd669f7f5bea0aaadd66aa387a68409a1069afc",
-		"social.colibri.sync.subscribeEvents": "df1e4bd42296cdb899c6c0c1517cb6aa409bfd18e75ab45e7f8287675d0fa4df",
+		"social.colibri.sync.subscribeEvents": "b1dbfaf4b42244079e31280679a48a604e2251687bb769fc40f8b6e432810686",
 		"social.colibri.sync.subscribeHums": "d0576cd44eca2c095b11c16c9b2b4249112bc09f061d171c4369a054bbba3a7c",
 		"social.colibri.voice.moderate": "1b611170678c4fd548d039396fe7bee12d8778dece9170de30c912f6c0081158",
 		"social.colibri.voice.signal": "871cdd91d118515342af2627c9f29dc5d8c0296182436f3cf5f0a638b12a7a9c"

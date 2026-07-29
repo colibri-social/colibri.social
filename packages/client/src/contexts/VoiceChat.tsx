@@ -25,6 +25,11 @@ import {
 	getAppViewServiceRef,
 } from "../utils/appview";
 import { pickVoiceHandler } from "../utils/voice-device";
+import {
+	authorityOf,
+	computePresenceSync,
+	type PresenceMember,
+} from "../utils/voice-presence";
 import { useAuthContext } from "./Auth";
 import { useSocketContext } from "./Socket";
 import { useSounds } from "./Sounds";
@@ -107,14 +112,8 @@ export type VoiceChatActions = {
 	toggleDeafen: () => void;
 	setFocusedKey: (key: string | null) => void;
 	setOverlayDismissed: (dismissed: boolean) => void;
-	seedPresence: (
-		members: Array<{
-			did: string;
-			vc?: string | null;
-			vcMuted?: boolean;
-			vcDeafened?: boolean;
-		}>,
-	) => void;
+	syncPresence: (communityUri: string, members: Array<PresenceMember>) => void;
+	addPresence: (member: PresenceMember) => void;
 };
 
 export type VoiceChatContextValue = [VoiceChatData, VoiceChatActions];
@@ -162,8 +161,7 @@ type ServerMessage =
 	| { action: "error"; message: string };
 
 const communityUriForChannel = (channelUri: string): string | null => {
-	if (!channelUri.startsWith("at://")) return null;
-	const authority = channelUri.slice("at://".length).split("/")[0];
+	const authority = authorityOf(channelUri);
 	if (!authority) return null;
 	return `at://${authority}/social.colibri.community/self`;
 };
@@ -319,25 +317,25 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 		pendingConsumed.clear();
 	};
 
-	const applyPresence = (kind: string, channel: string, did: string): void => {
-		const current = voiceData.presence[channel] ?? [];
+	const removeFromChannel = (channel: string, did: string): void => {
+		setVoiceData("presence", channel, (current) =>
+			current?.includes(did) ? current.filter((d) => d !== did) : current,
+		);
+	};
 
+	const applyPresence = (kind: string, channel: string, did: string): void => {
 		if (kind === "leave") {
-			if (current.includes(did)) {
-				setVoiceData(
-					"presence",
-					channel,
-					current.filter((d) => d !== did),
-				);
-			}
+			removeFromChannel(channel, did);
 
 			setVoiceData("memberStates", did, undefined!);
 
 			for (const [producerId, owner] of [...producerOwners.entries()]) {
 				if (owner.did === did) removeProducer(producerId);
 			}
-		} else if (!current.includes(did)) {
-			setVoiceData("presence", channel, [...current, did]);
+		} else {
+			setVoiceData("presence", channel, (current) =>
+				current?.includes(did) ? current : [...(current ?? []), did],
+			);
 		}
 	};
 
@@ -476,7 +474,7 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 		});
 		setVoiceData("activeSpeakers", []);
 		setVoiceData("videoStreams", {});
-		setVoiceData("memberStates", {});
+		setVoiceData("memberStates", user.did, undefined!);
 		setVoiceData("focusedKey", null);
 	};
 
@@ -1255,21 +1253,56 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 		sendVoiceState();
 	};
 
-	const seedPresence = (
-		members: Array<{
-			did: string;
-			vc?: string | null;
-			vcMuted?: boolean;
-			vcDeafened?: boolean;
-		}>,
+	const addPresence = (member: PresenceMember): void => {
+		if (!member.vc) return;
+
+		applyPresence("join", member.vc, member.did);
+		setVoiceData("memberStates", member.did, (prev) => ({
+			...prev,
+			muted: member.vcMuted ?? false,
+			deafened: member.vcDeafened ?? false,
+			...(member.vcServerMuted !== undefined && {
+				serverMuted: member.vcServerMuted,
+			}),
+			...(member.vcServerDeafened !== undefined && {
+				serverDeafened: member.vcServerDeafened,
+			}),
+		}));
+	};
+
+	const syncPresence = (
+		communityUri: string,
+		members: Array<PresenceMember>,
 	): void => {
-		for (const member of members) {
-			if (!member.vc) continue;
-			applyPresence("join", member.vc, member.did);
-			setVoiceData("memberStates", member.did, {
-				muted: member.vcMuted ?? false,
-				deafened: member.vcDeafened ?? false,
-			});
+		const plan = computePresenceSync({
+			communityUri,
+			members,
+			presence: voiceData.presence,
+			ownChannel:
+				voiceData.connection.state !== ConnectionState.Disconnected
+					? voiceData.connection.uri
+					: null,
+			ownDid: user.did,
+		});
+
+		for (const { channel, added, left, moved } of plan.channels) {
+			for (const did of moved) removeFromChannel(channel, did);
+			for (const did of left) applyPresence("leave", channel, did);
+			for (const did of added) applyPresence("join", channel, did);
+		}
+
+		for (const { did, state } of plan.states) {
+			setVoiceData("memberStates", did, (prev) => ({
+				...prev,
+				muted: state.muted,
+				deafened: state.deafened,
+				...(state.serverMuted !== undefined && {
+					serverMuted: state.serverMuted,
+				}),
+				...(state.serverDeafened !== undefined && {
+					serverDeafened: state.serverDeafened,
+				}),
+			}));
 		}
 	};
 
@@ -1399,7 +1432,8 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 		toggleDeafen,
 		setFocusedKey,
 		setOverlayDismissed,
-		seedPresence,
+		syncPresence,
+		addPresence,
 	};
 
 	onCleanup(() => {

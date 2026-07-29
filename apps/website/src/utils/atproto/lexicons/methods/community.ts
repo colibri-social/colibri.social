@@ -148,6 +148,16 @@ export const communityMethodDocs: LexiconDoc[] = [
 						type: "boolean",
 						description: "Whether the member is deafened in the voice channel.",
 					},
+					vcServerMuted: {
+						type: "boolean",
+						description:
+							"Whether the member has been server-muted by a moderator in the voice channel.",
+					},
+					vcServerDeafened: {
+						type: "boolean",
+						description:
+							"Whether the member has been server-deafened by a moderator in the voice channel.",
+					},
 					data: { type: "ref", ref: "social.colibri.actor.defs#actorData" },
 				},
 			},

@@ -10,6 +10,8 @@ export type Member = {
 	vc?: string;
 	vcMuted?: boolean;
 	vcDeafened?: boolean;
+	vcServerMuted?: boolean;
+	vcServerDeafened?: boolean;
 	data: {
 		displayName: string;
 		avatar?: JsonBlobRef;
