@@ -62,6 +62,7 @@ export const syncMethodDocs: LexiconDoc[] = [
 						type: "array",
 						items: { type: "string", format: "at-uri" },
 					},
+					requiresApprovalToJoin: { type: "boolean" },
 				},
 			},
 

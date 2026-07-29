@@ -49,7 +49,7 @@
 			},
 			"input": {
 				"encoding": "multipart/form-data",
-				"description": "Optional replacement community image blobs."
+				"description": "Optional replacement community picture blob, as a `picture` part. Migrated communities have no banner."
 			},
 			"output": {
 				"encoding": "application/json",

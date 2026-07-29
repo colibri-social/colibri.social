@@ -36,7 +36,7 @@
 			},
 			"input": {
 				"encoding": "multipart/form-data",
-				"description": "Optional community image blobs."
+				"description": "Optional community image blobs, as `picture` and `banner` parts."
 			},
 			"output": {
 				"encoding": "application/json",

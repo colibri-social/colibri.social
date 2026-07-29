@@ -80,13 +80,13 @@ const CommunityHeader = () => {
 				class="w-full border-b border-border flex flex-col pb-4 pt-3 px-3 relative"
 				classList={{ "h-40": community().community.banner !== undefined }}
 			>
-				<div class="absolute top-0 z-1 bg-linear-to-b from-black via-black/50 to-transparent w-full h-full left-0"></div>
 				<Show when={community().community.banner !== undefined}>
 					<img
 						class="absolute top-0 left-0 right-0 w-full h-full object-cover"
-						src={resolveBlob(user.did, community().community.banner)}
+						src={resolveBlob(community().did, community().community.banner)}
 						alt=""
 					/>
+					<div class="absolute top-0 z-1 bg-linear-to-b from-black via-black/50 to-transparent w-full h-full left-0"></div>
 				</Show>
 				<Show
 					when={isMobile()}

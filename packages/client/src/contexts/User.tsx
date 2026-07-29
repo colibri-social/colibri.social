@@ -239,9 +239,8 @@ export const UserContextProvider: ParentComponent = (props) => {
 										? {
 												...c,
 												...(data.name !== undefined && { name: data.name }),
-												...(data.picture !== undefined && {
-													picture: data.picture,
-												}),
+												picture: data.picture,
+												banner: data.banner,
 											}
 										: c,
 								),

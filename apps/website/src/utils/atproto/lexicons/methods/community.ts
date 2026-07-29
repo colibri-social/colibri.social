@@ -248,7 +248,8 @@ export const communityMethodDocs: LexiconDoc[] = [
 				},
 				input: {
 					encoding: "multipart/form-data",
-					description: "Optional community image blobs.",
+					description:
+						"Optional community image blobs, as `picture` and `banner` parts.",
 				},
 				output: {
 					encoding: "application/json",
@@ -318,7 +319,8 @@ export const communityMethodDocs: LexiconDoc[] = [
 				},
 				input: {
 					encoding: "multipart/form-data",
-					description: "Optional replacement community image blobs.",
+					description:
+						"Optional replacement community picture blob, as a `picture` part. Migrated communities have no banner.",
 				},
 				output: {
 					encoding: "application/json",
@@ -359,7 +361,7 @@ export const communityMethodDocs: LexiconDoc[] = [
 			main: {
 				type: "procedure",
 				description:
-					"Updates a community's metadata and optionally its picture.",
+					"Updates a community's metadata and optionally its picture and banner.",
 				parameters: {
 					type: "params",
 					required: ["community"],
@@ -368,11 +370,22 @@ export const communityMethodDocs: LexiconDoc[] = [
 						name: { type: "string" },
 						description: { type: "string" },
 						requiresApprovalToJoin: { type: "boolean" },
+						removePicture: {
+							type: "boolean",
+							description:
+								"Drops the community's current picture. Cannot be combined with a new picture blob.",
+						},
+						removeBanner: {
+							type: "boolean",
+							description:
+								"Drops the community's current banner. Cannot be combined with a new banner blob.",
+						},
 					},
 				},
 				input: {
 					encoding: "multipart/form-data",
-					description: "Optional replacement community image blobs.",
+					description:
+						"Optional replacement community image blobs, as `picture` and `banner` parts.",
 				},
 				output: uriResponse,
 			},

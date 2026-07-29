@@ -349,6 +349,8 @@ export class XrpcClient {
 					picture?: Blob,
 					banner?: Blob,
 					requiresApprovalToJoin?: boolean,
+					removePicture?: boolean,
+					removeBanner?: boolean,
 				) =>
 					Community.update(
 						this.authed(this.proxiedFetch, "social.colibri.community.update"),
@@ -358,6 +360,8 @@ export class XrpcClient {
 						picture,
 						banner,
 						requiresApprovalToJoin || false,
+						removePicture,
+						removeBanner,
 					),
 				leave: (community: string) =>
 					Community.leave(

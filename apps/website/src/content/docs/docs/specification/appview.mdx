@@ -461,6 +461,8 @@ Sent when the AppView receives a [`heartbeat`](#heartbeat) message from the clie
 
 Events of this type are sent to clients when a community has been updated or deleted. If the `event` is set to `delete`, only the community's `uri` needs to be supplied.
 
+An upsert is built from the whole community record, so `picture` and `banner` are authoritative: an absent one means that image is not set. Clients should overwrite their cached blob refs from every upsert rather than treating absence as "unchanged", otherwise a removed picture or banner lingers until the next full fetch.
+
 ```ts title="data"
 {
 	event: 'upsert' | 'delete';
@@ -468,6 +470,7 @@ Events of this type are sent to clients when a community has been updated or del
 	name?: string;
 	description?: string;
 	picture?: blob;
+	banner?: blob;
 	categoryOrder?: string[];
 	requiresApprovalToJoin?: boolean;
 }
@@ -732,7 +735,7 @@ Mints a new community DID on the AppView's own PDS and bootstraps a fully popula
 - `social.colibri.role`: an `"Owner"` role with every permission and `protected: true` so role-management endpoints refuse to delete it
 - `social.colibri.member`: `subject` = authenticated caller, holding the Owner role
 
-The caller ends up as an owner-equivalent member of the new community. Community picture and banner are uploaded by sending their contents as a multipart body. If supplied, the picture is validated against the allowed MIME types (`image/jpeg`, `image/png`, `image/gif`), uploaded to the community's PDS, and stored as the community picture. An empty body means no picture.
+The caller ends up as an owner-equivalent member of the new community. The community picture and banner are uploaded as `multipart/form-data` parts named `picture` and `banner`, each carrying its own `Content-Type`. Every supplied image is validated against the allowed MIME types (`image/jpeg`, `image/png`, `image/gif`) and capped at 10 MiB before being uploaded to the community's PDS. A missing part means that image is not set.
 
 <XRPCEndpointCard
 	method="POST"
@@ -753,7 +756,11 @@ The caller ends up as an owner-equivalent member of the new community. Community
 		},
 	}}
 	body={{
-		image: {
+		picture: {
+			type: "bytes",
+			required: false
+		},
+		banner: {
 			type: "bytes",
 			required: false
 		}
@@ -790,7 +797,7 @@ The AppView identifies communities by DID; handles minted alongside the account 
 
 ### `social.colibri.community.update`
 
-Updates the community's settings. Only fields that are supplied are changed. New community picture and banner are uploaded by sending their contents as a multipart body.
+Updates the community's settings. Only fields that are supplied are changed. A new picture or banner is uploaded as a `multipart/form-data` part named after it, carrying its own `Content-Type`; a missing part leaves that image untouched. To clear an image instead, pass `removePicture=true` or `removeBanner=true`, which drops the field from the community record. Combining a removal flag with a new blob for the same image is rejected as `InvalidRequest`.
 
 <XRPCEndpointCard
 	method="POST"
@@ -812,10 +819,22 @@ Updates the community's settings. Only fields that are supplied are changed. New
 		requiresApprovalToJoin: {
 			type: "boolean",
 			required: false
+		},
+		removePicture: {
+			type: "boolean",
+			required: false
+		},
+		removeBanner: {
+			type: "boolean",
+			required: false
 		}
 	}}
 	body={{
-		image: {
+		picture: {
+			type: "bytes",
+			required: false
+		},
+		banner: {
 			type: "bytes",
 			required: false
 		}
@@ -828,7 +847,7 @@ Updates the community's settings. Only fields that are supplied are changed. New
 	}}
 />
 
-Broadcasts `community_event { event: "upsert", uri, name?, description?, picture?, requiresApprovalToJoin? }`.
+Broadcasts `community_event { event: "upsert", uri, name?, description?, picture?, banner?, categoryOrder?, requiresApprovalToJoin? }`. The upsert is derived from the whole community record, so `picture` and `banner` are authoritative on every upsert: an absent one means the image is not set, not that it is unchanged.
 
 ### `social.colibri.community.delete`
 

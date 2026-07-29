@@ -160,16 +160,8 @@ const GeneralSettingsPage: Component = () => {
 	const editCommunityData = async () => {
 		setLoading(true);
 		try {
-			const existingPicture = existingPictureUrl();
-			const existingBanner = existingBannerUrl();
-
-			const pictureBlob = existingPicture
-				? await (await fetch(existingPicture)).blob()
-				: picture()!.acceptedFiles[0];
-
-			const bannerBlob = existingBanner
-				? await (await fetch(existingBanner)).blob()
-				: banner()!.acceptedFiles[0];
+			const pictureBlob = picture()?.acceptedFiles[0];
+			const bannerBlob = banner()?.acceptedFiles[0];
 
 			const trimmedName = name().trim();
 			const trimmedDescription = description().trim();
@@ -183,6 +175,8 @@ const GeneralSettingsPage: Component = () => {
 				pictureBlob,
 				bannerBlob,
 				requiresApprovalToJoin(),
+				pictureRemoved(),
+				bannerRemoved(),
 			);
 
 			if (!res) {
@@ -195,7 +189,9 @@ const GeneralSettingsPage: Component = () => {
 				description: trimmedDescription,
 				requiresApprovalToJoin: requiresApprovalToJoin(),
 				...(pictureRemoved() && { picture: undefined }),
+				...(bannerRemoved() && { banner: undefined }),
 			});
+			community().utils.refetch();
 			setName(trimmedName);
 			setDescription(trimmedDescription);
 			clearNewPicture();

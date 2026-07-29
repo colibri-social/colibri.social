@@ -9,6 +9,8 @@ export const update: XrpcRequest<
 		Blob | undefined,
 		Blob | undefined,
 		boolean,
+		boolean | undefined,
+		boolean | undefined,
 	],
 	Promise<Record<string, never> | undefined>
 > = async (
@@ -19,6 +21,8 @@ export const update: XrpcRequest<
 	picture,
 	banner,
 	requiresApprovalToJoin,
+	removePicture,
+	removeBanner,
 ) => {
 	try {
 		const params = new URLSearchParams({ community });
@@ -26,6 +30,8 @@ export const update: XrpcRequest<
 		if (description !== undefined) params.set("description", description);
 		if (requiresApprovalToJoin !== undefined)
 			params.set("requiresApprovalToJoin", `${requiresApprovalToJoin}`);
+		if (removePicture) params.set("removePicture", "true");
+		if (removeBanner) params.set("removeBanner", "true");
 		const formData = new FormData();
 		if (picture !== undefined) formData.append("picture", picture);
 		if (banner !== undefined) formData.append("banner", banner);

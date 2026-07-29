@@ -4,7 +4,7 @@
 	"defs": {
 		"main": {
 			"type": "procedure",
-			"description": "Updates a community's metadata and optionally its picture.",
+			"description": "Updates a community's metadata and optionally its picture and banner.",
 			"parameters": {
 				"type": "params",
 				"required": [
@@ -23,12 +23,20 @@
 					},
 					"requiresApprovalToJoin": {
 						"type": "boolean"
+					},
+					"removePicture": {
+						"type": "boolean",
+						"description": "Drops the community's current picture. Cannot be combined with a new picture blob."
+					},
+					"removeBanner": {
+						"type": "boolean",
+						"description": "Drops the community's current banner. Cannot be combined with a new banner blob."
 					}
 				}
 			},
 			"input": {
 				"encoding": "multipart/form-data",
-				"description": "Optional replacement community image blobs."
+				"description": "Optional replacement community image blobs, as `picture` and `banner` parts."
 			},
 			"output": {
 				"encoding": "application/json",

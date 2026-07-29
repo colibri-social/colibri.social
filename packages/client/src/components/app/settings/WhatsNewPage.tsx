@@ -23,7 +23,7 @@ export const WhatsNewPage: Component = () => (
 					{(note, index) => (
 						<div class="flex flex-col gap-3">
 							<Show when={index() > 0}>
-								<Separator />
+								<Separator class="my-2" />
 							</Show>
 							<div class="flex flex-col gap-0.5">
 								<span class="text-sm font-semibold">
@@ -39,7 +39,7 @@ export const WhatsNewPage: Component = () => (
 					)}
 				</For>
 
-				<Separator />
+				<Separator class="my-2" />
 
 				<span class="text-sm text-muted-foreground">
 					Looking for something older? The{" "}

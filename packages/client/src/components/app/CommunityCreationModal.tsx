@@ -237,42 +237,44 @@ export const CommunityCreationModal: ParentComponent<{
 							</FileFieldDropzone>
 							<FileFieldHiddenInput />
 						</FileField>
-						<FileField onFileChange={setBanner} maxFiles={1}>
-							<FileFieldDropzone class="w-full h-30 min-h-0 rounded-md overflow-hidden relative">
-								<FileFieldTrigger class="h-full w-full bg-muted/25 text-muted-foreground hover:bg-muted/50 p-0">
-									<Switch>
-										<Match when={banner() === undefined}>
-											<div class="flex flex-col items-center justify-center gap-1">
-												<Image className="w-6! h-6!" />
-												<span>Upload banner</span>
-											</div>
-										</Match>
-										<Match when={banner() !== undefined}>
-											<FileFieldItemList class="w-full h-full m-0 p-0 relative">
-												{() => (
-													<FileFieldItem class="w-full h-full m-0 p-0 border-none [&>div]:h-full -grid">
-														<FileFieldItemPreviewImage class="w-full h-full object-cover" />
-													</FileFieldItem>
-												)}
-											</FileFieldItemList>
-											<button
-												type="button"
-												class="absolute top-1 right-1 text-white drop-shadow drop-shadow-black cursor-pointer"
-												onClick={(e) => {
-													e.preventDefault();
-													e.stopPropagation();
-													setBanner(undefined);
-												}}
-												aria-label="Remove banner"
-											>
-												<XCircleIcon />
-											</button>
-										</Match>
-									</Switch>
-								</FileFieldTrigger>
-							</FileFieldDropzone>
-							<FileFieldHiddenInput />
-						</FileField>
+						<Show when={!isMigration()}>
+							<FileField onFileChange={setBanner} maxFiles={1}>
+								<FileFieldDropzone class="w-full h-30 min-h-0 rounded-md overflow-hidden relative">
+									<FileFieldTrigger class="h-full w-full bg-muted/25 text-muted-foreground hover:bg-muted/50 p-0">
+										<Switch>
+											<Match when={banner() === undefined}>
+												<div class="flex flex-col items-center justify-center gap-1">
+													<Image className="w-6! h-6!" />
+													<span>Upload banner</span>
+												</div>
+											</Match>
+											<Match when={banner() !== undefined}>
+												<FileFieldItemList class="w-full h-full m-0 p-0 relative">
+													{() => (
+														<FileFieldItem class="w-full h-full m-0 p-0 border-none [&>div]:h-full -grid">
+															<FileFieldItemPreviewImage class="w-full h-full object-cover" />
+														</FileFieldItem>
+													)}
+												</FileFieldItemList>
+												<button
+													type="button"
+													class="absolute top-1 right-1 text-white drop-shadow drop-shadow-black cursor-pointer"
+													onClick={(e) => {
+														e.preventDefault();
+														e.stopPropagation();
+														setBanner(undefined);
+													}}
+													aria-label="Remove banner"
+												>
+													<XCircleIcon />
+												</button>
+											</Match>
+										</Switch>
+									</FileFieldTrigger>
+								</FileFieldDropzone>
+								<FileFieldHiddenInput />
+							</FileField>
+						</Show>
 					</div>
 					<TextField
 						value={name()}
@@ -468,12 +470,12 @@ export const CommunityCreationModal: ParentComponent<{
 				let communityUri: string;
 
 				if (isMigration()) {
-					const pictureUrl = legacyPictureUrl();
-					let picture: Blob | undefined;
+					let pictureBlob: Blob | undefined = picture()?.acceptedFiles[0];
+					const pictureUrl = pictureBlob ? undefined : legacyPictureUrl();
 					if (pictureUrl) {
 						try {
 							const res = await fetch(pictureUrl);
-							picture = await res.blob();
+							pictureBlob = await res.blob();
 						} catch (err) {
 							console.error("[CommunityMigration] picture copy failed", err);
 						}
@@ -482,7 +484,7 @@ export const CommunityCreationModal: ParentComponent<{
 						"legacy-community",
 						props.migrateFrom!.uri,
 						{ name: name(), description: description() || undefined },
-						picture,
+						pictureBlob,
 						byo,
 					);
 					if (!res) throw new Error("No response from server.");

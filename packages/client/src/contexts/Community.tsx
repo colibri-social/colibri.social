@@ -423,7 +423,8 @@ export const CommunityContextProvider: ParentComponent = (props) => {
 					...(data.description !== undefined && {
 						description: data.description,
 					}),
-					...(data.picture !== undefined && { picture: data.picture }),
+					picture: data.picture,
+					banner: data.banner,
 					...(data.categoryOrder !== undefined && {
 						categoryOrder: data.categoryOrder.map(toCategoryUri),
 					}),
