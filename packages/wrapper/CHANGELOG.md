@@ -1,5 +1,14 @@
 # @colibri-social/wrapper
 
+## 0.1.0-rc.13
+
+### Patch Changes
+
+- 64fca4e: Fixes a few issues with console error spam
+- Updated dependencies [64fca4e]
+- Updated dependencies [7058ba3]
+  - @colibri-social/client@0.1.0-rc.11
+
 ## 0.1.0-rc.12
 
 ### Patch Changes

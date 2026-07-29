@@ -1,5 +1,22 @@
 # @colibri-social/website
 
+## 0.1.0-rc.11
+
+### Patch Changes
+
+- 7058ba3: Fixes issues with banners: users were unable to remove pictures and banners, and banners in the UI wouldn't live-update.
+
+  <!-- whatsnew
+  title: Live Banner Updates
+  icon: image-fill
+  body: Updates made to a community's banner are now shown right away.
+  kind: fix
+  -->
+
+- Updated dependencies [64fca4e]
+- Updated dependencies [7058ba3]
+  - @colibri-social/client@0.1.0-rc.11
+
 ## 0.1.0-rc.10
 
 ### Minor Changes
