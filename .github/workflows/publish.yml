@@ -333,9 +333,10 @@ jobs:
       - name: Sync App Store version
         run: |
           set -euo pipefail
-          MAS_VERSION=$(node -p "require('./packages/wrapper/src-tauri/tauri.appstore.conf.json').version")
+          MAS_VERSION=$(node packages/wrapper/scripts/appstore-version.mjs "${{ inputs.version }}")
           echo "App Store marketing version: $MAS_VERSION (build $GITHUB_RUN_NUMBER)"
           node packages/wrapper/scripts/set-version.mjs "$MAS_VERSION" --bundle-version="$GITHUB_RUN_NUMBER"
+          echo "MAS_VERSION=$MAS_VERSION" >> "$GITHUB_ENV"
 
       - name: Build and sign App Store package
         env:
@@ -346,15 +347,29 @@ jobs:
         run: pnpm --filter @colibri-social/wrapper build:macos:appstore
 
       - name: Validate package with App Store Connect
+        id: validate
         env:
           APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
           APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
         run: |
-          set -euo pipefail
-          xcrun altool --validate-app -f "$PKG_PATH" -t macos \
-            --apiKey "$APPLE_API_KEY" --apiIssuer "$APPLE_API_ISSUER"
+          set -uo pipefail
+          LOG="$RUNNER_TEMP/altool-validate.log"
+          if xcrun altool --validate-app -f "$PKG_PATH" -t macos \
+            --apiKey "$APPLE_API_KEY" --apiIssuer "$APPLE_API_ISSUER" 2>&1 | tee "$LOG"; then
+            echo "validated=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          CODES=$(grep -oE '\(9[0-9]{4}\)' "$LOG" | tr -d '()' | sort -u)
+          echo "App Store Connect error codes: ${CODES:-none}"
+          if [ -n "$CODES" ] && [ -z "$(echo "$CODES" | grep -vE '^(90186|90062)$')" ]; then
+            echo "validated=false" >> "$GITHUB_OUTPUT"
+            echo "::warning title=App Store upload skipped::Version $MAS_VERSION is already approved or its pre-release train is closed, so App Store Connect will not accept more builds for it. The signed package is still attached as an artifact. Ship the next App Store build by cutting a release whose derived version is higher."
+            exit 0
+          fi
+          exit 1
 
       - name: Upload package to App Store Connect
+        if: steps.validate.outputs.validated == 'true'
         env:
           APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
           APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}

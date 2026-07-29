@@ -37,17 +37,19 @@ macOS ships through two channels, built from the same source by two separate job
 
 ### App Store versioning
 
-The App Store marketing version lives in `src-tauri/tauri.appstore.conf.json`'s top-level `version`
-and is **deliberately independent of the release train**. Two reasons: `CFBundleShortVersionString`
-must be at most three period-separated integers, so an rc version like `0.1.0-rc.12` is rejected on
-upload; and the listing has its own history that release candidates should not disturb.
+`CFBundleShortVersionString` must be at most three period-separated integers, so an rc version like
+`0.1.0-rc.13` cannot be uploaded as-is. `scripts/appstore-version.mjs` derives an acceptable one from
+the release version:
 
-`CFBundleVersion` is not stored in the repo. CI passes the workflow run number via
-`scripts/set-version.mjs --bundle-version=<n>`, which keeps it monotonic across uploads of the same
+- **Prerelease**: the counter becomes the patch component: `0.1.0-rc.13` -> `0.1.13`. Only valid while
+  the patch component is `0`, the script fails loudly otherwise rather than risk emitting a lower
+  version than the release itself.
+- **Plain release**: used unchanged: `0.2.0` -> `0.2.0`. This is what takes over once the project
+  leaves RC mode, and it stays ahead of every `0.1.x` the rc scheme produced.
+
+`CFBundleVersion` is not stored in the repo either. CI passes the workflow run number via
+`scripts/set-version.mjs --bundle-version=<n>`, keeping it monotonic across uploads of the same
 marketing version.
-
-It is currently pinned at **0.1.9**. **Raise it to `0.2.0` when the
-project leaves RC mode.**
 
 ## Layout
 
