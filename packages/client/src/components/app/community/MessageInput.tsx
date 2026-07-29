@@ -56,6 +56,7 @@ const uploadFile = async (agent: Agent, file: File): Promise<AttachmentObj> => {
  */
 export const MessageInput: Component<{
 	disabled: boolean;
+	disabledReason?: string;
 	channelName: string;
 	maxAttachments: number;
 }> = (props) => {
@@ -503,7 +504,8 @@ export const MessageInput: Component<{
 					</Match>
 					<Match when={props.disabled}>
 						<span class="text-sm">
-							You are not allowed to send messages in this channel.
+							{props.disabledReason ??
+								"You are not allowed to send messages in this channel."}
 						</span>
 					</Match>
 				</Switch>

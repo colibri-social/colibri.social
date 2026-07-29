@@ -1,3 +1,4 @@
+import type { AT_URI } from "@colibri-social/lib";
 import { useNavigate, useParams } from "@solidjs/router";
 import {
 	type Component,
@@ -36,6 +37,9 @@ const clearPendingInvite = () => {
 	} catch {}
 };
 
+const ADMISSION_TIMEOUT_MS = 15_000;
+const ADMISSION_POLL_MS = 1_000;
+
 export const InviteModal: Component = () => {
 	const params = useParams();
 	const navigate = useNavigate();
@@ -57,15 +61,35 @@ export const InviteModal: Component = () => {
 		navigate("/app", { replace: true });
 	};
 
+	const isMemberOf = (communityUri: AT_URI<"social.colibri.community">) => {
+		const segment = communityUriToUrlCompatible(communityUri);
+		return user.communities.some(
+			(c) => communityUriToUrlCompatible(c.uri) === segment,
+		);
+	};
+
 	createEffect(() => {
 		const data = invite();
 		if (!data?.community) return;
-		const segment = communityUriToUrlCompatible(data.community);
-		const alreadyMember = user.communities.some(
-			(c) => communityUriToUrlCompatible(c.uri) === segment,
-		);
-		if (alreadyMember) navigate(`/app/c/${segment}`, { replace: true });
+		if (isMemberOf(data.community)) {
+			navigate(`/app/c/${communityUriToUrlCompatible(data.community)}`, {
+				replace: true,
+			});
+		}
 	});
+
+	const waitForAdmission = async (
+		communityUri: AT_URI<"social.colibri.community">,
+	) => {
+		const deadline = Date.now() + ADMISSION_TIMEOUT_MS;
+
+		while (!isMemberOf(communityUri) && Date.now() < deadline) {
+			await new Promise((resolve) => setTimeout(resolve, ADMISSION_POLL_MS));
+			await user.refetchCommunities();
+		}
+
+		return isMemberOf(communityUri);
+	};
 
 	const accept = async () => {
 		const data = invite();
@@ -75,14 +99,23 @@ export const InviteModal: Component = () => {
 		try {
 			await joinCommunity(user.atproto.agent, user.did, data.community);
 			if (muteOn()) await mutes.muteCommunity(data.community);
-			clearPendingInvite();
 
 			if (data.requiresApprovalToJoin) {
+				clearPendingInvite();
 				toast.success("Your request to join has been sent to the moderators.");
 				navigate("/app", { replace: true });
 				return;
 			}
 
+			if (!(await waitForAdmission(data.community))) {
+				toast.error(
+					"You joined, but the community hasn't confirmed it yet. Try again in a moment.",
+				);
+				setJoining(false);
+				return;
+			}
+
+			clearPendingInvite();
 			navigate(`/app/c/${communityUriToUrlCompatible(data.community)}`, {
 				replace: true,
 			});

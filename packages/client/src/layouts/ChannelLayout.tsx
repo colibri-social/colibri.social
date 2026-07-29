@@ -645,24 +645,23 @@ const ChannelLayout: ParentComponent = (props) => {
 		(channel.data()?.allowedRoles?.length ?? 0) > 0 ||
 		(channel.data()?.allowedMembers?.length ?? 0) > 0;
 
+	const member = () => community().members.find((x) => x.did === user.did);
+
+	const isMember = () => member() !== undefined;
+
 	const canTalk = () => {
+		if (!isMember()) return false;
 		if (!isRestricted() || community().ownerDid() === user.did) return true;
 
 		if (channel.data()?.ownerOnly && community().ownerDid() === user.did)
 			return true;
 		if (channel.data()?.allowedMembers?.includes(user.did)) return true;
 
-		const member = community().members.find((x) => x.did === user.did)!;
-
-		if (
-			member.roles.find((x) =>
+		return (
+			member()?.roles.some((x) =>
 				channel.data()?.allowedRoles?.some((y) => x === y),
-			)
-		) {
-			return true;
-		}
-
-		return false;
+			) === true
+		);
 	};
 
 	return (
@@ -937,6 +936,11 @@ const ChannelLayout: ParentComponent = (props) => {
 						<Show when={channel.data()}>
 							<MessageInput
 								disabled={!canTalk()}
+								disabledReason={
+									isMember()
+										? "You are not allowed to send messages in this channel."
+										: "You are not a member of this community."
+								}
 								channelName={channel.data()?.name ?? ""}
 								maxAttachments={MAX_ATTACHMENTS}
 							/>
