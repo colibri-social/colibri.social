@@ -43,6 +43,7 @@ import {
 } from "../../../components/ui/TextField";
 import { UserContextProvider, useUserContext } from "../../../contexts/User";
 import { useIsMobile } from "../../../utils/mobile-pane";
+import { Spinner } from "../../icons/Spinner";
 import { DialogCloseButton, DialogFooter } from "../../ui/Dialog";
 import { ResponsiveDialog } from "../../ui/ResponsiveDialog";
 import { Separator } from "../../ui/Separator";
@@ -441,14 +442,15 @@ const NewPlateDialog: Component<{
 
 	const [name, setName] = createSignal<string>();
 	const [color, setColor] = createSignal<string>("#000000");
-	const [image, setImage] = createSignal<Details>();
-	const [imageUri, setImageUri] = createSignal<string>();
+	const [picture, setPicture] = createSignal<Details>();
+	const [pictureUri, setPictureUri] = createSignal<string>();
+	const [saving, setSaving] = createSignal<boolean>(false);
 
 	const resetState = () => {
 		setName(undefined);
 		setColor("#000000");
-		setImage(undefined);
-		setImageUri(undefined);
+		setPicture(undefined);
+		setPictureUri(undefined);
 	};
 
 	const handleClose = (open: boolean) => {
@@ -457,12 +459,29 @@ const NewPlateDialog: Component<{
 	};
 
 	const handleSave = async () => {
+		setSaving(true);
 		await createRecord(user.atproto.agent, user.did, PLATE_COLLECTION, {
 			name: name(),
 			color: color(),
-			picture: await uploadBlob(user.atproto.agent, image()?.acceptedFiles[0]!),
+			picture: await uploadBlob(
+				user.atproto.agent,
+				picture()!.acceptedFiles[0]!,
+			),
 		});
 		handleClose(false);
+		setSaving(false);
+	};
+
+	const nameValid = () => {
+		return name() !== undefined &&
+			name()!.trim().length < 33 &&
+			name()!.trim().length > 0
+			? "valid"
+			: "invalid";
+	};
+
+	const canSave = () => {
+		return nameValid() === "valid" && picture() !== undefined;
 	};
 
 	return (
@@ -478,7 +497,11 @@ const NewPlateDialog: Component<{
 					</DialogCloseButton>
 				</div>
 			</Show>
-			<TextField value={name()} onChange={setName}>
+			<TextField
+				value={name()}
+				onChange={setName}
+				validationState={nameValid()}
+			>
 				<TextFieldLabel>Name</TextFieldLabel>
 				<TextFieldInput
 					minLength={1}
@@ -491,25 +514,25 @@ const NewPlateDialog: Component<{
 			<div class="grid grid-cols-2 w-full gap-3">
 				<MemberRow
 					member={user as ActorData}
-					overridePlate={{ image: imageUri(), color: color() }}
+					overridePlate={{ image: pictureUri(), color: color() }}
 				/>
 				<FileField
 					onFileChange={(v) => {
-						setImage(v);
-						setImageUri(URL.createObjectURL(v.acceptedFiles[0]));
+						setPicture(v);
+						setPictureUri(URL.createObjectURL(v.acceptedFiles[0]));
 					}}
 					maxFiles={1}
 				>
 					<FileFieldDropzone class="w-full h-12 min-h-0 rounded-md overflow-hidden relative">
 						<FileFieldTrigger class="h-full w-full bg-muted/25 text-muted-foreground hover:bg-muted/50 p-0">
 							<Switch>
-								<Match when={image() === undefined}>
+								<Match when={picture() === undefined}>
 									<div class="flex items-center justify-center gap-2">
 										<Image class="w-6! h-6!" />
 										<span>Upload background</span>
 									</div>
 								</Match>
-								<Match when={image() !== undefined}>
+								<Match when={picture() !== undefined}>
 									<FileFieldItemList class="w-full h-full m-0 p-0 relative">
 										{() => (
 											<FileFieldItem class="w-full h-full m-0 p-0 border-none [&>div]:h-full -grid">
@@ -523,8 +546,8 @@ const NewPlateDialog: Component<{
 										onClick={(e) => {
 											e.preventDefault();
 											e.stopPropagation();
-											setImage(undefined);
-											setImageUri(undefined);
+											setPicture(undefined);
+											setPictureUri(undefined);
 										}}
 										aria-label="Remove background"
 									>
@@ -538,10 +561,22 @@ const NewPlateDialog: Component<{
 				</FileField>
 			</div>
 			<DialogFooter>
-				<Button variant="secondary" onClick={() => handleClose(false)}>
+				<Button
+					variant="secondary"
+					disabled={saving()}
+					onClick={() => handleClose(false)}
+				>
 					Cancel
 				</Button>
-				<Button onClick={handleSave}>Save</Button>
+				<Button onClick={handleSave} disabled={saving() || !canSave()}>
+					<Spinner
+						classList={{
+							hidden: !saving(),
+							block: saving(),
+						}}
+					/>
+					Save
+				</Button>
 			</DialogFooter>
 		</ResponsiveDialog>
 	);
