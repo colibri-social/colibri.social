@@ -12,3 +12,18 @@ export const requiresInAppPurchase = (): boolean => {
 		return /Mac|iPhone|iPad|iPod|Android/.test(navigator.userAgent);
 	}
 };
+
+const NATIVE_KEYBOARD_INSET_PLATFORMS = ["android", "ios"];
+
+/**
+ * True when running inside the Tauri Android or iOS webview
+ */
+export const hasNativeKeyboardInsetSync = (): boolean => {
+	if (!isTauriRuntime()) return false;
+
+	try {
+		return NATIVE_KEYBOARD_INSET_PLATFORMS.includes(platform());
+	} catch {
+		return false;
+	}
+};

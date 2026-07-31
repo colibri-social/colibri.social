@@ -5,7 +5,7 @@ import NavLink from "./NavLink.astro";
 import type { LinkData } from "./shared";
 
 const links: Array<LinkData> = [
-	// { text: "Download", href: "/download" },
+	{ text: "Download", href: "/download" },
 	{ text: "About", href: "/about" },
 	{ text: "Blog", href: "/blog" },
 	{ text: "Docs", href: "/docs" },
@@ -26,7 +26,7 @@ const links: Array<LinkData> = [
 
 	<div
 		id="mobile-menu"
-		class="lg:flex fixed inset-0 z-40 flex flex-col items-center justify-center gap-8 lg:gap-4 bg-background text-6xl transition-opacity duration-300 opacity-0 pointer-events-none [&.open]:opacity-100 [&.open]:pointer-events-auto"
+		class="lg:flex fixed inset-0 z-40 flex flex-col items-center justify-center gap-8 lg:gap-4 bg-background text-4xl transition-opacity duration-300 opacity-0 pointer-events-none [&.open]:opacity-100 [&.open]:pointer-events-auto"
 	>
 		{
 			links.map(({ text, href }, i) => (
@@ -42,7 +42,7 @@ const links: Array<LinkData> = [
 			class="flex lg:hidden mobile-link translate-y-6 opacity-0 transition-[transform,opacity] duration-300 gap-3 mt-4"
 			style={`transition-delay: ${links.length * 60}ms`}
 		>
-			<Button href="/app/waitlist">Join the waitlist</Button>
+			<Button href="/app">Open the app</Button>
 		</div>
 	</div>
 
@@ -51,9 +51,7 @@ const links: Array<LinkData> = [
 	</div>
 
 	<div class="w-40 flex justify-end items-center gap-4">
-		<Button href="/app/waitlist" class="hidden lg:inline-flex">
-			Join the waitlist
-		</Button>
+		<Button href="/app" class="hidden lg:inline-flex"> Open the app </Button>
 		<button
 			id="menu-toggle"
 			class="lg:hidden relative z-50 flex flex-col justify-center items-center w-9 h-9 gap-1.5 rounded-md hover:bg-accent transition-colors"

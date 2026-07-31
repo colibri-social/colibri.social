@@ -68,6 +68,7 @@ export type UserPreferencesContextData = {
 	nativeNotifications: boolean;
 	notificationPromptDismissed: boolean;
 	lastSeenReleaseNote: string | null;
+	chatGuidelinesAccepted: boolean;
 	voice: {
 		input: VoiceInputSettings;
 		output: VoiceIOSettings;
@@ -93,6 +94,7 @@ const DEFAULT_PREFERENCES: UserPreferencesContextData = {
 	nativeNotifications: false,
 	notificationPromptDismissed: false,
 	lastSeenReleaseNote: null,
+	chatGuidelinesAccepted: false,
 	voice: {
 		input: {
 			enabled: true,
@@ -194,6 +196,7 @@ type UserPreferencesContextValue = {
 	setNativeNotifications: (enabled: boolean) => void;
 	setNotificationPromptDismissed: (dismissed: boolean) => void;
 	setLastSeenReleaseNote: (version: string | null) => void;
+	setChatGuidelinesAccepted: (accepted: boolean) => void;
 	setNoiseSuppressionHints: (enabled: boolean) => void;
 	setPreferredBlueskyClient: (client: BlueskyClientID) => void;
 	setPreferredAppView: (appView: string) => void;
@@ -300,6 +303,10 @@ export const UserPreferencesContextProvider: ParentComponent = (props) => {
 		setPreferences((p) => ({ ...p, lastSeenReleaseNote: version }));
 	};
 
+	const setChatGuidelinesAccepted = (accepted: boolean) => {
+		setPreferences((p) => ({ ...p, chatGuidelinesAccepted: accepted }));
+	};
+
 	const setNoiseSuppressionHints = (enabled: boolean) => {
 		setPreferences((p) => ({
 			...p,
@@ -356,6 +363,7 @@ export const UserPreferencesContextProvider: ParentComponent = (props) => {
 				setNativeNotifications,
 				setNotificationPromptDismissed,
 				setLastSeenReleaseNote,
+				setChatGuidelinesAccepted,
 				setNoiseSuppressionHints,
 				setPreferredBlueskyClient,
 				setPreferredAppView,

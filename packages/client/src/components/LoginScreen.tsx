@@ -7,7 +7,7 @@ import {
 	Show,
 } from "solid-js";
 import { toast } from "somoto";
-import { isAllowedDid } from "../atproto/allowlist";
+import { ALLOWLIST_ENABLED, isAllowedDid } from "../atproto/allowlist";
 import {
 	asSignInError,
 	beginSignInAttempt,
@@ -392,30 +392,36 @@ const LoginScreenContent: Component = () => {
 							</details>
 						</div>
 					</div>
-					<div class="relative w-full mt-4">
-						<hr class="bg-border w-full h-px border-none m-0" />
-						<small class="text-muted-foreground bg-card absolute top-1/2 left-1/2 transform -translate-1/2 px-2 whitespace-nowrap">
-							{joinedWaitlist() ? "YOU'RE ON THE LIST" : "NOT ON THE LIST YET?"}
-						</small>
-					</div>
-					<div class="w-full p-6 flex flex-col gap-3">
-						<p class="text-sm text-muted-foreground m-0 text-center">
-							<Show
-								when={joinedWaitlist()}
-								fallback="Colibri is in limited early access while we wait on the AT Protocol's permissioned data support. Leave your email and we'll reach out when there's room."
+					<Show when={ALLOWLIST_ENABLED}>
+						<div class="relative w-full mt-4">
+							<hr class="bg-border w-full h-px border-none m-0" />
+							<small class="text-muted-foreground bg-card absolute top-1/2 left-1/2 transform -translate-1/2 px-2 whitespace-nowrap">
+								{joinedWaitlist()
+									? "YOU'RE ON THE LIST"
+									: "NOT ON THE LIST YET?"}
+							</small>
+						</div>
+						<div class="w-full p-6 flex flex-col gap-3">
+							<p class="text-sm text-muted-foreground m-0 text-center">
+								<Show
+									when={joinedWaitlist()}
+									fallback="Colibri is in limited early access while we wait on the AT Protocol's permissioned data support. Leave your email and we'll reach out when there's room."
+								>
+									You've joined the waitlist — we'll email you the moment
+									there's room. No need to sign up again.
+								</Show>
+							</p>
+							<Button
+								variant="secondary"
+								class="w-full"
+								onClick={() => navigate("/app/waitlist")}
 							>
-								You've joined the waitlist — we'll email you the moment there's
-								room. No need to sign up again.
-							</Show>
-						</p>
-						<Button
-							variant="secondary"
-							class="w-full"
-							onClick={() => navigate("/app/waitlist")}
-						>
-							{joinedWaitlist() ? "View waitlist status" : "Join the waitlist"}
-						</Button>
-					</div>
+								{joinedWaitlist()
+									? "View waitlist status"
+									: "Join the waitlist"}
+							</Button>
+						</div>
+					</Show>
 				</div>
 				<div class="flex flex-row items-center justify-center text-muted-foreground w-full max-w-xl gap-4 text-sm flex-wrap">
 					<span>Open source</span>

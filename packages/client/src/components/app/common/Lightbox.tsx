@@ -16,7 +16,7 @@ export const Lightbox: ParentComponent<{
 			<Show when={open()}>
 				<Portal>
 					<div
-						class="absolute top-0 left-0 z-50 bg-background/95 w-screen h-screen flex items-center justify-center"
+						class="fixed inset-0 z-50 bg-background/95 flex items-center justify-center p-8"
 						id="lightbox"
 						onClick={() => {
 							setOpen(false);
@@ -29,7 +29,7 @@ export const Lightbox: ParentComponent<{
 								e.preventDefault();
 								e.stopPropagation();
 							}}
-							class="max-w-[calc(100vw-4rem)] max-h-[calc(100vh-4rem)] rounded-sm z-40"
+							class="max-w-full max-h-full rounded-sm z-40"
 						/>
 						<Button
 							variant="outline"

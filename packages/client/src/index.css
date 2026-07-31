@@ -66,6 +66,12 @@
 }
 
 @layer base {
+	html,
+	body {
+		max-width: 100%;
+		overflow-x: clip;
+	}
+
 	/* Body and Paragraphs */
 	body {
 		@apply text-gray-700 leading-7 dark:text-gray-300;

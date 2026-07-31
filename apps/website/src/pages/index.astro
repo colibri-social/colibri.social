@@ -17,8 +17,7 @@ import {
 	AccordionTrigger,
 } from "@/components/bearnie/accordion";
 import Button from "@/components/bearnie/button/Button.astro";
-// import Download from "@/components/icons/download.svg";
-import GitBranch from "@/components/icons/git-branch.svg";
+import Download from "@/components/icons/download.svg";
 import Globe from "@/components/icons/globe.svg";
 import BinaryMarquee from "@/components/public/BinaryMarquee.astro";
 import Clouds from "@/components/public/Clouds.astro";
@@ -172,28 +171,23 @@ const defaultTier = tiers.find((tier) => tier.highlight) ?? tiers[0];
 			</h1>
 			<p class="hero-sub hero-reveal m-0 max-w-[52ch] text-balance">
 				Colibri is an open source chat platform built on the AT protocol for
-				communities big and small. Currently in limited early access.
+				communities big and small.
 			</p>
 			<div
 				class="hero-reveal flex flex-row items-start justify-center gap-4 flex-wrap mt-2"
 			>
-				{
-					/*
-					<span class="hero-cta inline-flex">
-						<Button variant="default" href="/download">
-							<Download slot="left-icon" />
-							Download
-						</Button>
-					</span>
-					<span class="hero-cta inline-flex">
-						<Button variant="secondary" href="/app">
-							<Globe slot="left-icon" />
-							Open in Browser
-						</Button>
-					</span>
-					*/
-				}
-				<Button href="/app/waitlist">Join the waitlist</Button>
+				<span class="hero-cta inline-flex">
+					<Button variant="default" href="/download">
+						<Download slot="left-icon" />
+						Download
+					</Button>
+				</span>
+				<span class="hero-cta inline-flex">
+					<Button variant="secondary" href="/app">
+						<Globe slot="left-icon" />
+						Open in Browser
+					</Button>
+				</span>
 			</div>
 		</div>
 
@@ -221,12 +215,11 @@ const defaultTier = tiers.find((tier) => tier.highlight) ?? tiers[0];
 							>permissioned data</strong
 						>: a protocol-level way to keep some data private within a space
 						instead of broadcasting it to the whole network. Until that ships,
-						Colibri stays in <strong class="text-foreground"
-							>limited early access</strong
-						>: we won't promise private spaces we can't yet secure. The moment
-						permissioned data launches, Colibri will too.
+						Colibri stays in <strong class="text-foreground">beta</strong>: we
+						won't promise private spaces we can't yet secure. The moment
+						permissioned data launches, Colibri's stable version will too.
 					</p>
-					<Button href="/app/waitlist">Join the Waitlist</Button>
+					<Button href="/download">Get Started</Button>
 				</div>
 				<div
 					class="bg-gradient-feature p-8 rounded-sm h-auto hidden lg:flex items-center justify-center overflow-hidden w-full lg:w-[calc(50%-36px)] ml-auto"

@@ -7,6 +7,7 @@ import {
 	createEffect,
 	createSignal,
 	For,
+	type JSX,
 	Match,
 	Show,
 	Switch,
@@ -57,6 +58,7 @@ const uploadFile = async (agent: Agent, file: File): Promise<AttachmentObj> => {
 export const MessageInput: Component<{
 	disabled: boolean;
 	disabledReason?: string;
+	disabledAction?: JSX.Element;
 	channelName: string;
 	maxAttachments: number;
 }> = (props) => {
@@ -503,10 +505,13 @@ export const MessageInput: Component<{
 						</Show>
 					</Match>
 					<Match when={props.disabled}>
-						<span class="text-sm">
-							{props.disabledReason ??
-								"You are not allowed to send messages in this channel."}
-						</span>
+						<div class="w-full flex flex-row items-center justify-between gap-3">
+							<span class="text-sm">
+								{props.disabledReason ??
+									"You are not allowed to send messages in this channel."}
+							</span>
+							<Show when={props.disabledAction}>{props.disabledAction}</Show>
+						</div>
 					</Match>
 				</Switch>
 			</div>

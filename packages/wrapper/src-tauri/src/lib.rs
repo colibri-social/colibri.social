@@ -86,7 +86,9 @@ pub fn run() {
 
     #[cfg(target_os = "ios")]
     {
-        builder = builder.plugin(tauri_plugin_ios_webview_insets::init());
+        builder = builder
+            .plugin(tauri_plugin_ios_webview_insets::init())
+            .plugin(tauri_plugin_keyboard_inset::init());
     }
 
     // The single-instance plugin must be the first one registered. With the

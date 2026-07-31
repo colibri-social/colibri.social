@@ -682,6 +682,7 @@ dependencies = [
  "tauri-plugin-fcm",
  "tauri-plugin-fs",
  "tauri-plugin-ios-webview-insets",
+ "tauri-plugin-keyboard-inset",
  "tauri-plugin-notification",
  "tauri-plugin-opener",
  "tauri-plugin-os",
@@ -4579,6 +4580,14 @@ name = "tauri-plugin-ios-webview-insets"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4d2e24b38fab352e96d412c5a97e45fc3542dc28159ab9111470a653fa8b98e4"
+dependencies = [
+ "tauri",
+ "tauri-plugin",
+]
+
+[[package]]
+name = "tauri-plugin-keyboard-inset"
+version = "0.1.0"
 dependencies = [
  "tauri",
  "tauri-plugin",

@@ -15,12 +15,19 @@ export const createViewportMetrics = (): ViewportMetrics => {
 	const [offsetTop, setOffsetTop] = createSignal(0);
 	const [keyboardInset, setKeyboardInset] = createSignal(0);
 
+	let hasNativeKeyboardInset = false;
+
 	const height = () =>
-		keyboardInset() > 0 ? window.innerHeight - keyboardInset() : vvHeight();
+		hasNativeKeyboardInset
+			? Math.max(window.innerHeight - keyboardInset(), window.innerHeight * 0.3)
+			: vvHeight();
 
 	if (typeof window !== "undefined") {
 		const onKeyboardInset = (event: Event) => {
-			setKeyboardInset((event as CustomEvent<number>).detail ?? 0);
+			hasNativeKeyboardInset = true;
+			const detail = (event as CustomEvent<number>).detail ?? 0;
+			const clamped = Math.min(Math.max(detail, 0), window.innerHeight * 0.7);
+			setKeyboardInset(clamped);
 		};
 		window.addEventListener("colibri-keyboard-inset", onKeyboardInset);
 		onCleanup(() =>

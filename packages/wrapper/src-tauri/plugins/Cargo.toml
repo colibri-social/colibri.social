@@ -1,0 +1,15 @@
+[package]
+name = "tauri-plugin-keyboard-inset"
+version = "0.1.0"
+authors = ["Louis Escher"]
+description = "Drives the iOS on-screen keyboard resize into a colibri-keyboard-inset window event, frame-by-frame, mirroring the Android WindowInsetsAnimation callback."
+edition = "2021"
+rust-version = "1.77.2"
+exclude = ["/examples", "/dist-js", "/guest-js", "/node_modules"]
+links = "tauri-plugin-keyboard-inset"
+
+[dependencies]
+tauri = { version = "2.11.3" }
+
+[build-dependencies]
+tauri-plugin = { version = "2.6.3", features = ["build"] }

@@ -1,5 +1,6 @@
 {
 	"compilerOptions": {
+		"composite": true,
 		"target": "ESNext",
 		"module": "nodenext",
 		"moduleResolution": "nodenext",
@@ -12,5 +13,6 @@
 		"verbatimModuleSyntax": true,
 		"types": ["node"]
 	},
-	"include": ["scripts/**/*.ts"]
+	"include": ["scripts/**/*.ts"],
+	"references": [{ "path": "./packages/lib" }]
 }

@@ -871,12 +871,6 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 		const joinedUri = voiceData.connection.uri;
 		if (joinedUri) {
 			applyPresence("join", joinedUri, user.did);
-			const community = communityUriForChannel(joinedUri);
-			if (community)
-				socket.send({
-					type: "voice_join",
-					data: { channel: joinedUri, community },
-				});
 		}
 
 		sendVoiceState();
@@ -967,7 +961,7 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 				break;
 			case "superseded":
 				toast("You joined the voice channel on another device.");
-				disconnect({ notifyServer: false });
+				disconnect();
 				break;
 			case "error":
 				console.error("[voice] server error:", message.message);
@@ -1101,13 +1095,11 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 		await openSignaling(channelUri);
 	};
 
-	const disconnect = (opts?: { notifyServer?: boolean }): void => {
-		const notifyServer = opts?.notifyServer ?? true;
+	const disconnect = (): void => {
 		intentionalClose = true;
 
 		const uri = voiceData.connection.uri;
 		if (voiceData.connection.state !== ConnectionState.Disconnected) {
-			if (notifyServer) socket.send({ type: "voice_leave" });
 			playSound("leave");
 		}
 
@@ -1346,28 +1338,6 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 			{ defer: true },
 		),
 	);
-
-	let mainSocketWasConnected = socket.connected();
-	createEffect(() => {
-		const isConnected = socket.connected();
-
-		if (
-			isConnected &&
-			!mainSocketWasConnected &&
-			voiceData.connection.uri &&
-			voiceData.connection.state !== ConnectionState.Disconnected
-		) {
-			const community = communityUriForChannel(voiceData.connection.uri);
-			if (community)
-				socket.send({
-					type: "voice_join",
-					data: { channel: voiceData.connection.uri, community },
-				});
-			sendVoiceState();
-		}
-
-		mainSocketWasConnected = isConnected;
-	});
 
 	const unsubscribePresence = socket.onEvent((event) => {
 		if (event.type === "voice_presence_event") {

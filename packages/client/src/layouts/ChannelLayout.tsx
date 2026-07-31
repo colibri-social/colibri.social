@@ -24,6 +24,7 @@ import UsersIconFill from "~icons/ph/users-fill";
 import XIcon from "~icons/ph/x";
 import type { Message as MessageData } from "../atproto/xrpc/social/colibri/channel/listMessages";
 import { Message } from "../components/app/channel/message/Message";
+import { ChatGuidelinesModal } from "../components/app/community/ChatGuidelinesModal";
 import { MessageInput } from "../components/app/community/MessageInput";
 import { Button } from "../components/ui/Button";
 import {
@@ -102,7 +103,9 @@ const ChannelLayout: ParentComponent = (props) => {
 	const notifications = useNotifications();
 	const user = useUserContext();
 	const mutes = useMutes();
-	const { preferences, toggleMembersVisible } = useUserPreferences();
+	const { preferences, toggleMembersVisible, setChatGuidelinesAccepted } =
+		useUserPreferences();
+	const [guidelinesOpen, setGuidelinesOpen] = createSignal(false);
 	const { isMobile, popPane, pushPane } = createMobilePane();
 	const viewport = useViewport();
 
@@ -664,6 +667,9 @@ const ChannelLayout: ParentComponent = (props) => {
 		);
 	};
 
+	const needsGuidelines = () =>
+		canTalk() && !preferences().chatGuidelinesAccepted;
+
 	return (
 		<div class="w-full h-full flex flex-col min-h-0 flex-1">
 			<div class="sticky top-0 left-0 border-b border-border bg-background h-12 p-2 w-full flex flex-row items-center justify-between">
@@ -692,7 +698,7 @@ const ChannelLayout: ParentComponent = (props) => {
 							/>
 						</Match>
 					</Switch>
-					<span class="shrink-0 whitespace-nowrap">{channel.data()!.name}</span>
+					<span class="min-w-0 truncate">{channel.data()!.name}</span>
 					<Show when={channel.data()!.description}>
 						<span class="text-muted-foreground shrink-0">—</span>
 						<span class="text-muted-foreground min-w-0 flex-1 overflow-hidden whitespace-nowrap text-ellipsis">
@@ -935,16 +941,34 @@ const ChannelLayout: ParentComponent = (props) => {
 
 						<Show when={channel.data()}>
 							<MessageInput
-								disabled={!canTalk()}
+								disabled={!canTalk() || needsGuidelines()}
 								disabledReason={
-									isMember()
-										? "You are not allowed to send messages in this channel."
-										: "You are not a member of this community."
+									needsGuidelines()
+										? "To chat on Colibri, you must first read the app's chat guidelines."
+										: isMember()
+											? "You are not allowed to send messages in this channel."
+											: "You are not a member of this community."
+								}
+								disabledAction={
+									needsGuidelines() ? (
+										<Button
+											size="sm"
+											variant="secondary"
+											onClick={() => setGuidelinesOpen(true)}
+										>
+											Open Guidelines
+										</Button>
+									) : undefined
 								}
 								channelName={channel.data()?.name ?? ""}
 								maxAttachments={MAX_ATTACHMENTS}
 							/>
 						</Show>
+						<ChatGuidelinesModal
+							open={guidelinesOpen()}
+							onOpenChange={setGuidelinesOpen}
+							onAccept={() => setChatGuidelinesAccepted(true)}
+						/>
 
 						{props.children}
 					</div>

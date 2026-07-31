@@ -180,7 +180,7 @@ export const SettingsModal: ParentComponent<{
 					<DialogPortal>
 						<DialogContent
 							class={cx(
-								"w-[75vw] min-w-92 h-fit min-h-[min(36rem,calc(100vh-2rem))] max-w-3xl! p-0 flex flex-row gap-0 max-h-[min(48rem,calc(100vh-2rem))]! settings-modal",
+								"w-full min-w-92 h-fit min-h-[min(36rem,calc(100vh-2rem))] max-w-3xl! p-0 flex flex-row gap-0 max-h-[min(48rem,calc(100vh-2rem))]! settings-modal",
 								props.contentClass,
 							)}
 						>
@@ -189,7 +189,7 @@ export const SettingsModal: ParentComponent<{
 									<XIcon />
 								</DialogCloseButton>
 							</div>
-							<div class="min-h-[min(36rem,calc(100vh-2rem))] h-auto flex flex-col justify-between p-4 min-w-56 border-r border-border">
+							<div class="min-h-[min(36rem,calc(100vh-2rem))] h-auto flex flex-col justify-between p-4 min-w-56 shrink-0 border-r border-border">
 								<div class="h-full flex flex-col gap-1">
 									<For each={props.pages}>
 										{(item) => (

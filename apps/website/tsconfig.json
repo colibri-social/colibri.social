@@ -3,6 +3,7 @@
 	"include": [".astro/types.d.ts", "**/*"],
 	"exclude": ["dist"],
 	"compilerOptions": {
+		"composite": true,
 		"types": ["vidstack/solid"],
 		"paths": {
 			"@/*": ["./src/*"]

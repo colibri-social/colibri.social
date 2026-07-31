@@ -64,6 +64,7 @@ import {
 	reorderList,
 } from "../utils/drag";
 import { createMobilePane } from "../utils/mobile-pane";
+import { hasNativeKeyboardInsetSync } from "../utils/platform";
 
 const CommunityAvatar = (props: { item: Community; class?: string }) => {
 	const communityDid = props.item.uri.split("/")[2];
@@ -245,17 +246,6 @@ const AppLayout: ParentComponent = (props) => {
 			? `${viewport.height()}px`
 			: undefined;
 
-	const keyboardOpen = () => {
-		const h = viewport.height();
-		if (
-			!needsShellInsets() ||
-			h === undefined ||
-			typeof document === "undefined"
-		)
-			return false;
-		return document.documentElement.clientHeight - h > 100;
-	};
-
 	onMount(() => {
 		let pending: string | null = null;
 		try {
@@ -422,12 +412,15 @@ const AppLayout: ParentComponent = (props) => {
 
 	return (
 		<div
-			class="flex flex-col w-screen bg-card"
+			class="flex flex-col w-full bg-card"
 			classList={{
 				"h-[100dvh]": needsShellInsets() && shellHeight() === undefined,
 				"h-screen": !needsShellInsets(),
 				"pt-[var(--safe-area-top)]": needsShellInsets(),
-				"pb-[var(--safe-area-bottom)]": needsShellInsets() && !keyboardOpen(),
+				"pb-[var(--safe-area-bottom)]":
+					needsShellInsets() && viewport.keyboardInset() === 0,
+				"transition-[height,transform] duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]":
+					needsShellInsets() && !hasNativeKeyboardInsetSync(),
 			}}
 			style={{
 				...(shellHeight() ? { height: shellHeight() } : {}),

@@ -1,6 +1,19 @@
 {
   "fill" : {
-    "automatic-gradient" : "display-p3:0.48705,0.14916,0.91074,1.00000"
+    "linear-gradient" : [
+      "display-p3:0.53280,0.27401,0.80654,1.00000",
+      "display-p3:0.28332,0.08456,0.55408,1.00000"
+    ],
+    "orientation" : {
+      "start" : {
+        "x" : 0.5,
+        "y" : 0
+      },
+      "stop" : {
+        "x" : 0.5,
+        "y" : 0.7
+      }
+    }
   },
   "groups" : [
     {
@@ -11,7 +24,14 @@
           "glass" : true,
           "hidden" : false,
           "image-name" : "SVG Image.svg",
-          "name" : "SVG Image"
+          "name" : "SVG Image",
+          "position" : {
+            "scale" : 1.25,
+            "translation-in-points" : [
+              0,
+              0
+            ]
+          }
         }
       ],
       "shadow" : {

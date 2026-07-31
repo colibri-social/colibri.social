@@ -52,37 +52,42 @@ export const DialogContent = <T extends ValidComponent = "div">(
 				data-slot="dialog-overlay"
 				class="data-[expanded]:animate-in data-[closed]:animate-out data-[closed]:fade-out-0 data-[expanded]:fade-in-0 fixed inset-0 z-50 bg-black/50"
 			/>
-			<DialogPrimitive.Content
-				data-slot="dialog-content"
-				class={cx(
-					"bg-background data-[expanded]:animate-in data-[closed]:animate-out data-[closed]:fade-out-0 data-[expanded]:fade-in-0 data-[closed]:zoom-out-95 data-[expanded]:zoom-in-95 fixed top-[50%] left-[50%] z-50 grid w-full max-w-[calc(100%-2rem)] max-h-[calc(100dvh-var(--safe-area-top)-var(--safe-area-bottom)-2rem)] overflow-y-auto translate-x-[-50%] translate-y-[-50%] gap-4 rounded-lg border p-6 shadow-lg duration-200 sm:max-w-lg",
-					props.class,
-				)}
-				{...rest}
+			<div
+				data-slot="dialog-positioner"
+				class="pointer-events-none fixed inset-0 z-50 flex items-center justify-center px-4 pt-[calc(1rem+var(--safe-area-top))] pb-[calc(1rem+var(--safe-area-bottom))]"
 			>
-				{props.children}
-				<Show when={props.showCloseButton}>
-					<DialogPrimitive.CloseButton
-						aria-label="Close"
-						class="focus-visible:ring-ring absolute top-4 right-4 rounded-xs opacity-70 transition-[opacity,box-shadow] duration-200 hover:opacity-100 focus-visible:ring-2 focus-visible:outline-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
-					>
-						<svg
-							xmlns="http://www.w3.org/2000/svg"
-							viewBox="0 0 24 24"
-							aria-hidden="true"
+				<DialogPrimitive.Content
+					data-slot="dialog-content"
+					class={cx(
+						"bg-background data-[expanded]:animate-in data-[closed]:animate-out data-[closed]:fade-out-0 data-[expanded]:fade-in-0 data-[closed]:zoom-out-95 data-[expanded]:zoom-in-95 pointer-events-auto relative z-50 grid w-full min-w-0 max-h-full overflow-y-auto overflow-x-hidden gap-4 rounded-lg border p-6 shadow-lg duration-200 sm:max-w-lg",
+						props.class,
+					)}
+					{...rest}
+				>
+					{props.children}
+					<Show when={props.showCloseButton}>
+						<DialogPrimitive.CloseButton
+							aria-label="Close"
+							class="focus-visible:ring-ring absolute top-4 right-4 rounded-xs opacity-70 transition-[opacity,box-shadow] duration-200 hover:opacity-100 focus-visible:ring-2 focus-visible:outline-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
 						>
-							<path
-								fill="none"
-								stroke="currentColor"
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								stroke-width="2"
-								d="M18 6L6 18M6 6l12 12"
-							/>
-						</svg>
-					</DialogPrimitive.CloseButton>
-				</Show>
-			</DialogPrimitive.Content>
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								viewBox="0 0 24 24"
+								aria-hidden="true"
+							>
+								<path
+									fill="none"
+									stroke="currentColor"
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									stroke-width="2"
+									d="M18 6L6 18M6 6l12 12"
+								/>
+							</svg>
+						</DialogPrimitive.CloseButton>
+					</Show>
+				</DialogPrimitive.Content>
+			</div>
 		</>
 	);
 };

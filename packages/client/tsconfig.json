@@ -1,5 +1,7 @@
 {
 	"compilerOptions": {
+		"composite": true,
+
 		// General
 		"jsx": "preserve",
 		"jsxImportSource": "solid-js",
