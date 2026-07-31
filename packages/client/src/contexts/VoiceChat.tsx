@@ -914,15 +914,31 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 					kind: message.kind,
 					source: message.source,
 				});
+				if (
+					message.kind === "video" &&
+					message.did !== user.did &&
+					voiceData.connection.state === ConnectionState.Connected
+				) {
+					playSound(message.source === "screen" ? "screenShared" : "camOn");
+				}
 				if (ready) {
 					consumeProducer(message.producerId).catch((err) =>
 						reportVoiceFailure(err, "consume"),
 					);
 				} else pendingConsume.push(message.producerId);
 				break;
-			case "producerRemoved":
+			case "producerRemoved": {
+				const owner = producerOwners.get(message.producerId);
 				removeProducer(message.producerId);
+				if (
+					owner?.kind === "video" &&
+					message.did !== user.did &&
+					voiceData.connection.state === ConnectionState.Connected
+				) {
+					playSound(owner.source === "screen" ? "screenUnshared" : "camOff");
+				}
 				break;
+			}
 			case "activeSpeakers":
 				serverSpeakers = message.dids;
 				recomputeSpeakers();
