@@ -103,6 +103,8 @@ Useful flags, all documented in `packages/wrapper/README.md`: `DISABLE_SENTRY` s
 
 The native app can't use a localhost OAuth client (the `tauri://localhost` origin isn't publicly fetchable), so its client metadata is served from a fixed public origin. That means native login always goes through a hosted metadata document, even in development.
 
+`dev:tauri:android` and `dev:tauri:ios` work for iterating on your own machine, but neither works on an Android emulator or an iOS Simulator. See [Testing native builds](/docs/development/native) for the build-and-install workflow those need instead.
+
 ## Formatting and linting
 
 The workspace uses [Biome](https://biomejs.dev) for both:
@@ -179,3 +181,4 @@ The generated files under `packages/client/src/release-notes/` are written by `p
 - [Client Architecture](/docs/architecture/client): how the client talks to an AppView.
 - [Development Overview](/docs/development/overview): the dev-mode shortcuts in full.
 - [Facets](/docs/specification/facets): how rich text is encoded and rendered.
+- [Testing native builds](/docs/development/native): building and testing the native shell on each platform.

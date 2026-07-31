@@ -1,0 +1,92 @@
+---
+title: Testing native builds
+description: "How to build and test the native shell on macOS, Windows, Linux, Android and iOS, including emulator, Simulator and real-device workflows."
+sidebar:
+  order: 6
+---
+
+import { Steps } from "@astrojs/starlight/components";
+
+This page is about testing the **native shell**: things like windowing, notifications, deep links, the updater, or anything else that only exists once the client is running inside Tauri. If you're testing an AppView change, you don't need any of this. Run [the web client](/docs/development/client) with `pnpm dev:client` against your local AppView instead. That loop is much faster than getting a native build to talk to a local AppView, and it's the only supported way to test AppView-level changes.
+
+The shell renders the client's built output, so build the client first:
+
+```sh
+pnpm --filter @colibri-social/client build
+```
+
+Run every Tauri command through `pnpm --filter @colibri-social/wrapper tauri ...`, not the raw `@tauri-apps/cli`. It's wrapped by `packages/wrapper/scripts/tauri.mjs`, which handles the `DISABLE_SENTRY` flag documented in `packages/wrapper/README.md`.
+
+## Desktop (macOS, Windows, Linux)
+
+There's no emulator or device split on desktop. Running the dev server or the built binary on your own machine is the test.
+
+**Build:**
+
+```sh
+pnpm dev:tauri                                          # hot-reloading dev build
+pnpm --filter @colibri-social/wrapper tauri build --no-bundle   # quick compile, matches CI's PR job
+pnpm --filter @colibri-social/wrapper build:macos:direct         # Developer ID / Homebrew channel
+pnpm --filter @colibri-social/wrapper build:macos:appstore       # Mac App Store channel
+pnpm --filter @colibri-social/wrapper tauri:windows:build        # MSIX for the Microsoft Store
+```
+
+A full `tauri build` needs `TAURI_SIGNING_PRIVATE_KEY` and `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` set, since the updater plugin is enabled by default. Generate a throwaway keypair with `pnpm --filter @colibri-social/wrapper tauri signer generate` if you don't have one, or build against `tauri.appstore.conf.json`, which compiles the updater out entirely.
+
+## Android
+
+**Build:**
+
+```sh
+pnpm --filter @colibri-social/wrapper tauri android build --apk --debug
+```
+
+A debug APK is fine for everyday testing and needs no signing setup. It matches what CI builds on every pull request. Only reach for a signed release build (needs `packages/wrapper/src-tauri/gen/android/keystore.properties`, gitignored) if you're specifically testing the release signing or bundling path.
+
+<Steps>
+
+1. **Emulator:** boot an AVD, then install the APK you just built:
+
+   ```sh
+   adb install -r src-tauri/gen/android/app/build/outputs/apk/debug/app-debug.apk
+   ```
+
+2. **Physical device:** enable USB debugging, connect over USB, and run the same `adb install -r` command against it.
+
+</Steps>
+
+`tauri android dev` and `pnpm dev:tauri:android` do not work on the emulator. Dev mode needs a live connection back to a local AppView, which isn't practical to set up there, so always build and install instead.
+
+If `DISABLE_SENTRY` is set in your shell, it flows through `tauri.mjs` as `--no-default-features` and changes the Cargo feature set. Unset it for a build meant to mirror production behavior.
+
+## iOS
+
+**Build:** open the generated Xcode project rather than building from the CLI alone.
+
+```sh
+pnpm --filter @colibri-social/wrapper tauri ios build --open
+```
+
+This opens `packages/wrapper/src-tauri/gen/apple` in Xcode. You can also open the project or workspace there directly if it's already been generated.
+
+<Steps>
+
+1. **Simulator:** pick a Simulator destination in Xcode and Run. Reuse one simulator across test passes rather than creating a new one each time, and prefer reinstalling over the existing app rather than deleting it first: uninstalling wipes the app's local session and storage.
+
+2. **Physical device:** pick the device as the Xcode destination and Run. This needs a development signing certificate and provisioning profile. Automatic signing with an Apple ID is the simplest local setup. Once you already have a built `.app`, you can reinstall it without going back through Xcode:
+
+   ```sh
+   xcrun devicectl device install app <path-to-app>
+   xcrun devicectl device process launch --device <device-id> <bundle-id>
+   ```
+
+</Steps>
+
+`tauri ios dev` and `pnpm dev:tauri:ios` do not work on the Simulator, for the same reason as Android: dev mode needs a live local AppView connection.
+
+If a Simulator build fails in a way that doesn't match your changes, clean the `gen/apple` build output directory first. A stale output directory is a common cause.
+
+## See also
+
+- [Client development](/docs/development/client): setup, the dev server, and running the native app in dev mode.
+- [Testing](/docs/development/testing): the AppView and client test suite.
