@@ -5,15 +5,19 @@ import {
 	createMemo,
 	createSignal,
 	For,
+	Match,
 	onCleanup,
 	onMount,
 	Show,
+	Switch,
 } from "solid-js";
 import CaretLeftIcon from "~icons/ph/caret-left";
 import DotsThreeVerticalIcon from "~icons/ph/dots-three-vertical";
 import PhoneCallIcon from "~icons/ph/phone-call";
 import PhoneSlashIcon from "~icons/ph/phone-slash";
 import SpeakerHighIcon from "~icons/ph/speaker-high-fill";
+import UsersIcon from "~icons/ph/users";
+import UsersIconFill from "~icons/ph/users-fill";
 import { resolveBlob } from "../../atproto/resolve-blob";
 import type { Member } from "../../atproto/xrpc/social/colibri/community/listMembers";
 import { useCommunityContext } from "../../contexts/Community";
@@ -28,6 +32,12 @@ import { Ear } from "../icons/Ear";
 import { Microphone } from "../icons/Microphone";
 import { Screen } from "../icons/Screen";
 import { Button } from "../ui/Button";
+import {
+	Tooltip,
+	TooltipContent,
+	TooltipPortal,
+	TooltipTrigger,
+} from "../ui/Tooltip";
 import { MemberContextMenu } from "./community/MemberContextMenu";
 import { DEFAULT_BANNER } from "./profile/theme";
 import User from "./user";
@@ -128,7 +138,7 @@ export const VoiceChannelView: Component = () => {
 	const community = useCommunityContext();
 	const user = useUserContext();
 	const preferences = useUserPreferences();
-	const { isMobile, popPane } = createMobilePane();
+	const { isMobile, popPane, pushPane } = createMobilePane();
 	const [
 		voiceData,
 		{
@@ -457,7 +467,7 @@ export const VoiceChannelView: Component = () => {
 
 	const renderTile = (t: TileDescriptor, compact = false) =>
 		t.kind === "participant" ? (
-			<MemberContextMenu member={t.member} class="w-full h-full">
+			<MemberContextMenu member={t.member} class="w-full h-full aspect-video">
 				<ParticipantTile
 					member={t.member}
 					onSelect={() => toggleFocus(t.key)}
@@ -475,30 +485,69 @@ export const VoiceChannelView: Component = () => {
 	return (
 		<div class="w-full h-full flex flex-col group/vc relative overflow-hidden">
 			<div
-				class="flex items-center gap-2 px-4 z-10"
+				class="flex items-center gap-2 justify-between px-4 z-10"
 				classList={{
-					"absolute top-0 left-0 w-full h-16 pt-2 pointer-events-none bg-linear-to-b from-background from-0% via-background/70 via-45% to-transparent to-100% opacity-0 -translate-y-2 group-hover/vc:opacity-100 group-hover/vc:translate-y-0 transition-all duration-200":
+					"absolute top-0 left-0 w-full h-16 pt-2 bg-linear-to-b from-background from-0% via-background/70 via-45% to-transparent to-100% opacity-0 -translate-y-2 group-hover/vc:opacity-100 group-hover/vc:translate-y-0 transition-all duration-200":
 						isActiveHere(),
 					"w-full h-12 min-h-12 border-b border-border": !isActiveHere(),
 				}}
 			>
-				<Show when={isMobile()}>
-					<button
-						type="button"
-						onClick={() => popPane()}
-						class="w-8 h-8 flex items-center justify-center rounded-md hover:bg-muted/50 cursor-pointer -ml-2 pointer-events-auto"
-						aria-label="Back"
+				<div class="flex items-center gap-2 px-4 z-10 pointer-events-none">
+					<Show when={isMobile()}>
+						<button
+							type="button"
+							onClick={() => popPane()}
+							class="w-8 h-8 flex items-center justify-center rounded-md hover:bg-muted/50 cursor-pointer -ml-2 pointer-events-auto"
+							aria-label="Back"
+						>
+							<CaretLeftIcon width={20} height={20} />
+						</button>
+					</Show>
+					<SpeakerHighIcon />
+					<span class="font-medium">{channelName()}</span>
+					<Show
+						when={voiceData.connection.state === ConnectionState.Connecting}
 					>
-						<CaretLeftIcon width={20} height={20} />
-					</button>
-				</Show>
-				<SpeakerHighIcon />
-				<span class="font-medium">{channelName()}</span>
-				<Show when={voiceData.connection.state === ConnectionState.Connecting}>
-					<span class="text-xs text-muted-foreground ml-auto">
-						Connecting...
-					</span>
-				</Show>
+						<span class="text-xs text-muted-foreground ml-auto">
+							Connecting...
+						</span>
+					</Show>
+				</div>
+				<Tooltip>
+					<TooltipTrigger>
+						<Button
+							size="sm"
+							variant="ghost"
+							class="w-8 h-8"
+							onClick={() =>
+								isMobile()
+									? pushPane("members")
+									: preferences.toggleMembersVisible()
+							}
+						>
+							<Switch>
+								<Match when={preferences.preferences().membersListVisible}>
+									<UsersIconFill />
+								</Match>
+								<Match when={!preferences.preferences().membersListVisible}>
+									<UsersIcon />
+								</Match>
+							</Switch>
+						</Button>
+					</TooltipTrigger>
+					<TooltipPortal>
+						<TooltipContent>
+							<Switch>
+								<Match when={preferences.preferences().membersListVisible}>
+									Hide Member List
+								</Match>
+								<Match when={!preferences.preferences().membersListVisible}>
+									Show Member List
+								</Match>
+							</Switch>
+						</TooltipContent>
+					</TooltipPortal>
+				</Tooltip>
 			</div>
 
 			<Show
@@ -598,7 +647,7 @@ export const VoiceChannelView: Component = () => {
 								<For each={tiles()}>
 									{(t) => (
 										<Show when={t.key === voiceData.focusedKey}>
-											<div class="w-full h-full">{renderTile(t)}</div>
+											<div class="w-auto h-full">{renderTile(t)}</div>
 										</Show>
 									)}
 								</For>
