@@ -10,7 +10,12 @@ export const syncMethodDocs: LexiconDoc[] = [
 				type: "subscription",
 				description:
 					"Opens a WebSocket stream that transmits relevant events for the authenticated user.",
-				errors: [{ name: "AuthRequired" }],
+				errors: [
+					{
+						name: "AuthRequired",
+						description: "Missing, malformed, or unverifiable service auth.",
+					},
+				],
 				message: {
 					schema: {
 						type: "union",
@@ -407,16 +412,16 @@ export const syncMethodDocs: LexiconDoc[] = [
 							"A trust-model check failed (origin is not the subject's declared presenceService, subject is not a community member, origin is not an AppView, or a channel does not belong to the community).",
 					},
 					{
-						name: "UnsupportedEvent",
-						description: "Event type is not an off-protocol Hum event.",
-					},
-					{
-						name: "RateLimited",
-						description: "The peer exceeded its per-peer sendHum rate budget.",
+						name: "InvalidRequest",
+						description: "A parameter or body field was missing or malformed.",
 					},
 					{
 						name: "NotEnabled",
 						description: "Humming is disabled on this AppView.",
+					},
+					{
+						name: "RateLimited",
+						description: "The peer exceeded its per-peer sendHum rate budget.",
 					},
 				],
 			},
@@ -445,7 +450,10 @@ export const syncMethodDocs: LexiconDoc[] = [
 					},
 				},
 				errors: [
-					{ name: "AuthRequired" },
+					{
+						name: "AuthRequired",
+						description: "Missing, malformed, or unverifiable service auth.",
+					},
 					{
 						name: "NotEnabled",
 						description: "Humming is disabled on this AppView.",

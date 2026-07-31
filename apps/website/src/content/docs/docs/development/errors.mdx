@@ -1,0 +1,162 @@
+---
+title: Errors
+description: "How a failure travels from the AppView to the user, and what to do when you need a new one."
+sidebar:
+  order: 7
+---
+
+import { Steps, FileTree } from "@astrojs/starlight/components";
+
+Every failure in the client is one type: `ColibriError`. It carries a code, a domain, an
+HTTP status where there was one, whether retrying could help, and the Sentry event ID once
+it has been reported. User-facing wording never comes from the error itself, it comes from
+a catalog keyed by the code, so the same failure reads the same way everywhere and a raw
+`TypeError: Failed to fetch` can never reach a user.
+
+<FileTree>
+
+- packages/client/src/errors/
+  - appview-codes.ts generated from the lexicons, do not edit
+  - codes.ts every code, its domain, and whether it is retryable
+  - error.ts the `ColibriError` class
+  - classify.ts wire and thrown values → `ColibriError`
+  - copy.ts code → what the user reads
+  - report.ts `reportError`, and the account opt-in
+  - show-error.ts `showError`, the toast surface
+  - native.ts Tauri `invoke` failures
+
+</FileTree>
+
+## The path a failure takes
+
+An AppView error starts as `{error, message}` with a real HTTP status. `request()` in
+`packages/client/src/atproto/xrpc/request.ts` turns that into a `ColibriError` and hands
+callers an `XrpcResult<T>`:
+
+```ts
+const res = await user.xrpc.social.colibri.community.getData(uri);
+if (!res.ok) return showError(res.error, { retry: refetch });
+use(res.data);
+```
+
+Nothing in a wrapper decides what the user sees. `showError` looks up the copy, and
+`ErrorState` does the same for a panel that would otherwise render blank.
+
+## Adding an error
+
+Which steps apply depends on where the failure comes from.
+
+### A new AppView error
+
+The lexicons are the shared description of what the AppView can return, and a test in each
+repo keeps them up to date, so the lexicon is the first thing you change.
+
+<Steps>
+
+1. **Add the variant in the AppView.** In `src/lib/responses.rs`, add it to `ErrorCode`
+   with the HTTP status it answers with. The status matters as much as the name: the client
+   retries `429` and `5xx` and gives up on everything else, so a permission failure that
+   answers `500` gets retried until it exhausts its attempts and then reported as a
+   generic failure.
+
+2. **Emit it** with `ErrorCode::YourCode.with("what went wrong")`. Never build an
+   `ErrorResponse` by struct literal, or the serialized `error` and the status can drift.
+
+3. **Declare it in the lexicon**, in this repo, under
+   `apps/website/src/utils/atproto/lexicons/methods/`. Add an `errors` entry with a
+   `description` for every method that can emit it, then run `pnpm lexicons:export` and
+   `./scripts/sync-lexicons.sh <path-to-this-repo>` from the AppView.
+
+4. **Regenerate the client's codes** with `pnpm error-codes:generate`. This writes
+   `appview-codes.ts`, never hand-edit it.
+
+5. **Write the copy** in `copy.ts`. A test fails if any code lacks it.
+
+</Steps>
+
+`cargo test --test lexicons` in the AppView fails both when a handler emits a code no
+lexicon declares (so no client author knows to handle it) and when a lexicon declares one
+nothing emits (so someone writes a branch that can never run). If a mismatch is deliberate
+and temporary, add an `[[error_exception]]` to `lexicons/exceptions.toml` with an `expires`
+date, the build fails again once that date passes.
+
+Generic `500`s are deliberately not declared, the same way atproto does not declare them.
+They arrive as `InternalError`, which lives in the hand-written half of `codes.ts`.
+
+### A client-side error
+
+Failures that never touch the AppView (transport, session, media devices, voice, native,
+local storage) are hand-written. Add the code to the matching union in `codes.ts`, give it a
+domain in `DOMAIN_BY_CODE`, add it to `RETRYABLE_CODES` if retrying could plausibly work,
+and write its copy. If something should turn a raw thrown value into it, teach
+`classifyThrown` about that.
+
+## Choosing what the user reads
+
+Write the title as what happened from the user's side, not what the code did. Say what they
+can do about it in the description, or leave it out.
+
+```ts
+Forbidden: {
+	title: "You don't have permission to do that.",
+	description: "Ask a moderator if you think you should.",
+},
+```
+
+Avoid a title that only restates the code (`"Forbidden"`), and avoid promising something you
+do not do. Server messages are kept on `serverMessage` for diagnostics but are never rendered on
+their own, because they are written for us rather than for the person reading them.
+
+## Picking a surface
+
+| Failure | Surface |
+| --- | --- |
+| An action the user just took | `showError(err, { retry })`, a toast |
+| A panel that would otherwise be blank | `<ErrorState error={err} retry={...} />` |
+| A form field the server rejected | `<TextFieldErrorMessage errors={err.fields} />` |
+| A subtree that threw while rendering | wrap it in `<SectionBoundary name="...">` |
+| Offline, reconnecting | already handled by `AppReconnectingIndicator` |
+| Unrecoverable, whole app | the root boundary in `app.tsx` |
+
+`showError` reports before it renders, so the toast can carry the Sentry event ID. Pass
+`report: false` when something else already reported the same failure, so it is not counted
+twice.
+
+## Deliberately ignoring a failure
+
+Sometimes swallowing is right. Make it obvious that it was a decision, and never let a read
+failure look like absence:
+
+```ts
+try {
+	record = await getRecord(...);
+} catch (err) {
+	if (!isRecordNotFound(err)) throw classifyThrown(err);
+}
+```
+
+## Logging
+
+`createLogger(scope)` gives you `debug`, `info`, `warn` and `error`. Everything goes into an
+in-memory ring buffer that is attached to Sentry reports and included in the diagnostics
+users copy from the About page; `warn` and `error` also become Sentry breadcrumbs. Messages
+and structured data are redacted for tokens, JWTs and emails before being stored.
+
+```ts
+const log = createLogger("voice");
+log.warn("microphone unavailable, joining listen-only", { error: err });
+```
+
+Put detail in the second argument rather than interpolating it into the message, so entries
+stay groupable. `console.*` is rejected by Biome in `packages/client`; only the logger and
+the two dev-only diagnostic sinks may use it.
+
+## Seeing all of it
+
+`pnpm --filter @colibri-social/client sandbox` and pick **Errors** from the gallery. It
+lists every code with its copy, retryability and domain, fires each surface, contains a real
+render crash, and emits one log line per level. It runs without a Sentry DSN, so nothing
+leaves your machine.
+
+At runtime, `window.__colibriLog` exposes `dump()`, `entries()`, `setLevel()` and
+`setVerbose()`.

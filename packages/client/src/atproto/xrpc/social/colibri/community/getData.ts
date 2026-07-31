@@ -1,6 +1,7 @@
 import type { JsonBlobRef } from "@atproto/lexicon";
 import type { XrpcRequest } from "../../..";
-import { readJson } from "../../../read-json";
+import { request } from "../../../request";
+import type { XrpcResult } from "../../../result";
 import type { Category } from "./listCategories";
 import type { Channel } from "./listChannels";
 import type { Member } from "./listMembers";
@@ -28,18 +29,10 @@ export type Community = {
 
 export const getData: XrpcRequest<
 	[string],
-	Promise<Community | undefined>
+	Promise<XrpcResult<Community>>
 > = async (fetch, community) => {
-	try {
-		const res = await fetch(
-			`/xrpc/social.colibri.community.getData?community=${community}`,
-		);
-
-		if (!res.ok) return undefined;
-
-		return await readJson<Community>(res);
-	} catch (err) {
-		console.error(err);
-		return undefined;
-	}
+	return request<Community>(fetch, {
+		lxm: "social.colibri.community.getData",
+		route: `/xrpc/social.colibri.community.getData?community=${community}`,
+	});
 };

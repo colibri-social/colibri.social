@@ -27,8 +27,9 @@ export const LegacyCommunityLock: Component<{ community: Community }> = (
 		async (uri) => {
 			const did = uri.split("/")[2];
 			const res = await user.xrpc.com.atproto.identity.resolveDid(did);
-			const aka = (res?.data?.alsoKnownAs ?? res?.alsoKnownAs)?.[0];
-			console.log(res);
+			if (!res.ok) return did;
+			const body = res.data;
+			const aka = (body?.data?.alsoKnownAs ?? body?.alsoKnownAs)?.[0];
 			return typeof aka === "string" ? aka.replace("at://", "") : did;
 		},
 	);

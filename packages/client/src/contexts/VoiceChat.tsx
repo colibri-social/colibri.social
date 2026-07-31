@@ -11,6 +11,7 @@ import {
 } from "solid-js";
 import { createStore } from "solid-js/store";
 import { toast } from "somoto";
+import { showError } from "../errors/show-error";
 import {
 	createNoiseSuppressor,
 	type NoiseSuppressor,
@@ -24,6 +25,7 @@ import {
 	getAppViewHostFromDid,
 	getAppViewServiceRef,
 } from "../utils/appview";
+import { createLogger } from "../utils/logger";
 import { pickVoiceHandler } from "../utils/voice-device";
 import {
 	authorityOf,
@@ -35,6 +37,8 @@ import { useSocketContext } from "./Socket";
 import { useSounds } from "./Sounds";
 import { useUserContext } from "./User";
 import { useUserPreferences } from "./UserPreferences";
+
+const log = createLogger("voice");
 
 export const ConnectionState = {
 	Disconnected: "disconnected",
@@ -239,7 +243,7 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 	>();
 
 	const dbg = (...args: unknown[]): void => {
-		console.info("[voice/debug]", ...args);
+		log.debug(args.map(String).join(" "));
 	};
 
 	const reportVoiceFailure = (err: unknown, stage: string): void => {
@@ -263,7 +267,7 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 		if (voiceData.connection.state === ConnectionState.Disconnected) return;
 
 		dbg("✗ setupDevice failed", err);
-		console.error("[voice] setup failed", err);
+		log.error("setup failed", { error: err });
 		reportVoiceFailure(err, "setup");
 
 		toast.error("Couldn't join the voice channel", {
@@ -647,6 +651,17 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 			message = await waitForConsumed(producerId);
 		} catch (err) {
 			dbg("✗ consume rejected", { producerId, err });
+			log.warn("could not receive a participant's stream", {
+				producerId,
+				owner,
+				error: err,
+			});
+			reportVoiceFailure(err, "consume");
+			showError(err, {
+				fallbackTitle: "Someone's audio or video didn't come through.",
+				description: "Rejoining the channel usually fixes it.",
+				report: false,
+			});
 			return;
 		}
 
@@ -857,7 +872,7 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 		try {
 			await startMic();
 		} catch (err) {
-			console.error("[voice] microphone unavailable, joining listen-only", err);
+			log.warn("microphone unavailable, joining listen-only", { error: err });
 			reportVoiceFailure(err, "mic");
 			toast("Joined without a microphone", {
 				description: "Colibri couldn't access your input device.",
@@ -964,7 +979,7 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 				disconnect();
 				break;
 			case "error":
-				console.error("[voice] server error:", message.message);
+				log.error("SFU reported an error", { message: message.message });
 				break;
 		}
 	};
@@ -988,7 +1003,7 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 			});
 			token = data.token;
 		} catch (err) {
-			console.error("[voice] service-auth fetch failed", err);
+			log.error("service-auth fetch failed", { error: err });
 			scheduleReconnect(channelUri);
 			return;
 		}
@@ -1015,7 +1030,7 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 
 		socketConn.onerror = (event) => {
 			dbg("✗ signaling socket error", event);
-			console.error("[voice] signaling socket error");
+			log.error("signaling socket errored");
 		};
 
 		socketConn.onclose = (event) => {
@@ -1225,7 +1240,7 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 			await produceVideo("cam", track);
 			playSound("camOn");
 		} catch (err) {
-			console.error("[voice] camera failed", err);
+			log.error("camera failed", { error: err });
 		}
 	};
 
@@ -1244,7 +1259,7 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 			setVoiceData("states", "screenEnabled", true);
 			playSound("screenShared");
 		} catch (err) {
-			console.error("[voice] screen share failed", err);
+			log.error("screen share failed", { error: err });
 		}
 	};
 

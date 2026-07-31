@@ -25,6 +25,7 @@ import {
 import { useAuthContext } from "../contexts/Auth";
 import { useViewport, ViewportProvider } from "../contexts/Viewport";
 import { getAppViewDid, getAppViewHost } from "../utils/appview";
+import { createLogger } from "../utils/logger";
 import { openExternalLink } from "../utils/open-external-link";
 import { AppLoadingScreen } from "./AppLoadingScreen";
 import { Spinner } from "./icons/Spinner";
@@ -42,6 +43,8 @@ import {
 	SearchPortal,
 } from "./ui/Search";
 import { hasJoinedWaitlist } from "./WaitlistScreen";
+
+const log = createLogger("login");
 
 type CallbackState = "in-progress" | "failed" | null;
 
@@ -229,7 +232,7 @@ const LoginScreenContent: Component = () => {
 				scope: buildScopes(getAppViewDid()).join(" "),
 			});
 		} catch (err) {
-			console.error(err);
+			log.error("sign-in failed", { error: err });
 			toast.error("Sign-in failed", {
 				description: describeThrownError(err),
 			});

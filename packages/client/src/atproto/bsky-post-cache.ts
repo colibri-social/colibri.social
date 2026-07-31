@@ -1,4 +1,5 @@
 import type { AppBskyFeedDefs } from "@atproto/api";
+import { createLogger } from "../utils/logger";
 import {
 	cacheEnabled,
 	readBskyHandle,
@@ -7,6 +8,8 @@ import {
 	writeBskyPost,
 } from "./cache/store";
 import { getPosts } from "./xrpc/app/bsky/feed/getPosts";
+
+const log = createLogger("bsky");
 
 const PUBLIC_APPVIEW = "https://public.api.bsky.app";
 const NEGATIVE_TTL_MS = 30_000;
@@ -56,7 +59,7 @@ export const resolveHandleDeduped = (
 			void writeBskyHandle(handle, { did: body.did, ts: Date.now() });
 			return body.did;
 		} catch (err) {
-			console.error(err);
+			log.warn("resolving a Bluesky handle failed", { handle, error: err });
 			negativeHandleUntil.set(handle, Date.now() + NEGATIVE_TTL_MS);
 			return undefined;
 		}
@@ -106,7 +109,10 @@ const flushBatch = async () => {
 			const byUri = new Map(posts.map((p) => [p.uri, p]));
 			for (const uri of batch) settle(uri, byUri.get(uri));
 		} catch (err) {
-			console.error(err);
+			log.warn("fetching a batch of Bluesky posts failed", {
+				size: batch.length,
+				error: err,
+			});
 			for (const uri of batch) settle(uri, undefined);
 		}
 	}

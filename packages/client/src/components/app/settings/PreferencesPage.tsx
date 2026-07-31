@@ -7,6 +7,7 @@ import { syncPreferredBadge } from "../../../atproto/preferred-badge";
 import { syncPresenceService } from "../../../atproto/presence";
 import { useUserContext } from "../../../contexts/User";
 import { useUserPreferences } from "../../../contexts/UserPreferences";
+import { showError } from "../../../errors/show-error";
 import { badgeText, useUserBadges } from "../../../utils/user-badges";
 import {
 	Select,
@@ -56,17 +57,24 @@ export const PreferencesPage: Component = () => {
 
 	const selectPreferredBadge = async (value: string) => {
 		const badge = value || undefined;
+		const previous = user.data?.preferredBadge;
 		user.updateActorData({ preferredBadge: badge });
 		try {
 			await syncPreferredBadge(user.atproto.agent, user.did, badge);
-		} catch {}
+		} catch (err) {
+			user.updateActorData({ preferredBadge: previous });
+			showError(err, { fallbackTitle: "Couldn't save your badge." });
+		}
 	};
 
 	const toggleSharePresence = async (enabled: boolean) => {
 		userPreferences.setSharePresence(enabled);
 		try {
 			await syncPresenceService(user.atproto.agent, user.did, enabled);
-		} catch {}
+		} catch (err) {
+			userPreferences.setSharePresence(!enabled);
+			showError(err, { fallbackTitle: "Couldn't change presence sharing." });
+		}
 	};
 
 	return (
@@ -193,6 +201,27 @@ export const PreferencesPage: Component = () => {
 					<SwitchDescription>
 						When on, your online status and typing can reach members of your
 						communities who use a different AppView.
+					</SwitchDescription>
+				</div>
+				<div>
+					<SwitchInput />
+					<SwitchControl>
+						<SwitchThumb />
+					</SwitchControl>
+				</div>
+			</Toggle>
+			<Toggle
+				class="flex flex-row gap-4 items-center w-full justify-between shrink-0 mt-4"
+				checked={userPreferences.preferences().attachAccountToReports}
+				onChange={userPreferences.setAttachAccountToReports}
+			>
+				<div>
+					<SwitchLabel>Include my account in error reports</SwitchLabel>
+					<SwitchDescription>
+						When on, your account identifier is attached to automatic error
+						reports so we can tell how many people a bug affects and follow up
+						with you. Off by default, and error reports are still sent without
+						it.
 					</SwitchDescription>
 				</div>
 				<div>

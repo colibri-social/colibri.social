@@ -1,5 +1,6 @@
 import type { XrpcRequest } from "../../..";
-import { readJson } from "../../../read-json";
+import { request } from "../../../request";
+import type { XrpcResult } from "../../../result";
 
 type Response = {
 	uri: string;
@@ -15,7 +16,7 @@ export const create: XrpcRequest<
 		boolean | undefined,
 		boolean | undefined,
 	],
-	Promise<Response | undefined>
+	Promise<XrpcResult<Response>>
 > = async (
 	fetch,
 	community,
@@ -26,29 +27,23 @@ export const create: XrpcRequest<
 	hoisted,
 	mentionable,
 ) => {
-	try {
-		const params = new URLSearchParams({
-			community,
-			name,
-			position: String(position),
-		});
-		for (const p of permissions) {
-			params.append("permissions", p);
-		}
-		if (color !== undefined) params.set("color", color);
-		if (hoisted !== undefined) params.set("hoisted", String(hoisted));
-		if (mentionable !== undefined)
-			params.set("mentionable", String(mentionable));
-
-		const res = await fetch(
-			`/xrpc/social.colibri.role.create?${params.toString()}`,
-			{
-				method: "POST",
-			},
-		);
-		return await readJson<Response>(res);
-	} catch (err) {
-		console.error(err);
-		return undefined;
+	const params = new URLSearchParams({
+		community,
+		name,
+		position: String(position),
+	});
+	for (const p of permissions) {
+		params.append("permissions", p);
 	}
+	if (color !== undefined) params.set("color", color);
+	if (hoisted !== undefined) params.set("hoisted", String(hoisted));
+	if (mentionable !== undefined) params.set("mentionable", String(mentionable));
+
+	return request<Response>(fetch, {
+		lxm: "social.colibri.role.create",
+		route: `/xrpc/social.colibri.role.create?${params.toString()}`,
+		init: {
+			method: "POST",
+		},
+	});
 };

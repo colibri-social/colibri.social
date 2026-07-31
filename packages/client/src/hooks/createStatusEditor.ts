@@ -2,6 +2,10 @@ import { createSignal } from "solid-js";
 import { toast } from "somoto";
 import { putRecord } from "../atproto/pds";
 import { useUserContext } from "../contexts/User";
+import { classifyThrown, isRecordNotFound } from "../errors/classify";
+import { createLogger } from "../utils/logger";
+
+const log = createLogger("status");
 
 export const createStatusEditor = () => {
 	const user = useUserContext();
@@ -25,7 +29,11 @@ export const createStatusEditor = () => {
 					rkey: "self",
 				});
 				record = (res.data.value as Record<string, unknown>) ?? record;
-			} catch {}
+			} catch (err) {
+				if (!isRecordNotFound(err)) {
+					throw classifyThrown(err, { method: "com.atproto.repo.getRecord" });
+				}
+			}
 
 			const text = status().trim();
 			const emojiValue = emoji().trim();
@@ -45,7 +53,7 @@ export const createStatusEditor = () => {
 
 			toast.success("Status updated.");
 		} catch (err) {
-			console.error("[createStatusEditor] Failed to save status", err);
+			log.error("saving the status failed", { error: err });
 			toast.error("Failed to update status.");
 		} finally {
 			setLoading(false);

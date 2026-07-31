@@ -3,6 +3,9 @@ import { type Component, onCleanup, onMount } from "solid-js";
 import { completeNativeOAuth } from "../atproto/auth";
 import { useAuthContext } from "../contexts/Auth";
 import { isTauriRuntime } from "../notifications/environment";
+import { createLogger } from "../utils/logger";
+
+const log = createLogger("deep-link");
 
 /** True for a native OAuth callback deep link (`social.colibri[.*]:/oauth/...`) */
 const isOAuthCallback = (url: string): boolean => {
@@ -96,7 +99,7 @@ export const DeepLinkListener: Component = () => {
 							return;
 						}
 					} catch (err) {
-						console.error("[deep-link] OAuth callback failed", err);
+						log.error("OAuth callback failed", { error: err });
 					}
 					continue;
 				}

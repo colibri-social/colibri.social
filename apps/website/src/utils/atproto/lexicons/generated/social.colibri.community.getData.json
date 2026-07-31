@@ -68,7 +68,17 @@
 						}
 					}
 				}
-			}
+			},
+			"errors": [
+				{
+					"name": "InvalidRequest",
+					"description": "A parameter or body field was missing or malformed."
+				},
+				{
+					"name": "NotFound",
+					"description": "The referenced record does not exist."
+				}
+			]
 		}
 	}
 }

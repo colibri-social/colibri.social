@@ -1,7 +1,8 @@
 import type { JsonBlobRef } from "@atproto/lexicon";
 import type { ActorData, ColibriRichTextFacet } from "@colibri-social/lib";
 import type { XrpcRequest } from "../../..";
-import { readJson } from "../../../read-json";
+import { request } from "../../../request";
+import type { XrpcResult } from "../../../result";
 
 export type Reaction = {
 	emoji: string;
@@ -42,21 +43,15 @@ export type Response = {
 
 export const listMessages: XrpcRequest<
 	[string, number | undefined, string | undefined, boolean | undefined],
-	Promise<Response | undefined>
+	Promise<XrpcResult<Response>>
 > = async (fetch, channel, limit, cursor, all) => {
-	try {
-		const params = new URLSearchParams({ channel });
-		if (limit !== undefined) params.set("limit", String(limit));
-		if (cursor !== undefined) params.set("cursor", cursor);
-		if (all !== undefined) params.set("all", String(all));
+	const params = new URLSearchParams({ channel });
+	if (limit !== undefined) params.set("limit", String(limit));
+	if (cursor !== undefined) params.set("cursor", cursor);
+	if (all !== undefined) params.set("all", String(all));
 
-		const res = await fetch(
-			`/xrpc/social.colibri.channel.listMessages?${params.toString()}`,
-		);
-
-		return await readJson<Response>(res);
-	} catch (err) {
-		console.error(err);
-		return undefined;
-	}
+	return request<Response>(fetch, {
+		lxm: "social.colibri.channel.listMessages",
+		route: `/xrpc/social.colibri.channel.listMessages?${params.toString()}`,
+	});
 };

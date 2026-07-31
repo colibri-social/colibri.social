@@ -1,5 +1,6 @@
 import type { XrpcRequest } from "../../..";
-import { readJson } from "../../../read-json";
+import { request } from "../../../request";
+import type { XrpcResult } from "../../../result";
 
 type Response = {
 	did: string;
@@ -9,16 +10,10 @@ type Response = {
 
 export const resolveIdentity: XrpcRequest<
 	[string],
-	Promise<Response | undefined>
+	Promise<XrpcResult<Response>>
 > = async (fetch, identifier) => {
-	try {
-		const res = await fetch(
-			`/xrpc/com.atproto.identity.resolveIdentity?identifier=${identifier}`,
-		);
-
-		return await readJson<Response>(res);
-	} catch (err) {
-		console.error(err);
-		return undefined;
-	}
+	return request<Response>(fetch, {
+		lxm: "com.atproto.identity.resolveIdentity",
+		route: `/xrpc/com.atproto.identity.resolveIdentity?identifier=${identifier}`,
+	});
 };

@@ -20,7 +20,8 @@
 			},
 			"errors": [
 				{
-					"name": "AuthRequired"
+					"name": "AuthRequired",
+					"description": "Missing, malformed, or unverifiable service auth."
 				},
 				{
 					"name": "NotEnabled",

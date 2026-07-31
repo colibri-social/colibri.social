@@ -1,5 +1,6 @@
 import type { XrpcRequest } from "../../..";
-import { readJson } from "../../../read-json";
+import { request } from "../../../request";
+import type { XrpcResult } from "../../../result";
 
 type Response = {
 	did: string;
@@ -8,21 +9,15 @@ type Response = {
 
 export const registerCredentials: XrpcRequest<
 	[string, string, string, string],
-	Promise<Response | undefined>
+	Promise<XrpcResult<Response>>
 > = async (fetch, did, pds, identifier, password) => {
-	try {
-		const params = new URLSearchParams({ did, pds, identifier, password });
+	const params = new URLSearchParams({ did, pds, identifier, password });
 
-		const res = await fetch(
-			`/xrpc/social.colibri.community.registerCredentials?${params.toString()}`,
-			{
-				method: "POST",
-			},
-		);
-
-		return await readJson<Response>(res);
-	} catch (err) {
-		console.error(err);
-		return undefined;
-	}
+	return request<Response>(fetch, {
+		lxm: "social.colibri.community.registerCredentials",
+		route: `/xrpc/social.colibri.community.registerCredentials?${params.toString()}`,
+		init: {
+			method: "POST",
+		},
+	});
 };

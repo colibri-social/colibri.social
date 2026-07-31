@@ -1,25 +1,22 @@
 import type { XrpcRequest } from "../../..";
-import { readJson } from "../../../read-json";
+import { request } from "../../../request";
+import type { XrpcResult } from "../../../result";
 
 export const setMemberRoles: XrpcRequest<
 	[string, string, string[]],
-	Promise<Record<string, never> | undefined>
+	Promise<XrpcResult<Record<string, never>>>
 > = async (fetch, community, member, roles) => {
-	try {
-		const params = new URLSearchParams({
-			community,
-			member,
-		});
-		roles.forEach((uri) => {
-			params.append("roles", uri);
-		});
-		const res = await fetch(
-			`/xrpc/social.colibri.community.setMemberRoles?${params.toString()}`,
-			{ method: "POST" },
-		);
-		return await readJson<Record<string, never>>(res);
-	} catch (err) {
-		console.error(err);
-		return undefined;
-	}
+	const params = new URLSearchParams({
+		community,
+		member,
+	});
+	roles.forEach((uri) => {
+		params.append("roles", uri);
+	});
+
+	return request<Record<string, never>>(fetch, {
+		lxm: "social.colibri.community.setMemberRoles",
+		route: `/xrpc/social.colibri.community.setMemberRoles?${params.toString()}`,
+		init: { method: "POST" },
+	});
 };

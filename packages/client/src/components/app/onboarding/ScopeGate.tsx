@@ -1,8 +1,11 @@
 import { createMemo, type ParentComponent, Show } from "solid-js";
 import { getMissingScopeSets } from "../../../atproto/scopes";
 import { useAuthContext } from "../../../contexts/Auth";
+import { createLogger } from "../../../utils/logger";
 import { ScopeRefreshModal } from "./ScopeRefreshModal";
 import { SCOPE_REAUTH_FLAG } from "./scope-reauth";
+
+const log = createLogger("scopes");
 
 export const ScopeGate: ParentComponent = (props) => {
 	const auth = useAuthContext();
@@ -17,9 +20,11 @@ export const ScopeGate: ParentComponent = (props) => {
 			return false;
 		}
 		if (sessionStorage.getItem(SCOPE_REAUTH_FLAG)) {
-			console.warn(
-				"[scopes] Still missing scopes after a re-auth attempt; letting the user in.",
-				missing(),
+			log.warn(
+				"still missing scopes after a re-auth attempt, letting the user in",
+				{
+					missing: missing().length,
+				},
 			);
 			return false;
 		}

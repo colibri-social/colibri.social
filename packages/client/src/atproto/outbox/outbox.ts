@@ -1,6 +1,15 @@
 import type { Agent } from "@atproto/api";
 import { createSignal } from "solid-js";
-import { toast } from "somoto";
+import {
+	classifyResponse,
+	classifyThrown,
+	parseRetryAfterMs,
+	statusOf,
+} from "../../errors/classify";
+import type { ColibriError } from "../../errors/error";
+import { reportError } from "../../errors/report";
+import { showError } from "../../errors/show-error";
+import { createLogger } from "../../utils/logger";
 import {
 	outboxAll,
 	outboxAppend,
@@ -68,22 +77,17 @@ const backoff = (attempts: number): number => {
 	return capped * (0.8 + Math.random() * 0.4);
 };
 
-const statusOf = (err: unknown): number | undefined => {
-	if (err && typeof err === "object" && "status" in err) {
-		const s = (err as { status: unknown }).status;
-		if (typeof s === "number") return s;
-	}
-	return undefined;
-};
+const log = createLogger("outbox");
 
 const classify = (err: unknown): "terminal" | "retry" => {
 	if (isOffline()) return "retry";
 	const status = statusOf(err);
 	if (status === undefined) return "retry";
-	if (status === 429 || status >= 500) return "retry";
-	if (status >= 400) return "terminal";
-	return "retry";
+	return classifyThrown(err).retryable ? "retry" : "terminal";
 };
+
+let retryAfterMs: number | undefined;
+let lastFailure: ColibriError | undefined;
 
 const execute = async (
 	entry: OutboxEntry,
@@ -94,10 +98,20 @@ const execute = async (
 		try {
 			const res = await appviewExecutor(k);
 			if (res.ok) return "success";
-			if (res.status === 429 || res.status >= 500) return "retry";
-			if (res.status >= 400) return "terminal";
-			return "success";
+			retryAfterMs = parseRetryAfterMs(
+				res.headers.get("retry-after"),
+				Date.now(),
+			);
+			const body = await res.text().catch(() => "");
+			lastFailure = classifyResponse({
+				status: res.status,
+				body,
+				method: k.lxm,
+				retryAfter: res.headers.get("retry-after"),
+			});
+			return lastFailure.retryable ? "retry" : "terminal";
 		} catch (err) {
+			lastFailure = classifyThrown(err, { method: k.lxm });
 			return classify(err);
 		}
 	}
@@ -134,7 +148,18 @@ const execute = async (
 };
 
 const surfaceTerminal = (entry: OutboxEntry) => {
-	if (entry.label) toast.error(entry.label);
+	const failure = lastFailure ?? classifyThrown(new Error("gave up"));
+	log.error("gave up on a queued write", {
+		collection:
+			entry.kind.t === "appview" ? entry.kind.lxm : entry.kind.collection,
+		attempts: entry.attempts,
+		code: failure.code,
+	});
+	reportError(failure, {
+		stage: "outbox",
+		tags: { "outbox.kind": entry.kind.t },
+	});
+	showError(failure, { fallbackTitle: entry.label, report: false });
 };
 
 const persist = async (record: OutboxRecord): Promise<OutboxEntry> => {
@@ -174,7 +199,8 @@ export const flush = async (): Promise<void> => {
 					retryTimer = setTimeout(() => {
 						retryTimer = null;
 						void flush();
-					}, backoff(entry.attempts));
+					}, retryAfterMs ?? backoff(entry.attempts));
+					retryAfterMs = undefined;
 					break;
 				}
 			}

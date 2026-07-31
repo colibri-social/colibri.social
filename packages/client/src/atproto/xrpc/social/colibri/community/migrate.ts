@@ -1,5 +1,6 @@
 import type { XrpcRequest } from "../../..";
-import { readJson } from "../../../read-json";
+import { request } from "../../../request";
+import type { XrpcResult } from "../../../result";
 
 /**
  * The migration to run. Kept as an open discriminator so future migrations can
@@ -38,37 +39,28 @@ export const migrate: XrpcRequest<
 		Blob | undefined,
 		ByoCredentials | undefined,
 	],
-	Promise<Response | undefined>
+	Promise<XrpcResult<Response>>
 > = async (fetch, kind, source, overrides, picture, byo) => {
-	try {
-		const params = new URLSearchParams({ kind, source });
-		if (overrides?.name !== undefined) params.set("name", overrides.name);
-		if (overrides?.description !== undefined)
-			params.set("description", overrides.description);
-		if (overrides?.requiresApprovalToJoin !== undefined)
-			params.set(
-				"requiresApprovalToJoin",
-				`${overrides.requiresApprovalToJoin}`,
-			);
-		if (byo) {
-			params.set("pds", byo.pds);
-			params.set("identifier", byo.identifier);
-			params.set("password", byo.password);
-		}
-		const formData = new FormData();
-		if (picture !== undefined) formData.append("picture", picture);
-
-		const res = await fetch(
-			`/xrpc/social.colibri.community.migrate?${params.toString()}`,
-			{
-				method: "POST",
-				body: formData,
-			},
-		);
-
-		return await readJson<Response>(res);
-	} catch (err) {
-		console.error(err);
-		return undefined;
+	const params = new URLSearchParams({ kind, source });
+	if (overrides?.name !== undefined) params.set("name", overrides.name);
+	if (overrides?.description !== undefined)
+		params.set("description", overrides.description);
+	if (overrides?.requiresApprovalToJoin !== undefined)
+		params.set("requiresApprovalToJoin", `${overrides.requiresApprovalToJoin}`);
+	if (byo) {
+		params.set("pds", byo.pds);
+		params.set("identifier", byo.identifier);
+		params.set("password", byo.password);
 	}
+	const formData = new FormData();
+	if (picture !== undefined) formData.append("picture", picture);
+
+	return request<Response>(fetch, {
+		lxm: "social.colibri.community.migrate",
+		route: `/xrpc/social.colibri.community.migrate?${params.toString()}`,
+		init: {
+			method: "POST",
+			body: formData,
+		},
+	});
 };

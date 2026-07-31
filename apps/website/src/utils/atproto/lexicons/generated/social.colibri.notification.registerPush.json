@@ -45,7 +45,17 @@
 						}
 					}
 				}
-			}
+			},
+			"errors": [
+				{
+					"name": "AuthRequired",
+					"description": "Missing, malformed, or unverifiable service auth."
+				},
+				{
+					"name": "InvalidRequest",
+					"description": "A parameter or body field was missing or malformed."
+				}
+			]
 		},
 		"webPushSubscription": {
 			"type": "object",

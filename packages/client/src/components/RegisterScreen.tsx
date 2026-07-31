@@ -6,16 +6,19 @@ import {
 	For,
 	Show,
 } from "solid-js";
-import { toast } from "somoto";
 import ArrowUpRightIcon from "~icons/ph/arrow-up-right";
 import CaretRightIcon from "~icons/ph/caret-right";
 import { startOAuthSignIn } from "../atproto/auth";
 import { buildScopes } from "../atproto/scopes";
 import { useAuthContext } from "../contexts/Auth";
+import { showError } from "../errors/show-error";
 import { getAppViewDid } from "../utils/appview";
+import { createLogger } from "../utils/logger";
 import { openExternalLink } from "../utils/open-external-link";
 import { Spinner } from "./icons/Spinner";
 import { Button } from "./ui/Button";
+
+const log = createLogger("register");
 
 type Region = "eu" | "us";
 
@@ -117,8 +120,8 @@ export const RegisterScreen: Component = () => {
 				prompt: "create",
 			});
 		} catch (err) {
-			console.error(err);
-			toast.error(err as any);
+			log.error("starting sign-up failed", { error: err });
+			showError(err);
 		} finally {
 			setPending(null);
 		}

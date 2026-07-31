@@ -8,7 +8,11 @@ import {
 import { toast } from "somoto";
 import { readGifFavorites, writeGifFavorites } from "../atproto/gif-favorites";
 import type { GifItem } from "../atproto/xrpc/social/colibri/embed/gifTypes";
+import { showError } from "../errors/show-error";
+import { createLogger } from "../utils/logger";
 import { useUserContext } from "./User";
+
+const log = createLogger("gifs");
 
 type GifFavoritesContextValue = {
 	favorites: () => Array<GifItem>;
@@ -35,15 +39,34 @@ const sameGif = (a: GifItem, b: GifItem): boolean =>
 export const GifFavoritesContextProvider: ParentComponent = (props) => {
 	const user = useUserContext();
 	const [favorites, setFavorites] = createSignal<Array<GifItem>>([]);
+	const [unavailable, setUnavailable] = createSignal(false);
 
 	onMount(async () => {
-		setFavorites(await readGifFavorites(user.atproto.agent, user.did));
+		try {
+			setFavorites(await readGifFavorites(user.atproto.agent, user.did));
+		} catch (err) {
+			setUnavailable(true);
+			log.error("reading GIF favourites failed", { error: err });
+			showError(err, {
+				fallbackTitle: "Couldn't load your saved GIFs.",
+				description: "Saving is paused until they load, so nothing is lost.",
+			});
+		}
 	});
 
 	const isFavorited = (gif: GifItem): boolean =>
 		favorites().some((f) => sameGif(f, gif));
 
 	const toggleFavorite = async (gif: GifItem): Promise<void> => {
+		if (unavailable()) {
+			showError(undefined, {
+				fallbackTitle: "Your saved GIFs aren't loaded yet.",
+				description: "Reopen the picker once they load.",
+				report: false,
+			});
+			return;
+		}
+
 		const previous = favorites();
 		const next = isFavorited(gif)
 			? previous.filter((f) => !sameGif(f, gif))
@@ -52,7 +75,7 @@ export const GifFavoritesContextProvider: ParentComponent = (props) => {
 		try {
 			await writeGifFavorites(user.atproto.agent, user.did, next);
 		} catch (err) {
-			console.error(err);
+			log.error("saving GIF favourites failed", { error: err });
 			setFavorites(previous); // revert on failure
 			toast.error("Failed to update GIF favorites.");
 		}

@@ -31,7 +31,29 @@
 						}
 					}
 				}
-			}
+			},
+			"errors": [
+				{
+					"name": "AuthRequired",
+					"description": "Missing, malformed, or unverifiable service auth."
+				},
+				{
+					"name": "Forbidden",
+					"description": "The caller lacks the permission this method requires."
+				},
+				{
+					"name": "InvalidRequest",
+					"description": "A parameter or body field was missing or malformed."
+				},
+				{
+					"name": "NotFound",
+					"description": "The referenced record does not exist."
+				},
+				{
+					"name": "UpstreamFailure",
+					"description": "A service outside this AppView failed."
+				}
+			]
 		}
 	}
 }

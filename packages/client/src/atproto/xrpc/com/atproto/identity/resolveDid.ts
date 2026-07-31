@@ -1,5 +1,6 @@
 import type { XrpcRequest } from "../../..";
-import { readJson } from "../../../read-json";
+import { request } from "../../../request";
+import type { XrpcResult } from "../../../result";
 
 // Our appview and the PDS have a mismatch here, the AppView needs to be updated
 type Response = {
@@ -11,14 +12,10 @@ type Response = {
 
 export const resolveDid: XrpcRequest<
 	[string],
-	Promise<Response | undefined>
+	Promise<XrpcResult<Response>>
 > = async (fetch, did) => {
-	try {
-		const res = await fetch(`/xrpc/com.atproto.identity.resolveDid?did=${did}`);
-
-		return await readJson<Response>(res);
-	} catch (err) {
-		console.error(err);
-		return undefined;
-	}
+	return request<Response>(fetch, {
+		lxm: "com.atproto.identity.resolveDid",
+		route: `/xrpc/com.atproto.identity.resolveDid?did=${did}`,
+	});
 };

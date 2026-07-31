@@ -23,6 +23,7 @@ given platform, including emulator, Simulator and real-device workflows, see
 | --- | --- | --- |
 | AppView unit tests | `#[cfg(test)]` modules next to the code | `cargo test` |
 | AppView route parity | `tests/lexicons.rs` | `cargo test` |
+| AppView error-code parity | `tests/lexicons.rs` | `cargo test` |
 | AppView response shapes | `src/lib/response_snapshots.rs` | `cargo test` |
 | Lexicons and wrapper parity | `apps/website/src/utils/atproto/lexicons/lexicons.test.ts` | `pnpm test` |
 | Shared helpers | `packages/lib/src/*.test.ts` | `pnpm test` |
@@ -88,6 +89,12 @@ Note that the wrapper argument tuples type optional parameters as
 `tests/lexicons.rs` in the AppView repository compares the Rocket routes
 against the lexicons. It runs as part of `cargo test`, needs no database and no
 network, and takes milliseconds.
+
+The same file also compares the error codes the handlers can emit against the
+`errors` each lexicon declares, in both directions: a code no lexicon mentions is
+invisible to client authors, and a declared code nothing emits is a branch someone
+wrote for nothing. See [Errors](/docs/development/errors) for what to do when you
+add one.
 
 ### How the lexicons get there
 

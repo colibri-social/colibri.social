@@ -1,4 +1,7 @@
+import { createLogger } from "../../../../../utils/logger";
 import { readJson } from "../../../read-json";
+
+const log = createLogger("bsky");
 
 export type ActorTypeaheadResult = {
 	did: string;
@@ -28,7 +31,7 @@ export const searchActorsTypeahead = async (
 		return body?.actors ?? [];
 	} catch (err) {
 		if ((err as DOMException)?.name === "AbortError") return [];
-		console.error(err);
+		log.warn("Bluesky actor search failed", { error: err });
 		return [];
 	}
 };

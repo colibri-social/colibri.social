@@ -1,5 +1,6 @@
 import type { XrpcRequest } from "../../..";
-import { readJson } from "../../../read-json";
+import { request } from "../../../request";
+import type { XrpcResult } from "../../../result";
 
 export type NotificationLevel = "all" | "mentionsAndReplies";
 
@@ -9,16 +10,10 @@ type Response = {
 
 export const getNotificationPreference: XrpcRequest<
 	[],
-	Promise<Response | undefined>
+	Promise<XrpcResult<Response>>
 > = async (fetch) => {
-	try {
-		const res = await fetch(
-			`/xrpc/social.colibri.actor.getNotificationPreference`,
-		);
-
-		return await readJson<Response>(res);
-	} catch (err) {
-		console.error(err);
-		return undefined;
-	}
+	return request<Response>(fetch, {
+		lxm: "social.colibri.actor.getNotificationPreference",
+		route: `/xrpc/social.colibri.actor.getNotificationPreference`,
+	});
 };

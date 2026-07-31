@@ -80,6 +80,16 @@ export const embedMethodDocs: LexiconDoc[] = [
 						},
 					},
 				},
+				errors: [
+					{
+						name: "AuthRequired",
+						description: "Missing, malformed, or unverifiable service auth.",
+					},
+					{
+						name: "InvalidRequest",
+						description: "A parameter or body field was missing or malformed.",
+					},
+				],
 			},
 		},
 	},
@@ -102,6 +112,17 @@ export const embedMethodDocs: LexiconDoc[] = [
 					encoding: "*/*",
 					description: "The proxied image bytes (Content-Type is image/*).",
 				},
+				errors: [
+					{
+						name: "NotAnImage",
+						description:
+							"The linked resource is not an image type the AppView serves.",
+					},
+					{
+						name: "RateLimited",
+						description: "The caller exceeded its rate budget.",
+					},
+				],
 			},
 		},
 	},
@@ -121,6 +142,16 @@ export const embedMethodDocs: LexiconDoc[] = [
 					},
 				},
 				output: gifPageOutput,
+				errors: [
+					{
+						name: "AuthRequired",
+						description: "Missing, malformed, or unverifiable service auth.",
+					},
+					{
+						name: "InvalidRequest",
+						description: "A parameter or body field was missing or malformed.",
+					},
+				],
 			},
 		},
 	},
@@ -138,6 +169,12 @@ export const embedMethodDocs: LexiconDoc[] = [
 					},
 				},
 				output: gifPageOutput,
+				errors: [
+					{
+						name: "AuthRequired",
+						description: "Missing, malformed, or unverifiable service auth.",
+					},
+				],
 			},
 		},
 	},
@@ -161,6 +198,12 @@ export const embedMethodDocs: LexiconDoc[] = [
 						},
 					},
 				},
+				errors: [
+					{
+						name: "AuthRequired",
+						description: "Missing, malformed, or unverifiable service auth.",
+					},
+				],
 			},
 			gifCategory: {
 				type: "object",

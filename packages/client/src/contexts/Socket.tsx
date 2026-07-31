@@ -8,10 +8,18 @@ import {
 	type ParentComponent,
 	useContext,
 } from "solid-js";
+import { ColibriError } from "../errors/error";
+import { reportError } from "../errors/report";
 import { getAppViewHost, getAppViewServiceRef } from "../utils/appview";
+import { createLogger } from "../utils/logger";
 import { useAuthContext } from "./Auth";
 
+const log = createLogger("socket");
+
 export type SocketStatus = "connecting" | "connected" | "reconnecting";
+
+const isRejection = (code: number): boolean =>
+	code === 1008 || (code >= 4400 && code <= 4499);
 
 export type SocketContextValue = {
 	/** Send a JSON message to the AppView over the WebSocket. */
@@ -22,6 +30,7 @@ export type SocketContextValue = {
 	 */
 	onEvent: (handler: (event: ColibriEvent) => void) => () => void;
 	status: Accessor<SocketStatus>;
+	lastCloseCode: Accessor<number | undefined>;
 	/**
 	 * Whether the WebSocket is currently open. `send` silently drops messages
 	 * while this is `false` (no queueing), so consumers that need the server
@@ -51,6 +60,9 @@ export const SocketContextProvider: ParentComponent = (props) => {
 
 	const handlers = new Set<(event: ColibriEvent) => void>();
 	const [status, setStatus] = createSignal<SocketStatus>("connecting");
+	const [lastCloseCode, setLastCloseCode] = createSignal<number | undefined>(
+		undefined,
+	);
 	const connected = () => status() === "connected";
 	let ws: WebSocket | null = null;
 	let heartbeat: ReturnType<typeof setInterval> | null = null;
@@ -114,14 +126,17 @@ export const SocketContextProvider: ParentComponent = (props) => {
 					return;
 				}
 
-				console.info("[socket] Event received:", event);
+				log.debug("event received", { type: event.type });
 
 				handlers.forEach((h) => {
 					// Isolate each handler so one throwing doesn't starve the rest.
 					try {
 						h(event);
 					} catch (err) {
-						console.error("[notif] socket handler threw for", event.type, err);
+						log.error("a socket handler threw", {
+							type: event.type,
+							error: err,
+						});
 					}
 				});
 			});
@@ -133,16 +148,29 @@ export const SocketContextProvider: ParentComponent = (props) => {
 				}
 				if (destroyed || ws !== socket) return;
 				setStatus(hadConnectedOnce ? "reconnecting" : "connecting");
-				console.warn("[notif] socket CLOSED", ev.code, ev.reason);
+				setLastCloseCode(ev.code);
+				log.warn("socket closed", { code: ev.code, reason: ev.reason });
+
+				if (isRejection(ev.code)) {
+					reportError(
+						new ColibriError({
+							code: "AuthRequired",
+							message: `the event socket rejected the handshake (${ev.code})`,
+							context: { closeCode: ev.code, closeReason: ev.reason },
+						}),
+						{ stage: "socket" },
+					);
+				}
+
 				reconnectTimer = setTimeout(connect, backoffMs(attempt++));
 			});
 
 			socket.addEventListener("error", () => {
-				console.error("[notif] socket ERROR");
+				log.error("socket errored");
 				// The close event will fire next and trigger reconnection
 			});
 		} catch (err) {
-			console.error("[notif] socket token fetch failed", err);
+			log.error("socket token fetch failed", { error: err });
 			if (!destroyed) {
 				setStatus(hadConnectedOnce ? "reconnecting" : "connecting");
 				reconnectTimer = setTimeout(connect, backoffMs(attempt++));
@@ -190,6 +218,7 @@ export const SocketContextProvider: ParentComponent = (props) => {
 	});
 
 	const value: SocketContextValue = {
+		lastCloseCode,
 		send: (message) => {
 			if (ws?.readyState === WebSocket.OPEN) {
 				ws.send(JSON.stringify(message));

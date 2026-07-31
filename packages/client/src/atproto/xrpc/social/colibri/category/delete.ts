@@ -1,20 +1,16 @@
 import type { XrpcRequest } from "../../..";
-import { readJson } from "../../../read-json";
+import { request } from "../../../request";
+import type { XrpcResult } from "../../../result";
 
 const del: XrpcRequest<
 	[string],
-	Promise<Record<string, never> | undefined>
+	Promise<XrpcResult<Record<string, never>>>
 > = async (fetch, category) => {
-	try {
-		const res = await fetch(
-			`/xrpc/social.colibri.category.delete?category=${encodeURIComponent(category)}`,
-			{ method: "POST" },
-		);
-		return await readJson<Record<string, never>>(res);
-	} catch (err) {
-		console.error(err);
-		return undefined;
-	}
+	return request<Record<string, never>>(fetch, {
+		lxm: "social.colibri.category.delete",
+		route: `/xrpc/social.colibri.category.delete?category=${encodeURIComponent(category)}`,
+		init: { method: "POST" },
+	});
 };
 
 export { del as delete };

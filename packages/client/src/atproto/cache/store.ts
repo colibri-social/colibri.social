@@ -1,3 +1,6 @@
+import { ColibriError } from "../../errors/error";
+import { reportError } from "../../errors/report";
+import { createLogger } from "../../utils/logger";
 import {
 	BSKY_MU_TRUSTED_LIST_KEY,
 	bskyHandleKey,
@@ -18,6 +21,8 @@ import type {
 	UserSnapshot,
 } from "./schema";
 import { SCHEMA_VERSION } from "./schema";
+
+const log = createLogger("cache");
 
 const DB_NAME = "colibri-cache";
 const DB_VERSION = 3;
@@ -41,6 +46,19 @@ export const cacheEnabled = (): boolean => {
 };
 
 let dbPromise: Promise<IDBDatabase> | undefined;
+let brokenReported = false;
+
+export const noteCacheFailure = (err: unknown): void => {
+	if (brokenReported) return;
+	brokenReported = true;
+	log.warn("the offline cache is unusable, falling back to network reads", {
+		error: err,
+	});
+	reportError(new ColibriError({ code: "CacheUnavailable", cause: err }), {
+		stage: "cache",
+		severity: "warning",
+	});
+};
 
 const openDb = (): Promise<IDBDatabase> => {
 	if (dbPromise) return dbPromise;
@@ -87,7 +105,10 @@ const read = <T>(store: StoreName, key: string): Promise<T | undefined> =>
 const write = (store: StoreName, key: string, value: unknown): Promise<void> =>
 	request(store, "readwrite", (s) => s.put(value, key))
 		.then(() => undefined)
-		.catch(() => undefined);
+		.catch((err) => {
+			noteCacheFailure(err);
+			return undefined;
+		});
 
 const evictOldest = (store: StoreName, maxCount: number): Promise<void> =>
 	openDb()
@@ -120,7 +141,10 @@ const evictOldest = (store: StoreName, maxCount: number): Promise<void> =>
 					countReq.onerror = () => reject(countReq.error);
 				}),
 		)
-		.catch(() => undefined);
+		.catch((err) => {
+			noteCacheFailure(err);
+			return undefined;
+		});
 
 export const readUser = (ns: string): Promise<UserSnapshot | undefined> =>
 	read<UserSnapshot>("user", ns);
@@ -230,7 +254,10 @@ export const clearUserScoped = (): Promise<void> =>
 					t.onerror = () => reject(t.error);
 				}),
 		)
-		.catch(() => undefined);
+		.catch((err) => {
+			noteCacheFailure(err);
+			return undefined;
+		});
 
 export const ensureFresh = async (ns: string): Promise<void> => {
 	const meta = await read<{ version: number; owner: string }>("meta", "meta");
@@ -266,14 +293,23 @@ export const outboxAll = <T>(): Promise<Array<{ seq: number; entry: T }>> =>
 					cursorReq.onerror = () => reject(cursorReq.error);
 				}),
 		)
-		.catch(() => []);
+		.catch((err) => {
+			noteCacheFailure(err);
+			return [];
+		});
 
 export const outboxDelete = (seq: number): Promise<void> =>
 	request("outbox", "readwrite", (s) => s.delete(seq))
 		.then(() => undefined)
-		.catch(() => undefined);
+		.catch((err) => {
+			noteCacheFailure(err);
+			return undefined;
+		});
 
 export const outboxUpdate = (seq: number, entry: unknown): Promise<void> =>
 	request("outbox", "readwrite", (s) => s.put(entry, seq))
 		.then(() => undefined)
-		.catch(() => undefined);
+		.catch((err) => {
+			noteCacheFailure(err);
+			return undefined;
+		});

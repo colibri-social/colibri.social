@@ -21,7 +21,12 @@
 			},
 			"errors": [
 				{
-					"name": "AuthRequired"
+					"name": "AuthRequired",
+					"description": "Missing, malformed, or unverifiable service auth."
+				},
+				{
+					"name": "Forbidden",
+					"description": "The caller lacks the permission this method requires."
 				},
 				{
 					"name": "SfuError",

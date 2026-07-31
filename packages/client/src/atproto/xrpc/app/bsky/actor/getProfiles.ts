@@ -1,5 +1,8 @@
 import type { AppBskyActorDefs } from "@atproto/api";
+import { createLogger } from "../../../../../utils/logger";
 import { readJson } from "../../../read-json";
+
+const log = createLogger("bsky");
 
 type Response = {
 	profiles: Array<AppBskyActorDefs.ProfileViewDetailed>;
@@ -26,7 +29,7 @@ export const getProfiles = async (
 		const body = await readJson<Response>(res);
 		return body?.profiles ?? [];
 	} catch (err) {
-		console.error(err);
+		log.warn("fetching Bluesky profiles failed", { error: err });
 		return [];
 	}
 };

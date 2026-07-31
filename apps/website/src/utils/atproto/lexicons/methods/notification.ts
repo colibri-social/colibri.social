@@ -109,6 +109,12 @@ export const notificationMethodDocs: LexiconDoc[] = [
 						},
 					},
 				},
+				errors: [
+					{
+						name: "AuthRequired",
+						description: "Missing, malformed, or unverifiable service auth.",
+					},
+				],
 			},
 		},
 	},
@@ -127,6 +133,12 @@ export const notificationMethodDocs: LexiconDoc[] = [
 						properties: { count: { type: "integer" } },
 					},
 				},
+				errors: [
+					{
+						name: "AuthRequired",
+						description: "Missing, malformed, or unverifiable service auth.",
+					},
+				],
 			},
 		},
 	},
@@ -160,6 +172,12 @@ export const notificationMethodDocs: LexiconDoc[] = [
 						},
 					},
 				},
+				errors: [
+					{
+						name: "AuthRequired",
+						description: "Missing, malformed, or unverifiable service auth.",
+					},
+				],
 			},
 		},
 	},
@@ -181,6 +199,12 @@ export const notificationMethodDocs: LexiconDoc[] = [
 					},
 				},
 				output: updatedResponse,
+				errors: [
+					{
+						name: "AuthRequired",
+						description: "Missing, malformed, or unverifiable service auth.",
+					},
+				],
 			},
 		},
 	},
@@ -199,6 +223,12 @@ export const notificationMethodDocs: LexiconDoc[] = [
 					},
 				},
 				output: updatedResponse,
+				errors: [
+					{
+						name: "AuthRequired",
+						description: "Missing, malformed, or unverifiable service auth.",
+					},
+				],
 			},
 		},
 	},
@@ -235,6 +265,16 @@ export const notificationMethodDocs: LexiconDoc[] = [
 						properties: { registered: { type: "boolean" } },
 					},
 				},
+				errors: [
+					{
+						name: "AuthRequired",
+						description: "Missing, malformed, or unverifiable service auth.",
+					},
+					{
+						name: "InvalidRequest",
+						description: "A parameter or body field was missing or malformed.",
+					},
+				],
 			},
 			webPushSubscription: {
 				type: "object",
@@ -302,6 +342,12 @@ export const notificationMethodDocs: LexiconDoc[] = [
 						properties: { unregistered: { type: "boolean" } },
 					},
 				},
+				errors: [
+					{
+						name: "AuthRequired",
+						description: "Missing, malformed, or unverifiable service auth.",
+					},
+				],
 			},
 		},
 	},

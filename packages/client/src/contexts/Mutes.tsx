@@ -9,8 +9,11 @@ import {
 import { toast } from "somoto";
 import { removeMute, writeMute } from "../atproto/mutes";
 import { AtURI } from "../utils/at-uri";
+import { createLogger } from "../utils/logger";
 import { useSocketContext } from "./Socket";
 import { useUserContext } from "./User";
+
+const log = createLogger("mutes");
 
 const COMMUNITY_COLLECTION = "social.colibri.community";
 
@@ -105,7 +108,7 @@ export const MutesContextProvider: ParentComponent = (props) => {
 			if (muted) await writeMute(user.atproto.agent, user.did, subject);
 			else await removeMute(user.atproto.agent, user.did, subject);
 		} catch (err) {
-			console.error(err);
+			log.error("mute write failed", { error: err });
 			applySubject(subject, !muted);
 			toast.error(failureMessage);
 		}
@@ -125,8 +128,8 @@ export const MutesContextProvider: ParentComponent = (props) => {
 	onMount(() => {
 		void (async () => {
 			const res = await user.xrpc.social.colibri.actor.listMutes();
-			if (!res?.mutes || !Array.isArray(res?.mutes)) return;
-			for (const mute of res.mutes) applySubject(mute.subject, true);
+			if (!res.ok || !Array.isArray(res.data?.mutes)) return;
+			for (const mute of res.data.mutes) applySubject(mute.subject, true);
 		})();
 
 		const cleanup = socket.onEvent((event) => {

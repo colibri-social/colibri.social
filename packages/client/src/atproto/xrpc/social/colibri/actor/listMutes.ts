@@ -1,5 +1,6 @@
 import type { XrpcRequest } from "../../..";
-import { readJson } from "../../../read-json";
+import { request } from "../../../request";
+import type { XrpcResult } from "../../../result";
 
 export type Mute = {
 	uri: string;
@@ -10,15 +11,11 @@ type Response = {
 	mutes: Mute[];
 };
 
-export const listMutes: XrpcRequest<[], Promise<Response | undefined>> = async (
+export const listMutes: XrpcRequest<[], Promise<XrpcResult<Response>>> = async (
 	fetch,
 ) => {
-	try {
-		const res = await fetch(`/xrpc/social.colibri.actor.listMutes`);
-
-		return await readJson<Response>(res);
-	} catch (err) {
-		console.error(err);
-		return undefined;
-	}
+	return request<Response>(fetch, {
+		lxm: "social.colibri.actor.listMutes",
+		route: `/xrpc/social.colibri.actor.listMutes`,
+	});
 };

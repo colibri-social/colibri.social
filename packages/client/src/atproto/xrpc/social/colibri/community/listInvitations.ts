@@ -1,6 +1,7 @@
 import type { ActorData } from "@colibri-social/lib";
 import type { XrpcRequest } from "../../..";
-import { readJson } from "../../../read-json";
+import { request } from "../../../request";
+import type { XrpcResult } from "../../../result";
 
 export type Invitation = {
 	code: string;
@@ -15,19 +16,13 @@ type Response = {
 
 export const listInvitations: XrpcRequest<
 	[string],
-	Promise<Response | undefined>
+	Promise<XrpcResult<Response>>
 > = async (fetch, uri) => {
-	try {
-		const res = await fetch(
-			`/xrpc/social.colibri.community.listInvitations?uri=${uri}`,
-			{
-				method: "POST",
-			},
-		);
-
-		return await readJson<Response>(res);
-	} catch (err) {
-		console.error(err);
-		return undefined;
-	}
+	return request<Response>(fetch, {
+		lxm: "social.colibri.community.listInvitations",
+		route: `/xrpc/social.colibri.community.listInvitations?uri=${uri}`,
+		init: {
+			method: "POST",
+		},
+	});
 };

@@ -1,6 +1,7 @@
 import type { SandboxCategory, SandboxItem } from "../types";
 import { APP } from "./app";
 import { BASICS } from "./basics";
+import { ERRORS } from "./errors";
 import { FORMS } from "./forms";
 import { ICONS } from "./icons";
 import { OVERLAYS } from "./overlays";
@@ -10,6 +11,7 @@ export const CATEGORIES: Array<SandboxCategory> = [
 	FORMS,
 	OVERLAYS,
 	ICONS,
+	ERRORS,
 	APP,
 ];
 

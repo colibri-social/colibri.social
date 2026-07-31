@@ -64,10 +64,17 @@ const queryParamsOf = (source: string): Array<string> => {
 	return [...params].sort();
 };
 
+const lxmOf = (call: string): string | undefined =>
+	call.match(/lxm:\s*["'`]([^"'`]+)["'`]/)?.[1];
+
 /**
  * Reads every XRPC wrapper in the client package and reports the call it
- * makes. Each wrapper is a single `fetch` of a single route, which the
+ * makes. Each wrapper issues a single request for a single route, which the
  * `one_call_per_wrapper` assertion keeps true.
+ *
+ * Colibri wrappers go through the shared `request()` helper and name their
+ * method in `lxm`; the handful that talk to the public Bluesky AppView still
+ * call `fetch` directly, so both shapes are recognised.
  */
 export const readWrapperCalls = (): Array<WrapperCall> => {
 	const calls: Array<WrapperCall> = [];
@@ -75,20 +82,29 @@ export const readWrapperCalls = (): Array<WrapperCall> => {
 	for (const file of sourceFiles(WRAPPER_ROOT)) {
 		const source = readFileSync(file, "utf8");
 		const params = queryParamsOf(source);
+		const seen = new Set<string>();
 
-		for (const match of source.matchAll(/\bfetch\(/g)) {
-			const call = balancedCall(source, match.index + "fetch".length);
-			if (!call) continue;
-
-			const nsid = routeOf(call);
-			if (!nsid) continue;
-
+		const record = (call: string, nsid: string | undefined): void => {
+			if (!nsid || seen.has(nsid)) return;
+			seen.add(nsid);
 			calls.push({
 				file: relative(WRAPPER_ROOT, file),
 				nsid,
 				method: /method:\s*"POST"/.test(call) ? "post" : "get",
 				params,
 			});
+		};
+
+		for (const match of source.matchAll(/\brequest(?:<[\s\S]*?>)?\(/g)) {
+			const call = balancedCall(source, match.index + match[0].length - 1);
+			if (!call) continue;
+			record(call, lxmOf(call) ?? routeOf(call));
+		}
+
+		for (const match of source.matchAll(/\bfetch\(/g)) {
+			const call = balancedCall(source, match.index + "fetch".length);
+			if (!call) continue;
+			record(call, routeOf(call));
 		}
 	}
 

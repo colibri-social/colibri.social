@@ -36,7 +36,17 @@
 						}
 					}
 				}
-			}
+			},
+			"errors": [
+				{
+					"name": "AuthRequired",
+					"description": "Missing, malformed, or unverifiable service auth."
+				},
+				{
+					"name": "InvalidState",
+					"description": "The given state is not one of the accepted values."
+				}
+			]
 		}
 	}
 }

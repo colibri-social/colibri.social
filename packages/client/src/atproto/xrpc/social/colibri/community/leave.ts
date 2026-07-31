@@ -1,18 +1,14 @@
 import type { XrpcRequest } from "../../..";
-import { readJson } from "../../../read-json";
+import { request } from "../../../request";
+import type { XrpcResult } from "../../../result";
 
 export const leave: XrpcRequest<
 	[string],
-	Promise<Record<string, never> | undefined>
+	Promise<XrpcResult<Record<string, never>>>
 > = async (fetch, community) => {
-	try {
-		const res = await fetch(
-			`/xrpc/social.colibri.community.leave?community=${encodeURIComponent(community)}`,
-			{ method: "POST" },
-		);
-		return await readJson<Record<string, never>>(res);
-	} catch (err) {
-		console.error(err);
-		return undefined;
-	}
+	return request<Record<string, never>>(fetch, {
+		lxm: "social.colibri.community.leave",
+		route: `/xrpc/social.colibri.community.leave?community=${encodeURIComponent(community)}`,
+		init: { method: "POST" },
+	});
 };

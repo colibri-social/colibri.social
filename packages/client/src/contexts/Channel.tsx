@@ -28,9 +28,12 @@ import type {
 } from "../atproto/xrpc/social/colibri/channel/listMessages";
 import type { Channel } from "../atproto/xrpc/social/colibri/community/listChannels";
 import { trimWithFacets } from "../components/app/common/rich-text-renderer/util";
+import { classifyThrown } from "../errors/classify";
+import type { ColibriError } from "../errors/error";
 import { getAppViewDid } from "../utils/appview";
 import { AtURI } from "../utils/at-uri";
 import { clearEditDraft } from "../utils/composer-drafts";
+import { createLogger } from "../utils/logger";
 import { markBoot } from "../utils/perf";
 import { purify } from "../utils/purify";
 import { useCommunityContext } from "./Community";
@@ -73,7 +76,7 @@ export type ChannelContextValue = {
 	hasMore: Accessor<boolean>;
 	loadingOlder: Accessor<boolean>;
 	initialLoading: Accessor<boolean>;
-	error: Accessor<unknown>;
+	error: Accessor<ColibriError | undefined>;
 	loadOlder: () => Promise<void>;
 
 	/**
@@ -202,6 +205,8 @@ export type ChannelContextValue = {
 	clearUnreadBoundary: () => void;
 };
 
+const log = createLogger("channel");
+
 export const ChannelContext = createContext<ChannelContextValue>();
 
 const rkeyOf = (uri: string): string => uri.split("/").pop() ?? "";
@@ -234,7 +239,7 @@ export const ChannelContextProvider: ParentComponent<{
 	const [hasMore, setHasMore] = createSignal(true);
 	const [loadingOlder, setLoadingOlder] = createSignal(false);
 	const [initialLoading, setInitialLoading] = createSignal(true);
-	const [error, setError] = createSignal<unknown>(undefined);
+	const [error, setError] = createSignal<ColibriError | undefined>(undefined);
 	const [readCursorUri, setReadCursorUri] = createSignal<string | undefined>(
 		undefined,
 	);
@@ -311,12 +316,13 @@ export const ChannelContextProvider: ParentComponent<{
 			// — `reset()` will already have cleared state for the new channel.
 			if (uri !== channelUri()) return;
 
-			if (!res) {
-				setError(new Error("Failed to fetch messages."));
+			if (!res.ok) {
+				setError(res.error);
 				return;
 			}
 
-			const fetched = res.messages ?? [];
+			setError(undefined);
+			const fetched = res.data?.messages ?? [];
 
 			if (fetched.length === 0) {
 				setHasMore(false);
@@ -337,8 +343,9 @@ export const ChannelContextProvider: ParentComponent<{
 				if (hitTop) setHasMore(false);
 			});
 		} catch (err) {
-			console.error("[ChannelContext] loadOlder failed:", err);
-			setError(err);
+			const failure = classifyThrown(err, { method: "channel.listMessages" });
+			log.error("loadOlder failed", { code: failure.code });
+			setError(failure);
 		} finally {
 			inflight = false;
 			batch(() => {
@@ -376,24 +383,27 @@ export const ChannelContextProvider: ParentComponent<{
 
 			if (uri !== channelUri()) return;
 
-			if (!view) {
-				setError(new Error("Failed to fetch channel."));
+			if (!view.ok) {
+				setError(view.error);
 				return;
 			}
 
-			const ordered = [...(view.messages ?? [])].reverse();
+			const channel = view.data;
+			const ordered = [...(channel?.messages ?? [])].reverse();
 
 			batch(() => {
+				setError(undefined);
 				setMessages(ordered);
 				const oldest = ordered[0];
 				if (oldest) setCursor(rkeyOf(oldest.uri));
 				if (ordered.length < PAGE_SIZE) setHasMore(false);
-				setReadCursorUri(view.readCursor?.cursor);
-				setInitialUnseen(view.unseen.map((n) => n.messageUri));
+				setReadCursorUri(channel?.readCursor?.cursor);
+				setInitialUnseen((channel?.unseen ?? []).map((n) => n.messageUri));
 			});
 		} catch (err) {
-			console.error("[ChannelContext] loadInitial failed:", err);
-			setError(err);
+			const failure = classifyThrown(err, { method: "channel.getChannelView" });
+			log.error("loadInitial failed", { code: failure.code });
+			setError(failure);
 		} finally {
 			inflight = false;
 			batch(() => {
@@ -830,9 +840,16 @@ export const ChannelContextProvider: ParentComponent<{
 				PAGE_SIZE,
 			);
 
-			if (uri !== channelUri() || !view) return;
+			if (uri !== channelUri()) return;
+			if (!view.ok) {
+				log.warn("catchUp could not reach the channel", {
+					code: view.error.code,
+				});
+				return;
+			}
 
-			const ordered = [...(view.messages ?? [])].reverse();
+			const channel = view.data;
+			const ordered = [...(channel?.messages ?? [])].reverse();
 			const existingUris = new Set(messages().map((m) => m.uri));
 			const novel = ordered.filter((m) => !existingUris.has(m.uri));
 
@@ -841,11 +858,13 @@ export const ChannelContextProvider: ParentComponent<{
 					setMessages((prev) => [...prev, ...novel]);
 					setNewIncomingMessage((n) => n + 1);
 				}
-				setReadCursorUri(view.readCursor?.cursor);
-				setInitialUnseen(view.unseen.map((n) => n.messageUri));
+				setReadCursorUri(channel?.readCursor?.cursor);
+				setInitialUnseen((channel?.unseen ?? []).map((n) => n.messageUri));
 			});
 		} catch (err) {
-			console.error("[ChannelContext] catchUp failed:", err);
+			log.error("catchUp failed", {
+				code: classifyThrown(err).code,
+			});
 		} finally {
 			inflight = false;
 		}

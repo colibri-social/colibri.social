@@ -1,4 +1,7 @@
+import { createLogger } from "../utils/logger";
 import { isWebRuntime } from "./environment";
+
+const log = createLogger("push");
 
 const SW_URL = "/push-sw.js";
 
@@ -77,7 +80,7 @@ export const subscribeWebPush = async (
 
 	const vapidKey = getVapidPublicKey();
 	if (!vapidKey) {
-		console.warn("[notifications] No VAPID key configured; skipping web push.");
+		log.warn("no VAPID key configured, skipping web push");
 		return false;
 	}
 

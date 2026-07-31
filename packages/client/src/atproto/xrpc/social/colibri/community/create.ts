@@ -1,5 +1,6 @@
 import type { XrpcRequest } from "../../..";
-import { readJson } from "../../../read-json";
+import { request } from "../../../request";
+import type { XrpcResult } from "../../../result";
 
 type Response = {
 	did: string;
@@ -30,7 +31,7 @@ export const create: XrpcRequest<
 		Blob | undefined,
 		ByoCredentials | undefined,
 	],
-	Promise<Response | undefined>
+	Promise<XrpcResult<Response>>
 > = async (
 	fetch,
 	name,
@@ -40,30 +41,24 @@ export const create: XrpcRequest<
 	banner,
 	byo,
 ) => {
-	try {
-		const params = new URLSearchParams({ name });
-		if (description !== undefined) params.set("description", description);
-		params.set("requiresApprovalToJoin", `${requiresApproval}`);
-		if (byo) {
-			params.set("pds", byo.pds);
-			params.set("identifier", byo.identifier);
-			params.set("password", byo.password);
-		}
-		const formData = new FormData();
-		if (picture !== undefined) formData.append("picture", picture);
-		if (banner !== undefined) formData.append("banner", banner);
-
-		const createRes = await fetch(
-			`/xrpc/social.colibri.community.create?${params.toString()}`,
-			{
-				method: "POST",
-				body: formData,
-			},
-		);
-
-		return await readJson<Response>(createRes);
-	} catch (err) {
-		console.error(err);
-		return undefined;
+	const params = new URLSearchParams({ name });
+	if (description !== undefined) params.set("description", description);
+	params.set("requiresApprovalToJoin", `${requiresApproval}`);
+	if (byo) {
+		params.set("pds", byo.pds);
+		params.set("identifier", byo.identifier);
+		params.set("password", byo.password);
 	}
+	const formData = new FormData();
+	if (picture !== undefined) formData.append("picture", picture);
+	if (banner !== undefined) formData.append("banner", banner);
+
+	return request<Response>(fetch, {
+		lxm: "social.colibri.community.create",
+		route: `/xrpc/social.colibri.community.create?${params.toString()}`,
+		init: {
+			method: "POST",
+			body: formData,
+		},
+	});
 };

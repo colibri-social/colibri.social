@@ -1,22 +1,17 @@
 import type { XrpcRequest } from "../../..";
-import { readJson } from "../../../read-json";
+import { request } from "../../../request";
+import type { XrpcResult } from "../../../result";
 import type { Invitation } from "./listInvitations";
 
 export const createInvitation: XrpcRequest<
 	[string],
-	Promise<Invitation | undefined>
+	Promise<XrpcResult<Invitation>>
 > = async (fetch, community) => {
-	try {
-		const res = await fetch(
-			`/xrpc/social.colibri.community.createInvitation?community=${community}`,
-			{
-				method: "POST",
-			},
-		);
-
-		return await readJson<Invitation>(res);
-	} catch (err) {
-		console.error(err);
-		return undefined;
-	}
+	return request<Invitation>(fetch, {
+		lxm: "social.colibri.community.createInvitation",
+		route: `/xrpc/social.colibri.community.createInvitation?community=${community}`,
+		init: {
+			method: "POST",
+		},
+	});
 };

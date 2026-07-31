@@ -1,14 +1,17 @@
 import type { Agent } from "@atproto/api";
 import type { ColibriEvent } from "@colibri-social/lib";
+import { classifyThrown } from "../../errors/classify";
 import {
 	reportXrpcFailure,
 	reportXrpcNetworkError,
 } from "../../utils/dev-diagnostics";
+import { createLogger } from "../../utils/logger";
 import { perfNow, recordRequest } from "../../utils/perf";
 import { enqueueAppview, setAppviewExecutor } from "../outbox/outbox";
 import * as Identity from "./com/atproto/identity";
 import * as Repo from "./com/atproto/repo";
 import * as AtprotoSync from "./com/atproto/sync";
+import { QUEUED_HEADER } from "./request";
 import * as Actor from "./social/colibri/actor";
 import * as Category from "./social/colibri/category";
 import * as Channel from "./social/colibri/channel";
@@ -29,6 +32,8 @@ export type XrpcRequest<T extends any[], R> = (
 	_fetch: ProxiedFetchFn,
 	...params: T
 ) => R;
+
+const log = createLogger("xrpc");
 
 export class XrpcClient {
 	private proxyHeader: string;
@@ -72,7 +77,16 @@ export class XrpcClient {
 				if (res.ok) return res;
 				if (res.status >= 400 && res.status < 500 && res.status !== 429)
 					return res;
-			} catch {}
+				log.warn("deferring a write the AppView rejected", {
+					lxm,
+					status: res.status,
+				});
+			} catch (err) {
+				log.warn("deferring a write that could not be sent", {
+					lxm,
+					code: classifyThrown(err, { method: lxm }).code,
+				});
+			}
 			await enqueueAppview({
 				service,
 				lxm,
@@ -82,7 +96,10 @@ export class XrpcClient {
 			});
 			return new Response(JSON.stringify(opts?.syntheticBody ?? {}), {
 				status: 200,
-				headers: { "content-type": "application/json" },
+				headers: {
+					"content-type": "application/json",
+					[QUEUED_HEADER]: "1",
+				},
 			});
 		};
 	}
@@ -127,14 +144,18 @@ export class XrpcClient {
 		return request.then(
 			(res) => {
 				recordRequest(method, start, perfNow() - start, res.ok);
-				// Wrappers swallow failures into `undefined`, so explain what
-				// broke first.
-				if (import.meta.env.DEV && !res.ok)
-					void reportXrpcFailure(method, res.clone());
+				if (!res.ok) {
+					log.warn("request failed", { method, status: res.status });
+					if (import.meta.env.DEV) void reportXrpcFailure(method, res.clone());
+				}
 				return res;
 			},
 			(err) => {
 				recordRequest(method, start, perfNow() - start, false);
+				log.error("request could not be sent", {
+					method,
+					code: classifyThrown(err, { method }).code,
+				});
 				reportXrpcNetworkError(method, err);
 				throw err;
 			},
@@ -735,6 +756,7 @@ export class XrpcClient {
 					Notification.updateSeen(
 						this.queued("social.colibri.notification.updateSeen", {
 							syntheticBody: { updated: 1 },
+							label: "Couldn't mark notifications as read.",
 						}),
 						seenAt,
 					),
@@ -742,6 +764,7 @@ export class XrpcClient {
 					Notification.updateSeenForMessage(
 						this.queued("social.colibri.notification.updateSeenForMessage", {
 							syntheticBody: { updated: 1 },
+							label: "Couldn't mark a message as read.",
 						}),
 						message,
 					),

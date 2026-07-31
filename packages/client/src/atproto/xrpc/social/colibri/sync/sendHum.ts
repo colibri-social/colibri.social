@@ -1,5 +1,8 @@
 import type { ColibriEvent } from "@colibri-social/lib";
+import { createLogger } from "../../../../../utils/logger";
 import type { XrpcRequest } from "../../..";
+
+const log = createLogger("hum");
 
 export const sendHum: XrpcRequest<[ColibriEvent], Promise<boolean>> = async (
 	fetch,
@@ -16,7 +19,7 @@ export const sendHum: XrpcRequest<[ColibriEvent], Promise<boolean>> = async (
 
 		return res.ok;
 	} catch (err) {
-		console.error(err);
+		log.warn("could not send a hum", { error: err });
 		return false;
 	}
 };

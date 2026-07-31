@@ -22,7 +22,15 @@ export const voiceMethodDocs: LexiconDoc[] = [
 					},
 				},
 				errors: [
-					{ name: "AuthRequired" },
+					{
+						name: "AuthRequired",
+						description: "Missing, malformed, or unverifiable service auth.",
+					},
+					{
+						name: "Forbidden",
+						description:
+							"The caller lacks the permission this method requires.",
+					},
 					{
 						name: "SfuError",
 						description:
@@ -126,9 +134,19 @@ export const voiceMethodDocs: LexiconDoc[] = [
 					},
 				},
 				errors: [
-					{ name: "AuthRequired" },
-					{ name: "Forbidden" },
-					{ name: "InvalidRequest" },
+					{
+						name: "AuthRequired",
+						description: "Missing, malformed, or unverifiable service auth.",
+					},
+					{
+						name: "Forbidden",
+						description:
+							"The caller lacks the permission this method requires.",
+					},
+					{
+						name: "InvalidRequest",
+						description: "A parameter or body field was missing or malformed.",
+					},
 				],
 			},
 		},

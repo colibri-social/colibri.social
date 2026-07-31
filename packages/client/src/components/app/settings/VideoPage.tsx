@@ -11,6 +11,8 @@ import {
 	ConnectionState,
 	useVoiceChatContext,
 } from "../../../contexts/VoiceChat";
+import { describeError } from "../../../errors/copy";
+import { createLogger } from "../../../utils/logger";
 import {
 	Select,
 	SelectContent,
@@ -21,6 +23,8 @@ import {
 } from "../../ui/Select";
 import { SettingsPage } from "../common/SettingsModal";
 import type { DeviceOption } from "./shared";
+
+const log = createLogger("settings/video");
 
 export const VideoPage: Component = () => {
 	const userPreferences = useUserPreferences();
@@ -88,19 +92,15 @@ export const VideoPage: Component = () => {
 				previewEl.srcObject = stream;
 				previewEl.play().catch((e) => {
 					if (e.name === "AbortError") return;
-					console.error("Error playing video:", e);
+					log.error("playing the preview failed", { error: e });
 					setError(e instanceof Error ? e.message : e);
 				});
 
 				setError(null);
 			} catch (e) {
-				console.error(e);
-				let errorMessage = e instanceof Error ? e.message : String(e);
-				if (errorMessage === "Failed to allocate videosource") {
-					errorMessage =
-						"Unable to access camera. Is it already being used by a different app or not connected?";
-				}
-				setError(errorMessage);
+				log.error("opening the camera failed", { error: e });
+				const copy = describeError(e);
+				setError(copy.description ?? copy.title);
 			}
 		})();
 

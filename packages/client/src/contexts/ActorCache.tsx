@@ -30,8 +30,8 @@ export const ActorCacheProvider: ParentComponent = (props) => {
 			inflight.add(did);
 			user.xrpc.social.colibri.actor
 				.getData(did)
-				.then((data) => {
-					if (data) setCache(did, data);
+				.then((res) => {
+					if (res.ok && res.data) setCache(did, res.data);
 				})
 				.catch(() => {})
 				.finally(() => inflight.delete(did));

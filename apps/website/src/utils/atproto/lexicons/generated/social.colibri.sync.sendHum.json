@@ -22,16 +22,16 @@
 					"description": "A trust-model check failed (origin is not the subject's declared presenceService, subject is not a community member, origin is not an AppView, or a channel does not belong to the community)."
 				},
 				{
-					"name": "UnsupportedEvent",
-					"description": "Event type is not an off-protocol Hum event."
-				},
-				{
-					"name": "RateLimited",
-					"description": "The peer exceeded its per-peer sendHum rate budget."
+					"name": "InvalidRequest",
+					"description": "A parameter or body field was missing or malformed."
 				},
 				{
 					"name": "NotEnabled",
 					"description": "Humming is disabled on this AppView."
+				},
+				{
+					"name": "RateLimited",
+					"description": "The peer exceeded its per-peer sendHum rate budget."
 				}
 			]
 		}

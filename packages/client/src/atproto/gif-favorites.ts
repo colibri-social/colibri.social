@@ -7,6 +7,7 @@
  * the PDS.
  */
 import type { Agent } from "@atproto/api";
+import { classifyThrown, isRecordNotFound } from "../errors/classify";
 import { putRecord } from "./pds";
 import type { GifItem } from "./xrpc/social/colibri/embed/gifTypes";
 
@@ -33,9 +34,9 @@ export const readGifFavorites = async (
 		});
 		const value = res.data.value as GifFavoritesRecord;
 		return value.items ?? [];
-	} catch {
-		// Record-not-found (or any other read error) → no favorites yet.
-		return [];
+	} catch (err) {
+		if (isRecordNotFound(err)) return [];
+		throw classifyThrown(err, { method: "com.atproto.repo.getRecord" });
 	}
 };
 

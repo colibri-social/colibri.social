@@ -1,5 +1,6 @@
 import type { XrpcRequest } from "../../..";
-import { readJson } from "../../../read-json";
+import { request } from "../../../request";
+import type { XrpcResult } from "../../../result";
 
 type Response = {
 	did: string;
@@ -8,17 +9,11 @@ type Response = {
 
 export const dismissApplication: XrpcRequest<
 	[string, string],
-	Promise<Response | undefined>
+	Promise<XrpcResult<Response>>
 > = async (fetch, community, did) => {
-	try {
-		const res = await fetch(
-			`/xrpc/social.colibri.community.dismissApplication?community=${encodeURIComponent(community)}&did=${encodeURIComponent(did)}`,
-			{ method: "POST" },
-		);
-
-		return await readJson<Response>(res);
-	} catch (err) {
-		console.error(err);
-		return undefined;
-	}
+	return request<Response>(fetch, {
+		lxm: "social.colibri.community.dismissApplication",
+		route: `/xrpc/social.colibri.community.dismissApplication?community=${encodeURIComponent(community)}&did=${encodeURIComponent(did)}`,
+		init: { method: "POST" },
+	});
 };

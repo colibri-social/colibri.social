@@ -1,7 +1,8 @@
 import type { JsonBlobRef } from "@atproto/lexicon";
 import type { ColibriRichTextFacet } from "@colibri-social/lib";
 import type { XrpcRequest } from "../../..";
-import { readJson } from "../../../read-json";
+import { request } from "../../../request";
+import type { XrpcResult } from "../../../result";
 
 type NotificationMessage = {
 	text: string;
@@ -32,21 +33,15 @@ type Response = {
 
 export const listNotifications: XrpcRequest<
 	[number | undefined, string | undefined],
-	Promise<Response | undefined>
+	Promise<XrpcResult<Response>>
 > = async (fetch, limit, cursor) => {
-	try {
-		const params = new URLSearchParams();
-		if (limit !== undefined) params.set("limit", String(limit));
-		if (cursor !== undefined) params.set("cursor", cursor);
-		const qs = params.toString();
+	const params = new URLSearchParams();
+	if (limit !== undefined) params.set("limit", String(limit));
+	if (cursor !== undefined) params.set("cursor", cursor);
+	const qs = params.toString();
 
-		const res = await fetch(
-			`/xrpc/social.colibri.notification.listNotifications${qs ? `?${qs}` : ""}`,
-		);
-
-		return await readJson<Response>(res);
-	} catch (err) {
-		console.error(err);
-		return undefined;
-	}
+	return request<Response>(fetch, {
+		lxm: "social.colibri.notification.listNotifications",
+		route: `/xrpc/social.colibri.notification.listNotifications${qs ? `?${qs}` : ""}`,
+	});
 };

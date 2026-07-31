@@ -1,5 +1,6 @@
 import type { XrpcRequest } from "../../..";
-import { readJson } from "../../../read-json";
+import { request } from "../../../request";
+import type { XrpcResult } from "../../../result";
 
 type Response = {
 	updated: number;
@@ -8,19 +9,13 @@ type Response = {
 
 export const updateSeenForMessage: XrpcRequest<
 	[string],
-	Promise<Response | undefined>
+	Promise<XrpcResult<Response>>
 > = async (fetch, message) => {
-	try {
-		const res = await fetch(
-			`/xrpc/social.colibri.notification.updateSeenForMessage?message=${message}`,
-			{
-				method: "POST",
-			},
-		);
-
-		return await readJson<Response>(res);
-	} catch (err) {
-		console.error(err);
-		return undefined;
-	}
+	return request<Response>(fetch, {
+		lxm: "social.colibri.notification.updateSeenForMessage",
+		route: `/xrpc/social.colibri.notification.updateSeenForMessage?message=${message}`,
+		init: {
+			method: "POST",
+		},
+	});
 };

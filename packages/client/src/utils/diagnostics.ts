@@ -13,6 +13,7 @@ import {
 } from "../notifications/push-web";
 import { getPreferredAppViewUrl, verifyColibriAppView } from "./appview";
 import { deviceContext, getConnection } from "./device-context";
+import { formatLog, isVerboseLogging, logEntries } from "./logger";
 import {
 	detectPackageManagerChannel,
 	getAppVersion,
@@ -197,15 +198,39 @@ const collectRuntimeSection = async (
 	};
 };
 
+const RECENT_LOG_LINES = 60;
+
+const collectLogSection = (): DiagnosticsSection => {
+	const entries = logEntries();
+	const problems = entries.filter(
+		(entry) => entry.level === "warn" || entry.level === "error",
+	);
+
+	return {
+		title: "Recent log",
+		fields: [
+			value("Verbose logging", String(isVerboseLogging())),
+			value("Entries buffered", String(entries.length)),
+			value("Warnings and errors", String(problems.length)),
+			list(
+				"Last lines",
+				formatLog(RECENT_LOG_LINES).split("\n").filter(Boolean),
+			),
+		],
+	};
+};
+
 export const collectDiagnostics = async (
 	input: DiagnosticsInput,
 ): Promise<Array<DiagnosticsSection>> => {
-	return Promise.all([
+	const [app, device, account, runtime] = await Promise.all([
 		collectAppSection(),
 		collectDeviceSection(),
 		collectAccountSection(input),
 		collectRuntimeSection(input),
 	]);
+
+	return [app, device, account, runtime, collectLogSection()];
 };
 
 const labelWidthOf = (sections: Array<DiagnosticsSection>): number =>

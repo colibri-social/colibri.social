@@ -15,6 +15,7 @@ import XIcon from "~icons/ph/x";
 import { cx } from "../../../utils/cva";
 import { useIsMobile } from "../../../utils/mobile-pane";
 import { Spinner } from "../../icons/Spinner";
+import { SectionBoundary } from "../../SectionBoundary";
 import { Button } from "../../ui/Button";
 import {
 	Dialog,
@@ -158,15 +159,21 @@ export const SettingsModal: ParentComponent<{
 			<For each={props.pages}>
 				{(item) => (
 					<Match when={activePage() === item.id}>
-						<item.component />
+						<SectionBoundary name={`settings/${item.id}`}>
+							<item.component />
+						</SectionBoundary>
 					</Match>
 				)}
 			</For>
 			<Match when={props.debugPage && activePage() === props.debugPage.id}>
-				<Dynamic component={props.debugPage!.component} />
+				<SectionBoundary name="settings/debug">
+					<Dynamic component={props.debugPage!.component} />
+				</SectionBoundary>
 			</Match>
 			<Match when={props.dangerPage && activePage() === props.dangerPage.id}>
-				<Dynamic component={props.dangerPage!.component} />
+				<SectionBoundary name="settings/danger">
+					<Dynamic component={props.dangerPage!.component} />
+				</SectionBoundary>
 			</Match>
 		</Switch>
 	);

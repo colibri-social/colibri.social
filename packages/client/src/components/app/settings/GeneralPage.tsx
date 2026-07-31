@@ -35,6 +35,7 @@ import {
 	TextFieldTextArea,
 } from "../../../components/ui/TextField";
 import { useUserContext } from "../../../contexts/User";
+import { createLogger } from "../../../utils/logger";
 import { SettingsPage } from "../common/SettingsModal";
 import {
 	ThemeControls,
@@ -43,6 +44,8 @@ import {
 	themeStateToRecord,
 } from "../profile/theme";
 import { displayableNameFn } from "../user/DisplayableName";
+
+const log = createLogger("settings/general");
 
 const COLLECTION = "social.colibri.actor.profile";
 
@@ -187,7 +190,7 @@ export const GeneralPage: Component = () => {
 			toast.success("Profile updated.");
 			resetEdits();
 		} catch (err) {
-			console.error("[GeneralPage] Failed to save profile", err);
+			log.error("saving the profile failed", { error: err });
 			toast.error("Failed to update profile.");
 		} finally {
 			setLoading(false);

@@ -1,5 +1,6 @@
 import type { XrpcRequest } from "../../..";
-import { readJson } from "../../../read-json";
+import { request } from "../../../request";
+import type { XrpcResult } from "../../../result";
 
 export type WebPushSubscription = {
 	platform: "web";
@@ -41,25 +42,15 @@ const toWireBody = (subscription: PushSubscription) =>
 
 export const registerPush: XrpcRequest<
 	[PushSubscription],
-	Promise<Response | undefined>
+	Promise<XrpcResult<Response>>
 > = async (fetch, subscription) => {
-	try {
-		const res = await fetch(`/xrpc/social.colibri.notification.registerPush`, {
+	return request<Response>(fetch, {
+		lxm: "social.colibri.notification.registerPush",
+		route: `/xrpc/social.colibri.notification.registerPush`,
+		init: {
 			method: "POST",
 			headers: { "content-type": "application/json" },
 			body: JSON.stringify(toWireBody(subscription)),
-		});
-
-		// A non-2xx still carries a JSON body (e.g. an InvalidRequest error
-		// shape), so callers checking the resolved value would treat it as
-		// success. Surface the failure as `undefined` instead
-		if (!res.ok) {
-			console.error(`registerPush failed: ${res.status} ${await res.text()}`);
-			return undefined;
-		}
-		return await readJson<Response>(res);
-	} catch (err) {
-		console.error(err);
-		return undefined;
-	}
+		},
+	});
 };

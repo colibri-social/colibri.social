@@ -1,9 +1,98 @@
 use tauri::Manager;
 
+pub mod native_error {
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
+    pub enum NativeErrorCode {
+        Cancelled,
+        Unsupported,
+        InvalidRequest,
+        Failed,
+    }
+
+    #[derive(Debug, serde::Serialize)]
+    pub struct NativeError {
+        pub code: NativeErrorCode,
+        pub message: String,
+    }
+
+    impl NativeError {
+        pub fn new(code: NativeErrorCode, message: impl Into<String>) -> Self {
+            Self {
+                code,
+                message: message.into(),
+            }
+        }
+
+        pub fn cancelled() -> Self {
+            Self::new(NativeErrorCode::Cancelled, "the sign-in window was closed")
+        }
+
+        pub fn unsupported() -> Self {
+            Self::new(
+                NativeErrorCode::Unsupported,
+                "native web authentication is not available on this platform",
+            )
+        }
+
+        pub fn invalid_request(message: impl Into<String>) -> Self {
+            Self::new(NativeErrorCode::InvalidRequest, message)
+        }
+
+        pub fn failed(message: impl Into<String>) -> Self {
+            Self::new(NativeErrorCode::Failed, message)
+        }
+
+        pub fn from_platform_message(message: &str) -> Self {
+            match message {
+                "canceled" => Self::cancelled(),
+                "invalid authorization url" => Self::invalid_request(message),
+                _ => Self::failed(message),
+            }
+        }
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+
+        #[test]
+        fn a_closed_window_is_cancelled_rather_than_a_failure() {
+            assert_eq!(
+                NativeError::from_platform_message("canceled").code,
+                NativeErrorCode::Cancelled
+            );
+        }
+
+        #[test]
+        fn a_bad_url_is_the_callers_mistake() {
+            assert_eq!(
+                NativeError::from_platform_message("invalid authorization url").code,
+                NativeErrorCode::InvalidRequest
+            );
+        }
+
+        #[test]
+        fn anything_else_is_a_failure() {
+            assert_eq!(
+                NativeError::from_platform_message("authentication failed").code,
+                NativeErrorCode::Failed
+            );
+        }
+
+        #[test]
+        fn the_code_serializes_as_its_name() {
+            let json = serde_json::to_string(&NativeError::cancelled()).expect("serializes");
+            assert!(json.contains("\"code\":\"Cancelled\""), "{json}");
+        }
+    }
+}
+
 #[cfg(target_os = "macos")]
 mod web_auth {
     use std::ffi::{c_char, c_void, CStr, CString};
     use std::sync::mpsc;
+
+    use crate::native_error::NativeError;
 
     type WebAuthCallback = extern "C" fn(*const c_char, *const c_char, *mut c_void);
 
@@ -17,8 +106,7 @@ mod web_auth {
     }
 
     extern "C" fn on_web_auth_done(url: *const c_char, error: *const c_char, ctx: *mut c_void) {
-        let sender =
-            unsafe { Box::from_raw(ctx as *mut mpsc::Sender<Result<String, String>>) };
+        let sender = unsafe { Box::from_raw(ctx as *mut mpsc::Sender<Result<String, String>>) };
         let result = if url.is_null() {
             Err(if error.is_null() {
                 "authentication failed".to_string()
@@ -28,31 +116,38 @@ mod web_auth {
                     .into_owned()
             })
         } else {
-            Ok(unsafe { CStr::from_ptr(url) }.to_string_lossy().into_owned())
+            Ok(unsafe { CStr::from_ptr(url) }
+                .to_string_lossy()
+                .into_owned())
         };
         let _ = sender.send(result);
     }
 
     #[tauri::command]
-    pub async fn start_web_auth(url: String, scheme: String) -> Result<String, String> {
-        let c_url = CString::new(url).map_err(|e| e.to_string())?;
-        let c_scheme = CString::new(scheme).map_err(|e| e.to_string())?;
+    pub async fn start_web_auth(url: String, scheme: String) -> Result<String, NativeError> {
+        let c_url = CString::new(url).map_err(|e| NativeError::invalid_request(e.to_string()))?;
+        let c_scheme =
+            CString::new(scheme).map_err(|e| NativeError::invalid_request(e.to_string()))?;
         let (tx, rx) = mpsc::channel::<Result<String, String>>();
         let ctx = Box::into_raw(Box::new(tx)) as *mut c_void;
         unsafe { colibri_start_web_auth(c_url.as_ptr(), c_scheme.as_ptr(), on_web_auth_done, ctx) };
-        tauri::async_runtime::spawn_blocking(move || {
+        let outcome = tauri::async_runtime::spawn_blocking(move || {
             rx.recv().unwrap_or(Err("canceled".to_string()))
         })
         .await
-        .map_err(|e| e.to_string())?
+        .map_err(|e| NativeError::failed(e.to_string()))?;
+
+        outcome.map_err(|message| NativeError::from_platform_message(&message))
     }
 }
 
 #[cfg(not(target_os = "macos"))]
 mod web_auth {
+    use crate::native_error::NativeError;
+
     #[tauri::command]
-    pub async fn start_web_auth(_url: String, _scheme: String) -> Result<String, String> {
-        Err("unsupported".to_string())
+    pub async fn start_web_auth(_url: String, _scheme: String) -> Result<String, NativeError> {
+        Err(NativeError::unsupported())
     }
 }
 
@@ -68,10 +163,17 @@ fn init_sentry() -> Option<sentry::ClientInitGuard> {
         .ok()
         .or_else(|| option_env!("SENTRY_DSN").map(str::to_owned))?;
 
+    let environment = if cfg!(debug_assertions) {
+        "development"
+    } else {
+        "production"
+    };
+
     Some(sentry::init((
         dsn,
         sentry::ClientOptions {
             release: sentry::release_name!(),
+            environment: Some(environment.into()),
             ..Default::default()
         },
     )))
@@ -106,9 +208,7 @@ pub fn run() {
                 #[cfg(any(target_os = "linux", windows))]
                 if _argv.len() != 2 {
                     use tauri_plugin_deep_link::DeepLinkExt;
-                    if let Some(url) = _argv.iter().find(|arg| {
-                        arg.starts_with("social.colibri:")
-                    }) {
+                    if let Some(url) = _argv.iter().find(|arg| arg.starts_with("social.colibri:")) {
                         app.deep_link()
                             .handle_cli_arguments([String::new(), url.clone()].into_iter());
                     }

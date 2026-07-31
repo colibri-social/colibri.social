@@ -1,7 +1,6 @@
 import "@arborium/arborium/themes/base.css";
 import "@arborium/arborium/themes/tokyo-night.css";
 import { ColorModeProvider } from "@kobalte/core/color-mode";
-import * as Sentry from "@sentry/solid";
 
 // The app is always dark-themed (no light mode toggle), but arborium's
 // theme CSS otherwise falls back to `prefers-color-scheme`, which would
@@ -15,6 +14,7 @@ import { Route, Router, useNavigate, useParams } from "@solidjs/router";
 import {
 	type Component,
 	createEffect,
+	createSignal,
 	ErrorBoundary,
 	onMount,
 	type ParentComponent,
@@ -28,7 +28,9 @@ import { InviteModal } from "./components/app/community/InviteModal";
 import { ScopeGate } from "./components/app/onboarding/ScopeGate";
 import { VoiceChannelView } from "./components/app/VoiceChannelView";
 import { DeepLinkListener } from "./components/DeepLinkListener";
+import { ErrorDetails } from "./components/ErrorDetails";
 import { LoginScreen } from "./components/LoginScreen";
+import { SectionBoundary } from "./components/SectionBoundary";
 import { Toaster } from "./components/ui/Sonner";
 import { WaitlistScreen } from "./components/WaitlistScreen";
 import { WelcomeScreen } from "./components/WelcomeScreen";
@@ -41,10 +43,15 @@ import { UserContextProvider } from "./contexts/User";
 import { UserPreferencesContextProvider } from "./contexts/UserPreferences";
 import { ViewportProvider } from "./contexts/Viewport";
 import { VoiceChatContextProvider } from "./contexts/VoiceChat";
+import NotFound from "./errors/404";
+import { classifyThrown } from "./errors/classify";
+import { describeError } from "./errors/copy";
+import { reportError } from "./errors/report";
 import AppLayout from "./layouts/AppLayout";
 import ChannelLayoutWithContext from "./layouts/ChannelLayout";
 import CommunityLayoutWithContext from "./layouts/CommunityLayout";
 import { AtURI } from "./utils/at-uri";
+import { createLogger } from "./utils/logger";
 import { isMobileNow, useIsMobile } from "./utils/mobile-pane";
 
 // Accepted forms of the `:channelType` URL segment. We accept both the
@@ -88,18 +95,33 @@ const RedirectToApp: Component = () => {
 	return <AppLoadingScreen message="Redirecting to app..." />;
 };
 
-const SentryErrorBoundary = Sentry.withSentryErrorBoundary(ErrorBoundary);
+const log = createLogger("app");
+
 const SentryRouter = withSentryRouterRouting(Router);
 
 const AppErrorScreen: Component<{ error: unknown; reset: () => void }> = (
 	props,
 ) => {
-	onMount(() => console.error("[App] Uncaught error:", props.error));
+	const [eventId, setEventId] = createSignal<string | undefined>(undefined);
+
+	const failure = () => classifyThrown(props.error);
+	const copy = () => describeError(props.error);
+
+	onMount(() => {
+		log.error("uncaught render error", { code: failure().code });
+		setEventId(
+			reportError(props.error, { stage: "render", severity: "fatal" }).eventId,
+		);
+	});
+
 	return (
-		<div class="w-full h-full absolute top-0 left-0 z-50 flex flex-col items-center justify-center gap-3 text-white select-none">
-			<p class="text-base font-medium">
-				Something went wrong. We've received a report and are working on a fix.
-			</p>
+		<div class="w-full h-full absolute top-0 left-0 z-50 flex flex-col items-center justify-center gap-3 px-6 text-white select-none">
+			<p class="text-base font-medium m-0 text-center">{copy().title}</p>
+			<Show when={copy().description}>
+				<p class="text-sm text-muted-foreground m-0 text-center">
+					{copy().description}
+				</p>
+			</Show>
 			<button
 				type="button"
 				class="text-sm text-muted-foreground underline cursor-pointer"
@@ -107,6 +129,7 @@ const AppErrorScreen: Component<{ error: unknown; reset: () => void }> = (
 			>
 				Try again
 			</button>
+			<ErrorDetails code={failure().code} eventId={eventId()} />
 		</div>
 	);
 };
@@ -125,24 +148,24 @@ const RootLayout: ParentComponent = (props) => (
 const App: ParentComponent = () => {
 	const isMobile = useIsMobile();
 	return (
-		<SentryErrorBoundary
-			fallback={(err: unknown, reset: () => void) => (
-				<AppErrorScreen error={err} reset={reset} />
-			)}
-		>
-			<UserPreferencesContextProvider>
-				<AuthContextProvider>
-					<ColorModeProvider>
-						<Show
-							when={isMobile()}
-							fallback={<Toaster richColors position="bottom-right" />}
-						>
-							<Toaster
-								richColors
-								position="top-center"
-								offset="max(32px,var(--safe-area-top))"
-							/>
-						</Show>
+		<ColorModeProvider>
+			<Show
+				when={isMobile()}
+				fallback={<Toaster richColors position="bottom-right" />}
+			>
+				<Toaster
+					richColors
+					position="top-center"
+					offset="max(32px,var(--safe-area-top))"
+				/>
+			</Show>
+			<ErrorBoundary
+				fallback={(err: unknown, reset: () => void) => (
+					<AppErrorScreen error={err} reset={reset} />
+				)}
+			>
+				<UserPreferencesContextProvider>
+					<AuthContextProvider>
 						<SentryRouter root={RootLayout} base="/">
 							<Route path="/" component={RedirectToApp} />
 							<Route path="/app/login" component={LoginScreen} />
@@ -223,15 +246,20 @@ const App: ParentComponent = () => {
 									<Route
 										path="/c/:community/:channelType/:channel"
 										matchFilters={{ channelType: VOICE_CHANNEL_TYPES }}
-										component={VoiceChannelView}
+										component={() => (
+											<SectionBoundary name="voice">
+												<VoiceChannelView />
+											</SectionBoundary>
+										)}
 									/>
 								</Route>
 							</Route>
+							<Route path="*" component={NotFound} />
 						</SentryRouter>
-					</ColorModeProvider>
-				</AuthContextProvider>
-			</UserPreferencesContextProvider>
-		</SentryErrorBoundary>
+					</AuthContextProvider>
+				</UserPreferencesContextProvider>
+			</ErrorBoundary>
+		</ColorModeProvider>
 	);
 };
 

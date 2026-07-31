@@ -1,5 +1,6 @@
 import type { XrpcRequest } from "../../..";
-import { readJson } from "../../../read-json";
+import { request } from "../../../request";
+import type { XrpcResult } from "../../../result";
 
 type Response = {
 	code: string;
@@ -7,19 +8,13 @@ type Response = {
 
 export const deleteInvitation: XrpcRequest<
 	[string, string],
-	Promise<Response | undefined>
+	Promise<XrpcResult<Response>>
 > = async (fetch, uri, code) => {
-	try {
-		const res = await fetch(
-			`/xrpc/social.colibri.community.deleteInvitation?uri=${uri}&code=${code}`,
-			{
-				method: "POST",
-			},
-		);
-
-		return await readJson<Response>(res);
-	} catch (err) {
-		console.error(err);
-		return undefined;
-	}
+	return request<Response>(fetch, {
+		lxm: "social.colibri.community.deleteInvitation",
+		route: `/xrpc/social.colibri.community.deleteInvitation?uri=${uri}&code=${code}`,
+		init: {
+			method: "POST",
+		},
+	});
 };

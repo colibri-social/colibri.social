@@ -15,11 +15,14 @@ import {
 	cancelChannelTrayNotification,
 	isStaleNotificationEvent,
 } from "../notifications";
+import { createLogger } from "../utils/logger";
 import { useMutes } from "./Mutes";
 import { useSocketContext } from "./Socket";
 import { useSounds } from "./Sounds";
 import { useUserContext } from "./User";
 import { useUserPreferences } from "./UserPreferences";
+
+const log = createLogger("notif");
 
 /**
  * A message the user has been routed to via a notification toast but has not
@@ -192,7 +195,7 @@ export const NotificationsContextProvider: ParentComponent = (props) => {
 				await user.xrpc.social.colibri.notification.updateSeenForMessage(
 					messageUri,
 				);
-			const cleared = res?.clearedPings ?? 0;
+			const cleared = (res.ok ? res.data?.clearedPings : 0) ?? 0;
 			if (cleared !== 1) adjustPings(channelUri, 1 - cleared);
 		} catch {
 			adjustPings(channelUri, 1);
@@ -216,7 +219,7 @@ export const NotificationsContextProvider: ParentComponent = (props) => {
 			channelUri,
 			1,
 		);
-		const newest = res?.messages?.[0]?.uri;
+		const newest = res.ok ? res.data?.messages?.[0]?.uri : undefined;
 		if (!newest) return;
 		await writeReadCursor(user.did, channelUri, newest);
 		markChannelRead(channelUri);
@@ -225,7 +228,9 @@ export const NotificationsContextProvider: ParentComponent = (props) => {
 	const clearChannelPings = async (channelUri: string): Promise<void> => {
 		const res =
 			await user.xrpc.social.colibri.notification.getUnseen(channelUri);
-		const uris = new Set(res?.notifications.map((n) => n.messageUri) ?? []);
+		const uris = new Set(
+			res.ok ? (res.data?.notifications ?? []).map((n) => n.messageUri) : [],
+		);
 		for (const uri of uris) await markMessageSeen(uri, channelUri);
 	};
 
@@ -237,8 +242,8 @@ export const NotificationsContextProvider: ParentComponent = (props) => {
 	const markCommunityAsRead = async (communityUri: string): Promise<void> => {
 		const status =
 			await user.xrpc.social.colibri.channel.listUnreadStatus(communityUri);
-		if (!status) return;
-		for (const channel of status.channels) {
+		if (!status.ok || !status.data) return;
+		for (const channel of status.data.channels) {
 			if (channel.hasUnreadMessages) {
 				await advanceCursorToNewest(channel.channelUri);
 			}
@@ -254,9 +259,9 @@ export const NotificationsContextProvider: ParentComponent = (props) => {
 	): Promise<void> => {
 		const status =
 			await user.xrpc.social.colibri.channel.listUnreadStatus(communityUri);
-		if (!status) return;
+		if (!status.ok || !status.data) return;
 		const inCategory = new Set(channelUris);
-		for (const channel of status.channels) {
+		for (const channel of status.data.channels) {
 			if (!inCategory.has(channel.channelUri)) continue;
 			if (channel.hasUnreadMessages) {
 				await advanceCursorToNewest(channel.channelUri);
@@ -279,15 +284,16 @@ export const NotificationsContextProvider: ParentComponent = (props) => {
 		try {
 			const res =
 				await user.xrpc.social.colibri.channel.listUnreadStatus(communityUri);
-			if (!res) return;
+			if (!res.ok) return;
 
 			reached = true;
 
-			if (!res.channels) return;
+			const status = res.data;
+			if (!status?.channels) return;
 
 			setPingCounts((prev) => {
 				const next = { ...prev };
-				for (const ch of res.channels) {
+				for (const ch of status.channels) {
 					if (mutes.isChannelMuted(ch.channelUri)) continue;
 					next[channelKey(ch.channelUri)] = ch.unreadPingCount;
 				}
@@ -296,7 +302,7 @@ export const NotificationsContextProvider: ParentComponent = (props) => {
 
 			setUnreadChannels((prev) => {
 				const next = { ...prev };
-				for (const ch of res.channels) {
+				for (const ch of status.channels) {
 					const key = channelKey(ch.channelUri);
 					if (mutes.isChannelMuted(ch.channelUri)) {
 						delete next[key];
@@ -312,7 +318,7 @@ export const NotificationsContextProvider: ParentComponent = (props) => {
 				return next;
 			});
 		} catch (err) {
-			console.error(err);
+			log.error("seeding community notifications failed", { error: err });
 		} finally {
 			if (!reached) seeded.delete(communityUri);
 		}

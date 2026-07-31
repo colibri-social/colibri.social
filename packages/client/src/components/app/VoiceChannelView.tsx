@@ -26,6 +26,7 @@ import { useUserPreferences } from "../../contexts/UserPreferences";
 import { ConnectionState, useVoiceChatContext } from "../../contexts/VoiceChat";
 import { preloadNoiseSuppressor } from "../../hooks/createNoiseSuppressor";
 import { getAverageColorFromUrl } from "../../utils/get-average-color";
+import { createLogger } from "../../utils/logger";
 import { createMobilePane } from "../../utils/mobile-pane";
 import { Camera } from "../icons/Camera";
 import { Ear } from "../icons/Ear";
@@ -42,6 +43,8 @@ import { MemberContextMenu } from "./community/MemberContextMenu";
 import { DEFAULT_BANNER } from "./profile/theme";
 import User from "./user";
 import { displayableNameFn } from "./user/DisplayableName";
+
+const log = createLogger("voice/view");
 
 export const VideoTile: Component<{
 	stream: MediaStream;
@@ -71,11 +74,12 @@ export const VideoTile: Component<{
 		if (!el) return;
 
 		el.play()
-			.then(() => console.debug(tag(), "play() ok via", reason))
+			.then(() => log.debug("play() ok", { via: reason, tag: tag() }))
 			.catch((err) =>
-				console.warn(tag(), "play() rejected via", reason, {
-					name: err?.name,
-					message: err?.message,
+				log.warn("play() rejected", {
+					via: reason,
+					tag: tag(),
+					error: err,
 					...snapshot(el),
 				}),
 			);
@@ -90,7 +94,7 @@ export const VideoTile: Component<{
 		el.muted = true;
 		el.playsInline = true;
 
-		console.debug(tag(), "srcObject set", snapshot(el));
+		log.debug("srcObject set", { tag: tag(), ...snapshot(el) });
 
 		play("effect");
 	});
@@ -103,11 +107,16 @@ export const VideoTile: Component<{
 			playsinline
 			onLoadedMetadata={() => play("loadedmetadata")}
 			onCanPlay={() => play("canplay")}
-			onPlaying={() => console.debug(tag(), "event: playing")}
-			onPause={() => ref && console.debug(tag(), "event: pause", snapshot(ref))}
-			onStalled={() => console.warn(tag(), "event: stalled")}
-			onWaiting={() => console.warn(tag(), "event: waiting")}
-			onError={() => ref && console.error(tag(), "event: error", ref.error)}
+			onPlaying={() => log.debug("playing", { tag: tag() })}
+			onPause={() =>
+				ref && log.debug("paused", { tag: tag(), ...snapshot(ref) })
+			}
+			onStalled={() => log.warn("stalled", { tag: tag() })}
+			onWaiting={() => log.warn("waiting", { tag: tag() })}
+			onError={() =>
+				ref &&
+				log.error("video element errored", { tag: tag(), error: ref.error })
+			}
 			class="w-full h-full object-contain rounded-md"
 			classList={{ "-scale-x-100": props.mirror }}
 		/>

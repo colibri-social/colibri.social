@@ -1,5 +1,6 @@
 import type { XrpcRequest } from "../../..";
-import { readJson } from "../../../read-json";
+import { request } from "../../../request";
+import type { XrpcResult } from "../../../result";
 
 type Response = {
 	unregistered: boolean;
@@ -7,25 +8,15 @@ type Response = {
 
 export const unregisterPush: XrpcRequest<
 	[string, string?],
-	Promise<Response | undefined>
+	Promise<XrpcResult<Response>>
 > = async (fetch, endpoint, provider) => {
-	try {
-		const res = await fetch(
-			`/xrpc/social.colibri.notification.unregisterPush`,
-			{
-				method: "POST",
-				headers: { "content-type": "application/json" },
-				body: JSON.stringify(provider ? { endpoint, provider } : { endpoint }),
-			},
-		);
-
-		if (!res.ok) {
-			console.error(`unregisterPush failed: ${res.status} ${await res.text()}`);
-			return undefined;
-		}
-		return await readJson<Response>(res);
-	} catch (err) {
-		console.error(err);
-		return undefined;
-	}
+	return request<Response>(fetch, {
+		lxm: "social.colibri.notification.unregisterPush",
+		route: `/xrpc/social.colibri.notification.unregisterPush`,
+		init: {
+			method: "POST",
+			headers: { "content-type": "application/json" },
+			body: JSON.stringify(provider ? { endpoint, provider } : { endpoint }),
+		},
+	});
 };

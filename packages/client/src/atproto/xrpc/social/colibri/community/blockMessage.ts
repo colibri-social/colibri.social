@@ -1,5 +1,6 @@
 import type { XrpcRequest } from "../../..";
-import { readJson } from "../../../read-json";
+import { request } from "../../../request";
+import type { XrpcResult } from "../../../result";
 
 type Response = {
 	message: string;
@@ -7,19 +8,13 @@ type Response = {
 
 export const blockMessage: XrpcRequest<
 	[string, string],
-	Promise<Response | undefined>
+	Promise<XrpcResult<Response>>
 > = async (fetch, community, message) => {
-	try {
-		const res = await fetch(
-			`/xrpc/social.colibri.community.blockMessage?community=${community}&message=${message}`,
-			{
-				method: "POST",
-			},
-		);
-
-		return await readJson<Response>(res);
-	} catch (err) {
-		console.error(err);
-		return undefined;
-	}
+	return request<Response>(fetch, {
+		lxm: "social.colibri.community.blockMessage",
+		route: `/xrpc/social.colibri.community.blockMessage?community=${community}&message=${message}`,
+		init: {
+			method: "POST",
+		},
+	});
 };

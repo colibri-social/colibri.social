@@ -1,5 +1,6 @@
 import type { XrpcRequest } from "../../..";
-import { readJson } from "../../../read-json";
+import { request } from "../../../request";
+import type { XrpcResult } from "../../../result";
 
 type Response = {
 	uri: string;
@@ -8,16 +9,10 @@ type Response = {
 
 export const getRecord: XrpcRequest<
 	[string, string, string],
-	Promise<Response | undefined>
+	Promise<XrpcResult<Response>>
 > = async (fetch, repo, collection, rkey) => {
-	try {
-		const res = await fetch(
-			`/xrpc/com.atproto.sync.getRecord?repo=${repo}&collection=${collection}&rkey=${rkey}`,
-		);
-
-		return await readJson<Response>(res);
-	} catch (err) {
-		console.error(err);
-		return undefined;
-	}
+	return request<Response>(fetch, {
+		lxm: "com.atproto.sync.getRecord",
+		route: `/xrpc/com.atproto.sync.getRecord?repo=${repo}&collection=${collection}&rkey=${rkey}`,
+	});
 };

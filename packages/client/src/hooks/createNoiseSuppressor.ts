@@ -10,6 +10,9 @@ import {
 	getAssetLoader,
 } from "deepfilternet3-noise-filter";
 import type { NoiseSuppressionMode } from "../contexts/UserPreferences";
+import { createLogger } from "../utils/logger";
+
+const log = createLogger("noise");
 
 const DFN_ASSET_BASE = "/noise/deepfilternet3";
 const DFN_SAMPLE_RATE = 48000;
@@ -201,10 +204,9 @@ export async function createNoiseSuppressor(
 			dfnCore = core;
 			return dfnNode;
 		})().catch((err) => {
-			console.warn(
-				"[noise] DeepFilterNet unavailable, falling back to RNNoise:",
-				err instanceof Error ? err.message : err,
-			);
+			log.warn("DeepFilterNet unavailable, falling back to RNNoise", {
+				error: err,
+			});
 			dfnPromise = null;
 			throw err;
 		});

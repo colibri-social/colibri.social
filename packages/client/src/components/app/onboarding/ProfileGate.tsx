@@ -1,6 +1,8 @@
 import { createResource, Match, type ParentComponent, Switch } from "solid-js";
 import { useUserContext } from "../../../contexts/User";
+import { classifyThrown, isRecordNotFound } from "../../../errors/classify";
 import { AppLoadingScreen } from "../../AppLoadingScreen";
+import { ErrorState } from "../../ErrorState";
 import { ProfileSetupModal } from "./ProfileSetupModal";
 
 /**
@@ -27,9 +29,9 @@ export const ProfileGate: ParentComponent = (props) => {
 				rkey: "self",
 			});
 			return true;
-		} catch {
-			// 404 (or any read failure) — treat as "not present".
-			return false;
+		} catch (err) {
+			if (isRecordNotFound(err)) return false;
+			throw classifyThrown(err, { method: "com.atproto.repo.getRecord" });
 		}
 	};
 
@@ -47,19 +49,24 @@ export const ProfileGate: ParentComponent = (props) => {
 		}
 	};
 
-	const [gate, { mutate }] = createResource(async (): Promise<GateState> => {
-		const [hasColibri, hasBluesky, returning] = await Promise.all([
-			recordExists("social.colibri.actor.profile"),
-			recordExists("app.bsky.actor.profile"),
-			isReturning(),
-		]);
-		return { needsSetup: !hasColibri, hasBluesky, returning };
-	});
+	const [gate, { mutate, refetch }] = createResource(
+		async (): Promise<GateState> => {
+			const [hasColibri, hasBluesky, returning] = await Promise.all([
+				recordExists("social.colibri.actor.profile"),
+				recordExists("app.bsky.actor.profile"),
+				isReturning(),
+			]);
+			return { needsSetup: !hasColibri, hasBluesky, returning };
+		},
+	);
 
 	return (
 		<Switch>
 			<Match when={gate.loading}>
 				<AppLoadingScreen message="Checking your profile..." />
+			</Match>
+			<Match when={gate.error !== undefined}>
+				<ErrorState error={gate.error} retry={() => void refetch()} />
 			</Match>
 			<Match when={gate()?.needsSetup}>
 				<ProfileSetupModal

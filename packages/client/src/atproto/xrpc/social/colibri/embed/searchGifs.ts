@@ -1,24 +1,17 @@
 import type { XrpcRequest } from "../../..";
-import { readJson } from "../../../read-json";
+import { request } from "../../../request";
+import type { XrpcResult } from "../../../result";
 import type { GifPage } from "./gifTypes";
 
 export const searchGifs: XrpcRequest<
 	[string, number?],
-	Promise<GifPage | undefined>
+	Promise<XrpcResult<GifPage>>
 > = async (fetch, query, page) => {
-	try {
-		const params = new URLSearchParams({ q: query });
-		if (page !== undefined) params.set("page", String(page));
+	const params = new URLSearchParams({ q: query });
+	if (page !== undefined) params.set("page", String(page));
 
-		const res = await fetch(
-			`/xrpc/social.colibri.embed.searchGifs?${params.toString()}`,
-		);
-
-		if (!res.ok) return undefined;
-
-		return await readJson<GifPage>(res);
-	} catch (err) {
-		console.error(err);
-		return undefined;
-	}
+	return request<GifPage>(fetch, {
+		lxm: "social.colibri.embed.searchGifs",
+		route: `/xrpc/social.colibri.embed.searchGifs?${params.toString()}`,
+	});
 };

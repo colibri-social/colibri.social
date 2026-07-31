@@ -25,10 +25,17 @@ import { AppLoadingScreen } from "../components/AppLoadingScreen";
 import { AppViewUnreachableModal } from "../components/app/AppViewUnreachableModal";
 import { PENDING_INVITE_KEY } from "../components/app/community/invite-storage";
 import { ProfileGate } from "../components/app/onboarding/ProfileGate";
+import { setReportingAccount } from "../errors/account";
+import { ColibriError } from "../errors/error";
+import { identifyUser } from "../sentry";
 import { getAppViewDid, getAppViewServiceRef } from "../utils/appview";
+import { createLogger } from "../utils/logger";
 import { markBoot } from "../utils/perf";
 import { useAuthContext } from "./Auth";
 import { useSocketContext } from "./Socket";
+import { useUserPreferences } from "./UserPreferences";
+
+const log = createLogger("user");
 
 type User =
 	| { loggedIn: false; atproto: { client: BrowserOAuthClient } }
@@ -54,6 +61,7 @@ export const UserContext = createContext<LoggedInUser>();
 
 export const UserContextProvider: ParentComponent = (props) => {
 	const client = useAuthContext();
+	const { preferences } = useUserPreferences();
 	const socket = useSocketContext();
 
 	const [user, { mutate }] = createResource(async (): Promise<User> => {
@@ -72,17 +80,23 @@ export const UserContextProvider: ParentComponent = (props) => {
 
 		const xrpc = new XrpcClient(getAppViewServiceRef(), client.agent);
 
-		const [actorData, communities] = await Promise.all([
+		const [actorDataRes, communitiesRes] = await Promise.all([
 			xrpc.social.colibri.actor.getData(client.agent.did!),
 			xrpc.social.colibri.actor.listCommunities(),
 		]);
 
+		if (!actorDataRes.ok) throw actorDataRes.error;
+		if (!communitiesRes.ok) throw communitiesRes.error;
+
+		const actorData = actorDataRes.data;
+		const communities = communitiesRes.data;
+
 		if (!actorData) {
-			throw new Error("Unable to get actor data!");
+			throw new ColibriError({ code: "MalformedResponse" });
 		}
 
 		if (!communities) {
-			throw new Error("Unable to get actor communities!");
+			throw new ColibriError({ code: "MalformedResponse" });
 		}
 
 		if (!communities.communities && import.meta.env.DEV) {
@@ -147,6 +161,13 @@ export const UserContextProvider: ParentComponent = (props) => {
 	});
 
 	createEffect(() => {
+		const attach = preferences().attachAccountToReports;
+		const did = user.latest?.loggedIn ? user.latest.did : undefined;
+		identifyUser(attach ? did : undefined);
+		setReportingAccount({ did, optedIn: attach });
+	});
+
+	createEffect(() => {
 		if (user.loading === true) return;
 
 		markBoot("user:ready");
@@ -167,7 +188,7 @@ export const UserContextProvider: ParentComponent = (props) => {
 			window.location.href = "/app/login";
 		}
 
-		console.info("[user] User loaded:", user());
+		log.info("user loaded");
 	});
 
 	return (
@@ -196,11 +217,11 @@ export const UserContextProvider: ParentComponent = (props) => {
 							const res =
 								await value.xrpc.social.colibri.actor.listCommunities();
 							const cur = user.latest;
-							if (res && cur?.loggedIn) {
-								mutate({ ...cur, communities: res.communities });
+							if (res.ok && res.data && cur?.loggedIn) {
+								mutate({ ...cur, communities: res.data.communities });
 							}
 						} catch (err) {
-							console.error(err);
+							log.error("refetching communities failed", { error: err });
 						}
 					};
 

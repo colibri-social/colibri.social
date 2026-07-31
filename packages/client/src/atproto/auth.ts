@@ -5,6 +5,7 @@ import {
 } from "@atproto/oauth-client-browser";
 import * as Sentry from "@sentry/solid";
 import { toast } from "somoto";
+import { classifyNativeError, wasCancelled } from "../errors/native";
 import { isTauriRuntime } from "../notifications/environment";
 import {
 	DEFAULT_APPVIEW_URL,
@@ -13,6 +14,7 @@ import {
 	getPreferredAppViewUrl,
 } from "../utils/appview";
 import { deviceContext, getConnection } from "../utils/device-context";
+import { createLogger } from "../utils/logger";
 import { isAllowedDid } from "./allowlist";
 import { buildScopes, getMissingScopeSets } from "./scopes";
 import {
@@ -21,6 +23,8 @@ import {
 	type StorageProbe,
 	summarizeProbe,
 } from "./storage-probe";
+
+const log = createLogger("auth");
 
 export const isLocal = () =>
 	["localhost", "127.0.0.1"].includes(window.location.hostname);
@@ -491,7 +495,7 @@ const init = async () => {
 			usingFallbackStorage ? FALLBACK_DATABASE : PRIMARY_DATABASE,
 		);
 	} catch (e) {
-		console.error(e);
+		log.error("loading the OAuth client failed", { error: e });
 		return;
 	}
 
@@ -506,9 +510,9 @@ const init = async () => {
 		await restoreExistingSession();
 	} catch (e) {
 		if (isStorageFailure(e) && !usingFallbackStorage) {
-			console.warn(
-				"[auth] IndexedDB is unusable, retrying with localStorage-backed OAuth storage",
-				e,
+			log.warn(
+				"IndexedDB is unusable, retrying with localStorage-backed OAuth storage",
+				{ error: e },
 			);
 			Sentry.addBreadcrumb({
 				category: "oauth.storage",
@@ -522,11 +526,13 @@ const init = async () => {
 				oAuthClient = await loadOAuthClient(FALLBACK_DATABASE);
 				await restoreExistingSession();
 			} catch (fallbackError) {
-				console.error(fallbackError);
+				log.error("localStorage-backed OAuth storage also failed", {
+					error: fallbackError,
+				});
 				resetSession();
 			}
 		} else {
-			console.error(e);
+			log.error("restoring the session failed", { error: e });
 			resetSession();
 		}
 	}
@@ -550,7 +556,7 @@ const init = async () => {
 			.find((x) => x.id === "#atproto_pds")
 			?.serviceEndpoint.toString();
 	} catch (e) {
-		console.error(e);
+		log.error("resolving the PDS host failed", { error: e });
 	}
 };
 
@@ -560,9 +566,7 @@ const restoreExistingSession = async () => {
 
 	{
 		if (window.location.hash.length > 0) {
-			console.info(
-				"[auth] Attempting to received session from callback parameters...",
-			);
+			log.debug("attempting to read a session from callback parameters");
 			const searchParams = new URLSearchParams(
 				window.location.hash.replace("#", "?"),
 			);
@@ -571,13 +575,11 @@ const restoreExistingSession = async () => {
 
 			if (callbackSession && !window.location.href.startsWith("/app")) {
 				if (!isAllowedDid(callbackSession.session.sub)) {
-					console.info(
-						`[auth] ${callbackSession.session.sub} is not in the early-access allowlist.`,
-					);
+					log.info("account is not in the early-access allowlist");
 					await clearDisallowedSession(callbackSession.session.sub);
 					return;
 				}
-				console.info("[auth] Session received from callback parameters.");
+				log.info("session received from callback parameters");
 				localStorage.setItem("sub", callbackSession.session.sub);
 				window.location.href = "/app";
 				return;
@@ -594,7 +596,7 @@ const restoreExistingSession = async () => {
 				const restored = await client.restore(preSetSub);
 				result = { session: restored, state: null };
 			} else {
-				console.info("[auth] No session found.");
+				log.info("no session found");
 				return;
 			}
 		}
@@ -602,19 +604,15 @@ const restoreExistingSession = async () => {
 		const { session, state } = result;
 
 		if (!isAllowedDid(session.sub)) {
-			console.info(
-				`[auth] ${session.sub} is not in the early-access allowlist.`,
-			);
+			log.info("account is not in the early-access allowlist");
 			await clearDisallowedSession(session.sub);
 			return;
 		}
 
 		if (state != null) {
-			console.info(
-				`[auth] ${session.sub} was successfully authenticated (state: ${state})`,
-			);
+			log.info("authenticated", { state });
 		} else {
-			console.info(`[auth] ${session.sub} was restored (last active session)`);
+			log.info("restored the last active session");
 		}
 
 		agent = new Agent(session);
@@ -632,7 +630,7 @@ const restoreExistingSession = async () => {
 			try {
 				grantedScopes = (await session.getTokenInfo(true)).scope;
 			} catch (e) {
-				console.warn("[auth] Forced token refresh failed", e);
+				log.warn("forced token refresh failed", { error: e });
 			}
 		}
 	}
@@ -687,8 +685,8 @@ const runSignIn = async (
 					scheme: new URL(redirectUri).protocol.replace(":", ""),
 				});
 			} catch (err) {
-				if (err === "canceled") return;
-				throw err instanceof Error ? err : new Error(String(err));
+				if (wasCancelled(err)) return;
+				throw classifyNativeError(err, "start_web_auth");
 			}
 			if (await completeNativeOAuth(client, callbackUrl)) {
 				window.location.href = "/app";
@@ -757,7 +755,7 @@ export const startOAuthSignIn = async (
 
 	storageProbe = await probeStorage();
 	const probeSummary = summarizeProbe(storageProbe);
-	console.info(`[auth] storage probe: ${probeSummary}`);
+	log.debug("storage probe", { summary: probeSummary });
 	Sentry.addBreadcrumb({
 		category: "oauth.storage",
 		level: probeIndicatesStall(storageProbe) ? "warning" : "info",
@@ -775,9 +773,9 @@ export const startOAuthSignIn = async (
 			throw asSignInError(err);
 		}
 
-		console.warn(
-			"[auth] sign-in stalled in local storage, retrying with localStorage-backed OAuth storage",
-			err,
+		log.warn(
+			"sign-in stalled in local storage, retrying with localStorage-backed OAuth storage",
+			{ error: err },
 		);
 		Sentry.addBreadcrumb({
 			category: "oauth.storage",

@@ -151,14 +151,23 @@ describe("listMessages", () => {
 			undefined,
 		);
 
-		expect(result?.messages).toHaveLength(1);
+		expect(result.ok && result.data?.messages).toHaveLength(1);
 	});
 
-	it("resolves to undefined when the request throws", async () => {
-		const fetch = vi.fn().mockRejectedValue(new Error("offline"));
-		await expect(
-			listMessages(fetch, CHANNEL, undefined, undefined, undefined),
-		).resolves.toBeUndefined();
+	it("reports a transport failure rather than rejecting", async () => {
+		const fetch = vi.fn().mockRejectedValue(new TypeError("Failed to fetch"));
+		const result = await listMessages(
+			fetch,
+			CHANNEL,
+			undefined,
+			undefined,
+			undefined,
+		);
+
+		expect(result.ok).toBe(false);
+		if (result.ok) return;
+		expect(result.error.code).toBe("NetworkFailed");
+		expect(result.error.method).toBe("social.colibri.channel.listMessages");
 	});
 });
 
@@ -255,14 +264,18 @@ describe("registerPush", () => {
 		expect(bodyOf(fetch).subscription).not.toHaveProperty("endpoint");
 	});
 
-	it("resolves to undefined on a non-2xx that still carries a json body", async () => {
+	it("surfaces the declared code from a non-2xx json body", async () => {
 		const fetch = vi.fn().mockResolvedValue(
 			new Response(JSON.stringify({ error: "InvalidRequest" }), {
 				status: 400,
 			}),
 		);
 
-		await expect(registerPush(fetch, webPush)).resolves.toBeUndefined();
+		const result = await registerPush(fetch, webPush);
+		expect(result.ok).toBe(false);
+		if (result.ok) return;
+		expect(result.error.code).toBe("InvalidRequest");
+		expect(result.error.retryable).toBe(false);
 	});
 });
 
@@ -298,21 +311,33 @@ describe("error handling", () => {
 		vi.spyOn(console, "error").mockImplementation(() => {});
 	});
 
-	it("resolves to undefined rather than rejecting", async () => {
+	it("resolves to a failure rather than rejecting", async () => {
 		const boom = vi.fn().mockRejectedValue(new Error("offline"));
 
-		await expect(
-			listRecords(boom, REPO, COLLECTION, undefined, undefined, undefined),
-		).resolves.toBeUndefined();
-		await expect(
-			listNotifications(boom, undefined, undefined),
-		).resolves.toBeUndefined();
-		await expect(updateSeen(boom, undefined)).resolves.toBeUndefined();
-		await expect(trendingGifs(boom, 1)).resolves.toBeUndefined();
+		for (const result of [
+			await listRecords(
+				boom,
+				REPO,
+				COLLECTION,
+				undefined,
+				undefined,
+				undefined,
+			),
+			await listNotifications(boom, undefined, undefined),
+			await updateSeen(boom, undefined),
+			await trendingGifs(boom, 1),
+		]) {
+			expect(result.ok).toBe(false);
+		}
 	});
 
-	it("resolves to undefined when trendingGifs gets a non-2xx", async () => {
+	it("classifies a 502 as a retryable upstream failure", async () => {
 		const fetch = vi.fn().mockResolvedValue(new Response("", { status: 502 }));
-		await expect(trendingGifs(fetch, 1)).resolves.toBeUndefined();
+		const result = await trendingGifs(fetch, 1);
+
+		expect(result.ok).toBe(false);
+		if (result.ok) return;
+		expect(result.error.code).toBe("UpstreamFailure");
+		expect(result.error.retryable).toBe(true);
 	});
 });

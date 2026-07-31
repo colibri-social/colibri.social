@@ -1,4 +1,5 @@
 import type { AppBskyGraphDefs } from "@atproto/api";
+import { createLogger } from "../utils/logger";
 import {
 	cacheEnabled,
 	readBskyMuTrustedList,
@@ -7,6 +8,8 @@ import {
 	writeBskyMuVerification,
 } from "./cache/store";
 import { getProfiles } from "./xrpc/app/bsky/actor/getProfiles";
+
+const log = createLogger("verification");
 
 const PUBLIC_APPVIEW = "https://public.api.bsky.app";
 const CONSTELLATION_SERVICE = "https://constellation.microcosm.blue";
@@ -73,7 +76,7 @@ const fetchMuTrustedVerifierDids = async (): Promise<Array<string>> => {
 			cursor = body.cursor;
 		}
 	} catch (err) {
-		console.error(err);
+		log.warn("listing verified accounts failed", { error: err });
 	}
 
 	return dids;
@@ -168,7 +171,7 @@ const fetchVerificationIssuers = async (
 			cursor = body.cursor;
 		}
 	} catch (err) {
-		console.error(err);
+		log.warn("listing verification issuers failed", { error: err });
 	}
 
 	return issuers;

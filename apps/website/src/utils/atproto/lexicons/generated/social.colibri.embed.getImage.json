@@ -20,7 +20,17 @@
 			"output": {
 				"encoding": "*/*",
 				"description": "The proxied image bytes (Content-Type is image/*)."
-			}
+			},
+			"errors": [
+				{
+					"name": "NotAnImage",
+					"description": "The linked resource is not an image type the AppView serves."
+				},
+				{
+					"name": "RateLimited",
+					"description": "The caller exceeded its rate budget."
+				}
+			]
 		}
 	}
 }

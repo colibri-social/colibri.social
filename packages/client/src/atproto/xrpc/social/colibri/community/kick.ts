@@ -1,18 +1,14 @@
 import type { XrpcRequest } from "../../..";
-import { readJson } from "../../../read-json";
+import { request } from "../../../request";
+import type { XrpcResult } from "../../../result";
 
 export const kick: XrpcRequest<
 	[string, string],
-	Promise<Record<string, never> | undefined>
+	Promise<XrpcResult<Record<string, never>>>
 > = async (fetch, community, member) => {
-	try {
-		const res = await fetch(
-			`/xrpc/social.colibri.community.kick?community=${encodeURIComponent(community)}&member=${encodeURIComponent(member)}`,
-			{ method: "POST" },
-		);
-		return await readJson<Record<string, never>>(res);
-	} catch (err) {
-		console.error(err);
-		return undefined;
-	}
+	return request<Record<string, never>>(fetch, {
+		lxm: "social.colibri.community.kick",
+		route: `/xrpc/social.colibri.community.kick?community=${encodeURIComponent(community)}&member=${encodeURIComponent(member)}`,
+		init: { method: "POST" },
+	});
 };

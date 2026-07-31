@@ -12,8 +12,10 @@ import {
 	searchActorsTypeahead,
 } from "../atproto/xrpc/app/bsky/actor/searchActorsTypeahead";
 import { useViewport, ViewportProvider } from "../contexts/Viewport";
+import { describeError } from "../errors/copy";
 import { isTauriRuntime } from "../notifications/environment";
 import { getAppViewHost } from "../utils/appview";
+import { createLogger } from "../utils/logger";
 import { AppLoadingScreen } from "./AppLoadingScreen";
 import { Spinner } from "./icons/Spinner";
 import { Button } from "./ui/Button";
@@ -28,6 +30,8 @@ import {
 	SearchNoResult,
 	SearchPortal,
 } from "./ui/Search";
+
+const log = createLogger("waitlist");
 
 const WAITLIST_SCOPE = "atproto transition:email";
 
@@ -193,7 +197,7 @@ const WaitlistScreenContent: Component = () => {
 				handleResolver: getAppViewHost("http"),
 			});
 		} catch (err) {
-			console.error(err);
+			log.error("loading the waitlist OAuth client failed", { error: err });
 			setErrorMessage("We couldn't start the waitlist sign-in. Try again.");
 			setPhase("error");
 			return;
@@ -216,10 +220,8 @@ const WaitlistScreenContent: Component = () => {
 			const outcome = await submit(session);
 			setPhase(outcome === "already-has-access" ? "idle" : "done");
 		} catch (err) {
-			console.error(err);
-			setErrorMessage(
-				err instanceof Error ? err.message : "Something went wrong.",
-			);
+			log.error("completing the waitlist sign-in failed", { error: err });
+			setErrorMessage(describeError(err).title);
 			setPhase("error");
 		}
 	});
@@ -237,7 +239,7 @@ const WaitlistScreenContent: Component = () => {
 		try {
 			await client.signIn(input, { scope: WAITLIST_SCOPE });
 		} catch (err) {
-			console.error(err);
+			log.error("waitlist sign-in could not start", { error: err });
 			toast.error("Couldn't connect", {
 				description:
 					err instanceof Error ? err.message : "Please try again shortly.",

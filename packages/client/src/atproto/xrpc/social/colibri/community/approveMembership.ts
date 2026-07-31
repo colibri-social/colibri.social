@@ -1,5 +1,6 @@
 import type { XrpcRequest } from "../../..";
-import { readJson } from "../../../read-json";
+import { request } from "../../../request";
+import type { XrpcResult } from "../../../result";
 
 type Response = {
 	did: string;
@@ -9,17 +10,11 @@ type Response = {
 
 export const approveMembership: XrpcRequest<
 	[string],
-	Promise<Response | undefined>
+	Promise<XrpcResult<Response>>
 > = async (fetch, membership) => {
-	try {
-		const res = await fetch(
-			`/xrpc/social.colibri.community.approveMembership?membership=${encodeURIComponent(membership)}`,
-			{ method: "POST" },
-		);
-
-		return await readJson<Response>(res);
-	} catch (err) {
-		console.error(err);
-		return undefined;
-	}
+	return request<Response>(fetch, {
+		lxm: "social.colibri.community.approveMembership",
+		route: `/xrpc/social.colibri.community.approveMembership?membership=${encodeURIComponent(membership)}`,
+		init: { method: "POST" },
+	});
 };

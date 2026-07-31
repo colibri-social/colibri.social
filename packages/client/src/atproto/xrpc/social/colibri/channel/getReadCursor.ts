@@ -1,5 +1,6 @@
 import type { XrpcRequest } from "../../..";
-import { readJson } from "../../../read-json";
+import { request } from "../../../request";
+import type { XrpcResult } from "../../../result";
 
 type Response = {
 	uri: string;
@@ -9,16 +10,10 @@ type Response = {
 
 export const getReadCursor: XrpcRequest<
 	[string],
-	Promise<Response | undefined>
+	Promise<XrpcResult<Response>>
 > = async (fetch, channel) => {
-	try {
-		const res = await fetch(
-			`/xrpc/social.colibri.channel.getReadCursor?channel=${channel}`,
-		);
-
-		return await readJson<Response>(res);
-	} catch (err) {
-		console.error(err);
-		return undefined;
-	}
+	return request<Response>(fetch, {
+		lxm: "social.colibri.channel.getReadCursor",
+		route: `/xrpc/social.colibri.channel.getReadCursor?channel=${channel}`,
+	});
 };

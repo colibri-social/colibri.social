@@ -1,12 +1,13 @@
 import type { BrowserOAuthClient } from "@atproto/oauth-client-browser";
 import { createSignal, For } from "solid-js";
-import { toast } from "somoto";
 import ArrowLineLeftIcon from "~icons/ph/arrow-line-left";
 import { startOAuthSignIn } from "../../../atproto/auth";
 import { buildScopes, scopeSetLabel } from "../../../atproto/scopes";
 import { endSession } from "../../../atproto/session";
+import { showError } from "../../../errors/show-error";
 import { unregisterAllPush } from "../../../notifications";
 import { getAppViewDid } from "../../../utils/appview";
+import { createLogger } from "../../../utils/logger";
 import { Spinner } from "../../icons/Spinner";
 import { Button } from "../../ui/Button";
 import {
@@ -19,6 +20,8 @@ import {
 	DialogTitle,
 } from "../../ui/Dialog";
 import { SCOPE_REAUTH_FLAG } from "./scope-reauth";
+
+const log = createLogger("scopes");
 
 export function ScopeRefreshModal(props: {
 	client: BrowserOAuthClient;
@@ -39,8 +42,8 @@ export function ScopeRefreshModal(props: {
 			});
 		} catch (err) {
 			sessionStorage.removeItem(SCOPE_REAUTH_FLAG);
-			console.error(err);
-			toast.error(err as any);
+			log.error("re-authentication failed", { error: err });
+			showError(err);
 			setLoading(false);
 		}
 	};

@@ -41,6 +41,7 @@ import {
 	usePermissions,
 } from "../../../contexts/Community";
 import { useUserContext } from "../../../contexts/User";
+import { ErrorState } from "../../ErrorState";
 import { Spinner } from "../../icons/Spinner";
 import { Button } from "../../ui/Button";
 import {
@@ -393,13 +394,17 @@ const InviteLinksPage: Component = () => {
 	const [loading] = createSignal<boolean>(false);
 	const [invitations, { refetch }] = createResource(uri, async (u) => {
 		const res = await user.xrpc.social.colibri.community.listInvitations(u);
-		return res?.codes ?? [];
+		if (!res.ok) throw res.error;
+		return res.data?.codes ?? [];
 	});
 
 	return (
 		<SettingsPage loading={loading} title="Invite Links">
 			<Switch>
-				<Match when={!invitations()}>
+				<Match when={invitations.error !== undefined}>
+					<ErrorState error={invitations.error} retry={() => void refetch()} />
+				</Match>
+				<Match when={invitations.loading}>
 					<div class="my-2 flex w-full items-center justify-center">
 						<Spinner />
 					</div>
@@ -1095,7 +1100,8 @@ const BannedMembersPage: Component = () => {
 
 	const [bannedMembers, { refetch }] = createResource(uri, async (u) => {
 		const res = await user.xrpc.social.colibri.community.listBannedUsers(u);
-		return res?.users ?? [];
+		if (!res.ok) throw res.error;
+		return res.data?.users ?? [];
 	});
 
 	const unbanMember = async (did: string) => {
@@ -1121,10 +1127,16 @@ const BannedMembersPage: Component = () => {
 	return (
 		<SettingsPage
 			loading={loading}
-			title={`Banned Members${(bannedMembers() ?? []).length > 0 ? ` — ${(bannedMembers() ?? []).length}` : ""}`}
+			title={`Banned Members${(bannedMembers.latest ?? []).length > 0 ? ` — ${(bannedMembers.latest ?? []).length}` : ""}`}
 		>
 			<Switch>
-				<Match when={!bannedMembers()}>
+				<Match when={bannedMembers.error !== undefined}>
+					<ErrorState
+						error={bannedMembers.error}
+						retry={() => void refetch()}
+					/>
+				</Match>
+				<Match when={bannedMembers.loading}>
 					<div class="my-2 flex w-full items-center justify-center">
 						<Spinner />
 					</div>

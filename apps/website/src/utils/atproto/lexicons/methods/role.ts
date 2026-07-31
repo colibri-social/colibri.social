@@ -31,6 +31,31 @@ export const roleMethodDocs: LexiconDoc[] = [
 					},
 				},
 				output: uriResponse,
+				errors: [
+					{
+						name: "AuthRequired",
+						description: "Missing, malformed, or unverifiable service auth.",
+					},
+					{
+						name: "CommunityCredentialsUnrecoverable",
+						description:
+							"The AppView cannot write to the community's repo and could not repair its own access.",
+					},
+					{
+						name: "Forbidden",
+						description:
+							"The caller lacks the permission this method requires.",
+					},
+					{
+						name: "InvalidRequest",
+						description: "A parameter or body field was missing or malformed.",
+					},
+					{
+						name: "PdsUnavailable",
+						description:
+							"The PDS this operation needs is unreachable or is not a PDS.",
+					},
+				],
 			},
 		},
 	},
@@ -55,6 +80,31 @@ export const roleMethodDocs: LexiconDoc[] = [
 					},
 				},
 				output: uriResponse,
+				errors: [
+					{
+						name: "AuthRequired",
+						description: "Missing, malformed, or unverifiable service auth.",
+					},
+					{
+						name: "CommunityCredentialsUnrecoverable",
+						description:
+							"The AppView cannot write to the community's repo and could not repair its own access.",
+					},
+					{
+						name: "Forbidden",
+						description:
+							"The caller lacks the permission this method requires.",
+					},
+					{
+						name: "InvalidRequest",
+						description: "A parameter or body field was missing or malformed.",
+					},
+					{
+						name: "PdsUnavailable",
+						description:
+							"The PDS this operation needs is unreachable or is not a PDS.",
+					},
+				],
 			},
 		},
 	},
@@ -73,6 +123,31 @@ export const roleMethodDocs: LexiconDoc[] = [
 					},
 				},
 				output: uriResponse,
+				errors: [
+					{
+						name: "AuthRequired",
+						description: "Missing, malformed, or unverifiable service auth.",
+					},
+					{
+						name: "CommunityCredentialsUnrecoverable",
+						description:
+							"The AppView cannot write to the community's repo and could not repair its own access.",
+					},
+					{
+						name: "Forbidden",
+						description:
+							"The caller lacks the permission this method requires.",
+					},
+					{
+						name: "InvalidRequest",
+						description: "A parameter or body field was missing or malformed.",
+					},
+					{
+						name: "PdsUnavailable",
+						description:
+							"The PDS this operation needs is unreachable or is not a PDS.",
+					},
+				],
 			},
 		},
 	},

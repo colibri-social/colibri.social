@@ -1,5 +1,6 @@
 import type { XrpcRequest } from "../../..";
-import { readJson } from "../../../read-json";
+import { request } from "../../../request";
+import type { XrpcResult } from "../../../result";
 
 type Response = {
 	did: string;
@@ -8,19 +9,13 @@ type Response = {
 
 export const banUser: XrpcRequest<
 	[string, string],
-	Promise<Response | undefined>
+	Promise<XrpcResult<Response>>
 > = async (fetch, community, identifier) => {
-	try {
-		const res = await fetch(
-			`/xrpc/social.colibri.community.banUser?community=${community}&identifier=${identifier}`,
-			{
-				method: "POST",
-			},
-		);
-
-		return await readJson<Response>(res);
-	} catch (err) {
-		console.error(err);
-		return undefined;
-	}
+	return request<Response>(fetch, {
+		lxm: "social.colibri.community.banUser",
+		route: `/xrpc/social.colibri.community.banUser?community=${community}&identifier=${identifier}`,
+		init: {
+			method: "POST",
+		},
+	});
 };

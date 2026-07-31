@@ -17,6 +17,9 @@ import { getRecord, putRecord } from "../../atproto/pds";
 import { resolveBlob } from "../../atproto/resolve-blob";
 import { useSocketContext } from "../../contexts/Socket";
 import { useUserContext } from "../../contexts/User";
+import { ColibriError } from "../../errors/error";
+import { showError } from "../../errors/show-error";
+import { createLogger } from "../../utils/logger";
 import { Chevron } from "../icons/Chevron";
 import { Image } from "../icons/Image";
 import { Spinner } from "../icons/Spinner";
@@ -46,6 +49,8 @@ import {
 	TextFieldInput,
 	TextFieldLabel,
 } from "../ui/TextField";
+
+const log = createLogger("community-create");
 
 const COMMUNITY_DETAILS = 1;
 const LOADING = 2;
@@ -423,7 +428,7 @@ export const CommunityCreationModal: ParentComponent<{
 		const waitForCommunityIndexed = async (uri: string) => {
 			for (let attempt = 0; attempt < 10; attempt++) {
 				const res = await user.xrpc.social.colibri.actor.listCommunities();
-				if (res?.communities?.some((c) => c.uri === uri)) return;
+				if (res.ok && res.data?.communities?.some((c) => c.uri === uri)) return;
 				await new Promise((resolve) => setTimeout(resolve, 1000));
 			}
 		};
@@ -477,7 +482,7 @@ export const CommunityCreationModal: ParentComponent<{
 							const res = await fetch(pictureUrl);
 							pictureBlob = await res.blob();
 						} catch (err) {
-							console.error("[CommunityMigration] picture copy failed", err);
+							log.error("copying the community picture failed", { error: err });
 						}
 					}
 					const res = await user.xrpc.social.colibri.community.migrate(
@@ -487,18 +492,21 @@ export const CommunityCreationModal: ParentComponent<{
 						pictureBlob,
 						byo,
 					);
-					if (!res) throw new Error("No response from server.");
-					communityUri = res.community;
+					if (!res.ok) throw res.error;
+					if (!res.data) throw new ColibriError({ code: "MalformedResponse" });
+					communityUri = res.data.community;
 
 					// Stamp the legacy record so it disappears everywhere.
 					setStatus("Finishing up...");
 					try {
 						await stampLegacyAsMigrated(communityUri);
 					} catch (err) {
-						console.error(
-							"[CommunityMigration] failed to stamp legacy record",
-							err,
-						);
+						log.error("stamping the legacy record failed", { error: err });
+						showError(err, {
+							fallbackTitle: "The old community may still be visible.",
+							description:
+								"Your new community was created, but we could not hide the old one.", // TODO: Try again from its settings.
+						});
 					}
 				} else {
 					const res = await user.xrpc.social.colibri.community.create(
@@ -509,8 +517,9 @@ export const CommunityCreationModal: ParentComponent<{
 						banner()?.acceptedFiles[0],
 						byo,
 					);
-					if (!res) throw new Error("No response from server.");
-					communityUri = res.community;
+					if (!res.ok) throw res.error;
+					if (!res.data) throw new ColibriError({ code: "MalformedResponse" });
+					communityUri = res.data.community;
 					setStatus("Finishing up...");
 				}
 
@@ -524,7 +533,7 @@ export const CommunityCreationModal: ParentComponent<{
 				// We explicitly do a manual nav here to prevent some loading issues
 				window.location.href = `/app/c/${url}`;
 			} catch (err) {
-				console.error("[CommunityCreation]", err);
+				log.error("creating the community failed", { error: err });
 				toast.error(
 					isMigration()
 						? "Failed to migrate community."

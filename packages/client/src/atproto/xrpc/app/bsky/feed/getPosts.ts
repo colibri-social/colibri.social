@@ -1,5 +1,8 @@
 import type { AppBskyFeedDefs } from "@atproto/api";
+import { createLogger } from "../../../../../utils/logger";
 import { readJson } from "../../../read-json";
+
+const log = createLogger("bsky");
 
 type Response = {
 	posts: Array<AppBskyFeedDefs.PostView>;
@@ -25,7 +28,7 @@ export const getPosts = async (
 		const body = await readJson<Response>(res);
 		return body?.posts ?? [];
 	} catch (err) {
-		console.error(err);
+		log.warn("fetching Bluesky posts failed", { error: err });
 		return [];
 	}
 };

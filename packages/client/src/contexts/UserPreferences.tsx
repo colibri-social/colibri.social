@@ -83,6 +83,7 @@ export type UserPreferencesContextData = {
 	preferredBlueskyClient: BlueskyClientID;
 	preferredAppView: string;
 	sharePresence: boolean;
+	attachAccountToReports: boolean;
 	recentGifs: Array<GifItem>;
 	experiments: Record<string, boolean>;
 	controls: ControlsPreferences;
@@ -122,6 +123,7 @@ const DEFAULT_PREFERENCES: UserPreferencesContextData = {
 	preferredBlueskyClient: "bluesky",
 	preferredAppView: DEFAULT_APPVIEW_URL,
 	sharePresence: true,
+	attachAccountToReports: false,
 	recentGifs: [],
 	experiments: {},
 	controls: {
@@ -201,6 +203,7 @@ type UserPreferencesContextValue = {
 	setPreferredBlueskyClient: (client: BlueskyClientID) => void;
 	setPreferredAppView: (appView: string) => void;
 	setSharePresence: (enabled: boolean) => void;
+	setAttachAccountToReports: (enabled: boolean) => void;
 	pushRecentGif: (gif: GifItem) => void;
 	setExperiment: (id: string, enabled: boolean) => void;
 	updateControls: (patch: Partial<ControlsPreferences>) => void;
@@ -326,6 +329,10 @@ export const UserPreferencesContextProvider: ParentComponent = (props) => {
 		setPreferences((p) => ({ ...p, sharePresence: enabled }));
 	};
 
+	const setAttachAccountToReports = (enabled: boolean) => {
+		setPreferences((p) => ({ ...p, attachAccountToReports: enabled }));
+	};
+
 	const pushRecentGif = (gif: GifItem) => {
 		setPreferences((p) => ({
 			...p,
@@ -368,6 +375,7 @@ export const UserPreferencesContextProvider: ParentComponent = (props) => {
 				setPreferredBlueskyClient,
 				setPreferredAppView,
 				setSharePresence,
+				setAttachAccountToReports,
 				pushRecentGif,
 				setExperiment,
 				updateControls,

@@ -1,5 +1,6 @@
 import type { XrpcRequest } from "../../..";
-import { readJson } from "../../../read-json";
+import { request } from "../../../request";
+import type { XrpcResult } from "../../../result";
 
 export type VoiceModerationAction =
 	| "mute"
@@ -10,16 +11,11 @@ export type VoiceModerationAction =
 
 export const moderate: XrpcRequest<
 	[string, string, string, VoiceModerationAction],
-	Promise<{ did: string } | undefined>
+	Promise<XrpcResult<{ did: string }>>
 > = async (fetch, community, channel, target, action) => {
-	try {
-		const res = await fetch(
-			`/xrpc/social.colibri.voice.moderate?community=${encodeURIComponent(community)}&channel=${encodeURIComponent(channel)}&target=${encodeURIComponent(target)}&action=${encodeURIComponent(action)}`,
-			{ method: "POST" },
-		);
-		return await readJson<{ did: string }>(res);
-	} catch (err) {
-		console.error(err);
-		return undefined;
-	}
+	return request<{ did: string }>(fetch, {
+		lxm: "social.colibri.voice.moderate",
+		route: `/xrpc/social.colibri.voice.moderate?community=${encodeURIComponent(community)}&channel=${encodeURIComponent(channel)}&target=${encodeURIComponent(target)}&action=${encodeURIComponent(action)}`,
+		init: { method: "POST" },
+	});
 };

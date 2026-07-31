@@ -283,6 +283,25 @@ export const communityMethodDocs: LexiconDoc[] = [
 						},
 					},
 				},
+				errors: [
+					{
+						name: "AuthRequired",
+						description: "Missing, malformed, or unverifiable service auth.",
+					},
+					{
+						name: "InvalidRequest",
+						description: "A parameter or body field was missing or malformed.",
+					},
+					{
+						name: "PdsUnavailable",
+						description:
+							"The PDS this operation needs is unreachable or is not a PDS.",
+					},
+					{
+						name: "UpstreamFailure",
+						description: "A service outside this AppView failed.",
+					},
+				],
 			},
 		},
 	},
@@ -352,6 +371,29 @@ export const communityMethodDocs: LexiconDoc[] = [
 						},
 					},
 				},
+				errors: [
+					{
+						name: "AuthRequired",
+						description: "Missing, malformed, or unverifiable service auth.",
+					},
+					{
+						name: "Forbidden",
+						description:
+							"The caller lacks the permission this method requires.",
+					},
+					{
+						name: "InvalidRequest",
+						description: "A parameter or body field was missing or malformed.",
+					},
+					{
+						name: "NotFound",
+						description: "The referenced record does not exist.",
+					},
+					{
+						name: "UpstreamFailure",
+						description: "A service outside this AppView failed.",
+					},
+				],
 			},
 			channelMapping: {
 				type: "object",
@@ -398,6 +440,31 @@ export const communityMethodDocs: LexiconDoc[] = [
 						"Optional replacement community image blobs, as `picture` and `banner` parts.",
 				},
 				output: uriResponse,
+				errors: [
+					{
+						name: "AuthRequired",
+						description: "Missing, malformed, or unverifiable service auth.",
+					},
+					{
+						name: "CommunityCredentialsUnrecoverable",
+						description:
+							"The AppView cannot write to the community's repo and could not repair its own access.",
+					},
+					{
+						name: "Forbidden",
+						description:
+							"The caller lacks the permission this method requires.",
+					},
+					{
+						name: "InvalidRequest",
+						description: "A parameter or body field was missing or malformed.",
+					},
+					{
+						name: "PdsUnavailable",
+						description:
+							"The PDS this operation needs is unreachable or is not a PDS.",
+					},
+				],
 			},
 		},
 	},
@@ -423,6 +490,29 @@ export const communityMethodDocs: LexiconDoc[] = [
 						properties: { did: { type: "string", format: "did" } },
 					},
 				},
+				errors: [
+					{
+						name: "AuthRequired",
+						description: "Missing, malformed, or unverifiable service auth.",
+					},
+					{
+						name: "Forbidden",
+						description:
+							"The caller lacks the permission this method requires.",
+					},
+					{
+						name: "InvalidRequest",
+						description: "A parameter or body field was missing or malformed.",
+					},
+					{
+						name: "NotFound",
+						description: "The referenced record does not exist.",
+					},
+					{
+						name: "UpstreamFailure",
+						description: "A service outside this AppView failed.",
+					},
+				],
 			},
 		},
 	},
@@ -490,6 +580,16 @@ export const communityMethodDocs: LexiconDoc[] = [
 						},
 					},
 				},
+				errors: [
+					{
+						name: "InvalidRequest",
+						description: "A parameter or body field was missing or malformed.",
+					},
+					{
+						name: "NotFound",
+						description: "The referenced record does not exist.",
+					},
+				],
 			},
 		},
 	},
@@ -523,6 +623,12 @@ export const communityMethodDocs: LexiconDoc[] = [
 						},
 					},
 				},
+				errors: [
+					{
+						name: "InvalidRequest",
+						description: "A parameter or body field was missing or malformed.",
+					},
+				],
 			},
 		},
 	},
@@ -556,6 +662,12 @@ export const communityMethodDocs: LexiconDoc[] = [
 						},
 					},
 				},
+				errors: [
+					{
+						name: "InvalidRequest",
+						description: "A parameter or body field was missing or malformed.",
+					},
+				],
 			},
 		},
 	},
@@ -589,6 +701,12 @@ export const communityMethodDocs: LexiconDoc[] = [
 						},
 					},
 				},
+				errors: [
+					{
+						name: "InvalidRequest",
+						description: "A parameter or body field was missing or malformed.",
+					},
+				],
 			},
 		},
 	},
@@ -622,6 +740,12 @@ export const communityMethodDocs: LexiconDoc[] = [
 						},
 					},
 				},
+				errors: [
+					{
+						name: "InvalidRequest",
+						description: "A parameter or body field was missing or malformed.",
+					},
+				],
 			},
 		},
 	},
@@ -663,6 +787,21 @@ export const communityMethodDocs: LexiconDoc[] = [
 						},
 					},
 				},
+				errors: [
+					{
+						name: "AuthRequired",
+						description: "Missing, malformed, or unverifiable service auth.",
+					},
+					{
+						name: "Forbidden",
+						description:
+							"The caller lacks the permission this method requires.",
+					},
+					{
+						name: "InvalidRequest",
+						description: "A parameter or body field was missing or malformed.",
+					},
+				],
 			},
 		},
 	},
@@ -696,6 +835,21 @@ export const communityMethodDocs: LexiconDoc[] = [
 						},
 					},
 				},
+				errors: [
+					{
+						name: "AuthRequired",
+						description: "Missing, malformed, or unverifiable service auth.",
+					},
+					{
+						name: "Forbidden",
+						description:
+							"The caller lacks the permission this method requires.",
+					},
+					{
+						name: "InvalidRequest",
+						description: "A parameter or body field was missing or malformed.",
+					},
+				],
 			},
 		},
 	},
@@ -726,6 +880,21 @@ export const communityMethodDocs: LexiconDoc[] = [
 						},
 					},
 				},
+				errors: [
+					{
+						name: "AuthRequired",
+						description: "Missing, malformed, or unverifiable service auth.",
+					},
+					{
+						name: "Forbidden",
+						description:
+							"The caller lacks the permission this method requires.",
+					},
+					{
+						name: "InvalidRequest",
+						description: "A parameter or body field was missing or malformed.",
+					},
+				],
 			},
 		},
 	},
@@ -745,6 +914,21 @@ export const communityMethodDocs: LexiconDoc[] = [
 					},
 				},
 				output: didCommunityResponse,
+				errors: [
+					{
+						name: "AuthRequired",
+						description: "Missing, malformed, or unverifiable service auth.",
+					},
+					{
+						name: "Forbidden",
+						description:
+							"The caller lacks the permission this method requires.",
+					},
+					{
+						name: "InvalidRequest",
+						description: "A parameter or body field was missing or malformed.",
+					},
+				],
 			},
 		},
 	},
@@ -764,6 +948,21 @@ export const communityMethodDocs: LexiconDoc[] = [
 					},
 				},
 				output: didCommunityResponse,
+				errors: [
+					{
+						name: "AuthRequired",
+						description: "Missing, malformed, or unverifiable service auth.",
+					},
+					{
+						name: "Forbidden",
+						description:
+							"The caller lacks the permission this method requires.",
+					},
+					{
+						name: "InvalidRequest",
+						description: "A parameter or body field was missing or malformed.",
+					},
+				],
 			},
 		},
 	},
@@ -796,6 +995,30 @@ export const communityMethodDocs: LexiconDoc[] = [
 						},
 					},
 				},
+				errors: [
+					{
+						name: "AuthRequired",
+						description: "Missing, malformed, or unverifiable service auth.",
+					},
+					{
+						name: "CommunityCredentialsUnrecoverable",
+						description:
+							"The AppView cannot write to the community's repo and could not repair its own access.",
+					},
+					{
+						name: "InvalidRequest",
+						description: "A parameter or body field was missing or malformed.",
+					},
+					{
+						name: "PdsUnavailable",
+						description:
+							"The PDS this operation needs is unreachable or is not a PDS.",
+					},
+					{
+						name: "UpstreamFailure",
+						description: "A service outside this AppView failed.",
+					},
+				],
 			},
 		},
 	},
@@ -829,6 +1052,31 @@ export const communityMethodDocs: LexiconDoc[] = [
 						},
 					},
 				},
+				errors: [
+					{
+						name: "AuthRequired",
+						description: "Missing, malformed, or unverifiable service auth.",
+					},
+					{
+						name: "CommunityCredentialsUnrecoverable",
+						description:
+							"The AppView cannot write to the community's repo and could not repair its own access.",
+					},
+					{
+						name: "Forbidden",
+						description:
+							"The caller lacks the permission this method requires.",
+					},
+					{
+						name: "InvalidRequest",
+						description: "A parameter or body field was missing or malformed.",
+					},
+					{
+						name: "PdsUnavailable",
+						description:
+							"The PDS this operation needs is unreachable or is not a PDS.",
+					},
+				],
 			},
 		},
 	},
@@ -848,6 +1096,31 @@ export const communityMethodDocs: LexiconDoc[] = [
 					},
 				},
 				output: uriResponse,
+				errors: [
+					{
+						name: "AuthRequired",
+						description: "Missing, malformed, or unverifiable service auth.",
+					},
+					{
+						name: "CommunityCredentialsUnrecoverable",
+						description:
+							"The AppView cannot write to the community's repo and could not repair its own access.",
+					},
+					{
+						name: "Forbidden",
+						description:
+							"The caller lacks the permission this method requires.",
+					},
+					{
+						name: "InvalidRequest",
+						description: "A parameter or body field was missing or malformed.",
+					},
+					{
+						name: "PdsUnavailable",
+						description:
+							"The PDS this operation needs is unreachable or is not a PDS.",
+					},
+				],
 			},
 		},
 	},
@@ -867,6 +1140,31 @@ export const communityMethodDocs: LexiconDoc[] = [
 					},
 				},
 				output: uriResponse,
+				errors: [
+					{
+						name: "AuthRequired",
+						description: "Missing, malformed, or unverifiable service auth.",
+					},
+					{
+						name: "CommunityCredentialsUnrecoverable",
+						description:
+							"The AppView cannot write to the community's repo and could not repair its own access.",
+					},
+					{
+						name: "Forbidden",
+						description:
+							"The caller lacks the permission this method requires.",
+					},
+					{
+						name: "InvalidRequest",
+						description: "A parameter or body field was missing or malformed.",
+					},
+					{
+						name: "PdsUnavailable",
+						description:
+							"The PDS this operation needs is unreachable or is not a PDS.",
+					},
+				],
 			},
 		},
 	},
@@ -889,6 +1187,21 @@ export const communityMethodDocs: LexiconDoc[] = [
 					},
 				},
 				output: didHandleResponse,
+				errors: [
+					{
+						name: "AuthRequired",
+						description: "Missing, malformed, or unverifiable service auth.",
+					},
+					{
+						name: "Forbidden",
+						description:
+							"The caller lacks the permission this method requires.",
+					},
+					{
+						name: "InvalidRequest",
+						description: "A parameter or body field was missing or malformed.",
+					},
+				],
 			},
 		},
 	},
@@ -911,6 +1224,21 @@ export const communityMethodDocs: LexiconDoc[] = [
 					},
 				},
 				output: didHandleResponse,
+				errors: [
+					{
+						name: "AuthRequired",
+						description: "Missing, malformed, or unverifiable service auth.",
+					},
+					{
+						name: "Forbidden",
+						description:
+							"The caller lacks the permission this method requires.",
+					},
+					{
+						name: "InvalidRequest",
+						description: "A parameter or body field was missing or malformed.",
+					},
+				],
 			},
 		},
 	},
@@ -933,6 +1261,21 @@ export const communityMethodDocs: LexiconDoc[] = [
 					},
 				},
 				output: didHandleResponse,
+				errors: [
+					{
+						name: "AuthRequired",
+						description: "Missing, malformed, or unverifiable service auth.",
+					},
+					{
+						name: "Forbidden",
+						description:
+							"The caller lacks the permission this method requires.",
+					},
+					{
+						name: "InvalidRequest",
+						description: "A parameter or body field was missing or malformed.",
+					},
+				],
 			},
 		},
 	},
@@ -952,6 +1295,21 @@ export const communityMethodDocs: LexiconDoc[] = [
 					},
 				},
 				output: didHandleResponse,
+				errors: [
+					{
+						name: "AuthRequired",
+						description: "Missing, malformed, or unverifiable service auth.",
+					},
+					{
+						name: "Forbidden",
+						description:
+							"The caller lacks the permission this method requires.",
+					},
+					{
+						name: "InvalidRequest",
+						description: "A parameter or body field was missing or malformed.",
+					},
+				],
 			},
 		},
 	},
@@ -980,6 +1338,21 @@ export const communityMethodDocs: LexiconDoc[] = [
 						},
 					},
 				},
+				errors: [
+					{
+						name: "AuthRequired",
+						description: "Missing, malformed, or unverifiable service auth.",
+					},
+					{
+						name: "Forbidden",
+						description:
+							"The caller lacks the permission this method requires.",
+					},
+					{
+						name: "InvalidRequest",
+						description: "A parameter or body field was missing or malformed.",
+					},
+				],
 			},
 		},
 	},
@@ -1004,6 +1377,25 @@ export const communityMethodDocs: LexiconDoc[] = [
 						ref: "social.colibri.community.defs#invitationView",
 					},
 				},
+				errors: [
+					{
+						name: "AuthRequired",
+						description: "Missing, malformed, or unverifiable service auth.",
+					},
+					{
+						name: "Forbidden",
+						description:
+							"The caller lacks the permission this method requires.",
+					},
+					{
+						name: "InvalidRequest",
+						description: "A parameter or body field was missing or malformed.",
+					},
+					{
+						name: "NotFound",
+						description: "The referenced record does not exist.",
+					},
+				],
 			},
 		},
 	},
@@ -1029,6 +1421,25 @@ export const communityMethodDocs: LexiconDoc[] = [
 						ref: "social.colibri.community.defs#resolvedInvitationView",
 					},
 				},
+				errors: [
+					{
+						name: "AuthRequired",
+						description: "Missing, malformed, or unverifiable service auth.",
+					},
+					{
+						name: "Forbidden",
+						description:
+							"The caller lacks the permission this method requires.",
+					},
+					{
+						name: "InvalidRequest",
+						description: "A parameter or body field was missing or malformed.",
+					},
+					{
+						name: "NotFound",
+						description: "The referenced record does not exist.",
+					},
+				],
 			},
 		},
 	},
@@ -1062,6 +1473,25 @@ export const communityMethodDocs: LexiconDoc[] = [
 						},
 					},
 				},
+				errors: [
+					{
+						name: "AuthRequired",
+						description: "Missing, malformed, or unverifiable service auth.",
+					},
+					{
+						name: "Forbidden",
+						description:
+							"The caller lacks the permission this method requires.",
+					},
+					{
+						name: "InvalidRequest",
+						description: "A parameter or body field was missing or malformed.",
+					},
+					{
+						name: "NotFound",
+						description: "The referenced record does not exist.",
+					},
+				],
 			},
 		},
 	},
@@ -1088,6 +1518,25 @@ export const communityMethodDocs: LexiconDoc[] = [
 						properties: { code: { type: "string" } },
 					},
 				},
+				errors: [
+					{
+						name: "AuthRequired",
+						description: "Missing, malformed, or unverifiable service auth.",
+					},
+					{
+						name: "Forbidden",
+						description:
+							"The caller lacks the permission this method requires.",
+					},
+					{
+						name: "InvalidRequest",
+						description: "A parameter or body field was missing or malformed.",
+					},
+					{
+						name: "NotFound",
+						description: "The referenced record does not exist.",
+					},
+				],
 			},
 		},
 	},
@@ -1110,6 +1559,12 @@ export const communityMethodDocs: LexiconDoc[] = [
 					encoding: "application/json",
 					schema: { type: "object", properties: {} },
 				},
+				errors: [
+					{
+						name: "AuthRequired",
+						description: "Missing, malformed, or unverifiable service auth.",
+					},
+				],
 			},
 		},
 	},

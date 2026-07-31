@@ -1,11 +1,14 @@
 import { type Component, onCleanup, onMount } from "solid-js";
 import { toast } from "somoto";
 import { isTauriRuntime } from "../../notifications/environment";
+import { createLogger } from "../../utils/logger";
 import {
 	restartToApply,
 	runUpdateCheck,
 	upgradeCommandFor,
 } from "../../utils/updater";
+
+const log = createLogger("updater");
 
 const CHECK_INTERVAL_MS = 5 * 60 * 60 * 1000;
 
@@ -24,7 +27,7 @@ const checkAndNotify = async () => {
 	try {
 		await result.download();
 	} catch (err) {
-		console.error("[updater] download failed", err);
+		log.error("update download failed", { error: err });
 		return;
 	}
 

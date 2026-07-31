@@ -14,7 +14,21 @@ const GRACE_MS = 2_500;
 export const AppReconnectingIndicator: Component = () => {
 	const socket = useSocketContext();
 	const [visible, setVisible] = createSignal(false);
+	const [offline, setOffline] = createSignal(
+		typeof navigator !== "undefined" && navigator.onLine === false,
+	);
 	let timer: ReturnType<typeof setTimeout> | undefined;
+
+	createEffect(() => {
+		const online = () => setOffline(false);
+		const gone = () => setOffline(true);
+		window.addEventListener("online", online);
+		window.addEventListener("offline", gone);
+		onCleanup(() => {
+			window.removeEventListener("online", online);
+			window.removeEventListener("offline", gone);
+		});
+	});
 
 	createEffect(() => {
 		if (socket.status() === "reconnecting") {
@@ -38,12 +52,16 @@ export const AppReconnectingIndicator: Component = () => {
 	});
 
 	return (
-		<Show when={visible()}>
+		<Show when={offline() || visible()}>
 			<div class="fixed top-[calc(1rem+var(--safe-area-top))] left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 rounded-full bg-muted px-3 py-1.5 text-sm text-muted-foreground shadow-md">
-				<SpinnerIcon class="animate-spin" />
+				<Show when={!offline()}>
+					<SpinnerIcon class="animate-spin" />
+				</Show>
 				<span>
-					Reconnecting…
-					<Show when={pendingCount() > 0}>{` · ${pendingCount()} queued`}</Show>
+					{offline() ? "You're offline" : "Reconnecting…"}
+					<Show when={pendingCount() > 0}>
+						{` · ${pendingCount()} waiting to send`}
+					</Show>
 				</span>
 			</div>
 		</Show>

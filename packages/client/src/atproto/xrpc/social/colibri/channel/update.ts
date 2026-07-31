@@ -1,5 +1,6 @@
 import type { XrpcRequest } from "../../..";
-import { readJson } from "../../../read-json";
+import { request } from "../../../request";
+import type { XrpcResult } from "../../../result";
 
 export const update: XrpcRequest<
 	[
@@ -13,7 +14,7 @@ export const update: XrpcRequest<
 		boolean | undefined,
 		string | undefined,
 	],
-	Promise<Record<string, never> | undefined>
+	Promise<XrpcResult<Record<string, never>>>
 > = async (
 	fetch,
 	channel,
@@ -26,30 +27,21 @@ export const update: XrpcRequest<
 	clearAllowedMembers,
 	category,
 ) => {
-	try {
-		const params = new URLSearchParams({ channel });
-		if (name !== undefined) params.set("name", name);
-		if (description !== undefined) params.set("description", description);
-		if (category !== undefined) params.set("category", category);
-		if (ownerOnly !== undefined) params.set("ownerOnly", String(ownerOnly));
-		for (const r of allowedRoles ?? []) params.append("allowedRoles", r);
-		if (clearAllowedRoles !== undefined)
-			params.set("clearAllowedRoles", String(clearAllowedRoles));
-		for (const m of allowedMembers ?? []) params.append("allowedMembers", m);
-		if (clearAllowedMembers !== undefined)
-			params.set("clearAllowedMembers", String(clearAllowedMembers));
+	const params = new URLSearchParams({ channel });
+	if (name !== undefined) params.set("name", name);
+	if (description !== undefined) params.set("description", description);
+	if (category !== undefined) params.set("category", category);
+	if (ownerOnly !== undefined) params.set("ownerOnly", String(ownerOnly));
+	for (const r of allowedRoles ?? []) params.append("allowedRoles", r);
+	if (clearAllowedRoles !== undefined)
+		params.set("clearAllowedRoles", String(clearAllowedRoles));
+	for (const m of allowedMembers ?? []) params.append("allowedMembers", m);
+	if (clearAllowedMembers !== undefined)
+		params.set("clearAllowedMembers", String(clearAllowedMembers));
 
-		const res = await fetch(
-			`/xrpc/social.colibri.channel.update?${params.toString()}`,
-			{ method: "POST" },
-		);
-		// A non-2xx (e.g. the admin guard rejecting an ownerOnly change) still
-		// carries a JSON body, so callers checking the resolved value would treat
-		// it as success. Surface the failure as `undefined` instead.
-		if (!res.ok) return undefined;
-		return await readJson<Record<string, never>>(res);
-	} catch (err) {
-		console.error(err);
-		return undefined;
-	}
+	return request<Record<string, never>>(fetch, {
+		lxm: "social.colibri.channel.update",
+		route: `/xrpc/social.colibri.channel.update?${params.toString()}`,
+		init: { method: "POST" },
+	});
 };

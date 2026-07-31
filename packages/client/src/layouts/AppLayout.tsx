@@ -66,9 +66,12 @@ import {
 	reorderList,
 } from "../utils/drag";
 import { animateKeyboardTransition } from "../utils/keyboard-animation";
+import { createLogger } from "../utils/logger";
 import { createMobilePane } from "../utils/mobile-pane";
 import { hasNativeKeyboardInsetSync } from "../utils/platform";
 import { shellHeightForInset } from "../utils/visual-viewport";
+
+const log = createLogger("layout");
 
 const CommunityAvatar = (props: { item: Community; class?: string }) => {
 	const communityDid = props.item.uri.split("/")[2];
@@ -422,7 +425,7 @@ const AppLayout: ParentComponent = (props) => {
 
 			await putRecord(agent, repo, "social.colibri.actor.data", "self", record);
 		} catch (err) {
-			console.error("[AppLayout] Failed to save community order", err);
+			log.error("saving the community order failed", { error: err });
 			toast.error("Failed to save community order.");
 			setCommittedOrder(previous);
 		}

@@ -1,5 +1,6 @@
 import type { XrpcRequest } from "../../..";
-import { readJson } from "../../../read-json";
+import { request } from "../../../request";
+import type { XrpcResult } from "../../../result";
 
 export const update: XrpcRequest<
 	[
@@ -12,7 +13,7 @@ export const update: XrpcRequest<
 		boolean | undefined,
 		boolean | undefined,
 	],
-	Promise<Record<string, never> | undefined>
+	Promise<XrpcResult<Record<string, never>>>
 > = async (
 	fetch,
 	community,
@@ -24,27 +25,23 @@ export const update: XrpcRequest<
 	removePicture,
 	removeBanner,
 ) => {
-	try {
-		const params = new URLSearchParams({ community });
-		if (name !== undefined) params.set("name", name);
-		if (description !== undefined) params.set("description", description);
-		if (requiresApprovalToJoin !== undefined)
-			params.set("requiresApprovalToJoin", `${requiresApprovalToJoin}`);
-		if (removePicture) params.set("removePicture", "true");
-		if (removeBanner) params.set("removeBanner", "true");
-		const formData = new FormData();
-		if (picture !== undefined) formData.append("picture", picture);
-		if (banner !== undefined) formData.append("banner", banner);
-		const res = await fetch(
-			`/xrpc/social.colibri.community.update?${params.toString()}`,
-			{
-				method: "POST",
-				body: formData,
-			},
-		);
-		return await readJson<Record<string, never>>(res);
-	} catch (err) {
-		console.error(err);
-		return undefined;
-	}
+	const params = new URLSearchParams({ community });
+	if (name !== undefined) params.set("name", name);
+	if (description !== undefined) params.set("description", description);
+	if (requiresApprovalToJoin !== undefined)
+		params.set("requiresApprovalToJoin", `${requiresApprovalToJoin}`);
+	if (removePicture) params.set("removePicture", "true");
+	if (removeBanner) params.set("removeBanner", "true");
+	const formData = new FormData();
+	if (picture !== undefined) formData.append("picture", picture);
+	if (banner !== undefined) formData.append("banner", banner);
+
+	return request<Record<string, never>>(fetch, {
+		lxm: "social.colibri.community.update",
+		route: `/xrpc/social.colibri.community.update?${params.toString()}`,
+		init: {
+			method: "POST",
+			body: formData,
+		},
+	});
 };

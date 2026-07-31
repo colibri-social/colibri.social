@@ -26,12 +26,12 @@ export const getMetadataDeduped = (
 	const promise = xrpc.social.colibri.embed
 		.getMetadata(uri)
 		.then((result) => {
-			if (result === undefined) {
+			if (!result.ok || result.data === undefined) {
 				negativeUntil.set(uri, Date.now() + NEGATIVE_TTL_MS);
-			} else {
-				resolved.set(uri, result);
+				return undefined;
 			}
-			return result;
+			resolved.set(uri, result.data);
+			return result.data;
 		})
 		.catch(() => {
 			negativeUntil.set(uri, Date.now() + NEGATIVE_TTL_MS);

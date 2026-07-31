@@ -1,5 +1,6 @@
 import type { XrpcRequest } from "../../..";
-import { readJson } from "../../../read-json";
+import { request } from "../../../request";
+import type { XrpcResult } from "../../../result";
 
 type Reaction = {
 	emoji: string;
@@ -13,16 +14,10 @@ type Response = {
 
 export const listReactions: XrpcRequest<
 	[string],
-	Promise<Response | undefined>
+	Promise<XrpcResult<Response>>
 > = async (fetch, message) => {
-	try {
-		const res = await fetch(
-			`/xrpc/social.colibri.channel.listReactions?message=${encodeURIComponent(message)}`,
-		);
-
-		return await readJson<Response>(res);
-	} catch (err) {
-		console.error(err);
-		return undefined;
-	}
+	return request<Response>(fetch, {
+		lxm: "social.colibri.channel.listReactions",
+		route: `/xrpc/social.colibri.channel.listReactions?message=${encodeURIComponent(message)}`,
+	});
 };

@@ -8,7 +8,8 @@
 			"description": "Opens a WebSocket stream that transmits relevant events for the authenticated user.",
 			"errors": [
 				{
-					"name": "AuthRequired"
+					"name": "AuthRequired",
+					"description": "Missing, malformed, or unverifiable service auth."
 				}
 			],
 			"message": {

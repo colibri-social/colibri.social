@@ -118,6 +118,12 @@ export const actorMethodDocs: LexiconDoc[] = [
 						},
 					},
 				},
+				errors: [
+					{
+						name: "AuthRequired",
+						description: "Missing, malformed, or unverifiable service auth.",
+					},
+				],
 			},
 			communityView: {
 				type: "object",
@@ -161,6 +167,12 @@ export const actorMethodDocs: LexiconDoc[] = [
 						},
 					},
 				},
+				errors: [
+					{
+						name: "AuthRequired",
+						description: "Missing, malformed, or unverifiable service auth.",
+					},
+				],
 			},
 			mute: {
 				type: "object",
@@ -200,6 +212,12 @@ export const actorMethodDocs: LexiconDoc[] = [
 						},
 					},
 				},
+				errors: [
+					{
+						name: "AuthRequired",
+						description: "Missing, malformed, or unverifiable service auth.",
+					},
+				],
 			},
 		},
 	},
@@ -231,6 +249,16 @@ export const actorMethodDocs: LexiconDoc[] = [
 						},
 					},
 				},
+				errors: [
+					{
+						name: "AuthRequired",
+						description: "Missing, malformed, or unverifiable service auth.",
+					},
+					{
+						name: "InvalidState",
+						description: "The given state is not one of the accepted values.",
+					},
+				],
 			},
 		},
 	},

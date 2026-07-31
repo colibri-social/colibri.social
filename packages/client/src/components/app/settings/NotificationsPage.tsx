@@ -7,6 +7,7 @@ import { useUserPreferences } from "../../../contexts/UserPreferences";
 import { enablePushNotifications, isWebRuntime } from "../../../notifications";
 import { unsubscribeFcmPush } from "../../../notifications/push-fcm";
 import { unsubscribeWebPush } from "../../../notifications/push-web";
+import { createLogger } from "../../../utils/logger";
 import {
 	Switch,
 	SwitchControl,
@@ -15,6 +16,8 @@ import {
 	SwitchThumb,
 } from "../../ui/Switch";
 import { SettingsPage } from "../common/SettingsModal";
+
+const log = createLogger("settings/notifications");
 
 export const NotificationsPage: Component = () => {
 	const user = useUserContext();
@@ -27,7 +30,7 @@ export const NotificationsPage: Component = () => {
 	onMount(async () => {
 		const res =
 			await user.xrpc.social.colibri.actor.getNotificationPreference();
-		if (res) setLevel(res.level);
+		if (res.ok && res.data) setLevel(res.data.level);
 	});
 
 	const handleLevelChange = async (onlyMentionsAndReplies: boolean) => {
@@ -40,7 +43,7 @@ export const NotificationsPage: Component = () => {
 		try {
 			await writeNotificationPreference(user.atproto.agent, user.did, next);
 		} catch (err) {
-			console.error(err);
+			log.error("saving the notification level failed", { error: err });
 			setLevel(previous);
 			toast.error("Failed to update notification level.");
 		} finally {
@@ -78,7 +81,7 @@ export const NotificationsPage: Component = () => {
 				);
 			}
 		} catch (err) {
-			console.error(err);
+			log.error("updating push registration failed", { error: err });
 			toast.error("Failed to update notification settings.");
 		} finally {
 			setBusy(false);

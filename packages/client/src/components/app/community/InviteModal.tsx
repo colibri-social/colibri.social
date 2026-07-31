@@ -16,7 +16,9 @@ import { joinCommunity } from "../../../atproto/memberships";
 import { resolveBlob } from "../../../atproto/resolve-blob";
 import { useMutes } from "../../../contexts/Mutes";
 import { useUserContext } from "../../../contexts/User";
+import { describeError } from "../../../errors/copy";
 import { AtURI } from "../../../utils/at-uri";
+import { createLogger } from "../../../utils/logger";
 import { Spinner } from "../../icons/Spinner";
 import { Button } from "../../ui/Button";
 import { Dialog, DialogContent, DialogPortal } from "../../ui/Dialog";
@@ -30,6 +32,8 @@ import {
 } from "../../ui/Switch";
 import { displayableNameFn } from "../user/DisplayableName";
 import { PENDING_INVITE_KEY } from "./invite-storage";
+
+const log = createLogger("invite");
 
 const clearPendingInvite = () => {
 	try {
@@ -48,7 +52,11 @@ export const InviteModal: Component = () => {
 
 	const [invite] = createResource(
 		() => params.code!,
-		(code) => user.xrpc.social.colibri.community.getInvitation(code),
+		async (code) => {
+			const res = await user.xrpc.social.colibri.community.getInvitation(code);
+			if (!res.ok) throw res.error;
+			return res.data;
+		},
 	);
 
 	const [muteOn, setMuteOn] = createSignal(false);
@@ -120,7 +128,7 @@ export const InviteModal: Component = () => {
 				replace: true,
 			});
 		} catch (err) {
-			console.error(err);
+			log.error("joining the community failed", { error: err });
 			toast.error("Failed to join community.");
 			setJoining(false);
 		}
@@ -136,6 +144,19 @@ export const InviteModal: Component = () => {
 						<Match when={invite.loading}>
 							<div class="flex items-center justify-center py-12">
 								<Spinner className="h-8 w-8" />
+							</div>
+						</Match>
+						<Match when={invite.error !== undefined}>
+							<div class="flex flex-col items-center text-center gap-4 py-4">
+								<h2 class="text-xl font-bold m-0">
+									{describeError(invite.error).title}
+								</h2>
+								<p class="text-muted-foreground m-0">
+									{describeError(invite.error).description}
+								</p>
+								<Button variant="secondary" onClick={dismiss}>
+									Back to Colibri
+								</Button>
 							</div>
 						</Match>
 						<Match

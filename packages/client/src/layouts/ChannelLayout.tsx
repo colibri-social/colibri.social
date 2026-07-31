@@ -46,6 +46,7 @@ import { ScrollAnchorProvider } from "../contexts/ScrollAnchor";
 import { useUserContext } from "../contexts/User";
 import { useUserPreferences } from "../contexts/UserPreferences";
 import { useViewport } from "../contexts/Viewport";
+import { describeError } from "../errors/copy";
 import { cancelChannelTrayNotification } from "../notifications";
 import { getChannelParam } from "../utils/get-param";
 import { createMobilePane } from "../utils/mobile-pane";
@@ -888,9 +889,11 @@ const ChannelLayout: ParentComponent = (props) => {
 										</Show>
 
 										<Show when={channel.error()}>
-											<div class="w-full text-center py-2 text-xs text-destructive">
-												{`${channel.error()}`}
-											</div>
+											{(failure) => (
+												<div class="w-full text-center py-2 text-xs text-destructive">
+													{describeError(failure()).title}
+												</div>
+											)}
 										</Show>
 
 										<For each={channel.messages()}>

@@ -108,12 +108,12 @@ export const GifPickerBody: Component<{
 		setErrored(false);
 		setItems([]);
 		const res = await fetchPage(1);
-		if (!res) {
+		if (!res.ok || !res.data) {
 			setErrored(true);
 		} else {
-			setItems(res.items);
-			setPage(res.page);
-			setHasNext(res.hasNext);
+			setItems(res.data.items);
+			setPage(res.data.page);
+			setHasNext(res.data.hasNext);
 		}
 		setLoading(false);
 	};
@@ -122,17 +122,18 @@ export const GifPickerBody: Component<{
 		if (loading() || !hasNext()) return;
 		setLoading(true);
 		const res = await fetchPage(page() + 1);
-		if (res) {
-			setItems((prev) => [...prev, ...res.items]);
-			setPage(res.page);
-			setHasNext(res.hasNext);
+		if (res.ok && res.data) {
+			const page_ = res.data;
+			setItems((prev) => [...prev, ...page_.items]);
+			setPage(page_.page);
+			setHasNext(page_.hasNext);
 		}
 		setLoading(false);
 	};
 
 	const loadCategories = async () => {
 		const cats = await user.xrpc.social.colibri.embed.gifCategories();
-		if (cats) setCategories(cats);
+		if (cats.ok && cats.data) setCategories(cats.data);
 		// Mark loaded regardless of result so an empty list doesn't re-fetch
 		// every time the effect re-runs.
 		setCategoriesLoaded(true);

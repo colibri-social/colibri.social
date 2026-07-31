@@ -1,5 +1,6 @@
 import type { XrpcRequest } from "../../..";
-import { readJson } from "../../../read-json";
+import { request } from "../../../request";
+import type { XrpcResult } from "../../../result";
 
 export type UnseenNotification = {
 	id: number;
@@ -14,16 +15,10 @@ type Response = {
 
 export const getUnseen: XrpcRequest<
 	[string],
-	Promise<Response | undefined>
+	Promise<XrpcResult<Response>>
 > = async (fetch, channel) => {
-	try {
-		const res = await fetch(
-			`/xrpc/social.colibri.notification.getUnseen?channel=${channel}`,
-		);
-
-		return await readJson<Response>(res);
-	} catch (err) {
-		console.error(err);
-		return undefined;
-	}
+	return request<Response>(fetch, {
+		lxm: "social.colibri.notification.getUnseen",
+		route: `/xrpc/social.colibri.notification.getUnseen?channel=${channel}`,
+	});
 };

@@ -1,7 +1,8 @@
 import type { JsonBlobRef } from "@atproto/lexicon";
 import type { OnlineState } from "@colibri-social/lib";
 import type { XrpcRequest } from "../../..";
-import { readJson } from "../../../read-json";
+import { request } from "../../../request";
+import type { XrpcResult } from "../../../result";
 
 export type Applicant = {
 	did: string;
@@ -29,16 +30,10 @@ type Response = {
 
 export const listApplications: XrpcRequest<
 	[string],
-	Promise<Response | undefined>
+	Promise<XrpcResult<Response>>
 > = async (fetch, community) => {
-	try {
-		const res = await fetch(
-			`/xrpc/social.colibri.community.listApplications?community=${encodeURIComponent(community)}`,
-		);
-
-		return await readJson<Response>(res);
-	} catch (err) {
-		console.error(err);
-		return undefined;
-	}
+	return request<Response>(fetch, {
+		lxm: "social.colibri.community.listApplications",
+		route: `/xrpc/social.colibri.community.listApplications?community=${encodeURIComponent(community)}`,
+	});
 };

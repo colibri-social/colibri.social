@@ -30,6 +30,7 @@ import { createSwipe } from "../../../../utils/create-swipe";
 import { parseEmojiText } from "../../../../utils/emoji";
 import { useIsMobile } from "../../../../utils/mobile-pane";
 import { useIsTouch } from "../../../../utils/touch";
+import { SectionBoundary } from "../../../SectionBoundary";
 import {
 	Tooltip,
 	TooltipContent,
@@ -404,7 +405,9 @@ const MessageInner: Component<{
 										/>
 									}
 								>
-									<Embed uri={linkFacets()[0].uri} />
+									<SectionBoundary name="embed" compact>
+										<Embed uri={linkFacets()[0].uri} />
+									</SectionBoundary>
 								</Show>
 							</div>
 						</Show>
@@ -573,7 +576,11 @@ const MessageInner: Component<{
 					>
 						<div class="flex flex-row flex-wrap gap-4 pl-14 min-w-0">
 							<For each={linkFacets()}>
-								{(item) => <Embed uri={item.uri} />}
+								{(item) => (
+									<SectionBoundary name="embed" compact>
+										<Embed uri={item.uri} />
+									</SectionBoundary>
+								)}
 							</For>
 						</div>
 					</Show>

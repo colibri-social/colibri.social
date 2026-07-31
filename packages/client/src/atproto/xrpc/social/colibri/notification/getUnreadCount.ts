@@ -1,5 +1,6 @@
 import type { XrpcRequest } from "../../..";
-import { readJson } from "../../../read-json";
+import { request } from "../../../request";
+import type { XrpcResult } from "../../../result";
 
 type Response = {
 	count: number;
@@ -7,14 +8,10 @@ type Response = {
 
 export const getUnreadCount: XrpcRequest<
 	[],
-	Promise<Response | undefined>
+	Promise<XrpcResult<Response>>
 > = async (fetch) => {
-	try {
-		const res = await fetch(`/xrpc/social.colibri.notification.getUnreadCount`);
-
-		return await readJson<Response>(res);
-	} catch (err) {
-		console.error(err);
-		return undefined;
-	}
+	return request<Response>(fetch, {
+		lxm: "social.colibri.notification.getUnreadCount",
+		route: `/xrpc/social.colibri.notification.getUnreadCount`,
+	});
 };

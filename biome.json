@@ -111,6 +111,31 @@
 					}
 				}
 			}
+		},
+		{
+			"includes": ["packages/client/**/*.ts", "packages/client/**/*.tsx"],
+			"linter": {
+				"rules": {
+					"suspicious": {
+						"noConsole": "error"
+					}
+				}
+			}
+		},
+		{
+			"includes": [
+				"packages/client/src/utils/logger.ts",
+				"packages/client/src/utils/dev-diagnostics.ts",
+				"packages/client/src/utils/perf.ts",
+				"packages/client/**/*.test.ts"
+			],
+			"linter": {
+				"rules": {
+					"suspicious": {
+						"noConsole": "off"
+					}
+				}
+			}
 		}
 	]
 }

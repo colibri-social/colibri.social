@@ -1,23 +1,19 @@
 import type { XrpcRequest } from "../../..";
-import { readJson } from "../../../read-json";
+import { request } from "../../../request";
+import type { XrpcResult } from "../../../result";
 
 export const reorderChannels: XrpcRequest<
 	[string, string[]],
-	Promise<Record<string, never> | undefined>
+	Promise<XrpcResult<Record<string, never>>>
 > = async (fetch, category, channelOrder) => {
-	try {
-		const params = new URLSearchParams({ category });
-		channelOrder.forEach((uri) => {
-			params.append("channelOrder", uri);
-		});
-		const res = await fetch(
-			`/xrpc/social.colibri.community.reorderChannels?${params.toString()}`,
-			{ method: "POST" },
-		);
-		if (!res.ok) return undefined;
-		return await readJson<Record<string, never>>(res);
-	} catch (err) {
-		console.error(err);
-		return undefined;
-	}
+	const params = new URLSearchParams({ category });
+	channelOrder.forEach((uri) => {
+		params.append("channelOrder", uri);
+	});
+
+	return request<Record<string, never>>(fetch, {
+		lxm: "social.colibri.community.reorderChannels",
+		route: `/xrpc/social.colibri.community.reorderChannels?${params.toString()}`,
+		init: { method: "POST" },
+	});
 };

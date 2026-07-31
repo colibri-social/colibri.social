@@ -448,6 +448,34 @@ ol[data-somoto-toaster] > li {
 	width: 100% !important;
 }
 
+li[data-somoto-toast][data-styled="true"] {
+	display: grid;
+	grid-template-columns: auto minmax(0, 1fr);
+	align-items: start;
+	column-gap: 0;
+}
+
+li[data-somoto-toast][data-styled="true"] > [data-icon] {
+	grid-column: 1;
+	grid-row: 1;
+	margin-top: 2px;
+}
+
+li[data-somoto-toast][data-styled="true"]
+	> :not([data-icon]):not([data-close-button]) {
+	grid-column: 2;
+}
+
+li[data-somoto-toast][data-styled="true"] > [data-button] {
+	justify-self: start;
+	margin-top: 0.5rem;
+	margin-left: 0;
+}
+
+li[data-somoto-toast][data-styled="true"] [data-title] {
+	font-weight: 600;
+}
+
 @media (max-width: 600px) {
 	ol[data-somoto-toaster] > li {
 		width: calc(100% - var(--mobile-offset, 16px) * 2) !important;

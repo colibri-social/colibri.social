@@ -1,5 +1,6 @@
 import type { XrpcRequest } from "../../..";
-import { readJson } from "../../../read-json";
+import { request } from "../../../request";
+import type { XrpcResult } from "../../../result";
 
 export type EmbedMetadata = {
 	title?: string;
@@ -13,18 +14,10 @@ export type EmbedMetadata = {
 
 export const getMetadata: XrpcRequest<
 	[string],
-	Promise<EmbedMetadata | undefined>
+	Promise<XrpcResult<EmbedMetadata>>
 > = async (fetch, uri) => {
-	try {
-		const res = await fetch(
-			`/xrpc/social.colibri.embed.getMetadata?uri=${encodeURIComponent(uri)}`,
-		);
-
-		if (!res.ok) return undefined;
-
-		return await readJson<EmbedMetadata>(res);
-	} catch (err) {
-		console.error(err);
-		return undefined;
-	}
+	return request<EmbedMetadata>(fetch, {
+		lxm: "social.colibri.embed.getMetadata",
+		route: `/xrpc/social.colibri.embed.getMetadata?uri=${encodeURIComponent(uri)}`,
+	});
 };

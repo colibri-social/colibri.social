@@ -77,7 +77,25 @@
 						}
 					}
 				}
-			}
+			},
+			"errors": [
+				{
+					"name": "AuthRequired",
+					"description": "Missing, malformed, or unverifiable service auth."
+				},
+				{
+					"name": "InvalidRequest",
+					"description": "A parameter or body field was missing or malformed."
+				},
+				{
+					"name": "PdsUnavailable",
+					"description": "The PDS this operation needs is unreachable or is not a PDS."
+				},
+				{
+					"name": "UpstreamFailure",
+					"description": "A service outside this AppView failed."
+				}
+			]
 		}
 	}
 }

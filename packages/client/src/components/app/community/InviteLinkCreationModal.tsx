@@ -4,6 +4,7 @@ import { Button } from "../../../components/ui/Button";
 import { ResponsiveDialog } from "../../../components/ui/ResponsiveDialog";
 import { useCommunityContext } from "../../../contexts/Community";
 import { useUserContext } from "../../../contexts/User";
+import { showError } from "../../../errors/show-error";
 import { Spinner } from "../../icons/Spinner";
 
 /**
@@ -30,12 +31,14 @@ export const InviteLinkCreationModal: ParentComponent<{
 			uri(),
 		);
 		setLoading(false);
-		if (!res) {
-			toast.error("Failed to create invite link.");
+		if (!res.ok || !res.data) {
+			showError(res.ok ? undefined : res.error, {
+				fallbackTitle: "Failed to create invite link.",
+			});
 			return;
 		}
-		setCode(res.code);
-		toast.success(`Invite code created: ${res.code}`);
+		setCode(res.data.code);
+		toast.success(`Invite code created: ${res.data.code}`);
 		props.refetch?.();
 	};
 

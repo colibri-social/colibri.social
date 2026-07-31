@@ -51,6 +51,9 @@ import type { Channel } from "../atproto/xrpc/social/colibri/community/listChann
 import type { Member } from "../atproto/xrpc/social/colibri/community/listMembers";
 import type { Role } from "../atproto/xrpc/social/colibri/community/listRoles";
 import { AppLoadingScreen } from "../components/AppLoadingScreen";
+import { ErrorState } from "../components/ErrorState";
+import type { ColibriErrorCode } from "../errors/codes";
+import { isColibriError } from "../errors/error";
 import { getAppViewDid } from "../utils/appview";
 import { AtURI, toRecordUri } from "../utils/at-uri";
 import { getCommunityParam } from "../utils/get-param";
@@ -109,15 +112,18 @@ export const CommunityContextProvider: ParentComponent = (props) => {
 	// authoritative data. Not reactive — only touched imperatively.
 	const pendingRoleIntents = new Map<string, Array<string>>();
 
+	const GONE_CODES: ReadonlyArray<ColibriErrorCode> = ["NotFound", "Forbidden"];
+
 	let lastFetched: CommunityResponse | undefined;
 
 	const [community, { mutate, refetch }] = createResource(
 		communityUri,
 		async (uri) => {
 			pendingRoleIntents.clear();
-			const data = await user.xrpc.social.colibri.community.getData(uri);
-			lastFetched = data;
-			return data;
+			const res = await user.xrpc.social.colibri.community.getData(uri);
+			if (!res.ok) throw res.error;
+			lastFetched = res.data;
+			return res.data;
 		},
 	);
 
@@ -125,10 +131,13 @@ export const CommunityContextProvider: ParentComponent = (props) => {
 		if (!community.loading && community.latest) markBoot("community:ready");
 	});
 
-	// The fetch settled (or threw) without giving us usable data, meaning the
-	// community was deleted, we lost access, or it never existed
+	// The fetch settled without usable data. Only leave the community when it is
+	// actually gone, a transient failure keeps the user where they are so they can
+	// retry instead of being silently thrown out of what they were reading.
 	createEffect(() => {
 		if (community.loading || community.latest) return;
+		const err: unknown = community.error;
+		if (isColibriError(err) && !GONE_CODES.includes(err.code)) return;
 		navigate("/app", { replace: true });
 	});
 
@@ -245,9 +254,10 @@ export const CommunityContextProvider: ParentComponent = (props) => {
 
 			const res =
 				await user.xrpc.social.colibri.community.listApplications(uri);
+			if (!res.ok) throw res.error;
 			return {
-				applications: res?.applications ?? [],
-				dismissed: res?.dismissedApplications ?? [],
+				applications: res.data?.applications ?? [],
+				dismissed: res.data?.dismissedApplications ?? [],
 			};
 		},
 		{ initialValue: { applications: [], dismissed: [] } },
@@ -758,6 +768,9 @@ export const CommunityContextProvider: ParentComponent = (props) => {
 		<Switch>
 			<Match when={community.loading && !community.latest}>
 				<AppLoadingScreen message="Fetching community details..." />
+			</Match>
+			<Match when={!community.loading && !community.latest && community.error}>
+				<ErrorState error={community.error} retry={() => void refetch()} />
 			</Match>
 			<Match when={!community.loading && !community.latest}>
 				<AppLoadingScreen message="Redirecting..." />

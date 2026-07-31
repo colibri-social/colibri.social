@@ -23,7 +23,13 @@
 					"type": "object",
 					"properties": {}
 				}
-			}
+			},
+			"errors": [
+				{
+					"name": "AuthRequired",
+					"description": "Missing, malformed, or unverifiable service auth."
+				}
+			]
 		}
 	}
 }

@@ -1,9 +1,12 @@
+import { createLogger } from "../utils/logger";
 import type { LabelerLabel } from "./cache/schema";
 import {
 	cacheEnabled,
 	readLabelerLabels,
 	writeLabelerLabels,
 } from "./cache/store";
+
+const log = createLogger("labels");
 
 export type { LabelerLabel } from "./cache/schema";
 
@@ -80,7 +83,7 @@ export const getLabelerBadges = (did: string): Promise<Array<LabelerLabel>> => {
 		try {
 			labels = await fetchLabels(did);
 		} catch (err) {
-			console.error(err);
+			log.error("fetching labeler labels failed", { did, error: err });
 			labels = [];
 		}
 

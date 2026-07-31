@@ -15,8 +15,11 @@ import {
 } from "../../../notifications";
 import { isPushSupported } from "../../../notifications/push-web";
 import { claimBlockingDialog } from "../../../utils/blocking-dialog";
+import { createLogger } from "../../../utils/logger";
 import { Button } from "../../ui/Button";
 import { ResponsiveDialog } from "../../ui/ResponsiveDialog";
+
+const log = createLogger("notif/prompt");
 
 export const NotificationPromptDialog: Component = () => {
 	const user = useUserContext();
@@ -70,7 +73,7 @@ export const NotificationPromptDialog: Component = () => {
 				toast.error("Notification permission was not granted.");
 			}
 		} catch (err) {
-			console.error(err);
+			log.error("enabling notifications failed", { error: err });
 			toast.error("Failed to enable notifications.");
 		} finally {
 			setBusy(false);

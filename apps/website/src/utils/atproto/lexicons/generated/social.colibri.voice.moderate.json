@@ -61,13 +61,16 @@
 			},
 			"errors": [
 				{
-					"name": "AuthRequired"
+					"name": "AuthRequired",
+					"description": "Missing, malformed, or unverifiable service auth."
 				},
 				{
-					"name": "Forbidden"
+					"name": "Forbidden",
+					"description": "The caller lacks the permission this method requires."
 				},
 				{
-					"name": "InvalidRequest"
+					"name": "InvalidRequest",
+					"description": "A parameter or body field was missing or malformed."
 				}
 			]
 		}

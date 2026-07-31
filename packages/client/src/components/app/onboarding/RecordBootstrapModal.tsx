@@ -6,6 +6,7 @@ import {
 	Switch as SwitchFlow,
 } from "solid-js";
 import { toast } from "somoto";
+import { createLogger } from "../../../utils/logger";
 import { Spinner } from "../../icons/Spinner";
 import { Button } from "../../ui/Button";
 import {
@@ -30,6 +31,8 @@ import {
 	SwitchLabel,
 	SwitchThumb,
 } from "../../ui/Switch";
+
+const log = createLogger("bootstrap");
 
 /**
  * The "base on an existing record (optionally kept in sync) vs. start from
@@ -160,7 +163,7 @@ export function RecordBootstrapModal<T>(props: {
 				setSyncing(source.supportsSync && source.defaultSync === true);
 				setStep("confirm");
 			} catch (err) {
-				console.error("[RecordBootstrap] import failed", err);
+				log.error("import failed", { error: err });
 				toast.error("Failed to load existing data.");
 				setStep("choice");
 			}
@@ -182,7 +185,7 @@ export function RecordBootstrapModal<T>(props: {
 			});
 			props.onOpenChange?.(false);
 		} catch (err) {
-			console.error("[RecordBootstrap] submit failed", err);
+			log.error("submit failed", { error: err });
 			toast.error("Failed to save.");
 		} finally {
 			setSubmitting(false);
