@@ -1,14 +1,30 @@
 import { HoverCard as HoverCardPrimitive } from "@kobalte/core/hover-card";
-import { type ComponentProps, splitProps, type ValidComponent } from "solid-js";
+import {
+	type ComponentProps,
+	mergeProps,
+	splitProps,
+	type ValidComponent,
+} from "solid-js";
 
 import { cx } from "../../utils/cva";
+import { useOverflowPadding } from "../../utils/safe-area";
 
 export const HoverCardPortal = HoverCardPrimitive.Portal;
 
 export type HoverCardProps = ComponentProps<typeof HoverCardPrimitive>;
 
 export const HoverCard = (props: HoverCardProps) => {
-	return <HoverCardPrimitive data-slot="hover-card" {...props} />;
+	const overflowPadding = useOverflowPadding();
+	const merge = mergeProps<HoverCardProps[]>(
+		{
+			get overflowPadding() {
+				return overflowPadding();
+			},
+		},
+		props,
+	);
+
+	return <HoverCardPrimitive data-slot="hover-card" {...merge} />;
 };
 
 export type HoverCardTriggerProps<T extends ValidComponent = "a"> =

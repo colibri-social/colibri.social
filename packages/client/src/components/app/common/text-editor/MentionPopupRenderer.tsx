@@ -8,6 +8,7 @@ import { resolveBlob } from "../../../../atproto/resolve-blob";
 import type { Channel } from "../../../../atproto/xrpc/social/colibri/community/listChannels";
 import type { Member } from "../../../../atproto/xrpc/social/colibri/community/listMembers";
 import type { Role } from "../../../../atproto/xrpc/social/colibri/community/listRoles";
+import { readSafeAreaInsets } from "../../../../utils/safe-area";
 import { displayableNameFn } from "../../user/DisplayableName";
 import {
 	isChannel,
@@ -17,6 +18,8 @@ import {
 	MentionList,
 } from "./MentionList";
 import { TimePicker } from "./TimePicker";
+
+const VIEWPORT_GAP = 8;
 
 export type EmojiSuggestionData = { name: string; emoji: string };
 /**
@@ -115,6 +118,34 @@ export const createMentionRenderer = (
 			}
 		};
 
+		const clampIntoViewport = () => {
+			if (!container) return;
+
+			const rect = container.getBoundingClientRect();
+			if (rect.width === 0 || rect.height === 0) return;
+
+			const insets = readSafeAreaInsets();
+			const minX = insets.left + VIEWPORT_GAP;
+			const maxX = window.innerWidth - insets.right - VIEWPORT_GAP;
+			const minY = insets.top + VIEWPORT_GAP;
+			const maxY = window.innerHeight - insets.bottom - VIEWPORT_GAP;
+
+			let dx = 0;
+			if (rect.right > maxX) dx = maxX - rect.right;
+			if (rect.left + dx < minX) dx = minX - rect.left;
+
+			let dy = 0;
+			if (rect.bottom > maxY) dy = maxY - rect.bottom;
+			if (rect.top + dy < minY) dy = minY - rect.top;
+
+			if (dx === 0 && dy === 0) return;
+
+			const currentLeft = Number.parseFloat(container.style.left) || 0;
+			const currentTop = Number.parseFloat(container.style.top) || 0;
+			container.style.left = `${currentLeft + dx}px`;
+			container.style.top = `${currentTop + dy}px`;
+		};
+
 		// Routes a selection: the time shortcut swaps the popup to the picker,
 		// everything else inserts a mention as usual.
 		const handleSelect = (
@@ -178,6 +209,7 @@ export const createMentionRenderer = (
 
 				position(props);
 				mount();
+				clampIntoViewport();
 			},
 
 			onUpdate(props: SuggestionProps) {
@@ -189,6 +221,7 @@ export const createMentionRenderer = (
 
 				position(props);
 				mount();
+				clampIntoViewport();
 			},
 
 			onKeyDown(props: SuggestionKeyDownProps): boolean {

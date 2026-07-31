@@ -425,6 +425,23 @@ const LoginScreenContent: Component = () => {
 							</Button>
 						</div>
 					</Show>
+					<Show when={!ALLOWLIST_ENABLED}>
+						<div class="relative w-full mt-4">
+							<hr class="bg-border w-full h-px border-none m-0" />
+							<small class="text-muted-foreground bg-card absolute top-1/2 left-1/2 transform -translate-1/2 px-2 whitespace-nowrap">
+								DON'T HAVE AN ACCOUNT?
+							</small>
+						</div>
+						<div class="w-full p-6">
+							<Button
+								variant="secondary"
+								class="w-full"
+								onClick={() => navigate("/app/register")}
+							>
+								Sign up
+							</Button>
+						</div>
+					</Show>
 				</div>
 				<div class="flex flex-row items-center justify-center text-muted-foreground w-full max-w-xl gap-4 text-sm flex-wrap">
 					<span>Open source</span>

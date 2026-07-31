@@ -17,6 +17,8 @@
 		"Hanken Grotesk", "Hanken Grotesk Fallback", sans-serif;
 	--safe-area-top: env(safe-area-inset-top);
 	--safe-area-bottom: env(safe-area-inset-bottom);
+	--safe-area-left: env(safe-area-inset-left);
+	--safe-area-right: env(safe-area-inset-right);
 }
 
 @custom-variant dark (&:is(.dark *));
@@ -476,17 +478,25 @@ li[data-somoto-toast][data-styled="true"] [data-title] {
 	font-weight: 600;
 }
 
+ol[data-somoto-toaster][data-y-position="top"] {
+	top: max(var(--offset), var(--safe-area-top)) !important;
+}
+
+ol[data-somoto-toaster][data-y-position="bottom"] {
+	bottom: max(var(--offset), var(--safe-area-bottom)) !important;
+}
+
+ol[data-somoto-toaster][data-x-position="left"] {
+	left: max(var(--offset), var(--safe-area-left)) !important;
+}
+
+ol[data-somoto-toaster][data-x-position="right"] {
+	right: max(var(--offset), var(--safe-area-right)) !important;
+}
+
 @media (max-width: 600px) {
 	ol[data-somoto-toaster] > li {
 		width: calc(100% - var(--mobile-offset, 16px) * 2) !important;
-	}
-
-	ol[data-somoto-toaster][data-y-position="top"] {
-		top: max(var(--offset), var(--safe-area-top)) !important;
-	}
-
-	ol[data-somoto-toaster][data-y-position="bottom"] {
-		bottom: max(var(--offset), var(--safe-area-bottom)) !important;
 	}
 }
 

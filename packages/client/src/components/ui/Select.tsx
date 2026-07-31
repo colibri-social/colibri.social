@@ -3,6 +3,7 @@ import type { ComponentProps, ValidComponent, VoidProps } from "solid-js";
 import { mergeProps, splitProps } from "solid-js";
 
 import { cx } from "../../utils/cva";
+import { useOverflowPadding } from "../../utils/safe-area";
 
 export const SelectPortal = SelectPrimitive.Portal;
 export const HiddenSelect = SelectPrimitive.HiddenSelect;
@@ -23,11 +24,13 @@ export const Select = <
 	const [, rest] = splitProps(props as SelectProps<Option, OptGroup>, [
 		"class",
 	]);
+	const overflowPadding = useOverflowPadding();
 
 	return (
 		<SelectPrimitive
 			data-slot="select"
 			class={cx("space-y-2", props.class)}
+			overflowPadding={overflowPadding()}
 			{...rest}
 		/>
 	);
@@ -103,7 +106,7 @@ export const SelectContent = <T extends ValidComponent = "div">(
 		<SelectPrimitive.Content
 			data-slot="select-content"
 			class={cx(
-				"bg-popover text-popover-foreground data-[expanded]:animate-in data-[closed]:animate-out data-[closed]:fade-out-0 data-[expanded]:fade-in-0 data-[closed]:zoom-out-95 data-[expanded]:zoom-in-95 relative z-50 min-w-[8rem] origin-(--kb-select-content-transform-origin) overflow-x-hidden overflow-y-auto rounded-md border shadow-md",
+				"bg-popover text-popover-foreground data-[expanded]:animate-in data-[closed]:animate-out data-[closed]:fade-out-0 data-[expanded]:fade-in-0 data-[closed]:zoom-out-95 data-[expanded]:zoom-in-95 relative z-50 max-h-[var(--kb-popper-content-available-height)] min-w-[8rem] origin-(--kb-select-content-transform-origin) overflow-x-hidden overflow-y-auto rounded-md border shadow-md",
 				"[[data-popper-positioner][style*='--kb-popper-content-transform-origin:_top']>[data-slot=select-content]]:slide-in-from-top-2 [[data-popper-positioner][style*='--kb-popper-content-transform-origin:_bottom']>[data-slot=select-content]]:slide-in-from-bottom-2 [[data-popper-positioner][style*='--kb-popper-content-transform-origin:_left']>[data-slot=select-content]]:slide-in-from-left-2 [[data-popper-positioner][style*='--kb-popper-content-transform-origin:_right']>[data-slot=select-content]]:slide-in-from-right-2",
 				props.class,
 			)}

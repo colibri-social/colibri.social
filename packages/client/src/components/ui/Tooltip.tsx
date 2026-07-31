@@ -3,17 +3,22 @@ import type { ComponentProps, ValidComponent } from "solid-js";
 import { mergeProps, splitProps } from "solid-js";
 
 import { cx } from "../../utils/cva";
+import { useOverflowPadding } from "../../utils/safe-area";
 
 export type TooltipProps = ComponentProps<typeof TooltipPrimitive>;
 
 export const TooltipPortal = TooltipPrimitive.Portal;
 
 export const Tooltip = (props: TooltipProps) => {
+	const overflowPadding = useOverflowPadding();
 	const merge = mergeProps<TooltipProps[]>(
 		{
 			closeDelay: 0,
 			openDelay: 0,
 			placement: "top",
+			get overflowPadding() {
+				return overflowPadding();
+			},
 		},
 		props,
 	);

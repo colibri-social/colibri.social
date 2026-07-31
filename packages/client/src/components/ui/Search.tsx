@@ -11,6 +11,7 @@ import {
 } from "solid-js";
 
 import { cx } from "../../utils/cva";
+import { useOverflowPadding } from "../../utils/safe-area";
 
 export const SearchPortal = SearchPrimitive.Portal;
 
@@ -28,11 +29,13 @@ export const Search = <
 	props: SearchProps<Option, OtpGroup, T>,
 ) => {
 	const [, rest] = splitProps(props as SearchProps<Option>, ["class"]);
+	const overflowPadding = useOverflowPadding();
 
 	return (
 		<SearchPrimitive
 			data-slot="search"
 			class={cx("flex flex-col gap-2", props.class)}
+			overflowPadding={overflowPadding()}
 			{...rest}
 		/>
 	);
@@ -176,7 +179,7 @@ export const SearchContent = <T extends ValidComponent = "div">(
 		<SearchPrimitive.Content
 			data-slot="search-content"
 			class={cx(
-				"bg-popover text-popover-foreground data-[expanded]:animate-in data-[closed]:animate-out data-[closed]:fade-out-0 data-[expanded]:fade-in-0 data-[closed]:zoom-out-95 data-[expanded]:zoom-in-95 relative z-50 min-w-[8rem] origin-(--kb-search-content-transform-origin) overflow-x-hidden overflow-y-auto rounded-md border shadow-md",
+				"bg-popover text-popover-foreground data-[expanded]:animate-in data-[closed]:animate-out data-[closed]:fade-out-0 data-[expanded]:fade-in-0 data-[closed]:zoom-out-95 data-[expanded]:zoom-in-95 relative z-50 max-h-[var(--kb-popper-content-available-height)] min-w-[8rem] origin-(--kb-search-content-transform-origin) overflow-x-hidden overflow-y-auto rounded-md border shadow-md",
 				"[[data-popper-positioner][style*='--kb-popper-content-transform-origin:_top']>[data-slot=search-content]]:slide-in-from-top-2 [[data-popper-positioner][style*='--kb-popper-content-transform-origin:_bottom']>[data-slot=search-content]]:slide-in-from-bottom-2 [[data-popper-positioner][style*='--kb-popper-content-transform-origin:_left']>[data-slot=search-content]]:slide-in-from-left-2 [[data-popper-positioner][style*='--kb-popper-content-transform-origin:_right']>[data-slot=search-content]]:slide-in-from-right-2",
 				"data-[closed]:hidden",
 				props.class,

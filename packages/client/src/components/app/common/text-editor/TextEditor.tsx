@@ -50,6 +50,7 @@ import { EMOJI_SUGGESTIONS, TIPTAP_EMOJIS } from "../../../../utils/emoji-data";
 import { createFenceRegex } from "../../../../utils/fenced-code-regex";
 import { htmlToDOMOutputSpec } from "../../../../utils/html-to-dom-output-spec";
 import { useIsMobile } from "../../../../utils/mobile-pane";
+import { safeAreaOverflowPadding } from "../../../../utils/safe-area";
 import {
 	Tooltip,
 	TooltipContent,
@@ -758,7 +759,12 @@ export const TextEditor: Component<{
 					};
 					return { getBoundingClientRect: () => rect };
 				},
-				options: { placement: "top-start", offset: 6 },
+				options: {
+					placement: "top-start",
+					offset: 6,
+					flip: () => ({ padding: safeAreaOverflowPadding() }),
+					shift: () => ({ padding: safeAreaOverflowPadding() }),
+				},
 				shouldShow: (params) => {
 					if (params.state.selection.$from === params.state.selection.$to) {
 						setBubbleMenuVisible(false);

@@ -7,15 +7,20 @@ import {
 } from "solid-js";
 
 import { cx } from "../../utils/cva";
+import { useOverflowPadding } from "../../utils/safe-area";
 
 export const PopoverPortal = PopoverPrimitive.Portal;
 
 export type PopoverProps = ComponentProps<typeof PopoverPrimitive>;
 
 export const Popover = (props: PopoverProps) => {
+	const overflowPadding = useOverflowPadding();
 	const merge = mergeProps<PopoverProps[]>(
 		{
 			gutter: 4,
+			get overflowPadding() {
+				return overflowPadding();
+			},
 		},
 		props,
 	);
@@ -44,7 +49,7 @@ export const PopoverContent = <T extends ValidComponent = "div">(
 		<PopoverPrimitive.Content
 			data-slot="popover-content"
 			class={cx(
-				"bg-popover text-popover-foreground data-[expanded]:animate-in data-[closed]:animate-out data-[closed]:fade-out-0 data-[expanded]:fade-in-0 data-[closed]:zoom-out-95 data-[expanded]:zoom-in-95 z-50 w-72 origin-(--kb-popover-content-transform-origin) rounded-md border p-4 shadow-md outline-hidden",
+				"bg-popover text-popover-foreground data-[expanded]:animate-in data-[closed]:animate-out data-[closed]:fade-out-0 data-[expanded]:fade-in-0 data-[closed]:zoom-out-95 data-[expanded]:zoom-in-95 z-50 max-h-[var(--kb-popper-content-available-height)] w-72 origin-(--kb-popover-content-transform-origin) overflow-y-auto rounded-md border p-4 shadow-md outline-hidden",
 				"[[data-popper-positioner][style*='--kb-popper-content-transform-origin:_top']>[data-slot=popover-content]]:slide-in-from-top-2 [[data-popper-positioner][style*='--kb-popper-content-transform-origin:_bottom']>[data-slot=popover-content]]:slide-in-from-bottom-2 [[data-popper-positioner][style*='--kb-popper-content-transform-origin:_left']>[data-slot=popover-content]]:slide-in-from-left-2 [[data-popper-positioner][style*='--kb-popper-content-transform-origin:_right']>[data-slot=popover-content]]:slide-in-from-right-2",
 				props.class,
 			)}

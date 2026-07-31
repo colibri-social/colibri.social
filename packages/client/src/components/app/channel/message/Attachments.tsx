@@ -353,7 +353,7 @@ export const MediaLightboxGallery: Component<{
 
 						<Button
 							variant="outline"
-							class="absolute top-[calc(var(--safe-area-top)+2rem)] right-[calc(env(safe-area-inset-right)+2rem)] z-50 h-10 w-10 bg-card!"
+							class="absolute top-[calc(var(--safe-area-top)+2rem)] right-[calc(var(--safe-area-right)+2rem)] z-50 h-10 w-10 bg-card!"
 							onClick={(e) => {
 								e.stopPropagation();
 								close();

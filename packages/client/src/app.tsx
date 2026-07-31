@@ -30,6 +30,7 @@ import { VoiceChannelView } from "./components/app/VoiceChannelView";
 import { DeepLinkListener } from "./components/DeepLinkListener";
 import { ErrorDetails } from "./components/ErrorDetails";
 import { LoginScreen } from "./components/LoginScreen";
+import { RegisterScreen } from "./components/RegisterScreen";
 import { SectionBoundary } from "./components/SectionBoundary";
 import { Toaster } from "./components/ui/Sonner";
 import { WaitlistScreen } from "./components/WaitlistScreen";
@@ -169,6 +170,7 @@ const App: ParentComponent = () => {
 						<SentryRouter root={RootLayout} base="/">
 							<Route path="/" component={RedirectToApp} />
 							<Route path="/app/login" component={LoginScreen} />
+							<Route path="/app/register" component={RegisterScreen} />
 							<Route path="/app/waitlist" component={WaitlistScreen} />
 							<Route path="/app" component={AppRoute}>
 								<Route path="/" component={WelcomeScreen} />

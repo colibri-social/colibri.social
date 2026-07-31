@@ -24,6 +24,7 @@ import { useActorCache } from "../../contexts/ActorCache";
 import { useUserContext } from "../../contexts/User";
 import { ConnectionState, useVoiceChatContext } from "../../contexts/VoiceChat";
 import { useIsMobile } from "../../utils/mobile-pane";
+import { readSafeAreaInsets } from "../../utils/safe-area";
 import {
 	Tooltip,
 	TooltipContent,
@@ -45,30 +46,6 @@ const WIDTH_KEY = "colibri:voice-overlay-width";
 
 const clamp = (v: number, lo: number, hi: number): number =>
 	Math.max(lo, Math.min(hi, v));
-
-type Insets = { top: number; bottom: number; left: number; right: number };
-
-const readSafeInsets = (): Insets => {
-	if (typeof document === "undefined")
-		return { top: 0, bottom: 0, left: 0, right: 0 };
-	const probe = document.createElement("div");
-	probe.style.cssText =
-		"position:fixed;visibility:hidden;pointer-events:none;padding-top:var(--safe-area-top);padding-bottom:var(--safe-area-bottom);padding-left:var(--safe-area-left);padding-right:var(--safe-area-right);";
-	document.body.appendChild(probe);
-	const cs = getComputedStyle(probe);
-	const px = (v: string): number => {
-		const n = Number.parseFloat(v);
-		return Number.isFinite(n) ? n : 0;
-	};
-	const insets: Insets = {
-		top: px(cs.paddingTop),
-		bottom: px(cs.paddingBottom),
-		left: px(cs.paddingLeft),
-		right: px(cs.paddingRight),
-	};
-	probe.remove();
-	return insets;
-};
 
 const loadCorner = (): Corner => {
 	const raw = localStorage.getItem(CORNER_KEY);
@@ -231,7 +208,7 @@ export const VoiceOverlay: Component = () => {
 	const [vp, setVp] = createSignal({
 		w: window.innerWidth,
 		h: window.innerHeight,
-		insets: readSafeInsets(),
+		insets: readSafeAreaInsets(),
 	});
 
 	onMount(() => {
@@ -239,7 +216,7 @@ export const VoiceOverlay: Component = () => {
 			setVp({
 				w: window.innerWidth,
 				h: window.innerHeight,
-				insets: readSafeInsets(),
+				insets: readSafeAreaInsets(),
 			});
 		window.addEventListener("resize", onResizeWindow);
 		onCleanup(() => window.removeEventListener("resize", onResizeWindow));
