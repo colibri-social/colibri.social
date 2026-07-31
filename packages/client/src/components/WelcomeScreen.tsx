@@ -11,7 +11,7 @@ import { Button } from "./ui/Button";
  * A welcome screen to be displayed if a user has no communities.
  */
 export const WelcomeScreen: Component = () => {
-	const _navigate = useNavigate();
+	const navigate = useNavigate();
 	const { preferences, setPublicReminderDismissed } = useUserPreferences();
 
 	return (
@@ -78,12 +78,12 @@ export const WelcomeScreen: Component = () => {
 						<CommunityCreationModal>
 							<Button>Create a community</Button>
 						</CommunityCreationModal>
-						{/* TODO(release): Re-enable once new invite link has been created
-							<a href="https://colibri.social/invite/1b0e708bd85c414e">
-							<Button variant="secondary">
-								Join the Colibri Social Community
-							</Button>
-						</a>*/}
+						<Button
+							variant="secondary"
+							onClick={() => navigate("/app/invite/XD00Gweq6wL10NNW")}
+						>
+							Join the Colibri Social Community
+						</Button>
 					</div>
 				</div>
 			</div>
