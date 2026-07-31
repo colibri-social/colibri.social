@@ -326,7 +326,10 @@ const ChannelLayout: ParentComponent = (props) => {
 				if (!scrollContainer || !didInitialScroll) return;
 				if (scrollBottomBeforeFetch !== null) return; // prepend in progress
 				if (!wasAtBottom && !keyboardRepinArmed()) return;
-				if (viewport.keyboardAnimating()) return;
+				if (viewport.keyboardAnimating()) {
+					scrollToBottom();
+					return;
+				}
 				wasAtBottom = true;
 				pinToBottomStable();
 			});

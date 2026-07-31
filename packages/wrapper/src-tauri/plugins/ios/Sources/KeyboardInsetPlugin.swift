@@ -7,15 +7,24 @@ class KeyboardInsetPlugin: Plugin {
   private weak var trackedWebView: WKWebView?
   private weak var trackedScrollView: UIScrollView?
   private let probeView = UIView(frame: CGRect(x: 0, y: 0, width: 1, height: 1))
-  private var displayLink: CADisplayLink?
-  private var deadline: CFTimeInterval = 0
   private var lastDispatchedInset: CGFloat = -1
   private var isResettingScroll = false
+  private var oneWayLatency: CFTimeInterval = 0.004
 
   private static let bridgeSource = """
-    window.__colibriKeyboardInset = function (value, settled) {
-      window.dispatchEvent(new CustomEvent('colibri-keyboard-inset', { detail: value }));
-      if (settled) window.dispatchEvent(new Event('colibri-keyboard-inset-end'));
+    window.__colibriKeyboardInset = function (inset, duration, mass, stiffness, damping, velocity, latency) {
+      window.dispatchEvent(new CustomEvent('colibri-keyboard-inset', {
+        detail: {
+          inset: inset,
+          duration: duration,
+          mass: mass,
+          stiffness: stiffness,
+          damping: damping,
+          velocity: velocity,
+          latency: latency,
+          at: performance.now()
+        }
+      }));
     };
     """
 
@@ -49,7 +58,6 @@ class KeyboardInsetPlugin: Plugin {
   deinit {
     NotificationCenter.default.removeObserver(self)
     trackedScrollView?.removeObserver(self, forKeyPath: #keyPath(UIScrollView.contentOffset))
-    displayLink?.invalidate()
   }
 
   override func observeValue(
@@ -86,49 +94,60 @@ class KeyboardInsetPlugin: Plugin {
       superview.addSubview(probeView)
     }
 
-    let presented = probeView.layer.presentation()?.frame.origin.y ?? probeView.frame.origin.y
     probeView.layer.removeAllAnimations()
-    CATransaction.begin()
-    CATransaction.setDisableActions(true)
-    probeView.frame = CGRect(x: 0, y: presented, width: 1, height: 1)
-    CATransaction.commit()
     probeView.frame = CGRect(x: 0, y: overlap, width: 1, height: 1)
 
-    let duration =
+    let reported =
       (userInfo[UIResponder.keyboardAnimationDurationUserInfoKey] as? NSNumber)?.doubleValue ?? 0.25
-    deadline = CACurrentMediaTime() + max(duration, 0.05) + 0.35
+    var duration = max(reported, 0.05)
+    var mass = 0.0
+    var stiffness = 0.0
+    var damping = 0.0
+    var velocity = 0.0
 
-    if displayLink == nil {
-      let link = CADisplayLink(target: self, selector: #selector(tick))
-      link.add(to: .main, forMode: .common)
-      displayLink = link
-    }
-  }
-
-  @objc private func tick(_ link: CADisplayLink) {
-    let isAnimating =
-      probeView.layer.animationKeys()?.isEmpty == false && CACurrentMediaTime() < deadline
-
-    if isAnimating {
-      let presented = probeView.layer.presentation()?.frame.origin.y ?? probeView.frame.origin.y
-      dispatch(presented, settled: false)
-      return
+    if let spring = probeView.layer.animation(forKey: "position") as? CASpringAnimation {
+      duration = max(spring.duration, 0.05)
+      mass = Double(spring.mass)
+      stiffness = Double(spring.stiffness)
+      damping = Double(spring.damping)
+      velocity = Double(spring.initialVelocity)
     }
 
-    link.invalidate()
-    displayLink = nil
     probeView.layer.removeAllAnimations()
-    dispatch(probeView.frame.origin.y, settled: true)
+
+    dispatch(
+      overlap,
+      duration: duration,
+      mass: mass,
+      stiffness: stiffness,
+      damping: damping,
+      velocity: velocity
+    )
   }
 
-  private func dispatch(_ value: CGFloat, settled: Bool) {
+  private func dispatch(
+    _ value: CGFloat, duration: Double, mass: Double, stiffness: Double, damping: Double,
+    velocity: Double
+  ) {
     let rounded = (value * 100).rounded() / 100
-    if rounded == lastDispatchedInset && !settled { return }
+    if rounded == lastDispatchedInset { return }
     lastDispatchedInset = rounded
-    trackedWebView?.evaluateJavaScript(
-      "window.__colibriKeyboardInset && window.__colibriKeyboardInset(\(rounded), \(settled));",
-      completionHandler: nil
-    )
+
+    var script = "window.__colibriKeyboardInset && window.__colibriKeyboardInset("
+    script += String(Double(rounded)) + ", "
+    script += String(duration * 1000) + ", "
+    script += String(mass) + ", "
+    script += String(stiffness) + ", "
+    script += String(damping) + ", "
+    script += String(velocity) + ", "
+    script += String(oneWayLatency * 1000) + ");"
+
+    let sentAt = CACurrentMediaTime()
+    trackedWebView?.evaluateJavaScript(script) { [weak self] _, _ in
+      guard let self = self else { return }
+      let sample = max(0.0005, min((CACurrentMediaTime() - sentAt) / 2, 0.05))
+      self.oneWayLatency = self.oneWayLatency * 0.7 + sample * 0.3
+    }
   }
 }
 

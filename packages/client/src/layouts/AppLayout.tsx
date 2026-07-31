@@ -11,9 +11,11 @@ import {
 	useDragDropContext,
 } from "@thisbeyond/solid-dnd";
 import {
+	createEffect,
 	createSignal,
 	For,
 	Match,
+	on,
 	onCleanup,
 	onMount,
 	type ParentComponent,
@@ -63,8 +65,10 @@ import {
 	capturePositions,
 	reorderList,
 } from "../utils/drag";
+import { animateKeyboardTransition } from "../utils/keyboard-animation";
 import { createMobilePane } from "../utils/mobile-pane";
 import { hasNativeKeyboardInsetSync } from "../utils/platform";
+import { shellHeightForInset } from "../utils/visual-viewport";
 
 const CommunityAvatar = (props: { item: Community; class?: string }) => {
 	const communityDid = props.item.uri.split("/")[2];
@@ -246,6 +250,37 @@ const AppLayout: ParentComponent = (props) => {
 			? `${viewport.height()}px`
 			: undefined;
 
+	let shellEl: HTMLDivElement | undefined;
+	let shellAnimation: Animation | undefined;
+
+	const safeAreaBottom = () =>
+		Number.parseFloat(
+			getComputedStyle(document.documentElement).getPropertyValue(
+				"--safe-area-bottom",
+			),
+		) || 0;
+
+	createEffect(
+		on(
+			() => viewport.keyboardTransition(),
+			(transition) => {
+				const el = shellEl;
+				if (!transition || !el || transition.samples.length < 2) return;
+
+				const safeBottom = safeAreaBottom();
+
+				shellAnimation?.cancel();
+				shellAnimation = animateKeyboardTransition(el, transition, (inset) => ({
+					height: `${shellHeightForInset(inset)}px`,
+					paddingBottom: `${Math.max(0, safeBottom - inset)}px`,
+				}));
+			},
+			{ defer: true },
+		),
+	);
+
+	onCleanup(() => shellAnimation?.cancel());
+
 	onMount(() => {
 		let pending: string | null = null;
 		try {
@@ -412,6 +447,7 @@ const AppLayout: ParentComponent = (props) => {
 
 	return (
 		<div
+			ref={shellEl}
 			class="flex flex-col w-full bg-card"
 			classList={{
 				"h-[100dvh]": needsShellInsets() && shellHeight() === undefined,

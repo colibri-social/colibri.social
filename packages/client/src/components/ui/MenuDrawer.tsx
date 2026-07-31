@@ -4,6 +4,7 @@ import {
 	createMemo,
 	createSignal,
 	type JSX,
+	on,
 	onCleanup,
 	Show,
 	splitProps,
@@ -13,6 +14,7 @@ import { Portal } from "solid-js/web";
 import { ViewportContext } from "../../contexts/Viewport";
 import { createHistoryBackClose } from "../../hooks/createHistoryBackClose";
 import { cx } from "../../utils/cva";
+import { animateKeyboardTransition } from "../../utils/keyboard-animation";
 import { useIsMobile } from "../../utils/mobile-pane";
 import { useIsTouch } from "../../utils/touch";
 import { ScrollFadeBottom } from "./ScrollFadeBottom";
@@ -77,6 +79,29 @@ export const BottomSheet = (props: BottomSheetProps) => {
 	const fullHeightPx = () =>
 		Math.min(viewportHeightPx() * MAX_VIEWPORT, contentHeight());
 	const isTall = () => contentHeight() > halfHeightPx();
+
+	let sheetAnimation: Animation | undefined;
+
+	createEffect(
+		on(
+			() => viewportCtx?.keyboardTransition(),
+			(transition) => {
+				const node = contentEl();
+				if (!transition || !node || !tracksViewport()) return;
+				sheetAnimation?.cancel();
+				sheetAnimation = animateKeyboardTransition(
+					node,
+					transition,
+					(inset) => ({
+						bottom: `${Math.max(0, inset)}px`,
+					}),
+				);
+			},
+			{ defer: true },
+		),
+	);
+
+	onCleanup(() => sheetAnimation?.cancel());
 
 	let closeTimer: number | undefined;
 	let raf1 = 0;
