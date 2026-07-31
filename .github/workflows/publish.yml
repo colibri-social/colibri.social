@@ -91,6 +91,12 @@ jobs:
         if: matrix.is-android
         uses: android-actions/setup-android@v3
 
+      - name: Select Xcode 26.6 (macOS only)
+        if: matrix.platform == 'macos-latest'
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: "26.6"
+
       - name: install Rust stable
         uses: dtolnay/rust-toolchain@stable
         with:
@@ -274,6 +280,11 @@ jobs:
 
       - name: Build frontend dependencies
         run: pnpm --filter "@colibri-social/wrapper^..." build
+
+      - name: Select Xcode 26.6
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: "26.6"
 
       - name: install Rust stable
         uses: dtolnay/rust-toolchain@stable

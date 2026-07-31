@@ -30,6 +30,7 @@ targets:
     sources:
       - path: Sources
       - path: Assets.xcassets
+      - path: AppIcon.icon
       - path: Externals
       - path: colibri-social_iOS
       - path: assets
