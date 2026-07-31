@@ -191,15 +191,19 @@ const ChannelLayout: ParentComponent = (props) => {
 	const REPIN_MAX_FRAMES = 60;
 	const REPIN_STABLE_FRAMES = 2;
 
+	let pinGeneration = 0;
+
 	const pinToBottomStable = () => {
 		if (!scrollContainer) return;
 		pinInterrupted = false;
+		const generation = ++pinGeneration;
 		let lastScrollHeight = -1;
 		let lastClientHeight = -1;
 		let stable = 0;
 		let frames = 0;
 		const step = () => {
 			if (!scrollContainer || pinInterrupted) return;
+			if (generation !== pinGeneration) return;
 			if (scrollBottomBeforeFetch !== null) return;
 			const h = scrollContainer.scrollHeight;
 			const c = scrollContainer.clientHeight;
@@ -322,6 +326,7 @@ const ChannelLayout: ParentComponent = (props) => {
 				if (!scrollContainer || !didInitialScroll) return;
 				if (scrollBottomBeforeFetch !== null) return; // prepend in progress
 				if (!wasAtBottom && !keyboardRepinArmed()) return;
+				if (viewport.keyboardAnimating()) return;
 				wasAtBottom = true;
 				pinToBottomStable();
 			});
@@ -553,6 +558,25 @@ const ChannelLayout: ParentComponent = (props) => {
 		on(
 			viewport.height,
 			() => {
+				if (!didInitialScroll || !scrollContainer) return;
+				if (scrollBottomBeforeFetch !== null) return;
+				if (!wasAtBottom && !keyboardRepinArmed()) return;
+				if (viewport.keyboardAnimating()) {
+					scrollToBottom();
+					return;
+				}
+				wasAtBottom = true;
+				pinToBottomStable();
+			},
+			{ defer: true },
+		),
+	);
+
+	createEffect(
+		on(
+			viewport.keyboardAnimating,
+			(animating) => {
+				if (animating) return;
 				if (!didInitialScroll || !scrollContainer) return;
 				if (scrollBottomBeforeFetch !== null) return;
 				if (!wasAtBottom && !keyboardRepinArmed()) return;

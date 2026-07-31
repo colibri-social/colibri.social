@@ -1,10 +1,14 @@
 import { type Accessor, createSignal, onCleanup } from "solid-js";
+import { isIOSTauriRuntimeSync } from "./platform";
 
 export type ViewportMetrics = {
 	height: Accessor<number | undefined>;
 	offsetTop: Accessor<number>;
 	keyboardInset: Accessor<number>;
+	keyboardAnimating: Accessor<boolean>;
 };
+
+const KEYBOARD_SETTLE_FALLBACK_MS = 400;
 
 /**
  * Tracks the VisualViewport so the app shell can be sized to the area the user
@@ -14,6 +18,7 @@ export const createViewportMetrics = (): ViewportMetrics => {
 	const [vvHeight, setVvHeight] = createSignal<number | undefined>();
 	const [offsetTop, setOffsetTop] = createSignal(0);
 	const [keyboardInset, setKeyboardInset] = createSignal(0);
+	const [keyboardAnimating, setKeyboardAnimating] = createSignal(false);
 
 	let hasNativeKeyboardInset = false;
 
@@ -23,20 +28,39 @@ export const createViewportMetrics = (): ViewportMetrics => {
 			: vvHeight();
 
 	if (typeof window !== "undefined") {
+		const tracksKeyboardAnimation = isIOSTauriRuntimeSync();
+		let settleTimer: number | undefined;
+
+		const settle = () => {
+			if (settleTimer !== undefined) clearTimeout(settleTimer);
+			settleTimer = undefined;
+			setKeyboardAnimating(false);
+		};
+
 		const onKeyboardInset = (event: Event) => {
 			hasNativeKeyboardInset = true;
 			const detail = (event as CustomEvent<number>).detail ?? 0;
 			const clamped = Math.min(Math.max(detail, 0), window.innerHeight * 0.7);
+			if (clamped === keyboardInset()) return;
+			if (tracksKeyboardAnimation) {
+				setKeyboardAnimating(true);
+				if (settleTimer !== undefined) clearTimeout(settleTimer);
+				settleTimer = window.setTimeout(settle, KEYBOARD_SETTLE_FALLBACK_MS);
+			}
 			setKeyboardInset(clamped);
 		};
+
 		window.addEventListener("colibri-keyboard-inset", onKeyboardInset);
-		onCleanup(() =>
-			window.removeEventListener("colibri-keyboard-inset", onKeyboardInset),
-		);
+		window.addEventListener("colibri-keyboard-inset-end", settle);
+		onCleanup(() => {
+			window.removeEventListener("colibri-keyboard-inset", onKeyboardInset);
+			window.removeEventListener("colibri-keyboard-inset-end", settle);
+			if (settleTimer !== undefined) clearTimeout(settleTimer);
+		});
 	}
 
 	const vv = typeof window !== "undefined" ? window.visualViewport : undefined;
-	if (!vv) return { height, offsetTop, keyboardInset };
+	if (!vv) return { height, offsetTop, keyboardInset, keyboardAnimating };
 
 	const update = () => {
 		setVvHeight(vv.height);
@@ -68,5 +92,5 @@ export const createViewportMetrics = (): ViewportMetrics => {
 		if (rafId !== undefined) cancelAnimationFrame(rafId);
 	});
 
-	return { height, offsetTop, keyboardInset };
+	return { height, offsetTop, keyboardInset, keyboardAnimating };
 };

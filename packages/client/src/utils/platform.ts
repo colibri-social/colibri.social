@@ -27,3 +27,13 @@ export const hasNativeKeyboardInsetSync = (): boolean => {
 		return false;
 	}
 };
+
+export const isIOSTauriRuntimeSync = (): boolean => {
+	if (!isTauriRuntime()) return false;
+
+	try {
+		return platform() === "ios";
+	} catch {
+		return false;
+	}
+};

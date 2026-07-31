@@ -6,14 +6,18 @@ import WebKit
 class KeyboardInsetPlugin: Plugin {
   private weak var trackedWebView: WKWebView?
   private weak var trackedScrollView: UIScrollView?
+  private let probeView = UIView(frame: CGRect(x: 0, y: 0, width: 1, height: 1))
   private var displayLink: CADisplayLink?
-  private var animationStart: CFTimeInterval = 0
-  private var animationDuration: CFTimeInterval = 0.25
-  private var timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
-  private var fromInset: CGFloat = 0
-  private var toInset: CGFloat = 0
+  private var deadline: CFTimeInterval = 0
   private var lastDispatchedInset: CGFloat = -1
   private var isResettingScroll = false
+
+  private static let bridgeSource = """
+    window.__colibriKeyboardInset = function (value, settled) {
+      window.dispatchEvent(new CustomEvent('colibri-keyboard-inset', { detail: value }));
+      if (settled) window.dispatchEvent(new Event('colibri-keyboard-inset-end'));
+    };
+    """
 
   override func load(webview: WKWebView) {
     trackedWebView = webview
@@ -22,13 +26,18 @@ class KeyboardInsetPlugin: Plugin {
     trackedScrollView = webview.scrollView
     webview.scrollView.addObserver(
       self, forKeyPath: #keyPath(UIScrollView.contentOffset), options: [.new], context: nil)
-    let setupScript = WKUserScript(
-      source:
-        "window.__colibriKeyboardInset = function(v) { window.dispatchEvent(new CustomEvent('colibri-keyboard-inset', { detail: v })); };",
-      injectionTime: .atDocumentStart,
-      forMainFrameOnly: true
-    )
-    webview.configuration.userContentController.addUserScript(setupScript)
+
+    probeView.isUserInteractionEnabled = false
+    probeView.backgroundColor = .clear
+    webview.superview?.addSubview(probeView)
+
+    webview.configuration.userContentController.addUserScript(
+      WKUserScript(
+        source: Self.bridgeSource,
+        injectionTime: .atDocumentStart,
+        forMainFrameOnly: true
+      ))
+
     NotificationCenter.default.addObserver(
       self,
       selector: #selector(handleKeyboardFrameChange(_:)),
@@ -59,89 +68,67 @@ class KeyboardInsetPlugin: Plugin {
 
   @objc private func handleKeyboardFrameChange(_ notification: Notification) {
     guard let webView = trackedWebView,
-      let window = webView.window,
+      let superview = webView.superview,
+      webView.window != nil,
       let userInfo = notification.userInfo,
-      let endFrameValue = userInfo[UIResponder.keyboardFrameEndUserInfoKey] as? NSValue,
-      let durationValue = userInfo[UIResponder.keyboardAnimationDurationUserInfoKey] as? NSNumber
+      let endFrameValue = userInfo[UIResponder.keyboardFrameEndUserInfoKey] as? NSValue
     else { return }
 
-    let keyboardFrameInWindow = window.convert(endFrameValue.cgRectValue, from: nil)
-    let webViewFrameInWindow = webView.convert(webView.bounds, to: window)
+    let fullBounds = superview.bounds
+    let keyboardFrameInSuperview = superview.convert(endFrameValue.cgRectValue, from: nil)
     let overlap = min(
-      webView.bounds.height,
-      max(0, webViewFrameInWindow.maxY - keyboardFrameInWindow.minY)
+      fullBounds.height,
+      max(0, fullBounds.maxY - keyboardFrameInSuperview.minY)
     )
 
-    if let curveValue = userInfo[UIResponder.keyboardAnimationCurveUserInfoKey] as? NSNumber {
-      timingFunction = Self.timingFunction(forCurve: curveValue.uintValue)
+    if probeView.superview !== superview {
+      probeView.removeFromSuperview()
+      superview.addSubview(probeView)
     }
 
-    fromInset = toInset
-    toInset = overlap
-    animationDuration = max(durationValue.doubleValue, 0.05)
-    animationStart = CACurrentMediaTime()
+    let presented = probeView.layer.presentation()?.frame.origin.y ?? probeView.frame.origin.y
+    probeView.layer.removeAllAnimations()
+    CATransaction.begin()
+    CATransaction.setDisableActions(true)
+    probeView.frame = CGRect(x: 0, y: presented, width: 1, height: 1)
+    CATransaction.commit()
+    probeView.frame = CGRect(x: 0, y: overlap, width: 1, height: 1)
 
-    displayLink?.invalidate()
-    let link = CADisplayLink(target: self, selector: #selector(tick))
-    link.add(to: .main, forMode: .common)
-    displayLink = link
+    let duration =
+      (userInfo[UIResponder.keyboardAnimationDurationUserInfoKey] as? NSNumber)?.doubleValue ?? 0.25
+    deadline = CACurrentMediaTime() + max(duration, 0.05) + 0.35
+
+    if displayLink == nil {
+      let link = CADisplayLink(target: self, selector: #selector(tick))
+      link.add(to: .main, forMode: .common)
+      displayLink = link
+    }
   }
 
   @objc private func tick(_ link: CADisplayLink) {
-    let elapsed = CACurrentMediaTime() - animationStart
-    let t = min(1, max(0, elapsed / animationDuration))
-    let eased = Self.solve(timingFunction, at: t)
-    dispatch(fromInset + (toInset - fromInset) * CGFloat(eased))
+    let isAnimating =
+      probeView.layer.animationKeys()?.isEmpty == false && CACurrentMediaTime() < deadline
 
-    if t >= 1 {
-      link.invalidate()
-      displayLink = nil
-      dispatch(toInset)
+    if isAnimating {
+      let presented = probeView.layer.presentation()?.frame.origin.y ?? probeView.frame.origin.y
+      dispatch(presented, settled: false)
+      return
     }
+
+    link.invalidate()
+    displayLink = nil
+    probeView.layer.removeAllAnimations()
+    dispatch(probeView.frame.origin.y, settled: true)
   }
 
-  private func dispatch(_ value: CGFloat) {
+  private func dispatch(_ value: CGFloat, settled: Bool) {
     let rounded = (value * 100).rounded() / 100
-    if rounded == lastDispatchedInset { return }
+    if rounded == lastDispatchedInset && !settled { return }
     lastDispatchedInset = rounded
     trackedWebView?.evaluateJavaScript(
-      "window.__colibriKeyboardInset && window.__colibriKeyboardInset(\(rounded));",
+      "window.__colibriKeyboardInset && window.__colibriKeyboardInset(\(rounded), \(settled));",
       completionHandler: nil
     )
-  }
-
-  private static func timingFunction(forCurve raw: UInt) -> CAMediaTimingFunction {
-    switch raw {
-    case 1: return CAMediaTimingFunction(name: .easeIn)
-    case 2: return CAMediaTimingFunction(name: .easeOut)
-    case 3: return CAMediaTimingFunction(name: .linear)
-    default: return CAMediaTimingFunction(name: .easeInEaseOut)
-    }
-  }
-
-  private static func solve(_ function: CAMediaTimingFunction, at t: Double) -> Double {
-    var p1 = [Float](repeating: 0, count: 2)
-    var p2 = [Float](repeating: 0, count: 2)
-    function.getControlPoint(at: 1, values: &p1)
-    function.getControlPoint(at: 2, values: &p2)
-    let x1 = Double(p1[0]), y1 = Double(p1[1])
-    let x2 = Double(p2[0]), y2 = Double(p2[1])
-
-    func bezier(_ u: Double, _ c1: Double, _ c2: Double) -> Double {
-      let mu = 1 - u
-      return 3 * mu * mu * u * c1 + 3 * mu * u * u * c2 + u * u * u
-    }
-
-    var lower = 0.0
-    var upper = 1.0
-    var mid = t
-    for _ in 0..<20 {
-      mid = (lower + upper) / 2
-      let x = bezier(mid, x1, x2)
-      if abs(x - t) < 0.0001 { break }
-      if x < t { lower = mid } else { upper = mid }
-    }
-    return bezier(mid, y1, y2)
   }
 }
 

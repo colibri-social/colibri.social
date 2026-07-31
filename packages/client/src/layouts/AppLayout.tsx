@@ -417,13 +417,16 @@ const AppLayout: ParentComponent = (props) => {
 				"h-[100dvh]": needsShellInsets() && shellHeight() === undefined,
 				"h-screen": !needsShellInsets(),
 				"pt-[var(--safe-area-top)]": needsShellInsets(),
-				"pb-[var(--safe-area-bottom)]":
-					needsShellInsets() && viewport.keyboardInset() === 0,
 				"transition-[height,transform] duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]":
 					needsShellInsets() && !hasNativeKeyboardInsetSync(),
 			}}
 			style={{
 				...(shellHeight() ? { height: shellHeight() } : {}),
+				...(needsShellInsets()
+					? {
+							"padding-bottom": `max(0px, calc(var(--safe-area-bottom) - ${viewport.keyboardInset()}px))`,
+						}
+					: {}),
 				...(needsShellInsets() && viewport.offsetTop() > 0
 					? { transform: `translateY(${viewport.offsetTop()}px)` }
 					: {}),
