@@ -1,9 +1,19 @@
 import type { Component } from "solid-js";
+import {
+	type LoadingPhase,
+	requestLoadingOverlay,
+} from "./hummingbird/loading-overlay-state";
 
-export const AppLoadingScreen: Component<{ message?: string }> = (props) => {
-	return (
-		<div class="w-full h-full absolute top-0 left-0 z-50 flex items-center justify-center text-white">
-			{props.message ?? "Loading..."}
-		</div>
-	);
+export const AppLoadingScreen: Component<{
+	message?: string;
+	phase?: LoadingPhase;
+	flavor?: boolean;
+}> = (props) => {
+	requestLoadingOverlay({
+		message: () => props.message,
+		phase: () => props.phase ?? "syncing",
+		flavor: () => props.flavor !== false,
+	});
+
+	return null;
 };

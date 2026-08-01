@@ -46,7 +46,7 @@ export const AuthContextProvider: ParentComponent = (props) => {
 	return (
 		<Switch>
 			<Match when={client.loading}>
-				<AppLoadingScreen message="Logging in..." />
+				<AppLoadingScreen message="Logging in..." phase="connecting" />
 			</Match>
 			<Match when={client()}>
 				{(resolvedClient) => (

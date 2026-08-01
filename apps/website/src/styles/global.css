@@ -1,6 +1,9 @@
 @import "tailwindcss";
 @import "tw-animate-css";
+@import "@colibri-social/client/hummingbird.css";
 @plugin "@tailwindcss/typography";
+
+@source "../../../../packages/client/src/components/hummingbird";
 
 @custom-variant dark (&:is(.dark *));
 

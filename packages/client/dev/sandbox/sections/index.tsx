@@ -4,6 +4,7 @@ import { BASICS } from "./basics";
 import { ERRORS } from "./errors";
 import { FORMS } from "./forms";
 import { ICONS } from "./icons";
+import { LOADER } from "./loader";
 import { OVERLAYS } from "./overlays";
 
 export const CATEGORIES: Array<SandboxCategory> = [
@@ -11,6 +12,7 @@ export const CATEGORIES: Array<SandboxCategory> = [
 	FORMS,
 	OVERLAYS,
 	ICONS,
+	LOADER,
 	ERRORS,
 	APP,
 ];

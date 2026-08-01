@@ -47,6 +47,7 @@ export default defineConfig({
 		"src/index.ts",
 		"src/atproto/scopes.ts",
 		"src/hooks/createAnimationTimeline.ts",
+		"src/components/hummingbird/index.ts",
 	],
 	format: ["esm"],
 	dts: true,

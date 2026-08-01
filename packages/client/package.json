@@ -18,7 +18,7 @@
 	"scripts": {
 		"start": "pnpm --filter @colibri-social/assets fetch-all && vite serve dev",
 		"dev": "pnpm --filter @colibri-social/assets fetch-all && vite serve dev",
-		"build": "tsdown && tailwindcss -i src/index.css -o dist/index.css --minify",
+		"build": "tsdown && tailwindcss -i src/index.css -o dist/index.css --minify && cp src/components/hummingbird/hummingbird.css dist/hummingbird.css",
 		"prepack": "pnpm build",
 		"test": "vitest run",
 		"typecheck": "tsc --noEmit",
@@ -37,7 +37,12 @@
 			"types": "./dist/hooks/createAnimationTimeline.d.mts",
 			"import": "./dist/hooks/createAnimationTimeline.mjs"
 		},
-		"./index.css": "./dist/index.css"
+		"./hummingbird": {
+			"types": "./dist/components/hummingbird/index.d.mts",
+			"import": "./dist/components/hummingbird/index.mjs"
+		},
+		"./index.css": "./dist/index.css",
+		"./hummingbird.css": "./dist/hummingbird.css"
 	},
 	"license": "MIT",
 	"devDependencies": {

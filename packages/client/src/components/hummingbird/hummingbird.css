@@ -1,0 +1,67 @@
+@keyframes hb-bob {
+	from {
+		transform: translateY(-4px) rotate(0.4deg);
+	}
+	to {
+		transform: translateY(3px) rotate(-0.35deg);
+	}
+}
+
+@keyframes hb-flick {
+	from {
+		opacity: calc(var(--o) * 0.72);
+	}
+	to {
+		opacity: calc(var(--o) * 1.28);
+	}
+}
+
+@keyframes hb-shimmer-near {
+	from {
+		transform: rotateZ(-41deg) scale(1, 0.42) rotateZ(27deg);
+	}
+	to {
+		transform: rotateZ(-56deg) scale(1, -0.48) rotateZ(27deg);
+	}
+}
+
+@keyframes hb-shimmer-far {
+	from {
+		transform: rotateZ(-49deg) scale(1, 0.4) rotateZ(36deg);
+	}
+	to {
+		transform: rotateZ(-62deg) scale(1, -0.44) rotateZ(36deg);
+	}
+}
+
+.hb-rig {
+	animation: hb-bob var(--hb-bob) ease-in-out infinite alternate;
+}
+
+.hb-fan {
+	animation: hb-flick calc(var(--hb-tempo) * 0.28s) ease-in-out infinite
+		alternate;
+}
+
+.hb-wing-near {
+	animation: hb-shimmer-near calc(var(--hb-tempo) * 0.055s) linear infinite
+		alternate;
+}
+
+.hb-wing-far {
+	animation: hb-shimmer-far calc(var(--hb-tempo) * 0.055s) linear infinite
+		alternate-reverse;
+}
+
+.hb-paused {
+	animation-play-state: paused;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.hb-rig,
+	.hb-fan,
+	.hb-wing-near,
+	.hb-wing-far {
+		animation: none;
+	}
+}

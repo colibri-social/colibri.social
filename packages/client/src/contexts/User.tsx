@@ -209,7 +209,7 @@ export const UserContextProvider: ParentComponent = (props) => {
 					const value = resolved();
 
 					if (!value.loggedIn) {
-						return <AppLoadingScreen message="Not logged in!" />;
+						return <AppLoadingScreen message="Not logged in!" flavor={false} />;
 					}
 
 					const refetchCommunities = async () => {

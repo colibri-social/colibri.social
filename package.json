@@ -10,6 +10,7 @@
 		"test": "pnpm -r test",
 		"lexicons:export": "pnpm --filter @colibri-social/website lexicons:export",
 		"error-codes:generate": "node --experimental-strip-types scripts/generate-error-codes.ts",
+		"brand:render": "node --experimental-strip-types scripts/render-brand-assets.ts",
 		"changeset:feature": "node --experimental-strip-types scripts/changeset-feature.ts",
 		"whats-new:check": "node --experimental-strip-types scripts/check-whats-new.ts",
 		"whats-new:generate": "node --experimental-strip-types scripts/collect-release-notes.ts generate",

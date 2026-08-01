@@ -1,39 +1,102 @@
 {
   "fill" : {
-    "linear-gradient" : [
-      "display-p3:0.53280,0.27401,0.80654,1.00000",
-      "display-p3:0.28332,0.08456,0.55408,1.00000"
-    ],
-    "orientation" : {
-      "start" : {
-        "x" : 0.5,
-        "y" : 0
-      },
-      "stop" : {
-        "x" : 0.5,
-        "y" : 0.7
-      }
-    }
+    "automatic-gradient" : "display-p3:0.51562,0.32397,0.94922,1.00000"
   },
   "groups" : [
     {
+      "hidden" : false,
       "layers" : [
         {
-          "blend-mode" : "normal",
-          "fill" : "automatic",
+          "fill-specializations" : [
+            {
+              "appearance" : "dark",
+              "value" : "automatic"
+            }
+          ],
           "glass" : true,
           "hidden" : false,
-          "image-name" : "SVG Image.svg",
-          "name" : "SVG Image",
+          "image-name" : "SVG Image 3.svg",
+          "name" : "Birb + Wing (Front)",
           "position" : {
-            "scale" : 1.25,
+            "scale" : 1,
             "translation-in-points" : [
-              0,
-              0
+              -41,
+              -4
+            ]
+          }
+        },
+        {
+          "fill-specializations" : [
+            {
+              "appearance" : "dark",
+              "value" : {
+                "solid" : "display-p3:0.23767,0.16455,0.49805,1.00000"
+              }
+            }
+          ],
+          "hidden" : false,
+          "image-name" : "SVG Image 2.svg",
+          "name" : "Tail Feathers",
+          "position" : {
+            "scale" : 1,
+            "translation-in-points" : [
+              -159.89526677812114,
+              358.7312081142584
+            ]
+          }
+        },
+        {
+          "hidden" : true,
+          "image-name" : "SVG Image 4.svg",
+          "name" : "Tail Feathers (Dark)",
+          "position" : {
+            "scale" : 1,
+            "translation-in-points" : [
+              -159.89526677812114,
+              358.7312081142584
+            ]
+          }
+        },
+        {
+          "fill-specializations" : [
+            {
+              "appearance" : "dark",
+              "value" : {
+                "solid" : "display-p3:0.25024,0.17493,0.52295,1.00000"
+              }
+            }
+          ],
+          "image-name" : "SVG Image 13.svg",
+          "name" : "Wing (Back)",
+          "position" : {
+            "scale" : 1,
+            "translation-in-points" : [
+              -258.99999673289994,
+              -180.07366033355584
+            ]
+          }
+        },
+        {
+          "hidden" : true,
+          "image-name" : "SVG Image 5.svg",
+          "name" : "Wing (Back, Dark)",
+          "position" : {
+            "scale" : 1,
+            "translation-in-points" : [
+              -258.99999673289994,
+              -180.07366033355584
             ]
           }
         }
       ],
+      "name" : "Birb",
+      "position" : {
+        "scale" : 1,
+        "translation-in-points" : [
+          115.5,
+          -12.0703125
+        ]
+      },
       "shadow" : {
         "kind" : "neutral",
         "opacity" : 0.5

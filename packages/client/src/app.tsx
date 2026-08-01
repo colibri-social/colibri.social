@@ -29,6 +29,7 @@ import { ScopeGate } from "./components/app/onboarding/ScopeGate";
 import { VoiceChannelView } from "./components/app/VoiceChannelView";
 import { DeepLinkListener } from "./components/DeepLinkListener";
 import { ErrorDetails } from "./components/ErrorDetails";
+import { BootOverlay } from "./components/hummingbird";
 import { SectionBoundary } from "./components/SectionBoundary";
 import { SignInScreen } from "./components/signin/SignInScreen";
 import { Toaster } from "./components/ui/Sonner";
@@ -163,6 +164,7 @@ const App: ParentComponent = () => {
 					offset="max(32px,var(--safe-area-top))"
 				/>
 			</Show>
+			<BootOverlay />
 			<ErrorBoundary
 				fallback={(err: unknown, reset: () => void) => (
 					<AppErrorScreen error={err} reset={reset} />
