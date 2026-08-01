@@ -102,7 +102,9 @@ describe("rehydrateQueuedMessages", () => {
 			[parent],
 		);
 
-		expect((result?.[1] as PendingMessage).parent?.uri).toBe(parent.uri);
+		const added = result?.[1] as PendingMessage | undefined;
+		expect(added).toBeDefined();
+		expect(added?.parent?.uri).toBe(parent.uri);
 	});
 
 	it("leaves the parent undefined when it is not loaded", () => {
@@ -116,7 +118,9 @@ describe("rehydrateQueuedMessages", () => {
 			[],
 		);
 
-		expect((result?.[0] as PendingMessage).parent).toBeUndefined();
+		const added = result?.[0] as PendingMessage | undefined;
+		expect(added).toBeDefined();
+		expect(added?.parent).toBeUndefined();
 	});
 
 	it("applies a queued edit over the confirmed row", () => {

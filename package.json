@@ -14,7 +14,7 @@
 		"whats-new:check": "node --experimental-strip-types scripts/check-whats-new.ts",
 		"whats-new:generate": "node --experimental-strip-types scripts/collect-release-notes.ts generate",
 		"whats-new:preview": "node --experimental-strip-types scripts/collect-release-notes.ts preview",
-		"typecheck:scripts": "tsc -p tsconfig.scripts.json",
+		"typecheck:scripts": "tsc --build tsconfig.scripts.json",
 		"lint": "biome check .",
 		"lint:fix": "biome check . --write",
 		"format": "biome format . --write",
