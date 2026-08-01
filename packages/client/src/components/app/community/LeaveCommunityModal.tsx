@@ -2,7 +2,10 @@ import { useNavigate } from "@solidjs/router";
 import type { Accessor, Setter } from "solid-js";
 import { createSignal } from "solid-js";
 import { toast } from "somoto";
+import { deleteMembership } from "../../../atproto/memberships";
 import { useUserContext } from "../../../contexts/User";
+import { classifyThrown } from "../../../errors/classify";
+import { createLogger } from "../../../utils/logger";
 import { Button } from "../../ui/Button";
 import {
 	Dialog,
@@ -13,6 +16,8 @@ import {
 	DialogPortal,
 	DialogTitle,
 } from "../../ui/Dialog";
+
+const log = createLogger("community");
 
 export const LeaveCommunityModal = (props: {
 	open: Accessor<boolean>;
@@ -27,10 +32,23 @@ export const LeaveCommunityModal = (props: {
 	const handleLeave = async () => {
 		setLoading(true);
 		try {
-			await user.xrpc.social.colibri.community.leave(props.communityUri);
+			await deleteMembership(user.atproto.agent, user.did, props.communityUri);
+
+			const res = await user.xrpc.social.colibri.community.leave(
+				props.communityUri,
+			);
+			if (!res.ok) {
+				toast.error("Failed to leave community.");
+				return;
+			}
+
 			props.setOpen(false);
 			navigate("/app");
-		} catch {
+		} catch (err) {
+			log.error("leaving the community failed", {
+				code: classifyThrown(err, { method: "com.atproto.repo.deleteRecord" })
+					.code,
+			});
 			toast.error("Failed to leave community.");
 		} finally {
 			setLoading(false);
