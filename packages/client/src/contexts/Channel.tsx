@@ -10,12 +10,25 @@ import {
 	onCleanup,
 	onMount,
 	type ParentComponent,
+	untrack,
 	useContext,
 } from "solid-js";
 import { toast } from "somoto";
 import { namespace } from "../atproto/cache/keys";
+import {
+	buildMessagesSnapshot,
+	isSnapshotPaintable,
+	restoreMessagesSnapshot,
+	rkeyOf,
+	shouldWriteSnapshot,
+	snapshotAgeMs,
+} from "../atproto/cache/messages-snapshot";
 import { registerOpenChannel } from "../atproto/cache/messages-writer";
 import type { MessagesSnapshot } from "../atproto/cache/schema";
+import {
+	createSnapshotScheduler,
+	realSnapshotClock,
+} from "../atproto/cache/snapshot-scheduler";
 import {
 	cacheEnabled,
 	readMessages,
@@ -23,7 +36,13 @@ import {
 } from "../atproto/cache/store";
 import { takeChannelView } from "../atproto/channel-prefetch";
 import { communityUriToUrlCompatible } from "../atproto/community-uri-to-url-compatible";
-import { enqueuePut, onOutboxSent } from "../atproto/outbox/outbox";
+import {
+	enqueuePut,
+	onOutboxSent,
+	outboxRevision,
+	queuedRecords,
+} from "../atproto/outbox/outbox";
+import { rehydrateQueuedMessages } from "../atproto/outbox/rehydrate";
 import { writeReadCursor } from "../atproto/read-cursor";
 import type {
 	Message,
@@ -51,10 +70,6 @@ import { useUserContext } from "./User";
 const TYPING_HOLD_MS = 5000;
 
 export const PAGE_SIZE = 50;
-
-const MESSAGES_HARD_TTL_MS = 24 * 60 * 60 * 1000;
-
-export const MESSAGES_STALE_HINT_MS = 60_000;
 
 const CACHE_WRITE_MAX_INTERVAL_MS = 5000;
 
@@ -224,8 +239,6 @@ export type ChannelContextValue = {
 const log = createLogger("channel");
 
 export const ChannelContext = createContext<ChannelContextValue>();
-
-const rkeyOf = (uri: string): string => uri.split("/").pop() ?? "";
 
 export const ChannelContextProvider: ParentComponent<{
 	channel: Accessor<Channel | undefined>;
@@ -413,7 +426,7 @@ export const ChannelContextProvider: ParentComponent<{
 				setMessages([...ordered, ...stillPending]);
 				const oldest = ordered[0];
 				if (oldest) setCursor(rkeyOf(oldest.uri));
-				if (ordered.length < PAGE_SIZE) setHasMore(false);
+				setHasMore(ordered.length >= PAGE_SIZE);
 				setReadCursorUri(channel?.readCursor?.cursor);
 				setInitialUnseen((channel?.unseen ?? []).map((n) => n.messageUri));
 				setHydratedFromNetwork(true);
@@ -433,23 +446,19 @@ export const ChannelContextProvider: ParentComponent<{
 		}
 	};
 
-	let cacheWriteTimer: ReturnType<typeof setTimeout> | undefined;
-	let pendingSnapshot:
-		| { ns: string; uri: string; snap: MessagesSnapshot }
-		| undefined;
-	let lastCacheWriteAt = 0;
+	const snapshotWrites = createSnapshotScheduler<
+		{ ns: string; uri: string; snap: MessagesSnapshot },
+		ReturnType<typeof setTimeout>
+	>({
+		maxIntervalMs: CACHE_WRITE_MAX_INTERVAL_MS,
+		debounceMs: CACHE_WRITE_DEBOUNCE_MS,
+		clock: realSnapshotClock,
+		write: (queued) => {
+			void writeMessages(queued.ns, queued.uri, queued.snap);
+		},
+	});
 
-	const flushSnapshot = () => {
-		if (cacheWriteTimer) {
-			clearTimeout(cacheWriteTimer);
-			cacheWriteTimer = undefined;
-		}
-		const queued = pendingSnapshot;
-		if (!queued) return;
-		pendingSnapshot = undefined;
-		lastCacheWriteAt = Date.now();
-		void writeMessages(queued.ns, queued.uri, queued.snap);
-	};
+	const flushSnapshot = () => snapshotWrites.flush();
 
 	// Reset state and seed the first page whenever the channel URI changes
 	// (including the initial mount). `on` makes the dependency explicit.
@@ -473,14 +482,15 @@ export const ChannelContextProvider: ParentComponent<{
 			if (!cacheEnabled() || !uri) return;
 			const cached = await readMessages(ns(), uri);
 			if (!cached) return;
-			const age = Date.now() - cached.ts;
-			if (age > MESSAGES_HARD_TTL_MS) return;
+			const age = snapshotAgeMs(cached, Date.now());
+			if (!isSnapshotPaintable(age)) return;
 			if (uri !== channelUri() || hydratedFromNetwork()) return;
 			if (messages().length > 0) return;
+			const restored = restoreMessagesSnapshot(cached);
 			batch(() => {
 				setMessages(cached.messages);
-				const oldest = cached.messages[0];
-				if (oldest) setCursor(rkeyOf(oldest.uri));
+				if (restored.cursor) setCursor(restored.cursor);
+				if (restored.hasMore !== undefined) setHasMore(restored.hasMore);
 				setReadCursorUri(cached.readCursor);
 				setSnapshotAge(age);
 				setInitialLoading(false);
@@ -491,32 +501,46 @@ export const ChannelContextProvider: ParentComponent<{
 
 	createEffect(() => {
 		const uri = channelUri();
+		outboxRevision();
+		if (!uri || initialLoading()) return;
+		untrack(() => {
+			const reconciled = rehydrateQueuedMessages({
+				channelUri: uri,
+				community: community().community.uri,
+				author: {
+					did: user.did,
+					handle: user.handle.replaceAll("at://", ""),
+					data: user.data,
+				},
+				queued: queuedRecords("social.colibri.message"),
+				existing: messages(),
+			});
+			if (reconciled) setMessages(reconciled);
+		});
+	});
+
+	createEffect(() => {
+		const uri = channelUri();
 		const confirmed = messages().filter(
 			(m) => !("hash" in m) && m.uri.startsWith("at://"),
 		);
-		if (
-			!cacheEnabled() ||
-			!uri ||
-			!hydratedFromNetwork() ||
-			confirmed.length === 0
-		) {
-			return;
-		}
-		pendingSnapshot = {
+		const gate = {
+			cacheEnabled: cacheEnabled(),
+			channelUri: uri,
+			hydratedFromNetwork: hydratedFromNetwork(),
+			confirmedCount: confirmed.length,
+		};
+		if (!shouldWriteSnapshot(gate)) return;
+		snapshotWrites.schedule({
 			ns: ns(),
 			uri,
-			snap: {
-				messages: confirmed.slice(-PAGE_SIZE),
+			snap: buildMessagesSnapshot(confirmed, {
 				readCursor: readCursorUri(),
-				ts: Date.now(),
-			},
-		};
-		if (Date.now() - lastCacheWriteAt >= CACHE_WRITE_MAX_INTERVAL_MS) {
-			flushSnapshot();
-			return;
-		}
-		if (cacheWriteTimer) clearTimeout(cacheWriteTimer);
-		cacheWriteTimer = setTimeout(flushSnapshot, CACHE_WRITE_DEBOUNCE_MS);
+				hasMore: hasMore(),
+				limit: PAGE_SIZE,
+				now: Date.now(),
+			}),
+		});
 	});
 
 	const onHidden = () => {
@@ -562,7 +586,11 @@ export const ChannelContextProvider: ParentComponent<{
 	// ---------------------------------------------------------------------------
 
 	const addPendingMessage = (msg: PendingMessage) => {
-		setMessages((prev) => [...prev, msg]);
+		setMessages((prev) =>
+			prev.some((m) => m.uri === msg.uri)
+				? prev.map((m) => (m.uri === msg.uri ? msg : m))
+				: [...prev, msg],
+		);
 		setReadCursorUri(undefined);
 		setOutgoingMessage((n) => n + 1);
 	};

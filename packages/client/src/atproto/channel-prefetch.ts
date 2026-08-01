@@ -60,6 +60,10 @@ export const prefetchChannelView = (xrpc: XrpcClient, uri: string): void => {
 				code: failure.code,
 			});
 			return undefined;
+		})
+		.then((result) => {
+			markBoot("prefetch:settled");
+			return result;
 		});
 
 	inflight.set(uri, { promise, startedAt: Date.now() });

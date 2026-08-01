@@ -15,6 +15,8 @@ export type CommunitySnapshot = CommunityDetail;
 export type MessagesSnapshot = {
 	messages: Message[];
 	readCursor?: string;
+	cursor?: string;
+	hasMore?: boolean;
 	ts: number;
 };
 

@@ -22,6 +22,7 @@ import ChatCircleDotsIcon from "~icons/ph/chat-circle-dots";
 import UsersIcon from "~icons/ph/users";
 import UsersIconFill from "~icons/ph/users-fill";
 import XIcon from "~icons/ph/x";
+import { isSnapshotStale } from "../atproto/cache/messages-snapshot";
 import type { Message as MessageData } from "../atproto/xrpc/social/colibri/channel/listMessages";
 import { Message } from "../components/app/channel/message/Message";
 import { ChatGuidelinesModal } from "../components/app/community/ChatGuidelinesModal";
@@ -38,11 +39,7 @@ import {
 	TooltipPortal,
 	TooltipTrigger,
 } from "../components/ui/Tooltip";
-import {
-	ChannelContextProvider,
-	MESSAGES_STALE_HINT_MS,
-	useChannelContext,
-} from "../contexts/Channel";
+import { ChannelContextProvider, useChannelContext } from "../contexts/Channel";
 import { useCommunityContext } from "../contexts/Community";
 import { useMutes } from "../contexts/Mutes";
 import { isSameChannelUri, useNotifications } from "../contexts/Notifications";
@@ -895,7 +892,7 @@ const ChannelLayout: ParentComponent = (props) => {
 										<Show
 											when={
 												!channel.hydratedFromNetwork() &&
-												(channel.snapshotAge() ?? 0) > MESSAGES_STALE_HINT_MS
+												isSnapshotStale(channel.snapshotAge())
 											}
 										>
 											<div class="w-full text-center py-1.5 text-xs text-muted-foreground">

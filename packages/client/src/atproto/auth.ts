@@ -4,6 +4,7 @@ import {
 	type DidDocument,
 } from "@atproto/oauth-client-browser";
 import * as Sentry from "@sentry/solid";
+import { type Accessor, createSignal } from "solid-js";
 import { toast } from "somoto";
 import { classifyThrown } from "../errors/classify";
 import { ColibriError, isColibriError } from "../errors/error";
@@ -19,6 +20,7 @@ import {
 } from "../utils/appview";
 import { deviceContext, getConnection } from "../utils/device-context";
 import { createLogger } from "../utils/logger";
+import { markBoot } from "../utils/perf";
 import { isAllowedDid } from "./allowlist";
 import { buildScopes, getMissingScopeSets } from "./scopes";
 import {
@@ -409,8 +411,12 @@ export const asSignInError = (err: unknown): ColibriError => {
 let oAuthClient: undefined | BrowserOAuthClient;
 let agent: undefined | Agent;
 let pdsHost: undefined | string;
-let grantedScopes: undefined | string;
+const [grantedScopes, setGrantedScopes] = createSignal<string | undefined>(
+	undefined,
+);
 let usingFallbackStorage = false;
+
+export { grantedScopes };
 
 const FALLBACK_FLAG_KEY = "colibri:oauth-storage-fallback";
 
@@ -472,7 +478,7 @@ const clearDisallowedSession = async (sub: string) => {
 	localStorage.removeItem("sub");
 	agent = undefined;
 	pdsHost = undefined;
-	grantedScopes = undefined;
+	setGrantedScopes(undefined);
 };
 
 export type Client =
@@ -481,7 +487,7 @@ export type Client =
 			agent: Agent;
 			client: BrowserOAuthClient;
 			pdsHost: string | undefined;
-			grantedScopes: string | undefined;
+			grantedScopes: Accessor<string | undefined>;
 	  }
 	| { loggedIn: false; client: BrowserOAuthClient }
 	| undefined;
@@ -511,11 +517,25 @@ const getClient: ClientGetter = () => {
 	});
 };
 
+type RestoredSession = Awaited<ReturnType<BrowserOAuthClient["restore"]>>;
+
+const revalidateGrantedScopes = async (
+	session: RestoredSession,
+): Promise<void> => {
+	try {
+		setGrantedScopes((await session.getTokenInfo(true)).scope);
+		markBoot("auth:scopesRevalidated");
+	} catch (e) {
+		const failure = classifyThrown(e, { method: "oauth.getTokenInfo" });
+		log.warn("forced token refresh failed", { code: failure.code });
+	}
+};
+
 const resetSession = () => {
 	localStorage.removeItem("sub");
 	agent = undefined;
 	pdsHost = undefined;
-	grantedScopes = undefined;
+	setGrantedScopes(undefined);
 };
 
 const init = async () => {
@@ -688,20 +708,17 @@ const restoreExistingSession = async () => {
 		agent = new Agent(session);
 
 		try {
-			grantedScopes = (await session.getTokenInfo(false)).scope;
+			setGrantedScopes((await session.getTokenInfo(false)).scope);
 		} catch {}
 
+		const cached = grantedScopes();
 		if (
 			state == null &&
 			navigator.onLine &&
-			grantedScopes !== undefined &&
-			getMissingScopeSets(grantedScopes).length === 0
+			cached !== undefined &&
+			getMissingScopeSets(cached).length === 0
 		) {
-			try {
-				grantedScopes = (await session.getTokenInfo(true)).scope;
-			} catch (e) {
-				log.warn("forced token refresh failed", { error: e });
-			}
+			void revalidateGrantedScopes(session);
 		}
 	}
 };

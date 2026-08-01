@@ -1,5 +1,6 @@
 import type { Colibri_MessageEvent } from "@colibri-social/lib";
 import type { Message } from "../xrpc/social/colibri/channel/listMessages";
+import { cursorFor } from "./messages-snapshot";
 import type { MessagesSnapshot } from "./schema";
 
 let openChannel: string | undefined;
@@ -18,7 +19,12 @@ export const applyMessageEvent = (
 	if (event.event === "delete") {
 		const remaining = snapshot.messages.filter((m) => m.uri !== event.uri);
 		if (remaining.length === snapshot.messages.length) return undefined;
-		return { ...snapshot, messages: remaining, ts: Date.now() };
+		return {
+			...snapshot,
+			messages: remaining,
+			cursor: cursorFor(remaining, snapshot.cursor),
+			ts: Date.now(),
+		};
 	}
 
 	const community = snapshot.messages[0]?.community;
@@ -40,9 +46,16 @@ export const applyMessageEvent = (
 		edited: event.edited,
 	};
 
-	const messages = existing
+	const next = existing
 		? snapshot.messages.map((m) => (m.uri === event.uri ? message : m))
-		: [...snapshot.messages, message].slice(-limit);
+		: [...snapshot.messages, message];
+	const messages = next.slice(-limit);
 
-	return { ...snapshot, messages, ts: Date.now() };
+	return {
+		...snapshot,
+		messages,
+		cursor: cursorFor(messages, snapshot.cursor),
+		hasMore: messages.length < next.length ? true : snapshot.hasMore,
+		ts: Date.now(),
+	};
 };
