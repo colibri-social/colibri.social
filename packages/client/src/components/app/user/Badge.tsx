@@ -40,7 +40,7 @@ export const Badge: ParentComponent<{
 					"text-lg": props.size === "lg",
 					"text-base": props.size === "base",
 					"text-sm": props.size === "sm",
-					"text-[11px]": props.size === "xs",
+					"text-xs": props.size === "xs",
 				}}
 			>
 				{props.text}
