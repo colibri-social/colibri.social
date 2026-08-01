@@ -16,19 +16,3 @@ export const classifyCallback = (
 	if (params.has("state") && params.has("code")) return "in-progress";
 	return null;
 };
-
-const OAUTH_ERROR_MESSAGES: Record<string, string> = {
-	access_denied: "You declined the sign-in request.",
-	login_required: "Your provider needs you to sign in again.",
-	temporarily_unavailable:
-		"Your provider is temporarily unavailable. Try again shortly.",
-};
-
-export const describeOAuthError = (params: URLSearchParams): string => {
-	const code = params.get("error") ?? "";
-	return (
-		params.get("error_description") ??
-		OAUTH_ERROR_MESSAGES[code] ??
-		(code ? `Your provider returned "${code}".` : "Please try again.")
-	);
-};

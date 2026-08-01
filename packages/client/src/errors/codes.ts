@@ -19,6 +19,9 @@ export type SessionErrorCode =
 	| "StorageStalled"
 	| "HandleNotFound"
 	| "OAuthDenied"
+	| "OAuthInteractionRequired"
+	| "OAuthGrantExpired"
+	| "OAuthConfigRejected"
 	| "OAuthProviderUnavailable"
 	| "SignInFailed";
 
@@ -83,6 +86,9 @@ const DOMAIN_BY_CODE: Partial<Record<ColibriErrorCode, ErrorDomain>> = {
 	StorageStalled: "session",
 	HandleNotFound: "session",
 	OAuthDenied: "session",
+	OAuthInteractionRequired: "session",
+	OAuthGrantExpired: "session",
+	OAuthConfigRejected: "session",
 	OAuthProviderUnavailable: "session",
 	SignInFailed: "session",
 

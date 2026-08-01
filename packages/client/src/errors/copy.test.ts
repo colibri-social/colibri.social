@@ -3,7 +3,6 @@ import { APPVIEW_CODE_DESCRIPTIONS } from "./appview-codes";
 import { ALL_ERROR_CODES } from "./codes";
 import {
 	codeForFileRejection,
-	codeForOAuthError,
 	copyForCode,
 	describeError,
 	FALLBACK_COPY,
@@ -65,21 +64,6 @@ describe("codeForFileRejection", () => {
 
 	it("falls back for an unknown rejection", () => {
 		expect(codeForFileRejection("SOMETHING_ELSE")).toBe("Unexpected");
-	});
-});
-
-describe("codeForOAuthError", () => {
-	it("maps the OAuth error parameters we have seen", () => {
-		expect(codeForOAuthError("access_denied")).toBe("OAuthDenied");
-		expect(codeForOAuthError("login_required")).toBe("ExpiredToken");
-		expect(codeForOAuthError("temporarily_unavailable")).toBe(
-			"OAuthProviderUnavailable",
-		);
-	});
-
-	it("falls back when the provider sends something else", () => {
-		expect(codeForOAuthError(null)).toBe("SignInFailed");
-		expect(codeForOAuthError("server_error")).toBe("SignInFailed");
 	});
 });
 

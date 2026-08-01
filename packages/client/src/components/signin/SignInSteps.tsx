@@ -458,14 +458,6 @@ export const SignInSteps: Component<{ flow: SignInFlow }> = (props) => {
 				</Match>
 			</Switch>
 
-			<Show when={flow.error()}>
-				{(message) => (
-					<p class="m-0 text-sm text-destructive" role="alert">
-						{message()}
-					</p>
-				)}
-			</Show>
-
 			<div class="flex flex-col gap-1.5">
 				<Switch>
 					<Match when={flow.step() === "handle"}>

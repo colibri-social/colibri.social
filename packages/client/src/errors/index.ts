@@ -28,7 +28,6 @@ export {
 export type { ErrorCopy } from "./copy";
 export {
 	codeForFileRejection,
-	codeForOAuthError,
 	copyForCode,
 	describeError,
 	FALLBACK_COPY,
@@ -44,6 +43,13 @@ export {
 	isColibriError,
 	isRetryable,
 } from "./error";
+export {
+	classifyOAuthError,
+	classifyOAuthParams,
+	codeForOAuthError,
+	isSignInDenial,
+	readOAuthFailure,
+} from "./oauth";
 export type { ReportOptions } from "./report";
 export {
 	reportError,

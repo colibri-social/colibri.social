@@ -7,6 +7,7 @@ export interface ReportOptions {
 	method?: string;
 	tags?: Record<string, string>;
 	context?: Record<string, unknown>;
+	contexts?: Record<string, Record<string, unknown>>;
 	fingerprint?: string;
 	severity?: ColibriError["severity"];
 }
@@ -124,6 +125,9 @@ export const reportError = (
 		});
 		if (Object.keys(classified.context).length > 0) {
 			scope.setContext("details", classified.context);
+		}
+		for (const [name, values] of Object.entries(options.contexts ?? {})) {
+			scope.setContext(name, values);
 		}
 		const diagnostics = diagnosticsProvider?.();
 		if (diagnostics) scope.setContext("diagnostics", diagnostics);

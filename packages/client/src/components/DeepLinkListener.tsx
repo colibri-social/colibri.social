@@ -2,6 +2,8 @@ import { useNavigate } from "@solidjs/router";
 import { type Component, onCleanup, onMount } from "solid-js";
 import { completeNativeOAuth } from "../atproto/auth";
 import { useAuthContext } from "../contexts/Auth";
+import { isSignInDenial } from "../errors/oauth";
+import { showError } from "../errors/show-error";
 import { isTauriRuntime } from "../notifications/environment";
 import { createLogger } from "../utils/logger";
 
@@ -99,7 +101,11 @@ export const DeepLinkListener: Component = () => {
 							return;
 						}
 					} catch (err) {
-						log.error("OAuth callback failed", { error: err });
+						log.error("the OAuth callback failed", { error: err });
+						showError(err, {
+							stage: "oauth.native-callback",
+							report: !isSignInDenial(err),
+						});
 					}
 					continue;
 				}

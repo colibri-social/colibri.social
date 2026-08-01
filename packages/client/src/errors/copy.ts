@@ -106,6 +106,19 @@ const CATALOG: Record<ColibriErrorCode, ErrorCopy> = {
 	},
 	OAuthDenied: {
 		title: "You declined the sign-in request.",
+		description: "Nothing was shared. You can try again whenever you like.",
+	},
+	OAuthInteractionRequired: {
+		title: "Your provider needs you to sign in there first.",
+		description: "Sign in with your provider, then start again here.",
+	},
+	OAuthGrantExpired: {
+		title: "That sign-in attempt expired.",
+		description: "Start again to get a fresh link.",
+	},
+	OAuthConfigRejected: {
+		title: "Your provider wouldn't accept our sign-in request.",
+		description: "This is a problem on our side and we've been notified.",
 	},
 	OAuthProviderUnavailable: {
 		title: "Your provider is temporarily unavailable.",
@@ -212,18 +225,5 @@ export const codeForFileRejection = (rejection: string): ColibriErrorCode => {
 			return "UnsupportedFileType";
 		default:
 			return "Unexpected";
-	}
-};
-
-export const codeForOAuthError = (code: string | null): ColibriErrorCode => {
-	switch (code) {
-		case "access_denied":
-			return "OAuthDenied";
-		case "login_required":
-			return "ExpiredToken";
-		case "temporarily_unavailable":
-			return "OAuthProviderUnavailable";
-		default:
-			return "SignInFailed";
 	}
 };

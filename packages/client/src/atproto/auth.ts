@@ -5,7 +5,11 @@ import {
 } from "@atproto/oauth-client-browser";
 import * as Sentry from "@sentry/solid";
 import { toast } from "somoto";
+import { classifyThrown } from "../errors/classify";
+import { ColibriError, isColibriError } from "../errors/error";
 import { classifyNativeError, wasCancelled } from "../errors/native";
+import { classifyOAuthError, classifyOAuthParams } from "../errors/oauth";
+import { reportError } from "../errors/report";
 import { isTauriRuntime } from "../notifications/environment";
 import {
 	DEFAULT_APPVIEW_URL,
@@ -294,6 +298,33 @@ export const endSignInAttempt = () => {
 	attemptStartedAt = undefined;
 };
 
+const signInTags = (
+	input: string,
+	stage: string,
+	device: Awaited<ReturnType<typeof deviceContext>>,
+	network: ReturnType<typeof networkContext>,
+): Record<string, string> => ({
+	"oauth.stage": stage,
+	"oauth.unreachable_host": unreachableHost ?? "none",
+	"oauth.handle_domain": reportedHandleDomain(input) || "unknown",
+	"oauth.platform": device.platform ?? "web",
+	"oauth.os_version": device.osVersion ?? "unknown",
+	"oauth.time_zone": device.timeZone,
+	"oauth.effective_type": String(network.effectiveType),
+	"idb.scratch": storageProbe?.scratch.status ?? "not-run",
+	"idb.oauth_db": storageProbe?.oauthDb.status ?? "not-run",
+	"oauth.storage_backend": usingFallbackStorage ? "localstorage" : "indexeddb",
+});
+
+const storageContext = () => ({
+	scratchStatus: storageProbe?.scratch.status ?? "not-run",
+	scratchMs: storageProbe?.scratch.ms,
+	scratchDetail: storageProbe?.scratch.detail,
+	oauthDbStatus: storageProbe?.oauthDb.status ?? "not-run",
+	oauthDbMs: storageProbe?.oauthDb.ms,
+	oauthDbDetail: storageProbe?.oauthDb.detail,
+});
+
 const applySignInScope = (
 	scope: {
 		setTag: (key: string, value: string) => unknown;
@@ -304,44 +335,34 @@ const applySignInScope = (
 	device: Awaited<ReturnType<typeof deviceContext>>,
 	network: ReturnType<typeof networkContext>,
 ) => {
-	scope.setTag("oauth.stage", stage);
-	scope.setTag("oauth.unreachable_host", unreachableHost ?? "none");
-	scope.setTag("oauth.handle_domain", reportedHandleDomain(input) || "unknown");
-	scope.setTag("oauth.platform", device.platform ?? "web");
-	scope.setTag("oauth.os_version", device.osVersion ?? "unknown");
-	scope.setTag("oauth.time_zone", device.timeZone);
-	scope.setTag("oauth.effective_type", String(network.effectiveType));
-	scope.setTag("idb.scratch", storageProbe?.scratch.status ?? "not-run");
-	scope.setTag("idb.oauth_db", storageProbe?.oauthDb.status ?? "not-run");
-	scope.setTag(
-		"oauth.storage_backend",
-		usingFallbackStorage ? "localstorage" : "indexeddb",
-	);
+	for (const [key, value] of Object.entries(
+		signInTags(input, stage, device, network),
+	)) {
+		scope.setTag(key, value);
+	}
 	scope.setContext("oauth", signInContext(input));
 	scope.setContext("device", device);
 	scope.setContext("network", network);
-	scope.setContext("storage", {
-		scratchStatus: storageProbe?.scratch.status ?? "not-run",
-		scratchMs: storageProbe?.scratch.ms,
-		scratchDetail: storageProbe?.scratch.detail,
-		oauthDbStatus: storageProbe?.oauthDb.status ?? "not-run",
-		oauthDbMs: storageProbe?.oauthDb.ms,
-		oauthDbDetail: storageProbe?.oauthDb.detail,
-	});
+	scope.setContext("storage", storageContext());
 };
 
 export const reportSignInFailure = async (
 	err: unknown,
 	input: string,
 	stage: string,
-) => {
+): Promise<ColibriError> => {
 	const device = await deviceContext();
 	const network = networkContext();
-	Sentry.withScope((scope) => {
-		applySignInScope(scope, input, stage, device, network);
-		Sentry.captureException(
-			err instanceof Error ? err : new Error(String(err)),
-		);
+
+	return reportError(asSignInError(err), {
+		stage: `oauth.${stage}`,
+		tags: signInTags(input, stage, device, network),
+		contexts: {
+			oauth: signInContext(input),
+			device,
+			network,
+			storage: storageContext(),
+		},
 	});
 };
 
@@ -359,18 +380,30 @@ const reportSignInRecovered = async (input: string) => {
 	});
 };
 
-export const asSignInError = (err: unknown): Error => {
+export const asSignInError = (err: unknown): ColibriError => {
+	if (isColibriError(err)) return err;
+
+	const fromProvider = classifyOAuthError(err);
+	if (fromProvider) return fromProvider;
+
+	const stalled = () =>
+		new ColibriError({
+			code: "StorageStalled",
+			cause: err,
+			context: { stage: "sign-in" },
+		});
+
+	if (isStorageFailure(err)) return stalled();
 	if (unreachableHost) {
-		return new Error(
-			`Couldn't reach ${unreachableHost}. Check your connection and try again.`,
-		);
+		return new ColibriError({
+			code: "Unreachable",
+			cause: err,
+			context: { host: unreachableHost },
+		});
 	}
-	if (probeIndicatesStall(storageProbe) || isStorageFailure(err)) {
-		return new Error(
-			"Sign-in couldn't start because this device's local storage stopped responding. Restarting the app usually clears it.",
-		);
-	}
-	return err instanceof Error ? err : new Error(String(err));
+	if (probeIndicatesStall(storageProbe)) return stalled();
+
+	return classifyThrown(err);
 };
 
 let oAuthClient: undefined | BrowserOAuthClient;
@@ -571,18 +604,29 @@ const restoreExistingSession = async () => {
 				window.location.hash.replace("#", "?"),
 			);
 
-			const callbackSession = await client.callback(searchParams);
+			if (searchParams.has("error")) {
+				const failure = classifyOAuthParams(searchParams);
+				log.info("the provider ended the sign-in without a session", {
+					code: failure.code,
+					oauthError: failure.context.oauthError,
+				});
+				try {
+					await client.callback(searchParams);
+				} catch {}
+			} else {
+				const callbackSession = await client.callback(searchParams);
 
-			if (callbackSession && !window.location.href.startsWith("/app")) {
-				if (!isAllowedDid(callbackSession.session.sub)) {
-					log.info("account is not in the early-access allowlist");
-					await clearDisallowedSession(callbackSession.session.sub);
+				if (callbackSession && !window.location.href.startsWith("/app")) {
+					if (!isAllowedDid(callbackSession.session.sub)) {
+						log.info("account is not in the early-access allowlist");
+						await clearDisallowedSession(callbackSession.session.sub);
+						return;
+					}
+					log.info("session received from callback parameters");
+					localStorage.setItem("sub", callbackSession.session.sub);
+					window.location.href = "/app";
 					return;
 				}
-				log.info("session received from callback parameters");
-				localStorage.setItem("sub", callbackSession.session.sub);
-				window.location.href = "/app";
-				return;
 			}
 		}
 
@@ -769,8 +813,7 @@ export const startOAuthSignIn = async (
 			isStorageFailure(err) || probeIndicatesStall(storageProbe);
 
 		if (!storageAtFault || usingFallbackStorage) {
-			await reportSignInFailure(err, input, "authorize");
-			throw asSignInError(err);
+			throw await reportSignInFailure(err, input, "authorize");
 		}
 
 		log.warn(
@@ -791,8 +834,11 @@ export const startOAuthSignIn = async (
 			oAuthClient = await loadOAuthClient(FALLBACK_DATABASE);
 			await attemptSignIn(oAuthClient, input, options);
 		} catch (fallbackError) {
-			await reportSignInFailure(fallbackError, input, "authorize-fallback");
-			throw asSignInError(fallbackError);
+			throw await reportSignInFailure(
+				fallbackError,
+				input,
+				"authorize-fallback",
+			);
 		}
 
 		await reportSignInRecovered(input);
@@ -817,6 +863,13 @@ export const completeNativeOAuth = async (
 
 	if (!params.has("state") || !(params.has("code") || params.has("error"))) {
 		return false;
+	}
+
+	if (params.has("error")) {
+		try {
+			await active.callback(params);
+		} catch {}
+		throw classifyOAuthParams(params);
 	}
 
 	const { session } = await active.callback(params);

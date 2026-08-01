@@ -11,11 +11,9 @@ import {
 import {
 	type CallbackState,
 	classifyCallback,
-	describeOAuthError,
 	readCallbackParams,
 } from "../../atproto/oauth-callback";
 import {
-	describeThrownError,
 	normalizeHandle,
 	resolveHandleToDid,
 } from "../../atproto/resolve-handle";
@@ -26,6 +24,9 @@ import {
 	searchActorsTypeahead,
 } from "../../atproto/xrpc/app/bsky/actor/searchActorsTypeahead";
 import { useAuthContext } from "../../contexts/Auth";
+import type { ErrorCopy } from "../../errors/copy";
+import { classifyOAuthParams, isSignInDenial } from "../../errors/oauth";
+import { showError } from "../../errors/show-error";
 import { getAppViewDid } from "../../utils/appview";
 import { createLogger } from "../../utils/logger";
 import { type Provider, providerLogoForHost } from "./providers";
@@ -62,11 +63,23 @@ const STEP_BY_FRAGMENT: Record<string, SignInStep> = {
 	continue: "handoff",
 };
 
-const NOT_ON_LIST =
-	"Colibri is in limited early access and this account is not on the list yet.";
+const NOT_ON_LIST: ErrorCopy = {
+	title: "This account isn't on the early-access list yet.",
+	description: "Colibri is in limited early access for now.",
+};
 
-const MISSING_HANDLE =
-	"Enter your handle to continue, for example alice.bsky.social.";
+const MISSING_HANDLE: ErrorCopy = {
+	title: "Enter your handle to continue.",
+	description: "For example alice.bsky.social.",
+};
+
+const showPrompt = (copy: ErrorCopy): void => {
+	toast.error(copy.title, { description: copy.description });
+};
+
+const showFailure = (err: unknown): void => {
+	showError(err, { report: false });
+};
 
 export const createSignInFlow = (config: { mode?: SignInMode } = {}) => {
 	const auth = useAuthContext();
@@ -83,7 +96,6 @@ export const createSignInFlow = (config: { mode?: SignInMode } = {}) => {
 	const [provider, setProvider] = createSignal<Provider | null>(null);
 	const [target, setTarget] = createSignal<SignInTarget | null>(null);
 	const [busy, setBusy] = createSignal(false);
-	const [error, setError] = createSignal<string | null>(null);
 
 	const callbackParams = readCallbackParams();
 	const callback: CallbackState = classifyCallback(callbackParams);
@@ -92,9 +104,20 @@ export const createSignInFlow = (config: { mode?: SignInMode } = {}) => {
 
 	onMount(() => {
 		if (callback !== "failed" || !callbackParams) return;
-		toast.error("Sign-in failed", {
-			description: describeOAuthError(callbackParams),
-		});
+
+		const failure = classifyOAuthParams(callbackParams);
+		const declined = isSignInDenial(failure);
+
+		if (declined) {
+			log.info("the provider reported that sign-in was declined");
+		} else {
+			log.error("the provider ended the sign-in with an error", {
+				code: failure.code,
+				oauthError: failure.context.oauthError,
+			});
+		}
+
+		showError(failure, { stage: "oauth.callback", report: !declined });
 		history.replaceState(
 			null,
 			"",
@@ -159,7 +182,6 @@ export const createSignInFlow = (config: { mode?: SignInMode } = {}) => {
 
 	const onHandleInput = async (value: string) => {
 		setHandle(value);
-		setError(null);
 
 		suggestController?.abort();
 
@@ -197,26 +219,25 @@ export const createSignInFlow = (config: { mode?: SignInMode } = {}) => {
 
 		const input = normalizeHandle(handle());
 		if (input.length === 0) {
-			setError(MISSING_HANDLE);
+			showPrompt(MISSING_HANDLE);
 			return;
 		}
 
 		setBusy(true);
-		setError(null);
 
 		try {
 			const did = await resolveHandleToDid(input);
 
 			if (!isAllowedDid(did)) {
-				setError(NOT_ON_LIST);
+				showPrompt(NOT_ON_LIST);
 				return;
 			}
 
 			setIdentity(await lookupProfile(did, input));
 			goToStep("confirm");
 		} catch (err) {
-			log.error("resolving handle failed", { error: err });
-			setError(describeThrownError(err));
+			log.error("resolving the handle failed", { error: err });
+			showFailure(err);
 		} finally {
 			setBusy(false);
 		}
@@ -225,12 +246,11 @@ export const createSignInFlow = (config: { mode?: SignInMode } = {}) => {
 	const pickAccount = (result: ActorTypeaheadResult) => {
 		if (!isAllowedDid(result.did)) {
 			setHandle(result.handle);
-			setError(NOT_ON_LIST);
+			showPrompt(NOT_ON_LIST);
 			return;
 		}
 		setHandle(result.handle);
 		setIdentity(result);
-		setError(null);
 		goToStep("confirm");
 	};
 
@@ -239,7 +259,6 @@ export const createSignInFlow = (config: { mode?: SignInMode } = {}) => {
 		if (!account || busy()) return;
 
 		setBusy(true);
-		setError(null);
 
 		try {
 			const host = await resolvePdsHost(account.did);
@@ -259,7 +278,6 @@ export const createSignInFlow = (config: { mode?: SignInMode } = {}) => {
 
 		setProvider(picked);
 		setTarget({ host: picked.host, icon: picked.logo });
-		setError(null);
 		goToStep("handoff");
 	};
 
@@ -272,7 +290,6 @@ export const createSignInFlow = (config: { mode?: SignInMode } = {}) => {
 		if (signingUp ? !picked : !account) return;
 
 		setBusy(true);
-		setError(null);
 
 		if (!signingUp && account) {
 			beginSignInAttempt();
@@ -290,7 +307,7 @@ export const createSignInFlow = (config: { mode?: SignInMode } = {}) => {
 			);
 		} catch (err) {
 			log.error("handing off to the provider failed", { error: err });
-			setError(describeThrownError(err));
+			showFailure(err);
 		} finally {
 			if (!signingUp) endSignInAttempt();
 			setBusy(false);
@@ -299,14 +316,12 @@ export const createSignInFlow = (config: { mode?: SignInMode } = {}) => {
 
 	const switchMode = (next: SignInMode) => {
 		setMode(next);
-		setError(null);
 		setProvider(null);
 		setTarget(null);
 		goToStep(next === "signin" ? "handle" : "provider");
 	};
 
 	const back = () => {
-		setError(null);
 		if (!canGoBack()) return;
 		history.back();
 	};
@@ -320,7 +335,6 @@ export const createSignInFlow = (config: { mode?: SignInMode } = {}) => {
 		setIdentity(null);
 		setProvider(null);
 		setTarget(null);
-		setError(null);
 	};
 
 	return {
@@ -335,7 +349,6 @@ export const createSignInFlow = (config: { mode?: SignInMode } = {}) => {
 		provider,
 		target,
 		busy,
-		error,
 		onHandleInput,
 		submitHandle,
 		pickAccount,
