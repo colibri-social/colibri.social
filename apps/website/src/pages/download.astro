@@ -16,21 +16,6 @@ import PublicLayout from "@/layouts/PublicLayout.astro";
 const RELEASES =
 	"https://github.com/colibri-social/colibri.social/releases/latest";
 
-const PLAY_BETA_MAILTO = `mailto:pds@colibri.social?subject=${encodeURIComponent(
-	"Colibri Android beta: I'd like to help test!",
-)}&body=${encodeURIComponent(
-	[
-		"Hi Colibri team,",
-		"",
-		"I'd love to help test the Colibri Android app while it's on its way to Google Play. Please add me to the tester list.",
-		"",
-		"My Google account email (for Play testing access): ",
-		"Device / Android version: ",
-		"",
-		"Thanks!",
-	].join("\n"),
-)}`;
-
 type Method = {
 	name: string;
 	desc: string;
@@ -56,12 +41,10 @@ const platforms: Array<Platform> = [
 		tabIcon: "android",
 		methods: [
 			{
-				name: "Google Play beta",
-				desc: "Currently in closed testing. Email us to join the testers!",
-				icon: "mail",
-				href: PLAY_BETA_MAILTO,
-				cta: "Email us",
-				badge: "Testers wanted",
+				name: "Google Play",
+				desc: "Recommended for most Android devices",
+				icon: "store",
+				href: "https://play.google.com/store/apps/details?id=social.colibri.app&pli=1",
 			},
 			// {
 			// 	name: "F-Droid",
@@ -332,7 +315,9 @@ const methodIcons = {
 												>
 													<Copy class="dl-copy-icon" />
 													<Check class="dl-check-icon hidden text-green-500" />
-													<span class="text-xs font-medium sm:hidden">Copy command</span>
+													<span class="text-xs font-medium sm:hidden">
+														Copy command
+													</span>
 												</button>
 											)}
 										</div>
