@@ -29,9 +29,8 @@ import { ScopeGate } from "./components/app/onboarding/ScopeGate";
 import { VoiceChannelView } from "./components/app/VoiceChannelView";
 import { DeepLinkListener } from "./components/DeepLinkListener";
 import { ErrorDetails } from "./components/ErrorDetails";
-import { LoginScreen } from "./components/LoginScreen";
-import { RegisterScreen } from "./components/RegisterScreen";
 import { SectionBoundary } from "./components/SectionBoundary";
+import { SignInScreen } from "./components/signin/SignInScreen";
 import { Toaster } from "./components/ui/Sonner";
 import { WaitlistScreen } from "./components/WaitlistScreen";
 import { WelcomeScreen } from "./components/WelcomeScreen";
@@ -95,6 +94,10 @@ const RedirectToApp: Component = () => {
 
 	return <AppLoadingScreen message="Redirecting to app..." />;
 };
+
+const SignInRoute: Component = () => <SignInScreen />;
+
+const SignUpRoute: Component = () => <SignInScreen mode="signup" />;
 
 const log = createLogger("app");
 
@@ -169,8 +172,8 @@ const App: ParentComponent = () => {
 					<AuthContextProvider>
 						<SentryRouter root={RootLayout} base="/">
 							<Route path="/" component={RedirectToApp} />
-							<Route path="/app/login" component={LoginScreen} />
-							<Route path="/app/register" component={RegisterScreen} />
+							<Route path="/app/login" component={SignInRoute} />
+							<Route path="/app/register" component={SignUpRoute} />
 							<Route path="/app/waitlist" component={WaitlistScreen} />
 							<Route path="/app" component={AppRoute}>
 								<Route path="/" component={WelcomeScreen} />

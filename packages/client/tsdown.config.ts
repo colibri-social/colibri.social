@@ -43,7 +43,11 @@ const disableSentryPlugin = {
 };
 
 export default defineConfig({
-	entry: ["src/index.ts", "src/atproto/scopes.ts"],
+	entry: [
+		"src/index.ts",
+		"src/atproto/scopes.ts",
+		"src/hooks/createAnimationTimeline.ts",
+	],
 	format: ["esm"],
 	dts: true,
 	clean: true,

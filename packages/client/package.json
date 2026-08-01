@@ -33,6 +33,10 @@
 			"types": "./dist/atproto/scopes.d.mts",
 			"import": "./dist/atproto/scopes.mjs"
 		},
+		"./animation": {
+			"types": "./dist/hooks/createAnimationTimeline.d.mts",
+			"import": "./dist/hooks/createAnimationTimeline.mjs"
+		},
 		"./index.css": "./dist/index.css"
 	},
 	"license": "MIT",

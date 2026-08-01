@@ -1,4 +1,10 @@
 ---
+import {
+	PETAL_GRADIENT_STOPS,
+	PETAL_PATH_D,
+	PETAL_VIEW_BOX,
+} from "@/scripts/heroPetals";
+
 interface Props {
 	count?: number;
 	class?: string;
@@ -33,14 +39,14 @@ const petals = Array.from({ length: count }, () => ({
 	<svg width="0" height="0" class="absolute" aria-hidden="true">
 		<defs>
 			<radialGradient id="petal-grad" cx="42%" cy="30%" r="80%">
-				<stop offset="0%" stop-color="#ffffff"></stop>
-				<stop offset="55%" stop-color="#d9d9d9"></stop>
-				<stop offset="100%" stop-color="#9c9c9c"></stop>
+				{
+					PETAL_GRADIENT_STOPS.map((stop) => (
+						<stop offset={stop.offset} stop-color={stop.color} />
+					))
+				}
 			</radialGradient>
-			<symbol id="petal-shape" viewBox="0 0 60 90">
-				<path
-					d="M30 86 C14 74 4 54 8 36 C10 22 12 12 20 9 C25 7 29 12 30 22 C31 12 35 7 40 9 C48 12 50 22 52 36 C56 54 46 74 30 86 Z"
-					fill="url(#petal-grad)"></path>
+			<symbol id="petal-shape" viewBox={PETAL_VIEW_BOX}>
+				<path d={PETAL_PATH_D} fill="url(#petal-grad)"></path>
 			</symbol>
 		</defs>
 	</svg>

@@ -441,6 +441,12 @@ img.emoji {
 	cursor: pointer;
 }
 
+/* Read-only rich text (e.g. the sign-in preview): emoji are decoration, not
+   controls, so they must not advertise a click target. */
+.rich-text.emoji-readonly img.emoji {
+	cursor: default;
+}
+
 .rich-text.jumbomoji img.emoji {
 	height: 2.5em;
 	width: 2.5em;
@@ -544,4 +550,36 @@ pre code,
 
 .swipe-owns-x {
 	touch-action: pan-y pinch-zoom;
+}
+
+.signin-wire {
+	position: relative;
+	overflow: hidden;
+}
+
+.signin-wire::after {
+	content: "";
+	position: absolute;
+	inset: 0;
+	width: 40%;
+	border-radius: inherit;
+	background: var(--primary);
+	animation: signin-wire-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes signin-wire-pulse {
+	from {
+		transform: translateX(-100%);
+	}
+	to {
+		transform: translateX(260%);
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.signin-wire::after {
+		animation: none;
+		width: 100%;
+		opacity: 0.4;
+	}
 }

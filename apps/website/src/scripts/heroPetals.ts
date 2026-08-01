@@ -28,7 +28,25 @@ interface FieldOpts {
 
 const TAU = Math.PI * 2;
 
+export const PETAL_VIEW_BOX = "0 0 60 90";
+
+export const PETAL_PATH_D =
+	"M30 86 C14 74 4 54 8 36 C10 22 12 12 20 9 C25 7 29 12 30 22 C31 12 35 7 40 9 C48 12 50 22 52 36 C56 54 46 74 30 86 Z";
+
+export const PETAL_GRADIENT_STOPS: Array<{ offset: string; color: string }> = [
+	{ offset: "0%", color: "#ffffff" },
+	{ offset: "55%", color: "#d9d9d9" },
+	{ offset: "100%", color: "#9c9c9c" },
+];
+
 const rand = (a: number, b: number) => a + Math.random() * (b - a);
+
+export const randomPetalStyle = () => ({
+	size: rand(9, 20),
+	opacity: rand(0.18, 0.5),
+	blur: rand(0, 1),
+	swayDur: rand(3, 6),
+});
 
 const pointer = { cx: -1e5, cy: -1e5, vx: 0, vy: 0, t: 0 };
 let pointerBound = false;
@@ -136,8 +154,8 @@ function createField(layer: HTMLElement, opts: FieldOpts) {
 	return { bodies, run, rectOf: () => rect };
 }
 
-export function initHeroPetals() {
-	const layer = document.querySelector<HTMLElement>(".hero-petals");
+export function initHeroPetals(target?: HTMLElement | null) {
+	const layer = target ?? document.querySelector<HTMLElement>(".hero-petals");
 	if (!layer) return { burst: () => {} };
 	const field = createField(layer, {
 		gravity: 460,
@@ -192,8 +210,8 @@ export function initHeroPetals() {
 	return { burst };
 }
 
-export function initAmbientPetals() {
-	const layer = document.querySelector<HTMLElement>(".petal-field");
+export function initAmbientPetals(target?: HTMLElement | null) {
+	const layer = target ?? document.querySelector<HTMLElement>(".petal-field");
 	if (!layer) return;
 	const nodes = layer.querySelectorAll<HTMLElement>(".petal");
 	if (!nodes.length) return;

@@ -1,4 +1,9 @@
 import {
+	type BuildEventsResult,
+	createAnimationTimeline,
+	type TimelineEvent,
+} from "@colibri-social/client/animation";
+import {
 	type Component,
 	createSignal,
 	For,
@@ -7,11 +12,6 @@ import {
 	Show,
 	Switch,
 } from "solid-js";
-import {
-	type BuildEventsResult,
-	createAnimationTimeline,
-	type TimelineEvent,
-} from "@/lib/hooks/createAnimationTimeline";
 
 type Guest = {
 	id: string;
