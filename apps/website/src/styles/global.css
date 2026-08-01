@@ -49,6 +49,11 @@
 }
 
 @layer base {
+	html {
+		width: 100vw;
+		overflow-x: hidden;
+	}
+
 	/* Body and Paragraphs */
 	body {
 		@apply text-gray-700 leading-7 dark:text-gray-300;
