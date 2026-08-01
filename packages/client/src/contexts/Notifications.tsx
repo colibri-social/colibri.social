@@ -11,6 +11,7 @@ import {
 } from "solid-js";
 import { toast } from "somoto";
 import { writeReadCursor } from "../atproto/read-cursor";
+import { isGoneCode } from "../errors/codes";
 import {
 	cancelChannelTrayNotification,
 	isStaleNotificationEvent,
@@ -275,8 +276,9 @@ export const NotificationsContextProvider: ParentComponent = (props) => {
 	// ---- Seeding -----------------------------------------------------------
 
 	const seeded = new Set<string>();
+	const blocked = new Set<string>();
 	const seedCommunity = async (communityUri: string): Promise<void> => {
-		if (seeded.has(communityUri)) return;
+		if (seeded.has(communityUri) || blocked.has(communityUri)) return;
 		seeded.add(communityUri);
 
 		let reached = false;
@@ -284,7 +286,16 @@ export const NotificationsContextProvider: ParentComponent = (props) => {
 		try {
 			const res =
 				await user.xrpc.social.colibri.channel.listUnreadStatus(communityUri);
-			if (!res.ok) return;
+			if (!res.ok) {
+				if (isGoneCode(res.error.code)) {
+					blocked.add(communityUri);
+					log.warn("unread seeding blocked", {
+						community: communityUri,
+						code: res.error.code,
+					});
+				}
+				return;
+			}
 
 			reached = true;
 
@@ -325,8 +336,14 @@ export const NotificationsContextProvider: ParentComponent = (props) => {
 	};
 
 	createEffect(() => {
-		for (const community of user.communities) {
-			void seedCommunity(community.uri);
+		const known = new Set<string>(
+			user.communities.map((community) => community.uri),
+		);
+		for (const uri of blocked) {
+			if (!known.has(uri)) blocked.delete(uri);
+		}
+		for (const uri of known) {
+			void seedCommunity(uri);
 		}
 	});
 
@@ -334,6 +351,18 @@ export const NotificationsContextProvider: ParentComponent = (props) => {
 
 	onMount(() => {
 		const cleanup = socket.onEvent((event) => {
+			if (
+				event.type === "member_event" &&
+				event.data?.event === "join" &&
+				event.data.member.did === user.did
+			) {
+				const { community } = event.data;
+				blocked.delete(community);
+				seeded.delete(community);
+				void seedCommunity(community);
+				return;
+			}
+
 			if (event.type === "notification_event") {
 				if (!event.data) return;
 				const data = event.data;
@@ -417,6 +446,7 @@ export const NotificationsContextProvider: ParentComponent = (props) => {
 
 	const reseedAll = (): void => {
 		for (const community of user.communities) {
+			if (blocked.has(community.uri)) continue;
 			seeded.delete(community.uri);
 			void seedCommunity(community.uri);
 		}

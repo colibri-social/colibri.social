@@ -52,7 +52,7 @@ import type { Member } from "../atproto/xrpc/social/colibri/community/listMember
 import type { Role } from "../atproto/xrpc/social/colibri/community/listRoles";
 import { AppLoadingScreen } from "../components/AppLoadingScreen";
 import { ErrorState } from "../components/ErrorState";
-import type { ColibriErrorCode } from "../errors/codes";
+import { isGoneCode } from "../errors/codes";
 import { isColibriError } from "../errors/error";
 import { getAppViewDid } from "../utils/appview";
 import { AtURI, toRecordUri } from "../utils/at-uri";
@@ -112,8 +112,6 @@ export const CommunityContextProvider: ParentComponent = (props) => {
 	// authoritative data. Not reactive — only touched imperatively.
 	const pendingRoleIntents = new Map<string, Array<string>>();
 
-	const GONE_CODES: ReadonlyArray<ColibriErrorCode> = ["NotFound", "Forbidden"];
-
 	let lastFetched: CommunityResponse | undefined;
 
 	const [community, { mutate, refetch }] = createResource(
@@ -137,7 +135,7 @@ export const CommunityContextProvider: ParentComponent = (props) => {
 	createEffect(() => {
 		if (community.loading || community.latest) return;
 		const err: unknown = community.error;
-		if (isColibriError(err) && !GONE_CODES.includes(err.code)) return;
+		if (isColibriError(err) && !isGoneCode(err.code)) return;
 		navigate("/app", { replace: true });
 	});
 

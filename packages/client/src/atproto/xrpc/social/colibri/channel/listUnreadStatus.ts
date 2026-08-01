@@ -19,5 +19,6 @@ export const listUnreadStatus: XrpcRequest<
 	return request<Response>(fetch, {
 		lxm: "social.colibri.channel.listUnreadStatus",
 		route: `/xrpc/social.colibri.channel.listUnreadStatus?community=${community}`,
+		expected: ["Forbidden"],
 	});
 };

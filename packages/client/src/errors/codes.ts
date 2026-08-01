@@ -146,6 +146,14 @@ const RETRYABLE_CODES = new Set<ColibriErrorCode>([
 export const isRetryableCode = (code: ColibriErrorCode): boolean =>
 	RETRYABLE_CODES.has(code);
 
+export const GONE_CODES: ReadonlyArray<ColibriErrorCode> = [
+	"NotFound",
+	"Forbidden",
+];
+
+export const isGoneCode = (code: ColibriErrorCode): boolean =>
+	GONE_CODES.includes(code);
+
 const SESSION_RECOVERY_CODES = new Set<ColibriErrorCode>([
 	"InvalidToken",
 	"ExpiredToken",

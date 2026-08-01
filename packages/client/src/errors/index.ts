@@ -21,7 +21,9 @@ export {
 	APPVIEW_CODE_DESCRIPTIONS,
 	APPVIEW_METHOD_ERRORS,
 	domainOf,
+	GONE_CODES,
 	isAppViewErrorCode,
+	isGoneCode,
 	isRetryableCode,
 	needsReauthentication,
 } from "./codes";
