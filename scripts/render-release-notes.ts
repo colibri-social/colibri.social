@@ -11,17 +11,18 @@ const DATA_FILE = new URL(
 
 const flags = new Map<string, string>();
 for (const arg of process.argv.slice(2)) {
-	const match = /^--([^=]+)=(.*)$/.exec(arg);
-	if (match) flags.set(match[1], match[2]);
+	const match = /^--([^=]+)(?:=(.*))?$/.exec(arg);
+	if (match) flags.set(match[1], match[2] ?? "");
 }
 
 const version = flags.get("version")?.replace(/^v/, "").trim();
 const max = Number(flags.get("max") ?? 0);
 const out = flags.get("out");
+const strict = flags.has("strict");
 
 if (!version) {
 	console.error(
-		"usage: render-release-notes.ts --version=<release-version> [--max=<chars>] [--out=<path>]",
+		"usage: render-release-notes.ts --version=<release-version> [--max=<chars>] [--out=<path>] [--strict]",
 	);
 	process.exit(1);
 }
@@ -36,7 +37,16 @@ const notes = (await readNotes()).filter(
 	(note) => note.version !== PREVIEW_VERSION,
 );
 
-const note = notes.find((entry) => entry.version === version) ?? notes[0];
+const exact = notes.find((entry) => entry.version === version);
+
+if (strict && (!exact || exact.entries.length === 0)) {
+	console.error(
+		`no release notes for ${version}, and --strict forbids falling back to another version`,
+	);
+	process.exit(1);
+}
+
+const note = exact ?? notes[0];
 
 if (!note || note.entries.length === 0) {
 	console.error(

@@ -14,9 +14,17 @@ on:
         description: "Only build and upload the Mac App Store package, skipping every other channel."
         type: boolean
         default: false
+      play_track:
+        description: "Google Play track to publish to."
+        type: choice
+        default: alpha
+        options:
+          - alpha
+          - beta
+          - production
 
 concurrency:
-  group: publish-${{ inputs.version }}-${{ inputs.appstore_only }}
+  group: publish-${{ inputs.version }}-${{ inputs.appstore_only }}-${{ inputs.play_track }}
   cancel-in-progress: false
 
 jobs:
@@ -162,7 +170,17 @@ jobs:
           echo "$BIN" >> "$GITHUB_PATH"
 
       - name: Sync version
-        run: node packages/wrapper/scripts/set-version.mjs "${{ inputs.version }}" "${{ github.run_number }}"
+        shell: bash
+        env:
+          VERSION: ${{ inputs.version }}
+          IS_ANDROID: ${{ matrix.is-android }}
+        run: |
+          set -euo pipefail
+          SYNC_VERSION="$VERSION"
+          if [ "${IS_ANDROID:-}" = "true" ]; then
+            SYNC_VERSION=$(node packages/wrapper/scripts/appstore-version.mjs "$VERSION")
+          fi
+          node packages/wrapper/scripts/set-version.mjs "$SYNC_VERSION" "$GITHUB_RUN_NUMBER"
 
       - name: Compute Android version code (Android only)
         if: matrix.is-android
@@ -394,8 +412,9 @@ jobs:
         if: steps.validate.outputs.validated == 'true'
         run: |
           set -euo pipefail
+          NOTES_VERSION=$(node -p "require('./packages/client/package.json').version")
           node --experimental-strip-types scripts/render-release-notes.ts \
-            --version="${{ inputs.version }}" --max=4000 \
+            --version="$NOTES_VERSION" --max=4000 \
             --out="$RUNNER_TEMP/whats-new.txt"
           cat "$RUNNER_TEMP/whats-new.txt"
 
@@ -597,19 +616,41 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p whatsnew
+          NOTES_VERSION=$(node -p "require('./packages/client/package.json').version")
           node --experimental-strip-types scripts/render-release-notes.ts \
-            --version="${{ inputs.version }}" --max=500 \
+            --version="$NOTES_VERSION" --max=500 \
+            ${{ inputs.play_track == 'production' && '--strict' || '' }} \
             --out=whatsnew/whatsnew-en-US
           cat whatsnew/whatsnew-en-US
 
-      - name: Upload to Play (closed testing)
+      - name: Compute Play release name (production only)
+        if: inputs.play_track == 'production'
+        env:
+          VERSION: ${{ inputs.version }}
+        run: echo "PLAY_RELEASE_NAME=$VERSION ($(date -u +%F))" >> "$GITHUB_ENV"
+
+      - name: Upload to Play (testing track)
+        if: inputs.play_track != 'production'
         uses: r0adkll/upload-google-play@v1
         with:
           serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
           packageName: social.colibri.app
           releaseFiles: dl/*.aab
-          track: alpha
+          track: ${{ inputs.play_track }}
           status: completed
+          whatsNewDirectory: whatsnew
+
+      - name: Upload to Play (production, staged rollout)
+        if: inputs.play_track == 'production'
+        uses: r0adkll/upload-google-play@v1
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+          packageName: social.colibri.app
+          releaseFiles: dl/*.aab
+          track: production
+          status: inProgress
+          userFraction: 0.2
+          releaseName: ${{ env.PLAY_RELEASE_NAME }}
           whatsNewDirectory: whatsnew
 
   msstore-build:

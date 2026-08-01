@@ -1,0 +1,45 @@
+name: Play rollout
+
+on:
+  schedule:
+    - cron: "0 10 * * *"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Report the decision without changing the rollout."
+        type: boolean
+        default: false
+      fraction:
+        description: "Force a specific user fraction (e.g. 0.5), ignoring the schedule."
+        type: string
+        default: ""
+
+jobs:
+  advance:
+    name: Advance the production rollout
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: setup node
+        uses: actions/setup-node@v6
+        with:
+          node-version: lts/*
+
+      - name: Advance rollout
+        env:
+          PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+          DRY_RUN: ${{ inputs.dry_run }}
+          FRACTION: ${{ inputs.fraction }}
+        run: |
+          set -euo pipefail
+          ARGS=()
+          if [ "${DRY_RUN:-false}" = "true" ]; then
+            ARGS+=(--dry-run)
+          fi
+          if [ -n "${FRACTION:-}" ]; then
+            ARGS+=("--fraction=$FRACTION")
+          fi
+          node --experimental-strip-types scripts/play-rollout.ts "${ARGS[@]}"
