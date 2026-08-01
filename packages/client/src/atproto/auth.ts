@@ -480,7 +480,7 @@ export type Client =
 			loggedIn: true;
 			agent: Agent;
 			client: BrowserOAuthClient;
-			pdsHost: string;
+			pdsHost: string | undefined;
 			grantedScopes: string | undefined;
 	  }
 	| { loggedIn: false; client: BrowserOAuthClient }
@@ -491,7 +491,7 @@ type ClientGetter = () => Promise<Client>;
 const getClient: ClientGetter = () => {
 	return new Promise((res) => {
 		init().then(() => {
-			if (oAuthClient && agent && pdsHost) {
+			if (oAuthClient && agent) {
 				res({
 					loggedIn: true,
 					client: oAuthClient,
@@ -572,24 +572,50 @@ const init = async () => {
 
 	if (!agent) return;
 
+	pdsHost = readCachedPdsHost(agent.did!);
+	void resolvePdsHost(agent.did!);
+};
+
+const pdsHostKey = (did: string) => `colibri:pds:${did}`;
+
+const readCachedPdsHost = (did: string): string | undefined => {
+	try {
+		return localStorage.getItem(pdsHostKey(did)) ?? undefined;
+	} catch {
+		return undefined;
+	}
+};
+
+const resolvePdsHost = async (did: string): Promise<void> => {
 	try {
 		const didDoc = (await (
 			await fetch(
-				`${getAppViewHost("http")}/xrpc/com.atproto.identity.resolveDid?did=${agent.did!}`,
+				`${getAppViewHost("http")}/xrpc/com.atproto.identity.resolveDid?did=${did}`,
 			)
 		).json()) as DidDocument;
 
 		if (!didDoc.service) {
-			throw new Error(
-				`DID document for ${agent.did!} did not include any services.`,
-			);
+			throw new ColibriError({
+				code: "MalformedResponse",
+				method: "com.atproto.identity.resolveDid",
+				context: { did },
+			});
 		}
 
-		pdsHost = didDoc.service
+		const resolved = didDoc.service
 			.find((x) => x.id === "#atproto_pds")
 			?.serviceEndpoint.toString();
+
+		if (!resolved) return;
+		pdsHost = resolved;
+		try {
+			localStorage.setItem(pdsHostKey(did), resolved);
+		} catch {}
 	} catch (e) {
-		log.error("resolving the PDS host failed", { error: e });
+		const failure = classifyThrown(e, {
+			method: "com.atproto.identity.resolveDid",
+		});
+		log.warn("resolving the PDS host failed", { code: failure.code });
 	}
 };
 

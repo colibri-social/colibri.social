@@ -38,7 +38,11 @@ import {
 	TooltipPortal,
 	TooltipTrigger,
 } from "../components/ui/Tooltip";
-import { ChannelContextProvider, useChannelContext } from "../contexts/Channel";
+import {
+	ChannelContextProvider,
+	MESSAGES_STALE_HINT_MS,
+	useChannelContext,
+} from "../contexts/Channel";
 import { useCommunityContext } from "../contexts/Community";
 import { useMutes } from "../contexts/Mutes";
 import { isSameChannelUri, useNotifications } from "../contexts/Notifications";
@@ -885,6 +889,17 @@ const ChannelLayout: ParentComponent = (props) => {
 										>
 											<div class="w-full text-center py-4 text-sm text-muted-foreground">
 												Loading messages...
+											</div>
+										</Show>
+
+										<Show
+											when={
+												!channel.hydratedFromNetwork() &&
+												(channel.snapshotAge() ?? 0) > MESSAGES_STALE_HINT_MS
+											}
+										>
+											<div class="w-full text-center py-1.5 text-xs text-muted-foreground">
+												Catching up...
 											</div>
 										</Show>
 

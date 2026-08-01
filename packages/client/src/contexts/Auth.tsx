@@ -8,9 +8,15 @@ import {
 	useContext,
 } from "solid-js";
 import { type Client, getClient } from "../atproto/auth";
+import { primeFromLocation } from "../atproto/channel-prefetch";
+import { XrpcClient } from "../atproto/xrpc";
 import { AppLoadingScreen } from "../components/AppLoadingScreen";
 import { AppViewUnreachableModal } from "../components/app/AppViewUnreachableModal";
-import { getAppViewHost, verifyColibriAppView } from "../utils/appview";
+import {
+	getAppViewHost,
+	getAppViewServiceRef,
+	verifyColibriAppView,
+} from "../utils/appview";
 import { reportPdsStatus } from "../utils/dev-diagnostics";
 import { markBoot } from "../utils/perf";
 
@@ -21,6 +27,12 @@ export const AuthContextProvider: ParentComponent = (props) => {
 
 	createEffect(() => {
 		if (!client.loading) markBoot("auth:ready");
+	});
+
+	createEffect(() => {
+		const resolved = client();
+		if (!resolved?.loggedIn) return;
+		primeFromLocation(new XrpcClient(getAppViewServiceRef(), resolved.agent));
 	});
 
 	// An AppView with no usable PDS serves every read fine and fails every

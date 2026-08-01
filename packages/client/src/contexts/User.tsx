@@ -44,7 +44,7 @@ type User =
 			atproto: {
 				client: BrowserOAuthClient;
 				agent: Agent;
-				pdsHost: string;
+				pdsHost: string | undefined;
 			};
 			communities: Array<Community>;
 			xrpc: XrpcClient;

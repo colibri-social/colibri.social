@@ -14,11 +14,14 @@ import {
 } from "solid-js";
 import { toast } from "somoto";
 import { namespace } from "../atproto/cache/keys";
+import { registerOpenChannel } from "../atproto/cache/messages-writer";
+import type { MessagesSnapshot } from "../atproto/cache/schema";
 import {
 	cacheEnabled,
 	readMessages,
 	writeMessages,
 } from "../atproto/cache/store";
+import { takeChannelView } from "../atproto/channel-prefetch";
 import { communityUriToUrlCompatible } from "../atproto/community-uri-to-url-compatible";
 import { enqueuePut, onOutboxSent } from "../atproto/outbox/outbox";
 import { writeReadCursor } from "../atproto/read-cursor";
@@ -47,7 +50,17 @@ import { useUserContext } from "./User";
  */
 const TYPING_HOLD_MS = 5000;
 
-const PAGE_SIZE = 50;
+export const PAGE_SIZE = 50;
+
+const MESSAGES_HARD_TTL_MS = 24 * 60 * 60 * 1000;
+
+export const MESSAGES_STALE_HINT_MS = 60_000;
+
+const CACHE_WRITE_MAX_INTERVAL_MS = 5000;
+
+const CACHE_WRITE_DEBOUNCE_MS = 400;
+
+const CATCHUP_MIN_INTERVAL_MS = 1500;
 
 /**
  * How long a `focusedMessage` stays "set" before it auto-clears, in ms. The
@@ -78,6 +91,9 @@ export type ChannelContextValue = {
 	initialLoading: Accessor<boolean>;
 	error: Accessor<ColibriError | undefined>;
 	loadOlder: () => Promise<void>;
+
+	snapshotAge: Accessor<number | undefined>;
+	hydratedFromNetwork: Accessor<boolean>;
 
 	/**
 	 * The message the user is currently composing a reply to, or `undefined`.
@@ -245,6 +261,10 @@ export const ChannelContextProvider: ParentComponent<{
 	);
 	const [readCursorResolved, setReadCursorResolved] = createSignal(false);
 	const [initialUnseen, setInitialUnseen] = createSignal<string[]>([]);
+	const [snapshotAge, setSnapshotAge] = createSignal<number | undefined>(
+		undefined,
+	);
+	const [hydratedFromNetwork, setHydratedFromNetwork] = createSignal(false);
 
 	// Reply / edit / focus state. Configured with `equals: false` so that
 	// re-asserting the same message (e.g. clicking "Reply" on the same row
@@ -279,8 +299,11 @@ export const ChannelContextProvider: ParentComponent<{
 	// `inflight` pattern in the old Astro `useMessageHistory` hook).
 	let inflight = false;
 
+	let lastViewAt = 0;
+
 	const reset = () => {
 		inflight = false;
+		lastViewAt = 0;
 		reactionRkeyCache.clear();
 		batch(() => {
 			setMessages([]);
@@ -292,6 +315,8 @@ export const ChannelContextProvider: ParentComponent<{
 			setReadCursorUri(undefined);
 			setReadCursorResolved(false);
 			setInitialUnseen([]);
+			setSnapshotAge(undefined);
+			setHydratedFromNetwork(false);
 		});
 	};
 
@@ -362,24 +387,12 @@ export const ChannelContextProvider: ParentComponent<{
 		inflight = true;
 		setLoadingOlder(true);
 
-		if (cacheEnabled()) {
-			const cached = await readMessages(ns(), uri);
-			if (cached && uri === channelUri() && messages().length === 0) {
-				batch(() => {
-					setMessages(cached.messages);
-					const oldest = cached.messages[0];
-					if (oldest) setCursor(rkeyOf(oldest.uri));
-					setReadCursorUri(cached.readCursor);
-					setInitialLoading(false);
-				});
-			}
-		}
-
 		try {
-			const view = await user.xrpc.social.colibri.channel.getChannelView(
-				uri,
-				PAGE_SIZE,
-			);
+			const primed = takeChannelView(uri);
+			if (primed) markBoot("prefetch:consumed");
+			const view =
+				(await primed) ??
+				(await user.xrpc.social.colibri.channel.getChannelView(uri, PAGE_SIZE));
 
 			if (uri !== channelUri()) return;
 
@@ -391,15 +404,21 @@ export const ChannelContextProvider: ParentComponent<{
 			const channel = view.data;
 			const ordered = [...(channel?.messages ?? [])].reverse();
 
+			const stillPending = messages().filter(
+				(m) => "hash" in m && !ordered.some((o) => o.uri === m.uri),
+			);
+
 			batch(() => {
 				setError(undefined);
-				setMessages(ordered);
+				setMessages([...ordered, ...stillPending]);
 				const oldest = ordered[0];
 				if (oldest) setCursor(rkeyOf(oldest.uri));
 				if (ordered.length < PAGE_SIZE) setHasMore(false);
 				setReadCursorUri(channel?.readCursor?.cursor);
 				setInitialUnseen((channel?.unseen ?? []).map((n) => n.messageUri));
+				setHydratedFromNetwork(true);
 			});
+			lastViewAt = Date.now();
 		} catch (err) {
 			const failure = classifyThrown(err, { method: "channel.getChannelView" });
 			log.error("loadInitial failed", { code: failure.code });
@@ -414,42 +433,103 @@ export const ChannelContextProvider: ParentComponent<{
 		}
 	};
 
+	let cacheWriteTimer: ReturnType<typeof setTimeout> | undefined;
+	let pendingSnapshot:
+		| { ns: string; uri: string; snap: MessagesSnapshot }
+		| undefined;
+	let lastCacheWriteAt = 0;
+
+	const flushSnapshot = () => {
+		if (cacheWriteTimer) {
+			clearTimeout(cacheWriteTimer);
+			cacheWriteTimer = undefined;
+		}
+		const queued = pendingSnapshot;
+		if (!queued) return;
+		pendingSnapshot = undefined;
+		lastCacheWriteAt = Date.now();
+		void writeMessages(queued.ns, queued.uri, queued.snap);
+	};
+
 	// Reset state and seed the first page whenever the channel URI changes
 	// (including the initial mount). `on` makes the dependency explicit.
 	createEffect(
 		on(channelUri, (uri) => {
+			flushSnapshot();
+			registerOpenChannel(uri);
 			if (!uri) return;
 			reset();
 			loadInitial();
 		}),
 	);
+	onCleanup(() => registerOpenChannel(undefined));
 
 	createEffect(() => {
 		if (!initialLoading()) markBoot("channel:firstPage");
 	});
 
-	let cacheWriteTimer: ReturnType<typeof setTimeout> | undefined;
+	createEffect(
+		on(channelUri, async (uri) => {
+			if (!cacheEnabled() || !uri) return;
+			const cached = await readMessages(ns(), uri);
+			if (!cached) return;
+			const age = Date.now() - cached.ts;
+			if (age > MESSAGES_HARD_TTL_MS) return;
+			if (uri !== channelUri() || hydratedFromNetwork()) return;
+			if (messages().length > 0) return;
+			batch(() => {
+				setMessages(cached.messages);
+				const oldest = cached.messages[0];
+				if (oldest) setCursor(rkeyOf(oldest.uri));
+				setReadCursorUri(cached.readCursor);
+				setSnapshotAge(age);
+				setInitialLoading(false);
+				markBoot("cache:paint");
+			});
+		}),
+	);
+
 	createEffect(() => {
 		const uri = channelUri();
 		const confirmed = messages().filter(
 			(m) => !("hash" in m) && m.uri.startsWith("at://"),
 		);
-		if (!cacheEnabled() || !uri || initialLoading() || confirmed.length === 0) {
+		if (
+			!cacheEnabled() ||
+			!uri ||
+			!hydratedFromNetwork() ||
+			confirmed.length === 0
+		) {
 			return;
 		}
-		const tail = confirmed.slice(-PAGE_SIZE);
-		const readCursor = readCursorUri();
-		if (cacheWriteTimer) clearTimeout(cacheWriteTimer);
-		cacheWriteTimer = setTimeout(() => {
-			void writeMessages(ns(), uri, {
-				messages: tail,
-				readCursor,
+		pendingSnapshot = {
+			ns: ns(),
+			uri,
+			snap: {
+				messages: confirmed.slice(-PAGE_SIZE),
+				readCursor: readCursorUri(),
 				ts: Date.now(),
-			});
-		}, 1000);
+			},
+		};
+		if (Date.now() - lastCacheWriteAt >= CACHE_WRITE_MAX_INTERVAL_MS) {
+			flushSnapshot();
+			return;
+		}
+		if (cacheWriteTimer) clearTimeout(cacheWriteTimer);
+		cacheWriteTimer = setTimeout(flushSnapshot, CACHE_WRITE_DEBOUNCE_MS);
+	});
+
+	const onHidden = () => {
+		if (document.visibilityState === "hidden") flushSnapshot();
+	};
+	onMount(() => {
+		document.addEventListener("visibilitychange", onHidden);
+		window.addEventListener("pagehide", flushSnapshot);
 	});
 	onCleanup(() => {
-		if (cacheWriteTimer) clearTimeout(cacheWriteTimer);
+		document.removeEventListener("visibilitychange", onHidden);
+		window.removeEventListener("pagehide", flushSnapshot);
+		flushSnapshot();
 	});
 
 	const clearReplyingTo = () => setReplyingTo(undefined);
@@ -832,6 +912,7 @@ export const ChannelContextProvider: ParentComponent<{
 	const catchUp = async (): Promise<void> => {
 		const uri = channelUri();
 		if (!uri || initialLoading() || inflight) return;
+		if (Date.now() - lastViewAt < CATCHUP_MIN_INTERVAL_MS) return;
 
 		inflight = true;
 		try {
@@ -860,7 +941,9 @@ export const ChannelContextProvider: ParentComponent<{
 				}
 				setReadCursorUri(channel?.readCursor?.cursor);
 				setInitialUnseen((channel?.unseen ?? []).map((n) => n.messageUri));
+				setHydratedFromNetwork(true);
 			});
+			lastViewAt = Date.now();
 		} catch (err) {
 			log.error("catchUp failed", {
 				code: classifyThrown(err).code,
@@ -870,13 +953,14 @@ export const ChannelContextProvider: ParentComponent<{
 		}
 	};
 
-	let sawConnected = false;
-	createEffect(() => {
-		const isConnected = socket.connected();
-		if (!isConnected) return;
-		if (sawConnected) void catchUp();
-		sawConnected = true;
-	});
+	createEffect(
+		on(
+			() => socket.connected(),
+			(isConnected) => {
+				if (isConnected) void catchUp();
+			},
+		),
+	);
 
 	const onVisible = () => {
 		if (document.visibilityState === "visible") void catchUp();
@@ -957,6 +1041,8 @@ export const ChannelContextProvider: ParentComponent<{
 		initialLoading,
 		error,
 		loadOlder,
+		snapshotAge,
+		hydratedFromNetwork,
 		replyingTo,
 		setReplyingTo,
 		clearReplyingTo,
