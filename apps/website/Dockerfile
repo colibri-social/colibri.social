@@ -20,7 +20,7 @@ RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
     pnpm install --frozen-lockfile --store-dir=/pnpm/store
 
 RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
-    pnpm add @colibri-social/client --yes
+    cd apps/website && pnpm add @colibri-social/client --yes
 
 # Declare build args
 ARG APPVIEW_DOMAIN
