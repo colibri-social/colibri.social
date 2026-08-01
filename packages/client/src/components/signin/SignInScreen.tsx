@@ -41,7 +41,7 @@ const SignInScreenContent: Component<{ mode?: SignInMode }> = (props) => {
 								class="size-8 md:size-9"
 							/>
 							<span class="font-display text-xl leading-none text-foreground md:text-2xl">
-								colibri
+								Colibri Social
 							</span>
 						</div>
 
