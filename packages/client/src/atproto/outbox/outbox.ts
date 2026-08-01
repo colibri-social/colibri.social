@@ -24,8 +24,17 @@ const RETRY_BASE_MS = 2_000;
 const RETRY_MAX_MS = 60_000;
 
 const [pendingCount, setPendingCount] = createSignal(0);
+const [outboxRevision, setOutboxRevision] = createSignal(0);
 
-export { pendingCount };
+export { outboxRevision, pendingCount };
+
+export type QueuedRecord = {
+	uri: string;
+	rkey: string;
+	kind: "create" | "put";
+	record: Record<string, unknown>;
+	createdAt: number;
+};
 
 let agent: Agent | null = null;
 let owner: string | null = null;
@@ -62,10 +71,29 @@ const emitSent = (uri: string, collection: string) => {
 const isOffline = () =>
 	typeof navigator !== "undefined" && navigator.onLine === false;
 
-const sync = () => setPendingCount(queue.length);
+const sync = () => {
+	setPendingCount(queue.length);
+	setOutboxRevision((r) => r + 1);
+};
 
 const buildUri = (repo: string, collection: string, rkey: string) =>
 	`at://${repo}/${collection}/${rkey}`;
+
+export const queuedRecords = (collection: string): QueuedRecord[] =>
+	queue.flatMap((entry) => {
+		const k = entry.kind;
+		if (k.t !== "create" && k.t !== "put") return [];
+		if (k.collection !== collection) return [];
+		return [
+			{
+				uri: buildUri(k.repo, k.collection, k.rkey),
+				rkey: k.rkey,
+				kind: k.t,
+				record: k.record,
+				createdAt: entry.createdAt,
+			},
+		];
+	});
 
 const toRecord = (entry: OutboxEntry): OutboxRecord => {
 	const { seq: _seq, ...rest } = entry;
@@ -283,6 +311,7 @@ export const enqueuePut = async (
 		existing.kind.record = record;
 		existing.attempts = 0;
 		await outboxUpdate(existing.seq, toRecord(existing));
+		sync();
 		scheduleFlush();
 		return { uri: buildUri(repo, collection, rkey) };
 	}

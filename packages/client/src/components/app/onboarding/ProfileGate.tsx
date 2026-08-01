@@ -1,6 +1,7 @@
 import { createResource, Match, type ParentComponent, Switch } from "solid-js";
 import { useUserContext } from "../../../contexts/User";
 import { classifyThrown, isRecordNotFound } from "../../../errors/classify";
+import { markBoot } from "../../../utils/perf";
 import { AppLoadingScreen } from "../../AppLoadingScreen";
 import { ErrorState } from "../../ErrorState";
 import { ProfileSetupModal } from "./ProfileSetupModal";
@@ -18,8 +19,26 @@ type GateState = {
 	returning: boolean;
 };
 
+const seenKey = (did: string) => `colibri:profile-ok:${did}`;
+
+const hasSeenProfile = (did: string): boolean => {
+	try {
+		return localStorage.getItem(seenKey(did)) === "1";
+	} catch {
+		return false;
+	}
+};
+
+const rememberProfile = (did: string, present: boolean): void => {
+	try {
+		if (present) localStorage.setItem(seenKey(did), "1");
+		else localStorage.removeItem(seenKey(did));
+	} catch {}
+};
+
 export const ProfileGate: ParentComponent = (props) => {
 	const user = useUserContext();
+	const skipBlocking = hasSeenProfile(user.did);
 
 	const recordExists = async (collection: string): Promise<boolean> => {
 		try {
@@ -56,27 +75,36 @@ export const ProfileGate: ParentComponent = (props) => {
 				recordExists("app.bsky.actor.profile"),
 				isReturning(),
 			]);
+			rememberProfile(user.did, hasColibri);
+			markBoot("profilegate:ready");
 			return { needsSetup: !hasColibri, hasBluesky, returning };
 		},
 	);
 
+	const needsSetup = () => gate()?.needsSetup ?? false;
+
 	return (
 		<Switch>
-			<Match when={gate.loading}>
+			<Match when={gate.loading && !skipBlocking}>
 				<AppLoadingScreen message="Checking your profile..." />
 			</Match>
-			<Match when={gate.error !== undefined}>
+			<Match when={gate.error !== undefined && !skipBlocking}>
 				<ErrorState error={gate.error} retry={() => void refetch()} />
 			</Match>
-			<Match when={gate()?.needsSetup}>
+			<Match when={needsSetup()}>
 				<ProfileSetupModal
 					open
 					hasBlueskyProfile={gate()?.hasBluesky ?? false}
 					returning={gate()?.returning ?? false}
-					onComplete={() => mutate((prev) => ({ ...prev!, needsSetup: false }))}
+					onComplete={() => {
+						rememberProfile(user.did, true);
+						mutate((prev) => ({ ...prev!, needsSetup: false }));
+					}}
 				/>
 			</Match>
-			<Match when={gate() && !gate()!.needsSetup}>{props.children}</Match>
+			<Match when={skipBlocking || (gate() && !gate()!.needsSetup)}>
+				{props.children}
+			</Match>
 		</Switch>
 	);
 };

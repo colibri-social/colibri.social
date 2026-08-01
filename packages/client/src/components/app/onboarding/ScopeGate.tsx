@@ -12,7 +12,7 @@ export const ScopeGate: ParentComponent = (props) => {
 
 	if (!auth?.loggedIn) return <>{props.children}</>;
 
-	const missing = createMemo(() => getMissingScopeSets(auth.grantedScopes));
+	const missing = createMemo(() => getMissingScopeSets(auth.grantedScopes()));
 
 	const needsReauth = createMemo(() => {
 		if (missing().length === 0) {

@@ -87,8 +87,8 @@ export const AboutPage: Component = () => {
 			await collectDiagnostics({
 				did: user.did,
 				handle: user.handle,
-				pdsHost: user.atproto.pdsHost,
-				grantedScopes: auth?.loggedIn ? auth.grantedScopes : undefined,
+				pdsHost: user.atproto.pdsHost ?? "unknown",
+				grantedScopes: auth?.loggedIn ? auth.grantedScopes() : undefined,
 				socketStatus: socket.status(),
 				nativeNotifications: preferences().nativeNotifications,
 				experiments: preferences().experiments,

@@ -19,6 +19,9 @@ COPY apps/website/package.json ./apps/website/
 RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
     pnpm install --frozen-lockfile --store-dir=/pnpm/store
 
+RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
+    pnpm add @colibri-social/client --yes
+
 # Declare build args
 ARG APPVIEW_DOMAIN
 ARG SAME_TLD_DID

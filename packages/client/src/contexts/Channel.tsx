@@ -10,17 +10,39 @@ import {
 	onCleanup,
 	onMount,
 	type ParentComponent,
+	untrack,
 	useContext,
 } from "solid-js";
 import { toast } from "somoto";
 import { namespace } from "../atproto/cache/keys";
 import {
+	buildMessagesSnapshot,
+	isSnapshotPaintable,
+	restoreMessagesSnapshot,
+	rkeyOf,
+	shouldWriteSnapshot,
+	snapshotAgeMs,
+} from "../atproto/cache/messages-snapshot";
+import { registerOpenChannel } from "../atproto/cache/messages-writer";
+import type { MessagesSnapshot } from "../atproto/cache/schema";
+import {
+	createSnapshotScheduler,
+	realSnapshotClock,
+} from "../atproto/cache/snapshot-scheduler";
+import {
 	cacheEnabled,
 	readMessages,
 	writeMessages,
 } from "../atproto/cache/store";
+import { takeChannelView } from "../atproto/channel-prefetch";
 import { communityUriToUrlCompatible } from "../atproto/community-uri-to-url-compatible";
-import { enqueuePut, onOutboxSent } from "../atproto/outbox/outbox";
+import {
+	enqueuePut,
+	onOutboxSent,
+	outboxRevision,
+	queuedRecords,
+} from "../atproto/outbox/outbox";
+import { rehydrateQueuedMessages } from "../atproto/outbox/rehydrate";
 import { writeReadCursor } from "../atproto/read-cursor";
 import type {
 	Message,
@@ -47,7 +69,13 @@ import { useUserContext } from "./User";
  */
 const TYPING_HOLD_MS = 5000;
 
-const PAGE_SIZE = 50;
+export const PAGE_SIZE = 50;
+
+const CACHE_WRITE_MAX_INTERVAL_MS = 5000;
+
+const CACHE_WRITE_DEBOUNCE_MS = 400;
+
+const CATCHUP_MIN_INTERVAL_MS = 1500;
 
 /**
  * How long a `focusedMessage` stays "set" before it auto-clears, in ms. The
@@ -78,6 +106,9 @@ export type ChannelContextValue = {
 	initialLoading: Accessor<boolean>;
 	error: Accessor<ColibriError | undefined>;
 	loadOlder: () => Promise<void>;
+
+	snapshotAge: Accessor<number | undefined>;
+	hydratedFromNetwork: Accessor<boolean>;
 
 	/**
 	 * The message the user is currently composing a reply to, or `undefined`.
@@ -209,8 +240,6 @@ const log = createLogger("channel");
 
 export const ChannelContext = createContext<ChannelContextValue>();
 
-const rkeyOf = (uri: string): string => uri.split("/").pop() ?? "";
-
 export const ChannelContextProvider: ParentComponent<{
 	channel: Accessor<Channel | undefined>;
 }> = (props) => {
@@ -245,6 +274,10 @@ export const ChannelContextProvider: ParentComponent<{
 	);
 	const [readCursorResolved, setReadCursorResolved] = createSignal(false);
 	const [initialUnseen, setInitialUnseen] = createSignal<string[]>([]);
+	const [snapshotAge, setSnapshotAge] = createSignal<number | undefined>(
+		undefined,
+	);
+	const [hydratedFromNetwork, setHydratedFromNetwork] = createSignal(false);
 
 	// Reply / edit / focus state. Configured with `equals: false` so that
 	// re-asserting the same message (e.g. clicking "Reply" on the same row
@@ -279,8 +312,11 @@ export const ChannelContextProvider: ParentComponent<{
 	// `inflight` pattern in the old Astro `useMessageHistory` hook).
 	let inflight = false;
 
+	let lastViewAt = 0;
+
 	const reset = () => {
 		inflight = false;
+		lastViewAt = 0;
 		reactionRkeyCache.clear();
 		batch(() => {
 			setMessages([]);
@@ -292,6 +328,8 @@ export const ChannelContextProvider: ParentComponent<{
 			setReadCursorUri(undefined);
 			setReadCursorResolved(false);
 			setInitialUnseen([]);
+			setSnapshotAge(undefined);
+			setHydratedFromNetwork(false);
 		});
 	};
 
@@ -362,24 +400,12 @@ export const ChannelContextProvider: ParentComponent<{
 		inflight = true;
 		setLoadingOlder(true);
 
-		if (cacheEnabled()) {
-			const cached = await readMessages(ns(), uri);
-			if (cached && uri === channelUri() && messages().length === 0) {
-				batch(() => {
-					setMessages(cached.messages);
-					const oldest = cached.messages[0];
-					if (oldest) setCursor(rkeyOf(oldest.uri));
-					setReadCursorUri(cached.readCursor);
-					setInitialLoading(false);
-				});
-			}
-		}
-
 		try {
-			const view = await user.xrpc.social.colibri.channel.getChannelView(
-				uri,
-				PAGE_SIZE,
-			);
+			const primed = takeChannelView(uri);
+			if (primed) markBoot("prefetch:consumed");
+			const view =
+				(await primed) ??
+				(await user.xrpc.social.colibri.channel.getChannelView(uri, PAGE_SIZE));
 
 			if (uri !== channelUri()) return;
 
@@ -391,15 +417,21 @@ export const ChannelContextProvider: ParentComponent<{
 			const channel = view.data;
 			const ordered = [...(channel?.messages ?? [])].reverse();
 
+			const stillPending = messages().filter(
+				(m) => "hash" in m && !ordered.some((o) => o.uri === m.uri),
+			);
+
 			batch(() => {
 				setError(undefined);
-				setMessages(ordered);
+				setMessages([...ordered, ...stillPending]);
 				const oldest = ordered[0];
 				if (oldest) setCursor(rkeyOf(oldest.uri));
-				if (ordered.length < PAGE_SIZE) setHasMore(false);
+				setHasMore(ordered.length >= PAGE_SIZE);
 				setReadCursorUri(channel?.readCursor?.cursor);
 				setInitialUnseen((channel?.unseen ?? []).map((n) => n.messageUri));
+				setHydratedFromNetwork(true);
 			});
+			lastViewAt = Date.now();
 		} catch (err) {
 			const failure = classifyThrown(err, { method: "channel.getChannelView" });
 			log.error("loadInitial failed", { code: failure.code });
@@ -414,42 +446,114 @@ export const ChannelContextProvider: ParentComponent<{
 		}
 	};
 
+	const snapshotWrites = createSnapshotScheduler<
+		{ ns: string; uri: string; snap: MessagesSnapshot },
+		ReturnType<typeof setTimeout>
+	>({
+		maxIntervalMs: CACHE_WRITE_MAX_INTERVAL_MS,
+		debounceMs: CACHE_WRITE_DEBOUNCE_MS,
+		clock: realSnapshotClock,
+		write: (queued) => {
+			void writeMessages(queued.ns, queued.uri, queued.snap);
+		},
+	});
+
+	const flushSnapshot = () => snapshotWrites.flush();
+
 	// Reset state and seed the first page whenever the channel URI changes
 	// (including the initial mount). `on` makes the dependency explicit.
 	createEffect(
 		on(channelUri, (uri) => {
+			flushSnapshot();
+			registerOpenChannel(uri);
 			if (!uri) return;
 			reset();
 			loadInitial();
 		}),
 	);
+	onCleanup(() => registerOpenChannel(undefined));
 
 	createEffect(() => {
 		if (!initialLoading()) markBoot("channel:firstPage");
 	});
 
-	let cacheWriteTimer: ReturnType<typeof setTimeout> | undefined;
+	createEffect(
+		on(channelUri, async (uri) => {
+			if (!cacheEnabled() || !uri) return;
+			const cached = await readMessages(ns(), uri);
+			if (!cached) return;
+			const age = snapshotAgeMs(cached, Date.now());
+			if (!isSnapshotPaintable(age)) return;
+			if (uri !== channelUri() || hydratedFromNetwork()) return;
+			if (messages().length > 0) return;
+			const restored = restoreMessagesSnapshot(cached);
+			batch(() => {
+				setMessages(cached.messages);
+				if (restored.cursor) setCursor(restored.cursor);
+				if (restored.hasMore !== undefined) setHasMore(restored.hasMore);
+				setReadCursorUri(cached.readCursor);
+				setSnapshotAge(age);
+				setInitialLoading(false);
+				markBoot("cache:paint");
+			});
+		}),
+	);
+
+	createEffect(() => {
+		const uri = channelUri();
+		outboxRevision();
+		if (!uri || initialLoading()) return;
+		untrack(() => {
+			const reconciled = rehydrateQueuedMessages({
+				channelUri: uri,
+				community: community().community.uri,
+				author: {
+					did: user.did,
+					handle: user.handle.replaceAll("at://", ""),
+					data: user.data,
+				},
+				queued: queuedRecords("social.colibri.message"),
+				existing: messages(),
+			});
+			if (reconciled) setMessages(reconciled);
+		});
+	});
+
 	createEffect(() => {
 		const uri = channelUri();
 		const confirmed = messages().filter(
 			(m) => !("hash" in m) && m.uri.startsWith("at://"),
 		);
-		if (!cacheEnabled() || !uri || initialLoading() || confirmed.length === 0) {
-			return;
-		}
-		const tail = confirmed.slice(-PAGE_SIZE);
-		const readCursor = readCursorUri();
-		if (cacheWriteTimer) clearTimeout(cacheWriteTimer);
-		cacheWriteTimer = setTimeout(() => {
-			void writeMessages(ns(), uri, {
-				messages: tail,
-				readCursor,
-				ts: Date.now(),
-			});
-		}, 1000);
+		const gate = {
+			cacheEnabled: cacheEnabled(),
+			channelUri: uri,
+			hydratedFromNetwork: hydratedFromNetwork(),
+			confirmedCount: confirmed.length,
+		};
+		if (!shouldWriteSnapshot(gate)) return;
+		snapshotWrites.schedule({
+			ns: ns(),
+			uri,
+			snap: buildMessagesSnapshot(confirmed, {
+				readCursor: readCursorUri(),
+				hasMore: hasMore(),
+				limit: PAGE_SIZE,
+				now: Date.now(),
+			}),
+		});
+	});
+
+	const onHidden = () => {
+		if (document.visibilityState === "hidden") flushSnapshot();
+	};
+	onMount(() => {
+		document.addEventListener("visibilitychange", onHidden);
+		window.addEventListener("pagehide", flushSnapshot);
 	});
 	onCleanup(() => {
-		if (cacheWriteTimer) clearTimeout(cacheWriteTimer);
+		document.removeEventListener("visibilitychange", onHidden);
+		window.removeEventListener("pagehide", flushSnapshot);
+		flushSnapshot();
 	});
 
 	const clearReplyingTo = () => setReplyingTo(undefined);
@@ -482,7 +586,11 @@ export const ChannelContextProvider: ParentComponent<{
 	// ---------------------------------------------------------------------------
 
 	const addPendingMessage = (msg: PendingMessage) => {
-		setMessages((prev) => [...prev, msg]);
+		setMessages((prev) =>
+			prev.some((m) => m.uri === msg.uri)
+				? prev.map((m) => (m.uri === msg.uri ? msg : m))
+				: [...prev, msg],
+		);
 		setReadCursorUri(undefined);
 		setOutgoingMessage((n) => n + 1);
 	};
@@ -832,6 +940,7 @@ export const ChannelContextProvider: ParentComponent<{
 	const catchUp = async (): Promise<void> => {
 		const uri = channelUri();
 		if (!uri || initialLoading() || inflight) return;
+		if (Date.now() - lastViewAt < CATCHUP_MIN_INTERVAL_MS) return;
 
 		inflight = true;
 		try {
@@ -860,7 +969,9 @@ export const ChannelContextProvider: ParentComponent<{
 				}
 				setReadCursorUri(channel?.readCursor?.cursor);
 				setInitialUnseen((channel?.unseen ?? []).map((n) => n.messageUri));
+				setHydratedFromNetwork(true);
 			});
+			lastViewAt = Date.now();
 		} catch (err) {
 			log.error("catchUp failed", {
 				code: classifyThrown(err).code,
@@ -870,13 +981,14 @@ export const ChannelContextProvider: ParentComponent<{
 		}
 	};
 
-	let sawConnected = false;
-	createEffect(() => {
-		const isConnected = socket.connected();
-		if (!isConnected) return;
-		if (sawConnected) void catchUp();
-		sawConnected = true;
-	});
+	createEffect(
+		on(
+			() => socket.connected(),
+			(isConnected) => {
+				if (isConnected) void catchUp();
+			},
+		),
+	);
 
 	const onVisible = () => {
 		if (document.visibilityState === "visible") void catchUp();
@@ -957,6 +1069,8 @@ export const ChannelContextProvider: ParentComponent<{
 		initialLoading,
 		error,
 		loadOlder,
+		snapshotAge,
+		hydratedFromNetwork,
 		replyingTo,
 		setReplyingTo,
 		clearReplyingTo,

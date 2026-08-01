@@ -22,6 +22,7 @@ import ChatCircleDotsIcon from "~icons/ph/chat-circle-dots";
 import UsersIcon from "~icons/ph/users";
 import UsersIconFill from "~icons/ph/users-fill";
 import XIcon from "~icons/ph/x";
+import { isSnapshotStale } from "../atproto/cache/messages-snapshot";
 import type { Message as MessageData } from "../atproto/xrpc/social/colibri/channel/listMessages";
 import { Message } from "../components/app/channel/message/Message";
 import { ChatGuidelinesModal } from "../components/app/community/ChatGuidelinesModal";
@@ -885,6 +886,17 @@ const ChannelLayout: ParentComponent = (props) => {
 										>
 											<div class="w-full text-center py-4 text-sm text-muted-foreground">
 												Loading messages...
+											</div>
+										</Show>
+
+										<Show
+											when={
+												!channel.hydratedFromNetwork() &&
+												isSnapshotStale(channel.snapshotAge())
+											}
+										>
+											<div class="w-full text-center py-1.5 text-xs text-muted-foreground">
+												Catching up...
 											</div>
 										</Show>
 

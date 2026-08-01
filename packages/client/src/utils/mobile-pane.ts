@@ -7,24 +7,9 @@ import {
 } from "@solidjs/router";
 import { batch, createEffect, createSignal } from "solid-js";
 import createMediaQuery from "./create-media-query";
+import { lastViewedChannelPath } from "./last-viewed-channel";
 
 const CHANNEL_PATH = /^\/app\/c\/[^/]+\/[^/]+\/[^/]+/;
-const COMMUNITY_SEGMENT = /^\/app\/c\/([^/]+)/;
-
-const lastViewedChannelPath = (pathname: string): string | undefined => {
-	const segment = COMMUNITY_SEGMENT.exec(pathname)?.[1];
-	if (!segment) return undefined;
-	const raw = localStorage.getItem(`${segment}:last-viewed`);
-	if (!raw) return undefined;
-	try {
-		const channel = JSON.parse(raw) as { uri: string; type: string };
-		const identifier = channel.uri.split("/").pop();
-		if (!identifier) return undefined;
-		return `/app/c/${segment}/${channel.type}/${identifier}`;
-	} catch {
-		return undefined;
-	}
-};
 
 export type Pane = "nav" | "chat" | "members";
 

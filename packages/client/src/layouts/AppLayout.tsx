@@ -33,6 +33,7 @@ import { AppReconnectingIndicator } from "../components/app/AppReconnectingIndic
 import { CommunityCreationModal } from "../components/app/CommunityCreationModal";
 import { CommunityContextMenu } from "../components/app/community/CommunityContextMenu";
 import { PENDING_INVITE_KEY } from "../components/app/community/invite-storage";
+import { MessageSnapshotWriter } from "../components/app/MessageSnapshotWriter";
 import { NativeNotifications } from "../components/app/NativeNotifications";
 import { NotificationPromptDialog } from "../components/app/onboarding/NotificationPromptDialog";
 import { ReleaseNotesModal } from "../components/app/ReleaseNotes";
@@ -555,6 +556,7 @@ const AppLayout: ParentComponent = (props) => {
 			<VoiceOverlay />
 			<AppReconnectingIndicator />
 			<ReleaseNotesModal />
+			<MessageSnapshotWriter />
 		</div>
 	);
 };

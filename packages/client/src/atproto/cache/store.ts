@@ -164,6 +164,23 @@ export const writeCommunity = (
 	snap: CommunitySnapshot,
 ): Promise<void> => write("community", communityKey(ns, uri), snap);
 
+const EVICT_EVERY_N_WRITES = 10;
+const writeCounts = new Map<StoreName, number>();
+
+const writeAndMaybeEvict = (
+	store: StoreName,
+	key: string,
+	value: unknown,
+	maxCount: number,
+): Promise<void> => {
+	return write(store, key, value).then(() => {
+		const seen = writeCounts.get(store) ?? 0;
+		writeCounts.set(store, seen + 1);
+		if (seen % EVICT_EVERY_N_WRITES !== 0) return undefined;
+		return evictOldest(store, maxCount);
+	});
+};
+
 export const readMessages = (
 	ns: string,
 	channelUri: string,
@@ -174,10 +191,14 @@ export const writeMessages = (
 	ns: string,
 	channelUri: string,
 	snap: MessagesSnapshot,
-): Promise<void> =>
-	write("messages", messagesKey(ns, channelUri), snap).then(() =>
-		evictOldest("messages", MAX_CHANNELS),
+): Promise<void> => {
+	return writeAndMaybeEvict(
+		"messages",
+		messagesKey(ns, channelUri),
+		snap,
+		MAX_CHANNELS,
 	);
+};
 
 export const readBskyPost = (
 	atUri: string,
@@ -188,9 +209,7 @@ export const writeBskyPost = (
 	atUri: string,
 	snap: BskyPostSnapshot,
 ): Promise<void> =>
-	write("bsky", bskyPostKey(atUri), snap).then(() =>
-		evictOldest("bsky", MAX_BSKY_ENTRIES),
-	);
+	writeAndMaybeEvict("bsky", bskyPostKey(atUri), snap, MAX_BSKY_ENTRIES);
 
 export const readBskyHandle = (
 	handle: string,
@@ -201,9 +220,7 @@ export const writeBskyHandle = (
 	handle: string,
 	snap: BskyHandleSnapshot,
 ): Promise<void> =>
-	write("bsky", bskyHandleKey(handle), snap).then(() =>
-		evictOldest("bsky", MAX_BSKY_ENTRIES),
-	);
+	writeAndMaybeEvict("bsky", bskyHandleKey(handle), snap, MAX_BSKY_ENTRIES);
 
 export const readBskyMuVerification = (
 	did: string,

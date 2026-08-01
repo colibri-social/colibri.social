@@ -4,6 +4,7 @@ import {
 	type DidDocument,
 } from "@atproto/oauth-client-browser";
 import * as Sentry from "@sentry/solid";
+import { type Accessor, createSignal } from "solid-js";
 import { toast } from "somoto";
 import { classifyThrown } from "../errors/classify";
 import { ColibriError, isColibriError } from "../errors/error";
@@ -19,6 +20,7 @@ import {
 } from "../utils/appview";
 import { deviceContext, getConnection } from "../utils/device-context";
 import { createLogger } from "../utils/logger";
+import { markBoot } from "../utils/perf";
 import { isAllowedDid } from "./allowlist";
 import { buildScopes, getMissingScopeSets } from "./scopes";
 import {
@@ -409,8 +411,12 @@ export const asSignInError = (err: unknown): ColibriError => {
 let oAuthClient: undefined | BrowserOAuthClient;
 let agent: undefined | Agent;
 let pdsHost: undefined | string;
-let grantedScopes: undefined | string;
+const [grantedScopes, setGrantedScopes] = createSignal<string | undefined>(
+	undefined,
+);
 let usingFallbackStorage = false;
+
+export { grantedScopes };
 
 const FALLBACK_FLAG_KEY = "colibri:oauth-storage-fallback";
 
@@ -472,7 +478,7 @@ const clearDisallowedSession = async (sub: string) => {
 	localStorage.removeItem("sub");
 	agent = undefined;
 	pdsHost = undefined;
-	grantedScopes = undefined;
+	setGrantedScopes(undefined);
 };
 
 export type Client =
@@ -480,8 +486,8 @@ export type Client =
 			loggedIn: true;
 			agent: Agent;
 			client: BrowserOAuthClient;
-			pdsHost: string;
-			grantedScopes: string | undefined;
+			pdsHost: string | undefined;
+			grantedScopes: Accessor<string | undefined>;
 	  }
 	| { loggedIn: false; client: BrowserOAuthClient }
 	| undefined;
@@ -491,7 +497,7 @@ type ClientGetter = () => Promise<Client>;
 const getClient: ClientGetter = () => {
 	return new Promise((res) => {
 		init().then(() => {
-			if (oAuthClient && agent && pdsHost) {
+			if (oAuthClient && agent) {
 				res({
 					loggedIn: true,
 					client: oAuthClient,
@@ -511,11 +517,25 @@ const getClient: ClientGetter = () => {
 	});
 };
 
+type RestoredSession = Awaited<ReturnType<BrowserOAuthClient["restore"]>>;
+
+const revalidateGrantedScopes = async (
+	session: RestoredSession,
+): Promise<void> => {
+	try {
+		setGrantedScopes((await session.getTokenInfo(true)).scope);
+		markBoot("auth:scopesRevalidated");
+	} catch (e) {
+		const failure = classifyThrown(e, { method: "oauth.getTokenInfo" });
+		log.warn("forced token refresh failed", { code: failure.code });
+	}
+};
+
 const resetSession = () => {
 	localStorage.removeItem("sub");
 	agent = undefined;
 	pdsHost = undefined;
-	grantedScopes = undefined;
+	setGrantedScopes(undefined);
 };
 
 const init = async () => {
@@ -572,24 +592,50 @@ const init = async () => {
 
 	if (!agent) return;
 
+	pdsHost = readCachedPdsHost(agent.did!);
+	void resolvePdsHost(agent.did!);
+};
+
+const pdsHostKey = (did: string) => `colibri:pds:${did}`;
+
+const readCachedPdsHost = (did: string): string | undefined => {
+	try {
+		return localStorage.getItem(pdsHostKey(did)) ?? undefined;
+	} catch {
+		return undefined;
+	}
+};
+
+const resolvePdsHost = async (did: string): Promise<void> => {
 	try {
 		const didDoc = (await (
 			await fetch(
-				`${getAppViewHost("http")}/xrpc/com.atproto.identity.resolveDid?did=${agent.did!}`,
+				`${getAppViewHost("http")}/xrpc/com.atproto.identity.resolveDid?did=${did}`,
 			)
 		).json()) as DidDocument;
 
 		if (!didDoc.service) {
-			throw new Error(
-				`DID document for ${agent.did!} did not include any services.`,
-			);
+			throw new ColibriError({
+				code: "MalformedResponse",
+				method: "com.atproto.identity.resolveDid",
+				context: { did },
+			});
 		}
 
-		pdsHost = didDoc.service
+		const resolved = didDoc.service
 			.find((x) => x.id === "#atproto_pds")
 			?.serviceEndpoint.toString();
+
+		if (!resolved) return;
+		pdsHost = resolved;
+		try {
+			localStorage.setItem(pdsHostKey(did), resolved);
+		} catch {}
 	} catch (e) {
-		log.error("resolving the PDS host failed", { error: e });
+		const failure = classifyThrown(e, {
+			method: "com.atproto.identity.resolveDid",
+		});
+		log.warn("resolving the PDS host failed", { code: failure.code });
 	}
 };
 
@@ -662,20 +708,17 @@ const restoreExistingSession = async () => {
 		agent = new Agent(session);
 
 		try {
-			grantedScopes = (await session.getTokenInfo(false)).scope;
+			setGrantedScopes((await session.getTokenInfo(false)).scope);
 		} catch {}
 
+		const cached = grantedScopes();
 		if (
 			state == null &&
 			navigator.onLine &&
-			grantedScopes !== undefined &&
-			getMissingScopeSets(grantedScopes).length === 0
+			cached !== undefined &&
+			getMissingScopeSets(cached).length === 0
 		) {
-			try {
-				grantedScopes = (await session.getTokenInfo(true)).scope;
-			} catch (e) {
-				log.warn("forced token refresh failed", { error: e });
-			}
+			void revalidateGrantedScopes(session);
 		}
 	}
 };
