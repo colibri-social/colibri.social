@@ -19,9 +19,6 @@ COPY apps/website/package.json ./apps/website/
 RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
     pnpm install --frozen-lockfile --store-dir=/pnpm/store
 
-RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
-    cd apps/website && pnpm add @colibri-social/client --yes
-
 # Declare build args
 ARG APPVIEW_DOMAIN
 ARG SAME_TLD_DID
@@ -47,6 +44,17 @@ ENV PUBLIC_VAPID_KEY=${PUBLIC_VAPID_KEY}
 COPY packages/ ./packages/
 COPY apps/ ./apps/
 
+# Swaps the workspace link for the published client. Disabled until
+# @colibri-social/client v0.1.0-rc.14 is on npm, since the releases before it
+# are missing exports the website imports. Re-enable on rc.14, and drop the lib
+# and client builds below
+# ENV pnpm_config_link_workspace_packages=false
+# RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
+#     CLIENT_VERSION="$(node -p 'require("/app/packages/client/package.json").version')" && \
+#     pnpm --filter @colibri-social/website add \
+#       "@colibri-social/client@${CLIENT_VERSION}" \
+#       --save-exact --yes --store-dir=/pnpm/store
+
 # Build in dependency order
 RUN pnpm --filter @colibri-social/assets build
 RUN pnpm --filter @colibri-social/lib build
@@ -58,11 +66,6 @@ RUN --mount=type=cache,id=astro-cache,target=/app/apps/website/node_modules/.ast
 FROM node:24-alpine AS runtime
 WORKDIR /app
 
-# Root node_modules contains the .pnpm virtual store (actual package files).
-# apps/website/node_modules contains pnpm's symlinks into that store.
-# Both are needed: Node.js resolves packages by walking up from the entry
-# point's path, and the symlinks in apps/website/node_modules are what make
-# packages like clsx visible in that traversal.
 COPY --from=base /app/node_modules ./node_modules
 COPY --from=base /app/apps/website/dist ./apps/website/dist
 COPY --from=base /app/apps/website/node_modules ./apps/website/node_modules
