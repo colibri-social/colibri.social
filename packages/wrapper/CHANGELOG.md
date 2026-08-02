@@ -1,5 +1,70 @@
 # @colibri-social/wrapper
 
+## 0.1.0-rc.14
+
+### Patch Changes
+
+- 979f968: Swaps in the new paper-cut hummingbird as the app icon everywhere: desktop, iOS, Android, Windows, the favicons, the web app manifest, and the sign-in provider list.
+
+  Android 13 and newer now get a monochrome layer, so launchers that tint icons to the wallpaper palette render Colibri properly instead of falling back to the untinted foreground. The adaptive foreground is also rendered separately at each density and inset to the safe zone, which fixes the beak and tail being clipped by round and squircle launcher masks. The status bar notification icon is redrawn from the same artwork.
+
+  The three vector variants of the mark are committed under `packages/assets/brand`, and every raster target is rendered from them by `pnpm brand:render`, so the icon set is reproducible rather than a pile of hand-exported files. `favicon.svg` drops from 300 KB of base64-encoded PNG to a 15 KB vector along the way.
+
+  <!-- whatsnew
+  title: A new app icon
+  icon: sparkle-fill
+  body: Colibri has a new app icon, a paper-cut hummingbird. On Android 13 and newer it also picks up your wallpaper colours if your launcher tints icons.
+  kind: feature
+  -->
+
+- 2b1173c: Adds a Google Play production release path to CI.
+
+  The client and wrapper packages are now a fixed version group, so they always release under the same version.
+
+- 81e1408: Makes the direct-distribution macOS build reliable.
+- 244c83e: Colibri on macOS, Windows and Linux now draws its own window title bar instead of using the plain system one, so the desktop app has the same branded header as the web app. The bar shows the community and channel you're in, and that same name is now what you see in the taskbar, in Alt-Tab and in Mission Control.
+  There's a new "Use system window controls" switch in Settings under Preferences to go back to native controls.
+
+  Also fixes the video viewer on desktop, which used a stand-in fullscreen mode that ignored Escape, and stops a trackpad pinch-zoom from shifting the whole app down.
+
+  <!-- whatsnew
+  title: A window title bar of our own
+  icon: browser-fill
+  body: The desktop app now has the same branded header as the web app, with the channel you're in shown in the title bar and the taskbar.
+  kind: feature
+  -->
+
+- 692d211: Adds the new Liquid Glass app icon for macOS and iOS, built from an Icon Composer source so it renders with the real adaptive glass effect on macOS 26+ and iOS 26+ (with a flattened fallback on older systems).
+
+  <!-- whatsnew
+  title: New app icon on macOS
+  icon: sparkle-fill
+  body: Colibri has a new Liquid Glass app icon on macOS and iOS.
+  kind: feature
+  -->
+
+- Updated dependencies [e0a5e5f]
+- Updated dependencies [979f968]
+- Updated dependencies [98c23f0]
+- Updated dependencies [97bd8f3]
+- Updated dependencies [3b27f31]
+- Updated dependencies [36cc84a]
+- Updated dependencies [39a219f]
+- Updated dependencies [8539830]
+- Updated dependencies [fa3a6a8]
+- Updated dependencies [0e459f3]
+- Updated dependencies [979f968]
+- Updated dependencies [7379b04]
+- Updated dependencies [99e3e50]
+- Updated dependencies [93374b8]
+- Updated dependencies [244c83e]
+- Updated dependencies [7136be7]
+- Updated dependencies [99e3e50]
+- Updated dependencies [618b27f]
+- Updated dependencies [99e3e50]
+  - @colibri-social/client@0.1.0-rc.14
+  - @colibri-social/assets@0.0.2-rc.3
+
 ## 0.1.0-rc.13
 
 ### Patch Changes
