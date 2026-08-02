@@ -102,7 +102,7 @@ export const BootOverlay: Component = () => {
 	return (
 		<Show when={visible()}>
 			<div
-				class="fixed inset-0 z-60 flex items-center justify-center bg-background"
+				class="fixed inset-x-0 bottom-0 top-[var(--titlebar-height)] z-60 flex items-center justify-center bg-background"
 				role="status"
 			>
 				<HummingbirdLoader
