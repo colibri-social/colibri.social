@@ -1,7 +1,7 @@
 import { spawnSync } from "node:child_process";
 import { createWriteStream } from "node:fs";
 import { access, mkdir, readFile, rm, writeFile } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { basename, dirname, join } from "node:path";
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import { fileURLToPath } from "node:url";
@@ -65,13 +65,11 @@ try {
 		"tar",
 		[
 			"-xzf",
-			tmp,
-			"-C",
-			outDir,
+			basename(tmp),
 			"--strip-components=2",
 			`twemoji-${version}/assets/72x72`,
 		],
-		{ stdio: "inherit" },
+		{ stdio: "inherit", cwd: outDir },
 	);
 	if (extract.status !== 0) {
 		throw new Error(`tar exited with ${extract.status ?? extract.signal}`);

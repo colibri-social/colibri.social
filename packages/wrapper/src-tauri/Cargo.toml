@@ -49,6 +49,29 @@ tauri-plugin-window-state = "2.4.1"
 tauri-plugin-process = { version = "2", optional = true }
 tauri-plugin-fs = { version = "2", optional = true }
 
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2 = "0.6"
+objc2-app-kit = { version = "0.3", features = [
+    "NSApplication",
+    "NSButton",
+    "NSControl",
+    "NSResponder",
+    "NSView",
+    "NSWindow",
+] }
+objc2-foundation = { version = "0.3", features = ["NSGeometry"] }
+
+[target.'cfg(windows)'.dependencies]
+windows-version = "0.1"
+windows = { version = "0.61", features = [
+    "Win32_Foundation",
+    "Win32_Graphics_Gdi",
+    "Win32_UI_HiDpi",
+    "Win32_UI_Input_KeyboardAndMouse",
+    "Win32_UI_Shell",
+    "Win32_UI_WindowsAndMessaging",
+] }
+
 # native-tls (pulled in transitively via reqwest, used by sentry/tauri plugins)
 # needs a prebuilt OpenSSL per target. None ships for Android/iOS cross targets,
 # so build OpenSSL from source for those instead of relying on pkg-config.

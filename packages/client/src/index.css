@@ -22,6 +22,21 @@
 	--safe-area-right: env(safe-area-inset-right);
 }
 
+html {
+	--titlebar-height: 0px;
+	--titlebar-leading-inset: 0px;
+}
+
+html[data-titlebar="macos"] {
+	--titlebar-height: 36px;
+	--titlebar-leading-inset: 72px;
+}
+
+html[data-titlebar="windows"],
+html[data-titlebar="linux"] {
+	--titlebar-height: 32px;
+}
+
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
@@ -546,6 +561,11 @@ pre code,
 	.overflow-x-auto,
 	.overflow-x-auto * {
 		touch-action: auto;
+	}
+
+	html[data-titlebar] {
+		--titlebar-height: 0px;
+		--titlebar-leading-inset: 0px;
 	}
 }
 

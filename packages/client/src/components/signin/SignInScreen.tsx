@@ -25,7 +25,7 @@ const SignInScreenContent: Component<{ mode?: SignInMode }> = (props) => {
 				</div>
 			}
 		>
-			<main class="flex h-dvh w-full flex-col overflow-hidden bg-background md:flex-row-reverse">
+			<main class="flex h-[calc(100dvh-var(--titlebar-height))] w-full flex-col overflow-hidden bg-background md:flex-row-reverse">
 				<section class="relative flex min-h-0 flex-1 overflow-hidden border-border bg-gradient-to-b from-primary/12 to-transparent md:border-l">
 					<SignInShowcase />
 				</section>

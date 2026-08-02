@@ -32,6 +32,7 @@ import { useStableMedia } from "../../../../contexts/ScrollAnchor";
 import { isTauriRuntime } from "../../../../notifications/environment";
 import { createSwipe } from "../../../../utils/create-swipe";
 import { openExternalLink } from "../../../../utils/open-external-link";
+import { isDesktopNative } from "../../../../utils/platform";
 import { Button } from "../../../ui/Button";
 
 type AttachmentComponent = Component<{ item: AttachmentObj; did: string }>;
@@ -413,7 +414,7 @@ export const VideoAttachment: AttachmentComponent = (props) => {
 	const stableMedia = useStableMedia();
 	const src = () => resolveBlob(props.did, props.item.blob);
 
-	const usePseudoFullscreen = isTauriRuntime();
+	const usePseudoFullscreen = isTauriRuntime() && !isDesktopNative();
 	const [pseudoFullscreen, setPseudoFullscreen] = createSignal(false);
 
 	const enterPseudoFullscreen = () => {

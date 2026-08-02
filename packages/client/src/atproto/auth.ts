@@ -670,7 +670,7 @@ const restoreExistingSession = async () => {
 					}
 					log.info("session received from callback parameters");
 					localStorage.setItem("sub", callbackSession.session.sub);
-					window.location.href = "/app";
+					window.location.replace("/app");
 					return;
 				}
 			}
@@ -776,7 +776,7 @@ const runSignIn = async (
 				throw classifyNativeError(err, "start_web_auth");
 			}
 			if (await completeNativeOAuth(client, callbackUrl)) {
-				window.location.href = "/app";
+				window.location.replace("/app");
 			}
 			return;
 		}

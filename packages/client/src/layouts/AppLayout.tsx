@@ -1,4 +1,3 @@
-import { logoUrl as ColibriLogo } from "@colibri-social/assets";
 import type { Community } from "@colibri-social/lib";
 import { A, useLocation, useNavigate } from "@solidjs/router";
 import {
@@ -38,6 +37,7 @@ import { NativeNotifications } from "../components/app/NativeNotifications";
 import { NotificationPromptDialog } from "../components/app/onboarding/NotificationPromptDialog";
 import { ReleaseNotesModal } from "../components/app/ReleaseNotes";
 import { UserSettingsModal } from "../components/app/settings";
+import { TitleBar } from "../components/app/titlebar";
 import { VoiceOverlay } from "../components/app/VoiceOverlay";
 import { Plus } from "../components/icons/Plus";
 import {
@@ -60,6 +60,7 @@ import { useSocketContext } from "../contexts/Socket";
 import { useUserContext } from "../contexts/User";
 import { useViewport } from "../contexts/Viewport";
 import { isTauriRuntime } from "../notifications/environment";
+import { trackAppShellMounted } from "../utils/app-shell";
 import { LongPressSensors } from "../utils/create-longpress-sensor";
 import {
 	animateToNewPositions,
@@ -69,7 +70,8 @@ import {
 import { animateKeyboardTransition } from "../utils/keyboard-animation";
 import { createLogger } from "../utils/logger";
 import { createMobilePane } from "../utils/mobile-pane";
-import { hasNativeKeyboardInsetSync } from "../utils/platform";
+import { hasNativeKeyboardInsetSync, isDesktopNative } from "../utils/platform";
+import { createNativeTitleSync } from "../utils/shell-title";
 import { shellHeightForInset } from "../utils/visual-viewport";
 
 const log = createLogger("layout");
@@ -247,7 +249,12 @@ const AppLayout: ParentComponent = (props) => {
 	const { isMobile, railTranslate, isDragging } = createMobilePane();
 	const viewport = useViewport();
 
-	const needsShellInsets = () => isMobile() || isTauriRuntime();
+	const desktopShell = isDesktopNative();
+	const needsShellInsets = () =>
+		!desktopShell && (isMobile() || isTauriRuntime());
+
+	createNativeTitleSync();
+	trackAppShellMounted();
 
 	const shellHeight = () =>
 		needsShellInsets() && viewport.height() !== undefined
@@ -268,6 +275,8 @@ const AppLayout: ParentComponent = (props) => {
 		on(
 			() => viewport.keyboardTransition(),
 			(transition) => {
+				if (!needsShellInsets()) return;
+
 				const el = shellEl;
 				if (!transition || !el || transition.samples.length < 2) return;
 
@@ -474,29 +483,8 @@ const AppLayout: ParentComponent = (props) => {
 		>
 			<NativeNotifications />
 			<NotificationPromptDialog />
-			<div
-				class="flex w-full h-10 min-h-10 justify-between"
-				classList={{ hidden: isMobile() || isTauriRuntime() }}
-			>
-				<div class="flex w-full h-full pl-2 items-center gap-2">
-					<img
-						src={ColibriLogo}
-						width={32}
-						height={32}
-						alt="Colibri Social logo"
-					/>
-					<span class="font-black text-lg bg-clip-text text-transparent bg-[linear-gradient(69deg,#090615_-145.97%,#31226D_-87.27%,#6C5AA6_-26.22%,#AE99CB_30.13%,#E0DEEC_75.92%)]">
-						colibri.social
-					</span>
-				</div>
-			</div>
-			<div
-				class="flex w-full relative"
-				classList={{
-					"h-full": isMobile() || isTauriRuntime(),
-					"h-[calc(100%-40px)]": !isMobile() && !isTauriRuntime(),
-				}}
-			>
+			<TitleBar />
+			<div class="flex w-full relative h-[calc(100%-var(--titlebar-height))]">
 				<aside
 					class="flex flex-col h-full w-14 p-2 pb-3 bg-card"
 					style={{ translate: railTranslate() }}

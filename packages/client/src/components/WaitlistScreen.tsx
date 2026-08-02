@@ -267,7 +267,7 @@ const WaitlistScreenContent: Component = () => {
 				</div>
 			}
 		>
-			<section class="pt-[calc(min(10rem,12vh)+var(--safe-area-top))] pb-[var(--safe-area-bottom)] mx-auto w-full max-w-336 md:px-16 px-6 relative flex flex-col items-center gap-8 min-h-screen animate-in fade-in-0 slide-in-from-bottom-2 duration-500 motion-reduce:animate-none">
+			<section class="pt-[calc(min(10rem,12vh)+var(--safe-area-top))] pb-[var(--safe-area-bottom)] mx-auto w-full max-w-336 md:px-16 px-6 relative flex flex-col items-center gap-8 min-h-[calc(100vh-var(--titlebar-height))] animate-in fade-in-0 slide-in-from-bottom-2 duration-500 motion-reduce:animate-none">
 				<div class="flex flex-col gap-4 items-center text-center max-w-[52ch]">
 					<small class="text-primary text-sm">Almost there.</small>
 					<h1 class="text-5xl font-black m-0">JOIN THE WAITLIST</h1>

@@ -1,4 +1,5 @@
 import { type Component, createMemo, Show } from "solid-js";
+import { toast } from "somoto";
 import {
 	type BlueskyAlternative,
 	BSKY_ALTERNATIVES,
@@ -8,6 +9,9 @@ import { syncPresenceService } from "../../../atproto/presence";
 import { useUserContext } from "../../../contexts/User";
 import { useUserPreferences } from "../../../contexts/UserPreferences";
 import { showError } from "../../../errors/show-error";
+import { isDesktopNative } from "../../../utils/platform";
+import { applyNativeDecorations } from "../../../utils/titlebar";
+import { restartToApply } from "../../../utils/updater";
 import { badgeText, useUserBadges } from "../../../utils/user-badges";
 import {
 	Select,
@@ -75,6 +79,20 @@ export const PreferencesPage: Component = () => {
 			userPreferences.setSharePresence(!enabled);
 			showError(err, { fallbackTitle: "Couldn't change presence sharing." });
 		}
+	};
+
+	const toggleNativeWindowDecorations = async (enabled: boolean) => {
+		userPreferences.setNativeWindowDecorations(enabled);
+		await applyNativeDecorations(enabled);
+		toast("Window frame changed.", {
+			description: "Restart Colibri if it doesn't look right.",
+			action: {
+				label: "Restart",
+				onClick: () => {
+					void restartToApply();
+				},
+			},
+		});
 	};
 
 	return (
@@ -231,6 +249,27 @@ export const PreferencesPage: Component = () => {
 					</SwitchControl>
 				</div>
 			</Toggle>
+			<Show when={isDesktopNative()}>
+				<Toggle
+					class="flex flex-row gap-4 items-center w-full justify-between shrink-0 mt-4"
+					checked={userPreferences.preferences().nativeWindowDecorations}
+					onChange={toggleNativeWindowDecorations}
+				>
+					<div>
+						<SwitchLabel>Use system window controls</SwitchLabel>
+						<SwitchDescription>
+							Let your operating system draw the window frame instead of
+							Colibri.
+						</SwitchDescription>
+					</div>
+					<div>
+						<SwitchInput />
+						<SwitchControl>
+							<SwitchThumb />
+						</SwitchControl>
+					</div>
+				</Toggle>
+			</Show>
 		</SettingsPage>
 	);
 };

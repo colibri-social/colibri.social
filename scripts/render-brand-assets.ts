@@ -38,7 +38,13 @@ type Fit =
 	| { kind: "bounds"; fraction: number }
 	| { kind: "circle"; diameter: number };
 
-type Source = "background" | "no-background" | "dark";
+type Source = "background" | "background-rounded" | "no-background" | "dark";
+
+const WINDOWS_ICO_SIZES = [16, 24, 32, 48, 64, 256];
+
+const WINDOWS_SQUARE_LOGOS = [30, 44, 71, 89, 107, 142, 150, 284, 310];
+
+const WINDOWS_STORE_LOGO = 50;
 
 const read = (source: Source): string =>
 	readFileSync(join(brandDir, `hummingbird-${source}.svg`), "utf8");
@@ -214,6 +220,24 @@ const renderWeb = (): void => {
 	);
 };
 
+const renderWindows = (): void => {
+	const tile = compose({ source: "background-rounded" });
+	const icons = "packages/wrapper/src-tauri/icons";
+
+	write(
+		`${icons}/icon.ico`,
+		ico(
+			WINDOWS_ICO_SIZES.map((size) => ({ size, data: png(tile, size) })),
+		),
+	);
+
+	for (const size of WINDOWS_SQUARE_LOGOS) {
+		write(`${icons}/Square${size}x${size}Logo.png`, png(tile, size));
+	}
+
+	write(`${icons}/StoreLogo.png`, png(tile, WINDOWS_STORE_LOGO));
+};
+
 const renderAndroid = (): void => {
 	const bird = read("no-background");
 	const paths = uniquePaths(bird);
@@ -276,11 +300,15 @@ const renderAndroid = (): void => {
 
 const mode = process.argv[2] ?? "web";
 if (mode === "android") renderAndroid();
+else if (mode === "windows") renderWindows();
 else if (mode === "web") renderWeb();
 else if (mode === "all") {
 	renderWeb();
 	renderAndroid();
+	renderWindows();
 } else {
-	console.error(`unknown mode "${mode}", expected web, android or all`);
+	console.error(
+		`unknown mode "${mode}", expected web, android, windows or all`,
+	);
 	process.exit(1);
 }
