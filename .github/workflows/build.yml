@@ -110,6 +110,10 @@ jobs:
         if: matrix.is-android
         uses: android-actions/setup-android@v3
 
+      - name: Verify prebuilt Assets.car (macOS only)
+        if: matrix.platform == 'macos-latest'
+        run: node packages/wrapper/scripts/assets-car.mjs --check
+
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
         with:
