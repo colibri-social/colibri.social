@@ -67,6 +67,16 @@ unsafe extern "system" fn snap_proc(
     _id: usize,
     _data: usize,
 ) -> LRESULT {
+    if msg == WM_NCDESTROY {
+        let _ = unsafe { RemoveWindowSubclass(hwnd, Some(snap_proc), SUBCLASS_ID) };
+        if let Ok(handle) = unsafe { RemovePropW(hwnd, SNAP_STATE_PROP) } {
+            if !handle.0.is_null() {
+                drop(unsafe { Box::from_raw(handle.0 as *mut SnapState) });
+            }
+        }
+        return unsafe { DefSubclassProc(hwnd, msg, wparam, lparam) };
+    }
+
     let raw = unsafe { GetPropW(hwnd, SNAP_STATE_PROP) };
     if raw.0.is_null() {
         return unsafe { DefSubclassProc(hwnd, msg, wparam, lparam) };
@@ -128,15 +138,6 @@ unsafe extern "system" fn snap_proc(
             LRESULT(1)
         }
         WM_ERASEBKGND => LRESULT(1),
-        WM_NCDESTROY => {
-            let _ = unsafe { RemoveWindowSubclass(hwnd, Some(snap_proc), SUBCLASS_ID) };
-            if let Ok(handle) = unsafe { RemovePropW(hwnd, SNAP_STATE_PROP) } {
-                if !handle.0.is_null() {
-                    drop(unsafe { Box::from_raw(handle.0 as *mut SnapState) });
-                }
-            }
-            unsafe { DefSubclassProc(hwnd, msg, wparam, lparam) }
-        }
         _ => unsafe { DefSubclassProc(hwnd, msg, wparam, lparam) },
     }
 }
@@ -152,72 +153,81 @@ pub fn set_snap_rect(
         return Ok(());
     }
 
-    let parent = parent_hwnd(window)?;
+    let parent_bits = parent_hwnd(window)?.0 as isize;
+    let target = window.clone();
 
-    if let Some(child) = child_of(parent) {
-        unsafe {
-            SetWindowPos(child, Some(HWND_TOP), x, y, width, height, SWP_NOACTIVATE)
-                .map_err(|e| NativeError::failed(e.to_string()))
-        }?;
-        return Ok(());
-    }
+    window
+        .run_on_main_thread(move || {
+            let parent = HWND(parent_bits as *mut _);
 
-    let child = unsafe {
-        CreateWindowExW(
-            Default::default(),
-            w!("STATIC"),
-            windows::core::PCWSTR::null(),
-            WS_CHILD | WS_VISIBLE,
-            x,
-            y,
-            width,
-            height,
-            Some(parent),
-            None,
-            None,
-            None,
-        )
-    }
-    .map_err(|e| NativeError::failed(e.to_string()))?;
+            if let Some(child) = child_of(parent) {
+                let _ = unsafe {
+                    SetWindowPos(child, Some(HWND_TOP), x, y, width, height, SWP_NOACTIVATE)
+                };
+                return;
+            }
 
-    let state = Box::into_raw(Box::new(SnapState {
-        window: window.clone(),
-        parent,
-        hovering: false,
-    }));
+            let Ok(child) = (unsafe {
+                CreateWindowExW(
+                    Default::default(),
+                    w!("STATIC"),
+                    windows::core::PCWSTR::null(),
+                    WS_CHILD | WS_VISIBLE,
+                    x,
+                    y,
+                    width,
+                    height,
+                    Some(parent),
+                    None,
+                    None,
+                    None,
+                )
+            }) else {
+                return;
+            };
 
-    unsafe {
-        if SetPropW(child, SNAP_STATE_PROP, Some(HANDLE(state as *mut _))).is_err() {
-            drop(Box::from_raw(state));
-            let _ = DestroyWindow(child);
-            return Err(NativeError::failed("could not attach snap layout state"));
-        }
+            let state = Box::into_raw(Box::new(SnapState {
+                window: target,
+                parent,
+                hovering: false,
+            }));
 
-        if !SetWindowSubclass(child, Some(snap_proc), SUBCLASS_ID, 0).as_bool() {
-            let _ = RemovePropW(child, SNAP_STATE_PROP);
-            drop(Box::from_raw(state));
-            let _ = DestroyWindow(child);
-            return Err(NativeError::failed("could not subclass the snap overlay"));
-        }
+            unsafe {
+                if SetPropW(child, SNAP_STATE_PROP, Some(HANDLE(state as *mut _))).is_err() {
+                    drop(Box::from_raw(state));
+                    let _ = DestroyWindow(child);
+                    return;
+                }
 
-        let _ = SetPropW(parent, SNAP_CHILD_PROP, Some(HANDLE(child.0)));
-    }
+                if !SetWindowSubclass(child, Some(snap_proc), SUBCLASS_ID, 0).as_bool() {
+                    let _ = RemovePropW(child, SNAP_STATE_PROP);
+                    drop(Box::from_raw(state));
+                    let _ = DestroyWindow(child);
+                    return;
+                }
 
-    Ok(())
+                let _ = SetPropW(parent, SNAP_CHILD_PROP, Some(HANDLE(child.0)));
+            }
+        })
+        .map_err(|e| NativeError::failed(e.to_string()))
 }
 
 pub fn clear_snap_rect(window: &WebviewWindow) -> Result<(), NativeError> {
-    let parent = parent_hwnd(window)?;
-    let Some(child) = child_of(parent) else {
-        return Ok(());
-    };
+    let parent_bits = parent_hwnd(window)?.0 as isize;
 
-    unsafe {
-        let _ = RemovePropW(parent, SNAP_CHILD_PROP);
-        let _ = DestroyWindow(child);
-    }
+    window
+        .run_on_main_thread(move || {
+            let parent = HWND(parent_bits as *mut _);
+            let Some(child) = child_of(parent) else {
+                return;
+            };
 
-    Ok(())
+            unsafe {
+                let _ = RemovePropW(parent, SNAP_CHILD_PROP);
+                let _ = DestroyWindow(child);
+            }
+        })
+        .map_err(|e| NativeError::failed(e.to_string()))
 }
 
 pub fn show_system_menu(window: &WebviewWindow) -> Result<(), NativeError> {

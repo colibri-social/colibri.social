@@ -84,9 +84,10 @@ export const TitleBar: Component<TitleBarProps> = (props) => {
 			ref={setBarEl}
 			data-tauri-drag-region={chromeless() ? "deep" : undefined}
 			onContextMenu={onContextMenu}
-			class="relative flex w-full shrink-0 select-none items-center justify-between bg-card h-[var(--titlebar-height)] min-h-[var(--titlebar-height)]"
+			class="flex w-full shrink-0 select-none items-center justify-between bg-card h-[var(--titlebar-height)] min-h-[var(--titlebar-height)]"
 			classList={{
 				hidden: isMobile() || !desktop,
+				relative: !isBare(),
 				"fixed inset-x-0 top-0 z-40": isBare(),
 			}}
 			style={{ "--titlebar-gutter": `${gutter()}px` }}

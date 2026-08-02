@@ -296,7 +296,9 @@ pub fn run() {
             #[cfg(any(target_os = "linux", windows))]
             {
                 use tauri_plugin_deep_link::DeepLinkExt;
-                let _ = app.deep_link().register_all();
+                if let Err(error) = app.deep_link().register_all() {
+                    eprintln!("deep-link scheme registration failed: {error}");
+                }
             }
             #[cfg(desktop)]
             if let Some(window) = app.get_webview_window("main") {
