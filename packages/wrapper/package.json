@@ -15,7 +15,7 @@
 		"icon": "node scripts/tauri.mjs icon src-tauri/icons/icon.png --ios-color \"#9d64fd\" && node scripts/apply-icon-composer.mjs && pnpm -w brand:render android && pnpm -w brand:render windows",
 		"build:macos:direct": "bash scripts/build-macos-direct.sh",
 		"build:macos:appstore": "bash scripts/build-macos-appstore.sh",
-		"tauri:windows:build": "tauri-windows-bundle build"
+		"tauri:windows:build": "tauri-windows-bundle build --runner pnpm"
 	},
 	"license": "MIT",
 	"dependencies": {
