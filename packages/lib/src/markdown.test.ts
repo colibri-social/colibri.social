@@ -16,6 +16,32 @@ const summarize = (facets: Array<ColibriRichTextFacet>): Array<string> =>
 				.join("+")}`,
 	);
 
+const buildFacet = (
+	byteStart: number,
+	byteEnd: number,
+	...features: Array<Feature>
+): ColibriRichTextFacet => ({
+	$type: "social.colibri.richtext.facet",
+	index: {
+		$type: "app.bsky.richtext.facet#byteSlice",
+		byteStart,
+		byteEnd,
+	},
+	features,
+});
+
+const BOLD: Feature = { $type: "social.colibri.richtext.facet#bold" };
+const QUOTE: Feature = { $type: "social.colibri.richtext.facet#quote" };
+const CODEBLOCK: Feature = { $type: "social.colibri.richtext.facet#codeblock" };
+const heading = (level: number): Feature => ({
+	$type: "social.colibri.richtext.facet#heading",
+	level,
+});
+const list = (ordered: boolean): Feature => ({
+	$type: "social.colibri.richtext.facet#list",
+	ordered,
+});
+
 const sliceFacet = (text: string, facet: ColibriRichTextFacet): string =>
 	new TextDecoder().decode(
 		new TextEncoder()
@@ -186,6 +212,71 @@ describe("facetsToSource", () => {
 	});
 });
 
+describe("block prefixes", () => {
+	it("puts a heading marker outside an inline mark starting at the same offset", () => {
+		expect(
+			facetsToSource("x", [
+				buildFacet(0, 1, BOLD),
+				buildFacet(0, 1, heading(1)),
+			]).source,
+		).toBe("# **x**");
+	});
+
+	it("ignores feature order within a merged facet", () => {
+		expect(
+			facetsToSource("x", [buildFacet(0, 1, BOLD, heading(1))]).source,
+		).toBe("# **x**");
+		expect(
+			facetsToSource("x", [buildFacet(0, 1, BOLD, list(false))]).source,
+		).toBe("- **x**");
+	});
+
+	it("emits one marker per kind when a range carries two of the same", () => {
+		expect(
+			facetsToSource("x", [
+				buildFacet(0, 1, list(false)),
+				buildFacet(0, 1, list(true)),
+			]).source,
+		).toBe("- x");
+		expect(
+			facetsToSource("x", [
+				buildFacet(0, 1, heading(1)),
+				buildFacet(0, 1, heading(2)),
+			]).source,
+		).toBe("# x");
+	});
+
+	it("does not spend an ordered number on a discarded marker", () => {
+		expect(
+			facetsToSource("x\ny", [
+				buildFacet(0, 1, list(false)),
+				buildFacet(0, 1, list(true)),
+				buildFacet(2, 3, list(true)),
+			]).source,
+		).toBe("- x\n1. y");
+	});
+
+	it("drops a prefix colliding with a fence rather than fencing the text twice", () => {
+		expect(
+			facetsToSource("code", [
+				buildFacet(0, 4, list(false)),
+				buildFacet(0, 4, CODEBLOCK),
+			]).source,
+		).toBe("```\ncode\n```");
+	});
+
+	it("nests a quote, list, heading and inline mark on one range", () => {
+		expect(
+			facetsToSource("x", [
+				buildFacet(0, 1, QUOTE),
+				buildFacet(0, 1, list(false)),
+				buildFacet(0, 1, heading(1)),
+				buildFacet(0, 1, BOLD),
+			]).source,
+		).toBe("> - # **x**");
+	});
+});
+
 describe("round trip", () => {
 	const cases = [
 		"> one",
@@ -214,6 +305,30 @@ describe("round trip", () => {
 		"plain text",
 		"> one\n> two\nplain\n> three",
 		"> ```js\n> a\n> b\n> ```\nafter",
+		"- **Test**",
+		"- *i*",
+		"- `c`",
+		"- [x](https://e.com)",
+		"- ||sp||",
+		"- ~~gone~~",
+		"- a **b**",
+		"- # head",
+		"- ### deep",
+		"- # **x** y",
+		"- **a**\nplain\n- **b**",
+		"1. **a**\n2. **b**",
+		"1. # h",
+		"> - `c`",
+		"> - # **x**",
+		"> 1. **a**\n> 2. **b**",
+		"# **x** y",
+		"-# **x** y",
+		"## `c` tail",
+		"# [a](https://x.y) z",
+		"- -# small",
+		"-# - x",
+		"- x\n  -# y",
+		"- ```\ncode\n```",
 	];
 
 	it.each(cases)("is stable for %j", (source) => {

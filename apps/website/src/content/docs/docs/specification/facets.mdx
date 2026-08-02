@@ -156,7 +156,7 @@ Because features can overlap and even conflict, rendering follows a defined orde
 
 Before rendering, facets are normalized:
 
-- Facets that share the **exact same byte range** are merged into one, and duplicate features within a range are removed.
+- Facets that share the **exact same byte range** are merged into one, and duplicate features within a range are removed. A `quote` facet is the exception: it is kept apart from a same-range facet carrying another block feature, so that the block it contains survives the merge and can be [nested inside it](#3-one-block-wrapper-per-range).
 - Facets are sorted by `byteStart`, then `byteEnd`.
 
 ### 2. Block structure wins the outer layer
@@ -167,11 +167,13 @@ Inline features are still rendered **inside** a block's range (a heading can con
 
 ### 3. One block wrapper per range
 
-If a single range somehow carries more than one block feature, exactly one wins, in this order:
+A `quote` never competes for the wrapper, it **wraps**. A quote is rendered as the `<blockquote>` and any block sharing its range is rendered inside it, so `> # title` is a blockquote containing an `<h1>` rather than one or the other.
+
+If a single range carries more than one of the remaining block features, exactly one wins, in this order:
 
 <div class="not-content">
 
-**`list` > `codeblock` > `quote` > `heading` > `subtext`**
+**`list` > `codeblock` > `heading` > `subtext`**
 
 </div>
 
