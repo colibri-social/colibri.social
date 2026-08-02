@@ -176,6 +176,25 @@ pub async fn titlebar_clear_snap_rect(window: WebviewWindow) -> Result<(), Nativ
 }
 
 #[tauri::command]
+pub async fn titlebar_set_title(
+    window: WebviewWindow,
+    title: String,
+) -> Result<(), NativeError> {
+    #[cfg(target_os = "macos")]
+    {
+        macos::set_title(&window, title);
+        Ok(())
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    {
+        window
+            .set_title(&title)
+            .map_err(|e| NativeError::failed(e.to_string()))
+    }
+}
+
+#[tauri::command]
 pub async fn titlebar_show_system_menu(window: WebviewWindow) -> Result<(), NativeError> {
     #[cfg(windows)]
     {

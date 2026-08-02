@@ -1,7 +1,7 @@
 use std::sync::Mutex;
 
 use objc2_app_kit::{NSWindow, NSWindowButton, NSWindowTitleVisibility};
-use objc2_foundation::{NSPoint, NSRect, NSSize};
+use objc2_foundation::{NSPoint, NSRect, NSSize, NSString};
 use tauri::{Manager, WebviewWindow};
 
 use crate::native_error::NativeError;
@@ -147,6 +147,19 @@ fn set_title_visible(window: &WebviewWindow, visible: bool) {
         } else {
             NSWindowTitleVisibility::Hidden
         });
+    });
+}
+
+pub fn set_title(window: &WebviewWindow, title: String) {
+    let target = window.clone();
+    let _ = window.run_on_main_thread(move || {
+        with_ns_window(&target, |ns_window| {
+            ns_window.setTitle(&NSString::from_str(&title));
+        });
+
+        if !title_bar_visible(&target) && !target.is_fullscreen().unwrap_or(false) {
+            position(&target);
+        }
     });
 }
 

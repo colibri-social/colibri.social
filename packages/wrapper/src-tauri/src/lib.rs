@@ -255,6 +255,8 @@ pub fn run() {
             #[cfg(desktop)]
             titlebar::titlebar_clear_snap_rect,
             #[cfg(desktop)]
+            titlebar::titlebar_set_title,
+            #[cfg(desktop)]
             titlebar::titlebar_show_system_menu,
             #[cfg(desktop)]
             titlebar::titlebar_set_native_decorations

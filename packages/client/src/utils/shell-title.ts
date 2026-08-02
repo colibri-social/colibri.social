@@ -1,6 +1,6 @@
-import { getCurrentWindow } from "@tauri-apps/api/window";
+import { invoke } from "@tauri-apps/api/core";
 import { type Accessor, createEffect, createSignal, onCleanup } from "solid-js";
-import { isTauriRuntime } from "../notifications/environment";
+import { isDesktopNative } from "./platform";
 
 export type ShellTitleChannel = { name: string; type: string };
 
@@ -51,10 +51,8 @@ export const createNativeTitleSync = (): void => {
 		if (timer !== undefined) clearTimeout(timer);
 		timer = setTimeout(() => {
 			document.title = next;
-			if (isTauriRuntime()) {
-				void getCurrentWindow()
-					.setTitle(next)
-					.catch(() => {});
+			if (isDesktopNative()) {
+				void invoke("titlebar_set_title", { title: next }).catch(() => {});
 			}
 		}, TITLE_DEBOUNCE_MS);
 	});
