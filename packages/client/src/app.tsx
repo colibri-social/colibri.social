@@ -26,6 +26,7 @@ import { AppLoadingScreen } from "./components/AppLoadingScreen";
 import { AutoUpdater } from "./components/app/AutoUpdater";
 import { InviteModal } from "./components/app/community/InviteModal";
 import { ScopeGate } from "./components/app/onboarding/ScopeGate";
+import { TitleBar } from "./components/app/titlebar";
 import { VoiceChannelView } from "./components/app/VoiceChannelView";
 import { DeepLinkListener } from "./components/DeepLinkListener";
 import { ErrorDetails } from "./components/ErrorDetails";
@@ -51,9 +52,15 @@ import { reportError } from "./errors/report";
 import AppLayout from "./layouts/AppLayout";
 import ChannelLayoutWithContext from "./layouts/ChannelLayout";
 import CommunityLayoutWithContext from "./layouts/CommunityLayout";
+import { appShellMounted } from "./utils/app-shell";
 import { AtURI } from "./utils/at-uri";
 import { createLogger } from "./utils/logger";
 import { isMobileNow, useIsMobile } from "./utils/mobile-pane";
+import { trackNavHistory } from "./utils/nav-history";
+import { isDesktopNative } from "./utils/platform";
+import { initTitleBar } from "./utils/titlebar";
+
+initTitleBar();
 
 // Accepted forms of the `:channelType` URL segment. We accept both the
 // short form (legacy records that store `"text"` / `"voice"`) and the full
@@ -142,13 +149,20 @@ const AppErrorScreen: Component<{ error: unknown; reset: () => void }> = (
 // Rendered inside the router (so it has routing context) around every route,
 // hosting global listeners like deep-link handling that must work regardless of
 // the current screen (e.g. an invite link opened on the login screen)
-const RootLayout: ParentComponent = (props) => (
-	<>
-		<DeepLinkListener />
-		<AutoUpdater />
-		{props.children}
-	</>
-);
+const RootLayout: ParentComponent = (props) => {
+	trackNavHistory();
+
+	return (
+		<>
+			<DeepLinkListener />
+			<AutoUpdater />
+			<Show when={isDesktopNative() && !appShellMounted()}>
+				<TitleBar variant="bare" />
+			</Show>
+			{props.children}
+		</>
+	);
+};
 
 const App: ParentComponent = () => {
 	const isMobile = useIsMobile();

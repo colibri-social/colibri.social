@@ -1,5 +1,8 @@
 use tauri::Manager;
 
+#[cfg(desktop)]
+mod titlebar;
+
 pub mod native_error {
     #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
     pub enum NativeErrorCode {
@@ -214,7 +217,15 @@ pub fn run() {
                     }
                 }
             }))
-            .plugin(tauri_plugin_window_state::Builder::default().build());
+            .plugin(
+                tauri_plugin_window_state::Builder::default()
+                    .with_state_flags(
+                        tauri_plugin_window_state::StateFlags::all()
+                            - tauri_plugin_window_state::StateFlags::DECORATIONS,
+                    )
+                    .build(),
+            )
+            .manage(titlebar::Titlebar::default());
 
         #[cfg(feature = "updater")]
         {
@@ -235,7 +246,19 @@ pub fn run() {
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_deep_link::init())
         .plugin(tauri_plugin_os::init())
-        .invoke_handler(tauri::generate_handler![web_auth::start_web_auth])
+        .invoke_handler(tauri::generate_handler![
+            web_auth::start_web_auth,
+            #[cfg(desktop)]
+            titlebar::titlebar_init,
+            #[cfg(desktop)]
+            titlebar::titlebar_set_snap_rect,
+            #[cfg(desktop)]
+            titlebar::titlebar_clear_snap_rect,
+            #[cfg(desktop)]
+            titlebar::titlebar_show_system_menu,
+            #[cfg(desktop)]
+            titlebar::titlebar_set_native_decorations
+        ])
         .register_uri_scheme_protocol("emoji", |ctx, request| {
             let not_found = || {
                 tauri::http::Response::builder()
@@ -273,7 +296,12 @@ pub fn run() {
                 use tauri_plugin_deep_link::DeepLinkExt;
                 let _ = app.deep_link().register_all();
             }
-            #[cfg(not(any(target_os = "linux", windows)))]
+            #[cfg(desktop)]
+            if let Some(window) = app.get_webview_window("main") {
+                titlebar::setup(&window);
+            }
+
+            #[cfg(not(any(target_os = "linux", windows, desktop)))]
             let _ = app;
             Ok(())
         })

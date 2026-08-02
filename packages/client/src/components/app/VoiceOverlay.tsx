@@ -25,6 +25,7 @@ import { useUserContext } from "../../contexts/User";
 import { ConnectionState, useVoiceChatContext } from "../../contexts/VoiceChat";
 import { useIsMobile } from "../../utils/mobile-pane";
 import { readSafeAreaInsets } from "../../utils/safe-area";
+import { titleBarHeightPx } from "../../utils/titlebar";
 import {
 	Tooltip,
 	TooltipContent,
@@ -46,6 +47,11 @@ const WIDTH_KEY = "colibri:voice-overlay-width";
 
 const clamp = (v: number, lo: number, hi: number): number =>
 	Math.max(lo, Math.min(hi, v));
+
+const overlayInsets = () => {
+	const insets = readSafeAreaInsets();
+	return { ...insets, top: insets.top + titleBarHeightPx() };
+};
 
 const loadCorner = (): Corner => {
 	const raw = localStorage.getItem(CORNER_KEY);
@@ -216,7 +222,7 @@ export const VoiceOverlay: Component = () => {
 			setVp({
 				w: window.innerWidth,
 				h: window.innerHeight,
-				insets: readSafeAreaInsets(),
+				insets: overlayInsets(),
 			});
 		window.addEventListener("resize", onResizeWindow);
 		onCleanup(() => window.removeEventListener("resize", onResizeWindow));

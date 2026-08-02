@@ -13,7 +13,7 @@ import { newestReleaseNoteVersion } from "../release-notes";
 import { DEFAULT_APPVIEW_URL } from "../utils/appview";
 import { isMobileNow } from "../utils/mobile-pane";
 
-const STORAGE_KEY = "colibri:user-preferences";
+export const PREFERENCES_STORAGE_KEY = "colibri:user-preferences";
 
 const MAX_RECENT_GIFS = 24;
 
@@ -84,6 +84,7 @@ export type UserPreferencesContextData = {
 	preferredAppView: string;
 	sharePresence: boolean;
 	attachAccountToReports: boolean;
+	nativeWindowDecorations: boolean;
 	recentGifs: Array<GifItem>;
 	experiments: Record<string, boolean>;
 	controls: ControlsPreferences;
@@ -124,6 +125,7 @@ const DEFAULT_PREFERENCES: UserPreferencesContextData = {
 	preferredAppView: DEFAULT_APPVIEW_URL,
 	sharePresence: true,
 	attachAccountToReports: false,
+	nativeWindowDecorations: false,
 	recentGifs: [],
 	experiments: {},
 	controls: {
@@ -136,7 +138,7 @@ const DEFAULT_PREFERENCES: UserPreferencesContextData = {
 
 function loadFromStorage(): UserPreferencesContextData {
 	try {
-		const raw = localStorage.getItem(STORAGE_KEY);
+		const raw = localStorage.getItem(PREFERENCES_STORAGE_KEY);
 		if (!raw) {
 			return {
 				...DEFAULT_PREFERENCES,
@@ -204,6 +206,7 @@ type UserPreferencesContextValue = {
 	setPreferredAppView: (appView: string) => void;
 	setSharePresence: (enabled: boolean) => void;
 	setAttachAccountToReports: (enabled: boolean) => void;
+	setNativeWindowDecorations: (enabled: boolean) => void;
 	pushRecentGif: (gif: GifItem) => void;
 	setExperiment: (id: string, enabled: boolean) => void;
 	updateControls: (patch: Partial<ControlsPreferences>) => void;
@@ -218,7 +221,10 @@ export const UserPreferencesContextProvider: ParentComponent = (props) => {
 	// Persist to localStorage whenever preferences change.
 	createEffect(() => {
 		try {
-			localStorage.setItem(STORAGE_KEY, JSON.stringify(preferences()));
+			localStorage.setItem(
+				PREFERENCES_STORAGE_KEY,
+				JSON.stringify(preferences()),
+			);
 		} catch {
 			// localStorage not available (private browsing, etc.)
 		}
@@ -333,6 +339,10 @@ export const UserPreferencesContextProvider: ParentComponent = (props) => {
 		setPreferences((p) => ({ ...p, attachAccountToReports: enabled }));
 	};
 
+	const setNativeWindowDecorations = (enabled: boolean) => {
+		setPreferences((p) => ({ ...p, nativeWindowDecorations: enabled }));
+	};
+
 	const pushRecentGif = (gif: GifItem) => {
 		setPreferences((p) => ({
 			...p,
@@ -376,6 +386,7 @@ export const UserPreferencesContextProvider: ParentComponent = (props) => {
 				setPreferredAppView,
 				setSharePresence,
 				setAttachAccountToReports,
+				setNativeWindowDecorations,
 				pushRecentGif,
 				setExperiment,
 				updateControls,

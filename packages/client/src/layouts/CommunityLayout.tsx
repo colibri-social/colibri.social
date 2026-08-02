@@ -40,15 +40,17 @@ import {
 import { MemberProfileContextProvider } from "../contexts/MemberProfile";
 import { useUserContext } from "../contexts/User";
 import { useUserPreferences } from "../contexts/UserPreferences";
-import { isTauriRuntime } from "../notifications";
 import createMediaQuery from "../utils/create-media-query";
 import { createSwipe, type SwipeOptions } from "../utils/create-swipe";
+import { getChannelParam } from "../utils/get-param";
 import {
 	createChannelHistoryNormalizer,
 	createMobilePane,
 	PANE_COMMIT_RATIO,
 	useIsMobile,
 } from "../utils/mobile-pane";
+import { isDesktopNative } from "../utils/platform";
+import { publishShellTitle } from "../utils/shell-title";
 
 const CommunityHeader = () => {
 	const user = useUserContext();
@@ -215,6 +217,21 @@ const CommunityLayout: ParentComponent = (props) => {
 	} = createMobilePane();
 	createChannelHistoryNormalizer();
 
+	publishShellTitle(
+		() => ({
+			name: community().community.name,
+			picture: resolveBlob(community().did, community().community.picture),
+		}),
+		() => {
+			const rkey = getChannelParam();
+			if (!rkey) return undefined;
+			const found = community().channels.find(
+				(c) => c.uri.split("/").pop() === rkey,
+			);
+			return found ? { name: found.name, type: found.type } : undefined;
+		},
+	);
+
 	// With swipe-to-reply turned on, a left swipe over a channel belongs to the
 	// message row, so the members pane is not reachable by gesture at all — not
 	// over a message, and not over the gaps between them either. The channel
@@ -238,7 +255,8 @@ const CommunityLayout: ParentComponent = (props) => {
 		<div
 			class="bg-background w-full h-full flex relative overflow-clip"
 			classList={{
-				"rounded-tl-xl border-t border-l border-border": !isMobile(),
+				"border-t border-l border-border": !isMobile(),
+				"rounded-tl-xl": !isMobile() && isDesktopNative(),
 			}}
 		>
 			<aside
@@ -279,7 +297,7 @@ const CommunityLayout: ParentComponent = (props) => {
 				style={{ translate: paneTranslate("chat") }}
 				classList={{
 					"w-full h-full": !isMobile(),
-					"max-h-[calc(100vh-41px)]": !isMobile() && !isTauriRuntime(),
+					"max-h-[calc(100vh-var(--titlebar-height)-1px)]": !isMobile(),
 					"max-w-[calc(100vw-576px-56px-1px)]":
 						!isMobile() &&
 						!displayMembersAsSheet() &&
