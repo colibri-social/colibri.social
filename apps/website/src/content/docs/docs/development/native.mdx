@@ -33,6 +33,48 @@ pnpm --filter @colibri-social/wrapper tauri:windows:build        # MSIX for the 
 
 A full `tauri build` needs `TAURI_SIGNING_PRIVATE_KEY` and `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` set, since the updater plugin is enabled by default. Generate a throwaway keypair with `pnpm --filter @colibri-social/wrapper tauri signer generate` if you don't have one, or build against `tauri.appstore.conf.json`, which compiles the updater out entirely.
 
+### Windows
+
+The bare executable from `tauri build --no-bundle` does not complete the `social.colibri:/oauth/callback` deep link, so OAuth sign-in never finishes on it. The browser hands off correctly and the app is simply never brought up. Other deep links such as `social.colibri:/invite/<code>` do route fine on the same binary, so the app looks healthy right up until you try to log in. Build and sideload an MSIX for anything touching sign-in or deep links.
+
+If you need to test this nonetheless, do the following:
+
+<Steps>
+
+1. **Create `packages/wrapper/src-tauri/tauri.windows.conf.json`.** It is gitignored because the Microsoft Store job generates it at release time, so it won't exist after a fresh clone:
+
+   ```json
+   {
+   	"mainBinaryName": "ColibriSocial"
+   }
+   ```
+
+   This is not optional. The bundler derives the payload executable name from `productName` with spaces removed, so it looks for `ColibriSocial.exe`, while Tauri otherwise emits `colibri-social.exe`. Without the override the bundler silently packages whatever stale `ColibriSocial.exe` is still sitting in `src-tauri/target/x86_64-pc-windows-msvc/release/` from an earlier run, and you spend a while testing a binary that predates your changes.
+
+   Delete the file again once you're done, since it renames the output of ordinary `tauri build` runs too.
+
+2. **Build the MSIX:**
+
+   ```sh
+   pnpm --filter @colibri-social/wrapper tauri:windows:build
+   ```
+
+3. **Sideload the loose layout.** This needs Developer Mode turned on, and avoids having to sign the package or trust a certificate:
+
+   ```sh
+   powershell -c "Add-AppxPackage -Register packages/wrapper/src-tauri/target/appx/x64/AppxManifest.xml"
+   ```
+
+   The package registers against that folder in place rather than copying into `C:\Program Files\WindowsApps`, so deleting `target/appx/x64/` breaks the installed app rather than just removing a build artifact.
+
+4. **Remove it again** when you're finished:
+
+   ```sh
+   powershell -c "Get-AppxPackage social.colibri.app | Remove-AppxPackage"
+   ```
+
+</Steps>
+
 ## Android
 
 **Build:**
