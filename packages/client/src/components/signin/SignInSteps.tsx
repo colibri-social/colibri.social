@@ -94,7 +94,7 @@ const HopTile: Component<{
 	const [failed, setFailed] = createSignal(false);
 
 	return (
-		<div class="flex flex-col items-center gap-2 text-center">
+		<div class="flex flex-col items-center gap-2 text-center max-w-13">
 			<span
 				class="grid size-13 place-items-center rounded-2xl border border-border bg-card"
 				classList={{
