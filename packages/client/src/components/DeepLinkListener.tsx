@@ -2,6 +2,7 @@ import { useNavigate } from "@solidjs/router";
 import { type Component, onCleanup, onMount } from "solid-js";
 import { completeNativeOAuth } from "../atproto/auth";
 import { useAuthContext } from "../contexts/Auth";
+import { classifyThrown } from "../errors/classify";
 import { isSignInDenial } from "../errors/oauth";
 import { showError } from "../errors/show-error";
 import { isTauriRuntime } from "../notifications/environment";
@@ -91,6 +92,7 @@ export const DeepLinkListener: Component = () => {
 		let unlisten: (() => void) | undefined;
 
 		const route = async (urls: readonly string[] | null) => {
+			log.debug("received deep links", { count: urls?.length ?? 0 });
 			if (!urls) return;
 			for (const url of urls) {
 				if (isOAuthCallback(url)) {
@@ -133,10 +135,15 @@ export const DeepLinkListener: Component = () => {
 			// arrives while we're still starting up isn't missed.
 			unlisten = await onOpenUrl((urls) => void route(urls));
 			if (disposed) return;
+			log.debug("subscribed to deep links");
 			try {
 				await route(await getCurrent());
 			} catch {}
-		})();
+		})().catch((err) => {
+			log.error("could not subscribe to deep links", {
+				code: classifyThrown(err).code,
+			});
+		});
 
 		onCleanup(() => {
 			disposed = true;

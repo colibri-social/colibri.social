@@ -7,12 +7,12 @@
 	"scripts": {
 		"start": "pnpm --filter @colibri-social/assets fetch-emoji && vite",
 		"dev": "pnpm --filter @colibri-social/assets fetch-emoji && vite",
-		"build": "pnpm --filter @colibri-social/assets fetch-emoji && vite build && pnpm strip-embedded-emoji",
+		"build": "pnpm --filter \"@colibri-social/wrapper^...\" build && pnpm --filter @colibri-social/assets fetch-emoji && vite build && pnpm strip-embedded-emoji",
 		"build:android": "pnpm --filter @colibri-social/assets fetch-emoji && vite build",
 		"strip-embedded-emoji": "node scripts/strip-embedded-emoji.mjs",
 		"serve": "vite preview",
 		"tauri": "node scripts/tauri.mjs",
-		"icon": "node scripts/tauri.mjs icon src-tauri/icons/icon.png --ios-color \"#9d64fd\" && node scripts/apply-icon-composer.mjs && pnpm -w brand:render android",
+		"icon": "node scripts/tauri.mjs icon src-tauri/icons/icon.png --ios-color \"#9d64fd\" && node scripts/apply-icon-composer.mjs && pnpm -w brand:render android && pnpm -w brand:render windows",
 		"build:macos:direct": "bash scripts/build-macos-direct.sh",
 		"build:macos:appstore": "bash scripts/build-macos-appstore.sh",
 		"tauri:windows:build": "tauri-windows-bundle build"
