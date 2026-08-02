@@ -68,6 +68,22 @@ const deepLinkPluginPromise = isTauriRuntime()
 	? import("@tauri-apps/plugin-deep-link")
 	: undefined;
 
+const HANDLED_STORAGE_KEY = "colibri:handled-deep-link";
+
+const markHandled = (url: string): void => {
+	try {
+		sessionStorage.setItem(HANDLED_STORAGE_KEY, url);
+	} catch {}
+};
+
+const wasHandled = (url: string): boolean => {
+	try {
+		return sessionStorage.getItem(HANDLED_STORAGE_KEY) === url;
+	} catch {
+		return false;
+	}
+};
+
 /**
  * Headless component that routes incoming Tauri deep links:
  * - `social.colibri:/oauth/callback?...` — finishes the external-browser OAuth
@@ -95,15 +111,19 @@ export const DeepLinkListener: Component = () => {
 			log.debug("received deep links", { count: urls?.length ?? 0 });
 			if (!urls) return;
 			for (const url of urls) {
+				markHandled(url);
+
 				if (isOAuthCallback(url)) {
 					try {
 						if (auth && (await completeNativeOAuth(auth.client, url))) {
 							// Reload so the auth bootstrap picks up the restored session.
-							window.location.href = "/app";
+							window.location.replace("/app");
 							return;
 						}
 					} catch (err) {
-						log.error("the OAuth callback failed", { error: err });
+						log.error("the OAuth callback failed", {
+							code: classifyThrown(err).code,
+						});
 						showError(err, {
 							stage: "oauth.native-callback",
 							report: !isSignInDenial(err),
@@ -137,7 +157,8 @@ export const DeepLinkListener: Component = () => {
 			if (disposed) return;
 			log.debug("subscribed to deep links");
 			try {
-				await route(await getCurrent());
+				const current = await getCurrent();
+				await route(current?.filter((url) => !wasHandled(url)) ?? null);
 			} catch {}
 		})().catch((err) => {
 			log.error("could not subscribe to deep links", {
