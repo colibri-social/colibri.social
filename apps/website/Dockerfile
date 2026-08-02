@@ -44,21 +44,17 @@ ENV PUBLIC_VAPID_KEY=${PUBLIC_VAPID_KEY}
 COPY packages/ ./packages/
 COPY apps/ ./apps/
 
-# Swaps the workspace link for the published client. Disabled until
-# @colibri-social/client v0.1.0-rc.14 is on npm, since the releases before it
-# are missing exports the website imports. Re-enable on rc.14, and drop the lib
-# and client builds below
-# ENV pnpm_config_link_workspace_packages=false
-# RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
-#     CLIENT_VERSION="$(node -p 'require("/app/packages/client/package.json").version')" && \
-#     pnpm --filter @colibri-social/website add \
-#       "@colibri-social/client@${CLIENT_VERSION}" \
-#       --save-exact --yes --store-dir=/pnpm/store
+# Swaps the workspace link for the published client, so the website builds
+# against the same artifact npm consumers get
+ENV pnpm_config_link_workspace_packages=false
+RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
+    CLIENT_VERSION="$(node -p 'require("/app/packages/client/package.json").version')" && \
+    pnpm --filter @colibri-social/website add \
+      "@colibri-social/client@${CLIENT_VERSION}" \
+      --save-exact --yes --store-dir=/pnpm/store
 
 # Build in dependency order
 RUN pnpm --filter @colibri-social/assets build
-RUN pnpm --filter @colibri-social/lib build
-RUN pnpm --filter @colibri-social/client build
 RUN --mount=type=cache,id=astro-cache,target=/app/apps/website/node_modules/.astro \
     --mount=type=cache,id=vite-cache,target=/app/node_modules/.vite \
     pnpm --filter @colibri-social/website build
