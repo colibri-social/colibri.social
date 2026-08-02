@@ -1,5 +1,128 @@
 # @colibri-social/client
 
+## 0.1.0-rc.14
+
+### Minor Changes
+
+- 979f968: Replaces the plain text loading screen with an animated hummingbird.
+
+  The bird hovers with a photographic wing blur: ghost copies of each wing are sampled uniformly in time through a sinusoidal stroke, so they cluster at the stroke reversals and smear through the fast mid-stroke, with per-copy blur scaled to stroke velocity. Wings collapse along their own long axis rather than swinging, which keeps them at the side of the body where a real hummingbird's are. The hover-bob runs on its own clock, independent of the wingbeat.
+
+  One bird now covers the whole boot instead of one per gate, so it stays on screen while sign-in hands off to the user load and then the community load, cycling status lines with bird-themed flavour in between. Wings beat lazily while connecting and settle into their resting tempo while syncing. After eight seconds the bird tires, slows its bob, sinks a little and switches to honest status lines. When everything is ready the status line fades out and the bird darts off screen. Tapping the bird startles it into hopping away from your finger with a burst of faster wingbeats.
+
+  Reduced motion collapses all of it to the static artwork. The same bird also replaces the two floating logos on the homepage, hydrating on scroll and pausing when it leaves the viewport.
+
+  <!-- whatsnew
+  title: A hummingbird while you wait
+  icon: bird-fill
+  body: Loading screens now show a hovering hummingbird instead of plain text, with status lines that keep you company while the app starts up. Tap it if you want to see it startle.
+  kind: feature
+  -->
+
+- 39a219f: Reworks how the app deals with things going wrong.
+
+  <!-- whatsnew
+  title: Better errors
+  icon: warning-circle-fill
+  body: When something goes wrong you now get a clear reason and a way to retry!
+  kind: feature
+  -->
+
+- 7136be7: Rebuilds signing in and signing up as one flow, on one screen, at `/app/login` and `/app/register`.
+
+  <!-- whatsnew
+  title: A new way to sign in
+  icon: sign-in-fill
+  body: Our sign-in screen got reworked! Check if out when you have a chance.
+  kind: feature
+  -->
+
+- 99e3e50: Colibri is exiting allowlist-gated early access. Anyone with an AT Protocol account can sign in now, and the join-the-waitlist prompts and download page are gone/back accordingly (the allowlist itself isn't removed, just switched off, so it can be re-enabled later if needed). To keep public channels safe, the first time you try to chat on a device you'll be asked to acknowledge a short guidelines notice (channels are public, don't share sensitive info) before your message goes out.
+
+  <!-- whatsnew
+  title: Open sign-in
+  icon: chat-circle-dots-fill
+  body: Sign-in is now open to everyone, no more waitlist.
+  kind: feature
+  -->
+
+### Patch Changes
+
+- e0a5e5f: Adds a toggle to allow you to display or hide the member list from inside a voice channel.
+- 98c23f0: Leaving a community now also removes the join declaration stored on your account, so you no longer reappear in the community afterwards.
+- 97bd8f3: Makes the app track the on-screen keyboard accurately on iOS.
+- 3b27f31: Fixes other participants in a voice channel not hearing a sound when someone starts or stops screen sharing, or turns their camera on or off. Those sounds only played locally for the person toggling the feature; now they're also played for everyone else in the channel.
+
+  <!-- whatsnew
+  title: Screenshare and camera sounds for everyone
+  icon: speaker-high-fill
+  body: Other people in a voice channel now hear a sound when you start screen sharing or turn your camera on or off.
+  kind: fix
+  -->
+
+- 36cc84a: Fixes the list of members shown in a voice channel being wrong: people who had already left lingering in the list, people who were connected missing from it, and mute or deafen badges disappearing. The member list the AppView returns when a community loads is now treated as the source of truth and re-applied whenever fresh data arrives, so a join or leave missed while the connection was down repairs itself instead of staying wrong for the rest of the session. This was most noticeable right after joining a community, where none of a channel's voice activity showed up at all.
+
+  Also fixes leaving a call clearing everyone else's mute and deafen icons, moderator-applied server mutes not showing until the next voice event, and a member's voice channel from one community leaking into another community's sidebar.
+
+  <!-- whatsnew
+  title: Accurate voice channel member lists
+  icon: users-three-fill
+  body: Voice channels now show exactly who is in them, and keep it accurate through connection drops.
+  kind: fix
+  -->
+
+- 8539830: Stops the unread-status seeding loop from endlessly re-requesting communities the AppView refuses, and stops reporting that refusal as a crash. A community that answers "not a member" is now parked for the session, logged with its URI as a breadcrumb, and picked up again as soon as a join event for it arrives.
+- fa3a6a8: Fixes channels showing stale messages when you open the app. Busy channels never saved their history at all, so reopening one could show a conversation from days ago until the network caught up, and a message someone deleted while you were reading elsewhere would come back from the dead. Saved history is now kept current in the background for every channel, not just the one you have open, and anything older than a day is no longer shown as if it were current.
+
+  <!-- whatsnew
+  title: Faster, fresher messages
+  icon: rewind-fill
+  body: Channels now load up-to-date messages much sooner, and no longer show conversations that have fallen behind.
+  kind: fix
+  -->
+
+- 0e459f3: Keeps popups out of the screen's safe areas on tablets.
+- 7379b04: Only community members can send messages: the composer is disabled with a clear reason for anyone without an admission record, and accepting an invite now waits for the community to confirm the join before opening it.
+- 99e3e50: Fixes the Settings dialog (and every other modal/popover/drawer built on the same primitive) rendering with clipped text and mis-centering on iPad-width screens, flagged during App Store review. Dialogs no longer size themselves off the viewport width, which was the root cause on tablet-sized screens, long channel names now truncate instead of overlapping the mute/member-list buttons at narrower chat widths.
+- 93374b8: Fix voice channels failing to connect in the macOS app. When voice setup does fail, the app now clears the "Connecting" state and shows an error instead of spinning forever, and reports the failure so it can be diagnosed.
+
+  <!-- whatsnew
+  title: MacOS voice channel issues
+  icon: speaker-high-fill
+  body: MacOS users rejoice! You can finally join voice channels again.
+  kind: fix
+  -->
+
+- 244c83e: Colibri on macOS, Windows and Linux now draws its own window title bar instead of using the plain system one, so the desktop app has the same branded header as the web app. The bar shows the community and channel you're in, and that same name is now what you see in the taskbar, in Alt-Tab and in Mission Control.
+  There's a new "Use system window controls" switch in Settings under Preferences to go back to native controls.
+
+  Also fixes the video viewer on desktop, which used a stand-in fullscreen mode that ignored Escape, and stops a trackpad pinch-zoom from shifting the whole app down.
+
+  <!-- whatsnew
+  title: A window title bar of our own
+  icon: browser-fill
+  body: The desktop app now has the same branded header as the web app, with the channel you're in shown in the title bar and the taskbar.
+  kind: feature
+  -->
+
+- 99e3e50: Fixes voice calls silently breaking when something unrelated happened elsewhere in the app, e.g. switching to another app or device while on a call could make you vanish from the participant list and go unheard by everyone else, even though your own screen still showed you connected. Voice channel membership is now tracked from the actual voice connection instead of the general app connection, so it can no longer be knocked out by unrelated reconnects. Testing your microphone in Settings also no longer disconnects an active call on another device.
+
+  <!-- whatsnew
+  title: More reliable voice calls
+  icon: speaker-high-fill
+  body: Fixed a bug where activity elsewhere (like opening another device) could silently break your voice call without disconnecting you.
+  kind: fix
+  -->
+
+- 618b27f: Fixes formatting markers being scrambled when a message is reopened for editing. A list item that started with an inline style came back inside out (`- **Test**` turned into `**- Test**`), which also corrupted the facets once the edit was saved. Headings and subtext were affected the same way whenever the inline style covered only part of the line, and copying a styled list item to the clipboard produced the same wrong text.
+
+  <!-- whatsnew
+  title: Editing formatted lists
+  icon: list-bullets-fill
+  body: Editing a message that contains a bold or italic list item no longer scrambles the formatting.
+  kind: fix
+  -->
+
 ## 0.1.0-rc.11
 
 ### Patch Changes

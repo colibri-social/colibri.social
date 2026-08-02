@@ -1,5 +1,100 @@
 # @colibri-social/website
 
+## 0.1.0-rc.12
+
+### Minor Changes
+
+- 7136be7: Rebuilds signing in and signing up as one flow, on one screen, at `/app/login` and `/app/register`.
+
+  <!-- whatsnew
+  title: A new way to sign in
+  icon: sign-in-fill
+  body: Our sign-in screen got reworked! Check if out when you have a chance.
+  kind: feature
+  -->
+
+- 99e3e50: Colibri is exiting allowlist-gated early access. Anyone with an AT Protocol account can sign in now, and the join-the-waitlist prompts and download page are gone/back accordingly (the allowlist itself isn't removed, just switched off, so it can be re-enabled later if needed). To keep public channels safe, the first time you try to chat on a device you'll be asked to acknowledge a short guidelines notice (channels are public, don't share sensitive info) before your message goes out.
+
+  <!-- whatsnew
+  title: Open sign-in
+  icon: chat-circle-dots-fill
+  body: Sign-in is now open to everyone, no more waitlist.
+  kind: feature
+  -->
+
+### Patch Changes
+
+- 979f968: Replaces the plain text loading screen with an animated hummingbird.
+
+  The bird hovers with a photographic wing blur: ghost copies of each wing are sampled uniformly in time through a sinusoidal stroke, so they cluster at the stroke reversals and smear through the fast mid-stroke, with per-copy blur scaled to stroke velocity. Wings collapse along their own long axis rather than swinging, which keeps them at the side of the body where a real hummingbird's are. The hover-bob runs on its own clock, independent of the wingbeat.
+
+  One bird now covers the whole boot instead of one per gate, so it stays on screen while sign-in hands off to the user load and then the community load, cycling status lines with bird-themed flavour in between. Wings beat lazily while connecting and settle into their resting tempo while syncing. After eight seconds the bird tires, slows its bob, sinks a little and switches to honest status lines. When everything is ready the status line fades out and the bird darts off screen. Tapping the bird startles it into hopping away from your finger with a burst of faster wingbeats.
+
+  Reduced motion collapses all of it to the static artwork. The same bird also replaces the two floating logos on the homepage, hydrating on scroll and pausing when it leaves the viewport.
+
+  <!-- whatsnew
+  title: A hummingbird while you wait
+  icon: bird-fill
+  body: Loading screens now show a hovering hummingbird instead of plain text, with status lines that keep you company while the app starts up. Tap it if you want to see it startle.
+  kind: feature
+  -->
+
+- 36cc84a: Fixes the list of members shown in a voice channel being wrong: people who had already left lingering in the list, people who were connected missing from it, and mute or deafen badges disappearing. The member list the AppView returns when a community loads is now treated as the source of truth and re-applied whenever fresh data arrives, so a join or leave missed while the connection was down repairs itself instead of staying wrong for the rest of the session. This was most noticeable right after joining a community, where none of a channel's voice activity showed up at all.
+
+  Also fixes leaving a call clearing everyone else's mute and deafen icons, moderator-applied server mutes not showing until the next voice event, and a member's voice channel from one community leaking into another community's sidebar.
+
+  <!-- whatsnew
+  title: Accurate voice channel member lists
+  icon: users-three-fill
+  body: Voice channels now show exactly who is in them, and keep it accurate through connection drops.
+  kind: fix
+  -->
+
+- 979f968: Swaps in the new paper-cut hummingbird as the app icon everywhere: desktop, iOS, Android, Windows, the favicons, the web app manifest, and the sign-in provider list.
+
+  Android 13 and newer now get a monochrome layer, so launchers that tint icons to the wallpaper palette render Colibri properly instead of falling back to the untinted foreground. The adaptive foreground is also rendered separately at each density and inset to the safe zone, which fixes the beak and tail being clipped by round and squircle launcher masks. The status bar notification icon is redrawn from the same artwork.
+
+  The three vector variants of the mark are committed under `packages/assets/brand`, and every raster target is rendered from them by `pnpm brand:render`, so the icon set is reproducible rather than a pile of hand-exported files. `favicon.svg` drops from 300 KB of base64-encoded PNG to a 15 KB vector along the way.
+
+  <!-- whatsnew
+  title: A new app icon
+  icon: sparkle-fill
+  body: Colibri has a new app icon, a paper-cut hummingbird. On Android 13 and newer it also picks up your wallpaper colours if your launcher tints icons.
+  kind: feature
+  -->
+
+- 99e3e50: Fixes the Settings dialog (and every other modal/popover/drawer built on the same primitive) rendering with clipped text and mis-centering on iPad-width screens, flagged during App Store review. Dialogs no longer size themselves off the viewport width, which was the root cause on tablet-sized screens, long channel names now truncate instead of overlapping the mute/member-list buttons at narrower chat widths.
+- 618b27f: Fixes formatting markers being scrambled when a message is reopened for editing. A list item that started with an inline style came back inside out (`- **Test**` turned into `**- Test**`), which also corrupted the facets once the edit was saved. Headings and subtext were affected the same way whenever the inline style covered only part of the line, and copying a styled list item to the clipboard produced the same wrong text.
+
+  <!-- whatsnew
+  title: Editing formatted lists
+  icon: list-bullets-fill
+  body: Editing a message that contains a bold or italic list item no longer scrambles the formatting.
+  kind: fix
+  -->
+
+- Updated dependencies [e0a5e5f]
+- Updated dependencies [979f968]
+- Updated dependencies [98c23f0]
+- Updated dependencies [97bd8f3]
+- Updated dependencies [3b27f31]
+- Updated dependencies [36cc84a]
+- Updated dependencies [39a219f]
+- Updated dependencies [8539830]
+- Updated dependencies [fa3a6a8]
+- Updated dependencies [0e459f3]
+- Updated dependencies [979f968]
+- Updated dependencies [7379b04]
+- Updated dependencies [99e3e50]
+- Updated dependencies [93374b8]
+- Updated dependencies [244c83e]
+- Updated dependencies [7136be7]
+- Updated dependencies [99e3e50]
+- Updated dependencies [618b27f]
+- Updated dependencies [99e3e50]
+  - @colibri-social/client@0.1.0-rc.14
+  - @colibri-social/assets@0.0.2-rc.3
+
 ## 0.1.0-rc.11
 
 ### Patch Changes

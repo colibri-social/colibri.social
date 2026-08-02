@@ -9,6 +9,78 @@ export type ClientReleaseNote = Omit<ReleaseNote, "entries"> & {
 
 export const RELEASE_NOTES: Array<ClientReleaseNote> = [
 	{
+		version: "0.1.0-rc.14",
+		date: "2026-08-02",
+		entries: [
+			{
+				title: "A hummingbird while you wait",
+				body: "Loading screens now show a hovering hummingbird instead of plain text, with status lines that keep you company while the app starts up. Tap it if you want to see it startle.",
+				icon: "bird-fill",
+				kind: "feature",
+			},
+			{
+				title: "Better errors",
+				body: "When something goes wrong you now get a clear reason and a way to retry!",
+				icon: "warning-circle-fill",
+				kind: "feature",
+			},
+			{
+				title: "A window title bar of our own",
+				body: "The desktop app now has the same branded header as the web app, with the channel you're in shown in the title bar and the taskbar.",
+				icon: "browser-fill",
+				kind: "feature",
+			},
+			{
+				title: "A new way to sign in",
+				body: "Our sign-in screen got reworked! Check if out when you have a chance.",
+				icon: "sign-in-fill",
+				kind: "feature",
+			},
+			{
+				title: "Open sign-in",
+				body: "Sign-in is now open to everyone, no more waitlist.",
+				icon: "chat-circle-dots-fill",
+				kind: "feature",
+			},
+			{
+				title: "Screenshare and camera sounds for everyone",
+				body: "Other people in a voice channel now hear a sound when you start screen sharing or turn your camera on or off.",
+				icon: "speaker-high-fill",
+				kind: "fix",
+			},
+			{
+				title: "Accurate voice channel member lists",
+				body: "Voice channels now show exactly who is in them, and keep it accurate through connection drops.",
+				icon: "users-three-fill",
+				kind: "fix",
+			},
+			{
+				title: "Faster, fresher messages",
+				body: "Channels now load up-to-date messages much sooner, and no longer show conversations that have fallen behind.",
+				icon: "rewind-fill",
+				kind: "fix",
+			},
+			{
+				title: "MacOS voice channel issues",
+				body: "MacOS users rejoice! You can finally join voice channels again.",
+				icon: "speaker-high-fill",
+				kind: "fix",
+			},
+			{
+				title: "More reliable voice calls",
+				body: "Fixed a bug where activity elsewhere (like opening another device) could silently break your voice call without disconnecting you.",
+				icon: "speaker-high-fill",
+				kind: "fix",
+			},
+			{
+				title: "Editing formatted lists",
+				body: "Editing a message that contains a bold or italic list item no longer scrambles the formatting.",
+				icon: "list-bullets-fill",
+				kind: "fix",
+			},
+		],
+	},
+	{
 		version: "0.1.0-rc.11",
 		date: "2026-07-29",
 		entries: [
