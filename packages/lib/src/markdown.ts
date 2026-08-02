@@ -575,6 +575,12 @@ export interface SourceWithAtoms {
 const featureKind = (feature: Feature): string =>
 	(feature.$type ?? "").split("#")[1] ?? "";
 
+interface BlockPrefix {
+	list?: string;
+	heading?: string;
+	subtext?: string;
+}
+
 /**
  * The inverse of {@link parseMarkdown}: rebuilds raw markdown source from stored
  * clean text + facets, re-injecting the literal syntax markers so the editor can
@@ -605,6 +611,19 @@ export const facetsToSource = (
 		if (arr) arr.push(value);
 		else map.set(index, [value]);
 	};
+	const blockPrefixAt = new Map<number, BlockPrefix>();
+	const setPrefix = (
+		index: number,
+		kind: keyof BlockPrefix,
+		value: string,
+	): void => {
+		const prefix = blockPrefixAt.get(index);
+		if (!prefix) {
+			blockPrefixAt.set(index, { [kind]: value });
+		} else if (prefix[kind] === undefined) {
+			prefix[kind] = value;
+		}
+	};
 	const codeblocks: Array<[number, number, string]> = [];
 	const atomStarts = new Map<number, { end: number; feature: Feature }>();
 	const listFacets: Array<{ start: number; end: number; ordered: boolean }> =
@@ -633,9 +652,9 @@ export const facetsToSource = (
 				}
 			} else if (kind === "heading") {
 				const level = "level" in feature ? Number(feature.level) || 1 : 1;
-				addMarker(opensAt, start, `${"#".repeat(Math.min(3, level))} `);
+				setPrefix(start, "heading", `${"#".repeat(Math.min(3, level))} `);
 			} else if (kind === "subtext") {
-				addMarker(opensAt, start, "-# ");
+				setPrefix(start, "subtext", "-# ");
 			} else if (kind === "list") {
 				listFacets.push({
 					start,
@@ -653,15 +672,18 @@ export const facetsToSource = (
 	listFacets.sort((a, b) => a.start - b.start);
 	let counter = 0;
 	let prevEnd = -2;
+	let prevStart = -1;
 	for (const lf of listFacets) {
+		if (lf.start === prevStart) continue;
 		if (!(lf.ordered && lf.start === prevEnd + 1)) counter = 0;
 		if (lf.ordered) {
 			counter++;
-			addMarker(opensAt, lf.start, `${counter}. `);
+			setPrefix(lf.start, "list", `${counter}. `);
 		} else {
-			addMarker(opensAt, lf.start, "- ");
+			setPrefix(lf.start, "list", "- ");
 		}
 		prevEnd = lf.end;
+		prevStart = lf.start;
 	}
 
 	codeblocks.sort((a, b) => a[0] - b[0]);
@@ -713,6 +735,13 @@ export const facetsToSource = (
 			out += `\n${prefix}\`\`\``;
 			i = Math.max(fence[1], i + 1);
 			continue;
+		}
+
+		const blockPrefix = blockPrefixAt.get(i);
+		if (blockPrefix) {
+			out += blockPrefix.list ?? "";
+			out += blockPrefix.heading ?? "";
+			out += blockPrefix.subtext ?? "";
 		}
 
 		const openers = opensAt.get(i);
