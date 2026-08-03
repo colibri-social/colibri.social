@@ -33,6 +33,7 @@ import {
 	FileFieldDropzone,
 	FileFieldHiddenInput,
 } from "../components/ui/FileField";
+import { StatusPill } from "../components/ui/StatusPill";
 import {
 	Tooltip,
 	TooltipContent,
@@ -672,6 +673,19 @@ const ChannelLayout: ParentComponent = (props) => {
 		),
 	);
 
+	const loadingStatus = () => {
+		if (channel.initialLoading() && channel.messages().length === 0)
+			return "Loading messages...";
+		if (channel.loadingOlder() && channel.messages().length > 0)
+			return "Loading older messages...";
+		if (
+			!channel.hydratedFromNetwork() &&
+			isSnapshotStale(channel.snapshotAge())
+		)
+			return "Catching up...";
+		return undefined;
+	};
+
 	const isRestricted = () =>
 		!!channel.data()?.ownerOnly ||
 		(channel.data()?.allowedRoles?.length ?? 0) > 0 ||
@@ -841,16 +855,6 @@ const ChannelLayout: ParentComponent = (props) => {
 								<ScrollAnchorProvider container={() => scrollContainer}>
 									<div ref={messagesWrapper} class="w-full">
 										<Show
-											when={
-												channel.loadingOlder() && channel.messages().length > 0
-											}
-										>
-											<div class="w-full text-center py-2 text-xs text-muted-foreground">
-												Loading older messages...
-											</div>
-										</Show>
-
-										<Show
 											when={!channel.hasMore() && channel.messages().length > 0}
 										>
 											<div class="w-full text-center py-2 text-sm text-muted-foreground">
@@ -875,28 +879,6 @@ const ChannelLayout: ParentComponent = (props) => {
 											<div class="w-full h-full flex items-center justify-center text-center py-2 text-sm text-muted-foreground">
 												There's nothing here yet!{" "}
 												{canTalk() ? "Be the first to send a message." : ""}
-											</div>
-										</Show>
-
-										<Show
-											when={
-												channel.initialLoading() &&
-												channel.messages().length === 0
-											}
-										>
-											<div class="w-full text-center py-4 text-sm text-muted-foreground">
-												Loading messages...
-											</div>
-										</Show>
-
-										<Show
-											when={
-												!channel.hydratedFromNetwork() &&
-												isSnapshotStale(channel.snapshotAge())
-											}
-										>
-											<div class="w-full text-center py-1.5 text-xs text-muted-foreground">
-												Catching up...
 											</div>
 										</Show>
 
@@ -953,6 +935,17 @@ const ChannelLayout: ParentComponent = (props) => {
 									</div>
 								</ScrollAnchorProvider>
 							</div>
+
+							<Show when={loadingStatus()}>
+								{(label) => (
+									<StatusPill
+										spinner
+										class="absolute top-2 left-1/2 -translate-x-1/2 z-10"
+									>
+										{label()}
+									</StatusPill>
+								)}
+							</Show>
 
 							<Show when={showJumpToLatest()}>
 								<Button

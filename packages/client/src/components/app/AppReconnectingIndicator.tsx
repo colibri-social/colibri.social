@@ -5,9 +5,9 @@ import {
 	onCleanup,
 	Show,
 } from "solid-js";
-import SpinnerIcon from "~icons/ph/spinner-gap";
 import { pendingCount } from "../../atproto/outbox/outbox";
 import { useSocketContext } from "../../contexts/Socket";
+import { StatusPill } from "../ui/StatusPill";
 
 const GRACE_MS = 2_500;
 
@@ -53,17 +53,15 @@ export const AppReconnectingIndicator: Component = () => {
 
 	return (
 		<Show when={offline() || visible()}>
-			<div class="fixed top-[calc(1rem+var(--titlebar-height)+var(--safe-area-top))] left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 rounded-full bg-muted px-3 py-1.5 text-sm text-muted-foreground shadow-md">
-				<Show when={!offline()}>
-					<SpinnerIcon class="animate-spin" />
+			<StatusPill
+				spinner={!offline()}
+				class="fixed top-[calc(1rem+var(--titlebar-height)+var(--safe-area-top))] left-1/2 -translate-x-1/2 z-50"
+			>
+				{offline() ? "You're offline" : "Reconnecting…"}
+				<Show when={pendingCount() > 0}>
+					{` · ${pendingCount()} waiting to send`}
 				</Show>
-				<span>
-					{offline() ? "You're offline" : "Reconnecting…"}
-					<Show when={pendingCount() > 0}>
-						{` · ${pendingCount()} waiting to send`}
-					</Show>
-				</span>
-			</div>
+			</StatusPill>
 		</Show>
 	);
 };
