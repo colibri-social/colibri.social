@@ -7,6 +7,21 @@ const resolved = new Map<string, EmbedMetadata>();
 const negativeUntil = new Map<string, number>();
 const inflight = new Map<string, Promise<EmbedMetadata | undefined>>();
 
+export const peekMetadata = (uri: string): EmbedMetadata | undefined =>
+	resolved.get(uri);
+
+export const warmMetadata = async (
+	xrpc: XrpcClient,
+	uris: Array<string>,
+): Promise<void> => {
+	const pending = uris
+		.filter((uri) => resolved.get(uri) === undefined)
+		.map((uri) => getMetadataDeduped(xrpc, uri));
+
+	if (pending.length === 0) return;
+	await Promise.allSettled(pending);
+};
+
 export const getMetadataDeduped = (
 	xrpc: XrpcClient,
 	uri: string,

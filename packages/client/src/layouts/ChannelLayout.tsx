@@ -1,3 +1,4 @@
+import type { ColibriRichTextLink } from "@colibri-social/lib";
 import type { FileError } from "@kobalte/core/file-field";
 import {
 	createEffect,
@@ -22,8 +23,12 @@ import ChatCircleDotsIcon from "~icons/ph/chat-circle-dots";
 import UsersIcon from "~icons/ph/users";
 import UsersIconFill from "~icons/ph/users-fill";
 import XIcon from "~icons/ph/x";
+import { warmPosts } from "../atproto/bsky-post-cache";
+import { parseBskyPostUrl } from "../atproto/bsky-post-url";
 import { isSnapshotStale } from "../atproto/cache/messages-snapshot";
+import { warmMetadata } from "../atproto/embed-metadata-cache";
 import type { Message as MessageData } from "../atproto/xrpc/social/colibri/channel/listMessages";
+import { usesLinkPreview } from "../components/app/channel/message/Embed";
 import { Message } from "../components/app/channel/message/Message";
 import { ChatGuidelinesModal } from "../components/app/community/ChatGuidelinesModal";
 import { MessageInput } from "../components/app/community/MessageInput";
@@ -44,13 +49,17 @@ import { ChannelContextProvider, useChannelContext } from "../contexts/Channel";
 import { useCommunityContext } from "../contexts/Community";
 import { useMutes } from "../contexts/Mutes";
 import { isSameChannelUri, useNotifications } from "../contexts/Notifications";
-import { ScrollAnchorProvider } from "../contexts/ScrollAnchor";
 import { useUserContext } from "../contexts/User";
 import { useUserPreferences } from "../contexts/UserPreferences";
 import { useViewport } from "../contexts/Viewport";
 import { describeError } from "../errors/copy";
 import { cancelChannelTrayNotification } from "../notifications";
 import { getChannelParam } from "../utils/get-param";
+import {
+	createDomScrollSurface,
+	createScrollAnchor,
+	shouldLoadOlder,
+} from "../utils/message-scroll";
 import { createMobilePane } from "../utils/mobile-pane";
 
 type MessageMeta = {
@@ -155,11 +164,11 @@ const ChannelLayout: ParentComponent = (props) => {
 
 	let scrollContainer: HTMLDivElement | undefined;
 	let messagesWrapper: HTMLDivElement | undefined;
-	let topSentinel: HTMLDivElement | undefined;
 	let hiddenInput: HTMLInputElement | undefined;
-	let observer: IntersectionObserver | undefined;
 	let contentResizeObserver: ResizeObserver | undefined;
 	let containerResizeObserver: ResizeObserver | undefined;
+	let rowMutationObserver: MutationObserver | undefined;
+	const rowHeights = new WeakMap<HTMLElement, number>();
 	let readObserver: IntersectionObserver | undefined;
 	let armedFocusUri: string | undefined;
 	let focusWalkUri: string | undefined;
@@ -167,11 +176,6 @@ const ChannelLayout: ParentComponent = (props) => {
 	const FOCUS_WALK_CAP = 50;
 	let cursorWalkAttempts = 0;
 	let didInitialScroll = false;
-	let scrollBottomBeforeFetch: number | null = null;
-	let wasAtBottom = false;
-	let pinInterrupted = false;
-	let editorFocusAtBottom = false;
-	let editorFocusAt = 0;
 	let pingObserver: IntersectionObserver | undefined;
 	const [unseenPings, setUnseenPings] = createSignal<Set<string>>(new Set());
 	let unseenIsPing = new Map<string, boolean>();
@@ -186,45 +190,16 @@ const ChannelLayout: ParentComponent = (props) => {
 		return n > 50 ? n - 50 : -1;
 	});
 
+	const scrollAnchor = createScrollAnchor(
+		createDomScrollSurface(
+			() => scrollContainer,
+			() => messagesWrapper,
+		),
+	);
+
 	const scrollToBottom = () => {
-		if (!scrollContainer) return;
-		scrollContainer.scrollTop = scrollContainer.scrollHeight;
-		wasAtBottom = true;
+		scrollAnchor.pinToBottom();
 		setShowJumpToLatest(false);
-	};
-
-	const REPIN_MAX_FRAMES = 60;
-	const REPIN_STABLE_FRAMES = 2;
-
-	let pinGeneration = 0;
-
-	const pinToBottomStable = () => {
-		if (!scrollContainer) return;
-		pinInterrupted = false;
-		const generation = ++pinGeneration;
-		let lastScrollHeight = -1;
-		let lastClientHeight = -1;
-		let stable = 0;
-		let frames = 0;
-		const step = () => {
-			if (!scrollContainer || pinInterrupted) return;
-			if (generation !== pinGeneration) return;
-			if (scrollBottomBeforeFetch !== null) return;
-			const h = scrollContainer.scrollHeight;
-			const c = scrollContainer.clientHeight;
-			scrollContainer.scrollTop = h;
-			wasAtBottom = true;
-			if (h === lastScrollHeight && c === lastClientHeight) {
-				stable++;
-			} else {
-				stable = 0;
-				lastScrollHeight = h;
-				lastClientHeight = c;
-			}
-			if (stable >= REPIN_STABLE_FRAMES || ++frames >= REPIN_MAX_FRAMES) return;
-			requestAnimationFrame(step);
-		};
-		requestAnimationFrame(step);
 	};
 
 	const observeJumpSentinel = (el: HTMLDivElement) => {
@@ -233,74 +208,115 @@ const ChannelLayout: ParentComponent = (props) => {
 		jumpObserver?.observe(el);
 	};
 
-	const setupObserver = () => {
-		observer?.disconnect();
-		if (!scrollContainer || !topSentinel) return;
+	const PREVIEW_WARM_TIMEOUT_MS = 600;
 
-		observer = new IntersectionObserver(
-			(entries) => {
-				const entry = entries[0];
-				if (!entry?.isIntersecting) return;
-				if (!channel.hasMore()) return;
-				channel.loadOlder();
+	const linkUrisIn = (messages: Array<MessageData>): Array<string> => {
+		const uris = new Set<string>();
+		for (const message of messages) {
+			for (const facet of message.facets ?? []) {
+				const feature = facet.features[0];
+				if (feature?.$type !== "social.colibri.richtext.facet#link") continue;
+				uris.add((feature as ColibriRichTextLink).uri);
+			}
+		}
+		return [...uris];
+	};
+
+	const warmEmbeds = async (messages: Array<MessageData>): Promise<void> => {
+		const uris = linkUrisIn(messages);
+		const posts = uris
+			.map((uri) => parseBskyPostUrl(uri))
+			.filter((ref): ref is NonNullable<typeof ref> => ref !== undefined);
+
+		let timer: ReturnType<typeof setTimeout> | undefined;
+		await Promise.race([
+			Promise.allSettled([
+				warmMetadata(user.xrpc, uris.filter(usesLinkPreview)),
+				warmPosts(posts),
+			]),
+			new Promise<void>((resolve) => {
+				timer = setTimeout(resolve, PREVIEW_WARM_TIMEOUT_MS);
+			}),
+		]);
+		if (timer !== undefined) clearTimeout(timer);
+	};
+
+	const loadOlderPreservingScroll = (): void => {
+		void channel.loadOlder({
+			prepare: warmEmbeds,
+			onBeforePrepend: () => {
+				if (untrack(() => didInitialScroll)) scrollAnchor.capture();
 			},
-			{
-				root: scrollContainer,
-				threshold: 0,
-				rootMargin: "120px 0px 0px 0px",
+			onAfterPrepend: () => {
+				if (untrack(() => didInitialScroll)) scrollAnchor.restore();
 			},
-		);
-		observer.observe(topSentinel);
+		});
+	};
+
+	const maybeLoadOlder = (): void => {
+		if (!scrollContainer) return;
+		if (
+			!shouldLoadOlder({
+				scrollTop: scrollContainer.scrollTop,
+				clientHeight: scrollContainer.clientHeight,
+				hasMore: channel.hasMore(),
+				loading: channel.loadingOlder(),
+				ready: didInitialScroll,
+			})
+		)
+			return;
+		loadOlderPreservingScroll();
+	};
+
+	const observeRow = (node: Node): void => {
+		if (!(node instanceof HTMLElement)) return;
+		contentResizeObserver?.observe(node);
+	};
+
+	const handleContentResize = (entries: Array<ResizeObserverEntry>): void => {
+		if (!scrollContainer) return;
+
+		let delta = 0;
+		let boundary: number | undefined;
+
+		for (const entry of entries) {
+			const row = entry.target;
+			if (row === messagesWrapper || !(row instanceof HTMLElement)) continue;
+
+			const height = row.offsetHeight;
+			const previous = rowHeights.get(row);
+			rowHeights.set(row, height);
+			if (previous === undefined || height === previous) continue;
+
+			delta += height - previous;
+			const top = row.offsetTop - scrollContainer.scrollTop;
+			if (boundary === undefined || top < boundary) boundary = top;
+		}
+
+		if (delta !== 0 && boundary !== undefined) {
+			scrollAnchor.absorbGrowth(boundary, delta);
+			return;
+		}
+
+		scrollAnchor.restore();
 	};
 
 	const handleScroll = () => {
 		if (!scrollContainer) return;
-		const distFromBottom =
-			scrollContainer.scrollHeight -
-			scrollContainer.scrollTop -
-			scrollContainer.clientHeight;
-		wasAtBottom = distFromBottom < 80;
+		scrollAnchor.handleScroll();
 
-		if (wasAtBottom) {
+		if (scrollAnchor.isAtBottom()) {
 			setShowJumpToLatest(false);
 			channel.advanceReadCursor();
 			notifications.markChannelRead(channel.channelUri());
 			void cancelChannelTrayNotification(channel.channelUri());
 		}
-	};
 
-	const keyboardRepinArmed = () =>
-		editorFocusAtBottom && performance.now() - editorFocusAt < 2000;
-
-	const handleEditorFocusIn = (e: FocusEvent) => {
-		if (!scrollContainer) return;
-		const target = e.target as HTMLElement | null;
-		if (!target?.closest("#editor")) return;
-		const distFromBottom =
-			scrollContainer.scrollHeight -
-			scrollContainer.scrollTop -
-			scrollContainer.clientHeight;
-		editorFocusAtBottom = distFromBottom < 80;
-		editorFocusAt = performance.now();
-	};
-
-	const markPinInterrupted = () => {
-		pinInterrupted = true;
+		maybeLoadOlder();
 	};
 
 	onMount(() => {
-		setupObserver();
 		scrollContainer?.addEventListener("scroll", handleScroll, {
-			passive: true,
-		});
-		document.addEventListener("focusin", handleEditorFocusIn);
-		scrollContainer?.addEventListener("pointerdown", markPinInterrupted, {
-			passive: true,
-		});
-		scrollContainer?.addEventListener("wheel", markPinInterrupted, {
-			passive: true,
-		});
-		scrollContainer?.addEventListener("touchstart", markPinInterrupted, {
 			passive: true,
 		});
 
@@ -319,42 +335,39 @@ const ChannelLayout: ParentComponent = (props) => {
 		);
 
 		if (messagesWrapper) {
-			contentResizeObserver = new ResizeObserver(() => {
-				if (!scrollContainer || !didInitialScroll) return;
-				if (scrollBottomBeforeFetch !== null) return; // prepend in progress
-				if (wasAtBottom) pinToBottomStable();
-			});
+			contentResizeObserver = new ResizeObserver(handleContentResize);
 			contentResizeObserver.observe(messagesWrapper);
+			for (const row of messagesWrapper.children) observeRow(row);
+
+			rowMutationObserver = new MutationObserver((mutations) => {
+				for (const mutation of mutations) {
+					for (const node of mutation.addedNodes) observeRow(node);
+					for (const node of mutation.removedNodes) {
+						if (node instanceof HTMLElement) {
+							contentResizeObserver?.unobserve(node);
+						}
+					}
+				}
+			});
+			rowMutationObserver.observe(messagesWrapper, { childList: true });
 		}
 
 		if (scrollContainer) {
-			containerResizeObserver = new ResizeObserver(() => {
-				if (!scrollContainer || !didInitialScroll) return;
-				if (scrollBottomBeforeFetch !== null) return; // prepend in progress
-				if (!wasAtBottom && !keyboardRepinArmed()) return;
-				if (viewport.keyboardAnimating()) {
-					scrollToBottom();
-					return;
-				}
-				wasAtBottom = true;
-				pinToBottomStable();
-			});
+			containerResizeObserver = new ResizeObserver(() =>
+				scrollAnchor.restore(),
+			);
 			containerResizeObserver.observe(scrollContainer);
 		}
 	});
 
 	onCleanup(() => {
-		observer?.disconnect();
 		contentResizeObserver?.disconnect();
 		containerResizeObserver?.disconnect();
+		rowMutationObserver?.disconnect();
 		readObserver?.disconnect();
 		pingObserver?.disconnect();
 		jumpObserver?.disconnect();
 		scrollContainer?.removeEventListener("scroll", handleScroll);
-		document.removeEventListener("focusin", handleEditorFocusIn);
-		scrollContainer?.removeEventListener("pointerdown", markPinInterrupted);
-		scrollContainer?.removeEventListener("wheel", markPinInterrupted);
-		scrollContainer?.removeEventListener("touchstart", markPinInterrupted);
 	});
 
 	createEffect(() => {
@@ -465,7 +478,7 @@ const ChannelLayout: ParentComponent = (props) => {
 		if (!present) {
 			if (channel.hasMore() && focusWalkAttempts < FOCUS_WALK_CAP) {
 				focusWalkAttempts++;
-				channel.loadOlder(); // no-op while inflight
+				loadOlderPreservingScroll(); // no-op while inflight
 			} else {
 				// Not in this channel's history (deleted, or beyond the cap)
 				notifications.clearPendingFocus();
@@ -509,12 +522,20 @@ const ChannelLayout: ParentComponent = (props) => {
 	createEffect(
 		on(channel.channelUri, () => {
 			didInitialScroll = false;
-			wasAtBottom = false;
 			cursorWalkAttempts = 0;
 			handledOrphans = new Set();
 			setDeletedPingBanner(false);
-			setupObserver();
 		}),
+	);
+
+	createEffect(
+		on(
+			() => channel.loadingOlder(),
+			(loading) => {
+				if (loading) return;
+				maybeLoadOlder();
+			},
+		),
 	);
 
 	createEffect(() => {
@@ -532,7 +553,7 @@ const ChannelLayout: ParentComponent = (props) => {
 		if (cursorUri && cursorIdx === -1) {
 			if (channel.hasMore() && cursorWalkAttempts < FOCUS_WALK_CAP) {
 				cursorWalkAttempts++;
-				channel.loadOlder();
+				loadOlderPreservingScroll();
 				return;
 			}
 		}
@@ -557,18 +578,10 @@ const ChannelLayout: ParentComponent = (props) => {
 
 			if (node) {
 				node.scrollIntoView({ block: "start" });
-				const distFromBottom = scrollContainer
-					? scrollContainer.scrollHeight -
-						scrollContainer.scrollTop -
-						scrollContainer.clientHeight
-					: Number.POSITIVE_INFINITY;
-				if (distFromBottom < 80) {
-					wasAtBottom = true;
-					markReadNow();
-				}
+				scrollAnchor.capture();
+				if (scrollAnchor.isAtBottom()) markReadNow();
 			} else {
-				wasAtBottom = true;
-				pinToBottomStable();
+				scrollAnchor.pinToBottom();
 				markReadNow();
 			}
 		});
@@ -578,15 +591,8 @@ const ChannelLayout: ParentComponent = (props) => {
 		on(
 			viewport.height,
 			() => {
-				if (!didInitialScroll || !scrollContainer) return;
-				if (scrollBottomBeforeFetch !== null) return;
-				if (!wasAtBottom && !keyboardRepinArmed()) return;
-				if (viewport.keyboardAnimating()) {
-					scrollToBottom();
-					return;
-				}
-				wasAtBottom = true;
-				pinToBottomStable();
+				if (!didInitialScroll) return;
+				scrollAnchor.restore();
 			},
 			{ defer: true },
 		),
@@ -597,11 +603,8 @@ const ChannelLayout: ParentComponent = (props) => {
 			viewport.keyboardAnimating,
 			(animating) => {
 				if (animating) return;
-				if (!didInitialScroll || !scrollContainer) return;
-				if (scrollBottomBeforeFetch !== null) return;
-				if (!wasAtBottom && !keyboardRepinArmed()) return;
-				wasAtBottom = true;
-				pinToBottomStable();
+				if (!didInitialScroll) return;
+				scrollAnchor.restore();
 			},
 			{ defer: true },
 		),
@@ -628,9 +631,8 @@ const ChannelLayout: ParentComponent = (props) => {
 			() => channel.newIncomingMessage(),
 			(count) => {
 				if (!count) return; // skip initial 0
-				if (!didInitialScroll || !scrollContainer) return;
-				if (!wasAtBottom) return;
-				requestAnimationFrame(() => scrollToBottom());
+				if (!didInitialScroll) return;
+				if (scrollAnchor.anchorMode() !== "bottom") return;
 				channel.clearUnreadBoundary();
 			},
 		),
@@ -641,9 +643,9 @@ const ChannelLayout: ParentComponent = (props) => {
 			() => channel.outgoingMessage(),
 			(count) => {
 				if (!count) return; // skip initial 0
-				if (!didInitialScroll || !scrollContainer) return;
+				if (!didInitialScroll) return;
 				// The user just sent a message — always pin to the bottom.
-				requestAnimationFrame(() => scrollToBottom());
+				scrollAnchor.pinToBottom();
 				channel.clearUnreadBoundary();
 			},
 		),
@@ -654,35 +656,13 @@ const ChannelLayout: ParentComponent = (props) => {
 			() => channel.editingMessage(),
 			(editing) => {
 				if (!editing) return;
-				if (!didInitialScroll || !scrollContainer) return;
+				if (!didInitialScroll) return;
 				const msgs = channel.messages();
 				const last = msgs[msgs.length - 1];
 				// Only the newest message can grow off the bottom edge when its
 				// inline editor expands — pin to the bottom so it stays in view.
 				if (!last || last.uri !== editing.uri) return;
-				requestAnimationFrame(() => scrollToBottom());
-			},
-		),
-	);
-
-	createEffect(
-		on(
-			() => channel.loadingOlder(),
-			(isLoading) => {
-				if (isLoading) {
-					if (scrollContainer) {
-						scrollBottomBeforeFetch =
-							scrollContainer.scrollHeight - scrollContainer.scrollTop;
-					}
-				} else if (scrollBottomBeforeFetch !== null) {
-					const saved = scrollBottomBeforeFetch;
-					scrollBottomBeforeFetch = null;
-					requestAnimationFrame(() => {
-						if (!scrollContainer) return;
-						if (!untrack(() => didInitialScroll)) return;
-						scrollContainer.scrollTop = scrollContainer.scrollHeight - saved;
-					});
-				}
+				scrollAnchor.pinToBottom();
 			},
 		),
 	);
@@ -865,89 +845,83 @@ const ChannelLayout: ParentComponent = (props) => {
 								style={{ "overflow-anchor": "none" }}
 								ref={scrollContainer}
 							>
-								<div ref={topSentinel} class="w-full h-px" aria-hidden="true" />
-								<ScrollAnchorProvider container={() => scrollContainer}>
-									<div ref={messagesWrapper} class="w-full">
-										<Show
-											when={!channel.hasMore() && channel.messages().length > 0}
-										>
-											<div class="w-full text-center py-2 text-sm text-muted-foreground">
-												<span class="flex items-center w-full justify-center">
-													This is the start of{" "}
-													<ChatCircleDotsIcon class="w-4 h-4 inline-block ml-1.5 mr-1" />{" "}
-													{channel.data()!.name}.
-												</span>
-												<Show when={isRestricted()}>
-													{canTalk()
-														? "Send some messages to get the discussion started!"
-														: "You are not allowed to send messages in here."}
-												</Show>
+								<div ref={messagesWrapper} class="w-full">
+									<Show
+										when={!channel.hasMore() && channel.messages().length > 0}
+									>
+										<div class="w-full text-center py-2 text-sm text-muted-foreground">
+											<span class="flex items-center w-full justify-center">
+												This is the start of{" "}
+												<ChatCircleDotsIcon class="w-4 h-4 inline-block ml-1.5 mr-1" />{" "}
+												{channel.data()!.name}.
+											</span>
+											<Show when={isRestricted()}>
+												{canTalk()
+													? "Send some messages to get the discussion started!"
+													: "You are not allowed to send messages in here."}
+											</Show>
+										</div>
+									</Show>
+
+									<Show
+										when={!channel.hasMore() && channel.messages().length === 0}
+									>
+										<div class="w-full h-full flex items-center justify-center text-center py-2 text-sm text-muted-foreground">
+											There's nothing here yet!{" "}
+											{canTalk() ? "Be the first to send a message." : ""}
+										</div>
+									</Show>
+
+									<Show when={channel.error()}>
+										{(failure) => (
+											<div class="w-full text-center py-2 text-xs text-destructive">
+												{describeError(failure()).title}
 											</div>
-										</Show>
+										)}
+									</Show>
 
-										<Show
-											when={
-												!channel.hasMore() && channel.messages().length === 0
-											}
-										>
-											<div class="w-full h-full flex items-center justify-center text-center py-2 text-sm text-muted-foreground">
-												There's nothing here yet!{" "}
-												{canTalk() ? "Be the first to send a message." : ""}
-											</div>
-										</Show>
-
-										<Show when={channel.error()}>
-											{(failure) => (
-												<div class="w-full text-center py-2 text-xs text-destructive">
-													{describeError(failure()).title}
-												</div>
-											)}
-										</Show>
-
-										<For each={channel.messages()}>
-											{(message, index) => {
-												const meta = () =>
-													messageMeta()[index()] ?? DEFAULT_META;
-												const isLastRead = () =>
-													channel.readCursorUri() === message.uri &&
-													index() < messageMeta().length - 1;
-												return (
-													<>
-														<Show when={index() === jumpSentinelIndex()}>
-															<div
-																ref={observeJumpSentinel}
-																class="w-full h-px"
-																aria-hidden="true"
-															/>
-														</Show>
-														<Show when={meta().dateLabel}>
-															{(label) => (
-																<div class="w-[calc(100%-2rem)] h-px m-4 bg-border flex items-center justify-center select-none">
-																	<span class="text-sm bg-background px-1">
-																		{label()}
-																	</span>
-																</div>
-															)}
-														</Show>
-														<Message
-															data={message}
-															isSubsequent={meta().isSubsequent}
-															hasSubsequent={meta().hasSubsequent}
-															isLast={meta().isLast}
+									<For each={channel.messages()}>
+										{(message, index) => {
+											const meta = () => messageMeta()[index()] ?? DEFAULT_META;
+											const isLastRead = () =>
+												channel.readCursorUri() === message.uri &&
+												index() < messageMeta().length - 1;
+											return (
+												<>
+													<Show when={index() === jumpSentinelIndex()}>
+														<div
+															ref={observeJumpSentinel}
+															class="w-full h-px"
+															aria-hidden="true"
 														/>
-														<Show when={isLastRead()}>
-															<div class="w-[calc(100%-2rem)] h-px mx-4 my-2.5 bg-primary/50 flex items-center justify-center select-none">
-																<span class="text-xs bg-background px-1 text-primary font-medium">
-																	New messages
+													</Show>
+													<Show when={meta().dateLabel}>
+														{(label) => (
+															<div class="w-[calc(100%-2rem)] h-px m-4 bg-border flex items-center justify-center select-none">
+																<span class="text-sm bg-background px-1">
+																	{label()}
 																</span>
 															</div>
-														</Show>
-													</>
-												);
-											}}
-										</For>
-									</div>
-								</ScrollAnchorProvider>
+														)}
+													</Show>
+													<Message
+														data={message}
+														isSubsequent={meta().isSubsequent}
+														hasSubsequent={meta().hasSubsequent}
+														isLast={meta().isLast}
+													/>
+													<Show when={isLastRead()}>
+														<div class="w-[calc(100%-2rem)] h-px mx-4 my-2.5 bg-primary/50 flex items-center justify-center select-none">
+															<span class="text-xs bg-background px-1 text-primary font-medium">
+																New messages
+															</span>
+														</div>
+													</Show>
+												</>
+											);
+										}}
+									</For>
+								</div>
 							</div>
 
 							<Show when={loadingStatus()}>

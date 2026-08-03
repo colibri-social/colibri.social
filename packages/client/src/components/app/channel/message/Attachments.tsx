@@ -28,7 +28,6 @@ import SpinnerIcon from "~icons/ph/spinner-gap";
 import XIcon from "~icons/ph/x";
 import { resolveBlob } from "../../../../atproto/resolve-blob";
 import type { Message } from "../../../../atproto/xrpc/social/colibri/channel/listMessages";
-import { useStableMedia } from "../../../../contexts/ScrollAnchor";
 import { isTauriRuntime } from "../../../../notifications/environment";
 import { createSwipe } from "../../../../utils/create-swipe";
 import { openExternalLink } from "../../../../utils/open-external-link";
@@ -116,13 +115,11 @@ const TimeDisplay: Component<{ tone: "muted" | "light" }> = (props) => (
 );
 
 export const AudioAttachment: AttachmentComponent = (props) => {
-	const stableMedia = useStableMedia();
 	const src = () => resolveBlob(props.did, props.item.blob);
 	const size = "size" in props.item.blob ? props.item.blob.size : undefined;
 
 	return (
 		<media-player
-			ref={stableMedia}
 			class="colibri-media-audio w-full max-w-104 overflow-hidden rounded-lg border border-border bg-card"
 			title={props.item.name ?? "Audio"}
 			viewType="audio"
@@ -208,7 +205,37 @@ const imageGridClass = (count: number, sizeClass: string): string => {
 	return `grid grid-cols-3 gap-1 w-full ${sizeClass}`;
 };
 
-export type GalleryImage = { url?: string; name?: string };
+export type GalleryImage = {
+	url?: string;
+	name?: string;
+	width?: number;
+	height?: number;
+};
+
+const decodedAspectRatios = new Map<string, number>();
+
+const knownAspectRatio = (url: string | undefined): string | undefined => {
+	const ratio = url ? decodedAspectRatios.get(url) : undefined;
+	return ratio ? `${ratio}` : undefined;
+};
+
+export const reservedAspectRatio = (
+	source: { url?: string; width?: number; height?: number } | undefined,
+): string | undefined => {
+	if (!source) return undefined;
+	if (source.width && source.height)
+		return `${source.width} / ${source.height}`;
+	return knownAspectRatio(source.url);
+};
+
+export const rememberAspectRatio = (
+	url: string | undefined,
+	target: EventTarget | null,
+): void => {
+	if (!url || !(target instanceof HTMLImageElement)) return;
+	if (!target.naturalWidth || !target.naturalHeight) return;
+	decodedAspectRatios.set(url, target.naturalWidth / target.naturalHeight);
+};
 
 export const MediaLightboxGallery: Component<{
 	images: GalleryImage[];
@@ -290,9 +317,13 @@ export const MediaLightboxGallery: Component<{
 						<img
 							src={props.images[0]?.url}
 							class="max-h-96 w-full cursor-zoom-in rounded-lg border border-border object-cover transition-opacity hover:opacity-90"
+							style={{ "aspect-ratio": reservedAspectRatio(props.images[0]) }}
 							alt={props.images[0]?.name ?? ""}
 							loading="lazy"
 							onClick={() => open(0)}
+							onLoad={(e) =>
+								rememberAspectRatio(props.images[0]?.url, e.target)
+							}
 							onError={() => props.onImageError?.(0)}
 						/>
 						<a
@@ -400,18 +431,18 @@ export const ImageGallery: Component<{
 	images: AttachmentObj[];
 	did: string;
 }> = (props) => {
-	const stableMedia = useStableMedia();
 	const items = (): GalleryImage[] =>
 		props.images.map((i) => ({
 			url: resolveBlob(props.did, i.blob),
 			name: i.name,
+			width: i.width,
+			height: i.height,
 		}));
 
-	return <MediaLightboxGallery images={items()} ref={stableMedia} />;
+	return <MediaLightboxGallery images={items()} />;
 };
 
 export const VideoAttachment: AttachmentComponent = (props) => {
-	const stableMedia = useStableMedia();
 	const src = () => resolveBlob(props.did, props.item.blob);
 
 	const usePseudoFullscreen = isTauriRuntime() && !isDesktopNative();
@@ -444,9 +475,13 @@ export const VideoAttachment: AttachmentComponent = (props) => {
 
 	return (
 		<media-player
-			ref={stableMedia}
 			class="colibri-media-video group relative w-full max-w-104 rounded-lg bg-black overflow-hidden"
 			classList={{ "colibri-pseudo-fullscreen": pseudoFullscreen() }}
+			style={{
+				"aspect-ratio": pseudoFullscreen()
+					? undefined
+					: (reservedAspectRatio(props.item) ?? "16 / 9"),
+			}}
 			title={props.item.name ?? "Video"}
 			viewType="video"
 			streamType="on-demand"
@@ -565,13 +600,11 @@ export const VideoAttachment: AttachmentComponent = (props) => {
 };
 
 export const GenericFileAttachment: AttachmentComponent = (props) => {
-	const stableMedia = useStableMedia();
 	const src = () => resolveBlob(props.did, props.item.blob);
 	const size = "size" in props.item.blob ? props.item.blob.size : undefined;
 
 	return (
 		<a
-			ref={stableMedia}
 			class="flex max-w-104 w-full flex-row items-center gap-3 rounded-lg border border-border bg-card p-2.5 transition-colors hover:bg-muted/75"
 			href={src()}
 			target="_blank"

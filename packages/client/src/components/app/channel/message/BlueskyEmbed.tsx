@@ -13,10 +13,7 @@ import HeartIcon from "~icons/ph/heart";
 import RepeatIcon from "~icons/ph/repeat";
 import SealCheckIcon from "~icons/ph/seal-check-fill";
 import { getBskyAlternativeClientInfo } from "../../../../atproto/bluesky-alternatives";
-import {
-	getPostDeduped,
-	resolveHandleDeduped,
-} from "../../../../atproto/bsky-post-cache";
+import { fetchPostByRef, peekPost } from "../../../../atproto/bsky-post-cache";
 import {
 	type BskyPostRef,
 	buildBskyPostUrl,
@@ -28,7 +25,6 @@ import {
 	isMuTrustedVerifier,
 } from "../../../../atproto/mu-verification";
 import { resolveEmbedImage } from "../../../../atproto/resolve-blob";
-import { useStableMedia } from "../../../../contexts/ScrollAnchor";
 import { useUserPreferences } from "../../../../contexts/UserPreferences";
 import { openExternalLink } from "../../../../utils/open-external-link";
 import { Lightbox } from "../../common/Lightbox";
@@ -42,22 +38,12 @@ export const BlueskyEmbed: Component<{ uri: string; post: BskyPostRef }> = (
 	props,
 ) => {
 	const { preferences } = useUserPreferences();
-	const stableMedia = useStableMedia();
 
 	const [post] = createResource(
 		() => props.post,
-		async (ref): Promise<AppBskyFeedDefs.PostView | undefined> => {
-			// getPostDeduped needs an at:// URI with a DID — resolve the handle first.
-			let did = ref.authority;
-			if (!did.startsWith("did:")) {
-				const resolved = await resolveHandleDeduped(ref.authority);
-				if (!resolved) return undefined;
-				did = resolved;
-			}
-
-			const atUri = `at://${did}/app.bsky.feed.post/${ref.rkey}`;
-			return getPostDeduped(atUri);
-		},
+		(ref): Promise<AppBskyFeedDefs.PostView | undefined> =>
+			fetchPostByRef(ref.authority, ref.rkey),
+		{ initialValue: peekPost(props.post.authority, props.post.rkey) },
 	);
 
 	const record = () => post()?.record as AppBskyFeedPost.Record | undefined;
@@ -121,7 +107,7 @@ export const BlueskyEmbed: Component<{ uri: string; post: BskyPostRef }> = (
 		);
 
 	return (
-		<div ref={stableMedia}>
+		<div>
 			<Show when={post()}>
 				{(p) => (
 					<div

@@ -66,6 +66,16 @@ export const channelMethodDocs: LexiconDoc[] = [
 				properties: {
 					blob: { type: "blob" },
 					name: { type: "string" },
+					width: {
+						type: "integer",
+						description:
+							"Pixel width of the attachment's intrinsic dimensions, when it is a decodable image or video. Lets a client reserve the correct box before the bytes arrive.",
+					},
+					height: {
+						type: "integer",
+						description:
+							"Pixel height of the attachment's intrinsic dimensions, when it is a decodable image or video.",
+					},
 				},
 			},
 			reactionView: {
