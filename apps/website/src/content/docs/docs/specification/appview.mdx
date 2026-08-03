@@ -735,7 +735,7 @@ Mints a new community DID on the AppView's own PDS and bootstraps a fully popula
 - `social.colibri.role`: an `"Owner"` role with every permission and `protected: true` so role-management endpoints refuse to delete it
 - `social.colibri.member`: `subject` = authenticated caller, holding the Owner role
 
-The caller ends up as an owner-equivalent member of the new community. The community picture and banner are uploaded as `multipart/form-data` parts named `picture` and `banner`, each carrying its own `Content-Type`. Every supplied image is validated against the allowed MIME types (`image/jpeg`, `image/png`, `image/gif`) and capped at 10 MiB before being uploaded to the community's PDS. A missing part means that image is not set.
+The caller ends up as an owner-equivalent member of the new community. The community picture and banner are uploaded as `multipart/form-data` parts named `picture` and `banner`, each carrying its own `Content-Type`. Every supplied image is validated against the allowed MIME types (`image/jpeg`, `image/png`, `image/gif`, `image/webp`) and capped at 10 MiB before being uploaded to the community's PDS. A missing part means that image is not set.
 
 <XRPCEndpointCard
 	method="POST"

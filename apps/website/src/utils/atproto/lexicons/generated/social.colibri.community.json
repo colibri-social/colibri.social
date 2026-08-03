@@ -40,7 +40,8 @@
 						"accept": [
 							"image/jpeg",
 							"image/png",
-							"image/gif"
+							"image/gif",
+							"image/webp"
 						]
 					},
 					"banner": {
@@ -49,7 +50,8 @@
 						"accept": [
 							"image/jpeg",
 							"image/png",
-							"image/gif"
+							"image/gif",
+							"image/webp"
 						]
 					},
 					"categoryOrder": {
