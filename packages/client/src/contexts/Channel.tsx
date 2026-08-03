@@ -49,6 +49,7 @@ import type {
 	PendingMessage,
 } from "../atproto/xrpc/social/colibri/channel/listMessages";
 import type { Channel } from "../atproto/xrpc/social/colibri/community/listChannels";
+import { isPingKind } from "../atproto/xrpc/social/colibri/notification/getUnseen";
 import { trimWithFacets } from "../components/app/common/rich-text-renderer/util";
 import { classifyThrown } from "../errors/classify";
 import type { ColibriError } from "../errors/error";
@@ -90,6 +91,11 @@ const FOCUS_HOLD_MS = 2000;
  * pathological case (bad URI, server bug) from running forever.
  */
 const JUMP_FETCH_CAP = 50;
+
+export type UnseenEntry = {
+	uri: string;
+	isPing: boolean;
+};
 
 export type ChannelContextValue = {
 	/**
@@ -231,7 +237,7 @@ export type ChannelContextValue = {
 	 */
 	readCursorUri: Accessor<string | undefined>;
 	readCursorResolved: Accessor<boolean>;
-	initialUnseen: Accessor<string[]>;
+	initialUnseen: Accessor<UnseenEntry[]>;
 	advanceReadCursor: (explicitUri?: string) => void;
 	clearUnreadBoundary: () => void;
 };
@@ -273,7 +279,7 @@ export const ChannelContextProvider: ParentComponent<{
 		undefined,
 	);
 	const [readCursorResolved, setReadCursorResolved] = createSignal(false);
-	const [initialUnseen, setInitialUnseen] = createSignal<string[]>([]);
+	const [initialUnseen, setInitialUnseen] = createSignal<UnseenEntry[]>([]);
 	const [snapshotAge, setSnapshotAge] = createSignal<number | undefined>(
 		undefined,
 	);
@@ -428,7 +434,12 @@ export const ChannelContextProvider: ParentComponent<{
 				if (oldest) setCursor(rkeyOf(oldest.uri));
 				setHasMore(ordered.length >= PAGE_SIZE);
 				setReadCursorUri(channel?.readCursor?.cursor);
-				setInitialUnseen((channel?.unseen ?? []).map((n) => n.messageUri));
+				setInitialUnseen(
+					(channel?.unseen ?? []).map((n) => ({
+						uri: n.messageUri,
+						isPing: isPingKind(n.kind),
+					})),
+				);
 				setHydratedFromNetwork(true);
 			});
 			lastViewAt = Date.now();
@@ -968,7 +979,12 @@ export const ChannelContextProvider: ParentComponent<{
 					setNewIncomingMessage((n) => n + 1);
 				}
 				setReadCursorUri(channel?.readCursor?.cursor);
-				setInitialUnseen((channel?.unseen ?? []).map((n) => n.messageUri));
+				setInitialUnseen(
+					(channel?.unseen ?? []).map((n) => ({
+						uri: n.messageUri,
+						isPing: isPingKind(n.kind),
+					})),
+				);
 				setHydratedFromNetwork(true);
 			});
 			lastViewAt = Date.now();

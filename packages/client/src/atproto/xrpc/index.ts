@@ -763,7 +763,7 @@ export class XrpcClient {
 				updateSeenForMessage: (message: string) =>
 					Notification.updateSeenForMessage(
 						this.queued("social.colibri.notification.updateSeenForMessage", {
-							syntheticBody: { updated: 1 },
+							syntheticBody: { updated: 1, clearedPings: 0 },
 							label: "Couldn't mark a message as read.",
 						}),
 						message,

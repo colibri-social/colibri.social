@@ -174,6 +174,7 @@ const ChannelLayout: ParentComponent = (props) => {
 	let editorFocusAt = 0;
 	let pingObserver: IntersectionObserver | undefined;
 	const [unseenPings, setUnseenPings] = createSignal<Set<string>>(new Set());
+	let unseenIsPing = new Map<string, boolean>();
 	const [deletedPingBanner, setDeletedPingBanner] = createSignal(false);
 	let handledOrphans = new Set<string>();
 	const [showJumpToLatest, setShowJumpToLatest] = createSignal(false);
@@ -362,10 +363,11 @@ const ChannelLayout: ParentComponent = (props) => {
 	});
 
 	createEffect(() => {
-		const uris = channel.initialUnseen();
+		const entries = channel.initialUnseen();
 		pingObserver?.disconnect();
 		pingObserver = undefined;
-		setUnseenPings(new Set(uris));
+		unseenIsPing = new Map(entries.map((entry) => [entry.uri, entry.isPing]));
+		setUnseenPings(new Set(entries.map((entry) => entry.uri)));
 	});
 
 	createEffect(() => {
@@ -390,8 +392,13 @@ const ChannelLayout: ParentComponent = (props) => {
 							next.delete(uri);
 							return next;
 						});
-						if (wasPending)
-							notifications.markMessageSeen(uri, channel.channelUri());
+						if (wasPending) {
+							notifications.markMessageSeen(
+								uri,
+								channel.channelUri(),
+								unseenIsPing.get(uri) === true,
+							);
+						}
 					}
 				},
 				{ root: scrollContainer, threshold: 0 },
@@ -423,18 +430,19 @@ const ChannelLayout: ParentComponent = (props) => {
 		const allLoaded = !channel.hasMore();
 
 		const orphans = unseen.filter(
-			(u) =>
-				!present.has(u) &&
-				!handledOrphans.has(u) &&
-				(allLoaded || (oldestRkey !== undefined && rkeyOf(u) > oldestRkey)),
+			(entry) =>
+				!present.has(entry.uri) &&
+				!handledOrphans.has(entry.uri) &&
+				(allLoaded ||
+					(oldestRkey !== undefined && rkeyOf(entry.uri) > oldestRkey)),
 		);
 		if (orphans.length === 0) return;
 
-		for (const u of orphans) {
-			handledOrphans.add(u);
-			notifications.markMessageSeen(u, uri);
+		for (const orphan of orphans) {
+			handledOrphans.add(orphan.uri);
+			notifications.markMessageSeen(orphan.uri, uri, orphan.isPing);
 		}
-		setDeletedPingBanner(true);
+		if (orphans.some((orphan) => orphan.isPing)) setDeletedPingBanner(true);
 	});
 
 	createEffect(() => {
@@ -483,7 +491,11 @@ const ChannelLayout: ParentComponent = (props) => {
 					if (!entries[0]?.isIntersecting) return;
 					readObserver?.disconnect();
 					readObserver = undefined;
-					notifications.markMessageSeen(target.messageUri, target.channelUri);
+					notifications.markMessageSeen(
+						target.messageUri,
+						target.channelUri,
+						true,
+					);
 					notifications.clearPendingFocus();
 				},
 				{ root: scrollContainer, threshold: 0 },

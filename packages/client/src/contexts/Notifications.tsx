@@ -43,7 +43,11 @@ type NotificationsContextValue = {
 	hasUnreadMessages: (channelUri: string) => boolean;
 	pingsForCommunity: (communityDid: string) => number;
 	hasUnreadInCommunity: (communityDid: string) => boolean;
-	markMessageSeen: (messageUri: string, channelUri: string) => Promise<void>;
+	markMessageSeen: (
+		messageUri: string,
+		channelUri: string,
+		isPing: boolean,
+	) => Promise<void>;
 	markChannelRead: (channelUri: string) => void;
 	markChannelAsRead: (channelUri: string) => Promise<void>;
 	markCommunityAsRead: (communityUri: string) => Promise<void>;
@@ -164,6 +168,15 @@ export const NotificationsContextProvider: ParentComponent = (props) => {
 			return { ...prev, [key]: next };
 		});
 
+	const setChannelPings = (channelUri: string, count: number) => {
+		setPingCounts((prev) => {
+			const key = channelKey(channelUri);
+			const next = Math.max(0, count);
+			if ((prev[key] ?? 0) === next) return prev;
+			return { ...prev, [key]: next };
+		});
+	};
+
 	const addUnreadChannel = (channelUri: string) =>
 		setUnreadChannels((prev) => {
 			const key = channelKey(channelUri);
@@ -182,25 +195,34 @@ export const NotificationsContextProvider: ParentComponent = (props) => {
 		});
 	};
 
-	const markMessageSeen = async (
-		messageUri: string,
-		channelUri: string,
-	): Promise<void> => {
-		if (accountedMessages.has(messageUri)) return;
-		accountedMessages.add(messageUri);
-		void cancelChannelTrayNotification(channelUri);
-
-		adjustPings(channelUri, -1);
+	const sendMessageSeen = async (messageUri: string): Promise<boolean> => {
 		try {
 			const res =
 				await user.xrpc.social.colibri.notification.updateSeenForMessage(
 					messageUri,
 				);
-			const cleared = (res.ok ? res.data?.clearedPings : 0) ?? 0;
-			if (cleared !== 1) adjustPings(channelUri, 1 - cleared);
+			return res.ok;
 		} catch {
-			adjustPings(channelUri, 1);
+			return false;
 		}
+	};
+
+	const markMessageSeen = async (
+		messageUri: string,
+		channelUri: string,
+		isPing: boolean,
+	): Promise<void> => {
+		if (accountedMessages.has(messageUri)) return;
+		accountedMessages.add(messageUri);
+		void cancelChannelTrayNotification(channelUri);
+
+		if (isPing) adjustPings(channelUri, -1);
+
+		const sent = await sendMessageSeen(messageUri);
+		if (sent) return;
+
+		accountedMessages.delete(messageUri);
+		if (isPing) adjustPings(channelUri, 1);
 	};
 
 	const applyRemoteMessageSeen = (
@@ -229,10 +251,22 @@ export const NotificationsContextProvider: ParentComponent = (props) => {
 	const clearChannelPings = async (channelUri: string): Promise<void> => {
 		const res =
 			await user.xrpc.social.colibri.notification.getUnseen(channelUri);
+		if (!res.ok) return;
+
 		const uris = new Set(
-			res.ok ? (res.data?.notifications ?? []).map((n) => n.messageUri) : [],
+			(res.data?.notifications ?? []).map((n) => n.messageUri),
 		);
-		for (const uri of uris) await markMessageSeen(uri, channelUri);
+
+		void cancelChannelTrayNotification(channelUri);
+
+		let allSent = true;
+		for (const uri of uris) {
+			const sent = await sendMessageSeen(uri);
+			if (sent) accountedMessages.add(uri);
+			else allSent = false;
+		}
+
+		if (allSent) setChannelPings(channelUri, 0);
 	};
 
 	const markChannelAsRead = async (channelUri: string): Promise<void> => {
@@ -245,6 +279,7 @@ export const NotificationsContextProvider: ParentComponent = (props) => {
 			await user.xrpc.social.colibri.channel.listUnreadStatus(communityUri);
 		if (!status.ok || !status.data) return;
 		for (const channel of status.data.channels) {
+			setChannelPings(channel.channelUri, channel.unreadPingCount);
 			if (channel.hasUnreadMessages) {
 				await advanceCursorToNewest(channel.channelUri);
 			}
@@ -264,6 +299,7 @@ export const NotificationsContextProvider: ParentComponent = (props) => {
 		const inCategory = new Set(channelUris);
 		for (const channel of status.data.channels) {
 			if (!inCategory.has(channel.channelUri)) continue;
+			setChannelPings(channel.channelUri, channel.unreadPingCount);
 			if (channel.hasUnreadMessages) {
 				await advanceCursorToNewest(channel.channelUri);
 			}

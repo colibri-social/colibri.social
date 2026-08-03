@@ -9,6 +9,9 @@ export type UnseenNotification = {
 	indexedAt: string;
 };
 
+export const isPingKind = (kind: string): boolean =>
+	kind === "mention" || kind === "reply";
+
 type Response = {
 	notifications: UnseenNotification[];
 };
