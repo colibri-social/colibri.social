@@ -190,6 +190,7 @@ const ChannelLayout: ParentComponent = (props) => {
 		if (!scrollContainer) return;
 		scrollContainer.scrollTop = scrollContainer.scrollHeight;
 		wasAtBottom = true;
+		setShowJumpToLatest(false);
 	};
 
 	const REPIN_MAX_FRAMES = 60;
@@ -261,6 +262,7 @@ const ChannelLayout: ParentComponent = (props) => {
 		wasAtBottom = distFromBottom < 80;
 
 		if (wasAtBottom) {
+			setShowJumpToLatest(false);
 			channel.advanceReadCursor();
 			notifications.markChannelRead(channel.channelUri());
 			void cancelChannelTrayNotification(channel.channelUri());
