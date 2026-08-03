@@ -34,7 +34,6 @@
 		"@atproto/oauth-client-browser": "^0.4.3",
 		"@atproto/oauth-client-node": "^0.3.16",
 		"@atproto/ws-client": "^0.0.4",
-		"@biomejs/biome": "^2.4.4",
 		"@colibri-social/assets": "workspace:0.0.2-rc.3",
 		"@colibri-social/client": "workspace:0.1.0-rc.14",
 		"@colibri-social/standard-renderer": "workspace:0.0.2-rc.0",

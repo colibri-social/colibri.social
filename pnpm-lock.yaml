@@ -16,7 +16,7 @@ importers:
         version: 6.0.3
     devDependencies:
       '@biomejs/biome':
-        specifier: ^2.5.2
+        specifier: 2.5.2
         version: 2.5.2
       '@changesets/cli':
         specifier: ^2.31.0
@@ -75,9 +75,6 @@ importers:
       '@atproto/ws-client':
         specifier: ^0.0.4
         version: 0.0.4
-      '@biomejs/biome':
-        specifier: ^2.4.4
-        version: 2.5.2
       '@colibri-social/assets':
         specifier: workspace:0.0.2-rc.3
         version: link:../../packages/assets
