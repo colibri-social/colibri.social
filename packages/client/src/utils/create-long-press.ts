@@ -5,6 +5,7 @@ export interface LongPressOptions {
 	delay?: number;
 	moveCancel?: number;
 	enabled?: () => boolean;
+	shouldStart?: (e: PointerEvent) => boolean;
 }
 
 /**
@@ -82,6 +83,7 @@ export const createLongPress = (el: HTMLElement, opts: LongPressOptions) => {
 	const onPointerDown = (e: PointerEvent) => {
 		if (!isEnabled()) return;
 		if (e.pointerType === "mouse") return;
+		if (opts.shouldStart && !opts.shouldStart(e)) return;
 		startX = e.clientX;
 		startY = e.clientY;
 		pressing = true;

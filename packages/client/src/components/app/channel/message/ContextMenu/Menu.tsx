@@ -78,7 +78,7 @@ export const MessageContextMenu: ParentComponent<{
 			<Show
 				when={isTouch()}
 				fallback={
-					<ContextMenu>
+					<ContextMenu onOpenChange={setContextMenuOpen}>
 						<ContextMenuTrigger
 							classList={props.classList}
 							disabled={isDisabled()}

@@ -42,6 +42,7 @@ import { EmojiPopover } from "../../common/EmojiPopover";
 import { RichTextRenderer } from "../../common/rich-text-renderer/RichTextRenderer";
 import { facetsToProseMirror } from "../../common/text-editor/facets-to-prosemirror";
 import { TextEditor } from "../../common/text-editor/TextEditor";
+import { MemberContextMenu } from "../../community/MemberContextMenu";
 import User from "../../user";
 import { displayableNameFn } from "../../user/DisplayableName";
 import { MessageAttachments } from "./Attachments";
@@ -254,6 +255,8 @@ const MessageInner: Component<{
 					ref={(el) => {
 						createLongPress(el, {
 							enabled: () => isTouch() && !isPending(),
+							shouldStart: (e) =>
+								!(e.target as Element | null)?.closest?.("[data-member-menu]"),
 							onLongPress: () => setContextMenuOpen(true),
 						});
 						createSwipe(el, {
@@ -338,16 +341,22 @@ const MessageInner: Component<{
 					<div class="flex flex-row gap-4">
 						<Switch>
 							<Match when={!isSubsequentMessage()}>
-								<User.ProfilePopover
-									user={resolveAuthor(message.author)}
-									class="w-10 h-10 rounded-full cursor-pointer pt-0.5"
-									disabled={isPending()}
+								<MemberContextMenu
+									member={resolveAuthor(message.author)}
+									class="contents"
+									disabled={isPending() || contextMenuOpen()}
 								>
-									<User.Avatar
+									<User.ProfilePopover
 										user={resolveAuthor(message.author)}
-										disableState
-									/>
-								</User.ProfilePopover>
+										class="w-10 h-10 rounded-full cursor-pointer pt-0.5"
+										disabled={isPending()}
+									>
+										<User.Avatar
+											user={resolveAuthor(message.author)}
+											disableState
+										/>
+									</User.ProfilePopover>
+								</MemberContextMenu>
 							</Match>
 							<Match when={isSubsequentMessage()}>
 								<div class="w-10 h-8 min-w-10 min-h-8 text-muted-foreground group-hover:opacity-100 opacity-0 text-xs flex items-center justify-center">
@@ -376,17 +385,23 @@ const MessageInner: Component<{
 							>
 								<Show when={!isSubsequentMessage()}>
 									<div class="flex gap-2 text-sm items-baseline flex-wrap">
-										<User.ProfilePopover
-											user={resolveAuthor(message.author)}
-											disabled={isPending()}
+										<MemberContextMenu
+											member={resolveAuthor(message.author)}
+											class="contents"
+											disabled={isPending() || contextMenuOpen()}
 										>
-											<span class="font-bold cursor-pointer">
-												<User.DisplayableName
-													user={resolveAuthor(message.author)}
-													className="hover:underline"
-												/>
-											</span>
-										</User.ProfilePopover>
+											<User.ProfilePopover
+												user={resolveAuthor(message.author)}
+												disabled={isPending()}
+											>
+												<span class="font-bold cursor-pointer">
+													<User.DisplayableName
+														user={resolveAuthor(message.author)}
+														className="hover:underline"
+													/>
+												</span>
+											</User.ProfilePopover>
+										</MemberContextMenu>
 										<small class="text-muted-foreground">
 											<MessageTimestamp datetime={message.createdAt} />
 										</small>
@@ -415,19 +430,25 @@ const MessageInner: Component<{
 							<div class="flex flex-col w-full min-w-0 justify-center">
 								<Show when={!isSubsequentMessage()}>
 									<div class="flex gap-2 text-sm items-baseline flex-wrap">
-										<User.ProfilePopover
-											user={resolveAuthor(message.author)}
-											disabled={isPending()}
+										<MemberContextMenu
+											member={resolveAuthor(message.author)}
+											class="contents"
+											disabled={isPending() || contextMenuOpen()}
 										>
-											<div class="flex flex-row items-center gap-2">
-												<span class="font-bold hover:underline cursor-pointer">
-													<User.DisplayableName
-														user={resolveAuthor(message.author)}
-														className="hover:underline"
-													/>
-												</span>
-											</div>
-										</User.ProfilePopover>
+											<User.ProfilePopover
+												user={resolveAuthor(message.author)}
+												disabled={isPending()}
+											>
+												<div class="flex flex-row items-center gap-2">
+													<span class="font-bold hover:underline cursor-pointer">
+														<User.DisplayableName
+															user={resolveAuthor(message.author)}
+															className="hover:underline"
+														/>
+													</span>
+												</div>
+											</User.ProfilePopover>
+										</MemberContextMenu>
 										<small class="text-muted-foreground">
 											<MessageTimestamp datetime={message.createdAt} />
 										</small>

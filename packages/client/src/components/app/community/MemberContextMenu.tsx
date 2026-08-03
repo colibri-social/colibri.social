@@ -74,6 +74,7 @@ import {
 export const MemberContextMenu: ParentComponent<{
 	member: ActorData;
 	class?: string;
+	disabled?: boolean;
 }> = (props) => {
 	const user = useUserContext();
 	const community = useCommunityContext();
@@ -93,7 +94,9 @@ export const MemberContextMenu: ParentComponent<{
 	});
 
 	const isMe = () => props.member.did === user.did;
-	const showModActions = () => outranks(user.did, props.member.did) && !isMe();
+	const isMember = () => !!community().utils.getMember(props.member.did);
+	const showModActions = () =>
+		isMember() && outranks(user.did, props.member.did) && !isMe();
 	const hasModActions = () =>
 		showModActions() &&
 		((canKickMember(user.did) &&
@@ -189,7 +192,7 @@ export const MemberContextMenu: ParentComponent<{
 	);
 
 	const canManageAnyRole = () =>
-		sortedRoles().some((role) => canManageRole(user.did, role));
+		isMember() && sortedRoles().some((role) => canManageRole(user.did, role));
 
 	/** A desktop context-menu toggle styled like the role checkboxes. */
 	const VoiceCheckItem: ParentComponent<{
@@ -271,11 +274,12 @@ export const MemberContextMenu: ParentComponent<{
 			</Show>
 			<Show when={isTouch()}>
 				<div
+					data-member-menu
 					class={props.class}
 					style={props.class ? undefined : { display: "contents" }}
 					ref={(el) =>
 						createLongPress(el, {
-							enabled: () => isTouch(),
+							enabled: () => isTouch() && !props.disabled,
 							onLongPress: () => setMenuOpen(true),
 						})
 					}
@@ -518,7 +522,11 @@ export const MemberContextMenu: ParentComponent<{
 			</Show>
 			<Show when={!isTouch()}>
 				<ContextMenu>
-					<ContextMenuTrigger class={props.class}>
+					<ContextMenuTrigger
+						data-member-menu
+						class={props.class}
+						disabled={props.disabled}
+					>
 						{props.children}
 					</ContextMenuTrigger>
 					<ContextMenuPortal>
