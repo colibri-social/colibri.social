@@ -21,6 +21,8 @@ export type Message = {
 	attachments: Array<{
 		name?: string;
 		blob: JsonBlobRef;
+		width?: number;
+		height?: number;
 	}>;
 	reactions: Array<Reaction>;
 	createdAt: string;

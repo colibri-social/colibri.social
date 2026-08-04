@@ -118,6 +118,41 @@ const flushBatch = async () => {
 	}
 };
 
+export const peekPost = (
+	authority: string,
+	rkey: string,
+): AppBskyFeedDefs.PostView | undefined => {
+	const did = authority.startsWith("did:")
+		? authority
+		: resolvedHandles.get(authority);
+	if (!did) return undefined;
+	return resolvedPosts.get(`at://${did}/app.bsky.feed.post/${rkey}`);
+};
+
+export const fetchPostByRef = async (
+	authority: string,
+	rkey: string,
+): Promise<AppBskyFeedDefs.PostView | undefined> => {
+	let did = authority;
+	if (!did.startsWith("did:")) {
+		const resolved = await resolveHandleDeduped(authority);
+		if (!resolved) return undefined;
+		did = resolved;
+	}
+	return getPostDeduped(`at://${did}/app.bsky.feed.post/${rkey}`);
+};
+
+export const warmPosts = async (
+	refs: Array<{ authority: string; rkey: string }>,
+): Promise<void> => {
+	const pending = refs
+		.filter((ref) => peekPost(ref.authority, ref.rkey) === undefined)
+		.map((ref) => fetchPostByRef(ref.authority, ref.rkey));
+
+	if (pending.length === 0) return;
+	await Promise.allSettled(pending);
+};
+
 /**
  * Fetches a single post by AT URI, but combines every call made within the
  * same microtask tick into one batched `getPosts` request (up to the API's

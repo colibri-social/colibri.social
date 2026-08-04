@@ -40,6 +40,16 @@ export const embedMethodDocs: LexiconDoc[] = [
 				properties: {
 					url: { type: "string", format: "uri" },
 					alt: { type: "string" },
+					width: {
+						type: "integer",
+						description:
+							"Pixel width declared by the source page, when it publishes one.",
+					},
+					height: {
+						type: "integer",
+						description:
+							"Pixel height declared by the source page, when it publishes one.",
+					},
 				},
 			},
 		},

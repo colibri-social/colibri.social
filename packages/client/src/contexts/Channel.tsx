@@ -97,6 +97,12 @@ export type UnseenEntry = {
 	isPing: boolean;
 };
 
+export type LoadOlderHooks = {
+	prepare?: (messages: Array<Message>) => Promise<void>;
+	onBeforePrepend?: () => void;
+	onAfterPrepend?: () => void;
+};
+
 export type ChannelContextValue = {
 	/**
 	 * The full channel record (name, type, uri, category...) filtered out of
@@ -111,7 +117,7 @@ export type ChannelContextValue = {
 	loadingOlder: Accessor<boolean>;
 	initialLoading: Accessor<boolean>;
 	error: Accessor<ColibriError | undefined>;
-	loadOlder: () => Promise<void>;
+	loadOlder: (hooks?: LoadOlderHooks) => Promise<void>;
 
 	snapshotAge: Accessor<number | undefined>;
 	hydratedFromNetwork: Accessor<boolean>;
@@ -339,7 +345,7 @@ export const ChannelContextProvider: ParentComponent<{
 		});
 	};
 
-	const loadOlder = async (): Promise<void> => {
+	const loadOlder = async (hooks?: LoadOlderHooks): Promise<void> => {
 		if (inflight) return;
 		if (!hasMore()) return;
 		const uri = channelUri();
@@ -347,7 +353,6 @@ export const ChannelContextProvider: ParentComponent<{
 
 		inflight = true;
 		setLoadingOlder(true);
-
 		try {
 			const res = await user.xrpc.social.colibri.channel.listMessages(
 				uri,
@@ -380,12 +385,17 @@ export const ChannelContextProvider: ParentComponent<{
 			const novel = olderChunk.filter((m) => !existingUris.has(m.uri));
 			const hitTop = fetched.length < PAGE_SIZE;
 
+			if (hooks?.prepare) await hooks.prepare(novel);
+			if (uri !== channelUri()) return;
+
+			hooks?.onBeforePrepend?.();
 			batch(() => {
 				setMessages((prev) => [...novel, ...prev]);
 				const newOldest = novel[0] ?? olderChunk[0];
 				if (newOldest) setCursor(rkeyOf(newOldest.uri));
 				if (hitTop) setHasMore(false);
 			});
+			hooks?.onAfterPrepend?.();
 		} catch (err) {
 			const failure = classifyThrown(err, { method: "channel.listMessages" });
 			log.error("loadOlder failed", { code: failure.code });

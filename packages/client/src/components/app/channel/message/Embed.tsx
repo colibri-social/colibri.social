@@ -2,15 +2,21 @@ import { type Component, createResource, createSignal, Show } from "solid-js";
 import StarIcon from "~icons/ph/star";
 import StarFillIcon from "~icons/ph/star-fill";
 import { parseBskyPostUrl } from "../../../../atproto/bsky-post-url";
-import { getMetadataDeduped } from "../../../../atproto/embed-metadata-cache";
+import {
+	getMetadataDeduped,
+	peekMetadata,
+} from "../../../../atproto/embed-metadata-cache";
 import { resolveEmbedImage } from "../../../../atproto/resolve-blob";
 import type { GifItem } from "../../../../atproto/xrpc/social/colibri/embed/gifTypes";
 import { useGifFavorites } from "../../../../contexts/GifFavorites";
-import { useStableMedia } from "../../../../contexts/ScrollAnchor";
 import { useUserContext } from "../../../../contexts/User";
 import { openExternalLink } from "../../../../utils/open-external-link";
 import { Lightbox } from "../../common/Lightbox";
-import { MediaLightboxGallery } from "./Attachments";
+import {
+	MediaLightboxGallery,
+	rememberAspectRatio,
+	reservedAspectRatio,
+} from "./Attachments";
 import { BlueskyEmbed } from "./BlueskyEmbed";
 
 /** Matches direct GIF/animated-image media URLs (ignoring query/hash). */
@@ -45,6 +51,9 @@ export const isStaticImageUrl = (uri: string): boolean => {
 export const isDirectMediaUrl = (uri: string): boolean =>
 	isGifUrl(uri) || isStaticImageUrl(uri);
 
+export const usesLinkPreview = (uri: string): boolean =>
+	!isDirectMediaUrl(uri) && !parseBskyPostUrl(uri);
+
 const [brokenMediaLinks, setBrokenMediaLinks] = createSignal<
 	ReadonlySet<string>
 >(new Set());
@@ -60,7 +69,6 @@ const markMediaLinkBroken = (uri: string) => {
 
 /** Renders a GIF link as the animated image itself, hotlinked from its CDN. */
 const InlineGif: Component<{ uri: string }> = (props) => {
-	const stableMedia = useStableMedia();
 	const { isFavorited, toggleFavorite } = useGifFavorites();
 
 	// A chat GIF is identified by its media URL (no Klipy slug here); the
@@ -72,13 +80,15 @@ const InlineGif: Component<{ uri: string }> = (props) => {
 	});
 
 	return (
-		<div ref={stableMedia} class="group/gif relative w-fit">
+		<div class="group/gif relative w-fit">
 			<Lightbox src={props.uri}>
 				<img
 					class="max-w-64 w-full h-auto rounded-md bg-muted border-none cursor-pointer"
+					style={{ "aspect-ratio": reservedAspectRatio({ url: props.uri }) }}
 					src={props.uri}
 					alt="GIF"
 					loading="lazy"
+					onLoad={(e) => rememberAspectRatio(props.uri, e.target)}
 					onError={() => markMediaLinkBroken(props.uri)}
 				/>
 			</Lightbox>
@@ -101,12 +111,9 @@ const InlineGif: Component<{ uri: string }> = (props) => {
 };
 
 const InlineImage: Component<{ uri: string }> = (props) => {
-	const stableMedia = useStableMedia();
-
 	return (
 		<MediaLightboxGallery
 			images={[{ url: props.uri }]}
-			ref={stableMedia}
 			onImageError={() => markMediaLinkBroken(props.uri)}
 		/>
 	);
@@ -142,11 +149,11 @@ export const Embed: Component<{ uri: string }> = (props) => {
 
 const OpenGraphEmbed: Component<{ uri: string }> = (props) => {
 	const user = useUserContext();
-	const stableMedia = useStableMedia();
 
 	const [embedData] = createResource(
 		() => props.uri,
 		(uri) => getMetadataDeduped(user.xrpc, uri),
+		{ initialValue: peekMetadata(props.uri) },
 	);
 
 	const data = () => embedData();
@@ -158,9 +165,14 @@ const OpenGraphEmbed: Component<{ uri: string }> = (props) => {
 		return img ? resolveEmbedImage(img.url) : undefined;
 	};
 	const imageAlt = () => data()?.image?.[0]?.alt || "";
+	const previewImage = () => {
+		const img = data()?.image?.[0];
+		if (!img) return undefined;
+		return { url: imageUrl(), width: img.width, height: img.height };
+	};
 
 	return (
-		<div ref={stableMedia}>
+		<div>
 			<Show when={hasContent()}>
 				<div
 					class="flex flex-col border-l-4 p-3 pt-2 bg-card mb-2 rounded-r-md max-w-104 min-w-0"
@@ -212,8 +224,10 @@ const OpenGraphEmbed: Component<{ uri: string }> = (props) => {
 						<Lightbox src={imageUrl()!}>
 							<img
 								class="w-full h-auto rounded-sm mt-2 bg-muted border-none cursor-pointer"
+								style={{ "aspect-ratio": reservedAspectRatio(previewImage()) }}
 								src={imageUrl()}
 								alt={imageAlt()}
+								onLoad={(e) => rememberAspectRatio(imageUrl(), e.target)}
 							/>
 						</Lightbox>
 					</Show>

@@ -7,7 +7,12 @@ export type EmbedMetadata = {
 	description?: string;
 	siteName?: string;
 	themeColor?: string;
-	image?: Array<{ url: string; alt?: string }>;
+	image?: Array<{
+		url: string;
+		alt?: string;
+		width?: number;
+		height?: number;
+	}>;
 	/** Large (`summary_large_image`) vs small thumbnail (`summary`) layout. */
 	largeImage?: boolean;
 };

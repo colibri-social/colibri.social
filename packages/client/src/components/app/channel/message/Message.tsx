@@ -21,7 +21,6 @@ import {
 	MessageContextProvider,
 	useMessageContext,
 } from "../../../../contexts/Message";
-import { useStableMedia } from "../../../../contexts/ScrollAnchor";
 import { useUserContext } from "../../../../contexts/User";
 import { useUserPreferences } from "../../../../contexts/UserPreferences";
 import { createDoubleTap } from "../../../../utils/create-double-tap";
@@ -85,7 +84,6 @@ const MessageInner: Component<{
 	const user = useUserContext();
 	const channel = useChannelContext();
 	const community = useCommunityContext();
-	const stableMedia = useStableMedia();
 	const isMobile = useIsMobile();
 	const isTouch = useIsTouch();
 	const { preferences } = useUserPreferences();
@@ -606,10 +604,7 @@ const MessageInner: Component<{
 						</div>
 					</Show>
 					<Show when={message.reactions.length > 0}>
-						<div
-							ref={stableMedia}
-							class="flex flex-row gap-1 flex-wrap items-center pl-14"
-						>
+						<div class="flex flex-row gap-1 flex-wrap items-center pl-14">
 							<For each={message.reactions}>
 								{(item) => (
 									<Tooltip>
