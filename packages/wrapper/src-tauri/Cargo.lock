@@ -669,7 +669,7 @@ dependencies = [
 
 [[package]]
 name = "colibri-social"
-version = "0.1.9"
+version = "0.1.14"
 dependencies = [
  "cc",
  "objc2",

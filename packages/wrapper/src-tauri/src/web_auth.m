@@ -1,4 +1,9 @@
+#import <TargetConditionals.h>
+#if TARGET_OS_IPHONE
+#import <UIKit/UIKit.h>
+#else
 #import <AppKit/AppKit.h>
+#endif
 #import <AuthenticationServices/AuthenticationServices.h>
 
 typedef void (*ColibriWebAuthCallback)(const char *url, const char *error, void *ctx);
@@ -7,6 +12,34 @@ typedef void (*ColibriWebAuthCallback)(const char *url, const char *error, void 
 @end
 
 @implementation ColibriWebAuthContextProvider
+#if TARGET_OS_IPHONE
+- (ASPresentationAnchor)presentationAnchorForWebAuthenticationSession:(ASWebAuthenticationSession *)session {
+	UIWindow *activeWindow = nil;
+	UIWindow *anyWindow = nil;
+
+	for (UIScene *scene in UIApplication.sharedApplication.connectedScenes) {
+		if (![scene isKindOfClass:UIWindowScene.class]) {
+			continue;
+		}
+
+		BOOL active = scene.activationState == UISceneActivationStateForegroundActive;
+
+		for (UIWindow *window in ((UIWindowScene *)scene).windows) {
+			if (active && window.isKeyWindow) {
+				return window;
+			}
+			if (active && activeWindow == nil) {
+				activeWindow = window;
+			}
+			if (anyWindow == nil) {
+				anyWindow = window;
+			}
+		}
+	}
+
+	return activeWindow != nil ? activeWindow : anyWindow;
+}
+#else
 - (ASPresentationAnchor)presentationAnchorForWebAuthenticationSession:(ASWebAuthenticationSession *)session {
 	NSWindow *window = NSApplication.sharedApplication.keyWindow;
 	if (window == nil) {
@@ -14,6 +47,7 @@ typedef void (*ColibriWebAuthCallback)(const char *url, const char *error, void 
 	}
 	return window;
 }
+#endif
 @end
 
 static ASWebAuthenticationSession *colibriCurrentSession = nil;

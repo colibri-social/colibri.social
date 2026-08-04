@@ -743,10 +743,14 @@ const withTimeout = <T>(promise: Promise<T>, ms: number): Promise<T> =>
 		);
 	});
 
+const NATIVE_WEB_AUTH_PLATFORMS = new Set(["macos", "ios"]);
+
 /**
  * Begin an OAuth sign-in. On the web this navigates the current tab to the
- * authorization server (the SPA redirect flow). In the native app it instead
- * opens the authorization URL in the system browser and returns immediately.
+ * authorization server (the SPA redirect flow). On macOS and iOS the app
+ * presents the authorization page in a native web authentication sheet and
+ * finishes the exchange inline. Every other native platform opens the system
+ * browser and waits for the callback to arrive as a deep link.
  */
 const runSignIn = async (
 	client: BrowserOAuthClient,
@@ -762,10 +766,11 @@ const runSignIn = async (
 			OAUTH_SIGNIN_TIMEOUT_MS,
 		);
 		const { platform } = await import("@tauri-apps/plugin-os");
-		if (platform() === "macos") {
+		const os = platform();
+		if (NATIVE_WEB_AUTH_PLATFORMS.has(os)) {
 			const redirectUri = client.clientMetadata.redirect_uris[0];
 			const { invoke } = await import("@tauri-apps/api/core");
-			let callbackUrl: string;
+			let callbackUrl: string | undefined;
 			try {
 				callbackUrl = await invoke<string>("start_web_auth", {
 					url: url.toString(),
@@ -773,12 +778,18 @@ const runSignIn = async (
 				});
 			} catch (err) {
 				if (wasCancelled(err)) return;
-				throw classifyNativeError(err, "start_web_auth");
+				const failure = classifyNativeError(err, "start_web_auth");
+				if (os === "macos") throw failure;
+				log.warn("the in-app sign-in sheet could not open", {
+					code: failure.code,
+				});
 			}
-			if (await completeNativeOAuth(client, callbackUrl)) {
-				window.location.replace("/app");
+			if (callbackUrl !== undefined) {
+				if (await completeNativeOAuth(client, callbackUrl)) {
+					window.location.replace("/app");
+				}
+				return;
 			}
-			return;
 		}
 		const { openUrl } = await import("@tauri-apps/plugin-opener");
 		await openUrl(url.toString());

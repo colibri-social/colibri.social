@@ -52,8 +52,14 @@ targets:
           - UIInterfaceOrientationPortraitUpsideDown
           - UIInterfaceOrientationLandscapeLeft
           - UIInterfaceOrientationLandscapeRight
-        CFBundleShortVersionString: 0.1.9
-        CFBundleVersion: "0.1.9"
+        CFBundleShortVersionString: 0.1.14
+        CFBundleVersion: "0.1.14"
+        ITSAppUsesNonExemptEncryption: false
+        NSCameraUsageDescription: Colibri uses your camera for video in voice channels and calls.
+        NSMicrophoneUsageDescription: Colibri uses your microphone for voice channels and calls.
+        CFBundleURLTypes:
+          - CFBundleURLSchemes: [social.colibri]
+            CFBundleURLName: social.colibri
     entitlements:
       path: colibri-social_iOS/colibri-social_iOS.entitlements
     scheme:
@@ -73,6 +79,7 @@ targets:
     dependencies:
       - framework: libapp.a
         embed: false
+      - sdk: AuthenticationServices.framework
       - sdk: CoreGraphics.framework
       - sdk: Metal.framework
       - sdk: MetalKit.framework

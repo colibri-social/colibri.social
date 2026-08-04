@@ -90,7 +90,7 @@ pub mod native_error {
     }
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", target_os = "ios"))]
 mod web_auth {
     use std::ffi::{c_char, c_void, CStr, CString};
     use std::sync::mpsc;
@@ -144,7 +144,7 @@ mod web_auth {
     }
 }
 
-#[cfg(not(target_os = "macos"))]
+#[cfg(not(any(target_os = "macos", target_os = "ios")))]
 mod web_auth {
     use crate::native_error::NativeError;
 

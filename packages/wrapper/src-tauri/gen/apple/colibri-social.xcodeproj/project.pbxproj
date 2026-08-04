@@ -10,6 +10,7 @@
 		042BCF43A2C2A2704918C8B1 /* libapp.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 2381A5815BBB759639B6B97F /* libapp.a */; };
 		9612D7A467BC49BCAC7171DA /* AppIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = B2DFAC3C695F45CE80C2AD0A /* AppIcon.icon */; };
 		07728968E370873295808823 /* main.mm in Sources */ = {isa = PBXBuildFile; fileRef = EDA1032A4BF1DB787769D94F /* main.mm */; };
+		1B7D40E5C9A2F6338E51A0D4 /* AuthenticationServices.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 6C93F1A05D28B4E77A03C6BF /* AuthenticationServices.framework */; };
 		20ADE81D8B13F10CD53AEDDD /* UIKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 23F92E71B3C59D62A5115BB8 /* UIKit.framework */; };
 		2F139F11E0E7E8F139F2020C /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 33EEEEEE430CFB4960970B87 /* LaunchScreen.storyboard */; };
 		4B92D1B35B5AD5B3546508E9 /* CoreGraphics.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 932F4D78F5E2340766504215 /* CoreGraphics.framework */; };
@@ -27,6 +28,7 @@
 		2381A5815BBB759639B6B97F /* libapp.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = libapp.a; sourceTree = "<group>"; };
 		B2DFAC3C695F45CE80C2AD0A /* AppIcon.icon */ = {isa = PBXFileReference; lastKnownFileType = wrapper.icon; path = AppIcon.icon; sourceTree = "<group>"; };
 		23F92E71B3C59D62A5115BB8 /* UIKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = UIKit.framework; path = System/Library/Frameworks/UIKit.framework; sourceTree = SDKROOT; };
+		6C93F1A05D28B4E77A03C6BF /* AuthenticationServices.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AuthenticationServices.framework; path = System/Library/Frameworks/AuthenticationServices.framework; sourceTree = SDKROOT; };
 		33EEEEEE430CFB4960970B87 /* LaunchScreen.storyboard */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; path = LaunchScreen.storyboard; sourceTree = "<group>"; };
 		3B4087853713445F7F9F602C /* assets */ = {isa = PBXFileReference; lastKnownFileType = folder; path = assets; sourceTree = SOURCE_ROOT; };
 		50765EB523701966B25949CA /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -50,6 +52,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				042BCF43A2C2A2704918C8B1 /* libapp.a in Frameworks */,
+				1B7D40E5C9A2F6338E51A0D4 /* AuthenticationServices.framework in Frameworks */,
 				4B92D1B35B5AD5B3546508E9 /* CoreGraphics.framework in Frameworks */,
 				EEA74BECB5D2035D83A582FC /* Metal.framework in Frameworks */,
 				D03CB0CE111E71A0F1237385 /* MetalKit.framework in Frameworks */,
@@ -74,6 +77,7 @@
 		1F18FE7F90A76D538FD5816A /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				6C93F1A05D28B4E77A03C6BF /* AuthenticationServices.framework */,
 				932F4D78F5E2340766504215 /* CoreGraphics.framework */,
 				2381A5815BBB759639B6B97F /* libapp.a */,
 				D51A5144CE637D91656CF10F /* Metal.framework */,
