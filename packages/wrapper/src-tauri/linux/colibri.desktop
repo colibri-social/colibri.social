@@ -1,0 +1,10 @@
+[Desktop Entry]
+Categories={{categories}}
+Comment={{comment}}
+Exec={{exec}} %u
+Icon={{icon}}
+Name={{name}}
+Terminal=false
+Type=Application
+StartupWMClass={{exec}}
+MimeType=x-scheme-handler/social.colibri

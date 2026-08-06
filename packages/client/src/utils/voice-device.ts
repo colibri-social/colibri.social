@@ -23,6 +23,9 @@ export const currentUserAgentData = (): types.NavigatorUAData | undefined =>
 		: (navigator as Navigator & { userAgentData?: types.NavigatorUAData })
 				.userAgentData;
 
+export const supportsWebRtc = (): boolean =>
+	typeof RTCPeerConnection !== "undefined";
+
 export const pickVoiceHandler = (
 	userAgent: string | undefined = currentUserAgent(),
 	userAgentData: types.NavigatorUAData | undefined = currentUserAgentData(),

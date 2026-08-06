@@ -204,10 +204,7 @@ pub fn reapply(window: &WebviewWindow) {
     }
 }
 
-pub fn set_native_decorations(
-    window: &WebviewWindow,
-    enabled: bool,
-) -> Result<(), NativeError> {
+pub fn set_native_decorations(window: &WebviewWindow, enabled: bool) -> Result<(), NativeError> {
     window
         .set_title_bar_style(if enabled {
             tauri::TitleBarStyle::Visible

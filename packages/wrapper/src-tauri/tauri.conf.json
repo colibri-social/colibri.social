@@ -49,7 +49,15 @@
 		"homepage": "https://colibri.social",
 		"copyright": "Copyright © 2026 Louis Escher, Reuben Tier",
 		"shortDescription": "Next-generation social chat on the AT Protocol",
-		"longDescription": "Colibri is a next-generation social chat app built on the AT Protocol."
+		"longDescription": "Colibri is a next-generation social chat app built on the AT Protocol.",
+		"linux": {
+			"deb": {
+				"desktopTemplate": "linux/colibri.desktop"
+			},
+			"rpm": {
+				"desktopTemplate": "linux/colibri.desktop"
+			}
+		}
 	},
 	"plugins": {
 		"updater": {

@@ -19,7 +19,6 @@ import {
 import { Camera } from "../../icons/Camera";
 import { Ear } from "../../icons/Ear";
 import { Microphone } from "../../icons/Microphone";
-import { Screen } from "../../icons/Screen";
 import { Wifi } from "../../icons/Wifi";
 import { Button } from "../../ui/Button";
 import {
@@ -28,6 +27,7 @@ import {
 	TooltipPortal,
 	TooltipTrigger,
 } from "../../ui/Tooltip";
+import { ScreenShareButton } from "../voice/ScreenShareButton";
 import User from ".";
 import { Avatar } from "./Avatar";
 import { ProfilePopover } from "./ProfilePopover";
@@ -44,14 +44,7 @@ export const Status: Component = () => {
 	const [statusDialogOpen, setStatusDialogOpen] = createSignal(false);
 	const [
 		voiceData,
-		{
-			disconnect,
-			toggleCamera,
-			toggleScreen,
-			toggleMic,
-			toggleDeafen,
-			setOverlayDismissed,
-		},
+		{ disconnect, toggleCamera, toggleMic, toggleDeafen, setOverlayDismissed },
 	] = useVoiceChatContext();
 
 	const isReconnecting = () =>
@@ -170,7 +163,7 @@ export const Status: Component = () => {
 							<PhoneSlashIcon />
 						</Button>
 					</div>
-					<div class="grid grid-cols-4 gap-2 w-full">
+					<div class="grid grid-cols-[repeat(4,minmax(0,1fr))] gap-2 w-full">
 						<Button
 							class="w-full"
 							variant={voiceData.states.micEnabled ? "secondary" : "outline"}
@@ -204,17 +197,7 @@ export const Status: Component = () => {
 						>
 							<Camera enabled={voiceData.states.camEnabled} />
 						</Button>
-						<Button
-							class="w-full"
-							variant={voiceData.states.screenEnabled ? "secondary" : "outline"}
-							classList={{
-								"text-(--primary-hover)!": voiceData.states.screenEnabled,
-								"text-foreground": !voiceData.states.screenEnabled,
-							}}
-							onClick={toggleScreen}
-						>
-							<Screen enabled={voiceData.states.screenEnabled} />
-						</Button>
+						<ScreenShareButton class="w-full" />
 					</div>
 					<Show when={voiceData.overlayDismissed}>
 						<Button

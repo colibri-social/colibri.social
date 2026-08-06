@@ -43,6 +43,7 @@ import { MemberContextMenu } from "./community/MemberContextMenu";
 import { DEFAULT_BANNER } from "./profile/theme";
 import User from "./user";
 import { displayableNameFn } from "./user/DisplayableName";
+import { ScreenShareButton } from "./voice/ScreenShareButton";
 
 const log = createLogger("voice/view");
 
@@ -156,7 +157,6 @@ export const VoiceChannelView: Component = () => {
 			toggleMic,
 			toggleDeafen,
 			toggleCamera,
-			toggleScreen,
 			setFocusedKey,
 		},
 	] = useVoiceChatContext();
@@ -714,17 +714,7 @@ export const VoiceChannelView: Component = () => {
 						>
 							<Camera enabled={voiceData.states.camEnabled} />
 						</Button>
-						<Button
-							variant={voiceData.states.screenEnabled ? "secondary" : "outline"}
-							class="gap-2"
-							classList={{
-								"text-(--primary-hover)!": voiceData.states.screenEnabled,
-								"text-foreground": !voiceData.states.screenEnabled,
-							}}
-							onClick={toggleScreen}
-						>
-							<Screen enabled={voiceData.states.screenEnabled} />
-						</Button>
+						<ScreenShareButton />
 						<Button variant="destructive" class="gap-2" onClick={disconnect}>
 							<PhoneSlashIcon />
 							Leave

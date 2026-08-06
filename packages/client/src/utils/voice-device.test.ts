@@ -1,6 +1,10 @@
 import type { types } from "mediasoup-client";
-import { describe, expect, it } from "vitest";
-import { pickVoiceHandler, webKitFallbackHandler } from "./voice-device";
+import { afterEach, describe, expect, it } from "vitest";
+import {
+	pickVoiceHandler,
+	supportsWebRtc,
+	webKitFallbackHandler,
+} from "./voice-device";
 
 const TAURI_MACOS =
 	"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko)";
@@ -71,5 +75,25 @@ describe("webKitFallbackHandler", () => {
 	it("rejects user agents without an AppleWebKit version", () => {
 		expect(webKitFallbackHandler("SomeCrawler/1.0")).toBeUndefined();
 		expect(webKitFallbackHandler(undefined)).toBeUndefined();
+	});
+});
+
+describe("supportsWebRtc", () => {
+	const original = Reflect.get(globalThis, "RTCPeerConnection");
+
+	afterEach(() => {
+		if (original === undefined)
+			Reflect.deleteProperty(globalThis, "RTCPeerConnection");
+		else Reflect.set(globalThis, "RTCPeerConnection", original);
+	});
+
+	it("is true when the engine exposes RTCPeerConnection", () => {
+		Reflect.set(globalThis, "RTCPeerConnection", class {});
+		expect(supportsWebRtc()).toBe(true);
+	});
+
+	it("is false on an engine built without WebRTC", () => {
+		Reflect.deleteProperty(globalThis, "RTCPeerConnection");
+		expect(supportsWebRtc()).toBe(false);
 	});
 });
