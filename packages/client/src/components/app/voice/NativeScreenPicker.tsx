@@ -19,6 +19,7 @@ import {
 	openScreenRecordingSettings,
 	previewAspectRatio,
 } from "../../../utils/native-capture";
+import { isMacOS } from "../../../utils/platform";
 import {
 	framerateLabel,
 	resolutionLabel,
@@ -188,7 +189,9 @@ export const NativeScreenPicker: Component<NativeScreenPickerProps> = (
 										fallback={
 											<p class="text-sm text-muted-foreground text-center py-10 m-0">
 												{sources()?.failed
-													? "Colibri could not read what is on screen. Turn on Screen & System Audio Recording for Colibri in System Settings, then reopen this window."
+													? isMacOS()
+														? "Colibri could not read what is on screen. Turn on Screen & System Audio Recording for Colibri in System Settings, then reopen this window."
+														: "Colibri could not read what is on screen. Close and reopen this window to try again."
 													: tab.empty}
 											</p>
 										}
@@ -319,7 +322,7 @@ export const NativeScreenPicker: Component<NativeScreenPickerProps> = (
 				</Toggle>
 
 				<DialogFooter>
-					<Show when={sources()?.failed}>
+					<Show when={sources()?.failed && isMacOS()}>
 						<Button
 							variant="outline"
 							onClick={() => void openScreenRecordingSettings()}

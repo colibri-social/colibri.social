@@ -38,7 +38,7 @@ self.onmessage = (event) => {
 		return;
 	}
 
-	const { url, token } = event.data;
+	const { url, token, mode } = event.data;
 	let decoder = null;
 	let writer = null;
 	let closed = false;
@@ -57,16 +57,28 @@ self.onmessage = (event) => {
 		self.postMessage({ type: "ended" });
 	};
 
-	let generator;
-	try {
-		generator = new VideoTrackGenerator();
-	} catch (error) {
-		fail(error);
-		return;
-	}
+	const emit = (frame) => {
+		if (mode === "main") {
+			self.postMessage({ type: "frame", frame }, [frame]);
+			return;
+		}
+		writer.write(frame).catch(() => {}).finally(() => frame.close());
+	};
 
-	writer = generator.writable.getWriter();
-	self.postMessage({ type: "track", track: generator.track }, [generator.track]);
+	if (mode === "main") {
+		self.postMessage({ type: "ready" });
+	} else {
+		let generator;
+		try {
+			generator = new VideoTrackGenerator();
+		} catch (error) {
+			fail(error);
+			return;
+		}
+
+		writer = generator.writable.getWriter();
+		self.postMessage({ type: "track", track: generator.track }, [generator.track]);
+	}
 
 	const socket = new WebSocket(url + "?token=" + encodeURIComponent(token));
 	socket.binaryType = "arraybuffer";
@@ -80,9 +92,7 @@ self.onmessage = (event) => {
 			const config = JSON.parse(message.data);
 			if (config.type !== "config") return;
 			decoder = new VideoDecoder({
-				output: (frame) => {
-					writer.write(frame).catch(() => {}).finally(() => frame.close());
-				},
+				output: (frame) => emit(frame),
 				error: (error) => fail(error),
 			});
 			decoder.configure({

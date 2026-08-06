@@ -14,6 +14,7 @@ import {
 	stopNativeCapture,
 	supportsNativeCapture,
 } from "../../../utils/native-capture";
+import { isMacOS } from "../../../utils/platform";
 import {
 	framerateLabel,
 	resolutionLabel,
@@ -117,8 +118,9 @@ export const ScreenShareButton: Component<ScreenShareButtonProps> = (props) => {
 			void stopNativeCapture();
 			showError(error, {
 				fallbackTitle: "Couldn't start sharing your screen.",
-				description:
-					"macOS may need Screen & System Audio Recording permission for Colibri.",
+				description: isMacOS()
+					? "macOS may need Screen & System Audio Recording permission for Colibri."
+					: "Your call is still connected. Try picking a different app, window or screen.",
 			});
 		}
 	};

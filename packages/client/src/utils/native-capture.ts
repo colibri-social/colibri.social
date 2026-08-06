@@ -159,16 +159,39 @@ export interface NativeCaptureTrack {
 	stop: () => void;
 }
 
+interface TrackSink {
+	track: MediaStreamTrack;
+	writable: WritableStream<VideoFrame>;
+}
+
+const createMainThreadSink = (): TrackSink | null => {
+	const generator = (
+		globalThis as unknown as {
+			MediaStreamTrackGenerator?: new (options: { kind: string }) => unknown;
+		}
+	).MediaStreamTrackGenerator;
+
+	if (typeof generator !== "function") return null;
+
+	const created = new generator({ kind: "video" }) as MediaStreamTrack & {
+		writable: WritableStream<VideoFrame>;
+	};
+
+	return { track: created, writable: created.writable };
+};
+
 export const createNativeCaptureTrack = async (
 	session: NativeCaptureSession,
 	withAudio: boolean,
 ): Promise<NativeCaptureTrack> => {
 	const audio = withAudio ? await createNativeAudioBridge() : null;
+	const sink = createMainThreadSink();
 
 	return await new Promise<NativeCaptureTrack>((resolve, reject) => {
 		const blob = new Blob([workerSource()], { type: "text/javascript" });
 		const url = URL.createObjectURL(blob);
 		const worker = new Worker(url, { type: "module" });
+		const writer = sink?.writable.getWriter() ?? null;
 
 		let settled = false;
 
@@ -176,11 +199,30 @@ export const createNativeCaptureTrack = async (
 			worker.terminate();
 			URL.revokeObjectURL(url);
 			audio?.stop();
+			try {
+				void writer?.close();
+			} catch {
+				return;
+			}
+		};
+
+		const settle = (track: MediaStreamTrack): void => {
+			settled = true;
+			resolve({
+				track,
+				audioTrack: audio?.track ?? null,
+				stop: () => {
+					worker.postMessage({ type: "stop" });
+					cleanup();
+				},
+			});
 		};
 
 		worker.onmessage = (event: MessageEvent) => {
 			const data = event.data as
+				| { type: "ready" }
 				| { type: "track"; track: MediaStreamTrack }
+				| { type: "frame"; frame: VideoFrame }
 				| { type: "audio"; frames: number; planes: Float32Array[] }
 				| { type: "error"; message: string }
 				| { type: "ended" };
@@ -190,16 +232,25 @@ export const createNativeCaptureTrack = async (
 				return;
 			}
 
+			if (data.type === "frame") {
+				if (!writer) {
+					data.frame.close();
+					return;
+				}
+				writer
+					.write(data.frame)
+					.catch(() => {})
+					.finally(() => data.frame.close());
+				return;
+			}
+
+			if (data.type === "ready" && sink) {
+				settle(sink.track);
+				return;
+			}
+
 			if (data.type === "track") {
-				settled = true;
-				resolve({
-					track: data.track,
-					audioTrack: audio?.track ?? null,
-					stop: () => {
-						worker.postMessage({ type: "stop" });
-						cleanup();
-					},
-				});
+				settle(data.track);
 				return;
 			}
 
@@ -220,6 +271,10 @@ export const createNativeCaptureTrack = async (
 			reject(new Error("the capture bridge failed to start"));
 		};
 
-		worker.postMessage({ url: session.url, token: session.token });
+		worker.postMessage({
+			url: session.url,
+			token: session.token,
+			mode: sink ? "main" : "worker",
+		});
 	});
 };

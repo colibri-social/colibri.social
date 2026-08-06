@@ -710,6 +710,7 @@ dependencies = [
  "tokio-tungstenite",
  "webkit2gtk",
  "windows",
+ "windows-core 0.61.2",
  "windows-version",
 ]
 

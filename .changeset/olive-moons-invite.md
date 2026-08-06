@@ -2,7 +2,7 @@
 "@colibri-social/client": minor
 ---
 
-Add a native screen picker with previews on macOS
+Add a native screen picker with previews on macOS and Windows
 
 On the macOS desktop app, sharing your screen now opens Colibri's own picker instead of the system one. It has three tabs for applications, windows and screens, each showing a live preview of what you would be sharing, with the resolution and frame rate controls in the same dialog.
 
@@ -10,7 +10,7 @@ Sound comes along too. Turn on Share sound and the audio from whatever you picke
 
 Capture runs natively through ScreenCaptureKit and is hardware encoded with VideoToolbox, then bridged into the existing voice connection, so the picked source reaches the channel at the quality you chose without a second connection or any change to the voice server.
 
-Web, Windows and Linux are unaffected and keep using their own system picker, which already shows previews on Windows and macOS.
+Web and Linux are unaffected and keep using their own system picker.
 
 <!-- whatsnew
 title: Pick What You Share
