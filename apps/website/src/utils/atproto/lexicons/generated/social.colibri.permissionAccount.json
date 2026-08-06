@@ -33,6 +33,8 @@
 						"social.colibri.actor.listMutes",
 						"social.colibri.actor.getNotificationPreference",
 						"social.colibri.actor.setState",
+						"social.colibri.actor.getDeletionStatus",
+						"social.colibri.actor.deleteAccount",
 						"social.colibri.sync.subscribeEvents",
 						"social.colibri.sync.sendHum"
 					]

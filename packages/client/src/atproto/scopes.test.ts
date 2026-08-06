@@ -94,14 +94,21 @@ describe("getMissingScopeSets", () => {
 	});
 
 	it("drops a set once its marker appears in the grant", () => {
-		const missing = getMissingScopeSets("atproto social.colibri.actor.getData");
+		const missing = getMissingScopeSets(
+			"atproto social.colibri.actor.deleteAccount",
+		);
 		expect(missing).not.toContain("social.colibri.permissionAccount");
 		expect(missing).toContain("social.colibri.permissionCommunity");
 	});
 
+	it("treats a pre-deletion account grant as stale", () => {
+		const missing = getMissingScopeSets("atproto social.colibri.actor.getData");
+		expect(missing).toContain("social.colibri.permissionAccount");
+	});
+
 	it("reports nothing missing for a full grant", () => {
 		const full = [
-			"social.colibri.actor.getData",
+			"social.colibri.actor.deleteAccount",
 			"social.colibri.community.getData",
 			"social.colibri.membership",
 			"social.colibri.notification.listNotifications",

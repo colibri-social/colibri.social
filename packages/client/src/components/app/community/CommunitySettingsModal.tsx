@@ -1323,13 +1323,15 @@ export const CommunitySettingsModal: ParentComponent<{
 					visible: () => canUnbanMember(user.did),
 				},
 			]}
-			dangerPage={{
-				title: "Danger Zone",
-				id: "danger",
-				component: DangerSettingsPage,
-				icon: () => <WarningDiamondIcon />,
-				visible: () => canDeleteCommunity(user.did),
-			}}
+			dangerPages={[
+				{
+					title: "Danger Zone",
+					id: "danger",
+					component: DangerSettingsPage,
+					icon: () => <WarningDiamondIcon />,
+					visible: () => canDeleteCommunity(user.did),
+				},
+			]}
 			debugPage={{
 				title: "Debug Information",
 				id: "info",

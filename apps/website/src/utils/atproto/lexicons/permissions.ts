@@ -45,6 +45,8 @@ export const permissionDocs: LexiconDoc[] = [
 							"social.colibri.actor.listMutes",
 							"social.colibri.actor.getNotificationPreference",
 							"social.colibri.actor.setState",
+							"social.colibri.actor.getDeletionStatus",
+							"social.colibri.actor.deleteAccount",
 							"social.colibri.sync.subscribeEvents",
 							"social.colibri.sync.sendHum",
 						],
@@ -78,7 +80,7 @@ export const permissionDocs: LexiconDoc[] = [
 						type: "permission",
 						resource: "repo",
 						collection: ["social.colibri.channel.read"],
-						action: ["create", "update"],
+						action: ["create", "update", "delete"],
 					},
 					{
 						type: "permission",

@@ -1,4 +1,11 @@
+export { type DeletedCounts, deleteAccount } from "./deleteAccount";
 export { getData } from "./getData";
+export {
+	type DeletionCounts,
+	type DeletionStatus,
+	getDeletionStatus,
+	type SoleOwnedCommunity,
+} from "./getDeletionStatus";
 export {
 	getNotificationPreference,
 	type NotificationLevel,

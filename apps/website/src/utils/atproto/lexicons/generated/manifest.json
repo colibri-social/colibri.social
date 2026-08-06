@@ -1,9 +1,11 @@
 {
-	"count": 89,
+	"count": 91,
 	"lexicons": {
 		"social.colibri.actor.data": "bc3300b598727c4bec99c103125d7caef74e11a5a56493d7fe5cc5c246989d9a",
 		"social.colibri.actor.defs": "ebbcaa03dab2d790294ec25f85aa03a160b26125c3d92d524655bd9134adf57a",
+		"social.colibri.actor.deleteAccount": "f522c7598bd68534ec2cb7094e7c7199c94ee790d53ce234939da2903ba0403d",
 		"social.colibri.actor.getData": "44ccd897bdd3debad86bc2bd9311f3435435802c2db61fc9ce62005aed4e856f",
+		"social.colibri.actor.getDeletionStatus": "9bb58d4eb88cdd8bfd1868aa28d6a599b6debb3daa85cf6d961753b8b9694607",
 		"social.colibri.actor.getNotificationPreference": "0597e4d31fcdaaa3f59fba3ad3358d1d13d97d3e6a08823115931fcc5690345d",
 		"social.colibri.actor.listCommunities": "26b7e8d188b348f2e91f4e97fd87859b8cf24fd232196c872a14fa3329f022e1",
 		"social.colibri.actor.listMutes": "b6d8cc8c985a1276940039c32b7e52996925117b17c0fc2660e16e7e707ff534",
@@ -73,8 +75,8 @@
 		"social.colibri.notification.unregisterPush": "b98fa22134438df2e50e729969e72620587ab5f07cf3d975c344187e0411676f",
 		"social.colibri.notification.updateSeen": "2d13ad1d4b13b5262e77031dffab1bde8e08b7c44aad558a35588ae0ae47f67d",
 		"social.colibri.notification.updateSeenForMessage": "8a8e49472edbe05c314da7de1fd60b042561e9962ae3a55e66979493fc0c7890",
-		"social.colibri.permissionAccount": "0ed41fe411e899053a7dcb05449ccee898e7c6be64cd32649f5f784a016d82ff",
-		"social.colibri.permissionCommunity": "e2c77c9a5768d88a9d126bb5dfd0ec34ee39dd36e3e75f21bac240f9d9439042",
+		"social.colibri.permissionAccount": "d4e593606b252ae9eb7a8da853853ba32ef871cb14c9fee75df1e3ebe18b37b4",
+		"social.colibri.permissionCommunity": "cbdc8b531e7dc995a58443309106f75fd594bf0e22e3e4890047c51db42f95d2",
 		"social.colibri.permissionMessaging": "36c1d072f5b81e136801bbabfd3b89f2cb5380d31fd645fac2bb963380438f72",
 		"social.colibri.permissionNotification": "a3999838eee36d02922877fc4fca3f1cd79e9fe53af04cac174a83b990e7e579",
 		"social.colibri.permissionPush": "ad52708ef654601ae93750a32cc9ee93caafc3c2c5e59d7086e645386751c76b",

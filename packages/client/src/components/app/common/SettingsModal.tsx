@@ -138,7 +138,7 @@ export type SettingsPageInfo = {
 export const SettingsModal: ParentComponent<{
 	pages: Array<SettingsPageInfo>;
 	debugPage?: SettingsPageInfo;
-	dangerPage?: SettingsPageInfo;
+	dangerPages?: Array<SettingsPageInfo>;
 	class?: string;
 	contentClass?: string;
 	open?: Accessor<boolean>;
@@ -170,11 +170,15 @@ export const SettingsModal: ParentComponent<{
 					<Dynamic component={props.debugPage!.component} />
 				</SectionBoundary>
 			</Match>
-			<Match when={props.dangerPage && activePage() === props.dangerPage.id}>
-				<SectionBoundary name="settings/danger">
-					<Dynamic component={props.dangerPage!.component} />
-				</SectionBoundary>
-			</Match>
+			<For each={props.dangerPages}>
+				{(item) => (
+					<Match when={activePage() === item.id}>
+						<SectionBoundary name={`settings/${item.id}`}>
+							<Dynamic component={item.component} />
+						</SectionBoundary>
+					</Match>
+				)}
+			</For>
 		</Switch>
 	);
 
@@ -223,20 +227,20 @@ export const SettingsModal: ParentComponent<{
 											{props.debugPage!.title}
 										</SettingsPageSelector>
 									</Show>
-									<Show
-										when={
-											props.dangerPage && props.dangerPage.visible?.() !== false
-										}
-									>
-										<SettingsPageSelector
-											icon={props.dangerPage!.icon}
-											activePage={activePage() === props.dangerPage!.id}
-											danger
-											onClick={() => setActivePage(props.dangerPage!.id)}
-										>
-											{props.dangerPage!.title}
-										</SettingsPageSelector>
-									</Show>
+									<For each={props.dangerPages}>
+										{(item) => (
+											<Show when={item.visible?.() !== false}>
+												<SettingsPageSelector
+													icon={item.icon}
+													activePage={activePage() === item.id}
+													danger
+													onClick={() => setActivePage(item.id)}
+												>
+													{item.title}
+												</SettingsPageSelector>
+											</Show>
+										)}
+									</For>
 								</div>
 							</div>
 							<PageContent />
@@ -272,15 +276,13 @@ export const SettingsModal: ParentComponent<{
 									{props.debugPage!.title}
 								</option>
 							</Show>
-							<Show
-								when={
-									props.dangerPage && props.dangerPage.visible?.() !== false
-								}
-							>
-								<option value={props.dangerPage!.id}>
-									{props.dangerPage!.title}
-								</option>
-							</Show>
+							<For each={props.dangerPages}>
+								{(item) => (
+									<Show when={item.visible?.() !== false}>
+										<option value={item.id}>{item.title}</option>
+									</Show>
+								)}
+							</For>
 						</select>
 						<CaretDownIcon class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
 					</div>

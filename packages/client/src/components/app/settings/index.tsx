@@ -15,6 +15,7 @@ import InfoIcon from "~icons/ph/info";
 import MicrophoneIcon from "~icons/ph/microphone";
 import SmileyIcon from "~icons/ph/smiley";
 import SparkleIcon from "~icons/ph/sparkle";
+import TrashIcon from "~icons/ph/trash";
 import UserCircleIcon from "~icons/ph/user-circle";
 import WrenchIcon from "~icons/ph/wrench";
 import { endSession } from "../../../atproto/session";
@@ -27,6 +28,7 @@ import { requiresInAppPurchase } from "../../../utils/platform";
 import { useIsTouch } from "../../../utils/touch";
 import { SettingsModal } from "../common/SettingsModal";
 import { AboutPage } from "./AboutPage";
+import { AccountPage } from "./AccountPage";
 import { ControlsPage } from "./ControlsPage";
 import { DebugPage } from "./DebugPage";
 import { ExperimentsPage } from "./ExperimentsPage";
@@ -127,34 +129,42 @@ export const UserSettingsModal: ParentComponent<{
 				component: DebugPage,
 				icon: () => <BugIcon />,
 			}}
-			dangerPage={{
-				title: "Log out",
-				id: "logout",
-				icon: () => <ArrowLineLeftIcon />,
-				component: () => {
-					const auth = useAuthContext();
-					const user = useUserContext();
-
-					createEffect(() => {
-						(async () => {
-							try {
-								await unregisterAllPush((endpoint, provider) =>
-									user.xrpc.social.colibri.notification.unregisterPush(
-										endpoint,
-										provider,
-									),
-								);
-								await auth?.client.revoke(user.did);
-							} finally {
-								await endSession();
-							}
-						})();
-					});
-
-					// biome-ignore lint/complexity/noUselessFragments: Needed to make the redirect work
-					return (<></>) as any;
+			dangerPages={[
+				{
+					title: "Delete account",
+					id: "delete-account",
+					icon: () => <TrashIcon />,
+					component: AccountPage,
 				},
-			}}
+				{
+					title: "Log out",
+					id: "logout",
+					icon: () => <ArrowLineLeftIcon />,
+					component: () => {
+						const auth = useAuthContext();
+						const user = useUserContext();
+
+						createEffect(() => {
+							(async () => {
+								try {
+									await unregisterAllPush((endpoint, provider) =>
+										user.xrpc.social.colibri.notification.unregisterPush(
+											endpoint,
+											provider,
+										),
+									);
+									await auth?.client.revoke(user.did);
+								} finally {
+									await endSession();
+								}
+							})();
+						});
+
+						// biome-ignore lint/complexity/noUselessFragments: Needed to make the redirect work
+						return (<></>) as any;
+					},
+				},
+			]}
 			contentClass="min-h-[min(48rem,calc(100vh-2rem))] [&>div.max-h-144]:max-h-none"
 		>
 			{props.children}
