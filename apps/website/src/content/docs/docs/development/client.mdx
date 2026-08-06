@@ -176,6 +176,16 @@ CI fails a `minor` or `major` client changeset that has no block, so features ne
 
 The generated files under `packages/client/src/release-notes/` are written by `pnpm ci:version` during a release. If you edit them by hand, run `pnpm whats-new:generate` and commit the result, which CI also verifies.
 
+## Preview releases
+
+Every pull request gets an installable build of the client through [pkg.pr.new](https://pkg.pr.new) without waiting for a release. A bot comment on the PR carries the install command:
+
+```sh
+pnpm add https://pkg.pr.new/@colibri-social/client@156
+```
+
+The URL is keyed on the pull request number, so it keeps resolving to that PR's latest build as you push to it. Commits on `main` publish too, which makes `@colibri-social/client@main` a way to track trunk between `rc` releases.
+
 ## See also
 
 - [Client Architecture](/docs/architecture/client): how the client talks to an AppView.
