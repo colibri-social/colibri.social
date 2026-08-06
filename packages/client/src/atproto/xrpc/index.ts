@@ -1,5 +1,6 @@
 import type { Agent } from "@atproto/api";
 import type { ColibriEvent } from "@colibri-social/lib";
+import type { EmbedEmitter } from "../../embed/types";
 import { classifyThrown } from "../../errors/classify";
 import {
 	reportXrpcFailure,
@@ -39,9 +40,11 @@ export class XrpcClient {
 	private proxyHeader: string;
 	private notifProxyHeader: string;
 	private agent: Agent;
+	private emitter: EmbedEmitter | undefined;
 
-	constructor(proxyHeader: string, agent: Agent) {
+	constructor(proxyHeader: string, agent: Agent, emitter?: EmbedEmitter) {
 		this.proxyHeader = proxyHeader;
+		this.emitter = emitter;
 		// Push registration belongs to the notification service. Both fragments
 		// resolve to the same endpoint today, but routing push calls through
 		// `#colibri_notif` honours the declared service split and future-proofs
@@ -94,6 +97,14 @@ export class XrpcClient {
 				method: init?.method ?? "GET",
 				label: opts?.label,
 			});
+			this.emitter?.emit({
+				kind: "appview.call",
+				lxm,
+				method: init?.method ?? "GET",
+				status: 0,
+				durationMs: 0,
+				queued: true,
+			});
 			return new Response(JSON.stringify(opts?.syntheticBody ?? {}), {
 				status: 200,
 				headers: {
@@ -143,20 +154,38 @@ export class XrpcClient {
 
 		return request.then(
 			(res) => {
-				recordRequest(method, start, perfNow() - start, res.ok);
+				const elapsed = perfNow() - start;
+				recordRequest(method, start, elapsed, res.ok);
 				if (!res.ok) {
 					log.warn("request failed", { method, status: res.status });
 					if (import.meta.env.DEV) void reportXrpcFailure(method, res.clone());
 				}
+				this.emitter?.emit({
+					kind: "appview.call",
+					lxm: method,
+					method: init?.method ?? "GET",
+					status: res.status,
+					durationMs: Math.round(elapsed),
+					queued: false,
+				});
 				return res;
 			},
 			(err) => {
-				recordRequest(method, start, perfNow() - start, false);
+				const elapsed = perfNow() - start;
+				recordRequest(method, start, elapsed, false);
 				log.error("request could not be sent", {
 					method,
 					code: classifyThrown(err, { method }).code,
 				});
 				reportXrpcNetworkError(method, err);
+				this.emitter?.emit({
+					kind: "appview.call",
+					lxm: method,
+					method: init?.method ?? "GET",
+					status: 0,
+					durationMs: Math.round(elapsed),
+					queued: false,
+				});
 				throw err;
 			},
 		);

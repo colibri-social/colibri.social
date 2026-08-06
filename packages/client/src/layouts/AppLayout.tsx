@@ -22,7 +22,6 @@ import {
 	Switch,
 } from "solid-js";
 import { toast } from "somoto";
-import GearIcon from "~icons/ph/gear";
 import HouseIcon from "~icons/ph/house";
 import LockSimpleIcon from "~icons/ph/lock-simple";
 import { communityUriToUrlCompatible } from "../atproto/community-uri-to-url-compatible";
@@ -36,7 +35,6 @@ import { MessageSnapshotWriter } from "../components/app/MessageSnapshotWriter";
 import { NativeNotifications } from "../components/app/NativeNotifications";
 import { NotificationPromptDialog } from "../components/app/onboarding/NotificationPromptDialog";
 import { ReleaseNotesModal } from "../components/app/ReleaseNotes";
-import { UserSettingsModal } from "../components/app/settings";
 import { TitleBar } from "../components/app/titlebar";
 import { VoiceOverlay } from "../components/app/VoiceOverlay";
 import { Plus } from "../components/icons/Plus";
@@ -52,13 +50,11 @@ import {
 	NotificationsContextProvider,
 	useNotifications,
 } from "../contexts/Notifications";
-import {
-	SettingsModalContextProvider,
-	useSettingsModalContext,
-} from "../contexts/SettingsModal";
+import { SettingsModalContextProvider } from "../contexts/SettingsModal";
 import { useSocketContext } from "../contexts/Socket";
 import { useUserContext } from "../contexts/User";
 import { useViewport } from "../contexts/Viewport";
+import { useIsEmbedded } from "../embed/context";
 import { isTauriRuntime } from "../notifications/environment";
 import { trackAppShellMounted } from "../utils/app-shell";
 import { LongPressSensors } from "../utils/create-longpress-sensor";
@@ -241,7 +237,6 @@ const CommunitySidebar = (props: {
 };
 
 const AppLayout: ParentComponent = (props) => {
-	const settingsModal = useSettingsModalContext();
 	const user = useUserContext();
 	const socket = useSocketContext();
 	const navigate = useNavigate();
@@ -260,6 +255,8 @@ const AppLayout: ParentComponent = (props) => {
 		needsShellInsets() && viewport.height() !== undefined
 			? `${viewport.height()}px`
 			: undefined;
+
+	const embedded = useIsEmbedded();
 
 	let shellEl: HTMLDivElement | undefined;
 	let shellAnimation: Animation | undefined;
@@ -295,6 +292,7 @@ const AppLayout: ParentComponent = (props) => {
 	onCleanup(() => shellAnimation?.cancel());
 
 	onMount(() => {
+		if (embedded) return;
 		let pending: string | null = null;
 		try {
 			pending = localStorage.getItem(PENDING_INVITE_KEY);
@@ -368,7 +366,11 @@ const AppLayout: ParentComponent = (props) => {
 		return [...ordered, ...user.communities.filter((c) => !seen.has(c.uri))];
 	};
 
-	if (window.location.pathname === "/app" && user.communities.length > 0) {
+	if (
+		!embedded &&
+		window.location.pathname === "/app" &&
+		user.communities.length > 0
+	) {
 		navigate(
 			`/app/c/${communityUriToUrlCompatible(sortedCommunities()[0].uri)}`,
 			{ replace: true },
@@ -411,6 +413,7 @@ const AppLayout: ParentComponent = (props) => {
 		order: Community[],
 		previous: Community[] | null,
 	) => {
+		if (embedded) return;
 		try {
 			const { agent } = user.atproto;
 			const repo = user.did;
@@ -463,8 +466,10 @@ const AppLayout: ParentComponent = (props) => {
 			ref={shellEl}
 			class="flex flex-col w-full bg-card"
 			classList={{
-				"h-[100dvh]": needsShellInsets() && shellHeight() === undefined,
-				"h-screen": !needsShellInsets(),
+				"h-full": embedded,
+				"h-[100dvh]":
+					!embedded && needsShellInsets() && shellHeight() === undefined,
+				"h-screen": !embedded && !needsShellInsets(),
 				"pt-[var(--safe-area-top)]": needsShellInsets(),
 				"transition-[height,transform] duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]":
 					needsShellInsets() && !hasNativeKeyboardInsetSync(),
@@ -481,69 +486,65 @@ const AppLayout: ParentComponent = (props) => {
 					: {}),
 			}}
 		>
-			<NativeNotifications />
-			<NotificationPromptDialog />
-			<TitleBar />
+			<Show when={!embedded}>
+				<NativeNotifications />
+				<NotificationPromptDialog />
+				<TitleBar />
+			</Show>
 			<div class="flex w-full relative h-[calc(100%-var(--titlebar-height))]">
-				<aside
-					class="flex flex-col h-full w-14 p-2 pb-3 bg-card"
-					style={{ translate: railTranslate() }}
-					classList={{
-						"absolute left-0 top-0 z-40 will-change-pane": isMobile(),
-						"transition-transform duration-300 ease-[cubic-bezier(0.25,1,0.5,1)] motion-reduce:transition-none":
-							isMobile() && !isDragging(),
-					}}
-				>
-					<nav class="w-full h-full flex flex-col gap-2 max-h-[calc(100%-3.25rem-1px)] mb-3.25">
-						<div class="w-[calc(100%+0.5rem)] h-full flex flex-col no-scrollbar gap-2 overflow-y-auto overflow-x-clip px-1 -mx-1">
-							<A
-								href="/app"
-								class="min-w-10 flex min-h-10 rounded-md bg-muted hover:bg-primary hover:text-primary-foreground items-center justify-center cursor-pointer"
-								classList={{
-									"bg-primary": isInHome(),
-								}}
-							>
-								<HouseIcon />
-							</A>
-							<hr class="m-0 border-muted" />
-							<DragDropProvider
-								onDragStart={onDragStart}
-								onDragOver={onDragOver}
-								onDragEnd={onDragEnd}
-								collisionDetector={closestCenter}
-							>
-								<CommunitySidebar
-									communities={draggingOrder() ?? sortedCommunities()}
-									draggedItem={draggedItem()}
-									onItemRef={(rkey, el) => itemEls.set(rkey, el)}
-								/>
-							</DragDropProvider>
-							<CommunityCreationModal>
-								<button
-									type="button"
-									class="w-10 flex h-10 rounded-md bg-muted hover:bg-primary hover:text-primary-foreground items-center justify-center cursor-pointer"
-								>
-									<Plus className="w-4 h-4" />
-								</button>
-							</CommunityCreationModal>
-						</div>
-					</nav>
-					<UserSettingsModal
-						open={settingsModal.open}
-						setOpen={settingsModal.setOpen}
+				<Show when={!embedded}>
+					<aside
+						class="flex flex-col h-full w-14 p-2 pb-3 bg-card"
+						style={{ translate: railTranslate() }}
+						classList={{
+							"absolute left-0 top-0 z-40 will-change-pane": isMobile(),
+							"transition-transform duration-300 ease-[cubic-bezier(0.25,1,0.5,1)] motion-reduce:transition-none":
+								isMobile() && !isDragging(),
+						}}
 					>
-						<div class="w-10 flex h-10 rounded-md bg-muted hover:bg-primary hover:text-primary-foreground items-center justify-center cursor-pointer">
-							<div class="block w-fit h-fit">
-								<GearIcon />
+						<nav class="w-full h-full flex flex-col gap-2 mb-3.25">
+							<div class="w-[calc(100%+0.5rem)] h-full flex flex-col no-scrollbar gap-2 overflow-y-auto overflow-x-clip px-1 -mx-1">
+								<A
+									href="/app"
+									class="min-w-10 flex min-h-10 rounded-md bg-muted hover:bg-primary hover:text-primary-foreground items-center justify-center cursor-pointer"
+									classList={{
+										"bg-primary": isInHome(),
+									}}
+								>
+									<HouseIcon />
+								</A>
+								<hr class="m-0 border-muted" />
+								<DragDropProvider
+									onDragStart={onDragStart}
+									onDragOver={onDragOver}
+									onDragEnd={onDragEnd}
+									collisionDetector={closestCenter}
+								>
+									<CommunitySidebar
+										communities={draggingOrder() ?? sortedCommunities()}
+										draggedItem={draggedItem()}
+										onItemRef={(rkey, el) => itemEls.set(rkey, el)}
+									/>
+								</DragDropProvider>
+								<CommunityCreationModal>
+									<button
+										type="button"
+										class="w-10 flex h-10 rounded-md bg-muted hover:bg-primary hover:text-primary-foreground items-center justify-center cursor-pointer"
+									>
+										<Plus className="w-4 h-4" />
+									</button>
+								</CommunityCreationModal>
 							</div>
-						</div>
-					</UserSettingsModal>
-				</aside>
+						</nav>
+					</aside>
+				</Show>
 				<main class="w-full h-full">{props.children}</main>
 			</div>
 			<VoiceOverlay />
 			<AppReconnectingIndicator />
-			<ReleaseNotesModal />
+			<Show when={!embedded}>
+				<ReleaseNotesModal />
+			</Show>
 			<MessageSnapshotWriter />
 		</div>
 	);

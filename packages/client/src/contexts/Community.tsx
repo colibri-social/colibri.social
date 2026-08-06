@@ -5,6 +5,7 @@ import {
 	createEffect,
 	createMemo,
 	createResource,
+	createSignal,
 	Match,
 	on,
 	onCleanup,
@@ -19,6 +20,7 @@ import {
 	writeCommunity,
 } from "../atproto/cache/store";
 import { urlSegmentToUri } from "../atproto/community-uri-to-url-compatible";
+import { joinCommunity } from "../atproto/memberships";
 import {
 	APPROVAL_MANAGE,
 	CATEGORY_CREATE,
@@ -51,16 +53,23 @@ import type { Channel } from "../atproto/xrpc/social/colibri/community/listChann
 import type { Member } from "../atproto/xrpc/social/colibri/community/listMembers";
 import type { Role } from "../atproto/xrpc/social/colibri/community/listRoles";
 import { AppLoadingScreen } from "../components/AppLoadingScreen";
+import { EmbedJoinGate } from "../components/app/community/EmbedJoinGate";
 import { ErrorState } from "../components/ErrorState";
+import { useEmbedEmitter, useIsEmbedded } from "../embed/context";
+import { classifyThrown } from "../errors/classify";
 import { isGoneCode } from "../errors/codes";
 import { isColibriError } from "../errors/error";
+import { showError } from "../errors/show-error";
 import { getAppViewDid } from "../utils/appview";
 import { AtURI, toRecordUri } from "../utils/at-uri";
 import { getCommunityParam } from "../utils/get-param";
+import { createLogger } from "../utils/logger";
 import { markBoot } from "../utils/perf";
 import { useSocketContext } from "./Socket";
 import { useUserContext } from "./User";
 import { useVoiceChatContext } from "./VoiceChat";
+
+const log = createLogger("community");
 
 type CommunityContextData = CommunityResponse & {
 	assignableRoles: Array<Role>;
@@ -89,6 +98,8 @@ export const CommunityContextProvider: ParentComponent = (props) => {
 	const user = useUserContext();
 	const socket = useSocketContext();
 	const navigate = useNavigate();
+	const embedded = useIsEmbedded();
+	const emitter = useEmbedEmitter();
 	const [, { syncPresence, addPresence }] = useVoiceChatContext();
 	const communityUri = createMemo(() => urlSegmentToUri(getCommunityParam()));
 
@@ -136,12 +147,15 @@ export const CommunityContextProvider: ParentComponent = (props) => {
 		if (community.loading || community.latest) return;
 		const err: unknown = community.error;
 		if (isColibriError(err) && !isGoneCode(err.code)) return;
+		if (embedded) return;
 		navigate("/app", { replace: true });
 	});
 
 	const MEMBERSHIP_RETRY_DELAYS = [1000, 2000, 4000, 8000];
 	let membershipRetries = 0;
 	let membershipRetryTimer: ReturnType<typeof setTimeout> | undefined;
+
+	const [membershipSettled, setMembershipSettled] = createSignal(false);
 
 	const cancelMembershipRetry = () => {
 		if (membershipRetryTimer) clearTimeout(membershipRetryTimer);
@@ -152,6 +166,7 @@ export const CommunityContextProvider: ParentComponent = (props) => {
 		on(communityUri, () => {
 			cancelMembershipRetry();
 			membershipRetries = 0;
+			setMembershipSettled(false);
 		}),
 	);
 
@@ -169,10 +184,12 @@ export const CommunityContextProvider: ParentComponent = (props) => {
 		if (data.members.some((m) => m.did === user.did)) {
 			cancelMembershipRetry();
 			membershipRetries = 0;
+			setMembershipSettled(true);
 			return;
 		}
 
 		const delay = MEMBERSHIP_RETRY_DELAYS[membershipRetries];
+		if (delay === undefined) setMembershipSettled(true);
 		if (delay === undefined || membershipRetryTimer) return;
 
 		membershipRetries += 1;
@@ -762,10 +779,54 @@ export const CommunityContextProvider: ParentComponent = (props) => {
 		},
 	}));
 
+	const forbidden = () => {
+		const err: unknown = community.error;
+		return isColibriError(err) && err.code === "Forbidden";
+	};
+
+	const [joining, setJoining] = createSignal(false);
+
+	const join = async () => {
+		if (joining()) return;
+		setJoining(true);
+		try {
+			await joinCommunity(user.atproto.agent, user.did, communityUri());
+			emitter?.emit({
+				kind: "membership.changed",
+				state: community.latest?.community.requiresApprovalToJoin
+					? "applied"
+					: "member",
+			});
+			void refetch();
+		} catch (e) {
+			const failure = classifyThrown(e);
+			log.error("joining from the embed failed", { code: failure.code });
+			showError(failure);
+		} finally {
+			setJoining(false);
+		}
+	};
+
+	const needsJoin = () => {
+		if (!embedded) return false;
+		if (forbidden()) return true;
+		const data = community.latest;
+		if (!data || !membershipSettled()) return false;
+		return !data.members.some((m) => m.did === user.did);
+	};
+
 	return (
 		<Switch>
 			<Match when={community.loading && !community.latest}>
 				<AppLoadingScreen message="Fetching community details..." />
+			</Match>
+			<Match when={needsJoin()}>
+				<EmbedJoinGate
+					name={community.latest?.community.name}
+					gated={community.latest?.community.requiresApprovalToJoin}
+					busy={joining()}
+					onJoin={() => void join()}
+				/>
 			</Match>
 			<Match when={!community.loading && !community.latest && community.error}>
 				<ErrorState error={community.error} retry={() => void refetch()} />

@@ -9,6 +9,7 @@ import {
 } from "solid-js";
 import type { BlueskyClientID } from "../atproto/bluesky-alternatives";
 import type { GifItem } from "../atproto/xrpc/social/colibri/embed/gifTypes";
+import { embedStorageKey } from "../embed/runtime";
 import { newestReleaseNoteVersion } from "../release-notes";
 import { DEFAULT_APPVIEW_URL } from "../utils/appview";
 import { isMobileNow } from "../utils/mobile-pane";
@@ -138,7 +139,7 @@ const DEFAULT_PREFERENCES: UserPreferencesContextData = {
 
 function loadFromStorage(): UserPreferencesContextData {
 	try {
-		const raw = localStorage.getItem(PREFERENCES_STORAGE_KEY);
+		const raw = localStorage.getItem(embedStorageKey(PREFERENCES_STORAGE_KEY));
 		if (!raw) {
 			return {
 				...DEFAULT_PREFERENCES,
@@ -222,7 +223,7 @@ export const UserPreferencesContextProvider: ParentComponent = (props) => {
 	createEffect(() => {
 		try {
 			localStorage.setItem(
-				PREFERENCES_STORAGE_KEY,
+				embedStorageKey(PREFERENCES_STORAGE_KEY),
 				JSON.stringify(preferences()),
 			);
 		} catch {

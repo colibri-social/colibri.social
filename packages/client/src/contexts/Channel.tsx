@@ -56,6 +56,7 @@ import type { ColibriError } from "../errors/error";
 import { getAppViewDid } from "../utils/appview";
 import { AtURI } from "../utils/at-uri";
 import { clearEditDraft } from "../utils/composer-drafts";
+import { lastViewedKey } from "../utils/last-viewed-channel";
 import { createLogger } from "../utils/logger";
 import { markBoot } from "../utils/perf";
 import { purify } from "../utils/purify";
@@ -862,7 +863,11 @@ export const ChannelContextProvider: ParentComponent<{
 		if (!uri || !isConnected) return;
 		socket.send({ type: "view", data: { channel: uri } });
 		localStorage.setItem(
-			`${communityUriToUrlCompatible(community().community.uri as AT_URI<"social.colibri.community">)}:last-viewed`,
+			lastViewedKey(
+				communityUriToUrlCompatible(
+					community().community.uri as AT_URI<"social.colibri.community">,
+				),
+			),
 			JSON.stringify({ type: props.channel()!.type, uri }),
 		);
 	});

@@ -3,8 +3,9 @@ import type { ComponentProps, ValidComponent } from "solid-js";
 import { mergeProps, Show, splitProps } from "solid-js";
 
 import { cx } from "../../utils/cva";
+import { withEmbedPortal } from "./portal";
 
-export const DialogPortal = DialogPrimitive.Portal;
+export const DialogPortal = withEmbedPortal(DialogPrimitive.Portal);
 
 export type DialogProps = ComponentProps<typeof DialogPrimitive>;
 

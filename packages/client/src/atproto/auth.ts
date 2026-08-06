@@ -6,6 +6,7 @@ import {
 import * as Sentry from "@sentry/solid";
 import { type Accessor, createSignal } from "solid-js";
 import { toast } from "somoto";
+import { isEmbedded } from "../embed/runtime";
 import { classifyThrown } from "../errors/classify";
 import { ColibriError, isColibriError } from "../errors/error";
 import { classifyNativeError, wasCancelled } from "../errors/native";
@@ -485,7 +486,7 @@ export type Client =
 	| {
 			loggedIn: true;
 			agent: Agent;
-			client: BrowserOAuthClient;
+			client: BrowserOAuthClient | undefined;
 			pdsHost: string | undefined;
 			grantedScopes: Accessor<string | undefined>;
 	  }
@@ -540,6 +541,8 @@ const resetSession = () => {
 
 const init = async () => {
 	if (oAuthClient) return;
+
+	if (isEmbedded()) return;
 
 	usingFallbackStorage = fallbackStorageRequested();
 
@@ -606,7 +609,7 @@ const readCachedPdsHost = (did: string): string | undefined => {
 	}
 };
 
-const resolvePdsHost = async (did: string): Promise<void> => {
+const fetchPdsHost = async (did: string): Promise<string | undefined> => {
 	try {
 		const didDoc = (await (
 			await fetch(
@@ -626,17 +629,66 @@ const resolvePdsHost = async (did: string): Promise<void> => {
 			.find((x) => x.id === "#atproto_pds")
 			?.serviceEndpoint.toString();
 
-		if (!resolved) return;
-		pdsHost = resolved;
+		if (!resolved) return undefined;
 		try {
 			localStorage.setItem(pdsHostKey(did), resolved);
 		} catch {}
+		return resolved;
 	} catch (e) {
 		const failure = classifyThrown(e, {
 			method: "com.atproto.identity.resolveDid",
 		});
 		log.warn("resolving the PDS host failed", { code: failure.code });
+		return undefined;
 	}
+};
+
+const resolvePdsHost = async (did: string): Promise<void> => {
+	const resolved = await fetchPdsHost(did);
+	if (resolved) pdsHost = resolved;
+};
+
+const readInjectedScope = async (agent: Agent): Promise<string | undefined> => {
+	const manager = agent.sessionManager as {
+		getTokenInfo?: (refresh: boolean) => Promise<{ scope?: string }>;
+	};
+	if (typeof manager.getTokenInfo !== "function") return undefined;
+	try {
+		return (await manager.getTokenInfo(false)).scope;
+	} catch (e) {
+		const failure = classifyThrown(e, { method: "oauth.getTokenInfo" });
+		log.debug("could not read the granted scope from the injected session", {
+			code: failure.code,
+		});
+		return undefined;
+	}
+};
+
+export const createEmbeddedClient = (
+	agent: Agent,
+	scopeHint: string | undefined,
+): Client => {
+	const did = agent.did;
+	if (!did) {
+		throw new ColibriError({
+			code: "EmbedConfigInvalid",
+			message: "The agent passed to the embed has no DID.",
+		});
+	}
+
+	const [scope, setScope] = createSignal<string | undefined>(scopeHint);
+	if (scopeHint === undefined) void readInjectedScope(agent).then(setScope);
+
+	const cachedHost = readCachedPdsHost(did);
+	void fetchPdsHost(did);
+
+	return {
+		loggedIn: true,
+		agent,
+		client: undefined,
+		pdsHost: cachedHost,
+		grantedScopes: scope,
+	};
 };
 
 const restoreExistingSession = async () => {

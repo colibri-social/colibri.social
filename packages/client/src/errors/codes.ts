@@ -51,6 +51,8 @@ export type StorageErrorCode =
 
 export type ClientErrorCode = "MalformedResponse" | "Unexpected";
 
+export type EmbedErrorCode = "EmbedConfigInvalid" | "EmbedUnsupported";
+
 export type ColibriErrorCode =
 	| AppViewErrorCode
 	| ServerErrorCode
@@ -60,7 +62,8 @@ export type ColibriErrorCode =
 	| MediaErrorCode
 	| VoiceErrorCode
 	| StorageErrorCode
-	| ClientErrorCode;
+	| ClientErrorCode
+	| EmbedErrorCode;
 
 export type ErrorDomain =
 	| "appview"
@@ -70,7 +73,8 @@ export type ErrorDomain =
 	| "media"
 	| "voice"
 	| "storage"
-	| "client";
+	| "client"
+	| "embed";
 
 const DOMAIN_BY_CODE: Partial<Record<ColibriErrorCode, ErrorDomain>> = {
 	InternalError: "appview",
@@ -114,6 +118,9 @@ const DOMAIN_BY_CODE: Partial<Record<ColibriErrorCode, ErrorDomain>> = {
 
 	MalformedResponse: "client",
 	Unexpected: "client",
+
+	EmbedConfigInvalid: "embed",
+	EmbedUnsupported: "embed",
 };
 
 const NON_APPVIEW_CODES = Object.keys(

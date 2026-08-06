@@ -55,6 +55,7 @@ import ChannelLayoutWithContext from "./layouts/ChannelLayout";
 import CommunityLayoutWithContext from "./layouts/CommunityLayout";
 import { appShellMounted } from "./utils/app-shell";
 import { AtURI } from "./utils/at-uri";
+import { lastViewedKey } from "./utils/last-viewed-channel";
 import { createLogger } from "./utils/logger";
 import { isMobileNow, useIsMobile } from "./utils/mobile-pane";
 import { trackNavHistory } from "./utils/nav-history";
@@ -218,7 +219,7 @@ const App: ParentComponent = () => {
 													return;
 
 												const raw = localStorage.getItem(
-													`${communityUrlSeg()}:last-viewed`,
+													lastViewedKey(communityUrlSeg()),
 												);
 
 												if (raw) {

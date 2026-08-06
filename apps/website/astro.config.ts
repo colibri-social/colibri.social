@@ -96,6 +96,10 @@ export default defineConfig({
 					items: [{ autogenerate: { directory: "docs/self-hosting" } }],
 				},
 				{
+					label: "Embedding",
+					items: [{ autogenerate: { directory: "docs/embedding" } }],
+				},
+				{
 					label: "Help",
 					items: [{ autogenerate: { directory: "docs/help" } }],
 				},

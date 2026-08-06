@@ -8,8 +8,9 @@ import {
 
 import { cx } from "../../utils/cva";
 import { useOverflowPadding } from "../../utils/safe-area";
+import { withEmbedPortal } from "./portal";
 
-export const HoverCardPortal = HoverCardPrimitive.Portal;
+export const HoverCardPortal = withEmbedPortal(HoverCardPrimitive.Portal);
 
 export type HoverCardProps = ComponentProps<typeof HoverCardPrimitive>;
 

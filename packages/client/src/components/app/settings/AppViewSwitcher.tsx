@@ -115,7 +115,7 @@ export const AppViewSwitcher: Component<{
 
 		try {
 			await unregisterAllPush();
-			if (auth?.loggedIn && did) await auth.client.revoke(did);
+			if (auth?.loggedIn && did) await auth.client?.revoke(did);
 		} finally {
 			await endSession();
 		}

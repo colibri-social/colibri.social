@@ -4,8 +4,9 @@ import { mergeProps, splitProps } from "solid-js";
 
 import { cx } from "../../utils/cva";
 import { useOverflowPadding } from "../../utils/safe-area";
+import { withEmbedPortal } from "./portal";
 
-export const ContextMenuPortal = ContextMenuPrimitive.Portal;
+export const ContextMenuPortal = withEmbedPortal(ContextMenuPrimitive.Portal);
 
 export type ContextMenuProps = ComponentProps<typeof ContextMenuPrimitive>;
 

@@ -196,6 +196,15 @@ const CATALOG: Record<ColibriErrorCode, ErrorCopy> = {
 		description: "We've been notified and are looking into it.",
 	},
 	Unexpected: FALLBACK_COPY,
+
+	EmbedConfigInvalid: {
+		title: "This chat isn't set up correctly.",
+		description: "Whoever added it to this page needs to fix its settings.",
+	},
+	EmbedUnsupported: {
+		title: "This chat asked for something we don't support yet.",
+		description: "Whoever added it to this page needs to change its settings.",
+	},
 };
 
 export const copyForCode = (code: ColibriErrorCode): ErrorCopy =>

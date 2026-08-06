@@ -12,6 +12,7 @@ import {
 } from "solid-js";
 import { Portal } from "solid-js/web";
 import { ViewportContext } from "../../contexts/Viewport";
+import { usePortalMount } from "../../embed/context";
 import { createHistoryBackClose } from "../../hooks/createHistoryBackClose";
 import { cx } from "../../utils/cva";
 import { animateKeyboardTransition } from "../../utils/keyboard-animation";
@@ -272,9 +273,11 @@ export const BottomSheet = (props: BottomSheetProps) => {
 		return t > 0 ? `translateY(${t}px)` : "translateY(0)";
 	};
 
+	const portalMount = usePortalMount();
+
 	return (
 		<Show when={mounted()}>
-			<Portal>
+			<Portal mount={portalMount}>
 				<div class="fixed inset-0 z-50 pointer-events-auto">
 					<div
 						class="absolute inset-0 bg-black/50 transition-opacity duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]"

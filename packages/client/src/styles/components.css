@@ -1,0 +1,256 @@
+@layer base {
+	.bg-gradient-dark {
+		background: var(--gradient-dark);
+	}
+
+	.bg-gradient-feature {
+		background: linear-gradient(180deg, #171717 0%, #481b5b 100%);
+	}
+
+	.floaty {
+		animation: 6s ease-in-out float infinite;
+	}
+
+	.hero-container::before {
+		content: "";
+		width: 100%;
+		height: 100%;
+		position: absolute;
+		top: 0;
+		left: 0;
+		z-index: -1;
+		opacity: 0.25;
+
+		--square-width: 4vw;
+		--square-1: calc(var(--square-width) - 2px);
+		--square-2: var(--square-width);
+
+		background-image:
+			repeating-linear-gradient(
+				0deg,
+				transparent,
+				transparent var(--square-1),
+				#353535 var(--square-1),
+				#353535 var(--square-2)
+			),
+			repeating-linear-gradient(
+				90deg,
+				transparent,
+				transparent var(--square-1),
+				#353535 var(--square-1),
+				#353535 var(--square-2)
+			);
+		background-size: var(--square-2) var(--square-2);
+	}
+}
+
+@keyframes float {
+	0%,
+	100% {
+		transform: translateY(15px);
+	}
+	50% {
+		transform: translateY(-15px);
+	}
+}
+
+.prose a,
+[data-accordion] a {
+	@apply hover:underline!;
+	color: var(--primary-hover) !important;
+	text-decoration: none;
+	text-decoration-color: var(--primary-hover);
+}
+
+.emoji-section:not(:has(> .emoji-items > *)) {
+	display: none;
+}
+
+.emoji-picker .emoji-items {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(2.5rem, 1fr));
+	justify-items: center;
+}
+
+.emoji-picker .emoji-button {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 100%;
+	padding: 0;
+	margin: 0;
+	background: none;
+	border: none;
+}
+
+.emoji-picker .emoji-section-title {
+	display: block;
+	margin: 0.5rem 0 0.25rem;
+	font-size: 0.75rem;
+	line-height: 1rem;
+	font-weight: 600;
+	color: var(--muted-foreground);
+}
+
+/* Ensure the emoji characters render as emojis, not text */
+.emoji-render {
+	font-variant-emoji: emoji;
+}
+
+.rich-text h1 {
+	background: none;
+	-webkit-text-fill-color: currentColor;
+}
+
+img.emoji {
+	display: inline-block;
+	height: 1.35em;
+	width: 1.35em;
+	margin: 0 0.05em;
+	vertical-align: middle;
+	object-fit: contain;
+}
+
+.rich-text img.emoji,
+#editor .tiptap.ProseMirror img.emoji {
+	height: calc(1lh - 0.44em);
+	width: calc(1lh - 0.375em);
+	margin: 0;
+	vertical-align: middle;
+	transform: translateY(-0.09em);
+}
+
+.rich-text img.emoji {
+	cursor: pointer;
+}
+
+/* Read-only rich text (e.g. the sign-in preview): emoji are decoration, not
+   controls, so they must not advertise a click target. */
+.rich-text.emoji-readonly img.emoji {
+	cursor: default;
+}
+
+.rich-text.jumbomoji img.emoji {
+	height: 2.5em;
+	width: 2.5em;
+}
+
+ol[data-somoto-toaster] > li {
+	width: 100% !important;
+}
+
+li[data-somoto-toast][data-styled="true"] {
+	display: grid;
+	grid-template-columns: auto minmax(0, 1fr);
+	align-items: start;
+	column-gap: 0;
+}
+
+li[data-somoto-toast][data-styled="true"] > [data-icon] {
+	grid-column: 1;
+	grid-row: 1;
+	margin-top: 2px;
+}
+
+li[data-somoto-toast][data-styled="true"]
+	> :not([data-icon]):not([data-close-button]) {
+	grid-column: 2;
+}
+
+li[data-somoto-toast][data-styled="true"] > [data-button] {
+	justify-self: start;
+	margin-top: 0.5rem;
+	margin-left: 0;
+}
+
+li[data-somoto-toast][data-styled="true"] [data-title] {
+	font-weight: 600;
+}
+
+ol[data-somoto-toaster][data-y-position="top"] {
+	top: max(var(--offset), var(--safe-area-top)) !important;
+}
+
+ol[data-somoto-toaster][data-y-position="bottom"] {
+	bottom: max(var(--offset), var(--safe-area-bottom)) !important;
+}
+
+ol[data-somoto-toaster][data-x-position="left"] {
+	left: max(var(--offset), var(--safe-area-left)) !important;
+}
+
+ol[data-somoto-toaster][data-x-position="right"] {
+	right: max(var(--offset), var(--safe-area-right)) !important;
+}
+
+@media (max-width: 600px) {
+	ol[data-somoto-toaster] > li {
+		width: calc(100% - var(--mobile-offset, 16px) * 2) !important;
+	}
+}
+
+@layer utilities {
+	.no-scrollbar::-webkit-scrollbar {
+		display: none; /* Chrome, Safari, and Opera */
+	}
+	.no-scrollbar {
+		-ms-overflow-style: none; /* IE and Edge */
+		scrollbar-width: none; /* Firefox */
+	}
+
+	.scroll-edge-fade {
+		background: linear-gradient(to bottom, transparent, var(--background) 80%);
+	}
+
+	/* The mobile panes animate `translate`, not `transform`. `transform` stays in
+	   the list because WebKit builds that predate the individual transform
+	   properties parse a bare `translate` as a custom ident and promote nothing. */
+	.will-change-pane {
+		will-change: transform, translate;
+	}
+}
+
+.tiptap .font-mono,
+.settings-modal code {
+	font-size: 0.825em !important;
+}
+
+.rich-text pre + span br:first-of-type {
+	display: none;
+}
+
+.swipe-owns-x {
+	touch-action: pan-y pinch-zoom;
+}
+
+.signin-wire {
+	position: relative;
+	overflow: hidden;
+}
+
+.signin-wire::after {
+	content: "";
+	position: absolute;
+	inset: 0;
+	width: 40%;
+	border-radius: inherit;
+	background: var(--primary);
+	animation: signin-wire-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes signin-wire-pulse {
+	from {
+		transform: translateX(-100%);
+	}
+	to {
+		transform: translateX(260%);
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.signin-wire::after {
+		animation: none;
+		width: 100%;
+		opacity: 0.4;
+	}
+}

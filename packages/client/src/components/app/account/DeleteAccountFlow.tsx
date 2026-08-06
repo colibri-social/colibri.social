@@ -173,7 +173,7 @@ export const DeleteAccountFlow: Component<{
 			return;
 		}
 
-		await user.atproto.client.revoke(user.did);
+		await user.atproto.client?.revoke(user.did);
 
 		props.onLoadingChange?.(false);
 		setStage("done");

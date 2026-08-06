@@ -1,11 +1,16 @@
+import { embedStorageKey } from "../embed/runtime";
+
 const COMMUNITY_SEGMENT = /^\/app\/c\/([^/]+)/;
+
+export const lastViewedKey = (segment: string): string =>
+	embedStorageKey(`${segment}:last-viewed`);
 
 export const lastViewedChannelPath = (pathname: string): string | undefined => {
 	const segment = COMMUNITY_SEGMENT.exec(pathname)?.[1];
 	if (!segment) return undefined;
 	let raw: string | null = null;
 	try {
-		raw = localStorage.getItem(`${segment}:last-viewed`);
+		raw = localStorage.getItem(lastViewedKey(segment));
 	} catch {
 		return undefined;
 	}

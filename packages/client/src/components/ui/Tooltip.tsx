@@ -4,10 +4,11 @@ import { mergeProps, splitProps } from "solid-js";
 
 import { cx } from "../../utils/cva";
 import { useOverflowPadding } from "../../utils/safe-area";
+import { withEmbedPortal } from "./portal";
 
 export type TooltipProps = ComponentProps<typeof TooltipPrimitive>;
 
-export const TooltipPortal = TooltipPrimitive.Portal;
+export const TooltipPortal = withEmbedPortal(TooltipPrimitive.Portal);
 
 export const Tooltip = (props: TooltipProps) => {
 	const overflowPadding = useOverflowPadding();

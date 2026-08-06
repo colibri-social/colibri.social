@@ -115,7 +115,7 @@ export const DeepLinkListener: Component = () => {
 
 				if (isOAuthCallback(url)) {
 					try {
-						if (auth && (await completeNativeOAuth(auth.client, url))) {
+						if (auth?.client && (await completeNativeOAuth(auth.client, url))) {
 							// Reload so the auth bootstrap picks up the restored session.
 							window.location.replace("/app");
 							return;

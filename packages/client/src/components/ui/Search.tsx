@@ -12,8 +12,9 @@ import {
 
 import { cx } from "../../utils/cva";
 import { useOverflowPadding } from "../../utils/safe-area";
+import { withEmbedPortal } from "./portal";
 
-export const SearchPortal = SearchPrimitive.Portal;
+export const SearchPortal = withEmbedPortal(SearchPrimitive.Portal);
 
 export type SearchProps<
 	Option,

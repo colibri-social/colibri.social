@@ -18,7 +18,7 @@
 	"scripts": {
 		"start": "pnpm --filter @colibri-social/assets fetch-all && vite serve dev",
 		"dev": "pnpm --filter @colibri-social/assets fetch-all && vite serve dev",
-		"build": "tsdown && tailwindcss -i src/index.css -o dist/index.css --minify && node -e \"require('node:fs').copyFileSync('src/components/hummingbird/hummingbird.css','dist/hummingbird.css')\"",
+		"build": "tsdown && tailwindcss -i src/index.css -o dist/index.css --minify && tailwindcss -i src/embed.css -o dist/embed.css --minify && node -e \"require('node:fs').copyFileSync('src/components/hummingbird/hummingbird.css','dist/hummingbird.css')\"",
 		"prepack": "pnpm build",
 		"test": "vitest run",
 		"typecheck": "tsc --noEmit",
@@ -41,7 +41,12 @@
 			"types": "./dist/components/hummingbird/index.d.mts",
 			"import": "./dist/components/hummingbird/index.mjs"
 		},
+		"./embed": {
+			"types": "./dist/embed/mount.d.mts",
+			"import": "./dist/embed/mount.mjs"
+		},
 		"./index.css": "./dist/index.css",
+		"./embed.css": "./dist/embed.css",
 		"./hummingbird.css": "./dist/hummingbird.css"
 	},
 	"license": "MIT",

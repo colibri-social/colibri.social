@@ -25,6 +25,8 @@ import { AppLoadingScreen } from "../components/AppLoadingScreen";
 import { AppViewUnreachableModal } from "../components/app/AppViewUnreachableModal";
 import { PENDING_INVITE_KEY } from "../components/app/community/invite-storage";
 import { ProfileGate } from "../components/app/onboarding/ProfileGate";
+import { useEmbedRuntime } from "../embed/context";
+import { isEmbedded } from "../embed/runtime";
 import { setReportingAccount } from "../errors/account";
 import { ColibriError } from "../errors/error";
 import { identifyUser } from "../sentry";
@@ -42,7 +44,7 @@ type User =
 	| (ActorData & {
 			loggedIn: true;
 			atproto: {
-				client: BrowserOAuthClient;
+				client: BrowserOAuthClient | undefined;
 				agent: Agent;
 				pdsHost: string | undefined;
 			};
@@ -63,6 +65,13 @@ export const UserContextProvider: ParentComponent = (props) => {
 	const client = useAuthContext();
 	const { preferences } = useUserPreferences();
 	const socket = useSocketContext();
+	const embedRuntime = useEmbedRuntime();
+	const emitter = embedRuntime?.emitter;
+
+	const scope = (list: Array<Community>): Array<Community> =>
+		embedRuntime
+			? list.filter((c) => c.uri === embedRuntime.communityUri)
+			: list;
 
 	const [user, { mutate }] = createResource(async (): Promise<User> => {
 		if (!client) {
@@ -78,7 +87,7 @@ export const UserContextProvider: ParentComponent = (props) => {
 			};
 		}
 
-		const xrpc = new XrpcClient(getAppViewServiceRef(), client.agent);
+		const xrpc = new XrpcClient(getAppViewServiceRef(), client.agent, emitter);
 
 		const [actorDataRes, communitiesRes] = await Promise.all([
 			xrpc.social.colibri.actor.getData(client.agent.did!),
@@ -113,7 +122,7 @@ export const UserContextProvider: ParentComponent = (props) => {
 				client: client.client,
 				pdsHost: client.pdsHost,
 			},
-			communities: communities.communities,
+			communities: scope(communities.communities),
 			xrpc: xrpc,
 		};
 	});
@@ -134,8 +143,8 @@ export const UserContextProvider: ParentComponent = (props) => {
 					client: client.client,
 					pdsHost: client.pdsHost,
 				},
-				communities: cached.communities,
-				xrpc: new XrpcClient(getAppViewServiceRef(), client.agent),
+				communities: scope(cached.communities),
+				xrpc: new XrpcClient(getAppViewServiceRef(), client.agent, emitter),
 			});
 		}
 	});
@@ -174,6 +183,11 @@ export const UserContextProvider: ParentComponent = (props) => {
 
 		const loggedIn = user()?.loggedIn;
 		const pathname = () => window.location.pathname;
+
+		if (!loggedIn && isEmbedded()) {
+			emitter?.emit({ kind: "auth.expired" });
+			return;
+		}
 
 		if (!loggedIn && pathname() !== "/app/login") {
 			const inviteMatch = pathname().match(/^\/app\/invite\/([^/]+)/);
@@ -218,7 +232,7 @@ export const UserContextProvider: ParentComponent = (props) => {
 								await value.xrpc.social.colibri.actor.listCommunities();
 							const cur = user.latest;
 							if (res.ok && res.data && cur?.loggedIn) {
-								mutate({ ...cur, communities: res.data.communities });
+								mutate({ ...cur, communities: scope(res.data.communities) });
 							}
 						} catch (err) {
 							log.error("refetching communities failed", { error: err });
