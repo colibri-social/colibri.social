@@ -1,5 +1,6 @@
 import {
 	type Component,
+	createEffect,
 	createResource,
 	createSignal,
 	For,
@@ -15,8 +16,11 @@ import {
 	describePdsOperator,
 	type PdsOperator,
 } from "../../../atproto/pds-operator";
+import { resolveBlob } from "../../../atproto/resolve-blob";
 import { endSession } from "../../../atproto/session";
+import type { SoleOwnedCommunity } from "../../../atproto/xrpc/social/colibri/actor";
 import { useUserContext } from "../../../contexts/User";
+import { AtURI } from "../../../utils/at-uri";
 import { openExternalLink } from "../../../utils/open-external-link";
 import { Spinner } from "../../icons/Spinner";
 import { Alert, AlertDescription, AlertTitle } from "../../ui/Alert";
@@ -34,6 +38,54 @@ const ExternalLink: Component<{ href: string; children: string }> = (props) => (
 		{props.children}
 	</button>
 );
+
+const initials = (name: string) =>
+	name
+		.split(" ")
+		.map((word) => word.substring(0, 1))
+		.join("")
+		.substring(0, 3);
+
+const CommunityPreview: Component<{ community: SoleOwnedCommunity }> = (
+	props,
+) => {
+	const pictureUrl = () =>
+		resolveBlob(
+			AtURI.parseAtURI(props.community.uri).did,
+			props.community.picture,
+			"small",
+		);
+
+	return (
+		<li class="flex flex-row items-center gap-3">
+			<Show
+				when={pictureUrl()}
+				fallback={
+					<div class="w-10 h-10 shrink-0 rounded-md bg-muted flex items-center justify-center text-foreground text-sm font-bold">
+						{initials(props.community.name)}
+					</div>
+				}
+			>
+				<img
+					src={pictureUrl()}
+					width="40"
+					height="40"
+					alt={props.community.name}
+					class="w-10 h-10 shrink-0 rounded-md object-cover bg-card"
+				/>
+			</Show>
+			<div class="flex flex-col min-w-0">
+				<span class="font-medium text-foreground truncate">
+					{props.community.name}
+				</span>
+				<span class="text-sm text-muted-foreground">
+					{props.community.memberCount}{" "}
+					{props.community.memberCount === 1 ? "member" : "members"}
+				</span>
+			</div>
+		</li>
+	);
+};
 
 const OperatorNotice: Component<{ operator: PdsOperator | undefined }> = (
 	props,
@@ -158,13 +210,9 @@ export const DeleteAccountFlow: Component<{
 									ownership to someone else, or delete each community, and then
 									come back.
 								</span>
-								<ul class="m-0 mt-2 flex flex-col gap-1">
+								<ul class="m-0 mt-3 flex flex-col gap-3 list-none p-0">
 									<For each={blockers()}>
-										{(community) => (
-											<li>
-												{community.name} ({community.memberCount} members)
-											</li>
-										)}
+										{(community) => <CommunityPreview community={community} />}
 									</For>
 								</ul>
 							</AlertDescription>

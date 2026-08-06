@@ -1,3 +1,4 @@
+import type { JsonBlobRef } from "@atproto/lexicon";
 import type { XrpcRequest } from "../../..";
 import { request } from "../../../request";
 import type { XrpcResult } from "../../../result";
@@ -5,6 +6,7 @@ import type { XrpcResult } from "../../../result";
 export type SoleOwnedCommunity = {
 	uri: string;
 	name: string;
+	picture?: JsonBlobRef;
 	memberCount: number;
 };
 

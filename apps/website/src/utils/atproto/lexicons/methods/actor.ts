@@ -305,6 +305,7 @@ export const actorMethodDocs: LexiconDoc[] = [
 				properties: {
 					uri: { type: "string", format: "at-uri" },
 					name: { type: "string" },
+					picture: { type: "blob" },
 					memberCount: { type: "integer" },
 				},
 			},
