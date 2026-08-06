@@ -263,6 +263,7 @@ JavaScript (`useIsMobile()` wraps `window.matchMedia`), not in CSS. A narrow
 | client | Lint | `biome ci .` |
 | client | Test | `pnpm test`, then a typecheck of the client |
 | client | Lexicons | re-exports and fails if the committed JSON is stale |
+| client | Preview release | publishes an installable client build to [pkg.pr.new](https://pkg.pr.new) |
 | AppView | Format | `cargo fmt --all --check` |
 | AppView | Lint | `cargo clippy -- -D warnings` |
 | AppView | Test | `cargo test --all-features`, lexicon check and snapshots included |

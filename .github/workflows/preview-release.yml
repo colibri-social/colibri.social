@@ -1,0 +1,40 @@
+name: Preview Release
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: preview-release-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  publish:
+    name: Publish preview
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: lts/*
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build client
+        run: pnpm --filter @colibri-social/client build
+
+      - name: Publish preview
+        run: pnpm exec pkg-pr-new publish --pnpm --packageManager=pnpm ./packages/client
