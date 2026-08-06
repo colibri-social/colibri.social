@@ -307,6 +307,20 @@ export class XrpcClient {
 						this.authed(this.proxiedFetch, "social.colibri.actor.setState"),
 						state,
 					),
+				getDeletionStatus: () =>
+					Actor.getDeletionStatus(
+						this.authed(
+							this.proxiedFetch,
+							"social.colibri.actor.getDeletionStatus",
+						),
+					),
+				deleteAccount: () =>
+					Actor.deleteAccount(
+						this.authed(
+							this.proxiedFetch,
+							"social.colibri.actor.deleteAccount",
+						),
+					),
 			},
 			community: {
 				create: (

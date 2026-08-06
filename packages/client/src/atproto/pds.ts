@@ -74,6 +74,58 @@ export const deleteRecord = async (
 	await agent.com.atproto.repo.deleteRecord({ repo, collection, rkey });
 };
 
+export const listCollections = async (
+	agent: Agent,
+	repo: string,
+): Promise<Array<string>> => {
+	const res = await agent.com.atproto.repo.describeRepo({ repo });
+	return res.data.collections;
+};
+
+export const listRecordKeys = async (
+	agent: Agent,
+	repo: string,
+	collection: string,
+): Promise<Array<string>> => {
+	const rkeys: Array<string> = [];
+	let cursor: string | undefined;
+
+	do {
+		const res = await agent.com.atproto.repo.listRecords({
+			repo,
+			collection,
+			limit: 100,
+			cursor,
+		});
+		for (const record of res.data.records)
+			rkeys.push(AtURI.parseAtURI(record.uri).identifier);
+		cursor = res.data.cursor;
+	} while (cursor);
+
+	return rkeys;
+};
+
+const APPLY_WRITES_CHUNK = 200;
+
+export const deleteRecords = async (
+	agent: Agent,
+	repo: string,
+	collection: string,
+	rkeys: Array<string>,
+): Promise<void> => {
+	for (let index = 0; index < rkeys.length; index += APPLY_WRITES_CHUNK) {
+		const chunk = rkeys.slice(index, index + APPLY_WRITES_CHUNK);
+		await agent.com.atproto.repo.applyWrites({
+			repo,
+			writes: chunk.map((rkey) => ({
+				$type: "com.atproto.repo.applyWrites#delete",
+				collection,
+				rkey,
+			})),
+		});
+	}
+};
+
 /**
  * Fallback for when the reaction rkey isn't in the in-memory cache (e.g.
  * after a page reload). Lists the user's reaction records and returns the

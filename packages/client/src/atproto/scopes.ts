@@ -28,7 +28,7 @@ export const PERMISSION_SET_LABELS: Record<string, string> = {
 };
 
 const PERMISSION_SET_MARKERS: Record<string, string> = {
-	"social.colibri.permissionAccount": "social.colibri.actor.getData",
+	"social.colibri.permissionAccount": "social.colibri.actor.deleteAccount",
 	"social.colibri.permissionCommunity": "social.colibri.community.getData",
 	"social.colibri.permissionMessaging": "social.colibri.membership",
 	"social.colibri.permissionNotification":

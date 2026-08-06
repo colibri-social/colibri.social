@@ -262,4 +262,122 @@ export const actorMethodDocs: LexiconDoc[] = [
 			},
 		},
 	},
+	{
+		lexicon: 1,
+		id: "social.colibri.actor.getDeletionStatus",
+		defs: {
+			main: {
+				type: "query",
+				description:
+					"Reports whether the authenticated user's Colibri data can be deleted, and how much data deletion would remove.",
+				output: {
+					encoding: "application/json",
+					schema: {
+						type: "object",
+						required: ["soleOwnedCommunities", "counts"],
+						properties: {
+							soleOwnedCommunities: {
+								type: "array",
+								description:
+									"Communities the user is the only owner of. Deletion is blocked while this is non-empty.",
+								items: { type: "ref", ref: "#soleOwnedCommunity" },
+							},
+							counts: { type: "ref", ref: "#deletionCounts" },
+							pdsAccountPage: {
+								type: "string",
+								format: "uri",
+								description:
+									"The account page the caller's PDS serves at /account, when it serves one. Absent otherwise.",
+							},
+						},
+					},
+				},
+				errors: [
+					{
+						name: "AuthRequired",
+						description: "Missing, malformed, or unverifiable service auth.",
+					},
+				],
+			},
+			soleOwnedCommunity: {
+				type: "object",
+				required: ["uri", "name", "memberCount"],
+				properties: {
+					uri: { type: "string", format: "at-uri" },
+					name: { type: "string" },
+					picture: { type: "blob" },
+					memberCount: { type: "integer" },
+				},
+			},
+			deletionCounts: {
+				type: "object",
+				description: "Row counts the AppView holds for the authenticated user.",
+				required: [
+					"records",
+					"notifications",
+					"pushSubscriptions",
+					"invitations",
+				],
+				properties: {
+					records: { type: "integer" },
+					notifications: { type: "integer" },
+					pushSubscriptions: { type: "integer" },
+					invitations: { type: "integer" },
+				},
+			},
+		},
+	},
+	{
+		lexicon: 1,
+		id: "social.colibri.actor.deleteAccount",
+		defs: {
+			main: {
+				type: "procedure",
+				description:
+					"Deletes everything the AppView holds for the authenticated user.",
+				output: {
+					encoding: "application/json",
+					schema: {
+						type: "object",
+						required: ["deleted"],
+						properties: {
+							deleted: { type: "ref", ref: "#deletedCounts" },
+						},
+					},
+				},
+				errors: [
+					{
+						name: "AuthRequired",
+						description: "Missing, malformed, or unverifiable service auth.",
+					},
+					{
+						name: "InvalidState",
+						description: "The request is not valid for the current state.",
+					},
+				],
+			},
+			deletedCounts: {
+				type: "object",
+				description: "What the purge removed, per storage area.",
+				required: [
+					"recordData",
+					"communityRecords",
+					"notifications",
+					"pushSubscriptions",
+					"userState",
+					"invitations",
+					"dismissedApplications",
+				],
+				properties: {
+					recordData: { type: "integer" },
+					communityRecords: { type: "integer" },
+					notifications: { type: "integer" },
+					pushSubscriptions: { type: "integer" },
+					userState: { type: "integer" },
+					invitations: { type: "integer" },
+					dismissedApplications: { type: "integer" },
+				},
+			},
+		},
+	},
 ];

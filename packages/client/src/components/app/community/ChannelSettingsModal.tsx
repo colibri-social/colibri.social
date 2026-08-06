@@ -342,15 +342,17 @@ export const ChannelSettingsModal: ParentComponent<{
 					icon: () => <ShieldIcon />,
 				},
 			]}
-			dangerPage={{
-				title: "Danger Zone",
-				id: "danger",
-				component: () => (
-					<DangerSettingsPage setOpen={setOpen} channel={props.channel} />
-				),
-				icon: () => <WarningDiamondIcon />,
-				visible: canDeleteChannel,
-			}}
+			dangerPages={[
+				{
+					title: "Danger Zone",
+					id: "danger",
+					component: () => (
+						<DangerSettingsPage setOpen={setOpen} channel={props.channel} />
+					),
+					icon: () => <WarningDiamondIcon />,
+					visible: canDeleteChannel,
+				},
+			]}
 			debugPage={{
 				title: "Debug Information",
 				id: "info",

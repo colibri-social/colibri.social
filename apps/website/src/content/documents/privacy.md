@@ -219,6 +219,10 @@ corresponding record exists on its source PDS. When a record, community, or acco
 deletion is propagated over the network, the corresponding entry is removed from our index. For colibri.social-hosted
 accounts, deleting your account removes the repository we hold as your PDS operator.
 
+Deleting your Colibri data (Section 12) removes our AppView entries, notifications, read state, presence, push
+subscriptions, and invitations immediately, rather than waiting for the network to propagate the deletion. Images are served through a short-lived in-memory cache keyed by content address, not by account; entries there
+are not addressable per user and fall out on eviction or restart, and cannot be re-fetched once the originals are gone.
+
 Push subscriptions are kept until you disable notifications, the subscription expires, or your platform reports it as no
 longer valid, at which point it is removed. Ephemeral presence and voice state exist only while relevant and are not
 retained as history. On-device data persists until you clear it, log out, or uninstall the app (see Section 3.7).
@@ -247,7 +251,14 @@ operate, or indexed by third-party AppViews, you may need to direct your request
 content cannot always be fully recalled once it has been distributed across the network. The AT Protocol also provides
 you with strong self-service control, since you own your repository and can export or delete records directly.
 
-To exercise your rights, contact **pds@colibri.social**. You also have the right to lodge a complaint with a data
+**Erasure is self-service.** You can delete your Colibri data and everything we hold about you from
+**Settings > Delete account** in the app, or at [colibri.social/app/delete-account](/app/delete-account) if you no
+longer have the app installed. That removes your Colibri records and your AppView data (index entries, notifications,
+read state, presence, push subscriptions, invitations). It does **not** delete the atproto account you sign in with,
+which only your PDS operator can remove, see Section 2. Bans and kicks recorded against you are retained under
+Art. 17(3)(e) GDPR, since deleting them with the account would make them evadable.
+
+To exercise any other right, or if the self-service flow fails, contact **pds@colibri.social**. You also have the right to lodge a complaint with a data
 protection supervisory authority. In Germany, the competent authority is generally the authority of the federal state
 in which the controller is established or in which you reside.
 

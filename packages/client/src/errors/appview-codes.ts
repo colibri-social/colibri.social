@@ -24,7 +24,7 @@ export const APPVIEW_CODE_DESCRIPTIONS: Record<AppViewErrorCode, string> = {
 		"The AppView cannot write to the community's repo and could not repair its own access.",
 	Forbidden: "The caller lacks the permission this method requires.",
 	InvalidRequest: "A parameter or body field was missing or malformed.",
-	InvalidState: "The given state is not one of the accepted values.",
+	InvalidState: "The request is not valid for the current state.",
 	NotAnImage: "The linked resource is not an image type the AppView serves.",
 	NotEnabled: "Humming is disabled on this AppView.",
 	NotFound: "The referenced record does not exist.",
@@ -41,6 +41,8 @@ export const APPVIEW_METHOD_ERRORS: Record<
 	string,
 	ReadonlyArray<AppViewErrorCode>
 > = {
+	"social.colibri.actor.deleteAccount": ["AuthRequired", "InvalidState"],
+	"social.colibri.actor.getDeletionStatus": ["AuthRequired"],
 	"social.colibri.actor.getNotificationPreference": ["AuthRequired"],
 	"social.colibri.actor.listCommunities": ["AuthRequired"],
 	"social.colibri.actor.listMutes": ["AuthRequired"],

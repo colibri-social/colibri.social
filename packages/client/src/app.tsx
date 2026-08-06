@@ -24,6 +24,7 @@ import { urlSegmentToUri } from "./atproto/community-uri-to-url-compatible";
 import { OutboxController } from "./atproto/outbox/OutboxController";
 import { AppLoadingScreen } from "./components/AppLoadingScreen";
 import { AutoUpdater } from "./components/app/AutoUpdater";
+import { DeleteAccountScreen } from "./components/app/account/DeleteAccountScreen";
 import { InviteModal } from "./components/app/community/InviteModal";
 import { ScopeGate } from "./components/app/onboarding/ScopeGate";
 import { TitleBar } from "./components/app/titlebar";
@@ -194,6 +195,7 @@ const App: ParentComponent = () => {
 							<Route path="/app" component={AppRoute}>
 								<Route path="/" component={WelcomeScreen} />
 								<Route path="/invite/:code" component={InviteModal} />
+								<Route path="/delete-account" component={DeleteAccountScreen} />
 								<Route component={CommunityLayoutWithContext}>
 									<Route
 										path="/c/:community"

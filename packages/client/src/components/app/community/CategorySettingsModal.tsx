@@ -183,18 +183,20 @@ export const CategorySettingsModal: Component<{
 					visible: canUpdateCategory,
 				},
 			]}
-			dangerPage={{
-				title: "Danger Zone",
-				id: "danger",
-				component: () => (
-					<DangerSettingsPage
-						setOpen={props.setOpen}
-						category={props.category}
-					/>
-				),
-				icon: () => <WarningDiamondIcon />,
-				visible: canDeleteCategory,
-			}}
+			dangerPages={[
+				{
+					title: "Danger Zone",
+					id: "danger",
+					component: () => (
+						<DangerSettingsPage
+							setOpen={props.setOpen}
+							category={props.category}
+						/>
+					),
+					icon: () => <WarningDiamondIcon />,
+					visible: canDeleteCategory,
+				},
+			]}
 			debugPage={{
 				title: "Debug Information",
 				id: "info",

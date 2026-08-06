@@ -30,7 +30,8 @@
 					],
 					"action": [
 						"create",
-						"update"
+						"update",
+						"delete"
 					]
 				},
 				{
