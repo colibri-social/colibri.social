@@ -7,39 +7,36 @@ sidebar:
 
 import { Steps, Tabs, TabItem } from "@astrojs/starlight/components";
 
-Embedded mode renders **one** Colibri community inside a page you control. It is the same client that runs at colibri.social, with the parts that only make sense in a standalone app taken out.
+Embedded mode renders a singular Colibri community inside a page you control. It is the same client that runs at colibri.social, with the parts that only make sense in a standalone app taken out.
 
-## What you get, and what you don't
+## What's included
 
 The embed shows the community's channels, its messages, its member list, and voice channels. Admins who have permission can still open community settings and moderate. Users can still edit their own profile and status.
 
-It deliberately does not include:
+It does not include:
 
-- **The community switcher.** The embed fetches one community and no other community the user belongs to is reachable from it, or handed to your page.
-- **Sign-in.** You own authentication. See [Authentication](#authentication) below, which is the part that takes real work.
-- **Invites.** Invite links assume they own the URL, so they stay in the full app.
-- **Community creation, the welcome screen, account deletion, the updater and the title bar.**
+- The community switcher
+- Sign-in (See [Authentication](#authentication) below)
+- Invites
+- Community creation, the welcome screen, account deletion, the updater and the title bar
 
-Two more limits worth knowing before you start:
+Important limits worth knowing about:
 
-- **It is dark only.** There is a `colorScheme` option so this can change without breaking your call, but today it throws for anything but `"dark"`. If your site has a light theme, the embed will not follow it.
-- **Embedding is trust-based.** Nothing currently stops an unrelated site from embedding a community. If that matters for yours, say so on the [issue tracker](https://github.com/colibri-social/colibri.social/issues) before you ship.
+- It is currently dark mode only, the `colorScheme` option is a placeholder
 
 ## Authentication
 
 This is the one part you cannot skip or work around, so it comes first.
 
-The embed does **not** sign users in. You hand it an already-authenticated `Agent` from `@atproto/api`, created on your own origin.
+The embed does not sign users in. You hand it an already-authenticated `Agent` from `@atproto/api`, created on your own origin.
 
-That is not an arbitrary design choice. An AT Protocol OAuth session is bound to a DPoP key that is a non-extractable `CryptoKey`, held in the origin's IndexedDB. It cannot be exported, serialised, or moved to another origin. There is no mechanism by which colibri.social could hand your site a working session, and none by which the embed could create one for you.
-
-So your origin needs three things:
+Your origin needs three things:
 
 <Steps>
 
 1. **An OAuth client metadata document**, served from your own origin at a stable URL. Its `client_id` must equal its own URL, and its `redirect_uris` must be on your origin.
 
-2. **The scopes Colibri needs.** The embed checks these at startup and blocks with an explanation if they are missing, because only you can fix it. For the default AppView (`api.colibri.social`):
+2. **The scopes Colibri needs.** The embed checks these at startup and blocks with an explanation if they are missing. We recommend you only "upgrade" the OAuth session when a user loads the chat. For the default AppView (`api.colibri.social`):
 
    ```json title="https://example.com/oauth-client-metadata.json"
    {
@@ -79,7 +76,7 @@ So your origin needs three things:
 
 </Steps>
 
-If you have no session yet, do not mount the embed. `mountColibri` throws without a usable agent, by design: it has no sign-in screen of its own to fall back to.
+If you have no session yet, do not mount the embed. `mountColibri` throws without a usable agent.
 
 ## Installing
 
@@ -92,10 +89,6 @@ Import the **embed** stylesheet, not `index.css`:
 ```ts
 import "@colibri-social/client/embed.css";
 ```
-
-:::caution
-`@colibri-social/client/index.css` is the standalone app's stylesheet. It ships Tailwind's preflight and styles bare `body`, `p`, `h1`, `a`, `ul` and more, so it will restyle your page. `embed.css` scopes everything under `.colibri-embed` and emits no rules that match your markup.
-:::
 
 ## Mounting
 
@@ -178,13 +171,13 @@ export const CommunityChat = ({ agent }: { agent: Agent }) => {
 
 **Give the container a height.** The embed fills the element you hand it. A container with no height renders nothing visible.
 
-`community` accepts either a full `at://` URI or the `did-rkey` segment from a Colibri community URL, so you can paste either.
+`community` accepts a full `at://` URI.
 
 The embed uses an in-memory router. It never touches your URL or your history, and it will not fight your router. Channel changes are reported as `navigation` events if you want to mirror them yourself, and `handle.navigate({ channel })` drives it the other way.
 
 ## Theming
 
-Every colour is a CSS custom property under the `--colibri-embed-` prefix. Those names are the public surface; everything behind them is private and may be renamed.
+Every colour is a CSS custom property under the `--colibri-embed-` prefix. Those names are the public surface, everything behind them is private and may be renamed.
 
 The quickest route is one brand colour:
 
@@ -192,7 +185,7 @@ The quickest route is one brand colour:
 mountColibri(el, { agent, community, brand: "#eab308" });
 ```
 
-That derives `primary`, `primary-hover`, `primary-foreground`, `ring` and the matching sidebar tokens, choosing a foreground that clears WCAG AA against your colour. Mid-tone yellows, ambers and limes cannot carry legible text at any foreground: the embed picks the closest one and emits an `error` event with code `EmbedLowContrastBrand` so the problem is visible rather than silent.
+That derives `primary`, `primary-hover`, `primary-foreground`, `ring` and the matching sidebar tokens, choosing a foreground that clears WCAG AA against your colour. Mid-tone yellows, ambers and limes cannot carry legible text at any foreground: the embed picks the closest one and emits an `error` event with code `EmbedLowContrastBrand`.
 
 For full control, pass tokens directly, or set the same variables in your own CSS:
 
@@ -241,7 +234,7 @@ Avatars and presence dots use `rounded-full` and stay circular at any setting.
 
 ## Watching what happens
 
-Every read, write and realtime event can be observed. It is observation only: handlers cannot change or veto anything, and a handler that throws is caught and logged rather than breaking the embed.
+Every read, write and realtime event can be observed.
 
 ```ts
 mountColibri(el, {
@@ -256,10 +249,6 @@ mountColibri(el, {
 ```
 
 `handle.on(listener)` adds listeners later and returns an unsubscribe function. Every payload is documented in the [reference](/docs/embedding/reference).
-
-:::note
-This is your users' message content and their PDS writes flowing into your page. That is a reasonable thing to want for analytics or for mirroring into your own database, and it is worth being clear with your users that it happens.
-:::
 
 ## Troubleshooting
 

@@ -20,7 +20,7 @@ Creates the embed's own root element inside `target` and renders into it. Throws
 | Option | Type | Notes |
 | --- | --- | --- |
 | `agent` | `Agent` | **Required.** A signed-in `@atproto/api` Agent, created on your origin. The embed never signs users in. |
-| `community` | `string` | **Required.** An `at://` community URI, or the `did-rkey` segment from a Colibri community URL. |
+| `community` | `string` | **Required.** An `at://` community URI |
 | `channel` | `string` | Channel rkey to open first. Without it the embed opens the first channel in the list. |
 | `appViewUrl` | `string` | Point at a self-hosted AppView. Your client metadata's `aud=` values must match it. |
 | `scope` | `string` | The space-delimited scope your session was granted. Only needed if your session manager does not expose `getTokenInfo`, which is where the embed reads it from otherwise. |
