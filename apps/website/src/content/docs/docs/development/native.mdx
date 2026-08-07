@@ -24,11 +24,13 @@ There's no emulator or device split on desktop. Running the dev server or the bu
 **Build:**
 
 ```sh
-pnpm dev:tauri                                          # hot-reloading dev build
-pnpm --filter @colibri-social/wrapper tauri build --no-bundle   # quick compile, matches CI's PR job
-pnpm --filter @colibri-social/wrapper build:macos:direct         # Developer ID / Homebrew channel
-pnpm --filter @colibri-social/wrapper build:macos:appstore       # Mac App Store channel
-pnpm --filter @colibri-social/wrapper tauri:windows:build        # MSIX for the Microsoft Store
+pnpm dev:tauri                                                 # hot-reloading dev build
+pnpm --filter @colibri-social/wrapper tauri build --no-bundle  # quick compile, matches CI's PR job
+pnpm --filter @colibri-social/wrapper build:macos:direct       # Developer ID / Homebrew channel
+pnpm --filter @colibri-social/wrapper build:macos:appstore     # Mac App Store channel
+pnpm --filter @colibri-social/wrapper tauri:windows:build      # MSIX for the Microsoft Store
+pnpm --filter @colibri-social/wrapper \
+  tauri build --features tauri/devtools                        # With developer tools enabled
 ```
 
 A full `tauri build` needs `TAURI_SIGNING_PRIVATE_KEY` and `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` set, since the updater plugin is enabled by default. Generate a throwaway keypair with `pnpm --filter @colibri-social/wrapper tauri signer generate` if you don't have one, or build against `tauri.appstore.conf.json`, which compiles the updater out entirely.
