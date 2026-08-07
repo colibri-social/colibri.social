@@ -2,7 +2,7 @@ use tauri::{Emitter, WebviewWindow};
 use windows::core::w;
 use windows::Win32::Foundation::{HANDLE, HWND, LPARAM, LRESULT, POINT, WPARAM};
 use windows::Win32::UI::Input::KeyboardAndMouse::{
-    TrackMouseEvent, TRACKMOUSEEVENT, TME_LEAVE, TME_NONCLIENT,
+    TrackMouseEvent, TME_LEAVE, TME_NONCLIENT, TRACKMOUSEEVENT,
 };
 use windows::Win32::UI::Shell::{DefSubclassProc, RemoveWindowSubclass, SetWindowSubclass};
 use windows::Win32::UI::WindowsAndMessaging::{
@@ -11,7 +11,7 @@ use windows::Win32::UI::WindowsAndMessaging::{
     SetForegroundWindow, SetMenuDefaultItem, SetPropW, SetWindowPos, TrackPopupMenu, GWL_STYLE,
     HTMAXBUTTON, HWND_TOP, IDC_ARROW, MF_BYCOMMAND, MF_ENABLED, MF_GRAYED, SC_CLOSE, SC_MAXIMIZE,
     SC_MINIMIZE, SC_MOVE, SC_RESTORE, SC_SIZE, SWP_NOACTIVATE, TPM_RETURNCMD, TPM_RIGHTBUTTON,
-    WM_ERASEBKGND, WM_NCDESTROY, WM_NCLBUTTONDOWN, WM_NCLBUTTONUP, WM_NCMOUSELEAVE, WM_NCHITTEST,
+    WM_ERASEBKGND, WM_NCDESTROY, WM_NCHITTEST, WM_NCLBUTTONDOWN, WM_NCLBUTTONUP, WM_NCMOUSELEAVE,
     WM_SETCURSOR, WM_SYSCOMMAND, WS_CHILD, WS_SIZEBOX, WS_VISIBLE,
 };
 

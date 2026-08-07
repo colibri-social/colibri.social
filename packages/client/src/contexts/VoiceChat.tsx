@@ -26,7 +26,17 @@ import {
 	getAppViewServiceRef,
 } from "../utils/appview";
 import { createLogger } from "../utils/logger";
-import { pickVoiceHandler } from "../utils/voice-device";
+import {
+	displayMediaRequest,
+	type ScreenShareOptions,
+	type ScreenShareQuality,
+	screenCodecOptions,
+	screenContentHint,
+	screenDegradationPreference,
+	screenEncodings,
+	screenVideoConstraints,
+} from "../utils/screen-share";
+import { pickVoiceHandler, supportsWebRtc } from "../utils/voice-device";
 import {
 	authorityOf,
 	computePresenceSync,
@@ -36,7 +46,7 @@ import { useAuthContext } from "./Auth";
 import { useSocketContext } from "./Socket";
 import { useSounds } from "./Sounds";
 import { useUserContext } from "./User";
-import { useUserPreferences } from "./UserPreferences";
+import { useUserPreferences, type VolumeOverrides } from "./UserPreferences";
 
 const log = createLogger("voice");
 
@@ -112,7 +122,14 @@ export type VoiceChatActions = {
 	disconnect: () => void;
 	toggleMic: () => void;
 	toggleCamera: () => void;
-	toggleScreen: () => void;
+	toggleScreen: (options?: ScreenShareOptions) => void;
+	shareScreenTrack: (
+		track: MediaStreamTrack,
+		audioTrack: MediaStreamTrack | null,
+		quality: ScreenShareQuality,
+		onStopped: () => void,
+	) => void;
+	applyScreenQuality: (quality: ScreenShareQuality) => void;
 	toggleDeafen: () => void;
 	setFocusedKey: (key: string | null) => void;
 	setOverlayDismissed: (dismissed: boolean) => void;
@@ -126,6 +143,7 @@ const VoiceChatContext = createContext<VoiceChatContextValue>();
 
 const AUTH_SUBPROTOCOL = "colibri.auth.bearer";
 const LXM = "social.colibri.voice.signal";
+const SCREEN_AUDIO_SOURCE = "screenaudio";
 const SPEAKING_THRESHOLD = 0.007;
 const MAX_RECONNECT_ATTEMPTS = 6;
 const STATS_INTERVAL_MS = 3000;
@@ -210,6 +228,9 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 	let micProducer: types.Producer | null = null;
 	let camProducer: types.Producer | null = null;
 	let screenProducer: types.Producer | null = null;
+	let screenAudioProducer: types.Producer | null = null;
+	let screenAudioListener: (() => void) | null = null;
+	let screenTrackCleanup: (() => void) | null = null;
 	let micStream: MediaStream | null = null;
 	let suppressor: NoiseSuppressor | null = null;
 	let speakingContext: AudioContext | null = null;
@@ -227,7 +248,10 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 	const videoTrackListeners = new Map<VideoSource, () => void>();
 
 	const consumers = new Map<string, types.Consumer>();
-	const audioEls = new Map<string, { el: HTMLAudioElement; did: string }>();
+	const audioEls = new Map<
+		string,
+		{ el: HTMLAudioElement; did: string; channel: keyof VolumeOverrides }
+	>();
 	const producerOwners = new Map<
 		string,
 		{ did: string; kind: types.MediaKind; source: string }
@@ -267,6 +291,16 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 		if (voiceData.connection.state === ConnectionState.Disconnected) return;
 
 		dbg("✗ setupDevice failed", err);
+
+		if (!supportsWebRtc()) {
+			toast.error("Voice isn't available on this system", {
+				description:
+					"This system's web engine was built without WebRTC, so calls can't connect.",
+			});
+			disconnect();
+			return;
+		}
+
 		log.error("setup failed", { error: err });
 		reportVoiceFailure(err, "setup");
 
@@ -371,11 +405,16 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 		);
 	};
 
-	const applyAudioSettings = (el: HTMLAudioElement, did: string): void => {
+	const applyAudioSettings = (
+		el: HTMLAudioElement,
+		did: string,
+		channel: keyof VolumeOverrides,
+	): void => {
 		const output = userPreferences.preferences().voice.output;
 		const override =
-			userPreferences.preferences().voice.participantVolumeOverrides[did]
-				?.voice;
+			userPreferences.preferences().voice.participantVolumeOverrides[did]?.[
+				channel
+			];
 		const base = output.enabled ? output.volume : 0;
 
 		el.volume = Math.max(0, Math.min(1, base * (override?.volume ?? 1)));
@@ -504,12 +543,21 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 		// mid-flight by closing the underlying RTCPeerConnection out from
 		// under it. Closing the transport already closes every producer on it
 		// synchronously via transportClosed(), with no renegotiation involved.
-		for (const producer of [micProducer, camProducer, screenProducer]) {
+		for (const producer of [
+			micProducer,
+			camProducer,
+			screenProducer,
+			screenAudioProducer,
+		]) {
 			producer?.track?.stop();
 		}
 		micProducer = null;
 		camProducer = null;
 		screenProducer = null;
+		screenAudioProducer = null;
+		screenAudioListener = null;
+		screenTrackCleanup?.();
+		screenTrackCleanup = null;
 
 		for (const consumer of consumers.values()) consumer.close();
 		consumers.clear();
@@ -683,8 +731,10 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 
 			el.autoplay = true;
 			el.srcObject = new MediaStream([consumer.track]);
-			applyAudioSettings(el, owner?.did ?? "");
-			audioEls.set(consumer.id, { el, did: owner?.did ?? "" });
+			const channel: keyof VolumeOverrides =
+				owner?.source === SCREEN_AUDIO_SOURCE ? "screen" : "voice";
+			applyAudioSettings(el, owner?.did ?? "", channel);
+			audioEls.set(consumer.id, { el, did: owner?.did ?? "", channel });
 
 			if (voiceData.states.deafened) consumer.pause();
 
@@ -1170,9 +1220,28 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 
 	const selfVideoKey = (which: VideoSource): string => `self:${which}`;
 
+	const applyDegradationPreference = (
+		producer: types.Producer,
+		quality: ScreenShareQuality,
+	): void => {
+		const sender = producer.rtpSender;
+		if (!sender) return;
+
+		try {
+			const params = sender.getParameters() as RTCRtpSendParameters & {
+				degradationPreference?: string;
+			};
+			params.degradationPreference = screenDegradationPreference(quality);
+			void sender.setParameters(params).catch(() => {});
+		} catch {
+			return;
+		}
+	};
+
 	const produceVideo = async (
 		which: VideoSource,
 		track: MediaStreamTrack,
+		quality?: ScreenShareQuality,
 	): Promise<void> => {
 		if (!sendTransport) return;
 		setVoiceData("videoStreams", selfVideoKey(which), {
@@ -1181,10 +1250,20 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 			stream: new MediaStream([track]),
 		});
 
+		if (quality) track.contentHint = screenContentHint(quality);
+
 		const producer = await sendTransport.produce({
 			track,
 			appData: { source: which },
+			...(quality
+				? {
+						encodings: screenEncodings(quality),
+						codecOptions: screenCodecOptions(quality),
+					}
+				: {}),
 		});
+
+		if (quality) applyDegradationPreference(producer, quality);
 
 		if (which === "cam") camProducer = producer;
 		else screenProducer = producer;
@@ -1194,9 +1273,71 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 		track.addEventListener("ended", onEnded);
 	};
 
+	const produceScreenAudio = async (track: MediaStreamTrack): Promise<void> => {
+		if (!sendTransport) return;
+
+		screenAudioProducer = await sendTransport.produce({
+			track,
+			appData: { source: SCREEN_AUDIO_SOURCE },
+		});
+
+		screenAudioListener = (): void => stopScreenAudio();
+		track.addEventListener("ended", screenAudioListener);
+	};
+
+	const stopScreenAudio = (): void => {
+		if (!screenAudioProducer) return;
+
+		if (screenAudioListener) {
+			screenAudioProducer.track?.removeEventListener(
+				"ended",
+				screenAudioListener,
+			);
+			screenAudioListener = null;
+		}
+
+		send({ action: "closeProducer", producerId: screenAudioProducer.id });
+		screenAudioProducer.track?.stop();
+		screenAudioProducer.close();
+		screenAudioProducer = null;
+	};
+
+	const applyScreenQuality = (quality: ScreenShareQuality): void => {
+		const track = screenProducer?.track;
+		if (!screenProducer || !track) return;
+
+		track.contentHint = screenContentHint(quality);
+		void track
+			.applyConstraints(screenVideoConstraints(quality))
+			.catch(() => {});
+
+		const sender = screenProducer.rtpSender;
+		if (sender) {
+			try {
+				const params = sender.getParameters() as RTCRtpSendParameters & {
+					degradationPreference?: string;
+				};
+				const maxBitrate = screenEncodings(quality)[0].maxBitrate;
+				params.degradationPreference = screenDegradationPreference(quality);
+				for (const encoding of params.encodings ?? []) {
+					encoding.maxBitrate = maxBitrate;
+				}
+				void sender.setParameters(params).catch(() => {});
+			} catch {
+				return;
+			}
+		}
+	};
+
 	const stopVideo = (which: VideoSource): void => {
 		setVoiceData("videoStreams", selfVideoKey(which), undefined!);
 		const producer = which === "cam" ? camProducer : screenProducer;
+
+		if (which === "screen") {
+			stopScreenAudio();
+			screenTrackCleanup?.();
+			screenTrackCleanup = null;
+		}
 
 		if (!producer) return;
 
@@ -1244,22 +1385,107 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 		}
 	};
 
-	const toggleScreen = async (): Promise<void> => {
+	const shareScreenTrack = async (
+		track: MediaStreamTrack,
+		audioTrack: MediaStreamTrack | null,
+		quality: ScreenShareQuality,
+		onStopped: () => void,
+	): Promise<void> => {
+		if (screenProducer) {
+			onStopped();
+			return;
+		}
+
+		try {
+			await produceVideo("screen", track, quality);
+			screenTrackCleanup = onStopped;
+			setVoiceData("states", "screenEnabled", true);
+			playSound("screenShared");
+		} catch (err) {
+			track.stop();
+			audioTrack?.stop();
+			onStopped();
+			showError(err, {
+				fallbackTitle: "Couldn't start sharing your screen.",
+				description: "The capture started but couldn't be sent to the channel.",
+			});
+			return;
+		}
+
+		if (!audioTrack) return;
+
+		try {
+			await produceScreenAudio(audioTrack);
+		} catch (err) {
+			audioTrack.stop();
+			showError(err, {
+				fallbackTitle: "Sharing without sound",
+				description: "Your screen is still shared, but its audio couldn't be.",
+			});
+		}
+	};
+
+	const toggleScreen = async (options?: ScreenShareOptions): Promise<void> => {
 		if (screenProducer) {
 			stopVideo("screen");
 			playSound("screenUnshared");
 			return;
 		}
 
+		const settings = options ?? userPreferences.preferences().voice.screen;
+		let stream: MediaStream;
+
 		try {
-			const stream = await navigator.mediaDevices.getDisplayMedia({
-				video: true,
+			stream = await navigator.mediaDevices.getDisplayMedia(
+				displayMediaRequest(settings) as DisplayMediaStreamOptions,
+			);
+		} catch (err) {
+			if (err instanceof DOMException && err.name === "NotAllowedError") return;
+			showError(err, {
+				fallbackTitle: "Couldn't start sharing your screen.",
+				description: "Something went wrong while starting the capture.",
 			});
-			await produceVideo("screen", stream.getVideoTracks()[0]);
+			return;
+		}
+
+		const videoTrack = stream.getVideoTracks()[0];
+		if (!videoTrack) {
+			for (const track of stream.getTracks()) track.stop();
+			return;
+		}
+
+		try {
+			await produceVideo("screen", videoTrack, settings);
 			setVoiceData("states", "screenEnabled", true);
 			playSound("screenShared");
 		} catch (err) {
-			log.error("screen share failed", { error: err });
+			for (const track of stream.getTracks()) track.stop();
+			showError(err, {
+				fallbackTitle: "Couldn't start sharing your screen.",
+				description: "The capture started but couldn't be sent to the channel.",
+			});
+			return;
+		}
+
+		const audioTrack = stream.getAudioTracks()[0];
+		if (!audioTrack) {
+			if (settings.shareAudio) {
+				toast.info("Sharing without sound", {
+					description:
+						"This browser or capture source didn't provide any audio.",
+				});
+			}
+			return;
+		}
+
+		try {
+			await produceScreenAudio(audioTrack);
+		} catch (err) {
+			audioTrack.stop();
+			showError(err, {
+				fallbackTitle: "Sharing without sound",
+				description: "Your screen is still shared, but its audio couldn't be.",
+			});
 		}
 	};
 
@@ -1331,7 +1557,8 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 
 	createEffect(() => {
 		userPreferences.preferences();
-		for (const { el, did } of audioEls.values()) applyAudioSettings(el, did);
+		for (const { el, did, channel } of audioEls.values())
+			applyAudioSettings(el, did, channel);
 	});
 
 	createEffect(
@@ -1429,7 +1656,14 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 		disconnect,
 		toggleMic,
 		toggleCamera: () => void toggleCamera(),
-		toggleScreen: () => void toggleScreen(),
+		toggleScreen: (options?: ScreenShareOptions) => void toggleScreen(options),
+		shareScreenTrack: (
+			track: MediaStreamTrack,
+			audioTrack: MediaStreamTrack | null,
+			quality: ScreenShareQuality,
+			onStopped: () => void,
+		) => void shareScreenTrack(track, audioTrack, quality, onStopped),
+		applyScreenQuality,
 		toggleDeafen,
 		setFocusedKey,
 		setOverlayDismissed,

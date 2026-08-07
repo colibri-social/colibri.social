@@ -1,5 +1,10 @@
 use tauri::Manager;
 
+#[cfg(target_os = "linux")]
+mod linux_media;
+#[cfg(desktop)]
+#[cfg_attr(not(any(target_os = "macos", target_os = "windows")), allow(dead_code))]
+mod screen_capture;
 #[cfg(desktop)]
 mod titlebar;
 
@@ -225,7 +230,9 @@ pub fn run() {
                     )
                     .build(),
             )
-            .manage(titlebar::Titlebar::default());
+            .plugin(tauri_plugin_dialog::init())
+            .manage(titlebar::Titlebar::default())
+            .manage(screen_capture::CaptureState::default());
 
         #[cfg(feature = "updater")]
         {
@@ -259,7 +266,19 @@ pub fn run() {
             #[cfg(desktop)]
             titlebar::titlebar_show_system_menu,
             #[cfg(desktop)]
-            titlebar::titlebar_set_native_decorations
+            titlebar::titlebar_set_native_decorations,
+            #[cfg(desktop)]
+            screen_capture::screen_capture_supported,
+            #[cfg(desktop)]
+            screen_capture::screen_capture_list_sources,
+            #[cfg(desktop)]
+            screen_capture::screen_capture_start,
+            #[cfg(desktop)]
+            screen_capture::screen_capture_stop,
+            #[cfg(desktop)]
+            screen_capture::screen_capture_permission,
+            #[cfg(desktop)]
+            screen_capture::screen_capture_open_settings
         ])
         .register_uri_scheme_protocol("emoji", |ctx, request| {
             let not_found = || {
@@ -290,6 +309,34 @@ pub fn run() {
             }
             not_found()
         })
+        .register_uri_scheme_protocol("capture-thumb", |ctx, request| {
+            let not_found = || {
+                tauri::http::Response::builder()
+                    .status(404)
+                    .body(Vec::new())
+                    .unwrap()
+            };
+
+            #[cfg(desktop)]
+            {
+                use tauri::Manager as _;
+                let id = request.uri().path().trim_start_matches('/').to_string();
+                let state = ctx.app_handle().state::<screen_capture::CaptureState>();
+                if let Some(bytes) = state.thumbnail(&id) {
+                    return tauri::http::Response::builder()
+                        .header("Content-Type", "image/png")
+                        .header("Cache-Control", "no-store")
+                        .header("Access-Control-Allow-Origin", "*")
+                        .body(bytes)
+                        .unwrap();
+                }
+            }
+
+            #[cfg(not(desktop))]
+            let _ = (ctx, request);
+
+            not_found()
+        })
         .setup(|app| {
             // On Linux and Windows deep-link schemes aren't registered by an
             // installer during development, so register them at runtime.
@@ -303,6 +350,9 @@ pub fn run() {
             #[cfg(desktop)]
             if let Some(window) = app.get_webview_window("main") {
                 titlebar::setup(&window);
+
+                #[cfg(target_os = "linux")]
+                linux_media::enable_media(&window);
             }
 
             #[cfg(not(any(target_os = "linux", windows, desktop)))]

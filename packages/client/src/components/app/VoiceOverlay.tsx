@@ -454,7 +454,7 @@ export const VoiceOverlay: Component = () => {
 									type="button"
 									aria-label="Stop Streaming"
 									onPointerDown={(e: PointerEvent) => e.stopPropagation()}
-									onClick={toggleScreen}
+									onClick={() => toggleScreen()}
 									class="pointer-events-auto cursor-pointer text-white hover:text-primary transition-colors"
 								>
 									<MonitorXIcon width={20} height={20} />

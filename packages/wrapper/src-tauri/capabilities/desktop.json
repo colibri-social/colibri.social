@@ -4,5 +4,5 @@
   "description": "Desktop-only capabilities (window-state plugin is compiled out on mobile).",
   "platforms": ["linux", "macOS", "windows"],
   "windows": ["main"],
-  "permissions": ["window-state:default"]
+  "permissions": ["window-state:default", "dialog:allow-ask"]
 }
