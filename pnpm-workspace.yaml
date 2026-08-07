@@ -10,5 +10,24 @@ allowBuilds:
   sharp: true
   skia-canvas: false
 
+minimumReleaseAgeExclude:
+  - '@atproto/api@0.20.38'
+  - '@atproto/common-web@0.5.9'
+  - '@atproto/common@0.7.5'
+  - '@atproto/lex-builder@0.1.11'
+  - '@atproto/lex-client@0.3.3'
+  - '@atproto/lex-document@0.1.9'
+  - '@atproto/lex-installer@0.1.13'
+  - '@atproto/lex-resolver@0.2.6'
+  - '@atproto/lex-schema@0.2.5'
+  - '@atproto/lex@0.3.4'
+  - '@atproto/lexicon@0.7.11'
+  - '@atproto/oauth-client-browser@0.5.3'
+  - '@atproto/oauth-client-node@0.5.3'
+  - '@atproto/oauth-client@0.8.3'
+  - '@atproto/repo@0.10.9'
+  - '@atproto/syntax@0.7.4'
+  - '@atproto/xrpc@0.8.10'
+
 patchedDependencies:
-  '@atproto/oauth-client-browser@0.4.3': patches/@atproto__oauth-client-browser@0.4.3.patch
+  '@atproto/oauth-client-browser@0.5.3': patches/@atproto__oauth-client-browser@0.5.3.patch
