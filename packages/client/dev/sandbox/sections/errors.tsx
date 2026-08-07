@@ -31,6 +31,7 @@ import {
 	type ColibriErrorCode,
 } from "../../../src/errors/codes";
 import { copyForCode, describeError } from "../../../src/errors/copy";
+import { markReportDelivered } from "../../../src/errors/delivery";
 import { ColibriError } from "../../../src/errors/error";
 import { showError } from "../../../src/errors/show-error";
 import { createLogger, formatLog, resetLog } from "../../../src/utils/logger";
@@ -40,6 +41,8 @@ import type { SandboxCategory } from "../types";
 const log = createLogger("sandbox");
 
 const FAKE_EVENT_ID = "4f1c2b9a7e5d40b1a1c3e7f9d2b48c60";
+
+markReportDelivered(FAKE_EVENT_ID);
 
 setReportingAccount({ did: "did:plc:sandboxaccount", optedIn: false });
 

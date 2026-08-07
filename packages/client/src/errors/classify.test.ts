@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
 	classifyResponse,
 	classifyThrown,
+	isConnectivityError,
 	isRecordNotFound,
 	isStorageFailure,
 	parseFieldProblems,
@@ -180,9 +181,78 @@ describe("classifyThrown", () => {
 		expect(classifyThrown(new Error("boom")).code).toBe("Unexpected");
 	});
 
+	it("sees through a wrapper that hides a fetch failure in cause", () => {
+		offline(false);
+		const wrapped = new Error("Failed to fetch (pds.example.com)", {
+			cause: new TypeError("Failed to fetch"),
+		});
+		wrapped.name = "FetchRequestError";
+
+		const classified = classifyThrown(wrapped);
+
+		expect(classified.code).toBe("NetworkFailed");
+		expect(classified.message).toBe("Failed to fetch (pds.example.com)");
+	});
+
+	it("sees through a wrapper that hides an abort in cause", () => {
+		offline(false);
+		const abort = new Error("aborted");
+		abort.name = "AbortError";
+
+		expect(classifyThrown(new Error("wrapped", { cause: abort })).code).toBe(
+			"Timeout",
+		);
+	});
+
+	it("prefers a status on the wrapper over a cause shape", () => {
+		offline(false);
+		const wrapped = Object.assign(
+			new Error("nope", { cause: new TypeError() }),
+			{
+				status: 403,
+			},
+		);
+
+		expect(classifyThrown(wrapped).code).toBe("Forbidden");
+	});
+
+	it("survives a cause that points back at itself", () => {
+		offline(false);
+		const looped: { message: string; cause?: unknown } = { message: "loop" };
+		looped.cause = looped;
+
+		expect(classifyThrown(looped).code).toBe("Unexpected");
+	});
+
+	it("treats a cross-realm TypeError as a dropped connection", () => {
+		offline(false);
+		const foreign = { name: "TypeError", message: "Failed to fetch" };
+
+		expect(classifyThrown(foreign).code).toBe("NetworkFailed");
+	});
+
 	it("stringifies a thrown non-Error", () => {
 		offline(false);
 		expect(classifyThrown("canceled").message).toBe("canceled");
+	});
+});
+
+describe("isConnectivityError", () => {
+	it("recognises a bare fetch TypeError", () => {
+		expect(isConnectivityError(new TypeError("Failed to fetch"))).toBe(true);
+	});
+
+	it("recognises a fetch TypeError hidden behind a wrapper", () => {
+		const wrapped = new Error("Failed to fetch (pds.example.com)", {
+			cause: new TypeError("Failed to fetch"),
+		});
+		wrapped.name = "FetchRequestError";
+
+		expect(isConnectivityError(wrapped)).toBe(true);
+	});
+
+	it("stays false for an unrelated failure", () => {
+		expect(isConnectivityError(new Error("boom"))).toBe(false);
 	});
 });
 

@@ -51,13 +51,56 @@ export const parseFieldProblems = (
 export const isOffline = (): boolean =>
 	typeof navigator !== "undefined" && navigator.onLine === false;
 
-export const isConnectivityError = (err: unknown): boolean => {
-	if (err instanceof TypeError) return true;
-	if (typeof DOMException !== "undefined" && err instanceof DOMException) {
-		return err.name === "TimeoutError" || err.name === "AbortError";
-	}
-	return false;
+const MAX_CAUSE_DEPTH = 5;
+
+const nameOf = (err: unknown): string | undefined => {
+	if (!err || typeof err !== "object") return undefined;
+	const name = (err as { name?: unknown }).name;
+	return typeof name === "string" ? name : undefined;
 };
+
+const causeChain = (err: unknown): Array<unknown> => {
+	const chain: Array<unknown> = [];
+	const seen = new Set<unknown>();
+	let current: unknown = err;
+
+	while (current !== null && current !== undefined && !seen.has(current)) {
+		seen.add(current);
+		chain.push(current);
+		if (chain.length >= MAX_CAUSE_DEPTH) break;
+		current =
+			typeof current === "object" && "cause" in current
+				? (current as { cause: unknown }).cause
+				: undefined;
+	}
+
+	return chain;
+};
+
+const codeForThrownShape = (err: unknown): ColibriErrorCode | undefined => {
+	const name = nameOf(err);
+
+	if (name === "TimeoutError" || name === "AbortError") return "Timeout";
+
+	if (typeof DOMException !== "undefined" && err instanceof DOMException) {
+		if (name === "NotAllowedError" || name === "SecurityError") {
+			return "DevicePermissionDenied";
+		}
+		if (name === "NotFoundError" || name === "NotReadableError") {
+			return "DeviceUnavailable";
+		}
+	}
+
+	if (err instanceof TypeError || name === "TypeError") return "NetworkFailed";
+
+	return undefined;
+};
+
+export const isConnectivityError = (err: unknown): boolean =>
+	causeChain(err).some((link) => {
+		const code = codeForThrownShape(link);
+		return code === "NetworkFailed" || code === "Timeout";
+	});
 
 export const isStorageFailure = (err: unknown): boolean =>
 	err instanceof Error &&
@@ -202,19 +245,9 @@ export const classifyThrown = (
 	if (isStorageFailure(err)) {
 		return new ColibriError({ ...shared, code: "StorageStalled" });
 	}
-	if (typeof DOMException !== "undefined" && err instanceof DOMException) {
-		if (err.name === "TimeoutError" || err.name === "AbortError") {
-			return new ColibriError({ ...shared, code: "Timeout" });
-		}
-		if (err.name === "NotAllowedError" || err.name === "SecurityError") {
-			return new ColibriError({ ...shared, code: "DevicePermissionDenied" });
-		}
-		if (err.name === "NotFoundError" || err.name === "NotReadableError") {
-			return new ColibriError({ ...shared, code: "DeviceUnavailable" });
-		}
-	}
-	if (err instanceof TypeError) {
-		return new ColibriError({ ...shared, code: "NetworkFailed" });
+	const shapeCode = codeForThrownShape(err);
+	if (shapeCode) {
+		return new ColibriError({ ...shared, code: shapeCode });
 	}
 
 	const status = statusOf(err);
@@ -227,11 +260,16 @@ export const classifyThrown = (
 		});
 	}
 
-	return new ColibriError({
-		...shared,
-		code: "Unexpected",
-		message: err instanceof Error ? err.message : String(err),
-	});
+	const message = err instanceof Error ? err.message : String(err);
+
+	for (const link of causeChain(err).slice(1)) {
+		const causeCode = codeForThrownShape(link);
+		if (causeCode) {
+			return new ColibriError({ ...shared, code: causeCode, message });
+		}
+	}
+
+	return new ColibriError({ ...shared, code: "Unexpected", message });
 };
 
 export type Retryability = "terminal" | "retry";

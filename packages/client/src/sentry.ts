@@ -1,5 +1,6 @@
 import * as Sentry from "@sentry/solid";
 import { solidRouterBrowserTracingIntegration } from "@sentry/solid/solidrouter";
+import { markReportDelivered } from "./errors/delivery";
 import { redactText } from "./utils/redact";
 
 export interface InitSentryOptions {
@@ -102,5 +103,13 @@ export function initSentry(options: InitSentryOptions): void {
 			return breadcrumb;
 		},
 		beforeSend: (event) => scrubEvent(event),
+	});
+
+	Sentry.getClient()?.on("afterSendEvent", (event, response) => {
+		const eventId = event.event_id;
+		const status = response.statusCode;
+		if (eventId === undefined) return;
+		if (typeof status !== "number" || status < 200 || status >= 300) return;
+		markReportDelivered(eventId);
 	});
 }

@@ -1,5 +1,6 @@
-import { createSignal, Show } from "solid-js";
+import { createEffect, createSignal, onCleanup, Show } from "solid-js";
 import { reportingAccount } from "../errors/account";
+import { onReportDelivered } from "../errors/delivery";
 import { attachAccountToReport } from "../errors/report";
 import { Button } from "./ui/Button";
 
@@ -12,19 +13,29 @@ export const ErrorDetails = (props: ErrorDetailsProps) => {
 	const [expanded, setExpanded] = createSignal(false);
 	const [copied, setCopied] = createSignal(false);
 	const [accountSent, setAccountSent] = createSignal(false);
+	const [delivered, setDelivered] = createSignal(false);
 
 	const account = reportingAccount();
+
+	createEffect(() => {
+		const eventId = props.eventId;
+		setDelivered(false);
+		if (eventId === undefined) return;
+		onCleanup(onReportDelivered(eventId, () => setDelivered(true)));
+	});
+
+	const reference = () => (delivered() ? props.eventId : undefined);
 
 	const canOfferAccount = () =>
 		account.did !== undefined &&
 		!account.optedIn &&
-		props.eventId !== undefined &&
+		reference() !== undefined &&
 		!accountSent();
 
 	const summary = () =>
 		[
 			props.code ? `Code: ${props.code}` : undefined,
-			props.eventId ? `Reference: ${props.eventId}` : undefined,
+			reference() ? `Reference: ${reference()}` : undefined,
 		]
 			.filter(Boolean)
 			.join("\n");
@@ -41,11 +52,11 @@ export const ErrorDetails = (props: ErrorDetailsProps) => {
 
 	const sendAccount = () => {
 		if (!account.did) return;
-		if (attachAccountToReport(props.eventId, account.did)) setAccountSent(true);
+		if (attachAccountToReport(reference(), account.did)) setAccountSent(true);
 	};
 
 	return (
-		<Show when={props.code || props.eventId}>
+		<Show when={props.code || reference()}>
 			<div class="flex flex-col items-center gap-2 text-xs text-muted-foreground">
 				<button
 					type="button"

@@ -48,3 +48,7 @@ export function lastEventId(): string | undefined {
 export function withScope<T>(callback: (scope: StubScope) => T): T {
 	return callback(stubScope);
 }
+
+export function getClient(): undefined {
+	return undefined;
+}
