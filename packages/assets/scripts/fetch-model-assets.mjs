@@ -7,6 +7,7 @@ import { dirname, join } from "node:path";
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import { fileURLToPath } from "node:url";
+import { withAssetLock } from "./asset-lock.mjs";
 
 const CDN_BASE =
 	"https://cdn.mezon.ai/AI/models/datas/noise_suppression/deepfilternet3";
@@ -26,6 +27,10 @@ const ASSETS = [
 		dest: join(outBase, "v3", "models", "DeepFilterNet3_onnx.tar.gz"),
 	},
 ];
+
+function tmpPath(dest) {
+	return `${dest}.${process.pid}.tmp`;
+}
 
 async function remoteSize(url) {
 	try {
@@ -60,25 +65,32 @@ async function download({ url, dest }) {
 		throw new Error(`${res.status} ${res.statusText}`);
 	}
 
-	const tmp = `${dest}.tmp`;
+	const tmp = tmpPath(dest);
 	await pipeline(Readable.fromWeb(res.body), createWriteStream(tmp));
 	await rename(tmp, dest);
 	console.log(`  ↓ ${dest}`);
 	return true;
 }
 
-let failed = false;
-for (const asset of ASSETS) {
-	try {
-		await download(asset);
-	} catch (err) {
-		failed = true;
-		console.warn(
-			`  ! Skipped ${asset.url} (${err.message}). DeepFilterNet will fall back to RNNoise until this is fetched.`,
-		);
-		await unlink(`${asset.dest}.tmp`).catch(() => {});
+await mkdir(outBase, { recursive: true });
+
+const failed = await withAssetLock(join(outBase, ".fetch.lock"), async () => {
+	let incomplete = false;
+
+	for (const asset of ASSETS) {
+		try {
+			await download(asset);
+		} catch (err) {
+			incomplete = true;
+			console.warn(
+				`  ! Skipped ${asset.url} (${err.message}). DeepFilterNet will fall back to RNNoise until this is fetched.`,
+			);
+			await unlink(tmpPath(asset.dest)).catch(() => {});
+		}
 	}
-}
+
+	return incomplete;
+});
 
 console.log(
 	failed
