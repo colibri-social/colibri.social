@@ -1,21 +1,30 @@
 @layer theme, base, components, utilities;
 
 @import "tailwindcss/theme" theme(reference);
-@import "tailwindcss/utilities" layer(utilities);
 @import "tw-animate-css";
 @import "@colibri-social/assets/fonts.css";
-@import "@arborium/arborium/themes/base.css";
 @import "@arborium/arborium/themes/tokyo-night.css";
 @import "marqy/dist/marqy.css";
 @import "./components/hummingbird/hummingbird.css";
-@import "./components/app/common/text-editor/TextEditor.css";
-@import "./components/app/channel/message/media-attachments.css";
-@import "./styles/components.css";
+@import "./styles/keyframes.css";
 @plugin "@tailwindcss/typography";
 
 @source ".";
 
 @custom-variant dark (&:is(.dark *));
+
+@layer utilities {
+	:where(.colibri-embed) {
+		@tailwind utilities;
+	}
+}
+
+:where(.colibri-embed) {
+	@import "@arborium/arborium/themes/base.css";
+	@import "./components/app/common/text-editor/TextEditor.css";
+	@import "./components/app/channel/message/media-attachments.css";
+	@import "./styles/components.css";
+}
 
 @theme inline reference {
 	--color-background: var(--background);

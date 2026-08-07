@@ -1,0 +1,18 @@
+@keyframes colibri-float {
+	0%,
+	100% {
+		transform: translateY(15px);
+	}
+	50% {
+		transform: translateY(-15px);
+	}
+}
+
+@keyframes signin-wire-pulse {
+	from {
+		transform: translateX(-100%);
+	}
+	to {
+		transform: translateX(260%);
+	}
+}

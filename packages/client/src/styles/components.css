@@ -8,7 +8,7 @@
 	}
 
 	.floaty {
-		animation: 6s ease-in-out float infinite;
+		animation: 6s ease-in-out colibri-float infinite;
 	}
 
 	.hero-container::before {
@@ -41,16 +41,6 @@
 				#353535 var(--square-2)
 			);
 		background-size: var(--square-2) var(--square-2);
-	}
-}
-
-@keyframes float {
-	0%,
-	100% {
-		transform: translateY(15px);
-	}
-	50% {
-		transform: translateY(-15px);
 	}
 }
 
@@ -236,15 +226,6 @@ ol[data-somoto-toaster][data-x-position="right"] {
 	border-radius: inherit;
 	background: var(--primary);
 	animation: signin-wire-pulse 1.6s ease-in-out infinite;
-}
-
-@keyframes signin-wire-pulse {
-	from {
-		transform: translateX(-100%);
-	}
-	to {
-		transform: translateX(260%);
-	}
 }
 
 @media (prefers-reduced-motion: reduce) {

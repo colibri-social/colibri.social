@@ -26,6 +26,7 @@ export const buildSuggestions = (
 	roles: () => Array<Role>,
 	emojis: () => Array<EmojiSuggestionData>,
 	mainEditor?: boolean,
+	embedRoot?: HTMLElement,
 ): Omit<SuggestionOptions<any, MentionNodeAttrs>, "editor">[] => {
 	return [
 		{
@@ -56,7 +57,7 @@ export const buildSuggestions = (
 
 				return [...matchedMembers, ...matchedRoles];
 			},
-			render: createMentionRenderer("@", mainEditor),
+			render: createMentionRenderer("@", mainEditor, embedRoot),
 			command: insertMention,
 		},
 		{
@@ -67,7 +68,7 @@ export const buildSuggestions = (
 						channel.name.toLowerCase().startsWith(query.toLowerCase()),
 					)
 					.slice(0, 5),
-			render: createMentionRenderer("#", mainEditor),
+			render: createMentionRenderer("#", mainEditor, embedRoot),
 			command: insertMention,
 		},
 		{
@@ -85,7 +86,7 @@ export const buildSuggestions = (
 				}
 				return [...prefix, ...substring].slice(0, 5);
 			},
-			render: createMentionRenderer(":", mainEditor),
+			render: createMentionRenderer(":", mainEditor, embedRoot),
 			command: insertMention,
 		},
 	];

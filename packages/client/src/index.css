@@ -8,6 +8,7 @@
 @import "./components/app/common/text-editor/TextEditor.css";
 @import "./components/app/channel/message/media-attachments.css";
 @import "./styles/components.css";
+@import "./styles/keyframes.css";
 @plugin "@tailwindcss/typography";
 
 @source ".";

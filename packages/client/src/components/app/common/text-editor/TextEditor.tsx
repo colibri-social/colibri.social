@@ -39,6 +39,7 @@ import {
 } from "../../../../contexts/Community";
 import { useUserContext } from "../../../../contexts/User";
 import { useUserPreferences } from "../../../../contexts/UserPreferences";
+import { usePortalMount } from "../../../../embed/context";
 import {
 	readComposerDraft,
 	readEditDraft,
@@ -557,6 +558,7 @@ export const TextEditor: Component<{
 	const channel = useChannelContext();
 	const community = useCommunityContext();
 	const permissions = usePermissions();
+	const embedRoot = usePortalMount();
 
 	const mentionableRoles = () =>
 		(community().assignableRoles ?? []).filter(
@@ -667,6 +669,7 @@ export const TextEditor: Component<{
 					() => mentionableRoles(),
 					() => EMOJI_SUGGESTIONS,
 					props.mainEditor,
+					embedRoot,
 				),
 			}).extend({
 				addAttributes() {

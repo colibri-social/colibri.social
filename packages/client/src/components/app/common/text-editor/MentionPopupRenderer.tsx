@@ -8,6 +8,7 @@ import { resolveBlob } from "../../../../atproto/resolve-blob";
 import type { Channel } from "../../../../atproto/xrpc/social/colibri/community/listChannels";
 import type { Member } from "../../../../atproto/xrpc/social/colibri/community/listMembers";
 import type { Role } from "../../../../atproto/xrpc/social/colibri/community/listRoles";
+import { mirrorEmbedStyleContext } from "../../../../embed/style-context";
 import { readSafeAreaInsets } from "../../../../utils/safe-area";
 import { displayableNameFn } from "../../user/DisplayableName";
 import {
@@ -80,6 +81,7 @@ export function selectItem(
 export const createMentionRenderer = (
 	char: "@" | "#" | ":",
 	mainEditor?: boolean,
+	embedRoot?: HTMLElement,
 ) => {
 	return () => {
 		const [selectedIndex, setSelectedIndex] = createSignal(0);
@@ -204,6 +206,7 @@ export const createMentionRenderer = (
 				container = document.createElement("div");
 				container.style.cssText =
 					"position: absolute; z-index: 9999; pointer-events: auto;";
+				mirrorEmbedStyleContext(container, embedRoot);
 
 				document.body.appendChild(container);
 
