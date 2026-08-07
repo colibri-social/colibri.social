@@ -101,9 +101,9 @@ const CommunityHeader = () => {
 							<DropdownMenuTrigger
 								as="button"
 								type="button"
-								class="flex flex-row items-center gap-3 text-left px-2 py-1 rounded-md hover:bg-muted/50 transition-all duration-75 cursor-pointer w-fit aria-expanded:[&>svg]:rotate-180 aria-expanded:bg-muted/50 z-10"
+								class="flex flex-row items-center gap-3 text-left px-2 py-1 rounded-md hover:bg-muted/50 transition-all duration-75 cursor-pointer w-fit aria-expanded:[&>svg]:rotate-180 aria-expanded:bg-muted/50 z-10 max-w-full"
 							>
-								<h2 class="m-0 text-xl w-full text-ellipsis whitespace-nowrap">
+								<h2 class="m-0 text-xl w-full text-ellipsis whitespace-nowrap overflow">
 									{community().community.name}
 								</h2>
 								<Show when={pendingApplications() > 0}>
@@ -111,7 +111,7 @@ const CommunityHeader = () => {
 										{pendingApplications()}
 									</span>
 								</Show>
-								<CaretDownIcon class="text-muted-foreground mt-0.5 text-sm" />
+								<CaretDownIcon class="text-muted-foreground mt-0.5 min-w-4 text-sm" />
 							</DropdownMenuTrigger>
 							<DropdownMenuPortal>
 								<DropdownMenuContent class="min-w-48 w-66.5">
