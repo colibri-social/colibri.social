@@ -5,6 +5,7 @@ const log = createLogger("embed");
 let mounts = 0;
 let storagePrefix = "";
 let appViewOverride: string | undefined;
+let noiseAssetBaseOverride: string | undefined;
 
 export const isEmbedded = (): boolean => mounts > 0;
 
@@ -14,9 +15,13 @@ export const embedStorageKey = (key: string): string =>
 export const embedAppViewUrl = (): string | undefined =>
 	mounts > 0 ? appViewOverride : undefined;
 
+export const embedNoiseAssetBase = (): string | undefined =>
+	mounts > 0 ? noiseAssetBaseOverride : undefined;
+
 export const activateEmbedRuntime = (options: {
 	storagePrefix: string;
 	appViewUrl: string | undefined;
+	noiseAssetBase: string | undefined;
 }): void => {
 	if (mounts > 0) {
 		if (options.storagePrefix !== storagePrefix) {
@@ -31,6 +36,12 @@ export const activateEmbedRuntime = (options: {
 				{ kept: appViewOverride ?? "default" },
 			);
 		}
+		if (options.noiseAssetBase !== noiseAssetBaseOverride) {
+			log.warn(
+				"a second embed asked for a different noise asset base, keeping the first",
+				{ kept: noiseAssetBaseOverride ?? "default" },
+			);
+		}
 		mounts += 1;
 		return;
 	}
@@ -38,6 +49,7 @@ export const activateEmbedRuntime = (options: {
 	mounts = 1;
 	storagePrefix = options.storagePrefix;
 	appViewOverride = options.appViewUrl;
+	noiseAssetBaseOverride = options.noiseAssetBase;
 };
 
 export const deactivateEmbedRuntime = (): void => {
@@ -45,4 +57,5 @@ export const deactivateEmbedRuntime = (): void => {
 	if (mounts > 0) return;
 	storagePrefix = "";
 	appViewOverride = undefined;
+	noiseAssetBaseOverride = undefined;
 };

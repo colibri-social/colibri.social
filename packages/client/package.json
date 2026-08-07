@@ -16,13 +16,14 @@
 		"access": "public"
 	},
 	"scripts": {
-		"start": "pnpm --filter @colibri-social/assets fetch-all && vite serve dev",
-		"dev": "pnpm --filter @colibri-social/assets fetch-all && vite serve dev",
-		"build": "tsdown && tailwindcss -i src/index.css -o dist/index.css --minify && tailwindcss -i src/embed.css -o dist/embed.css --minify && node -e \"require('node:fs').copyFileSync('src/components/hummingbird/hummingbird.css','dist/hummingbird.css')\"",
+		"generate:noise-assets": "node scripts/generate-noise-assets.mjs",
+		"start": "pnpm --filter @colibri-social/assets fetch-all && pnpm generate:noise-assets && vite serve dev",
+		"dev": "pnpm --filter @colibri-social/assets fetch-all && pnpm generate:noise-assets && vite serve dev",
+		"build": "pnpm generate:noise-assets && tsdown && tailwindcss -i src/index.css -o dist/index.css --minify && tailwindcss -i src/embed.css -o dist/embed.css --minify && node -e \"require('node:fs').copyFileSync('src/components/hummingbird/hummingbird.css','dist/hummingbird.css')\"",
 		"prepack": "pnpm build",
-		"test": "vitest run",
-		"typecheck": "tsc --noEmit",
-		"sandbox": "pnpm --filter @colibri-social/assets fetch-emoji && vite serve dev --open /sandbox.html"
+		"test": "pnpm generate:noise-assets && vitest run",
+		"typecheck": "pnpm generate:noise-assets && tsc --noEmit",
+		"sandbox": "pnpm --filter @colibri-social/assets fetch-emoji && pnpm generate:noise-assets && vite serve dev --open /sandbox.html"
 	},
 	"exports": {
 		".": {

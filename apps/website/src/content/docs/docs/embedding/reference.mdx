@@ -23,6 +23,7 @@ Creates the embed's own root element inside `target` and renders into it. Throws
 | `community` | `string` | **Required.** An `at://` community URI |
 | `channel` | `string` | Channel rkey to open first. Without it the embed opens the first channel in the list. |
 | `appViewUrl` | `string` | Point at a self-hosted AppView. Your client metadata's `aud=` values must match it. |
+| `noiseAssetBase` | `string` | Root the DeepFilterNet assets are served from, defaulting to `/noise/deepfilternet3`. See [voice noise suppression](#voice-noise-suppression). |
 | `scope` | `string` | The space-delimited scope your session was granted. Only needed if your session manager does not expose `getTokenInfo`, which is where the embed reads it from otherwise. |
 | `colorScheme` | `"dark"` | Reserved. Only `"dark"` is accepted today; anything else throws. |
 | `theme` | `Partial<EmbedThemeTokens>` | Token overrides, applied as inline custom properties on the embed root. |
@@ -108,6 +109,23 @@ handle.setTheme({ radius: "1rem", "radius-md": "0px" });
 Anything circular by design stays circular: avatars, presence dots and the pill badges use `rounded-full`, which is not part of this scale.
 
 `config.brand` is shorthand that sets `primary`, `primary-hover`, `primary-foreground`, `ring`, `sidebar-primary` and `sidebar-primary-foreground` from one colour. Anything you pass in `theme` is applied after it, so you can use `brand` and override one derived token.
+
+## Voice noise suppression
+
+Voice channels suppress background noise in two tiers, and the embed picks between them at runtime.
+
+**RNNoise** is the baseline and needs nothing from you. Its WebAssembly build and audio worklet are compiled into the package and loaded from a chunk the bundler splits out for you, so they are fetched only once someone actually joins a voice channel. There are no files to host and no bundler configuration.
+
+**DeepFilterNet** is the higher-quality tier and is the default preference. It needs roughly 24 MB of assets that the package does not carry, so it is the one thing here you have to host. Serve them under a root of your choosing and pass that root as `noiseAssetBase`:
+
+```
+<noiseAssetBase>/v3/pkg/df_bg.wasm
+<noiseAssetBase>/v3/models/DeepFilterNet3_onnx.tar.gz
+```
+
+Serve the `.tar.gz` verbatim. It is already gzipped, so a server that re-encodes it or sets `Content-Encoding` on the way out will hand the decoder something it cannot read.
+
+If the assets are missing or malformed the embed logs a warning, falls back to RNNoise and carries on, so leaving `noiseAssetBase` unset is a supported configuration rather than a broken one.
 
 ## What is stable
 

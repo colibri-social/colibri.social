@@ -51,6 +51,7 @@ export type ColibriEmbedConfig = {
 	community: string;
 	channel?: string;
 	appViewUrl?: string;
+	noiseAssetBase?: string;
 	scope?: string;
 	colorScheme?: EmbedColorScheme;
 	theme?: Partial<EmbedThemeTokens>;

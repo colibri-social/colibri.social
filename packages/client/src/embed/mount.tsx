@@ -79,6 +79,7 @@ export const mountColibri = (
 	activateEmbedRuntime({
 		storagePrefix: config.storagePrefix ?? `colibri:embed:${community.rkey}:`,
 		appViewUrl: config.appViewUrl,
+		noiseAssetBase: config.noiseAssetBase,
 	});
 
 	if (config.sentry) initSentry(config.sentry);

@@ -262,4 +262,6 @@ mountColibri(el, {
 
 **Voice channels do not connect.** The embed needs HTTPS and microphone permission from your page. A `Permissions-Policy` header that blocks `microphone` will stop it.
 
+**Voice sounds noisier than the hosted app.** The embed fell back from DeepFilterNet to RNNoise, which happens whenever the DeepFilterNet assets are not reachable. Set `noiseAssetBase` and serve them as described in the [reference](/docs/embedding/reference#voice-noise-suppression).
+
 **Two embeds on one page share preferences.** Storage keys are namespaced per embed via `storagePrefix`, but the namespace is process-wide: the first embed to mount wins and the second logs a warning. Two embeds of the same community are fine. Two different communities on one page will share user preferences.

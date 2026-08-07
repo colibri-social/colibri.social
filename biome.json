@@ -19,6 +19,7 @@
 			"!apps/website/src/utils/atproto/lexicons/generated",
 			"!packages/assets/files",
 			"!packages/assets/src/login-manifest.ts",
+			"!packages/client/src/hooks/rnnoise-assets.generated.ts",
 			"!packages/client/src/embed.css"
 		]
 	},
