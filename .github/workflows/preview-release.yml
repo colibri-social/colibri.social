@@ -37,4 +37,4 @@ jobs:
         run: pnpm --filter @colibri-social/client build
 
       - name: Publish preview
-        run: pnpm exec pkg-pr-new publish --pnpm --packageManager=pnpm ./packages/client
+        run: pnpm exec pkg-pr-new publish --pnpm --packageManager=pnpm ./packages/client --comment=update --commentWithSha
