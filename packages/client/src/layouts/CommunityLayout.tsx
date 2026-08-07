@@ -103,7 +103,7 @@ const CommunityHeader = () => {
 								type="button"
 								class="flex flex-row items-center gap-3 text-left px-2 py-1 rounded-md hover:bg-muted/50 transition-all duration-75 cursor-pointer w-fit aria-expanded:[&>svg]:rotate-180 aria-expanded:bg-muted/50 z-10 max-w-full"
 							>
-								<h2 class="m-0 text-xl w-full text-ellipsis whitespace-nowrap overflow">
+								<h2 class="m-0 text-xl w-full text-ellipsis whitespace-nowrap overflow-hidden">
 									{community().community.name}
 								</h2>
 								<Show when={pendingApplications() > 0}>
