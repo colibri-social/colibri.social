@@ -13,6 +13,13 @@ import { embedStorageKey } from "../embed/runtime";
 import { newestReleaseNoteVersion } from "../release-notes";
 import { DEFAULT_APPVIEW_URL } from "../utils/appview";
 import { isMobileNow } from "../utils/mobile-pane";
+import {
+	DEFAULT_SCREEN_FRAMERATE,
+	DEFAULT_SCREEN_RESOLUTION,
+	normalizeFramerate,
+	normalizeResolution,
+	type ScreenShareOptions,
+} from "../utils/screen-share";
 
 export const PREFERENCES_STORAGE_KEY = "colibri:user-preferences";
 
@@ -74,6 +81,7 @@ export type UserPreferencesContextData = {
 		input: VoiceInputSettings;
 		output: VoiceIOSettings;
 		camera: BaseVoiceVideoSettings;
+		screen: ScreenShareOptions;
 		participantVolumeOverrides: Record<string, VolumeOverrides>;
 		selfMuted: boolean;
 		selfDeafened: boolean;
@@ -114,6 +122,11 @@ const DEFAULT_PREFERENCES: UserPreferencesContextData = {
 		camera: {
 			enabled: false,
 			preferredDeviceId: undefined,
+		},
+		screen: {
+			resolution: DEFAULT_SCREEN_RESOLUTION,
+			framerate: DEFAULT_SCREEN_FRAMERATE,
+			shareAudio: true,
 		},
 		participantVolumeOverrides: {},
 		selfMuted: false,
@@ -169,11 +182,21 @@ function loadFromStorage(): UserPreferencesContextData {
 					: defaultInput.noiseSuppressionLevel,
 		};
 
+		const parsedScreen = parsedVoice.screen ?? {};
+		const screen: ScreenShareOptions = {
+			resolution: normalizeResolution(parsedScreen.resolution),
+			framerate: normalizeFramerate(parsedScreen.framerate),
+			shareAudio:
+				typeof parsedScreen.shareAudio === "boolean"
+					? parsedScreen.shareAudio
+					: DEFAULT_PREFERENCES.voice.screen.shareAudio,
+		};
+
 		return {
 			...DEFAULT_PREFERENCES,
 			...parsed,
 			membersListVisible: DEFAULT_PREFERENCES.membersListVisible,
-			voice: { ...DEFAULT_PREFERENCES.voice, ...parsedVoice, input },
+			voice: { ...DEFAULT_PREFERENCES.voice, ...parsedVoice, input, screen },
 			controls: { ...DEFAULT_PREFERENCES.controls, ...(parsed.controls ?? {}) },
 		};
 	} catch {
@@ -190,6 +213,8 @@ type UserPreferencesContextValue = {
 		selfDeafened?: boolean;
 	}) => void;
 	setParticipantVolume: (did: string, volume: number) => void;
+	setParticipantScreenVolume: (did: string, volume: number) => void;
+	setScreenShare: (patch: Partial<ScreenShareOptions>) => void;
 	setNoiseSuppressionMode: (mode: NoiseSuppressionMode) => void;
 	setNoiseSuppressionLevel: (level: number) => void;
 	setVoiceView: (patch: {
@@ -242,7 +267,11 @@ export const UserPreferencesContextProvider: ParentComponent = (props) => {
 		setPreferences((p) => ({ ...p, voice: { ...p.voice, ...patch } }));
 	};
 
-	const setParticipantVolume = (did: string, volume: number) => {
+	const setParticipantChannelVolume = (
+		did: string,
+		channel: keyof VolumeOverrides,
+		volume: number,
+	) => {
 		setPreferences((p) => {
 			const existing = p.voice.participantVolumeOverrides[did] ?? {
 				voice: { volume: 1, muted: false },
@@ -255,11 +284,29 @@ export const UserPreferencesContextProvider: ParentComponent = (props) => {
 					...p.voice,
 					participantVolumeOverrides: {
 						...p.voice.participantVolumeOverrides,
-						[did]: { ...existing, voice: { ...existing.voice, volume } },
+						[did]: {
+							...existing,
+							[channel]: { ...existing[channel], volume },
+						},
 					},
 				},
 			};
 		});
+	};
+
+	const setParticipantVolume = (did: string, volume: number) => {
+		setParticipantChannelVolume(did, "voice", volume);
+	};
+
+	const setParticipantScreenVolume = (did: string, volume: number) => {
+		setParticipantChannelVolume(did, "screen", volume);
+	};
+
+	const setScreenShare = (patch: Partial<ScreenShareOptions>) => {
+		setPreferences((p) => ({
+			...p,
+			voice: { ...p.voice, screen: { ...p.voice.screen, ...patch } },
+		}));
 	};
 
 	const setNoiseSuppressionMode = (mode: NoiseSuppressionMode) => {
@@ -373,6 +420,8 @@ export const UserPreferencesContextProvider: ParentComponent = (props) => {
 				updateVoice,
 				setVoiceSelfState,
 				setParticipantVolume,
+				setParticipantScreenVolume,
+				setScreenShare,
 				setNoiseSuppressionMode,
 				setNoiseSuppressionLevel,
 				setVoiceView,

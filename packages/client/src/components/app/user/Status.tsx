@@ -21,7 +21,6 @@ import {
 import { Camera } from "../../icons/Camera";
 import { Ear } from "../../icons/Ear";
 import { Microphone } from "../../icons/Microphone";
-import { Screen } from "../../icons/Screen";
 import { Wifi } from "../../icons/Wifi";
 import { Button } from "../../ui/Button";
 import {
@@ -32,6 +31,7 @@ import {
 } from "../../ui/Tooltip";
 import { PoweredByColibri } from "../community/PoweredByColibri";
 import { UserSettingsModal } from "../settings";
+import { ScreenShareButton } from "../voice/ScreenShareButton";
 import User from ".";
 import { Avatar } from "./Avatar";
 import { ProfilePopover } from "./ProfilePopover";
@@ -48,14 +48,7 @@ export const Status: Component = () => {
 	const [statusDialogOpen, setStatusDialogOpen] = createSignal(false);
 	const [
 		voiceData,
-		{
-			disconnect,
-			toggleCamera,
-			toggleScreen,
-			toggleMic,
-			toggleDeafen,
-			setOverlayDismissed,
-		},
+		{ disconnect, toggleCamera, toggleMic, toggleDeafen, setOverlayDismissed },
 	] = useVoiceChatContext();
 	const settingsModal = useSettingsModalContext();
 
@@ -210,17 +203,7 @@ export const Status: Component = () => {
 						>
 							<Camera enabled={voiceData.states.camEnabled} />
 						</Button>
-						<Button
-							class="w-full"
-							variant={voiceData.states.screenEnabled ? "secondary" : "outline"}
-							classList={{
-								"text-(--primary-hover)!": voiceData.states.screenEnabled,
-								"text-foreground": !voiceData.states.screenEnabled,
-							}}
-							onClick={toggleScreen}
-						>
-							<Screen enabled={voiceData.states.screenEnabled} />
-						</Button>
+						<ScreenShareButton class="w-full" />
 					</div>
 					<Show when={voiceData.overlayDismissed}>
 						<Button

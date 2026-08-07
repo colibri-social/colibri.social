@@ -42,30 +42,133 @@ tauri-plugin-notification = "2.3.3"
 tauri-plugin-deep-link = "2.4.9"
 tauri-plugin-os = "2"
 
+[target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies.tokio]
+version = "1"
+features = ["rt-multi-thread", "net", "sync", "macros"]
+
+[target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies.tokio-tungstenite]
+version = "0.28"
+
+[target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies.futures-util]
+version = "0.3"
+default-features = false
+features = ["sink"]
+
+[target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies.base64]
+version = "0.22"
+
+[target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies.getrandom]
+version = "0.3"
+
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 tauri-plugin-single-instance = { version = "2.4.2", features = ["deep-link"] }
 tauri-plugin-updater = { version = "2.10.1", optional = true }
 tauri-plugin-window-state = "2.4.1"
 tauri-plugin-process = { version = "2", optional = true }
 tauri-plugin-fs = { version = "2", optional = true }
+tauri-plugin-dialog = "2"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2 = "0.6"
+block2 = "0.6"
 objc2-app-kit = { version = "0.3", features = [
     "NSApplication",
+    "NSBitmapImageRep",
     "NSButton",
     "NSControl",
+    "NSGraphics",
+    "NSImageRep",
     "NSResponder",
     "NSView",
     "NSWindow",
+    "NSWorkspace",
 ] }
-objc2-foundation = { version = "0.3", features = ["NSGeometry"] }
+objc2-foundation = { version = "0.3", features = [
+    "NSArray",
+    "NSData",
+    "NSDictionary",
+    "NSEnumerator",
+    "NSError",
+    "NSGeometry",
+    "NSString",
+    "NSURL",
+    "NSValue",
+] }
+objc2-core-foundation = { version = "0.3", features = ["CFBase", "CFCGTypes"] }
+objc2-core-graphics = { version = "0.3", features = ["CGImage", "CGWindow"] }
+objc2-core-media = { version = "0.3", features = [
+    "CMBase",
+    "CMBlockBuffer",
+    "CMFormatDescription",
+    "CMSampleBuffer",
+    "CMSync",
+    "CMTime",
+    "objc2-core-audio-types",
+    "objc2-core-video",
+] }
+objc2-core-audio-types = "0.3"
+objc2-core-video = { version = "0.3", features = [
+    "CVBuffer",
+    "CVImageBuffer",
+    "CVPixelBuffer",
+    "CVReturn",
+] }
+objc2-screen-capture-kit = { version = "0.3", features = [
+    "SCError",
+    "SCScreenshotManager",
+    "SCShareableContent",
+    "SCStream",
+    "block2",
+    "dispatch2",
+    "objc2-core-foundation",
+    "objc2-core-graphics",
+    "objc2-core-media",
+] }
+objc2-video-toolbox = { version = "0.3", features = [
+    "VTBase",
+    "VTCompressionProperties",
+    "VTCompressionSession",
+    "VTErrors",
+    "VTSession",
+    "block2",
+    "objc2-core-media",
+    "objc2-core-video",
+] }
+dispatch2 = "0.3"
+
+[target.'cfg(target_os = "linux")'.dependencies]
+webkit2gtk = { version = "2.0.1", features = ["v2_40"] }
 
 [target.'cfg(windows)'.dependencies]
 windows-version = "0.1"
+windows-core = "0.61"
 windows = { version = "0.61", features = [
+    "Foundation",
+    "Graphics",
+    "Graphics_Capture",
+    "Graphics_DirectX",
+    "Graphics_DirectX_Direct3D11",
     "Win32_Foundation",
+    "Win32_Graphics_Direct3D",
+    "Win32_Graphics_Direct3D11",
+    "Win32_Graphics_Dwm",
+    "Win32_Graphics_Dxgi",
+    "Win32_Graphics_Dxgi_Common",
     "Win32_Graphics_Gdi",
+    "Win32_Graphics_Imaging",
+    "Win32_Media_Audio",
+    "Win32_Media_KernelStreaming",
+    "Win32_Media_MediaFoundation",
+    "Win32_Security",
+    "Win32_Storage_FileSystem",
+    "Win32_Storage_Xps",
+    "Win32_System_Com",
+    "Win32_System_Com_StructuredStorage",
+    "Win32_System_Threading",
+    "Win32_System_Variant",
+    "Win32_System_WinRT",
+    "Win32_System_WinRT_Direct3D11",
+    "Win32_System_WinRT_Graphics_Capture",
     "Win32_UI_HiDpi",
     "Win32_UI_Input_KeyboardAndMouse",
     "Win32_UI_Shell",

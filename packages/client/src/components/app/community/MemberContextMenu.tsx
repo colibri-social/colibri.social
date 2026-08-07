@@ -144,6 +144,18 @@ export const MemberContextMenu: ParentComponent<{
 			]?.voice.volume ?? 1) * 100,
 		);
 
+	const participantScreenVolume = () =>
+		Math.round(
+			(preferences.preferences().voice.participantVolumeOverrides[
+				props.member.did
+			]?.screen.volume ?? 1) * 100,
+		);
+
+	const targetIsScreenSharing = () =>
+		Object.values(voiceData.videoStreams).some(
+			(tile) => tile.did === props.member.did && tile.source === "screen",
+		);
+
 	const [cameraPreviewOpen, setCameraPreviewOpen] = createSignal(false);
 	const [previewStream, setPreviewStream] = createSignal<MediaStream | null>(
 		null,
@@ -296,7 +308,7 @@ export const MemberContextMenu: ParentComponent<{
 							<Show
 								when={isMe()}
 								fallback={
-									<div class="px-3 py-2">
+									<div class="px-3 py-2 flex flex-col gap-3">
 										<Slider
 											value={[participantVolume()]}
 											minValue={0}
@@ -319,6 +331,30 @@ export const MemberContextMenu: ParentComponent<{
 												<SliderThumb />
 											</SliderTrack>
 										</Slider>
+										<Show when={targetIsScreenSharing()}>
+											<Slider
+												value={[participantScreenVolume()]}
+												minValue={0}
+												maxValue={200}
+												step={1}
+												getValueLabel={(p) => `${p.values[0]}%`}
+												onChange={(e) =>
+													preferences.setParticipantScreenVolume(
+														props.member.did,
+														e[0] / 100,
+													)
+												}
+											>
+												<SliderGroup>
+													<SliderLabel>Stream Volume</SliderLabel>
+													<SliderValueLabel />
+												</SliderGroup>
+												<SliderTrack>
+													<SliderFill />
+													<SliderThumb />
+												</SliderTrack>
+											</Slider>
+										</Show>
 									</div>
 								}
 							>
@@ -535,7 +571,7 @@ export const MemberContextMenu: ParentComponent<{
 								<Show
 									when={isMe()}
 									fallback={
-										<div class="px-2 py-1.5">
+										<div class="px-2 py-1.5 flex flex-col gap-3">
 											<Slider
 												value={[participantVolume()]}
 												minValue={0}
@@ -558,6 +594,30 @@ export const MemberContextMenu: ParentComponent<{
 													<SliderThumb />
 												</SliderTrack>
 											</Slider>
+											<Show when={targetIsScreenSharing()}>
+												<Slider
+													value={[participantScreenVolume()]}
+													minValue={0}
+													maxValue={200}
+													step={1}
+													getValueLabel={(p) => `${p.values[0]}%`}
+													onChange={(e) =>
+														preferences.setParticipantScreenVolume(
+															props.member.did,
+															e[0] / 100,
+														)
+													}
+												>
+													<SliderGroup>
+														<SliderLabel>Stream Volume</SliderLabel>
+														<SliderValueLabel />
+													</SliderGroup>
+													<SliderTrack>
+														<SliderFill />
+														<SliderThumb />
+													</SliderTrack>
+												</Slider>
+											</Show>
 										</div>
 									}
 								>

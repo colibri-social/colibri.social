@@ -329,7 +329,7 @@ export const MediaLightboxGallery: Component<{
 							onError={() => props.onImageError?.(0)}
 						/>
 						<a
-							class="absolute z-20 top-1 right-1 hidden aspect-square -translate-y-1/2 translate-x-1/2 items-center justify-center rounded-sm border border-border bg-card p-1 hover:bg-muted group-hover/image:flex"
+							class="absolute z-20 top-1 right-1 hidden aspect-square w-8 -translate-y-1/2 translate-x-1/2 items-center justify-center rounded-sm border border-border bg-card p-1 hover:bg-muted group-hover/image:flex"
 							href={props.images[0]?.url}
 							target="_blank"
 							rel="noreferrer"

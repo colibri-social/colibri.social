@@ -68,7 +68,6 @@ mod button_layout {
     }
 }
 
-
 #[derive(Debug, Clone, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TitlebarInfo {
@@ -176,10 +175,7 @@ pub async fn titlebar_clear_snap_rect(window: WebviewWindow) -> Result<(), Nativ
 }
 
 #[tauri::command]
-pub async fn titlebar_set_title(
-    window: WebviewWindow,
-    title: String,
-) -> Result<(), NativeError> {
+pub async fn titlebar_set_title(window: WebviewWindow, title: String) -> Result<(), NativeError> {
     #[cfg(target_os = "macos")]
     {
         macos::set_title(&window, title);

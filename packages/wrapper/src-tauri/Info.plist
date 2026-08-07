@@ -7,6 +7,8 @@
 	<string>Colibri uses your microphone for voice channels and calls.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>Colibri uses your camera for video in voice channels and calls.</string>
+	<key>NSScreenCaptureUsageDescription</key>
+	<string>Colibri captures the screen or app window you pick so you can share it in a voice channel.</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 </dict>

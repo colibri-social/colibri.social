@@ -32,6 +32,7 @@ type Platform = {
 	name: string;
 	tabIcon: "apple" | "android" | "windows" | "linux";
 	methods: Method[];
+	hidden?: boolean;
 };
 
 const platforms: Array<Platform> = [
@@ -141,6 +142,7 @@ const platforms: Array<Platform> = [
 		id: "linux",
 		name: "Linux",
 		tabIcon: "linux",
+		hidden: true,
 		methods: [
 			{
 				name: "AppImage",
@@ -164,6 +166,8 @@ const platforms: Array<Platform> = [
 	},
 ];
 
+const visiblePlatforms = platforms.filter((pf) => !pf.hidden);
+
 const tabIcons = {
 	apple: Apple,
 	android: Android,
@@ -182,7 +186,7 @@ const methodIcons = {
 
 <PublicLayout
 	title="Download Colibri"
-	description="Get the Colibri app for Android, iOS, macOS, Windows and Linux."
+	description="Get the Colibri app for Android, iOS, macOS and Windows."
 	image="/og.png"
 >
 	<section
@@ -216,7 +220,7 @@ const methodIcons = {
 					class="flex flex-wrap gap-1.5 p-1.5 rounded-xl bg-muted/40 border border-border"
 				>
 					{
-						platforms.map((pf) => {
+						visiblePlatforms.map((pf) => {
 							const TabIcon = tabIcons[pf.tabIcon];
 							return (
 								<button
@@ -238,7 +242,7 @@ const methodIcons = {
 
 			<div class="px-4 pb-6 sm:px-6">
 				{
-					platforms.map((pf) => (
+					visiblePlatforms.map((pf) => (
 						<div
 							id={`panel-${pf.id}`}
 							role="tabpanel"
@@ -407,7 +411,11 @@ const methodIcons = {
 			});
 		}
 
-		const detected = detect();
+		const available = new Set(
+			tabs.map((tab) => tab.dataset.tab).filter(Boolean),
+		);
+		const raw = detect();
+		const detected = available.has(raw) ? raw : "";
 		const initial = detected || tabs[0]?.dataset.tab || "android";
 		activate(initial);
 
