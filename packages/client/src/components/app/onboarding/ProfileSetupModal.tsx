@@ -304,7 +304,7 @@ export const ProfileSetupModal: Component<{
 					provider,
 				),
 			);
-			await auth?.client.revoke(user.did);
+			await auth?.client?.revoke(user.did);
 		} finally {
 			await endSession();
 		}

@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>Embed CSS isolation</title>
+		<style>
+			body {
+				margin: 0;
+				padding: 24px;
+				background: #fffdf7;
+				color: #2b2b2b;
+				font-family: Georgia, "Times New Roman", serif;
+				font-size: 16px;
+				line-height: 1.5;
+			}
+			.host h1 {
+				font-size: 22px;
+				font-weight: 400;
+				margin: 0 0 8px;
+				color: #7a5c00;
+			}
+			.host p {
+				margin: 0 0 8px;
+			}
+			.host a {
+				color: #0645ad;
+			}
+			.host ul {
+				margin: 0 0 8px;
+				padding-left: 20px;
+			}
+			.host blockquote {
+				margin: 0 0 8px;
+				padding-left: 10px;
+				border-left: 3px solid #d8c98a;
+				font-style: italic;
+			}
+			.host hr {
+				border: 0;
+				border-top: 1px solid #e4dcc0;
+				margin: 12px 0;
+			}
+			.frame {
+				margin-top: 16px;
+				border: 1px dashed #c9bd90;
+				padding: 12px;
+			}
+			.frame > p {
+				font-family: ui-monospace, monospace;
+				font-size: 11px;
+				margin: 0 0 8px;
+				color: #7a6a3a;
+			}
+		</style>
+	</head>
+	<body>
+		<div class="host">
+			<h1>Host heading</h1>
+			<p>
+				Host paragraph with <a href="https://example.com">a host link</a> in it. This text, its
+				spacing, the serif face, the cream background and the link colour all
+				belong to the host page.
+			</p>
+			<ul>
+				<li>Host list item one</li>
+				<li>Host list item two</li>
+			</ul>
+			<blockquote>Host blockquote.</blockquote>
+			<hr />
+			<p>
+				If any of the above changed, <code>embed.css</code> is leaking and the
+				scoping regressed.
+			</p>
+		</div>
+
+		<div class="frame">
+			<p>&lt;div class="colibri-embed dark"&gt;</p>
+			<div class="colibri-embed dark" data-theme="dark">
+				<h1>Embed heading</h1>
+				<p>
+					Embed paragraph with <a href="https://example.com">an embed link</a>. These are the same
+					tags as above, styled by the embed because they sit inside the scope.
+				</p>
+				<ul>
+					<li>Embed list item one</li>
+					<li>Embed list item two</li>
+				</ul>
+				<blockquote>Embed blockquote.</blockquote>
+				<hr />
+				<p class="text-sm text-muted-foreground">
+					A utility class resolving a scoped token.
+				</p>
+				<div class="bg-primary text-primary-foreground rounded-lg p-2 inline-block">
+					bg-primary
+				</div>
+
+				<hr />
+
+				<p class="text-sm text-muted-foreground">
+					Radius, driven by the public tokens. Base moves every step; the
+					per-step buttons pin one without touching the rest.
+				</p>
+				<div id="radius-controls" class="flex flex-wrap gap-2">
+					<button type="button" data-radius="0px">base 0</button>
+					<button type="button" data-radius="0.625rem">base default</button>
+					<button type="button" data-radius="1.75rem">base pill</button>
+					<button type="button" data-radius-md="0px">pin md square</button>
+					<button type="button" data-reset="1">reset</button>
+				</div>
+				<div class="flex flex-wrap items-end gap-3">
+					<div class="flex flex-col items-center gap-1">
+						<div class="size-12 bg-primary rounded-sm"></div>
+						<code class="text-xs">sm</code>
+					</div>
+					<div class="flex flex-col items-center gap-1">
+						<div class="size-12 bg-primary rounded-md"></div>
+						<code class="text-xs">md</code>
+					</div>
+					<div class="flex flex-col items-center gap-1">
+						<div class="size-12 bg-primary rounded-lg"></div>
+						<code class="text-xs">lg</code>
+					</div>
+					<div class="flex flex-col items-center gap-1">
+						<div class="size-12 bg-primary rounded-xl"></div>
+						<code class="text-xs">xl</code>
+					</div>
+					<div class="flex flex-col items-center gap-1">
+						<div class="size-12 bg-primary rounded-full"></div>
+						<code class="text-xs">full</code>
+					</div>
+				</div>
+			</div>
+		</div>
+
+		<script src="/embed-isolation.tsx" type="module"></script>
+	</body>
+</html>

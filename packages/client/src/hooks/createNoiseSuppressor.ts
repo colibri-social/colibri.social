@@ -1,22 +1,29 @@
-import {
-	loadRnnoise,
-	RnnoiseWorkletNode,
-} from "@sapphi-red/web-noise-suppressor";
-import rnnoiseWasmPath from "@sapphi-red/web-noise-suppressor/rnnoise.wasm?url";
-import rnnoiseWasmSimdPath from "@sapphi-red/web-noise-suppressor/rnnoise_simd.wasm?url";
-import rnnoiseWorkletPath from "@sapphi-red/web-noise-suppressor/rnnoiseWorklet.js?url";
+import { RnnoiseWorkletNode } from "@sapphi-red/web-noise-suppressor";
 import {
 	DeepFilterNet3Core,
 	getAssetLoader,
 } from "deepfilternet3-noise-filter";
 import type { NoiseSuppressionMode } from "../contexts/UserPreferences";
+import { embedNoiseAssetBase } from "../embed/runtime";
 import { createLogger } from "../utils/logger";
 
 const log = createLogger("noise");
 
-const DFN_ASSET_BASE = "/noise/deepfilternet3";
+const DFN_DEFAULT_ASSET_BASE = "/noise/deepfilternet3";
 const DFN_SAMPLE_RATE = 48000;
 const DFN_DEFAULT_LEVEL = 80;
+
+function dfnAssetBase(): string {
+	const base = embedNoiseAssetBase() ?? DFN_DEFAULT_ASSET_BASE;
+	return base.endsWith("/") ? base.slice(0, -1) : base;
+}
+
+function decodeBase64(value: string): ArrayBuffer {
+	const binary = atob(value);
+	const bytes = new Uint8Array(binary.length);
+	for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+	return bytes.buffer;
+}
 
 const clampLevel = (level: number): number =>
 	Math.max(0, Math.min(100, Math.round(level)));
@@ -66,7 +73,7 @@ export interface NoiseSuppressorOptions {
 export function preloadNoiseSuppressor(): void {
 	try {
 		const { wasm, model } = getAssetLoader({
-			cdnUrl: DFN_ASSET_BASE,
+			cdnUrl: dfnAssetBase(),
 		}).getAssetUrls();
 		void fetch(wasm).catch(() => {});
 		void fetch(model).catch(() => {});
@@ -92,7 +99,7 @@ export function deviceLikelyTooWeakForDfn(): boolean {
  * fallback (index.html, HTTP 200)
  */
 async function assertDfnModelReachable(): Promise<void> {
-	const { model } = getAssetLoader({ cdnUrl: DFN_ASSET_BASE }).getAssetUrls();
+	const { model } = getAssetLoader({ cdnUrl: dfnAssetBase() }).getAssetUrls();
 	const res = await fetch(model, { headers: { Range: "bytes=0-1" } });
 	const bytes = new Uint8Array(await res.arrayBuffer());
 	if (!res.ok || bytes[0] !== 0x1f || bytes[1] !== 0x8b) {
@@ -172,13 +179,20 @@ export async function createNoiseSuppressor(
 
 	const buildRnnoiseNode = (): Promise<AudioWorkletNode> => {
 		rnnoisePromise ??= (async () => {
-			if (!rnnoiseWasm) {
-				rnnoiseWasm = await loadRnnoise({
-					url: rnnoiseWasmPath,
-					simdUrl: rnnoiseWasmSimdPath,
-				});
+			const { RNNOISE_WASM_B64, RNNOISE_WORKLET_SRC } = await import(
+				"./rnnoise-assets.generated"
+			);
+			rnnoiseWasm ??= decodeBase64(RNNOISE_WASM_B64);
+
+			const workletUrl = URL.createObjectURL(
+				new Blob([RNNOISE_WORKLET_SRC], { type: "application/javascript" }),
+			);
+			try {
+				await ctx.audioWorklet.addModule(workletUrl);
+			} finally {
+				URL.revokeObjectURL(workletUrl);
 			}
-			await ctx.audioWorklet.addModule(rnnoiseWorkletPath);
+
 			rnnoiseNode = new RnnoiseWorkletNode(ctx, {
 				wasmBinary: rnnoiseWasm,
 				maxChannels: 2,
@@ -197,7 +211,7 @@ export async function createNoiseSuppressor(
 			const core = new DeepFilterNet3Core({
 				sampleRate: DFN_SAMPLE_RATE,
 				noiseReductionLevel: currentLevel,
-				assetConfig: { cdnUrl: DFN_ASSET_BASE },
+				assetConfig: { cdnUrl: dfnAssetBase() },
 			});
 			await core.initialize();
 			dfnNode = await core.createAudioWorkletNode(ctx);

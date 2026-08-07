@@ -1,6 +1,7 @@
 import type { SandboxCategory, SandboxItem } from "../types";
 import { APP } from "./app";
 import { BASICS } from "./basics";
+import { EMBED } from "./embed";
 import { ERRORS } from "./errors";
 import { FORMS } from "./forms";
 import { ICONS } from "./icons";
@@ -15,6 +16,7 @@ export const CATEGORIES: Array<SandboxCategory> = [
 	LOADER,
 	ERRORS,
 	APP,
+	EMBED,
 ];
 
 export const DEFAULT_ITEM = CATEGORIES[0].items[0];

@@ -1,0 +1,143 @@
+---
+title: "Embed API reference"
+description: "Every option, method, event and theme token the embed exposes."
+sidebar:
+  order: 2
+---
+
+Everything here is exported from `@colibri-social/client/embed`. See [Embedding a community](/docs/embedding/overview) for the guide.
+
+## mountColibri
+
+```ts
+const handle: EmbedHandle = mountColibri(target: HTMLElement, config: ColibriEmbedConfig);
+```
+
+Creates the embed's own root element inside `target` and renders into it. Throws a `ColibriError` with code `EmbedConfigInvalid` when `agent` is missing or not signed in, or when `community` is not a community identifier, and `EmbedUnsupported` when `colorScheme` is anything but `"dark"`.
+
+## ColibriEmbedConfig
+
+| Option | Type | Notes |
+| --- | --- | --- |
+| `agent` | `Agent` | **Required.** A signed-in `@atproto/api` Agent, created on your origin. The embed never signs users in. |
+| `community` | `string` | **Required.** An `at://` community URI |
+| `channel` | `string` | Channel rkey to open first. Without it the embed opens the first channel in the list. |
+| `appViewUrl` | `string` | Point at a self-hosted AppView. Your client metadata's `aud=` values must match it. |
+| `noiseAssetBase` | `string` | Root the DeepFilterNet assets are served from, defaulting to `/noise/deepfilternet3`. See [voice noise suppression](#voice-noise-suppression). |
+| `scope` | `string` | The space-delimited scope your session was granted. Only needed if your session manager does not expose `getTokenInfo`, which is where the embed reads it from otherwise. |
+| `colorScheme` | `"dark"` | Reserved. Only `"dark"` is accepted today; anything else throws. |
+| `theme` | `Partial<EmbedThemeTokens>` | Token overrides, applied as inline custom properties on the embed root. |
+| `brand` | `string` | One colour, expanded into the primary and ring tokens with a contrast-safe foreground. |
+| `onEvent` | `(event: EmbedEvent) => void` | Observe reads, writes and realtime events. |
+| `storagePrefix` | `string` | Namespace for `localStorage` keys. Defaults to `colibri:embed:<community rkey>:`. |
+| `sentry` | `false \| InitSentryOptions` | Off unless set, so the embed neither swallows your page's errors nor sends your users' breadcrumbs to us. |
+
+## EmbedHandle
+
+| Member | Type | Notes |
+| --- | --- | --- |
+| `unmount()` | `() => void` | Disposes the app, removes the root element and releases the storage namespace. Safe to call twice. |
+| `navigate(target)` | `({ channel: string }) => void` | Moves to a channel by rkey. A no-op with a warning if called before the first render. |
+| `setTheme(theme)` | `(theme: Partial<EmbedThemeTokens>) => void` | Rewrites tokens in place, no remount. |
+| `on(listener)` | `(listener) => () => void` | Adds an event listener, returns an unsubscribe function. |
+
+## Events
+
+Every event carries `version: 1` alongside the fields below, and is discriminated by `kind`. Listener errors are caught and logged, never rethrown into the embed.
+
+Writes have two moments in this client, because a write that cannot reach the AppView is queued and replayed later. A deferred write reports the failed attempt as its own `appview.call`, then a second `appview.call` with `queued: true`. The eventual replay shows up as a normal `record.*` event.
+
+| `kind` | Payload | Emitted when |
+| --- | --- | --- |
+| `record.created` | `repo`, `collection`, `rkey`, `uri` | A record is written to the user's PDS. |
+| `record.updated` | `repo`, `collection`, `rkey`, `uri` | A record is replaced. |
+| `record.deleted` | `repo`, `collection`, `rkey`, `uri` | A record is deleted. |
+| `blob.uploaded` | `mimeType`, `size` | A blob upload succeeds. |
+| `appview.call` | `lxm`, `method`, `status`, `durationMs`, `queued` | Any AppView request settles. `status` is `0` when the request never got a response. |
+| `realtime` | `event: EmbedRealtimeEvent` | An event arrives over the AppView socket. |
+| `navigation` | `community`, `channel?` | The embed moves between channels. |
+| `membership.changed` | `state: "member" \| "applied" \| "none"` | The user joins, or applies to, the community from the embed. |
+| `scopes.missing` | `missing: string[]` | The session lacks permission sets. Fix your client metadata. |
+| `auth.expired` | none | The session stopped working. Re-authenticate and remount. |
+| `error` | `code: string` | Something went wrong that the host may want to know about, e.g. `EmbedLowContrastBrand`. |
+
+### EmbedRealtimeEvent
+
+```ts
+type EmbedRealtimeEvent = {
+  type: EmbedRealtimeEventType;
+  data?: unknown;
+};
+```
+
+`type` is one of `ack`, `community_event`, `member_event`, `application_event`, `category_event`, `channel_event`, `role_event`, `message_event`, `reaction_event`, `user_event`, `typing_event`, `voice_presence_event`, `voice_state_event`, `notification_event`, `seen_event`, `mute_event`, `community_creation_progress`.
+
+`data` is deliberately `unknown`. Its shape follows the AppView's internal event union, which changes with the AppView, so it is not something an embed should be pinned to. Narrow it yourself if you need to, knowing that is your risk.
+
+## Theme tokens
+
+Set these as `--colibri-embed-<token>` in CSS, or by name through `config.theme` and `handle.setTheme`. The runtime list is exported as `EMBED_THEME_TOKENS`.
+
+**Colour:** `background`, `foreground`, `card`, `card-foreground`, `popover`, `popover-foreground`, `primary`, `primary-foreground`, `primary-hover`, `secondary`, `secondary-foreground`, `muted`, `muted-foreground`, `accent`, `accent-foreground`, `destructive`, `border`, `input`, `ring`, `sidebar`, `sidebar-foreground`, `sidebar-primary`, `sidebar-primary-foreground`, `sidebar-accent`, `sidebar-accent-foreground`, `sidebar-border`, `sidebar-ring`.
+
+**Radius:** `radius`, `radius-sm`, `radius-md`, `radius-lg`, `radius-xl`, `radius-2xl`, `radius-3xl`, `radius-4xl`.
+
+**Type:** `font-sans`.
+
+Colour tokens take any CSS colour. Radius tokens take a length. `font-sans` takes a font stack.
+
+### Radius
+
+`radius` is the base, and every step derives from it, so setting it alone moves the whole scale:
+
+| Token | Default |
+| --- | --- |
+| `radius-sm` | `radius - 4px` |
+| `radius-md` | `radius - 2px` |
+| `radius-lg` | `radius` |
+| `radius-xl` | `radius + 4px` |
+| `radius-2xl` | `radius + 8px` |
+| `radius-3xl` | `radius + 12px` |
+| `radius-4xl` | `radius + 16px` |
+
+Set a step directly to pin it without disturbing the others, for example squaring off inputs while leaving cards rounded:
+
+```ts
+handle.setTheme({ radius: "1rem", "radius-md": "0px" });
+```
+
+Anything circular by design stays circular: avatars, presence dots and the pill badges use `rounded-full`, which is not part of this scale.
+
+`config.brand` is shorthand that sets `primary`, `primary-hover`, `primary-foreground`, `ring`, `sidebar-primary` and `sidebar-primary-foreground` from one colour. Anything you pass in `theme` is applied after it, so you can use `brand` and override one derived token.
+
+## Voice noise suppression
+
+Voice channels suppress background noise in two tiers, and the embed picks between them at runtime.
+
+**RNNoise** is the baseline and needs nothing from you. Its WebAssembly build and audio worklet are compiled into the package and loaded from a chunk the bundler splits out for you, so they are fetched only once someone actually joins a voice channel. There are no files to host and no bundler configuration.
+
+**DeepFilterNet** is the higher-quality tier and is the default preference. It needs roughly 24 MB of assets that the package does not carry, so it is the one thing here you have to host. Serve them under a root of your choosing and pass that root as `noiseAssetBase`:
+
+```
+<noiseAssetBase>/v3/pkg/df_bg.wasm
+<noiseAssetBase>/v3/models/DeepFilterNet3_onnx.tar.gz
+```
+
+Serve the `.tar.gz` verbatim. It is already gzipped, so a server that re-encodes it or sets `Content-Encoding` on the way out will hand the decoder something it cannot read.
+
+If the assets are missing or malformed the embed logs a warning, falls back to RNNoise and carries on, so leaving `noiseAssetBase` unset is a supported configuration rather than a broken one.
+
+## What is stable
+
+- **`--colibri-embed-*` names are frozen.** The private tokens they feed are not, and will be renamed without warning.
+- **`EmbedEvent` is versioned.** New `kind`s and new fields may be added under `version: 1`. Anything that changes the meaning of an existing field gets a new version.
+- **`EmbedRealtimeEvent["data"]` is not stable** and is typed `unknown` to say so.
+- **`colorScheme` exists so light mode can arrive without a breaking change.** It is not a promise that it will.
+
+## Caveats
+
+- The embed is dark only.
+- Embedding is trust-based: nothing yet restricts which sites may embed a community.
+- The storage namespace is process-wide, so two embeds of different communities on one page share user preferences. The first to mount sets the namespace and the second logs a warning.
+- Voice and video are included, which means the bundle is about the size of the full app.
+- `embed.css` emits one global rule: Tailwind's `@property` fallback block, which initialises `--tw-*` variables on all elements in browsers without `@property` support. It sets no visual styles.

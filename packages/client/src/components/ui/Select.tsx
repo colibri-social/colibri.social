@@ -4,8 +4,9 @@ import { mergeProps, splitProps } from "solid-js";
 
 import { cx } from "../../utils/cva";
 import { useOverflowPadding } from "../../utils/safe-area";
+import { withEmbedPortal } from "./portal";
 
-export const SelectPortal = SelectPrimitive.Portal;
+export const SelectPortal = withEmbedPortal(SelectPrimitive.Portal);
 export const HiddenSelect = SelectPrimitive.HiddenSelect;
 
 export type SelectProps<

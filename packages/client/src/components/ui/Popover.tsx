@@ -8,8 +8,9 @@ import {
 
 import { cx } from "../../utils/cva";
 import { useOverflowPadding } from "../../utils/safe-area";
+import { withEmbedPortal } from "./portal";
 
-export const PopoverPortal = PopoverPrimitive.Portal;
+export const PopoverPortal = withEmbedPortal(PopoverPrimitive.Portal);
 
 export type PopoverProps = ComponentProps<typeof PopoverPrimitive>;
 

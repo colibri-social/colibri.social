@@ -1,6 +1,7 @@
 import { createSignal, type ParentComponent, Show } from "solid-js";
 import { Portal } from "solid-js/web";
 import XIcon from "~icons/ph/x";
+import { usePortalMount } from "../../../embed/context";
 import { Button } from "../../ui/Button";
 
 export const Lightbox: ParentComponent<{
@@ -8,13 +9,14 @@ export const Lightbox: ParentComponent<{
 	class?: string;
 }> = (props) => {
 	const [open, setOpen] = createSignal(false);
+	const portalMount = usePortalMount();
 	return (
 		<>
 			<div class={props.class} onClick={() => setOpen(true)}>
 				{props.children}
 			</div>
 			<Show when={open()}>
-				<Portal>
+				<Portal mount={portalMount}>
 					<div
 						class="fixed inset-0 z-50 bg-background/95 flex items-center justify-center p-8"
 						id="lightbox"

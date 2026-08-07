@@ -1,12 +1,13 @@
-import { useColorMode } from "@kobalte/core/color-mode";
+import { ColorModeContext } from "@kobalte/core/color-mode";
+import { useContext } from "solid-js";
 import { Toaster as Sonner } from "somoto";
 
 export const Toaster = (props: Parameters<typeof Sonner>[0]) => {
-	const { colorMode } = useColorMode();
+	const colorMode = useContext(ColorModeContext)?.colorMode;
 
 	return (
 		<Sonner
-			theme={colorMode()}
+			theme={colorMode?.() ?? "dark"}
 			icons={{
 				success: (
 					<svg

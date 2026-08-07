@@ -2,6 +2,7 @@ import { createMemo, type ParentComponent, Show } from "solid-js";
 import { getMissingScopeSets } from "../../../atproto/scopes";
 import { useAuthContext } from "../../../contexts/Auth";
 import { createLogger } from "../../../utils/logger";
+import { EmbedScopeNotice } from "./EmbedScopeNotice";
 import { ScopeRefreshModal } from "./ScopeRefreshModal";
 import { SCOPE_REAUTH_FLAG } from "./scope-reauth";
 
@@ -33,11 +34,18 @@ export const ScopeGate: ParentComponent = (props) => {
 
 	return (
 		<Show when={needsReauth()} fallback={props.children}>
-			<ScopeRefreshModal
-				client={auth.client}
-				did={auth.agent.did!}
-				missing={missing()}
-			/>
+			<Show
+				when={auth.client}
+				fallback={<EmbedScopeNotice missing={missing()} />}
+			>
+				{(client) => (
+					<ScopeRefreshModal
+						client={client()}
+						did={auth.agent.did!}
+						missing={missing()}
+					/>
+				)}
+			</Show>
 		</Show>
 	);
 };

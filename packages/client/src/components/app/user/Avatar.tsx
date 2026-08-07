@@ -1,6 +1,7 @@
 import type { ActorData } from "@colibri-social/lib";
 import { Show } from "solid-js";
 import { resolveBlob } from "../../../atproto/resolve-blob";
+import { cx } from "../../../utils/cva";
 
 const FALLBACK_AVATAR = "/user-placeholder.png";
 
@@ -17,10 +18,14 @@ export function Avatar(props: {
 	 * onboarding) where the actor has no stored blob ref yet.
 	 */
 	overrideSrc?: string;
+	class?: string;
 }) {
 	return (
 		<div
-			class={`relative flex shrink-0 ${props.size === "small" ? "w-6 h-6" : props.size === "large" ? "w-20 h-20" : "w-10 h-10"}`}
+			class={cx(
+				`relative flex shrink-0 ${props.size === "small" ? "w-6 h-6" : props.size === "large" ? "w-20 h-20" : "w-10 h-10"}`,
+				props.class,
+			)}
 		>
 			<img
 				src={

@@ -9,6 +9,7 @@ import {
 	Show,
 } from "solid-js";
 import { Portal } from "solid-js/web";
+import { usePortalMount } from "../../../../embed/context";
 import "vidstack/player";
 import "vidstack/player/ui";
 
@@ -246,6 +247,7 @@ export const MediaLightboxGallery: Component<{
 	const sizeClass = () => props.sizeClass ?? "max-w-104";
 	const count = () => props.images.length;
 	const [openIndex, setOpenIndex] = createSignal<number | null>(null);
+	const portalMount = usePortalMount();
 	let lightboxRef: HTMLDivElement | undefined;
 
 	// Open the lightbox and push a history entry so the browser/Android back
@@ -361,7 +363,7 @@ export const MediaLightboxGallery: Component<{
 			</Show>
 
 			<Show when={openIndex() !== null}>
-				<Portal>
+				<Portal mount={portalMount}>
 					<div
 						id="lightbox"
 						ref={(el) => {

@@ -23,6 +23,7 @@ import {
 import { useActorCache } from "../../contexts/ActorCache";
 import { useUserContext } from "../../contexts/User";
 import { ConnectionState, useVoiceChatContext } from "../../contexts/VoiceChat";
+import { usePortalMount } from "../../embed/context";
 import { useIsMobile } from "../../utils/mobile-pane";
 import { readSafeAreaInsets } from "../../utils/safe-area";
 import { titleBarHeightPx } from "../../utils/titlebar";
@@ -362,9 +363,11 @@ export const VoiceOverlay: Component = () => {
 		return "bottom-0 right-0 cursor-nwse-resize";
 	};
 
+	const portalMount = usePortalMount();
+
 	return (
 		<Show when={visible()}>
-			<Portal>
+			<Portal mount={portalMount}>
 				<div
 					ref={boxRef}
 					class="group/ov fixed z-50 overflow-hidden rounded-lg border border-border bg-background shadow-black shadow-lg select-none cursor-pointer"

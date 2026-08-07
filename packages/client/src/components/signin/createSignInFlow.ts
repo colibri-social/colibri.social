@@ -282,7 +282,8 @@ export const createSignInFlow = (config: { mode?: SignInMode } = {}) => {
 	};
 
 	const openProvider = async () => {
-		if (busy() || !auth) return;
+		if (busy() || !auth?.client) return;
+		const oauth = auth.client;
 
 		const signingUp = mode() === "signup";
 		const picked = provider();
@@ -298,7 +299,7 @@ export const createSignInFlow = (config: { mode?: SignInMode } = {}) => {
 
 		try {
 			await startOAuthSignIn(
-				auth.client,
+				oauth,
 				signingUp && picked ? `https://${picked.host}` : (account?.did ?? ""),
 				{
 					scope: buildScopes(getAppViewDid()).join(" "),

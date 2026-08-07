@@ -23,7 +23,7 @@
 		"ci:version": "node --experimental-strip-types scripts/collect-release-notes.ts collect && changeset version && node --experimental-strip-types scripts/collect-release-notes.ts finalize && pnpm install --lockfile-only --no-frozen-lockfile"
 	},
 	"devDependencies": {
-		"@biomejs/biome": "2.5.2",
+		"@biomejs/biome": "2.5.7",
 		"@changesets/cli": "^2.31.0",
 		"@clack/prompts": "^1.7.0",
 		"@resvg/resvg-js": "^2.6.2",

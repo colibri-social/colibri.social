@@ -4,8 +4,9 @@ import { mergeProps, splitProps } from "solid-js";
 
 import { cx } from "../../utils/cva";
 import { useOverflowPadding } from "../../utils/safe-area";
+import { withEmbedPortal } from "./portal";
 
-export const DropdownMenuPortal = DropdownMenuPrimitive.Portal;
+export const DropdownMenuPortal = withEmbedPortal(DropdownMenuPrimitive.Portal);
 
 export type DropdownMenuProps = ComponentProps<typeof DropdownMenuPrimitive>;
 

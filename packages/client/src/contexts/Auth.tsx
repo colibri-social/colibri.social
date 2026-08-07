@@ -1,3 +1,4 @@
+import type { Agent } from "@atproto/api";
 import {
 	createContext,
 	createEffect,
@@ -7,11 +8,12 @@ import {
 	Switch,
 	useContext,
 } from "solid-js";
-import { type Client, getClient } from "../atproto/auth";
+import { type Client, createEmbeddedClient, getClient } from "../atproto/auth";
 import { primeFromLocation } from "../atproto/channel-prefetch";
 import { XrpcClient } from "../atproto/xrpc";
 import { AppLoadingScreen } from "../components/AppLoadingScreen";
 import { AppViewUnreachableModal } from "../components/app/AppViewUnreachableModal";
+import { isEmbedded } from "../embed/runtime";
 import {
 	getAppViewHost,
 	getAppViewServiceRef,
@@ -22,8 +24,15 @@ import { markBoot } from "../utils/perf";
 
 export const AuthContext = createContext<Client>(undefined);
 
-export const AuthContextProvider: ParentComponent = (props) => {
-	const [client] = createResource(getClient);
+export const AuthContextProvider: ParentComponent<{
+	agent?: Agent;
+	scope?: string;
+}> = (props) => {
+	const [client] = createResource(() =>
+		props.agent
+			? Promise.resolve(createEmbeddedClient(props.agent, props.scope))
+			: getClient(),
+	);
 
 	createEffect(() => {
 		if (!client.loading) markBoot("auth:ready");
@@ -32,6 +41,7 @@ export const AuthContextProvider: ParentComponent = (props) => {
 	createEffect(() => {
 		const resolved = client();
 		if (!resolved?.loggedIn) return;
+		if (isEmbedded()) return;
 		primeFromLocation(new XrpcClient(getAppViewServiceRef(), resolved.agent));
 	});
 

@@ -1,3 +1,5 @@
+import { embedAppViewUrl, embedStorageKey } from "../embed/runtime";
+
 const STORAGE_KEY = "colibri:user-preferences";
 
 /**
@@ -21,8 +23,11 @@ export const getAppViewHost = (protocol: "ws" | "http") => {
  * called during auth bootstrap, before any context is mounted.
  */
 export const getPreferredAppViewUrl = (): string => {
+	const embedded = embedAppViewUrl();
+	if (embedded) return embedded;
+
 	try {
-		const raw = localStorage.getItem(STORAGE_KEY);
+		const raw = localStorage.getItem(embedStorageKey(STORAGE_KEY));
 		if (!raw) return DEFAULT_APPVIEW_URL;
 		const stored = (JSON.parse(raw) as { preferredAppView?: string })
 			.preferredAppView;
