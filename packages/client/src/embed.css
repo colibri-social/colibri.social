@@ -1,5 +1,7 @@
+@layer theme, base, components, utilities;
+
 @import "tailwindcss/theme" theme(reference);
-@import "tailwindcss/utilities";
+@import "tailwindcss/utilities" layer(utilities);
 @import "tw-animate-css";
 @import "@colibri-social/assets/fonts.css";
 @import "@arborium/arborium/themes/base.css";
