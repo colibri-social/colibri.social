@@ -1,5 +1,67 @@
 # @colibri-social/client
 
+## 0.1.0-rc.15
+
+### Minor Changes
+
+- 9dc8d8f: Add screen share quality settings and screen audio
+
+  Screen sharing now has a pre-share dialog for picking resolution (720p, 1080p, 1440p or source) and frame rate (15, 30 or 60), plus a dropdown next to the share button for changing quality while already streaming. Streams can now carry sound from the captured tab or screen where the browser engine supports it, with its own per-participant volume slider separate from the person's voice. Quality choices map to capture constraints, a content hint, a bitrate ceiling and a degradation preference, so a low frame rate now favours a sharp picture.
+
+  On Windows and MacOS, the app also displays a proper Application/Window/Screen picker.
+
+  <!-- whatsnew
+  title: Screen Share Improvements
+  icon: monitor-play-fill
+  body: The Windows and MacOS apps have gained an app/window/screen picker, plus you're able to share stream audio and change the stream's quality on any device.
+  kind: feature
+  -->
+
+- 9fe5418: Adds self-service account deletion
+
+  <!-- whatsnew
+  title: Data Deletion
+  icon: trash-fill
+  body: Adds an in-app data deletion option in the settings.
+  kind: feature
+  -->
+
+### Patch Changes
+
+- 66c6c75: Rework channel message scrolling around a single anchor controller
+
+  <!-- whatsnew
+  title: Smoother Older Message Loading
+  icon: arrow-line-up-fill
+  body: Scrolling up to load older messages in a channel no longer jumps your view around, and late-loading images no longer shift what you are reading.
+  kind: fix
+  -->
+
+- 9aaad31: Classifies wrapped network failures correctly and only shows a reference for reports that reached us
+- b1536c7: Signs in inside the app on iOS. The authorization page now opens in a native web authentication sheet, the same one macOS already used, instead of switching over to Safari and waiting for a deep link to come back. If the sheet cannot be presented, the old browser handoff still takes over.
+- b1536c7: Lifts the sign-in pane above the on-screen keyboard on tablets. The two-pane layout centred its form in the full window height, so in landscape the keyboard covered the handle input while it was being typed into. The pane now centres in the space the keyboard leaves, following the same spring the keyboard animates with.
+- df806af: Show the channel loading states ("Loading messages", "Loading older messages", "Catching up") as a floating pill over the message list instead of an in-flow line at the top, so the conversation no longer shifts when they appear or disappear. The pill is now shared with the reconnecting indicator.
+- fe04ee1: Fixes phantom ping badges. Opening a channel that only had unread messages turned the white unread dot into a red ping badge, and marking the channel as read could not clear it. The client now only applies ping arithmetic to mention and reply notifications instead of every unseen message, and never increments a count it did not decrement. Marking a channel, category, or community as read also resyncs the badge from the server, so a stale count can always be cleared without reloading. The "message that caused this ping has been deleted" banner no longer appears for ordinary unread messages.
+
+  <!-- whatsnew
+  title: Ping Badge Fixes
+  icon: bell-ringing-fill
+  body: Channels no longer show a red ping badge for ordinary unread messages, and marking a channel as read reliably clears it.
+  kind: fix
+  -->
+
+- ddfd10c: Fixes badge labels issuing one request per user. Every rendered name used to hit the labeler separately, so opening a large member list or a role mention popover fired dozens of requests at once. Names rendered without a badge no longer request one at all, the rest are coalesced into a single batched query, and a failed lookup no longer hides badges for fifteen minutes.
+
+  <!-- whatsnew
+  title: Faster member lists
+  icon: lightning-fill
+  body: Member lists and role popovers no longer stall while badges load.
+  kind: fix
+  -->
+
+- 5383a82: Right-clicking or long-pressing a message author's avatar or name now opens the member menu instead of the message menu. The member menu hides role assignment and kick/ban for authors who are no longer part of the community, and message rows now highlight on desktop while their own menu is open, matching mobile.
+- 0f3daca: Fixes the "Jump to latest" button in channels staying visible after being clicked
+
 ## 0.1.0-rc.14
 
 ### Minor Changes

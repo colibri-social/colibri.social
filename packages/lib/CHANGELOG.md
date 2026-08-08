@@ -1,5 +1,18 @@
 # @colibri-social/lib
 
+## 0.1.0-rc.6
+
+### Patch Changes
+
+- 66c6c75: Rework channel message scrolling around a single anchor controller
+
+  <!-- whatsnew
+  title: Smoother Older Message Loading
+  icon: arrow-line-up-fill
+  body: Scrolling up to load older messages in a channel no longer jumps your view around, and late-loading images no longer shift what you are reading.
+  kind: fix
+  -->
+
 ## 0.1.0-rc.5
 
 ### Patch Changes

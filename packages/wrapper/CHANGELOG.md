@@ -1,5 +1,30 @@
 # @colibri-social/wrapper
 
+## 0.1.0-rc.15
+
+### Patch Changes
+
+- 9aaad31: Classifies wrapped network failures correctly and only shows a reference for reports that reached us
+- b1536c7: Signs in inside the app on iOS. The authorization page now opens in a native web authentication sheet, the same one macOS already used, instead of switching over to Safari and waiting for a deep link to come back. If the sheet cannot be presented, the old browser handoff still takes over.
+- 2b3a886: Ships the macOS icon asset catalog as a prebuilt `Assets.car` instead of compiling it during the bundle step.
+
+  `actool` exits non-zero on the GitHub macOS runners when the bundler compiles the Icon Composer source, which broke both macOS legs of the release (the notarized desktop build and the App Store package) even though the identical command succeeds locally on the same Xcode 26.6. Tauri accepts an already compiled `.car` in `bundle.icon` and copies it straight into the app bundle, so `icons/Assets.car` is committed next to `Colibri.icon` and the bundler never runs `actool` again.
+
+  `pnpm --filter @colibri-social/wrapper assets-car` regenerates the catalog, and `pnpm --filter @colibri-social/wrapper icon` now does it as part of the icon pipeline. The hash of the Icon Composer source is recorded in `icons/Assets.car.sha256` and verified in CI, so changing `Colibri.icon` without regenerating the catalog fails the build instead of quietly shipping the previous icon.
+
+- Updated dependencies [66c6c75]
+- Updated dependencies [9dc8d8f]
+- Updated dependencies [9aaad31]
+- Updated dependencies [b1536c7]
+- Updated dependencies [b1536c7]
+- Updated dependencies [df806af]
+- Updated dependencies [fe04ee1]
+- Updated dependencies [ddfd10c]
+- Updated dependencies [5383a82]
+- Updated dependencies [9fe5418]
+- Updated dependencies [0f3daca]
+  - @colibri-social/client@0.1.0-rc.15
+
 ## 0.1.0-rc.14
 
 ### Patch Changes

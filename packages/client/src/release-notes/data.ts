@@ -9,6 +9,42 @@ export type ClientReleaseNote = Omit<ReleaseNote, "entries"> & {
 
 export const RELEASE_NOTES: Array<ClientReleaseNote> = [
 	{
+		version: "0.1.0-rc.15",
+		date: "2026-08-08",
+		entries: [
+			{
+				title: "Screen Share Improvements",
+				body: "The Windows and MacOS apps have gained an app/window/screen picker, plus you're able to share stream audio and change the stream's quality on any device.",
+				icon: "monitor-play-fill",
+				kind: "feature",
+			},
+			{
+				title: "Data Deletion",
+				body: "Adds an in-app data deletion option in the settings.",
+				icon: "trash-fill",
+				kind: "feature",
+			},
+			{
+				title: "Smoother Older Message Loading",
+				body: "Scrolling up to load older messages in a channel no longer jumps your view around, and late-loading images no longer shift what you are reading.",
+				icon: "arrow-line-up-fill",
+				kind: "fix",
+			},
+			{
+				title: "Ping Badge Fixes",
+				body: "Channels no longer show a red ping badge for ordinary unread messages, and marking a channel as read reliably clears it.",
+				icon: "bell-ringing-fill",
+				kind: "fix",
+			},
+			{
+				title: "Faster member lists",
+				body: "Member lists and role popovers no longer stall while badges load.",
+				icon: "lightning-fill",
+				kind: "fix",
+			},
+		],
+	},
+	{
 		version: "0.1.0-rc.14",
 		date: "2026-08-02",
 		entries: [
