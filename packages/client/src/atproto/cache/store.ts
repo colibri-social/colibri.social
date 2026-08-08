@@ -110,6 +110,55 @@ const write = (store: StoreName, key: string, value: unknown): Promise<void> =>
 			return undefined;
 		});
 
+const readMany = <T>(
+	store: StoreName,
+	keys: ReadonlyArray<string>,
+): Promise<Map<string, T>> => {
+	if (keys.length === 0) return Promise.resolve(new Map<string, T>());
+	return openDb()
+		.then(
+			(db) =>
+				new Promise<Map<string, T>>((resolve, reject) => {
+					const out = new Map<string, T>();
+					const transaction = db.transaction(store, "readonly");
+					const objectStore = transaction.objectStore(store);
+					for (const key of keys) {
+						const req = objectStore.get(key);
+						req.onsuccess = () => {
+							if (req.result !== undefined) out.set(key, req.result as T);
+						};
+					}
+					transaction.oncomplete = () => resolve(out);
+					transaction.onerror = () => reject(transaction.error);
+					transaction.onabort = () => reject(transaction.error);
+				}),
+		)
+		.catch(() => new Map<string, T>());
+};
+
+const writeMany = (
+	store: StoreName,
+	entries: ReadonlyArray<readonly [string, unknown]>,
+): Promise<void> => {
+	if (entries.length === 0) return Promise.resolve();
+	return openDb()
+		.then(
+			(db) =>
+				new Promise<void>((resolve, reject) => {
+					const transaction = db.transaction(store, "readwrite");
+					const objectStore = transaction.objectStore(store);
+					for (const [key, value] of entries) objectStore.put(value, key);
+					transaction.oncomplete = () => resolve();
+					transaction.onerror = () => reject(transaction.error);
+					transaction.onabort = () => reject(transaction.error);
+				}),
+		)
+		.catch((err) => {
+			noteCacheFailure(err);
+			return undefined;
+		});
+};
+
 const evictOldest = (store: StoreName, maxCount: number): Promise<void> =>
 	openDb()
 		.then(
@@ -235,18 +284,27 @@ export const writeBskyMuVerification = (
 		evictOldest("bsky", MAX_BSKY_ENTRIES),
 	);
 
-export const readLabelerLabels = (
-	did: string,
-): Promise<LabelerLabelsSnapshot | undefined> =>
-	read<LabelerLabelsSnapshot>("bsky", labelerLabelsKey(did));
-
-export const writeLabelerLabels = (
-	did: string,
-	snap: LabelerLabelsSnapshot,
-): Promise<void> =>
-	write("bsky", labelerLabelsKey(did), snap).then(() =>
-		evictOldest("bsky", MAX_BSKY_ENTRIES),
+export const readManyLabelerLabels = (
+	dids: ReadonlyArray<string>,
+): Promise<Map<string, LabelerLabelsSnapshot>> =>
+	readMany<LabelerLabelsSnapshot>("bsky", dids.map(labelerLabelsKey)).then(
+		(byKey) => {
+			const out = new Map<string, LabelerLabelsSnapshot>();
+			for (const did of dids) {
+				const snap = byKey.get(labelerLabelsKey(did));
+				if (snap) out.set(did, snap);
+			}
+			return out;
+		},
 	);
+
+export const writeManyLabelerLabels = (
+	entries: ReadonlyArray<readonly [string, LabelerLabelsSnapshot]>,
+): Promise<void> =>
+	writeMany(
+		"bsky",
+		entries.map(([did, snap]) => [labelerLabelsKey(did), snap] as const),
+	).then(() => evictOldest("bsky", MAX_BSKY_ENTRIES));
 
 export const readBskyMuTrustedList = (): Promise<
 	BskyMuTrustedListSnapshot | undefined

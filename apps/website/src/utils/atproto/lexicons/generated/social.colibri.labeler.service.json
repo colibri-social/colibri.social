@@ -1,0 +1,70 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.labeler.service",
+	"revision": 1,
+	"defs": {
+		"main": {
+			"type": "record",
+			"description": "Declares that this account operates a Colibri labeler and describes the badges it issues. The Colibri equivalent of `app.bsky.labeler.service`. Labels themselves stay standard `com.atproto.label` labels, served from the `#atproto_labeler` service endpoint in this account's DID document.",
+			"key": "literal:self",
+			"record": {
+				"type": "object",
+				"required": [
+					"badgeDefinitions",
+					"createdAt"
+				],
+				"properties": {
+					"$type": {
+						"type": "string",
+						"description": "The type of the record.",
+						"format": "nsid"
+					},
+					"badgeDefinitions": {
+						"type": "array",
+						"description": "Every badge this labeler can issue. A label value absent from this list is not a recognised badge.",
+						"maxLength": 100,
+						"items": {
+							"type": "ref",
+							"ref": "lex:social.colibri.labeler.service#badgeDefinition"
+						}
+					},
+					"createdAt": {
+						"type": "string",
+						"format": "datetime"
+					}
+				}
+			}
+		},
+		"badgeDefinition": {
+			"type": "object",
+			"description": "Metadata for a single badge. `identifier` is the `val` carried by the corresponding label.",
+			"required": [
+				"identifier",
+				"name",
+				"description"
+			],
+			"properties": {
+				"identifier": {
+					"type": "string",
+					"description": "The label value, lowercase kebab-case, as it appears in `com.atproto.label` records.",
+					"maxLength": 100
+				},
+				"name": {
+					"type": "string",
+					"description": "Short display name shown on the badge itself.",
+					"maxLength": 64
+				},
+				"description": {
+					"type": "string",
+					"description": "What holding this badge means.",
+					"maxLength": 512
+				},
+				"precedence": {
+					"type": "integer",
+					"description": "Sort order when a user holds several badges. Lower sorts first, so the lowest value is the default primary badge.",
+					"minimum": 0
+				}
+			}
+		}
+	}
+}

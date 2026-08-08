@@ -16,6 +16,7 @@ import { approvalRecordDocs } from "./records/approval.ts";
 import { categoryRecordDocs } from "./records/category.ts";
 import { channelRecordDocs } from "./records/channel.ts";
 import { communityRecordDocs } from "./records/community.ts";
+import { labelerRecordDocs } from "./records/labeler.ts";
 import { memberRecordDocs } from "./records/member.ts";
 import { membershipRecordDocs } from "./records/membership.ts";
 import { messageRecordDocs } from "./records/message.ts";
@@ -39,6 +40,7 @@ export const LEXICON_DOCS: LexiconDoc[] = [
 	...roleRecordDocs,
 	...memberRecordDocs,
 	...moderationRecordDocs,
+	...labelerRecordDocs,
 	...actorMethodDocs,
 	...channelMethodDocs,
 	...communityMethodDocs,

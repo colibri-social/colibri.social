@@ -13,6 +13,7 @@ export const RECORD_IDs: Record<string, `${string}.${string}.${string}`> = {
 	ROLE: "social.colibri.role",
 	MEMBER: "social.colibri.member",
 	MODERATION: "social.colibri.moderation",
+	LABELER_SERVICE: "social.colibri.labeler.service",
 };
 
 /**

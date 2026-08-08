@@ -35,7 +35,11 @@ export const DisplayableName: Component<{
 		return getTopMemberRoleColor();
 	};
 
-	const { primary } = useUserBadges(() => props.user);
+	const badgeVisible = () => props.color !== false && props.badge !== false;
+
+	const { primary } = useUserBadges(() => props.user, {
+		enabled: badgeVisible,
+	});
 
 	return (
 		<span
@@ -46,7 +50,7 @@ export const DisplayableName: Component<{
 			)}
 		>
 			<span class="truncate min-w-0">{displayableNameFn(props.user)}</span>
-			<Show when={primary() && props.color !== false && props.badge !== false}>
+			<Show when={primary() && badgeVisible()}>
 				<Badge text={badgeText(primary()!)} size="xs" style={primary()!} />
 			</Show>
 		</span>

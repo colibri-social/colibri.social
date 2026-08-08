@@ -38,9 +38,13 @@ const BADGE_DESCRIPTIONS: Record<string, string> = {
 export const badgeDescription = (val: string): string | undefined =>
 	BADGE_DESCRIPTIONS[val];
 
-export const useUserBadges = (user: () => ActorData) => {
+export const useUserBadges = (
+	user: () => ActorData,
+	options?: { enabled?: () => boolean },
+) => {
+	const enabled = () => options?.enabled?.() ?? true;
 	const [labels] = createResource(
-		() => user().did,
+		() => (enabled() ? user().did : false),
 		(did) => getLabelerBadges(did),
 	);
 
