@@ -21,7 +21,7 @@ export const ScrollFadeBottom = (props: ScrollFadeBottomProps) => {
 		>
 			<div
 				ref={ref}
-				class={cx("h-full overflow-y-auto", local.class)}
+				class={cx("h-full overflow-y-auto overscroll-contain", local.class)}
 				{...rest}
 			>
 				{local.children}

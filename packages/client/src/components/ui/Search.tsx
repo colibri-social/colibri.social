@@ -11,7 +11,7 @@ import {
 } from "solid-js";
 
 import { cx } from "../../utils/cva";
-import { useOverflowPadding } from "../../utils/safe-area";
+import { usePopperOverflowPadding } from "../../utils/safe-area";
 
 export const SearchPortal = SearchPrimitive.Portal;
 
@@ -29,7 +29,7 @@ export const Search = <
 	props: SearchProps<Option, OtpGroup, T>,
 ) => {
 	const [, rest] = splitProps(props as SearchProps<Option>, ["class"]);
-	const overflowPadding = useOverflowPadding();
+	const overflowPadding = usePopperOverflowPadding();
 
 	return (
 		<SearchPrimitive

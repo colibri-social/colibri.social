@@ -27,6 +27,7 @@ import { RELEASE_NOTES } from "../../../release-notes";
 import { requiresInAppPurchase } from "../../../utils/platform";
 import { useIsTouch } from "../../../utils/touch";
 import { SettingsModal } from "../common/SettingsModal";
+import { userSettingsShellClass } from "../common/settings-modal-classes";
 import { AboutPage } from "./AboutPage";
 import { AccountPage } from "./AccountPage";
 import { ControlsPage } from "./ControlsPage";
@@ -165,7 +166,7 @@ export const UserSettingsModal: ParentComponent<{
 					},
 				},
 			]}
-			contentClass="min-h-[min(48rem,calc(100vh-2rem))] [&>div.max-h-144]:max-h-none"
+			contentClass={userSettingsShellClass}
 		>
 			{props.children}
 		</SettingsModal>

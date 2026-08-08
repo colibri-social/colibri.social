@@ -18,7 +18,7 @@ export const SignInScreen: Component<{ mode?: SignInMode }> = (props) => (
 const KEYBOARD_INSET_THRESHOLD = 100;
 
 const panePaddingBottom = (inset: number): string =>
-	`calc(2rem + ${Math.max(0, inset)}px)`;
+	`calc(2rem + max(var(--safe-area-bottom), ${Math.max(0, inset)}px))`;
 
 const SignInScreenContent: Component<{ mode?: SignInMode }> = (props) => {
 	const flow = createSignInFlow({ mode: props.mode });
@@ -62,7 +62,7 @@ const SignInScreenContent: Component<{ mode?: SignInMode }> = (props) => {
 				</div>
 			}
 		>
-			<main class="flex h-[calc(100dvh-var(--titlebar-height))] w-full flex-col overflow-hidden bg-background md:flex-row-reverse">
+			<main class="flex h-[calc(100dvh-var(--titlebar-height))] w-full flex-col overflow-hidden bg-background pt-[var(--safe-area-top)] pl-[var(--safe-area-left)] pr-[var(--safe-area-right)] md:flex-row-reverse">
 				<section class="relative flex min-h-0 flex-1 overflow-hidden border-border bg-gradient-to-b from-primary/12 to-transparent md:border-l">
 					<SignInShowcase />
 				</section>

@@ -3,14 +3,14 @@ import type { ComponentProps, ValidComponent } from "solid-js";
 import { mergeProps, splitProps } from "solid-js";
 
 import { cx } from "../../utils/cva";
-import { useOverflowPadding } from "../../utils/safe-area";
+import { usePopperOverflowPadding } from "../../utils/safe-area";
 
 export const DropdownMenuPortal = DropdownMenuPrimitive.Portal;
 
 export type DropdownMenuProps = ComponentProps<typeof DropdownMenuPrimitive>;
 
 export const DropdownMenu = (props: DropdownMenuProps) => {
-	const overflowPadding = useOverflowPadding();
+	const overflowPadding = usePopperOverflowPadding();
 	const merge = mergeProps<DropdownMenuProps[]>(
 		{
 			gutter: 4,

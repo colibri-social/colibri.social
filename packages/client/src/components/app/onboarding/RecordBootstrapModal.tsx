@@ -218,7 +218,7 @@ export function RecordBootstrapModal<T>(props: {
 		<Dialog open={props.open} onOpenChange={handleOpenChange}>
 			<DialogPortal>
 				<DialogContent
-					class="sm:max-w-2xl max-h-[calc(100svh-2rem-var(--safe-area-top)-var(--safe-area-bottom))] overflow-auto"
+					class="sm:max-w-2xl max-h-full overflow-auto"
 					showCloseButton={dismissible()}
 				>
 					<DialogHeader>

@@ -7,14 +7,14 @@ import {
 } from "solid-js";
 
 import { cx } from "../../utils/cva";
-import { useOverflowPadding } from "../../utils/safe-area";
+import { usePopperOverflowPadding } from "../../utils/safe-area";
 
 export const HoverCardPortal = HoverCardPrimitive.Portal;
 
 export type HoverCardProps = ComponentProps<typeof HoverCardPrimitive>;
 
 export const HoverCard = (props: HoverCardProps) => {
-	const overflowPadding = useOverflowPadding();
+	const overflowPadding = usePopperOverflowPadding();
 	const merge = mergeProps<HoverCardProps[]>(
 		{
 			get overflowPadding() {

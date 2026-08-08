@@ -7,6 +7,13 @@ export type SafeAreaInsets = {
 	right: number;
 };
 
+export type OverflowPadding = {
+	top: number;
+	right: number;
+	bottom: number;
+	left: number;
+};
+
 const ZERO_INSETS: SafeAreaInsets = { top: 0, bottom: 0, left: 0, right: 0 };
 
 const BASE_OVERFLOW_PADDING = 8;
@@ -66,14 +73,22 @@ export const useSafeAreaInsets = (): Accessor<SafeAreaInsets> => {
 	return sharedInsets;
 };
 
-const paddingFor = (insets: SafeAreaInsets): number =>
-	BASE_OVERFLOW_PADDING +
-	Math.max(insets.top, insets.right, insets.bottom, insets.left);
+const paddingFor = (insets: SafeAreaInsets): OverflowPadding => ({
+	top: BASE_OVERFLOW_PADDING + insets.top,
+	right: BASE_OVERFLOW_PADDING + insets.right,
+	bottom: BASE_OVERFLOW_PADDING + insets.bottom,
+	left: BASE_OVERFLOW_PADDING + insets.left,
+});
 
-export const useOverflowPadding = (): Accessor<number> => {
+export const useOverflowPadding = (): Accessor<OverflowPadding> => {
 	const insets = useSafeAreaInsets();
 	return () => paddingFor(insets());
 };
 
-export const safeAreaOverflowPadding = (): number =>
+export const safeAreaOverflowPadding = (): OverflowPadding =>
 	paddingFor(readSafeAreaInsets());
+
+export const usePopperOverflowPadding = (): Accessor<number> => {
+	const padding = useOverflowPadding();
+	return () => padding() as unknown as number;
+};

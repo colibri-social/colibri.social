@@ -203,7 +203,7 @@ const OpenGraphEmbed: Component<{ uri: string }> = (props) => {
 								</a>
 							</Show>
 							<Show when={data()!.description}>
-								<span class="font-light text-card-foreground text-sm mt-0.5">
+								<span class="font-light text-card-foreground text-sm mt-0.5 line-clamp-2 overflow-hidden text-ellipsis">
 									{data()!.description}
 								</span>
 							</Show>

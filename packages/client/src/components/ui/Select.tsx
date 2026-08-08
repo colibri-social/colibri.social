@@ -3,7 +3,7 @@ import type { ComponentProps, ValidComponent, VoidProps } from "solid-js";
 import { mergeProps, splitProps } from "solid-js";
 
 import { cx } from "../../utils/cva";
-import { useOverflowPadding } from "../../utils/safe-area";
+import { usePopperOverflowPadding } from "../../utils/safe-area";
 
 export const SelectPortal = SelectPrimitive.Portal;
 export const HiddenSelect = SelectPrimitive.HiddenSelect;
@@ -24,7 +24,7 @@ export const Select = <
 	const [, rest] = splitProps(props as SelectProps<Option, OptGroup>, [
 		"class",
 	]);
-	const overflowPadding = useOverflowPadding();
+	const overflowPadding = usePopperOverflowPadding();
 
 	return (
 		<SelectPrimitive

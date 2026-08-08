@@ -3,6 +3,7 @@ import type { ComponentProps, ValidComponent } from "solid-js";
 import { mergeProps, Show, splitProps } from "solid-js";
 
 import { cx } from "../../utils/cva";
+import { dialogContentClass } from "./dialog-classes";
 
 export const DialogPortal = DialogPrimitive.Portal;
 
@@ -54,14 +55,11 @@ export const DialogContent = <T extends ValidComponent = "div">(
 			/>
 			<div
 				data-slot="dialog-positioner"
-				class="pointer-events-none fixed inset-0 z-50 flex items-center justify-center px-4 pt-[calc(1rem+var(--safe-area-top))] pb-[calc(1rem+var(--safe-area-bottom))]"
+				class="pointer-events-none fixed inset-0 z-50 flex items-center justify-center px-4 pt-[calc(1rem+var(--safe-area-top)+var(--titlebar-height))] pb-[calc(1rem+var(--safe-area-bottom))]"
 			>
 				<DialogPrimitive.Content
 					data-slot="dialog-content"
-					class={cx(
-						"bg-background data-[expanded]:animate-in data-[closed]:animate-out data-[closed]:fade-out-0 data-[expanded]:fade-in-0 data-[closed]:zoom-out-95 data-[expanded]:zoom-in-95 pointer-events-auto relative z-50 grid w-full min-w-0 max-h-full overflow-y-auto overflow-x-hidden gap-4 rounded-lg border p-6 shadow-lg duration-200 sm:max-w-lg",
-						props.class,
-					)}
+					class={cx(dialogContentClass, props.class)}
 					{...rest}
 				>
 					{props.children}

@@ -7,14 +7,14 @@ import {
 } from "solid-js";
 
 import { cx } from "../../utils/cva";
-import { useOverflowPadding } from "../../utils/safe-area";
+import { usePopperOverflowPadding } from "../../utils/safe-area";
 
 export const PopoverPortal = PopoverPrimitive.Portal;
 
 export type PopoverProps = ComponentProps<typeof PopoverPrimitive>;
 
 export const Popover = (props: PopoverProps) => {
-	const overflowPadding = useOverflowPadding();
+	const overflowPadding = usePopperOverflowPadding();
 	const merge = mergeProps<PopoverProps[]>(
 		{
 			gutter: 4,

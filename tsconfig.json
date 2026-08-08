@@ -6,6 +6,6 @@
 		{ "path": "./packages/client" },
 		{ "path": "./packages/lib" },
 		{ "path": "./packages/standard-renderer" },
-		{ "path": "./packages/wrapper" }
-	]
+		{ "path": "./packages/wrapper" },
+	],
 }

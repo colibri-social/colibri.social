@@ -26,6 +26,7 @@ import {
 } from "../../ui/Dialog";
 import { BottomSheet } from "../../ui/MenuDrawer";
 import { ScrollFadeBottom } from "../../ui/ScrollFadeBottom";
+import { settingsShellClass } from "./settings-modal-classes";
 
 export const SettingsPage: ParentComponent<{
 	loading: Accessor<boolean>;
@@ -38,9 +39,9 @@ export const SettingsPage: ParentComponent<{
 	const isMobile = useIsMobile();
 	const hasFooter = () => !!(props.onSave || props.onReset);
 	return (
-		<div class="w-full flex flex-col h-auto min-h-0 relative max-h-144">
+		<div class="w-full min-w-0 flex flex-col h-auto min-h-0 relative">
 			<Show when={!isMobile() || props.description}>
-				<div class="px-4 py-4 border-b border-border h-auto">
+				<div class="px-4 py-4 border-b border-border h-auto shrink-0">
 					<Show when={!isMobile()}>
 						<h2 class="m-0">{props.title}</h2>
 					</Show>
@@ -65,7 +66,7 @@ export const SettingsPage: ParentComponent<{
 				{props.children}
 			</ScrollFadeBottom>
 			<Show when={props.onSave || props.onReset}>
-				<div class="w-full border-t border-border px-4 pt-4 pb-[calc(1rem+var(--safe-area-bottom))] flex flex-row items-center justify-end gap-2 min-h-16 bg-background rounded-br-xl">
+				<div class="w-full shrink-0 border-t border-border px-4 pt-4 pb-[calc(1rem+var(--safe-area-bottom))] flex flex-row items-center justify-end gap-2 min-h-16 bg-background rounded-br-xl">
 					<Show when={props.canReset && props.onReset}>
 						<Button
 							variant="secondary"
@@ -189,19 +190,14 @@ export const SettingsModal: ParentComponent<{
 				<Dialog open={isOpen()} onOpenChange={onOpenChange}>
 					<DialogTrigger class={props.class}>{props.children}</DialogTrigger>
 					<DialogPortal>
-						<DialogContent
-							class={cx(
-								"w-full min-w-92 h-fit min-h-[min(36rem,calc(100vh-2rem))] max-w-3xl! p-0 flex flex-row gap-0 max-h-[min(48rem,calc(100vh-2rem))]! settings-modal",
-								props.contentClass,
-							)}
-						>
+						<DialogContent class={cx(settingsShellClass, props.contentClass)}>
 							<div class="absolute top-5 right-5 flex items-center justify-center w-6 h-6 hover:bg-muted/50 cursor-pointer rounded-sm z-50">
 								<DialogCloseButton class="absolute cursor-pointer">
 									<XIcon />
 								</DialogCloseButton>
 							</div>
-							<div class="min-h-[min(36rem,calc(100vh-2rem))] h-auto flex flex-col justify-between p-4 min-w-56 shrink-0 border-r border-border">
-								<div class="h-full flex flex-col gap-1">
+							<div class="min-h-0 h-auto flex flex-col justify-between p-4 min-w-56 shrink-0 overflow-hidden border-r border-border">
+								<div class="flex-1 min-h-0 overflow-y-auto overscroll-contain flex flex-col gap-1">
 									<For each={props.pages}>
 										{(item) => (
 											<Show when={item.visible?.() !== false}>
@@ -217,7 +213,7 @@ export const SettingsModal: ParentComponent<{
 										)}
 									</For>
 								</div>
-								<div class="flex flex-col gap-1">
+								<div class="shrink-0 flex flex-col gap-1">
 									<Show when={props.debugPage}>
 										<SettingsPageSelector
 											icon={props.debugPage!.icon}

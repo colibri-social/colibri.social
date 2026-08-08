@@ -3,14 +3,14 @@ import type { ComponentProps, ValidComponent } from "solid-js";
 import { mergeProps, splitProps } from "solid-js";
 
 import { cx } from "../../utils/cva";
-import { useOverflowPadding } from "../../utils/safe-area";
+import { usePopperOverflowPadding } from "../../utils/safe-area";
 
 export const ContextMenuPortal = ContextMenuPrimitive.Portal;
 
 export type ContextMenuProps = ComponentProps<typeof ContextMenuPrimitive>;
 
 export const ContextMenu = (props: ContextMenuProps) => {
-	const overflowPadding = useOverflowPadding();
+	const overflowPadding = usePopperOverflowPadding();
 	const merge = mergeProps<ContextMenuProps[]>(
 		{
 			get overflowPadding() {
