@@ -1,5 +1,52 @@
 # @colibri-social/website
 
+## 0.1.0-rc.13
+
+### Minor Changes
+
+- 9fe5418: Adds self-service account deletion
+
+  <!-- whatsnew
+  title: Data Deletion
+  icon: trash-fill
+  body: Adds an in-app data deletion option in the settings.
+  kind: feature
+  -->
+
+- 05ecae5: Accept WebP community pictures and banners. The `social.colibri.community` lexicon now lists `image/webp` alongside JPEG, PNG and GIF, matching what profile avatars and banners already allowed.
+
+  <!-- whatsnew
+  title: WebP images
+  icon: image-fill
+  body: Community pictures and banners now accept WebP images.
+  kind: feature
+  -->
+
+### Patch Changes
+
+- 66c6c75: Rework channel message scrolling around a single anchor controller
+
+  <!-- whatsnew
+  title: Smoother Older Message Loading
+  icon: arrow-line-up-fill
+  body: Scrolling up to load older messages in a channel no longer jumps your view around, and late-loading images no longer shift what you are reading.
+  kind: fix
+  -->
+
+- 5638113: Pin Biome to a single version across the workspace and CI.
+- Updated dependencies [66c6c75]
+- Updated dependencies [9dc8d8f]
+- Updated dependencies [9aaad31]
+- Updated dependencies [b1536c7]
+- Updated dependencies [b1536c7]
+- Updated dependencies [df806af]
+- Updated dependencies [fe04ee1]
+- Updated dependencies [ddfd10c]
+- Updated dependencies [5383a82]
+- Updated dependencies [9fe5418]
+- Updated dependencies [0f3daca]
+  - @colibri-social/client@0.1.0-rc.15
+
 ## 0.1.0-rc.12
 
 ### Minor Changes

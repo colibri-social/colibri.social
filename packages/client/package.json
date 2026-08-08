@@ -1,6 +1,6 @@
 {
 	"name": "@colibri-social/client",
-	"version": "0.1.0-rc.14",
+	"version": "0.1.0-rc.15",
 	"description": "The Colibri Social client UI, a Solid application shared by the web app and the native shell.",
 	"type": "module",
 	"homepage": "https://colibri.social",
@@ -48,7 +48,7 @@
 	"devDependencies": {
 		"@atproto/lexicon": "^0.6.1",
 		"@colibri-social/assets": "workspace:0.0.2-rc.3",
-		"@colibri-social/lib": "workspace:0.1.0-rc.5",
+		"@colibri-social/lib": "workspace:0.1.0-rc.6",
 		"@iconify-json/lucide": "^1.2.116",
 		"@iconify-json/ph": "^1.2.2",
 		"@tailwindcss/cli": "^4.2.4",
