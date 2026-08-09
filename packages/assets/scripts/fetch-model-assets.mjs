@@ -1,8 +1,11 @@
-// Downloads the DeepFilterNet wasm + model into this package's files/ dir so the
-// host serves them same-origin at /noise/deepfilternet3/... (consumed by the
-// client's createNoiseSuppressor)
+// Downloads the noise-suppression models into this package's files/ dir so the
+// host serves them same-origin at /noise/... (consumed by the client's
+// createNoiseSuppressor). The experimental backends live beside DeepFilterNet:
+// GTCRN and UL-UNAS come from their upstream repos, DTLN's LiteRT runtime and
+// tflite weights are copied out of the npm package that ships them
 import { createWriteStream } from "node:fs";
-import { mkdir, rename, stat, unlink } from "node:fs/promises";
+import { copyFile, mkdir, rename, stat, unlink } from "node:fs/promises";
+import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
@@ -10,11 +13,16 @@ import { fileURLToPath } from "node:url";
 
 const CDN_BASE =
 	"https://cdn.mezon.ai/AI/models/datas/noise_suppression/deepfilternet3";
+const GTCRN_BASE =
+	"https://raw.githubusercontent.com/Xiaobin-Rong/gtcrn/main/stream/onnx_models";
+const ULUNAS_BASE =
+	"https://raw.githubusercontent.com/Xiaobin-Rong/ul-unas/main/ulunas_onnx/onnx_models";
 
 const root = dirname(
 	fileURLToPath(new URL("../package.json", import.meta.url)),
 );
-const outBase = join(root, "files", "noise", "deepfilternet3");
+const noiseBase = join(root, "files", "noise");
+const outBase = join(noiseBase, "deepfilternet3");
 
 const ASSETS = [
 	{
@@ -25,7 +33,38 @@ const ASSETS = [
 		url: `${CDN_BASE}/v3/models/DeepFilterNet3_onnx.tar.gz`,
 		dest: join(outBase, "v3", "models", "DeepFilterNet3_onnx.tar.gz"),
 	},
+	{
+		url: `${GTCRN_BASE}/gtcrn_simple.onnx`,
+		dest: join(noiseBase, "gtcrn", "gtcrn_simple.onnx"),
+	},
+	{
+		url: `${ULUNAS_BASE}/ulunas_stream_simple.onnx`,
+		dest: join(noiseBase, "ulunas", "ulunas_stream_simple.onnx"),
+	},
 ];
+
+const require = createRequire(import.meta.url);
+
+function dtlnCopies() {
+	const dist = dirname(
+		require.resolve("@workadventure/noise-suppression/package.json"),
+	);
+	const dtlnOut = join(noiseBase, "dtln");
+
+	const litert = [
+		"litert_wasm_internal",
+		"litert_wasm_compat_internal",
+	].flatMap((name) => [`${name}.js`, `${name}.mjs`, `${name}.wasm`]);
+
+	return [
+		["dist/assets/model_quant_1.tflite", join(dtlnOut, "model_quant_1.tflite")],
+		["dist/assets/model_quant_2.tflite", join(dtlnOut, "model_quant_2.tflite")],
+		...litert.map((name) => [
+			`dist/vendor/litert/${name}`,
+			join(dtlnOut, "litert", name),
+		]),
+	].map(([from, dest]) => ({ from: join(dist, from), dest }));
+}
 
 async function remoteSize(url) {
 	try {
@@ -67,6 +106,22 @@ async function download({ url, dest }) {
 	return true;
 }
 
+async function copy({ from, dest }) {
+	const [expected, existing] = await Promise.all([
+		localSize(from),
+		localSize(dest),
+	]);
+
+	if (existing !== null && existing === expected) {
+		console.log(`  ✓ ${dest} (cached)`);
+		return;
+	}
+
+	await mkdir(dirname(dest), { recursive: true });
+	await copyFile(from, dest);
+	console.log(`  → ${dest}`);
+}
+
 let failed = false;
 for (const asset of ASSETS) {
 	try {
@@ -74,9 +129,26 @@ for (const asset of ASSETS) {
 	} catch (err) {
 		failed = true;
 		console.warn(
-			`  ! Skipped ${asset.url} (${err.message}). DeepFilterNet will fall back to RNNoise until this is fetched.`,
+			`  ! Skipped ${asset.url} (${err.message}). The mode using it falls back to a lighter one until it is fetched.`,
 		);
 		await unlink(`${asset.dest}.tmp`).catch(() => {});
+	}
+}
+
+let dtlnAssets = [];
+try {
+	dtlnAssets = dtlnCopies();
+} catch (err) {
+	failed = true;
+	console.warn(`  ! DTLN assets unavailable (${err.message}).`);
+}
+
+for (const asset of dtlnAssets) {
+	try {
+		await copy(asset);
+	} catch (err) {
+		failed = true;
+		console.warn(`  ! Skipped ${asset.from} (${err.message}).`);
 	}
 }
 

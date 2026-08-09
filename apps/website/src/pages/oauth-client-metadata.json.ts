@@ -7,7 +7,7 @@ import { scopes } from "@/utils/atproto/scopes";
 export const GET: APIRoute = () => {
 	const metadata = {
 		client_id: `${import.meta.env.SITE}/oauth-client-metadata.json`,
-		client_name: "Colibri Chat",
+		client_name: "Colibri Social",
 		client_uri: import.meta.env.SITE,
 		logo_uri: `${import.meta.env.SITE}/logo.png`,
 		tos_uri: `${import.meta.env.SITE}/tos`,

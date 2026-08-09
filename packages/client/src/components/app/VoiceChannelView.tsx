@@ -25,6 +25,7 @@ import { useUserContext } from "../../contexts/User";
 import { useUserPreferences } from "../../contexts/UserPreferences";
 import { ConnectionState, useVoiceChatContext } from "../../contexts/VoiceChat";
 import { preloadNoiseSuppressor } from "../../hooks/createNoiseSuppressor";
+import { noiseMode } from "../../hooks/noise/modes";
 import { getAverageColorFromUrl } from "../../utils/get-average-color";
 import { createLogger } from "../../utils/logger";
 import { createMobilePane } from "../../utils/mobile-pane";
@@ -162,11 +163,11 @@ export const VoiceChannelView: Component = () => {
 	] = useVoiceChatContext();
 
 	// Warm the DeepFilterNet assets while the user is looking at a voice channel,
-	// so joining swaps from RNNoise to the high-quality model instantly
+	// so joining swaps from the low tier to the neural model instantly
 	onMount(() => {
 		if (
-			preferences.preferences().voice.input.noiseSuppressionMode ===
-			"deepfilternet"
+			noiseMode(preferences.preferences().voice.input.noiseSuppressionMode)
+				.usesDeepFilterNet
 		) {
 			preloadNoiseSuppressor();
 		}
