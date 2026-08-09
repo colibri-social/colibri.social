@@ -1,3 +1,5 @@
+import { ensureWorkletModule } from "./worklet";
+
 export const GATE_PROCESSOR = "colibri-voice-gate";
 
 const OPEN_DBFS = -45;
@@ -77,14 +79,7 @@ export const createVoiceGateNode = async (
 	ctx: AudioContext,
 	options: VoiceGateOptions = {},
 ): Promise<AudioWorkletNode> => {
-	const blob = new Blob([GATE_SOURCE], { type: "text/javascript" });
-	const url = URL.createObjectURL(blob);
-
-	try {
-		await ctx.audioWorklet.addModule(url);
-	} finally {
-		URL.revokeObjectURL(url);
-	}
+	await ensureWorkletModule(ctx, GATE_PROCESSOR, GATE_SOURCE);
 
 	const node = new AudioWorkletNode(ctx, GATE_PROCESSOR);
 

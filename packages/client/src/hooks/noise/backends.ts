@@ -1,7 +1,10 @@
 import type { Tensor } from "onnxruntime-web";
 import ortWasmUrl from "onnxruntime-web/ort-wasm-simd-threaded.wasm?url";
 import type { NoiseSuppressionMode } from "../../contexts/UserPreferences";
+import { createLogger } from "../../utils/logger";
 import { BIN_COUNT, HOP_SIZE, SpectralStream } from "./stft";
+
+const log = createLogger("noise");
 
 export const MODEL_SAMPLE_RATE = 16000;
 
@@ -77,12 +80,38 @@ async function createOnnxBackend(url: string): Promise<ExperimentalBackend> {
 	};
 }
 
+type LiteRtFactory = (arg?: unknown) => Promise<unknown>;
+
+async function liteRtFactory(): Promise<LiteRtFactory | null> {
+	try {
+		const mod = await import(
+			/* @vite-ignore */ `${DTLN_ASSET_BASE}/litert/litert_wasm_internal.mjs`
+		);
+		const factory = (mod as { default?: LiteRtFactory }).default;
+		if (typeof factory !== "function") return null;
+
+		return (arg) =>
+			factory({
+				...(typeof arg === "object" && arg ? arg : {}),
+				print: (text: string) => log.debug(text),
+				printErr: (text: string) =>
+					/^(INFO|VERBOSE)\b/.test(text) ? log.debug(text) : log.warn(text),
+			});
+	} catch (err) {
+		log.warn("LiteRT print hooks unavailable", { error: err });
+		return null;
+	}
+}
+
 async function createDtlnBackend(): Promise<ExperimentalBackend> {
-	const { createNoiseSuppressionModule } =
+	const { createNoiseSuppressionRuntime } =
 		await import("@workadventure/noise-suppression");
 
-	const module = await createNoiseSuppressionModule({
+	const factory = await liteRtFactory();
+
+	const module = await createNoiseSuppressionRuntime({
 		liteRtWasmRoot: `${DTLN_ASSET_BASE}/litert/`,
+		...(factory ? { liteRtWasmModuleFactory: factory } : {}),
 		model1Url: `${DTLN_ASSET_BASE}/model_quant_1.tflite`,
 		model2Url: `${DTLN_ASSET_BASE}/model_quant_2.tflite`,
 		threads: false,

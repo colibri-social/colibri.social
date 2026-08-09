@@ -5,6 +5,7 @@ import {
 	MODEL_SAMPLE_RATE,
 } from "./backends";
 import { DFN_SAMPLE_RATE } from "./dfn";
+import { ensureWorkletModule } from "./worklet";
 
 export const MODEL_HOST_PROCESSOR = "colibri-model-host";
 
@@ -32,7 +33,7 @@ const antiAliasTaps = (): number[] => {
 	return taps.map((v) => v / sum);
 };
 
-const hostSource = (blockSize: number): string => `
+const hostSource = (blockSize: number, name: string): string => `
 const H = ${JSON.stringify(antiAliasTaps())};
 const TAPS = ${TAPS};
 const MASK = ${HISTORY - 1};
@@ -168,7 +169,7 @@ class ColibriModelHost extends AudioWorkletProcessor {
 	}
 }
 
-registerProcessor(${JSON.stringify(MODEL_HOST_PROCESSOR)}, ColibriModelHost);
+registerProcessor(${JSON.stringify(name)}, ColibriModelHost);
 `;
 
 export interface ModelHost {
@@ -183,18 +184,14 @@ export const createModelHost = async (
 ): Promise<ModelHost> => {
 	const backend: ExperimentalBackend = await createExperimentalBackend(mode);
 
-	const blob = new Blob([hostSource(backend.blockSize)], {
-		type: "text/javascript",
-	});
-	const url = URL.createObjectURL(blob);
+	const processor = `${MODEL_HOST_PROCESSOR}-${mode}`;
+	await ensureWorkletModule(
+		ctx,
+		processor,
+		hostSource(backend.blockSize, processor),
+	);
 
-	try {
-		await ctx.audioWorklet.addModule(url);
-	} finally {
-		URL.revokeObjectURL(url);
-	}
-
-	const node = new AudioWorkletNode(ctx, MODEL_HOST_PROCESSOR);
+	const node = new AudioWorkletNode(ctx, processor);
 	const output = new Float32Array(backend.blockSize);
 	let queue: Promise<void> = Promise.resolve();
 	let destroyed = false;
