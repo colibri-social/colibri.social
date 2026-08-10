@@ -94,6 +94,8 @@ const sameDay = (a: string, b: string): boolean =>
 
 const GROUPING_WINDOW_MS = 5 * 60 * 1000;
 
+const JUMP_TO_LATEST_AFTER_MESSAGES = 10;
+
 const withinGroupingWindow = (a: string, b: string): boolean =>
 	Math.abs(new Date(a).getTime() - new Date(b).getTime()) < GROUPING_WINDOW_MS;
 
@@ -187,7 +189,9 @@ const ChannelLayout: ParentComponent = (props) => {
 
 	const jumpSentinelIndex = createMemo(() => {
 		const n = channel.messages().length;
-		return n > 50 ? n - 50 : -1;
+		return n > JUMP_TO_LATEST_AFTER_MESSAGES
+			? n - JUMP_TO_LATEST_AFTER_MESSAGES
+			: -1;
 	});
 
 	const scrollAnchor = createScrollAnchor(
