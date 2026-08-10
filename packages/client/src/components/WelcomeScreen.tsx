@@ -15,7 +15,11 @@ export const WelcomeScreen: Component = () => {
 	const { preferences, setPublicReminderDismissed } = useUserPreferences();
 
 	return (
+<<<<<<< HEAD
 		<div class="bg-neutral-950 w-full h-full flex flex-col max-md:pl-14 md:border-t md:border-l md:border-neutral-800 overflow-auto">
+=======
+		<div class="bg-background w-full h-full flex flex-col max-md:pl-14 md:rounded-tl-xl md:border-t md:border-l md:border-border overflow-auto">
+>>>>>>> 9ae0edda (feat: experimental light mode)
 			<Show when={!preferences().publicReminderDismissed}>
 				<div class="w-full flex flex-row items-center gap-3 bg-destructive/15 border-b border-destructive/30 text-destructive px-4 py-3">
 					<div class="flex flex-col gap-0.5 flex-1 text-sm">

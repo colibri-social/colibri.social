@@ -14,11 +14,11 @@ const NEAR_WING_PATH =
 
 const gradients = (uid: string): string =>
 	[
-		`<linearGradient id="hb-grad-tail-${uid}" x1="415.639" y1="788.97" x2="504.639" y2="973.97" gradientUnits="userSpaceOnUse"><stop stop-color="#6D6A79"/><stop offset="1" stop-color="#C6C2CD"/></linearGradient>`,
-		`<linearGradient id="hb-grad-far-${uid}" x1="451.639" y1="515.97" x2="98.6923" y2="284.437" gradientUnits="userSpaceOnUse"><stop stop-color="#6D6A79"/><stop offset="1" stop-color="#C6C2CD"/></linearGradient>`,
-		`<linearGradient id="hb-grad-body-${uid}" x1="839.639" y1="290.97" x2="339.639" y2="934.97" gradientUnits="userSpaceOnUse"><stop stop-color="white"/><stop offset="1" stop-color="#DDDDDD"/></linearGradient>`,
-		`<linearGradient id="hb-grad-near-${uid}" x1="287.639" y1="48.9705" x2="503.639" y2="491.97" gradientUnits="userSpaceOnUse"><stop stop-color="white"/><stop offset="1" stop-color="#EFEFEF"/></linearGradient>`,
+		`<linearGradient id="hb-grad-tail-${uid}" x1="415.639" y1="788.97" x2="504.639" y2="973.97" gradientUnits="userSpaceOnUse"><stop stop-color="var(--hb-tail-from)"/><stop offset="1" stop-color="var(--hb-tail-to)"/></linearGradient>`,
+		`<linearGradient id="hb-grad-far-${uid}" x1="451.639" y1="515.97" x2="98.6923" y2="284.437" gradientUnits="userSpaceOnUse"><stop stop-color="var(--hb-far-from)"/><stop offset="1" stop-color="var(--hb-far-to)"/></linearGradient>`,
+		`<linearGradient id="hb-grad-body-${uid}" x1="839.639" y1="290.97" x2="339.639" y2="934.97" gradientUnits="userSpaceOnUse"><stop stop-color="var(--hb-body-from)"/><stop offset="1" stop-color="var(--hb-body-to)"/></linearGradient>`,
+		`<linearGradient id="hb-grad-near-${uid}" x1="287.639" y1="48.9705" x2="503.639" y2="491.97" gradientUnits="userSpaceOnUse"><stop stop-color="var(--hb-near-from)"/><stop offset="1" stop-color="var(--hb-near-to)"/></linearGradient>`,
 	].join("");
 
 export const sprite = (uid: string): string =>
-	`<defs>${gradients(uid)}<g id="hb-far-wing-${uid}"><path d="${FAR_WING_PATH}" fill="#C3C3C3"/><path d="${FAR_WING_PATH}" fill="url(#hb-grad-far-${uid})"/></g><g id="hb-near-wing-${uid}"><path d="${NEAR_WING_PATH}" fill="url(#hb-grad-near-${uid})"/></g><g id="hb-body-${uid}"><path d="${TAIL_PATH}" fill="url(#hb-grad-tail-${uid})"/><path d="${BODY_PATH}" fill="url(#hb-grad-body-${uid})"/></g></defs>`;
+	`<defs>${gradients(uid)}<g id="hb-far-wing-${uid}"><path d="${FAR_WING_PATH}" fill="var(--hb-far-base)"/><path d="${FAR_WING_PATH}" fill="url(#hb-grad-far-${uid})"/></g><g id="hb-near-wing-${uid}"><path d="${NEAR_WING_PATH}" fill="url(#hb-grad-near-${uid})"/></g><g id="hb-body-${uid}"><path d="${TAIL_PATH}" fill="url(#hb-grad-tail-${uid})"/><path d="${BODY_PATH}" fill="url(#hb-grad-body-${uid})"/></g></defs>`;

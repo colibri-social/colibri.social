@@ -238,7 +238,7 @@ const MessageInner: Component<{
 				<Show when={swipeReplyEnabled() && dragging()}>
 					<div class="absolute inset-0 bg-primary pointer-events-none">
 						<div
-							class="absolute top-1/2 text-white"
+							class="absolute top-1/2 text-primary-foreground"
 							style={{
 								right: `${Math.max(4, Math.abs(dragX()) / 2 - 10)}px`,
 								opacity: replyRevealProgress(),

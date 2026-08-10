@@ -67,6 +67,8 @@ const CommunityHeader = () => {
 
 	const isOwner = () => community().ownerDid() === user.did;
 
+	const hasBanner = () => community().community.banner !== undefined;
+
 	// Opened from the sidebar context menu's "Settings": it navigates here with
 	// `?settings=open`, which we honour once and then clear.
 	createEffect(() => {
@@ -80,9 +82,9 @@ const CommunityHeader = () => {
 		<>
 			<div
 				class="w-full border-b border-border flex flex-col pb-4 pt-3 px-3 relative"
-				classList={{ "h-40": community().community.banner !== undefined }}
+				classList={{ "h-40": hasBanner() }}
 			>
-				<Show when={community().community.banner !== undefined}>
+				<Show when={hasBanner()}>
 					<img
 						class="absolute top-0 left-0 right-0 w-full h-full object-cover"
 						src={resolveBlob(community().did, community().community.banner)}
@@ -99,7 +101,10 @@ const CommunityHeader = () => {
 								type="button"
 								class="flex flex-row items-center gap-3 text-left px-2 py-1 rounded-md hover:bg-muted/50 transition-all duration-75 cursor-pointer w-fit aria-expanded:[&>svg]:rotate-180 aria-expanded:bg-muted/50 z-10"
 							>
-								<h2 class="m-0 text-xl w-full text-ellipsis whitespace-nowrap">
+								<h2
+									class="m-0 text-xl w-full text-ellipsis whitespace-nowrap"
+									classList={{ "text-neutral-50": hasBanner() }}
+								>
 									{community().community.name}
 								</h2>
 								<Show when={pendingApplications() > 0}>
@@ -141,7 +146,10 @@ const CommunityHeader = () => {
 						onClick={() => setMenuOpen(true)}
 						class="flex flex-row items-center gap-3 text-left px-2 py-1 rounded-md hover:bg-muted/50 transition-all duration-75 cursor-pointer w-fit z-10"
 					>
-						<h2 class="m-0 text-xl w-full text-ellipsis whitespace-nowrap">
+						<h2
+							class="m-0 text-xl w-full text-ellipsis whitespace-nowrap"
+							classList={{ "text-neutral-50": hasBanner() }}
+						>
 							{community().community.name}
 						</h2>
 						<Show when={pendingApplications() > 0}>

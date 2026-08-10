@@ -1,6 +1,6 @@
 # @colibri-social/assets
 
-Shared static assets used across Colibri. Fonts, sounds, logos, emoji, and the login screen imagery, and their manifests.
+Shared static assets used across Colibri. Fonts, sounds, logos, emoji, and the login screen imagery.
 
 The website copies them into place at dev/build time via the `sync-assets` script.
 
@@ -16,4 +16,6 @@ Available entry points (see `package.json` → `exports`): `.`, `./node`, `./fon
 
 ## Scripts
 
-- `build`: regenerate the manifest (`node scripts/generate-manifest.mjs`). Run this after adding or renaming files in `files/`.
+- `fetch-models`: download the noise-suppression model assets into `files/`.
+- `fetch-emoji`: download the twemoji assets into `files/`.
+- `fetch-all`: both of the above.

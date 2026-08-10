@@ -28,6 +28,8 @@ import {
 	openExternalLink,
 } from "../../../utils/open-external-link";
 import { purify } from "../../..//utils/purify";
+import { readableUserColor } from "../../../utils/readable-color";
+import { resolvedTheme } from "../../../utils/theme";
 import { badgeText, useUserBadges } from "../../../utils/user-badges";
 import { BottomSheet } from "../../ui/MenuDrawer";
 import {
@@ -153,7 +155,8 @@ export const ProfilePopoverContents: Component<{
 	const atProtoAtHref = () =>
 		`https://atproto.at/uri/at://${props.user.handle.replaceAll("at://", "")}`;
 
-	const accentColor = () => props.user.data.theme?.accentColor;
+	const accentColor = () =>
+		readableUserColor(props.user.data.theme?.accentColor, resolvedTheme());
 
 	const { all: allBadges } = useUserBadges(() => props.user);
 

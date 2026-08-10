@@ -1,3 +1,27 @@
+:root {
+	--hb-tail-from: #6d6a79;
+	--hb-tail-to: #c6c2cd;
+	--hb-far-from: #6d6a79;
+	--hb-far-to: #c6c2cd;
+	--hb-far-base: #c3c3c3;
+	--hb-body-from: #ffffff;
+	--hb-body-to: #dddddd;
+	--hb-near-from: #ffffff;
+	--hb-near-to: #efefef;
+}
+
+:root:not(.dark) {
+	--hb-tail-from: #202020;
+	--hb-tail-to: #404040;
+	--hb-far-from: #202020;
+	--hb-far-to: #404040;
+	--hb-far-base: #202020;
+	--hb-body-from: #333333;
+	--hb-body-to: #000000;
+	--hb-near-from: #000000;
+	--hb-near-to: #202020;
+}
+
 @keyframes hb-bob {
 	from {
 		transform: translateY(-4px) rotate(0.4deg);

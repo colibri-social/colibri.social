@@ -161,7 +161,7 @@ const SortableCommunity = (props: {
 				when={pingCount() > 0}
 				fallback={
 					<Show when={hasUnread()}>
-						<span class="absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full bg-white border-2 border-card pointer-events-none select-none z-20" />
+						<span class="absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full bg-foreground border-2 border-card pointer-events-none select-none z-20" />
 					</Show>
 				}
 			>

@@ -36,6 +36,8 @@ import {
 } from "../../../components/ui/TextField";
 import { useUserContext } from "../../../contexts/User";
 import { createLogger } from "../../../utils/logger";
+import { readableUserColor } from "../../../utils/readable-color";
+import { resolvedTheme } from "../../../utils/theme";
 import { SettingsPage } from "../common/SettingsModal";
 import {
 	ThemeControls,
@@ -328,7 +330,9 @@ export const GeneralPage: Component = () => {
 							required
 							disabled={syncBluesky()}
 							class="font-bold"
-							style={{ color: theme().accentColor }}
+							style={{
+								color: readableUserColor(theme().accentColor, resolvedTheme()),
+							}}
 						/>
 					</TextField>
 					<TextField
