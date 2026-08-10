@@ -1,3 +1,7 @@
+import type {
+	ColibriRichTextFacet,
+	ColibriRichTextLink,
+} from "@colibri-social/lib";
 import { type Component, createResource, createSignal, Show } from "solid-js";
 import StarIcon from "~icons/ph/star";
 import StarFillIcon from "~icons/ph/star-fill";
@@ -54,6 +58,25 @@ export const isDirectMediaUrl = (uri: string): boolean =>
 export const usesLinkPreview = (uri: string): boolean =>
 	!isDirectMediaUrl(uri) && !parseBskyPostUrl(uri);
 
+export const gifItemFromUrl = (uri: string): GifItem => ({
+	id: uri,
+	mediaUrl: uri,
+	previewUrl: uri,
+});
+
+export const gifLinkFromFacets = (
+	facets?: Array<ColibriRichTextFacet>,
+): string | undefined => {
+	for (const facet of facets ?? []) {
+		for (const feature of facet.features) {
+			if (feature.$type !== "social.colibri.richtext.facet#link") continue;
+			const { uri } = feature as ColibriRichTextLink;
+			if (isGifUrl(uri)) return uri;
+		}
+	}
+	return undefined;
+};
+
 const [brokenMediaLinks, setBrokenMediaLinks] = createSignal<
 	ReadonlySet<string>
 >(new Set());
@@ -73,11 +96,7 @@ const InlineGif: Component<{ uri: string }> = (props) => {
 
 	// A chat GIF is identified by its media URL (no Klipy slug here); the
 	// favorites store matches on either id or mediaUrl.
-	const gif = (): GifItem => ({
-		id: props.uri,
-		mediaUrl: props.uri,
-		previewUrl: props.uri,
-	});
+	const gif = (): GifItem => gifItemFromUrl(props.uri);
 
 	return (
 		<div class="group/gif relative w-fit">

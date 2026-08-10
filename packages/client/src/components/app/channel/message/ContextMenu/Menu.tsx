@@ -6,8 +6,11 @@ import InfoIcon from "~icons/ph/info";
 import PencilIcon from "~icons/ph/pencil";
 import ProhibitIcon from "~icons/ph/prohibit";
 import SmileyIcon from "~icons/ph/smiley";
+import StarIcon from "~icons/ph/star";
+import StarFillIcon from "~icons/ph/star-fill";
 import TrashIcon from "~icons/ph/trash";
 import { usePermissions } from "../../../../../contexts/Community";
+import { useGifFavorites } from "../../../../../contexts/GifFavorites";
 import { useMessageContext } from "../../../../../contexts/Message";
 import { useUserContext } from "../../../../../contexts/User";
 import { useIsTouch } from "../../../../../utils/touch";
@@ -28,6 +31,7 @@ import { Separator } from "../../../../ui/Separator";
 import { EmojiPopover } from "../../../common/EmojiPopover";
 import { copyMessageToClipboard } from "../../../common/text-editor/clipboard-facets";
 import { DebugInfo } from "../DebugInfo";
+import { gifItemFromUrl, gifLinkFromFacets } from "../Embed";
 
 /**
  * Message context menu. On desktop it's a right-click Kobalte menu; on mobile a
@@ -56,6 +60,7 @@ export const MessageContextMenu: ParentComponent<{
 	} = useMessageContext();
 
 	const { canHideMessage } = usePermissions();
+	const { isFavorited, toggleFavorite } = useGifFavorites();
 	const isTouch = useIsTouch();
 	const ownsMessage = () => user.did === message.author.did;
 	const QUICK_REACTIONS = ["👍", "❤️", "😂", "😮"];
@@ -71,6 +76,11 @@ export const MessageContextMenu: ParentComponent<{
 	const copyText = () => {
 		void copyMessageToClipboard(message.text, message.facets ?? []);
 		toast.success("Message copied");
+	};
+
+	const gif = () => {
+		const uri = gifLinkFromFacets(message.facets);
+		return uri ? gifItemFromUrl(uri) : undefined;
 	};
 
 	return (
@@ -197,6 +207,23 @@ export const MessageContextMenu: ParentComponent<{
 							<CopyIcon />
 							<span>Copy Text</span>
 						</MenuDrawerItem>
+					</Show>
+					<Show when={gif()}>
+						{(item) => (
+							<MenuDrawerItem
+								onClick={() => {
+									close();
+									void toggleFavorite(item());
+								}}
+							>
+								<Show when={isFavorited(item())} fallback={<StarIcon />}>
+									<StarFillIcon class="text-yellow-400" />
+								</Show>
+								<span>
+									{isFavorited(item()) ? "Remove saved GIF" : "Save GIF"}
+								</span>
+							</MenuDrawerItem>
+						)}
 					</Show>
 					<Show when={!("hash" in message)}>
 						<MenuDrawerItem
