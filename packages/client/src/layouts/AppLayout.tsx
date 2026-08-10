@@ -246,7 +246,8 @@ const AppLayout: ParentComponent = (props) => {
 	const socket = useSocketContext();
 	const navigate = useNavigate();
 	const location = useLocation();
-	const { isMobile, railTranslate, isDragging } = createMobilePane();
+	const { isMobile, railTranslate, navProgress, isDragging } =
+		createMobilePane();
 	const viewport = useViewport();
 
 	const desktopShell = isDesktopNative();
@@ -461,7 +462,7 @@ const AppLayout: ParentComponent = (props) => {
 	return (
 		<div
 			ref={shellEl}
-			class="flex flex-col w-full bg-card"
+			class="flex flex-col w-full bg-card relative"
 			classList={{
 				"h-[100dvh]": needsShellInsets() && shellHeight() === undefined,
 				"h-screen": !needsShellInsets(),
@@ -481,6 +482,17 @@ const AppLayout: ParentComponent = (props) => {
 					: {}),
 			}}
 		>
+			<Show when={needsShellInsets() && isMobile()}>
+				<div
+					aria-hidden="true"
+					class="absolute inset-x-0 top-0 h-[var(--safe-area-top)] bg-background pointer-events-none z-50"
+					style={{ opacity: 1 - navProgress() }}
+					classList={{
+						"transition-opacity duration-300 ease-[cubic-bezier(0.25,1,0.5,1)] motion-reduce:transition-none":
+							!isDragging(),
+					}}
+				/>
+			</Show>
 			<NativeNotifications />
 			<NotificationPromptDialog />
 			<TitleBar />
