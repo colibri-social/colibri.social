@@ -57,5 +57,7 @@
 			<string>social.colibri</string>
 		</dict>
 	</array>
+	<key>NSScreenCaptureUsageDescription</key>
+	<string>Colibri captures the screen or app window you pick so you can share it in a voice channel.</string>
 </dict>
 </plist>
