@@ -3,6 +3,12 @@ import { type Component, createEffect, on, onCleanup, Show } from "solid-js";
 import { useViewport, ViewportProvider } from "../../contexts/Viewport";
 import { animateKeyboardTransition } from "../../utils/keyboard-animation";
 import { useIsMobile } from "../../utils/mobile-pane";
+import {
+	hasNativeKeyboardInsetSync,
+	isDesktopNative,
+} from "../../utils/platform";
+import { readSafeAreaInsets } from "../../utils/safe-area";
+import { shellHeightForInset } from "../../utils/visual-viewport";
 import { AppLoadingScreen } from "../AppLoadingScreen";
 import { AnimatedHeight } from "./AnimatedHeight";
 import { createSignInFlow, type SignInMode } from "./createSignInFlow";
@@ -25,6 +31,11 @@ const SignInScreenContent: Component<{ mode?: SignInMode }> = (props) => {
 	const viewport = useViewport();
 	const isMobile = useIsMobile();
 
+	const desktopShell = isDesktopNative();
+	const needsShellInsets = () => isMobile() && !desktopShell;
+
+	let shellEl: HTMLElement | undefined;
+	let shellAnimation: Animation | undefined;
 	let paneEl: HTMLElement | undefined;
 	let paneAnimation: Animation | undefined;
 
@@ -35,23 +46,52 @@ const SignInScreenContent: Component<{ mode?: SignInMode }> = (props) => {
 		return inset > KEYBOARD_INSET_THRESHOLD ? inset : 0;
 	};
 
+	const shellHeight = () =>
+		needsShellInsets() && viewport.height() !== undefined
+			? `${viewport.height()}px`
+			: undefined;
+
 	createEffect(
 		on(
 			() => viewport.keyboardTransition(),
 			(transition) => {
-				const el = paneEl;
-				if (!transition || !el || isMobile()) return;
-
+				shellAnimation?.cancel();
 				paneAnimation?.cancel();
-				paneAnimation = animateKeyboardTransition(el, transition, (inset) => ({
-					paddingBottom: panePaddingBottom(inset),
-				}));
+				if (!transition) return;
+
+				if (needsShellInsets()) {
+					if (!shellEl) return;
+
+					const safeBottom = readSafeAreaInsets().bottom;
+					shellAnimation = animateKeyboardTransition(
+						shellEl,
+						transition,
+						(inset) => ({
+							height: `${shellHeightForInset(inset)}px`,
+							paddingBottom: `${Math.max(0, safeBottom - inset)}px`,
+						}),
+					);
+					return;
+				}
+
+				if (isMobile() || !paneEl) return;
+
+				paneAnimation = animateKeyboardTransition(
+					paneEl,
+					transition,
+					(inset) => ({
+						paddingBottom: panePaddingBottom(inset),
+					}),
+				);
 			},
 			{ defer: true },
 		),
 	);
 
-	onCleanup(() => paneAnimation?.cancel());
+	onCleanup(() => {
+		shellAnimation?.cancel();
+		paneAnimation?.cancel();
+	});
 
 	return (
 		<Show
@@ -62,14 +102,34 @@ const SignInScreenContent: Component<{ mode?: SignInMode }> = (props) => {
 				</div>
 			}
 		>
-			<main class="flex h-[calc(100dvh-var(--titlebar-height))] w-full flex-col overflow-hidden bg-background pt-[var(--safe-area-top)] pl-[var(--safe-area-left)] pr-[var(--safe-area-right)] md:flex-row-reverse">
+			<main
+				ref={shellEl}
+				class="flex w-full flex-col overflow-hidden bg-background pt-[var(--safe-area-top)] pl-[var(--safe-area-left)] pr-[var(--safe-area-right)] md:flex-row-reverse"
+				classList={{
+					"h-[calc(100dvh-var(--titlebar-height))]":
+						shellHeight() === undefined,
+					"transition-[height,transform,padding-bottom] duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]":
+						needsShellInsets() && !hasNativeKeyboardInsetSync(),
+				}}
+				style={{
+					...(shellHeight() ? { height: shellHeight() } : {}),
+					...(needsShellInsets()
+						? {
+								"padding-bottom": `max(0px, calc(var(--safe-area-bottom) - ${keyboardInset()}px))`,
+							}
+						: {}),
+					...(needsShellInsets() && viewport.offsetTop() > 0
+						? { transform: `translateY(${viewport.offsetTop()}px)` }
+						: {}),
+				}}
+			>
 				<section class="relative flex min-h-0 flex-1 overflow-hidden border-border bg-gradient-to-b from-primary/12 to-transparent md:border-l">
 					<SignInShowcase />
 				</section>
 
 				<section
 					ref={paneEl}
-					class="relative z-10 flex max-h-[76dvh] w-full shrink-0 flex-col overflow-y-auto overscroll-contain rounded-t-2xl border-t border-border bg-background px-6 pt-5 pb-[calc(1.25rem+var(--safe-area-bottom))] shadow-[0_-24px_48px_-32px_#000] md:max-h-none md:w-[26rem] md:max-w-full md:rounded-none md:border-t-0 md:px-10 md:py-8 md:shadow-none"
+					class="relative z-10 flex max-h-[min(76dvh,100%)] w-full shrink-0 flex-col overflow-y-auto overscroll-contain rounded-t-2xl border-t border-border bg-background px-6 py-5 shadow-[0_-24px_48px_-32px_#000] md:max-h-none md:w-[26rem] md:max-w-full md:rounded-none md:border-t-0 md:px-10 md:py-8 md:shadow-none"
 					style={
 						isMobile()
 							? undefined
