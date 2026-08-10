@@ -8,6 +8,7 @@ import {
 	Switch,
 } from "solid-js";
 import { toast } from "somoto";
+import ArrowSquareOutIcon from "~icons/ph/arrow-square-out";
 import CheckIcon from "~icons/ph/check";
 import CopyIcon from "~icons/ph/copy";
 import { useAuthContext } from "../../../contexts/Auth";
@@ -20,6 +21,7 @@ import {
 	type DiagnosticsSection,
 	formatDiagnostics,
 } from "../../../utils/diagnostics";
+import { openExternalLink } from "../../../utils/open-external-link";
 import {
 	getAppVersion,
 	type InstallChannel,
@@ -30,6 +32,9 @@ import {
 import { Button } from "../../ui/Button";
 import { Separator } from "../../ui/Separator";
 import { SettingsPage } from "../common/SettingsModal";
+
+const FEEDBACK_URL =
+	"https://userinput.app/s/did:plc:mprdjqjluoswa7awzggaggj3/3msnhieoy7y2n";
 
 type Status =
 	| "idle"
@@ -209,6 +214,29 @@ export const AboutPage: Component = () => {
 					</div>
 				</Match>
 			</Switch>
+
+			<Separator class="my-2" />
+
+			<div class="flex flex-col gap-2">
+				<div class="flex flex-col gap-1">
+					<span class="text-sm font-medium">Feedback</span>
+					<span class="text-sm text-muted-foreground">
+						Request features and vote on what we build next.
+					</span>
+				</div>
+				<Button
+					as="a"
+					href={FEEDBACK_URL}
+					target="_blank"
+					rel="noreferrer"
+					onClick={(e) => openExternalLink(FEEDBACK_URL, e)}
+					variant="link"
+					class="w-fit px-0!"
+				>
+					Vote on upcoming features
+					<ArrowSquareOutIcon />
+				</Button>
+			</div>
 
 			<Separator class="my-2" />
 

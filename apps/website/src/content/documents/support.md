@@ -23,6 +23,13 @@ on GitHub, where we can track it in the open:
 If you'd rather not use GitHub, just email us at **pds@colibri.social** with what
 happened and we'll take it from there.
 
+## Request a feature
+
+Have an idea for Colibri, or curious what we're already working on? Our public
+feedback board lists everything that's planned or in development, and you can
+suggest and vote on features there:
+[Colibri Features on userinput.app](https://userinput.app/s/did:plc:mprdjqjluoswa7awzggaggj3/3msnhieoy7y2n).
+
 ## Report abuse or a safety concern
 
 If you've come across harmful content, a bad-faith community, or anything that

@@ -12,9 +12,14 @@ const links: Array<LinkData> = [
 	{ text: "About", href: "/about" },
 	{ text: "Blog", href: "/blog" },
 	{ text: "Docs", href: "/docs" },
-	{ text: "GitHub", href: "https://github.com/colibri-social" },
+	{ text: "GitHub", href: "https://github.com/colibri-social", external: true },
 	{ text: "FAQ", href: "/faq" },
 	{ text: "Support", href: "/support" },
+	{
+		text: "Feedback",
+		href: "https://userinput.app/s/did:plc:mprdjqjluoswa7awzggaggj3/3msnhieoy7y2n",
+		external: true,
+	},
 	{ text: "Privacy", href: "/policy" },
 	{ text: "Terms", href: "/tos" },
 	{ text: "Imprint", href: "/imprint" },
@@ -50,7 +55,11 @@ const links: Array<LinkData> = [
 	<div
 		class="flex flex-row items-center justify-between mx-auto w-full max-w-336 md:px-16 px-6 pb-6 z-20 flex-wrap"
 	>
-		{links.map(({ text, href }) => <NavLink isFooterLink {text} {href} />)}
+		{
+			links.map(({ text, href, external }) => (
+				<NavLink isFooterLink {text} {href} {external} />
+			))
+		}
 	</div>
 	<hr class="my-4 z-20 lg:block hidden" />
 	<div
