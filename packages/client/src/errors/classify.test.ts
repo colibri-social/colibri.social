@@ -279,8 +279,34 @@ describe("isStorageFailure", () => {
 		expect(isStorageFailure(named)).toBe(true);
 	});
 
+	it("matches a force-closed IndexedDB connection", () => {
+		expect(isStorageFailure(new Error("Database closed"))).toBe(true);
+	});
+
+	it("matches the WebKit quota and unknown storage errors", () => {
+		for (const name of ["QuotaExceededError", "UnknownError"]) {
+			const named = new Error("nope");
+			named.name = name;
+			expect(isStorageFailure(named)).toBe(true);
+		}
+	});
+
+	it("matches a storage failure wrapped in another error", () => {
+		const cause = new Error("nope");
+		cause.name = "DBUnavailableError";
+		expect(isStorageFailure(new Error("authorize failed", { cause }))).toBe(
+			true,
+		);
+	});
+
 	it("does not match unrelated errors", () => {
 		expect(isStorageFailure(new Error("nope"))).toBe(false);
+	});
+
+	it("does not match a media error that is not about storage", () => {
+		const named = new Error("nope");
+		named.name = "InvalidStateError";
+		expect(isStorageFailure(named)).toBe(false);
 	});
 });
 

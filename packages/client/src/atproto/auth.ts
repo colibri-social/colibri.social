@@ -6,7 +6,7 @@ import {
 import * as Sentry from "@sentry/solid";
 import { type Accessor, createSignal } from "solid-js";
 import { toast } from "somoto";
-import { classifyThrown } from "../errors/classify";
+import { classifyThrown, isStorageFailure } from "../errors/classify";
 import { ColibriError, isColibriError } from "../errors/error";
 import { classifyNativeError, wasCancelled } from "../errors/native";
 import { classifyOAuthError, classifyOAuthParams } from "../errors/oauth";
@@ -445,12 +445,6 @@ const markFallbackStorage = () => {
 	} catch {}
 };
 
-export const isStorageFailure = (err: unknown): boolean =>
-	err instanceof Error &&
-	(err.name === "DBUnavailableError" ||
-		err.name === "StorageStallError" ||
-		err.message.includes("IndexedDB unavailable"));
-
 class StorageStallError extends Error {
 	constructor(message: string) {
 		super(message);
@@ -531,11 +525,39 @@ const revalidateGrantedScopes = async (
 	}
 };
 
-const resetSession = () => {
-	localStorage.removeItem("sub");
+const clearInMemorySession = () => {
 	agent = undefined;
 	pdsHost = undefined;
 	setGrantedScopes(undefined);
+};
+
+const resetSession = () => {
+	localStorage.removeItem("sub");
+	clearInMemorySession();
+};
+
+const reportRestoreStorageFailure = async (err: unknown): Promise<void> => {
+	const device = await deviceContext();
+
+	reportError(
+		new ColibriError({
+			code: "StorageStalled",
+			severity: "warning",
+			cause: err,
+			context: { stage: "restore" },
+		}),
+		{
+			stage: "oauth.restore",
+			tags: {
+				"oauth.platform": device.platform ?? "web",
+				"oauth.os_version": device.osVersion ?? "unknown",
+				"oauth.storage_backend": usingFallbackStorage
+					? "localstorage"
+					: "indexeddb",
+			},
+			contexts: { device },
+		},
+	);
 };
 
 const init = async () => {
@@ -562,30 +584,20 @@ const init = async () => {
 	try {
 		await restoreExistingSession();
 	} catch (e) {
-		if (isStorageFailure(e) && !usingFallbackStorage) {
-			log.warn(
-				"IndexedDB is unusable, retrying with localStorage-backed OAuth storage",
-				{ error: e },
-			);
+		if (isStorageFailure(e)) {
+			clearInMemorySession();
 			Sentry.addBreadcrumb({
 				category: "oauth.storage",
 				level: "warning",
-				message: "restore fell back to localStorage storage",
+				message: "restore found local storage unusable",
 			});
-			markFallbackStorage();
-			usingFallbackStorage = true;
-			resetSession();
-			try {
-				oAuthClient = await loadOAuthClient(FALLBACK_DATABASE);
-				await restoreExistingSession();
-			} catch (fallbackError) {
-				log.error("localStorage-backed OAuth storage also failed", {
-					error: fallbackError,
-				});
-				resetSession();
-			}
+			log.warn("local storage was unusable while restoring the session", {
+				code: classifyThrown(e).code,
+			});
+			void reportRestoreStorageFailure(e).catch(() => {});
 		} else {
-			log.error("restoring the session failed", { error: e });
+			const failure = classifyThrown(e);
+			log.error("restoring the session failed", { code: failure.code });
 			resetSession();
 		}
 	}

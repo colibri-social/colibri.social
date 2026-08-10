@@ -102,11 +102,23 @@ export const isConnectivityError = (err: unknown): boolean =>
 		return code === "NetworkFailed" || code === "Timeout";
 	});
 
+const STORAGE_ERROR_NAMES = new Set([
+	"DBUnavailableError",
+	"StorageStallError",
+	"QuotaExceededError",
+	"UnknownError",
+]);
+
+const STORAGE_ERROR_MESSAGES = ["IndexedDB unavailable", "Database closed"];
+
+const isStorageLink = (err: unknown): boolean => {
+	if (!(err instanceof Error)) return false;
+	if (STORAGE_ERROR_NAMES.has(err.name)) return true;
+	return STORAGE_ERROR_MESSAGES.some((text) => err.message.includes(text));
+};
+
 export const isStorageFailure = (err: unknown): boolean =>
-	err instanceof Error &&
-	(err.name === "DBUnavailableError" ||
-		err.name === "StorageStallError" ||
-		err.message.includes("IndexedDB unavailable"));
+	causeChain(err).some(isStorageLink);
 
 export const isRecordNotFound = (err: unknown): boolean => {
 	if (!err || typeof err !== "object") return false;
