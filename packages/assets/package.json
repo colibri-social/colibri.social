@@ -2,7 +2,7 @@
 	"name": "@colibri-social/assets",
 	"private": true,
 	"type": "module",
-	"version": "0.0.2-rc.3",
+	"version": "0.0.2",
 	"exports": {
 		".": "./src/index.ts",
 		"./node": "./src/node.js",
