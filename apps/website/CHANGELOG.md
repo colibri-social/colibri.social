@@ -275,7 +275,7 @@
 - Updated dependencies [dff7523]
 - Updated dependencies [ec91e45]
 - Updated dependencies [9dedb4a]
-  - @colibri-social/client@0.1.0
+  - @colibri-social/client@0.2.0
   - @colibri-social/assets@0.0.2
   - @colibri-social/standard-renderer@0.0.2
 

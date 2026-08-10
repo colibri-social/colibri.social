@@ -9,7 +9,7 @@ export type ClientReleaseNote = Omit<ReleaseNote, "entries"> & {
 
 export const RELEASE_NOTES: Array<ClientReleaseNote> = [
 	{
-		version: "0.1.0",
+		version: "0.2.0",
 		date: "2026-08-10",
 		entries: [
 			{
