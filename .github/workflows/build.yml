@@ -137,6 +137,10 @@ jobs:
         with:
           path: packages/assets/files/twemoji
           key: twemoji-${{ runner.os }}-${{ hashFiles('packages/assets/scripts/fetch-emoji-assets.mjs', 'packages/client/package.json') }}
+          restore-keys: twemoji-${{ runner.os }}-
+
+      - name: Fetch twemoji assets
+        run: pnpm --filter @colibri-social/assets fetch-emoji
 
       - name: Alias NDK binutils for openssl-src (Android only)
         if: matrix.is-android
