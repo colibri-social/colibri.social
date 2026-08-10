@@ -67,12 +67,13 @@ index 14c1c57a665854fb3ebe4789f59e317f4d305d3c..19a1faea169e478ce0396c469b74f0d4
      protected createStore<N extends keyof Schema, V extends Value>(name: N, { encode, decode, expiresAt, }: {
          encode: (value: V) => Schema[N]['value'] | PromiseLike<Schema[N]['value']>;
 diff --git a/dist/browser-oauth-database.js b/dist/browser-oauth-database.js
-index d35656518ba2f180510f54570a1ac34f07b1604c..3b3dbf32aa2dc0f83f4b9712fa0fcb8106426f4d 100644
+index d35656518ba2f180510f54570a1ac34f07b1604c..aac22418abece70497cf877b9c7037e21fbe6587 100644
 --- a/dist/browser-oauth-database.js
 +++ b/dist/browser-oauth-database.js
 @@ -1,15 +1,40 @@
  import { WebcryptoKey } from '@atproto/jwk-webcrypto';
- import { DB } from './indexed-db/index.js';
+-import { DB } from './indexed-db/index.js';
++import { DB, DBUnavailableError } from './indexed-db/index.js';
 +function subtleImportParams(alg) {
 +    switch (alg) {
 +        case 'ES256': return { name: 'ECDSA', namedCurve: 'P-256' };
@@ -112,7 +113,7 @@ index d35656518ba2f180510f54570a1ac34f07b1604c..3b3dbf32aa2dc0f83f4b9712fa0fcb81
      return WebcryptoKey.fromKeypair(encoded.keyPair, encoded.keyId);
  }
  const STORES = [
-@@ -21,23 +46,59 @@ const STORES = [
+@@ -21,25 +46,83 @@ const STORES = [
      'authorizationServerMetadataCache',
      'protectedResourceMetadataCache',
  ];
@@ -144,44 +145,66 @@ index d35656518ba2f180510f54570a1ac34f07b1604c..3b3dbf32aa2dc0f83f4b9712fa0fcb81
      #cleanupInterval;
 +    #backend;
 +    #name;
++    #durability;
      constructor(options) {
 -        this.#dbPromise = DB.open(options?.name ?? '@atproto-oauth-client', [
--            (db) => {
--                for (const name of STORES) {
--                    const store = db.createObjectStore(name, { autoIncrement: true });
--                    store.createIndex('expiresAt', 'expiresAt', { unique: false });
--                }
--            },
--        ], { durability: options?.durability ?? 'strict' });
 +        this.#backend = options?.backend ?? 'indexeddb';
 +        this.#name = options?.name ?? '@atproto-oauth-client';
++        this.#durability = options?.durability ?? 'strict';
 +        this.#dbPromise =
-+            this.#backend === 'localstorage'
-+                ? undefined
-+                : DB.open(this.#name, [
-+                    (db) => {
-+                        for (const name of STORES) {
-+                            const store = db.createObjectStore(name, { autoIncrement: true });
-+                            store.createIndex('expiresAt', 'expiresAt', { unique: false });
-+                        }
-+                    },
-+                ], { durability: options?.durability ?? 'strict' });
-         this.#cleanupInterval = setInterval(() => {
--            void this.cleanup();
++            this.#backend === 'localstorage' ? undefined : this.#openOwned();
++        this.#cleanupInterval = setInterval(() => {
 +            void this.cleanup().catch(() => null);
-         }, options?.cleanupInterval ?? 30e3);
-     }
++        }, options?.cleanupInterval ?? 30e3);
++    }
++    #open() {
++        return DB.open(this.#name, [
+             (db) => {
+                 for (const name of STORES) {
+                     const store = db.createObjectStore(name, { autoIncrement: true });
+                     store.createIndex('expiresAt', 'expiresAt', { unique: false });
+                 }
+             },
+-        ], { durability: options?.durability ?? 'strict' });
+-        this.#cleanupInterval = setInterval(() => {
+-            void this.cleanup();
+-        }, options?.cleanupInterval ?? 30e3);
++        ], { durability: this.#durability });
++    }
++    #openOwned() {
++        const promise = this.#open();
++        promise.catch(() => null);
++        return promise;
++    }
++    #recover(pending, err) {
++        if (!(err instanceof DBUnavailableError)) return false;
++        if (this.#dbPromise === pending) this.#dbPromise = this.#openOwned();
++        return true;
++    }
 +    get backend() {
 +        return this.#backend;
-+    }
+     }
      async run(storeName, mode, fn) {
+-        const db = await this.#dbPromise;
+-        return await db.transaction([storeName], mode, (tx) => fn(tx.objectStore(storeName)));
 +        if (this.#backend === 'localstorage') {
 +            return await fn(localStorageBackedStore(this.#name, storeName));
 +        }
-         const db = await this.#dbPromise;
-         return await db.transaction([storeName], mode, (tx) => fn(tx.objectStore(storeName)));
++        for (let attempt = 1; attempt <= 2; attempt++) {
++            const pending = this.#dbPromise;
++            try {
++                const db = await pending;
++                return await db.transaction([storeName], mode, (tx) => fn(tx.objectStore(storeName)));
++            }
++            catch (err) {
++                if (attempt === 2 || !this.#recover(pending, err))
++                    throw err;
++            }
++        }
      }
-@@ -136,6 +197,25 @@ export class BrowserOAuthDatabase {
+     createStore(name, { encode, decode, expiresAt, }) {
+         return {
+@@ -136,6 +219,25 @@ export class BrowserOAuthDatabase {
          });
      }
      async cleanup() {
@@ -207,7 +230,7 @@ index d35656518ba2f180510f54570a1ac34f07b1604c..3b3dbf32aa2dc0f83f4b9712fa0fcb81
          const db = await this.#dbPromise;
          for (const name of STORES) {
              await db.transaction([name], 'readwrite', (tx) => tx
-@@ -147,6 +227,8 @@ export class BrowserOAuthDatabase {
+@@ -147,6 +249,8 @@ export class BrowserOAuthDatabase {
      async [Symbol.asyncDispose]() {
          clearInterval(this.#cleanupInterval);
          this.#cleanupInterval = undefined;
@@ -229,8 +252,31 @@ index 599f9b81fee5c87cc006fbab8902779f21a9a17c..e9a15956a53df7d617dc34cd8819f349
      }
      getRandomValues(byteLength) {
          return crypto.getRandomValues(new Uint8Array(byteLength));
+diff --git a/dist/indexed-db/db.d.ts b/dist/indexed-db/db.d.ts
+index 096adeaf5c8097dea731ccfb325042d1b6ab54e6..ec05bd0bd129d4900ea085c81d0fbb3138334081 100644
+--- a/dist/indexed-db/db.d.ts
++++ b/dist/indexed-db/db.d.ts
+@@ -1,11 +1,18 @@
+ import 'core-js/es/symbol/dispose.js';
+ import { DBTransaction } from './db-transaction.js';
+ import { DatabaseSchema } from './schema.js';
++export declare const DB_OPEN_TIMEOUT_MS = 8000;
++export declare const DB_TRANSACTION_TIMEOUT_MS = 8000;
++export declare class DBUnavailableError extends Error {
++    readonly reason: string;
++    constructor(reason: string, cause?: unknown);
++}
+ export declare class DB<Schema extends DatabaseSchema> implements Disposable {
+     #private;
+     protected readonly txOptions?: IDBTransactionOptions | undefined;
+     static open<Schema extends DatabaseSchema = DatabaseSchema>(dbName: string, migrations: ReadonlyArray<(db: IDBDatabase) => void>, txOptions?: IDBTransactionOptions): Promise<DB<Schema>>;
+     constructor(db: IDBDatabase, txOptions?: IDBTransactionOptions | undefined);
++    get closed(): boolean;
+     protected get db(): IDBDatabase;
+     get name(): string;
+     get objectStoreNames(): DOMStringList;
 diff --git a/dist/indexed-db/db.js b/dist/indexed-db/db.js
-index d28c3f95a7a40fb0e2489e57e1fd8636513bd90d..f07e08a7235e371de6f327999c43a992f5ffe71b 100644
+index d28c3f95a7a40fb0e2489e57e1fd8636513bd90d..7492e502376fa39c1db454781c56f7d5e648a56a 100644
 --- a/dist/indexed-db/db.js
 +++ b/dist/indexed-db/db.js
 @@ -1,11 +1,32 @@
@@ -277,7 +323,21 @@ index d28c3f95a7a40fb0e2489e57e1fd8636513bd90d..f07e08a7235e371de6f327999c43a992
                  }
              };
          });
-@@ -55,17 +76,35 @@ export class DB {
+@@ -38,9 +59,12 @@ export class DB {
+         db.addEventListener('versionchange', cleanup);
+         db.addEventListener('close', cleanup);
+     }
++    get closed() {
++        return !this.#db;
++    }
+     get db() {
+         if (!this.#db)
+-            throw new Error('Database closed');
++            throw new DBUnavailableError('connection closed');
+         return this.#db;
+     }
+     get name() {
+@@ -55,17 +79,35 @@ export class DB {
      async transaction(storeNames, mode, run) {
          // eslint-disable-next-line no-async-promise-executor
          return new Promise(async (resolve, reject) => {
@@ -317,7 +377,7 @@ index d28c3f95a7a40fb0e2489e57e1fd8636513bd90d..f07e08a7235e371de6f327999c43a992
                  try {
                      const value = await run(new DBTransaction(tx));
                      result = { done: true, value };
-@@ -77,7 +116,7 @@ export class DB {
+@@ -77,7 +119,7 @@ export class DB {
                  }
              }
              catch (err) {

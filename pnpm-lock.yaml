@@ -5,7 +5,7 @@ settings:
   excludeLinksFromLockfile: false
 
 patchedDependencies:
-  '@atproto/oauth-client-browser@0.4.3': 1d0a0f41de638bf85a0ac7f3fc837262c981019fe9b3c05d38dc9a5f3a66589a
+  '@atproto/oauth-client-browser@0.4.3': b349a20bbbbb0445a3fcd2531d62201b3611339476282b45221d20c8608a526f
   deepfilternet3-noise-filter: 2711f0c20972711403e2dd3b6a3eca4e6fafc4b2af31a01f26e478a400ece34f
 
 importers:
@@ -72,7 +72,7 @@ importers:
         version: 0.6.1
       '@atproto/oauth-client-browser':
         specifier: ^0.4.3
-        version: 0.4.3(patch_hash=1d0a0f41de638bf85a0ac7f3fc837262c981019fe9b3c05d38dc9a5f3a66589a)
+        version: 0.4.3(patch_hash=b349a20bbbbb0445a3fcd2531d62201b3611339476282b45221d20c8608a526f)
       '@atproto/oauth-client-node':
         specifier: ^0.3.16
         version: 0.3.16
@@ -322,7 +322,7 @@ importers:
         version: 0.20.22
       '@atproto/oauth-client-browser':
         specifier: ^0.4.3
-        version: 0.4.3(patch_hash=1d0a0f41de638bf85a0ac7f3fc837262c981019fe9b3c05d38dc9a5f3a66589a)
+        version: 0.4.3(patch_hash=b349a20bbbbb0445a3fcd2531d62201b3611339476282b45221d20c8608a526f)
       '@kobalte/core':
         specifier: ^0.13.11
         version: 0.13.11(solid-js@1.9.14)
@@ -582,7 +582,7 @@ importers:
         version: 0.7.3
       '@atproto/oauth-client-browser':
         specifier: ^0.4.3
-        version: 0.4.3(patch_hash=1d0a0f41de638bf85a0ac7f3fc837262c981019fe9b3c05d38dc9a5f3a66589a)
+        version: 0.4.3(patch_hash=b349a20bbbbb0445a3fcd2531d62201b3611339476282b45221d20c8608a526f)
       '@types/mdast':
         specifier: ^4.0.4
         version: 4.0.4
@@ -7582,7 +7582,7 @@ snapshots:
       multiformats: 13.4.2
       zod: 3.25.76
 
-  '@atproto/oauth-client-browser@0.4.3(patch_hash=1d0a0f41de638bf85a0ac7f3fc837262c981019fe9b3c05d38dc9a5f3a66589a)':
+  '@atproto/oauth-client-browser@0.4.3(patch_hash=b349a20bbbbb0445a3fcd2531d62201b3611339476282b45221d20c8608a526f)':
     dependencies:
       '@atproto-labs/did-resolver': 0.3.3
       '@atproto-labs/handle-resolver': 0.4.3
