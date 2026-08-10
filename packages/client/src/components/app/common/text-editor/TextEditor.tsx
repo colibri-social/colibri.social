@@ -505,11 +505,13 @@ const extractImageFiles = (data: DataTransfer | null): Array<File> => {
 	if (!data) return [];
 
 	const files: Array<File> = [];
-	const seen = new Set<File>();
+	const seen = new Set<string>();
 
 	const add = (file: File | null) => {
-		if (!file || seen.has(file) || !file.type.startsWith("image/")) return;
-		seen.add(file);
+		if (!file?.type.startsWith("image/")) return;
+		const key = `${file.name}:${file.size}:${file.type}`;
+		if (seen.has(key)) return;
+		seen.add(key);
 		const ext = file.type.split("/")[1] || "png";
 		const named =
 			file.name.trim().length > 0
