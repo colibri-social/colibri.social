@@ -47,7 +47,13 @@ export interface VoiceIOSettings extends BaseVoiceVideoSettings {
 }
 
 export type NoiseSuppressionMode =
-	"off" | "low" | "medium" | "high" | "exp-dtln" | "exp-gtcrn" | "exp-ulunas";
+	| "off"
+	| "low"
+	| "medium"
+	| "high"
+	| "exp-dtln"
+	| "exp-gtcrn"
+	| "exp-ulunas";
 
 const LEGACY_NOISE_SUPPRESSION_MODES: Record<string, NoiseSuppressionMode> = {
 	rnnoise: "low",

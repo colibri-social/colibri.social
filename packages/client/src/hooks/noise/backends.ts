@@ -104,8 +104,9 @@ async function liteRtFactory(): Promise<LiteRtFactory | null> {
 }
 
 async function createDtlnBackend(): Promise<ExperimentalBackend> {
-	const { createNoiseSuppressionRuntime } =
-		await import("@workadventure/noise-suppression");
+	const { createNoiseSuppressionRuntime } = await import(
+		"@workadventure/noise-suppression"
+	);
 
 	const factory = await liteRtFactory();
 
