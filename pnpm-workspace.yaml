@@ -2,6 +2,8 @@ packages:
   - apps/*
   - packages/*
 
+verifyDepsBeforeRun: warn
+
 allowBuilds:
   '@parcel/watcher': false
   '@sentry/cli': false
