@@ -16,6 +16,7 @@
 		"assets-car": "node scripts/assets-car.mjs",
 		"build:macos:direct": "bash scripts/build-macos-direct.sh",
 		"build:macos:appstore": "bash scripts/build-macos-appstore.sh",
+		"build:ios:appstore": "node scripts/tauri.mjs ios build --export-method app-store-connect --ci",
 		"tauri:windows:build": "tauri-windows-bundle build --runner pnpm"
 	},
 	"license": "MIT",

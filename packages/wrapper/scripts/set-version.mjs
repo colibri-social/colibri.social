@@ -56,10 +56,12 @@ patch("gen/android/app/tauri.properties", (text) => {
 	return out;
 });
 
+const appleBundleVersion = bundleVersion || version;
+
 patch("gen/apple/project.yml", (text) =>
 	text
 		.replace(/CFBundleShortVersionString: .*/, `CFBundleShortVersionString: ${version}`)
-		.replace(/CFBundleVersion: ".*"/, `CFBundleVersion: "${version}"`),
+		.replace(/CFBundleVersion: ".*"/, `CFBundleVersion: "${appleBundleVersion}"`),
 );
 
 patch("gen/apple/colibri-social_iOS/Info.plist", (text) =>
@@ -70,7 +72,7 @@ patch("gen/apple/colibri-social_iOS/Info.plist", (text) =>
 		)
 		.replace(
 			/(<key>CFBundleVersion<\/key>\s*<string>)[^<]*(<\/string>)/,
-			`$1${version}$2`,
+			`$1${appleBundleVersion}$2`,
 		),
 );
 

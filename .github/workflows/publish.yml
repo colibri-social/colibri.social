@@ -7,24 +7,32 @@ on:
         description: "Version to build (e.g. 0.1.0-rc.3)."
         required: true
       appstore:
-        description: "Also build and upload the Mac App Store package."
+        description: "Also build and upload the Apple App Store packages."
         type: boolean
         default: true
       appstore_only:
-        description: "Only build and upload the Mac App Store package, skipping every other channel."
+        description: "Only build and upload the Apple App Store packages, skipping every other channel."
         type: boolean
         default: false
+      appstore_platform:
+        description: "Which Apple App Store packages to build."
+        type: choice
+        default: both
+        options:
+          - both
+          - macos
+          - ios
       play_track:
         description: "Google Play track to publish to."
         type: choice
-        default: alpha
+        default: production
         options:
+          - production
           - alpha
           - beta
-          - production
 
 concurrency:
-  group: publish-${{ inputs.version }}-${{ inputs.appstore_only }}-${{ inputs.play_track }}
+  group: publish-${{ inputs.version }}-${{ inputs.appstore_only }}-${{ inputs.appstore_platform }}-${{ inputs.play_track }}
   cancel-in-progress: false
 
 jobs:
@@ -269,7 +277,7 @@ jobs:
 
   mas:
     name: Mac App Store
-    if: ${{ inputs.appstore || inputs.appstore_only }}
+    if: ${{ (inputs.appstore || inputs.appstore_only) && inputs.appstore_platform != 'ios' }}
     runs-on: macos-latest
     permissions:
       contents: read
@@ -466,6 +474,175 @@ jobs:
           if [ -n "${MAS_KEYCHAIN:-}" ] && [ -f "$MAS_KEYCHAIN" ]; then
             security delete-keychain "$MAS_KEYCHAIN" || true
           fi
+
+  ios:
+    name: iOS App Store
+    if: ${{ (inputs.appstore || inputs.appstore_only) && inputs.appstore_platform != 'macos' }}
+    runs-on: macos-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: setup pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: setup node
+        uses: actions/setup-node@v6
+        with:
+          node-version: lts/*
+          cache: "pnpm"
+
+      - name: install frontend dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Cache twemoji assets
+        uses: actions/cache@v4
+        with:
+          path: packages/assets/files/twemoji
+          key: twemoji-${{ runner.os }}-${{ hashFiles('packages/assets/scripts/fetch-emoji-assets.mjs', 'packages/client/package.json') }}
+
+      - name: Build frontend dependencies
+        run: pnpm --filter "@colibri-social/wrapper^..." build
+
+      - name: Select Xcode 26.6
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: "26.6"
+
+      - name: install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-ios
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: "packages/wrapper/src-tauri -> target"
+          shared-key: ios
+          cache-on-failure: true
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+
+      - name: install App Store Connect API key
+        env:
+          APPLE_API_KEY_P8: ${{ secrets.APPLE_API_KEY_P8 }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.appstoreconnect/private_keys
+          KEY_PATH="$HOME/.appstoreconnect/private_keys/AuthKey_${APPLE_API_KEY}.p8"
+          echo "$APPLE_API_KEY_P8" > "$KEY_PATH"
+          echo "APPLE_API_KEY_PATH=$KEY_PATH" >> "$GITHUB_ENV"
+
+      - name: Sync App Store version
+        run: |
+          set -euo pipefail
+          IOS_VERSION=$(node packages/wrapper/scripts/appstore-version.mjs "${{ inputs.version }}")
+          echo "App Store marketing version: $IOS_VERSION (build $GITHUB_RUN_NUMBER)"
+          node packages/wrapper/scripts/set-version.mjs "$IOS_VERSION" --bundle-version="$GITHUB_RUN_NUMBER"
+          echo "IOS_VERSION=$IOS_VERSION" >> "$GITHUB_ENV"
+
+      - name: Build and sign App Store IPA
+        env:
+          IOS_CERTIFICATE: ${{ secrets.IOS_CERTIFICATE }}
+          IOS_CERTIFICATE_PASSWORD: ${{ secrets.IOS_CERTIFICATE_PASSWORD }}
+          IOS_MOBILE_PROVISION: ${{ secrets.IOS_PROVISIONPROFILE }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          APPLE_DEVELOPMENT_TEAM: "8V8SWK3942"
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          VITE_SENTRY_DSN: ${{ secrets.WRAPPER_SENTRY_DSN }}
+          SENTRY_DSN: ${{ secrets.NATIVE_SENTRY_DSN }}
+        run: pnpm --filter @colibri-social/wrapper build:ios:appstore
+
+      - name: Locate IPA
+        run: |
+          set -euo pipefail
+          IPA=$(ls packages/wrapper/src-tauri/gen/apple/build/*/*.ipa | head -1)
+          test -s "$IPA"
+          echo "IPA_PATH=$IPA" >> "$GITHUB_ENV"
+
+      - name: Validate IPA with App Store Connect
+        id: validate
+        env:
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+        run: |
+          set -uo pipefail
+          LOG="$RUNNER_TEMP/altool-validate.log"
+          if xcrun altool --validate-app -f "$IPA_PATH" -t ios \
+            --apiKey "$APPLE_API_KEY" --apiIssuer "$APPLE_API_ISSUER" 2>&1 | tee "$LOG"; then
+            echo "validated=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          CODES=$(grep -oE '\(9[0-9]{4}\)' "$LOG" | tr -d '()' | sort -u)
+          echo "App Store Connect error codes: ${CODES:-none}"
+          if [ -n "$CODES" ] && [ -z "$(echo "$CODES" | grep -vE '^(90186|90062)$')" ]; then
+            echo "validated=false" >> "$GITHUB_OUTPUT"
+            echo "::warning title=App Store upload skipped::Version $IOS_VERSION is already approved or its pre-release train is closed, so App Store Connect will not accept more builds for it. The signed IPA is still attached as an artifact. Ship the next App Store build by cutting a release whose derived version is higher."
+            exit 0
+          fi
+          exit 1
+
+      - name: Render App Store release notes
+        if: steps.validate.outputs.validated == 'true'
+        run: |
+          set -euo pipefail
+          NOTES_VERSION=$(node -p "require('./packages/client/package.json').version")
+          node --experimental-strip-types scripts/render-release-notes.ts \
+            --version="$NOTES_VERSION" --max=4000 \
+            --out="$RUNNER_TEMP/whats-new.txt"
+          cat "$RUNNER_TEMP/whats-new.txt"
+
+      - name: Set up Python
+        if: steps.validate.outputs.validated == 'true'
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install App Store Connect CLI
+        if: steps.validate.outputs.validated == 'true'
+        run: pip install --disable-pip-version-check codemagic-cli-tools==0.69.0
+
+      - name: Upload and submit to App Store
+        if: steps.validate.outputs.validated == 'true'
+        env:
+          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APPLE_API_ISSUER }}
+          APP_STORE_CONNECT_KEY_IDENTIFIER: ${{ secrets.APPLE_API_KEY }}
+        run: |
+          set -euo pipefail
+          app-store-connect publish \
+            --path "$IPA_PATH" \
+            --app-store \
+            --platform IOS \
+            --version-string "$IOS_VERSION" \
+            --release-type AFTER_APPROVAL \
+            --whats-new "@file:$RUNNER_TEMP/whats-new.txt" \
+            --max-build-processing-wait 45
+
+      - name: Upload IPA artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-appstore-ipa
+          path: packages/wrapper/src-tauri/gen/apple/build/*/*.ipa
+          if-no-files-found: warn
+
+      - name: Upload iOS debug symbols to Sentry
+        if: always()
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: colibri-social
+          SENTRY_PROJECT: rust-native-app
+        run: |
+          DSYMS=packages/wrapper/src-tauri/gen/apple/build/colibri-social_iOS.xcarchive/dSYMs
+          if [ -z "${SENTRY_AUTH_TOKEN:-}" ] || [ ! -d "$DSYMS" ]; then
+            echo "No Sentry auth token or no dSYMs to upload, skipping."
+            exit 0
+          fi
+          pnpm dlx @sentry/cli debug-files upload "$DSYMS"
 
   homebrew:
     needs: publish-tauri

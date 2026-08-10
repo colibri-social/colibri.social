@@ -67,4 +67,4 @@ jobs:
         if: steps.changesets.outputs.hasChangesets == 'false' && steps.bump.outputs.changed == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh workflow run publish.yml --ref main -f version="${{ steps.bump.outputs.version }}"
+        run: gh workflow run publish.yml --ref main -f version="${{ steps.bump.outputs.version }}" -f play_track=production

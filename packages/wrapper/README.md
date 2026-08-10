@@ -24,7 +24,8 @@ The shell renders the client's built output, so build the client first (`pnpm --
 
 ## Distribution channels
 
-macOS ships through two channels, built from the same source by two separate jobs in `publish.yml`:
+Apple platforms ship through three channels, built from the same source by three separate jobs in
+`publish.yml`:
 
 - **Direct / Homebrew**: `src-tauri/tauri.conf.json` as-is. Notarized with the _Developer ID
   Application_ identity, unsandboxed (`Entitlements.plist`), updater plugin enabled. Its version comes
@@ -34,6 +35,15 @@ macOS ships through two channels, built from the same source by two separate job
   bundled, and the `updater` Cargo feature plus `capabilities/updater.json` compiled out (App Review
   guideline 3.3.2). `scripts/build-macos-appstore.sh` does the build and wraps the result with
   `productbuild` using the _3rd Party Mac Developer Installer_ identity.
+- **iOS App Store**: `pnpm build:ios:appstore`, i.e. `tauri ios build --export-method
+  app-store-connect`, exporting an IPA from `src-tauri/gen/apple`. The Tauri CLI does the signing
+  itself: given `IOS_CERTIFICATE` (+ `_PASSWORD`) and `IOS_MOBILE_PROVISION` as base64 values it
+  builds a throwaway keychain, installs the profile and switches the Xcode target to manual signing.
+  No config overlay is needed here, since the updater's Cargo dependencies are already excluded on
+  iOS and `capabilities/updater.json` only lists the desktop platforms.
+
+The two App Store jobs share the `appstore` and `appstore_only` inputs. Use `appstore_platform`
+(`both`, `macos`, `ios`) to run only one of them.
 
 ### App Store versioning
 
@@ -53,16 +63,21 @@ marketing version.
 
 Apple closes a version permanently once it has been approved: further uploads are rejected with
 `90062` (must be higher than the approved version) or `90186` (pre-release train closed), whatever the
-build number is. The `mas` job treats those two codes as benign, warns, keeps the signed `.pkg` as an
-artifact and skips the upload rather than failing the release. Any other error code still fails.
+build number is. The `mas` and `ios` jobs treat those two codes as benign, warn, keep the signed
+package as an artifact and skip the upload rather than failing the release. Any other error code still
+fails.
 
 ### Review submission
 
-After a successful upload the `mas` job submits the build to App Review automatically, via
+After a successful upload the `mas` and `ios` jobs submit the build to App Review automatically, via
 `app-store-connect publish --app-store` from `codemagic-cli-tools`. It waits for Apple to finish
 processing the binary, creates the App Store version, attaches the build and submits, with
-`--release-type AFTER_APPROVAL` so an approved version goes live on its own, and
-`--cancel-previous-submissions` so a new release supersedes one still sitting in review.
+`--release-type AFTER_APPROVAL` so an approved version goes live on its own.
+
+The macOS job also passes `--cancel-previous-submissions` so a new release supersedes one still
+sitting in review. The iOS job deliberately does not: both platforms live under one App Store Connect
+app record, and a cancellation that is not scoped per platform would take out the macOS submission
+created minutes earlier in the same run.
 
 "What's New" is required for updates and is generated rather than written twice:
 `scripts/render-release-notes.ts` renders the entry for the release version out of `RELEASE_NOTES`
@@ -76,6 +91,17 @@ Microsoft Store:
 ```sh
 gh workflow run publish.yml --ref main -f version=<release-version> -f appstore_only=true
 ```
+
+Add `-f appstore_platform=ios` (or `macos`) to resubmit a single platform.
+
+### Secrets
+
+Both App Store jobs read `APPLE_API_KEY`, `APPLE_API_ISSUER` and `APPLE_API_KEY_P8`, which must belong
+to an App Manager (or Admin) key: a Developer-role key uploads builds but cannot create App Store
+versions or submit for review. `IOS_CERTIFICATE` (+ `_PASSWORD`) is the _Apple Distribution_ identity
+and covers both platforms. On top of that, macOS needs `MAC_PROVISIONPROFILE` and
+`MAC_INSTALLER_CERTIFICATE` (+ `_PASSWORD`), and iOS needs `IOS_PROVISIONPROFILE`, the base64 of an
+App Store distribution provisioning profile for `social.colibri.app`.
 
 ## Layout
 
