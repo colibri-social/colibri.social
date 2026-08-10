@@ -4,9 +4,11 @@ import BellIcon from "~icons/ph/bell";
 import BellSlashIcon from "~icons/ph/bell-slash";
 import CheckIcon from "~icons/ph/check";
 import GearIcon from "~icons/ph/gear";
+import LinkSimpleIcon from "~icons/ph/link-simple";
 import PhoneCallIcon from "~icons/ph/phone-call";
 import PhoneSlashIcon from "~icons/ph/phone-slash";
 import TrashIcon from "~icons/ph/trash";
+import { buildColibriChannelUrl } from "../../../atproto/colibri-channel-url";
 import type { Channel } from "../../../atproto/xrpc/social/colibri/community/listChannels";
 import {
 	useCommunityContext,
@@ -19,6 +21,7 @@ import {
 	ConnectionState,
 	useVoiceChatContext,
 } from "../../../contexts/VoiceChat";
+import { AtURI } from "../../../utils/at-uri";
 import { createLongPress } from "../../../utils/create-long-press";
 import { useIsTouch } from "../../../utils/touch";
 import { Button } from "../../ui/Button";
@@ -79,6 +82,17 @@ export const ChannelContextMenu: ParentComponent<{
 	const canUpdate = () => _canUpdateChannel(user.did);
 	const canDelete = () => _canDelete(user.did);
 	const isTouch = useIsTouch();
+
+	const copyChannelLink = () => {
+		void navigator.clipboard.writeText(
+			buildColibriChannelUrl({
+				communityUri: community().community.uri,
+				channelType: props.channel.type,
+				channelRkey: new AtURI(props.channel.uri).identifier,
+			}),
+		);
+		toast.success("Channel link copied to clipboard!");
+	};
 
 	const [confirmOpen, setConfirmOpen] = createSignal(false);
 	const [deleting, setDeleting] = createSignal(false);
@@ -154,6 +168,14 @@ export const ChannelContextMenu: ParentComponent<{
 							<span>{muted() ? "Unmute Channel" : "Mute Channel"}</span>
 						</MenuDrawerItem>
 					</Show>
+					<MenuDrawerItem
+						onClick={() =>
+							handoffDrawer(() => setMenuOpen(false), copyChannelLink)
+						}
+					>
+						<LinkSimpleIcon />
+						<span>Copy Channel Link</span>
+					</MenuDrawerItem>
 					<Show when={canUpdate()}>
 						<MenuDrawerItem
 							onClick={() =>
@@ -194,9 +216,6 @@ export const ChannelContextMenu: ParentComponent<{
 										{isConnectedHere() ? "Leave Voice" : "Join Voice"}
 									</span>
 								</ContextMenuItem>
-								<Show when={canUpdate() || canDelete()}>
-									<ContextMenuSeparator />
-								</Show>
 							</Show>
 							<Show when={!isVoice()}>
 								<ContextMenuItem
@@ -220,7 +239,11 @@ export const ChannelContextMenu: ParentComponent<{
 									<span>{muted() ? "Unmute Channel" : "Mute Channel"}</span>
 								</ContextMenuItem>
 							</Show>
-							<Show when={!isVoice() && (canUpdate() || canDelete())}>
+							<ContextMenuItem onClick={copyChannelLink}>
+								<LinkSimpleIcon />
+								<span>Copy Channel Link</span>
+							</ContextMenuItem>
+							<Show when={canUpdate() || canDelete()}>
 								<ContextMenuSeparator />
 							</Show>
 							<Show when={canUpdate()}>

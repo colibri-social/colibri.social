@@ -395,7 +395,7 @@ const MessageInner: Component<{
 												<span class="font-bold cursor-pointer">
 													<User.DisplayableName
 														user={resolveAuthor(message.author)}
-														className="hover:underline"
+														underlineOnHover
 													/>
 												</span>
 											</User.ProfilePopover>
@@ -438,10 +438,10 @@ const MessageInner: Component<{
 												disabled={isPending()}
 											>
 												<div class="flex flex-row items-center gap-2">
-													<span class="font-bold hover:underline cursor-pointer">
+													<span class="font-bold cursor-pointer">
 														<User.DisplayableName
 															user={resolveAuthor(message.author)}
-															className="hover:underline"
+															underlineOnHover
 														/>
 													</span>
 												</div>
@@ -476,6 +476,10 @@ const MessageInner: Component<{
 														community().members || [],
 														community().channels || [],
 														community().assignableRoles || [],
+														{
+															communities: user.communities,
+															currentCommunityUri: community().community.uri,
+														},
 													)}
 													placeholder=""
 													submitOnEnter={!isMobile()}

@@ -1,12 +1,22 @@
-import { type ColibriRichTextFacet, facetsToSource } from "@colibri-social/lib";
+import {
+	type ColibriRichTextFacet,
+	type Community as CommunityView,
+	facetsToSource,
+} from "@colibri-social/lib";
 import type { Editor, TextType } from "@tiptap/core";
 import twemoji from "@twemoji/api";
+import {
+	resolveChannelChip,
+	UNRESOLVED_CHANNEL_LABEL,
+} from "../../../../atproto/channel-reference";
+import { parseColibriChannelUrl } from "../../../../atproto/colibri-channel-url";
 import { resolveBlob } from "../../../../atproto/resolve-blob";
 import type { Channel } from "../../../../atproto/xrpc/social/colibri/community/listChannels";
 import type { Member } from "../../../../atproto/xrpc/social/colibri/community/listMembers";
 import type { Role } from "../../../../atproto/xrpc/social/colibri/community/listRoles";
 import { formatTimestamp } from "../../../../utils/format-timestamp";
 import { normalizeFacets } from "../../../../utils/normalize-facets";
+import { channelChipAttrs } from "./insert-channel-chip";
 import type { MentionType } from "./prosemirror-to-facets";
 
 type Feature = ColibriRichTextFacet["features"][number];
@@ -19,12 +29,18 @@ const EMOJI_IMAGE_ALT_REGEX =
 /**
  * Formats stored text + facets back into a ProseMirror document for editing.
  */
+export type ChipScope = {
+	communities: Array<CommunityView>;
+	currentCommunityUri?: string;
+};
+
 export const facetsToProseMirror = (
 	text: string,
 	facets: Array<ColibriRichTextFacet>,
 	members: Array<Member>,
 	channels: Array<Channel>,
 	roles: Array<Role>,
+	scope?: ChipScope,
 ): ReturnType<Editor["getJSON"]> => {
 	const doc: ReturnType<Editor["getJSON"]> = {
 		type: "doc",
@@ -38,7 +54,14 @@ export const facetsToProseMirror = (
 	}
 
 	doc.content.push(
-		buildParagraph(text, normalizeFacets(facets), members, channels, roles),
+		buildParagraph(
+			text,
+			normalizeFacets(facets),
+			members,
+			channels,
+			roles,
+			scope,
+		),
 	);
 
 	return doc;
@@ -51,6 +74,7 @@ function buildParagraph(
 	members: Array<Member>,
 	channels: Array<Channel>,
 	roles: Array<Role>,
+	scope?: ChipScope,
 ): DocNode {
 	const paragraph: DocNode = {
 		type: "paragraph",
@@ -68,7 +92,20 @@ function buildParagraph(
 		if (atom.start > cursor) {
 			addTextWithNewlines(paragraph, source.slice(cursor, atom.start));
 		}
-		paragraph.content!.push(atomNode(atom.feature, members, channels, roles));
+		const sourceText = source.slice(atom.start, atom.end);
+		const node = atomNode(
+			atom.feature,
+			sourceText,
+			members,
+			channels,
+			roles,
+			scope,
+		);
+		if (node) {
+			paragraph.content!.push(node);
+		} else {
+			addTextWithNewlines(paragraph, sourceText);
+		}
 		cursor = atom.end;
 	}
 	if (cursor < source.length) {
@@ -80,21 +117,30 @@ function buildParagraph(
 
 function atomNode(
 	feature: Feature,
+	sourceText: string,
 	members: Array<Member>,
 	channels: Array<Channel>,
 	roles: Array<Role>,
-): MentionType {
+	scope?: ChipScope,
+): MentionType | undefined {
 	if (feature.$type === "social.colibri.richtext.facet#channel") {
-		const channel = channels.find((x) => x.uri === feature.channel);
+		const chip = resolveChannelChip(
+			feature.channel,
+			channels,
+			scope?.communities ?? [],
+			scope?.currentCommunityUri,
+		);
+
+		if (
+			chip.label === UNRESOLVED_CHANNEL_LABEL &&
+			parseColibriChannelUrl(sourceText)
+		) {
+			return undefined;
+		}
+
 		return {
 			type: "mention",
-			attrs: {
-				id: feature.channel,
-				label: channel?.name || "Unknown Channel",
-				handle: null,
-				avatar: null,
-				type: "channel",
-			},
+			attrs: channelChipAttrs(feature.channel, chip),
 		};
 	}
 

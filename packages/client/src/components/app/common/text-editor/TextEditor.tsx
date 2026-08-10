@@ -7,7 +7,7 @@ import {
 import { type Editor, Extension, mergeAttributes } from "@tiptap/core";
 import { BubbleMenu } from "@tiptap/extension-bubble-menu";
 import { Document } from "@tiptap/extension-document";
-import Emoji from "@tiptap/extension-emoji";
+import Emoji, { EmojiSuggestionPluginKey } from "@tiptap/extension-emoji";
 import { HardBreak } from "@tiptap/extension-hard-break";
 import { Mention } from "@tiptap/extension-mention";
 import { Paragraph } from "@tiptap/extension-paragraph";
@@ -31,6 +31,8 @@ import TextBIcon from "~icons/ph/text-b";
 import TextItalicIcon from "~icons/ph/text-italic";
 import TextStrikethroughIcon from "~icons/ph/text-strikethrough";
 import TextUnderlineIcon from "~icons/ph/text-underline";
+import { namespace } from "../../../../atproto/cache/keys";
+import { parseColibriChannelUrl } from "../../../../atproto/colibri-channel-url";
 import type { GifItem } from "../../../../atproto/xrpc/social/colibri/embed/gifTypes";
 import { useChannelContext } from "../../../../contexts/Channel";
 import {
@@ -39,6 +41,7 @@ import {
 } from "../../../../contexts/Community";
 import { useUserContext } from "../../../../contexts/User";
 import { useUserPreferences } from "../../../../contexts/UserPreferences";
+import { getAppViewDid } from "../../../../utils/appview";
 import {
 	readComposerDraft,
 	readEditDraft,
@@ -46,7 +49,7 @@ import {
 	writeEditDraft,
 } from "../../../../utils/composer-drafts";
 import { hasEmoji, parseEmojiText } from "../../../../utils/emoji";
-import { EMOJI_SUGGESTIONS, TIPTAP_EMOJIS } from "../../../../utils/emoji-data";
+import { TIPTAP_EMOJIS } from "../../../../utils/emoji-data";
 import { createFenceRegex } from "../../../../utils/fenced-code-regex";
 import { htmlToDOMOutputSpec } from "../../../../utils/html-to-dom-output-spec";
 import { useIsMobile } from "../../../../utils/mobile-pane";
@@ -57,16 +60,31 @@ import {
 	TooltipPortal,
 	TooltipTrigger,
 } from "../../../ui/Tooltip";
+import { communityInitials } from "../../community/CommunityAvatar";
 import { ComposerMediaPickers } from "../ComposerMediaPickers";
+import {
+	CHIP_AVATAR_CLASS,
+	CHIP_INITIALS_CLASS,
+	caretRightSpec,
+} from "../channel-chip";
 import { EmojiPopover } from "../EmojiPopover";
 import { buildSuggestions } from "./build-suggestions";
 import { buildClipboardHtml, readClipboardFacets } from "./clipboard-facets";
-import { facetsToProseMirror } from "./facets-to-prosemirror";
+import { type ChipScope, facetsToProseMirror } from "./facets-to-prosemirror";
+import { insertChannelChip } from "./insert-channel-chip";
 import { MarkdownDecorations } from "./markdown-code-highlight";
 import { proseMirrorToFacets } from "./prosemirror-to-facets";
 
 const CHARACTER_LIMIT = 2048;
 const CIRCUMFERENCE = 2 * Math.PI * 8;
+
+const EmojiWithoutSuggestion = Emoji.extend({
+	addProseMirrorPlugins() {
+		return (this.parent?.() ?? []).filter(
+			(plugin) => plugin.spec.key !== EmojiSuggestionPluginKey,
+		);
+	},
+});
 
 type BubbleMenuMark = "bold" | "strike" | "underline" | "code" | "italic";
 
@@ -505,11 +523,13 @@ const extractImageFiles = (data: DataTransfer | null): Array<File> => {
 	if (!data) return [];
 
 	const files: Array<File> = [];
-	const seen = new Set<File>();
+	const seen = new Set<string>();
 
 	const add = (file: File | null) => {
-		if (!file || seen.has(file) || !file.type.startsWith("image/")) return;
-		seen.add(file);
+		if (!file?.type.startsWith("image/")) return;
+		const key = `${file.name}:${file.size}:${file.type}`;
+		if (seen.has(key)) return;
+		seen.add(key);
 		const ext = file.type.split("/")[1] || "png";
 		const named =
 			file.name.trim().length > 0
@@ -553,10 +573,17 @@ export const TextEditor: Component<{
 }> = (props) => {
 	let ref!: HTMLDivElement;
 
+	let plainPasteRequested = false;
+
 	const user = useUserContext();
 	const channel = useChannelContext();
 	const community = useCommunityContext();
 	const permissions = usePermissions();
+
+	const chipScope = (): ChipScope => ({
+		communities: user.communities,
+		currentCommunityUri: community().community.uri,
+	});
 
 	const mentionableRoles = () =>
 		(community().assignableRoles ?? []).filter(
@@ -665,7 +692,6 @@ export const TextEditor: Component<{
 					() => community().members ?? [],
 					() => community().channels ?? [],
 					() => mentionableRoles(),
-					() => EMOJI_SUGGESTIONS,
 					props.mainEditor,
 				),
 			}).extend({
@@ -675,6 +701,7 @@ export const TextEditor: Component<{
 						label: { default: null },
 						handle: { default: null },
 						avatar: { default: null },
+						community: { default: null },
 						color: { default: null },
 						type: { default: "member" },
 						datetime: { default: null },
@@ -695,7 +722,8 @@ export const TextEditor: Component<{
 					}
 				},
 				renderHTML({ node, HTMLAttributes }) {
-					const { type, label, id, handle, color } = node.attrs;
+					const { type, label, id, handle, color, avatar, community } =
+						node.attrs;
 
 					let colorClass = "";
 					let contents = "";
@@ -706,6 +734,29 @@ export const TextEditor: Component<{
 					} else if (type === "channel") {
 						colorClass = "bg-blue-400/25";
 						contents = `#${label}`;
+
+						if (community) {
+							return [
+								"span",
+								mergeAttributes(HTMLAttributes, {
+									"data-mention-type": type,
+									"data-id": id,
+									class: ` px-1 rounded-xs ${colorClass}`,
+								}),
+								avatar
+									? [
+											"img",
+											{ src: avatar, alt: community, class: CHIP_AVATAR_CLASS },
+										]
+									: [
+											"span",
+											{ class: CHIP_INITIALS_CLASS },
+											communityInitials(community),
+										],
+								caretRightSpec(),
+								contents,
+							];
+						}
 					} else if (type === "role") {
 						contents = `@${label}`;
 						return [
@@ -780,11 +831,18 @@ export const TextEditor: Component<{
 			Placeholder.configure({
 				placeholder: () => placeholder(),
 			}),
-			Emoji.configure({ emojis: TIPTAP_EMOJIS }),
+			EmojiWithoutSuggestion.configure({ emojis: TIPTAP_EMOJIS }),
 		],
 		editorProps: {
 			clipboardTextSerializer: (slice) => fragmentToMarkdown(slice.content),
 			handleDOMEvents: {
+				keydown: (_view, event) => {
+					if (event.key === "v" || event.key === "V") {
+						plainPasteRequested =
+							event.shiftKey && (event.metaKey || event.ctrlKey);
+					}
+					return false;
+				},
 				copy: (view, event) => writeSelectionToClipboard(view, event),
 				cut: (view, event) => {
 					if (!writeSelectionToClipboard(view, event)) return false;
@@ -807,7 +865,7 @@ export const TextEditor: Component<{
 					return true;
 				},
 			},
-			handlePaste: (_view, event) => {
+			handlePaste: (view, event) => {
 				const instance = editor();
 				if (!instance || instance.isDestroyed) return false;
 
@@ -819,9 +877,12 @@ export const TextEditor: Component<{
 					}
 				}
 
-				const payload = readClipboardFacets(
-					event.clipboardData?.getData("text/html"),
-				);
+				const plain = plainPasteRequested;
+				plainPasteRequested = false;
+
+				const payload = plain
+					? null
+					: readClipboardFacets(event.clipboardData?.getData("text/html"));
 				if (payload) {
 					const { content } = facetsToProseMirror(
 						payload.text,
@@ -829,9 +890,27 @@ export const TextEditor: Component<{
 						community().members ?? [],
 						community().channels ?? [],
 						community().assignableRoles ?? [],
+						chipScope(),
 					);
 					instance.chain().focus().insertContent(flattenPaste(content)).run();
 					return true;
+				}
+
+				if (!plain) {
+					const pastedText = event.clipboardData?.getData("text/plain")?.trim();
+					const channelTarget = pastedText
+						? parseColibriChannelUrl(pastedText)
+						: null;
+					if (pastedText && channelTarget) {
+						insertChannelChip(view, pastedText, channelTarget, {
+							xrpc: user.xrpc,
+							communities: user.communities,
+							channels: community().channels ?? [],
+							currentCommunityUri: community().community.uri,
+							ns: namespace(getAppViewDid(), user.did),
+						});
+						return true;
+					}
 				}
 
 				const text = event.clipboardData?.getData("text/plain");
@@ -845,6 +924,7 @@ export const TextEditor: Component<{
 					community().members ?? [],
 					community().channels ?? [],
 					community().assignableRoles ?? [],
+					chipScope(),
 				);
 				instance.chain().focus().insertContent(flattenPaste(content)).run();
 				return true;
@@ -1051,6 +1131,7 @@ export const TextEditor: Component<{
 							community().members ?? [],
 							community().channels ?? [],
 							community().assignableRoles ?? [],
+							chipScope(),
 						);
 						latestEmpty = false;
 					} else {

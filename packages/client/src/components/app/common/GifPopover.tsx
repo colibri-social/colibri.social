@@ -20,8 +20,10 @@ import { useGifFavorites } from "../../../contexts/GifFavorites";
 import { useUserContext } from "../../../contexts/User";
 import { useUserPreferences } from "../../../contexts/UserPreferences";
 import { createScrollFade } from "../../../hooks/createScrollFade";
+import { createLongPress } from "../../../utils/create-long-press";
 import { cx } from "../../../utils/cva";
 import { useIsMobile } from "../../../utils/mobile-pane";
+import { useIsTouch } from "../../../utils/touch";
 import { BottomSheet } from "../../ui/MenuDrawer";
 import {
 	Popover,
@@ -71,6 +73,7 @@ export const GifPickerBody: Component<{
 	const { preferences } = useUserPreferences();
 	const { favorites, isFavorited, toggleFavorite } = useGifFavorites();
 	const { ref: gridRef, canScrollDown } = createScrollFade();
+	const isTouch = useIsTouch();
 
 	const [tab, setTab] = createSignal<GifTab>("trending");
 	const [rawQuery, setRawQuery] = createSignal("");
@@ -171,39 +174,58 @@ export const GifPickerBody: Component<{
 		}
 	};
 
-	const GifTile: Component<{ gif: GifItem }> = (tile) => (
-		<div class="group/tile relative mb-2 break-inside-avoid">
-			<button
-				type="button"
-				class="block w-full rounded-md overflow-hidden bg-muted cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-ring border-none p-0"
-				onClick={() => props.onSelect(tile.gif)}
+	const GifTile: Component<{ gif: GifItem }> = (tile) => {
+		const iconClass = () => (isTouch() ? "w-5 h-5" : "w-4 h-4");
+
+		return (
+			<div
+				class="group/tile relative mb-2 break-inside-avoid"
+				ref={(el) =>
+					createLongPress(el, {
+						enabled: () => isTouch(),
+						onLongPress: () => void toggleFavorite(tile.gif),
+					})
+				}
 			>
-				<img
-					src={tile.gif.previewUrl}
-					alt=""
-					loading="lazy"
-					class="w-full h-auto block"
-				/>
-			</button>
-			<button
-				type="button"
-				title={isFavorited(tile.gif) ? "Remove favorite" : "Add favorite"}
-				class="absolute top-1 right-1 w-7 h-7 flex items-center justify-center rounded-full bg-black/50 text-white border-none cursor-pointer opacity-0 group-hover/tile:opacity-100 focus-visible:opacity-100 hover:bg-black/70 transition-opacity"
-				classList={{ "opacity-100": isFavorited(tile.gif) }}
-				onClick={(e) => {
-					e.stopPropagation();
-					void toggleFavorite(tile.gif);
-				}}
-			>
-				<Show
-					when={isFavorited(tile.gif)}
-					fallback={<StarIcon class="w-4 h-4" />}
+				<button
+					type="button"
+					class="block w-full rounded-md overflow-hidden bg-muted cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-ring border-none p-0"
+					onClick={() => props.onSelect(tile.gif)}
 				>
-					<StarFillIcon class="w-4 h-4 text-yellow-400" />
-				</Show>
-			</button>
-		</div>
-	);
+					<img
+						src={tile.gif.previewUrl}
+						alt=""
+						loading="lazy"
+						class="w-full h-auto block"
+					/>
+				</button>
+				<button
+					type="button"
+					title={isFavorited(tile.gif) ? "Remove favorite" : "Add favorite"}
+					class="absolute top-1 right-1 flex items-center justify-center rounded-full bg-black/50 text-white border-none cursor-pointer focus-visible:opacity-100 hover:bg-black/70 transition-opacity"
+					classList={{
+						"w-9 h-9": isTouch(),
+						"w-7 h-7": !isTouch(),
+						"opacity-100": isFavorited(tile.gif),
+						"opacity-70": isTouch() && !isFavorited(tile.gif),
+						"opacity-0 group-hover/tile:opacity-100":
+							!isTouch() && !isFavorited(tile.gif),
+					}}
+					onClick={(e) => {
+						e.stopPropagation();
+						void toggleFavorite(tile.gif);
+					}}
+				>
+					<Show
+						when={isFavorited(tile.gif)}
+						fallback={<StarIcon class={iconClass()} />}
+					>
+						<StarFillIcon class={cx(iconClass(), "text-yellow-400")} />
+					</Show>
+				</button>
+			</div>
+		);
+	};
 
 	const Grid: Component<{ gifs: Array<GifItem>; empty: string }> = (g) => (
 		<Show
@@ -297,7 +319,7 @@ export const GifPickerBody: Component<{
 						<Match when={mode() === "favorites"}>
 							<Grid
 								gifs={favorites()}
-								empty="No favorites yet. Tap the star on a GIF to save it."
+								empty="No favorites yet. Tap the star on a GIF, or press and hold it, to save it."
 							/>
 						</Match>
 

@@ -29,8 +29,9 @@ export type MentionType = {
 		| {
 				id: string;
 				label: string;
-				avatar: null;
+				avatar: string | null;
 				handle: null;
+				community?: string | null;
 				type: "channel";
 		  }
 		| {

@@ -1,4 +1,5 @@
 import type { EmojiItem } from "@tiptap/extension-emoji";
+import keywordData from "emojilib";
 import byEmoji from "unicode-emoji-json/data-by-emoji.json";
 import emojiComponents from "unicode-emoji-json/data-emoji-components.json";
 
@@ -61,6 +62,12 @@ export const EMOJI_ALIASES: Record<string, string> = {
 	question: "red_question_mark",
 	exclamation: "red_exclamation_mark",
 	boom: "collision",
+	salute: "saluting_face",
+	shrug: "person_shrugging",
+	facepalm: "person_facepalming",
+	upside_down: "upside_down_face",
+	slight_smile: "slightly_smiling_face",
+	melting: "melting_face",
 };
 
 const EMOJI_BY_SLUG = new Map<string, string>();
@@ -118,16 +125,96 @@ export const EMOJI_GROUPS: PickerGroup[] = (() => {
 
 export type EmojiSuggestion = { name: string; emoji: string };
 
-export const EMOJI_SUGGESTIONS: EmojiSuggestion[] = [
-	...Object.entries(EMOJI_BY_CHAR).map(([char, meta]) => ({
-		name: meta.slug,
-		emoji: char,
-	})),
-	...Object.entries(EMOJI_ALIASES).flatMap(([alias, slug]) => {
-		const char = EMOJI_BY_SLUG.get(slug);
-		return char ? [{ name: alias, emoji: char }] : [];
-	}),
-];
+function keywordsFor(char: string): string[] {
+	const direct = keywordData[char];
+	if (direct) return direct;
+	const toggled = char.endsWith("\uFE0F") ? char.slice(0, -1) : `${char}\uFE0F`;
+	return keywordData[toggled] ?? [];
+}
+
+export function keywordsForEmoji(char: string): string[] {
+	return keywordsFor(char).map((keyword) => keyword.toLowerCase());
+}
+
+type EmojiSearchEntry = {
+	emoji: string;
+	slug: string;
+	shortcodes: string[];
+	nameWords: string[];
+	keywords: string[];
+};
+
+const EMOJI_SEARCH_INDEX: EmojiSearchEntry[] = Object.entries(
+	EMOJI_BY_CHAR,
+).map(([char, meta]) => ({
+	emoji: char,
+	slug: meta.slug,
+	shortcodes: [meta.slug, ...(ALIASES_BY_SLUG.get(meta.slug) ?? [])].map(
+		(shortcode) => shortcode.toLowerCase(),
+	),
+	nameWords: meta.name.toLowerCase().split(/\s+/),
+	keywords: keywordsForEmoji(char).filter((keyword) => keyword !== meta.slug),
+}));
+
+const NO_MATCH = 7;
+
+function scoreEntry(
+	entry: EmojiSearchEntry,
+	q: string,
+): { score: number; label: string } {
+	let best = NO_MATCH;
+	let label = entry.slug;
+	for (const code of entry.shortcodes) {
+		if (code === q) return { score: 0, label: code };
+		if (best > 1 && code.startsWith(q)) {
+			best = 1;
+			label = code;
+		} else if (best > 4 && code.includes(q)) {
+			best = 4;
+			label = code;
+		}
+	}
+	if (best > 2 && entry.nameWords.some((word) => word.startsWith(q))) {
+		best = 2;
+		label = entry.slug;
+	}
+	if (best > 3 && entry.keywords.some((keyword) => keyword.startsWith(q))) {
+		best = 3;
+		label = entry.slug;
+	}
+	if (best > 5 && entry.keywords.some((keyword) => keyword.includes(q))) {
+		best = 5;
+		label = entry.slug;
+	}
+	return { score: best, label };
+}
+
+export function searchEmojis(query: string, limit = 10): EmojiSuggestion[] {
+	const q = query.toLowerCase();
+	const scored: {
+		score: number;
+		length: number;
+		index: number;
+		item: EmojiSuggestion;
+	}[] = [];
+	for (let i = 0; i < EMOJI_SEARCH_INDEX.length; i++) {
+		const entry = EMOJI_SEARCH_INDEX[i];
+		const { score, label } = scoreEntry(entry, q);
+		if (score === NO_MATCH) continue;
+		scored.push({
+			score,
+			length: label.length,
+			index: i,
+			item: { name: label, emoji: entry.emoji },
+		});
+	}
+	return scored
+		.sort(
+			(a, b) => a.score - b.score || a.length - b.length || a.index - b.index,
+		)
+		.slice(0, limit)
+		.map((s) => s.item);
+}
 
 export const TIPTAP_EMOJIS: EmojiItem[] = Object.entries(EMOJI_BY_CHAR).map(
 	([char, meta]) => ({
