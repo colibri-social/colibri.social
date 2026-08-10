@@ -7,7 +7,7 @@ import {
 import { type Editor, Extension, mergeAttributes } from "@tiptap/core";
 import { BubbleMenu } from "@tiptap/extension-bubble-menu";
 import { Document } from "@tiptap/extension-document";
-import Emoji from "@tiptap/extension-emoji";
+import Emoji, { EmojiSuggestionPluginKey } from "@tiptap/extension-emoji";
 import { HardBreak } from "@tiptap/extension-hard-break";
 import { Mention } from "@tiptap/extension-mention";
 import { Paragraph } from "@tiptap/extension-paragraph";
@@ -49,7 +49,7 @@ import {
 	writeEditDraft,
 } from "../../../../utils/composer-drafts";
 import { hasEmoji, parseEmojiText } from "../../../../utils/emoji";
-import { EMOJI_SUGGESTIONS, TIPTAP_EMOJIS } from "../../../../utils/emoji-data";
+import { TIPTAP_EMOJIS } from "../../../../utils/emoji-data";
 import { createFenceRegex } from "../../../../utils/fenced-code-regex";
 import { htmlToDOMOutputSpec } from "../../../../utils/html-to-dom-output-spec";
 import { useIsMobile } from "../../../../utils/mobile-pane";
@@ -77,6 +77,14 @@ import { proseMirrorToFacets } from "./prosemirror-to-facets";
 
 const CHARACTER_LIMIT = 2048;
 const CIRCUMFERENCE = 2 * Math.PI * 8;
+
+const EmojiWithoutSuggestion = Emoji.extend({
+	addProseMirrorPlugins() {
+		return (this.parent?.() ?? []).filter(
+			(plugin) => plugin.spec.key !== EmojiSuggestionPluginKey,
+		);
+	},
+});
 
 type BubbleMenuMark = "bold" | "strike" | "underline" | "code" | "italic";
 
@@ -684,7 +692,6 @@ export const TextEditor: Component<{
 					() => community().members ?? [],
 					() => community().channels ?? [],
 					() => mentionableRoles(),
-					() => EMOJI_SUGGESTIONS,
 					props.mainEditor,
 				),
 			}).extend({
@@ -824,7 +831,7 @@ export const TextEditor: Component<{
 			Placeholder.configure({
 				placeholder: () => placeholder(),
 			}),
-			Emoji.configure({ emojis: TIPTAP_EMOJIS }),
+			EmojiWithoutSuggestion.configure({ emojis: TIPTAP_EMOJIS }),
 		],
 		editorProps: {
 			clipboardTextSerializer: (slice) => fragmentToMarkdown(slice.content),

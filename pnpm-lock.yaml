@@ -432,6 +432,9 @@ importers:
       dompurify:
         specifier: ^3.3.3
         version: 3.3.3
+      emojilib:
+        specifier: ^4.0.3
+        version: 4.0.3
       json-stable-stringify:
         specifier: ^1.3.0
         version: 1.3.0
@@ -4159,6 +4162,9 @@ packages:
   emojibase@17.0.0:
     resolution: {integrity: sha512-bXdpf4HPY3p41zK5swVKZdC/VynsMZ4LoLxdYDE+GucqkFwzcM1GVc4ODfYAlwoKaf2U2oNNUoOO78N96ovpBA==}
     engines: {node: '>=18.12.0'}
+
+  emojilib@4.0.3:
+    resolution: {integrity: sha512-KbWiYre9aRSaPbHrHZIz9zmoM+21LAsK1VFJtnTh1VCtWE/rNMDviGhQTmselFl95dhqtGlY22iH0leG5BuW0g==}
 
   empathic@2.0.1:
     resolution: {integrity: sha512-YGRs8knHhKHVShLkFET/rWAU8kmHbOV5LwN938RHI0pljAJ1Gf6SzXsSmRaEzcXTtOOmVqJ5+WtQPL5uigY50Q==}
@@ -10465,6 +10471,8 @@ snapshots:
       emojibase: 17.0.0
 
   emojibase@17.0.0: {}
+
+  emojilib@4.0.3: {}
 
   empathic@2.0.1: {}
 

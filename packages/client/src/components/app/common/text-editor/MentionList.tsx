@@ -88,7 +88,7 @@ export const MentionList: Component<{
 			} else if (isChannel(a) && isChannel(b)) {
 				return a.name.localeCompare(b.name);
 			} else if (isEmoji(a) && isEmoji(b)) {
-				return a.name.localeCompare(b.name);
+				return 0;
 			}
 
 			return 0;

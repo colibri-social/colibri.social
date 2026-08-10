@@ -21,6 +21,7 @@ import {
 	EMOJI_COMPONENTS,
 	EMOJI_DATA_RECORD,
 	EMOJI_GROUPS,
+	keywordsForEmoji,
 } from "../../../utils/emoji-data";
 import { useIsMobile } from "../../../utils/mobile-pane";
 import { BottomSheet } from "../../ui/MenuDrawer";
@@ -122,6 +123,9 @@ export const EmojiPickerBody: Component<{
 								emoji.slug.toLowerCase().includes(query) ||
 								aliasesForSlug(emoji.slug).some((alias) =>
 									alias.includes(query),
+								) ||
+								keywordsForEmoji(emoji.emoji).some((keyword) =>
+									keyword.includes(query),
 								)
 							);
 						}}

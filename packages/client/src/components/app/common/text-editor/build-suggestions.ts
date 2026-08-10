@@ -3,10 +3,8 @@ import type { SuggestionOptions } from "@tiptap/suggestion";
 import type { Channel } from "../../../../atproto/xrpc/social/colibri/community/listChannels";
 import type { Member } from "../../../../atproto/xrpc/social/colibri/community/listMembers";
 import type { Role } from "../../../../atproto/xrpc/social/colibri/community/listRoles";
-import {
-	createMentionRenderer,
-	type EmojiSuggestionData,
-} from "./MentionPopupRenderer";
+import { searchEmojis } from "../../../../utils/emoji-data";
+import { createMentionRenderer } from "./MentionPopupRenderer";
 
 const insertMention: SuggestionOptions<unknown, MentionNodeAttrs>["command"] =
 	({ editor, range, props }) => {
@@ -24,7 +22,6 @@ export const buildSuggestions = (
 	members: () => Array<Member>,
 	channels: () => Array<Channel>,
 	roles: () => Array<Role>,
-	emojis: () => Array<EmojiSuggestionData>,
 	mainEditor?: boolean,
 ): Omit<SuggestionOptions<any, MentionNodeAttrs>, "editor">[] => {
 	return [
@@ -72,19 +69,7 @@ export const buildSuggestions = (
 		},
 		{
 			char: ":",
-			items: ({ query }) => {
-				if (query.length < 2) return [];
-
-				const q = query.toLowerCase();
-				const prefix: EmojiSuggestionData[] = [];
-				const substring: EmojiSuggestionData[] = [];
-				for (const emoji of emojis()) {
-					const name = emoji.name.toLowerCase();
-					if (name.startsWith(q)) prefix.push(emoji);
-					else if (name.includes(q)) substring.push(emoji);
-				}
-				return [...prefix, ...substring].slice(0, 5);
-			},
+			items: ({ query }) => (query.length < 2 ? [] : searchEmojis(query, 10)),
 			render: createMentionRenderer(":", mainEditor),
 			command: insertMention,
 		},
