@@ -5,21 +5,25 @@ import {
 import rnnoiseWasmPath from "@sapphi-red/web-noise-suppressor/rnnoise.wasm?url";
 import rnnoiseWasmSimdPath from "@sapphi-red/web-noise-suppressor/rnnoise_simd.wasm?url";
 import rnnoiseWorkletPath from "@sapphi-red/web-noise-suppressor/rnnoiseWorklet.js?url";
-import {
-	DeepFilterNet3Core,
-	getAssetLoader,
-} from "deepfilternet3-noise-filter";
+import type { DeepFilterNet3Core } from "deepfilternet3-noise-filter";
 import type { NoiseSuppressionMode } from "../contexts/UserPreferences";
 import { createLogger } from "../utils/logger";
+import {
+	clampLevel,
+	createDfnCore,
+	createHighPassNode,
+	DFN_DEFAULT_LEVEL,
+	DFN_SAMPLE_RATE,
+	deviceLikelyTooWeakForDfn,
+	dfnParamsFor,
+} from "./noise/dfn";
+import { createVoiceGateNode } from "./noise/gate-worklet";
+import { createModelHost, type ModelHost } from "./noise/model-host";
+import { fallbackFrom, noiseMode } from "./noise/modes";
+
+export { deviceLikelyTooWeakForDfn, preloadNoiseSuppressor } from "./noise/dfn";
 
 const log = createLogger("noise");
-
-const DFN_ASSET_BASE = "/noise/deepfilternet3";
-const DFN_SAMPLE_RATE = 48000;
-const DFN_DEFAULT_LEVEL = 80;
-
-const clampLevel = (level: number): number =>
-	Math.max(0, Math.min(100, Math.round(level)));
 
 const WATCHDOG_UPDATE_INTERVAL = 1;
 const WATCHDOG_UNDERRUN_THRESHOLD = 0.1;
@@ -57,49 +61,7 @@ export interface NoiseSuppressorOptions {
 	desiredMode: NoiseSuppressionMode;
 	suppressionLevel?: number;
 	onFallback?: (from: NoiseSuppressionMode, to: NoiseSuppressionMode) => void;
-}
-
-/**
- * Warms the browser's HTTP cache with the DeepFilterNet assets so the first
- * upgrade to the "deepfilternet" mode swaps in without a visible download
- */
-export function preloadNoiseSuppressor(): void {
-	try {
-		const { wasm, model } = getAssetLoader({
-			cdnUrl: DFN_ASSET_BASE,
-		}).getAssetUrls();
-		void fetch(wasm).catch(() => {});
-		void fetch(model).catch(() => {});
-	} catch {}
-}
-
-/**
- * Coarse guess for devices that likely can't sustain DeepFilterNet in real time
- */
-export function deviceLikelyTooWeakForDfn(): boolean {
-	const cores = navigator.hardwareConcurrency || 4;
-	const uaData = (
-		navigator as Navigator & { userAgentData?: { mobile?: boolean } }
-	).userAgentData;
-	const mobile =
-		uaData?.mobile === true ||
-		/Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-	return cores <= 2 || (mobile && cores <= 4);
-}
-
-/**
- * Guards against a mis-served model asset. A missing file resolves to the SPA
- * fallback (index.html, HTTP 200)
- */
-async function assertDfnModelReachable(): Promise<void> {
-	const { model } = getAssetLoader({ cdnUrl: DFN_ASSET_BASE }).getAssetUrls();
-	const res = await fetch(model, { headers: { Range: "bytes=0-1" } });
-	const bytes = new Uint8Array(await res.arrayBuffer());
-	if (!res.ok || bytes[0] !== 0x1f || bytes[1] !== 0x8b) {
-		throw new Error(
-			`DeepFilterNet model is not a valid gzip at ${model} — check /noise asset hosting`,
-		);
-	}
+	onSpeaking?: (speaking: boolean) => void;
 }
 
 function renderCapacityOf(ctx: AudioContext): AudioRenderCapacity | null {
@@ -119,17 +81,23 @@ export async function createNoiseSuppressor(
 	const source = ctx.createMediaStreamSource(new MediaStream([rawTrack]));
 	const destination = ctx.createMediaStreamDestination();
 
-	let currentNode: AudioNode | null = null;
+	let currentChain: AudioNode[] = [];
 	let activeMode: NoiseSuppressionMode | null = null;
 	let pendingMode: NoiseSuppressionMode | null = null;
 	let destroyed = false;
 
 	let rnnoiseNode: RnnoiseWorkletNode | null = null;
 	let rnnoiseWasm: ArrayBuffer | null = null;
-	let rnnoisePromise: Promise<AudioWorkletNode> | null = null;
+	let rnnoisePromise: Promise<AudioNode> | null = null;
+
 	let dfnNode: AudioWorkletNode | null = null;
 	let dfnCore: DeepFilterNet3Core | null = null;
 	let dfnPromise: Promise<AudioWorkletNode> | null = null;
+	let highPassNode: BiquadFilterNode | null = null;
+	let gateNode: AudioWorkletNode | null = null;
+
+	const modelHosts = new Map<NoiseSuppressionMode, Promise<ModelHost>>();
+	const builtHosts: ModelHost[] = [];
 
 	let currentLevel = clampLevel(options.suppressionLevel ?? DFN_DEFAULT_LEVEL);
 
@@ -154,9 +122,10 @@ export async function createNoiseSuppressor(
 
 		if (overBudgetStreak >= WATCHDOG_STREAK) {
 			stopWatchdog();
-			const from = activeMode ?? "deepfilternet";
-			void setMode("rnnoise").then(() => {
-				options.onFallback?.(from, "rnnoise");
+			const from = activeMode ?? options.desiredMode;
+			const to = fallbackFrom(from);
+			void setMode(to).then(() => {
+				options.onFallback?.(from, to);
 			});
 		}
 	};
@@ -170,7 +139,7 @@ export async function createNoiseSuppressor(
 		rc.start({ updateInterval: WATCHDOG_UPDATE_INTERVAL });
 	};
 
-	const buildRnnoiseNode = (): Promise<AudioWorkletNode> => {
+	const buildRnnoiseNode = (): Promise<AudioNode> => {
 		rnnoisePromise ??= (async () => {
 			if (!rnnoiseWasm) {
 				rnnoiseWasm = await loadRnnoise({
@@ -191,34 +160,82 @@ export async function createNoiseSuppressor(
 		return rnnoisePromise;
 	};
 
-	const buildDfnNode = (): Promise<AudioWorkletNode> => {
+	const buildDfnNode = (
+		mode: NoiseSuppressionMode,
+	): Promise<AudioWorkletNode> => {
 		dfnPromise ??= (async () => {
-			await assertDfnModelReachable();
-			const core = new DeepFilterNet3Core({
-				sampleRate: DFN_SAMPLE_RATE,
-				noiseReductionLevel: currentLevel,
-				assetConfig: { cdnUrl: DFN_ASSET_BASE },
-			});
-			await core.initialize();
-			dfnNode = await core.createAudioWorkletNode(ctx);
+			const { core, node } = await createDfnCore(
+				ctx,
+				dfnParamsFor(mode, currentLevel),
+			);
 			dfnCore = core;
-			return dfnNode;
+			dfnNode = node;
+			return node;
 		})().catch((err) => {
-			log.warn("DeepFilterNet unavailable, falling back to RNNoise", {
-				error: err,
-			});
+			log.warn("DeepFilterNet unavailable", { error: err });
 			dfnPromise = null;
 			throw err;
 		});
 		return dfnPromise;
 	};
 
-	const buildNode = async (
+	const applyDfnParams = (mode: NoiseSuppressionMode): void => {
+		if (!dfnCore) return;
+		const params = dfnParamsFor(mode, currentLevel);
+		dfnCore.setSuppressionLevel(params.attenLim);
+		dfnCore.setPostFilterBeta(params.postFilterBeta);
+	};
+
+	const onModelFailure = (mode: NoiseSuppressionMode): void => {
+		if (activeMode !== mode) return;
+		const to = fallbackFrom(mode);
+		void setMode(to).then(() => {
+			options.onFallback?.(mode, to);
+		});
+	};
+
+	const buildModelHost = (mode: NoiseSuppressionMode): Promise<ModelHost> => {
+		let promise = modelHosts.get(mode);
+		if (!promise) {
+			promise = createModelHost(ctx, mode, () => onModelFailure(mode)).then(
+				(host) => {
+					builtHosts.push(host);
+					return host;
+				},
+			);
+			promise.catch(() => modelHosts.delete(mode));
+			modelHosts.set(mode, promise);
+		}
+		return promise;
+	};
+
+	const buildChain = async (
 		mode: NoiseSuppressionMode,
-	): Promise<AudioNode | null> => {
-		if (mode === "rnnoise") return buildRnnoiseNode();
-		if (mode === "deepfilternet") return buildDfnNode();
-		return null;
+	): Promise<AudioNode[]> => {
+		if (mode === "low") return [await buildRnnoiseNode()];
+
+		if (mode === "medium") {
+			const node = await buildDfnNode(mode);
+			applyDfnParams(mode);
+			return [node];
+		}
+
+		if (mode === "high") {
+			const node = await buildDfnNode(mode);
+			applyDfnParams(mode);
+			highPassNode ??= createHighPassNode(ctx);
+			gateNode ??= await createVoiceGateNode(ctx, {
+				onSpeaking: (speaking) => {
+					if (activeMode === "high") options.onSpeaking?.(speaking);
+				},
+			});
+			return [highPassNode, node, gateNode];
+		}
+
+		if (noiseMode(mode).experimental)
+			return [(await buildModelHost(mode)).node];
+
+		return [];
 	};
 
 	const setMode = async (mode: NoiseSuppressionMode): Promise<void> => {
@@ -226,45 +243,57 @@ export async function createNoiseSuppressor(
 		if (mode === activeMode && mode === pendingMode) return;
 		pendingMode = mode;
 
-		const node = await buildNode(mode);
+		const chain = await buildChain(mode);
 		if (destroyed || pendingMode !== mode) return;
 
 		source.disconnect();
-		currentNode?.disconnect();
-		if (node) {
-			source.connect(node);
-			node.connect(destination);
-		} else {
-			source.connect(destination);
+		for (const node of currentChain) node.disconnect();
+
+		let tail: AudioNode = source;
+		for (const node of chain) {
+			tail.connect(node);
+			tail = node;
 		}
-		currentNode = node;
+		tail.connect(destination);
+
+		currentChain = chain;
 		activeMode = mode;
 
-		if (mode === "deepfilternet") startWatchdog();
+		if (noiseMode(mode).usesDeepFilterNet) startWatchdog();
 		else stopWatchdog();
 	};
 
-	if (options.desiredMode === "deepfilternet") {
-		await setMode("rnnoise");
-		if (renderCapacityOf(ctx) || !deviceLikelyTooWeakForDfn()) {
-			void setMode("deepfilternet").catch(() => {
-				void setMode("rnnoise").then(() => {
-					options.onFallback?.("deepfilternet", "rnnoise");
-				});
-			});
-		} else {
-			options.onFallback?.("deepfilternet", "rnnoise");
+	const startAt = async (mode: NoiseSuppressionMode): Promise<void> => {
+		const heavy = mode !== "off" && mode !== "low";
+
+		if (!heavy) {
+			await setMode(mode);
+			return;
 		}
-	} else {
-		await setMode(options.desiredMode);
-	}
+
+		await setMode("low");
+
+		if (!renderCapacityOf(ctx) && deviceLikelyTooWeakForDfn()) {
+			options.onFallback?.(mode, "low");
+			return;
+		}
+
+		void setMode(mode).catch(() => {
+			const to = fallbackFrom(mode);
+			void setMode(to).then(() => {
+				options.onFallback?.(mode, to);
+			});
+		});
+	};
+
+	await startAt(options.desiredMode);
 
 	return {
 		outputTrack: destination.stream.getAudioTracks()[0],
 		setMode,
 		setSuppressionLevel: (level) => {
 			currentLevel = clampLevel(level);
-			dfnCore?.setSuppressionLevel(currentLevel);
+			if (activeMode) applyDfnParams(activeMode);
 		},
 		getActiveMode: () => activeMode ?? "off",
 		destroy: () => {
@@ -273,10 +302,18 @@ export async function createNoiseSuppressor(
 			source.disconnect();
 			rnnoiseNode?.disconnect();
 			dfnNode?.disconnect();
+			highPassNode?.disconnect();
+			gateNode?.disconnect();
 			dfnCore?.destroy();
+			for (const host of builtHosts) {
+				host.node.disconnect();
+				host.destroy();
+			}
 			rnnoiseNode = null;
 			dfnNode = null;
 			dfnCore = null;
+			highPassNode = null;
+			gateNode = null;
 			ctx.close().catch(() => {});
 		},
 	};

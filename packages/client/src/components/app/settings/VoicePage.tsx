@@ -45,6 +45,7 @@ import {
 	type VoiceIOSettings,
 } from "../../../contexts/UserPreferences";
 import { useVoiceChatContext } from "../../../contexts/VoiceChat";
+import { useExperiment } from "../../../experiments";
 import { createIsSpeaking } from "../../../hooks/createIsSpeaking";
 import {
 	createNoiseSuppressor,
@@ -59,6 +60,11 @@ import {
 	createVoiceLoopback,
 	type VoiceLoopback,
 } from "../../../hooks/createVoiceLoopback";
+import {
+	EXPERIMENTAL_DENOISERS_EXPERIMENT,
+	NOISE_MODES,
+	noiseMode,
+} from "../../../hooks/noise/modes";
 import { SettingsPage } from "../common/SettingsModal";
 import type { DeviceOption } from "./shared";
 
@@ -80,12 +86,6 @@ const MAX = 49;
 
 type NoiseModeOption = { id: NoiseSuppressionMode; name: string };
 
-const NOISE_MODE_OPTIONS: Array<NoiseModeOption> = [
-	{ id: "off", name: "Off" },
-	{ id: "rnnoise", name: "Standard (RNNoise)" },
-	{ id: "deepfilternet", name: "High quality (DeepFilterNet)" },
-];
-
 export const VoicePage: Component = () => {
 	const userPreferences = useUserPreferences();
 	const auth = useAuthContext();
@@ -104,20 +104,34 @@ export const VoicePage: Component = () => {
 	const [monitor, setMonitor] = createSignal<SuppressionMonitor | null>(null);
 	const [wasLiveMicOn, setWasLiveMicOn] = createSignal(false);
 
+	const experimentalDenoisers = useExperiment(
+		EXPERIMENTAL_DENOISERS_EXPERIMENT,
+	);
+
+	const currentMode = () =>
+		noiseMode(userPreferences.preferences().voice.input.noiseSuppressionMode);
+
+	const noiseModeOptions = (): Array<NoiseModeOption> =>
+		NOISE_MODES.filter(
+			(mode) => !mode.experimental || experimentalDenoisers(),
+		).map((mode) => ({ id: mode.id, name: mode.label }));
+
 	onMount(() => {
-		if (
-			userPreferences.preferences().voice.input.noiseSuppressionMode ===
-			"deepfilternet"
-		) {
-			preloadNoiseSuppressor();
-		}
+		if (currentMode().usesDeepFilterNet) preloadNoiseSuppressor();
 	});
 
-	const handleSuppressorFallback = () => {
-		userPreferences.setNoiseSuppressionMode("rnnoise");
-		toast("Switched to standard noise suppression", {
-			description: "High quality mode couldn't run smoothly on this device.",
-		});
+	const handleSuppressorFallback = (
+		_from: NoiseSuppressionMode,
+		to: NoiseSuppressionMode,
+	) => {
+		userPreferences.setNoiseSuppressionMode(to);
+		toast(
+			`Switched to ${noiseMode(to).label.toLowerCase()} noise suppression`,
+			{
+				description:
+					"The mode you picked couldn't run smoothly on this device.",
+			},
+		);
 	};
 
 	const openMic = (input: VoiceInputSettings): Promise<MediaStream> =>
@@ -197,7 +211,8 @@ export const VoicePage: Component = () => {
 				rawTrack,
 				processedTrack,
 				isActive: () => !!testStream(),
-				isDeepFilter: () => suppressor()?.getActiveMode() === "deepfilternet",
+				isTunable: () =>
+					noiseMode(suppressor()?.getActiveMode() ?? "off").tunable,
 				hintsEnabled: () =>
 					userPreferences.preferences().voice.noiseSuppressionHints,
 				getLevel: () =>
@@ -527,10 +542,10 @@ export const VoicePage: Component = () => {
 			</div>
 			<div class="flex flex-col gap-1">
 				<Select
-					options={NOISE_MODE_OPTIONS}
+					options={noiseModeOptions()}
 					optionValue={"id" as any}
 					optionTextValue={"name" as any}
-					value={NOISE_MODE_OPTIONS.find(
+					value={noiseModeOptions().find(
 						(o) =>
 							o.id ===
 							userPreferences.preferences().voice.input.noiseSuppressionMode,
@@ -560,16 +575,16 @@ export const VoicePage: Component = () => {
 					<SelectContent class="[&>ul]:m-0 [&>ul]:py-0 [&>ul]:px-2" />
 				</Select>
 				<p class="text-sm text-muted-foreground my-1">
-					How aggressively Colibri filters out non-voice sounds. High quality
-					uses DeepFilterNet and automatically falls back to Standard if this
-					device can't keep up.
+					{currentMode().description}
+					<Show
+						when={currentMode().usesDeepFilterNet || currentMode().experimental}
+					>
+						{" "}
+						Colibri drops to a lighter mode automatically if this device can't
+						keep up.
+					</Show>
 				</p>
-				<Show
-					when={
-						userPreferences.preferences().voice.input.noiseSuppressionMode ===
-						"deepfilternet"
-					}
-				>
+				<Show when={currentMode().tunable}>
 					<Slider
 						defaultValue={[
 							userPreferences.preferences().voice.input.noiseSuppressionLevel,

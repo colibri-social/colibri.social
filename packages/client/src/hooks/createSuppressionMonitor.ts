@@ -17,7 +17,7 @@ export type SuppressionMonitorOptions = {
 	rawTrack: MediaStreamTrack;
 	processedTrack: MediaStreamTrack;
 	isActive: () => boolean;
-	isDeepFilter: () => boolean;
+	isTunable: () => boolean;
 	hintsEnabled: () => boolean;
 	getLevel: () => number;
 	setLevel: (level: number) => void;
@@ -31,7 +31,7 @@ export const createSuppressionMonitor = ({
 	rawTrack,
 	processedTrack,
 	isActive,
-	isDeepFilter,
+	isTunable,
 	hintsEnabled,
 	getLevel,
 	setLevel,
@@ -111,7 +111,7 @@ export const createSuppressionMonitor = ({
 	};
 
 	const interval = setInterval(() => {
-		if (!isActive() || !hintsEnabled() || !isDeepFilter()) {
+		if (!isActive() || !hintsEnabled() || !isTunable()) {
 			voiceEatenMs = 0;
 			noiseLeakMs = 0;
 			return;

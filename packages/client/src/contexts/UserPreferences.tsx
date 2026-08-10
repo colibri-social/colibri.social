@@ -9,6 +9,11 @@ import {
 } from "solid-js";
 import type { BlueskyClientID } from "../atproto/bluesky-alternatives";
 import type { GifItem } from "../atproto/xrpc/social/colibri/embed/gifTypes";
+import {
+	EXPERIMENTAL_DENOISERS_EXPERIMENT,
+	isNoiseSuppressionMode,
+	noiseMode,
+} from "../hooks/noise/modes";
 import { newestReleaseNoteVersion } from "../release-notes";
 import { DEFAULT_APPVIEW_URL } from "../utils/appview";
 import { isMobileNow } from "../utils/mobile-pane";
@@ -28,7 +33,6 @@ const MAX_RECENT_GIFS = 24;
 export type VoicePreferences = {
 	inputDeviceId: string | null;
 	outputDeviceId: string | null;
-	noiseSuppressionEnabled: boolean;
 	inputVolume: number;
 	outputVolume: number;
 };
@@ -42,7 +46,19 @@ export interface VoiceIOSettings extends BaseVoiceVideoSettings {
 	volume: number;
 }
 
-export type NoiseSuppressionMode = "off" | "rnnoise" | "deepfilternet";
+export type NoiseSuppressionMode =
+	| "off"
+	| "low"
+	| "medium"
+	| "high"
+	| "exp-dtln"
+	| "exp-gtcrn"
+	| "exp-ulunas";
+
+const LEGACY_NOISE_SUPPRESSION_MODES: Record<string, NoiseSuppressionMode> = {
+	rnnoise: "low",
+	deepfilternet: "medium",
+};
 
 export interface VoiceInputSettings extends VoiceIOSettings {
 	noiseSuppressionMode: NoiseSuppressionMode;
@@ -112,7 +128,7 @@ const DEFAULT_PREFERENCES: UserPreferencesContextData = {
 			enabled: true,
 			volume: 1,
 			preferredDeviceId: undefined,
-			noiseSuppressionMode: "deepfilternet",
+			noiseSuppressionMode: "medium",
 			noiseSuppressionLevel: 80,
 		},
 		output: {
@@ -152,6 +168,34 @@ const DEFAULT_PREFERENCES: UserPreferencesContextData = {
 	},
 };
 
+function resolveNoiseSuppressionMode(
+	parsedInput: Record<string, unknown>,
+	experimentsEnabled: boolean,
+): NoiseSuppressionMode {
+	const fallback = DEFAULT_PREFERENCES.voice.input.noiseSuppressionMode;
+	const stored = parsedInput.noiseSuppressionMode;
+
+	let mode: NoiseSuppressionMode;
+	if (isNoiseSuppressionMode(stored)) {
+		mode = stored;
+	} else if (
+		typeof stored === "string" &&
+		stored in LEGACY_NOISE_SUPPRESSION_MODES
+	) {
+		mode = LEGACY_NOISE_SUPPRESSION_MODES[stored];
+	} else if (
+		stored === undefined &&
+		typeof parsedInput.noiseSuppression === "boolean"
+	) {
+		mode = parsedInput.noiseSuppression ? "medium" : "off";
+	} else {
+		mode = fallback;
+	}
+
+	if (noiseMode(mode).experimental && !experimentsEnabled) return fallback;
+	return mode;
+}
+
 function loadFromStorage(): UserPreferencesContextData {
 	try {
 		const raw = localStorage.getItem(PREFERENCES_STORAGE_KEY);
@@ -171,13 +215,10 @@ function loadFromStorage(): UserPreferencesContextData {
 			volume: parsedInput.volume ?? defaultInput.volume,
 			preferredDeviceId:
 				parsedInput.preferredDeviceId ?? defaultInput.preferredDeviceId,
-			noiseSuppressionMode:
-				parsedInput.noiseSuppressionMode ??
-				(typeof parsedInput.noiseSuppression === "boolean"
-					? parsedInput.noiseSuppression
-						? "deepfilternet"
-						: "off"
-					: defaultInput.noiseSuppressionMode),
+			noiseSuppressionMode: resolveNoiseSuppressionMode(
+				parsedInput,
+				parsed.experiments?.[EXPERIMENTAL_DENOISERS_EXPERIMENT] === true,
+			),
 			noiseSuppressionLevel:
 				typeof parsedInput.noiseSuppressionLevel === "number"
 					? parsedInput.noiseSuppressionLevel

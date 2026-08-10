@@ -7,8 +7,10 @@ allowBuilds:
   '@sentry/cli': false
   core-js: false
   esbuild: true
+  protobufjs: false
   sharp: true
   skia-canvas: false
 
 patchedDependencies:
   '@atproto/oauth-client-browser@0.4.3': patches/@atproto__oauth-client-browser@0.4.3.patch
+  deepfilternet3-noise-filter: patches/deepfilternet3-noise-filter.patch

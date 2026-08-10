@@ -496,19 +496,35 @@ export const NotificationsContextProvider: ParentComponent = (props) => {
 		sawConnected = true;
 	});
 
-	const onVisible = () => {
-		if (document.visibilityState === "visible") reseedAll();
+	let hadFocus = true;
+
+	const onBlur = () => {
+		if (!document.hasFocus()) hadFocus = false;
 	};
-	const onFocus = () => reseedAll();
+
+	const onFocus = () => {
+		if (hadFocus || !document.hasFocus()) return;
+		hadFocus = true;
+		reseedAll();
+	};
+
+	const onVisible = () => {
+		if (document.visibilityState !== "visible") return;
+		hadFocus = document.hasFocus();
+		reseedAll();
+	};
 
 	onMount(() => {
+		hadFocus = document.hasFocus();
 		document.addEventListener("visibilitychange", onVisible);
 		window.addEventListener("focus", onFocus);
+		window.addEventListener("blur", onBlur);
 	});
 
 	onCleanup(() => {
 		document.removeEventListener("visibilitychange", onVisible);
 		window.removeEventListener("focus", onFocus);
+		window.removeEventListener("blur", onBlur);
 	});
 
 	const value: NotificationsContextValue = {

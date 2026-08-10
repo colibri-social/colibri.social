@@ -15,5 +15,8 @@
 		"fetch-models": "node scripts/fetch-model-assets.mjs",
 		"fetch-emoji": "node scripts/fetch-emoji-assets.mjs",
 		"fetch-all": "pnpm fetch-models && pnpm fetch-emoji"
+	},
+	"dependencies": {
+		"@workadventure/noise-suppression": "^0.1.1"
 	}
 }

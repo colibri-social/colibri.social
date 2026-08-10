@@ -20,6 +20,7 @@ import {
 	createSuppressionMonitor,
 	type SuppressionMonitor,
 } from "../hooks/createSuppressionMonitor";
+import { noiseMode } from "../hooks/noise/modes";
 import {
 	getAppViewHost,
 	getAppViewHostFromDid,
@@ -613,6 +614,8 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 		const buffer = new Uint8Array(analyser.frequencyBinCount);
 
 		speakingInterval = setInterval(() => {
+			if (suppressor?.getActiveMode() === "high") return;
+
 			analyser.getByteTimeDomainData(buffer);
 			let sum = 0;
 
@@ -640,7 +643,6 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 			audio: {
 				echoCancellation: true,
 				autoGainControl: true,
-				// Our own suppressor (RNNoise / DeepFilterNet) handles noise removal
 				noiseSuppression: false,
 				deviceId: input.preferredDeviceId
 					? { ideal: input.preferredDeviceId }
@@ -653,12 +655,20 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 		const ns = await createNoiseSuppressor(rawTrack, {
 			desiredMode: input.noiseSuppressionMode,
 			suppressionLevel: input.noiseSuppressionLevel,
-			onFallback: () => {
-				userPreferences.setNoiseSuppressionMode("rnnoise");
-				toast("Switched to standard noise suppression", {
-					description:
-						"High quality mode couldn't run smoothly on this device.",
-				});
+			onFallback: (_from, to) => {
+				userPreferences.setNoiseSuppressionMode(to);
+				toast(
+					`Switched to ${noiseMode(to).label.toLowerCase()} noise suppression`,
+					{
+						description:
+							"The mode you picked couldn't run smoothly on this device.",
+					},
+				);
+			},
+			onSpeaking: (speaking) => {
+				if (speaking === localSpeaking) return;
+				localSpeaking = speaking && voiceData.states.micEnabled;
+				recomputeSpeakers();
 			},
 		});
 		suppressor = ns;
@@ -677,7 +687,7 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 			rawTrack,
 			processedTrack: ns.outputTrack,
 			isActive: () => voiceData.states.micEnabled,
-			isDeepFilter: () => suppressor?.getActiveMode() === "deepfilternet",
+			isTunable: () => noiseMode(suppressor?.getActiveMode() ?? "off").tunable,
 			hintsEnabled: () =>
 				userPreferences.preferences().voice.noiseSuppressionHints,
 			getLevel: () =>

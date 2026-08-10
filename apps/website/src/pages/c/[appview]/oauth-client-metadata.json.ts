@@ -37,7 +37,7 @@ export const GET: APIRoute = ({ params }) => {
 		// origin and matches the `client_id` the client requested, even behind a
 		// proxy. The authorization server checks `metadata.client_id === client_id`.
 		client_id: `${import.meta.env.SITE}/c/${appview}/oauth-client-metadata.json`,
-		client_name: "Colibri Chat",
+		client_name: "Colibri Social",
 		client_uri: import.meta.env.SITE,
 		logo_uri: `${import.meta.env.SITE}/logo.png`,
 		tos_uri: `${import.meta.env.SITE}/tos`,
