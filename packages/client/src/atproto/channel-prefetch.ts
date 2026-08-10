@@ -1,9 +1,8 @@
 import { classifyThrown } from "../errors/classify";
-import { AtURI, toRecordUri } from "../utils/at-uri";
 import { lastViewedChannelPath } from "../utils/last-viewed-channel";
 import { createLogger } from "../utils/logger";
 import { markBoot } from "../utils/perf";
-import { urlSegmentToUri } from "./community-uri-to-url-compatible";
+import { parseChannelPath } from "./colibri-channel-url";
 import type { XrpcClient } from "./xrpc";
 import type { XrpcResult } from "./xrpc/result";
 import type { Response as ChannelView } from "./xrpc/social/colibri/channel/getChannelView";
@@ -18,8 +17,6 @@ const MAX_ENTRIES = 2;
 
 const TEXT_CHANNEL_TYPES = ["text", "social.colibri.channel.text"];
 
-const CHANNEL_PATH = /^\/app\/c\/([^/]+)\/([^/]+)\/([^/]+)/;
-
 type Entry = {
 	promise: Promise<XrpcResult<ChannelView> | undefined>;
 	startedAt: number;
@@ -28,17 +25,11 @@ type Entry = {
 const inflight = new Map<string, Entry>();
 
 export const channelUriFromPath = (pathname: string): string | undefined => {
-	const match = CHANNEL_PATH.exec(pathname);
-	if (!match) return undefined;
+	const target = parseChannelPath(pathname);
+	if (!target) return undefined;
+	if (!TEXT_CHANNEL_TYPES.includes(target.channelType)) return undefined;
 
-	const [, communitySegment, channelType, rkey] = match;
-	if (!communitySegment || !channelType || !rkey) return undefined;
-	if (!TEXT_CHANNEL_TYPES.includes(channelType)) return undefined;
-
-	const did = AtURI.parseAtURI(urlSegmentToUri(communitySegment)).did;
-	if (!did) return undefined;
-
-	return toRecordUri(did, "social.colibri.channel", decodeURIComponent(rkey));
+	return target.channelUri;
 };
 
 export const prefetchChannelView = (xrpc: XrpcClient, uri: string): void => {

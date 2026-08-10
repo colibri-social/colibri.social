@@ -29,7 +29,7 @@ export const Badge: ParentComponent<{
 	const content = () => (
 		<span
 			class={cx(
-				"text-neutral-50 px-1.5 rounded-sm flex shrink-0 whitespace-nowrap no-underline!",
+				"text-neutral-50 px-1.5 rounded-sm flex shrink-0 whitespace-nowrap",
 				BADGE_STYLE_CLASSES[props.style] ?? DEFAULT_BADGE_CLASSES,
 			)}
 		>

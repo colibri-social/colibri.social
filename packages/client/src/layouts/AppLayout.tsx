@@ -13,13 +13,11 @@ import {
 	createEffect,
 	createSignal,
 	For,
-	Match,
 	on,
 	onCleanup,
 	onMount,
 	type ParentComponent,
 	Show,
-	Switch,
 } from "solid-js";
 import { toast } from "somoto";
 import GearIcon from "~icons/ph/gear";
@@ -27,9 +25,9 @@ import HouseIcon from "~icons/ph/house";
 import LockSimpleIcon from "~icons/ph/lock-simple";
 import { communityUriToUrlCompatible } from "../atproto/community-uri-to-url-compatible";
 import { putRecord } from "../atproto/pds";
-import { resolveBlob } from "../atproto/resolve-blob";
 import { AppReconnectingIndicator } from "../components/app/AppReconnectingIndicator";
 import { CommunityCreationModal } from "../components/app/CommunityCreationModal";
+import { CommunityAvatar as SharedCommunityAvatar } from "../components/app/community/CommunityAvatar";
 import { CommunityContextMenu } from "../components/app/community/CommunityContextMenu";
 import { PENDING_INVITE_KEY } from "../components/app/community/invite-storage";
 import { MessageSnapshotWriter } from "../components/app/MessageSnapshotWriter";
@@ -76,40 +74,18 @@ import { shellHeightForInset } from "../utils/visual-viewport";
 
 const log = createLogger("layout");
 
-const CommunityAvatar = (props: { item: Community; class?: string }) => {
-	const communityDid = props.item.uri.split("/")[2];
-	return (
-		<Tooltip placement="right">
-			<TooltipTrigger class="cursor-pointer">
-				<Switch>
-					<Match when={props.item.picture}>
-						<img
-							src={resolveBlob(communityDid, props.item.picture)}
-							alt={props.item.name}
-							class={`w-10 h-10 rounded-md pointer-events-none select-none object-cover ${props.class ?? ""}`}
-						/>
-					</Match>
-					<Match when={!props.item.picture}>
-						<div class="w-10 h-10 flex items-center justify-center">
-							<span class="font-bold">
-								{props.item.name
-									.split(" ")
-									.map((x) => x.substring(0, 1))
-									.join("")
-									.substring(0, 3)}
-							</span>
-						</div>
-					</Match>
-				</Switch>
-			</TooltipTrigger>
-			<TooltipPortal>
-				<TooltipContent class="text-base font-medium">
-					{props.item.name}
-				</TooltipContent>
-			</TooltipPortal>
-		</Tooltip>
-	);
-};
+const CommunityAvatar = (props: { item: Community; class?: string }) => (
+	<Tooltip placement="right">
+		<TooltipTrigger class="cursor-pointer">
+			<SharedCommunityAvatar community={props.item} class={props.class} />
+		</TooltipTrigger>
+		<TooltipPortal>
+			<TooltipContent class="text-base font-medium">
+				{props.item.name}
+			</TooltipContent>
+		</TooltipPortal>
+	</Tooltip>
+);
 
 const SortableCommunity = (props: {
 	item: Community;

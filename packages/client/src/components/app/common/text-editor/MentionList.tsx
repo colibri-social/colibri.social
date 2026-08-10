@@ -8,14 +8,12 @@ import {
 	Show,
 	Switch,
 } from "solid-js";
-import ChatCircleDotsIcon from "~icons/ph/chat-circle-dots";
-import ChatsIcon from "~icons/ph/chats";
 import ClockIcon from "~icons/ph/clock";
-import SpeakerLowIcon from "~icons/ph/speaker-low";
 import type { Channel } from "../../../../atproto/xrpc/social/colibri/community/listChannels";
 import type { Member } from "../../../../atproto/xrpc/social/colibri/community/listMembers";
 import type { Role } from "../../../../atproto/xrpc/social/colibri/community/listRoles";
 import { parseEmojiText } from "../../../../utils/emoji";
+import { ChannelTypeIcon } from "../../community/ChannelTypeIcon";
 import User from "../../user";
 import { displayableNameFn } from "../../user/DisplayableName";
 import type {
@@ -163,32 +161,7 @@ export const MentionList: Component<{
 				<Match when={isChannel(bprops.item)}>
 					<div class="flex flex-row items-center justify-between gap-1.5">
 						<span>
-							<Switch>
-								<Match
-									when={
-										(bprops.item as Channel).type === "text" ||
-										"social.colibri.channel.text"
-									}
-								>
-									<ChatCircleDotsIcon />
-								</Match>
-								<Match
-									when={
-										(bprops.item as Channel).type === "voice" ||
-										"social.colibri.channel.voice"
-									}
-								>
-									<SpeakerLowIcon />
-								</Match>
-								<Match
-									when={
-										(bprops.item as Channel).type === "forum" ||
-										"social.colibri.channel.forum"
-									}
-								>
-									<ChatsIcon />
-								</Match>
-							</Switch>
+							<ChannelTypeIcon type={(bprops.item as Channel).type} />
 						</span>
 						<span class="text-sm">{(bprops.item as Channel).name}</span>
 					</div>

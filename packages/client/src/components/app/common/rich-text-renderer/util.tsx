@@ -1,12 +1,11 @@
-import type { AT_URI, ColibriRichTextFacet } from "@colibri-social/lib";
+import type { ColibriRichTextFacet } from "@colibri-social/lib";
 import { A } from "@solidjs/router";
 import { type Component, createSignal, type JSX } from "solid-js";
 import { rewriteBskyUrl } from "../../../../atproto/bsky-post-url";
+import { parseColibriChannelUrl } from "../../../../atproto/colibri-channel-url";
 import { parseColibriInviteUrl } from "../../../../atproto/colibri-invite-url";
-import { communityUriToUrlCompatible } from "../../../../atproto/community-uri-to-url-compatible";
 import { useCommunityContext } from "../../../../contexts/Community";
 import { useUserPreferences } from "../../../../contexts/UserPreferences";
-import { AtURI } from "../../../../utils/at-uri";
 import { parseEmojiText } from "../../../../utils/emoji";
 import {
 	buildFeatureKey,
@@ -16,6 +15,7 @@ import { openExternalLink } from "../../../../utils/open-external-link";
 import { purify } from "../../../../utils/purify";
 import { RoleMentionPopover } from "../../community/RoleMentionPopover";
 import User from "../../user";
+import { ChannelFacet } from "./ChannelFacet";
 import { CodeBlock } from "./CodeBlock";
 import { Timestamp } from "./Timestamp";
 
@@ -139,6 +139,11 @@ const applyStyleForFacet = (text: string, feature: AnyFeature): JSX.Element => {
 			const inviteCode = parseColibriInviteUrl(rawUri);
 			const isBareUrl = text.trim() === rawUri;
 
+			const channelTarget = parseColibriChannelUrl(rawUri);
+			if (channelTarget) {
+				return <ChannelFacet channel={channelTarget.channelUri} text={text} />;
+			}
+
 			if (inviteCode) {
 				return (
 					<A
@@ -170,35 +175,9 @@ const applyStyleForFacet = (text: string, feature: AnyFeature): JSX.Element => {
 			);
 		}
 		case "social.colibri.richtext.facet#channel": {
-			const channel =
-				"channel" in feature ? escapeAttr(String(feature.channel)) : "";
+			const channel = "channel" in feature ? String(feature.channel) : "";
 
-			const c = community();
-			const channelData = c.channels.find((c) => c.uri === channel);
-
-			if (channelData) {
-				const href = escapeAttr(
-					`/app/c/${communityUriToUrlCompatible(c.community.uri as AT_URI<"social.colibri.community">)}/${channelData.type}/${new AtURI(channelData.uri).identifier}`,
-				);
-				return (
-					<A
-						data-facet-type="channel"
-						data-channel={channel}
-						href={href}
-						class="bg-blue-500/25 hover:bg-blue-500/35 px-1 rounded-xs cursor-pointer inline no-underline text-foreground"
-						innerHTML={textWithEmojis}
-					/>
-				);
-			}
-
-			return (
-				<div
-					data-facet-type="channel"
-					data-channel={channel}
-					class="bg-blue-500/25 px-1 rounded-xs inline"
-					innerHTML={textWithEmojis}
-				/>
-			);
+			return <ChannelFacet channel={channel} text={text} />;
 		}
 		case "social.colibri.richtext.facet#role": {
 			const roleUri = "role" in feature ? escapeAttr(String(feature.role)) : "";
@@ -449,6 +428,17 @@ const renderInlineRange = (
 						if ("uri" in feature) {
 							const rawUri = String(feature.uri);
 							const inviteCode = parseColibriInviteUrl(rawUri);
+							const channelTarget = parseColibriChannelUrl(rawUri);
+
+							if (channelTarget) {
+								element = (
+									<ChannelFacet
+										channel={channelTarget.channelUri}
+										text={segmentText}
+									/>
+								);
+								break;
+							}
 
 							if (inviteCode) {
 								element = (

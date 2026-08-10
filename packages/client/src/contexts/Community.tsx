@@ -18,6 +18,7 @@ import {
 	readCommunity,
 	writeCommunity,
 } from "../atproto/cache/store";
+import { primeCommunityChannels } from "../atproto/channel-reference";
 import { urlSegmentToUri } from "../atproto/community-uri-to-url-compatible";
 import {
 	APPROVAL_MANAGE,
@@ -203,6 +204,13 @@ export const CommunityContextProvider: ParentComponent = (props) => {
 			}
 		}),
 	);
+
+	createEffect(() => {
+		const data = community.latest;
+		const uri = communityUri();
+		if (!data || !uri) return;
+		primeCommunityChannels(uri, data.channels ?? []);
+	});
 
 	let cacheWriteTimer: ReturnType<typeof setTimeout> | undefined;
 	createEffect(() => {

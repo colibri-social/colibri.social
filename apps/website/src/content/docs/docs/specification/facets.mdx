@@ -78,13 +78,19 @@ Unlike a user mention, a role mention fans out at index time: the AppView notifi
 
 #### `channel`
 
-A reference to a channel in the same community.
+A reference to a channel, in this community or in any other.
 
 ```ts title="#channel"
-{ channel: string } // record-key of the referenced channel
+{ channel: string } // AT-URI of the referenced channel record
 ```
 
-Resolved against the community's channels and rendered as a link to that channel. An unresolved channel key still renders styled but non-navigable.
+Channels live in their community's repo, so the repo DID of the AT-URI is also the community's DID. That is the only community reference the feature carries, and it is what a reader uses to decide what to draw:
+
+- **Same community.** Resolved against the community's channels and rendered as `#name`, linking to the channel. Because the name is resolved at render time rather than read from the message text, renaming a channel updates every existing reference to it. An unresolved channel still renders styled but non-navigable.
+- **Another community the reader belongs to.** Rendered as that community's avatar and a chevron followed by the same `#name` chip, linking across to it.
+- **A community the reader does not belong to.** Rendered as a lock and "No access", with no link. A reader outside a community cannot read its records, so neither the community nor the channel is named.
+
+A channel URL pasted into the composer is upgraded to a `#channel` feature, and a reader that encounters a channel URL inside a plain `#link` feature renders it the same way.
 
 #### `link`
 

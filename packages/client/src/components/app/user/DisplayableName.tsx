@@ -17,6 +17,7 @@ export const DisplayableName: Component<{
 	color?: boolean | string;
 	className?: string;
 	badge?: boolean;
+	underlineOnHover?: boolean;
 }> = (props) => {
 	const community = useCommunityContext();
 
@@ -47,11 +48,18 @@ export const DisplayableName: Component<{
 		<span
 			style={{ color: resolvedColor() }}
 			class={cx(
-				"inline-flex flex-row items-center gap-2 max-w-full",
+				"group/name inline-flex flex-row items-center gap-2 max-w-full",
 				props.className,
 			)}
 		>
-			<span class="truncate min-w-0">{displayableNameFn(props.user)}</span>
+			<span
+				class="truncate min-w-0"
+				classList={{
+					"group-hover/name:underline": props.underlineOnHover,
+				}}
+			>
+				{displayableNameFn(props.user)}
+			</span>
 			<Show when={primary() && badgeVisible()}>
 				<Badge text={badgeText(primary()!)} size="xs" style={primary()!} />
 			</Show>
