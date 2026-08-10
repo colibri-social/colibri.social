@@ -11,17 +11,16 @@ export type ExperimentDefinition = {
 
 export const EXPERIMENTS: ExperimentDefinition[] = [
 	{
-<<<<<<< HEAD
 		id: EXPERIMENTAL_DENOISERS_EXPERIMENT,
 		name: "Noise suppression",
 		description:
 			"Adds DTLN, GTCRN and UL-UNAS to the noise suppression options in voice settings. They download extra models on first use.",
-=======
+	},
+	{
 		id: "light-mode-v1",
 		name: "Light mode",
 		description:
 			"Adds an appearance setting so you can switch the app to a light theme. It follows your system by default and is still rough in places.",
->>>>>>> 9ae0edda (feat: experimental light mode)
 	},
 ];
 
