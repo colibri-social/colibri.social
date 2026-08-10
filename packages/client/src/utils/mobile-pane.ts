@@ -266,10 +266,11 @@ export const createMobilePane = () => {
 		return `calc(${offset}% + ${dragDx()}px)`;
 	};
 
+	const navProgress = () => (isMobile() ? navRevealProgress(currentPane()) : 1);
+
 	const railTranslate = (): string | undefined => {
 		if (!isMobile()) return undefined;
-		const hidden = 1 - navRevealProgress(currentPane());
-		return `${-RAIL_WIDTH * hidden}px`;
+		return `${-RAIL_WIDTH * (1 - navProgress())}px`;
 	};
 
 	const isDragging = dragging;
@@ -285,6 +286,7 @@ export const createMobilePane = () => {
 		updateDrag,
 		paneTranslate,
 		railTranslate,
+		navProgress,
 		isDragging,
 	};
 };
