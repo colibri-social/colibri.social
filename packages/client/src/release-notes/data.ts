@@ -9,6 +9,78 @@ export type ClientReleaseNote = Omit<ReleaseNote, "entries"> & {
 
 export const RELEASE_NOTES: Array<ClientReleaseNote> = [
 	{
+		version: "0.1.0",
+		date: "2026-08-10",
+		entries: [
+			{
+				title: "Light mode (experimental)",
+				body: 'Turn on "Light mode" in Settings → Experiments to get an Appearance setting under Preferences. Colibri follows your system by default and remembers your choice once you pick one. It\'s early, so expect some rough edges.',
+				icon: "sun-fill",
+				kind: "feature",
+			},
+			{
+				title: "Experimental noise suppressors",
+				body: 'Enable the "Noise suppression" experiment to try out three new noise cancelling algorithms!',
+				icon: "waveform-fill",
+				kind: "feature",
+			},
+			{
+				title: "Channel Links",
+				body: "Paste a channel link and it turns into a channel chip. Links to channels in your other communities show that community's icon, links to communities you are not in show as no access, and you can right-click any channel to copy its link.",
+				icon: "link-simple-fill",
+				kind: "feature",
+			},
+			{
+				title: "Smarter emoji suggestions",
+				body: 'Typing ":" now suggests emojis by keyword, not just by exact name.',
+				icon: "smiley-fill",
+				kind: "feature",
+			},
+			{
+				title: "Vote on upcoming features",
+				body: "Colibri now has a public feedback board on userinput.app. Find it under Settings > About to request features and vote on what we build next.",
+				icon: "lightbulb-fill",
+				kind: "feature",
+			},
+			{
+				title: "Jump to latest appears sooner",
+				body: 'The "Jump to latest" button in a channel now shows up as soon as you scroll a short way up, instead of only after scrolling a long way.',
+				icon: "arrow-line-down-fill",
+				kind: "fix",
+			},
+			{
+				title: "Reliable Sign-In on iOS",
+				body: "Signing in on iPhone and iPad no longer gets stuck when the app is in the background during the sign-in sheet, and a slow start-up no longer signs you out.",
+				icon: "key-fill",
+				kind: "fix",
+			},
+			{
+				title: "Save GIFs from your phone",
+				body: "The star on a GIF now shows up on touch, so you can build your favorites list without reaching for a desktop. Press and hold a GIF in the picker to save it, or use Save GIF in the message menu for one someone already posted.",
+				icon: "star-fill",
+				kind: "fix",
+			},
+			{
+				title: "Mind the gap",
+				body: "The area around the notch now matches whichever view you are on, so there is no light band left over the top of a channel.",
+				icon: "device-mobile-fill",
+				kind: "fix",
+			},
+			{
+				title: "This you?",
+				body: "The sign-in screen now moves out of the way when the on-screen keyboard opens, so the handle field stays visible while you type.",
+				icon: "keyboard-fill",
+				kind: "fix",
+			},
+			{
+				title: "Pasted images attach once",
+				body: "Pasting a screenshot or copied image into the message box added it twice. Now it lands as a single attachment, the way you would expect.",
+				icon: "image-fill",
+				kind: "fix",
+			},
+		],
+	},
+	{
 		version: "0.1.0-rc.15",
 		date: "2026-08-08",
 		entries: [
