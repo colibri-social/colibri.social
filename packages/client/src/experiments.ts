@@ -20,7 +20,7 @@ export const EXPERIMENTS: ExperimentDefinition[] = [
 		id: "light-mode-v1",
 		name: "Light mode",
 		description:
-			"Adds an appearance setting so you can switch the app to a light theme. It follows your system by default and is still rough in places.",
+			"Adds an appearance setting to the Preferences so you can switch the app to a light theme. It follows your system by default and is still rough in places.",
 	},
 ];
 

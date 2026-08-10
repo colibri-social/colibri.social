@@ -15,6 +15,7 @@ import {
 import { namespace } from "../atproto/cache/keys";
 import {
 	cacheEnabled,
+	deleteMessages,
 	readCommunity,
 	writeCommunity,
 } from "../atproto/cache/store";
@@ -543,6 +544,7 @@ export const CommunityContextProvider: ParentComponent = (props) => {
 			if (data.community && data.community !== communityUri()) return;
 
 			if (data.event === "delete") {
+				if (cacheEnabled()) void deleteMessages(ns(), data.uri);
 				mutate({
 					...prev,
 					channels: prev.channels.filter((c) => c.uri !== data.uri),

@@ -36,6 +36,7 @@ export const MessageSnapshotWriter: Component = () => {
 		const batch = [...pending.entries()];
 		pending.clear();
 		for (const [uri, snap] of batch) {
+			if (isOpenChannel(uri)) continue;
 			void writeMessages(ns(), uri, snap);
 		}
 	};
@@ -50,7 +51,13 @@ export const MessageSnapshotWriter: Component = () => {
 		const unsubscribe = socket.onEvent((event) => {
 			if (event.type !== "message_event") return;
 			const data = event.data;
-			if (!data?.channel) return;
+			if (!data) return;
+			if (!data.channel) {
+				log.warn("dropped a message event with no channel", {
+					event: data.event,
+				});
+				return;
+			}
 
 			const uri = data.channel;
 			if (isOpenChannel(uri)) return;

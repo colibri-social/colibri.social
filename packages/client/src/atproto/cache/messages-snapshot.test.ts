@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import type { Message } from "../xrpc/social/colibri/channel/listMessages";
+import type {
+	Message,
+	PendingMessage,
+} from "../xrpc/social/colibri/channel/listMessages";
 import {
 	buildMessagesSnapshot,
 	cursorFor,
@@ -7,6 +10,7 @@ import {
 	isSnapshotStale,
 	MESSAGES_HARD_TTL_MS,
 	MESSAGES_STALE_HINT_MS,
+	reconcileFetchedWindow,
 	restoreMessagesSnapshot,
 	rkeyOf,
 	shouldWriteSnapshot,
@@ -191,7 +195,7 @@ describe("shouldWriteSnapshot", () => {
 		cacheEnabled: true,
 		channelUri: CHANNEL,
 		hydratedFromNetwork: true,
-		confirmedCount: 3,
+		appliedRemoval: false,
 	};
 
 	it("allows a write once the network has hydrated the channel", () => {
@@ -204,6 +208,16 @@ describe("shouldWriteSnapshot", () => {
 		);
 	});
 
+	it("allows a removal applied on top of a cache paint to persist", () => {
+		expect(
+			shouldWriteSnapshot({
+				...gate,
+				hydratedFromNetwork: false,
+				appliedRemoval: true,
+			}),
+		).toBe(true);
+	});
+
 	it("blocks a write when the cache is disabled", () => {
 		expect(shouldWriteSnapshot({ ...gate, cacheEnabled: false })).toBe(false);
 	});
@@ -211,8 +225,90 @@ describe("shouldWriteSnapshot", () => {
 	it("blocks a write without a channel", () => {
 		expect(shouldWriteSnapshot({ ...gate, channelUri: "" })).toBe(false);
 	});
+});
 
-	it("blocks a write with no confirmed messages", () => {
-		expect(shouldWriteSnapshot({ ...gate, confirmedCount: 0 })).toBe(false);
+describe("reconcileFetchedWindow", () => {
+	const pending = (hash: string): PendingMessage =>
+		({ ...message(`pending-${hash}`), hash }) as unknown as PendingMessage;
+
+	const prunableOf = (
+		local: ReadonlyArray<Message | PendingMessage>,
+	): ReadonlySet<string> => new Set(local.map((m) => m.uri));
+
+	const uris = (local: ReadonlyArray<Message | PendingMessage>): string[] =>
+		local.map((m) => m.uri);
+
+	const reconcile = (
+		local: (Message | PendingMessage)[],
+		fetched: Message[],
+		pageSize = 3,
+	) =>
+		reconcileFetchedWindow(local, fetched, {
+			pageSize,
+			prunable: prunableOf(local),
+		});
+
+	it("drops a message the server no longer returns", () => {
+		const [a, b, c] = [message("a"), message("b"), message("c")];
+		expect(uris(reconcile([a, b, c], [a, c]) ?? [])).toEqual(uris([a, c]));
+	});
+
+	it("reports no change when the server returned everything held", () => {
+		const [a, b] = [message("a"), message("b")];
+		expect(reconcile([a, b], [a, b])).toBeUndefined();
+	});
+
+	it("keeps pending rows the server cannot know about yet", () => {
+		const [a, queued] = [message("a"), pending("h1")];
+		expect(reconcile([a, queued], [a])).toBeUndefined();
+	});
+
+	it("keeps history older than a full page", () => {
+		const [old, b, c, d] = [
+			message("a"),
+			message("b"),
+			message("c"),
+			message("d"),
+		];
+		expect(reconcile([old, b, c, d], [b, c, d], 3)).toBeUndefined();
+	});
+
+	it("drops history the server proves is gone on a short page", () => {
+		const [old, b, c] = [message("a"), message("b"), message("c")];
+		expect(uris(reconcile([old, b, c], [b, c], 3) ?? [])).toEqual(uris([b, c]));
+	});
+
+	it("drops every confirmed message when the channel came back empty", () => {
+		const [a, queued] = [message("a"), pending("h1")];
+		expect(uris(reconcile([a, queued], []) ?? [])).toEqual(uris([queued]));
+	});
+
+	it("keeps a message that arrived while the request was in flight", () => {
+		const [a, b] = [message("a"), message("b")];
+		const raced = message("c");
+		expect(
+			reconcileFetchedWindow([a, b, raced], [a, b], {
+				pageSize: 3,
+				prunable: prunableOf([a, b]),
+			}),
+		).toBeUndefined();
+	});
+
+	it("drops the newest message when that is the one that was deleted", () => {
+		const [a, b] = [message("a"), message("b")];
+		expect(uris(reconcile([a, b], [a]) ?? [])).toEqual(uris([a]));
+	});
+
+	it("still drops a deleted message when another raced in", () => {
+		const [a, b] = [message("a"), message("b")];
+		const raced = message("c");
+		expect(
+			uris(
+				reconcileFetchedWindow([a, b, raced], [a], {
+					pageSize: 3,
+					prunable: prunableOf([a, b]),
+				}) ?? [],
+			),
+		).toEqual(uris([a, raced]));
 	});
 });

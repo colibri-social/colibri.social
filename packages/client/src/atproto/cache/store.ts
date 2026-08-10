@@ -249,6 +249,14 @@ export const writeMessages = (
 	);
 };
 
+export const deleteMessages = (ns: string, channelUri: string): Promise<void> =>
+	request("messages", "readwrite", (s) => s.delete(messagesKey(ns, channelUri)))
+		.then(() => undefined)
+		.catch((err) => {
+			noteCacheFailure(err);
+			return undefined;
+		});
+
 export const readBskyPost = (
 	atUri: string,
 ): Promise<BskyPostSnapshot | undefined> =>

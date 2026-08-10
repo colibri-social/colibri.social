@@ -1,4 +1,7 @@
-import type { Message } from "../xrpc/social/colibri/channel/listMessages";
+import type {
+	Message,
+	PendingMessage,
+} from "../xrpc/social/colibri/channel/listMessages";
 import type { MessagesSnapshot } from "./schema";
 
 export const rkeyOf = (uri: string): string => uri.split("/").pop() ?? "";
@@ -49,12 +52,31 @@ export const shouldWriteSnapshot = (input: {
 	cacheEnabled: boolean;
 	channelUri: string;
 	hydratedFromNetwork: boolean;
-	confirmedCount: number;
+	appliedRemoval: boolean;
 }): boolean =>
 	input.cacheEnabled &&
 	input.channelUri.length > 0 &&
-	input.hydratedFromNetwork &&
-	input.confirmedCount > 0;
+	(input.hydratedFromNetwork || input.appliedRemoval);
+
+export const reconcileFetchedWindow = (
+	local: (Message | PendingMessage)[],
+	fetched: Message[],
+	options: { pageSize: number; prunable: ReadonlySet<string> },
+): (Message | PendingMessage)[] | undefined => {
+	const returned = new Set(fetched.map((m) => m.uri));
+	const oldest = fetched[0];
+	const spansWholeHistory = fetched.length < options.pageSize;
+
+	const kept = local.filter((message) => {
+		if ("hash" in message) return true;
+		if (!options.prunable.has(message.uri)) return true;
+		if (returned.has(message.uri)) return true;
+		if (spansWholeHistory || !oldest) return false;
+		return rkeyOf(message.uri) < rkeyOf(oldest.uri);
+	});
+
+	return kept.length === local.length ? undefined : kept;
+};
 
 export const restoreMessagesSnapshot = (
 	snapshot: MessagesSnapshot,

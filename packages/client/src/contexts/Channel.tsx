@@ -18,6 +18,7 @@ import { namespace } from "../atproto/cache/keys";
 import {
 	buildMessagesSnapshot,
 	isSnapshotPaintable,
+	reconcileFetchedWindow,
 	restoreMessagesSnapshot,
 	rkeyOf,
 	shouldWriteSnapshot,
@@ -290,6 +291,8 @@ export const ChannelContextProvider: ParentComponent<{
 		undefined,
 	);
 	const [hydratedFromNetwork, setHydratedFromNetwork] = createSignal(false);
+	const [appliedRemoval, setAppliedRemoval] = createSignal(false);
+	let paintedAt: number | undefined;
 
 	// Reply / edit / focus state. Configured with `equals: false` so that
 	// re-asserting the same message (e.g. clicking "Reply" on the same row
@@ -329,6 +332,7 @@ export const ChannelContextProvider: ParentComponent<{
 	const reset = () => {
 		inflight = false;
 		lastViewAt = 0;
+		paintedAt = undefined;
 		reactionRkeyCache.clear();
 		batch(() => {
 			setMessages([]);
@@ -342,6 +346,7 @@ export const ChannelContextProvider: ParentComponent<{
 			setInitialUnseen([]);
 			setSnapshotAge(undefined);
 			setHydratedFromNetwork(false);
+			setAppliedRemoval(false);
 		});
 	};
 
@@ -508,6 +513,7 @@ export const ChannelContextProvider: ParentComponent<{
 			if (uri !== channelUri() || hydratedFromNetwork()) return;
 			if (messages().length > 0) return;
 			const restored = restoreMessagesSnapshot(cached);
+			paintedAt = cached.ts;
 			batch(() => {
 				setMessages(cached.messages);
 				if (restored.cursor) setCursor(restored.cursor);
@@ -545,11 +551,12 @@ export const ChannelContextProvider: ParentComponent<{
 		const confirmed = messages().filter(
 			(m) => !("hash" in m) && m.uri.startsWith("at://"),
 		);
+		const hydrated = hydratedFromNetwork();
 		const gate = {
 			cacheEnabled: cacheEnabled(),
 			channelUri: uri,
-			hydratedFromNetwork: hydratedFromNetwork(),
-			confirmedCount: confirmed.length,
+			hydratedFromNetwork: hydrated,
+			appliedRemoval: appliedRemoval(),
 		};
 		if (!shouldWriteSnapshot(gate)) return;
 		snapshotWrites.schedule({
@@ -559,7 +566,7 @@ export const ChannelContextProvider: ParentComponent<{
 				readCursor: readCursorUri(),
 				hasMore: hasMore(),
 				limit: PAGE_SIZE,
-				now: Date.now(),
+				now: hydrated ? Date.now() : (paintedAt ?? Date.now()),
 			}),
 		});
 	});
@@ -636,7 +643,13 @@ export const ChannelContextProvider: ParentComponent<{
 	};
 
 	const removeMessage = (uri: string) => {
-		setMessages((prev) => prev.filter((m) => m.uri !== uri));
+		const before = messages();
+		const remaining = before.filter((m) => m.uri !== uri);
+		if (remaining.length === before.length) return;
+		batch(() => {
+			setMessages(remaining);
+			setAppliedRemoval(true);
+		});
 	};
 
 	const updateMessageText = (
@@ -965,6 +978,8 @@ export const ChannelContextProvider: ParentComponent<{
 
 		inflight = true;
 		try {
+			const prunable = new Set(messages().map((m) => m.uri));
+
 			const view = await user.xrpc.social.colibri.channel.getChannelView(
 				uri,
 				PAGE_SIZE,
@@ -982,11 +997,21 @@ export const ChannelContextProvider: ParentComponent<{
 			const ordered = [...(channel?.messages ?? [])].reverse();
 			const existingUris = new Set(messages().map((m) => m.uri));
 			const novel = ordered.filter((m) => !existingUris.has(m.uri));
+			const reconciled = reconcileFetchedWindow(messages(), ordered, {
+				pageSize: PAGE_SIZE,
+				prunable,
+			});
 
 			batch(() => {
-				if (novel.length > 0) {
-					setMessages((prev) => [...prev, ...novel]);
-					setNewIncomingMessage((n) => n + 1);
+				const kept = reconciled ?? messages();
+				if (reconciled || novel.length > 0) {
+					setMessages(novel.length > 0 ? [...kept, ...novel] : kept);
+				}
+				if (novel.length > 0) setNewIncomingMessage((n) => n + 1);
+				if (ordered.length < PAGE_SIZE) {
+					const oldest = ordered[0];
+					if (oldest) setCursor(rkeyOf(oldest.uri));
+					setHasMore(false);
 				}
 				setReadCursorUri(channel?.readCursor?.cursor);
 				setInitialUnseen(
