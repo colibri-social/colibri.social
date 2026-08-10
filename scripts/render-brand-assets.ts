@@ -199,14 +199,6 @@ const renderWeb = (): void => {
 	write("apps/website/src/assets/logo.png", logo);
 
 	write("packages/assets/files/favicon.svg", tile);
-	write(
-		"packages/assets/files/login/colibri.svg",
-		compose({
-			source: "no-background",
-			viewBox: `0 0 ${CANVAS} ${CANVAS}`,
-			size: 64,
-		}),
-	);
 
 	write("apps/website/public/favicon-96x96.png", png(tile, 96));
 	write("apps/website/public/apple-touch-icon.png", png(tile, 180));

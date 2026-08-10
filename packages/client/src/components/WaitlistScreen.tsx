@@ -262,7 +262,7 @@ const WaitlistScreenContent: Component = () => {
 		<Show
 			when={phase() !== "returning"}
 			fallback={
-				<div class="fixed inset-0 z-50 bg-black">
+				<div class="fixed inset-0 z-50 bg-background">
 					<AppLoadingScreen message="Adding you to the waitlist…" />
 				</div>
 			}

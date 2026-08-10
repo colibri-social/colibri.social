@@ -6,12 +6,39 @@
 			name="viewport"
 			content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-visual"
 		/>
-		<meta name="theme-color" content="#000000" />
+		<meta name="theme-color" content="#0a0a0a" />
 		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 		<title>Colibri</title>
+		<script>
+			(() => {
+				try {
+					const raw = localStorage.getItem("colibri:user-preferences");
+					if (!raw) return;
+					const parsed = JSON.parse(raw);
+					if (parsed.experiments?.["light-mode-v1"] !== true) return;
+					const stored = parsed.theme;
+					const theme =
+						stored === "light" || stored === "dark"
+							? stored
+							: matchMedia("(prefers-color-scheme: light)").matches
+								? "light"
+								: "dark";
+					if (theme !== "light") return;
+					const root = document.documentElement;
+					root.classList.remove("dark");
+					root.dataset.kbTheme = "light";
+					root.dataset.theme = "light";
+					root.style.colorScheme = "light";
+					root.style.backgroundColor = "#ffffff";
+					document
+						.querySelector('meta[name="theme-color"]')
+						?.setAttribute("content", "#ffffff");
+				} catch {}
+			})();
+		</script>
 	</head>
 
-	<body class="dark">
+	<body>
 		<noscript>You need to enable JavaScript to run this app.</noscript>
 		<div id="root"></div>
 

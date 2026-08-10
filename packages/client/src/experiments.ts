@@ -8,7 +8,14 @@ export type ExperimentDefinition = {
 	default?: boolean;
 };
 
-export const EXPERIMENTS: ExperimentDefinition[] = [];
+export const EXPERIMENTS: ExperimentDefinition[] = [
+	{
+		id: "light-mode-v1",
+		name: "Light mode",
+		description:
+			"Adds an appearance setting so you can switch the app to a light theme. It follows your system by default and is still rough in places.",
+	},
+];
 
 export const useExperiment = (id: string): Accessor<boolean> => {
 	const { preferences } = useUserPreferences();

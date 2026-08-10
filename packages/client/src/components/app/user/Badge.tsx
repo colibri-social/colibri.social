@@ -9,8 +9,8 @@ import {
 } from "../../ui/Popover";
 
 const BADGE_STYLE_CLASSES: Record<string, string> = {
-	bot: "bg-foreground text-background",
-	team: "bg-primary",
+	bot: "bg-neutral-50 text-neutral-950",
+	team: "bg-violet-500 text-neutral-50",
 	"play-store-tester":
 		"text-white rounded-full border-1 border-transparent [background:linear-gradient(90deg,color-mix(in_srgb,#ff4d4d_18%,black),color-mix(in_srgb,#ffcc00_18%,black),color-mix(in_srgb,#22c55e_18%,black),color-mix(in_srgb,#3b82f6_18%,black))_padding-box,linear-gradient(90deg,#ff4d4d,#ffcc00,#22c55e,#3b82f6)_border-box]",
 	"backer-five": "bg-lime-500 text-black",
@@ -18,7 +18,7 @@ const BADGE_STYLE_CLASSES: Record<string, string> = {
 	donator: "bg-fuchsia-500 text-white",
 };
 
-const DEFAULT_BADGE_CLASSES = "bg-secondary";
+const DEFAULT_BADGE_CLASSES = "bg-zinc-800 text-neutral-50";
 
 export const Badge: ParentComponent<{
 	text: string;
@@ -29,7 +29,7 @@ export const Badge: ParentComponent<{
 	const content = () => (
 		<span
 			class={cx(
-				"text-foreground px-1.5 rounded-sm flex shrink-0 whitespace-nowrap no-underline!",
+				"text-neutral-50 px-1.5 rounded-sm flex shrink-0 whitespace-nowrap no-underline!",
 				BADGE_STYLE_CLASSES[props.style] ?? DEFAULT_BADGE_CLASSES,
 			)}
 		>

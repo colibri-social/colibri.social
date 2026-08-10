@@ -1,14 +1,6 @@
 import "@arborium/arborium/themes/base.css";
+import "@arborium/arborium/themes/github-light.css";
 import "@arborium/arborium/themes/tokyo-night.css";
-import { ColorModeProvider } from "@kobalte/core/color-mode";
-
-// The app is always dark-themed (no light mode toggle), but arborium's
-// theme CSS otherwise falls back to `prefers-color-scheme`, which would
-// pick the wrong palette for users on a light OS theme. Force it explicitly.
-if (typeof document !== "undefined") {
-	document.documentElement.dataset.theme = "dark";
-}
-
 import { withSentryRouterRouting } from "@sentry/solid/solidrouter";
 import { Route, Router, useNavigate, useParams } from "@solidjs/router";
 import {
@@ -34,6 +26,7 @@ import { ErrorDetails } from "./components/ErrorDetails";
 import { BootOverlay } from "./components/hummingbird";
 import { SectionBoundary } from "./components/SectionBoundary";
 import { SignInScreen } from "./components/signin/SignInScreen";
+import { ThemeController } from "./components/ThemeController";
 import { Toaster } from "./components/ui/Sonner";
 import { WaitlistScreen } from "./components/WaitlistScreen";
 import { WelcomeScreen } from "./components/WelcomeScreen";
@@ -59,8 +52,10 @@ import { createLogger } from "./utils/logger";
 import { isMobileNow, useIsMobile } from "./utils/mobile-pane";
 import { trackNavHistory } from "./utils/nav-history";
 import { isDesktopNative } from "./utils/platform";
+import { initTheme } from "./utils/theme";
 import { initTitleBar } from "./utils/titlebar";
 
+initTheme();
 initTitleBar();
 
 // Accepted forms of the `:channelType` URL segment. We accept both the
@@ -128,7 +123,7 @@ const AppErrorScreen: Component<{ error: unknown; reset: () => void }> = (
 	});
 
 	return (
-		<div class="w-full h-full absolute top-0 left-0 z-50 flex flex-col items-center justify-center gap-3 px-6 text-white select-none">
+		<div class="w-full h-full absolute top-0 left-0 z-50 flex flex-col items-center justify-center gap-3 px-6 text-foreground select-none">
 			<p class="text-base font-medium m-0 text-center">{copy().title}</p>
 			<Show when={copy().description}>
 				<p class="text-sm text-muted-foreground m-0 text-center">
@@ -168,7 +163,7 @@ const RootLayout: ParentComponent = (props) => {
 const App: ParentComponent = () => {
 	const isMobile = useIsMobile();
 	return (
-		<ColorModeProvider>
+		<>
 			<Show
 				when={isMobile()}
 				fallback={<Toaster richColors position="bottom-right" />}
@@ -186,6 +181,7 @@ const App: ParentComponent = () => {
 				)}
 			>
 				<UserPreferencesContextProvider>
+					<ThemeController />
 					<AuthContextProvider>
 						<SentryRouter root={RootLayout} base="/">
 							<Route path="/" component={RedirectToApp} />
@@ -282,7 +278,7 @@ const App: ParentComponent = () => {
 					</AuthContextProvider>
 				</UserPreferencesContextProvider>
 			</ErrorBoundary>
-		</ColorModeProvider>
+		</>
 	);
 };
 

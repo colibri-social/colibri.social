@@ -97,7 +97,7 @@ const SignInScreenContent: Component<{ mode?: SignInMode }> = (props) => {
 		<Show
 			when={flow.callback !== "in-progress"}
 			fallback={
-				<div class="fixed inset-0 z-50 bg-black">
+				<div class="fixed inset-0 z-50 bg-background">
 					<AppLoadingScreen />
 				</div>
 			}

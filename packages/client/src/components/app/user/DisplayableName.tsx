@@ -2,6 +2,8 @@ import type { ActorData } from "@colibri-social/lib";
 import { type Component, Show } from "solid-js";
 import { useCommunityContext } from "../../../contexts/Community";
 import { cx } from "../../../utils/cva";
+import { readableUserColor } from "../../../utils/readable-color";
+import { resolvedTheme } from "../../../utils/theme";
 import { badgeText, useUserBadges } from "../../../utils/user-badges";
 import { Badge } from "./Badge";
 
@@ -23,16 +25,16 @@ export const DisplayableName: Component<{
 		// position (highest first), so the first coloured role wins.
 		const rolesForUser = community().utils.getRolesForUser(props.user.did);
 
-		return (
-			rolesForUser.find((x) => typeof x.color !== "undefined")?.color ||
-			"#ffffff"
-		);
+		return rolesForUser.find((x) => typeof x.color !== "undefined")?.color;
 	};
 
 	const resolvedColor = () => {
 		if (props.color === false) return undefined;
-		if (typeof props.color === "string") return props.color;
-		return getTopMemberRoleColor();
+
+		const color =
+			typeof props.color === "string" ? props.color : getTopMemberRoleColor();
+
+		return readableUserColor(color, resolvedTheme());
 	};
 
 	const badgeVisible = () => props.color !== false && props.badge !== false;

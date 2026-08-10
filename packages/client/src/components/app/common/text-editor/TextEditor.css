@@ -40,7 +40,7 @@
 	top: 0;
 	left: 0;
 	right: 0;
-	color: #adb5bd;
+	color: var(--muted-foreground);
 	pointer-events: none;
 	white-space: nowrap;
 	overflow: hidden;

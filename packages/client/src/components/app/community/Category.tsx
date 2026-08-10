@@ -205,7 +205,7 @@ const SortableChannel: Component<{
 						draggable={false}
 						activeClass="bg-muted! text-foreground!"
 						classList={{
-							"bg-linear-145 from-[#090615] via-[#31226d70] to-[#e0deec30]":
+							"bg-linear-145 from-primary/10 via-primary/25 to-foreground/10":
 								voiceData.connection.uri === ChannelUri() &&
 								voiceData.connection.state === ConnectionState.Connected,
 							"opacity-45 hover:opacity-100": isMuted(),
@@ -251,7 +251,7 @@ const SortableChannel: Component<{
 								when={pingCount() > 0}
 								fallback={
 									<Show when={hasUnreadMessages()}>
-										<span class="w-2 h-2 rounded-full bg-white pointer-events-none select-none" />
+										<span class="w-2 h-2 rounded-full bg-foreground pointer-events-none select-none" />
 									</Show>
 								}
 							>

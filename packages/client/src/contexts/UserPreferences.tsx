@@ -19,6 +19,7 @@ import {
 	normalizeResolution,
 	type ScreenShareOptions,
 } from "../utils/screen-share";
+import type { AppTheme } from "../utils/theme";
 
 export const PREFERENCES_STORAGE_KEY = "colibri:user-preferences";
 
@@ -93,6 +94,7 @@ export type UserPreferencesContextData = {
 	sharePresence: boolean;
 	attachAccountToReports: boolean;
 	nativeWindowDecorations: boolean;
+	theme: AppTheme | null;
 	recentGifs: Array<GifItem>;
 	experiments: Record<string, boolean>;
 	controls: ControlsPreferences;
@@ -139,6 +141,7 @@ const DEFAULT_PREFERENCES: UserPreferencesContextData = {
 	sharePresence: true,
 	attachAccountToReports: false,
 	nativeWindowDecorations: false,
+	theme: null,
 	recentGifs: [],
 	experiments: {},
 	controls: {
@@ -232,6 +235,7 @@ type UserPreferencesContextValue = {
 	setSharePresence: (enabled: boolean) => void;
 	setAttachAccountToReports: (enabled: boolean) => void;
 	setNativeWindowDecorations: (enabled: boolean) => void;
+	setTheme: (theme: AppTheme | null) => void;
 	pushRecentGif: (gif: GifItem) => void;
 	setExperiment: (id: string, enabled: boolean) => void;
 	updateControls: (patch: Partial<ControlsPreferences>) => void;
@@ -390,6 +394,10 @@ export const UserPreferencesContextProvider: ParentComponent = (props) => {
 		setPreferences((p) => ({ ...p, nativeWindowDecorations: enabled }));
 	};
 
+	const setTheme = (theme: AppTheme | null) => {
+		setPreferences((p) => ({ ...p, theme }));
+	};
+
 	const pushRecentGif = (gif: GifItem) => {
 		setPreferences((p) => ({
 			...p,
@@ -436,6 +444,7 @@ export const UserPreferencesContextProvider: ParentComponent = (props) => {
 				setSharePresence,
 				setAttachAccountToReports,
 				setNativeWindowDecorations,
+				setTheme,
 				pushRecentGif,
 				setExperiment,
 				updateControls,

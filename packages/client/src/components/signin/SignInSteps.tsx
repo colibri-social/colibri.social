@@ -96,7 +96,7 @@ const HopTile: Component<{
 	return (
 		<div class="flex flex-col items-center gap-2 text-center max-w-13">
 			<span
-				class="grid size-13 place-items-center rounded-2xl border border-border bg-card"
+				class="grid size-13 place-items-center rounded-2xl border border-border bg-neutral-900"
 				classList={{
 					"border-primary/40 bg-primary/15 text-primary":
 						props.fallback === "check",
@@ -370,7 +370,7 @@ export const SignInSteps: Component<{ flow: SignInFlow }> = (props) => {
 									</Show>
 
 									<div class="flex w-full items-center gap-3 sm:w-auto sm:contents">
-										<span class="grid size-10 shrink-0 place-items-center rounded-lg border border-border bg-card p-1.5">
+										<span class="grid size-10 shrink-0 place-items-center rounded-lg border border-border bg-neutral-900 p-1.5">
 											<img
 												src={p.logo}
 												alt=""

@@ -11,7 +11,6 @@ import { Avatar } from "../../../src/components/app/user/Avatar";
 import { Badge } from "../../../src/components/app/user/Badge";
 import { ProfilePopoverContents } from "../../../src/components/app/user/ProfilePopover";
 import { DropdownStatusSelect } from "../../../src/components/app/user/StatusSelect";
-import { ATmosphereAppMarquee } from "../../../src/components/login/ATmosphereAppMarquee";
 import { Button } from "../../../src/components/ui/Button";
 import { ScrollFadeBottom } from "../../../src/components/ui/ScrollFadeBottom";
 import { Demo } from "../helpers";
@@ -117,14 +116,6 @@ const ScrollFadeBottomDemo = () => (
 	</Demo>
 );
 
-const MarqueeDemo = () => (
-	<Demo label="ATmosphereAppMarquee">
-		<div class="w-full max-w-md">
-			<ATmosphereAppMarquee />
-		</div>
-	</Demo>
-);
-
 const KIRA: ActorData = {
 	did: "did:plc:kirasandbox",
 	handle: "kira.colibri.social",
@@ -203,11 +194,6 @@ export const APP: SandboxCategory = {
 			id: "scroll-fade-bottom",
 			title: "ScrollFadeBottom",
 			component: ScrollFadeBottomDemo,
-		},
-		{
-			id: "marquee",
-			title: "ATmosphereAppMarquee",
-			component: MarqueeDemo,
 		},
 	],
 };

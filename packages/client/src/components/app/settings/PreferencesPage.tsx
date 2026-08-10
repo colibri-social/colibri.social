@@ -9,7 +9,13 @@ import { syncPresenceService } from "../../../atproto/presence";
 import { useUserContext } from "../../../contexts/User";
 import { useUserPreferences } from "../../../contexts/UserPreferences";
 import { showError } from "../../../errors/show-error";
+import { useExperiment } from "../../../experiments";
 import { isDesktopNative } from "../../../utils/platform";
+import {
+	type AppTheme,
+	LIGHT_MODE_EXPERIMENT,
+	resolvedTheme,
+} from "../../../utils/theme";
 import { applyNativeDecorations } from "../../../utils/titlebar";
 import { restartToApply } from "../../../utils/updater";
 import { badgeText, useUserBadges } from "../../../utils/user-badges";
@@ -34,9 +40,21 @@ import { SettingsPage } from "../common/SettingsModal";
 import { Badge } from "../user/Badge";
 import { AppViewSwitcher } from "./AppViewSwitcher";
 
+type ThemeOption = { value: AppTheme; label: string };
+
+const THEME_OPTIONS: ThemeOption[] = [
+	{ value: "dark", label: "Dark" },
+	{ value: "light", label: "Light" },
+];
+
 export const PreferencesPage: Component = () => {
 	const userPreferences = useUserPreferences();
 	const user = useUserContext();
+	const lightModeEnabled = useExperiment(LIGHT_MODE_EXPERIMENT);
+
+	const selectedTheme = () =>
+		THEME_OPTIONS.find((option) => option.value === resolvedTheme()) ??
+		THEME_OPTIONS[0];
 
 	const selectedClient = () =>
 		BSKY_ALTERNATIVES.find(
@@ -97,6 +115,41 @@ export const PreferencesPage: Component = () => {
 
 	return (
 		<SettingsPage loading={() => false} title="Preferences">
+			<Show when={lightModeEnabled()}>
+				<Select
+					options={THEME_OPTIONS}
+					optionValue={"value" as any}
+					optionTextValue={"label" as any}
+					class="mb-4"
+					defaultValue={selectedTheme()}
+					value={selectedTheme()}
+					disallowEmptySelection={true}
+					itemComponent={(props) => (
+						<SelectItem
+							item={props.item}
+							onClick={() =>
+								userPreferences.setTheme(
+									(props.item.rawValue as unknown as ThemeOption).value,
+								)
+							}
+						>
+							{(props.item.rawValue as unknown as ThemeOption).label}
+						</SelectItem>
+					)}
+				>
+					<SelectLabel>Appearance</SelectLabel>
+					<SelectDescription>
+						Follows your system until you pick one here. Light mode is
+						experimental and some screens still need work.
+					</SelectDescription>
+					<SelectTrigger class="w-full" aria-label="Appearance">
+						<SelectValue<ThemeOption>>
+							{(state) => state.selectedOption()?.label}
+						</SelectValue>
+					</SelectTrigger>
+					<SelectContent class="[&>ul]:m-0 [&>ul]:py-0 [&>ul]:px-2" />
+				</Select>
+			</Show>
 			<Show when={allBadges().length >= 2}>
 				<div class="flex flex-col gap-3 mb-4">
 					<Select

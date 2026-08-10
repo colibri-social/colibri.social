@@ -202,7 +202,7 @@ export const RoleModal: ParentComponent<{
 									colors={presetColors}
 									triangle="hide"
 									width={"100%"}
-									className={`bg-transparent! [&>div]:p-0! [&_input]:shadow-none! [&_input]:w-max! [&_input]:text-white! [&_input]:border! [&_input]:border-(--color)! [&_div_div]:nth-8:bg-(--color)! [&_div_div]:nth-8:text-(--contrast)!`}
+									className={`bg-transparent! [&>div]:p-0! [&_input]:shadow-none! [&_input]:w-max! [&_input]:text-foreground! [&_input]:border! [&_input]:border-(--color)! [&_div_div]:nth-8:bg-(--color)! [&_div_div]:nth-8:text-(--contrast)!`}
 									color={color()}
 									onChange={(e) => {
 										setColor(e.hex);

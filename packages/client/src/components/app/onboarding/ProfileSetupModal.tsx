@@ -18,6 +18,8 @@ import { useUserContext } from "../../../contexts/User";
 import { useUserPreferences } from "../../../contexts/UserPreferences";
 import { unregisterAllPush } from "../../../notifications";
 import { getAppViewDid, getPreferredAppViewUrl } from "../../../utils/appview";
+import { readableUserColor } from "../../../utils/readable-color";
+import { resolvedTheme } from "../../../utils/theme";
 import { Bluesky } from "../../icons/Bluesky";
 import { Image } from "../../icons/Image";
 import { Button } from "../../ui/Button";
@@ -253,7 +255,12 @@ const ProfileFieldsForm: Component<{
 							type="text"
 							placeholder={props.handle.replaceAll("at://", "")}
 							class="font-bold"
-							style={{ color: props.value.theme.accentColor }}
+							style={{
+								color: readableUserColor(
+									props.value.theme.accentColor,
+									resolvedTheme(),
+								),
+							}}
 						/>
 					</TextField>
 
