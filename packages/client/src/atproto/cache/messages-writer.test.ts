@@ -18,7 +18,13 @@ const author = {
 	data: { displayName: "Someone" },
 } as unknown as Message["author"];
 
-const message = (rkey: string, text = "hello"): Message => ({
+const DEFAULT_CREATED_AT = "2026-01-01T00:00:00.000Z";
+
+const message = (
+	rkey: string,
+	text = "hello",
+	createdAt = DEFAULT_CREATED_AT,
+): Message => ({
 	uri: `at://${DID}/social.colibri.message/${rkey}`,
 	text,
 	facets: [],
@@ -27,25 +33,33 @@ const message = (rkey: string, text = "hello"): Message => ({
 	author,
 	attachments: [],
 	reactions: [],
-	createdAt: "2026-01-01T00:00:00.000Z",
+	createdAt,
 	edited: false,
 });
 
-const snapshot = (messages: Message[]): MessagesSnapshot => ({
+const snapshot = (
+	messages: Message[],
+	hasMore?: boolean,
+): MessagesSnapshot => ({
 	messages,
+	hasMore,
 	ts: 1,
 });
 
 type Event = NonNullable<Colibri_MessageEvent["data"]>;
 
-const upsert = (rkey: string, text = "hello"): Event =>
+const upsert = (
+	rkey: string,
+	text = "hello",
+	createdAt = DEFAULT_CREATED_AT,
+): Event =>
 	({
 		event: "upsert",
 		uri: `at://${DID}/social.colibri.message/${rkey}`,
 		channel: CHANNEL,
 		text,
 		facets: [],
-		createdAt: "2026-01-01T00:00:00.000Z",
+		createdAt,
 		edited: false,
 		attachments: [],
 		author,
@@ -122,6 +136,44 @@ describe("applyMessageEvent", () => {
 			"b",
 			"c",
 			"d",
+		]);
+	});
+
+	it("splices a replayed message into date order instead of appending it", () => {
+		const next = applyMessageEvent(
+			snapshot([
+				message("a", "hello", "2026-01-01T00:00:00.000Z"),
+				message("c", "hello", "2026-01-03T00:00:00.000Z"),
+			]),
+			upsert("b", "hello", "2026-01-02T00:00:00.000Z"),
+			50,
+		);
+		expect(next?.messages.map((m) => m.uri.split("/").pop())).toEqual([
+			"a",
+			"b",
+			"c",
+		]);
+	});
+
+	it("ignores a replayed message older than the snapshot window", () => {
+		expect(
+			applyMessageEvent(
+				snapshot([message("b", "hello", "2026-01-02T00:00:00.000Z")], true),
+				upsert("a", "hello", "2026-01-01T00:00:00.000Z"),
+				50,
+			),
+		).toBeUndefined();
+	});
+
+	it("keeps a message older than the window when the whole channel is loaded", () => {
+		const next = applyMessageEvent(
+			snapshot([message("b", "hello", "2026-01-02T00:00:00.000Z")], false),
+			upsert("a", "hello", "2026-01-01T00:00:00.000Z"),
+			50,
+		);
+		expect(next?.messages.map((m) => m.uri.split("/").pop())).toEqual([
+			"a",
+			"b",
 		]);
 	});
 

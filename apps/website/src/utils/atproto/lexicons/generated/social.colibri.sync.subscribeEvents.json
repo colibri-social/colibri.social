@@ -386,6 +386,9 @@
 					"items": {
 						"type": "blob"
 					}
+				},
+				"live": {
+					"type": "boolean"
 				}
 			}
 		},

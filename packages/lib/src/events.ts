@@ -200,6 +200,7 @@ export type Colibri_MessageEvent = EventBase<
 			attachments: Array<{ blob: JsonBlobRef; name?: string }>;
 			/** Fully-hydrated author — always present on upsert. */
 			author: ActorData;
+			live?: boolean;
 	  }
 	| {
 			event: "delete";

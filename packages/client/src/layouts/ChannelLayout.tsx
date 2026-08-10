@@ -55,6 +55,7 @@ import { useViewport } from "../contexts/Viewport";
 import { describeError } from "../errors/copy";
 import { cancelChannelTrayNotification } from "../notifications";
 import { getChannelParam } from "../utils/get-param";
+import { sameDay } from "../utils/message-order";
 import {
 	createDomScrollSurface,
 	createScrollAnchor,
@@ -88,9 +89,6 @@ const describeFileError = (error: FileError, fileName: string): string => {
 			return `"${fileName}" couldn't be added.`;
 	}
 };
-
-const sameDay = (a: string, b: string): boolean =>
-	new Date(a).toDateString() === new Date(b).toDateString();
 
 const GROUPING_WINDOW_MS = 5 * 60 * 1000;
 

@@ -58,6 +58,7 @@ import { getAppViewDid } from "../utils/appview";
 import { AtURI } from "../utils/at-uri";
 import { clearEditDraft } from "../utils/composer-drafts";
 import { createLogger } from "../utils/logger";
+import { insertAt, placeMessage } from "../utils/message-order";
 import { markBoot } from "../utils/perf";
 import { purify } from "../utils/purify";
 import { useCommunityContext } from "./Community";
@@ -935,8 +936,19 @@ export const ChannelContextProvider: ParentComponent<{
 				edited: d.edited ?? false,
 			};
 
-			setMessages((prev) => [...prev, newMsg]);
-			setNewIncomingMessage((n) => n + 1);
+			const placement = placeMessage(messages(), newMsg, {
+				hasMore: hasMore(),
+			});
+			if (placement.kind === "drop") return;
+
+			batch(() => {
+				if (placement.kind === "append") {
+					setMessages((prev) => [...prev, newMsg]);
+					if (d.live !== false) setNewIncomingMessage((n) => n + 1);
+				} else {
+					setMessages((prev) => insertAt(prev, newMsg, placement.index));
+				}
+			});
 		} else if (event.type === "reaction_event") {
 			const d = event.data;
 			if (!d) return;
@@ -1002,13 +1014,27 @@ export const ChannelContextProvider: ParentComponent<{
 				prunable,
 			});
 
-			batch(() => {
-				const kept = reconciled ?? messages();
-				if (reconciled || novel.length > 0) {
-					setMessages(novel.length > 0 ? [...kept, ...novel] : kept);
+			const spansWholeHistory = ordered.length < PAGE_SIZE;
+			const kept = reconciled ?? messages();
+			let merged = kept;
+			let appended = false;
+			for (const message of novel) {
+				const placement = placeMessage(merged, message, {
+					hasMore: spansWholeHistory ? false : hasMore(),
+				});
+				if (placement.kind === "drop") continue;
+				if (placement.kind === "append") {
+					merged = [...merged, message];
+					appended = true;
+				} else {
+					merged = insertAt(merged, message, placement.index);
 				}
-				if (novel.length > 0) setNewIncomingMessage((n) => n + 1);
-				if (ordered.length < PAGE_SIZE) {
+			}
+
+			batch(() => {
+				if (merged !== messages()) setMessages(merged);
+				if (appended) setNewIncomingMessage((n) => n + 1);
+				if (spansWholeHistory) {
 					const oldest = ordered[0];
 					if (oldest) setCursor(rkeyOf(oldest.uri));
 					setHasMore(false);

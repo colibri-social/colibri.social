@@ -1,4 +1,5 @@
 import type { Colibri_MessageEvent } from "@colibri-social/lib";
+import { insertAt, placeMessage } from "../../utils/message-order";
 import type { Message } from "../xrpc/social/colibri/channel/listMessages";
 import { cursorFor } from "./messages-snapshot";
 import type { MessagesSnapshot } from "./schema";
@@ -46,9 +47,19 @@ export const applyMessageEvent = (
 		edited: event.edited,
 	};
 
-	const next = existing
-		? snapshot.messages.map((m) => (m.uri === event.uri ? message : m))
-		: [...snapshot.messages, message];
+	let next: Message[];
+	if (existing) {
+		next = snapshot.messages.map((m) => (m.uri === event.uri ? message : m));
+	} else {
+		const placement = placeMessage(snapshot.messages, message, {
+			hasMore: snapshot.hasMore ?? false,
+		});
+		if (placement.kind === "drop") return undefined;
+		next =
+			placement.kind === "append"
+				? [...snapshot.messages, message]
+				: insertAt(snapshot.messages, message, placement.index);
+	}
 	const messages = next.slice(-limit);
 
 	return {

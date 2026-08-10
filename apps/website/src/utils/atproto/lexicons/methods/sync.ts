@@ -205,6 +205,7 @@ export const syncMethodDocs: LexiconDoc[] = [
 					edited: { type: "boolean" },
 					parent: { type: "string", format: "at-uri" },
 					attachments: { type: "array", items: { type: "blob" } },
+					live: { type: "boolean" },
 				},
 			},
 
