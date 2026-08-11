@@ -24,6 +24,11 @@ import { markBoot } from "../utils/perf";
 import { isAllowedDid } from "./allowlist";
 import { buildScopes, getMissingScopeSets } from "./scopes";
 import {
+	markSessionDead,
+	noteSessionDeleted,
+	observeSession,
+} from "./session-health";
+import {
 	probeIndicatesStall,
 	probeStorage,
 	type StorageProbe,
@@ -463,6 +468,7 @@ const loadOAuthClient = (
 		handleResolver: getAppViewHost("http"),
 		fetch: preflightFetch,
 		databaseOptions,
+		onDelete: (_sub, cause) => noteSessionDeleted(cause),
 	});
 
 const clearDisallowedSession = async (sub: string) => {
@@ -522,6 +528,9 @@ const revalidateGrantedScopes = async (
 	} catch (e) {
 		const failure = classifyThrown(e, { method: "oauth.getTokenInfo" });
 		log.warn("forced token refresh failed", { code: failure.code });
+		if (failure.needsReauth) {
+			markSessionDead(failure.code, { stage: "oauth.revalidate" });
+		}
 	}
 };
 
@@ -598,6 +607,9 @@ const init = async () => {
 		} else {
 			const failure = classifyThrown(e);
 			log.error("restoring the session failed", { code: failure.code });
+			if (failure.needsReauth) {
+				markSessionDead(failure.code, { stage: "oauth.restore" });
+			}
 			resetSession();
 		}
 	}
@@ -717,7 +729,11 @@ const restoreExistingSession = async () => {
 			log.info("restored the last active session");
 		}
 
-		agent = new Agent(session);
+		agent = new Agent({
+			did: session.did,
+			fetchHandler: (url, init) =>
+				observeSession(session.fetchHandler(url, init)),
+		});
 
 		try {
 			setGrantedScopes((await session.getTokenInfo(false)).scope);

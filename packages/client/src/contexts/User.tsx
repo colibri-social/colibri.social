@@ -9,7 +9,6 @@ import {
 	onCleanup,
 	onMount,
 	type ParentComponent,
-	Show,
 	Switch,
 	useContext,
 } from "solid-js";
@@ -20,12 +19,14 @@ import {
 	readUser,
 	writeUser,
 } from "../atproto/cache/store";
+import { sessionDead } from "../atproto/session-health";
 import { XrpcClient } from "../atproto/xrpc";
 import { AppLoadingScreen } from "../components/AppLoadingScreen";
 import { AppViewUnreachableModal } from "../components/app/AppViewUnreachableModal";
-import { PENDING_INVITE_KEY } from "../components/app/community/invite-storage";
 import { ProfileGate } from "../components/app/onboarding/ProfileGate";
+import { SessionExpiredScreen } from "../components/app/SessionExpiredScreen";
 import { setReportingAccount } from "../errors/account";
+import { classifyThrown } from "../errors/classify";
 import { ColibriError } from "../errors/error";
 import { identifyUser } from "../sentry";
 import { getAppViewDid, getAppViewServiceRef } from "../utils/appview";
@@ -171,35 +172,23 @@ export const UserContextProvider: ParentComponent = (props) => {
 		if (user.loading === true) return;
 
 		markBoot("user:ready");
-
-		const loggedIn = user()?.loggedIn;
-		const pathname = () => window.location.pathname;
-
-		if (!loggedIn && pathname() !== "/app/login") {
-			const inviteMatch = pathname().match(/^\/app\/invite\/([^/]+)/);
-			if (inviteMatch) {
-				try {
-					localStorage.setItem(
-						PENDING_INVITE_KEY,
-						decodeURIComponent(inviteMatch[1]),
-					);
-				} catch {}
-			}
-			window.location.replace("/app/login");
-		}
-
 		log.info("user loaded");
 	});
+
+	const needsSignIn = () =>
+		sessionDead() || classifyThrown(user.error).needsReauth;
 
 	return (
 		<Switch>
 			<Match when={user.error}>
-				<Show
-					when={!import.meta.env.DEV}
-					fallback={<span>{`${user.error}`}</span>}
-				>
-					<AppViewUnreachableModal />
-				</Show>
+				<Switch fallback={<AppViewUnreachableModal />}>
+					<Match when={needsSignIn()}>
+						<SessionExpiredScreen />
+					</Match>
+					<Match when={import.meta.env.DEV}>
+						<span>{`${user.error}`}</span>
+					</Match>
+				</Switch>
 			</Match>
 			<Match when={user.loading && !user.latest}>
 				<AppLoadingScreen message="Fetching user details..." />
@@ -209,7 +198,7 @@ export const UserContextProvider: ParentComponent = (props) => {
 					const value = resolved();
 
 					if (!value.loggedIn) {
-						return <AppLoadingScreen message="Not logged in!" flavor={false} />;
+						return <SessionExpiredScreen />;
 					}
 
 					const refetchCommunities = async () => {

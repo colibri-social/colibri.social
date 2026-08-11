@@ -8,6 +8,7 @@ import {
 import { toast } from "somoto";
 import { readGifFavorites, writeGifFavorites } from "../atproto/gif-favorites";
 import type { GifItem } from "../atproto/xrpc/social/colibri/embed/gifTypes";
+import { classifyThrown } from "../errors/classify";
 import { showError } from "../errors/show-error";
 import { createLogger } from "../utils/logger";
 import { useUserContext } from "./User";
@@ -46,7 +47,9 @@ export const GifFavoritesContextProvider: ParentComponent = (props) => {
 			setFavorites(await readGifFavorites(user.atproto.agent, user.did));
 		} catch (err) {
 			setUnavailable(true);
-			log.error("reading GIF favourites failed", { error: err });
+			log.error("reading GIF favourites failed", {
+				code: classifyThrown(err).code,
+			});
 			showError(err, {
 				fallbackTitle: "Couldn't load your saved GIFs.",
 				description: "Saving is paused until they load, so nothing is lost.",
@@ -75,7 +78,9 @@ export const GifFavoritesContextProvider: ParentComponent = (props) => {
 		try {
 			await writeGifFavorites(user.atproto.agent, user.did, next);
 		} catch (err) {
-			log.error("saving GIF favourites failed", { error: err });
+			log.error("saving GIF favourites failed", {
+				code: classifyThrown(err).code,
+			});
 			setFavorites(previous); // revert on failure
 			toast.error("Failed to update GIF favorites.");
 		}

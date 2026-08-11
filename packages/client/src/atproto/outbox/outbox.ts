@@ -16,6 +16,7 @@ import {
 	outboxDelete,
 	outboxUpdate,
 } from "../cache/store";
+import { sessionDead } from "../session-health";
 import { nextTid } from "./tid";
 import type { AppviewKind, OutboxEntry, OutboxRecord } from "./types";
 
@@ -171,9 +172,12 @@ const execute = async (
 			)
 				return "success";
 		}
+		lastFailure = classifyThrown(err, { method: `repo.${k.t}Record` });
 		return classify(err);
 	}
 };
+
+const heldForSignIn = (): boolean => sessionDead();
 
 const surfaceTerminal = (entry: OutboxEntry) => {
 	const failure = lastFailure ?? classifyThrown(new Error("gave up"));
@@ -209,6 +213,7 @@ const scheduleFlush = () => {
 
 export const flush = async (): Promise<void> => {
 	if (flushing || !agent || !owner || !loaded || isOffline()) return;
+	if (heldForSignIn()) return;
 	flushing = true;
 	if (retryTimer) {
 		clearTimeout(retryTimer);
@@ -234,6 +239,7 @@ export const flush = async (): Promise<void> => {
 			}
 
 			if (outcome === "terminal" || entry.attempts >= MAX_ATTEMPTS) {
+				if (heldForSignIn()) break;
 				surfaceTerminal(entry);
 			} else if (
 				outcome === "success" &&

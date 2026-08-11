@@ -154,6 +154,12 @@ export const GONE_CODES: ReadonlyArray<ColibriErrorCode> = [
 export const isGoneCode = (code: ColibriErrorCode): boolean =>
 	GONE_CODES.includes(code);
 
+const PDS_SESSION_CODES = new Set<string>(["ExpiredToken", "InvalidToken"]);
+
+export const isPdsSessionErrorCode = (
+	value: string,
+): value is ColibriErrorCode => PDS_SESSION_CODES.has(value);
+
 const SESSION_RECOVERY_CODES = new Set<ColibriErrorCode>([
 	"InvalidToken",
 	"ExpiredToken",

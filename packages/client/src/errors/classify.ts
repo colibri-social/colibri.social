@@ -1,5 +1,5 @@
 import { isAppViewErrorCode } from "./appview-codes";
-import type { ColibriErrorCode } from "./codes";
+import { type ColibriErrorCode, isPdsSessionErrorCode } from "./codes";
 import {
 	ColibriError,
 	type ColibriErrorOptions,
@@ -77,10 +77,21 @@ const causeChain = (err: unknown): Array<unknown> => {
 	return chain;
 };
 
+const SESSION_ERROR_NAMES = new Map<string, ColibriErrorCode>([
+	["TokenRefreshError", "ExpiredToken"],
+	["TokenExpiredError", "ExpiredToken"],
+	["TokenInvalidError", "InvalidToken"],
+	["TokenRevokedError", "InvalidToken"],
+	["AuthMethodUnsatisfiableError", "InvalidToken"],
+]);
+
 const codeForThrownShape = (err: unknown): ColibriErrorCode | undefined => {
 	const name = nameOf(err);
 
 	if (name === "TimeoutError" || name === "AbortError") return "Timeout";
+
+	const sessionCode = name ? SESSION_ERROR_NAMES.get(name) : undefined;
+	if (sessionCode) return sessionCode;
 
 	if (typeof DOMException !== "undefined" && err instanceof DOMException) {
 		if (name === "NotAllowedError" || name === "SecurityError") {
@@ -136,6 +147,8 @@ export const isRecordNotFound = (err: unknown): boolean => {
 	}
 	return record.status === 404;
 };
+
+const MIN_HTTP_STATUS = 100;
 
 export const statusOf = (err: unknown): number | undefined => {
 	if (isColibriError(err)) return err.status;
@@ -206,12 +219,21 @@ export interface ClassifyResponseInput {
 	nowMs?: number;
 }
 
+const knownEnvelopeCode = (
+	code: string | undefined,
+): ColibriErrorCode | undefined => {
+	if (!code) return undefined;
+	if (isAppViewErrorCode(code)) return code;
+	if (isPdsSessionErrorCode(code)) return code;
+	return undefined;
+};
+
 export const classifyResponse = (
 	input: ClassifyResponseInput,
 ): ColibriError => {
 	const { code, message } = readEnvelope(input.body);
-	const resolved: ColibriErrorCode =
-		code && isAppViewErrorCode(code) ? code : codeForStatus(input.status);
+	const known = knownEnvelopeCode(code);
+	const resolved: ColibriErrorCode = known ?? codeForStatus(input.status);
 
 	const fields = parseFieldProblems(message);
 
@@ -225,8 +247,7 @@ export const classifyResponse = (
 			input.retryAfter,
 			input.nowMs ?? Date.now(),
 		),
-		context:
-			code && !isAppViewErrorCode(code) ? { unknownCode: code } : undefined,
+		context: code && !known ? { unknownCode: code } : undefined,
 	};
 
 	return new ColibriError(options);
@@ -263,7 +284,7 @@ export const classifyThrown = (
 	}
 
 	const status = statusOf(err);
-	if (status !== undefined) {
+	if (status !== undefined && status >= MIN_HTTP_STATUS) {
 		return new ColibriError({
 			...shared,
 			code: codeForStatus(status),

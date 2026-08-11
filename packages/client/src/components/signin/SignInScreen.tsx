@@ -40,6 +40,8 @@ const SignInScreenContent: Component<{ mode?: SignInMode }> = (props) => {
 	let paneAnimation: Animation | undefined;
 
 	const keyboardInset = () => {
+		const native = viewport.keyboardInset();
+		if (native > 0) return native;
 		const height = viewport.height();
 		if (height === undefined) return 0;
 		const inset = window.innerHeight - height;

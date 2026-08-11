@@ -8,6 +8,8 @@ import {
 	type ParentComponent,
 	useContext,
 } from "solid-js";
+import { noteAuthFailure, sessionDead } from "../atproto/session-health";
+import { classifyThrown } from "../errors/classify";
 import { ColibriError } from "../errors/error";
 import { reportError } from "../errors/report";
 import { getAppViewHost, getAppViewServiceRef } from "../utils/appview";
@@ -73,7 +75,7 @@ export const SocketContextProvider: ParentComponent = (props) => {
 	let lastFrameAt = Date.now();
 
 	const connect = async () => {
-		if (destroyed || !auth?.loggedIn) return;
+		if (destroyed || !auth?.loggedIn || sessionDead()) return;
 
 		if (reconnectTimer) {
 			clearTimeout(reconnectTimer);
@@ -160,7 +162,10 @@ export const SocketContextProvider: ParentComponent = (props) => {
 						}),
 						{ stage: "socket" },
 					);
+					noteAuthFailure("AuthRequired", { closeCode: ev.code });
 				}
+
+				if (sessionDead()) return;
 
 				reconnectTimer = setTimeout(connect, backoffMs(attempt++));
 			});
@@ -170,8 +175,12 @@ export const SocketContextProvider: ParentComponent = (props) => {
 				// The close event will fire next and trigger reconnection
 			});
 		} catch (err) {
-			log.error("socket token fetch failed", { error: err });
-			if (!destroyed) {
+			const failure = classifyThrown(err, {
+				method: "com.atproto.server.getServiceAuth",
+			});
+			log.error("socket token fetch failed", { code: failure.code });
+			noteAuthFailure(failure.code);
+			if (!destroyed && !sessionDead()) {
 				setStatus(hadConnectedOnce ? "reconnecting" : "connecting");
 				reconnectTimer = setTimeout(connect, backoffMs(attempt++));
 			}
@@ -179,7 +188,7 @@ export const SocketContextProvider: ParentComponent = (props) => {
 	};
 
 	const forceReconnect = () => {
-		if (destroyed || !auth?.loggedIn) return;
+		if (destroyed || !auth?.loggedIn || sessionDead()) return;
 		const healthy =
 			ws?.readyState === WebSocket.OPEN && Date.now() - lastFrameAt < STALE_MS;
 		if (healthy) return;

@@ -96,8 +96,10 @@ export const createViewportMetrics = (): ViewportMetrics => {
 
 	let hasNativeKeyboardInset = false;
 
-	const height = () =>
-		hasNativeKeyboardInset ? shellHeightForInset(keyboardInset()) : vvHeight();
+	const height = () => {
+		const inset = keyboardInset();
+		return hasNativeKeyboardInset ? shellHeightForInset(inset) : vvHeight();
+	};
 
 	if (typeof window !== "undefined") {
 		let settleTimer: number | undefined;

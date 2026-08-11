@@ -9,9 +9,11 @@ import {
 } from "solid-js";
 import { type Client, getClient } from "../atproto/auth";
 import { primeFromLocation } from "../atproto/channel-prefetch";
+import { sessionDead } from "../atproto/session-health";
 import { XrpcClient } from "../atproto/xrpc";
 import { AppLoadingScreen } from "../components/AppLoadingScreen";
 import { AppViewUnreachableModal } from "../components/app/AppViewUnreachableModal";
+import { SessionExpiredScreen } from "../components/app/SessionExpiredScreen";
 import {
 	getAppViewHost,
 	getAppViewServiceRef,
@@ -45,6 +47,9 @@ export const AuthContextProvider: ParentComponent = (props) => {
 
 	return (
 		<Switch>
+			<Match when={sessionDead()}>
+				<SessionExpiredScreen />
+			</Match>
 			<Match when={client.loading}>
 				<AppLoadingScreen message="Logging in..." phase="connecting" />
 			</Match>

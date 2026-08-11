@@ -1,6 +1,7 @@
 import { toast } from "somoto";
+import { sessionDead } from "../atproto/session-health";
 import { describeError, FALLBACK_COPY } from "./copy";
-import { isRetryable } from "./error";
+import { isColibriError, isRetryable } from "./error";
 import { type ReportOptions, reportError } from "./report";
 
 export interface ShowErrorOptions extends ReportOptions {
@@ -23,6 +24,11 @@ export const showError = (
 	} = options;
 
 	const classified = report ? reportError(err, reportOptions) : err;
+
+	if (sessionDead() && isColibriError(classified) && classified.needsReauth) {
+		return;
+	}
+
 	const copy = err === undefined ? FALLBACK_COPY : describeError(classified);
 
 	const title = fallbackTitle ?? copy.title;

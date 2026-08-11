@@ -14,11 +14,13 @@ import {
 } from "solid-js";
 import { urlSegmentToUri } from "./atproto/community-uri-to-url-compatible";
 import { OutboxController } from "./atproto/outbox/OutboxController";
+import { sessionDead } from "./atproto/session-health";
 import { AppLoadingScreen } from "./components/AppLoadingScreen";
 import { AutoUpdater } from "./components/app/AutoUpdater";
 import { DeleteAccountScreen } from "./components/app/account/DeleteAccountScreen";
 import { InviteModal } from "./components/app/community/InviteModal";
 import { ScopeGate } from "./components/app/onboarding/ScopeGate";
+import { SessionExpiredScreen } from "./components/app/SessionExpiredScreen";
 import { TitleBar } from "./components/app/titlebar";
 import { VoiceChannelView } from "./components/app/VoiceChannelView";
 import { DeepLinkListener } from "./components/DeepLinkListener";
@@ -116,6 +118,12 @@ const AppErrorScreen: Component<{ error: unknown; reset: () => void }> = (
 	const copy = () => describeError(props.error);
 
 	onMount(() => {
+		if (sessionDead()) {
+			log.warn("render failed after the session ended", {
+				code: failure().code,
+			});
+			return;
+		}
 		log.error("uncaught render error", { code: failure().code });
 		setEventId(
 			reportError(props.error, { stage: "render", severity: "fatal" }).eventId,
@@ -123,22 +131,24 @@ const AppErrorScreen: Component<{ error: unknown; reset: () => void }> = (
 	});
 
 	return (
-		<div class="w-full h-full absolute top-0 left-0 z-50 flex flex-col items-center justify-center gap-3 px-6 text-foreground select-none">
-			<p class="text-base font-medium m-0 text-center">{copy().title}</p>
-			<Show when={copy().description}>
-				<p class="text-sm text-muted-foreground m-0 text-center">
-					{copy().description}
-				</p>
-			</Show>
-			<button
-				type="button"
-				class="text-sm text-muted-foreground underline cursor-pointer"
-				onClick={() => props.reset()}
-			>
-				Try again
-			</button>
-			<ErrorDetails code={failure().code} eventId={eventId()} />
-		</div>
+		<Show when={!sessionDead()} fallback={<SessionExpiredScreen />}>
+			<div class="w-full h-full absolute top-0 left-0 z-50 flex flex-col items-center justify-center gap-3 px-6 text-foreground select-none">
+				<p class="text-base font-medium m-0 text-center">{copy().title}</p>
+				<Show when={copy().description}>
+					<p class="text-sm text-muted-foreground m-0 text-center">
+						{copy().description}
+					</p>
+				</Show>
+				<button
+					type="button"
+					class="text-sm text-muted-foreground underline cursor-pointer"
+					onClick={() => props.reset()}
+				>
+					Try again
+				</button>
+				<ErrorDetails code={failure().code} eventId={eventId()} />
+			</div>
+		</Show>
 	);
 };
 

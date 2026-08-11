@@ -51,6 +51,15 @@ describe("classifyResponse", () => {
 		expect(err.serverMessage).toBe("off");
 	});
 
+	it("keeps the PDS session codes the lexicons never declare", () => {
+		const err = classifyResponse({
+			status: 401,
+			body: '{"error":"ExpiredToken","message":"Token has expired"}',
+		});
+		expect(err.code).toBe("ExpiredToken");
+		expect(err.context.unknownCode).toBeUndefined();
+	});
+
 	it("falls back to the status when the code is unknown to the lexicons", () => {
 		const err = classifyResponse({
 			status: 403,
@@ -167,6 +176,45 @@ describe("classifyThrown", () => {
 		offline(false);
 		const err = new Error("IndexedDB unavailable");
 		expect(classifyThrown(err).code).toBe("StorageStalled");
+	});
+
+	it("names a refused token refresh instead of calling it unexpected", () => {
+		offline(false);
+		const err = new Error("token refresh failed");
+		err.name = "TokenRefreshError";
+		expect(classifyThrown(err).code).toBe("ExpiredToken");
+		expect(classifyThrown(err).needsReauth).toBe(true);
+	});
+
+	it("names a revoked session", () => {
+		offline(false);
+		const err = new Error("session revoked");
+		err.name = "TokenRevokedError";
+		expect(classifyThrown(err).code).toBe("InvalidToken");
+	});
+
+	it("sees the token failure an XRPCError wrapper hides behind its status", () => {
+		offline(false);
+		const cause = new Error("The session was deleted by another process");
+		cause.name = "TokenRefreshError";
+		const wrapped = Object.assign(
+			new Error("The session was deleted by another process", { cause }),
+			{ status: 1 },
+		);
+		expect(classifyThrown(wrapped).code).toBe("ExpiredToken");
+	});
+
+	it("ignores a status that is not an HTTP status", () => {
+		offline(false);
+		const err = Object.assign(new Error("network issue"), { status: 1 });
+		expect(classifyThrown(err).code).toBe("Unexpected");
+	});
+
+	it("still reports offline over a token failure", () => {
+		offline(true);
+		const err = new Error("token refresh failed");
+		err.name = "TokenRefreshError";
+		expect(classifyThrown(err).code).toBe("Offline");
 	});
 
 	it("uses a status carried on the thrown value", () => {
