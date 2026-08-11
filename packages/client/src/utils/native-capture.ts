@@ -180,6 +180,33 @@ const createMainThreadSink = (): TrackSink | null => {
 	return { track: created, writable: created.writable };
 };
 
+export interface CaptureCleanupTargets {
+	worker: Pick<Worker, "terminate">;
+	revoke: () => void;
+	audio: { stop: () => void } | null;
+	writer: Pick<WritableStreamDefaultWriter<VideoFrame>, "close"> | null;
+}
+
+export const createCaptureCleanup = (
+	targets: CaptureCleanupTargets,
+): (() => void) => {
+	let done = false;
+
+	return () => {
+		if (done) return;
+		done = true;
+
+		targets.worker.terminate();
+		targets.revoke();
+		targets.audio?.stop();
+		try {
+			void targets.writer?.close().catch(() => {});
+		} catch {
+			return;
+		}
+	};
+};
+
 export const createNativeCaptureTrack = async (
 	session: NativeCaptureSession,
 	withAudio: boolean,
@@ -195,16 +222,12 @@ export const createNativeCaptureTrack = async (
 
 		let settled = false;
 
-		const cleanup = (): void => {
-			worker.terminate();
-			URL.revokeObjectURL(url);
-			audio?.stop();
-			try {
-				void writer?.close();
-			} catch {
-				return;
-			}
-		};
+		const cleanup = createCaptureCleanup({
+			worker,
+			revoke: () => URL.revokeObjectURL(url),
+			audio,
+			writer,
+		});
 
 		const settle = (track: MediaStreamTrack): void => {
 			settled = true;

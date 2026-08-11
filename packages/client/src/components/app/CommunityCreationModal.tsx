@@ -19,6 +19,7 @@ import { useSocketContext } from "../../contexts/Socket";
 import { useUserContext } from "../../contexts/User";
 import { ColibriError } from "../../errors/error";
 import { showError } from "../../errors/show-error";
+import { IMAGE_UPLOAD_ACCEPT } from "../../utils/image-upload";
 import { createLogger } from "../../utils/logger";
 import { Chevron } from "../icons/Chevron";
 import { Image } from "../icons/Image";
@@ -33,6 +34,7 @@ import {
 	FileFieldItemList,
 	FileFieldItemPreviewImage,
 	FileFieldTrigger,
+	takeImagePick,
 } from "../ui/FileField";
 import { ResponsiveDialog } from "../ui/ResponsiveDialog";
 import {
@@ -191,7 +193,8 @@ export const CommunityCreationModal: ParentComponent<{
 					<div class="flex gap-6 w-full">
 						<FileField
 							class="-size-full"
-							onFileChange={setPicture}
+							accept={IMAGE_UPLOAD_ACCEPT}
+							onFileChange={takeImagePick(setPicture)}
 							maxFiles={1}
 						>
 							<FileFieldDropzone class="w-30 h-30 min-h-0 rounded-md overflow-hidden relative">
@@ -243,7 +246,11 @@ export const CommunityCreationModal: ParentComponent<{
 							<FileFieldHiddenInput />
 						</FileField>
 						<Show when={!isMigration()}>
-							<FileField onFileChange={setBanner} maxFiles={1}>
+							<FileField
+								accept={IMAGE_UPLOAD_ACCEPT}
+								onFileChange={takeImagePick(setBanner)}
+								maxFiles={1}
+							>
 								<FileFieldDropzone class="w-full h-30 min-h-0 rounded-md overflow-hidden relative">
 									<FileFieldTrigger class="h-full w-full bg-muted/25 text-muted-foreground hover:bg-muted/50 p-0">
 										<Switch>

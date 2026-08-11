@@ -1,3 +1,5 @@
+import { classifyNativeError } from "../errors/native";
+import { createLogger } from "../utils/logger";
 import { isAndroidTauriRuntime, isTauriRuntime } from "./environment";
 import type {
 	NotificationBackend,
@@ -13,6 +15,24 @@ import type {
  * never runs.
  */
 const loadPlugin = () => import("@tauri-apps/plugin-notification");
+
+const log = createLogger("notifications");
+
+const withoutNativeFailure = async <T>(
+	command: string,
+	run: () => Promise<T>,
+	fallback: T,
+): Promise<T> => {
+	try {
+		return await run();
+	} catch (err) {
+		const failure = classifyNativeError(err, command);
+		log.warn("the native notification plugin refused a call", {
+			code: failure.code,
+		});
+		return fallback;
+	}
+};
 
 const javaStringHashCode = (value: string): number => {
 	let hash = 0;
@@ -41,15 +61,27 @@ export const tauriBackend: NotificationBackend = {
 
 	async getPermission(): Promise<NotificationPermission> {
 		if (!isTauriRuntime()) return "denied";
-		const { isPermissionGranted } = await loadPlugin();
-		return (await isPermissionGranted()) ? "granted" : "default";
+		return withoutNativeFailure(
+			"notification.isPermissionGranted",
+			async () => {
+				const { isPermissionGranted } = await loadPlugin();
+				return (await isPermissionGranted()) ? "granted" : "default";
+			},
+			"denied",
+		);
 	},
 
 	async requestPermission(): Promise<NotificationPermission> {
 		if (!isTauriRuntime()) return "denied";
-		const { isPermissionGranted, requestPermission } = await loadPlugin();
-		if (await isPermissionGranted()) return "granted";
-		return (await requestPermission()) as NotificationPermission;
+		return withoutNativeFailure(
+			"notification.requestPermission",
+			async () => {
+				const { isPermissionGranted, requestPermission } = await loadPlugin();
+				if (await isPermissionGranted()) return "granted";
+				return (await requestPermission()) as NotificationPermission;
+			},
+			"denied",
+		);
 	},
 
 	async show(payload: NotificationPayload): Promise<void> {

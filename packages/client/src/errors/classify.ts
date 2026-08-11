@@ -85,6 +85,12 @@ const SESSION_ERROR_NAMES = new Map<string, ColibriErrorCode>([
 	["AuthMethodUnsatisfiableError", "InvalidToken"],
 ]);
 
+export const isAtprotoSessionError = (err: unknown): boolean => {
+	if (!(err instanceof Error)) return false;
+	const sub = (err as { sub?: unknown }).sub;
+	return typeof sub === "string" && sub.startsWith("did:");
+};
+
 const codeForThrownShape = (err: unknown): ColibriErrorCode | undefined => {
 	const name = nameOf(err);
 
@@ -92,6 +98,8 @@ const codeForThrownShape = (err: unknown): ColibriErrorCode | undefined => {
 
 	const sessionCode = name ? SESSION_ERROR_NAMES.get(name) : undefined;
 	if (sessionCode) return sessionCode;
+
+	if (isAtprotoSessionError(err)) return "InvalidToken";
 
 	if (typeof DOMException !== "undefined" && err instanceof DOMException) {
 		if (name === "NotAllowedError" || name === "SecurityError") {
@@ -219,13 +227,17 @@ export interface ClassifyResponseInput {
 	nowMs?: number;
 }
 
+const ENVELOPE_CODE_ALIASES = new Map<string, ColibriErrorCode>([
+	["ScopeMissingError", "ScopesMissing"],
+]);
+
 const knownEnvelopeCode = (
 	code: string | undefined,
 ): ColibriErrorCode | undefined => {
 	if (!code) return undefined;
 	if (isAppViewErrorCode(code)) return code;
 	if (isPdsSessionErrorCode(code)) return code;
-	return undefined;
+	return ENVELOPE_CODE_ALIASES.get(code);
 };
 
 export const classifyResponse = (

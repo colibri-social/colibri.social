@@ -1,9 +1,10 @@
 import { createMemo, type ParentComponent, Show } from "solid-js";
 import { getMissingScopeSets } from "../../../atproto/scopes";
+import { scopesRejectedByServer } from "../../../atproto/session-health";
 import { useAuthContext } from "../../../contexts/Auth";
 import { createLogger } from "../../../utils/logger";
 import { ScopeRefreshModal } from "./ScopeRefreshModal";
-import { SCOPE_REAUTH_FLAG } from "./scope-reauth";
+import { clearScopeReauthAttempts, scopeReauthExhausted } from "./scope-reauth";
 
 const log = createLogger("scopes");
 
@@ -15,19 +16,21 @@ export const ScopeGate: ParentComponent = (props) => {
 	const missing = createMemo(() => getMissingScopeSets(auth.grantedScopes()));
 
 	const needsReauth = createMemo(() => {
-		if (missing().length === 0) {
-			sessionStorage.removeItem(SCOPE_REAUTH_FLAG);
+		const rejected = scopesRejectedByServer();
+
+		if (missing().length === 0 && !rejected) {
+			clearScopeReauthAttempts();
 			return false;
 		}
-		if (sessionStorage.getItem(SCOPE_REAUTH_FLAG)) {
-			log.warn(
-				"still missing scopes after a re-auth attempt, letting the user in",
-				{
-					missing: missing().length,
-				},
-			);
+
+		if (scopeReauthExhausted()) {
+			log.warn("still missing scopes after re-auth attempts", {
+				missing: missing().length,
+				rejectedByServer: rejected,
+			});
 			return false;
 		}
+
 		return true;
 	});
 

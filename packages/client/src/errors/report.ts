@@ -1,5 +1,6 @@
 import * as Sentry from "@sentry/solid";
 import { classifyThrown } from "./classify";
+import { isReportableCode } from "./codes";
 import { type ColibriError, isColibriError } from "./error";
 
 export interface ReportOptions {
@@ -30,14 +31,16 @@ interface Seen {
 
 const seen = new Map<string, Seen>();
 
-const fingerprintOf = (err: ColibriError, options: ReportOptions): string =>
-	options.fingerprint ??
-	[
+const fingerprintOf = (err: ColibriError, options: ReportOptions): string => {
+	if (options.fingerprint) return options.fingerprint;
+	if (err.domain === "transport") return `transport|${err.code}`;
+	return [
 		err.code,
 		err.status ?? "",
 		err.method ?? options.method ?? "",
 		options.stage ?? "",
 	].join("|");
+};
 
 const suppressedEventId = (
 	fingerprint: string,
@@ -87,6 +90,8 @@ export const reportError = (
 
 	if (options.context) classified.withContext(options.context);
 
+	if (!isReportableCode(classified.code)) return classified;
+
 	const fingerprint = fingerprintOf(classified, options);
 	const throttle = suppressedEventId(fingerprint, Date.now());
 
@@ -99,6 +104,11 @@ export const reportError = (
 	}
 
 	const eventId = Sentry.withScope((scope) => {
+		scope.setFingerprint(
+			classified.code === "Unexpected"
+				? ["{{ default }}", fingerprint]
+				: [fingerprint],
+		);
 		scope.setTag("error.code", classified.code);
 		scope.setTag("error.domain", classified.domain);
 		scope.setTag("error.retryable", String(classified.retryable));

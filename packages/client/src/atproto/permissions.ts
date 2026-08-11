@@ -141,6 +141,17 @@ export const PERMISSIONS: Record<string, Array<Permission>> = {
 	],
 };
 
+export const grantsPermission = (
+	roles: Array<Role>,
+	memberRoleUris: Array<string>,
+	permission: string,
+): boolean =>
+	memberRoleUris.some((uri) =>
+		roles.some(
+			(role) => role.uri === uri && role.permissions.includes(permission),
+		),
+	);
+
 // Highest position among `memberRoleUris` that grant `permission` — the
 // ceiling below which a member is allowed to manage other roles via that
 // permission. Owners bypass the hierarchy entirely (Infinity); a member

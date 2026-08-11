@@ -4,8 +4,11 @@ import { DEFAULT_LABELER_DID, DEFAULT_LABELER_URL } from "../utils/labeler";
 const A = "did:plc:aaaaaaaaaaaaaaaaaaaaaaaa";
 const B = "did:plc:bbbbbbbbbbbbbbbbbbbbbbbb";
 const C = "did:plc:cccccccccccccccccccccccc";
+const D = "did:plc:dddddddddddddddddddddddd";
 
-const FLUSH = 20;
+const FLUSH = 60;
+const FRAME = 16;
+const MAX_FLUSH_DELAY_MS = 150;
 const QUERY_LIMIT = 250;
 const FAILURE_TTL_MS = 30_000;
 
@@ -79,6 +82,40 @@ describe("getLabelerBadges", () => {
 		expect(url.searchParams.getAll("uriPatterns")).toEqual([A, B, C]);
 		expect(url.searchParams.get("sources")).toBe(DEFAULT_LABELER_DID);
 		expect(url.searchParams.get("limit")).toBe(String(QUERY_LIMIT));
+	});
+
+	it("coalesces DIDs that arrive on separate frames into a single query", async () => {
+		fetchMock.mockResolvedValue(page([]));
+		const { getLabelerBadges } = await load();
+
+		const first = getLabelerBadges(A);
+		await vi.advanceTimersByTimeAsync(FRAME);
+		const second = getLabelerBadges(B);
+		await vi.advanceTimersByTimeAsync(FRAME);
+		const third = getLabelerBadges(C);
+		await vi.advanceTimersByTimeAsync(FLUSH);
+		await Promise.all([first, second, third]);
+
+		expect(fetchMock).toHaveBeenCalledTimes(1);
+		expect(urlOf(0).searchParams.getAll("uriPatterns")).toEqual([A, B, C]);
+	});
+
+	it("stops deferring once the maximum delay is reached", async () => {
+		fetchMock.mockResolvedValue(page([]));
+		const { getLabelerBadges } = await load();
+
+		const pending = [getLabelerBadges(A)];
+		for (const did of [B, C, D]) {
+			await vi.advanceTimersByTimeAsync(40);
+			expect(fetchMock).not.toHaveBeenCalled();
+			pending.push(getLabelerBadges(did));
+		}
+
+		await vi.advanceTimersByTimeAsync(MAX_FLUSH_DELAY_MS);
+		await Promise.all(pending);
+
+		expect(fetchMock).toHaveBeenCalledTimes(1);
+		expect(urlOf(0).searchParams.getAll("uriPatterns")).toEqual([A, B, C, D]);
 	});
 
 	it("groups a flat response by uri so badges never leak between DIDs", async () => {

@@ -26,5 +26,6 @@ export const getChannelView: XrpcRequest<
 		route: `/xrpc/social.colibri.channel.getChannelView?channel=${channel}${
 			limit !== undefined ? `&limit=${limit}` : ""
 		}`,
+		expected: ["Timeout", "NetworkFailed", "Unreachable"],
 	});
 };

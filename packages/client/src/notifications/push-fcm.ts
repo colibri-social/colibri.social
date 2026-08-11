@@ -1,9 +1,13 @@
+import { classifyNativeError } from "../errors/native";
+import { createLogger } from "../utils/logger";
 import { isAndroidTauriRuntime } from "./environment";
 
 export type FcmSubscription = {
 	platform: "android";
 	token: string;
 };
+
+const log = createLogger("push");
 
 const LAST_TOKEN_STORAGE_KEY = "colibri:fcm:last-token";
 
@@ -26,25 +30,38 @@ const storeLastToken = (token: string | null): void => {
 
 export const hasCachedFcmToken = (): boolean => readLastToken() !== null;
 
+const acquireFcmToken = async (): Promise<string | undefined> => {
+	try {
+		const {
+			checkPermissions,
+			requestPermissions,
+			register: registerDevice,
+			getToken,
+		} = await loadPlugin();
+
+		let permission = await checkPermissions();
+		if (permission !== "granted") permission = await requestPermissions();
+		if (permission !== "granted") return undefined;
+
+		await registerDevice();
+		return (await getToken()).token;
+	} catch (err) {
+		const failure = classifyNativeError(err, "fcm.register");
+		log.warn("registering this device for push failed, retrying later", {
+			code: failure.code,
+		});
+		return undefined;
+	}
+};
+
 export const subscribeFcmPush = async (
 	register: (sub: FcmSubscription) => Promise<unknown>,
 	unregister?: (token: string) => Promise<unknown>,
 ): Promise<boolean> => {
 	if (!(await isAndroidTauriRuntime())) return false;
 
-	const {
-		checkPermissions,
-		requestPermissions,
-		register: registerDevice,
-		getToken,
-	} = await loadPlugin();
-
-	let permission = await checkPermissions();
-	if (permission !== "granted") permission = await requestPermissions();
-	if (permission !== "granted") return false;
-
-	await registerDevice();
-	const { token } = await getToken();
+	const token = await acquireFcmToken();
+	if (token === undefined) return false;
 
 	const previousToken = readLastToken();
 	if (previousToken && previousToken !== token && unregister) {

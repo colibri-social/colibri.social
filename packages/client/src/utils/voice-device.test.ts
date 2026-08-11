@@ -1,6 +1,7 @@
 import type { types } from "mediasoup-client";
 import { afterEach, describe, expect, it } from "vitest";
 import {
+	isDeviceOutcome,
 	pickVoiceHandler,
 	supportsWebRtc,
 	webKitFallbackHandler,
@@ -95,5 +96,21 @@ describe("supportsWebRtc", () => {
 	it("is false on an engine built without WebRTC", () => {
 		Reflect.deleteProperty(globalThis, "RTCPeerConnection");
 		expect(supportsWebRtc()).toBe(false);
+	});
+});
+
+describe("isDeviceOutcome", () => {
+	it("treats a machine with no matching input device as the user's own hardware", () => {
+		expect(isDeviceOutcome("DeviceUnavailable")).toBe(true);
+	});
+
+	it("treats a refused permission prompt as the user's own choice", () => {
+		expect(isDeviceOutcome("DevicePermissionDenied")).toBe(true);
+	});
+
+	it("leaves everything else worth reporting", () => {
+		expect(isDeviceOutcome("Unexpected")).toBe(false);
+		expect(isDeviceOutcome("VoiceStreamFailed")).toBe(false);
+		expect(isDeviceOutcome("NetworkFailed")).toBe(false);
 	});
 });

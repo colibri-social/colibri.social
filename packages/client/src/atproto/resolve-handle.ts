@@ -28,16 +28,16 @@ export const resolveHandleToDid = async (input: string): Promise<string> => {
 	if (!res.ok) {
 		if (res.status === 400 || res.status === 404) throw handleNotFound(input);
 
-		throw await reportSignInFailure(
-			classifyResponse({
-				status: res.status,
-				body: await res.text().catch(() => ""),
-				method: "com.atproto.identity.resolveHandle",
-				retryAfter: res.headers.get("retry-after"),
-			}),
-			input,
-			"resolve-handle",
-		);
+		const failure = classifyResponse({
+			status: res.status,
+			body: await res.text().catch(() => ""),
+			method: "com.atproto.identity.resolveHandle",
+			retryAfter: res.headers.get("retry-after"),
+		});
+
+		if (failure.code === "UpstreamFailure") throw handleNotFound(input);
+
+		throw await reportSignInFailure(failure, input, "resolve-handle");
 	}
 
 	const data = (await res.json().catch(() => ({}))) as { did?: string };

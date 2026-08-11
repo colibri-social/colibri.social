@@ -11,6 +11,7 @@ import {
 	ConnectionState,
 	useVoiceChatContext,
 } from "../../../contexts/VoiceChat";
+import { classifyThrown } from "../../../errors/classify";
 import { describeError } from "../../../errors/copy";
 import { createLogger } from "../../../utils/logger";
 import {
@@ -38,20 +39,30 @@ export const VideoPage: Component = () => {
 
 	let previewEl!: HTMLVideoElement;
 
-	onMount(async () => {
-		const probe = await navigator.mediaDevices.getUserMedia({
-			video: true,
-		});
+	onMount(() => {
+		void (async () => {
+			try {
+				const probe = await navigator.mediaDevices.getUserMedia({
+					video: true,
+				});
 
-		probe.getTracks().forEach((t) => {
-			t.stop();
-		});
+				probe.getTracks().forEach((t) => {
+					t.stop();
+				});
 
-		const devices = (await navigator.mediaDevices.enumerateDevices())
-			.filter((d) => d.kind === "videoinput")
-			.map((d) => ({ name: d.label, id: d.deviceId }));
+				const devices = (await navigator.mediaDevices.enumerateDevices())
+					.filter((d) => d.kind === "videoinput")
+					.map((d) => ({ name: d.label, id: d.deviceId }));
 
-		setCameras(devices);
+				setCameras(devices);
+			} catch (e) {
+				log.warn("listing cameras failed", {
+					code: classifyThrown(e).code,
+				});
+				const copy = describeError(e);
+				setError(copy.description ?? copy.title);
+			}
+		})();
 	});
 
 	createEffect(() => {

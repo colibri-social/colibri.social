@@ -41,6 +41,7 @@ import {
 	usePermissions,
 } from "../../../contexts/Community";
 import { useUserContext } from "../../../contexts/User";
+import { IMAGE_UPLOAD_ACCEPT } from "../../../utils/image-upload";
 import { ErrorState } from "../../ErrorState";
 import { Spinner } from "../../icons/Spinner";
 import { Button } from "../../ui/Button";
@@ -68,6 +69,7 @@ import {
 	FileFieldItemPreviewImage,
 	FileFieldLabel,
 	FileFieldTrigger,
+	takeImagePick,
 } from "../../ui/FileField";
 import {
 	Switch as SwitchComp,
@@ -255,7 +257,8 @@ const GeneralSettingsPage: Component = () => {
 			<div class="flex gap-6">
 				<FileField
 					class="items-start -size-full"
-					onFileChange={setPicture}
+					accept={IMAGE_UPLOAD_ACCEPT}
+					onFileChange={takeImagePick(setPicture)}
 					maxFiles={1}
 				>
 					<FileFieldLabel>Community Picture</FileFieldLabel>
@@ -309,7 +312,12 @@ const GeneralSettingsPage: Component = () => {
 					</FileFieldDropzone>
 					<FileFieldHiddenInput />
 				</FileField>
-				<FileField class="items-start" onFileChange={setBanner} maxFiles={1}>
+				<FileField
+					class="items-start"
+					accept={IMAGE_UPLOAD_ACCEPT}
+					onFileChange={takeImagePick(setBanner)}
+					maxFiles={1}
+				>
 					<FileFieldLabel>Community Banner</FileFieldLabel>
 					<FileFieldDropzone class="h-32 w-full min-h-0">
 						<FileFieldTrigger class="h-full w-full p-0 bg-muted/25 hover:bg-muted/50 rounded-sm overflow-hidden">

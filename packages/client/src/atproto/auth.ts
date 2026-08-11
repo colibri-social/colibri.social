@@ -34,6 +34,7 @@ import {
 	type StorageProbe,
 	summarizeProbe,
 } from "./storage-probe";
+import { setDpopDiagnosticsProvider } from "./xrpc/request";
 
 const log = createLogger("auth");
 
@@ -79,6 +80,8 @@ const makeClientId = () => {
 const clientId = makeClientId();
 
 const OAUTH_FETCH_TIMEOUT_MS = 12_000;
+const WRITE_FETCH_TIMEOUT_MS = 60_000;
+const CLOCK_SKEW_LIMIT_MS = 30_000;
 const OAUTH_FETCH_ATTEMPTS = 2;
 const OAUTH_RETRY_BASE_DELAY_MS = 750;
 const OAUTH_SIGNIN_TIMEOUT_MS = 75_000;
@@ -126,12 +129,32 @@ const isConnectivityError = (err: unknown): boolean =>
 	err instanceof TypeError ||
 	(err instanceof DOMException && err.name === "TimeoutError");
 
-const isRepeatable = (
+const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
+
+export const methodOf = (
 	input: Parameters<typeof fetch>[0],
 	init?: RequestInit,
-): boolean =>
-	(typeof input === "string" || input instanceof URL) &&
-	!(init?.body instanceof ReadableStream);
+): string =>
+	(
+		init?.method ??
+		(typeof Request !== "undefined" && input instanceof Request
+			? input.method
+			: "GET")
+	).toUpperCase();
+
+export const isWrite = (
+	input: Parameters<typeof fetch>[0],
+	init?: RequestInit,
+): boolean => !SAFE_METHODS.has(methodOf(input, init));
+
+export const isRepeatable = (
+	input: Parameters<typeof fetch>[0],
+	init?: RequestInit,
+): boolean => {
+	if (typeof input !== "string" && !(input instanceof URL)) return false;
+	if (init?.body != null) return false;
+	return SAFE_METHODS.has(methodOf(input, init));
+};
 
 const wait = (ms: number) =>
 	new Promise<void>((resolve) => setTimeout(resolve, ms));
@@ -159,6 +182,7 @@ const withFetchTimeout =
 	async (input, init) => {
 		const host = requestHost(input);
 		const repeatable = isRepeatable(input, init);
+		const budget = isWrite(input, init) ? WRITE_FETCH_TIMEOUT_MS : ms;
 		requestsStarted += 1;
 		let lastError: unknown;
 
@@ -168,8 +192,8 @@ const withFetchTimeout =
 			let timedOut = false;
 			const timer = setTimeout(() => {
 				timedOut = true;
-				controller.abort(new DOMException("Sign-in timed out", "TimeoutError"));
-			}, ms);
+				controller.abort(new DOMException("Request timed out", "TimeoutError"));
+			}, budget);
 
 			const externalSignal = init?.signal;
 			const forwardAbort = () => controller.abort(externalSignal?.reason);
@@ -199,7 +223,7 @@ const withFetchTimeout =
 				return response;
 			} catch (err) {
 				lastError = timedOut
-					? new DOMException("Sign-in timed out", "TimeoutError")
+					? new DOMException("Request timed out", "TimeoutError")
 					: err;
 				recordAttempt({
 					host,
@@ -274,6 +298,28 @@ const networkContext = () => {
 		),
 	};
 };
+
+const dpopDiagnostics = () => {
+	const skew = clockSkewMs;
+	const documentOrigin =
+		typeof window === "undefined" ? null : window.location.origin;
+
+	return {
+		clockSkewMs: skew ?? null,
+		clockOffBeyondProofWindow:
+			skew === undefined ? null : Math.abs(skew) > CLOCK_SKEW_LIMIT_MS,
+		clientId,
+		appView: getPreferredAppViewUrl(),
+		documentOrigin,
+		canonicalOrigin: NATIVE_CLIENT_ORIGIN,
+		originMatchesCanonical:
+			documentOrigin === null ? null : documentOrigin === NATIVE_CLIENT_ORIGIN,
+		native: isTauriRuntime(),
+		storageBackend: usingFallbackStorage ? "localstorage" : "indexeddb",
+	};
+};
+
+setDpopDiagnosticsProvider(dpopDiagnostics);
 
 const signInContext = (input: string) => ({
 	elapsedMs: Date.now() - (attemptStartedAt ?? Date.now()),
@@ -426,7 +472,7 @@ export { grantedScopes };
 const FALLBACK_FLAG_KEY = "colibri:oauth-storage-fallback";
 
 const PRIMARY_DATABASE = {
-	durability: "relaxed",
+	durability: "strict",
 	cleanupInterval: 300_000,
 } as const;
 
@@ -888,8 +934,10 @@ export const startOAuthSignIn = async (
 		message: probeSummary,
 	});
 
+	const active = usingFallbackStorage ? (oAuthClient ?? client) : client;
+
 	try {
-		await attemptSignIn(client, input, options);
+		await attemptSignIn(active, input, options);
 	} catch (err) {
 		const storageAtFault =
 			isStorageFailure(err) || probeIndicatesStall(storageProbe);

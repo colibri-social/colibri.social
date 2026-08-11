@@ -21,7 +21,8 @@ const TRUNCATED_TTL_MS = 60_000;
 const MAX_DIDS_PER_QUERY = 50;
 const QUERY_LIMIT = 250;
 const MAX_PAGES = 5;
-const FLUSH_WINDOW_MS = 16;
+const FLUSH_WINDOW_MS = 48;
+const MAX_FLUSH_DELAY_MS = 150;
 const REQUEST_TIMEOUT_MS = 8000;
 
 interface RawLabel {
@@ -44,6 +45,7 @@ let pendingResolvers = new Map<
 	Array<(labels: Array<LabelerLabel>) => void>
 >();
 let flushTimer: ReturnType<typeof setTimeout> | undefined;
+let firstPendingAt: number | undefined;
 
 const isExpired = (label: LabelerLabel): boolean =>
 	label.exp !== undefined && new Date(label.exp).getTime() <= Date.now();
@@ -134,6 +136,7 @@ const flushBatch = async (): Promise<void> => {
 	pendingDids = [];
 	pendingResolvers = new Map();
 	flushTimer = undefined;
+	firstPendingAt = undefined;
 
 	const persist: Array<readonly [string, LabelerLabelsSnapshot]> = [];
 
@@ -202,8 +205,16 @@ const schedule = (): void => {
 		void flushBatch();
 		return;
 	}
-	if (flushTimer !== undefined) return;
-	flushTimer = setTimeout(() => void flushBatch(), FLUSH_WINDOW_MS);
+
+	const now = Date.now();
+	firstPendingAt ??= now;
+	const budget = Math.max(0, firstPendingAt + MAX_FLUSH_DELAY_MS - now);
+
+	if (flushTimer !== undefined) clearTimeout(flushTimer);
+	flushTimer = setTimeout(
+		() => void flushBatch(),
+		Math.min(FLUSH_WINDOW_MS, budget),
+	);
 };
 
 export const getLabelerBadges = (did: string): Promise<Array<LabelerLabel>> => {

@@ -13,4 +13,5 @@ export const listCommunities: XrpcRequest<[], Promise<XrpcResult<Response>>> = (
 	request<Response>(fetch, {
 		lxm: "social.colibri.actor.listCommunities",
 		route: "/xrpc/social.colibri.actor.listCommunities",
+		expected: ["Timeout", "NetworkFailed", "Unreachable"],
 	});

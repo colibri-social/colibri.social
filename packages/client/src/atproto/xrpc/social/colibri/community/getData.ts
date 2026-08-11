@@ -34,5 +34,6 @@ export const getData: XrpcRequest<
 	return request<Community>(fetch, {
 		lxm: "social.colibri.community.getData",
 		route: `/xrpc/social.colibri.community.getData?community=${community}`,
+		expected: ["NotFound"],
 	});
 };

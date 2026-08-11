@@ -44,6 +44,22 @@ const IGNORED_MESSAGES = [
 
 const NOISY_BREADCRUMB_CATEGORIES = ["voice/debug", "ui.click"];
 
+const DECLINED_EXCEPTION_TYPES = new Set([
+	"NotAllowedError",
+	"PermissionDeniedError",
+]);
+
+const isDeclinedByUser = (event: {
+	exception?: { values?: Array<{ type?: string }> };
+}): boolean => {
+	const values = event.exception?.values;
+	if (!values || values.length === 0) return false;
+	return values.every(
+		(value) =>
+			value.type !== undefined && DECLINED_EXCEPTION_TYPES.has(value.type),
+	);
+};
+
 const scrubEvent = <T extends { message?: unknown; breadcrumbs?: unknown }>(
 	event: T,
 ): T => {
@@ -102,7 +118,7 @@ export function initSentry(options: InitSentryOptions): void {
 			}
 			return breadcrumb;
 		},
-		beforeSend: (event) => scrubEvent(event),
+		beforeSend: (event) => (isDeclinedByUser(event) ? null : scrubEvent(event)),
 	});
 
 	Sentry.getClient()?.on("afterSendEvent", (event, response) => {

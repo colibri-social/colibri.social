@@ -1,5 +1,6 @@
 import { useDragDropContext } from "@thisbeyond/solid-dnd";
 import { onCleanup, onMount, type ParentComponent } from "solid-js";
+import { isSensorRegistered } from "./dnd-sensors";
 import { isTouchNow } from "./touch";
 
 type Coordinates = { x: number; y: number };
@@ -34,6 +35,8 @@ export const createLongPressSensor = (
 		addSensor({ id, activators: { pointerdown: attach } });
 	});
 	onCleanup(() => {
+		detach();
+		detachMobile();
 		removeSensor(id);
 	});
 
@@ -85,6 +88,10 @@ export const createLongPressSensor = (
 
 	const onActivate = () => {
 		if (canceled) return;
+		if (!isSensorRegistered(state.sensors, id)) {
+			detach();
+			return;
+		}
 		if (!state.active.sensor) {
 			sensorStart(id, { ...initialCoordinates });
 			dragStart(activationDraggableId!);
@@ -165,6 +172,10 @@ export const createLongPressSensor = (
 		}
 		if (!dragging) {
 			if (dist < DRAG_START_DISTANCE) return;
+			if (!isSensorRegistered(state.sensors, id)) {
+				detachMobile();
+				return;
+			}
 			dragging = true;
 			sensorStart(id, { ...initialCoordinates });
 			dragStart(activationDraggableId!);

@@ -1,4 +1,5 @@
 import { detectDevice, type types } from "mediasoup-client";
+import type { ColibriErrorCode } from "../errors/codes";
 
 const WEBKIT_MIN_MAJOR = 605;
 const OTHER_ENGINE = /\b(?:Chrome|Chromium|Edg|OPR|Firefox)\b/i;
@@ -25,6 +26,14 @@ export const currentUserAgentData = (): types.NavigatorUAData | undefined =>
 
 export const supportsWebRtc = (): boolean =>
 	typeof RTCPeerConnection !== "undefined";
+
+const DEVICE_OUTCOME_CODES = new Set<ColibriErrorCode>([
+	"DevicePermissionDenied",
+	"DeviceUnavailable",
+]);
+
+export const isDeviceOutcome = (code: ColibriErrorCode): boolean =>
+	DEVICE_OUTCOME_CODES.has(code);
 
 export const pickVoiceHandler = (
 	userAgent: string | undefined = currentUserAgent(),

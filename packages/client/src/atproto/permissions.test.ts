@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+	APPROVAL_MANAGE,
 	COMMUNITY_MANAGE,
 	getPermissionCeiling,
+	grantsPermission,
 	isRoleBelowCeiling,
 	MESSAGE_HIDE,
 	PERMISSIONS,
@@ -72,6 +74,47 @@ describe("getPermissionCeiling", () => {
 		expect(
 			getPermissionCeiling(ROLES, [ADMIN.uri], COMMUNITY_MANAGE, false),
 		).toBe(Number.NEGATIVE_INFINITY);
+	});
+});
+
+describe("grantsPermission", () => {
+	const APPROVER = role("at://x/role/approver", 15, [APPROVAL_MANAGE]);
+	const WITH_APPROVER = [...ROLES, APPROVER];
+
+	it("grants when a held role carries the permission", () => {
+		expect(
+			grantsPermission(
+				WITH_APPROVER,
+				[HELPER.uri, APPROVER.uri],
+				APPROVAL_MANAGE,
+			),
+		).toBe(true);
+	});
+
+	it("refuses when no held role carries the permission", () => {
+		expect(
+			grantsPermission(WITH_APPROVER, [HELPER.uri, MOD.uri], APPROVAL_MANAGE),
+		).toBe(false);
+	});
+
+	it("refuses when the member holds no roles", () => {
+		expect(grantsPermission(WITH_APPROVER, [], APPROVAL_MANAGE)).toBe(false);
+	});
+
+	it("does not grant a permission from a role the member does not hold", () => {
+		expect(grantsPermission(WITH_APPROVER, [MOD.uri], APPROVAL_MANAGE)).toBe(
+			false,
+		);
+	});
+
+	it("ignores role uris that do not resolve to a known role", () => {
+		expect(
+			grantsPermission(WITH_APPROVER, ["at://x/role/ghost"], APPROVAL_MANAGE),
+		).toBe(false);
+	});
+
+	it("refuses when the role list is empty", () => {
+		expect(grantsPermission([], [APPROVER.uri], APPROVAL_MANAGE)).toBe(false);
 	});
 });
 

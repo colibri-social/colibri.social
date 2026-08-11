@@ -121,6 +121,9 @@ let lastFailure: ColibriError | undefined;
 const execute = async (
 	entry: OutboxEntry,
 ): Promise<"success" | "terminal" | "retry"> => {
+	lastFailure = undefined;
+	retryAfterMs = undefined;
+
 	const k = entry.kind;
 	if (k.t === "appview") {
 		if (!appviewExecutor) return "retry";

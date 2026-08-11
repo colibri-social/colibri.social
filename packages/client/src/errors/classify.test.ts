@@ -193,6 +193,38 @@ describe("classifyThrown", () => {
 		expect(classifyThrown(err).code).toBe("InvalidToken");
 	});
 
+	it.each([
+		"The session was deleted by another process",
+		"Refresh token replayed",
+		"The session was revoked",
+		"No refresh token available",
+	])("names a dead session that never set a name: %s", (message) => {
+		offline(false);
+		const err = Object.assign(new Error(message), { sub: "did:plc:abc" });
+
+		expect(err.name).toBe("Error");
+		expect(classifyThrown(err).code).toBe("InvalidToken");
+		expect(classifyThrown(err).needsReauth).toBe(true);
+	});
+
+	it("sees a nameless session error behind a wrapper", () => {
+		offline(false);
+		const cause = Object.assign(
+			new Error("The session was deleted by another process"),
+			{ sub: "did:plc:abc" },
+		);
+		const wrapped = new Error("request failed", { cause });
+
+		expect(classifyThrown(wrapped).code).toBe("InvalidToken");
+	});
+
+	it("does not mistake an unrelated error carrying a sub field", () => {
+		offline(false);
+		const err = Object.assign(new Error("boom"), { sub: "not-a-did" });
+
+		expect(classifyThrown(err).code).toBe("Unexpected");
+	});
+
 	it("sees the token failure an XRPCError wrapper hides behind its status", () => {
 		offline(false);
 		const cause = new Error("The session was deleted by another process");

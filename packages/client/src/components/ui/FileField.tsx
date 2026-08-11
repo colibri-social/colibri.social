@@ -1,13 +1,31 @@
+import type { Details } from "@kobalte/core/file-field";
 import { FileField as FileFieldPrimitive } from "@kobalte/core/file-field";
 import type { VariantProps } from "cva";
-import type { ComponentProps, ValidComponent } from "solid-js";
+import type { ComponentProps, Setter, ValidComponent } from "solid-js";
 import { Show, splitProps } from "solid-js";
 
+import { ColibriError } from "../../errors/error";
+import { showError } from "../../errors/show-error";
 import { cx } from "../../utils/cva";
+import { imageRejectionCode } from "../../utils/image-upload";
 
 import { buttonVariants } from "./Button";
 
 export const FileFieldHiddenInput = FileFieldPrimitive.HiddenInput;
+
+export const takeImagePick =
+	(set: Setter<Details | undefined>) =>
+	(details: Details): void => {
+		const code = imageRejectionCode(details);
+
+		if (code !== undefined) {
+			set(undefined);
+			showError(new ColibriError({ code }), { report: false });
+			return;
+		}
+
+		set(details);
+	};
 
 export type FileFieldProps<T extends ValidComponent = "div"> = ComponentProps<
 	typeof FileFieldPrimitive<T>

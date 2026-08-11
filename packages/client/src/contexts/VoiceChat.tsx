@@ -1145,6 +1145,14 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 		}
 		if (!auth?.loggedIn) return;
 
+		if (!supportsWebRtc()) {
+			toast.error("Voice isn't available on this system", {
+				description:
+					"This system's web engine was built without WebRTC, so calls can't connect.",
+			});
+			return;
+		}
+
 		dbg("connect()", {
 			channelUri,
 			hubDid: meta?.hubDid ?? null,

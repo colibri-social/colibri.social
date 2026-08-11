@@ -19,7 +19,10 @@ import {
 	DialogPortal,
 	DialogTitle,
 } from "../../ui/Dialog";
-import { SCOPE_REAUTH_FLAG } from "./scope-reauth";
+import {
+	clearScopeReauthAttempts,
+	noteScopeReauthAttempt,
+} from "./scope-reauth";
 
 const log = createLogger("scopes");
 
@@ -36,12 +39,12 @@ export function ScopeRefreshModal(props: {
 		if (loading()) return;
 		setLoading(true);
 		try {
-			sessionStorage.setItem(SCOPE_REAUTH_FLAG, "1");
+			noteScopeReauthAttempt();
 			await startOAuthSignIn(props.client, props.did, {
 				scope: buildScopes(getAppViewDid()).join(" "),
 			});
 		} catch (err) {
-			sessionStorage.removeItem(SCOPE_REAUTH_FLAG);
+			clearScopeReauthAttempts();
 			log.error("re-authentication failed", { error: err });
 			showError(err);
 			setLoading(false);

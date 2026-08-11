@@ -17,6 +17,7 @@ const [dead, setDead] = createSignal(false);
 const [deadCode, setDeadCode] = createSignal<ColibriErrorCode | undefined>(
 	undefined,
 );
+const [scopesRejected, setScopesRejected] = createSignal(false);
 
 let signingOut = false;
 let failures = 0;
@@ -25,6 +26,14 @@ let windowStartedAt = 0;
 export const sessionDead = dead;
 
 export const sessionDeadCode = deadCode;
+
+export const scopesRejectedByServer = scopesRejected;
+
+export const noteScopesRejected = (context?: Record<string, unknown>): void => {
+	if (signingOut || scopesRejected()) return;
+	setScopesRejected(true);
+	log.warn("the server rejected a call for a missing scope", context);
+};
 
 export const beginSignOut = (): void => {
 	signingOut = true;

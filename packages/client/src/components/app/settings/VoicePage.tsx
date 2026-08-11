@@ -45,6 +45,8 @@ import {
 	type VoiceIOSettings,
 } from "../../../contexts/UserPreferences";
 import { useVoiceChatContext } from "../../../contexts/VoiceChat";
+import { classifyThrown } from "../../../errors/classify";
+import { showError } from "../../../errors/show-error";
 import { useExperiment } from "../../../experiments";
 import { createIsSpeaking } from "../../../hooks/createIsSpeaking";
 import {
@@ -65,21 +67,36 @@ import {
 	NOISE_MODES,
 	noiseMode,
 } from "../../../hooks/noise/modes";
+import { createLogger } from "../../../utils/logger";
+import { isDeviceOutcome } from "../../../utils/voice-device";
 import { SettingsPage } from "../common/SettingsModal";
 import type { DeviceOption } from "./shared";
 
-const enumerateAudioDevices = async () => {
-	const stream = await navigator.mediaDevices.getUserMedia({
-		audio: true,
-	});
+const log = createLogger("settings/voice");
 
-	const devices = await navigator.mediaDevices.enumerateDevices();
+const enumerateAudioDevices = async (): Promise<Array<MediaDeviceInfo>> => {
+	try {
+		const stream = await navigator.mediaDevices.getUserMedia({
+			audio: true,
+		});
 
-	stream.getTracks().forEach((track) => {
-		track.stop();
-	});
+		const devices = await navigator.mediaDevices.enumerateDevices();
 
-	return devices;
+		stream.getTracks().forEach((track) => {
+			track.stop();
+		});
+
+		return devices;
+	} catch (err) {
+		log.warn("listing microphones failed", { code: classifyThrown(err).code });
+		return [];
+	}
+};
+
+const reportMicTestFailure = (err: unknown, fallbackTitle: string): void => {
+	const { code } = classifyThrown(err);
+	log.warn("the microphone test could not open an input device", { code });
+	showError(err, { report: !isDeviceOutcome(code), fallbackTitle });
 };
 
 const MAX = 49;
@@ -288,30 +305,34 @@ export const VoicePage: Component = () => {
 			latencyHint: "interactive",
 			sampleRate: 48000,
 		});
-
-		const input = userPreferences.preferences().voice.input;
-		const stream = await openMic(input);
-		const rawTrack = stream.getAudioTracks()[0];
-
-		const ns = await createNoiseSuppressor(rawTrack, {
-			desiredMode: input.noiseSuppressionMode,
-			suppressionLevel: input.noiseSuppressionLevel,
-			onFallback: handleSuppressorFallback,
-		});
-		setSuppressor(ns);
-
-		setAudioInput(ns.outputTrack);
-		setTestStream(stream);
-
-		startLoopback(
-			ctx,
-			ns.outputTrack,
-			input.volume,
-			userPreferences.preferences().voice.output.volume,
-		);
-		startMonitor(rawTrack, ns.outputTrack);
-
 		setAudioCtx(ctx);
+
+		try {
+			const input = userPreferences.preferences().voice.input;
+			const stream = await openMic(input);
+			const rawTrack = stream.getAudioTracks()[0];
+
+			const ns = await createNoiseSuppressor(rawTrack, {
+				desiredMode: input.noiseSuppressionMode,
+				suppressionLevel: input.noiseSuppressionLevel,
+				onFallback: handleSuppressorFallback,
+			});
+			setSuppressor(ns);
+
+			setAudioInput(ns.outputTrack);
+			setTestStream(stream);
+
+			startLoopback(
+				ctx,
+				ns.outputTrack,
+				input.volume,
+				userPreferences.preferences().voice.output.volume,
+			);
+			startMonitor(rawTrack, ns.outputTrack);
+		} catch (err) {
+			reportMicTestFailure(err, "Couldn't start the microphone test.");
+			cleanup();
+		}
 	};
 
 	const restartTrackIfActive = async (
@@ -344,21 +365,27 @@ export const VoicePage: Component = () => {
 		setAudioInput(null);
 
 		const ctx = audioCtx()!;
-		const stream = await openMic(inputPrefs);
-		const rawTrack = stream.getAudioTracks()[0];
 
-		const ns = await createNoiseSuppressor(rawTrack, {
-			desiredMode: inputPrefs.noiseSuppressionMode,
-			suppressionLevel: inputPrefs.noiseSuppressionLevel,
-			onFallback: handleSuppressorFallback,
-		});
-		setSuppressor(ns);
+		try {
+			const stream = await openMic(inputPrefs);
+			const rawTrack = stream.getAudioTracks()[0];
 
-		setAudioInput(ns.outputTrack);
-		setTestStream(stream);
+			const ns = await createNoiseSuppressor(rawTrack, {
+				desiredMode: inputPrefs.noiseSuppressionMode,
+				suppressionLevel: inputPrefs.noiseSuppressionLevel,
+				onFallback: handleSuppressorFallback,
+			});
+			setSuppressor(ns);
 
-		startLoopback(ctx, ns.outputTrack, inputPrefs.volume, outputPrefs.volume);
-		startMonitor(rawTrack, ns.outputTrack);
+			setAudioInput(ns.outputTrack);
+			setTestStream(stream);
+
+			startLoopback(ctx, ns.outputTrack, inputPrefs.volume, outputPrefs.volume);
+			startMonitor(rawTrack, ns.outputTrack);
+		} catch (err) {
+			reportMicTestFailure(err, "Couldn't reopen the microphone.");
+			cleanup();
+		}
 	};
 
 	const getActiveMic = () =>

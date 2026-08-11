@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { nativeCaptureQuality, previewAspectRatio } from "./native-capture";
+import {
+	createCaptureCleanup,
+	nativeCaptureQuality,
+	previewAspectRatio,
+} from "./native-capture";
 import { WIRE_PARSER_SOURCE } from "./native-capture-worker";
 import { screenMaxBitrate } from "./screen-share";
 
@@ -160,6 +164,118 @@ describe("nativeCaptureQuality", () => {
 
 		expect(quality.width).toBeGreaterThan(0);
 		expect(quality.height).toBeGreaterThan(0);
+	});
+});
+
+describe("createCaptureCleanup", () => {
+	const spyTargets = () => {
+		const calls = { terminate: 0, revoke: 0, audio: 0, close: 0 };
+		const cleanup = createCaptureCleanup({
+			worker: {
+				terminate: () => {
+					calls.terminate += 1;
+				},
+			},
+			revoke: () => {
+				calls.revoke += 1;
+			},
+			audio: {
+				stop: () => {
+					calls.audio += 1;
+				},
+			},
+			writer: {
+				close: () => {
+					calls.close += 1;
+					return Promise.resolve();
+				},
+			},
+		});
+		return { calls, cleanup };
+	};
+
+	it("tears the worker, the object url, the audio bridge and the writer down", () => {
+		const { calls, cleanup } = spyTargets();
+		cleanup();
+
+		expect(calls).toEqual({ terminate: 1, revoke: 1, audio: 1, close: 1 });
+	});
+
+	it("closes the writer once when the ended track and the stop button both fire", () => {
+		const { calls, cleanup } = spyTargets();
+		cleanup();
+		cleanup();
+		cleanup();
+
+		expect(calls.close).toBe(1);
+		expect(calls.terminate).toBe(1);
+	});
+
+	it("does not leave an unhandled rejection when the writer is already closing", async () => {
+		const seen: Array<unknown> = [];
+		const onUnhandled = (reason: unknown): void => {
+			seen.push(reason);
+		};
+		process.on("unhandledRejection", onUnhandled);
+
+		createCaptureCleanup({
+			worker: { terminate: () => {} },
+			revoke: () => {},
+			audio: null,
+			writer: {
+				close: () =>
+					Promise.reject(
+						new TypeError(
+							"Cannot close a writable stream that has already been requested to be closed",
+						),
+					),
+			},
+		})();
+
+		await new Promise((resolve) => setTimeout(resolve, 10));
+		process.off("unhandledRejection", onUnhandled);
+
+		expect(seen).toEqual([]);
+	});
+
+	it("still tears everything down when the writer throws on close", () => {
+		const calls = { terminate: 0, revoke: 0 };
+		const cleanup = createCaptureCleanup({
+			worker: {
+				terminate: () => {
+					calls.terminate += 1;
+				},
+			},
+			revoke: () => {
+				calls.revoke += 1;
+			},
+			audio: null,
+			writer: {
+				close: () => {
+					throw new TypeError("the writer is in an invalid state");
+				},
+			},
+		});
+
+		expect(() => cleanup()).not.toThrow();
+		expect(calls).toEqual({ terminate: 1, revoke: 1 });
+	});
+
+	it("works without an audio bridge or a writer", () => {
+		const calls = { terminate: 0 };
+		const cleanup = createCaptureCleanup({
+			worker: {
+				terminate: () => {
+					calls.terminate += 1;
+				},
+			},
+			revoke: () => {},
+			audio: null,
+			writer: null,
+		});
+
+		expect(() => cleanup()).not.toThrow();
+		expect(calls.terminate).toBe(1);
 	});
 });
 

@@ -170,6 +170,18 @@ const SESSION_RECOVERY_CODES = new Set<ColibriErrorCode>([
 export const needsReauthentication = (code: ColibriErrorCode): boolean =>
 	SESSION_RECOVERY_CODES.has(code);
 
+const UNREPORTED_CODES = new Set<ColibriErrorCode>([
+	"DevicePermissionDenied",
+	"DeviceUnavailable",
+	"NativeCancelled",
+	"HandleNotFound",
+	"OAuthDenied",
+	"Offline",
+]);
+
+export const isReportableCode = (code: ColibriErrorCode): boolean =>
+	!UNREPORTED_CODES.has(code);
+
 export {
 	APPVIEW_CODE_DESCRIPTIONS,
 	APPVIEW_METHOD_ERRORS,

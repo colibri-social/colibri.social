@@ -24,5 +24,12 @@ export const getMetadata: XrpcRequest<
 	return request<EmbedMetadata>(fetch, {
 		lxm: "social.colibri.embed.getMetadata",
 		route: `/xrpc/social.colibri.embed.getMetadata?uri=${encodeURIComponent(uri)}`,
+		expected: [
+			"UpstreamFailure",
+			"NotFound",
+			"InvalidRequest",
+			"Timeout",
+			"NetworkFailed",
+		],
 	});
 };

@@ -5,6 +5,7 @@ import {
 	createEffect,
 	createMemo,
 	createResource,
+	createSignal,
 	Match,
 	on,
 	onCleanup,
@@ -32,6 +33,7 @@ import {
 	COMMUNITY_DELETE,
 	COMMUNITY_MANAGE,
 	getPermissionCeiling,
+	grantsPermission,
 	INVITATION_CREATE,
 	INVITATION_DELETE,
 	isRoleBelowCeiling,
@@ -60,6 +62,10 @@ import { getAppViewDid } from "../utils/appview";
 import { AtURI, toRecordUri } from "../utils/at-uri";
 import { getCommunityParam } from "../utils/get-param";
 import { markBoot } from "../utils/perf";
+import {
+	createCommunityPayloadHold,
+	isCommunityPayload,
+} from "./community-payload";
 import { useSocketContext } from "./Socket";
 import { useUserContext } from "./User";
 import { useVoiceChatContext } from "./VoiceChat";
@@ -116,13 +122,21 @@ export const CommunityContextProvider: ParentComponent = (props) => {
 
 	let lastFetched: CommunityResponse | undefined;
 
+	const [fetchedCommunity, setFetchedCommunity] = createSignal<
+		CommunityResponse | undefined
+	>();
+
 	const [community, { mutate, refetch }] = createResource(
 		communityUri,
 		async (uri) => {
 			pendingRoleIntents.clear();
+			if (fetchedCommunity()?.community.uri !== uri) {
+				setFetchedCommunity(undefined);
+			}
 			const res = await user.xrpc.social.colibri.community.getData(uri);
 			if (!res.ok) throw res.error;
 			lastFetched = res.data;
+			setFetchedCommunity(res.data);
 			return res.data;
 		},
 	);
@@ -200,7 +214,11 @@ export const CommunityContextProvider: ParentComponent = (props) => {
 		on(communityUri, async (uri) => {
 			if (!cacheEnabled() || !uri) return;
 			const cached = await readCommunity(ns(), uri);
-			if (cached && communityUri() === uri && community.loading) {
+			if (
+				isCommunityPayload(cached) &&
+				communityUri() === uri &&
+				community.loading
+			) {
 				mutate(cached);
 			}
 		}),
@@ -233,23 +251,24 @@ export const CommunityContextProvider: ParentComponent = (props) => {
 		{ mutate: mutateApplications, refetch: refetchApplications },
 	] = createResource(
 		() =>
-			community.latest?.community.requiresApprovalToJoin
+			fetchedCommunity()?.community.requiresApprovalToJoin
 				? communityUri()
 				: undefined,
 		async (uri) => {
-			const member = community.latest?.members.find((x) => x.did === user.did);
+			const authoritative = fetchedCommunity();
+			const member = authoritative?.members.find((x) => x.did === user.did);
 
-			if (!member) {
+			if (!authoritative || !member) {
 				return {
 					applications: [],
 					dismissed: [],
 				};
 			}
 
-			const canManageApprovals = (community.latest?.roles ?? []).some(
-				(x) =>
-					x.permissions.includes("approval.manage") &&
-					member.roles.some((y) => y === x.uri),
+			const canManageApprovals = grantsPermission(
+				authoritative.roles,
+				member.roles,
+				APPROVAL_MANAGE,
 			);
 
 			if (!canManageApprovals) {
@@ -653,23 +672,27 @@ export const CommunityContextProvider: ParentComponent = (props) => {
 
 	onCleanup(cleanup);
 
+	const holdPayload = createCommunityPayloadHold();
+
+	const payload = createMemo(() => holdPayload(community.latest));
+
 	// The single source of truth for "real", user-facing roles. Protected roles
 	// exist only as permission-check markers (there should be exactly one) and
 	// must never be shown or assigned, so they're excluded here and everything
 	// that lists/displays roles reads from this instead of filtering ad-hoc.
 	const assignableRoles = createMemo(() =>
-		(community.latest?.roles ?? []).filter((role) => !role.protected),
+		payload().roles.filter((role) => !role.protected),
 	);
 
 	// The member and role lists are scanned per rendered row by name colours,
 	// permission checks and the owner crown, so they get indexed once per change
 	// instead.
 	const membersByDid = createMemo(
-		() => new Map((community.latest?.members ?? []).map((m) => [m.did, m])),
+		() => new Map(payload().members.map((m) => [m.did, m])),
 	);
 
 	const rolesByUri = createMemo(
-		() => new Map((community.latest?.roles ?? []).map((r) => [r.uri, r])),
+		() => new Map(payload().roles.map((r) => [r.uri, r])),
 	);
 
 	const getMember = (did: string) => membersByDid().get(did);
@@ -739,21 +762,19 @@ export const CommunityContextProvider: ParentComponent = (props) => {
 		});
 	};
 
-	const ownerRole = createMemo(() =>
-		(community.latest?.roles ?? []).find((x) => x.protected),
-	);
+	const ownerRole = createMemo(() => payload().roles.find((x) => x.protected));
 
 	const ownerDid = createMemo(() => {
 		const role = ownerRole()?.uri;
 		if (!role) return undefined;
-		return community.latest?.members.find((x) => x.roles.includes(role))?.did;
+		return payload().members.find((x) => x.roles.includes(role))?.did;
 	});
 
 	// Memoised rather than a plain accessor: every read used to re-spread the
 	// whole community payload and reallocate the `utils` closures, and the socket
 	// replaces the payload object on every presence tick.
 	const value: Accessor<CommunityContextData> = createMemo(() => ({
-		...(community.latest as CommunityResponse),
+		...payload(),
 		assignableRoles: assignableRoles(),
 		applications: applications.latest?.applications ?? [],
 		dismissedApplications: applications.latest?.dismissed ?? [],
