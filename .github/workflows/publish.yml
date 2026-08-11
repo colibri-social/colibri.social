@@ -635,6 +635,7 @@ jobs:
             --platform IOS \
             --version-string "$IOS_VERSION" \
             --release-type AFTER_APPROVAL \
+            --cancel-previous-submissions \
             --whats-new "@file:$RUNNER_TEMP/whats-new.txt" \
             --max-build-processing-wait 45
 
