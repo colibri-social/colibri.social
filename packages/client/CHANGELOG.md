@@ -1,5 +1,34 @@
 # @colibri-social/client
 
+## 0.2.1
+
+### Patch Changes
+
+- f176caa: Fixes two crashes. Stopping a native screen share no longer errors out when the capture ends by itself at the same moment, and a long press on mobile can no longer crash the app when the screen holding the pressed item goes away while your finger is still down.
+- 180802f: Address the Play Console and App Store Connect recommendations: raise the iOS deployment target to 15.0, load notification images through Glide so they are downsampled and cached instead of decoded at full resolution, enable resource shrinking for Android release builds, and drive edge-to-edge from theme attributes so the system bar icons follow the app theme.
+- f176caa: Fixes a class of crashes in the message list, stops a pointless permission-denied request, and cuts the number of badge lookups a channel makes.
+- f176caa: Makes error tracking group failures by what went wrong rather than by the exact wording of the message. One fault could previously show up as several separate entries whenever the server included something variable in its reply, such as a session identifier or a link, which made a single problem look like many and hid how often it really happened. Unknown failures still separate by where they came from, so nothing distinct gets merged.
+- f176caa: Stops reporting expected outcomes as errors. A link preview whose site is down, a community that was deleted while it was still the last one you visited, a handle typed into the sign-in field that does not resolve, a declined microphone prompt, a camera another app is already using and a dropped connection were all being sent to error tracking as faults. Each of those still surfaces in the UI, but none of them is a bug in the app, and together they buried the failures that are. Joining a voice channel now also refuses up front on systems whose web engine was built without WebRTC, instead of failing partway through setup.
+- f176caa: Community picture and banner pickers now only offer the image formats the server stores, and say so right away when a file cannot be used, instead of letting the upload fail at the end of creating a community. Android devices that cannot reach Google's push service while registering for notifications now retry quietly rather than raising an error.
+- 467f933: Fixes the sign-in screen not resizing with the on-screen keyboard on Android. The viewport height accessor only subscribed to the visual viewport, which Android never resizes for the keyboard because the window is edge to edge. Consumers now also track the native keyboard inset, so the sign-in screen, the handle typeahead and the channel scroll anchor follow the keyboard on Android the same way they already did on iOS.
+
+  <!-- whatsnew
+  title: Keyboards on Android
+  icon: keyboard-fill
+  body: The sign-in screen now moves out of the way when the keyboard opens, for real this time.
+  kind: fix
+  -->
+
+- f176caa: Checking whether the desktop and mobile apps are allowed to show notifications can no longer crash the page it happens on. When the operating system refuses that check, the app now treats notifications as switched off and carries on, instead of surfacing an unexplained failure. In-app messages still appear as before.
+- f176caa: Ignores incomplete cached community data when opening a community. A cache entry written by an older version of the app could be missing its channel, role or member lists, which made parts of the community screen fail to render until a reload.
+- f176caa: The microphone test in Voice settings now tells you when it cannot open an input device instead of failing silently and leaving the test button stuck. Picking a different noise suppression mode while the test is running recovers the same way.
+
+  Unread badge polling and the community list also stop treating an ordinary dropped connection as a fault worth reporting, so a brief loss of signal no longer fills the error log with noise.
+
+- 467f933: Adds a way back in when a session ends, and detects that it has ended in the first place. The app used to show a loading screen reading "Not logged in!" with no button on it, paired with an automatic redirect to the sign-in screen that silently stranded anyone whose navigation never landed. There is now a real screen with a sign-in button, and the redirect is gone.
+- f176caa: Stop treating a dropped connection while opening a channel as a crash worth reporting. The channel already shows a retry when it cannot be loaded, so a request that times out or never leaves the device no longer files an error report as well.
+- f176caa: Fixes a dead session going unnoticed. When a sign-in ends for good, the underlying library reports it with an error that carries no name, so the app read every one of those as an unknown failure and kept trying: requests fired on every resume, each one failed, and nothing ever said why. Those sessions are now recognised, so you get the sign-in screen instead of an app that looks online and quietly does nothing. Sessions are also written to disk more carefully, which should stop some of them from ending early in the first place.
+
 ## 0.2.0
 
 ### Minor Changes

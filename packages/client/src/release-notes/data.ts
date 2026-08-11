@@ -9,6 +9,18 @@ export type ClientReleaseNote = Omit<ReleaseNote, "entries"> & {
 
 export const RELEASE_NOTES: Array<ClientReleaseNote> = [
 	{
+		version: "0.2.1",
+		date: "2026-08-11",
+		entries: [
+			{
+				title: "Keyboards on Android",
+				body: "The sign-in screen now moves out of the way when the keyboard opens, for real this time.",
+				icon: "keyboard-fill",
+				kind: "fix",
+			},
+		],
+	},
+	{
 		version: "0.2.0",
 		date: "2026-08-10",
 		entries: [
@@ -220,54 +232,6 @@ export const RELEASE_NOTES: Array<ClientReleaseNote> = [
 				title: "Live Banner Updates",
 				body: "Updates made to a community's banner are now shown right away.",
 				icon: "image-fill",
-				kind: "fix",
-			},
-			{
-				title: "Back Behavior",
-				body: 'Using your mobile device\'s "navigate back" action should behave more predictably.',
-				icon: "rewind-fill",
-				kind: "fix",
-			},
-			{
-				title: "Keyboard pinning",
-				body: "The channel should now stay pinned to the bottom after sending a message.",
-				icon: "keyboard-fill",
-				kind: "fix",
-			},
-			{
-				title: "Blockquotes",
-				body: "Improves the way blockquotes are handled in the chat input",
-				icon: "quotes-fill",
-				kind: "fix",
-			},
-		],
-	},
-	{
-		version: "0.1.0-rc.10",
-		date: "2026-07-28",
-		entries: [
-			{
-				title: "Community banners",
-				body: "Set a community banner to be displayed in the channel sidebar.",
-				icon: "image-fill",
-				kind: "feature",
-			},
-			{
-				title: "Debug Information",
-				body: 'The "About" page in the settings now contains debug information that can easily be copied.',
-				icon: "bug-fill",
-				kind: "feature",
-			},
-			{
-				title: "What's New popup",
-				body: "This popup you're seeing!",
-				icon: "sparkle-fill",
-				kind: "feature",
-			},
-			{
-				title: "Improved Drag/Drop Handling",
-				body: "Issues with dragging and dropping channels on Desktop should be resolved now.",
-				icon: "hand-grabbing-fill",
 				kind: "fix",
 			},
 			{
