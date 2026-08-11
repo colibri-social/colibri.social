@@ -2,7 +2,7 @@ name: colibri-social
 options:
   bundleIdPrefix: social.colibri.app
   deploymentTarget:
-    iOS: 14.0
+    iOS: 15.0
 fileGroups: [../../src]
 configs:
   debug: debug

@@ -47,6 +47,14 @@ export const resolveTheme = (
 	theme: AppTheme | null,
 ): AppTheme => (enabled ? (theme ?? systemTheme()) : "dark");
 
+interface NativeSystemBars {
+	setLightAppearance?: (light: boolean) => void;
+}
+
+const nativeSystemBars = (): NativeSystemBars | undefined =>
+	(window as unknown as { __colibriSystemBars?: NativeSystemBars })
+		.__colibriSystemBars;
+
 export const applyTheme = (theme: AppTheme): void => {
 	if (typeof document === "undefined") return;
 
@@ -60,6 +68,8 @@ export const applyTheme = (theme: AppTheme): void => {
 	document
 		.querySelector('meta[name="theme-color"]')
 		?.setAttribute("content", THEME_BACKGROUND[theme]);
+
+	nativeSystemBars()?.setLightAppearance?.(theme === "light");
 
 	setResolved(theme);
 };

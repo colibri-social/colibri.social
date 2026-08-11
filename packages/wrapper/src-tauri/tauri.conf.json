@@ -44,6 +44,9 @@
 		"macOS": {
 			"entitlements": "Entitlements.plist"
 		},
+		"iOS": {
+			"minimumSystemVersion": "15.0"
+		},
 		"category": "SocialNetworking",
 		"publisher": "Colibri",
 		"homepage": "https://colibri.social",

@@ -1,16 +1,17 @@
 package social.colibri.app
 
-import android.graphics.Color
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.webkit.JavascriptInterface
 import android.webkit.WebView
-import androidx.activity.SystemBarStyle
-import androidx.activity.enableEdgeToEdge
 import androidx.core.graphics.Insets
 import androidx.core.view.ViewCompat
+import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsAnimationCompat
 import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import androidx.webkit.ScriptHandler
 import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature
@@ -22,14 +23,14 @@ class MainActivity : TauriActivity() {
   private var insetsScriptHandler: ScriptHandler? = null
 
   override fun onCreate(savedInstanceState: Bundle?) {
-    enableEdgeToEdge(
-      statusBarStyle = SystemBarStyle.dark(Color.TRANSPARENT),
-      navigationBarStyle = SystemBarStyle.dark(Color.TRANSPARENT),
-    )
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.VANILLA_ICE_CREAM) {
+      WindowCompat.setDecorFitsSystemWindows(window, false)
+    }
     super.onCreate(savedInstanceState)
   }
 
   override fun onWebViewCreate(webView: WebView) {
+    webView.addJavascriptInterface(SystemBarsBridge(), "__colibriSystemBars")
     ViewCompat.setOnApplyWindowInsetsListener(webView) { _, insets ->
       lastBars = insets.getInsets(
         WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout()
@@ -83,5 +84,17 @@ class MainActivity : TauriActivity() {
       insetsScriptHandler = WebViewCompat.addDocumentStartJavaScript(webView, script, setOf("*"))
     }
     webView.evaluateJavascript(script, null)
+  }
+
+  private inner class SystemBarsBridge {
+    @JavascriptInterface
+    fun setLightAppearance(light: Boolean) {
+      handler.post {
+        WindowInsetsControllerCompat(window, window.decorView).apply {
+          isAppearanceLightStatusBars = light
+          isAppearanceLightNavigationBars = light
+        }
+      }
+    }
   }
 }

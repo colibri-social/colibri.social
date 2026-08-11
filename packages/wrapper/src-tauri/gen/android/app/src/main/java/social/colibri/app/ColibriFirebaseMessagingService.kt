@@ -5,7 +5,6 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Intent
 import android.graphics.Bitmap
-import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -14,15 +13,18 @@ import androidx.core.app.NotificationManagerCompat
 import androidx.core.app.Person
 import androidx.core.content.FileProvider
 import androidx.core.graphics.drawable.IconCompat
+import com.bumptech.glide.Glide
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
 import java.io.File
 import java.io.FileOutputStream
-import java.net.URL
 
 private const val CHANNEL_ID = "colibri_messages"
 private const val CHANNEL_NAME = "Messages"
 private const val EXTRA_MESSAGE_URIS = "social.colibri.messageUris"
+private const val ATTACHMENT_MAX_WIDTH_DP = 450
+private const val ATTACHMENT_MAX_HEIGHT_DP = 300
+private const val CACHED_IMAGE_TTL_MS = 7L * 24 * 60 * 60 * 1000
 
 class ColibriFirebaseMessagingService : FirebaseMessagingService() {
 	override fun onMessageReceived(message: RemoteMessage) {
@@ -48,9 +50,9 @@ class ColibriFirebaseMessagingService : FirebaseMessagingService() {
 		// onMessageReceived runs on the main thread; fetching the avatars and
 		// the attachment image is network I/O and must not block it.
 		Thread {
-			val communityAvatar = communityAvatarUrl?.let(::fetchBitmap)
-			val authorAvatar = authorAvatarUrl?.let(::fetchBitmap)
-			val attachmentImage = imageUrl?.let(::fetchBitmap)
+			val communityAvatar = communityAvatarUrl?.let(::fetchAvatar)
+			val authorAvatar = authorAvatarUrl?.let(::fetchAvatar)
+			val attachmentImage = imageUrl?.let(::fetchAttachment)
 			showNotification(
 				channelUri,
 				messageUri,
@@ -74,12 +76,29 @@ class ColibriFirebaseMessagingService : FirebaseMessagingService() {
 		)
 	}
 
-	private fun fetchBitmap(url: String): Bitmap? =
+	private fun fetchBitmap(url: String, width: Int, height: Int): Bitmap? =
 		try {
-			URL(url).openStream().use { BitmapFactory.decodeStream(it) }
+			Glide.with(applicationContext)
+				.asBitmap()
+				.load(url)
+				.centerInside()
+				.submit(width, height)
+				.get()
 		} catch (e: Exception) {
 			null
 		}
+
+	private fun fetchAvatar(url: String): Bitmap? =
+		fetchBitmap(
+			url,
+			resources.getDimensionPixelSize(android.R.dimen.notification_large_icon_width),
+			resources.getDimensionPixelSize(android.R.dimen.notification_large_icon_height),
+		)
+
+	private fun fetchAttachment(url: String): Bitmap? =
+		fetchBitmap(url, dpToPx(ATTACHMENT_MAX_WIDTH_DP), dpToPx(ATTACHMENT_MAX_HEIGHT_DP))
+
+	private fun dpToPx(dp: Int): Int = (dp * resources.displayMetrics.density).toInt()
 
 	// MessagingStyle can only inline an image via a content Uri, so the fetched
 	// bitmap is written to the cache dir and handed out through the app's
@@ -89,6 +108,8 @@ class ColibriFirebaseMessagingService : FirebaseMessagingService() {
 	private fun cacheImageUri(bitmap: Bitmap): Uri? =
 		try {
 			val dir = File(cacheDir, "notification_images").apply { mkdirs() }
+			val cutoff = System.currentTimeMillis() - CACHED_IMAGE_TTL_MS
+			dir.listFiles()?.forEach { if (it.lastModified() < cutoff) it.delete() }
 			val file = File(dir, "notif_${System.currentTimeMillis()}.jpg")
 			FileOutputStream(file).use { bitmap.compress(Bitmap.CompressFormat.JPEG, 90, it) }
 			FileProvider.getUriForFile(this, "$packageName.fileprovider", file)
