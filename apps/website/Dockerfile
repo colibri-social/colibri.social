@@ -53,8 +53,6 @@ RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
       "@colibri-social/client@${CLIENT_VERSION}" \
       --save-exact --yes --store-dir=/pnpm/store
 
-# Build in dependency order
-RUN pnpm --filter @colibri-social/assets build
 RUN --mount=type=cache,id=astro-cache,target=/app/apps/website/node_modules/.astro \
     --mount=type=cache,id=vite-cache,target=/app/node_modules/.vite \
     pnpm --filter @colibri-social/website build
