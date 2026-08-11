@@ -1,0 +1,57 @@
+name: Play mirror
+
+on:
+  workflow_dispatch:
+    inputs:
+      from:
+        description: "Track to mirror the release from."
+        type: choice
+        default: production
+        options:
+          - production
+          - alpha
+          - beta
+      to:
+        description: "Comma separated tracks to mirror the release onto."
+        type: string
+        default: "alpha,beta"
+      version_code:
+        description: "Version code to mirror. Leave empty to pick the newest release on the source track."
+        type: string
+        default: ""
+      dry_run:
+        description: "Report the decision without changing any track."
+        type: boolean
+        default: false
+
+jobs:
+  mirror:
+    name: Mirror a release onto the testing tracks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: setup node
+        uses: actions/setup-node@v6
+        with:
+          node-version: lts/*
+
+      - name: Mirror release
+        env:
+          PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+          FROM: ${{ inputs.from }}
+          TO: ${{ inputs.to }}
+          VERSION_CODE: ${{ inputs.version_code }}
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          set -euo pipefail
+          ARGS=(--from="$FROM" --to="$TO")
+          if [ -n "${VERSION_CODE:-}" ]; then
+            ARGS+=("--version-code=$VERSION_CODE")
+          fi
+          if [ "${DRY_RUN:-false}" = "true" ]; then
+            ARGS+=(--dry-run)
+          fi
+          node --experimental-strip-types scripts/play-mirror.ts "${ARGS[@]}"

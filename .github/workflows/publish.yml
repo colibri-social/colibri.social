@@ -30,6 +30,10 @@ on:
           - production
           - alpha
           - beta
+      play_mirror_testing:
+        description: "Also assign the build to the alpha and beta testing tracks."
+        type: boolean
+        default: true
 
 concurrency:
   group: publish-${{ inputs.version }}-${{ inputs.appstore_only }}-${{ inputs.appstore_platform }}-${{ inputs.play_track }}
@@ -848,6 +852,25 @@ jobs:
           userFraction: 0.2
           releaseName: ${{ env.PLAY_RELEASE_NAME }}
           whatsNewDirectory: whatsnew
+
+      - name: Mirror onto the testing tracks
+        if: inputs.play_mirror_testing
+        env:
+          PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+          SOURCE_TRACK: ${{ inputs.play_track }}
+        run: |
+          set -euo pipefail
+          TARGETS=""
+          for TRACK in alpha beta; do
+            if [ "$TRACK" != "$SOURCE_TRACK" ]; then
+              TARGETS="${TARGETS:+$TARGETS,}$TRACK"
+            fi
+          done
+          test -n "$TARGETS"
+          node --experimental-strip-types scripts/play-mirror.ts \
+            --from="$SOURCE_TRACK" --to="$TARGETS" \
+            --version-code="$((1000 + GITHUB_RUN_NUMBER))" \
+            --notes=whatsnew/whatsnew-en-US
 
   msstore-build:
     if: ${{ !inputs.appstore_only }}
