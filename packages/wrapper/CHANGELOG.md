@@ -1,5 +1,25 @@
 # @colibri-social/wrapper
 
+## 0.2.1
+
+### Patch Changes
+
+- 180802f: Address the Play Console and App Store Connect recommendations: raise the iOS deployment target to 15.0, load notification images through Glide so they are downsampled and cached instead of decoded at full resolution, enable resource shrinking for Android release builds, and drive edge-to-edge from theme attributes so the system bar icons follow the app theme.
+- Updated dependencies [f176caa]
+- Updated dependencies [180802f]
+- Updated dependencies [f176caa]
+- Updated dependencies [f176caa]
+- Updated dependencies [f176caa]
+- Updated dependencies [f176caa]
+- Updated dependencies [467f933]
+- Updated dependencies [f176caa]
+- Updated dependencies [f176caa]
+- Updated dependencies [f176caa]
+- Updated dependencies [467f933]
+- Updated dependencies [f176caa]
+- Updated dependencies [f176caa]
+  - @colibri-social/client@0.2.1
+
 ## 0.2.0
 
 ### Minor Changes

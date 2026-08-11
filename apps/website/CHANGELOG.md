@@ -1,5 +1,24 @@
 # @colibri-social/website
 
+## 0.1.1
+
+### Patch Changes
+
+- Updated dependencies [f176caa]
+- Updated dependencies [180802f]
+- Updated dependencies [f176caa]
+- Updated dependencies [f176caa]
+- Updated dependencies [f176caa]
+- Updated dependencies [f176caa]
+- Updated dependencies [467f933]
+- Updated dependencies [f176caa]
+- Updated dependencies [f176caa]
+- Updated dependencies [f176caa]
+- Updated dependencies [467f933]
+- Updated dependencies [f176caa]
+- Updated dependencies [f176caa]
+  - @colibri-social/client@0.2.1
+
 ## 0.1.0
 
 ### Minor Changes

@@ -83,7 +83,7 @@ importers:
         specifier: workspace:0.0.2
         version: link:../../packages/assets
       '@colibri-social/client':
-        specifier: workspace:0.2.0
+        specifier: workspace:0.2.1
         version: link:../../packages/client
       '@colibri-social/standard-renderer':
         specifier: workspace:0.0.2
@@ -621,7 +621,7 @@ importers:
         specifier: workspace:0.0.2
         version: link:../assets
       '@colibri-social/client':
-        specifier: workspace:0.2.0
+        specifier: workspace:0.2.1
         version: link:../client
       '@tauri-apps/api':
         specifier: ^2
