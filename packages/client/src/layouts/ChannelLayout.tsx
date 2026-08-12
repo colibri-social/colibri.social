@@ -60,6 +60,7 @@ import {
 	createDomScrollSurface,
 	createScrollAnchor,
 	shouldLoadOlder,
+	shouldShowJumpToLatest,
 } from "../utils/message-scroll";
 import { createMobilePane } from "../utils/mobile-pane";
 
@@ -91,8 +92,6 @@ const describeFileError = (error: FileError, fileName: string): string => {
 };
 
 const GROUPING_WINDOW_MS = 5 * 60 * 1000;
-
-const JUMP_TO_LATEST_AFTER_MESSAGES = 10;
 
 const withinGroupingWindow = (a: string, b: string): boolean =>
 	Math.abs(new Date(a).getTime() - new Date(b).getTime()) < GROUPING_WINDOW_MS;
@@ -182,15 +181,7 @@ const ChannelLayout: ParentComponent = (props) => {
 	const [deletedPingBanner, setDeletedPingBanner] = createSignal(false);
 	let handledOrphans = new Set<string>();
 	const [showJumpToLatest, setShowJumpToLatest] = createSignal(false);
-	let jumpObserver: IntersectionObserver | undefined;
-	let jumpSentinel: HTMLElement | undefined;
-
-	const jumpSentinelIndex = createMemo(() => {
-		const n = channel.messages().length;
-		return n > JUMP_TO_LATEST_AFTER_MESSAGES
-			? n - JUMP_TO_LATEST_AFTER_MESSAGES
-			: -1;
-	});
+	let jumpEvaluationFrame: number | undefined;
 
 	const scrollAnchor = createScrollAnchor(
 		createDomScrollSurface(
@@ -202,12 +193,22 @@ const ChannelLayout: ParentComponent = (props) => {
 	const scrollToBottom = () => {
 		scrollAnchor.pinToBottom();
 		setShowJumpToLatest(false);
+		channel.clearUnreadBoundary();
 	};
 
-	const observeJumpSentinel = (el: HTMLDivElement) => {
-		if (jumpSentinel && jumpObserver) jumpObserver.unobserve(jumpSentinel);
-		jumpSentinel = el;
-		jumpObserver?.observe(el);
+	const evaluateJumpToLatest = () => {
+		if (!scrollContainer || !didInitialScroll) return;
+		setShowJumpToLatest((visible) =>
+			shouldShowJumpToLatest(scrollAnchor.distanceFromBottom(), visible),
+		);
+	};
+
+	const scheduleJumpEvaluation = () => {
+		if (jumpEvaluationFrame !== undefined) return;
+		jumpEvaluationFrame = requestAnimationFrame(() => {
+			jumpEvaluationFrame = undefined;
+			evaluateJumpToLatest();
+		});
 	};
 
 	const PREVIEW_WARM_TIMEOUT_MS = 600;
@@ -297,18 +298,20 @@ const ChannelLayout: ParentComponent = (props) => {
 
 		if (delta !== 0 && boundary !== undefined) {
 			scrollAnchor.absorbGrowth(boundary, delta);
+			scheduleJumpEvaluation();
 			return;
 		}
 
 		scrollAnchor.restore();
+		scheduleJumpEvaluation();
 	};
 
 	const handleScroll = () => {
 		if (!scrollContainer) return;
 		scrollAnchor.handleScroll();
+		evaluateJumpToLatest();
 
 		if (scrollAnchor.isAtBottom()) {
-			setShowJumpToLatest(false);
 			channel.advanceReadCursor();
 			notifications.markChannelRead(channel.channelUri());
 			void cancelChannelTrayNotification(channel.channelUri());
@@ -321,20 +324,6 @@ const ChannelLayout: ParentComponent = (props) => {
 		scrollContainer?.addEventListener("scroll", handleScroll, {
 			passive: true,
 		});
-
-		jumpObserver = new IntersectionObserver(
-			(entries) => {
-				const entry = entries[0];
-				if (!entry) return;
-				const root = entry.rootBounds;
-				setShowJumpToLatest(
-					!entry.isIntersecting &&
-						!!root &&
-						entry.boundingClientRect.top >= root.bottom,
-				);
-			},
-			{ root: scrollContainer },
-		);
 
 		if (messagesWrapper) {
 			contentResizeObserver = new ResizeObserver(handleContentResize);
@@ -355,9 +344,10 @@ const ChannelLayout: ParentComponent = (props) => {
 		}
 
 		if (scrollContainer) {
-			containerResizeObserver = new ResizeObserver(() =>
-				scrollAnchor.restore(),
-			);
+			containerResizeObserver = new ResizeObserver(() => {
+				scrollAnchor.restore();
+				scheduleJumpEvaluation();
+			});
 			containerResizeObserver.observe(scrollContainer);
 		}
 	});
@@ -368,15 +358,9 @@ const ChannelLayout: ParentComponent = (props) => {
 		rowMutationObserver?.disconnect();
 		readObserver?.disconnect();
 		pingObserver?.disconnect();
-		jumpObserver?.disconnect();
+		if (jumpEvaluationFrame !== undefined)
+			cancelAnimationFrame(jumpEvaluationFrame);
 		scrollContainer?.removeEventListener("scroll", handleScroll);
-	});
-
-	createEffect(() => {
-		if (jumpSentinelIndex() !== -1) return;
-		if (jumpSentinel && jumpObserver) jumpObserver.unobserve(jumpSentinel);
-		jumpSentinel = undefined;
-		setShowJumpToLatest(false);
 	});
 
 	createEffect(() => {
@@ -527,6 +511,7 @@ const ChannelLayout: ParentComponent = (props) => {
 			cursorWalkAttempts = 0;
 			handledOrphans = new Set();
 			setDeletedPingBanner(false);
+			setShowJumpToLatest(false);
 		}),
 	);
 
@@ -581,9 +566,12 @@ const ChannelLayout: ParentComponent = (props) => {
 			if (node) {
 				node.scrollIntoView({ block: "start" });
 				scrollAnchor.capture();
-				if (scrollAnchor.isAtBottom()) markReadNow();
+				const landedAtBottom = scrollAnchor.isAtBottom();
+				setShowJumpToLatest(!landedAtBottom);
+				if (landedAtBottom) markReadNow();
 			} else {
 				scrollAnchor.pinToBottom();
+				setShowJumpToLatest(false);
 				markReadNow();
 			}
 		});
@@ -607,6 +595,7 @@ const ChannelLayout: ParentComponent = (props) => {
 				if (animating) return;
 				if (!didInitialScroll) return;
 				scrollAnchor.restore();
+				scheduleJumpEvaluation();
 			},
 			{ defer: true },
 		),
@@ -648,6 +637,7 @@ const ChannelLayout: ParentComponent = (props) => {
 				if (!didInitialScroll) return;
 				// The user just sent a message — always pin to the bottom.
 				scrollAnchor.pinToBottom();
+				setShowJumpToLatest(false);
 				channel.clearUnreadBoundary();
 			},
 		),
@@ -665,6 +655,7 @@ const ChannelLayout: ParentComponent = (props) => {
 				// inline editor expands — pin to the bottom so it stays in view.
 				if (!last || last.uri !== editing.uri) return;
 				scrollAnchor.pinToBottom();
+				setShowJumpToLatest(false);
 			},
 		),
 	);
@@ -890,13 +881,6 @@ const ChannelLayout: ParentComponent = (props) => {
 												index() < messageMeta().length - 1;
 											return (
 												<>
-													<Show when={index() === jumpSentinelIndex()}>
-														<div
-															ref={observeJumpSentinel}
-															class="w-full h-px"
-															aria-hidden="true"
-														/>
-													</Show>
 													<Show when={meta().dateLabel}>
 														{(label) => (
 															<div class="w-[calc(100%-2rem)] h-px m-4 bg-border flex items-center justify-center select-none">

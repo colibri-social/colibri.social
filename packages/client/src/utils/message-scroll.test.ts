@@ -3,11 +3,13 @@ import {
 	captureAnchor,
 	createScrollAnchor,
 	decideGrowthSide,
+	distanceFromBottom,
 	findAnchorRow,
 	findTopmostVisibleRow,
 	prefetchDistance,
 	type ScrollSurface,
 	shouldLoadOlder,
+	shouldShowJumpToLatest,
 } from "./message-scroll";
 
 type FakeRow = { key: string; height: number };
@@ -18,9 +20,10 @@ const makeRows = (prefix: string, count: number, height: number): FakeRow[] =>
 		height,
 	}));
 
-const createFakeSurface = (initial: FakeRow[], clientHeight: number) => {
+const createFakeSurface = (initial: FakeRow[], initialClientHeight: number) => {
 	let rows = [...initial];
 	let scrollTop = 0;
+	let clientHeight = initialClientHeight;
 
 	const scrollHeight = () => rows.reduce((total, row) => total + row.height, 0);
 	const maxScrollTop = () => Math.max(0, scrollHeight() - clientHeight);
@@ -46,7 +49,10 @@ const createFakeSurface = (initial: FakeRow[], clientHeight: number) => {
 
 	return {
 		surface,
-		clientHeight,
+		clientHeight: () => clientHeight,
+		resizeViewport: (value: number) => {
+			clientHeight = value;
+		},
 		scrollTo: (value: number) => surface.setScrollTop(value),
 		scrollTop: () => scrollTop,
 		scrollHeight,
@@ -319,6 +325,94 @@ describe("scroll anchor", () => {
 	});
 });
 
+describe("distanceFromBottom", () => {
+	it("reports no gap when the content is shorter than the viewport", () => {
+		const fake = createFakeSurface(makeRows("m", 2, 100), 600);
+
+		expect(distanceFromBottom(fake.surface)).toBe(0);
+	});
+
+	it("tracks the gap as the reader scrolls", () => {
+		const fake = createFakeSurface(makeRows("m", 40, 100), 600);
+		fake.scrollTo(1500);
+
+		expect(distanceFromBottom(fake.surface)).toBe(1900);
+	});
+
+	it("reports no gap after pinning to the bottom", () => {
+		const fake = createFakeSurface(makeRows("m", 40, 100), 600);
+		fake.scrollTo(0);
+
+		const anchor = createScrollAnchor(fake.surface);
+		anchor.pinToBottom();
+
+		expect(anchor.distanceFromBottom()).toBe(0);
+	});
+
+	it("grows when a message arrives below a scrolled-up reader", () => {
+		const fake = createFakeSurface(makeRows("m", 40, 100), 600);
+		fake.scrollTo(1500);
+
+		const anchor = createScrollAnchor(fake.surface);
+		anchor.capture();
+		const before = anchor.distanceFromBottom();
+
+		fake.append(makeRows("new", 3, 100));
+		anchor.restore();
+
+		expect(fake.scrollTop()).toBe(1500);
+		expect(anchor.distanceFromBottom()).toBe(before + 300);
+	});
+
+	it("stays at zero while media below the fold loads for a pinned reader", () => {
+		const fake = createFakeSurface(makeRows("m", 20, 100), 600);
+		fake.scrollTo(fake.scrollHeight());
+
+		const anchor = createScrollAnchor(fake.surface);
+		anchor.capture();
+
+		fake.grow("m-19", 400);
+		anchor.restore();
+
+		expect(anchor.distanceFromBottom()).toBe(0);
+	});
+
+	it("grows when the viewport shrinks under a scrolled-up reader", () => {
+		const fake = createFakeSurface(makeRows("m", 40, 100), 600);
+		fake.scrollTo(1500);
+
+		const anchor = createScrollAnchor(fake.surface);
+		const before = anchor.distanceFromBottom();
+
+		fake.resizeViewport(300);
+
+		expect(anchor.distanceFromBottom()).toBe(before + 300);
+	});
+});
+
+describe("shouldShowJumpToLatest", () => {
+	it("stays hidden at the bottom", () => {
+		expect(shouldShowJumpToLatest(0, false)).toBe(false);
+	});
+
+	it("stays hidden inside the dead band when not already visible", () => {
+		expect(shouldShowJumpToLatest(100, false)).toBe(false);
+	});
+
+	it("shows once the reader passes the show distance", () => {
+		expect(shouldShowJumpToLatest(250, false)).toBe(true);
+	});
+
+	it("stays visible inside the dead band once shown", () => {
+		expect(shouldShowJumpToLatest(100, true)).toBe(true);
+	});
+
+	it("hides only below the pin threshold", () => {
+		expect(shouldShowJumpToLatest(79, true)).toBe(false);
+		expect(shouldShowJumpToLatest(80, true)).toBe(true);
+	});
+});
+
 describe("decideGrowthSide", () => {
 	it("holds everything visible when the growth is above the fold", () => {
 		expect(decideGrowthSide(-200, 600)).toBe("lower");
@@ -470,7 +564,7 @@ describe("prefetch loop", () => {
 		while (
 			shouldLoadOlder({
 				scrollTop: fake.scrollTop(),
-				clientHeight: fake.clientHeight,
+				clientHeight: fake.clientHeight(),
 				hasMore: true,
 				loading: false,
 				ready: true,
@@ -492,7 +586,7 @@ describe("prefetch loop", () => {
 		fake.scrollTo(5000);
 
 		const state = {
-			clientHeight: fake.clientHeight,
+			clientHeight: fake.clientHeight(),
 			hasMore: true,
 			loading: false,
 			ready: true,
@@ -518,7 +612,7 @@ describe("prefetch loop", () => {
 		while (
 			shouldLoadOlder({
 				scrollTop: fake.scrollTop(),
-				clientHeight: fake.clientHeight,
+				clientHeight: fake.clientHeight(),
 				hasMore: true,
 				loading: false,
 				ready: true,

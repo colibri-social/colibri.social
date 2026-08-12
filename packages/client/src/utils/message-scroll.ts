@@ -26,18 +26,33 @@ export type LoadTriggerState = {
 };
 
 export const BOTTOM_THRESHOLD_PX = 80;
+export const JUMP_TO_LATEST_DISTANCE_PX = 200;
 export const MIN_PREFETCH_PX = 400;
 export const PREFETCH_VIEWPORTS = 1;
 
 export const distanceFromBottom = (surface: ScrollSurface): number =>
-	surface.getScrollHeight() -
-	surface.getScrollTop() -
-	surface.getClientHeight();
+	Math.max(
+		0,
+		surface.getScrollHeight() -
+			surface.getScrollTop() -
+			surface.getClientHeight(),
+	);
 
 export const isPinnedToBottom = (
 	surface: ScrollSurface,
 	threshold = BOTTOM_THRESHOLD_PX,
 ): boolean => distanceFromBottom(surface) < threshold;
+
+export const shouldShowJumpToLatest = (
+	distance: number,
+	visible: boolean,
+	showAtPx = JUMP_TO_LATEST_DISTANCE_PX,
+	hideBelowPx = BOTTOM_THRESHOLD_PX,
+): boolean => {
+	if (distance > showAtPx) return true;
+	if (distance < hideBelowPx) return false;
+	return visible;
+};
 
 export const findTopmostVisibleRow = (surface: ScrollSurface): number => {
 	let low = 0;
@@ -139,6 +154,7 @@ export type ScrollAnchorController = {
 	handleScroll(): void;
 	anchorMode(): Anchor["mode"];
 	isAtBottom(): boolean;
+	distanceFromBottom(): number;
 };
 
 export const createScrollAnchor = (
@@ -202,6 +218,7 @@ export const createScrollAnchor = (
 		},
 		anchorMode: () => anchor.mode,
 		isAtBottom: () => isPinnedToBottom(surface, threshold),
+		distanceFromBottom: () => distanceFromBottom(surface),
 	};
 };
 
