@@ -85,6 +85,7 @@ objc2-app-kit = { version = "0.3", features = [
 ] }
 objc2-foundation = { version = "0.3", features = [
     "NSArray",
+    "NSBundle",
     "NSData",
     "NSDictionary",
     "NSEnumerator",
@@ -94,6 +95,7 @@ objc2-foundation = { version = "0.3", features = [
     "NSURL",
     "NSValue",
 ] }
+objc2-user-notifications = "0.3"
 objc2-core-foundation = { version = "0.3", features = ["CFBase", "CFCGTypes"] }
 objc2-core-graphics = { version = "0.3", features = ["CGImage", "CGWindow"] }
 objc2-core-media = { version = "0.3", features = [
@@ -141,6 +143,7 @@ webkit2gtk = { version = "2.0.1", features = ["v2_40"] }
 
 [target.'cfg(windows)'.dependencies]
 windows-version = "0.1"
+tauri-winrt-notification = "0.7"
 windows-core = "0.61"
 windows = { version = "0.61", features = [
     "Foundation",

@@ -91,6 +91,7 @@ export type UserPreferencesContextData = {
 	publicReminderDismissed: boolean;
 	nativeNotifications: boolean;
 	notificationPromptDismissed: boolean;
+	notificationDefaultApplied: boolean;
 	lastSeenReleaseNote: string | null;
 	chatGuidelinesAccepted: boolean;
 	voice: {
@@ -121,6 +122,7 @@ const DEFAULT_PREFERENCES: UserPreferencesContextData = {
 	publicReminderDismissed: false,
 	nativeNotifications: false,
 	notificationPromptDismissed: false,
+	notificationDefaultApplied: false,
 	lastSeenReleaseNote: null,
 	chatGuidelinesAccepted: false,
 	voice: {
@@ -268,6 +270,7 @@ type UserPreferencesContextValue = {
 	setPublicReminderDismissed: (dismissed: boolean) => void;
 	setNativeNotifications: (enabled: boolean) => void;
 	setNotificationPromptDismissed: (dismissed: boolean) => void;
+	setNotificationDefaultApplied: (applied: boolean) => void;
 	setLastSeenReleaseNote: (version: string | null) => void;
 	setChatGuidelinesAccepted: (accepted: boolean) => void;
 	setNoiseSuppressionHints: (enabled: boolean) => void;
@@ -400,6 +403,10 @@ export const UserPreferencesContextProvider: ParentComponent = (props) => {
 		setPreferences((p) => ({ ...p, notificationPromptDismissed: dismissed }));
 	};
 
+	const setNotificationDefaultApplied = (applied: boolean) => {
+		setPreferences((p) => ({ ...p, notificationDefaultApplied: applied }));
+	};
+
 	const setLastSeenReleaseNote = (version: string | null) => {
 		setPreferences((p) => ({ ...p, lastSeenReleaseNote: version }));
 	};
@@ -477,6 +484,7 @@ export const UserPreferencesContextProvider: ParentComponent = (props) => {
 				setPublicReminderDismissed,
 				setNativeNotifications,
 				setNotificationPromptDismissed,
+				setNotificationDefaultApplied,
 				setLastSeenReleaseNote,
 				setChatGuidelinesAccepted,
 				setNoiseSuppressionHints,

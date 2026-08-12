@@ -25,6 +25,7 @@ import HouseIcon from "~icons/ph/house";
 import LockSimpleIcon from "~icons/ph/lock-simple";
 import { communityUriToUrlCompatible } from "../atproto/community-uri-to-url-compatible";
 import { putRecord } from "../atproto/pds";
+import { AppBadge } from "../components/app/AppBadge";
 import { AppReconnectingIndicator } from "../components/app/AppReconnectingIndicator";
 import { CommunityCreationModal } from "../components/app/CommunityCreationModal";
 import { CommunityAvatar as SharedCommunityAvatar } from "../components/app/community/CommunityAvatar";
@@ -470,6 +471,7 @@ const AppLayout: ParentComponent = (props) => {
 				/>
 			</Show>
 			<NativeNotifications />
+			<AppBadge />
 			<NotificationPromptDialog />
 			<TitleBar />
 			<div class="flex w-full relative h-[calc(100%-var(--titlebar-height))]">

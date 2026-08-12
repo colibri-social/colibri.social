@@ -14,8 +14,10 @@ import { writeReadCursor } from "../atproto/read-cursor";
 import { isGoneCode } from "../errors/codes";
 import {
 	cancelChannelTrayNotification,
+	isAppUnfocused,
 	isStaleNotificationEvent,
 } from "../notifications";
+import { channelIdentity, channelPath } from "../utils/at-uri";
 import { createLogger } from "../utils/logger";
 import { useMutes } from "./Mutes";
 import { useSocketContext } from "./Socket";
@@ -39,10 +41,12 @@ export type PendingNotificationFocus = {
 type NotificationsContextValue = {
 	pendingFocus: Accessor<PendingNotificationFocus | undefined>;
 	clearPendingFocus: () => void;
+	openNotification: (target: PendingNotificationFocus) => void;
 	pingsForChannel: (channelUri: string) => number;
 	hasUnreadMessages: (channelUri: string) => boolean;
 	pingsForCommunity: (communityDid: string) => number;
 	hasUnreadInCommunity: (communityDid: string) => boolean;
+	totalPings: () => number;
 	markMessageSeen: (
 		messageUri: string,
 		channelUri: string,
@@ -59,24 +63,12 @@ type NotificationsContextValue = {
 
 const NotificationsContext = createContext<NotificationsContextValue>();
 
-const TEXT_CHANNEL_COLLECTION = "social.colibri.channel.text";
-
-const channelIdentity = (
-	channelUri: string,
-): { communityDid: string; rkey: string } => {
-	const segments = channelUri.replace("at://", "").split("/");
-	return { communityDid: segments[0], rkey: segments[segments.length - 1] };
-};
-
 const channelKey = (channelUri: string): string => {
 	const { communityDid, rkey } = channelIdentity(channelUri);
 	return `${communityDid}/${rkey}`;
 };
 
-export const channelPath = (channelUri: string): string => {
-	const { communityDid, rkey } = channelIdentity(channelUri);
-	return `/app/c/${communityDid}/${TEXT_CHANNEL_COLLECTION}/${rkey}`;
-};
+export { channelPath };
 
 export const isSameChannelUri = (a: string, b: string): boolean => {
 	const x = channelIdentity(a);
@@ -145,6 +137,15 @@ export const NotificationsContextProvider: ParentComponent = (props) => {
 		for (const key in counts) {
 			if (key.startsWith(prefix) && !mutes.isChannelKeyMuted(key))
 				total += counts[key];
+		}
+		return total;
+	};
+
+	const totalPings = (): number => {
+		const counts = pingCounts();
+		let total = 0;
+		for (const key in counts) {
+			if (!mutes.isChannelKeyMuted(key)) total += counts[key];
 		}
 		return total;
 	};
@@ -415,7 +416,7 @@ export const NotificationsContextProvider: ParentComponent = (props) => {
 					if (!isStale) playSound("ping");
 				}
 
-				if (preferences().nativeNotifications) return;
+				if (preferences().nativeNotifications && isAppUnfocused()) return;
 				if (isStale) return;
 
 				const target: PendingNotificationFocus = {
@@ -530,10 +531,12 @@ export const NotificationsContextProvider: ParentComponent = (props) => {
 	const value: NotificationsContextValue = {
 		pendingFocus,
 		clearPendingFocus,
+		openNotification,
 		pingsForChannel,
 		hasUnreadMessages,
 		pingsForCommunity,
 		hasUnreadInCommunity,
+		totalPings,
 		markMessageSeen,
 		markChannelRead,
 		markChannelAsRead,

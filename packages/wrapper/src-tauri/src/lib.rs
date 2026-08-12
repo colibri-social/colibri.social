@@ -3,6 +3,8 @@ use tauri::Manager;
 #[cfg(target_os = "linux")]
 mod linux_media;
 #[cfg(desktop)]
+mod notifications;
+#[cfg(desktop)]
 #[cfg_attr(not(any(target_os = "macos", target_os = "windows")), allow(dead_code))]
 mod screen_capture;
 #[cfg(desktop)]
@@ -278,7 +280,15 @@ pub fn run() {
             #[cfg(desktop)]
             screen_capture::screen_capture_permission,
             #[cfg(desktop)]
-            screen_capture::screen_capture_open_settings
+            screen_capture::screen_capture_open_settings,
+            #[cfg(desktop)]
+            notifications::native_notify_supported,
+            #[cfg(desktop)]
+            notifications::native_notify,
+            #[cfg(desktop)]
+            notifications::native_notify_dismiss,
+            #[cfg(desktop)]
+            notifications::native_notify_cache_avatar
         ])
         .register_uri_scheme_protocol("emoji", |ctx, request| {
             let not_found = || {
@@ -354,6 +364,9 @@ pub fn run() {
                 #[cfg(target_os = "linux")]
                 linux_media::enable_media(&window);
             }
+
+            #[cfg(desktop)]
+            notifications::setup(app.handle());
 
             #[cfg(not(any(target_os = "linux", windows, desktop)))]
             let _ = app;

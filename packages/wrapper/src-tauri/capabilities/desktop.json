@@ -4,5 +4,9 @@
   "description": "Desktop-only capabilities (window-state plugin is compiled out on mobile).",
   "platforms": ["linux", "macOS", "windows"],
   "windows": ["main"],
-  "permissions": ["window-state:default", "dialog:allow-ask"]
+  "permissions": [
+    "window-state:default",
+    "dialog:allow-ask",
+    "core:window:allow-set-badge-count"
+  ]
 }

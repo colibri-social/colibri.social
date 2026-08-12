@@ -6,6 +6,8 @@ export type NotificationPayload = {
 	tag?: string;
 	/** Absolute or root-relative icon URL. Falls back to the app icon. */
 	icon?: string;
+	subtitle?: string;
+	iconPath?: string;
 	/** Routing hints used when the notification is clicked. */
 	data?: {
 		channelUri?: string;

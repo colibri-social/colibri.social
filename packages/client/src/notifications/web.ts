@@ -1,3 +1,4 @@
+import { channelPath } from "../utils/at-uri";
 import { isWebRuntime } from "./environment";
 import type {
 	NotificationBackend,
@@ -46,7 +47,7 @@ export const webBackend: NotificationBackend = {
 			window.focus();
 			const channelUri = payload.data?.channelUri;
 			if (channelUri) {
-				window.location.href = `/app/c/${channelUri.replace("at://", "")}`;
+				window.location.href = channelPath(channelUri);
 			}
 			notification.close();
 		};

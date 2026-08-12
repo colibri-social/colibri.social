@@ -1,11 +1,16 @@
+import type { ActorData } from "@colibri-social/lib";
 import { type Component, onCleanup, onMount } from "solid-js";
+import { resolveBlob } from "../../atproto/resolve-blob";
+import { useActorCache } from "../../contexts/ActorCache";
 import { useMutes } from "../../contexts/Mutes";
+import { useNotifications } from "../../contexts/Notifications";
 import { useSocketContext } from "../../contexts/Socket";
 import { useUserContext } from "../../contexts/User";
 import { useUserPreferences } from "../../contexts/UserPreferences";
 import {
 	getBackend,
 	isAndroidTauriRuntime,
+	isAppUnfocused,
 	isStaleNotificationEvent,
 	isTauriRuntime,
 	isWebRuntime,
@@ -19,6 +24,12 @@ import {
 	listenForPushSubscriptionChanges,
 	subscribeWebPush,
 } from "../../notifications/push-web";
+import {
+	cacheNativeAvatar,
+	isNativeNotificationSupported,
+	listenForNativeActivation,
+} from "../../notifications/tauri-native";
+import { isDesktopNative } from "../../utils/platform";
 
 // Re-assert the push registration this often while the app stays open, on
 // top of the on-foreground re-assertion below. Self-healing for the case
@@ -28,6 +39,26 @@ import {
 // browser/device subscription and re-register it, so this is a cheap
 // idempotent no-op when nothing was actually lost.
 const PUSH_REASSERT_INTERVAL_MS = 24 * 60 * 60 * 1000;
+
+const avatarPathFor = async (
+	author: ActorData | undefined,
+): Promise<string | undefined> => {
+	if (!author?.data.avatar) return undefined;
+	if (!(await isNativeNotificationSupported())) return undefined;
+
+	const url = resolveBlob(author.did, author.data.avatar, "small");
+	if (!url) return undefined;
+
+	try {
+		const response = await fetch(url);
+		if (!response.ok) return undefined;
+
+		const bytes = new Uint8Array(await response.arrayBuffer());
+		return await cacheNativeAvatar(author.did, bytes);
+	} catch {
+		return undefined;
+	}
+};
 
 /**
  * Headless component that turns incoming `notification_event`s into native OS
@@ -39,12 +70,10 @@ export const NativeNotifications: Component = () => {
 	const socket = useSocketContext();
 	const mutes = useMutes();
 	const user = useUserContext();
-	const { preferences, setNativeNotifications } = useUserPreferences();
-
-	const isUnfocused = (): boolean =>
-		typeof document === "undefined" ||
-		document.visibilityState === "hidden" ||
-		!document.hasFocus();
+	const actors = useActorCache();
+	const notifications = useNotifications();
+	const { preferences, setNativeNotifications, setNotificationDefaultApplied } =
+		useUserPreferences();
 
 	const reassertWebPushRegistration = async (): Promise<void> => {
 		if (!isWebRuntime() || !preferences().nativeNotifications) return;
@@ -70,12 +99,23 @@ export const NativeNotifications: Component = () => {
 		void (async () => {
 			if (isTauriRuntime()) {
 				const backend = getBackend();
-				// OS permission is only ever "default" before the user has been
-				// asked, so this only prompts once per install
-				if ((await backend.getPermission()) === "default") {
-					const permission = await backend.requestPermission();
-					if (permission === "granted") setNativeNotifications(true);
+				const permission = await backend.getPermission();
+
+				if (isDesktopNative()) {
+					if (
+						permission === "granted" &&
+						!preferences().notificationDefaultApplied
+					) {
+						setNativeNotifications(true);
+						setNotificationDefaultApplied(true);
+					}
+					// OS permission is only ever "default" before the user has been
+					// asked, so this only prompts once per install
+				} else if (permission === "default") {
+					const requested = await backend.requestPermission();
+					if (requested === "granted") setNativeNotifications(true);
 				}
+
 				await reassertFcmRegistration();
 				return;
 			}
@@ -116,27 +156,62 @@ export const NativeNotifications: Component = () => {
 			if (!preferences().nativeNotifications) return;
 			if (user.data.onlineState === "dnd") return;
 			if (mutes.isChannelMuted(event.data.channelUri)) return;
-			if (!isUnfocused()) return;
+			if (!isAppUnfocused()) return;
 			if (isStaleNotificationEvent(event.data.indexedAt)) return;
 
-			const { kind, message, mentionRoleName } = event.data;
+			const {
+				kind,
+				message,
+				mentionRoleName,
+				authorDid,
+				messageUri,
+				channelUri,
+			} = event.data;
+			const author = actors.resolve(authorDid);
 			const title =
-				kind === "reply"
+				author?.data.displayName ||
+				author?.handle ||
+				(kind === "reply"
 					? "New reply"
 					: kind === "message"
 						? "New message"
 						: mentionRoleName
 							? `Mentioned via @${mentionRoleName}`
-							: "New mention";
-			notify({
-				title,
-				body: message?.text || "You have a new notification.",
-				tag: event.data.messageUri,
-				data: { messageUri: event.data.messageUri },
-			});
+							: "New mention");
+			const subtitle =
+				kind === "reply"
+					? "Replied to you"
+					: mentionRoleName
+						? `Mentioned you via @${mentionRoleName}`
+						: kind === "mention"
+							? "Mentioned you"
+							: undefined;
+
+			void (async () => {
+				notify({
+					title,
+					subtitle,
+					body: message?.text || "You have a new notification.",
+					tag: messageUri,
+					iconPath: await avatarPathFor(author),
+					data: { messageUri, channelUri },
+				});
+			})();
 		});
 
 		onCleanup(cleanup);
+
+		let cleanupActivation = () => {};
+		void listenForNativeActivation((activation) => {
+			notifications.openNotification({
+				channelUri: activation.channelUri,
+				messageUri: activation.messageUri,
+				indexedAt: new Date().toISOString(),
+			});
+		}).then((cleanup) => {
+			cleanupActivation = cleanup;
+		});
+		onCleanup(() => cleanupActivation());
 	});
 
 	return null;
