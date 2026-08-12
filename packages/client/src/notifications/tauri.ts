@@ -75,6 +75,8 @@ export const tauriBackend: NotificationBackend = {
 
 	async getPermission(): Promise<NotificationPermission> {
 		if (!isTauriRuntime()) return "denied";
+		if (await isNativeNotificationSupported()) return "granted";
+
 		return withoutNativeFailure(
 			"notification.isPermissionGranted",
 			async () => {
@@ -87,6 +89,8 @@ export const tauriBackend: NotificationBackend = {
 
 	async requestPermission(): Promise<NotificationPermission> {
 		if (!isTauriRuntime()) return "denied";
+		if (await isNativeNotificationSupported()) return "granted";
+
 		return withoutNativeFailure(
 			"notification.requestPermission",
 			async () => {

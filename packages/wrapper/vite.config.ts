@@ -90,6 +90,23 @@ export default defineConfig(async () => ({
 		alias: sentryAlias,
 	},
 
+	optimizeDeps: {
+		include: [
+			"@tauri-apps/api/core",
+			"@tauri-apps/api/event",
+			"@tauri-apps/api/path",
+			"@tauri-apps/api/window",
+			"@tauri-apps/plugin-deep-link",
+			"@tauri-apps/plugin-dialog",
+			"@tauri-apps/plugin-fs",
+			"@tauri-apps/plugin-notification",
+			"@tauri-apps/plugin-opener",
+			"@tauri-apps/plugin-os",
+			"@tauri-apps/plugin-process",
+			"@tauri-apps/plugin-updater",
+		],
+	},
+
 	build: {
 		target: "esnext",
 		sourcemap: true,

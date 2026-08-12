@@ -39,9 +39,21 @@ pub struct Activation {
     pub message_uri: String,
 }
 
+fn safe_file_stem(cid: &str) -> String {
+    cid.chars()
+        .map(|c| {
+            if c.is_ascii_alphanumeric() || c == '-' || c == '_' {
+                c
+            } else {
+                '_'
+            }
+        })
+        .collect()
+}
+
 fn cache_avatar(cache_dir: &Path, cid: &str, bytes: &[u8]) -> Option<String> {
     let dir = cache_dir.join("notification-avatars");
-    let path = dir.join(format!("{cid}.jpg"));
+    let path = dir.join(format!("{}.jpg", safe_file_stem(cid)));
 
     if path.exists() {
         return path.to_str().map(str::to_owned);
@@ -81,6 +93,21 @@ pub fn native_notify_cache_avatar<R: Runtime>(
     Ok(cache_avatar(&cache_dir, &cid, &bytes))
 }
 
+#[cfg(windows)]
+fn app_icon_path<R: Runtime>(app: &AppHandle<R>) -> Option<String> {
+    const ICON: &[u8] = include_bytes!("../../icons/128x128.png");
+
+    let dir = app.path().app_cache_dir().ok()?;
+    let path = dir.join("notification-app-icon.png");
+
+    if !path.exists() {
+        std::fs::create_dir_all(&dir).ok()?;
+        std::fs::write(&path, ICON).ok()?;
+    }
+
+    path.to_str().map(str::to_owned)
+}
+
 #[cfg(any(target_os = "macos", windows))]
 fn emit_activation<R: Runtime>(app: &AppHandle<R>, activation: Activation) {
     if let Some(window) = app.get_webview_window("main") {
@@ -106,8 +133,16 @@ pub fn setup<R: Runtime>(app: &AppHandle<R>) {
     #[cfg(windows)]
     {
         let handle = app.clone();
+        let config = app.config();
+        let display_name = config
+            .product_name
+            .clone()
+            .unwrap_or_else(|| "Colibri".to_owned());
+
         imp::install_activation_handler(
-            app.config().identifier.clone(),
+            config.identifier.clone(),
+            display_name,
+            app_icon_path(app),
             Box::new(move |activation| {
                 emit_activation(&handle, activation);
             }),
@@ -121,6 +156,31 @@ pub fn setup<R: Runtime>(app: &AppHandle<R>) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn safe_file_stem_strips_characters_windows_rejects() {
+        assert_eq!(safe_file_stem("did:plc:abc123"), "did_plc_abc123");
+        assert_eq!(safe_file_stem("did:web:example.com"), "did_web_example_com");
+        assert_eq!(safe_file_stem("plain-name_1"), "plain-name_1");
+    }
+
+    #[test]
+    fn cache_avatar_writes_a_did_keyed_avatar() {
+        let dir = std::env::temp_dir().join("colibri-avatar-did-test");
+        let _ = std::fs::remove_dir_all(&dir);
+
+        let path = cache_avatar(&dir, "did:plc:abc123", b"payload").expect("writes");
+        let written = Path::new(&path);
+        assert!(written.exists());
+
+        let name = written
+            .file_name()
+            .and_then(|name| name.to_str())
+            .expect("file name");
+        assert_eq!(name, "did_plc_abc123.jpg");
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
 
     #[test]
     fn cache_avatar_writes_once_and_reuses() {
