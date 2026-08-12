@@ -12,11 +12,7 @@ import { showError } from "../../../errors/show-error";
 import { useExperiment } from "../../../experiments";
 import { openExternalLink } from "../../../utils/open-external-link";
 import { isDesktopNative } from "../../../utils/platform";
-import {
-	type AppTheme,
-	LIGHT_MODE_EXPERIMENT,
-	resolvedTheme,
-} from "../../../utils/theme";
+import { type AppTheme, LIGHT_MODE_EXPERIMENT } from "../../../utils/theme";
 import { applyNativeDecorations } from "../../../utils/titlebar";
 import { restartToApply } from "../../../utils/updater";
 import { badgeText, useUserBadges } from "../../../utils/user-badges";
@@ -44,9 +40,11 @@ import { AppViewSwitcher } from "./AppViewSwitcher";
 const CROSS_APPVIEW_HELP_URL =
 	"https://colibri.social/docs/help/moderating-across-appviews";
 
-type ThemeOption = { value: AppTheme; label: string };
+type ThemePreference = AppTheme | "system";
+type ThemeOption = { value: ThemePreference; label: string };
 
 const THEME_OPTIONS: ThemeOption[] = [
+	{ value: "system", label: "System" },
 	{ value: "dark", label: "Dark" },
 	{ value: "light", label: "Light" },
 ];
@@ -57,8 +55,10 @@ export const PreferencesPage: Component = () => {
 	const lightModeEnabled = useExperiment(LIGHT_MODE_EXPERIMENT);
 
 	const selectedTheme = () =>
-		THEME_OPTIONS.find((option) => option.value === resolvedTheme()) ??
-		THEME_OPTIONS[0];
+		THEME_OPTIONS.find(
+			(option) =>
+				option.value === (userPreferences.preferences().theme ?? "system"),
+		) ?? THEME_OPTIONS[0];
 
 	const selectedClient = () =>
 		BSKY_ALTERNATIVES.find(
@@ -147,11 +147,10 @@ export const PreferencesPage: Component = () => {
 					itemComponent={(props) => (
 						<SelectItem
 							item={props.item}
-							onClick={() =>
-								userPreferences.setTheme(
-									(props.item.rawValue as unknown as ThemeOption).value,
-								)
-							}
+							onClick={() => {
+								const { value } = props.item.rawValue as unknown as ThemeOption;
+								userPreferences.setTheme(value === "system" ? null : value);
+							}}
 						>
 							{(props.item.rawValue as unknown as ThemeOption).label}
 						</SelectItem>
@@ -159,8 +158,8 @@ export const PreferencesPage: Component = () => {
 				>
 					<SelectLabel>Appearance</SelectLabel>
 					<SelectDescription>
-						Follows your system until you pick one here. Light mode is
-						experimental and some screens still need work.
+						System matches your operating system and follows it as it changes.
+						Light mode is experimental and some screens still need work.
 					</SelectDescription>
 					<SelectTrigger class="w-full" aria-label="Appearance">
 						<SelectValue<ThemeOption>>
