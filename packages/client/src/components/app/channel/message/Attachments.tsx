@@ -26,7 +26,10 @@ import SpeakerLowIcon from "~icons/ph/speaker-low-fill";
 import SpeakerMutedIcon from "~icons/ph/speaker-x-fill";
 import SpinnerIcon from "~icons/ph/spinner-gap";
 import XIcon from "~icons/ph/x";
-import { resolveBlob } from "../../../../atproto/resolve-blob";
+import {
+	resolveBlob,
+	resolveBlobDownload,
+} from "../../../../atproto/resolve-blob";
 import type { Message } from "../../../../atproto/xrpc/social/colibri/channel/listMessages";
 import { isTauriRuntime } from "../../../../notifications/environment";
 import { createSwipe } from "../../../../utils/create-swipe";
@@ -115,13 +118,16 @@ const TimeDisplay: Component<{ tone: "muted" | "light" }> = (props) => (
 );
 
 export const AudioAttachment: AttachmentComponent = (props) => {
+	const name = () => props.item.name ?? "Audio";
 	const src = () => resolveBlob(props.did, props.item.blob);
+	const downloadSrc = () =>
+		resolveBlobDownload(props.did, props.item.blob, name());
 	const size = "size" in props.item.blob ? props.item.blob.size : undefined;
 
 	return (
 		<media-player
 			class="colibri-media-audio w-full max-w-104 overflow-hidden rounded-lg border border-border bg-card"
-			title={props.item.name ?? "Audio"}
+			title={name()}
 			viewType="audio"
 			streamType="on-demand"
 			load="play"
@@ -135,18 +141,17 @@ export const AudioAttachment: AttachmentComponent = (props) => {
 			{/* File header: icon + name + size, mirroring the generic file card. */}
 			<a
 				class="group/file flex flex-row items-center gap-3 p-3"
-				href={src()}
-				target="_blank"
-				rel="noreferrer"
-				onClick={(e) => openExternalLink(src(), e)}
-				title={props.item.name ?? "Audio"}
+				href={downloadSrc()}
+				download={name()}
+				onClick={(e) => openExternalLink(downloadSrc(), e)}
+				title={name()}
 			>
 				<div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-muted text-primary">
 					<FileAudioIcon class="h-5 w-5" />
 				</div>
 				<div class="flex min-w-0 flex-col h-10">
 					<span class="truncate font-medium text-sm text-primary group-hover/file:underline">
-						{props.item.name ?? "Audio"}
+						{name()}
 					</span>
 					<Show when={size !== undefined}>
 						<span class="text-sm text-muted-foreground">
@@ -207,10 +212,15 @@ const imageGridClass = (count: number, sizeClass: string): string => {
 
 export type GalleryImage = {
 	url?: string;
+	downloadUrl?: string;
 	name?: string;
 	width?: number;
 	height?: number;
 };
+
+const galleryDownloadUrl = (
+	image: GalleryImage | undefined,
+): string | undefined => image?.downloadUrl ?? image?.url;
 
 const decodedAspectRatios = new Map<string, number>();
 
@@ -328,10 +338,11 @@ export const MediaLightboxGallery: Component<{
 						/>
 						<a
 							class="absolute z-20 top-1 right-1 hidden aspect-square w-8 -translate-y-1/2 translate-x-1/2 items-center justify-center rounded-sm border border-border bg-card p-1 hover:bg-muted group-hover/image:flex"
-							href={props.images[0]?.url}
-							target="_blank"
-							rel="noreferrer"
-							onClick={(e) => openExternalLink(props.images[0]?.url, e)}
+							href={galleryDownloadUrl(props.images[0])}
+							download={props.images[0]?.name}
+							onClick={(e) =>
+								openExternalLink(galleryDownloadUrl(props.images[0]), e)
+							}
 							title={props.images[0]?.name ?? "Image"}
 						>
 							<DownloadIcon class="h-5 w-5 shrink-0 text-muted-foreground" />
@@ -342,19 +353,32 @@ export const MediaLightboxGallery: Component<{
 				<div ref={props.ref} class={imageGridClass(count(), sizeClass())}>
 					<For each={props.images}>
 						{(image, i) => (
-							<button
-								type="button"
-								class="aspect-square cursor-zoom-in overflow-hidden rounded-lg border border-border"
-								onClick={() => open(i())}
-							>
-								<img
-									src={image.url}
-									class="h-full w-full object-cover transition-opacity hover:opacity-90"
-									alt={image.name ?? ""}
-									loading="lazy"
-									onError={() => props.onImageError?.(i())}
-								/>
-							</button>
+							<div class="group/image relative aspect-square">
+								<button
+									type="button"
+									class="h-full w-full cursor-zoom-in overflow-hidden rounded-lg border border-border"
+									onClick={() => open(i())}
+								>
+									<img
+										src={image.url}
+										class="h-full w-full object-cover transition-opacity hover:opacity-90"
+										alt={image.name ?? ""}
+										loading="lazy"
+										onError={() => props.onImageError?.(i())}
+									/>
+								</button>
+								<a
+									class="absolute z-20 top-1 right-1 hidden aspect-square w-8 items-center justify-center rounded-sm border border-border bg-card p-1 hover:bg-muted group-hover/image:flex"
+									href={galleryDownloadUrl(image)}
+									download={image.name}
+									onClick={(e) =>
+										openExternalLink(galleryDownloadUrl(image), e)
+									}
+									title={image.name ?? "Image"}
+								>
+									<DownloadIcon class="h-5 w-5 shrink-0 text-muted-foreground" />
+								</a>
+							</div>
 						)}
 					</For>
 				</div>
@@ -382,6 +406,22 @@ export const MediaLightboxGallery: Component<{
 							class="max-h-[calc(100vh-8rem)] max-w-[calc(100vw-4rem)] rounded-sm"
 							onClick={(e) => e.stopPropagation()}
 						/>
+
+						<a
+							class="absolute top-[calc(var(--safe-area-top)+2rem)] right-[calc(var(--safe-area-right)+5rem)] z-50 flex h-10 w-10 items-center justify-center rounded-md border border-border bg-card text-foreground hover:bg-muted"
+							href={galleryDownloadUrl(props.images[openIndex()!])}
+							download={props.images[openIndex()!]?.name}
+							onClick={(e) => {
+								e.stopPropagation();
+								openExternalLink(
+									galleryDownloadUrl(props.images[openIndex()!]),
+									e,
+								);
+							}}
+							title={props.images[openIndex()!]?.name ?? "Image"}
+						>
+							<DownloadIcon class="h-5 w-5 shrink-0" />
+						</a>
 
 						<Button
 							variant="outline"
@@ -434,6 +474,7 @@ export const ImageGallery: Component<{
 	const items = (): GalleryImage[] =>
 		props.images.map((i) => ({
 			url: resolveBlob(props.did, i.blob),
+			downloadUrl: resolveBlobDownload(props.did, i.blob, i.name),
 			name: i.name,
 			width: i.width,
 			height: i.height,
@@ -443,7 +484,10 @@ export const ImageGallery: Component<{
 };
 
 export const VideoAttachment: AttachmentComponent = (props) => {
+	const name = () => props.item.name ?? "Video";
 	const src = () => resolveBlob(props.did, props.item.blob);
+	const downloadSrc = () =>
+		resolveBlobDownload(props.did, props.item.blob, name());
 
 	const usePseudoFullscreen = isTauriRuntime() && !isDesktopNative();
 	const [pseudoFullscreen, setPseudoFullscreen] = createSignal(false);
@@ -482,7 +526,7 @@ export const VideoAttachment: AttachmentComponent = (props) => {
 					? undefined
 					: (reservedAspectRatio(props.item) ?? "16 / 9"),
 			}}
-			title={props.item.name ?? "Video"}
+			title={name()}
 			viewType="video"
 			streamType="on-demand"
 			load="play"
@@ -490,11 +534,10 @@ export const VideoAttachment: AttachmentComponent = (props) => {
 		>
 			<a
 				class="absolute z-20 top-4 aspect-square right-4 hidden group-hover:flex items-center justify-center bg-card p-1 rounded-sm hover:bg-muted border border-border"
-				href={src()}
-				target="_blank"
-				rel="noreferrer"
-				onClick={(e) => openExternalLink(src(), e)}
-				title={props.item.name ?? "File"}
+				href={downloadSrc()}
+				download={name()}
+				onClick={(e) => openExternalLink(downloadSrc(), e)}
+				title={name()}
 			>
 				<DownloadIcon class="ml-auto h-5 w-5 shrink-0 text-muted-foreground" />
 			</a>
@@ -600,25 +643,23 @@ export const VideoAttachment: AttachmentComponent = (props) => {
 };
 
 export const GenericFileAttachment: AttachmentComponent = (props) => {
-	const src = () => resolveBlob(props.did, props.item.blob);
+	const name = () => props.item.name ?? "File";
+	const src = () => resolveBlobDownload(props.did, props.item.blob, name());
 	const size = "size" in props.item.blob ? props.item.blob.size : undefined;
 
 	return (
 		<a
 			class="flex max-w-104 w-full flex-row items-center gap-3 rounded-lg border border-border bg-card p-2.5 transition-colors hover:bg-muted/75"
 			href={src()}
-			target="_blank"
-			rel="noreferrer"
+			download={name()}
 			onClick={(e) => openExternalLink(src(), e)}
-			title={props.item.name ?? "File"}
+			title={name()}
 		>
 			<div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
 				<FileIcon class="h-5 w-5" />
 			</div>
 			<div class="flex min-w-0 flex-col">
-				<span class="truncate font-medium text-foreground">
-					{props.item.name ?? "File"}
-				</span>
+				<span class="truncate font-medium text-foreground">{name()}</span>
 				<span class="text-sm text-muted-foreground">
 					{props.item.blob.mimeType}
 					<Show when={size !== undefined}>

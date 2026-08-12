@@ -97,6 +97,15 @@ Resolves an atproto handle or DID to a DID document. Handles are resolved to a D
 
 Proxies a blob fetch to the PDS that hosts the given DID. Blobs are not stored locally.
 
+`variant` asks for a square, downscaled rendition (`small`, `base` or `large`) instead of the
+original bytes. Omit it for anything that isn't a square image, including banners, attachments and
+media that needs Range requests.
+
+`filename` opts the response into `Content-Disposition: attachment`, so the client saves it under
+that name rather than rendering it inline. Set it only from an explicit download affordance, and
+omit it wherever the blob is displayed. The name is sanitized down to a bare basename, so path
+segments and control characters in it are discarded.
+
 <XRPCEndpointCard
 	method="GET"
 	nsid="com.atproto.sync.getBlob"
@@ -108,6 +117,14 @@ Proxies a blob fetch to the PDS that hosts the given DID. Blobs are not stored l
 		cid: {
 			type: "cid",
 			required: true
+		},
+		variant: {
+			type: "string",
+			required: false,
+		},
+		filename: {
+			type: "string",
+			required: false,
 		}
 	}}
 	response={{

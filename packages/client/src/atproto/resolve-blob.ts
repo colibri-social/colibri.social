@@ -7,6 +7,13 @@ import { getAppViewHost } from "../utils/appview";
  */
 export type BlobVariant = "small" | "base" | "large";
 
+const blobCid = (blob: JsonBlobRef): string =>
+	"cid" in blob
+		? blob.cid
+		: "$link" in blob.ref
+			? String(blob.ref.$link)
+			: blob.ref.link().toString();
+
 /**
  * Resolves a blob to it's URL given a DID.
  * @param did The DID of the owner
@@ -24,16 +31,20 @@ export const resolveBlob = (
 	if (!blob) return undefined;
 
 	const appView = getAppViewHost("http");
-	const cid =
-		"cid" in blob
-			? blob.cid
-			: "$link" in blob.ref
-				? blob.ref.$link
-				: blob.ref.link().toString();
-
 	const query = variant ? `&variant=${variant}` : "";
 
-	return `${appView}/xrpc/com.atproto.sync.getBlob?did=${did}&cid=${cid}${query}`;
+	return `${appView}/xrpc/com.atproto.sync.getBlob?did=${did}&cid=${blobCid(blob)}${query}`;
+};
+
+export const resolveBlobDownload = (
+	did: string,
+	blob?: JsonBlobRef,
+	filename?: string,
+): string | undefined => {
+	const url = resolveBlob(did, blob);
+	if (!url || !filename) return url;
+
+	return `${url}&filename=${encodeURIComponent(filename)}`;
 };
 
 /**
