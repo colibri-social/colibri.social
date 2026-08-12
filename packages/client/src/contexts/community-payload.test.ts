@@ -1,10 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Community as CommunityResponse } from "../atproto/xrpc/social/colibri/community/getData";
-import {
-	createCommunityPayloadHold,
-	emptyCommunityPayload,
-	isCommunityPayload,
-} from "./community-payload";
+import { emptyCommunityPayload, isCommunityPayload } from "./community-payload";
 
 const payload = (uri: string, memberDids: Array<string>): CommunityResponse =>
 	({
@@ -26,10 +22,6 @@ const payload = (uri: string, memberDids: Array<string>): CommunityResponse =>
 const A = payload("at://did:plc:a/social.colibri.community/self", [
 	"did:plc:1",
 ]);
-const B = payload("at://did:plc:b/social.colibri.community/self", [
-	"did:plc:2",
-]);
-
 describe("emptyCommunityPayload", () => {
 	it("has every collection the context spreads into place", () => {
 		const empty = emptyCommunityPayload();
@@ -101,47 +93,5 @@ describe("isCommunityPayload", () => {
 		const stale = { ...A, community: null } as unknown as CommunityResponse;
 
 		expect(isCommunityPayload(stale)).toBe(false);
-	});
-});
-
-describe("createCommunityPayloadHold", () => {
-	it("passes a payload straight through", () => {
-		const hold = createCommunityPayloadHold();
-
-		expect(hold(A)).toBe(A);
-	});
-
-	it("keeps serving the last payload when the read comes back empty", () => {
-		const hold = createCommunityPayloadHold();
-		hold(A);
-
-		expect(hold(undefined)).toBe(A);
-		expect(hold(undefined).members).toEqual(A.members);
-	});
-
-	it("swaps to a newer payload", () => {
-		const hold = createCommunityPayloadHold();
-		hold(A);
-
-		expect(hold(B)).toBe(B);
-		expect(hold(undefined)).toBe(B);
-	});
-
-	it("never returns a partial object before anything has arrived", () => {
-		const hold = createCommunityPayloadHold();
-
-		expect(hold(undefined).members).toEqual([]);
-		expect(hold(undefined).community.uri).toBe("");
-	});
-
-	it("refuses to hold a payload that is missing collections", () => {
-		const hold = createCommunityPayloadHold();
-		hold(A);
-		const partial = {
-			...B,
-			members: undefined,
-		} as unknown as CommunityResponse;
-
-		expect(hold(partial)).toBe(A);
 	});
 });

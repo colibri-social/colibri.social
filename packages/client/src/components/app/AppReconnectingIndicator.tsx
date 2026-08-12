@@ -6,6 +6,7 @@ import {
 	Show,
 } from "solid-js";
 import { pendingCount } from "../../atproto/outbox/outbox";
+import { communityRefreshStale } from "../../contexts/community-refresh-state";
 import { useSocketContext } from "../../contexts/Socket";
 import { StatusPill } from "../ui/StatusPill";
 
@@ -30,8 +31,18 @@ export const AppReconnectingIndicator: Component = () => {
 		});
 	});
 
+	const degraded = () =>
+		socket.status() === "reconnecting" || communityRefreshStale();
+
+	const label = () => {
+		if (offline()) return "You're offline";
+		if (visible() && socket.status() === "reconnecting") return "Reconnecting…";
+		if (visible() && communityRefreshStale()) return "Showing saved data";
+		return undefined;
+	};
+
 	createEffect(() => {
-		if (socket.status() === "reconnecting") {
+		if (degraded()) {
 			if (timer === undefined && !visible()) {
 				timer = setTimeout(() => {
 					timer = undefined;
@@ -52,16 +63,18 @@ export const AppReconnectingIndicator: Component = () => {
 	});
 
 	return (
-		<Show when={offline() || visible()}>
-			<StatusPill
-				spinner={!offline()}
-				class="fixed top-[calc(1rem+var(--titlebar-height)+var(--safe-area-top))] left-1/2 -translate-x-1/2 z-50"
-			>
-				{offline() ? "You're offline" : "Reconnecting…"}
-				<Show when={pendingCount() > 0}>
-					{` · ${pendingCount()} waiting to send`}
-				</Show>
-			</StatusPill>
+		<Show when={label()}>
+			{(text) => (
+				<StatusPill
+					spinner={!offline() && socket.status() === "reconnecting"}
+					class="fixed top-[calc(1rem+var(--titlebar-height)+var(--safe-area-top))] left-1/2 -translate-x-1/2 z-50"
+				>
+					{text()}
+					<Show when={pendingCount() > 0}>
+						{` · ${pendingCount()} waiting to send`}
+					</Show>
+				</StatusPill>
+			)}
 		</Show>
 	);
 };

@@ -214,6 +214,14 @@ export const writeCommunity = (
 	snap: CommunitySnapshot,
 ): Promise<void> => write("community", communityKey(ns, uri), snap);
 
+export const deleteCommunity = (ns: string, uri: string): Promise<void> =>
+	request("community", "readwrite", (s) => s.delete(communityKey(ns, uri)))
+		.then(() => undefined)
+		.catch((err) => {
+			noteCacheFailure(err);
+			return undefined;
+		});
+
 const EVICT_EVERY_N_WRITES = 10;
 const writeCounts = new Map<StoreName, number>();
 

@@ -17,6 +17,7 @@ import {
 	activeLoadingRequest,
 	type LoadingPhase,
 	loadingRequests,
+	overlayEnterDelay,
 } from "./loading-overlay-state";
 
 const EXIT_DEBOUNCE = 120;
@@ -56,23 +57,45 @@ export const BootOverlay: Component = () => {
 	let exitTimer: ReturnType<typeof setTimeout> | undefined;
 	let hideTimer: ReturnType<typeof setTimeout> | undefined;
 	let tiredTimer: ReturnType<typeof setTimeout> | undefined;
+	let enterTimer: ReturnType<typeof setTimeout> | undefined;
 
 	onCleanup(() => {
 		clearTimeout(exitTimer);
 		clearTimeout(hideTimer);
 		clearTimeout(tiredTimer);
+		clearTimeout(enterTimer);
 	});
 
+	const enterDelay = () => overlayEnterDelay(loadingRequests());
+
 	createEffect(
-		on(active, (isActive) => {
+		on([active, enterDelay], ([isActive, wait]) => {
 			clearTimeout(exitTimer);
 			clearTimeout(hideTimer);
+			clearTimeout(enterTimer);
+			enterTimer = undefined;
 
 			if (isActive) {
-				setExiting(false);
-				setVisible(true);
+				if (visible()) {
+					setExiting(false);
+					return;
+				}
+
+				if (wait <= 0) {
+					setExiting(false);
+					setVisible(true);
+					return;
+				}
+
+				enterTimer = setTimeout(() => {
+					enterTimer = undefined;
+					setExiting(false);
+					setVisible(true);
+				}, wait);
 				return;
 			}
+
+			if (!visible()) return;
 
 			exitTimer = setTimeout(() => {
 				if (reducedMotion()) {

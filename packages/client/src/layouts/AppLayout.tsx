@@ -23,6 +23,8 @@ import { toast } from "somoto";
 import GearIcon from "~icons/ph/gear";
 import HouseIcon from "~icons/ph/house";
 import LockSimpleIcon from "~icons/ph/lock-simple";
+import { evictCommunity } from "../atproto/cache/community-evict";
+import { namespace } from "../atproto/cache/keys";
 import { communityUriToUrlCompatible } from "../atproto/community-uri-to-url-compatible";
 import { putRecord } from "../atproto/pds";
 import { AppBadge } from "../components/app/AppBadge";
@@ -61,6 +63,7 @@ import { useViewport } from "../contexts/Viewport";
 import { classifyThrown } from "../errors/classify";
 import { isTauriRuntime } from "../notifications/environment";
 import { trackAppShellMounted } from "../utils/app-shell";
+import { getAppViewDid } from "../utils/appview";
 import { LongPressSensors } from "../utils/create-longpress-sensor";
 import {
 	animateToNewPositions,
@@ -295,6 +298,7 @@ const AppLayout: ParentComponent = (props) => {
 				event.type === "community_event" &&
 				event.data?.event === "delete"
 			) {
+				evictCommunity(namespace(getAppViewDid(), user.did), event.data.uri);
 				const segment = communityUriToUrlCompatible(event.data.uri);
 				if (location.pathname.startsWith(`/app/c/${segment}`)) {
 					navigate("/app");

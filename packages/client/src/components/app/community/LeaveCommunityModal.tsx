@@ -2,9 +2,12 @@ import { useNavigate } from "@solidjs/router";
 import type { Accessor, Setter } from "solid-js";
 import { createSignal } from "solid-js";
 import { toast } from "somoto";
+import { evictCommunity } from "../../../atproto/cache/community-evict";
+import { namespace } from "../../../atproto/cache/keys";
 import { deleteMembership } from "../../../atproto/memberships";
 import { useUserContext } from "../../../contexts/User";
 import { classifyThrown } from "../../../errors/classify";
+import { getAppViewDid } from "../../../utils/appview";
 import { createLogger } from "../../../utils/logger";
 import { Button } from "../../ui/Button";
 import {
@@ -41,6 +44,8 @@ export const LeaveCommunityModal = (props: {
 				toast.error("Failed to leave community.");
 				return;
 			}
+
+			evictCommunity(namespace(getAppViewDid(), user.did), props.communityUri);
 
 			props.setOpen(false);
 			navigate("/app");

@@ -26,14 +26,3 @@ export const isCommunityPayload = (
 	Array.isArray(value.roles) &&
 	Array.isArray(value.channels) &&
 	Array.isArray(value.categories);
-
-export const createCommunityPayloadHold = (): ((
-	incoming: CommunityResponse | undefined,
-) => CommunityResponse) => {
-	let held = emptyCommunityPayload();
-
-	return (incoming) => {
-		if (isCommunityPayload(incoming)) held = incoming;
-		return held;
-	};
-};
