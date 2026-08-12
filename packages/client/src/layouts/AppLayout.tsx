@@ -484,7 +484,7 @@ const AppLayout: ParentComponent = (props) => {
 			<div class="flex w-full relative h-[calc(100%-var(--titlebar-height))]">
 				<aside
 					class="flex flex-col h-full w-14 p-2 pb-3 bg-card"
-					style={{ translate: railTranslate() }}
+					style={{ transform: railTranslate() }}
 					classList={{
 						"absolute left-0 top-0 z-40 will-change-pane": isMobile(),
 						"transition-transform duration-300 ease-[cubic-bezier(0.25,1,0.5,1)] motion-reduce:transition-none":

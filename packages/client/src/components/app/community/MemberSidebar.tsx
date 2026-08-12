@@ -262,7 +262,7 @@ export const MemberSidebar = () => {
 				})
 			}
 			class="flex flex-col border-border bg-background"
-			style={{ translate: paneTranslate("members") }}
+			style={{ transform: paneTranslate("members") }}
 			classList={{
 				"min-w-72 w-72 h-full border-l z-50": !isMobile(),
 				"absolute top-0 right-0 h-full drop-shadow-black drop-shadow-2xl":

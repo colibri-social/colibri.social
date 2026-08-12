@@ -276,7 +276,7 @@ const CommunityLayout: ParentComponent = (props) => {
 			<aside
 				ref={(el) => createSwipe(el, swipe)}
 				class="border-border flex flex-col bg-background"
-				style={{ translate: paneTranslate("nav") }}
+				style={{ transform: paneTranslate("nav") }}
 				classList={{
 					"h-full relative border-r w-[var(--channel-sidebar-width)] min-w-[var(--channel-sidebar-width)]":
 						!isMobile(),
@@ -317,7 +317,7 @@ const CommunityLayout: ParentComponent = (props) => {
 			<div
 				ref={(el) => createSwipe(el, swipe)}
 				class="flex flex-col"
-				style={{ translate: paneTranslate("chat") }}
+				style={{ transform: paneTranslate("chat") }}
 				classList={{
 					"w-full h-full": !isMobile(),
 					"max-h-[calc(100vh-var(--titlebar-height)-1px)]": !isMobile(),

@@ -1,6 +1,8 @@
 import { createSortable, useDragDropContext } from "@thisbeyond/solid-dnd";
 import type { Component } from "solid-js";
 import type { Channel } from "../../../atproto/xrpc/social/colibri/community/listChannels";
+import { usePermissions } from "../../../contexts/Community";
+import { useUserContext } from "../../../contexts/User";
 import {
 	Category,
 	type CategoryWithChannels,
@@ -20,6 +22,9 @@ export const SortableCategory: Component<{
 }> = (props) => {
 	const sortable = createSortable(props.category.uri);
 	const [, { onDragStart, onDragEnd: onDndDragEnd }] = useDragDropContext()!;
+	const user = useUserContext();
+	const { canUpdateCategory: _canUpdateCategory } = usePermissions();
+	const canManage = () => _canUpdateCategory(user.did);
 
 	let el: HTMLDivElement | undefined;
 
@@ -42,7 +47,10 @@ export const SortableCategory: Component<{
 				sortable.ref(node);
 			}}
 		>
-			<div style={{ "touch-action": "pan-y" }} {...sortable.dragActivators}>
+			<div
+				style={{ "touch-action": "pan-y" }}
+				{...(canManage() ? sortable.dragActivators : {})}
+			>
 				<Category
 					category={props.category}
 					communityUri={props.communityUri}

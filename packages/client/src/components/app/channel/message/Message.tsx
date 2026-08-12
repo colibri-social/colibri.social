@@ -285,7 +285,6 @@ const MessageInner: Component<{
 							? `${replyRevealProgress() * 16}px`
 							: undefined,
 					}}
-					data-message={JSON.stringify(message)}
 					data-message-uri={message.uri}
 					classList={{
 						[innerTopSpacingClass()]: true,

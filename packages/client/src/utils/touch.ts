@@ -6,3 +6,6 @@ export const useIsTouch = () => createMediaQuery(TOUCH_QUERY);
 
 export const isTouchNow = () =>
 	typeof matchMedia !== "undefined" && matchMedia(TOUCH_QUERY).matches;
+
+export const wantsHoldToDrag = (pointerType: string): boolean =>
+	pointerType !== "mouse";

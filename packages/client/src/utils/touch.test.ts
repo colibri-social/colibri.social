@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { isTouchNow, TOUCH_QUERY } from "./touch";
+import { isTouchNow, TOUCH_QUERY, wantsHoldToDrag } from "./touch";
 
 const PHONE_QUERY = "(max-width: 767px)";
 
@@ -34,5 +34,21 @@ describe("isTouchNow", () => {
 	it("is false for a fine pointer at a phone viewport width", () => {
 		stubMatchMedia((query) => query === PHONE_QUERY);
 		expect(isTouchNow()).toBe(false);
+	});
+});
+
+describe("wantsHoldToDrag", () => {
+	it("requires a hold for touch and pen", () => {
+		expect(wantsHoldToDrag("touch")).toBe(true);
+		expect(wantsHoldToDrag("pen")).toBe(true);
+	});
+
+	it("lets a mouse start dragging immediately", () => {
+		expect(wantsHoldToDrag("mouse")).toBe(false);
+	});
+
+	it("holds for a touch even when the primary pointer reports fine", () => {
+		stubMatchMedia(() => false);
+		expect(wantsHoldToDrag("touch")).toBe(true);
 	});
 });

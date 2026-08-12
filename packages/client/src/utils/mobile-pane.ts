@@ -5,7 +5,7 @@ import {
 	useNavigate,
 	useSearchParams,
 } from "@solidjs/router";
-import { batch, createEffect, createSignal } from "solid-js";
+import { type Accessor, batch, createEffect, createSignal } from "solid-js";
 import createMediaQuery from "./create-media-query";
 import { lastViewedChannelPath } from "./last-viewed-channel";
 
@@ -101,8 +101,24 @@ const RUBBER_BAND = 0.15;
 /** Fraction of the pane width a drag has to cover before it switches panes. */
 export const PANE_COMMIT_RATIO = 0.45;
 
-const viewportWidth = () =>
-	typeof window !== "undefined" ? window.innerWidth : 0;
+let sharedViewportWidth: Accessor<number> | undefined;
+
+const createSharedViewportWidth = (): Accessor<number> => {
+	const [width, setWidth] = createSignal(window.innerWidth);
+
+	const refresh = () => setWidth(window.innerWidth);
+
+	window.addEventListener("resize", refresh);
+	window.addEventListener("orientationchange", refresh);
+
+	return width;
+};
+
+const viewportWidth = (): number => {
+	if (typeof window === "undefined") return 0;
+	if (!sharedViewportWidth) sharedViewportWidth = createSharedViewportWidth();
+	return sharedViewportWidth();
+};
 
 const navRevealProgress = (current: Pane) => {
 	const width = viewportWidth();
@@ -164,11 +180,12 @@ export const createMobilePane = () => {
 		pane: Pane,
 		url: string,
 		opts?: { replace?: boolean; state?: unknown },
-	) =>
+	) => {
 		batch(() => {
 			setPendingPane(pane);
 			navigate(url, { replace: opts?.replace, state: opts?.state });
 		});
+	};
 
 	const setPane = (
 		target: Pane,
@@ -256,21 +273,32 @@ export const createMobilePane = () => {
 	};
 
 	// Single source of truth for mobile pane position: the carousel slot's
-	// resting offset plus the live drag. `100%` is the pane's own border box,
-	// which is exactly the viewport width for all three panes (they are
-	// `absolute inset-0 w-full` inside a full-bleed container), so mixing it
-	// with a pixel drag is safe, and percentages reflow for free on rotation.
+	// resting offset plus the live drag, as a `transform` rather than the
+	// individual `translate` property. `translate3d` is much the better trodden
+	// path in WebKit and self-promotes, so the layer does not hang on
+	// `will-change` being parsed the way we expect.
+	//
+	// Pixels rather than a percentage because a percentage resolves against the
+	// pane's own border box, which leaves layer geometry a function of layout,
+	// so anything invalidating layout inside a pane (a message arriving, an
+	// image decoding, the keyboard inset moving) can force a recompute mid-drag.
+	// One pane width is exactly the viewport width for all three (they are
+	// `absolute inset-0 w-full` inside a full-bleed container). Before the width
+	// signal is seeded there is nothing to multiply by, and `0` would stack all
+	// three panes, so the percentage form still covers that first paint.
 	const paneTranslate = (pane: Pane): string | undefined => {
 		if (!isMobile()) return undefined;
-		const offset = (paneIndex(pane) - paneIndex(currentPane())) * 100;
-		return `calc(${offset}% + ${dragDx()}px)`;
+		const slots = paneIndex(pane) - paneIndex(currentPane());
+		const width = viewportWidth();
+		if (!width) return `translate3d(${slots * 100}%, 0, 0)`;
+		return `translate3d(${slots * width + dragDx()}px, 0, 0)`;
 	};
 
 	const navProgress = () => (isMobile() ? navRevealProgress(currentPane()) : 1);
 
 	const railTranslate = (): string | undefined => {
 		if (!isMobile()) return undefined;
-		return `${-RAIL_WIDTH * (1 - navProgress())}px`;
+		return `translate3d(${-RAIL_WIDTH * (1 - navProgress())}px, 0, 0)`;
 	};
 
 	const isDragging = dragging;

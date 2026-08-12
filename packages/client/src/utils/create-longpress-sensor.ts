@@ -1,7 +1,7 @@
 import { useDragDropContext } from "@thisbeyond/solid-dnd";
 import { onCleanup, onMount, type ParentComponent } from "solid-js";
 import { isSensorRegistered } from "./dnd-sensors";
-import { isTouchNow } from "./touch";
+import { wantsHoldToDrag } from "./touch";
 
 type Coordinates = { x: number; y: number };
 
@@ -55,8 +55,7 @@ export const createLongPressSensor = (
 		initialCoordinates.x = event.clientX;
 		initialCoordinates.y = event.clientY;
 
-		const coarseTouch = event.pointerType !== "mouse" && isTouchNow();
-		if (coarseTouch) {
+		if (wantsHoldToDrag(event.pointerType)) {
 			armed = false;
 			dragging = false;
 			document.addEventListener("pointermove", onMobileMove, { passive: true });

@@ -502,9 +502,10 @@ ol[data-somoto-toaster][data-x-position="right"] {
 		background: linear-gradient(to bottom, transparent, var(--background) 80%);
 	}
 
-	/* The mobile panes animate `translate`, not `transform`. `transform` stays in
-	   the list because WebKit builds that predate the individual transform
-	   properties parse a bare `translate` as a custom ident and promote nothing. */
+	/* The mobile panes animate `transform` via `translate3d`. `translate` stays
+	   in the list so a pane that picks the individual property up from
+	   elsewhere still promotes rather than silently falling back to repainting
+	   a full-viewport element every frame. */
 	.will-change-pane {
 		will-change: transform, translate;
 	}

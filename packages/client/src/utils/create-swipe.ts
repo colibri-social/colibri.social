@@ -74,8 +74,34 @@ export const createSwipe = (el: HTMLElement, opts: SwipeOptions) => {
 	let locked: boolean | null = null; // null = undecided, true = horizontal
 	let claimed = false; // true once this gesture's direction is one we handle
 	let samples: { x: number; t: number }[] = [];
+	let moveFrame: number | null = null;
+	let pendingDx = 0;
+	let clickSwallow: ((event: MouseEvent) => void) | null = null;
+
+	const cancelMoveFrame = () => {
+		if (moveFrame === null) return;
+		cancelAnimationFrame(moveFrame);
+		moveFrame = null;
+	};
+
+	const clearClickSwallow = () => {
+		if (!clickSwallow) return;
+		el.removeEventListener("click", clickSwallow, { capture: true });
+		clickSwallow = null;
+	};
+
+	const suppressNextClick = () => {
+		clearClickSwallow();
+		clickSwallow = (event: MouseEvent) => {
+			clickSwallow = null;
+			event.preventDefault();
+			event.stopPropagation();
+		};
+		el.addEventListener("click", clickSwallow, { capture: true, once: true });
+	};
 
 	const reset = () => {
+		cancelMoveFrame();
 		tracking = false;
 		locked = null;
 		claimed = false;
@@ -89,6 +115,7 @@ export const createSwipe = (el: HTMLElement, opts: SwipeOptions) => {
 		// mid-gesture with a stale `startX` — and the early returns below would
 		// otherwise preserve it into the next touch.
 		reset();
+		clearClickSwallow();
 		if (opts.enabled && !opts.enabled()) return;
 		if (e.pointerType === "mouse") return;
 		if (isInMediaPlayer(e.target, el)) return;
@@ -138,7 +165,12 @@ export const createSwipe = (el: HTMLElement, opts: SwipeOptions) => {
 		while (samples.length > 2 && now - samples[0].t > VELOCITY_WINDOW) {
 			samples.shift();
 		}
-		opts.onSwipeMove?.(dx);
+		pendingDx = dx;
+		if (moveFrame !== null) return;
+		moveFrame = requestAnimationFrame(() => {
+			moveFrame = null;
+			opts.onSwipeMove?.(pendingDx);
+		});
 	};
 
 	const onPointerUp = (e: PointerEvent) => {
@@ -167,6 +199,7 @@ export const createSwipe = (el: HTMLElement, opts: SwipeOptions) => {
 			else if (dx < -commitDist || (flick && vx < 0)) opts.onSwipeLeft?.(dx);
 			opts.onSwipeMove?.(null);
 		});
+		suppressNextClick();
 		reset();
 	};
 
@@ -181,6 +214,8 @@ export const createSwipe = (el: HTMLElement, opts: SwipeOptions) => {
 	el.addEventListener("pointercancel", onPointerCancel, { passive: true });
 
 	onCleanup(() => {
+		cancelMoveFrame();
+		clearClickSwallow();
 		el.removeEventListener("pointerdown", onPointerDown);
 		el.removeEventListener("pointermove", onPointerMove);
 		el.removeEventListener("pointerup", onPointerUp);
