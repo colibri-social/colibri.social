@@ -24,6 +24,10 @@ import {
 	normalizeResolution,
 	type ScreenShareOptions,
 } from "../utils/screen-share";
+import {
+	clampSidebarWidth,
+	DEFAULT_CHANNEL_SIDEBAR_WIDTH,
+} from "../utils/sidebar-width";
 import type { AppTheme } from "../utils/theme";
 
 export const PREFERENCES_STORAGE_KEY = "colibri:user-preferences";
@@ -88,6 +92,7 @@ export interface ControlsPreferences {
 
 export type UserPreferencesContextData = {
 	membersListVisible: boolean;
+	channelSidebarWidth: number;
 	publicReminderDismissed: boolean;
 	nativeNotifications: boolean;
 	notificationPromptDismissed: boolean;
@@ -119,6 +124,7 @@ export type UserPreferencesContextData = {
 
 const DEFAULT_PREFERENCES: UserPreferencesContextData = {
 	membersListVisible: !isMobileNow(),
+	channelSidebarWidth: DEFAULT_CHANNEL_SIDEBAR_WIDTH,
 	publicReminderDismissed: false,
 	nativeNotifications: false,
 	notificationPromptDismissed: false,
@@ -241,6 +247,7 @@ function loadFromStorage(): UserPreferencesContextData {
 			...DEFAULT_PREFERENCES,
 			...parsed,
 			membersListVisible: DEFAULT_PREFERENCES.membersListVisible,
+			channelSidebarWidth: clampSidebarWidth(parsed.channelSidebarWidth),
 			voice: { ...DEFAULT_PREFERENCES.voice, ...parsedVoice, input, screen },
 			controls: { ...DEFAULT_PREFERENCES.controls, ...(parsed.controls ?? {}) },
 		};
@@ -267,6 +274,7 @@ type UserPreferencesContextValue = {
 		showOwnCamera?: boolean;
 	}) => void;
 	toggleMembersVisible: () => void;
+	setChannelSidebarWidth: (width: number) => void;
 	setPublicReminderDismissed: (dismissed: boolean) => void;
 	setNativeNotifications: (enabled: boolean) => void;
 	setNotificationPromptDismissed: (dismissed: boolean) => void;
@@ -391,6 +399,13 @@ export const UserPreferencesContextProvider: ParentComponent = (props) => {
 		}));
 	};
 
+	const setChannelSidebarWidth = (width: number) => {
+		setPreferences((p) => ({
+			...p,
+			channelSidebarWidth: clampSidebarWidth(width),
+		}));
+	};
+
 	const setPublicReminderDismissed = (dismissed: boolean) => {
 		setPreferences((p) => ({ ...p, publicReminderDismissed: dismissed }));
 	};
@@ -481,6 +496,7 @@ export const UserPreferencesContextProvider: ParentComponent = (props) => {
 				setNoiseSuppressionLevel,
 				setVoiceView,
 				toggleMembersVisible,
+				setChannelSidebarWidth,
 				setPublicReminderDismissed,
 				setNativeNotifications,
 				setNotificationPromptDismissed,

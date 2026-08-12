@@ -13,6 +13,7 @@ import UsersIcon from "~icons/ph/users-fill";
 import { urlSegmentToUri } from "../atproto/community-uri-to-url-compatible";
 import { resolveBlob } from "../atproto/resolve-blob";
 import { ChannelList } from "../components/app/community/ChannelList";
+import { ChannelSidebarResizer } from "../components/app/community/ChannelSidebarResizer";
 import { CommunitySettingsModal } from "../components/app/community/CommunitySettingsModal";
 import { LeaveCommunityModal } from "../components/app/community/LeaveCommunityModal";
 import { LegacyCommunityLock } from "../components/app/community/LegacyCommunityLock";
@@ -99,20 +100,20 @@ const CommunityHeader = () => {
 							<DropdownMenuTrigger
 								as="button"
 								type="button"
-								class="flex flex-row items-center gap-3 text-left px-2 py-1 rounded-md hover:bg-muted/50 transition-all duration-75 cursor-pointer w-fit aria-expanded:[&>svg]:rotate-180 aria-expanded:bg-muted/50 z-10"
+								class="flex flex-row items-center gap-3 text-left px-2 py-1 rounded-md hover:bg-muted/50 transition-all duration-75 cursor-pointer w-fit max-w-full aria-expanded:[&>svg]:rotate-180 aria-expanded:bg-muted/50 z-10"
 							>
 								<h2
-									class="m-0 text-xl w-full text-ellipsis whitespace-nowrap"
+									class="m-0 text-xl min-w-0 overflow-hidden text-ellipsis whitespace-nowrap"
 									classList={{ "text-neutral-50": hasBanner() }}
 								>
 									{community().community.name}
 								</h2>
 								<Show when={pendingApplications() > 0}>
-									<span class="text-xs leading-none font-medium bg-primary text-primary-foreground rounded-full px-1.5 py-0.5 min-w-5 text-center">
+									<span class="text-xs leading-none font-medium bg-primary text-primary-foreground rounded-full px-1.5 py-0.5 min-w-5 shrink-0 text-center">
 										{pendingApplications()}
 									</span>
 								</Show>
-								<CaretDownIcon class="text-muted-foreground mt-0.5 text-sm" />
+								<CaretDownIcon class="text-muted-foreground mt-0.5 text-sm shrink-0" />
 							</DropdownMenuTrigger>
 							<DropdownMenuPortal>
 								<DropdownMenuContent class="min-w-48 w-66.5">
@@ -144,20 +145,20 @@ const CommunityHeader = () => {
 					<button
 						type="button"
 						onClick={() => setMenuOpen(true)}
-						class="flex flex-row items-center gap-3 text-left px-2 py-1 rounded-md hover:bg-muted/50 transition-all duration-75 cursor-pointer w-fit z-10"
+						class="flex flex-row items-center gap-3 text-left px-2 py-1 rounded-md hover:bg-muted/50 transition-all duration-75 cursor-pointer w-fit max-w-full z-10"
 					>
 						<h2
-							class="m-0 text-xl w-full text-ellipsis whitespace-nowrap"
+							class="m-0 text-xl min-w-0 overflow-hidden text-ellipsis whitespace-nowrap"
 							classList={{ "text-neutral-50": hasBanner() }}
 						>
 							{community().community.name}
 						</h2>
 						<Show when={pendingApplications() > 0}>
-							<span class="text-xs leading-none font-medium bg-primary text-primary-foreground rounded-full px-1.5 py-0.5 min-w-5 text-center">
+							<span class="text-xs leading-none font-medium bg-primary text-primary-foreground rounded-full px-1.5 py-0.5 min-w-5 shrink-0 text-center">
 								{pendingApplications()}
 							</span>
 						</Show>
-						<CaretDownIcon class="text-muted-foreground mt-0.5 text-sm" />
+						<CaretDownIcon class="text-muted-foreground mt-0.5 text-sm shrink-0" />
 					</button>
 					<MenuDrawer
 						open={menuOpen()}
@@ -211,8 +212,11 @@ const CommunityHeader = () => {
 };
 
 const CommunityLayout: ParentComponent = (props) => {
-	const { preferences } = useUserPreferences();
+	const { preferences, setChannelSidebarWidth } = useUserPreferences();
 	const community = useCommunityContext();
+	const [dragWidth, setDragWidth] = createSignal<number | null>(null);
+	const [resizingSidebar, setResizingSidebar] = createSignal(false);
+	const sidebarWidth = () => dragWidth() ?? preferences().channelSidebarWidth;
 	const displayMembersAsSheet = createMediaQuery("(max-width: 1280px)");
 	const {
 		isMobile,
@@ -262,9 +266,11 @@ const CommunityLayout: ParentComponent = (props) => {
 	return (
 		<div
 			class="bg-background w-full h-full flex relative overflow-clip"
+			style={{ "--channel-sidebar-width": `${sidebarWidth()}px` }}
 			classList={{
 				"border-t border-l border-border": !isMobile(),
 				"rounded-tl-xl": !isMobile() && isDesktopNative(),
+				"select-none": resizingSidebar(),
 			}}
 		>
 			<aside
@@ -272,7 +278,8 @@ const CommunityLayout: ParentComponent = (props) => {
 				class="border-border flex flex-col bg-background"
 				style={{ translate: paneTranslate("nav") }}
 				classList={{
-					"h-full min-w-72 w-72 border-r": !isMobile(),
+					"h-full relative border-r w-[var(--channel-sidebar-width)] min-w-[var(--channel-sidebar-width)]":
+						!isMobile(),
 					"absolute inset-0 w-full pl-14 z-30 will-change-pane": isMobile(),
 					"transition-transform duration-300 ease-[cubic-bezier(0.25,1,0.5,1)] motion-reduce:transition-none":
 						isMobile() && !isDragging(),
@@ -298,6 +305,14 @@ const CommunityLayout: ParentComponent = (props) => {
 				</div>
 				<ChannelList />
 				<User.Status />
+				<Show when={!isMobile()}>
+					<ChannelSidebarResizer
+						width={sidebarWidth}
+						onDrag={setDragWidth}
+						onCommit={setChannelSidebarWidth}
+						onResizingChange={setResizingSidebar}
+					/>
+				</Show>
 			</aside>
 			<div
 				ref={(el) => createSwipe(el, swipe)}
@@ -306,11 +321,11 @@ const CommunityLayout: ParentComponent = (props) => {
 				classList={{
 					"w-full h-full": !isMobile(),
 					"max-h-[calc(100vh-var(--titlebar-height)-1px)]": !isMobile(),
-					"max-w-[calc(100vw-576px-56px-1px)]":
+					"max-w-[calc(100vw-var(--channel-sidebar-width)-288px-56px-1px)]":
 						!isMobile() &&
 						!displayMembersAsSheet() &&
 						preferences().membersListVisible,
-					"max-w-[calc(100vw-288px-56px-1px)]":
+					"max-w-[calc(100vw-var(--channel-sidebar-width)-56px-1px)]":
 						!isMobile() &&
 						(displayMembersAsSheet() || !preferences().membersListVisible),
 					"absolute inset-0 w-full h-full max-w-none! z-20 will-change-pane":
