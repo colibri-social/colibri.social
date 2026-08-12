@@ -57,11 +57,16 @@ import { cancelChannelTrayNotification } from "../notifications";
 import { getChannelParam } from "../utils/get-param";
 import { sameDay } from "../utils/message-order";
 import {
-	createDomScrollSurface,
-	createScrollAnchor,
+	createMessageScrollController,
+	KEYBOARD_SETTLE_MAX_FRAMES,
 	shouldLoadOlder,
 	shouldShowJumpToLatest,
 } from "../utils/message-scroll";
+import {
+	bindScrollGestures,
+	createDomScrollSurface,
+	domFrameScheduler,
+} from "../utils/message-scroll-dom";
 import { createMobilePane } from "../utils/mobile-pane";
 
 type MessageMeta = {
@@ -182,16 +187,18 @@ const ChannelLayout: ParentComponent = (props) => {
 	let handledOrphans = new Set<string>();
 	const [showJumpToLatest, setShowJumpToLatest] = createSignal(false);
 	let jumpEvaluationFrame: number | undefined;
+	let unbindGestures: (() => void) | undefined;
 
-	const scrollAnchor = createScrollAnchor(
+	const scrollAnchor = createMessageScrollController(
 		createDomScrollSurface(
 			() => scrollContainer,
 			() => messagesWrapper,
 		),
+		{ scheduler: domFrameScheduler() },
 	);
 
 	const scrollToBottom = () => {
-		scrollAnchor.pinToBottom();
+		scrollAnchor.pin();
 		setShowJumpToLatest(false);
 		channel.clearUnreadBoundary();
 	};
@@ -248,10 +255,10 @@ const ChannelLayout: ParentComponent = (props) => {
 		void channel.loadOlder({
 			prepare: warmEmbeds,
 			onBeforePrepend: () => {
-				if (untrack(() => didInitialScroll)) scrollAnchor.capture();
+				if (untrack(() => didInitialScroll)) scrollAnchor.captureRowAnchor();
 			},
 			onAfterPrepend: () => {
-				if (untrack(() => didInitialScroll)) scrollAnchor.restore();
+				if (untrack(() => didInitialScroll)) scrollAnchor.assert();
 			},
 		});
 	};
@@ -273,6 +280,7 @@ const ChannelLayout: ParentComponent = (props) => {
 
 	const observeRow = (node: Node): void => {
 		if (!(node instanceof HTMLElement)) return;
+		rowHeights.set(node, node.offsetHeight);
 		contentResizeObserver?.observe(node);
 	};
 
@@ -296,13 +304,20 @@ const ChannelLayout: ParentComponent = (props) => {
 			if (boundary === undefined || top < boundary) boundary = top;
 		}
 
+		if (scrollAnchor.isPinned()) {
+			scrollAnchor.assert();
+			scrollAnchor.settle();
+			scheduleJumpEvaluation();
+			return;
+		}
+
 		if (delta !== 0 && boundary !== undefined) {
 			scrollAnchor.absorbGrowth(boundary, delta);
 			scheduleJumpEvaluation();
 			return;
 		}
 
-		scrollAnchor.restore();
+		scrollAnchor.assert();
 		scheduleJumpEvaluation();
 	};
 
@@ -325,6 +340,9 @@ const ChannelLayout: ParentComponent = (props) => {
 			passive: true,
 		});
 
+		if (scrollContainer)
+			unbindGestures = bindScrollGestures(scrollContainer, scrollAnchor);
+
 		if (messagesWrapper) {
 			contentResizeObserver = new ResizeObserver(handleContentResize);
 			contentResizeObserver.observe(messagesWrapper);
@@ -345,7 +363,9 @@ const ChannelLayout: ParentComponent = (props) => {
 
 		if (scrollContainer) {
 			containerResizeObserver = new ResizeObserver(() => {
-				scrollAnchor.restore();
+				if (!didInitialScroll) return;
+				scrollAnchor.assert();
+				scrollAnchor.settle();
 				scheduleJumpEvaluation();
 			});
 			containerResizeObserver.observe(scrollContainer);
@@ -358,6 +378,8 @@ const ChannelLayout: ParentComponent = (props) => {
 		rowMutationObserver?.disconnect();
 		readObserver?.disconnect();
 		pingObserver?.disconnect();
+		unbindGestures?.();
+		scrollAnchor.dispose();
 		if (jumpEvaluationFrame !== undefined)
 			cancelAnimationFrame(jumpEvaluationFrame);
 		scrollContainer?.removeEventListener("scroll", handleScroll);
@@ -538,7 +560,11 @@ const ChannelLayout: ParentComponent = (props) => {
 			: -1;
 
 		if (cursorUri && cursorIdx === -1) {
-			if (channel.hasMore() && cursorWalkAttempts < FOCUS_WALK_CAP) {
+			if (
+				channel.hasMore() &&
+				!channel.error() &&
+				cursorWalkAttempts < FOCUS_WALK_CAP
+			) {
 				cursorWalkAttempts++;
 				loadOlderPreservingScroll();
 				return;
@@ -565,12 +591,13 @@ const ChannelLayout: ParentComponent = (props) => {
 
 			if (node) {
 				node.scrollIntoView({ block: "start" });
-				scrollAnchor.capture();
 				const landedAtBottom = scrollAnchor.isAtBottom();
+				if (landedAtBottom) scrollAnchor.pin();
+				else scrollAnchor.unpin();
 				setShowJumpToLatest(!landedAtBottom);
 				if (landedAtBottom) markReadNow();
 			} else {
-				scrollAnchor.pinToBottom();
+				scrollAnchor.pin();
 				setShowJumpToLatest(false);
 				markReadNow();
 			}
@@ -582,7 +609,8 @@ const ChannelLayout: ParentComponent = (props) => {
 			viewport.height,
 			() => {
 				if (!didInitialScroll) return;
-				scrollAnchor.restore();
+				scrollAnchor.assert();
+				scrollAnchor.settle();
 			},
 			{ defer: true },
 		),
@@ -592,9 +620,16 @@ const ChannelLayout: ParentComponent = (props) => {
 		on(
 			viewport.keyboardAnimating,
 			(animating) => {
-				if (animating) return;
 				if (!didInitialScroll) return;
-				scrollAnchor.restore();
+				if (animating) {
+					scrollAnchor.settle({
+						maxFrames: KEYBOARD_SETTLE_MAX_FRAMES,
+						hold: () => viewport.keyboardAnimating(),
+					});
+					return;
+				}
+				scrollAnchor.assert();
+				scrollAnchor.settle();
 				scheduleJumpEvaluation();
 			},
 			{ defer: true },
@@ -611,7 +646,9 @@ const ChannelLayout: ParentComponent = (props) => {
 					const node = scrollContainer.querySelector<HTMLElement>(
 						`[data-message-uri="${CSS.escape(target)}"]`,
 					);
-					node?.scrollIntoView({ behavior: "smooth", block: "center" });
+					if (!node) return;
+					scrollAnchor.unpin();
+					node.scrollIntoView({ behavior: "smooth", block: "center" });
 				});
 			},
 		),
@@ -623,7 +660,7 @@ const ChannelLayout: ParentComponent = (props) => {
 			(count) => {
 				if (!count) return; // skip initial 0
 				if (!didInitialScroll) return;
-				if (scrollAnchor.anchorMode() !== "bottom") return;
+				if (!scrollAnchor.isPinned()) return;
 				channel.clearUnreadBoundary();
 			},
 		),
@@ -636,7 +673,7 @@ const ChannelLayout: ParentComponent = (props) => {
 				if (!count) return; // skip initial 0
 				if (!didInitialScroll) return;
 				// The user just sent a message — always pin to the bottom.
-				scrollAnchor.pinToBottom();
+				scrollAnchor.pin();
 				setShowJumpToLatest(false);
 				channel.clearUnreadBoundary();
 			},
@@ -654,7 +691,7 @@ const ChannelLayout: ParentComponent = (props) => {
 				// Only the newest message can grow off the bottom edge when its
 				// inline editor expands — pin to the bottom so it stays in view.
 				if (!last || last.uri !== editing.uri) return;
-				scrollAnchor.pinToBottom();
+				scrollAnchor.pin();
 				setShowJumpToLatest(false);
 			},
 		),

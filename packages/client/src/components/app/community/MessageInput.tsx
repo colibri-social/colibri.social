@@ -271,7 +271,7 @@ export const MessageInput: Component<{
 		);
 
 		if (richTextMessageInput) {
-			setTimeout(() => richTextMessageInput.focus(), 0);
+			setTimeout(() => richTextMessageInput.focus({ preventScroll: true }), 0);
 		}
 	});
 

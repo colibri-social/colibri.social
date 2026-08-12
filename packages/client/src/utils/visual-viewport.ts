@@ -30,6 +30,7 @@ type KeyboardInsetDetail = {
 
 const SPRING_SAMPLE_COUNT = 60;
 const SETTLE_GRACE_MS = 60;
+const ANIMATION_QUIET_MS = 120;
 const CRITICAL_DAMPING_TOLERANCE = 1e-3;
 
 export const shellHeightForInset = (inset: number): number =>
@@ -138,6 +139,10 @@ export const createViewportMetrics = (): ViewportMetrics => {
 					settle,
 					detail.duration + SETTLE_GRACE_MS,
 				);
+			} else {
+				setKeyboardAnimating(true);
+				if (settleTimer !== undefined) clearTimeout(settleTimer);
+				settleTimer = window.setTimeout(settle, ANIMATION_QUIET_MS);
 			}
 
 			setKeyboardInset(clamped);

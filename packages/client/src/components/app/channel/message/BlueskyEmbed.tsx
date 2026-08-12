@@ -262,6 +262,11 @@ export const BlueskyEmbed: Component<{ uri: string; post: BskyPostRef }> = (
 													src={resolveEmbedImage(img.thumb)}
 													alt={img.alt || ""}
 													class="w-full h-auto max-h-72 object-cover rounded-sm bg-muted cursor-zoom-in"
+													style={{
+														"aspect-ratio": img.aspectRatio
+															? `${img.aspectRatio.width} / ${img.aspectRatio.height}`
+															: "16 / 9",
+													}}
 												/>
 											</Lightbox>
 										);

@@ -103,7 +103,9 @@ const InlineGif: Component<{ uri: string }> = (props) => {
 			<Lightbox src={props.uri}>
 				<img
 					class="max-w-64 w-full h-auto rounded-md bg-muted border-none cursor-pointer"
-					style={{ "aspect-ratio": reservedAspectRatio({ url: props.uri }) }}
+					style={{
+						"aspect-ratio": reservedAspectRatio({ url: props.uri }) ?? "16 / 9",
+					}}
 					src={props.uri}
 					alt="GIF"
 					loading="lazy"
@@ -243,7 +245,10 @@ const OpenGraphEmbed: Component<{ uri: string }> = (props) => {
 						<Lightbox src={imageUrl()!}>
 							<img
 								class="w-full h-auto rounded-sm mt-2 bg-muted border-none cursor-pointer"
-								style={{ "aspect-ratio": reservedAspectRatio(previewImage()) }}
+								style={{
+									"aspect-ratio":
+										reservedAspectRatio(previewImage()) ?? "16 / 9",
+								}}
 								src={imageUrl()}
 								alt={imageAlt()}
 								onLoad={(e) => rememberAspectRatio(imageUrl(), e.target)}

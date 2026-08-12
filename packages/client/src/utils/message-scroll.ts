@@ -1,20 +1,19 @@
-export type RowRef = unknown;
-
 export type ScrollSurface = {
 	getScrollTop(): number;
 	setScrollTop(value: number): void;
 	getScrollHeight(): number;
 	getClientHeight(): number;
 	rowCount(): number;
-	rowAt(index: number): RowRef | undefined;
 	rowOffset(index: number): number;
 	rowHeight(index: number): number;
-	rowOffsetOf(row: RowRef): number | undefined;
+	rowKey(index: number): string | undefined;
+	rowOffsetOfKey(key: string): number | undefined;
 };
 
+export type AnchorCandidate = { key: string; offset: number };
+
 export type Anchor =
-	| { mode: "bottom" }
-	| { mode: "row"; row: RowRef; offset: number }
+	| { mode: "row"; candidates: Array<AnchorCandidate> }
 	| { mode: "none" };
 
 export type LoadTriggerState = {
@@ -25,10 +24,27 @@ export type LoadTriggerState = {
 	ready: boolean;
 };
 
+export type FrameScheduler = {
+	request(callback: () => void): number;
+	cancel(handle: number): void;
+};
+
+export type SettleOptions = {
+	maxFrames?: number;
+	stableFrames?: number;
+	hold?: () => boolean;
+};
+
 export const BOTTOM_THRESHOLD_PX = 80;
 export const JUMP_TO_LATEST_DISTANCE_PX = 200;
 export const MIN_PREFETCH_PX = 400;
 export const PREFETCH_VIEWPORTS = 1;
+export const ANCHOR_CANDIDATES = 5;
+export const DEFAULT_SETTLE_MAX_FRAMES = 60;
+export const DEFAULT_SETTLE_STABLE_FRAMES = 2;
+export const KEYBOARD_SETTLE_MAX_FRAMES = 90;
+export const SELF_WRITE_EPSILON_PX = 1;
+export const RESTORE_EPSILON_PX = 0.5;
 
 export const distanceFromBottom = (surface: ScrollSurface): number =>
 	Math.max(
@@ -99,17 +115,32 @@ export const findAnchorRow = (surface: ScrollSurface): number => {
 
 export const captureAnchor = (
 	surface: ScrollSurface,
-	threshold = BOTTOM_THRESHOLD_PX,
+	limit = ANCHOR_CANDIDATES,
 ): Anchor => {
-	if (isPinnedToBottom(surface, threshold)) return { mode: "bottom" };
+	const start = findAnchorRow(surface);
+	if (start === -1) return { mode: "none" };
 
-	const index = findAnchorRow(surface);
-	if (index === -1) return { mode: "none" };
+	const candidates: Array<AnchorCandidate> = [];
+	const count = surface.rowCount();
 
-	const row = surface.rowAt(index);
-	if (row === undefined) return { mode: "none" };
+	for (let index = start; index < count && candidates.length < limit; index++) {
+		const key = surface.rowKey(index);
+		if (key === undefined) continue;
+		candidates.push({ key, offset: surface.rowOffset(index) });
+	}
 
-	return { mode: "row", row, offset: surface.rowOffset(index) };
+	for (
+		let index = start - 1;
+		index >= 0 && candidates.length < limit;
+		index--
+	) {
+		const key = surface.rowKey(index);
+		if (key === undefined) continue;
+		candidates.push({ key, offset: surface.rowOffset(index) });
+	}
+
+	if (candidates.length === 0) return { mode: "none" };
+	return { mode: "row", candidates };
 };
 
 export const anchoredScrollTop = (
@@ -117,13 +148,14 @@ export const anchoredScrollTop = (
 	anchor: Anchor,
 ): number | undefined => {
 	if (anchor.mode === "none") return undefined;
-	if (anchor.mode === "bottom")
-		return surface.getScrollHeight() - surface.getClientHeight();
 
-	const offset = surface.rowOffsetOf(anchor.row);
-	if (offset === undefined) return undefined;
+	for (const candidate of anchor.candidates) {
+		const offset = surface.rowOffsetOfKey(candidate.key);
+		if (offset === undefined) continue;
+		return surface.getScrollTop() + (offset - candidate.offset);
+	}
 
-	return surface.getScrollTop() + (offset - anchor.offset);
+	return undefined;
 };
 
 export const prefetchDistance = (clientHeight: number): number =>
@@ -146,114 +178,210 @@ export const decideGrowthSide = (
 	return clientHeight - boundaryOffset > boundaryOffset ? "lower" : "upper";
 };
 
-export type ScrollAnchorController = {
-	capture(): void;
-	restore(): boolean;
-	absorbGrowth(boundaryOffset: number, delta: number): void;
-	pinToBottom(): void;
-	handleScroll(): void;
-	anchorMode(): Anchor["mode"];
+export type MessageScrollController = {
+	isPinned(): boolean;
+	isGesturing(): boolean;
+	isSettling(): boolean;
 	isAtBottom(): boolean;
 	distanceFromBottom(): number;
+	anchorMode(): Anchor["mode"];
+	pin(settleOptions?: SettleOptions | false): void;
+	unpin(): void;
+	assert(): boolean;
+	settle(settleOptions?: SettleOptions): void;
+	captureRowAnchor(): void;
+	absorbGrowth(boundaryOffset: number, delta: number): void;
+	beginGesture(): void;
+	endGesture(): void;
+	cancelGesture(): void;
+	handleScroll(): void;
+	dispose(): void;
 };
 
-export const createScrollAnchor = (
+export const createMessageScrollController = (
 	surface: ScrollSurface,
-	options: { bottomThresholdPx?: number } = {},
-): ScrollAnchorController => {
+	options: { scheduler: FrameScheduler; bottomThresholdPx?: number },
+): MessageScrollController => {
 	const threshold = options.bottomThresholdPx ?? BOTTOM_THRESHOLD_PX;
-	let anchor: Anchor = { mode: "bottom" };
+	const scheduler = options.scheduler;
+
+	let pinned = true;
+	let anchor: Anchor = { mode: "none" };
+	let gesturing = false;
 	let lastWritten: number | undefined;
 
+	let settleHandle: number | undefined;
+	let settleFrames = 0;
+	let settleStable = 0;
+	let settleBudget = DEFAULT_SETTLE_MAX_FRAMES;
+	let settleTarget = DEFAULT_SETTLE_STABLE_FRAMES;
+	let settleHold: (() => boolean) | undefined;
+	let settleScrollHeight = -1;
+	let settleClientHeight = -1;
+
 	const write = (value: number): void => {
-		const max = Math.max(
-			0,
-			surface.getScrollHeight() - surface.getClientHeight(),
-		);
-		const clamped = Math.min(Math.max(value, 0), max);
-		lastWritten = clamped;
-		surface.setScrollTop(clamped);
+		surface.setScrollTop(value);
+		lastWritten = surface.getScrollTop();
 	};
 
-	const capture = () => {
-		anchor = captureAnchor(surface, threshold);
+	const assertBottom = (): boolean => {
+		const before = surface.getScrollTop();
+		write(surface.getScrollHeight());
+		return surface.getScrollTop() !== before;
 	};
 
-	const restore = () => {
+	const restoreRow = (): boolean => {
 		const target = anchoredScrollTop(surface, anchor);
-		if (target === undefined) return false;
-		if (Math.abs(target - surface.getScrollTop()) < 0.5) return false;
+		if (target === undefined) {
+			anchor = captureAnchor(surface);
+			return false;
+		}
+		if (Math.abs(target - surface.getScrollTop()) < RESTORE_EPSILON_PX)
+			return false;
 		write(target);
 		return true;
 	};
 
+	const cancelSettle = (): void => {
+		if (settleHandle !== undefined) scheduler.cancel(settleHandle);
+		settleHandle = undefined;
+		settleHold = undefined;
+	};
+
+	const step = (): void => {
+		settleHandle = undefined;
+		if (!pinned || gesturing) {
+			settleHold = undefined;
+			return;
+		}
+
+		assertBottom();
+
+		const scrollHeight = surface.getScrollHeight();
+		const clientHeight = surface.getClientHeight();
+		const quiet =
+			scrollHeight === settleScrollHeight &&
+			clientHeight === settleClientHeight &&
+			distanceFromBottom(surface) < SELF_WRITE_EPSILON_PX;
+
+		if (quiet) {
+			settleStable++;
+		} else {
+			settleStable = 0;
+			settleScrollHeight = scrollHeight;
+			settleClientHeight = clientHeight;
+		}
+
+		settleFrames++;
+		if (settleFrames >= settleBudget) {
+			settleHold = undefined;
+			return;
+		}
+		if (settleStable >= settleTarget && settleHold?.() !== true) {
+			settleHold = undefined;
+			return;
+		}
+
+		settleHandle = scheduler.request(step);
+	};
+
+	const settle = (settleOptions: SettleOptions = {}): void => {
+		if (!pinned || gesturing) return;
+		settleBudget = settleOptions.maxFrames ?? DEFAULT_SETTLE_MAX_FRAMES;
+		settleTarget = settleOptions.stableFrames ?? DEFAULT_SETTLE_STABLE_FRAMES;
+		if (settleOptions.hold) settleHold = settleOptions.hold;
+		settleFrames = 0;
+		settleStable = 0;
+		settleScrollHeight = -1;
+		settleClientHeight = -1;
+		if (settleHandle === undefined) settleHandle = scheduler.request(step);
+	};
+
 	return {
-		capture,
-		restore,
+		isPinned: () => pinned,
+		isGesturing: () => gesturing,
+		isSettling: () => settleHandle !== undefined,
+		isAtBottom: () => isPinnedToBottom(surface, threshold),
+		distanceFromBottom: () => distanceFromBottom(surface),
+		anchorMode: () => anchor.mode,
+
+		pin(settleOptions) {
+			pinned = true;
+			anchor = { mode: "none" };
+			assertBottom();
+			if (settleOptions !== false) settle(settleOptions ?? {});
+		},
+
+		unpin() {
+			pinned = false;
+			cancelSettle();
+			anchor = captureAnchor(surface);
+		},
+
+		assert() {
+			if (gesturing) return false;
+			return pinned ? assertBottom() : restoreRow();
+		},
+
+		settle,
+
+		captureRowAnchor() {
+			anchor = captureAnchor(surface);
+		},
+
 		absorbGrowth(boundaryOffset, delta) {
-			if (anchor.mode === "bottom" || delta === 0) {
-				restore();
+			if (gesturing) return;
+			if (pinned) {
+				assertBottom();
+				return;
+			}
+			if (delta === 0) {
+				restoreRow();
 				return;
 			}
 
 			const side = decideGrowthSide(boundaryOffset, surface.getClientHeight());
 			if (side === "upper" || boundaryOffset <= 0) {
-				restore();
+				restoreRow();
 				return;
 			}
 
 			write(surface.getScrollTop() + delta);
-			capture();
+			anchor = captureAnchor(surface);
 		},
-		pinToBottom() {
-			anchor = { mode: "bottom" };
-			write(surface.getScrollHeight());
+
+		beginGesture() {
+			gesturing = true;
+			cancelSettle();
 		},
+
+		endGesture() {
+			if (!gesturing) return;
+			gesturing = false;
+			lastWritten = undefined;
+			pinned = isPinnedToBottom(surface, threshold);
+			anchor = pinned ? { mode: "none" } : captureAnchor(surface);
+			if (pinned) settle();
+		},
+
+		cancelGesture() {
+			if (!gesturing) return;
+			gesturing = false;
+			if (pinned) settle();
+		},
+
 		handleScroll() {
 			const current = surface.getScrollTop();
-			if (lastWritten !== undefined && Math.abs(current - lastWritten) < 1)
+			if (
+				lastWritten !== undefined &&
+				Math.abs(current - lastWritten) < SELF_WRITE_EPSILON_PX
+			)
 				return;
 			lastWritten = undefined;
-			anchor = captureAnchor(surface, threshold);
+			if (gesturing || pinned) return;
+			anchor = captureAnchor(surface);
 		},
-		anchorMode: () => anchor.mode,
-		isAtBottom: () => isPinnedToBottom(surface, threshold),
-		distanceFromBottom: () => distanceFromBottom(surface),
-	};
-};
 
-export const createDomScrollSurface = (
-	getContainer: () => HTMLElement | undefined,
-	getContent: () => HTMLElement | undefined,
-): ScrollSurface => {
-	const rows = (): HTMLCollection | undefined => getContent()?.children;
-
-	const rowElement = (index: number): HTMLElement | undefined => {
-		const element = rows()?.[index];
-		return element instanceof HTMLElement ? element : undefined;
-	};
-
-	const offsetOf = (element: HTMLElement): number =>
-		element.offsetTop - (getContainer()?.scrollTop ?? 0);
-
-	return {
-		getScrollTop: () => getContainer()?.scrollTop ?? 0,
-		setScrollTop: (value) => {
-			const container = getContainer();
-			if (container) container.scrollTop = value;
-		},
-		getScrollHeight: () => getContainer()?.scrollHeight ?? 0,
-		getClientHeight: () => getContainer()?.clientHeight ?? 0,
-		rowCount: () => rows()?.length ?? 0,
-		rowAt: (index) => rowElement(index),
-		rowOffset: (index) => {
-			const element = rowElement(index);
-			return element ? offsetOf(element) : 0;
-		},
-		rowHeight: (index) => rowElement(index)?.offsetHeight ?? 0,
-		rowOffsetOf: (row) => {
-			if (!(row instanceof HTMLElement) || !row.isConnected) return undefined;
-			return offsetOf(row);
-		},
+		dispose: cancelSettle,
 	};
 };

@@ -20,6 +20,24 @@ const stubWindow = (): StubWindow => {
 	return target;
 };
 
+const stubWindowWithTimers = (): StubWindow & { runTimers: () => void } => {
+	let pending: Array<() => void> = [];
+	const target = Object.assign(new EventTarget(), {
+		innerHeight: INNER_HEIGHT,
+		setTimeout: (callback: () => void) => pending.push(callback),
+		clearTimeout: () => {
+			pending = [];
+		},
+		runTimers: () => {
+			const queued = pending;
+			pending = [];
+			for (const callback of queued) callback();
+		},
+	});
+	vi.stubGlobal("window", target);
+	return target;
+};
+
 const trackHeight = (): {
 	metrics: ViewportMetrics;
 	seen: Array<number | undefined>;
@@ -123,7 +141,7 @@ describe("createViewportMetrics", () => {
 
 		win.dispatchEvent(nativeInset(320));
 		expect(metrics.keyboardTransition()).toBeUndefined();
-		expect(metrics.keyboardAnimating()).toBe(false);
+		expect(metrics.keyboardAnimating()).toBe(true);
 
 		win.dispatchEvent(springInset(0));
 
@@ -134,6 +152,23 @@ describe("createViewportMetrics", () => {
 		expect(transition?.durationMs).toBe(250);
 		expect(transition?.samples).toHaveLength(60);
 		expect(metrics.keyboardAnimating()).toBe(true);
+
+		dispose();
+	});
+
+	it("settles a bare inset once the per-frame samples stop arriving", () => {
+		const win = stubWindowWithTimers();
+		const { metrics, dispose } = trackHeight();
+
+		win.dispatchEvent(nativeInset(120));
+		win.dispatchEvent(nativeInset(240));
+		win.dispatchEvent(nativeInset(320));
+		expect(metrics.keyboardAnimating()).toBe(true);
+
+		win.runTimers();
+
+		expect(metrics.keyboardAnimating()).toBe(false);
+		expect(metrics.keyboardInset()).toBe(320);
 
 		dispose();
 	});
