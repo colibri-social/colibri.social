@@ -929,7 +929,7 @@ const ChannelLayout: ParentComponent = (props) => {
 									class="absolute bottom-2 left-1/2 -translate-x-1/2 z-10 rounded-full border shadow-md"
 								>
 									<ArrowDownIcon />
-									Jump to latest
+									Jump to bottom
 								</Button>
 							</Show>
 						</div>
