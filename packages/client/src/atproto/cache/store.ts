@@ -1,3 +1,4 @@
+import { classifyThrown } from "../../errors/classify";
 import { ColibriError } from "../../errors/error";
 import { reportError } from "../../errors/report";
 import { createLogger } from "../../utils/logger";
@@ -52,7 +53,7 @@ export const noteCacheFailure = (err: unknown): void => {
 	if (brokenReported) return;
 	brokenReported = true;
 	log.warn("the offline cache is unusable, falling back to network reads", {
-		error: err,
+		code: classifyThrown(err).code,
 	});
 	reportError(new ColibriError({ code: "CacheUnavailable", cause: err }), {
 		stage: "cache",

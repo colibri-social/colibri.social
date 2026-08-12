@@ -35,6 +35,7 @@ import {
 	TextFieldTextArea,
 } from "../../../components/ui/TextField";
 import { useUserContext } from "../../../contexts/User";
+import { classifyThrown } from "../../../errors/classify";
 import { createLogger } from "../../../utils/logger";
 import { readableUserColor } from "../../../utils/readable-color";
 import { resolvedTheme } from "../../../utils/theme";
@@ -192,7 +193,9 @@ export const GeneralPage: Component = () => {
 			toast.success("Profile updated.");
 			resetEdits();
 		} catch (err) {
-			log.error("saving the profile failed", { error: err });
+			log.error("saving the profile failed", {
+				code: classifyThrown(err).code,
+			});
 			toast.error("Failed to update profile.");
 		} finally {
 			setLoading(false);

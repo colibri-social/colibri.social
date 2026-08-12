@@ -25,6 +25,7 @@ import HouseIcon from "~icons/ph/house";
 import LockSimpleIcon from "~icons/ph/lock-simple";
 import { communityUriToUrlCompatible } from "../atproto/community-uri-to-url-compatible";
 import { putRecord } from "../atproto/pds";
+import { AppBadge } from "../components/app/AppBadge";
 import { AppReconnectingIndicator } from "../components/app/AppReconnectingIndicator";
 import { CommunityCreationModal } from "../components/app/CommunityCreationModal";
 import { CommunityAvatar as SharedCommunityAvatar } from "../components/app/community/CommunityAvatar";
@@ -57,6 +58,7 @@ import {
 import { useSocketContext } from "../contexts/Socket";
 import { useUserContext } from "../contexts/User";
 import { useViewport } from "../contexts/Viewport";
+import { classifyThrown } from "../errors/classify";
 import { isTauriRuntime } from "../notifications/environment";
 import { trackAppShellMounted } from "../utils/app-shell";
 import { LongPressSensors } from "../utils/create-longpress-sensor";
@@ -412,7 +414,9 @@ const AppLayout: ParentComponent = (props) => {
 
 			await putRecord(agent, repo, "social.colibri.actor.data", "self", record);
 		} catch (err) {
-			log.error("saving the community order failed", { error: err });
+			log.error("saving the community order failed", {
+				code: classifyThrown(err).code,
+			});
 			toast.error("Failed to save community order.");
 			setCommittedOrder(previous);
 		}
@@ -470,6 +474,7 @@ const AppLayout: ParentComponent = (props) => {
 				/>
 			</Show>
 			<NativeNotifications />
+			<AppBadge />
 			<NotificationPromptDialog />
 			<TitleBar />
 			<div class="flex w-full relative h-[calc(100%-var(--titlebar-height))]">

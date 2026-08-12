@@ -1,5 +1,6 @@
 import { type Component, onCleanup, onMount } from "solid-js";
 import { toast } from "somoto";
+import { classifyThrown } from "../../errors/classify";
 import { isTauriRuntime } from "../../notifications/environment";
 import { createLogger } from "../../utils/logger";
 import {
@@ -27,7 +28,7 @@ const checkAndNotify = async () => {
 	try {
 		await result.download();
 	} catch (err) {
-		log.error("update download failed", { error: err });
+		log.error("update download failed", { code: classifyThrown(err).code });
 		return;
 	}
 

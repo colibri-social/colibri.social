@@ -1,13 +1,25 @@
-import { type Component, createSignal, onMount } from "solid-js";
+import { type Component, createSignal, onMount, Show } from "solid-js";
 import { toast } from "somoto";
 import { writeNotificationPreference } from "../../../atproto/notificationPreference";
+import { resolveBlob } from "../../../atproto/resolve-blob";
 import type { NotificationLevel } from "../../../atproto/xrpc/social/colibri/actor";
 import { useUserContext } from "../../../contexts/User";
 import { useUserPreferences } from "../../../contexts/UserPreferences";
-import { enablePushNotifications, isWebRuntime } from "../../../notifications";
+import { classifyThrown } from "../../../errors";
+import {
+	enablePushNotifications,
+	isWebRuntime,
+	notify,
+} from "../../../notifications";
 import { unsubscribeFcmPush } from "../../../notifications/push-fcm";
 import { unsubscribeWebPush } from "../../../notifications/push-web";
+import {
+	cacheNativeAvatar,
+	isNativeNotificationSupported,
+} from "../../../notifications/tauri-native";
+import { setAppBadge } from "../../../utils/badge";
 import { createLogger } from "../../../utils/logger";
+import { Button } from "../../ui/Button";
 import {
 	Switch,
 	SwitchControl,
@@ -19,10 +31,76 @@ import { SettingsPage } from "../common/SettingsModal";
 
 const log = createLogger("settings/notifications");
 
+const TEST_TOOLS_STORAGE_KEY = "colibri:notification-tools";
+
+const showTestTools = (): boolean => {
+	if (import.meta.env.DEV) return true;
+	if (typeof localStorage === "undefined") return false;
+	try {
+		return localStorage.getItem(TEST_TOOLS_STORAGE_KEY) === "1";
+	} catch {
+		return false;
+	}
+};
+
 export const NotificationsPage: Component = () => {
 	const user = useUserContext();
 	const { preferences, setNativeNotifications } = useUserPreferences();
 	const [busy, setBusy] = createSignal(false);
+	const [testBusy, setTestBusy] = createSignal(false);
+
+	const sendTestNotification = async () => {
+		setTestBusy(true);
+		try {
+			const channelUri = `at://${user.did}/social.colibri.channel.text/test`;
+			const messageUri = `at://${user.did}/social.colibri.channel.message/${Date.now()}`;
+			let iconPath: string | undefined;
+
+			if (user.data.avatar) {
+				const url = resolveBlob(user.did, user.data.avatar, "small");
+				if (url && (await isNativeNotificationSupported())) {
+					try {
+						const response = await fetch(url);
+						if (response.ok) {
+							iconPath = await cacheNativeAvatar(
+								user.did,
+								new Uint8Array(await response.arrayBuffer()),
+							);
+						}
+					} catch {}
+				}
+			}
+
+			await notify({
+				title: user.data.displayName || user.handle,
+				subtitle: "Mentioned you",
+				body: "This is a test notification. If you can see this, notifications are working.",
+				tag: messageUri,
+				iconPath,
+				data: { channelUri, messageUri },
+			});
+		} catch (err) {
+			log.error("sending the test notification failed", {
+				code: classifyThrown(err).code,
+			});
+			toast.error("Failed to send the test notification.");
+		} finally {
+			setTestBusy(false);
+		}
+	};
+
+	const [testBadge, setTestBadge] = createSignal(0);
+
+	const bumpTestBadge = async () => {
+		const next = testBadge() + 1;
+		setTestBadge(next);
+		await setAppBadge(next);
+	};
+
+	const resetTestBadge = async () => {
+		setTestBadge(0);
+		await setAppBadge(0);
+	};
 
 	const [level, setLevel] = createSignal<NotificationLevel>("all");
 	const [levelBusy, setLevelBusy] = createSignal(false);
@@ -43,7 +121,9 @@ export const NotificationsPage: Component = () => {
 		try {
 			await writeNotificationPreference(user.atproto.agent, user.did, next);
 		} catch (err) {
-			log.error("saving the notification level failed", { error: err });
+			log.error("saving the notification level failed", {
+				code: classifyThrown(err).code,
+			});
 			setLevel(previous);
 			toast.error("Failed to update notification level.");
 		} finally {
@@ -81,7 +161,9 @@ export const NotificationsPage: Component = () => {
 				);
 			}
 		} catch (err) {
-			log.error("updating push registration failed", { error: err });
+			log.error("updating push registration failed", {
+				code: classifyThrown(err).code,
+			});
 			toast.error("Failed to update notification settings.");
 		} finally {
 			setBusy(false);
@@ -123,6 +205,46 @@ export const NotificationsPage: Component = () => {
 					<SwitchThumb />
 				</SwitchControl>
 			</Switch>
+			<Show when={showTestTools()}>
+				<div class="flex flex-row items-center justify-between gap-4">
+					<div class="flex flex-col gap-1">
+						<span class="text-sm font-medium">Test notification</span>
+						<span class="text-sm text-muted-foreground max-w-120">
+							Sends yourself a sample notification so you can check how it looks
+							and that it arrives.
+						</span>
+					</div>
+					<Button
+						variant="outline"
+						onClick={sendTestNotification}
+						disabled={testBusy() || !preferences().nativeNotifications}
+					>
+						Send
+					</Button>
+				</div>
+				<div class="flex flex-row items-center justify-between gap-4">
+					<div class="flex flex-col gap-1">
+						<span class="text-sm font-medium">Test app icon badge</span>
+						<span class="text-sm text-muted-foreground max-w-120">
+							Counts up on the app icon so you can check the badge renders, and
+							that clearing it removes the badge rather than showing a zero.
+							Real unread mentions take over again as soon as one arrives.
+						</span>
+					</div>
+					<div class="flex flex-row items-center gap-2 shrink-0">
+						<Button variant="outline" onClick={bumpTestBadge}>
+							Add ({testBadge()})
+						</Button>
+						<Button
+							variant="outline"
+							onClick={resetTestBadge}
+							disabled={testBadge() === 0}
+						>
+							Clear
+						</Button>
+					</div>
+				</div>
+			</Show>
 		</SettingsPage>
 	);
 };

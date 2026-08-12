@@ -8,6 +8,7 @@ import {
 } from "solid-js";
 import { toast } from "somoto";
 import { removeMute, writeMute } from "../atproto/mutes";
+import { classifyThrown } from "../errors/classify";
 import { AtURI } from "../utils/at-uri";
 import { createLogger } from "../utils/logger";
 import { useSocketContext } from "./Socket";
@@ -108,7 +109,7 @@ export const MutesContextProvider: ParentComponent = (props) => {
 			if (muted) await writeMute(user.atproto.agent, user.did, subject);
 			else await removeMute(user.atproto.agent, user.did, subject);
 		} catch (err) {
-			log.error("mute write failed", { error: err });
+			log.error("mute write failed", { code: classifyThrown(err).code });
 			applySubject(subject, !muted);
 			toast.error(failureMessage);
 		}

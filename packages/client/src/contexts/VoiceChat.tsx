@@ -11,6 +11,7 @@ import {
 } from "solid-js";
 import { createStore } from "solid-js/store";
 import { toast } from "somoto";
+import { classifyThrown } from "../errors/classify";
 import { showError } from "../errors/show-error";
 import {
 	createNoiseSuppressor,
@@ -302,7 +303,7 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 			return;
 		}
 
-		log.error("setup failed", { error: err });
+		log.error("setup failed", { code: classifyThrown(err).code });
 		reportVoiceFailure(err, "setup");
 
 		toast.error("Couldn't join the voice channel", {
@@ -712,7 +713,7 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 			log.warn("could not receive a participant's stream", {
 				producerId,
 				owner,
-				error: err,
+				code: classifyThrown(err).code,
 			});
 			reportVoiceFailure(err, "consume");
 			showError(err, {
@@ -932,7 +933,9 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 		try {
 			await startMic();
 		} catch (err) {
-			log.warn("microphone unavailable, joining listen-only", { error: err });
+			log.warn("microphone unavailable, joining listen-only", {
+				code: classifyThrown(err).code,
+			});
 			reportVoiceFailure(err, "mic");
 			toast("Joined without a microphone", {
 				description: "Colibri couldn't access your input device.",
@@ -1063,7 +1066,9 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 			});
 			token = data.token;
 		} catch (err) {
-			log.error("service-auth fetch failed", { error: err });
+			log.error("service-auth fetch failed", {
+				code: classifyThrown(err).code,
+			});
 			scheduleReconnect(channelUri);
 			return;
 		}
@@ -1399,7 +1404,7 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 			await produceVideo("cam", track);
 			playSound("camOn");
 		} catch (err) {
-			log.error("camera failed", { error: err });
+			log.error("camera failed", { code: classifyThrown(err).code });
 		}
 	};
 

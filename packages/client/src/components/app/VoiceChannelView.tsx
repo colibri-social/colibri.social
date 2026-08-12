@@ -24,6 +24,7 @@ import { useCommunityContext } from "../../contexts/Community";
 import { useUserContext } from "../../contexts/User";
 import { useUserPreferences } from "../../contexts/UserPreferences";
 import { ConnectionState, useVoiceChatContext } from "../../contexts/VoiceChat";
+import { classifyThrown } from "../../errors/classify";
 import { preloadNoiseSuppressor } from "../../hooks/createNoiseSuppressor";
 import { noiseMode } from "../../hooks/noise/modes";
 import { getAverageColorFromUrl } from "../../utils/get-average-color";
@@ -81,7 +82,7 @@ export const VideoTile: Component<{
 				log.warn("play() rejected", {
 					via: reason,
 					tag: tag(),
-					error: err,
+					code: classifyThrown(err).code,
 					...snapshot(el),
 				}),
 			);

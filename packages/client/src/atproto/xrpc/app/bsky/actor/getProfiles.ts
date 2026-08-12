@@ -1,4 +1,5 @@
 import type { AppBskyActorDefs } from "@atproto/api";
+import { classifyThrown } from "../../../../../errors/classify";
 import { createLogger } from "../../../../../utils/logger";
 import { readJson } from "../../../read-json";
 
@@ -29,7 +30,9 @@ export const getProfiles = async (
 		const body = await readJson<Response>(res);
 		return body?.profiles ?? [];
 	} catch (err) {
-		log.warn("fetching Bluesky profiles failed", { error: err });
+		log.warn("fetching Bluesky profiles failed", {
+			code: classifyThrown(err).code,
+		});
 		return [];
 	}
 };

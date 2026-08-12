@@ -1,3 +1,4 @@
+import { classifyThrown } from "../errors/classify";
 import { createLogger } from "../utils/logger";
 
 const log = createLogger("pds-lookup");
@@ -39,7 +40,10 @@ export const resolvePdsHost = async (did: string): Promise<string | null> => {
 
 		return new URL(service.serviceEndpoint).host;
 	} catch (err) {
-		log.warn("resolving the PDS host failed", { error: err, did });
+		log.warn("resolving the PDS host failed", {
+			code: classifyThrown(err).code,
+			did,
+		});
 		return null;
 	}
 };

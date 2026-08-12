@@ -101,6 +101,7 @@ export const unregisterAllPush = async (
 
 export {
 	isAndroidTauriRuntime,
+	isAppUnfocused,
 	isTauriRuntime,
 	isWebRuntime,
 } from "./environment";

@@ -4,11 +4,20 @@ const isPermissionGranted = vi.fn();
 const requestPermission = vi.fn();
 const sendNotification = vi.fn();
 
+const isNativeNotificationSupported = vi.fn();
+
 vi.mock("@tauri-apps/plugin-notification", () => ({
 	isPermissionGranted: () => isPermissionGranted(),
 	requestPermission: () => requestPermission(),
 	sendNotification: (payload: unknown) => sendNotification(payload),
 	removeActive: () => Promise.resolve(),
+}));
+
+vi.mock("./tauri-native", () => ({
+	isNativeNotificationSupported: () => isNativeNotificationSupported(),
+	showNativeNotification: vi.fn(),
+	dismissNativeChannel: vi.fn(),
+	cacheNativeAvatar: vi.fn(),
 }));
 
 const { tauriBackend } = await import("./tauri");
@@ -20,6 +29,7 @@ beforeEach(() => {
 	vi.stubGlobal("window", { __TAURI_INTERNALS__: {} });
 	isPermissionGranted.mockResolvedValue(true);
 	requestPermission.mockResolvedValue("granted");
+	isNativeNotificationSupported.mockResolvedValue(false);
 });
 
 afterEach(() => {
@@ -50,6 +60,14 @@ describe("tauriBackend.getPermission", () => {
 		await expect(tauriBackend.getPermission()).resolves.toBe("denied");
 		expect(isPermissionGranted).not.toHaveBeenCalled();
 	});
+
+	it("ignores the webview notification permission when native toasts work", async () => {
+		isPermissionGranted.mockResolvedValue(false);
+		isNativeNotificationSupported.mockResolvedValue(true);
+
+		await expect(tauriBackend.getPermission()).resolves.toBe("granted");
+		expect(isPermissionGranted).not.toHaveBeenCalled();
+	});
 });
 
 describe("tauriBackend.requestPermission", () => {
@@ -70,5 +88,13 @@ describe("tauriBackend.requestPermission", () => {
 		isPermissionGranted.mockRejectedValue(ACL_REFUSAL);
 
 		await expect(tauriBackend.requestPermission()).resolves.toBe("denied");
+	});
+
+	it("skips the webview prompt entirely when native toasts work", async () => {
+		isNativeNotificationSupported.mockResolvedValue(true);
+
+		await expect(tauriBackend.requestPermission()).resolves.toBe("granted");
+		expect(isPermissionGranted).not.toHaveBeenCalled();
+		expect(requestPermission).not.toHaveBeenCalled();
 	});
 });

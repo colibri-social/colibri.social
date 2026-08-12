@@ -1,6 +1,7 @@
 import type { Tensor } from "onnxruntime-web";
 import ortWasmUrl from "onnxruntime-web/ort-wasm-simd-threaded.wasm?url";
 import type { NoiseSuppressionMode } from "../../contexts/UserPreferences";
+import { classifyThrown } from "../../errors/classify";
 import { createLogger } from "../../utils/logger";
 import { BIN_COUNT, HOP_SIZE, SpectralStream } from "./stft";
 
@@ -98,7 +99,9 @@ async function liteRtFactory(): Promise<LiteRtFactory | null> {
 					/^(INFO|VERBOSE)\b/.test(text) ? log.debug(text) : log.warn(text),
 			});
 	} catch (err) {
-		log.warn("LiteRT print hooks unavailable", { error: err });
+		log.warn("LiteRT print hooks unavailable", {
+			code: classifyThrown(err).code,
+		});
 		return null;
 	}
 }

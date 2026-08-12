@@ -948,7 +948,7 @@ export const startOAuthSignIn = async (
 
 		log.warn(
 			"sign-in stalled in local storage, retrying with localStorage-backed OAuth storage",
-			{ error: err },
+			{ code: classifyThrown(err).code },
 		);
 		Sentry.addBreadcrumb({
 			category: "oauth.storage",

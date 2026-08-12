@@ -1,4 +1,5 @@
 import type { AppBskyFeedDefs } from "@atproto/api";
+import { classifyThrown } from "../../../../../errors/classify";
 import { createLogger } from "../../../../../utils/logger";
 import { readJson } from "../../../read-json";
 
@@ -28,7 +29,9 @@ export const getPosts = async (
 		const body = await readJson<Response>(res);
 		return body?.posts ?? [];
 	} catch (err) {
-		log.warn("fetching Bluesky posts failed", { error: err });
+		log.warn("fetching Bluesky posts failed", {
+			code: classifyThrown(err).code,
+		});
 		return [];
 	}
 };

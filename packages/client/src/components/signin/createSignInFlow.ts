@@ -24,6 +24,7 @@ import {
 	searchActorsTypeahead,
 } from "../../atproto/xrpc/app/bsky/actor/searchActorsTypeahead";
 import { useAuthContext } from "../../contexts/Auth";
+import { classifyThrown } from "../../errors/classify";
 import type { ErrorCopy } from "../../errors/copy";
 import { classifyOAuthParams, isSignInDenial } from "../../errors/oauth";
 import { showError } from "../../errors/show-error";
@@ -236,7 +237,9 @@ export const createSignInFlow = (config: { mode?: SignInMode } = {}) => {
 			setIdentity(await lookupProfile(did, input));
 			goToStep("confirm");
 		} catch (err) {
-			log.error("resolving the handle failed", { error: err });
+			log.error("resolving the handle failed", {
+				code: classifyThrown(err).code,
+			});
 			showFailure(err);
 		} finally {
 			setBusy(false);
@@ -306,7 +309,9 @@ export const createSignInFlow = (config: { mode?: SignInMode } = {}) => {
 				},
 			);
 		} catch (err) {
-			log.error("handing off to the provider failed", { error: err });
+			log.error("handing off to the provider failed", {
+				code: classifyThrown(err).code,
+			});
 			showFailure(err);
 		} finally {
 			if (!signingUp) endSignInAttempt();

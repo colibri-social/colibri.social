@@ -6,6 +6,7 @@ import {
 	Switch as SwitchFlow,
 } from "solid-js";
 import { toast } from "somoto";
+import { classifyThrown } from "../../../errors/classify";
 import { createLogger } from "../../../utils/logger";
 import { Spinner } from "../../icons/Spinner";
 import { Button } from "../../ui/Button";
@@ -163,7 +164,7 @@ export function RecordBootstrapModal<T>(props: {
 				setSyncing(source.supportsSync && source.defaultSync === true);
 				setStep("confirm");
 			} catch (err) {
-				log.error("import failed", { error: err });
+				log.error("import failed", { code: classifyThrown(err).code });
 				toast.error("Failed to load existing data.");
 				setStep("choice");
 			}
@@ -185,7 +186,7 @@ export function RecordBootstrapModal<T>(props: {
 			});
 			props.onOpenChange?.(false);
 		} catch (err) {
-			log.error("submit failed", { error: err });
+			log.error("submit failed", { code: classifyThrown(err).code });
 			toast.error("Failed to save.");
 		} finally {
 			setSubmitting(false);

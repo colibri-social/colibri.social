@@ -53,7 +53,7 @@ export const createStatusEditor = () => {
 
 			toast.success("Status updated.");
 		} catch (err) {
-			log.error("saving the status failed", { error: err });
+			log.error("saving the status failed", { code: classifyThrown(err).code });
 			toast.error("Failed to update status.");
 		} finally {
 			setLoading(false);

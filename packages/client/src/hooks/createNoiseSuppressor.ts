@@ -7,6 +7,7 @@ import rnnoiseWasmSimdPath from "@sapphi-red/web-noise-suppressor/rnnoise_simd.w
 import rnnoiseWorkletPath from "@sapphi-red/web-noise-suppressor/rnnoiseWorklet.js?url";
 import type { DeepFilterNet3Core } from "deepfilternet3-noise-filter";
 import type { NoiseSuppressionMode } from "../contexts/UserPreferences";
+import { classifyThrown } from "../errors/classify";
 import { createLogger } from "../utils/logger";
 import {
 	clampLevel,
@@ -172,7 +173,7 @@ export async function createNoiseSuppressor(
 			dfnNode = node;
 			return node;
 		})().catch((err) => {
-			log.warn("DeepFilterNet unavailable", { error: err });
+			log.warn("DeepFilterNet unavailable", { code: classifyThrown(err).code });
 			dfnPromise = null;
 			throw err;
 		});

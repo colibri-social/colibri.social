@@ -145,12 +145,27 @@ and structured data are redacted for tokens, JWTs and emails before being stored
 
 ```ts
 const log = createLogger("voice");
-log.warn("microphone unavailable, joining listen-only", { error: err });
+log.warn("microphone unavailable, joining listen-only", {
+	code: classifyThrown(err).code,
+});
 ```
 
 Put detail in the second argument rather than interpolating it into the message, so entries
 stay groupable. `console.*` is rejected by Biome in `packages/client`; only the logger and
 the two dev-only diagnostic sinks may use it.
+
+Log the classified `code`, never the raw error. The ring buffer is serialised with
+`JSON.stringify`, and an `Error` has no enumerable own properties, so `{ error: err }` is
+stored as `{"error":{}}` and the diagnostics a user copies from the About page tell you
+nothing. A code is stable enough to group on and safe to keep. When a failure has genuinely
+useful context, add it as its own field next to the code:
+
+```ts
+log.warn("resolving the PDS host failed", { code: classifyThrown(err).code, did });
+```
+
+If you need the full error preserved rather than summarised, that is what `reportError` and
+`showError` are for. They send the cause to Sentry.
 
 ## Seeing all of it
 

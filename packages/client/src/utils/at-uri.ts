@@ -11,6 +11,20 @@ export const toRecordUri = (
 		? rkeyOrUri
 		: `at://${did}/${collection}/${rkeyOrUri}`;
 
+const TEXT_CHANNEL_COLLECTION = "social.colibri.channel.text";
+
+export const channelIdentity = (
+	channelUri: string,
+): { communityDid: string; rkey: string } => {
+	const segments = channelUri.replace("at://", "").split("/");
+	return { communityDid: segments[0], rkey: segments[segments.length - 1] };
+};
+
+export const channelPath = (channelUri: string): string => {
+	const { communityDid, rkey } = channelIdentity(channelUri);
+	return `/app/c/${communityDid}/${TEXT_CHANNEL_COLLECTION}/${rkey}`;
+};
+
 export class AtURI {
 	public uri: string;
 	public did: string;

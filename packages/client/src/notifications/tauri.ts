@@ -1,6 +1,12 @@
 import { classifyNativeError } from "../errors/native";
 import { createLogger } from "../utils/logger";
+import { isMacOS } from "../utils/platform";
 import { isAndroidTauriRuntime, isTauriRuntime } from "./environment";
+import {
+	dismissNativeChannel,
+	isNativeNotificationSupported,
+	showNativeNotification,
+} from "./tauri-native";
 import type {
 	NotificationBackend,
 	NotificationPayload,
@@ -45,11 +51,19 @@ const javaStringHashCode = (value: string): number => {
 export const cancelChannelTrayNotification = async (
 	channelUri: string,
 ): Promise<void> => {
-	if (!(await isAndroidTauriRuntime())) return;
-	try {
-		const { removeActive } = await loadPlugin();
-		await removeActive([{ id: javaStringHashCode(channelUri) }]);
-	} catch {}
+	if (await isAndroidTauriRuntime()) {
+		try {
+			const { removeActive } = await loadPlugin();
+			await removeActive([{ id: javaStringHashCode(channelUri) }]);
+		} catch {}
+		return;
+	}
+
+	if (isMacOS() && (await isNativeNotificationSupported())) {
+		try {
+			await dismissNativeChannel(channelUri);
+		} catch {}
+	}
 };
 
 export const tauriBackend: NotificationBackend = {
@@ -61,6 +75,8 @@ export const tauriBackend: NotificationBackend = {
 
 	async getPermission(): Promise<NotificationPermission> {
 		if (!isTauriRuntime()) return "denied";
+		if (await isNativeNotificationSupported()) return "granted";
+
 		return withoutNativeFailure(
 			"notification.isPermissionGranted",
 			async () => {
@@ -73,6 +89,8 @@ export const tauriBackend: NotificationBackend = {
 
 	async requestPermission(): Promise<NotificationPermission> {
 		if (!isTauriRuntime()) return "denied";
+		if (await isNativeNotificationSupported()) return "granted";
+
 		return withoutNativeFailure(
 			"notification.requestPermission",
 			async () => {
@@ -85,6 +103,23 @@ export const tauriBackend: NotificationBackend = {
 	},
 
 	async show(payload: NotificationPayload): Promise<void> {
+		const channelUri = payload.data?.channelUri;
+		const messageUri = payload.data?.messageUri;
+
+		if (channelUri && messageUri && (await isNativeNotificationSupported())) {
+			try {
+				await showNativeNotification({
+					title: payload.title,
+					body: payload.body,
+					subtitle: payload.subtitle,
+					channelUri,
+					messageUri,
+					iconPath: payload.iconPath,
+				});
+				return;
+			} catch {}
+		}
+
 		const { isPermissionGranted, sendNotification } = await loadPlugin();
 		if (!(await isPermissionGranted())) return;
 

@@ -21,3 +21,8 @@ export const isAndroidTauriRuntime = async (): Promise<boolean> => {
 	const { platform } = await import("@tauri-apps/plugin-os");
 	return platform() === "android";
 };
+
+export const isAppUnfocused = (): boolean =>
+	typeof document === "undefined" ||
+	document.visibilityState === "hidden" ||
+	!document.hasFocus();

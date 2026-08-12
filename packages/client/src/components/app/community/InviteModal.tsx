@@ -16,6 +16,7 @@ import { joinCommunity } from "../../../atproto/memberships";
 import { resolveBlob } from "../../../atproto/resolve-blob";
 import { useMutes } from "../../../contexts/Mutes";
 import { useUserContext } from "../../../contexts/User";
+import { classifyThrown } from "../../../errors/classify";
 import { describeError } from "../../../errors/copy";
 import { AtURI } from "../../../utils/at-uri";
 import { createLogger } from "../../../utils/logger";
@@ -128,7 +129,9 @@ export const InviteModal: Component = () => {
 				replace: true,
 			});
 		} catch (err) {
-			log.error("joining the community failed", { error: err });
+			log.error("joining the community failed", {
+				code: classifyThrown(err).code,
+			});
 			toast.error("Failed to join community.");
 			setJoining(false);
 		}

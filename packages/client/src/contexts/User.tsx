@@ -210,7 +210,9 @@ export const UserContextProvider: ParentComponent = (props) => {
 								mutate({ ...cur, communities: res.data.communities });
 							}
 						} catch (err) {
-							log.error("refetching communities failed", { error: err });
+							log.error("refetching communities failed", {
+								code: classifyThrown(err).code,
+							});
 						}
 					};
 
