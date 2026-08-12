@@ -12,6 +12,7 @@ import {
 	searchActorsTypeahead,
 } from "../atproto/xrpc/app/bsky/actor/searchActorsTypeahead";
 import { useViewport, ViewportProvider } from "../contexts/Viewport";
+import { classifyThrown } from "../errors/classify";
 import { describeError } from "../errors/copy";
 import { isTauriRuntime } from "../notifications/environment";
 import { getAppViewHost } from "../utils/appview";
@@ -197,7 +198,9 @@ const WaitlistScreenContent: Component = () => {
 				handleResolver: getAppViewHost("http"),
 			});
 		} catch (err) {
-			log.error("loading the waitlist OAuth client failed", { error: err });
+			log.error("loading the waitlist OAuth client failed", {
+				code: classifyThrown(err).code,
+			});
 			setErrorMessage("We couldn't start the waitlist sign-in. Try again.");
 			setPhase("error");
 			return;
@@ -220,7 +223,9 @@ const WaitlistScreenContent: Component = () => {
 			const outcome = await submit(session);
 			setPhase(outcome === "already-has-access" ? "idle" : "done");
 		} catch (err) {
-			log.error("completing the waitlist sign-in failed", { error: err });
+			log.error("completing the waitlist sign-in failed", {
+				code: classifyThrown(err).code,
+			});
 			setErrorMessage(describeError(err).title);
 			setPhase("error");
 		}
@@ -239,7 +244,9 @@ const WaitlistScreenContent: Component = () => {
 		try {
 			await client.signIn(input, { scope: WAITLIST_SCOPE });
 		} catch (err) {
-			log.error("waitlist sign-in could not start", { error: err });
+			log.error("waitlist sign-in could not start", {
+				code: classifyThrown(err).code,
+			});
 			toast.error("Couldn't connect", {
 				description:
 					err instanceof Error ? err.message : "Please try again shortly.",

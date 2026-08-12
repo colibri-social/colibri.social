@@ -58,6 +58,7 @@ import {
 import { useSocketContext } from "../contexts/Socket";
 import { useUserContext } from "../contexts/User";
 import { useViewport } from "../contexts/Viewport";
+import { classifyThrown } from "../errors/classify";
 import { isTauriRuntime } from "../notifications/environment";
 import { trackAppShellMounted } from "../utils/app-shell";
 import { LongPressSensors } from "../utils/create-longpress-sensor";
@@ -413,7 +414,9 @@ const AppLayout: ParentComponent = (props) => {
 
 			await putRecord(agent, repo, "social.colibri.actor.data", "self", record);
 		} catch (err) {
-			log.error("saving the community order failed", { error: err });
+			log.error("saving the community order failed", {
+				code: classifyThrown(err).code,
+			});
 			toast.error("Failed to save community order.");
 			setCommittedOrder(previous);
 		}

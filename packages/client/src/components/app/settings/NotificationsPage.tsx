@@ -121,7 +121,9 @@ export const NotificationsPage: Component = () => {
 		try {
 			await writeNotificationPreference(user.atproto.agent, user.did, next);
 		} catch (err) {
-			log.error("saving the notification level failed", { error: err });
+			log.error("saving the notification level failed", {
+				code: classifyThrown(err).code,
+			});
 			setLevel(previous);
 			toast.error("Failed to update notification level.");
 		} finally {
@@ -159,7 +161,9 @@ export const NotificationsPage: Component = () => {
 				);
 			}
 		} catch (err) {
-			log.error("updating push registration failed", { error: err });
+			log.error("updating push registration failed", {
+				code: classifyThrown(err).code,
+			});
 			toast.error("Failed to update notification settings.");
 		} finally {
 			setBusy(false);

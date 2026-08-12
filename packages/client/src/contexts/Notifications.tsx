@@ -11,6 +11,7 @@ import {
 } from "solid-js";
 import { toast } from "somoto";
 import { writeReadCursor } from "../atproto/read-cursor";
+import { classifyThrown } from "../errors/classify";
 import { isGoneCode } from "../errors/codes";
 import {
 	cancelChannelTrayNotification,
@@ -366,7 +367,9 @@ export const NotificationsContextProvider: ParentComponent = (props) => {
 				return next;
 			});
 		} catch (err) {
-			log.error("seeding community notifications failed", { error: err });
+			log.error("seeding community notifications failed", {
+				code: classifyThrown(err).code,
+			});
 		} finally {
 			if (!reached) seeded.delete(communityUri);
 		}

@@ -1,3 +1,4 @@
+import { classifyThrown } from "../../../../../errors/classify";
 import { createLogger } from "../../../../../utils/logger";
 import { readJson } from "../../../read-json";
 
@@ -31,7 +32,7 @@ export const searchActorsTypeahead = async (
 		return body?.actors ?? [];
 	} catch (err) {
 		if ((err as DOMException)?.name === "AbortError") return [];
-		log.warn("Bluesky actor search failed", { error: err });
+		log.warn("Bluesky actor search failed", { code: classifyThrown(err).code });
 		return [];
 	}
 };

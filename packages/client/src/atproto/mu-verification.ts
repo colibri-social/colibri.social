@@ -1,4 +1,5 @@
 import type { AppBskyGraphDefs } from "@atproto/api";
+import { classifyThrown } from "../errors/classify";
 import { createLogger } from "../utils/logger";
 import {
 	cacheEnabled,
@@ -76,7 +77,9 @@ const fetchMuTrustedVerifierDids = async (): Promise<Array<string>> => {
 			cursor = body.cursor;
 		}
 	} catch (err) {
-		log.warn("listing verified accounts failed", { error: err });
+		log.warn("listing verified accounts failed", {
+			code: classifyThrown(err).code,
+		});
 	}
 
 	return dids;
@@ -171,7 +174,9 @@ const fetchVerificationIssuers = async (
 			cursor = body.cursor;
 		}
 	} catch (err) {
-		log.warn("listing verification issuers failed", { error: err });
+		log.warn("listing verification issuers failed", {
+			code: classifyThrown(err).code,
+		});
 	}
 
 	return issuers;

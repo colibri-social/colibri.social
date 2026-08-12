@@ -4,6 +4,7 @@ import ArrowLineLeftIcon from "~icons/ph/arrow-line-left";
 import { startOAuthSignIn } from "../../../atproto/auth";
 import { buildScopes, scopeSetLabel } from "../../../atproto/scopes";
 import { endSession } from "../../../atproto/session";
+import { classifyThrown } from "../../../errors/classify";
 import { showError } from "../../../errors/show-error";
 import { unregisterAllPush } from "../../../notifications";
 import { getAppViewDid } from "../../../utils/appview";
@@ -45,7 +46,7 @@ export function ScopeRefreshModal(props: {
 			});
 		} catch (err) {
 			clearScopeReauthAttempts();
-			log.error("re-authentication failed", { error: err });
+			log.error("re-authentication failed", { code: classifyThrown(err).code });
 			showError(err);
 			setLoading(false);
 		}

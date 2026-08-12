@@ -137,7 +137,7 @@ export const SocketContextProvider: ParentComponent = (props) => {
 					} catch (err) {
 						log.error("a socket handler threw", {
 							type: event.type,
-							error: err,
+							code: classifyThrown(err).code,
 						});
 					}
 				});

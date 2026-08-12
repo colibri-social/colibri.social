@@ -8,6 +8,7 @@ import {
 import { toast } from "somoto";
 import { useUserContext } from "../../../contexts/User";
 import { useUserPreferences } from "../../../contexts/UserPreferences";
+import { classifyThrown } from "../../../errors/classify";
 import {
 	enablePushNotifications,
 	getBackend,
@@ -73,7 +74,9 @@ export const NotificationPromptDialog: Component = () => {
 				toast.error("Notification permission was not granted.");
 			}
 		} catch (err) {
-			log.error("enabling notifications failed", { error: err });
+			log.error("enabling notifications failed", {
+				code: classifyThrown(err).code,
+			});
 			toast.error("Failed to enable notifications.");
 		} finally {
 			setBusy(false);

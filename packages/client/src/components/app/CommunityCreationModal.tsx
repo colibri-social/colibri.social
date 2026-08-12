@@ -17,6 +17,7 @@ import { getRecord, putRecord } from "../../atproto/pds";
 import { resolveBlob } from "../../atproto/resolve-blob";
 import { useSocketContext } from "../../contexts/Socket";
 import { useUserContext } from "../../contexts/User";
+import { classifyThrown } from "../../errors/classify";
 import { ColibriError } from "../../errors/error";
 import { showError } from "../../errors/show-error";
 import { IMAGE_UPLOAD_ACCEPT } from "../../utils/image-upload";
@@ -489,7 +490,9 @@ export const CommunityCreationModal: ParentComponent<{
 							const res = await fetch(pictureUrl);
 							pictureBlob = await res.blob();
 						} catch (err) {
-							log.error("copying the community picture failed", { error: err });
+							log.error("copying the community picture failed", {
+								code: classifyThrown(err).code,
+							});
 						}
 					}
 					const res = await user.xrpc.social.colibri.community.migrate(
@@ -508,7 +511,9 @@ export const CommunityCreationModal: ParentComponent<{
 					try {
 						await stampLegacyAsMigrated(communityUri);
 					} catch (err) {
-						log.error("stamping the legacy record failed", { error: err });
+						log.error("stamping the legacy record failed", {
+							code: classifyThrown(err).code,
+						});
 						showError(err, {
 							fallbackTitle: "The old community may still be visible.",
 							description:
@@ -540,7 +545,9 @@ export const CommunityCreationModal: ParentComponent<{
 				// We explicitly do a manual nav here to prevent some loading issues
 				window.location.href = `/app/c/${url}`;
 			} catch (err) {
-				log.error("creating the community failed", { error: err });
+				log.error("creating the community failed", {
+					code: classifyThrown(err).code,
+				});
 				toast.error(
 					isMigration()
 						? "Failed to migrate community."

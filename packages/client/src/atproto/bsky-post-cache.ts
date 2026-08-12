@@ -1,4 +1,5 @@
 import type { AppBskyFeedDefs } from "@atproto/api";
+import { classifyThrown } from "../errors/classify";
 import { createLogger } from "../utils/logger";
 import {
 	cacheEnabled,
@@ -59,7 +60,10 @@ export const resolveHandleDeduped = (
 			void writeBskyHandle(handle, { did: body.did, ts: Date.now() });
 			return body.did;
 		} catch (err) {
-			log.warn("resolving a Bluesky handle failed", { handle, error: err });
+			log.warn("resolving a Bluesky handle failed", {
+				handle,
+				code: classifyThrown(err).code,
+			});
 			negativeHandleUntil.set(handle, Date.now() + NEGATIVE_TTL_MS);
 			return undefined;
 		}
@@ -111,7 +115,7 @@ const flushBatch = async () => {
 		} catch (err) {
 			log.warn("fetching a batch of Bluesky posts failed", {
 				size: batch.length,
-				error: err,
+				code: classifyThrown(err).code,
 			});
 			for (const uri of batch) settle(uri, undefined);
 		}

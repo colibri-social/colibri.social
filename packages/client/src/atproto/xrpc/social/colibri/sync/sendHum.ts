@@ -1,4 +1,5 @@
 import type { ColibriEvent } from "@colibri-social/lib";
+import { classifyThrown } from "../../../../../errors/classify";
 import { createLogger } from "../../../../../utils/logger";
 import type { XrpcRequest } from "../../..";
 
@@ -19,7 +20,7 @@ export const sendHum: XrpcRequest<[ColibriEvent], Promise<boolean>> = async (
 
 		return res.ok;
 	} catch (err) {
-		log.warn("could not send a hum", { error: err });
+		log.warn("could not send a hum", { code: classifyThrown(err).code });
 		return false;
 	}
 };
