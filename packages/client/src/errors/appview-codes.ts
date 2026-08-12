@@ -3,12 +3,14 @@
 
 /** Every error code the AppView's lexicons declare. */
 export type AppViewErrorCode =
+	| "AppViewNotAuthorized"
 	| "AuthRequired"
 	| "CommunityCredentialsUnrecoverable"
 	| "Forbidden"
 	| "InvalidRequest"
 	| "InvalidState"
 	| "NotAnImage"
+	| "NotCommunityHub"
 	| "NotEnabled"
 	| "NotFound"
 	| "PdsUnavailable"
@@ -19,6 +21,8 @@ export type AppViewErrorCode =
 
 /** The lexicon's own description of each code, for diagnostics and dev output. */
 export const APPVIEW_CODE_DESCRIPTIONS: Record<AppViewErrorCode, string> = {
+	AppViewNotAuthorized:
+		"The acting account has not published this AppView as authorized to act for it.",
 	AuthRequired: "Missing, malformed, or unverifiable service auth.",
 	CommunityCredentialsUnrecoverable:
 		"The AppView cannot write to the community's repo and could not repair its own access.",
@@ -26,6 +30,8 @@ export const APPVIEW_CODE_DESCRIPTIONS: Record<AppViewErrorCode, string> = {
 	InvalidRequest: "A parameter or body field was missing or malformed.",
 	InvalidState: "The request is not valid for the current state.",
 	NotAnImage: "The linked resource is not an image type the AppView serves.",
+	NotCommunityHub:
+		"This AppView does not administer the community; the hub field names the one that does.",
 	NotEnabled: "Humming is disabled on this AppView.",
 	NotFound: "The referenced record does not exist.",
 	PdsUnavailable:
@@ -48,39 +54,54 @@ export const APPVIEW_METHOD_ERRORS: Record<
 	"social.colibri.actor.listMutes": ["AuthRequired"],
 	"social.colibri.actor.setState": ["AuthRequired", "InvalidState"],
 	"social.colibri.category.create": [
+		"AppViewNotAuthorized",
 		"AuthRequired",
 		"CommunityCredentialsUnrecoverable",
 		"Forbidden",
 		"InvalidRequest",
+		"NotCommunityHub",
 		"PdsUnavailable",
+		"UpstreamFailure",
 	],
 	"social.colibri.category.delete": [
+		"AppViewNotAuthorized",
 		"AuthRequired",
 		"CommunityCredentialsUnrecoverable",
 		"Forbidden",
 		"InvalidRequest",
+		"NotCommunityHub",
 		"PdsUnavailable",
+		"UpstreamFailure",
 	],
 	"social.colibri.category.update": [
+		"AppViewNotAuthorized",
 		"AuthRequired",
 		"CommunityCredentialsUnrecoverable",
 		"Forbidden",
 		"InvalidRequest",
+		"NotCommunityHub",
 		"PdsUnavailable",
+		"UpstreamFailure",
 	],
 	"social.colibri.channel.create": [
+		"AppViewNotAuthorized",
 		"AuthRequired",
 		"CommunityCredentialsUnrecoverable",
 		"Forbidden",
 		"InvalidRequest",
+		"NotCommunityHub",
 		"PdsUnavailable",
+		"UpstreamFailure",
 	],
 	"social.colibri.channel.delete": [
+		"AppViewNotAuthorized",
 		"AuthRequired",
 		"CommunityCredentialsUnrecoverable",
 		"Forbidden",
 		"InvalidRequest",
+		"NotCommunityHub",
 		"PdsUnavailable",
+		"UpstreamFailure",
 	],
 	"social.colibri.channel.getChannelView": ["AuthRequired", "InvalidRequest"],
 	"social.colibri.channel.getReadCursor": [
@@ -96,26 +117,44 @@ export const APPVIEW_METHOD_ERRORS: Record<
 		"InvalidRequest",
 	],
 	"social.colibri.channel.update": [
+		"AppViewNotAuthorized",
 		"AuthRequired",
 		"CommunityCredentialsUnrecoverable",
 		"Forbidden",
 		"InvalidRequest",
+		"NotCommunityHub",
 		"PdsUnavailable",
+		"UpstreamFailure",
 	],
 	"social.colibri.community.approveMembership": [
+		"AppViewNotAuthorized",
 		"AuthRequired",
+		"CommunityCredentialsUnrecoverable",
 		"Forbidden",
 		"InvalidRequest",
+		"NotCommunityHub",
+		"PdsUnavailable",
+		"UpstreamFailure",
 	],
 	"social.colibri.community.banUser": [
+		"AppViewNotAuthorized",
 		"AuthRequired",
+		"CommunityCredentialsUnrecoverable",
 		"Forbidden",
 		"InvalidRequest",
+		"NotCommunityHub",
+		"PdsUnavailable",
+		"UpstreamFailure",
 	],
 	"social.colibri.community.blockMessage": [
+		"AppViewNotAuthorized",
 		"AuthRequired",
+		"CommunityCredentialsUnrecoverable",
 		"Forbidden",
 		"InvalidRequest",
+		"NotCommunityHub",
+		"PdsUnavailable",
+		"UpstreamFailure",
 	],
 	"social.colibri.community.create": [
 		"AuthRequired",
@@ -130,10 +169,13 @@ export const APPVIEW_METHOD_ERRORS: Record<
 		"NotFound",
 	],
 	"social.colibri.community.delete": [
+		"AppViewNotAuthorized",
 		"AuthRequired",
 		"Forbidden",
 		"InvalidRequest",
+		"NotCommunityHub",
 		"NotFound",
+		"PdsUnavailable",
 		"UpstreamFailure",
 	],
 	"social.colibri.community.deleteInvitation": [
@@ -155,16 +197,34 @@ export const APPVIEW_METHOD_ERRORS: Record<
 		"NotFound",
 	],
 	"social.colibri.community.kick": [
+		"AppViewNotAuthorized",
 		"AuthRequired",
+		"CommunityCredentialsUnrecoverable",
 		"Forbidden",
 		"InvalidRequest",
+		"NotCommunityHub",
+		"PdsUnavailable",
+		"UpstreamFailure",
 	],
 	"social.colibri.community.kickUser": [
+		"AppViewNotAuthorized",
 		"AuthRequired",
+		"CommunityCredentialsUnrecoverable",
 		"Forbidden",
 		"InvalidRequest",
+		"NotCommunityHub",
+		"PdsUnavailable",
+		"UpstreamFailure",
 	],
-	"social.colibri.community.leave": ["AuthRequired"],
+	"social.colibri.community.leave": [
+		"AppViewNotAuthorized",
+		"AuthRequired",
+		"CommunityCredentialsUnrecoverable",
+		"InvalidRequest",
+		"NotCommunityHub",
+		"PdsUnavailable",
+		"UpstreamFailure",
+	],
 	"social.colibri.community.listApplications": [
 		"AuthRequired",
 		"Forbidden",
@@ -194,36 +254,48 @@ export const APPVIEW_METHOD_ERRORS: Record<
 	],
 	"social.colibri.community.registerCredentials": [
 		"AuthRequired",
-		"CommunityCredentialsUnrecoverable",
 		"InvalidRequest",
-		"PdsUnavailable",
 		"UpstreamFailure",
 	],
 	"social.colibri.community.reorderCategories": [
+		"AppViewNotAuthorized",
 		"AuthRequired",
 		"CommunityCredentialsUnrecoverable",
 		"Forbidden",
 		"InvalidRequest",
+		"NotCommunityHub",
 		"PdsUnavailable",
+		"UpstreamFailure",
 	],
 	"social.colibri.community.reorderChannels": [
+		"AppViewNotAuthorized",
 		"AuthRequired",
 		"CommunityCredentialsUnrecoverable",
 		"Forbidden",
 		"InvalidRequest",
+		"NotCommunityHub",
 		"PdsUnavailable",
+		"UpstreamFailure",
 	],
 	"social.colibri.community.setMemberRoles": [
+		"AppViewNotAuthorized",
 		"AuthRequired",
 		"CommunityCredentialsUnrecoverable",
 		"Forbidden",
 		"InvalidRequest",
+		"NotCommunityHub",
 		"PdsUnavailable",
+		"UpstreamFailure",
 	],
 	"social.colibri.community.unbanUser": [
+		"AppViewNotAuthorized",
 		"AuthRequired",
+		"CommunityCredentialsUnrecoverable",
 		"Forbidden",
 		"InvalidRequest",
+		"NotCommunityHub",
+		"PdsUnavailable",
+		"UpstreamFailure",
 	],
 	"social.colibri.community.undismissApplication": [
 		"AuthRequired",
@@ -231,11 +303,14 @@ export const APPVIEW_METHOD_ERRORS: Record<
 		"InvalidRequest",
 	],
 	"social.colibri.community.update": [
+		"AppViewNotAuthorized",
 		"AuthRequired",
 		"CommunityCredentialsUnrecoverable",
 		"Forbidden",
 		"InvalidRequest",
+		"NotCommunityHub",
 		"PdsUnavailable",
+		"UpstreamFailure",
 	],
 	"social.colibri.embed.getImage": ["NotAnImage", "RateLimited"],
 	"social.colibri.embed.getMetadata": ["AuthRequired", "InvalidRequest"],
@@ -253,25 +328,34 @@ export const APPVIEW_METHOD_ERRORS: Record<
 	"social.colibri.notification.updateSeen": ["AuthRequired"],
 	"social.colibri.notification.updateSeenForMessage": ["AuthRequired"],
 	"social.colibri.role.create": [
+		"AppViewNotAuthorized",
 		"AuthRequired",
 		"CommunityCredentialsUnrecoverable",
 		"Forbidden",
 		"InvalidRequest",
+		"NotCommunityHub",
 		"PdsUnavailable",
+		"UpstreamFailure",
 	],
 	"social.colibri.role.delete": [
+		"AppViewNotAuthorized",
 		"AuthRequired",
 		"CommunityCredentialsUnrecoverable",
 		"Forbidden",
 		"InvalidRequest",
+		"NotCommunityHub",
 		"PdsUnavailable",
+		"UpstreamFailure",
 	],
 	"social.colibri.role.update": [
+		"AppViewNotAuthorized",
 		"AuthRequired",
 		"CommunityCredentialsUnrecoverable",
 		"Forbidden",
 		"InvalidRequest",
+		"NotCommunityHub",
 		"PdsUnavailable",
+		"UpstreamFailure",
 	],
 	"social.colibri.sync.sendHum": [
 		"AuthRequired",

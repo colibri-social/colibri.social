@@ -18,6 +18,7 @@ import {
 	DialogPortal,
 } from "../../ui/Dialog";
 import { displayableNameFn } from "../user/DisplayableName";
+import { CrossAppViewModerationAlert } from "./CrossAppViewModerationAlert";
 
 export type ActionDialogData = {
 	open: boolean;
@@ -83,6 +84,7 @@ export const MemberActionDialog: ParentComponent<{
 					</DialogHeader>
 					<div class="flex flex-col gap-4">
 						<p class="m-0 text-center">{description()}</p>
+						<CrossAppViewModerationAlert />
 					</div>
 					<DialogFooter>
 						<Button

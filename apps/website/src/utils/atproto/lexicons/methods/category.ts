@@ -28,6 +28,11 @@ export const categoryMethodDocs: LexiconDoc[] = [
 				output: uriResponse,
 				errors: [
 					{
+						name: "AppViewNotAuthorized",
+						description:
+							"The acting account has not published this AppView as authorized to act for it.",
+					},
+					{
 						name: "AuthRequired",
 						description: "Missing, malformed, or unverifiable service auth.",
 					},
@@ -46,9 +51,18 @@ export const categoryMethodDocs: LexiconDoc[] = [
 						description: "A parameter or body field was missing or malformed.",
 					},
 					{
+						name: "NotCommunityHub",
+						description:
+							"This AppView does not administer the community; the hub field names the one that does.",
+					},
+					{
 						name: "PdsUnavailable",
 						description:
 							"The PDS this operation needs is unreachable or is not a PDS.",
+					},
+					{
+						name: "UpstreamFailure",
+						description: "A service outside this AppView failed.",
 					},
 				],
 			},
@@ -72,6 +86,11 @@ export const categoryMethodDocs: LexiconDoc[] = [
 				output: uriResponse,
 				errors: [
 					{
+						name: "AppViewNotAuthorized",
+						description:
+							"The acting account has not published this AppView as authorized to act for it.",
+					},
+					{
 						name: "AuthRequired",
 						description: "Missing, malformed, or unverifiable service auth.",
 					},
@@ -90,9 +109,18 @@ export const categoryMethodDocs: LexiconDoc[] = [
 						description: "A parameter or body field was missing or malformed.",
 					},
 					{
+						name: "NotCommunityHub",
+						description:
+							"This AppView does not administer the community; the hub field names the one that does.",
+					},
+					{
 						name: "PdsUnavailable",
 						description:
 							"The PDS this operation needs is unreachable or is not a PDS.",
+					},
+					{
+						name: "UpstreamFailure",
+						description: "A service outside this AppView failed.",
 					},
 				],
 			},
@@ -115,6 +143,11 @@ export const categoryMethodDocs: LexiconDoc[] = [
 				output: uriResponse,
 				errors: [
 					{
+						name: "AppViewNotAuthorized",
+						description:
+							"The acting account has not published this AppView as authorized to act for it.",
+					},
+					{
 						name: "AuthRequired",
 						description: "Missing, malformed, or unverifiable service auth.",
 					},
@@ -133,9 +166,18 @@ export const categoryMethodDocs: LexiconDoc[] = [
 						description: "A parameter or body field was missing or malformed.",
 					},
 					{
+						name: "NotCommunityHub",
+						description:
+							"This AppView does not administer the community; the hub field names the one that does.",
+					},
+					{
 						name: "PdsUnavailable",
 						description:
 							"The PDS this operation needs is unreachable or is not a PDS.",
+					},
+					{
+						name: "UpstreamFailure",
+						description: "A service outside this AppView failed.",
 					},
 				],
 			},

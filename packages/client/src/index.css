@@ -435,6 +435,10 @@ img.emoji {
 	width: 2.5em;
 }
 
+ol[data-somoto-toaster] {
+	pointer-events: auto;
+}
+
 ol[data-somoto-toaster] > li {
 	width: 100% !important;
 }

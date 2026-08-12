@@ -55,6 +55,22 @@ Cross-instance presence is **opt-in per user**. A user opts in by publishing a `
 
 The full wire format, endpoint behaviour, and the complete trust-model checklist are documented on the [specification page](/docs/specification/appview#humming).
 
+## Cross-AppView moderation
+
+The same per-community hub that carries presence also owns the community's data. Only the AppView holding a community's credentials can write to its repo, so moderating or configuring a community means reaching *that* AppView, which may not be the one you signed in to.
+
+Clients never address a foreign AppView. Your own AppView notices that a community belongs to another one and relays the request there instead, returning that AppView's answer as if it had handled it. Reads need none of this. Bans and hidden messages are ordinary `social.colibri.moderation` records on the community's own repo, so every AppView rebuilds identical moderation state from the firehose. Credentials gate writes only.
+
+### Acting for a user
+
+A relayed request is a claim by one AppView that a user wants something, which the receiving AppView cannot take on faith. The acting user's DID therefore rides inside the signed token as an `act` claim, and the hub honours it only when that user's own profile names the sending AppView in `presenceService`, the same field Humming uses. Identity is the only thing delegated: the hub still derives that user's roles and permissions from its own mirror of the community.
+
+This shares the presence opt-in deliberately. A user who has not published a `presenceService` has not told anyone which AppView may speak for them, so a community hosted elsewhere refuses to act on their behalf. The reference client explains the coupling next to the "Share presence across AppViews" toggle, warns before you switch it off, and warns again on the moderation screens of a community hosted elsewhere.
+
+Relays never chain. A request that arrives already carrying an `act` and still is not for a community this AppView administers is refused, naming the correct hub, rather than forwarded onward.
+
+For the wire format, the full check list, and the outbound transport rules, see the [specification page](/docs/specification/appview#cross-appview-writes).
+
 ## See also
 
 - [Client Architecture](/docs/architecture/client): the frontend that talks to this AppView.

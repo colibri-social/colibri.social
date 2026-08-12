@@ -14,7 +14,8 @@ export const syncPresenceService = async (
 	try {
 		record = await getRecord(agent, did, PROFILE_COLLECTION, "self");
 	} catch {
-		return;
+		if (!share) return;
+		record = {};
 	}
 
 	delete record.$type;

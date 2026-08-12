@@ -58,6 +58,15 @@ const CATALOG: Record<ColibriErrorCode, ErrorCopy> = {
 		title: "This community can't be edited right now.",
 		description: "Its data server access needs to be repaired by an admin.",
 	},
+	NotCommunityHub: {
+		title: "This community is managed somewhere else.",
+		description: "Reload to pick up where it moved to, then try again.",
+	},
+	AppViewNotAuthorized: {
+		title: "Turn on presence sharing to moderate here.",
+		description:
+			"This community is hosted on another AppView, which needs to know yours is allowed to act for you.",
+	},
 	UpstreamFailure: {
 		title: "A service we depend on is having trouble.",
 		description: "This usually clears up on its own.",

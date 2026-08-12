@@ -12,12 +12,14 @@ import { syncPresenceService } from "../../../atproto/presence";
 import { endSession } from "../../../atproto/session";
 import { AuthContext } from "../../../contexts/Auth";
 import { useUserPreferences } from "../../../contexts/UserPreferences";
+import { classifyThrown } from "../../../errors/classify";
 import { unregisterAllPush } from "../../../notifications";
 import {
 	isValidAppViewUrl,
 	normalizeAppViewUrl,
 	verifyColibriAppView,
 } from "../../../utils/appview";
+import { createLogger } from "../../../utils/logger";
 import { openExternalLink } from "../../../utils/open-external-link";
 import { Alert, AlertDescription, AlertTitle } from "../../ui/Alert";
 import { Button } from "../../ui/Button";
@@ -27,6 +29,8 @@ import {
 	TextFieldInput,
 	TextFieldLabel,
 } from "../../ui/TextField";
+
+const log = createLogger("appview-switcher");
 
 const DefaultDescription = () => (
 	<>
@@ -45,6 +49,11 @@ const DefaultDescription = () => (
 				</AlertDescription>
 			</Alert>
 		</Show>
+		<p class="mb-2">
+			Whichever AppView you choose is published on your public profile when
+			presence sharing is on. Communities hosted on a different AppView need
+			that to accept moderation actions from yours.
+		</p>
 		<a
 			href="https://github.com/colibri-social/appview"
 			target="_blank"
@@ -102,7 +111,11 @@ export const AppViewSwitcher: Component<{
 		if (userPreferences.preferences().sharePresence && currentAgent && did) {
 			try {
 				await syncPresenceService(currentAgent, did, true, url);
-			} catch {}
+			} catch (err) {
+				log.warn("could not publish the new AppView on the profile", {
+					code: classifyThrown(err).code,
+				});
+			}
 		}
 
 		toast.success(

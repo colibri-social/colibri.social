@@ -92,6 +92,7 @@ import { CopyButton } from "../common/CopyButton";
 import { SettingsInfoPage } from "../common/SettingsInfoPage";
 import { SettingsModal, SettingsPage } from "../common/SettingsModal";
 import User from "../user";
+import { CrossAppViewModerationAlert } from "./CrossAppViewModerationAlert";
 import { DeleteLinkModal } from "./DeleteInvitationModal";
 import { InviteLinkCreationModal } from "./InviteLinkCreationModal";
 import {
@@ -736,6 +737,7 @@ const MembersPage: Component = () => {
 			loading={() => false}
 			title={`Members${members().length > 0 ? ` — ${members().length}` : ""}`}
 		>
+			<CrossAppViewModerationAlert class="mb-4" />
 			<Table class="h-full">
 				<TableHeader>
 					<TableRow>
@@ -1137,6 +1139,7 @@ const BannedMembersPage: Component = () => {
 			loading={loading}
 			title={`Banned Members${(bannedMembers.latest ?? []).length > 0 ? ` — ${(bannedMembers.latest ?? []).length}` : ""}`}
 		>
+			<CrossAppViewModerationAlert class="mb-4" />
 			<Switch>
 				<Match when={bannedMembers.error !== undefined}>
 					<ErrorState

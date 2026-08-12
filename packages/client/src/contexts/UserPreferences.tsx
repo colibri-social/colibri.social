@@ -114,6 +114,7 @@ export type UserPreferencesContextData = {
 	preferredBlueskyClient: BlueskyClientID;
 	preferredAppView: string;
 	sharePresence: boolean;
+	hideCrossAppViewHint: boolean;
 	attachAccountToReports: boolean;
 	nativeWindowDecorations: boolean;
 	theme: AppTheme | null;
@@ -163,6 +164,7 @@ const DEFAULT_PREFERENCES: UserPreferencesContextData = {
 	preferredBlueskyClient: "bluesky",
 	preferredAppView: DEFAULT_APPVIEW_URL,
 	sharePresence: true,
+	hideCrossAppViewHint: false,
 	attachAccountToReports: false,
 	nativeWindowDecorations: false,
 	theme: null,
@@ -285,6 +287,7 @@ type UserPreferencesContextValue = {
 	setPreferredBlueskyClient: (client: BlueskyClientID) => void;
 	setPreferredAppView: (appView: string) => void;
 	setSharePresence: (enabled: boolean) => void;
+	setHideCrossAppViewHint: (hidden: boolean) => void;
 	setAttachAccountToReports: (enabled: boolean) => void;
 	setNativeWindowDecorations: (enabled: boolean) => void;
 	setTheme: (theme: AppTheme | null) => void;
@@ -449,6 +452,10 @@ export const UserPreferencesContextProvider: ParentComponent = (props) => {
 		setPreferences((p) => ({ ...p, sharePresence: enabled }));
 	};
 
+	const setHideCrossAppViewHint = (hidden: boolean) => {
+		setPreferences((p) => ({ ...p, hideCrossAppViewHint: hidden }));
+	};
+
 	const setAttachAccountToReports = (enabled: boolean) => {
 		setPreferences((p) => ({ ...p, attachAccountToReports: enabled }));
 	};
@@ -507,6 +514,7 @@ export const UserPreferencesContextProvider: ParentComponent = (props) => {
 				setPreferredBlueskyClient,
 				setPreferredAppView,
 				setSharePresence,
+				setHideCrossAppViewHint,
 				setAttachAccountToReports,
 				setNativeWindowDecorations,
 				setTheme,

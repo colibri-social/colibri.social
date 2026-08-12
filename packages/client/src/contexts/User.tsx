@@ -19,6 +19,7 @@ import {
 	readUser,
 	writeUser,
 } from "../atproto/cache/store";
+import { syncPresenceService } from "../atproto/presence";
 import { sessionDead } from "../atproto/session-health";
 import { XrpcClient } from "../atproto/xrpc";
 import { AppLoadingScreen } from "../components/AppLoadingScreen";
@@ -27,7 +28,9 @@ import { ProfileGate } from "../components/app/onboarding/ProfileGate";
 import { SessionExpiredScreen } from "../components/app/SessionExpiredScreen";
 import { setReportingAccount } from "../errors/account";
 import { classifyThrown } from "../errors/classify";
+import { setCrossAppViewHintHandlers } from "../errors/cross-appview-hint";
 import { ColibriError } from "../errors/error";
+import { showError } from "../errors/show-error";
 import { identifyUser } from "../sentry";
 import { getAppViewDid, getAppViewServiceRef } from "../utils/appview";
 import { createLogger } from "../utils/logger";
@@ -62,7 +65,8 @@ export const UserContext = createContext<LoggedInUser>();
 
 export const UserContextProvider: ParentComponent = (props) => {
 	const client = useAuthContext();
-	const { preferences } = useUserPreferences();
+	const { preferences, setSharePresence, setHideCrossAppViewHint } =
+		useUserPreferences();
 	const socket = useSocketContext();
 
 	const [user, { mutate }] = createResource(async (): Promise<User> => {
@@ -159,6 +163,26 @@ export const UserContextProvider: ParentComponent = (props) => {
 	});
 	onCleanup(() => {
 		if (cacheWriteTimer) clearTimeout(cacheWriteTimer);
+	});
+
+	createEffect(() => {
+		const current = user.latest?.loggedIn ? user.latest : undefined;
+		setCrossAppViewHintHandlers({
+			isSuppressed: () => preferences().hideCrossAppViewHint,
+			suppressPermanently: () => setHideCrossAppViewHint(true),
+			enablePresenceSharing: async () => {
+				if (!current) return;
+				setSharePresence(true);
+				try {
+					await syncPresenceService(current.atproto.agent, current.did, true);
+				} catch (err) {
+					setSharePresence(false);
+					showError(err, {
+						fallbackTitle: "Couldn't turn on presence sharing.",
+					});
+				}
+			},
+		});
 	});
 
 	createEffect(() => {

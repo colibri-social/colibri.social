@@ -28,6 +28,8 @@ If an endpoint requires authentication, the request must carry a [service auth](
 The recommended way to supply it is to call the AppView **through the user's PDS** using standard service proxying: send the request to the PDS with the `atproto-proxy: did:web:api.colibri.social#colibri_appview` header, and the PDS mints the service-auth token and attaches it as the `Authorization: Bearer <jwt>` header on the proxied request.
 
 The [`social.colibri.sync.subscribeEvents`](#socialcolibrisyncsubscribeevents) WebSocket is the exception: browsers cannot set request headers (or use PDS service proxying) on a `WebSocket`, so the token is supplied as a WebSocket subprotocol instead. See that endpoint for details.
+
+Methods that write to a community's repo may additionally arrive as an AppView-to-AppView relay, carrying a token signed by a peer AppView with an extra `act` claim naming the user it acts for. See [Cross-AppView writes](#cross-appview-writes).
 :::
 
 ### `com.atproto.identity.resolveDid`
@@ -3179,6 +3181,69 @@ Emitted over [`social.colibri.sync.subscribeEvents`](#socialcolibrisyncsubscribe
 	cleared?: number;    // present on message_seen
 }
 ```
+
+## Cross-AppView writes
+
+Every community has exactly one AppView that administers it, the holder of its `community_credentials` and the only party able to write to the community repo. That is the same hub the [Humming](#humming) topology uses, discovered the same way, from the `appview` field on the `social.colibri.community` record.
+
+A user, however, talks only to their own AppView, so a request that writes to a community repo has to reach the administering AppView somehow. Rather than have clients address a foreign AppView directly, the user's own AppView **relays** the request and returns the hub's answer, which keeps every client connection pointed at the one AppView the user chose.
+
+### Which methods relay
+
+Any method that writes to a community's repo. In the reference AppView that is exactly the set reaching its credential-bound write helpers:
+
+`community.banUser`, `community.unbanUser`, `community.kickUser`, `community.kick`, `community.blockMessage`, `community.approveMembership`, `community.leave`, `community.update`, `community.delete`, `community.setMemberRoles`, `community.reorderChannels`, `community.reorderCategories`, `channel.create`, `channel.update`, `channel.delete`, `category.create`, `category.update`, `category.delete`, `role.create`, `role.update`, `role.delete`.
+
+Reads never relay. Moderation state is on-protocol, so every AppView reconstructs identical state from the firehose without holding any credentials. `community.create`, `community.migrate` and `community.registerCredentials` do not relay either, since they establish or acquire hub status rather than depending on it.
+
+### Delegated service auth
+
+A relayed request is authenticated with a token the relaying AppView signs itself, exactly as in Humming: `iss` is its own `did:web`, `aud` is the hub's, and `lxm` is the method being relayed. It adds one claim:
+
+| Claim | Meaning |
+| ----- | ------- |
+| `act` | DID of the user the relaying AppView is acting for. |
+
+`act` lives **inside the signed claims** rather than travelling as a request parameter, so the delegation cannot be altered in transit independently of the signature.
+
+An AppView receiving a token with `act` must apply all of the following:
+
+1. **The token verifies normally.** Signature, `aud` matching its own DID, `lxm` matching the method, and the expiry cap all apply unchanged.
+2. **The issuer must be the actor's declared AppView.** The request is refused unless `act`'s `social.colibri.actor.profile` carries a `presenceService` equal to the token's `iss`. A valid signature proves who sent the request. This check proves who they may act as. It is the same anchor Humming uses, so a user who has opted out of cross-instance presence has also opted out of being acted for.
+3. **Permissions are derived locally, never delegated.** Only identity crosses the boundary. The receiving AppView loads `act`'s roles and permissions from its own mirror of the community and applies its usual checks.
+4. **Relays never chain.** A request that already carries `act` and still is not for a community this AppView administers must be refused with `NotCommunityHub`, not forwarded a second time.
+
+A token **without** `act` must be rejected by any method that does not accept delegation, rather than silently ignoring the claim.
+
+### Errors
+
+| Error | Status | Meaning |
+| ----- | ------ | ------- |
+| `NotCommunityHub` | 421 | This AppView does not administer the community. The response body carries a `hub` field naming the AppView that does, so a misrouted caller can correct itself. |
+| `AppViewNotAuthorized` | 403 | The `act` in a delegated token has not published the sending AppView as authorized to act for it. |
+
+`NotCommunityHub` extends the standard error body with one optional member:
+
+```json
+{
+  "error": "NotCommunityHub",
+  "message": "This community is administered by did:web:example.com.",
+  "hub": "did:web:example.com"
+}
+```
+
+A relaying AppView should reconstruct the hub's error rather than flattening it, so callers see the code the hub actually returned. An unrecognised code should degrade to `UpstreamFailure` while keeping the hub's message.
+
+### Peer transport
+
+An AppView is addressed by the `did:web` in the community record, which is a field any repo can write, so the outbound call is treated as untrusted:
+
+- **`https` only.** No plaintext, at any port. This is also what makes the classic cloud-metadata target unreachable, since it serves plaintext only.
+- **Any port.** Self-hosting behind a non-443 port is legitimate and must not be blocked.
+- **Loopback and unspecified addresses refused.** A crafted `appview` field must not be able to aim an authenticated request at something listening on the AppView's own host. Private and link-local ranges stay reachable so an AppView on an internal network can peer.
+- **No redirects.** A 307 or 308 would replay the signed token and body at a host the peer chooses.
+- **Pinned resolution.** The address validated must be the address dialled.
+- **Bounded response.** A peer is not trusted to answer small.
 
 ## Humming
 
