@@ -5,8 +5,12 @@ import { fileURLToPath } from "node:url";
 import type {
 	ReleaseNote,
 	ReleaseNoteEntry,
+	ReleasePlatform,
 } from "../packages/lib/src/release-notes.ts";
-import { kindForBump } from "../packages/lib/src/release-notes.ts";
+import {
+	kindForBump,
+	RELEASE_PLATFORMS,
+} from "../packages/lib/src/release-notes.ts";
 import {
 	CHANGESET_DIR,
 	clientBump,
@@ -103,7 +107,13 @@ const gather = async (): Promise<Staged | undefined> => {
 		const kind = block.kind ?? kindForBump(bump);
 
 		collected.push({
-			entry: { title: block.title, body: block.body, icon: block.icon, kind },
+			entry: {
+				title: block.title,
+				body: block.body,
+				icon: block.icon,
+				kind,
+				platforms: block.platforms,
+			},
 			rank: kind === "fix" ? 1 : 0,
 		});
 	}
@@ -136,10 +146,27 @@ const collect = async () => {
 	);
 };
 
+type LegacyEntry = Omit<ReleaseNoteEntry, "platforms"> & {
+	platforms?: Array<ReleasePlatform>;
+};
+
+type LegacyNote = Omit<ReleaseNote, "entries"> & {
+	entries: Array<LegacyEntry>;
+};
+
+const withPlatforms = (note: LegacyNote): ReleaseNote => ({
+	...note,
+	entries: note.entries.map((entry) => ({
+		...entry,
+		platforms: entry.platforms ?? [...RELEASE_PLATFORMS],
+	})),
+});
+
 const readNotes = async (): Promise<Array<ReleaseNote>> => {
 	if (!existsSync(DATA_FILE)) return [];
 	const module = await import(DATA_FILE.href);
-	return module.RELEASE_NOTES ?? [];
+	const notes: Array<LegacyNote> = module.RELEASE_NOTES ?? [];
+	return notes.map(withPlatforms);
 };
 
 const withoutPreview = (notes: Array<ReleaseNote>): Array<ReleaseNote> =>
@@ -181,6 +208,9 @@ const writeDataFile = async (notes: Array<ReleaseNote>) => {
 			lines.push(`\t\t\t\tbody: ${quote(entry.body)},`);
 			lines.push(`\t\t\t\ticon: ${quote(entry.icon)},`);
 			lines.push(`\t\t\t\tkind: ${quote(entry.kind)},`);
+			lines.push(
+				`\t\t\t\tplatforms: [${entry.platforms.map(quote).join(", ")}],`,
+			);
 			lines.push("\t\t\t},");
 		}
 		lines.push("\t\t],");

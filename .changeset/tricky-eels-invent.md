@@ -10,5 +10,6 @@ Also fixes the community name in the sidebar header never reflowing. It was size
 title: Resizable channel sidebar
 icon: sidebar-fill
 body: Drag the right edge of the channel sidebar to make it wider or narrower. Double-click the edge to put it back.
+platforms: desktop
 kind: feature
 -->

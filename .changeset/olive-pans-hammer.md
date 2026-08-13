@@ -9,5 +9,6 @@ Fixes desktop notifications never appearing and adds an unread badge to the macO
 title: Desktop notifications
 icon: bell-ringing-fill
 body: Desktop notifications no longer need to be switched on by hand, and on macOS and Windows they show the sender's avatar and take you straight to the message. Your unread mention count now shows on the macOS dock icon.
+platforms: desktop
 kind: feature
 -->

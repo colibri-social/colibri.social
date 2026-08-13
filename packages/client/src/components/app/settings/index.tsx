@@ -23,7 +23,7 @@ import { useAuthContext } from "../../../contexts/Auth";
 import { useUserContext } from "../../../contexts/User";
 import { EXPERIMENTS } from "../../../experiments";
 import { unregisterAllPush } from "../../../notifications";
-import { RELEASE_NOTES } from "../../../release-notes";
+import { visibleReleaseNotes } from "../../../release-notes";
 import { requiresInAppPurchase } from "../../../utils/platform";
 import { useIsTouch } from "../../../utils/touch";
 import { SettingsModal } from "../common/SettingsModal";
@@ -115,7 +115,7 @@ export const UserSettingsModal: ParentComponent<{
 					id: "whats-new",
 					component: WhatsNewPage,
 					icon: () => <SparkleIcon />,
-					visible: () => RELEASE_NOTES.length > 0,
+					visible: () => visibleReleaseNotes().length > 0,
 				},
 				{
 					title: "About",

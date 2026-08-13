@@ -7,15 +7,21 @@ import {
 	intro,
 	isCancel,
 	log,
+	multiselect,
 	outro,
 	select,
 	text,
 } from "@clack/prompts";
-import type { ReleaseNoteKind } from "../packages/lib/src/release-notes.ts";
+import type {
+	PlatformSelector,
+	ReleaseNoteKind,
+	ReleasePlatform,
+} from "../packages/lib/src/release-notes.ts";
 import {
 	appendWhatsNewBlock,
 	kindForBump,
 	parseChangesetFile,
+	RELEASE_PLATFORMS,
 } from "../packages/lib/src/release-notes.ts";
 import {
 	CHANGESET_DIR,
@@ -26,6 +32,27 @@ import { iconLabel, supportsInlineImages } from "./lib/icon-preview.ts";
 import { iconExists, searchIcons } from "./lib/icons.ts";
 
 const MAX_ICON_RESULTS = 8;
+
+const PLATFORM_LABELS: Record<ReleasePlatform, string> = {
+	web: "Web",
+	ios: "iOS",
+	android: "Android",
+	macos: "macOS",
+	windows: "Windows",
+	linux: "Linux",
+};
+
+const collapsePlatforms = (
+	selected: Array<PlatformSelector>,
+): Array<PlatformSelector> => {
+	if (selected.includes("all")) return ["all"];
+
+	const picked = RELEASE_PLATFORMS.filter((platform) =>
+		selected.includes(platform),
+	);
+
+	return picked.length === RELEASE_PLATFORMS.length ? ["all"] : picked;
+};
 
 const listChangesets = async (): Promise<Set<string>> => {
 	const files = await readdir(CHANGESET_DIR);
@@ -156,12 +183,27 @@ const main = async () => {
 	});
 	if (isCancel(icon)) bail(`Left .changeset/${name} unchanged.`);
 
+	const platforms = await multiselect<PlatformSelector>({
+		message: "Which platforms does this apply to?",
+		required: true,
+		initialValues: ["all"],
+		options: [
+			{ value: "all", label: "All platforms", hint: "the usual answer" },
+			...RELEASE_PLATFORMS.map((platform) => ({
+				value: platform,
+				label: PLATFORM_LABELS[platform],
+			})),
+		],
+	});
+	if (isCancel(platforms)) bail(`Left .changeset/${name} unchanged.`);
+
 	await writeFile(
 		path,
 		appendWhatsNewBlock(contents, {
 			title: title.trim(),
 			icon,
 			body: body.trim(),
+			platforms: collapsePlatforms(platforms),
 			kind,
 		}),
 	);

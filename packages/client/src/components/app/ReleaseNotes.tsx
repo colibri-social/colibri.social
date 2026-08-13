@@ -1,13 +1,15 @@
+import { filterEntriesForPlatform } from "@colibri-social/lib";
 import { useLocation } from "@solidjs/router";
 import { type Component, For, Show } from "solid-js";
 import { useUserPreferences } from "../../contexts/UserPreferences";
 import {
 	type ClientReleaseNote,
 	FALLBACK_RELEASE_NOTE_ICON,
-	newestReleaseNote,
+	newestVisibleReleaseNote,
 	RELEASE_NOTE_ICONS,
 } from "../../release-notes";
 import { blockingDialogCount } from "../../utils/blocking-dialog";
+import { currentReleasePlatform } from "../../utils/platform";
 import { Button } from "../ui/Button";
 import { ResponsiveDialog } from "../ui/ResponsiveDialog";
 
@@ -37,10 +39,13 @@ export const ReleaseNoteBody: Component<{ note: ClientReleaseNote }> = (
 	const hero = () =>
 		props.note.heroImage ? HERO_IMAGES[props.note.heroImage] : undefined;
 
+	const entries = () =>
+		filterEntriesForPlatform(props.note.entries, currentReleasePlatform());
+
 	const groups = () =>
 		KIND_ORDER.map((kind) => ({
 			kind,
-			entries: props.note.entries.filter((entry) => entry.kind === kind),
+			entries: entries().filter((entry) => entry.kind === kind),
 		})).filter((group) => group.entries.length > 0);
 
 	return (
@@ -100,7 +105,7 @@ export const ReleaseNotesModal: Component = () => {
 	const { preferences, setLastSeenReleaseNote } = useUserPreferences();
 	const location = useLocation();
 
-	const note = () => newestReleaseNote();
+	const note = () => newestVisibleReleaseNote();
 
 	const open = () => {
 		if (blockingDialogCount() > 0) return false;

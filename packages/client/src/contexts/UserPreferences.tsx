@@ -14,7 +14,7 @@ import {
 	isNoiseSuppressionMode,
 	noiseMode,
 } from "../hooks/noise/modes";
-import { newestReleaseNoteVersion } from "../release-notes";
+import { newestVisibleReleaseNoteVersion } from "../release-notes";
 import { DEFAULT_APPVIEW_URL } from "../utils/appview";
 import { isMobileNow } from "../utils/mobile-pane";
 import {
@@ -212,7 +212,7 @@ function loadFromStorage(): UserPreferencesContextData {
 		if (!raw) {
 			return {
 				...DEFAULT_PREFERENCES,
-				lastSeenReleaseNote: newestReleaseNoteVersion(),
+				lastSeenReleaseNote: newestVisibleReleaseNoteVersion(),
 			};
 		}
 		const parsed = JSON.parse(raw);

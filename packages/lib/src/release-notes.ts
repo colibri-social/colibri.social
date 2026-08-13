@@ -2,11 +2,46 @@ export type ReleaseNoteKind = "feature" | "fix";
 
 export const RELEASE_NOTE_KINDS: Array<ReleaseNoteKind> = ["feature", "fix"];
 
+export type ReleasePlatform =
+	| "web"
+	| "ios"
+	| "android"
+	| "macos"
+	| "windows"
+	| "linux";
+
+export const RELEASE_PLATFORMS: Array<ReleasePlatform> = [
+	"web",
+	"ios",
+	"android",
+	"macos",
+	"windows",
+	"linux",
+];
+
+export type PlatformGroup = "all" | "mobile" | "desktop";
+
+export const PLATFORM_GROUPS: Record<PlatformGroup, Array<ReleasePlatform>> = {
+	all: RELEASE_PLATFORMS,
+	mobile: ["ios", "android"],
+	desktop: ["macos", "windows", "linux"],
+};
+
+export type PlatformSelector = ReleasePlatform | PlatformGroup;
+
+export const PLATFORM_SELECTORS: Array<PlatformSelector> = [
+	...RELEASE_PLATFORMS,
+	"all",
+	"mobile",
+	"desktop",
+];
+
 export interface ReleaseNoteEntry {
 	title: string;
 	body: string;
 	icon: string;
 	kind: ReleaseNoteKind;
+	platforms: Array<ReleasePlatform>;
 }
 
 export interface ReleaseNote {
@@ -21,6 +56,7 @@ export interface WhatsNewBlock {
 	title: string;
 	icon: string;
 	body: string;
+	platforms: Array<ReleasePlatform>;
 	kind?: ReleaseNoteKind;
 	releaseTitle?: string;
 	heroImage?: string;
@@ -46,8 +82,9 @@ const FRONTMATTER_LINE_PATTERN =
 	/^\s*["']?([^"':]+?)["']?\s*:\s*([A-Za-z]+)\s*$/;
 
 const ENTRY_KEYS = ["title", "icon", "body"] as const;
+const REQUIRED_KEYS: Array<string> = [...ENTRY_KEYS, "platforms"];
 const OPTIONAL_KEYS = ["kind", "releaseTitle", "heroImage"] as const;
-const KNOWN_KEYS: Array<string> = [...ENTRY_KEYS, ...OPTIONAL_KEYS];
+const KNOWN_KEYS: Array<string> = [...REQUIRED_KEYS, ...OPTIONAL_KEYS];
 
 const parseFields = (source: string): Map<string, string> => {
 	const fields = new Map<string, string>();
@@ -84,6 +121,57 @@ const parseFields = (source: string): Map<string, string> => {
 	return fields;
 };
 
+export const isReleasePlatform = (value: string): value is ReleasePlatform =>
+	(RELEASE_PLATFORMS as Array<string>).includes(value);
+
+const isPlatformGroup = (value: string): value is PlatformGroup =>
+	value in PLATFORM_GROUPS;
+
+export const parsePlatforms = (raw: string): Array<ReleasePlatform> => {
+	const tokens = raw
+		.split(",")
+		.map((token) => token.trim().toLowerCase())
+		.filter((token) => token !== "");
+
+	if (tokens.length === 0) {
+		throw new WhatsNewError(
+			'"platforms" is empty in What\'s New block, list at least one platform',
+		);
+	}
+
+	const selected = new Set<ReleasePlatform>();
+
+	for (const token of tokens) {
+		if (isPlatformGroup(token)) {
+			for (const platform of PLATFORM_GROUPS[token]) selected.add(platform);
+			continue;
+		}
+
+		if (isReleasePlatform(token)) {
+			selected.add(token);
+			continue;
+		}
+
+		throw new WhatsNewError(
+			`unknown platform "${token}" in What's New block, expected one of ${PLATFORM_SELECTORS.join(", ")}`,
+		);
+	}
+
+	return RELEASE_PLATFORMS.filter((platform) => selected.has(platform));
+};
+
+export const matchesPlatform = (
+	entry: Pick<ReleaseNoteEntry, "platforms">,
+	platform: ReleasePlatform,
+): boolean => entry.platforms.includes(platform);
+
+export const filterEntriesForPlatform = <
+	T extends Pick<ReleaseNoteEntry, "platforms">,
+>(
+	entries: ReadonlyArray<T>,
+	platform: ReleasePlatform,
+): Array<T> => entries.filter((entry) => matchesPlatform(entry, platform));
+
 export const extractWhatsNewBlock = (
 	summary: string,
 ): WhatsNewBlock | undefined => {
@@ -100,16 +188,21 @@ export const extractWhatsNewBlock = (
 		}
 	}
 
-	for (const key of ENTRY_KEYS) {
-		if (!fields.get(key)) {
-			throw new WhatsNewError(`What's New block is missing "${key}"`);
-		}
+	for (const key of REQUIRED_KEYS) {
+		if (fields.get(key)) continue;
+
+		throw new WhatsNewError(
+			key === "platforms"
+				? 'What\'s New block is missing "platforms", add for example "platforms: all"'
+				: `What's New block is missing "${key}"`,
+		);
 	}
 
 	const block: WhatsNewBlock = {
 		title: fields.get("title") as string,
 		icon: fields.get("icon") as string,
 		body: fields.get("body") as string,
+		platforms: parsePlatforms(fields.get("platforms") as string),
 	};
 
 	const kind = fields.get("kind");
@@ -155,6 +248,7 @@ export interface WhatsNewFields {
 	title: string;
 	icon: string;
 	body: string;
+	platforms: Array<PlatformSelector>;
 	kind?: ReleaseNoteKind;
 }
 
@@ -171,6 +265,7 @@ export const serializeWhatsNewBlock = (fields: WhatsNewFields): string => {
 		`title: ${value(fields.title)}`,
 		`icon: ${value(fields.icon)}`,
 		`body: ${value(fields.body)}`,
+		`platforms: ${fields.platforms.join(", ")}`,
 	];
 
 	if (fields.kind) lines.push(`kind: ${fields.kind}`);

@@ -11,5 +11,6 @@ Also fixes three things found alongside it: a swipe that starts over a category 
 title: Smoother channel swipes
 icon: hand-swipe-right-fill
 body: Swiping between the channel list, a channel and the member list should be less laggy.
+platforms: mobile
 kind: fix
 -->

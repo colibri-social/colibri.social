@@ -1,3 +1,5 @@
+import type { ReleasePlatform } from "@colibri-social/lib";
+import { isReleasePlatform } from "@colibri-social/lib";
 import { platform } from "@tauri-apps/plugin-os";
 import { isTauriRuntime } from "../notifications/environment";
 
@@ -52,3 +54,25 @@ const NATIVE_KEYBOARD_INSET_PLATFORMS = ["android", "ios"];
 export const hasNativeKeyboardInsetSync = (): boolean =>
 	NATIVE_PLATFORM !== null &&
 	NATIVE_KEYBOARD_INSET_PLATFORMS.includes(NATIVE_PLATFORM);
+
+const sniffNativePlatform = (): ReleasePlatform => {
+	const agent = typeof navigator === "undefined" ? "" : navigator.userAgent;
+	const touchPoints =
+		typeof navigator === "undefined" ? 0 : navigator.maxTouchPoints;
+
+	if (/Android/.test(agent)) return "android";
+	if (/iPhone|iPad|iPod/.test(agent)) return "ios";
+	if (/Mac/.test(agent)) return touchPoints > 1 ? "ios" : "macos";
+	if (/Windows/.test(agent)) return "windows";
+	if (/Linux|X11/.test(agent)) return "linux";
+
+	return "ios";
+};
+
+const RELEASE_PLATFORM: ReleasePlatform = !isTauriRuntime()
+	? "web"
+	: NATIVE_PLATFORM !== null && isReleasePlatform(NATIVE_PLATFORM)
+		? NATIVE_PLATFORM
+		: sniffNativePlatform();
+
+export const currentReleasePlatform = (): ReleasePlatform => RELEASE_PLATFORM;

@@ -12,5 +12,6 @@ Deleting a message no longer strands the list either. Previously, if the deleted
 title: Channels stay pinned to the bottom
 icon: arrow-down-fill
 body: Sending a message now reliably scrolls you to it, and the list keeps its place as the chat input grows and the keyboard opens.
+platforms: all
 kind: fix
 -->

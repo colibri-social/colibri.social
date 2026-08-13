@@ -12,5 +12,6 @@ Also fixes an AppView that no longer administers a community being able to keep 
 title: Moderation across AppViews
 icon: shield-check-fill
 body: You can now moderate and manage communities hosted on a different AppView than the one you signed in to. This needs presence sharing on, which is what tells other AppViews yours is allowed to act for you.
+platforms: all
 kind: feature
 -->

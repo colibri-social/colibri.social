@@ -97,6 +97,7 @@ const suggestionFor = (summary: string, bump: string): string => {
 		title: shorten(firstLine),
 		icon: guess ?? "sparkle-fill",
 		body: firstSentence,
+		platforms: ["all"],
 		kind: kindForBump(bump),
 	});
 };
@@ -195,7 +196,7 @@ const buildReport = (
 	const lines = ["## What's New", ""];
 
 	if (errors.length > 0) {
-		lines.push("These changesets need a What's New block:", "");
+		lines.push("These changesets have What's New problems:", "");
 		for (const error of errors) {
 			lines.push(`- \`.changeset/${error.file}\`: ${error.message}`);
 		}
@@ -228,6 +229,8 @@ const buildReport = (
 
 	lines.push(
 		"Run `pnpm changeset:feature` to write a changeset with an entry interactively.",
+		"",
+		'Every block needs a `platforms:` line. Use `all` unless the change is only visible on some platforms, since the App Store does not let the iOS app show release notes for anything else.',
 		"",
 	);
 

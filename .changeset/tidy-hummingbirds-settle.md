@@ -10,5 +10,6 @@ Losing your connection while reading a community also no longer throws you out. 
 title: Communities open instantly
 icon: lightning-fill
 body: Switching into a community you have already visited no longer replays the loading screen, and a dropped connection keeps you where you are instead of dumping you on an error screen.
+platforms: all
 kind: fix
 -->

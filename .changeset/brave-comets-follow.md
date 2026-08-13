@@ -8,5 +8,6 @@ The experimental Appearance setting gained a System option.
 title: Appearance can follow your system
 icon: circle-half-fill
 body: The experimental Appearance setting now lists System alongside Dark and Light.
+platforms: all
 kind: feature
 -->

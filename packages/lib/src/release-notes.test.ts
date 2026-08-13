@@ -2,14 +2,30 @@ import { describe, expect, it } from "vitest";
 import {
 	appendWhatsNewBlock,
 	extractWhatsNewBlock,
+	filterEntriesForPlatform,
+	isReleasePlatform,
 	kindForBump,
+	matchesPlatform,
 	parseChangesetFile,
+	RELEASE_PLATFORMS,
 	serializeWhatsNewBlock,
 	WhatsNewError,
 } from "./release-notes.js";
 
 const changeset = (summary: string, bump = "minor") =>
 	`---\n"@colibri-social/client": ${bump}\n---\n\n${summary}\n`;
+
+const platformsOf = (raw: string) =>
+	extractWhatsNewBlock(
+		[
+			"<!-- whatsnew",
+			"title: Voice channels",
+			"icon: microphone",
+			"body: Hop in.",
+			`platforms: ${raw}`,
+			"-->",
+		].join("\n"),
+	)?.platforms;
 
 describe("extractWhatsNewBlock", () => {
 	it("returns undefined when there is no block", () => {
@@ -25,6 +41,7 @@ describe("extractWhatsNewBlock", () => {
 				"title: Voice channels",
 				"icon: microphone",
 				"body: Hop into a voice channel.",
+				"platforms: all",
 				"-->",
 			].join("\n"),
 		);
@@ -33,6 +50,7 @@ describe("extractWhatsNewBlock", () => {
 			title: "Voice channels",
 			icon: "microphone",
 			body: "Hop into a voice channel.",
+			platforms: RELEASE_PLATFORMS,
 		});
 	});
 
@@ -45,6 +63,7 @@ describe("extractWhatsNewBlock", () => {
 				"body: Hop into a voice channel",
 				"  and talk without leaving",
 				"  the app.",
+				"platforms: all",
 				"-->",
 			].join("\n"),
 		);
@@ -61,6 +80,7 @@ describe("extractWhatsNewBlock", () => {
 				"title: Voice: now with video",
 				"icon: microphone",
 				"body: See https://colibri.social for details.",
+				"platforms: all",
 				"-->",
 			].join("\n"),
 		);
@@ -76,6 +96,7 @@ describe("extractWhatsNewBlock", () => {
 				"title: Smoother swiping",
 				"icon: hand-swipe-right",
 				"body: Swipe gestures feel sharper.",
+				"platforms: all",
 				"kind: fix",
 				"-->",
 			].join("\n"),
@@ -91,6 +112,7 @@ describe("extractWhatsNewBlock", () => {
 				"title: Voice channels",
 				"icon: microphone",
 				"body: Hop in.",
+				"platforms: all",
 				"-->",
 			].join("\n"),
 		);
@@ -106,6 +128,7 @@ describe("extractWhatsNewBlock", () => {
 					"title: Voice channels",
 					"icon: microphone",
 					"body: Hop in.",
+					"platforms: all",
 					"kind: improvement",
 					"-->",
 				].join("\n"),
@@ -120,6 +143,7 @@ describe("extractWhatsNewBlock", () => {
 				"title: Voice channels",
 				"icon: microphone",
 				"body: Hop in.",
+				"platforms: all",
 				"releaseTitle: Voice and video",
 				"heroImage: voice-banner",
 				"-->",
@@ -130,13 +154,14 @@ describe("extractWhatsNewBlock", () => {
 		expect(block?.heroImage).toBe("voice-banner");
 	});
 
-	for (const missing of ["title", "icon", "body"]) {
+	for (const missing of ["title", "icon", "body", "platforms"]) {
 		it(`rejects a block missing "${missing}"`, () => {
 			const lines = [
 				"<!-- whatsnew",
 				"title: Voice channels",
 				"icon: microphone",
 				"body: Hop in.",
+				"platforms: all",
 				"-->",
 			].filter((line) => !line.startsWith(`${missing}:`));
 
@@ -146,6 +171,20 @@ describe("extractWhatsNewBlock", () => {
 		});
 	}
 
+	it("names platforms in the message when it is missing", () => {
+		expect(() =>
+			extractWhatsNewBlock(
+				[
+					"<!-- whatsnew",
+					"title: Voice channels",
+					"icon: microphone",
+					"body: Hop in.",
+					"-->",
+				].join("\n"),
+			),
+		).toThrow(/missing "platforms"/);
+	});
+
 	it("rejects an unknown key", () => {
 		expect(() =>
 			extractWhatsNewBlock(
@@ -154,6 +193,7 @@ describe("extractWhatsNewBlock", () => {
 					"title: Voice channels",
 					"icon: microphone",
 					"body: Hop in.",
+					"platforms: all",
 					"tilte: typo",
 					"-->",
 				].join("\n"),
@@ -170,6 +210,7 @@ describe("extractWhatsNewBlock", () => {
 					"title: Voice channels again",
 					"icon: microphone",
 					"body: Hop in.",
+					"platforms: all",
 					"-->",
 				].join("\n"),
 			),
@@ -182,6 +223,102 @@ describe("extractWhatsNewBlock", () => {
 				["<!-- whatsnew", "just some prose", "-->"].join("\n"),
 			),
 		).toThrow(WhatsNewError);
+	});
+});
+
+describe("platforms", () => {
+	it("expands all to every platform", () => {
+		expect(platformsOf("all")).toEqual(RELEASE_PLATFORMS);
+	});
+
+	it("expands the mobile and desktop shorthands", () => {
+		expect(platformsOf("mobile")).toEqual(["ios", "android"]);
+		expect(platformsOf("desktop")).toEqual(["macos", "windows", "linux"]);
+	});
+
+	it("reads a plain list", () => {
+		expect(platformsOf("ios, android")).toEqual(["ios", "android"]);
+	});
+
+	it("combines a shorthand with a concrete platform", () => {
+		expect(platformsOf("mobile, macos")).toEqual(["ios", "android", "macos"]);
+	});
+
+	it("orders the result canonically whatever the input order", () => {
+		expect(platformsOf("linux, web, ios")).toEqual(["web", "ios", "linux"]);
+	});
+
+	it("dedupes a shorthand overlapping its own members", () => {
+		expect(platformsOf("mobile, ios")).toEqual(["ios", "android"]);
+		expect(platformsOf("all, windows")).toEqual(RELEASE_PLATFORMS);
+	});
+
+	it("tolerates casing and stray whitespace", () => {
+		expect(platformsOf("  IOS ,android ")).toEqual(["ios", "android"]);
+	});
+
+	it("reads a list wrapped onto continuation lines", () => {
+		const block = extractWhatsNewBlock(
+			[
+				"<!-- whatsnew",
+				"title: Voice channels",
+				"icon: microphone",
+				"body: Hop in.",
+				"platforms: web,",
+				"  ios",
+				"-->",
+			].join("\n"),
+		);
+
+		expect(block?.platforms).toEqual(["web", "ios"]);
+	});
+
+	it("rejects an unknown platform", () => {
+		expect(() => platformsOf("windwos")).toThrow(/unknown platform "windwos"/);
+	});
+
+	it("rejects a list of nothing but separators", () => {
+		expect(() => platformsOf(",")).toThrow(WhatsNewError);
+	});
+});
+
+describe("matchesPlatform", () => {
+	const entry = (platforms: Array<"web" | "ios" | "android">) => ({
+		platforms,
+	});
+
+	it("matches a listed platform and nothing else", () => {
+		expect(matchesPlatform(entry(["ios", "android"]), "ios")).toBe(true);
+		expect(matchesPlatform(entry(["ios", "android"]), "web")).toBe(false);
+	});
+
+	it("keeps matching entries in order and drops the rest", () => {
+		const entries = [
+			{ id: "a", platforms: ["ios" as const] },
+			{ id: "b", platforms: ["web" as const] },
+			{ id: "c", platforms: ["web" as const, "ios" as const] },
+		];
+
+		expect(
+			filterEntriesForPlatform(entries, "ios").map((item) => item.id),
+		).toEqual(["a", "c"]);
+		expect(filterEntriesForPlatform(entries, "macos")).toEqual([]);
+	});
+});
+
+describe("isReleasePlatform", () => {
+	it("accepts every concrete platform", () => {
+		for (const platform of RELEASE_PLATFORMS) {
+			expect(isReleasePlatform(platform)).toBe(true);
+		}
+	});
+
+	it("rejects the shorthands and anything else", () => {
+		expect(isReleasePlatform("all")).toBe(false);
+		expect(isReleasePlatform("mobile")).toBe(false);
+		expect(isReleasePlatform("desktop")).toBe(false);
+		expect(isReleasePlatform("")).toBe(false);
+		expect(isReleasePlatform("iphone")).toBe(false);
 	});
 });
 
@@ -217,6 +354,7 @@ describe("parseChangesetFile", () => {
 					"title: Voice channels",
 					"icon: microphone",
 					"body: Hop in.",
+					"platforms: all",
 					"-->",
 				].join("\n"),
 			),
@@ -250,11 +388,13 @@ describe("serializeWhatsNewBlock", () => {
 			title: "Voice: now with video",
 			icon: "microphone",
 			body: "Hop into a voice channel and talk without leaving the app.",
+			platforms: ["all" as const],
 		};
 
-		expect(extractWhatsNewBlock(serializeWhatsNewBlock(fields))).toEqual(
-			fields,
-		);
+		expect(extractWhatsNewBlock(serializeWhatsNewBlock(fields))).toEqual({
+			...fields,
+			platforms: RELEASE_PLATFORMS,
+		});
 	});
 
 	it("round trips an explicit kind", () => {
@@ -262,12 +402,42 @@ describe("serializeWhatsNewBlock", () => {
 			title: "Smoother swiping",
 			icon: "hand-swipe-right",
 			body: "Swipe gestures feel sharper.",
+			platforms: ["all" as const],
 			kind: "fix" as const,
 		};
 
-		expect(extractWhatsNewBlock(serializeWhatsNewBlock(fields))).toEqual(
-			fields,
-		);
+		expect(extractWhatsNewBlock(serializeWhatsNewBlock(fields))).toEqual({
+			...fields,
+			platforms: RELEASE_PLATFORMS,
+		});
+	});
+
+	it("round trips a narrowed platform list", () => {
+		const fields = {
+			title: "Resizable sidebar",
+			icon: "sidebar",
+			body: "Drag the edge of the channel sidebar.",
+			platforms: ["macos" as const, "windows" as const, "linux" as const],
+		};
+
+		const serialized = serializeWhatsNewBlock(fields);
+		expect(serialized).toContain("platforms: macos, windows, linux");
+		expect(extractWhatsNewBlock(serialized)?.platforms).toEqual([
+			"macos",
+			"windows",
+			"linux",
+		]);
+	});
+
+	it("writes the shorthand it was given rather than expanding it", () => {
+		const serialized = serializeWhatsNewBlock({
+			title: "Voice channels",
+			icon: "microphone",
+			body: "Hop in.",
+			platforms: ["all"],
+		});
+
+		expect(serialized).toContain("platforms: all");
 	});
 
 	it("round trips a multi-line body as continuation lines", () => {
@@ -275,6 +445,7 @@ describe("serializeWhatsNewBlock", () => {
 			title: "Voice channels",
 			icon: "microphone",
 			body: "Hop into a voice channel\nand talk without leaving the app.",
+			platforms: ["all" as const],
 		};
 
 		const block = extractWhatsNewBlock(serializeWhatsNewBlock(fields));
@@ -298,10 +469,12 @@ describe("appendWhatsNewBlock", () => {
 			title: "Voice channels",
 			icon: "microphone",
 			body: "Hop in.",
+			platforms: ["all"],
 		});
 
 		const parsed = parseChangesetFile(appended);
 		expect(parsed.summary.startsWith("Adds voice channels")).toBe(true);
 		expect(parsed.block?.icon).toBe("microphone");
+		expect(parsed.block?.platforms).toEqual(RELEASE_PLATFORMS);
 	});
 });

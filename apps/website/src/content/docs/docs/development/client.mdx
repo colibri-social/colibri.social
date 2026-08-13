@@ -137,7 +137,7 @@ Use the wrapper instead of `pnpm exec changeset`, and it walks you through the e
 pnpm changeset:feature
 ```
 
-It asks whether to announce the change (defaulting to yes for a `minor` or `major` bump and no for a `patch`), whether it is a feature or a fix, then a title, a body, and an icon. The icon step is a live search over [Phosphor](https://phosphoricons.com) that narrows as you type, and it renders each match inline if your terminal supports the Kitty graphics protocol, as Ghostty, Kitty and WezTerm do. Set `COLIBRI_NO_ICON_PREVIEW=1` to fall back to names only.
+It asks whether to announce the change (defaulting to yes for a `minor` or `major` bump and no for a `patch`), whether it is a feature or a fix, then a title, a body, an icon, and which platforms it applies to, defaulting to all of them. The icon step is a live search over [Phosphor](https://phosphoricons.com) that narrows as you type, and it renders each match inline if your terminal supports the Kitty graphics protocol, as Ghostty, Kitty and WezTerm do. Set `COLIBRI_NO_ICON_PREVIEW=1` to fall back to names only.
 
 Only the `-fill` weight is offered, so the popup stays visually consistent. Search by the base name and the suffix is added for you: typing `microphone` finds `microphone-fill`.
 
@@ -150,6 +150,8 @@ pnpm whats-new:generate  # removes it again
 ```
 
 The popup opens once per unseen release, so if you have already dismissed it, clear `lastSeenReleaseNote` inside the `colibri:user-preferences` entry in local storage to bring it back. A browser profile with no stored preferences at all counts as a new install and is deliberately left alone.
+
+The preview renders through the same platform filter as a real release, so an entry limited to `ios` will not show up in a desktop browser.
 
 The result is an HTML comment in the changeset body, which you can also write or edit by hand:
 
@@ -164,11 +166,16 @@ Adds voice channels with screen sharing
 title: Voice channels
 icon: microphone-fill
 body: Hop into a voice channel and talk without leaving the app.
+platforms: all
 kind: feature
 -->
 ```
 
-`title`, `icon` and `body` are required. `kind` is optional and defaults to `fix` for a `patch` bump and `feature` otherwise. A long `body` can wrap onto indented continuation lines. Colons inside values are fine, so no quoting is needed.
+`title`, `icon`, `body` and `platforms` are required. `kind` is optional and defaults to `fix` for a `patch` bump and `feature` otherwise. A long `body` can wrap onto indented continuation lines. Colons inside values are fine, so no quoting is needed.
+
+`platforms` takes a comma-separated list of `web`, `ios`, `android`, `macos`, `windows` and `linux`, plus three shorthands: `all` for every platform, `mobile` for `ios, android`, and `desktop` for `macos, windows, linux`. Combine them freely, so `mobile, macos` is three platforms. `all` is the right answer unless the change genuinely is not visible somewhere.
+
+The key exists because the App Store does not let the iOS app show release notes for anything other than iOS. Every place an entry is rendered filters to one platform: the in-app popup and the settings page filter to the platform the app is running on, and the App Store and Play listings filter to the platform being published. An entry naming no matching platform is invisible there, and a release with nothing left for a store gets a generic "Bug fixes and improvements." line instead.
 
 Two optional release-level keys, `releaseTitle` and `heroImage`, can be set by any one changeset in a release. Setting either from two changesets in the same release is an error.
 

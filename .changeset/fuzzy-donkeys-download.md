@@ -10,5 +10,6 @@ Images gained download buttons where there were none. Previously only a single a
 title: Attachments actually download
 icon: download-simple-fill
 body: Text files, documents and images now save to your device under their original filename instead of opening in a browser tab.
+platforms: all
 kind: fix
 -->

@@ -10,5 +10,6 @@ It also shows up in two places it never used to: when you are only a few message
 title: Jump to latest always finds you
 icon: arrow-line-down-fill
 body: The button now appears whenever you are scrolled away from the newest message, including when a channel opens on an older message from an unread marker or a notification.
+platforms: all
 kind: fix
 -->

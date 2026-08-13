@@ -441,7 +441,7 @@ jobs:
           set -euo pipefail
           NOTES_VERSION=$(node -p "require('./packages/client/package.json').version")
           node --experimental-strip-types scripts/render-release-notes.ts \
-            --version="$NOTES_VERSION" --max=4000 \
+            --version="$NOTES_VERSION" --platform=macos --max=4000 \
             --out="$RUNNER_TEMP/whats-new.txt"
           cat "$RUNNER_TEMP/whats-new.txt"
 
@@ -608,7 +608,7 @@ jobs:
           set -euo pipefail
           NOTES_VERSION=$(node -p "require('./packages/client/package.json').version")
           node --experimental-strip-types scripts/render-release-notes.ts \
-            --version="$NOTES_VERSION" --max=4000 \
+            --version="$NOTES_VERSION" --platform=ios --max=4000 \
             --out="$RUNNER_TEMP/whats-new.txt"
           cat "$RUNNER_TEMP/whats-new.txt"
 
@@ -819,7 +819,7 @@ jobs:
           mkdir -p whatsnew
           NOTES_VERSION=$(node -p "require('./packages/client/package.json').version")
           node --experimental-strip-types scripts/render-release-notes.ts \
-            --version="$NOTES_VERSION" --max=500 \
+            --version="$NOTES_VERSION" --platform=android --max=500 \
             ${{ inputs.play_track == 'production' && '--strict' || '' }} \
             --out=whatsnew/whatsnew-en-US
           cat whatsnew/whatsnew-en-US
