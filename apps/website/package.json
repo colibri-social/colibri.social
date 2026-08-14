@@ -2,7 +2,7 @@
 	"name": "@colibri-social/website",
 	"private": true,
 	"type": "module",
-	"version": "0.1.1",
+	"version": "0.2.0",
 	"engines": {
 		"node": "^24.13.0"
 	},
@@ -35,7 +35,7 @@
 		"@atproto/oauth-client-node": "^0.3.16",
 		"@atproto/ws-client": "^0.0.4",
 		"@colibri-social/assets": "workspace:0.0.2",
-		"@colibri-social/client": "workspace:0.2.1",
+		"@colibri-social/client": "workspace:0.3.0",
 		"@colibri-social/standard-renderer": "workspace:0.0.2",
 		"@corvu/drawer": "^0.2.4",
 		"@fontsource-variable/hanken-grotesk": "^5.2.8",

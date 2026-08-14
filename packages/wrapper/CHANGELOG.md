@@ -1,5 +1,64 @@
 # @colibri-social/wrapper
 
+## 0.3.0
+
+### Minor Changes
+
+- 3f13c9f: Fixes desktop notifications never appearing and adds an unread badge to the macOS dock. The notification plugin always reports permission as granted on desktop, so the code that switches notifications on after a successful prompt never ran and the setting stayed off unless you found the toggle in settings yourself. Desktop now opts in once on first launch, and turning it off still sticks. In-app toasts also stopped appearing entirely once notifications were on, even with the window focused, so those are back whenever the window is in front. On macOS notifications are now delivered through the system notification centre: they carry the sender's avatar, group per channel, open the right message when clicked, and disappear once the message is read. Windows notifications are now native toasts carrying the sender's avatar that open the right message when clicked. Windows does not group by channel and does not clear a toast once the message is read, since the toast API exposes no way to do either.
+
+  <!-- whatsnew
+  title: Desktop notifications
+  icon: bell-ringing-fill
+  body: Desktop notifications no longer need to be switched on by hand, and on macOS and Windows they show the sender's avatar and take you straight to the message. Your unread mention count now shows on the macOS dock icon.
+  platforms: desktop
+  kind: feature
+  -->
+
+### Patch Changes
+
+- 90d61ff: Android push notifications now carry a "Mark as read" button, and author avatars in them are round instead of square.
+
+  <!-- whatsnew
+  title: Mark conversations read from the notification
+  icon: checks-fill
+  platforms: android
+  kind: fix
+  body: Notifications now have a "Mark as read" button that clears the conversation without opening the app, and author avatars in them are finally round.
+  -->
+
+- bab80fb: Take the work out of the mobile pane swipe. The drag no longer reads `window.innerWidth` in between the inline style writes it makes on four elements, so it stops forcing a layout flush every frame. Pointer moves are coalesced to one delivery per animation frame instead of one per event, which also covers swipe-to-reply, since every message row runs the same recognizer. The panes translate by pixels rather than a mixed-unit `calc()`, and animate `transform` through `translate3d` rather than the individual `translate` property, which keeps their layer geometry independent of layout mid-drag.
+
+  Also fixes three things found alongside it: a swipe that starts over a category header no longer fires the collapse toggle (which persisted to local storage, so the channels stayed hidden afterwards), members without the manage permission can no longer start a category drag that freezes sidebar scrolling and then does nothing, and a touch drag now always requires a deliberate hold before a channel enters drag mode instead of depending on how the device reports its primary pointer.
+
+  <!-- whatsnew
+  title: Smoother channel swipes
+  icon: hand-swipe-right-fill
+  body: Swiping between the channel list, a channel and the member list should be less laggy.
+  platforms: mobile
+  kind: fix
+  -->
+
+- Updated dependencies [44e7e4d]
+- Updated dependencies [6257430]
+- Updated dependencies [46afe30]
+- Updated dependencies [489026a]
+- Updated dependencies [1f3ab7f]
+- Updated dependencies [ff1ce5f]
+- Updated dependencies [1c16781]
+- Updated dependencies [3f13c9f]
+- Updated dependencies [17bc302]
+- Updated dependencies [90d61ff]
+- Updated dependencies [75e5b3b]
+- Updated dependencies [e9abd8a]
+- Updated dependencies [e6787f9]
+- Updated dependencies [85017b9]
+- Updated dependencies [6381845]
+- Updated dependencies [5a1dfea]
+- Updated dependencies [bab80fb]
+- Updated dependencies [d6d1f9d]
+- Updated dependencies [489026a]
+  - @colibri-social/client@0.3.0
+
 ## 0.2.1
 
 ### Patch Changes
