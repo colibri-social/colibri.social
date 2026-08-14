@@ -1,5 +1,232 @@
 # @colibri-social/client
 
+## 0.3.0
+
+### Minor Changes
+
+- 489026a: Profile badges are now defined by the labeler instead of being hardcoded in the client. The labeler publishes its badge catalogue as a `social.colibri.labeler.service` record, and the client reads it at runtime, so adding a badge or recolouring one no longer needs a client release. Every piece of badge display metadata used to be duplicated across three hand-maintained maps in the client plus the labeler's own list, and the copies could drift.
+
+  `#badgeDefinition` gains an optional `appearance` holding a `variant` of `solid` or `gradientBorder`, a list of `colors` and a `foreground`. Every colour is a `#rrggbb` or `#rrggbbaa` hex literal, validated on the way in, so a badge's colours reach the DOM as an inline style without the record being able to inject arbitrary CSS. A badge whose appearance is missing or unusable still renders, with the neutral fallback style.
+
+  The catalogue is read from the labeler's own PDS, cached for an hour in memory and IndexedDB, and backed by a bundled copy of the current badges, so badges render immediately on a cold start and keep rendering if the labeler is unreachable. A badge the record lists without an appearance keeps its bundled colours rather than dropping to the neutral style, so nothing changes appearance until the labeler actually publishes new colours. The `Badge` component now takes just the label value and looks up its own text, description and colours.
+
+- 1f3ab7f: Adds control over link previews at every level. Authors can hide the preview on a link they posted, one at a time or all at once, and bring it back later. A new dismiss button appears on hover over a preview card, and a Link Previews entry in the message menu lists every link so previews can be reviewed and restored. A toggle in the composer sets whether previews are attached before a message is sent, seeded from a new preference for what that toggle should default to.
+
+  Moderators holding `message.hide` get the same per-link control through two new procedures, `social.colibri.community.suppressMessageEmbeds` and `unsuppressMessageEmbeds`, recorded on the community's moderation log. Author and moderator suppression are tracked separately and each side can only undo its own, so a moderator can never restore a preview its author chose to hide, and an author can never restore one a moderator hid.
+
+  Community owners can turn previews off for a whole community from a new Messages section in community settings, and each channel can override that with its own show, hide, or follow-the-community setting. Turning previews off applies to messages already in the channel and skips fetching their metadata entirely.
+
+  Inline images and GIFs are unaffected.
+
+  <!-- whatsnew
+  title: Turn off link previews
+  icon: link-break-fill
+  body: Hide the preview card on any link you post, one at a time or all of them, and change your mind later. Moderators can hide previews too, and community owners can switch them off per community or per channel.
+  platforms: all
+  kind: feature
+  -->
+
+- ff1ce5f: Quick reactions now follow the emoji you actually use. The client keeps a local tally of every emoji you react with, ranked by how often you use it and broken by which you reached for most recently, and both reaction shortcuts read from that tally. Defaults fill any gaps, so the rows look complete before you have reacted to anything.
+
+  <!-- whatsnew
+  title: Quick reactions learn your favourites
+  icon: smiley-fill
+  platforms: all
+  kind: feature
+  body: Your most-used emoji now sit in the message action bar on desktop and in the long-press drawer on touch.
+  -->
+
+- 3f13c9f: Fixes desktop notifications never appearing and adds an unread badge to the macOS dock. The notification plugin always reports permission as granted on desktop, so the code that switches notifications on after a successful prompt never ran and the setting stayed off unless you found the toggle in settings yourself. Desktop now opts in once on first launch, and turning it off still sticks. In-app toasts also stopped appearing entirely once notifications were on, even with the window focused, so those are back whenever the window is in front. On macOS notifications are now delivered through the system notification centre: they carry the sender's avatar, group per channel, open the right message when clicked, and disappear once the message is read. Windows notifications are now native toasts carrying the sender's avatar that open the right message when clicked. Windows does not group by channel and does not clear a toast once the message is read, since the toast API exposes no way to do either.
+
+  <!-- whatsnew
+  title: Desktop notifications
+  icon: bell-ringing-fill
+  body: Desktop notifications no longer need to be switched on by hand, and on macOS and Windows they show the sender's avatar and take you straight to the message. Your unread mention count now shows on the macOS dock icon.
+  platforms: desktop
+  kind: feature
+  -->
+
+- e6787f9: Right-clicking a link now offers actions for that link. Every message body is wrapped in a single context menu trigger, so a right-click anywhere in a message, including on a URL, used to open the message menu with nothing but Reply, Copy Text and Delete. There was no way to copy a link without selecting its text by hand.
+
+  The menu now leads with Open Link and Copy Link when the pointer is over one, followed by a separator and the usual message actions below. This covers links in message text, link card and Bluesky embed titles, hashtags, channel links and invite links. A channel or invite link copies as a full shareable URL rather than the internal path. Attachment links are left alone, since their download URLs are meaningless outside the session.
+
+  Mentions now open the member menu instead, the same one the member list and the message author give you, so roles, moderation actions and Copy DID are reachable from a mention without hunting for that person in the sidebar. Every entry stays permission gated exactly as it was, and nothing message-related appears there.
+
+  Long-pressing a message on touch leads with the same two link actions in the drawer, and long-pressing a mention opens the member drawer. Profile popovers gained a link menu of their own for bio links and the client links next to the handle.
+
+  <!-- whatsnew
+  title: Right-click a link, get link actions
+  icon: link-simple-fill
+  platforms: all
+  kind: feature
+  body: Right-click or long-press a link to open or copy it, without hunting for the message menu or selecting the text by hand.
+  -->
+
+- 6381845: Moderating a community hosted on a different AppView now works. Only the AppView holding a community's credentials can write to its repo, so until now banning, kicking, hiding a message, approving a join, leaving, or editing channels, categories, roles and settings all failed if you were signed in to a different AppView than the one hosting that community. The failure surfaced as a generic server error that got retried eight times before giving up, because nothing recognised it as a permanent routing problem. Your AppView now recognises that a community belongs to another one and forwards the request there on your behalf, returning that AppView's own answer. Your browser only ever talks to your own AppView, so the one hosting the community never sees your connection.
+
+  The AppView you use is published on your public profile when presence sharing is on, and the AppView hosting a community checks it before accepting anything on your behalf, so nobody else's AppView can act as you. That means presence sharing has to be on to moderate a community hosted elsewhere. The presence setting and AppView picker now say so, the member and banned-user screens of a community hosted elsewhere warn you up front if you can moderate it but have presence sharing off, turning the setting off warns you that it breaks moderation elsewhere and offers to undo, and if an action is refused for that reason you get a prompt to turn it back on, once per session, with a button to stop showing it.
+
+  Also fixes an AppView that no longer administers a community being able to keep writing to it with credentials it still held, and two error codes that were declared to clients but could never actually be sent.
+
+  <!-- whatsnew
+  title: Moderation across AppViews
+  icon: shield-check-fill
+  body: You can now moderate and manage communities hosted on a different AppView than the one you signed in to. This needs presence sharing on, which is what tells other AppViews yours is allowed to act for you.
+  platforms: all
+  kind: feature
+  -->
+
+- 489026a: Supporter badges are now self-service. Settings then Support gains a "Connect Open Collective" step: authorize once, and the matching badge is granted within seconds, kept in step with the contribution, and revoked when it lapses. Until now every supporter badge was handed out by a maintainer running a CLI, which contributors had started working around by pasting their DID into their Open Collective display name.
+
+  The link is published as a `social.colibri.labeler.attestation` record in the labeler's own repo, keyed by the subject DID, rather than kept in a private table. It is on-protocol, publicly auditable, replicated like any other record, and resolvable with a single `getRecord`. The OAuth `state` is a self-signed short-lived token, so the flow stores nothing anywhere.
+
+  Reading contributions needs no authentication, because a collective's orders are public. OAuth is used only to prove which Open Collective account the user controls: the access token is used once to read the account, then thrown away, and no refresh token is kept.
+
+  Entitlement is decided by amount rather than by Open Collective tier. The collective only has a $5 and a $25 tier, both flexible, so a $10 contributor arrives on the $5 tier at a custom amount or with no tier at all, and matching on tier would quietly underpay them. Yearly contributions are divided by 12, several active contributions are summed, and a currency the collective does not use is skipped rather than guessed at. The Support page also gains the `$10 SUPPORTER` tier, which it was missing.
+
+  A lapse is caught two ways. Every pass reissues the badge with an expiry a grace period past the next charge date, so badges lapse on their own if the sync ever stops running, and a contribution that goes inactive also gets an immediate negation. One-time `DONATOR` badges are permanent.
+
+  Badges granted by hand before any of this existed are safe. Labels are append-only, so linking adds a row rather than replacing one, and reconciliation never revokes a badge that carries no expiry, which is what distinguishes a maintainer's deliberate grant from one the sync issued. Linking can only add or upgrade, so nobody loses a badge by connecting their account. Badges outside the supporter set are never read by the sync at all.
+
+  Guest profiles need no manual auditing. A guest profile has no credentials so it cannot complete the flow at all, and claiming one converts it in place while keeping the contribution attached, so anyone who does reach the callback is already a claimed account. The Support page says so and links to the claim flow, and each sync reports how many contributions came from unclaimed guest profiles.
+
+  Linking adds two `rpc:` scopes, so existing sessions are asked to reauthorize before the new buttons work.
+
+  <!-- whatsnew
+  title: Claim your supporter badge
+  icon: heart-fill
+  platforms: web,windows,linux
+  kind: feature
+  body: Contributing on Open Collective? Connect your account under Settings then Support and your badge appears on its own.
+  -->
+
+### Patch Changes
+
+- 44e7e4d: The experimental Appearance setting gained a System option.
+
+  <!-- whatsnew
+  title: Appearance can follow your system
+  icon: circle-half-fill
+  body: The experimental Appearance setting now lists System alongside Dark and Light.
+  platforms: all
+  kind: feature
+  -->
+
+- 6257430: File attachments now download instead of opening in your browser. A text file, a JSON file or an SVG used to be handed straight to the browser, which rendered it inline rather than saving it, and in the desktop and mobile apps it opened in an external browser tab instead. Every download button now saves the file under the name it was uploaded with, on web, desktop and mobile alike.
+
+  Images gained download buttons where there were none. Previously only a single attached image had one, so an image posted as part of a set of several could not be saved at all. Every image in a gallery now reveals its own download button on hover, and the fullscreen viewer has one too, which is the way to save an image on a touch screen.
+
+  <!-- whatsnew
+  title: Attachments actually download
+  icon: download-simple-fill
+  body: Text files, documents and images now save to your device under their original filename instead of opening in a browser tab.
+  platforms: all
+  kind: fix
+  -->
+
+- 46afe30: The "Jump to latest" button now appears whenever you are scrolled away from the newest message, instead of only when you scroll up past a fixed point in the list. Opening a channel that lands you on an older message, whether from an unread marker, a notification, or a reply you followed, now shows the button straight away rather than leaving you to find your own way back down.
+
+  It also shows up in two places it never used to: when you are only a few messages from the end but still not at the bottom, and in short channels where a handful of tall messages with images can already fill more than a screen. Tapping it now clears the "New messages" divider in the same step, so it no longer lingers above you after the jump.
+
+  <!-- whatsnew
+  title: Jump to latest always finds you
+  icon: arrow-line-down-fill
+  body: The button now appears whenever you are scrolled away from the newest message, including when a channel opens on an older message from an unread marker or a notification.
+  platforms: all
+  kind: fix
+  -->
+
+- 1c16781: The settings button now sits next to your profile at the bottom of the channel sidebar instead of under the community rail, which puts it where you already look for your own account. The status bar around it got tighter too: the row is shorter, the avatar smaller, and long display names are clamped so they can no longer push the row sideways. On the home screen, where there is no channel sidebar, the gear stays in the rail.
+
+  <!-- whatsnew
+  title: Settings moved next to your profile
+  icon: gear-fill
+  platforms: all
+  kind: feature
+  body: The gear now lives beside your avatar at the bottom of the channel list, and that whole status bar is a bit more compact.
+  -->
+
+- 17bc302: Staying pinned to the bottom of a channel is no longer a matter of luck. Sending a message reliably scrolls you down to it, and on mobile the list now keeps up with the chat input as it grows from one line to five, and with the keyboard as it slides in and out.
+
+  The old behaviour guessed at whether you wanted to be at the bottom by looking at where the list happened to sit whenever it received a scroll event. Growing the chat input never produces one, so a single unlucky guess earlier in the session would leave the newest message sliding out of sight behind the composer, with nothing able to correct it. Whether you were pinned is now something the app records when you actually ask for it, by sending a message, by tapping "Jump to latest", or by ending a scroll near the bottom, and it holds that position across the several frames it takes images, link previews and quoted posts to settle.
+
+  Deleting a message no longer strands the list either. Previously, if the deleted message was the one the list was holding on to, every later correction silently stopped working for the rest of the session. Bluesky quotes, GIFs and link previews now also reserve their height before they load, so messages arriving underneath you push the view around far less.
+
+  <!-- whatsnew
+  title: Channels stay pinned to the bottom
+  icon: arrow-down-fill
+  body: Sending a message now reliably scrolls you to it, and the list keeps its place as the chat input grows and the keyboard opens.
+  platforms: all
+  kind: fix
+  -->
+
+- 90d61ff: Android push notifications now carry a "Mark as read" button, and author avatars in them are round instead of square.
+
+  <!-- whatsnew
+  title: Mark conversations read from the notification
+  icon: checks-fill
+  platforms: android
+  kind: fix
+  body: Notifications now have a "Mark as read" button that clears the conversation without opening the app, and author avatars in them are finally round.
+  -->
+
+- 75e5b3b: Scopes What's New entries to the platforms they apply to. Every whatsnew block in a changeset now carries a required `platforms:` key holding a comma-separated list of `web`, `ios`, `android`, `macos`, `windows` and `linux`, with `all`, `mobile` and `desktop` as shorthands. The in-app popup and the What's New settings page render only the entries that name the platform the app is running on, and the App Store and Play release notes are rendered per platform through a new required `--platform` flag, falling back to a generic line when a release has nothing for that store.
+- e9abd8a: Link previews now show a small image beside the text unless the page explicitly asks for a large one, and they respect the image size a page publishes.
+
+  <!-- whatsnew
+  title: Tidier link previews
+  icon: image-fill
+  platforms: all
+  kind: fix
+  body: Links that only carry a small image now show it as a thumbnail next to the title, and large previews no longer tower over the message.
+  -->
+
+- 85017b9: Opening a community you have already visited no longer replays the loading screen. The app now keeps the last few communities in memory and shows them straight away while it checks for anything new, so switching in from the home screen is instant instead of flashing the startup animation for half a second.
+
+  Losing your connection while reading a community also no longer throws you out. A failed refresh used to replace the whole view with an error screen, even though the messages and member list on screen were still perfectly good. Now you stay where you are, a note tells you that you are looking at saved data, and the app quietly keeps retrying in the background until it gets through. Communities that have genuinely been deleted or that you no longer have access to still close as before.
+
+  <!-- whatsnew
+  title: Communities open instantly
+  icon: lightning-fill
+  body: Switching into a community you have already visited no longer replays the loading screen, and a dropped connection keeps you where you are instead of dumping you on an error screen.
+  platforms: all
+  kind: fix
+  -->
+
+- 5a1dfea: Scrolling to the top of a channel no longer runs away. The scroll surface identified message rows by an attribute that sits below the row element, so every anchor capture came up empty and restoring the reading position after older messages mounted was a silent no-op. The reader stayed at the top, which immediately asked for the next page, and the messages they were reading were pushed down out of view. Rows are now resolved through their wrapper elements, older pages are compensated even while a scroll gesture is still running, late-loading embeds above the fold no longer shift the view mid-scroll, and the self-driven prefetch chain stops instead of spinning if a page ever fails to compensate. The backfill cursor also advances past the whole fetched page now, so overlapping pages cannot cause round-trips that make no progress.
+
+  <!-- whatsnew
+  title: Scrolling up through history stays put
+  icon: arrow-up-fill
+  platforms: all
+  kind: fix
+  body: Older messages now load in directly above the oldest one you have, with no jump and no runaway loading when you reach the top of a channel.
+  -->
+
+- bab80fb: Take the work out of the mobile pane swipe. The drag no longer reads `window.innerWidth` in between the inline style writes it makes on four elements, so it stops forcing a layout flush every frame. Pointer moves are coalesced to one delivery per animation frame instead of one per event, which also covers swipe-to-reply, since every message row runs the same recognizer. The panes translate by pixels rather than a mixed-unit `calc()`, and animate `transform` through `translate3d` rather than the individual `translate` property, which keeps their layer geometry independent of layout mid-drag.
+
+  Also fixes three things found alongside it: a swipe that starts over a category header no longer fires the collapse toggle (which persisted to local storage, so the channels stayed hidden afterwards), members without the manage permission can no longer start a category drag that freezes sidebar scrolling and then does nothing, and a touch drag now always requires a deliberate hold before a channel enters drag mode instead of depending on how the device reports its primary pointer.
+
+  <!-- whatsnew
+  title: Smoother channel swipes
+  icon: hand-swipe-right-fill
+  body: Swiping between the channel list, a channel and the member list should be less laggy.
+  platforms: mobile
+  kind: fix
+  -->
+
+- d6d1f9d: Makes the channel sidebar resizable on desktop. Its right edge is now a drag handle that resizes the sidebar between 200px and 360px, and the chat area next to it follows along. The chosen width is remembered across sessions and applies to every community. The handle shows nothing until the pointer rests on the edge for a moment, at which point the border thickens to signal it can be dragged, and double-clicking it restores the default width. It can also be moved with the arrow keys once focused.
+
+  Also fixes the community name in the sidebar header never reflowing. It was sized to its own text with no overflow handling, so a long name pushed past the sidebar instead of truncating. It now grows and shrinks with the sidebar and ends in an ellipsis when there is not enough room.
+
+  <!-- whatsnew
+  title: Resizable channel sidebar
+  icon: sidebar-fill
+  body: Drag the right edge of the channel sidebar to make it wider or narrower. Double-click the edge to put it back.
+  platforms: desktop
+  kind: feature
+  -->
+
 ## 0.2.1
 
 ### Patch Changes
