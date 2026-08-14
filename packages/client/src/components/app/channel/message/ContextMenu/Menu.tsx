@@ -1,4 +1,4 @@
-import { For, type ParentComponent, Show } from "solid-js";
+import { createMemo, For, type ParentComponent, Show } from "solid-js";
 import { toast } from "somoto";
 import ArrowBendUpLeftIcon from "~icons/ph/arrow-bend-up-left";
 import CopyIcon from "~icons/ph/copy";
@@ -13,6 +13,9 @@ import { usePermissions } from "../../../../../contexts/Community";
 import { useGifFavorites } from "../../../../../contexts/GifFavorites";
 import { useMessageContext } from "../../../../../contexts/Message";
 import { useUserContext } from "../../../../../contexts/User";
+import { useUserPreferences } from "../../../../../contexts/UserPreferences";
+import { twemojiImageSrc } from "../../../../../utils/emoji";
+import { topEmoji } from "../../../../../utils/emoji-usage";
 import { useIsTouch } from "../../../../../utils/touch";
 import {
 	ContextMenu,
@@ -66,9 +69,10 @@ export const MessageContextMenu: ParentComponent<{
 
 	const { canHideMessage } = usePermissions();
 	const { isFavorited, toggleFavorite } = useGifFavorites();
+	const { emojiUsage } = useUserPreferences();
 	const isTouch = useIsTouch();
 	const ownsMessage = () => user.did === message.author.did;
-	const QUICK_REACTIONS = ["👍", "❤️", "😂", "😮"];
+	const quickReactions = createMemo(() => topEmoji(emojiUsage(), 4));
 
 	const isDisabled = () =>
 		isPending() ||
@@ -125,6 +129,20 @@ export const MessageContextMenu: ParentComponent<{
 										<span>Copy Text</span>
 									</ContextMenuItem>
 								</Show>
+								<Show when={gif()}>
+									{(item) => (
+										<ContextMenuItem
+											onClick={() => void toggleFavorite(item())}
+										>
+											<Show when={isFavorited(item())} fallback={<StarIcon />}>
+												<StarFillIcon class="text-yellow-400" />
+											</Show>
+											<span>
+												{isFavorited(item()) ? "Remove saved GIF" : "Save GIF"}
+											</span>
+										</ContextMenuItem>
+									)}
+								</Show>
 								<Show when={!("hash" in message)}>
 									<ContextMenuItem onClick={() => setDebugModalOpen(true)}>
 										<InfoIcon />
@@ -157,17 +175,23 @@ export const MessageContextMenu: ParentComponent<{
 				<MenuDrawer open={contextMenuOpen()} onOpenChange={setContextMenuOpen}>
 					<Show when={!isPending()}>
 						<div class="flex flex-row items-center justify-between gap-1 px-2 pb-2 mb-1 border-b border-border">
-							<For each={QUICK_REACTIONS}>
+							<For each={quickReactions()}>
 								{(emoji) => (
 									<button
 										type="button"
-										class="flex-1 h-12 flex items-center justify-center rounded-md text-2xl hover:bg-muted active:bg-muted"
+										class="flex-1 h-12 flex items-center justify-center rounded-md hover:bg-muted active:bg-muted"
 										onClick={() => {
 											close();
 											void addReactionOptimistic(emoji);
 										}}
 									>
-										{emoji}
+										<img
+											src={twemojiImageSrc(emoji)}
+											alt={emoji}
+											class="size-5 object-contain"
+											loading="lazy"
+											decoding="async"
+										/>
 									</button>
 								)}
 							</For>

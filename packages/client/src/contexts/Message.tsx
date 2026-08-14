@@ -33,6 +33,7 @@ import { purify } from "../utils/purify";
 import { useChannelContext } from "./Channel";
 import { useCommunityContext, usePermissions } from "./Community";
 import { useUserContext } from "./User";
+import { useUserPreferences } from "./UserPreferences";
 
 export type MessageContextValue = {
 	get message(): Message;
@@ -89,6 +90,7 @@ export const MessageContextProvider: ParentComponent<{ data: Message }> = (
 	const user = useUserContext();
 	const channel = useChannelContext();
 	const community = useCommunityContext();
+	const { recordEmojiUse } = useUserPreferences();
 
 	const isPending = () => "hash" in props.data;
 
@@ -298,6 +300,7 @@ export const MessageContextProvider: ParentComponent<{ data: Message }> = (
 
 	const addReactionOptimistic = async (emoji: string) => {
 		if (isPending()) return;
+		recordEmojiUse(emoji);
 		channel.addReactionOptimistic(props.data.uri, emoji, user.did); // instant
 		const rkey = nextTid();
 		channel.cacheReactionRkey(props.data.uri, emoji, rkey);

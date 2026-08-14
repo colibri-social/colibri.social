@@ -3,6 +3,7 @@ import {
 	batch,
 	type Component,
 	createEffect,
+	createMemo,
 	createSignal,
 	For,
 	Match,
@@ -27,7 +28,9 @@ import { useUserPreferences } from "../../../../contexts/UserPreferences";
 import { createDoubleTap } from "../../../../utils/create-double-tap";
 import { createLongPress } from "../../../../utils/create-long-press";
 import { createSwipe } from "../../../../utils/create-swipe";
-import { parseEmojiText } from "../../../../utils/emoji";
+import { parseEmojiText, twemojiImageSrc } from "../../../../utils/emoji";
+import { aliasesForSlug, slugForEmoji } from "../../../../utils/emoji-data";
+import { topEmoji } from "../../../../utils/emoji-usage";
 import { resolveLinkTarget } from "../../../../utils/link-target";
 import { useIsMobile } from "../../../../utils/mobile-pane";
 import { useIsTouch } from "../../../../utils/touch";
@@ -54,6 +57,12 @@ import { DeletionDrawer } from "./DeletionDrawer/index";
 import { Embed, isBrokenMediaLink, isDirectMediaUrl } from "./Embed";
 import { MessageTimestamp } from "./MessageTimestamp";
 import { ReactorsModal } from "./ReactorsModal";
+
+function reactTooltip(emoji: string): string {
+	const slug = slugForEmoji(emoji);
+	if (!slug) return "React";
+	return `React with :${aliasesForSlug(slug)[0] ?? slug}:`;
+}
 
 /**
  * A rendered message component in a chat.
@@ -88,7 +97,8 @@ const MessageInner: Component<{
 	const community = useCommunityContext();
 	const isMobile = useIsMobile();
 	const isTouch = useIsTouch();
-	const { preferences } = useUserPreferences();
+	const { preferences, emojiUsage } = useUserPreferences();
+	const quickReactions = createMemo(() => topEmoji(emojiUsage(), 3));
 
 	const {
 		message,
@@ -548,12 +558,29 @@ const MessageInner: Component<{
 						</Show>
 						<Show when={!isPending() && !isMobile()}>
 							<div
-								class="absolute top-0 right-4 transform -translate-y-1/2 flex flex-row h-8 bg-card border border-border rounded-sm overflow-hidden z-10"
+								class="absolute top-0 right-4 transform -translate-y-1/2 flex flex-row items-center h-8 bg-card border border-border rounded-sm overflow-hidden z-10"
 								classList={{
 									"invisible pointer-events-none group-hover:visible group-hover:pointer-events-auto":
 										!emojiPopoverOpen(),
 								}}
 							>
+								<For each={quickReactions()}>
+									{(emoji) => (
+										<Action
+											tooltipText={reactTooltip(emoji)}
+											onClick={() => void addReactionOptimistic(emoji)}
+										>
+											<img
+												src={twemojiImageSrc(emoji)}
+												alt={emoji}
+												class="size-[1.1em] object-contain"
+												loading="lazy"
+												decoding="async"
+											/>
+										</Action>
+									)}
+								</For>
+								<div class="w-px shrink-0 self-stretch bg-border" />
 								<EmojiPopover
 									emojiPopoverOpen={emojiPopoverOpen}
 									setEmojiPopoverOpen={setEmojiPopoverOpen}
@@ -628,7 +655,7 @@ const MessageInner: Component<{
 						</div>
 					</Show>
 					<Show when={message.reactions.length > 0}>
-						<div class="flex flex-row gap-1 flex-wrap items-center pl-14">
+						<div class="flex flex-row gap-1 flex-wrap items-center pl-14 pb-2">
 							<For each={message.reactions}>
 								{(item) => (
 									<Tooltip>
