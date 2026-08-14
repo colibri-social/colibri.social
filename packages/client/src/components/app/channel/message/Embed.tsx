@@ -14,14 +14,19 @@ import { resolveEmbedImage } from "../../../../atproto/resolve-blob";
 import type { GifItem } from "../../../../atproto/xrpc/social/colibri/embed/gifTypes";
 import { useGifFavorites } from "../../../../contexts/GifFavorites";
 import { useUserContext } from "../../../../contexts/User";
-import { openExternalLink } from "../../../../utils/open-external-link";
-import { Lightbox } from "../../common/Lightbox";
 import {
-	MediaLightboxGallery,
+	constrainedImageStyle,
 	rememberAspectRatio,
 	reservedAspectRatio,
-} from "./Attachments";
+} from "../../../../utils/image-sizing";
+import { openExternalLink } from "../../../../utils/open-external-link";
+import { Lightbox } from "../../common/Lightbox";
+import { MediaLightboxGallery } from "./Attachments";
 import { BlueskyEmbed } from "./BlueskyEmbed";
+
+const THUMBNAIL_MAX_PX = 64;
+
+const PREVIEW_MAX_HEIGHT_PX = 200;
 
 /** Matches direct GIF/animated-image media URLs (ignoring query/hash). */
 const GIF_MEDIA_EXT = /\.(gif|gifv|webp)(\?|#|$)/i;
@@ -191,6 +196,7 @@ const OpenGraphEmbed: Component<{ uri: string }> = (props) => {
 		if (!img) return undefined;
 		return { url: imageUrl(), width: img.width, height: img.height };
 	};
+	const thumbnailRatio = () => reservedAspectRatio(previewImage());
 
 	return (
 		<div>
@@ -232,11 +238,19 @@ const OpenGraphEmbed: Component<{ uri: string }> = (props) => {
 						<Show when={isThumbnail() && imageUrl()}>
 							<Lightbox src={imageUrl()!}>
 								<img
-									width={64}
-									height={64}
-									class="w-16 h-16 object-cover rounded-sm bg-muted shrink-0 cursor-pointer"
+									class="rounded-sm bg-muted shrink-0 cursor-pointer"
+									classList={{
+										"w-16 h-16 object-cover": !thumbnailRatio(),
+										"max-w-16 max-h-16 w-auto h-auto object-contain":
+											!!thumbnailRatio(),
+									}}
+									style={constrainedImageStyle(previewImage(), {
+										maxWidth: THUMBNAIL_MAX_PX,
+										maxHeight: THUMBNAIL_MAX_PX,
+									})}
 									src={imageUrl()}
 									alt={imageAlt()}
+									onLoad={(e) => rememberAspectRatio(imageUrl(), e.target)}
 								/>
 							</Lightbox>
 						</Show>
@@ -244,11 +258,11 @@ const OpenGraphEmbed: Component<{ uri: string }> = (props) => {
 					<Show when={!isThumbnail() && imageUrl()}>
 						<Lightbox src={imageUrl()!}>
 							<img
-								class="w-full h-auto rounded-sm mt-2 bg-muted border-none cursor-pointer"
-								style={{
-									"aspect-ratio":
-										reservedAspectRatio(previewImage()) ?? "16 / 9",
-								}}
+								class="w-full h-auto object-contain rounded-sm mt-2 bg-muted border-none cursor-pointer"
+								style={constrainedImageStyle(previewImage(), {
+									fallbackRatio: "16 / 9",
+									maxHeight: PREVIEW_MAX_HEIGHT_PX,
+								})}
 								src={imageUrl()}
 								alt={imageAlt()}
 								onLoad={(e) => rememberAspectRatio(imageUrl(), e.target)}

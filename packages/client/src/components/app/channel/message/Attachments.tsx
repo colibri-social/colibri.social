@@ -33,6 +33,10 @@ import {
 import type { Message } from "../../../../atproto/xrpc/social/colibri/channel/listMessages";
 import { isTauriRuntime } from "../../../../notifications/environment";
 import { createSwipe } from "../../../../utils/create-swipe";
+import {
+	rememberAspectRatio,
+	reservedAspectRatio,
+} from "../../../../utils/image-sizing";
 import { openExternalLink } from "../../../../utils/open-external-link";
 import { isDesktopNative } from "../../../../utils/platform";
 import { Button } from "../../../ui/Button";
@@ -221,31 +225,6 @@ export type GalleryImage = {
 const galleryDownloadUrl = (
 	image: GalleryImage | undefined,
 ): string | undefined => image?.downloadUrl ?? image?.url;
-
-const decodedAspectRatios = new Map<string, number>();
-
-const knownAspectRatio = (url: string | undefined): string | undefined => {
-	const ratio = url ? decodedAspectRatios.get(url) : undefined;
-	return ratio ? `${ratio}` : undefined;
-};
-
-export const reservedAspectRatio = (
-	source: { url?: string; width?: number; height?: number } | undefined,
-): string | undefined => {
-	if (!source) return undefined;
-	if (source.width && source.height)
-		return `${source.width} / ${source.height}`;
-	return knownAspectRatio(source.url);
-};
-
-export const rememberAspectRatio = (
-	url: string | undefined,
-	target: EventTarget | null,
-): void => {
-	if (!url || !(target instanceof HTMLImageElement)) return;
-	if (!target.naturalWidth || !target.naturalHeight) return;
-	decodedAspectRatios.set(url, target.naturalWidth / target.naturalHeight);
-};
 
 export const MediaLightboxGallery: Component<{
 	images: GalleryImage[];
