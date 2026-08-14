@@ -7,9 +7,11 @@ import {
 	Suspense,
 	Switch,
 } from "solid-js";
+import GearIcon from "~icons/ph/gear";
 import PhoneSlashIcon from "~icons/ph/phone-slash";
 import PictureInPictureIcon from "~icons/ph/picture-in-picture";
 import { useCommunityContext } from "../../../contexts/Community";
+import { useSettingsModalContext } from "../../../contexts/SettingsModal";
 import { useUserContext } from "../../../contexts/User";
 import {
 	ConnectionQuality,
@@ -27,6 +29,7 @@ import {
 	TooltipPortal,
 	TooltipTrigger,
 } from "../../ui/Tooltip";
+import { UserSettingsModal } from "../settings";
 import { ScreenShareButton } from "../voice/ScreenShareButton";
 import User from ".";
 import { Avatar } from "./Avatar";
@@ -46,6 +49,7 @@ export const Status: Component = () => {
 		voiceData,
 		{ disconnect, toggleCamera, toggleMic, toggleDeafen, setOverlayDismissed },
 	] = useVoiceChatContext();
+	const settingsModal = useSettingsModalContext();
 
 	const isReconnecting = () =>
 		voiceData.connection.state === ConnectionState.Connecting ||
@@ -163,7 +167,7 @@ export const Status: Component = () => {
 							<PhoneSlashIcon />
 						</Button>
 					</div>
-					<div class="grid grid-cols-[repeat(4,minmax(0,1fr))] gap-2 w-full">
+					<div class="grid grid-cols-4 gap-2 w-full">
 						<Button
 							class="w-full"
 							variant={voiceData.states.micEnabled ? "secondary" : "outline"}
@@ -211,25 +215,39 @@ export const Status: Component = () => {
 					</Show>
 				</div>
 			</Show>
-			<ProfilePopover
-				user={liveUser() ?? user}
-				placement="top"
-				class="w-full"
-				onEditStatus={() => setStatusDialogOpen(true)}
-				actions={() => <SelfProfileActions />}
-			>
-				<div class="w-full h-16 flex items-center gap-3 p-3 bg-card hover:bg-muted/50 cursor-pointer">
-					<Avatar user={liveUser() ?? user} />
-					<div class="flex flex-col">
-						<span class="font-bold leading-5">
-							<User.DisplayableName color={false} user={liveUser() ?? user} />
-						</span>
-						<span class="text-sm text-muted-foreground">
-							{STATE_LABELS[onlineState()]}
-						</span>
+			<div class="w-full h-14 flex items-center gap-2 p-2 bg-card">
+				<ProfilePopover
+					user={liveUser() ?? user}
+					placement="top"
+					class="w-full max-w-[calc(100%-48px)] h-full"
+					onEditStatus={() => setStatusDialogOpen(true)}
+					actions={() => <SelfProfileActions />}
+				>
+					<div class="w-full h-full max-w-full overflow-hidden p-1 flex items-center gap-3 hover:bg-muted rounded-sm cursor-pointer">
+						<Avatar user={liveUser() ?? user} class="size-8" />
+						<div class="flex flex-col w-full max-w-[calc(100%-48px)]">
+							<span class="font-bold leading-5">
+								<User.DisplayableName color={false} user={liveUser() ?? user} />
+							</span>
+							<span class="text-xs text-muted-foreground">
+								{STATE_LABELS[onlineState()]}
+							</span>
+						</div>
 					</div>
-				</div>
-			</ProfilePopover>
+				</ProfilePopover>
+				<UserSettingsModal
+					open={settingsModal.open}
+					setOpen={settingsModal.setOpen}
+					page={settingsModal.page}
+					onPageConsumed={() => settingsModal.setPage(undefined)}
+				>
+					<div class="size-10 aspect-square flex rounded-md group/settings-btn hover:bg-muted items-center justify-center cursor-pointer">
+						<div class="block w-fit h-fit text-lg group-hover/settings-btn:rotate-180 transition-transform duration-500">
+							<GearIcon />
+						</div>
+					</div>
+				</UserSettingsModal>
+			</div>
 			<QuickStatusDialog
 				open={statusDialogOpen()}
 				onOpenChange={setStatusDialogOpen}

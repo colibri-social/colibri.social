@@ -514,7 +514,12 @@ const AppLayout: ParentComponent = (props) => {
 							isMobile() && !isDragging(),
 					}}
 				>
-					<nav class="w-full h-full flex flex-col gap-2 max-h-[calc(100%-3.25rem-1px)] mb-3.25">
+					<nav
+						class="w-full h-full flex flex-col gap-2 mb-3.25"
+						classList={{
+							"max-h-[calc(100%-3.25rem-1px)]": isInHome(),
+						}}
+					>
 						<div class="w-[calc(100%+0.5rem)] h-full flex flex-col no-scrollbar gap-2 overflow-y-auto overflow-x-clip px-1 -mx-1">
 							<A
 								href="/app"
@@ -548,18 +553,20 @@ const AppLayout: ParentComponent = (props) => {
 							</CommunityCreationModal>
 						</div>
 					</nav>
-					<UserSettingsModal
-						open={settingsModal.open}
-						setOpen={settingsModal.setOpen}
-						page={settingsModal.page}
-						onPageConsumed={() => settingsModal.setPage(undefined)}
-					>
-						<div class="w-10 flex h-10 rounded-md bg-muted hover:bg-primary hover:text-primary-foreground items-center justify-center cursor-pointer">
-							<div class="block w-fit h-fit">
-								<GearIcon />
+					<Show when={isInHome()}>
+						<UserSettingsModal
+							open={settingsModal.open}
+							setOpen={settingsModal.setOpen}
+							page={settingsModal.page}
+							onPageConsumed={() => settingsModal.setPage(undefined)}
+						>
+							<div class="w-10 flex h-10 rounded-md bg-muted hover:bg-primary hover:text-primary-foreground items-center justify-center cursor-pointer">
+								<div class="block w-fit h-fit">
+									<GearIcon />
+								</div>
 							</div>
-						</div>
-					</UserSettingsModal>
+						</UserSettingsModal>
+					</Show>
 				</aside>
 				<main class="w-full h-full">{props.children}</main>
 			</div>
