@@ -1,0 +1,62 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.labeler.unlinkExternalAccount",
+	"revision": 1,
+	"defs": {
+		"main": {
+			"type": "procedure",
+			"description": "Removes the link between the calling account and an external funding platform. Deletes the `social.colibri.labeler.attestation` record and negates any badge the link was the basis for. Authorized the same way as `social.colibri.labeler.linkExternalAccount`, so an account can only unlink itself.",
+			"input": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"platform"
+					],
+					"properties": {
+						"platform": {
+							"type": "string",
+							"description": "The external platform to unlink.",
+							"knownValues": [
+								"opencollective"
+							]
+						}
+					}
+				}
+			},
+			"output": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"unlinked"
+					],
+					"properties": {
+						"unlinked": {
+							"type": "boolean",
+							"description": "False when there was no link to remove, which is not an error."
+						},
+						"negatedLabelVals": {
+							"type": "array",
+							"description": "Badge values revoked as part of unlinking.",
+							"items": {
+								"type": "string",
+								"maxLength": 100
+							}
+						}
+					}
+				}
+			},
+			"errors": [
+				{
+					"name": "AuthRequired",
+					"description": "Missing, malformed, or unverifiable service auth."
+				},
+				{
+					"name": "InvalidRequest",
+					"description": "A parameter was missing or malformed."
+				}
+			]
+		}
+	}
+}

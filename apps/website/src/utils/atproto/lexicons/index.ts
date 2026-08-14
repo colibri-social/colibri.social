@@ -5,6 +5,7 @@ import { categoryMethodDocs } from "./methods/category.ts";
 import { channelMethodDocs } from "./methods/channel.ts";
 import { communityMethodDocs } from "./methods/community.ts";
 import { embedMethodDocs } from "./methods/embed.ts";
+import { labelerMethodDocs } from "./methods/labeler.ts";
 import { notificationMethodDocs } from "./methods/notification.ts";
 import { roleMethodDocs } from "./methods/role.ts";
 import { serverMethodDocs } from "./methods/server.ts";
@@ -51,6 +52,7 @@ export const LEXICON_DOCS: LexiconDoc[] = [
 	...syncMethodDocs,
 	...serverMethodDocs,
 	...voiceMethodDocs,
+	...labelerMethodDocs,
 	...permissionDocs,
 ];
 

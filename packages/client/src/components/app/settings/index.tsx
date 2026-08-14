@@ -45,6 +45,8 @@ import { WhatsNewPage } from "./WhatsNewPage";
 export const UserSettingsModal: ParentComponent<{
 	open?: Accessor<boolean>;
 	setOpen?: Setter<boolean>;
+	page?: Accessor<string | undefined>;
+	onPageConsumed?: () => void;
 }> = (props) => {
 	const isTouch = useIsTouch();
 
@@ -52,6 +54,8 @@ export const UserSettingsModal: ParentComponent<{
 		<SettingsModal
 			open={props.open}
 			setOpen={props.setOpen}
+			page={props.page}
+			onPageConsumed={props.onPageConsumed}
 			pages={[
 				{
 					title: "Profile",

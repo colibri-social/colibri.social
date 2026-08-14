@@ -5,6 +5,7 @@ import { perfNow, recordRequest } from "../utils/perf";
 import type { LabelerLabel, LabelerLabelsSnapshot } from "./cache/schema";
 import {
 	cacheEnabled,
+	deleteLabelerLabels,
 	readManyLabelerLabels,
 	writeManyLabelerLabels,
 } from "./cache/store";
@@ -215,6 +216,12 @@ const schedule = (): void => {
 		() => void flushBatch(),
 		Math.min(FLUSH_WINDOW_MS, budget),
 	);
+};
+
+export const invalidateLabelerBadges = (did: string): void => {
+	labelsCache.delete(did);
+	inflightLabels.delete(did);
+	if (cacheEnabled()) void deleteLabelerLabels(did);
 };
 
 export const getLabelerBadges = (did: string): Promise<Array<LabelerLabel>> => {

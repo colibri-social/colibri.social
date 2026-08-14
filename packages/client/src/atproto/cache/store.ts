@@ -8,6 +8,8 @@ import {
 	bskyMuVerificationKey,
 	bskyPostKey,
 	communityKey,
+	externalAccountLinkKey,
+	labelerBadgeDefinitionsKey,
 	labelerLabelsKey,
 	messagesKey,
 } from "./keys";
@@ -17,6 +19,8 @@ import type {
 	BskyMuVerificationSnapshot,
 	BskyPostSnapshot,
 	CommunitySnapshot,
+	ExternalAccountLinkSnapshot,
+	LabelerBadgeDefinitionsSnapshot,
 	LabelerLabelsSnapshot,
 	MessagesSnapshot,
 	UserSnapshot,
@@ -322,6 +326,56 @@ export const writeManyLabelerLabels = (
 		"bsky",
 		entries.map(([did, snap]) => [labelerLabelsKey(did), snap] as const),
 	).then(() => evictOldest("bsky", MAX_BSKY_ENTRIES));
+
+export const readLabelerBadgeDefinitions = (
+	did: string,
+): Promise<LabelerBadgeDefinitionsSnapshot | undefined> =>
+	read<LabelerBadgeDefinitionsSnapshot>(
+		"bsky",
+		labelerBadgeDefinitionsKey(did),
+	);
+
+export const writeLabelerBadgeDefinitions = (
+	did: string,
+	snap: LabelerBadgeDefinitionsSnapshot,
+): Promise<void> => write("bsky", labelerBadgeDefinitionsKey(did), snap);
+
+export const deleteLabelerLabels = (did: string): Promise<void> =>
+	request("bsky", "readwrite", (s) => s.delete(labelerLabelsKey(did)))
+		.then(() => undefined)
+		.catch((err) => {
+			noteCacheFailure(err);
+			return undefined;
+		});
+
+export const readExternalAccountLink = (
+	labelerDid: string,
+	subject: string,
+): Promise<ExternalAccountLinkSnapshot | undefined> =>
+	read<ExternalAccountLinkSnapshot>(
+		"bsky",
+		externalAccountLinkKey(labelerDid, subject),
+	);
+
+export const writeExternalAccountLink = (
+	labelerDid: string,
+	subject: string,
+	snap: ExternalAccountLinkSnapshot,
+): Promise<void> =>
+	write("bsky", externalAccountLinkKey(labelerDid, subject), snap);
+
+export const deleteExternalAccountLink = (
+	labelerDid: string,
+	subject: string,
+): Promise<void> =>
+	request("bsky", "readwrite", (s) =>
+		s.delete(externalAccountLinkKey(labelerDid, subject)),
+	)
+		.then(() => undefined)
+		.catch((err) => {
+			noteCacheFailure(err);
+			return undefined;
+		});
 
 export const readBskyMuTrustedList = (): Promise<
 	BskyMuTrustedListSnapshot | undefined

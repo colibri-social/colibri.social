@@ -1,6 +1,7 @@
 import {
 	type Accessor,
 	type Component,
+	createEffect,
 	createSignal,
 	For,
 	Match,
@@ -144,6 +145,8 @@ export const SettingsModal: ParentComponent<{
 	contentClass?: string;
 	open?: Accessor<boolean>;
 	setOpen?: Setter<boolean>;
+	page?: Accessor<string | undefined>;
+	onPageConsumed?: () => void;
 }> = (props) => {
 	const [activePage, setActivePage] = createSignal<string>(
 		props.pages.find((x) => x.visible?.() ?? true)?.id || "",
@@ -152,6 +155,15 @@ export const SettingsModal: ParentComponent<{
 	const isMobile = useIsMobile();
 	const isOpen = () => props.open?.() ?? open();
 	const onOpenChange = props.setOpen ?? setOpen;
+
+	createEffect(() => {
+		const requested = props.page?.();
+		if (!requested) return;
+		if (props.pages.some((item) => item.id === requested)) {
+			setActivePage(requested);
+		}
+		props.onPageConsumed?.();
+	});
 
 	// Shared page renderer for both the desktop sidebar layout and the mobile
 	// select-driven drawer

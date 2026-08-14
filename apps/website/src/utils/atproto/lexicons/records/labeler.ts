@@ -5,7 +5,7 @@ export const labelerRecordDocs: LexiconDoc[] = [
 	{
 		lexicon: 1,
 		id: RECORD_IDs.LABELER_SERVICE,
-		revision: 1,
+		revision: 2,
 		defs: {
 			main: {
 				type: "record",
@@ -62,6 +62,102 @@ export const labelerRecordDocs: LexiconDoc[] = [
 						description:
 							"Sort order when a user holds several badges. Lower sorts first, so the lowest value is the default primary badge.",
 						minimum: 0,
+					},
+					appearance: {
+						type: "ref",
+						ref: "#badgeAppearance",
+						description:
+							"How the badge is coloured. Clients fall back to a neutral style when this is absent or unrecognised.",
+					},
+				},
+			},
+			badgeAppearance: {
+				type: "object",
+				description:
+					"Colours for a single badge. Every colour is a `#rrggbb` or `#rrggbbaa` hex literal so clients can render it without interpreting arbitrary CSS.",
+				required: ["colors", "foreground"],
+				properties: {
+					variant: {
+						type: "string",
+						description:
+							"How `colors` is applied. `solid` fills the badge with the first colour. `gradientBorder` renders every colour as a stop in a gradient border over a darkened gradient fill. Defaults to `solid`.",
+						knownValues: ["solid", "gradientBorder"],
+						maxLength: 32,
+					},
+					colors: {
+						type: "array",
+						description:
+							"Badge colours, each a `#rrggbb` or `#rrggbbaa` hex literal. `solid` uses only the first entry.",
+						minLength: 1,
+						maxLength: 6,
+						items: { type: "string", minLength: 7, maxLength: 9 },
+					},
+					foreground: {
+						type: "string",
+						description: "Text colour, a `#rrggbb` or `#rrggbbaa` hex literal.",
+						minLength: 7,
+						maxLength: 9,
+					},
+				},
+			},
+		},
+	},
+	{
+		lexicon: 1,
+		id: RECORD_IDs.LABELER_ATTESTATION,
+		revision: 1,
+		defs: {
+			main: {
+				type: "record",
+				description:
+					"Published by a labeler to attest that a subject account proved control of an account on an external funding platform. This is what lets the labeler issue supporter badges without a maintainer in the loop, and it stands in for a private mapping table: the attestation is public, auditable, and replicated like any other record. The record key is the subject DID, so one subject resolves with a single `getRecord`. Holding an attestation is not itself a badge, the labeler still issues ordinary `com.atproto.label` labels based on what the external platform reports.",
+				key: "any",
+				record: {
+					type: "object",
+					required: [
+						"subject",
+						"platform",
+						"accountId",
+						"verifiedAt",
+						"createdAt",
+					],
+					properties: {
+						$type: {
+							type: "string",
+							description: "The type of the record.",
+							format: "nsid",
+						},
+						subject: {
+							type: "string",
+							format: "did",
+							description:
+								"The account this attestation is about. Must equal the record key.",
+						},
+						platform: {
+							type: "string",
+							description: "The external platform the account lives on.",
+							knownValues: ["opencollective"],
+							maxLength: 64,
+						},
+						accountId: {
+							type: "string",
+							description:
+								"Stable identifier of the external account, as issued by the platform. Opaque to clients, used by the labeler to match the subject against the platform's own records.",
+							maxLength: 128,
+						},
+						accountSlug: {
+							type: "string",
+							description:
+								"Human-readable handle of the external account, for display only.",
+							maxLength: 128,
+						},
+						verifiedAt: {
+							type: "string",
+							format: "datetime",
+							description:
+								"When control of the external account was last proved.",
+						},
+						createdAt: { type: "string", format: "datetime" },
 					},
 				},
 			},

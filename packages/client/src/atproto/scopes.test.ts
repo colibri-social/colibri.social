@@ -115,9 +115,27 @@ describe("getMissingScopeSets", () => {
 			"social.colibri.notification.registerPush",
 			"social.colibri.voice.signal?aud=*",
 			"social.colibri.voice.moderate?aud=*",
+			"social.colibri.labeler.linkExternalAccount?aud=*",
+			"social.colibri.labeler.unlinkExternalAccount?aud=*",
 		].join(" ");
 
 		expect(getMissingScopeSets(full)).toEqual([]);
+	});
+
+	it("reports the badge-linking scopes as missing for a session granted before them", () => {
+		const missing = getMissingScopeSets(
+			"atproto social.colibri.voice.signal?aud=*",
+		);
+		expect(missing).toContain("social.colibri.labeler.linkExternalAccount");
+		expect(missing).toContain("social.colibri.labeler.unlinkExternalAccount");
+	});
+
+	it("does not confuse the two badge-linking scopes", () => {
+		const missing = getMissingScopeSets(
+			"social.colibri.labeler.linkExternalAccount?aud=*",
+		);
+		expect(missing).not.toContain("social.colibri.labeler.linkExternalAccount");
+		expect(missing).toContain("social.colibri.labeler.unlinkExternalAccount");
 	});
 
 	it("does not confuse the two voice scopes", () => {

@@ -16,3 +16,11 @@ export const bskyMuVerificationKey = (did: string): string =>
 export const BSKY_MU_TRUSTED_LIST_KEY = "muTrustedList";
 
 export const labelerLabelsKey = (did: string): string => `labels:${did}`;
+
+export const labelerBadgeDefinitionsKey = (did: string): string =>
+	`badgeDefinitions:${did}`;
+
+export const externalAccountLinkKey = (
+	labelerDid: string,
+	subject: string,
+): string => `externalLink:${labelerDid}:${subject}`;

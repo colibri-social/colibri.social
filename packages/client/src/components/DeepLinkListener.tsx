@@ -23,6 +23,18 @@ const isOAuthCallback = (url: string): boolean => {
 	}
 };
 
+const isOcCallback = (url: string): boolean => {
+	try {
+		const parsed = new URL(url);
+		return (
+			parsed.protocol.startsWith("social.colibri") &&
+			parsed.pathname.startsWith("/oc")
+		);
+	} catch {
+		return false;
+	}
+};
+
 /** Extract an invite code from a `social.colibri:/invite/<code>` deep link */
 const parseInviteCode = (url: string): string | null => {
 	try {
@@ -130,6 +142,11 @@ export const DeepLinkListener: Component = () => {
 						});
 					}
 					continue;
+				}
+
+				if (isOcCallback(url)) {
+					navigate(`/app${new URL(url).search}`);
+					return;
 				}
 
 				const code = parseInviteCode(url);

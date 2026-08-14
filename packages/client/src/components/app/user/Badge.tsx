@@ -1,6 +1,11 @@
 import { type ParentComponent, Show } from "solid-js";
 import { cx } from "../../../utils/cva";
-import { badgeDescription } from "../../../utils/user-badges";
+import {
+	badgeAppearance,
+	badgeDescription,
+	badgeStyle,
+	badgeText,
+} from "../../../utils/user-badges";
 import {
 	Popover,
 	PopoverContent,
@@ -8,30 +13,24 @@ import {
 	PopoverTrigger,
 } from "../../ui/Popover";
 
-const BADGE_STYLE_CLASSES: Record<string, string> = {
-	bot: "bg-neutral-50 text-neutral-950",
-	team: "bg-violet-500 text-neutral-50",
-	"play-store-tester":
-		"text-white rounded-full border-1 border-transparent [background:linear-gradient(90deg,color-mix(in_srgb,#ff4d4d_18%,black),color-mix(in_srgb,#ffcc00_18%,black),color-mix(in_srgb,#22c55e_18%,black),color-mix(in_srgb,#3b82f6_18%,black))_padding-box,linear-gradient(90deg,#ff4d4d,#ffcc00,#22c55e,#3b82f6)_border-box]",
-	"backer-five": "bg-lime-500 text-black",
-	"sponsor-twenty-five": "bg-teal-500 text-white",
-	donator: "bg-fuchsia-500 text-white",
-};
-
 const DEFAULT_BADGE_CLASSES = "bg-zinc-800 text-neutral-50";
+const GRADIENT_BORDER_CLASSES = "rounded-full border-1 border-transparent";
 
 export const Badge: ParentComponent<{
-	text: string;
+	val: string;
 	size: "lg" | "base" | "sm" | "xs";
-	style: string;
 	class?: string;
 }> = (props) => {
+	const appearance = () => badgeAppearance(props.val);
+
 	const content = () => (
 		<span
 			class={cx(
 				"text-neutral-50 px-1.5 rounded-sm flex shrink-0 whitespace-nowrap",
-				BADGE_STYLE_CLASSES[props.style] ?? DEFAULT_BADGE_CLASSES,
+				appearance() === undefined && DEFAULT_BADGE_CLASSES,
+				appearance()?.variant === "gradientBorder" && GRADIENT_BORDER_CLASSES,
 			)}
+			style={badgeStyle(props.val)}
 		>
 			<span class="w-fit">{props.children}</span>
 			<span
@@ -43,13 +42,13 @@ export const Badge: ParentComponent<{
 					"text-xs": props.size === "xs",
 				}}
 			>
-				{props.text}
+				{badgeText(props.val)}
 			</span>
 		</span>
 	);
 
 	return (
-		<Show when={badgeDescription(props.style)} fallback={content()}>
+		<Show when={badgeDescription(props.val)} fallback={content()}>
 			{(description) => (
 				<Popover placement="top" gutter={4}>
 					<PopoverTrigger

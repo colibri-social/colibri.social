@@ -1,0 +1,61 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.labeler.attestation",
+	"revision": 1,
+	"defs": {
+		"main": {
+			"type": "record",
+			"description": "Published by a labeler to attest that a subject account proved control of an account on an external funding platform. This is what lets the labeler issue supporter badges without a maintainer in the loop, and it stands in for a private mapping table: the attestation is public, auditable, and replicated like any other record. The record key is the subject DID, so one subject resolves with a single `getRecord`. Holding an attestation is not itself a badge, the labeler still issues ordinary `com.atproto.label` labels based on what the external platform reports.",
+			"key": "any",
+			"record": {
+				"type": "object",
+				"required": [
+					"subject",
+					"platform",
+					"accountId",
+					"verifiedAt",
+					"createdAt"
+				],
+				"properties": {
+					"$type": {
+						"type": "string",
+						"description": "The type of the record.",
+						"format": "nsid"
+					},
+					"subject": {
+						"type": "string",
+						"format": "did",
+						"description": "The account this attestation is about. Must equal the record key."
+					},
+					"platform": {
+						"type": "string",
+						"description": "The external platform the account lives on.",
+						"knownValues": [
+							"opencollective"
+						],
+						"maxLength": 64
+					},
+					"accountId": {
+						"type": "string",
+						"description": "Stable identifier of the external account, as issued by the platform. Opaque to clients, used by the labeler to match the subject against the platform's own records.",
+						"maxLength": 128
+					},
+					"accountSlug": {
+						"type": "string",
+						"description": "Human-readable handle of the external account, for display only.",
+						"maxLength": 128
+					},
+					"verifiedAt": {
+						"type": "string",
+						"format": "datetime",
+						"description": "When control of the external account was last proved."
+					},
+					"createdAt": {
+						"type": "string",
+						"format": "datetime"
+					}
+				}
+			}
+		}
+	}
+}

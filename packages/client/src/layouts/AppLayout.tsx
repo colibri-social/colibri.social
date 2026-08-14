@@ -26,6 +26,7 @@ import LockSimpleIcon from "~icons/ph/lock-simple";
 import { evictCommunity } from "../atproto/cache/community-evict";
 import { namespace } from "../atproto/cache/keys";
 import { communityUriToUrlCompatible } from "../atproto/community-uri-to-url-compatible";
+import { linkErrorMessage, readLinkOutcome } from "../atproto/labeler-link";
 import { putRecord } from "../atproto/pds";
 import { AppBadge } from "../components/app/AppBadge";
 import { AppReconnectingIndicator } from "../components/app/AppReconnectingIndicator";
@@ -286,6 +287,28 @@ const AppLayout: ParentComponent = (props) => {
 		}
 	});
 
+	createEffect(() => {
+		const outcome = readLinkOutcome(
+			new URLSearchParams(location.search),
+			user.did,
+		);
+		if (!outcome) return;
+
+		navigate(location.pathname, { replace: true });
+
+		settingsModal.openPage("support");
+
+		if (outcome.status === "linked") {
+			toast.success(
+				outcome.account
+					? `Linked @${outcome.account}. Your badge is on its way.`
+					: "Open Collective account linked.",
+			);
+		} else {
+			toast.error(linkErrorMessage(outcome.reason));
+		}
+	});
+
 	onMount(() => {
 		const cleanup = socket.onEvent((event) => {
 			if (
@@ -528,6 +551,8 @@ const AppLayout: ParentComponent = (props) => {
 					<UserSettingsModal
 						open={settingsModal.open}
 						setOpen={settingsModal.setOpen}
+						page={settingsModal.page}
+						onPageConsumed={() => settingsModal.setPage(undefined)}
 					>
 						<div class="w-10 flex h-10 rounded-md bg-muted hover:bg-primary hover:text-primary-foreground items-center justify-center cursor-pointer">
 							<div class="block w-fit h-fit">

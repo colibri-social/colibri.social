@@ -44,3 +44,34 @@ export type BskyMuTrustedListSnapshot = {
 export type LabelerLabel = { val: string; neg: boolean; exp?: string };
 
 export type LabelerLabelsSnapshot = { labels: Array<LabelerLabel>; ts: number };
+
+export type BadgeAppearance = {
+	variant: "solid" | "gradientBorder";
+	colors: Array<string>;
+	foreground: string;
+};
+
+export type BadgeDefinition = {
+	identifier: string;
+	name: string;
+	description: string;
+	precedence?: number;
+	appearance?: BadgeAppearance;
+};
+
+export type LabelerBadgeDefinitionsSnapshot = {
+	definitions: Array<BadgeDefinition>;
+	ts: number;
+};
+
+export type ExternalAccountLink = {
+	platform: string;
+	accountId: string;
+	accountSlug?: string;
+	verifiedAt: string;
+};
+
+export type ExternalAccountLinkSnapshot = {
+	link: ExternalAccountLink | null;
+	ts: number;
+};

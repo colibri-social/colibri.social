@@ -4,7 +4,7 @@ import { useCommunityContext } from "../../../contexts/Community";
 import { cx } from "../../../utils/cva";
 import { readableUserColor } from "../../../utils/readable-color";
 import { resolvedTheme } from "../../../utils/theme";
-import { badgeText, useUserBadges } from "../../../utils/user-badges";
+import { useUserBadges } from "../../../utils/user-badges";
 import { Badge } from "./Badge";
 
 export const displayableNameFn = (user: ActorData) =>
@@ -61,7 +61,7 @@ export const DisplayableName: Component<{
 				{displayableNameFn(props.user)}
 			</span>
 			<Show when={primary() && badgeVisible()}>
-				<Badge text={badgeText(primary()!)} size="xs" style={primary()!} />
+				<Badge val={primary()!} size="xs" />
 			</Show>
 		</span>
 	);

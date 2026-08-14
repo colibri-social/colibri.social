@@ -8,6 +8,8 @@ export const buildScopes = (appViewDid: string) => [
 	"rpc:com.atproto.identity.resolveDid?aud=*",
 	"rpc:social.colibri.voice.signal?aud=*",
 	"rpc:social.colibri.voice.moderate?aud=*",
+	"rpc:social.colibri.labeler.linkExternalAccount?aud=*",
+	"rpc:social.colibri.labeler.unlinkExternalAccount?aud=*",
 	`include:social.colibri.permissionAccount?aud=${appViewDid}#colibri_appview`,
 	`include:social.colibri.permissionCommunity?aud=${appViewDid}#colibri_appview`,
 	`include:social.colibri.permissionMessaging?aud=${appViewDid}#colibri_appview`,
@@ -25,6 +27,8 @@ export const PERMISSION_SET_LABELS: Record<string, string> = {
 	"social.colibri.permissionPush": "Push notifications",
 	"social.colibri.voice.signal": "Voice channels",
 	"social.colibri.voice.moderate": "Voice channels",
+	"social.colibri.labeler.linkExternalAccount": "Supporter badges",
+	"social.colibri.labeler.unlinkExternalAccount": "Supporter badges",
 };
 
 const PERMISSION_SET_MARKERS: Record<string, string> = {
@@ -39,6 +43,10 @@ const PERMISSION_SET_MARKERS: Record<string, string> = {
 const STANDALONE_SCOPE_MARKERS: Record<string, string> = {
 	"social.colibri.voice.signal": "social.colibri.voice.signal?aud=*",
 	"social.colibri.voice.moderate": "social.colibri.voice.moderate?aud=*",
+	"social.colibri.labeler.linkExternalAccount":
+		"social.colibri.labeler.linkExternalAccount?aud=*",
+	"social.colibri.labeler.unlinkExternalAccount":
+		"social.colibri.labeler.unlinkExternalAccount?aud=*",
 };
 
 export const scopeSetLabel = (nsid: string): string =>

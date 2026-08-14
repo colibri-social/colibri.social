@@ -1,19 +1,48 @@
-import { type Component, For, Show } from "solid-js";
+import {
+	type Component,
+	createResource,
+	createSignal,
+	For,
+	Show,
+} from "solid-js";
+import { toast } from "somoto";
 import ArrowSquareOutIcon from "~icons/ph/arrow-square-out";
 import HeartIcon from "~icons/ph/heart-fill";
+import LinkBreakIcon from "~icons/ph/link-break";
+import LinkIcon from "~icons/ph/link-simple";
+import { getExternalAccountLink } from "../../../atproto/labeler-attestation";
+import {
+	startExternalAccountLink,
+	unlinkExternalAccount,
+} from "../../../atproto/labeler-link";
+import { invalidateLabelerBadges } from "../../../atproto/labeler-lookup";
 import { useUserContext } from "../../../contexts/User";
+import { classifyThrown } from "../../../errors/classify";
+import { isTauriRuntime } from "../../../notifications/environment";
 import { cx } from "../../../utils/cva";
+import { createLogger } from "../../../utils/logger";
 import { openExternalLink } from "../../../utils/open-external-link";
-import { badgeText, useUserBadges } from "../../../utils/user-badges";
+import { useUserBadges } from "../../../utils/user-badges";
 import { Button } from "../../ui/Button";
 import { SettingsPage } from "../common/SettingsModal";
 import { Avatar } from "../user/Avatar";
 import { Badge } from "../user/Badge";
 import { displayableNameFn } from "../user/DisplayableName";
 
-const COLLECTIVE_URL = "https://opencollective.com/colibri-social";
+const log = createLogger("badges");
 
-const SUPPORTER_VALS = ["sponsor-twenty-five", "backer-five", "donator"];
+const COLLECTIVE_URL = "https://opencollective.com/colibri-social";
+const COLLECTIVE_SIGN_IN_URL = "https://opencollective.com/signin";
+
+const SUPPORTER_VALS = [
+	"sponsor-twenty-five",
+	"supporter-ten",
+	"backer-five",
+	"donator",
+];
+
+const BACKERS_CHECKOUT =
+	"https://opencollective.com/colibri-social/contribute/backers-100302/checkout";
 
 type Tier = {
 	val: string;
@@ -29,17 +58,15 @@ const TIERS: Tier[] = [
 		val: "backer-five",
 		price: "$5",
 		cadence: "/ month",
-		blurb:
-			"Keep the lights on and get the lime $5 Backer badge on your profile.",
-		url: "https://opencollective.com/colibri-social/contribute/backers-100302/checkout?interval=month&amount=5&name=&legalName=&email=",
+		blurb: "Keep the lights on and wear a badge for it on your profile.",
+		url: `${BACKERS_CHECKOUT}?interval=month&amount=5&name=&legalName=&email=`,
 		highlight: false,
 	},
 	{
 		val: "sponsor-twenty-five",
 		price: "$25",
 		cadence: "/ month",
-		blurb:
-			"Seriously move the needle on development and wear the teal $25 Sponsor badge.",
+		blurb: "Seriously move the needle on development.",
 		url: "https://opencollective.com/colibri-social/contribute/sponsor-100710/checkout?interval=month&amount=25&name=&legalName=&email=",
 		highlight: true,
 	},
@@ -47,8 +74,7 @@ const TIERS: Tier[] = [
 		val: "donator",
 		price: "Custom",
 		cadence: "one-time",
-		blurb:
-			"Chip in any amount, whenever you like, and earn the fuchsia Donator badge.",
+		blurb: "Chip in any amount, whenever you like.",
 		url: "https://opencollective.com/colibri-social/donate?interval=oneTime&amount=20&name=&legalName=&email=",
 		highlight: false,
 	},
@@ -61,18 +87,97 @@ const PERKS = [
 	"Choose which badge shows in Preferences if you earn more than one",
 ];
 
+const formatVerifiedAt = (value: string): string | undefined => {
+	if (!value) return undefined;
+	const parsed = new Date(value);
+	if (Number.isNaN(parsed.getTime())) return undefined;
+	return parsed.toLocaleDateString(undefined, {
+		year: "numeric",
+		month: "short",
+		day: "numeric",
+	});
+};
+
 export const SupportPage: Component = () => {
 	const user = useUserContext();
 	const { all } = useUserBadges(() => user);
 
+	const [busy, setBusy] = createSignal(false);
+
+	const [link, { refetch, mutate }] = createResource(
+		() => user.did,
+		(did) => getExternalAccountLink(did),
+	);
+
 	const earned = () => (all() ?? []).filter((v) => SUPPORTER_VALS.includes(v));
 	const previewBadge = () => earned()[0] ?? "sponsor-twenty-five";
+
+	const connect = async () => {
+		setBusy(true);
+		const toastId = toast.loading("Opening Open Collective...");
+		try {
+			const url = await startExternalAccountLink(user.atproto.agent);
+
+			if (isTauriRuntime()) {
+				toast.success("Finish up in your browser, then come back here.", {
+					id: toastId,
+				});
+				openExternalLink(url);
+			} else {
+				toast.dismiss(toastId);
+				window.location.assign(url);
+			}
+		} catch (err) {
+			log.error("starting the Open Collective link failed", {
+				code: classifyThrown(err).code,
+			});
+			toast.error("Could not start linking. Please try again.", {
+				id: toastId,
+			});
+		} finally {
+			setBusy(false);
+		}
+	};
+
+	const disconnect = async () => {
+		setBusy(true);
+		const toastId = toast.loading("Disconnecting...");
+		try {
+			const result = await unlinkExternalAccount(user.atproto.agent, user.did);
+			mutate(null);
+			toast.success(
+				result.negatedLabelVals.length > 0
+					? "Disconnected. Your supporter badge has been removed."
+					: "Disconnected.",
+				{ id: toastId },
+			);
+		} catch (err) {
+			log.error("unlinking the Open Collective account failed", {
+				code: classifyThrown(err).code,
+			});
+			toast.error("Could not disconnect. Please try again.", { id: toastId });
+		} finally {
+			setBusy(false);
+		}
+	};
+
+	const recheck = async () => {
+		setBusy(true);
+		const toastId = toast.loading("Checking Open Collective...");
+		try {
+			invalidateLabelerBadges(user.did);
+			await refetch();
+			toast.success("Up to date.", { id: toastId });
+		} finally {
+			setBusy(false);
+		}
+	};
 
 	return (
 		<SettingsPage
 			loading={() => false}
 			title="Support Colibri"
-			description="Every contribution goes straight to the people building and running Colibri. Support us on Open Collective and you'll get a custom badge that shows up next to your name across the whole app."
+			description="Every contribution goes straight to the people building and running Colibri. Support us on Open Collective, link your account here, and your badge shows up next to your name across the whole app."
 		>
 			<Show when={earned().length > 0}>
 				<div class="flex flex-col gap-3 rounded-xl border border-primary/40 bg-primary/10 p-4">
@@ -85,12 +190,92 @@ export const SupportPage: Component = () => {
 						currently rocking:
 					</p>
 					<div class="flex flex-row flex-wrap items-center gap-2">
-						<For each={earned()}>
-							{(val) => <Badge text={badgeText(val)} size="sm" style={val} />}
-						</For>
+						<For each={earned()}>{(val) => <Badge val={val} size="sm" />}</For>
 					</div>
 				</div>
 			</Show>
+
+			<div class="flex flex-col gap-3 rounded-xl border border-border bg-card p-4">
+				<span class="text-sm font-medium">Your Open Collective account</span>
+
+				<Show
+					when={link()}
+					fallback={
+						<>
+							<p class="m-0 text-sm text-muted-foreground">
+								Already contributing? Connect your Open Collective account and
+								your badge is granted right away, then kept in step with your
+								contribution.
+							</p>
+							<Button
+								class="w-fit"
+								disabled={busy() || link.loading}
+								onClick={() => void connect()}
+							>
+								<LinkIcon />
+								Connect Open Collective
+							</Button>
+							<p class="m-0 text-xs text-muted-foreground">
+								Contributed as a guest? Guest profiles cannot sign in. Claim
+								yours by signing in to Open Collective with the email you
+								contributed with, then come back and connect.{" "}
+								<Button
+									as="a"
+									href={COLLECTIVE_SIGN_IN_URL}
+									target="_blank"
+									rel="noreferrer"
+									onClick={(e) => openExternalLink(COLLECTIVE_SIGN_IN_URL, e)}
+									variant="link"
+									class="h-auto p-0 text-xs"
+								>
+									Claim your profile
+								</Button>
+							</p>
+						</>
+					}
+				>
+					{(connected) => (
+						<>
+							<div class="flex flex-row flex-wrap items-center gap-2 text-sm">
+								<span class="font-medium">
+									{connected().accountSlug
+										? `@${connected().accountSlug}`
+										: "Connected"}
+								</span>
+								<Show when={formatVerifiedAt(connected().verifiedAt)}>
+									{(verified) => (
+										<span class="text-muted-foreground">
+											verified {verified()}
+										</span>
+									)}
+								</Show>
+							</div>
+							<p class="m-0 text-sm text-muted-foreground">
+								Your badge follows your contribution. Change or cancel it on
+								Open Collective and this catches up on its own within about
+								fifteen minutes.
+							</p>
+							<div class="flex flex-row flex-wrap gap-2">
+								<Button
+									variant="secondary"
+									disabled={busy()}
+									onClick={() => void recheck()}
+								>
+									Refresh
+								</Button>
+								<Button
+									variant="secondary"
+									disabled={busy()}
+									onClick={() => void disconnect()}
+								>
+									<LinkBreakIcon />
+									Disconnect
+								</Button>
+							</div>
+						</>
+					)}
+				</Show>
+			</div>
 
 			<div class="flex flex-col gap-2">
 				<span class="text-sm font-medium">Choose how you support</span>
@@ -105,12 +290,7 @@ export const SupportPage: Component = () => {
 										: "border-border",
 								)}
 							>
-								<Badge
-									class="w-fit"
-									text={badgeText(tier.val)}
-									size="sm"
-									style={tier.val}
-								/>
+								<Badge class="w-fit" val={tier.val} size="sm" />
 								<div class="flex items-baseline gap-1">
 									<span class="text-2xl font-bold leading-none">
 										{tier.price}
@@ -138,6 +318,10 @@ export const SupportPage: Component = () => {
 						)}
 					</For>
 				</div>
+				<p class="m-0 text-xs text-muted-foreground">
+					Any monthly amount works, not just these. Whatever you give lands on
+					the highest badge it reaches.
+				</p>
 			</div>
 
 			<div class="flex flex-col gap-3 rounded-xl border border-border bg-card p-4">
@@ -148,11 +332,7 @@ export const SupportPage: Component = () => {
 						<span class="truncate font-semibold">
 							{displayableNameFn(user)}
 						</span>
-						<Badge
-							text={badgeText(previewBadge())}
-							size="xs"
-							style={previewBadge()}
-						/>
+						<Badge val={previewBadge()} size="xs" />
 					</span>
 				</div>
 				<p class="m-0 text-xs text-muted-foreground">

@@ -13,6 +13,10 @@ import { ProfilePopoverContents } from "../../../src/components/app/user/Profile
 import { DropdownStatusSelect } from "../../../src/components/app/user/StatusSelect";
 import { Button } from "../../../src/components/ui/Button";
 import { ScrollFadeBottom } from "../../../src/components/ui/ScrollFadeBottom";
+import {
+	badgeDefinitions,
+	ensureBadgeDefinitions,
+} from "../../../src/utils/user-badges";
 import { Demo } from "../helpers";
 import type { SandboxCategory } from "../types";
 
@@ -26,15 +30,6 @@ const actor = (name: string, state: OnlineState): ActorData => ({
 	},
 });
 
-const BADGE_STYLES = [
-	"team",
-	"bot",
-	"donator",
-	"backer-five",
-	"sponsor-twenty-five",
-	"play-store-tester",
-];
-
 const AvatarDemo = () => (
 	<Demo label="Sizes and states">
 		<Avatar user={actor("Small", "online")} size="small" />
@@ -44,14 +39,17 @@ const AvatarDemo = () => (
 	</Demo>
 );
 
-const BadgeDemo = () => (
-	<Demo label="Styles">
-		<For each={BADGE_STYLES}>
-			{(style) => <Badge text={style} size="base" style={style} />}
-		</For>
-		<Badge text="fallback" size="sm" style="unknown-style" />
-	</Demo>
-);
+const BadgeDemo = () => {
+	void ensureBadgeDefinitions();
+	return (
+		<Demo label="Styles">
+			<For each={[...badgeDefinitions().keys()]}>
+				{(val) => <Badge val={val} size="base" />}
+			</For>
+			<Badge val="unknown-style" size="sm" />
+		</Demo>
+	);
+};
 
 const CopyButtonDemo = () => (
 	<Demo label="CopyButton">

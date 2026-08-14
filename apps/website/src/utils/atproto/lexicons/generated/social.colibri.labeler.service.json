@@ -1,7 +1,7 @@
 {
 	"lexicon": 1,
 	"id": "social.colibri.labeler.service",
-	"revision": 1,
+	"revision": 2,
 	"defs": {
 		"main": {
 			"type": "record",
@@ -63,6 +63,47 @@
 					"type": "integer",
 					"description": "Sort order when a user holds several badges. Lower sorts first, so the lowest value is the default primary badge.",
 					"minimum": 0
+				},
+				"appearance": {
+					"type": "ref",
+					"ref": "lex:social.colibri.labeler.service#badgeAppearance",
+					"description": "How the badge is coloured. Clients fall back to a neutral style when this is absent or unrecognised."
+				}
+			}
+		},
+		"badgeAppearance": {
+			"type": "object",
+			"description": "Colours for a single badge. Every colour is a `#rrggbb` or `#rrggbbaa` hex literal so clients can render it without interpreting arbitrary CSS.",
+			"required": [
+				"colors",
+				"foreground"
+			],
+			"properties": {
+				"variant": {
+					"type": "string",
+					"description": "How `colors` is applied. `solid` fills the badge with the first colour. `gradientBorder` renders every colour as a stop in a gradient border over a darkened gradient fill. Defaults to `solid`.",
+					"knownValues": [
+						"solid",
+						"gradientBorder"
+					],
+					"maxLength": 32
+				},
+				"colors": {
+					"type": "array",
+					"description": "Badge colours, each a `#rrggbb` or `#rrggbbaa` hex literal. `solid` uses only the first entry.",
+					"minLength": 1,
+					"maxLength": 6,
+					"items": {
+						"type": "string",
+						"minLength": 7,
+						"maxLength": 9
+					}
+				},
+				"foreground": {
+					"type": "string",
+					"description": "Text colour, a `#rrggbb` or `#rrggbbaa` hex literal.",
+					"minLength": 7,
+					"maxLength": 9
 				}
 			}
 		}

@@ -196,11 +196,7 @@ export const PreferencesPage: Component = () => {
 								>
 									{(value) => (
 										<div class="pointer-events-none">
-											<Badge
-												text={badgeText(value())}
-												size="xs"
-												style={value()}
-											/>
+											<Badge val={value()} size="xs" />
 										</div>
 									)}
 								</Show>
@@ -218,11 +214,7 @@ export const PreferencesPage: Component = () => {
 									const option = state.selectedOption();
 									return option?.value ? (
 										<div class="pointer-events-none">
-											<Badge
-												text={badgeText(option.value)}
-												size="xs"
-												style={option.value}
-											/>
+											<Badge val={option.value} size="xs" />
 										</div>
 									) : (
 										option?.label
@@ -236,7 +228,7 @@ export const PreferencesPage: Component = () => {
 						{(badge) => (
 							<div class="flex flex-row items-center gap-2">
 								<span class="text-muted-foreground text-sm">Preview</span>
-								<Badge text={badgeText(badge())} size="xs" style={badge()} />
+								<Badge val={badge()} size="xs" />
 							</div>
 						)}
 					</Show>

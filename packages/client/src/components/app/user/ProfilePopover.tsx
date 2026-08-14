@@ -30,7 +30,7 @@ import {
 import { purify } from "../../..//utils/purify";
 import { readableUserColor } from "../../../utils/readable-color";
 import { resolvedTheme } from "../../../utils/theme";
-import { badgeText, useUserBadges } from "../../../utils/user-badges";
+import { useUserBadges } from "../../../utils/user-badges";
 import { BottomSheet } from "../../ui/MenuDrawer";
 import {
 	Popover,
@@ -327,7 +327,7 @@ export const ProfilePopoverContents: Component<{
 						<Show when={allBadges().length > 0}>
 							<span class="w-1 h-1 rounded-full bg-muted-foreground" />
 							<For each={allBadges()}>
-								{(val) => <Badge text={badgeText(val)} size="xs" style={val} />}
+								{(val) => <Badge val={val} size="xs" />}
 							</For>
 						</Show>
 					</div>
