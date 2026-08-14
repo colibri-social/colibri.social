@@ -215,7 +215,7 @@ export const Status: Component = () => {
 					</Show>
 				</div>
 			</Show>
-			<div class="w-full h-14 flex items-center gap-2 p-2 bg-card">
+			<div class="w-full h-16 flex items-center gap-2 p-2 bg-card">
 				<ProfilePopover
 					user={liveUser() ?? user}
 					placement="top"
@@ -223,7 +223,7 @@ export const Status: Component = () => {
 					onEditStatus={() => setStatusDialogOpen(true)}
 					actions={() => <SelfProfileActions />}
 				>
-					<div class="w-full h-full max-w-full overflow-hidden p-1 flex items-center gap-3 hover:bg-muted rounded-sm cursor-pointer">
+					<div class="w-full h-full max-w-full overflow-hidden p-2 flex items-center gap-3 hover:bg-muted rounded-sm cursor-pointer">
 						<Avatar user={liveUser() ?? user} class="size-8" />
 						<div class="flex flex-col w-full max-w-[calc(100%-48px)]">
 							<span class="font-bold leading-5">
@@ -241,7 +241,7 @@ export const Status: Component = () => {
 					page={settingsModal.page}
 					onPageConsumed={() => settingsModal.setPage(undefined)}
 				>
-					<div class="size-10 aspect-square flex rounded-md group/settings-btn hover:bg-muted items-center justify-center cursor-pointer">
+					<div class="size-12 aspect-square flex rounded-md group/settings-btn hover:bg-muted items-center justify-center cursor-pointer">
 						<div class="block w-fit h-fit text-lg group-hover/settings-btn:rotate-180 transition-transform duration-500">
 							<GearIcon />
 						</div>

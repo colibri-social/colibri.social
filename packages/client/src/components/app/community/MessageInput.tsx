@@ -26,6 +26,8 @@ import type { PendingMessage } from "../../../atproto/xrpc/social/colibri/channe
 import { useChannelContext } from "../../../contexts/Channel";
 import { useCommunityContext } from "../../../contexts/Community";
 import { useUserContext } from "../../../contexts/User";
+import { useUserPreferences } from "../../../contexts/UserPreferences";
+import { linkUrisFromFacets } from "../../../utils/link-facets";
 import { useIsMobile } from "../../../utils/mobile-pane";
 import { purify } from "../../../utils/purify";
 import {
@@ -37,6 +39,7 @@ import {
 	FileFieldItemSize,
 	FileFieldTrigger,
 } from "../../ui/FileField";
+import { isRemovableEmbed } from "../channel/message/Embed";
 import { Lightbox } from "../common/Lightbox";
 import { trimWithFacets } from "../common/rich-text-renderer/util";
 import { TextEditor } from "../common/text-editor/TextEditor";
@@ -67,6 +70,7 @@ export const MessageInput: Component<{
 	const channel = useChannelContext();
 	const community = useCommunityContext();
 	const user = useUserContext();
+	const userPreferences = useUserPreferences();
 
 	let inputEl!: HTMLDivElement;
 
@@ -76,6 +80,9 @@ export const MessageInput: Component<{
 	const [charPercent, setCharPercent] = createSignal(0);
 	const [isSending, setIsSending] = createSignal(false);
 	const [uploadedFiles, setUploadedFiles] = createSignal<Set<File>>(new Set());
+	const [embedsEnabled, setEmbedsEnabled] = createSignal(
+		userPreferences.preferences().linkEmbedsByDefault,
+	);
 
 	createEffect(() => {
 		const excess = fileField.acceptedFiles.length - props.maxAttachments;
@@ -195,6 +202,9 @@ export const MessageInput: Component<{
 
 			const now = new Date().toISOString();
 			const hash = crypto.randomUUID();
+			const suppressedEmbeds = embedsEnabled()
+				? []
+				: linkUrisFromFacets(cleanFacets).filter(isRemovableEmbed);
 
 			let uri: string;
 			try {
@@ -208,6 +218,7 @@ export const MessageInput: Component<{
 						createdAt: now,
 						...(replyingMessage ? { parent: replyingMessage.uri } : {}),
 						...(attachments.length > 0 ? { attachments } : {}),
+						...(suppressedEmbeds.length > 0 ? { suppressedEmbeds } : {}),
 					},
 					{ label: "Failed to send message." },
 				));
@@ -233,6 +244,7 @@ export const MessageInput: Component<{
 				reactions: [],
 				createdAt: now,
 				edited: false,
+				suppressedEmbeds,
 			};
 
 			channel.addPendingMessage(pending);
@@ -241,6 +253,8 @@ export const MessageInput: Component<{
 			for (const file of acceptedFiles) {
 				fileField.removeFile(file);
 			}
+
+			setEmbedsEnabled(userPreferences.preferences().linkEmbedsByDefault);
 
 			return true;
 		} finally {
@@ -483,6 +497,12 @@ export const MessageInput: Component<{
 									submitOnEnter={!isMobile()}
 									onEmptyChange={setEditorEmpty}
 									onProgress={setCharPercent}
+									embedsEnabled={
+										channel.linkEmbedsEnabled() && !isEditingOnMobile()
+											? embedsEnabled
+											: undefined
+									}
+									onEmbedsEnabledChange={setEmbedsEnabled}
 									registerSubmit={(submit) => {
 										submitMessage = submit;
 									}}

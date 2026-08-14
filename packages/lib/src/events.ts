@@ -25,6 +25,7 @@ export type Colibri_CommunityEvent = EventBase<
 			banner?: JsonBlobRef;
 			categoryOrder?: Array<string>;
 			requiresApprovalToJoin?: boolean;
+			linkEmbeds?: boolean;
 	  }
 	| {
 			event: "delete";
@@ -159,6 +160,7 @@ export type Colibri_ChannelEvent = EventBase<
 			ownerOnly?: boolean;
 			allowedRoles?: Array<string>;
 			allowedMembers?: Array<string>;
+			linkEmbeds?: boolean;
 	  }
 	| {
 			event: "delete";
@@ -200,7 +202,15 @@ export type Colibri_MessageEvent = EventBase<
 			attachments: Array<{ blob: JsonBlobRef; name?: string }>;
 			/** Fully-hydrated author — always present on upsert. */
 			author: ActorData;
+			suppressedEmbeds?: Array<string>;
+			modSuppressedEmbeds?: Array<string>;
 			live?: boolean;
+	  }
+	| {
+			event: "embeds";
+			uri: AT_URI<"social.colibri.message">;
+			channel: AT_URI<"social.colibri.channel">;
+			modSuppressedEmbeds: Array<string>;
 	  }
 	| {
 			event: "delete";

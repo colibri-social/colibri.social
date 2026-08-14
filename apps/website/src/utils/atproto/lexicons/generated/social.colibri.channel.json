@@ -1,7 +1,7 @@
 {
 	"lexicon": 1,
 	"id": "social.colibri.channel",
-	"revision": 4,
+	"revision": 5,
 	"defs": {
 		"main": {
 			"type": "record",
@@ -69,6 +69,10 @@
 							"type": "string",
 							"format": "did"
 						}
+					},
+					"linkEmbeds": {
+						"type": "boolean",
+						"description": "Whether link previews are displayed in this channel. Absent means the community default applies."
 					},
 					"migratedFrom": {
 						"type": "string",

@@ -8,6 +8,7 @@ import {
 	createSignal,
 	For,
 	Match,
+	on,
 	Show,
 	Suspense,
 	Switch,
@@ -15,6 +16,7 @@ import {
 import { toast } from "somoto";
 import ArrowCounterClockwiseIcon from "~icons/ph/arrow-counter-clockwise";
 import BugIcon from "~icons/ph/bug";
+import ChatTextIcon from "~icons/ph/chat-text";
 import CheckIcon from "~icons/ph/check";
 import DotsSixVerticalIcon from "~icons/ph/dots-six-vertical";
 import DotsThreeOutlineVerticalIcon from "~icons/ph/dots-three-outline-vertical-fill";
@@ -383,6 +385,81 @@ const GeneralSettingsPage: Component = () => {
 					<SwitchDescription>
 						Whether you want to explicitly need to allow users to chat in this
 						community.
+					</SwitchDescription>
+				</div>
+				<SwitchInput />
+				<SwitchControl>
+					<SwitchThumb />
+				</SwitchControl>
+			</SwitchComp>
+		</SettingsPage>
+	);
+};
+
+const MessagesSettingsPage: Component = () => {
+	const user = useUserContext();
+	const community = useCommunityContext();
+
+	const initialLinkEmbeds = () => community().community.linkEmbeds ?? true;
+
+	const [loading, setLoading] = createSignal(false);
+	const [linkEmbeds, setLinkEmbeds] = createSignal(initialLinkEmbeds());
+
+	createEffect(on(initialLinkEmbeds, (l) => setLinkEmbeds(l), { defer: true }));
+
+	const hasEdited = () => linkEmbeds() !== initialLinkEmbeds();
+
+	const save = async () => {
+		setLoading(true);
+		try {
+			const res = await user.xrpc.social.colibri.community.update(
+				community().community.uri,
+				undefined,
+				undefined,
+				undefined,
+				undefined,
+				undefined,
+				undefined,
+				undefined,
+				linkEmbeds(),
+			);
+
+			if (!res) {
+				toast.error("Failed to save message settings.");
+				return;
+			}
+
+			community().utils.patchCommunity({ linkEmbeds: linkEmbeds() });
+			community().utils.refetch();
+		} catch {
+			toast.error("Failed to save message settings.");
+		} finally {
+			setLoading(false);
+		}
+	};
+
+	return (
+		<SettingsPage
+			loading={loading}
+			canReset={hasEdited()}
+			title="Messages"
+			description="How messages behave across every channel in this community."
+			onSave={save}
+			onReset={() => setLinkEmbeds(initialLinkEmbeds())}
+		>
+			<SwitchComp
+				onChange={(e) => {
+					setLinkEmbeds(e);
+				}}
+				checked={linkEmbeds()}
+				class="flex justify-between items-center gap-x-2"
+			>
+				<div>
+					<SwitchLabel>Show link previews</SwitchLabel>
+					<SwitchDescription>
+						Whether messages show a preview card for the links they contain.
+						Individual channels can override this, and authors can always hide
+						previews on their own messages.
 					</SwitchDescription>
 				</div>
 				<SwitchInput />
@@ -1293,6 +1370,13 @@ export const CommunitySettingsModal: ParentComponent<{
 					id: "general",
 					component: GeneralSettingsPage,
 					icon: () => <WrenchIcon />,
+					visible: () => canManageCommunity(user.did),
+				},
+				{
+					title: "Messages",
+					id: "messages",
+					component: MessagesSettingsPage,
+					icon: () => <ChatTextIcon />,
 					visible: () => canManageCommunity(user.did),
 				},
 				{

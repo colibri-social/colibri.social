@@ -60,6 +60,7 @@ export const communityMethodDocs: LexiconDoc[] = [
 						items: { type: "string", format: "at-uri" },
 					},
 					requiresApprovalToJoin: { type: "boolean" },
+					linkEmbeds: { type: "boolean" },
 					appview: { type: "string", format: "did" },
 				},
 			},
@@ -93,6 +94,7 @@ export const communityMethodDocs: LexiconDoc[] = [
 						type: "array",
 						items: { type: "string", format: "did" },
 					},
+					linkEmbeds: { type: "boolean" },
 				},
 			},
 			roleView: {
@@ -422,6 +424,7 @@ export const communityMethodDocs: LexiconDoc[] = [
 						name: { type: "string" },
 						description: { type: "string" },
 						requiresApprovalToJoin: { type: "boolean" },
+						linkEmbeds: { type: "boolean" },
 						removePicture: {
 							type: "boolean",
 							description:
@@ -1507,6 +1510,152 @@ export const communityMethodDocs: LexiconDoc[] = [
 					properties: {
 						community: { type: "string", format: "at-uri" },
 						message: { type: "string", format: "at-uri" },
+					},
+				},
+				output: {
+					encoding: "application/json",
+					schema: {
+						type: "object",
+						required: ["message"],
+						properties: {
+							message: { type: "string", format: "at-uri" },
+						},
+					},
+				},
+				errors: [
+					{
+						name: "AppViewNotAuthorized",
+						description:
+							"The acting account has not published this AppView as authorized to act for it.",
+					},
+					{
+						name: "AuthRequired",
+						description: "Missing, malformed, or unverifiable service auth.",
+					},
+					{
+						name: "CommunityCredentialsUnrecoverable",
+						description:
+							"The AppView cannot write to the community's repo and could not repair its own access.",
+					},
+					{
+						name: "Forbidden",
+						description:
+							"The caller lacks the permission this method requires.",
+					},
+					{
+						name: "InvalidRequest",
+						description: "A parameter or body field was missing or malformed.",
+					},
+					{
+						name: "NotCommunityHub",
+						description:
+							"This AppView does not administer the community; the hub field names the one that does.",
+					},
+					{
+						name: "PdsUnavailable",
+						description:
+							"The PDS this operation needs is unreachable or is not a PDS.",
+					},
+					{
+						name: "UpstreamFailure",
+						description: "A service outside this AppView failed.",
+					},
+				],
+			},
+		},
+	},
+	{
+		lexicon: 1,
+		id: "social.colibri.community.suppressMessageEmbeds",
+		defs: {
+			main: {
+				type: "procedure",
+				description:
+					"Suppresses link previews on a message within a community by writing a suppressEmbeds moderation record. Does not touch the author's own suppression, which only the author may change.",
+				parameters: {
+					type: "params",
+					required: ["community", "message", "embeds"],
+					properties: {
+						community: { type: "string", format: "at-uri" },
+						message: { type: "string", format: "at-uri" },
+						embeds: {
+							type: "array",
+							description: "URLs whose previews should be suppressed.",
+							items: { type: "string", format: "uri" },
+						},
+					},
+				},
+				output: {
+					encoding: "application/json",
+					schema: {
+						type: "object",
+						required: ["message"],
+						properties: {
+							message: { type: "string", format: "at-uri" },
+						},
+					},
+				},
+				errors: [
+					{
+						name: "AppViewNotAuthorized",
+						description:
+							"The acting account has not published this AppView as authorized to act for it.",
+					},
+					{
+						name: "AuthRequired",
+						description: "Missing, malformed, or unverifiable service auth.",
+					},
+					{
+						name: "CommunityCredentialsUnrecoverable",
+						description:
+							"The AppView cannot write to the community's repo and could not repair its own access.",
+					},
+					{
+						name: "Forbidden",
+						description:
+							"The caller lacks the permission this method requires.",
+					},
+					{
+						name: "InvalidRequest",
+						description: "A parameter or body field was missing or malformed.",
+					},
+					{
+						name: "NotCommunityHub",
+						description:
+							"This AppView does not administer the community; the hub field names the one that does.",
+					},
+					{
+						name: "PdsUnavailable",
+						description:
+							"The PDS this operation needs is unreachable or is not a PDS.",
+					},
+					{
+						name: "UpstreamFailure",
+						description: "A service outside this AppView failed.",
+					},
+				],
+			},
+		},
+	},
+	{
+		lexicon: 1,
+		id: "social.colibri.community.unsuppressMessageEmbeds",
+		defs: {
+			main: {
+				type: "procedure",
+				description:
+					"Restores link previews a moderator previously suppressed. Cannot restore previews the author suppressed themselves.",
+				parameters: {
+					type: "params",
+					required: ["community", "message", "embeds"],
+					properties: {
+						community: { type: "string", format: "at-uri" },
+						message: { type: "string", format: "at-uri" },
+						embeds: {
+							type: "array",
+							description: "URLs whose previews should be restored.",
+							items: { type: "string", format: "uri" },
+						},
 					},
 				},
 				output: {

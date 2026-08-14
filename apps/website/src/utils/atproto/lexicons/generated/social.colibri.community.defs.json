@@ -40,6 +40,9 @@
 				"requiresApprovalToJoin": {
 					"type": "boolean"
 				},
+				"linkEmbeds": {
+					"type": "boolean"
+				},
 				"appview": {
 					"type": "string",
 					"format": "did"
@@ -113,6 +116,9 @@
 						"type": "string",
 						"format": "did"
 					}
+				},
+				"linkEmbeds": {
+					"type": "boolean"
 				}
 			}
 		},

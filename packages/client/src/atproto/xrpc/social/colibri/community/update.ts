@@ -9,7 +9,8 @@ export const update: XrpcRequest<
 		string | undefined,
 		Blob | undefined,
 		Blob | undefined,
-		boolean,
+		boolean | undefined,
+		boolean | undefined,
 		boolean | undefined,
 		boolean | undefined,
 	],
@@ -24,12 +25,14 @@ export const update: XrpcRequest<
 	requiresApprovalToJoin,
 	removePicture,
 	removeBanner,
+	linkEmbeds,
 ) => {
 	const params = new URLSearchParams({ community });
 	if (name !== undefined) params.set("name", name);
 	if (description !== undefined) params.set("description", description);
 	if (requiresApprovalToJoin !== undefined)
 		params.set("requiresApprovalToJoin", `${requiresApprovalToJoin}`);
+	if (linkEmbeds !== undefined) params.set("linkEmbeds", `${linkEmbeds}`);
 	if (removePicture) params.set("removePicture", "true");
 	if (removeBanner) params.set("removeBanner", "true");
 	const formData = new FormData();

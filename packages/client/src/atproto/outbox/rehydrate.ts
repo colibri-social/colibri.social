@@ -14,6 +14,12 @@ const asFacets = (value: unknown): ColibriRichTextFacet[] =>
 const asAttachments = (value: unknown): Message["attachments"] =>
 	Array.isArray(value) ? (value as Message["attachments"]) : [];
 
+const asStrings = (value: unknown): string[] =>
+	Array.isArray(value) ? value.filter((v) => typeof v === "string") : [];
+
+const sameStrings = (a: string[], b: string[]): boolean =>
+	a.length === b.length && a.every((v, i) => v === b[i]);
+
 const toPendingMessage = (
 	queued: QueuedRecord,
 	context: {
@@ -37,6 +43,7 @@ const toPendingMessage = (
 		reactions: [],
 		createdAt: asString(queued.record.createdAt) ?? new Date(0).toISOString(),
 		edited: false,
+		suppressedEmbeds: asStrings(queued.record.suppressedEmbeds),
 	};
 };
 
@@ -83,8 +90,15 @@ export const rehydrateQueuedMessages = (input: {
 		if (!edit) return m;
 		const text = asString(edit.record.text) ?? m.text;
 		const facets = asFacets(edit.record.facets);
-		if (text === m.text && m.edited) return m;
-		return { ...m, text, facets, edited: true };
+		const suppressedEmbeds = asStrings(edit.record.suppressedEmbeds);
+		const edited =
+			edit.record.edited === undefined ? true : edit.record.edited === true;
+		const unchanged =
+			text === m.text &&
+			m.edited === edited &&
+			sameStrings(suppressedEmbeds, m.suppressedEmbeds ?? []);
+		if (unchanged) return m;
+		return { ...m, text, facets, edited, suppressedEmbeds };
 	});
 
 	const changed =

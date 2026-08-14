@@ -6,7 +6,7 @@ export const messageRecordDocs: LexiconDoc[] = [
 		lexicon: 1,
 		id: RECORD_IDs.MESSAGE,
 		description: "A message sent in a channel on Colibri.",
-		revision: 2,
+		revision: 3,
 		defs: {
 			main: {
 				type: "record",
@@ -62,6 +62,15 @@ export const messageRecordDocs: LexiconDoc[] = [
 								ref: "social.colibri.message#attachment",
 							},
 							description: "An array of attachment objects for this message.",
+						},
+						suppressedEmbeds: {
+							type: "array",
+							description:
+								"URLs from this message's link facets whose embed the author has chosen not to display. Only the author writes this; moderator suppression is recorded separately in the community's moderation log.",
+							items: {
+								type: "string",
+								format: "uri",
+							},
 						},
 					},
 				},

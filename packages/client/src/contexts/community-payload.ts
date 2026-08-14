@@ -7,6 +7,7 @@ export const emptyCommunityPayload = (): CommunityResponse => ({
 		description: "",
 		categoryOrder: [],
 		requiresApprovalToJoin: false,
+		linkEmbeds: true,
 		appview: "",
 	},
 	categories: [],

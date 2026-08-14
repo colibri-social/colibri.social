@@ -5,7 +5,7 @@ export const moderationRecordDocs: LexiconDoc[] = [
 	{
 		lexicon: 1,
 		id: RECORD_IDs.MODERATION,
-		revision: 1,
+		revision: 2,
 		defs: {
 			main: {
 				type: "record",
@@ -30,11 +30,22 @@ export const moderationRecordDocs: LexiconDoc[] = [
 								"hideMessage",
 								"unhideMessage",
 								"kick",
+								"suppressEmbeds",
+								"unsuppressEmbeds",
 							],
 						},
 						subject: {
 							type: "ref",
 							ref: "#subject",
+						},
+						embeds: {
+							type: "array",
+							description:
+								"URLs this action applies to, used by suppressEmbeds and unsuppressEmbeds. Ignored by every other action.",
+							items: {
+								type: "string",
+								format: "uri",
+							},
 						},
 						reason: {
 							type: "string",

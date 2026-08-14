@@ -5,7 +5,7 @@ export const communityRecordDocs: LexiconDoc[] = [
 	{
 		lexicon: 1,
 		id: RECORD_IDs.COMMUNITY,
-		revision: 4,
+		revision: 5,
 		defs: {
 			main: {
 				type: "record",
@@ -65,6 +65,12 @@ export const communityRecordDocs: LexiconDoc[] = [
 							default: true,
 							description:
 								"Whether users can chat in this community without the owner having to create an acknowledgement record.",
+						},
+						linkEmbeds: {
+							type: "boolean",
+							default: true,
+							description:
+								"Whether link previews are displayed in this community by default. Individual channels may override this.",
 						},
 						migratedTo: {
 							type: "string",

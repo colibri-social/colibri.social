@@ -54,7 +54,12 @@ import { BlockDrawer } from "./BlockDrawer";
 import { Action } from "./ContextMenu";
 import { MessageContextMenu } from "./ContextMenu/Menu";
 import { DeletionDrawer } from "./DeletionDrawer/index";
-import { Embed, isBrokenMediaLink, isDirectMediaUrl } from "./Embed";
+import {
+	Embed,
+	isBrokenMediaLink,
+	isDirectMediaUrl,
+	isRemovableEmbed,
+} from "./Embed";
 import { MessageTimestamp } from "./MessageTimestamp";
 import { ReactorsModal } from "./ReactorsModal";
 
@@ -126,7 +131,26 @@ const MessageInner: Component<{
 		submitEdits,
 		addReactionOptimistic,
 		removeReaction,
+		visibleEmbedUris,
+		canModerateEmbeds,
+		removeEmbed,
+		modRemoveEmbed,
+		openEmbedsModal,
 	} = useMessageContext();
+
+	const embedRemover = (uri: string): ((e: MouseEvent) => void) | undefined => {
+		if (!isRemovableEmbed(uri)) return undefined;
+		const owns = message.author.did === user.did;
+		if (!owns && !canModerateEmbeds()) return undefined;
+
+		return (e: MouseEvent) => {
+			if (e.shiftKey) {
+				void (owns ? removeEmbed(uri) : modRemoveEmbed(uri));
+				return;
+			}
+			openEmbedsModal(uri);
+		};
+	};
 
 	// `message.author` is a snapshot captured when the message arrived over the
 	// socket; `user_event` only updates the community roster, not stored messages.
@@ -639,16 +663,16 @@ const MessageInner: Component<{
 					</Show>
 					<Show
 						when={
-							linkFacets().length > 0 &&
+							visibleEmbedUris().length > 0 &&
 							!("hash" in message) &&
 							!isLoneMediaLink()
 						}
 					>
 						<div class="flex flex-row flex-wrap gap-4 pl-14 min-w-0">
-							<For each={linkFacets()}>
-								{(item) => (
+							<For each={visibleEmbedUris()}>
+								{(uri) => (
 									<SectionBoundary name="embed" compact>
-										<Embed uri={item.uri} />
+										<Embed uri={uri} onRemove={embedRemover(uri)} />
 									</SectionBoundary>
 								)}
 							</For>

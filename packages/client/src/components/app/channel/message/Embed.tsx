@@ -5,6 +5,7 @@ import type {
 import { type Component, createResource, createSignal, Show } from "solid-js";
 import StarIcon from "~icons/ph/star";
 import StarFillIcon from "~icons/ph/star-fill";
+import XIcon from "~icons/ph/x";
 import { parseBskyPostUrl } from "../../../../atproto/bsky-post-url";
 import {
 	getMetadataDeduped,
@@ -26,7 +27,7 @@ import { BlueskyEmbed } from "./BlueskyEmbed";
 
 const THUMBNAIL_MAX_PX = 64;
 
-const PREVIEW_MAX_HEIGHT_PX = 200;
+const PREVIEW_MAX_HEIGHT_PX = 250;
 
 /** Matches direct GIF/animated-image media URLs (ignoring query/hash). */
 const GIF_MEDIA_EXT = /\.(gif|gifv|webp)(\?|#|$)/i;
@@ -62,6 +63,9 @@ export const isDirectMediaUrl = (uri: string): boolean =>
 
 export const usesLinkPreview = (uri: string): boolean =>
 	!isDirectMediaUrl(uri) && !parseBskyPostUrl(uri);
+
+export const isRemovableEmbed = (uri: string): boolean =>
+	!isDirectMediaUrl(uri);
 
 export const gifItemFromUrl = (uri: string): GifItem => ({
 	id: uri,
@@ -145,7 +149,10 @@ const InlineImage: Component<{ uri: string }> = (props) => {
 	);
 };
 
-export const Embed: Component<{ uri: string }> = (props) => {
+export const Embed: Component<{
+	uri: string;
+	onRemove?: (e: MouseEvent) => void;
+}> = (props) => {
 	// Bluesky post links get a native post card instead of OG scraping
 	const bskyPost = () => parseBskyPostUrl(props.uri);
 
@@ -156,12 +163,25 @@ export const Embed: Component<{ uri: string }> = (props) => {
 				<Show
 					when={isStaticImageUrl(props.uri)}
 					fallback={
-						<Show
-							when={bskyPost()}
-							fallback={<OpenGraphEmbed uri={props.uri} />}
-						>
-							{(post) => <BlueskyEmbed uri={props.uri} post={post()} />}
-						</Show>
+						<div class="relative group/embed min-w-0">
+							<Show
+								when={bskyPost()}
+								fallback={<OpenGraphEmbed uri={props.uri} />}
+							>
+								{(post) => <BlueskyEmbed uri={props.uri} post={post()} />}
+							</Show>
+							<Show when={props.onRemove !== undefined}>
+								<button
+									type="button"
+									aria-label="Hide this link preview"
+									title="Hide this link preview (shift-click to skip the pop-up)"
+									class="absolute top-1 right-1 p-1 rounded-sm border border-border bg-background/90 text-muted-foreground opacity-0 transition-opacity cursor-pointer hover:text-foreground group-hover/embed:opacity-100 focus-visible:opacity-100"
+									onClick={(e) => props.onRemove?.(e as MouseEvent)}
+								>
+									<XIcon width={14} height={14} />
+								</button>
+							</Show>
+						</div>
 					}
 				>
 					<InlineImage uri={props.uri} />

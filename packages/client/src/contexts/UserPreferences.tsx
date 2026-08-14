@@ -124,6 +124,7 @@ export type UserPreferencesContextData = {
 	sharePresence: boolean;
 	hideCrossAppViewHint: boolean;
 	attachAccountToReports: boolean;
+	linkEmbedsByDefault: boolean;
 	nativeWindowDecorations: boolean;
 	theme: AppTheme | null;
 	recentGifs: Array<GifItem>;
@@ -175,6 +176,7 @@ const DEFAULT_PREFERENCES: UserPreferencesContextData = {
 	sharePresence: true,
 	hideCrossAppViewHint: false,
 	attachAccountToReports: false,
+	linkEmbedsByDefault: true,
 	nativeWindowDecorations: false,
 	theme: null,
 	recentGifs: [],
@@ -301,6 +303,7 @@ type UserPreferencesContextValue = {
 	setSharePresence: (enabled: boolean) => void;
 	setHideCrossAppViewHint: (hidden: boolean) => void;
 	setAttachAccountToReports: (enabled: boolean) => void;
+	setLinkEmbedsByDefault: (enabled: boolean) => void;
 	setNativeWindowDecorations: (enabled: boolean) => void;
 	setTheme: (theme: AppTheme | null) => void;
 	pushRecentGif: (gif: GifItem) => void;
@@ -473,6 +476,10 @@ export const UserPreferencesContextProvider: ParentComponent = (props) => {
 		setPreferences((p) => ({ ...p, attachAccountToReports: enabled }));
 	};
 
+	const setLinkEmbedsByDefault = (enabled: boolean) => {
+		setPreferences((p) => ({ ...p, linkEmbedsByDefault: enabled }));
+	};
+
 	const setNativeWindowDecorations = (enabled: boolean) => {
 		setPreferences((p) => ({ ...p, nativeWindowDecorations: enabled }));
 	};
@@ -551,6 +558,7 @@ export const UserPreferencesContextProvider: ParentComponent = (props) => {
 				setSharePresence,
 				setHideCrossAppViewHint,
 				setAttachAccountToReports,
+				setLinkEmbedsByDefault,
 				setNativeWindowDecorations,
 				setTheme,
 				pushRecentGif,

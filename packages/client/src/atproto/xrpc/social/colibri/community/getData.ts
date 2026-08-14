@@ -15,6 +15,7 @@ export type CommunityData = {
 	banner?: JsonBlobRef;
 	categoryOrder: Array<string>;
 	requiresApprovalToJoin: boolean;
+	linkEmbeds?: boolean;
 	appview: string;
 };
 

@@ -13,6 +13,8 @@ export const update: XrpcRequest<
 		string[] | undefined,
 		boolean | undefined,
 		string | undefined,
+		boolean | undefined,
+		boolean | undefined,
 	],
 	Promise<XrpcResult<Record<string, never>>>
 > = async (
@@ -26,6 +28,8 @@ export const update: XrpcRequest<
 	allowedMembers,
 	clearAllowedMembers,
 	category,
+	linkEmbeds,
+	clearLinkEmbeds,
 ) => {
 	const params = new URLSearchParams({ channel });
 	if (name !== undefined) params.set("name", name);
@@ -38,6 +42,9 @@ export const update: XrpcRequest<
 	for (const m of allowedMembers ?? []) params.append("allowedMembers", m);
 	if (clearAllowedMembers !== undefined)
 		params.set("clearAllowedMembers", String(clearAllowedMembers));
+	if (linkEmbeds !== undefined) params.set("linkEmbeds", String(linkEmbeds));
+	if (clearLinkEmbeds !== undefined)
+		params.set("clearLinkEmbeds", String(clearLinkEmbeds));
 
 	return request<Record<string, never>>(fetch, {
 		lxm: "social.colibri.channel.update",

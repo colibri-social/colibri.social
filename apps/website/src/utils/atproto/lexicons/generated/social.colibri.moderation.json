@@ -1,7 +1,7 @@
 {
 	"lexicon": 1,
 	"id": "social.colibri.moderation",
-	"revision": 1,
+	"revision": 2,
 	"defs": {
 		"main": {
 			"type": "record",
@@ -29,12 +29,22 @@
 							"unban",
 							"hideMessage",
 							"unhideMessage",
-							"kick"
+							"kick",
+							"suppressEmbeds",
+							"unsuppressEmbeds"
 						]
 					},
 					"subject": {
 						"type": "ref",
 						"ref": "lex:social.colibri.moderation#subject"
+					},
+					"embeds": {
+						"type": "array",
+						"description": "URLs this action applies to, used by suppressEmbeds and unsuppressEmbeds. Ignored by every other action.",
+						"items": {
+							"type": "string",
+							"format": "uri"
+						}
 					},
 					"reason": {
 						"type": "string",

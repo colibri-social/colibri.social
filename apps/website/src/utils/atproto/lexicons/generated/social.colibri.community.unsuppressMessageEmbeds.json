@@ -1,55 +1,45 @@
 {
 	"lexicon": 1,
-	"id": "social.colibri.community.update",
+	"id": "social.colibri.community.unsuppressMessageEmbeds",
 	"defs": {
 		"main": {
 			"type": "procedure",
-			"description": "Updates a community's metadata and optionally its picture and banner.",
+			"description": "Restores link previews a moderator previously suppressed. Cannot restore previews the author suppressed themselves.",
 			"parameters": {
 				"type": "params",
 				"required": [
-					"community"
+					"community",
+					"message",
+					"embeds"
 				],
 				"properties": {
 					"community": {
 						"type": "string",
 						"format": "at-uri"
 					},
-					"name": {
-						"type": "string"
+					"message": {
+						"type": "string",
+						"format": "at-uri"
 					},
-					"description": {
-						"type": "string"
-					},
-					"requiresApprovalToJoin": {
-						"type": "boolean"
-					},
-					"linkEmbeds": {
-						"type": "boolean"
-					},
-					"removePicture": {
-						"type": "boolean",
-						"description": "Drops the community's current picture. Cannot be combined with a new picture blob."
-					},
-					"removeBanner": {
-						"type": "boolean",
-						"description": "Drops the community's current banner. Cannot be combined with a new banner blob."
+					"embeds": {
+						"type": "array",
+						"description": "URLs whose previews should be restored.",
+						"items": {
+							"type": "string",
+							"format": "uri"
+						}
 					}
 				}
-			},
-			"input": {
-				"encoding": "multipart/form-data",
-				"description": "Optional replacement community image blobs, as `picture` and `banner` parts."
 			},
 			"output": {
 				"encoding": "application/json",
 				"schema": {
 					"type": "object",
 					"required": [
-						"uri"
+						"message"
 					],
 					"properties": {
-						"uri": {
+						"message": {
 							"type": "string",
 							"format": "at-uri"
 						}

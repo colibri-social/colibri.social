@@ -2153,6 +2153,74 @@ Hides a message in a given community. Requires the caller to hold the `message.h
 
 Broadcasts `message_event { event: "delete", uri: <message> }` via the tap firehose once the moderation record is indexed, so connected clients remove the hidden message without a reload.
 
+### `social.colibri.community.suppressMessageEmbeds`
+
+Hides specific link previews on a message by writing a `suppressEmbeds` moderation record carrying the URLs it applies to. Requires the `message.hide` permission, evaluated against the message's own channel so per-channel overrides apply.
+
+Authors hide their own previews through the `suppressedEmbeds` field on the `social.colibri.message` record instead. The two sets are tracked separately and unioned at read time, so each side can only ever undo its own: a moderator cannot restore a preview its author hid, and an author cannot restore one a moderator hid.
+
+<XRPCEndpointCard
+	method="POST"
+	nsid="social.colibri.community.suppressMessageEmbeds"
+	authenticated
+	queryParams={{
+		community: {
+			type: "at-uri",
+			required: true
+		},
+		message: {
+			type: "at-uri",
+			required: true
+		},
+		embeds: {
+			type: "uri[]",
+			required: true,
+		},
+	}}
+	response={{
+		message: {
+			type: "at-uri",
+			required: true,
+		}
+	}}
+/>
+
+`embeds` is a repeated query parameter naming the URLs to hide. Blank entries and duplicates are dropped, and a call carrying more than 32 URLs, or none at all, is rejected as `InvalidRequest`.
+
+### `social.colibri.community.unsuppressMessageEmbeds`
+
+Restores link previews a moderator previously hid. Same permission and channel scoping as `suppressMessageEmbeds`. Has no effect on previews the author suppressed themselves.
+
+<XRPCEndpointCard
+	method="POST"
+	nsid="social.colibri.community.unsuppressMessageEmbeds"
+	authenticated
+	queryParams={{
+		community: {
+			type: "at-uri",
+			required: true
+		},
+		message: {
+			type: "at-uri",
+			required: true
+		},
+		embeds: {
+			type: "uri[]",
+			required: true,
+		},
+	}}
+	response={{
+		message: {
+			type: "at-uri",
+			required: true,
+		}
+	}}
+/>
+
+Both actions broadcast `message_event { event: "embeds", uri: <message>, modSuppressedEmbeds: [...] }`. The array is the complete moderator-suppressed set after the change rather than a delta, so a client can apply it without replaying history.
+
+Whether a preview is rendered at all is a client-side decision: `linkEmbeds` on the community and channel records gates it, and `embed.getMetadata` receives no channel context, so those toggles are a display policy rather than an enforced boundary.
+
 ### `social.colibri.community.banUser`
 
 Bans a user from a community by writing a `ban` moderation record. Requires the `member.ban` permission. Callers can only ban members ranked strictly below them in the role hierarchy.
@@ -3192,7 +3260,7 @@ A user, however, talks only to their own AppView, so a request that writes to a 
 
 Any method that writes to a community's repo. In the reference AppView that is exactly the set reaching its credential-bound write helpers:
 
-`community.banUser`, `community.unbanUser`, `community.kickUser`, `community.kick`, `community.blockMessage`, `community.approveMembership`, `community.leave`, `community.update`, `community.delete`, `community.setMemberRoles`, `community.reorderChannels`, `community.reorderCategories`, `channel.create`, `channel.update`, `channel.delete`, `category.create`, `category.update`, `category.delete`, `role.create`, `role.update`, `role.delete`.
+`community.banUser`, `community.unbanUser`, `community.kickUser`, `community.kick`, `community.blockMessage`, `community.suppressMessageEmbeds`, `community.unsuppressMessageEmbeds`, `community.approveMembership`, `community.leave`, `community.update`, `community.delete`, `community.setMemberRoles`, `community.reorderChannels`, `community.reorderCategories`, `channel.create`, `channel.update`, `channel.delete`, `category.create`, `category.update`, `category.delete`, `role.create`, `role.update`, `role.delete`.
 
 Reads never relay. Moderation state is on-protocol, so every AppView reconstructs identical state from the firehose without holding any credentials. `community.create`, `community.migrate` and `community.registerCredentials` do not relay either, since they establish or acquire hub status rather than depending on it.
 

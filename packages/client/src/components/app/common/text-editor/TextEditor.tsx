@@ -26,6 +26,8 @@ import {
 } from "solid-js";
 import { createEditorTransaction, createTiptapEditor } from "solid-tiptap";
 import CodeIcon from "~icons/ph/code";
+import LinkIcon from "~icons/ph/link";
+import LinkBreakIcon from "~icons/ph/link-break";
 import SmileyIcon from "~icons/ph/smiley";
 import TextBIcon from "~icons/ph/text-b";
 import TextItalicIcon from "~icons/ph/text-italic";
@@ -52,6 +54,7 @@ import { hasEmoji, parseEmojiText } from "../../../../utils/emoji";
 import { TIPTAP_EMOJIS } from "../../../../utils/emoji-data";
 import { createFenceRegex } from "../../../../utils/fenced-code-regex";
 import { htmlToDOMOutputSpec } from "../../../../utils/html-to-dom-output-spec";
+import { linkUrisFromFacets } from "../../../../utils/link-facets";
 import { useIsMobile } from "../../../../utils/mobile-pane";
 import { safeAreaOverflowPadding } from "../../../../utils/safe-area";
 import {
@@ -60,8 +63,9 @@ import {
 	TooltipPortal,
 	TooltipTrigger,
 } from "../../../ui/Tooltip";
+import { isRemovableEmbed } from "../../channel/message/Embed";
 import { communityInitials } from "../../community/CommunityAvatar";
-import { ComposerMediaPickers } from "../ComposerMediaPickers";
+import { ComposerMediaPickers, TRIGGER_CLASS } from "../ComposerMediaPickers";
 import {
 	CHIP_AVATAR_CLASS,
 	CHIP_INITIALS_CLASS,
@@ -570,6 +574,8 @@ export const TextEditor: Component<{
 	onProgress?: (percentage: number) => void;
 	onImagePaste?: (files: Array<File>) => void;
 	blocked?: () => boolean;
+	embedsEnabled?: () => boolean;
+	onEmbedsEnabledChange?: (enabled: boolean) => void;
 }> = (props) => {
 	let ref!: HTMLDivElement;
 
@@ -943,6 +949,14 @@ export const TextEditor: Component<{
 			Math.round((100 / CHARACTER_LIMIT) * characterCountTransaction()),
 		);
 
+	const hasLink = createEditorTransaction(editor, (editor) =>
+		editor
+			? linkUrisFromFacets(proseMirrorToFacets(editor.getJSON()).facets).some(
+					isRemovableEmbed,
+				)
+			: false,
+	);
+
 	const isMobile = useIsMobile();
 
 	const [emojiOpen, setEmojiOpen] = createSignal(false);
@@ -1269,6 +1283,40 @@ export const TextEditor: Component<{
 					onEmojiSelect={insertEmoji}
 					onGifSelect={sendGif}
 				/>
+			</Show>
+			<Show when={props.embedsEnabled !== undefined && hasLink()}>
+				<Tooltip>
+					<TooltipTrigger
+						aria-label={
+							props.embedsEnabled?.()
+								? "Hide link previews for this message"
+								: "Show link previews for this message"
+						}
+						aria-pressed={!props.embedsEnabled?.()}
+						class={TRIGGER_CLASS}
+						classList={{ "text-primary!": props.embedsEnabled?.() }}
+						onMouseDown={(e: MouseEvent) => e.preventDefault()}
+						onClick={() =>
+							props.onEmbedsEnabledChange?.(!props.embedsEnabled?.())
+						}
+					>
+						<Show
+							when={props.embedsEnabled?.()}
+							fallback={<LinkBreakIcon width={20} height={20} />}
+						>
+							<LinkIcon width={20} height={20} />
+						</Show>
+					</TooltipTrigger>
+					<TooltipPortal>
+						<TooltipContent>
+							<span>
+								{props.embedsEnabled?.()
+									? "Link previews on"
+									: "Link previews off"}
+							</span>
+						</TooltipContent>
+					</TooltipPortal>
+				</Tooltip>
 			</Show>
 			<Show when={!(isMobile() && props.mainEditor)}>
 				<Tooltip>

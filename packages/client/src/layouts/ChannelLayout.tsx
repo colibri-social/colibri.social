@@ -1,4 +1,3 @@
-import type { ColibriRichTextLink } from "@colibri-social/lib";
 import type { FileError } from "@kobalte/core/file-field";
 import {
 	createEffect,
@@ -28,7 +27,10 @@ import { parseBskyPostUrl } from "../atproto/bsky-post-url";
 import { isSnapshotStale } from "../atproto/cache/messages-snapshot";
 import { warmMetadata } from "../atproto/embed-metadata-cache";
 import type { Message as MessageData } from "../atproto/xrpc/social/colibri/channel/listMessages";
-import { usesLinkPreview } from "../components/app/channel/message/Embed";
+import {
+	isRemovableEmbed,
+	usesLinkPreview,
+} from "../components/app/channel/message/Embed";
 import { Message } from "../components/app/channel/message/Message";
 import { ChatGuidelinesModal } from "../components/app/community/ChatGuidelinesModal";
 import { MessageInput } from "../components/app/community/MessageInput";
@@ -55,6 +57,7 @@ import { useViewport } from "../contexts/Viewport";
 import { describeError } from "../errors/copy";
 import { cancelChannelTrayNotification } from "../notifications";
 import { getChannelParam } from "../utils/get-param";
+import { linkUrisFromFacets } from "../utils/link-facets";
 import { sameDay } from "../utils/message-order";
 import {
 	createMessageScrollController,
@@ -226,11 +229,16 @@ const ChannelLayout: ParentComponent = (props) => {
 
 	const linkUrisIn = (messages: Array<MessageData>): Array<string> => {
 		const uris = new Set<string>();
+		const embedsAllowed = channel.linkEmbedsEnabled();
 		for (const message of messages) {
-			for (const facet of message.facets ?? []) {
-				const feature = facet.features[0];
-				if (feature?.$type !== "social.colibri.richtext.facet#link") continue;
-				uris.add((feature as ColibriRichTextLink).uri);
+			const suppressed = new Set([
+				...(message.suppressedEmbeds ?? []),
+				...(message.modSuppressedEmbeds ?? []),
+			]);
+			for (const uri of linkUrisFromFacets(message.facets)) {
+				if (isRemovableEmbed(uri) && (!embedsAllowed || suppressed.has(uri)))
+					continue;
+				uris.add(uri);
 			}
 		}
 		return [...uris];

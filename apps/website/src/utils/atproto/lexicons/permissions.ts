@@ -103,6 +103,8 @@ export const permissionDocs: LexiconDoc[] = [
 							"social.colibri.community.reorderChannels",
 							"social.colibri.community.reorderCategories",
 							"social.colibri.community.blockMessage",
+							"social.colibri.community.suppressMessageEmbeds",
+							"social.colibri.community.unsuppressMessageEmbeds",
 							"social.colibri.community.banUser",
 							"social.colibri.community.unbanUser",
 							"social.colibri.community.createInvitation",

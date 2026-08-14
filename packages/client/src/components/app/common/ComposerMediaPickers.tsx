@@ -15,7 +15,7 @@ import { EmojiPickerBody, EmojiPopover } from "./EmojiPopover";
 import { GifPickerBody, GifPopover } from "./GifPopover";
 
 /** Shared styling for the inline trigger buttons (matches the emoji button). */
-const TRIGGER_CLASS =
+export const TRIGGER_CLASS =
 	"mt-1 shrink-0 w-6 h-[1lh] min-h-6 flex items-center justify-center text-muted-foreground hover:text-foreground cursor-pointer bg-transparent border-none";
 
 type MediaTab = "emoji" | "gif";

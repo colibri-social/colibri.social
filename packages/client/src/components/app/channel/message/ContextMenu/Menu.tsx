@@ -3,6 +3,7 @@ import { toast } from "somoto";
 import ArrowBendUpLeftIcon from "~icons/ph/arrow-bend-up-left";
 import CopyIcon from "~icons/ph/copy";
 import InfoIcon from "~icons/ph/info";
+import LinkBreakIcon from "~icons/ph/link-break";
 import PencilIcon from "~icons/ph/pencil";
 import ProhibitIcon from "~icons/ph/prohibit";
 import SmileyIcon from "~icons/ph/smiley";
@@ -39,6 +40,7 @@ import {
 import { copyMessageToClipboard } from "../../../common/text-editor/clipboard-facets";
 import { DebugInfo } from "../DebugInfo";
 import { gifItemFromUrl, gifLinkFromFacets } from "../Embed";
+import { EmbedsDrawer } from "../EmbedsDrawer";
 
 /**
  * Message context menu. On desktop it's a right-click Kobalte menu; on mobile a
@@ -65,6 +67,9 @@ export const MessageContextMenu: ParentComponent<{
 		setEmojiPopoverOpen,
 		addReactionOptimistic,
 		linkTarget,
+		openEmbedsModal,
+		removableEmbedUris,
+		canModerateEmbeds,
 	} = useMessageContext();
 
 	const { canHideMessage } = usePermissions();
@@ -73,6 +78,11 @@ export const MessageContextMenu: ParentComponent<{
 	const isTouch = useIsTouch();
 	const ownsMessage = () => user.did === message.author.did;
 	const quickReactions = createMemo(() => topEmoji(emojiUsage(), 4));
+
+	const canManageEmbeds = () =>
+		!isPending() &&
+		removableEmbedUris().length > 0 &&
+		(ownsMessage() || canModerateEmbeds());
 
 	const isDisabled = () =>
 		isPending() ||
@@ -142,6 +152,12 @@ export const MessageContextMenu: ParentComponent<{
 											</span>
 										</ContextMenuItem>
 									)}
+								</Show>
+								<Show when={canManageEmbeds()}>
+									<ContextMenuItem onClick={() => openEmbedsModal()}>
+										<LinkBreakIcon />
+										<span>Link Previews</span>
+									</ContextMenuItem>
 								</Show>
 								<Show when={!("hash" in message)}>
 									<ContextMenuItem onClick={() => setDebugModalOpen(true)}>
@@ -262,6 +278,14 @@ export const MessageContextMenu: ParentComponent<{
 							</MenuDrawerItem>
 						)}
 					</Show>
+					<Show when={canManageEmbeds()}>
+						<MenuDrawerItem
+							onClick={() => handoffDrawer(close, () => openEmbedsModal())}
+						>
+							<LinkBreakIcon />
+							<span>Link Previews</span>
+						</MenuDrawerItem>
+					</Show>
 					<Show when={!("hash" in message)}>
 						<MenuDrawerItem
 							onClick={() =>
@@ -309,6 +333,7 @@ export const MessageContextMenu: ParentComponent<{
 			</Show>
 			<Show when={!("hash" in message)}>
 				<DebugInfo />
+				<EmbedsDrawer />
 			</Show>
 		</>
 	);

@@ -5,7 +5,7 @@ export const channelRecordDocs: LexiconDoc[] = [
 	{
 		lexicon: 1,
 		id: RECORD_IDs.CHANNEL,
-		revision: 4,
+		revision: 5,
 		defs: {
 			main: {
 				type: "record",
@@ -67,6 +67,11 @@ export const channelRecordDocs: LexiconDoc[] = [
 							description:
 								"Member DIDs explicitly allowed to post in this channel, in addition to allowedRoles.",
 							items: { type: "string", format: "did" },
+						},
+						linkEmbeds: {
+							type: "boolean",
+							description:
+								"Whether link previews are displayed in this channel. Absent means the community default applies.",
 						},
 						migratedFrom: {
 							type: "string",

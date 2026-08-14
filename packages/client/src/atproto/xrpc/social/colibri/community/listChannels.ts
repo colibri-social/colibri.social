@@ -11,6 +11,7 @@ export type Channel = {
 	ownerOnly?: boolean;
 	allowedRoles?: string[];
 	allowedMembers?: string[];
+	linkEmbeds?: boolean;
 };
 
 type Response = {

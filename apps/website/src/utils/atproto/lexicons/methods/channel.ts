@@ -57,6 +57,18 @@ export const channelMethodDocs: LexiconDoc[] = [
 					},
 					createdAt: { type: "string", format: "datetime" },
 					edited: { type: "boolean" },
+					suppressedEmbeds: {
+						type: "array",
+						description:
+							"URLs whose embed the author suppressed, mirrored from the message record.",
+						items: { type: "string", format: "uri" },
+					},
+					modSuppressedEmbeds: {
+						type: "array",
+						description:
+							"URLs whose embed a moderator suppressed, derived from the community's moderation log. Only the moderator who can hide messages may clear these.",
+						items: { type: "string", format: "uri" },
+					},
 				},
 			},
 			attachment: {
@@ -213,6 +225,12 @@ export const channelMethodDocs: LexiconDoc[] = [
 							items: { type: "string", format: "did" },
 						},
 						clearAllowedMembers: { type: "boolean" },
+						linkEmbeds: { type: "boolean" },
+						clearLinkEmbeds: {
+							type: "boolean",
+							description:
+								"Drops the channel's own linkEmbeds setting so the community default applies again.",
+						},
 					},
 				},
 				output: uriResponse,

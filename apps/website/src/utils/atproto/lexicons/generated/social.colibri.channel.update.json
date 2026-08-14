@@ -47,6 +47,13 @@
 					},
 					"clearAllowedMembers": {
 						"type": "boolean"
+					},
+					"linkEmbeds": {
+						"type": "boolean"
+					},
+					"clearLinkEmbeds": {
+						"type": "boolean",
+						"description": "Drops the channel's own linkEmbeds setting so the community default applies again."
 					}
 				}
 			},

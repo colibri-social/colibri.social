@@ -27,6 +27,8 @@ export type Message = {
 	reactions: Array<Reaction>;
 	createdAt: string;
 	edited: boolean;
+	suppressedEmbeds?: Array<string>;
+	modSuppressedEmbeds?: Array<string>;
 };
 
 /**

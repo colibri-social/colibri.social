@@ -23,6 +23,8 @@ export { registerCredentials } from "./registerCredentials";
 export { reorderCategories } from "./reorderCategories";
 export { reorderChannels } from "./reorderChannels";
 export { setMemberRoles } from "./setMemberRoles";
+export { suppressMessageEmbeds } from "./suppressMessageEmbeds";
 export { unbanUser } from "./unbanUser";
 export { undismissApplication } from "./undismissApplication";
+export { unsuppressMessageEmbeds } from "./unsuppressMessageEmbeds";
 export { update } from "./update";

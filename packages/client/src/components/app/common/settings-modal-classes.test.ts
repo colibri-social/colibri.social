@@ -18,7 +18,11 @@ describe("settings modal shell classes", () => {
 	for (const [name, classes] of shells) {
 		describe(name, () => {
 			it("never scrolls, so it cannot stack a second scrollbar on the page scroller", () => {
-				expect(classes).toContain("overflow-hidden");
+				expect(classes).toContain("overflow-clip");
+			});
+
+			it("clips rather than hides, so focusing a control below the fold cannot scroll the shell itself", () => {
+				expect(classes).not.toContain("overflow-hidden");
 			});
 
 			it("drops the overflow inherited from the dialog primitive", () => {

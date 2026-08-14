@@ -33,6 +33,19 @@ export const applyMessageEvent = (
 
 	const existing = snapshot.messages.find((m) => m.uri === event.uri);
 
+	if (event.event === "embeds") {
+		if (!existing) return undefined;
+		return {
+			...snapshot,
+			messages: snapshot.messages.map((m) =>
+				m.uri === event.uri
+					? { ...m, modSuppressedEmbeds: event.modSuppressedEmbeds }
+					: m,
+			),
+			ts: Date.now(),
+		};
+	}
+
 	const message: Message = {
 		uri: event.uri,
 		text: event.text,
@@ -45,6 +58,9 @@ export const applyMessageEvent = (
 		reactions: existing?.reactions ?? [],
 		createdAt: event.createdAt,
 		edited: event.edited,
+		suppressedEmbeds: event.suppressedEmbeds ?? existing?.suppressedEmbeds,
+		modSuppressedEmbeds:
+			event.modSuppressedEmbeds ?? existing?.modSuppressedEmbeds,
 	};
 
 	let next: Message[];

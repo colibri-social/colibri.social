@@ -575,6 +575,7 @@ export const CommunityContextProvider: ParentComponent = (props) => {
 					...(data.requiresApprovalToJoin !== undefined && {
 						requiresApprovalToJoin: data.requiresApprovalToJoin,
 					}),
+					linkEmbeds: data.linkEmbeds,
 				},
 			});
 		} else if (event.type === "category_event" && event.data) {
@@ -656,6 +657,7 @@ export const CommunityContextProvider: ParentComponent = (props) => {
 									...(data.allowedMembers !== undefined && {
 										allowedMembers: data.allowedMembers,
 									}),
+									linkEmbeds: data.linkEmbeds,
 								}
 							: c,
 					),

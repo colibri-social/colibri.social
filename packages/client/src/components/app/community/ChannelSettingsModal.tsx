@@ -3,6 +3,7 @@ import {
 	type Component,
 	createEffect,
 	createSignal,
+	For,
 	on,
 	type ParentComponent,
 	type Setter,
@@ -22,6 +23,15 @@ import { useUserContext } from "../../../contexts/User";
 import { Spinner } from "../../icons/Spinner";
 import { Button } from "../../ui/Button";
 import {
+	RadioGroup,
+	RadioGroupDescription,
+	RadioGroupItem,
+	RadioGroupItemInput,
+	RadioGroupItemLabel,
+	RadioGroupItems,
+	RadioGroupLabel,
+} from "../../ui/RadioGroup";
+import {
 	Switch,
 	SwitchControl,
 	SwitchDescription,
@@ -34,29 +44,58 @@ import { SettingsInfoPage } from "../common/SettingsInfoPage";
 import { SettingsModal, SettingsPage } from "../common/SettingsModal";
 import { ChannelAllowListEditor } from "./ChannelAllowListEditor";
 
+type LinkEmbedsChoice = "inherit" | "on" | "off";
+
+const LINK_EMBED_CHOICES: Array<{
+	value: LinkEmbedsChoice;
+	label: string;
+	description: string;
+}> = [
+	{
+		value: "inherit",
+		label: "Community default",
+		description: "Follow the community setting.",
+	},
+	{ value: "on", label: "Show", description: "Always show previews here." },
+	{ value: "off", label: "Hide", description: "Never show previews here." },
+];
+
 const GeneralChannelSettings: Component<{ channel: Channel }> = (props) => {
 	const user = useUserContext();
 	const community = useCommunityContext();
 
 	const initialName = () => props.channel.name;
 	const initialDesc = () => props.channel.description || "";
+	const initialLinkEmbeds = (): LinkEmbedsChoice =>
+		props.channel.linkEmbeds === undefined
+			? "inherit"
+			: props.channel.linkEmbeds
+				? "on"
+				: "off";
 
 	const [loading, setLoading] = createSignal(false);
 	const [name, setName] = createSignal(initialName());
 	const [description, setDescription] = createSignal(initialDesc());
+	const [linkEmbeds, setLinkEmbeds] = createSignal<LinkEmbedsChoice>(
+		initialLinkEmbeds(),
+	);
 
 	createEffect(on(initialName, (n) => setName(n), { defer: true }));
 	createEffect(on(initialDesc, (d) => setDescription(d), { defer: true }));
+	createEffect(on(initialLinkEmbeds, (l) => setLinkEmbeds(l), { defer: true }));
 
 	const handleSave = async () => {
 		setLoading(true);
 		try {
 			const trimmed = name().trim();
+			const choice = linkEmbeds();
 			const res = await user.xrpc.social.colibri.channel.update(
 				props.channel.uri,
 				trimmed,
 				{
 					description: description(),
+					linkEmbeds: choice === "inherit" ? undefined : choice === "on",
+					clearLinkEmbeds: choice === "inherit",
 				},
 			);
 			if (!res) {
@@ -68,6 +107,7 @@ const GeneralChannelSettings: Component<{ channel: Channel }> = (props) => {
 			community().utils.patchChannel(props.channel.uri, {
 				name: trimmed,
 				description: description(),
+				linkEmbeds: choice === "inherit" ? undefined : choice === "on",
 			});
 		} catch {
 			toast.error("Failed to save channel settings.");
@@ -77,13 +117,18 @@ const GeneralChannelSettings: Component<{ channel: Channel }> = (props) => {
 	};
 
 	const isDirty = () => {
-		return name() !== initialName() || description() !== initialDesc();
+		return (
+			name() !== initialName() ||
+			description() !== initialDesc() ||
+			linkEmbeds() !== initialLinkEmbeds()
+		);
 	};
 
 	const handleReset = () => {
 		setLoading(false);
 		setName(initialName());
 		setDescription(initialDesc());
+		setLinkEmbeds(initialLinkEmbeds());
 	};
 
 	return (
@@ -112,6 +157,32 @@ const GeneralChannelSettings: Component<{ channel: Channel }> = (props) => {
 					onInput={(e) => setDescription(e.currentTarget.value)}
 				/>
 			</TextField>
+			<RadioGroup
+				class="w-full gap-1.5"
+				value={linkEmbeds()}
+				onChange={(v) => setLinkEmbeds(v as LinkEmbedsChoice)}
+			>
+				<RadioGroupLabel>Link previews</RadioGroupLabel>
+				<RadioGroupDescription>
+					Whether messages in this channel show a preview card for the links
+					they contain.
+				</RadioGroupDescription>
+				<RadioGroupItems class="w-full flex-col md:flex-row">
+					<For each={LINK_EMBED_CHOICES}>
+						{(choice) => (
+							<RadioGroupItem class="w-full md:flex-1" value={choice.value}>
+								<RadioGroupItemInput />
+								<RadioGroupItemLabel class="flex w-full flex-col text-center text-pretty rounded-md p-2 border border-border outline-2 outline-transparent gap-1 data-checked:border-primary data-checked:outline-primary/50 data-checked:bg-primary/10">
+									<strong>{choice.label}</strong>
+									<span class="font-normal text-sm text-muted-foreground">
+										{choice.description}
+									</span>
+								</RadioGroupItemLabel>
+							</RadioGroupItem>
+						)}
+					</For>
+				</RadioGroupItems>
+			</RadioGroup>
 		</SettingsPage>
 	);
 };

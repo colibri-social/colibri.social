@@ -5,10 +5,8 @@ import ArrowLineUpFillIcon from "~icons/ph/arrow-line-up-fill";
 import BellRingingFillIcon from "~icons/ph/bell-ringing-fill";
 import BirdFillIcon from "~icons/ph/bird-fill";
 import BrowserFillIcon from "~icons/ph/browser-fill";
-import BugFillIcon from "~icons/ph/bug-fill";
 import ChatCircleDotsFillIcon from "~icons/ph/chat-circle-dots-fill";
 import DeviceMobileFillIcon from "~icons/ph/device-mobile-fill";
-import HandGrabbingFillIcon from "~icons/ph/hand-grabbing-fill";
 import ImageFillIcon from "~icons/ph/image-fill";
 import KeyFillIcon from "~icons/ph/key-fill";
 import KeyboardFillIcon from "~icons/ph/keyboard-fill";
@@ -17,7 +15,6 @@ import LightningFillIcon from "~icons/ph/lightning-fill";
 import LinkSimpleFillIcon from "~icons/ph/link-simple-fill";
 import ListBulletsFillIcon from "~icons/ph/list-bullets-fill";
 import MonitorPlayFillIcon from "~icons/ph/monitor-play-fill";
-import QuotesFillIcon from "~icons/ph/quotes-fill";
 import RewindFillIcon from "~icons/ph/rewind-fill";
 import SignInFillIcon from "~icons/ph/sign-in-fill";
 import SmileyFillIcon from "~icons/ph/smiley-fill";
@@ -36,10 +33,8 @@ export const RELEASE_NOTE_ICONS = {
 	"bell-ringing-fill": BellRingingFillIcon,
 	"bird-fill": BirdFillIcon,
 	"browser-fill": BrowserFillIcon,
-	"bug-fill": BugFillIcon,
 	"chat-circle-dots-fill": ChatCircleDotsFillIcon,
 	"device-mobile-fill": DeviceMobileFillIcon,
-	"hand-grabbing-fill": HandGrabbingFillIcon,
 	"image-fill": ImageFillIcon,
 	"key-fill": KeyFillIcon,
 	"keyboard-fill": KeyboardFillIcon,
@@ -48,7 +43,6 @@ export const RELEASE_NOTE_ICONS = {
 	"link-simple-fill": LinkSimpleFillIcon,
 	"list-bullets-fill": ListBulletsFillIcon,
 	"monitor-play-fill": MonitorPlayFillIcon,
-	"quotes-fill": QuotesFillIcon,
 	"rewind-fill": RewindFillIcon,
 	"sign-in-fill": SignInFillIcon,
 	"smiley-fill": SmileyFillIcon,

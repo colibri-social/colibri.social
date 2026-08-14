@@ -37,6 +37,7 @@ import {
 } from "../atproto/cache/store";
 import { takeChannelView } from "../atproto/channel-prefetch";
 import { communityUriToUrlCompatible } from "../atproto/community-uri-to-url-compatible";
+import { buildMessageRecord } from "../atproto/message-record";
 import {
 	enqueuePut,
 	onOutboxSent,
@@ -113,6 +114,8 @@ export type ChannelContextValue = {
 	 * in the current community (e.g. stale link).
 	 */
 	data: Accessor<Channel | undefined>;
+
+	linkEmbedsEnabled: Accessor<boolean>;
 	channelUri: Accessor<string>;
 	messages: Accessor<(Message | PendingMessage)[]>;
 	hasMore: Accessor<boolean>;
@@ -191,6 +194,8 @@ export type ChannelContextValue = {
 		facets: ColibriRichTextFacet[],
 	) => void;
 
+	patchMessage: (uri: string, patch: Partial<Message>) => void;
+
 	// ---------------------------------------------------------------------------
 	// Optimistic reaction management
 	// ---------------------------------------------------------------------------
@@ -267,6 +272,11 @@ export const ChannelContextProvider: ParentComponent<{
 	// layout wrapper and passed in here. We derive the URI from it directly
 	// — no separate `buildChannelUri` helper is required anymore.
 	const channelUri = createMemo(() => props.channel()?.uri ?? "");
+
+	const linkEmbedsEnabled = createMemo(
+		() =>
+			props.channel()?.linkEmbeds ?? community().community.linkEmbeds ?? true,
+	);
 
 	// Messages are kept oldest-first so they render naturally top-to-bottom in
 	// the scroll container (newest at the visual bottom, like a chat). The
@@ -664,6 +674,12 @@ export const ChannelContextProvider: ParentComponent<{
 		);
 	};
 
+	const patchMessage = (uri: string, patch: Partial<Message>) => {
+		setMessages((prev) =>
+			prev.map((m) => (m.uri === uri ? { ...m, ...patch } : m)),
+		);
+	};
+
 	const submitMessageEdit = async (
 		text: string,
 		facets: ColibriRichTextFacet[],
@@ -696,14 +712,11 @@ export const ChannelContextProvider: ParentComponent<{
 				user.did,
 				"social.colibri.message",
 				rkey,
-				{
+				buildMessageRecord(target, {
 					text: cleanText,
 					facets: cleanFacets,
-					channel: target.channel,
-					createdAt: target.createdAt,
 					edited: true,
-					...(target.parent ? { parent: target.parent.uri } : {}),
-				},
+				}),
 				{ label: "Failed to edit message." },
 			);
 		} catch {
@@ -892,6 +905,11 @@ export const ChannelContextProvider: ParentComponent<{
 				return;
 			}
 
+			if (d.event === "embeds") {
+				patchMessage(d.uri, { modSuppressedEmbeds: d.modSuppressedEmbeds });
+				return;
+			}
+
 			// Already have this message. A pending row shares the deterministic
 			// URI we assigned at send time — confirm it. Otherwise it's an edit
 			// from elsewhere (or an already-confirmed message) — apply the text.
@@ -900,7 +918,17 @@ export const ChannelContextProvider: ParentComponent<{
 				if ("hash" in existing) {
 					confirmPendingMessage((existing as PendingMessage).hash, d.uri);
 				} else {
-					updateMessageText(d.uri, d.text, d.facets ?? [], d.edited ?? false);
+					patchMessage(d.uri, {
+						text: d.text,
+						facets: d.facets ?? [],
+						edited: d.edited ?? false,
+						...(d.suppressedEmbeds !== undefined
+							? { suppressedEmbeds: d.suppressedEmbeds }
+							: {}),
+						...(d.modSuppressedEmbeds !== undefined
+							? { modSuppressedEmbeds: d.modSuppressedEmbeds }
+							: {}),
+					});
 				}
 				return;
 			}
@@ -934,6 +962,12 @@ export const ChannelContextProvider: ParentComponent<{
 				reactions: [],
 				createdAt: d.createdAt,
 				edited: d.edited ?? false,
+				...(d.suppressedEmbeds !== undefined
+					? { suppressedEmbeds: d.suppressedEmbeds }
+					: {}),
+				...(d.modSuppressedEmbeds !== undefined
+					? { modSuppressedEmbeds: d.modSuppressedEmbeds }
+					: {}),
 			};
 
 			const placement = placeMessage(messages(), newMsg, {
@@ -1139,6 +1173,7 @@ export const ChannelContextProvider: ParentComponent<{
 
 	const value: ChannelContextValue = {
 		data: () => props.channel(),
+		linkEmbedsEnabled,
 		channelUri,
 		messages,
 		hasMore,
@@ -1165,6 +1200,7 @@ export const ChannelContextProvider: ParentComponent<{
 		removePendingMessage,
 		removeMessage,
 		updateMessageText,
+		patchMessage,
 		addReactionOptimistic,
 		removeReactionOptimistic,
 		cacheReactionRkey,

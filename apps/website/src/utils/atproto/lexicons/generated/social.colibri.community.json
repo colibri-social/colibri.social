@@ -1,7 +1,7 @@
 {
 	"lexicon": 1,
 	"id": "social.colibri.community",
-	"revision": 4,
+	"revision": 5,
 	"defs": {
 		"main": {
 			"type": "record",
@@ -67,6 +67,11 @@
 						"type": "boolean",
 						"default": true,
 						"description": "Whether users can chat in this community without the owner having to create an acknowledgement record."
+					},
+					"linkEmbeds": {
+						"type": "boolean",
+						"default": true,
+						"description": "Whether link previews are displayed in this community by default. Individual channels may override this."
 					},
 					"migratedTo": {
 						"type": "string",

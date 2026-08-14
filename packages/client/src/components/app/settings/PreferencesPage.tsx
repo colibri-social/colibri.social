@@ -307,6 +307,26 @@ export const PreferencesPage: Component = () => {
 			</Toggle>
 			<Toggle
 				class="flex flex-row gap-4 items-center w-full justify-between shrink-0 mt-4"
+				checked={userPreferences.preferences().linkEmbedsByDefault}
+				onChange={userPreferences.setLinkEmbedsByDefault}
+			>
+				<div>
+					<SwitchLabel>Show link previews on messages I send</SwitchLabel>
+					<SwitchDescription>
+						Sets whether previews are attached by default when you post a link.
+						You can flip it per message in the composer, and change your mind
+						afterwards from a message's Link Previews menu.
+					</SwitchDescription>
+				</div>
+				<div>
+					<SwitchInput />
+					<SwitchControl>
+						<SwitchThumb />
+					</SwitchControl>
+				</div>
+			</Toggle>
+			<Toggle
+				class="flex flex-row gap-4 items-center w-full justify-between shrink-0 mt-4"
 				checked={userPreferences.preferences().attachAccountToReports}
 				onChange={userPreferences.setAttachAccountToReports}
 			>

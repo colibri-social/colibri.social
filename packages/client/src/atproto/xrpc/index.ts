@@ -386,6 +386,7 @@ export class XrpcClient {
 					requiresApprovalToJoin?: boolean,
 					removePicture?: boolean,
 					removeBanner?: boolean,
+					linkEmbeds?: boolean,
 				) =>
 					Community.update(
 						this.authed(this.proxiedFetch, "social.colibri.community.update"),
@@ -394,9 +395,10 @@ export class XrpcClient {
 						description,
 						picture,
 						banner,
-						requiresApprovalToJoin || false,
+						requiresApprovalToJoin,
 						removePicture,
 						removeBanner,
+						linkEmbeds,
 					),
 				leave: (community: string) =>
 					Community.leave(
@@ -503,6 +505,32 @@ export class XrpcClient {
 						community,
 						message,
 					),
+				suppressMessageEmbeds: (
+					community: string,
+					message: string,
+					embeds: string[],
+				) =>
+					Community.suppressMessageEmbeds(
+						this.queued("social.colibri.community.suppressMessageEmbeds", {
+							label: "Failed to hide link previews.",
+						}),
+						community,
+						message,
+						embeds,
+					),
+				unsuppressMessageEmbeds: (
+					community: string,
+					message: string,
+					embeds: string[],
+				) =>
+					Community.unsuppressMessageEmbeds(
+						this.queued("social.colibri.community.unsuppressMessageEmbeds", {
+							label: "Failed to restore link previews.",
+						}),
+						community,
+						message,
+						embeds,
+					),
 				banUser: (community: string, identifier: string) =>
 					Community.banUser(
 						this.queued("social.colibri.community.banUser", {
@@ -597,6 +625,8 @@ export class XrpcClient {
 						allowedMembers?: string[];
 						clearAllowedMembers?: boolean;
 						category?: string;
+						linkEmbeds?: boolean;
+						clearLinkEmbeds?: boolean;
 					},
 				) =>
 					Channel.update(
@@ -610,6 +640,8 @@ export class XrpcClient {
 						options?.allowedMembers,
 						options?.clearAllowedMembers,
 						options?.category,
+						options?.linkEmbeds,
+						options?.clearLinkEmbeds,
 					),
 				delete: (channel: string) =>
 					Channel.delete(
