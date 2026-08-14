@@ -13,6 +13,7 @@ import {
 } from "../../../../utils/normalize-facets";
 import { openExternalLink } from "../../../../utils/open-external-link";
 import { purify } from "../../../../utils/purify";
+import { MemberContextMenu } from "../../community/MemberContextMenu";
 import { RoleMentionPopover } from "../../community/RoleMentionPopover";
 import User from "../../user";
 import { ChannelFacet } from "./ChannelFacet";
@@ -124,14 +125,16 @@ const applyStyleForFacet = (text: string, feature: AnyFeature): JSX.Element => {
 			}
 
 			return (
-				<User.ProfilePopover user={member} as="span" class="inline">
-					<span
-						data-facet-type="mention"
-						data-did={did}
-						class="bg-primary/25 hover:bg-primary/35 px-1 rounded-xs cursor-pointer inline"
-						innerHTML={textWithEmojis}
-					/>
-				</User.ProfilePopover>
+				<MemberContextMenu member={member} class="contents">
+					<User.ProfilePopover user={member} as="span" class="inline">
+						<span
+							data-facet-type="mention"
+							data-did={did}
+							class="bg-primary/25 hover:bg-primary/35 px-1 rounded-xs cursor-pointer inline"
+							innerHTML={textWithEmojis}
+						/>
+					</User.ProfilePopover>
+				</MemberContextMenu>
 			);
 		}
 		case "social.colibri.richtext.facet#link": {

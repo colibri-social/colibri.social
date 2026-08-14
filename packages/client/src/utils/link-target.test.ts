@@ -3,7 +3,6 @@ import { classifyLinkTarget } from "./link-target";
 
 const base = {
 	href: null as string | null,
-	did: null as string | null,
 	isDownload: false,
 	origin: "https://colibri.social",
 };
@@ -69,28 +68,7 @@ describe("classifyLinkTarget", () => {
 		).toBeUndefined();
 	});
 
-	it("carries the raw did of a mention", () => {
-		expect(classifyLinkTarget({ ...base, did: "did:plc:abc" })).toEqual({
-			kind: "did",
-			did: "did:plc:abc",
-		});
-	});
-
-	it("prefers the href when a mention is also an anchor", () => {
-		expect(
-			classifyLinkTarget({
-				...base,
-				href: "https://bsky.app/profile/did:plc:abc",
-				did: "did:plc:abc",
-			}),
-		).toEqual({
-			kind: "external",
-			href: "https://bsky.app/profile/did:plc:abc",
-			copyHref: "https://bsky.app/profile/did:plc:abc",
-		});
-	});
-
-	it("resolves nothing without an href or a did", () => {
+	it("resolves nothing without an href", () => {
 		expect(classifyLinkTarget(base)).toBeUndefined();
 	});
 });

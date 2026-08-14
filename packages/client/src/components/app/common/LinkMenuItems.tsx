@@ -8,7 +8,6 @@ import {
 } from "solid-js";
 import { toast } from "somoto";
 import ArrowSquareOutIcon from "~icons/ph/arrow-square-out";
-import CopyIcon from "~icons/ph/copy";
 import LinkIcon from "~icons/ph/link-simple";
 import { isTauriRuntime } from "../../../notifications/environment";
 import { type LinkTarget, resolveLinkTarget } from "../../../utils/link-target";
@@ -30,7 +29,7 @@ export const useLinkMenuActions = (
 
 	const open = () => {
 		const link = target();
-		if (!link || link.kind === "did") return;
+		if (!link) return;
 
 		if (link.kind === "internal") {
 			navigate(link.href);
@@ -49,12 +48,6 @@ export const useLinkMenuActions = (
 		const link = target();
 		if (!link) return;
 
-		if (link.kind === "did") {
-			void navigator.clipboard.writeText(link.did);
-			toast.success("DID copied to clipboard!");
-			return;
-		}
-
 		void navigator.clipboard.writeText(link.copyHref);
 		toast.success("Link copied to clipboard!");
 	};
@@ -69,26 +62,14 @@ export const LinkContextMenuItems = (props: {
 
 	return (
 		<Show when={props.target()}>
-			{(link) => (
-				<Show
-					when={link().kind !== "did"}
-					fallback={
-						<ContextMenuItem onClick={copy}>
-							<CopyIcon />
-							<span>Copy DID</span>
-						</ContextMenuItem>
-					}
-				>
-					<ContextMenuItem onClick={open}>
-						<ArrowSquareOutIcon />
-						<span>Open Link</span>
-					</ContextMenuItem>
-					<ContextMenuItem onClick={copy}>
-						<LinkIcon />
-						<span>Copy Link</span>
-					</ContextMenuItem>
-				</Show>
-			)}
+			<ContextMenuItem onClick={open}>
+				<ArrowSquareOutIcon />
+				<span>Open Link</span>
+			</ContextMenuItem>
+			<ContextMenuItem onClick={copy}>
+				<LinkIcon />
+				<span>Copy Link</span>
+			</ContextMenuItem>
 		</Show>
 	);
 };
@@ -99,38 +80,26 @@ export const LinkDrawerMenuItems = (props: {
 }) => {
 	const { open, copy } = useLinkMenuActions(props.target);
 
-	const runCopy = () => {
-		props.onSelect();
-		copy();
-	};
-
 	return (
 		<Show when={props.target()}>
-			{(link) => (
-				<Show
-					when={link().kind !== "did"}
-					fallback={
-						<MenuDrawerItem onClick={runCopy}>
-							<CopyIcon />
-							<span>Copy DID</span>
-						</MenuDrawerItem>
-					}
-				>
-					<MenuDrawerItem
-						onClick={() => {
-							props.onSelect();
-							open();
-						}}
-					>
-						<ArrowSquareOutIcon />
-						<span>Open Link</span>
-					</MenuDrawerItem>
-					<MenuDrawerItem onClick={runCopy}>
-						<LinkIcon />
-						<span>Copy Link</span>
-					</MenuDrawerItem>
-				</Show>
-			)}
+			<MenuDrawerItem
+				onClick={() => {
+					props.onSelect();
+					open();
+				}}
+			>
+				<ArrowSquareOutIcon />
+				<span>Open Link</span>
+			</MenuDrawerItem>
+			<MenuDrawerItem
+				onClick={() => {
+					props.onSelect();
+					copy();
+				}}
+			>
+				<LinkIcon />
+				<span>Copy Link</span>
+			</MenuDrawerItem>
 		</Show>
 	);
 };
