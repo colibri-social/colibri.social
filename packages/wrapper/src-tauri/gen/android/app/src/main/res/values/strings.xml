@@ -1,4 +1,5 @@
 <resources>
     <string name="app_name">"Colibri Social"</string>
     <string name="main_activity_title">"Colibri Social"</string>
+    <string name="notification_action_mark_read">"Mark as read"</string>
 </resources>

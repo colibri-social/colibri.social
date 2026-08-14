@@ -20,6 +20,7 @@ import {
 } from "../notifications";
 import { channelIdentity, channelPath } from "../utils/at-uri";
 import { createLogger } from "../utils/logger";
+import { canAdvanceCursor, clearableNotifications } from "./deferred-mark-read";
 import { useMutes } from "./Mutes";
 import { useSocketContext } from "./Socket";
 import { useSounds } from "./Sounds";
@@ -55,6 +56,11 @@ type NotificationsContextValue = {
 	) => Promise<void>;
 	markChannelRead: (channelUri: string) => void;
 	markChannelAsRead: (channelUri: string) => Promise<void>;
+	markChannelReadUpTo: (
+		channelUri: string,
+		messageUri: string | undefined,
+		actionedAt: number,
+	) => Promise<void>;
 	markCommunityAsRead: (communityUri: string) => Promise<void>;
 	markCategoryAsRead: (
 		communityUri: string,
@@ -250,14 +256,19 @@ export const NotificationsContextProvider: ParentComponent = (props) => {
 		markChannelRead(channelUri);
 	};
 
-	const clearChannelPings = async (channelUri: string): Promise<void> => {
+	const clearChannelPings = async (
+		channelUri: string,
+		before?: number,
+	): Promise<void> => {
 		const res =
 			await user.xrpc.social.colibri.notification.getUnseen(channelUri);
 		if (!res.ok) return;
 
-		const uris = new Set(
-			(res.data?.notifications ?? []).map((n) => n.messageUri),
+		const pending = clearableNotifications(
+			res.data?.notifications ?? [],
+			before,
 		);
+		const uris = new Set(pending.map((n) => n.messageUri));
 
 		void cancelChannelTrayNotification(channelUri);
 
@@ -268,12 +279,40 @@ export const NotificationsContextProvider: ParentComponent = (props) => {
 			else allSent = false;
 		}
 
-		if (allSent) setChannelPings(channelUri, 0);
+		if (allSent && before === undefined) setChannelPings(channelUri, 0);
+		else if (allSent) adjustPings(channelUri, -uris.size);
 	};
 
 	const markChannelAsRead = async (channelUri: string): Promise<void> => {
 		await advanceCursorToNewest(channelUri);
 		await clearChannelPings(channelUri);
+	};
+
+	const markChannelReadUpTo = async (
+		channelUri: string,
+		messageUri: string | undefined,
+		actionedAt: number,
+	): Promise<void> => {
+		if (!messageUri) {
+			await markChannelAsRead(channelUri);
+			return;
+		}
+
+		const existing =
+			await user.xrpc.social.colibri.channel.getReadCursor(channelUri);
+		const current = existing.ok ? existing.data?.cursor : undefined;
+		if (!canAdvanceCursor(current, messageUri)) return;
+
+		await writeReadCursor(user.did, channelUri, messageUri);
+
+		const res = await user.xrpc.social.colibri.channel.listMessages(
+			channelUri,
+			1,
+		);
+		const newest = res.ok ? res.data?.messages?.[0]?.uri : undefined;
+		if (!newest || newest === messageUri) markChannelRead(channelUri);
+
+		await clearChannelPings(channelUri, actionedAt);
 	};
 
 	const markCommunityAsRead = async (communityUri: string): Promise<void> => {
@@ -543,6 +582,7 @@ export const NotificationsContextProvider: ParentComponent = (props) => {
 		markMessageSeen,
 		markChannelRead,
 		markChannelAsRead,
+		markChannelReadUpTo,
 		markCommunityAsRead,
 		markCategoryAsRead,
 	};

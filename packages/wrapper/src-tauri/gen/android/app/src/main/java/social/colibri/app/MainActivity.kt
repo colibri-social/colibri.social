@@ -21,6 +21,7 @@ class MainActivity : TauriActivity() {
   private var lastBars: Insets = Insets.NONE
   private var lastImeBottom: Int = 0
   private var insetsScriptHandler: ScriptHandler? = null
+  private var webView: WebView? = null
 
   override fun onCreate(savedInstanceState: Bundle?) {
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.VANILLA_ICE_CREAM) {
@@ -29,8 +30,21 @@ class MainActivity : TauriActivity() {
     super.onCreate(savedInstanceState)
   }
 
+  override fun onResume() {
+    super.onResume()
+    webView?.evaluateJavascript(
+      "window.dispatchEvent(new CustomEvent('colibri-mark-read-pending'));",
+      null
+    )
+  }
+
   override fun onWebViewCreate(webView: WebView) {
+    this.webView = webView
     webView.addJavascriptInterface(SystemBarsBridge(), "__colibriSystemBars")
+    webView.addJavascriptInterface(
+      NotificationActionsBridge(),
+      "__colibriNotificationActions"
+    )
     ViewCompat.setOnApplyWindowInsetsListener(webView) { _, insets ->
       lastBars = insets.getInsets(
         WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout()
@@ -95,6 +109,16 @@ class MainActivity : TauriActivity() {
           isAppearanceLightNavigationBars = light
         }
       }
+    }
+  }
+
+  private inner class NotificationActionsBridge {
+    @JavascriptInterface
+    fun pendingMarkRead(): String = PendingMarkRead.peek(this@MainActivity)
+
+    @JavascriptInterface
+    fun ackMarkRead(channelUri: String) {
+      PendingMarkRead.ack(this@MainActivity, channelUri)
     }
   }
 }

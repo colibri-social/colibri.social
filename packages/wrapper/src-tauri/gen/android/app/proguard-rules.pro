@@ -9,6 +9,10 @@
    public *;
 }
 
+-keepclassmembers class social.colibri.app.MainActivity$NotificationActionsBridge {
+   public *;
+}
+
 # Uncomment this to preserve the line number information for
 # debugging stack traces.
 #-keepattributes SourceFile,LineNumberTable

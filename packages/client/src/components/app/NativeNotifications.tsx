@@ -17,6 +17,11 @@ import {
 	notify,
 } from "../../notifications";
 import {
+	ackMarkRead,
+	listenForPendingMarkRead,
+	readPendingMarkRead,
+} from "../../notifications/mark-read-queue";
+import {
 	listenForFcmTokenRefresh,
 	subscribeFcmPush,
 } from "../../notifications/push-fcm";
@@ -200,6 +205,27 @@ export const NativeNotifications: Component = () => {
 		});
 
 		onCleanup(cleanup);
+
+		let draining = false;
+		const drainMarkReadQueue = async (): Promise<void> => {
+			if (draining) return;
+			draining = true;
+			try {
+				for (const entry of readPendingMarkRead()) {
+					await notifications.markChannelReadUpTo(
+						entry.channelUri,
+						entry.messageUri,
+						entry.actionedAt,
+					);
+					ackMarkRead(entry.channelUri);
+				}
+			} finally {
+				draining = false;
+			}
+		};
+
+		void drainMarkReadQueue();
+		onCleanup(listenForPendingMarkRead(() => void drainMarkReadQueue()));
 
 		let cleanupActivation = () => {};
 		void listenForNativeActivation((activation) => {

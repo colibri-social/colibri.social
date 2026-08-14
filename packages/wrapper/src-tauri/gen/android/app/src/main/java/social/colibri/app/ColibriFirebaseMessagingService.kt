@@ -51,7 +51,7 @@ class ColibriFirebaseMessagingService : FirebaseMessagingService() {
 		// the attachment image is network I/O and must not block it.
 		Thread {
 			val communityAvatar = communityAvatarUrl?.let(::fetchAvatar)
-			val authorAvatar = authorAvatarUrl?.let(::fetchAvatar)
+			val authorAvatar = authorAvatarUrl?.let { fetchAvatar(it, circle = true) }
 			val attachmentImage = imageUrl?.let(::fetchAttachment)
 			showNotification(
 				channelUri,
@@ -76,23 +76,29 @@ class ColibriFirebaseMessagingService : FirebaseMessagingService() {
 		)
 	}
 
-	private fun fetchBitmap(url: String, width: Int, height: Int): Bitmap? =
+	private fun fetchBitmap(
+		url: String,
+		width: Int,
+		height: Int,
+		circle: Boolean = false,
+	): Bitmap? =
 		try {
 			Glide.with(applicationContext)
 				.asBitmap()
 				.load(url)
-				.centerInside()
+				.let { if (circle) it.circleCrop() else it.centerInside() }
 				.submit(width, height)
 				.get()
 		} catch (e: Exception) {
 			null
 		}
 
-	private fun fetchAvatar(url: String): Bitmap? =
+	private fun fetchAvatar(url: String, circle: Boolean = false): Bitmap? =
 		fetchBitmap(
 			url,
 			resources.getDimensionPixelSize(android.R.dimen.notification_large_icon_width),
 			resources.getDimensionPixelSize(android.R.dimen.notification_large_icon_height),
+			circle,
 		)
 
 	private fun fetchAttachment(url: String): Bitmap? =
@@ -116,6 +122,35 @@ class ColibriFirebaseMessagingService : FirebaseMessagingService() {
 		} catch (e: Exception) {
 			null
 		}
+
+	private fun markReadAction(
+		channelUri: String,
+		messageUri: String?,
+		notificationId: Int,
+	): NotificationCompat.Action {
+		val intent =
+			Intent(this, MarkReadReceiver::class.java).apply {
+				putExtra(EXTRA_CHANNEL_URI, channelUri)
+				messageUri?.let { putExtra(EXTRA_MESSAGE_URI, it) }
+				putExtra(EXTRA_ACTIONED_AT, System.currentTimeMillis())
+			}
+		val pending =
+			PendingIntent.getBroadcast(
+				this,
+				notificationId,
+				intent,
+				PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+			)
+
+		return NotificationCompat.Action.Builder(
+			IconCompat.createWithResource(this, R.drawable.ic_notification_mark_read),
+			getString(R.string.notification_action_mark_read),
+			pending,
+		)
+			.setSemanticAction(NotificationCompat.Action.SEMANTIC_ACTION_MARK_AS_READ)
+			.setShowsUserInterface(false)
+			.build()
+	}
 
 	private fun showNotification(
 		channelUri: String,
@@ -183,6 +218,7 @@ class ColibriFirebaseMessagingService : FirebaseMessagingService() {
 				.setPriority(NotificationCompat.PRIORITY_HIGH)
 				.setCategory(NotificationCompat.CATEGORY_MESSAGE)
 				.addExtras(Bundle().apply { putStringArrayList(EXTRA_MESSAGE_URIS, uris) })
+				.addAction(markReadAction(channelUri, messageUri, notificationId))
 
 		communityAvatar?.let { builder.setLargeIcon(it) }
 		contentIntent?.let { builder.setContentIntent(it) }
@@ -237,6 +273,13 @@ class ColibriFirebaseMessagingService : FirebaseMessagingService() {
 				.setPriority(NotificationCompat.PRIORITY_HIGH)
 				.setCategory(NotificationCompat.CATEGORY_MESSAGE)
 				.addExtras(Bundle().apply { putStringArrayList(EXTRA_MESSAGE_URIS, remainingUris) })
+				.addAction(
+					markReadAction(
+						channelUri,
+						remainingUris.lastOrNull { it.isNotEmpty() },
+						notificationId,
+					),
+				)
 
 		existing.contentIntent?.let { builder.setContentIntent(it) }
 
