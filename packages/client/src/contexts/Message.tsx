@@ -28,6 +28,7 @@ import {
 	readEditDraft,
 	writeEditDraft,
 } from "../utils/composer-drafts";
+import type { LinkTarget } from "../utils/link-target";
 import { purify } from "../utils/purify";
 import { useChannelContext } from "./Channel";
 import { useCommunityContext, usePermissions } from "./Community";
@@ -46,6 +47,8 @@ export type MessageContextValue = {
 	setEmojiPopoverOpen: Setter<boolean>;
 	contextMenuOpen: Accessor<boolean>;
 	setContextMenuOpen: Setter<boolean>;
+	linkTarget: Accessor<LinkTarget | undefined>;
+	setLinkTarget: Setter<LinkTarget | undefined>;
 
 	editedText: Accessor<TextWithFacets>;
 	setEditedText: Setter<TextWithFacets>;
@@ -94,6 +97,7 @@ export const MessageContextProvider: ParentComponent<{ data: Message }> = (
 	const [emojiPopoverOpen, setEmojiPopoverOpen] = createSignal(false);
 	const [debugModalOpen, setDebugModalOpen] = createSignal(false);
 	const [contextMenuOpen, setContextMenuOpen] = createSignal(false);
+	const [linkTarget, setLinkTarget] = createSignal<LinkTarget | undefined>();
 
 	const editMode = () =>
 		!isPending() && channel.editingMessage()?.uri === props.data.uri;
@@ -347,6 +351,8 @@ export const MessageContextProvider: ParentComponent<{ data: Message }> = (
 		setEmojiPopoverOpen,
 		contextMenuOpen,
 		setContextMenuOpen,
+		linkTarget,
+		setLinkTarget,
 		editedText,
 		setEditedText,
 		saveEditedText,

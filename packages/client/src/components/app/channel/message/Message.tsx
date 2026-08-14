@@ -6,6 +6,7 @@ import {
 	createSignal,
 	For,
 	Match,
+	onCleanup,
 	Show,
 	Switch,
 } from "solid-js";
@@ -27,6 +28,7 @@ import { createDoubleTap } from "../../../../utils/create-double-tap";
 import { createLongPress } from "../../../../utils/create-long-press";
 import { createSwipe } from "../../../../utils/create-swipe";
 import { parseEmojiText } from "../../../../utils/emoji";
+import { resolveLinkTarget } from "../../../../utils/link-target";
 import { useIsMobile } from "../../../../utils/mobile-pane";
 import { useIsTouch } from "../../../../utils/touch";
 import { SectionBoundary } from "../../../SectionBoundary";
@@ -101,6 +103,7 @@ const MessageInner: Component<{
 		setEmojiPopoverOpen,
 		contextMenuOpen,
 		setContextMenuOpen,
+		setLinkTarget,
 		setDeletionModalOpen,
 		newText,
 		editedText,
@@ -251,12 +254,30 @@ const MessageInner: Component<{
 				</Show>
 				<div
 					ref={(el) => {
+						const captureLinkTarget = (event: Event) => {
+							setLinkTarget(resolveLinkTarget(event.target));
+						};
+
+						el.addEventListener("contextmenu", captureLinkTarget, {
+							capture: true,
+						});
+
+						onCleanup(() =>
+							el.removeEventListener("contextmenu", captureLinkTarget, {
+								capture: true,
+							}),
+						);
+
 						createLongPress(el, {
 							enabled: () => isTouch() && !isPending(),
 							shouldStart: (e) =>
 								!(e.target as Element | null)?.closest?.("[data-member-menu]"),
-							onLongPress: () => setContextMenuOpen(true),
+							onLongPress: (e) => {
+								captureLinkTarget(e);
+								setContextMenuOpen(true);
+							},
 						});
+
 						createSwipe(el, {
 							enabled: swipeReplyEnabled,
 							threshold: REPLY_SWIPE_THRESHOLD,

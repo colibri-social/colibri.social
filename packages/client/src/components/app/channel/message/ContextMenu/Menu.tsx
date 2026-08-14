@@ -29,6 +29,10 @@ import {
 } from "../../../../ui/MenuDrawer";
 import { Separator } from "../../../../ui/Separator";
 import { EmojiPopover } from "../../../common/EmojiPopover";
+import {
+	LinkContextMenuItems,
+	LinkDrawerMenuItems,
+} from "../../../common/LinkMenuItems";
 import { copyMessageToClipboard } from "../../../common/text-editor/clipboard-facets";
 import { DebugInfo } from "../DebugInfo";
 import { gifItemFromUrl, gifLinkFromFacets } from "../Embed";
@@ -57,6 +61,7 @@ export const MessageContextMenu: ParentComponent<{
 		emojiPopoverOpen,
 		setEmojiPopoverOpen,
 		addReactionOptimistic,
+		linkTarget,
 	} = useMessageContext();
 
 	const { canHideMessage } = usePermissions();
@@ -97,6 +102,10 @@ export const MessageContextMenu: ParentComponent<{
 						</ContextMenuTrigger>
 						<ContextMenuPortal>
 							<ContextMenuContent>
+								<Show when={linkTarget()}>
+									<LinkContextMenuItems target={linkTarget} />
+									<ContextMenuSeparator />
+								</Show>
 								<Show when={messageEditable()}>
 									<Show when={message.text.length > 0}>
 										<ContextMenuItem onClick={enableEditMode}>
@@ -173,6 +182,10 @@ export const MessageContextMenu: ParentComponent<{
 								<SmileyIcon width={24} height={24} />
 							</button>
 						</div>
+					</Show>
+					<Show when={linkTarget()}>
+						<LinkDrawerMenuItems target={linkTarget} onSelect={close} />
+						<Separator class="my-1" />
 					</Show>
 					<Show when={messageEditable()}>
 						<Show when={message.text.length > 0}>

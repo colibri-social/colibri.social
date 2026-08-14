@@ -45,6 +45,7 @@ import {
 	TooltipPortal,
 	TooltipTrigger,
 } from "../../ui/Tooltip";
+import { LinkContextMenu } from "../common/LinkMenuItems";
 import { Avatar } from "./Avatar";
 import { Badge } from "./Badge";
 import { DisplayableName, displayableNameFn } from "./DisplayableName";
@@ -189,197 +190,202 @@ export const ProfilePopoverContents: Component<{
 					/>
 				</Show>
 			</div>
-			<div class="z-10 relative -mt-14 p-4 flex flex-col gap-2 pb-[calc(1rem+var(--safe-area-bottom))]">
-				<div class="flex flex-row items-center gap-4 z-50">
-					<Avatar
-						user={props.user}
-						size="large"
-						overrideSrc={props.preview?.avatarUrl}
-						disableState={isPreview()}
-					/>
-					<Show
-						when={props.onEditStatus}
-						fallback={
-							<Show
-								when={
-									((props.user.data.status?.text?.length ?? 0) > 0 ||
-										(props.user.data.status?.emoji?.length ?? 0) > 0) &&
-									props.user.data?.onlineState !== "offline"
-								}
-							>
-								<span class="flex flex-row items-start gap-2 bg-card border border-border rounded-sm px-1.5 py-0.5 drop-shadow-black drop-shadow-sm max-w-48 overflow-hidden">
-									<Show when={props.user.data.status!.emoji}>
-										<span
-											class="h-5.5 w-5.5 [&>img]:min-w-4.5 [&>img]:min-h-4.5 [&>img]:w-4.5 [&>img]:h-4.5 [&>img]inline flex items-center justify-center"
-											innerHTML={parseEmojiText(props.user.data.status!.emoji!)}
-										/>
-									</Show>
-									<span
-										class="leading-5.5 wrap-break-word text-sm w-fit"
-										classList={{
-											"max-w-[calc(100%-22px)]":
-												!!props.user.data.status!.emoji,
-											"max-w-full": !props.user.data.status!.emoji,
-											hidden: props.user.data.status!.text.length === 0,
-										}}
-									>
-										{props.user.data.status!.text}
-									</span>
-								</span>
-							</Show>
-						}
-					>
-						<SelfStatusEditor onEditRequested={props.onEditStatus!} />
-					</Show>
-				</div>
-				<div class="px-1 flex flex-col">
-					<span class="font-black text-xl">
+			<LinkContextMenu class="contents">
+				<div class="z-10 relative -mt-14 p-4 flex flex-col gap-2 pb-[calc(1rem+var(--safe-area-bottom))]">
+					<div class="flex flex-row items-center gap-4 z-50">
+						<Avatar
+							user={props.user}
+							size="large"
+							overrideSrc={props.preview?.avatarUrl}
+							disableState={isPreview()}
+						/>
 						<Show
-							when={!isPreview()}
+							when={props.onEditStatus}
 							fallback={
-								<span
-									style={accentColor() ? { color: accentColor() } : undefined}
+								<Show
+									when={
+										((props.user.data.status?.text?.length ?? 0) > 0 ||
+											(props.user.data.status?.emoji?.length ?? 0) > 0) &&
+										props.user.data?.onlineState !== "offline"
+									}
 								>
-									{displayableNameFn(props.user)}
-								</span>
+									<span class="flex flex-row items-start gap-2 bg-card border border-border rounded-sm px-1.5 py-0.5 drop-shadow-black drop-shadow-sm max-w-48 overflow-hidden">
+										<Show when={props.user.data.status!.emoji}>
+											<span
+												class="h-5.5 w-5.5 [&>img]:min-w-4.5 [&>img]:min-h-4.5 [&>img]:w-4.5 [&>img]:h-4.5 [&>img]inline flex items-center justify-center"
+												innerHTML={parseEmojiText(
+													props.user.data.status!.emoji!,
+												)}
+											/>
+										</Show>
+										<span
+											class="leading-5.5 wrap-break-word text-sm w-fit"
+											classList={{
+												"max-w-[calc(100%-22px)]":
+													!!props.user.data.status!.emoji,
+												"max-w-full": !props.user.data.status!.emoji,
+												hidden: props.user.data.status!.text.length === 0,
+											}}
+										>
+											{props.user.data.status!.text}
+										</span>
+									</span>
+								</Show>
 							}
 						>
-							<DisplayableName
-								user={props.user}
-								color={accentColor()}
-								badge={false}
-							/>
-						</Show>
-					</span>
-					<div class="flex flex-row gap-2 items-center flex-wrap">
-						<span class="text-sm">
-							@{props.user.handle.replaceAll("at://", "")}
-						</span>
-						<Show when={!isPreview()}>
-							<span class="w-1 h-1 rounded-full bg-muted-foreground" />
-							<div class="flex flex-row gap-2 items-center">
-								<Tooltip open={bskyTooltipVisible()}>
-									<TooltipTrigger>
-										<a
-											href={bskyProfileHref()}
-											target="_blank"
-											rel="noreferrer"
-											onClick={(e) => openExternalLink(bskyProfileHref(), e)}
-											style={{
-												"--hover": getBskyAlternativeClientInfo(
-													userPreferences!.preferences().preferredBlueskyClient,
-												).color,
-											}}
-											class="hover:text-(--hover) flex flex-row items-center gap-1.5 text-sm text-card-foreground font-normal hover:underline"
-											onMouseEnter={() => setBskyTooltipVisible(true)}
-											onMouseLeave={() => setBskyTooltipVisible(false)}
-										>
-											<Dynamic
-												component={
-													getBskyAlternativeClientInfo(
-														userPreferences!.preferences()
-															.preferredBlueskyClient,
-													).icon
-												}
-												className=""
-											/>
-										</a>
-									</TooltipTrigger>
-									<TooltipPortal>
-										<TooltipContent>
-											<span>
-												View on{" "}
-												{
-													getBskyAlternativeClientInfo(
-														userPreferences!.preferences()
-															.preferredBlueskyClient,
-													).name
-												}
-											</span>
-										</TooltipContent>
-									</TooltipPortal>
-								</Tooltip>
-								<Tooltip open={atProtoAtTooltipVisible()}>
-									<TooltipTrigger>
-										<a
-											href={atProtoAtHref()}
-											target="_blank"
-											rel="noreferrer"
-											onClick={(e) => openExternalLink(atProtoAtHref(), e)}
-											class="hover:text-[#1185fe] flex flex-row items-center gap-1.5 text-sm text-card-foreground font-normal hover:underline"
-											onMouseEnter={() => setAtProtoAtTooltipVisible(true)}
-											onMouseLeave={() => setAtProtoAtTooltipVisible(false)}
-										>
-											at://
-										</a>
-									</TooltipTrigger>
-									<TooltipPortal>
-										<TooltipContent>
-											<span>
-												View on atproto.
-												<span class="test-[#1185fe]">at://</span>
-											</span>
-										</TooltipContent>
-									</TooltipPortal>
-								</Tooltip>
-							</div>
-						</Show>
-						<Show when={allBadges().length > 0}>
-							<span class="w-1 h-1 rounded-full bg-muted-foreground" />
-							<For each={allBadges()}>
-								{(val) => <Badge val={val} size="xs" />}
-							</For>
+							<SelfStatusEditor onEditRequested={props.onEditStatus!} />
 						</Show>
 					</div>
-				</div>
-				<Show when={props.user.data.description && !props.hideDescription}>
-					<hr class="w-full h-px border-none bg-border m-0" />
-					<p
-						class="prose dark:prose-invert text-sm m-0 px-1 wrap-anywhere"
-						onClick={handleExternalLinkClick}
-						innerHTML={detectLinksAndMentionsAndFormat(
-							props.user.data.description!,
-							userPreferences?.preferences().preferredBlueskyClient ??
-								"bluesky",
-						)}
-					/>
-				</Show>
-				<Show when={userRoles().length > 0}>
-					<hr class="w-full h-px border-none bg-border m-0" />
-					<div class="w-full flex flex-row items-center gap-1 flex-wrap">
-						<For each={userRoles()}>
-							{(role) => (
-								<div class="flex flex-row items-center gap-2 border border-border rounded-full w-fit px-2">
-									<div
-										class="w-2 h-2 rounded-full"
-										style={{ background: role.color ?? "#fff" }}
-									/>
-									<span class="text-sm">{role.name}</span>
-								</div>
-							)}
-						</For>
-					</div>
-				</Show>
-				<Show when={(isSelf() || props.actions) && !props.hideDescription}>
-					<hr class="w-full h-px border-none bg-border m-0" />
-					<div class="flex flex-col gap-1">
-						<Show when={isSelf()}>
-							<button
-								type="button"
-								class="w-full flex flex-row items-center gap-3 px-2 py-2 rounded-sm hover:bg-muted/50 cursor-pointer text-left text-sm"
-								onClick={() => {
-									props.onRequestClose?.();
-									settingsModal?.setOpen(true);
-								}}
+					<div class="px-1 flex flex-col">
+						<span class="font-black text-xl">
+							<Show
+								when={!isPreview()}
+								fallback={
+									<span
+										style={accentColor() ? { color: accentColor() } : undefined}
+									>
+										{displayableNameFn(props.user)}
+									</span>
+								}
 							>
-								<PencilSimpleIcon />
-								<span>Edit Profile</span>
-							</button>
-						</Show>
-						{props.actions}
+								<DisplayableName
+									user={props.user}
+									color={accentColor()}
+									badge={false}
+								/>
+							</Show>
+						</span>
+						<div class="flex flex-row gap-2 items-center flex-wrap">
+							<span class="text-sm">
+								@{props.user.handle.replaceAll("at://", "")}
+							</span>
+							<Show when={!isPreview()}>
+								<span class="w-1 h-1 rounded-full bg-muted-foreground" />
+								<div class="flex flex-row gap-2 items-center">
+									<Tooltip open={bskyTooltipVisible()}>
+										<TooltipTrigger>
+											<a
+												href={bskyProfileHref()}
+												target="_blank"
+												rel="noreferrer"
+												onClick={(e) => openExternalLink(bskyProfileHref(), e)}
+												style={{
+													"--hover": getBskyAlternativeClientInfo(
+														userPreferences!.preferences()
+															.preferredBlueskyClient,
+													).color,
+												}}
+												class="hover:text-(--hover) flex flex-row items-center gap-1.5 text-sm text-card-foreground font-normal hover:underline"
+												onMouseEnter={() => setBskyTooltipVisible(true)}
+												onMouseLeave={() => setBskyTooltipVisible(false)}
+											>
+												<Dynamic
+													component={
+														getBskyAlternativeClientInfo(
+															userPreferences!.preferences()
+																.preferredBlueskyClient,
+														).icon
+													}
+													className=""
+												/>
+											</a>
+										</TooltipTrigger>
+										<TooltipPortal>
+											<TooltipContent>
+												<span>
+													View on{" "}
+													{
+														getBskyAlternativeClientInfo(
+															userPreferences!.preferences()
+																.preferredBlueskyClient,
+														).name
+													}
+												</span>
+											</TooltipContent>
+										</TooltipPortal>
+									</Tooltip>
+									<Tooltip open={atProtoAtTooltipVisible()}>
+										<TooltipTrigger>
+											<a
+												href={atProtoAtHref()}
+												target="_blank"
+												rel="noreferrer"
+												onClick={(e) => openExternalLink(atProtoAtHref(), e)}
+												class="hover:text-[#1185fe] flex flex-row items-center gap-1.5 text-sm text-card-foreground font-normal hover:underline"
+												onMouseEnter={() => setAtProtoAtTooltipVisible(true)}
+												onMouseLeave={() => setAtProtoAtTooltipVisible(false)}
+											>
+												at://
+											</a>
+										</TooltipTrigger>
+										<TooltipPortal>
+											<TooltipContent>
+												<span>
+													View on atproto.
+													<span class="test-[#1185fe]">at://</span>
+												</span>
+											</TooltipContent>
+										</TooltipPortal>
+									</Tooltip>
+								</div>
+							</Show>
+							<Show when={allBadges().length > 0}>
+								<span class="w-1 h-1 rounded-full bg-muted-foreground" />
+								<For each={allBadges()}>
+									{(val) => <Badge val={val} size="xs" />}
+								</For>
+							</Show>
+						</div>
 					</div>
-				</Show>
-			</div>
+					<Show when={props.user.data.description && !props.hideDescription}>
+						<hr class="w-full h-px border-none bg-border m-0" />
+						<p
+							class="prose dark:prose-invert text-sm m-0 px-1 wrap-anywhere"
+							onClick={handleExternalLinkClick}
+							innerHTML={detectLinksAndMentionsAndFormat(
+								props.user.data.description!,
+								userPreferences?.preferences().preferredBlueskyClient ??
+									"bluesky",
+							)}
+						/>
+					</Show>
+					<Show when={userRoles().length > 0}>
+						<hr class="w-full h-px border-none bg-border m-0" />
+						<div class="w-full flex flex-row items-center gap-1 flex-wrap">
+							<For each={userRoles()}>
+								{(role) => (
+									<div class="flex flex-row items-center gap-2 border border-border rounded-full w-fit px-2">
+										<div
+											class="w-2 h-2 rounded-full"
+											style={{ background: role.color ?? "#fff" }}
+										/>
+										<span class="text-sm">{role.name}</span>
+									</div>
+								)}
+							</For>
+						</div>
+					</Show>
+					<Show when={(isSelf() || props.actions) && !props.hideDescription}>
+						<hr class="w-full h-px border-none bg-border m-0" />
+						<div class="flex flex-col gap-1">
+							<Show when={isSelf()}>
+								<button
+									type="button"
+									class="w-full flex flex-row items-center gap-3 px-2 py-2 rounded-sm hover:bg-muted/50 cursor-pointer text-left text-sm"
+									onClick={() => {
+										props.onRequestClose?.();
+										settingsModal?.setOpen(true);
+									}}
+								>
+									<PencilSimpleIcon />
+									<span>Edit Profile</span>
+								</button>
+							</Show>
+							{props.actions}
+						</div>
+					</Show>
+				</div>
+			</LinkContextMenu>
 		</div>
 	);
 };
