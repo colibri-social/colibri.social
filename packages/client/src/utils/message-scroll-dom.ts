@@ -22,6 +22,8 @@ export const domFrameScheduler = (): FrameScheduler => ({
 	cancel: (handle) => cancelAnimationFrame(handle),
 });
 
+const ROW_KEY_ATTR = "data-message-uri";
+
 export const createDomScrollSurface = (
 	getContainer: () => HTMLElement | undefined,
 	getContent: () => HTMLElement | undefined,
@@ -35,6 +37,21 @@ export const createDomScrollSurface = (
 
 	const offsetOf = (element: HTMLElement): number =>
 		element.offsetTop - (getContainer()?.scrollTop ?? 0);
+
+	const keyOfRow = (row: HTMLElement): string | undefined =>
+		row.getAttribute(ROW_KEY_ATTR) ??
+		row.querySelector(`[${ROW_KEY_ATTR}]`)?.getAttribute(ROW_KEY_ATTR) ??
+		undefined;
+
+	const rowContaining = (
+		content: HTMLElement,
+		node: HTMLElement,
+	): HTMLElement | undefined => {
+		let current: HTMLElement | null = node;
+		while (current !== null && current.parentElement !== content)
+			current = current.parentElement;
+		return current ?? undefined;
+	};
 
 	return {
 		getScrollTop: () => getContainer()?.scrollTop ?? 0,
@@ -50,16 +67,19 @@ export const createDomScrollSurface = (
 			return element ? offsetOf(element) : 0;
 		},
 		rowHeight: (index) => rowElement(index)?.offsetHeight ?? 0,
-		rowKey: (index) =>
-			rowElement(index)?.getAttribute("data-message-uri") ?? undefined,
+		rowKey: (index) => {
+			const element = rowElement(index);
+			return element ? keyOfRow(element) : undefined;
+		},
 		rowOffsetOfKey: (key) => {
 			const content = getContent();
 			if (!content) return undefined;
 			const element = content.querySelector<HTMLElement>(
-				`:scope > [data-message-uri="${CSS.escape(key)}"]`,
+				`[${ROW_KEY_ATTR}="${CSS.escape(key)}"]`,
 			);
 			if (!element?.isConnected) return undefined;
-			return offsetOf(element);
+			const row = rowContaining(content, element);
+			return row ? offsetOf(row) : undefined;
 		},
 	};
 };

@@ -776,6 +776,36 @@ describe("absorbGrowth", () => {
 		expect(controller.isAtBottom()).toBe(true);
 	});
 
+	it("absorbs growth above the fold while a gesture is running", () => {
+		const { fake, controller } = createHarness(makeRows("m", 40, 100), 600);
+		fake.scrollTo(2000);
+
+		controller.unpin();
+		controller.beginGesture();
+		const before = fake.offsetOf("m-20");
+
+		const boundary = fake.offsetOf("m-3") ?? 0;
+		fake.grow("m-3", 400);
+		controller.absorbGrowth(boundary, 400);
+
+		expect(fake.offsetOf("m-20")).toBe(before);
+		expect(fake.scrollTop()).toBe(2400);
+	});
+
+	it("leaves growth the reader can see alone while a gesture is running", () => {
+		const { fake, controller } = createHarness(makeRows("m", 40, 100), 600);
+		fake.scrollTo(2000);
+
+		controller.unpin();
+		controller.beginGesture();
+
+		const boundary = fake.offsetOf("m-25") ?? 0;
+		fake.grow("m-25", 300);
+		controller.absorbGrowth(boundary, 300);
+
+		expect(fake.scrollTop()).toBe(2000);
+	});
+
 	it("re-anchors after holding the lower side so the next growth is measured fresh", () => {
 		const { fake, controller } = createHarness(makeRows("m", 40, 100), 600);
 		fake.scrollTo(2000);
@@ -791,6 +821,101 @@ describe("absorbGrowth", () => {
 		controller.assert();
 
 		expect(fake.offsetOf("m-30")).toBe(before);
+	});
+});
+
+describe("absorbPrepend", () => {
+	it("holds the reading position when a page lands mid-gesture", () => {
+		const { fake, controller } = createHarness(makeRows("m", 20, 100), 600);
+		fake.scrollTo(0);
+		controller.unpin();
+
+		controller.beginGesture();
+		controller.captureRowAnchor();
+		const before = fake.offsetOf("m-0");
+		fake.prepend(makeRows("older", 50, 100));
+
+		expect(controller.absorbPrepend()).toBe(true);
+		expect(fake.offsetOf("m-0")).toBe(before);
+		expect(fake.scrollTop()).toBe(5000);
+	});
+
+	it("does not fall back to the bottom when the pin flag is stale", () => {
+		const { fake, controller } = createHarness(makeRows("m", 20, 100), 600);
+		fake.scrollTo(0);
+
+		controller.beginGesture();
+		controller.captureRowAnchor();
+		fake.prepend(makeRows("older", 50, 100));
+
+		expect(controller.isPinned()).toBe(true);
+		expect(controller.absorbPrepend()).toBe(true);
+		expect(fake.scrollTop()).toBe(5000);
+		expect(controller.isAtBottom()).toBe(false);
+	});
+
+	it("counts a page that added no height as compensated", () => {
+		const { fake, controller } = createHarness(makeRows("m", 20, 100), 600);
+		fake.scrollTo(400);
+		controller.unpin();
+
+		controller.captureRowAnchor();
+
+		expect(controller.absorbPrepend()).toBe(true);
+		expect(fake.scrollTop()).toBe(400);
+	});
+
+	it("reports a failure when no anchored row can be resolved", () => {
+		const keyless = Array.from({ length: 20 }, () => ({ height: 100 }));
+		const { fake, controller } = createHarness(keyless, 600);
+		fake.scrollTo(0);
+		controller.unpin();
+
+		controller.captureRowAnchor();
+		fake.prepend(Array.from({ length: 50 }, () => ({ height: 100 })));
+
+		expect(controller.absorbPrepend()).toBe(false);
+		expect(fake.scrollTop()).toBe(0);
+	});
+
+	it("keeps the bottom when the reader is genuinely at the bottom", () => {
+		const { fake, controller } = createHarness(makeRows("m", 20, 100), 600);
+		fake.scrollTo(fake.scrollHeight());
+
+		controller.captureRowAnchor();
+		fake.prepend(makeRows("older", 50, 100));
+
+		expect(controller.absorbPrepend()).toBe(true);
+		expect(controller.isAtBottom()).toBe(true);
+	});
+
+	it("stops the prefetch chain when a page could not be compensated", () => {
+		const keyless = Array.from({ length: 20 }, () => ({ height: 100 }));
+		const { fake, controller } = createHarness(keyless, 600);
+		fake.scrollTo(0);
+		controller.unpin();
+
+		let loads = 0;
+		let compensated = true;
+
+		while (
+			compensated &&
+			shouldLoadOlder({
+				scrollTop: fake.scrollTop(),
+				clientHeight: fake.clientHeight(),
+				hasMore: true,
+				loading: false,
+				ready: true,
+			})
+		) {
+			loads += 1;
+			if (loads > 5) break;
+			controller.captureRowAnchor();
+			fake.prepend(Array.from({ length: 50 }, () => ({ height: 100 })));
+			compensated = controller.absorbPrepend();
+		}
+
+		expect(loads).toBe(1);
 	});
 });
 

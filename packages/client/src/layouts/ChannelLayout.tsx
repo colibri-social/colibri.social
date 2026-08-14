@@ -96,6 +96,8 @@ const describeFileError = (error: FileError, fileName: string): string => {
 	}
 };
 
+const AUTO_CONTINUE_CAP = 20;
+
 const GROUPING_WINDOW_MS = 5 * 60 * 1000;
 
 const withinGroupingWindow = (a: string, b: string): boolean =>
@@ -188,6 +190,8 @@ const ChannelLayout: ParentComponent = (props) => {
 	const [showJumpToLatest, setShowJumpToLatest] = createSignal(false);
 	let jumpEvaluationFrame: number | undefined;
 	let unbindGestures: (() => void) | undefined;
+	let prependCompensated = true;
+	let autoContinues = 0;
 
 	const scrollAnchor = createMessageScrollController(
 		createDomScrollSurface(
@@ -258,7 +262,8 @@ const ChannelLayout: ParentComponent = (props) => {
 				if (untrack(() => didInitialScroll)) scrollAnchor.captureRowAnchor();
 			},
 			onAfterPrepend: () => {
-				if (untrack(() => didInitialScroll)) scrollAnchor.assert();
+				if (!untrack(() => didInitialScroll)) return;
+				prependCompensated = scrollAnchor.absorbPrepend();
 			},
 		});
 	};
@@ -304,7 +309,7 @@ const ChannelLayout: ParentComponent = (props) => {
 			if (boundary === undefined || top < boundary) boundary = top;
 		}
 
-		if (scrollAnchor.isPinned()) {
+		if (scrollAnchor.isPinned() && !scrollAnchor.isGesturing()) {
 			scrollAnchor.assert();
 			scrollAnchor.settle();
 			scheduleJumpEvaluation();
@@ -323,6 +328,7 @@ const ChannelLayout: ParentComponent = (props) => {
 
 	const handleScroll = () => {
 		if (!scrollContainer) return;
+		autoContinues = 0;
 		scrollAnchor.handleScroll();
 		evaluateJumpToLatest();
 
@@ -531,6 +537,8 @@ const ChannelLayout: ParentComponent = (props) => {
 		on(channel.channelUri, () => {
 			didInitialScroll = false;
 			cursorWalkAttempts = 0;
+			prependCompensated = true;
+			autoContinues = 0;
 			handledOrphans = new Set();
 			setDeletedPingBanner(false);
 			setShowJumpToLatest(false);
@@ -542,6 +550,9 @@ const ChannelLayout: ParentComponent = (props) => {
 			() => channel.loadingOlder(),
 			(loading) => {
 				if (loading) return;
+				if (!prependCompensated) return;
+				if (autoContinues >= AUTO_CONTINUE_CAP) return;
+				autoContinues++;
 				maybeLoadOlder();
 			},
 		),

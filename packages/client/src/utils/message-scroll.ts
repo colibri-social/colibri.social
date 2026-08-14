@@ -191,6 +191,7 @@ export type MessageScrollController = {
 	settle(settleOptions?: SettleOptions): void;
 	captureRowAnchor(): void;
 	absorbGrowth(boundaryOffset: number, delta: number): void;
+	absorbPrepend(): boolean;
 	beginGesture(): void;
 	endGesture(): void;
 	cancelGesture(): void;
@@ -330,7 +331,11 @@ export const createMessageScrollController = (
 		},
 
 		absorbGrowth(boundaryOffset, delta) {
-			if (gesturing) return;
+			if (gesturing) {
+				if (delta === 0 || boundaryOffset > 0) return;
+				write(surface.getScrollTop() + delta);
+				return;
+			}
 			if (pinned) {
 				assertBottom();
 				return;
@@ -348,6 +353,23 @@ export const createMessageScrollController = (
 
 			write(surface.getScrollTop() + delta);
 			anchor = captureAnchor(surface);
+		},
+
+		absorbPrepend() {
+			if (isPinnedToBottom(surface, threshold)) {
+				assertBottom();
+				return true;
+			}
+
+			const target = anchoredScrollTop(surface, anchor);
+			if (target === undefined) {
+				anchor = captureAnchor(surface);
+				return false;
+			}
+
+			if (Math.abs(target - surface.getScrollTop()) >= RESTORE_EPSILON_PX)
+				write(target);
+			return true;
 		},
 
 		beginGesture() {

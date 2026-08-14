@@ -397,7 +397,7 @@ export const ChannelContextProvider: ParentComponent<{
 			hooks?.onBeforePrepend?.();
 			batch(() => {
 				setMessages((prev) => [...novel, ...prev]);
-				const newOldest = novel[0] ?? olderChunk[0];
+				const newOldest = olderChunk[0];
 				if (newOldest) setCursor(rkeyOf(newOldest.uri));
 				if (hitTop) setHasMore(false);
 			});
