@@ -121,6 +121,7 @@ const MessageInner: Component<{
 		newText,
 		handlePotentialDeletion,
 		handlePotentialBlock,
+		canReply,
 		enableReplyMode,
 		enableEditMode,
 		addReactionOptimistic,
@@ -195,7 +196,7 @@ const MessageInner: Component<{
 
 	const swipeReplyEnabled = () =>
 		isTouch() &&
-		!isPending() &&
+		canReply() &&
 		preferences().controls.swipeLeftAction === "reply";
 	const doubleTapEnabled = () =>
 		isTouch() && !isPending() && preferences().controls.doubleTapEnabled;
@@ -544,9 +545,11 @@ const MessageInner: Component<{
 										<SmileyIcon />
 									</Action>
 								</EmojiPopover>
-								<Action tooltipText="Reply" onClick={enableReplyMode}>
-									<ArrowBendUpLeft />
-								</Action>
+								<Show when={canReply()}>
+									<Action tooltipText="Reply" onClick={enableReplyMode}>
+										<ArrowBendUpLeft />
+									</Action>
+								</Show>
 								<Show when={isAdmin() && message.author.did !== user.did}>
 									<Action
 										tooltipText="Block"

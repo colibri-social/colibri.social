@@ -49,6 +49,7 @@ import {
 } from "../components/ui/Tooltip";
 import { ChannelContextProvider, useChannelContext } from "../contexts/Channel";
 import { useCommunityContext } from "../contexts/Community";
+import { isChannelRestricted } from "../contexts/channel-permissions";
 import { useMutes } from "../contexts/Mutes";
 import { isSameChannelUri, useNotifications } from "../contexts/Notifications";
 import { useUserContext } from "../contexts/User";
@@ -847,29 +848,11 @@ const ChannelLayout: ParentComponent = (props) => {
 		return undefined;
 	};
 
-	const isRestricted = () =>
-		!!channel.data()?.ownerOnly ||
-		(channel.data()?.allowedRoles?.length ?? 0) > 0 ||
-		(channel.data()?.allowedMembers?.length ?? 0) > 0;
+	const isRestricted = () => isChannelRestricted(channel.data());
 
-	const member = () => community().members.find((x) => x.did === user.did);
+	const isMember = () => community().members.some((x) => x.did === user.did);
 
-	const isMember = () => member() !== undefined;
-
-	const canTalk = () => {
-		if (!isMember()) return false;
-		if (!isRestricted() || community().ownerDid() === user.did) return true;
-
-		if (channel.data()?.ownerOnly && community().ownerDid() === user.did)
-			return true;
-		if (channel.data()?.allowedMembers?.includes(user.did)) return true;
-
-		return (
-			member()?.roles.some((x) =>
-				channel.data()?.allowedRoles?.some((y) => x === y),
-			) === true
-		);
-	};
+	const canTalk = () => channel.canSendMessages();
 
 	const needsGuidelines = () =>
 		canTalk() && !preferences().chatGuidelinesAccepted;

@@ -9,6 +9,7 @@ import {
 	For,
 	type JSX,
 	Match,
+	on,
 	Show,
 	Switch,
 } from "solid-js";
@@ -98,6 +99,20 @@ export const MessageInput: Component<{
 		});
 	});
 
+	const clearAttachments = (files: Array<File>) => {
+		if (files.length === 0) return;
+		for (const file of files) fileField.removeFile(file);
+		setUploadedFiles(new Set<File>());
+	};
+
+	createEffect(
+		on(
+			() => channel.channelUri(),
+			() => clearAttachments([...fileField.acceptedFiles]),
+			{ defer: true },
+		),
+	);
+
 	let submitMessage: (() => void) | undefined;
 
 	const hasAttachments = () => fileField.acceptedFiles.length > 0;
@@ -155,6 +170,7 @@ export const MessageInput: Component<{
 		const replyingMessage = channel.replyingTo()
 			? JSON.parse(JSON.stringify(channel.replyingTo()))
 			: undefined;
+		const targetChannelUri = channel.channelUri();
 
 		const trimmed = trimWithFacets({ text, facets });
 		const cleanText = purify(trimmed.text);
@@ -214,7 +230,7 @@ export const MessageInput: Component<{
 					{
 						text: cleanText,
 						facets: cleanFacets,
-						channel: channel.channelUri(),
+						channel: targetChannelUri,
 						createdAt: now,
 						...(replyingMessage ? { parent: replyingMessage.uri } : {}),
 						...(attachments.length > 0 ? { attachments } : {}),
@@ -232,7 +248,7 @@ export const MessageInput: Component<{
 				uri,
 				text: cleanText,
 				facets: cleanFacets,
-				channel: channel.channelUri(),
+				channel: targetChannelUri,
 				community: "",
 				author: {
 					did: user.did,
@@ -247,11 +263,10 @@ export const MessageInput: Component<{
 				suppressedEmbeds,
 			};
 
-			channel.addPendingMessage(pending);
-			channel.advanceReadCursor(uri);
-
-			for (const file of acceptedFiles) {
-				fileField.removeFile(file);
+			if (channel.channelUri() === targetChannelUri) {
+				channel.addPendingMessage(pending);
+				channel.advanceReadCursor(uri);
+				clearAttachments(acceptedFiles);
 			}
 
 			setEmbedsEnabled(userPreferences.preferences().linkEmbedsByDefault);

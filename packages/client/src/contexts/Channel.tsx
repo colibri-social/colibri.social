@@ -71,6 +71,7 @@ import { purify } from "../utils/purify";
 import { recordSpeakers } from "../utils/recent-speakers";
 import { probe, shortUri } from "../utils/switch-probe";
 import { useCommunityContext } from "./Community";
+import { canSendMessagesInChannel } from "./channel-permissions";
 import { createLoadSessions } from "./load-session";
 import { useSocketContext } from "./Socket";
 import { useUserContext } from "./User";
@@ -125,6 +126,7 @@ export type ChannelContextValue = {
 	data: Accessor<Channel | undefined>;
 
 	linkEmbedsEnabled: Accessor<boolean>;
+	canSendMessages: Accessor<boolean>;
 	channelUri: Accessor<string>;
 	messages: Accessor<(Message | PendingMessage)[]>;
 	hasMore: Accessor<boolean>;
@@ -287,6 +289,15 @@ export const ChannelContextProvider: ParentComponent<{
 			props.channel()?.linkEmbeds ?? community().community.linkEmbeds ?? true,
 	);
 
+	const canSendMessages = createMemo(() =>
+		canSendMessagesInChannel({
+			channel: props.channel(),
+			memberRoles: community().members.find((m) => m.did === user.did)?.roles,
+			isCommunityOwner: community().ownerDid() === user.did,
+			userDid: user.did,
+		}),
+	);
+
 	// Messages are kept oldest-first so they render naturally top-to-bottom in
 	// the scroll container (newest at the visual bottom, like a chat). The
 	// server returns pages newest-first, so we reverse each page before
@@ -314,12 +325,7 @@ export const ChannelContextProvider: ParentComponent<{
 	const [appliedRemoval, setAppliedRemoval] = createSignal(false);
 	let paintedAt: number | undefined;
 
-	// Reply / edit / focus state. Configured with `equals: false` so that
-	// re-asserting the same message (e.g. clicking "Reply" on the same row
-	// twice, or jumping to the same message twice) still emits a change and
-	// re-triggers consumers (input focus, scroll-into-view, highlight). This
-	// state intentionally persists across channel switches — `reset()` does
-	// not touch it.
+	// Reply / edit / focus state
 	const [replyingTo, setReplyingTo] = createSignal<Message | undefined>(
 		undefined,
 		{ equals: false },
@@ -363,6 +369,14 @@ export const ChannelContextProvider: ParentComponent<{
 			setSnapshotAge(undefined);
 			setHydratedFromNetwork(false);
 			setAppliedRemoval(false);
+		});
+	};
+
+	const resetComposerTargets = () => {
+		batch(() => {
+			if (replyingTo()) setReplyingTo(undefined);
+			if (editingMessage()) setEditingMessage(undefined);
+			if (emptyEditPendingDeletion()) setEmptyEditPendingDeletion(undefined);
 		});
 	};
 
@@ -539,6 +553,7 @@ export const ChannelContextProvider: ParentComponent<{
 				rows: messages().length,
 			});
 			flushSnapshot();
+			resetComposerTargets();
 			registerOpenChannel(uri);
 			if (!uri) {
 				probe("channel went away, resetting", {
@@ -1042,8 +1057,7 @@ export const ChannelContextProvider: ParentComponent<{
 			// New message from another user — author is fully hydrated on the event.
 			const parentMsg = d.parent
 				? (messages().find((m) => m.uri === d.parent) as
-						| Omit<Message, "parent">
-						| undefined)
+						Omit<Message, "parent"> | undefined)
 				: undefined;
 
 			const newMsg: Message = {
@@ -1108,8 +1122,7 @@ export const ChannelContextProvider: ParentComponent<{
 	const outboxCleanup = onOutboxSent(({ uri, collection }) => {
 		if (collection !== "social.colibri.message") return;
 		const pending = messages().find((m) => m.uri === uri && "hash" in m) as
-			| PendingMessage
-			| undefined;
+			PendingMessage | undefined;
 		if (pending) confirmPendingMessage(pending.hash, uri);
 	});
 
@@ -1282,6 +1295,7 @@ export const ChannelContextProvider: ParentComponent<{
 	const value: ChannelContextValue = {
 		data: () => props.channel(),
 		linkEmbedsEnabled,
+		canSendMessages,
 		channelUri,
 		messages,
 		hasMore,

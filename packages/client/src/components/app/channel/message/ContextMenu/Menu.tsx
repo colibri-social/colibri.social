@@ -55,6 +55,7 @@ export const MessageContextMenu: ParentComponent<{
 		message,
 		isPending,
 		messageEditable,
+		canReply,
 		enableReplyMode,
 		enableEditMode,
 		handlePotentialDeletion,
@@ -130,11 +131,13 @@ export const MessageContextMenu: ParentComponent<{
 										<span>Edit Message</span>
 									</ContextMenuItem>
 								</Show>
-								<ContextMenuItem onClick={enableReplyMode}>
-									<ArrowBendUpLeftIcon />
-									<span>Reply</span>
-								</ContextMenuItem>
-								<ContextMenuSeparator />
+								<Show when={canReply()}>
+									<ContextMenuItem onClick={enableReplyMode}>
+										<ArrowBendUpLeftIcon />
+										<span>Reply</span>
+									</ContextMenuItem>
+									<ContextMenuSeparator />
+								</Show>
 								<Show when={message.text.length > 0}>
 									<ContextMenuItem onClick={copyText}>
 										<CopyIcon />
@@ -246,16 +249,18 @@ export const MessageContextMenu: ParentComponent<{
 							<span>Edit Message</span>
 						</MenuDrawerItem>
 					</Show>
-					<MenuDrawerItem
-						onClick={() => {
-							close();
-							enableReplyMode();
-						}}
-					>
-						<ArrowBendUpLeftIcon />
-						<span>Reply</span>
-					</MenuDrawerItem>
-					<Separator class="my-1" />
+					<Show when={canReply()}>
+						<MenuDrawerItem
+							onClick={() => {
+								close();
+								enableReplyMode();
+							}}
+						>
+							<ArrowBendUpLeftIcon />
+							<span>Reply</span>
+						</MenuDrawerItem>
+						<Separator class="my-1" />
+					</Show>
 					<Show when={message.text.length > 0}>
 						<MenuDrawerItem
 							onClick={() => {

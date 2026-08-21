@@ -86,6 +86,7 @@ export type MessageContextValue = {
 	confirmDelete: () => Promise<void>;
 	/** Perform the block immediately (called by shift-click and modal confirm). */
 	confirmBlock: () => Promise<void>;
+	canReply: Accessor<boolean>;
 	enableReplyMode: () => void;
 	enableEditMode: () => void;
 	cancelEdits: () => void;
@@ -235,8 +236,10 @@ export const MessageContextProvider: ParentComponent<{ data: Message }> = (
 	const { isAdmin: _isAdmin, canHideMessage } = usePermissions();
 	const isAdmin = () => _isAdmin(user.did);
 
+	const canReply = () => !isPending() && channel.canSendMessages();
+
 	const enableReplyMode = () => {
-		if (isPending()) return;
+		if (!canReply()) return;
 		channel.setReplyingTo(props.data);
 	};
 
@@ -592,6 +595,7 @@ export const MessageContextProvider: ParentComponent<{ data: Message }> = (
 		handlePotentialBlock,
 		confirmDelete,
 		confirmBlock,
+		canReply,
 		enableReplyMode,
 		enableEditMode,
 		cancelEdits,
