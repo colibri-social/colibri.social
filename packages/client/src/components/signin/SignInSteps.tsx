@@ -94,9 +94,9 @@ const HopTile: Component<{
 	const [failed, setFailed] = createSignal(false);
 
 	return (
-		<div class="flex flex-col items-center gap-2 text-center max-w-13">
+		<div class="flex min-w-0 flex-col items-center gap-2 text-center">
 			<span
-				class="grid size-13 place-items-center rounded-2xl border border-border bg-neutral-900"
+				class="grid size-13 shrink-0 place-items-center rounded-2xl border border-border bg-neutral-900"
 				classList={{
 					"border-primary/40 bg-primary/15 text-primary":
 						props.fallback === "check",
@@ -121,7 +121,7 @@ const HopTile: Component<{
 					/>
 				</Show>
 			</span>
-			<small class="whitespace-nowrap text-xs text-muted-foreground">
+			<small class="max-w-20 wrap-anywhere text-xs leading-tight text-muted-foreground">
 				{props.label}
 			</small>
 		</div>
@@ -129,7 +129,7 @@ const HopTile: Component<{
 };
 
 const Wire: Component = () => (
-	<span class="signin-wire mt-[-1.25rem] h-0.5 min-w-4 flex-1 rounded-full bg-border" />
+	<span class="signin-wire mt-6.5 h-0.5 min-w-4 flex-1 rounded-full bg-border" />
 );
 
 export const SignInSteps: Component<{ flow: SignInFlow }> = (props) => {
@@ -206,7 +206,7 @@ export const SignInSteps: Component<{ flow: SignInFlow }> = (props) => {
 				<p class="m-0 font-mono text-[0.7rem] uppercase tracking-[0.16em] text-primary">
 					Step {flow.stepIndex()} of {flow.stepCount()}
 				</p>
-				<h2 class="m-0 font-display text-3xl leading-[1.06] text-balance text-foreground xl:text-4xl">
+				<h2 class="m-0 font-display text-3xl leading-[1.06] text-balance wrap-anywhere text-foreground xl:text-4xl">
 					{heading()}
 				</h2>
 			</div>
@@ -436,7 +436,7 @@ export const SignInSteps: Component<{ flow: SignInFlow }> = (props) => {
 
 				<Match when={flow.step() === "handoff"}>
 					<div class="-mx-1 overflow-x-auto px-1 py-1">
-						<div class="flex min-w-fit items-center justify-center gap-2">
+						<div class="flex min-w-fit items-start justify-center gap-2">
 							<HopTile label="Colibri" src={ColibriLogo} />
 							<Wire />
 							<HopTile label={targetLabel()} src={flow.target()?.icon} />
@@ -497,7 +497,7 @@ export const SignInSteps: Component<{ flow: SignInFlow }> = (props) => {
 					</Match>
 					<Match when={flow.step() === "handoff"}>
 						<Button
-							class="w-full"
+							class="h-auto min-h-10 w-full whitespace-normal wrap-anywhere py-2 text-center"
 							size="lg"
 							aria-busy={flow.busy()}
 							disabled={flow.busy()}
