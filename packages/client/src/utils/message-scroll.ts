@@ -36,6 +36,7 @@ export type SettleOptions = {
 };
 
 export const BOTTOM_THRESHOLD_PX = 80;
+export const MIN_PIN_INTENT_PX = 1;
 export const JUMP_TO_LATEST_DISTANCE_PX = 200;
 export const MIN_PREFETCH_PX = 400;
 export const PREFETCH_VIEWPORTS = 1;
@@ -58,6 +59,24 @@ export const isPinnedToBottom = (
 	surface: ScrollSurface,
 	threshold = BOTTOM_THRESHOLD_PX,
 ): boolean => distanceFromBottom(surface) < threshold;
+
+export const pinIntentThreshold = (
+	surface: ScrollSurface,
+	threshold = BOTTOM_THRESHOLD_PX,
+): number => {
+	const overflow = Math.max(
+		0,
+		surface.getScrollHeight() - surface.getClientHeight(),
+	);
+	if (overflow <= 0) return threshold;
+	return Math.max(MIN_PIN_INTENT_PX, Math.min(threshold, overflow / 2));
+};
+
+export const hasPinIntent = (
+	surface: ScrollSurface,
+	threshold = BOTTOM_THRESHOLD_PX,
+): boolean =>
+	distanceFromBottom(surface) < pinIntentThreshold(surface, threshold);
 
 export const shouldShowJumpToLatest = (
 	distance: number,
@@ -365,7 +384,7 @@ export const createMessageScrollController = (
 		},
 
 		absorbPrepend() {
-			if (isPinnedToBottom(surface, threshold)) {
+			if (hasPinIntent(surface, threshold)) {
 				assertBottom();
 				return true;
 			}
@@ -390,7 +409,7 @@ export const createMessageScrollController = (
 			if (!gesturing) return;
 			gesturing = false;
 			lastWritten = undefined;
-			pinned = isPinnedToBottom(surface, threshold);
+			pinned = hasPinIntent(surface, threshold);
 			anchor = pinned ? { mode: "none" } : captureAnchor(surface);
 			if (pinned) settle();
 		},

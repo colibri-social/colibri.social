@@ -7,7 +7,9 @@ import {
 	type FrameScheduler,
 	findAnchorRow,
 	findTopmostVisibleRow,
+	hasPinIntent,
 	isPinnedToBottom,
+	pinIntentThreshold,
 	prefetchDistance,
 	type ScrollSurface,
 	shouldLoadOlder,
@@ -21,6 +23,11 @@ const makeRows = (prefix: string, count: number, height: number): FakeRow[] =>
 		key: `${prefix}-${index}`,
 		height,
 	}));
+
+const barelyOverflowingRows = (tail = 25): FakeRow[] => [
+	...makeRows("m", 6, 100),
+	{ key: "m-6", height: tail },
+];
 
 const createFakeScheduler = () => {
 	let next = 1;
@@ -256,6 +263,66 @@ describe("isPinnedToBottom", () => {
 		fake.scrollTo(1300);
 
 		expect(isPinnedToBottom(fake.surface)).toBe(false);
+	});
+});
+
+describe("pinIntentThreshold", () => {
+	it("keeps the absolute threshold on a deep list", () => {
+		const fake = createFakeSurface(makeRows("m", 40, 100), 600);
+
+		expect(pinIntentThreshold(fake.surface)).toBe(80);
+	});
+
+	it("halves a range shorter than the absolute threshold", () => {
+		const fake = createFakeSurface(barelyOverflowingRows(), 600);
+
+		expect(pinIntentThreshold(fake.surface)).toBe(12.5);
+	});
+
+	it("keeps the absolute threshold when the content fits the viewport", () => {
+		const fake = createFakeSurface(makeRows("m", 2, 100), 600);
+
+		expect(pinIntentThreshold(fake.surface)).toBe(80);
+	});
+
+	it("never reports less than a pixel", () => {
+		const fake = createFakeSurface(barelyOverflowingRows(1), 600);
+
+		expect(pinIntentThreshold(fake.surface)).toBe(1);
+	});
+});
+
+describe("hasPinIntent", () => {
+	it("reads the top of a channel that barely overflows as scrolled away", () => {
+		const fake = createFakeSurface(barelyOverflowingRows(), 600);
+		fake.scrollTo(0);
+
+		expect(isPinnedToBottom(fake.surface)).toBe(true);
+		expect(hasPinIntent(fake.surface)).toBe(false);
+	});
+
+	it("reads the bottom of a channel that barely overflows as pinned", () => {
+		const fake = createFakeSurface(barelyOverflowingRows(), 600);
+		fake.scrollTo(fake.scrollHeight());
+
+		expect(hasPinIntent(fake.surface)).toBe(true);
+	});
+
+	it("matches the absolute threshold on a deep list", () => {
+		const fake = createFakeSurface(makeRows("m", 40, 100), 600);
+
+		fake.scrollTo(3340);
+		expect(hasPinIntent(fake.surface)).toBe(true);
+
+		fake.scrollTo(3300);
+		expect(hasPinIntent(fake.surface)).toBe(false);
+	});
+
+	it("treats content shorter than the viewport as pinned", () => {
+		const fake = createFakeSurface(makeRows("m", 2, 100), 600);
+		fake.scrollTo(0);
+
+		expect(hasPinIntent(fake.surface)).toBe(true);
 	});
 });
 
@@ -500,6 +567,110 @@ describe("pin intent", () => {
 		controller.pin(false);
 
 		expect(controller.distanceFromBottom()).toBeLessThan(1);
+	});
+
+	it("stays unpinned at the top of a channel that barely overflows", () => {
+		const { fake, frames, controller } = createHarness(
+			barelyOverflowingRows(),
+			600,
+		);
+		controller.pin(false);
+
+		controller.beginGesture();
+		fake.scrollTo(0);
+		controller.handleScroll();
+		controller.endGesture();
+
+		expect(controller.isPinned()).toBe(false);
+		expect(frames.pending()).toBe(0);
+
+		frames.flush(5);
+		expect(fake.scrollTop()).toBe(0);
+	});
+
+	it("re-pins at the bottom of a channel that barely overflows", () => {
+		const { fake, controller } = createHarness(barelyOverflowingRows(), 600);
+
+		controller.beginGesture();
+		fake.scrollTo(0);
+		controller.handleScroll();
+		controller.endGesture();
+		expect(controller.isPinned()).toBe(false);
+
+		controller.beginGesture();
+		fake.scrollTo(fake.scrollHeight());
+		controller.handleScroll();
+		controller.endGesture();
+
+		expect(controller.isPinned()).toBe(true);
+	});
+
+	it("re-pins at a fractional bottom of a channel that barely overflows", () => {
+		const { fake, controller } = createHarness(barelyOverflowingRows(), 600, {
+			subPixelMax: true,
+		});
+
+		controller.beginGesture();
+		fake.scrollTo(fake.scrollHeight());
+		controller.handleScroll();
+		controller.endGesture();
+
+		expect(controller.isPinned()).toBe(true);
+	});
+
+	it("re-pins when the scrollable range is thinner than the pin floor", () => {
+		const { fake, controller } = createHarness(
+			barelyOverflowingRows(0.8),
+			600,
+			{
+				subPixelMax: true,
+			},
+		);
+
+		controller.beginGesture();
+		fake.scrollTo(fake.scrollHeight());
+		controller.handleScroll();
+		controller.endGesture();
+
+		expect(controller.isPinned()).toBe(true);
+	});
+
+	it("keeps following the bottom when the content is shorter than the viewport", () => {
+		const { fake, controller } = createHarness(makeRows("m", 2, 100), 600);
+
+		controller.beginGesture();
+		fake.scrollTo(0);
+		controller.handleScroll();
+		controller.endGesture();
+
+		expect(controller.isPinned()).toBe(true);
+	});
+
+	it("does not yank a reader parked at the top of a short channel when a message arrives", () => {
+		const { fake, controller } = createHarness(barelyOverflowingRows(), 600);
+		controller.pin(false);
+
+		controller.beginGesture();
+		fake.scrollTo(0);
+		controller.handleScroll();
+		controller.endGesture();
+
+		fake.append(makeRows("new", 1, 40));
+		controller.assert();
+
+		expect(fake.scrollTop()).toBe(0);
+	});
+
+	it("keeps read marking generous while a whole short channel is on screen", () => {
+		const { fake, controller } = createHarness(barelyOverflowingRows(), 600);
+
+		controller.beginGesture();
+		fake.scrollTo(0);
+		controller.handleScroll();
+		controller.endGesture();
+
+		expect(controller.isPinned()).toBe(false);
+		expect(controller.isAtBottom()).toBe(true);
 	});
 });
 
@@ -921,6 +1092,18 @@ describe("absorbPrepend", () => {
 		expect(controller.absorbPrepend()).toBe(true);
 		expect(fake.scrollTop()).toBe(5000);
 		expect(controller.isAtBottom()).toBe(false);
+	});
+
+	it("holds the top of a short channel when a page adds no height", () => {
+		const { fake, controller } = createHarness(barelyOverflowingRows(), 600);
+		fake.scrollTo(0);
+		controller.unpin();
+
+		controller.captureRowAnchor();
+		fake.prepend([{ key: "older-0", height: 0 }]);
+
+		expect(controller.absorbPrepend()).toBe(true);
+		expect(fake.scrollTop()).toBe(0);
 	});
 
 	it("counts a page that added no height as compensated", () => {

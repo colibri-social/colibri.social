@@ -111,7 +111,7 @@ export const bindScrollGestures = (
 	};
 
 	const arm = () => {
-		sawScroll = false;
+		if (!controller.isGesturing()) sawScroll = false;
 		clearTimers();
 		controller.beginGesture();
 		safetyTimer = window.setTimeout(finish, GESTURE_SAFETY_MS);
