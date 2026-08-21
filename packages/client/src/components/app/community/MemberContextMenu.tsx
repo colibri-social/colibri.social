@@ -10,6 +10,7 @@ import {
 	Show,
 } from "solid-js";
 import { toast } from "somoto";
+import CaretRightIcon from "~icons/ph/caret-right";
 import CheckIcon from "~icons/ph/check";
 import CopyIcon from "~icons/ph/copy";
 import IdentificationBadgeIcon from "~icons/ph/identification-badge";
@@ -104,6 +105,7 @@ export const MemberContextMenu: ParentComponent<{
 			canBanMember(user.did));
 	const isTouch = useIsTouch();
 	const [menuOpen, setMenuOpen] = createSignal(false);
+	const [rolesOpen, setRolesOpen] = createSignal(false);
 
 	const inVc = () => voiceData.connection.state === ConnectionState.Connected;
 
@@ -206,6 +208,9 @@ export const MemberContextMenu: ParentComponent<{
 	const canManageAnyRole = () =>
 		isMember() && sortedRoles().some((role) => canManageRole(user.did, role));
 
+	const assignedRoleCount = () =>
+		sortedRoles().filter((role) => hasRole(role.uri)).length;
+
 	/** A desktop context-menu toggle styled like the role checkboxes. */
 	const VoiceCheckItem: ParentComponent<{
 		checked: boolean;
@@ -248,7 +253,7 @@ export const MemberContextMenu: ParentComponent<{
 	const [overlaysMounted, setOverlaysMounted] = createSignal(false);
 
 	createEffect(() => {
-		if (menuOpen() || dialog().open || cameraPreviewOpen()) {
+		if (menuOpen() || rolesOpen() || dialog().open || cameraPreviewOpen()) {
 			setOverlaysMounted(true);
 		}
 	});
@@ -419,31 +424,23 @@ export const MemberContextMenu: ParentComponent<{
 							</Show>
 						</Show>
 						<Show when={canManageAnyRole()}>
-							<span class="px-3 pt-1 pb-0.5 text-xs uppercase tracking-wide text-muted-foreground flex flex-row items-center gap-1.5">
-								<IdentificationBadgeIcon class="size-3.5" />
-								Roles
-							</span>
-							<For each={sortedRoles()}>
-								{(role) => {
-									const manageable = () => canManageRole(user.did, role);
-									return (
-										<MenuDrawerItem
-											disabled={!manageable()}
-											class="disabled:opacity-50"
-											onClick={() => manageable() && toggleRole(role.uri)}
-										>
-											<div
-												class="w-2.5 h-2.5 rounded-full shrink-0"
-												style={{ background: role.color ?? "#fff" }}
-											/>
-											<span>{role.name}</span>
-											<Show when={hasRole(role.uri)}>
-												<CheckIcon class="ml-auto" />
-											</Show>
-										</MenuDrawerItem>
-									);
-								}}
-							</For>
+							<MenuDrawerItem
+								onClick={() =>
+									handoffDrawer(
+										() => setMenuOpen(false),
+										() => setRolesOpen(true),
+									)
+								}
+							>
+								<IdentificationBadgeIcon />
+								<span>Roles</span>
+								<span class="ml-auto flex flex-row items-center gap-1 text-muted-foreground">
+									<Show when={assignedRoleCount() > 0}>
+										{assignedRoleCount()}
+									</Show>
+									<CaretRightIcon />
+								</span>
+							</MenuDrawerItem>
 						</Show>
 						<Show when={showModActions()}>
 							<Show
@@ -553,6 +550,44 @@ export const MemberContextMenu: ParentComponent<{
 							<CopyIcon />
 							<span>Copy DID</span>
 						</MenuDrawerItem>
+					</MenuDrawer>
+					<MenuDrawer
+						open={rolesOpen()}
+						onOpenChange={setRolesOpen}
+						title={
+							<>
+								Roles for <DisplayableName color={false} user={props.member} />
+							</>
+						}
+					>
+						<For each={sortedRoles()}>
+							{(role) => {
+								const manageable = () => canManageRole(user.did, role);
+								return (
+									<Checkbox
+										class="w-full"
+										checked={hasRole(role.uri)}
+										disabled={!manageable()}
+									>
+										<CheckboxInput />
+										<MenuDrawerItem
+											disabled={!manageable()}
+											class="disabled:opacity-50"
+											onClick={() => manageable() && toggleRole(role.uri)}
+										>
+											<CheckboxLabel class="flex flex-row items-center gap-2 text-base">
+												<div
+													class="w-2.5 h-2.5 rounded-full shrink-0"
+													style={{ background: role.color ?? "#fff" }}
+												/>
+												{role.name}
+											</CheckboxLabel>
+											<CheckboxControl class="ml-auto [&_svg]:size-3.5!" />
+										</MenuDrawerItem>
+									</Checkbox>
+								);
+							}}
+						</For>
 					</MenuDrawer>
 				</Show>
 			</Show>
@@ -683,11 +718,7 @@ export const MemberContextMenu: ParentComponent<{
 									</ContextMenuSubTrigger>
 									<ContextMenuPortal>
 										<ContextMenuSubContent>
-											<For
-												each={community().assignableRoles.sort(
-													(a, b) => b.position - a.position,
-												)}
-											>
+											<For each={sortedRoles()}>
 												{(role) => {
 													const manageable = () =>
 														canManageRole(user.did, role);
