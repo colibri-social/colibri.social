@@ -113,6 +113,87 @@ describe("request", () => {
 		expect(noteScopesRejected).not.toHaveBeenCalled();
 	});
 
+	describe("when the caller aborted the request", () => {
+		const abortError = () => {
+			const err = new Error("aborted");
+			err.name = "AbortError";
+			return err;
+		};
+
+		const aborted = () => {
+			const controller = new AbortController();
+			controller.abort();
+			return controller.signal;
+		};
+
+		it("fails without reporting", async () => {
+			const signal = aborted();
+			const res = await request(() => Promise.reject(abortError()), {
+				lxm: "social.colibri.channel.listMessages",
+				route: "/xrpc/social.colibri.channel.listMessages?channel=at://c",
+				init: { signal },
+			});
+
+			expect(res.ok).toBe(false);
+			if (!res.ok) expect(res.error.code).toBe("Timeout");
+			expect(reportError).not.toHaveBeenCalled();
+		});
+
+		it("still reports the same rejection when no signal is involved", async () => {
+			const res = await request(() => Promise.reject(abortError()), {
+				lxm: "social.colibri.channel.listMessages",
+				route: "/xrpc/social.colibri.channel.listMessages?channel=at://c",
+			});
+
+			expect(res.ok).toBe(false);
+			expect(reportError).toHaveBeenCalledTimes(1);
+		});
+
+		it("does not report a rejected status either", async () => {
+			const signal = aborted();
+			const res = await request(forbidden, {
+				lxm: "social.colibri.channel.listMessages",
+				route: "/xrpc/social.colibri.channel.listMessages?channel=at://c",
+				init: { signal },
+			});
+
+			expect(res.ok).toBe(false);
+			expect(reportError).not.toHaveBeenCalled();
+		});
+
+		it("does not turn a truncated body into an empty success", async () => {
+			const signal = aborted();
+			const truncated = async () =>
+				new Response(
+					new ReadableStream({
+						start(controller) {
+							controller.error(abortError());
+						},
+					}),
+					{ status: 200, headers: { "content-type": "application/json" } },
+				);
+
+			const res = await request(truncated, {
+				lxm: "social.colibri.channel.getChannelView",
+				route: "/xrpc/social.colibri.channel.getChannelView?channel=at://c",
+				init: { signal },
+			});
+
+			expect(res.ok).toBe(false);
+			if (!res.ok) expect(res.error.code).toBe("Timeout");
+		});
+
+		it("does not turn an empty body into a failure without a signal", async () => {
+			const res = await request(respondWith(200, ""), {
+				lxm: "social.colibri.channel.getChannelView",
+				route: "/xrpc/social.colibri.channel.getChannelView?channel=at://c",
+			});
+
+			expect(res.ok).toBe(true);
+			if (res.ok) expect(res.data).toBeUndefined();
+		});
+	});
+
 	describe("once the session is dead", () => {
 		const send = vi.fn(forbidden);
 

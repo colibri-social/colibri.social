@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { listRecords } from "./com/atproto/repo/listRecords";
+import { getChannelView } from "./social/colibri/channel/getChannelView";
 import { listMessages } from "./social/colibri/channel/listMessages";
+import { getData } from "./social/colibri/community/getData";
 import { registerCredentials } from "./social/colibri/community/registerCredentials";
 import { trendingGifs } from "./social/colibri/embed/trendingGifs";
 import { listNotifications } from "./social/colibri/notification/listNotifications";
@@ -21,6 +23,9 @@ const ok = (body: unknown = {}) =>
 
 const urlOf = (fetch: ReturnType<typeof ok>) =>
 	fetch.mock.calls[0][0] as string;
+
+const initOf = (fetch: ReturnType<typeof ok>) =>
+	fetch.mock.calls[0][1] as RequestInit | undefined;
 
 const queryOf = (fetch: ReturnType<typeof ok>) =>
 	new URL(urlOf(fetch), "http://x").searchParams;
@@ -339,5 +344,40 @@ describe("error handling", () => {
 		if (result.ok) return;
 		expect(result.error.code).toBe("UpstreamFailure");
 		expect(result.error.retryable).toBe(true);
+	});
+});
+
+describe("the channel and community reads forward an abort signal", () => {
+	const COMMUNITY = "at://did:plc:owner/social.colibri.community/self";
+
+	it("listMessages passes the signal through as request init", async () => {
+		const fetch = ok({ messages: [] });
+		const signal = new AbortController().signal;
+		await listMessages(fetch, CHANNEL, undefined, undefined, undefined, signal);
+
+		expect(initOf(fetch)?.signal).toBe(signal);
+	});
+
+	it("getChannelView passes the signal through as request init", async () => {
+		const fetch = ok({ messages: [], unseen: [] });
+		const signal = new AbortController().signal;
+		await getChannelView(fetch, CHANNEL, undefined, signal);
+
+		expect(initOf(fetch)?.signal).toBe(signal);
+	});
+
+	it("getData passes the signal through as request init", async () => {
+		const fetch = ok({});
+		const signal = new AbortController().signal;
+		await getData(fetch, COMMUNITY, signal);
+
+		expect(initOf(fetch)?.signal).toBe(signal);
+	});
+
+	it("sends no init at all when no signal is given", async () => {
+		const fetch = ok({ messages: [] });
+		await listMessages(fetch, CHANNEL, undefined, undefined, undefined);
+
+		expect(initOf(fetch)).toBeUndefined();
 	});
 });

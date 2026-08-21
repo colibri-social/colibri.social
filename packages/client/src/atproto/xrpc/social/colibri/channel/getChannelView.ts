@@ -18,14 +18,15 @@ export type Response = {
 };
 
 export const getChannelView: XrpcRequest<
-	[string, number | undefined],
+	[string, number | undefined, AbortSignal?],
 	Promise<XrpcResult<Response>>
-> = async (fetch, channel, limit) => {
+> = async (fetch, channel, limit, signal) => {
 	return request<Response>(fetch, {
 		lxm: "social.colibri.channel.getChannelView",
 		route: `/xrpc/social.colibri.channel.getChannelView?channel=${channel}${
 			limit !== undefined ? `&limit=${limit}` : ""
 		}`,
+		init: signal ? { signal } : undefined,
 		expected: ["Timeout", "NetworkFailed", "Unreachable"],
 	});
 };

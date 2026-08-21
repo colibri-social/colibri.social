@@ -33,6 +33,46 @@ export const buildMessagesSnapshot = (
 	};
 };
 
+export const belongsToChannel = (
+	message: { channel?: string },
+	channelUri: string,
+): boolean => !message.channel || message.channel === channelUri;
+
+export const snapshotBelongsTo = (
+	snapshot: MessagesSnapshot,
+	channelUri: string,
+): boolean =>
+	snapshot.messages.every((message) => belongsToChannel(message, channelUri));
+
+export const mergeSnapshotWindow = (
+	existing: MessagesSnapshot | undefined,
+	fetched: Message[],
+	options: {
+		readCursor: string | undefined;
+		hasMore: boolean;
+		limit: number;
+		now: number;
+	},
+): MessagesSnapshot => {
+	if (!existing) return buildMessagesSnapshot(fetched, options);
+
+	const byUri = new Map<string, Message>();
+	for (const message of existing.messages) byUri.set(message.uri, message);
+	for (const message of fetched) byUri.set(message.uri, message);
+
+	const union = [...byUri.values()].sort((left, right) => {
+		const a = rkeyOf(left.uri);
+		const b = rkeyOf(right.uri);
+		if (a < b) return -1;
+		return a > b ? 1 : 0;
+	});
+
+	return buildMessagesSnapshot(union, {
+		...options,
+		readCursor: options.readCursor ?? existing.readCursor,
+	});
+};
+
 export const MESSAGES_HARD_TTL_MS = 24 * 60 * 60 * 1000;
 
 export const MESSAGES_STALE_HINT_MS = 60_000;

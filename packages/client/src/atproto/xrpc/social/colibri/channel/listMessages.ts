@@ -46,9 +46,15 @@ export type Response = {
 };
 
 export const listMessages: XrpcRequest<
-	[string, number | undefined, string | undefined, boolean | undefined],
+	[
+		string,
+		number | undefined,
+		string | undefined,
+		boolean | undefined,
+		AbortSignal?,
+	],
 	Promise<XrpcResult<Response>>
-> = async (fetch, channel, limit, cursor, all) => {
+> = async (fetch, channel, limit, cursor, all, signal) => {
 	const params = new URLSearchParams({ channel });
 	if (limit !== undefined) params.set("limit", String(limit));
 	if (cursor !== undefined) params.set("cursor", cursor);
@@ -57,5 +63,6 @@ export const listMessages: XrpcRequest<
 	return request<Response>(fetch, {
 		lxm: "social.colibri.channel.listMessages",
 		route: `/xrpc/social.colibri.channel.listMessages?${params.toString()}`,
+		init: signal ? { signal } : undefined,
 	});
 };

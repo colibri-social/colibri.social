@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import type { Community as CommunityResponse } from "../atproto/xrpc/social/colibri/community/getData";
-import { emptyCommunityPayload, isCommunityPayload } from "./community-payload";
+import {
+	emptyCommunityPayload,
+	isCommunityPayload,
+	payloadForUri,
+} from "./community-payload";
 
 const payload = (uri: string, memberDids: Array<string>): CommunityResponse =>
 	({
@@ -93,5 +97,26 @@ describe("isCommunityPayload", () => {
 		const stale = { ...A, community: null } as unknown as CommunityResponse;
 
 		expect(isCommunityPayload(stale)).toBe(false);
+	});
+});
+
+describe("payloadForUri", () => {
+	it("hands back the payload when it belongs to the uri", () => {
+		expect(payloadForUri(A, A.community.uri)).toBe(A);
+	});
+
+	it("rejects a payload from a different community", () => {
+		expect(
+			payloadForUri(A, "at://did:plc:b/social.colibri.community/self"),
+		).toBeUndefined();
+	});
+
+	it("rejects an absent payload", () => {
+		expect(payloadForUri(undefined, A.community.uri)).toBeUndefined();
+	});
+
+	it("rejects every payload while no community is selected", () => {
+		expect(payloadForUri(A, "")).toBeUndefined();
+		expect(payloadForUri(emptyCommunityPayload(), "")).toBeUndefined();
 	});
 });

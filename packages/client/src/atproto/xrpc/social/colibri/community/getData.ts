@@ -29,12 +29,13 @@ export type Community = {
 };
 
 export const getData: XrpcRequest<
-	[string],
+	[string, AbortSignal?],
 	Promise<XrpcResult<Community>>
-> = async (fetch, community) => {
+> = async (fetch, community, signal) => {
 	return request<Community>(fetch, {
 		lxm: "social.colibri.community.getData",
 		route: `/xrpc/social.colibri.community.getData?community=${community}`,
+		init: signal ? { signal } : undefined,
 		expected: ["NotFound"],
 	});
 };

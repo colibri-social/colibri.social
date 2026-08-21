@@ -71,6 +71,7 @@ import {
 	domFrameScheduler,
 } from "../utils/message-scroll-dom";
 import { createMobilePane } from "../utils/mobile-pane";
+import { probe, probeRender } from "../utils/switch-probe";
 
 type MessageMeta = {
 	isOnNewDay: boolean;
@@ -140,6 +141,19 @@ const ChannelLayout: ParentComponent = (props) => {
 			if (isMobile()) toast.success("Channel muted");
 		}
 	};
+
+	createEffect(() => {
+		const msgs = channel.messages();
+		probeRender({
+			channelUri: channel.channelUri(),
+			owner: msgs[0]?.channel,
+			count: msgs.length,
+			initialLoading: channel.initialLoading(),
+		});
+	});
+
+	onMount(() => probe("ChannelLayout MOUNTED"));
+	onCleanup(() => probe("ChannelLayout UNMOUNTED"));
 
 	const messageMeta = createMemo<MessageMeta[]>(() => {
 		const msgs = channel.messages() as RichMessage[];
@@ -500,7 +514,7 @@ const ChannelLayout: ParentComponent = (props) => {
 		if (!present) {
 			if (channel.hasMore() && focusWalkAttempts < FOCUS_WALK_CAP) {
 				focusWalkAttempts++;
-				loadOlderPreservingScroll(); // no-op while inflight
+				loadOlderPreservingScroll(); // no-op while a load is busy
 			} else {
 				// Not in this channel's history (deleted, or beyond the cap)
 				notifications.clearPendingFocus();

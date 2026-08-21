@@ -68,8 +68,13 @@ import { createMemberIndex } from "../utils/member-search";
 import { markBoot } from "../utils/perf";
 import { speakerRanks } from "../utils/recent-speakers";
 import { decideCommunityExit } from "./community-exit";
-import { emptyCommunityPayload, isCommunityPayload } from "./community-payload";
+import {
+	emptyCommunityPayload,
+	isCommunityPayload,
+	payloadForUri,
+} from "./community-payload";
 import { trackCommunityRefresh } from "./community-refresh-state";
+import { createLoadSessions } from "./load-session";
 import { useSocketContext } from "./Socket";
 import { useUserContext } from "./User";
 import { useVoiceChatContext } from "./VoiceChat";
@@ -139,24 +144,52 @@ export const CommunityContextProvider: ParentComponent = (props) => {
 
 	const ns = () => namespace(getAppViewDid(), user.did);
 
+	const sessions = createLoadSessions(() => ({}));
+	onCleanup(() => sessions.dispose());
+
+	const [settledUri, setSettledUri] = createSignal<string>();
+
+	const cacheSettledPayload = (uri: string, data: CommunityResponse) => {
+		rememberCommunity(communityKey(ns(), uri), data);
+		if (!cacheEnabled()) return;
+		void writeCommunity(ns(), uri, data);
+	};
+
 	const [community, { refetch }] = createResource(communityUri, async (uri) => {
+		const session = sessions.begin(uri);
 		pendingRoleIntents.clear();
 		if (fetchedCommunity()?.community.uri !== uri) {
 			setFetchedCommunity(undefined);
 		}
-		const res = await user.xrpc.social.colibri.community.getData(uri);
+		const res = await user.xrpc.social.colibri.community.getData(
+			uri,
+			sessions.teardownSignal,
+		);
+		const superseded = !sessions.isCurrent(session);
+		if (!superseded) setSettledUri(uri);
 		if (!res.ok) throw res.error;
+		if (superseded) {
+			cacheSettledPayload(uri, res.data);
+			return res.data;
+		}
 		lastFetched = res.data;
 		setFetchedCommunity(res.data);
 		setSnapshot(res.data);
 		return res.data;
 	});
 
-	const seeded = recallCommunity(communityKey(ns(), communityUri()));
-	if (seeded) setSnapshot(seeded);
+	const currentPayload = createMemo(
+		() =>
+			payloadForUri(snapshot(), communityUri()) ??
+			recallCommunity(communityKey(ns(), communityUri())),
+	);
+
+	const resolving = () => community.loading || settledUri() !== communityUri();
+
+	const settledError = () => (resolving() ? undefined : community.error);
 
 	createEffect(() => {
-		if (!community.loading && snapshot()) markBoot("community:ready");
+		if (!community.loading && currentPayload()) markBoot("community:ready");
 	});
 
 	// Only leave the community when it is actually gone, a transient failure
@@ -164,9 +197,9 @@ export const CommunityContextProvider: ParentComponent = (props) => {
 	// thrown out of what they were reading.
 	createEffect(() => {
 		const exit = decideCommunityExit(
-			community.loading,
-			community.error,
-			snapshot() !== undefined,
+			resolving(),
+			settledError(),
+			currentPayload() !== undefined,
 		);
 		if (exit === "stay") return;
 		if (exit === "gone") evictCommunity(ns(), communityUri());
@@ -200,8 +233,8 @@ export const CommunityContextProvider: ParentComponent = (props) => {
 	);
 
 	createEffect(() => {
-		if (community.loading) return;
-		if (community.error === undefined || snapshot() === undefined) {
+		if (resolving()) return;
+		if (settledError() === undefined || currentPayload() === undefined) {
 			cancelRefreshRetry();
 			refreshRetries = 0;
 			return;
@@ -218,13 +251,13 @@ export const CommunityContextProvider: ParentComponent = (props) => {
 	onCleanup(cancelRefreshRetry);
 
 	trackCommunityRefresh(
-		() => community.error !== undefined && snapshot() !== undefined,
+		() => settledError() !== undefined && currentPayload() !== undefined,
 	);
 
 	let syncedPayload: CommunityResponse | undefined;
 	createEffect(() => {
 		const uri = communityUri();
-		const data = snapshot();
+		const data = currentPayload();
 
 		if (!uri || !data || community.loading) return;
 		if (data !== lastFetched || data === syncedPayload) return;
@@ -264,18 +297,13 @@ export const CommunityContextProvider: ParentComponent = (props) => {
 
 	createEffect(
 		on(communityUri, async (uri) => {
-			if (!uri) return;
-			const remembered = recallCommunity(communityKey(ns(), uri));
-			if (remembered) {
-				setSnapshot(remembered);
-				return;
-			}
-			if (!cacheEnabled()) return;
+			if (!uri || !cacheEnabled()) return;
+			if (currentPayload()) return;
 			const cached = await readCommunity(ns(), uri);
 			if (
 				isCommunityPayload(cached) &&
 				communityUri() === uri &&
-				community.loading
+				currentPayload() === undefined
 			) {
 				setSnapshot(cached);
 			}
@@ -283,7 +311,7 @@ export const CommunityContextProvider: ParentComponent = (props) => {
 	);
 
 	createEffect(() => {
-		const data = snapshot();
+		const data = currentPayload();
 		const uri = communityUri();
 		if (!data || !uri) return;
 		primeCommunityChannels(uri, data.channels ?? []);
@@ -291,7 +319,7 @@ export const CommunityContextProvider: ParentComponent = (props) => {
 
 	let cacheWriteTimer: ReturnType<typeof setTimeout> | undefined;
 	createEffect(() => {
-		const data = snapshot();
+		const data = currentPayload();
 		const uri = communityUri();
 		if (community.loading || !data || !uri) return;
 		rememberCommunity(communityKey(ns(), uri), data);
@@ -355,7 +383,7 @@ export const CommunityContextProvider: ParentComponent = (props) => {
 	// Handle updates for community data, members, categories, and channels
 	// via the AppView WebSocket event stream.
 	const cleanup = socket.onEvent((event) => {
-		const prev = snapshot();
+		const prev = currentPayload();
 		if (!prev) return;
 
 		if (event.type === "user_event" && event.data) {
@@ -737,7 +765,7 @@ export const CommunityContextProvider: ParentComponent = (props) => {
 
 	onCleanup(cleanup);
 
-	const payload = createMemo(() => snapshot() ?? emptyCommunityPayload());
+	const payload = createMemo(() => currentPayload() ?? emptyCommunityPayload());
 
 	// The single source of truth for "real", user-facing roles. Protected roles
 	// exist only as permission-check markers (there should be exactly one) and
@@ -805,7 +833,7 @@ export const CommunityContextProvider: ParentComponent = (props) => {
 	// consumer (name colours, profile popover, member grouping) updates
 	// immediately, without waiting for the server's `roles_updated` event.
 	const setRolesForUser = (did: string, roles: Array<string>) => {
-		const prev = snapshot();
+		const prev = currentPayload();
 		if (!prev) return;
 		// Record the desired set so the `roles_updated` handler can tell our own
 		// confirming event apart from stale echoes.
@@ -817,7 +845,7 @@ export const CommunityContextProvider: ParentComponent = (props) => {
 	};
 
 	const patchChannel = (uri: string, patch: Partial<Channel>) => {
-		const prev = snapshot();
+		const prev = currentPayload();
 		if (!prev?.channels.some((c) => c.uri === uri)) return;
 		setSnapshot({
 			...prev,
@@ -828,7 +856,7 @@ export const CommunityContextProvider: ParentComponent = (props) => {
 	};
 
 	const patchCategory = (uri: string, patch: Partial<Category>) => {
-		const prev = snapshot();
+		const prev = currentPayload();
 		if (!prev?.categories.some((c) => c.uri === uri)) return;
 		setSnapshot({
 			...prev,
@@ -839,14 +867,14 @@ export const CommunityContextProvider: ParentComponent = (props) => {
 	};
 
 	const patchCommunity = (patch: Partial<CommunityData>) => {
-		const prev = snapshot();
+		const prev = currentPayload();
 		if (!prev) return;
 		setSnapshot({ ...prev, community: { ...prev.community, ...patch } });
 	};
 
 	// Optimistically patch a member's profile/presence data
 	const patchMember = (did: string, patch: Partial<Member["data"]>) => {
-		const prev = snapshot();
+		const prev = currentPayload();
 		if (!prev?.members.some((m) => m.did === did)) return;
 		setSnapshot({
 			...prev,
@@ -890,19 +918,19 @@ export const CommunityContextProvider: ParentComponent = (props) => {
 
 	return (
 		<Switch fallback={<AppLoadingScreen message="Redirecting..." />}>
-			<Match when={snapshot()}>
+			<Match when={currentPayload()}>
 				<CommunityContext.Provider value={value}>
 					{props.children}
 				</CommunityContext.Provider>
 			</Match>
-			<Match when={community.loading}>
+			<Match when={resolving()}>
 				<AppLoadingScreen
 					message="Fetching community details..."
 					delay={OVERLAY_DELAY}
 				/>
 			</Match>
-			<Match when={community.error}>
-				<ErrorState error={community.error} retry={() => void refetch()} />
+			<Match when={settledError()}>
+				<ErrorState error={settledError()} retry={() => void refetch()} />
 			</Match>
 		</Switch>
 	);

@@ -151,6 +151,7 @@ export class XrpcClient {
 				return res;
 			},
 			(err) => {
+				if (init?.signal?.aborted) throw err;
 				recordRequest(method, start, perfNow() - start, false);
 				log.error("request could not be sent", {
 					method,
@@ -477,8 +478,8 @@ export class XrpcClient {
 						member,
 						roles,
 					),
-				getData: (community: string) =>
-					Community.getData(this.proxiedFetch, community),
+				getData: (community: string, signal?: AbortSignal) =>
+					Community.getData(this.proxiedFetch, community, signal),
 				listBannedUsers: (community: string) =>
 					Community.listBannedUsers(this.proxiedFetch, community),
 				listCategories: (community: string) =>
@@ -655,9 +656,21 @@ export class XrpcClient {
 					limit?: number,
 					cursor?: string,
 					all?: boolean,
+					signal?: AbortSignal,
 				) =>
-					Channel.listMessages(this.proxiedFetch, channel, limit, cursor, all),
-				getChannelView: (channel: string, limit?: number) =>
+					Channel.listMessages(
+						this.proxiedFetch,
+						channel,
+						limit,
+						cursor,
+						all,
+						signal,
+					),
+				getChannelView: (
+					channel: string,
+					limit?: number,
+					signal?: AbortSignal,
+				) =>
 					Channel.getChannelView(
 						this.authed(
 							this.proxiedFetch,
@@ -665,6 +678,7 @@ export class XrpcClient {
 						),
 						channel,
 						limit,
+						signal,
 					),
 				getReadCursor: (channel: string) =>
 					Channel.getReadCursor(

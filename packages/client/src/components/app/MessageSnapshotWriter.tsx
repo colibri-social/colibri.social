@@ -1,10 +1,11 @@
 import { type Component, onCleanup, onMount } from "solid-js";
 import { namespace } from "../../atproto/cache/keys";
 import {
-	applyMessageEvent,
-	isOpenChannel,
+	configureSnapshotWriter,
+	flushSnapshotWriter,
+	foldMessageEvent,
+	resetSnapshotWriter,
 } from "../../atproto/cache/messages-writer";
-import type { MessagesSnapshot } from "../../atproto/cache/schema";
 import {
 	cacheEnabled,
 	readMessages,
@@ -25,28 +26,23 @@ export const MessageSnapshotWriter: Component = () => {
 	const socket = useSocketContext();
 	const user = useUserContext();
 
-	const pending = new Map<string, MessagesSnapshot>();
-	const chains = new Map<string, Promise<void>>();
-	let flushTimer: ReturnType<typeof setInterval> | undefined;
-
-	const ns = () => namespace(getAppViewDid(), user.did);
-
-	const flush = () => {
-		if (pending.size === 0) return;
-		const batch = [...pending.entries()];
-		pending.clear();
-		for (const [uri, snap] of batch) {
-			if (isOpenChannel(uri)) continue;
-			void writeMessages(ns(), uri, snap);
-		}
-	};
-
 	const onHidden = () => {
-		if (document.visibilityState === "hidden") flush();
+		if (document.visibilityState === "hidden") flushSnapshotWriter();
 	};
 
 	onMount(() => {
 		if (!cacheEnabled()) return;
+
+		configureSnapshotWriter({
+			namespace: () => namespace(getAppViewDid(), user.did),
+			read: readMessages,
+			write: writeMessages,
+			onError: (err) => {
+				log.warn("could not fold an event into a snapshot", {
+					code: classifyThrown(err).code,
+				});
+			},
+		});
 
 		const unsubscribe = socket.onEvent((event) => {
 			if (event.type !== "message_event") return;
@@ -58,41 +54,20 @@ export const MessageSnapshotWriter: Component = () => {
 				});
 				return;
 			}
-
-			const uri = data.channel;
-			if (isOpenChannel(uri)) return;
-
-			const fold = async () => {
-				try {
-					const current = pending.get(uri) ?? (await readMessages(ns(), uri));
-					if (!current) return;
-					if (isOpenChannel(uri)) return;
-					const next = applyMessageEvent(current, data, PAGE_SIZE);
-					if (next) pending.set(uri, next);
-				} catch (err) {
-					log.warn("could not fold an event into a snapshot", {
-						code: classifyThrown(err).code,
-					});
-				}
-			};
-
-			const chain = (chains.get(uri) ?? Promise.resolve()).then(fold);
-			chains.set(uri, chain);
-			void chain.finally(() => {
-				if (chains.get(uri) === chain) chains.delete(uri);
-			});
+			foldMessageEvent(data, PAGE_SIZE);
 		});
 
-		flushTimer = setInterval(flush, FLUSH_INTERVAL_MS);
+		const flushTimer = setInterval(flushSnapshotWriter, FLUSH_INTERVAL_MS);
 		document.addEventListener("visibilitychange", onHidden);
-		window.addEventListener("pagehide", flush);
+		window.addEventListener("pagehide", flushSnapshotWriter);
 
 		onCleanup(() => {
 			unsubscribe();
-			if (flushTimer) clearInterval(flushTimer);
+			clearInterval(flushTimer);
 			document.removeEventListener("visibilitychange", onHidden);
-			window.removeEventListener("pagehide", flush);
-			flush();
+			window.removeEventListener("pagehide", flushSnapshotWriter);
+			flushSnapshotWriter();
+			resetSnapshotWriter();
 		});
 	});
 

@@ -27,3 +27,11 @@ export const isCommunityPayload = (
 	Array.isArray(value.roles) &&
 	Array.isArray(value.channels) &&
 	Array.isArray(value.categories);
+
+export const payloadForUri = (
+	payload: CommunityResponse | undefined,
+	uri: string,
+): CommunityResponse | undefined =>
+	uri !== "" && payload !== undefined && payload.community.uri === uri
+		? payload
+		: undefined;

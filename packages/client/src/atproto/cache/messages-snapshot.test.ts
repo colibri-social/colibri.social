@@ -4,17 +4,20 @@ import type {
 	PendingMessage,
 } from "../xrpc/social/colibri/channel/listMessages";
 import {
+	belongsToChannel,
 	buildMessagesSnapshot,
 	cursorFor,
 	isSnapshotPaintable,
 	isSnapshotStale,
 	MESSAGES_HARD_TTL_MS,
 	MESSAGES_STALE_HINT_MS,
+	mergeSnapshotWindow,
 	reconcileFetchedWindow,
 	restoreMessagesSnapshot,
 	rkeyOf,
 	shouldWriteSnapshot,
 	snapshotAgeMs,
+	snapshotBelongsTo,
 } from "./messages-snapshot";
 import type { MessagesSnapshot } from "./schema";
 
@@ -310,5 +313,145 @@ describe("reconcileFetchedWindow", () => {
 				}) ?? [],
 			),
 		).toEqual(uris([a, raced]));
+	});
+});
+
+describe("mergeSnapshotWindow", () => {
+	const named = (rkey: string, text: string): Message => ({
+		...message(rkey),
+		text,
+	});
+
+	const window = (rkeys: string[]): Message[] => rkeys.map((r) => message(r));
+
+	const snapshot = (
+		messages: Message[],
+		overrides?: Partial<MessagesSnapshot>,
+	): MessagesSnapshot => ({
+		messages,
+		cursor: messages[0] ? rkeyOf(messages[0].uri) : undefined,
+		hasMore: false,
+		ts: 1,
+		...overrides,
+	});
+
+	it("falls back to a plain build when nothing is stored", () => {
+		const fetched = window(["m01", "m02"]);
+
+		expect(mergeSnapshotWindow(undefined, fetched, options())).toEqual(
+			buildMessagesSnapshot(fetched, options()),
+		);
+	});
+
+	it("dedupes by uri with the fetched copy winning, in rkey order", () => {
+		const existing = snapshot([named("m01", "stale"), named("m02", "stale")]);
+		const fetched = [named("m02", "fresh"), named("m03", "fresh")];
+
+		const merged = mergeSnapshotWindow(existing, fetched, options());
+
+		expect(merged.messages.map((m) => rkeyOf(m.uri))).toEqual([
+			"m01",
+			"m02",
+			"m03",
+		]);
+		expect(merged.messages.map((m) => m.text)).toEqual([
+			"stale",
+			"fresh",
+			"fresh",
+		]);
+	});
+
+	it("keeps a message the writer folded in while the fetch was in flight", () => {
+		const existing = snapshot(window(["m01", "m02", "m03"]));
+		const fetched = window(["m01", "m02"]);
+
+		const merged = mergeSnapshotWindow(existing, fetched, options());
+
+		expect(merged.messages.map((m) => rkeyOf(m.uri))).toContain("m03");
+	});
+
+	it("keeps only the newest window and reports more when it truncates", () => {
+		const existing = snapshot(window(["m01", "m02"]));
+		const fetched = window(["m03", "m04"]);
+
+		const merged = mergeSnapshotWindow(
+			existing,
+			fetched,
+			options({ limit: 3, hasMore: false }),
+		);
+
+		expect(merged.messages.map((m) => rkeyOf(m.uri))).toEqual([
+			"m02",
+			"m03",
+			"m04",
+		]);
+		expect(merged.hasMore).toBe(true);
+		expect(merged.cursor).toBe("m02");
+	});
+
+	it("stamps the merge with the supplied clock", () => {
+		const existing = snapshot(window(["m01"]));
+
+		const merged = mergeSnapshotWindow(
+			existing,
+			window(["m02"]),
+			options({ now: 999 }),
+		);
+
+		expect(merged.ts).toBe(999);
+	});
+
+	it("keeps the stored read cursor when the fetched view has none", () => {
+		const existing = snapshot(window(["m01"]), { readCursor: "m01" });
+
+		const merged = mergeSnapshotWindow(existing, window(["m02"]), options());
+
+		expect(merged.readCursor).toBe("m01");
+	});
+
+	it("prefers the fetched read cursor when there is one", () => {
+		const existing = snapshot(window(["m01"]), { readCursor: "m01" });
+
+		const merged = mergeSnapshotWindow(
+			existing,
+			window(["m02"]),
+			options({ readCursor: "m02" }),
+		);
+
+		expect(merged.readCursor).toBe("m02");
+	});
+});
+
+describe("snapshotBelongsTo", () => {
+	const OTHER = `at://${DID}/social.colibri.channel/random`;
+
+	const stored = (messages: Message[]): MessagesSnapshot => ({
+		messages,
+		ts: 1,
+	});
+
+	it("accepts a snapshot whose messages all name the channel", () => {
+		expect(snapshotBelongsTo(stored(run(3)), CHANNEL)).toBe(true);
+	});
+
+	it("rejects a snapshot written under another channel's key", () => {
+		expect(snapshotBelongsTo(stored(run(3)), OTHER)).toBe(false);
+	});
+
+	it("rejects a snapshot with even one foreign message", () => {
+		const mixed = [...run(2), { ...message("m9"), channel: OTHER }];
+
+		expect(snapshotBelongsTo(stored(mixed), CHANNEL)).toBe(false);
+	});
+
+	it("accepts an empty snapshot", () => {
+		expect(snapshotBelongsTo(stored([]), CHANNEL)).toBe(true);
+	});
+
+	it("gives a message with no channel the benefit of the doubt", () => {
+		const anonymous = { ...message("m0"), channel: "" };
+
+		expect(belongsToChannel(anonymous, CHANNEL)).toBe(true);
+		expect(snapshotBelongsTo(stored([anonymous]), CHANNEL)).toBe(true);
 	});
 });

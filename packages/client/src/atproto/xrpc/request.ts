@@ -29,6 +29,15 @@ const isExpected = (
 	expected: ReadonlyArray<ColibriErrorCode> | undefined,
 ): boolean => expected?.includes(code) ?? false;
 
+const wasAborted = (options: RequestOptions): boolean =>
+	options.init?.signal?.aborted === true;
+
+const abortFail = (
+	options: RequestOptions,
+	status?: number,
+): XrpcResult<never> =>
+	xrpcFail(new ColibriError({ code: "Timeout", method: options.lxm, status }));
+
 const DPOP_ENVELOPE_CODES = new Set([
 	"invalid_dpop_proof",
 	"use_dpop_nonce",
@@ -86,27 +95,31 @@ export const request = async <T>(
 	try {
 		res = await fetch(options.route, options.init);
 	} catch (err) {
-		return fail(classifyThrown(err, { method: options.lxm }), options);
+		const error = classifyThrown(err, { method: options.lxm });
+		return wasAborted(options) ? xrpcFail(error) : fail(error, options);
 	}
 
 	if (!res.ok) {
 		const body = await res.text().catch(() => "");
-		return fail(
-			classifyResponse({
-				status: res.status,
-				body,
-				method: options.lxm,
-				retryAfter: res.headers.get("retry-after"),
-			}),
-			options,
-		);
+		const error = classifyResponse({
+			status: res.status,
+			body,
+			method: options.lxm,
+			retryAfter: res.headers.get("retry-after"),
+		});
+		return wasAborted(options) ? xrpcFail(error) : fail(error, options);
 	}
 
 	const queued = res.headers.get(QUEUED_HEADER) === "1";
 
-	if (options.empty) return xrpcOk(undefined as T, queued);
+	if (options.empty) {
+		return wasAborted(options)
+			? abortFail(options, res.status)
+			: xrpcOk(undefined as T, queued);
+	}
 
 	const body = await res.text().catch(() => "");
+	if (wasAborted(options)) return abortFail(options, res.status);
 	if (body === "") return xrpcOk(undefined as T, queued);
 
 	try {

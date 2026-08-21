@@ -16,6 +16,7 @@ import {
 import { toast } from "somoto";
 import { namespace } from "../atproto/cache/keys";
 import {
+	belongsToChannel,
 	buildMessagesSnapshot,
 	isSnapshotPaintable,
 	reconcileFetchedWindow,
@@ -23,8 +24,12 @@ import {
 	rkeyOf,
 	shouldWriteSnapshot,
 	snapshotAgeMs,
+	snapshotBelongsTo,
 } from "../atproto/cache/messages-snapshot";
-import { registerOpenChannel } from "../atproto/cache/messages-writer";
+import {
+	offerSnapshotWindow,
+	registerOpenChannel,
+} from "../atproto/cache/messages-writer";
 import type { MessagesSnapshot } from "../atproto/cache/schema";
 import {
 	createSnapshotScheduler,
@@ -32,6 +37,7 @@ import {
 } from "../atproto/cache/snapshot-scheduler";
 import {
 	cacheEnabled,
+	deleteMessages,
 	readMessages,
 	writeMessages,
 } from "../atproto/cache/store";
@@ -63,7 +69,9 @@ import { insertAt, placeMessage } from "../utils/message-order";
 import { markBoot } from "../utils/perf";
 import { purify } from "../utils/purify";
 import { recordSpeakers } from "../utils/recent-speakers";
+import { probe, shortUri } from "../utils/switch-probe";
 import { useCommunityContext } from "./Community";
+import { createLoadSessions } from "./load-session";
 import { useSocketContext } from "./Socket";
 import { useUserContext } from "./User";
 
@@ -335,15 +343,11 @@ export const ChannelContextProvider: ParentComponent<{
 	// get prematurely cleared by the first one's pending timer.
 	let focusClearTimer: ReturnType<typeof setTimeout> | undefined;
 
-	// Module-local flag guards against overlapping fetches (matches the
-	// `inflight` pattern in the old Astro `useMessageHistory` hook).
-	let inflight = false;
-
-	let lastViewAt = 0;
+	const sessions = createLoadSessions<{ busy: boolean; lastViewAt: number }>(
+		() => ({ busy: false, lastViewAt: 0 }),
+	);
 
 	const reset = () => {
-		inflight = false;
-		lastViewAt = 0;
 		paintedAt = undefined;
 		reactionRkeyCache.clear();
 		batch(() => {
@@ -363,12 +367,13 @@ export const ChannelContextProvider: ParentComponent<{
 	};
 
 	const loadOlder = async (hooks?: LoadOlderHooks): Promise<void> => {
-		if (inflight) return;
+		const session = sessions.current();
+		if (!session || session.state.busy) return;
 		if (!hasMore()) return;
 		const uri = channelUri();
 		if (!uri) return;
 
-		inflight = true;
+		session.state.busy = true;
 		setLoadingOlder(true);
 		try {
 			const res = await user.xrpc.social.colibri.channel.listMessages(
@@ -376,11 +381,10 @@ export const ChannelContextProvider: ParentComponent<{
 				PAGE_SIZE,
 				cursor(),
 				undefined,
+				session.supersededSignal,
 			);
 
-			// If the channel was switched mid-flight, discard the result entirely
-			// — `reset()` will already have cleared state for the new channel.
-			if (uri !== channelUri()) return;
+			if (!sessions.isCurrent(session)) return;
 
 			if (!res.ok) {
 				setError(res.error);
@@ -403,7 +407,7 @@ export const ChannelContextProvider: ParentComponent<{
 			const hitTop = fetched.length < PAGE_SIZE;
 
 			if (hooks?.prepare) await hooks.prepare(novel);
-			if (uri !== channelUri()) return;
+			if (!sessions.isCurrent(session)) return;
 
 			hooks?.onBeforePrepend?.();
 			batch(() => {
@@ -416,21 +420,25 @@ export const ChannelContextProvider: ParentComponent<{
 		} catch (err) {
 			const failure = classifyThrown(err, { method: "channel.listMessages" });
 			log.error("loadOlder failed", { code: failure.code });
-			setError(failure);
+			if (sessions.isCurrent(session)) setError(failure);
 		} finally {
-			inflight = false;
-			batch(() => {
-				setLoadingOlder(false);
-				setInitialLoading(false);
-			});
+			session.state.busy = false;
+			if (sessions.isCurrent(session)) {
+				batch(() => {
+					setLoadingOlder(false);
+					setInitialLoading(false);
+				});
+			}
 		}
 	};
 
 	const loadInitial = async (): Promise<void> => {
+		const session = sessions.current();
+		if (!session) return;
 		const uri = channelUri();
 		if (!uri) return;
 
-		inflight = true;
+		session.state.busy = true;
 		setLoadingOlder(true);
 
 		try {
@@ -438,17 +446,38 @@ export const ChannelContextProvider: ParentComponent<{
 			if (primed) markBoot("prefetch:consumed");
 			const view =
 				(await primed) ??
-				(await user.xrpc.social.colibri.channel.getChannelView(uri, PAGE_SIZE));
-
-			if (uri !== channelUri()) return;
+				(await user.xrpc.social.colibri.channel.getChannelView(
+					uri,
+					PAGE_SIZE,
+					sessions.teardownSignal,
+				));
 
 			if (!view.ok) {
-				setError(view.error);
+				if (sessions.isCurrent(session)) setError(view.error);
 				return;
 			}
 
 			const channel = view.data;
 			const ordered = [...(channel?.messages ?? [])].reverse();
+
+			if (!sessions.isCurrent(session)) {
+				probe("loadInitial: diverted to cache", {
+					wasFor: shortUri(session.key),
+					rows: ordered.length,
+				});
+				offerSnapshotWindow(session.key, ordered, {
+					readCursor: channel?.readCursor?.cursor,
+					hasMore: ordered.length >= PAGE_SIZE,
+					limit: PAGE_SIZE,
+				});
+				return;
+			}
+
+			probe("loadInitial: applied", {
+				channel: shortUri(uri),
+				viewBelongsTo: shortUri(ordered[0]?.channel),
+				rows: ordered.length,
+			});
 
 			const stillPending = messages().filter(
 				(m) => "hash" in m && !ordered.some((o) => o.uri === m.uri),
@@ -469,18 +498,20 @@ export const ChannelContextProvider: ParentComponent<{
 				);
 				setHydratedFromNetwork(true);
 			});
-			lastViewAt = Date.now();
+			session.state.lastViewAt = Date.now();
 		} catch (err) {
 			const failure = classifyThrown(err, { method: "channel.getChannelView" });
 			log.error("loadInitial failed", { code: failure.code });
-			setError(failure);
+			if (sessions.isCurrent(session)) setError(failure);
 		} finally {
-			inflight = false;
-			batch(() => {
-				setLoadingOlder(false);
-				setInitialLoading(false);
-			});
-			if (uri === channelUri()) setReadCursorResolved(true);
+			session.state.busy = false;
+			if (sessions.isCurrent(session)) {
+				batch(() => {
+					setLoadingOlder(false);
+					setInitialLoading(false);
+				});
+				setReadCursorResolved(true);
+			}
 		}
 	};
 
@@ -502,14 +533,32 @@ export const ChannelContextProvider: ParentComponent<{
 	// (including the initial mount). `on` makes the dependency explicit.
 	createEffect(
 		on(channelUri, (uri) => {
+			probe("channelUri changed", {
+				to: shortUri(uri),
+				listBelongsTo: shortUri(messages()[0]?.channel),
+				rows: messages().length,
+			});
 			flushSnapshot();
 			registerOpenChannel(uri);
-			if (!uri) return;
+			if (!uri) {
+				probe("channel went away, resetting", {
+					listBelongsTo: shortUri(messages()[0]?.channel),
+					rows: messages().length,
+				});
+				sessions.abortCurrent();
+				reset();
+				return;
+			}
+			sessions.begin(uri);
 			reset();
+			probe("reset done", { rows: messages().length });
 			loadInitial();
 		}),
 	);
-	onCleanup(() => registerOpenChannel(undefined));
+	onCleanup(() => {
+		sessions.dispose();
+		registerOpenChannel(undefined);
+	});
 
 	let scannedMessages: (Message | PendingMessage)[] | undefined;
 
@@ -527,12 +576,42 @@ export const ChannelContextProvider: ParentComponent<{
 	createEffect(
 		on(channelUri, async (uri) => {
 			if (!cacheEnabled() || !uri) return;
+			const session = sessions.current();
+			if (!session) return;
 			const cached = await readMessages(ns(), uri);
-			if (!cached) return;
+			if (!cached) {
+				probe("paint: nothing stored", { channel: shortUri(uri) });
+				return;
+			}
+			if (!snapshotBelongsTo(cached, uri)) {
+				log.warn("discarded a cached snapshot that belongs elsewhere", {
+					channel: rkeyOf(uri),
+					stored: rkeyOf(cached.messages[0]?.channel ?? ""),
+				});
+				void deleteMessages(ns(), uri);
+				return;
+			}
 			const age = snapshotAgeMs(cached, Date.now());
 			if (!isSnapshotPaintable(age)) return;
-			if (uri !== channelUri() || hydratedFromNetwork()) return;
-			if (messages().length > 0) return;
+			if (!sessions.isCurrent(session) || session.key !== uri) {
+				probe("paint: superseded", { channel: shortUri(uri) });
+				return;
+			}
+			if (hydratedFromNetwork()) return;
+			if (messages().length > 0) {
+				probe("paint: BLOCKED by existing rows", {
+					channel: shortUri(uri),
+					listBelongsTo: shortUri(messages()[0]?.channel),
+					rows: messages().length,
+				});
+				return;
+			}
+			probe("paint applied", {
+				channel: shortUri(uri),
+				snapshotBelongsTo: shortUri(cached.messages[0]?.channel),
+				rows: cached.messages.length,
+				ageMs: age,
+			});
 			const restored = restoreMessagesSnapshot(cached);
 			paintedAt = cached.ts;
 			batch(() => {
@@ -570,7 +649,8 @@ export const ChannelContextProvider: ParentComponent<{
 	createEffect(() => {
 		const uri = channelUri();
 		const confirmed = messages().filter(
-			(m) => !("hash" in m) && m.uri.startsWith("at://"),
+			(m) =>
+				!("hash" in m) && m.uri.startsWith("at://") && belongsToChannel(m, uri),
 		);
 		const hydrated = hydratedFromNetwork();
 		const gate = {
@@ -611,16 +691,22 @@ export const ChannelContextProvider: ParentComponent<{
 	const jumpToMessage = async (uri: string): Promise<void> => {
 		// Walk `loadOlder()` until the target appears in the buffer (or we hit
 		// the top of the channel, or trip the safety cap). `loadOlder` itself
-		// is inflight-guarded, so consecutive awaits serialize cleanly.
+		// is busy-guarded, so consecutive awaits serialize cleanly.
+		const session = sessions.current();
+		if (!session) return;
+
 		let fetches = 0;
 		while (
 			fetches < JUMP_FETCH_CAP &&
+			sessions.isCurrent(session) &&
 			!messages().some((m) => m.uri === uri) &&
 			hasMore()
 		) {
 			await loadOlder();
 			fetches++;
 		}
+
+		if (!sessions.isCurrent(session)) return;
 
 		if (focusClearTimer !== undefined) clearTimeout(focusClearTimer);
 		setFocusedMessage(uri);
@@ -956,8 +1042,7 @@ export const ChannelContextProvider: ParentComponent<{
 			// New message from another user — author is fully hydrated on the event.
 			const parentMsg = d.parent
 				? (messages().find((m) => m.uri === d.parent) as
-						| Omit<Message, "parent">
-						| undefined)
+						Omit<Message, "parent"> | undefined)
 				: undefined;
 
 			const newMsg: Message = {
@@ -1022,26 +1107,27 @@ export const ChannelContextProvider: ParentComponent<{
 	const outboxCleanup = onOutboxSent(({ uri, collection }) => {
 		if (collection !== "social.colibri.message") return;
 		const pending = messages().find((m) => m.uri === uri && "hash" in m) as
-			| PendingMessage
-			| undefined;
+			PendingMessage | undefined;
 		if (pending) confirmPendingMessage(pending.hash, uri);
 	});
 
 	const catchUp = async (): Promise<void> => {
+		const session = sessions.current();
+		if (!session || session.state.busy) return;
 		const uri = channelUri();
-		if (!uri || initialLoading() || inflight) return;
-		if (Date.now() - lastViewAt < CATCHUP_MIN_INTERVAL_MS) return;
+		if (!uri || initialLoading()) return;
+		if (Date.now() - session.state.lastViewAt < CATCHUP_MIN_INTERVAL_MS) return;
 
-		inflight = true;
+		session.state.busy = true;
 		try {
 			const prunable = new Set(messages().map((m) => m.uri));
 
 			const view = await user.xrpc.social.colibri.channel.getChannelView(
 				uri,
 				PAGE_SIZE,
+				sessions.teardownSignal,
 			);
 
-			if (uri !== channelUri()) return;
 			if (!view.ok) {
 				log.warn("catchUp could not reach the channel", {
 					code: view.error.code,
@@ -1051,6 +1137,16 @@ export const ChannelContextProvider: ParentComponent<{
 
 			const channel = view.data;
 			const ordered = [...(channel?.messages ?? [])].reverse();
+
+			if (!sessions.isCurrent(session)) {
+				offerSnapshotWindow(session.key, ordered, {
+					readCursor: channel?.readCursor?.cursor,
+					hasMore: ordered.length >= PAGE_SIZE,
+					limit: PAGE_SIZE,
+				});
+				return;
+			}
+
 			const existingUris = new Set(messages().map((m) => m.uri));
 			const novel = ordered.filter((m) => !existingUris.has(m.uri));
 			const reconciled = reconcileFetchedWindow(messages(), ordered, {
@@ -1092,13 +1188,13 @@ export const ChannelContextProvider: ParentComponent<{
 				);
 				setHydratedFromNetwork(true);
 			});
-			lastViewAt = Date.now();
+			session.state.lastViewAt = Date.now();
 		} catch (err) {
 			log.error("catchUp failed", {
 				code: classifyThrown(err).code,
 			});
 		} finally {
-			inflight = false;
+			session.state.busy = false;
 		}
 	};
 
