@@ -9,12 +9,14 @@ import {
 } from "../../../../atproto/channel-reference";
 import type { ChannelUrlTarget } from "../../../../atproto/colibri-channel-url";
 import type { XrpcClient } from "../../../../atproto/xrpc";
+import type { Category } from "../../../../atproto/xrpc/social/colibri/community/listCategories";
 import type { Channel } from "../../../../atproto/xrpc/social/colibri/community/listChannels";
 
 export type ChipContext = {
 	xrpc: XrpcClient;
 	communities: Array<CommunityView>;
 	channels: Array<Channel>;
+	categories: Array<Category>;
 	currentCommunityUri?: string;
 	ns?: string;
 };
@@ -25,6 +27,7 @@ export const channelChipAttrs = (channelUri: string, chip: ChannelChip) => ({
 	handle: null,
 	avatar: chip.avatar ?? null,
 	community: chip.community ?? null,
+	category: chip.category ?? null,
 	type: "channel" as const,
 });
 
@@ -74,6 +77,7 @@ export const insertChannelChip = (
 		context.channels,
 		context.communities,
 		context.currentCommunityUri,
+		context.categories,
 	);
 
 	const tr = view.state.tr;
@@ -97,6 +101,7 @@ export const insertChannelChip = (
 			context.channels,
 			context.communities,
 			context.currentCommunityUri,
+			context.categories,
 		);
 		if (resolved.label !== UNRESOLVED_CHANNEL_LABEL) {
 			relabel(view, target.channelUri, resolved);

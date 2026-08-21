@@ -588,6 +588,7 @@ export const TextEditor: Component<{
 
 	const chipScope = (): ChipScope => ({
 		communities: user.communities,
+		categories: community().categories ?? [],
 		currentCommunityUri: community().community.uri,
 	});
 
@@ -698,6 +699,7 @@ export const TextEditor: Component<{
 					() => community().members ?? [],
 					() => community().channels ?? [],
 					() => mentionableRoles(),
+					() => community().categories ?? [],
 					props.mainEditor,
 				),
 			}).extend({
@@ -708,6 +710,7 @@ export const TextEditor: Component<{
 						handle: { default: null },
 						avatar: { default: null },
 						community: { default: null },
+						category: { default: null },
 						color: { default: null },
 						type: { default: "member" },
 						datetime: { default: null },
@@ -728,8 +731,16 @@ export const TextEditor: Component<{
 					}
 				},
 				renderHTML({ node, HTMLAttributes }) {
-					const { type, label, id, handle, color, avatar, community } =
-						node.attrs;
+					const {
+						type,
+						label,
+						id,
+						handle,
+						color,
+						avatar,
+						community,
+						category,
+					} = node.attrs;
 
 					let colorClass = "";
 					let contents = "";
@@ -759,6 +770,20 @@ export const TextEditor: Component<{
 											{ class: CHIP_INITIALS_CLASS },
 											communityInitials(community),
 										],
+								caretRightSpec(),
+								contents,
+							];
+						}
+
+						if (category) {
+							return [
+								"span",
+								mergeAttributes(HTMLAttributes, {
+									"data-mention-type": type,
+									"data-id": id,
+									class: ` px-1 rounded-xs ${colorClass}`,
+								}),
+								["span", { class: "opacity-70" }, category],
 								caretRightSpec(),
 								contents,
 							];
@@ -912,6 +937,7 @@ export const TextEditor: Component<{
 							xrpc: user.xrpc,
 							communities: user.communities,
 							channels: community().channels ?? [],
+							categories: community().categories ?? [],
 							currentCommunityUri: community().community.uri,
 							ns: namespace(getAppViewDid(), user.did),
 						});

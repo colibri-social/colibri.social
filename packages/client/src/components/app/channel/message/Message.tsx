@@ -234,14 +234,12 @@ const MessageInner: Component<{
 
 	const outerBottomSpacingClass = () => {
 		if (!needsMarginSpacing()) return "";
-		if (message.reactions.length > 0) return "mb-2";
 		if (props.hasSubsequent) return "mb-0.5";
 		return "";
 	};
 
 	const innerBottomSpacingClass = () => {
 		if (needsMarginSpacing()) return "";
-		if (message.reactions.length > 0) return "pb-2";
 		if (props.hasSubsequent) return "pb-0.5";
 		return "pb-0";
 	};
@@ -532,6 +530,7 @@ const MessageInner: Component<{
 														community().assignableRoles || [],
 														{
 															communities: user.communities,
+															categories: community().categories,
 															currentCommunityUri: community().community.uri,
 														},
 													)}

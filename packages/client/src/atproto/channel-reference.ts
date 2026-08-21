@@ -1,9 +1,11 @@
 import type { Community as CommunityView } from "@colibri-social/lib";
 import { classifyThrown } from "../errors/classify";
+import { ambiguousCategoryName } from "../utils/channel-category";
 import { createLogger } from "../utils/logger";
 import { cacheEnabled, readCommunity } from "./cache/store";
 import { resolveBlob } from "./resolve-blob";
 import type { XrpcClient } from "./xrpc";
+import type { Category } from "./xrpc/social/colibri/community/listCategories";
 import type { Channel } from "./xrpc/social/colibri/community/listChannels";
 
 const log = createLogger("channel-reference");
@@ -141,6 +143,7 @@ export type ChannelChip = {
 	label: string;
 	avatar?: string;
 	community?: string;
+	category?: string;
 };
 
 const didOf = (uri: string): string => uri.split("/")[2] ?? "";
@@ -150,15 +153,19 @@ export const resolveChannelChip = (
 	localChannels: Array<Channel>,
 	communities: Array<CommunityView>,
 	currentCommunityUri?: string,
+	categories: Array<Category> = [],
 ): ChannelChip => {
+	const local = localChannels.find((entry) => entry.uri === channelUri);
 	const name =
-		localChannels.find((entry) => entry.uri === channelUri)?.name ??
-		peekChannel(channelUri)?.name ??
-		UNRESOLVED_CHANNEL_LABEL;
+		local?.name ?? peekChannel(channelUri)?.name ?? UNRESOLVED_CHANNEL_LABEL;
 
 	const did = didOf(channelUri);
 	if (!did || (currentCommunityUri && did === didOf(currentCommunityUri))) {
-		return { label: name };
+		const category = local
+			? ambiguousCategoryName(local, localChannels, categories)
+			: undefined;
+
+		return category ? { label: name, category } : { label: name };
 	}
 
 	const matches = communities.filter((entry) => didOf(entry.uri) === did);

@@ -11,6 +11,7 @@ import {
 } from "../../../../atproto/channel-reference";
 import { parseColibriChannelUrl } from "../../../../atproto/colibri-channel-url";
 import { resolveBlob } from "../../../../atproto/resolve-blob";
+import type { Category } from "../../../../atproto/xrpc/social/colibri/community/listCategories";
 import type { Channel } from "../../../../atproto/xrpc/social/colibri/community/listChannels";
 import type { Member } from "../../../../atproto/xrpc/social/colibri/community/listMembers";
 import type { Role } from "../../../../atproto/xrpc/social/colibri/community/listRoles";
@@ -31,6 +32,7 @@ const EMOJI_IMAGE_ALT_REGEX =
  */
 export type ChipScope = {
 	communities: Array<CommunityView>;
+	categories?: Array<Category>;
 	currentCommunityUri?: string;
 };
 
@@ -129,6 +131,7 @@ function atomNode(
 			channels,
 			scope?.communities ?? [],
 			scope?.currentCommunityUri,
+			scope?.categories ?? [],
 		);
 
 		if (

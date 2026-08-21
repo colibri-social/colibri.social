@@ -164,9 +164,7 @@ export const SignInShowcase: Component = () => {
 							classList={{
 								"pt-1": !isGrouped(index()),
 								"pt-0": isGrouped(index()),
-								"pb-2": message.reactions.length > 0,
-								"pb-0.5":
-									message.reactions.length === 0 && hasSubsequent(index()),
+								"pb-0.5": hasSubsequent(index()),
 							}}
 						>
 							<Show when={message.parent}>
@@ -234,7 +232,7 @@ export const SignInShowcase: Component = () => {
 								</div>
 							</div>
 							<Show when={message.reactions.length > 0}>
-								<div class="flex flex-row flex-wrap items-center gap-1 pl-14">
+								<div class="flex flex-row flex-wrap items-center gap-1 pl-14 pb-2">
 									<For each={message.reactions}>
 										{(reaction) => (
 											<span class="flex cursor-default items-center gap-1 rounded-sm border border-border bg-card px-1.5 py-1 duration-200 animate-in fade-in-0 zoom-in-95 motion-reduce:animate-none">

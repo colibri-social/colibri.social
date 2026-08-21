@@ -4,6 +4,7 @@ import {
 	peekChannel,
 	primeCommunityChannels,
 	resetChannelReferences,
+	resolveChannelChip,
 } from "./channel-reference";
 import type { XrpcClient } from "./xrpc";
 
@@ -138,5 +139,54 @@ describe("channel-reference", () => {
 		expect(
 			peekChannel("at://did:plc:c20/social.colibri.channel/general"),
 		).toBeDefined();
+	});
+});
+
+describe("resolveChannelChip", () => {
+	const SUPPORT = `at://${DID}/social.colibri.category/support`;
+	const BUGS = `at://${DID}/social.colibri.category/bugs`;
+	const OTHER = `at://${DID}/social.colibri.channel/general-2`;
+
+	const categorized = (uri: string, name: string, category: string) => ({
+		...channel(uri, name),
+		category,
+	});
+
+	const categories = [
+		{ uri: SUPPORT, name: "Support", channelOrder: [] },
+		{ uri: BUGS, name: "Bugs", channelOrder: [] },
+	];
+
+	it("adds the category when a local channel name collides", () => {
+		const channels = [
+			categorized(CHANNEL, "general", SUPPORT),
+			categorized(OTHER, "general", BUGS),
+		];
+
+		expect(
+			resolveChannelChip(CHANNEL, channels, [], COMMUNITY, categories),
+		).toEqual({ label: "general", category: "Support" });
+	});
+
+	it("omits the category when the local channel name is unique", () => {
+		const channels = [
+			categorized(CHANNEL, "general", SUPPORT),
+			categorized(OTHER, "random", BUGS),
+		];
+
+		expect(
+			resolveChannelChip(CHANNEL, channels, [], COMMUNITY, categories),
+		).toEqual({ label: "general" });
+	});
+
+	it("omits the category for a channel in another community", () => {
+		const foreign = "at://did:plc:other/social.colibri.channel/general";
+		primeCommunityChannels("at://did:plc:other/social.colibri.community/self", [
+			channel(foreign, "general"),
+		]);
+
+		expect(resolveChannelChip(foreign, [], [], COMMUNITY, categories)).toEqual({
+			label: "general",
+		});
 	});
 });

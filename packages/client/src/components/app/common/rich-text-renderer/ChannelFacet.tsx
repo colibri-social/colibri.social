@@ -21,6 +21,7 @@ import { useCommunityContext } from "../../../../contexts/Community";
 import { useUserContext } from "../../../../contexts/User";
 import { getAppViewDid } from "../../../../utils/appview";
 import { AtURI } from "../../../../utils/at-uri";
+import { ambiguousCategoryName } from "../../../../utils/channel-category";
 import { parseEmojiText } from "../../../../utils/emoji";
 import { purify } from "../../../../utils/purify";
 import { CommunityAvatar } from "../../community/CommunityAvatar";
@@ -59,6 +60,17 @@ export const ChannelFacet: Component<{ channel: string; text: string }> = (
 	const localChannel = createMemo(() =>
 		community().channels.find((channel) => channel.uri === props.channel),
 	);
+
+	const localCategory = createMemo(() => {
+		const resolved = localChannel();
+		if (!resolved) return undefined;
+
+		return ambiguousCategoryName(
+			resolved,
+			community().channels,
+			community().categories,
+		);
+	});
 
 	const foreignCommunity = createMemo(() => {
 		const did = channelDid();
@@ -145,8 +157,17 @@ export const ChannelFacet: Component<{ channel: string; text: string }> = (
 						data-channel={props.channel}
 						href={localHref()}
 						class={CHANNEL_CLASS}
-						innerHTML={parseEmojiText(purify(`#${resolved().name}`))}
-					/>
+					>
+						<Show when={localCategory()}>
+							{(category) => (
+								<>
+									<span innerHTML={parseEmojiText(purify(category()))} />
+									<CaretRightIcon class={CHIP_GLYPH_CLASS} />
+								</>
+							)}
+						</Show>
+						<span innerHTML={parseEmojiText(purify(`#${resolved().name}`))} />
+					</A>
 				)}
 			</Match>
 			<Match when={foreignCommunity()}>

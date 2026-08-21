@@ -8,15 +8,17 @@ import {
 	Show,
 	Switch,
 } from "solid-js";
+import CaretRightIcon from "~icons/ph/caret-right";
 import ClockIcon from "~icons/ph/clock";
-import type { Channel } from "../../../../atproto/xrpc/social/colibri/community/listChannels";
 import type { Member } from "../../../../atproto/xrpc/social/colibri/community/listMembers";
 import type { Role } from "../../../../atproto/xrpc/social/colibri/community/listRoles";
 import { parseEmojiText } from "../../../../utils/emoji";
 import { ChannelTypeIcon } from "../../community/ChannelTypeIcon";
 import User from "../../user";
 import { displayableNameFn } from "../../user/DisplayableName";
+import { CHIP_GLYPH_CLASS } from "../channel-chip";
 import type {
+	ChannelSuggestion,
 	EmojiSuggestionData,
 	SuggestionItem,
 	selectItem,
@@ -31,7 +33,7 @@ export function isRole(item: SuggestionItem): item is Role {
 	return "permissions" in item;
 }
 
-export function isChannel(item: SuggestionItem): item is Channel {
+export function isChannel(item: SuggestionItem): item is ChannelSuggestion {
 	return "uri" in item;
 }
 
@@ -86,7 +88,10 @@ export const MentionList: Component<{
 			} else if (isRole(a) && isRole(b)) {
 				return a.name.localeCompare(b.name);
 			} else if (isChannel(a) && isChannel(b)) {
-				return a.name.localeCompare(b.name);
+				const byName = a.name.localeCompare(b.name);
+				if (byName !== 0) return byName;
+
+				return (a.categoryLabel ?? "").localeCompare(b.categoryLabel ?? "");
 			} else if (isEmoji(a) && isEmoji(b)) {
 				return 0;
 			}
@@ -161,9 +166,21 @@ export const MentionList: Component<{
 				<Match when={isChannel(bprops.item)}>
 					<div class="flex flex-row items-center justify-between gap-1.5">
 						<span>
-							<ChannelTypeIcon type={(bprops.item as Channel).type} />
+							<ChannelTypeIcon type={(bprops.item as ChannelSuggestion).type} />
 						</span>
-						<span class="text-sm">{(bprops.item as Channel).name}</span>
+						<Show when={(bprops.item as ChannelSuggestion).categoryLabel}>
+							{(category) => (
+								<>
+									<span class="text-sm text-muted-foreground">
+										{category()}
+									</span>
+									<CaretRightIcon class={CHIP_GLYPH_CLASS} />
+								</>
+							)}
+						</Show>
+						<span class="text-sm">
+							{(bprops.item as ChannelSuggestion).name}
+						</span>
 					</div>
 				</Match>
 				<Match when={isEmoji}>

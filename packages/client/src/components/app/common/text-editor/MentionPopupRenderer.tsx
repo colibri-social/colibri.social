@@ -27,10 +27,11 @@ export type EmojiSuggestionData = { name: string; emoji: string };
  * mention — it swaps the popup over to the timestamp picker.
  */
 export type TimeShortcut = { timeShortcut: true };
+export type ChannelSuggestion = Channel & { categoryLabel?: string };
 export type SuggestionItem =
 	| Member
 	| Role
-	| Channel
+	| ChannelSuggestion
 	| EmojiSuggestionData
 	| TimeShortcut;
 
@@ -67,6 +68,7 @@ export function selectItem(
 		command({
 			id: item.uri,
 			label: item.name,
+			category: item.categoryLabel ?? null,
 			type: "channel",
 		} as any);
 	} else {
