@@ -14,6 +14,10 @@ on:
         description: "Only build and upload the Apple App Store packages, skipping every other channel."
         type: boolean
         default: false
+      msstore_only:
+        description: "Only build and upload the Microsoft Store package, skipping every other channel."
+        type: boolean
+        default: false
       appstore_platform:
         description: "Which Apple App Store packages to build."
         type: choice
@@ -36,13 +40,13 @@ on:
         default: true
 
 concurrency:
-  group: publish-${{ inputs.version }}-${{ inputs.appstore_only }}-${{ inputs.appstore_platform }}-${{ inputs.play_track }}
+  group: publish-${{ inputs.version }}-${{ inputs.appstore_only }}-${{ inputs.msstore_only }}-${{ inputs.appstore_platform }}-${{ inputs.play_track }}
   cancel-in-progress: false
 
 jobs:
   publish-tauri:
     name: Publish (${{ matrix.label }})
-    if: ${{ !inputs.appstore_only }}
+    if: ${{ !inputs.appstore_only && !inputs.msstore_only }}
     permissions:
       contents: write
     strategy:
@@ -285,7 +289,7 @@ jobs:
 
   mas:
     name: Mac App Store
-    if: ${{ (inputs.appstore || inputs.appstore_only) && inputs.appstore_platform != 'ios' }}
+    if: ${{ (inputs.appstore || inputs.appstore_only) && inputs.appstore_platform != 'ios' && !inputs.msstore_only }}
     runs-on: macos-latest
     permissions:
       contents: read
@@ -489,7 +493,7 @@ jobs:
 
   ios:
     name: iOS App Store
-    if: ${{ (inputs.appstore || inputs.appstore_only) && inputs.appstore_platform != 'macos' }}
+    if: ${{ (inputs.appstore || inputs.appstore_only) && inputs.appstore_platform != 'macos' && !inputs.msstore_only }}
     runs-on: macos-latest
     permissions:
       contents: read
@@ -874,7 +878,7 @@ jobs:
             --notes=whatsnew/whatsnew-en-US
 
   msstore-build:
-    if: ${{ !inputs.appstore_only }}
+    if: ${{ inputs.msstore_only || !inputs.appstore_only }}
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v7
