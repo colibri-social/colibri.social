@@ -121,12 +121,10 @@ export const MessageContextMenu: ParentComponent<{
 									<ContextMenuSeparator />
 								</Show>
 								<Show when={messageEditable()}>
-									<Show when={message.text.length > 0}>
-										<ContextMenuItem onClick={enableEditMode}>
-											<PencilIcon />
-											<span>Edit Message</span>
-										</ContextMenuItem>
-									</Show>
+									<ContextMenuItem onClick={enableEditMode}>
+										<PencilIcon />
+										<span>Edit Message</span>
+									</ContextMenuItem>
 								</Show>
 								<ContextMenuItem onClick={enableReplyMode}>
 									<ArrowBendUpLeftIcon />
@@ -228,17 +226,15 @@ export const MessageContextMenu: ParentComponent<{
 						<Separator class="my-1" />
 					</Show>
 					<Show when={messageEditable()}>
-						<Show when={message.text.length > 0}>
-							<MenuDrawerItem
-								onClick={() => {
-									close();
-									enableEditMode();
-								}}
-							>
-								<PencilIcon />
-								<span>Edit Message</span>
-							</MenuDrawerItem>
-						</Show>
+						<MenuDrawerItem
+							onClick={() => {
+								close();
+								enableEditMode();
+							}}
+						>
+							<PencilIcon />
+							<span>Edit Message</span>
+						</MenuDrawerItem>
 					</Show>
 					<MenuDrawerItem
 						onClick={() => {

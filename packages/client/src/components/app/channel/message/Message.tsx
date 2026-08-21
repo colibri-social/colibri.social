@@ -44,8 +44,6 @@ import {
 } from "../../../ui/Tooltip";
 import { EmojiPopover } from "../../common/EmojiPopover";
 import { RichTextRenderer } from "../../common/rich-text-renderer/RichTextRenderer";
-import { facetsToProseMirror } from "../../common/text-editor/facets-to-prosemirror";
-import { TextEditor } from "../../common/text-editor/TextEditor";
 import { MemberContextMenu } from "../../community/MemberContextMenu";
 import User from "../../user";
 import { displayableNameFn } from "../../user/DisplayableName";
@@ -60,6 +58,7 @@ import {
 	isDirectMediaUrl,
 	isRemovableEmbed,
 } from "./Embed";
+import { InlineEditor } from "./InlineEditor";
 import { MessageTimestamp } from "./MessageTimestamp";
 import { ReactorsModal } from "./ReactorsModal";
 
@@ -121,14 +120,10 @@ const MessageInner: Component<{
 		setLinkTarget,
 		setDeletionModalOpen,
 		newText,
-		editedText,
-		saveEditedText,
 		handlePotentialDeletion,
 		handlePotentialBlock,
 		enableReplyMode,
 		enableEditMode,
-		cancelEdits,
-		submitEdits,
 		addReactionOptimistic,
 		removeReaction,
 		visibleEmbedUris,
@@ -461,6 +456,9 @@ const MessageInner: Component<{
 									</div>
 								</Show>
 
+								<Show when={editMode() && !isMobile()}>
+									<InlineEditor />
+								</Show>
 								<Show
 									when={isLoneMediaLink()}
 									fallback={
@@ -520,60 +518,7 @@ const MessageInner: Component<{
 											/>
 										</Match>
 										<Match when={editMode() && !isMobile()}>
-											<div class="w-full">
-												<TextEditor
-													text={facetsToProseMirror(
-														editedText().text,
-														editedText().facets || [],
-														community().members || [],
-														community().channels || [],
-														community().assignableRoles || [],
-														{
-															communities: user.communities,
-															categories: community().categories,
-															currentCommunityUri: community().community.uri,
-														},
-													)}
-													placeholder=""
-													submitOnEnter={!isMobile()}
-													onChange={(text, facets) => {
-														saveEditedText(text, facets);
-													}}
-													sendMessage={async (text, facets) => {
-														submitEdits(text, facets);
-														return false;
-													}}
-													onEscape={cancelEdits}
-												/>
-											</div>
-											<div class="flex flex-row items-center gap-1">
-												<small>
-													escape to{" "}
-													<button
-														type="button"
-														class="cursor-pointer hover:underline text-primary-foreground"
-														onClick={cancelEdits}
-													>
-														cancel
-													</button>
-												</small>
-												<span class="w-1 h-1 bg-muted-foreground rounded-full" />
-												<small>
-													enter to{" "}
-													<button
-														type="button"
-														class="cursor-pointer hover:underline text-primary-foreground"
-														onClick={() =>
-															submitEdits(
-																editedText().text,
-																editedText().facets,
-															)
-														}
-													>
-														submit
-													</button>
-												</small>
-											</div>
+											<InlineEditor />
 										</Match>
 									</Switch>
 								</div>
@@ -628,11 +573,9 @@ const MessageInner: Component<{
 									</Action>
 								</Show>
 								<Show when={messageEditable()}>
-									<Show when={message.text.length > 0}>
-										<Action tooltipText="Edit" onClick={enableEditMode}>
-											<PencilIcon />
-										</Action>
-									</Show>
+									<Action tooltipText="Edit" onClick={enableEditMode}>
+										<PencilIcon />
+									</Action>
 									<Action
 										tooltipText="Delete"
 										buttonClasses="text-destructive"

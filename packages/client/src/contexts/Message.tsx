@@ -413,7 +413,7 @@ export const MessageContextProvider: ParentComponent<{ data: Message }> = (
 		clearEditDraft(props.data.uri);
 		channel.clearEditingMessage();
 
-		if (cleanText.length === 0) {
+		if (cleanText.length === 0 && (props.data.attachments ?? []).length === 0) {
 			setDeletionModalOpen(true);
 			return;
 		}
