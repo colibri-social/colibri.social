@@ -105,6 +105,10 @@ export {
 	isTauriRuntime,
 	isWebRuntime,
 } from "./environment";
+export {
+	isPermissionRevoked,
+	watchNotificationPermission,
+} from "./permission-sync";
 export { cancelChannelTrayNotification } from "./tauri";
 export type {
 	NotificationBackend,

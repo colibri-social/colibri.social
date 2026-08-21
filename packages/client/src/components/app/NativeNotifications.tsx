@@ -11,10 +11,13 @@ import {
 	getBackend,
 	isAndroidTauriRuntime,
 	isAppUnfocused,
+	isPermissionRevoked,
 	isStaleNotificationEvent,
 	isTauriRuntime,
 	isWebRuntime,
 	notify,
+	unregisterAllPush,
+	watchNotificationPermission,
 } from "../../notifications";
 import {
 	ackMarkRead,
@@ -34,6 +37,7 @@ import {
 	isNativeNotificationSupported,
 	listenForNativeActivation,
 } from "../../notifications/tauri-native";
+import { createLogger } from "../../utils/logger";
 import { isDesktopNative } from "../../utils/platform";
 
 // Re-assert the push registration this often while the app stays open, on
@@ -44,6 +48,8 @@ import { isDesktopNative } from "../../utils/platform";
 // browser/device subscription and re-register it, so this is a cheap
 // idempotent no-op when nothing was actually lost.
 const PUSH_REASSERT_INTERVAL_MS = 24 * 60 * 60 * 1000;
+
+const log = createLogger("notif/permission");
 
 const avatarPathFor = async (
 	author: ActorData | undefined,
@@ -79,6 +85,20 @@ export const NativeNotifications: Component = () => {
 	const notifications = useNotifications();
 	const { preferences, setNativeNotifications, setNotificationDefaultApplied } =
 		useUserPreferences();
+
+	const reconcilePermission = async (): Promise<void> => {
+		const enabled = preferences().nativeNotifications;
+		if (!enabled) return;
+
+		const permission = await getBackend().getPermission();
+		if (!isPermissionRevoked(enabled, permission)) return;
+
+		log.warn("notifications were turned off because permission was revoked");
+		setNativeNotifications(false);
+		await unregisterAllPush((endpoint, provider) =>
+			user.xrpc.social.colibri.notification.unregisterPush(endpoint, provider),
+		);
+	};
 
 	const reassertWebPushRegistration = async (): Promise<void> => {
 		if (!isWebRuntime() || !preferences().nativeNotifications) return;
@@ -121,15 +141,18 @@ export const NativeNotifications: Component = () => {
 					if (requested === "granted") setNativeNotifications(true);
 				}
 
+				await reconcilePermission();
 				await reassertFcmRegistration();
 				return;
 			}
 
+			await reconcilePermission();
 			await reassertWebPushRegistration();
 		})();
 
 		const handleVisibilityChange = () => {
 			if (document.visibilityState === "visible") {
+				void reconcilePermission();
 				void reassertWebPushRegistration();
 				void reassertFcmRegistration();
 			}
@@ -142,6 +165,9 @@ export const NativeNotifications: Component = () => {
 		const cleanupPushChangeListener = listenForPushSubscriptionChanges(() => {
 			void reassertWebPushRegistration();
 		});
+		const cleanupPermissionWatcher = watchNotificationPermission(() => {
+			void reconcilePermission();
+		});
 		let cleanupFcmTokenRefreshListener = () => {};
 		void listenForFcmTokenRefresh(() => {
 			void reassertFcmRegistration();
@@ -152,6 +178,7 @@ export const NativeNotifications: Component = () => {
 			document.removeEventListener("visibilitychange", handleVisibilityChange);
 			window.clearInterval(intervalId);
 			cleanupPushChangeListener();
+			cleanupPermissionWatcher();
 			cleanupFcmTokenRefreshListener();
 		});
 

@@ -83,7 +83,7 @@ export const tauriBackend: NotificationBackend = {
 				const { isPermissionGranted } = await loadPlugin();
 				return (await isPermissionGranted()) ? "granted" : "default";
 			},
-			"denied",
+			"unknown",
 		);
 	},
 
@@ -98,7 +98,7 @@ export const tauriBackend: NotificationBackend = {
 				if (await isPermissionGranted()) return "granted";
 				return (await requestPermission()) as NotificationPermission;
 			},
-			"denied",
+			"unknown",
 		);
 	},
 

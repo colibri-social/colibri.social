@@ -1,4 +1,10 @@
-import { type Component, createSignal, onMount, Show } from "solid-js";
+import {
+	type Component,
+	createSignal,
+	onCleanup,
+	onMount,
+	Show,
+} from "solid-js";
 import { toast } from "somoto";
 import { writeNotificationPreference } from "../../../atproto/notificationPreference";
 import { resolveBlob } from "../../../atproto/resolve-blob";
@@ -8,8 +14,11 @@ import { useUserPreferences } from "../../../contexts/UserPreferences";
 import { classifyThrown } from "../../../errors";
 import {
 	enablePushNotifications,
+	getBackend,
 	isWebRuntime,
+	type NotificationPermission,
 	notify,
+	watchNotificationPermission,
 } from "../../../notifications";
 import { unsubscribeFcmPush } from "../../../notifications/push-fcm";
 import { unsubscribeWebPush } from "../../../notifications/push-web";
@@ -33,6 +42,9 @@ const log = createLogger("settings/notifications");
 
 const TEST_TOOLS_STORAGE_KEY = "colibri:notification-tools";
 
+const blockedSettingsName = (): string =>
+	isWebRuntime() ? "browser" : "system";
+
 const showTestTools = (): boolean => {
 	if (import.meta.env.DEV) return true;
 	if (typeof localStorage === "undefined") return false;
@@ -48,6 +60,21 @@ export const NotificationsPage: Component = () => {
 	const { preferences, setNativeNotifications } = useUserPreferences();
 	const [busy, setBusy] = createSignal(false);
 	const [testBusy, setTestBusy] = createSignal(false);
+	const [permissionState, setPermissionState] =
+		createSignal<NotificationPermission>("unknown");
+
+	const refreshPermission = async (): Promise<void> => {
+		setPermissionState(await getBackend().getPermission());
+	};
+
+	onMount(() => {
+		void refreshPermission();
+		onCleanup(
+			watchNotificationPermission(() => {
+				void refreshPermission();
+			}),
+		);
+	});
 
 	const sendTestNotification = async () => {
 		setTestBusy(true);
@@ -144,7 +171,11 @@ export const NotificationsPage: Component = () => {
 						),
 				);
 				if (permission !== "granted") {
-					toast.error("Notification permission was not granted.");
+					toast.error(
+						permission === "denied"
+							? `Notifications are blocked. Allow them in your ${blockedSettingsName()} settings and try again.`
+							: "Notification permission was not granted.",
+					);
 					return;
 				}
 
@@ -167,6 +198,7 @@ export const NotificationsPage: Component = () => {
 			toast.error("Failed to update notification settings.");
 		} finally {
 			setBusy(false);
+			void refreshPermission();
 		}
 	};
 
@@ -183,6 +215,12 @@ export const NotificationsPage: Component = () => {
 					<SwitchDescription class="max-w-120">
 						Show native OS notifications when the app is unfocused or closed.
 					</SwitchDescription>
+					<Show when={permissionState() === "denied"}>
+						<span class="max-w-120 text-sm text-destructive">
+							Colibri is blocked from sending notifications. Allow them in your{" "}
+							{blockedSettingsName()} settings, then turn this back on.
+						</span>
+					</Show>
 				</div>
 				<SwitchControl>
 					<SwitchThumb />

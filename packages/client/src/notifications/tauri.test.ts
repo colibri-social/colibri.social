@@ -48,10 +48,10 @@ describe("tauriBackend.getPermission", () => {
 		await expect(tauriBackend.getPermission()).resolves.toBe("default");
 	});
 
-	it("settles instead of rejecting when the native command is refused", async () => {
+	it("reports an unreadable permission as unknown rather than a denial", async () => {
 		isPermissionGranted.mockRejectedValue(ACL_REFUSAL);
 
-		await expect(tauriBackend.getPermission()).resolves.toBe("denied");
+		await expect(tauriBackend.getPermission()).resolves.toBe("unknown");
 	});
 
 	it("reports denied outside a native webview", async () => {
@@ -84,10 +84,10 @@ describe("tauriBackend.requestPermission", () => {
 		expect(requestPermission).toHaveBeenCalledTimes(1);
 	});
 
-	it("settles instead of rejecting when the native command is refused", async () => {
+	it("reports an unreadable permission as unknown rather than a denial", async () => {
 		isPermissionGranted.mockRejectedValue(ACL_REFUSAL);
 
-		await expect(tauriBackend.requestPermission()).resolves.toBe("denied");
+		await expect(tauriBackend.requestPermission()).resolves.toBe("unknown");
 	});
 
 	it("skips the webview prompt entirely when native toasts work", async () => {
