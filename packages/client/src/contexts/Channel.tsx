@@ -1057,7 +1057,8 @@ export const ChannelContextProvider: ParentComponent<{
 			// New message from another user — author is fully hydrated on the event.
 			const parentMsg = d.parent
 				? (messages().find((m) => m.uri === d.parent) as
-						Omit<Message, "parent"> | undefined)
+						| Omit<Message, "parent">
+						| undefined)
 				: undefined;
 
 			const newMsg: Message = {
@@ -1122,7 +1123,8 @@ export const ChannelContextProvider: ParentComponent<{
 	const outboxCleanup = onOutboxSent(({ uri, collection }) => {
 		if (collection !== "social.colibri.message") return;
 		const pending = messages().find((m) => m.uri === uri && "hash" in m) as
-			PendingMessage | undefined;
+			| PendingMessage
+			| undefined;
 		if (pending) confirmPendingMessage(pending.hash, uri);
 	});
 

@@ -108,3 +108,7 @@ media-fullscreen-button[data-active] [data-icon="exit"],
 media-fullscreen-button:not([data-active]) [data-icon="enter"] {
 	display: block;
 }
+
+media-fullscreen-button:not([data-supported]) {
+	display: none;
+}

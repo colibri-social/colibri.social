@@ -2,6 +2,8 @@ use tauri::Manager;
 
 #[cfg(target_os = "linux")]
 mod linux_media;
+#[cfg(target_os = "macos")]
+mod macos_media;
 #[cfg(desktop)]
 mod notifications;
 #[cfg(desktop)]
@@ -359,6 +361,9 @@ pub fn run() {
             }
             #[cfg(desktop)]
             if let Some(window) = app.get_webview_window("main") {
+                #[cfg(target_os = "macos")]
+                macos_media::enable_media(&window);
+
                 titlebar::setup(&window);
 
                 #[cfg(target_os = "linux")]

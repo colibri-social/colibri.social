@@ -688,6 +688,7 @@ dependencies = [
  "objc2-screen-capture-kit",
  "objc2-user-notifications",
  "objc2-video-toolbox",
+ "objc2-web-kit",
  "openssl",
  "sentry",
  "serde",
