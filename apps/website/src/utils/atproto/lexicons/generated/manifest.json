@@ -1,5 +1,5 @@
 {
-	"count": 97,
+	"count": 98,
 	"lexicons": {
 		"social.colibri.actor.data": "bc3300b598727c4bec99c103125d7caef74e11a5a56493d7fe5cc5c246989d9a",
 		"social.colibri.actor.defs": "ebbcaa03dab2d790294ec25f85aa03a160b26125c3d92d524655bd9134adf57a",
@@ -59,9 +59,10 @@
 		"social.colibri.community.undismissApplication": "50fabeb1763986cec9c17803d854ffde11502e83179a52ae6ba30171596df52a",
 		"social.colibri.community.unsuppressMessageEmbeds": "b96edbe7c5ff8376e6edcc4391a33f0c8cb76c7faccf60646711aecc10470ead",
 		"social.colibri.community.update": "e01cf1349101659d1f68a0c87705b575f82aef6faa7c45a5ffd2b9e4c3ff6278",
-		"social.colibri.embed.defs": "9a9dcf57f9d8b1458e3d03ed1adfe0a30fc37f6da7101af445ce1cb93c3aec35",
+		"social.colibri.embed.defs": "f1ea3c1409fe87b1bd8c5dd8d7241a2d6873a53cb0fab8ea2d00c3ad87be4857",
 		"social.colibri.embed.getImage": "b81961eef57be5813090068a04ca5394c12f3f5721685546a4036fa4364d1955",
-		"social.colibri.embed.getMetadata": "603a2c6f57753795d4cb2f09630aa882839505154cd44af26791d6a449cbc452",
+		"social.colibri.embed.getMetadata": "fe23c72efc17d7fc0979f3f398273cb8c07e8a689d98051faa9f45e4936e1ee3",
+		"social.colibri.embed.getVideo": "2ceaf14dd987d9964dde821ff4035713ed0400043e355b1f460bfcdbdbad1173",
 		"social.colibri.embed.gifCategories": "004fd3dcf9569a3d1da7072347c20aa2c069eeba6130be497b4d9d14bc0510b2",
 		"social.colibri.embed.searchGifs": "82b450183a02fd97a22a46469bdc615528668fba476b211e7f1bfe5794465e30",
 		"social.colibri.embed.trendingGifs": "e1ff32c743b9a51b4812f948ace9cafe8044a32783919359bbb005f511b54fa2",

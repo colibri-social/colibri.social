@@ -9,6 +9,7 @@ export type AppViewErrorCode =
 	| "Forbidden"
 	| "InvalidRequest"
 	| "InvalidState"
+	| "NotAVideo"
 	| "NotAnImage"
 	| "NotCommunityHub"
 	| "NotEnabled"
@@ -29,10 +30,11 @@ export const APPVIEW_CODE_DESCRIPTIONS: Record<AppViewErrorCode, string> = {
 	Forbidden: "The caller lacks the permission this method requires.",
 	InvalidRequest: "A parameter or body field was missing or malformed.",
 	InvalidState: "The request is not valid for the current state.",
+	NotAVideo: "The linked resource is not a video type the AppView serves.",
 	NotAnImage: "The linked resource is not an image type the AppView serves.",
 	NotCommunityHub:
 		"This AppView does not administer the community; the hub field names the one that does.",
-	NotEnabled: "Humming is disabled on this AppView.",
+	NotEnabled: "This labeler is not configured to link the requested platform.",
 	NotFound: "The referenced record does not exist.",
 	PdsUnavailable:
 		"The PDS this operation needs is unreachable or is not a PDS.",
@@ -287,6 +289,16 @@ export const APPVIEW_METHOD_ERRORS: Record<
 		"PdsUnavailable",
 		"UpstreamFailure",
 	],
+	"social.colibri.community.suppressMessageEmbeds": [
+		"AppViewNotAuthorized",
+		"AuthRequired",
+		"CommunityCredentialsUnrecoverable",
+		"Forbidden",
+		"InvalidRequest",
+		"NotCommunityHub",
+		"PdsUnavailable",
+		"UpstreamFailure",
+	],
 	"social.colibri.community.unbanUser": [
 		"AppViewNotAuthorized",
 		"AuthRequired",
@@ -302,6 +314,16 @@ export const APPVIEW_METHOD_ERRORS: Record<
 		"Forbidden",
 		"InvalidRequest",
 	],
+	"social.colibri.community.unsuppressMessageEmbeds": [
+		"AppViewNotAuthorized",
+		"AuthRequired",
+		"CommunityCredentialsUnrecoverable",
+		"Forbidden",
+		"InvalidRequest",
+		"NotCommunityHub",
+		"PdsUnavailable",
+		"UpstreamFailure",
+	],
 	"social.colibri.community.update": [
 		"AppViewNotAuthorized",
 		"AuthRequired",
@@ -314,9 +336,19 @@ export const APPVIEW_METHOD_ERRORS: Record<
 	],
 	"social.colibri.embed.getImage": ["NotAnImage", "RateLimited"],
 	"social.colibri.embed.getMetadata": ["AuthRequired", "InvalidRequest"],
+	"social.colibri.embed.getVideo": ["NotAVideo", "RateLimited"],
 	"social.colibri.embed.gifCategories": ["AuthRequired"],
 	"social.colibri.embed.searchGifs": ["AuthRequired", "InvalidRequest"],
 	"social.colibri.embed.trendingGifs": ["AuthRequired"],
+	"social.colibri.labeler.linkExternalAccount": [
+		"AuthRequired",
+		"InvalidRequest",
+		"NotEnabled",
+	],
+	"social.colibri.labeler.unlinkExternalAccount": [
+		"AuthRequired",
+		"InvalidRequest",
+	],
 	"social.colibri.notification.getUnreadCount": ["AuthRequired"],
 	"social.colibri.notification.getUnseen": ["AuthRequired"],
 	"social.colibri.notification.listNotifications": ["AuthRequired"],

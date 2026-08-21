@@ -13,6 +13,12 @@ export type EmbedMetadata = {
 		width?: number;
 		height?: number;
 	}>;
+	video?: Array<{
+		url: string;
+		mimeType?: string;
+		width?: number;
+		height?: number;
+	}>;
 	/** Large (`summary_large_image`) vs small thumbnail (`summary`) layout. */
 	largeImage?: boolean;
 };

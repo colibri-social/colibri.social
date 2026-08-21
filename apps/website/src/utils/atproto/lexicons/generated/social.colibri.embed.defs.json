@@ -53,6 +53,31 @@
 					"description": "Pixel height declared by the source page, when it publishes one."
 				}
 			}
+		},
+		"embedVideo": {
+			"type": "object",
+			"description": "A playable clip referenced by link metadata, for pages that publish their animation as a video rather than an animated image.",
+			"required": [
+				"url"
+			],
+			"properties": {
+				"url": {
+					"type": "string",
+					"format": "uri"
+				},
+				"mimeType": {
+					"type": "string",
+					"description": "The clip's media type, always one the AppView will proxy (video/mp4 or video/webm)."
+				},
+				"width": {
+					"type": "integer",
+					"description": "Pixel width declared by the source page, when it publishes one."
+				},
+				"height": {
+					"type": "integer",
+					"description": "Pixel height declared by the source page, when it publishes one."
+				}
+			}
 		}
 	}
 }

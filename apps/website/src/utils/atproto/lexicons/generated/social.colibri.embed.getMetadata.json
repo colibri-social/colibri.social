@@ -43,6 +43,13 @@
 								"ref": "lex:social.colibri.embed.defs#embedImage"
 							}
 						},
+						"video": {
+							"type": "array",
+							"items": {
+								"type": "ref",
+								"ref": "lex:social.colibri.embed.defs#embedVideo"
+							}
+						},
 						"largeImage": {
 							"type": "boolean"
 						}

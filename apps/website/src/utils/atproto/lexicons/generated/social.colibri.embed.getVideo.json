@@ -1,0 +1,36 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.embed.getVideo",
+	"defs": {
+		"main": {
+			"type": "query",
+			"description": "Proxies and returns an external embed video, guarding against SSRF. Honours byte ranges.",
+			"parameters": {
+				"type": "params",
+				"required": [
+					"url"
+				],
+				"properties": {
+					"url": {
+						"type": "string",
+						"format": "uri"
+					}
+				}
+			},
+			"output": {
+				"encoding": "*/*",
+				"description": "The proxied video bytes (Content-Type is video/*)."
+			},
+			"errors": [
+				{
+					"name": "NotAVideo",
+					"description": "The linked resource is not a video type the AppView serves."
+				},
+				{
+					"name": "RateLimited",
+					"description": "The caller exceeded its rate budget."
+				}
+			]
+		}
+	}
+}

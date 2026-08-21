@@ -2875,6 +2875,20 @@ Fetches a URL server-side and returns its OpenGraph/Twitter-card metadata, so th
 				}
 			}
 		},
+		video: {
+			type: "object[]",
+			required: false,
+			children: {
+				url: {
+					type: "uri",
+					required: true,
+				},
+				mimeType: {
+					type: "string",
+					required: false,
+				}
+			}
+		},
 		largeImage: {
 			type: "boolean",
 			required: false,
@@ -2897,6 +2911,29 @@ Proxies a remote embed preview image through the AppView so the client's IP is n
 	}}
 	response={{
 		image: {
+			type: "bytes",
+			required: true
+		}
+	}}
+/>
+
+### `social.colibri.embed.getVideo`
+
+Proxies a remote embed video through the AppView, the `<video>` counterpart to [`getImage`](#socialcolibriembedgetimage) and unauthenticated for the same reason. Constrained by the same SSRF guard and a `video/mp4`-or-`video/webm` content-type requirement, plus a per-client-IP rate limit (`EMBED_VIDEO_RATE_LIMIT`, 120 requests a minute by default).
+
+Byte ranges are honoured, answering `Range` with a `206` and a `Content-Range`. This is not an optimisation: WebKit will not play a source that cannot serve a range at all, so the native macOS and iOS apps depend on it. A clip that would exceed the proxy's 8 MiB budget is refused outright rather than served truncated, since a cut-off file does not decode.
+
+<XRPCEndpointCard
+	method="GET"
+	nsid="social.colibri.embed.getVideo"
+	queryParams={{
+		url: {
+			type: "uri",
+			required: true
+		}
+	}}
+	response={{
+		video: {
 			type: "bytes",
 			required: true
 		}

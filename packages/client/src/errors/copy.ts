@@ -46,6 +46,9 @@ const CATALOG: Record<ColibriErrorCode, ErrorCopy> = {
 	NotAnImage: {
 		title: "That link isn't an image.",
 	},
+	NotAVideo: {
+		title: "That link isn't a video.",
+	},
 	SfuError: {
 		title: "The voice server had a problem.",
 		description: "Try rejoining the channel.",

@@ -123,7 +123,7 @@ Configuration is read from environment variables (via a `.env` file in the repo 
 | `CREDENTIAL_ENCRYPTION_KEY` | Yes      | Base64-encoded 32-byte key used to encrypt stored community credentials at rest. Generate one with `openssl rand -base64 32` |
 | `TAP_HOSTNAME` / `TAP_ADMIN_PASSWORD` | Yes | Where the AppView reaches Tap, and Tap's admin password.                                                    |
 | `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` / `VAPID_SUBJECT` | No | Web Push keypair for background notifications. Unset disables background push. Generate a keypair with `npx web-push generate-vapid-keys` |
-| `KLIPY_API_KEY`             | No       | Enables the GIF picker endpoints. Unset disables them.                                                          |
+| `KLIPY_API_KEY`             | No       | Enables the GIF picker endpoints and Klipy link previews. Unset disables them.                                  |
 | `HUMMING_ENABLED`           | No       | Cross-instance presence relaying. On by default, set to `false` to opt out entirely.                            |
 | `SFU_ANNOUNCED_IP`          | No\*     | Public IP announced in the voice SFU's ICE candidates. **Required behind NAT** (most cloud hosts) or clients can't reach the media ports. See _Voice_ below. |
 

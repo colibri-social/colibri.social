@@ -52,6 +52,30 @@ export const embedMethodDocs: LexiconDoc[] = [
 					},
 				},
 			},
+			embedVideo: {
+				type: "object",
+				description:
+					"A playable clip referenced by link metadata, for pages that publish their animation as a video rather than an animated image.",
+				required: ["url"],
+				properties: {
+					url: { type: "string", format: "uri" },
+					mimeType: {
+						type: "string",
+						description:
+							"The clip's media type, always one the AppView will proxy (video/mp4 or video/webm).",
+					},
+					width: {
+						type: "integer",
+						description:
+							"Pixel width declared by the source page, when it publishes one.",
+					},
+					height: {
+						type: "integer",
+						description:
+							"Pixel height declared by the source page, when it publishes one.",
+					},
+				},
+			},
 		},
 	},
 	{
@@ -84,6 +108,13 @@ export const embedMethodDocs: LexiconDoc[] = [
 								items: {
 									type: "ref",
 									ref: "social.colibri.embed.defs#embedImage",
+								},
+							},
+							video: {
+								type: "array",
+								items: {
+									type: "ref",
+									ref: "social.colibri.embed.defs#embedVideo",
 								},
 							},
 							largeImage: { type: "boolean" },
@@ -127,6 +158,39 @@ export const embedMethodDocs: LexiconDoc[] = [
 						name: "NotAnImage",
 						description:
 							"The linked resource is not an image type the AppView serves.",
+					},
+					{
+						name: "RateLimited",
+						description: "The caller exceeded its rate budget.",
+					},
+				],
+			},
+		},
+	},
+	{
+		lexicon: 1,
+		id: "social.colibri.embed.getVideo",
+		defs: {
+			main: {
+				type: "query",
+				description:
+					"Proxies and returns an external embed video, guarding against SSRF. Honours byte ranges.",
+				parameters: {
+					type: "params",
+					required: ["url"],
+					properties: {
+						url: { type: "string", format: "uri" },
+					},
+				},
+				output: {
+					encoding: "*/*",
+					description: "The proxied video bytes (Content-Type is video/*).",
+				},
+				errors: [
+					{
+						name: "NotAVideo",
+						description:
+							"The linked resource is not a video type the AppView serves.",
 					},
 					{
 						name: "RateLimited",

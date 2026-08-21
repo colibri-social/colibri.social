@@ -11,16 +11,21 @@ import {
 	getMetadataDeduped,
 	peekMetadata,
 } from "../../../../atproto/embed-metadata-cache";
-import { resolveEmbedImage } from "../../../../atproto/resolve-blob";
+import {
+	resolveEmbedImage,
+	resolveEmbedVideo,
+} from "../../../../atproto/resolve-blob";
 import type { GifItem } from "../../../../atproto/xrpc/social/colibri/embed/gifTypes";
 import { useGifFavorites } from "../../../../contexts/GifFavorites";
 import { useUserContext } from "../../../../contexts/User";
+import createMediaQuery from "../../../../utils/create-media-query";
 import {
 	constrainedImageStyle,
 	rememberAspectRatio,
 	reservedAspectRatio,
 } from "../../../../utils/image-sizing";
 import { openExternalLink } from "../../../../utils/open-external-link";
+import { REDUCED_MOTION_QUERY } from "../../../hummingbird/Hummingbird";
 import { Lightbox } from "../../common/Lightbox";
 import { MediaLightboxGallery } from "./Attachments";
 import { BlueskyEmbed } from "./BlueskyEmbed";
@@ -30,7 +35,7 @@ const THUMBNAIL_MAX_PX = 64;
 const PREVIEW_MAX_HEIGHT_PX = 250;
 
 /** Matches direct GIF/animated-image media URLs (ignoring query/hash). */
-const GIF_MEDIA_EXT = /\.(gif|gifv|webp)(\?|#|$)/i;
+const GIF_MEDIA_EXT = /\.(gif|webp)(\?|#|$)/i;
 
 /** Matches direct static raster image URLs (ignoring query/hash). */
 const STATIC_IMAGE_EXT = /\.(png|jpe?g|avif|bmp)(\?|#|$)/i;
@@ -43,7 +48,7 @@ const STATIC_IMAGE_EXT = /\.(png|jpe?g|avif|bmp)(\?|#|$)/i;
 export const isGifUrl = (uri: string): boolean => {
 	try {
 		const url = new URL(uri);
-		return GIF_MEDIA_EXT.test(url.pathname) || /klipy/i.test(url.hostname);
+		return GIF_MEDIA_EXT.test(url.pathname);
 	} catch {
 		return false;
 	}
@@ -96,6 +101,16 @@ export const isBrokenMediaLink = (uri: string): boolean =>
 const markMediaLinkBroken = (uri: string) => {
 	setBrokenMediaLinks((prev) =>
 		prev.has(uri) ? prev : new Set(prev).add(uri),
+	);
+};
+
+const [brokenEmbedVideos, setBrokenEmbedVideos] = createSignal<
+	ReadonlySet<string>
+>(new Set());
+
+const markEmbedVideoBroken = (url: string) => {
+	setBrokenEmbedVideos((prev) =>
+		prev.has(url) ? prev : new Set(prev).add(url),
 	);
 };
 
@@ -202,10 +217,24 @@ const OpenGraphEmbed: Component<{ uri: string }> = (props) => {
 		{ initialValue: peekMetadata(props.uri) },
 	);
 
+	const reducedMotion = createMediaQuery(REDUCED_MOTION_QUERY);
+
 	const data = () => embedData();
+	const previewVideo = () => {
+		const video = data()?.video?.[0];
+		if (!video || brokenEmbedVideos().has(video.url)) return undefined;
+		return {
+			url: resolveEmbedVideo(video.url),
+			source: video.url,
+			width: video.width,
+			height: video.height,
+		};
+	};
 	const hasContent = () =>
-		!!data() && !!(data()!.title || data()!.description || data()!.image);
-	const isThumbnail = () => !!data()?.image && data()!.largeImage === false;
+		!!data() &&
+		!!(data()!.title || data()!.description || data()!.image || previewVideo());
+	const isThumbnail = () =>
+		!!data()?.image && data()!.largeImage === false && !previewVideo();
 	const imageUrl = () => {
 		const img = data()?.image?.[0];
 		return img ? resolveEmbedImage(img.url) : undefined;
@@ -275,19 +304,44 @@ const OpenGraphEmbed: Component<{ uri: string }> = (props) => {
 							</Lightbox>
 						</Show>
 					</div>
-					<Show when={!isThumbnail() && imageUrl()}>
-						<Lightbox src={imageUrl()!}>
-							<img
-								class="w-full h-auto object-contain rounded-sm mt-2 bg-muted border-none cursor-pointer"
-								style={constrainedImageStyle(previewImage(), {
-									fallbackRatio: "16 / 9",
-									maxHeight: PREVIEW_MAX_HEIGHT_PX,
-								})}
-								src={imageUrl()}
-								alt={imageAlt()}
-								onLoad={(e) => rememberAspectRatio(imageUrl(), e.target)}
-							/>
-						</Lightbox>
+					<Show when={!isThumbnail() && (previewVideo() || imageUrl())}>
+						<Show
+							when={previewVideo()}
+							fallback={
+								<Lightbox src={imageUrl()!}>
+									<img
+										class="w-full h-auto object-contain rounded-sm mt-2 bg-muted border-none cursor-pointer"
+										style={constrainedImageStyle(previewImage(), {
+											fallbackRatio: "16 / 9",
+											maxHeight: PREVIEW_MAX_HEIGHT_PX,
+										})}
+										src={imageUrl()}
+										alt={imageAlt()}
+										onLoad={(e) => rememberAspectRatio(imageUrl(), e.target)}
+									/>
+								</Lightbox>
+							}
+						>
+							{(video) => (
+								<video
+									class="w-full h-auto object-contain rounded-sm mt-2 bg-muted border-none"
+									style={constrainedImageStyle(video(), {
+										fallbackRatio: "16 / 9",
+										maxHeight: PREVIEW_MAX_HEIGHT_PX,
+									})}
+									src={video().url}
+									poster={imageUrl()}
+									autoplay={!reducedMotion()}
+									controls={reducedMotion()}
+									loop
+									muted
+									playsinline
+									preload="metadata"
+									aria-label={imageAlt() || data()!.title}
+									onError={() => markEmbedVideoBroken(video().source)}
+								/>
+							)}
+						</Show>
 					</Show>
 				</div>
 			</Show>

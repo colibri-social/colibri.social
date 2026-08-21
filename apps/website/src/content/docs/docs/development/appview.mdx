@@ -80,7 +80,7 @@ The first should report `"software": "colibri-appview"`. The second is the DID d
 | `TAP_WORKERS` | How many workers process firehose events. Lower it if Tap floods your machine. |
 | `REFILL_FROM_SCRATCH` | Set to any non-empty value to clear the local `record_data` cache at boot and have Tap re-backfill every DID the AppView knows about. A recovery knob, not something you want on by default. It's slow, and **destructive against a local PDS**, whose repos Tap cannot re-fetch. |
 | `HUMMING_ENABLED` | Set `false` to stop the AppView from opening outbound connections to other AppViews (see [Humming](/docs/architecture/appview#humming)). Sensible for local work. |
-| `VAPID_*`, `FCM_SERVICE_ACCOUNT_JSON`, `KLIPY_API_KEY` | Optional. Unset means background Web Push, Android push and the GIF picker are disabled, which the AppView says clearly in its boot logs. |
+| `VAPID_*`, `FCM_SERVICE_ACCOUNT_JSON`, `KLIPY_API_KEY` | Optional. Unset means background Web Push, Android push, and the GIF picker with its link previews are disabled, which the AppView says clearly in its boot logs. |
 | `SFU_ANNOUNCED_IP` | Only needed if you test voice from another device, `127.0.0.1` is fine on one machine. |
 
 ## Source layout

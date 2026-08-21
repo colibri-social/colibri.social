@@ -60,3 +60,9 @@ export const resolveEmbedImage = (url: string): string => {
 
 	return `${appView}/xrpc/social.colibri.embed.getImage?url=${encodeURIComponent(url)}`;
 };
+
+export const resolveEmbedVideo = (url: string): string => {
+	const appView = getAppViewHost("http");
+
+	return `${appView}/xrpc/social.colibri.embed.getVideo?url=${encodeURIComponent(url)}`;
+};
