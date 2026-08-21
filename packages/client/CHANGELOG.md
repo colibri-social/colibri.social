@@ -1,5 +1,124 @@
 # @colibri-social/client
 
+## 0.4.0
+
+### Minor Changes
+
+- b4b841e: Turn the notifications setting off when the browser or system permission is denied
+- 912a90c: Roles now open in their own sheet from the member menu on touch devices, with checkboxes that show unassigned roles too
+
+  <!-- whatsnew
+  title: Oh Sheet, Roles!
+  icon: identification-badge-fill
+  body: The member menu now has a single Roles row that opens a dedicated picker with a checkbox per role.
+  kind: feature
+  platforms: mobile
+  -->
+
+- 44b4a34: Prefix the category name on channel mentions when two channels share a name
+
+  <!-- whatsnew
+  title: Clearer Channel Mentions
+  icon: hash-fill
+  body: When a community has two channels with the same name, the mention picker and the channel chips in messages now show the category in front of the name, so you can tell which one you are picking and which one was linked.
+  kind: feature
+  platforms: all
+  -->
+
+- c7c105d: Rework the "who reacted with what" UI into a proper reactions viewer
+
+  <!-- whatsnew
+  title: See Who Reacted
+  icon: smiley-fill
+  body: Reactions now open a dedicated viewer that lists everyone who reacted, with a tab per emoji. Reach it from "View Reactions" in the message menu, or by long-pressing a reaction on mobile.
+  kind: feature
+  platforms: all
+  -->
+
+- 5a7aba1: Fixes GIF links that showed a still frame or a broken image box instead of playing.
+
+  <!-- whatsnew
+  title: Baby, GIF me one more time
+  icon: play-circle-fill
+  body: Some GIF links showed a frozen frame or a broken box instead of playing. Previews now understand the sites that publish their animation as a clip!
+  platforms: all
+  kind: fix
+  -->
+
+- 25ea05b: Mention and member search now ignore accents, so typing `@Jose` finds José and `@Jorgen` finds Jørgen. Folding also covers letters that do not simply decompose, including ø, ł, đ, ß and æ, and it applies everywhere members and roles are searched by name: the composer's `@` and `#` pickers, the channel allow-list editor, and the role list in community settings.
+
+  <!-- whatsnew
+  title: Mentions find accented names
+  icon: at-fill
+  body: Typing @Jose now finds José, and the mention picker puts whoever spoke most recently at the top.
+  platforms: all
+  kind: feature
+  -->
+
+### Patch Changes
+
+- c92163e: Keep the reading position when scrolling up in a short channel
+- e71438b: Switching communities quickly no longer shows the community you just left
+- b9abaed: Submitting a message edit without any changes now just closes the editor instead of marking the message as edited
+- 3df4a43: Fixes the fullscreen button on videos doing nothing in the macOS app.
+
+  <!-- whatsnew
+  title: Go big or go home
+  icon: corners-out-fill
+  body: The fullscreen button on a video now properly fullscreens the video.
+  platforms: macos
+  kind: fix
+  -->
+
+- 35d15c3: Messages that only contain attachments can now be edited to add text
+
+  <!-- whatsnew
+  title: Add Captions in Post
+  icon: pencil-fill
+  body: You can now edit a message that only contains an image, video or file to add text to it.
+  kind: fix
+  platforms: all
+  -->
+
+- 0096efa: Long-pressing a message on iOS no longer selects the entire app
+- b9abaed: Switching channels lands at the newest message again instead of keeping the previous channel's scroll position
+- 80c75c0: Order reaction pills deterministically by emoji name
+- e71438b: Discard channel loads for the channel you switched away from
+- 912a90c: Fix a sheet opened from another sheet closing itself the instant it appeared
+- e66562a: An expired session now takes you straight to the sign-in screen instead of parking you on a dead-end panel with a button.
+  A dead session is difficult to reproduce, so every build now installs `window.__colibriSession` with `expire()`, `fail()`, `signOut()` and `state()` for driving the flow from the devtools console.
+
+  <!-- whatsnew
+  title: Straight back to sign-in
+  icon: sign-in-fill
+  platforms: all
+  kind: fix
+  body: When your session runs out you now land on the sign-in screen right away, instead of on a screen asking you to press a button first.
+  -->
+
+- 9d58fa1: Switching channels no longer carries over the reply target or staged attachments, and Reply is hidden in channels you cannot post in
+
+  <!-- whatsnew
+  title: Composer Stays With Its Channel
+  icon: arrow-bend-up-left-fill
+  body: Starting a reply or attaching files in one channel no longer follows you into the next one.
+  kind: fix
+  platforms: all
+  -->
+
+- d9e6fdd: Fix duplicated new-message toasts
+
+  <!-- whatsnew
+  title: One toast per message
+  icon: bell-fill
+  platforms: all
+  kind: fix
+  body: New message toasts no longer appear two or three times at once after you switch back to the app. Unread ping badges and the ping sound stop double-counting the same message too.
+  -->
+
+- b40264f: A long PDS hostname on the sign-in screen now wraps instead of being cut off
+- ee90e53: Portrait video attachments now keep their aspect ratio instead of sitting cropped inside a 16:9 box
+
 ## 0.3.0
 
 ### Minor Changes

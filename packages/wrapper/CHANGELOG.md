@@ -1,5 +1,42 @@
 # @colibri-social/wrapper
 
+## 0.4.0
+
+### Patch Changes
+
+- 3df4a43: Fixes the fullscreen button on videos doing nothing in the macOS app.
+
+  <!-- whatsnew
+  title: Go big or go home
+  icon: corners-out-fill
+  body: The fullscreen button on a video now properly fullscreens the video.
+  platforms: macos
+  kind: fix
+  -->
+
+- Updated dependencies [c92163e]
+- Updated dependencies [e71438b]
+- Updated dependencies [b9abaed]
+- Updated dependencies [b4b841e]
+- Updated dependencies [3df4a43]
+- Updated dependencies [35d15c3]
+- Updated dependencies [912a90c]
+- Updated dependencies [0096efa]
+- Updated dependencies [44b4a34]
+- Updated dependencies [b9abaed]
+- Updated dependencies [80c75c0]
+- Updated dependencies [e71438b]
+- Updated dependencies [912a90c]
+- Updated dependencies [e66562a]
+- Updated dependencies [c7c105d]
+- Updated dependencies [5a7aba1]
+- Updated dependencies [9d58fa1]
+- Updated dependencies [d9e6fdd]
+- Updated dependencies [25ea05b]
+- Updated dependencies [b40264f]
+- Updated dependencies [ee90e53]
+  - @colibri-social/client@0.4.0
+
 ## 0.3.0
 
 ### Minor Changes
