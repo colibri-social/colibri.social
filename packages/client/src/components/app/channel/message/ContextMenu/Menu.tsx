@@ -2,6 +2,7 @@ import { createMemo, For, type ParentComponent, Show } from "solid-js";
 import { toast } from "somoto";
 import ArrowBendUpLeftIcon from "~icons/ph/arrow-bend-up-left";
 import CopyIcon from "~icons/ph/copy";
+import HeartIcon from "~icons/ph/heart";
 import InfoIcon from "~icons/ph/info";
 import LinkBreakIcon from "~icons/ph/link-break";
 import PencilIcon from "~icons/ph/pencil";
@@ -63,6 +64,8 @@ export const MessageContextMenu: ParentComponent<{
 		handlePotentialBlock,
 		contextMenuOpen,
 		setContextMenuOpen,
+		reactionsViewerOpen,
+		openReactionsViewer,
 		emojiPopoverOpen,
 		setEmojiPopoverOpen,
 		addReactionOptimistic,
@@ -88,6 +91,7 @@ export const MessageContextMenu: ParentComponent<{
 		isPending() ||
 		blockModalOpen() ||
 		deletionModalOpen() ||
+		reactionsViewerOpen() ||
 		!!document.querySelector("#lightbox");
 
 	const close = () => setContextMenuOpen(false);
@@ -155,6 +159,12 @@ export const MessageContextMenu: ParentComponent<{
 									<ContextMenuItem onClick={() => openEmbedsModal()}>
 										<LinkBreakIcon />
 										<span>Link Previews</span>
+									</ContextMenuItem>
+								</Show>
+								<Show when={message.reactions.length > 0}>
+									<ContextMenuItem onClick={() => openReactionsViewer()}>
+										<HeartIcon />
+										<span>View Reactions</span>
 									</ContextMenuItem>
 								</Show>
 								<Show when={!("hash" in message)}>
@@ -280,6 +290,14 @@ export const MessageContextMenu: ParentComponent<{
 						>
 							<LinkBreakIcon />
 							<span>Link Previews</span>
+						</MenuDrawerItem>
+					</Show>
+					<Show when={message.reactions.length > 0}>
+						<MenuDrawerItem
+							onClick={() => handoffDrawer(close, () => openReactionsViewer())}
+						>
+							<HeartIcon />
+							<span>View Reactions</span>
 						</MenuDrawerItem>
 					</Show>
 					<Show when={!("hash" in message)}>

@@ -29,7 +29,6 @@ import { createDoubleTap } from "../../../../utils/create-double-tap";
 import { createLongPress } from "../../../../utils/create-long-press";
 import { createSwipe } from "../../../../utils/create-swipe";
 import { parseEmojiText, twemojiImageSrc } from "../../../../utils/emoji";
-import { aliasesForSlug, slugForEmoji } from "../../../../utils/emoji-data";
 import { topEmoji } from "../../../../utils/emoji-usage";
 import { resolveLinkTarget } from "../../../../utils/link-target";
 import { useIsMobile } from "../../../../utils/mobile-pane";
@@ -46,7 +45,6 @@ import { EmojiPopover } from "../../common/EmojiPopover";
 import { RichTextRenderer } from "../../common/rich-text-renderer/RichTextRenderer";
 import { MemberContextMenu } from "../../community/MemberContextMenu";
 import User from "../../user";
-import { displayableNameFn } from "../../user/DisplayableName";
 import { MessageAttachments } from "./Attachments";
 import { BlockDrawer } from "./BlockDrawer";
 import { Action } from "./ContextMenu";
@@ -60,12 +58,13 @@ import {
 } from "./Embed";
 import { InlineEditor } from "./InlineEditor";
 import { MessageTimestamp } from "./MessageTimestamp";
-import { ReactorsModal } from "./ReactorsModal";
+import { ReactionsViewer } from "./ReactionsViewer";
+import { emojiShortcode, reactedByLabel, useReactorResolver } from "./reactors";
 
 function reactTooltip(emoji: string): string {
-	const slug = slugForEmoji(emoji);
-	if (!slug) return "React";
-	return `React with :${aliasesForSlug(slug)[0] ?? slug}:`;
+	const shortcode = emojiShortcode(emoji);
+	if (!shortcode) return "React";
+	return `React with :${shortcode}:`;
 }
 
 /**
@@ -126,6 +125,7 @@ const MessageInner: Component<{
 		enableEditMode,
 		addReactionOptimistic,
 		removeReaction,
+		openReactionsViewer,
 		visibleEmbedUris,
 		canModerateEmbeds,
 		removeEmbed,
@@ -155,7 +155,7 @@ const MessageInner: Component<{
 	const resolveAuthor = (author: ActorData): ActorData =>
 		community().members.find((m) => m.did === author.did) ?? author;
 
-	const [reactorsModalOpen, setReactorsModalOpen] = createSignal(false);
+	const resolveReactor = useReactorResolver();
 
 	createEffect(() => {
 		if (channel.emptyEditPendingDeletion()?.uri === message.uri) {
@@ -168,25 +168,6 @@ const MessageInner: Component<{
 		if (message.parent) return false;
 		if (!props.isSubsequent) return false;
 		return true;
-	};
-
-	// Resolve a reactor DID to a display name via the member roster, falling back
-	// to the raw handle/DID for anyone no longer in the community.
-	const reactorName = (did: string): string => {
-		const member = community().members.find((m) => m.did === did);
-		return member ? displayableNameFn(member) : did.replace("at://", "");
-	};
-
-	// "A", "A and B", "A, B and C", then "A, B, C and N others" past three.
-	const reactedByLabel = (dids: Array<string>): string => {
-		const names = dids.slice(0, 3).map(reactorName);
-		const remaining = dids.length - names.length;
-
-		if (remaining > 0) {
-			return `${names.join(", ")} and ${remaining} ${remaining === 1 ? "other" : "others"}`;
-		}
-		if (names.length <= 1) return names.join("");
-		return `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
 	};
 
 	const linkFacets = (): Array<ColibriRichTextLink> =>
@@ -297,8 +278,13 @@ const MessageInner: Component<{
 
 						createLongPress(el, {
 							enabled: () => isTouch() && !isPending(),
-							shouldStart: (e) =>
-								!(e.target as Element | null)?.closest?.("[data-member-menu]"),
+							shouldStart: (e) => {
+								const target = e.target as Element | null;
+								return (
+									!target?.closest?.("[data-member-menu]") &&
+									!target?.closest?.("[data-reaction-pill]")
+								);
+							},
 							onLongPress: (e) => {
 								captureLinkTarget(e);
 								setContextMenuOpen(true);
@@ -621,7 +607,24 @@ const MessageInner: Component<{
 						</div>
 					</Show>
 					<Show when={message.reactions.length > 0}>
-						<div class="flex flex-row gap-1 flex-wrap items-center pl-14 pb-2">
+						<div
+							data-reaction-pill
+							ref={(el) => {
+								createLongPress(el, {
+									enabled: () => isTouch() && !isPending(),
+									onLongPress: (e) => {
+										const pill = (e.target as Element | null)?.closest?.(
+											"[data-reaction-pill]",
+										);
+
+										openReactionsViewer(
+											pill?.getAttribute("data-reaction-pill") || undefined,
+										);
+									},
+								});
+							}}
+							class="flex flex-row gap-1 flex-wrap items-center pl-14 pb-2"
+						>
 							<For each={message.reactions}>
 								{(item) => (
 									<Tooltip>
@@ -629,6 +632,7 @@ const MessageInner: Component<{
 											as={(tooltipProps: TooltipTriggerProps) => (
 												<button
 													type="button"
+													data-reaction-pill={item.emoji}
 													class="border rounded-sm hover:bg-card px-1.5 py-1 flex gap-1 items-center cursor-pointer"
 													classList={{
 														"border-primary bg-primary/15 hover:bg-primary/25":
@@ -661,31 +665,34 @@ const MessageInner: Component<{
 										/>
 										<TooltipPortal>
 											<TooltipContent>
-												<p class="m-0 max-w-64 text-wrap">
-													Reacted by {reactedByLabel(item.reactorDIDs)}
-												</p>
+												<div class="flex max-w-64 flex-col gap-1.5">
+													<div class="flex flex-row items-center gap-1">
+														<For each={item.reactorDIDs.slice(0, 6)}>
+															{(did) => (
+																<User.Avatar
+																	user={resolveReactor(did)}
+																	size="small"
+																	disableState
+																	class="size-5"
+																/>
+															)}
+														</For>
+													</div>
+													<p class="m-0 text-wrap">
+														{reactedByLabel(item.reactorDIDs, resolveReactor)}{" "}
+														reacted
+														<Show when={emojiShortcode(item.emoji)}>
+															{(shortcode) => <> with :{shortcode()}:</>}
+														</Show>
+													</p>
+												</div>
 											</TooltipContent>
 										</TooltipPortal>
 									</Tooltip>
 								)}
 							</For>
-							<Show
-								when={message.reactions.some((r) => r.reactorDIDs.length > 3)}
-							>
-								<button
-									type="button"
-									class="text-muted-foreground hover:text-foreground text-sm px-1.5 py-1 cursor-pointer hover:underline"
-									onClick={() => setReactorsModalOpen(true)}
-								>
-									View all
-								</button>
-							</Show>
 						</div>
-						<ReactorsModal
-							reactions={message.reactions}
-							open={reactorsModalOpen()}
-							setOpen={setReactorsModalOpen}
-						/>
+						<ReactionsViewer />
 					</Show>
 				</div>
 			</div>

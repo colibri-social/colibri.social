@@ -1,6 +1,7 @@
 import type { ColibriRichTextFacet } from "@colibri-social/lib";
 import {
 	type Accessor,
+	batch,
 	createContext,
 	createEffect,
 	createSignal,
@@ -54,6 +55,10 @@ export type MessageContextValue = {
 	setDebugModalOpen: Setter<boolean>;
 	embedsModalOpen: Accessor<boolean>;
 	setEmbedsModalOpen: Setter<boolean>;
+	reactionsViewerOpen: Accessor<boolean>;
+	reactionsViewerEmoji: Accessor<string | undefined>;
+	openReactionsViewer: (emoji?: string) => void;
+	closeReactionsViewer: () => void;
 	emojiPopoverOpen: Accessor<boolean>;
 	setEmojiPopoverOpen: Setter<boolean>;
 	contextMenuOpen: Accessor<boolean>;
@@ -125,6 +130,10 @@ export const MessageContextProvider: ParentComponent<{ data: Message }> = (
 	const [emojiPopoverOpen, setEmojiPopoverOpen] = createSignal(false);
 	const [debugModalOpen, setDebugModalOpen] = createSignal(false);
 	const [embedsModalOpen, setEmbedsModalOpen] = createSignal(false);
+	const [reactionsViewerOpen, setReactionsViewerOpen] = createSignal(false);
+	const [reactionsViewerEmoji, setReactionsViewerEmoji] = createSignal<
+		string | undefined
+	>();
 	const [stagedEmbeds, setStagedEmbeds] = createSignal<
 		Array<string> | undefined
 	>();
@@ -534,6 +543,17 @@ export const MessageContextProvider: ParentComponent<{ data: Message }> = (
 		}
 	};
 
+	const openReactionsViewer = (emoji?: string) => {
+		batch(() => {
+			setReactionsViewerEmoji(emoji);
+			setReactionsViewerOpen(true);
+		});
+	};
+
+	const closeReactionsViewer = () => {
+		setReactionsViewerOpen(false);
+	};
+
 	const value: MessageContextValue = {
 		get message() {
 			return props.data;
@@ -546,6 +566,10 @@ export const MessageContextProvider: ParentComponent<{ data: Message }> = (
 		setDebugModalOpen,
 		embedsModalOpen,
 		setEmbedsModalOpen,
+		reactionsViewerOpen,
+		reactionsViewerEmoji,
+		openReactionsViewer,
+		closeReactionsViewer,
 		emojiPopoverOpen,
 		setEmojiPopoverOpen,
 		contextMenuOpen,
