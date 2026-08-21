@@ -124,6 +124,7 @@
 		},
 		{
 			"includes": [
+				"packages/client/src/atproto/session-debug.ts",
 				"packages/client/src/utils/logger.ts",
 				"packages/client/src/utils/dev-diagnostics.ts",
 				"packages/client/src/utils/perf.ts",

@@ -14,13 +14,14 @@ import {
 } from "solid-js";
 import { urlSegmentToUri } from "./atproto/community-uri-to-url-compatible";
 import { OutboxController } from "./atproto/outbox/OutboxController";
+import { initSessionDebug } from "./atproto/session-debug";
 import { sessionDead } from "./atproto/session-health";
 import { AppLoadingScreen } from "./components/AppLoadingScreen";
 import { AutoUpdater } from "./components/app/AutoUpdater";
 import { DeleteAccountScreen } from "./components/app/account/DeleteAccountScreen";
 import { InviteModal } from "./components/app/community/InviteModal";
 import { ScopeGate } from "./components/app/onboarding/ScopeGate";
-import { SessionExpiredScreen } from "./components/app/SessionExpiredScreen";
+import { SessionExpiredRedirect } from "./components/app/SessionExpiredRedirect";
 import { TitleBar } from "./components/app/titlebar";
 import { VoiceChannelView } from "./components/app/VoiceChannelView";
 import { DeepLinkListener } from "./components/DeepLinkListener";
@@ -59,6 +60,7 @@ import { initTitleBar } from "./utils/titlebar";
 
 initTheme();
 initTitleBar();
+initSessionDebug();
 
 // Accepted forms of the `:channelType` URL segment. We accept both the
 // short form (legacy records that store `"text"` / `"voice"`) and the full
@@ -131,7 +133,7 @@ const AppErrorScreen: Component<{ error: unknown; reset: () => void }> = (
 	});
 
 	return (
-		<Show when={!sessionDead()} fallback={<SessionExpiredScreen />}>
+		<Show when={!sessionDead()} fallback={<SessionExpiredRedirect />}>
 			<div class="w-full h-full absolute top-0 left-0 z-50 flex flex-col items-center justify-center gap-3 px-6 text-foreground select-none">
 				<p class="text-base font-medium m-0 text-center">{copy().title}</p>
 				<Show when={copy().description}>

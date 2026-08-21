@@ -82,6 +82,18 @@ describe("noteAuthFailure", () => {
 	});
 });
 
+describe("beginSignOut", () => {
+	it("clears a session that already gave up", async () => {
+		const { beginSignOut, noteAuthFailure, sessionDead, sessionDeadCode } =
+			await load();
+		noteAuthFailure("ExpiredToken");
+		expect(sessionDead()).toBe(true);
+		beginSignOut();
+		expect(sessionDead()).toBe(false);
+		expect(sessionDeadCode()).toBeUndefined();
+	});
+});
+
 describe("noteSessionDeleted", () => {
 	it("gives up as soon as the OAuth client drops the session", async () => {
 		const { noteSessionDeleted, sessionDead, sessionDeadCode } = await load();

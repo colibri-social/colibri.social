@@ -37,6 +37,8 @@ export const noteScopesRejected = (context?: Record<string, unknown>): void => {
 
 export const beginSignOut = (): void => {
 	signingOut = true;
+	setDead(false);
+	setDeadCode(undefined);
 };
 
 export const markSessionDead = (

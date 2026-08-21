@@ -55,6 +55,19 @@ Login uses a real Atmosphere account through OAuth, against whatever PDS that ac
 - **The early-access allowlist.** `packages/client/src/atproto/allowlist.ts` is a hardcoded set of DIDs, enforced in dev exactly as in production: a session for a DID that isn't in it is cleared and you land on the waitlist screen. Add your own DID while developing.
 - **Localhost OAuth clients.** In dev the client id is the [localhost development form](https://atproto.com/specs/oauth#localhost-client-development), `http://localhost?scope=...&redirect_uri=http://127.0.0.1:<port>/app/login`, instead of a hosted client metadata document. Scopes are built from the AppView's `did:web`, so they're derived from what your local install points at.
 
+### Faking a logout
+
+A dead session is difficult to reproduce, so the client adds `window.__colibriSession`
+in every build. Run `__colibriSession.help()` for the list.
+
+```js
+__colibriSession.expire()               // end the session and watch the redirect to sign-in
+__colibriSession.expire("InvalidToken") // any ColibriErrorCode works
+__colibriSession.fail()                 // one AuthRequired, three inside 60s end the session
+__colibriSession.signOut()              // the deliberate sign-out path instead
+__colibriSession.state()                // { dead, code }
+```
+
 ## Tests
 
 CI runs Biome, the test suite, and a typecheck of the client, all of which you

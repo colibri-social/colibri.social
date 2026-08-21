@@ -25,7 +25,7 @@ import { XrpcClient } from "../atproto/xrpc";
 import { AppLoadingScreen } from "../components/AppLoadingScreen";
 import { AppViewUnreachableModal } from "../components/app/AppViewUnreachableModal";
 import { ProfileGate } from "../components/app/onboarding/ProfileGate";
-import { SessionExpiredScreen } from "../components/app/SessionExpiredScreen";
+import { SessionExpiredRedirect } from "../components/app/SessionExpiredRedirect";
 import { setReportingAccount } from "../errors/account";
 import { classifyThrown } from "../errors/classify";
 import { setCrossAppViewHintHandlers } from "../errors/cross-appview-hint";
@@ -207,7 +207,7 @@ export const UserContextProvider: ParentComponent = (props) => {
 			<Match when={user.error}>
 				<Switch fallback={<AppViewUnreachableModal />}>
 					<Match when={needsSignIn()}>
-						<SessionExpiredScreen />
+						<SessionExpiredRedirect />
 					</Match>
 					<Match when={import.meta.env.DEV}>
 						<span>{`${user.error}`}</span>
@@ -222,7 +222,7 @@ export const UserContextProvider: ParentComponent = (props) => {
 					const value = resolved();
 
 					if (!value.loggedIn) {
-						return <SessionExpiredScreen />;
+						return <SessionExpiredRedirect />;
 					}
 
 					const refetchCommunities = async () => {
