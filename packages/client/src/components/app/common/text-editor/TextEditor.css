@@ -26,6 +26,10 @@
 	display: block;
 }
 
+#editor.temp-editor .tiptap.ProseMirror {
+	max-height: none;
+}
+
 .ProseMirror p.is-editor-empty:first-child {
 	position: relative;
 }
