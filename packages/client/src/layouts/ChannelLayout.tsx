@@ -71,6 +71,11 @@ import {
 	domFrameScheduler,
 } from "../utils/message-scroll-dom";
 import { createMobilePane } from "../utils/mobile-pane";
+import {
+	probeScroll,
+	traceScrollController,
+	watchBottomDrift,
+} from "../utils/scroll-probe";
 import { probe, probeRender } from "../utils/switch-probe";
 
 type MessageMeta = {
@@ -210,15 +215,24 @@ const ChannelLayout: ParentComponent = (props) => {
 	let prependCompensated = true;
 	let autoContinues = 0;
 
-	const scrollAnchor = createMessageScrollController(
-		createDomScrollSurface(
-			() => scrollContainer,
-			() => messagesWrapper,
-		),
-		{ scheduler: domFrameScheduler() },
+	const round = (value: number): number => Math.round(value * 10) / 10;
+
+	const scrollSurface = createDomScrollSurface(
+		() => scrollContainer,
+		() => messagesWrapper,
 	);
 
+	const scrollAnchor = traceScrollController(
+		createMessageScrollController(scrollSurface, {
+			scheduler: domFrameScheduler(),
+		}),
+		scrollSurface,
+	);
+
+	let stopDriftWatch: (() => void) | undefined;
+
 	const scrollToBottom = () => {
+		probeScroll("jump button pressed");
 		scrollAnchor.pin();
 		setShowJumpToLatest(false);
 		channel.clearUnreadBoundary();
@@ -331,6 +345,13 @@ const ChannelLayout: ParentComponent = (props) => {
 			if (boundary === undefined || top < boundary) boundary = top;
 		}
 
+		probeScroll("content resize", {
+			entries: entries.length,
+			delta: round(delta),
+			boundary: boundary === undefined ? "none" : round(boundary),
+			didInitialScroll,
+		});
+
 		if (scrollAnchor.isPinned() && !scrollAnchor.isGesturing()) {
 			scrollAnchor.assert();
 			scrollAnchor.settle();
@@ -377,7 +398,11 @@ const ChannelLayout: ParentComponent = (props) => {
 			for (const row of messagesWrapper.children) observeRow(row);
 
 			rowMutationObserver = new MutationObserver((mutations) => {
+				let added = 0;
+				let removed = 0;
 				for (const mutation of mutations) {
+					added += mutation.addedNodes.length;
+					removed += mutation.removedNodes.length;
 					for (const node of mutation.addedNodes) observeRow(node);
 					for (const node of mutation.removedNodes) {
 						if (node instanceof HTMLElement) {
@@ -385,12 +410,24 @@ const ChannelLayout: ParentComponent = (props) => {
 						}
 					}
 				}
+				probeScroll("rows mutated", {
+					added,
+					removed,
+					rows: scrollSurface.rowCount(),
+					dist: round(scrollAnchor.distanceFromBottom()),
+					pinned: scrollAnchor.isPinned(),
+					didInitialScroll,
+				});
 			});
 			rowMutationObserver.observe(messagesWrapper, { childList: true });
 		}
 
 		if (scrollContainer) {
 			containerResizeObserver = new ResizeObserver(() => {
+				probeScroll("container resize", {
+					clientH: scrollSurface.getClientHeight(),
+					didInitialScroll,
+				});
 				if (!didInitialScroll) return;
 				scrollAnchor.assert();
 				scrollAnchor.settle();
@@ -407,6 +444,7 @@ const ChannelLayout: ParentComponent = (props) => {
 		readObserver?.disconnect();
 		pingObserver?.disconnect();
 		unbindGestures?.();
+		stopDriftWatch?.();
 		scrollAnchor.dispose();
 		if (jumpEvaluationFrame !== undefined)
 			cancelAnimationFrame(jumpEvaluationFrame);
@@ -556,7 +594,19 @@ const ChannelLayout: ParentComponent = (props) => {
 	});
 
 	createEffect(
-		on(channel.channelUri, () => {
+		on(channel.channelUri, (uri) => {
+			probeScroll("channel switch: layout reset", {
+				to: uri.split("/").pop(),
+				dist: round(scrollAnchor.distanceFromBottom()),
+				top: round(scrollSurface.getScrollTop()),
+				scrollH: round(scrollSurface.getScrollHeight()),
+				rows: scrollSurface.rowCount(),
+				pinned: scrollAnchor.isPinned(),
+				gesturing: scrollAnchor.isGesturing(),
+			});
+			stopDriftWatch?.();
+			stopDriftWatch = undefined;
+			scrollAnchor.reset();
 			didInitialScroll = false;
 			cursorWalkAttempts = 0;
 			prependCompensated = true;
@@ -580,24 +630,56 @@ const ChannelLayout: ParentComponent = (props) => {
 		),
 	);
 
-	createEffect(() => {
-		if (didInitialScroll) return;
-		if (channel.initialLoading()) return;
-		if (channel.messages().length === 0 && channel.hasMore()) return;
-		if (!channel.readCursorResolved()) return;
+	const landingInputs = createMemo(() => ({
+		initialLoading: channel.initialLoading(),
+		msgs: channel.messages(),
+		hasMore: channel.hasMore(),
+		cursorResolved: channel.readCursorResolved(),
+		cursorUri: channel.readCursorUri(),
+		loadError: channel.error(),
+	}));
 
-		const cursorUri = channel.readCursorUri();
-		const msgs = channel.messages();
+	createEffect(() => {
+		const {
+			initialLoading,
+			msgs,
+			hasMore,
+			cursorResolved,
+			cursorUri,
+			loadError,
+		} = landingInputs();
+
+		if (didInitialScroll) return;
+		if (initialLoading) {
+			probeScroll("landing gate", { waitingFor: "initialLoading" });
+			return;
+		}
+		if (msgs.length === 0 && hasMore) {
+			probeScroll("landing gate", { waitingFor: "firstRows" });
+			return;
+		}
+		if (!cursorResolved) {
+			probeScroll("landing gate", { waitingFor: "readCursor" });
+			return;
+		}
+
 		const cursorIdx = cursorUri
 			? msgs.findIndex((m) => m.uri === cursorUri)
 			: -1;
 
+		probeScroll("landing decision", {
+			rows: msgs.length,
+			cursor: cursorUri ? cursorUri.split("/").pop() : "none",
+			cursorIdx,
+			hasMore,
+			cursorWalkAttempts,
+			scrollH: round(scrollSurface.getScrollHeight()),
+			clientH: round(scrollSurface.getClientHeight()),
+			top: round(scrollSurface.getScrollTop()),
+		});
+
 		if (cursorUri && cursorIdx === -1) {
-			if (
-				channel.hasMore() &&
-				!channel.error() &&
-				cursorWalkAttempts < FOCUS_WALK_CAP
-			) {
+			if (hasMore && !loadError && cursorWalkAttempts < FOCUS_WALK_CAP) {
 				cursorWalkAttempts++;
 				loadOlderPreservingScroll();
 				return;
@@ -616,6 +698,15 @@ const ChannelLayout: ParentComponent = (props) => {
 						)
 					: null;
 
+			probeScroll("landing frame", {
+				landOnCursor,
+				nodeFound: node !== null,
+				rows: scrollSurface.rowCount(),
+				scrollH: round(scrollSurface.getScrollHeight()),
+				clientH: round(scrollSurface.getClientHeight()),
+				top: round(scrollSurface.getScrollTop()),
+			});
+
 			const markReadNow = () => {
 				channel.advanceReadCursor();
 				notifications.markChannelRead(channel.channelUri());
@@ -625,6 +716,12 @@ const ChannelLayout: ParentComponent = (props) => {
 			if (node) {
 				node.scrollIntoView({ block: "start" });
 				const landedAtBottom = scrollAnchor.isAtBottom();
+				probeScroll("landed on cursor", {
+					landedAtBottom,
+					dist: round(scrollAnchor.distanceFromBottom()),
+					top: round(scrollSurface.getScrollTop()),
+					scrollH: round(scrollSurface.getScrollHeight()),
+				});
 				if (landedAtBottom) scrollAnchor.pin();
 				else scrollAnchor.unpin();
 				setShowJumpToLatest(!landedAtBottom);
@@ -634,6 +731,13 @@ const ChannelLayout: ParentComponent = (props) => {
 				setShowJumpToLatest(false);
 				markReadNow();
 			}
+
+			stopDriftWatch?.();
+			stopDriftWatch = watchBottomDrift(
+				"after switch",
+				scrollSurface,
+				scrollAnchor,
+			);
 		});
 	});
 

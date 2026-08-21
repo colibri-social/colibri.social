@@ -128,6 +128,7 @@
 				"packages/client/src/utils/logger.ts",
 				"packages/client/src/utils/dev-diagnostics.ts",
 				"packages/client/src/utils/perf.ts",
+				"packages/client/src/utils/scroll-probe.ts",
 				"packages/client/**/*.test.ts"
 			],
 			"linter": {

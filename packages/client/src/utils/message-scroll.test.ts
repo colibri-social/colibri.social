@@ -116,6 +116,10 @@ const createFakeSurface = (
 		remove: (key: string) => {
 			rows = rows.filter((candidate) => candidate.key !== key);
 		},
+		replace: (incoming: FakeRow[]) => {
+			rows = [...incoming];
+			scrollTop = Math.min(scrollTop, maxScrollTop());
+		},
 	};
 };
 
@@ -496,6 +500,71 @@ describe("pin intent", () => {
 		controller.pin(false);
 
 		expect(controller.distanceFromBottom()).toBeLessThan(1);
+	});
+});
+
+describe("channel switch", () => {
+	it("re-pins a controller that the previous channel left unpinned", () => {
+		const { fake, controller } = createHarness(makeRows("a", 40, 100), 600);
+
+		controller.beginGesture();
+		fake.scrollTo(1000);
+		controller.handleScroll();
+		controller.endGesture();
+		expect(controller.isPinned()).toBe(false);
+
+		controller.reset();
+		expect(controller.isPinned()).toBe(true);
+		expect(controller.anchorMode()).toBe("none");
+
+		fake.replace(makeRows("b", 30, 100));
+		controller.assert();
+
+		expect(controller.isAtBottom()).toBe(true);
+	});
+
+	it("drops the row anchor so the new list is not aligned to old keys", () => {
+		const { fake, controller } = createHarness(makeRows("a", 40, 100), 600);
+		fake.scrollTo(1000);
+		controller.unpin();
+		expect(controller.anchorMode()).toBe("row");
+
+		controller.reset();
+		fake.replace(makeRows("b", 40, 100));
+		controller.assert();
+
+		expect(controller.isAtBottom()).toBe(true);
+	});
+
+	it("clears a gesture the previous channel left armed", () => {
+		const { fake, frames, controller } = createHarness(
+			makeRows("a", 40, 100),
+			600,
+		);
+
+		controller.beginGesture();
+		expect(controller.isGesturing()).toBe(true);
+
+		controller.reset();
+		expect(controller.isGesturing()).toBe(false);
+
+		fake.replace(makeRows("b", 30, 100));
+		controller.pin();
+		frames.flush(4);
+
+		expect(controller.isAtBottom()).toBe(true);
+	});
+
+	it("cancels a settle loop left over from the previous channel", () => {
+		const { frames, controller } = createHarness(makeRows("a", 40, 100), 600);
+
+		controller.settle();
+		expect(controller.isSettling()).toBe(true);
+
+		controller.reset();
+
+		expect(controller.isSettling()).toBe(false);
+		expect(frames.pending()).toBe(0);
 	});
 });
 

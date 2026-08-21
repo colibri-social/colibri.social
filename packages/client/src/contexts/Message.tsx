@@ -32,6 +32,11 @@ import {
 } from "../utils/composer-drafts";
 import { linkUrisFromFacets } from "../utils/link-facets";
 import type { LinkTarget } from "../utils/link-target";
+import {
+	buildFeatureKey,
+	normalizeFacets,
+	stableStringify,
+} from "../utils/normalize-facets";
 import { purify } from "../utils/purify";
 import { useChannelContext } from "./Channel";
 import { useCommunityContext, usePermissions } from "./Community";
@@ -153,12 +158,38 @@ export const MessageContextProvider: ParentComponent<{ data: Message }> = (
 		});
 	});
 
+	const facetsKey = (facets: Array<ColibriRichTextFacet>): string =>
+		stableStringify(
+			normalizeFacets(facets).map((facet) => ({
+				byteStart: facet.index.byteStart,
+				byteEnd: facet.index.byteEnd,
+				features: facet.features.map(buildFeatureKey).sort(),
+			})),
+		);
+
+	const matchesCurrent = (input: TextWithFacets): boolean => {
+		const current = newText();
+		const next = trimWithFacets({
+			text: input.text,
+			facets: input.facets ?? [],
+		});
+		return (
+			purify(next.text) === purify(current.text) &&
+			facetsKey(next.facets) === facetsKey(current.facets ?? [])
+		);
+	};
+
 	const saveEditedText = (
 		text: string,
 		facets: Array<ColibriRichTextFacet>,
 	) => {
 		setEditedText({ text, facets });
-		if (!isPending()) writeEditDraft(props.data.uri, { text, facets });
+		if (isPending()) return;
+		if (matchesCurrent({ text, facets })) {
+			clearEditDraft(props.data.uri);
+			return;
+		}
+		writeEditDraft(props.data.uri, { text, facets });
 	};
 
 	const isRepliedTo = () => {
@@ -401,6 +432,11 @@ export const MessageContextProvider: ParentComponent<{ data: Message }> = (
 		facets: Array<ColibriRichTextFacet>,
 	) => {
 		if (isPending()) return;
+
+		if (matchesCurrent({ text, facets })) {
+			cancelEdits();
+			return;
+		}
 
 		const rkey = AtURI.parseAtURI(props.data.uri).identifier;
 		const originalText = newText();
