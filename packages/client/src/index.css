@@ -262,6 +262,20 @@ html[data-titlebar="linux"] {
 		font-family: var(--font-sans);
 	}
 
+	@media (pointer: coarse) {
+		html {
+			-webkit-user-select: none;
+			user-select: none;
+		}
+
+		input,
+		textarea,
+		[contenteditable]:not([contenteditable="false"]) {
+			-webkit-user-select: text;
+			user-select: text;
+		}
+	}
+
 	@media (pointer: fine) {
 		*::-webkit-scrollbar {
 			width: 8px;
