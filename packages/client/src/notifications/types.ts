@@ -16,7 +16,10 @@ export type NotificationPayload = {
 };
 
 export type NotificationPermission =
-	"granted" | "denied" | "default" | "unknown";
+	| "granted"
+	| "denied"
+	| "default"
+	| "unknown";
 
 /**
  * A concrete notification implementation for a single runtime (web, Tauri, ...).

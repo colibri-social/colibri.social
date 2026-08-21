@@ -17,8 +17,15 @@
 	display: none;
 }
 
+.colibri-media-video {
+	max-width: var(--colibri-video-max-width, 26rem);
+	aspect-ratio: 16 / 9;
+}
+
 /* Video fills its container while respecting the chat-bubble size cap. */
 .colibri-media-video media-provider {
+	position: absolute;
+	inset: 0;
 	display: block;
 	line-height: 0;
 }
@@ -26,18 +33,8 @@
 .colibri-media-video video {
 	display: block;
 	width: 100%;
-	height: auto;
-	max-height: 24rem; /* keep in sync with max-h-96 on the player */
+	height: 100%;
 	object-fit: contain;
-}
-
-/*
- * With `load="play"` the video has no intrinsic size until the user starts it,
- * so reserve a 16:9 box up front to avoid a zero-height collapse. Once the
- * media reports `data-can-play` the real dimensions take over.
- */
-.colibri-media-video:not([data-can-play]) {
-	aspect-ratio: 16 / 9;
 }
 
 /*
@@ -62,13 +59,14 @@
 
 /*
  * Fullscreen: drop the in-feed size caps so the video fills the screen.
- * Without this the player's max-width (max-w-104) and the video's max-height
- * keep it at its small in-feed size, centered on a black backdrop. Vidstack
+ * Without this the player's max-width and reserved aspect ratio keep it at
+ * its small in-feed size, centered on a black backdrop. Vidstack
  * sets `data-fullscreen` on the player for both native and fallback modes
  */
 .colibri-media-video[data-fullscreen],
 .colibri-media-video.colibri-pseudo-fullscreen {
 	max-width: none;
+	aspect-ratio: auto;
 	border-radius: 0;
 }
 

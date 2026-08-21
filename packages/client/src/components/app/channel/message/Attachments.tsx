@@ -4,11 +4,13 @@ import {
 	createEffect,
 	createSignal,
 	For,
+	type JSX,
 	onCleanup,
 	onMount,
 	Show,
 } from "solid-js";
 import { Portal } from "solid-js/web";
+import type { MediaPlayerElement } from "vidstack/elements";
 import "vidstack/player";
 import "vidstack/player/ui";
 
@@ -34,6 +36,7 @@ import type { Message } from "../../../../atproto/xrpc/social/colibri/channel/li
 import { isTauriRuntime } from "../../../../notifications/environment";
 import { createSwipe } from "../../../../utils/create-swipe";
 import {
+	parseAspectRatio,
 	rememberAspectRatio,
 	reservedAspectRatio,
 } from "../../../../utils/image-sizing";
@@ -48,6 +51,10 @@ const CONTROL_BTN =
 	"inline-flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-md transition-colors";
 const audioBtnClass = `${CONTROL_BTN} text-muted-foreground hover:bg-foreground/10 hover:text-foreground`;
 const videoBtnClass = `${CONTROL_BTN} text-white/90 hover:bg-white/20 hover:text-white`;
+
+const VIDEO_MAX_WIDTH_PX = 416;
+const VIDEO_MAX_HEIGHT_PX = 480;
+const VIDEO_FALLBACK_RATIO = "16 / 9";
 
 /** Human-readable byte size, e.g. `1.4 MB`. */
 const formatBytes = (bytes: number): string => {
@@ -471,6 +478,28 @@ export const VideoAttachment: AttachmentComponent = (props) => {
 	const usePseudoFullscreen = isTauriRuntime() && !isDesktopNative();
 	const [pseudoFullscreen, setPseudoFullscreen] = createSignal(false);
 
+	let playerEl!: MediaPlayerElement;
+
+	const frameStyle = (): JSX.CSSProperties => {
+		if (pseudoFullscreen()) return {};
+
+		const ratioText =
+			reservedAspectRatio({
+				url: src(),
+				width: props.item.width,
+				height: props.item.height,
+			}) ?? VIDEO_FALLBACK_RATIO;
+		const ratio = parseAspectRatio(ratioText);
+		const width = ratio
+			? Math.round(Math.min(VIDEO_MAX_WIDTH_PX, ratio * VIDEO_MAX_HEIGHT_PX))
+			: undefined;
+
+		return {
+			"aspect-ratio": ratioText,
+			"--colibri-video-max-width": width ? `${width}px` : undefined,
+		};
+	};
+
 	const enterPseudoFullscreen = () => {
 		setPseudoFullscreen(true);
 		try {
@@ -487,6 +516,14 @@ export const VideoAttachment: AttachmentComponent = (props) => {
 	};
 
 	onMount(() => {
+		const onMetadata = (event: Event) =>
+			rememberAspectRatio(src(), event.target);
+
+		playerEl.addEventListener("loadedmetadata", onMetadata, true);
+		onCleanup(() =>
+			playerEl.removeEventListener("loadedmetadata", onMetadata, true),
+		);
+
 		if (!usePseudoFullscreen) return;
 
 		const onPop = () => {
@@ -498,17 +535,15 @@ export const VideoAttachment: AttachmentComponent = (props) => {
 
 	return (
 		<media-player
-			class="colibri-media-video group relative w-full max-w-104 rounded-lg bg-black overflow-hidden"
+			ref={playerEl}
+			class="colibri-media-video group relative w-full rounded-lg bg-black overflow-hidden"
 			classList={{ "colibri-pseudo-fullscreen": pseudoFullscreen() }}
-			style={{
-				"aspect-ratio": pseudoFullscreen()
-					? undefined
-					: (reservedAspectRatio(props.item) ?? "16 / 9"),
-			}}
+			style={frameStyle()}
 			title={name()}
 			viewType="video"
 			streamType="on-demand"
-			load="play"
+			load="visible"
+			preload="metadata"
 			playsInline
 		>
 			<a

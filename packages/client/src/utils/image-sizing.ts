@@ -30,14 +30,25 @@ export const reservedAspectRatio = (
 	return knownAspectRatio(source.url);
 };
 
+const intrinsicRatio = (target: EventTarget | null): number | undefined => {
+	const [width, height] =
+		target instanceof HTMLImageElement
+			? [target.naturalWidth, target.naturalHeight]
+			: target instanceof HTMLVideoElement
+				? [target.videoWidth, target.videoHeight]
+				: [0, 0];
+	return width && height ? width / height : undefined;
+};
+
 export const rememberAspectRatio = (
 	url: string | undefined,
 	target: EventTarget | null,
 ): void => {
-	if (!url || !(target instanceof HTMLImageElement)) return;
-	if (!target.naturalWidth || !target.naturalHeight) return;
+	if (!url) return;
 
-	const ratio = target.naturalWidth / target.naturalHeight;
+	const ratio = intrinsicRatio(target);
+	if (!ratio) return;
+
 	setDecodedAspectRatios((previous) => {
 		if (previous.get(url) === ratio) return previous;
 		return new Map(previous).set(url, ratio);
