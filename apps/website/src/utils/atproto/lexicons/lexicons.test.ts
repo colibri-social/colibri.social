@@ -16,6 +16,7 @@ import { readWrapperCalls, type WrapperCall } from "./wrapper-calls.ts";
 const SCHEMALESS_METHODS: Record<string, string> = {
 	"social.colibri.sync.sendHum": "Fire and forget, no output key at all.",
 	"social.colibri.embed.getImage": "Streams bytes, encoding is */*.",
+	"social.colibri.embed.getVideo": "Streams bytes, encoding is */*.",
 };
 
 /**
