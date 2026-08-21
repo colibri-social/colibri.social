@@ -1,5 +1,44 @@
 # @colibri-social/website
 
+## 0.3.0
+
+### Minor Changes
+
+- 5a7aba1: Fixes GIF links that showed a still frame or a broken image box instead of playing.
+
+  <!-- whatsnew
+  title: Baby, GIF me one more time
+  icon: play-circle-fill
+  body: Some GIF links showed a frozen frame or a broken box instead of playing. Previews now understand the sites that publish their animation as a clip!
+  platforms: all
+  kind: fix
+  -->
+
+### Patch Changes
+
+- Updated dependencies [c92163e]
+- Updated dependencies [e71438b]
+- Updated dependencies [b9abaed]
+- Updated dependencies [b4b841e]
+- Updated dependencies [3df4a43]
+- Updated dependencies [35d15c3]
+- Updated dependencies [912a90c]
+- Updated dependencies [0096efa]
+- Updated dependencies [44b4a34]
+- Updated dependencies [b9abaed]
+- Updated dependencies [80c75c0]
+- Updated dependencies [e71438b]
+- Updated dependencies [912a90c]
+- Updated dependencies [e66562a]
+- Updated dependencies [c7c105d]
+- Updated dependencies [5a7aba1]
+- Updated dependencies [9d58fa1]
+- Updated dependencies [d9e6fdd]
+- Updated dependencies [25ea05b]
+- Updated dependencies [b40264f]
+- Updated dependencies [ee90e53]
+  - @colibri-social/client@0.4.0
+
 ## 0.2.0
 
 ### Minor Changes

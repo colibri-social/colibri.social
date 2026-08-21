@@ -1,7 +1,7 @@
 {
 	"name": "@colibri-social/wrapper",
 	"private": true,
-	"version": "0.3.0",
+	"version": "0.4.0",
 	"description": "The native Colibri Social app shell.",
 	"type": "module",
 	"scripts": {
@@ -22,7 +22,7 @@
 	"license": "MIT",
 	"dependencies": {
 		"@colibri-social/assets": "workspace:0.0.2",
-		"@colibri-social/client": "workspace:0.3.0",
+		"@colibri-social/client": "workspace:0.4.0",
 		"solid-js": "^1.9.14",
 		"@tauri-apps/api": "^2",
 		"@tauri-apps/plugin-deep-link": "^2",
