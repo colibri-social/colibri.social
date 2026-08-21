@@ -972,6 +972,8 @@ jobs:
 
       - name: Configure Microsoft Store CLI
         uses: microsoft/microsoft-store-apppublisher@v1.1
+        with:
+          version: v0.4.1
 
       - name: Reconfigure store credentials
         shell: pwsh
@@ -1012,4 +1014,4 @@ jobs:
           $bundle = Get-ChildItem -Path dl -Filter *.msixbundle | Select-Object -First 1
           if (-not $bundle) { throw "No .msixbundle found in dl/" }
           Write-Host "Publishing $($bundle.Name) to product 9P8Q77FCCSWR"
-          msstore publish $bundle.FullName -id 9P8Q77FCCSWR --verbose
+          msstore publish $bundle.FullName -id 9P8Q77FCCSWR --uploadTimeout 600 --verbose
