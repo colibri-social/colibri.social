@@ -118,6 +118,7 @@ export const NotificationsContextProvider: ParentComponent = (props) => {
 	>({});
 
 	const accountedMessages = new Set<string>();
+	const notifiedMessages = new Set<string>();
 	const locallyReadChannels = new Set<string>();
 
 	const clearPendingFocus = () => setPendingFocus(undefined);
@@ -450,6 +451,9 @@ export const NotificationsContextProvider: ParentComponent = (props) => {
 
 				if (mutes.isChannelMuted(data.channelUri)) return;
 
+				if (notifiedMessages.has(data.messageUri)) return;
+				notifiedMessages.add(data.messageUri);
+
 				const isPing = data.kind === "mention" || data.kind === "reply";
 				const isStale = isStaleNotificationEvent(data.indexedAt);
 
@@ -485,7 +489,7 @@ export const NotificationsContextProvider: ParentComponent = (props) => {
 							) : null}
 						</button>
 					),
-					{ unstyled: true, duration: 8000 },
+					{ id: data.messageUri, unstyled: true, duration: 8000 },
 				);
 				return;
 			}

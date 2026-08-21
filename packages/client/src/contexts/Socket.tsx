@@ -73,6 +73,8 @@ export const SocketContextProvider: ParentComponent = (props) => {
 	let hadConnectedOnce = false;
 	let attempt = 0;
 	let lastFrameAt = Date.now();
+	let generation = 0;
+	let connectStartedAt: number | null = null;
 
 	const connect = async () => {
 		if (destroyed || !auth?.loggedIn || sessionDead()) return;
@@ -82,6 +84,9 @@ export const SocketContextProvider: ParentComponent = (props) => {
 			reconnectTimer = null;
 		}
 
+		const myGeneration = ++generation;
+		connectStartedAt = Date.now();
+
 		try {
 			const { data } = await auth.agent.com.atproto.server.getServiceAuth({
 				aud: getAppViewServiceRef(),
@@ -90,7 +95,7 @@ export const SocketContextProvider: ParentComponent = (props) => {
 				exp: Math.floor(Date.now() / 1000) + 60,
 			});
 
-			if (destroyed) return; // cleaned up while awaiting token
+			if (destroyed || myGeneration !== generation) return;
 
 			// Browsers can't set an `Authorization` header on a WebSocket, so the
 			// service-auth token is smuggled through the subprotocol list: the
@@ -102,13 +107,16 @@ export const SocketContextProvider: ParentComponent = (props) => {
 			);
 			ws = socket;
 
+			let socketHeartbeat: ReturnType<typeof setInterval> | null = null;
+
 			socket.addEventListener("open", () => {
 				if (destroyed || ws !== socket) return;
+				connectStartedAt = null;
 				setStatus("connected");
 				hadConnectedOnce = true;
 				attempt = 0;
 				lastFrameAt = Date.now();
-				heartbeat = setInterval(() => {
+				socketHeartbeat = setInterval(() => {
 					if (destroyed || ws !== socket) return;
 					if (socket.readyState !== WebSocket.OPEN) {
 						forceReconnect();
@@ -116,9 +124,15 @@ export const SocketContextProvider: ParentComponent = (props) => {
 					}
 					socket.send(JSON.stringify({ type: "heartbeat" }));
 				}, HEARTBEAT_MS);
+				heartbeat = socketHeartbeat;
 			});
 
 			socket.addEventListener("message", (e) => {
+				if (destroyed || ws !== socket) {
+					socket.close();
+					return;
+				}
+
 				lastFrameAt = Date.now();
 				let event: ColibriEvent;
 				try {
@@ -144,11 +158,13 @@ export const SocketContextProvider: ParentComponent = (props) => {
 			});
 
 			socket.addEventListener("close", (ev) => {
-				if (heartbeat) {
-					clearInterval(heartbeat);
-					heartbeat = null;
+				if (socketHeartbeat) {
+					clearInterval(socketHeartbeat);
+					if (heartbeat === socketHeartbeat) heartbeat = null;
+					socketHeartbeat = null;
 				}
 				if (destroyed || ws !== socket) return;
+				connectStartedAt = null;
 				setStatus(hadConnectedOnce ? "reconnecting" : "connecting");
 				setLastCloseCode(ev.code);
 				log.warn("socket closed", { code: ev.code, reason: ev.reason });
@@ -180,7 +196,9 @@ export const SocketContextProvider: ParentComponent = (props) => {
 			});
 			log.error("socket token fetch failed", { code: failure.code });
 			noteAuthFailure(failure.code);
-			if (!destroyed && !sessionDead()) {
+			if (destroyed || myGeneration !== generation) return;
+			connectStartedAt = null;
+			if (!sessionDead()) {
 				setStatus(hadConnectedOnce ? "reconnecting" : "connecting");
 				reconnectTimer = setTimeout(connect, backoffMs(attempt++));
 			}
@@ -189,6 +207,8 @@ export const SocketContextProvider: ParentComponent = (props) => {
 
 	const forceReconnect = () => {
 		if (destroyed || !auth?.loggedIn || sessionDead()) return;
+		if (connectStartedAt !== null && Date.now() - connectStartedAt < STALE_MS)
+			return;
 		const healthy =
 			ws?.readyState === WebSocket.OPEN && Date.now() - lastFrameAt < STALE_MS;
 		if (healthy) return;
