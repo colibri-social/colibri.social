@@ -78,26 +78,7 @@ export const MentionList: Component<{
 	};
 
 	const sorted: Accessor<SuggestionItem[]> = () =>
-		props.items.sort((a, b) => {
-			const ra = groupRank(a);
-			const rb = groupRank(b);
-			if (ra !== rb) return ra - rb;
-
-			if (isMember(a) && isMember(b)) {
-				return displayableNameFn(a).localeCompare(displayableNameFn(b));
-			} else if (isRole(a) && isRole(b)) {
-				return a.name.localeCompare(b.name);
-			} else if (isChannel(a) && isChannel(b)) {
-				const byName = a.name.localeCompare(b.name);
-				if (byName !== 0) return byName;
-
-				return (a.categoryLabel ?? "").localeCompare(b.categoryLabel ?? "");
-			} else if (isEmoji(a) && isEmoji(b)) {
-				return 0;
-			}
-
-			return 0;
-		});
+		[...props.items].sort((a, b) => groupRank(a) - groupRank(b));
 
 	const members = () => sorted().filter(isMember);
 	const roles = () => sorted().filter(isRole);

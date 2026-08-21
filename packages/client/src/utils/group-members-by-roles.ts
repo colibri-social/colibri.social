@@ -1,6 +1,6 @@
 import type { Member } from "../atproto/xrpc/social/colibri/community/listMembers";
 import type { Role } from "../atproto/xrpc/social/colibri/community/listRoles";
-import { displayableNameFn } from "../components/app/user/DisplayableName";
+import { displayableNameFn } from "./displayable-name";
 
 export type MembersByRoles = Array<{
 	role: Role;

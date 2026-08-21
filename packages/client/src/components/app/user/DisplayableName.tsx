@@ -2,15 +2,13 @@ import type { ActorData } from "@colibri-social/lib";
 import { type Component, Show } from "solid-js";
 import { useCommunityContext } from "../../../contexts/Community";
 import { cx } from "../../../utils/cva";
+import { displayableNameFn } from "../../../utils/displayable-name";
 import { readableUserColor } from "../../../utils/readable-color";
 import { resolvedTheme } from "../../../utils/theme";
 import { useUserBadges } from "../../../utils/user-badges";
 import { Badge } from "./Badge";
 
-export const displayableNameFn = (user: ActorData) =>
-	(user.data.displayName === user.handle ? undefined : user.data.displayName) ||
-	user.handle?.replaceAll("at://", "") ||
-	user.did;
+export { displayableNameFn };
 
 export const DisplayableName: Component<{
 	user: ActorData;

@@ -43,6 +43,7 @@ import {
 	usePermissions,
 } from "../../../contexts/Community";
 import { useUserContext } from "../../../contexts/User";
+import { foldText } from "../../../utils/fold-text";
 import { IMAGE_UPLOAD_ACCEPT } from "../../../utils/image-upload";
 import { ErrorState } from "../../ErrorState";
 import { Spinner } from "../../icons/Spinner";
@@ -958,10 +959,10 @@ const RolesPage: Component = () => {
 	const sortedRoles = () =>
 		override() ?? [...roles()].sort((a, b) => b.position - a.position);
 
-	const filteredRoles = () =>
-		sortedRoles().filter((x) =>
-			x.name.toLowerCase().includes(search().toLowerCase()),
-		);
+	const filteredRoles = () => {
+		const query = foldText(search());
+		return sortedRoles().filter((x) => foldText(x.name).includes(query));
+	};
 
 	// Dragging while a search is active would reorder against a filtered view,
 	// so only allow it when the full list is shown.

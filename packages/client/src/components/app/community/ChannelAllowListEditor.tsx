@@ -16,6 +16,7 @@ import {
 	usePermissions,
 } from "../../../contexts/Community";
 import { useUserContext } from "../../../contexts/User";
+import { foldText } from "../../../utils/fold-text";
 import { groupMembersByRoles } from "../../../utils/group-members-by-roles";
 import { Button } from "../../ui/Button";
 import {
@@ -136,14 +137,14 @@ export const ChannelAllowListEditor: Component<{
 			.filter((x) => !props.allowedRoles().some((y) => x.uri === y));
 
 	const nonAllowedMembers = () => {
-		const query = memberSearch().trim().toLowerCase();
+		const query = foldText(memberSearch().trim());
 		return community()
 			.members.filter((x) => !props.allowedMembers().some((y) => x.did === y))
 			.filter(
 				(x) =>
 					!query ||
-					displayableNameFn(x).toLowerCase().includes(query) ||
-					x.handle.toLowerCase().includes(query),
+					foldText(displayableNameFn(x)).includes(query) ||
+					foldText(x.handle).includes(query),
 			);
 	};
 

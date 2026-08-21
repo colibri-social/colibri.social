@@ -62,6 +62,7 @@ import { createLogger } from "../utils/logger";
 import { insertAt, placeMessage } from "../utils/message-order";
 import { markBoot } from "../utils/perf";
 import { purify } from "../utils/purify";
+import { recordSpeakers } from "../utils/recent-speakers";
 import { useCommunityContext } from "./Community";
 import { useSocketContext } from "./Socket";
 import { useUserContext } from "./User";
@@ -509,6 +510,15 @@ export const ChannelContextProvider: ParentComponent<{
 		}),
 	);
 	onCleanup(() => registerOpenChannel(undefined));
+
+	let scannedMessages: (Message | PendingMessage)[] | undefined;
+
+	createEffect(() => {
+		const current = messages();
+		if (current === scannedMessages) return;
+		scannedMessages = current;
+		recordSpeakers(community().community.uri, current);
+	});
 
 	createEffect(() => {
 		if (!initialLoading()) markBoot("channel:firstPage");

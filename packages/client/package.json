@@ -117,6 +117,7 @@
 		"mdast-util-gfm-strikethrough": "^2.0.0",
 		"mediasoup-client": "^3.21.0",
 		"micromark-extension-gfm-strikethrough": "^2.1.0",
+		"minisearch": "^7.2.0",
 		"onnxruntime-web": "^1.27.0",
 		"prosemirror-history": "^1.5.0",
 		"prosemirror-model": "^1.25.9",

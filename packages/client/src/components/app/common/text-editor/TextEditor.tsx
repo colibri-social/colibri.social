@@ -696,7 +696,7 @@ export const TextEditor: Component<{
 			Mention.configure({
 				HTMLAttributes: { "data-type": "mention" },
 				suggestions: buildSuggestions(
-					() => community().members ?? [],
+					(query, limit) => community().utils.searchMembers(query, limit),
 					() => community().channels ?? [],
 					() => mentionableRoles(),
 					() => community().categories ?? [],

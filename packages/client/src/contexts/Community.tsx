@@ -64,7 +64,9 @@ import { ErrorState } from "../components/ErrorState";
 import { getAppViewDid } from "../utils/appview";
 import { AtURI, toRecordUri } from "../utils/at-uri";
 import { getCommunityParam } from "../utils/get-param";
+import { createMemberIndex } from "../utils/member-search";
 import { markBoot } from "../utils/perf";
+import { speakerRanks } from "../utils/recent-speakers";
 import { decideCommunityExit } from "./community-exit";
 import { emptyCommunityPayload, isCommunityPayload } from "./community-payload";
 import { trackCommunityRefresh } from "./community-refresh-state";
@@ -88,6 +90,7 @@ type CommunityContextData = CommunityResponse & {
 		patchCategory: (uri: string, patch: Partial<Category>) => void;
 		patchCommunity: (patch: Partial<CommunityData>) => void;
 		patchMember: (did: string, patch: Partial<Member["data"]>) => void;
+		searchMembers: (query: string, limit: number) => Array<Member>;
 		refetch: () => void;
 		refetchApplications: () => void;
 	};
@@ -758,6 +761,37 @@ export const CommunityContextProvider: ParentComponent = (props) => {
 	const getMember = (did: string) => membersByDid().get(did);
 	const getRole = (uri: string) => rolesByUri().get(uri);
 
+	const memberIndex = createMemberIndex();
+
+	createEffect(() => memberIndex.sync(payload().members));
+
+	const searchMembers = (query: string, limit: number): Array<Member> => {
+		const ranks = speakerRanks(communityUri());
+		const byDid = membersByDid();
+
+		if (!query.trim()) {
+			const recent = ranks
+				.top(limit)
+				.map((did) => byDid.get(did))
+				.filter((member): member is Member => member !== undefined);
+
+			if (recent.length >= limit) return recent;
+
+			const seen = new Set(recent.map((member) => member.did));
+			return [
+				...recent,
+				...payload()
+					.members.filter((member) => !seen.has(member.did))
+					.slice(0, limit - recent.length),
+			];
+		}
+
+		return memberIndex
+			.search(query, limit, ranks)
+			.map((did) => byDid.get(did))
+			.filter((member): member is Member => member !== undefined);
+	};
+
 	const getRolesForUser = (did: string) => {
 		const member = membersByDid().get(did);
 		if (!member) return [];
@@ -848,6 +882,7 @@ export const CommunityContextProvider: ParentComponent = (props) => {
 			patchCategory,
 			patchCommunity,
 			patchMember,
+			searchMembers,
 			refetch: () => void refetch(),
 			refetchApplications: () => void refetchApplications(),
 		},
