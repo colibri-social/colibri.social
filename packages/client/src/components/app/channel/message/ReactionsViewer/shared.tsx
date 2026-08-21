@@ -13,9 +13,10 @@ export const useActiveReaction = () => {
 
 	return createMemo(
 		() =>
-			ctx.message.reactions.find(
-				(reaction) => reaction.emoji === ctx.reactionsViewerEmoji(),
-			) ?? ctx.message.reactions[0],
+			ctx
+				.sortedReactions()
+				.find((reaction) => reaction.emoji === ctx.reactionsViewerEmoji()) ??
+			ctx.sortedReactions()[0],
 	);
 };
 
@@ -70,7 +71,7 @@ export const ReactionTabs: Component<{
 	const active = useActiveReaction();
 
 	return (
-		<For each={ctx.message.reactions}>
+		<For each={ctx.sortedReactions()}>
 			{(reaction) => (
 				<ReactionTab
 					reaction={reaction}

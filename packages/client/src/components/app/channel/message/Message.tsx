@@ -132,6 +132,7 @@ const MessageInner: Component<{
 		removeEmbed,
 		modRemoveEmbed,
 		openEmbedsModal,
+		sortedReactions,
 	} = useMessageContext();
 
 	const embedRemover = (uri: string): ((e: MouseEvent) => void) | undefined => {
@@ -628,7 +629,7 @@ const MessageInner: Component<{
 							}}
 							class="flex flex-row gap-1 flex-wrap items-center pl-14 pb-2"
 						>
-							<For each={message.reactions}>
+							<For each={sortedReactions()}>
 								{(item) => (
 									<Tooltip>
 										<TooltipTrigger

@@ -4,6 +4,7 @@ import {
 	batch,
 	createContext,
 	createEffect,
+	createMemo,
 	createSignal,
 	onMount,
 	type ParentComponent,
@@ -19,7 +20,10 @@ import {
 } from "../atproto/outbox/outbox";
 import { nextTid } from "../atproto/outbox/tid";
 import { findReactionRkey } from "../atproto/pds";
-import type { Message } from "../atproto/xrpc/social/colibri/channel/listMessages";
+import type {
+	Message,
+	Reaction,
+} from "../atproto/xrpc/social/colibri/channel/listMessages";
 import { isRemovableEmbed } from "../components/app/channel/message/Embed";
 import {
 	type TextWithFacets,
@@ -39,6 +43,7 @@ import {
 	stableStringify,
 } from "../utils/normalize-facets";
 import { purify } from "../utils/purify";
+import { sortReactionGroups } from "../utils/reaction-order";
 import { useChannelContext } from "./Channel";
 import { useCommunityContext, usePermissions } from "./Community";
 import { useUserContext } from "./User";
@@ -46,6 +51,7 @@ import { useUserPreferences } from "./UserPreferences";
 
 export type MessageContextValue = {
 	get message(): Message;
+	sortedReactions: Accessor<Array<Reaction>>;
 
 	blockModalOpen: Accessor<boolean>;
 	setBlockModalOpen: Setter<boolean>;
@@ -125,6 +131,10 @@ export const MessageContextProvider: ParentComponent<{ data: Message }> = (
 	const { recordEmojiUse } = useUserPreferences();
 
 	const isPending = () => "hash" in props.data;
+
+	const sortedReactions = createMemo(() =>
+		sortReactionGroups(props.data.reactions),
+	);
 
 	const [blockModalOpen, setBlockModalOpen] = createSignal(false);
 	const [deletionModalOpen, setDeletionModalOpen] = createSignal(false);
@@ -561,6 +571,7 @@ export const MessageContextProvider: ParentComponent<{ data: Message }> = (
 		get message() {
 			return props.data;
 		},
+		sortedReactions,
 		blockModalOpen,
 		setBlockModalOpen,
 		deletionModalOpen,
