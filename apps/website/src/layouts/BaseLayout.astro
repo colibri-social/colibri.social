@@ -1,5 +1,6 @@
 ---
 import { Font } from "astro:assets";
+import { NOINDEX } from "../site";
 
 interface Props {
 	title?: string;
@@ -36,6 +37,7 @@ const {
 		<link rel="manifest" href="/site.webmanifest" />
 		<meta name="viewport" content="width=device-width, viewport-fit=cover" />
 		<meta name="generator" content={Astro.generator} />
+		{NOINDEX && <meta name="robots" content="noindex, nofollow" />}
 		<title>{title}</title>
 		<meta name="description" content={description} />
 		<meta name="theme-color" content="#8e51ff" />

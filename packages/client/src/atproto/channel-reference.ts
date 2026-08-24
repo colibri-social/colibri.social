@@ -20,6 +20,8 @@ export type ResolvedChannel = {
 	name: string;
 	type: string;
 	communityDid: string;
+	private?: boolean;
+	viewer: { canRead: boolean };
 };
 
 type Entry = {
@@ -62,6 +64,8 @@ export const primeCommunityChannels = (
 			name: channel.name,
 			type: channel.type,
 			communityDid,
+			private: channel.private,
+			viewer: { canRead: channel.viewer.canRead },
 		});
 	}
 

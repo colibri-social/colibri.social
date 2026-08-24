@@ -22,12 +22,11 @@ export const NoCommunityAccessModal = (props: {
 				</span>
 				<div class="flex flex-col gap-0.5">
 					<span class="text-sm font-medium leading-5">
-						This channel is in another community
+						You do not have access to this channel
 					</span>
 					<span class="text-sm leading-5 text-muted-foreground">
-						You are not a member of the community this channel belongs to, so
-						there is nothing here for you to open yet. Ask someone inside it for
-						an invite.
+						You are not allowed to view this channel, or are not a member of the
+						community it belongs to. Ask someone for permissions or an invite.
 					</span>
 				</div>
 			</div>

@@ -1,7 +1,9 @@
 ---
 import { Font } from "astro:assets";
 import Default from "@astrojs/starlight/components/Head.astro";
+import { NOINDEX } from "../../site";
 ---
 
 <Default><slot /></Default>
 <Font cssVariable="--font-stardom" preload />
+{NOINDEX && <meta name="robots" content="noindex, nofollow" />}

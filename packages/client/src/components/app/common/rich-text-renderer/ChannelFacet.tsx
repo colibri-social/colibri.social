@@ -34,8 +34,6 @@ import {
 const CHANNEL_CLASS =
 	"bg-blue-500/25 hover:bg-blue-500/35 px-1 rounded-xs cursor-pointer inline no-underline text-foreground";
 
-const UNRESOLVED_CLASS = "bg-blue-500/25 px-1 rounded-xs inline";
-
 const LOCKED_CLASS =
 	"bg-muted-foreground/15 hover:bg-muted-foreground/25 px-1 rounded-xs cursor-pointer inline no-underline text-muted-foreground";
 
@@ -101,6 +99,13 @@ export const ChannelFacet: Component<{ channel: string; text: string }> = (
 			return peekChannel(props.channel);
 		},
 	);
+
+	const foreignLocked = createMemo(() => {
+		if (foreignChannel.state !== "ready") return false;
+
+		const resolved = foreignChannel();
+		return !resolved || isLocked(resolved);
+	});
 
 	const label = () => parseEmojiText(purify(props.text));
 
@@ -172,39 +177,33 @@ export const ChannelFacet: Component<{ channel: string; text: string }> = (
 			</Match>
 			<Match when={foreignCommunity()}>
 				{(target) => (
-					<A
-						data-facet-type="channel"
-						data-channel={props.channel}
-						href={foreignHref()}
-						title={target().name}
-						class={CHANNEL_CLASS}
-					>
-						<CommunityAvatar
-							community={target()}
-							class={CHIP_AVATAR_CLASS}
-							fallbackClass={CHIP_INITIALS_CLASS}
-						/>
-						<CaretRightIcon class={CHIP_GLYPH_CLASS} />
-						<Show
-							when={foreignChannel()}
-							fallback={<span innerHTML={label()} />}
+					<Show when={!foreignLocked()} fallback={lockedChip()}>
+						<A
+							data-facet-type="channel"
+							data-channel={props.channel}
+							href={foreignHref()}
+							title={target().name}
+							class={CHANNEL_CLASS}
 						>
-							{(resolved) => (
-								<span
-									innerHTML={parseEmojiText(purify(`#${resolved().name}`))}
-								/>
-							)}
-						</Show>
-					</A>
+							<CommunityAvatar
+								community={target()}
+								class={CHIP_AVATAR_CLASS}
+								fallbackClass={CHIP_INITIALS_CLASS}
+							/>
+							<CaretRightIcon class={CHIP_GLYPH_CLASS} />
+							<Show
+								when={foreignChannel()}
+								fallback={<span innerHTML={label()} />}
+							>
+								{(resolved) => (
+									<span
+										innerHTML={parseEmojiText(purify(`#${resolved().name}`))}
+									/>
+								)}
+							</Show>
+						</A>
+					</Show>
 				)}
-			</Match>
-			<Match when={isCurrentCommunity()}>
-				<span
-					data-facet-type="channel"
-					data-channel={props.channel}
-					class={UNRESOLVED_CLASS}
-					innerHTML={label()}
-				/>
 			</Match>
 		</Switch>
 	);

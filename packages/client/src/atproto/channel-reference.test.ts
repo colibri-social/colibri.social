@@ -49,6 +49,7 @@ describe("channel-reference", () => {
 			name: "general",
 			type: "social.colibri.beta.channel.text",
 			communityDid: DID,
+			viewer: { canRead: true },
 		});
 	});
 
