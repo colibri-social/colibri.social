@@ -1,4 +1,5 @@
 import { type ColibriRichTextFacet, facetsToSource } from "@colibri-social/lib";
+import { escapeHtml } from "../../../../utils/html-escape";
 
 const CLIPBOARD_HTML_ATTR = "data-colibri-message";
 
@@ -20,9 +21,6 @@ const base64ToUtf8 = (base64: string): string => {
 	for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
 	return new TextDecoder().decode(bytes);
 };
-
-const escapeHtml = (str: string): string =>
-	str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
 export const buildClipboardHtml = (
 	text: string,

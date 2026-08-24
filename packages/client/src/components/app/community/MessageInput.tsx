@@ -33,7 +33,6 @@ import { useUserContext } from "../../../contexts/User";
 import { useUserPreferences } from "../../../contexts/UserPreferences";
 import { linkUrisFromFacets } from "../../../utils/link-facets";
 import { useIsMobile } from "../../../utils/mobile-pane";
-import { purify } from "../../../utils/purify";
 import {
 	FileFieldItem,
 	FileFieldItemDeleteTrigger,
@@ -199,7 +198,7 @@ export const MessageInput: Component<{
 		const targetChannelSpace = channel.channelSpace();
 
 		const trimmed = trimWithFacets({ text, facets });
-		const cleanText = purify(trimmed.text);
+		const cleanText = trimmed.text;
 		const cleanFacets = trimmed.facets;
 
 		if (cleanText.length === 0 && !hasFiles) {

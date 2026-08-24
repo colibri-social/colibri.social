@@ -47,7 +47,6 @@ import {
 	normalizeFacets,
 	stableStringify,
 } from "../utils/normalize-facets";
-import { purify } from "../utils/purify";
 import { sortReactionGroups } from "../utils/reaction-order";
 import { useChannelContext } from "./Channel";
 import { useCommunityContext, usePermissions } from "./Community";
@@ -231,7 +230,7 @@ export const MessageContextProvider: ParentComponent<{ data: MessageData }> = (
 			facets: input.facets ?? [],
 		});
 		return (
-			purify(next.text) === purify(current.text) &&
+			next.text === current.text &&
 			facetsKey(next.facets) === facetsKey(current.facets ?? [])
 		);
 	};
@@ -551,7 +550,7 @@ export const MessageContextProvider: ParentComponent<{ data: MessageData }> = (
 		const originalText = newText();
 
 		const trimmed = trimWithFacets({ text, facets });
-		const cleanText = purify(trimmed.text);
+		const cleanText = trimmed.text;
 		const cleanFacets = trimmed.facets;
 
 		setNewText({ text: cleanText, facets: cleanFacets });

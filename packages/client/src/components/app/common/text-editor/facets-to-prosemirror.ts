@@ -8,7 +8,6 @@ import {
 	isTimestampStyle,
 } from "@colibri-social/lib";
 import type { Editor, TextType } from "@tiptap/core";
-import twemoji from "@twemoji/api";
 import {
 	peekChannel,
 	resolveChannelChip,
@@ -26,6 +25,7 @@ import type {
 	Member,
 	Role,
 } from "../../../../contexts/community-payload";
+import { splitEmojiSegments } from "../../../../utils/emoji";
 import { formatTimestamp } from "../../../../utils/format-timestamp";
 import { normalizeFacets } from "../../../../utils/normalize-facets";
 import { channelChipAttrs } from "./insert-channel-chip";
@@ -33,10 +33,6 @@ import type { MentionType } from "./prosemirror-to-facets";
 
 type Feature = ColibriRichTextFacet["features"][number];
 type DocNode = ReturnType<Editor["getJSON"]>["content"][number];
-
-const EMOJI_IMAGE_REGEX = /<img [\s\S\w\W\d\D]+\/>/gm;
-const EMOJI_IMAGE_ALT_REGEX =
-	/<img [\s\S\w\W\d\D]+ alt="([\W]+)" [\s\S\w\W\d\D]+\/>/gm;
 
 /**
  * Formats stored text + facets back into a ProseMirror document for editing.
@@ -257,33 +253,22 @@ function addTextWithNewlines(paragraph: any, text: string): void {
  * Add text nodes with emoji support to a paragraph.
  */
 function addTextNodesWithEmoji(paragraph: any, text: string): void {
-	const textWithEmojis = twemoji.parse(text);
-
-	const expandedNodes: Array<TextType | MentionType> = textWithEmojis
-		.split(EMOJI_IMAGE_REGEX)
-		.filter((x) => x.length > 0)
-		.map((x) => ({
-			type: "text",
-			text: x,
-			marks: [],
-		}));
-
-	let match: RegExpExecArray | null;
-	let j = 1;
-
-	while ((match = EMOJI_IMAGE_ALT_REGEX.exec(textWithEmojis))) {
-		expandedNodes.splice(j, 0, {
-			type: "mention",
-			attrs: {
-				type: "emoji",
-				label: match[1],
-				avatar: null,
-				handle: null,
-				id: null,
-			},
-		});
-		j++;
-	}
+	const expandedNodes: Array<TextType | MentionType> = splitEmojiSegments(
+		text,
+	).map((segment) =>
+		segment.kind === "emoji"
+			? {
+					type: "mention",
+					attrs: {
+						type: "emoji",
+						label: segment.value,
+						avatar: null,
+						handle: null,
+						id: null,
+					},
+				}
+			: { type: "text", text: segment.value, marks: [] },
+	);
 
 	paragraph.content!.push(...expandedNodes);
 }

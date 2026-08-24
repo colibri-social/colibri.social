@@ -97,7 +97,6 @@ import { foldLabelEvent } from "../utils/message-labels";
 import { insertAt, placeMessage } from "../utils/message-order";
 import { asVisibleParent } from "../utils/message-parent";
 import { markBoot } from "../utils/perf";
-import { purify } from "../utils/purify";
 import { recordSpeakers } from "../utils/recent-speakers";
 import { probe, shortUri } from "../utils/switch-probe";
 import { useCommunityContext, usePermissions } from "./Community";
@@ -849,7 +848,7 @@ export const ChannelContextProvider: ParentComponent<{
 		if (!target) return false;
 
 		const trimmed = trimWithFacets({ text, facets });
-		const cleanText = purify(trimmed.text);
+		const cleanText = trimmed.text;
 		const cleanFacets = trimmed.facets;
 
 		if (cleanText.length === 0 && target.attachments.length === 0) {

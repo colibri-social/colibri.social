@@ -20,13 +20,13 @@ import { useUserContext } from "../../../contexts/User";
 import { useUserPreferences } from "../../../contexts/UserPreferences";
 import { cx } from "../../../utils/cva";
 import { parseEmojiText } from "../../../utils/emoji";
+import { escapeAttr, escapeHtml } from "../../../utils/html-escape";
 import { LINK_REGEX } from "../../../utils/link-regex";
 import { useIsMobile } from "../../../utils/mobile-pane";
 import {
 	handleExternalLinkClick,
 	openExternalLink,
 } from "../../../utils/open-external-link";
-import { purify } from "../../..//utils/purify";
 import { readableUserColor } from "../../../utils/readable-color";
 import { resolvedTheme } from "../../../utils/theme";
 import { useUserBadges } from "../../../utils/user-badges";
@@ -66,60 +66,66 @@ export interface ProfilePreviewOverride {
 
 const MENTION_REGEX = /(?<!\S)@[a-zA-Z0-9._-]+(?:\.[a-zA-Z]{2,})?/gm;
 
-/**
- * Takes in some text and automatically detects links and user mentions, then inserts anchor tags.
- * @param text The text to scan for links and mentions. Will be sanitized before any edits are made.
- * @returns An HTML string that can be used in the DOM
- */
+type BioMatch = { start: number; end: number; label: string; href: string };
+
+const collectBioMatches = (
+	text: string,
+	preferredBlueskyClient: BlueskyClientID,
+): Array<BioMatch> => {
+	const matches: Array<BioMatch> = [];
+	let match: RegExpExecArray | null;
+
+	LINK_REGEX.lastIndex = 0;
+	while ((match = LINK_REGEX.exec(text))) {
+		const link = match[0];
+		matches.push({
+			start: match.index,
+			end: match.index + link.length,
+			label: link,
+			href: link.startsWith("http") ? link : `https://${link}`,
+		});
+	}
+
+	MENTION_REGEX.lastIndex = 0;
+	while ((match = MENTION_REGEX.exec(text))) {
+		const mention = match[0];
+		matches.push({
+			start: match.index,
+			end: match.index + mention.length,
+			label: mention,
+			href: buildBskyProfileUrl(preferredBlueskyClient, mention.slice(1)),
+		});
+	}
+
+	matches.sort((a, b) => a.start - b.start || b.end - a.end);
+
+	const nonOverlapping: Array<BioMatch> = [];
+	let reached = 0;
+	for (const candidate of matches) {
+		if (candidate.start < reached) continue;
+		nonOverlapping.push(candidate);
+		reached = candidate.end;
+	}
+
+	return nonOverlapping;
+};
+
 const detectLinksAndMentionsAndFormat = (
 	text: string,
 	preferredBlueskyClient: BlueskyClientID,
 ) => {
-	let modifiedText = `${purify(text)}`;
-	let match: RegExpExecArray | null;
+	let html = "";
+	let cursor = 0;
 
-	let additionalOffset = 0;
-
-	while ((match = LINK_REGEX.exec(text))) {
-		const index = match.index;
-		const link = match[0];
-
-		const linkWithProtocol = link.startsWith("http") ? link : `https://${link}`;
-		const anchorTag = `<a href="${linkWithProtocol}" rel="noreferrer" target="_blank">${link}</a>`;
-
-		modifiedText =
-			modifiedText.slice(0, index + additionalOffset) +
-			anchorTag +
-			modifiedText.slice(
-				index + additionalOffset + link.length,
-				modifiedText.length,
-			);
-
-		additionalOffset += anchorTag.length - link.length;
+	for (const match of collectBioMatches(text, preferredBlueskyClient)) {
+		html += escapeHtml(text.slice(cursor, match.start));
+		html += `<a href="${escapeAttr(match.href)}" rel="noreferrer" target="_blank">${escapeHtml(match.label)}</a>`;
+		cursor = match.end;
 	}
 
-	// Reset for second pass
-	text = modifiedText;
-	additionalOffset = 0;
+	html += escapeHtml(text.slice(cursor));
 
-	while ((match = MENTION_REGEX.exec(text))) {
-		const index = match.index;
-		const mention = match[0];
-
-		const anchorTag = `<a href="${buildBskyProfileUrl(preferredBlueskyClient, mention.slice(1))}" target="_blank" rel="noreferrer">${mention}</a>`;
-
-		modifiedText =
-			modifiedText.slice(0, index + additionalOffset) +
-			anchorTag +
-			modifiedText.slice(
-				index + additionalOffset + mention.length,
-				modifiedText.length,
-			);
-
-		additionalOffset += anchorTag.length - mention.length;
-	}
-
-	return modifiedText.replaceAll("\n", "<br>");
+	return html.replaceAll("\n", "<br>");
 };
 
 export const ProfilePopoverContents: Component<{

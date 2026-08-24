@@ -22,7 +22,6 @@ import { useUserContext } from "../../../../contexts/User";
 import { getAppViewDid } from "../../../../utils/appview";
 import { ambiguousCategoryName } from "../../../../utils/channel-category";
 import { parseEmojiText } from "../../../../utils/emoji";
-import { purify } from "../../../../utils/purify";
 import { CommunityAvatar } from "../../community/CommunityAvatar";
 import { NoCommunityAccessModal } from "../../community/NoCommunityAccessModal";
 import {
@@ -107,7 +106,7 @@ export const ChannelFacet: Component<{ channel: string; text: string }> = (
 		return !resolved || isLocked(resolved);
 	});
 
-	const label = () => parseEmojiText(purify(props.text));
+	const label = () => parseEmojiText(props.text);
 
 	const foreignHref = () => {
 		const target = foreignCommunity();
@@ -165,12 +164,12 @@ export const ChannelFacet: Component<{ channel: string; text: string }> = (
 							<Show when={localCategory()}>
 								{(category) => (
 									<>
-										<span innerHTML={parseEmojiText(purify(category()))} />
+										<span innerHTML={parseEmojiText(category())} />
 										<CaretRightIcon class={CHIP_GLYPH_CLASS} />
 									</>
 								)}
 							</Show>
-							<span innerHTML={parseEmojiText(purify(`#${resolved().name}`))} />
+							<span innerHTML={parseEmojiText(`#${resolved().name}`)} />
 						</A>
 					</Show>
 				)}
@@ -196,9 +195,7 @@ export const ChannelFacet: Component<{ channel: string; text: string }> = (
 								fallback={<span innerHTML={label()} />}
 							>
 								{(resolved) => (
-									<span
-										innerHTML={parseEmojiText(purify(`#${resolved().name}`))}
-									/>
+									<span innerHTML={parseEmojiText(`#${resolved().name}`)} />
 								)}
 							</Show>
 						</A>

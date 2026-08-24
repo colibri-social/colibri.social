@@ -1,6 +1,7 @@
 import { isTauri } from "@tauri-apps/api/core";
 import { platform } from "@tauri-apps/plugin-os";
 import twemoji from "@twemoji/api";
+import { escapeHtml } from "./html-escape";
 
 export const EMOJI_IMG_CLASS = "emoji";
 
@@ -35,10 +36,36 @@ export function twemojiImageSrc(rawEmoji: string): string {
 // image (uniform box across browsers, correct ZWJ sequence composition), the
 // same pipeline the picker uses via twemojiImageSrc.
 export function parseEmojiText(text: string): string {
-	return twemoji.parse(text, {
+	return twemoji.parse(escapeHtml(text), {
 		className: EMOJI_IMG_CLASS,
 		attributes: () => ({ loading: "lazy", decoding: "async" }),
 	});
+}
+
+export type EmojiSegment =
+	| { kind: "text"; value: string }
+	| { kind: "emoji"; value: string };
+
+export function splitEmojiSegments(text: string): Array<EmojiSegment> {
+	const segments: Array<EmojiSegment> = [];
+	let cursor = 0;
+
+	twemoji.replace(text, (rawEmoji: string) => {
+		const index = text.indexOf(rawEmoji, cursor);
+		if (index < 0) return rawEmoji;
+		if (index > cursor) {
+			segments.push({ kind: "text", value: text.slice(cursor, index) });
+		}
+		segments.push({ kind: "emoji", value: rawEmoji });
+		cursor = index + rawEmoji.length;
+		return rawEmoji;
+	});
+
+	if (cursor < text.length) {
+		segments.push({ kind: "text", value: text.slice(cursor) });
+	}
+
+	return segments;
 }
 
 export function hasEmoji(text: string): boolean {

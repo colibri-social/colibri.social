@@ -1,6 +1,7 @@
 import { asDid, asHandle } from "../../atproto/lexicons";
 import type { ProfileView } from "../../atproto/views";
 import { parseEmojiText } from "../../utils/emoji";
+import { escapeHtml } from "../../utils/html-escape";
 
 export type Speaker = {
 	actor: ProfileView;
@@ -315,9 +316,6 @@ const MENTION_CLASS = "bg-primary/25 px-1 rounded-xs inline";
 
 const MENTION_PATTERN = /\{@(\d+)\}/g;
 
-const escapeHtml = (value: string) =>
-	value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-
 const nameForRole = (cast: Array<Speaker>, role: string) =>
 	cast[Number(role) % cast.length].actor.displayName;
 
@@ -325,10 +323,10 @@ const toPlainText = (text: string, cast: Array<Speaker>) =>
 	text.replace(MENTION_PATTERN, (_, role) => `@${nameForRole(cast, role)}`);
 
 const toHtml = (text: string, cast: Array<Speaker>) =>
-	parseEmojiText(escapeHtml(text)).replace(
+	parseEmojiText(text).replace(
 		MENTION_PATTERN,
 		(_, role) =>
-			`<span data-facet-type="mention" class="${MENTION_CLASS}">@${nameForRole(cast, role)}</span>`,
+			`<span data-facet-type="mention" class="${MENTION_CLASS}">@${escapeHtml(nameForRole(cast, role))}</span>`,
 	);
 
 const shuffled = <T>(items: Array<T>): Array<T> => {

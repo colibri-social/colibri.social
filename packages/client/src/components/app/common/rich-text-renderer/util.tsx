@@ -15,7 +15,6 @@ import {
 	normalizeFacets,
 } from "../../../../utils/normalize-facets";
 import { openExternalLink } from "../../../../utils/open-external-link";
-import { purify } from "../../../../utils/purify";
 import { MemberContextMenu } from "../../community/MemberContextMenu";
 import { RoleMentionPopover } from "../../community/RoleMentionPopover";
 import User from "../../user";
@@ -90,11 +89,7 @@ const Spoiler: Component<{ children: JSX.Element }> = (props) => {
  */
 const nlToBr = (s: string): string => s.replace(/\n/g, "<br>");
 
-/**
- * Escape a string for safe use inside an HTML attribute value.
- */
-const escapeAttr = (s: string): string =>
-	s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
+const toInlineHtml = (text: string): string => nlToBr(parseEmojiText(text));
 
 const LINK_CLASS =
 	"text-(--primary-hover) decoration-(--primary-hover) font-medium hover:underline inline w-fit";
@@ -108,11 +103,11 @@ const applyStyleForFacet = (text: string, feature: AnyFeature): JSX.Element => {
 	const community = useCommunityContext();
 	const { preferences } = useUserPreferences();
 
-	const textWithEmojis = parseEmojiText(purify(text));
+	const textWithEmojis = toInlineHtml(text);
 
 	switch (feature.$type) {
 		case "social.colibri.beta.richtext.facet#mention": {
-			const did = "did" in feature ? escapeAttr(String(feature.did)) : "";
+			const did = "did" in feature ? String(feature.did) : "";
 
 			const member = community().members.find((x) => x.did === did);
 
@@ -161,7 +156,7 @@ const applyStyleForFacet = (text: string, feature: AnyFeature): JSX.Element => {
 				return (
 					<A
 						data-facet-type="link"
-						data-uri={escapeAttr(rawUri)}
+						data-uri={rawUri}
 						href={`/app/invite/${inviteCode}`}
 						class={LINK_CLASS}
 						innerHTML={textWithEmojis}
@@ -175,15 +170,13 @@ const applyStyleForFacet = (text: string, feature: AnyFeature): JSX.Element => {
 				<a
 					data-facet-type="link"
 					title={displayHref()}
-					data-uri={escapeAttr(rawUri)}
+					data-uri={rawUri}
 					href={displayHref()}
 					class={LINK_CLASS}
 					target="_blank"
 					rel="noreferrer"
 					onClick={(e) => openExternalLink(displayHref(), e)}
-					innerHTML={
-						isBareUrl ? parseEmojiText(purify(displayHref())) : textWithEmojis
-					}
+					innerHTML={isBareUrl ? toInlineHtml(displayHref()) : textWithEmojis}
 				/>
 			);
 		}
@@ -193,8 +186,7 @@ const applyStyleForFacet = (text: string, feature: AnyFeature): JSX.Element => {
 			return <ChannelFacet channel={channel} text={text} />;
 		}
 		case "social.colibri.beta.richtext.facet#role": {
-			const roleRkey =
-				"role" in feature ? escapeAttr(String(feature.role)) : "";
+			const roleRkey = "role" in feature ? String(feature.role) : "";
 			const role = community().assignableRoles.find((r) => r.rkey === roleRkey);
 			const color = role?.color;
 			const pill = (
@@ -208,9 +200,7 @@ const applyStyleForFacet = (text: string, feature: AnyFeature): JSX.Element => {
 							? `background-color: color-mix(in srgb, ${color} 15%, transparent); color: ${color};`
 							: "background-color: color-mix(in srgb, currentColor 15%, transparent);"
 					}
-					innerHTML={
-						role ? textWithEmojis : parseEmojiText(purify("@Unknown Role"))
-					}
+					innerHTML={role ? textWithEmojis : toInlineHtml("@Unknown Role")}
 				/>
 			);
 
@@ -346,14 +336,14 @@ const renderInlineRange = (
 		const end = sortedBoundaries[i + 1];
 		if (start === end) continue;
 
-		const segmentText = nlToBr(textDecoder.decode(bytes.slice(start, end)));
+		const segmentText = textDecoder.decode(bytes.slice(start, end));
 
 		const covering = normalizedFacets.filter(
 			(facet) => facet.index.byteStart <= start && facet.index.byteEnd >= end,
 		);
 
 		if (covering.length === 0) {
-			result.push(<span innerHTML={parseEmojiText(purify(segmentText))} />);
+			result.push(<span innerHTML={toInlineHtml(segmentText)} />);
 			continue;
 		}
 
@@ -393,9 +383,7 @@ const renderInlineRange = (
 		} else if (timeFeature) {
 			component = applyStyleForFacet(segmentText, timeFeature);
 		} else {
-			let element: JSX.Element = (
-				<span innerHTML={parseEmojiText(purify(segmentText))} />
-			);
+			let element: JSX.Element = <span innerHTML={toInlineHtml(segmentText)} />;
 
 			for (const feature of features) {
 				const wrappedElement = element;
@@ -459,7 +447,7 @@ const renderInlineRange = (
 								element = (
 									<A
 										data-facet-type="link"
-										data-uri={escapeAttr(rawUri)}
+										data-uri={rawUri}
 										href={`/app/invite/${inviteCode}`}
 										class={LINK_CLASS}
 									>
@@ -476,7 +464,7 @@ const renderInlineRange = (
 								<a
 									data-facet-type="link"
 									title={displayHref()}
-									data-uri={escapeAttr(rawUri)}
+									data-uri={rawUri}
 									href={displayHref()}
 									class={LINK_CLASS}
 									target="_blank"
@@ -484,7 +472,7 @@ const renderInlineRange = (
 									onClick={(e) => openExternalLink(displayHref(), e)}
 								>
 									{isBareUrl ? (
-										<span innerHTML={parseEmojiText(purify(displayHref()))} />
+										<span innerHTML={toInlineHtml(displayHref())} />
 									) : (
 										wrappedElement
 									)}
