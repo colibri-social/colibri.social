@@ -139,7 +139,7 @@ export const MessageInput: Component<{
 	// Typing indicator: ping the AppView at most once every 2s while the user
 	// is actively typing. There's no explicit "stop" — receivers auto-clear
 	// after the channel context's hold window once pings cease.
-	let lastTypingPing = Date.now();
+	let lastTypingPing = 0;
 
 	const handleTypingChange = () => {
 		const now = Date.now();
@@ -150,6 +150,16 @@ export const MessageInput: Component<{
 			channel.sendTyping();
 		}
 	};
+
+	createEffect(
+		on(
+			() => channel.channelSpace(),
+			() => {
+				lastTypingPing = 0;
+			},
+			{ defer: true },
+		),
+	);
 
 	/** Resolve a typing user's DID to a display name via the member cache. */
 	const typingDisplayName = (did: string): string => {

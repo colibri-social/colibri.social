@@ -1100,13 +1100,18 @@ export const TextEditor: Component<{
 	});
 
 	createEffect(() => {
-		if (!editor() || !props.onChange || isInitializing()) return;
+		const instance = editor();
+		const notify = props.onChange;
+		if (!instance || !notify || isInitializing()) return;
 
-		editor()?.on("selectionUpdate", () => {
-			const text = proseMirrorToFacets(editor()!.getJSON());
+		const handler = () => {
+			const text = proseMirrorToFacets(instance.getJSON());
 
-			props.onChange!(text.text, text.facets);
-		});
+			notify(text.text, text.facets);
+		};
+
+		instance.on("update", handler);
+		onCleanup(() => instance.off("update", handler));
 	});
 
 	createEffect(() => {
@@ -1140,8 +1145,9 @@ export const TextEditor: Component<{
 		};
 
 		const applyBuffer = (instance: Editor, forceFocus: boolean) => {
-			if (!latestEmpty && latest) instance.commands.setContent(latest);
-			else instance.commands.clearContent();
+			if (!latestEmpty && latest)
+				instance.commands.setContent(latest, { emitUpdate: false });
+			else instance.commands.clearContent(false);
 			latest = instance.getJSON();
 			latestEmpty = instance.isEmpty;
 			if (forceFocus) {
