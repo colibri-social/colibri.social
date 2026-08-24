@@ -59,13 +59,7 @@ export interface VoiceIOSettings extends BaseVoiceVideoSettings {
 }
 
 export type NoiseSuppressionMode =
-	| "off"
-	| "low"
-	| "medium"
-	| "high"
-	| "exp-dtln"
-	| "exp-gtcrn"
-	| "exp-ulunas";
+	"off" | "low" | "medium" | "high" | "exp-dtln" | "exp-gtcrn" | "exp-ulunas";
 
 const LEGACY_NOISE_SUPPRESSION_MODES: Record<string, NoiseSuppressionMode> = {
 	rnnoise: "low",
@@ -101,7 +95,6 @@ export interface ControlsPreferences {
 export type UserPreferencesContextData = {
 	membersListVisible: boolean;
 	channelSidebarWidth: number;
-	publicReminderDismissed: boolean;
 	nativeNotifications: boolean;
 	notificationPromptDismissed: boolean;
 	notificationDefaultApplied: boolean;
@@ -135,7 +128,6 @@ export type UserPreferencesContextData = {
 const DEFAULT_PREFERENCES: UserPreferencesContextData = {
 	membersListVisible: !isMobileNow(),
 	channelSidebarWidth: DEFAULT_CHANNEL_SIDEBAR_WIDTH,
-	publicReminderDismissed: false,
 	nativeNotifications: false,
 	notificationPromptDismissed: false,
 	notificationDefaultApplied: false,
@@ -290,7 +282,6 @@ type UserPreferencesContextValue = {
 	}) => void;
 	toggleMembersVisible: () => void;
 	setChannelSidebarWidth: (width: number) => void;
-	setPublicReminderDismissed: (dismissed: boolean) => void;
 	setNativeNotifications: (enabled: boolean) => void;
 	setNotificationPromptDismissed: (dismissed: boolean) => void;
 	setNotificationDefaultApplied: (applied: boolean) => void;
@@ -423,10 +414,6 @@ export const UserPreferencesContextProvider: ParentComponent = (props) => {
 		}));
 	};
 
-	const setPublicReminderDismissed = (dismissed: boolean) => {
-		setPreferences((p) => ({ ...p, publicReminderDismissed: dismissed }));
-	};
-
 	const setNativeNotifications = (enabled: boolean) => {
 		setPreferences((p) => ({ ...p, nativeNotifications: enabled }));
 	};
@@ -540,7 +527,6 @@ export const UserPreferencesContextProvider: ParentComponent = (props) => {
 				setVoiceView,
 				toggleMembersVisible,
 				setChannelSidebarWidth,
-				setPublicReminderDismissed,
 				setNativeNotifications,
 				setNotificationPromptDismissed,
 				setNotificationDefaultApplied,
