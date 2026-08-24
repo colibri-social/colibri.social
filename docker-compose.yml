@@ -12,7 +12,7 @@ services:
         - TURSO_AUTH_TOKEN=${TURSO_AUTH_TOKEN}
         - TURSO_DATABASE_URL=${TURSO_DATABASE_URL}
         - PUBLIC_VAPID_KEY=${PUBLIC_VAPID_KEY}
-    container_name: colibri-app
+    container_name: colibri-spaces-alpha
     restart: unless-stopped
     environment:
       - SAME_TLD_DID=${SAME_TLD_DID}
