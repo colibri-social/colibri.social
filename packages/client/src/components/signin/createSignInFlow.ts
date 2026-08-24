@@ -5,6 +5,7 @@ import { isAllowedDid } from "../../atproto/allowlist";
 import {
 	beginSignInAttempt,
 	endSignInAttempt,
+	noteHandleNotFound,
 	noteSignInHandle,
 	reportSignInFailure,
 	startOAuthSignIn,
@@ -191,9 +192,11 @@ export const createSignInFlow = (config: { mode?: SignInMode } = {}) => {
 		return 3;
 	};
 
-	const onHandleInput = async (value: string) => {
+	const setHandleValue = (value: string) => {
 		setHandle(value);
+	};
 
+	const onHandleInput = async (value: string) => {
 		suggestController?.abort();
 
 		if (value.trim().length === 0) {
@@ -248,6 +251,7 @@ export const createSignInFlow = (config: { mode?: SignInMode } = {}) => {
 			goToStep("confirm");
 		} catch (err) {
 			const notFound = isColibriError(err) && err.code === "HandleNotFound";
+			if (notFound) noteHandleNotFound(input, err);
 			const failure = notFound
 				? err
 				: await reportSignInFailure(err, input, "resolve-handle");
@@ -390,6 +394,7 @@ export const createSignInFlow = (config: { mode?: SignInMode } = {}) => {
 		target,
 		busy,
 		onHandleInput,
+		setHandleValue,
 		submitHandle,
 		pickAccount,
 		confirmIdentity,

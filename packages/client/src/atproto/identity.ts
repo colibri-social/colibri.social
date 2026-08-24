@@ -21,11 +21,25 @@ const PDS_HOST_CACHE_PREFIX = "colibri:pds:";
 export const normalizeHandle = (input: string): string =>
 	input.trim().replace(/^@/, "").toLowerCase();
 
-const handleNotFound = (input: string): ColibriError =>
+export type ResolveSource = "well-known" | "appview";
+
+export type ResolveOutcome = "hit" | "miss" | "error";
+
+export type ResolveAttempt = {
+	source: ResolveSource;
+	outcome: ResolveOutcome;
+};
+
+export type ResolveTrail = Array<ResolveAttempt>;
+
+export const describeResolveTrail = (trail: ResolveTrail): string =>
+	trail.map((attempt) => `${attempt.source}:${attempt.outcome}`).join(" ");
+
+const handleNotFound = (input: string, trail: ResolveTrail): ColibriError =>
 	new ColibriError({
 		code: "HandleNotFound",
 		method: "com.atproto.identity.resolveHandle",
-		context: { handle: input },
+		context: { handle: input, resolveTrail: describeResolveTrail(trail) },
 	});
 
 const wellKnownDid = async (handle: string): Promise<string | undefined> => {
@@ -75,20 +89,48 @@ const resolveHandleOnAppView = async (
 	return data.did || undefined;
 };
 
-const resolveHandleCore = async (
-	handle: string,
-): Promise<string | undefined> => {
-	const wellKnown = await wellKnownDid(handle);
-	if (wellKnown) return wellKnown;
+type ResolveResult = {
+	did?: string;
+	trail: ResolveTrail;
+};
 
-	return resolveHandleOnAppView(handle);
+const resolveHandleCore = async (handle: string): Promise<ResolveResult> => {
+	const wellKnown = wellKnownDid(handle);
+	const appView = resolveHandleOnAppView(handle).then(
+		(did) => ({ did }),
+		(err: unknown) => ({ err }),
+	);
+
+	const fromAppView = await appView;
+	const trail: ResolveTrail = [];
+
+	if ("did" in fromAppView && fromAppView.did) {
+		trail.push({ source: "appview", outcome: "hit" });
+		return { did: fromAppView.did, trail };
+	}
+
+	trail.push({
+		source: "appview",
+		outcome: "err" in fromAppView ? "error" : "miss",
+	});
+
+	const fromWellKnown = await wellKnown;
+	trail.push({
+		source: "well-known",
+		outcome: fromWellKnown ? "hit" : "miss",
+	});
+
+	if (fromWellKnown) return { did: fromWellKnown, trail };
+	if ("err" in fromAppView) throw fromAppView.err;
+
+	return { trail };
 };
 
 export const resolveHandleToDid = async (input: string): Promise<string> => {
 	if (input.startsWith("did:")) return input;
 
-	const did = await resolveHandleCore(input);
-	if (!did) throw handleNotFound(input);
+	const { did, trail } = await resolveHandleCore(input);
+	if (!did) throw handleNotFound(input, trail);
 
 	return did;
 };
@@ -98,7 +140,7 @@ export const handleResolver: HandleResolver = {
 		handle: string,
 		_options?: ResolveHandleOptions,
 	): Promise<ResolvedHandle> {
-		const did = await resolveHandleCore(handle);
+		const { did } = await resolveHandleCore(handle);
 		return did ? asAtprotoDid(did) : null;
 	},
 };

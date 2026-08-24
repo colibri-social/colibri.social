@@ -30,6 +30,17 @@ const createLocalStorage = () => {
 let fetchMock: ReturnType<typeof vi.fn>;
 let storage: ReturnType<typeof createLocalStorage>;
 
+const contextOf = async (
+	promise: Promise<unknown>,
+): Promise<Record<string, unknown>> => {
+	try {
+		await promise;
+	} catch (err) {
+		return isColibriError(err) ? err.context : { unexpected: String(err) };
+	}
+	return { unexpected: "resolved" };
+};
+
 const codeOf = async (promise: Promise<unknown>): Promise<string> => {
 	try {
 		await promise;
@@ -66,84 +77,138 @@ afterEach(() => {
 	vi.unstubAllGlobals();
 });
 
+const WELL_KNOWN_URL = (handle: string) =>
+	`https://${handle}/.well-known/atproto-did`;
+
+const isAppViewCall = (url: string) =>
+	url.startsWith(`${getAppViewHost("http")}/xrpc/`);
+
+const callTo = (predicate: (url: string) => boolean) =>
+	fetchMock.mock.calls.find((call) => predicate(String(call[0])));
+
+const routeByUrl = (
+	routes: Partial<{ wellKnown: unknown; appView: unknown }>,
+) => {
+	fetchMock.mockImplementation((input: string) => {
+		const url = String(input);
+		const route = isAppViewCall(url) ? routes.appView : routes.wellKnown;
+		if (route === undefined) return Promise.reject(new TypeError("no route"));
+		return route instanceof Error
+			? Promise.reject(route)
+			: Promise.resolve(route);
+	});
+};
+
 describe("resolveHandleToDid", () => {
 	it("passes a did straight through without a request", async () => {
 		await expect(resolveHandleToDid(VALID_DID)).resolves.toBe(VALID_DID);
 		expect(fetchMock).not.toHaveBeenCalled();
 	});
 
-	it("resolves via the handle's own well-known endpoint", async () => {
-		fetchMock.mockResolvedValueOnce(textResponse(200, VALID_DID));
+	it("prefers the appview's did over the well-known endpoint's", async () => {
+		routeByUrl({
+			wellKnown: textResponse(200, VALID_DID),
+			appView: jsonResponse(200, { did: OTHER_VALID_DID }),
+		});
 
 		await expect(resolveHandleToDid("alice.example.com")).resolves.toBe(
-			VALID_DID,
-		);
-		expect(fetchMock).toHaveBeenCalledTimes(1);
-		expect(fetchMock.mock.calls[0]?.[0]).toBe(
-			"https://alice.example.com/.well-known/atproto-did",
-		);
-	});
-
-	it("falls through to the appview when the well-known endpoint 404s", async () => {
-		fetchMock
-			.mockResolvedValueOnce(textResponse(404, ""))
-			.mockResolvedValueOnce(jsonResponse(200, { did: OTHER_VALID_DID }));
-
-		await expect(resolveHandleToDid("bob.example.com")).resolves.toBe(
 			OTHER_VALID_DID,
 		);
 
-		expect(fetchMock).toHaveBeenCalledTimes(2);
-		const call = new URL(fetchMock.mock.calls[1]?.[0] as string);
-		expect(call.origin).toBe(getAppViewHost("http"));
-		expect(call.pathname).toBe("/xrpc/com.atproto.identity.resolveHandle");
-		expect(call.searchParams.get("handle")).toBe("bob.example.com");
+		const call = callTo(isAppViewCall);
+		const url = new URL(String(call?.[0]));
+		expect(url.pathname).toBe("/xrpc/com.atproto.identity.resolveHandle");
+		expect(url.searchParams.get("handle")).toBe("alice.example.com");
 	});
 
-	it("treats a well-known network failure as a miss and falls through to the appview", async () => {
-		fetchMock
-			.mockRejectedValueOnce(new TypeError("Failed to fetch"))
-			.mockResolvedValueOnce(jsonResponse(200, { did: OTHER_VALID_DID }));
+	it("asks both sources at once rather than waiting on the well-known endpoint", async () => {
+		routeByUrl({
+			wellKnown: textResponse(404, ""),
+			appView: jsonResponse(200, { did: OTHER_VALID_DID }),
+		});
+
+		await resolveHandleToDid("bob.example.com");
+
+		expect(
+			callTo((url) => url === WELL_KNOWN_URL("bob.example.com")),
+		).toBeDefined();
+		expect(callTo(isAppViewCall)).toBeDefined();
+	});
+
+	it("falls back to the well-known endpoint when the appview reports InvalidRequest", async () => {
+		routeByUrl({
+			wellKnown: textResponse(200, VALID_DID),
+			appView: jsonResponse(400, {
+				error: "InvalidRequest",
+				message: "Unable to resolve handle",
+			}),
+		});
 
 		await expect(resolveHandleToDid("carol.example.com")).resolves.toBe(
+			VALID_DID,
+		);
+	});
+
+	it("falls back to the well-known endpoint when the appview is broken", async () => {
+		routeByUrl({
+			wellKnown: textResponse(200, VALID_DID),
+			appView: jsonResponse(500, { error: "InternalError", message: "boom" }),
+		});
+
+		await expect(resolveHandleToDid("dana.example.com")).resolves.toBe(
+			VALID_DID,
+		);
+	});
+
+	it("treats a well-known network failure as a miss", async () => {
+		routeByUrl({
+			wellKnown: new TypeError("Failed to fetch"),
+			appView: jsonResponse(200, { did: OTHER_VALID_DID }),
+		});
+
+		await expect(resolveHandleToDid("erin.example.com")).resolves.toBe(
 			OTHER_VALID_DID,
 		);
 	});
 
 	it("treats a well-known body that isn't a did as a miss", async () => {
-		fetchMock
-			.mockResolvedValueOnce(textResponse(200, "not a did"))
-			.mockResolvedValueOnce(jsonResponse(200, { did: OTHER_VALID_DID }));
+		routeByUrl({
+			wellKnown: textResponse(200, "not a did"),
+			appView: jsonResponse(400, {
+				error: "InvalidRequest",
+				message: "Unable to resolve handle",
+			}),
+		});
 
-		await expect(resolveHandleToDid("dana.example.com")).resolves.toBe(
-			OTHER_VALID_DID,
-		);
-	});
-
-	it("throws HandleNotFound when the appview reports InvalidRequest, without a further attempt", async () => {
-		fetchMock
-			.mockResolvedValueOnce(textResponse(404, ""))
-			.mockResolvedValueOnce(
-				jsonResponse(400, {
-					error: "InvalidRequest",
-					message: "Unable to resolve handle",
-				}),
-			);
-
-		await expect(codeOf(resolveHandleToDid("nope.example.com"))).resolves.toBe(
+		await expect(codeOf(resolveHandleToDid("frank.example.com"))).resolves.toBe(
 			"HandleNotFound",
 		);
-		expect(fetchMock).toHaveBeenCalledTimes(2);
 	});
 
-	it("throws a reportable failure when the appview is broken", async () => {
-		fetchMock
-			.mockResolvedValueOnce(textResponse(404, ""))
-			.mockResolvedValueOnce(
-				jsonResponse(500, { error: "InternalError", message: "boom" }),
-			);
+	it("throws HandleNotFound with a trail when both sources miss", async () => {
+		routeByUrl({
+			wellKnown: textResponse(404, ""),
+			appView: jsonResponse(400, {
+				error: "InvalidRequest",
+				message: "Unable to resolve handle",
+			}),
+		});
 
-		await expect(codeOf(resolveHandleToDid("erin.example.com"))).resolves.toBe(
+		await expect(
+			contextOf(resolveHandleToDid("nope.example.com")),
+		).resolves.toMatchObject({
+			handle: "nope.example.com",
+			resolveTrail: "appview:miss well-known:miss",
+		});
+	});
+
+	it("surfaces the appview failure when the well-known endpoint also misses", async () => {
+		routeByUrl({
+			wellKnown: textResponse(404, ""),
+			appView: jsonResponse(500, { error: "InternalError", message: "boom" }),
+		});
+
+		await expect(codeOf(resolveHandleToDid("gina.example.com"))).resolves.toBe(
 			"UpstreamFailure",
 		);
 	});
@@ -151,7 +216,10 @@ describe("resolveHandleToDid", () => {
 
 describe("handleResolver", () => {
 	it("resolves a handle for BrowserOAuthClient", async () => {
-		fetchMock.mockResolvedValueOnce(textResponse(200, VALID_DID));
+		routeByUrl({
+			wellKnown: textResponse(404, ""),
+			appView: jsonResponse(200, { did: VALID_DID }),
+		});
 
 		await expect(handleResolver.resolve("alice.example.com")).resolves.toBe(
 			VALID_DID,
@@ -159,12 +227,13 @@ describe("handleResolver", () => {
 	});
 
 	it("returns null, not a throw, when the handle doesn't exist", async () => {
-		fetchMock
-			.mockResolvedValueOnce(textResponse(404, ""))
-			.mockResolvedValueOnce(jsonResponse(200, { pds: "https://pds.example" }))
-			.mockResolvedValueOnce(
-				jsonResponse(400, { error: "InvalidRequest", message: "bad handle" }),
-			);
+		routeByUrl({
+			wellKnown: textResponse(404, ""),
+			appView: jsonResponse(400, {
+				error: "InvalidRequest",
+				message: "bad handle",
+			}),
+		});
 
 		await expect(
 			handleResolver.resolve("nope.example.com"),

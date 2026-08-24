@@ -262,6 +262,11 @@ export const SignInSteps: Component<{ flow: SignInFlow }> = (props) => {
 								autocorrect: "off",
 								autocomplete: "username",
 								spellcheck: false,
+								onInput: (event: InputEvent) => {
+									flow.setHandleValue(
+										(event.currentTarget as HTMLInputElement).value,
+									);
+								},
 								onKeyDown: (event: KeyboardEvent) => {
 									if (event.key === "Enter") flow.submitHandle();
 								},

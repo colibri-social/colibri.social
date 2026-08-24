@@ -400,6 +400,28 @@ const applySignInScope = (
 	scope.setContext("storage", storageContext());
 };
 
+export const noteHandleNotFound = (input: string, err: ColibriError): void => {
+	Sentry.withScope((scope) => {
+		scope.setLevel("info");
+		scope.setTag("oauth.stage", "oauth.resolve-handle");
+		scope.setTag(
+			"oauth.handle_domain",
+			reportedHandleDomain(input) || "unknown",
+		);
+		scope.setTag(
+			"oauth.resolve_trail",
+			String(err.context.resolveTrail ?? "unrecorded"),
+		);
+		scope.setContext("oauth", {
+			handleDomain: reportedHandleDomain(input),
+			resolveTrail: err.context.resolveTrail ?? null,
+			appView: getPreferredAppViewUrl(),
+			online: typeof navigator === "undefined" ? undefined : navigator.onLine,
+		});
+		Sentry.captureMessage("Handle resolution found no did", "info");
+	});
+};
+
 export const reportSignInFailure = async (
 	err: unknown,
 	input: string,
