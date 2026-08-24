@@ -98,14 +98,71 @@ describe("reportError", () => {
 		expect(classified.eventId).toBeUndefined();
 	});
 
+	it("ignores a one-off transport failure", () => {
+		reportError(new ColibriError({ code: "NetworkFailed", method: "a.b.c" }));
+
+		expect(captureException).not.toHaveBeenCalled();
+	});
+
+	it("reports a transport failure once it keeps repeating", () => {
+		const first = reportError(new ColibriError({ code: "NetworkFailed" }));
+		const second = reportError(new ColibriError({ code: "NetworkFailed" }));
+		const third = reportError(new ColibriError({ code: "NetworkFailed" }));
+
+		expect(captureException).toHaveBeenCalledTimes(1);
+		expect(first.eventId).toBeUndefined();
+		expect(second.eventId).toBeUndefined();
+		expect(third.eventId).toBe("event-1");
+	});
+
+	it("counts a repeating transport failure across methods", () => {
+		reportError(new ColibriError({ code: "NetworkFailed", method: "a.b" }));
+		reportError(new ColibriError({ code: "NetworkFailed", method: "c.d" }));
+		reportError(new ColibriError({ code: "NetworkFailed", method: "e.f" }));
+
+		expect(captureException).toHaveBeenCalledTimes(1);
+	});
+
+	it("only reports a repeating transport failure once per window", () => {
+		for (let attempt = 0; attempt < 6; attempt += 1) {
+			reportError(new ColibriError({ code: "Timeout" }));
+		}
+
+		expect(captureException).toHaveBeenCalledTimes(1);
+	});
+
+	it("hands back the reference on a transport repeat after it was reported", () => {
+		reportError(new ColibriError({ code: "Timeout" }));
+		reportError(new ColibriError({ code: "Timeout" }));
+		reportError(new ColibriError({ code: "Timeout" }));
+		const later = reportError(new ColibriError({ code: "Timeout" }));
+
+		expect(later.eventId).toBe("event-1");
+	});
+
+	it("forgets a transport failure that stops repeating", () => {
+		vi.useFakeTimers();
+		vi.setSystemTime(new Date("2026-01-01T00:00:00Z"));
+		reportError(new ColibriError({ code: "NetworkFailed" }));
+		reportError(new ColibriError({ code: "NetworkFailed" }));
+
+		vi.setSystemTime(new Date("2026-01-01T00:01:01Z"));
+		reportError(new ColibriError({ code: "NetworkFailed" }));
+		reportError(new ColibriError({ code: "NetworkFailed" }));
+
+		expect(captureException).not.toHaveBeenCalled();
+	});
+
 	it("collapses transport failures across methods into one issue", () => {
-		reportError(new ColibriError({ code: "Timeout", method: "a.b.c" }), {
-			stage: "xrpc",
-		});
-		reportError(new ColibriError({ code: "Timeout", method: "d.e.f" }), {
-			stage: "xrpc",
-		});
-		reportError(new ColibriError({ code: "NetworkFailed", method: "g.h.i" }));
+		const methods = ["a.b.c", "d.e.f", "g.h.i", "j.k.l"];
+		for (const method of methods) {
+			reportError(new ColibriError({ code: "Timeout", method }), {
+				stage: "xrpc",
+			});
+		}
+		for (const method of methods) {
+			reportError(new ColibriError({ code: "NetworkFailed", method }));
+		}
 
 		expect(captureException).toHaveBeenCalledTimes(2);
 	});
@@ -156,9 +213,11 @@ describe("reportError", () => {
 	});
 
 	it("groups transport failures by code alone", () => {
-		reportError(new ColibriError({ code: "Timeout", method: "a.b.c" }), {
-			stage: "xrpc",
-		});
+		for (const method of ["a.b.c", "d.e.f", "g.h.i"]) {
+			reportError(new ColibriError({ code: "Timeout", method }), {
+				stage: "xrpc",
+			});
+		}
 
 		expect(fingerprints).toEqual([["transport|Timeout"]]);
 	});

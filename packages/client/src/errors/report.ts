@@ -23,10 +23,13 @@ export const setDiagnosticsProvider = (provider: DiagnosticsProvider): void => {
 
 const SUPPRESSION_WINDOW_MS = 60_000;
 const MAX_TRACKED_FINGERPRINTS = 200;
+const TRANSPORT_FAILURES_UNTIL_REPORTED = 3;
 
 interface Seen {
 	atMs: number;
 	eventId: string | undefined;
+	failures: number;
+	reported: boolean;
 }
 
 const seen = new Map<string, Seen>();
@@ -42,22 +45,39 @@ const fingerprintOf = (err: ColibriError, options: ReportOptions): string => {
 	].join("|");
 };
 
+const failuresUntilReported = (err: ColibriError): number =>
+	err.domain === "transport" ? TRANSPORT_FAILURES_UNTIL_REPORTED : 1;
+
 const suppressedEventId = (
 	fingerprint: string,
 	nowMs: number,
+	untilReported: number,
 ):
 	| { suppressed: true; eventId: string | undefined }
 	| { suppressed: false } => {
 	const previous = seen.get(fingerprint);
 	if (previous && nowMs - previous.atMs < SUPPRESSION_WINDOW_MS) {
-		return { suppressed: true, eventId: previous.eventId };
+		previous.failures += 1;
+		if (previous.reported || previous.failures < untilReported) {
+			return { suppressed: true, eventId: previous.eventId };
+		}
+		previous.reported = true;
+		return { suppressed: false };
 	}
 	if (seen.size >= MAX_TRACKED_FINGERPRINTS) {
 		const oldest = seen.keys().next();
 		if (!oldest.done) seen.delete(oldest.value);
 	}
-	seen.set(fingerprint, { atMs: nowMs, eventId: undefined });
-	return { suppressed: false };
+	const reported = untilReported <= 1;
+	seen.set(fingerprint, {
+		atMs: nowMs,
+		eventId: undefined,
+		failures: 1,
+		reported,
+	});
+	return reported
+		? { suppressed: false }
+		: { suppressed: true, eventId: undefined };
 };
 
 const remember = (fingerprint: string, eventId: string | undefined): void => {
@@ -93,7 +113,11 @@ export const reportError = (
 	if (!isReportableCode(classified.code)) return classified;
 
 	const fingerprint = fingerprintOf(classified, options);
-	const throttle = suppressedEventId(fingerprint, Date.now());
+	const throttle = suppressedEventId(
+		fingerprint,
+		Date.now(),
+		failuresUntilReported(classified),
+	);
 
 	// Throttling exists to spare Sentry a flood of one repeating failure, not to
 	// strip the reference the user is told to quote. A repeat of the same

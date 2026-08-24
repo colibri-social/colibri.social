@@ -170,7 +170,7 @@ export const GeneralPage: Component = () => {
 			await putRecord(agent, repo, COLLECTIONS.profile, "self", record);
 
 			user.updateProfile(patch);
-			void user.refetchProfile();
+			await user.refetchProfile();
 
 			toast.success("Profile updated.");
 			resetEdits();
