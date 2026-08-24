@@ -10,13 +10,12 @@ import {
 } from "solid-js";
 import ArrowLineLeftIcon from "~icons/ph/arrow-line-left";
 import InfoIcon from "~icons/ph/info";
-import { COLLECTIONS, colibri } from "../../../atproto/lexicons";
+import { COLLECTIONS } from "../../../atproto/lexicons";
 import { putRecord, uploadBlob } from "../../../atproto/pds";
 import { pdsBlobUrl } from "../../../atproto/pds-blob";
-import { endSession } from "../../../atproto/session";
+import { signOut } from "../../../atproto/session";
 import { useAuthContext } from "../../../contexts/Auth";
 import { useUserContext } from "../../../contexts/User";
-import { unregisterAllPush } from "../../../notifications";
 import { readableUserColor } from "../../../utils/readable-color";
 import { resolvedTheme } from "../../../utils/theme";
 import { Bluesky } from "../../icons/Bluesky";
@@ -302,21 +301,8 @@ export const ProfileSetupModal: Component<{
 	const user = useUserContext();
 	const auth = useAuthContext();
 
-	const logout = async () => {
-		try {
-			await unregisterAllPush((endpoint, provider) =>
-				user.xrpc.call(colibri.notification.unregisterPush.main, {
-					body:
-						provider === "fcm"
-							? { provider: "fcm", token: endpoint }
-							: { provider: "webpush", endpoint },
-				}),
-			);
-			await auth?.client.revoke(user.did);
-		} finally {
-			await endSession();
-		}
-	};
+	const logout = () =>
+		signOut({ xrpc: user.xrpc, client: auth?.client, did: user.did });
 
 	const config: RecordBootstrapConfig<ProfileFields> = {
 		title: "Set up your profile",

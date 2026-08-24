@@ -2,6 +2,7 @@ import type { Agent } from "@atproto/api";
 import { classifyThrown } from "../errors/classify";
 import type { ColibriError } from "../errors/error";
 import { unregisterAllPush } from "../notifications";
+import { unregisterPushWith } from "../notifications/push-xrpc";
 import { createLogger } from "../utils/logger";
 import { colibri } from "./lexicons";
 import { deleteRecords, listCollections, listRecordKeys } from "./pds";
@@ -43,14 +44,7 @@ export const deleteColibriAccount = async (input: {
 	const failedCollections: DeleteAccountResult["failedCollections"] = [];
 
 	onProgress?.({ step: "push" });
-	await unregisterAllPush((endpoint, provider) =>
-		xrpc.push(colibri.notification.unregisterPush.main, {
-			body:
-				provider === "fcm"
-					? { provider, token: endpoint }
-					: { provider, endpoint },
-		}),
-	);
+	await unregisterAllPush(unregisterPushWith(xrpc));
 
 	let collections: Array<string>;
 	try {

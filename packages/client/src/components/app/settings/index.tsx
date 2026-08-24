@@ -18,12 +18,10 @@ import SparkleIcon from "~icons/ph/sparkle";
 import TrashIcon from "~icons/ph/trash";
 import UserCircleIcon from "~icons/ph/user-circle";
 import WrenchIcon from "~icons/ph/wrench";
-import { colibri } from "../../../atproto/lexicons";
-import { endSession } from "../../../atproto/session";
+import { signOut } from "../../../atproto/session";
 import { useAuthContext } from "../../../contexts/Auth";
 import { useUserContext } from "../../../contexts/User";
 import { EXPERIMENTS } from "../../../experiments";
-import { unregisterAllPush } from "../../../notifications";
 import { visibleReleaseNotes } from "../../../release-notes";
 import { requiresInAppPurchase } from "../../../utils/platform";
 import { useIsTouch } from "../../../utils/touch";
@@ -151,21 +149,11 @@ export const UserSettingsModal: ParentComponent<{
 						const user = useUserContext();
 
 						createEffect(() => {
-							(async () => {
-								try {
-									await unregisterAllPush((endpoint, provider) =>
-										user.xrpc.call(colibri.notification.unregisterPush.main, {
-											body:
-												provider === "fcm"
-													? { provider: "fcm", token: endpoint }
-													: { provider: "webpush", endpoint },
-										}),
-									);
-									await auth?.client.revoke(user.did);
-								} finally {
-									await endSession();
-								}
-							})();
+							void signOut({
+								xrpc: user.xrpc,
+								client: auth?.client,
+								did: user.did,
+							});
 						});
 
 						// biome-ignore lint/complexity/noUselessFragments: Needed to make the redirect work
