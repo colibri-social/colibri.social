@@ -233,18 +233,24 @@ export const InviteModal: Component = () => {
 										</ToggleSwitch>
 
 										<div class="flex flex-col gap-2">
-											<Button onClick={accept} disabled={joining()}>
+											<Button
+												onClick={accept}
+												disabled={joining()}
+												class="min-w-0"
+											>
 												<Show when={!joining()} fallback={<Spinner />}>
-													<span>Accept as</span>
-													<span class="flex flex-row gap-1.5 items-center">
+													<span class="shrink-0">Accept as</span>
+													<span class="flex flex-row gap-1.5 items-center min-w-0">
 														<img
 															width="24"
 															height="24"
 															alt={displayableNameFn(user)}
 															src={avatarUrl() ?? "/user-placeholder.png"}
-															class="rounded-full"
+															class="rounded-full shrink-0"
 														/>
-														{displayableNameFn(user)}
+														<span class="truncate">
+															{displayableNameFn(user)}
+														</span>
 													</span>
 												</Show>
 											</Button>
