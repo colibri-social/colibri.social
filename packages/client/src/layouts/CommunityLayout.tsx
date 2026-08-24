@@ -39,7 +39,6 @@ import {
 import { MemberProfileContextProvider } from "../contexts/MemberProfile";
 import { useUserContext } from "../contexts/User";
 import { useUserPreferences } from "../contexts/UserPreferences";
-import createMediaQuery from "../utils/create-media-query";
 import { createSwipe, type SwipeOptions } from "../utils/create-swipe";
 import { getChannelParam } from "../utils/get-param";
 import {
@@ -215,7 +214,6 @@ const CommunityLayout: ParentComponent = (props) => {
 	const [dragWidth, setDragWidth] = createSignal<number | null>(null);
 	const [resizingSidebar, setResizingSidebar] = createSignal(false);
 	const sidebarWidth = () => dragWidth() ?? preferences().channelSidebarWidth;
-	const displayMembersAsSheet = createMediaQuery("(max-width: 1280px)");
 	const {
 		isMobile,
 		currentPane,
@@ -320,12 +318,9 @@ const CommunityLayout: ParentComponent = (props) => {
 					"w-full h-full": !isMobile(),
 					"max-h-[calc(100vh-var(--titlebar-height)-1px)]": !isMobile(),
 					"max-w-[calc(100vw-var(--channel-sidebar-width)-288px-56px-1px)]":
-						!isMobile() &&
-						!displayMembersAsSheet() &&
-						preferences().membersListVisible,
-					"max-w-[calc(100vw-var(--channel-sidebar-width)-56px-1px-280px)]":
-						!isMobile() &&
-						(displayMembersAsSheet() || !preferences().membersListVisible),
+						!isMobile() && preferences().membersListVisible,
+					"max-w-[calc(100vw-var(--channel-sidebar-width)-56px-1px)]":
+						!isMobile() && !preferences().membersListVisible,
 					"absolute inset-0 w-full h-full max-w-none! z-20 will-change-pane":
 						isMobile(),
 					"transition-transform duration-300 ease-[cubic-bezier(0.25,1,0.5,1)] motion-reduce:transition-none":

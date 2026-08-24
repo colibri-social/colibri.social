@@ -1,24 +1,11 @@
-import {
-	createMemo,
-	createSignal,
-	For,
-	Match,
-	onCleanup,
-	Show,
-	Switch,
-} from "solid-js";
-import BellIcon from "~icons/ph/bell";
-import BellSlashIcon from "~icons/ph/bell-slash";
+import { createMemo, createSignal, For, onCleanup, Show } from "solid-js";
 import CaretLeftIcon from "~icons/ph/caret-left";
 import CrownIcon from "~icons/ph/crown-fill";
-import UsersIconFill from "~icons/ph/users-fill";
 import { spaceSkey } from "../../../atproto/space-ref";
 import { useCommunityContext } from "../../../contexts/Community";
 import type { Member } from "../../../contexts/community-payload";
-import { useMutes } from "../../../contexts/Mutes";
 import { useUserPreferences } from "../../../contexts/UserPreferences";
 import { channelAudience } from "../../../utils/channel-audience";
-import createMediaQuery from "../../../utils/create-media-query";
 import { createSwipe } from "../../../utils/create-swipe";
 import { parseEmojiText } from "../../../utils/emoji";
 import { getChannelParam } from "../../../utils/get-param";
@@ -27,7 +14,6 @@ import {
 	createMobilePane,
 	PANE_COMMIT_RATIO,
 } from "../../../utils/mobile-pane";
-import { Button } from "../../ui/Button";
 import { isDrawerOpen } from "../../ui/MenuDrawer";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../../ui/Tooltip";
 import User from "../user";
@@ -120,8 +106,6 @@ export const MemberSidebar = () => {
 		return community().channels.find((c) => spaceSkey(c.space) === skey);
 	});
 
-	const currentChannelSpace = createMemo(() => currentChannel()?.space);
-
 	const visibleMembers = createMemo(() => {
 		const channel = currentChannel();
 		if (!channel) return community().members;
@@ -179,8 +163,7 @@ export const MemberSidebar = () => {
 		return { rows: result, offsets, total: offsets[result.length] };
 	});
 
-	const displayMembersAsSheet = createMediaQuery("(max-width: 1280px)");
-	const { preferences, toggleMembersVisible } = useUserPreferences();
+	const { preferences } = useUserPreferences();
 	const {
 		isMobile,
 		popPane,
@@ -189,7 +172,6 @@ export const MemberSidebar = () => {
 		paneTranslate,
 		isDragging,
 	} = createMobilePane();
-	const mutes = useMutes();
 
 	const [viewport, setViewport] = createSignal({ top: 0, height: 0 });
 
@@ -275,7 +257,7 @@ export const MemberSidebar = () => {
 			class="flex flex-col border-border bg-background"
 			style={{ transform: paneTranslate("members") }}
 			classList={{
-				"min-w-72 w-72 h-full border-l z-50": !isMobile(),
+				"min-w-72 w-72 h-full border-l": !isMobile(),
 				hidden: !isMobile() && !preferences().membersListVisible,
 				"absolute inset-0 w-full h-full z-30 will-change-pane": isMobile(),
 				"transition-transform duration-300 ease-[cubic-bezier(0.25,1,0.5,1)] motion-reduce:transition-none":
@@ -293,58 +275,6 @@ export const MemberSidebar = () => {
 						<CaretLeftIcon width={20} height={20} />
 					</button>
 					<span class="font-medium">Members</span>
-				</div>
-			</Show>
-			<Show when={!isMobile() && displayMembersAsSheet()}>
-				<div class="border-b border-border h-12 min-h-12 p-2 w-full flex flex-row items-center gap-1">
-					<Show when={currentChannelSpace()}>
-						{(space) => (
-							<Tooltip>
-								<TooltipTrigger>
-									<Button
-										size="icon-sm"
-										variant="ghost"
-										onClick={() =>
-											mutes.isChannelMuted(space())
-												? mutes.unmuteChannel(space())
-												: mutes.muteChannel(space())
-										}
-									>
-										<Switch>
-											<Match when={mutes.isChannelMuted(space())}>
-												<BellSlashIcon />
-											</Match>
-											<Match when={!mutes.isChannelMuted(space())}>
-												<BellIcon />
-											</Match>
-										</Switch>
-									</Button>
-								</TooltipTrigger>
-								<TooltipContent>
-									<Switch>
-										<Match when={mutes.isChannelMuted(space())}>
-											Unmute Channel
-										</Match>
-										<Match when={!mutes.isChannelMuted(space())}>
-											Mute Channel
-										</Match>
-									</Switch>
-								</TooltipContent>
-							</Tooltip>
-						)}
-					</Show>
-					<Tooltip>
-						<TooltipTrigger>
-							<Button
-								size="icon-sm"
-								variant="ghost"
-								onClick={() => toggleMembersVisible()}
-							>
-								<UsersIconFill />
-							</Button>
-						</TooltipTrigger>
-						<TooltipContent>Hide Member List</TooltipContent>
-					</Tooltip>
 				</div>
 			</Show>
 			<div
