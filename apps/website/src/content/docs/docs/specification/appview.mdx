@@ -2067,6 +2067,8 @@ A channel is a permissioned space in its own right, not a record inside the comm
 
 `allowedRoles` and `allowedMembers` gate who may post. `visibleToRoles` and `visibleToMembers` gate who may read, so a read-only announcement channel can restrict posting while staying readable to the whole community. Non-empty visibility lists make the channel private, and the community's PDS then refuses space credentials for it to anyone outside those lists.
 
+A channel you may not read is left out of every listing it would otherwise appear in. `listChannels` omits it, `listCategories` omits it from its category's `channels`, and `getChannel` and `listMessages` answer `Forbidden`. The AppView never names it, so a client can treat the channels it receives as the whole of what the user can see.
+
 ### `social.colibri.beta.channel.create`
 
 Creates a channel: first the space, then the `social.colibri.beta.channel` record at key `self` inside it, and finally the channel's entry at the end of its category's `channelOrder`.
@@ -3632,8 +3634,15 @@ connection is now receiving. Anything you are not entitled to read is silently
 dropped from that confirmation rather than refused, so compare what you asked
 for against what came back.
 
-`unsubscribe` removes topics again. Events for the connected user personally,
-such as notifications, arrive without any subscription.
+Subscribing to a community also subscribes you to every channel in it that you
+may read, so asking for the community is enough to receive its messages,
+reactions, labels and typing. The set is kept current: when your access changes,
+the server revises your channel topics and sends a fresh `subscribed` naming
+what you now hold.
+
+`unsubscribe` removes topics again, and dropping a community drops its channels
+with it. Events for the connected user personally, such as notifications, arrive
+without any subscription.
 
 ### Client frames
 
@@ -3655,10 +3664,10 @@ such as notifications, arrive without any subscription.
 | `subscribed` | After a subscribe or unsubscribe, confirming what this connection now receives |
 | `messageEvent` | A message was written, edited or deleted in a subscribed channel. `create` and `update` carry the full `messageView` in `message`, and `delete` carries only the `subject` reference. A message already hidden when it is indexed is not published |
 | `reactionEvent` | A reaction was added or removed in a subscribed channel |
-| `channelEvent` | A channel was created, changed or deleted |
+| `channelEvent` | A channel was created, changed or deleted. Only the channel's readers are told. Gaining access arrives as a `create` and losing it as a `delete`, so a client can add and drop entries from this frame alone |
 | `categoryEvent` | A category was created, changed or deleted |
 | `roleEvent` | A role was created, changed or deleted |
-| `memberEvent` | Someone joined, left or had their roles changed |
+| `memberEvent` | Someone joined, left or had their roles changed. A `join` also goes to the member who was admitted, who is not yet subscribed to the community they just entered |
 | `communityEvent` | A community's profile or settings changed |
 | `applicationEvent` | The pending-application queue changed. Only sent to members who can manage approvals |
 | `labelEvent` | A label was applied or retracted on a record in a subscribed space. A `create` of `hidden` means the message is not served any more and should be taken off screen, and a `negate` of `hidden` is followed by a `messageEvent` re-publishing it |

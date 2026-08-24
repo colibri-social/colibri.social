@@ -150,3 +150,13 @@ export const payloadForCommunity = (
 	did !== "" && payload !== undefined && payload.community.did === did
 		? payload
 		: undefined;
+
+export const sameRoles = (
+	left: ReadonlyArray<string> | undefined,
+	right: ReadonlyArray<string> | undefined,
+): boolean => {
+	if (left === undefined || right === undefined) return left === right;
+	if (left.length !== right.length) return false;
+	const held = new Set(left);
+	return right.every((rkey) => held.has(rkey));
+};

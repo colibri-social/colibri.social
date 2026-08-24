@@ -4,6 +4,7 @@ import {
 	emptyCommunityPayload,
 	isCommunityPayload,
 	payloadForCommunity,
+	sameRoles,
 } from "./community-payload";
 
 const payload = (did: string, memberDids: Array<string>): CommunityPayload =>
@@ -115,5 +116,28 @@ describe("payloadForCommunity", () => {
 	it("rejects every payload while no community is selected", () => {
 		expect(payloadForCommunity(A, "")).toBeUndefined();
 		expect(payloadForCommunity(emptyCommunityPayload(), "")).toBeUndefined();
+	});
+});
+
+describe("sameRoles", () => {
+	it("ignores the order roles arrive in", () => {
+		expect(sameRoles(["3lka", "3lkb"], ["3lkb", "3lka"])).toBe(true);
+	});
+
+	it("spots a granted role", () => {
+		expect(sameRoles(["3lka"], ["3lka", "3lkb"])).toBe(false);
+	});
+
+	it("spots a revoked role", () => {
+		expect(sameRoles(["3lka", "3lkb"], ["3lka"])).toBe(false);
+	});
+
+	it("spots a swapped role of the same count", () => {
+		expect(sameRoles(["3lka"], ["3lkb"])).toBe(false);
+	});
+
+	it("treats an unknown previous member as a change", () => {
+		expect(sameRoles(undefined, [])).toBe(false);
+		expect(sameRoles(undefined, undefined)).toBe(true);
 	});
 });

@@ -1,4 +1,5 @@
 import type { FileError } from "@kobalte/core/file-field";
+import { useNavigate } from "@solidjs/router";
 import {
 	createEffect,
 	createMemo,
@@ -51,6 +52,7 @@ import {
 } from "../components/ui/Tooltip";
 import { ChannelContextProvider, useChannelContext } from "../contexts/Channel";
 import { useCommunityContext } from "../contexts/Community";
+import { decideChannelExit } from "../contexts/channel-exit";
 import { isChannelRestricted } from "../contexts/channel-permissions";
 import { useMutes } from "../contexts/Mutes";
 import { isSameChannelUri, useNotifications } from "../contexts/Notifications";
@@ -1133,11 +1135,23 @@ const ChannelLayout: ParentComponent = (props) => {
 
 const ChannelLayoutWithContext: ParentComponent = (props) => {
 	const community = useCommunityContext();
+	const navigate = useNavigate();
 
 	const channel = createMemo(() => {
 		const skey = getChannelParam();
 		if (!skey) return undefined;
 		return community().channels.find((c) => spaceSkey(c.space) === skey);
+	});
+
+	createEffect(() => {
+		const exit = decideChannelExit(
+			community().authoritative(),
+			getChannelParam(),
+			channel() !== undefined,
+		);
+		if (exit === "stay") return;
+		toast.error("That channel is no longer available.");
+		navigate(`/app/c/${community().community.did}`, { replace: true });
 	});
 
 	return (

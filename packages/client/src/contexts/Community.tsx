@@ -72,6 +72,7 @@ import {
 	normalizeOnlineState,
 	payloadForCommunity,
 	type Role,
+	sameRoles,
 	toApplicant,
 	toMember,
 } from "./community-payload";
@@ -86,6 +87,7 @@ type CommunityContextData = CommunityPayload & {
 	applications: Array<Applicant>;
 	dismissedApplications: Array<Applicant>;
 	ownerDid: Accessor<string | undefined>;
+	authoritative: Accessor<boolean>;
 	utils: {
 		getMember: (did: string) => Member | undefined;
 		getRole: (rkey: string) => Role | undefined;
@@ -463,10 +465,17 @@ export const CommunityContextProvider: ParentComponent = (props) => {
 					if (!confirmsIntent) return;
 					pendingRoleIntents.delete(member.did);
 				}
+				const previous = prev.members.find((m) => m.did === member.did);
 				setSnapshot({
 					...prev,
 					members: prev.members.map((m) => (m.did === member.did ? member : m)),
 				});
+				if (
+					member.did === user.did &&
+					!sameRoles(previous?.roles, member.roles)
+				) {
+					void refetch();
+				}
 			} else if (event.event === "leave" && event.subject) {
 				const subject = event.subject;
 				setSnapshot({
@@ -606,6 +615,13 @@ export const CommunityContextProvider: ParentComponent = (props) => {
 		});
 	};
 
+	const authoritative = createMemo(() => {
+		const identifier = communityIdentifier();
+		return (
+			identifier !== "" && fetchedCommunity()?.community.did === identifier
+		);
+	});
+
 	const ownerRole = createMemo(() => payload().roles.find((x) => x.protected));
 
 	const ownerDid = createMemo(() => {
@@ -620,6 +636,7 @@ export const CommunityContextProvider: ParentComponent = (props) => {
 		applications: applicationQueues()?.applications ?? [],
 		dismissedApplications: applicationQueues()?.dismissed ?? [],
 		ownerDid,
+		authoritative,
 		utils: {
 			getMember,
 			getRole,
