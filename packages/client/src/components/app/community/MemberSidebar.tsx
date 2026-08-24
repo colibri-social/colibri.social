@@ -276,8 +276,6 @@ export const MemberSidebar = () => {
 			style={{ transform: paneTranslate("members") }}
 			classList={{
 				"min-w-72 w-72 h-full border-l z-50": !isMobile(),
-				"absolute top-0 right-0 h-full drop-shadow-black drop-shadow-2xl":
-					!isMobile() && displayMembersAsSheet(),
 				hidden: !isMobile() && !preferences().membersListVisible,
 				"absolute inset-0 w-full h-full z-30 will-change-pane": isMobile(),
 				"transition-transform duration-300 ease-[cubic-bezier(0.25,1,0.5,1)] motion-reduce:transition-none":

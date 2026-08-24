@@ -323,7 +323,7 @@ const CommunityLayout: ParentComponent = (props) => {
 						!isMobile() &&
 						!displayMembersAsSheet() &&
 						preferences().membersListVisible,
-					"max-w-[calc(100vw-var(--channel-sidebar-width)-56px-1px)]":
+					"max-w-[calc(100vw-var(--channel-sidebar-width)-56px-1px-280px)]":
 						!isMobile() &&
 						(displayMembersAsSheet() || !preferences().membersListVisible),
 					"absolute inset-0 w-full h-full max-w-none! z-20 will-change-pane":
