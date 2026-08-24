@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
-import type { CommunityPayload } from "./community-payload";
+import type { CommunityPayload, Member } from "./community-payload";
 import {
 	emptyCommunityPayload,
 	isCommunityPayload,
+	patchMemberData,
 	payloadForCommunity,
 	sameRoles,
+	withMemberPresence,
 } from "./community-payload";
 
 const payload = (did: string, memberDids: Array<string>): CommunityPayload =>
@@ -139,5 +141,68 @@ describe("sameRoles", () => {
 	it("treats an unknown previous member as a change", () => {
 		expect(sameRoles(undefined, [])).toBe(false);
 		expect(sameRoles(undefined, undefined)).toBe(true);
+	});
+});
+
+const member = (): Member =>
+	({
+		did: "did:plc:member",
+		handle: "member.example.com",
+		roles: [],
+		joinedAt: "2026-08-24T00:00:00.000Z",
+		actor: {
+			did: "did:plc:member",
+			handle: "member.example.com",
+			displayName: "Member",
+			presence: { onlineState: "online", voice: { channel: "at://vc" } },
+		},
+		data: { displayName: "Member", onlineState: "online" },
+	}) as unknown as Member;
+
+describe("withMemberPresence", () => {
+	it("moves the roster bucket and the avatar dot together", () => {
+		const next = withMemberPresence(member(), { onlineState: "offline" });
+
+		expect(next.data.onlineState).toBe("offline");
+		expect(next.actor.presence?.onlineState).toBe("offline");
+	});
+
+	it("coerces an unknown state to offline on both sides", () => {
+		const next = withMemberPresence(member(), {
+			onlineState: "hibernating",
+		} as never);
+
+		expect(next.data.onlineState).toBe("offline");
+	});
+
+	it("keeps the voice state the event carries", () => {
+		const next = withMemberPresence(member(), {
+			onlineState: "away",
+			voice: { channel: "at://vc-b" },
+		} as never);
+
+		expect(next.actor.presence?.voice?.channel).toBe("at://vc-b");
+	});
+});
+
+describe("patchMemberData", () => {
+	it("mirrors an optimistic state change onto the actor", () => {
+		const next = patchMemberData(member(), { onlineState: "dnd" });
+
+		expect(next.data.onlineState).toBe("dnd");
+		expect(next.actor.presence?.onlineState).toBe("dnd");
+	});
+
+	it("leaves the voice state alone", () => {
+		const next = patchMemberData(member(), { onlineState: "dnd" });
+
+		expect(next.actor.presence?.voice?.channel).toBe("at://vc");
+	});
+
+	it("leaves presence untouched for an unrelated patch", () => {
+		const next = patchMemberData(member(), { displayName: "Renamed" });
+
+		expect(next.data.displayName).toBe("Renamed");
+		expect(next.actor.presence?.onlineState).toBe("online");
 	});
 });

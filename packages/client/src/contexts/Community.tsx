@@ -69,12 +69,13 @@ import {
 	emptyCommunityPayload,
 	type Member,
 	type MemberData,
-	normalizeOnlineState,
+	patchMemberData,
 	payloadForCommunity,
 	type Role,
 	sameRoles,
 	toApplicant,
 	toMember,
+	withMemberPresence,
 } from "./community-payload";
 import { trackCommunityRefresh } from "./community-refresh-state";
 import { createLoadSessions } from "./load-session";
@@ -434,16 +435,7 @@ export const CommunityContextProvider: ParentComponent = (props) => {
 			setSnapshot({
 				...prev,
 				members: prev.members.map((m) =>
-					m.did === event.did
-						? {
-								...m,
-								data: {
-									...m.data,
-									onlineState: normalizeOnlineState(event.presence.onlineState),
-									status: event.presence.status,
-								},
-							}
-						: m,
+					m.did === event.did ? withMemberPresence(m, event.presence) : m,
 				),
 			});
 		} else if (frameIs(event, "memberEvent")) {
@@ -610,7 +602,7 @@ export const CommunityContextProvider: ParentComponent = (props) => {
 		setSnapshot({
 			...prev,
 			members: prev.members.map((m) =>
-				m.did === did ? { ...m, data: { ...m.data, ...patch } } : m,
+				m.did === did ? patchMemberData(m, patch) : m,
 			),
 		});
 	};

@@ -4,6 +4,7 @@ import type {
 	ChannelView,
 	CommunityView,
 	MemberView,
+	Presence,
 	ProfileView,
 	RoleView,
 } from "../atproto/views";
@@ -97,6 +98,33 @@ export const toMember = (view: MemberView): Member => ({
 	actor: view.actor,
 	data: memberDataOf(view.actor),
 });
+
+export const withMemberPresence = (
+	member: Member,
+	presence: Presence,
+): Member => ({
+	...member,
+	actor: { ...member.actor, presence },
+	data: {
+		...member.data,
+		onlineState: normalizeOnlineState(presence.onlineState),
+		status: presence.status,
+	},
+});
+
+export const patchMemberData = (
+	member: Member,
+	patch: Partial<MemberData>,
+): Member => {
+	const patched = { ...member, data: { ...member.data, ...patch } };
+	if (!("onlineState" in patch) && !("status" in patch)) return patched;
+
+	return withMemberPresence(patched, {
+		...member.actor.presence,
+		onlineState: patched.data.onlineState,
+		status: patched.data.status,
+	});
+};
 
 export const toApplicant = (view: ApplicationView): Applicant => {
 	const {
