@@ -269,8 +269,17 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 		reject: (err: unknown) => void;
 	}> = [];
 
+	const describeArg = (arg: unknown): string => {
+		if (typeof arg === "string") return arg;
+		try {
+			return JSON.stringify(arg) ?? String(arg);
+		} catch {
+			return String(arg);
+		}
+	};
+
 	const dbg = (...args: unknown[]): void => {
-		log.debug(args.map(String).join(" "));
+		log.debug(args.map(describeArg).join(" "));
 	};
 
 	const reportVoiceFailure = (err: unknown, stage: string): void => {
@@ -883,7 +892,7 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 			if (state === "connected") sendConnected = true;
 			if (state === "failed" || state === "disconnected") {
 				dbg(
-					"✗ sendTransport ICE/DTLS unreachable — check SFU UDP ports 20000-20019 / announced IP",
+					"✗ sendTransport ICE/DTLS unreachable: check the SFU media port range and the announced IP",
 				);
 			}
 		});
@@ -949,7 +958,7 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 			dbg("recvTransport connectionstatechange →", state);
 			if (state === "failed" || state === "disconnected") {
 				dbg(
-					"✗ recvTransport ICE/DTLS unreachable — check SFU UDP ports 20000-20019 / announced IP",
+					"✗ recvTransport ICE/DTLS unreachable: check the SFU media port range and the announced IP",
 				);
 			}
 		});
