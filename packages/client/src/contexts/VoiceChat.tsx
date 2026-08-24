@@ -242,6 +242,7 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 	let localSpeaking = false;
 	let serverSpeakers: string[] = [];
 	let ready = false;
+	let mediaEpoch = 0;
 	let intentionalClose = false;
 	let reconnectAttempts = 0;
 	let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
@@ -556,6 +557,7 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 	};
 
 	const teardownMedia = (): void => {
+		mediaEpoch += 1;
 		rejectAllPending();
 
 		if (speakingInterval) {
@@ -670,11 +672,14 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 	};
 
 	const startMic = async (): Promise<void> => {
-		if (!sendTransport) return;
+		const transport = sendTransport;
+		if (!transport) return;
+		const epoch = mediaEpoch;
+		const stale = (): boolean => mediaEpoch !== epoch;
 		dbg("startMic() — requesting getUserMedia + producing");
 		const input = userPreferences.preferences().voice.input;
 
-		micStream = await navigator.mediaDevices.getUserMedia({
+		const stream = await navigator.mediaDevices.getUserMedia({
 			audio: {
 				echoCancellation: true,
 				autoGainControl: true,
@@ -685,7 +690,13 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 			},
 		});
 
-		const rawTrack = micStream.getAudioTracks()[0];
+		if (stale()) {
+			dbg("startMic(): session ended while waiting for the microphone");
+			for (const track of stream.getTracks()) track.stop();
+			return;
+		}
+
+		const rawTrack = stream.getAudioTracks()[0];
 
 		const ns = await createNoiseSuppressor(rawTrack, {
 			desiredMode: input.noiseSuppressionMode,
@@ -706,12 +717,30 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 				recomputeSpeakers();
 			},
 		});
-		suppressor = ns;
 
-		micProducer = await sendTransport.produce({
+		if (stale()) {
+			dbg("startMic(): session ended while building the audio graph");
+			ns.destroy();
+			for (const track of stream.getTracks()) track.stop();
+			return;
+		}
+
+		const producer = await transport.produce({
 			track: ns.outputTrack,
 			appData: { source: "mic" },
 		});
+
+		if (stale()) {
+			dbg("startMic(): session ended before the producer was live");
+			producer.close();
+			ns.destroy();
+			for (const track of stream.getTracks()) track.stop();
+			return;
+		}
+
+		micStream = stream;
+		suppressor = ns;
+		micProducer = producer;
 		const muted = userPreferences.preferences().voice.selfMuted;
 
 		if (muted) micProducer.pause();
@@ -929,6 +958,14 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 	};
 
 	const performHandshake = async (): Promise<void> => {
+		const epoch = mediaEpoch;
+		const stale = (): boolean => mediaEpoch !== epoch;
+		const abandoned = (): boolean => {
+			if (!stale()) return false;
+			dbg("handshake abandoned, the session ended while it was in flight");
+			return true;
+		};
+
 		setVoiceData(
 			"states",
 			"deafened",
@@ -940,6 +977,8 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 			"social.colibri.beta.voice.defs#rtpCapabilities",
 		);
 
+		if (abandoned()) return;
+
 		const handlerName = pickVoiceHandler();
 		dbg("device handler", { handlerName, userAgent: navigator.userAgent });
 		Sentry.addBreadcrumb({
@@ -948,18 +987,25 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 			message: `handler ${handlerName ?? "none"}`,
 		});
 
-		device = new Device({ handlerName });
-		await device.load({
+		const loaded = new Device({ handlerName });
+		await loaded.load({
 			routerRtpCapabilities:
 				rtpCaps.payload as unknown as types.RtpCapabilities,
 		});
-		dbg("device loaded", { canProduceAudio: device.canProduce("audio") });
+
+		if (abandoned()) return;
+
+		device = loaded;
+		dbg("device loaded", { canProduceAudio: loaded.canProduce("audio") });
 
 		const sendOptions = expectFrame(
 			await sendAndWait(createTransportFrame("send")),
 			"social.colibri.beta.voice.defs#transportOptions",
 		);
-		sendTransport = device.createSendTransport(toTransportOptions(sendOptions));
+
+		if (abandoned()) return;
+
+		sendTransport = loaded.createSendTransport(toTransportOptions(sendOptions));
 		dbg("sendTransport created", { id: sendTransport.id });
 		wireSendTransport(sendTransport);
 
@@ -967,13 +1013,20 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 			await sendAndWait(createTransportFrame("recv")),
 			"social.colibri.beta.voice.defs#transportOptions",
 		);
-		recvTransport = device.createRecvTransport(toTransportOptions(recvOptions));
+
+		if (abandoned()) return;
+
+		recvTransport = loaded.createRecvTransport(toTransportOptions(recvOptions));
 		dbg("recvTransport created", { id: recvTransport.id });
 		wireRecvTransport(recvTransport);
 
 		try {
 			await startMic();
 		} catch (err) {
+			if (stale()) {
+				dbg("startMic() failed after the session ended", err);
+				return;
+			}
 			log.warn("microphone unavailable, joining listen-only", {
 				code: classifyThrown(err).code,
 			});
@@ -982,6 +1035,8 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 				description: "Colibri couldn't access your input device.",
 			});
 		}
+
+		if (abandoned()) return;
 
 		ready = true;
 		reconnectAttempts = 0;
@@ -1395,17 +1450,21 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 		which: VideoSource,
 		track: MediaStreamTrack,
 		quality?: ScreenShareQuality,
-	): Promise<void> => {
-		if (!sendTransport) return;
+	): Promise<boolean> => {
+		const transport = sendTransport;
+		if (!transport) return false;
+		const epoch = mediaEpoch;
+		const preview = new MediaStream([track]);
+
 		setVoiceData("videoStreams", selfVideoKey(which), {
 			did: user.did,
 			source: which,
-			stream: new MediaStream([track]),
+			stream: preview,
 		});
 
 		if (quality) track.contentHint = screenContentHint(quality);
 
-		const producer = await sendTransport.produce({
+		const producer = await transport.produce({
 			track,
 			appData: { source: which },
 			...(quality
@@ -1416,6 +1475,20 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 				: {}),
 		});
 
+		if (mediaEpoch !== epoch) {
+			dbg("produceVideo(): session ended before the producer was live", {
+				which,
+			});
+			producer.close();
+			track.stop();
+
+			if (voiceData.videoStreams[selfVideoKey(which)]?.stream === preview) {
+				setVoiceData("videoStreams", selfVideoKey(which), undefined!);
+			}
+
+			return false;
+		}
+
 		if (quality) applyDegradationPreference(producer, quality);
 
 		if (which === "cam") camProducer = producer;
@@ -1424,18 +1497,31 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 		const onEnded = (): void => stopVideo(which);
 		videoTrackListeners.set(which, onEnded);
 		track.addEventListener("ended", onEnded);
+		return true;
 	};
 
-	const produceScreenAudio = async (track: MediaStreamTrack): Promise<void> => {
-		if (!sendTransport) return;
+	const produceScreenAudio = async (
+		track: MediaStreamTrack,
+	): Promise<boolean> => {
+		const transport = sendTransport;
+		if (!transport) return false;
+		const epoch = mediaEpoch;
 
-		screenAudioProducer = await sendTransport.produce({
+		const producer = await transport.produce({
 			track,
 			appData: { source: "screen" satisfies MediaSource },
 		});
 
+		if (mediaEpoch !== epoch) {
+			producer.close();
+			track.stop();
+			return false;
+		}
+
+		screenAudioProducer = producer;
 		screenAudioListener = (): void => stopScreenAudio();
 		track.addEventListener("ended", screenAudioListener);
+		return true;
 	};
 
 	const stopScreenAudio = (): void => {
@@ -1533,11 +1619,26 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 			return;
 		}
 
+		const epoch = mediaEpoch;
+
 		try {
 			const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+
+			if (mediaEpoch !== epoch) {
+				dbg("toggleCamera(): session ended while waiting for the camera");
+				for (const track of stream.getTracks()) track.stop();
+				return;
+			}
+
 			const track = stream.getVideoTracks()[0];
 			setVoiceData("states", "camEnabled", true);
-			await produceVideo("cam", track);
+
+			if (!(await produceVideo("cam", track))) {
+				for (const t of stream.getTracks()) t.stop();
+				setVoiceData("states", "camEnabled", false);
+				return;
+			}
+
 			playSound("camOn");
 		} catch (err) {
 			log.error("camera failed", { code: classifyThrown(err).code });
@@ -1556,7 +1657,13 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 		}
 
 		try {
-			await produceVideo("screen", track, quality);
+			if (!(await produceVideo("screen", track, quality))) {
+				track.stop();
+				audioTrack?.stop();
+				onStopped();
+				return;
+			}
+
 			screenTrackCleanup = onStopped;
 			setVoiceData("states", "screenEnabled", true);
 			playSound("screenShared");
@@ -1574,7 +1681,7 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 		if (!audioTrack) return;
 
 		try {
-			await produceScreenAudio(audioTrack);
+			if (!(await produceScreenAudio(audioTrack))) audioTrack.stop();
 		} catch (err) {
 			audioTrack.stop();
 			showError(err, {
@@ -1592,6 +1699,7 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 		}
 
 		const settings = options ?? userPreferences.preferences().voice.screen;
+		const epoch = mediaEpoch;
 		let stream: MediaStream;
 
 		try {
@@ -1607,6 +1715,12 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 			return;
 		}
 
+		if (mediaEpoch !== epoch) {
+			dbg("toggleScreen(): session ended while picking a capture source");
+			for (const track of stream.getTracks()) track.stop();
+			return;
+		}
+
 		const videoTrack = stream.getVideoTracks()[0];
 		if (!videoTrack) {
 			for (const track of stream.getTracks()) track.stop();
@@ -1614,7 +1728,11 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 		}
 
 		try {
-			await produceVideo("screen", videoTrack, settings);
+			if (!(await produceVideo("screen", videoTrack, settings))) {
+				for (const track of stream.getTracks()) track.stop();
+				return;
+			}
+
 			setVoiceData("states", "screenEnabled", true);
 			playSound("screenShared");
 		} catch (err) {
@@ -1638,7 +1756,7 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 		}
 
 		try {
-			await produceScreenAudio(audioTrack);
+			if (!(await produceScreenAudio(audioTrack))) audioTrack.stop();
 		} catch (err) {
 			audioTrack.stop();
 			showError(err, {
