@@ -59,12 +59,15 @@ import type { MemberView } from "../atproto/views";
 import { type ColibriClient, clientForManagingApp } from "../atproto/xrpc";
 import { AppLoadingScreen } from "../components/AppLoadingScreen";
 import { ErrorState } from "../components/ErrorState";
+import type { ColibriErrorCode } from "../errors/codes";
 import { ColibriError } from "../errors/error";
+import { showError } from "../errors/show-error";
 import { getAppViewDid } from "../utils/appview";
 import { getCommunityParam } from "../utils/get-param";
 import { createMemberIndex } from "../utils/member-search";
 import { markBoot } from "../utils/perf";
 import { speakerRanks } from "../utils/recent-speakers";
+import { communityAccessCode } from "./community-access";
 import { decideCommunityExit } from "./community-exit";
 import {
 	type Applicant,
@@ -125,12 +128,19 @@ const MEMBER_PAGE_SIZE = 100;
 
 const MAX_MEMBER_PAGES = 100;
 
+const MEMBER_ONLY_EXPECTED: ReadonlyArray<ColibriErrorCode> = [
+	"Forbidden",
+	"Banned",
+	"NotAMember",
+];
+
 export const CommunityContext = createContext<Accessor<CommunityContextData>>();
 
 const listAllMembers = async (
 	client: ColibriClient,
 	did: string,
 	signal: AbortSignal,
+	expected: ReadonlyArray<ColibriErrorCode>,
 ): Promise<Array<MemberView>> => {
 	const members: Array<MemberView> = [];
 	let cursor: string | undefined;
@@ -140,7 +150,7 @@ const listAllMembers = async (
 		const res = await client.call(
 			colibri.community.listMembers.main,
 			{ params: { community: did, limit: MEMBER_PAGE_SIZE, cursor } },
-			{ signal, timeoutMs: COMMUNITY_CALL_TIMEOUT },
+			{ signal, timeoutMs: COMMUNITY_CALL_TIMEOUT, expected },
 		);
 		if (!res.ok) throw res.error;
 		members.push(...res.data.members);
@@ -238,88 +248,96 @@ export const CommunityContextProvider: ParentComponent = (props) => {
 				setFetchedCommunity(undefined);
 			}
 
-			const initial = await user.xrpc.call(
-				colibri.community.getCommunity.main,
-				{ params: { community: identifier } },
-				{
+			try {
+				const initial = await user.xrpc.call(
+					colibri.community.getCommunity.main,
+					{ params: { community: identifier } },
+					{
+						signal: session.supersededSignal,
+						timeoutMs: COMMUNITY_CALL_TIMEOUT,
+						expected: ["CommunityNotFound"],
+					},
+				);
+
+				if (!initial.ok) throw initial.error;
+
+				const communityView = initial.data.community;
+
+				const denied = communityAccessCode(communityView.viewer);
+				if (denied) {
+					throw new ColibriError({
+						code: denied,
+						method: colibri.community.getCommunity.main.nsid,
+					});
+				}
+
+				const client = clientForManagingApp(
+					user.atproto.agent,
+					communityView.managingApp,
+				);
+
+				const memberOnly = {
 					signal: session.supersededSignal,
 					timeoutMs: COMMUNITY_CALL_TIMEOUT,
-					expected: ["CommunityNotFound"],
-				},
-			);
+					expected: MEMBER_ONLY_EXPECTED,
+				};
 
-			if (!initial.ok) {
+				const [categoriesRes, channelsRes, rolesRes, members] =
+					await Promise.all([
+						client.call(
+							colibri.community.listCategories.main,
+							{ params: { community: communityView.did } },
+							memberOnly,
+						),
+						client.call(
+							colibri.community.listChannels.main,
+							{ params: { community: communityView.did } },
+							memberOnly,
+						),
+						client.call(
+							colibri.community.listRoles.main,
+							{ params: { community: communityView.did } },
+							memberOnly,
+						),
+						listAllMembers(
+							client,
+							communityView.did,
+							session.supersededSignal,
+							MEMBER_ONLY_EXPECTED,
+						),
+					]);
+
+				if (!categoriesRes.ok) throw categoriesRes.error;
+				if (!channelsRes.ok) throw channelsRes.error;
+				if (!rolesRes.ok) throw rolesRes.error;
+
+				const payload: CommunityPayload = {
+					community: communityView,
+					categories: categoriesRes.data.categories,
+					channels: channelsRes.data.channels,
+					roles: rolesRes.data.roles,
+					members: members.map(toMember),
+				};
+
+				if (!sessions.isCurrent(session)) return payload;
+
+				cacheCommunity(identifier, {
+					community: communityView,
+					categories: payload.categories,
+					channels: payload.channels,
+					roles: payload.roles,
+					members,
+					ts: Date.now(),
+				});
+
+				lastFetched = payload;
+				lastFetchedMark = mark;
+				setFetchedCommunity(payload);
+				setSnapshot(payload);
+				return payload;
+			} finally {
 				if (sessions.isCurrent(session)) setSettledIdentifier(identifier);
-				throw initial.error;
 			}
-
-			const communityView = initial.data.community;
-			const client = clientForManagingApp(
-				user.atproto.agent,
-				communityView.managingApp,
-			);
-
-			const [categoriesRes, channelsRes, rolesRes, members] = await Promise.all(
-				[
-					client.call(
-						colibri.community.listCategories.main,
-						{ params: { community: communityView.did } },
-						{
-							signal: session.supersededSignal,
-							timeoutMs: COMMUNITY_CALL_TIMEOUT,
-						},
-					),
-					client.call(
-						colibri.community.listChannels.main,
-						{ params: { community: communityView.did } },
-						{
-							signal: session.supersededSignal,
-							timeoutMs: COMMUNITY_CALL_TIMEOUT,
-						},
-					),
-					client.call(
-						colibri.community.listRoles.main,
-						{ params: { community: communityView.did } },
-						{
-							signal: session.supersededSignal,
-							timeoutMs: COMMUNITY_CALL_TIMEOUT,
-						},
-					),
-					listAllMembers(client, communityView.did, session.supersededSignal),
-				],
-			);
-
-			const stillCurrent = sessions.isCurrent(session);
-			if (stillCurrent) setSettledIdentifier(identifier);
-
-			if (!categoriesRes.ok) throw categoriesRes.error;
-			if (!channelsRes.ok) throw channelsRes.error;
-			if (!rolesRes.ok) throw rolesRes.error;
-
-			const payload: CommunityPayload = {
-				community: communityView,
-				categories: categoriesRes.data.categories,
-				channels: channelsRes.data.channels,
-				roles: rolesRes.data.roles,
-				members: members.map(toMember),
-			};
-
-			if (!stillCurrent) return payload;
-
-			cacheCommunity(identifier, {
-				community: communityView,
-				categories: payload.categories,
-				channels: payload.channels,
-				roles: payload.roles,
-				members,
-				ts: Date.now(),
-			});
-
-			lastFetched = payload;
-			lastFetchedMark = mark;
-			setFetchedCommunity(payload);
-			setSnapshot(payload);
-			return payload;
 		},
 	);
 
@@ -344,12 +362,18 @@ export const CommunityContextProvider: ParentComponent = (props) => {
 		stallTimer = undefined;
 	};
 
+	const armStallTimer = () => {
+		cancelStallTimer();
+		setStalled(false);
+		stallTimer = setTimeout(() => setStalled(true), STALL_AFTER);
+	};
+
 	createEffect(
 		on(pending, (isPending) => {
 			cancelStallTimer();
 			setStalled(false);
 			if (!isPending) return;
-			stallTimer = setTimeout(() => setStalled(true), STALL_AFTER);
+			armStallTimer();
 		}),
 	);
 
@@ -385,7 +409,17 @@ export const CommunityContextProvider: ParentComponent = (props) => {
 			currentPayload() !== undefined,
 		);
 		if (exit === "stay") return;
-		if (exit === "gone") evictCommunity(ns(), communityIdentifier());
+		if (exit === "gone") {
+			const identifier = communityIdentifier();
+			const error = settledError();
+			const listed = user.communities.some((c) => c.did === identifier);
+			const expectedLocally = isCommunityInert(cacheKey(identifier));
+			evictCommunity(ns(), identifier);
+			user.dropCommunity(identifier);
+			if (error && listed && !expectedLocally) {
+				showError(error, { report: false });
+			}
+		}
 		navigate("/app", { replace: true });
 	});
 
@@ -774,7 +808,7 @@ export const CommunityContextProvider: ParentComponent = (props) => {
 					<ErrorState
 						error={error()}
 						retry={() => {
-							setStalled(false);
+							armStallTimer();
 							requestRefetch();
 						}}
 					/>

@@ -5,7 +5,6 @@ import {
 	createResource,
 	createSignal,
 	Match,
-	onMount,
 	Show,
 	Switch,
 } from "solid-js";
@@ -15,7 +14,8 @@ import { clientForManagingApp } from "../../../atproto/xrpc";
 import { useMutes } from "../../../contexts/Mutes";
 import { useUserContext } from "../../../contexts/User";
 import { classifyThrown } from "../../../errors/classify";
-import { describeError } from "../../../errors/copy";
+import { copyForCode, describeError } from "../../../errors/copy";
+import { showError } from "../../../errors/show-error";
 import { createLogger } from "../../../utils/logger";
 import { Spinner } from "../../icons/Spinner";
 import { Button } from "../../ui/Button";
@@ -39,6 +39,8 @@ const clearPendingInvite = () => {
 	} catch {}
 };
 
+const BANNED_COPY = copyForCode("Banned");
+
 const ADMISSION_TIMEOUT_MS = 15_000;
 const ADMISSION_POLL_MS = 1_000;
 
@@ -51,33 +53,53 @@ export const InviteModal: Component = () => {
 	const [invite] = createResource(
 		() => params.code!,
 		async (code) => {
-			const res = await user.xrpc.call(colibri.community.getInvitation.main, {
-				params: { code },
-			});
+			const res = await user.xrpc.call(
+				colibri.community.getInvitation.main,
+				{ params: { code } },
+				{ expected: ["InvitationNotFound"] },
+			);
 			if (!res.ok) throw res.error;
 			return res.data;
 		},
 	);
 
+	const [viewer] = createResource(
+		() => invite()?.community.did,
+		async (did) => {
+			const res = await user.xrpc.call(colibri.community.getCommunity.main, {
+				params: { community: did },
+			});
+			if (!res.ok) throw res.error;
+			return res.data.community.viewer;
+		},
+	);
+
+	const banned = () => viewer()?.isBanned === true;
+
+	const resolving = () =>
+		invite.loading ||
+		(invite() !== undefined &&
+			viewer.state !== "ready" &&
+			viewer.state !== "errored");
+
+	const isMemberOf = (did: string) =>
+		user.communities.some((c) => c.did === did);
+
 	const [muteOn, setMuteOn] = createSignal(false);
 	const [joining, setJoining] = createSignal(false);
-
-	onMount(clearPendingInvite);
 
 	const dismiss = () => {
 		clearPendingInvite();
 		navigate("/app", { replace: true });
 	};
 
-	const isMemberOf = (did: string) =>
-		user.communities.some((c) => c.did === did);
-
 	createEffect(() => {
 		const data = invite();
 		if (!data?.community) return;
-		if (isMemberOf(data.community.did)) {
-			navigate(`/app/c/${data.community.did}`, { replace: true });
-		}
+		const state = viewer();
+		if (!state || state.isBanned || !state.isMember) return;
+		clearPendingInvite();
+		navigate(`/app/c/${data.community.did}`, { replace: true });
 	});
 
 	const waitForAdmission = async (did: string) => {
@@ -101,12 +123,16 @@ export const InviteModal: Component = () => {
 				user.atproto.agent,
 				data.community.managingApp,
 			);
-			const joinRes = await client.call(colibri.community.join.main, {
-				body: {
-					community: data.community.did,
-					invitation: data.invitation.code,
+			const joinRes = await client.call(
+				colibri.community.join.main,
+				{
+					body: {
+						community: data.community.did,
+						invitation: data.invitation.code,
+					},
 				},
-			});
+				{ expected: ["Banned", "AlreadyMember", "InvitationNotFound"] },
+			);
 			if (!joinRes.ok) throw joinRes.error;
 
 			if (muteOn()) await mutes.muteCommunity(data.community.did);
@@ -132,7 +158,7 @@ export const InviteModal: Component = () => {
 			log.error("joining the community failed", {
 				code: classifyThrown(err).code,
 			});
-			toast.error("Failed to join community.");
+			showError(err, { report: false });
 			setJoining(false);
 		}
 	};
@@ -144,7 +170,7 @@ export const InviteModal: Component = () => {
 			<DialogPortal>
 				<DialogContent class="w-100 max-w-full flex flex-col gap-6">
 					<Switch>
-						<Match when={invite.loading}>
+						<Match when={resolving()}>
 							<div class="flex items-center justify-center py-12">
 								<Spinner className="h-8 w-8" />
 							</div>
@@ -156,6 +182,17 @@ export const InviteModal: Component = () => {
 								</h2>
 								<p class="text-muted-foreground m-0">
 									{describeError(invite.error).description}
+								</p>
+								<Button variant="secondary" onClick={dismiss}>
+									Back to Colibri
+								</Button>
+							</div>
+						</Match>
+						<Match when={banned()}>
+							<div class="flex flex-col items-center text-center gap-4 py-4">
+								<h2 class="text-xl font-bold m-0">{BANNED_COPY.title}</h2>
+								<p class="text-muted-foreground m-0">
+									{BANNED_COPY.description}
 								</p>
 								<Button variant="secondary" onClick={dismiss}>
 									Back to Colibri

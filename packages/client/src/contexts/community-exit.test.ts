@@ -33,6 +33,20 @@ describe("decideCommunityExit", () => {
 		expect(decideCommunityExit(false, forbidden, true)).toBe("gone");
 	});
 
+	it("treats a ban as gone, cached payload or not", () => {
+		const banned = new ColibriError({ code: "Banned" });
+
+		expect(decideCommunityExit(false, banned, false)).toBe("gone");
+		expect(decideCommunityExit(false, banned, true)).toBe("gone");
+	});
+
+	it("treats losing membership as gone", () => {
+		const removed = new ColibriError({ code: "NotAMember" });
+
+		expect(decideCommunityExit(false, removed, false)).toBe("gone");
+		expect(decideCommunityExit(false, removed, true)).toBe("gone");
+	});
+
 	it("renders the payload when the fetch succeeded", () => {
 		expect(decideCommunityExit(false, undefined, true)).toBe("stay");
 	});

@@ -256,6 +256,7 @@ export const GONE_CODES: ReadonlyArray<ColibriErrorCode> = [
 	"ChannelNotFound",
 	"MessageNotFound",
 	"MemberNotFound",
+	"NotAMember",
 	"CategoryNotFound",
 	"RoleNotFound",
 	"ActorNotFound",

@@ -341,6 +341,20 @@ const AppLayout: ParentComponent = (props) => {
 		if (reconnected) void finishPendingCreation();
 	});
 
+	const leaveCommunity = (community: string) => {
+		const name = user.communities.find((c) => c.did === community)?.name;
+		evictCommunity(namespace(getAppViewDid(), user.did), community);
+		user.dropCommunity(community);
+		if (location.pathname.startsWith(`/app/c/${community}`)) {
+			navigate("/app");
+		}
+		toast(
+			name
+				? `You're no longer a member of ${name}.`
+				: "You're no longer a member of that community.",
+		);
+	};
+
 	onMount(() => {
 		const cleanup = socket.onEvent((event) => {
 			if (
@@ -349,6 +363,12 @@ const AppLayout: ParentComponent = (props) => {
 				event.member?.actor.did === user.did
 			) {
 				user.refetchCommunities();
+			} else if (
+				frameIs(event, "memberEvent") &&
+				event.event === "leave" &&
+				event.subject === user.did
+			) {
+				leaveCommunity(event.community);
 			} else if (frameIs(event, "communityEvent") && event.event === "delete") {
 				const ns = namespace(getAppViewDid(), user.did);
 				tombstoneCommunity(communityKey(ns, event.community));

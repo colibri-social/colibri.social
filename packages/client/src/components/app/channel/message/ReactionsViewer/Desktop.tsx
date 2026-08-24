@@ -22,12 +22,12 @@ export const Desktop: Component = () => {
 		>
 			<DialogPortal>
 				<DialogContent class="gap-0 overflow-y-hidden p-0 sm:max-w-xl">
-					<DialogHeader class="p-4 pr-12">
+					<DialogHeader class="p-4 pr-12 sm:max-w-xl">
 						<DialogTitle class="m-0">Reactions</DialogTitle>
 					</DialogHeader>
 					<Show when={active()}>
 						{(reaction) => (
-							<div class="flex h-96 min-h-0 flex-row border-t border-border">
+							<div class="flex h-96 min-h-0 flex-row border-t border-border w-full sm:max-w-xl">
 								<div class="flex w-28 shrink-0 flex-col gap-1 overflow-y-auto border-r border-border p-2">
 									<ReactionTabs orientation="vertical" />
 								</div>

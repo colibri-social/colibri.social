@@ -80,6 +80,12 @@ import { useUserPreferences, type VolumeOverrides } from "./UserPreferences";
 
 const log = createLogger("voice");
 
+const MIC_CODEC_OPTIONS = {
+	opusStereo: false,
+	opusFec: true,
+	opusDtx: true,
+} as const;
+
 export const ConnectionState = {
 	Disconnected: "disconnected",
 	Connecting: "connecting",
@@ -881,6 +887,7 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 			const producer = await transport.produce({
 				track: ns.outputTrack,
 				appData: { source: "mic" },
+				codecOptions: MIC_CODEC_OPTIONS,
 			});
 
 			if (stale()) {
