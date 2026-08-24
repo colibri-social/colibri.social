@@ -23,35 +23,22 @@ export const WelcomeScreen: Component = () => {
 						height={128}
 						alt="The Colibri Social logo, a purple hummingbird."
 					/>
-					<h3>Welcome to Colibri!</h3>
+					<h3>Welcome to the Spaces Test.</h3>
 					<p>
-						Colibri is under active development <b>and in beta</b>. You can
-						request features and vote on what we build next on our{" "}
-						<a
-							href="https://userinput.app/s/did:plc:mprdjqjluoswa7awzggaggj3/3msnhieoy7y2n"
-							target="_blank"
-							rel="noreferrer"
-							onClick={(e) =>
-								openExternalLink(
-									"https://userinput.app/s/did:plc:mprdjqjluoswa7awzggaggj3/3msnhieoy7y2n",
-									e,
-								)
-							}
-						>
-							feedback board
-						</a>
-						. If you want to get involved in the development, check out our{" "}
-						<a
-							href="https://github.com/colibri-social"
-							target="_blank"
-							rel="noreferrer"
-							onClick={(e) =>
-								openExternalLink("https://github.com/colibri-social", e)
-							}
-						>
-							GitHub
-						</a>
-						!
+						<strong>
+							Stuff will break. Go crazy. Have fun. DM{" "}
+							<a
+								href="https://bsky.app/profile/lou.gg"
+								target="_blank"
+								rel="noreferrer"
+								onClick={(e) =>
+									openExternalLink("https://bsky.app/profile/lou.gg", e)
+								}
+							>
+								@lou.gg
+							</a>{" "}
+							on Bluesky when stuff breaks.
+						</strong>
 					</p>
 
 					<div class="flex flex-row flex-wrap justify-center items-center gap-4">
@@ -60,9 +47,9 @@ export const WelcomeScreen: Component = () => {
 						</CommunityCreationModal>
 						<Button
 							variant="secondary"
-							onClick={() => navigate("/app/invite/XD00Gweq6wL10NNW")}
+							onClick={() => navigate("/app/invite/e2FqxhPJry")}
 						>
-							Join the Colibri Social Community
+							Join the Space Testing Community
 						</Button>
 					</div>
 				</div>
