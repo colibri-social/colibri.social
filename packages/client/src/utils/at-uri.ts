@@ -1,4 +1,5 @@
 import { buildChannelPath } from "../atproto/colibri-channel-url";
+import { COLLECTIONS } from "../atproto/lexicons";
 
 /**
  * Resolves a record reference that may be either a full AT URI or a bare
@@ -18,6 +19,19 @@ export const channelIdentity = (
 ): { communityDid: string; rkey: string } => {
 	const segments = channelUri.replace("at://", "").split("/");
 	return { communityDid: segments[0], rkey: segments[segments.length - 1] };
+};
+
+export const messageIdentity = (
+	messageUri: string,
+): { did: string; rkey: string } | undefined => {
+	const segments = messageUri.replace("at://", "").split("/");
+	if (segments.length < 3) return undefined;
+
+	const [did, collection, rkey] = segments.slice(-3);
+	if (collection !== COLLECTIONS.message) return undefined;
+	if (!did.startsWith("did:") || !rkey) return undefined;
+
+	return { did, rkey };
 };
 
 export const channelPath = (channelUri: string): string =>

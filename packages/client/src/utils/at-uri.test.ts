@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { AtURI, toRecordUri } from "./at-uri";
+import { AtURI, messageIdentity, toRecordUri } from "./at-uri";
 
 const DID = "did:plc:abc123";
 const COLLECTION = "social.colibri.message";
@@ -20,6 +20,34 @@ describe("toRecordUri", () => {
 		expect(toRecordUri(DID, COLLECTION, "x-at://y")).toBe(
 			`at://${DID}/${COLLECTION}/x-at://y`,
 		);
+	});
+});
+
+describe("messageIdentity", () => {
+	const CHANNEL =
+		"at://did:plc:community/space/social.colibri.beta.channel.text/3mttl45nkb22p";
+	const MESSAGE_COLLECTION = "social.colibri.beta.message";
+
+	it("reads the author did and rkey from a channel-scoped message uri", () => {
+		expect(
+			messageIdentity(`${CHANNEL}/${DID}/${MESSAGE_COLLECTION}/3lk2abc`),
+		).toEqual({ did: DID, rkey: "3lk2abc" });
+	});
+
+	it("reads a plain repo message uri", () => {
+		expect(
+			messageIdentity(`at://${DID}/${MESSAGE_COLLECTION}/3lk2abc`),
+		).toEqual({ did: DID, rkey: "3lk2abc" });
+	});
+
+	it("rejects a channel uri", () => {
+		expect(messageIdentity(CHANNEL)).toBeUndefined();
+	});
+
+	it("rejects a uri from another collection", () => {
+		expect(
+			messageIdentity(`at://${DID}/social.colibri.beta.reaction/3lk2abc`),
+		).toBeUndefined();
 	});
 });
 

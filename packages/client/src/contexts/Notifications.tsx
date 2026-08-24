@@ -20,7 +20,7 @@ import {
 	isPingKind,
 	isStaleNotificationEvent,
 } from "../notifications";
-import { AtURI, channelIdentity, channelPath } from "../utils/at-uri";
+import { channelIdentity, channelPath, messageIdentity } from "../utils/at-uri";
 import { createLogger } from "../utils/logger";
 import { clearableNotifications } from "./deferred-mark-read";
 import { useMutes } from "./Mutes";
@@ -230,7 +230,15 @@ export const NotificationsContextProvider: ParentComponent = (props) => {
 		channel: string,
 		isPing: boolean,
 	): Promise<void> => {
-		const { did, identifier: rkey } = AtURI.parseAtURI(messageUri);
+		const message = messageIdentity(messageUri);
+		if (!message) {
+			log.warn("skipping seen update for unparsable message uri", {
+				code: "notif.message_uri_unparsable",
+			});
+			return;
+		}
+
+		const { did, rkey } = message;
 		const refKey = messageRefKey(did, rkey);
 		if (accountedMessageRefs.has(refKey)) return;
 		accountedMessageRefs.add(refKey);
@@ -323,8 +331,14 @@ export const NotificationsContextProvider: ParentComponent = (props) => {
 			return;
 		}
 
+		const message = messageIdentity(messageUri);
+		if (!message) {
+			await markChannelAsRead(channel);
+			return;
+		}
+
 		const { communityDid, rkey: channelKey } = channelIdentity(channel);
-		const { identifier: messageRkey } = AtURI.parseAtURI(messageUri);
+		const messageRkey = message.rkey;
 		recordRead(communityDid, channelKey, messageRkey);
 
 		const newest = await newestMessageRkey(channel);
