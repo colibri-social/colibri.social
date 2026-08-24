@@ -1,7 +1,7 @@
 import type { Agent } from "@atproto/api";
 import { classifyThrown } from "../errors/classify";
 import { COLLECTIONS, colibri, SELF } from "./lexicons";
-import { enqueueSpacePut } from "./outbox/outbox";
+import { enqueueSpacePut, queuedRecords } from "./outbox/outbox";
 import { preferencesSpaceRef } from "./preferences-space";
 import type { ActorSettingsRecord, Preferences } from "./views";
 import type { ColibriClient } from "./xrpc";
@@ -56,14 +56,27 @@ export type ActorSettingsPatch = Partial<
 	>
 >;
 
+const queuedSettingsRecord = (
+	actorDid: string,
+): ActorSettingsRecord | undefined => {
+	const space = preferencesSpaceRef(actorDid);
+	const entry = queuedRecords(COLLECTIONS.settings).find(
+		(queued) => queued.space === space && queued.rkey === SELF,
+	);
+	return entry?.record as ActorSettingsRecord | undefined;
+};
+
 export const writeActorSettings = async (
 	agent: Agent,
 	xrpc: ColibriClient,
 	actorDid: string,
 	patch: ActorSettingsPatch,
 ): Promise<XrpcResult<PreferencesOutput>> => {
-	const current = await readSettingsRecord(agent, actorDid);
-	const merged: ActorSettingsPatch = { ...(current ?? {}), ...patch };
+	const stored = queuedSettingsRecord(actorDid)
+		? undefined
+		: await readSettingsRecord(agent, actorDid);
+	const base = queuedSettingsRecord(actorDid) ?? stored;
+	const merged: ActorSettingsPatch = { ...(base ?? {}), ...patch };
 
 	await enqueueSpacePut(
 		preferencesSpaceRef(actorDid),
