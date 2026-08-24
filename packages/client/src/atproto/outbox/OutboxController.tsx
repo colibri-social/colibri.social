@@ -8,7 +8,9 @@ import { useSocketContext } from "../../contexts/Socket";
 import { useUserContext } from "../../contexts/User";
 import { getAppViewDid } from "../../utils/appview";
 import { namespace } from "../cache/keys";
-import { flush, initOutbox } from "./outbox";
+import { asSpaceRef } from "../lexicons";
+import { wroteToFrame } from "../sync-frames";
+import { flush, initOutbox, onOutboxSent } from "./outbox";
 
 export const OutboxController: ParentComponent = (props) => {
 	const user = useUserContext();
@@ -24,11 +26,17 @@ export const OutboxController: ParentComponent = (props) => {
 			if (document.visibilityState === "visible") void flush();
 		};
 
+		const stopHinting = onOutboxSent(({ space }) => {
+			if (!space) return;
+			socket.send(wroteToFrame(asSpaceRef(space)));
+		});
+
 		window.addEventListener("online", onFlush);
 		window.addEventListener("focus", onFlush);
 		document.addEventListener("visibilitychange", onVisible);
 
 		onCleanup(() => {
+			stopHinting();
 			window.removeEventListener("online", onFlush);
 			window.removeEventListener("focus", onFlush);
 			document.removeEventListener("visibilitychange", onVisible);

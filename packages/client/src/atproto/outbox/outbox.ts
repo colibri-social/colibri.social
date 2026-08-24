@@ -57,7 +57,11 @@ export const setAppviewExecutor = (
 	appviewExecutor = executor;
 };
 
-type SentListener = (info: { uri: string; collection: string }) => void;
+type SentListener = (info: {
+	uri: string;
+	collection: string;
+	space?: string;
+}) => void;
 const sentListeners = new Set<SentListener>();
 
 export const onOutboxSent = (listener: SentListener): (() => void) => {
@@ -65,10 +69,10 @@ export const onOutboxSent = (listener: SentListener): (() => void) => {
 	return () => sentListeners.delete(listener);
 };
 
-const emitSent = (uri: string, collection: string) => {
+const emitSent = (uri: string, collection: string, space?: string) => {
 	for (const listener of sentListeners) {
 		try {
-			listener({ uri, collection });
+			listener({ uri, collection, space });
 		} catch {}
 	}
 };
@@ -313,6 +317,7 @@ export const flush = async (): Promise<void> => {
 					emitSent(
 						buildSpaceUri(k.space, k.repo, k.collection, k.rkey),
 						k.collection,
+						k.space,
 					);
 				}
 			}

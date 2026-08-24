@@ -1,8 +1,6 @@
 import { logoUrl as ColibriLogo } from "@colibri-social/assets";
 import { useNavigate } from "@solidjs/router";
-import { type Component, Show } from "solid-js";
-import XIcon from "~icons/ph/x";
-import { useUserPreferences } from "../contexts/UserPreferences";
+import type { Component } from "solid-js";
 import { openExternalLink } from "../utils/open-external-link";
 import { CommunityCreationModal } from "./app/CommunityCreationModal";
 import { Button } from "./ui/Button";

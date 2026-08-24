@@ -34,6 +34,7 @@ export type SetPresenceFrame = FrameOf<
 	typeof colibri.sync.defs.setPresence,
 	"setPresence"
 >;
+export type WroteToFrame = FrameOf<typeof colibri.sync.defs.wroteTo, "wroteTo">;
 
 export type ClientFrame =
 	| SubscribeFrame
@@ -41,7 +42,8 @@ export type ClientFrame =
 	| HeartbeatFrame
 	| TypingFrame
 	| ViewChannelFrame
-	| SetPresenceFrame;
+	| SetPresenceFrame
+	| WroteToFrame;
 
 export type AckFrame = FrameOf<typeof colibri.sync.defs.ack, "ack">;
 export type ErrorFrame = FrameOf<typeof colibri.sync.defs.error, "error">;
@@ -270,6 +272,14 @@ export const viewChannelFrame = (
 	channel === undefined
 		? { $type: "social.colibri.beta.sync.defs#viewChannel" }
 		: { $type: "social.colibri.beta.sync.defs#viewChannel", channel };
+
+export const wroteToFrame = (
+	space: WroteToFrame["space"],
+	rev?: WroteToFrame["rev"],
+): WroteToFrame =>
+	rev === undefined
+		? { $type: "social.colibri.beta.sync.defs#wroteTo", space }
+		: { $type: "social.colibri.beta.sync.defs#wroteTo", space, rev };
 
 export const setPresenceFrame = (
 	params: Pick<SetPresenceFrame, "onlineState" | "voice"> = {},

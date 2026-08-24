@@ -73,7 +73,7 @@
 		"@atproto/lex-data": "^0.1.7",
 		"@atproto/lex-schema": "0.0.0-spaces-alpha-20260818163953",
 		"@atproto/oauth-client-browser": "0.0.0-spaces-alpha-20260818163953",
-		"@colibri-social/lexicons": "^2.3.0",
+		"@colibri-social/lexicons": "^2.4.0",
 		"@kobalte/core": "^0.13.11",
 		"@sapphi-red/web-noise-suppressor": "^0.3.5",
 		"@sentry/solid": "^10.63.0",

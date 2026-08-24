@@ -419,7 +419,8 @@
 					"knownValues": [
 						"moderator",
 						"superseded",
-						"channelGone"
+						"channelGone",
+						"forbidden"
 					]
 				}
 			}

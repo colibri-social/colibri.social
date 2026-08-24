@@ -84,6 +84,25 @@
 				}
 			}
 		},
+		"wroteTo": {
+			"type": "object",
+			"description": "Reports that the user just wrote a record to a space, so the AppView can pull it without waiting for the space host to forward a notification. Honoured only for a space this connection already receives.",
+			"required": [
+				"space"
+			],
+			"properties": {
+				"space": {
+					"type": "string",
+					"format": "space-ref",
+					"description": "The space that was written to."
+				},
+				"rev": {
+					"type": "string",
+					"format": "tid",
+					"description": "The revision the write produced, when the client knows it."
+				}
+			}
+		},
 		"setPresence": {
 			"type": "object",
 			"description": "Updates the user's own presence over the socket.",
