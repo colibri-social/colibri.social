@@ -3521,7 +3521,7 @@ The caller needs the `voice.moderate` permission for the channel, and the subjec
 
 ## Blobs
 
-`social.colibri.beta.blob.get` replaced the old public blob proxy. It now serves blobs from *permissioned* spaces by holding a space credential a browser client never gets, fetching through `com.atproto.space.getBlob` rather than the public `com.atproto.sync.getBlob`. Do not confuse the two: `space.getBlob` requires the AppView's own credential for that space, while `sync.getBlob` only ever works for a blob on a fully public repo. Every byte this endpoint serves is verified against the requested CID before it reaches the caller, and the content type is sniffed from the bytes rather than trusted from whatever the upstream declared.
+`social.colibri.beta.blob.get` serves blobs from *permissioned* spaces by holding a space credential a browser client never gets, fetching through `com.atproto.space.getBlob` rather than the public `com.atproto.sync.getBlob`. The two are not interchangeable: `space.getBlob` requires the AppView's own credential for that space, while `sync.getBlob` only ever works for a blob on a fully public repo. Every byte this endpoint serves is verified against the requested CID before it reaches the caller, and the content type is sniffed from the bytes rather than trusted from whatever the upstream declared.
 
 ### `social.colibri.beta.blob.get`
 
@@ -3551,6 +3551,18 @@ Serves a blob from a permissioned space through the AppView, or a blob from a pu
 		filename: {
 			type: "string",
 			required: false
+		},
+		viewer: {
+			type: "did",
+			required: false
+		},
+		exp: {
+			type: "integer",
+			required: false
+		},
+		sig: {
+			type: "string",
+			required: false
 		}
 	}}
 />
@@ -3559,11 +3571,21 @@ Serves a blob from a permissioned space through the AppView, or a blob from a pu
 
 | Error | Description |
 | --- | --- |
-| `AuthRequired` | The request has no valid service auth. |
+| `AuthRequired` | The request carries neither valid service auth nor a valid media link. |
 | `Forbidden` | The requesting user may not read the space holding the blob. |
 | `BlobNotFound` | No blob matches the given DID and CID. |
 | `InvalidRequest` | The arguments are inconsistent or malformed beyond schema validation. |
 | `UpstreamFailure` | The repo's PDS failed while the AppView fetched the blob. |
+
+### Media links
+
+An `<img>` or `<video>` element cannot send an `Authorization` header, so a blob in a permissioned space is also reachable through a media link: the same URL carrying `viewer`, `exp` and `sig`. The AppView mints one for every attachment it puts in a view, and a client uses the URL exactly as it arrives.
+
+`sig` is an HMAC over `did`, `cid`, `space`, `viewer` and `exp`. It names the viewer rather than standing in for them, so the AppView still resolves that viewer's access to the space on every request. Someone who loses read access loses the link with it, even before `exp` passes.
+
+A link's expiry is rounded up to a fifteen-minute boundary, so the same blob keeps one URL a browser can cache. Expect roughly an hour of life from a fresh link. Past `exp` the AppView answers `AuthRequired`, and the fix is to re-read the view that carried the link.
+
+A caller that can send headers does not need any of this. Service auth for `social.colibri.beta.blob.get` works on its own, and `viewer`, `exp` and `sig` are then left off.
 
 ## Server
 
