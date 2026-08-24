@@ -242,7 +242,7 @@ const AllowListSection: Component<{
 										class="h-8"
 									/>
 								</TextField>
-								<div class="flex flex-col gap-1 max-h-64 overflow-y-auto">
+								<div class="flex flex-col gap-1 max-h-64 overflow-x-hidden">
 									<For
 										each={nonAllowedMembersByRoles()}
 										fallback={

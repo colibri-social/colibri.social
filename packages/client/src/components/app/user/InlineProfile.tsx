@@ -10,7 +10,11 @@ export const InlineProfile: Component<{
 	return (
 		<div class="flex flex-row gap-2 items-center min-w-0">
 			<Avatar user={props.user} size="small" disableState={false} />
-			<DisplayableName color={props.color} user={props.user} />
+			<DisplayableName
+				color={props.color}
+				user={props.user}
+				avatarSize="small"
+			/>
 		</div>
 	);
 };

@@ -234,6 +234,14 @@ export const VoiceChannelView: Component = () => {
 			})),
 	);
 
+	const micTransmitting = createMemo(
+		() => voiceData.states.micEnabled && !voiceData.states.serverMuted,
+	);
+
+	const audioSilenced = createMemo(
+		() => voiceData.states.deafened || voiceData.states.serverDeafened,
+	);
+
 	const showNonVideoParticipants = createMemo(
 		() => preferences.preferences().voice.showNonVideoParticipants !== false,
 	);
@@ -722,25 +730,26 @@ export const VoiceChannelView: Component = () => {
 						<Tooltip>
 							<TooltipTrigger>
 								<Button
-									variant={
-										voiceData.states.micEnabled ? "secondary" : "outline"
-									}
+									variant={micTransmitting() ? "secondary" : "outline"}
 									class="gap-2"
 									classList={{
-										"text-(--primary-hover)!": voiceData.states.micEnabled,
-										"text-red-400": !voiceData.states.micEnabled,
+										"text-amber-500!": voiceData.states.serverMuted,
+										"text-(--primary-hover)!": micTransmitting(),
+										"text-red-400":
+											!voiceData.states.serverMuted &&
+											!voiceData.states.micEnabled,
 									}}
 									disabled={voiceData.states.serverMuted}
 									onClick={toggleMic}
 								>
-									<Microphone enabled={voiceData.states.micEnabled} />
+									<Microphone enabled={micTransmitting()} />
 								</Button>
 							</TooltipTrigger>
 							<Show when={voiceData.states.serverMuted}>
 								<TooltipPortal>
 									<TooltipContent>
-										A moderator muted you. Ask them to lift it before you can
-										unmute.
+										A moderator muted you. Your mic stays muted until they lift
+										it.
 									</TooltipContent>
 								</TooltipPortal>
 							</Show>
@@ -748,23 +757,26 @@ export const VoiceChannelView: Component = () => {
 						<Tooltip>
 							<TooltipTrigger>
 								<Button
-									variant={voiceData.states.deafened ? "secondary" : "outline"}
+									variant={audioSilenced() ? "secondary" : "outline"}
 									class="gap-2"
 									classList={{
-										"text-foreground": !voiceData.states.deafened,
-										"text-red-400!": voiceData.states.deafened,
+										"text-amber-500!": voiceData.states.serverDeafened,
+										"text-foreground": !audioSilenced(),
+										"text-red-400!":
+											!voiceData.states.serverDeafened &&
+											voiceData.states.deafened,
 									}}
 									disabled={voiceData.states.serverDeafened}
 									onClick={toggleDeafen}
 								>
-									<Ear enabled={voiceData.states.deafened} />
+									<Ear enabled={audioSilenced()} />
 								</Button>
 							</TooltipTrigger>
 							<Show when={voiceData.states.serverDeafened}>
 								<TooltipPortal>
 									<TooltipContent>
-										A moderator deafened you. Ask them to lift it before you can
-										undeafen.
+										A moderator deafened you. You stay deafened until they lift
+										it.
 									</TooltipContent>
 								</TooltipPortal>
 							</Show>

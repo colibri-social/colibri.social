@@ -189,6 +189,16 @@ export const MessageContextProvider: ParentComponent<{ data: MessageData }> = (
 		});
 	});
 
+	createEffect(() => {
+		if (editMode()) return;
+		setEditedText(
+			readEditDraft(props.data.uri) ?? {
+				text: props.data.text,
+				facets: props.data.facets || [],
+			},
+		);
+	});
+
 	const facetsKey = (facets: Array<ColibriRichTextFacet>): string =>
 		stableStringify(
 			normalizeFacets(facets).map((facet) => ({

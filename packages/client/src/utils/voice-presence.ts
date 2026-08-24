@@ -118,3 +118,16 @@ export const computePresenceSync = (args: {
 			: states,
 	};
 };
+
+export type SelfVoiceState = {
+	micEnabled: boolean;
+	deafened: boolean;
+	serverMuted: boolean;
+	serverDeafened: boolean;
+};
+
+export const effectiveMuted = (state: SelfVoiceState): boolean =>
+	!state.micEnabled || state.serverMuted;
+
+export const effectiveDeafened = (state: SelfVoiceState): boolean =>
+	state.deafened || state.serverDeafened;

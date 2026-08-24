@@ -57,6 +57,12 @@ export const Status: Component = () => {
 		voiceData.connection.state === ConnectionState.Connecting ||
 		voiceData.connection.state === ConnectionState.Reconnecting;
 
+	const micTransmitting = () =>
+		voiceData.states.micEnabled && !voiceData.states.serverMuted;
+
+	const audioSilenced = () =>
+		voiceData.states.deafened || voiceData.states.serverDeafened;
+
 	const liveMember = () => community().members.find((m) => m.did === user.did);
 	const liveUser = (): ProfileView => liveMember()?.actor ?? user;
 	const onlineState = (): OnlineState =>
@@ -172,28 +178,60 @@ export const Status: Component = () => {
 						</Button>
 					</div>
 					<div class="grid grid-cols-4 gap-2 w-full">
-						<Button
-							class="w-full"
-							variant={voiceData.states.micEnabled ? "secondary" : "outline"}
-							classList={{
-								"text-(--primary-hover)!": voiceData.states.micEnabled,
-								"text-red-400": !voiceData.states.micEnabled,
-							}}
-							onClick={toggleMic}
-						>
-							<Microphone enabled={voiceData.states.micEnabled} />
-						</Button>
-						<Button
-							class="w-full"
-							variant={voiceData.states.deafened ? "secondary" : "outline"}
-							classList={{
-								"text-foreground": !voiceData.states.deafened,
-								"text-red-400!": voiceData.states.deafened,
-							}}
-							onClick={toggleDeafen}
-						>
-							<Ear enabled={voiceData.states.deafened} />
-						</Button>
+						<Tooltip placement="top">
+							<TooltipTrigger class="w-full">
+								<Button
+									class="w-full"
+									variant={micTransmitting() ? "secondary" : "outline"}
+									classList={{
+										"text-amber-500!": voiceData.states.serverMuted,
+										"text-(--primary-hover)!": micTransmitting(),
+										"text-red-400":
+											!voiceData.states.serverMuted &&
+											!voiceData.states.micEnabled,
+									}}
+									disabled={voiceData.states.serverMuted}
+									onClick={toggleMic}
+								>
+									<Microphone enabled={micTransmitting()} />
+								</Button>
+							</TooltipTrigger>
+							<Show when={voiceData.states.serverMuted}>
+								<TooltipPortal>
+									<TooltipContent>
+										A moderator muted you. Your mic stays muted until they lift
+										it.
+									</TooltipContent>
+								</TooltipPortal>
+							</Show>
+						</Tooltip>
+						<Tooltip placement="top">
+							<TooltipTrigger class="w-full">
+								<Button
+									class="w-full"
+									variant={audioSilenced() ? "secondary" : "outline"}
+									classList={{
+										"text-amber-500!": voiceData.states.serverDeafened,
+										"text-foreground": !audioSilenced(),
+										"text-red-400!":
+											!voiceData.states.serverDeafened &&
+											voiceData.states.deafened,
+									}}
+									disabled={voiceData.states.serverDeafened}
+									onClick={toggleDeafen}
+								>
+									<Ear enabled={audioSilenced()} />
+								</Button>
+							</TooltipTrigger>
+							<Show when={voiceData.states.serverDeafened}>
+								<TooltipPortal>
+									<TooltipContent>
+										A moderator deafened you. You stay deafened until they lift
+										it.
+									</TooltipContent>
+								</TooltipPortal>
+							</Show>
+						</Tooltip>
 						<Button
 							class="w-full"
 							variant={voiceData.states.camEnabled ? "secondary" : "outline"}

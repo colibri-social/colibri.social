@@ -238,7 +238,7 @@ export const VoicePage: Component = () => {
 			return;
 		}
 
-		if (voiceData.states.micEnabled) {
+		if (voiceData.states.micEnabled && !voiceData.states.serverMuted) {
 			setWasLiveMicOn(true);
 			toggleMic();
 		}

@@ -322,6 +322,22 @@ describe("decodeVoiceFrame for server frame shapes", () => {
 			"social.colibri.beta.voice.defs#moderationChanged",
 		);
 	});
+
+	it("decodes moderationChanged with the server flags", () => {
+		const decoded = roundTrip({
+			$type: "social.colibri.beta.voice.defs#moderationChanged",
+			did: "did:plc:somepeer000000000000000000",
+			muted: true,
+			deafened: true,
+			serverMuted: true,
+			serverDeafened: false,
+		});
+		expect(decoded).toMatchObject({
+			$type: "social.colibri.beta.voice.defs#moderationChanged",
+			serverMuted: true,
+			serverDeafened: false,
+		});
+	});
 });
 
 describe("isServerVoiceFrame", () => {

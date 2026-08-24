@@ -14,6 +14,7 @@ const {
 	configureReadCursorWriter,
 	resetReadCursorWriter,
 	recordRead,
+	adoptRemoteCursors,
 	flushReadCursors,
 	MAX_INTERVAL_MS,
 	DEBOUNCE_MS,
@@ -207,6 +208,57 @@ describe("read-cursor debounce policy", () => {
 		expect(record.cursors).toEqual(
 			expect.arrayContaining([
 				{ channel: "announcements", cursor: "3jz1a2b3c4d0a" },
+				{ channel: "general", cursor: "3jz1a2b3c4d5e" },
+			]),
+		);
+	});
+
+	it("adopts a newer cursor from the appview without writing it back", async () => {
+		adoptRemoteCursors(COMMUNITY_A, [
+			{ channel: "general", cursor: "3jz1a2b3c4d5b" },
+		]);
+		await settleDebounce();
+
+		expect(enqueueSpacePut).not.toHaveBeenCalled();
+
+		recordRead(COMMUNITY_A, "general", "3jz1a2b3c4d5a");
+		await settleDebounce();
+
+		expect(enqueueSpacePut).not.toHaveBeenCalled();
+	});
+
+	it("ignores an adopted cursor that is older than what it already holds", async () => {
+		recordRead(COMMUNITY_A, "general", "3jz1a2b3c4d5b");
+		await flushMicrotasks();
+		enqueueSpacePut.mockClear();
+
+		adoptRemoteCursors(COMMUNITY_A, [
+			{ channel: "general", cursor: "3jz1a2b3c4d5a" },
+		]);
+		recordRead(COMMUNITY_A, "random", "3jz1a2b3c4d5c");
+		await settleDebounce();
+
+		const [, , , , record] = lastPut();
+		expect(record.cursors).toEqual(
+			expect.arrayContaining([
+				{ channel: "general", cursor: "3jz1a2b3c4d5b" },
+				{ channel: "random", cursor: "3jz1a2b3c4d5c" },
+			]),
+		);
+	});
+
+	it("carries another device's adopted cursor into the next full push", async () => {
+		adoptRemoteCursors(COMMUNITY_A, [
+			{ channel: "announcements", cursor: "3jz1a2b3c4d9z" },
+		]);
+
+		recordRead(COMMUNITY_A, "general", "3jz1a2b3c4d5e");
+		await settleDebounce();
+
+		const [, , , , record] = lastPut();
+		expect(record.cursors).toEqual(
+			expect.arrayContaining([
+				{ channel: "announcements", cursor: "3jz1a2b3c4d9z" },
 				{ channel: "general", cursor: "3jz1a2b3c4d5e" },
 			]),
 		);

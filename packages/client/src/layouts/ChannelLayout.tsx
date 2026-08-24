@@ -196,6 +196,12 @@ const ChannelLayout: ParentComponent = (props) => {
 		});
 	});
 
+	const messageKeys = createMemo(() => channel.messages().map((m) => m.uri));
+
+	const messagesByKey = createMemo(
+		() => new Map(channel.messages().map((m) => [m.uri, m] as const)),
+	);
+
 	let scrollContainer: HTMLDivElement | undefined;
 	let messagesWrapper: HTMLDivElement | undefined;
 	let hiddenInput: HTMLInputElement | undefined;
@@ -1028,46 +1034,57 @@ const ChannelLayout: ParentComponent = (props) => {
 										)}
 									</Show>
 
-									<For each={channel.messages()}>
-										{(message, index) => {
+									<For each={messageKeys()}>
+										{(key, index) => {
+											const message = () => messagesByKey().get(key);
 											const meta = () => messageMeta()[index()] ?? DEFAULT_META;
-											const isLastRead = () =>
-												!("hash" in message) &&
-												channel.unreadCursor() === message.rkey &&
-												index() < messageMeta().length - 1;
+											const isLastRead = () => {
+												const current = message();
+												return (
+													current !== undefined &&
+													!("hash" in current) &&
+													channel.unreadCursor() === current.rkey &&
+													index() < messageMeta().length - 1
+												);
+											};
 											return (
-												<>
-													<Show when={meta().dateLabel}>
-														{(label) => (
-															<div class="w-[calc(100%-2rem)] h-px m-4 bg-border flex items-center justify-center select-none">
-																<span class="text-sm bg-background px-1">
-																	{label()}
-																</span>
-															</div>
-														)}
-													</Show>
-													<Show when={meta().legacyBoundary}>
-														<div class="w-[calc(100%-2rem)] h-px mx-4 my-2.5 bg-border flex items-center justify-center select-none">
-															<span class="text-xs bg-background px-1 text-muted-foreground font-medium">
-																Messages above this point predate the migration
-																and can no longer be edited or reacted to
-															</span>
-														</div>
-													</Show>
-													<Message
-														data={message}
-														isSubsequent={meta().isSubsequent}
-														hasSubsequent={meta().hasSubsequent}
-														isLast={meta().isLast}
-													/>
-													<Show when={isLastRead()}>
-														<div class="w-[calc(100%-2rem)] h-px mx-4 my-2.5 bg-primary/50 flex items-center justify-center select-none">
-															<span class="text-xs bg-background px-1 text-primary font-medium">
-																New messages
-															</span>
-														</div>
-													</Show>
-												</>
+												<Show when={message()}>
+													{(current) => (
+														<>
+															<Show when={meta().dateLabel}>
+																{(label) => (
+																	<div class="w-[calc(100%-2rem)] h-px m-4 bg-border flex items-center justify-center select-none">
+																		<span class="text-sm bg-background px-1">
+																			{label()}
+																		</span>
+																	</div>
+																)}
+															</Show>
+															<Show when={meta().legacyBoundary}>
+																<div class="w-[calc(100%-2rem)] h-px mx-4 my-2.5 bg-border flex items-center justify-center select-none">
+																	<span class="text-xs bg-background px-1 text-muted-foreground font-medium">
+																		Messages above this point predate the
+																		migration and can no longer be edited or
+																		reacted to
+																	</span>
+																</div>
+															</Show>
+															<Message
+																data={current()}
+																isSubsequent={meta().isSubsequent}
+																hasSubsequent={meta().hasSubsequent}
+																isLast={meta().isLast}
+															/>
+															<Show when={isLastRead()}>
+																<div class="w-[calc(100%-2rem)] h-px mx-4 my-2.5 bg-primary/50 flex items-center justify-center select-none">
+																	<span class="text-xs bg-background px-1 text-primary font-medium">
+																		New messages
+																	</span>
+																</div>
+															</Show>
+														</>
+													)}
+												</Show>
 											);
 										}}
 									</For>

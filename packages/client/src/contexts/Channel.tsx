@@ -65,7 +65,7 @@ import {
 	rehydrateQueuedMessages,
 } from "../atproto/outbox/rehydrate";
 import { nextTid } from "../atproto/outbox/tid";
-import { recordRead } from "../atproto/read-cursor";
+import { adoptRemoteCursors, recordRead } from "../atproto/read-cursor";
 import { spaceSkey } from "../atproto/space-ref";
 import type {
 	LabelEventFrame,
@@ -347,6 +347,17 @@ export const ChannelContextProvider: ParentComponent<{
 			{ signal },
 		);
 		if (!res.ok) return undefined;
+
+		adoptRemoteCursors(
+			did,
+			res.data.statuses.flatMap((status) => {
+				const key = spaceSkey(status.channel);
+				return status.cursor && key
+					? [{ channel: key, cursor: status.cursor }]
+					: [];
+			}),
+		);
+
 		return res.data.statuses.find((s) => s.channel === space)?.cursor;
 	};
 

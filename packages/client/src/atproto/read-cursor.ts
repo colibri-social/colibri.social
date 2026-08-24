@@ -175,6 +175,25 @@ const schedulerFor = (communityDid: string): Scheduler => {
 	return scheduler;
 };
 
+export const adoptRemoteCursors = (
+	communityDid: string,
+	entries: readonly ChannelReadCursor[],
+): void => {
+	if (!io || entries.length === 0) return;
+
+	let entry = state.get(communityDid);
+	if (!entry) {
+		entry = { cursors: new Map(), hydrated: false };
+		state.set(communityDid, entry);
+	}
+
+	for (const { channel, cursor } of entries) {
+		const current = entry.cursors.get(channel);
+		if (current !== undefined && current >= cursor) continue;
+		entry.cursors.set(channel, cursor);
+	}
+};
+
 export const recordRead = (
 	communityDid: string,
 	channelKey: string,

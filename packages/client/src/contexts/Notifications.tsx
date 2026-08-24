@@ -11,7 +11,7 @@ import {
 } from "solid-js";
 import { toast } from "somoto";
 import { colibri } from "../atproto/lexicons";
-import { recordRead } from "../atproto/read-cursor";
+import { adoptRemoteCursors, recordRead } from "../atproto/read-cursor";
 import { classifyThrown } from "../errors/classify";
 import { isGoneCode } from "../errors/codes";
 import {
@@ -203,13 +203,16 @@ export const NotificationsContextProvider: ParentComponent = (props) => {
 			};
 		});
 
-	const markChannelRead = (channel: string) => {
-		locallyReadChannels.add(channel);
+	const clearChannelUnread = (channel: string) =>
 		setChannels((prev) => {
 			const current = prev[channel];
 			if (!current?.hasUnread) return prev;
 			return { ...prev, [channel]: { ...current, hasUnread: false } };
 		});
+
+	const markChannelRead = (channel: string) => {
+		locallyReadChannels.add(channel);
+		clearChannelUnread(channel);
 	};
 
 	const sendMessageSeen = async (
@@ -414,6 +417,20 @@ export const NotificationsContextProvider: ParentComponent = (props) => {
 			const statuses = res.data?.statuses;
 			if (!statuses) return;
 
+			adoptRemoteCursors(
+				communityDid,
+				statuses.flatMap((status) =>
+					status.cursor
+						? [
+								{
+									channel: channelIdentity(status.channel).rkey,
+									cursor: status.cursor,
+								},
+							]
+						: [],
+				),
+			);
+
 			setChannels((prev) => {
 				const next = { ...prev };
 				for (const status of statuses) {
@@ -526,7 +543,14 @@ export const NotificationsContextProvider: ParentComponent = (props) => {
 				if (event.event !== "create" || !event.message) return;
 				const message = event.message;
 
-				if (message.author.did === user.did) return;
+				if (message.author.did === user.did) {
+					const { communityDid, rkey: channelKey } = channelIdentity(
+						event.channel,
+					);
+					recordRead(communityDid, channelKey, message.rkey);
+					clearChannelUnread(event.channel);
+					return;
+				}
 				if (isViewingChannel(location.pathname, event.channel)) return;
 				if (mutes.isCommunityMuted(communityOf(event.channel))) return;
 				if (mutes.isMuted(message.author.did)) return;

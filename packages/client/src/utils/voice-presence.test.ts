@@ -2,7 +2,10 @@ import { describe, expect, it } from "vitest";
 import {
 	authorityOf,
 	computePresenceSync,
+	effectiveDeafened,
+	effectiveMuted,
 	type PresenceMember,
+	type SelfVoiceState,
 } from "./voice-presence";
 
 const HOME = "did:plc:home";
@@ -210,5 +213,38 @@ describe("computePresenceSync", () => {
 		expect(planFor(plan, VC_A)?.added).toEqual([ALICE]);
 		expect(planFor(plan, VC_A)?.moved).toEqual([BOB]);
 		expect(planFor(plan, VC_B)?.added).toEqual([BOB]);
+	});
+});
+
+describe("effectiveMuted / effectiveDeafened", () => {
+	const state = (patch: Partial<SelfVoiceState> = {}): SelfVoiceState => ({
+		micEnabled: true,
+		deafened: false,
+		serverMuted: false,
+		serverDeafened: false,
+		...patch,
+	});
+
+	it("follows local intent when no moderator flag is set", () => {
+		expect(effectiveMuted(state())).toBe(false);
+		expect(effectiveMuted(state({ micEnabled: false }))).toBe(true);
+		expect(effectiveDeafened(state())).toBe(false);
+		expect(effectiveDeafened(state({ deafened: true }))).toBe(true);
+	});
+
+	it("applies a moderator flag over local intent", () => {
+		expect(effectiveMuted(state({ serverMuted: true }))).toBe(true);
+		expect(effectiveDeafened(state({ serverDeafened: true }))).toBe(true);
+	});
+
+	it("returns the untouched local intent once the flag is lifted", () => {
+		expect(effectiveMuted(state({ serverMuted: false }))).toBe(false);
+		expect(
+			effectiveMuted(state({ micEnabled: false, serverMuted: false })),
+		).toBe(true);
+		expect(effectiveDeafened(state({ serverDeafened: false }))).toBe(false);
+		expect(
+			effectiveDeafened(state({ deafened: true, serverDeafened: false })),
+		).toBe(true);
 	});
 });

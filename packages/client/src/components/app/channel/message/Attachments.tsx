@@ -3,6 +3,7 @@ import {
 	createEffect,
 	createSignal,
 	For,
+	Index,
 	type JSX,
 	onCleanup,
 	onMount,
@@ -333,36 +334,36 @@ export const MediaLightboxGallery: Component<{
 				}
 			>
 				<div ref={props.ref} class={imageGridClass(count(), sizeClass())}>
-					<For each={props.images}>
+					<Index each={props.images}>
 						{(image, i) => (
 							<div class="group/image relative aspect-square">
 								<button
 									type="button"
 									class="h-full w-full cursor-zoom-in overflow-hidden rounded-lg border border-border"
-									onClick={() => open(i())}
+									onClick={() => open(i)}
 								>
 									<img
-										src={image.url}
+										src={image().url}
 										class="h-full w-full object-cover transition-opacity hover:opacity-90"
-										alt={image.name ?? ""}
+										alt={image().name ?? ""}
 										loading="lazy"
-										onError={() => props.onImageError?.(i())}
+										onError={() => props.onImageError?.(i)}
 									/>
 								</button>
 								<a
 									class="absolute z-20 top-1 right-1 hidden aspect-square w-8 items-center justify-center rounded-sm border border-border bg-card p-1 hover:bg-muted group-hover/image:flex"
-									href={galleryDownloadUrl(image)}
-									download={image.name}
+									href={galleryDownloadUrl(image())}
+									download={image().name}
 									onClick={(e) =>
-										openExternalLink(galleryDownloadUrl(image), e)
+										openExternalLink(galleryDownloadUrl(image()), e)
 									}
-									title={image.name ?? "Image"}
+									title={image().name ?? "Image"}
 								>
 									<DownloadIcon class="h-5 w-5 shrink-0 text-muted-foreground" />
 								</a>
 							</div>
 						)}
-					</For>
+					</Index>
 				</div>
 			</Show>
 
@@ -694,37 +695,29 @@ export const MessageAttachments: Component<{
 	 * Returns all non-displayable files which should be rendered as a box.
 	 */
 	const nonDisplayableFiles = () =>
-		props.attachments
-			.filter(
-				(x) =>
-					!x.mimeType.includes("image/") &&
-					!x.mimeType.includes("video/") &&
-					!x.mimeType.includes("audio/"),
-			)
-			.map((x) => ({ ...x, name: x.name ?? "file" }));
+		props.attachments.filter(
+			(x) =>
+				!x.mimeType.includes("image/") &&
+				!x.mimeType.includes("video/") &&
+				!x.mimeType.includes("audio/"),
+		);
 
 	/**
 	 * Returns all audio files.
 	 */
 	const audioFiles = () =>
-		props.attachments
-			.filter((x) => x.mimeType.includes("audio/"))
-			.map((x) => ({ ...x, name: x.name ?? "audio" }));
+		props.attachments.filter((x) => x.mimeType.includes("audio/"));
 
 	/**
 	 * Returns all image files.
 	 */
 	const imageFiles = () =>
-		props.attachments
-			.filter((x) => x.mimeType.includes("image/"))
-			.map((x) => ({ ...x, name: x.name ?? "image" }));
+		props.attachments.filter((x) => x.mimeType.includes("image/"));
 	/**
 	 * Returns all video files.
 	 */
 	const videoFiles = () =>
-		props.attachments
-			.filter((x) => x.mimeType.includes("video/"))
-			.map((x) => ({ ...x, name: x.name ?? "video" }));
+		props.attachments.filter((x) => x.mimeType.includes("video/"));
 
 	return (
 		<div class="w-full flex flex-col gap-2">

@@ -17,6 +17,7 @@ export const DisplayableName: Component<{
 	className?: string;
 	badge?: boolean;
 	underlineOnHover?: boolean;
+	avatarSize?: "small";
 }> = (props) => {
 	const community = useCommunityContext();
 
@@ -43,9 +44,13 @@ export const DisplayableName: Component<{
 
 	return (
 		<span
-			style={{ color: resolvedColor() }}
+			style={{
+				color: resolvedColor(),
+				"max-width":
+					props.avatarSize === "small" ? "calc(100% - 32px)" : "100%",
+			}}
 			class={cx(
-				"group/name inline-flex flex-row items-center gap-2 max-w-full",
+				"group/name inline-flex flex-row items-center gap-2 w-full",
 				props.className,
 			)}
 		>

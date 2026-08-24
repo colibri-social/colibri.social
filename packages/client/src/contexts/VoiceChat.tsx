@@ -66,6 +66,8 @@ import {
 import { pickVoiceHandler, supportsWebRtc } from "../utils/voice-device";
 import {
 	computePresenceSync,
+	effectiveDeafened,
+	effectiveMuted,
 	type PresenceMember,
 } from "../utils/voice-presence";
 import { useAuthContext } from "./Auth";
@@ -431,13 +433,20 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 		}
 	};
 
+	const selfMuted = (): boolean => effectiveMuted(voiceData.states);
+	const selfDeafened = (): boolean => effectiveDeafened(voiceData.states);
+
 	const sendVoiceState = (): void => {
 		if (!channelRef) return;
 
-		const muted = !voiceData.states.micEnabled;
-		const deafened = voiceData.states.deafened;
+		const muted = selfMuted();
+		const deafened = selfDeafened();
 
-		setVoiceData("memberStates", user.did, { muted, deafened });
+		setVoiceData("memberStates", user.did, (prev) => ({
+			...prev,
+			muted,
+			deafened,
+		}));
 
 		socket.send(
 			setPresenceFrame({
@@ -763,7 +772,7 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 				},
 				onSpeaking: (speaking) => {
 					if (speaking === localSpeaking) return;
-					localSpeaking = speaking && voiceData.states.micEnabled;
+					localSpeaking = speaking && !selfMuted();
 					recomputeSpeakers();
 				},
 			});
@@ -797,7 +806,7 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 			suppressionMonitor = createSuppressionMonitor({
 				rawTrack,
 				processedTrack: ns.outputTrack,
-				isActive: () => voiceData.states.micEnabled,
+				isActive: () => !selfMuted(),
 				isTunable: () =>
 					noiseMode(suppressor?.getActiveMode() ?? "off").tunable,
 				hintsEnabled: () =>
@@ -1264,9 +1273,6 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 				if (frame.did === user.did) {
 					setVoiceData("states", "serverMuted", serverMuted);
 					setVoiceData("states", "serverDeafened", serverDeafened);
-					if (serverMuted && voiceData.states.micEnabled) setMic(false, false);
-					if (serverDeafened && !voiceData.states.deafened)
-						setDeafen(true, false);
 				}
 				break;
 			}
@@ -1394,6 +1400,8 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 		setVoiceData("states", "micEnabled", false);
 		setVoiceData("states", "camEnabled", false);
 		setVoiceData("states", "screenEnabled", false);
+		setVoiceData("states", "serverMuted", false);
+		setVoiceData("states", "serverDeafened", false);
 		setVoiceData("videoStreams", reconcile({}));
 		setVoiceData("activeSpeakers", []);
 		const delay = Math.min(1000 * 2 ** (reconnectAttempts - 1), 10000);
@@ -1533,9 +1541,9 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 	const toggleMic = (): void => {
 		if (!micProducer) return;
 
-		if (voiceData.states.serverMuted && !voiceData.states.micEnabled) {
+		if (voiceData.states.serverMuted) {
 			toast("You're muted by a moderator", {
-				description: "Ask them to lift it before you can unmute.",
+				description: "Your mic stays muted until they lift it.",
 			});
 			return;
 		}
@@ -1907,9 +1915,9 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 	const toggleDeafen = (): void => {
 		const next = !voiceData.states.deafened;
 
-		if (!next && voiceData.states.serverDeafened) {
+		if (voiceData.states.serverDeafened) {
 			toast("You're deafened by a moderator", {
-				description: "Ask them to lift it before you can undeafen.",
+				description: "You stay deafened until they lift it.",
 			});
 			return;
 		}
@@ -2040,8 +2048,12 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 				...prev,
 				muted: event.voice?.muted ?? false,
 				deafened: event.voice?.deafened ?? false,
-				serverMuted: event.voice?.serverMuted ?? false,
-				serverDeafened: event.voice?.serverDeafened ?? false,
+				...(event.voice?.serverMuted !== undefined && {
+					serverMuted: event.voice.serverMuted,
+				}),
+				...(event.voice?.serverDeafened !== undefined && {
+					serverDeafened: event.voice.serverDeafened,
+				}),
 			}));
 		}
 
