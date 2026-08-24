@@ -81,11 +81,11 @@ const MODE_CHOICES: Array<{
 		label: "Create new",
 		description: "Colibri hosts it for you.",
 	},
-	{
-		value: "adopt",
-		label: "Adopt an account",
-		description: "Bring an existing AT Protocol account.",
-	},
+	// {
+	// 	value: "adopt",
+	// 	label: "Adopt an account",
+	// 	description: "Bring an existing AT Protocol account.",
+	// },
 	...(MIGRATION_OFFERED
 		? [
 				{
