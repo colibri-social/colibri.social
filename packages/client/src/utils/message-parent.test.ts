@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
-import type { MessageParent } from "../atproto/views";
-import { isKnownParentType, parentAvailability } from "./message-parent";
+import type { MessageParent, MessageView } from "../atproto/views";
+import { isVisibleParent } from "../atproto/views";
+import {
+	asVisibleParent,
+	isKnownParentType,
+	parentAvailability,
+} from "./message-parent";
 
 const visibleParent: MessageParent = {
 	$type: "social.colibri.beta.channel.defs#messageView",
@@ -57,5 +62,35 @@ describe("isKnownParentType", () => {
 
 	it("does not recognize a forward-compatible unknown arm", () => {
 		expect(isKnownParentType(unknownParent)).toBe(false);
+	});
+});
+
+describe("asVisibleParent", () => {
+	const reply = {
+		...visibleParent,
+		$type: undefined,
+		rkey: "3lb2",
+		text: "a reply",
+		parent: visibleParent,
+	} as unknown as MessageView;
+
+	it("stamps the messageView $type so the union arm is recognized", () => {
+		const stamped = asVisibleParent(reply);
+
+		expect(stamped.$type).toBe("social.colibri.beta.channel.defs#messageView");
+		expect(isVisibleParent(stamped)).toBe(true);
+		expect(parentAvailability(stamped)).toBe("visible");
+	});
+
+	it("drops the grandparent, which the union never nests", () => {
+		expect(asVisibleParent(reply)).not.toHaveProperty("parent");
+	});
+
+	it("keeps the rest of the view intact", () => {
+		const stamped = asVisibleParent(reply);
+
+		expect(stamped.rkey).toBe("3lb2");
+		expect(stamped.text).toBe("a reply");
+		expect(stamped.author).toEqual(visibleParent.author);
 	});
 });

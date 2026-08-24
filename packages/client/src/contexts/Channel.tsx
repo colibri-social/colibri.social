@@ -93,6 +93,7 @@ import { clearEditDraft } from "../utils/composer-drafts";
 import { createLogger } from "../utils/logger";
 import { foldLabelEvent } from "../utils/message-labels";
 import { insertAt, placeMessage } from "../utils/message-order";
+import { asVisibleParent } from "../utils/message-parent";
 import { markBoot } from "../utils/perf";
 import { purify } from "../utils/purify";
 import { recordSpeakers } from "../utils/recent-speakers";
@@ -898,6 +899,7 @@ export const ChannelContextProvider: ParentComponent<{
 			facets: (input.facets ?? []) as unknown as MessageView["facets"],
 			attachments: (input.attachments ?? []).map((a) => a.preview),
 			createdAt: asDatetime(createdAt),
+			...(input.parent ? { parent: asVisibleParent(input.parent) } : {}),
 		};
 
 		addPendingMessage(pending);

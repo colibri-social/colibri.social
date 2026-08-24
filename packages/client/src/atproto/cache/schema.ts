@@ -27,7 +27,14 @@ export type CommunitySnapshot = {
 
 export type PendingMessage = Pick<
 	MessageView,
-	"uri" | "channel" | "author" | "text" | "facets" | "createdAt" | "attachments"
+	| "uri"
+	| "channel"
+	| "author"
+	| "text"
+	| "facets"
+	| "createdAt"
+	| "attachments"
+	| "parent"
 > & {
 	hash: string;
 };

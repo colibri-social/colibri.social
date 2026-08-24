@@ -170,4 +170,45 @@ describe("rehydrateQueuedMessages", () => {
 		expect(result?.[0]?.facets).toEqual([]);
 		expect(result?.[0]?.attachments).toEqual([]);
 	});
+
+	it("resolves a queued reply's parent from the visible list", () => {
+		const parent = message("m1", "the original");
+		const result = run(
+			[
+				queued("m2", "spaceCreate", {
+					text: "unsent reply",
+					parent: { did: DID, rkey: "m1" },
+				}),
+			],
+			[parent],
+		);
+
+		expect(result?.[1]?.parent).toEqual({
+			...parent,
+			$type: "social.colibri.beta.channel.defs#messageView",
+		});
+	});
+
+	it("leaves the parent off when the replied-to message is not in the list", () => {
+		const result = run(
+			[
+				queued("m2", "spaceCreate", {
+					text: "unsent reply",
+					parent: { did: DID, rkey: "gone" },
+				}),
+			],
+			[message("m1")],
+		);
+
+		expect(result?.[1]?.parent).toBeUndefined();
+	});
+
+	it("ignores a malformed parent ref", () => {
+		const result = run(
+			[queued("m2", "spaceCreate", { text: "unsent", parent: "at://nope" })],
+			[message("m1")],
+		);
+
+		expect(result?.[1]?.parent).toBeUndefined();
+	});
 });

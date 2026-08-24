@@ -1,4 +1,5 @@
-import type { MessageParent } from "../atproto/views";
+import type { l } from "@atproto/lex";
+import type { MessageParent, MessageView } from "../atproto/views";
 import { isVisibleParent, MESSAGE_VIEW_TYPE } from "../atproto/views";
 
 export type ParentAvailability = "visible" | "unavailable";
@@ -10,3 +11,10 @@ export const parentAvailability = (
 export const isKnownParentType = (parent: MessageParent): boolean =>
 	parent.$type === MESSAGE_VIEW_TYPE ||
 	parent.$type === "social.colibri.beta.channel.defs#deletedMessageView";
+
+export const asVisibleParent = (
+	message: MessageView,
+): l.$Typed<MessageView> => {
+	const { parent: _parent, ...rest } = message;
+	return { ...rest, $type: MESSAGE_VIEW_TYPE };
+};

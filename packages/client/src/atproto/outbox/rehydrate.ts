@@ -1,6 +1,8 @@
+import { asVisibleParent } from "../../utils/message-parent";
+import { sameRecord } from "../cache/messages-snapshot";
 import type { PendingMessage } from "../cache/schema";
 import { asAtUri, asDatetime, asSpaceRef, COLLECTIONS } from "../lexicons";
-import type { MessageView } from "../views";
+import type { MessageView, RecordRef } from "../views";
 import type { QueuedRecord } from "./outbox";
 
 const EPOCH = "1970-01-01T00:00:00.000Z";
@@ -35,19 +37,37 @@ const asDatetimeOrUndefined = (
 const asCreatedAt = (value: unknown): PendingMessage["createdAt"] =>
 	asDatetimeOrUndefined(value) ?? asDatetime(EPOCH);
 
+const asRecordRef = (value: unknown): RecordRef | undefined => {
+	if (typeof value !== "object" || value === null) return undefined;
+	const { did, rkey } = value as Record<string, unknown>;
+	if (typeof did !== "string" || typeof rkey !== "string") return undefined;
+	return { did, rkey } as RecordRef;
+};
+
+type ParentResolver = (ref: RecordRef) => MessageView | undefined;
+
 const toPendingMessage = (
 	queued: QueuedRecord,
-	context: { channelSpace: string; author: MessageView["author"] },
-): PendingMessage => ({
-	hash: `outbox:${queued.rkey}`,
-	uri: messageUriFor(context.author.did, queued.rkey),
-	channel: asSpaceRef(context.channelSpace),
-	author: context.author,
-	text: asString(queued.record.text) ?? "",
-	facets: asFacets(queued.record.facets),
-	attachments: asAttachments(queued.record.attachments),
-	createdAt: asCreatedAt(queued.record.createdAt),
-});
+	context: {
+		channelSpace: string;
+		author: MessageView["author"];
+		resolveParent: ParentResolver;
+	},
+): PendingMessage => {
+	const parentRef = asRecordRef(queued.record.parent);
+	const parent = parentRef ? context.resolveParent(parentRef) : undefined;
+	return {
+		hash: `outbox:${queued.rkey}`,
+		uri: messageUriFor(context.author.did, queued.rkey),
+		channel: asSpaceRef(context.channelSpace),
+		author: context.author,
+		text: asString(queued.record.text) ?? "",
+		facets: asFacets(queued.record.facets),
+		attachments: asAttachments(queued.record.attachments),
+		createdAt: asCreatedAt(queued.record.createdAt),
+		...(parent ? { parent: asVisibleParent(parent) } : {}),
+	};
+};
 
 export const rehydrateQueuedMessages = (input: {
 	channelSpace: string;
@@ -70,6 +90,11 @@ export const rehydrateQueuedMessages = (input: {
 			.map((q) => [messageUriFor(input.author.did, q.rkey), q]),
 	);
 
+	const resolveParent: ParentResolver = (ref) =>
+		input.existing.find(
+			(m): m is MessageView => !("hash" in m) && sameRecord(m, ref),
+		);
+
 	const additions = mine
 		.filter(
 			(q) =>
@@ -81,6 +106,7 @@ export const rehydrateQueuedMessages = (input: {
 			toPendingMessage(q, {
 				channelSpace: input.channelSpace,
 				author: input.author,
+				resolveParent,
 			}),
 		);
 
