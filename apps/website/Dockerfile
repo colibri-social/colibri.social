@@ -14,6 +14,7 @@ COPY patches/ ./patches/
 COPY packages/assets/package.json ./packages/assets/
 COPY packages/lib/package.json ./packages/lib/
 COPY packages/client/package.json ./packages/client/
+COPY packages/standard-renderer/package.json ./packages/standard-renderer/
 COPY apps/website/package.json ./apps/website/
 
 RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
@@ -42,14 +43,14 @@ ENV PUBLIC_VAPID_KEY=${PUBLIC_VAPID_KEY}
 COPY packages/ ./packages/
 COPY apps/ ./apps/
 
-# Swaps the workspace link for the published client, so the website builds
-# against the same artifact npm consumers get
-ENV pnpm_config_link_workspace_packages=false
-RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
-    CLIENT_VERSION="$(node -p 'require("/app/packages/client/package.json").version')" && \
-    pnpm --filter @colibri-social/website add \
-      "@colibri-social/client@${CLIENT_VERSION}" \
-      --save-exact --yes --store-dir=/pnpm/store
+# ENV pnpm_config_link_workspace_packages=false
+# RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
+#     CLIENT_VERSION="$(node -p 'require("/app/packages/client/package.json").version')" && \
+#     pnpm --filter @colibri-social/website add \
+#       "@colibri-social/client@${CLIENT_VERSION}" \
+#       --save-exact --yes --store-dir=/pnpm/store
+
+RUN pnpm --filter @colibri-social/client build
 
 RUN --mount=type=cache,id=astro-cache,target=/app/apps/website/node_modules/.astro \
     --mount=type=cache,id=vite-cache,target=/app/node_modules/.vite \
