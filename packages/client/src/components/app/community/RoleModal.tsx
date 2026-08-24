@@ -4,7 +4,6 @@ import {
 	For,
 	Switch as LogicSwitch,
 	Match,
-	onCleanup,
 	type ParentComponent,
 } from "solid-js";
 import { colibri } from "../../../atproto/lexicons";
@@ -74,6 +73,21 @@ export const RoleModal: ParentComponent<{
 	const [permissions, setPermissions] = createSignal(
 		existingRole()?.permissions ?? [],
 	);
+
+	const reset = () => {
+		const existing = existingRole();
+		setLoading(false);
+		setName(existing?.name ?? "New Role");
+		setColor(existing?.color ?? "#ffffff");
+		setHoisted(existing?.hoisted ?? false);
+		setMentionable(existing?.mentionable ?? false);
+		setPermissions([...(existing?.permissions ?? [])]);
+	};
+
+	const handleOpenChange = (next: boolean) => {
+		if (next) reset();
+		setOpen(next);
+	};
 
 	const isInPermsSet = (nsid: string) => permissions().some((x) => x === nsid);
 
@@ -164,7 +178,7 @@ export const RoleModal: ParentComponent<{
 			return;
 		}
 
-		setOpen(false);
+		handleOpenChange(false);
 	};
 
 	const presetColors = [
@@ -177,17 +191,8 @@ export const RoleModal: ParentComponent<{
 		"#ffffff",
 	];
 
-	onCleanup(() => {
-		setLoading(false);
-		setHoisted(false);
-		setMentionable(false);
-		setName(existingRole()?.name || "New Role");
-		setColor(existingRole()?.color || "#ffffff");
-		setPermissions(existingRole()?.permissions || []);
-	});
-
 	return (
-		<Dialog open={open()} onOpenChange={setOpen}>
+		<Dialog open={open()} onOpenChange={handleOpenChange}>
 			<DialogTrigger>{props.children}</DialogTrigger>
 			<DialogPortal>
 				<DialogContent class="h-6/12 overflow-auto">
@@ -315,7 +320,7 @@ export const RoleModal: ParentComponent<{
 						</TabsContent>
 					</Tabs>
 					<DialogFooter>
-						<Button variant="secondary" onClick={() => setOpen(false)}>
+						<Button variant="secondary" onClick={() => handleOpenChange(false)}>
 							Cancel
 						</Button>
 						<LogicSwitch>
