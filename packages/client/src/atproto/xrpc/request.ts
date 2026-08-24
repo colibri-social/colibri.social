@@ -23,6 +23,7 @@ export type Output<M extends Method> = InferMethodOutputBody<M, Uint8Array>;
 export interface CallOptions {
 	expected?: ReadonlyArray<ColibriErrorCode>;
 	signal?: AbortSignal;
+	timeoutMs?: number;
 }
 
 const QUEUED_HEADER = "x-colibri-queued";
@@ -113,17 +114,28 @@ export const call = async <M extends Method>(
 		);
 	}
 
+	const deadline =
+		options?.timeoutMs !== undefined
+			? AbortSignal.timeout(options.timeoutMs)
+			: undefined;
+
+	const signal =
+		deadline && options?.signal
+			? AbortSignal.any([options.signal, deadline])
+			: (deadline ?? options?.signal);
+
 	const result = await client
 		.xrpcSafe(
 			method as never,
 			{
 				...(input ?? {}),
-				...(options?.signal ? { signal: options.signal } : {}),
+				...(signal ? { signal } : {}),
 			} as never,
 		)
 		.catch((cause: unknown) => cause as Error);
 
-	const aborted = options?.signal?.aborted === true;
+	const aborted =
+		options?.signal?.aborted === true || deadline?.aborted === true;
 
 	if (result instanceof Error) {
 		return fail(toColibriError(lxm, result), lxm, options, aborted);

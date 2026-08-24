@@ -188,6 +188,49 @@ describe("call", () => {
 		});
 	});
 
+	describe("when the call runs out of time", () => {
+		const hangs = () =>
+			clientThat(
+				(_path, init) =>
+					new Promise<Response>((_resolve, reject) => {
+						init.signal?.addEventListener("abort", () =>
+							reject(new DOMException("timed out", "TimeoutError")),
+						);
+					}),
+			);
+
+		it("gives up with a timeout rather than hanging", async () => {
+			const res = await call(hangs(), method, params, { timeoutMs: 10 });
+
+			expect(res.ok).toBe(false);
+			if (!res.ok) expect(res.error.code).toBe("Timeout");
+		});
+
+		it("does not report a timeout", async () => {
+			await call(hangs(), method, params, { timeoutMs: 10 });
+
+			expect(reportError).not.toHaveBeenCalled();
+		});
+
+		it("lets the caller's own abort win over the deadline", async () => {
+			const controller = new AbortController();
+			const res = call(hangs(), method, params, {
+				signal: controller.signal,
+				timeoutMs: 60_000,
+			});
+			controller.abort();
+
+			expect((await res).ok).toBe(false);
+			expect(reportError).not.toHaveBeenCalled();
+		});
+
+		it("leaves a call with time to spare alone", async () => {
+			const res = await call(ok(), method, params, { timeoutMs: 60_000 });
+
+			expect(res.ok).toBe(true);
+		});
+	});
+
 	describe("once the session is dead", () => {
 		beforeEach(() => {
 			dead = true;

@@ -18,6 +18,10 @@ import {
 	recallCommunity,
 	rememberCommunity,
 } from "../atproto/cache/community-memory";
+import {
+	isCommunityGone,
+	isCommunityInert,
+} from "../atproto/cache/community-tombstone";
 import { communityKey, namespace } from "../atproto/cache/keys";
 import type { CommunitySnapshot } from "../atproto/cache/schema";
 import {
@@ -55,6 +59,7 @@ import type { MemberView } from "../atproto/views";
 import { type ColibriClient, clientForManagingApp } from "../atproto/xrpc";
 import { AppLoadingScreen } from "../components/AppLoadingScreen";
 import { ErrorState } from "../components/ErrorState";
+import { ColibriError } from "../errors/error";
 import { getAppViewDid } from "../utils/appview";
 import { getCommunityParam } from "../utils/get-param";
 import { createMemberIndex } from "../utils/member-search";
@@ -78,6 +83,10 @@ import {
 	withMemberPresence,
 } from "./community-payload";
 import { trackCommunityRefresh } from "./community-refresh-state";
+import {
+	communityResolveState,
+	isCommunityResolving,
+} from "./community-resolve";
 import { createLoadSessions } from "./load-session";
 import { useSocketContext } from "./Socket";
 import { useUserContext } from "./User";
@@ -108,6 +117,14 @@ const OVERLAY_DELAY = 250;
 
 const REFRESH_RETRY_DELAYS = [1000, 2000, 4000, 8000];
 
+const COMMUNITY_CALL_TIMEOUT = 15_000;
+
+const STALL_AFTER = 25_000;
+
+const MEMBER_PAGE_SIZE = 100;
+
+const MAX_MEMBER_PAGES = 100;
+
 export const CommunityContext = createContext<Accessor<CommunityContextData>>();
 
 const listAllMembers = async (
@@ -117,16 +134,28 @@ const listAllMembers = async (
 ): Promise<Array<MemberView>> => {
 	const members: Array<MemberView> = [];
 	let cursor: string | undefined;
+	let pages = 0;
 
 	do {
 		const res = await client.call(
 			colibri.community.listMembers.main,
-			{ params: { community: did, cursor } },
-			{ signal },
+			{ params: { community: did, limit: MEMBER_PAGE_SIZE, cursor } },
+			{ signal, timeoutMs: COMMUNITY_CALL_TIMEOUT },
 		);
 		if (!res.ok) throw res.error;
 		members.push(...res.data.members);
-		cursor = res.data.cursor;
+
+		const next = res.data.cursor;
+		if (next === cursor) break;
+		cursor = next;
+
+		pages += 1;
+		if (pages >= MAX_MEMBER_PAGES && cursor) {
+			throw new ColibriError({
+				code: "UpstreamFailure",
+				method: colibri.community.listMembers.main.nsid,
+			});
+		}
 	} while (cursor);
 
 	return members;
@@ -156,14 +185,18 @@ export const CommunityContextProvider: ParentComponent = (props) => {
 
 	const [settledIdentifier, setSettledIdentifier] = createSignal<string>();
 
+	const cacheKey = (identifier: string) => communityKey(ns(), identifier);
+
 	const cacheCommunity = (identifier: string, snap: CommunitySnapshot) => {
-		rememberCommunity(communityKey(ns(), identifier), snap);
+		if (isCommunityInert(cacheKey(identifier))) return;
+		rememberCommunity(cacheKey(identifier), snap);
 		if (!cacheEnabled()) return;
 		void writeCommunity(ns(), identifier, snap);
 	};
 
 	const paintFromCache = async (identifier: string) => {
-		const key = communityKey(ns(), identifier);
+		const key = cacheKey(identifier);
+		if (isCommunityInert(key)) return;
 		const cached =
 			recallCommunity(key) ?? (await readCommunity(ns(), identifier));
 		if (!cached) return;
@@ -187,8 +220,16 @@ export const CommunityContextProvider: ParentComponent = (props) => {
 	);
 
 	const [community, { refetch }] = createResource(
-		communityIdentifier,
+		() => communityIdentifier() || undefined,
 		async (identifier) => {
+			if (isCommunityGone(cacheKey(identifier))) {
+				setSettledIdentifier(identifier);
+				throw new ColibriError({
+					code: "CommunityNotFound",
+					method: colibri.community.getCommunity.main.nsid,
+				});
+			}
+
 			const session = sessions.begin(identifier);
 			pendingRoleIntents.clear();
 			if (fetchedCommunity()?.community.did !== identifier) {
@@ -198,7 +239,11 @@ export const CommunityContextProvider: ParentComponent = (props) => {
 			const initial = await user.xrpc.call(
 				colibri.community.getCommunity.main,
 				{ params: { community: identifier } },
-				{ signal: sessions.teardownSignal, expected: ["CommunityNotFound"] },
+				{
+					signal: session.supersededSignal,
+					timeoutMs: COMMUNITY_CALL_TIMEOUT,
+					expected: ["CommunityNotFound"],
+				},
 			);
 
 			if (!initial.ok) {
@@ -217,19 +262,28 @@ export const CommunityContextProvider: ParentComponent = (props) => {
 					client.call(
 						colibri.community.listCategories.main,
 						{ params: { community: communityView.did } },
-						{ signal: sessions.teardownSignal },
+						{
+							signal: session.supersededSignal,
+							timeoutMs: COMMUNITY_CALL_TIMEOUT,
+						},
 					),
 					client.call(
 						colibri.community.listChannels.main,
 						{ params: { community: communityView.did } },
-						{ signal: sessions.teardownSignal },
+						{
+							signal: session.supersededSignal,
+							timeoutMs: COMMUNITY_CALL_TIMEOUT,
+						},
 					),
 					client.call(
 						colibri.community.listRoles.main,
 						{ params: { community: communityView.did } },
-						{ signal: sessions.teardownSignal },
+						{
+							signal: session.supersededSignal,
+							timeoutMs: COMMUNITY_CALL_TIMEOUT,
+						},
 					),
-					listAllMembers(client, communityView.did, sessions.teardownSignal),
+					listAllMembers(client, communityView.did, session.supersededSignal),
 				],
 			);
 
@@ -270,10 +324,52 @@ export const CommunityContextProvider: ParentComponent = (props) => {
 		payloadForCommunity(snapshot(), communityIdentifier()),
 	);
 
-	const resolving = () =>
-		community.loading || settledIdentifier() !== communityIdentifier();
+	const pending = createMemo(() =>
+		isCommunityResolving(
+			communityIdentifier(),
+			community.loading,
+			settledIdentifier(),
+		),
+	);
 
-	const settledError = () => (resolving() ? undefined : community.error);
+	const [stalled, setStalled] = createSignal(false);
+
+	let stallTimer: ReturnType<typeof setTimeout> | undefined;
+
+	const cancelStallTimer = () => {
+		if (stallTimer) clearTimeout(stallTimer);
+		stallTimer = undefined;
+	};
+
+	createEffect(
+		on(pending, (isPending) => {
+			cancelStallTimer();
+			setStalled(false);
+			if (!isPending) return;
+			stallTimer = setTimeout(() => setStalled(true), STALL_AFTER);
+		}),
+	);
+
+	onCleanup(cancelStallTimer);
+
+	const resolveState = createMemo(() =>
+		communityResolveState(pending(), stalled()),
+	);
+
+	const resolving = () => resolveState() === "resolving";
+
+	const stallError = createMemo(() =>
+		resolveState() === "stalled"
+			? (community.error ??
+				new ColibriError({
+					code: "Timeout",
+					method: colibri.community.getCommunity.main.nsid,
+				}))
+			: undefined,
+	);
+
+	const settledError = () =>
+		resolving() ? undefined : (stallError() ?? community.error);
 
 	createEffect(() => {
 		if (!community.loading && currentPayload()) markBoot("community:ready");
@@ -328,7 +424,7 @@ export const CommunityContextProvider: ParentComponent = (props) => {
 		refreshRetries += 1;
 		refreshRetryTimer = setTimeout(() => {
 			refreshRetryTimer = undefined;
-			void refetch();
+			requestRefetch();
 		}, delay);
 	});
 
@@ -361,7 +457,7 @@ export const CommunityContextProvider: ParentComponent = (props) => {
 		membershipRetries += 1;
 		membershipRetryTimer = setTimeout(() => {
 			membershipRetryTimer = undefined;
-			if (communityIdentifier() === identifier) void refetch();
+			if (communityIdentifier() === identifier) requestRefetch();
 		}, delay);
 	});
 
@@ -375,7 +471,7 @@ export const CommunityContextProvider: ParentComponent = (props) => {
 		if (reconnected && lastFetched) {
 			cancelRefreshRetry();
 			refreshRetries = 0;
-			void refetch();
+			requestRefetch();
 		}
 	});
 
@@ -393,6 +489,7 @@ export const CommunityContextProvider: ParentComponent = (props) => {
 		() => {
 			const authoritative = fetchedCommunity();
 			if (!authoritative?.community.requiresApprovalToJoin) return undefined;
+			if (isCommunityInert(cacheKey(communityIdentifier()))) return undefined;
 			const permissions = authoritative.community.viewer.permissions ?? [];
 			return permissions.includes(APPROVAL_MANAGE)
 				? communityIdentifier()
@@ -406,12 +503,16 @@ export const CommunityContextProvider: ParentComponent = (props) => {
 				user.atproto.agent,
 				authoritative.community.managingApp,
 			);
-			const res = await client.call(colibri.community.listApplications.main, {
-				params: {
-					community: authoritative.community.did,
-					includeDismissed: true,
+			const res = await client.call(
+				colibri.community.listApplications.main,
+				{
+					params: {
+						community: authoritative.community.did,
+						includeDismissed: true,
+					},
 				},
-			});
+				{ signal: sessions.teardownSignal, timeoutMs: COMMUNITY_CALL_TIMEOUT },
+			);
 			if (!res.ok) throw res.error;
 
 			const all = res.data.applications.map(toApplicant);
@@ -425,6 +526,20 @@ export const CommunityContextProvider: ParentComponent = (props) => {
 
 	const applicationQueues = () =>
 		applications.error !== undefined ? undefined : applications.latest;
+
+	const requestRefetch = () => {
+		const identifier = communityIdentifier();
+		if (identifier === "") return;
+		if (isCommunityInert(cacheKey(identifier))) return;
+		void refetch();
+	};
+
+	const requestRefetchApplications = () => {
+		const identifier = communityIdentifier();
+		if (identifier === "") return;
+		if (isCommunityInert(cacheKey(identifier))) return;
+		void refetchApplications();
+	};
 
 	const cleanup = socket.onEvent((event) => {
 		const prev = currentPayload();
@@ -446,7 +561,7 @@ export const CommunityContextProvider: ParentComponent = (props) => {
 				if (prev.members.some((m) => m.did === member.did)) return;
 				setSnapshot({ ...prev, members: [...prev.members, member] });
 				addPresence(member);
-				if (applicationQueues() !== undefined) void refetchApplications();
+				if (applicationQueues() !== undefined) requestRefetchApplications();
 			} else if (event.event === "update" && event.member) {
 				const member = toMember(event.member);
 				const intent = pendingRoleIntents.get(member.did);
@@ -466,7 +581,7 @@ export const CommunityContextProvider: ParentComponent = (props) => {
 					member.did === user.did &&
 					!sameRoles(previous?.roles, member.roles)
 				) {
-					void refetch();
+					requestRefetch();
 				}
 			} else if (event.event === "leave" && event.subject) {
 				const subject = event.subject;
@@ -477,21 +592,21 @@ export const CommunityContextProvider: ParentComponent = (props) => {
 			}
 		} else if (frameIs(event, "applicationEvent")) {
 			if (event.community !== did) return;
-			void refetchApplications();
+			requestRefetchApplications();
 		} else if (frameIs(event, "communityEvent")) {
 			if (event.community !== did) return;
 			if (event.event === "delete") return;
 			if (event.view) setSnapshot({ ...prev, community: event.view });
-			else void refetch();
+			else requestRefetch();
 		} else if (frameIs(event, "categoryEvent")) {
 			if (event.community !== did) return;
-			void refetch();
+			requestRefetch();
 		} else if (frameIs(event, "channelEvent")) {
 			if (event.community !== did) return;
-			void refetch();
+			requestRefetch();
 		} else if (frameIs(event, "roleEvent")) {
 			if (event.community !== did) return;
-			void refetch();
+			requestRefetch();
 		}
 	});
 
@@ -639,8 +754,8 @@ export const CommunityContextProvider: ParentComponent = (props) => {
 			patchCommunity,
 			patchMember,
 			searchMembers,
-			refetch: () => void refetch(),
-			refetchApplications: () => void refetchApplications(),
+			refetch: requestRefetch,
+			refetchApplications: requestRefetchApplications,
 		},
 	}));
 
@@ -651,6 +766,17 @@ export const CommunityContextProvider: ParentComponent = (props) => {
 					{props.children}
 				</CommunityContext.Provider>
 			</Match>
+			<Match when={stallError()}>
+				{(error) => (
+					<ErrorState
+						error={error()}
+						retry={() => {
+							setStalled(false);
+							requestRefetch();
+						}}
+					/>
+				)}
+			</Match>
 			<Match when={resolving()}>
 				<AppLoadingScreen
 					message="Fetching community details..."
@@ -658,7 +784,7 @@ export const CommunityContextProvider: ParentComponent = (props) => {
 				/>
 			</Match>
 			<Match when={settledError()}>
-				<ErrorState error={settledError()} retry={() => void refetch()} />
+				<ErrorState error={settledError()} retry={requestRefetch} />
 			</Match>
 		</Switch>
 	);

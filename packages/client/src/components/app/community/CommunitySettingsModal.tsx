@@ -35,6 +35,13 @@ import UsersIcon from "~icons/ph/users";
 import WarningDiamondIcon from "~icons/ph/warning-diamond";
 import WrenchIcon from "~icons/ph/wrench";
 import XCircleIcon from "~icons/ph/x-circle";
+import { evictCommunity } from "../../../atproto/cache/community-evict";
+import {
+	clearCommunityDeleting,
+	markCommunityDeleting,
+	tombstoneCommunity,
+} from "../../../atproto/cache/community-tombstone";
+import { communityKey, namespace } from "../../../atproto/cache/keys";
 import { colibri } from "../../../atproto/lexicons";
 import { frameIs } from "../../../atproto/sync-frames";
 import type {
@@ -57,6 +64,7 @@ import { useSocketContext } from "../../../contexts/Socket";
 import { useUserContext } from "../../../contexts/User";
 import { ColibriError } from "../../../errors/error";
 import { showError } from "../../../errors/show-error";
+import { getAppViewDid } from "../../../utils/appview";
 import { foldText } from "../../../utils/fold-text";
 import { IMAGE_UPLOAD_ACCEPT } from "../../../utils/image-upload";
 import { webAppOrigin } from "../../../utils/web-origin";
@@ -1487,7 +1495,7 @@ const BannedMembersPage: Component = () => {
 	);
 };
 
-const DangerSettingsPage: Component = () => {
+const DangerSettingsPage: Component<{ onDeleted: () => void }> = (props) => {
 	const navigate = useNavigate();
 	const user = useUserContext();
 	const community = useCommunityContext();
@@ -1499,25 +1507,31 @@ const DangerSettingsPage: Component = () => {
 	const isValid = () => communityNameReset() === community().community.name;
 
 	const deleteCommunity = async () => {
-		setLoading(true);
+		const target = community().community;
+		const ns = namespace(getAppViewDid(), user.did);
+		const key = communityKey(ns, target.did);
 
-		const client = clientForManagingApp(
-			user.atproto.agent,
-			community().community.managingApp,
-		);
+		setLoading(true);
+		markCommunityDeleting(key);
+
+		const client = clientForManagingApp(user.atproto.agent, target.managingApp);
 		const res = await client.call(colibri.community.delete.main, {
-			body: { community: community().community.did },
+			body: { community: target.did },
 		});
 
-		setLoading(false);
-
 		if (!res.ok) {
+			clearCommunityDeleting(key);
+			setLoading(false);
 			if (res.error.code === "CredentialsUnavailable") setReconnectOpen(true);
 			showError(res.error, { fallbackTitle: "Failed to delete community." });
 			return;
 		}
 
-		navigate("/");
+		tombstoneCommunity(key);
+		user.dropCommunity(target.did);
+		evictCommunity(ns, target.did);
+		props.onDeleted();
+		navigate("/app");
 	};
 
 	return (
@@ -1645,7 +1659,9 @@ export const CommunitySettingsModal: ParentComponent<{
 				{
 					title: "Danger Zone",
 					id: "danger",
-					component: DangerSettingsPage,
+					component: () => (
+						<DangerSettingsPage onDeleted={() => props.setOpen(false)} />
+					),
 					icon: () => <WarningDiamondIcon />,
 					visible: () => canDeleteCommunity(user.did),
 				},

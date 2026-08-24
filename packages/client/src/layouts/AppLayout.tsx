@@ -22,7 +22,8 @@ import { toast } from "somoto";
 import GearIcon from "~icons/ph/gear";
 import HouseIcon from "~icons/ph/house";
 import { evictCommunity } from "../atproto/cache/community-evict";
-import { namespace } from "../atproto/cache/keys";
+import { tombstoneCommunity } from "../atproto/cache/community-tombstone";
+import { communityKey, namespace } from "../atproto/cache/keys";
 import { linkErrorMessage, readLinkOutcome } from "../atproto/labeler-link";
 import { writeCommunityOrder } from "../atproto/notificationPreference";
 import { creationInFlight } from "../atproto/pending-community";
@@ -349,10 +350,9 @@ const AppLayout: ParentComponent = (props) => {
 			) {
 				user.refetchCommunities();
 			} else if (frameIs(event, "communityEvent") && event.event === "delete") {
-				void evictCommunity(
-					namespace(getAppViewDid(), user.did),
-					event.community,
-				);
+				const ns = namespace(getAppViewDid(), user.did);
+				tombstoneCommunity(communityKey(ns, event.community));
+				evictCommunity(ns, event.community);
 				if (location.pathname.startsWith(`/app/c/${event.community}`)) {
 					navigate("/app");
 				}

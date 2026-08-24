@@ -74,6 +74,7 @@ export type LoggedInUser = Extract<User, { loggedIn: true }> & {
 	refetchProfile: () => Promise<void>;
 	/** Patches fields in the local actor data without a full refetch. */
 	updateProfile: (patch: Partial<ProfileView>) => void;
+	dropCommunity: (did: string) => void;
 };
 
 export const UserContext = createContext<LoggedInUser>();
@@ -162,14 +163,11 @@ export const UserContextProvider: ParentComponent = (props) => {
 	});
 
 	let cacheWriteTimer: ReturnType<typeof setTimeout> | undefined;
-	createEffect(() => {
-		const u = user.latest;
-		if (!cacheEnabled() || user.loading || !u?.loggedIn || !client?.loggedIn) {
-			return;
-		}
+
+	const snapshotFor = (u: User) => {
+		if (!cacheEnabled() || !u.loggedIn || !client?.loggedIn) return undefined;
 		const did = client.agent.did;
-		if (!did) return;
-		const ns = namespace(getAppViewDid(), did);
+		if (!did) return undefined;
 		const {
 			atproto: _atproto,
 			xrpc: _xrpc,
@@ -177,9 +175,30 @@ export const UserContextProvider: ParentComponent = (props) => {
 			communities,
 			...profile
 		} = u;
-		const snapshot = { profile, communities };
+		return {
+			ns: namespace(getAppViewDid(), did),
+			snapshot: { profile, communities },
+		};
+	};
+
+	const persistNow = (u: User) => {
+		const target = snapshotFor(u);
+		if (!target) return;
 		if (cacheWriteTimer) clearTimeout(cacheWriteTimer);
-		cacheWriteTimer = setTimeout(() => void writeUser(ns, snapshot), 500);
+		cacheWriteTimer = undefined;
+		void writeUser(target.ns, target.snapshot);
+	};
+
+	createEffect(() => {
+		const u = user.latest;
+		if (user.loading || !u) return;
+		const target = snapshotFor(u);
+		if (!target) return;
+		if (cacheWriteTimer) clearTimeout(cacheWriteTimer);
+		cacheWriteTimer = setTimeout(
+			() => void writeUser(target.ns, target.snapshot),
+			500,
+		);
 	});
 	onCleanup(() => {
 		if (cacheWriteTimer) clearTimeout(cacheWriteTimer);
@@ -240,6 +259,16 @@ export const UserContextProvider: ParentComponent = (props) => {
 								code: classifyThrown(err).code,
 							});
 						}
+					};
+
+					const dropCommunity = (did: string) => {
+						const cur = user.latest;
+						if (!cur?.loggedIn) return;
+						const communities = cur.communities.filter((c) => c.did !== did);
+						if (communities.length === cur.communities.length) return;
+						const next = { ...cur, communities };
+						mutate(next);
+						persistNow(next);
 					};
 
 					const refetchProfile = async () => {
@@ -402,6 +431,7 @@ export const UserContextProvider: ParentComponent = (props) => {
 									return liveProfile().presence;
 								},
 								refetchCommunities,
+								dropCommunity,
 								refetchProfile,
 								updateProfile,
 							}}

@@ -44,4 +44,18 @@ describe("decideCommunityExit", () => {
 	it("leaves on a failure it cannot classify and has nothing to show", () => {
 		expect(decideCommunityExit(false, new Error("boom"), false)).toBe("leave");
 	});
+
+	it("offers a retry rather than an exit when a load runs out of patience", () => {
+		const stalled = new ColibriError({ code: "Timeout" });
+
+		expect(decideCommunityExit(false, stalled, false)).toBe("stay");
+		expect(decideCommunityExit(false, stalled, true)).toBe("stay");
+	});
+
+	it("leaves straight away for a community already known to be deleted", () => {
+		const deleted = new ColibriError({ code: "CommunityNotFound" });
+
+		expect(decideCommunityExit(false, deleted, false)).toBe("gone");
+		expect(decideCommunityExit(false, deleted, true)).toBe("gone");
+	});
 });
