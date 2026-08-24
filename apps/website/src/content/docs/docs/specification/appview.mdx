@@ -98,7 +98,7 @@ A community's structural records, such as its profile, its settings, its roles, 
 
 #### `social.colibri.beta.community.create`
 
-Provisions a new community: an account on the AppView's PDS, its four spaces, an owner role held by the caller, and a starter layout of two categories holding one text channel and one voice channel between them. The call can run long enough that a client should also watch `social.colibri.beta.sync.subscribeEvents` for progress.
+Provisions a new community: an account on the AppView's PDS under a handle the server assigns, its four spaces, an owner role held by the caller, and a starter layout of two categories holding one text channel and one voice channel between them. The call can run long enough that a client should also watch `social.colibri.beta.sync.subscribeEvents` for progress.
 
 <XRPCEndpointCard
 	method="POST"
@@ -110,10 +110,6 @@ Provisions a new community: an account on the AppView's PDS, its four spaces, an
 			required: true
 		},
 		description: {
-			type: "string",
-			required: false
-		},
-		handlePrefix: {
 			type: "string",
 			required: false
 		}
