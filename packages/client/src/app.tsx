@@ -36,6 +36,10 @@ import { WelcomeScreen } from "./components/WelcomeScreen";
 import { ActorCacheProvider } from "./contexts/ActorCache";
 import { AuthContextProvider } from "./contexts/Auth";
 import { useCommunityContext } from "./contexts/Community";
+import {
+	isOpenableChannel,
+	pickDefaultChannel,
+} from "./contexts/default-channel";
 import { SocketContextProvider } from "./contexts/Socket";
 import { SoundsContextProvider } from "./contexts/Sounds";
 import { UserContextProvider } from "./contexts/User";
@@ -50,6 +54,7 @@ import AppLayout from "./layouts/AppLayout";
 import ChannelLayoutWithContext from "./layouts/ChannelLayout";
 import CommunityLayoutWithContext from "./layouts/CommunityLayout";
 import { appShellMounted } from "./utils/app-shell";
+import { readLastViewedChannel } from "./utils/last-viewed-channel";
 import { createLogger } from "./utils/logger";
 import { isMobileNow, useIsMobile } from "./utils/mobile-pane";
 import { trackNavHistory } from "./utils/nav-history";
@@ -97,6 +102,43 @@ const RedirectToApp: Component = () => {
 	});
 
 	return <AppLoadingScreen message="Redirecting to app..." />;
+};
+
+const CommunityIndexRoute: Component = () => {
+	const params = useParams();
+	const navigate = useNavigate();
+	const c = useCommunityContext();
+	const communityDid = () => params.community!;
+
+	const restorable = () => {
+		const stored = readLastViewedChannel(communityDid());
+		if (!stored) return undefined;
+		const channel = c().channels.find((ch) => ch.space === stored.space);
+		return channel && isOpenableChannel(channel) ? channel : undefined;
+	};
+
+	let redirectedFor: string | undefined;
+
+	createEffect(() => {
+		if (isMobileNow()) return;
+		if (c().community.did !== communityDid()) return;
+		if (redirectedFor === communityDid()) return;
+
+		const channel = restorable() ?? pickDefaultChannel(c());
+		if (!channel) return;
+
+		const route = buildChannelPath(channel.space);
+		if (!route) return;
+
+		redirectedFor = communityDid();
+		navigate(route, { replace: true });
+	});
+
+	return (
+		<div class="w-full h-full flex flex-col items-center justify-center gap-2 text-muted-foreground select-none">
+			<p class="text-base font-medium">Select a channel to get started</p>
+		</div>
+	);
 };
 
 const SignInRoute: Component = () => <SignInScreen />;
@@ -208,62 +250,7 @@ const App: ParentComponent = () => {
 								<Route path="/invite/:code" component={InviteModal} />
 								<Route path="/delete-account" component={DeleteAccountScreen} />
 								<Route component={CommunityLayoutWithContext}>
-									<Route
-										path="/c/:community"
-										component={() => {
-											const params = useParams();
-											const navigate = useNavigate();
-											const c = useCommunityContext();
-											const communityDid = () => params.community!;
-
-											const routeFor = (channel: { space: string }) =>
-												buildChannelPath(channel.space);
-
-											createEffect(() => {
-												// On mobile the community placeholder IS the nav-root
-												// pane, don't auto-redirect into a channel. The user
-												// taps a channel to push into chat.
-												if (isMobileNow()) return;
-
-												if (c().community.did !== communityDid()) return;
-
-												const raw = localStorage.getItem(
-													`${communityDid()}:last-viewed`,
-												);
-
-												if (raw) {
-													try {
-														const channel = JSON.parse(raw) as {
-															space: string;
-														};
-														const route = c().channels.some(
-															(ch) => ch.space === channel.space,
-														)
-															? routeFor(channel)
-															: undefined;
-														if (route) {
-															navigate(route, { replace: true });
-															return;
-														}
-													} catch {}
-												}
-
-												const firstChannel = c().channels[0];
-												if (!firstChannel) return;
-
-												const route = routeFor(firstChannel);
-												if (route) navigate(route, { replace: true });
-											});
-
-											return (
-												<div class="w-full h-full flex flex-col items-center justify-center gap-2 text-muted-foreground select-none">
-													<p class="text-base font-medium">
-														Select a channel to get started
-													</p>
-												</div>
-											);
-										}}
-									/>
+									<Route path="/c/:community" component={CommunityIndexRoute} />
 									<Route component={ChannelLayoutWithContext}>
 										<Route
 											path="/c/:community/:channelType/:channel"

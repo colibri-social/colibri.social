@@ -90,6 +90,7 @@ import type { ColibriError } from "../errors/error";
 import { isPingKind } from "../notifications";
 import { getAppViewDid } from "../utils/appview";
 import { clearEditDraft } from "../utils/composer-drafts";
+import { rememberLastViewedChannel } from "../utils/last-viewed-channel";
 import { createLogger } from "../utils/logger";
 import { foldLabelEvent } from "../utils/message-labels";
 import { insertAt, placeMessage } from "../utils/message-order";
@@ -1059,18 +1060,17 @@ export const ChannelContextProvider: ParentComponent<{
 	const [outgoingMessage, setOutgoingMessage] = createSignal(0);
 
 	createEffect(() => {
-		const space = channelSpace();
 		const isConnected = socket.connected();
 		if (!isConnected) return;
-		socket.send(viewChannelFrame(space || undefined));
+		socket.send(viewChannelFrame(channelSpace() || undefined));
+	});
+
+	createEffect(() => {
+		const space = channelSpace();
 		const did = communityDid();
 		const channel = props.channel();
-		if (space && did && channel) {
-			localStorage.setItem(
-				`${did}:last-viewed`,
-				JSON.stringify({ uri: space, type: channel.type }),
-			);
-		}
+		if (!space || !did || !channel) return;
+		rememberLastViewedChannel(did, { space, type: channel.type });
 	});
 
 	const handleMessageEvent = (event: MessageEventFrame) => {
