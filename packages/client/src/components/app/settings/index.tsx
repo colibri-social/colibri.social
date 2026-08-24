@@ -18,6 +18,7 @@ import SparkleIcon from "~icons/ph/sparkle";
 import TrashIcon from "~icons/ph/trash";
 import UserCircleIcon from "~icons/ph/user-circle";
 import WrenchIcon from "~icons/ph/wrench";
+import { colibri } from "../../../atproto/lexicons";
 import { endSession } from "../../../atproto/session";
 import { useAuthContext } from "../../../contexts/Auth";
 import { useUserContext } from "../../../contexts/User";
@@ -153,10 +154,12 @@ export const UserSettingsModal: ParentComponent<{
 							(async () => {
 								try {
 									await unregisterAllPush((endpoint, provider) =>
-										user.xrpc.social.colibri.notification.unregisterPush(
-											endpoint,
-											provider,
-										),
+										user.xrpc.call(colibri.notification.unregisterPush.main, {
+											body:
+												provider === "fcm"
+													? { provider: "fcm", token: endpoint }
+													: { provider: "webpush", endpoint },
+										}),
 									);
 									await auth?.client.revoke(user.did);
 								} finally {

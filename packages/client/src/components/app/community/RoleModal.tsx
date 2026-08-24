@@ -7,10 +7,13 @@ import {
 	onCleanup,
 	type ParentComponent,
 } from "solid-js";
-import { toast } from "somoto";
+import { colibri } from "../../../atproto/lexicons";
 import { PERMISSIONS } from "../../../atproto/permissions";
+import { clientForManagingApp } from "../../../atproto/xrpc";
 import { useCommunityContext } from "../../../contexts/Community";
 import { useUserContext } from "../../../contexts/User";
+import { showError } from "../../../errors/show-error";
+import { createLogger } from "../../../utils/logger";
 import { Button } from "../../ui/Button";
 import {
 	Checkbox,
@@ -46,8 +49,9 @@ import {
 } from "../../ui/Tabs";
 import { TextField, TextFieldInput, TextFieldLabel } from "../../ui/TextField";
 
+const log = createLogger("community");
+
 export const RoleModal: ParentComponent<{
-	/** URI of the role to pre-fill. */
 	role?: string;
 }> = (props) => {
 	const user = useUserContext();
@@ -58,7 +62,7 @@ export const RoleModal: ParentComponent<{
 	const existingRole = () => {
 		if (!props.role) return undefined;
 
-		return community().assignableRoles.find((x) => x.uri === props.role);
+		return community().assignableRoles.find((x) => x.rkey === props.role);
 	};
 
 	const [name, setName] = createSignal(existingRole()?.name ?? "New Role");
@@ -108,42 +112,59 @@ export const RoleModal: ParentComponent<{
 
 		setLoading(true);
 
-		try {
-			await user.xrpc.social.colibri.role.update(
-				props.role,
-				name(),
-				color(),
-				permissions(),
-				existingRole()!.position,
-				hoisted(),
-				mentionable(),
-			);
-		} catch {
-			toast.error("Failed to update role.");
-		} finally {
-			setLoading(false);
+		const client = clientForManagingApp(
+			user.atproto.agent,
+			community().community.managingApp,
+		);
+		const res = await client.call(colibri.role.update.main, {
+			body: {
+				community: community().community.did,
+				role: props.role,
+				name: name(),
+				color: color(),
+				permissions: permissions(),
+				position: existingRole()!.position,
+				hoisted: hoisted(),
+				mentionable: mentionable(),
+			},
+		});
+
+		setLoading(false);
+
+		if (!res.ok) {
+			log.error("updating a role failed", { code: res.error.code });
+			showError(res.error, { fallbackTitle: "Failed to update role." });
 		}
 	};
 
 	const handleCreate = async () => {
 		setLoading(true);
-		try {
-			await user.xrpc.social.colibri.role.create(
-				community().community.uri,
-				name(),
-				0,
-				permissions(),
-				color(),
-				hoisted(),
-				mentionable(),
-			);
 
-			setOpen(false);
-		} catch {
-			toast.error("Failed to create role.");
-		} finally {
-			setLoading(false);
+		const client = clientForManagingApp(
+			user.atproto.agent,
+			community().community.managingApp,
+		);
+		const res = await client.call(colibri.role.create.main, {
+			body: {
+				community: community().community.did,
+				name: name(),
+				position: 0,
+				permissions: permissions(),
+				color: color(),
+				hoisted: hoisted(),
+				mentionable: mentionable(),
+			},
+		});
+
+		setLoading(false);
+
+		if (!res.ok) {
+			log.error("creating a role failed", { code: res.error.code });
+			showError(res.error, { fallbackTitle: "Failed to create role." });
+			return;
 		}
+
+		setOpen(false);
 	};
 
 	const presetColors = [

@@ -11,6 +11,7 @@ import {
 	readMessages,
 	writeMessages,
 } from "../../atproto/cache/store";
+import { frameIs } from "../../atproto/sync-frames";
 import { PAGE_SIZE } from "../../contexts/Channel";
 import { useSocketContext } from "../../contexts/Socket";
 import { useUserContext } from "../../contexts/User";
@@ -45,16 +46,8 @@ export const MessageSnapshotWriter: Component = () => {
 		});
 
 		const unsubscribe = socket.onEvent((event) => {
-			if (event.type !== "message_event") return;
-			const data = event.data;
-			if (!data) return;
-			if (!data.channel) {
-				log.warn("dropped a message event with no channel", {
-					event: data.event,
-				});
-				return;
-			}
-			foldMessageEvent(data, PAGE_SIZE);
+			if (!frameIs(event, "messageEvent")) return;
+			foldMessageEvent(event, PAGE_SIZE);
 		});
 
 		const flushTimer = setInterval(flushSnapshotWriter, FLUSH_INTERVAL_MS);

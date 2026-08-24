@@ -1,0 +1,73 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.blob.get",
+	"defs": {
+		"main": {
+			"type": "query",
+			"description": "Serves a blob from a permissioned space through the AppView, which holds the space credential the client does not. Every byte is verified against the CID before it is served, and the content type is sniffed rather than trusted. Supports HTTP range requests.",
+			"parameters": {
+				"type": "params",
+				"required": [
+					"did",
+					"cid"
+				],
+				"properties": {
+					"did": {
+						"type": "string",
+						"format": "did",
+						"description": "DID of the repo holding the blob."
+					},
+					"cid": {
+						"type": "string",
+						"format": "cid",
+						"description": "The blob's CID."
+					},
+					"space": {
+						"type": "string",
+						"format": "space-ref",
+						"description": "The space holding the blob. Required for a blob in a permissioned space, and omitted for one on a public repo."
+					},
+					"variant": {
+						"type": "string",
+						"description": "A rendition of a resizable image.",
+						"knownValues": [
+							"thumbnail",
+							"avatar",
+							"banner",
+							"full"
+						]
+					},
+					"filename": {
+						"type": "string",
+						"description": "Sets the download filename."
+					}
+				}
+			},
+			"output": {
+				"encoding": "*/*"
+			},
+			"errors": [
+				{
+					"name": "AuthRequired",
+					"description": "The request has no valid service auth."
+				},
+				{
+					"name": "Forbidden",
+					"description": "The requesting user may not read the space holding the blob."
+				},
+				{
+					"name": "BlobNotFound",
+					"description": "No blob matches the given DID and CID."
+				},
+				{
+					"name": "InvalidRequest",
+					"description": "The arguments are inconsistent or malformed beyond schema validation."
+				},
+				{
+					"name": "UpstreamFailure",
+					"description": "The repo's PDS failed while the AppView fetched the blob."
+				}
+			]
+		}
+	}
+}

@@ -7,35 +7,33 @@ import {
 	useContext,
 } from "solid-js";
 import { toast } from "somoto";
-import { removeMute, writeMute } from "../atproto/mutes";
-import { classifyThrown } from "../errors/classify";
-import { AtURI } from "../utils/at-uri";
+import {
+	decodeMuteSubject,
+	type MuteSubject,
+	muteSubjectKey,
+	muteSubject as muteSubjectRecord,
+	unmuteSubject as unmuteSubjectRecord,
+} from "../atproto/mutes";
+import { getPreferences } from "../atproto/notificationPreference";
+import { frameIs } from "../atproto/sync-frames";
+import type { Mute } from "../atproto/views";
 import { createLogger } from "../utils/logger";
 import { useSocketContext } from "./Socket";
 import { useUserContext } from "./User";
 
 const log = createLogger("mutes");
 
-const COMMUNITY_COLLECTION = "social.colibri.community";
-
-const channelKey = (channelUri: string): string => {
-	const { did, identifier } = AtURI.parseAtURI(channelUri);
-	return `${did}/${identifier}`;
-};
-
-const communityDidOf = (uri: string): string => AtURI.parseAtURI(uri).did;
-
-const isCommunitySubject = (subject: string): boolean =>
-	AtURI.parseAtURI(subject).collection === COMMUNITY_COLLECTION;
-
 type MutesContextValue = {
-	isChannelMuted: (channelUri: string) => boolean;
-	isChannelKeyMuted: (channelKey: string) => boolean;
-	isCommunityMuted: (communityUri: string) => boolean;
-	muteChannel: (channelUri: string) => Promise<void>;
-	unmuteChannel: (channelUri: string) => Promise<void>;
-	muteCommunity: (communityUri: string) => Promise<void>;
-	unmuteCommunity: (communityUri: string) => Promise<void>;
+	isMuted: (did: string) => boolean;
+	isUserMuted: (did: string) => boolean;
+	isCommunityMuted: (did: string) => boolean;
+	isChannelMuted: (space: string) => boolean;
+	muteUser: (did: string) => Promise<void>;
+	unmuteUser: (did: string) => Promise<void>;
+	muteCommunity: (did: string) => Promise<void>;
+	unmuteCommunity: (did: string) => Promise<void>;
+	muteChannel: (space: string) => Promise<void>;
+	unmuteChannel: (space: string) => Promise<void>;
 };
 
 const MutesContext = createContext<MutesContextValue>();
@@ -44,111 +42,119 @@ export const MutesContextProvider: ParentComponent = (props) => {
 	const user = useUserContext();
 	const socket = useSocketContext();
 
-	// Muted channel keys (`{communityDid}/{rkey}`) and muted community DIDs.
-	// Replaced immutably so dependent accessors re-run.
-	const [mutedChannels, setMutedChannels] = createSignal<Record<string, true>>(
+	const [mutedSubjects, setMutedSubjects] = createSignal<Record<string, true>>(
 		{},
 	);
-	const [mutedCommunities, setMutedCommunities] = createSignal<
-		Record<string, true>
-	>({});
 
-	const addChannel = (key: string) =>
-		setMutedChannels((prev) => (prev[key] ? prev : { ...prev, [key]: true }));
-	const removeChannel = (key: string) =>
-		setMutedChannels((prev) => {
+	const addSubject = (key: string) =>
+		setMutedSubjects((prev) => (prev[key] ? prev : { ...prev, [key]: true }));
+
+	const removeSubject = (key: string) =>
+		setMutedSubjects((prev) => {
 			if (!prev[key]) return prev;
 			const next = { ...prev };
 			delete next[key];
 			return next;
 		});
-	const addCommunity = (did: string) =>
-		setMutedCommunities((prev) =>
-			prev[did] ? prev : { ...prev, [did]: true },
-		);
-	const removeCommunity = (did: string) =>
-		setMutedCommunities((prev) => {
-			if (!prev[did]) return prev;
-			const next = { ...prev };
-			delete next[did];
-			return next;
-		});
 
-	const applySubject = (subject: string, muted: boolean) => {
-		if (isCommunitySubject(subject)) {
-			const did = communityDidOf(subject);
-			if (muted) addCommunity(did);
-			else removeCommunity(did);
-		} else {
-			const key = channelKey(subject);
-			if (muted) addChannel(key);
-			else removeChannel(key);
+	const isMuted = (did: string): boolean => !!mutedSubjects()[did];
+	const isChannelMuted = (space: string): boolean => !!mutedSubjects()[space];
+
+	const applyMutes = (mutes: Array<Mute>) => {
+		const next: Record<string, true> = {};
+		for (const mute of mutes) {
+			const subject = decodeMuteSubject(mute.subject);
+			if (!subject) continue;
+			next[muteSubjectKey(subject)] = true;
 		}
+		setMutedSubjects(next);
 	};
 
-	// ---- Accessors ---------------------------------------------------------
-
-	const isChannelKeyMuted = (key: string): boolean =>
-		!!mutedCommunities()[key.split("/")[0]] || !!mutedChannels()[key];
-
-	const isChannelMuted = (channelUri: string): boolean =>
-		isChannelKeyMuted(channelKey(channelUri));
-
-	const isCommunityMuted = (communityUri: string): boolean =>
-		!!mutedCommunities()[communityDidOf(communityUri)];
-
-	// ---- Mutators ----------------------------------------------------------
-
 	const toggle = async (
-		subject: string,
+		subject: MuteSubject,
 		muted: boolean,
 		failureMessage: string,
 	): Promise<void> => {
-		applySubject(subject, muted);
-		try {
-			if (muted) await writeMute(user.atproto.agent, user.did, subject);
-			else await removeMute(user.atproto.agent, user.did, subject);
-		} catch (err) {
-			log.error("mute write failed", { code: classifyThrown(err).code });
-			applySubject(subject, !muted);
+		const key = muteSubjectKey(subject);
+		if (muted) addSubject(key);
+		else removeSubject(key);
+
+		const res = muted
+			? await muteSubjectRecord(
+					user.atproto.agent,
+					user.xrpc,
+					user.did,
+					subject,
+				)
+			: await unmuteSubjectRecord(
+					user.atproto.agent,
+					user.xrpc,
+					user.did,
+					subject,
+				);
+
+		if (!res.ok) {
+			log.error("mute write failed", { code: res.error.code });
+			if (muted) removeSubject(key);
+			else addSubject(key);
 			toast.error(failureMessage);
+			return;
 		}
+
+		applyMutes(res.data.preferences.mutes);
 	};
 
-	const muteChannel = (channelUri: string) =>
-		toggle(channelUri, true, "Failed to mute channel.");
-	const unmuteChannel = (channelUri: string) =>
-		toggle(channelUri, false, "Failed to unmute channel.");
-	const muteCommunity = (communityUri: string) =>
-		toggle(communityUri, true, "Failed to mute community.");
-	const unmuteCommunity = (communityUri: string) =>
-		toggle(communityUri, false, "Failed to unmute community.");
-
-	// ---- Seeding + live sync ----------------------------------------------
+	const muteUser = (did: string) =>
+		toggle({ kind: "actor", did }, true, "Failed to mute user.");
+	const unmuteUser = (did: string) =>
+		toggle({ kind: "actor", did }, false, "Failed to unmute user.");
+	const muteCommunity = (did: string) =>
+		toggle({ kind: "actor", did }, true, "Failed to mute community.");
+	const unmuteCommunity = (did: string) =>
+		toggle({ kind: "actor", did }, false, "Failed to unmute community.");
+	const muteChannel = (space: string) =>
+		toggle(
+			{ kind: "channel", channel: space },
+			true,
+			"Failed to mute channel.",
+		);
+	const unmuteChannel = (space: string) =>
+		toggle(
+			{ kind: "channel", channel: space },
+			false,
+			"Failed to unmute channel.",
+		);
 
 	onMount(() => {
 		void (async () => {
-			const res = await user.xrpc.social.colibri.actor.listMutes();
-			if (!res.ok || !Array.isArray(res.data?.mutes)) return;
-			for (const mute of res.data.mutes) applySubject(mute.subject, true);
+			const res = await getPreferences(user.xrpc);
+			if (!res.ok) {
+				log.warn("failed to load mutes", { code: res.error.code });
+				return;
+			}
+			applyMutes(res.data.preferences.mutes);
 		})();
+	});
 
+	onMount(() => {
 		const cleanup = socket.onEvent((event) => {
-			if (event.type !== "mute_event" || !event.data) return;
-			applySubject(event.data.subject, event.data.event === "muted");
+			if (!frameIs(event, "preferencesEvent")) return;
+			applyMutes(event.preferences.mutes);
 		});
-
 		onCleanup(cleanup);
 	});
 
 	const value: MutesContextValue = {
+		isMuted,
+		isUserMuted: isMuted,
+		isCommunityMuted: isMuted,
 		isChannelMuted,
-		isChannelKeyMuted,
-		isCommunityMuted,
-		muteChannel,
-		unmuteChannel,
+		muteUser,
+		unmuteUser,
 		muteCommunity,
 		unmuteCommunity,
+		muteChannel,
+		unmuteChannel,
 	};
 
 	return (

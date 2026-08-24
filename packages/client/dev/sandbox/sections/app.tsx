@@ -1,5 +1,6 @@
-import type { ActorData, OnlineState } from "@colibri-social/lib";
 import { createSignal, For, type ParentComponent } from "solid-js";
+import { asDid, asHandle } from "../../../src/atproto/lexicons";
+import type { ProfileView } from "../../../src/atproto/views";
 import { CopyButton } from "../../../src/components/app/common/CopyButton";
 import { Lightbox } from "../../../src/components/app/common/Lightbox";
 import {
@@ -13,6 +14,7 @@ import { ProfilePopoverContents } from "../../../src/components/app/user/Profile
 import { DropdownStatusSelect } from "../../../src/components/app/user/StatusSelect";
 import { Button } from "../../../src/components/ui/Button";
 import { ScrollFadeBottom } from "../../../src/components/ui/ScrollFadeBottom";
+import type { OnlineState } from "../../../src/contexts/community-payload";
 import {
 	badgeDefinitions,
 	ensureBadgeDefinitions,
@@ -20,14 +22,13 @@ import {
 import { Demo } from "../helpers";
 import type { SandboxCategory } from "../types";
 
-const actor = (name: string, state: OnlineState): ActorData => ({
-	did: "did:plc:sandbox",
-	handle: "sandbox.example",
-	data: {
-		displayName: name,
-		isBot: false,
-		onlineState: state,
-	},
+const actor = (name: string, state: OnlineState): ProfileView => ({
+	did: asDid("did:plc:sandbox"),
+	handle: asHandle("sandbox.example"),
+	displayName: name,
+	isBot: false,
+	syncBluesky: false,
+	presence: { onlineState: state },
 });
 
 const AvatarDemo = () => (
@@ -114,32 +115,32 @@ const ScrollFadeBottomDemo = () => (
 	</Demo>
 );
 
-const KIRA: ActorData = {
-	did: "did:plc:kirasandbox",
-	handle: "kira.colibri.social",
-	data: {
-		displayName: "Kira",
-		isBot: false,
+const KIRA: ProfileView = {
+	did: asDid("did:plc:kirasandbox"),
+	handle: asHandle("kira.colibri.social"),
+	displayName: "Kira",
+	isBot: false,
+	syncBluesky: false,
+	description:
+		"Building on atproto, mostly in the open. Writing things down at colibri.social, and reachable as @kira.colibri.social if you want to talk shop.",
+	theme: {
+		accentColor: "#8e51ff",
+		gradient: { primary: "#8e51ff", secondary: "#38bdf8" },
+	},
+	presence: {
 		onlineState: "online",
-		description:
-			"Building on atproto, mostly in the open. Writing things down at colibri.social, and reachable as @kira.colibri.social if you want to talk shop.",
 		status: { emoji: "✨", text: "shipping" },
-		theme: {
-			accentColor: "#8e51ff",
-			gradient: { primary: "#8e51ff", secondary: "#38bdf8" },
-		},
 	},
 };
 
-const KIRA_MINIMAL: ActorData = {
-	did: "did:plc:kirasandbox",
-	handle: "kira.colibri.social",
-	data: {
-		displayName: "Kira",
-		isBot: false,
-		onlineState: "offline",
-		theme: { bannerColor: "#2b2b3a" },
-	},
+const KIRA_MINIMAL: ProfileView = {
+	did: asDid("did:plc:kirasandbox"),
+	handle: asHandle("kira.colibri.social"),
+	displayName: "Kira",
+	isBot: false,
+	syncBluesky: false,
+	theme: { bannerColor: "#2b2b3a" },
+	presence: { onlineState: "offline" },
 };
 
 const PopoverCard: ParentComponent = (props) => (

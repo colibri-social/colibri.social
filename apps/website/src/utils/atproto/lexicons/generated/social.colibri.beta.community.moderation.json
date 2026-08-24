@@ -1,0 +1,15 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.community.moderation",
+	"defs": {
+		"main": {
+			"type": "space",
+			"description": "A community's moderation audit log. Kept in its own space so it can be read by moderators without being readable by the whole membership.",
+			"key": "literal:self",
+			"name": "Colibri community moderation log",
+			"collections": [
+				"social.colibri.beta.moderation"
+			]
+		}
+	}
+}

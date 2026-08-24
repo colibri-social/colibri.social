@@ -1,0 +1,88 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.community.setMemberRoles",
+	"defs": {
+		"main": {
+			"type": "procedure",
+			"description": "Sets the complete set of roles a member holds.",
+			"input": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"community",
+						"subject",
+						"roles"
+					],
+					"properties": {
+						"community": {
+							"type": "string",
+							"format": "did",
+							"description": "The community the member belongs to."
+						},
+						"subject": {
+							"type": "string",
+							"format": "did",
+							"description": "The member whose roles are being set."
+						},
+						"roles": {
+							"type": "array",
+							"items": {
+								"type": "string",
+								"format": "record-key",
+								"description": "A role."
+							},
+							"description": "The complete new set of roles the member should hold."
+						}
+					}
+				}
+			},
+			"output": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"member"
+					],
+					"properties": {
+						"member": {
+							"type": "ref",
+							"ref": "social.colibri.beta.community.defs#memberView",
+							"description": "The updated member."
+						}
+					}
+				}
+			},
+			"errors": [
+				{
+					"name": "AuthRequired",
+					"description": "The request is missing, malformed, or unverifiable service auth."
+				},
+				{
+					"name": "Forbidden",
+					"description": "The requesting user lacks the role.manage permission."
+				},
+				{
+					"name": "CommunityNotFound",
+					"description": "No community exists with that DID."
+				},
+				{
+					"name": "MemberNotFound",
+					"description": "The subject does not hold a member record in this community."
+				},
+				{
+					"name": "RoleNotFound",
+					"description": "One of the requested roles does not exist."
+				},
+				{
+					"name": "RoleHierarchy",
+					"description": "The requesting user cannot grant or revoke a role at or above their own highest position."
+				},
+				{
+					"name": "CredentialsUnavailable",
+					"description": "The AppView's stored credentials for this community are missing or unusable."
+				}
+			]
+		}
+	}
+}

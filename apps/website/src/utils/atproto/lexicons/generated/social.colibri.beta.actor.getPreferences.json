@@ -1,0 +1,32 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.actor.getPreferences",
+	"defs": {
+		"main": {
+			"type": "query",
+			"description": "Gets the requesting user's own settings, as the AppView currently holds them.",
+			"output": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"preferences"
+					],
+					"properties": {
+						"preferences": {
+							"type": "ref",
+							"ref": "social.colibri.beta.actor.defs#preferences",
+							"description": "The requesting user's settings."
+						}
+					}
+				}
+			},
+			"errors": [
+				{
+					"name": "AuthRequired",
+					"description": "The request has no valid service auth."
+				}
+			]
+		}
+	}
+}

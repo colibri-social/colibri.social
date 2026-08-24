@@ -1,8 +1,7 @@
+import { SPACE_TYPES } from "../atproto/lexicons";
+
 export const isTextChannelType = (type: string): boolean =>
-	type === "text" || type === "social.colibri.channel.text";
+	type === "text" || type === SPACE_TYPES.channelText;
 
 export const isVoiceChannelType = (type: string): boolean =>
-	type === "voice" || type === "social.colibri.channel.voice";
-
-export const isForumChannelType = (type: string): boolean =>
-	type === "forum" || type === "social.colibri.channel.forum";
+	type === "voice" || type === SPACE_TYPES.channelVoice;

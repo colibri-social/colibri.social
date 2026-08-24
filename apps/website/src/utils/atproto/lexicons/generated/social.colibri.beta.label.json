@@ -1,0 +1,85 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.label",
+	"defs": {
+		"main": {
+			"type": "record",
+			"description": "A label applied to a record in the same space. Permissioned content cannot be taken down by anyone but its author, so moderation of content is advisory: a reader honours the labels published by the labelers its community names.",
+			"key": "tid",
+			"record": {
+				"type": "object",
+				"required": [
+					"subject",
+					"val",
+					"createdAt"
+				],
+				"properties": {
+					"subject": {
+						"type": "ref",
+						"ref": "#subject",
+						"description": "The record this label applies to."
+					},
+					"val": {
+						"type": "string",
+						"maxLength": 128,
+						"knownValues": [
+							"hidden",
+							"spoiler",
+							"embeds-suppressed"
+						],
+						"description": "The label value. `hidden` is enforced: the AppView withholds a hidden record instead of serving it. `spoiler` and `embeds-suppressed` are display hints the AppView passes through for the client to honour."
+					},
+					"scope": {
+						"type": "array",
+						"items": {
+							"type": "string",
+							"format": "uri"
+						},
+						"description": "URIs within the subject record the label narrows to, for values that can apply to part of a record. Absent means the whole record."
+					},
+					"neg": {
+						"type": "boolean",
+						"default": false,
+						"description": "Whether this record retracts an earlier label of the same value."
+					},
+					"reason": {
+						"type": "string",
+						"maxLength": 512,
+						"description": "Human-readable reason."
+					},
+					"createdAt": {
+						"type": "string",
+						"format": "datetime",
+						"description": "When the label was applied."
+					}
+				}
+			}
+		},
+		"subject": {
+			"type": "object",
+			"description": "The labelled record, addressed within the space the label lives in.",
+			"required": [
+				"did",
+				"collection",
+				"rkey"
+			],
+			"properties": {
+				"did": {
+					"type": "string",
+					"format": "did",
+					"description": "DID of the repo holding the labelled record."
+				},
+				"collection": {
+					"type": "string",
+					"format": "nsid",
+					"description": "The labelled record's collection."
+				},
+				"rkey": {
+					"type": "string",
+					"format": "record-key",
+					"description": "The labelled record's key."
+				}
+			}
+		}
+	}
+}

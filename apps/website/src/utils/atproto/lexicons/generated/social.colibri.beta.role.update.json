@@ -1,0 +1,118 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.role.update",
+	"defs": {
+		"main": {
+			"type": "procedure",
+			"description": "Updates a role's settings.",
+			"input": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"community",
+						"role"
+					],
+					"properties": {
+						"community": {
+							"type": "string",
+							"format": "did",
+							"description": "The community the role belongs to."
+						},
+						"role": {
+							"type": "string",
+							"format": "record-key",
+							"description": "The role's record key."
+						},
+						"name": {
+							"type": "string",
+							"minLength": 1,
+							"maxLength": 32,
+							"description": "Display name."
+						},
+						"color": {
+							"type": "string",
+							"maxLength": 7,
+							"description": "Hex colour as #rrggbb."
+						},
+						"permissions": {
+							"type": "array",
+							"items": {
+								"type": "string",
+								"description": "A namespaced permission identifier."
+							},
+							"description": "Permissions granted by this role."
+						},
+						"position": {
+							"type": "integer",
+							"description": "Hierarchy position. Higher outranks lower."
+						},
+						"hoisted": {
+							"type": "boolean",
+							"description": "Whether holders are listed separately in the member list."
+						},
+						"mentionable": {
+							"type": "boolean",
+							"description": "Whether @role mentions resolve to this role."
+						},
+						"channelOverrides": {
+							"type": "array",
+							"items": {
+								"type": "ref",
+								"ref": "social.colibri.beta.community.defs#roleChannelOverride",
+								"description": "A per-channel permission override."
+							},
+							"description": "Per-channel overrides."
+						}
+					}
+				}
+			},
+			"output": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"role"
+					],
+					"properties": {
+						"role": {
+							"type": "ref",
+							"ref": "social.colibri.beta.community.defs#roleView",
+							"description": "The updated role."
+						}
+					}
+				}
+			},
+			"errors": [
+				{
+					"name": "AuthRequired",
+					"description": "The request is missing, malformed, or unverifiable service auth."
+				},
+				{
+					"name": "Forbidden",
+					"description": "The caller lacks the role.manage permission."
+				},
+				{
+					"name": "CommunityNotFound",
+					"description": "No community exists at the given DID."
+				},
+				{
+					"name": "RoleNotFound",
+					"description": "No role exists at the given record key."
+				},
+				{
+					"name": "RoleProtected",
+					"description": "The role is marked protected and cannot be modified."
+				},
+				{
+					"name": "RoleHierarchy",
+					"description": "The change would place the role at or above the caller's highest role position, or grants a permission the caller does not hold."
+				},
+				{
+					"name": "CredentialsUnavailable",
+					"description": "The AppView cannot act as the community because its stored credentials are missing or unusable."
+				}
+			]
+		}
+	}
+}

@@ -1,6 +1,7 @@
 import { createSignal, type ParentComponent } from "solid-js";
-import { toast } from "somoto";
-import type { Invitation } from "../../../atproto/xrpc/social/colibri/community/listInvitations";
+import { colibri } from "../../../atproto/lexicons";
+import type { InvitationView } from "../../../atproto/views";
+import { clientForManagingApp } from "../../../atproto/xrpc";
 import { Button } from "../../../components/ui/Button";
 import {
 	Dialog,
@@ -13,40 +14,38 @@ import {
 } from "../../../components/ui/Dialog";
 import { useCommunityContext } from "../../../contexts/Community";
 import { useUserContext } from "../../../contexts/User";
+import { showError } from "../../../errors/show-error";
 import { Spinner } from "../../icons/Spinner";
 
 export const DeleteLinkModal: ParentComponent<{
-	invitation: Invitation;
+	invitation: InvitationView;
 	refetch: (...args: any[]) => any | Promise<any>;
 }> = (props) => {
 	const user = useUserContext();
 	const community = useCommunityContext();
-	const uri = () => community().community.uri;
 
 	const [loading, setLoading] = createSignal(false);
 	const [open, setOpen] = createSignal(false);
 
-	/**
-	 * Deletes an invite code.
-	 */
 	const deleteInviteLink = async () => {
 		setLoading(true);
-		try {
-			const res = await user.xrpc.social.colibri.community.deleteInvitation(
-				uri(),
-				props.invitation.code,
-			);
-			if (!res) {
-				toast.error("Failed to delete invite link.");
-				return;
-			}
-			props.refetch();
-			setOpen(false);
-		} catch {
-			toast.error("Failed to delete invite link.");
-		} finally {
-			setLoading(false);
+		const client = clientForManagingApp(
+			user.atproto.agent,
+			community().community.managingApp,
+		);
+		const res = await client.call(colibri.community.deleteInvitation.main, {
+			body: {
+				community: community().community.did,
+				code: props.invitation.code,
+			},
+		});
+		setLoading(false);
+		if (!res.ok) {
+			showError(res.error, { fallbackTitle: "Failed to delete invite link." });
+			return;
 		}
+		props.refetch();
+		setOpen(false);
 	};
 
 	return (

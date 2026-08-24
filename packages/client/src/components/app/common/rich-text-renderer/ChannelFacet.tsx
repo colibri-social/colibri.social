@@ -16,11 +16,10 @@ import {
 	peekChannel,
 } from "../../../../atproto/channel-reference";
 import { buildChannelPath } from "../../../../atproto/colibri-channel-url";
-import { communityUriToUrlCompatible } from "../../../../atproto/community-uri-to-url-compatible";
+import { parseSpace, spaceSkey } from "../../../../atproto/space-ref";
 import { useCommunityContext } from "../../../../contexts/Community";
 import { useUserContext } from "../../../../contexts/User";
 import { getAppViewDid } from "../../../../utils/appview";
-import { AtURI } from "../../../../utils/at-uri";
 import { ambiguousCategoryName } from "../../../../utils/channel-category";
 import { parseEmojiText } from "../../../../utils/emoji";
 import { purify } from "../../../../utils/purify";
@@ -40,7 +39,10 @@ const UNRESOLVED_CLASS = "bg-blue-500/25 px-1 rounded-xs inline";
 const LOCKED_CLASS =
 	"bg-muted-foreground/15 hover:bg-muted-foreground/25 px-1 rounded-xs cursor-pointer inline no-underline text-muted-foreground";
 
-const didOf = (uri: string): string => AtURI.parseAtURI(uri).did ?? "";
+const isLocked = (channel: {
+	private?: boolean;
+	viewer: { canRead: boolean };
+}): boolean => channel.private === true && !channel.viewer.canRead;
 
 export const ChannelFacet: Component<{ channel: string; text: string }> = (
 	props,
@@ -51,15 +53,25 @@ export const ChannelFacet: Component<{ channel: string; text: string }> = (
 	const [modalMounted, setModalMounted] = createSignal(false);
 	const [modalOpen, setModalOpen] = createSignal(false);
 
-	const channelDid = createMemo(() => didOf(props.channel));
+	const targetDid = createMemo(
+		() => parseSpace(props.channel)?.authority ?? community().community.did,
+	);
+
+	const targetSkey = createMemo(
+		() => parseSpace(props.channel)?.skey ?? props.channel,
+	);
 
 	const isCurrentCommunity = createMemo(
-		() => channelDid() === didOf(community().community.uri),
+		() => targetDid() === community().community.did,
 	);
 
-	const localChannel = createMemo(() =>
-		community().channels.find((channel) => channel.uri === props.channel),
-	);
+	const localChannel = createMemo(() => {
+		if (!isCurrentCommunity()) return undefined;
+
+		return community().channels.find(
+			(channel) => spaceSkey(channel.space) === targetSkey(),
+		);
+	});
 
 	const localCategory = createMemo(() => {
 		const resolved = localChannel();
@@ -73,21 +85,17 @@ export const ChannelFacet: Component<{ channel: string; text: string }> = (
 	});
 
 	const foreignCommunity = createMemo(() => {
-		const did = channelDid();
-		if (!did || isCurrentCommunity()) return undefined;
+		if (isCurrentCommunity()) return undefined;
 
-		const matches = user.communities.filter(
-			(entry) => didOf(entry.uri) === did,
-		);
-		return matches.find((entry) => entry.uri.endsWith("/self")) ?? matches[0];
+		return user.communities.find((entry) => entry.did === targetDid());
 	});
 
 	const [foreignChannel] = createResource(
-		() => foreignCommunity()?.uri,
-		async (uri) => {
+		() => foreignCommunity()?.did,
+		async (did) => {
 			await loadCommunityChannels(
 				user.xrpc,
-				uri,
+				did,
 				namespace(getAppViewDid(), user.did),
 			);
 			return peekChannel(props.channel);
@@ -101,26 +109,16 @@ export const ChannelFacet: Component<{ channel: string; text: string }> = (
 		if (!target) return "";
 
 		const resolved = foreignChannel();
-		if (!resolved) {
-			return `/app/c/${communityUriToUrlCompatible(target.uri)}`;
-		}
+		if (!resolved) return `/app/c/${target.did}`;
 
-		return buildChannelPath({
-			communityUri: target.uri,
-			channelType: resolved.type,
-			channelRkey: AtURI.parseAtURI(resolved.uri).identifier,
-		});
+		return buildChannelPath(resolved.space) ?? `/app/c/${target.did}`;
 	};
 
 	const localHref = () => {
 		const resolved = localChannel();
 		if (!resolved) return "";
 
-		return buildChannelPath({
-			communityUri: community().community.uri,
-			channelType: resolved.type,
-			channelRkey: AtURI.parseAtURI(resolved.uri).identifier,
-		});
+		return buildChannelPath(resolved.space) ?? "";
 	};
 
 	const openModal = () => {
@@ -128,46 +126,48 @@ export const ChannelFacet: Component<{ channel: string; text: string }> = (
 		setModalOpen(true);
 	};
 
+	const lockedChip = () => (
+		<>
+			<span
+				data-facet-type="channel"
+				data-channel={props.channel}
+				class={LOCKED_CLASS}
+				onClick={openModal}
+			>
+				<LockSimpleIcon class={CHIP_GLYPH_CLASS} />
+				No access
+			</span>
+			<Show when={modalMounted()}>
+				<NoCommunityAccessModal
+					open={modalOpen()}
+					onOpenChange={setModalOpen}
+				/>
+			</Show>
+		</>
+	);
+
 	return (
-		<Switch
-			fallback={
-				<>
-					<span
-						data-facet-type="channel"
-						data-channel={props.channel}
-						class={LOCKED_CLASS}
-						onClick={openModal}
-					>
-						<LockSimpleIcon class={CHIP_GLYPH_CLASS} />
-						No access
-					</span>
-					<Show when={modalMounted()}>
-						<NoCommunityAccessModal
-							open={modalOpen()}
-							onOpenChange={setModalOpen}
-						/>
-					</Show>
-				</>
-			}
-		>
+		<Switch fallback={lockedChip()}>
 			<Match when={localChannel()}>
 				{(resolved) => (
-					<A
-						data-facet-type="channel"
-						data-channel={props.channel}
-						href={localHref()}
-						class={CHANNEL_CLASS}
-					>
-						<Show when={localCategory()}>
-							{(category) => (
-								<>
-									<span innerHTML={parseEmojiText(purify(category()))} />
-									<CaretRightIcon class={CHIP_GLYPH_CLASS} />
-								</>
-							)}
-						</Show>
-						<span innerHTML={parseEmojiText(purify(`#${resolved().name}`))} />
-					</A>
+					<Show when={!isLocked(resolved())} fallback={lockedChip()}>
+						<A
+							data-facet-type="channel"
+							data-channel={props.channel}
+							href={localHref()}
+							class={CHANNEL_CLASS}
+						>
+							<Show when={localCategory()}>
+								{(category) => (
+									<>
+										<span innerHTML={parseEmojiText(purify(category()))} />
+										<CaretRightIcon class={CHIP_GLYPH_CLASS} />
+									</>
+								)}
+							</Show>
+							<span innerHTML={parseEmojiText(purify(`#${resolved().name}`))} />
+						</A>
+					</Show>
 				)}
 			</Match>
 			<Match when={foreignCommunity()}>
@@ -181,7 +181,6 @@ export const ChannelFacet: Component<{ channel: string; text: string }> = (
 					>
 						<CommunityAvatar
 							community={target()}
-							variant="small"
 							class={CHIP_AVATAR_CLASS}
 							fallbackClass={CHIP_INITIALS_CLASS}
 						/>

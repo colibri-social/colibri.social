@@ -1,8 +1,5 @@
 import { Agent } from "@atproto/api";
-import {
-	BrowserOAuthClient,
-	type DidDocument,
-} from "@atproto/oauth-client-browser";
+import { BrowserOAuthClient } from "@atproto/oauth-client-browser";
 import * as Sentry from "@sentry/solid";
 import { type Accessor, createSignal } from "solid-js";
 import { toast } from "somoto";
@@ -15,13 +12,17 @@ import { isTauriRuntime } from "../notifications/environment";
 import {
 	DEFAULT_APPVIEW_URL,
 	getAppViewDid,
-	getAppViewHost,
 	getPreferredAppViewUrl,
 } from "../utils/appview";
 import { deviceContext, getConnection } from "../utils/device-context";
 import { createLogger } from "../utils/logger";
 import { markBoot } from "../utils/perf";
 import { isAllowedDid } from "./allowlist";
+import {
+	handleResolver,
+	peekCachedPdsForDid,
+	resolvePdsForDid,
+} from "./identity";
 import { buildScopes, getMissingScopeSets } from "./scopes";
 import {
 	markSessionDead,
@@ -508,13 +509,11 @@ const loadOAuthClient = (
 ) =>
 	BrowserOAuthClient.load({
 		clientId,
-		// Resolve handles via the configured AppView (defaults to
-		// api.colibri.social) rather than a hard-coded origin, so self-hosted
-		// installs stay self-contained and don't depend on colibri.social.
-		handleResolver: getAppViewHost("http"),
+		handleResolver,
 		fetch: preflightFetch,
 		databaseOptions,
-		onDelete: (_sub, cause) => noteSessionDeleted(cause),
+		onSessionDeleted: (_sub: string, cause: unknown) =>
+			noteSessionDeleted(cause),
 	});
 
 const clearDisallowedSession = async (sub: string) => {
@@ -662,51 +661,14 @@ const init = async () => {
 
 	if (!agent) return;
 
-	pdsHost = readCachedPdsHost(agent.did!);
-	void resolvePdsHost(agent.did!);
+	pdsHost = peekCachedPdsForDid(agent.did!);
+	void refreshPdsHost(agent.did!);
 };
 
-const pdsHostKey = (did: string) => `colibri:pds:${did}`;
-
-const readCachedPdsHost = (did: string): string | undefined => {
-	try {
-		return localStorage.getItem(pdsHostKey(did)) ?? undefined;
-	} catch {
-		return undefined;
-	}
-};
-
-const resolvePdsHost = async (did: string): Promise<void> => {
-	try {
-		const didDoc = (await (
-			await fetch(
-				`${getAppViewHost("http")}/xrpc/com.atproto.identity.resolveDid?did=${did}`,
-			)
-		).json()) as DidDocument;
-
-		if (!didDoc.service) {
-			throw new ColibriError({
-				code: "MalformedResponse",
-				method: "com.atproto.identity.resolveDid",
-				context: { did },
-			});
-		}
-
-		const resolved = didDoc.service
-			.find((x) => x.id === "#atproto_pds")
-			?.serviceEndpoint.toString();
-
-		if (!resolved) return;
-		pdsHost = resolved;
-		try {
-			localStorage.setItem(pdsHostKey(did), resolved);
-		} catch {}
-	} catch (e) {
-		const failure = classifyThrown(e, {
-			method: "com.atproto.identity.resolveDid",
-		});
-		log.warn("resolving the PDS host failed", { code: failure.code });
-	}
+const refreshPdsHost = async (did: string): Promise<void> => {
+	const resolved = await resolvePdsForDid(did);
+	if (!resolved) return;
+	pdsHost = resolved;
 };
 
 const restoreExistingSession = async () => {
@@ -778,7 +740,7 @@ const restoreExistingSession = async () => {
 		agent = new Agent({
 			did: session.did,
 			fetchHandler: (url, init) =>
-				observeSession(session.fetchHandler(url, init)),
+				observeSession(url, session.fetchHandler(url, init)),
 		});
 
 		try {

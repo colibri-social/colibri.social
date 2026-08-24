@@ -1,6 +1,7 @@
 import type { AppBskyGraphDefs } from "@atproto/api";
 import { classifyThrown } from "../errors/classify";
 import { createLogger } from "../utils/logger";
+import { getProfiles } from "./bsky";
 import {
 	cacheEnabled,
 	readBskyMuTrustedList,
@@ -8,7 +9,6 @@ import {
 	writeBskyMuTrustedList,
 	writeBskyMuVerification,
 } from "./cache/store";
-import { getProfiles } from "./xrpc/app/bsky/actor/getProfiles";
 
 const log = createLogger("verification");
 

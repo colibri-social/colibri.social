@@ -11,3 +11,10 @@ pnpm dev:web
 ```
 
 `dev`, `build` and `preview` all run `sync-assets` first, which copies shared files out of `@colibri-social/assets`.
+
+## Lexicons
+
+The lexicons rendered on the docs site are not maintained here. They come from
+`@colibri-social/lexicons`, published from the
+[AppView repository](https://github.com/colibri-social/appview), which is where
+they are authored and where a protocol change belongs.

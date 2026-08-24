@@ -1,0 +1,94 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.community.adopt",
+	"defs": {
+		"main": {
+			"type": "procedure",
+			"description": "Adopts an existing account as a community: this AppView takes custody of its credentials, creates the four community spaces on whichever PDS already hosts it, and seeds the same starter layout social.colibri.beta.community.create does. The account keeps its own DID, handle and PDS, and the caller becomes its owner. Use this instead of community.create to bring your own DID.",
+			"input": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"did",
+						"identifier",
+						"password",
+						"name"
+					],
+					"properties": {
+						"did": {
+							"type": "string",
+							"format": "did",
+							"description": "The account to adopt. The credentials must authenticate as this exact DID, which is what proves the caller controls it."
+						},
+						"identifier": {
+							"type": "string",
+							"description": "The identifier used to authenticate with the account's PDS, such as its handle or DID."
+						},
+						"password": {
+							"type": "string",
+							"description": "The account's password. An app password is not enough: minting a delegation token requires full access."
+						},
+						"name": {
+							"type": "string",
+							"minLength": 1,
+							"maxLength": 32,
+							"description": "The community's name."
+						},
+						"description": {
+							"type": "string",
+							"maxLength": 256,
+							"description": "The community's description."
+						}
+					}
+				}
+			},
+			"output": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"community"
+					],
+					"properties": {
+						"community": {
+							"type": "ref",
+							"ref": "social.colibri.beta.community.defs#communityView",
+							"description": "The adopted community."
+						}
+					}
+				}
+			},
+			"errors": [
+				{
+					"name": "AuthRequired",
+					"description": "The request is missing, malformed, or unverifiable service auth."
+				},
+				{
+					"name": "InvalidRequest",
+					"description": "The arguments are inconsistent or malformed beyond schema validation."
+				},
+				{
+					"name": "AlreadyExists",
+					"description": "This account is already a community on this AppView."
+				},
+				{
+					"name": "CredentialsRejected",
+					"description": "The PDS refused the given identifier and password."
+				},
+				{
+					"name": "IdentityMismatch",
+					"description": "The credentials authenticate a different account than the DID given."
+				},
+				{
+					"name": "SpacesUnsupported",
+					"description": "The account's PDS does not implement com.atproto.simplespace, so it cannot host community spaces."
+				},
+				{
+					"name": "UpstreamFailure",
+					"description": "A PDS or third-party call the AppView depends on failed."
+				}
+			]
+		}
+	}
+}

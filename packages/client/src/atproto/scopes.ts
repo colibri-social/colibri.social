@@ -1,58 +1,75 @@
-// We bundle the granular permissions into published permission-set
-// lexicons (social.colibri.permission*) and reference each with a single
-// `include:` scope. See https://atproto.com/specs/permission#permission-sets
+const PERMISSION_SETS = [
+	"social.colibri.beta.permissionAccount",
+	"social.colibri.beta.permissionCommunity",
+	"social.colibri.beta.permissionMessaging",
+	"social.colibri.beta.permissionNotification",
+] as const;
+
+const PUSH_PERMISSION_SET = "social.colibri.beta.permissionPush";
+
+export const WILDCARD_RPC = [
+	"social.colibri.beta.sync.subscribeEvents",
+	"social.colibri.beta.voice.subscribeSignals",
+	"social.colibri.beta.voice.moderate",
+	"social.colibri.labeler.linkExternalAccount",
+	"social.colibri.labeler.unlinkExternalAccount",
+] as const;
+
 export const buildScopes = (appViewDid: string) => [
 	"atproto",
 	"blob:*/*",
-	"rpc:app.bsky.actor.getProfile?aud=*",
-	"rpc:com.atproto.identity.resolveDid?aud=*",
-	"rpc:social.colibri.voice.signal?aud=*",
-	"rpc:social.colibri.voice.moderate?aud=*",
-	"rpc:social.colibri.labeler.linkExternalAccount?aud=*",
-	"rpc:social.colibri.labeler.unlinkExternalAccount?aud=*",
-	`include:social.colibri.permissionAccount?aud=${appViewDid}#colibri_appview`,
-	`include:social.colibri.permissionCommunity?aud=${appViewDid}#colibri_appview`,
-	`include:social.colibri.permissionMessaging?aud=${appViewDid}#colibri_appview`,
-	`include:social.colibri.permissionNotification?aud=${appViewDid}#colibri_appview`,
-	`include:social.colibri.permissionPush?aud=${appViewDid}#colibri_notif`,
+	...WILDCARD_RPC.map((lxm) => `rpc:${lxm}?aud=*`),
+	...PERMISSION_SETS.map(
+		(nsid) => `include:${nsid}?aud=${appViewDid}#colibri_appview`,
+	),
+	`include:${PUSH_PERMISSION_SET}?aud=${appViewDid}#colibri_notifs`,
 ];
 
-export const scopes = buildScopes("did:web:api.colibri.social");
+export const scopes = buildScopes("did:web:spaces-api.colibri.social");
 
 export const PERMISSION_SET_LABELS: Record<string, string> = {
-	"social.colibri.permissionAccount": "Account & profile",
-	"social.colibri.permissionCommunity": "Communities & channels",
-	"social.colibri.permissionMessaging": "Messages & membership",
-	"social.colibri.permissionNotification": "Notifications",
-	"social.colibri.permissionPush": "Push notifications",
-	"social.colibri.voice.signal": "Voice channels",
-	"social.colibri.voice.moderate": "Voice channels",
+	"social.colibri.beta.permissionAccount": "Account & profile",
+	"social.colibri.beta.permissionCommunity": "Communities & channels",
+	"social.colibri.beta.permissionMessaging": "Messages & membership",
+	"social.colibri.beta.permissionNotification": "Notifications",
+	"social.colibri.beta.permissionPush": "Push notifications",
+	"social.colibri.beta.sync.subscribeEvents": "Live updates",
+	"social.colibri.beta.voice.subscribeSignals": "Voice channels",
+	"social.colibri.beta.voice.moderate": "Voice channels",
 	"social.colibri.labeler.linkExternalAccount": "Supporter badges",
 	"social.colibri.labeler.unlinkExternalAccount": "Supporter badges",
 };
 
-const PERMISSION_SET_MARKERS: Record<string, string> = {
-	"social.colibri.permissionAccount": "social.colibri.actor.deleteAccount",
-	"social.colibri.permissionCommunity": "social.colibri.community.getData",
-	"social.colibri.permissionMessaging": "social.colibri.membership",
-	"social.colibri.permissionNotification":
-		"social.colibri.notification.listNotifications",
-	"social.colibri.permissionPush": "social.colibri.notification.registerPush",
+const PERMISSION_SET_MARKERS: Record<string, readonly string[]> = {
+	"social.colibri.beta.permissionAccount": [
+		"include:social.colibri.beta.permissionAccount",
+		"social.colibri.beta.actor.deleteAccount",
+	],
+	"social.colibri.beta.permissionCommunity": [
+		"include:social.colibri.beta.permissionCommunity",
+		"social.colibri.beta.community.registerCredentials",
+	],
+	"social.colibri.beta.permissionMessaging": [
+		"include:social.colibri.beta.permissionMessaging",
+		"social.colibri.beta.channel.listMessages",
+	],
+	"social.colibri.beta.permissionNotification": [
+		"include:social.colibri.beta.permissionNotification",
+		"social.colibri.beta.notification.listNotifications",
+	],
+	"social.colibri.beta.permissionPush": [
+		"include:social.colibri.beta.permissionPush",
+		"social.colibri.beta.notification.registerPush",
+	],
 };
 
-const STANDALONE_SCOPE_MARKERS: Record<string, string> = {
-	"social.colibri.voice.signal": "social.colibri.voice.signal?aud=*",
-	"social.colibri.voice.moderate": "social.colibri.voice.moderate?aud=*",
-	"social.colibri.labeler.linkExternalAccount":
-		"social.colibri.labeler.linkExternalAccount?aud=*",
-	"social.colibri.labeler.unlinkExternalAccount":
-		"social.colibri.labeler.unlinkExternalAccount?aud=*",
-};
+const STANDALONE_SCOPE_MARKERS: Record<string, readonly string[]> =
+	Object.fromEntries(WILDCARD_RPC.map((lxm) => [lxm, [`${lxm}?aud=*`]]));
 
 export const scopeSetLabel = (nsid: string): string =>
 	PERMISSION_SET_LABELS[nsid] ?? "Core access";
 
-const SCOPE_SET_MARKERS: Record<string, string> = {
+const SCOPE_SET_MARKERS: Record<string, readonly string[]> = {
 	...PERMISSION_SET_MARKERS,
 	...STANDALONE_SCOPE_MARKERS,
 };
@@ -62,7 +79,7 @@ export const getMissingScopeSets = (
 ): string[] => {
 	if (!grantedScope) return [];
 	return Object.entries(SCOPE_SET_MARKERS)
-		.filter(([, marker]) => !grantedScope.includes(marker))
+		.filter(([, markers]) => !markers.some((m) => grantedScope.includes(m)))
 		.map(([nsid]) => nsid);
 };
 

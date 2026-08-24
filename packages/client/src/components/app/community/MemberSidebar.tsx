@@ -12,11 +12,12 @@ import BellSlashIcon from "~icons/ph/bell-slash";
 import CaretLeftIcon from "~icons/ph/caret-left";
 import CrownIcon from "~icons/ph/crown-fill";
 import UsersIconFill from "~icons/ph/users-fill";
-import type { Member } from "../../../atproto/xrpc/social/colibri/community/listMembers";
-import type { Role } from "../../../atproto/xrpc/social/colibri/community/listRoles";
+import { spaceSkey } from "../../../atproto/space-ref";
 import { useCommunityContext } from "../../../contexts/Community";
+import type { Member } from "../../../contexts/community-payload";
 import { useMutes } from "../../../contexts/Mutes";
 import { useUserPreferences } from "../../../contexts/UserPreferences";
+import { channelAudience } from "../../../utils/channel-audience";
 import createMediaQuery from "../../../utils/create-media-query";
 import { createSwipe } from "../../../utils/create-swipe";
 import { parseEmojiText } from "../../../utils/emoji";
@@ -50,29 +51,28 @@ type Row =
 	  }
 	| { kind: "member"; key: string; member: Member; size: number };
 
-const MemberRow = (props: {
-	member: Member;
-	communityUri: string;
-	roles: Role[];
-}) => {
+const MemberRow = (props: { member: Member }) => {
 	const community = useCommunityContext();
+	const profile = () => props.member.actor;
 
 	return (
 		<MemberContextMenu member={props.member}>
 			<User.ProfilePopover
-				user={props.member}
+				user={profile()}
+				nickname={props.member.nickname}
 				class="data-expanded:[&>div]:bg-muted!"
 			>
 				<div
 					class="group/member flex flex-row gap-2 rounded-sm px-2 py-1 hover:bg-card items-center cursor-pointer h-12 flex-1"
 					onPointerDown={(e) => e.button !== 0 && e.stopPropagation()}
 				>
-					<User.Avatar user={props.member} />
+					<User.Avatar user={profile()} nickname={props.member.nickname} />
 					<div class="flex flex-col w-[calc(100%-36px-8px)] min-w-0">
 						<span class="font-medium leading-5 flex flex-row items-center gap-2">
 							<User.DisplayableName
 								badge={false}
-								user={props.member}
+								user={profile()}
+								nickname={props.member.nickname}
 								className="min-w-0"
 							/>
 							<Show when={community().ownerDid() === props.member.did}>
@@ -114,9 +114,27 @@ const MemberRow = (props: {
 export const MemberSidebar = () => {
 	const community = useCommunityContext();
 
+	const currentChannel = createMemo(() => {
+		const skey = getChannelParam();
+		if (!skey) return undefined;
+		return community().channels.find((c) => spaceSkey(c.space) === skey);
+	});
+
+	const currentChannelSpace = createMemo(() => currentChannel()?.space);
+
+	const visibleMembers = createMemo(() => {
+		const channel = currentChannel();
+		if (!channel) return community().members;
+		return channelAudience(community().members, {
+			channel,
+			roles: community().roles,
+			ownerDid: community().ownerDid(),
+		});
+	});
+
 	const membersByRoles = () =>
 		groupMembersByRoles({
-			members: community().members,
+			members: visibleMembers(),
 			assignableRoles: community().assignableRoles,
 			roles: community().roles,
 		});
@@ -133,7 +151,7 @@ export const MemberSidebar = () => {
 			const first = result.length === 0;
 			result.push({
 				kind: "header",
-				key: `header:${group.role.uri || group.role.name}`,
+				key: `header:${group.role.rkey || group.role.name}`,
 				label: group.role.name,
 				count: group.members.length,
 				size: HEADER_HEIGHT + ROW_GAP + (first ? 0 : HEADER_TOP_GAP),
@@ -172,13 +190,6 @@ export const MemberSidebar = () => {
 		isDragging,
 	} = createMobilePane();
 	const mutes = useMutes();
-
-	const currentChannelUri = createMemo(() => {
-		const rkey = getChannelParam();
-		if (!rkey) return undefined;
-		return community().channels.find((c) => c.uri.split("/").pop() === rkey)
-			?.uri;
-	});
 
 	const [viewport, setViewport] = createSignal({ top: 0, height: 0 });
 
@@ -288,24 +299,24 @@ export const MemberSidebar = () => {
 			</Show>
 			<Show when={!isMobile() && displayMembersAsSheet()}>
 				<div class="border-b border-border h-12 min-h-12 p-2 w-full flex flex-row items-center gap-1">
-					<Show when={currentChannelUri()}>
-						{(uri) => (
+					<Show when={currentChannelSpace()}>
+						{(space) => (
 							<Tooltip>
 								<TooltipTrigger>
 									<Button
 										size="icon-sm"
 										variant="ghost"
 										onClick={() =>
-											mutes.isChannelMuted(uri())
-												? mutes.unmuteChannel(uri())
-												: mutes.muteChannel(uri())
+											mutes.isChannelMuted(space())
+												? mutes.unmuteChannel(space())
+												: mutes.muteChannel(space())
 										}
 									>
 										<Switch>
-											<Match when={mutes.isChannelMuted(uri())}>
+											<Match when={mutes.isChannelMuted(space())}>
 												<BellSlashIcon />
 											</Match>
-											<Match when={!mutes.isChannelMuted(uri())}>
+											<Match when={!mutes.isChannelMuted(space())}>
 												<BellIcon />
 											</Match>
 										</Switch>
@@ -313,10 +324,10 @@ export const MemberSidebar = () => {
 								</TooltipTrigger>
 								<TooltipContent>
 									<Switch>
-										<Match when={mutes.isChannelMuted(uri())}>
+										<Match when={mutes.isChannelMuted(space())}>
 											Unmute Channel
 										</Match>
-										<Match when={!mutes.isChannelMuted(uri())}>
+										<Match when={!mutes.isChannelMuted(space())}>
 											Mute Channel
 										</Match>
 									</Switch>
@@ -373,13 +384,7 @@ export const MemberSidebar = () => {
 										)}
 									</Show>
 									<Show when={member()}>
-										{(entry) => (
-											<MemberRow
-												member={entry().member}
-												communityUri={community().community.uri}
-												roles={community().assignableRoles}
-											/>
-										)}
+										{(entry) => <MemberRow member={entry().member} />}
 									</Show>
 								</div>
 							);

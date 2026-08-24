@@ -1,44 +1,48 @@
 ---
-title: Moderating Across AppViews
+title: Communities and AppViews
+description: A community lives on one AppView, and what that means if you use another.
 ---
 
-Colibri is self-hostable, so the communities you're in aren't necessarily all hosted in the same place. A community lives on one AppView, and you sign in to one AppView, and those two don't have to match.
+Colibri is self-hostable, so there is more than one AppView. A community lives
+on exactly one of them: the instance that created it and holds its credentials.
 
-Most of the time this is invisible. Reading messages, browsing members, seeing who is banned: all of that works the same wherever a community is hosted, because the data lives in the community's own repository and reaches every AppView.
+A community's data sits in [permissioned spaces](/docs/architecture/spaces),
+readable only by holding a key the community issues. Only the managing instance
+holds one, so an AppView with no key for a community cannot read it and cannot
+show it to you.
 
-Moderating is different. Only the AppView hosting a community can change it. So when you ban someone, rename a channel, or edit community settings, your AppView has to pass that request along to the one hosting the community.
+## What that means for you
 
-## Why you might need to turn on presence sharing
+**Use a community on the AppView that hosts it.** Reading, posting and
+moderating all happen there. Your account is the same everywhere, so this is a
+matter of which instance your client is pointed at, not of having several
+identities.
 
-Before the AppView hosting a community will act on your behalf, it needs to know that your AppView is allowed to speak for you. It checks that by looking at your public profile for the AppView you use.
+**Presence stays inside one instance.** Online status, typing indicators and
+voice presence come from the AppView you are signed in to, and reach nobody on
+another one.
 
-That's the same information the **Share presence across AppViews** setting publishes. So if you've turned that off, no other AppView knows which AppView is yours, and moderating a community hosted elsewhere stops working.
+## Whether this changes
 
-You'll see this as a warning on the members and banned-users screens of an affected community, or as a prompt when an action is refused. Both offer to switch presence sharing back on.
+For one AppView to serve a community hosted by another, it would have to hold a
+credential for that community's spaces, and credentials are issued per reader by
+the community itself. A member's own client can mint the token that stands
+behind such a credential, so there is a path to it. It is not built and it is
+not scheduled.
 
-To do it yourself, open **Settings**, go to **Preferences**, and turn on **Share presence across AppViews**.
+## If something does not work
 
-:::note
-This only affects communities hosted on a *different* AppView from yours. Moderating communities hosted on your own AppView works either way.
-:::
-
-## What this publishes about you
-
-Turning presence sharing on adds one thing to your public profile: which AppView you use. It's a hostname, and it's readable by anyone, like the rest of your profile.
-
-It doesn't publish who you moderate, what you moderate, or anything about the communities you're in. Turning the setting off removes it again.
-
-## Why it's tied to presence sharing
-
-Both answer the same question: which AppView is allowed to act for you. Presence sharing needed that so your online status could travel between AppViews, and moderation needs it so a community hosted elsewhere can tell a genuine request from a forged one. Rather than ask you to publish the same thing twice under two settings, Colibri reuses the one you already have.
-
-## If something still doesn't work
-
-- **The action fails and mentions reaching an AppView.** The AppView hosting that community is unreachable or offline. Nothing is wrong on your side, and retrying later usually works.
-- **The action fails saying the community is managed somewhere else.** The community moved to a different AppView recently and your view is stale. Reload Colibri.
-- **You have no moderation powers at all.** That's a role and permission question rather than an AppView one. Ask an admin of that community to check your roles.
+- **A community you are in does not appear.** It is hosted on a different
+  AppView than the one you are signed in to. Point your client at that instance.
+- **You cannot moderate, but you can read.** That is a role and permission
+  question rather than an AppView one. Ask an admin of that community to check
+  your roles.
+- **Nothing loads and the error mentions credentials.** The AppView that manages
+  that community may be unreachable. Its communities are unreadable while it is
+  down, including to people who are not on it.
 
 ## See also
 
-- [AppView Architecture](/docs/architecture/appview#cross-appview-moderation): how a relayed moderation action actually travels.
+- [Permissioned Spaces](/docs/architecture/spaces): how a credential gates every read.
+- [The Move to Private Communities](/docs/help/spaces-migration): what changed for members.
 - [Self-Hosting](/docs/self-hosting/getting-started): running an AppView of your own.

@@ -1,4 +1,3 @@
-import type { ColibriEvent } from "@colibri-social/lib";
 import {
 	type Accessor,
 	createContext,
@@ -9,6 +8,28 @@ import {
 	useContext,
 } from "solid-js";
 import { noteAuthFailure, sessionDead } from "../atproto/session-health";
+import {
+	createSubscriptionLedger,
+	isEmptyDelta,
+	mergeDelta,
+	type SubscriptionDelta,
+	type SubscriptionSets,
+	type SubscriptionTarget,
+} from "../atproto/subscriptions";
+import {
+	AUTH_SUBPROTOCOL,
+	type ClientFrame,
+	decodeFrame,
+	EVENTS_LXM,
+	EVENTS_PATH,
+	encodeFrame,
+	frameIs,
+	heartbeatFrame,
+	type ServerFrame,
+	subscribeFrame,
+	subscriptionTargets,
+	unsubscribeFrame,
+} from "../atproto/sync-frames";
 import { classifyThrown } from "../errors/classify";
 import { ColibriError } from "../errors/error";
 import { reportError } from "../errors/report";
@@ -25,12 +46,12 @@ const isRejection = (code: number): boolean =>
 
 export type SocketContextValue = {
 	/** Send a JSON message to the AppView over the WebSocket. */
-	send: (message: Record<string, unknown>) => void;
+	send: (frame: ClientFrame) => void;
 	/**
 	 * Register a handler for all incoming AppView events. The returned
 	 * function removes the handler — call it in `onCleanup`.
 	 */
-	onEvent: (handler: (event: ColibriEvent) => void) => () => void;
+	onEvent: (handler: (event: ServerFrame) => void) => () => void;
 	status: Accessor<SocketStatus>;
 	lastCloseCode: Accessor<number | undefined>;
 	/**
@@ -43,6 +64,21 @@ export type SocketContextValue = {
 	 * of the session.
 	 */
 	connected: Accessor<boolean>;
+	/**
+	 * Declares interest in a set of communities and channels. Nothing arrives on
+	 * the socket that was not asked for, and the declaration is replayed on every
+	 * reconnect, so a caller subscribes once and forgets. The returned function
+	 * withdraws this caller's interest; a target stays subscribed while any other
+	 * caller still wants it.
+	 */
+	subscribe: (target: SubscriptionTarget) => () => void;
+	/** What the server confirmed this connection is receiving. */
+	granted: Accessor<SubscriptionSets>;
+	/**
+	 * What was asked for and not granted, which is an access denial rather than an
+	 * error: the server silently omits anything the user may not read.
+	 */
+	denied: Accessor<SubscriptionSets>;
 };
 
 const RECONNECT_BASE_MS = 1_000;
@@ -60,7 +96,7 @@ export const SocketContext = createContext<SocketContextValue>();
 export const SocketContextProvider: ParentComponent = (props) => {
 	const auth = useAuthContext();
 
-	const handlers = new Set<(event: ColibriEvent) => void>();
+	const handlers = new Set<(event: ServerFrame) => void>();
 	const [status, setStatus] = createSignal<SocketStatus>("connecting");
 	const [lastCloseCode, setLastCloseCode] = createSignal<number | undefined>(
 		undefined,
@@ -76,6 +112,94 @@ export const SocketContextProvider: ParentComponent = (props) => {
 	let generation = 0;
 	let connectStartedAt: number | null = null;
 
+	const ledger = createSubscriptionLedger();
+	const [granted, setGranted] = createSignal<SubscriptionSets>({
+		communities: new Set(),
+		channels: new Set(),
+	});
+	const [confirmed, setConfirmed] = createSignal(false);
+
+	const NOTHING: SubscriptionSets = {
+		communities: new Set(),
+		channels: new Set(),
+	};
+
+	const denied = (): SubscriptionSets =>
+		confirmed() ? ledger.missing(granted()) : NOTHING;
+
+	const sendFrame = (frame: ClientFrame): boolean => {
+		if (ws?.readyState !== WebSocket.OPEN) return false;
+		ws.send(encodeFrame(frame));
+		return true;
+	};
+
+	let pendingAdds: SubscriptionDelta | null = null;
+	let pendingRemovals: SubscriptionDelta | null = null;
+	let flushQueued = false;
+
+	const flushSubscriptions = () => {
+		flushQueued = false;
+
+		const removals = pendingRemovals;
+		pendingRemovals = null;
+		if (removals && !isEmptyDelta(removals)) {
+			sendFrame(
+				unsubscribeFrame(
+					subscriptionTargets(removals.communities, removals.channels),
+				),
+			);
+		}
+
+		const adds = pendingAdds;
+		pendingAdds = null;
+		if (adds && !isEmptyDelta(adds)) {
+			sendFrame(
+				subscribeFrame(subscriptionTargets(adds.communities, adds.channels)),
+			);
+		}
+	};
+
+	const queueFlush = () => {
+		if (flushQueued) return;
+		flushQueued = true;
+		queueMicrotask(flushSubscriptions);
+	};
+
+	const resubscribeAll = () => {
+		pendingAdds = null;
+		pendingRemovals = null;
+		flushQueued = false;
+		setConfirmed(false);
+		setGranted(NOTHING);
+
+		const wanted = ledger.wanted();
+		if (wanted.communities.size === 0 && wanted.channels.size === 0) return;
+
+		sendFrame(
+			subscribeFrame(subscriptionTargets(wanted.communities, wanted.channels)),
+		);
+	};
+
+	const subscribe = (target: SubscriptionTarget): (() => void) => {
+		const added = ledger.retain(target);
+		if (!isEmptyDelta(added)) {
+			pendingAdds = mergeDelta(pendingAdds, added);
+			queueFlush();
+		}
+
+		let released = false;
+		return () => {
+			if (released) return;
+			released = true;
+
+			const dropped = ledger.release(target);
+			if (!isEmptyDelta(dropped)) {
+				pendingRemovals = mergeDelta(pendingRemovals, dropped);
+				queueFlush();
+			}
+		};
+	};
+
 	const connect = async () => {
 		if (destroyed || !auth?.loggedIn || sessionDead()) return;
 
@@ -90,7 +214,7 @@ export const SocketContextProvider: ParentComponent = (props) => {
 		try {
 			const { data } = await auth.agent.com.atproto.server.getServiceAuth({
 				aud: getAppViewServiceRef(),
-				lxm: "social.colibri.sync.subscribeEvents",
+				lxm: EVENTS_LXM,
 				// 60-second token — we generate a fresh one on every (re)connect
 				exp: Math.floor(Date.now() / 1000) + 60,
 			});
@@ -101,10 +225,10 @@ export const SocketContextProvider: ParentComponent = (props) => {
 			// service-auth token is smuggled through the subprotocol list: the
 			// AppView reads the entry after the `colibri.auth.bearer` sentinel and
 			// echoes the sentinel back so the handshake succeeds.
-			const socket = new WebSocket(
-				`${getAppViewHost("ws")}/xrpc/social.colibri.sync.subscribeEvents`,
-				["colibri.auth.bearer", data.token],
-			);
+			const socket = new WebSocket(`${getAppViewHost("ws")}${EVENTS_PATH}`, [
+				AUTH_SUBPROTOCOL,
+				data.token,
+			]);
 			ws = socket;
 
 			let socketHeartbeat: ReturnType<typeof setInterval> | null = null;
@@ -122,9 +246,10 @@ export const SocketContextProvider: ParentComponent = (props) => {
 						forceReconnect();
 						return;
 					}
-					socket.send(JSON.stringify({ type: "heartbeat" }));
+					socket.send(encodeFrame(heartbeatFrame()));
 				}, HEARTBEAT_MS);
 				heartbeat = socketHeartbeat;
+				resubscribeAll();
 			});
 
 			socket.addEventListener("message", (e) => {
@@ -134,15 +259,18 @@ export const SocketContextProvider: ParentComponent = (props) => {
 				}
 
 				lastFrameAt = Date.now();
-				let event: ColibriEvent;
-				try {
-					event = JSON.parse(e.data as string) as ColibriEvent;
-				} catch {
-					// Ignore malformed frames
-					return;
-				}
+				const event = decodeFrame(e.data as string);
+				if (!event) return;
 
-				log.debug("event received", { type: event.type });
+				log.debug("event received", { type: event.$type });
+
+				if (frameIs(event, "subscribed")) {
+					setGranted({
+						communities: new Set(event.communities),
+						channels: new Set(event.channels),
+					});
+					setConfirmed(true);
+				}
 
 				handlers.forEach((h) => {
 					// Isolate each handler so one throwing doesn't starve the rest.
@@ -150,7 +278,7 @@ export const SocketContextProvider: ParentComponent = (props) => {
 						h(event);
 					} catch (err) {
 						log.error("a socket handler threw", {
-							type: event.type,
+							type: event.$type,
 							code: classifyThrown(err).code,
 						});
 					}
@@ -248,10 +376,8 @@ export const SocketContextProvider: ParentComponent = (props) => {
 
 	const value: SocketContextValue = {
 		lastCloseCode,
-		send: (message) => {
-			if (ws?.readyState === WebSocket.OPEN) {
-				ws.send(JSON.stringify(message));
-			}
+		send: (frame) => {
+			sendFrame(frame);
 		},
 		onEvent: (handler) => {
 			handlers.add(handler);
@@ -259,6 +385,9 @@ export const SocketContextProvider: ParentComponent = (props) => {
 		},
 		status,
 		connected,
+		subscribe,
+		granted,
+		denied,
 	};
 
 	return (

@@ -1,0 +1,629 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.community.defs",
+	"defs": {
+		"communityView": {
+			"type": "object",
+			"description": "A community as the AppView serves it.",
+			"required": [
+				"did",
+				"handle",
+				"name",
+				"managingApp",
+				"requiresApprovalToJoin",
+				"linkEmbeds",
+				"viewer"
+			],
+			"properties": {
+				"did": {
+					"type": "string",
+					"format": "did",
+					"description": "The community's DID, which is the authority for all of its spaces."
+				},
+				"handle": {
+					"type": "string",
+					"description": "The community's handle.",
+					"format": "handle"
+				},
+				"managingApp": {
+					"type": "string",
+					"format": "did",
+					"description": "The AppView that manages this community's spaces. When it is not the AppView that served this view, the client must talk to that AppView for this community's reads, writes, events and voice."
+				},
+				"name": {
+					"type": "string",
+					"description": "The community's name."
+				},
+				"description": {
+					"type": "string",
+					"description": "The community's description."
+				},
+				"picture": {
+					"type": "string",
+					"format": "uri",
+					"description": "URL of the community's icon, served by this AppView's blob proxy."
+				},
+				"banner": {
+					"type": "string",
+					"format": "uri",
+					"description": "URL of the community's banner, served by this AppView's blob proxy."
+				},
+				"requiresApprovalToJoin": {
+					"type": "boolean",
+					"description": "Whether joining produces an application to approve."
+				},
+				"linkEmbeds": {
+					"type": "boolean",
+					"description": "Whether link previews are shown by default."
+				},
+				"labelers": {
+					"type": "array",
+					"items": {
+						"type": "string",
+						"format": "did",
+						"description": "A labeler."
+					},
+					"description": "DIDs whose labels this community honours."
+				},
+				"migratedFrom": {
+					"type": "string",
+					"format": "at-uri",
+					"description": "The repo-backed community this one replaces, if any."
+				},
+				"memberCount": {
+					"type": "integer",
+					"description": "Number of admitted members."
+				},
+				"viewer": {
+					"type": "ref",
+					"ref": "#viewerState",
+					"description": "The requesting user's relationship to this community."
+				}
+			}
+		},
+		"viewerState": {
+			"type": "object",
+			"description": "The requesting user's relationship to a community.",
+			"required": [
+				"isMember"
+			],
+			"properties": {
+				"isMember": {
+					"type": "boolean",
+					"description": "Whether the user holds a member record."
+				},
+				"isOwner": {
+					"type": "boolean",
+					"description": "Whether the user holds a protected role."
+				},
+				"isBanned": {
+					"type": "boolean",
+					"description": "Whether the user is banned."
+				},
+				"applicationPending": {
+					"type": "boolean",
+					"description": "Whether the user has an unapproved application."
+				},
+				"roles": {
+					"type": "array",
+					"items": {
+						"type": "string",
+						"format": "record-key",
+						"description": "A role the user holds."
+					},
+					"description": "Roles the user holds."
+				},
+				"permissions": {
+					"type": "array",
+					"items": {
+						"type": "string",
+						"description": "A permission identifier."
+					},
+					"description": "Effective community-wide permissions."
+				}
+			}
+		},
+		"categoryView": {
+			"type": "object",
+			"description": "A category and the channels in it.",
+			"required": [
+				"rkey",
+				"name",
+				"channels"
+			],
+			"properties": {
+				"rkey": {
+					"type": "string",
+					"format": "record-key",
+					"description": "The category's record key."
+				},
+				"name": {
+					"type": "string",
+					"description": "The category's name."
+				},
+				"channels": {
+					"type": "array",
+					"items": {
+						"type": "ref",
+						"ref": "#channelView"
+					},
+					"description": "Channels in display order."
+				}
+			}
+		},
+		"channelView": {
+			"type": "object",
+			"description": "A channel as the AppView serves it. The channel's identity is its space.",
+			"required": [
+				"space",
+				"type",
+				"name",
+				"viewer"
+			],
+			"properties": {
+				"space": {
+					"type": "string",
+					"format": "space-ref",
+					"description": "The channel's space, which is its identity."
+				},
+				"type": {
+					"type": "string",
+					"description": "The channel's space type.",
+					"knownValues": [
+						"social.colibri.beta.channel.text",
+						"social.colibri.beta.channel.voice"
+					]
+				},
+				"name": {
+					"type": "string",
+					"description": "The channel's name."
+				},
+				"description": {
+					"type": "string",
+					"description": "The channel's topic."
+				},
+				"category": {
+					"type": "string",
+					"format": "record-key",
+					"description": "The category this channel is listed under."
+				},
+				"ownerOnly": {
+					"type": "boolean",
+					"description": "Whether only admins may post."
+				},
+				"allowedRoles": {
+					"type": "array",
+					"items": {
+						"type": "string",
+						"format": "record-key",
+						"description": "A role."
+					},
+					"description": "Roles allowed to post."
+				},
+				"allowedMembers": {
+					"type": "array",
+					"items": {
+						"type": "string",
+						"format": "did",
+						"description": "A member."
+					},
+					"description": "Members allowed to post."
+				},
+				"linkEmbeds": {
+					"type": "boolean",
+					"description": "Whether link previews are shown here."
+				},
+				"migratedFrom": {
+					"type": "string",
+					"format": "at-uri",
+					"description": "The legacy channel whose history is served alongside this one."
+				},
+				"viewer": {
+					"type": "ref",
+					"ref": "#channelViewerState",
+					"description": "The requesting user's access to this channel."
+				},
+				"visibleToRoles": {
+					"type": "array",
+					"description": "Roles that may read this channel. Empty means every member may.",
+					"items": {
+						"type": "string",
+						"format": "record-key",
+						"description": "A role."
+					}
+				},
+				"visibleToMembers": {
+					"type": "array",
+					"description": "Members that may read this channel beyond visibleToRoles.",
+					"items": {
+						"type": "string",
+						"format": "did",
+						"description": "A member."
+					}
+				},
+				"private": {
+					"type": "boolean",
+					"description": "Whether the channel restricts who may read it, rather than only who may post."
+				}
+			}
+		},
+		"channelViewerState": {
+			"type": "object",
+			"description": "The requesting user's access to a channel.",
+			"required": [
+				"canRead",
+				"canPost"
+			],
+			"properties": {
+				"canRead": {
+					"type": "boolean",
+					"description": "Whether the user may read this channel."
+				},
+				"canPost": {
+					"type": "boolean",
+					"description": "Whether the user may post in this channel."
+				},
+				"permissions": {
+					"type": "array",
+					"items": {
+						"type": "string",
+						"description": "A permission identifier."
+					},
+					"description": "Effective permissions in this channel, after per-channel role overrides."
+				}
+			}
+		},
+		"roleView": {
+			"type": "object",
+			"description": "A role.",
+			"required": [
+				"rkey",
+				"name",
+				"permissions",
+				"position"
+			],
+			"properties": {
+				"rkey": {
+					"type": "string",
+					"format": "record-key",
+					"description": "The role's record key."
+				},
+				"name": {
+					"type": "string",
+					"description": "Display name."
+				},
+				"color": {
+					"type": "string",
+					"description": "Hex colour as #rrggbb.",
+					"maxLength": 7
+				},
+				"permissions": {
+					"type": "array",
+					"items": {
+						"type": "string",
+						"description": "A permission identifier."
+					},
+					"description": "Permissions granted."
+				},
+				"position": {
+					"type": "integer",
+					"description": "Hierarchy position. Higher outranks lower."
+				},
+				"hoisted": {
+					"type": "boolean",
+					"description": "Whether holders are listed separately."
+				},
+				"mentionable": {
+					"type": "boolean",
+					"description": "Whether @role mentions resolve to this role."
+				},
+				"protected": {
+					"type": "boolean",
+					"description": "Whether the role is exempt from modification and deletion."
+				},
+				"channelOverrides": {
+					"type": "array",
+					"items": {
+						"type": "ref",
+						"ref": "#roleChannelOverride"
+					},
+					"description": "Per-channel overrides."
+				},
+				"memberCount": {
+					"type": "integer",
+					"description": "Number of members holding this role."
+				}
+			}
+		},
+		"roleChannelOverride": {
+			"type": "object",
+			"description": "Allow and deny lists scoped to one channel.",
+			"required": [
+				"channel"
+			],
+			"properties": {
+				"channel": {
+					"type": "string",
+					"format": "record-key",
+					"description": "The channel's space key."
+				},
+				"allow": {
+					"type": "array",
+					"items": {
+						"type": "string",
+						"description": "A permission identifier."
+					},
+					"description": "Permissions granted here."
+				},
+				"deny": {
+					"type": "array",
+					"items": {
+						"type": "string",
+						"description": "A permission identifier."
+					},
+					"description": "Permissions denied here."
+				}
+			}
+		},
+		"memberView": {
+			"type": "object",
+			"description": "An admitted community member.",
+			"required": [
+				"actor",
+				"roles",
+				"joinedAt"
+			],
+			"properties": {
+				"actor": {
+					"type": "ref",
+					"ref": "social.colibri.beta.actor.defs#profileView",
+					"description": "The member."
+				},
+				"roles": {
+					"type": "array",
+					"items": {
+						"type": "string",
+						"format": "record-key",
+						"description": "A role."
+					},
+					"description": "Roles held, highest first."
+				},
+				"joinedAt": {
+					"type": "string",
+					"format": "datetime",
+					"description": "When the member was admitted."
+				},
+				"nickname": {
+					"type": "string",
+					"description": "Per-community display name override.",
+					"maxLength": 32
+				}
+			}
+		},
+		"applicationView": {
+			"type": "object",
+			"description": "A pending request to join a community that requires approval.",
+			"required": [
+				"actor",
+				"createdAt",
+				"dismissed"
+			],
+			"properties": {
+				"actor": {
+					"type": "ref",
+					"ref": "social.colibri.beta.actor.defs#profileView",
+					"description": "The applicant."
+				},
+				"createdAt": {
+					"type": "string",
+					"format": "datetime",
+					"description": "When the application was made."
+				},
+				"dismissed": {
+					"type": "boolean",
+					"description": "Whether a moderator has hidden this from the active queue."
+				}
+			}
+		},
+		"invitationView": {
+			"type": "object",
+			"description": "An invitation code.",
+			"required": [
+				"code",
+				"createdBy",
+				"active",
+				"createdAt"
+			],
+			"properties": {
+				"code": {
+					"type": "string",
+					"description": "The invitation code."
+				},
+				"createdBy": {
+					"type": "string",
+					"format": "did",
+					"description": "Who created it."
+				},
+				"active": {
+					"type": "boolean",
+					"description": "Whether it can still be redeemed."
+				},
+				"createdAt": {
+					"type": "string",
+					"format": "datetime",
+					"description": "When it was created."
+				},
+				"expiresAt": {
+					"type": "string",
+					"format": "datetime",
+					"description": "When it stops being redeemable, if ever."
+				},
+				"uses": {
+					"type": "integer",
+					"description": "How many times it has been redeemed."
+				},
+				"maxUses": {
+					"type": "integer",
+					"description": "How many times it may be redeemed, if limited."
+				}
+			}
+		},
+		"moderationView": {
+			"type": "object",
+			"description": "An entry in a community's moderation log.",
+			"required": [
+				"rkey",
+				"action",
+				"subject",
+				"createdBy",
+				"createdAt"
+			],
+			"properties": {
+				"rkey": {
+					"type": "string",
+					"format": "record-key",
+					"description": "The log entry's record key."
+				},
+				"action": {
+					"type": "string",
+					"description": "The action taken.",
+					"knownValues": [
+						"ban",
+						"unban",
+						"kick"
+					]
+				},
+				"subject": {
+					"type": "ref",
+					"ref": "social.colibri.beta.actor.defs#profileView",
+					"description": "Who it was taken against."
+				},
+				"reason": {
+					"type": "string",
+					"description": "Human-readable reason.",
+					"maxLength": 512
+				},
+				"createdBy": {
+					"type": "string",
+					"format": "did",
+					"description": "Which moderator took it."
+				},
+				"createdAt": {
+					"type": "string",
+					"format": "datetime",
+					"description": "When it was taken."
+				}
+			}
+		},
+		"labelView": {
+			"type": "object",
+			"description": "A label applied to a record.",
+			"required": [
+				"src",
+				"val",
+				"createdAt"
+			],
+			"properties": {
+				"src": {
+					"type": "string",
+					"format": "did",
+					"description": "The labeler that applied it."
+				},
+				"val": {
+					"type": "string",
+					"description": "The label value."
+				},
+				"scope": {
+					"type": "array",
+					"items": {
+						"type": "string",
+						"format": "uri",
+						"description": "A URI within the labelled record."
+					},
+					"description": "What the label narrows to."
+				},
+				"reason": {
+					"type": "string",
+					"description": "Human-readable reason.",
+					"maxLength": 512
+				},
+				"createdAt": {
+					"type": "string",
+					"format": "datetime",
+					"description": "When it was applied."
+				}
+			}
+		},
+		"bannedActorView": {
+			"type": "object",
+			"description": "A member who is currently banned from a community. Derived from the moderation log, which records bans and unbans as separate entries.",
+			"required": [
+				"actor",
+				"bannedBy",
+				"bannedAt"
+			],
+			"properties": {
+				"actor": {
+					"type": "ref",
+					"ref": "social.colibri.beta.actor.defs#profileView",
+					"description": "The banned member."
+				},
+				"reason": {
+					"type": "string",
+					"maxLength": 512,
+					"description": "Why they were banned."
+				},
+				"bannedBy": {
+					"type": "string",
+					"format": "did",
+					"description": "Which moderator banned them."
+				},
+				"bannedAt": {
+					"type": "string",
+					"format": "datetime",
+					"description": "When the ban took effect."
+				}
+			}
+		},
+		"legacyCommunityView": {
+			"type": "object",
+			"description": "A repo-backed community that has not been migrated onto spaces yet, as read live from its own public repo. This is not an indexed view: the AppView holds nothing about a community until it is migrated.",
+			"required": [
+				"did",
+				"name"
+			],
+			"properties": {
+				"did": {
+					"type": "string",
+					"format": "did",
+					"description": "The legacy community's DID, which becomes the authority for its spaces once migrated."
+				},
+				"handle": {
+					"type": "string",
+					"format": "handle",
+					"description": "The community's handle, when its DID document still resolves one."
+				},
+				"name": {
+					"type": "string",
+					"description": "The community's name."
+				},
+				"description": {
+					"type": "string",
+					"description": "The community's description."
+				},
+				"memberCount": {
+					"type": "integer",
+					"description": "How many member records the legacy repo holds."
+				},
+				"channelCount": {
+					"type": "integer",
+					"description": "How many channel records the legacy repo holds. Migration recreates one space per channel."
+				},
+				"viewerIsAdmin": {
+					"type": "boolean",
+					"description": "Whether the requesting user may migrate this community. Only an administrator of the legacy community can."
+				}
+			}
+		}
+	}
+}

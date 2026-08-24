@@ -1,4 +1,3 @@
-import type { AT_URI } from "@colibri-social/lib";
 import { useNavigate, useParams } from "@solidjs/router";
 import {
 	type Component,
@@ -11,14 +10,12 @@ import {
 	Switch,
 } from "solid-js";
 import { toast } from "somoto";
-import { communityUriToUrlCompatible } from "../../../atproto/community-uri-to-url-compatible";
-import { joinCommunity } from "../../../atproto/memberships";
-import { resolveBlob } from "../../../atproto/resolve-blob";
+import { colibri } from "../../../atproto/lexicons";
+import { clientForManagingApp } from "../../../atproto/xrpc";
 import { useMutes } from "../../../contexts/Mutes";
 import { useUserContext } from "../../../contexts/User";
 import { classifyThrown } from "../../../errors/classify";
 import { describeError } from "../../../errors/copy";
-import { AtURI } from "../../../utils/at-uri";
 import { createLogger } from "../../../utils/logger";
 import { Spinner } from "../../icons/Spinner";
 import { Button } from "../../ui/Button";
@@ -54,7 +51,9 @@ export const InviteModal: Component = () => {
 	const [invite] = createResource(
 		() => params.code!,
 		async (code) => {
-			const res = await user.xrpc.social.colibri.community.getInvitation(code);
+			const res = await user.xrpc.call(colibri.community.getInvitation.main, {
+				params: { code },
+			});
 			if (!res.ok) throw res.error;
 			return res.data;
 		},
@@ -70,34 +69,26 @@ export const InviteModal: Component = () => {
 		navigate("/app", { replace: true });
 	};
 
-	const isMemberOf = (communityUri: AT_URI<"social.colibri.community">) => {
-		const segment = communityUriToUrlCompatible(communityUri);
-		return user.communities.some(
-			(c) => communityUriToUrlCompatible(c.uri) === segment,
-		);
-	};
+	const isMemberOf = (did: string) =>
+		user.communities.some((c) => c.did === did);
 
 	createEffect(() => {
 		const data = invite();
 		if (!data?.community) return;
-		if (isMemberOf(data.community)) {
-			navigate(`/app/c/${communityUriToUrlCompatible(data.community)}`, {
-				replace: true,
-			});
+		if (isMemberOf(data.community.did)) {
+			navigate(`/app/c/${data.community.did}`, { replace: true });
 		}
 	});
 
-	const waitForAdmission = async (
-		communityUri: AT_URI<"social.colibri.community">,
-	) => {
+	const waitForAdmission = async (did: string) => {
 		const deadline = Date.now() + ADMISSION_TIMEOUT_MS;
 
-		while (!isMemberOf(communityUri) && Date.now() < deadline) {
+		while (!isMemberOf(did) && Date.now() < deadline) {
 			await new Promise((resolve) => setTimeout(resolve, ADMISSION_POLL_MS));
 			await user.refetchCommunities();
 		}
 
-		return isMemberOf(communityUri);
+		return isMemberOf(did);
 	};
 
 	const accept = async () => {
@@ -106,17 +97,28 @@ export const InviteModal: Component = () => {
 
 		setJoining(true);
 		try {
-			await joinCommunity(user.atproto.agent, user.did, data.community);
-			if (muteOn()) await mutes.muteCommunity(data.community);
+			const client = clientForManagingApp(
+				user.atproto.agent,
+				data.community.managingApp,
+			);
+			const joinRes = await client.call(colibri.community.join.main, {
+				body: {
+					community: data.community.did,
+					invitation: data.invitation.code,
+				},
+			});
+			if (!joinRes.ok) throw joinRes.error;
 
-			if (data.requiresApprovalToJoin) {
+			if (muteOn()) await mutes.muteCommunity(data.community.did);
+
+			if (joinRes.data.status === "pending") {
 				clearPendingInvite();
 				toast.success("Your request to join has been sent to the moderators.");
 				navigate("/app", { replace: true });
 				return;
 			}
 
-			if (!(await waitForAdmission(data.community))) {
+			if (!(await waitForAdmission(data.community.did))) {
 				toast.error(
 					"You joined, but the community hasn't confirmed it yet. Try again in a moment.",
 				);
@@ -125,9 +127,7 @@ export const InviteModal: Component = () => {
 			}
 
 			clearPendingInvite();
-			navigate(`/app/c/${communityUriToUrlCompatible(data.community)}`, {
-				replace: true,
-			});
+			navigate(`/app/c/${data.community.did}`, { replace: true });
 		} catch (err) {
 			log.error("joining the community failed", {
 				code: classifyThrown(err).code,
@@ -137,7 +137,7 @@ export const InviteModal: Component = () => {
 		}
 	};
 
-	const avatarUrl = () => resolveBlob(user.did, user.data.avatar);
+	const avatarUrl = () => user.avatar;
 
 	return (
 		<Dialog open onOpenChange={(open) => !open && dismiss()}>
@@ -164,7 +164,9 @@ export const InviteModal: Component = () => {
 						</Match>
 						<Match
 							when={
-								!invite() || invite()?.active === false || !invite()?.community
+								!invite() ||
+								invite()?.invitation.active === false ||
+								!invite()?.community
 							}
 						>
 							<div class="flex flex-col items-center text-center gap-4 py-4">
@@ -179,10 +181,7 @@ export const InviteModal: Component = () => {
 						</Match>
 						<Match when={invite()}>
 							{(data) => {
-								const communityDid = () =>
-									AtURI.parseAtURI(data().community).did;
-								const pictureUrl = () =>
-									resolveBlob(communityDid(), data().picture);
+								const pictureUrl = () => data().community.picture;
 
 								return (
 									<>
@@ -197,22 +196,20 @@ export const InviteModal: Component = () => {
 													src={pictureUrl()}
 													width="64"
 													height="64"
-													alt={data().name}
+													alt={data().community.name}
 													class="w-16 h-16 rounded-2xl object-cover bg-card"
 												/>
 											</Show>
 											<small class="text-muted-foreground">
 												You've been invited to join
 											</small>
-											<h2 class="text-2xl font-black m-0">{data().name}</h2>
+											<h2 class="text-2xl font-black m-0">
+												{data().community.name}
+											</h2>
 											<div class="flex items-center gap-4 text-sm text-muted-foreground">
 												<span class="flex items-center gap-1.5">
-													<span class="w-2 h-2 rounded-full bg-green-500" />
-													{data().onlineCount} Online
-												</span>
-												<span class="flex items-center gap-1.5">
 													<span class="w-2 h-2 rounded-full bg-muted-foreground" />
-													{data().memberCount} Members
+													{data().community.memberCount ?? 0} Members
 												</span>
 											</div>
 										</div>

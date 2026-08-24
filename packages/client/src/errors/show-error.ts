@@ -1,7 +1,6 @@
 import { toast } from "somoto";
 import { sessionDead } from "../atproto/session-health";
 import { describeError, FALLBACK_COPY } from "./copy";
-import { showCrossAppViewHint } from "./cross-appview-hint";
 import { isColibriError, isRetryable } from "./error";
 import { type ReportOptions, reportError } from "./report";
 
@@ -27,14 +26,6 @@ export const showError = (
 	const classified = report ? reportError(err, reportOptions) : err;
 
 	if (sessionDead() && isColibriError(classified) && classified.needsReauth) {
-		return;
-	}
-
-	if (
-		isColibriError(classified) &&
-		classified.code === "AppViewNotAuthorized" &&
-		showCrossAppViewHint()
-	) {
 		return;
 	}
 

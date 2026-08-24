@@ -1,0 +1,55 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.notification.listNotifications",
+	"defs": {
+		"main": {
+			"type": "query",
+			"description": "Gets the requesting user's notifications, newest first.",
+			"parameters": {
+				"type": "params",
+				"properties": {
+					"limit": {
+						"type": "integer",
+						"minimum": 1,
+						"maximum": 100,
+						"default": 50,
+						"description": "Maximum number of notifications to return."
+					},
+					"cursor": {
+						"type": "string",
+						"description": "Pagination cursor from a previous call."
+					}
+				}
+			},
+			"output": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"notifications"
+					],
+					"properties": {
+						"cursor": {
+							"type": "string",
+							"description": "Pagination cursor for the next page, when more notifications remain."
+						},
+						"notifications": {
+							"type": "array",
+							"description": "The requesting user's notifications, newest first.",
+							"items": {
+								"type": "ref",
+								"ref": "social.colibri.beta.notification.defs#notificationView"
+							}
+						}
+					}
+				}
+			},
+			"errors": [
+				{
+					"name": "AuthRequired",
+					"description": "The request has no valid service auth."
+				}
+			]
+		}
+	}
+}

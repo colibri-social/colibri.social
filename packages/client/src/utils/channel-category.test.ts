@@ -1,19 +1,22 @@
 import { describe, expect, it } from "vitest";
+import { asSpaceRef } from "../atproto/lexicons";
 import { ambiguousCategoryName } from "./channel-category";
 
 const DID = "did:plc:abc123";
-const SUPPORT = `at://${DID}/social.colibri.category/support`;
-const BUGS = `at://${DID}/social.colibri.category/bugs`;
+const SUPPORT = "support";
+const BUGS = "bugs";
 
 const channel = (rkey: string, name: string, category: string) => ({
-	uri: `at://${DID}/social.colibri.channel/${rkey}`,
+	space: asSpaceRef(
+		`at://${DID}/space/social.colibri.beta.channel.text/${rkey}`,
+	),
 	name,
 	category,
 });
 
 const categories = [
-	{ uri: SUPPORT, name: "Support" },
-	{ uri: BUGS, name: "Bugs" },
+	{ rkey: SUPPORT, name: "Support" },
+	{ rkey: BUGS, name: "Bugs" },
 ];
 
 describe("ambiguousCategoryName", () => {
@@ -51,12 +54,8 @@ describe("ambiguousCategoryName", () => {
 		expect(ambiguousCategoryName(target, channels, categories)).toBeUndefined();
 	});
 
-	it("returns nothing when the category uri does not resolve", () => {
-		const target = channel(
-			"general-a",
-			"general",
-			`at://${DID}/social.colibri.category/gone`,
-		);
+	it("returns nothing when the category key does not resolve", () => {
+		const target = channel("general-a", "general", "gone");
 		const channels = [target, channel("general-b", "general", BUGS)];
 
 		expect(ambiguousCategoryName(target, channels, categories)).toBeUndefined();

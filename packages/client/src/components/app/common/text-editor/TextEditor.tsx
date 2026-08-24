@@ -1,5 +1,6 @@
 import {
 	type ColibriRichTextFacet,
+	type ColibriRichTextFeature,
 	facetsToSource,
 	parseMarkdown,
 	tokenizeMarkdown,
@@ -33,9 +34,8 @@ import TextBIcon from "~icons/ph/text-b";
 import TextItalicIcon from "~icons/ph/text-italic";
 import TextStrikethroughIcon from "~icons/ph/text-strikethrough";
 import TextUnderlineIcon from "~icons/ph/text-underline";
-import { namespace } from "../../../../atproto/cache/keys";
 import { parseColibriChannelUrl } from "../../../../atproto/colibri-channel-url";
-import type { GifItem } from "../../../../atproto/xrpc/social/colibri/embed/gifTypes";
+import type { GifView } from "../../../../atproto/views";
 import { useChannelContext } from "../../../../contexts/Channel";
 import {
 	useCommunityContext,
@@ -43,7 +43,6 @@ import {
 } from "../../../../contexts/Community";
 import { useUserContext } from "../../../../contexts/User";
 import { useUserPreferences } from "../../../../contexts/UserPreferences";
-import { getAppViewDid } from "../../../../utils/appview";
 import {
 	readComposerDraft,
 	readEditDraft,
@@ -589,7 +588,7 @@ export const TextEditor: Component<{
 	const chipScope = (): ChipScope => ({
 		communities: user.communities,
 		categories: community().categories ?? [],
-		currentCommunityUri: community().community.uri,
+		currentCommunityDid: community().community.did,
 	});
 
 	const mentionableRoles = () =>
@@ -663,9 +662,10 @@ export const TextEditor: Component<{
 
 							const lastMessageByUser = channel
 								.messages()
-								.findLast((x) => x.author.did === user.did);
+								.findLast((x) => x.author.did === user.did && "rkey" in x);
 
-							if (!lastMessageByUser) return true;
+							if (!lastMessageByUser || !("rkey" in lastMessageByUser))
+								return true;
 
 							channel.setEditingMessage(lastMessageByUser);
 
@@ -933,15 +933,19 @@ export const TextEditor: Component<{
 						? parseColibriChannelUrl(pastedText)
 						: null;
 					if (pastedText && channelTarget) {
-						insertChannelChip(view, pastedText, channelTarget, {
-							xrpc: user.xrpc,
-							communities: user.communities,
-							channels: community().channels ?? [],
-							categories: community().categories ?? [],
-							currentCommunityUri: community().community.uri,
-							ns: namespace(getAppViewDid(), user.did),
-						});
-						return true;
+						const inserted = insertChannelChip(
+							view,
+							pastedText,
+							channelTarget,
+							{
+								xrpc: user.xrpc,
+								communities: user.communities,
+								channels: community().channels ?? [],
+								categories: community().categories ?? [],
+								currentCommunityDid: community().community.did,
+							},
+						);
+						if (inserted) return true;
 					}
 				}
 
@@ -1012,16 +1016,19 @@ export const TextEditor: Component<{
 	 * becomes the message text wrapped in a link facet so it renders inline (see
 	 * `Embed`), and is recorded in recents.
 	 */
-	const sendGif = (gif: GifItem) => {
-		const byteEnd = new TextEncoder().encode(gif.mediaUrl).length;
+	const sendGif = (gif: GifView) => {
+		const byteEnd = new TextEncoder().encode(gif.url).length;
 		const facet: ColibriRichTextFacet = {
 			index: { byteStart: 0, byteEnd },
 			features: [
-				{ $type: "social.colibri.richtext.facet#link", uri: gif.mediaUrl },
+				{
+					$type: "social.colibri.beta.richtext.facet#link",
+					uri: gif.url,
+				} as ColibriRichTextFeature,
 			],
 		};
 		pushRecentGif(gif);
-		void props.sendMessage(gif.mediaUrl, [facet]);
+		void props.sendMessage(gif.url, [facet]);
 	};
 
 	createEffect(() => props.onProgress?.(characterPercentage()));
@@ -1152,7 +1159,7 @@ export const TextEditor: Component<{
 			const editingMsg = isMobile() ? channel.editingMessage() : undefined;
 			const key: BufferKey = editingMsg
 				? { kind: "edit", uri: editingMsg.uri }
-				: { kind: "channel", uri: channel.channelUri() };
+				: { kind: "channel", uri: channel.channelSpace() };
 			if (!instance) return;
 
 			untrack(() => {

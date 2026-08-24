@@ -183,7 +183,7 @@ export const SignInShowcase: Component = () => {
 												overrideSrc={parent().speaker.avatar}
 											/>
 											<strong class="block text-xs">
-												{parent().speaker.actor.data.displayName}
+												{parent().speaker.actor.displayName}
 											</strong>
 											<span class="flex-1 overflow-hidden text-ellipsis whitespace-nowrap text-xs">
 												{parent().text}
@@ -218,7 +218,7 @@ export const SignInShowcase: Component = () => {
 									<Show when={!isGrouped(index())}>
 										<div class="flex flex-wrap items-baseline gap-2 text-sm">
 											<span class="font-bold">
-												{message.speaker.actor.data.displayName}
+												{message.speaker.actor.displayName}
 											</span>
 											<small class="text-muted-foreground">
 												<MessageTimestamp datetime={message.createdAt} />
@@ -262,7 +262,7 @@ export const SignInShowcase: Component = () => {
 									<span class="size-1 animate-pulse rounded-full bg-current [animation-delay:300ms]" />
 								</span>
 								<span class="truncate">
-									{typingLabel(speaker().actor.data.displayName)}
+									{typingLabel(speaker().actor.displayName)}
 								</span>
 							</>
 						)}

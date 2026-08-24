@@ -1,0 +1,92 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.community.update",
+	"defs": {
+		"main": {
+			"type": "procedure",
+			"description": "Updates a community's settings. A field left absent stays unchanged.",
+			"input": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"community"
+					],
+					"properties": {
+						"community": {
+							"type": "string",
+							"format": "did",
+							"description": "The community to update."
+						},
+						"name": {
+							"type": "string",
+							"minLength": 1,
+							"maxLength": 32,
+							"description": "The community's name."
+						},
+						"description": {
+							"type": "string",
+							"maxLength": 256,
+							"description": "The community's description."
+						},
+						"requiresApprovalToJoin": {
+							"type": "boolean",
+							"description": "Whether joining produces an application to approve."
+						},
+						"linkEmbeds": {
+							"type": "boolean",
+							"description": "Whether link previews are shown by default."
+						},
+						"labelers": {
+							"type": "array",
+							"items": {
+								"type": "string",
+								"format": "did",
+								"description": "A labeler."
+							},
+							"description": "DIDs whose labels this community honours."
+						}
+					}
+				}
+			},
+			"output": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"community"
+					],
+					"properties": {
+						"community": {
+							"type": "ref",
+							"ref": "social.colibri.beta.community.defs#communityView",
+							"description": "The updated community."
+						}
+					}
+				}
+			},
+			"errors": [
+				{
+					"name": "AuthRequired",
+					"description": "The request is missing, malformed, or unverifiable service auth."
+				},
+				{
+					"name": "Forbidden",
+					"description": "The requesting user lacks the community.manage permission."
+				},
+				{
+					"name": "CommunityNotFound",
+					"description": "No community exists with that DID."
+				},
+				{
+					"name": "CredentialsUnavailable",
+					"description": "The AppView's stored credentials for this community are missing or unusable."
+				},
+				{
+					"name": "UpstreamFailure",
+					"description": "A PDS or third-party call the AppView depends on failed."
+				}
+			]
+		}
+	}
+}

@@ -1,56 +1,24 @@
-/**
- * Per-user GIF favorites, stored as a single `social.colibri.actor.gifFavorites`
- * record on the user's own PDS (deterministic rkey `self`, like the read-cursor
- * record). This is purely client-owned data: we write it with `putRecord` and
- * read it straight back from the user's repo with `getRecord` — the AppView
- * neither indexes nor serves it, so favorites sync across devices for free via
- * the PDS.
- */
 import type { Agent } from "@atproto/api";
-import { classifyThrown, isRecordNotFound } from "../errors/classify";
-import { putRecord } from "./pds";
-import type { GifItem } from "./xrpc/social/colibri/embed/gifTypes";
+import {
+	getPreferences,
+	type PreferencesOutput,
+	writeActorSettings,
+} from "./notificationPreference";
+import type { GifView } from "./views";
+import type { ColibriClient } from "./xrpc";
+import type { XrpcResult } from "./xrpc/result";
 
-const FAVORITES_COLLECTION = "social.colibri.actor.gifFavorites";
-const FAVORITES_RKEY = "self";
-
-type GifFavoritesRecord = {
-	items?: Array<GifItem>;
-};
-
-/**
- * Reads the user's favorite GIFs from their PDS. Returns `[]` when the record
- * doesn't exist yet (first use) or on any read error.
- */
 export const readGifFavorites = async (
-	agent: Agent,
-	userDid: string,
-): Promise<Array<GifItem>> => {
-	try {
-		const res = await agent.com.atproto.repo.getRecord({
-			repo: userDid,
-			collection: FAVORITES_COLLECTION,
-			rkey: FAVORITES_RKEY,
-		});
-		const value = res.data.value as GifFavoritesRecord;
-		return value.items ?? [];
-	} catch (err) {
-		if (isRecordNotFound(err)) return [];
-		throw classifyThrown(err, { method: "com.atproto.repo.getRecord" });
-	}
+	xrpc: ColibriClient,
+): Promise<ReadonlyArray<GifView>> => {
+	const res = await getPreferences(xrpc);
+	return res.ok ? res.data.preferences.gifFavorites : [];
 };
 
-/**
- * Overwrites the user's favorites record with `items`. Callers manage the array
- * (add/remove + ordering) and persist the whole list, mirroring how the
- * community-order record is written.
- */
-export const writeGifFavorites = async (
+export const writeGifFavorites = (
 	agent: Agent,
-	userDid: string,
-	items: Array<GifItem>,
-): Promise<void> => {
-	await putRecord(agent, userDid, FAVORITES_COLLECTION, FAVORITES_RKEY, {
-		items,
-	});
-};
+	xrpc: ColibriClient,
+	actorDid: string,
+	items: ReadonlyArray<GifView>,
+): Promise<XrpcResult<PreferencesOutput>> =>
+	writeActorSettings(agent, xrpc, actorDid, { gifFavorites: [...items] });

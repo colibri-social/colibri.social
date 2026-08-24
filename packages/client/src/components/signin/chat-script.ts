@@ -1,8 +1,9 @@
-import type { ActorData } from "@colibri-social/lib";
+import { asDid, asHandle } from "../../atproto/lexicons";
+import type { ProfileView } from "../../atproto/views";
 import { parseEmojiText } from "../../utils/emoji";
 
 export type Speaker = {
-	actor: ActorData;
+	actor: ProfileView;
 	avatar: string;
 	color: string;
 };
@@ -42,14 +43,13 @@ export const SPEAKERS: Array<Speaker> = CAST.map((member) => ({
 	color: member.color,
 	avatar: avatarFor(member.color),
 	actor: {
-		did: `did:plc:showcase-${member.handle}`,
-		handle: member.handle,
-		data: {
-			displayName: member.name,
-			isBot: false,
-			onlineState: "online",
-		},
-	} as ActorData,
+		did: asDid(`did:plc:showcase-${member.handle}`),
+		handle: asHandle(member.handle),
+		displayName: member.name,
+		isBot: false,
+		syncBluesky: false,
+		presence: { onlineState: "online" },
+	},
 }));
 
 type Turn = { role: number; text: string; reply?: boolean };
@@ -319,7 +319,7 @@ const escapeHtml = (value: string) =>
 	value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
 const nameForRole = (cast: Array<Speaker>, role: string) =>
-	cast[Number(role) % cast.length].actor.data.displayName;
+	cast[Number(role) % cast.length].actor.displayName;
 
 const toPlainText = (text: string, cast: Array<Speaker>) =>
 	text.replace(MENTION_PATTERN, (_, role) => `@${nameForRole(cast, role)}`);

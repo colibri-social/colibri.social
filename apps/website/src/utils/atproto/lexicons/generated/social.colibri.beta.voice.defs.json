@@ -1,0 +1,460 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.voice.defs",
+	"defs": {
+		"rtpCapabilities": {
+			"type": "object",
+			"description": "The RTP capabilities a WebRTC endpoint supports.",
+			"properties": {
+				"payload": {
+					"type": "unknown",
+					"description": "The opaque mediasoup capability blob."
+				}
+			}
+		},
+		"transportOptions": {
+			"type": "object",
+			"description": "Parameters for creating one side of a WebRTC transport.",
+			"required": [
+				"id",
+				"iceParameters",
+				"iceCandidates",
+				"dtlsParameters"
+			],
+			"properties": {
+				"id": {
+					"type": "string",
+					"description": "The transport's identifier."
+				},
+				"iceParameters": {
+					"type": "unknown",
+					"description": "The opaque mediasoup ICE parameters blob."
+				},
+				"iceCandidates": {
+					"type": "array",
+					"description": "The mediasoup ICE candidates, one opaque blob per candidate. This is an array, not a single object, because that is what a WebRTC transport hands back.",
+					"items": {
+						"type": "unknown",
+						"description": "One opaque mediasoup ICE candidate."
+					}
+				},
+				"dtlsParameters": {
+					"type": "unknown",
+					"description": "The opaque mediasoup DTLS parameters blob."
+				},
+				"direction": {
+					"type": "string",
+					"description": "Which side of the call this transport carries.",
+					"knownValues": [
+						"send",
+						"recv"
+					]
+				}
+			}
+		},
+		"producerInfo": {
+			"type": "object",
+			"description": "A media producer available to consume.",
+			"required": [
+				"producerId",
+				"did",
+				"kind"
+			],
+			"properties": {
+				"producerId": {
+					"type": "string",
+					"description": "The producer's identifier."
+				},
+				"did": {
+					"type": "string",
+					"format": "did",
+					"description": "Who is producing this media."
+				},
+				"kind": {
+					"type": "string",
+					"description": "The media kind.",
+					"knownValues": [
+						"audio",
+						"video"
+					]
+				},
+				"paused": {
+					"type": "boolean",
+					"description": "Whether the producer is currently paused."
+				},
+				"source": {
+					"type": "string",
+					"description": "What the producer captures.",
+					"knownValues": [
+						"microphone",
+						"camera",
+						"screen"
+					]
+				}
+			}
+		},
+		"consumerOptions": {
+			"type": "object",
+			"description": "Parameters for consuming one producer.",
+			"required": [
+				"id",
+				"producerId",
+				"kind",
+				"rtpParameters"
+			],
+			"properties": {
+				"id": {
+					"type": "string",
+					"description": "The consumer's identifier."
+				},
+				"producerId": {
+					"type": "string",
+					"description": "The producer being consumed."
+				},
+				"kind": {
+					"type": "string",
+					"description": "The media kind.",
+					"knownValues": [
+						"audio",
+						"video"
+					]
+				},
+				"rtpParameters": {
+					"type": "unknown",
+					"description": "The opaque mediasoup RTP parameters blob."
+				}
+			}
+		},
+		"speakingUpdate": {
+			"type": "object",
+			"description": "A change in whether someone is currently speaking.",
+			"required": [
+				"did",
+				"speaking"
+			],
+			"properties": {
+				"did": {
+					"type": "string",
+					"format": "did",
+					"description": "Who this update is about."
+				},
+				"speaking": {
+					"type": "boolean",
+					"description": "Whether they are currently speaking."
+				},
+				"level": {
+					"type": "integer",
+					"description": "An audio level in dBFS."
+				}
+			}
+		},
+		"join": {
+			"type": "object",
+			"description": "Joins a voice channel. A connection must join before sending any other frame, and joining a second channel leaves the first.",
+			"required": [
+				"channel"
+			],
+			"properties": {
+				"channel": {
+					"type": "string",
+					"format": "space-ref",
+					"description": "The voice channel to join."
+				}
+			}
+		},
+		"leave": {
+			"type": "object",
+			"description": "Leaves the voice channel this connection is joined to.",
+			"required": [],
+			"properties": {}
+		},
+		"getRtpCapabilities": {
+			"type": "object",
+			"description": "Requests the router's RTP capabilities for the joined channel.",
+			"required": [],
+			"properties": {}
+		},
+		"createTransport": {
+			"type": "object",
+			"description": "Requests a new WebRTC transport for the joined channel.",
+			"required": [
+				"direction"
+			],
+			"properties": {
+				"direction": {
+					"type": "string",
+					"description": "Whether this transport will send or receive media.",
+					"knownValues": [
+						"send",
+						"recv"
+					]
+				}
+			}
+		},
+		"connectTransport": {
+			"type": "object",
+			"description": "Completes DTLS negotiation for a transport this connection created.",
+			"required": [
+				"transportId",
+				"dtlsParameters"
+			],
+			"properties": {
+				"transportId": {
+					"type": "string",
+					"description": "The transport to connect."
+				},
+				"dtlsParameters": {
+					"type": "unknown",
+					"description": "The opaque mediasoup DTLS parameters blob."
+				}
+			}
+		},
+		"produce": {
+			"type": "object",
+			"description": "Starts producing media on a send transport this connection created.",
+			"required": [
+				"transportId",
+				"kind",
+				"rtpParameters",
+				"source"
+			],
+			"properties": {
+				"transportId": {
+					"type": "string",
+					"description": "The send transport to produce on."
+				},
+				"kind": {
+					"type": "string",
+					"description": "The media kind.",
+					"knownValues": [
+						"audio",
+						"video"
+					]
+				},
+				"rtpParameters": {
+					"type": "unknown",
+					"description": "The opaque mediasoup RTP parameters blob."
+				},
+				"source": {
+					"type": "string",
+					"description": "What this producer captures.",
+					"knownValues": [
+						"microphone",
+						"camera",
+						"screen"
+					]
+				}
+			}
+		},
+		"closeProducer": {
+			"type": "object",
+			"description": "Closes a producer this connection owns.",
+			"required": [
+				"producerId"
+			],
+			"properties": {
+				"producerId": {
+					"type": "string",
+					"description": "The producer to close."
+				}
+			}
+		},
+		"consume": {
+			"type": "object",
+			"description": "Starts consuming another peer's producer on a receive transport this connection created.",
+			"required": [
+				"transportId",
+				"producerId",
+				"rtpCapabilities"
+			],
+			"properties": {
+				"transportId": {
+					"type": "string",
+					"description": "The receive transport to consume on."
+				},
+				"producerId": {
+					"type": "string",
+					"description": "The producer to consume."
+				},
+				"rtpCapabilities": {
+					"type": "unknown",
+					"description": "This connection's opaque mediasoup RTP capabilities blob."
+				}
+			}
+		},
+		"resumeConsumer": {
+			"type": "object",
+			"description": "Resumes a consumer this connection created, which is created paused by default.",
+			"required": [
+				"consumerId"
+			],
+			"properties": {
+				"consumerId": {
+					"type": "string",
+					"description": "The consumer to resume."
+				}
+			}
+		},
+		"setSelfState": {
+			"type": "object",
+			"description": "Updates this connection's own mute or deafen state. An absent field leaves the current value unchanged.",
+			"required": [],
+			"properties": {
+				"muted": {
+					"type": "boolean",
+					"description": "Whether the microphone is muted."
+				},
+				"deafened": {
+					"type": "boolean",
+					"description": "Whether incoming audio is silenced."
+				}
+			}
+		},
+		"heartbeat": {
+			"type": "object",
+			"description": "Keeps the connection alive. The server answers with an ack.",
+			"required": [],
+			"properties": {}
+		},
+		"ack": {
+			"type": "object",
+			"description": "Answers a heartbeat.",
+			"required": [],
+			"properties": {}
+		},
+		"error": {
+			"type": "object",
+			"description": "Something the client sent could not be acted on.",
+			"required": [
+				"error"
+			],
+			"properties": {
+				"error": {
+					"type": "string",
+					"description": "Error name.",
+					"knownValues": [
+						"InvalidFrame",
+						"NotJoined",
+						"ChannelNotFound",
+						"NotVoiceChannel",
+						"Forbidden",
+						"NotFound"
+					]
+				},
+				"message": {
+					"type": "string",
+					"description": "Human-readable detail."
+				}
+			}
+		},
+		"joined": {
+			"type": "object",
+			"description": "Confirms this connection has joined a voice channel.",
+			"required": [
+				"channel"
+			],
+			"properties": {
+				"channel": {
+					"type": "string",
+					"format": "space-ref",
+					"description": "The voice channel now joined."
+				}
+			}
+		},
+		"peerJoined": {
+			"type": "object",
+			"description": "Another peer joined the voice channel this connection is in.",
+			"required": [
+				"did"
+			],
+			"properties": {
+				"did": {
+					"type": "string",
+					"format": "did",
+					"description": "Who joined."
+				}
+			}
+		},
+		"peerLeft": {
+			"type": "object",
+			"description": "A peer left the voice channel this connection is in.",
+			"required": [
+				"did"
+			],
+			"properties": {
+				"did": {
+					"type": "string",
+					"format": "did",
+					"description": "Who left."
+				}
+			}
+		},
+		"producerRemoved": {
+			"type": "object",
+			"description": "A peer's producer closed.",
+			"required": [
+				"producerId",
+				"did"
+			],
+			"properties": {
+				"producerId": {
+					"type": "string",
+					"description": "The producer that closed."
+				},
+				"did": {
+					"type": "string",
+					"format": "did",
+					"description": "Whose producer this was."
+				}
+			}
+		},
+		"disconnected": {
+			"type": "object",
+			"description": "The server removed this client from the voice channel. Sent only to the client it applies to.",
+			"required": [],
+			"properties": {
+				"reason": {
+					"type": "string",
+					"description": "Why it happened.",
+					"knownValues": [
+						"moderator",
+						"superseded",
+						"channelGone"
+					]
+				}
+			}
+		},
+		"moderationChanged": {
+			"type": "object",
+			"description": "A peer's mute or deafen state changed, whether they did it themselves or a moderator did it to them.",
+			"required": [
+				"did",
+				"muted",
+				"deafened"
+			],
+			"properties": {
+				"did": {
+					"type": "string",
+					"format": "did",
+					"description": "Whose state changed."
+				},
+				"muted": {
+					"type": "boolean",
+					"description": "Whether the microphone is muted, for any reason."
+				},
+				"deafened": {
+					"type": "boolean",
+					"description": "Whether incoming audio is silenced, for any reason."
+				},
+				"serverMuted": {
+					"type": "boolean",
+					"description": "Whether a moderator muted them. When this is true the peer cannot unmute themselves."
+				},
+				"serverDeafened": {
+					"type": "boolean",
+					"description": "Whether a moderator deafened them. When this is true the peer cannot undeafen themselves."
+				}
+			}
+		}
+	}
+}

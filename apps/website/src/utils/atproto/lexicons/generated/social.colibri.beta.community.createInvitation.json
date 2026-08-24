@@ -1,0 +1,66 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.community.createInvitation",
+	"defs": {
+		"main": {
+			"type": "procedure",
+			"description": "Creates an invitation code for a community.",
+			"input": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"community"
+					],
+					"properties": {
+						"community": {
+							"type": "string",
+							"format": "did",
+							"description": "The community to create an invitation for."
+						},
+						"maxUses": {
+							"type": "integer",
+							"minimum": 1,
+							"description": "How many times the invitation may be redeemed, if limited."
+						},
+						"expiresAt": {
+							"type": "string",
+							"format": "datetime",
+							"description": "When the invitation stops being redeemable, if ever."
+						}
+					}
+				}
+			},
+			"output": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"invitation"
+					],
+					"properties": {
+						"invitation": {
+							"type": "ref",
+							"ref": "social.colibri.beta.community.defs#invitationView",
+							"description": "The newly created invitation."
+						}
+					}
+				}
+			},
+			"errors": [
+				{
+					"name": "AuthRequired",
+					"description": "The request is missing, malformed, or unverifiable service auth."
+				},
+				{
+					"name": "Forbidden",
+					"description": "The requesting user lacks the invitation.create permission."
+				},
+				{
+					"name": "CommunityNotFound",
+					"description": "No community exists with that DID."
+				}
+			]
+		}
+	}
+}

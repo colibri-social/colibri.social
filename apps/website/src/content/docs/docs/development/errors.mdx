@@ -16,9 +16,8 @@ a catalog keyed by the code, so the same failure reads the same way everywhere a
 <FileTree>
 
 - packages/client/src/errors/
-  - appview-codes.ts generated from the lexicons, do not edit
   - codes.ts every code, its domain, and whether it is retryable
-  - error.ts the `ColibriError` class
+  - error.ts the client's `ColibriError` class
   - classify.ts wire and thrown values → `ColibriError`
   - copy.ts code → what the user reads
   - report.ts `reportError`, and the account opt-in
@@ -28,20 +27,29 @@ a catalog keyed by the code, so the same failure reads the same way everywhere a
 
 </FileTree>
 
+An AppView error is declared in the `errors` array of its lexicon. Read `error`
+off the response and match it against that array for the method you called.
+Names are specific, such as `CommunityNotFound`, `ChannelNotFound`,
+`RoleHierarchy`, `CredentialsUnavailable` and `Banned`. `codes.ts` lists every
+code the client handles, its domain, and whether it is retryable.
+
 ## The path a failure takes
 
-An AppView error starts as `{error, message}` with a real HTTP status. `request()` in
-`packages/client/src/atproto/xrpc/request.ts` turns that into a `ColibriError` and hands
-callers an `XrpcResult<T>`:
+An AppView error arrives as `{error, message}` with an HTTP status. `call()` in
+`packages/client/src/atproto/xrpc/request.ts` turns that into a `ColibriError`
+and hands callers an `XrpcResult<T>`:
 
 ```ts
-const res = await user.xrpc.social.colibri.community.getData(uri);
+const res = await user.xrpc.call(colibri.community.getCommunity.main, {
+	params: { community },
+});
 if (!res.ok) return showError(res.error, { retry: refetch });
 use(res.data);
 ```
 
-Nothing in a wrapper decides what the user sees. `showError` looks up the copy, and
-`ErrorState` does the same for a panel that would otherwise render blank.
+Nothing on the request path decides what the user sees. `showError` looks up the
+copy, and `ErrorState` does the same for a panel that would otherwise render
+blank.
 
 ## Adding an error
 
@@ -49,40 +57,39 @@ Which steps apply depends on where the failure comes from.
 
 ### A new AppView error
 
-The lexicons are the shared description of what the AppView can return, and a test in each
-repo keeps them up to date, so the lexicon is the first thing you change.
+A lexicon's `errors` array is the only declaration of what a method can
+return, so it's the first and, on the AppView side, the only thing you edit.
 
 <Steps>
 
-1. **Add the variant in the AppView.** In `src/lib/responses.rs`, add it to `ErrorCode`
-   with the HTTP status it answers with. The status matters as much as the name: the client
-   retries `429` and `5xx` and gives up on everything else, so a permission failure that
-   answers `500` gets retried until it exhausts its attempts and then reported as a
-   generic failure.
+1. **Declare it in the lexicon.** In the AppView repository, under
+   `packages/lexicons/lexicons/social/colibri/**`, add an entry to the method's
+   `errors` array: a PascalCase `name` and a `description`.
+   `packages/lexicons/src/conformance.test.ts` fails the build if the name
+   isn't PascalCase or the description is missing, and separately requires
+   every method to declare at least one error.
 
-2. **Emit it** with `ErrorCode::YourCode.with("what went wrong")`. Never build an
-   `ErrorResponse` by struct literal, or the serialized `error` and the status can drift.
+2. **Emit it from the handler**, throwing the `XRPCError` subclass from
+   `@atproto/xrpc-server` that matches the HTTP status you want
+   (`ForbiddenError`, `InvalidRequestError`, and so on), with the lexicon's
+   error name as the second argument. `apps/appview/src/errors.ts` and
+   `apps/appview/src/routes/failures.ts` collect the conversions already in
+   use, from a domain error (`CommunityCredentialError`, `MembershipError`,
+   `ModerationError`, and others) to the right `XRPCError`. Reuse one of
+   those rather than constructing an XRPC error inline where a matching
+   domain error already exists.
 
-3. **Declare it in the lexicon**, in this repo, under
-   `apps/website/src/utils/atproto/lexicons/methods/`. Add an `errors` entry with a
-   `description` for every method that can emit it, then run `pnpm lexicons:export` and
-   `./scripts/sync-lexicons.sh <path-to-this-repo>` from the AppView.
-
-4. **Regenerate the client's codes** with `pnpm error-codes:generate`. This writes
-   `appview-codes.ts`, never hand-edit it.
-
-5. **Write the copy** in `copy.ts`. A test fails if any code lacks it.
+3. **Write the copy** in the client's `copy.ts`. A test fails if any code
+   lacks it.
 
 </Steps>
 
-`cargo test --test lexicons` in the AppView fails both when a handler emits a code no
-lexicon declares (so no client author knows to handle it) and when a lexicon declares one
-nothing emits (so someone writes a branch that can never run). If a mismatch is deliberate
-and temporary, add an `[[error_exception]]` to `lexicons/exceptions.toml` with an `expires`
-date, the build fails again once that date passes.
+Nothing checks that a code a handler throws is declared in the lexicon it
+belongs to, or the reverse, so keep the lexicon and the handler in the same pull
+request.
 
-Generic `500`s are deliberately not declared, the same way atproto does not declare them.
-They arrive as `InternalError`, which lives in the hand-written half of `codes.ts`.
+Generic `500`s are not declared, the same way atproto does not declare them. They arrive as `InternalError`, which lives in the client's
+`codes.ts` like every other code.
 
 ### A client-side error
 
@@ -106,7 +113,7 @@ Forbidden: {
 
 Avoid a title that only restates the code (`"Forbidden"`), and avoid promising something you
 do not do. Server messages are kept on `serverMessage` for diagnostics but are never rendered on
-their own, because they are written for us rather than for the person reading them.
+their own, because they are written for developers rather than for the person reading them.
 
 ## Picking a surface
 
@@ -123,10 +130,10 @@ their own, because they are written for us rather than for the person reading th
 `report: false` when something else already reported the same failure, so it is not counted
 twice.
 
-## Deliberately ignoring a failure
+## Ignoring a failure
 
-Sometimes swallowing is right. Make it obvious that it was a decision, and never let a read
-failure look like absence:
+Swallowing a failure is sometimes right. Make it obvious that it was a decision, and never let
+a read failure look like absence:
 
 ```ts
 try {
@@ -140,7 +147,7 @@ try {
 
 `createLogger(scope)` gives you `debug`, `info`, `warn` and `error`. Everything goes into an
 in-memory ring buffer that is attached to Sentry reports and included in the diagnostics
-users copy from the About page; `warn` and `error` also become Sentry breadcrumbs. Messages
+users copy from the About page, and `warn` and `error` also become Sentry breadcrumbs. Messages
 and structured data are redacted for tokens, JWTs and emails before being stored.
 
 ```ts
@@ -151,14 +158,14 @@ log.warn("microphone unavailable, joining listen-only", {
 ```
 
 Put detail in the second argument rather than interpolating it into the message, so entries
-stay groupable. `console.*` is rejected by Biome in `packages/client`; only the logger and
-the two dev-only diagnostic sinks may use it.
+stay groupable. `console.*` is rejected by Biome in `packages/client`, and only the logger
+and the two dev-only diagnostic sinks may use it.
 
 Log the classified `code`, never the raw error. The ring buffer is serialised with
 `JSON.stringify`, and an `Error` has no enumerable own properties, so `{ error: err }` is
 stored as `{"error":{}}` and the diagnostics a user copies from the About page tell you
-nothing. A code is stable enough to group on and safe to keep. When a failure has genuinely
-useful context, add it as its own field next to the code:
+nothing. A code is stable enough to group on and safe to keep. When a failure carries useful
+context, add it as its own field next to the code:
 
 ```ts
 log.warn("resolving the PDS host failed", { code: classifyThrown(err).code, did });

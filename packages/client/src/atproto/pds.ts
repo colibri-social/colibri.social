@@ -126,26 +126,29 @@ export const deleteRecords = async (
 	}
 };
 
-/**
- * Fallback for when the reaction rkey isn't in the in-memory cache (e.g.
- * after a page reload). Lists the user's reaction records and returns the
- * rkey of the one matching `messageUri` + `emoji`, or `undefined` if none.
- */
 export const findReactionRkey = async (
 	agent: Agent,
+	space: string,
 	userDid: string,
-	messageUri: string,
+	target: { did: string; rkey: string },
 	emoji: string,
 ): Promise<string | undefined> => {
-	const res = await agent.com.atproto.repo.listRecords({
+	const res = await agent.com.atproto.space.listRecords({
+		space,
 		repo: userDid,
-		collection: "social.colibri.reaction",
+		collection: "social.colibri.beta.reaction",
 		limit: 100,
 	});
-	const match = res.data.records.find(
-		(r) =>
-			(r.value as Record<string, unknown>).parent === messageUri &&
-			(r.value as Record<string, unknown>).emoji === emoji,
-	);
-	return match ? AtURI.parseAtURI(match.uri).identifier : undefined;
+	const match = res.data.records.find((r) => {
+		const value = r.value as {
+			emoji?: string;
+			target?: { did?: string; rkey?: string };
+		};
+		return (
+			value.emoji === emoji &&
+			value.target?.did === target.did &&
+			value.target?.rkey === target.rkey
+		);
+	});
+	return match?.rkey;
 };

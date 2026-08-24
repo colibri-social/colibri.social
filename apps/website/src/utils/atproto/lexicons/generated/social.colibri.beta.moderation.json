@@ -1,0 +1,51 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.moderation",
+	"defs": {
+		"main": {
+			"type": "record",
+			"description": "An audit log entry for a moderation action taken by the community. Enforcement is the space authority declining to issue credentials, and this records that it happened.",
+			"key": "tid",
+			"record": {
+				"type": "object",
+				"required": [
+					"action",
+					"subject",
+					"createdBy",
+					"createdAt"
+				],
+				"properties": {
+					"action": {
+						"type": "string",
+						"knownValues": [
+							"ban",
+							"unban",
+							"kick"
+						],
+						"description": "The action taken."
+					},
+					"subject": {
+						"type": "string",
+						"format": "did",
+						"description": "The member the action was taken against."
+					},
+					"reason": {
+						"type": "string",
+						"maxLength": 512,
+						"description": "Human-readable reason."
+					},
+					"createdBy": {
+						"type": "string",
+						"format": "did",
+						"description": "DID of the moderator who took the action."
+					},
+					"createdAt": {
+						"type": "string",
+						"format": "datetime",
+						"description": "When the action was taken."
+					}
+				}
+			}
+		}
+	}
+}

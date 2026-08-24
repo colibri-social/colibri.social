@@ -9,12 +9,12 @@ import {
 } from "solid-js";
 import PlusIcon from "~icons/ph/plus";
 import XIcon from "~icons/ph/x";
-import type { Member } from "../../../atproto/xrpc/social/colibri/community/listMembers";
-import type { Role } from "../../../atproto/xrpc/social/colibri/community/listRoles";
+import type { RoleView } from "../../../atproto/views";
 import {
 	useCommunityContext,
 	usePermissions,
 } from "../../../contexts/Community";
+import type { Member } from "../../../contexts/community-payload";
 import { useUserContext } from "../../../contexts/User";
 import { foldText } from "../../../utils/fold-text";
 import { groupMembersByRoles } from "../../../utils/group-members-by-roles";
@@ -30,9 +30,9 @@ import User from "../user";
 import { displayableNameFn } from "../user/DisplayableName";
 
 const DisplayedRole: ParentComponent<{
-	role: Role;
+	role: RoleView;
 	manageable: () => boolean;
-	toggleRole?: (uri: string) => void;
+	toggleRole?: (rkey: string) => void;
 }> = (props) => {
 	return (
 		<button
@@ -43,7 +43,7 @@ const DisplayedRole: ParentComponent<{
 				props.toggleRole
 					? () => {
 							if (!props.manageable() || !props.toggleRole) return;
-							props.toggleRole(props.role.uri);
+							props.toggleRole(props.role.rkey);
 						}
 					: undefined
 			}
@@ -88,23 +88,20 @@ const DisplayedMember: ParentComponent<{
 			}}
 		>
 			<div class="flex flex-row items-center gap-2 test">
-				<User.InlineProfile user={props.member} color={false} />
+				<User.InlineProfile user={props.member.actor} color={false} />
 			</div>
 			{props.children}
 		</button>
 	);
 };
 
-/**
- * The roles + members post allow-list editor shared by the channel settings
- * "Permissions" page and the restricted-channel step of the creation modal.
- */
-export const ChannelAllowListEditor: Component<{
+const AllowListSection: Component<{
+	title: string;
+	emptyCaption: string;
 	allowedRoles: Accessor<string[]>;
 	setAllowedRoles: Setter<string[]>;
 	allowedMembers: Accessor<string[]>;
 	setAllowedMembers: Setter<string[]>;
-	disabled?: Accessor<boolean>;
 }> = (props) => {
 	const user = useUserContext();
 	const community = useCommunityContext();
@@ -112,13 +109,13 @@ export const ChannelAllowListEditor: Component<{
 
 	const isAdmin = () => _isAdmin(user.did);
 
-	const addAllowedRole = (uri: string) =>
+	const addAllowedRole = (rkey: string) =>
 		props.setAllowedRoles((prev) =>
-			prev.includes(uri) ? prev : [...prev, uri],
+			prev.includes(rkey) ? prev : [...prev, rkey],
 		);
 
-	const removeAllowedRole = (uri: string) =>
-		props.setAllowedRoles((prev) => prev.filter((r) => r !== uri));
+	const removeAllowedRole = (rkey: string) =>
+		props.setAllowedRoles((prev) => prev.filter((r) => r !== rkey));
 
 	const addAllowedUser = (did: string) =>
 		props.setAllowedMembers((prev) =>
@@ -128,13 +125,12 @@ export const ChannelAllowListEditor: Component<{
 	const removeAllowedUser = (did: string) =>
 		props.setAllowedMembers((prev) => prev.filter((d) => d !== did));
 
-	// Search query for the "add member" popover; reset whenever it closes.
 	const [memberSearch, setMemberSearch] = createSignal("");
 
 	const nonAllowedRoles = () =>
 		community()
 			.assignableRoles.sort((a, b) => b.position - a.position)
-			.filter((x) => !props.allowedRoles().some((y) => x.uri === y));
+			.filter((x) => !props.allowedRoles().some((y) => x.rkey === y));
 
 	const nonAllowedMembers = () => {
 		const query = foldText(memberSearch().trim());
@@ -143,13 +139,11 @@ export const ChannelAllowListEditor: Component<{
 			.filter(
 				(x) =>
 					!query ||
-					foldText(displayableNameFn(x)).includes(query) ||
+					foldText(displayableNameFn(x.data, x.nickname)).includes(query) ||
 					foldText(x.handle).includes(query),
 			);
 	};
 
-	// The already-allowed members, grouped under their roles exactly like the
-	// member sidebar (empty groups dropped).
 	const allowedMembersByRoles = () =>
 		groupMembersByRoles({
 			members: props
@@ -160,7 +154,6 @@ export const ChannelAllowListEditor: Component<{
 			roles: community().roles,
 		}).filter((g) => g.members.length > 0);
 
-	// The "add member" candidates, grouped under their roles the same way.
 	const nonAllowedMembersByRoles = () =>
 		groupMembersByRoles({
 			members: nonAllowedMembers(),
@@ -169,15 +162,11 @@ export const ChannelAllowListEditor: Component<{
 		}).filter((g) => g.members.length > 0);
 
 	return (
-		<div
-			classList={{
-				"opacity-50 pointer-events-none": props.disabled?.() ?? false,
-			}}
-			class="flex flex-col gap-4"
-		>
+		<div class="flex flex-col gap-4">
+			<h4 class="m-0 font-semibold">{props.title}</h4>
 			<div class="flex flex-col gap-2">
 				<div class="flex flex-row items-center w-full justify-between">
-					<h4 class="m-0 font-semibold">Roles</h4>
+					<h5 class="m-0 font-medium text-sm text-muted-foreground">Roles</h5>
 					<Popover placement="bottom-end">
 						<PopoverTrigger>
 							<div class="flex items-center justify-center w-6 h-6 hover:bg-muted/50 cursor-pointer rounded-sm text-foreground">
@@ -211,9 +200,9 @@ export const ChannelAllowListEditor: Component<{
 					</Popover>
 				</div>
 				<For each={props.allowedRoles()}>
-					{(roleUri) => {
+					{(roleKey) => {
 						const role = community().assignableRoles.find(
-							(x) => x.uri === roleUri,
+							(x) => x.rkey === roleKey,
 						)!;
 						const manageable = () => canManageRole(user.did, role);
 
@@ -223,7 +212,7 @@ export const ChannelAllowListEditor: Component<{
 									size="sm"
 									variant="ghost"
 									class="w-6 h-6 p-0! items-center flex px-0! py-0!"
-									onClick={() => removeAllowedRole(roleUri)}
+									onClick={() => removeAllowedRole(roleKey)}
 								>
 									<XIcon />
 								</Button>
@@ -234,7 +223,7 @@ export const ChannelAllowListEditor: Component<{
 			</div>
 			<div class="flex flex-col gap-2">
 				<div class="flex flex-row items-center w-full justify-between">
-					<h4 class="m-0 font-semibold">Members</h4>
+					<h5 class="m-0 font-medium text-sm text-muted-foreground">Members</h5>
 					<Popover
 						placement="bottom-end"
 						onOpenChange={(open) => !open && setMemberSearch("")}
@@ -325,9 +314,47 @@ export const ChannelAllowListEditor: Component<{
 				}
 			>
 				<p class="text-sm text-muted-foreground text-center m-0">
-					No roles or members specified. Everyone will be allowed to chat here!
+					{props.emptyCaption}
 				</p>
 			</Show>
+		</div>
+	);
+};
+
+export const ChannelAllowListEditor: Component<{
+	visibleToRoles: Accessor<string[]>;
+	setVisibleToRoles: Setter<string[]>;
+	visibleToMembers: Accessor<string[]>;
+	setVisibleToMembers: Setter<string[]>;
+	allowedRoles: Accessor<string[]>;
+	setAllowedRoles: Setter<string[]>;
+	allowedMembers: Accessor<string[]>;
+	setAllowedMembers: Setter<string[]>;
+	disabled?: Accessor<boolean>;
+}> = (props) => {
+	return (
+		<div
+			classList={{
+				"opacity-50 pointer-events-none": props.disabled?.() ?? false,
+			}}
+			class="flex flex-col gap-6"
+		>
+			<AllowListSection
+				title="Who can see it"
+				emptyCaption="No roles or members specified. Every member will be able to see this channel!"
+				allowedRoles={props.visibleToRoles}
+				setAllowedRoles={props.setVisibleToRoles}
+				allowedMembers={props.visibleToMembers}
+				setAllowedMembers={props.setVisibleToMembers}
+			/>
+			<AllowListSection
+				title="Who can post in it"
+				emptyCaption="No roles or members specified. Everyone will be allowed to chat here!"
+				allowedRoles={props.allowedRoles}
+				setAllowedRoles={props.setAllowedRoles}
+				allowedMembers={props.allowedMembers}
+				setAllowedMembers={props.setAllowedMembers}
+			/>
 		</div>
 	);
 };

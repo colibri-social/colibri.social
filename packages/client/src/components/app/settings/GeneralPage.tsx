@@ -1,4 +1,3 @@
-import type { JsonBlobRef } from "@atproto/lexicon";
 import type { Details } from "@kobalte/core/file-field";
 import {
 	type Component,
@@ -9,8 +8,9 @@ import {
 } from "solid-js";
 import { toast } from "somoto";
 import ImageIcon from "~icons/ph/image";
+import { COLLECTIONS } from "../../../atproto/lexicons";
 import { putRecord, uploadBlob } from "../../../atproto/pds";
-import { resolveBlob } from "../../../atproto/resolve-blob";
+import type { ProfileView } from "../../../atproto/views";
 import {
 	FileField,
 	FileFieldDropzone,
@@ -50,8 +50,6 @@ import { displayableNameFn } from "../user/DisplayableName";
 
 const log = createLogger("settings/general");
 
-const COLLECTION = "social.colibri.actor.profile";
-
 export const GeneralPage: Component = () => {
 	const user = useUserContext();
 	const [loading, setLoading] = createSignal<boolean>(false);
@@ -59,14 +57,10 @@ export const GeneralPage: Component = () => {
 	const [banner, setBanner] = createSignal<Details>();
 	const [image, setImage] = createSignal<Details>();
 	const [name, setName] = createSignal(displayableNameFn(user));
-	const [description, setDescription] = createSignal(
-		user.data.description || "",
-	);
-	const [syncBluesky, setSyncBluesky] = createSignal(
-		user.data.syncBluesky ?? false,
-	);
+	const [description, setDescription] = createSignal(user.description || "");
+	const [syncBluesky, setSyncBluesky] = createSignal(user.syncBluesky ?? false);
 	const [theme, setTheme] = createSignal<ThemeState>(
-		themeStateFromTheme(user.data.theme),
+		themeStateFromTheme(user.theme),
 	);
 
 	const [imageRemoved, setImageRemoved] = createSignal(false);
@@ -83,20 +77,20 @@ export const GeneralPage: Component = () => {
 
 	const existingImageUrl = () =>
 		!imageRemoved() && image() === undefined
-			? (user.data.avatar ?? undefined)
+			? (user.avatar ?? undefined)
 			: undefined;
 
 	const existingBannerUrl = () =>
 		!bannerRemoved() && banner() === undefined
-			? (user.data.banner ?? undefined)
+			? (user.banner ?? undefined)
 			: undefined;
 
 	const initialTheme = JSON.stringify(themeStateToRecord(theme()));
 
 	const hasEdited = (): boolean =>
 		name() !== displayableNameFn(user) ||
-		description() !== (user.data.description ?? "") ||
-		syncBluesky() !== (user.data.syncBluesky ?? false) ||
+		description() !== (user.description ?? "") ||
+		syncBluesky() !== (user.syncBluesky ?? false) ||
 		JSON.stringify(themeStateToRecord(theme())) !== initialTheme ||
 		imageRemoved() ||
 		bannerRemoved() ||
@@ -118,27 +112,23 @@ export const GeneralPage: Component = () => {
 			try {
 				const res = await agent.com.atproto.repo.getRecord({
 					repo,
-					collection: COLLECTION,
+					collection: COLLECTIONS.profile,
 					rkey: "self",
 				});
 				record = (res.data.value as Record<string, unknown>) ?? {};
-			} catch {
-				// No record yet — create one from scratch.
-			}
+			} catch {}
 
 			record.syncBluesky = sync;
 
 			const themeRecord = themeStateToRecord(theme());
 			record.theme = themeRecord;
 
-			const patch: Partial<typeof user.data> = {
+			const patch: Partial<ProfileView> = {
 				syncBluesky: sync,
 				theme: themeRecord,
 			};
 
 			if (sync) {
-				// Bluesky is the live source for the mirrored fields, so drop them
-				// from the record. Reflect the current Bluesky values locally.
 				record.displayName = undefined;
 				record.description = undefined;
 				record.avatar = undefined;
@@ -153,24 +143,16 @@ export const GeneralPage: Component = () => {
 					const bsky = res.data.value as Record<string, unknown>;
 					patch.displayName = (bsky.displayName as string) ?? user.handle;
 					patch.description = (bsky.description as string) ?? "";
-					patch.avatar = bsky.avatar as JsonBlobRef | undefined;
-					patch.banner = bsky.banner as JsonBlobRef | undefined;
-				} catch {
-					// No Bluesky profile to mirror.
-				}
+				} catch {}
 			} else {
 				record.displayName = name().trim();
 				record.description = description().trim();
 				patch.displayName = name().trim();
 				patch.description = description().trim();
 
-				// Avatar: upload a new file, clear it on removal, otherwise leave
-				// as-is. `toJSON()` yields the `{ ref: { $link } }` shape that
-				// `resolveBlob` expects for freshly uploaded blobs.
 				if (image()) {
 					const blob = await uploadBlob(agent, image()!.acceptedFiles[0]);
 					record.avatar = blob;
-					patch.avatar = blob.toJSON() as unknown as JsonBlobRef;
 				} else if (imageRemoved()) {
 					record.avatar = undefined;
 					patch.avatar = undefined;
@@ -179,16 +161,16 @@ export const GeneralPage: Component = () => {
 				if (banner()) {
 					const blob = await uploadBlob(agent, banner()!.acceptedFiles[0]);
 					record.banner = blob;
-					patch.banner = blob.toJSON() as unknown as JsonBlobRef;
 				} else if (bannerRemoved()) {
 					record.banner = undefined;
 					patch.banner = undefined;
 				}
 			}
 
-			await putRecord(agent, repo, COLLECTION, "self", record);
+			await putRecord(agent, repo, COLLECTIONS.profile, "self", record);
 
-			user.updateActorData(patch);
+			user.updateProfile(patch);
+			void user.refetchProfile();
 
 			toast.success("Profile updated.");
 			resetEdits();
@@ -204,9 +186,9 @@ export const GeneralPage: Component = () => {
 
 	const resetEdits = () => {
 		setName(displayableNameFn(user));
-		setDescription(user.data.description || "");
-		setSyncBluesky(user.data.syncBluesky ?? false);
-		setTheme(themeStateFromTheme(user.data.theme));
+		setDescription(user.description || "");
+		setSyncBluesky(user.syncBluesky ?? false);
+		setTheme(themeStateFromTheme(user.theme));
 		setImage(undefined);
 		setBanner(undefined);
 		setImageRemoved(false);
@@ -245,14 +227,10 @@ export const GeneralPage: Component = () => {
 										</FileFieldItemList>
 									</div>
 								</Match>
-								<Match
-									when={
-										resolveBlob(user.did, existingBannerUrl()!) !== undefined
-									}
-								>
+								<Match when={existingBannerUrl() !== undefined}>
 									<div class="relative h-full w-full">
 										<img
-											src={resolveBlob(user.did, existingBannerUrl()!)}
+											src={existingBannerUrl()}
 											alt={name()}
 											class="h-full w-full object-cover aspect-3/1"
 										/>
@@ -290,14 +268,10 @@ export const GeneralPage: Component = () => {
 											</FileFieldItemList>
 										</div>
 									</Match>
-									<Match
-										when={
-											resolveBlob(user.did, existingImageUrl()!) !== undefined
-										}
-									>
+									<Match when={existingImageUrl() !== undefined}>
 										<div class="relative w-24 h-24">
 											<img
-												src={resolveBlob(user.did, existingImageUrl()!)}
+												src={existingImageUrl()}
 												alt={name()}
 												class="w-24 h-24 object-cover"
 											/>

@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { APPVIEW_CODE_DESCRIPTIONS } from "./appview-codes";
-import { ALL_ERROR_CODES } from "./codes";
+import { ALL_ERROR_CODES, isAppViewErrorCode } from "./codes";
 import {
 	codeForFileRejection,
 	copyForCode,
@@ -10,17 +9,21 @@ import {
 import { ColibriError } from "./error";
 
 describe("copyForCode", () => {
+	const appViewCodes = ALL_ERROR_CODES.filter((code) =>
+		isAppViewErrorCode(code),
+	);
+
 	it("has copy for every code the AppView lexicons declare", () => {
-		for (const code of Object.keys(APPVIEW_CODE_DESCRIPTIONS)) {
-			const copy = copyForCode(code as never);
+		for (const code of appViewCodes) {
+			const copy = copyForCode(code);
 			expect(copy, code).not.toBe(FALLBACK_COPY);
 			expect(copy.title.length, code).toBeGreaterThan(0);
 		}
 	});
 
 	it("never exposes the raw code as a title", () => {
-		for (const code of Object.keys(APPVIEW_CODE_DESCRIPTIONS)) {
-			expect(copyForCode(code as never).title).not.toBe(code);
+		for (const code of appViewCodes) {
+			expect(copyForCode(code).title).not.toBe(code);
 		}
 	});
 });

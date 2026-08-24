@@ -6,23 +6,27 @@ import {
 	on,
 	type Setter,
 } from "solid-js";
-import { toast } from "somoto";
 import BugIcon from "~icons/ph/bug";
 import WarningDiamondIcon from "~icons/ph/warning-diamond";
 import WrenchIcon from "~icons/ph/wrench";
-import type { Category } from "../../../atproto/xrpc/social/colibri/community/listCategories";
+import { colibri } from "../../../atproto/lexicons";
+import type { CategoryView } from "../../../atproto/views";
+import { clientForManagingApp } from "../../../atproto/xrpc";
 import {
 	useCommunityContext,
 	usePermissions,
 } from "../../../contexts/Community";
 import { useUserContext } from "../../../contexts/User";
+import { showError } from "../../../errors/show-error";
 import { Spinner } from "../../icons/Spinner";
 import { Button } from "../../ui/Button";
 import { TextField, TextFieldInput, TextFieldLabel } from "../../ui/TextField";
 import { SettingsInfoPage } from "../common/SettingsInfoPage";
 import { SettingsModal, SettingsPage } from "../common/SettingsModal";
 
-const GeneralCategorySettings: Component<{ category: Category }> = (props) => {
+const GeneralCategorySettings: Component<{ category: CategoryView }> = (
+	props,
+) => {
 	const user = useUserContext();
 	const community = useCommunityContext();
 
@@ -31,32 +35,29 @@ const GeneralCategorySettings: Component<{ category: Category }> = (props) => {
 	const [loading, setLoading] = createSignal(false);
 	const [name, setName] = createSignal(initialName());
 
-	// Re-sync when the record changes underneath us — our own optimistic patch,
-	// the `category_event` echo, or another moderator's edit. See the matching
-	// note in ChannelSettingsModal.
 	createEffect(on(initialName, (n) => setName(n), { defer: true }));
 
 	const handleSave = async () => {
 		const trimmed = name().trim();
 		if (trimmed.length === 0) return;
 		setLoading(true);
-		try {
-			const res = await user.xrpc.social.colibri.category.update(
-				props.category.uri,
-				trimmed,
-			);
-			if (!res) {
-				toast.error("Failed to save category.");
-				return;
-			}
-			// Optimistically reflect the save so the form leaves its dirty state
-			// immediately; the `category_event` echo re-applies the same name.
-			community().utils.patchCategory(props.category.uri, { name: trimmed });
-		} catch {
-			toast.error("Failed to save category.");
-		} finally {
-			setLoading(false);
+		const client = clientForManagingApp(
+			user.atproto.agent,
+			community().community.managingApp,
+		);
+		const res = await client.call(colibri.category.update.main, {
+			body: {
+				community: community().community.did,
+				category: props.category.rkey,
+				name: trimmed,
+			},
+		});
+		setLoading(false);
+		if (!res.ok) {
+			showError(res.error, { fallbackTitle: "Failed to save category." });
+			return;
 		}
+		community().utils.patchCategory(props.category.rkey, { name: trimmed });
 	};
 
 	const isDirty = () => {
@@ -92,9 +93,10 @@ const GeneralCategorySettings: Component<{ category: Category }> = (props) => {
 
 const DangerSettingsPage: Component<{
 	setOpen: Setter<boolean>;
-	category: Category;
+	category: CategoryView;
 }> = (props) => {
 	const user = useUserContext();
+	const community = useCommunityContext();
 
 	const [loading, setLoading] = createSignal<boolean>(false);
 	const [categoryNameReset, setCategoryNameReset] = createSignal("");
@@ -103,14 +105,22 @@ const DangerSettingsPage: Component<{
 
 	const deleteCategory = async () => {
 		setLoading(true);
-		try {
-			await user.xrpc.social.colibri.category.delete(props.category.uri);
-			props.setOpen(false);
-		} catch {
-			toast.error("Failed to delete category.");
-		} finally {
-			setLoading(false);
+		const client = clientForManagingApp(
+			user.atproto.agent,
+			community().community.managingApp,
+		);
+		const res = await client.call(colibri.category.delete.main, {
+			body: {
+				community: community().community.did,
+				category: props.category.rkey,
+			},
+		});
+		setLoading(false);
+		if (!res.ok) {
+			showError(res.error, { fallbackTitle: "Failed to delete category." });
+			return;
 		}
+		props.setOpen(false);
 	};
 
 	return (
@@ -155,7 +165,7 @@ const DangerSettingsPage: Component<{
 };
 
 export const CategorySettingsModal: Component<{
-	category: Category;
+	category: CategoryView;
 	open: Accessor<boolean>;
 	setOpen: Setter<boolean>;
 }> = (props) => {
@@ -200,7 +210,7 @@ export const CategorySettingsModal: Component<{
 			debugPage={{
 				title: "Debug Information",
 				id: "info",
-				component: () => <SettingsInfoPage uri={props.category.uri} />,
+				component: () => <SettingsInfoPage uri={props.category.rkey} />,
 				icon: () => <BugIcon />,
 			}}
 		/>

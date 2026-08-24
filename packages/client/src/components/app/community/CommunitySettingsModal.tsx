@@ -9,6 +9,7 @@ import {
 	For,
 	Match,
 	on,
+	onCleanup,
 	Show,
 	Suspense,
 	Switch,
@@ -34,17 +35,31 @@ import UsersIcon from "~icons/ph/users";
 import WarningDiamondIcon from "~icons/ph/warning-diamond";
 import WrenchIcon from "~icons/ph/wrench";
 import XCircleIcon from "~icons/ph/x-circle";
-import { resolveBlob } from "../../../atproto/resolve-blob";
-import type { Applicant } from "../../../atproto/xrpc/social/colibri/community/listApplications";
-import type { Member } from "../../../atproto/xrpc/social/colibri/community/listMembers";
-import type { Role } from "../../../atproto/xrpc/social/colibri/community/listRoles";
+import { colibri } from "../../../atproto/lexicons";
+import { frameIs } from "../../../atproto/sync-frames";
+import type {
+	BannedActorView,
+	CommunityView,
+	InvitationView,
+} from "../../../atproto/views";
+import { clientForManagingApp } from "../../../atproto/xrpc";
+import type { XrpcFail } from "../../../atproto/xrpc/result";
 import {
 	useCommunityContext,
 	usePermissions,
 } from "../../../contexts/Community";
+import type {
+	Applicant,
+	Member,
+	Role,
+} from "../../../contexts/community-payload";
+import { useSocketContext } from "../../../contexts/Socket";
 import { useUserContext } from "../../../contexts/User";
+import { ColibriError } from "../../../errors/error";
+import { showError } from "../../../errors/show-error";
 import { foldText } from "../../../utils/fold-text";
 import { IMAGE_UPLOAD_ACCEPT } from "../../../utils/image-upload";
+import { webAppOrigin } from "../../../utils/web-origin";
 import { ErrorState } from "../../ErrorState";
 import { Spinner } from "../../icons/Spinner";
 import { Button } from "../../ui/Button";
@@ -95,7 +110,6 @@ import { CopyButton } from "../common/CopyButton";
 import { SettingsInfoPage } from "../common/SettingsInfoPage";
 import { SettingsModal, SettingsPage } from "../common/SettingsModal";
 import User from "../user";
-import { CrossAppViewModerationAlert } from "./CrossAppViewModerationAlert";
 import { DeleteLinkModal } from "./DeleteInvitationModal";
 import { InviteLinkCreationModal } from "./InviteLinkCreationModal";
 import {
@@ -103,6 +117,91 @@ import {
 	MemberActionDialog,
 } from "./MemberActionDialog";
 import { RoleModal } from "./RoleModal";
+
+const MAX_PICTURE_BYTES = 1_048_576;
+const MAX_BANNER_BYTES = 4_194_304;
+
+const ReconnectCredentialsModal: Component<{
+	open: Accessor<boolean>;
+	setOpen: Setter<boolean>;
+}> = (props) => {
+	const user = useUserContext();
+	const community = useCommunityContext();
+
+	const [identifier, setIdentifier] = createSignal("");
+	const [password, setPassword] = createSignal("");
+	const [loading, setLoading] = createSignal(false);
+
+	const submit = async () => {
+		setLoading(true);
+		const client = clientForManagingApp(
+			user.atproto.agent,
+			community().community.managingApp,
+		);
+		const res = await client.call(colibri.community.registerCredentials.main, {
+			body: {
+				community: community().community.did,
+				identifier: identifier().trim(),
+				password: password(),
+			},
+		});
+		setLoading(false);
+		if (!res.ok) {
+			showError(res.error, {
+				fallbackTitle: "Failed to reconnect this community.",
+			});
+			return;
+		}
+		toast.success("Reconnected. Try your change again.");
+		props.setOpen(false);
+		setIdentifier("");
+		setPassword("");
+	};
+
+	return (
+		<Dialog open={props.open()} onOpenChange={props.setOpen}>
+			<DialogPortal>
+				<DialogContent class="w-128">
+					<DialogHeader>
+						<h2 class="m-0 text-center">Reconnect this community</h2>
+					</DialogHeader>
+					<p class="m-0 text-sm text-muted-foreground text-center">
+						Colibri lost access to this community's account. Sign in again with
+						its full account password, not an app password, to restore it.
+					</p>
+					<TextField value={identifier()} onChange={setIdentifier}>
+						<TextFieldLabel>Handle or DID</TextFieldLabel>
+						<TextFieldInput type="text" required />
+					</TextField>
+					<TextField value={password()} onChange={setPassword}>
+						<TextFieldLabel>Account password</TextFieldLabel>
+						<TextFieldInput type="password" required />
+					</TextField>
+					<DialogFooter>
+						<Button
+							variant="secondary"
+							disabled={loading()}
+							onClick={() => props.setOpen(false)}
+						>
+							Cancel
+						</Button>
+						<Button
+							disabled={
+								loading() ||
+								identifier().trim().length === 0 ||
+								password().length === 0
+							}
+							onClick={submit}
+						>
+							<Spinner classList={{ hidden: !loading(), block: loading() }} />
+							Reconnect
+						</Button>
+					</DialogFooter>
+				</DialogContent>
+			</DialogPortal>
+		</Dialog>
+	);
+};
 
 const GeneralSettingsPage: Component = () => {
 	const user = useUserContext();
@@ -120,15 +219,16 @@ const GeneralSettingsPage: Component = () => {
 	const [requiresApprovalToJoin, setRequiresApprovalToJoin] = createSignal(
 		community().community.requiresApprovalToJoin,
 	);
+	const [reconnectOpen, setReconnectOpen] = createSignal(false);
 
 	const existingPictureUrl = () =>
 		!pictureRemoved() && picture() === undefined
-			? (resolveBlob(community().did, community().community.picture) ?? null)
+			? (community().community.picture ?? null)
 			: null;
 
 	const existingBannerUrl = () =>
 		!bannerRemoved() && banner() === undefined
-			? (resolveBlob(community().did, community().community.banner) ?? null)
+			? (community().community.banner ?? null)
 			: null;
 
 	const hasEdited = (): boolean =>
@@ -164,51 +264,117 @@ const GeneralSettingsPage: Component = () => {
 		setBannerRemoved(true);
 	};
 
+	const failed = (res: XrpcFail, fallbackTitle: string) => {
+		if (res.error.code === "CredentialsUnavailable") setReconnectOpen(true);
+		showError(res.error, { fallbackTitle });
+	};
+
 	const editCommunityData = async () => {
 		setLoading(true);
 		try {
-			const pictureBlob = picture()?.acceptedFiles[0];
-			const bannerBlob = banner()?.acceptedFiles[0];
+			const client = clientForManagingApp(
+				user.atproto.agent,
+				community().community.managingApp,
+			);
+			const did = community().community.did;
 
 			const trimmedName = name().trim();
-			const trimmedDescription = description().trim();
+			const trimmedDescription = (description() ?? "").trim();
+			const nameChanged = trimmedName !== community().community.name;
+			const descriptionChanged =
+				trimmedDescription !== (community().community.description ?? "");
+			const approvalChanged =
+				requiresApprovalToJoin() !==
+				community().community.requiresApprovalToJoin;
 
-			const res = await user.xrpc.social.colibri.community.update(
-				community().community.uri,
-				trimmedName !== community().community.name ? trimmedName : undefined,
-				trimmedDescription !== (community().community.description ?? "")
-					? trimmedDescription
-					: undefined,
-				pictureBlob,
-				bannerBlob,
-				requiresApprovalToJoin(),
-				pictureRemoved(),
-				bannerRemoved(),
-			);
+			let latest: CommunityView = community().community;
 
-			if (!res) {
-				toast.error("Failed to save community settings.");
-				return;
+			if (nameChanged || descriptionChanged || approvalChanged) {
+				const res = await client.call(colibri.community.update.main, {
+					body: {
+						community: did,
+						...(nameChanged && { name: trimmedName }),
+						...(descriptionChanged && { description: trimmedDescription }),
+						...(approvalChanged && {
+							requiresApprovalToJoin: requiresApprovalToJoin(),
+						}),
+					},
+				});
+				if (!res.ok) {
+					failed(res, "Failed to save community settings.");
+					return;
+				}
+				latest = res.data.community;
 			}
 
-			community().utils.patchCommunity({
-				name: trimmedName,
-				description: trimmedDescription,
-				requiresApprovalToJoin: requiresApprovalToJoin(),
-				...(pictureRemoved() && { picture: undefined }),
-				...(bannerRemoved() && { banner: undefined }),
-			});
+			const pictureFile = picture()?.acceptedFiles[0];
+			if (pictureRemoved()) {
+				const res = await client.call(colibri.community.deleteImage.main, {
+					params: { community: did, kind: "picture" },
+				});
+				if (!res.ok) {
+					failed(res, "Failed to remove the community picture.");
+					return;
+				}
+				latest = res.data.community;
+			} else if (pictureFile) {
+				if (pictureFile.size > MAX_PICTURE_BYTES) {
+					showError(new ColibriError({ code: "ImageTooLarge" }), {
+						report: false,
+					});
+					return;
+				}
+				const res = await client.call(colibri.community.putImage.main, {
+					params: { community: did, kind: "picture" },
+					body: pictureFile,
+					encoding: pictureFile.type,
+				});
+				if (!res.ok) {
+					failed(res, "Failed to update the community picture.");
+					return;
+				}
+				latest = res.data.community;
+			}
+
+			const bannerFile = banner()?.acceptedFiles[0];
+			if (bannerRemoved()) {
+				const res = await client.call(colibri.community.deleteImage.main, {
+					params: { community: did, kind: "banner" },
+				});
+				if (!res.ok) {
+					failed(res, "Failed to remove the community banner.");
+					return;
+				}
+				latest = res.data.community;
+			} else if (bannerFile) {
+				if (bannerFile.size > MAX_BANNER_BYTES) {
+					showError(new ColibriError({ code: "ImageTooLarge" }), {
+						report: false,
+					});
+					return;
+				}
+				const res = await client.call(colibri.community.putImage.main, {
+					params: { community: did, kind: "banner" },
+					body: bannerFile,
+					encoding: bannerFile.type,
+				});
+				if (!res.ok) {
+					failed(res, "Failed to update the community banner.");
+					return;
+				}
+				latest = res.data.community;
+			}
+
+			community().utils.patchCommunity(latest);
 			community().utils.refetch();
-			setName(trimmedName);
-			setDescription(trimmedDescription);
+			setName(latest.name);
+			setDescription(latest.description);
 			clearNewPicture();
 			clearNewBanner();
 			setPictureRemoved(false);
 			setBannerRemoved(false);
 
 			toast.success("Community settings saved.");
-		} catch {
-			toast.error("Failed to save community settings.");
 		} finally {
 			setLoading(false);
 		}
@@ -225,175 +391,181 @@ const GeneralSettingsPage: Component = () => {
 	};
 
 	return (
-		<SettingsPage
-			loading={loading}
-			canReset={hasEdited()}
-			title="Community Profile"
-			onSave={editCommunityData}
-			onReset={resetCommunityData}
-		>
-			<TextField
-				value={name()}
-				onChange={setName}
-				validationState={
-					name() !== undefined &&
-					name()!.trim().length < 33 &&
-					name()!.trim().length > 0
-						? "valid"
-						: "invalid"
-				}
+		<>
+			<ReconnectCredentialsModal
+				open={reconnectOpen}
+				setOpen={setReconnectOpen}
+			/>
+			<SettingsPage
+				loading={loading}
+				canReset={hasEdited()}
+				title="Community Profile"
+				onSave={editCommunityData}
+				onReset={resetCommunityData}
 			>
-				<TextFieldLabel>Community Name</TextFieldLabel>
-				<TextFieldInput maxLength={32} minLength={1} type="text" required />
-			</TextField>
-			<TextField
-				value={description()}
-				onChange={setDescription}
-				validationState={
-					description() !== undefined && description()!.trim().length < 257
-						? "valid"
-						: "invalid"
-				}
-			>
-				<TextFieldLabel>Community Description</TextFieldLabel>
-				<TextFieldInput maxLength={256} minLength={1} type="text" required />
-			</TextField>
-			<div class="flex gap-6">
-				<FileField
-					class="items-start -size-full"
-					accept={IMAGE_UPLOAD_ACCEPT}
-					onFileChange={takeImagePick(setPicture)}
-					maxFiles={1}
+				<TextField
+					value={name()}
+					onChange={setName}
+					validationState={
+						name() !== undefined &&
+						name()!.trim().length < 33 &&
+						name()!.trim().length > 0
+							? "valid"
+							: "invalid"
+					}
 				>
-					<FileFieldLabel>Community Picture</FileFieldLabel>
-					<FileFieldDropzone class="h-32 w-32 min-h-0">
-						<FileFieldTrigger class="h-32 w-32 p-0 bg-muted/25 hover:bg-muted/50 rounded-sm overflow-hidden">
-							<Switch>
-								<Match when={picture() !== undefined}>
-									<div class="relative w-32 h-32">
-										<FileFieldItemList class="w-full h-full m-0 p-0">
-											{() => (
-												<FileFieldItem class="w-full h-full m-0 p-0 border-none [&>div]:w-32">
-													<FileFieldItemPreviewImage class="w-full h-full object-cover" />
-												</FileFieldItem>
-											)}
-										</FileFieldItemList>
-										<button
-											type="button"
-											class="absolute top-1 right-1 text-white drop-shadow drop-shadow-black cursor-pointer"
-											onClick={clearNewPicture}
-											aria-label="Remove selected picture"
-										>
-											<XCircleIcon />
-										</button>
-									</div>
-								</Match>
-								<Match when={existingPictureUrl() !== null}>
-									<div class="relative w-32 h-32">
-										<img
-											src={existingPictureUrl()!}
-											alt={community().community.name}
-											class="w-full h-full object-cover"
-										/>
-										<button
-											type="button"
-											class="absolute top-1 right-1 text-white drop-shadow drop-shadow-black cursor-pointer"
-											onClick={removeExistingPicture}
-											aria-label="Remove picture"
-										>
-											<XCircleIcon />
-										</button>
-									</div>
-								</Match>
-								<Match when={true}>
-									<div class="flex flex-col items-center justify-center gap-1">
-										<ImageIcon class="w-6! h-6!" />
-										<span>Upload</span>
-									</div>
-								</Match>
-							</Switch>
-						</FileFieldTrigger>
-					</FileFieldDropzone>
-					<FileFieldHiddenInput />
-				</FileField>
-				<FileField
-					class="items-start"
-					accept={IMAGE_UPLOAD_ACCEPT}
-					onFileChange={takeImagePick(setBanner)}
-					maxFiles={1}
+					<TextFieldLabel>Community Name</TextFieldLabel>
+					<TextFieldInput maxLength={32} minLength={1} type="text" required />
+				</TextField>
+				<TextField
+					value={description()}
+					onChange={setDescription}
+					validationState={
+						description() !== undefined && description()!.trim().length < 257
+							? "valid"
+							: "invalid"
+					}
 				>
-					<FileFieldLabel>Community Banner</FileFieldLabel>
-					<FileFieldDropzone class="h-32 w-full min-h-0">
-						<FileFieldTrigger class="h-full w-full p-0 bg-muted/25 hover:bg-muted/50 rounded-sm overflow-hidden">
-							<Switch>
-								<Match when={banner() !== undefined}>
-									<div class="relative w-full h-full">
-										<FileFieldItemList class="w-full h-full m-0 p-0">
-											{() => (
-												<FileFieldItem class="w-full h-full m-0 p-0 border-none -grid [&>div]:h-full">
-													<FileFieldItemPreviewImage class="w-full h-full object-cover object-center" />
-												</FileFieldItem>
-											)}
-										</FileFieldItemList>
-										<button
-											type="button"
-											class="absolute top-1 right-1 text-white drop-shadow drop-shadow-black cursor-pointer"
-											onClick={clearNewBanner}
-											aria-label="Remove selected banner"
-										>
-											<XCircleIcon />
-										</button>
-									</div>
-								</Match>
-								<Match when={existingBannerUrl() !== null}>
-									<div class="relative w-full h-full">
-										<img
-											src={existingBannerUrl()!}
-											alt=""
-											class="w-full h-full object-cover object-center"
-										/>
-										<button
-											type="button"
-											class="absolute top-1 right-1 text-white drop-shadow drop-shadow-black cursor-pointer"
-											onClick={removeExistingBanner}
-											aria-label="Remove banner"
-										>
-											<XCircleIcon />
-										</button>
-									</div>
-								</Match>
-								<Match when={true}>
-									<div class="flex flex-col items-center justify-center gap-1">
-										<ImageIcon class="w-6! h-6!" />
-										<span>Upload</span>
-									</div>
-								</Match>
-							</Switch>
-						</FileFieldTrigger>
-					</FileFieldDropzone>
-					<FileFieldHiddenInput />
-				</FileField>
-			</div>
-			<SwitchComp
-				onChange={(e) => {
-					setRequiresApprovalToJoin(e);
-				}}
-				checked={requiresApprovalToJoin()}
-				class="flex justify-between items-center gap-x-2"
-			>
-				<div>
-					<SwitchLabel>Require Join Approval</SwitchLabel>
-					<SwitchDescription>
-						Whether you want to explicitly need to allow users to chat in this
-						community.
-					</SwitchDescription>
+					<TextFieldLabel>Community Description</TextFieldLabel>
+					<TextFieldInput maxLength={256} minLength={1} type="text" required />
+				</TextField>
+				<div class="flex gap-6">
+					<FileField
+						class="items-start -size-full"
+						accept={IMAGE_UPLOAD_ACCEPT}
+						onFileChange={takeImagePick(setPicture)}
+						maxFiles={1}
+					>
+						<FileFieldLabel>Community Picture</FileFieldLabel>
+						<FileFieldDropzone class="h-32 w-32 min-h-0">
+							<FileFieldTrigger class="h-32 w-32 p-0 bg-muted/25 hover:bg-muted/50 rounded-sm overflow-hidden">
+								<Switch>
+									<Match when={picture() !== undefined}>
+										<div class="relative w-32 h-32">
+											<FileFieldItemList class="w-full h-full m-0 p-0">
+												{() => (
+													<FileFieldItem class="w-full h-full m-0 p-0 border-none [&>div]:w-32">
+														<FileFieldItemPreviewImage class="w-full h-full object-cover" />
+													</FileFieldItem>
+												)}
+											</FileFieldItemList>
+											<button
+												type="button"
+												class="absolute top-1 right-1 text-white drop-shadow drop-shadow-black cursor-pointer"
+												onClick={clearNewPicture}
+												aria-label="Remove selected picture"
+											>
+												<XCircleIcon />
+											</button>
+										</div>
+									</Match>
+									<Match when={existingPictureUrl() !== null}>
+										<div class="relative w-32 h-32">
+											<img
+												src={existingPictureUrl()!}
+												alt={community().community.name}
+												class="w-full h-full object-cover"
+											/>
+											<button
+												type="button"
+												class="absolute top-1 right-1 text-white drop-shadow drop-shadow-black cursor-pointer"
+												onClick={removeExistingPicture}
+												aria-label="Remove picture"
+											>
+												<XCircleIcon />
+											</button>
+										</div>
+									</Match>
+									<Match when={true}>
+										<div class="flex flex-col items-center justify-center gap-1">
+											<ImageIcon class="w-6! h-6!" />
+											<span>Upload</span>
+										</div>
+									</Match>
+								</Switch>
+							</FileFieldTrigger>
+						</FileFieldDropzone>
+						<FileFieldHiddenInput />
+					</FileField>
+					<FileField
+						class="items-start"
+						accept={IMAGE_UPLOAD_ACCEPT}
+						onFileChange={takeImagePick(setBanner)}
+						maxFiles={1}
+					>
+						<FileFieldLabel>Community Banner</FileFieldLabel>
+						<FileFieldDropzone class="h-32 w-full min-h-0">
+							<FileFieldTrigger class="h-full w-full p-0 bg-muted/25 hover:bg-muted/50 rounded-sm overflow-hidden">
+								<Switch>
+									<Match when={banner() !== undefined}>
+										<div class="relative w-full h-full">
+											<FileFieldItemList class="w-full h-full m-0 p-0">
+												{() => (
+													<FileFieldItem class="w-full h-full m-0 p-0 border-none -grid [&>div]:h-full">
+														<FileFieldItemPreviewImage class="w-full h-full object-cover object-center" />
+													</FileFieldItem>
+												)}
+											</FileFieldItemList>
+											<button
+												type="button"
+												class="absolute top-1 right-1 text-white drop-shadow drop-shadow-black cursor-pointer"
+												onClick={clearNewBanner}
+												aria-label="Remove selected banner"
+											>
+												<XCircleIcon />
+											</button>
+										</div>
+									</Match>
+									<Match when={existingBannerUrl() !== null}>
+										<div class="relative w-full h-full">
+											<img
+												src={existingBannerUrl()!}
+												alt=""
+												class="w-full h-full object-cover object-center"
+											/>
+											<button
+												type="button"
+												class="absolute top-1 right-1 text-white drop-shadow drop-shadow-black cursor-pointer"
+												onClick={removeExistingBanner}
+												aria-label="Remove banner"
+											>
+												<XCircleIcon />
+											</button>
+										</div>
+									</Match>
+									<Match when={true}>
+										<div class="flex flex-col items-center justify-center gap-1">
+											<ImageIcon class="w-6! h-6!" />
+											<span>Upload</span>
+										</div>
+									</Match>
+								</Switch>
+							</FileFieldTrigger>
+						</FileFieldDropzone>
+						<FileFieldHiddenInput />
+					</FileField>
 				</div>
-				<SwitchInput />
-				<SwitchControl>
-					<SwitchThumb />
-				</SwitchControl>
-			</SwitchComp>
-		</SettingsPage>
+				<SwitchComp
+					onChange={(e) => {
+						setRequiresApprovalToJoin(e);
+					}}
+					checked={requiresApprovalToJoin()}
+					class="flex justify-between items-center gap-x-2"
+				>
+					<div>
+						<SwitchLabel>Require Join Approval</SwitchLabel>
+						<SwitchDescription>
+							Whether you want to explicitly need to allow users to chat in this
+							community.
+						</SwitchDescription>
+					</div>
+					<SwitchInput />
+					<SwitchControl>
+						<SwitchThumb />
+					</SwitchControl>
+				</SwitchComp>
+			</SettingsPage>
+		</>
 	);
 };
 
@@ -413,27 +585,23 @@ const MessagesSettingsPage: Component = () => {
 	const save = async () => {
 		setLoading(true);
 		try {
-			const res = await user.xrpc.social.colibri.community.update(
-				community().community.uri,
-				undefined,
-				undefined,
-				undefined,
-				undefined,
-				undefined,
-				undefined,
-				undefined,
-				linkEmbeds(),
+			const client = clientForManagingApp(
+				user.atproto.agent,
+				community().community.managingApp,
 			);
-
-			if (!res) {
-				toast.error("Failed to save message settings.");
+			const res = await client.call(colibri.community.update.main, {
+				body: {
+					community: community().community.did,
+					linkEmbeds: linkEmbeds(),
+				},
+			});
+			if (!res.ok) {
+				showError(res.error, {
+					fallbackTitle: "Failed to save message settings.",
+				});
 				return;
 			}
-
-			community().utils.patchCommunity({ linkEmbeds: linkEmbeds() });
-			community().utils.refetch();
-		} catch {
-			toast.error("Failed to save message settings.");
+			community().utils.patchCommunity(res.data.community);
 		} finally {
 			setLoading(false);
 		}
@@ -472,17 +640,37 @@ const MessagesSettingsPage: Component = () => {
 	);
 };
 
+const CreatedByCell: Component<{ did: string }> = (props) => {
+	const community = useCommunityContext();
+	const member = () => community().utils.getMember(props.did);
+
+	return (
+		<Show
+			when={member()}
+			fallback={<span class="text-muted-foreground text-sm">{props.did}</span>}
+		>
+			{(m) => <User.InlineProfile color={false} user={m().actor} />}
+		</Show>
+	);
+};
+
 const InviteLinksPage: Component = () => {
 	const user = useUserContext();
 	const community = useCommunityContext();
 	const { canDeleteInvitation } = usePermissions();
-	const uri = () => community().community.uri;
+	const did = () => community().community.did;
 
 	const [loading] = createSignal<boolean>(false);
-	const [invitations, { refetch }] = createResource(uri, async (u) => {
-		const res = await user.xrpc.social.colibri.community.listInvitations(u);
+	const [invitations, { refetch }] = createResource(did, async (d) => {
+		const client = clientForManagingApp(
+			user.atproto.agent,
+			community().community.managingApp,
+		);
+		const res = await client.call(colibri.community.listInvitations.main, {
+			params: { community: d },
+		});
 		if (!res.ok) throw res.error;
-		return res.data?.codes ?? [];
+		return res.data.invitations;
 	});
 
 	return (
@@ -511,8 +699,10 @@ const InviteLinksPage: Component = () => {
 									</TableRow>
 								</TableHeader>
 								<TableBody class="relative">
-									<For each={invitations().sort((x) => (x.active ? -1 : 1))}>
-										{(invitation) => (
+									<For
+										each={[...invitations()].sort((x) => (x.active ? -1 : 1))}
+									>
+										{(invitation: InvitationView) => (
 											<TableRow
 												classList={{
 													"opacity-50": !invitation.active,
@@ -522,12 +712,7 @@ const InviteLinksPage: Component = () => {
 													{invitation.code}
 												</TableCell>
 												<TableCell>
-													<Suspense fallback={<Spinner />}>
-														<User.InlineProfile
-															color={false}
-															user={invitation.createdBy}
-														/>
-													</Suspense>
+													<CreatedByCell did={invitation.createdBy} />
 												</TableCell>
 												<TableCell>
 													{invitation.active ? "Yes" : "No"}
@@ -535,7 +720,7 @@ const InviteLinksPage: Component = () => {
 												<Show when={canDeleteInvitation(user.did)}>
 													<TableCell class="flex flex-row items-center justify-end gap-1">
 														<CopyButton
-															value={`https://colibri.social/invite/${invitation.code}`}
+															value={`${webAppOrigin()}/invite/${invitation.code}`}
 														></CopyButton>
 														<Show when={invitation.active}>
 															<DeleteLinkModal
@@ -583,6 +768,9 @@ const JoinRequestApprovals: Component = () => {
 	const [inflight, setInflight] = createSignal<Array<string>>([]);
 	const isInflight = (did: string) => inflight().some((x) => x === did);
 
+	const client = () =>
+		clientForManagingApp(user.atproto.agent, community().community.managingApp);
+
 	const runAction = async (did: string, action: () => Promise<unknown>) => {
 		setInflight((current) => [...current, did]);
 		try {
@@ -594,25 +782,40 @@ const JoinRequestApprovals: Component = () => {
 	};
 
 	const acceptJoinRequest = (member: Applicant) =>
-		runAction(member.did, () =>
-			user.xrpc.social.colibri.community.approveMembership(member.membership),
-		);
+		runAction(member.did, async () => {
+			const res = await client().call(
+				colibri.community.approveApplication.main,
+				{
+					body: { community: community().community.did, subject: member.did },
+				},
+			);
+			if (!res.ok)
+				showError(res.error, { fallbackTitle: "Failed to approve request." });
+		});
 
 	const dismissJoinRequest = (member: Applicant) =>
-		runAction(member.did, () =>
-			user.xrpc.social.colibri.community.dismissApplication(
-				community().community.uri,
-				member.did,
-			),
-		);
+		runAction(member.did, async () => {
+			const res = await client().call(
+				colibri.community.dismissApplication.main,
+				{
+					body: { community: community().community.did, subject: member.did },
+				},
+			);
+			if (!res.ok)
+				showError(res.error, { fallbackTitle: "Failed to dismiss request." });
+		});
 
 	const restoreJoinRequest = (member: Applicant) =>
-		runAction(member.did, () =>
-			user.xrpc.social.colibri.community.undismissApplication(
-				community().community.uri,
-				member.did,
-			),
-		);
+		runAction(member.did, async () => {
+			const res = await client().call(
+				colibri.community.undismissApplication.main,
+				{
+					body: { community: community().community.did, subject: member.did },
+				},
+			);
+			if (!res.ok)
+				showError(res.error, { fallbackTitle: "Failed to restore request." });
+		});
 
 	const ApproveButton: Component<{ member: Applicant }> = (props) => (
 		<Button
@@ -661,7 +864,7 @@ const JoinRequestApprovals: Component = () => {
 									<TableRow>
 										<TableCell>
 											<Suspense fallback={<Spinner />}>
-												<User.InlineProfile user={data} />
+												<User.InlineProfile user={data.actor} />
 											</Suspense>
 										</TableCell>
 										<TableCell class="justify-end items-center flex flex-row gap-1">
@@ -713,7 +916,7 @@ const JoinRequestApprovals: Component = () => {
 								<TableRow>
 									<TableCell>
 										<Suspense fallback={<Spinner />}>
-											<User.InlineProfile user={data} />
+											<User.InlineProfile user={data.actor} />
 										</Suspense>
 									</TableCell>
 									<TableCell class="justify-end items-center flex flex-row gap-1">
@@ -815,7 +1018,6 @@ const MembersPage: Component = () => {
 			loading={() => false}
 			title={`Members${members().length > 0 ? ` — ${members().length}` : ""}`}
 		>
-			<CrossAppViewModerationAlert class="mb-4" />
 			<Table class="h-full">
 				<TableHeader>
 					<TableRow>
@@ -830,7 +1032,7 @@ const MembersPage: Component = () => {
 								<TableRow>
 									<TableCell>
 										<Suspense fallback={<Spinner />}>
-											<User.InlineProfile color={false} user={member} />
+											<User.InlineProfile color={false} user={member.actor} />
 										</Suspense>
 									</TableCell>
 									<Show
@@ -870,26 +1072,28 @@ const DeleteRoleModal: ParentComponent<{ role: Role }> = (props) => {
 	const [open, setOpen] = createSignal(false);
 
 	const memberCount = () =>
-		community().members.filter((m) => m.roles.includes(props.role.uri)).length;
+		community().members.filter((m) => m.roles.includes(props.role.rkey)).length;
 
 	const deleteRole = async () => {
 		setLoading(true);
-		try {
-			const res = await user.xrpc.social.colibri.role.delete(props.role.uri);
-
-			if (!res) {
-				toast.error("Failed to delete role.");
-				return;
-			}
-
-			toast.success("Role deleted.");
-			community().utils.refetch();
-			setOpen(false);
-		} catch {
-			toast.error("Failed to delete role.");
-		} finally {
-			setLoading(false);
+		const client = clientForManagingApp(
+			user.atproto.agent,
+			community().community.managingApp,
+		);
+		const res = await client.call(colibri.role.delete.main, {
+			body: {
+				community: community().community.did,
+				role: props.role.rkey,
+			},
+		});
+		setLoading(false);
+		if (!res.ok) {
+			showError(res.error, { fallbackTitle: "Failed to delete role." });
+			return;
 		}
+		toast.success("Role deleted.");
+		community().utils.refetch();
+		setOpen(false);
 	};
 
 	return (
@@ -950,12 +1154,9 @@ const RolesPage: Component = () => {
 
 	const [search, setSearch] = createSignal("");
 	const [saving, setSaving] = createSignal(false);
-	// Optimistic ordering applied locally while the reorder request is in flight.
-	// `null` means "follow the server's position-based order".
 	const [override, setOverride] = createSignal<Array<Role> | null>(null);
 	const [dragIndex, setDragIndex] = createSignal<number | null>(null);
 
-	// Highest position sits at the top, matching the role hierarchy.
 	const sortedRoles = () =>
 		override() ?? [...roles()].sort((a, b) => b.position - a.position);
 
@@ -964,32 +1165,27 @@ const RolesPage: Component = () => {
 		return sortedRoles().filter((x) => foldText(x.name).includes(query));
 	};
 
-	// Dragging while a search is active would reorder against a filtered view,
-	// so only allow it when the full list is shown.
 	const canReorder = () => search().trim().length === 0 && !saving();
 
-	// Drop the optimistic override once the server order catches up, or if the
-	// set of roles changed underneath us (e.g. one was created/deleted).
 	createEffect(() => {
 		const ov = override();
 		if (!ov) return;
 
-		const serverUris = [...roles()]
+		const serverKeys = [...roles()]
 			.sort((a, b) => b.position - a.position)
-			.map((r) => r.uri);
-		const ovUris = ov.map((r) => r.uri);
+			.map((r) => r.rkey);
+		const ovKeys = ov.map((r) => r.rkey);
 
 		const membershipChanged =
-			serverUris.length !== ovUris.length ||
-			ovUris.some((uri) => !serverUris.includes(uri));
+			serverKeys.length !== ovKeys.length ||
+			ovKeys.some((rkey) => !serverKeys.includes(rkey));
 
-		if (membershipChanged || serverUris.join(",") === ovUris.join(",")) {
+		if (membershipChanged || serverKeys.join(",") === ovKeys.join(",")) {
 			setOverride(null);
 		}
 	});
 
 	const persistOrder = async (ordered: Array<Role>) => {
-		// Top row gets the highest position; only push roles that actually moved.
 		const total = ordered.length;
 		const updates = ordered
 			.map((role, i) => ({ role, position: total - i }))
@@ -1002,24 +1198,25 @@ const RolesPage: Component = () => {
 
 		setSaving(true);
 		try {
-			await Promise.all(
+			const client = clientForManagingApp(
+				user.atproto.agent,
+				community().community.managingApp,
+			);
+			const results = await Promise.all(
 				updates.map(({ role, position }) =>
-					user.xrpc.social.colibri.role.update(
-						role.uri,
-						role.name,
-						role.color,
-						role.permissions,
-						position,
-						role.hoisted,
-						role.mentionable,
-					),
+					client.call(colibri.role.update.main, {
+						body: {
+							community: community().community.did,
+							role: role.rkey,
+							position,
+						},
+					}),
 				),
 			);
-			// The authoritative positions arrive via `role_event`s, which reconcile
-			// the optimistic override. Refetching here would race the AppView's
-			// indexing and briefly reintroduce the old order, so we don't.
-		} catch {
-			toast.error("Failed to reorder roles.");
+			const failure = results.find((r) => !r.ok);
+			if (failure && !failure.ok) throw failure.error;
+		} catch (err) {
+			showError(err, { fallbackTitle: "Failed to reorder roles." });
 			setOverride(null);
 			community().utils.refetch();
 		} finally {
@@ -1027,7 +1224,6 @@ const RolesPage: Component = () => {
 		}
 	};
 
-	// Live-reorder while dragging so the rows visibly shuffle under the cursor.
 	const moveRole = (from: number, to: number) => {
 		const reordered = [...sortedRoles()];
 		const [moved] = reordered.splice(from, 1);
@@ -1075,7 +1271,6 @@ const RolesPage: Component = () => {
 										const to = index();
 										if (from !== to) {
 											moveRole(from, to);
-											// Keep tracking the dragged row at its new position.
 											setDragIndex(to);
 										}
 									}}
@@ -1088,7 +1283,6 @@ const RolesPage: Component = () => {
 											when={canReorder() && manageable()}
 											fallback={<span />}
 										>
-											{/* Only the handle starts a drag, not the whole row. */}
 											<div
 												class="cursor-grab"
 												draggable={true}
@@ -1097,9 +1291,7 @@ const RolesPage: Component = () => {
 													setDragIndex(index());
 													if (e.dataTransfer) {
 														e.dataTransfer.effectAllowed = "move";
-														// Required for Firefox to initiate the drag.
-														e.dataTransfer.setData("text/plain", role.uri);
-														// Drag the whole row as the ghost, not just the grip.
+														e.dataTransfer.setData("text/plain", role.rkey);
 														if (rowRef) {
 															e.dataTransfer.setDragImage(rowRef, 16, 16);
 														}
@@ -1125,7 +1317,7 @@ const RolesPage: Component = () => {
 											{role.name}
 										</div>
 									</TableCell>
-									<TableCell>{membersForRole(role.uri)}</TableCell>
+									<TableCell>{membersForRole(role.rkey)}</TableCell>
 									<TableCell class="text-right flex flex-row gap-1 items-center justify-end">
 										<Show
 											when={manageable()}
@@ -1150,7 +1342,7 @@ const RolesPage: Component = () => {
 												</>
 											}
 										>
-											<RoleModal role={role.uri}>
+											<RoleModal role={role.rkey}>
 												<Button
 													size="sm"
 													class="aspect-square h-6 p-0!"
@@ -1183,25 +1375,43 @@ const RolesPage: Component = () => {
 const BannedMembersPage: Component = () => {
 	const community = useCommunityContext();
 	const user = useUserContext();
-	const uri = () => community().community.uri;
+	const socket = useSocketContext();
+	const did = () => community().community.did;
 	const [loading, setLoading] = createSignal<boolean>(false);
 
-	const [bannedMembers, { refetch }] = createResource(uri, async (u) => {
-		const res = await user.xrpc.social.colibri.community.listBannedUsers(u);
+	const [bannedMembers, { refetch }] = createResource(did, async (d) => {
+		const client = clientForManagingApp(
+			user.atproto.agent,
+			community().community.managingApp,
+		);
+		const res = await client.call(colibri.community.listBans.main, {
+			params: { community: d },
+		});
 		if (!res.ok) throw res.error;
-		return res.data?.users ?? [];
+		return res.data.bans;
 	});
 
-	const unbanMember = async (did: string) => {
+	onCleanup(
+		socket.onEvent((event) => {
+			if (!frameIs(event, "moderationEvent")) return;
+			if (event.community !== did()) return;
+			void refetch();
+		}),
+	);
+
+	const unbanMember = async (subject: string) => {
 		try {
 			setLoading(true);
-			const res = await user.xrpc.social.colibri.community.unbanUser(
-				uri(),
-				did,
+			const client = clientForManagingApp(
+				user.atproto.agent,
+				community().community.managingApp,
 			);
+			const res = await client.call(colibri.community.unban.main, {
+				body: { community: community().community.did, subject },
+			});
 
-			if (!res) {
-				toast.error("Failed to unban user.");
+			if (!res.ok) {
+				showError(res.error, { fallbackTitle: "Failed to unban user." });
 				return;
 			}
 
@@ -1217,7 +1427,6 @@ const BannedMembersPage: Component = () => {
 			loading={loading}
 			title={`Banned Members${(bannedMembers.latest ?? []).length > 0 ? ` — ${(bannedMembers.latest ?? []).length}` : ""}`}
 		>
-			<CrossAppViewModerationAlert class="mb-4" />
 			<Switch>
 				<Match when={bannedMembers.error !== undefined}>
 					<ErrorState
@@ -1241,18 +1450,18 @@ const BannedMembersPage: Component = () => {
 							</TableHeader>
 							<TableBody class="relative">
 								<For each={members()}>
-									{(data) => {
+									{(data: BannedActorView) => {
 										return (
 											<TableRow>
 												<TableCell>
-													<User.InlineProfile user={data} />
+													<User.InlineProfile user={data.actor} />
 												</TableCell>
 												<TableCell class="text-right">
 													<Button
 														size="sm"
 														disabled={loading()}
 														onClick={() => {
-															unbanMember(data.did);
+															unbanMember(data.actor.did);
 														}}
 														variant="secondary"
 													>
@@ -1285,20 +1494,26 @@ const DangerSettingsPage: Component = () => {
 
 	const [loading, setLoading] = createSignal<boolean>(false);
 	const [communityNameReset, setCommunityNameReset] = createSignal("");
+	const [reconnectOpen, setReconnectOpen] = createSignal(false);
 
 	const isValid = () => communityNameReset() === community().community.name;
 
 	const deleteCommunity = async () => {
 		setLoading(true);
 
-		const res = await user.xrpc.social.colibri.community.delete(
-			community().community.uri,
+		const client = clientForManagingApp(
+			user.atproto.agent,
+			community().community.managingApp,
 		);
+		const res = await client.call(colibri.community.delete.main, {
+			body: { community: community().community.did },
+		});
 
 		setLoading(false);
 
-		if (!res) {
-			toast.error("Failed to delete community");
+		if (!res.ok) {
+			if (res.error.code === "CredentialsUnavailable") setReconnectOpen(true);
+			showError(res.error, { fallbackTitle: "Failed to delete community." });
 			return;
 		}
 
@@ -1306,42 +1521,49 @@ const DangerSettingsPage: Component = () => {
 	};
 
 	return (
-		<SettingsPage loading={loading} title="Danger Zone">
-			<h3 class="m-0 font-semibold">Delete this Community</h3>
-			<p class="m-0">
-				To delete this community and all associated data, first type in the name
-				of the community below. <strong>This action cannot be undone.</strong>
-			</p>
-			<div class="flex flex-row gap-2 items-baseline-last">
-				<TextField
-					value={communityNameReset()}
-					onChange={setCommunityNameReset}
-					validationState={isValid() ? "valid" : "invalid"}
-					disabled={loading()}
-				>
-					<TextFieldInput
-						placeholder={community().community.name}
-						maxLength={32}
-						minLength={1}
-						type="text"
-						required
-					/>
-				</TextField>
-				<Button
-					variant="destructive"
-					disabled={loading() || !isValid()}
-					onClick={deleteCommunity}
-				>
-					<Spinner
-						classList={{
-							hidden: !loading(),
-							block: loading(),
-						}}
-					/>
-					Delete Community
-				</Button>
-			</div>
-		</SettingsPage>
+		<>
+			<ReconnectCredentialsModal
+				open={reconnectOpen}
+				setOpen={setReconnectOpen}
+			/>
+			<SettingsPage loading={loading} title="Danger Zone">
+				<h3 class="m-0 font-semibold">Delete this Community</h3>
+				<p class="m-0">
+					To delete this community and all associated data, first type in the
+					name of the community below.{" "}
+					<strong>This action cannot be undone.</strong>
+				</p>
+				<div class="flex flex-row gap-2 items-baseline-last">
+					<TextField
+						value={communityNameReset()}
+						onChange={setCommunityNameReset}
+						validationState={isValid() ? "valid" : "invalid"}
+						disabled={loading()}
+					>
+						<TextFieldInput
+							placeholder={community().community.name}
+							maxLength={32}
+							minLength={1}
+							type="text"
+							required
+						/>
+					</TextField>
+					<Button
+						variant="destructive"
+						disabled={loading() || !isValid()}
+						onClick={deleteCommunity}
+					>
+						<Spinner
+							classList={{
+								hidden: !loading(),
+								block: loading(),
+							}}
+						/>
+						Delete Community
+					</Button>
+				</div>
+			</SettingsPage>
+		</>
 	);
 };
 
@@ -1431,7 +1653,7 @@ export const CommunitySettingsModal: ParentComponent<{
 			debugPage={{
 				title: "Debug Information",
 				id: "info",
-				component: () => <SettingsInfoPage uri={community().community.uri} />,
+				component: () => <SettingsInfoPage uri={community().community.did} />,
 				icon: () => <BugIcon />,
 			}}
 		>

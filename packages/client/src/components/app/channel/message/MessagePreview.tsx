@@ -1,5 +1,6 @@
 import type { Component } from "solid-js";
-import type { Message } from "../../../../atproto/xrpc/social/colibri/channel/listMessages";
+import type { PendingMessage } from "../../../../atproto/cache/schema";
+import type { MessageView } from "../../../../atproto/views";
 import { RichTextRenderer } from "../../common/rich-text-renderer/RichTextRenderer";
 import type { TextWithFacets } from "../../common/rich-text-renderer/util";
 import User from "../../user";
@@ -11,7 +12,9 @@ import { MessageTimestamp } from "./MessageTimestamp";
  * action buttons — breaking the recursion that would occur if a full
  * <Message> were rendered inside its own modal.
  */
-export const MessagePreview: Component<{ data: Message }> = (props) => {
+export const MessagePreview: Component<{
+	data: MessageView | PendingMessage;
+}> = (props) => {
 	const text = (): TextWithFacets => ({
 		text: props.data.text,
 		facets: props.data.facets || [],

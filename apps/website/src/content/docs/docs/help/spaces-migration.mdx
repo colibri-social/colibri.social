@@ -1,0 +1,111 @@
+---
+title: The Move to Private Communities
+description: What changes for you when a community moves onto permissioned spaces.
+---
+
+Colibri communities used to be public. Not "public" as in easy to find, but
+public as in **anyone on the AT Protocol network could read every message in
+every channel**, whether or not they were a member, because that is all the
+protocol could do at the time.
+
+That has changed. Communities now use a part of the protocol called
+permissioned spaces, and a community's messages are readable only by people the
+community lets in. This page explains what you will notice.
+
+## The short version
+
+- Your messages in a community are no longer public.
+- Your old messages stay where they are, still readable, and marked as older.
+- You will need to sign in again and approve some new permissions.
+- Your community needs its owner to move it across.
+
+## The new consent screen
+
+Reading a private community requires a key that the community itself issues, and
+Colibri has to ask your account for permission to request one on your behalf.
+
+You will see this as a new consent screen when you sign in. It lists the
+communities and the kinds of data Colibri is asking about, written in plain
+words rather than schema names. If you decline, Colibri still works for anything
+public, but private communities will not open.
+
+## What happens to your old messages
+
+They stay in your own repository, and Colibri keeps showing them.
+
+They cannot be moved. A message belongs to whoever wrote it, and only that
+person's account can write to their own repository. Colibri holds the
+community's credentials, never yours, so it cannot pick your messages up and put
+them somewhere else. That is the same property that means nobody can
+delete your messages out from under you.
+
+A migrated channel therefore has a boundary in it, with messages from before the
+move below it and messages written since above.
+
+:::note[Older messages are read only]
+A message from before the move cannot be edited, deleted or reacted to inside
+the new community. Your client should hide those options rather than let them
+fail.
+
+You can still delete an old message the way you always could, by deleting it
+from your own account.
+:::
+
+Messages sent before the move were public when they were sent, and copies may
+exist elsewhere. Moving the community forward protects what happens from now on,
+and it cannot un-publish the past.
+
+## What the community owner has to do
+
+Migration is one action, taken by someone with permission to run it. Colibri
+recreates the community's structure, its categories, channels, roles and
+members, in new private spaces, and stamps each new channel with a pointer back
+to the one it came from.
+
+What comes across:
+
+| Carried over | Not carried over |
+| --- | --- |
+| Channels and categories | Message history, which stays in place and is shown alongside |
+| Roles and their permissions | Invitation links, which have to be recreated |
+| Members and the roles they hold | |
+| Bans | |
+
+Members do not need to rejoin, and nobody needs re-inviting.
+
+## What moderation can and cannot do now
+
+A moderator hiding a message **hides** it. It does not delete it. Colibri stops
+sending that message to anyone, so it disappears from the channel, but the
+message itself stays in its author's repository. Someone reading the community
+directly with their own key, or through a different AppView, could still see it.
+
+Two people keep seeing a hidden message: the moderators, so they can undo it,
+and whoever wrote it. If one of your own messages is hidden, you will see it
+marked as hidden rather than silently vanishing.
+
+Banning someone does something stronger than it used to. It stops the community
+issuing them the key they need, so they lose the ability to read the community
+at all, not just the ability to post. Their old messages stay where they are.
+
+See [Moderation](/docs/architecture/moderation) if you want the mechanics.
+
+## Communities live on one AppView now
+
+Colibri can be self-hosted, and a community used to be readable from any
+instance because its data was public. Private data cannot work that way.
+
+A community now belongs to the AppView that manages it, and that is where you
+use it. See
+[Communities and AppViews](/docs/help/moderating-across-appviews).
+
+Presence stopped travelling between instances with the same move. Online status,
+typing indicators and voice presence were relayed by a system called Humming,
+which depended on community data being public. It is gone, along with the
+**Share presence across AppViews** setting and the field it published on your
+profile, so nothing is left published if you had it switched on.
+
+## See also
+
+- [Legacy Communities](/docs/help/legacy-communities): communities from the alpha, which had a separate move.
+- [Permissioned Spaces](/docs/architecture/spaces): the technical detail behind all of this.

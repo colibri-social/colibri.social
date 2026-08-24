@@ -1,0 +1,60 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.community.listMigratable",
+	"defs": {
+		"main": {
+			"type": "query",
+			"description": "Lists the repo-backed communities the requesting user belongs to that have not been migrated onto spaces yet, so a client can offer them as a choice rather than asking for a handle. The AppView reads this live from the user's own public repo and each candidate's public repo, because nothing about an unmigrated community is indexed. Only a community that holds its own DID is listed: an older community that lived in its owner's repo cannot be migrated.",
+			"parameters": {
+				"type": "params",
+				"required": [],
+				"properties": {
+					"includeUnadministered": {
+						"type": "boolean",
+						"default": false,
+						"description": "Whether to include communities the user belongs to but cannot migrate. They come back with viewerIsAdmin false."
+					}
+				}
+			},
+			"output": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"communities"
+					],
+					"properties": {
+						"communities": {
+							"type": "array",
+							"items": {
+								"type": "ref",
+								"ref": "social.colibri.beta.community.defs#legacyCommunityView",
+								"description": "An unmigrated legacy community."
+							},
+							"description": "Unmigrated legacy communities, in the user's preferred sidebar order where the legacy repo recorded one. This is not paginated: a user's community list is small and every entry costs a live read."
+						},
+						"unreadable": {
+							"type": "array",
+							"items": {
+								"type": "string",
+								"format": "did",
+								"description": "A community DID whose repo could not be read."
+							},
+							"description": "Communities named by the user's repo whose own repo could not be read, so the client can say so instead of silently dropping them."
+						}
+					}
+				}
+			},
+			"errors": [
+				{
+					"name": "AuthRequired",
+					"description": "The request is missing, malformed, or unverifiable service auth."
+				},
+				{
+					"name": "UpstreamFailure",
+					"description": "The requesting user's own PDS could not be read, so no candidate list could be built at all."
+				}
+			]
+		}
+	}
+}

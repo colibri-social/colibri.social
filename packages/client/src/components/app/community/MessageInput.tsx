@@ -1,6 +1,6 @@
 import type { Agent } from "@atproto/api";
 import type { JsonBlobRef } from "@atproto/lexicon";
-import type { AttachmentObj, ColibriRichTextFacet } from "@colibri-social/lib";
+import type { ColibriRichTextFacet } from "@colibri-social/lib";
 import { useFileFieldContext } from "@kobalte/core/file-field";
 import {
 	type Component,
@@ -21,10 +21,13 @@ import PaperPlaneRightIcon from "~icons/ph/paper-plane-right-fill";
 import PlusIcon from "~icons/ph/plus";
 import SpinnerIcon from "~icons/ph/spinner-gap";
 import XIcon from "~icons/ph/x";
-import { enqueueCreate } from "../../../atproto/outbox/outbox";
+import { asUri } from "../../../atproto/lexicons";
 import { uploadBlob } from "../../../atproto/pds";
-import type { PendingMessage } from "../../../atproto/xrpc/social/colibri/channel/listMessages";
-import { useChannelContext } from "../../../contexts/Channel";
+import type { AttachmentView, MessageAttachment } from "../../../atproto/views";
+import {
+	type SendMessageAttachment,
+	useChannelContext,
+} from "../../../contexts/Channel";
 import { useCommunityContext } from "../../../contexts/Community";
 import { useUserContext } from "../../../contexts/User";
 import { useUserPreferences } from "../../../contexts/UserPreferences";
@@ -47,12 +50,25 @@ import { TextEditor } from "../common/text-editor/TextEditor";
 import { DisplayableName, displayableNameFn } from "../user/DisplayableName";
 
 // Uploads a single file straight to the user's PDS via the authenticated
-// (OAuth) agent and resolves to an AttachmentObj ready to embed in a record.
-const uploadFile = async (agent: Agent, file: File): Promise<AttachmentObj> => {
+// (OAuth) agent. The record half references the blob, and the preview half is a
+// local object URL so the optimistic message renders before the AppView has a
+// signed URL for it.
+const uploadFile = async (
+	agent: Agent,
+	file: File,
+): Promise<SendMessageAttachment> => {
 	const blob = await uploadBlob(agent, file);
 	return {
-		blob: blob.toJSON() as unknown as JsonBlobRef,
-		name: file.name,
+		record: {
+			blob: blob.toJSON() as unknown as JsonBlobRef,
+			name: file.name,
+		} as MessageAttachment,
+		preview: {
+			url: asUri(URL.createObjectURL(file)),
+			mimeType: file.type,
+			name: file.name,
+			size: file.size,
+		} as AttachmentView,
 	};
 };
 
@@ -107,7 +123,7 @@ export const MessageInput: Component<{
 
 	createEffect(
 		on(
-			() => channel.channelUri(),
+			() => channel.channelSpace(),
 			() => clearAttachments([...fileField.acceptedFiles]),
 			{ defer: true },
 		),
@@ -141,14 +157,16 @@ export const MessageInput: Component<{
 
 		if (!member) return "";
 
-		return displayableNameFn(member);
+		return displayableNameFn(member.actor, member.nickname);
 	};
 
 	/**
 	 * Uploads the given files to the user's PDS in parallel.
 	 * @param files The files to upload
 	 */
-	const uploadFiles = (files: Array<File>): Promise<Array<AttachmentObj>> => {
+	const uploadFiles = (
+		files: Array<File>,
+	): Promise<Array<SendMessageAttachment>> => {
 		return Promise.all(
 			files.map(async (file) => {
 				const attachment = await uploadFile(user.atproto.agent, file);
@@ -167,10 +185,8 @@ export const MessageInput: Component<{
 	): Promise<boolean> => {
 		const acceptedFiles = [...fileField.acceptedFiles];
 		const hasFiles = acceptedFiles.length > 0;
-		const replyingMessage = channel.replyingTo()
-			? JSON.parse(JSON.stringify(channel.replyingTo()))
-			: undefined;
-		const targetChannelUri = channel.channelUri();
+		const replyingMessage = channel.replyingTo();
+		const targetChannelSpace = channel.channelSpace();
 
 		const trimmed = trimWithFacets({ text, facets });
 		const cleanText = purify(trimmed.text);
@@ -201,7 +217,7 @@ export const MessageInput: Component<{
 		}
 
 		try {
-			let attachments: AttachmentObj[] = [];
+			let attachments: Array<SendMessageAttachment> = [];
 			if (hasFiles) {
 				try {
 					attachments = await uploadFiles(acceptedFiles);
@@ -216,56 +232,19 @@ export const MessageInput: Component<{
 				}
 			}
 
-			const now = new Date().toISOString();
-			const hash = crypto.randomUUID();
 			const suppressedEmbeds = embedsEnabled()
 				? []
 				: linkUrisFromFacets(cleanFacets).filter(isRemovableEmbed);
 
-			let uri: string;
-			try {
-				({ uri } = await enqueueCreate(
-					user.did,
-					"social.colibri.message",
-					{
-						text: cleanText,
-						facets: cleanFacets,
-						channel: targetChannelUri,
-						createdAt: now,
-						...(replyingMessage ? { parent: replyingMessage.uri } : {}),
-						...(attachments.length > 0 ? { attachments } : {}),
-						...(suppressedEmbeds.length > 0 ? { suppressedEmbeds } : {}),
-					},
-					{ label: "Failed to send message." },
-				));
-			} catch {
-				toast.error("Failed to send message.");
-				return false;
-			}
-
-			const pending: PendingMessage = {
-				hash,
-				uri,
+			await channel.sendMessage({
 				text: cleanText,
 				facets: cleanFacets,
-				channel: targetChannelUri,
-				community: "",
-				author: {
-					did: user.did,
-					handle: user.handle.replaceAll("at://", ""),
-					data: user.data,
-				},
 				parent: replyingMessage,
 				attachments,
-				reactions: [],
-				createdAt: now,
-				edited: false,
 				suppressedEmbeds,
-			};
+			});
 
-			if (channel.channelUri() === targetChannelUri) {
-				channel.addPendingMessage(pending);
-				channel.advanceReadCursor(uri);
+			if (channel.channelSpace() === targetChannelSpace) {
 				clearAttachments(acceptedFiles);
 			}
 

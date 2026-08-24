@@ -21,7 +21,7 @@ export const RichTextRenderer: Component<{
 	const community = useCommunityContext();
 
 	const content = props.text();
-	const rendered = renderWithFacets(content, community().community.uri);
+	const rendered = renderWithFacets(content, community().community.did);
 
 	const emojiCount =
 		!content.facets || content.facets.length === 0

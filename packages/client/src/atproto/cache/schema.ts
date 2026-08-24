@@ -1,19 +1,39 @@
 import type { AppBskyFeedDefs } from "@atproto/api";
-import type { ActorData, Community } from "@colibri-social/lib";
-import type { Message } from "../xrpc/social/colibri/channel/listMessages";
-import type { Community as CommunityDetail } from "../xrpc/social/colibri/community/getData";
+import type {
+	CategoryView,
+	ChannelView,
+	CommunityView,
+	MemberView,
+	MessageView,
+	ProfileView,
+	RoleView,
+} from "../views";
 
-export const SCHEMA_VERSION = 3;
+export const SCHEMA_VERSION = 5;
 
 export type UserSnapshot = {
-	actorData: ActorData;
-	communities: Community[];
+	profile: ProfileView;
+	communities: CommunityView[];
 };
 
-export type CommunitySnapshot = CommunityDetail;
+export type CommunitySnapshot = {
+	community: CommunityView;
+	categories: CategoryView[];
+	channels: ChannelView[];
+	roles: RoleView[];
+	members: MemberView[];
+	ts: number;
+};
+
+export type PendingMessage = Pick<
+	MessageView,
+	"uri" | "channel" | "author" | "text" | "facets" | "createdAt" | "attachments"
+> & {
+	hash: string;
+};
 
 export type MessagesSnapshot = {
-	messages: Message[];
+	messages: MessageView[];
 	readCursor?: string;
 	cursor?: string;
 	hasMore?: boolean;

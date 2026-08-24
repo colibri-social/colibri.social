@@ -3,6 +3,7 @@ import {
 	type Component,
 	createEffect,
 	createMemo,
+	createResource,
 	createSignal,
 	For,
 	Match,
@@ -18,15 +19,17 @@ import PhoneSlashIcon from "~icons/ph/phone-slash";
 import SpeakerHighIcon from "~icons/ph/speaker-high-fill";
 import UsersIcon from "~icons/ph/users";
 import UsersIconFill from "~icons/ph/users-fill";
-import { resolveBlob } from "../../atproto/resolve-blob";
-import type { Member } from "../../atproto/xrpc/social/colibri/community/listMembers";
+import { voiceDisabledOn } from "../../atproto/server-features";
+import { spaceSkey } from "../../atproto/space-ref";
 import { useCommunityContext } from "../../contexts/Community";
+import type { Member } from "../../contexts/community-payload";
 import { useUserContext } from "../../contexts/User";
 import { useUserPreferences } from "../../contexts/UserPreferences";
 import { ConnectionState, useVoiceChatContext } from "../../contexts/VoiceChat";
 import { classifyThrown } from "../../errors/classify";
 import { preloadNoiseSuppressor } from "../../hooks/createNoiseSuppressor";
 import { noiseMode } from "../../hooks/noise/modes";
+import { appViewHostFor } from "../../utils/appview";
 import { getAverageColorFromUrl } from "../../utils/get-average-color";
 import { createLogger } from "../../utils/logger";
 import { createMobilePane } from "../../utils/mobile-pane";
@@ -175,16 +178,21 @@ export const VoiceChannelView: Component = () => {
 	});
 
 	const channelName = () => {
-		const rkey = params.channel;
+		const skey = params.channel;
 		return (
-			community().channels.find((c) => c.uri.split("/").pop() === rkey)?.name ??
-			rkey
+			community().channels.find((c) => spaceSkey(c.space) === skey)?.name ??
+			skey
 		);
 	};
 
 	const channelUri = (): string | undefined =>
-		community().channels.find((c) => c.uri.split("/").pop() === params.channel)
-			?.uri;
+		community().channels.find((c) => spaceSkey(c.space) === params.channel)
+			?.space;
+
+	const [voiceOff] = createResource(
+		() => appViewHostFor(community().community.managingApp, "http"),
+		voiceDisabledOn,
+	);
 
 	const isActiveHere = (): boolean =>
 		voiceData.connection.uri === channelUri() &&
@@ -193,11 +201,11 @@ export const VoiceChannelView: Component = () => {
 	const joinHere = (): void => {
 		const channel = channelUri();
 
-		if (channel) {
+		if (channel && !voiceOff()) {
 			connect(channel, {
 				channelName: channelName(),
 				communityName: community().community.name,
-				hubDid: community().community.appview,
+				managingApp: community().community.managingApp,
 			});
 		}
 	};
@@ -318,7 +326,9 @@ export const VoiceChannelView: Component = () => {
 	};
 
 	const participantsSentence = (): string => {
-		const names = participantMembers().map((m) => displayableNameFn(m!));
+		const names = participantMembers().map((m) =>
+			displayableNameFn(m!.actor, m!.nickname),
+		);
 
 		if (names.length === 0) return "";
 		if (names.length === 1) return `${names[0]} is in this voice channel.`;
@@ -344,7 +354,7 @@ export const VoiceChannelView: Component = () => {
 		const [avatarColor, setAvatarColor] = createSignal<string>();
 
 		createEffect(() => {
-			const src = resolveBlob(props.member.did, props.member.data.avatar);
+			const src = props.member.actor.avatar;
 
 			if (!src) return;
 
@@ -418,7 +428,11 @@ export const VoiceChannelView: Component = () => {
 							/>
 						</Show>
 						<span class="hidden group-hover/vc:block truncate">
-							<User.DisplayableName color={false} user={props.member} />
+							<User.DisplayableName
+								color={false}
+								user={props.member.actor}
+								nickname={props.member.nickname}
+							/>
 						</span>
 					</span>
 				</Show>
@@ -426,7 +440,8 @@ export const VoiceChannelView: Component = () => {
 					when={hasVideo()}
 					fallback={
 						<User.Avatar
-							user={props.member}
+							user={props.member.actor}
+							nickname={props.member.nickname}
 							disableState={true}
 							size={props.compact ? "base" : "large"}
 						/>
@@ -435,7 +450,7 @@ export const VoiceChannelView: Component = () => {
 					<VideoTile
 						stream={cameraFor(props.member.did)!}
 						mirror={props.member.did === user.did}
-						debugLabel={`cam:${displayableNameFn(props.member)}`}
+						debugLabel={`cam:${displayableNameFn(props.member.actor, props.member.nickname)}`}
 					/>
 				</Show>
 				<Show when={!props.compact && !props.plain}>
@@ -463,13 +478,17 @@ export const VoiceChannelView: Component = () => {
 		>
 			<VideoTile
 				stream={props.stream}
-				debugLabel={`screen:${props.member ? displayableNameFn(props.member) : "?"}`}
+				debugLabel={`screen:${props.member ? displayableNameFn(props.member.actor, props.member.nickname) : "?"}`}
 			/>
 			<span class="absolute flex flex-row items-center gap-2 px-2 h-8 bottom-2 left-2 w-fit max-w-[calc(100%-1rem)] bg-background/75 border border-border rounded-sm z-10">
 				<Screen enabled={true} size={16} />
 				<span class="truncate">
 					<Show when={props.member} fallback={<>Screen</>}>
-						<User.DisplayableName color={false} user={props.member!} />
+						<User.DisplayableName
+							color={false}
+							user={props.member!.actor}
+							nickname={props.member!.nickname}
+						/>
 					</Show>
 				</span>
 			</span>
@@ -591,10 +610,19 @@ export const VoiceChannelView: Component = () => {
 								{participantsSentence()}
 							</p>
 						</Show>
-						<Button class="gap-2" onClick={joinHere}>
+						<Button
+							class="gap-2"
+							onClick={joinHere}
+							disabled={voiceOff() === true}
+						>
 							<PhoneCallIcon />
 							Join Voice
 						</Button>
+						<Show when={voiceOff()}>
+							<p class="text-sm text-muted-foreground m-0">
+								This community's server has voice turned off.
+							</p>
+						</Show>
 					</div>
 				}
 			>
@@ -683,28 +711,56 @@ export const VoiceChannelView: Component = () => {
 				</div>
 				<div class="absolute bottom-0 left-0 w-full z-10 flex items-center justify-center px-4 pb-4 pt-12 pointer-events-none bg-linear-to-t from-background from-0% via-background/70 via-55% to-transparent to-100% opacity-0 translate-y-2 group-hover/vc:opacity-100 group-hover/vc:translate-y-0 transition-all duration-200">
 					<div class="flex items-center justify-center gap-2 pointer-events-auto">
-						<Button
-							variant={voiceData.states.micEnabled ? "secondary" : "outline"}
-							class="gap-2"
-							classList={{
-								"text-(--primary-hover)!": voiceData.states.micEnabled,
-								"text-red-400": !voiceData.states.micEnabled,
-							}}
-							onClick={toggleMic}
-						>
-							<Microphone enabled={voiceData.states.micEnabled} />
-						</Button>
-						<Button
-							variant={voiceData.states.deafened ? "secondary" : "outline"}
-							class="gap-2"
-							classList={{
-								"text-foreground": !voiceData.states.deafened,
-								"text-red-400!": voiceData.states.deafened,
-							}}
-							onClick={toggleDeafen}
-						>
-							<Ear enabled={voiceData.states.deafened} />
-						</Button>
+						<Tooltip>
+							<TooltipTrigger>
+								<Button
+									variant={
+										voiceData.states.micEnabled ? "secondary" : "outline"
+									}
+									class="gap-2"
+									classList={{
+										"text-(--primary-hover)!": voiceData.states.micEnabled,
+										"text-red-400": !voiceData.states.micEnabled,
+									}}
+									disabled={voiceData.states.serverMuted}
+									onClick={toggleMic}
+								>
+									<Microphone enabled={voiceData.states.micEnabled} />
+								</Button>
+							</TooltipTrigger>
+							<Show when={voiceData.states.serverMuted}>
+								<TooltipPortal>
+									<TooltipContent>
+										A moderator muted you. Ask them to lift it before you can
+										unmute.
+									</TooltipContent>
+								</TooltipPortal>
+							</Show>
+						</Tooltip>
+						<Tooltip>
+							<TooltipTrigger>
+								<Button
+									variant={voiceData.states.deafened ? "secondary" : "outline"}
+									class="gap-2"
+									classList={{
+										"text-foreground": !voiceData.states.deafened,
+										"text-red-400!": voiceData.states.deafened,
+									}}
+									disabled={voiceData.states.serverDeafened}
+									onClick={toggleDeafen}
+								>
+									<Ear enabled={voiceData.states.deafened} />
+								</Button>
+							</TooltipTrigger>
+							<Show when={voiceData.states.serverDeafened}>
+								<TooltipPortal>
+									<TooltipContent>
+										A moderator deafened you. Ask them to lift it before you can
+										undeafen.
+									</TooltipContent>
+								</TooltipPortal>
+							</Show>
+						</Tooltip>
 						<Button
 							variant={voiceData.states.camEnabled ? "secondary" : "outline"}
 							class="gap-2"

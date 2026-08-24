@@ -10,8 +10,7 @@ import {
 } from "solid-js";
 import CaretRightIcon from "~icons/ph/caret-right";
 import ClockIcon from "~icons/ph/clock";
-import type { Member } from "../../../../atproto/xrpc/social/colibri/community/listMembers";
-import type { Role } from "../../../../atproto/xrpc/social/colibri/community/listRoles";
+import type { Member, Role } from "../../../../contexts/community-payload";
 import { parseEmojiText } from "../../../../utils/emoji";
 import { ChannelTypeIcon } from "../../community/ChannelTypeIcon";
 import User from "../../user";
@@ -34,7 +33,7 @@ export function isRole(item: SuggestionItem): item is Role {
 }
 
 export function isChannel(item: SuggestionItem): item is ChannelSuggestion {
-	return "uri" in item;
+	return "space" in item;
 }
 
 export function isEmoji(item: SuggestionItem): item is EmojiSuggestionData {
@@ -106,7 +105,11 @@ export const MentionList: Component<{
 				<Match when={isMember(bprops.item)}>
 					<div class="flex flex-row items-center justify-between gap-1.5">
 						<span class="relative">
-							<User.Avatar user={bprops.item as Member} size="small" />
+							<User.Avatar
+								user={(bprops.item as Member).actor}
+								nickname={(bprops.item as Member).nickname}
+								size="small"
+							/>
 							<span
 								class="absolute bottom-1 right-1 rounded-full"
 								classList={{
@@ -123,7 +126,10 @@ export const MentionList: Component<{
 						</span>
 						<span class="flex flex-col items-start">
 							<span class="text-sm">
-								{displayableNameFn(bprops.item as Member)}
+								{displayableNameFn(
+									(bprops.item as Member).actor,
+									(bprops.item as Member).nickname,
+								)}
 							</span>
 						</span>
 					</div>

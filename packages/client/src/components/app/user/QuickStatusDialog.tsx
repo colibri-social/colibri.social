@@ -25,8 +25,9 @@ export const QuickStatusDialog: Component<{
 
 	const previewUser = () => ({
 		...user,
-		data: {
-			...user.data,
+		presence: {
+			onlineState: user.presence?.onlineState ?? "offline",
+			voice: user.presence?.voice,
 			status: hasDraft()
 				? { text: status(), emoji: emoji() || undefined }
 				: undefined,

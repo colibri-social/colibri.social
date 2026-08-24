@@ -1,0 +1,103 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.actor.profile",
+	"defs": {
+		"main": {
+			"type": "record",
+			"description": "A Colibri profile. A public record on the user's own repo, kept separate from app.bsky.actor.profile so Colibri never needs write access to the Bluesky record.",
+			"key": "literal:self",
+			"record": {
+				"type": "object",
+				"required": [],
+				"properties": {
+					"displayName": {
+						"type": "string",
+						"maxGraphemes": 64,
+						"maxLength": 640,
+						"description": "Display name."
+					},
+					"description": {
+						"type": "string",
+						"maxGraphemes": 256,
+						"maxLength": 2560,
+						"description": "Bio."
+					},
+					"avatar": {
+						"type": "blob",
+						"accept": [
+							"image/jpeg",
+							"image/png",
+							"image/gif",
+							"image/webp"
+						],
+						"description": "Avatar image."
+					},
+					"banner": {
+						"type": "blob",
+						"accept": [
+							"image/jpeg",
+							"image/png",
+							"image/gif",
+							"image/webp"
+						],
+						"description": "Profile banner image."
+					},
+					"syncBluesky": {
+						"type": "boolean",
+						"default": false,
+						"description": "When true, displayName, description, avatar and banner are served from app.bsky.actor.profile instead of from this record."
+					},
+					"theme": {
+						"type": "ref",
+						"ref": "#theme",
+						"description": "Colibri-only profile theming."
+					},
+					"preferredBadge": {
+						"type": "string",
+						"maxLength": 64,
+						"description": "Label value of the badge to display. Absent means the highest-priority badge."
+					}
+				}
+			}
+		},
+		"theme": {
+			"type": "object",
+			"description": "Colibri-only profile theming. Always read from this record, even when syncBluesky is set.",
+			"required": [],
+			"properties": {
+				"accentColor": {
+					"type": "string",
+					"maxLength": 7,
+					"description": "Accent colour as #rrggbb."
+				},
+				"bannerColor": {
+					"type": "string",
+					"maxLength": 7,
+					"description": "Fallback banner colour as #rrggbb, used when no banner image is set."
+				},
+				"gradient": {
+					"type": "ref",
+					"ref": "#themeGradient",
+					"description": "Two-colour gradient."
+				}
+			}
+		},
+		"themeGradient": {
+			"type": "object",
+			"description": "A two-colour gradient.",
+			"required": [],
+			"properties": {
+				"primary": {
+					"type": "string",
+					"maxLength": 7,
+					"description": "Primary colour as #rrggbb."
+				},
+				"secondary": {
+					"type": "string",
+					"maxLength": 7,
+					"description": "Secondary colour as #rrggbb."
+				}
+			}
+		}
+	}
+}

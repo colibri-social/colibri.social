@@ -1,4 +1,5 @@
 import { createResource, Match, type ParentComponent, Switch } from "solid-js";
+import { COLLECTIONS } from "../../../atproto/lexicons";
 import { useUserContext } from "../../../contexts/User";
 import { classifyThrown, isRecordNotFound } from "../../../errors/classify";
 import { markBoot } from "../../../utils/perf";
@@ -71,7 +72,7 @@ export const ProfileGate: ParentComponent = (props) => {
 	const [gate, { mutate, refetch }] = createResource(
 		async (): Promise<GateState> => {
 			const [hasColibri, hasBluesky, returning] = await Promise.all([
-				recordExists("social.colibri.actor.profile"),
+				recordExists(COLLECTIONS.profile),
 				recordExists("app.bsky.actor.profile"),
 				isReturning(),
 			]);

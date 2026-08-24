@@ -1,0 +1,228 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.richtext.facet",
+	"defs": {
+		"main": {
+			"type": "object",
+			"description": "An annotation over a range of a message's text.",
+			"required": [
+				"index",
+				"features"
+			],
+			"properties": {
+				"index": {
+					"type": "ref",
+					"ref": "#byteSlice",
+					"description": "The range of the text this facet covers."
+				},
+				"features": {
+					"type": "array",
+					"items": {
+						"type": "union",
+						"refs": [
+							"#bold",
+							"#italic",
+							"#underline",
+							"#strikethrough",
+							"#code",
+							"#codeblock",
+							"#quote",
+							"#heading",
+							"#list",
+							"#subtext",
+							"#spoiler",
+							"#mention",
+							"#role",
+							"#channel",
+							"#link",
+							"#time"
+						]
+					},
+					"description": "What the range means. A range may carry more than one feature."
+				}
+			}
+		},
+		"byteSlice": {
+			"type": "object",
+			"description": "The range a feature applies to, as zero-based byte offsets into the UTF-8 encoded text. Start is inclusive, end is exclusive.",
+			"required": [
+				"byteStart",
+				"byteEnd"
+			],
+			"properties": {
+				"byteStart": {
+					"type": "integer",
+					"minimum": 0,
+					"description": "First byte of the range, inclusive."
+				},
+				"byteEnd": {
+					"type": "integer",
+					"minimum": 0,
+					"description": "Byte after the range, exclusive."
+				}
+			}
+		},
+		"bold": {
+			"type": "object",
+			"description": "Bold text.",
+			"properties": {}
+		},
+		"italic": {
+			"type": "object",
+			"description": "Italic text.",
+			"properties": {}
+		},
+		"underline": {
+			"type": "object",
+			"description": "Underlined text.",
+			"properties": {}
+		},
+		"strikethrough": {
+			"type": "object",
+			"description": "Struck-through text.",
+			"properties": {}
+		},
+		"code": {
+			"type": "object",
+			"description": "Inline code.",
+			"properties": {}
+		},
+		"codeblock": {
+			"type": "object",
+			"description": "A multi-line code block.",
+			"properties": {
+				"lang": {
+					"type": "string",
+					"maxLength": 32,
+					"description": "Language hint."
+				}
+			}
+		},
+		"quote": {
+			"type": "object",
+			"description": "A block quote.",
+			"properties": {}
+		},
+		"heading": {
+			"type": "object",
+			"description": "A heading line.",
+			"required": [
+				"level"
+			],
+			"properties": {
+				"level": {
+					"type": "integer",
+					"minimum": 1,
+					"maximum": 3,
+					"description": "Heading level, from 1 to 3."
+				}
+			}
+		},
+		"list": {
+			"type": "object",
+			"description": "A list item line.",
+			"required": [
+				"ordered"
+			],
+			"properties": {
+				"ordered": {
+					"type": "boolean",
+					"description": "Whether the list is numbered."
+				}
+			}
+		},
+		"subtext": {
+			"type": "object",
+			"description": "Small, muted text.",
+			"properties": {}
+		},
+		"spoiler": {
+			"type": "object",
+			"description": "Text hidden until revealed.",
+			"properties": {}
+		},
+		"mention": {
+			"type": "object",
+			"description": "A user mention.",
+			"required": [
+				"did"
+			],
+			"properties": {
+				"did": {
+					"type": "string",
+					"format": "did",
+					"description": "The mentioned user."
+				}
+			}
+		},
+		"role": {
+			"type": "object",
+			"description": "A role mention. Roles are only ever written by the community, and a channel space's authority is its community, so the role key alone is unambiguous.",
+			"required": [
+				"role"
+			],
+			"properties": {
+				"role": {
+					"type": "string",
+					"format": "record-key",
+					"description": "The mentioned role."
+				}
+			}
+		},
+		"channel": {
+			"type": "object",
+			"description": "A channel reference, by the channel's space key within the same community.",
+			"required": [
+				"channel"
+			],
+			"properties": {
+				"channel": {
+					"type": "string",
+					"format": "record-key",
+					"description": "The referenced channel."
+				}
+			}
+		},
+		"link": {
+			"type": "object",
+			"description": "A hyperlink.",
+			"required": [
+				"uri"
+			],
+			"properties": {
+				"uri": {
+					"type": "string",
+					"format": "uri",
+					"description": "Where the link points."
+				}
+			}
+		},
+		"time": {
+			"type": "object",
+			"description": "A timestamp rendered in the reader's locale.",
+			"required": [
+				"datetime"
+			],
+			"properties": {
+				"datetime": {
+					"type": "string",
+					"format": "datetime",
+					"description": "The instant being referred to."
+				},
+				"style": {
+					"type": "string",
+					"knownValues": [
+						"time-short",
+						"time-long",
+						"date-short",
+						"date-long",
+						"datetime-short",
+						"datetime-long",
+						"relative"
+					],
+					"description": "How to render it."
+				}
+			}
+		}
+	}
+}

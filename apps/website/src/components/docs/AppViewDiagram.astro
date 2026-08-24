@@ -1,25 +1,18 @@
----
-/**
- * Animated architecture diagram for the AppView page. Pure SVG + scoped CSS,
- * themed entirely off Starlight's `--sl-color-*` variables so it adapts to
- * light and dark automatically. Motion is disabled under
- * `prefers-reduced-motion`.
- */
----
-
 <div class="appview-diagram not-content">
 	<svg
-		viewBox="0 0 820 440"
+		viewBox="0 0 820 450"
 		role="img"
-		aria-label="Data flow between the Colibri client, a PDS, Tap, the AppView and PostgreSQL."
+		aria-label="Data flow between the Colibri client, a PDS, the AppView, member repositories and the AppView's local store."
 		xmlns="http://www.w3.org/2000/svg"
 	>
 		<title>Colibri AppView architecture</title>
 		<desc>
 			The client sends requests through the user's PDS to the AppView and opens
-			a direct WebSocket to it for live events. Tap consumes the ATproto
-			firehose and relays events to the AppView. Both Tap and the AppView read
-			from and write to a single PostgreSQL database.
+			a direct WebSocket to it for live events. The community's PDS asks the
+			AppView whether a user may read a space, and the AppView writes the
+			community's records back to it. Holding a space credential, the AppView
+			pulls each member's repository from that member's own host and stores what
+			it reads locally.
 		</desc>
 
 		<defs>
@@ -47,118 +40,122 @@
 			</marker>
 		</defs>
 
-		<!-- Edges: base line + animated flow overlay -->
-		<!-- Client -> PDS -->
-		<path class="edge" d="M190,157 L320,153"></path>
+		<path class="edge" d="M190,147 L310,147"></path>
 		<path
 			class="flow flow-http"
-			d="M190,157 L320,153"
+			d="M190,147 L310,147"
 			marker-end="url(#arrow-accent)"></path>
-		<!-- PDS -> AppView -->
-		<path class="edge" d="M470,153 L620,160"></path>
+
+		<path class="edge" d="M470,147 L620,148"></path>
 		<path
 			class="flow flow-http"
-			d="M470,153 L620,160"
+			d="M470,147 L620,148"
 			marker-end="url(#arrow-accent)"></path>
-		<!-- Client <-> AppView (direct WebSocket): two lanes, one each way -->
-		<path class="edge" d="M110,120 C205,34 555,34 686,120"></path>
+
+		<path class="edge" d="M110,110 C205,24 555,24 686,104"></path>
 		<path
 			class="flow flow-ws"
-			d="M110,120 C205,34 555,34 686,120"
+			d="M110,110 C205,24 555,24 686,104"
 			marker-end="url(#arrow-accent)"></path>
-		<path class="edge" d="M694,120 C555,50 205,50 120,120"></path>
+		<path class="edge" d="M694,104 C555,40 205,40 120,110"></path>
 		<path
 			class="flow flow-ws"
-			d="M694,120 C555,50 205,50 120,120"
+			d="M694,104 C555,40 205,40 120,110"
 			marker-end="url(#arrow-accent)"></path>
-		<!-- Firehose -> Tap -->
-		<path class="edge" d="M190,328 L320,328"></path>
+
+		<path class="edge" d="M478,270 C572,254 612,222 646,198"></path>
 		<path
 			class="flow flow-http"
-			d="M190,328 L320,328"
+			d="M478,270 C572,254 612,222 646,198"
 			marker-end="url(#arrow-accent)"></path>
-		<!-- Tap -> AppView (live events) -->
-		<path class="edge" d="M470,328 C560,300 590,220 640,212"></path>
+
+		<path class="edge" d="M668,200 C632,252 566,302 480,300"></path>
 		<path
-			class="flow flow-ws"
-			d="M470,328 C560,300 590,220 640,212"
+			class="flow flow-http"
+			d="M668,200 C632,252 566,302 480,300"
 			marker-end="url(#arrow-accent)"></path>
-		<!-- AppView <-> Postgres -->
-		<path class="edge" d="M700,212 L680,360"></path>
+
+		<path class="edge" d="M638,196 C558,344 380,398 216,386"></path>
+		<path
+			class="flow flow-http"
+			d="M638,196 C558,344 380,398 216,386"
+			marker-end="url(#arrow-accent)"></path>
+
+		<path class="edge" d="M700,196 L700,350"></path>
 		<path
 			class="flow flow-sql"
-			d="M700,212 L680,360"
-			marker-end="url(#arrow-muted)"></path>
-		<!-- Tap <-> Postgres -->
-		<path class="edge" d="M395,356 C460,400 500,392 560,390"></path>
-		<path
-			class="flow flow-sql"
-			d="M395,356 C460,400 500,392 560,390"
+			d="M700,196 L700,350"
 			marker-end="url(#arrow-muted)"></path>
 
-		<!-- Edge labels -->
-		<text class="e-label" x="255" y="144" text-anchor="middle">requests</text>
-		<text class="e-label" x="548" y="147" text-anchor="middle"
+		<text class="e-label" x="250" y="138" text-anchor="middle">requests</text>
+		<text class="e-label" x="545" y="138" text-anchor="middle"
 			>service auth</text
 		>
-		<text class="e-label" x="402" y="42" text-anchor="middle"
+		<text class="e-label" x="400" y="32" text-anchor="middle"
 			>subscribeEvents (direct WS connection)</text
 		>
-		<text class="e-label" x="255" y="318" text-anchor="middle">Firehose</text>
-		<text class="e-label" x="612" y="258" text-anchor="middle"
-			>live events (WS)</text
+		<text class="e-label" x="556" y="228" text-anchor="middle"
+			>checkUserAccess</text
 		>
-		<text class="e-label" x="712" y="292" text-anchor="start">read / write</text
+		<text class="e-label" x="566" y="320" text-anchor="middle"
+			>community writes</text
 		>
-		<text class="e-label" x="470" y="418" text-anchor="middle">writes</text>
+		<text class="e-label" x="404" y="410" text-anchor="middle"
+			>listRepoOps / getRepo</text
+		>
+		<text class="e-label" x="712" y="278" text-anchor="start">read / write</text
+		>
 
-		<!-- Nodes -->
 		<g class="node-group">
-			<rect class="node" x="40" y="120" width="150" height="74" rx="12"></rect>
-			<text class="n-title" x="115" y="152" text-anchor="middle">Client</text>
-			<text class="n-sub" x="115" y="171" text-anchor="middle">SolidJS UI</text>
+			<rect class="node" x="40" y="110" width="150" height="74" rx="12"></rect>
+			<text class="n-title" x="115" y="142" text-anchor="middle">Client</text>
+			<text class="n-sub" x="115" y="161" text-anchor="middle">SolidJS UI</text>
 		</g>
 		<g class="node-group">
-			<rect class="node" x="320" y="120" width="150" height="66" rx="12"></rect>
-			<text class="n-title" x="395" y="149" text-anchor="middle">Your PDS</text>
-			<text class="n-sub" x="395" y="168" text-anchor="middle"
+			<rect class="node" x="310" y="110" width="160" height="74" rx="12"></rect>
+			<text class="n-title" x="390" y="142" text-anchor="middle">Your PDS</text>
+			<text class="n-sub" x="390" y="161" text-anchor="middle"
 				>ATproto proxy</text
 			>
 		</g>
 		<g class="node-group">
-			<rect class="node" x="40" y="300" width="150" height="56" rx="12"></rect>
-			<text class="n-title" x="115" y="324" text-anchor="middle">Firehose</text>
-			<text class="n-sub" x="115" y="343" text-anchor="middle"
-				>ATproto network</text
+			<rect class="node" x="310" y="250" width="160" height="66" rx="12"></rect>
+			<text class="n-title" x="390" y="276" text-anchor="middle"
+				>Community PDS</text
+			>
+			<text class="n-sub" x="390" y="295" text-anchor="middle"
+				>space authority</text
 			>
 		</g>
 		<g class="node-group">
-			<rect class="node" x="320" y="300" width="150" height="56" rx="12"></rect>
-			<text class="n-title" x="395" y="324" text-anchor="middle">Tap</text>
-			<text class="n-sub" x="395" y="343" text-anchor="middle"
-				>Backfill + Relay</text
+			<rect class="node" x="40" y="352" width="176" height="66" rx="12"></rect>
+			<text class="n-title" x="128" y="378" text-anchor="middle"
+				>Member repos</text
+			>
+			<text class="n-sub" x="128" y="397" text-anchor="middle"
+				>on their own hosts</text
 			>
 		</g>
 		<g class="node-group">
-			<rect class="node" x="560" y="360" width="180" height="60" rx="12"></rect>
-			<text class="n-title" x="650" y="386" text-anchor="middle"
-				>PostgreSQL</text
+			<rect class="node" x="610" y="350" width="180" height="66" rx="12"></rect>
+			<text class="n-title" x="700" y="376" text-anchor="middle"
+				>Local store</text
 			>
-			<text class="n-sub" x="650" y="405" text-anchor="middle"
-				>shared store</text
+			<text class="n-sub" x="700" y="395" text-anchor="middle"
+				>libSQL or Postgres</text
 			>
 		</g>
 		<g class="node-group">
 			<rect
 				class="node node-accent"
 				x="620"
-				y="120"
+				y="104"
 				width="160"
 				height="92"
 				rx="14"></rect>
-			<text class="n-title" x="700" y="160" text-anchor="middle">AppView</text>
-			<text class="n-sub n-sub-accent" x="700" y="180" text-anchor="middle"
-				>Rocket</text
+			<text class="n-title" x="700" y="144" text-anchor="middle">AppView</text>
+			<text class="n-sub n-sub-accent" x="700" y="164" text-anchor="middle"
+				>Node</text
 			>
 		</g>
 	</svg>

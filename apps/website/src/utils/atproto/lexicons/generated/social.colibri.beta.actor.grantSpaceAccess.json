@@ -1,0 +1,73 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.actor.grantSpaceAccess",
+	"defs": {
+		"main": {
+			"type": "procedure",
+			"description": "Hands the AppView access to one of the requesting user's personal spaces. The client mints a delegation token on its own PDS for the space and passes it here, because a delegation token is single-use and short-lived and the AppView has no OAuth session of its own. The AppView exchanges the token for a space credential and syncs the space.",
+			"input": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"space",
+						"delegationToken"
+					],
+					"properties": {
+						"space": {
+							"type": "string",
+							"format": "space-ref",
+							"description": "The space to grant access to."
+						},
+						"delegationToken": {
+							"type": "string",
+							"description": "A delegation token minted by the user's PDS for the space."
+						}
+					}
+				}
+			},
+			"output": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"expiresAt"
+					],
+					"properties": {
+						"expiresAt": {
+							"type": "string",
+							"format": "datetime",
+							"description": "When the resulting space credential expires. The client should call this again before then to keep access current."
+						}
+					}
+				}
+			},
+			"errors": [
+				{
+					"name": "AuthRequired",
+					"description": "The request has no valid service auth."
+				},
+				{
+					"name": "InvalidRequest",
+					"description": "The arguments are inconsistent or malformed beyond schema validation."
+				},
+				{
+					"name": "InvalidDelegationToken",
+					"description": "The delegation token is malformed, expired, or already used."
+				},
+				{
+					"name": "SpaceNotFound",
+					"description": "No space matches the given space reference."
+				},
+				{
+					"name": "NotAuthorized",
+					"description": "The delegation token does not grant access to the given space."
+				},
+				{
+					"name": "UpstreamFailure",
+					"description": "The user's PDS failed while the AppView exchanged the delegation token or synced the space."
+				}
+			]
+		}
+	}
+}

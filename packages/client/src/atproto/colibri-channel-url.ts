@@ -1,50 +1,39 @@
-import type { AT_URI } from "@colibri-social/lib";
-import { AtURI, toRecordUri } from "../utils/at-uri";
 import { webAppOrigin } from "../utils/web-origin";
-import {
-	communityUriToUrlCompatible,
-	urlSegmentToUri,
-} from "./community-uri-to-url-compatible";
+import { isChannelSpaceType } from "./lexicons";
+import { channelSpaceRef, parseSpace } from "./space-ref";
 
-const CHANNEL_HOSTS = new Set(["colibri.social", "next.colibri.social"]);
+const CHANNEL_HOSTS = new Set([
+	"colibri.social",
+	"next.colibri.social",
+	"spaces.colibri.social",
+]);
 
 const DEEP_LINK_PROTOCOL = "social.colibri:";
 
 const CHANNEL_PATH = /^\/app\/c\/([^/]+)\/([^/]+)\/([^/]+)/;
 
-const CHANNEL_TYPE =
-	/^(?:text|voice|forum|link|social\.colibri\.channel\.[a-z]+)$/;
-
 export type ChannelUrlTarget = {
-	communitySegment: string;
-	communityUri: AT_URI<"social.colibri.community">;
+	community: string;
 	channelType: string;
-	channelRkey: string;
-	channelUri: string;
+	channelSkey: string;
+	channelSpace: string;
 };
 
 const build = (
-	communitySegment: string,
+	community: string,
 	channelType: string,
-	rkey: string,
+	skey: string,
 ): ChannelUrlTarget | null => {
-	if (!communitySegment || !channelType || !rkey) return null;
-	if (!CHANNEL_TYPE.test(channelType)) return null;
+	if (!community || !channelType || !skey) return null;
+	if (!community.startsWith("did:")) return null;
 
-	const communityUri = urlSegmentToUri(communitySegment);
-	const did = AtURI.parseAtURI(communityUri).did;
-	if (!did?.startsWith("did:")) return null;
+	const channelSkey = decodeURIComponent(skey);
+	if (!channelSkey) return null;
 
-	const channelRkey = decodeURIComponent(rkey);
-	if (!channelRkey) return null;
+	const channelSpace = channelSpaceRef(community, channelType, channelSkey);
+	if (!channelSpace) return null;
 
-	return {
-		communitySegment,
-		communityUri,
-		channelType,
-		channelRkey,
-		channelUri: toRecordUri(did, "social.colibri.channel", channelRkey),
-	};
+	return { community, channelType, channelSkey, channelSpace };
 };
 
 export const parseChannelPath = (pathname: string): ChannelUrlTarget | null => {
@@ -80,19 +69,16 @@ export const parseColibriChannelUrl = (
 	return parseChannelPath(url.pathname);
 };
 
-export const buildChannelPath = (target: {
-	communityUri: string;
-	channelType: string;
-	channelRkey: string;
-}): string => {
-	const segment = communityUriToUrlCompatible(
-		target.communityUri as AT_URI<"social.colibri.community">,
-	);
-	return `/app/c/${segment}/${target.channelType}/${encodeURIComponent(target.channelRkey)}`;
+export const buildChannelPath = (space: string): string | undefined => {
+	const parsed = parseSpace(space);
+	if (!parsed) return undefined;
+
+	if (!isChannelSpaceType(parsed.type)) return undefined;
+
+	return `/app/c/${parsed.authority}/${parsed.type}/${encodeURIComponent(parsed.skey)}`;
 };
 
-export const buildColibriChannelUrl = (target: {
-	communityUri: string;
-	channelType: string;
-	channelRkey: string;
-}): string => `${webAppOrigin()}${buildChannelPath(target)}`;
+export const buildColibriChannelUrl = (space: string): string | undefined => {
+	const path = buildChannelPath(space);
+	return path === undefined ? undefined : `${webAppOrigin()}${path}`;
+};

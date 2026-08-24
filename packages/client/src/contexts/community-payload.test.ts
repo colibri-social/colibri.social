@@ -1,31 +1,31 @@
 import { describe, expect, it } from "vitest";
-import type { Community as CommunityResponse } from "../atproto/xrpc/social/colibri/community/getData";
+import type { CommunityPayload } from "./community-payload";
 import {
 	emptyCommunityPayload,
 	isCommunityPayload,
-	payloadForUri,
+	payloadForCommunity,
 } from "./community-payload";
 
-const payload = (uri: string, memberDids: Array<string>): CommunityResponse =>
+const payload = (did: string, memberDids: Array<string>): CommunityPayload =>
 	({
 		community: {
-			uri,
-			name: uri,
+			did,
+			handle: `${did}.example.com`,
+			name: did,
 			description: "",
-			categoryOrder: [],
 			requiresApprovalToJoin: false,
-			appview: "did:web:appview.test",
+			linkEmbeds: true,
+			managingApp: "did:web:appview.test",
+			viewer: { isMember: true },
 		},
 		categories: [],
 		channels: [],
 		roles: [],
-		members: memberDids.map((did) => ({ did })),
-		did: "did:plc:community",
-	}) as unknown as CommunityResponse;
+		members: memberDids.map((memberDid) => ({ did: memberDid })),
+	}) as unknown as CommunityPayload;
 
-const A = payload("at://did:plc:a/social.colibri.community/self", [
-	"did:plc:1",
-]);
+const A = payload("did:plc:a", ["did:plc:1"]);
+
 describe("emptyCommunityPayload", () => {
 	it("has every collection the context spreads into place", () => {
 		const empty = emptyCommunityPayload();
@@ -34,8 +34,7 @@ describe("emptyCommunityPayload", () => {
 		expect(empty.roles).toEqual([]);
 		expect(empty.channels).toEqual([]);
 		expect(empty.categories).toEqual([]);
-		expect(empty.community.uri).toBe("");
-		expect(empty.community.categoryOrder).toEqual([]);
+		expect(empty.community.did).toBe("");
 	});
 
 	it("hands out an independent instance each call", () => {
@@ -60,7 +59,7 @@ describe("isCommunityPayload", () => {
 		const partial = {
 			...A,
 			members: undefined,
-		} as unknown as CommunityResponse;
+		} as unknown as CommunityPayload;
 
 		expect(isCommunityPayload(partial)).toBe(false);
 	});
@@ -69,7 +68,7 @@ describe("isCommunityPayload", () => {
 		const partial = {
 			...A,
 			community: undefined,
-		} as unknown as CommunityResponse;
+		} as unknown as CommunityPayload;
 
 		expect(isCommunityPayload(partial)).toBe(false);
 	});
@@ -79,7 +78,7 @@ describe("isCommunityPayload", () => {
 		"roles",
 		"categories",
 	])("rejects a cached payload written before %s existed", (field) => {
-		const stale = { ...A, [field]: undefined } as unknown as CommunityResponse;
+		const stale = { ...A, [field]: undefined } as unknown as CommunityPayload;
 
 		expect(isCommunityPayload(stale)).toBe(false);
 	});
@@ -88,35 +87,33 @@ describe("isCommunityPayload", () => {
 		const stale = {
 			...A,
 			members: { "did:plc:1": {} },
-		} as unknown as CommunityResponse;
+		} as unknown as CommunityPayload;
 
 		expect(isCommunityPayload(stale)).toBe(false);
 	});
 
 	it("rejects a null community block", () => {
-		const stale = { ...A, community: null } as unknown as CommunityResponse;
+		const stale = { ...A, community: null } as unknown as CommunityPayload;
 
 		expect(isCommunityPayload(stale)).toBe(false);
 	});
 });
 
-describe("payloadForUri", () => {
-	it("hands back the payload when it belongs to the uri", () => {
-		expect(payloadForUri(A, A.community.uri)).toBe(A);
+describe("payloadForCommunity", () => {
+	it("hands back the payload when it belongs to the community", () => {
+		expect(payloadForCommunity(A, A.community.did)).toBe(A);
 	});
 
 	it("rejects a payload from a different community", () => {
-		expect(
-			payloadForUri(A, "at://did:plc:b/social.colibri.community/self"),
-		).toBeUndefined();
+		expect(payloadForCommunity(A, "did:plc:b")).toBeUndefined();
 	});
 
 	it("rejects an absent payload", () => {
-		expect(payloadForUri(undefined, A.community.uri)).toBeUndefined();
+		expect(payloadForCommunity(undefined, A.community.did)).toBeUndefined();
 	});
 
 	it("rejects every payload while no community is selected", () => {
-		expect(payloadForUri(A, "")).toBeUndefined();
-		expect(payloadForUri(emptyCommunityPayload(), "")).toBeUndefined();
+		expect(payloadForCommunity(A, "")).toBeUndefined();
+		expect(payloadForCommunity(emptyCommunityPayload(), "")).toBeUndefined();
 	});
 });

@@ -1,4 +1,4 @@
-import type { Role } from "./xrpc/social/colibri/community/listRoles";
+import type { RoleView } from "./views";
 
 export const COMMUNITY_MANAGE = "community.manage";
 export const COMMUNITY_DELETE = "community.delete";
@@ -13,19 +13,20 @@ export const MEMBER_KICK = "member.kick";
 export const MEMBER_BAN = "member.ban";
 export const MEMBER_UNBAN = "member.unban";
 export const ROLE_MANAGE = "role.manage";
-export const MESSAGE_HIDE = "message.hide";
+export const LABEL_APPLY = "label.apply";
+export const MODERATION_VIEW_LOG = "moderation.viewLog";
 export const INVITATION_CREATE = "invitation.create";
 export const INVITATION_DELETE = "invitation.delete";
 export const VOICE_MODERATE = "voice.moderate";
 export const MENTION_ROLES = "mention.roles";
 
-export type Permission = {
+export type PermissionDescriptor = {
 	key: string;
 	name: string;
 	description: string;
 };
 
-export const PERMISSIONS: Record<string, Array<Permission>> = {
+export const PERMISSIONS: Record<string, Array<PermissionDescriptor>> = {
 	Community: [
 		{
 			key: COMMUNITY_MANAGE,
@@ -105,11 +106,17 @@ export const PERMISSIONS: Record<string, Array<Permission>> = {
 				"Create, edit, and assign roles to members. Can only manage roles below their highest role with this permission.",
 		},
 	],
-	Messages: [
+	Moderation: [
 		{
-			key: MESSAGE_HIDE,
-			name: "Hide Messages",
-			description: "Hide messages from other members",
+			key: LABEL_APPLY,
+			name: "Apply Labels",
+			description:
+				"Apply and negate moderation labels on messages and other content",
+		},
+		{
+			key: MODERATION_VIEW_LOG,
+			name: "View Moderation Log",
+			description: "See the community's history of kicks, bans, and unbans",
 		},
 	],
 	Invitations: [
@@ -142,30 +149,25 @@ export const PERMISSIONS: Record<string, Array<Permission>> = {
 };
 
 export const grantsPermission = (
-	roles: Array<Role>,
-	memberRoleUris: Array<string>,
+	roles: Array<RoleView>,
+	memberRoleKeys: Array<string>,
 	permission: string,
 ): boolean =>
-	memberRoleUris.some((uri) =>
+	memberRoleKeys.some((rkey) =>
 		roles.some(
-			(role) => role.uri === uri && role.permissions.includes(permission),
+			(role) => role.rkey === rkey && role.permissions.includes(permission),
 		),
 	);
 
-// Highest position among `memberRoleUris` that grant `permission` — the
-// ceiling below which a member is allowed to manage other roles via that
-// permission. Owners bypass the hierarchy entirely (Infinity); a member
-// holding no role that grants `permission` can manage nothing (-Infinity),
-// even roles below them.
 export const getPermissionCeiling = (
-	roles: Array<Role>,
-	memberRoleUris: Array<string>,
+	roles: Array<RoleView>,
+	memberRoleKeys: Array<string>,
 	permission: string,
 	isOwner: boolean,
 ): number => {
 	if (isOwner) return Number.POSITIVE_INFINITY;
-	return memberRoleUris.reduce((max, uri) => {
-		const role = roles.find((r) => r.uri === uri);
+	return memberRoleKeys.reduce((max, rkey) => {
+		const role = roles.find((r) => r.rkey === rkey);
 		if (role?.permissions.includes(permission) && role.position > max) {
 			return role.position;
 		}
@@ -173,5 +175,5 @@ export const getPermissionCeiling = (
 	}, Number.NEGATIVE_INFINITY);
 };
 
-export const isRoleBelowCeiling = (ceiling: number, role: Role): boolean =>
+export const isRoleBelowCeiling = (ceiling: number, role: RoleView): boolean =>
 	role.position < ceiling;

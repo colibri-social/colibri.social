@@ -1,6 +1,7 @@
 import { URL_REGEX } from "@atproto/api";
 import {
 	type ColibriRichTextFacet,
+	type ColibriRichTextFeature,
 	parseMarkdown,
 	type SourceFacet,
 	type TimestampStyle,
@@ -146,9 +147,9 @@ const docToSource = (
 						end: source.length,
 						features: [
 							{
-								$type: "social.colibri.richtext.facet#mention",
+								$type: "social.colibri.beta.richtext.facet#mention",
 								did: mention.attrs.id,
-							},
+							} as ColibriRichTextFeature,
 						],
 					});
 				} else if (mention.attrs.type === "channel") {
@@ -158,7 +159,7 @@ const docToSource = (
 						end: source.length,
 						features: [
 							{
-								$type: "social.colibri.richtext.facet#channel",
+								$type: "social.colibri.beta.richtext.facet#channel",
 								channel: mention.attrs.id,
 							},
 						],
@@ -170,7 +171,7 @@ const docToSource = (
 						end: source.length,
 						features: [
 							{
-								$type: "social.colibri.richtext.facet#role",
+								$type: "social.colibri.beta.richtext.facet#role",
 								role: mention.attrs.id,
 							},
 						],
@@ -182,10 +183,10 @@ const docToSource = (
 						end: source.length,
 						features: [
 							{
-								$type: "social.colibri.richtext.facet#time",
+								$type: "social.colibri.beta.richtext.facet#time",
 								datetime: mention.attrs.datetime,
 								...(mention.attrs.style ? { style: mention.attrs.style } : {}),
-							},
+							} as ColibriRichTextFeature,
 						],
 					});
 				} else {
@@ -238,9 +239,9 @@ const detectMissingLinkFacets = (
 		if (
 			facet.features.some(
 				(f) =>
-					f.$type === "social.colibri.richtext.facet#link" ||
-					f.$type === "social.colibri.richtext.facet#codeblock" ||
-					f.$type === "social.colibri.richtext.facet#code",
+					f.$type === "social.colibri.beta.richtext.facet#link" ||
+					f.$type === "social.colibri.beta.richtext.facet#codeblock" ||
+					f.$type === "social.colibri.beta.richtext.facet#code",
 			)
 		) {
 			linkedRanges.push([facet.index.byteStart, facet.index.byteEnd]);
@@ -280,17 +281,17 @@ const detectMissingLinkFacets = (
 		if (alreadyLinked) continue;
 
 		newFacets.push({
-			$type: "social.colibri.richtext.facet",
+			$type: "social.colibri.beta.richtext.facet",
 			index: {
-				$type: "app.bsky.richtext.facet#byteSlice",
+				$type: "social.colibri.beta.richtext.facet#byteSlice",
 				byteStart,
 				byteEnd,
 			},
 			features: [
 				{
-					$type: "social.colibri.richtext.facet#link",
+					$type: "social.colibri.beta.richtext.facet#link",
 					uri,
-				},
+				} as ColibriRichTextFeature,
 			],
 		});
 	}

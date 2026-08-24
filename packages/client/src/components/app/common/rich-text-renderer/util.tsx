@@ -1,4 +1,7 @@
-import type { ColibriRichTextFacet } from "@colibri-social/lib";
+import {
+	type ColibriRichTextFacet,
+	isTimestampStyle,
+} from "@colibri-social/lib";
 import { A } from "@solidjs/router";
 import { type Component, createSignal, type JSX } from "solid-js";
 import { rewriteBskyUrl } from "../../../../atproto/bsky-post-url";
@@ -108,7 +111,7 @@ const applyStyleForFacet = (text: string, feature: AnyFeature): JSX.Element => {
 	const textWithEmojis = parseEmojiText(purify(text));
 
 	switch (feature.$type) {
-		case "social.colibri.richtext.facet#mention": {
+		case "social.colibri.beta.richtext.facet#mention": {
 			const did = "did" in feature ? escapeAttr(String(feature.did)) : "";
 
 			const member = community().members.find((x) => x.did === did);
@@ -126,7 +129,12 @@ const applyStyleForFacet = (text: string, feature: AnyFeature): JSX.Element => {
 
 			return (
 				<MemberContextMenu member={member} class="contents">
-					<User.ProfilePopover user={member} as="span" class="inline">
+					<User.ProfilePopover
+						user={member.actor}
+						nickname={member.nickname}
+						as="span"
+						class="inline"
+					>
 						<span
 							data-facet-type="mention"
 							data-did={did}
@@ -137,14 +145,16 @@ const applyStyleForFacet = (text: string, feature: AnyFeature): JSX.Element => {
 				</MemberContextMenu>
 			);
 		}
-		case "social.colibri.richtext.facet#link": {
+		case "social.colibri.beta.richtext.facet#link": {
 			const rawUri = "uri" in feature ? String(feature.uri) : text;
 			const inviteCode = parseColibriInviteUrl(rawUri);
 			const isBareUrl = text.trim() === rawUri;
 
 			const channelTarget = parseColibriChannelUrl(rawUri);
 			if (channelTarget) {
-				return <ChannelFacet channel={channelTarget.channelUri} text={text} />;
+				return (
+					<ChannelFacet channel={channelTarget.channelSpace} text={text} />
+				);
 			}
 
 			if (inviteCode) {
@@ -177,19 +187,20 @@ const applyStyleForFacet = (text: string, feature: AnyFeature): JSX.Element => {
 				/>
 			);
 		}
-		case "social.colibri.richtext.facet#channel": {
+		case "social.colibri.beta.richtext.facet#channel": {
 			const channel = "channel" in feature ? String(feature.channel) : "";
 
 			return <ChannelFacet channel={channel} text={text} />;
 		}
-		case "social.colibri.richtext.facet#role": {
-			const roleUri = "role" in feature ? escapeAttr(String(feature.role)) : "";
-			const role = community().assignableRoles.find((r) => r.uri === roleUri);
+		case "social.colibri.beta.richtext.facet#role": {
+			const roleRkey =
+				"role" in feature ? escapeAttr(String(feature.role)) : "";
+			const role = community().assignableRoles.find((r) => r.rkey === roleRkey);
 			const color = role?.color;
 			const pill = (
 				<span
 					data-facet-type="role"
-					data-role={roleUri}
+					data-role={roleRkey}
 					class="px-1 rounded-xs inline"
 					classList={{ "cursor-pointer": !!role }}
 					style={
@@ -211,7 +222,7 @@ const applyStyleForFacet = (text: string, feature: AnyFeature): JSX.Element => {
 				</RoleMentionPopover>
 			);
 		}
-		case "social.colibri.richtext.facet#bold":
+		case "social.colibri.beta.richtext.facet#bold":
 			return (
 				<b
 					data-facet-type="bold"
@@ -219,11 +230,11 @@ const applyStyleForFacet = (text: string, feature: AnyFeature): JSX.Element => {
 					innerHTML={textWithEmojis}
 				/>
 			);
-		case "social.colibri.richtext.facet#italic":
+		case "social.colibri.beta.richtext.facet#italic":
 			return (
 				<i data-facet-type="italic" class="italic" innerHTML={textWithEmojis} />
 			);
-		case "social.colibri.richtext.facet#underline":
+		case "social.colibri.beta.richtext.facet#underline":
 			return (
 				<u
 					data-facet-type="underline"
@@ -231,7 +242,7 @@ const applyStyleForFacet = (text: string, feature: AnyFeature): JSX.Element => {
 					innerHTML={textWithEmojis}
 				/>
 			);
-		case "social.colibri.richtext.facet#strikethrough":
+		case "social.colibri.beta.richtext.facet#strikethrough":
 			return (
 				<span
 					data-facet-type="strikethrough"
@@ -239,17 +250,18 @@ const applyStyleForFacet = (text: string, feature: AnyFeature): JSX.Element => {
 					innerHTML={textWithEmojis}
 				/>
 			);
-		case "social.colibri.richtext.facet#code":
+		case "social.colibri.beta.richtext.facet#code":
 			return <code data-facet-type="code" innerHTML={textWithEmojis} />;
-		case "social.colibri.richtext.facet#spoiler":
+		case "social.colibri.beta.richtext.facet#spoiler":
 			return (
 				<Spoiler>
 					<span innerHTML={textWithEmojis} />
 				</Spoiler>
 			);
-		case "social.colibri.richtext.facet#time": {
+		case "social.colibri.beta.richtext.facet#time": {
 			const datetime = "datetime" in feature ? String(feature.datetime) : "";
-			const style = "style" in feature ? feature.style : undefined;
+			const rawStyle = "style" in feature ? feature.style : undefined;
+			const style = isTimestampStyle(rawStyle) ? rawStyle : undefined;
 			return <Timestamp datetime={datetime} style={style} />;
 		}
 	}
@@ -260,17 +272,17 @@ const applyStyleForFacet = (text: string, feature: AnyFeature): JSX.Element => {
 };
 
 const BLOCK_FEATURE_TYPES = new Set<string>([
-	"social.colibri.richtext.facet#codeblock",
-	"social.colibri.richtext.facet#quote",
-	"social.colibri.richtext.facet#heading",
-	"social.colibri.richtext.facet#subtext",
-	"social.colibri.richtext.facet#list",
+	"social.colibri.beta.richtext.facet#codeblock",
+	"social.colibri.beta.richtext.facet#quote",
+	"social.colibri.beta.richtext.facet#heading",
+	"social.colibri.beta.richtext.facet#subtext",
+	"social.colibri.beta.richtext.facet#list",
 ]);
 
 const isBlockFeature = (feature: AnyFeature): boolean =>
 	BLOCK_FEATURE_TYPES.has(feature.$type ?? "");
 
-const QUOTE_TYPE = "social.colibri.richtext.facet#quote";
+const QUOTE_TYPE = "social.colibri.beta.richtext.facet#quote";
 
 const isQuoteFacet = (facet: ColibriRichTextFacet): boolean =>
 	facet.features.some((f) => f.$type === QUOTE_TYPE);
@@ -358,16 +370,16 @@ const renderInlineRange = (
 		}
 
 		const channelFeature = features.find(
-			(f) => f.$type === "social.colibri.richtext.facet#channel",
+			(f) => f.$type === "social.colibri.beta.richtext.facet#channel",
 		);
 		const mentionFeature = features.find(
-			(f) => f.$type === "social.colibri.richtext.facet#mention",
+			(f) => f.$type === "social.colibri.beta.richtext.facet#mention",
 		);
 		const roleFeature = features.find(
-			(f) => f.$type === "social.colibri.richtext.facet#role",
+			(f) => f.$type === "social.colibri.beta.richtext.facet#role",
 		);
 		const timeFeature = features.find(
-			(f) => f.$type === "social.colibri.richtext.facet#time",
+			(f) => f.$type === "social.colibri.beta.richtext.facet#time",
 		);
 
 		let component: JSX.Element;
@@ -389,45 +401,45 @@ const renderInlineRange = (
 				const wrappedElement = element;
 
 				switch (feature.$type) {
-					case "social.colibri.richtext.facet#bold":
+					case "social.colibri.beta.richtext.facet#bold":
 						element = (
 							<b data-facet-type="bold" class="font-bold">
 								{wrappedElement}
 							</b>
 						);
 						break;
-					case "social.colibri.richtext.facet#italic":
+					case "social.colibri.beta.richtext.facet#italic":
 						element = (
 							<i data-facet-type="italic" class="italic">
 								{wrappedElement}
 							</i>
 						);
 						break;
-					case "social.colibri.richtext.facet#underline":
+					case "social.colibri.beta.richtext.facet#underline":
 						element = (
 							<u data-facet-type="underline" class="underline">
 								{wrappedElement}
 							</u>
 						);
 						break;
-					case "social.colibri.richtext.facet#strikethrough":
+					case "social.colibri.beta.richtext.facet#strikethrough":
 						element = (
 							<span data-facet-type="strikethrough" class="line-through">
 								{wrappedElement}
 							</span>
 						);
 						break;
-					case "social.colibri.richtext.facet#code":
+					case "social.colibri.beta.richtext.facet#code":
 						element = (
 							<code data-facet-type="code" class="bg-card px-1 rounded-xs">
 								{wrappedElement}
 							</code>
 						);
 						break;
-					case "social.colibri.richtext.facet#spoiler":
+					case "social.colibri.beta.richtext.facet#spoiler":
 						element = <Spoiler>{wrappedElement}</Spoiler>;
 						break;
-					case "social.colibri.richtext.facet#link":
+					case "social.colibri.beta.richtext.facet#link":
 						if ("uri" in feature) {
 							const rawUri = String(feature.uri);
 							const inviteCode = parseColibriInviteUrl(rawUri);
@@ -436,7 +448,7 @@ const renderInlineRange = (
 							if (channelTarget) {
 								element = (
 									<ChannelFacet
-										channel={channelTarget.channelUri}
+										channel={channelTarget.channelSpace}
 										text={segmentText}
 									/>
 								);
@@ -532,7 +544,9 @@ export const renderWithFacets = (
 };
 
 const listFeatureOf = (facet: ColibriRichTextFacet): AnyFeature | undefined =>
-	facet.features.find((f) => f.$type === "social.colibri.richtext.facet#list");
+	facet.features.find(
+		(f) => f.$type === "social.colibri.beta.richtext.facet#list",
+	);
 
 /**
  * Renders the block facets covering a byte range, recursing into quotes so that
@@ -655,13 +669,13 @@ const renderBlockRange = (
 		}
 
 		const codeblockFeature = blockFacet.features.find(
-			(f) => f.$type === "social.colibri.richtext.facet#codeblock",
+			(f) => f.$type === "social.colibri.beta.richtext.facet#codeblock",
 		);
 		const headingFeature = blockFacet.features.find(
-			(f) => f.$type === "social.colibri.richtext.facet#heading",
+			(f) => f.$type === "social.colibri.beta.richtext.facet#heading",
 		);
 		const subtextFeature = blockFacet.features.find(
-			(f) => f.$type === "social.colibri.richtext.facet#subtext",
+			(f) => f.$type === "social.colibri.beta.richtext.facet#subtext",
 		);
 
 		if (codeblockFeature) {

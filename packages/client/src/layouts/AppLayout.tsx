@@ -1,4 +1,3 @@
-import type { Community } from "@colibri-social/lib";
 import { A, useLocation, useNavigate } from "@solidjs/router";
 import {
 	closestCenter,
@@ -22,12 +21,12 @@ import {
 import { toast } from "somoto";
 import GearIcon from "~icons/ph/gear";
 import HouseIcon from "~icons/ph/house";
-import LockSimpleIcon from "~icons/ph/lock-simple";
 import { evictCommunity } from "../atproto/cache/community-evict";
 import { namespace } from "../atproto/cache/keys";
-import { communityUriToUrlCompatible } from "../atproto/community-uri-to-url-compatible";
 import { linkErrorMessage, readLinkOutcome } from "../atproto/labeler-link";
-import { putRecord } from "../atproto/pds";
+import { writeCommunityOrder } from "../atproto/notificationPreference";
+import { frameIs } from "../atproto/sync-frames";
+import type { CommunityView } from "../atproto/views";
 import { AppBadge } from "../components/app/AppBadge";
 import { AppReconnectingIndicator } from "../components/app/AppReconnectingIndicator";
 import { CommunityCreationModal } from "../components/app/CommunityCreationModal";
@@ -61,7 +60,6 @@ import {
 import { useSocketContext } from "../contexts/Socket";
 import { useUserContext } from "../contexts/User";
 import { useViewport } from "../contexts/Viewport";
-import { classifyThrown } from "../errors/classify";
 import { isTauriRuntime } from "../notifications/environment";
 import { trackAppShellMounted } from "../utils/app-shell";
 import { getAppViewDid } from "../utils/appview";
@@ -80,7 +78,7 @@ import { shellHeightForInset } from "../utils/visual-viewport";
 
 const log = createLogger("layout");
 
-const CommunityAvatar = (props: { item: Community; class?: string }) => (
+const CommunityAvatar = (props: { item: CommunityView; class?: string }) => (
 	<Tooltip placement="right">
 		<TooltipTrigger class="cursor-pointer">
 			<SharedCommunityAvatar community={props.item} class={props.class} />
@@ -94,22 +92,21 @@ const CommunityAvatar = (props: { item: Community; class?: string }) => (
 );
 
 const SortableCommunity = (props: {
-	item: Community;
-	draggedItem: Community | undefined;
+	item: CommunityView;
+	draggedItem: CommunityView | undefined;
 }) => {
-	const sortable = createSortable(props.item.uri);
+	const sortable = createSortable(props.item.did);
 	const [, { onDragStart, onDragEnd: onDndDragEnd }] = useDragDropContext()!;
 	const notifications = useNotifications();
 
-	const communityDid = () => props.item.uri.split("/")[2];
-	const pingCount = () => notifications.pingsForCommunity(communityDid());
-	const hasUnread = () => notifications.hasUnreadInCommunity(communityDid());
+	const pingCount = () => notifications.pingsForCommunity(props.item.did);
+	const hasUnread = () => notifications.hasUnreadInCommunity(props.item.did);
 
 	let didDrag = false;
 	let el: HTMLDivElement | undefined;
 
 	onDragStart(({ draggable }) => {
-		if (draggable.id === props.item.uri) {
+		if (draggable.id === props.item.did) {
 			didDrag = true;
 			el?.style.removeProperty("transition");
 		} else {
@@ -158,19 +155,10 @@ const SortableCommunity = (props: {
 					</div>
 				)}
 			</Show>
-			<Show when={props.item.isLegacy}>
-				<span
-					class="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full bg-card border-2 border-card flex items-center justify-center text-muted-foreground pointer-events-none select-none z-20"
-					title="Legacy community — awaiting migration"
-				>
-					<LockSimpleIcon class="w-2.5 h-2.5" />
-				</span>
-			</Show>
 			<CommunityContextMenu community={props.item}>
 				<A
-					href={`/app/c/${communityUriToUrlCompatible(props.item.uri)}`}
+					href={`/app/c/${props.item.did}`}
 					class="w-10 h-10 rounded-md bg-muted flex items-center justify-center outline-2 -outline-offset-2 outline-transparent hover:outline-foreground/50 transition-all duration-150"
-					classList={{ "opacity-60": props.item.isLegacy }}
 					activeClass="outline-foreground!"
 					onClick={handleClick}
 					draggable={false}
@@ -183,19 +171,19 @@ const SortableCommunity = (props: {
 };
 
 const CommunitySidebar = (props: {
-	communities: Community[];
-	draggedItem: Community | undefined;
+	communities: CommunityView[];
+	draggedItem: CommunityView | undefined;
 	onItemRef: (rkey: string, el: HTMLElement) => void;
 }) => {
 	return (
 		<>
 			<LongPressSensors />
-			<SortableProvider ids={props.communities.map((c) => c.uri)}>
+			<SortableProvider ids={props.communities.map((c) => c.did)}>
 				<For each={props.communities}>
 					{(item) => (
 						<div
 							class="relative"
-							ref={(node) => props.onItemRef(item.uri, node)}
+							ref={(node) => props.onItemRef(item.did, node)}
 						>
 							<SortableCommunity item={item} draggedItem={props.draggedItem} />
 						</div>
@@ -205,7 +193,7 @@ const CommunitySidebar = (props: {
 			<DragOverlay>
 				{(draggable) => {
 					const item = draggable
-						? props.communities.find((c) => c.uri === draggable.id)
+						? props.communities.find((c) => c.did === draggable.id)
 						: undefined;
 					return (
 						<Show when={item}>
@@ -309,21 +297,27 @@ const AppLayout: ParentComponent = (props) => {
 		}
 	});
 
+	createEffect(() => {
+		const dids = user.communities.map((c) => c.did);
+		if (dids.length === 0) return;
+		const release = socket.subscribe({ communities: dids });
+		onCleanup(release);
+	});
+
 	onMount(() => {
 		const cleanup = socket.onEvent((event) => {
 			if (
-				event.type === "member_event" &&
-				event.data?.event === "join" &&
-				event.data.member?.did === user.did
+				frameIs(event, "memberEvent") &&
+				event.event === "join" &&
+				event.member?.actor.did === user.did
 			) {
 				user.refetchCommunities();
-			} else if (
-				event.type === "community_event" &&
-				event.data?.event === "delete"
-			) {
-				evictCommunity(namespace(getAppViewDid(), user.did), event.data.uri);
-				const segment = communityUriToUrlCompatible(event.data.uri);
-				if (location.pathname.startsWith(`/app/c/${segment}`)) {
+			} else if (frameIs(event, "communityEvent") && event.event === "delete") {
+				void evictCommunity(
+					namespace(getAppViewDid(), user.did),
+					event.community,
+				);
+				if (location.pathname.startsWith(`/app/c/${event.community}`)) {
 					navigate("/app");
 				}
 				user.refetchCommunities();
@@ -357,34 +351,30 @@ const AppLayout: ParentComponent = (props) => {
 	// Locally-committed sidebar order. Held in a signal (rather than mutating the
 	// shared `user` resource) so a reorder doesn't churn every consumer of
 	// `user.communities` — mirrors the category/channel reorder in ChannelList.
-	const [committedOrder, setCommittedOrder] = createSignal<Community[] | null>(
-		null,
-	);
+	const [committedOrder, setCommittedOrder] = createSignal<
+		CommunityView[] | null
+	>(null);
 
-	const sortedCommunities = () => {
+	const sortedCommunities = (): CommunityView[] => {
 		const order = committedOrder();
 		if (!order) return user.communities;
-		// Map the committed order back onto the live community objects, then append
-		// any communities that arrived since (e.g. a freshly joined one).
-		const byUri = new Map(user.communities.map((c) => [c.uri, c]));
+		const byDid = new Map(user.communities.map((c) => [c.did, c]));
 		const ordered = order
-			.map((c) => byUri.get(c.uri))
-			.filter((c): c is Community => c !== undefined);
-		const seen = new Set(ordered.map((c) => c.uri));
-		return [...ordered, ...user.communities.filter((c) => !seen.has(c.uri))];
+			.map((c) => byDid.get(c.did))
+			.filter((c): c is CommunityView => c !== undefined);
+		const seen = new Set(ordered.map((c) => c.did));
+		return [...ordered, ...user.communities.filter((c) => !seen.has(c.did))];
 	};
 
-	if (window.location.pathname === "/app" && user.communities.length > 0) {
-		navigate(
-			`/app/c/${communityUriToUrlCompatible(sortedCommunities()[0].uri)}`,
-			{ replace: true },
-		);
+	const firstCommunity = sortedCommunities()[0];
+	if (window.location.pathname === "/app" && firstCommunity) {
+		navigate(`/app/c/${firstCommunity.did}`, { replace: true });
 	}
 
-	const [draggingOrder, setDraggingOrder] = createSignal<Community[] | null>(
-		null,
-	);
-	const [draggedItem, setDraggedItem] = createSignal<Community | undefined>(
+	const [draggingOrder, setDraggingOrder] = createSignal<
+		CommunityView[] | null
+	>(null);
+	const [draggedItem, setDraggedItem] = createSignal<CommunityView | undefined>(
 		undefined,
 	);
 
@@ -392,18 +382,18 @@ const AppLayout: ParentComponent = (props) => {
 	const itemTops = new Map<string, number>();
 
 	const reorder = (
-		communities: Community[],
+		communities: CommunityView[],
 		fromId: string | number,
 		toId: string | number,
 	) =>
 		reorderList(
 			communities,
-			communities.findIndex((c) => c.uri === fromId),
-			communities.findIndex((c) => c.uri === toId),
+			communities.findIndex((c) => c.did === fromId),
+			communities.findIndex((c) => c.did === toId),
 		);
 
 	const onDragStart = ({ draggable }: DragEvent) => {
-		setDraggedItem(user.communities.find((c) => c.uri === draggable.id));
+		setDraggedItem(user.communities.find((c) => c.did === draggable.id));
 	};
 
 	const onDragOver = ({ draggable, droppable }: DragEvent) => {
@@ -414,40 +404,34 @@ const AppLayout: ParentComponent = (props) => {
 	};
 
 	const persistCommunityOrder = async (
-		order: Community[],
-		previous: Community[] | null,
+		order: CommunityView[],
+		previous: CommunityView[] | null,
 	) => {
-		try {
-			const { agent } = user.atproto;
-			const repo = user.did;
+		const res = await writeCommunityOrder(
+			user.atproto.agent,
+			user.xrpc,
+			user.did,
+			order.map((c) => c.did),
+		);
 
-			let record: Record<string, unknown> = { status: "", communities: [] };
-			try {
-				const res = await agent.com.atproto.repo.getRecord({
-					repo,
-					collection: "social.colibri.actor.data",
-					rkey: "self",
-				});
-				record = (res.data.value as Record<string, unknown>) ?? record;
-			} catch {
-				// No actor.data record yet
-			}
-
-			// Persist the full sidebar order as community DIDs. The AppView reads
-			// this back in `listCommunities` to restore the order on next load, so
-			// every community must be included — owned ones too, otherwise they
-			// couldn't be reordered relative to the rest.
-			record.communities = order.map((c) => c.uri.split("/")[2]);
-
-			await putRecord(agent, repo, "social.colibri.actor.data", "self", record);
-		} catch (err) {
-			log.error("saving the community order failed", {
-				code: classifyThrown(err).code,
-			});
+		if (!res.ok) {
+			log.error("saving the community order failed", { code: res.error.code });
 			toast.error("Failed to save community order.");
 			setCommittedOrder(previous);
 		}
 	};
+
+	onMount(() => {
+		const cleanup = socket.onEvent((event) => {
+			if (!frameIs(event, "preferencesEvent")) return;
+			const byDid = new Map(user.communities.map((c) => [c.did, c]));
+			const ordered = event.preferences.communityOrder
+				.map((did) => byDid.get(did))
+				.filter((c): c is CommunityView => c !== undefined);
+			setCommittedOrder(ordered.length === 0 ? null : ordered);
+		});
+		onCleanup(cleanup);
+	});
 
 	const onDragEnd = ({ draggable, droppable }: DragEvent) => {
 		const finalOrder = draggingOrder();

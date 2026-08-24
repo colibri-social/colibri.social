@@ -1,0 +1,26 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.defs",
+	"defs": {
+		"recordRef": {
+			"type": "object",
+			"description": "A reference to a record in the same space. Record keys are unique per repo rather than per space, so a bare key cannot address a record in a space that aggregates many authors.",
+			"required": [
+				"did",
+				"rkey"
+			],
+			"properties": {
+				"did": {
+					"type": "string",
+					"format": "did",
+					"description": "DID of the repo holding the referenced record."
+				},
+				"rkey": {
+					"type": "string",
+					"format": "record-key",
+					"description": "Record key of the referenced record."
+				}
+			}
+		}
+	}
+}

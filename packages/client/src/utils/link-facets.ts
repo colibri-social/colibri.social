@@ -8,6 +8,6 @@ export const linkUrisFromFacets = (
 ): Array<string> =>
 	facets
 		?.filter(
-			(f) => f.features[0].$type === "social.colibri.richtext.facet#link",
+			(f) => f.features[0].$type === "social.colibri.beta.richtext.facet#link",
 		)
 		.map((f) => (f.features[0] as ColibriRichTextLink).uri) ?? [];

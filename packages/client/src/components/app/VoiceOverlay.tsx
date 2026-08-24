@@ -1,4 +1,3 @@
-import type { ActorData } from "@colibri-social/lib";
 import { useNavigate, useParams } from "@solidjs/router";
 import {
 	type Component,
@@ -16,10 +15,9 @@ import ArrowLeftIcon from "~icons/ph/arrow-left";
 import PhoneSlashFillIcon from "~icons/ph/phone-slash-fill";
 import VideoCameraSlashFillIcon from "~icons/ph/video-camera-slash-fill";
 import XIcon from "~icons/ph/x";
-import {
-	communityUriToUrlCompatible,
-	urlSegmentToUri,
-} from "../../atproto/community-uri-to-url-compatible";
+import { buildChannelPath } from "../../atproto/colibri-channel-url";
+import { parseSpace } from "../../atproto/space-ref";
+import type { ProfileView } from "../../atproto/views";
 import { useActorCache } from "../../contexts/ActorCache";
 import { useUserContext } from "../../contexts/User";
 import { ConnectionState, useVoiceChatContext } from "../../contexts/VoiceChat";
@@ -65,22 +63,13 @@ const loadWidth = (): number => {
 	return Number.isFinite(raw) && raw > 0 ? clamp(raw, MIN_W, MAX_W) : 320;
 };
 
-const actorBackground = (actor?: ActorData): string => {
-	const theme = actor?.data.theme;
+const actorBackground = (actor?: ProfileView): string => {
+	const theme = actor?.theme;
 	if (theme?.gradient?.primary && theme.gradient.secondary)
 		return `linear-gradient(135deg, ${theme.gradient.primary}, ${theme.gradient.secondary})`;
 	if (theme?.bannerColor && theme.bannerColor !== DEFAULT_BANNER)
 		return theme.bannerColor;
 	return DEFAULT_BANNER;
-};
-
-const parseChannel = (
-	uri: string | null,
-): { did: string; collection: string; rkey: string } | null => {
-	if (!uri?.startsWith("at://")) return null;
-	const [did, collection, rkey] = uri.slice("at://".length).split("/");
-	if (!did || !collection || !rkey) return null;
-	return { did, collection, rkey };
 };
 
 export const VoiceOverlay: Component = () => {
@@ -95,27 +84,20 @@ export const VoiceOverlay: Component = () => {
 	] = useVoiceChatContext();
 
 	const viewingCall = (): boolean => {
-		const c = parseChannel(voiceData.connection.uri);
+		const parsed = parseSpace(voiceData.connection.uri ?? "");
 
-		if (!c || !params.community || !params.channel) return false;
+		if (!parsed || !params.community || !params.channel) return false;
 
-		const viewedDid = urlSegmentToUri(params.community)
-			.slice("at://".length)
-			.split("/")[0];
-
-		return viewedDid === c.did && params.channel === c.rkey;
+		return (
+			parsed.authority === params.community && parsed.skey === params.channel
+		);
 	};
 
 	const callRoute = (): string | null => {
-		const c = parseChannel(voiceData.connection.uri);
+		const uri = voiceData.connection.uri;
+		if (!uri) return null;
 
-		if (!c) return null;
-
-		const seg = communityUriToUrlCompatible(
-			`at://${c.did}/social.colibri.community/self` as never,
-		);
-
-		return `/app/c/${seg}/social.colibri.channel.voice/${c.rkey}`;
+		return buildChannelPath(uri) ?? null;
 	};
 
 	const hasVideo = (): boolean =>
@@ -133,7 +115,7 @@ export const VoiceOverlay: Component = () => {
 			(v) => v.did === did && v.source === "cam",
 		)?.stream;
 
-	const [lastSpeaker, setLastSpeaker] = createSignal(user.did);
+	const [lastSpeaker, setLastSpeaker] = createSignal<string>(user.did);
 	createEffect(() => {
 		const speakers = voiceData.activeSpeakers;
 		if (speakers.length) setLastSpeaker(speakers[0]);
@@ -204,7 +186,7 @@ export const VoiceOverlay: Component = () => {
 		};
 	});
 
-	const actor = (): ActorData | undefined => resolve(subject().did);
+	const actor = (): ProfileView | undefined => resolve(subject().did);
 
 	const [corner, setCorner] = createSignal<Corner>(loadCorner());
 	const [width, setWidth] = createSignal<number>(loadWidth());

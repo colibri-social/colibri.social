@@ -1,0 +1,64 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.channel.putReadCursors",
+	"defs": {
+		"main": {
+			"type": "procedure",
+			"description": "Pushes the requesting user's read cursors for one community to the AppView, so unread counts update immediately instead of waiting for a sync notification. The client writes its social.colibri.beta.channel.read record for the community to its own personal space first, then calls this. Clients should debounce this rather than calling it on every message.",
+			"input": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"community",
+						"cursors"
+					],
+					"properties": {
+						"community": {
+							"type": "string",
+							"format": "did",
+							"description": "The community the cursors belong to."
+						},
+						"cursors": {
+							"type": "array",
+							"description": "The complete, replacement set of read cursors for the community's channels.",
+							"items": {
+								"type": "ref",
+								"ref": "social.colibri.beta.channel.read#cursor"
+							}
+						}
+					}
+				}
+			},
+			"output": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"statuses"
+					],
+					"properties": {
+						"statuses": {
+							"type": "array",
+							"description": "Unread state per channel, after the update.",
+							"items": {
+								"type": "ref",
+								"ref": "social.colibri.beta.channel.defs#unreadStatus"
+							}
+						}
+					}
+				}
+			},
+			"errors": [
+				{
+					"name": "AuthRequired",
+					"description": "The request has no valid service auth."
+				},
+				{
+					"name": "CommunityNotFound",
+					"description": "No community matches the given DID."
+				}
+			]
+		}
+	}
+}

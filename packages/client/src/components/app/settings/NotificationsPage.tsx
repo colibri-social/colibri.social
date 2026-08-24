@@ -6,9 +6,14 @@ import {
 	Show,
 } from "solid-js";
 import { toast } from "somoto";
-import { writeNotificationPreference } from "../../../atproto/notificationPreference";
-import { resolveBlob } from "../../../atproto/resolve-blob";
-import type { NotificationLevel } from "../../../atproto/xrpc/social/colibri/actor";
+import { COLLECTIONS } from "../../../atproto/lexicons";
+import {
+	getPreferences,
+	type NotificationLevel,
+	writeNotificationLevel,
+} from "../../../atproto/notificationPreference";
+import { frameIs } from "../../../atproto/sync-frames";
+import { useSocketContext } from "../../../contexts/Socket";
 import { useUserContext } from "../../../contexts/User";
 import { useUserPreferences } from "../../../contexts/UserPreferences";
 import { classifyThrown } from "../../../errors";
@@ -22,6 +27,10 @@ import {
 } from "../../../notifications";
 import { unsubscribeFcmPush } from "../../../notifications/push-fcm";
 import { unsubscribeWebPush } from "../../../notifications/push-web";
+import {
+	registerPushWith,
+	unregisterPushWith,
+} from "../../../notifications/push-xrpc";
 import {
 	cacheNativeAvatar,
 	isNativeNotificationSupported,
@@ -57,6 +66,7 @@ const showTestTools = (): boolean => {
 
 export const NotificationsPage: Component = () => {
 	const user = useUserContext();
+	const socket = useSocketContext();
 	const { preferences, setNativeNotifications } = useUserPreferences();
 	const [busy, setBusy] = createSignal(false);
 	const [testBusy, setTestBusy] = createSignal(false);
@@ -79,27 +89,25 @@ export const NotificationsPage: Component = () => {
 	const sendTestNotification = async () => {
 		setTestBusy(true);
 		try {
-			const channelUri = `at://${user.did}/social.colibri.channel.text/test`;
-			const messageUri = `at://${user.did}/social.colibri.channel.message/${Date.now()}`;
+			const channelUri = `at://${user.did}/space/social.colibri.beta.channel.text/test`;
+			const messageUri = `at://${user.did}/${COLLECTIONS.message}/${Date.now()}`;
 			let iconPath: string | undefined;
 
-			if (user.data.avatar) {
-				const url = resolveBlob(user.did, user.data.avatar, "small");
-				if (url && (await isNativeNotificationSupported())) {
-					try {
-						const response = await fetch(url);
-						if (response.ok) {
-							iconPath = await cacheNativeAvatar(
-								user.did,
-								new Uint8Array(await response.arrayBuffer()),
-							);
-						}
-					} catch {}
-				}
+			const avatarUrl = user.avatar;
+			if (avatarUrl && (await isNativeNotificationSupported())) {
+				try {
+					const response = await fetch(avatarUrl);
+					if (response.ok) {
+						iconPath = await cacheNativeAvatar(
+							user.did,
+							new Uint8Array(await response.arrayBuffer()),
+						);
+					}
+				} catch {}
 			}
 
 			await notify({
-				title: user.data.displayName || user.handle,
+				title: user.displayName,
 				subtitle: "Mentioned you",
 				body: "This is a test notification. If you can see this, notifications are working.",
 				tag: messageUri,
@@ -133,9 +141,17 @@ export const NotificationsPage: Component = () => {
 	const [levelBusy, setLevelBusy] = createSignal(false);
 
 	onMount(async () => {
-		const res =
-			await user.xrpc.social.colibri.actor.getNotificationPreference();
-		if (res.ok && res.data) setLevel(res.data.level);
+		const res = await getPreferences(user.xrpc);
+		if (res.ok) setLevel(res.data.preferences.notificationLevel);
+	});
+
+	onMount(() => {
+		const cleanup = socket.onEvent((event) => {
+			if (!frameIs(event, "preferencesEvent")) return;
+			if (levelBusy()) return;
+			setLevel(event.preferences.notificationLevel);
+		});
+		onCleanup(cleanup);
 	});
 
 	const handleLevelChange = async (onlyMentionsAndReplies: boolean) => {
@@ -145,16 +161,22 @@ export const NotificationsPage: Component = () => {
 		const previous = level();
 		setLevel(next);
 		setLevelBusy(true);
-		try {
-			await writeNotificationPreference(user.atproto.agent, user.did, next);
-		} catch (err) {
+
+		const res = await writeNotificationLevel(
+			user.atproto.agent,
+			user.xrpc,
+			user.did,
+			next,
+		);
+
+		setLevelBusy(false);
+
+		if (!res.ok) {
 			log.error("saving the notification level failed", {
-				code: classifyThrown(err).code,
+				code: res.error.code,
 			});
 			setLevel(previous);
 			toast.error("Failed to update notification level.");
-		} finally {
-			setLevelBusy(false);
 		}
 	};
 
@@ -163,12 +185,8 @@ export const NotificationsPage: Component = () => {
 		try {
 			if (enabled) {
 				const permission = await enablePushNotifications(
-					(sub) => user.xrpc.social.colibri.notification.registerPush(sub),
-					(endpoint, provider) =>
-						user.xrpc.social.colibri.notification.unregisterPush(
-							endpoint,
-							provider,
-						),
+					registerPushWith(user.xrpc),
+					unregisterPushWith(user.xrpc),
 				);
 				if (permission !== "granted") {
 					toast.error(
@@ -182,14 +200,11 @@ export const NotificationsPage: Component = () => {
 				setNativeNotifications(true);
 			} else {
 				setNativeNotifications(false);
+				const unregister = unregisterPushWith(user.xrpc);
 				if (isWebRuntime()) {
-					await unsubscribeWebPush((endpoint) =>
-						user.xrpc.social.colibri.notification.unregisterPush(endpoint),
-					);
+					await unsubscribeWebPush((endpoint) => unregister(endpoint));
 				}
-				await unsubscribeFcmPush((token) =>
-					user.xrpc.social.colibri.notification.unregisterPush(token, "fcm"),
-				);
+				await unsubscribeFcmPush((token) => unregister(token, "fcm"));
 			}
 		} catch (err) {
 			log.error("updating push registration failed", {

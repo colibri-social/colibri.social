@@ -1,12 +1,11 @@
-import type { Community as CommunityView } from "@colibri-social/lib";
 import { classifyThrown } from "../errors/classify";
 import { ambiguousCategoryName } from "../utils/channel-category";
 import { createLogger } from "../utils/logger";
 import { cacheEnabled, readCommunity } from "./cache/store";
-import { resolveBlob } from "./resolve-blob";
-import type { XrpcClient } from "./xrpc";
-import type { Category } from "./xrpc/social/colibri/community/listCategories";
-import type { Channel } from "./xrpc/social/colibri/community/listChannels";
+import { colibri } from "./lexicons";
+import { spaceAuthority } from "./space-ref";
+import type { CategoryView, ChannelView, CommunityView } from "./views";
+import type { ColibriClient } from "./xrpc";
 
 const log = createLogger("channel-reference");
 
@@ -17,21 +16,21 @@ const FAILURE_COOLDOWN_MS = 30_000;
 const MAX_COMMUNITIES = 20;
 
 export type ResolvedChannel = {
-	uri: string;
+	space: string;
 	name: string;
 	type: string;
-	communityUri: string;
+	communityDid: string;
 };
 
 type Entry = {
 	fetchedAt: number;
 	failed: boolean;
-	channelUris: Array<string>;
+	channelSpaces: Array<string>;
 };
 
 const byCommunity = new Map<string, Entry>();
 
-const byChannel = new Map<string, ResolvedChannel>();
+const bySpace = new Map<string, ResolvedChannel>();
 
 const inflight = new Map<string, Promise<void>>();
 
@@ -43,40 +42,41 @@ const evictOldest = (): void => {
 	)[0];
 	if (!oldest) return;
 
-	for (const uri of oldest[1].channelUris) byChannel.delete(uri);
+	for (const space of oldest[1].channelSpaces) bySpace.delete(space);
 	byCommunity.delete(oldest[0]);
 };
 
 export const primeCommunityChannels = (
-	communityUri: string,
-	channels: Array<Channel>,
+	communityDid: string,
+	channels: Array<ChannelView>,
 	fetchedAt = Date.now(),
 ): void => {
-	const previous = byCommunity.get(communityUri);
+	const previous = byCommunity.get(communityDid);
 	if (previous) {
-		for (const uri of previous.channelUris) byChannel.delete(uri);
+		for (const space of previous.channelSpaces) bySpace.delete(space);
 	}
 
 	for (const channel of channels) {
-		byChannel.set(channel.uri, {
-			uri: channel.uri,
+		bySpace.set(channel.space, {
+			space: channel.space,
 			name: channel.name,
 			type: channel.type,
-			communityUri,
+			communityDid,
 		});
 	}
 
-	byCommunity.set(communityUri, {
+	byCommunity.set(communityDid, {
 		fetchedAt,
 		failed: false,
-		channelUris: channels.map((channel) => channel.uri),
+		channelSpaces: channels.map((channel) => channel.space),
 	});
 
 	evictOldest();
 };
 
-export const peekChannel = (channelUri: string): ResolvedChannel | undefined =>
-	byChannel.get(channelUri);
+export const peekChannel = (
+	channelSpace: string,
+): ResolvedChannel | undefined => bySpace.get(channelSpace);
 
 const isFresh = (entry: Entry | undefined): boolean => {
 	if (!entry) return false;
@@ -85,55 +85,57 @@ const isFresh = (entry: Entry | undefined): boolean => {
 };
 
 const fetchChannels = async (
-	xrpc: XrpcClient,
-	communityUri: string,
+	xrpc: ColibriClient,
+	communityDid: string,
 	ns: string | undefined,
 ): Promise<void> => {
-	if (ns && cacheEnabled() && !byCommunity.has(communityUri)) {
-		const cached = await readCommunity(ns, communityUri);
-		if (cached?.channels) {
-			primeCommunityChannels(communityUri, cached.channels, 0);
+	if (ns && cacheEnabled() && !byCommunity.has(communityDid)) {
+		const cached = await readCommunity(ns, communityDid);
+		if (cached?.channels.length) {
+			primeCommunityChannels(communityDid, cached.channels, 0);
 		}
 	}
 
 	const markFailed = (code: string): void => {
 		log.warn("could not resolve channels for a referenced community", { code });
-		byCommunity.set(communityUri, {
+		byCommunity.set(communityDid, {
 			fetchedAt: Date.now(),
 			failed: true,
-			channelUris: byCommunity.get(communityUri)?.channelUris ?? [],
+			channelSpaces: byCommunity.get(communityDid)?.channelSpaces ?? [],
 		});
 	};
 
 	try {
-		const result = await xrpc.social.colibri.community.getData(communityUri);
+		const result = await xrpc.call(colibri.community.listChannels.main, {
+			params: { community: communityDid },
+		});
 
 		if (!result.ok || !result.data) {
 			markFailed(result.ok ? "MalformedResponse" : result.error.code);
 			return;
 		}
 
-		primeCommunityChannels(communityUri, result.data.channels ?? []);
+		primeCommunityChannels(communityDid, result.data.channels ?? []);
 	} catch (err) {
-		markFailed(classifyThrown(err, { method: "community.getData" }).code);
+		markFailed(classifyThrown(err, { method: "community.listChannels" }).code);
 	}
 };
 
 export const loadCommunityChannels = (
-	xrpc: XrpcClient,
-	communityUri: string,
+	xrpc: ColibriClient,
+	communityDid: string,
 	ns?: string,
 ): Promise<void> => {
-	const pending = inflight.get(communityUri);
+	const pending = inflight.get(communityDid);
 	if (pending) return pending;
 
-	if (isFresh(byCommunity.get(communityUri))) return Promise.resolve();
+	if (isFresh(byCommunity.get(communityDid))) return Promise.resolve();
 
-	const promise = fetchChannels(xrpc, communityUri, ns).finally(() => {
-		inflight.delete(communityUri);
+	const promise = fetchChannels(xrpc, communityDid, ns).finally(() => {
+		inflight.delete(communityDid);
 	});
 
-	inflight.set(communityUri, promise);
+	inflight.set(communityDid, promise);
 	return promise;
 };
 
@@ -146,21 +148,19 @@ export type ChannelChip = {
 	category?: string;
 };
 
-const didOf = (uri: string): string => uri.split("/")[2] ?? "";
-
 export const resolveChannelChip = (
-	channelUri: string,
-	localChannels: Array<Channel>,
+	channelSpace: string,
+	localChannels: Array<ChannelView>,
 	communities: Array<CommunityView>,
-	currentCommunityUri?: string,
-	categories: Array<Category> = [],
+	currentCommunityDid?: string,
+	categories: Array<CategoryView> = [],
 ): ChannelChip => {
-	const local = localChannels.find((entry) => entry.uri === channelUri);
+	const local = localChannels.find((entry) => entry.space === channelSpace);
 	const name =
-		local?.name ?? peekChannel(channelUri)?.name ?? UNRESOLVED_CHANNEL_LABEL;
+		local?.name ?? peekChannel(channelSpace)?.name ?? UNRESOLVED_CHANNEL_LABEL;
 
-	const did = didOf(channelUri);
-	if (!did || (currentCommunityUri && did === didOf(currentCommunityUri))) {
+	const did = spaceAuthority(channelSpace);
+	if (!did || did === currentCommunityDid) {
 		const category = local
 			? ambiguousCategoryName(local, localChannels, categories)
 			: undefined;
@@ -168,20 +168,18 @@ export const resolveChannelChip = (
 		return category ? { label: name, category } : { label: name };
 	}
 
-	const matches = communities.filter((entry) => didOf(entry.uri) === did);
-	const community =
-		matches.find((entry) => entry.uri.endsWith("/self")) ?? matches[0];
+	const community = communities.find((entry) => entry.did === did);
 	if (!community) return { label: name };
 
 	return {
 		label: name,
-		avatar: resolveBlob(did, community.picture, "small"),
+		avatar: community.picture,
 		community: community.name,
 	};
 };
 
 export const resetChannelReferences = (): void => {
 	byCommunity.clear();
-	byChannel.clear();
+	bySpace.clear();
 	inflight.clear();
 };

@@ -9,8 +9,8 @@ export const SelfStatusEditor: Component<{ onEditRequested: () => void }> = (
 	const user = useUserContext();
 
 	const hasStatus = () =>
-		(user.data.status?.text?.length ?? 0) > 0 ||
-		(user.data.status?.emoji?.length ?? 0) > 0;
+		(user.presence?.status?.text?.length ?? 0) > 0 ||
+		(user.presence?.status?.emoji?.length ?? 0) > 0;
 
 	return (
 		<button
@@ -29,14 +29,14 @@ export const SelfStatusEditor: Component<{ onEditRequested: () => void }> = (
 					</>
 				}
 			>
-				<Show when={user.data.status?.emoji}>
+				<Show when={user.presence?.status?.emoji}>
 					<span
 						class="h-5.5 w-5.5 [&>img]:min-w-4.5 [&>img]:min-h-4.5 [&>img]:w-4.5 [&>img]:h-4.5 [&>img]inline flex items-center justify-center"
-						innerHTML={parseEmojiText(user.data.status!.emoji!)}
+						innerHTML={parseEmojiText(user.presence!.status!.emoji!)}
 					/>
 				</Show>
 				<span class="leading-5.5 text-sm w-fit truncate">
-					{user.data.status?.text}
+					{user.presence?.status?.text}
 				</span>
 			</Show>
 		</button>

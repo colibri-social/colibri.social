@@ -1,34 +1,39 @@
 import { createSignal, type ParentComponent } from "solid-js";
-import { toast } from "somoto";
+import { colibri } from "../../../atproto/lexicons";
+import { clientForManagingApp } from "../../../atproto/xrpc";
+import { useCommunityContext } from "../../../contexts/Community";
 import { useUserContext } from "../../../contexts/User";
+import { showError } from "../../../errors/show-error";
 import { Button } from "../../ui/Button";
 import { DialogFooter } from "../../ui/Dialog";
 import { ResponsiveDialog } from "../../ui/ResponsiveDialog";
 import { TextField, TextFieldInput, TextFieldLabel } from "../../ui/TextField";
 
 export const CategoryCreationModal: ParentComponent<{
-	/** AT-URI of the community this category will belong to. */
 	community: string;
 }> = (props) => {
 	const user = useUserContext();
+	const community = useCommunityContext();
 	const [open, setOpen] = createSignal(false);
 	const [name, setName] = createSignal("");
 	const [loading, setLoading] = createSignal(false);
 
 	const handleCreate = async () => {
 		setLoading(true);
-		try {
-			await user.xrpc.social.colibri.category.create(
-				props.community,
-				name().trim(),
-			);
-			setOpen(false);
-			setName("");
-		} catch {
-			toast.error("Failed to create category.");
-		} finally {
-			setLoading(false);
+		const client = clientForManagingApp(
+			user.atproto.agent,
+			community().community.managingApp,
+		);
+		const res = await client.call(colibri.category.create.main, {
+			body: { community: props.community, name: name().trim() },
+		});
+		setLoading(false);
+		if (!res.ok) {
+			showError(res.error, { fallbackTitle: "Failed to create category." });
+			return;
 		}
+		setOpen(false);
+		setName("");
 	};
 
 	return (

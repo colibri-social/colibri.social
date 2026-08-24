@@ -10,14 +10,13 @@ import {
 } from "solid-js";
 import ArrowLineLeftIcon from "~icons/ph/arrow-line-left";
 import InfoIcon from "~icons/ph/info";
+import { COLLECTIONS, colibri } from "../../../atproto/lexicons";
 import { putRecord, uploadBlob } from "../../../atproto/pds";
-import { resolveBlob } from "../../../atproto/resolve-blob";
+import { pdsBlobUrl } from "../../../atproto/pds-blob";
 import { endSession } from "../../../atproto/session";
 import { useAuthContext } from "../../../contexts/Auth";
 import { useUserContext } from "../../../contexts/User";
-import { useUserPreferences } from "../../../contexts/UserPreferences";
 import { unregisterAllPush } from "../../../notifications";
-import { getAppViewDid, getPreferredAppViewUrl } from "../../../utils/appview";
 import { readableUserColor } from "../../../utils/readable-color";
 import { resolvedTheme } from "../../../utils/theme";
 import { Bluesky } from "../../icons/Bluesky";
@@ -138,6 +137,7 @@ const LocalPreviewImage: Component<{
  */
 const ProfileFieldsForm: Component<{
 	did: string;
+	pdsHost: string | undefined;
 	handle: string;
 	value: ProfileFields;
 	setValue: (patch: Partial<ProfileFields>) => void;
@@ -145,11 +145,11 @@ const ProfileFieldsForm: Component<{
 }> = (props) => {
 	const avatarUrl = () =>
 		props.value.avatarFile === undefined
-			? resolveBlob(props.did, props.value.avatarRef)
+			? pdsBlobUrl(props.pdsHost, props.did, props.value.avatarRef)
 			: undefined;
 	const bannerUrl = () =>
 		props.value.bannerFile === undefined
-			? resolveBlob(props.did, props.value.bannerRef)
+			? pdsBlobUrl(props.pdsHost, props.did, props.value.bannerRef)
 			: undefined;
 
 	// The themed banner background, sitting behind any uploaded image — mirrors
@@ -301,15 +301,16 @@ export const ProfileSetupModal: Component<{
 }> = (props) => {
 	const user = useUserContext();
 	const auth = useAuthContext();
-	const userPreferences = useUserPreferences();
 
 	const logout = async () => {
 		try {
 			await unregisterAllPush((endpoint, provider) =>
-				user.xrpc.social.colibri.notification.unregisterPush(
-					endpoint,
-					provider,
-				),
+				user.xrpc.call(colibri.notification.unregisterPush.main, {
+					body:
+						provider === "fcm"
+							? { provider: "fcm", token: endpoint }
+							: { provider: "webpush", endpoint },
+				}),
 			);
 			await auth?.client.revoke(user.did);
 		} finally {
@@ -388,6 +389,7 @@ export const ProfileSetupModal: Component<{
 				<div class="sm:w-1/2">
 					<ProfileFieldsForm
 						did={user.did}
+						pdsHost={user.atproto.pdsHost}
 						handle={user.handle.replaceAll("at://", "")}
 						value={p.value}
 						setValue={p.setValue}
@@ -412,15 +414,9 @@ export const ProfileSetupModal: Component<{
 			const theme = themeStateToRecord(value.theme);
 			record.theme = theme;
 
-			if (userPreferences.preferences().sharePresence) {
-				record.presenceService = getAppViewDid(getPreferredAppViewUrl());
-			}
-
 			let avatar: JsonBlobRef | undefined;
 			let banner: JsonBlobRef | undefined;
 
-			// When syncing, the mirrored fields are served live from Bluesky, so
-			// we omit them from the record entirely.
 			if (!sync) {
 				if (value.avatarFile) {
 					avatar = (
@@ -445,27 +441,19 @@ export const ProfileSetupModal: Component<{
 				if (banner) record.banner = banner;
 			}
 
-			await putRecord(
-				agent,
-				user.did,
-				"social.colibri.actor.profile",
-				"self",
-				record,
-			);
+			await putRecord(agent, user.did, COLLECTIONS.profile, "self", record);
 
-			// Reflect the new profile locally without waiting for a refetch.
-			user.updateActorData({
+			user.updateProfile({
 				syncBluesky: sync,
 				theme,
 				...(sync
 					? {}
 					: {
-							displayName: value.displayName.trim() || user.data.displayName,
+							displayName: value.displayName.trim() || user.displayName,
 							description: value.description.trim(),
-							avatar,
-							banner,
 						}),
 			});
+			void user.refetchProfile();
 
 			props.onComplete();
 		},

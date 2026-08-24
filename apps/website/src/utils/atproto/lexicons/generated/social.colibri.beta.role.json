@@ -1,0 +1,95 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.role",
+	"defs": {
+		"main": {
+			"type": "record",
+			"description": "A named bundle of permissions assignable to community members.",
+			"key": "tid",
+			"record": {
+				"type": "object",
+				"required": [
+					"name",
+					"permissions",
+					"position"
+				],
+				"properties": {
+					"name": {
+						"type": "string",
+						"minLength": 1,
+						"maxLength": 32,
+						"description": "Display name."
+					},
+					"color": {
+						"type": "string",
+						"maxLength": 7,
+						"description": "Hex colour as #rrggbb."
+					},
+					"permissions": {
+						"type": "array",
+						"items": {
+							"type": "string",
+							"description": "A namespaced permission identifier."
+						},
+						"description": "Permissions granted by this role."
+					},
+					"position": {
+						"type": "integer",
+						"description": "Hierarchy position. Higher outranks lower."
+					},
+					"hoisted": {
+						"type": "boolean",
+						"default": false,
+						"description": "Whether holders are listed separately in the member list."
+					},
+					"mentionable": {
+						"type": "boolean",
+						"default": false,
+						"description": "Whether @role mentions resolve to this role."
+					},
+					"protected": {
+						"type": "boolean",
+						"default": false,
+						"description": "Whether this role is exempt from modification and deletion. Set on the owner role created with the community."
+					},
+					"channelOverrides": {
+						"type": "array",
+						"items": {
+							"type": "ref",
+							"ref": "#channelOverride"
+						},
+						"description": "Per-channel permission overrides."
+					}
+				}
+			}
+		},
+		"channelOverride": {
+			"type": "object",
+			"description": "Allow and deny lists scoped to a single channel.",
+			"required": [
+				"channel"
+			],
+			"properties": {
+				"channel": {
+					"type": "string",
+					"format": "record-key",
+					"description": "The space key of the channel this override applies to."
+				},
+				"allow": {
+					"type": "array",
+					"items": {
+						"type": "string"
+					},
+					"description": "Permissions granted within this channel."
+				},
+				"deny": {
+					"type": "array",
+					"items": {
+						"type": "string"
+					},
+					"description": "Permissions denied within this channel. Deny beats both the base permissions and allow."
+				}
+			}
+		}
+	}
+}

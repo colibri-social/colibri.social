@@ -1,4 +1,4 @@
-import { useParams, useSearchParams } from "@solidjs/router";
+import { useSearchParams } from "@solidjs/router";
 import {
 	createEffect,
 	createSignal,
@@ -10,13 +10,11 @@ import CaretDownIcon from "~icons/ph/caret-down";
 import GearIcon from "~icons/ph/gear";
 import SignOutIcon from "~icons/ph/sign-out";
 import UsersIcon from "~icons/ph/users-fill";
-import { urlSegmentToUri } from "../atproto/community-uri-to-url-compatible";
-import { resolveBlob } from "../atproto/resolve-blob";
+import { spaceSkey } from "../atproto/space-ref";
 import { ChannelList } from "../components/app/community/ChannelList";
 import { ChannelSidebarResizer } from "../components/app/community/ChannelSidebarResizer";
 import { CommunitySettingsModal } from "../components/app/community/CommunitySettingsModal";
 import { LeaveCommunityModal } from "../components/app/community/LeaveCommunityModal";
-import { LegacyCommunityLock } from "../components/app/community/LegacyCommunityLock";
 import { MemberProfileModal } from "../components/app/community/MemberProfileModal";
 import { MemberSidebar } from "../components/app/community/MemberSidebar";
 import User from "../components/app/user";
@@ -88,7 +86,7 @@ const CommunityHeader = () => {
 				<Show when={hasBanner()}>
 					<img
 						class="absolute top-0 left-0 right-0 w-full h-full object-cover"
-						src={resolveBlob(community().did, community().community.banner)}
+						src={community().community.banner}
 						alt=""
 					/>
 					<div class="absolute top-0 z-1 bg-linear-to-b from-black via-black/50 to-transparent w-full h-full left-0"></div>
@@ -205,7 +203,7 @@ const CommunityHeader = () => {
 				open={leaveOpen}
 				setOpen={setLeaveOpen}
 				communityName={community().community.name}
-				communityUri={community().community.uri}
+				community={community().community.did}
 			/>
 		</>
 	);
@@ -232,13 +230,13 @@ const CommunityLayout: ParentComponent = (props) => {
 	publishShellTitle(
 		() => ({
 			name: community().community.name,
-			picture: resolveBlob(community().did, community().community.picture),
+			picture: community().community.picture,
 		}),
 		() => {
-			const rkey = getChannelParam();
-			if (!rkey) return undefined;
+			const skey = getChannelParam();
+			if (!skey) return undefined;
 			const found = community().channels.find(
-				(c) => c.uri.split("/").pop() === rkey,
+				(c) => spaceSkey(c.space) === skey,
 			);
 			return found ? { name: found.name, type: found.type } : undefined;
 		},
@@ -341,31 +339,13 @@ const CommunityLayout: ParentComponent = (props) => {
 	);
 };
 
-const CommunityLayoutWithContext: ParentComponent = (props) => {
-	const user = useUserContext();
-	const params = useParams();
-
-	// A legacy (un-migrated) community can't be opened
-	const legacyCommunity = () => {
-		const uri = urlSegmentToUri(params.community!);
-		return user.communities.find((c) => c.uri === uri && c.isLegacy);
-	};
-
-	return (
-		<Show
-			when={legacyCommunity()}
-			fallback={
-				<CommunityContextProvider>
-					<MemberProfileContextProvider>
-						<MemberProfileModal />
-						<CommunityLayout>{props.children}</CommunityLayout>
-					</MemberProfileContextProvider>
-				</CommunityContextProvider>
-			}
-		>
-			{(community) => <LegacyCommunityLock community={community()} />}
-		</Show>
-	);
-};
+const CommunityLayoutWithContext: ParentComponent = (props) => (
+	<CommunityContextProvider>
+		<MemberProfileContextProvider>
+			<MemberProfileModal />
+			<CommunityLayout>{props.children}</CommunityLayout>
+		</MemberProfileContextProvider>
+	</CommunityContextProvider>
+);
 
 export default CommunityLayoutWithContext;

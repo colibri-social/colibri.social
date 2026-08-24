@@ -1,11 +1,6 @@
 import type { Agent } from "@atproto/api";
 import { createSignal } from "solid-js";
-import {
-	classifyResponse,
-	classifyThrown,
-	parseRetryAfterMs,
-	statusOf,
-} from "../../errors/classify";
+import { classifyThrown, statusOf } from "../../errors/classify";
 import type { ColibriError } from "../../errors/error";
 import { reportError } from "../../errors/report";
 import { showError } from "../../errors/show-error";
@@ -17,8 +12,14 @@ import {
 	outboxUpdate,
 } from "../cache/store";
 import { sessionDead } from "../session-health";
+import type { XrpcResult } from "../xrpc/result";
 import { nextTid } from "./tid";
-import type { AppviewKind, OutboxEntry, OutboxRecord } from "./types";
+import {
+	type AppviewKind,
+	isSpaceKind,
+	type OutboxEntry,
+	type OutboxRecord,
+} from "./types";
 
 const MAX_ATTEMPTS = 8;
 const RETRY_BASE_MS = 2_000;
@@ -32,7 +33,8 @@ export { outboxRevision, pendingCount };
 export type QueuedRecord = {
 	uri: string;
 	rkey: string;
-	kind: "create" | "put";
+	kind: "create" | "put" | "spaceCreate" | "spacePut";
+	space?: string;
 	record: Record<string, unknown>;
 	createdAt: number;
 };
@@ -45,10 +47,12 @@ let flushing = false;
 let flushQueued = false;
 let retryTimer: ReturnType<typeof setTimeout> | null = null;
 
-let appviewExecutor: ((kind: AppviewKind) => Promise<Response>) | null = null;
+let appviewExecutor:
+	| ((kind: AppviewKind) => Promise<XrpcResult<unknown>>)
+	| null = null;
 
 export const setAppviewExecutor = (
-	executor: (kind: AppviewKind) => Promise<Response>,
+	executor: (kind: AppviewKind) => Promise<XrpcResult<unknown>>,
 ): void => {
 	appviewExecutor = executor;
 };
@@ -80,16 +84,35 @@ const sync = () => {
 const buildUri = (repo: string, collection: string, rkey: string) =>
 	`at://${repo}/${collection}/${rkey}`;
 
+const buildSpaceUri = (
+	space: string,
+	repo: string,
+	collection: string,
+	rkey: string,
+) => `${space}/${repo}/${collection}/${rkey}`;
+
 export const queuedRecords = (collection: string): QueuedRecord[] =>
 	queue.flatMap((entry) => {
 		const k = entry.kind;
-		if (k.t !== "create" && k.t !== "put") return [];
+		if (
+			k.t !== "create" &&
+			k.t !== "put" &&
+			k.t !== "spaceCreate" &&
+			k.t !== "spacePut"
+		)
+			return [];
 		if (k.collection !== collection) return [];
+		const uri =
+			k.t === "spaceCreate" || k.t === "spacePut"
+				? buildSpaceUri(k.space, k.repo, k.collection, k.rkey)
+				: buildUri(k.repo, k.collection, k.rkey);
 		return [
 			{
-				uri: buildUri(k.repo, k.collection, k.rkey),
+				uri,
 				rkey: k.rkey,
 				kind: k.t,
+				space:
+					k.t === "spaceCreate" || k.t === "spacePut" ? k.space : undefined,
 				record: k.record,
 				createdAt: entry.createdAt,
 			},
@@ -128,26 +151,52 @@ const execute = async (
 	if (k.t === "appview") {
 		if (!appviewExecutor) return "retry";
 		try {
-			const res = await appviewExecutor(k);
-			if (res.ok) return "success";
-			retryAfterMs = parseRetryAfterMs(
-				res.headers.get("retry-after"),
-				Date.now(),
-			);
-			const body = await res.text().catch(() => "");
-			lastFailure = classifyResponse({
-				status: res.status,
-				body,
-				method: k.lxm,
-				retryAfter: res.headers.get("retry-after"),
-			});
-			return lastFailure.retryable ? "retry" : "terminal";
+			const result = await appviewExecutor(k);
+			if (result.ok) return "success";
+			lastFailure = result.error;
+			retryAfterMs = result.error.retryAfterMs;
+			return result.error.retryable ? "retry" : "terminal";
 		} catch (err) {
 			lastFailure = classifyThrown(err, { method: k.lxm });
 			return classify(err);
 		}
 	}
 	if (!agent) return "retry";
+
+	if (isSpaceKind(k)) {
+		try {
+			if (k.t === "spaceDelete") {
+				await agent.com.atproto.space.deleteRecord({
+					space: k.space,
+					repo: k.repo,
+					collection: k.collection,
+					rkey: k.rkey,
+				});
+				return "success";
+			}
+			const write = {
+				space: k.space,
+				repo: k.repo,
+				collection: k.collection,
+				rkey: k.rkey,
+				record: { $type: k.collection, ...k.record },
+			};
+			if (k.t === "spaceCreate") {
+				await agent.com.atproto.space.createRecord(write);
+			} else {
+				await agent.com.atproto.space.putRecord(write);
+			}
+			return "success";
+		} catch (err) {
+			if (k.t === "spaceDelete" && goneAlready(err)) return "success";
+			if (k.t === "spaceCreate" && alreadyExists(err)) return "success";
+			const failure = classifyThrown(err, { method: `space.${k.t}` });
+			if (acceptedWithBadReply(failure)) return "success";
+			lastFailure = failure;
+			return classify(err);
+		}
+	}
+
 	try {
 		if (k.t === "delete") {
 			await agent.com.atproto.repo.deleteRecord({
@@ -165,20 +214,32 @@ const execute = async (
 		});
 		return "success";
 	} catch (err) {
-		if (k.t === "delete") {
-			const status = statusOf(err);
-			if (
-				status !== undefined &&
-				status >= 400 &&
-				status < 500 &&
-				status !== 429
-			)
-				return "success";
-		}
-		lastFailure = classifyThrown(err, { method: `repo.${k.t}Record` });
+		if (k.t === "delete" && goneAlready(err)) return "success";
+		const failure = classifyThrown(err, { method: `repo.${k.t}Record` });
+		if (acceptedWithBadReply(failure)) return "success";
+		lastFailure = failure;
 		return classify(err);
 	}
 };
+
+const acceptedWithBadReply = (failure: ColibriError): boolean => {
+	if (failure.code !== "MalformedResponse") return false;
+	log.warn("the write landed but the reply did not validate", {
+		code: failure.code,
+		reason: failure.serverMessage,
+	});
+	return true;
+};
+
+const goneAlready = (err: unknown): boolean => {
+	const status = statusOf(err);
+	return (
+		status !== undefined && status >= 400 && status < 500 && status !== 429
+	);
+};
+
+const alreadyExists = (err: unknown): boolean =>
+	classifyThrown(err).serverMessage?.includes("RecordAlreadyExists") === true;
 
 const heldForSignIn = (): boolean => sessionDead();
 
@@ -244,14 +305,16 @@ export const flush = async (): Promise<void> => {
 			if (outcome === "terminal" || entry.attempts >= MAX_ATTEMPTS) {
 				if (heldForSignIn()) break;
 				surfaceTerminal(entry);
-			} else if (
-				outcome === "success" &&
-				(entry.kind.t === "create" || entry.kind.t === "put")
-			) {
-				emitSent(
-					buildUri(entry.kind.repo, entry.kind.collection, entry.kind.rkey),
-					entry.kind.collection,
-				);
+			} else if (outcome === "success") {
+				const k = entry.kind;
+				if (k.t === "create" || k.t === "put") {
+					emitSent(buildUri(k.repo, k.collection, k.rkey), k.collection);
+				} else if (k.t === "spaceCreate" || k.t === "spacePut") {
+					emitSent(
+						buildSpaceUri(k.space, k.repo, k.collection, k.rkey),
+						k.collection,
+					);
+				}
 			}
 
 			queue.shift();
@@ -363,11 +426,93 @@ export const enqueueDelete = async (
 	scheduleFlush();
 };
 
+export const enqueueSpaceCreate = async (
+	space: string,
+	repo: string,
+	collection: string,
+	record: Record<string, unknown>,
+	opts?: { rkey?: string; label?: string },
+): Promise<{ uri: string; rkey: string }> => {
+	const rkey = opts?.rkey ?? nextTid();
+	await persist({
+		owner: activeOwner(),
+		kind: { t: "spaceCreate", space, repo, collection, rkey, record },
+		label: opts?.label,
+		createdAt: Date.now(),
+		attempts: 0,
+	});
+	scheduleFlush();
+	return { uri: buildSpaceUri(space, repo, collection, rkey), rkey };
+};
+
+export const enqueueSpacePut = async (
+	space: string,
+	repo: string,
+	collection: string,
+	rkey: string,
+	record: Record<string, unknown>,
+	opts?: { label?: string },
+): Promise<{ uri: string }> => {
+	const existing = queue.find(
+		(e) =>
+			e.kind.t === "spacePut" &&
+			e.kind.space === space &&
+			e.kind.collection === collection &&
+			e.kind.rkey === rkey,
+	);
+	if (existing && existing.kind.t === "spacePut") {
+		existing.kind.record = record;
+		existing.attempts = 0;
+		await outboxUpdate(existing.seq, toRecord(existing));
+		sync();
+		scheduleFlush();
+		return { uri: buildSpaceUri(space, repo, collection, rkey) };
+	}
+	await persist({
+		owner: activeOwner(),
+		kind: { t: "spacePut", space, repo, collection, rkey, record },
+		label: opts?.label,
+		createdAt: Date.now(),
+		attempts: 0,
+	});
+	scheduleFlush();
+	return { uri: buildSpaceUri(space, repo, collection, rkey) };
+};
+
+export const enqueueSpaceDelete = async (
+	space: string,
+	repo: string,
+	collection: string,
+	rkey: string,
+	opts?: { label?: string },
+): Promise<void> => {
+	const pendingCreate = queue.findIndex(
+		(e) =>
+			e.kind.t === "spaceCreate" &&
+			e.kind.space === space &&
+			e.kind.collection === collection &&
+			e.kind.rkey === rkey,
+	);
+	if (pendingCreate >= 0) {
+		const [removed] = queue.splice(pendingCreate, 1);
+		if (removed) await outboxDelete(removed.seq);
+		sync();
+		return;
+	}
+	await persist({
+		owner: activeOwner(),
+		kind: { t: "spaceDelete", space, repo, collection, rkey },
+		label: opts?.label,
+		createdAt: Date.now(),
+		attempts: 0,
+	});
+	scheduleFlush();
+};
+
 export const enqueueAppview = async (params: {
 	service: "appview" | "notif";
 	lxm: string;
-	route: string;
-	method: string;
+	input: Record<string, unknown>;
 	label?: string;
 }): Promise<void> => {
 	await persist({
@@ -376,8 +521,7 @@ export const enqueueAppview = async (params: {
 			t: "appview",
 			service: params.service,
 			lxm: params.lxm,
-			route: params.route,
-			method: params.method,
+			input: params.input,
 		},
 		label: params.label,
 		createdAt: Date.now(),

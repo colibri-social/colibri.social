@@ -4,10 +4,12 @@ import type {
 } from "@tiptap/suggestion";
 import { createSignal } from "solid-js";
 import { render } from "solid-js/web";
-import { resolveBlob } from "../../../../atproto/resolve-blob";
-import type { Channel } from "../../../../atproto/xrpc/social/colibri/community/listChannels";
-import type { Member } from "../../../../atproto/xrpc/social/colibri/community/listMembers";
-import type { Role } from "../../../../atproto/xrpc/social/colibri/community/listRoles";
+import { spaceSkey } from "../../../../atproto/space-ref";
+import type {
+	Channel,
+	Member,
+	Role,
+} from "../../../../contexts/community-payload";
 import { readSafeAreaInsets } from "../../../../utils/safe-area";
 import { displayableNameFn } from "../../user/DisplayableName";
 import {
@@ -52,21 +54,21 @@ export function selectItem(
 	if (isMember(item)) {
 		command({
 			id: item.did,
-			label: displayableNameFn(item),
+			label: displayableNameFn(item.actor, item.nickname),
 			handle: item.handle.replaceAll("at://", ""),
-			avatar: resolveBlob(item.did, item.data.avatar),
+			avatar: item.actor.avatar,
 			type: "member",
 		} as any);
 	} else if (isRole(item)) {
 		command({
-			id: item.uri,
+			id: item.rkey,
 			label: item.name,
 			color: item.color,
 			type: "role",
 		} as any);
 	} else if (isChannel(item)) {
 		command({
-			id: item.uri,
+			id: spaceSkey(item.space) ?? item.space,
 			label: item.name,
 			category: item.categoryLabel ?? null,
 			type: "channel",

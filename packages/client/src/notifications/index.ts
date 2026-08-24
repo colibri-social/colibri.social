@@ -34,6 +34,9 @@ export const isStaleNotificationEvent = (
 	thresholdMs = STALE_NOTIFICATION_PING_MS,
 ): boolean => Date.now() - Date.parse(indexedAt) > thresholdMs;
 
+export const isPingKind = (kind: string): boolean =>
+	kind === "mention" || kind === "reply";
+
 let cached: NotificationBackend | undefined;
 
 /** The notification backend for the current runtime (memoized). */

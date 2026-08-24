@@ -1,0 +1,101 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.role.create",
+	"defs": {
+		"main": {
+			"type": "procedure",
+			"description": "Creates a role in a community.",
+			"input": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"community",
+						"name",
+						"permissions"
+					],
+					"properties": {
+						"community": {
+							"type": "string",
+							"format": "did",
+							"description": "The community to create the role in."
+						},
+						"name": {
+							"type": "string",
+							"minLength": 1,
+							"maxLength": 32,
+							"description": "Display name."
+						},
+						"permissions": {
+							"type": "array",
+							"items": {
+								"type": "string",
+								"description": "A namespaced permission identifier."
+							},
+							"description": "Permissions granted by this role."
+						},
+						"color": {
+							"type": "string",
+							"maxLength": 7,
+							"description": "Hex colour as #rrggbb."
+						},
+						"position": {
+							"type": "integer",
+							"description": "Hierarchy position. Higher outranks lower."
+						},
+						"hoisted": {
+							"type": "boolean",
+							"description": "Whether holders are listed separately in the member list."
+						},
+						"mentionable": {
+							"type": "boolean",
+							"description": "Whether @role mentions resolve to this role."
+						}
+					}
+				}
+			},
+			"output": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"role"
+					],
+					"properties": {
+						"role": {
+							"type": "ref",
+							"ref": "social.colibri.beta.community.defs#roleView",
+							"description": "The newly created role."
+						}
+					}
+				}
+			},
+			"errors": [
+				{
+					"name": "AuthRequired",
+					"description": "The request is missing, malformed, or unverifiable service auth."
+				},
+				{
+					"name": "Forbidden",
+					"description": "The caller lacks the role.manage permission."
+				},
+				{
+					"name": "CommunityNotFound",
+					"description": "No community exists at the given DID."
+				},
+				{
+					"name": "InvalidRequest",
+					"description": "The arguments are inconsistent or malformed beyond schema validation."
+				},
+				{
+					"name": "RoleHierarchy",
+					"description": "The requested position is at or above the caller's highest role position, or the permissions include one the caller does not hold."
+				},
+				{
+					"name": "CredentialsUnavailable",
+					"description": "The AppView cannot act as the community because its stored credentials are missing or unusable."
+				}
+			]
+		}
+	}
+}

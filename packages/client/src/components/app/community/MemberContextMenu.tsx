@@ -1,4 +1,3 @@
-import type { ActorData } from "@colibri-social/lib";
 import {
 	createEffect,
 	createMemo,
@@ -24,17 +23,22 @@ import UserMinusIcon from "~icons/ph/user-minus";
 import UsersThreeIcon from "~icons/ph/users-three";
 import VideoCameraIcon from "~icons/ph/video-camera";
 import WebcamIcon from "~icons/ph/webcam";
+import { colibri } from "../../../atproto/lexicons";
+import { clientForManagingApp } from "../../../atproto/xrpc";
 import {
 	useCommunityContext,
 	usePermissions,
 } from "../../../contexts/Community";
+import type { Member } from "../../../contexts/community-payload";
 import { useUserContext } from "../../../contexts/User";
 import { useUserPreferences } from "../../../contexts/UserPreferences";
 import {
 	ConnectionState,
 	useVoiceChatContext,
 } from "../../../contexts/VoiceChat";
+import { showError } from "../../../errors/show-error";
 import { createLongPress } from "../../../utils/create-long-press";
+import { createLogger } from "../../../utils/logger";
 import { createRoleSync } from "../../../utils/role-sync";
 import { useIsTouch } from "../../../utils/touch";
 import { Button } from "../../ui/Button";
@@ -72,12 +76,33 @@ import {
 	MemberActionDialog,
 } from "./MemberActionDialog";
 
+const log = createLogger("community");
+
 export const MemberContextMenu: ParentComponent<{
-	member: ActorData;
+	member: Member | undefined;
+	class?: string;
+	disabled?: boolean;
+}> = (props) => (
+	<Show when={props.member} fallback={props.children}>
+		{(member) => (
+			<MemberMenu
+				member={member()}
+				class={props.class}
+				disabled={props.disabled}
+			>
+				{props.children}
+			</MemberMenu>
+		)}
+	</Show>
+);
+
+const MemberMenu: ParentComponent<{
+	member: Member;
 	class?: string;
 	disabled?: boolean;
 }> = (props) => {
 	const user = useUserContext();
+	const profile = () => props.member.actor;
 	const community = useCommunityContext();
 	const preferences = useUserPreferences();
 	const [voiceData, { toggleMic, toggleDeafen, toggleCamera }] =
@@ -110,8 +135,8 @@ export const MemberContextMenu: ParentComponent<{
 	const inVc = () => voiceData.connection.state === ConnectionState.Connected;
 
 	const targetVoiceChannel = () => {
-		for (const [uri, dids] of Object.entries(voiceData.presence)) {
-			if (dids.includes(props.member.did)) return uri;
+		for (const [space, dids] of Object.entries(voiceData.presence)) {
+			if (dids.includes(props.member.did)) return space;
 		}
 		return null;
 	};
@@ -129,14 +154,29 @@ export const MemberContextMenu: ParentComponent<{
 	): Promise<void> => {
 		const channel = targetVoiceChannel();
 		if (!channel) return;
-		const res = await user.xrpc.social.colibri.voice.moderate(
-			community().community.appview,
-			community().community.uri,
-			channel,
-			props.member.did,
-			action,
+		const client = clientForManagingApp(
+			user.atproto.agent,
+			community().community.managingApp,
 		);
-		if (!res) toast.error("Failed to moderate voice participant.");
+		const res = await client.call(colibri.voice.moderate.main, {
+			body: {
+				channel,
+				subject: props.member.did,
+				...(action === "mute" ? { muted: true } : {}),
+				...(action === "unmute" ? { muted: false } : {}),
+				...(action === "deafen" ? { deafened: true } : {}),
+				...(action === "undeafen" ? { deafened: false } : {}),
+				...(action === "disconnect" ? { disconnect: true } : {}),
+			},
+		});
+		if (!res.ok) {
+			log.error("moderating a voice participant failed", {
+				code: res.error.code,
+			});
+			showError(res.error, {
+				fallbackTitle: "Failed to moderate voice participant.",
+			});
+		}
 	};
 
 	const participantVolume = () =>
@@ -209,7 +249,7 @@ export const MemberContextMenu: ParentComponent<{
 		isMember() && sortedRoles().some((role) => canManageRole(user.did, role));
 
 	const assignedRoleCount = () =>
-		sortedRoles().filter((role) => hasRole(role.uri)).length;
+		sortedRoles().filter((role) => hasRole(role.rkey)).length;
 
 	/** A desktop context-menu toggle styled like the role checkboxes. */
 	const VoiceCheckItem: ParentComponent<{
@@ -236,7 +276,7 @@ export const MemberContextMenu: ParentComponent<{
 	const copyDid = () => {
 		navigator.clipboard.writeText(props.member.did);
 		toast.success(
-			`DID for ${displayableNameFn(props.member)} copied to clipboard!`,
+			`DID for ${displayableNameFn(profile(), props.member.nickname)} copied to clipboard!`,
 		);
 	};
 
@@ -307,7 +347,13 @@ export const MemberContextMenu: ParentComponent<{
 					<MenuDrawer
 						open={menuOpen()}
 						onOpenChange={setMenuOpen}
-						title={<DisplayableName color={false} user={props.member} />}
+						title={
+							<DisplayableName
+								color={false}
+								user={profile()}
+								nickname={props.member.nickname}
+							/>
+						}
 					>
 						<Show when={inVc()}>
 							<Show
@@ -460,7 +506,12 @@ export const MemberContextMenu: ParentComponent<{
 								>
 									<UserMinusIcon />
 									<span>
-										Kick <DisplayableName color={false} user={props.member} />
+										Kick{" "}
+										<DisplayableName
+											color={false}
+											user={profile()}
+											nickname={props.member.nickname}
+										/>
 									</span>
 								</MenuDrawerItem>
 							</Show>
@@ -476,7 +527,12 @@ export const MemberContextMenu: ParentComponent<{
 								>
 									<ProhibitIcon />
 									<span>
-										Ban <DisplayableName color={false} user={props.member} />
+										Ban{" "}
+										<DisplayableName
+											color={false}
+											user={profile()}
+											nickname={props.member.nickname}
+										/>
 									</span>
 								</MenuDrawerItem>
 							</Show>
@@ -500,7 +556,11 @@ export const MemberContextMenu: ParentComponent<{
 								)}
 								<span>
 									{targetServerMuted() ? "Server unmute" : "Server mute"}{" "}
-									<DisplayableName color={false} user={props.member} />
+									<DisplayableName
+										color={false}
+										user={profile()}
+										nickname={props.member.nickname}
+									/>
 								</span>
 							</MenuDrawerItem>
 							<MenuDrawerItem
@@ -521,7 +581,11 @@ export const MemberContextMenu: ParentComponent<{
 								)}
 								<span>
 									{targetServerDeafened() ? "Server undeafen" : "Server deafen"}{" "}
-									<DisplayableName color={false} user={props.member} />
+									<DisplayableName
+										color={false}
+										user={profile()}
+										nickname={props.member.nickname}
+									/>
 								</span>
 							</MenuDrawerItem>
 							<MenuDrawerItem
@@ -536,8 +600,12 @@ export const MemberContextMenu: ParentComponent<{
 								<PhoneSlashIcon />
 								<span>
 									Disconnect{" "}
-									<DisplayableName color={false} user={props.member} /> from
-									voice
+									<DisplayableName
+										color={false}
+										user={profile()}
+										nickname={props.member.nickname}
+									/>{" "}
+									from voice
 								</span>
 							</MenuDrawerItem>
 						</Show>
@@ -556,7 +624,12 @@ export const MemberContextMenu: ParentComponent<{
 						onOpenChange={setRolesOpen}
 						title={
 							<>
-								Roles for <DisplayableName color={false} user={props.member} />
+								Roles for{" "}
+								<DisplayableName
+									color={false}
+									user={profile()}
+									nickname={props.member.nickname}
+								/>
 							</>
 						}
 					>
@@ -566,14 +639,14 @@ export const MemberContextMenu: ParentComponent<{
 								return (
 									<Checkbox
 										class="w-full"
-										checked={hasRole(role.uri)}
+										checked={hasRole(role.rkey)}
 										disabled={!manageable()}
 									>
 										<CheckboxInput />
 										<MenuDrawerItem
 											disabled={!manageable()}
 											class="disabled:opacity-50"
-											onClick={() => manageable() && toggleRole(role.uri)}
+											onClick={() => manageable() && toggleRole(role.rkey)}
 										>
 											<CheckboxLabel class="flex flex-row items-center gap-2 text-base">
 												<div
@@ -726,7 +799,7 @@ export const MemberContextMenu: ParentComponent<{
 													return (
 														<Checkbox
 															class="w-full"
-															checked={hasRole(role.uri)}
+															checked={hasRole(role.rkey)}
 															disabled={!manageable()}
 														>
 															<CheckboxInput />
@@ -736,7 +809,7 @@ export const MemberContextMenu: ParentComponent<{
 																class="flex flex-row items-center gap-4 justify-between cursor-pointer"
 																onClick={() => {
 																	if (!manageable()) return;
-																	toggleRole(role.uri);
+																	toggleRole(role.rkey);
 																}}
 															>
 																<CheckboxLabel class="flex flex-row items-center gap-2">
@@ -774,7 +847,12 @@ export const MemberContextMenu: ParentComponent<{
 									>
 										<UserMinusIcon class="text-destructive" />
 										<span>
-											Kick <DisplayableName color={false} user={props.member} />
+											Kick{" "}
+											<DisplayableName
+												color={false}
+												user={profile()}
+												nickname={props.member.nickname}
+											/>
 										</span>
 									</ContextMenuItem>
 								</Show>
@@ -785,7 +863,12 @@ export const MemberContextMenu: ParentComponent<{
 									>
 										<ProhibitIcon class="text-destructive" />
 										<span>
-											Ban <DisplayableName color={false} user={props.member} />
+											Ban{" "}
+											<DisplayableName
+												color={false}
+												user={profile()}
+												nickname={props.member.nickname}
+											/>
 										</span>
 									</ContextMenuItem>
 								</Show>
@@ -804,7 +887,11 @@ export const MemberContextMenu: ParentComponent<{
 									)}
 									<span>
 										{targetServerMuted() ? "Server unmute" : "Server mute"}{" "}
-										<DisplayableName color={false} user={props.member} />
+										<DisplayableName
+											color={false}
+											user={profile()}
+											nickname={props.member.nickname}
+										/>
 									</span>
 								</ContextMenuItem>
 								<ContextMenuItem
@@ -823,7 +910,11 @@ export const MemberContextMenu: ParentComponent<{
 										{targetServerDeafened()
 											? "Server undeafen"
 											: "Server deafen"}{" "}
-										<DisplayableName color={false} user={props.member} />
+										<DisplayableName
+											color={false}
+											user={profile()}
+											nickname={props.member.nickname}
+										/>
 									</span>
 								</ContextMenuItem>
 								<ContextMenuItem
@@ -833,8 +924,12 @@ export const MemberContextMenu: ParentComponent<{
 									<PhoneSlashIcon class="text-destructive" />
 									<span>
 										Disconnect{" "}
-										<DisplayableName color={false} user={props.member} /> from
-										voice
+										<DisplayableName
+											color={false}
+											user={profile()}
+											nickname={props.member.nickname}
+										/>{" "}
+										from voice
 									</span>
 								</ContextMenuItem>
 							</Show>
@@ -852,7 +947,7 @@ export const MemberContextMenu: ParentComponent<{
 								onClick={() => {
 									navigator.clipboard.writeText(props.member.did);
 									toast.success(
-										`DID for ${displayableNameFn(props.member)} copied to clipboard!`,
+										`DID for ${displayableNameFn(profile(), props.member.nickname)} copied to clipboard!`,
 									);
 								}}
 							>

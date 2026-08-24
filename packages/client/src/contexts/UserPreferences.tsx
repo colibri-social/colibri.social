@@ -9,14 +9,14 @@ import {
 	useContext,
 } from "solid-js";
 import type { BlueskyClientID } from "../atproto/bluesky-alternatives";
-import type { GifItem } from "../atproto/xrpc/social/colibri/embed/gifTypes";
+import type { GifView } from "../atproto/views";
 import {
 	EXPERIMENTAL_DENOISERS_EXPERIMENT,
 	isNoiseSuppressionMode,
 	noiseMode,
 } from "../hooks/noise/modes";
 import { newestVisibleReleaseNoteVersion } from "../release-notes";
-import { DEFAULT_APPVIEW_URL } from "../utils/appview";
+import { DEFAULT_APPVIEW_URL, resolveStoredAppViewUrl } from "../utils/appview";
 import {
 	type EmojiUsage,
 	normalizeEmojiUsage,
@@ -106,7 +106,6 @@ export type UserPreferencesContextData = {
 	notificationPromptDismissed: boolean;
 	notificationDefaultApplied: boolean;
 	lastSeenReleaseNote: string | null;
-	chatGuidelinesAccepted: boolean;
 	voice: {
 		input: VoiceInputSettings;
 		output: VoiceIOSettings;
@@ -127,7 +126,7 @@ export type UserPreferencesContextData = {
 	linkEmbedsByDefault: boolean;
 	nativeWindowDecorations: boolean;
 	theme: AppTheme | null;
-	recentGifs: Array<GifItem>;
+	recentGifs: Array<GifView>;
 	emojiUsage: Record<string, EmojiUsage>;
 	experiments: Record<string, boolean>;
 	controls: ControlsPreferences;
@@ -141,7 +140,6 @@ const DEFAULT_PREFERENCES: UserPreferencesContextData = {
 	notificationPromptDismissed: false,
 	notificationDefaultApplied: false,
 	lastSeenReleaseNote: null,
-	chatGuidelinesAccepted: false,
 	voice: {
 		input: {
 			enabled: true,
@@ -264,6 +262,7 @@ function loadFromStorage(): UserPreferencesContextData {
 			channelSidebarWidth: clampSidebarWidth(parsed.channelSidebarWidth),
 			voice: { ...DEFAULT_PREFERENCES.voice, ...parsedVoice, input, screen },
 			emojiUsage: normalizeEmojiUsage(parsed.emojiUsage),
+			preferredAppView: resolveStoredAppViewUrl(parsed.preferredAppView),
 			controls: { ...DEFAULT_PREFERENCES.controls, ...(parsed.controls ?? {}) },
 		};
 	} catch {
@@ -296,7 +295,6 @@ type UserPreferencesContextValue = {
 	setNotificationPromptDismissed: (dismissed: boolean) => void;
 	setNotificationDefaultApplied: (applied: boolean) => void;
 	setLastSeenReleaseNote: (version: string | null) => void;
-	setChatGuidelinesAccepted: (accepted: boolean) => void;
 	setNoiseSuppressionHints: (enabled: boolean) => void;
 	setPreferredBlueskyClient: (client: BlueskyClientID) => void;
 	setPreferredAppView: (appView: string) => void;
@@ -306,7 +304,7 @@ type UserPreferencesContextValue = {
 	setLinkEmbedsByDefault: (enabled: boolean) => void;
 	setNativeWindowDecorations: (enabled: boolean) => void;
 	setTheme: (theme: AppTheme | null) => void;
-	pushRecentGif: (gif: GifItem) => void;
+	pushRecentGif: (gif: GifView) => void;
 	recordEmojiUse: (emoji: string) => void;
 	setExperiment: (id: string, enabled: boolean) => void;
 	updateControls: (patch: Partial<ControlsPreferences>) => void;
@@ -445,10 +443,6 @@ export const UserPreferencesContextProvider: ParentComponent = (props) => {
 		setPreferences((p) => ({ ...p, lastSeenReleaseNote: version }));
 	};
 
-	const setChatGuidelinesAccepted = (accepted: boolean) => {
-		setPreferences((p) => ({ ...p, chatGuidelinesAccepted: accepted }));
-	};
-
 	const setNoiseSuppressionHints = (enabled: boolean) => {
 		setPreferences((p) => ({
 			...p,
@@ -488,7 +482,7 @@ export const UserPreferencesContextProvider: ParentComponent = (props) => {
 		setPreferences((p) => ({ ...p, theme }));
 	};
 
-	const pushRecentGif = (gif: GifItem) => {
+	const pushRecentGif = (gif: GifView) => {
 		setPreferences((p) => ({
 			...p,
 			recentGifs: [gif, ...p.recentGifs.filter((g) => g.id !== gif.id)].slice(
@@ -551,7 +545,6 @@ export const UserPreferencesContextProvider: ParentComponent = (props) => {
 				setNotificationPromptDismissed,
 				setNotificationDefaultApplied,
 				setLastSeenReleaseNote,
-				setChatGuidelinesAccepted,
 				setNoiseSuppressionHints,
 				setPreferredBlueskyClient,
 				setPreferredAppView,

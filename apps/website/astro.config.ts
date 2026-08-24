@@ -19,7 +19,7 @@ const { SENTRY_AUTH_TOKEN, SENTRY_RELEASE } = loadEnv(
 
 // https://astro.build/config
 export default defineConfig({
-	site: "https://colibri.social",
+	site: "https://spaces.colibri.social",
 	adapter: node({
 		mode: "standalone",
 	}),
@@ -119,12 +119,12 @@ export default defineConfig({
 			TURSO_DATABASE_URL: envField.string({
 				context: "server",
 				access: "secret",
-				optional: false,
+				optional: true,
 			}),
 			TURSO_AUTH_TOKEN: envField.string({
 				context: "server",
 				access: "secret",
-				optional: false,
+				optional: true,
 			}),
 			SENTRY_DSN: envField.string({
 				context: "client",
@@ -147,6 +147,7 @@ export default defineConfig({
 		allowedDomains: [
 			{ hostname: "colibri.social", protocol: "https" },
 			{ hostname: "next.colibri.social", protocol: "https" },
+			{ hostname: "spaces.colibri.social", protocol: "https" },
 		],
 	},
 	image: {

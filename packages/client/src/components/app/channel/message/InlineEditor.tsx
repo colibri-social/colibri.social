@@ -26,7 +26,7 @@ export const InlineEditor: Component = () => {
 						{
 							communities: user.communities,
 							categories: community().categories,
-							currentCommunityUri: community().community.uri,
+							currentCommunityDid: community().community.did,
 						},
 					)}
 					placeholder={

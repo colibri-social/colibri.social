@@ -1,5 +1,8 @@
-import { isAppViewErrorCode } from "./appview-codes";
-import { type ColibriErrorCode, isPdsSessionErrorCode } from "./codes";
+import {
+	type ColibriErrorCode,
+	isAppViewErrorCode,
+	isPdsSessionErrorCode,
+} from "./codes";
 import {
 	ColibriError,
 	type ColibriErrorOptions,
@@ -158,6 +161,8 @@ export const isRecordNotFound = (err: unknown): boolean => {
 
 const MIN_HTTP_STATUS = 100;
 
+const XRPC_INVALID_RESPONSE_STATUS = 2;
+
 export const statusOf = (err: unknown): number | undefined => {
 	if (isColibriError(err)) return err.status;
 	if (err && typeof err === "object" && "status" in err) {
@@ -240,29 +245,42 @@ const knownEnvelopeCode = (
 	return ENVELOPE_CODE_ALIASES.get(code);
 };
 
-export const classifyResponse = (
-	input: ClassifyResponseInput,
-): ColibriError => {
-	const { code, message } = readEnvelope(input.body);
-	const known = knownEnvelopeCode(code);
-	const resolved: ColibriErrorCode = known ?? codeForStatus(input.status);
+export interface ClassifyEnvelopeInput {
+	code?: string;
+	message?: string;
+	status: number;
+	method?: string;
+	retryAfter?: string | null;
+	nowMs?: number;
+}
 
-	const fields = parseFieldProblems(message);
+export const classifyEnvelope = (
+	input: ClassifyEnvelopeInput,
+): ColibriError => {
+	const known = knownEnvelopeCode(input.code);
+	const resolved: ColibriErrorCode = known ?? codeForStatus(input.status);
 
 	const options: ColibriErrorOptions = {
 		code: resolved,
 		status: input.status,
 		method: input.method,
-		serverMessage: message,
-		fields,
+		serverMessage: input.message,
+		fields: parseFieldProblems(input.message),
 		retryAfterMs: parseRetryAfterMs(
 			input.retryAfter,
 			input.nowMs ?? Date.now(),
 		),
-		context: code && !known ? { unknownCode: code } : undefined,
+		context: input.code && !known ? { unknownCode: input.code } : undefined,
 	};
 
 	return new ColibriError(options);
+};
+
+export const classifyResponse = (
+	input: ClassifyResponseInput,
+): ColibriError => {
+	const { code, message } = readEnvelope(input.body);
+	return classifyEnvelope({ ...input, code, message });
 };
 
 export interface ClassifyThrownInput {
@@ -296,6 +314,13 @@ export const classifyThrown = (
 	}
 
 	const status = statusOf(err);
+	if (status === XRPC_INVALID_RESPONSE_STATUS) {
+		return new ColibriError({
+			...shared,
+			code: "MalformedResponse",
+			serverMessage: err instanceof Error ? err.message : undefined,
+		});
+	}
 	if (status !== undefined && status >= MIN_HTTP_STATUS) {
 		return new ColibriError({
 			...shared,

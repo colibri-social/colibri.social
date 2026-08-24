@@ -91,11 +91,16 @@ export const noteSessionDeleted = (cause: unknown): void => {
 	});
 };
 
-export const observeSession = (pending: Promise<Response>): Promise<Response> =>
+const MINT_LXM = "com.atproto.server.getServiceAuth";
+
+export const observeSession = (
+	url: string,
+	pending: Promise<Response>,
+): Promise<Response> =>
 	pending.then(
 		(res) => {
 			if (res.ok) noteAuthSuccess();
-			else if (res.status === 401) {
+			else if (res.status === 401 && !url.includes(MINT_LXM)) {
 				noteAuthFailure("AuthRequired", { status: res.status });
 			}
 			return res;

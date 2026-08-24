@@ -15,18 +15,25 @@ import {
 	Show,
 	Switch,
 } from "solid-js";
+import BellSlashIcon from "~icons/ph/bell-slash";
 import CaretRightIcon from "~icons/ph/caret-right";
 import ChatCircleDotsIcon from "~icons/ph/chat-circle-dots";
 import GearIcon from "~icons/ph/gear";
+import LockSimpleFillIcon from "~icons/ph/lock-simple-fill";
 import PlusIcon from "~icons/ph/plus";
 import SpeakerHighIcon from "~icons/ph/speaker-high-fill";
 import SpeakerLowIcon from "~icons/ph/speaker-low-fill";
-import type { Category as CategoryType } from "../../../atproto/xrpc/social/colibri/community/listCategories";
-import type { Channel } from "../../../atproto/xrpc/social/colibri/community/listChannels";
+import { buildChannelPath } from "../../../atproto/colibri-channel-url";
+import { SPACE_TYPES } from "../../../atproto/lexicons";
+import { spaceSkey } from "../../../atproto/space-ref";
 import {
 	useCommunityContext,
 	usePermissions,
 } from "../../../contexts/Community";
+import type {
+	Category as CategoryType,
+	Channel,
+} from "../../../contexts/community-payload";
 import { useMutes } from "../../../contexts/Mutes";
 import { useNotifications } from "../../../contexts/Notifications";
 import { useUserContext } from "../../../contexts/User";
@@ -44,45 +51,37 @@ import { ChannelContextMenu } from "./ChannelContextMenu";
 import { MemberContextMenu } from "./MemberContextMenu";
 
 export type ChannelDropTarget = {
-	categoryUri: string;
-	insertBeforeUri: string | null;
+	categoryRkey: string;
+	insertBeforeSpace: string | null;
 };
 
-const collapseKey = (uri: string) => `colibri:category-collapsed:${uri}`;
+const collapseKey = (rkey: string) => `colibri:category-collapsed:${rkey}`;
 
-const loadCollapsed = (uri: string): boolean => {
+const loadCollapsed = (rkey: string): boolean => {
 	try {
-		return localStorage.getItem(collapseKey(uri)) === "1";
+		return localStorage.getItem(collapseKey(rkey)) === "1";
 	} catch {
 		return false;
 	}
 };
 
-const saveCollapsed = (uri: string, collapsed: boolean) => {
+const saveCollapsed = (rkey: string, collapsed: boolean) => {
 	try {
-		if (collapsed) localStorage.setItem(collapseKey(uri), "1");
-		else localStorage.removeItem(collapseKey(uri));
+		if (collapsed) localStorage.setItem(collapseKey(rkey), "1");
+		else localStorage.removeItem(collapseKey(rkey));
 	} catch {}
 };
 
-/**
- * A category-augmented Channel list element: the original Astro code passed
- * `SidebarCategoryData` (a Category with its channels already nested). We
- * keep the same shape here so the rest of the ported sidebar logic stays
- * close to the original.
- */
-export type CategoryWithChannels = CategoryType & {
-	channels: Channel[];
-};
+export type CategoryWithChannels = CategoryType;
 
 const SortableChannel: Component<{
 	channel: Channel;
-	communityUri: string;
+	communityDid: string;
 	onOpenSettings: () => void;
 }> = (props) => {
 	const params = useParams();
 	const navigate = useNavigate();
-	const sortable = createSortable(props.channel.uri);
+	const sortable = createSortable(props.channel.space);
 	const [, { onDragStart: onDndDragStart, onDragEnd: onDndDragEnd }] =
 		useDragDropContext()!;
 
@@ -92,21 +91,24 @@ const SortableChannel: Component<{
 	const isMobile = useIsMobile();
 
 	const notifications = useNotifications();
-	const pingCount = () => notifications.pingsForChannel(props.channel.uri);
+	const pingCount = () => notifications.pingsForChannel(props.channel.space);
 	const hasUnreadMessages = () =>
-		notifications.hasUnreadMessages(props.channel.uri);
+		notifications.hasUnreadMessages(props.channel.space);
 	const isUnread = () => pingCount() > 0 || hasUnreadMessages();
+
+	const canRead = () => props.channel.viewer.canRead;
 
 	const mutes = useMutes();
 	const isActive = () => params.channel === ChannelRkey();
-	const isMuted = () => mutes.isChannelMuted(props.channel.uri) && !isActive();
+	const isMuted = () =>
+		mutes.isChannelMuted(props.channel.space) && !isActive();
 
 	const [isDragging, setIsDragging] = createSignal(false);
 	let didDrag = false;
 
 	onDndDragStart(({ draggable }) => {
 		if (!canManage()) return;
-		if (String(draggable.id) === props.channel.uri) {
+		if (String(draggable.id) === props.channel.space) {
 			didDrag = false;
 			setIsDragging(true);
 		}
@@ -130,32 +132,34 @@ const SortableChannel: Component<{
 	const community = useCommunityContext();
 	const [voiceData, { connect }] = useVoiceChatContext();
 
-	const ChannelUri = () => props.channel.uri;
-	const ChannelRkey = () => props.channel.uri.split("/").pop();
+	const ChannelSpace = () => props.channel.space;
+	const ChannelRkey = () => spaceSkey(props.channel.space);
 
 	const liveVoiceChannelMembers = createMemo<string[]>(
-		() => voiceData.presence[ChannelUri()] ?? [],
+		() => voiceData.presence[ChannelSpace()] ?? [],
 	);
 
-	const isVoiceChannel = () =>
-		props.channel.type === "voice" ||
-		props.channel.type === "social.colibri.channel.voice";
+	const isVoiceChannel = () => props.channel.type === SPACE_TYPES.channelVoice;
 
 	const isConnectedHere = () =>
-		voiceData.connection.uri === ChannelUri() &&
+		voiceData.connection.uri === ChannelSpace() &&
 		voiceData.connection.state === ConnectionState.Connected;
 
 	const handleChannelClick = (e: MouseEvent) => {
+		if (!canRead()) {
+			e.preventDefault();
+			return;
+		}
 		if (didDrag) {
 			e.preventDefault();
 			return;
 		}
 		if (isVoiceChannel() && !isConnectedHere()) {
 			e.preventDefault();
-			connect(ChannelUri(), {
+			connect(ChannelSpace(), {
 				channelName: props.channel.name,
 				communityName: community().community.name,
-				hubDid: community().community.appview,
+				managingApp: community().community.managingApp,
 			});
 			return;
 		}
@@ -165,12 +169,7 @@ const SortableChannel: Component<{
 		}
 	};
 
-	const channelRoutePrefix = () => {
-		return props.channel.type;
-	};
-
-	const channelHref = () =>
-		`/app/c/${params.community}/${channelRoutePrefix()}/${ChannelRkey()}`;
+	const channelHref = () => buildChannelPath(props.channel.space) ?? "#";
 
 	return (
 		<div
@@ -206,30 +205,21 @@ const SortableChannel: Component<{
 						activeClass="bg-muted! text-foreground!"
 						classList={{
 							"bg-linear-145 from-primary/10 via-primary/25 to-foreground/10":
-								voiceData.connection.uri === ChannelUri() &&
+								voiceData.connection.uri === ChannelSpace() &&
 								voiceData.connection.state === ConnectionState.Connected,
-							"opacity-45 hover:opacity-100": isMuted(),
+							"opacity-45 hover:opacity-100": !canRead(),
+							"opacity-70": canRead() && isMuted(),
 						}}
 					>
 						<div class="flex flex-row items-center gap-2">
 							<Switch>
-								<Match
-									when={
-										props.channel.type === "text" ||
-										props.channel.type === "social.colibri.channel.text"
-									}
-								>
+								<Match when={props.channel.type === SPACE_TYPES.channelText}>
 									<ChatCircleDotsIcon width={20} height={20} />
 								</Match>
-								<Match
-									when={
-										props.channel.type === "voice" ||
-										props.channel.type === "social.colibri.channel.voice"
-									}
-								>
+								<Match when={isVoiceChannel()}>
 									<Show
 										when={
-											voiceData.connection.uri === ChannelUri() &&
+											voiceData.connection.uri === ChannelSpace() &&
 											voiceData.connection.state === ConnectionState.Connected
 										}
 										fallback={<SpeakerLowIcon width={20} height={20} />}
@@ -245,6 +235,20 @@ const SortableChannel: Component<{
 							<span classList={{ "font-semibold text-foreground": isUnread() }}>
 								{props.channel.name}
 							</span>
+							<Show when={props.channel.private}>
+								<LockSimpleFillIcon
+									width={12}
+									height={12}
+									class="text-muted-foreground shrink-0"
+								/>
+							</Show>
+							<Show when={canRead() && isMuted()}>
+								<BellSlashIcon
+									width={12}
+									height={12}
+									class="text-muted-foreground shrink-0"
+								/>
+							</Show>
 						</div>
 						<div class="flex justify-center items-center gap-1.5 pb-px">
 							<Show
@@ -264,7 +268,7 @@ const SortableChannel: Component<{
 									size="sm"
 									class="opacity-0 group-hover/channel:opacity-100 p-0 w-5 h-5 cursor-pointer channel-settings"
 									classList={{
-										"opacity-100!": params.channel === ChannelUri(),
+										"opacity-100!": params.channel === ChannelRkey(),
 									}}
 									variant="ghost"
 									onClick={(e) => {
@@ -279,13 +283,7 @@ const SortableChannel: Component<{
 						</div>
 					</A>
 				</ChannelContextMenu>
-				<Show
-					when={
-						(props.channel.type === "voice" ||
-							props.channel.type === "social.colibri.channel.voice") &&
-						liveVoiceChannelMembers().length > 0
-					}
-				>
+				<Show when={isVoiceChannel() && liveVoiceChannelMembers().length > 0}>
 					<div class="pl-6 text-muted-foreground flex flex-col gap-0.5 select-none text-xs">
 						<For each={liveVoiceChannelMembers()}>
 							{(did) => {
@@ -299,7 +297,8 @@ const SortableChannel: Component<{
 									>
 										<MemberContextMenu member={member()!}>
 											<User.ProfilePopover
-												user={member()!}
+												user={member()!.actor}
+												nickname={member()!.nickname}
 												class="flex items-center gap-2 hover:bg-card rounded-sm p-1 cursor-pointer"
 											>
 												<div
@@ -309,7 +308,8 @@ const SortableChannel: Component<{
 													}}
 												>
 													<User.Avatar
-														user={member()!}
+														user={member()!.actor}
+														nickname={member()!.nickname}
 														size="small"
 														disableState={true}
 													/>
@@ -317,7 +317,8 @@ const SortableChannel: Component<{
 												<span class="truncate flex-1 text-sm">
 													<User.DisplayableName
 														color={false}
-														user={member()!}
+														user={member()!.actor}
+														nickname={member()!.nickname}
 													/>
 												</span>
 												<span class="flex items-center gap-1 [&_svg]:w-3.5 [&_svg]:h-3.5 [&_svg]:shrink-0 [&_svg]:text-red-400">
@@ -346,34 +347,21 @@ const SortableChannel: Component<{
 	);
 };
 
-/**
- * Builds the display order for channels: channels present in
- * `channelOrder` come first (in that order), then any extras not listed.
- */
 export function buildChannelOrder(category: CategoryWithChannels): string[] {
-	const order = category.channelOrder ?? [];
-	const channelUris = new Set(category.channels.map((ch) => ch.uri));
-	const ordered = order.filter((id) => channelUris.has(id));
-	const extras = category.channels
-		.filter((ch) => !order.includes(ch.uri))
-		.map((ch) => ch.uri);
-	return [...ordered, ...extras];
+	return category.channels.map((channel) => channel.space);
 }
 
-/**
- * A single category on the sidebar.
- */
 export const Category: ParentComponent<{
 	category: CategoryWithChannels;
-	communityUri: string;
+	communityDid: string;
 	activeDraggable: boolean;
 	channelOrder: string[];
-	onChannelReorder: (categoryUri: string, newOrder: string[]) => void;
+	onChannelReorder: (categoryRkey: string, newOrder: string[]) => void;
 	injectedChannels?: Channel[];
 	dropTarget?: ChannelDropTarget | null;
-	onOpenChannelSettings: (channelUri: string) => void;
-	onOpenCategorySettings: (categoryUri: string) => void;
-	onOpenChannelCreation: (categoryUri: string) => void;
+	onOpenChannelSettings: (channelSpace: string) => void;
+	onOpenCategorySettings: (categoryRkey: string) => void;
+	onOpenChannelCreation: (categoryRkey: string) => void;
 }> = (props) => {
 	const user = useUserContext();
 	const notifications = useNotifications();
@@ -389,24 +377,21 @@ export const Category: ParentComponent<{
 
 	const markAllRead = () =>
 		void notifications.markCategoryAsRead(
-			props.communityUri,
+			props.communityDid,
 			props.category.channels
-				.filter(
-					(ch) =>
-						ch.type !== "voice" && ch.type !== "social.colibri.channel.voice",
-				)
-				.map((ch) => ch.uri),
+				.filter((ch) => ch.type !== SPACE_TYPES.channelVoice)
+				.map((ch) => ch.space),
 		);
 
-	const [open, setOpen] = createSignal(!loadCollapsed(props.category.uri));
-	createEffect(() => saveCollapsed(props.category.uri, !open()));
+	const [open, setOpen] = createSignal(!loadCollapsed(props.category.rkey));
+	createEffect(() => saveCollapsed(props.category.rkey, !open()));
 
 	const orderedChannels = createMemo((): Channel[] => {
 		const order = props.channelOrder;
 		const channelMap = new Map<string, Channel>([
-			...props.category.channels.map((ch): [string, Channel] => [ch.uri, ch]),
+			...props.category.channels.map((ch): [string, Channel] => [ch.space, ch]),
 			...(props.injectedChannels ?? []).map((ch): [string, Channel] => [
-				ch.uri,
+				ch.space,
 				ch,
 			]),
 		]);
@@ -436,14 +421,14 @@ export const Category: ParentComponent<{
 
 		const droppableId = String(droppable.id);
 		const to =
-			droppableId === props.category.uri
+			droppableId === props.category.rkey
 				? order.length - 1
 				: order.indexOf(droppableId);
 		if (to === -1 || from === to) return;
 
 		const newOrder = order.slice();
 		newOrder.splice(to, 0, ...newOrder.splice(from, 1));
-		props.onChannelReorder(props.category.uri, newOrder);
+		props.onChannelReorder(props.category.rkey, newOrder);
 	});
 
 	return (
@@ -451,7 +436,7 @@ export const Category: ParentComponent<{
 			<CategoryContextMenu
 				categoryName={props.category.name}
 				canEdit={canUpdateCategory()}
-				onEdit={() => props.onOpenCategorySettings(props.category.uri)}
+				onEdit={() => props.onOpenCategorySettings(props.category.rkey)}
 				onMarkAllRead={markAllRead}
 			>
 				<button
@@ -488,7 +473,7 @@ export const Category: ParentComponent<{
 								onClick={(e) => {
 									e.preventDefault();
 									e.stopPropagation();
-									props.onOpenCategorySettings(props.category.uri);
+									props.onOpenCategorySettings(props.category.rkey);
 								}}
 							>
 								<GearIcon width={16} height={16} />
@@ -502,7 +487,7 @@ export const Category: ParentComponent<{
 								onClick={(e) => {
 									e.preventDefault();
 									e.stopPropagation();
-									props.onOpenChannelCreation(props.category.uri);
+									props.onOpenChannelCreation(props.category.rkey);
 								}}
 							>
 								<PlusIcon width={16} height={16} />
@@ -522,21 +507,25 @@ export const Category: ParentComponent<{
 					<For each={orderedChannels()}>
 						{(channel) => (
 							<>
-								<Show when={props.dropTarget?.insertBeforeUri === channel.uri}>
+								<Show
+									when={props.dropTarget?.insertBeforeSpace === channel.space}
+								>
 									<div class="bg-primary mx-1 rounded h-0.5" />
 								</Show>
 								<SortableChannel
 									channel={channel}
-									communityUri={props.communityUri}
+									communityDid={props.communityDid}
 									onOpenSettings={() =>
-										props.onOpenChannelSettings(channel.uri)
+										props.onOpenChannelSettings(channel.space)
 									}
 								/>
 							</>
 						)}
 					</For>
 					<Show
-						when={props.dropTarget && props.dropTarget.insertBeforeUri === null}
+						when={
+							props.dropTarget && props.dropTarget.insertBeforeSpace === null
+						}
 					>
 						<div class="bg-primary mx-1 rounded h-0.5" />
 					</Show>

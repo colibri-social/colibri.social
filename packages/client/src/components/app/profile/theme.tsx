@@ -1,5 +1,5 @@
-import type { ProfileTheme } from "@colibri-social/lib";
 import type { Component } from "solid-js";
+import type { ProfileTheme } from "../../../atproto/views";
 import { ColorPicker } from "../../ui/ColorPicker";
 import {
 	Tabs,

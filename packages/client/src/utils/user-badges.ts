@@ -1,8 +1,8 @@
-import type { ActorData } from "@colibri-social/lib";
 import { createResource, createSignal, type JSX } from "solid-js";
 import type { BadgeAppearance, BadgeDefinition } from "../atproto/cache/schema";
 import { getLabelerBadgeDefinitions } from "../atproto/labeler-badges";
 import { getLabelerBadges } from "../atproto/labeler-lookup";
+import type { ProfileView } from "../atproto/views";
 
 export type { BadgeAppearance, BadgeDefinition } from "../atproto/cache/schema";
 
@@ -175,7 +175,7 @@ export const badgeRank = (val: string): number => {
 };
 
 export const useUserBadges = (
-	user: () => ActorData,
+	user: () => ProfileView,
 	options?: { enabled?: () => boolean },
 ) => {
 	void ensureBadgeDefinitions();
@@ -188,13 +188,13 @@ export const useUserBadges = (
 
 	const sorted = () => {
 		const vals = (labels() ?? []).map((label) => label.val);
-		if (user().data.isBot) vals.push(BOT_BADGE);
+		if (user().isBot) vals.push(BOT_BADGE);
 		return [...new Set(vals)].sort((a, b) => badgeRank(a) - badgeRank(b));
 	};
 
 	const primary = () => {
 		const list = sorted();
-		const pref = user().data.preferredBadge;
+		const pref = user().preferredBadge;
 		return pref && list.includes(pref) ? pref : list[0];
 	};
 	const secondary = () => sorted().slice(1);

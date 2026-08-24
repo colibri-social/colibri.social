@@ -1,6 +1,6 @@
-import type { ActorData } from "@colibri-social/lib";
+import type { ProfileView } from "../atproto/views";
 
-export const displayableNameFn = (user: ActorData) =>
-	(user.data.displayName === user.handle ? undefined : user.data.displayName) ||
-	user.handle?.replaceAll("at://", "") ||
-	user.did;
+export const displayableNameFn = (
+	user: Pick<ProfileView, "displayName">,
+	nickname?: string,
+): string => nickname || user.displayName;

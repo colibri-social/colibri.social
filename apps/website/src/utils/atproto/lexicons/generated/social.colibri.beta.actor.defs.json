@@ -1,0 +1,243 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.actor.defs",
+	"defs": {
+		"profileView": {
+			"type": "object",
+			"description": "A Colibri user as the AppView serves them: identity, resolved profile, and presence.",
+			"required": [
+				"did",
+				"handle",
+				"displayName",
+				"isBot",
+				"syncBluesky"
+			],
+			"properties": {
+				"did": {
+					"type": "string",
+					"format": "did",
+					"description": "The user's DID."
+				},
+				"handle": {
+					"type": "string",
+					"description": "The user's handle, or 'handle.invalid' when it does not resolve.",
+					"format": "handle"
+				},
+				"displayName": {
+					"type": "string",
+					"description": "Resolved display name, falling back to the handle."
+				},
+				"description": {
+					"type": "string",
+					"description": "Resolved bio."
+				},
+				"avatar": {
+					"type": "string",
+					"format": "uri",
+					"description": "URL of the user's avatar, served by this AppView's blob proxy."
+				},
+				"banner": {
+					"type": "string",
+					"format": "uri",
+					"description": "URL of the user's profile banner, served by this AppView's blob proxy."
+				},
+				"isBot": {
+					"type": "boolean",
+					"description": "Whether the account is labelled as an automated account."
+				},
+				"syncBluesky": {
+					"type": "boolean",
+					"description": "Whether the mirrored profile fields come from app.bsky.actor.profile."
+				},
+				"theme": {
+					"type": "ref",
+					"ref": "social.colibri.beta.actor.profile#theme",
+					"description": "Colibri-only profile theming, read from the profile record even when the mirrored fields come from Bluesky."
+				},
+				"preferredBadge": {
+					"type": "string",
+					"description": "Label value of the badge the user chose to display."
+				},
+				"presence": {
+					"type": "ref",
+					"ref": "#presence",
+					"description": "Live presence, when the AppView is tracking any."
+				}
+			}
+		},
+		"presence": {
+			"type": "object",
+			"description": "A user's live, off-protocol state.",
+			"required": [
+				"onlineState"
+			],
+			"properties": {
+				"onlineState": {
+					"type": "string",
+					"description": "Derived online state.",
+					"knownValues": [
+						"online",
+						"away",
+						"dnd",
+						"offline"
+					]
+				},
+				"status": {
+					"type": "ref",
+					"ref": "#status",
+					"description": "The user's status line."
+				},
+				"voice": {
+					"type": "ref",
+					"ref": "#voiceState",
+					"description": "Where the user is connected for voice, if anywhere."
+				}
+			}
+		},
+		"status": {
+			"type": "object",
+			"description": "A user's status line.",
+			"required": [
+				"text"
+			],
+			"properties": {
+				"text": {
+					"type": "string",
+					"description": "The status text.",
+					"maxLength": 32
+				},
+				"emoji": {
+					"type": "string",
+					"description": "An emoji shown beside the status."
+				}
+			}
+		},
+		"voiceState": {
+			"type": "object",
+			"description": "A user's voice connection.",
+			"required": [
+				"channel"
+			],
+			"properties": {
+				"channel": {
+					"type": "string",
+					"format": "space-ref",
+					"description": "The voice channel the user is connected to."
+				},
+				"muted": {
+					"type": "boolean",
+					"description": "Whether the user's microphone is muted, for any reason."
+				},
+				"deafened": {
+					"type": "boolean",
+					"description": "Whether the user has incoming audio silenced, for any reason."
+				},
+				"serverMuted": {
+					"type": "boolean",
+					"description": "Whether a moderator muted them. When this is true they cannot unmute themselves, and a client must not offer them the control."
+				},
+				"serverDeafened": {
+					"type": "boolean",
+					"description": "Whether a moderator deafened them. When this is true they cannot undeafen themselves."
+				}
+			}
+		},
+		"preferences": {
+			"type": "object",
+			"description": "The authenticated user's own settings, as the AppView currently holds them.",
+			"required": [
+				"notificationLevel",
+				"communityOrder",
+				"mutes",
+				"gifFavorites"
+			],
+			"properties": {
+				"notificationLevel": {
+					"type": "string",
+					"description": "Which messages produce a notification.",
+					"knownValues": [
+						"all",
+						"mentionsAndReplies"
+					]
+				},
+				"communityOrder": {
+					"type": "array",
+					"items": {
+						"type": "string",
+						"format": "did",
+						"description": "A community."
+					},
+					"description": "Communities in preferred sidebar order."
+				},
+				"mutes": {
+					"type": "array",
+					"items": {
+						"type": "ref",
+						"ref": "#mute"
+					},
+					"description": "Subjects the user has muted."
+				},
+				"gifFavorites": {
+					"type": "array",
+					"items": {
+						"type": "ref",
+						"ref": "social.colibri.beta.embed.defs#gifView"
+					},
+					"description": "GIFs saved from the picker, stored whole."
+				}
+			}
+		},
+		"mute": {
+			"type": "object",
+			"description": "A muted subject.",
+			"required": [
+				"subject",
+				"createdAt"
+			],
+			"properties": {
+				"subject": {
+					"type": "union",
+					"refs": [
+						"#mutedActor",
+						"#mutedChannel"
+					],
+					"closed": true,
+					"description": "What is muted. A user or a community is named by DID, a channel by its space."
+				},
+				"createdAt": {
+					"type": "string",
+					"format": "datetime",
+					"description": "When the mute was created."
+				}
+			}
+		},
+		"mutedActor": {
+			"type": "object",
+			"description": "A muted user or community.",
+			"required": [
+				"did"
+			],
+			"properties": {
+				"did": {
+					"type": "string",
+					"format": "did",
+					"description": "The muted user or community."
+				}
+			}
+		},
+		"mutedChannel": {
+			"type": "object",
+			"description": "A muted channel. Muting a channel silences it without leaving the community it belongs to.",
+			"required": [
+				"channel"
+			],
+			"properties": {
+				"channel": {
+					"type": "string",
+					"format": "space-ref",
+					"description": "The muted channel's space."
+				}
+			}
+		}
+	}
+}

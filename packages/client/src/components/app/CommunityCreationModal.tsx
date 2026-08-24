@@ -1,20 +1,20 @@
-import type { JsonBlobRef } from "@atproto/lexicon";
-import type { AT_URI } from "@colibri-social/lib";
 import type { Details } from "@kobalte/core/file-field";
 import {
 	type Component,
 	createSignal,
+	For,
 	Match,
 	onMount,
 	type ParentComponent,
 	Show,
 	Switch,
 } from "solid-js";
-import { toast } from "somoto";
 import XCircleIcon from "~icons/ph/x-circle";
-import { communityUriToUrlCompatible } from "../../atproto/community-uri-to-url-compatible";
-import { getRecord, putRecord } from "../../atproto/pds";
-import { resolveBlob } from "../../atproto/resolve-blob";
+import { resolveHandleToDid } from "../../atproto/identity";
+import { colibri } from "../../atproto/lexicons";
+import { frameIs, progressStepLabel } from "../../atproto/sync-frames";
+import type { CommunityView, LegacyCommunityView } from "../../atproto/views";
+import type { ColibriClient } from "../../atproto/xrpc";
 import { useSocketContext } from "../../contexts/Socket";
 import { useUserContext } from "../../contexts/User";
 import { classifyThrown } from "../../errors/classify";
@@ -22,7 +22,6 @@ import { ColibriError } from "../../errors/error";
 import { showError } from "../../errors/show-error";
 import { IMAGE_UPLOAD_ACCEPT } from "../../utils/image-upload";
 import { createLogger } from "../../utils/logger";
-import { Chevron } from "../icons/Chevron";
 import { Image } from "../icons/Image";
 import { Spinner } from "../icons/Spinner";
 import { Button } from "../ui/Button";
@@ -37,6 +36,13 @@ import {
 	FileFieldTrigger,
 	takeImagePick,
 } from "../ui/FileField";
+import {
+	RadioGroup,
+	RadioGroupItem,
+	RadioGroupItemInput,
+	RadioGroupItemLabel,
+	RadioGroupItems,
+} from "../ui/RadioGroup";
 import { ResponsiveDialog } from "../ui/ResponsiveDialog";
 import {
 	Switch as SwitchComp,
@@ -58,34 +64,39 @@ const log = createLogger("community-create");
 const COMMUNITY_DETAILS = 1;
 const LOADING = 2;
 
-// Labels for the self-hosting bootstrap steps the AppView pushes over the event
-// socket while creating the community on the user's own server.
-const BYO_PROGRESS_LABELS: Record<string, string> = {
-	connecting: "Connecting to your server...",
-	creating: "Creating your community...",
-	registering: "Linking to Colibri...",
-};
+const MAX_PICTURE_BYTES = 1_048_576;
+const MAX_BANNER_BYTES = 4_194_304;
 
-// A PDS host is accepted either as a bare domain ("colibri.social") or a full
-// URL; it must resolve to a dotted hostname (or localhost) with no path.
-const isValidPdsHost = (value: string): boolean => {
-	const trimmed = value.trim();
-	if (trimmed.length === 0) return false;
+type CreationMode = "create" | "adopt" | "migrate";
 
-	try {
-		const url = new URL(
-			trimmed.includes("://") ? trimmed : `https://${trimmed}`,
-		);
-		return (
-			url.hostname === "localhost" ||
-			/^[a-z0-9-]+(\.[a-z0-9-]+)+$/i.test(url.hostname)
-		);
-	} catch {
-		return false;
-	}
-};
+const MIGRATION_OFFERED = false;
 
-// Either a DID ("did:method:identifier") or a handle (a dotted domain).
+const MODE_CHOICES: Array<{
+	value: CreationMode;
+	label: string;
+	description: string;
+}> = [
+	{
+		value: "create",
+		label: "Create new",
+		description: "Colibri hosts it for you.",
+	},
+	{
+		value: "adopt",
+		label: "Adopt an account",
+		description: "Bring an existing AT Protocol account.",
+	},
+	...(MIGRATION_OFFERED
+		? [
+				{
+					value: "migrate" as const,
+					label: "Migrate a legacy community",
+					description: "Rebuild an old Colibri community on spaces.",
+				},
+			]
+		: []),
+];
+
 const isValidHandleOrDid = (value: string): boolean => {
 	const trimmed = value.trim().toLowerCase();
 
@@ -99,98 +110,297 @@ const isValidHandleOrDid = (value: string): boolean => {
 	);
 };
 
-// App passwords are 19 chars ("xxxx-xxxx-xxxx-xxxx"); account passwords vary,
-// so just require a non-trivial length.
-const isValidPassword = (value: string): boolean => value.trim().length >= 8;
+const isValidAccountPassword = (value: string): boolean =>
+	value.trim().length >= 8;
 
 let creationInFlight = false;
 
-/**
- * A legacy community to migrate. When supplied, the modal runs in "migration
- * mode": the details are pre-filled and submitting calls `community.migrate`
- * (cloning the legacy community onto a fresh DID) instead of `community.create`.
- */
-export type MigrateTarget = {
-	uri: AT_URI<"social.colibri.community">;
-	name: string;
-	description: string;
-	picture?: JsonBlobRef;
+const putCommunityImage = async (
+	client: ColibriClient,
+	did: string,
+	kind: "picture" | "banner",
+	file: File,
+	maxBytes: number,
+): Promise<CommunityView> => {
+	if (file.size > maxBytes) {
+		throw new ColibriError({ code: "ImageTooLarge" });
+	}
+	const res = await client.call(colibri.community.putImage.main, {
+		params: { community: did, kind },
+		body: file,
+		encoding: file.type,
+	});
+	if (!res.ok) throw res.error;
+	return res.data.community;
 };
 
-export const CommunityCreationModal: ParentComponent<{
-	migrateFrom?: MigrateTarget;
-}> = (props) => {
-	const isMigration = () => props.migrateFrom !== undefined;
+const applyPendingImages = async (
+	client: ColibriClient,
+	community: CommunityView,
+	pictureFile: File | undefined,
+	bannerFile: File | undefined,
+): Promise<CommunityView> => {
+	let latest = community;
+	if (pictureFile) {
+		latest = await putCommunityImage(
+			client,
+			latest.did,
+			"picture",
+			pictureFile,
+			MAX_PICTURE_BYTES,
+		);
+	}
+	if (bannerFile) {
+		latest = await putCommunityImage(
+			client,
+			latest.did,
+			"banner",
+			bannerFile,
+			MAX_BANNER_BYTES,
+		);
+	}
+	return latest;
+};
 
-	// URL of the legacy community's existing picture, shown as the default
-	// preview in migration mode until the owner picks a replacement.
-	const legacyPictureUrl = () =>
-		props.migrateFrom
-			? resolveBlob(
-					props.migrateFrom.uri.split("/")[2],
-					props.migrateFrom.picture,
-				)
-			: undefined;
+export const CommunityCreationModal: ParentComponent = (props) => {
+	const user = useUserContext();
 
-	const [pdsLoc, setPdsLoc] = createSignal<string>("");
-	const [handleOrDid, setHandleOrDid] = createSignal<string>("");
-	const [password, setPassword] = createSignal<string>("");
-	const [name, setName] = createSignal<string>(props.migrateFrom?.name ?? "");
-	const [description, setDescription] = createSignal<string>(
-		props.migrateFrom?.description ?? "",
-	);
+	const [mode, setMode] = createSignal<CreationMode>("create");
+
+	const [name, setName] = createSignal<string>("");
+	const [description, setDescription] = createSignal<string>("");
 	const [picture, setPicture] = createSignal<Details>();
 	const [banner, setBanner] = createSignal<Details>();
-	const [loading, _setLoading] = createSignal<boolean>(false);
-	const [open, setOpen] = createSignal(false);
-	const [selfHost, setSelfHost] = createSignal<boolean>(false);
 	const [requiresApprovalToJoin, setRequiresApprovalToJoin] =
 		createSignal<boolean>(false);
+
+	const [identifier, setIdentifier] = createSignal<string>("");
+	const [password, setPassword] = createSignal<string>("");
+
+	const [legacyCandidates, setLegacyCandidates] = createSignal<
+		LegacyCommunityView[]
+	>([]);
+	const [unreadableLegacyDids, setUnreadableLegacyDids] = createSignal<
+		string[]
+	>([]);
+	const [migratableStatus, setMigratableStatus] = createSignal<
+		"loading" | "loaded" | "error"
+	>("loading");
+	const [includeUnadministered, setIncludeUnadministered] =
+		createSignal<boolean>(false);
+	const [selectedLegacyDid, setSelectedLegacyDid] = createSignal<string>("");
+
+	const [loading, _setLoading] = createSignal<boolean>(false);
+	const [open, setOpen] = createSignal(false);
 	const [step, setStep] = createSignal<number>(COMMUNITY_DETAILS);
 
-	const credentialsInvalid = () =>
-		!(
-			isValidPdsHost(pdsLoc()) &&
-			isValidHandleOrDid(handleOrDid()) &&
-			isValidPassword(password())
-		);
-
 	const resetState = () => {
-		setPdsLoc("");
-		setHandleOrDid("");
-		setPassword("");
-		setName(props.migrateFrom?.name ?? "");
-		setDescription(props.migrateFrom?.description ?? "");
+		setMode("create");
+		setName("");
+		setDescription("");
 		setPicture(undefined);
 		setBanner(undefined);
-		setSelfHost(false);
 		setRequiresApprovalToJoin(false);
+		setIdentifier("");
+		setPassword("");
+		setLegacyCandidates([]);
+		setUnreadableLegacyDids([]);
+		setMigratableStatus("loading");
+		setIncludeUnadministered(false);
+		setSelectedLegacyDid("");
 		setStep(COMMUNITY_DETAILS);
 	};
 
-	const CommunityDetails: Component = () => {
-		const nameValid = () => {
-			return name() !== undefined &&
-				name()!.trim().length < 33 &&
-				name()!.trim().length > 0
-				? "valid"
-				: "invalid";
-		};
+	const nameValid = () =>
+		name().trim().length > 0 && name().trim().length < 33 ? "valid" : "invalid";
 
-		const descriptionValid = () => {
-			return description() !== undefined && description()!.trim().length < 257
-				? "valid"
-				: "invalid";
-		};
+	const descriptionValid = () =>
+		description().trim().length < 257 ? "valid" : "invalid";
 
-		const canCreate = () =>
-			nameValid() === "valid" &&
-			descriptionValid() === "valid" &&
-			(!selfHost() || !credentialsInvalid());
+	const canCreate = () => {
+		if (mode() === "migrate") {
+			return selectedLegacyDid().length > 0;
+		}
+
+		const detailsValid =
+			nameValid() === "valid" && descriptionValid() === "valid";
+
+		if (mode() === "adopt") {
+			return (
+				detailsValid &&
+				isValidHandleOrDid(identifier()) &&
+				isValidAccountPassword(password())
+			);
+		}
+
+		return detailsValid;
+	};
+
+	const loadMigratableCommunities = async (showAll: boolean) => {
+		setMigratableStatus("loading");
+		setSelectedLegacyDid("");
+		const res = await user.xrpc.call(colibri.community.listMigratable.main, {
+			params: { includeUnadministered: showAll },
+		});
+		if (!res.ok) {
+			log.error("list migratable communities failed", {
+				code: res.error.code,
+			});
+			showError(res.error);
+			setMigratableStatus("error");
+			return;
+		}
+		setLegacyCandidates(res.data.communities);
+		setUnreadableLegacyDids(res.data.unreadable ?? []);
+		setIncludeUnadministered(showAll);
+		setMigratableStatus("loaded");
+	};
+
+	const MigrateCandidates: Component = () => {
+		onMount(() => {
+			void loadMigratableCommunities(includeUnadministered());
+		});
 
 		return (
-			<>
-				<div class="flex flex-col items-center justify-center w-full gap-4">
+			<Switch>
+				<Match when={migratableStatus() === "loading"}>
+					<div class="flex flex-col items-center justify-center gap-2 w-full py-6">
+						<Spinner className="w-6 h-6 animate-spin text-muted-foreground" />
+						<span class="text-sm text-muted-foreground">
+							Looking for communities you can migrate.
+						</span>
+					</div>
+				</Match>
+				<Match when={migratableStatus() === "error"}>
+					<div class="flex flex-col items-center justify-center gap-2 w-full py-6 text-center">
+						<span class="text-sm text-muted-foreground">
+							Colibri couldn't load your communities.
+						</span>
+						<Button
+							type="button"
+							variant="outline"
+							size="sm"
+							onClick={() =>
+								void loadMigratableCommunities(includeUnadministered())
+							}
+						>
+							Retry
+						</Button>
+					</div>
+				</Match>
+				<Match when={migratableStatus() === "loaded"}>
+					<Show
+						when={legacyCandidates().length > 0}
+						fallback={
+							<p class="text-sm text-muted-foreground m-0">
+								You don't have anything to migrate. Only a community that holds
+								its own DID can migrate. One that lives inside its owner's
+								repository can't be moved this way.
+							</p>
+						}
+					>
+						<RadioGroup
+							class="w-full gap-1.5"
+							value={selectedLegacyDid()}
+							onChange={setSelectedLegacyDid}
+						>
+							<RadioGroupItems class="w-full flex-col">
+								<For each={legacyCandidates()}>
+									{(candidate) => (
+										<RadioGroupItem
+											class="w-full"
+											value={candidate.did}
+											disabled={!candidate.viewerIsAdmin}
+										>
+											<RadioGroupItemInput />
+											<RadioGroupItemLabel class="flex w-full items-center justify-between text-pretty rounded-md p-2 border border-border outline-2 outline-transparent gap-2 data-checked:border-primary data-checked:outline-primary/50 data-checked:bg-primary/10 data-disabled:cursor-not-allowed data-disabled:opacity-50">
+												<span class="flex flex-col text-left">
+													<strong>{candidate.name}</strong>
+													<span class="font-normal text-sm text-muted-foreground">
+														{candidate.handle ?? candidate.did}
+													</span>
+													<Show when={!candidate.viewerIsAdmin}>
+														<span class="font-normal text-sm text-muted-foreground">
+															You don't administer this community.
+														</span>
+													</Show>
+												</span>
+												<span class="font-normal text-sm text-muted-foreground whitespace-nowrap">
+													{candidate.memberCount} members,{" "}
+													{candidate.channelCount} channels
+												</span>
+											</RadioGroupItemLabel>
+										</RadioGroupItem>
+									)}
+								</For>
+							</RadioGroupItems>
+						</RadioGroup>
+					</Show>
+					<Show when={unreadableLegacyDids().length > 0}>
+						<div class="flex flex-col gap-1 w-full rounded-md border border-border p-3">
+							<p class="text-sm font-medium m-0">Unavailable</p>
+							<For each={unreadableLegacyDids()}>
+								{(did) => (
+									<p class="text-sm text-muted-foreground m-0 break-all">
+										{did}: its repository didn't respond, so Colibri can't tell
+										if it's migratable.
+									</p>
+								)}
+							</For>
+						</div>
+					</Show>
+					<Button
+						type="button"
+						variant="link"
+						size="sm"
+						class="self-start h-auto p-0"
+						onClick={() =>
+							void loadMigratableCommunities(!includeUnadministered())
+						}
+					>
+						{includeUnadministered()
+							? "Show only communities you can migrate"
+							: "Show communities you don't administer"}
+					</Button>
+				</Match>
+			</Switch>
+		);
+	};
+
+	const CommunityDetails: Component = () => (
+		<>
+			<div class="flex flex-col items-center justify-center w-full gap-4">
+				<RadioGroup
+					class="w-full gap-1.5"
+					value={mode()}
+					onChange={(v) => setMode(v as CreationMode)}
+				>
+					<RadioGroupItems class="w-full flex-col md:flex-row">
+						<For each={MODE_CHOICES}>
+							{(choice) => (
+								<RadioGroupItem class="w-full md:flex-1" value={choice.value}>
+									<RadioGroupItemInput />
+									<RadioGroupItemLabel class="flex w-full flex-col text-center text-pretty rounded-md p-2 border border-border outline-2 outline-transparent gap-1 data-checked:border-primary data-checked:outline-primary/50 data-checked:bg-primary/10">
+										<strong>{choice.label}</strong>
+										<span class="font-normal text-sm text-muted-foreground">
+											{choice.description}
+										</span>
+									</RadioGroupItemLabel>
+								</RadioGroupItem>
+							)}
+						</For>
+					</RadioGroupItems>
+				</RadioGroup>
+
+				<Show when={mode() === "migrate"}>
+					<p class="text-sm text-muted-foreground m-0">
+						We'll rebuild this community's categories, channels and roles as
+						spaces. Message history stays where it is.
+					</p>
+					<MigrateCandidates />
+				</Show>
+
+				<Show when={mode() !== "migrate"}>
 					<div class="flex gap-6 w-full">
 						<FileField
 							class="-size-full"
@@ -202,23 +412,10 @@ export const CommunityCreationModal: ParentComponent<{
 								<FileFieldTrigger class="h-full w-full bg-muted/25 text-muted-foreground hover:bg-muted/50 p-0">
 									<Switch>
 										<Match when={picture() === undefined}>
-											<Show
-												when={legacyPictureUrl()}
-												fallback={
-													<div class="flex flex-col items-center justify-center gap-1">
-														<Image className="w-6! h-6!" />
-														<span>Upload picture</span>
-													</div>
-												}
-											>
-												{(url) => (
-													<img
-														src={url()}
-														alt=""
-														class="w-20 h-20 object-cover"
-													/>
-												)}
-											</Show>
+											<div class="flex flex-col items-center justify-center gap-1">
+												<Image className="w-6! h-6!" />
+												<span>Upload picture</span>
+											</div>
 										</Match>
 										<Match when={picture() !== undefined}>
 											<FileFieldItemList class="w-full h-full m-0 p-0 relative">
@@ -246,48 +443,46 @@ export const CommunityCreationModal: ParentComponent<{
 							</FileFieldDropzone>
 							<FileFieldHiddenInput />
 						</FileField>
-						<Show when={!isMigration()}>
-							<FileField
-								accept={IMAGE_UPLOAD_ACCEPT}
-								onFileChange={takeImagePick(setBanner)}
-								maxFiles={1}
-							>
-								<FileFieldDropzone class="w-full h-30 min-h-0 rounded-md overflow-hidden relative">
-									<FileFieldTrigger class="h-full w-full bg-muted/25 text-muted-foreground hover:bg-muted/50 p-0">
-										<Switch>
-											<Match when={banner() === undefined}>
-												<div class="flex flex-col items-center justify-center gap-1">
-													<Image className="w-6! h-6!" />
-													<span>Upload banner</span>
-												</div>
-											</Match>
-											<Match when={banner() !== undefined}>
-												<FileFieldItemList class="w-full h-full m-0 p-0 relative">
-													{() => (
-														<FileFieldItem class="w-full h-full m-0 p-0 border-none [&>div]:h-full -grid">
-															<FileFieldItemPreviewImage class="w-full h-full object-cover" />
-														</FileFieldItem>
-													)}
-												</FileFieldItemList>
-												<button
-													type="button"
-													class="absolute top-1 right-1 text-white drop-shadow drop-shadow-black cursor-pointer"
-													onClick={(e) => {
-														e.preventDefault();
-														e.stopPropagation();
-														setBanner(undefined);
-													}}
-													aria-label="Remove banner"
-												>
-													<XCircleIcon />
-												</button>
-											</Match>
-										</Switch>
-									</FileFieldTrigger>
-								</FileFieldDropzone>
-								<FileFieldHiddenInput />
-							</FileField>
-						</Show>
+						<FileField
+							accept={IMAGE_UPLOAD_ACCEPT}
+							onFileChange={takeImagePick(setBanner)}
+							maxFiles={1}
+						>
+							<FileFieldDropzone class="w-full h-30 min-h-0 rounded-md overflow-hidden relative">
+								<FileFieldTrigger class="h-full w-full bg-muted/25 text-muted-foreground hover:bg-muted/50 p-0">
+									<Switch>
+										<Match when={banner() === undefined}>
+											<div class="flex flex-col items-center justify-center gap-1">
+												<Image className="w-6! h-6!" />
+												<span>Upload banner</span>
+											</div>
+										</Match>
+										<Match when={banner() !== undefined}>
+											<FileFieldItemList class="w-full h-full m-0 p-0 relative">
+												{() => (
+													<FileFieldItem class="w-full h-full m-0 p-0 border-none [&>div]:h-full -grid">
+														<FileFieldItemPreviewImage class="w-full h-full object-cover" />
+													</FileFieldItem>
+												)}
+											</FileFieldItemList>
+											<button
+												type="button"
+												class="absolute top-1 right-1 text-white drop-shadow drop-shadow-black cursor-pointer"
+												onClick={(e) => {
+													e.preventDefault();
+													e.stopPropagation();
+													setBanner(undefined);
+												}}
+												aria-label="Remove banner"
+											>
+												<XCircleIcon />
+											</button>
+										</Match>
+									</Switch>
+								</FileFieldTrigger>
+							</FileFieldDropzone>
+							<FileFieldHiddenInput />
+						</FileField>
 					</div>
 					<TextField
 						value={name()}
@@ -308,88 +503,46 @@ export const CommunityCreationModal: ParentComponent<{
 						validationState={descriptionValid()}
 					>
 						<TextFieldLabel>Community Description</TextFieldLabel>
-						<TextFieldInput
-							maxLength={256}
-							minLength={1}
-							type="text"
-							required
-						/>
+						<TextFieldInput maxLength={256} type="text" />
 						<TextFieldDescription>
 							Tell others what your community is about! Max. 256 characters.
 						</TextFieldDescription>
 					</TextField>
-					<div class="w-full rounded-md border border-border">
-						<button
-							type="button"
-							onClick={() => setSelfHost((v) => !v)}
-							aria-expanded={selfHost()}
-							class="flex w-full items-center justify-between gap-2 p-3 text-left text-sm text-muted-foreground hover:text-foreground"
-						>
-							<span class="flex flex-col">
-								<span class="font-medium text-foreground">
-									Advanced: host it yourself
-								</span>
-								<span>
-									By default, Colibri hosts your community on our EU servers.
-								</span>
-							</span>
-							<span
-								class="shrink-0 transition-transform duration-200"
-								classList={{ "rotate-90": selfHost() }}
-							>
-								<Chevron className="w-4! h-4!" />
-							</span>
-						</button>
-						<Show when={selfHost()}>
-							<div class="flex flex-col gap-4 border-t border-border p-3">
-								<p class="text-sm text-muted-foreground m-0">
-									If you run your own AT Protocol server (PDS), you can create
-									the community there and let Colibri manage it for you.{" "}
-									<b class="text-foreground">
-										Do not use your personal account for this!
-									</b>
-								</p>
-								<TextField value={pdsLoc()} onChange={setPdsLoc}>
-									<TextFieldLabel>
-										Server address <span class="text-destructive">*</span>
-									</TextFieldLabel>
-									<TextFieldInput
-										minLength={1}
-										type="text"
-										required
-										placeholder="https://colibri.social"
-									/>
-									<TextFieldDescription>
-										The address of your AT Protocol server (your PDS host).
-									</TextFieldDescription>
-								</TextField>
-								<TextField value={handleOrDid()} onChange={setHandleOrDid}>
-									<TextFieldLabel>
-										Account username <span class="text-destructive">*</span>
-									</TextFieldLabel>
-									<TextFieldInput
-										minLength={1}
-										type="text"
-										required
-										placeholder="community.example.com"
-									/>
-									<TextFieldDescription>
-										The handle (or DID) you sign in with on that server.
-									</TextFieldDescription>
-								</TextField>
-								<TextField value={password()} onChange={setPassword}>
-									<TextFieldLabel>
-										App password <span class="text-destructive">*</span>
-									</TextFieldLabel>
-									<TextFieldInput minLength={1} type="password" required />
-									<TextFieldDescription>
-										Create an app password in the account settings. Don't use
-										the main password.
-									</TextFieldDescription>
-								</TextField>
-							</div>
-						</Show>
+				</Show>
+
+				<Show when={mode() === "adopt"}>
+					<div class="flex flex-col gap-4 w-full rounded-md border border-border p-3">
+						<p class="text-sm text-muted-foreground m-0">
+							Bring an existing AT Protocol account onto Colibri.{" "}
+							<b class="text-foreground">
+								Do not use your personal account for this!
+							</b>
+						</p>
+						<TextField value={identifier()} onChange={setIdentifier}>
+							<TextFieldLabel>
+								Account handle or DID <span class="text-destructive">*</span>
+							</TextFieldLabel>
+							<TextFieldInput
+								minLength={1}
+								type="text"
+								required
+								placeholder="community.example.com"
+							/>
+						</TextField>
+						<TextField value={password()} onChange={setPassword}>
+							<TextFieldLabel>
+								Account password <span class="text-destructive">*</span>
+							</TextFieldLabel>
+							<TextFieldInput minLength={1} type="password" required />
+							<TextFieldDescription>
+								Its full account password, not an app password: Colibri needs
+								full access to take over this account's credentials.
+							</TextFieldDescription>
+						</TextField>
 					</div>
+				</Show>
+
+				<Show when={mode() !== "migrate"}>
 					<SwitchComp
 						onChange={(e) => {
 							setRequiresApprovalToJoin(e);
@@ -409,150 +562,135 @@ export const CommunityCreationModal: ParentComponent<{
 							<SwitchThumb />
 						</SwitchControl>
 					</SwitchComp>
-				</div>
-				<DialogFooter>
-					<Button
-						variant="secondary"
-						disabled={loading()}
-						onClick={() => setOpen(false)}
-					>
-						Cancel
-					</Button>
-					<Button disabled={!canCreate()} onClick={() => setStep(LOADING)}>
-						Create
-					</Button>
-				</DialogFooter>
-			</>
-		);
-	};
+				</Show>
+			</div>
+			<DialogFooter>
+				<Button
+					variant="secondary"
+					disabled={loading()}
+					onClick={() => setOpen(false)}
+				>
+					Cancel
+				</Button>
+				<Button disabled={!canCreate()} onClick={() => setStep(LOADING)}>
+					{mode() === "migrate"
+						? "Migrate"
+						: mode() === "adopt"
+							? "Adopt"
+							: "Create"}
+				</Button>
+			</DialogFooter>
+		</>
+	);
 
 	const LoadingScreen: Component = () => {
-		const user = useUserContext();
 		const socket = useSocketContext();
-		const [status, setStatus] = createSignal(
-			isMigration() ? "Migrating community..." : "Creating community...",
-		);
+		const [status, setStatus] = createSignal("Working");
 
-		const waitForCommunityIndexed = async (uri: string) => {
+		const waitForCommunityIndexed = async (did: string) => {
 			for (let attempt = 0; attempt < 10; attempt++) {
-				const res = await user.xrpc.social.colibri.actor.listCommunities();
-				if (res.ok && res.data?.communities?.some((c) => c.uri === uri)) return;
+				const res = await user.xrpc.call(
+					colibri.actor.listCommunities.main,
+					{},
+				);
+				if (res.ok && res.data.communities.some((c) => c.did === did)) return;
 				await new Promise((resolve) => setTimeout(resolve, 1000));
 			}
 		};
 
-		const stampLegacyAsMigrated = async (newCommunityUri: string) => {
-			const legacyUri = props.migrateFrom!.uri;
-			const [, , did, , rkey] = legacyUri.split("/");
-			const current = await getRecord(
-				user.atproto.agent,
-				did,
-				"social.colibri.community",
-				rkey,
-			);
-			await putRecord(
-				user.atproto.agent,
-				did,
-				"social.colibri.community",
-				rkey,
-				{
-					...current,
-					migratedTo: newCommunityUri,
+		const runCreate = async (): Promise<CommunityView> => {
+			const created = await user.xrpc.call(colibri.community.create.main, {
+				body: {
+					name: name().trim(),
+					description: description().trim() || undefined,
 				},
+			});
+			if (!created.ok) throw created.error;
+			let latest = created.data.community;
+
+			if (requiresApprovalToJoin()) {
+				const updated = await user.xrpc.call(colibri.community.update.main, {
+					body: { community: latest.did, requiresApprovalToJoin: true },
+				});
+				if (!updated.ok) throw updated.error;
+				latest = updated.data.community;
+			}
+
+			return applyPendingImages(
+				user.xrpc,
+				latest,
+				picture()?.acceptedFiles[0],
+				banner()?.acceptedFiles[0],
 			);
+		};
+
+		const runAdopt = async (): Promise<CommunityView> => {
+			const trimmedIdentifier = identifier().trim();
+			const did = await resolveHandleToDid(trimmedIdentifier);
+			const adopted = await user.xrpc.call(colibri.community.adopt.main, {
+				body: {
+					did,
+					identifier: trimmedIdentifier,
+					password: password(),
+					name: name().trim(),
+					description: description().trim() || undefined,
+				},
+			});
+			if (!adopted.ok) throw adopted.error;
+			let latest = adopted.data.community;
+
+			if (requiresApprovalToJoin()) {
+				const updated = await user.xrpc.call(colibri.community.update.main, {
+					body: { community: latest.did, requiresApprovalToJoin: true },
+				});
+				if (!updated.ok) throw updated.error;
+				latest = updated.data.community;
+			}
+
+			return applyPendingImages(
+				user.xrpc,
+				latest,
+				picture()?.acceptedFiles[0],
+				banner()?.acceptedFiles[0],
+			);
+		};
+
+		const runMigrate = async (): Promise<CommunityView> => {
+			const migrated = await user.xrpc.call(colibri.community.migrate.main, {
+				body: { community: selectedLegacyDid() },
+			});
+			if (!migrated.ok) throw migrated.error;
+			return migrated.data.community;
 		};
 
 		onMount(async () => {
 			if (creationInFlight) return;
 			creationInFlight = true;
 
-			const isByo = selfHost();
-			const byo = isByo
-				? { pds: pdsLoc(), identifier: handleOrDid(), password: password() }
-				: undefined;
-
 			const unsubscribe = socket.onEvent((event) => {
-				if (event.type === "community_creation_progress" && event.data) {
-					const label = BYO_PROGRESS_LABELS[event.data.step];
-					if (label) setStatus(label);
-				}
+				if (!frameIs(event, "communityProgressEvent")) return;
+				setStatus(progressStepLabel(event.step));
 			});
 
 			try {
-				if (isByo) setStatus(BYO_PROGRESS_LABELS.connecting);
-				let communityUri: string;
+				const created =
+					mode() === "adopt"
+						? await runAdopt()
+						: mode() === "migrate"
+							? await runMigrate()
+							: await runCreate();
 
-				if (isMigration()) {
-					let pictureBlob: Blob | undefined = picture()?.acceptedFiles[0];
-					const pictureUrl = pictureBlob ? undefined : legacyPictureUrl();
-					if (pictureUrl) {
-						try {
-							const res = await fetch(pictureUrl);
-							pictureBlob = await res.blob();
-						} catch (err) {
-							log.error("copying the community picture failed", {
-								code: classifyThrown(err).code,
-							});
-						}
-					}
-					const res = await user.xrpc.social.colibri.community.migrate(
-						"legacy-community",
-						props.migrateFrom!.uri,
-						{ name: name(), description: description() || undefined },
-						pictureBlob,
-						byo,
-					);
-					if (!res.ok) throw res.error;
-					if (!res.data) throw new ColibriError({ code: "MalformedResponse" });
-					communityUri = res.data.community;
-
-					// Stamp the legacy record so it disappears everywhere.
-					setStatus("Finishing up...");
-					try {
-						await stampLegacyAsMigrated(communityUri);
-					} catch (err) {
-						log.error("stamping the legacy record failed", {
-							code: classifyThrown(err).code,
-						});
-						showError(err, {
-							fallbackTitle: "The old community may still be visible.",
-							description:
-								"Your new community was created, but we could not hide the old one.", // TODO: Try again from its settings.
-						});
-					}
-				} else {
-					const res = await user.xrpc.social.colibri.community.create(
-						name(),
-						description() || undefined,
-						requiresApprovalToJoin(),
-						picture()?.acceptedFiles[0],
-						banner()?.acceptedFiles[0],
-						byo,
-					);
-					if (!res.ok) throw res.error;
-					if (!res.data) throw new ColibriError({ code: "MalformedResponse" });
-					communityUri = res.data.community;
-					setStatus("Finishing up...");
-				}
-
-				await waitForCommunityIndexed(communityUri);
+				setStatus("Finishing up...");
+				await waitForCommunityIndexed(created.did);
 				await user.refetchCommunities();
-				const url = communityUriToUrlCompatible(
-					communityUri as AT_URI<"social.colibri.community">,
-				);
 				resetState();
 				setOpen(false);
-				// We explicitly do a manual nav here to prevent some loading issues
-				window.location.href = `/app/c/${url}`;
+				window.location.href = `/app/c/${created.did}`;
 			} catch (err) {
-				log.error("creating the community failed", {
+				log.error(`${mode()} community failed`, {
 					code: classifyThrown(err).code,
 				});
-				toast.error(
-					isMigration()
-						? "Failed to migrate community."
-						: "Failed to create community.",
-				);
+				showError(err);
 				setStep(COMMUNITY_DETAILS);
 			} finally {
 				unsubscribe();
@@ -575,7 +713,11 @@ export const CommunityCreationModal: ParentComponent<{
 			trigger={props.children}
 			title={
 				<span class="text-center w-full">
-					{isMigration() ? "Migrate community" : "Create a community"}
+					{mode() === "migrate"
+						? "Migrate a community"
+						: mode() === "adopt"
+							? "Adopt a community"
+							: "Create a community"}
 				</span>
 			}
 			contentClass="w-lg"

@@ -1,6 +1,5 @@
 import MiniSearch from "minisearch";
-import type { Member } from "../atproto/xrpc/social/colibri/community/listMembers";
-import { displayableNameFn } from "./displayable-name";
+import type { Member } from "../contexts/community-payload";
 import { foldText } from "./fold-text";
 import type { SpeakerRanks } from "./recent-speakers";
 
@@ -23,7 +22,7 @@ const handleOf = (member: Member) => member.handle.replaceAll("at://", "");
 
 const toDocument = (member: Member): MemberDocument => ({
 	did: member.did,
-	displayName: displayableNameFn(member),
+	displayName: member.data.displayName,
 	handle: handleOf(member),
 });
 

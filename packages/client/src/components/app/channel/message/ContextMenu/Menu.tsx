@@ -76,7 +76,7 @@ export const MessageContextMenu: ParentComponent<{
 		canModerateEmbeds,
 	} = useMessageContext();
 
-	const { canHideMessage } = usePermissions();
+	const { canApplyLabel } = usePermissions();
 	const { isFavorited, toggleFavorite } = useGifFavorites();
 	const { emojiUsage } = useUserPreferences();
 	const isTouch = useIsTouch();
@@ -164,7 +164,9 @@ export const MessageContextMenu: ParentComponent<{
 										<span>Link Previews</span>
 									</ContextMenuItem>
 								</Show>
-								<Show when={message.reactions.length > 0}>
+								<Show
+									when={"reactions" in message && message.reactions.length > 0}
+								>
 									<ContextMenuItem onClick={() => openReactionsViewer()}>
 										<HeartIcon />
 										<span>View Reactions</span>
@@ -185,12 +187,12 @@ export const MessageContextMenu: ParentComponent<{
 										<span class="text-destructive">Delete Message</span>
 									</ContextMenuItem>
 								</Show>
-								<Show when={!ownsMessage() && canHideMessage(user.did)}>
+								<Show when={!ownsMessage() && canApplyLabel(user.did)}>
 									<ContextMenuItem
 										onClick={(e) => handlePotentialBlock(e as MouseEvent)}
 									>
 										<ProhibitIcon class="text-destructive" />
-										<span class="text-destructive">Block Message</span>
+										<span class="text-destructive">Hide Message</span>
 									</ContextMenuItem>
 								</Show>
 							</ContextMenuContent>
@@ -297,7 +299,7 @@ export const MessageContextMenu: ParentComponent<{
 							<span>Link Previews</span>
 						</MenuDrawerItem>
 					</Show>
-					<Show when={message.reactions.length > 0}>
+					<Show when={"reactions" in message && message.reactions.length > 0}>
 						<MenuDrawerItem
 							onClick={() => handoffDrawer(close, () => openReactionsViewer())}
 						>
@@ -329,7 +331,7 @@ export const MessageContextMenu: ParentComponent<{
 							<span>Delete Message</span>
 						</MenuDrawerItem>
 					</Show>
-					<Show when={!ownsMessage() && canHideMessage(user.did)}>
+					<Show when={!ownsMessage() && canApplyLabel(user.did)}>
 						<MenuDrawerItem
 							destructive
 							onClick={(e) =>
@@ -339,7 +341,7 @@ export const MessageContextMenu: ParentComponent<{
 							}
 						>
 							<ProhibitIcon />
-							<span>Block Message</span>
+							<span>Hide Message</span>
 						</MenuDrawerItem>
 					</Show>
 				</MenuDrawer>

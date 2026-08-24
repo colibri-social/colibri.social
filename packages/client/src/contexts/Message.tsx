@@ -12,24 +12,24 @@ import {
 	useContext,
 } from "solid-js";
 import { toast } from "somoto";
-import { buildMessageRecord } from "../atproto/message-record";
+import type { PendingMessage } from "../atproto/cache/schema";
+import { embedSuppression, isEmbedSuppressed } from "../atproto/labels";
+import { asUri, COLLECTIONS, colibri } from "../atproto/lexicons";
+import { buildReactionRecord } from "../atproto/message-record";
 import {
-	enqueueCreate,
-	enqueueDelete,
-	enqueuePut,
+	enqueueSpaceCreate,
+	enqueueSpaceDelete,
 } from "../atproto/outbox/outbox";
 import { nextTid } from "../atproto/outbox/tid";
 import { findReactionRkey } from "../atproto/pds";
-import type {
-	Message,
-	Reaction,
-} from "../atproto/xrpc/social/colibri/channel/listMessages";
+import type { MessageView, ReactionView, RecordRef } from "../atproto/views";
+import { isVisibleParent } from "../atproto/views";
+import { clientForManagingApp } from "../atproto/xrpc";
 import { isRemovableEmbed } from "../components/app/channel/message/Embed";
 import {
 	type TextWithFacets,
 	trimWithFacets,
 } from "../components/app/common/rich-text-renderer/util";
-import { AtURI } from "../utils/at-uri";
 import {
 	clearEditDraft,
 	readEditDraft,
@@ -37,6 +37,7 @@ import {
 } from "../utils/composer-drafts";
 import { linkUrisFromFacets } from "../utils/link-facets";
 import type { LinkTarget } from "../utils/link-target";
+import { isLegacyImmutable } from "../utils/message-legacy";
 import {
 	buildFeatureKey,
 	normalizeFacets,
@@ -49,9 +50,11 @@ import { useCommunityContext, usePermissions } from "./Community";
 import { useUserContext } from "./User";
 import { useUserPreferences } from "./UserPreferences";
 
+export type MessageData = MessageView | PendingMessage;
+
 export type MessageContextValue = {
-	get message(): Message;
-	sortedReactions: Accessor<Array<Reaction>>;
+	get message(): MessageData;
+	sortedReactions: Accessor<Array<ReactionView>>;
 
 	blockModalOpen: Accessor<boolean>;
 	setBlockModalOpen: Setter<boolean>;
@@ -79,6 +82,7 @@ export type MessageContextValue = {
 	setNewText: Setter<TextWithFacets>;
 
 	isPending: Accessor<boolean>;
+	isLegacy: Accessor<boolean>;
 	editMode: Accessor<boolean>;
 	isAdmin: Accessor<boolean>;
 	messageEditable: Accessor<boolean>;
@@ -88,9 +92,7 @@ export type MessageContextValue = {
 
 	handlePotentialDeletion: (e: MouseEvent) => void;
 	handlePotentialBlock: (e: MouseEvent) => void;
-	/** Perform the deletion immediately (called by shift-click and modal confirm). */
 	confirmDelete: () => Promise<void>;
-	/** Perform the block immediately (called by shift-click and modal confirm). */
 	confirmBlock: () => Promise<void>;
 	canReply: Accessor<boolean>;
 	enableReplyMode: () => void;
@@ -122,7 +124,7 @@ export type MessageContextValue = {
 
 const MessageContext = createContext<MessageContextValue>();
 
-export const MessageContextProvider: ParentComponent<{ data: Message }> = (
+export const MessageContextProvider: ParentComponent<{ data: MessageData }> = (
 	props,
 ) => {
 	const user = useUserContext();
@@ -132,8 +134,16 @@ export const MessageContextProvider: ParentComponent<{ data: Message }> = (
 
 	const isPending = () => "hash" in props.data;
 
+	const confirmed = (): MessageView | undefined =>
+		"hash" in props.data ? undefined : props.data;
+
+	const isLegacy = () => {
+		const target = confirmed();
+		return target !== undefined && isLegacyImmutable(target);
+	};
+
 	const sortedReactions = createMemo(() =>
-		sortReactionGroups(props.data.reactions),
+		sortReactionGroups(confirmed()?.reactions ?? []),
 	);
 
 	const [blockModalOpen, setBlockModalOpen] = createSignal(false);
@@ -162,8 +172,9 @@ export const MessageContextProvider: ParentComponent<{ data: Message }> = (
 	);
 
 	onMount(() => {
-		if (isPending()) return;
-		if (readEditDraft(props.data.uri)) channel.setEditingMessage(props.data);
+		const target = confirmed();
+		if (!target) return;
+		if (readEditDraft(target.uri)) channel.setEditingMessage(target);
 	});
 
 	const [newText, setNewText] = createSignal<TextWithFacets>({
@@ -218,20 +229,34 @@ export const MessageContextProvider: ParentComponent<{ data: Message }> = (
 	};
 
 	const containsMentionOrIsReplyToUser = () => {
-		if ("hash" in props.data) return false;
+		const target = confirmed();
+		if (!target) return false;
 		const ownRoleUris = new Set(
 			community().members.find((m) => m.did === user.did)?.roles ?? [],
 		);
+		const parent = target.parent;
+		const repliedToUser =
+			parent !== undefined &&
+			isVisibleParent(parent) &&
+			parent.author.did === user.did;
 		return (
-			props.data.parent?.author.did === user.did ||
-			props.data.facets?.some((x) =>
-				x.features.some(
-					(y) =>
-						(y.$type === "social.colibri.richtext.facet#mention" &&
-							y.did === user.did) ||
-						(y.$type === "social.colibri.richtext.facet#role" &&
-							ownRoleUris.has(y.role)),
-				),
+			repliedToUser ||
+			target.facets?.some((x) =>
+				x.features.some((y) => {
+					if (
+						y.$type === "social.colibri.beta.richtext.facet#mention" &&
+						"did" in y
+					) {
+						return y.did === user.did;
+					}
+					if (
+						y.$type === "social.colibri.beta.richtext.facet#role" &&
+						"role" in y
+					) {
+						return ownRoleUris.has(y.role);
+					}
+					return false;
+				}),
 			) === true
 		);
 	};
@@ -241,21 +266,25 @@ export const MessageContextProvider: ParentComponent<{ data: Message }> = (
 		return channel.focusedMessage() === props.data.uri;
 	};
 
-	const messageEditable = () => props.data.author.did === user.did;
+	const messageEditable = () =>
+		!isLegacy() && props.data.author.did === user.did;
 
-	const { isAdmin: _isAdmin, canHideMessage } = usePermissions();
+	const { isAdmin: _isAdmin, canApplyLabel } = usePermissions();
 	const isAdmin = () => _isAdmin(user.did);
 
 	const canReply = () => !isPending() && channel.canSendMessages();
 
 	const enableReplyMode = () => {
 		if (!canReply()) return;
-		channel.setReplyingTo(props.data);
+		const target = confirmed();
+		if (!target) return;
+		channel.setReplyingTo(target);
 	};
 
 	const enableEditMode = () => {
-		if (isPending()) return;
-		channel.setEditingMessage(props.data);
+		const target = confirmed();
+		if (!target || isLegacy()) return;
+		channel.setEditingMessage(target);
 	};
 
 	const cancelEdits = () => {
@@ -265,9 +294,6 @@ export const MessageContextProvider: ParentComponent<{ data: Message }> = (
 		});
 		clearEditDraft(props.data.uri);
 		channel.clearEditingMessage();
-		// Return focus to the main composer once the inline editor unmounts.
-		// `:not(.temp-editor)` skips the (now-closing) edit editor, which shares
-		// the `#editor` id and sits earlier in the DOM.
 		setTimeout(() => {
 			document
 				.querySelector<HTMLElement>("#editor:not(.temp-editor) .ProseMirror")
@@ -276,40 +302,39 @@ export const MessageContextProvider: ParentComponent<{ data: Message }> = (
 	};
 
 	const confirmDelete = async () => {
-		if (isPending()) return;
-		const rkey = AtURI.parseAtURI(props.data.uri).identifier;
-		channel.removeMessage(props.data.uri); // optimistic — instant
+		const target = confirmed();
+		if (!target || isLegacy()) return;
 		setDeletionModalOpen(false);
-		// Return focus to the main composer after confirming
 		setTimeout(() => {
 			document
 				.querySelector<HTMLElement>("#editor:not(.temp-editor) .ProseMirror")
 				?.focus();
 		}, 0);
-		try {
-			await enqueueDelete(user.did, "social.colibri.message", rkey, {
-				label: "Failed to delete message.",
-			});
-		} catch {
-			toast.error("Failed to delete message.");
-			// The message is already gone from the local list; it will reappear
-			// on the next page load (the PDS still has it). A re-insert here
-			// would require knowing the original list position, so we leave that
-			// to the socket event reconciliation once that is wired up.
-		}
+		await channel.deleteMessage(target);
 	};
 
+	const managingClient = () =>
+		clientForManagingApp(user.atproto.agent, community().community.managingApp);
+
 	const confirmBlock = async () => {
-		if (isPending()) return;
+		const target = confirmed();
+		if (!target) return;
 		setBlockModalOpen(false);
-		const res = await user.xrpc.social.colibri.community.blockMessage(
-			community().community.uri,
-			props.data.uri,
-		);
-		if (res) {
-			channel.removeMessage(props.data.uri);
+		const res = await managingClient().call(colibri.community.applyLabel.main, {
+			body: {
+				space: target.channel,
+				subject: {
+					did: target.author.did,
+					collection: COLLECTIONS.message,
+					rkey: target.rkey,
+				},
+				val: "hidden",
+			},
+		});
+		if (res.ok) {
+			channel.removeMessage(target.uri);
 		} else {
-			toast.error("Failed to block message.");
+			toast.error("Failed to hide message.");
 		}
 	};
 
@@ -318,19 +343,27 @@ export const MessageContextProvider: ParentComponent<{ data: Message }> = (
 	const removableEmbedUris = (): Array<string> =>
 		linkUris().filter(isRemovableEmbed);
 
-	const authorSuppressedEmbeds = (): Array<string> =>
-		props.data.suppressedEmbeds ?? [];
+	const suppression = createMemo(() => {
+		const target = confirmed();
+		return target
+			? embedSuppression(target)
+			: { all: false, uris: new Set<string>() };
+	});
 
-	const modSuppressedEmbeds = (): Array<string> =>
-		props.data.modSuppressedEmbeds ?? [];
+	const authorSuppressedEmbeds = (): Array<string> =>
+		confirmed()?.suppressedEmbeds ?? [];
+
+	const modSuppressedEmbeds = (): Array<string> => {
+		const s = suppression();
+		if (s.all) return linkUris();
+		const authorSet = new Set(authorSuppressedEmbeds());
+		return [...s.uris].filter((uri) => !authorSet.has(uri));
+	};
 
 	const isEmbedVisible = (uri: string): boolean => {
 		if (!isRemovableEmbed(uri)) return true;
 		if (!channel.linkEmbedsEnabled()) return false;
-		return (
-			!authorSuppressedEmbeds().includes(uri) &&
-			!modSuppressedEmbeds().includes(uri)
-		);
+		return !isEmbedSuppressed(suppression(), uri);
 	};
 
 	const visibleEmbedUris = (): Array<string> =>
@@ -339,34 +372,22 @@ export const MessageContextProvider: ParentComponent<{ data: Message }> = (
 	const canModerateEmbeds = () =>
 		!isPending() &&
 		props.data.author.did !== user.did &&
-		canHideMessage(user.did);
+		canApplyLabel(user.did);
 
 	const writeAuthorSuppression = async (next: Array<string>) => {
-		if (isPending()) return;
+		const target = confirmed();
+		if (!target || isLegacy()) return;
 
-		const rkey = AtURI.parseAtURI(props.data.uri).identifier;
 		const previous = authorSuppressedEmbeds();
-		const text = props.data.text;
-		const facets = props.data.facets ?? [];
-		const edited = props.data.edited;
+		channel.patchMessage(target.uri, { suppressedEmbeds: next.map(asUri) });
 
-		channel.patchMessage(props.data.uri, { suppressedEmbeds: next });
-
-		try {
-			await enqueuePut(
-				user.did,
-				"social.colibri.message",
-				rkey,
-				buildMessageRecord(props.data, {
-					text,
-					facets,
-					edited,
-					suppressedEmbeds: next,
-				}),
-				{ label: "Failed to update link previews." },
-			);
-		} catch {
-			channel.patchMessage(props.data.uri, { suppressedEmbeds: previous });
+		const ok = await channel.patchMessageRecord(target, {
+			suppressedEmbeds: next,
+		});
+		if (!ok) {
+			channel.patchMessage(target.uri, {
+				suppressedEmbeds: previous.map(asUri),
+			});
 			toast.error("Failed to update link previews.");
 		}
 	};
@@ -376,34 +397,72 @@ export const MessageContextProvider: ParentComponent<{ data: Message }> = (
 			? Promise.resolve()
 			: writeAuthorSuppression([...authorSuppressedEmbeds(), uri]);
 
+	const applyModLabel = async (
+		target: MessageView,
+		val: string,
+		scope: Array<string>,
+	): Promise<boolean> => {
+		const res = await managingClient().call(colibri.community.applyLabel.main, {
+			body: {
+				space: target.channel,
+				subject: {
+					did: target.author.did,
+					collection: COLLECTIONS.message,
+					rkey: target.rkey,
+				},
+				val,
+				scope: scope.map(asUri),
+			},
+		});
+		return res.ok;
+	};
+
+	const negateModLabel = async (
+		target: MessageView,
+		val: string,
+	): Promise<boolean> => {
+		const res = await managingClient().call(
+			colibri.community.negateLabel.main,
+			{
+				body: {
+					space: target.channel,
+					subject: {
+						did: target.author.did,
+						collection: COLLECTIONS.message,
+						rkey: target.rkey,
+					},
+					val,
+				},
+			},
+		);
+		return res.ok;
+	};
+
 	const saveModSuppression = async (next: Array<string>) => {
+		const target = confirmed();
+		if (!target) return;
+
 		const previous = modSuppressedEmbeds();
 		const toSuppress = next.filter((uri) => !previous.includes(uri));
 		const toRestore = previous.filter((uri) => !next.includes(uri));
 		if (toSuppress.length === 0 && toRestore.length === 0) return;
 
-		channel.patchMessage(props.data.uri, { modSuppressedEmbeds: next });
-
-		const communityUri = community().community.uri;
 		let ok = true;
 
 		if (toSuppress.length > 0) {
-			ok = !!(await user.xrpc.social.colibri.community.suppressMessageEmbeds(
-				communityUri,
-				props.data.uri,
-				toSuppress,
-			));
+			ok = await applyModLabel(target, "embeds-suppressed", toSuppress);
 		}
 		if (ok && toRestore.length > 0) {
-			ok = !!(await user.xrpc.social.colibri.community.unsuppressMessageEmbeds(
-				communityUri,
-				props.data.uri,
-				toRestore,
-			));
+			ok = await negateModLabel(target, "embeds-suppressed");
+			if (ok && toSuppress.length === 0) {
+				const remaining = previous.filter((uri) => !toRestore.includes(uri));
+				if (remaining.length > 0) {
+					ok = await applyModLabel(target, "embeds-suppressed", remaining);
+				}
+			}
 		}
 
 		if (!ok) {
-			channel.patchMessage(props.data.uri, { modSuppressedEmbeds: previous });
 			toast.error("Failed to update link previews.");
 		}
 	};
@@ -453,51 +512,46 @@ export const MessageContextProvider: ParentComponent<{ data: Message }> = (
 		text: string,
 		facets: Array<ColibriRichTextFacet>,
 	) => {
-		if (isPending()) return;
+		const target = confirmed();
+		if (!target || isLegacy()) return;
 
 		if (matchesCurrent({ text, facets })) {
 			cancelEdits();
 			return;
 		}
 
-		const rkey = AtURI.parseAtURI(props.data.uri).identifier;
 		const originalText = newText();
 
 		const trimmed = trimWithFacets({ text, facets });
 		const cleanText = purify(trimmed.text);
 		const cleanFacets = trimmed.facets;
 
-		setNewText({ text: cleanText, facets: cleanFacets }); // optimistic
-		clearEditDraft(props.data.uri);
+		setNewText({ text: cleanText, facets: cleanFacets });
+		clearEditDraft(target.uri);
 		channel.clearEditingMessage();
 
-		if (cleanText.length === 0 && (props.data.attachments ?? []).length === 0) {
+		if (cleanText.length === 0 && target.attachments.length === 0) {
 			setDeletionModalOpen(true);
 			return;
 		}
 
-		try {
-			await enqueuePut(
-				user.did,
-				"social.colibri.message",
-				rkey,
-				buildMessageRecord(props.data, {
-					text: cleanText,
-					facets: cleanFacets,
-					edited: true,
-				}),
-				{ label: "Failed to edit message." },
-			);
-			channel.updateMessageText(props.data.uri, cleanText, cleanFacets);
-		} catch {
-			setNewText(originalText); // revert
-			channel.setEditingMessage(props.data);
+		const updatedAt = new Date().toISOString();
+		const ok = await channel.patchMessageRecord(target, {
+			text: cleanText,
+			facets: cleanFacets,
+			updatedAt,
+		});
+		if (ok) {
+			channel.updateMessageText(target.uri, cleanText, cleanFacets, updatedAt);
+		} else {
+			setNewText(originalText);
+			channel.setEditingMessage(target);
 			toast.error("Failed to edit message.");
 		}
 	};
 
 	const handlePotentialDeletion = (e: MouseEvent) => {
-		if (isPending()) return;
+		if (isPending() || isLegacy()) return;
 		if (e.shiftKey) {
 			confirmDelete();
 			return;
@@ -514,44 +568,59 @@ export const MessageContextProvider: ParentComponent<{ data: Message }> = (
 		setBlockModalOpen(true);
 	};
 
+	const reactionTarget = (): RecordRef | undefined => {
+		const target = confirmed();
+		return target ? { did: target.author.did, rkey: target.rkey } : undefined;
+	};
+
 	const addReactionOptimistic = async (emoji: string) => {
-		if (isPending()) return;
+		const target = reactionTarget();
+		if (!target || isLegacy()) return;
+		const space = channel.channelSpace();
+		if (!space) return;
+
 		recordEmojiUse(emoji);
-		channel.addReactionOptimistic(props.data.uri, emoji, user.did); // instant
+		channel.addReactionOptimistic(target, emoji, user.did);
 		const rkey = nextTid();
-		channel.cacheReactionRkey(props.data.uri, emoji, rkey);
+		channel.cacheReactionRkey(target, emoji, rkey);
 		try {
-			await enqueueCreate(
+			await enqueueSpaceCreate(
+				space,
 				user.did,
-				"social.colibri.reaction",
-				{ emoji, parent: props.data.uri },
+				COLLECTIONS.reaction,
+				buildReactionRecord(emoji, target),
 				{ rkey, label: "Failed to add reaction." },
 			);
 		} catch {
-			channel.removeReactionOptimistic(props.data.uri, emoji, user.did); // revert
+			channel.removeReactionOptimistic(target, emoji, user.did);
 			toast.error("Failed to add reaction.");
 		}
 	};
 
 	const removeReaction = async (emoji: string) => {
-		if (isPending()) return;
-		channel.removeReactionOptimistic(props.data.uri, emoji, user.did); // instant
+		const target = reactionTarget();
+		if (!target || isLegacy()) return;
+		const space = channel.channelSpace();
+		if (!space) return;
+
+		channel.removeReactionOptimistic(target, emoji, user.did);
 		try {
-			let rkey = channel.getReactionRkey(props.data.uri, emoji);
+			let rkey = channel.getReactionRkey(target, emoji);
 			if (!rkey) {
 				rkey = await findReactionRkey(
 					user.atproto.agent,
+					space,
 					user.did,
-					props.data.uri,
+					target,
 					emoji,
 				);
 			}
 			if (!rkey) throw new Error("Reaction record not found.");
-			await enqueueDelete(user.did, "social.colibri.reaction", rkey, {
+			await enqueueSpaceDelete(space, user.did, COLLECTIONS.reaction, rkey, {
 				label: "Failed to remove reaction.",
 			});
 		} catch {
-			channel.addReactionOptimistic(props.data.uri, emoji, user.did); // revert
+			channel.addReactionOptimistic(target, emoji, user.did);
 			toast.error("Failed to remove reaction.");
 		}
 	};
@@ -596,6 +665,7 @@ export const MessageContextProvider: ParentComponent<{ data: Message }> = (
 		newText,
 		setNewText,
 		isPending,
+		isLegacy,
 		editMode,
 		isAdmin,
 		messageEditable,

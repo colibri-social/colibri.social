@@ -1,6 +1,6 @@
-import { type Component, createMemo, For, Show } from "solid-js";
+import { type Accessor, type Component, createMemo, For, Show } from "solid-js";
 import XIcon from "~icons/ph/x";
-import type { Reaction } from "../../../../../atproto/xrpc/social/colibri/channel/listMessages";
+import type { ReactionView } from "../../../../../atproto/views";
 import { useMessageContext } from "../../../../../contexts/Message";
 import { useUserContext } from "../../../../../contexts/User";
 import { cx } from "../../../../../utils/cva";
@@ -8,7 +8,7 @@ import { parseEmojiText } from "../../../../../utils/emoji";
 import User from "../../../user";
 import { emojiShortcode, useReactorResolver } from "../reactors";
 
-export const useActiveReaction = () => {
+export const useActiveReaction = (): Accessor<ReactionView | undefined> => {
 	const ctx = useMessageContext();
 
 	return createMemo(
@@ -21,7 +21,7 @@ export const useActiveReaction = () => {
 };
 
 export const ReactionTab: Component<{
-	reaction: Reaction;
+	reaction: ReactionView;
 	active: boolean;
 	orientation: "vertical" | "horizontal";
 	onSelect: () => void;
@@ -97,7 +97,7 @@ const ReactorRow: Component<{ did: string; emoji: string }> = (props) => {
 			<span class="flex min-w-0 flex-1 flex-row items-center gap-2 overflow-hidden">
 				<User.DisplayableName user={actor()} className="min-w-0" />
 			</span>
-			<Show when={handle() !== actor().data.displayName}>
+			<Show when={handle() !== actor().displayName}>
 				<span class="max-w-[45%] shrink-0 truncate text-sm text-muted-foreground">
 					{handle()}
 				</span>
@@ -116,10 +116,10 @@ const ReactorRow: Component<{ did: string; emoji: string }> = (props) => {
 	);
 };
 
-export const ReactorRows: Component<{ reaction: Reaction }> = (props) => {
+export const ReactorRows: Component<{ reaction: ReactionView }> = (props) => {
 	return (
 		<div class="flex flex-col">
-			<For each={props.reaction.reactorDIDs}>
+			<For each={props.reaction.reactors}>
 				{(did) => <ReactorRow did={did} emoji={props.reaction.emoji} />}
 			</For>
 		</div>

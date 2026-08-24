@@ -1,4 +1,11 @@
-import { classifyResponse, classifyThrown } from "../../errors/classify";
+import type { Client, InferMethodOutputBody } from "@atproto/lex-client";
+import {
+	type Procedure,
+	type Query,
+	XrpcInvalidResponseError,
+	XrpcResponseError,
+} from "@atproto/lex-client";
+import { classifyEnvelope, classifyThrown } from "../../errors/classify";
 import type { ColibriErrorCode } from "../../errors/codes";
 import { ColibriError } from "../../errors/error";
 import { reportError } from "../../errors/report";
@@ -9,34 +16,16 @@ import {
 } from "../session-health";
 import { type XrpcResult, xrpcFail, xrpcOk } from "./result";
 
-type ProxiedFetchFn = (
-	xrpcRoute: `/xrpc/${string}`,
-	init?: RequestInit,
-) => Promise<Response>;
+export type Method = Procedure | Query;
 
-export interface RequestOptions {
-	lxm: string;
-	route: `/xrpc/${string}`;
-	init?: RequestInit;
-	empty?: boolean;
+export type Output<M extends Method> = InferMethodOutputBody<M, Uint8Array>;
+
+export interface CallOptions {
 	expected?: ReadonlyArray<ColibriErrorCode>;
+	signal?: AbortSignal;
 }
 
 const QUEUED_HEADER = "x-colibri-queued";
-
-const isExpected = (
-	code: ColibriErrorCode,
-	expected: ReadonlyArray<ColibriErrorCode> | undefined,
-): boolean => expected?.includes(code) ?? false;
-
-const wasAborted = (options: RequestOptions): boolean =>
-	options.init?.signal?.aborted === true;
-
-const abortFail = (
-	options: RequestOptions,
-	status?: number,
-): XrpcResult<never> =>
-	xrpcFail(new ColibriError({ code: "Timeout", method: options.lxm, status }));
 
 const DPOP_ENVELOPE_CODES = new Set([
 	"invalid_dpop_proof",
@@ -59,82 +48,95 @@ const isDpopFailure = (error: ColibriError): boolean => {
 	return typeof unknown === "string" && DPOP_ENVELOPE_CODES.has(unknown);
 };
 
+const isExpected = (
+	code: ColibriErrorCode,
+	expected: ReadonlyArray<ColibriErrorCode> | undefined,
+): boolean => expected?.includes(code) ?? false;
+
+const toColibriError = (lxm: string, cause: unknown): ColibriError => {
+	if (cause instanceof XrpcResponseError) {
+		return classifyEnvelope({
+			code: typeof cause.error === "string" ? cause.error : undefined,
+			message: cause.message === "" ? undefined : cause.message,
+			status: cause.status,
+			method: lxm,
+			retryAfter: cause.headers.get("retry-after"),
+		});
+	}
+
+	if (cause instanceof XrpcInvalidResponseError) {
+		return new ColibriError({
+			code: "MalformedResponse",
+			method: lxm,
+			cause,
+		});
+	}
+
+	return classifyThrown(cause, { method: lxm });
+};
+
 const fail = (
 	error: ColibriError,
-	options: RequestOptions,
+	lxm: string,
+	options: CallOptions | undefined,
+	aborted: boolean,
 ): XrpcResult<never> => {
-	if (error.code === "ScopesMissing") {
-		noteScopesRejected({ method: options.lxm });
-	}
-	if (!isExpected(error.code, options.expected)) {
+	if (error.code === "ScopesMissing") noteScopesRejected({ method: lxm });
+
+	if (!aborted && !isExpected(error.code, options?.expected)) {
 		const dpop = isDpopFailure(error) ? dpopDiagnostics?.() : undefined;
 		reportError(error, {
-			method: options.lxm,
+			method: lxm,
 			stage: "xrpc",
 			tags: dpop ? { "dpop.failure": "true" } : undefined,
 			contexts: dpop ? { dpop } : undefined,
 		});
 	}
+
 	return xrpcFail(error);
 };
 
-export const request = async <T>(
-	fetch: ProxiedFetchFn,
-	options: RequestOptions,
-): Promise<XrpcResult<T>> => {
+export const call = async <M extends Method>(
+	client: Client,
+	method: M,
+	input?: Record<string, unknown>,
+	options?: CallOptions,
+): Promise<XrpcResult<Output<M>>> => {
+	const lxm = method.nsid;
+
 	if (sessionDead()) {
 		return xrpcFail(
 			new ColibriError({
 				code: sessionDeadCode() ?? "InvalidToken",
-				method: options.lxm,
+				method: lxm,
 			}),
 		);
 	}
 
-	let res: Response;
-	try {
-		res = await fetch(options.route, options.init);
-	} catch (err) {
-		const error = classifyThrown(err, { method: options.lxm });
-		return wasAborted(options) ? xrpcFail(error) : fail(error, options);
+	const result = await client
+		.xrpcSafe(
+			method as never,
+			{
+				...(input ?? {}),
+				...(options?.signal ? { signal: options.signal } : {}),
+			} as never,
+		)
+		.catch((cause: unknown) => cause as Error);
+
+	const aborted = options?.signal?.aborted === true;
+
+	if (result instanceof Error) {
+		return fail(toColibriError(lxm, result), lxm, options, aborted);
 	}
 
-	if (!res.ok) {
-		const body = await res.text().catch(() => "");
-		const error = classifyResponse({
-			status: res.status,
-			body,
-			method: options.lxm,
-			retryAfter: res.headers.get("retry-after"),
-		});
-		return wasAborted(options) ? xrpcFail(error) : fail(error, options);
+	if (aborted) {
+		return xrpcFail(new ColibriError({ code: "Timeout", method: lxm }));
 	}
 
-	const queued = res.headers.get(QUEUED_HEADER) === "1";
-
-	if (options.empty) {
-		return wasAborted(options)
-			? abortFail(options, res.status)
-			: xrpcOk(undefined as T, queued);
-	}
-
-	const body = await res.text().catch(() => "");
-	if (wasAborted(options)) return abortFail(options, res.status);
-	if (body === "") return xrpcOk(undefined as T, queued);
-
-	try {
-		return xrpcOk(JSON.parse(body) as T, queued);
-	} catch (err) {
-		return fail(
-			new ColibriError({
-				code: "MalformedResponse",
-				method: options.lxm,
-				status: res.status,
-				cause: err,
-			}),
-			options,
-		);
-	}
+	return xrpcOk(
+		result.body as Output<M>,
+		result.headers.get(QUEUED_HEADER) === "1",
+	);
 };
 
 export { QUEUED_HEADER };

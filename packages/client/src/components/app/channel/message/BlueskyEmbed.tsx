@@ -24,7 +24,6 @@ import {
 	getMuVerification,
 	isMuTrustedVerifier,
 } from "../../../../atproto/mu-verification";
-import { resolveEmbedImage } from "../../../../atproto/resolve-blob";
 import { useUserPreferences } from "../../../../contexts/UserPreferences";
 import { openExternalLink } from "../../../../utils/open-external-link";
 import { Lightbox } from "../../common/Lightbox";
@@ -123,7 +122,7 @@ export const BlueskyEmbed: Component<{ uri: string; post: BskyPostRef }> = (
 								<Show when={p().author.avatar}>
 									{(avatar) => (
 										<img
-											src={resolveEmbedImage(avatar())}
+											src={avatar()}
 											alt=""
 											width={36}
 											height={36}
@@ -255,11 +254,11 @@ export const BlueskyEmbed: Component<{ uri: string; post: BskyPostRef }> = (
 							>
 								<For each={images()}>
 									{(img) => {
-										const full = resolveEmbedImage(img.fullsize);
+										const full = img.fullsize;
 										return (
 											<Lightbox src={full}>
 												<img
-													src={resolveEmbedImage(img.thumb)}
+													src={img.thumb}
 													alt={img.alt || ""}
 													class="w-full h-auto max-h-72 object-cover rounded-sm bg-muted cursor-zoom-in"
 													style={{

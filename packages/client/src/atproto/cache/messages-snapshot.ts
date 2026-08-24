@@ -1,21 +1,30 @@
-import type {
-	Message,
-	PendingMessage,
-} from "../xrpc/social/colibri/channel/listMessages";
-import type { MessagesSnapshot } from "./schema";
+import type { MessageView, RecordRef } from "../views";
+import type { MessagesSnapshot, PendingMessage } from "./schema";
 
 export const rkeyOf = (uri: string): string => uri.split("/").pop() ?? "";
 
+export const refOf = (
+	message: Pick<MessageView, "author" | "rkey">,
+): RecordRef => ({
+	did: message.author.did,
+	rkey: message.rkey,
+});
+
+export const sameRecord = (
+	message: Pick<MessageView, "author" | "rkey">,
+	ref: RecordRef,
+): boolean => message.author.did === ref.did && message.rkey === ref.rkey;
+
 export const cursorFor = (
-	messages: Message[],
+	messages: MessageView[],
 	fallback?: string,
 ): string | undefined => {
 	const oldest = messages[0];
-	return oldest ? rkeyOf(oldest.uri) : fallback;
+	return oldest ? oldest.rkey : fallback;
 };
 
 export const buildMessagesSnapshot = (
-	confirmed: Message[],
+	confirmed: MessageView[],
 	options: {
 		readCursor: string | undefined;
 		hasMore: boolean;
@@ -35,18 +44,18 @@ export const buildMessagesSnapshot = (
 
 export const belongsToChannel = (
 	message: { channel?: string },
-	channelUri: string,
-): boolean => !message.channel || message.channel === channelUri;
+	channelSpace: string,
+): boolean => !message.channel || message.channel === channelSpace;
 
 export const snapshotBelongsTo = (
 	snapshot: MessagesSnapshot,
-	channelUri: string,
+	channelSpace: string,
 ): boolean =>
-	snapshot.messages.every((message) => belongsToChannel(message, channelUri));
+	snapshot.messages.every((message) => belongsToChannel(message, channelSpace));
 
 export const mergeSnapshotWindow = (
 	existing: MessagesSnapshot | undefined,
-	fetched: Message[],
+	fetched: MessageView[],
 	options: {
 		readCursor: string | undefined;
 		hasMore: boolean;
@@ -56,15 +65,13 @@ export const mergeSnapshotWindow = (
 ): MessagesSnapshot => {
 	if (!existing) return buildMessagesSnapshot(fetched, options);
 
-	const byUri = new Map<string, Message>();
+	const byUri = new Map<string, MessageView>();
 	for (const message of existing.messages) byUri.set(message.uri, message);
 	for (const message of fetched) byUri.set(message.uri, message);
 
 	const union = [...byUri.values()].sort((left, right) => {
-		const a = rkeyOf(left.uri);
-		const b = rkeyOf(right.uri);
-		if (a < b) return -1;
-		return a > b ? 1 : 0;
+		if (left.rkey < right.rkey) return -1;
+		return left.rkey > right.rkey ? 1 : 0;
 	});
 
 	return buildMessagesSnapshot(union, {
@@ -99,10 +106,10 @@ export const shouldWriteSnapshot = (input: {
 	(input.hydratedFromNetwork || input.appliedRemoval);
 
 export const reconcileFetchedWindow = (
-	local: (Message | PendingMessage)[],
-	fetched: Message[],
+	local: (MessageView | PendingMessage)[],
+	fetched: MessageView[],
 	options: { pageSize: number; prunable: ReadonlySet<string> },
-): (Message | PendingMessage)[] | undefined => {
+): (MessageView | PendingMessage)[] | undefined => {
 	const returned = new Set(fetched.map((m) => m.uri));
 	const oldest = fetched[0];
 	const spansWholeHistory = fetched.length < options.pageSize;

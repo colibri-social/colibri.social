@@ -1,35 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { canAdvanceCursor, clearableNotifications } from "./deferred-mark-read";
-
-const message = (rkey: string) =>
-	`at://did:plc:one/social.colibri.message/${rkey}`;
-
-describe("canAdvanceCursor", () => {
-	it("allows the first cursor a channel ever gets", () => {
-		expect(canAdvanceCursor(undefined, message("3lb"))).toBe(true);
-	});
-
-	it("allows moving on to a newer message", () => {
-		expect(canAdvanceCursor(message("3la"), message("3lb"))).toBe(true);
-	});
-
-	it("refuses to rewind onto an older message", () => {
-		expect(canAdvanceCursor(message("3lb"), message("3la"))).toBe(false);
-	});
-
-	it("refuses a cursor that would not move at all", () => {
-		expect(canAdvanceCursor(message("3lb"), message("3lb"))).toBe(false);
-	});
-
-	it("compares the record key rather than the whole uri", () => {
-		expect(
-			canAdvanceCursor(
-				"at://did:plc:zzz/social.colibri.message/3la",
-				"at://did:plc:aaa/social.colibri.message/3lb",
-			),
-		).toBe(true);
-	});
-});
+import { clearableNotifications } from "./deferred-mark-read";
 
 describe("clearableNotifications", () => {
 	const notifications = [

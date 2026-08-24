@@ -13,6 +13,153 @@ export const FALLBACK_COPY: ErrorCopy = {
 };
 
 const CATALOG: Record<ColibriErrorCode, ErrorCopy> = {
+	ActorNotFound: {
+		title: "We couldn't find that account.",
+		description: "Check the handle and try again.",
+	},
+	AlreadyBanned: {
+		title: "They're already banned.",
+	},
+	AlreadyExists: {
+		title: "That name is taken.",
+		description: "Pick a different one.",
+	},
+	AlreadyMember: {
+		title: "They're already a member.",
+	},
+	ApplicationNotFound: {
+		title: "That request is no longer pending.",
+		description: "Someone may have already handled it.",
+	},
+	Banned: {
+		title: "You can't join this community.",
+		description: "You've been banned from it.",
+	},
+	BlobNotFound: {
+		title: "That file is missing.",
+		description: "It may have been deleted.",
+	},
+	CategoryNotFound: {
+		title: "That category is gone.",
+	},
+	ChannelNotFound: {
+		title: "That channel is gone.",
+		description:
+			"It may have been deleted, or you may no longer be able to see it.",
+	},
+	CommunityNotFound: {
+		title: "That community is gone.",
+		description: "It may have been deleted, or you may not be able to see it.",
+	},
+	CredentialsRejected: {
+		title: "Those credentials didn't work.",
+		description: "Check the identifier and password and try again.",
+	},
+	CredentialsUnavailable: {
+		title: "This community needs reconnecting.",
+		description:
+			"An owner has to give Colibri its credentials again before this will work.",
+	},
+	GifsNotConfigured: {
+		title: "GIFs aren't available here.",
+		description: "This AppView has no GIF provider set up.",
+	},
+	IdentityMismatch: {
+		title: "Those credentials belong to a different account.",
+		description: "Sign in as the account you're adopting.",
+	},
+	ImageTooLarge: {
+		title: "That image is too big.",
+		description: "Icons can be up to 1 MB and banners up to 4 MB.",
+	},
+	InsufficientPermissions: {
+		title: "You don't have permission to do that.",
+		description: "Ask a moderator if you think you should.",
+	},
+	InvalidDelegationToken: {
+		title: "We couldn't share your preferences.",
+		description: "Colibri will try again shortly.",
+	},
+	InvalidFrame: {
+		title: "The connection got confused.",
+		description: "Reconnecting should sort it out.",
+	},
+	InvitationNotFound: {
+		title: "That invite doesn't work.",
+		description: "It may have expired or been used up.",
+	},
+	LabelNotFound: {
+		title: "That was already undone.",
+	},
+	MemberNotFound: {
+		title: "They're not in this community.",
+	},
+	MessageNotFound: {
+		title: "That message is gone.",
+	},
+	NotAMember: {
+		title: "You're not in this community.",
+		description: "Join it to see what's inside.",
+	},
+	NotAuthorized: {
+		title: "We couldn't share your preferences.",
+		description: "Colibri will try again shortly.",
+	},
+	NotBanned: {
+		title: "They aren't banned.",
+	},
+	NotFetchable: {
+		title: "We couldn't load that link.",
+		description: "The site didn't respond, or refused us.",
+	},
+	NotInVoice: {
+		title: "They've left the call.",
+	},
+	NotJoined: {
+		title: "You're not in that call.",
+		description: "Join the channel and try again.",
+	},
+	NotVoiceChannel: {
+		title: "That isn't a voice channel.",
+	},
+	PushNotConfigured: {
+		title: "Push notifications aren't available here.",
+		description: "This AppView has no push keys set up.",
+	},
+	RoleHierarchy: {
+		title: "That role outranks yours.",
+		description: "You can only manage roles below your own.",
+	},
+	RoleNotFound: {
+		title: "That role is gone.",
+	},
+	RoleProtected: {
+		title: "That role can't be changed.",
+		description: "The owner role is protected.",
+	},
+	SoleOwner: {
+		title: "You're the last owner.",
+		description: "Give someone else the owner role before you leave.",
+	},
+	SoleOwnerOfCommunity: {
+		title: "You still own a community.",
+		description: "Transfer or delete it before deleting your account.",
+	},
+	SpaceNotFound: {
+		title: "That's no longer available.",
+	},
+	SpacesUnsupported: {
+		title: "That server can't host a community.",
+		description: "Its PDS doesn't support permissioned spaces yet.",
+	},
+	UnsupportedImage: {
+		title: "That file isn't a supported image.",
+		description: "Use a JPEG, PNG, GIF or WebP.",
+	},
+	VoiceUnavailable: {
+		title: "Voice isn't available here.",
+		description: "This AppView has no voice server running.",
+	},
 	AuthRequired: {
 		title: "You need to sign in again.",
 		description: "Your session is no longer valid.",
@@ -39,36 +186,9 @@ const CATALOG: Record<ColibriErrorCode, ErrorCopy> = {
 		title: "You're going a bit fast.",
 		description: "Wait a moment and try again.",
 	},
-	TooManySubscribers: {
-		title: "This server is at capacity.",
-		description: "Try again in a few minutes.",
-	},
-	NotAnImage: {
-		title: "That link isn't an image.",
-	},
-	NotAVideo: {
-		title: "That link isn't a video.",
-	},
-	SfuError: {
-		title: "The voice server had a problem.",
-		description: "Try rejoining the channel.",
-	},
 	PdsUnavailable: {
 		title: "Your data server isn't reachable.",
 		description: "Reads still work, but changes can't be saved right now.",
-	},
-	CommunityCredentialsUnrecoverable: {
-		title: "This community can't be edited right now.",
-		description: "Its data server access needs to be repaired by an admin.",
-	},
-	NotCommunityHub: {
-		title: "This community is managed somewhere else.",
-		description: "Reload to pick up where it moved to, then try again.",
-	},
-	AppViewNotAuthorized: {
-		title: "Turn on presence sharing to moderate here.",
-		description:
-			"This community is hosted on another AppView, which needs to know yours is allowed to act for you.",
 	},
 	UpstreamFailure: {
 		title: "A service we depend on is having trouble.",

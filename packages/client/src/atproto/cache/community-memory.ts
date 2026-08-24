@@ -1,12 +1,12 @@
-import type { Community as CommunityResponse } from "../xrpc/social/colibri/community/getData";
+import type { CommunitySnapshot } from "./schema";
 
 const MAX_ENTRIES = 5;
 
-const byKey = new Map<string, CommunityResponse>();
+const byKey = new Map<string, CommunitySnapshot>();
 
 export const rememberCommunity = (
 	key: string,
-	payload: CommunityResponse,
+	payload: CommunitySnapshot,
 ): void => {
 	byKey.delete(key);
 	byKey.set(key, payload);
@@ -18,7 +18,7 @@ export const rememberCommunity = (
 	}
 };
 
-export const recallCommunity = (key: string): CommunityResponse | undefined => {
+export const recallCommunity = (key: string): CommunitySnapshot | undefined => {
 	const payload = byKey.get(key);
 	if (payload === undefined) return undefined;
 

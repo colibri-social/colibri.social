@@ -1,7 +1,7 @@
 import { type Component, createSignal, Show } from "solid-js";
 import GifIcon from "~icons/ph/gif";
 import SmileyIcon from "~icons/ph/smiley";
-import type { GifItem } from "../../../atproto/xrpc/social/colibri/embed/gifTypes";
+import type { GifView } from "../../../atproto/views";
 import { useIsMobile } from "../../../utils/mobile-pane";
 import { BottomSheet } from "../../ui/MenuDrawer";
 import {
@@ -28,7 +28,7 @@ type MediaTab = "emoji" | "gif";
  */
 export const ComposerMediaPickers: Component<{
 	onEmojiSelect: (emoji: string) => void;
-	onGifSelect: (gif: GifItem) => void;
+	onGifSelect: (gif: GifView) => void;
 }> = (props) => {
 	const isMobile = useIsMobile();
 

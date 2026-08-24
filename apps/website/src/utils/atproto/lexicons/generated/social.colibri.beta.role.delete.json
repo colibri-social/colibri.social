@@ -1,0 +1,69 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.role.delete",
+	"defs": {
+		"main": {
+			"type": "procedure",
+			"description": "Deletes a role.",
+			"input": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"community",
+						"role"
+					],
+					"properties": {
+						"community": {
+							"type": "string",
+							"format": "did",
+							"description": "The community the role belongs to."
+						},
+						"role": {
+							"type": "string",
+							"format": "record-key",
+							"description": "The role's record key."
+						}
+					}
+				}
+			},
+			"output": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"properties": {}
+				}
+			},
+			"errors": [
+				{
+					"name": "AuthRequired",
+					"description": "The request is missing, malformed, or unverifiable service auth."
+				},
+				{
+					"name": "Forbidden",
+					"description": "The caller lacks the role.manage permission."
+				},
+				{
+					"name": "CommunityNotFound",
+					"description": "No community exists at the given DID."
+				},
+				{
+					"name": "RoleNotFound",
+					"description": "No role exists at the given record key."
+				},
+				{
+					"name": "RoleProtected",
+					"description": "The role is marked protected and cannot be deleted."
+				},
+				{
+					"name": "RoleHierarchy",
+					"description": "The role is at or above the caller's highest role position."
+				},
+				{
+					"name": "CredentialsUnavailable",
+					"description": "The AppView cannot act as the community because its stored credentials are missing or unusable."
+				}
+			]
+		}
+	}
+}

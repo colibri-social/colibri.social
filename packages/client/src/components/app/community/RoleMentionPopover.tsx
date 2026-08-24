@@ -7,8 +7,8 @@ import {
 } from "solid-js";
 import { Dynamic } from "solid-js/web";
 import CrownIcon from "~icons/ph/crown-fill";
-import type { Role } from "../../../atproto/xrpc/social/colibri/community/listRoles";
 import { useCommunityContext } from "../../../contexts/Community";
+import type { Role } from "../../../contexts/community-payload";
 import { useIsMobile } from "../../../utils/mobile-pane";
 import { BottomSheet } from "../../ui/MenuDrawer";
 import {
@@ -31,7 +31,7 @@ const RolePopoverContents: Component<{ role: Role; class?: string }> = (
 
 	const members = () =>
 		community()
-			.members.filter((member) => member.roles.includes(props.role.uri))
+			.members.filter((member) => member.roles.includes(props.role.rkey))
 			.sort((a, b) => {
 				const owner = community().ownerDid();
 				if (a.did === owner) return -1;
@@ -49,7 +49,8 @@ const RolePopoverContents: Component<{ role: Role; class?: string }> = (
 					{(member) => (
 						<MemberContextMenu member={member}>
 							<User.ProfilePopover
-								user={member}
+								user={member.actor}
+								nickname={member.nickname}
 								placement="right"
 								class="data-expanded:[&>div]:bg-muted!"
 							>
@@ -57,9 +58,16 @@ const RolePopoverContents: Component<{ role: Role; class?: string }> = (
 									class="flex flex-row items-center gap-2 px-2 py-1 rounded-sm hover:bg-muted/50 cursor-pointer"
 									onPointerDown={(e) => e.button !== 0 && e.stopPropagation()}
 								>
-									<User.Avatar user={member} size="small" />
+									<User.Avatar
+										user={member.actor}
+										nickname={member.nickname}
+										size="small"
+									/>
 									<span class="text-sm leading-5 flex flex-row items-center gap-1.5 overflow-hidden text-ellipsis whitespace-nowrap">
-										<User.DisplayableName user={member} />
+										<User.DisplayableName
+											user={member.actor}
+											nickname={member.nickname}
+										/>
 										<Show when={community().ownerDid() === member.did}>
 											<CrownIcon class="text-yellow-400 w-3.5 h-3.5 shrink-0" />
 										</Show>

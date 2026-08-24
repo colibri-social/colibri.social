@@ -1,4 +1,3 @@
-import type { Community as CommunityView } from "@colibri-social/lib";
 import { closeHistory } from "prosemirror-history";
 import type { EditorView } from "prosemirror-view";
 import {
@@ -8,21 +7,23 @@ import {
 	UNRESOLVED_CHANNEL_LABEL,
 } from "../../../../atproto/channel-reference";
 import type { ChannelUrlTarget } from "../../../../atproto/colibri-channel-url";
-import type { XrpcClient } from "../../../../atproto/xrpc";
-import type { Category } from "../../../../atproto/xrpc/social/colibri/community/listCategories";
-import type { Channel } from "../../../../atproto/xrpc/social/colibri/community/listChannels";
+import type {
+	CategoryView,
+	ChannelView,
+	CommunityView,
+} from "../../../../atproto/views";
+import type { ColibriClient } from "../../../../atproto/xrpc";
 
 export type ChipContext = {
-	xrpc: XrpcClient;
+	xrpc: ColibriClient;
 	communities: Array<CommunityView>;
-	channels: Array<Channel>;
-	categories: Array<Category>;
-	currentCommunityUri?: string;
-	ns?: string;
+	channels: Array<ChannelView>;
+	categories: Array<CategoryView>;
+	currentCommunityDid?: string;
 };
 
-export const channelChipAttrs = (channelUri: string, chip: ChannelChip) => ({
-	id: channelUri,
+export const channelChipAttrs = (channelSkey: string, chip: ChannelChip) => ({
+	id: channelSkey,
 	label: chip.label,
 	handle: null,
 	avatar: chip.avatar ?? null,
@@ -33,7 +34,7 @@ export const channelChipAttrs = (channelUri: string, chip: ChannelChip) => ({
 
 const relabel = (
 	view: EditorView,
-	channelUri: string,
+	channelSkey: string,
 	chip: ChannelChip,
 ): void => {
 	if (view.isDestroyed) return;
@@ -44,7 +45,7 @@ const relabel = (
 	const positions: Array<number> = [];
 	view.state.doc.descendants((node, pos) => {
 		if (node.type !== mention) return;
-		if (node.attrs.id !== channelUri) return;
+		if (node.attrs.id !== channelSkey) return;
 		if (node.attrs.label !== UNRESOLVED_CHANNEL_LABEL) return;
 		positions.push(pos);
 	});
@@ -53,7 +54,7 @@ const relabel = (
 	const tr = view.state.tr;
 	tr.setMeta("addToHistory", false);
 	for (const pos of positions) {
-		tr.setNodeMarkup(pos, undefined, channelChipAttrs(channelUri, chip));
+		tr.setNodeMarkup(pos, undefined, channelChipAttrs(channelSkey, chip));
 	}
 	view.dispatch(tr);
 };
@@ -63,9 +64,11 @@ export const insertChannelChip = (
 	text: string,
 	target: ChannelUrlTarget,
 	context: ChipContext,
-): void => {
+): boolean => {
+	if (target.community !== context.currentCommunityDid) return false;
+
 	const mention = view.state.schema.nodes.mention;
-	if (!mention) return;
+	if (!mention) return false;
 
 	view.dispatch(view.state.tr.insertText(text));
 
@@ -73,38 +76,36 @@ export const insertChannelChip = (
 	const from = to - text.length;
 
 	const chip = resolveChannelChip(
-		target.channelUri,
+		target.channelSpace,
 		context.channels,
 		context.communities,
-		context.currentCommunityUri,
+		context.currentCommunityDid,
 		context.categories,
 	);
 
 	const tr = view.state.tr;
 	closeHistory(tr);
 	tr.replaceWith(from, to, [
-		mention.create(channelChipAttrs(target.channelUri, chip)),
+		mention.create(channelChipAttrs(target.channelSkey, chip)),
 		view.state.schema.text(" "),
 	]);
 	view.dispatch(tr);
 	view.focus();
 
-	if (chip.label !== UNRESOLVED_CHANNEL_LABEL) return;
+	if (chip.label !== UNRESOLVED_CHANNEL_LABEL) return true;
 
-	void loadCommunityChannels(
-		context.xrpc,
-		target.communityUri,
-		context.ns,
-	).then(() => {
+	void loadCommunityChannels(context.xrpc, target.community).then(() => {
 		const resolved = resolveChannelChip(
-			target.channelUri,
+			target.channelSpace,
 			context.channels,
 			context.communities,
-			context.currentCommunityUri,
+			context.currentCommunityDid,
 			context.categories,
 		);
 		if (resolved.label !== UNRESOLVED_CHANNEL_LABEL) {
-			relabel(view, target.channelUri, resolved);
+			relabel(view, target.channelSkey, resolved);
 		}
 	});
+
+	return true;
 };

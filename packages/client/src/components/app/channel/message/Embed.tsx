@@ -11,11 +11,8 @@ import {
 	getMetadataDeduped,
 	peekMetadata,
 } from "../../../../atproto/embed-metadata-cache";
-import {
-	resolveEmbedImage,
-	resolveEmbedVideo,
-} from "../../../../atproto/resolve-blob";
-import type { GifItem } from "../../../../atproto/xrpc/social/colibri/embed/gifTypes";
+import { asUri } from "../../../../atproto/lexicons";
+import type { GifCandidate } from "../../../../contexts/GifFavorites";
 import { useGifFavorites } from "../../../../contexts/GifFavorites";
 import { useUserContext } from "../../../../contexts/User";
 import createMediaQuery from "../../../../utils/create-media-query";
@@ -63,6 +60,8 @@ export const isStaticImageUrl = (uri: string): boolean => {
 	}
 };
 
+const LARGE_IMAGE_MIN_WIDTH = 400;
+
 export const isDirectMediaUrl = (uri: string): boolean =>
 	isGifUrl(uri) || isStaticImageUrl(uri);
 
@@ -72,10 +71,10 @@ export const usesLinkPreview = (uri: string): boolean =>
 export const isRemovableEmbed = (uri: string): boolean =>
 	!isDirectMediaUrl(uri);
 
-export const gifItemFromUrl = (uri: string): GifItem => ({
+export const gifItemFromUrl = (uri: string): GifCandidate => ({
 	id: uri,
-	mediaUrl: uri,
-	previewUrl: uri,
+	url: asUri(uri),
+	previewUrl: asUri(uri),
 });
 
 export const gifLinkFromFacets = (
@@ -120,7 +119,7 @@ const InlineGif: Component<{ uri: string }> = (props) => {
 
 	// A chat GIF is identified by its media URL (no Klipy slug here); the
 	// favorites store matches on either id or mediaUrl.
-	const gif = (): GifItem => gifItemFromUrl(props.uri);
+	const gif = (): GifCandidate => gifItemFromUrl(props.uri);
 
 	return (
 		<div class="group/gif relative w-fit">
@@ -221,10 +220,10 @@ const OpenGraphEmbed: Component<{ uri: string }> = (props) => {
 
 	const data = () => embedData();
 	const previewVideo = () => {
-		const video = data()?.video?.[0];
+		const video = data()?.video;
 		if (!video || brokenEmbedVideos().has(video.url)) return undefined;
 		return {
-			url: resolveEmbedVideo(video.url),
+			url: video.url,
 			source: video.url,
 			width: video.width,
 			height: video.height,
@@ -233,15 +232,16 @@ const OpenGraphEmbed: Component<{ uri: string }> = (props) => {
 	const hasContent = () =>
 		!!data() &&
 		!!(data()!.title || data()!.description || data()!.image || previewVideo());
-	const isThumbnail = () =>
-		!!data()?.image && data()!.largeImage === false && !previewVideo();
-	const imageUrl = () => {
-		const img = data()?.image?.[0];
-		return img ? resolveEmbedImage(img.url) : undefined;
+	const isThumbnail = () => {
+		const img = data()?.image;
+		if (!img || previewVideo()) return false;
+		if (img.width === undefined) return true;
+		return img.width < LARGE_IMAGE_MIN_WIDTH || img.width < (img.height ?? 0);
 	};
-	const imageAlt = () => data()?.image?.[0]?.alt || "";
+	const imageUrl = () => data()?.image?.url;
+	const imageAlt = () => data()?.image?.alt || "";
 	const previewImage = () => {
-		const img = data()?.image?.[0];
+		const img = data()?.image;
 		if (!img) return undefined;
 		return { url: imageUrl(), width: img.width, height: img.height };
 	};
@@ -252,7 +252,7 @@ const OpenGraphEmbed: Component<{ uri: string }> = (props) => {
 			<Show when={hasContent()}>
 				<div
 					class="flex flex-col border-l-4 p-3 pt-2 bg-card mb-2 rounded-r-md max-w-104 min-w-0"
-					style={{ "border-color": data()!.themeColor || "var(--border)" }}
+					style={{ "border-color": "var(--border)" }}
 				>
 					<div
 						class="flex gap-3"

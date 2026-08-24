@@ -1,0 +1,67 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.notification.defs",
+	"defs": {
+		"notificationView": {
+			"type": "object",
+			"description": "A notification for the requesting user.",
+			"required": [
+				"id",
+				"kind",
+				"author",
+				"channel",
+				"community",
+				"indexedAt"
+			],
+			"properties": {
+				"id": {
+					"type": "string",
+					"description": "Opaque identifier, used to mark this notification seen."
+				},
+				"kind": {
+					"type": "string",
+					"description": "Why it was raised.",
+					"knownValues": [
+						"mention",
+						"reply",
+						"message"
+					]
+				},
+				"author": {
+					"type": "ref",
+					"ref": "social.colibri.beta.actor.defs#profileView",
+					"description": "Who caused it."
+				},
+				"channel": {
+					"type": "string",
+					"format": "space-ref",
+					"description": "The channel it happened in."
+				},
+				"community": {
+					"type": "string",
+					"format": "did",
+					"description": "The community it happened in."
+				},
+				"message": {
+					"type": "ref",
+					"ref": "social.colibri.beta.channel.defs#messageView",
+					"description": "The message, when still readable."
+				},
+				"mentionRole": {
+					"type": "string",
+					"description": "Name of the role whose mention raised this, for role mentions."
+				},
+				"indexedAt": {
+					"type": "string",
+					"format": "datetime",
+					"description": "When the AppView raised it."
+				},
+				"seenAt": {
+					"type": "string",
+					"format": "datetime",
+					"description": "When the user marked it seen."
+				}
+			}
+		}
+	}
+}

@@ -1,20 +1,31 @@
 import {
+	type ColibriRichTextChannel,
 	type ColibriRichTextFacet,
-	type Community as CommunityView,
+	type ColibriRichTextMention,
+	type ColibriRichTextRole,
+	type ColibriRichTextTime,
 	facetsToSource,
+	isTimestampStyle,
 } from "@colibri-social/lib";
 import type { Editor, TextType } from "@tiptap/core";
 import twemoji from "@twemoji/api";
 import {
+	peekChannel,
 	resolveChannelChip,
 	UNRESOLVED_CHANNEL_LABEL,
 } from "../../../../atproto/channel-reference";
 import { parseColibriChannelUrl } from "../../../../atproto/colibri-channel-url";
-import { resolveBlob } from "../../../../atproto/resolve-blob";
-import type { Category } from "../../../../atproto/xrpc/social/colibri/community/listCategories";
-import type { Channel } from "../../../../atproto/xrpc/social/colibri/community/listChannels";
-import type { Member } from "../../../../atproto/xrpc/social/colibri/community/listMembers";
-import type { Role } from "../../../../atproto/xrpc/social/colibri/community/listRoles";
+import {
+	channelSpaceCandidates,
+	spaceSkey,
+} from "../../../../atproto/space-ref";
+import type { CommunityView } from "../../../../atproto/views";
+import type {
+	Category,
+	Channel,
+	Member,
+	Role,
+} from "../../../../contexts/community-payload";
 import { formatTimestamp } from "../../../../utils/format-timestamp";
 import { normalizeFacets } from "../../../../utils/normalize-facets";
 import { channelChipAttrs } from "./insert-channel-chip";
@@ -33,7 +44,23 @@ const EMOJI_IMAGE_ALT_REGEX =
 export type ChipScope = {
 	communities: Array<CommunityView>;
 	categories?: Array<Category>;
-	currentCommunityUri?: string;
+	currentCommunityDid?: string;
+};
+
+const resolveChannelSpace = (
+	channelSkey: string,
+	channels: Array<Channel>,
+	currentCommunityDid?: string,
+): string | undefined => {
+	const local = channels.find(
+		(channel) => spaceSkey(channel.space) === channelSkey,
+	);
+	if (local) return local.space;
+	if (!currentCommunityDid) return undefined;
+
+	return channelSpaceCandidates(currentCommunityDid, channelSkey).find(
+		(candidate) => peekChannel(candidate),
+	);
 };
 
 export const facetsToProseMirror = (
@@ -125,14 +152,22 @@ function atomNode(
 	roles: Array<Role>,
 	scope?: ChipScope,
 ): MentionType | undefined {
-	if (feature.$type === "social.colibri.richtext.facet#channel") {
-		const chip = resolveChannelChip(
-			feature.channel,
+	if (feature.$type === "social.colibri.beta.richtext.facet#channel") {
+		const channelFeature = feature as ColibriRichTextChannel;
+		const space = resolveChannelSpace(
+			channelFeature.channel,
 			channels,
-			scope?.communities ?? [],
-			scope?.currentCommunityUri,
-			scope?.categories ?? [],
+			scope?.currentCommunityDid,
 		);
+		const chip = space
+			? resolveChannelChip(
+					space,
+					channels,
+					scope?.communities ?? [],
+					scope?.currentCommunityDid,
+					scope?.categories ?? [],
+				)
+			: { label: UNRESOLVED_CHANNEL_LABEL };
 
 		if (
 			chip.label === UNRESOLVED_CHANNEL_LABEL &&
@@ -143,16 +178,17 @@ function atomNode(
 
 		return {
 			type: "mention",
-			attrs: channelChipAttrs(feature.channel, chip),
+			attrs: channelChipAttrs(channelFeature.channel, chip),
 		};
 	}
 
-	if (feature.$type === "social.colibri.richtext.facet#role") {
-		const role = roles.find((x) => x.uri === feature.role);
+	if (feature.$type === "social.colibri.beta.richtext.facet#role") {
+		const roleFeature = feature as ColibriRichTextRole;
+		const role = roles.find((x) => x.rkey === roleFeature.role);
 		return {
 			type: "mention",
 			attrs: {
-				id: feature.role,
+				id: roleFeature.role,
 				label: role?.name || "Unknown Role",
 				handle: null,
 				avatar: null,
@@ -162,24 +198,28 @@ function atomNode(
 		};
 	}
 
-	if (feature.$type === "social.colibri.richtext.facet#time") {
+	if (feature.$type === "social.colibri.beta.richtext.facet#time") {
+		const timeFeature = feature as ColibriRichTextTime;
+		const style = isTimestampStyle(timeFeature.style)
+			? timeFeature.style
+			: undefined;
 		return {
 			type: "mention",
 			attrs: {
 				id: null,
-				label: formatTimestamp(feature.datetime, feature.style),
+				label: formatTimestamp(timeFeature.datetime, style),
 				avatar: null,
 				handle: null,
 				type: "time",
-				datetime: feature.datetime,
-				style: feature.style,
+				datetime: timeFeature.datetime,
+				style,
 			},
 		};
 	}
 
 	const did =
-		feature.$type === "social.colibri.richtext.facet#mention"
-			? feature.did
+		feature.$type === "social.colibri.beta.richtext.facet#mention"
+			? (feature as ColibriRichTextMention).did
 			: "";
 	const member = members.find((x) => x.did === did);
 	return {
@@ -188,10 +228,7 @@ function atomNode(
 			id: did,
 			label: member?.data.displayName || "Unknown User",
 			handle: member?.handle || "handle.invalid",
-			avatar:
-				(member?.data.avatar
-					? resolveBlob(member.did, member.data.avatar)
-					: "/user-placeholder.png") ?? "/user-placeholder.png",
+			avatar: member?.data.avatar ?? "/user-placeholder.png",
 			type: "member",
 		},
 	};

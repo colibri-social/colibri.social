@@ -1,7 +1,6 @@
-import type { ActorData } from "@colibri-social/lib";
 import { type Component, onCleanup, onMount } from "solid-js";
-import { resolveBlob } from "../../atproto/resolve-blob";
-import { useActorCache } from "../../contexts/ActorCache";
+import { colibri } from "../../atproto/lexicons";
+import type { ProfileView } from "../../atproto/views";
 import { useMutes } from "../../contexts/Mutes";
 import { useNotifications } from "../../contexts/Notifications";
 import { useSocketContext } from "../../contexts/Socket";
@@ -25,12 +24,14 @@ import {
 	readPendingMarkRead,
 } from "../../notifications/mark-read-queue";
 import {
+	type FcmSubscription,
 	listenForFcmTokenRefresh,
 	subscribeFcmPush,
 } from "../../notifications/push-fcm";
 import {
 	listenForPushSubscriptionChanges,
 	subscribeWebPush,
+	type WebPushSubscription,
 } from "../../notifications/push-web";
 import {
 	cacheNativeAvatar,
@@ -52,16 +53,13 @@ const PUSH_REASSERT_INTERVAL_MS = 24 * 60 * 60 * 1000;
 const log = createLogger("notif/permission");
 
 const avatarPathFor = async (
-	author: ActorData | undefined,
+	author: ProfileView | undefined,
 ): Promise<string | undefined> => {
-	if (!author?.data.avatar) return undefined;
+	if (!author?.avatar) return undefined;
 	if (!(await isNativeNotificationSupported())) return undefined;
 
-	const url = resolveBlob(author.did, author.data.avatar, "small");
-	if (!url) return undefined;
-
 	try {
-		const response = await fetch(url);
+		const response = await fetch(author.avatar);
 		if (!response.ok) return undefined;
 
 		const bytes = new Uint8Array(await response.arrayBuffer());
@@ -72,7 +70,7 @@ const avatarPathFor = async (
 };
 
 /**
- * Headless component that turns incoming `notification_event`s into native OS
+ * Headless component that turns incoming `notificationEvent`s into native OS
  * notifications while the app is open. Renders nothing.
  *
  * Notifications are only fired when the window/tab is unfocused
@@ -81,10 +79,33 @@ export const NativeNotifications: Component = () => {
 	const socket = useSocketContext();
 	const mutes = useMutes();
 	const user = useUserContext();
-	const actors = useActorCache();
 	const notifications = useNotifications();
 	const { preferences, setNativeNotifications, setNotificationDefaultApplied } =
 		useUserPreferences();
+
+	const registerPush = (sub: WebPushSubscription | FcmSubscription) =>
+		sub.platform === "web"
+			? user.xrpc.push(colibri.notification.registerPush.main, {
+					body: {
+						provider: "webpush",
+						platform: "web",
+						endpoint: sub.endpoint,
+						p256dh: sub.keys.p256dh,
+						auth: sub.keys.auth,
+					},
+				})
+			: user.xrpc.push(colibri.notification.registerPush.main, {
+					body: { provider: "fcm", platform: "android", token: sub.token },
+				});
+
+	const unregisterPush = (endpointOrToken: string, provider?: string) =>
+		provider === "fcm"
+			? user.xrpc.push(colibri.notification.unregisterPush.main, {
+					body: { provider: "fcm", token: endpointOrToken },
+				})
+			: user.xrpc.push(colibri.notification.unregisterPush.main, {
+					body: { provider: "webpush", endpoint: endpointOrToken },
+				});
 
 	const reconcilePermission = async (): Promise<void> => {
 		const enabled = preferences().nativeNotifications;
@@ -95,17 +116,13 @@ export const NativeNotifications: Component = () => {
 
 		log.warn("notifications were turned off because permission was revoked");
 		setNativeNotifications(false);
-		await unregisterAllPush((endpoint, provider) =>
-			user.xrpc.social.colibri.notification.unregisterPush(endpoint, provider),
-		);
+		await unregisterAllPush(unregisterPush);
 	};
 
 	const reassertWebPushRegistration = async (): Promise<void> => {
 		if (!isWebRuntime() || !preferences().nativeNotifications) return;
 		if ((await getBackend().getPermission()) !== "granted") return;
-		await subscribeWebPush((sub) =>
-			user.xrpc.social.colibri.notification.registerPush(sub),
-		);
+		await subscribeWebPush(registerPush);
 	};
 
 	let fcmActive = false;
@@ -113,10 +130,8 @@ export const NativeNotifications: Component = () => {
 	const reassertFcmRegistration = async (): Promise<void> => {
 		if (!preferences().nativeNotifications) return;
 		if (!(await isAndroidTauriRuntime())) return;
-		fcmActive = await subscribeFcmPush(
-			(sub) => user.xrpc.social.colibri.notification.registerPush(sub),
-			(token) =>
-				user.xrpc.social.colibri.notification.unregisterPush(token, "fcm"),
+		fcmActive = await subscribeFcmPush(registerPush, (token) =>
+			unregisterPush(token, "fcm"),
 		);
 	};
 
@@ -183,39 +198,36 @@ export const NativeNotifications: Component = () => {
 		});
 
 		const cleanup = socket.onEvent((event) => {
-			if (event.type !== "notification_event" || !event.data) return;
+			if (event.$type !== "social.colibri.beta.sync.defs#notificationEvent") {
+				return;
+			}
 			if (fcmActive) return;
 			if (!preferences().nativeNotifications) return;
-			if (user.data.onlineState === "dnd") return;
-			if (mutes.isChannelMuted(event.data.channelUri)) return;
-			if (!isAppUnfocused()) return;
-			if (isStaleNotificationEvent(event.data.indexedAt)) return;
+			if (user.presence?.onlineState === "dnd") return;
 
-			const {
-				kind,
-				message,
-				mentionRoleName,
-				authorDid,
-				messageUri,
-				channelUri,
-			} = event.data;
-			const author = actors.resolve(authorDid);
+			const notification = event.notification;
+			if (mutes.isCommunityMuted(notification.community)) return;
+			if (mutes.isMuted(notification.author.did)) return;
+			if (!isAppUnfocused()) return;
+			if (isStaleNotificationEvent(notification.indexedAt)) return;
+
+			const author = notification.author;
 			const title =
-				author?.data.displayName ||
-				author?.handle ||
-				(kind === "reply"
+				author.displayName ||
+				author.handle ||
+				(notification.kind === "reply"
 					? "New reply"
-					: kind === "message"
+					: notification.kind === "message"
 						? "New message"
-						: mentionRoleName
-							? `Mentioned via @${mentionRoleName}`
+						: notification.mentionRole
+							? `Mentioned via @${notification.mentionRole}`
 							: "New mention");
 			const subtitle =
-				kind === "reply"
+				notification.kind === "reply"
 					? "Replied to you"
-					: mentionRoleName
-						? `Mentioned you via @${mentionRoleName}`
-						: kind === "mention"
+					: notification.mentionRole
+						? `Mentioned you via @${notification.mentionRole}`
+						: notification.kind === "mention"
 							? "Mentioned you"
 							: undefined;
 
@@ -223,10 +235,13 @@ export const NativeNotifications: Component = () => {
 				notify({
 					title,
 					subtitle,
-					body: message?.text || "You have a new notification.",
-					tag: messageUri,
+					body: notification.message?.text || "You have a new notification.",
+					tag: notification.message?.uri,
 					iconPath: await avatarPathFor(author),
-					data: { messageUri, channelUri },
+					data: {
+						messageUri: notification.message?.uri,
+						channelUri: notification.channel,
+					},
 				});
 			})();
 		});
@@ -257,7 +272,7 @@ export const NativeNotifications: Component = () => {
 		let cleanupActivation = () => {};
 		void listenForNativeActivation((activation) => {
 			notifications.openNotification({
-				channelUri: activation.channelUri,
+				channel: activation.channelUri,
 				messageUri: activation.messageUri,
 				indexedAt: new Date().toISOString(),
 			});

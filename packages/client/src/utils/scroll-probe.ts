@@ -15,7 +15,7 @@ const readFlag = (): boolean => {
 	}
 };
 
-let enabled = import.meta.env.DEV || readFlag();
+let enabled = readFlag();
 
 export const isScrollProbeEnabled = (): boolean => enabled;
 

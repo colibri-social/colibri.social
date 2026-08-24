@@ -11,7 +11,7 @@
  */
 
 import { AtpAgent } from "@atproto/api";
-import { LEXICON_DOCS } from "../src/utils/atproto/lexicons/index.ts";
+import { readColibriLexicons } from "./lexicon-source.ts";
 
 const pds = process.env.LEXICON_PDS;
 const handle = process.env.LEXICON_HANDLE;
@@ -30,7 +30,9 @@ await agent.login({ identifier: handle, password });
 
 console.info(`Logged in as ${agent.session?.did}\n`);
 
-for (const doc of LEXICON_DOCS) {
+const docs = await readColibriLexicons();
+
+for (const doc of docs) {
 	const rkey = doc.id;
 	const record = {
 		$type: "com.atproto.lexicon.schema",
@@ -69,4 +71,4 @@ for (const doc of LEXICON_DOCS) {
 	}
 }
 
-console.info(`\nDone. Published ${LEXICON_DOCS.length} lexicon(s).`);
+console.info(`\nDone. Published ${docs.length} lexicon(s).`);

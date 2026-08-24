@@ -1,0 +1,80 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.channel",
+	"defs": {
+		"main": {
+			"type": "record",
+			"description": "A channel's configuration. Lives at key 'self' in the channel's own space. The space type says whether it is a text or voice channel, and the space key is the channel's identity.",
+			"key": "literal:self",
+			"record": {
+				"type": "object",
+				"required": [
+					"name"
+				],
+				"properties": {
+					"name": {
+						"type": "string",
+						"minLength": 1,
+						"maxLength": 32,
+						"description": "The channel's name."
+					},
+					"description": {
+						"type": "string",
+						"maxLength": 256,
+						"description": "The channel's topic."
+					},
+					"ownerOnly": {
+						"type": "boolean",
+						"default": false,
+						"description": "Whether only community admins may post."
+					},
+					"allowedRoles": {
+						"type": "array",
+						"items": {
+							"type": "string",
+							"format": "record-key",
+							"description": "A role permitted to post."
+						},
+						"description": "Roles allowed to post here. Empty means no role restriction."
+					},
+					"allowedMembers": {
+						"type": "array",
+						"items": {
+							"type": "string",
+							"format": "did",
+							"description": "A member permitted to post."
+						},
+						"description": "Members allowed to post here in addition to allowedRoles."
+					},
+					"linkEmbeds": {
+						"type": "boolean",
+						"description": "Whether link previews are shown here. Absent means the community default."
+					},
+					"migratedFrom": {
+						"type": "string",
+						"format": "at-uri",
+						"description": "Set on a channel created by migrating a repo-backed community. Points at the legacy channel record whose history is served alongside this channel."
+					},
+					"visibleToRoles": {
+						"type": "array",
+						"description": "Roles that may read this channel. Empty or absent means every member may read it. A non-empty list makes the channel private: the community declines space credentials for it to anyone outside the list, so it is enforced by the protocol rather than only by a read handler.",
+						"items": {
+							"type": "string",
+							"format": "record-key",
+							"description": "A role permitted to read."
+						}
+					},
+					"visibleToMembers": {
+						"type": "array",
+						"description": "Members that may read this channel in addition to visibleToRoles.",
+						"items": {
+							"type": "string",
+							"format": "did",
+							"description": "A member permitted to read."
+						}
+					}
+				}
+			}
+		}
+	}
+}

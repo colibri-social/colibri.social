@@ -1,0 +1,98 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.permissionMessaging",
+	"defs": {
+		"main": {
+			"type": "permission-set",
+			"title": "Colibri messages",
+			"detail": "Read and post in the Colibri communities you belong to.",
+			"permissions": [
+				{
+					"type": "permission",
+					"resource": "space",
+					"spaceType": "social.colibri.beta.channel.text",
+					"authority": "*",
+					"collection": [
+						"social.colibri.beta.message",
+						"social.colibri.beta.reaction"
+					],
+					"action": [
+						"read",
+						"create",
+						"update",
+						"delete"
+					]
+				},
+				{
+					"type": "permission",
+					"resource": "space",
+					"spaceType": "social.colibri.beta.channel.voice",
+					"authority": "*",
+					"action": [
+						"read"
+					]
+				},
+				{
+					"type": "permission",
+					"resource": "space",
+					"spaceType": "social.colibri.beta.community.profile",
+					"authority": "*",
+					"action": [
+						"read"
+					]
+				},
+				{
+					"type": "permission",
+					"resource": "space",
+					"spaceType": "social.colibri.beta.community.configuration",
+					"authority": "*",
+					"action": [
+						"read"
+					]
+				},
+				{
+					"type": "permission",
+					"resource": "space",
+					"spaceType": "social.colibri.beta.community.members",
+					"authority": "*",
+					"action": [
+						"read"
+					]
+				},
+				{
+					"type": "permission",
+					"resource": "rpc",
+					"inheritAud": true,
+					"lxm": [
+						"social.colibri.beta.community.getCommunity",
+						"social.colibri.beta.community.join",
+						"social.colibri.beta.community.leave",
+						"social.colibri.beta.community.listCategories",
+						"social.colibri.beta.community.listChannels",
+						"social.colibri.beta.community.listMembers",
+						"social.colibri.beta.community.listRoles",
+						"social.colibri.beta.community.getInvitation",
+						"social.colibri.beta.channel.getChannel",
+						"social.colibri.beta.channel.listMessages",
+						"social.colibri.beta.channel.listReactions",
+						"social.colibri.beta.channel.listUnreadStatus",
+						"social.colibri.beta.channel.putReadCursors",
+						"social.colibri.beta.embed.getMetadata",
+						"social.colibri.beta.embed.searchGifs",
+						"social.colibri.beta.embed.trendingGifs",
+						"social.colibri.beta.embed.gifCategories",
+						"social.colibri.beta.blob.get"
+					]
+				},
+				{
+					"type": "permission",
+					"resource": "blob",
+					"accept": [
+						"image/*",
+						"video/*"
+					]
+				}
+			]
+		}
+	}
+}

@@ -117,6 +117,7 @@ describe("observeSession", () => {
 		noteAuthFailure("AuthRequired");
 		noteAuthFailure("AuthRequired");
 		const res = await observeSession(
+			"/xrpc/social.colibri.beta.actor.getProfile",
 			Promise.resolve(new Response("{}", { status: 200 })),
 		);
 		expect(res.status).toBe(200);
@@ -127,7 +128,10 @@ describe("observeSession", () => {
 	it("counts a 401 without swallowing the response", async () => {
 		const { observeSession, sessionDead } = await load();
 		const unauthorized = () =>
-			observeSession(Promise.resolve(new Response("", { status: 401 })));
+			observeSession(
+				"/xrpc/social.colibri.beta.actor.getProfile",
+				Promise.resolve(new Response("", { status: 401 })),
+			);
 		expect((await unauthorized()).status).toBe(401);
 		await unauthorized();
 		expect(sessionDead()).toBe(false);
@@ -139,7 +143,23 @@ describe("observeSession", () => {
 		const { observeSession, sessionDead } = await load();
 		const cause = new Error("session revoked");
 		cause.name = "TokenRevokedError";
-		await expect(observeSession(Promise.reject(cause))).rejects.toBe(cause);
+		await expect(
+			observeSession(
+				"/xrpc/social.colibri.beta.actor.getProfile",
+				Promise.reject(cause),
+			),
+		).rejects.toBe(cause);
 		expect(sessionDead()).toBe(true);
+	});
+
+	it("does not blame the session for a refused service-auth mint", async () => {
+		const { observeSession, sessionDead } = await load();
+		const refused = () =>
+			observeSession(
+				"/xrpc/com.atproto.server.getServiceAuth",
+				Promise.resolve(new Response("", { status: 401 })),
+			);
+		for (let i = 0; i < 5; i += 1) expect((await refused()).status).toBe(401);
+		expect(sessionDead()).toBe(false);
 	});
 });

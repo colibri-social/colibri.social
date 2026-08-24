@@ -1,22 +1,14 @@
-import type { ActorData } from "@colibri-social/lib";
 import { Show } from "solid-js";
-import { resolveBlob } from "../../../atproto/resolve-blob";
+import type { ProfileView } from "../../../atproto/views";
 import { cx } from "../../../utils/cva";
 
 const FALLBACK_AVATAR = "/user-placeholder.png";
 
-/**
- * User avatar, with optional status indicator.
- */
 export function Avatar(props: {
-	user: ActorData;
+	user: ProfileView;
+	nickname?: string;
 	size?: "small" | "base" | "large";
 	disableState?: boolean;
-	/**
-	 * Explicit image source, taking precedence over the resolved blob. Used to
-	 * preview a not-yet-uploaded avatar (e.g. a local object URL during
-	 * onboarding) where the actor has no stored blob ref yet.
-	 */
 	overrideSrc?: string;
 	class?: string;
 }) {
@@ -28,16 +20,8 @@ export function Avatar(props: {
 			)}
 		>
 			<img
-				src={
-					props.overrideSrc ||
-					resolveBlob(
-						props.user.did,
-						props.user.data.avatar,
-						props.size ?? "base",
-					) ||
-					FALLBACK_AVATAR
-				}
-				alt={props.user.data.displayName}
+				src={props.overrideSrc || props.user.avatar || FALLBACK_AVATAR}
+				alt={props.nickname || props.user.displayName}
 				onError={(e) => (e.currentTarget.src = FALLBACK_AVATAR)}
 				loading="lazy"
 				decoding="async"
@@ -45,14 +29,14 @@ export function Avatar(props: {
 				height={props.size === "small" ? 24 : props.size === "large" ? 80 : 40}
 				class={`rounded-full object-cover w-full h-full outline-card ${props.size === "small" ? "outline" : props.size === "large" ? "outline-4" : "outline-2"}`}
 			/>
-			<Show when={props.user.data?.onlineState && !props.disableState}>
+			<Show when={props.user.presence && !props.disableState}>
 				<div
 					class={`rounded-full absolute bottom-px right-px outline-background ${props.size === "small" ? "w-2 h-2 outline" : props.size === "large" ? "w-4 h-4 outline-4" : "w-2 h-2 outline-2"}`}
 					classList={{
-						"bg-green-500": props.user.data.onlineState === "online",
-						"bg-yellow-500": props.user.data.onlineState === "away",
-						"bg-red-500": props.user.data.onlineState === "dnd",
-						"bg-neutral-500": props.user.data.onlineState === "offline",
+						"bg-green-500": props.user.presence?.onlineState === "online",
+						"bg-yellow-500": props.user.presence?.onlineState === "away",
+						"bg-red-500": props.user.presence?.onlineState === "dnd",
+						"bg-neutral-500": props.user.presence?.onlineState === "offline",
 					}}
 				/>
 			</Show>

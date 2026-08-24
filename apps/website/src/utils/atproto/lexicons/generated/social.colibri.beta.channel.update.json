@@ -1,0 +1,128 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.channel.update",
+	"defs": {
+		"main": {
+			"type": "procedure",
+			"description": "Updates a channel's configuration. An absent field leaves the current value unchanged.",
+			"input": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"channel"
+					],
+					"properties": {
+						"channel": {
+							"type": "string",
+							"format": "space-ref",
+							"description": "The channel to update."
+						},
+						"name": {
+							"type": "string",
+							"minLength": 1,
+							"maxLength": 32,
+							"description": "The channel's name. Absent leaves the current value unchanged."
+						},
+						"description": {
+							"type": "string",
+							"maxLength": 256,
+							"description": "The channel's topic. Absent leaves the current value unchanged."
+						},
+						"category": {
+							"type": "string",
+							"format": "record-key",
+							"description": "The category to move the channel to. Absent leaves the current value unchanged."
+						},
+						"ownerOnly": {
+							"type": "boolean",
+							"description": "Whether only community admins may post. Absent leaves the current value unchanged."
+						},
+						"allowedRoles": {
+							"type": "array",
+							"items": {
+								"type": "string",
+								"format": "record-key",
+								"description": "A role permitted to post."
+							},
+							"description": "Roles allowed to post here. Absent leaves the current value unchanged."
+						},
+						"allowedMembers": {
+							"type": "array",
+							"items": {
+								"type": "string",
+								"format": "did",
+								"description": "A member permitted to post."
+							},
+							"description": "Members allowed to post here in addition to allowedRoles. Absent leaves the current value unchanged."
+						},
+						"linkEmbeds": {
+							"type": "boolean",
+							"description": "Whether link previews are shown here. Absent leaves the current value unchanged."
+						},
+						"visibleToRoles": {
+							"type": "array",
+							"description": "Roles that may read this channel. Empty means every member may.",
+							"items": {
+								"type": "string",
+								"format": "record-key",
+								"description": "A role."
+							}
+						},
+						"visibleToMembers": {
+							"type": "array",
+							"description": "Members that may read this channel beyond visibleToRoles.",
+							"items": {
+								"type": "string",
+								"format": "did",
+								"description": "A member."
+							}
+						}
+					}
+				}
+			},
+			"output": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"channel"
+					],
+					"properties": {
+						"channel": {
+							"type": "ref",
+							"ref": "social.colibri.beta.community.defs#channelView",
+							"description": "The channel, after the update."
+						}
+					}
+				}
+			},
+			"errors": [
+				{
+					"name": "AuthRequired",
+					"description": "The request has no valid service auth."
+				},
+				{
+					"name": "Forbidden",
+					"description": "The requesting user lacks the channel.update permission."
+				},
+				{
+					"name": "ChannelNotFound",
+					"description": "No channel matches the given space reference."
+				},
+				{
+					"name": "CategoryNotFound",
+					"description": "No category matches the given record key."
+				},
+				{
+					"name": "RoleHierarchy",
+					"description": "The requesting user cannot grant a role that outranks their own."
+				},
+				{
+					"name": "CredentialsUnavailable",
+					"description": "The AppView cannot act as the community because its stored credentials are missing or unusable."
+				}
+			]
+		}
+	}
+}

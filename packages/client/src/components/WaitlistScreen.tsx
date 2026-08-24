@@ -10,7 +10,7 @@ import { isAllowedDid } from "../atproto/allowlist";
 import {
 	type ActorTypeaheadResult,
 	searchActorsTypeahead,
-} from "../atproto/xrpc/app/bsky/actor/searchActorsTypeahead";
+} from "../atproto/bsky";
 import { useViewport, ViewportProvider } from "../contexts/Viewport";
 import { classifyThrown } from "../errors/classify";
 import { describeError } from "../errors/copy";

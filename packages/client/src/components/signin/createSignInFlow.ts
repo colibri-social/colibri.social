@@ -6,26 +6,30 @@ import {
 	beginSignInAttempt,
 	endSignInAttempt,
 	noteSignInHandle,
+	reportSignInFailure,
 	startOAuthSignIn,
 } from "../../atproto/auth";
+import {
+	type ActorTypeaheadResult,
+	searchActorsTypeahead,
+} from "../../atproto/bsky";
+import {
+	normalizeHandle,
+	pdsFaviconUrl,
+	resolveHandleToDid,
+	resolvePdsForDid,
+} from "../../atproto/identity";
 import {
 	type CallbackState,
 	classifyCallback,
 	readCallbackParams,
 } from "../../atproto/oauth-callback";
-import {
-	normalizeHandle,
-	resolveHandleToDid,
-} from "../../atproto/resolve-handle";
-import { pdsFaviconUrl, resolvePdsHost } from "../../atproto/resolve-pds";
 import { buildScopes } from "../../atproto/scopes";
-import {
-	type ActorTypeaheadResult,
-	searchActorsTypeahead,
-} from "../../atproto/xrpc/app/bsky/actor/searchActorsTypeahead";
+import { supportsSpaces } from "../../atproto/spaces-support";
 import { useAuthContext } from "../../contexts/Auth";
 import { classifyThrown } from "../../errors/classify";
 import type { ErrorCopy } from "../../errors/copy";
+import { isColibriError } from "../../errors/error";
 import { classifyOAuthParams, isSignInDenial } from "../../errors/oauth";
 import { showError } from "../../errors/show-error";
 import { getAppViewDid } from "../../utils/appview";
@@ -72,6 +76,12 @@ const NOT_ON_LIST: ErrorCopy = {
 const MISSING_HANDLE: ErrorCopy = {
 	title: "Enter your handle to continue.",
 	description: "For example alice.bsky.social.",
+};
+
+const PDS_WITHOUT_SPACES: ErrorCopy = {
+	title: "This account's host can't open private communities.",
+	description:
+		"Colibri needs a PDS that supports permissioned spaces. Ask your host to update, or use an account on one that already does.",
 };
 
 const showPrompt = (copy: ErrorCopy): void => {
@@ -237,10 +247,14 @@ export const createSignInFlow = (config: { mode?: SignInMode } = {}) => {
 			setIdentity(await lookupProfile(did, input));
 			goToStep("confirm");
 		} catch (err) {
+			const notFound = isColibriError(err) && err.code === "HandleNotFound";
+			const failure = notFound
+				? err
+				: await reportSignInFailure(err, input, "resolve-handle");
 			log.error("resolving the handle failed", {
-				code: classifyThrown(err).code,
+				code: classifyThrown(failure).code,
 			});
-			showFailure(err);
+			showFailure(failure);
 		} finally {
 			setBusy(false);
 		}
@@ -264,7 +278,14 @@ export const createSignInFlow = (config: { mode?: SignInMode } = {}) => {
 		setBusy(true);
 
 		try {
-			const host = await resolvePdsHost(account.did);
+			const host = await resolvePdsForDid(account.did);
+
+			if (host !== undefined && (await supportsSpaces(host)) === false) {
+				log.warn("the account's pds has no spaces support", { host });
+				showPrompt(PDS_WITHOUT_SPACES);
+				return;
+			}
+
 			setTarget(
 				host
 					? { host, icon: providerLogoForHost(host) ?? pdsFaviconUrl(host) }
@@ -276,12 +297,26 @@ export const createSignInFlow = (config: { mode?: SignInMode } = {}) => {
 		}
 	};
 
-	const chooseProvider = (picked: Provider) => {
+	const chooseProvider = async (picked: Provider) => {
 		if (busy()) return;
 
-		setProvider(picked);
-		setTarget({ host: picked.host, icon: picked.logo });
-		goToStep("handoff");
+		setBusy(true);
+
+		try {
+			if ((await supportsSpaces(picked.host)) === false) {
+				log.warn("the chosen provider has no spaces support", {
+					host: picked.host,
+				});
+				showPrompt(PDS_WITHOUT_SPACES);
+				return;
+			}
+
+			setProvider(picked);
+			setTarget({ host: picked.host, icon: picked.logo });
+			goToStep("handoff");
+		} finally {
+			setBusy(false);
+		}
 	};
 
 	const openProvider = async () => {

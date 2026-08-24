@@ -1,4 +1,4 @@
-import type { AT_URI, ColibriRichTextFacet } from "@colibri-social/lib";
+import type { ColibriRichTextFacet } from "@colibri-social/lib";
 import {
 	type Accessor,
 	batch,
@@ -20,8 +20,9 @@ import {
 	buildMessagesSnapshot,
 	isSnapshotPaintable,
 	reconcileFetchedWindow,
+	refOf,
 	restoreMessagesSnapshot,
-	rkeyOf,
+	sameRecord,
 	shouldWriteSnapshot,
 	snapshotAgeMs,
 	snapshotBelongsTo,
@@ -30,7 +31,7 @@ import {
 	offerSnapshotWindow,
 	registerOpenChannel,
 } from "../atproto/cache/messages-writer";
-import type { MessagesSnapshot } from "../atproto/cache/schema";
+import type { MessagesSnapshot, PendingMessage } from "../atproto/cache/schema";
 import {
 	createSnapshotScheduler,
 	realSnapshotClock,
@@ -41,46 +42,67 @@ import {
 	readMessages,
 	writeMessages,
 } from "../atproto/cache/store";
-import { takeChannelView } from "../atproto/channel-prefetch";
-import { communityUriToUrlCompatible } from "../atproto/community-uri-to-url-compatible";
+import { takeChannelMessages } from "../atproto/channel-prefetch";
+import {
+	asAtUri,
+	asDatetime,
+	asSpaceRef,
+	asUri,
+	COLLECTIONS,
+	colibri,
+} from "../atproto/lexicons";
 import { buildMessageRecord } from "../atproto/message-record";
 import {
-	enqueuePut,
+	enqueueSpaceCreate,
+	enqueueSpaceDelete,
+	enqueueSpacePut,
 	onOutboxSent,
 	outboxRevision,
 	queuedRecords,
 } from "../atproto/outbox/outbox";
-import { rehydrateQueuedMessages } from "../atproto/outbox/rehydrate";
-import { writeReadCursor } from "../atproto/read-cursor";
+import {
+	messageUriFor,
+	rehydrateQueuedMessages,
+} from "../atproto/outbox/rehydrate";
+import { nextTid } from "../atproto/outbox/tid";
+import { recordRead } from "../atproto/read-cursor";
+import { spaceSkey } from "../atproto/space-ref";
 import type {
-	Message,
-	PendingMessage,
-} from "../atproto/xrpc/social/colibri/channel/listMessages";
-import type { Channel } from "../atproto/xrpc/social/colibri/community/listChannels";
-import { isPingKind } from "../atproto/xrpc/social/colibri/notification/getUnseen";
+	LabelEventFrame,
+	MessageEventFrame,
+	ReactionEventFrame,
+	TypingEventFrame,
+} from "../atproto/sync-frames";
+import { typingFrame, viewChannelFrame } from "../atproto/sync-frames";
+import type {
+	AttachmentView,
+	ChannelView,
+	Facet,
+	MessageAttachment,
+	MessageRecord,
+	MessageView,
+	RecordRef,
+} from "../atproto/views";
+import { clientForManagingApp } from "../atproto/xrpc";
 import { trimWithFacets } from "../components/app/common/rich-text-renderer/util";
 import { classifyThrown } from "../errors/classify";
 import type { ColibriError } from "../errors/error";
+import { isPingKind } from "../notifications";
 import { getAppViewDid } from "../utils/appview";
-import { AtURI } from "../utils/at-uri";
 import { clearEditDraft } from "../utils/composer-drafts";
 import { createLogger } from "../utils/logger";
+import { foldLabelEvent } from "../utils/message-labels";
 import { insertAt, placeMessage } from "../utils/message-order";
 import { markBoot } from "../utils/perf";
 import { purify } from "../utils/purify";
 import { recordSpeakers } from "../utils/recent-speakers";
 import { probe, shortUri } from "../utils/switch-probe";
-import { useCommunityContext } from "./Community";
-import { canSendMessagesInChannel } from "./channel-permissions";
+import { useCommunityContext, usePermissions } from "./Community";
 import { createLoadSessions } from "./load-session";
+import { profileViewOf } from "./profile-view";
 import { useSocketContext } from "./Socket";
 import { useUserContext } from "./User";
 
-/**
- * How long a typing indicator stays active without a refreshing `start`
- * event before it auto-clears, in ms. A safety net in case a `stop` event
- * is dropped.
- */
 const TYPING_HOLD_MS = 5000;
 
 export const PAGE_SIZE = 50;
@@ -91,44 +113,52 @@ const CACHE_WRITE_DEBOUNCE_MS = 400;
 
 const CATCHUP_MIN_INTERVAL_MS = 1500;
 
-/**
- * How long a `focusedMessage` stays "set" before it auto-clears, in ms. The
- * auto-clear is what lets the same message be jumped to twice in a row — the
- * effect that scrolls into view sees the value change back to `undefined`
- * and then to the URI again.
- */
 const FOCUS_HOLD_MS = 2000;
 
-/**
- * Safety cap on `loadOlder()` iterations during `jumpToMessage`. Stops a
- * pathological case (bad URI, server bug) from running forever.
- */
 const JUMP_FETCH_CAP = 50;
 
+const MAX_UNREAD_STATUSES = 100;
+
+type Did = RecordRef["did"];
+
 export type UnseenEntry = {
-	uri: string;
+	uri: MessageView["uri"];
 	isPing: boolean;
 };
 
 export type LoadOlderHooks = {
-	prepare?: (messages: Array<Message>) => Promise<void>;
+	prepare?: (messages: Array<MessageView>) => Promise<void>;
 	onBeforePrepend?: () => void;
 	onAfterPrepend?: () => void;
 };
 
+export type SendMessageAttachment = {
+	record: MessageAttachment;
+	preview: AttachmentView;
+};
+
+export type SendMessageInput = {
+	text: string;
+	facets?: ReadonlyArray<ColibriRichTextFacet>;
+	parent?: MessageView;
+	attachments?: ReadonlyArray<SendMessageAttachment>;
+	suppressedEmbeds?: ReadonlyArray<string>;
+};
+
+export type MessageRecordPatch = {
+	text?: string;
+	facets?: ReadonlyArray<ColibriRichTextFacet>;
+	suppressedEmbeds?: ReadonlyArray<string>;
+	updatedAt?: string;
+};
+
 export type ChannelContextValue = {
-	/**
-	 * The full channel record (name, type, uri, category...) filtered out of
-	 * the community context by the layout wrapper. May be `undefined` for a
-	 * brief tick on mount, or if the route param doesn't match any channel
-	 * in the current community (e.g. stale link).
-	 */
-	data: Accessor<Channel | undefined>;
+	data: Accessor<ChannelView | undefined>;
 
 	linkEmbedsEnabled: Accessor<boolean>;
 	canSendMessages: Accessor<boolean>;
-	channelUri: Accessor<string>;
-	messages: Accessor<(Message | PendingMessage)[]>;
+	channelSpace: Accessor<string>;
+	messages: Accessor<(MessageView | PendingMessage)[]>;
 	hasMore: Accessor<boolean>;
 	loadingOlder: Accessor<boolean>;
 	initialLoading: Accessor<boolean>;
@@ -138,131 +168,67 @@ export type ChannelContextValue = {
 	snapshotAge: Accessor<number | undefined>;
 	hydratedFromNetwork: Accessor<boolean>;
 
-	/**
-	 * The message the user is currently composing a reply to, or `undefined`.
-	 * Held as a full `Message` record so the composer can render an inline
-	 * preview without a re-lookup. Persists across channel switches by
-	 * design — the composer is expected to clear it manually when sent.
-	 */
-	replyingTo: Accessor<Message | undefined>;
-	setReplyingTo: (message: Message) => void;
+	replyingTo: Accessor<MessageView | undefined>;
+	setReplyingTo: (message: MessageView) => void;
 	clearReplyingTo: () => void;
 
-	/**
-	 * The message the user is currently editing, or `undefined`. Persists
-	 * across channel switches.
-	 */
-	editingMessage: Accessor<Message | undefined>;
-	setEditingMessage: (message: Message) => void;
+	editingMessage: Accessor<MessageView | undefined>;
+	setEditingMessage: (message: MessageView) => void;
 	clearEditingMessage: () => void;
 	submitMessageEdit: (
 		text: string,
 		facets: ColibriRichTextFacet[],
 	) => Promise<boolean>;
 	cancelMessageEdit: () => void;
-	emptyEditPendingDeletion: Accessor<Message | undefined>;
+	emptyEditPendingDeletion: Accessor<MessageView | undefined>;
 	clearEmptyEditPendingDeletion: () => void;
 
-	/**
-	 * The URI of the message that should be scrolled into view + highlighted.
-	 * Auto-clears after `FOCUS_HOLD_MS`. Set via `jumpToMessage`, never via
-	 * a direct setter. The auto-clear is deliberate.
-	 */
 	focusedMessage: Accessor<string | undefined>;
-
-	/**
-	 * Sets `focusedMessage` to `uri`. If the message isn't in the loaded
-	 * `messages()` buffer, walks `loadOlder()` until it is (or until the
-	 * channel hits the top, or until `JUMP_FETCH_CAP` pages have loaded).
-	 * The actual scroll-into-view is the layout's responsibility — it
-	 * watches `focusedMessage()` in an effect.
-	 */
 	jumpToMessage: (uri: string) => Promise<void>;
 
-	// ---------------------------------------------------------------------------
-	// Optimistic message management
-	// ---------------------------------------------------------------------------
+	sendMessage: (input: SendMessageInput) => Promise<void>;
+	deleteMessage: (target: MessageView) => Promise<void>;
+	patchMessageRecord: (
+		target: MessageView,
+		patch: MessageRecordPatch,
+	) => Promise<boolean>;
 
-	/** Append a pending (grey) message to the bottom of the list. */
 	addPendingMessage: (msg: PendingMessage) => void;
-	/**
-	 * Replace the pending message identified by `hash` with its confirmed
-	 * AT-URI once the PDS responds. Removes the `hash` field so the row
-	 * re-renders as a regular confirmed message.
-	 */
-	confirmPendingMessage: (hash: string, confirmedUri: string) => void;
-	/** Remove a pending message (on send error). */
+	confirmPendingMessage: (hash: string, confirmed: MessageView) => void;
 	removePendingMessage: (hash: string) => void;
-	/** Remove a confirmed message by URI (deletion / block). */
 	removeMessage: (uri: string) => void;
-	/**
-	 * Update the stored text + facets of a message after a successful edit,
-	 * and set `edited: true` so the "(edited)" marker appears.
-	 */
 	updateMessageText: (
 		uri: string,
 		text: string,
 		facets: ColibriRichTextFacet[],
+		updatedAt: string,
 	) => void;
 
-	patchMessage: (uri: string, patch: Partial<Message>) => void;
-
-	// ---------------------------------------------------------------------------
-	// Optimistic reaction management
-	// ---------------------------------------------------------------------------
+	patchMessage: (uri: string, patch: Partial<MessageView>) => void;
 
 	addReactionOptimistic: (
-		messageUri: string,
+		target: RecordRef,
 		emoji: string,
-		reactorDid: string,
+		reactorDid: Did,
 	) => void;
 	removeReactionOptimistic: (
-		messageUri: string,
+		target: RecordRef,
 		emoji: string,
-		reactorDid: string,
+		reactorDid: Did,
 	) => void;
 
-	/**
-	 * Store the rkey returned by the PDS after creating a reaction so it can
-	 * be looked up when the user wants to remove the same reaction.
-	 */
-	cacheReactionRkey: (messageUri: string, emoji: string, rkey: string) => void;
-	getReactionRkey: (messageUri: string, emoji: string) => string | undefined;
+	cacheReactionRkey: (target: RecordRef, emoji: string, rkey: string) => void;
+	getReactionRkey: (target: RecordRef, emoji: string) => string | undefined;
 
-	// ---------------------------------------------------------------------------
-	// Real-time
-	// ---------------------------------------------------------------------------
-
-	/** DIDs of users currently typing in this channel (excludes self). */
 	typingUsers: Accessor<string[]>;
-	/**
-	 * Ping the AppView that the local user is typing in this channel. The
-	 * AppView broadcasts a `typing_event` to everyone viewing the channel;
-	 * receivers auto-clear after `TYPING_HOLD_MS`. Call repeatedly (throttled)
-	 * while the user is actively typing — there is no explicit "stop".
-	 */
 	sendTyping: () => void;
-	/**
-	 * Monotonic counter bumped whenever a message arrives from another user
-	 * via the socket. The layout watches this to decide whether to auto-scroll.
-	 */
 	newIncomingMessage: Accessor<number>;
-	/**
-	 * Monotonic counter bumped whenever the local user sends a message (a
-	 * pending message is appended). The layout watches this to scroll the
-	 * newly-sent message into view unconditionally.
-	 */
 	outgoingMessage: Accessor<number>;
 
-	/**
-	 * URI of the last message the current user has read in this channel.
-	 * Messages after this URI are "new" and a divider is shown above them.
-	 * `undefined` when there is no unread boundary (user is up-to-date).
-	 */
-	readCursorUri: Accessor<string | undefined>;
-	readCursorResolved: Accessor<boolean>;
+	unreadCursor: Accessor<string | undefined>;
+	unreadCursorResolved: Accessor<boolean>;
 	initialUnseen: Accessor<UnseenEntry[]>;
-	advanceReadCursor: (explicitUri?: string) => void;
+	advanceReadCursor: (explicitRkey?: string) => void;
 	clearUnreadBoundary: () => void;
 };
 
@@ -271,52 +237,44 @@ const log = createLogger("channel");
 export const ChannelContext = createContext<ChannelContextValue>();
 
 export const ChannelContextProvider: ParentComponent<{
-	channel: Accessor<Channel | undefined>;
+	channel: Accessor<ChannelView | undefined>;
 }> = (props) => {
 	const user = useUserContext();
 	const socket = useSocketContext();
 	const community = useCommunityContext();
+	const { canApplyLabel } = usePermissions();
 
 	const ns = () => namespace(getAppViewDid(), user.did);
+	const communityDid = () => community().community.did;
+	const managingClient = () =>
+		clientForManagingApp(user.atproto.agent, community().community.managingApp);
 
-	// The channel record is filtered out of the community context by the
-	// layout wrapper and passed in here. We derive the URI from it directly
-	// — no separate `buildChannelUri` helper is required anymore.
-	const channelUri = createMemo(() => props.channel()?.uri ?? "");
+	const channelSpace = createMemo(() => props.channel()?.space ?? "");
 
 	const linkEmbedsEnabled = createMemo(
 		() =>
 			props.channel()?.linkEmbeds ?? community().community.linkEmbeds ?? true,
 	);
 
-	const canSendMessages = createMemo(() =>
-		canSendMessagesInChannel({
-			channel: props.channel(),
-			memberRoles: community().members.find((m) => m.did === user.did)?.roles,
-			isCommunityOwner: community().ownerDid() === user.did,
-			userDid: user.did,
-		}),
+	const canSendMessages = createMemo(
+		() => props.channel()?.viewer.canPost ?? false,
 	);
 
-	// Messages are kept oldest-first so they render naturally top-to-bottom in
-	// the scroll container (newest at the visual bottom, like a chat). The
-	// server returns pages newest-first, so we reverse each page before
-	// prepending.
-	const [messages, setMessages] = createSignal<(Message | PendingMessage)[]>(
-		[],
-	);
-	// In-memory cache: messageUri → emoji → rkey. Populated when a reaction
-	// is created; consulted before the fallback listRecords call when removing.
+	const [messages, setMessages] = createSignal<
+		(MessageView | PendingMessage)[]
+	>([]);
 	const reactionRkeyCache = new Map<string, Map<string, string>>();
+	const refKey = (ref: RecordRef) => `${ref.did}:${ref.rkey}`;
+
 	const [cursor, setCursor] = createSignal<string | undefined>(undefined);
 	const [hasMore, setHasMore] = createSignal(true);
 	const [loadingOlder, setLoadingOlder] = createSignal(false);
 	const [initialLoading, setInitialLoading] = createSignal(true);
 	const [error, setError] = createSignal<ColibriError | undefined>(undefined);
-	const [readCursorUri, setReadCursorUri] = createSignal<string | undefined>(
+	const [unreadCursor, setUnreadCursor] = createSignal<string | undefined>(
 		undefined,
 	);
-	const [readCursorResolved, setReadCursorResolved] = createSignal(false);
+	const [unreadCursorResolved, setUnreadCursorResolved] = createSignal(false);
 	const [initialUnseen, setInitialUnseen] = createSignal<UnseenEntry[]>([]);
 	const [snapshotAge, setSnapshotAge] = createSignal<number | undefined>(
 		undefined,
@@ -325,17 +283,15 @@ export const ChannelContextProvider: ParentComponent<{
 	const [appliedRemoval, setAppliedRemoval] = createSignal(false);
 	let paintedAt: number | undefined;
 
-	// Reply / edit / focus state
-	const [replyingTo, setReplyingTo] = createSignal<Message | undefined>(
+	const [replyingTo, setReplyingTo] = createSignal<MessageView | undefined>(
 		undefined,
 		{ equals: false },
 	);
-	const [editingMessage, setEditingMessage] = createSignal<Message | undefined>(
-		undefined,
-		{ equals: false },
-	);
+	const [editingMessage, setEditingMessage] = createSignal<
+		MessageView | undefined
+	>(undefined, { equals: false });
 	const [emptyEditPendingDeletion, setEmptyEditPendingDeletion] = createSignal<
-		Message | undefined
+		MessageView | undefined
 	>(undefined, { equals: false });
 	const clearEmptyEditPendingDeletion = () =>
 		setEmptyEditPendingDeletion(undefined);
@@ -344,9 +300,6 @@ export const ChannelContextProvider: ParentComponent<{
 		{ equals: false },
 	);
 
-	// Outstanding `setTimeout` for the auto-clear on `focusedMessage`. We
-	// cancel it whenever a new jump comes in so a rapid second jump doesn't
-	// get prematurely cleared by the first one's pending timer.
 	let focusClearTimer: ReturnType<typeof setTimeout> | undefined;
 
 	const sessions = createLoadSessions<{ busy: boolean; lastViewAt: number }>(
@@ -363,8 +316,8 @@ export const ChannelContextProvider: ParentComponent<{
 			setLoadingOlder(false);
 			setInitialLoading(true);
 			setError(undefined);
-			setReadCursorUri(undefined);
-			setReadCursorResolved(false);
+			setUnreadCursor(undefined);
+			setUnreadCursorResolved(false);
 			setInitialUnseen([]);
 			setSnapshotAge(undefined);
 			setHydratedFromNetwork(false);
@@ -380,22 +333,50 @@ export const ChannelContextProvider: ParentComponent<{
 		});
 	};
 
+	const fetchUnreadCursor = async (
+		space: string,
+		signal: AbortSignal,
+	): Promise<string | undefined> => {
+		const did = communityDid();
+		if (!did) return undefined;
+		const res = await managingClient().call(
+			colibri.channel.listUnreadStatus.main,
+			{ params: { community: did, limit: MAX_UNREAD_STATUSES } },
+			{ signal },
+		);
+		if (!res.ok) return undefined;
+		return res.data.statuses.find((s) => s.channel === space)?.cursor;
+	};
+
+	const fetchUnseen = async (
+		space: string,
+		signal: AbortSignal,
+	): Promise<UnseenEntry[]> => {
+		const res = await user.xrpc.call(
+			colibri.notification.getUnseen.main,
+			{ params: { channel: space, limit: MAX_UNREAD_STATUSES } },
+			{ signal },
+		);
+		if (!res.ok) return [];
+		return res.data.notifications.flatMap((n) =>
+			n.message ? [{ uri: n.message.uri, isPing: isPingKind(n.kind) }] : [],
+		);
+	};
+
 	const loadOlder = async (hooks?: LoadOlderHooks): Promise<void> => {
 		const session = sessions.current();
 		if (!session || session.state.busy) return;
 		if (!hasMore()) return;
-		const uri = channelUri();
-		if (!uri) return;
+		const space = channelSpace();
+		if (!space) return;
 
 		session.state.busy = true;
 		setLoadingOlder(true);
 		try {
-			const res = await user.xrpc.social.colibri.channel.listMessages(
-				uri,
-				PAGE_SIZE,
-				cursor(),
-				undefined,
-				session.supersededSignal,
+			const res = await managingClient().call(
+				colibri.channel.listMessages.main,
+				{ params: { channel: space, limit: PAGE_SIZE, cursor: cursor() } },
+				{ signal: session.supersededSignal },
 			);
 
 			if (!sessions.isCurrent(session)) return;
@@ -413,8 +394,6 @@ export const ChannelContextProvider: ParentComponent<{
 				return;
 			}
 
-			// Server pages are newest-first; reverse to oldest-first for
-			// prepending so the merged array stays oldest→newest.
 			const olderChunk = [...fetched].reverse();
 			const existingUris = new Set(messages().map((m) => m.uri));
 			const novel = olderChunk.filter((m) => !existingUris.has(m.uri));
@@ -427,7 +406,7 @@ export const ChannelContextProvider: ParentComponent<{
 			batch(() => {
 				setMessages((prev) => [...novel, ...prev]);
 				const newOldest = olderChunk[0];
-				if (newOldest) setCursor(rkeyOf(newOldest.uri));
+				if (newOldest) setCursor(newOldest.rkey);
 				if (hitTop) setHasMore(false);
 			});
 			hooks?.onAfterPrepend?.();
@@ -449,30 +428,29 @@ export const ChannelContextProvider: ParentComponent<{
 	const loadInitial = async (): Promise<void> => {
 		const session = sessions.current();
 		if (!session) return;
-		const uri = channelUri();
-		if (!uri) return;
+		const space = channelSpace();
+		if (!space) return;
 
 		session.state.busy = true;
 		setLoadingOlder(true);
 
 		try {
-			const primed = takeChannelView(uri);
+			const primed = takeChannelMessages(space);
 			if (primed) markBoot("prefetch:consumed");
-			const view =
+			const result =
 				(await primed) ??
-				(await user.xrpc.social.colibri.channel.getChannelView(
-					uri,
-					PAGE_SIZE,
-					sessions.teardownSignal,
+				(await managingClient().call(
+					colibri.channel.listMessages.main,
+					{ params: { channel: space, limit: PAGE_SIZE } },
+					{ signal: sessions.teardownSignal },
 				));
 
-			if (!view.ok) {
-				if (sessions.isCurrent(session)) setError(view.error);
+			if (!result.ok) {
+				if (sessions.isCurrent(session)) setError(result.error);
 				return;
 			}
 
-			const channel = view.data;
-			const ordered = [...(channel?.messages ?? [])].reverse();
+			const ordered = [...(result.data?.messages ?? [])].reverse();
 
 			if (!sessions.isCurrent(session)) {
 				probe("loadInitial: diverted to cache", {
@@ -480,7 +458,7 @@ export const ChannelContextProvider: ParentComponent<{
 					rows: ordered.length,
 				});
 				offerSnapshotWindow(session.key, ordered, {
-					readCursor: channel?.readCursor?.cursor,
+					readCursor: undefined,
 					hasMore: ordered.length >= PAGE_SIZE,
 					limit: PAGE_SIZE,
 				});
@@ -488,7 +466,7 @@ export const ChannelContextProvider: ParentComponent<{
 			}
 
 			probe("loadInitial: applied", {
-				channel: shortUri(uri),
+				channel: shortUri(space),
 				viewBelongsTo: shortUri(ordered[0]?.channel),
 				rows: ordered.length,
 			});
@@ -501,20 +479,24 @@ export const ChannelContextProvider: ParentComponent<{
 				setError(undefined);
 				setMessages([...ordered, ...stillPending]);
 				const oldest = ordered[0];
-				if (oldest) setCursor(rkeyOf(oldest.uri));
+				if (oldest) setCursor(oldest.rkey);
 				setHasMore(ordered.length >= PAGE_SIZE);
-				setReadCursorUri(channel?.readCursor?.cursor);
-				setInitialUnseen(
-					(channel?.unseen ?? []).map((n) => ({
-						uri: n.messageUri,
-						isPing: isPingKind(n.kind),
-					})),
-				);
 				setHydratedFromNetwork(true);
 			});
 			session.state.lastViewAt = Date.now();
+
+			const [readCursor, unseen] = await Promise.all([
+				fetchUnreadCursor(space, sessions.teardownSignal),
+				fetchUnseen(space, sessions.teardownSignal),
+			]);
+			if (sessions.isCurrent(session)) {
+				batch(() => {
+					setUnreadCursor(readCursor);
+					setInitialUnseen(unseen);
+				});
+			}
 		} catch (err) {
-			const failure = classifyThrown(err, { method: "channel.getChannelView" });
+			const failure = classifyThrown(err, { method: "channel.listMessages" });
 			log.error("loadInitial failed", { code: failure.code });
 			if (sessions.isCurrent(session)) setError(failure);
 		} finally {
@@ -524,7 +506,7 @@ export const ChannelContextProvider: ParentComponent<{
 					setLoadingOlder(false);
 					setInitialLoading(false);
 				});
-				setReadCursorResolved(true);
+				setUnreadCursorResolved(true);
 			}
 		}
 	};
@@ -543,19 +525,17 @@ export const ChannelContextProvider: ParentComponent<{
 
 	const flushSnapshot = () => snapshotWrites.flush();
 
-	// Reset state and seed the first page whenever the channel URI changes
-	// (including the initial mount). `on` makes the dependency explicit.
 	createEffect(
-		on(channelUri, (uri) => {
-			probe("channelUri changed", {
-				to: shortUri(uri),
+		on(channelSpace, (space) => {
+			probe("channelSpace changed", {
+				to: shortUri(space),
 				listBelongsTo: shortUri(messages()[0]?.channel),
 				rows: messages().length,
 			});
 			flushSnapshot();
 			resetComposerTargets();
-			registerOpenChannel(uri);
-			if (!uri) {
+			registerOpenChannel(space);
+			if (!space) {
 				probe("channel went away, resetting", {
 					listBelongsTo: shortUri(messages()[0]?.channel),
 					rows: messages().length,
@@ -564,7 +544,7 @@ export const ChannelContextProvider: ParentComponent<{
 				reset();
 				return;
 			}
-			sessions.begin(uri);
+			sessions.begin(space);
 			reset();
 			probe("reset done", { rows: messages().length });
 			loadInitial();
@@ -575,13 +555,13 @@ export const ChannelContextProvider: ParentComponent<{
 		registerOpenChannel(undefined);
 	});
 
-	let scannedMessages: (Message | PendingMessage)[] | undefined;
+	let scannedMessages: (MessageView | PendingMessage)[] | undefined;
 
 	createEffect(() => {
 		const current = messages();
 		if (current === scannedMessages) return;
 		scannedMessages = current;
-		recordSpeakers(community().community.uri, current);
+		recordSpeakers(communityDid() ?? "", current);
 	});
 
 	createEffect(() => {
@@ -589,40 +569,40 @@ export const ChannelContextProvider: ParentComponent<{
 	});
 
 	createEffect(
-		on(channelUri, async (uri) => {
-			if (!cacheEnabled() || !uri) return;
+		on(channelSpace, async (space) => {
+			if (!cacheEnabled() || !space) return;
 			const session = sessions.current();
 			if (!session) return;
-			const cached = await readMessages(ns(), uri);
+			const cached = await readMessages(ns(), space);
 			if (!cached) {
-				probe("paint: nothing stored", { channel: shortUri(uri) });
+				probe("paint: nothing stored", { channel: shortUri(space) });
 				return;
 			}
-			if (!snapshotBelongsTo(cached, uri)) {
+			if (!snapshotBelongsTo(cached, space)) {
 				log.warn("discarded a cached snapshot that belongs elsewhere", {
-					channel: rkeyOf(uri),
-					stored: rkeyOf(cached.messages[0]?.channel ?? ""),
+					channel: shortUri(space),
+					stored: shortUri(cached.messages[0]?.channel ?? ""),
 				});
-				void deleteMessages(ns(), uri);
+				void deleteMessages(ns(), space);
 				return;
 			}
 			const age = snapshotAgeMs(cached, Date.now());
 			if (!isSnapshotPaintable(age)) return;
-			if (!sessions.isCurrent(session) || session.key !== uri) {
-				probe("paint: superseded", { channel: shortUri(uri) });
+			if (!sessions.isCurrent(session) || session.key !== space) {
+				probe("paint: superseded", { channel: shortUri(space) });
 				return;
 			}
 			if (hydratedFromNetwork()) return;
 			if (messages().length > 0) {
 				probe("paint: BLOCKED by existing rows", {
-					channel: shortUri(uri),
+					channel: shortUri(space),
 					listBelongsTo: shortUri(messages()[0]?.channel),
 					rows: messages().length,
 				});
 				return;
 			}
 			probe("paint applied", {
-				channel: shortUri(uri),
+				channel: shortUri(space),
 				snapshotBelongsTo: shortUri(cached.messages[0]?.channel),
 				rows: cached.messages.length,
 				ageMs: age,
@@ -633,7 +613,7 @@ export const ChannelContextProvider: ParentComponent<{
 				setMessages(cached.messages);
 				if (restored.cursor) setCursor(restored.cursor);
 				if (restored.hasMore !== undefined) setHasMore(restored.hasMore);
-				setReadCursorUri(cached.readCursor);
+				setUnreadCursor(cached.readCursor);
 				setSnapshotAge(age);
 				setInitialLoading(false);
 				markBoot("cache:paint");
@@ -642,19 +622,14 @@ export const ChannelContextProvider: ParentComponent<{
 	);
 
 	createEffect(() => {
-		const uri = channelUri();
+		const space = channelSpace();
 		outboxRevision();
-		if (!uri || initialLoading()) return;
+		if (!space || initialLoading()) return;
 		untrack(() => {
 			const reconciled = rehydrateQueuedMessages({
-				channelUri: uri,
-				community: community().community.uri,
-				author: {
-					did: user.did,
-					handle: user.handle.replaceAll("at://", ""),
-					data: user.data,
-				},
-				queued: queuedRecords("social.colibri.message"),
+				channelSpace: space,
+				author: profileViewOf(user),
+				queued: queuedRecords(COLLECTIONS.message),
 				existing: messages(),
 			});
 			if (reconciled) setMessages(reconciled);
@@ -662,24 +637,26 @@ export const ChannelContextProvider: ParentComponent<{
 	});
 
 	createEffect(() => {
-		const uri = channelUri();
+		const space = channelSpace();
 		const confirmed = messages().filter(
-			(m) =>
-				!("hash" in m) && m.uri.startsWith("at://") && belongsToChannel(m, uri),
+			(m): m is MessageView =>
+				!("hash" in m) &&
+				m.uri.startsWith("at://") &&
+				belongsToChannel(m, space),
 		);
 		const hydrated = hydratedFromNetwork();
 		const gate = {
 			cacheEnabled: cacheEnabled(),
-			channelUri: uri,
+			channelUri: space,
 			hydratedFromNetwork: hydrated,
 			appliedRemoval: appliedRemoval(),
 		};
 		if (!shouldWriteSnapshot(gate)) return;
 		snapshotWrites.schedule({
 			ns: ns(),
-			uri,
+			uri: space,
 			snap: buildMessagesSnapshot(confirmed, {
-				readCursor: readCursorUri(),
+				readCursor: unreadCursor(),
 				hasMore: hasMore(),
 				limit: PAGE_SIZE,
 				now: hydrated ? Date.now() : (paintedAt ?? Date.now()),
@@ -704,9 +681,6 @@ export const ChannelContextProvider: ParentComponent<{
 	const clearEditingMessage = () => setEditingMessage(undefined);
 
 	const jumpToMessage = async (uri: string): Promise<void> => {
-		// Walk `loadOlder()` until the target appears in the buffer (or we hit
-		// the top of the channel, or trip the safety cap). `loadOlder` itself
-		// is busy-guarded, so consecutive awaits serialize cleanly.
 		const session = sessions.current();
 		if (!session) return;
 
@@ -731,36 +705,24 @@ export const ChannelContextProvider: ParentComponent<{
 		}, FOCUS_HOLD_MS);
 	};
 
-	// ---------------------------------------------------------------------------
-	// Optimistic message helpers
-	// ---------------------------------------------------------------------------
-
 	const addPendingMessage = (msg: PendingMessage) => {
 		setMessages((prev) =>
 			prev.some((m) => m.uri === msg.uri)
 				? prev.map((m) => (m.uri === msg.uri ? msg : m))
 				: [...prev, msg],
 		);
-		setReadCursorUri(undefined);
 		setOutgoingMessage((n) => n + 1);
 	};
 
-	const confirmPendingMessage = (hash: string, confirmedUri: string) => {
+	const confirmPendingMessage = (hash: string, confirmed: MessageView) => {
 		setMessages((prev) =>
-			prev.map((m) => {
-				if ("hash" in m && (m as PendingMessage).hash === hash) {
-					// eslint-disable-next-line @typescript-eslint/no-unused-vars
-					const { hash: _h, ...rest } = m as PendingMessage;
-					return { ...rest, uri: confirmedUri } as Message;
-				}
-				return m;
-			}),
+			prev.map((m) => ("hash" in m && m.hash === hash ? confirmed : m)),
 		);
 	};
 
 	const removePendingMessage = (hash: string) => {
 		setMessages((prev) =>
-			prev.filter((m) => !("hash" in m && (m as PendingMessage).hash === hash)),
+			prev.filter((m) => !("hash" in m && m.hash === hash)),
 		);
 	};
 
@@ -778,17 +740,83 @@ export const ChannelContextProvider: ParentComponent<{
 		uri: string,
 		text: string,
 		facets: ColibriRichTextFacet[],
-		edited: boolean = true,
+		updatedAt: string,
 	) => {
+		const branded = asDatetime(updatedAt);
 		setMessages((prev) =>
-			prev.map((m) => (m.uri === uri ? { ...m, text, facets, edited } : m)),
+			prev.map((m) =>
+				m.uri === uri
+					? {
+							...m,
+							text,
+							facets: facets as unknown as Facet[],
+							updatedAt: branded,
+						}
+					: m,
+			),
 		);
 	};
 
-	const patchMessage = (uri: string, patch: Partial<Message>) => {
+	const patchMessage = (uri: string, patch: Partial<MessageView>) => {
 		setMessages((prev) =>
 			prev.map((m) => (m.uri === uri ? { ...m, ...patch } : m)),
 		);
+	};
+
+	const patchMessageRecord = async (
+		target: MessageView,
+		patch: MessageRecordPatch,
+	): Promise<boolean> => {
+		if (target.legacy) return false;
+		const space = channelSpace();
+		if (!space) return false;
+
+		try {
+			const current = await user.atproto.agent.com.atproto.space.getRecord({
+				space,
+				repo: user.did,
+				collection: COLLECTIONS.message,
+				rkey: target.rkey,
+			});
+			const existing = current.data.value as MessageRecord;
+			const record: MessageRecord = {
+				...existing,
+				...(patch.text !== undefined ? { text: patch.text } : {}),
+				...(patch.facets !== undefined
+					? {
+							facets:
+								patch.facets.length > 0
+									? (patch.facets as unknown as Facet[])
+									: undefined,
+						}
+					: {}),
+				...(patch.suppressedEmbeds !== undefined
+					? {
+							suppressedEmbeds:
+								patch.suppressedEmbeds.length > 0
+									? patch.suppressedEmbeds.map(asUri)
+									: undefined,
+						}
+					: {}),
+				...(patch.updatedAt !== undefined
+					? { updatedAt: asDatetime(patch.updatedAt) }
+					: {}),
+			};
+			await enqueueSpacePut(
+				space,
+				user.did,
+				COLLECTIONS.message,
+				target.rkey,
+				record,
+				{ label: "Failed to update message." },
+			);
+			return true;
+		} catch (err) {
+			log.error("patchMessageRecord failed", {
+				code: classifyThrown(err, { method: "space.getRecord" }).code,
+			});
+			return false;
+		}
 	};
 
 	const submitMessageEdit = async (
@@ -798,12 +826,11 @@ export const ChannelContextProvider: ParentComponent<{
 		const target = editingMessage();
 		if (!target) return false;
 
-		const rkey = AtURI.parseAtURI(target.uri).identifier;
 		const trimmed = trimWithFacets({ text, facets });
 		const cleanText = purify(trimmed.text);
 		const cleanFacets = trimmed.facets;
 
-		if (cleanText.length === 0 && (target.attachments ?? []).length === 0) {
+		if (cleanText.length === 0 && target.attachments.length === 0) {
 			clearEditDraft(target.uri);
 			clearEditingMessage();
 			setEmptyEditPendingDeletion(target);
@@ -812,31 +839,24 @@ export const ChannelContextProvider: ParentComponent<{
 
 		const originalText = target.text;
 		const originalFacets = target.facets;
-		const originalEdited = target.edited;
+		const originalUpdatedAt = target.updatedAt;
+		const updatedAt = new Date().toISOString();
 
-		updateMessageText(target.uri, cleanText, cleanFacets, true); // optimistic
+		updateMessageText(target.uri, cleanText, cleanFacets, updatedAt);
 		clearEditDraft(target.uri);
 		clearEditingMessage();
 
-		try {
-			await enqueuePut(
-				user.did,
-				"social.colibri.message",
-				rkey,
-				buildMessageRecord(target, {
-					text: cleanText,
-					facets: cleanFacets,
-					edited: true,
-				}),
-				{ label: "Failed to edit message." },
-			);
-		} catch {
-			updateMessageText(
-				target.uri,
-				originalText,
-				originalFacets,
-				originalEdited,
-			);
+		const ok = await patchMessageRecord(target, {
+			text: cleanText,
+			facets: cleanFacets,
+			updatedAt,
+		});
+		if (!ok) {
+			patchMessage(target.uri, {
+				text: originalText,
+				facets: originalFacets,
+				updatedAt: originalUpdatedAt,
+			});
 			setEditingMessage(target);
 			toast.error("Failed to edit message.");
 		}
@@ -850,21 +870,81 @@ export const ChannelContextProvider: ParentComponent<{
 		clearEditingMessage();
 	};
 
-	// ---------------------------------------------------------------------------
-	// Optimistic reaction helpers
-	// ---------------------------------------------------------------------------
+	const sendMessage = async (input: SendMessageInput): Promise<void> => {
+		const space = channelSpace();
+		if (!space) return;
+
+		const rkey = nextTid();
+		const createdAt = new Date().toISOString();
+		const parentRef: RecordRef | undefined = input.parent
+			? { did: input.parent.author.did, rkey: input.parent.rkey }
+			: undefined;
+
+		const record = buildMessageRecord({
+			text: input.text,
+			facets: input.facets as unknown as Facet[] | undefined,
+			createdAt,
+			parent: parentRef,
+			attachments: input.attachments?.map((a) => a.record),
+			suppressedEmbeds: input.suppressedEmbeds,
+		});
+
+		const pending: PendingMessage = {
+			hash: `outbox:${rkey}`,
+			uri: asAtUri(messageUriFor(user.did, rkey)),
+			channel: asSpaceRef(space),
+			author: profileViewOf(user),
+			text: input.text,
+			facets: (input.facets ?? []) as unknown as MessageView["facets"],
+			attachments: (input.attachments ?? []).map((a) => a.preview),
+			createdAt: asDatetime(createdAt),
+		};
+
+		addPendingMessage(pending);
+		advanceReadCursor(rkey);
+
+		try {
+			await enqueueSpaceCreate(space, user.did, COLLECTIONS.message, record, {
+				rkey,
+				label: "Failed to send message.",
+			});
+		} catch {
+			removePendingMessage(pending.hash);
+			toast.error("Failed to send message.");
+		}
+	};
+
+	const deleteMessage = async (target: MessageView): Promise<void> => {
+		if (target.legacy) return;
+		const space = channelSpace();
+		if (!space) return;
+		removeMessage(target.uri);
+		try {
+			await enqueueSpaceDelete(
+				space,
+				user.did,
+				COLLECTIONS.message,
+				target.rkey,
+				{
+					label: "Failed to delete message.",
+				},
+			);
+		} catch {
+			toast.error("Failed to delete message.");
+		}
+	};
 
 	const addReactionOptimistic = (
-		messageUri: string,
+		target: RecordRef,
 		emoji: string,
-		reactorDid: string,
+		reactorDid: Did,
 	) => {
 		setMessages((prev) =>
 			prev.map((m) => {
-				if (m.uri !== messageUri) return m;
+				if ("hash" in m || !sameRecord(m, target)) return m;
 				const existing = m.reactions.find((r) => r.emoji === emoji);
 				if (existing) {
-					if (existing.reactorDIDs.includes(reactorDid)) return m;
+					if (existing.reactors.includes(reactorDid)) return m;
 					return {
 						...m,
 						reactions: m.reactions.map((r) =>
@@ -872,7 +952,8 @@ export const ChannelContextProvider: ParentComponent<{
 								? {
 										...r,
 										count: r.count + 1,
-										reactorDIDs: [...r.reactorDIDs, reactorDid],
+										reactors: [...r.reactors, reactorDid],
+										...(reactorDid === user.did ? { viewerReacted: true } : {}),
 									}
 								: r,
 						),
@@ -882,7 +963,12 @@ export const ChannelContextProvider: ParentComponent<{
 					...m,
 					reactions: [
 						...m.reactions,
-						{ emoji, count: 1, reactorDIDs: [reactorDid] },
+						{
+							emoji,
+							count: 1,
+							reactors: [reactorDid],
+							...(reactorDid === user.did ? { viewerReacted: true } : {}),
+						},
 					],
 				};
 			}),
@@ -890,15 +976,15 @@ export const ChannelContextProvider: ParentComponent<{
 	};
 
 	const removeReactionOptimistic = (
-		messageUri: string,
+		target: RecordRef,
 		emoji: string,
-		reactorDid: string,
+		reactorDid: Did,
 	) => {
 		setMessages((prev) =>
 			prev.map((m) => {
-				if (m.uri !== messageUri) return m;
+				if ("hash" in m || !sameRecord(m, target)) return m;
 				const existing = m.reactions.find((r) => r.emoji === emoji);
-				if (!existing?.reactorDIDs.includes(reactorDid)) return m;
+				if (!existing?.reactors.includes(reactorDid)) return m;
 				return {
 					...m,
 					reactions: m.reactions
@@ -907,7 +993,10 @@ export const ChannelContextProvider: ParentComponent<{
 								? {
 										...r,
 										count: r.count - 1,
-										reactorDIDs: r.reactorDIDs.filter((d) => d !== reactorDid),
+										reactors: r.reactors.filter((d) => d !== reactorDid),
+										...(reactorDid === user.did
+											? { viewerReacted: false }
+											: {}),
 									}
 								: r,
 						)
@@ -918,26 +1007,19 @@ export const ChannelContextProvider: ParentComponent<{
 	};
 
 	const cacheReactionRkey = (
-		messageUri: string,
+		target: RecordRef,
 		emoji: string,
 		rkey: string,
 	) => {
-		if (!reactionRkeyCache.has(messageUri)) {
-			reactionRkeyCache.set(messageUri, new Map());
-		}
-		reactionRkeyCache.get(messageUri)!.set(emoji, rkey);
+		const key = refKey(target);
+		if (!reactionRkeyCache.has(key)) reactionRkeyCache.set(key, new Map());
+		reactionRkeyCache.get(key)!.set(emoji, rkey);
 	};
 
 	const getReactionRkey = (
-		messageUri: string,
+		target: RecordRef,
 		emoji: string,
-	): string | undefined => {
-		return reactionRkeyCache.get(messageUri)?.get(emoji);
-	};
-
-	// ---------------------------------------------------------------------------
-	// Real-time: typing indicators
-	// ---------------------------------------------------------------------------
+	): string | undefined => reactionRkeyCache.get(refKey(target))?.get(emoji);
 
 	const [typingUsers, setTypingUsers] = createSignal<string[]>([]);
 	const typingTimers = new Map<string, ReturnType<typeof setTimeout>>();
@@ -955,24 +1037,14 @@ export const ChannelContextProvider: ParentComponent<{
 		);
 	};
 
-	const removeTyping = (did: string) => {
-		const existing = typingTimers.get(did);
-		if (existing) {
-			clearTimeout(existing);
-			typingTimers.delete(did);
-		}
-		setTypingUsers((prev) => prev.filter((d) => d !== did));
-	};
-
 	const sendTyping = () => {
-		const uri = channelUri();
-		if (!uri) return;
-		socket.send({ type: "typing", data: { channel: uri } });
+		const space = channelSpace();
+		if (!space) return;
+		socket.send(typingFrame(space));
 	};
 
-	// Clear typing state when switching channels.
 	createEffect(
-		on(channelUri, () => {
+		on(channelSpace, () => {
 			typingTimers.forEach((t) => {
 				clearTimeout(t);
 			});
@@ -981,183 +1053,175 @@ export const ChannelContextProvider: ParentComponent<{
 		}),
 	);
 
-	// ---------------------------------------------------------------------------
-	// Real-time: incoming socket events
-	// ---------------------------------------------------------------------------
-
 	const [newIncomingMessage, setNewIncomingMessage] = createSignal(0);
 	const [outgoingMessage, setOutgoingMessage] = createSignal(0);
 
-	// Inform the AppView which channel the user is viewing (drives typing-event
-	// fan-out and read tracking on the server side). Re-sends whenever the
-	// socket (re)connects, not just when the channel changes — `socket.send`
-	// drops messages silently while the WebSocket isn't open yet, and the
-	// channel mounts well before the socket finishes its async handshake, so
-	// a channelUri-only effect would lose the very first "view" of a session.
 	createEffect(() => {
-		const uri = channelUri();
+		const space = channelSpace();
 		const isConnected = socket.connected();
-		if (!uri || !isConnected) return;
-		socket.send({ type: "view", data: { channel: uri } });
-		localStorage.setItem(
-			`${communityUriToUrlCompatible(community().community.uri as AT_URI<"social.colibri.community">)}:last-viewed`,
-			JSON.stringify({ type: props.channel()!.type, uri }),
-		);
+		if (!isConnected) return;
+		socket.send(viewChannelFrame(space || undefined));
+		const did = communityDid();
+		const channel = props.channel();
+		if (space && did && channel) {
+			localStorage.setItem(
+				`${did}:last-viewed`,
+				JSON.stringify({ uri: space, type: channel.type }),
+			);
+		}
 	});
 
-	const socketCleanup = socket.onEvent((event) => {
-		if (event.type === "message_event") {
-			const d = event.data;
-			if (!d) return;
-			if (d.channel && d.channel !== channelUri()) return;
+	const handleMessageEvent = (event: MessageEventFrame) => {
+		if (event.channel !== channelSpace()) return;
 
-			if (d.event === "delete") {
-				removeMessage(d.uri);
-				return;
-			}
+		if (event.event === "delete") {
+			const subject = event.subject;
+			if (!subject) return;
+			const target = messages().find(
+				(m) => !("hash" in m) && sameRecord(m, subject),
+			);
+			if (target) removeMessage(target.uri);
+			return;
+		}
 
-			if (d.event === "embeds") {
-				patchMessage(d.uri, { modSuppressedEmbeds: d.modSuppressedEmbeds });
-				return;
-			}
+		const incoming = event.message;
+		if (!incoming) return;
 
-			// Already have this message. A pending row shares the deterministic
-			// URI we assigned at send time — confirm it. Otherwise it's an edit
-			// from elsewhere (or an already-confirmed message) — apply the text.
-			const existing = messages().find((m) => m.uri === d.uri);
-			if (existing) {
-				if ("hash" in existing) {
-					confirmPendingMessage((existing as PendingMessage).hash, d.uri);
-				} else {
-					patchMessage(d.uri, {
-						text: d.text,
-						facets: d.facets ?? [],
-						edited: d.edited ?? false,
-						...(d.suppressedEmbeds !== undefined
-							? { suppressedEmbeds: d.suppressedEmbeds }
-							: {}),
-						...(d.modSuppressedEmbeds !== undefined
-							? { modSuppressedEmbeds: d.modSuppressedEmbeds }
-							: {}),
-					});
-				}
-				return;
-			}
+		const pendingHash = `outbox:${incoming.rkey}`;
+		const pending = messages().find(
+			(m) => "hash" in m && m.hash === pendingHash,
+		) as PendingMessage | undefined;
+		if (pending) {
+			confirmPendingMessage(pending.hash, incoming);
+			return;
+		}
 
-			// Fallback for any pending row without a URI match (e.g. legacy): our
-			// own message echoed back, matched by text + channel.
-			if (d.author.did === user.did) {
-				const pending = messages().find(
-					(m) => "hash" in m && m.text === d.text && m.channel === d.channel,
-				) as PendingMessage | undefined;
-				if (pending) confirmPendingMessage(pending.hash, d.uri);
-				return;
-			}
+		const existing = messages().find(
+			(m) => !("hash" in m) && sameRecord(m, refOf(incoming)),
+		);
+		if (existing) {
+			patchMessage(existing.uri, incoming);
+			return;
+		}
 
-			// New message from another user — author is fully hydrated on the event.
-			const parentMsg = d.parent
-				? (messages().find((m) => m.uri === d.parent) as
-						| Omit<Message, "parent">
-						| undefined)
-				: undefined;
+		if (event.event !== "create") return;
 
-			const newMsg: Message = {
-				uri: d.uri,
-				text: d.text,
-				facets: d.facets ?? [],
-				channel: d.channel,
-				community: community().community.uri,
-				author: d.author,
-				parent: parentMsg,
-				attachments: d.attachments ?? [],
-				reactions: [],
-				createdAt: d.createdAt,
-				edited: d.edited ?? false,
-				...(d.suppressedEmbeds !== undefined
-					? { suppressedEmbeds: d.suppressedEmbeds }
-					: {}),
-				...(d.modSuppressedEmbeds !== undefined
-					? { modSuppressedEmbeds: d.modSuppressedEmbeds }
-					: {}),
-			};
+		const placement = placeMessage(messages(), incoming, {
+			hasMore: hasMore(),
+		});
+		if (placement.kind === "drop") return;
 
-			const placement = placeMessage(messages(), newMsg, {
-				hasMore: hasMore(),
-			});
-			if (placement.kind === "drop") return;
-
-			batch(() => {
-				if (placement.kind === "append") {
-					setMessages((prev) => [...prev, newMsg]);
-					if (d.live !== false) setNewIncomingMessage((n) => n + 1);
-				} else {
-					setMessages((prev) => insertAt(prev, newMsg, placement.index));
-				}
-			});
-		} else if (event.type === "reaction_event") {
-			const d = event.data;
-			if (!d) return;
-			const reactorDid = AtURI.parseAtURI(d.uri).did;
-
-			if (d.event === "added") {
-				if (!d.target || !d.emoji) return;
-				if (d.channel && d.channel !== channelUri()) return;
-				addReactionOptimistic(d.target, d.emoji, reactorDid);
+		batch(() => {
+			if (placement.kind === "append") {
+				setMessages((prev) => [...prev, incoming]);
+				setNewIncomingMessage((n) => n + 1);
 			} else {
-				// `removed` now carries emoji + target; the guard is a harmless
-				// fallback for the rare cache-miss case where they're absent.
-				if (!d.target || !d.emoji) return;
-				if (d.channel && d.channel !== channelUri()) return;
-				removeReactionOptimistic(d.target, d.emoji, reactorDid);
+				setMessages((prev) => insertAt(prev, incoming, placement.index));
 			}
-		} else if (event.type === "typing_event") {
-			const d = event.data;
-			if (!d) return;
-			if (d.channel !== channelUri()) return;
-			if (d.did === user.did) return; // never show ourselves typing
-			if (d.event === "start") addTyping(d.did);
-			else removeTyping(d.did);
+		});
+	};
+
+	const handleReactionEvent = (event: ReactionEventFrame) => {
+		if (event.channel !== channelSpace()) return;
+		if (event.event === "create") {
+			addReactionOptimistic(event.target, event.emoji, event.actor);
+		} else {
+			removeReactionOptimistic(event.target, event.emoji, event.actor);
+		}
+	};
+
+	const handleLabelEvent = (event: LabelEventFrame) => {
+		if (event.space !== channelSpace()) return;
+
+		const target = messages().find(
+			(m) =>
+				!("hash" in m) &&
+				m.author.did === event.subject.did &&
+				m.rkey === event.subject.rkey,
+		) as MessageView | undefined;
+		if (!target) return;
+
+		const fold = foldLabelEvent(
+			target,
+			event,
+			{ did: user.did, canApplyLabel: canApplyLabel(user.did) },
+			() => new Date().toISOString(),
+		);
+
+		if (fold.kind === "remove") {
+			removeMessage(target.uri);
+		} else if (fold.kind === "update") {
+			patchMessage(target.uri, { labels: fold.labels });
+		}
+	};
+
+	const handleTypingEvent = (event: TypingEventFrame) => {
+		if (event.channel !== channelSpace()) return;
+		if (event.did === user.did) return;
+		addTyping(event.did);
+	};
+
+	const socketCleanup = socket.onEvent((event) => {
+		switch (event.$type) {
+			case "social.colibri.beta.sync.defs#messageEvent":
+				handleMessageEvent(event);
+				break;
+			case "social.colibri.beta.sync.defs#reactionEvent":
+				handleReactionEvent(event);
+				break;
+			case "social.colibri.beta.sync.defs#labelEvent":
+				handleLabelEvent(event);
+				break;
+			case "social.colibri.beta.sync.defs#typingEvent":
+				handleTypingEvent(event);
+				break;
+			default:
+				break;
 		}
 	});
 
 	const outboxCleanup = onOutboxSent(({ uri, collection }) => {
-		if (collection !== "social.colibri.message") return;
-		const pending = messages().find((m) => m.uri === uri && "hash" in m) as
+		if (collection !== COLLECTIONS.message) return;
+		const rkey = uri.slice(uri.lastIndexOf("/") + 1);
+		const hash = `outbox:${rkey}`;
+		const pending = messages().find((m) => "hash" in m && m.hash === hash) as
 			| PendingMessage
 			| undefined;
-		if (pending) confirmPendingMessage(pending.hash, uri);
+		if (!pending) return;
+		const { hash: _hash, ...rest } = pending;
+		const confirmed: MessageView = { ...rest, rkey, reactions: [], labels: [] };
+		setMessages((prev) => prev.map((m) => (m === pending ? confirmed : m)));
 	});
 
 	const catchUp = async (): Promise<void> => {
 		const session = sessions.current();
 		if (!session || session.state.busy) return;
-		const uri = channelUri();
-		if (!uri || initialLoading()) return;
+		const space = channelSpace();
+		if (!space || initialLoading()) return;
 		if (Date.now() - session.state.lastViewAt < CATCHUP_MIN_INTERVAL_MS) return;
 
 		session.state.busy = true;
 		try {
 			const prunable = new Set(messages().map((m) => m.uri));
 
-			const view = await user.xrpc.social.colibri.channel.getChannelView(
-				uri,
-				PAGE_SIZE,
-				sessions.teardownSignal,
+			const result = await managingClient().call(
+				colibri.channel.listMessages.main,
+				{ params: { channel: space, limit: PAGE_SIZE } },
+				{ signal: sessions.teardownSignal },
 			);
 
-			if (!view.ok) {
+			if (!result.ok) {
 				log.warn("catchUp could not reach the channel", {
-					code: view.error.code,
+					code: result.error.code,
 				});
 				return;
 			}
 
-			const channel = view.data;
-			const ordered = [...(channel?.messages ?? [])].reverse();
+			const ordered = [...(result.data?.messages ?? [])].reverse();
 
 			if (!sessions.isCurrent(session)) {
 				offerSnapshotWindow(session.key, ordered, {
-					readCursor: channel?.readCursor?.cursor,
+					readCursor: undefined,
 					hasMore: ordered.length >= PAGE_SIZE,
 					limit: PAGE_SIZE,
 				});
@@ -1193,19 +1257,23 @@ export const ChannelContextProvider: ParentComponent<{
 				if (appended) setNewIncomingMessage((n) => n + 1);
 				if (spansWholeHistory) {
 					const oldest = ordered[0];
-					if (oldest) setCursor(rkeyOf(oldest.uri));
+					if (oldest) setCursor(oldest.rkey);
 					setHasMore(false);
 				}
-				setReadCursorUri(channel?.readCursor?.cursor);
-				setInitialUnseen(
-					(channel?.unseen ?? []).map((n) => ({
-						uri: n.messageUri,
-						isPing: isPingKind(n.kind),
-					})),
-				);
 				setHydratedFromNetwork(true);
 			});
 			session.state.lastViewAt = Date.now();
+
+			const [readCursor, unseen] = await Promise.all([
+				fetchUnreadCursor(space, sessions.teardownSignal),
+				fetchUnseen(space, sessions.teardownSignal),
+			]);
+			if (sessions.isCurrent(session)) {
+				batch(() => {
+					setUnreadCursor(readCursor);
+					setInitialUnseen(unseen);
+				});
+			}
 		} catch (err) {
 			log.error("catchUp failed", {
 				code: classifyThrown(err).code,
@@ -1245,60 +1313,40 @@ export const ChannelContextProvider: ParentComponent<{
 		typingTimers.clear();
 	});
 
-	// ---------------------------------------------------------------------------
-	// Unread markers
-	// ---------------------------------------------------------------------------
+	const clearUnreadBoundary = () => setUnreadCursor(undefined);
 
-	/**
-	 * Clears the on-screen unread boundary (the "New messages" divider).
-	 */
-	const clearUnreadBoundary = () => setReadCursorUri(undefined);
+	const advanceReadCursor = (explicitRkey?: string) => {
+		const space = channelSpace();
+		if (!space) return;
+		const skey = spaceSkey(space);
+		if (!skey) return;
+		const did = communityDid();
+		if (!did) return;
 
-	let lastWrittenCursor: string | undefined;
-	createEffect(
-		on(channelUri, () => {
-			lastWrittenCursor = undefined;
-		}),
-	);
-
-	const messageRkey = (uri: string) => uri.slice(uri.lastIndexOf("/") + 1);
-
-	const advanceReadCursor = (explicitUri?: string) => {
-		const uri = channelUri();
-		if (!uri) return;
-
-		let newest = explicitUri;
+		let newest = explicitRkey;
 		if (!newest) {
-			// Newest confirmed (non-pending) message. Pending rows now carry a
-			// deterministic `at://` URI too, so detect them by the `hash` flag.
 			const msgs = messages();
 			for (let i = msgs.length - 1; i >= 0; i--) {
 				const m = msgs[i];
-				if (m && !("hash" in m) && m.uri.startsWith("at://")) {
-					newest = m.uri;
+				if (m && !("hash" in m)) {
+					newest = m.rkey;
 					break;
 				}
 			}
 		}
 
-		if (!newest || newest === lastWrittenCursor) return;
-		if (
-			lastWrittenCursor &&
-			messageRkey(newest) <= messageRkey(lastWrittenCursor)
-		) {
-			return;
-		}
-		lastWrittenCursor = newest;
-		void writeReadCursor(user.did, uri, newest).catch(() => {
-			if (lastWrittenCursor === newest) lastWrittenCursor = undefined;
-		});
+		if (!newest) return;
+		recordRead(did, skey, newest);
+		setUnreadCursor((current) =>
+			current === undefined || newest! > current ? newest : current,
+		);
 	};
 
 	const value: ChannelContextValue = {
 		data: () => props.channel(),
 		linkEmbedsEnabled,
 		canSendMessages,
-		channelUri,
+		channelSpace,
 		messages,
 		hasMore,
 		loadingOlder,
@@ -1319,6 +1367,9 @@ export const ChannelContextProvider: ParentComponent<{
 		clearEmptyEditPendingDeletion,
 		focusedMessage,
 		jumpToMessage,
+		sendMessage,
+		deleteMessage,
+		patchMessageRecord,
 		addPendingMessage,
 		confirmPendingMessage,
 		removePendingMessage,
@@ -1333,8 +1384,8 @@ export const ChannelContextProvider: ParentComponent<{
 		sendTyping,
 		newIncomingMessage,
 		outgoingMessage,
-		readCursorUri,
-		readCursorResolved,
+		unreadCursor,
+		unreadCursorResolved,
 		initialUnseen,
 		advanceReadCursor,
 		clearUnreadBoundary,

@@ -1,0 +1,73 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.voice.moderate",
+	"defs": {
+		"main": {
+			"type": "procedure",
+			"description": "Acts on someone in a voice channel. An absent field leaves the current value unchanged.",
+			"input": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"channel",
+						"subject"
+					],
+					"properties": {
+						"channel": {
+							"type": "string",
+							"format": "space-ref",
+							"description": "The voice channel the subject is in."
+						},
+						"subject": {
+							"type": "string",
+							"format": "did",
+							"description": "Who to act on."
+						},
+						"muted": {
+							"type": "boolean",
+							"description": "Whether the subject's microphone is muted. Absent leaves the current value unchanged."
+						},
+						"deafened": {
+							"type": "boolean",
+							"description": "Whether the subject cannot hear others. Absent leaves the current value unchanged."
+						},
+						"disconnect": {
+							"type": "boolean",
+							"description": "Whether to disconnect the subject from the channel."
+						}
+					}
+				}
+			},
+			"output": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"properties": {}
+				}
+			},
+			"errors": [
+				{
+					"name": "AuthRequired",
+					"description": "The request has no valid service auth."
+				},
+				{
+					"name": "Forbidden",
+					"description": "The requesting user lacks the voice.moderate permission."
+				},
+				{
+					"name": "ChannelNotFound",
+					"description": "No channel matches the given space reference."
+				},
+				{
+					"name": "NotInVoice",
+					"description": "The subject is not currently connected to the channel."
+				},
+				{
+					"name": "VoiceUnavailable",
+					"description": "This AppView has no voice SFU running."
+				}
+			]
+		}
+	}
+}

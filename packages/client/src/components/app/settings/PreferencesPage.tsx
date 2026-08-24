@@ -5,12 +5,10 @@ import {
 	BSKY_ALTERNATIVES,
 } from "../../../atproto/bluesky-alternatives";
 import { syncPreferredBadge } from "../../../atproto/preferred-badge";
-import { syncPresenceService } from "../../../atproto/presence";
 import { useUserContext } from "../../../contexts/User";
 import { useUserPreferences } from "../../../contexts/UserPreferences";
 import { showError } from "../../../errors/show-error";
 import { useExperiment } from "../../../experiments";
-import { openExternalLink } from "../../../utils/open-external-link";
 import { isDesktopNative } from "../../../utils/platform";
 import { type AppTheme, LIGHT_MODE_EXPERIMENT } from "../../../utils/theme";
 import { applyNativeDecorations } from "../../../utils/titlebar";
@@ -36,9 +34,6 @@ import {
 import { SettingsPage } from "../common/SettingsModal";
 import { Badge } from "../user/Badge";
 import { AppViewSwitcher } from "./AppViewSwitcher";
-
-const CROSS_APPVIEW_HELP_URL =
-	"https://colibri.social/docs/help/moderating-across-appviews";
 
 type ThemePreference = AppTheme | "system";
 type ThemeOption = { value: ThemePreference; label: string };
@@ -78,45 +73,19 @@ export const PreferencesPage: Component = () => {
 	]);
 	const selectedBadge = () =>
 		badgeOptions().find(
-			(option) => option.value === (user.data.preferredBadge ?? ""),
+			(option) => option.value === (user.preferredBadge ?? ""),
 		) ?? AUTOMATIC_BADGE;
 
 	const selectPreferredBadge = async (value: string) => {
 		const badge = value || undefined;
-		const previous = user.data?.preferredBadge;
-		user.updateActorData({ preferredBadge: badge });
+		const previous = user.preferredBadge;
+		user.updateProfile({ preferredBadge: badge });
 		try {
 			await syncPreferredBadge(user.atproto.agent, user.did, badge);
 		} catch (err) {
-			user.updateActorData({ preferredBadge: previous });
+			user.updateProfile({ preferredBadge: previous });
 			showError(err, { fallbackTitle: "Couldn't save your badge." });
 		}
-	};
-
-	const toggleSharePresence = async (enabled: boolean) => {
-		userPreferences.setSharePresence(enabled);
-		try {
-			await syncPresenceService(user.atproto.agent, user.did, enabled);
-		} catch (err) {
-			userPreferences.setSharePresence(!enabled);
-			showError(err, { fallbackTitle: "Couldn't change presence sharing." });
-			return;
-		}
-
-		if (enabled) return;
-
-		const id = toast.warning("You can no longer moderate across AppViews.", {
-			duration: 15_000,
-			description:
-				"Communities hosted on another AppView will stop accepting moderation actions from yours.",
-			action: {
-				label: "Undo",
-				onClick: () => {
-					toast.dismiss(id);
-					void toggleSharePresence(true);
-				},
-			},
-		});
 	};
 
 	const toggleNativeWindowDecorations = async (enabled: boolean) => {
@@ -273,38 +242,6 @@ export const PreferencesPage: Component = () => {
 				<SelectContent class="[&>ul]:m-0 [&>ul]:py-0 [&>ul]:px-2" />
 			</Select>
 			<AppViewSwitcher />
-			<Toggle
-				class="flex flex-row gap-4 items-center w-full justify-between shrink-0 mt-4"
-				checked={userPreferences.preferences().sharePresence}
-				onChange={toggleSharePresence}
-			>
-				<div>
-					<SwitchLabel>Share presence across AppViews</SwitchLabel>
-					<SwitchDescription>
-						When on, your online status and typing can reach members of your
-						communities who use a different AppView. This publishes which
-						AppView you use on your public profile, which is also what lets you
-						moderate communities hosted on another AppView.
-					</SwitchDescription>
-					<Show when={!userPreferences.preferences().sharePresence}>
-						<a
-							href={CROSS_APPVIEW_HELP_URL}
-							target="_blank"
-							rel="noopener"
-							class="hover:underline text-primary text-sm"
-							onClick={(e) => openExternalLink(CROSS_APPVIEW_HELP_URL, e)}
-						>
-							Why this stops you moderating some communities
-						</a>
-					</Show>
-				</div>
-				<div>
-					<SwitchInput />
-					<SwitchControl>
-						<SwitchThumb />
-					</SwitchControl>
-				</div>
-			</Toggle>
 			<Toggle
 				class="flex flex-row gap-4 items-center w-full justify-between shrink-0 mt-4"
 				checked={userPreferences.preferences().linkEmbedsByDefault}

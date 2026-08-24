@@ -1,4 +1,5 @@
-import type { ActorData } from "@colibri-social/lib";
+import { asDid } from "../../../../atproto/lexicons";
+import type { ProfileView } from "../../../../atproto/views";
 import { useActorCache } from "../../../../contexts/ActorCache";
 import { useCommunityContext } from "../../../../contexts/Community";
 import { displayableNameFn } from "../../../../utils/displayable-name";
@@ -10,7 +11,7 @@ export function emojiShortcode(emoji: string): string | undefined {
 	return aliasesForSlug(slug)[0] ?? slug;
 }
 
-export function useReactorResolver(): (did: string) => ActorData {
+export function useReactorResolver(): (did: string) => ProfileView {
 	const community = useCommunityContext();
 	const { resolve } = useActorCache();
 
@@ -18,15 +19,13 @@ export function useReactorResolver(): (did: string) => ActorData {
 		const bare = did.replaceAll("at://", "");
 
 		return (
-			community().utils.getMember(did) ??
+			community().utils.getMember(did)?.actor ??
 			resolve(did) ?? {
-				did,
-				handle: bare,
-				data: {
-					displayName: bare,
-					isBot: false,
-					onlineState: "offline",
-				},
+				did: asDid(did),
+				handle: "handle.invalid",
+				displayName: bare,
+				isBot: false,
+				syncBluesky: false,
 			}
 		);
 	};
@@ -34,7 +33,7 @@ export function useReactorResolver(): (did: string) => ActorData {
 
 export function reactedByLabel(
 	dids: Array<string>,
-	resolveActor: (did: string) => ActorData,
+	resolveActor: (did: string) => ProfileView,
 ): string {
 	const names = dids
 		.slice(0, 3)

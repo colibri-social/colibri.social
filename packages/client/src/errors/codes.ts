@@ -1,8 +1,51 @@
-import {
-	APPVIEW_CODE_DESCRIPTIONS,
-	type AppViewErrorCode,
-	isAppViewErrorCode,
-} from "./appview-codes";
+export type AppViewErrorCode =
+	| "ActorNotFound"
+	| "AlreadyBanned"
+	| "AlreadyExists"
+	| "AlreadyMember"
+	| "ApplicationNotFound"
+	| "AuthRequired"
+	| "Banned"
+	| "BlobNotFound"
+	| "CategoryNotFound"
+	| "ChannelNotFound"
+	| "CommunityNotFound"
+	| "CredentialsRejected"
+	| "CredentialsUnavailable"
+	| "Forbidden"
+	| "GifsNotConfigured"
+	| "IdentityMismatch"
+	| "ImageTooLarge"
+	| "InsufficientPermissions"
+	| "InvalidDelegationToken"
+	| "InvalidRequest"
+	| "InvitationNotFound"
+	| "LabelNotFound"
+	| "MemberNotFound"
+	| "MessageNotFound"
+	| "NotAMember"
+	| "NotAuthorized"
+	| "NotBanned"
+	| "NotFetchable"
+	| "NotFound"
+	| "NotInVoice"
+	| "PdsUnavailable"
+	| "PushNotConfigured"
+	| "RateLimited"
+	| "RoleHierarchy"
+	| "RoleNotFound"
+	| "RoleProtected"
+	| "SoleOwner"
+	| "SoleOwnerOfCommunity"
+	| "SpaceNotFound"
+	| "SpacesUnsupported"
+	| "UnsupportedImage"
+	| "UpstreamFailure"
+	| "VoiceUnavailable";
+
+export type SocketErrorCode = "InvalidFrame" | "NotJoined" | "NotVoiceChannel";
+
+export type LabelerErrorCode = "InvalidState" | "NotEnabled";
 
 export type ServerErrorCode = "InternalError";
 
@@ -53,6 +96,8 @@ export type ClientErrorCode = "MalformedResponse" | "Unexpected";
 
 export type ColibriErrorCode =
 	| AppViewErrorCode
+	| SocketErrorCode
+	| LabelerErrorCode
 	| ServerErrorCode
 	| TransportErrorCode
 	| SessionErrorCode
@@ -71,6 +116,62 @@ export type ErrorDomain =
 	| "voice"
 	| "storage"
 	| "client";
+
+const APPVIEW_CODES = new Set<string>([
+	"ActorNotFound",
+	"AlreadyBanned",
+	"AlreadyExists",
+	"AlreadyMember",
+	"ApplicationNotFound",
+	"AuthRequired",
+	"Banned",
+	"BlobNotFound",
+	"CategoryNotFound",
+	"ChannelNotFound",
+	"CommunityNotFound",
+	"CredentialsRejected",
+	"CredentialsUnavailable",
+	"Forbidden",
+	"GifsNotConfigured",
+	"IdentityMismatch",
+	"ImageTooLarge",
+	"InsufficientPermissions",
+	"InvalidDelegationToken",
+	"InvalidRequest",
+	"InvitationNotFound",
+	"LabelNotFound",
+	"MemberNotFound",
+	"MessageNotFound",
+	"NotAMember",
+	"NotAuthorized",
+	"NotBanned",
+	"NotFetchable",
+	"NotFound",
+	"NotInVoice",
+	"PdsUnavailable",
+	"PushNotConfigured",
+	"RateLimited",
+	"RoleHierarchy",
+	"RoleNotFound",
+	"RoleProtected",
+	"SoleOwner",
+	"SoleOwnerOfCommunity",
+	"SpaceNotFound",
+	"SpacesUnsupported",
+	"UnsupportedImage",
+	"UpstreamFailure",
+	"VoiceUnavailable",
+	"InvalidFrame",
+	"NotJoined",
+	"NotVoiceChannel",
+	"InvalidState",
+	"NotEnabled",
+]);
+
+export const isAppViewErrorCode = (
+	value: string,
+): value is AppViewErrorCode | SocketErrorCode | LabelerErrorCode =>
+	APPVIEW_CODES.has(value);
 
 const DOMAIN_BY_CODE: Partial<Record<ColibriErrorCode, ErrorDomain>> = {
 	InternalError: "appview",
@@ -107,6 +208,10 @@ const DOMAIN_BY_CODE: Partial<Record<ColibriErrorCode, ErrorDomain>> = {
 	VoiceJoinFailed: "voice",
 	VoiceConnectionLost: "voice",
 	VoiceStreamFailed: "voice",
+	NotJoined: "voice",
+	NotVoiceChannel: "voice",
+	NotInVoice: "voice",
+	VoiceUnavailable: "voice",
 
 	CacheUnavailable: "storage",
 	PreferencesUnavailable: "storage",
@@ -116,13 +221,13 @@ const DOMAIN_BY_CODE: Partial<Record<ColibriErrorCode, ErrorDomain>> = {
 	Unexpected: "client",
 };
 
-const NON_APPVIEW_CODES = Object.keys(
-	DOMAIN_BY_CODE,
-) as Array<ColibriErrorCode>;
+const NON_APPVIEW_CODES = (
+	Object.keys(DOMAIN_BY_CODE) as Array<ColibriErrorCode>
+).filter((code) => !APPVIEW_CODES.has(code));
 
 export const ALL_ERROR_CODES: ReadonlyArray<ColibriErrorCode> = [
-	...(Object.keys(APPVIEW_CODE_DESCRIPTIONS) as Array<ColibriErrorCode>),
-	...NON_APPVIEW_CODES.filter((code) => !(code in APPVIEW_CODE_DESCRIPTIONS)),
+	...([...APPVIEW_CODES].sort() as Array<ColibriErrorCode>),
+	...NON_APPVIEW_CODES,
 ];
 
 export const domainOf = (code: ColibriErrorCode): ErrorDomain =>
@@ -137,8 +242,6 @@ const RETRYABLE_CODES = new Set<ColibriErrorCode>([
 	"UpstreamFailure",
 	"PdsUnavailable",
 	"InternalError",
-	"TooManySubscribers",
-	"SfuError",
 	"VoiceConnectionLost",
 	"UploadFailed",
 ]);
@@ -149,6 +252,16 @@ export const isRetryableCode = (code: ColibriErrorCode): boolean =>
 export const GONE_CODES: ReadonlyArray<ColibriErrorCode> = [
 	"NotFound",
 	"Forbidden",
+	"CommunityNotFound",
+	"ChannelNotFound",
+	"MessageNotFound",
+	"MemberNotFound",
+	"CategoryNotFound",
+	"RoleNotFound",
+	"ActorNotFound",
+	"SpaceNotFound",
+	"InvitationNotFound",
+	"Banned",
 ];
 
 export const isGoneCode = (code: ColibriErrorCode): boolean =>
@@ -181,10 +294,3 @@ const UNREPORTED_CODES = new Set<ColibriErrorCode>([
 
 export const isReportableCode = (code: ColibriErrorCode): boolean =>
 	!UNREPORTED_CODES.has(code);
-
-export {
-	APPVIEW_CODE_DESCRIPTIONS,
-	APPVIEW_METHOD_ERRORS,
-	isAppViewErrorCode,
-} from "./appview-codes";
-export type { AppViewErrorCode };

@@ -1,17 +1,18 @@
-import type { XrpcClient } from "./xrpc";
-import type { EmbedMetadata } from "./xrpc/social/colibri/embed/getMetadata";
+import { colibri } from "./lexicons";
+import type { LinkEmbed } from "./views";
+import type { ColibriClient } from "./xrpc";
 
 const NEGATIVE_TTL_MS = 30_000;
 
-const resolved = new Map<string, EmbedMetadata>();
+const resolved = new Map<string, LinkEmbed>();
 const negativeUntil = new Map<string, number>();
-const inflight = new Map<string, Promise<EmbedMetadata | undefined>>();
+const inflight = new Map<string, Promise<LinkEmbed | undefined>>();
 
-export const peekMetadata = (uri: string): EmbedMetadata | undefined =>
+export const peekMetadata = (uri: string): LinkEmbed | undefined =>
 	resolved.get(uri);
 
 export const warmMetadata = async (
-	xrpc: XrpcClient,
+	xrpc: ColibriClient,
 	uris: Array<string>,
 ): Promise<void> => {
 	const pending = uris
@@ -23,9 +24,9 @@ export const warmMetadata = async (
 };
 
 export const getMetadataDeduped = (
-	xrpc: XrpcClient,
+	xrpc: ColibriClient,
 	uri: string,
-): Promise<EmbedMetadata | undefined> => {
+): Promise<LinkEmbed | undefined> => {
 	const hit = resolved.get(uri);
 	if (hit !== undefined) return Promise.resolve(hit);
 
@@ -38,15 +39,15 @@ export const getMetadataDeduped = (
 	const existing = inflight.get(uri);
 	if (existing) return existing;
 
-	const promise = xrpc.social.colibri.embed
-		.getMetadata(uri)
+	const promise = xrpc
+		.call(colibri.embed.getMetadata.main, { params: { uri } })
 		.then((result) => {
-			if (!result.ok || result.data === undefined) {
+			if (!result.ok || result.data?.embed === undefined) {
 				negativeUntil.set(uri, Date.now() + NEGATIVE_TTL_MS);
 				return undefined;
 			}
-			resolved.set(uri, result.data);
-			return result.data;
+			resolved.set(uri, result.data.embed);
+			return result.data.embed;
 		})
 		.catch(() => {
 			negativeUntil.set(uri, Date.now() + NEGATIVE_TTL_MS);

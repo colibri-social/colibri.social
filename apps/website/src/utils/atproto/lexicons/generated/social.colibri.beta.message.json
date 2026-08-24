@@ -1,0 +1,82 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.message",
+	"defs": {
+		"main": {
+			"type": "record",
+			"description": "A message in a channel. Lives in the author's own permissioned repo for the channel's space.",
+			"key": "tid",
+			"record": {
+				"type": "object",
+				"required": [
+					"text",
+					"createdAt"
+				],
+				"properties": {
+					"text": {
+						"type": "string",
+						"maxLength": 2048,
+						"description": "The message body."
+					},
+					"facets": {
+						"type": "array",
+						"items": {
+							"type": "ref",
+							"ref": "social.colibri.beta.richtext.facet"
+						},
+						"description": "Annotations over ranges of the text."
+					},
+					"createdAt": {
+						"type": "string",
+						"format": "datetime",
+						"description": "When the message was sent."
+					},
+					"updatedAt": {
+						"type": "string",
+						"format": "datetime",
+						"description": "When the message was last edited. Absent means never edited."
+					},
+					"parent": {
+						"type": "ref",
+						"ref": "social.colibri.beta.defs#recordRef",
+						"description": "The message this one replies to."
+					},
+					"attachments": {
+						"type": "array",
+						"items": {
+							"type": "ref",
+							"ref": "#attachment"
+						},
+						"description": "Files attached to this message."
+					},
+					"suppressedEmbeds": {
+						"type": "array",
+						"items": {
+							"type": "string",
+							"format": "uri"
+						},
+						"description": "URLs from this message's link facets whose preview the author chose not to show. Moderator suppression is a label instead."
+					}
+				}
+			}
+		},
+		"attachment": {
+			"type": "object",
+			"description": "A file attached to a message.",
+			"required": [
+				"blob"
+			],
+			"properties": {
+				"blob": {
+					"type": "blob",
+					"description": "The attached file."
+				},
+				"name": {
+					"type": "string",
+					"maxLength": 256,
+					"description": "The original filename."
+				}
+			}
+		}
+	}
+}

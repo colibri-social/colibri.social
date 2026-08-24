@@ -1,0 +1,35 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.category",
+	"defs": {
+		"main": {
+			"type": "record",
+			"description": "A named group of channels within a community.",
+			"key": "tid",
+			"record": {
+				"type": "object",
+				"required": [
+					"name",
+					"channelOrder"
+				],
+				"properties": {
+					"name": {
+						"type": "string",
+						"minLength": 1,
+						"maxLength": 32,
+						"description": "The category's name."
+					},
+					"channelOrder": {
+						"type": "array",
+						"items": {
+							"type": "string",
+							"format": "record-key",
+							"description": "The space key of a channel in this category."
+						},
+						"description": "The channels in this category, in display order, by space key."
+					}
+				}
+			}
+		}
+	}
+}

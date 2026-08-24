@@ -1,7 +1,7 @@
 import { createSortable, useDragDropContext } from "@thisbeyond/solid-dnd";
 import type { Component } from "solid-js";
-import type { Channel } from "../../../atproto/xrpc/social/colibri/community/listChannels";
 import { usePermissions } from "../../../contexts/Community";
+import type { Channel } from "../../../contexts/community-payload";
 import { useUserContext } from "../../../contexts/User";
 import {
 	Category,
@@ -11,16 +11,16 @@ import {
 
 export const SortableCategory: Component<{
 	category: CategoryWithChannels;
-	communityUri: string;
+	communityDid: string;
 	channelOrder: string[];
-	onChannelReorder: (categoryUri: string, newOrder: string[]) => void;
+	onChannelReorder: (categoryRkey: string, newOrder: string[]) => void;
 	injectedChannels: Channel[];
 	dropTarget: ChannelDropTarget | null;
-	onOpenChannelSettings: (channelUri: string) => void;
-	onOpenCategorySettings: (categoryUri: string) => void;
-	onOpenChannelCreation: (categoryUri: string) => void;
+	onOpenChannelSettings: (channelSpace: string) => void;
+	onOpenCategorySettings: (categoryRkey: string) => void;
+	onOpenChannelCreation: (categoryRkey: string) => void;
 }> = (props) => {
-	const sortable = createSortable(props.category.uri);
+	const sortable = createSortable(props.category.rkey);
 	const [, { onDragStart, onDragEnd: onDndDragEnd }] = useDragDropContext()!;
 	const user = useUserContext();
 	const { canUpdateCategory: _canUpdateCategory } = usePermissions();
@@ -29,7 +29,7 @@ export const SortableCategory: Component<{
 	let el: HTMLDivElement | undefined;
 
 	onDragStart(({ draggable }) => {
-		if (draggable.id === props.category.uri) {
+		if (draggable.id === props.category.rkey) {
 			el?.style.removeProperty("transition");
 		} else {
 			el?.style.setProperty("transition", "transform 200ms ease");
@@ -53,7 +53,7 @@ export const SortableCategory: Component<{
 			>
 				<Category
 					category={props.category}
-					communityUri={props.communityUri}
+					communityDid={props.communityDid}
 					activeDraggable={sortable.isActiveDraggable}
 					channelOrder={props.channelOrder}
 					onChannelReorder={props.onChannelReorder}

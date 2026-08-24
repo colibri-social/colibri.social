@@ -1,5 +1,5 @@
-import type { ActorData } from "@colibri-social/lib";
 import { type Component, Show } from "solid-js";
+import type { ProfileView } from "../../../atproto/views";
 import { useCommunityContext } from "../../../contexts/Community";
 import { cx } from "../../../utils/cva";
 import { displayableNameFn } from "../../../utils/displayable-name";
@@ -11,7 +11,8 @@ import { Badge } from "./Badge";
 export { displayableNameFn };
 
 export const DisplayableName: Component<{
-	user: ActorData;
+	user: ProfileView;
+	nickname?: string;
 	color?: boolean | string;
 	className?: string;
 	badge?: boolean;
@@ -20,8 +21,6 @@ export const DisplayableName: Component<{
 	const community = useCommunityContext();
 
 	const getTopMemberRoleColor = () => {
-		// getRolesForUser already excludes protected roles and is sorted by
-		// position (highest first), so the first coloured role wins.
 		const rolesForUser = community().utils.getRolesForUser(props.user.did);
 
 		return rolesForUser.find((x) => typeof x.color !== "undefined")?.color;
@@ -56,7 +55,7 @@ export const DisplayableName: Component<{
 					"group-hover/name:underline": props.underlineOnHover,
 				}}
 			>
-				{displayableNameFn(props.user)}
+				{displayableNameFn(props.user, props.nickname)}
 			</span>
 			<Show when={primary() && badgeVisible()}>
 				<Badge val={primary()!} size="xs" />

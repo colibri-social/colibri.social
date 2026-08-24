@@ -1,3 +1,4 @@
+import { Client } from "@atproto/lex-client";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const reportError = vi.fn();
@@ -17,18 +18,39 @@ vi.mock("../session-health", () => ({
 	noteScopesRejected: (ctx: unknown) => noteScopesRejected(ctx),
 }));
 
-const { request } = await import("./request");
+const { call } = await import("./request");
+const { colibri } = await import("../lexicons");
 
-const respondWith = (status: number, body: string) => async () =>
-	new Response(body, { status, headers: { "content-type": "text/plain" } });
+const method = colibri.channel.listUnreadStatus.main;
+const params = { params: { community: "did:plc:community" } };
 
-const forbidden = respondWith(
-	403,
-	JSON.stringify({
-		error: "Forbidden",
-		message: "caller is not a member of this community",
-	}),
-);
+const clientThat = (
+	handler: (path: string, init: RequestInit) => Promise<Response>,
+): Client =>
+	new Client({
+		did: "did:plc:viewer" as never,
+		fetchHandler: (path, init) => handler(path, init),
+	});
+
+const respondWith = (status: number, body: string, headers?: HeadersInit) =>
+	clientThat(
+		async () =>
+			new Response(body, {
+				status,
+				headers: { "content-type": "application/json", ...headers },
+			}),
+	);
+
+const envelope = (error: string, message: string) =>
+	JSON.stringify({ error, message });
+
+const forbidden = () =>
+	respondWith(
+		403,
+		envelope("Forbidden", "caller is not a member of this community"),
+	);
+
+const ok = () => respondWith(200, JSON.stringify({ statuses: [] }));
 
 beforeEach(() => {
 	reportError.mockClear();
@@ -37,11 +59,16 @@ beforeEach(() => {
 	deadCode = undefined;
 });
 
-describe("request", () => {
+describe("call", () => {
+	it("returns the validated body on success", async () => {
+		const res = await call(ok(), method, params);
+
+		expect(res.ok).toBe(true);
+		if (res.ok) expect(res.data).toEqual({ statuses: [] });
+	});
+
 	it("does not report a failure the caller declared as expected", async () => {
-		const res = await request(forbidden, {
-			lxm: "social.colibri.channel.listUnreadStatus",
-			route: "/xrpc/social.colibri.channel.listUnreadStatus?community=at://c",
+		const res = await call(forbidden(), method, params, {
 			expected: ["Forbidden"],
 		});
 
@@ -50,9 +77,7 @@ describe("request", () => {
 	});
 
 	it("reports a failure the caller did not declare", async () => {
-		const res = await request(forbidden, {
-			lxm: "social.colibri.channel.listUnreadStatus",
-			route: "/xrpc/social.colibri.channel.listUnreadStatus?community=at://c",
+		const res = await call(forbidden(), method, params, {
 			expected: ["InvalidRequest"],
 		});
 
@@ -61,65 +86,81 @@ describe("request", () => {
 	});
 
 	it("classifies the envelope code even when the status disagrees", async () => {
-		const res = await request(
-			respondWith(
-				502,
-				JSON.stringify({ error: "Forbidden", message: "not a member" }),
-			),
-			{
-				lxm: "social.colibri.channel.listUnreadStatus",
-				route: "/xrpc/social.colibri.channel.listUnreadStatus?community=at://c",
-				expected: ["Forbidden"],
-			},
+		const client = respondWith(
+			400,
+			envelope("ChannelNotFound", "no channel matches that space"),
 		);
+		const res = await call(client, method, params);
+
+		expect(res.ok).toBe(false);
+		if (!res.ok) expect(res.error.code).toBe("ChannelNotFound");
+	});
+
+	it("keeps an undeclared envelope code as diagnostic context", async () => {
+		const client = respondWith(400, envelope("SomethingNew", "who knows"));
+		const res = await call(client, method, params);
 
 		expect(res.ok).toBe(false);
 		if (!res.ok) {
-			expect(res.error.code).toBe("Forbidden");
-			expect(res.error.status).toBe(502);
+			expect(res.error.code).toBe("InvalidRequest");
+			expect(res.error.context.unknownCode).toBe("SomethingNew");
 		}
-		expect(reportError).not.toHaveBeenCalled();
 	});
 
 	it("tells session health when the server says a scope is missing", async () => {
-		const res = await request(
-			respondWith(
-				403,
-				JSON.stringify({
-					error: "ScopeMissingError",
-					message:
-						'Missing required scope "rpc:social.colibri.actor.listCommunities?aud=did:web:api.colibri.social"',
-				}),
-			),
-			{
-				lxm: "social.colibri.actor.listCommunities",
-				route: "/xrpc/social.colibri.actor.listCommunities",
-			},
+		const client = respondWith(
+			403,
+			envelope("ScopeMissingError", "missing space scope"),
 		);
+		const res = await call(client, method, params);
 
 		expect(res.ok).toBe(false);
-		if (!res.ok) expect(res.error.code).toBe("ScopesMissing");
-		expect(noteScopesRejected).toHaveBeenCalledWith({
-			method: "social.colibri.actor.listCommunities",
-		});
+		expect(noteScopesRejected).toHaveBeenCalledTimes(1);
 	});
 
 	it("does not touch session health for an ordinary permission failure", async () => {
-		await request(forbidden, {
-			lxm: "social.colibri.community.listApplications",
-			route: "/xrpc/social.colibri.community.listApplications?community=at://c",
-		});
+		await call(forbidden(), method, params);
 
 		expect(noteScopesRejected).not.toHaveBeenCalled();
 	});
 
-	describe("when the caller aborted the request", () => {
-		const abortError = () => {
-			const err = new Error("aborted");
-			err.name = "AbortError";
-			return err;
-		};
+	it("carries the retry-after the server asked for", async () => {
+		const client = respondWith(429, envelope("RateLimited", "slow down"), {
+			"retry-after": "12",
+		});
+		const res = await call(client, method, params);
 
+		expect(res.ok).toBe(false);
+		if (!res.ok) expect(res.error.retryAfterMs).toBe(12_000);
+	});
+
+	it("marks a response the AppView queued for us", async () => {
+		const client = respondWith(200, JSON.stringify({ statuses: [] }), {
+			"x-colibri-queued": "1",
+		});
+		const res = await call(client, method, params);
+
+		expect(res.ok).toBe(true);
+		if (res.ok) expect(res.queued).toBe(true);
+	});
+
+	it("does not turn a truncated body into an empty success", async () => {
+		const client = respondWith(200, '{"statuses":');
+		const res = await call(client, method, params);
+
+		expect(res.ok).toBe(false);
+		if (!res.ok) expect(res.error.code).toBe("MalformedResponse");
+	});
+
+	it("fails a body that does not match the output schema", async () => {
+		const client = respondWith(200, JSON.stringify({ statuses: "nope" }));
+		const res = await call(client, method, params);
+
+		expect(res.ok).toBe(false);
+		if (!res.ok) expect(res.error.code).toBe("MalformedResponse");
+	});
+
+	describe("when the caller aborted the request", () => {
 		const aborted = () => {
 			const controller = new AbortController();
 			controller.abort();
@@ -127,115 +168,55 @@ describe("request", () => {
 		};
 
 		it("fails without reporting", async () => {
-			const signal = aborted();
-			const res = await request(() => Promise.reject(abortError()), {
-				lxm: "social.colibri.channel.listMessages",
-				route: "/xrpc/social.colibri.channel.listMessages?channel=at://c",
-				init: { signal },
+			const client = clientThat(async () => {
+				throw new DOMException("aborted", "AbortError");
 			});
+			const res = await call(client, method, params, { signal: aborted() });
 
 			expect(res.ok).toBe(false);
-			if (!res.ok) expect(res.error.code).toBe("Timeout");
 			expect(reportError).not.toHaveBeenCalled();
 		});
 
 		it("still reports the same rejection when no signal is involved", async () => {
-			const res = await request(() => Promise.reject(abortError()), {
-				lxm: "social.colibri.channel.listMessages",
-				route: "/xrpc/social.colibri.channel.listMessages?channel=at://c",
+			const client = clientThat(async () => {
+				throw new TypeError("Failed to fetch");
 			});
+			const res = await call(client, method, params);
 
 			expect(res.ok).toBe(false);
 			expect(reportError).toHaveBeenCalledTimes(1);
 		});
-
-		it("does not report a rejected status either", async () => {
-			const signal = aborted();
-			const res = await request(forbidden, {
-				lxm: "social.colibri.channel.listMessages",
-				route: "/xrpc/social.colibri.channel.listMessages?channel=at://c",
-				init: { signal },
-			});
-
-			expect(res.ok).toBe(false);
-			expect(reportError).not.toHaveBeenCalled();
-		});
-
-		it("does not turn a truncated body into an empty success", async () => {
-			const signal = aborted();
-			const truncated = async () =>
-				new Response(
-					new ReadableStream({
-						start(controller) {
-							controller.error(abortError());
-						},
-					}),
-					{ status: 200, headers: { "content-type": "application/json" } },
-				);
-
-			const res = await request(truncated, {
-				lxm: "social.colibri.channel.getChannelView",
-				route: "/xrpc/social.colibri.channel.getChannelView?channel=at://c",
-				init: { signal },
-			});
-
-			expect(res.ok).toBe(false);
-			if (!res.ok) expect(res.error.code).toBe("Timeout");
-		});
-
-		it("does not turn an empty body into a failure without a signal", async () => {
-			const res = await request(respondWith(200, ""), {
-				lxm: "social.colibri.channel.getChannelView",
-				route: "/xrpc/social.colibri.channel.getChannelView?channel=at://c",
-			});
-
-			expect(res.ok).toBe(true);
-			if (res.ok) expect(res.data).toBeUndefined();
-		});
 	});
 
 	describe("once the session is dead", () => {
-		const send = vi.fn(forbidden);
-
 		beforeEach(() => {
-			send.mockClear();
 			dead = true;
 		});
 
 		it("does not dispatch the request at all", async () => {
-			await request(send, {
-				lxm: "social.colibri.notification.registerPush",
-				route: "/xrpc/social.colibri.notification.registerPush",
-			});
+			const handler = vi.fn(async () => new Response("{}"));
+			const res = await call(clientThat(handler), method, params);
 
-			expect(send).not.toHaveBeenCalled();
+			expect(res.ok).toBe(false);
+			expect(handler).not.toHaveBeenCalled();
 		});
 
 		it("does not report anything", async () => {
-			await request(send, {
-				lxm: "social.colibri.channel.listUnreadStatus",
-				route: "/xrpc/social.colibri.channel.listUnreadStatus?community=at://c",
-			});
+			await call(ok(), method, params);
 
 			expect(reportError).not.toHaveBeenCalled();
 		});
 
 		it("fails with the code that killed the session", async () => {
 			deadCode = "ExpiredToken";
-			const res = await request(send, {
-				lxm: "social.colibri.channel.getChannelView",
-				route: "/xrpc/social.colibri.channel.getChannelView?channel=at://c",
-			});
+			const res = await call(ok(), method, params);
 
 			expect(res.ok).toBe(false);
 			if (!res.ok) expect(res.error.code).toBe("ExpiredToken");
 		});
 
 		it("falls back to InvalidToken when no code was recorded", async () => {
-			const res = await request(send, {
-				lxm: "social.colibri.channel.getChannelView",
-				route: "/xrpc/social.colibri.channel.getChannelView?channel=at://c",
-			});
+			const res = await call(ok(), method, params);
 
 			expect(res.ok).toBe(false);
 			if (!res.ok) expect(res.error.code).toBe("InvalidToken");

@@ -1,0 +1,45 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.actor.getDeletionStatus",
+	"defs": {
+		"main": {
+			"type": "query",
+			"description": "Gets what would happen if the requesting user deleted their account.",
+			"output": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"records",
+						"notifications",
+						"soleOwnedCommunities"
+					],
+					"properties": {
+						"records": {
+							"type": "integer",
+							"description": "How many indexed records would be removed."
+						},
+						"notifications": {
+							"type": "integer",
+							"description": "How many notifications would be removed."
+						},
+						"soleOwnedCommunities": {
+							"type": "array",
+							"description": "Communities the user solely owns, which block deletion until transferred or deleted.",
+							"items": {
+								"type": "ref",
+								"ref": "social.colibri.beta.community.defs#communityView"
+							}
+						}
+					}
+				}
+			},
+			"errors": [
+				{
+					"name": "AuthRequired",
+					"description": "The request has no valid service auth."
+				}
+			]
+		}
+	}
+}

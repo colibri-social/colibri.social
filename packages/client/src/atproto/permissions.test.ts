@@ -1,31 +1,32 @@
 import { describe, expect, it } from "vitest";
+import { PERMISSIONS as LEXICON_PERMISSIONS } from "./lexicons";
 import {
 	APPROVAL_MANAGE,
 	COMMUNITY_MANAGE,
 	getPermissionCeiling,
 	grantsPermission,
 	isRoleBelowCeiling,
-	MESSAGE_HIDE,
+	LABEL_APPLY,
 	PERMISSIONS,
 	ROLE_MANAGE,
 } from "./permissions";
-import type { Role } from "./xrpc/social/colibri/community/listRoles";
+import type { RoleView } from "./views";
 
 const role = (
-	uri: string,
+	rkey: string,
 	position: number,
 	permissions: Array<string>,
-): Role =>
+): RoleView =>
 	({
-		uri,
+		rkey,
 		position,
 		permissions,
-		name: uri,
-	}) as Role;
+		name: rkey,
+	}) as RoleView;
 
-const MOD = role("at://x/role/mod", 10, [ROLE_MANAGE, MESSAGE_HIDE]);
-const HELPER = role("at://x/role/helper", 5, [MESSAGE_HIDE]);
-const ADMIN = role("at://x/role/admin", 20, [ROLE_MANAGE]);
+const MOD = role("mod", 10, [ROLE_MANAGE, LABEL_APPLY]);
+const HELPER = role("helper", 5, [LABEL_APPLY]);
+const ADMIN = role("admin", 20, [ROLE_MANAGE]);
 const ROLES = [MOD, HELPER, ADMIN];
 
 describe("getPermissionCeiling", () => {
@@ -36,7 +37,7 @@ describe("getPermissionCeiling", () => {
 	});
 
 	it("ignores the roles a non-owner holds when they grant nothing", () => {
-		expect(getPermissionCeiling(ROLES, [HELPER.uri], ROLE_MANAGE, false)).toBe(
+		expect(getPermissionCeiling(ROLES, [HELPER.rkey], ROLE_MANAGE, false)).toBe(
 			Number.NEGATIVE_INFINITY,
 		);
 	});
@@ -51,7 +52,7 @@ describe("getPermissionCeiling", () => {
 		expect(
 			getPermissionCeiling(
 				ROLES,
-				[HELPER.uri, MOD.uri, ADMIN.uri],
+				[HELPER.rkey, MOD.rkey, ADMIN.rkey],
 				ROLE_MANAGE,
 				false,
 			),
@@ -60,32 +61,32 @@ describe("getPermissionCeiling", () => {
 
 	it("ignores higher roles that do not grant the permission", () => {
 		expect(
-			getPermissionCeiling(ROLES, [MOD.uri, ADMIN.uri], MESSAGE_HIDE, false),
+			getPermissionCeiling(ROLES, [MOD.rkey, ADMIN.rkey], LABEL_APPLY, false),
 		).toBe(MOD.position);
 	});
 
-	it("ignores role uris that do not resolve to a known role", () => {
-		expect(
-			getPermissionCeiling(ROLES, ["at://x/role/ghost"], ROLE_MANAGE, false),
-		).toBe(Number.NEGATIVE_INFINITY);
+	it("ignores role keys that do not resolve to a known role", () => {
+		expect(getPermissionCeiling(ROLES, ["ghost"], ROLE_MANAGE, false)).toBe(
+			Number.NEGATIVE_INFINITY,
+		);
 	});
 
 	it("does not leak permissions across different keys", () => {
 		expect(
-			getPermissionCeiling(ROLES, [ADMIN.uri], COMMUNITY_MANAGE, false),
+			getPermissionCeiling(ROLES, [ADMIN.rkey], COMMUNITY_MANAGE, false),
 		).toBe(Number.NEGATIVE_INFINITY);
 	});
 });
 
 describe("grantsPermission", () => {
-	const APPROVER = role("at://x/role/approver", 15, [APPROVAL_MANAGE]);
+	const APPROVER = role("approver", 15, [APPROVAL_MANAGE]);
 	const WITH_APPROVER = [...ROLES, APPROVER];
 
 	it("grants when a held role carries the permission", () => {
 		expect(
 			grantsPermission(
 				WITH_APPROVER,
-				[HELPER.uri, APPROVER.uri],
+				[HELPER.rkey, APPROVER.rkey],
 				APPROVAL_MANAGE,
 			),
 		).toBe(true);
@@ -93,7 +94,7 @@ describe("grantsPermission", () => {
 
 	it("refuses when no held role carries the permission", () => {
 		expect(
-			grantsPermission(WITH_APPROVER, [HELPER.uri, MOD.uri], APPROVAL_MANAGE),
+			grantsPermission(WITH_APPROVER, [HELPER.rkey, MOD.rkey], APPROVAL_MANAGE),
 		).toBe(false);
 	});
 
@@ -102,19 +103,19 @@ describe("grantsPermission", () => {
 	});
 
 	it("does not grant a permission from a role the member does not hold", () => {
-		expect(grantsPermission(WITH_APPROVER, [MOD.uri], APPROVAL_MANAGE)).toBe(
+		expect(grantsPermission(WITH_APPROVER, [MOD.rkey], APPROVAL_MANAGE)).toBe(
 			false,
 		);
 	});
 
-	it("ignores role uris that do not resolve to a known role", () => {
-		expect(
-			grantsPermission(WITH_APPROVER, ["at://x/role/ghost"], APPROVAL_MANAGE),
-		).toBe(false);
+	it("ignores role keys that do not resolve to a known role", () => {
+		expect(grantsPermission(WITH_APPROVER, ["ghost"], APPROVAL_MANAGE)).toBe(
+			false,
+		);
 	});
 
 	it("refuses when the role list is empty", () => {
-		expect(grantsPermission([], [APPROVER.uri], APPROVAL_MANAGE)).toBe(false);
+		expect(grantsPermission([], [APPROVER.rkey], APPROVAL_MANAGE)).toBe(false);
 	});
 });
 
@@ -158,7 +159,17 @@ describe("PERMISSIONS catalogue", () => {
 	it("exposes every exported key through the catalogue", () => {
 		const keys = new Set(all.map((p) => p.key));
 		expect(keys.has(ROLE_MANAGE)).toBe(true);
-		expect(keys.has(MESSAGE_HIDE)).toBe(true);
+		expect(keys.has(LABEL_APPLY)).toBe(true);
 		expect(keys.has(COMMUNITY_MANAGE)).toBe(true);
+	});
+
+	it("matches the lexicon's permission vocabulary exactly", () => {
+		const keys = new Set(all.map((p) => p.key));
+		for (const permission of LEXICON_PERMISSIONS) {
+			expect(keys.has(permission)).toBe(true);
+		}
+		for (const key of keys) {
+			expect(LEXICON_PERMISSIONS as ReadonlyArray<string>).toContain(key);
+		}
 	});
 });

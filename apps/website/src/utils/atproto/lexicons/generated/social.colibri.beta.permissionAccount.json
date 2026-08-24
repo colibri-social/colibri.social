@@ -1,0 +1,65 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.permissionAccount",
+	"defs": {
+		"main": {
+			"type": "permission-set",
+			"title": "Your Colibri account",
+			"detail": "Read and change your Colibri profile, settings, mutes and read state.",
+			"permissions": [
+				{
+					"type": "permission",
+					"resource": "space",
+					"spaceType": "social.colibri.beta.actor.preferences",
+					"authority": "self",
+					"skey": "self",
+					"collection": [
+						"social.colibri.beta.actor.mute",
+						"social.colibri.beta.actor.settings",
+						"social.colibri.beta.channel.read"
+					],
+					"action": [
+						"read",
+						"create",
+						"update",
+						"delete"
+					],
+					"manage": [
+						"create",
+						"update"
+					]
+				},
+				{
+					"type": "permission",
+					"resource": "repo",
+					"collection": [
+						"social.colibri.beta.actor.profile"
+					],
+					"action": [
+						"create",
+						"update",
+						"delete"
+					]
+				},
+				{
+					"type": "permission",
+					"resource": "rpc",
+					"inheritAud": true,
+					"lxm": [
+						"social.colibri.beta.actor.getProfile",
+						"social.colibri.beta.actor.getPreferences",
+						"social.colibri.beta.actor.putSettings",
+						"social.colibri.beta.actor.putMutes",
+						"social.colibri.beta.actor.grantSpaceAccess",
+						"social.colibri.beta.actor.listCommunities",
+						"social.colibri.beta.actor.setStatus",
+						"social.colibri.beta.actor.getDeletionStatus",
+						"social.colibri.beta.actor.deleteAccount",
+						"social.colibri.beta.server.describeServer",
+						"social.colibri.beta.blob.get"
+					]
+				}
+			]
+		}
+	}
+}

@@ -20,9 +20,10 @@
 		"dev": "pnpm --filter @colibri-social/assets fetch-all && vite serve dev",
 		"build": "tsdown && tailwindcss -i src/index.css -o dist/index.css --minify && node -e \"require('node:fs').copyFileSync('src/components/hummingbird/hummingbird.css','dist/hummingbird.css')\"",
 		"prepack": "pnpm build",
-		"test": "vitest run",
+		"test": "vitest run --project unit",
 		"typecheck": "tsc --noEmit",
-		"sandbox": "pnpm --filter @colibri-social/assets fetch-emoji && vite serve dev --open /sandbox.html"
+		"sandbox": "pnpm --filter @colibri-social/assets fetch-emoji && vite serve dev --open /sandbox.html",
+		"test:integration": "vitest run --project integration"
 	},
 	"exports": {
 		".": {
@@ -46,7 +47,7 @@
 	},
 	"license": "MIT",
 	"devDependencies": {
-		"@atproto/lexicon": "^0.6.1",
+		"@atproto/lexicon": "0.0.0-spaces-alpha-20260818163953",
 		"@colibri-social/assets": "workspace:0.0.2",
 		"@colibri-social/lib": "workspace:0.2.0",
 		"@iconify-json/lucide": "^1.2.116",
@@ -66,8 +67,13 @@
 	},
 	"dependencies": {
 		"@arborium/arborium": "^2.18.1",
-		"@atproto/api": "^0.20.22",
-		"@atproto/oauth-client-browser": "^0.4.3",
+		"@atproto/api": "0.0.0-spaces-alpha-20260818163953",
+		"@atproto/lex": "0.0.0-spaces-alpha-20260818163953",
+		"@atproto/lex-client": "0.0.0-spaces-alpha-20260818163953",
+		"@atproto/lex-data": "^0.1.7",
+		"@atproto/lex-schema": "0.0.0-spaces-alpha-20260818163953",
+		"@atproto/oauth-client-browser": "0.0.0-spaces-alpha-20260818163953",
+		"@colibri-social/lexicons": "^2.3.0",
 		"@kobalte/core": "^0.13.11",
 		"@sapphi-red/web-noise-suppressor": "^0.3.5",
 		"@sentry/solid": "^10.63.0",

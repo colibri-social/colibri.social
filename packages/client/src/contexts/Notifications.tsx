@@ -10,17 +10,19 @@ import {
 	useContext,
 } from "solid-js";
 import { toast } from "somoto";
-import { writeReadCursor } from "../atproto/read-cursor";
+import { colibri } from "../atproto/lexicons";
+import { recordRead } from "../atproto/read-cursor";
 import { classifyThrown } from "../errors/classify";
 import { isGoneCode } from "../errors/codes";
 import {
 	cancelChannelTrayNotification,
 	isAppUnfocused,
+	isPingKind,
 	isStaleNotificationEvent,
 } from "../notifications";
-import { channelIdentity, channelPath } from "../utils/at-uri";
+import { AtURI, channelIdentity, channelPath } from "../utils/at-uri";
 import { createLogger } from "../utils/logger";
-import { canAdvanceCursor, clearableNotifications } from "./deferred-mark-read";
+import { clearableNotifications } from "./deferred-mark-read";
 import { useMutes } from "./Mutes";
 import { useSocketContext } from "./Socket";
 import { useSounds } from "./Sounds";
@@ -29,51 +31,46 @@ import { useUserPreferences } from "./UserPreferences";
 
 const log = createLogger("notif");
 
-/**
- * A message the user has been routed to via a notification toast but has not
- * yet seen. The channel layout consumes this to scroll the message into view
- * and, once it's actually visible, mark the notification as read.
- */
 export type PendingNotificationFocus = {
-	channelUri: string;
-	messageUri: string;
+	channel: string;
+	messageUri?: string;
 	indexedAt: string;
+};
+
+type ChannelEntry = {
+	pings: number;
+	hasUnread: boolean;
 };
 
 type NotificationsContextValue = {
 	pendingFocus: Accessor<PendingNotificationFocus | undefined>;
 	clearPendingFocus: () => void;
 	openNotification: (target: PendingNotificationFocus) => void;
-	pingsForChannel: (channelUri: string) => number;
-	hasUnreadMessages: (channelUri: string) => boolean;
+	pingsForChannel: (channel: string) => number;
+	hasUnreadMessages: (channel: string) => boolean;
 	pingsForCommunity: (communityDid: string) => number;
 	hasUnreadInCommunity: (communityDid: string) => boolean;
 	totalPings: () => number;
 	markMessageSeen: (
 		messageUri: string,
-		channelUri: string,
+		channel: string,
 		isPing: boolean,
 	) => Promise<void>;
-	markChannelRead: (channelUri: string) => void;
-	markChannelAsRead: (channelUri: string) => Promise<void>;
+	markChannelRead: (channel: string) => void;
+	markChannelAsRead: (channel: string) => Promise<void>;
 	markChannelReadUpTo: (
-		channelUri: string,
+		channel: string,
 		messageUri: string | undefined,
 		actionedAt: number,
 	) => Promise<void>;
-	markCommunityAsRead: (communityUri: string) => Promise<void>;
+	markCommunityAsRead: (communityDid: string) => Promise<void>;
 	markCategoryAsRead: (
-		communityUri: string,
-		channelUris: string[],
+		communityDid: string,
+		channels: string[],
 	) => Promise<void>;
 };
 
 const NotificationsContext = createContext<NotificationsContextValue>();
-
-const channelKey = (channelUri: string): string => {
-	const { communityDid, rkey } = channelIdentity(channelUri);
-	return `${communityDid}/${rkey}`;
-};
 
 export { channelPath };
 
@@ -83,8 +80,8 @@ export const isSameChannelUri = (a: string, b: string): boolean => {
 	return x.communityDid === y.communityDid && x.rkey === y.rkey;
 };
 
-const isViewingChannel = (pathname: string, channelUri: string): boolean => {
-	const { communityDid, rkey } = channelIdentity(channelUri);
+const isViewingChannel = (pathname: string, channel: string): boolean => {
+	const { communityDid, rkey } = channelIdentity(channel);
 	return (
 		pathname.startsWith("/app/c/") &&
 		pathname.includes(communityDid) &&
@@ -92,12 +89,19 @@ const isViewingChannel = (pathname: string, channelUri: string): boolean => {
 	);
 };
 
-const kindLabel = (kind: string, mentionRoleName?: string): string => {
+const kindLabel = (kind: string, mentionRole?: string): string => {
 	if (kind === "reply") return "Replied to you";
 	if (kind === "message") return "New message";
-	if (mentionRoleName) return `Mentioned you via @${mentionRoleName}`;
+	if (mentionRole) return `Mentioned you via @${mentionRole}`;
 	return "Mentioned you";
 };
+
+const messageRefKey = (did: string, rkey: string): string => `${did}/${rkey}`;
+
+const NOTIFICATION_EVENT = "social.colibri.beta.sync.defs#notificationEvent";
+const MESSAGE_EVENT = "social.colibri.beta.sync.defs#messageEvent";
+const MEMBER_EVENT = "social.colibri.beta.sync.defs#memberEvent";
+const SEEN_EVENT = "social.colibri.beta.sync.defs#seenEvent";
 
 export const NotificationsContextProvider: ParentComponent = (props) => {
 	const user = useUserContext();
@@ -112,241 +116,256 @@ export const NotificationsContextProvider: ParentComponent = (props) => {
 		PendingNotificationFocus | undefined
 	>(undefined);
 
-	const [pingCounts, setPingCounts] = createSignal<Record<string, number>>({});
-	const [unreadChannels, setUnreadChannels] = createSignal<
-		Record<string, true>
-	>({});
+	const [channels, setChannels] = createSignal<Record<string, ChannelEntry>>(
+		{},
+	);
 
-	const accountedMessages = new Set<string>();
-	const notifiedMessages = new Set<string>();
+	const accountedMessageRefs = new Set<string>();
+	const notifiedIds = new Set<string>();
 	const locallyReadChannels = new Set<string>();
 
 	const clearPendingFocus = () => setPendingFocus(undefined);
 
 	const openNotification = (target: PendingNotificationFocus) => {
 		setPendingFocus(target);
-		navigate(channelPath(target.channelUri));
+		navigate(channelPath(target.channel));
 	};
+
+	const communityOf = (channel: string): string =>
+		channelIdentity(channel).communityDid;
 
 	// ---- Accessors ---------------------------------------------------------
-	const pingsForChannel = (channelUri: string): number =>
-		mutes.isChannelMuted(channelUri)
+	const pingsForChannel = (channel: string): number =>
+		mutes.isCommunityMuted(communityOf(channel))
 			? 0
-			: (pingCounts()[channelKey(channelUri)] ?? 0);
+			: (channels()[channel]?.pings ?? 0);
 
-	const hasUnreadMessages = (channelUri: string): boolean =>
-		!mutes.isChannelMuted(channelUri) &&
-		!!unreadChannels()[channelKey(channelUri)];
+	const hasUnreadMessages = (channel: string): boolean =>
+		!mutes.isCommunityMuted(communityOf(channel)) &&
+		!!channels()[channel]?.hasUnread;
 
 	const pingsForCommunity = (communityDid: string): number => {
-		const counts = pingCounts();
+		if (mutes.isCommunityMuted(communityDid)) return 0;
+		const state = channels();
 		let total = 0;
-		const prefix = `${communityDid}/`;
-		for (const key in counts) {
-			if (key.startsWith(prefix) && !mutes.isChannelKeyMuted(key))
-				total += counts[key];
-		}
-		return total;
-	};
-
-	const totalPings = (): number => {
-		const counts = pingCounts();
-		let total = 0;
-		for (const key in counts) {
-			if (!mutes.isChannelKeyMuted(key)) total += counts[key];
+		for (const channel in state) {
+			if (communityOf(channel) === communityDid) total += state[channel].pings;
 		}
 		return total;
 	};
 
 	const hasUnreadInCommunity = (communityDid: string): boolean => {
-		const channels = unreadChannels();
-		const prefix = `${communityDid}/`;
-		for (const key in channels) {
-			if (key.startsWith(prefix) && !mutes.isChannelKeyMuted(key)) return true;
+		if (mutes.isCommunityMuted(communityDid)) return false;
+		const state = channels();
+		for (const channel in state) {
+			if (communityOf(channel) === communityDid && state[channel].hasUnread) {
+				return true;
+			}
 		}
 		return false;
 	};
 
-	// ---- Mutators ----------------------------------------------------------
-	const adjustPings = (channelUri: string, delta: number) =>
-		setPingCounts((prev) => {
-			const key = channelKey(channelUri);
-			const current = prev[key] ?? 0;
-			const next = Math.max(0, current + delta);
-			if (next === current) return prev;
-			return { ...prev, [key]: next };
-		});
-
-	const setChannelPings = (channelUri: string, count: number) => {
-		setPingCounts((prev) => {
-			const key = channelKey(channelUri);
-			const next = Math.max(0, count);
-			if ((prev[key] ?? 0) === next) return prev;
-			return { ...prev, [key]: next };
-		});
-	};
-
-	const addUnreadChannel = (channelUri: string) =>
-		setUnreadChannels((prev) => {
-			const key = channelKey(channelUri);
-			if (prev[key]) return prev;
-			return { ...prev, [key]: true };
-		});
-
-	const markChannelRead = (channelUri: string) => {
-		locallyReadChannels.add(channelKey(channelUri));
-		setUnreadChannels((prev) => {
-			const key = channelKey(channelUri);
-			if (!prev[key]) return prev;
-			const next = { ...prev };
-			delete next[key];
-			return next;
-		});
-	};
-
-	const sendMessageSeen = async (messageUri: string): Promise<boolean> => {
-		try {
-			const res =
-				await user.xrpc.social.colibri.notification.updateSeenForMessage(
-					messageUri,
-				);
-			return res.ok;
-		} catch {
-			return false;
+	const totalPings = (): number => {
+		const state = channels();
+		let total = 0;
+		for (const channel in state) {
+			if (!mutes.isCommunityMuted(communityOf(channel))) {
+				total += state[channel].pings;
+			}
 		}
+		return total;
+	};
+
+	// ---- Mutators ----------------------------------------------------------
+	const adjustPings = (channel: string, delta: number) =>
+		setChannels((prev) => {
+			const current = prev[channel] ?? { pings: 0, hasUnread: false };
+			const next = Math.max(0, current.pings + delta);
+			if (next === current.pings) return prev;
+			return { ...prev, [channel]: { ...current, pings: next } };
+		});
+
+	const setChannelPings = (channel: string, count: number) =>
+		setChannels((prev) => {
+			const current = prev[channel] ?? { pings: 0, hasUnread: false };
+			const next = Math.max(0, count);
+			if (current.pings === next) return prev;
+			return { ...prev, [channel]: { ...current, pings: next } };
+		});
+
+	const markChannelUnread = (channel: string) =>
+		setChannels((prev) => {
+			const current = prev[channel];
+			if (current?.hasUnread) return prev;
+			return {
+				...prev,
+				[channel]: { pings: current?.pings ?? 0, hasUnread: true },
+			};
+		});
+
+	const markChannelRead = (channel: string) => {
+		locallyReadChannels.add(channel);
+		setChannels((prev) => {
+			const current = prev[channel];
+			if (!current?.hasUnread) return prev;
+			return { ...prev, [channel]: { ...current, hasUnread: false } };
+		});
+	};
+
+	const sendMessageSeen = async (
+		channel: string,
+		did: string,
+		rkey: string,
+	): Promise<boolean> => {
+		const res = await user.xrpc.queued(
+			colibri.notification.updateSeenForMessage.main,
+			{ body: { channel, message: { did, rkey } } },
+			{ label: "notification.updateSeenForMessage" },
+		);
+		return res.ok;
 	};
 
 	const markMessageSeen = async (
 		messageUri: string,
-		channelUri: string,
+		channel: string,
 		isPing: boolean,
 	): Promise<void> => {
-		if (accountedMessages.has(messageUri)) return;
-		accountedMessages.add(messageUri);
-		void cancelChannelTrayNotification(channelUri);
+		const { did, identifier: rkey } = AtURI.parseAtURI(messageUri);
+		const refKey = messageRefKey(did, rkey);
+		if (accountedMessageRefs.has(refKey)) return;
+		accountedMessageRefs.add(refKey);
+		void cancelChannelTrayNotification(channel);
 
-		if (isPing) adjustPings(channelUri, -1);
+		if (isPing) adjustPings(channel, -1);
 
-		const sent = await sendMessageSeen(messageUri);
+		const sent = await sendMessageSeen(channel, did, rkey);
 		if (sent) return;
 
-		accountedMessages.delete(messageUri);
-		if (isPing) adjustPings(channelUri, 1);
-	};
-
-	const applyRemoteMessageSeen = (
-		messageUri: string,
-		channelUri: string,
-		cleared: number,
-	) => {
-		if (accountedMessages.has(messageUri)) return;
-		accountedMessages.add(messageUri);
-		adjustPings(channelUri, -cleared);
+		accountedMessageRefs.delete(refKey);
+		if (isPing) adjustPings(channel, 1);
 	};
 
 	// ---- "Mark as read" actions -------------------------------------------
 
-	const advanceCursorToNewest = async (channelUri: string): Promise<void> => {
-		const res = await user.xrpc.social.colibri.channel.listMessages(
-			channelUri,
-			1,
-		);
-		const newest = res.ok ? res.data?.messages?.[0]?.uri : undefined;
-		if (!newest) return;
-		await writeReadCursor(user.did, channelUri, newest);
-		markChannelRead(channelUri);
+	const newestMessageRkey = async (
+		channel: string,
+	): Promise<string | undefined> => {
+		const res = await user.xrpc.call(colibri.channel.listMessages.main, {
+			params: { channel, limit: 1 },
+		});
+		return res.ok ? res.data?.messages?.[0]?.rkey : undefined;
+	};
+
+	const advanceCursorToNewest = async (channel: string): Promise<void> => {
+		const rkey = await newestMessageRkey(channel);
+		if (!rkey) return;
+		const { communityDid, rkey: channelKey } = channelIdentity(channel);
+		recordRead(communityDid, channelKey, rkey);
+		markChannelRead(channel);
 	};
 
 	const clearChannelPings = async (
-		channelUri: string,
+		channel: string,
 		before?: number,
 	): Promise<void> => {
-		const res =
-			await user.xrpc.social.colibri.notification.getUnseen(channelUri);
+		const res = await user.xrpc.call(colibri.notification.getUnseen.main, {
+			params: { channel },
+		});
 		if (!res.ok) return;
 
 		const pending = clearableNotifications(
 			res.data?.notifications ?? [],
 			before,
 		);
-		const uris = new Set(pending.map((n) => n.messageUri));
 
-		void cancelChannelTrayNotification(channelUri);
+		void cancelChannelTrayNotification(channel);
 
+		let cleared = 0;
 		let allSent = true;
-		for (const uri of uris) {
-			const sent = await sendMessageSeen(uri);
-			if (sent) accountedMessages.add(uri);
-			else allSent = false;
+
+		for (const notification of pending) {
+			if (!notification.message) {
+				allSent = false;
+				continue;
+			}
+
+			const did = notification.message.author.did;
+			const rkey = notification.message.rkey;
+			const refKey = messageRefKey(did, rkey);
+
+			let sent = accountedMessageRefs.has(refKey);
+			if (!sent) sent = await sendMessageSeen(channel, did, rkey);
+
+			if (sent) {
+				accountedMessageRefs.add(refKey);
+				if (isPingKind(notification.kind)) cleared++;
+			} else {
+				allSent = false;
+			}
 		}
 
-		if (allSent && before === undefined) setChannelPings(channelUri, 0);
-		else if (allSent) adjustPings(channelUri, -uris.size);
+		if (allSent && before === undefined) setChannelPings(channel, 0);
+		else if (cleared > 0) adjustPings(channel, -cleared);
 	};
 
-	const markChannelAsRead = async (channelUri: string): Promise<void> => {
-		await advanceCursorToNewest(channelUri);
-		await clearChannelPings(channelUri);
+	const markChannelAsRead = async (channel: string): Promise<void> => {
+		await advanceCursorToNewest(channel);
+		await clearChannelPings(channel);
 	};
 
 	const markChannelReadUpTo = async (
-		channelUri: string,
+		channel: string,
 		messageUri: string | undefined,
 		actionedAt: number,
 	): Promise<void> => {
 		if (!messageUri) {
-			await markChannelAsRead(channelUri);
+			await markChannelAsRead(channel);
 			return;
 		}
 
-		const existing =
-			await user.xrpc.social.colibri.channel.getReadCursor(channelUri);
-		const current = existing.ok ? existing.data?.cursor : undefined;
-		if (!canAdvanceCursor(current, messageUri)) return;
+		const { communityDid, rkey: channelKey } = channelIdentity(channel);
+		const { identifier: messageRkey } = AtURI.parseAtURI(messageUri);
+		recordRead(communityDid, channelKey, messageRkey);
 
-		await writeReadCursor(user.did, channelUri, messageUri);
+		const newest = await newestMessageRkey(channel);
+		if (!newest || newest === messageRkey) markChannelRead(channel);
 
-		const res = await user.xrpc.social.colibri.channel.listMessages(
-			channelUri,
-			1,
-		);
-		const newest = res.ok ? res.data?.messages?.[0]?.uri : undefined;
-		if (!newest || newest === messageUri) markChannelRead(channelUri);
-
-		await clearChannelPings(channelUri, actionedAt);
+		await clearChannelPings(channel, actionedAt);
 	};
 
-	const markCommunityAsRead = async (communityUri: string): Promise<void> => {
-		const status =
-			await user.xrpc.social.colibri.channel.listUnreadStatus(communityUri);
+	const markCommunityAsRead = async (communityDid: string): Promise<void> => {
+		const status = await user.xrpc.call(colibri.channel.listUnreadStatus.main, {
+			params: { community: communityDid },
+		});
 		if (!status.ok || !status.data) return;
-		for (const channel of status.data.channels) {
-			setChannelPings(channel.channelUri, channel.unreadPingCount);
-			if (channel.hasUnreadMessages) {
-				await advanceCursorToNewest(channel.channelUri);
+		for (const channelStatus of status.data.statuses) {
+			setChannelPings(channelStatus.channel, channelStatus.unreadMentions);
+			if (channelStatus.hasUnread) {
+				await advanceCursorToNewest(channelStatus.channel);
 			}
-			if (channel.unreadPingCount > 0) {
-				await clearChannelPings(channel.channelUri);
+			if (channelStatus.unreadMentions > 0) {
+				await clearChannelPings(channelStatus.channel);
 			}
 		}
 	};
 
 	const markCategoryAsRead = async (
-		communityUri: string,
-		channelUris: string[],
+		communityDid: string,
+		channels: string[],
 	): Promise<void> => {
-		const status =
-			await user.xrpc.social.colibri.channel.listUnreadStatus(communityUri);
+		const status = await user.xrpc.call(colibri.channel.listUnreadStatus.main, {
+			params: { community: communityDid },
+		});
 		if (!status.ok || !status.data) return;
-		const inCategory = new Set(channelUris);
-		for (const channel of status.data.channels) {
-			if (!inCategory.has(channel.channelUri)) continue;
-			setChannelPings(channel.channelUri, channel.unreadPingCount);
-			if (channel.hasUnreadMessages) {
-				await advanceCursorToNewest(channel.channelUri);
+		const inCategory = new Set(channels);
+		for (const channelStatus of status.data.statuses) {
+			if (!inCategory.has(channelStatus.channel)) continue;
+			setChannelPings(channelStatus.channel, channelStatus.unreadMentions);
+			if (channelStatus.hasUnread) {
+				await advanceCursorToNewest(channelStatus.channel);
 			}
-			if (channel.unreadPingCount > 0) {
-				await clearChannelPings(channel.channelUri);
+			if (channelStatus.unreadMentions > 0) {
+				await clearChannelPings(channelStatus.channel);
 			}
 		}
 	};
@@ -355,20 +374,21 @@ export const NotificationsContextProvider: ParentComponent = (props) => {
 
 	const seeded = new Set<string>();
 	const blocked = new Set<string>();
-	const seedCommunity = async (communityUri: string): Promise<void> => {
-		if (seeded.has(communityUri) || blocked.has(communityUri)) return;
-		seeded.add(communityUri);
+	const seedCommunity = async (communityDid: string): Promise<void> => {
+		if (seeded.has(communityDid) || blocked.has(communityDid)) return;
+		seeded.add(communityDid);
 
 		let reached = false;
 
 		try {
-			const res =
-				await user.xrpc.social.colibri.channel.listUnreadStatus(communityUri);
+			const res = await user.xrpc.call(colibri.channel.listUnreadStatus.main, {
+				params: { community: communityDid },
+			});
 			if (!res.ok) {
 				if (isGoneCode(res.error.code)) {
-					blocked.add(communityUri);
+					blocked.add(communityDid);
 					log.warn("unread seeding blocked", {
-						community: communityUri,
+						community: communityDid,
 						code: res.error.code,
 					});
 				}
@@ -377,32 +397,20 @@ export const NotificationsContextProvider: ParentComponent = (props) => {
 
 			reached = true;
 
-			const status = res.data;
-			if (!status?.channels) return;
+			const statuses = res.data?.statuses;
+			if (!statuses) return;
 
-			setPingCounts((prev) => {
+			setChannels((prev) => {
 				const next = { ...prev };
-				for (const ch of status.channels) {
-					if (mutes.isChannelMuted(ch.channelUri)) continue;
-					next[channelKey(ch.channelUri)] = ch.unreadPingCount;
-				}
-				return next;
-			});
-
-			setUnreadChannels((prev) => {
-				const next = { ...prev };
-				for (const ch of status.channels) {
-					const key = channelKey(ch.channelUri);
-					if (mutes.isChannelMuted(ch.channelUri)) {
-						delete next[key];
+				for (const status of statuses) {
+					if (locallyReadChannels.has(status.channel)) {
+						next[status.channel] = { pings: 0, hasUnread: false };
 						continue;
 					}
-					if (locallyReadChannels.has(key)) {
-						delete next[key];
-						continue;
-					}
-					if (ch.hasUnreadMessages) next[key] = true;
-					else delete next[key];
+					next[status.channel] = {
+						pings: status.unreadMentions,
+						hasUnread: status.hasUnread,
+					};
 				}
 				return next;
 			});
@@ -411,54 +419,58 @@ export const NotificationsContextProvider: ParentComponent = (props) => {
 				code: classifyThrown(err).code,
 			});
 		} finally {
-			if (!reached) seeded.delete(communityUri);
+			if (!reached) seeded.delete(communityDid);
 		}
 	};
 
 	createEffect(() => {
-		const known = new Set<string>(
-			user.communities.map((community) => community.uri),
-		);
-		for (const uri of blocked) {
-			if (!known.has(uri)) blocked.delete(uri);
+		const known = new Set<string>(user.communities.map((c) => c.did));
+		for (const did of blocked) {
+			if (!known.has(did)) blocked.delete(did);
 		}
-		for (const uri of known) {
-			void seedCommunity(uri);
+		for (const did of known) {
+			void seedCommunity(did);
 		}
 	});
 
 	// ---- Live updates ------------------------------------------------------
 
+	const resyncChannelPings = async (channel: string): Promise<void> => {
+		const res = await user.xrpc.call(colibri.notification.getUnseen.main, {
+			params: { channel },
+		});
+		if (!res.ok || !res.data) return;
+		const pings = res.data.notifications.filter((n) =>
+			isPingKind(n.kind),
+		).length;
+		setChannelPings(channel, pings);
+	};
+
 	onMount(() => {
 		const cleanup = socket.onEvent((event) => {
-			if (
-				event.type === "member_event" &&
-				event.data?.event === "join" &&
-				event.data.member.did === user.did
-			) {
-				const { community } = event.data;
-				blocked.delete(community);
-				seeded.delete(community);
-				void seedCommunity(community);
+			if (event.$type === MEMBER_EVENT) {
+				if (event.event === "join" && event.member?.actor.did === user.did) {
+					blocked.delete(event.community);
+					seeded.delete(event.community);
+					void seedCommunity(event.community);
+				}
 				return;
 			}
 
-			if (event.type === "notification_event") {
-				if (!event.data) return;
-				const data = event.data;
+			if (event.$type === NOTIFICATION_EVENT) {
+				const notification = event.notification;
 
-				if (isViewingChannel(location.pathname, data.channelUri)) return;
+				if (isViewingChannel(location.pathname, notification.channel)) return;
+				if (mutes.isCommunityMuted(notification.community)) return;
+				if (mutes.isMuted(notification.author.did)) return;
+				if (notifiedIds.has(notification.id)) return;
+				notifiedIds.add(notification.id);
 
-				if (mutes.isChannelMuted(data.channelUri)) return;
-
-				if (notifiedMessages.has(data.messageUri)) return;
-				notifiedMessages.add(data.messageUri);
-
-				const isPing = data.kind === "mention" || data.kind === "reply";
-				const isStale = isStaleNotificationEvent(data.indexedAt);
+				const isPing = isPingKind(notification.kind);
+				const isStale = isStaleNotificationEvent(notification.indexedAt);
 
 				if (isPing) {
-					adjustPings(data.channelUri, 1);
+					adjustPings(notification.channel, 1);
 					if (!isStale) playSound("ping");
 				}
 
@@ -466,9 +478,9 @@ export const NotificationsContextProvider: ParentComponent = (props) => {
 				if (isStale) return;
 
 				const target: PendingNotificationFocus = {
-					channelUri: data.channelUri,
-					messageUri: data.messageUri,
-					indexedAt: data.indexedAt,
+					channel: notification.channel,
+					messageUri: notification.message?.uri,
+					indexedAt: notification.indexedAt,
 				};
 
 				toast.custom(
@@ -482,44 +494,43 @@ export const NotificationsContextProvider: ParentComponent = (props) => {
 							class="flex w-full flex-col items-start gap-0.5 rounded-md border border-border bg-popover p-3 text-left text-popover-foreground shadow-md cursor-pointer hover:bg-muted/50"
 						>
 							<span class="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-								{kindLabel(data.kind, data.mentionRoleName)}
+								{kindLabel(notification.kind, notification.mentionRole)}
 							</span>
-							{data.message.text ? (
-								<span class="line-clamp-2 text-sm">{data.message.text}</span>
+							{notification.message?.text ? (
+								<span class="line-clamp-2 text-sm">
+									{notification.message.text}
+								</span>
 							) : null}
 						</button>
 					),
-					{ id: data.messageUri, unstyled: true, duration: 8000 },
+					{ id: notification.id, unstyled: true, duration: 8000 },
 				);
 				return;
 			}
 
-			if (event.type === "message_event") {
-				if (event.data?.event !== "upsert") return;
-				const data = event.data;
+			if (event.$type === MESSAGE_EVENT) {
+				if (event.event !== "create" || !event.message) return;
+				const message = event.message;
 
-				if (data.author.did === user.did) return;
-				if (isViewingChannel(location.pathname, data.channel)) return;
-				if (mutes.isChannelMuted(data.channel)) return;
+				if (message.author.did === user.did) return;
+				if (isViewingChannel(location.pathname, event.channel)) return;
+				if (mutes.isCommunityMuted(communityOf(event.channel))) return;
+				if (mutes.isMuted(message.author.did)) return;
 
-				addUnreadChannel(data.channel);
-
+				markChannelUnread(event.channel);
 				return;
 			}
 
-			if (event.type === "seen_event") {
-				if (!event.data) return;
-
-				const data = event.data;
-
-				if (data.event === "channel_read") {
-					markChannelRead(data.channelUri);
-				} else if (data.event === "message_seen") {
-					applyRemoteMessageSeen(
-						data.messageUri,
-						data.channelUri,
-						data.cleared,
-					);
+			if (event.$type === SEEN_EVENT) {
+				if (event.channel) void resyncChannelPings(event.channel);
+				else {
+					setChannels((prev) => {
+						const next: Record<string, ChannelEntry> = {};
+						for (const channel in prev) {
+							next[channel] = { ...prev[channel], pings: 0 };
+						}
+						return next;
+					});
 				}
 			}
 		});
@@ -529,9 +540,9 @@ export const NotificationsContextProvider: ParentComponent = (props) => {
 
 	const reseedAll = (): void => {
 		for (const community of user.communities) {
-			if (blocked.has(community.uri)) continue;
-			seeded.delete(community.uri);
-			void seedCommunity(community.uri);
+			if (blocked.has(community.did)) continue;
+			seeded.delete(community.did);
+			void seedCommunity(community.did);
 		}
 	};
 

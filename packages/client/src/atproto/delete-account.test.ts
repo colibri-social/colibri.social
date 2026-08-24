@@ -12,13 +12,13 @@ describe("orderCollections", () => {
 		).toEqual(["social.colibri.message"]);
 	});
 
-	it("deletes the signal record last so the appview follows the rest", () => {
+	it("deletes the public profile last so the appview follows the rest", () => {
 		const ordered = orderCollections([
-			"social.colibri.actor.data",
-			"social.colibri.message",
-			"social.colibri.reaction",
+			"social.colibri.beta.actor.profile",
+			"social.colibri.beta.message",
+			"social.colibri.beta.reaction",
 		]);
-		expect(ordered.at(-1)).toBe("social.colibri.actor.data");
+		expect(ordered.at(-1)).toBe("social.colibri.beta.actor.profile");
 		expect(ordered).toHaveLength(3);
 	});
 

@@ -1,0 +1,17 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.community.members",
+	"defs": {
+		"main": {
+			"type": "space",
+			"description": "A community's membership and the roles that can be assigned within it.",
+			"key": "literal:self",
+			"name": "Colibri community members",
+			"collections": [
+				"social.colibri.beta.member",
+				"social.colibri.beta.role",
+				"social.colibri.beta.label"
+			]
+		}
+	}
+}

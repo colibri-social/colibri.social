@@ -1,48 +1,46 @@
-import type { JsonBlobRef } from "@atproto/lexicon";
-import type { ColibriRichTextFacet } from "@colibri-social/lib";
-import type { Message } from "./xrpc/social/colibri/channel/listMessages";
+import { asDatetime, asUri, COLLECTIONS } from "./lexicons";
+import type {
+	Facet,
+	MessageAttachment,
+	MessageRecord,
+	ReactionRecord,
+	RecordRef,
+} from "./views";
 
-export type MessageRecordAttachment = {
-	blob: JsonBlobRef;
-	name?: string;
-};
-
-export type MessageRecord = {
+export type MessageRecordInput = {
 	text: string;
-	facets: Array<ColibriRichTextFacet>;
-	channel: string;
+	facets?: ReadonlyArray<Facet>;
 	createdAt: string;
-	edited: boolean;
-	parent?: string;
-	attachments?: Array<MessageRecordAttachment>;
-	suppressedEmbeds?: Array<string>;
+	updatedAt?: string;
+	parent?: RecordRef;
+	attachments?: ReadonlyArray<MessageAttachment>;
+	suppressedEmbeds?: ReadonlyArray<string>;
 };
 
 export const buildMessageRecord = (
-	message: Message,
-	fields: {
-		text: string;
-		facets: Array<ColibriRichTextFacet>;
-		edited: boolean;
-		suppressedEmbeds?: Array<string>;
-	},
-): MessageRecord => {
-	const suppressed = fields.suppressedEmbeds ?? message.suppressedEmbeds ?? [];
-	const attachments: Array<MessageRecordAttachment> = (
-		message.attachments ?? []
-	).map((attachment) => ({
-		blob: attachment.blob,
-		...(attachment.name !== undefined ? { name: attachment.name } : {}),
-	}));
+	input: MessageRecordInput,
+): MessageRecord => ({
+	$type: COLLECTIONS.message,
+	text: input.text,
+	createdAt: asDatetime(input.createdAt),
+	...(input.facets && input.facets.length > 0
+		? { facets: [...input.facets] }
+		: {}),
+	...(input.updatedAt ? { updatedAt: asDatetime(input.updatedAt) } : {}),
+	...(input.parent ? { parent: input.parent } : {}),
+	...(input.attachments && input.attachments.length > 0
+		? { attachments: [...input.attachments] }
+		: {}),
+	...(input.suppressedEmbeds && input.suppressedEmbeds.length > 0
+		? { suppressedEmbeds: input.suppressedEmbeds.map(asUri) }
+		: {}),
+});
 
-	return {
-		text: fields.text,
-		facets: fields.facets,
-		channel: message.channel,
-		createdAt: message.createdAt,
-		edited: fields.edited,
-		...(message.parent ? { parent: message.parent.uri } : {}),
-		...(attachments.length > 0 ? { attachments } : {}),
-		...(suppressed.length > 0 ? { suppressedEmbeds: suppressed } : {}),
-	};
-};
+export const buildReactionRecord = (
+	emoji: string,
+	target: RecordRef,
+): ReactionRecord => ({
+	$type: COLLECTIONS.reaction,
+	emoji,
+	target,
+});

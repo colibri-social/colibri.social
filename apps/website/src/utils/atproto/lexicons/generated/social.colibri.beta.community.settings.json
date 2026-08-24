@@ -1,0 +1,48 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.community.settings",
+	"defs": {
+		"main": {
+			"type": "record",
+			"description": "A community's operational settings. Separate from the profile record so the two have different read audiences.",
+			"key": "literal:self",
+			"record": {
+				"type": "object",
+				"required": [
+					"categoryOrder",
+					"requiresApprovalToJoin"
+				],
+				"properties": {
+					"categoryOrder": {
+						"type": "array",
+						"items": {
+							"type": "string",
+							"format": "record-key",
+							"description": "A category in this community."
+						},
+						"description": "The order categories are displayed in."
+					},
+					"requiresApprovalToJoin": {
+						"type": "boolean",
+						"default": false,
+						"description": "Whether joining produces an application a moderator must approve."
+					},
+					"linkEmbeds": {
+						"type": "boolean",
+						"default": true,
+						"description": "Whether link previews are shown by default. Channels may override this."
+					},
+					"labelers": {
+						"type": "array",
+						"items": {
+							"type": "string",
+							"format": "did",
+							"description": "A labeler this community honours."
+						},
+						"description": "DIDs whose labels this community honours, in addition to the community's own. Empty means the community labels its content itself."
+					}
+				}
+			}
+		}
+	}
+}

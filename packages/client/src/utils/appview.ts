@@ -7,10 +7,12 @@ const STORAGE_KEY = "colibri:user-preferences";
  * without pulling in Solid. Keep in sync with the default DID in
  * `atproto/scopes.ts`.
  */
-export const DEFAULT_APPVIEW_URL = "https://api.colibri.social";
+export const DEFAULT_APPVIEW_URL = "https://spaces-api.colibri.social";
+
+export const DEV_APPVIEW_HOST = "127.0.0.1:3000";
 
 export const getAppViewHost = (protocol: "ws" | "http") => {
-	if (import.meta.env.DEV) return `${protocol}://127.0.0.1:8000`;
+	if (import.meta.env.DEV) return `${protocol}://${DEV_APPVIEW_HOST}`;
 	const { host } = new URL(getPreferredAppViewUrl());
 	return `${protocol === "ws" ? "wss" : "https"}://${host}`;
 };
@@ -26,11 +28,30 @@ export const getPreferredAppViewUrl = (): string => {
 		if (!raw) return DEFAULT_APPVIEW_URL;
 		const stored = (JSON.parse(raw) as { preferredAppView?: string })
 			.preferredAppView;
-		return normalizeAppViewUrl(stored ?? "") ?? DEFAULT_APPVIEW_URL;
+		return resolveStoredAppViewUrl(stored);
 	} catch {
 		return DEFAULT_APPVIEW_URL;
 	}
 };
+
+const RETIRED_APPVIEW_HOSTS = new Set(["api.colibri.social"]);
+
+/**
+ * Turns whatever is in storage into a usable AppView origin. A host that no
+ * longer serves this client falls back to {@link DEFAULT_APPVIEW_URL}, so an
+ * install that saved the old default isn't stranded on it.
+ */
+export const resolveStoredAppViewUrl = (stored: unknown): string => {
+	const normalized =
+		typeof stored === "string" ? normalizeAppViewUrl(stored) : null;
+	if (!normalized) return DEFAULT_APPVIEW_URL;
+	return RETIRED_APPVIEW_HOSTS.has(new URL(normalized).host)
+		? DEFAULT_APPVIEW_URL
+		: normalized;
+};
+
+export const didWebForHost = (host: string): string =>
+	`did:web:${host.replace(/^(127\.0\.0\.1|\[::1\])(?=$|:)/, "localhost").replace(/:/g, "%3A")}`;
 
 /**
  * The `did:web` identifier for an AppView, derived from its host. This is the
@@ -39,7 +60,7 @@ export const getPreferredAppViewUrl = (): string => {
  * user's chosen AppView.
  */
 export const getAppViewDid = (url: string = getPreferredAppViewUrl()): string =>
-	`did:web:${new URL(url).host.replace(/:/g, "%3A")}`;
+	didWebForHost(new URL(url).host);
 
 /**
  * The host URL for an AppView addressed by its `did:web` DID — the inverse of
@@ -53,20 +74,40 @@ export const getAppViewHostFromDid = (
 	did: string,
 	protocol: "ws" | "http",
 ): string | null => {
-	if (import.meta.env.DEV) return `${protocol}://127.0.0.1:8000`;
+	if (import.meta.env.DEV) return `${protocol}://${DEV_APPVIEW_HOST}`;
 	if (!did.startsWith("did:web:")) return null;
 	const host = decodeURIComponent(did.slice("did:web:".length));
 	if (!host) return null;
 	return `${protocol === "ws" ? "wss" : "https"}://${host}`;
 };
 
-/** The `did#service` proxy header / service-auth `aud` for the AppView. */
+export const appViewHostFor = (
+	managingApp: string | undefined,
+	protocol: "ws" | "http",
+): string =>
+	(managingApp ? getAppViewHostFromDid(managingApp, protocol) : null) ??
+	getAppViewHost(protocol);
+
+export const APPVIEW_FRAGMENT = "colibri_appview";
+
+export const NOTIF_FRAGMENT = "colibri_notifs";
+
 export const getAppViewServiceRef = (url?: string): string =>
-	`${getAppViewDid(url)}#colibri_appview`;
+	serviceRefFor(getAppViewDid(url), APPVIEW_FRAGMENT);
+
+export const serviceRefFor = (did: string, fragment: string): string =>
+	`${did}#${fragment}`;
+
+export const appViewServiceRef = (did: string): string =>
+	serviceRefFor(did, APPVIEW_FRAGMENT);
+
+export const notifServiceRef = (did: string): string =>
+	serviceRefFor(did, NOTIF_FRAGMENT);
 
 /**
  * Normalizes a user-entered AppView URL into a bare origin (e.g.
- * `https://api.colibri.social`): trims whitespace, defaults to `https://` when
+ * `https://spaces-api.colibri.social`): trims whitespace, defaults to `https://`
+ * when
  * no scheme is given, and drops any path/trailing slash so it can be safely
  * concatenated with an `/xrpc/...` route. Returns `null` when the input isn't a
  * usable http(s) URL.
@@ -90,27 +131,23 @@ export const normalizeAppViewUrl = (raw: string): string | null => {
 export const isValidAppViewUrl = (raw: string): boolean =>
 	normalizeAppViewUrl(raw) !== null;
 
-/**
- * Result of the AppView's boot-time probe of its own PDS. Debug builds only —
- * this endpoint is public, so released AppViews report no deployment state.
- * Mirrors `PdsStatusReport` in the AppView's `src/lib/pds_status.rs`.
- */
-export interface PdsStatusReport {
-	configured: boolean;
-	reachable: boolean;
-	status: "reachable" | "notAPds" | "unreachable" | "unconfigured";
-}
+export const COLIBRI_APPVIEW_SOFTWARE = "colibri-appview";
 
 export interface ColibriServerDescription {
+	did: string;
 	software: string;
 	flavor: string;
 	version: string;
-	pds?: PdsStatusReport;
+	handleDomain: string;
+	pds: string;
+	contact?: string;
+	features?: Array<string>;
+	spaceTypes?: Array<string>;
 }
 
 /**
  * Probes a URL to confirm it points at a Colibri AppView by calling the public
- * `social.colibri.server.describeServer` endpoint. Returns the server
+ * `social.colibri.beta.server.describeServer` endpoint. Returns the server
  * description on success, or `null` if the URL is malformed, unreachable, times
  * out, or responds with anything other than a Colibri AppView.
  */
@@ -125,13 +162,22 @@ export const verifyColibriAppView = async (
 
 	try {
 		const res = await fetch(
-			`${base}/xrpc/social.colibri.server.describeServer`,
+			`${base}/xrpc/social.colibri.beta.server.describeServer`,
 			{ signal: controller.signal },
 		);
 		if (!res.ok) return null;
 
 		const data = (await res.json()) as Partial<ColibriServerDescription>;
-		if (data?.software !== "colibri-appview" || !data.version) return null;
+		if (
+			typeof data?.did !== "string" ||
+			data.software !== COLIBRI_APPVIEW_SOFTWARE ||
+			typeof data.flavor !== "string" ||
+			typeof data.version !== "string" ||
+			typeof data.handleDomain !== "string" ||
+			typeof data.pds !== "string"
+		) {
+			return null;
+		}
 
 		return data as ColibriServerDescription;
 	} catch {

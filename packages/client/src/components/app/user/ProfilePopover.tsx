@@ -1,4 +1,3 @@
-import type { ActorData } from "@colibri-social/lib";
 import {
 	type Component,
 	createSignal,
@@ -14,7 +13,7 @@ import {
 	getBskyAlternativeClientInfo,
 } from "../../../atproto/bluesky-alternatives";
 import { buildBskyProfileUrl } from "../../../atproto/bsky-post-url";
-import { resolveBlob } from "../../../atproto/resolve-blob";
+import type { ProfileView } from "../../../atproto/views";
 import { useCommunityContext } from "../../../contexts/Community";
 import { useSettingsModalContext } from "../../../contexts/SettingsModal";
 import { useUserContext } from "../../../contexts/User";
@@ -124,7 +123,8 @@ const detectLinksAndMentionsAndFormat = (
 };
 
 export const ProfilePopoverContents: Component<{
-	user: ActorData;
+	user: ProfileView;
+	nickname?: string;
 	preview?: ProfilePreviewOverride;
 	class?: string;
 	actions?: JSX.Element;
@@ -157,13 +157,11 @@ export const ProfilePopoverContents: Component<{
 		`https://atproto.at/uri/at://${props.user.handle.replaceAll("at://", "")}`;
 
 	const accentColor = () =>
-		readableUserColor(props.user.data.theme?.accentColor, resolvedTheme());
+		readableUserColor(props.user.theme?.accentColor, resolvedTheme());
 
 	const { all: allBadges } = useUserBadges(() => props.user);
 
-	const bannerUrl = () =>
-		props.preview?.bannerUrl ??
-		resolveBlob(props.user.did, props.user.data.banner);
+	const bannerUrl = () => props.preview?.bannerUrl ?? props.user.banner;
 
 	return (
 		<div
@@ -173,7 +171,7 @@ export const ProfilePopoverContents: Component<{
 			<div
 				class="w-full aspect-3/1 bg-muted"
 				style={(() => {
-					const theme = props.user.data.theme;
+					const theme = props.user.theme;
 					if (theme?.gradient?.primary && theme.gradient.secondary)
 						return {
 							background: `linear-gradient(135deg, ${theme.gradient.primary}, ${theme.gradient.secondary})`,
@@ -185,7 +183,7 @@ export const ProfilePopoverContents: Component<{
 				<Show when={bannerUrl()}>
 					<img
 						src={bannerUrl()}
-						alt={`${props.user.data.displayName}'s Banner`}
+						alt={`${props.nickname || props.user.displayName}'s Banner`}
 						class="w-full h-full object-cover"
 					/>
 				</Show>
@@ -195,6 +193,7 @@ export const ProfilePopoverContents: Component<{
 					<div class="flex flex-row items-center gap-4 z-50">
 						<Avatar
 							user={props.user}
+							nickname={props.nickname}
 							size="large"
 							overrideSrc={props.preview?.avatarUrl}
 							disableState={isPreview()}
@@ -204,17 +203,17 @@ export const ProfilePopoverContents: Component<{
 							fallback={
 								<Show
 									when={
-										((props.user.data.status?.text?.length ?? 0) > 0 ||
-											(props.user.data.status?.emoji?.length ?? 0) > 0) &&
-										props.user.data?.onlineState !== "offline"
+										((props.user.presence?.status?.text?.length ?? 0) > 0 ||
+											(props.user.presence?.status?.emoji?.length ?? 0) > 0) &&
+										props.user.presence?.onlineState !== "offline"
 									}
 								>
 									<span class="flex flex-row items-start gap-2 bg-card border border-border rounded-sm px-1.5 py-0.5 drop-shadow-black drop-shadow-sm max-w-48 overflow-hidden">
-										<Show when={props.user.data.status!.emoji}>
+										<Show when={props.user.presence!.status!.emoji}>
 											<span
 												class="h-5.5 w-5.5 [&>img]:min-w-4.5 [&>img]:min-h-4.5 [&>img]:w-4.5 [&>img]:h-4.5 [&>img]inline flex items-center justify-center"
 												innerHTML={parseEmojiText(
-													props.user.data.status!.emoji!,
+													props.user.presence!.status!.emoji!,
 												)}
 											/>
 										</Show>
@@ -222,12 +221,12 @@ export const ProfilePopoverContents: Component<{
 											class="leading-5.5 wrap-break-word text-sm w-fit"
 											classList={{
 												"max-w-[calc(100%-22px)]":
-													!!props.user.data.status!.emoji,
-												"max-w-full": !props.user.data.status!.emoji,
-												hidden: props.user.data.status!.text.length === 0,
+													!!props.user.presence!.status!.emoji,
+												"max-w-full": !props.user.presence!.status!.emoji,
+												hidden: props.user.presence!.status!.text.length === 0,
 											}}
 										>
-											{props.user.data.status!.text}
+											{props.user.presence!.status!.text}
 										</span>
 									</span>
 								</Show>
@@ -244,12 +243,13 @@ export const ProfilePopoverContents: Component<{
 									<span
 										style={accentColor() ? { color: accentColor() } : undefined}
 									>
-										{displayableNameFn(props.user)}
+										{displayableNameFn(props.user, props.nickname)}
 									</span>
 								}
 							>
 								<DisplayableName
 									user={props.user}
+									nickname={props.nickname}
 									color={accentColor()}
 									badge={false}
 								/>
@@ -337,13 +337,13 @@ export const ProfilePopoverContents: Component<{
 							</Show>
 						</div>
 					</div>
-					<Show when={props.user.data.description && !props.hideDescription}>
+					<Show when={props.user.description && !props.hideDescription}>
 						<hr class="w-full h-px border-none bg-border m-0" />
 						<p
 							class="prose dark:prose-invert text-sm m-0 px-1 wrap-anywhere"
 							onClick={handleExternalLinkClick}
 							innerHTML={detectLinksAndMentionsAndFormat(
-								props.user.data.description!,
+								props.user.description!,
 								userPreferences?.preferences().preferredBlueskyClient ??
 									"bluesky",
 							)}
@@ -391,7 +391,8 @@ export const ProfilePopoverContents: Component<{
 };
 
 export const ProfilePopover: ParentComponent<{
-	user: ActorData;
+	user: ProfileView;
+	nickname?: string;
 	class?: string;
 	disabled?: boolean;
 	as?: "div" | "span";
@@ -427,6 +428,7 @@ export const ProfilePopover: ParentComponent<{
 						<PopoverContent class="w-80 p-0 overflow-hidden relative drop-shadow-black drop-shadow-xl">
 							<ProfilePopoverContents
 								user={props.user}
+								nickname={props.nickname}
 								actions={props.actions?.(close)}
 								onEditStatus={props.onEditStatus}
 								onRequestClose={close}
@@ -456,6 +458,7 @@ export const ProfilePopover: ParentComponent<{
 					<ProfilePopoverContents
 						class="w-full"
 						user={props.user}
+						nickname={props.nickname}
 						actions={props.actions?.(close)}
 						onEditStatus={props.onEditStatus}
 						onRequestClose={close}

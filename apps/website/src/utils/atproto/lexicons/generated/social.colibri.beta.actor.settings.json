@@ -1,0 +1,43 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.actor.settings",
+	"defs": {
+		"main": {
+			"type": "record",
+			"description": "A user's Colibri settings.",
+			"key": "literal:self",
+			"record": {
+				"type": "object",
+				"required": [],
+				"properties": {
+					"notificationLevel": {
+						"type": "string",
+						"knownValues": [
+							"all",
+							"mentionsAndReplies"
+						],
+						"default": "all",
+						"description": "Which messages produce a notification."
+					},
+					"communityOrder": {
+						"type": "array",
+						"items": {
+							"type": "string",
+							"format": "did",
+							"description": "A community."
+						},
+						"description": "The user's communities in their preferred sidebar order."
+					},
+					"gifFavorites": {
+						"type": "array",
+						"items": {
+							"type": "ref",
+							"ref": "social.colibri.beta.embed.defs#gifView"
+						},
+						"description": "GIFs the user saved from the picker, stored whole. A saved GIF has to render without another lookup, and an identifier cannot be turned back into one: a GIF favourited from a chat message carries its own URL as the id rather than a provider key, so no provider can resolve it."
+					}
+				}
+			}
+		}
+	}
+}

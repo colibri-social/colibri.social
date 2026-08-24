@@ -1,0 +1,78 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.community.create",
+	"defs": {
+		"main": {
+			"type": "procedure",
+			"description": "Provisions a new community: an account on the AppView's PDS, its four spaces, an owner role, and a starter layout of two categories holding one text channel and one voice channel between them. This call runs long enough that progress is also emitted over social.colibri.beta.sync.subscribeEvents.",
+			"input": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"name"
+					],
+					"properties": {
+						"name": {
+							"type": "string",
+							"minLength": 1,
+							"maxLength": 32,
+							"description": "The community's name."
+						},
+						"description": {
+							"type": "string",
+							"maxLength": 256,
+							"description": "The community's description."
+						},
+						"handlePrefix": {
+							"type": "string",
+							"description": "A slug used for the community handle instead of a generated one."
+						}
+					}
+				}
+			},
+			"output": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"community"
+					],
+					"properties": {
+						"community": {
+							"type": "ref",
+							"ref": "social.colibri.beta.community.defs#communityView",
+							"description": "The newly created community."
+						}
+					}
+				}
+			},
+			"errors": [
+				{
+					"name": "AuthRequired",
+					"description": "The request is missing, malformed, or unverifiable service auth."
+				},
+				{
+					"name": "InvalidRequest",
+					"description": "The arguments are inconsistent or malformed beyond schema validation."
+				},
+				{
+					"name": "AlreadyExists",
+					"description": "A community already exists with the requested handle."
+				},
+				{
+					"name": "PdsUnavailable",
+					"description": "The AppView's PDS could not be reached to provision the account."
+				},
+				{
+					"name": "SpacesUnsupported",
+					"description": "The AppView's PDS does not implement com.atproto.simplespace, so it cannot host community spaces."
+				},
+				{
+					"name": "UpstreamFailure",
+					"description": "A PDS or third-party call the AppView depends on failed."
+				}
+			]
+		}
+	}
+}

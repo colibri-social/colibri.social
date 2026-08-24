@@ -15,7 +15,7 @@ The AppView treats facets opaquely. It stores and relays them verbatim without v
 
 A facet is an `index` (the byte range it covers) plus a list of `features` (what to do with that range):
 
-```ts title="social.colibri.richtext.facet"
+```ts title="social.colibri.beta.richtext.facet"
 {
 	index: {
 		byteStart: number; // inclusive, zero-based
@@ -69,26 +69,30 @@ The facet's covered text is the visible label (e.g. `@alice`). The renderer reso
 A reference to a role in the same community.
 
 ```ts title="#role"
-{ role: string } // AT-URI of the referenced role record
+{ role: string } // record key of the referenced role
 ```
 
-The covered text is the visible label (e.g. `@Moderators`). Resolved against the community's roles and rendered as a colored chip using the role's `color`. An unresolved role URI renders as a styled `@Unknown Role` chip.
+A bare record key is unambiguous here. Roles are only ever written by the community itself, and a channel space's authority *is* its community.
 
-Unlike a user mention, a role mention fans out at index time: the AppView notifies every member holding the role. Whether the ping fires is gated (see [role mention expansion](/docs/specification/appview#role-mention-expansion)). A role is pingable by anyone when its record's `mentionable` flag is set, roles not marked mentionable can only be pinged by authors holding the `mention.roles` permission. The chip renders for everyone regardless, the gate only governs the notification.
+The covered text is the visible label (for example `@Moderators`). Resolved against the community's roles and rendered as a coloured chip using the role's `color`. An unresolved key renders as a styled `@Unknown Role` chip.
+
+Unlike a user mention, a role mention fans out at index time: the AppView notifies every member holding the role. Whether the ping fires is gated. A role is pingable by anyone when its record's `mentionable` flag is set, roles not marked mentionable can only be pinged by authors holding the `mention.roles` permission. The chip renders for everyone regardless, the gate only governs the notification.
 
 #### `channel`
 
-A reference to a channel, in this community or in any other.
+A reference to a channel in the same community.
 
 ```ts title="#channel"
-{ channel: string } // AT-URI of the referenced channel record
+{ channel: string } // space key of the referenced channel
 ```
 
-Channels live in their community's repo, so the repo DID of the AT-URI is also the community's DID. That is the only community reference the feature carries, and it is what a reader uses to decide what to draw:
+A [channel is its space](/docs/architecture/communities#a-channel-is-its-space), so the reference is that space's key. As with a role, the key alone is unambiguous, because the community that authors the message's channel space is the same community the referenced channel belongs to.
 
-- **Same community.** Resolved against the community's channels and rendered as `#name`, linking to the channel. Because the name is resolved at render time rather than read from the message text, renaming a channel updates every existing reference to it. An unresolved channel still renders styled but non-navigable.
-- **Another community the reader belongs to.** Rendered as that community's avatar and a chevron followed by the same `#name` chip, linking across to it.
-- **A community the reader does not belong to.** Rendered as a lock and "No access", with no link. A reader outside a community cannot read its records, so neither the community nor the channel is named.
+Rendered as `#name`, linking to the channel. Because the name is resolved at render time rather than read out of the message text, renaming a channel updates every existing reference to it. An unresolved key still renders styled but non-navigable.
+
+:::note[No cross-community references]
+A `#channel` feature can only name a channel in the message's own community. Community data lives in [permissioned spaces](/docs/architecture/spaces) and a reader needs a credential per space, so a reference into a community the reader has no credential for resolves to nothing, not even a name. A link into another community is an ordinary `#link`.
+:::
 
 A channel URL pasted into the composer is upgraded to a `#channel` feature, and a reader that encounters a channel URL inside a plain `#link` feature renders it the same way.
 
@@ -100,7 +104,7 @@ A hyperlink.
 { uri: string } // the link target
 ```
 
-Rendered as an `<a>` opening in a new tab. The covered text is the link label. When the label text is exactly equal to `uri` (a "bare" URL), the client may rewrite the displayed href, for example, rewriting a Bluesky URL to the reader's preferred Bluesky client.
+Rendered as an `<a>` opening in a new tab. The covered text is the link label. When the label text matches `uri` (a "bare" URL), the client may rewrite the displayed href, for example, rewriting a Bluesky URL to the reader's preferred Bluesky client.
 
 #### `time`
 
@@ -203,7 +207,7 @@ If no entity feature is present, the remaining marks (`bold`, `italic`, `underli
 
 ### 6. Overlapping ranges are split
 
-Partially overlapping facets (as opposed to identical ranges, which were merged in step 1) are resolved by splitting the text at every facet boundary. Each resulting segment is rendered with the features of every facet that fully covers it. For example, if `bold` covers bytes `0–6` and `italic` covers `3–9`, the result is three segments: `0–3` bold, `3–6` bold + italic, `6–9` italic.
+Partially overlapping facets (as opposed to identical ranges, which were merged in step 1) are resolved by splitting the text at every facet boundary. Each resulting segment is rendered with the features of every facet that fully covers it. For example, if `bold` covers bytes `0` to `6` and `italic` covers `3` to `9`, the result is three segments: `0` to `3` bold, `3` to `6` bold and italic, `6` to `9` italic.
 
 ## Worked example
 
@@ -213,8 +217,8 @@ Text: `Hello world` with `Hello` bold and `world` a mention.
 {
 	text: "Hello world",
 	facets: [
-		{ index: { byteStart: 0, byteEnd: 5 },  features: [{ $type: "social.colibri.richtext.facet#bold" }] },
-		{ index: { byteStart: 6, byteEnd: 11 }, features: [{ $type: "social.colibri.richtext.facet#mention", did: "did:plc:..." }] },
+		{ index: { byteStart: 0, byteEnd: 5 },  features: [{ $type: "social.colibri.beta.richtext.facet#bold" }] },
+		{ index: { byteStart: 6, byteEnd: 11 }, features: [{ $type: "social.colibri.beta.richtext.facet#mention", did: "did:plc:..." }] },
 	],
 }
 ```
@@ -223,5 +227,5 @@ Renders as **Hello** (bold) followed by a mention chip for `world`. If the menti
 
 ## See also
 
-- [Lexicons](/docs/specification/lexicons): the full lexicon schemas, including `social.colibri.richtext.facet`.
+- [Lexicons](/docs/specification/lexicons): the full lexicon schemas, including `social.colibri.beta.richtext.facet`.
 - [AppView Specification](/docs/specification/appview): messages and the `facets` field on the wire.

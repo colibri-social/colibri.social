@@ -1,0 +1,148 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.channel.create",
+	"defs": {
+		"main": {
+			"type": "procedure",
+			"description": "Creates a channel. This creates a space for the channel, then writes the channel's configuration record at key 'self' inside that space.",
+			"input": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"community",
+						"type",
+						"name",
+						"category"
+					],
+					"properties": {
+						"community": {
+							"type": "string",
+							"format": "did",
+							"description": "The community the channel belongs to."
+						},
+						"type": {
+							"type": "string",
+							"format": "nsid",
+							"description": "The channel's space type.",
+							"knownValues": [
+								"social.colibri.beta.channel.text",
+								"social.colibri.beta.channel.voice"
+							]
+						},
+						"name": {
+							"type": "string",
+							"minLength": 1,
+							"maxLength": 32,
+							"description": "The channel's name."
+						},
+						"category": {
+							"type": "string",
+							"format": "record-key",
+							"description": "The category to list the channel under."
+						},
+						"description": {
+							"type": "string",
+							"maxLength": 256,
+							"description": "The channel's topic."
+						},
+						"ownerOnly": {
+							"type": "boolean",
+							"description": "Whether only community admins may post."
+						},
+						"allowedRoles": {
+							"type": "array",
+							"items": {
+								"type": "string",
+								"format": "record-key",
+								"description": "A role permitted to post."
+							},
+							"description": "Roles allowed to post here."
+						},
+						"allowedMembers": {
+							"type": "array",
+							"items": {
+								"type": "string",
+								"format": "did",
+								"description": "A member permitted to post."
+							},
+							"description": "Members allowed to post here in addition to allowedRoles."
+						},
+						"visibleToRoles": {
+							"type": "array",
+							"description": "Roles that may read this channel. Empty means every member may.",
+							"items": {
+								"type": "string",
+								"format": "record-key",
+								"description": "A role."
+							}
+						},
+						"visibleToMembers": {
+							"type": "array",
+							"description": "Members that may read this channel beyond visibleToRoles.",
+							"items": {
+								"type": "string",
+								"format": "did",
+								"description": "A member."
+							}
+						}
+					}
+				}
+			},
+			"output": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"channel"
+					],
+					"properties": {
+						"channel": {
+							"type": "ref",
+							"ref": "social.colibri.beta.community.defs#channelView",
+							"description": "The newly created channel."
+						}
+					}
+				}
+			},
+			"errors": [
+				{
+					"name": "AuthRequired",
+					"description": "The request has no valid service auth."
+				},
+				{
+					"name": "Forbidden",
+					"description": "The requesting user lacks the channel.create permission."
+				},
+				{
+					"name": "CommunityNotFound",
+					"description": "No community matches the given DID."
+				},
+				{
+					"name": "CategoryNotFound",
+					"description": "No category matches the given record key."
+				},
+				{
+					"name": "RoleHierarchy",
+					"description": "The requesting user cannot grant a role that outranks their own."
+				},
+				{
+					"name": "InvalidRequest",
+					"description": "The arguments are inconsistent or malformed beyond schema validation."
+				},
+				{
+					"name": "CredentialsUnavailable",
+					"description": "The AppView cannot act as the community because its stored credentials are missing or unusable."
+				},
+				{
+					"name": "PdsUnavailable",
+					"description": "The community's PDS is unreachable or the AppView has no administrative access to it."
+				},
+				{
+					"name": "UpstreamFailure",
+					"description": "The community's PDS failed while creating the channel's space."
+				}
+			]
+		}
+	}
+}

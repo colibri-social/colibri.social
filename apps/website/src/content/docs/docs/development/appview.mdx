@@ -1,174 +1,279 @@
 ---
 title: AppView development
-description: "Run and work on the reference AppView: dependencies, configuration, migrations, and tests."
+description: "Run and work on the AppView: configuration, source layout, and Docker overlays."
 sidebar:
   order: 2
 ---
 
 import { Steps, FileTree } from "@astrojs/starlight/components";
 
-The reference AppView lives in [colibri-social/appview](https://github.com/colibri-social/appview). It's a Rust service built on [Rocket](https://rocket.rs), talking to PostgreSQL through [SeaORM](https://www.sea-ql.org/SeaORM/) and to the firehose through [Tap](https://github.com/bluesky-social/indigo/blob/main/cmd/tap/README.md). See the [architecture page](/docs/architecture/appview) for how the pieces fit together, and the [specification](/docs/specification/appview) for what the endpoints have to do.
+The AppView lives in [colibri-social/api](https://github.com/colibri-social/api). It's a Node 24 and TypeScript pnpm workspace, built on [`@atproto/xrpc-server`](https://github.com/bluesky-social/atproto) and [Drizzle](https://orm.drizzle.team). See the [architecture page](/docs/architecture/appview) for how the pieces fit together, and the [specification](/docs/specification/appview) for what the endpoints have to do.
+
+:::note[Alpha]
+Permissioned-space support lives on a branch for now, and this page describes that branch.
+:::
 
 ## Running it
 
 <Steps>
 
-1. Clone it and create your configuration:
+1. Clone it and install:
 
    ```sh
-   git clone https://github.com/colibri-social/appview.git
+   git clone https://github.com/colibri-social/api.git
    cd appview
+   pnpm install
+   ```
+
+2. Create your configuration and fill it in:
+
+   ```sh
    cp .env.example .env
    ```
 
-2. Fill in `.env`. For the dev compose file the local values are:
+   The AppView refuses to boot without six variables. `.env.example` carries
+   the `openssl` lines that generate the two secrets.
 
-   ```ini
-   DATABASE_URL=postgres://root:colibri@127.0.0.1:5432/colibri
-   TAP_HOSTNAME=127.0.0.1:2480
-   TAP_ADMIN_PASSWORD=<anything, Tap reads the same variable>
-   RUST_LOG=colibri_appview=debug,rocket=info
-   ```
+   | Variable | What it is |
+   | --- | --- |
+   | `APPVIEW_DID` | The `did:web` this AppView answers as. It must be a **hostname**, not an IP address: see below. |
+   | `PUBLIC_URL` | Where this AppView is reachable from the public internet. A community's PDS calls back here on every credential mint. |
+   | `SIGNING_KEY` | A secp256k1 private key, published in the DID document. |
+   | `CREDENTIAL_ENCRYPTION_KEY` | Encrypts community passwords at rest. |
+   | `PDS_URL` | The PDS this AppView talks to. It must run the spaces alpha, `ghcr.io/bluesky-social/atproto:pds-spaces-alpha`. See [Running a PDS](/docs/development/pds). |
+   | `COMMUNITY_HANDLE_DOMAIN` | The domain communities get handles under, such as `my-community.communities.example.com`. |
 
-   Generate the two keys the AppView refuses to start without:
+   Everything else in `.env.example` has a default. `DATABASE_URL` defaults to
+   a local libSQL file, so no database service is required to start.
 
-   ```sh
-   openssl rand -hex 32      # K256_PRIVATE_KEY
-   openssl rand -base64 32   # CREDENTIAL_ENCRYPTION_KEY
-   ```
+   :::caution[Use a hostname in `APPVIEW_DID`, not `127.0.0.1`]
+   A PDS rejects `did:web:127.0.0.1%3A3000` as a service-auth audience with
+   `aud must be a valid atproto DID or did#serviceId reference`, so every
+   authenticated call against it fails.
 
-   `PDS_LOC` and `APPVIEW_HANDLE_DOMAIN` are also checked at boot. See [Running a PDS](/docs/development/pds) for what to put there.
+   Set `APPVIEW_DID=did:web:localhost%3A3000` instead. The server can still
+   listen on `127.0.0.1`, only the DID has to be a name. The AppView refuses to
+   boot on a bare-IP `did:web`.
+   :::
 
-3. Start PostgreSQL and Tap, plus a local PDS if you want to create communities:
-
-   ```sh
-   docker compose -f docker-compose.dev.yml up -d
-
-   # ...with a local PDS + PLC directory (see Running a PDS):
-   docker compose -f docker-compose.dev.yml -f docker-compose.pds.dev.yml up -d
-   ```
-
-   Postgres is published on `5432` and Tap on `2480`. The `app` service in the dev file sits behind the `app` Compose profile, so it stays down and you run the AppView yourself.
-
-4. Run the AppView. Migrations are applied on boot, so there is no separate step:
+3. Run it:
 
    ```sh
-   cargo run
+   PORT=3000 pnpm dev
    ```
 
-   It listens on `http://127.0.0.1:8000`, prints a banner at `/`, and serves the API under `/xrpc/`.
+   This runs the TypeScript directly under [tsx](https://tsx.is), watching for
+   changes. There is no build step in the dev loop, and no separate compiler to
+   keep running alongside it.
 
 </Steps>
+
+Editing a workspace package restarts the AppView too, not just editing
+`apps/appview`. That works because every package declares a `colibri-source`
+export condition pointing at its own `src`, and the dev script asks for it:
+
+```json title="packages/community/package.json"
+"exports": {
+  ".": {
+    "types": "./dist/index.d.ts",
+    "colibri-source": "./src/index.ts",
+    "default": "./dist/index.js"
+  }
+}
+```
+
+The condition is not called `development`, which several bundlers set on their
+own. Three of these packages are published, and a consumer whose
+bundler picked `development` would resolve to a `src` directory that is not in
+the published tarball.
+
+:::caution[tsx does not typecheck]
+It strips types and runs. A type error will not stop the AppView from starting,
+it will surface as whatever happens at runtime.
+
+Run `pnpm typecheck` before you push, and `pnpm build` before you ship. `pnpm
+start` runs the compiled output and does need a build first.
+:::
 
 Two quick checks that it came up correctly:
 
 ```sh
-curl http://127.0.0.1:8000/xrpc/social.colibri.server.describeServer
-curl http://127.0.0.1:8000/.well-known/did.json
+curl http://127.0.0.1:3000/health
+curl http://127.0.0.1:3000/.well-known/did.json
 ```
 
-The first should report `"software": "colibri-appview"`. The second is the DID document derived from `APPVIEW_DID` and `K256_PRIVATE_KEY`.
+The first reports `{"status":"ok","did":"..."}`. The second is the DID
+document derived from `APPVIEW_DID` and `SIGNING_KEY`.
 
-## Configuration that matters locally
+## Browser origins
 
-`.env.example` documents every variable, these are the ones that change how the service behaves while you develop.
+The AppView answers `/xrpc` with CORS headers for the origins named in
+`CORS_ORIGINS`, a comma-separated list. `*` allows any origin. Every request
+carries its own service-auth token in an `Authorization` header and nothing is
+authenticated by a cookie, so a wildcard grants no ambient access.
 
-| Variable | Effect |
-| --- | --- |
-| `RUST_LOG` | Rocket and AppView log filters. `colibri_appview=debug` is what you want while working on handlers. |
-| `DATABASE_MAX_CONNECTIONS` | Pool ceiling (default `20`, `.env.example` suggests `40`). Keep it comfortably above `TAP_WORKERS`, since every Tap worker holds a connection while it writes. |
-| `TAP_WORKERS` | How many workers process firehose events. Lower it if Tap floods your machine. |
-| `REFILL_FROM_SCRATCH` | Set to any non-empty value to clear the local `record_data` cache at boot and have Tap re-backfill every DID the AppView knows about. A recovery knob, not something you want on by default. It's slow, and **destructive against a local PDS**, whose repos Tap cannot re-fetch. |
-| `HUMMING_ENABLED` | Set `false` to stop the AppView from opening outbound connections to other AppViews (see [Humming](/docs/architecture/appview#humming)). Sensible for local work. |
-| `VAPID_*`, `FCM_SERVICE_ACCOUNT_JSON`, `KLIPY_API_KEY` | Optional. Unset means background Web Push, Android push, and the GIF picker with its link previews are disabled, which the AppView says clearly in its boot logs. |
-| `SFU_ANNOUNCED_IP` | Only needed if you test voice from another device, `127.0.0.1` is fine on one machine. |
+With `CORS_ORIGINS` unset, development allows `http://localhost:4321` and
+`http://127.0.0.1:4321`, which is where the client's dev server runs, and
+production allows nothing. A deployment whose client lives on another origin
+has to name it:
+
+```sh title=".env"
+CORS_ORIGINS=https://app.example.com,https://staging.example.com
+```
+
+The headers go on error responses too. Without them a 401 reaches the browser
+as an opaque CORS failure instead of the error the AppView sent.
+
+Requests may carry `authorization`, `atproto-proxy`, `atproto-accept-labelers`,
+`content-type` and `range`. Responses expose `atproto-repo-rev`,
+`accept-ranges` and `content-range`. A preflight is answered with a 204 and
+cached for a day.
+
+The WebSocket endpoints are unaffected: a browser does not apply CORS to a
+WebSocket handshake, and the AppView does not check `Origin` on one.
+
+## Storage
+
+libSQL is the default, and needs nothing else running: `DATABASE_URL`
+defaults to `file:./data/colibri.db`. A `postgres://` URL switches the driver
+to Postgres instead. Both dialects share one hand-written schema, generated
+from the libSQL version at build time, and a test asserts the two agree on
+column names, nullability, primary keys and indexes.
+
+## A PDS to sync from
+
+Reading and writing anything beyond the AppView's own tables needs a real
+spaces-alpha PDS at `PDS_URL`, because this AppView pulls member repos
+directly rather than reading a firehose. [Running a PDS](/docs/development/pds)
+covers running one locally in Docker, including why the PLC directory next to
+it is built from source.
 
 ## Source layout
 
 <FileTree>
-- src
-  - main.rs Rocket setup, boot-time invariant checks, route mounting
-  - lib/ the bulk of the logic
-  - xrpc/ one module per lexicon method
-  - models/ SeaORM entities for the AppView's own tables
-  - migrations/ SeaORM migrations, applied automatically on boot
-  - well_known.rs the `did:web` document
-  - sfu.rs the mediasoup voice SFU
-- scripts/ operational helpers for community credentials
-- tests/ fixtures for the unit tests that live next to the code
+- packages
+  - lexicons every Colibri schema, the space type declarations, and the types generated from them
+  - space client for `com.atproto.space` and `com.atproto.simplespace`
+  - space-sync keeps a local copy of a space current
+  - db Drizzle schema and migrations for both libSQL and Postgres
+  - projections turns synced records into the typed read models the API serves
+  - identity service auth, DID documents, handle resolution
+  - community provisioning, credential custody, roles and permissions, moderation
+  - notifications notification indexing, Web Push and FCM
+  - blobs CID-verified blob proxy for permissioned blobs
+  - embeds SSRF-guarded link previews and the GIF picker
+  - voice mediasoup voice SFU
+- apps
+  - appview the server
+    - src
+      - config.ts environment parsing and validation
+      - context.ts wires the packages above into one `AppContext`
+      - routes/ one module per lexicon group
+      - views/ read models assembled for the API responses
+      - ws/ the events and voice WebSocket surfaces
+      - jetstream.ts consumes identity and account events
+  - migrate one-shot migration of repo-backed communities onto spaces
 </FileTree>
 
-A new endpoint is usually: a handler module under `src/xrpc/social/colibri/...`, its route registered in `main.rs`, plus an entry in the [AppView specification](/docs/specification/appview) so other implementations can follow.
+A new endpoint is usually a handler in `apps/appview/src/routes/`, registered
+in `apps/appview/src/server.ts`, plus an `errors` entry in its lexicon and a
+matching entry in the [AppView specification](/docs/specification/appview).
 
-## Migrations
+## Running it with Docker
 
-Migrations are plain SeaORM migration structs in `src/migrations/`, named `m<UTC timestamp>_<description>.rs`. Adding one means creating the file, then registering it in `src/migrations/mod.rs` twice: once as a `mod` declaration and once in the `migrations()` vector. Order in that vector is the order they run in, so append rather than insert.
-
-They run inside the AppView's boot sequence, which means a failing migration prevents startup. There is no separate migration binary to invoke.
-
-## Tests, formatting, linting
-
-CI runs three jobs, all of which you can reproduce locally:
+No image is published, so compose builds one from the `Dockerfile` in the
+repository. The first build takes a while and later ones are cached.
 
 ```sh
-cargo fmt --all --check
-cargo clippy -- -D warnings
-cargo test --all-features
+cp .env.example .env    # required, see Running it above
+docker compose up --build
 ```
 
-`cargo test` also runs `tests/lexicons.rs`, which checks every route against
-the lexicons vendored in `lexicons/`. It reads files only, no database, no
-network, and fails just when a route would actually break a client, so a
-lexicon that has not caught up with the AppView is reported rather than
-rejected. Run `./scripts/sync-lexicons.sh` to refresh the vendored copy,
-[Testing](/docs/development/testing) covers the rules and the escape hatch in
-full.
+That runs the AppView alone on libSQL against the `appview-data` volume,
+pointed at whatever `PDS_URL` names. Three overlays compose on top of it:
 
-`src/lib/response_snapshots.rs` pins what the response structs actually
-serialise to, against `tests/fixtures/responses/`, and checks each one still
-carries every property its lexicon marks required. It lives in `src/` because
-a binary crate's `tests/` cannot import crate types. After a deliberate shape
-change, regenerate with `UPDATE_FIXTURES=1 cargo test` and review the diff.
+| Overlay | What it adds |
+| --- | --- |
+| `docker-compose.postgres.yml` | Postgres, and rewrites `DATABASE_URL` to use it |
+| `docker-compose.pds.yml` | a local spaces-alpha PDS and a private PLC directory, for developing without a PDS of your own |
+| `docker-compose.integration.yml` | the same PDS and PLC, ephemeral, for `pnpm test:integration` |
 
-Unit tests live in `#[cfg(test)]` modules next to the code they cover. Handlers are written against injected function seams (`create_with` takes `create_account_fn`, `create_record_fn`, and friends) precisely so they can be tested without a PDS or a database, [`wiremock`](https://docs.rs/wiremock) stands in for HTTP services where a seam isn't enough. When you add a handler, prefer that shape over reaching for the real thing.
+```sh
+docker compose -f docker-compose.yml -f docker-compose.pds.yml up
+```
 
-## Working without a PDS
+The spaces-alpha PDS is published for amd64 only, so its platform is pinned and it runs under
+emulation on an arm64 host. The PLC directory is built from `docker/plc`
+rather than pulled, because no current one is published anywhere: every PLC
+image on any registry dates from 2023 and predates the operation format the
+PDS emits. See [Running a PDS](/docs/development/pds).
 
-`PDS_LOC` is only *used* when a community is created, deleted, or migrated. It's merely checked for presence at boot. Everything else (login, reading and writing messages in an existing community, notifications, voice) works with a placeholder value. If community creation isn't what you're working on, that's the cheapest setup. Otherwise run the local PDS overlay: [Running a PDS](/docs/development/pds).
+## Commands
 
-## Write-through indexing
+```sh
+pnpm build              # generate lexicon types and the pg schema, then compile
+pnpm test               # unit tests
+pnpm test:integration   # against a real spaces-alpha PDS, not run in normal CI
+pnpm typecheck          # sources and tests
+pnpm lint               # Biome
+```
 
-Read endpoints serve from the local `record_data` index, which Tap fills from the firehose. But every write the AppView makes on a community's behalf, including the bootstrap records in `community.create`, is also indexed as it lands, via `community_write::cache_upsert`. Two things follow:
+[Testing](/docs/development/testing) covers what each of those runs.
 
-- A new community, channel or role is readable the moment the call returns, rather than after firehose latency.
-- The upsert is keyed on `(did, nsid, rkey)`, the same unique key Tap's indexer writes through, so a later firehose delivery of the same record is a no-op.
+## Conventions
 
-When you add a write path, follow that pattern: it's what makes a local PDS (whose repos Tap can't reach) usable at all.
+The code carries no comments. Anything that needs explaining is named to
+explain itself, written down in the README of the package it belongs to, or
+written up in these docs when it is protocol behaviour rather than an
+implementation detail.
 
-## Operational scripts
+## Releasing
 
-`scripts/` holds two helpers for the credentials the AppView stores encrypted in `community_credentials`:
+The same flow as the [client repository](/docs/development/client). Nothing is
+released by pushing a tag by hand.
 
-- `import-community-credentials.sh` inserts a community's PDS credentials into a deployment, encrypting them with that deployment's `CREDENTIAL_ENCRYPTION_KEY`. The manual counterpart to `registerCredentials`. It does **not** register the DID with Tap, so records that aren't in `record_data` yet won't be backfilled.
-- `get-community-password.sh` is the read side: it decrypts and prints a community's app password.
+Add a changeset to your pull request describing what changed:
 
-## Helpful tips
+```sh
+pnpm changeset
+```
 
-Below, you'll find guides on situations you might run into.
+Three packages are published from this repository:
+`@colibri-social/lexicons`, `@colibri-social/space` and
+`@colibri-social/space-sync`. A change to the lexicons is a protocol change, so
+treat it as a minor bump at least.
 
-### Resetting local state
+Once your pull request lands, a workflow opens or updates a pull request titled
+`[ci] release` holding the accumulated version bumps and changelog entries.
+Merging that one publishes the packages to npm and tags the repository. The
+release pull request is the review step, so nothing ships until someone merges
+it.
 
-In certain cases, you may want to start clean on your local state.
+The AppView itself is not published. There is no container image on any
+registry, and the version in `apps/appview/package.json` exists so
+[`describeServer`](/docs/specification/appview#socialcolibribetaserverdescribeserver)
+has something to report. Running it means building from the repository,
+which is what `docker compose up --build` does.
 
-1. If you use an external PDS, not the local one: use `get-community-password.sh` (see [Operational scripts](#operational-scripts)) to extract the passwords for the communities and save them for later.
-2. Stop the appview, then stop the docker compose if it is running.
-3. Delete the volume associated with the compose file.
-4. Start the compose file
-5. Start the appview
-6. Wait for backfill to complete
+:::note[What the release job depends on]
+`RELEASE_APP_ID` and `RELEASE_APP_PRIVATE_KEY` are a GitHub App installation
+that can open pull requests. A pull request opened with the default
+`GITHUB_TOKEN` does not trigger workflows, so the release pull request would sit
+there with no CI having run against it.
+
+npm publishing goes through OIDC trusted publishing, so the job asks for
+`id-token: write` and carries no npm token. Each package needs a trusted
+publisher configured on npmjs.com pointing at this repository and `release.yml`,
+including before its first ever release.
+:::
+
+Private packages are versioned but not tagged, set by `privatePackages` in
+`.changeset/config.json`. Without it, changesets treats a private package as
+ignored and refuses any changeset naming both it and a published one, which is
+what a change touching the server and the lexicons together looks like.
 
 ## See also
 
-- [AppView Architecture](/docs/architecture/appview): services, sizing, and Humming.
+- [AppView Architecture](/docs/architecture/appview): services and how they fit together.
 - [AppView Specification](/docs/specification/appview): what every endpoint and event must do.
 - [Self-Hosting](/docs/self-hosting/getting-started): running an instance for real users.

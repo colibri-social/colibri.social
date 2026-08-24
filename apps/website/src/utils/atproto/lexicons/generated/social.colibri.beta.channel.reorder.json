@@ -1,0 +1,75 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.channel.reorder",
+	"defs": {
+		"main": {
+			"type": "procedure",
+			"description": "Sets the channel order within one category.",
+			"input": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"community",
+						"category",
+						"channels"
+					],
+					"properties": {
+						"community": {
+							"type": "string",
+							"format": "did",
+							"description": "The community the category belongs to."
+						},
+						"category": {
+							"type": "string",
+							"format": "record-key",
+							"description": "The category to reorder."
+						},
+						"channels": {
+							"type": "array",
+							"description": "The complete new order for the category's channels, by channel space key.",
+							"items": {
+								"type": "string",
+								"format": "record-key",
+								"description": "A channel's space key."
+							}
+						}
+					}
+				}
+			},
+			"output": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"properties": {}
+				}
+			},
+			"errors": [
+				{
+					"name": "AuthRequired",
+					"description": "The request has no valid service auth."
+				},
+				{
+					"name": "Forbidden",
+					"description": "The requesting user lacks the channel.update permission."
+				},
+				{
+					"name": "CommunityNotFound",
+					"description": "No community matches the given DID."
+				},
+				{
+					"name": "CategoryNotFound",
+					"description": "No category matches the given record key."
+				},
+				{
+					"name": "InvalidRequest",
+					"description": "The given channels do not match the category's current set of channels."
+				},
+				{
+					"name": "CredentialsUnavailable",
+					"description": "The AppView cannot act as the community because its stored credentials are missing or unusable."
+				}
+			]
+		}
+	}
+}

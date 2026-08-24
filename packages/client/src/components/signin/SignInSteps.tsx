@@ -13,7 +13,7 @@ import CaretRightIcon from "~icons/ph/caret-right";
 import CheckIcon from "~icons/ph/check";
 import GlobeIcon from "~icons/ph/globe-simple";
 import ShieldCheckIcon from "~icons/ph/shield-check";
-import type { ActorTypeaheadResult } from "../../atproto/xrpc/app/bsky/actor/searchActorsTypeahead";
+import type { ActorTypeaheadResult } from "../../atproto/bsky";
 import { useViewport } from "../../contexts/Viewport";
 import { isTauriRuntime } from "../../notifications/environment";
 import { openExternalLink } from "../../utils/open-external-link";
@@ -357,7 +357,7 @@ export const SignInSteps: Component<{ flow: SignInFlow }> = (props) => {
 										p.badge && `${badgeBorder[p.badge.tone]} not-first:mt-1.5`
 									}`}
 									disabled={flow.busy()}
-									onClick={() => flow.chooseProvider(p)}
+									onClick={() => void flow.chooseProvider(p)}
 								>
 									<Show when={p.badge}>
 										{(b) => (

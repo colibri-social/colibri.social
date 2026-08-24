@@ -1,0 +1,99 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.community.applyLabel",
+	"defs": {
+		"main": {
+			"type": "procedure",
+			"description": "Applies a label to a record in one of the community's spaces. This is how content is hidden, marked as a spoiler, or has its link previews suppressed. The record itself is untouched, since it lives in its author's own repo, but a `hidden` label stops this AppView serving the record: it is withheld from reads and from the events socket, and replies to it see a deletedMessageView in its place. Moderators holding `label.apply` and the record's own author still see it.",
+			"input": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"space",
+						"subject",
+						"val"
+					],
+					"properties": {
+						"space": {
+							"type": "string",
+							"format": "space-ref",
+							"description": "The space the labelled record lives in."
+						},
+						"subject": {
+							"type": "ref",
+							"ref": "social.colibri.beta.label#subject",
+							"description": "The record to label."
+						},
+						"val": {
+							"type": "string",
+							"maxLength": 128,
+							"knownValues": [
+								"hidden",
+								"spoiler",
+								"embeds-suppressed"
+							],
+							"description": "The label value. `hidden` withholds the record from reads. `spoiler` and `embeds-suppressed` are display hints."
+						},
+						"scope": {
+							"type": "array",
+							"items": {
+								"type": "string",
+								"format": "uri",
+								"description": "A URI within the subject record."
+							},
+							"description": "Narrows the label to specific URIs inside the subject record. Absent means the whole record."
+						},
+						"reason": {
+							"type": "string",
+							"maxLength": 512,
+							"description": "Human-readable reason for the label."
+						}
+					}
+				}
+			},
+			"output": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"label"
+					],
+					"properties": {
+						"label": {
+							"type": "ref",
+							"ref": "social.colibri.beta.community.defs#labelView",
+							"description": "The applied label."
+						}
+					}
+				}
+			},
+			"errors": [
+				{
+					"name": "AuthRequired",
+					"description": "The request is missing, malformed, or unverifiable service auth."
+				},
+				{
+					"name": "Forbidden",
+					"description": "The caller lacks the label.apply permission."
+				},
+				{
+					"name": "CommunityNotFound",
+					"description": "No community exists at the given DID."
+				},
+				{
+					"name": "SpaceNotFound",
+					"description": "No space exists at the given reference."
+				},
+				{
+					"name": "InvalidRequest",
+					"description": "The scope or val is not valid for the subject record."
+				},
+				{
+					"name": "CredentialsUnavailable",
+					"description": "The AppView cannot act as the community because its stored credentials are missing or unusable."
+				}
+			]
+		}
+	}
+}

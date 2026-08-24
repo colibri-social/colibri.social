@@ -1,0 +1,30 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.reaction",
+	"defs": {
+		"main": {
+			"type": "record",
+			"description": "A reaction to a message in the same channel space.",
+			"key": "tid",
+			"record": {
+				"type": "object",
+				"required": [
+					"emoji",
+					"target"
+				],
+				"properties": {
+					"emoji": {
+						"type": "string",
+						"maxLength": 64,
+						"description": "The reaction, as an emoji or a custom shortcode."
+					},
+					"target": {
+						"type": "ref",
+						"ref": "social.colibri.beta.defs#recordRef",
+						"description": "The message being reacted to."
+					}
+				}
+			}
+		}
+	}
+}

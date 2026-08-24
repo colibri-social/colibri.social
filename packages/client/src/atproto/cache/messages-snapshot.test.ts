@@ -1,8 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type {
-	Message,
-	PendingMessage,
-} from "../xrpc/social/colibri/channel/listMessages";
+import type { MessageView } from "../views";
 import {
 	belongsToChannel,
 	buildMessagesSnapshot,
@@ -13,38 +10,43 @@ import {
 	MESSAGES_STALE_HINT_MS,
 	mergeSnapshotWindow,
 	reconcileFetchedWindow,
+	refOf,
 	restoreMessagesSnapshot,
 	rkeyOf,
+	sameRecord,
 	shouldWriteSnapshot,
 	snapshotAgeMs,
 	snapshotBelongsTo,
 } from "./messages-snapshot";
-import type { MessagesSnapshot } from "./schema";
+import type { MessagesSnapshot, PendingMessage } from "./schema";
 
 const DID = "did:plc:abc123";
-const CHANNEL = `at://${DID}/social.colibri.channel/general`;
-const COMMUNITY = `at://${DID}/social.colibri.community/self`;
+const OTHER_DID = "did:plc:xyz789";
+const CHANNEL = `at://${DID}/space/social.colibri.beta.channel.text/general`;
 
 const author = {
 	did: DID,
 	handle: "someone.example",
-	data: { displayName: "Someone" },
-} as unknown as Message["author"];
+	displayName: "Someone",
+	isBot: false,
+	syncBluesky: false,
+} as unknown as MessageView["author"];
 
-const message = (rkey: string): Message => ({
-	uri: `at://${DID}/social.colibri.message/${rkey}`,
-	text: "hello",
-	facets: [],
-	channel: CHANNEL,
-	community: COMMUNITY,
-	author,
-	attachments: [],
-	reactions: [],
-	createdAt: "2026-01-01T00:00:00.000Z",
-	edited: false,
-});
+const message = (rkey: string, did = DID): MessageView =>
+	({
+		uri: `${CHANNEL}/social.colibri.beta.message/${rkey}`,
+		rkey,
+		channel: CHANNEL,
+		author: did === DID ? author : { ...author, did },
+		text: "hello",
+		facets: [],
+		createdAt: "2026-01-01T00:00:00.000Z",
+		attachments: [],
+		reactions: [],
+		labels: [],
+	}) as unknown as MessageView;
 
-const run = (count: number, from = 0): Message[] =>
+const run = (count: number, from = 0): MessageView[] =>
 	Array.from({ length: count }, (_, i) => message(`m${from + i}`));
 
 const options = (
@@ -59,11 +61,32 @@ const options = (
 
 describe("rkeyOf", () => {
 	it("returns the last path segment of an AT URI", () => {
-		expect(rkeyOf(`at://${DID}/social.colibri.message/abc`)).toBe("abc");
+		expect(rkeyOf(`${CHANNEL}/social.colibri.beta.message/abc`)).toBe("abc");
 	});
 
 	it("returns an empty string for an empty input", () => {
 		expect(rkeyOf("")).toBe("");
+	});
+});
+
+describe("refOf and sameRecord", () => {
+	it("builds a RecordRef from a message's author and rkey", () => {
+		expect(refOf(message("a"))).toEqual({ did: DID, rkey: "a" });
+	});
+
+	it("matches a message against its own ref", () => {
+		const m = message("a");
+		expect(sameRecord(m, refOf(m))).toBe(true);
+	});
+
+	it("does not match on rkey alone when the author differs", () => {
+		const mine = message("a", DID);
+		const theirs = message("a", OTHER_DID);
+		expect(sameRecord(mine, refOf(theirs))).toBe(false);
+	});
+
+	it("does not match when the rkey differs", () => {
+		expect(sameRecord(message("a"), { did: DID, rkey: "b" })).toBe(false);
 	});
 });
 
@@ -83,7 +106,7 @@ describe("buildMessagesSnapshot", () => {
 		const snap = buildMessagesSnapshot(run(60), options());
 
 		expect(snap.messages).toHaveLength(50);
-		expect(snap.messages[0]?.uri).toContain("m10");
+		expect(snap.messages[0]?.rkey).toBe("m10");
 		expect(snap.cursor).toBe("m10");
 	});
 
@@ -104,10 +127,10 @@ describe("buildMessagesSnapshot", () => {
 	it("records the read cursor and timestamp verbatim", () => {
 		const snap = buildMessagesSnapshot(
 			run(3),
-			options({ readCursor: "cursor-uri", now: 999 }),
+			options({ readCursor: "cursor-tid", now: 999 }),
 		);
 
-		expect(snap.readCursor).toBe("cursor-uri");
+		expect(snap.readCursor).toBe("cursor-tid");
 		expect(snap.ts).toBe(999);
 	});
 
@@ -235,15 +258,15 @@ describe("reconcileFetchedWindow", () => {
 		({ ...message(`pending-${hash}`), hash }) as unknown as PendingMessage;
 
 	const prunableOf = (
-		local: ReadonlyArray<Message | PendingMessage>,
+		local: ReadonlyArray<MessageView | PendingMessage>,
 	): ReadonlySet<string> => new Set(local.map((m) => m.uri));
 
-	const uris = (local: ReadonlyArray<Message | PendingMessage>): string[] =>
+	const uris = (local: ReadonlyArray<MessageView | PendingMessage>): string[] =>
 		local.map((m) => m.uri);
 
 	const reconcile = (
-		local: (Message | PendingMessage)[],
-		fetched: Message[],
+		local: (MessageView | PendingMessage)[],
+		fetched: MessageView[],
 		pageSize = 3,
 	) =>
 		reconcileFetchedWindow(local, fetched, {
@@ -317,19 +340,20 @@ describe("reconcileFetchedWindow", () => {
 });
 
 describe("mergeSnapshotWindow", () => {
-	const named = (rkey: string, text: string): Message => ({
+	const named = (rkey: string, text: string): MessageView => ({
 		...message(rkey),
 		text,
 	});
 
-	const window = (rkeys: string[]): Message[] => rkeys.map((r) => message(r));
+	const window = (rkeys: string[]): MessageView[] =>
+		rkeys.map((r) => message(r));
 
 	const snapshot = (
-		messages: Message[],
+		messages: MessageView[],
 		overrides?: Partial<MessagesSnapshot>,
 	): MessagesSnapshot => ({
 		messages,
-		cursor: messages[0] ? rkeyOf(messages[0].uri) : undefined,
+		cursor: messages[0]?.rkey,
 		hasMore: false,
 		ts: 1,
 		...overrides,
@@ -349,11 +373,7 @@ describe("mergeSnapshotWindow", () => {
 
 		const merged = mergeSnapshotWindow(existing, fetched, options());
 
-		expect(merged.messages.map((m) => rkeyOf(m.uri))).toEqual([
-			"m01",
-			"m02",
-			"m03",
-		]);
+		expect(merged.messages.map((m) => m.rkey)).toEqual(["m01", "m02", "m03"]);
 		expect(merged.messages.map((m) => m.text)).toEqual([
 			"stale",
 			"fresh",
@@ -367,7 +387,7 @@ describe("mergeSnapshotWindow", () => {
 
 		const merged = mergeSnapshotWindow(existing, fetched, options());
 
-		expect(merged.messages.map((m) => rkeyOf(m.uri))).toContain("m03");
+		expect(merged.messages.map((m) => m.rkey)).toContain("m03");
 	});
 
 	it("keeps only the newest window and reports more when it truncates", () => {
@@ -380,11 +400,7 @@ describe("mergeSnapshotWindow", () => {
 			options({ limit: 3, hasMore: false }),
 		);
 
-		expect(merged.messages.map((m) => rkeyOf(m.uri))).toEqual([
-			"m02",
-			"m03",
-			"m04",
-		]);
+		expect(merged.messages.map((m) => m.rkey)).toEqual(["m02", "m03", "m04"]);
 		expect(merged.hasMore).toBe(true);
 		expect(merged.cursor).toBe("m02");
 	});
@@ -423,9 +439,9 @@ describe("mergeSnapshotWindow", () => {
 });
 
 describe("snapshotBelongsTo", () => {
-	const OTHER = `at://${DID}/social.colibri.channel/random`;
+	const OTHER = `at://${DID}/space/social.colibri.beta.channel.text/random`;
 
-	const stored = (messages: Message[]): MessagesSnapshot => ({
+	const stored = (messages: MessageView[]): MessagesSnapshot => ({
 		messages,
 		ts: 1,
 	});
@@ -439,7 +455,10 @@ describe("snapshotBelongsTo", () => {
 	});
 
 	it("rejects a snapshot with even one foreign message", () => {
-		const mixed = [...run(2), { ...message("m9"), channel: OTHER }];
+		const mixed = [
+			...run(2),
+			{ ...message("m9"), channel: OTHER } as unknown as MessageView,
+		];
 
 		expect(snapshotBelongsTo(stored(mixed), CHANNEL)).toBe(false);
 	});
@@ -449,7 +468,10 @@ describe("snapshotBelongsTo", () => {
 	});
 
 	it("gives a message with no channel the benefit of the doubt", () => {
-		const anonymous = { ...message("m0"), channel: "" };
+		const anonymous = {
+			...message("m0"),
+			channel: "",
+		} as unknown as MessageView;
 
 		expect(belongsToChannel(anonymous, CHANNEL)).toBe(true);
 		expect(snapshotBelongsTo(stored([anonymous]), CHANNEL)).toBe(true);

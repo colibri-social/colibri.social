@@ -10,7 +10,9 @@ import {
 import GearIcon from "~icons/ph/gear";
 import PhoneSlashIcon from "~icons/ph/phone-slash";
 import PictureInPictureIcon from "~icons/ph/picture-in-picture";
+import type { ProfileView } from "../../../atproto/views";
 import { useCommunityContext } from "../../../contexts/Community";
+import { normalizeOnlineState } from "../../../contexts/community-payload";
 import { useSettingsModalContext } from "../../../contexts/SettingsModal";
 import { useUserContext } from "../../../contexts/User";
 import {
@@ -55,9 +57,11 @@ export const Status: Component = () => {
 		voiceData.connection.state === ConnectionState.Connecting ||
 		voiceData.connection.state === ConnectionState.Reconnecting;
 
-	const liveUser = () => community().members.find((m) => m.did === user.did);
+	const liveMember = () => community().members.find((m) => m.did === user.did);
+	const liveUser = (): ProfileView => liveMember()?.actor ?? user;
 	const onlineState = (): OnlineState =>
-		liveUser()?.data.onlineState ?? user.data.onlineState;
+		liveMember()?.data.onlineState ??
+		normalizeOnlineState(user.presence?.onlineState);
 
 	const voiceLabel = (): string =>
 		[voiceData.connection.channelName, voiceData.connection.communityName]
@@ -217,17 +221,17 @@ export const Status: Component = () => {
 			</Show>
 			<div class="w-full h-16 flex items-center gap-2 p-2 bg-card">
 				<ProfilePopover
-					user={liveUser() ?? user}
+					user={liveUser()}
 					placement="top"
 					class="w-full max-w-[calc(100%-48px)] h-full"
 					onEditStatus={() => setStatusDialogOpen(true)}
 					actions={() => <SelfProfileActions />}
 				>
 					<div class="w-full h-full max-w-full overflow-hidden p-2 flex items-center gap-3 hover:bg-muted rounded-sm cursor-pointer">
-						<Avatar user={liveUser() ?? user} class="size-8" />
+						<Avatar user={liveUser()} class="size-8" />
 						<div class="flex flex-col w-full max-w-[calc(100%-48px)]">
 							<span class="font-bold leading-5">
-								<User.DisplayableName color={false} user={liveUser() ?? user} />
+								<User.DisplayableName color={false} user={liveUser()} />
 							</span>
 							<span class="text-xs text-muted-foreground">
 								{STATE_LABELS[onlineState()]}

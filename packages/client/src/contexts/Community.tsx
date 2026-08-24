@@ -19,14 +19,13 @@ import {
 	rememberCommunity,
 } from "../atproto/cache/community-memory";
 import { communityKey, namespace } from "../atproto/cache/keys";
+import type { CommunitySnapshot } from "../atproto/cache/schema";
 import {
 	cacheEnabled,
-	deleteMessages,
 	readCommunity,
 	writeCommunity,
 } from "../atproto/cache/store";
-import { primeCommunityChannels } from "../atproto/channel-reference";
-import { urlSegmentToUri } from "../atproto/community-uri-to-url-compatible";
+import { colibri } from "../atproto/lexicons";
 import {
 	APPROVAL_MANAGE,
 	CATEGORY_CREATE,
@@ -42,36 +41,39 @@ import {
 	INVITATION_CREATE,
 	INVITATION_DELETE,
 	isRoleBelowCeiling,
+	LABEL_APPLY,
 	MEMBER_BAN,
 	MEMBER_KICK,
 	MEMBER_UNBAN,
 	MENTION_ROLES,
-	MESSAGE_HIDE,
+	MODERATION_VIEW_LOG,
 	ROLE_MANAGE,
 	VOICE_MODERATE,
 } from "../atproto/permissions";
-import type {
-	CommunityData,
-	Community as CommunityResponse,
-} from "../atproto/xrpc/social/colibri/community/getData";
-import type { Applicant } from "../atproto/xrpc/social/colibri/community/listApplications";
-import type { Category } from "../atproto/xrpc/social/colibri/community/listCategories";
-import type { Channel } from "../atproto/xrpc/social/colibri/community/listChannels";
-import type { Member } from "../atproto/xrpc/social/colibri/community/listMembers";
-import type { Role } from "../atproto/xrpc/social/colibri/community/listRoles";
+import { frameIs } from "../atproto/sync-frames";
+import type { MemberView } from "../atproto/views";
+import { type ColibriClient, clientForManagingApp } from "../atproto/xrpc";
 import { AppLoadingScreen } from "../components/AppLoadingScreen";
 import { ErrorState } from "../components/ErrorState";
 import { getAppViewDid } from "../utils/appview";
-import { AtURI, toRecordUri } from "../utils/at-uri";
 import { getCommunityParam } from "../utils/get-param";
 import { createMemberIndex } from "../utils/member-search";
 import { markBoot } from "../utils/perf";
 import { speakerRanks } from "../utils/recent-speakers";
 import { decideCommunityExit } from "./community-exit";
 import {
+	type Applicant,
+	type Category,
+	type Channel,
+	type CommunityPayload,
 	emptyCommunityPayload,
-	isCommunityPayload,
-	payloadForUri,
+	type Member,
+	type MemberData,
+	normalizeOnlineState,
+	payloadForCommunity,
+	type Role,
+	toApplicant,
+	toMember,
 } from "./community-payload";
 import { trackCommunityRefresh } from "./community-refresh-state";
 import { createLoadSessions } from "./load-session";
@@ -79,22 +81,20 @@ import { useSocketContext } from "./Socket";
 import { useUserContext } from "./User";
 import { useVoiceChatContext } from "./VoiceChat";
 
-type CommunityContextData = CommunityResponse & {
+type CommunityContextData = CommunityPayload & {
 	assignableRoles: Array<Role>;
 	applications: Array<Applicant>;
 	dismissedApplications: Array<Applicant>;
 	ownerDid: Accessor<string | undefined>;
 	utils: {
-		// Indexed lookups. The permission helpers below run several times per
-		// rendered member row, so they must not scan the member/role arrays.
 		getMember: (did: string) => Member | undefined;
-		getRole: (uri: string) => Role | undefined;
+		getRole: (rkey: string) => Role | undefined;
 		getRolesForUser: (did: string) => Array<Role>;
 		setRolesForUser: (did: string, roles: Array<string>) => void;
-		patchChannel: (uri: string, patch: Partial<Channel>) => void;
-		patchCategory: (uri: string, patch: Partial<Category>) => void;
-		patchCommunity: (patch: Partial<CommunityData>) => void;
-		patchMember: (did: string, patch: Partial<Member["data"]>) => void;
+		patchChannel: (space: string, patch: Partial<Channel>) => void;
+		patchCategory: (rkey: string, patch: Partial<Category>) => void;
+		patchCommunity: (patch: Partial<CommunityPayload["community"]>) => void;
+		patchMember: (did: string, patch: Partial<MemberData>) => void;
 		searchMembers: (query: string, limit: number) => Array<Member>;
 		refetch: () => void;
 		refetchApplications: () => void;
@@ -107,84 +107,168 @@ const REFRESH_RETRY_DELAYS = [1000, 2000, 4000, 8000];
 
 export const CommunityContext = createContext<Accessor<CommunityContextData>>();
 
+const listAllMembers = async (
+	client: ColibriClient,
+	did: string,
+	signal: AbortSignal,
+): Promise<Array<MemberView>> => {
+	const members: Array<MemberView> = [];
+	let cursor: string | undefined;
+
+	do {
+		const res = await client.call(
+			colibri.community.listMembers.main,
+			{ params: { community: did, cursor } },
+			{ signal },
+		);
+		if (!res.ok) throw res.error;
+		members.push(...res.data.members);
+		cursor = res.data.cursor;
+	} while (cursor);
+
+	return members;
+};
+
 export const CommunityContextProvider: ParentComponent = (props) => {
 	const user = useUserContext();
 	const socket = useSocketContext();
 	const navigate = useNavigate();
 	const [, { syncPresence, addPresence }] = useVoiceChatContext();
-	const communityUri = createMemo(() => urlSegmentToUri(getCommunityParam()));
+	const communityIdentifier = createMemo(() => getCommunityParam());
 
-	const communityDid = () => AtURI.parseAtURI(communityUri()).did;
-	const toChannelUri = (rkeyOrUri: string) => {
-		const did = communityDid();
-		return did
-			? toRecordUri(did, "social.colibri.channel", rkeyOrUri)
-			: rkeyOrUri;
-	};
-	const toCategoryUri = (rkeyOrUri: string) => {
-		const did = communityDid();
-		return did
-			? toRecordUri(did, "social.colibri.category", rkeyOrUri)
-			: rkeyOrUri;
-	};
-
-	// Latest desired role set per member while an optimistic change is syncing.
-	// Lets the `roles_updated` handler ignore stale/reordered echoes that would
-	// roll back a change the user just made; cleared whenever we (re)load
-	// authoritative data. Not reactive — only touched imperatively.
 	const pendingRoleIntents = new Map<string, Array<string>>();
 
-	let lastFetched: CommunityResponse | undefined;
+	let lastFetched: CommunityPayload | undefined;
 
 	const [fetchedCommunity, setFetchedCommunity] = createSignal<
-		CommunityResponse | undefined
+		CommunityPayload | undefined
 	>();
 
-	const [snapshot, setSnapshot] = createSignal<CommunityResponse | undefined>();
+	const [snapshot, setSnapshot] = createSignal<CommunityPayload | undefined>();
 
 	const ns = () => namespace(getAppViewDid(), user.did);
 
 	const sessions = createLoadSessions(() => ({}));
 	onCleanup(() => sessions.dispose());
 
-	const [settledUri, setSettledUri] = createSignal<string>();
+	const [settledIdentifier, setSettledIdentifier] = createSignal<string>();
 
-	const cacheSettledPayload = (uri: string, data: CommunityResponse) => {
-		rememberCommunity(communityKey(ns(), uri), data);
+	const cacheCommunity = (identifier: string, snap: CommunitySnapshot) => {
+		rememberCommunity(communityKey(ns(), identifier), snap);
 		if (!cacheEnabled()) return;
-		void writeCommunity(ns(), uri, data);
+		void writeCommunity(ns(), identifier, snap);
 	};
 
-	const [community, { refetch }] = createResource(communityUri, async (uri) => {
-		const session = sessions.begin(uri);
-		pendingRoleIntents.clear();
-		if (fetchedCommunity()?.community.uri !== uri) {
-			setFetchedCommunity(undefined);
-		}
-		const res = await user.xrpc.social.colibri.community.getData(
-			uri,
-			sessions.teardownSignal,
-		);
-		const superseded = !sessions.isCurrent(session);
-		if (!superseded) setSettledUri(uri);
-		if (!res.ok) throw res.error;
-		if (superseded) {
-			cacheSettledPayload(uri, res.data);
-			return res.data;
-		}
-		lastFetched = res.data;
-		setFetchedCommunity(res.data);
-		setSnapshot(res.data);
-		return res.data;
-	});
+	const paintFromCache = async (identifier: string) => {
+		const key = communityKey(ns(), identifier);
+		const cached =
+			recallCommunity(key) ?? (await readCommunity(ns(), identifier));
+		if (!cached) return;
+		if (fetchedCommunity()?.community.did === identifier) return;
+		if (snapshot()?.community.did === identifier) return;
 
-	const currentPayload = createMemo(
-		() =>
-			payloadForUri(snapshot(), communityUri()) ??
-			recallCommunity(communityKey(ns(), communityUri())),
+		setSnapshot({
+			community: cached.community,
+			categories: cached.categories,
+			channels: cached.channels,
+			roles: cached.roles,
+			members: cached.members.map(toMember),
+		});
+	};
+
+	createEffect(
+		on(communityIdentifier, (identifier) => {
+			if (!identifier) return;
+			void paintFromCache(identifier);
+		}),
 	);
 
-	const resolving = () => community.loading || settledUri() !== communityUri();
+	const [community, { refetch }] = createResource(
+		communityIdentifier,
+		async (identifier) => {
+			const session = sessions.begin(identifier);
+			pendingRoleIntents.clear();
+			if (fetchedCommunity()?.community.did !== identifier) {
+				setFetchedCommunity(undefined);
+			}
+
+			const initial = await user.xrpc.call(
+				colibri.community.getCommunity.main,
+				{ params: { community: identifier } },
+				{ signal: sessions.teardownSignal, expected: ["CommunityNotFound"] },
+			);
+
+			if (!initial.ok) {
+				if (sessions.isCurrent(session)) setSettledIdentifier(identifier);
+				throw initial.error;
+			}
+
+			const communityView = initial.data.community;
+			const client = clientForManagingApp(
+				user.atproto.agent,
+				communityView.managingApp,
+			);
+
+			const [categoriesRes, channelsRes, rolesRes, members] = await Promise.all(
+				[
+					client.call(
+						colibri.community.listCategories.main,
+						{ params: { community: communityView.did } },
+						{ signal: sessions.teardownSignal },
+					),
+					client.call(
+						colibri.community.listChannels.main,
+						{ params: { community: communityView.did } },
+						{ signal: sessions.teardownSignal },
+					),
+					client.call(
+						colibri.community.listRoles.main,
+						{ params: { community: communityView.did } },
+						{ signal: sessions.teardownSignal },
+					),
+					listAllMembers(client, communityView.did, sessions.teardownSignal),
+				],
+			);
+
+			const stillCurrent = sessions.isCurrent(session);
+			if (stillCurrent) setSettledIdentifier(identifier);
+
+			if (!categoriesRes.ok) throw categoriesRes.error;
+			if (!channelsRes.ok) throw channelsRes.error;
+			if (!rolesRes.ok) throw rolesRes.error;
+
+			const payload: CommunityPayload = {
+				community: communityView,
+				categories: categoriesRes.data.categories,
+				channels: channelsRes.data.channels,
+				roles: rolesRes.data.roles,
+				members: members.map(toMember),
+			};
+
+			if (!stillCurrent) return payload;
+
+			cacheCommunity(identifier, {
+				community: communityView,
+				categories: payload.categories,
+				channels: payload.channels,
+				roles: payload.roles,
+				members,
+				ts: Date.now(),
+			});
+
+			lastFetched = payload;
+			setFetchedCommunity(payload);
+			setSnapshot(payload);
+			return payload;
+		},
+	);
+
+	const currentPayload = createMemo(() =>
+		payloadForCommunity(snapshot(), communityIdentifier()),
+	);
+
+	const resolving = () =>
+		community.loading || settledIdentifier() !== communityIdentifier();
 
 	const settledError = () => (resolving() ? undefined : community.error);
 
@@ -192,9 +276,6 @@ export const CommunityContextProvider: ParentComponent = (props) => {
 		if (!community.loading && currentPayload()) markBoot("community:ready");
 	});
 
-	// Only leave the community when it is actually gone, a transient failure
-	// keeps the user where they are so they can retry instead of being silently
-	// thrown out of what they were reading.
 	createEffect(() => {
 		const exit = decideCommunityExit(
 			resolving(),
@@ -202,7 +283,7 @@ export const CommunityContextProvider: ParentComponent = (props) => {
 			currentPayload() !== undefined,
 		);
 		if (exit === "stay") return;
-		if (exit === "gone") evictCommunity(ns(), communityUri());
+		if (exit === "gone") evictCommunity(ns(), communityIdentifier());
 		navigate("/app", { replace: true });
 	});
 
@@ -224,7 +305,7 @@ export const CommunityContextProvider: ParentComponent = (props) => {
 	};
 
 	createEffect(
-		on(communityUri, () => {
+		on(communityIdentifier, () => {
 			cancelMembershipRetry();
 			membershipRetries = 0;
 			cancelRefreshRetry();
@@ -254,16 +335,16 @@ export const CommunityContextProvider: ParentComponent = (props) => {
 		() => settledError() !== undefined && currentPayload() !== undefined,
 	);
 
-	let syncedPayload: CommunityResponse | undefined;
+	let syncedPayload: CommunityPayload | undefined;
 	createEffect(() => {
-		const uri = communityUri();
+		const identifier = communityIdentifier();
 		const data = currentPayload();
 
-		if (!uri || !data || community.loading) return;
+		if (!identifier || !data || community.loading) return;
 		if (data !== lastFetched || data === syncedPayload) return;
 
 		syncedPayload = data;
-		syncPresence(uri, data.members);
+		syncPresence(data.community.did, data.members);
 
 		if (data.members.some((m) => m.did === user.did)) {
 			cancelMembershipRetry();
@@ -277,7 +358,7 @@ export const CommunityContextProvider: ParentComponent = (props) => {
 		membershipRetries += 1;
 		membershipRetryTimer = setTimeout(() => {
 			membershipRetryTimer = undefined;
-			if (communityUri() === uri) void refetch();
+			if (communityIdentifier() === identifier) void refetch();
 		}, delay);
 	});
 
@@ -295,83 +376,45 @@ export const CommunityContextProvider: ParentComponent = (props) => {
 		}
 	});
 
-	createEffect(
-		on(communityUri, async (uri) => {
-			if (!uri || !cacheEnabled()) return;
-			if (currentPayload()) return;
-			const cached = await readCommunity(ns(), uri);
-			if (
-				isCommunityPayload(cached) &&
-				communityUri() === uri &&
-				currentPayload() === undefined
-			) {
-				setSnapshot(cached);
-			}
-		}),
-	);
-
 	createEffect(() => {
 		const data = currentPayload();
-		const uri = communityUri();
-		if (!data || !uri) return;
-		primeCommunityChannels(uri, data.channels ?? []);
+		const identifier = communityIdentifier();
+		if (community.loading || !data || !identifier) return;
+
+		const cached = recallCommunity(communityKey(ns(), identifier));
+		if (!cached || cached.community === data.community) return;
+		cacheCommunity(identifier, { ...cached, community: data.community });
 	});
 
-	let cacheWriteTimer: ReturnType<typeof setTimeout> | undefined;
-	createEffect(() => {
-		const data = currentPayload();
-		const uri = communityUri();
-		if (community.loading || !data || !uri) return;
-		rememberCommunity(communityKey(ns(), uri), data);
-		if (!cacheEnabled()) return;
-		if (cacheWriteTimer) clearTimeout(cacheWriteTimer);
-		cacheWriteTimer = setTimeout(() => {
-			void writeCommunity(ns(), uri, data);
-		}, 500);
-	});
-	onCleanup(() => {
-		if (cacheWriteTimer) clearTimeout(cacheWriteTimer);
-	});
-
-	// Pending join applications (active + moderator-dismissed)
-	const [
-		applications,
-		{ mutate: mutateApplications, refetch: refetchApplications },
-	] = createResource(
-		() =>
-			fetchedCommunity()?.community.requiresApprovalToJoin
-				? communityUri()
-				: undefined,
-		async (uri) => {
+	const [applications, { refetch: refetchApplications }] = createResource(
+		() => {
 			const authoritative = fetchedCommunity();
-			const member = authoritative?.members.find((x) => x.did === user.did);
+			if (!authoritative?.community.requiresApprovalToJoin) return undefined;
+			const permissions = authoritative.community.viewer.permissions ?? [];
+			return permissions.includes(APPROVAL_MANAGE)
+				? communityIdentifier()
+				: undefined;
+		},
+		async () => {
+			const authoritative = fetchedCommunity();
+			if (!authoritative) return { applications: [], dismissed: [] };
 
-			if (!authoritative || !member) {
-				return {
-					applications: [],
-					dismissed: [],
-				};
-			}
-
-			const canManageApprovals = grantsPermission(
-				authoritative.roles,
-				member.roles,
-				APPROVAL_MANAGE,
+			const client = clientForManagingApp(
+				user.atproto.agent,
+				authoritative.community.managingApp,
 			);
-
-			if (!canManageApprovals) {
-				return {
-					applications: [],
-					dismissed: [],
-				};
-			}
-
-			const res =
-				await user.xrpc.social.colibri.community.listApplications(uri);
+			const res = await client.call(colibri.community.listApplications.main, {
+				params: {
+					community: authoritative.community.did,
+					includeDismissed: true,
+				},
+			});
 			if (!res.ok) throw res.error;
+
+			const all = res.data.applications.map(toApplicant);
 			return {
-				applications: res.data?.applications ?? [],
-				dismissed: res.data?.dismissedApplications ?? [],
+				applications: all.filter((a) => !a.dismissed),
+				dismissed: all.filter((a) => a.dismissed),
 			};
 		},
 		{ initialValue: { applications: [], dismissed: [] } },
@@ -380,386 +423,74 @@ export const CommunityContextProvider: ParentComponent = (props) => {
 	const applicationQueues = () =>
 		applications.error !== undefined ? undefined : applications.latest;
 
-	// Handle updates for community data, members, categories, and channels
-	// via the AppView WebSocket event stream.
 	const cleanup = socket.onEvent((event) => {
 		const prev = currentPayload();
 		if (!prev) return;
+		const did = prev.community.did;
 
-		if (event.type === "user_event" && event.data) {
-			const { did, profile, status } = event.data;
+		if (frameIs(event, "presenceEvent")) {
 			setSnapshot({
 				...prev,
 				members: prev.members.map((m) =>
-					m.did === did
+					m.did === event.did
 						? {
 								...m,
-								handle: profile.handle ?? m.handle,
 								data: {
 									...m.data,
-									...(profile.displayName !== undefined && {
-										displayName: profile.displayName,
-									}),
-									...(profile.avatar !== undefined && {
-										avatar: profile.avatar,
-									}),
-									...(profile.banner !== undefined && {
-										banner: profile.banner,
-									}),
-									...(profile.description !== undefined && {
-										description: profile.description,
-									}),
-									...(profile.theme !== undefined && {
-										theme: profile.theme,
-									}),
-									...(status && {
-										onlineState: status.state,
-										status: { text: status.text, emoji: status.emoji },
-									}),
+									onlineState: normalizeOnlineState(event.presence.onlineState),
+									status: event.presence.status,
 								},
 							}
 						: m,
 				),
 			});
-		} else if (event.type === "member_event" && event.data) {
-			const { data } = event;
-			// Filter: only act on events for the community we're currently viewing.
-			if (data.community !== communityUri()) return;
+		} else if (frameIs(event, "memberEvent")) {
+			if (event.community !== did) return;
 
-			if (data.event === "join") {
-				const queues = applicationQueues() ?? {
-					applications: [],
-					dismissed: [],
-				};
-				const matches = (a: Applicant) =>
-					a.membership === data.membership || a.did === data.member.did;
-				if (
-					queues.applications.some(matches) ||
-					queues.dismissed.some(matches)
-				) {
-					mutateApplications({
-						applications: queues.applications.filter((a) => !matches(a)),
-						dismissed: queues.dismissed.filter((a) => !matches(a)),
-					});
-				}
-
-				// Append the new member if not already present (idempotent).
-				if (prev.members.some((m) => m.did === data.member.did)) return;
-				setSnapshot({ ...prev, members: [...prev.members, data.member] });
-
-				addPresence(data.member);
-			} else if (data.event === "roles_updated") {
-				const did = data.member.did;
-				const existing = prev.members.find((m) => m.did === did);
-
-				// Protected roles (e.g. the owner/admin marker) are managed
-				// separately and never appear in the assignable-role toggle flow or
-				// this event's payload. Carry over any the member already holds, so
-				// removing an assignable role from the owner doesn't strip their
-				// admin rights (and the channel/category edit UI) until a reload.
-				const protectedUris = new Set(
-					prev.roles.filter((r) => r.protected).map((r) => r.uri),
-				);
-				const keptProtected =
-					existing?.roles.filter((uri) => protectedUris.has(uri)) ?? [];
-
-				// If we have an in-flight optimistic change for this member, only
-				// accept the event once it confirms that intent — otherwise a stale
-				// or reordered echo (e.g. of a role we just removed and re-added)
-				// would roll the change back.
-				const intent = pendingRoleIntents.get(did);
+			if (event.event === "join" && event.member) {
+				const member = toMember(event.member);
+				if (prev.members.some((m) => m.did === member.did)) return;
+				setSnapshot({ ...prev, members: [...prev.members, member] });
+				addPresence(member);
+				if (applicationQueues() !== undefined) void refetchApplications();
+			} else if (event.event === "update" && event.member) {
+				const member = toMember(event.member);
+				const intent = pendingRoleIntents.get(member.did);
 				if (intent) {
-					const intentAssignable = new Set(
-						intent.filter((uri) => !protectedUris.has(uri)),
-					);
-					const incomingAssignable = data.member.roles.filter(
-						(uri) => !protectedUris.has(uri),
-					);
 					const confirmsIntent =
-						intentAssignable.size === incomingAssignable.length &&
-						incomingAssignable.every((uri) => intentAssignable.has(uri));
+						intent.length === member.roles.length &&
+						intent.every((rkey) => member.roles.includes(rkey));
 					if (!confirmsIntent) return;
-					pendingRoleIntents.delete(did);
+					pendingRoleIntents.delete(member.did);
 				}
-
-				const mergedRoles = Array.from(
-					new Set([...data.member.roles, ...keptProtected]),
-				);
-
 				setSnapshot({
 					...prev,
-					members: prev.members.map((m) =>
-						m.did === did
-							? {
-									...m,
-									roles: mergedRoles,
-									data: { ...m.data, ...data.member.data },
-								}
-							: m,
-					),
+					members: prev.members.map((m) => (m.did === member.did ? member : m)),
 				});
-			} else if (data.event === "leave") {
-				// Self-removal arrives as `community_event { delete }`, so a leave
-				// event is always about another member.
+			} else if (event.event === "leave" && event.subject) {
+				const subject = event.subject;
 				setSnapshot({
 					...prev,
-					members: prev.members.filter((m) => m.did !== data.memberDid),
+					members: prev.members.filter((m) => m.did !== subject),
 				});
 			}
-		} else if (event.type === "application_event" && event.data) {
-			const { data } = event;
-			if (data.community !== communityUri()) return;
-
-			const queues = applicationQueues() ?? {
-				applications: [],
-				dismissed: [],
-			};
-
-			if (data.event === "create") {
-				// A new (or kick-resurfaced) pending application.
-				if (queues.applications.some((a) => a.membership === data.membership)) {
-					return;
-				}
-				mutateApplications({
-					applications: [
-						...queues.applications,
-						{
-							did: data.did,
-							handle: data.handle,
-							membership: data.membership,
-							createdAt: data.createdAt,
-							data: data.data,
-						},
-					],
-					dismissed: queues.dismissed.filter(
-						(a) => a.membership !== data.membership,
-					),
-				});
-			} else if (data.event === "dismiss") {
-				const existing = queues.applications.find(
-					(a) => a.membership === data.membership,
-				);
-				if (!existing) {
-					if (!queues.dismissed.some((a) => a.membership === data.membership)) {
-						refetchApplications();
-					}
-					return;
-				}
-				mutateApplications({
-					applications: queues.applications.filter(
-						(a) => a.membership !== data.membership,
-					),
-					dismissed: [...queues.dismissed, existing],
-				});
-			} else if (data.event === "undismiss") {
-				const existing = queues.dismissed.find(
-					(a) => a.membership === data.membership,
-				);
-				if (!existing) {
-					if (
-						!queues.applications.some((a) => a.membership === data.membership)
-					) {
-						refetchApplications();
-					}
-					return;
-				}
-				mutateApplications({
-					applications: [...queues.applications, existing],
-					dismissed: queues.dismissed.filter(
-						(a) => a.membership !== data.membership,
-					),
-				});
-			} else if (data.event === "resolve") {
-				mutateApplications({
-					applications: queues.applications.filter(
-						(a) => a.membership !== data.membership,
-					),
-					dismissed: queues.dismissed.filter(
-						(a) => a.membership !== data.membership,
-					),
-				});
-			}
-		} else if (event.type === "community_event" && event.data) {
-			const { data } = event;
-			if (data.uri !== communityUri()) return;
-
-			if (data.event === "delete") {
-				// Community was deleted (or we were removed). AppLayout owns the
-				// response — it drops the community from the sidebar and navigates
-				// us home — so there's nothing to patch into the active resource.
-				return;
-			}
-			// Upsert: patch whatever fields are provided.
-			setSnapshot({
-				...prev,
-				community: {
-					...prev.community,
-					...(data.name !== undefined && { name: data.name }),
-					...(data.description !== undefined && {
-						description: data.description,
-					}),
-					picture: data.picture,
-					banner: data.banner,
-					...(data.categoryOrder !== undefined && {
-						categoryOrder: data.categoryOrder.map(toCategoryUri),
-					}),
-					...(data.requiresApprovalToJoin !== undefined && {
-						requiresApprovalToJoin: data.requiresApprovalToJoin,
-					}),
-					linkEmbeds: data.linkEmbeds,
-				},
-			});
-		} else if (event.type === "category_event" && event.data) {
-			const { data } = event;
-			if (data.community && data.community !== communityUri()) return;
-
-			if (data.event === "delete") {
-				setSnapshot({
-					...prev,
-					categories: prev.categories.filter((c) => c.uri !== data.uri),
-				});
-				return;
-			}
-			// Upsert: add or update.
-			const existing = prev.categories.find((c) => c.uri === data.uri);
-			if (existing) {
-				setSnapshot({
-					...prev,
-					categories: prev.categories.map((c) =>
-						c.uri === data.uri
-							? {
-									...c,
-									...(data.name && { name: data.name }),
-									...(data.channelOrder && {
-										channelOrder: data.channelOrder.map(toChannelUri),
-									}),
-								}
-							: c,
-					),
-				});
-			} else {
-				setSnapshot({
-					...prev,
-					categories: [
-						...prev.categories,
-						{
-							uri: data.uri,
-							name: data.name ?? "",
-							channelOrder: (data.channelOrder ?? []).map(toChannelUri),
-						},
-					],
-				});
-			}
-		} else if (event.type === "channel_event" && event.data) {
-			const { data } = event;
-			if (data.community && data.community !== communityUri()) return;
-
-			if (data.event === "delete") {
-				if (cacheEnabled()) void deleteMessages(ns(), data.uri);
-				setSnapshot({
-					...prev,
-					channels: prev.channels.filter((c) => c.uri !== data.uri),
-				});
-				return;
-			}
-			// Upsert: update if exists, or refetch if new.
-			const existing = prev.channels.find((c) => c.uri === data.uri);
-			if (existing) {
-				setSnapshot({
-					...prev,
-					channels: prev.channels.map((c) =>
-						c.uri === data.uri
-							? {
-									...c,
-									...(data.name !== undefined && { name: data.name }),
-									...(data.description !== undefined && {
-										description: data.description,
-									}),
-									...(data.category !== undefined && {
-										category: toCategoryUri(data.category),
-									}),
-									...(data.type !== undefined && { type: data.type }),
-									...(data.ownerOnly !== undefined && {
-										ownerOnly: data.ownerOnly,
-									}),
-									...(data.allowedRoles !== undefined && {
-										allowedRoles: data.allowedRoles,
-									}),
-									...(data.allowedMembers !== undefined && {
-										allowedMembers: data.allowedMembers,
-									}),
-									linkEmbeds: data.linkEmbeds,
-								}
-							: c,
-					),
-				});
-			} else {
-				// New channel: refetch to get its category assignment.
-				refetch();
-			}
-		} else if (event.type === "role_event" && event.data) {
-			const { data } = event;
-
-			if (data.event === "delete") {
-				// Remove the role and scrub it from every member that held it.
-				setSnapshot({
-					...prev,
-					roles: prev.roles.filter((r) => r.uri !== data.uri),
-					members: prev.members.map((m) =>
-						m.roles.includes(data.uri)
-							? { ...m, roles: m.roles.filter((u) => u !== data.uri) }
-							: m,
-					),
-				});
-				return;
-			}
-
-			// upsert (carries `community`) — only touch the active community.
-			if (data.community !== communityUri()) return;
-
-			const existing = prev.roles.find((r) => r.uri === data.uri);
-			if (existing) {
-				setSnapshot({
-					...prev,
-					roles: prev.roles.map((r) =>
-						r.uri === data.uri
-							? {
-									...r,
-									...(data.name !== undefined && { name: data.name }),
-									...(data.color !== undefined && { color: data.color }),
-									...(data.permissions !== undefined && {
-										permissions: data.permissions,
-									}),
-									...(data.position !== undefined && {
-										position: data.position,
-									}),
-									...(data.hoisted !== undefined && { hoisted: data.hoisted }),
-									...(data.mentionable !== undefined && {
-										mentionable: data.mentionable,
-									}),
-								}
-							: r,
-					),
-				});
-			} else {
-				// New role — fill required Role fields with sensible defaults.
-				setSnapshot({
-					...prev,
-					roles: [
-						...prev.roles,
-						{
-							uri: data.uri,
-							name: data.name ?? "",
-							color: data.color,
-							permissions: data.permissions ?? [],
-							position: data.position ?? 0,
-							hoisted: data.hoisted,
-							mentionable: data.mentionable,
-							channelOverrides: [],
-						},
-					],
-				});
-			}
+		} else if (frameIs(event, "applicationEvent")) {
+			if (event.community !== did) return;
+			void refetchApplications();
+		} else if (frameIs(event, "communityEvent")) {
+			if (event.community !== did) return;
+			if (event.event === "delete") return;
+			if (event.view) setSnapshot({ ...prev, community: event.view });
+			else void refetch();
+		} else if (frameIs(event, "categoryEvent")) {
+			if (event.community !== did) return;
+			void refetch();
+		} else if (frameIs(event, "channelEvent")) {
+			if (event.community !== did) return;
+			void refetch();
+		} else if (frameIs(event, "roleEvent")) {
+			if (event.community !== did) return;
+			void refetch();
 		}
 	});
 
@@ -767,34 +498,27 @@ export const CommunityContextProvider: ParentComponent = (props) => {
 
 	const payload = createMemo(() => currentPayload() ?? emptyCommunityPayload());
 
-	// The single source of truth for "real", user-facing roles. Protected roles
-	// exist only as permission-check markers (there should be exactly one) and
-	// must never be shown or assigned, so they're excluded here and everything
-	// that lists/displays roles reads from this instead of filtering ad-hoc.
 	const assignableRoles = createMemo(() =>
 		payload().roles.filter((role) => !role.protected),
 	);
 
-	// The member and role lists are scanned per rendered row by name colours,
-	// permission checks and the owner crown, so they get indexed once per change
-	// instead.
 	const membersByDid = createMemo(
 		() => new Map(payload().members.map((m) => [m.did, m])),
 	);
 
-	const rolesByUri = createMemo(
-		() => new Map(payload().roles.map((r) => [r.uri, r])),
+	const rolesByRkey = createMemo(
+		() => new Map(payload().roles.map((r) => [r.rkey, r])),
 	);
 
 	const getMember = (did: string) => membersByDid().get(did);
-	const getRole = (uri: string) => rolesByUri().get(uri);
+	const getRole = (rkey: string) => rolesByRkey().get(rkey);
 
 	const memberIndex = createMemberIndex();
 
 	createEffect(() => memberIndex.sync(payload().members));
 
 	const searchMembers = (query: string, limit: number): Array<Member> => {
-		const ranks = speakerRanks(communityUri());
+		const ranks = speakerRanks(communityIdentifier());
 		const byDid = membersByDid();
 
 		if (!query.trim()) {
@@ -825,18 +549,13 @@ export const CommunityContextProvider: ParentComponent = (props) => {
 		if (!member) return [];
 
 		return assignableRoles()
-			.filter((role) => member.roles.includes(role.uri))
+			.filter((role) => member.roles.includes(role.rkey))
 			.sort((a, b) => b.position - a.position);
 	};
 
-	// Optimistically overwrite a member's roles in the shared context so every
-	// consumer (name colours, profile popover, member grouping) updates
-	// immediately, without waiting for the server's `roles_updated` event.
 	const setRolesForUser = (did: string, roles: Array<string>) => {
 		const prev = currentPayload();
 		if (!prev) return;
-		// Record the desired set so the `roles_updated` handler can tell our own
-		// confirming event apart from stale echoes.
 		pendingRoleIntents.set(did, roles);
 		setSnapshot({
 			...prev,
@@ -844,36 +563,39 @@ export const CommunityContextProvider: ParentComponent = (props) => {
 		});
 	};
 
-	const patchChannel = (uri: string, patch: Partial<Channel>) => {
+	const patchChannel = (space: string, patch: Partial<Channel>) => {
 		const prev = currentPayload();
-		if (!prev?.channels.some((c) => c.uri === uri)) return;
+		if (!prev?.channels.some((c) => c.space === space)) return;
+		const apply = (c: Channel): Channel =>
+			c.space === space ? { ...c, ...patch } : c;
 		setSnapshot({
 			...prev,
-			channels: prev.channels.map((c) =>
-				c.uri === uri ? { ...c, ...patch } : c,
-			),
+			channels: prev.channels.map(apply),
+			categories: prev.categories.map((cat) => ({
+				...cat,
+				channels: cat.channels.map(apply),
+			})),
 		});
 	};
 
-	const patchCategory = (uri: string, patch: Partial<Category>) => {
+	const patchCategory = (rkey: string, patch: Partial<Category>) => {
 		const prev = currentPayload();
-		if (!prev?.categories.some((c) => c.uri === uri)) return;
+		if (!prev?.categories.some((c) => c.rkey === rkey)) return;
 		setSnapshot({
 			...prev,
 			categories: prev.categories.map((c) =>
-				c.uri === uri ? { ...c, ...patch } : c,
+				c.rkey === rkey ? { ...c, ...patch } : c,
 			),
 		});
 	};
 
-	const patchCommunity = (patch: Partial<CommunityData>) => {
+	const patchCommunity = (patch: Partial<CommunityPayload["community"]>) => {
 		const prev = currentPayload();
 		if (!prev) return;
 		setSnapshot({ ...prev, community: { ...prev.community, ...patch } });
 	};
 
-	// Optimistically patch a member's profile/presence data
-	const patchMember = (did: string, patch: Partial<Member["data"]>) => {
+	const patchMember = (did: string, patch: Partial<MemberData>) => {
 		const prev = currentPayload();
 		if (!prev?.members.some((m) => m.did === did)) return;
 		setSnapshot({
@@ -887,14 +609,11 @@ export const CommunityContextProvider: ParentComponent = (props) => {
 	const ownerRole = createMemo(() => payload().roles.find((x) => x.protected));
 
 	const ownerDid = createMemo(() => {
-		const role = ownerRole()?.uri;
+		const role = ownerRole()?.rkey;
 		if (!role) return undefined;
 		return payload().members.find((x) => x.roles.includes(role))?.did;
 	});
 
-	// Memoised rather than a plain accessor: every read used to re-spread the
-	// whole community payload and reallocate the `utils` closures, and the socket
-	// replaces the payload object on every presence tick.
 	const value: Accessor<CommunityContextData> = createMemo(() => ({
 		...payload(),
 		assignableRoles: assignableRoles(),
@@ -946,47 +665,36 @@ export const useCommunityContext = (): Accessor<CommunityContextData> => {
 	return ctx;
 };
 
-/**
- * Returns permission-checking helpers scoped to the current community.
- *
- * `isAdmin(did)` — true if the DID is the community owner or holds a
- *   protected (admin-level) role.
- * `canManage(did)` — alias for `isAdmin`.
- * `outranks(actorDid, targetDid)` — true when the actor's highest role
- *   position is strictly greater than the target's.
- *
- * Member-targeting helpers (`canKickMember`, `canBanMember`, `canUnbanMember`,
- * `canManageRoles`) accept an optional `targetDid`. When provided, the actor
- * must also outrank the target for the check to pass.
- *
- * All other helpers check whether the member holds a role that carries the
- * specific AppView permission string, or is the community owner (who
- * implicitly has every permission and the highest possible rank).
- */
 export const usePermissions = () => {
 	const community = useCommunityContext();
+	const user = useUserContext();
+
+	const protectedRoleKey = () =>
+		community().roles.find((role) => role.protected)?.rkey;
 
 	const isOwner = (did: string): boolean => {
 		const c = community();
 		if (!c) return false;
-		return did === AtURI.parseAtURI(c.community.uri).did;
+		if (did === user.did && c.community.viewer.isOwner !== undefined) {
+			return c.community.viewer.isOwner;
+		}
+		const role = protectedRoleKey();
+		if (!role) return false;
+		return c.utils.getMember(did)?.roles.includes(role) ?? false;
 	};
 
-	// Returns the highest role position held by a member.
-	// The community owner is treated as Infinity so they always outrank everyone.
 	const getRank = (did: string): number => {
 		const c = community();
-		if (!c) return -Infinity;
-		if (isOwner(did)) return Infinity;
+		if (!c) return Number.NEGATIVE_INFINITY;
+		if (isOwner(did)) return Number.POSITIVE_INFINITY;
 		const member = c.utils.getMember(did);
-		if (!member) return -Infinity;
-		return member.roles.reduce((max, roleUri) => {
-			const pos = c.utils.getRole(roleUri)?.position ?? -Infinity;
+		if (!member) return Number.NEGATIVE_INFINITY;
+		return member.roles.reduce((max, rkey) => {
+			const pos = c.utils.getRole(rkey)?.position ?? Number.NEGATIVE_INFINITY;
 			return pos > max ? pos : max;
-		}, -Infinity);
+		}, Number.NEGATIVE_INFINITY);
 	};
 
-	// True when the actor's highest role position is strictly greater than the target's.
 	const outranks = (actorDid: string, targetDid: string): boolean =>
 		getRank(actorDid) > getRank(targetDid);
 
@@ -994,21 +702,15 @@ export const usePermissions = () => {
 		const c = community();
 		if (!c) return false;
 		if (isOwner(did)) return true;
+		if (did === user.did && c.community.viewer.permissions !== undefined) {
+			return c.community.viewer.permissions.includes(permission);
+		}
 		const member = c.utils.getMember(did);
 		if (!member) return false;
-		return member.roles.some((roleUri) =>
-			c.utils.getRole(roleUri)?.permissions.includes(permission),
-		);
+		return grantsPermission(c.roles, member.roles, permission);
 	};
 
-	const isAdmin = (did: string): boolean => {
-		const c = community();
-		if (!c) return false;
-		if (isOwner(did)) return true;
-		const member = c.utils.getMember(did);
-		if (!member) return false;
-		return member.roles.some((roleUri) => c.utils.getRole(roleUri)?.protected);
-	};
+	const isAdmin = isOwner;
 
 	const canManage = (did: string): boolean => isAdmin(did);
 
@@ -1045,14 +747,9 @@ export const usePermissions = () => {
 		hasPermission(actorDid, ROLE_MANAGE) &&
 		(targetDid === undefined || outranks(actorDid, targetDid));
 
-	// Highest position among the roles `did` holds that themselves grant
-	// `role.manage` — the ceiling below which they're allowed to manage
-	// other roles (assign/unassign/edit/delete). Distinct from `getRank`,
-	// which considers the member's overall highest role regardless of
-	// whether it carries `role.manage`.
 	const getRoleManageCeiling = (did: string): number => {
 		const c = community();
-		if (!c) return -Infinity;
+		if (!c) return Number.NEGATIVE_INFINITY;
 		const member = c.members.find((m) => m.did === did);
 		return getPermissionCeiling(
 			c.roles,
@@ -1062,12 +759,14 @@ export const usePermissions = () => {
 		);
 	};
 
-	// Whether `did` can manage (assign/unassign/edit/delete) the given role.
 	const canManageRole = (did: string, role: Role): boolean =>
 		hasPermission(did, ROLE_MANAGE) &&
 		isRoleBelowCeiling(getRoleManageCeiling(did), role);
 
-	const canHideMessage = (did: string) => hasPermission(did, MESSAGE_HIDE);
+	const canApplyLabel = (did: string) => hasPermission(did, LABEL_APPLY);
+
+	const canViewModerationLog = (did: string) =>
+		hasPermission(did, MODERATION_VIEW_LOG);
 
 	const canCreateInvitation = (did: string) =>
 		hasPermission(did, INVITATION_CREATE);
@@ -1099,7 +798,8 @@ export const usePermissions = () => {
 		canManageRoles,
 		getRoleManageCeiling,
 		canManageRole,
-		canHideMessage,
+		canApplyLabel,
+		canViewModerationLog,
 		canCreateInvitation,
 		canDeleteInvitation,
 		canModerateVoice,

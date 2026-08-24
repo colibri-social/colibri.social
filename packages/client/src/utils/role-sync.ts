@@ -1,17 +1,11 @@
+import { colibri } from "../atproto/lexicons";
+import { clientForManagingApp } from "../atproto/xrpc";
 import { useCommunityContext } from "../contexts/Community";
 import { useUserContext } from "../contexts/User";
 
-/**
- * Optimistic, debounced role toggling.
- *
- * @param opts.did Accessor for the DID of the member whose roles are managed
- *   (required for the default behavior.
- * @param opts.onToggle Custom click handler, invoked with the role URI.
- * @returns `memberRoles`/`hasRole` accessors and a `toggleRole` action.
- */
 export const createRoleSync = (opts: {
 	did?: () => string;
-	onToggle?: (uri: string) => void;
+	onToggle?: (rkey: string) => void;
 }) => {
 	const user = useUserContext();
 	const community = useCommunityContext();
@@ -20,7 +14,7 @@ export const createRoleSync = (opts: {
 
 	const memberRoles = () =>
 		community().members.find((m) => m.did === did())?.roles ?? [];
-	const hasRole = (uri: string) => memberRoles().includes(uri);
+	const hasRole = (rkey: string) => memberRoles().includes(rkey);
 
 	let syncing = false;
 	let pending = 0;
@@ -32,33 +26,36 @@ export const createRoleSync = (opts: {
 		try {
 			while (pending !== lastSent) {
 				const gen = pending;
-				const res = await user.xrpc.social.colibri.community.setMemberRoles(
-					community().community.uri,
-					did(),
-					memberRoles(),
+				const client = clientForManagingApp(
+					user.atproto.agent,
+					community().community.managingApp,
 				);
+				const res = await client.call(colibri.community.setMemberRoles.main, {
+					body: {
+						community: community().community.did,
+						subject: did(),
+						roles: memberRoles(),
+					},
+				});
 				lastSent = gen;
-				// The xrpc wrapper swallows errors and returns undefined; on failure
-				// resync the authoritative state and stop.
-				if (res === undefined) {
+				if (!res.ok) {
 					community().utils.refetch();
 					return;
 				}
 			}
 		} finally {
 			syncing = false;
-			// A toggle may have slipped in during the final await/teardown.
 			if (pending !== lastSent) void flush();
 		}
 	};
 
-	const syncMemberRoles = (uri: string) => {
+	const syncMemberRoles = (rkey: string) => {
 		const current = memberRoles();
 		community().utils.setRolesForUser(
 			did(),
-			current.includes(uri)
-				? current.filter((r) => r !== uri)
-				: [...current, uri],
+			current.includes(rkey)
+				? current.filter((r) => r !== rkey)
+				: [...current, rkey],
 		);
 		pending++;
 		void flush();

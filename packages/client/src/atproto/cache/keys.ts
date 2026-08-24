@@ -1,10 +1,11 @@
 export const namespace = (appViewDid: string, did: string): string =>
 	`${appViewDid}:${did}`;
 
-export const communityKey = (ns: string, uri: string): string => `${ns}:${uri}`;
+export const communityKey = (ns: string, communityDid: string): string =>
+	`${ns}:${communityDid}`;
 
-export const messagesKey = (ns: string, channelUri: string): string =>
-	`${ns}:${channelUri}`;
+export const messagesKey = (ns: string, channelSpace: string): string =>
+	`${ns}:${channelSpace}`;
 
 export const bskyPostKey = (atUri: string): string => `post:${atUri}`;
 

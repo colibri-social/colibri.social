@@ -1,0 +1,160 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.embed.defs",
+	"defs": {
+		"linkEmbed": {
+			"type": "object",
+			"description": "A link preview.",
+			"required": [
+				"uri"
+			],
+			"properties": {
+				"uri": {
+					"type": "string",
+					"format": "uri",
+					"description": "The URL previewed."
+				},
+				"title": {
+					"type": "string",
+					"description": "Page title."
+				},
+				"description": {
+					"type": "string",
+					"description": "Page description."
+				},
+				"siteName": {
+					"type": "string",
+					"description": "Publisher name."
+				},
+				"image": {
+					"type": "ref",
+					"ref": "#embedImage",
+					"description": "Preview image."
+				},
+				"video": {
+					"type": "ref",
+					"ref": "#embedVideo",
+					"description": "Playable video."
+				}
+			}
+		},
+		"embedImage": {
+			"type": "object",
+			"description": "A preview image.",
+			"required": [
+				"url"
+			],
+			"properties": {
+				"url": {
+					"type": "string",
+					"format": "uri",
+					"description": "URL served by this AppView's image proxy."
+				},
+				"width": {
+					"type": "integer",
+					"description": "Intrinsic pixel width."
+				},
+				"height": {
+					"type": "integer",
+					"description": "Intrinsic pixel height."
+				},
+				"alt": {
+					"type": "string",
+					"description": "Alternative text."
+				}
+			}
+		},
+		"embedVideo": {
+			"type": "object",
+			"description": "A playable video.",
+			"required": [
+				"url",
+				"mimeType"
+			],
+			"properties": {
+				"url": {
+					"type": "string",
+					"format": "uri",
+					"description": "URL served by this AppView's video proxy."
+				},
+				"mimeType": {
+					"type": "string",
+					"description": "Content type.",
+					"knownValues": [
+						"video/mp4",
+						"video/webm"
+					]
+				},
+				"width": {
+					"type": "integer",
+					"description": "Intrinsic pixel width."
+				},
+				"height": {
+					"type": "integer",
+					"description": "Intrinsic pixel height."
+				},
+				"duration": {
+					"type": "integer",
+					"description": "Duration in seconds."
+				}
+			}
+		},
+		"gifView": {
+			"type": "object",
+			"description": "A GIF from the picker.",
+			"required": [
+				"id",
+				"url",
+				"previewUrl",
+				"width",
+				"height"
+			],
+			"properties": {
+				"id": {
+					"type": "string",
+					"description": "Provider identifier, stable enough to save as a favourite."
+				},
+				"url": {
+					"type": "string",
+					"format": "uri",
+					"description": "Full-size GIF URL."
+				},
+				"previewUrl": {
+					"type": "string",
+					"format": "uri",
+					"description": "Smaller preview URL for the picker grid."
+				},
+				"width": {
+					"type": "integer",
+					"description": "Intrinsic pixel width."
+				},
+				"height": {
+					"type": "integer",
+					"description": "Intrinsic pixel height."
+				},
+				"title": {
+					"type": "string",
+					"description": "Human-readable title."
+				}
+			}
+		},
+		"gifCategory": {
+			"type": "object",
+			"description": "A category in the GIF picker.",
+			"required": [
+				"name"
+			],
+			"properties": {
+				"name": {
+					"type": "string",
+					"description": "Category name."
+				},
+				"previewUrl": {
+					"type": "string",
+					"format": "uri",
+					"description": "Representative image for the category."
+				}
+			}
+		}
+	}
+}

@@ -5,151 +5,201 @@ description: "Run your own Colibri AppView and connect a client to it."
 
 import { Steps } from "@astrojs/starlight/components";
 
-This guide covers running your own Colibri **AppView** and pointing a **client** at it. It does not cover deploying the colibri.social website.
+This guide covers running your own Colibri **AppView**. It does not cover
+deploying the colibri.social website.
 
 :::note
-The reference AppView lives in its own repository: [colibri-social/appview](https://github.com/colibri-social/appview). The repository's `README.md` and its `.env.example` are the authoritative source for the exact configuration values.
+The reference AppView lives in its own repository:
+[colibri-social/api](https://github.com/colibri-social/api). Its
+`README.md` and `.env.example` are the authoritative source for configuration.
+:::
+
+:::caution[What permissioned spaces require]
+Colibri stores community data in
+[permissioned spaces](/docs/architecture/spaces), which puts two hard
+requirements on an instance.
+
+**Your AppView must be reachable from every community PDS.** Community spaces use
+a `managing-app` policy naming your AppView, so the PDS calls you before it
+issues anyone a credential. An unreachable AppView makes its communities
+unreadable, and writes made during the outage do not appear until their author
+writes again. See [the writer set](/docs/architecture/sync#the-writer-set).
+
+**A community lives on the AppView that manages it.** Everyone in a community
+uses that instance, because gated data cannot be indexed by an AppView holding
+no credential for it.
 :::
 
 ## What you'll run
 
-An AppView deployment is three services, plus a PDS:
+- The **AppView**, which serves the XRPC API, the two WebSockets and the voice
+  SFU in one process.
+- A **PDS running the spaces alpha**, which hosts every community account your
+  instance creates. Either one you already run, or the one in
+  `docker-compose.pds.yml`.
 
-- The **AppView** itself (Rust/Rocket), which serves the XRPC API on port `8000`.
-- **Tap**, an ATproto firehose consumer that handles backfill and streams live events to the AppView.
-- A single **PostgreSQL** database that both Tap and the AppView share.
-- A **PDS**, which hosts the repository of every community created on your instance. Either one you already run, or the reference one in `docker-compose.pds.yml`.
-
-In production, `docker-compose.yml` pulls the published release image and runs the first three together. For local development you run Postgres and Tap from the `docker-compose.dev.yml` compose file and the AppView with `cargo run`. See the [AppView architecture page](/docs/architecture/appview) for how these fit together and for RAM/CPU sizing guidance, and [Development](/docs/development/overview) if you're working on Colibri rather than deploying it.
+Storage defaults to libSQL against a file, so there is no database service to
+run. Postgres is available as an overlay if you would rather use it.
 
 ## Prerequisites
 
-- **A PDS you control**, plus its admin password. This is **required**: communities are AT Protocol accounts, and the AppView creates and hosts them on this PDS. Community creation, deletion and migration all fail without it. See [The PDS](#the-pds) below.
-- **A domain with TLS**, e.g. `appview.example.com`. This is not optional: the AppView identifies itself with a `did:web` derived from a hostname, it serves its DID document at `/.well-known/did.json`, and user PDSs proxy authenticated requests to it over HTTPS. A bare IP will not work.
-- **Docker** and **Docker Compose**.
-- **Rust `1.96`+**, if you build locally with `cargo run`
-- A **Linux** server meeting the [recommended specs](/docs/architecture/appview). Linux is the only supported and tested platform.
+- **A PDS you control** running the spaces alpha
+  (`ghcr.io/bluesky-social/atproto:pds-spaces-alpha`), plus its admin password.
+  This is required: communities are AT Protocol accounts and the AppView creates
+  them there. A stock PDS will not do, because it does not implement
+  `com.atproto.simplespace`.
+- **A domain with TLS**, for example `appview.example.com`. The
+  AppView identifies itself with a `did:web` derived from a hostname, serves its
+  DID document at `/.well-known/did.json`, and both clients and community PDSs
+  reach it over HTTPS. A bare IP will not work.
+- **Wildcard DNS for community handles.** Communities get handles under
+  `COMMUNITY_HANDLE_DOMAIN`, answered by the PDS, so
+  `*.${COMMUNITY_HANDLE_DOMAIN}` must resolve to it under a covering
+  certificate.
+- **Docker** and **Docker Compose**, or Node 24 and pnpm to run it directly.
+- A **Linux** server. It is the only tested platform.
 
-## Run it locally
+:::danger[The spaces alpha is not production software]
+Permissioned spaces are an unfinished part of the AT Protocol. The PDS image
+this depends on is an alpha, it is explicitly not for production use, and it
+changes without warning. Run this for development or for a community that
+accepts the risk.
+:::
+
+## Run it
 
 <Steps>
 
-1. Clone the repository and create your config from the template:
+1. Clone the repository and create your config:
 
    ```sh
-   git clone https://github.com/colibri-social/appview.git
+   git clone https://github.com/colibri-social/api.git
    cd appview
    cp .env.example .env
    ```
 
-2. Fill in the .env file, then start the dependencies (Postgres and Tap) with the dev compose file:
+2. Fill in `.env`. Six values have no default and the AppView refuses to boot
+   without them: `APPVIEW_DID`, `PUBLIC_URL`, `SIGNING_KEY`,
+   `CREDENTIAL_ENCRYPTION_KEY`, `PDS_URL` and `COMMUNITY_HANDLE_DOMAIN`. The
+   file carries the `openssl` lines that generate the two secrets.
+
+3. Build and start it. There is no published image, so compose builds one
+   from the `Dockerfile` in the repository. Expect the first build to take a
+   few minutes.
 
    ```sh
-   docker compose -f docker-compose.dev.yml up
+   docker compose up -d --build
    ```
 
-3. Run the AppView. Database migrations run automatically on boot:
+   That runs the AppView alone on libSQL, against the `appview-data` volume,
+   pointed at whatever `PDS_URL` names. Rebuild with the same command after
+   pulling new commits, since nothing updates the image for you.
 
-   ```sh
-   cargo run
-   ```
+4. Put it behind a TLS-terminating reverse proxy on your domain.
 
-   It listens on `http://127.0.0.1:8000`; API routes live under `/xrpc/`.
-
-</Steps>
-
-## Deploy to production
-
-The production `docker-compose.yml` pulls the published release image (`ghcr.io/colibri-social/appview:latest`, built from the repository's `Dockerfile`) and runs the AppView alongside Postgres and Tap, reading the same `.env`.
-
-<Steps>
-
-1. Fill in `.env` (see [Configuration](#configuration)), then bring the whole stack up:
-
-   ```sh
-   docker compose up -d
-
-   # ...or, to run the reference PDS in the same stack (this file is
-   # docker-compose.yml plus a `pds` service, so use it instead of that one):
-   docker compose -f docker-compose.pds.yml up -d
-   ```
-
-2. Put the AppView behind a TLS-terminating reverse proxy (Caddy, nginx, Traefik, etc.) on your domain, forwarding to port `8000`.
-
-3. Confirm your DID document resolves at your domain and lists the `#colibri_appview`, `#colibri_notif`, and `#colibri_hum` service endpoints:
+5. Confirm your DID document resolves and lists `#colibri_appview` and
+   `#atproto_space_syncer`:
 
    ```sh
    curl https://appview.example.com/.well-known/did.json
    ```
 
-4. Confirm the AppView identifies itself correctly:
+6. Confirm it identifies itself:
 
    ```sh
-   curl https://appview.example.com/xrpc/social.colibri.server.describeServer
+   curl https://appview.example.com/xrpc/social.colibri.beta.server.describeServer
    ```
-
-   You should get back JSON with `"software": "colibri-appview"`.
 
 </Steps>
 
-## The PDS
+:::caution[`#atproto_space_syncer` must be there]
+`com.atproto.space.registerNotify` names a service identifier, not a URL, and
+the space host resolves the delivery endpoint out of your DID document. If that
+entry is missing, write notifications are never delivered and every community on
+your instance falls back to the sweep interval, which is five minutes by
+default.
+:::
 
-Communities are not rows in the AppView's database. Each one is an AT Protocol account with its own repository, and the PDS at `PDS_LOC` is what hosts them. `social.colibri.community.create` mints an invite code and then an account there using `PDS_ADMIN_PASS`, stores the resulting credentials encrypted, and writes the community's records to the new repo. Deletion and [migration](/docs/help/legacy-communities) use the same admin access.
+## Compose overlays
 
-`PDS_LOC` is checked at boot but only used by those endpoints, so a misconfigured PDS doesn't stop the AppView from starting. It instead fails the first time somebody tries to create a community.
+`docker-compose.yml` is the base. Three files compose on top of it:
 
-If you don't already run a PDS, the AppView repository ships `docker-compose.pds.yml`, `docker-compose.yml` plus a `pds` service running the [official Bluesky PDS](https://github.com/bluesky-social/pds) preconfigured for this: admin password shared with the AppView, handle domain derived from `APPVIEW_HANDLE_DOMAIN`, invite-gated account creation, blobs on a named volume. Run it instead of the plain compose file. It needs `PDS_HOSTNAME`, `PDS_JWT_SECRET` and `PDS_PLC_ROTATION_KEY` in your `.env` (the file itself documents how to generate the keys), and two things you have to arrange yourself:
+| Overlay | What it adds |
+| --- | --- |
+| `docker-compose.postgres.yml` | Postgres, and rewrites `DATABASE_URL` to use it |
+| `docker-compose.pds.yml` | A local spaces-alpha PDS and a private PLC directory, for developing without a PDS of your own |
+| `docker-compose.integration.yml` | The same pair, ephemeral, for the integration suite |
 
-- **TLS on `PDS_HOSTNAME`.** The PDS publishes `https://${PDS_HOSTNAME}` as the service endpoint in every community DID document it registers with the PLC directory, so that's the URL everyone else will resolve. The compose file publishes the container on `127.0.0.1:3000` by default, for a reverse proxy on the same host, set `PDS_BIND_ADDR=0.0.0.0` or attach the service to your proxy's network if the proxy lives elsewhere.
-- **Wildcard DNS for community handles.** Handles like `c-3lk2....${APPVIEW_HANDLE_DOMAIN}` are answered by the PDS, so `*.${APPVIEW_HANDLE_DOMAIN}` must resolve to it under a certificate that covers it. The simplest correct setup is `APPVIEW_HANDLE_DOMAIN` equal to `PDS_HOSTNAME`.
+```sh
+docker compose -f docker-compose.yml -f docker-compose.pds.yml up
+```
 
-Back up `PDS_PLC_ROTATION_KEY`. It's the key that can update the DID documents of every community hosted on that PDS, and losing it is not recoverable.
-
-For running one on a laptop, where a separate `docker-compose.pds.dev.yml` pairs a `localhost` PDS with its own private PLC directory, see [Running a PDS](/docs/development/pds).
+The spaces-alpha PDS is published for amd64 only, so it runs under emulation on an arm64 host. The PLC
+directory is built from `docker/plc` rather than pulled, because every published
+PLC image dates from 2023 and predates the operation format this PDS emits.
 
 ## Configuration
 
-Configuration is read from environment variables (via a `.env` file in the repo root). The ones you're most likely to touch:
+The full list is in `.env.example`. These are the ones you are likely to touch:
 
-| Variable                    | Required | Purpose                                                                                                          |
-| --------------------------- | -------- | --------------------------------------------------------------------------------------------------------------- |
-| `APPVIEW_DID`               | Yes | The `did:web` this instance identifies as, e.g. `did:web:appview.example.com`. **Defaults to `did:web:api.colibri.social`**, so a self-hosted instance must set it. |
-| `DATABASE_URL`              | Yes      | Connection string for the shared Postgres database.                                                             |
-| `K256_PRIVATE_KEY`          | Yes      | secp256k1 private key used to sign ATproto operations, service-auth tokens, and the DID document. Hex-encoded 32-byte key (64 hex chars, no `0x`). Generate one with `openssl rand -hex 32` |
-| `PDS_LOC`                   | Yes      | URL of the PDS where the AppView creates and hosts community repositories. See [The PDS](#the-pds).             |
-| `PDS_ADMIN_PASS`            | Yes      | Admin password for that PDS, so the AppView can create community accounts.                                       |
-| `APPVIEW_HANDLE_DOMAIN`     | Yes      | Domain communities get their handles from (a community `example` becomes `example.${APPVIEW_HANDLE_DOMAIN}`). `*.${APPVIEW_HANDLE_DOMAIN}` must resolve to the PDS. |
-| `PDS_HOSTNAME` / `PDS_JWT_SECRET` / `PDS_PLC_ROTATION_KEY` | Only for the reference PDS | Read by the PDS compose files, not by the AppView. Ignored if you point `PDS_LOC` at a PDS you already operate. |
-| `CREDENTIAL_ENCRYPTION_KEY` | Yes      | Base64-encoded 32-byte key used to encrypt stored community credentials at rest. Generate one with `openssl rand -base64 32` |
-| `TAP_HOSTNAME` / `TAP_ADMIN_PASSWORD` | Yes | Where the AppView reaches Tap, and Tap's admin password.                                                    |
-| `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` / `VAPID_SUBJECT` | No | Web Push keypair for background notifications. Unset disables background push. Generate a keypair with `npx web-push generate-vapid-keys` |
-| `KLIPY_API_KEY`             | No       | Enables the GIF picker endpoints and Klipy link previews. Unset disables them.                                  |
-| `HUMMING_ENABLED`           | No       | Cross-instance presence relaying. On by default, set to `false` to opt out entirely.                            |
-| `SFU_ANNOUNCED_IP`          | No\*     | Public IP announced in the voice SFU's ICE candidates. **Required behind NAT** (most cloud hosts) or clients can't reach the media ports. See _Voice_ below. |
+| Variable | Required | Purpose |
+| --- | --- | --- |
+| `APPVIEW_DID` | Yes | The `did:web` this instance answers as, for example `did:web:appview.example.com` |
+| `PUBLIC_URL` | Yes | Where this AppView is reachable from the public internet |
+| `SIGNING_KEY` | Yes | secp256k1 private key, 64 hex characters, published in the DID document |
+| `CREDENTIAL_ENCRYPTION_KEY` | Yes | 32 bytes base64, encrypts community passwords at rest |
+| `PDS_URL` | Yes | The spaces-alpha PDS where communities are created |
+| `COMMUNITY_HANDLE_DOMAIN` | Yes | Domain community handles live under. `*.` of it must resolve to the PDS |
+| `PDS_ADMIN_PASSWORD` | No | Without it the AppView serves reads but cannot create a community or repair one whose password stopped working |
+| `DATABASE_URL` | No | Defaults to `file:./data/colibri.db`. A `postgres://` URL switches driver |
+| `CORS_ORIGINS` | No | Browser origins allowed to call `/xrpc`, comma-separated, or `*` for any. Unset, production allows none, so a client on another origin needs it |
+| `SYNC_WORKERS`, `SYNC_SWEEP_SECONDS` | No | Sync worker pool size and sweep interval |
+| `SERVICE_AUTH_MAX_LIFETIME_SECONDS` | No | Rejects service auth tokens whose expiry is further away than this |
+| `JETSTREAM_URL` | No | Jetstream v2 host. Only identity and account events are consumed |
+| `VAPID_*`, `FCM_SERVICE_ACCOUNT_JSON` | No | Web Push and Android push. Unset disables background notifications |
+| `KLIPY_API_KEY` | No | Enables the GIF picker |
+| `SFU_ANNOUNCED_IP` | No | Public IP announced in the SFU's ICE candidates. **Required behind NAT** |
 
-`.env.example` documents the remaining options. Prefer it for other variables and explainers, the table above only covers the essentials.
+:::danger[What to back up]
+`CREDENTIAL_ENCRYPTION_KEY` is what decrypts every community password you hold.
+Losing it means resetting every community through the PDS admin API.
+
+If you run the bundled PDS, its `PDS_PLC_ROTATION_KEY` can update the DID
+document of every community on it, and losing that is not recoverable at all.
+:::
 
 ## Voice
 
-Community voice/video runs on an SFU ([mediasoup](https://mediasoup.org)) embedded in the AppView. A few things to get right when self-hosting:
+Voice runs on a [mediasoup](https://mediasoup.org) SFU inside the AppView
+process. WebRTC media flows directly to the host rather than through your
+reverse proxy, and it needs two things arranged for it:
 
-- **Announced IP & media ports.** WebRTC media flows directly to the AppView host, not through the reverse proxy. Set `SFU_ANNOUNCED_IP` to your server's public IP, and open the port range `SFU_RTC_MIN_PORT` - `SFU_RTC_MAX_PORT` (default `40000` - `40100`) on your firewall for **both UDP and TCP** (the SFU falls back to ICE-over-TCP when UDP is blocked). The production `docker-compose.yml` already publishes this range on the host from those same variables. Without this, users connect but hear no audio.
-- **TURN for restrictive networks.** A direct path to the media ports fails for clients behind symmetric NAT or strict firewalls. Point them at a TURN server via `SFU_ICE_SERVERS`, a JSON array of [`RTCIceServer`](https://developer.mozilla.org/en-US/docs/Web/API/RTCIceServer) objects, e.g. `[{"urls":["turn:turn.example.com:3478"],"username":"user","credential":"pass"}]`. The AppView hands these to every client at call setup. Run your own [coturn](https://github.com/coturn/coturn) or use a managed TURN provider. Unset means direct connection only.
+- **Announced IP and media ports.** Set `SFU_ANNOUNCED_IP` to your public IP and
+  open `SFU_RTC_MIN_PORT` through `SFU_RTC_MAX_PORT` (40000 to 40100 by default)
+  for **both UDP and TCP**, because the SFU falls back to ICE over TCP when UDP
+  is blocked. Without this, users connect and hear nothing.
+- **TURN for restrictive networks.** Clients behind symmetric NAT cannot reach
+  the media ports directly. Point them at a TURN server with `SFU_ICE_SERVERS`,
+  a JSON array of
+  [`RTCIceServer`](https://developer.mozilla.org/en-US/docs/Web/API/RTCIceServer)
+  objects. Unset means direct connection only.
 
 ## Connecting a client
 
-The client isn't tied to any particular AppView. In a running client, open the user settings, then **Preferences** and set the AppView URL to your instance (`https://appview.example.com`). The client probes [`describeServer`](/docs/specification/appview#socialcolibriserverdescribeserver), accepts the host only if it reports `software: "colibri-appview"`, and then re-authenticates so your session is scoped to the new AppView.
+Open user settings, then **Preferences**, and set the AppView URL to your
+instance. The client probes
+[`describeServer`](/docs/specification/appview#socialcolibribetaserverdescribeserver),
+accepts the host only if it reports `software: "colibri-appview"`, and
+re-authenticates so your session is scoped to the new AppView.
 
-Authentication scopes are pinned to the AppView's `did:web` and cannot use a wildcard, so a client will only authorize AppViews it has been configured to trust. That means you generally can't point an arbitrary hosted client at a brand-new self-hosted AppView and log in. Building and hosting that client UI is out of scope for this guide, the shared UI is published as the `@colibri-social/client` library (see the [client architecture page](/docs/architecture/client)).
-
-## Federation between instances
-
-If your community's members are spread across more than one AppView, off-protocol signals (online status, typing, voice presence) are relayed between instances by **Humming**, which is on by default. To run a fully isolated instance that never talks to other AppViews, start with `HUMMING_ENABLED=false`. See the [Humming overview](/docs/architecture/appview#humming) for more information.
+Authentication scopes are pinned to an AppView's `did:web` and cannot use a
+wildcard, so a client only authorises AppViews it was configured to trust. You
+generally cannot point an arbitrary hosted client at a brand-new self-hosted
+AppView and sign in. The shared UI is published as `@colibri-social/client`.
 
 ## See also
 
-- [AppView Architecture](/docs/architecture/appview): the services, sizing, and how they connect.
-- [Client Architecture](/docs/architecture/client): how the client talks to an AppView and how it's packaged.
-- [AppView Specification](/docs/specification/appview): the full XRPC endpoint and event reference.
-- [Development](/docs/development/overview): running the stack locally to work on it.
-- [Running a PDS](/docs/development/pds): the PDS requirement in detail.
+- [AppView Architecture](/docs/architecture/appview): what you are running.
+- [Permissioned Spaces](/docs/architecture/spaces): the credential exchange that makes reachability a requirement.
+- [Sync](/docs/architecture/sync): what the sweep interval controls.
+- [Development](/docs/development/overview): running the stack to work on it.

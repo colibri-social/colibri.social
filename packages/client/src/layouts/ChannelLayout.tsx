@@ -26,13 +26,15 @@ import { warmPosts } from "../atproto/bsky-post-cache";
 import { parseBskyPostUrl } from "../atproto/bsky-post-url";
 import { isSnapshotStale } from "../atproto/cache/messages-snapshot";
 import { warmMetadata } from "../atproto/embed-metadata-cache";
-import type { Message as MessageData } from "../atproto/xrpc/social/colibri/channel/listMessages";
+import { embedSuppression, isEmbedSuppressed } from "../atproto/labels";
+import { SPACE_TYPES } from "../atproto/lexicons";
+import { spaceSkey } from "../atproto/space-ref";
+import type { MessageView as MessageData } from "../atproto/views";
 import {
 	isRemovableEmbed,
 	usesLinkPreview,
 } from "../components/app/channel/message/Embed";
 import { Message } from "../components/app/channel/message/Message";
-import { ChatGuidelinesModal } from "../components/app/community/ChatGuidelinesModal";
 import { MessageInput } from "../components/app/community/MessageInput";
 import { Button } from "../components/ui/Button";
 import {
@@ -85,6 +87,7 @@ type MessageMeta = {
 	hasSubsequent: boolean;
 	isLast: boolean;
 	dateLabel: string | undefined;
+	legacyBoundary: boolean;
 };
 
 /** Maximum number of files that can be attached to a single message. */
@@ -123,6 +126,7 @@ const DEFAULT_META: MessageMeta = {
 	hasSubsequent: false,
 	isLast: false,
 	dateLabel: undefined,
+	legacyBoundary: false,
 };
 
 const ChannelLayout: ParentComponent = (props) => {
@@ -131,19 +135,17 @@ const ChannelLayout: ParentComponent = (props) => {
 	const notifications = useNotifications();
 	const user = useUserContext();
 	const mutes = useMutes();
-	const { preferences, toggleMembersVisible, setChatGuidelinesAccepted } =
-		useUserPreferences();
-	const [guidelinesOpen, setGuidelinesOpen] = createSignal(false);
+	const { preferences, toggleMembersVisible } = useUserPreferences();
 	const { isMobile, popPane, pushPane } = createMobilePane();
 	const viewport = useViewport();
 
 	const toggleChannelMute = () => {
-		const channelUri = channel.channelUri();
-		if (mutes.isChannelMuted(channelUri)) {
-			mutes.unmuteChannel(channelUri);
+		const space = channel.channelSpace();
+		if (mutes.isChannelMuted(space)) {
+			mutes.unmuteChannel(space);
 			if (isMobile()) toast.success("Channel unmuted");
 		} else {
-			mutes.muteChannel(channelUri);
+			mutes.muteChannel(space);
 			if (isMobile()) toast.success("Channel muted");
 		}
 	};
@@ -151,7 +153,7 @@ const ChannelLayout: ParentComponent = (props) => {
 	createEffect(() => {
 		const msgs = channel.messages();
 		probeRender({
-			channelUri: channel.channelUri(),
+			channelUri: channel.channelSpace(),
 			owner: msgs[0]?.channel,
 			count: msgs.length,
 			initialLoading: channel.initialLoading(),
@@ -187,6 +189,7 @@ const ChannelLayout: ParentComponent = (props) => {
 				dateLabel: isOnNewDay
 					? new Date(m.createdAt).toLocaleDateString()
 					: undefined,
+				legacyBoundary: !!prev?.legacy && !m.legacy,
 			};
 		});
 	});
@@ -260,12 +263,12 @@ const ChannelLayout: ParentComponent = (props) => {
 		const uris = new Set<string>();
 		const embedsAllowed = channel.linkEmbedsEnabled();
 		for (const message of messages) {
-			const suppressed = new Set([
-				...(message.suppressedEmbeds ?? []),
-				...(message.modSuppressedEmbeds ?? []),
-			]);
+			const suppression = embedSuppression(message);
 			for (const uri of linkUrisFromFacets(message.facets)) {
-				if (isRemovableEmbed(uri) && (!embedsAllowed || suppressed.has(uri)))
+				if (
+					isRemovableEmbed(uri) &&
+					(!embedsAllowed || isEmbedSuppressed(suppression, uri))
+				)
 					continue;
 				uris.add(uri);
 			}
@@ -378,8 +381,8 @@ const ChannelLayout: ParentComponent = (props) => {
 
 		if (scrollAnchor.isAtBottom()) {
 			channel.advanceReadCursor();
-			notifications.markChannelRead(channel.channelUri());
-			void cancelChannelTrayNotification(channel.channelUri());
+			notifications.markChannelRead(channel.channelSpace());
+			void cancelChannelTrayNotification(channel.channelSpace());
 		}
 
 		maybeLoadOlder();
@@ -485,7 +488,7 @@ const ChannelLayout: ParentComponent = (props) => {
 						if (wasPending) {
 							notifications.markMessageSeen(
 								uri,
-								channel.channelUri(),
+								channel.channelSpace(),
 								unseenIsPing.get(uri) === true,
 							);
 						}
@@ -507,9 +510,8 @@ const ChannelLayout: ParentComponent = (props) => {
 	});
 
 	createEffect(() => {
-		const uri = channel.channelUri();
+		const uri = channel.channelSpace();
 		if (!uri || channel.initialLoading()) return;
-		if (mutes.isChannelMuted(uri)) return;
 
 		const unseen = channel.initialUnseen();
 		if (unseen.length === 0) return;
@@ -537,19 +539,24 @@ const ChannelLayout: ParentComponent = (props) => {
 
 	createEffect(() => {
 		const target = notifications.pendingFocus();
-		if (!target || !isSameChannelUri(target.channelUri, channel.channelUri())) {
+		const focusUri = target?.messageUri;
+		if (
+			!target ||
+			focusUri === undefined ||
+			!isSameChannelUri(target.channel, channel.channelSpace())
+		) {
 			readObserver?.disconnect();
 			readObserver = undefined;
 			armedFocusUri = undefined;
 			return;
 		}
 
-		if (focusWalkUri !== target.messageUri) {
-			focusWalkUri = target.messageUri;
+		if (focusWalkUri !== focusUri) {
+			focusWalkUri = focusUri;
 			focusWalkAttempts = 0;
 		}
 
-		const present = channel.messages().some((m) => m.uri === target.messageUri);
+		const present = channel.messages().some((m) => m.uri === focusUri);
 		if (!present) {
 			if (channel.hasMore() && focusWalkAttempts < FOCUS_WALK_CAP) {
 				focusWalkAttempts++;
@@ -561,15 +568,15 @@ const ChannelLayout: ParentComponent = (props) => {
 			return;
 		}
 
-		if (armedFocusUri === target.messageUri) return; // already armed
-		armedFocusUri = target.messageUri;
+		if (armedFocusUri === focusUri) return; // already armed
+		armedFocusUri = focusUri;
 
-		channel.jumpToMessage(target.messageUri);
+		channel.jumpToMessage(focusUri);
 
 		queueMicrotask(() => {
 			if (!scrollContainer) return;
 			const node = scrollContainer.querySelector<HTMLElement>(
-				`[data-message-uri="${CSS.escape(target.messageUri)}"]`,
+				`[data-message-uri="${CSS.escape(focusUri)}"]`,
 			);
 			if (!node) {
 				armedFocusUri = undefined; // let a later messages() change retry
@@ -581,11 +588,7 @@ const ChannelLayout: ParentComponent = (props) => {
 					if (!entries[0]?.isIntersecting) return;
 					readObserver?.disconnect();
 					readObserver = undefined;
-					notifications.markMessageSeen(
-						target.messageUri,
-						target.channelUri,
-						true,
-					);
+					notifications.markMessageSeen(focusUri, target.channel, true);
 					notifications.clearPendingFocus();
 				},
 				{ root: scrollContainer, threshold: 0 },
@@ -595,7 +598,7 @@ const ChannelLayout: ParentComponent = (props) => {
 	});
 
 	createEffect(
-		on(channel.channelUri, (uri) => {
+		on(channel.channelSpace, (uri) => {
 			probeScroll("channel switch: layout reset", {
 				to: uri.split("/").pop(),
 				dist: round(scrollAnchor.distanceFromBottom()),
@@ -635,8 +638,8 @@ const ChannelLayout: ParentComponent = (props) => {
 		initialLoading: channel.initialLoading(),
 		msgs: channel.messages(),
 		hasMore: channel.hasMore(),
-		cursorResolved: channel.readCursorResolved(),
-		cursorUri: channel.readCursorUri(),
+		cursorResolved: channel.unreadCursorResolved(),
+		cursorUri: channel.unreadCursor(),
 		loadError: channel.error(),
 	}));
 
@@ -665,12 +668,13 @@ const ChannelLayout: ParentComponent = (props) => {
 		}
 
 		const cursorIdx = cursorUri
-			? msgs.findIndex((m) => m.uri === cursorUri)
+			? msgs.findIndex((m) => !("hash" in m) && m.rkey === cursorUri)
 			: -1;
+		const cursorMessageUri = cursorIdx >= 0 ? msgs[cursorIdx]?.uri : undefined;
 
 		probeScroll("landing decision", {
 			rows: msgs.length,
-			cursor: cursorUri ? cursorUri.split("/").pop() : "none",
+			cursor: cursorUri ?? "none",
 			cursorIdx,
 			hasMore,
 			cursorWalkAttempts,
@@ -693,9 +697,9 @@ const ChannelLayout: ParentComponent = (props) => {
 
 		requestAnimationFrame(() => {
 			const node =
-				landOnCursor && cursorUri && scrollContainer
+				landOnCursor && cursorMessageUri && scrollContainer
 					? scrollContainer.querySelector<HTMLElement>(
-							`[data-message-uri="${CSS.escape(cursorUri)}"]`,
+							`[data-message-uri="${CSS.escape(cursorMessageUri)}"]`,
 						)
 					: null;
 
@@ -710,8 +714,8 @@ const ChannelLayout: ParentComponent = (props) => {
 
 			const markReadNow = () => {
 				channel.advanceReadCursor();
-				notifications.markChannelRead(channel.channelUri());
-				void cancelChannelTrayNotification(channel.channelUri());
+				notifications.markChannelRead(channel.channelSpace());
+				void cancelChannelTrayNotification(channel.channelSpace());
 			};
 
 			if (node) {
@@ -850,12 +854,9 @@ const ChannelLayout: ParentComponent = (props) => {
 
 	const isRestricted = () => isChannelRestricted(channel.data());
 
-	const isMember = () => community().members.some((x) => x.did === user.did);
+	const isMember = () => community().members.some((m) => m.did === user.did);
 
 	const canTalk = () => channel.canSendMessages();
-
-	const needsGuidelines = () =>
-		canTalk() && !preferences().chatGuidelinesAccepted;
 
 	return (
 		<div class="w-full h-full flex flex-col min-h-0 flex-1">
@@ -872,12 +873,7 @@ const ChannelLayout: ParentComponent = (props) => {
 						</button>
 					</Show>
 					<Switch>
-						<Match
-							when={
-								channel.data()!.type === "text" ||
-								channel.data()!.type === "social.colibri.channel.text"
-							}
-						>
+						<Match when={channel.data()!.type === SPACE_TYPES.channelText}>
 							<ChatCircleDotsIcon
 								class="text-muted-foreground shrink-0"
 								width={20}
@@ -903,10 +899,10 @@ const ChannelLayout: ParentComponent = (props) => {
 								onClick={toggleChannelMute}
 							>
 								<Switch>
-									<Match when={mutes.isChannelMuted(channel.channelUri())}>
+									<Match when={mutes.isChannelMuted(channel.channelSpace())}>
 										<BellSlashIcon />
 									</Match>
-									<Match when={!mutes.isChannelMuted(channel.channelUri())}>
+									<Match when={!mutes.isChannelMuted(channel.channelSpace())}>
 										<BellIcon />
 									</Match>
 								</Switch>
@@ -915,10 +911,10 @@ const ChannelLayout: ParentComponent = (props) => {
 						<TooltipPortal>
 							<TooltipContent>
 								<Switch>
-									<Match when={mutes.isChannelMuted(channel.channelUri())}>
+									<Match when={mutes.isChannelMuted(channel.channelSpace())}>
 										Unmute Channel
 									</Match>
-									<Match when={!mutes.isChannelMuted(channel.channelUri())}>
+									<Match when={!mutes.isChannelMuted(channel.channelSpace())}>
 										Mute Channel
 									</Match>
 								</Switch>
@@ -1034,7 +1030,8 @@ const ChannelLayout: ParentComponent = (props) => {
 										{(message, index) => {
 											const meta = () => messageMeta()[index()] ?? DEFAULT_META;
 											const isLastRead = () =>
-												channel.readCursorUri() === message.uri &&
+												!("hash" in message) &&
+												channel.unreadCursor() === message.rkey &&
 												index() < messageMeta().length - 1;
 											return (
 												<>
@@ -1046,6 +1043,14 @@ const ChannelLayout: ParentComponent = (props) => {
 																</span>
 															</div>
 														)}
+													</Show>
+													<Show when={meta().legacyBoundary}>
+														<div class="w-[calc(100%-2rem)] h-px mx-4 my-2.5 bg-border flex items-center justify-center select-none">
+															<span class="text-xs bg-background px-1 text-muted-foreground font-medium">
+																Messages above this point predate the migration
+																and can no longer be edited or reacted to
+															</span>
+														</div>
 													</Show>
 													<Message
 														data={message}
@@ -1107,35 +1112,16 @@ const ChannelLayout: ParentComponent = (props) => {
 
 						<Show when={channel.data()}>
 							<MessageInput
-								disabled={!canTalk() || needsGuidelines()}
+								disabled={!canTalk()}
 								disabledReason={
-									needsGuidelines()
-										? "To chat on Colibri, you must first read the app's chat guidelines."
-										: isMember()
-											? "You are not allowed to send messages in this channel."
-											: "You are not a member of this community."
-								}
-								disabledAction={
-									needsGuidelines() ? (
-										<Button
-											size="sm"
-											variant="secondary"
-											onClick={() => setGuidelinesOpen(true)}
-										>
-											Open Guidelines
-										</Button>
-									) : undefined
+									isMember()
+										? "You are not allowed to send messages in this channel."
+										: "You are not a member of this community."
 								}
 								channelName={channel.data()?.name ?? ""}
 								maxAttachments={MAX_ATTACHMENTS}
 							/>
 						</Show>
-						<ChatGuidelinesModal
-							open={guidelinesOpen()}
-							onOpenChange={setGuidelinesOpen}
-							onAccept={() => setChatGuidelinesAccepted(true)}
-						/>
-
 						{props.children}
 					</div>
 				</FileFieldDropzone>
@@ -1149,9 +1135,9 @@ const ChannelLayoutWithContext: ParentComponent = (props) => {
 	const community = useCommunityContext();
 
 	const channel = createMemo(() => {
-		const rkey = getChannelParam();
-		if (!rkey) return undefined;
-		return community().channels.find((c) => c.uri.split("/").pop() === rkey);
+		const skey = getChannelParam();
+		if (!skey) return undefined;
+		return community().channels.find((c) => spaceSkey(c.space) === skey);
 	});
 
 	return (

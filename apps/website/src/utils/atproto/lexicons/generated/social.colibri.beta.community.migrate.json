@@ -1,0 +1,68 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.community.migrate",
+	"defs": {
+		"main": {
+			"type": "procedure",
+			"description": "Migrates a repo-backed community onto spaces. Structure is recreated in new spaces and stamped with migratedFrom. Message history stays in the legacy public repos and is served alongside, because messages live in their authors' repos and only their authors can move them.",
+			"input": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"community"
+					],
+					"properties": {
+						"community": {
+							"type": "string",
+							"format": "at-identifier",
+							"description": "The legacy community to migrate, by handle or DID. Only a community that holds its own DID can be migrated, so the DID is the whole address: the record to read is always social.colibri.community at self in that repo."
+						}
+					}
+				}
+			},
+			"output": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"community"
+					],
+					"properties": {
+						"community": {
+							"type": "ref",
+							"ref": "social.colibri.beta.community.defs#communityView",
+							"description": "The newly created, space-backed community."
+						}
+					}
+				}
+			},
+			"errors": [
+				{
+					"name": "AuthRequired",
+					"description": "The request is missing, malformed, or unverifiable service auth."
+				},
+				{
+					"name": "Forbidden",
+					"description": "The requesting user lacks permission to migrate this community."
+				},
+				{
+					"name": "CommunityNotFound",
+					"description": "No community exists at the legacy record's DID."
+				},
+				{
+					"name": "AlreadyExists",
+					"description": "This legacy community has already been migrated."
+				},
+				{
+					"name": "CredentialsUnavailable",
+					"description": "The AppView's stored credentials for this community are missing or unusable."
+				},
+				{
+					"name": "UpstreamFailure",
+					"description": "A PDS or third-party call the AppView depends on failed."
+				}
+			]
+		}
+	}
+}

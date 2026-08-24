@@ -1,0 +1,53 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.channel.read",
+	"defs": {
+		"main": {
+			"type": "record",
+			"description": "Read state for one community's channels. The record key is the community DID, which bounds each record to a community's channel count and makes leaving a community a single delete.",
+			"key": "any",
+			"record": {
+				"type": "object",
+				"required": [
+					"community",
+					"cursors"
+				],
+				"properties": {
+					"community": {
+						"type": "string",
+						"format": "did",
+						"description": "The community these cursors belong to. Matches the record key."
+					},
+					"cursors": {
+						"type": "array",
+						"items": {
+							"type": "ref",
+							"ref": "#cursor"
+						},
+						"description": "One cursor per read channel."
+					}
+				}
+			}
+		},
+		"cursor": {
+			"type": "object",
+			"description": "The last message read in one channel.",
+			"required": [
+				"channel",
+				"cursor"
+			],
+			"properties": {
+				"channel": {
+					"type": "string",
+					"format": "record-key",
+					"description": "The channel's space key."
+				},
+				"cursor": {
+					"type": "string",
+					"format": "tid",
+					"description": "Record key of the last message read. Message keys are TIDs, so they order by time."
+				}
+			}
+		}
+	}
+}

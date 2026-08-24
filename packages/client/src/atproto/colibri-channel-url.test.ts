@@ -6,55 +6,54 @@ import {
 } from "./colibri-channel-url";
 
 const DID = "did:plc:abc123";
-const COMMUNITY = `at://${DID}/social.colibri.community/self`;
-const CHANNEL = `at://${DID}/social.colibri.channel/general`;
+const TEXT_SPACE = `at://${DID}/space/social.colibri.beta.channel.text/general`;
+const VOICE_SPACE = `at://${DID}/space/social.colibri.beta.channel.voice/lounge`;
 
 describe("parseChannelPath", () => {
 	it("parses a short-form text path", () => {
 		expect(parseChannelPath(`/app/c/${DID}/text/general`)).toEqual({
-			communitySegment: DID,
-			communityUri: COMMUNITY,
+			community: DID,
 			channelType: "text",
-			channelRkey: "general",
-			channelUri: CHANNEL,
+			channelSkey: "general",
+			channelSpace: TEXT_SPACE,
 		});
 	});
 
-	it("accepts the full NSID form of the channel type", () => {
+	it("accepts the full space type of the channel", () => {
 		expect(
-			parseChannelPath(`/app/c/${DID}/social.colibri.channel.text/general`)
-				?.channelUri,
-		).toBe(CHANNEL);
+			parseChannelPath(`/app/c/${DID}/social.colibri.beta.channel.text/general`)
+				?.channelSpace,
+		).toBe(TEXT_SPACE);
 	});
 
-	it("accepts voice channels, unlike the prefetch helper", () => {
-		expect(parseChannelPath(`/app/c/${DID}/voice/lounge`)?.channelType).toBe(
-			"voice",
+	it("accepts voice channels", () => {
+		expect(parseChannelPath(`/app/c/${DID}/voice/lounge`)?.channelSpace).toBe(
+			VOICE_SPACE,
 		);
 	});
 
-	it("keeps a non-self community rkey in the community URI", () => {
-		const target = parseChannelPath(`/app/c/${DID}-myrkey/text/general`);
-		expect(target?.communityUri).toBe(
-			`at://${DID}/social.colibri.community/myrkey`,
-		);
-		expect(target?.channelUri).toBe(CHANNEL);
-	});
-
-	it("decodes a percent-encoded rkey", () => {
-		expect(parseChannelPath(`/app/c/${DID}/text/off%20topic`)?.channelUri).toBe(
-			`at://${DID}/social.colibri.channel/off topic`,
-		);
+	it("decodes a percent-encoded skey", () => {
+		expect(
+			parseChannelPath(`/app/c/${DID}/text/off%20topic`)?.channelSpace,
+		).toBe(`at://${DID}/space/social.colibri.beta.channel.text/off topic`);
 	});
 
 	it("tolerates trailing segments", () => {
 		expect(
-			parseChannelPath(`/app/c/${DID}/text/general/extra`)?.channelUri,
-		).toBe(CHANNEL);
+			parseChannelPath(`/app/c/${DID}/text/general/extra`)?.channelSpace,
+		).toBe(TEXT_SPACE);
 	});
 
 	it("rejects an unknown channel type", () => {
 		expect(parseChannelPath(`/app/c/${DID}/whiteboard/x`)).toBeNull();
+	});
+
+	it("rejects a non-channel space type", () => {
+		expect(
+			parseChannelPath(
+				`/app/c/${DID}/social.colibri.beta.community.members/self`,
+			),
+		).toBeNull();
 	});
 
 	it("rejects paths that are not channel deep links", () => {
@@ -74,36 +73,36 @@ describe("parseColibriChannelUrl", () => {
 	it("accepts both public hosts", () => {
 		expect(
 			parseColibriChannelUrl(`https://colibri.social/app/c/${DID}/text/general`)
-				?.channelUri,
-		).toBe(CHANNEL);
+				?.channelSpace,
+		).toBe(TEXT_SPACE);
 		expect(
 			parseColibriChannelUrl(
 				`https://next.colibri.social/app/c/${DID}/text/general`,
-			)?.channelUri,
-		).toBe(CHANNEL);
+			)?.channelSpace,
+		).toBe(TEXT_SPACE);
 	});
 
 	it("ignores a query string and hash", () => {
 		expect(
 			parseColibriChannelUrl(
 				`https://colibri.social/app/c/${DID}/text/general?a=1#b`,
-			)?.channelUri,
-		).toBe(CHANNEL);
+			)?.channelSpace,
+		).toBe(TEXT_SPACE);
 	});
 
 	it("trims surrounding whitespace", () => {
 		expect(
 			parseColibriChannelUrl(
 				`  https://colibri.social/app/c/${DID}/text/general  `,
-			)?.channelUri,
-		).toBe(CHANNEL);
+			)?.channelSpace,
+		).toBe(TEXT_SPACE);
 	});
 
 	it("accepts the native deep-link scheme", () => {
 		expect(
 			parseColibriChannelUrl(`social.colibri:/channel/${DID}/text/general`)
-				?.channelUri,
-		).toBe(CHANNEL);
+				?.channelSpace,
+		).toBe(TEXT_SPACE);
 	});
 
 	it("rejects a foreign host", () => {
@@ -125,26 +124,36 @@ describe("parseColibriChannelUrl", () => {
 });
 
 describe("buildChannelPath", () => {
-	it("round-trips through the parser", () => {
-		const path = buildChannelPath({
-			communityUri: COMMUNITY,
-			channelType: "social.colibri.channel.text",
-			channelRkey: "general",
-		});
-		expect(path).toBe(`/app/c/${DID}/social.colibri.channel.text/general`);
-		expect(parseChannelPath(path)?.channelUri).toBe(CHANNEL);
+	it("names the channel by its full space type", () => {
+		const path = buildChannelPath(TEXT_SPACE);
+		expect(path).toBe(`/app/c/${DID}/social.colibri.beta.channel.text/general`);
+		expect(parseChannelPath(path as string)?.channelSpace).toBe(TEXT_SPACE);
 	});
 
-	it("round-trips a non-self community and an encoded rkey", () => {
-		const path = buildChannelPath({
-			communityUri: `at://${DID}/social.colibri.community/myrkey`,
-			channelType: "voice",
-			channelRkey: "off topic",
-		});
-		const target = parseChannelPath(path);
-		expect(target?.communityUri).toBe(
-			`at://${DID}/social.colibri.community/myrkey`,
+	it("still resolves a path written with the old short type", () => {
+		expect(parseChannelPath(`/app/c/${DID}/text/general`)?.channelSpace).toBe(
+			TEXT_SPACE,
 		);
-		expect(target?.channelRkey).toBe("off topic");
+	});
+
+	it("round-trips a voice channel and an encoded skey", () => {
+		const space = `at://${DID}/space/social.colibri.beta.channel.voice/off topic`;
+		const path = buildChannelPath(space);
+		expect(path).toBe(
+			`/app/c/${DID}/social.colibri.beta.channel.voice/off%20topic`,
+		);
+		const target = parseChannelPath(path as string);
+		expect(target?.community).toBe(DID);
+		expect(target?.channelSkey).toBe("off topic");
+		expect(target?.channelSpace).toBe(space);
+	});
+
+	it("returns undefined for a space that is not a channel", () => {
+		expect(
+			buildChannelPath(
+				`at://${DID}/space/social.colibri.beta.community.members/self`,
+			),
+		).toBeUndefined();
+		expect(buildChannelPath("not-a-space")).toBeUndefined();
 	});
 });

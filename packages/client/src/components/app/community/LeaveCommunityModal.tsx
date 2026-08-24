@@ -1,12 +1,11 @@
 import { useNavigate } from "@solidjs/router";
 import type { Accessor, Setter } from "solid-js";
 import { createSignal } from "solid-js";
-import { toast } from "somoto";
 import { evictCommunity } from "../../../atproto/cache/community-evict";
 import { namespace } from "../../../atproto/cache/keys";
-import { deleteMembership } from "../../../atproto/memberships";
+import { colibri } from "../../../atproto/lexicons";
 import { useUserContext } from "../../../contexts/User";
-import { classifyThrown } from "../../../errors/classify";
+import { showError } from "../../../errors/show-error";
 import { getAppViewDid } from "../../../utils/appview";
 import { createLogger } from "../../../utils/logger";
 import { Button } from "../../ui/Button";
@@ -26,7 +25,7 @@ export const LeaveCommunityModal = (props: {
 	open: Accessor<boolean>;
 	setOpen: Setter<boolean>;
 	communityName: string;
-	communityUri: string;
+	community: string;
 }) => {
 	const user = useUserContext();
 	const navigate = useNavigate();
@@ -34,30 +33,24 @@ export const LeaveCommunityModal = (props: {
 
 	const handleLeave = async () => {
 		setLoading(true);
-		try {
-			await deleteMembership(user.atproto.agent, user.did, props.communityUri);
 
-			const res = await user.xrpc.social.colibri.community.leave(
-				props.communityUri,
-			);
-			if (!res.ok) {
-				toast.error("Failed to leave community.");
-				return;
-			}
+		const res = await user.xrpc.call(colibri.community.leave.main, {
+			body: { community: props.community },
+		});
 
-			evictCommunity(namespace(getAppViewDid(), user.did), props.communityUri);
+		setLoading(false);
 
-			props.setOpen(false);
-			navigate("/app");
-		} catch (err) {
-			log.error("leaving the community failed", {
-				code: classifyThrown(err, { method: "com.atproto.repo.deleteRecord" })
-					.code,
-			});
-			toast.error("Failed to leave community.");
-		} finally {
-			setLoading(false);
+		if (!res.ok) {
+			log.error("leaving the community failed", { code: res.error.code });
+			showError(res.error, { fallbackTitle: "Failed to leave community." });
+			return;
 		}
+
+		await evictCommunity(namespace(getAppViewDid(), user.did), props.community);
+		await user.refetchCommunities();
+
+		props.setOpen(false);
+		navigate("/app");
 	};
 
 	return (

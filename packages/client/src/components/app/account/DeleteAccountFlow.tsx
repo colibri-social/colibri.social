@@ -11,15 +11,14 @@ import {
 	type DeleteProgress,
 	deleteColibriAccount,
 } from "../../../atproto/delete-account";
+import { colibri } from "../../../atproto/lexicons";
 import {
 	describePdsOperator,
 	type PdsOperator,
 } from "../../../atproto/pds-operator";
-import { resolveBlob } from "../../../atproto/resolve-blob";
 import { endSession } from "../../../atproto/session";
-import type { SoleOwnedCommunity } from "../../../atproto/xrpc/social/colibri/actor";
+import type { CommunityView } from "../../../atproto/views";
 import { useUserContext } from "../../../contexts/User";
-import { AtURI } from "../../../utils/at-uri";
 import { openExternalLink } from "../../../utils/open-external-link";
 import { Spinner } from "../../icons/Spinner";
 import { Alert, AlertDescription, AlertTitle } from "../../ui/Alert";
@@ -45,15 +44,8 @@ const initials = (name: string) =>
 		.join("")
 		.substring(0, 3);
 
-const CommunityPreview: Component<{ community: SoleOwnedCommunity }> = (
-	props,
-) => {
-	const pictureUrl = () =>
-		resolveBlob(
-			AtURI.parseAtURI(props.community.uri).did,
-			props.community.picture,
-			"small",
-		);
+const CommunityPreview: Component<{ community: CommunityView }> = (props) => {
+	const pictureUrl = () => props.community.picture;
 
 	return (
 		<li class="flex flex-row items-center gap-3">
@@ -135,7 +127,7 @@ export const DeleteAccountFlow: Component<{
 	const [failure, setFailure] = createSignal<string | undefined>();
 
 	const [status] = createResource(async () => {
-		const res = await user.xrpc.social.colibri.actor.getDeletionStatus();
+		const res = await user.xrpc.call(colibri.actor.getDeletionStatus.main, {});
 		return res.ok ? res.data : undefined;
 	});
 
@@ -143,8 +135,8 @@ export const DeleteAccountFlow: Component<{
 		() =>
 			status.loading || !user.atproto.pdsHost
 				? undefined
-				: { host: user.atproto.pdsHost, accountPage: status()?.pdsAccountPage },
-		(source) => describePdsOperator(source.host, source.accountPage),
+				: { host: user.atproto.pdsHost },
+		(source) => describePdsOperator(source.host),
 	);
 
 	const blockers = () => status()?.soleOwnedCommunities ?? [];

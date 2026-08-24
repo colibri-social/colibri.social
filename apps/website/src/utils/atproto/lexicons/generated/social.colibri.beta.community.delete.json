@@ -1,0 +1,56 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.community.delete",
+	"defs": {
+		"main": {
+			"type": "procedure",
+			"description": "Deletes the community's spaces and its account. Members' own records stay in their own repos and simply become unreadable.",
+			"input": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"community"
+					],
+					"properties": {
+						"community": {
+							"type": "string",
+							"format": "did",
+							"description": "The community to delete."
+						}
+					}
+				}
+			},
+			"output": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [],
+					"properties": {}
+				}
+			},
+			"errors": [
+				{
+					"name": "AuthRequired",
+					"description": "The request is missing, malformed, or unverifiable service auth."
+				},
+				{
+					"name": "Forbidden",
+					"description": "The requesting user lacks the community.delete permission."
+				},
+				{
+					"name": "CommunityNotFound",
+					"description": "No community exists with that DID."
+				},
+				{
+					"name": "CredentialsUnavailable",
+					"description": "The AppView's stored credentials for this community are missing or unusable."
+				},
+				{
+					"name": "UpstreamFailure",
+					"description": "A PDS or third-party call the AppView depends on failed."
+				}
+			]
+		}
+	}
+}

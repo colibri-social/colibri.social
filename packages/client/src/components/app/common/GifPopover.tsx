@@ -12,10 +12,8 @@ import {
 } from "solid-js";
 import StarIcon from "~icons/ph/star";
 import StarFillIcon from "~icons/ph/star-fill";
-import type {
-	GifCategory,
-	GifItem,
-} from "../../../atproto/xrpc/social/colibri/embed/gifTypes";
+import { colibri } from "../../../atproto/lexicons";
+import type { GifCategory, GifView } from "../../../atproto/views";
 import { useGifFavorites } from "../../../contexts/GifFavorites";
 import { useUserContext } from "../../../contexts/User";
 import { useUserPreferences } from "../../../contexts/UserPreferences";
@@ -65,7 +63,7 @@ const TABS: Array<{ id: GifTab; label: string }> = [
  * fetching) only when the popover opens, and tears down when it closes.
  */
 export const GifPickerBody: Component<{
-	onSelect: (gif: GifItem) => void;
+	onSelect: (gif: GifView) => void;
 	edgeFade?: boolean;
 	heightClass?: string;
 }> = (props) => {
@@ -80,9 +78,8 @@ export const GifPickerBody: Component<{
 	const [query, setQuery] = createSignal("");
 
 	// Paginated grid state (trending + search).
-	const [items, setItems] = createSignal<Array<GifItem>>([]);
-	const [page, setPage] = createSignal(1);
-	const [hasNext, setHasNext] = createSignal(false);
+	const [items, setItems] = createSignal<Array<GifView>>([]);
+	const [cursor, setCursor] = createSignal<string | undefined>();
 	const [loading, setLoading] = createSignal(false);
 	const [errored, setErrored] = createSignal(false);
 
@@ -99,44 +96,46 @@ export const GifPickerBody: Component<{
 	// A non-empty query always overrides the active tab with search results.
 	const mode = (): "search" | GifTab => (query() ? "search" : tab());
 
-	const fetchPage = (p: number) => {
+	const fetchPage = (next?: string) => {
 		const q = query();
 		return q
-			? user.xrpc.social.colibri.embed.searchGifs(q, p)
-			: user.xrpc.social.colibri.embed.trendingGifs(p);
+			? user.xrpc.call(colibri.embed.searchGifs.main, {
+					params: { q, cursor: next },
+				})
+			: user.xrpc.call(colibri.embed.trendingGifs.main, {
+					params: { cursor: next },
+				});
 	};
 
 	const loadFirstPage = async () => {
 		setLoading(true);
 		setErrored(false);
 		setItems([]);
-		const res = await fetchPage(1);
-		if (!res.ok || !res.data) {
+		const res = await fetchPage();
+		if (!res.ok) {
 			setErrored(true);
 		} else {
-			setItems(res.data.items);
-			setPage(res.data.page);
-			setHasNext(res.data.hasNext);
+			setItems(res.data.gifs);
+			setCursor(res.data.cursor);
 		}
 		setLoading(false);
 	};
 
 	const loadMore = async () => {
-		if (loading() || !hasNext()) return;
+		const next = cursor();
+		if (loading() || !next) return;
 		setLoading(true);
-		const res = await fetchPage(page() + 1);
-		if (res.ok && res.data) {
-			const page_ = res.data;
-			setItems((prev) => [...prev, ...page_.items]);
-			setPage(page_.page);
-			setHasNext(page_.hasNext);
+		const res = await fetchPage(next);
+		if (res.ok) {
+			setItems((prev) => [...prev, ...res.data.gifs]);
+			setCursor(res.data.cursor);
 		}
 		setLoading(false);
 	};
 
 	const loadCategories = async () => {
-		const cats = await user.xrpc.social.colibri.embed.gifCategories();
-		if (cats.ok && cats.data) setCategories(cats.data);
+		const cats = await user.xrpc.call(colibri.embed.gifCategories.main, {});
+		if (cats.ok) setCategories(cats.data.categories);
 		// Mark loaded regardless of result so an empty list doesn't re-fetch
 		// every time the effect re-runs.
 		setCategoriesLoaded(true);
@@ -174,7 +173,7 @@ export const GifPickerBody: Component<{
 		}
 	};
 
-	const GifTile: Component<{ gif: GifItem }> = (tile) => {
+	const GifTile: Component<{ gif: GifView }> = (tile) => {
 		const iconClass = () => (isTouch() ? "w-5 h-5" : "w-4 h-4");
 
 		return (
@@ -227,7 +226,7 @@ export const GifPickerBody: Component<{
 		);
 	};
 
-	const Grid: Component<{ gifs: Array<GifItem>; empty: string }> = (g) => (
+	const Grid: Component<{ gifs: Array<GifView>; empty: string }> = (g) => (
 		<Show
 			when={g.gifs.length > 0}
 			fallback={
@@ -340,7 +339,7 @@ export const GifPickerBody: Component<{
 											<button
 												type="button"
 												class="relative h-20 rounded-md overflow-hidden bg-muted cursor-pointer border-none p-0 outline-none focus-visible:ring-2 focus-visible:ring-ring"
-												onClick={() => runSearch(cat.query ?? cat.name)}
+												onClick={() => runSearch(cat.name)}
 											>
 												<Show when={cat.previewUrl}>
 													<img
@@ -390,12 +389,12 @@ export const GifPickerBody: Component<{
 export const GifPopover: ParentComponent<{
 	open: Accessor<boolean>;
 	setOpen: (state: boolean) => void;
-	onGifSelect: (gif: GifItem) => void;
+	onGifSelect: (gif: GifView) => void;
 	placement?: Placement;
 }> = (props) => {
 	const isMobile = useIsMobile();
 
-	const handleSelect = (gif: GifItem) => {
+	const handleSelect = (gif: GifView) => {
 		props.setOpen(false);
 		props.onGifSelect(gif);
 	};

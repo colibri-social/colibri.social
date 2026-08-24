@@ -21,24 +21,26 @@ const buildFacet = (
 	byteEnd: number,
 	...features: Array<Feature>
 ): ColibriRichTextFacet => ({
-	$type: "social.colibri.richtext.facet",
+	$type: "social.colibri.beta.richtext.facet",
 	index: {
-		$type: "app.bsky.richtext.facet#byteSlice",
+		$type: "social.colibri.beta.richtext.facet#byteSlice",
 		byteStart,
 		byteEnd,
 	},
 	features,
 });
 
-const BOLD: Feature = { $type: "social.colibri.richtext.facet#bold" };
-const QUOTE: Feature = { $type: "social.colibri.richtext.facet#quote" };
-const CODEBLOCK: Feature = { $type: "social.colibri.richtext.facet#codeblock" };
+const BOLD: Feature = { $type: "social.colibri.beta.richtext.facet#bold" };
+const QUOTE: Feature = { $type: "social.colibri.beta.richtext.facet#quote" };
+const CODEBLOCK: Feature = {
+	$type: "social.colibri.beta.richtext.facet#codeblock",
+};
 const heading = (level: number): Feature => ({
-	$type: "social.colibri.richtext.facet#heading",
+	$type: "social.colibri.beta.richtext.facet#heading",
 	level,
 });
 const list = (ordered: boolean): Feature => ({
-	$type: "social.colibri.richtext.facet#list",
+	$type: "social.colibri.beta.richtext.facet#list",
 	ordered,
 });
 
@@ -200,13 +202,13 @@ describe("facetsToSource", () => {
 
 	it("returns instead of hanging on a zero-length codeblock facet", () => {
 		const facet: ColibriRichTextFacet = {
-			$type: "social.colibri.richtext.facet",
+			$type: "social.colibri.beta.richtext.facet",
 			index: {
-				$type: "app.bsky.richtext.facet#byteSlice",
+				$type: "social.colibri.beta.richtext.facet#byteSlice",
 				byteStart: 0,
 				byteEnd: 0,
 			},
-			features: [{ $type: "social.colibri.richtext.facet#codeblock" }],
+			features: [{ $type: "social.colibri.beta.richtext.facet#codeblock" }],
 		};
 		expect(facetsToSource("abc", [facet]).source).toBe("abc");
 	});

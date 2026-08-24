@@ -1,7 +1,8 @@
 import type { Agent } from "@atproto/api";
+import { COLLECTIONS } from "./lexicons";
 import { getRecord, putRecord } from "./pds";
 
-const PROFILE_COLLECTION = "social.colibri.actor.profile";
+const PROFILE_COLLECTION = COLLECTIONS.profile;
 
 export const syncPreferredBadge = async (
 	agent: Agent,

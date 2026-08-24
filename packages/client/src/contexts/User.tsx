@@ -1,6 +1,5 @@
 import type { Agent } from "@atproto/api";
 import type { BrowserOAuthClient } from "@atproto/oauth-client-browser";
-import type { ActorData, Community } from "@colibri-social/lib";
 import {
 	createContext,
 	createEffect,
@@ -19,20 +18,29 @@ import {
 	readUser,
 	writeUser,
 } from "../atproto/cache/store";
-import { syncPresenceService } from "../atproto/presence";
+import { colibri } from "../atproto/lexicons";
+import {
+	ensurePreferencesSpace,
+	grantPreferencesAccess,
+	scheduleRegrant,
+} from "../atproto/preferences-space";
+import {
+	configureReadCursorWriter,
+	resetReadCursorWriter,
+} from "../atproto/read-cursor";
 import { sessionDead } from "../atproto/session-health";
-import { XrpcClient } from "../atproto/xrpc";
+import { frameIs } from "../atproto/sync-frames";
+import type { CommunityView, ProfileView } from "../atproto/views";
+import { type ColibriClient, primaryClient } from "../atproto/xrpc";
 import { AppLoadingScreen } from "../components/AppLoadingScreen";
 import { AppViewUnreachableModal } from "../components/app/AppViewUnreachableModal";
 import { ProfileGate } from "../components/app/onboarding/ProfileGate";
 import { SessionExpiredRedirect } from "../components/app/SessionExpiredRedirect";
 import { setReportingAccount } from "../errors/account";
 import { classifyThrown } from "../errors/classify";
-import { setCrossAppViewHintHandlers } from "../errors/cross-appview-hint";
 import { ColibriError } from "../errors/error";
-import { showError } from "../errors/show-error";
 import { identifyUser } from "../sentry";
-import { getAppViewDid, getAppViewServiceRef } from "../utils/appview";
+import { getAppViewDid } from "../utils/appview";
 import { createLogger } from "../utils/logger";
 import { markBoot } from "../utils/perf";
 import { useAuthContext } from "./Auth";
@@ -43,30 +51,37 @@ const log = createLogger("user");
 
 type User =
 	| { loggedIn: false; atproto: { client: BrowserOAuthClient } }
-	| (ActorData & {
+	| (ProfileView & {
 			loggedIn: true;
 			atproto: {
 				client: BrowserOAuthClient;
 				agent: Agent;
 				pdsHost: string | undefined;
 			};
-			communities: Array<Community>;
-			xrpc: XrpcClient;
+			communities: Array<CommunityView>;
+			xrpc: ColibriClient;
 	  });
 
-type LoggedInUser = Extract<User, { loggedIn: true }> & {
+export type LoggedInUser = Extract<User, { loggedIn: true }> & {
 	/** Re-fetches the user's community list and updates the context. */
 	refetchCommunities: () => Promise<void>;
+	/**
+	 * Re-reads the profile from the AppView. Needed after writing the profile
+	 * record to the user's own repo, because there is no announce endpoint for it:
+	 * the AppView picks the commit up off Jetstream and refreshes its cache from
+	 * the event. A host running without Jetstream falls back to its cache TTL, so
+	 * this can legitimately return the pre-edit view.
+	 */
+	refetchProfile: () => Promise<void>;
 	/** Patches fields in the local actor data without a full refetch. */
-	updateActorData: (patch: Partial<ActorData["data"]>) => void;
+	updateProfile: (patch: Partial<ProfileView>) => void;
 };
 
 export const UserContext = createContext<LoggedInUser>();
 
 export const UserContextProvider: ParentComponent = (props) => {
 	const client = useAuthContext();
-	const { preferences, setSharePresence, setHideCrossAppViewHint } =
-		useUserPreferences();
+	const { preferences } = useUserPreferences();
 	const socket = useSocketContext();
 
 	const [user, { mutate }] = createResource(async (): Promise<User> => {
@@ -83,20 +98,22 @@ export const UserContextProvider: ParentComponent = (props) => {
 			};
 		}
 
-		const xrpc = new XrpcClient(getAppViewServiceRef(), client.agent);
+		const xrpc = primaryClient(client.agent);
 
 		const [actorDataRes, communitiesRes] = await Promise.all([
-			xrpc.social.colibri.actor.getData(client.agent.did!),
-			xrpc.social.colibri.actor.listCommunities(),
+			xrpc.call(colibri.actor.getProfile.main, {
+				params: { actor: client.agent.did as string },
+			}),
+			xrpc.call(colibri.actor.listCommunities.main, {}),
 		]);
 
 		if (!actorDataRes.ok) throw actorDataRes.error;
 		if (!communitiesRes.ok) throw communitiesRes.error;
 
-		const actorData = actorDataRes.data;
+		const profile = actorDataRes.data?.profile;
 		const communities = communitiesRes.data;
 
-		if (!actorData) {
+		if (!profile) {
 			throw new ColibriError({ code: "MalformedResponse" });
 		}
 
@@ -112,7 +129,7 @@ export const UserContextProvider: ParentComponent = (props) => {
 
 		return {
 			loggedIn: true,
-			...actorData,
+			...profile,
 			atproto: {
 				agent: client.agent,
 				client: client.client,
@@ -133,14 +150,14 @@ export const UserContextProvider: ParentComponent = (props) => {
 		if (cached && user.loading) {
 			mutate({
 				loggedIn: true,
-				...cached.actorData,
+				...cached.profile,
 				atproto: {
 					agent: client.agent,
 					client: client.client,
 					pdsHost: client.pdsHost,
 				},
 				communities: cached.communities,
-				xrpc: new XrpcClient(getAppViewServiceRef(), client.agent),
+				xrpc: primaryClient(client.agent),
 			});
 		}
 	});
@@ -154,35 +171,19 @@ export const UserContextProvider: ParentComponent = (props) => {
 		const did = client.agent.did;
 		if (!did) return;
 		const ns = namespace(getAppViewDid(), did);
-		const snapshot = {
-			actorData: { did: u.did, handle: u.handle, data: u.data },
-			communities: u.communities,
-		};
+		const {
+			atproto: _atproto,
+			xrpc: _xrpc,
+			loggedIn: _loggedIn,
+			communities,
+			...profile
+		} = u;
+		const snapshot = { profile, communities };
 		if (cacheWriteTimer) clearTimeout(cacheWriteTimer);
 		cacheWriteTimer = setTimeout(() => void writeUser(ns, snapshot), 500);
 	});
 	onCleanup(() => {
 		if (cacheWriteTimer) clearTimeout(cacheWriteTimer);
-	});
-
-	createEffect(() => {
-		const current = user.latest?.loggedIn ? user.latest : undefined;
-		setCrossAppViewHintHandlers({
-			isSuppressed: () => preferences().hideCrossAppViewHint,
-			suppressPermanently: () => setHideCrossAppViewHint(true),
-			enablePresenceSharing: async () => {
-				if (!current) return;
-				setSharePresence(true);
-				try {
-					await syncPresenceService(current.atproto.agent, current.did, true);
-				} catch (err) {
-					setSharePresence(false);
-					showError(err, {
-						fallbackTitle: "Couldn't turn on presence sharing.",
-					});
-				}
-			},
-		});
 	});
 
 	createEffect(() => {
@@ -227,8 +228,10 @@ export const UserContextProvider: ParentComponent = (props) => {
 
 					const refetchCommunities = async () => {
 						try {
-							const res =
-								await value.xrpc.social.colibri.actor.listCommunities();
+							const res = await value.xrpc.call(
+								colibri.actor.listCommunities.main,
+								{},
+							);
 							const cur = user.latest;
 							if (res.ok && res.data && cur?.loggedIn) {
 								mutate({ ...cur, communities: res.data.communities });
@@ -240,86 +243,103 @@ export const UserContextProvider: ParentComponent = (props) => {
 						}
 					};
 
-					const updateActorData = (patch: Partial<ActorData["data"]>) => {
-						const cur = user.latest;
-						if (!cur?.loggedIn) return;
-						mutate({
-							...cur,
-							data: { ...cur.data, ...patch },
-						});
+					const refetchProfile = async () => {
+						try {
+							const res = await value.xrpc.call(colibri.actor.getProfile.main, {
+								params: { actor: value.did },
+							});
+							const cur = user.latest;
+							if (res.ok && cur?.loggedIn) {
+								mutate({ ...cur, ...res.data.profile });
+							}
+						} catch (err) {
+							log.error("refetching the profile failed", {
+								code: classifyThrown(err).code,
+							});
+						}
 					};
 
+					const updateProfile = (patch: Partial<ProfileView>) => {
+						const cur = user.latest;
+						if (!cur?.loggedIn) return;
+						mutate({ ...cur, ...patch });
+					};
+
+					onMount(() => {
+						const { agent } = value.atproto;
+						let cancelRegrant: (() => void) | undefined;
+
+						configureReadCursorWriter({
+							agent,
+							xrpc: value.xrpc,
+							actorDid: value.did,
+						});
+
+						void (async () => {
+							try {
+								await ensurePreferencesSpace(agent);
+							} catch {
+								return;
+							}
+							const grant = await grantPreferencesAccess(agent, value.xrpc);
+							if (grant) {
+								cancelRegrant = scheduleRegrant(
+									agent,
+									value.xrpc,
+									grant.expiresAt,
+								);
+							}
+						})();
+
+						onCleanup(() => {
+							cancelRegrant?.();
+							resetReadCursorWriter();
+						});
+					});
+
 					const cleanup = socket.onEvent((event) => {
-						if (
-							event.type === "member_event" &&
-							event.data &&
-							event.data.event === "join" &&
-							event.data.member.did === value.did
-						) {
-							void refetchCommunities();
+						if (frameIs(event, "memberEvent")) {
+							if (
+								event.event === "join" &&
+								event.member?.actor.did === value.did
+							) {
+								void refetchCommunities();
+							}
 							return;
 						}
 
-						if (
-							event.type === "community_event" &&
-							event.data &&
-							event.data.event === "upsert"
-						) {
-							const { data } = event;
+						if (frameIs(event, "communityEvent")) {
 							const current = user.latest;
 							if (!current?.loggedIn) return;
+
+							if (event.event === "delete") {
+								mutate({
+									...current,
+									communities: current.communities.filter(
+										(c) => c.did !== event.community,
+									),
+								});
+								return;
+							}
+
+							const view = event.view;
+							if (!view) return;
 							mutate({
 								...current,
 								communities: current.communities.map((c) =>
-									c.uri === data.uri
-										? {
-												...c,
-												...(data.name !== undefined && { name: data.name }),
-												picture: data.picture,
-												banner: data.banner,
-											}
-										: c,
+									c.did === view.did ? view : c,
 								),
 							});
 							return;
 						}
 
-						if (
-							event.type === "user_event" &&
-							event.data &&
-							event.data.did === value.did
-						) {
+						if (frameIs(event, "presenceEvent") && event.did === value.did) {
 							const current = user.latest;
 							if (!current?.loggedIn) return;
-							const { profile, status } = event.data;
-							mutate({
-								...current,
-								handle: profile.handle ?? current.handle,
-								data: {
-									...current.data,
-									...(profile.displayName !== undefined && {
-										displayName: profile.displayName,
-									}),
-									...(profile.avatar !== undefined && {
-										avatar: profile.avatar,
-									}),
-									...(profile.banner !== undefined && {
-										banner: profile.banner,
-									}),
-									...(profile.description !== undefined && {
-										description: profile.description,
-									}),
-									...(profile.theme !== undefined && {
-										theme: profile.theme,
-									}),
-									...(status && {
-										onlineState: status.state,
-										status: { text: status.text, emoji: status.emoji },
-									}),
-								},
-							});
+							mutate({ ...current, presence: event.presence });
 						}
 					});
+
 					onCleanup(cleanup);
 
 					return (
@@ -329,23 +349,20 @@ export const UserContextProvider: ParentComponent = (props) => {
 								// `value` is captured once by this (non-keyed) Match render
 								// prop, so a plain spread would freeze these fields. Expose
 								// them as getters that read back through the resource signal,
-								// so `mutate()` (refetchCommunities / updateActorData)
+								// so `mutate()` (refetchCommunities / updateProfile)
 								// reactively re-renders consumers — e.g. the sidebar's <For>
 								// and the own-user panel's name/avatar.
 								get communities() {
 									const u = user.latest;
 									return u?.loggedIn ? u.communities : value.communities;
 								},
-								get data() {
-									const u = user.latest;
-									return u?.loggedIn ? u.data : value.data;
-								},
 								get handle() {
 									const u = user.latest;
 									return u?.loggedIn ? u.handle : value.handle;
 								},
 								refetchCommunities,
-								updateActorData,
+								refetchProfile,
+								updateProfile,
 							}}
 						>
 							<ProfileGate>{props.children}</ProfileGate>

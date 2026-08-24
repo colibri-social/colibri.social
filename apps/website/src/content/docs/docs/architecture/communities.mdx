@@ -1,66 +1,129 @@
 ---
 title: Communities
-description: How Colibri communities work and where their records are stored.
+description: How a Colibri community is put together out of permissioned spaces.
+sidebar:
+  order: 2
 ---
 
+import { Steps } from "@astrojs/starlight/components";
 import CommunityRecordsDiagram from "../../../../components/docs/CommunityRecordsDiagram.astro";
 
-A **community** (what other chat apps might call a "server") is where people gather into categories and channels to talk. In a conventional app the backend owns all of that data. Colibri works differently: a community is itself an AT Protocol identity. It has its own DID and repository, and everything about it (channels, roles, members, etc.) is stored as ordinary atproto records, exactly like the records on a user's own repo.
+A **community** (what other chat apps might call a "server") is where people gather into categories and channels to talk. In a conventional app the backend owns all of that data. Colibri works differently: a community is itself an AT Protocol identity.
 
-Almost nothing about a community lives only inside the AppView. The AppView is an *index*: it aggregates records from across the network and serves a fast, assembled view of them. The source of truth is always a repo somewhere. The exception to this are invitation links (also called invitations or invites), which are kept inside the AppView for obvious reasons.
+A community is a set of gated [**spaces**](/docs/architecture/spaces) whose
+authority is the community's DID. Each member's messages live in that member's
+own repository, and a reader reaches them through the space that holds them.
 
 <CommunityRecordsDiagram />
 
-## One community, one repo
+## Six spaces
 
-Every community is a single repo identified by a DID. The community itself is a singleton record stored at the record key `self` (`social.colibri.community`), so there is exactly one community per repo. Its categories, channels, and roles live in that same repo as separate records.
+All six have the community's DID as their authority.
 
-That repo needs an account on a PDS to exist. There are two ways it comes to be:
+| Space type | Key | Holds | Who can read |
+| --- | --- | --- | --- |
+| `social.colibri.beta.community.profile` | `self` | the community record | anyone, unless the community is private |
+| `social.colibri.beta.community.configuration` | `self` | settings, categories, labels | members |
+| `social.colibri.beta.community.members` | `self` | members, roles, labels | members |
+| `social.colibri.beta.community.moderation` | `self` | the moderation log | holders of `moderation.viewLog` |
+| `social.colibri.beta.channel.text` | `tid` | channel, messages, reactions, labels | per channel |
+| `social.colibri.beta.channel.voice` | `tid` | the channel record | per channel |
 
-- **AppView-managed.** When you create a community through the app and choose the *Managed* option, the AppView mints a fresh account on its configured PDS and writes the initial records. It keeps that account's credentials (encrypted) and is the only party that can write to the repo afterwards.
-- **Bring-your-own.** You can host the community repo on a PDS you control and register its credentials with an AppView by choosing the *Bring Your Own* option. The AppView then administers it the same way, without owning the hosting.
+The first four are created once, when the community is created. The last two are
+space *types*, and a community has one space of that type per channel.
 
-Either way, the community record carries an `appview` field naming the AppView that administers it. This AppView is considered its **home**, which also acts as its [presence hub](/docs/architecture/appview#humming) and voice host.
+
+### A channel is its space
+
+There is no channel container that holds messages. The space **is** the channel.
+Its key is the channel's identity, and the channel's own configuration lives at
+record key `self` inside it.
+
+Creating a channel creates a space, and deleting one deletes the space. Adding a
+new kind of channel later means adding a new space type.
+
+### The personal space
+
+Each user also has one space of their own, `social.colibri.beta.actor.preferences`,
+whose authority is the user's own DID. It holds their mutes, their settings and
+their read cursors, none of which anyone else has any business reading.
+
+Its policy is an empty member list. The space manager authorizes the owner
+before it consults the policy, so the owner always gets in and no one else ever
+does.
 
 ## Where records live
 
-Colibri records have two homes, and which repo a record lives on tells you who owns it.
+Which repository a record is written to tells you who is accountable for it.
 
-### The community's repo
+### Written by the community
 
-Written by the AppView that holds the community's credentials. This is the community's structure and its authoritative state:
-
-| Record | What it is |
-| --- | --- |
-| `social.colibri.community` | The community definition (singleton, key `self`). |
-| `social.colibri.category` | A category grouping channels. |
-| `social.colibri.channel` | A channel within a category. |
-| `social.colibri.role` | A role and its permissions. |
-| `social.colibri.member` | The authoritative membership: a user's DID plus the roles they hold. |
-| `social.colibri.moderation` | An append-only audit log of bans, kicks, and hidden messages. |
-
-### The member's own repo
-
-Written by each user, on their own PDS:
+The AppView holds the community's credentials and writes these on its behalf.
+They are the community's structure and its authoritative state.
 
 | Record | What it is |
 | --- | --- |
-| `social.colibri.message` | A message, referencing the channel it was sent in. |
-| `social.colibri.reaction` | A reaction to a message. |
-| `social.colibri.membership` | A request / declaration that the user wants to join a community. |
-| `social.colibri.actor.profile` | The user's Colibri profile. |
-| `social.colibri.actor.data` | The user's status and presence data. |
-| `social.colibri.actor.mute` | A muted channel or community. |
-| `social.colibri.channel.read` | A read cursor tracking how far a user has read in each channel. |
+| `social.colibri.beta.community` | The community definition, at key `self` in the profile space. |
+| `social.colibri.beta.community.settings` | Category order, join approval, link embeds, and the labelers this community honours. |
+| `social.colibri.beta.category` | A category, holding an ordered list of channel keys. |
+| `social.colibri.beta.role` | A role and its permissions. |
+| `social.colibri.beta.member` | A member: their DID, their roles and when they joined. Keyed by the subject's DID. |
+| `social.colibri.beta.channel` | A channel's configuration, at key `self` in the channel's own space. |
+| `social.colibri.beta.moderation` | The append-only log of bans, unbans and kicks. |
 
-This record structure means **your messages are stored in your repo.** You own them, they travel with your atproto identity, and deleting one is just a normal record deletion on your own PDS. The AppView removes it from its index when the deletion crosses the firehose. The community, in turn, owns its structure and the authoritative record of who is a member and what has been moderated.
+`social.colibri.beta.member` is keyed by the subject's DID, so looking someone up
+is a direct fetch rather than a scan, and a community cannot hold two member
+records for the same person.
 
-:::note[`membership` vs `member`]
-Joining is a two-sided handshake across two repos. A user writes a `social.colibri.membership` on **their** repo to declare they want in, the community writes a `social.colibri.member` on **its** repo to actually grant access and assign roles. For communities that require approval, a moderator finalizes the second half. A `membership` without a matching `member` is a pending application.
-:::
+### Written by each member
+
+Written by the user, to the user's own repository, and read through the space.
+
+| Record | What it is |
+| --- | --- |
+| `social.colibri.beta.message` | A message. Its space is the channel it was sent in. |
+| `social.colibri.beta.reaction` | A reaction, targeting a message by author and key. |
+| `social.colibri.beta.label` | A label on some content, if the user is one of the community's labelers. |
+| `social.colibri.beta.actor.profile` | The user's Colibri profile. This one is still public. |
+| `social.colibri.beta.actor.mute` | One muted subject, in the user's own preferences space. |
+| `social.colibri.beta.actor.settings` | Notification level, community order, GIF favourites. |
+| `social.colibri.beta.channel.read` | Read cursors, one record per community. |
+
+Your messages are stored in your own repository. You own them, they travel with
+your atproto identity, and deleting one is an ordinary record deletion. They are
+not public: a reader needs a credential for the channel's space to see them at
+all.
+
+## Joining
+
+Joining is the [`social.colibri.beta.community.join`](/docs/specification/appview#socialcolibribetacommunityjoin)
+procedure. The AppView checks the invitation or the community's join policy, and
+either writes the `member` record or records a pending application. Nothing is
+reconciled between two repositories, and there is no state where you are half
+joined.
+
+The consequence of joining is that the AppView will start answering "yes" when
+the community's PDS asks whether you may read that community's spaces.
+
+## What creating a community does
+
+<Steps>
+
+1. Creates an account on the configured PDS and stores its password, encrypted.
+2. Creates the profile, configuration, members and moderation spaces.
+3. Writes the community record, an Owner role holding every permission, and a
+   member record for the creator.
+4. Seeds a usable layout: a `general` text channel and a `General` voice
+   channel, each in its own space, grouped into a "Text channels" and a "Voice
+   channels" category.
+
+</Steps>
+
+Channel spaces are created before the record that describes them, so a failure
+part way through leaves an empty space rather than a record pointing at nothing.
 
 ## See also
 
-- [AppView Architecture](/docs/architecture/appview): the index that aggregates these records.
-- [AppView Specification](/docs/specification/appview): the endpoints that read and write them, and the full record schemas.
-- [Self-Hosting](/docs/self-hosting/getting-started): running the AppView that hosts and administers communities.
+- [Permissioned Spaces](/docs/architecture/spaces): what a space is and how access is granted.
+- [Moderation](/docs/architecture/moderation): what a community can do about a message it dislikes.
+- [AppView Architecture](/docs/architecture/appview): the service that writes these records and serves them back.

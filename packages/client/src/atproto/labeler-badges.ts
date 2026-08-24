@@ -8,7 +8,7 @@ import {
 	readLabelerBadgeDefinitions,
 	writeLabelerBadgeDefinitions,
 } from "./cache/store";
-import { resolvePdsHost } from "./resolve-pds";
+import { resolvePdsForDid } from "./identity";
 
 const log = createLogger("badges");
 
@@ -104,7 +104,7 @@ const parseDefinitions = (value: unknown): Array<BadgeDefinition> => {
 const fetchDefinitions = async (
 	did: string,
 ): Promise<Array<BadgeDefinition>> => {
-	const host = await resolvePdsHost(did);
+	const host = await resolvePdsForDid(did);
 	if (!host) {
 		log.warn("the labeler has no resolvable PDS, keeping bundled badges", {
 			did,

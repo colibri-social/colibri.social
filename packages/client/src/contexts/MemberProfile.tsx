@@ -1,4 +1,3 @@
-import type { ActorData } from "@colibri-social/lib";
 import {
 	type Accessor,
 	createContext,
@@ -8,10 +7,11 @@ import {
 	type Setter,
 	useContext,
 } from "solid-js";
+import type { ProfileView } from "../atproto/views";
 
 export type MemberProfileContextValue = {
-	data: Accessor<ActorData | undefined>;
-	setData: Setter<ActorData | undefined>;
+	data: Accessor<ProfileView | undefined>;
+	setData: Setter<ProfileView | undefined>;
 	open: Accessor<boolean>;
 	setOpen: Setter<boolean>;
 };
@@ -19,7 +19,7 @@ export type MemberProfileContextValue = {
 export const MemberProfileContext = createContext<MemberProfileContextValue>();
 
 export const MemberProfileContextProvider: ParentComponent = (props) => {
-	const [data, setData] = createSignal<ActorData | undefined>();
+	const [data, setData] = createSignal<ProfileView | undefined>();
 	const [open, setOpen] = createSignal<boolean>(false);
 
 	const value: MemberProfileContextValue = {

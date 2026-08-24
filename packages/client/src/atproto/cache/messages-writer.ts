@@ -1,31 +1,33 @@
-import type { Colibri_MessageEvent } from "@colibri-social/lib";
 import { insertAt, placeMessage } from "../../utils/message-order";
-import type { Message } from "../xrpc/social/colibri/channel/listMessages";
+import type { MessageEventFrame } from "../sync-frames";
+import type { MessageView } from "../views";
 import {
 	belongsToChannel,
 	cursorFor,
 	mergeSnapshotWindow,
+	refOf,
+	sameRecord,
 	snapshotBelongsTo,
 } from "./messages-snapshot";
 import type { MessagesSnapshot } from "./schema";
 
 let openChannel: string | undefined;
 
-export const registerOpenChannel = (uri: string | undefined): void => {
-	openChannel = uri || undefined;
+export const registerOpenChannel = (space: string | undefined): void => {
+	openChannel = space || undefined;
 };
 
-export const isOpenChannel = (uri: string): boolean => openChannel === uri;
+export const isOpenChannel = (space: string): boolean => openChannel === space;
 
 export type SnapshotWriterIo = {
 	namespace: () => string;
 	read: (
 		ns: string,
-		channelUri: string,
+		channelSpace: string,
 	) => Promise<MessagesSnapshot | undefined>;
 	write: (
 		ns: string,
-		channelUri: string,
+		channelSpace: string,
 		snapshot: MessagesSnapshot,
 	) => Promise<void>;
 	onError: (err: unknown) => void;
@@ -47,34 +49,34 @@ export const resetSnapshotWriter = (): void => {
 	chains.clear();
 };
 
-const enqueue = (channelUri: string, work: () => Promise<void>): void => {
-	const chain = (chains.get(channelUri) ?? Promise.resolve()).then(work);
-	chains.set(channelUri, chain);
+const enqueue = (channelSpace: string, work: () => Promise<void>): void => {
+	const chain = (chains.get(channelSpace) ?? Promise.resolve()).then(work);
+	chains.set(channelSpace, chain);
 	void chain.finally(() => {
-		if (chains.get(channelUri) === chain) chains.delete(channelUri);
+		if (chains.get(channelSpace) === chain) chains.delete(channelSpace);
 	});
 };
 
 export const foldMessageEvent = (
-	event: NonNullable<Colibri_MessageEvent["data"]>,
+	event: MessageEventFrame,
 	limit: number,
 ): void => {
 	const active = io;
 	if (!active) return;
 
-	const channelUri = event.channel;
-	if (!channelUri || isOpenChannel(channelUri)) return;
+	const channelSpace = event.channel;
+	if (!channelSpace || isOpenChannel(channelSpace)) return;
 
-	enqueue(channelUri, async () => {
+	enqueue(channelSpace, async () => {
 		try {
 			const current =
-				pending.get(channelUri) ??
-				(await active.read(active.namespace(), channelUri));
+				pending.get(channelSpace) ??
+				(await active.read(active.namespace(), channelSpace));
 			if (!current) return;
-			if (!snapshotBelongsTo(current, channelUri)) return;
-			if (isOpenChannel(channelUri)) return;
+			if (!snapshotBelongsTo(current, channelSpace)) return;
+			if (isOpenChannel(channelSpace)) return;
 			const next = applyMessageEvent(current, event, limit);
-			if (next) pending.set(channelUri, next);
+			if (next) pending.set(channelSpace, next);
 		} catch (err) {
 			active.onError(err);
 		}
@@ -82,30 +84,30 @@ export const foldMessageEvent = (
 };
 
 export const offerSnapshotWindow = (
-	channelUri: string,
-	messages: Message[],
+	channelSpace: string,
+	messages: MessageView[],
 	options: { readCursor: string | undefined; hasMore: boolean; limit: number },
 ): void => {
 	const active = io;
 	if (!active) return;
-	if (!channelUri) return;
+	if (!channelSpace) return;
 
 	const owned = messages.filter((message) =>
-		belongsToChannel(message, channelUri),
+		belongsToChannel(message, channelSpace),
 	);
 	if (owned.length === 0) return;
-	if (isOpenChannel(channelUri)) return;
+	if (isOpenChannel(channelSpace)) return;
 
-	enqueue(channelUri, async () => {
+	enqueue(channelSpace, async () => {
 		try {
 			const stored =
-				pending.get(channelUri) ??
-				(await active.read(active.namespace(), channelUri));
-			if (isOpenChannel(channelUri)) return;
+				pending.get(channelSpace) ??
+				(await active.read(active.namespace(), channelSpace));
+			if (isOpenChannel(channelSpace)) return;
 			const current =
-				stored && snapshotBelongsTo(stored, channelUri) ? stored : undefined;
+				stored && snapshotBelongsTo(stored, channelSpace) ? stored : undefined;
 			pending.set(
-				channelUri,
+				channelSpace,
 				mergeSnapshotWindow(current, owned, {
 					...options,
 					now: Date.now(),
@@ -124,19 +126,21 @@ export const flushSnapshotWriter = (): void => {
 	const batch = [...pending.entries()];
 	pending.clear();
 	const ns = active.namespace();
-	for (const [channelUri, snapshot] of batch) {
-		if (isOpenChannel(channelUri)) continue;
-		void active.write(ns, channelUri, snapshot);
+	for (const [channelSpace, snapshot] of batch) {
+		if (isOpenChannel(channelSpace)) continue;
+		void active.write(ns, channelSpace, snapshot);
 	}
 };
 
 export const applyMessageEvent = (
 	snapshot: MessagesSnapshot,
-	event: NonNullable<Colibri_MessageEvent["data"]>,
+	event: MessageEventFrame,
 	limit: number,
 ): MessagesSnapshot | undefined => {
 	if (event.event === "delete") {
-		const remaining = snapshot.messages.filter((m) => m.uri !== event.uri);
+		const subject = event.subject;
+		if (!subject) return undefined;
+		const remaining = snapshot.messages.filter((m) => !sameRecord(m, subject));
 		if (remaining.length === snapshot.messages.length) return undefined;
 		return {
 			...snapshot,
@@ -146,45 +150,17 @@ export const applyMessageEvent = (
 		};
 	}
 
-	const community = snapshot.messages[0]?.community;
-	if (!community) return undefined;
+	const message = event.message;
+	if (!message) return undefined;
 
-	const existing = snapshot.messages.find((m) => m.uri === event.uri);
+	const ref = refOf(message);
+	const existing = snapshot.messages.find((m) => sameRecord(m, ref));
 
-	if (event.event === "embeds") {
-		if (!existing) return undefined;
-		return {
-			...snapshot,
-			messages: snapshot.messages.map((m) =>
-				m.uri === event.uri
-					? { ...m, modSuppressedEmbeds: event.modSuppressedEmbeds }
-					: m,
-			),
-			ts: Date.now(),
-		};
-	}
-
-	const message: Message = {
-		uri: event.uri,
-		text: event.text,
-		facets: event.facets,
-		channel: event.channel,
-		community,
-		author: event.author,
-		parent: existing?.parent,
-		attachments: event.attachments,
-		reactions: existing?.reactions ?? [],
-		createdAt: event.createdAt,
-		edited: event.edited,
-		suppressedEmbeds: event.suppressedEmbeds ?? existing?.suppressedEmbeds,
-		modSuppressedEmbeds:
-			event.modSuppressedEmbeds ?? existing?.modSuppressedEmbeds,
-	};
-
-	let next: Message[];
+	let next: MessageView[];
 	if (existing) {
-		next = snapshot.messages.map((m) => (m.uri === event.uri ? message : m));
+		next = snapshot.messages.map((m) => (sameRecord(m, ref) ? message : m));
 	} else {
+		if (event.event !== "create") return undefined;
 		const placement = placeMessage(snapshot.messages, message, {
 			hasMore: snapshot.hasMore ?? false,
 		});

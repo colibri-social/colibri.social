@@ -14,18 +14,20 @@ const facet = (
 	...features: Array<Feature>
 ): ColibriRichTextFacet =>
 	({
-		$type: "social.colibri.richtext.facet",
+		$type: "social.colibri.beta.richtext.facet",
 		index: { byteStart, byteEnd },
 		features,
 	}) as ColibriRichTextFacet;
 
-const bold = { $type: "social.colibri.richtext.facet#bold" } as Feature;
-const italic = { $type: "social.colibri.richtext.facet#italic" } as Feature;
-const quote = { $type: "social.colibri.richtext.facet#quote" } as Feature;
+const bold = { $type: "social.colibri.beta.richtext.facet#bold" } as Feature;
+const italic = {
+	$type: "social.colibri.beta.richtext.facet#italic",
+} as Feature;
+const quote = { $type: "social.colibri.beta.richtext.facet#quote" } as Feature;
 const heading = (level: number) =>
-	({ $type: "social.colibri.richtext.facet#heading", level }) as Feature;
+	({ $type: "social.colibri.beta.richtext.facet#heading", level }) as Feature;
 const link = (uri: string) =>
-	({ $type: "social.colibri.richtext.facet#link", uri }) as Feature;
+	({ $type: "social.colibri.beta.richtext.facet#link", uri }) as Feature;
 
 const ranges = (facets: Array<ColibriRichTextFacet>) =>
 	facets.map((f) => `${f.index.byteStart}-${f.index.byteEnd}`);
@@ -77,7 +79,9 @@ describe("buildFeatureKey", () => {
 	});
 
 	it("keys markers by type alone", () => {
-		expect(buildFeatureKey(bold)).toBe("social.colibri.richtext.facet#bold");
+		expect(buildFeatureKey(bold)).toBe(
+			"social.colibri.beta.richtext.facet#bold",
+		);
 	});
 });
 
@@ -157,7 +161,7 @@ describe("normalizeFacets", () => {
 		} as ColibriRichTextFacet;
 
 		expect(normalizeFacets([untyped])[0].$type).toBe(
-			"social.colibri.richtext.facet",
+			"social.colibri.beta.richtext.facet",
 		);
 	});
 });

@@ -1,830 +1,226 @@
 ---
 title: AppView
+description: The XRPC endpoints, event socket and protocol callbacks a Colibri AppView implements.
 ---
 
 import XRPCEndpointCard from "../../../../components/docs/XRPCEndpointCard.astro";
 
-The Colibri AppView is responsible for aggregating message data from across the network and providing endpoints for interacting with this data. Any requests to the AppView are meant to be proxied via the user's PDS, to which the client application makes the requests. When requests are forwarded, the following DID URI should be used to indicate the target:
+The Colibri AppView serves an assembled view of communities that live in
+[permissioned spaces](/docs/architecture/spaces). It is the only party holding a
+community's credentials, so community-authored writes go through it, and it is
+the party the community's PDS consults before issuing anyone a credential.
+
+This page is the interface. For how it is put together, see
+[AppView Architecture](/docs/architecture/appview).
+
+Requests are meant to be proxied through the user's own PDS. Address this
+service with:
 
 ```
-did:web:api.colibri.social#colibri_appview
+did:web:spaces-api.colibri.social#colibri_appview
 ```
 
-The push-registration endpoints [`registerPush`](#socialcolibrinotificationregisterpush) and [`unregisterPush`](#socialcolibrinotificationunregisterpush) instead target the notification service:
+Push registration targets the notification service instead:
 
 ```
-did:web:api.colibri.social#colibri_notif
+did:web:spaces-api.colibri.social#colibri_notifs
 ```
 
-Both services resolve to the same endpoint today, so this only affects which `atproto-proxy` fragment clients send; using `#colibri_notif` for push registration keeps the declared service boundary correct if the notification service is ever split onto its own deployment. The notification *feed* reads (`listNotifications`, `getUnreadCount`, `updateSeen`, `updateSeenForMessage`, `getUnseen`) remain on `#colibri_appview`.
+Both resolve to the same endpoint today. Using `#colibri_notifs` for push
+registration keeps the declared service boundary correct if notifications are
+ever split onto their own deployment.
 
-## Implemented Endpoints
+Every method lives under `/xrpc/`.
 
-The AppView supports a range of XRPC methods that PDSs can call. All `com.atproto` endpoints adhere to the original specification. There are also certain `social.colibri` XRPC endpoints which allow for extended functionality. All of these endpoints are available under the `/xrpc/` path.
+## Authentication
 
-:::danger[Authentication]
-If an endpoint requires authentication, the request must carry a [service auth](https://atproto.com/specs/xrpc#inter-service-authentication-jwt) token (a JWT signed by the caller's repo signing key, with `aud` set to `did:web:api.colibri.social` and `lxm` set to the method NSID).
+Authenticated methods need an
+[atproto service auth](https://atproto.com/specs/xrpc#inter-service-authentication-jwt)
+token: a JWT signed by the caller's repo signing key, with `aud` set to this
+AppView's DID and `lxm` set to the method being called.
 
-The recommended way to supply it is to call the AppView **through the user's PDS** using standard service proxying: send the request to the PDS with the `atproto-proxy: did:web:api.colibri.social#colibri_appview` header, and the PDS mints the service-auth token and attaches it as the `Authorization: Bearer <jwt>` header on the proxied request.
+The usual way to get one is to let the PDS mint it. Send the request to the
+user's PDS with an `atproto-proxy: did:web:spaces-api.colibri.social#colibri_appview`
+header, and the PDS attaches `Authorization: Bearer <jwt>` on the proxied
+request.
 
-The [`social.colibri.sync.subscribeEvents`](#socialcolibrisyncsubscribeevents) WebSocket is the exception: browsers cannot set request headers (or use PDS service proxying) on a `WebSocket`, so the token is supplied as a WebSocket subprotocol instead. See that endpoint for details.
+:::danger[Tokens have a maximum lifetime here]
+An issuer chooses its own `exp`, so a token captured from a log or an
+intermediary stays replayable for however far ahead that was set. This AppView
+refuses any token whose expiry is further away than its configured maximum, and
+it checks that before resolving anything, so an over-long token costs no network
+call.
 
-Methods that write to a community's repo may additionally arrive as an AppView-to-AppView relay, carrying a token signed by a peer AppView with an extra `act` claim naming the user it acts for. See [Cross-AppView writes](#cross-appview-writes).
+Mint tokens with a short expiry. A minute is plenty.
 :::
 
-### `com.atproto.identity.resolveDid`
+Both WebSockets accept the same token, either in an `Authorization: Bearer`
+header or, for browsers that cannot set headers on a `WebSocket`, as an `auth`
+query parameter.
 
-Resolves a DID to a DID document. Does not bi-directionally verify the handle.
+## What a client writes for itself
 
-<XRPCEndpointCard
-	method="GET"
-	nsid="com.atproto.identity.resolveDid"
-	queryParams={{
-		did: {
-			type: "did",
-			required: true
-		}
-	}}
-	response={{
-		didDoc: {
-			type: "DID Document",
-			required: true
-		}
-	}}
-/>
+Messages, reactions and labels are written by the client, straight to the user's
+own PDS with `com.atproto.space.createRecord`, naming the channel's space. There
+is no AppView method for sending a message.
 
-### `com.atproto.identity.resolveHandle`
+Community-authored records go through the procedures on this page, because only
+the AppView holds the community's credentials.
 
-Resolves an atproto handle (hostname) to a DID. Does not necessarily bi-directionally verify against the DID document.
+Identity resolution is the client's own job too. This AppView proxies no
+`com.atproto.identity` or `com.atproto.sync` method, and permissioned records
+are read from the space rather than from a record endpoint.
 
-<XRPCEndpointCard
-	method="GET"
-	nsid="com.atproto.identity.resolveHandle"
-	queryParams={{
-		handle: {
-			type: "handle",
-			required: true
-		}
-	}}
-	response={{
-		did: {
-			type: "did",
-			required: true
-		}
-	}}
-/>
+## Errors
 
-### `com.atproto.identity.resolveIdentity`
+Every method declares its errors in its lexicon, and the AppView returns them as
+the standard XRPC error shape:
 
-Resolves an atproto handle or DID to a DID document. Handles are resolved to a DID first, then the DID document is fetched.
+```json
+{ "error": "InsufficientPermissions", "message": "you do not have member.ban" }
+```
 
-<XRPCEndpointCard
-	method="GET"
-	nsid="com.atproto.identity.resolveIdentity"
-	queryParams={{
-		identity: {
-			type: "did | handle",
-			required: true
-		}
-	}}
-	response={{
-		didDoc: {
-			type: "DID Document",
-			required: true
-		}
-	}}
-/>
+Four appear on most authenticated methods and are not repeated in the tables
+below unless a method treats them specially:
 
-### `com.atproto.sync.getBlob`
+| Error | Meaning |
+| --- | --- |
+| `AuthRequired` | No token, or a token this service will not accept |
+| `NotAMember` | You are not a member of the community |
+| `InsufficientPermissions` | You are a member, but lack the permission or the rank |
+| `CommunityNotFound` | No such community, or one you cannot see |
 
-Proxies a blob fetch to the PDS that hosts the given DID. Blobs are not stored locally.
+## Community
 
-`variant` asks for a square, downscaled rendition (`small`, `base` or `large`) instead of the
-original bytes. Omit it for anything that isn't a square image, including banners, attachments and
-media that needs Range requests.
+A community's structural records, such as its profile, its settings, its roles, and its moderation log, live in spaces that the community's own DID owns. Only the AppView holds that DID's credentials, because a community account exists solely to authorize its spaces and no person ever logs into it directly. A client can't write these records itself: it calls one of the procedures below, and the AppView authenticates as the community and makes the write on the caller's behalf after checking that the caller holds the required permission. See [Communities](/docs/architecture/communities) for how a community's spaces fit together.
 
-`filename` opts the response into `Content-Disposition: attachment`, so the client saves it under
-that name rather than rendering it inline. Set it only from an explicit download affordance, and
-omit it wherever the blob is displayed. The name is sanitized down to a bare basename, so path
-segments and control characters in it are discarded.
+### Creation and settings
 
-<XRPCEndpointCard
-	method="GET"
-	nsid="com.atproto.sync.getBlob"
-	queryParams={{
-		did: {
-			type: "did",
-			required: true
-		},
-		cid: {
-			type: "cid",
-			required: true
-		},
-		variant: {
-			type: "string",
-			required: false,
-		},
-		filename: {
-			type: "string",
-			required: false,
-		}
-	}}
-	response={{
-		blob: {
-			type: "bytes",
-			required: true
-		}
-	}}
-/>
+#### `social.colibri.beta.community.create`
 
-### `com.atproto.sync.getRecord`
-
-Get a single cached record from the AppView.
-
-<XRPCEndpointCard
-	method="GET"
-	nsid="com.atproto.sync.getRecord"
-	queryParams={{
-		repo: {
-			type: "at-identifier",
-			required: true
-		},
-		collection: {
-			type: "nsid",
-			required: true
-		},
-		rkey: {
-			type: "record-key",
-			required: true
-		}
-	}}
-	response={{
-		uri: {
-			type: "at-uri",
-			required: true
-		},
-		value: {
-			type: "object",
-			required: true
-		}
-	}}
-/>
-
-### `com.atproto.sync.listRecords`
-
-List a range of cached records in a repository, matching a specific collection.
-
-<XRPCEndpointCard
-	method="GET"
-	nsid="com.atproto.sync.listRecords"
-	queryParams={{
-		repo: {
-			type: "at-identifier",
-			required: true
-		},
-		collection: {
-			type: "nsid",
-			required: true
-		},
-		limit: {
-			type: "integer",
-			required: false,
-		},
-		cursor: {
-			type: "string",
-			required: false,
-		},
-		reverse: {
-			type: "boolean",
-			required: false,
-		}
-	}}
-	response={{
-		cursor: {
-			type: "string",
-			required: false,
-		},
-		records: {
-			type: "object[]",
-			required: true
-		}
-	}}
-/>
-
----
-
-### `social.colibri.server.describeServer`
-
-Identifies the server as a Colibri AppView and reports its flavor and version.
-	method="GET"
-	nsid="social.colibri.server.describeServer"
-	response={{
-		software: {
-			type: "string",
-			required: true
-		},
-		flavor: {
-			type: "string",
-			required: true
-		},
-		version: {
-			type: "string",
-			required: true
-		}
-	}}
-/>
-
-`software` is always `"colibri-appview"`. This is the field clients key on to decide whether a host is a Colibri AppView. `flavor` identifies the AppView build (`"vanilla"` for the stock AppView; forks may set any arbitrary string). `version` is the running crate version.
-
-### `social.colibri.actor.getData`
-
-Get the status data and profile for a Colibri user.
-
-Profile fields (`displayName`, `avatar`, `banner`, `description`) are sourced from the user's `social.colibri.actor.profile` record. When that record has `syncBluesky: true`, the AppView instead serves these four fields live from the user's `app.bsky.actor.profile` record (Bluesky stays the source of truth). If the user has no `social.colibri.actor.profile` record yet (not onboarded), the AppView falls back to `app.bsky.actor.profile`. The Colibri-only `theme` is always taken from the Colibri profile record, and `isBot` is always derived from the Bluesky self-label convention.
-
-<XRPCEndpointCard
-	method="GET"
-	nsid="social.colibri.actor.getData"
-	queryParams={{
-		identifier: {
-			type: "did | handle",
-			required: true
-		}
-	}}
-	response={{
-		did: {
-			type: "did",
-			required: true,
-		},
-		handle: {
-			type: "handle",
-			required: true,
-		},
-		data: {
-			type: "object",
-			required: true,
-			children: {
-				displayName: {
-					type: "string",
-					required: true,
-				},
-				avatar: {
-					type: "blob",
-					required: false,
-				},
-				banner: {
-					type: "blob",
-					required: false,
-				},
-				description: {
-					type: "string",
-					required: false,
-				},
-				isBot: {
-					type: "boolean",
-					required: true,
-				},
-				onlineState: {
-					type: "string",
-					required: true,
-				},
-				syncBluesky: {
-					type: "boolean",
-					required: true,
-				},
-				theme: {
-					type: "object",
-					required: false,
-					children: {
-						accentColor: {
-							type: "string",
-							required: false,
-						},
-						gradient: {
-							type: "object",
-							required: false,
-							children: {
-								primary: {
-									type: "string",
-									required: false,
-								},
-								secondary: {
-									type: "string",
-									required: false,
-								}
-							}
-						},
-						bannerColor: {
-							type: "string",
-							required: false,
-						}
-					}
-				},
-				status: {
-					type: "object",
-					required: true,
-					children: {
-						emoji: {
-							type: "string",
-							required: false,
-						},
-						text: {
-							type: "string",
-							required: true
-						}
-					}
-				},
-			}
-		}
-	}}
-/>
-
-### `social.colibri.actor.setState`
-
-Sets the online state for a Colibri user.
+Provisions a new community: an account on the AppView's PDS, its four spaces, an owner role held by the caller, and a starter layout of two categories holding one text channel and one voice channel between them. The call can run long enough that a client should also watch `social.colibri.beta.sync.subscribeEvents` for progress.
 
 <XRPCEndpointCard
 	method="POST"
-	nsid="social.colibri.actor.setState"
+	nsid="social.colibri.beta.community.create"
 	authenticated
-	queryParams={{
-		state: {
+	body={{
+		name: {
 			type: "string",
 			required: true
+		},
+		description: {
+			type: "string",
+			required: false
+		},
+		handlePrefix: {
+			type: "string",
+			required: false
 		}
 	}}
 	response={{
-		onlineState: {
-			type: "string",
-			required: true
-		}
-	}}
-/>
-
-### `social.colibri.actor.listCommunities`
-
-Lists all communities the Colibri user is a part of (and not banned from).
-
-<XRPCEndpointCard
-	method="GET"
-	nsid="social.colibri.actor.listCommunities"
-	authenticated
-	response={{
-		communities: {
-			type: "object[]",
+		community: {
+			type: "object",
 			required: true,
 			children: {
+				did: {
+					type: "did",
+					required: true
+				},
+				handle: {
+					type: "handle",
+					required: true
+				},
 				name: {
 					type: "string",
 					required: true
 				},
-				picture: {
-					type: "blob",
-					required: false
-				},
 				description: {
 					type: "string",
 					required: false
 				},
-				categoryOrder: {
-					type: "string[]",
+				picture: {
+					type: "uri",
 					required: false
 				},
-				uri: {
-					type: "at-uri",
-					required: true
+				banner: {
+					type: "uri",
+					required: false
 				},
 				requiresApprovalToJoin: {
 					type: "boolean",
 					required: true
 				},
-				isLegacy: {
+				linkEmbeds: {
 					type: "boolean",
+					required: true
+				},
+				labelers: {
+					type: "array",
 					required: false
 				},
-				isOwner: {
-					type: "boolean",
+				migratedFrom: {
+					type: "at-uri",
 					required: false
 				},
-			}
-		}
-	}}
-/>
-
-`isOwner` reports whether the authenticated caller owns the community (user holding the "Owner" role).
-
-### `social.colibri.actor.listMutes`
-
-Lists every channel or community the authenticated user has muted. Each entry is one `social.colibri.actor.mute` record, `subject` is the AT-URI of the muted channel or community.
-
-<XRPCEndpointCard
-	method="GET"
-	nsid="social.colibri.actor.listMutes"
-	authenticated
-	response={{
-		mutes: {
-			type: "object[]",
-			required: true,
-			children: {
-				uri: {
-					type: "at-uri",
-					required: true,
+				memberCount: {
+					type: "integer",
+					required: false
 				},
-				subject: {
-					type: "at-uri",
+				viewer: {
+					type: "object",
 					required: true,
+					children: {
+						isMember: {
+							type: "boolean",
+							required: true
+						},
+						isOwner: {
+							type: "boolean",
+							required: false
+						},
+						isBanned: {
+							type: "boolean",
+							required: false
+						},
+						applicationPending: {
+							type: "boolean",
+							required: false
+						},
+						roles: {
+							type: "array",
+							required: false
+						},
+						permissions: {
+							type: "array",
+							required: false
+						}
+					}
 				}
 			}
 		}
 	}}
 />
 
-### `social.colibri.sync.subscribeEvents`
-
-Opens a connection with a WebSocket stream that transmits relevant events for the user.
-
-<XRPCEndpointCard
-	method="WS"
-	nsid="social.colibri.sync.subscribeEvents"
-	authenticated
-/>
-
-#### Authentication
-
-Unlike the HTTP endpoints, this WebSocket cannot be PDS-proxied: browsers expose no way to set an `Authorization` header (or any custom header) on a `WebSocket`. The token is therefore passed through the one handshake field a browser *can* control: the subprotocol list (`Sec-WebSocket-Protocol`).
-
-The client mints a short-lived [service auth](https://atproto.com/specs/xrpc#inter-service-authentication-jwt) token (`aud: did:web:api.colibri.social`, `lxm: social.colibri.sync.subscribeEvents`) and opens the socket offering two subprotocols, in order:
-
-1. `colibri.auth.bearer`: a fixed sentinel marking that the next entry is the token.
-2. the service-auth JWT itself.
-
-```js
-new WebSocket(url, ["colibri.auth.bearer", token]);
-```
-
-A service-auth JWT is base64url (`[A-Za-z0-9._-]`), every character of which is a valid subprotocol token, so it passes through the handshake unmodified. The AppView reads the entry following the `colibri.auth.bearer` sentinel, verifies it, and **echoes the `colibri.auth.bearer` sentinel back** in the response `Sec-WebSocket-Protocol` header, per RFC 6455 a browser that offered a subprotocol fails the connection unless the server selects one, so this echo is required. The JWT itself is never echoed back.
-
-The `auth` query parameter is still accepted as a transitional / local-dev fallback; when both are present, the subprotocol token wins.
-
-#### Events
-
-The event stream can choose to transmit events to clients who have signed up to receive them. All events follow the same JSON data structure: they have a `type` (which is the same as the heading below), and an optional `data` field.
-
-Events are derived from the underlying records, which reference sibling records by bare record key. Every record reference in an event payload — `categoryOrder`, `channelOrder`, `category`, `community`, `roles`, `allowedRoles` — is nonetheless emitted as a **full AT URI**, matching what the read endpoints return, so clients can compare the two without translating.
-
-##### `ack`
-
-Sent when the AppView receives a [`heartbeat`](#heartbeat) message from the client. This event carries no data.
-
-##### `community_event`
-
-Events of this type are sent to clients when a community has been updated or deleted. If the `event` is set to `delete`, only the community's `uri` needs to be supplied.
-
-An upsert is built from the whole community record, so `picture` and `banner` are authoritative: an absent one means that image is not set. Clients should overwrite their cached blob refs from every upsert rather than treating absence as "unchanged", otherwise a removed picture or banner lingers until the next full fetch.
-
-```ts title="data"
-{
-	event: 'upsert' | 'delete';
-	uri: string;
-	name?: string;
-	description?: string;
-	picture?: blob;
-	banner?: blob;
-	categoryOrder?: string[];
-	requiresApprovalToJoin?: boolean;
-}
-```
-
-##### `member_event`
-
-Events of this type are sent to clients when a member joins a community, has their roles changed, or leaves. `member_event` is broadcast to all connected clients (not just the subject). Clients should check `community` to scope the update to the right community, and check `member.did` against their own DID to detect when they themselves have been admitted or had their roles updated.
-
-| `event` | When | `membership` | `member` | `memberDid` |
-|---|---|---|---|---|
-| `join` | A new member record is written (auto-admit or `approveMembership`) | AT-URI of the user's membership declaration, if available | Always present | Absent |
-| `roles_updated` | An existing member record is updated (e.g. a moderator changes roles) | Absent | Always present with the new `roles` array | Absent |
-| `leave` | A member record is deleted (kick, ban, or self-leave). Sent to all remaining members | Absent | Absent | Always present |
-
-```ts title="data"
-{
-	event: 'join' | 'roles_updated' | 'leave';
-	community: string;
-	membership?: string;
-	member?: {
-		did: string;
-		handle: string;
-		roles: string[];
-		joinedAt: string;
-		nickname?: string;
-		data: {
-			displayName: string;
-			avatar?: blob;
-			banner?: blob;
-			description?: string;
-			isBot: boolean;
-			onlineState: string;
-			status: {
-				text: string;
-				emoji?: string;
-			};
-		};
-	};
-	/** DID of the member who left, only present on `leave` events. */
-	memberDid?: string;
-}
-```
-
-##### `application_event`
-
-Events of this type are sent to clients for changes to the moderator-facing pending-applications queue of a `requiresApprovalToJoin` community. Broadcast to all connected clients.
-
-| `event` | When | `did` / `handle` / `createdAt` / `data` |
-|---|---|---|
-| `create` | A new `social.colibri.membership` is indexed for a closed community, or a kicked member's original membership record is still on file and the community currently requires approval | Always present |
-| `resolve` | The application was admitted via `approveMembership` | Absent |
-| `dismiss` | A moderator hid the application from the active queue via `dismissApplication` (off-protocol) | Absent |
-| `undismiss` | A dismissed application was restored via `undismissApplication` (off-protocol) | Absent |
-
-```ts title="data"
-{
-	event: 'create' | 'resolve' | 'dismiss' | 'undismiss';
-	community: string;
-	membership: string;
-	did?: string;
-	handle?: string;
-	createdAt?: string;
-	data?: {
-		displayName: string;
-		avatar?: blob;
-		banner?: blob;
-		description?: string;
-		isBot: boolean;
-		onlineState: string;
-		status: {
-			text: string;
-			emoji?: string;
-		};
-	};
-}
-```
-
-##### `category_event`
-
-Events of this type are sent to clients when a category has been created, updated, or deleted. When the `event` is `delete`, all data except the `uri` and `event` can be omitted.
-
-```ts title="data"
-{
-	event: 'upsert' | 'delete';
-	uri: string;
-	community?: string;
-	name?: string;
-	channelOrder?: string[];
-}
-```
-
-##### `channel_event`
-
-Events of this type are sent to clients when a channel has been created, updated, or deleted. When the `event` is `delete`, all data except the `uri` and `event` can be omitted. On `upsert`, `category` is always present so clients can place the channel in the correct category without a follow-up fetch.
-
-```ts title="data"
-{
-	event: 'upsert' | 'delete';
-	uri: string;
-	community?: string;
-	category?: string;
-	name?: string;
-	description?: string;
-	type?: string;
-	ownerOnly?: boolean;
-	allowedRoles?: string[];
-	allowedMembers?: string[];
-}
-```
-
-##### `role_event`
-
-Events of this type are sent to clients when a role has been created, updated, or deleted. When the `event` is `delete`, all data except `uri` is omitted. On `upsert`, `community`, `name`, `permissions`, and `position` are always present.
-
-```ts title="data"
-{
-	event: 'upsert' | 'delete';
-	uri: string;
-	community?: string;
-	name?: string;
-	color?: string;
-	permissions?: string[];
-	position?: number;
-	hoisted?: boolean;
-	mentionable?: boolean;
-}
-```
-
-##### `message_event`
-
-Events of this type are sent to clients when a message has been sent, edited, or deleted. When the `event` is `delete`, all data except the `uri` and `event` can be omitted. On `upsert`, the `author` object is always present.
-
-```ts title="data"
-{
-	event: 'upsert' | 'delete';
-	uri: string;
-	channel?: string;
-	text?: string;
-	facets?: facet[];
-	createdAt?: string;
-	edited?: boolean;
-	parent?: string;
-	attachments?: { blob: blob; name?: string; }[];
-	author?: {
-		did: string;
-		handle: string;
-		data: {
-			displayName: string;
-			avatar?: blob;
-			banner?: blob;
-			description?: string;
-			isBot: boolean;
-			onlineState: string;
-			status: {
-				text: string;
-				emoji?: string;
-			};
-		};
-	};
-}
-```
-
-##### `reaction_event`
-
-Events of this type are sent to clients when a reaction has been added to or removed from a message.
-
-```ts title="data"
-{
-	event: 'added' | 'removed';
-	uri: string;
-	emoji?: string;
-	target?: string;
-}
-```
-
-##### `user_event`
-
-Events of this type are sent to clients when a user the client knows about has updated their Bluesky profile or Colibri status.
-
-```ts title="data"
-{
-	did: string;
-	status?: {
-		emoji?: string;
-		text: string;
-		state: 'online' | 'away' | 'dnd' | 'offline';
-	};
-	profile: {
-		displayName?: string;
-		avatar?: blob;
-		banner?: blob;
-		description?: string;
-		isBot: boolean;
-		handle: string;
-	};
-}
-```
-
-##### `typing_event`
-
-Events of this type are sent to clients when a user is typing in the channel the user is currently viewing. For notes on how to report this to the AppView, see the [`view`](#view) message type.
-
-```ts title="data"
-{
-	event: 'start' | 'stop';
-	channel: string;
-	did: string;
-}
-```
-
-#### Messages
-
-The following messages can be sent from the client to the AppView. All messages follow the same JSON data structure: they have a `type` (which is the same as the heading below), and an optional `data` field.
-
-##### `heartbeat`
-
-A generic event that carries no data. It is used to keep the socket connection alive. The AppView will always respond with an `ack` event.
-
-##### `typing`
-
-Clients send a `typing` message to report that the current user is typing in a channel. The AppView broadcasts a [`typing_event`](#typing_event) to every other client that is currently viewing the same channel (determined by the last `view` message they sent). No response is sent back to the sender.
-
-```ts title="data"
-{
-	channel: string;
-}
-```
-
-##### `view`
-
-Clients can send a `view` message to the AppView to inform it about the channel the user is currently viewing. The AppView uses this to determine who should receive [`typing_event`](#typing_event) broadcasts.
-
-```ts title="data"
-{
-	channel: string;
-}
-```
-
-##### `voice_join`
-
-Clients must send a `voice_join` message to the AppView when the user joins a voice channel.
-
-```ts title="data"
-{
-	channel: string;
-	community: string;
-}
-```
-
-##### `voice_leave`
-
-Clients must send a `voice_leave` message to the AppView when the user leaves a voice channel.
-
-### `social.colibri.community.create`
-
-Mints a new community DID on the AppView's own PDS and bootstraps a fully populated community. The AppView authenticates against `PDS_LOC` using admin credentials so it can create accounts without an invite code, stores the new account's credentials encrypted in `community_credentials`, and writes five records to the new repo:
-
-- `social.colibri.community` (pinned at `rkey: "self"`)
-- `social.colibri.category`: a default `"General"` category
-- `social.colibri.channel`: a default `"general"` text channel inside that category
-- `social.colibri.role`: an `"Owner"` role with every permission and `protected: true` so role-management endpoints refuse to delete it
-- `social.colibri.member`: `subject` = authenticated caller, holding the Owner role
-
-The caller ends up as an owner-equivalent member of the new community. The community picture and banner are uploaded as `multipart/form-data` parts named `picture` and `banner`, each carrying its own `Content-Type`. Every supplied image is validated against the allowed MIME types (`image/jpeg`, `image/png`, `image/gif`, `image/webp`) and capped at 10 MiB before being uploaded to the community's PDS. A missing part means that image is not set.
+| Error | Description |
+| --- | --- |
+| `AuthRequired` | The request is missing, malformed, or unverifiable service auth. |
+| `InvalidRequest` | The arguments are inconsistent or malformed beyond schema validation. |
+| `AlreadyExists` | A community already exists with the requested handle. |
+| `PdsUnavailable` | The AppView's PDS could not be reached to provision the account. |
+| `UpstreamFailure` | A PDS or third-party call the AppView depends on failed. |
+
+#### `social.colibri.beta.community.update`
+
+Updates a community's name, description, and join and labeling settings. Any field left out of the request keeps its current value.
 
 <XRPCEndpointCard
 	method="POST"
-	nsid="social.colibri.community.create"
+	nsid="social.colibri.beta.community.update"
 	authenticated
-	queryParams={{
-		name: {
-			type: "string",
-			required: true
-		},
-		description: {
-			type: "string",
-			required: false
-		},
-		requiresApprovalToJoin: {
-			type: "boolean",
-			required: false
-		},
-	}}
 	body={{
-		picture: {
-			type: "bytes",
-			required: false
-		},
-		banner: {
-			type: "bytes",
-			required: false
-		}
-	}}
-	response={{
-		did: {
+		community: {
 			type: "did",
-			required: true
-		},
-		community: {
-			type: "at-uri",
-			required: true
-		},
-		category: {
-			type: "at-uri",
-			required: true
-		},
-		channel: {
-			type: "at-uri",
-			required: true
-		},
-		ownerRole: {
-			type: "at-uri",
-			required: true
-		},
-		member: {
-			type: "at-uri",
-			required: true
-		}
-	}}
-/>
-
-The AppView identifies communities by DID; handles minted alongside the account are an implementation detail of PDS hosting and are not expected to be used for identity resolution. The AppView fails to start if any of `PDS_LOC`, `APPVIEW_HANDLE_DOMAIN`, or `CREDENTIAL_ENCRYPTION_KEY` are missing.
-
-### `social.colibri.community.update`
-
-Updates the community's settings. Only fields that are supplied are changed. A new picture or banner is uploaded as a `multipart/form-data` part named after it, carrying its own `Content-Type`; a missing part leaves that image untouched. To clear an image instead, pass `removePicture=true` or `removeBanner=true`, which drops the field from the community record. Combining a removal flag with a new blob for the same image is rejected as `InvalidRequest`.
-
-<XRPCEndpointCard
-	method="POST"
-	nsid="social.colibri.community.update"
-	authenticated
-	queryParams={{
-		community: {
-			type: "at-uri",
 			required: true
 		},
 		name: {
@@ -839,78 +235,254 @@ Updates the community's settings. Only fields that are supplied are changed. A n
 			type: "boolean",
 			required: false
 		},
-		removePicture: {
+		linkEmbeds: {
 			type: "boolean",
 			required: false
 		},
-		removeBanner: {
-			type: "boolean",
-			required: false
-		}
-	}}
-	body={{
-		picture: {
-			type: "bytes",
-			required: false
-		},
-		banner: {
-			type: "bytes",
+		labelers: {
+			type: "array",
 			required: false
 		}
 	}}
 	response={{
-		uri: {
-			type: "at-uri",
-			required: true
-		}
-	}}
-/>
-
-Broadcasts `community_event { event: "upsert", uri, name?, description?, picture?, banner?, categoryOrder?, requiresApprovalToJoin? }`. The upsert is derived from the whole community record, so `picture` and `banner` are authoritative on every upsert: an absent one means the image is not set, not that it is unchanged.
-
-### `social.colibri.community.delete`
-
-Deletes a community. Requires the caller to hold the `community.delete` permission. For AppView-managed communities (those minted via [`create`](#socialcolibricommunitycreate)) the entire PDS account is torn down via `com.atproto.admin.deleteAccount`, removing the repo and every record on it. For BYO communities the AppView does not administer the hosting PDS, so the account is left intact; the AppView only stops tracking it.
-
-In both cases the stored credentials and every locally cached record for the community DID are removed, so the community no longer surfaces through any read endpoint.
-
-<XRPCEndpointCard
-	method="POST"
-	nsid="social.colibri.community.delete"
-	authenticated
-	queryParams={{
 		community: {
+			type: "object",
+			required: true,
+			children: {
+				did: {
+					type: "did",
+					required: true
+				},
+				handle: {
+					type: "handle",
+					required: true
+				},
+				name: {
+					type: "string",
+					required: true
+				},
+				description: {
+					type: "string",
+					required: false
+				},
+				picture: {
+					type: "uri",
+					required: false
+				},
+				banner: {
+					type: "uri",
+					required: false
+				},
+				requiresApprovalToJoin: {
+					type: "boolean",
+					required: true
+				},
+				linkEmbeds: {
+					type: "boolean",
+					required: true
+				},
+				labelers: {
+					type: "array",
+					required: false
+				},
+				migratedFrom: {
+					type: "at-uri",
+					required: false
+				},
+				memberCount: {
+					type: "integer",
+					required: false
+				},
+				viewer: {
+					type: "object",
+					required: true,
+					children: {
+						isMember: {
+							type: "boolean",
+							required: true
+						},
+						isOwner: {
+							type: "boolean",
+							required: false
+						},
+						isBanned: {
+							type: "boolean",
+							required: false
+						},
+						applicationPending: {
+							type: "boolean",
+							required: false
+						},
+						roles: {
+							type: "array",
+							required: false
+						},
+						permissions: {
+							type: "array",
+							required: false
+						}
+					}
+				}
+			}
+		}
+	}}
+/>
+
+| Error | Description |
+| --- | --- |
+| `AuthRequired` | The request is missing, malformed, or unverifiable service auth. |
+| `Forbidden` | The requesting user lacks the `community.manage` permission. |
+| `CommunityNotFound` | No community exists with that DID. |
+| `CredentialsUnavailable` | The AppView's stored credentials for this community are missing or unusable. |
+| `UpstreamFailure` | A PDS or third-party call the AppView depends on failed. |
+
+#### `social.colibri.beta.community.delete`
+
+Deletes a community's spaces and its account. Members' own records stay in their own repos, since the community never held them, and stop being readable once the spaces that granted access to them are gone.
+
+<XRPCEndpointCard
+	method="POST"
+	nsid="social.colibri.beta.community.delete"
+	authenticated
+	body={{
+		community: {
+			type: "did",
+			required: true
+		}
+	}}
+	response={{}}
+/>
+
+| Error | Description |
+| --- | --- |
+| `AuthRequired` | The request is missing, malformed, or unverifiable service auth. |
+| `Forbidden` | The requesting user lacks the `community.delete` permission. |
+| `CommunityNotFound` | No community exists with that DID. |
+| `CredentialsUnavailable` | The AppView's stored credentials for this community are missing or unusable. |
+| `UpstreamFailure` | A PDS or third-party call the AppView depends on failed. |
+
+#### `social.colibri.beta.community.migrate`
+
+Migrates a repo-backed community onto spaces, recreating its structure in new spaces and stamping them with `migratedFrom`. Message history stays in the legacy public repos and is served alongside the migrated community, because messages live in their authors' own repos and only their authors can move them.
+
+<XRPCEndpointCard
+	method="POST"
+	nsid="social.colibri.beta.community.migrate"
+	authenticated
+	body={{
+		legacy: {
 			type: "at-uri",
 			required: true
 		}
 	}}
 	response={{
-		did: {
-			type: "did",
-			required: true
+		community: {
+			type: "object",
+			required: true,
+			children: {
+				did: {
+					type: "did",
+					required: true
+				},
+				handle: {
+					type: "handle",
+					required: true
+				},
+				name: {
+					type: "string",
+					required: true
+				},
+				description: {
+					type: "string",
+					required: false
+				},
+				picture: {
+					type: "uri",
+					required: false
+				},
+				banner: {
+					type: "uri",
+					required: false
+				},
+				requiresApprovalToJoin: {
+					type: "boolean",
+					required: true
+				},
+				linkEmbeds: {
+					type: "boolean",
+					required: true
+				},
+				labelers: {
+					type: "array",
+					required: false
+				},
+				migratedFrom: {
+					type: "at-uri",
+					required: false
+				},
+				memberCount: {
+					type: "integer",
+					required: false
+				},
+				viewer: {
+					type: "object",
+					required: true,
+					children: {
+						isMember: {
+							type: "boolean",
+							required: true
+						},
+						isOwner: {
+							type: "boolean",
+							required: false
+						},
+						isBanned: {
+							type: "boolean",
+							required: false
+						},
+						applicationPending: {
+							type: "boolean",
+							required: false
+						},
+						roles: {
+							type: "array",
+							required: false
+						},
+						permissions: {
+							type: "array",
+							required: false
+						}
+					}
+				}
+			}
 		}
 	}}
 />
 
-### `social.colibri.community.registerCredentials`
+| Error | Description |
+| --- | --- |
+| `AuthRequired` | The request is missing, malformed, or unverifiable service auth. |
+| `Forbidden` | The requesting user lacks permission to migrate this community. |
+| `CommunityNotFound` | No community exists at the legacy record's DID. |
+| `AlreadyExists` | This legacy community has already been migrated. |
+| `CredentialsUnavailable` | The AppView's stored credentials for this community are missing or unusable. |
+| `UpstreamFailure` | A PDS or third-party call the AppView depends on failed. |
 
-Registers user-supplied credentials (PDS endpoint + identifier + app password) for an existing community DID hosted on a PDS the AppView doesn't manage. The AppView verifies proof-of-control by performing a `com.atproto.server.createSession` against the supplied PDS.
+#### `social.colibri.beta.community.registerCredentials`
+
+Hands the AppView credentials for a community hosted on a PDS it doesn't administer, so it can act as that community without having created it. The password is stored encrypted at rest. Once credentials are already registered, only an existing administrator of the community may replace them.
 
 <XRPCEndpointCard
 	method="POST"
-	nsid="social.colibri.community.registerCredentials"
+	nsid="social.colibri.beta.community.registerCredentials"
 	authenticated
-	queryParams={{
-		did: {
+	body={{
+		community: {
 			type: "did",
-			required: true
-		},
-		pds: {
-			type: "uri",
 			required: true
 		},
 		identifier: {
-			type: "at-identifier",
+			type: "string",
 			required: true
 		},
 		password: {
@@ -918,1496 +490,489 @@ Registers user-supplied credentials (PDS endpoint + identifier + app password) f
 			required: true
 		}
 	}}
-	response={{
-		did: {
-			type: "did",
-			required: true
-		},
-		source: {
-			type: "string",
-			required: true
-		}
-	}}
+	response={{}}
 />
 
-### `social.colibri.community.approveMembership`
+| Error | Description |
+| --- | --- |
+| `AuthRequired` | The request is missing, malformed, or unverifiable service auth. |
+| `Forbidden` | The requesting user lacks permission to register credentials for this community. |
+| `InvalidRequest` | The arguments are inconsistent or malformed beyond schema validation. |
+| `CredentialsRejected` | The PDS refused the identifier and password. |
+| `UpstreamFailure` | A PDS or third-party call the AppView depends on failed. |
 
-Admits a pending applicant to a closed community (`requiresApprovalToJoin: true`) by writing the community-side `social.colibri.member` record. Requires `approval.manage` permission.
+#### `social.colibri.beta.community.reorderCategories`
 
-On admission, broadcasts `application_event` and clears any dismissal row for the subject.
+Sets the complete display order of a community's categories. The supplied list must name exactly the community's existing categories, just in a new order.
 
 <XRPCEndpointCard
 	method="POST"
-	nsid="social.colibri.community.approveMembership"
+	nsid="social.colibri.beta.community.reorderCategories"
 	authenticated
-	queryParams={{
-		membership: {
-			type: "at-uri",
-			required: true
-		}
-	}}
-	response={{
-		did: {
+	body={{
+		community: {
 			type: "did",
 			required: true
 		},
+		categories: {
+			type: "array",
+			required: true
+		}
+	}}
+	response={{}}
+/>
+
+| Error | Description |
+| --- | --- |
+| `AuthRequired` | The request is missing, malformed, or unverifiable service auth. |
+| `Forbidden` | The requesting user lacks the `category.update` permission. |
+| `CommunityNotFound` | No community exists with that DID. |
+| `InvalidRequest` | The supplied categories do not match the community's existing set. |
+| `CredentialsUnavailable` | The AppView's stored credentials for this community are missing or unusable. |
+
+### Membership and applications
+
+#### `social.colibri.beta.community.join`
+
+Admits the requesting user to a community, or files an application if the community requires approval. Joining is an AppView procedure rather than a record the user writes, because admission is what makes the community's spaces readable to the joining user in the first place.
+
+<XRPCEndpointCard
+	method="POST"
+	nsid="social.colibri.beta.community.join"
+	authenticated
+	body={{
 		community: {
-			type: "at-uri",
+			type: "did",
+			required: true
+		},
+		invitation: {
+			type: "string",
+			required: false
+		}
+	}}
+	response={{
+		status: {
+			type: "string",
 			required: true
 		},
 		member: {
-			type: "at-uri",
-			required: false
+			type: "object",
+			required: false,
+			children: {
+				actor: {
+					type: "profileView",
+					required: true
+				},
+				roles: {
+					type: "array",
+					required: true
+				},
+				joinedAt: {
+					type: "datetime",
+					required: true
+				},
+				nickname: {
+					type: "string",
+					required: false
+				}
+			}
 		}
 	}}
 />
 
-### `social.colibri.community.listApplications`
+`status` is `joined` or `pending`. `member` is present only when `status` is `joined`.
 
-Lists the pending join applications for a community that requires approval (`requiresApprovalToJoin: true`). A pending application is an indexed `social.colibri.membership` targeting the community whose author does not yet hold a `social.colibri.member` record on the community repo.
+| Error | Description |
+| --- | --- |
+| `AuthRequired` | The request is missing, malformed, or unverifiable service auth. |
+| `CommunityNotFound` | No community exists with that DID. |
+| `InvitationNotFound` | No invitation exists with that code. |
+| `AlreadyMember` | The requesting user already holds a member record in this community. |
+| `Banned` | The requesting user is banned from this community. |
+| `CredentialsUnavailable` | The AppView's stored credentials for this community are missing or unusable. |
+
+#### `social.colibri.beta.community.leave`
+
+Removes the requesting user's own membership in a community.
+
+<XRPCEndpointCard
+	method="POST"
+	nsid="social.colibri.beta.community.leave"
+	authenticated
+	body={{
+		community: {
+			type: "did",
+			required: true
+		}
+	}}
+	response={{}}
+/>
+
+| Error | Description |
+| --- | --- |
+| `AuthRequired` | The request is missing, malformed, or unverifiable service auth. |
+| `CommunityNotFound` | No community exists with that DID. |
+| `MemberNotFound` | The requesting user does not hold a member record in this community. |
+| `SoleOwner` | The requesting user is the last holder of a protected role and cannot leave. |
+| `CredentialsUnavailable` | The AppView's stored credentials for this community are missing or unusable. |
+
+#### `social.colibri.beta.community.kick`
+
+Removes another member from a community. Unlike a ban, a kicked member may rejoin, unless the community requires approval to join.
+
+<XRPCEndpointCard
+	method="POST"
+	nsid="social.colibri.beta.community.kick"
+	authenticated
+	body={{
+		community: {
+			type: "did",
+			required: true
+		},
+		subject: {
+			type: "did",
+			required: true
+		},
+		reason: {
+			type: "string",
+			required: false
+		}
+	}}
+	response={{}}
+/>
+
+| Error | Description |
+| --- | --- |
+| `AuthRequired` | The request is missing, malformed, or unverifiable service auth. |
+| `Forbidden` | The caller lacks the `member.kick` permission. |
+| `CommunityNotFound` | No community exists at the given DID. |
+| `MemberNotFound` | The subject does not hold a member record in this community. |
+| `RoleHierarchy` | The subject holds a role at or above the caller's highest role position. |
+| `CredentialsUnavailable` | The AppView cannot act as the community because its stored credentials are missing or unusable. |
+
+#### `social.colibri.beta.community.setMemberRoles`
+
+Sets the complete set of roles a member holds, replacing whatever they held before.
+
+<XRPCEndpointCard
+	method="POST"
+	nsid="social.colibri.beta.community.setMemberRoles"
+	authenticated
+	body={{
+		community: {
+			type: "did",
+			required: true
+		},
+		subject: {
+			type: "did",
+			required: true
+		},
+		roles: {
+			type: "array",
+			required: true
+		}
+	}}
+	response={{
+		member: {
+			type: "object",
+			required: true,
+			children: {
+				actor: {
+					type: "profileView",
+					required: true
+				},
+				roles: {
+					type: "array",
+					required: true
+				},
+				joinedAt: {
+					type: "datetime",
+					required: true
+				},
+				nickname: {
+					type: "string",
+					required: false
+				}
+			}
+		}
+	}}
+/>
+
+| Error | Description |
+| --- | --- |
+| `AuthRequired` | The request is missing, malformed, or unverifiable service auth. |
+| `Forbidden` | The requesting user lacks the `role.manage` permission. |
+| `CommunityNotFound` | No community exists with that DID. |
+| `MemberNotFound` | The subject does not hold a member record in this community. |
+| `RoleNotFound` | One of the requested roles does not exist. |
+| `RoleHierarchy` | The requesting user cannot grant or revoke a role at or above their own highest position. |
+| `CredentialsUnavailable` | The AppView's stored credentials for this community are missing or unusable. |
+
+#### `social.colibri.beta.community.approveApplication`
+
+Approves a pending application, admitting the applicant as a member.
+
+<XRPCEndpointCard
+	method="POST"
+	nsid="social.colibri.beta.community.approveApplication"
+	authenticated
+	body={{
+		community: {
+			type: "did",
+			required: true
+		},
+		subject: {
+			type: "did",
+			required: true
+		}
+	}}
+	response={{
+		member: {
+			type: "object",
+			required: true,
+			children: {
+				actor: {
+					type: "profileView",
+					required: true
+				},
+				roles: {
+					type: "array",
+					required: true
+				},
+				joinedAt: {
+					type: "datetime",
+					required: true
+				},
+				nickname: {
+					type: "string",
+					required: false
+				}
+			}
+		}
+	}}
+/>
+
+| Error | Description |
+| --- | --- |
+| `AuthRequired` | The request is missing, malformed, or unverifiable service auth. |
+| `Forbidden` | The caller lacks the `approval.manage` permission. |
+| `CommunityNotFound` | No community exists at the given DID. |
+| `ApplicationNotFound` | No pending application exists for the subject in this community. |
+| `AlreadyMember` | The subject already holds a member record in this community. |
+| `CredentialsUnavailable` | The AppView cannot act as the community because its stored credentials are missing or unusable. |
+
+#### `social.colibri.beta.community.dismissApplication`
+
+Hides a pending application from the active queue without approving or refusing it. This is an AppView-local change: it is never written to the community's repo, so it doesn't need the community's credentials.
+
+<XRPCEndpointCard
+	method="POST"
+	nsid="social.colibri.beta.community.dismissApplication"
+	authenticated
+	body={{
+		community: {
+			type: "did",
+			required: true
+		},
+		subject: {
+			type: "did",
+			required: true
+		}
+	}}
+	response={{}}
+/>
+
+| Error | Description |
+| --- | --- |
+| `AuthRequired` | The request is missing, malformed, or unverifiable service auth. |
+| `Forbidden` | The caller lacks the `approval.manage` permission. |
+| `CommunityNotFound` | No community exists at the given DID. |
+| `ApplicationNotFound` | No pending application exists for the subject in this community. |
+
+#### `social.colibri.beta.community.undismissApplication`
+
+Restores a dismissed application to the active queue. Like dismissing it, this is an AppView-local change that is never written to the community's repo.
+
+<XRPCEndpointCard
+	method="POST"
+	nsid="social.colibri.beta.community.undismissApplication"
+	authenticated
+	body={{
+		community: {
+			type: "did",
+			required: true
+		},
+		subject: {
+			type: "did",
+			required: true
+		}
+	}}
+	response={{}}
+/>
+
+| Error | Description |
+| --- | --- |
+| `AuthRequired` | The request is missing, malformed, or unverifiable service auth. |
+| `Forbidden` | The caller lacks the `approval.manage` permission. |
+| `CommunityNotFound` | No community exists at the given DID. |
+| `ApplicationNotFound` | No pending application exists for the subject in this community. |
+
+#### `social.colibri.beta.community.listApplications`
+
+Lists the pending requests to join a community that requires approval.
 
 <XRPCEndpointCard
 	method="GET"
-	nsid="social.colibri.community.listApplications"
+	nsid="social.colibri.beta.community.listApplications"
 	authenticated
 	queryParams={{
 		community: {
-			type: "at-uri",
+			type: "did",
 			required: true
+		},
+		includeDismissed: {
+			type: "boolean",
+			required: false
+		},
+		limit: {
+			type: "integer",
+			required: false
+		},
+		cursor: {
+			type: "string",
+			required: false
 		}
 	}}
 	response={{
 		applications: {
-			type: "object[]",
+			type: "array",
 			required: true,
 			children: {
-				did: {
-					type: "did",
-					required: true,
-				},
-				handle: {
-					type: "handle",
-					required: true,
-				},
-				membership: {
-					type: "at-uri",
-					required: true,
+				actor: {
+					type: "profileView",
+					required: true
 				},
 				createdAt: {
-					type: "string",
-					required: true,
+					type: "datetime",
+					required: true
 				},
-				data: {
-					type: "object",
-					required: true,
-					children: {
-						displayName: {
-							type: "string",
-							required: true,
-						},
-						avatar: {
-							type: "blob",
-							required: false,
-						},
-						banner: {
-							type: "blob",
-							required: false,
-						},
-						description: {
-							type: "string",
-							required: false,
-						},
-						isBot: {
-							type: "boolean",
-							required: true,
-						},
-						onlineState: {
-							type: "string",
-							required: true,
-						},
-						status: {
-							type: "object",
-							required: true,
-							children: {
-								emoji: {
-									type: "string",
-									required: false,
-								},
-								text: {
-									type: "string",
-									required: true
-								}
-							}
-						},
-					}
+				dismissed: {
+					type: "boolean",
+					required: true
 				}
 			}
 		},
-		dismissedApplications: {
-			type: "object[]",
-			required: true,
-			children: {
-				did: {
-					type: "did",
-					required: true,
-				}
-			}
-		}
-	}}
-/>
-
-`dismissedApplications` entries share the exact same shape as `applications`.
-
-### `social.colibri.community.dismissApplication`
-
-Hides a pending join application from the active `listApplications` queue without resolving it. Tracked only in AppView storage. Requires `approval.manage`.
-
-Broadcasts `application_event { event: "dismiss", community, membership, did }`.
-
-<XRPCEndpointCard
-	method="POST"
-	nsid="social.colibri.community.dismissApplication"
-	authenticated
-	queryParams={{
-		community: {
-			type: "at-uri",
-			required: true
-		},
-		did: {
-			type: "did",
-			required: true
-		}
-	}}
-	response={{
-		did: {
-			type: "did",
-			required: true
-		},
-		community: {
-			type: "at-uri",
-			required: true
-		}
-	}}
-/>
-
-### `social.colibri.community.undismissApplication`
-
-The inverse of `dismissApplication`. Requires `approval.manage`.
-
-Broadcasts `application_event { event: "undismiss", community, membership, did }`.
-
-<XRPCEndpointCard
-	method="POST"
-	nsid="social.colibri.community.undismissApplication"
-	authenticated
-	queryParams={{
-		community: {
-			type: "at-uri",
-			required: true
-		},
-		did: {
-			type: "did",
-			required: true
-		}
-	}}
-	response={{
-		did: {
-			type: "did",
-			required: true
-		},
-		community: {
-			type: "at-uri",
-			required: true
-		}
-	}}
-/>
-
-### `social.colibri.category.create`
-
-Creates a new category in a community and appends it to the community's `categoryOrder`. Requires `category.create` permission.
-
-<XRPCEndpointCard
-	method="POST"
-	nsid="social.colibri.category.create"
-	authenticated
-	queryParams={{
-		community: {
-			type: "at-uri",
-			required: true
-		},
-		name: {
-			type: "string",
-			required: true
-		}
-	}}
-	response={{
-		uri: {
-			type: "at-uri",
-			required: true
-		}
-	}}
-/>
-
-Broadcasts `category_event { event: "upsert", uri, community, name, channelOrder: [] }` and `community_event { event: "upsert", uri, categoryOrder }`.
-
-### `social.colibri.category.update`
-
-Updates a category's name. Requires `category.update` permission.
-
-<XRPCEndpointCard
-	method="POST"
-	nsid="social.colibri.category.update"
-	authenticated
-	queryParams={{
-		category: {
-			type: "at-uri",
-			required: true
-		},
-		name: {
+		cursor: {
 			type: "string",
 			required: false
 		}
 	}}
-	response={{
-		uri: {
-			type: "at-uri",
-			required: true
-		}
-	}}
 />
 
-Broadcasts `category_event { event: "upsert", uri, name }`.
+`includeDismissed` defaults to `false`. `limit` defaults to `50` and cannot exceed `100`.
 
-### `social.colibri.category.delete`
+| Error | Description |
+| --- | --- |
+| `AuthRequired` | The request is missing, malformed, or unverifiable service auth. |
+| `Forbidden` | The caller lacks the `approval.manage` permission. |
+| `CommunityNotFound` | No community exists at the given DID. |
 
-Deletes a category and removes it from the community's `categoryOrder`. Requires `category.delete` permission.
+#### `social.colibri.beta.community.listMembers`
 
-<XRPCEndpointCard
-	method="POST"
-	nsid="social.colibri.category.delete"
-	authenticated
-	queryParams={{
-		category: {
-			type: "at-uri",
-			required: true
-		}
-	}}
-	response={{
-		uri: {
-			type: "at-uri",
-			required: true
-		}
-	}}
-/>
-
-Broadcasts `category_event { event: "delete", uri }` and `community_event { event: "upsert", uri, categoryOrder }`.
-
-### `social.colibri.channel.create`
-
-Creates a new channel inside a category and appends it to the category's `channelOrder`. Requires `channel.create` permission.
-
-`allowedRoles` and `allowedMembers` optionally seed the channel's post allow-list at creation, letting a channel be born restricted (see [`channel.update`](#socialcolibrichannelupdate) for the allow-list semantics). Both are provided as **repeated** query-string values. The same hierarchy guard as `channel.update` applies to every seeded entry: a non-admin creator may only grant access to roles strictly below their own highest role and to members they outrank; the community owner is exempt. A violation returns `Forbidden`.
+Lists a community's admitted members, optionally filtered to those holding a given role.
 
 <XRPCEndpointCard
-	method="POST"
-	nsid="social.colibri.channel.create"
+	method="GET"
+	nsid="social.colibri.beta.community.listMembers"
 	authenticated
 	queryParams={{
 		community: {
-			type: "at-uri",
-			required: true
-		},
-		category: {
-			type: "at-uri",
-			required: true
-		},
-		name: {
-			type: "string",
-			required: true
-		},
-		type: {
-			type: "string",
-			required: true
-		},
-		description: {
-			type: "string",
-			required: false
-		},
-		allowedRoles: {
-			type: "string[] (repeated)",
-			required: false
-		},
-		allowedMembers: {
-			type: "string[] (repeated)",
-			required: false
-		}
-	}}
-	response={{
-		uri: {
-			type: "at-uri",
-			required: true
-		}
-	}}
-/>
-
-Broadcasts `channel_event { event: "upsert", uri, community, category, name, type, allowedRoles, allowedMembers }` and `category_event { event: "upsert", uri, channelOrder }`.
-
-### `social.colibri.channel.update`
-
-Updates a channel's name, description, category, owner-only flag, and/or post restrictions. Requires `channel.update` permission.
-
-Passing a `category` that differs from the channel's current one **moves** the channel: the channel record's `category` is rewritten, the rkey is removed from the old category's `channelOrder`, and appended to the new one. The destination category must already be indexed, otherwise the request is rejected with `InvalidRequest` before anything is written. Passing the channel's current category is a no-op. To place the channel at a specific index in its new category, follow the move with `social.colibri.community.reorderChannels`.
-
-`allowedRoles` and `allowedMembers` form an allow-list of who may post in the channel: when both are empty, every community member may post (the default). When either is non-empty, only the community owner, members holding one of the listed roles, or the listed member DIDs may post. `ownerOnly: true` takes precedence over both lists and restricts posting to the owner alone.
-
-Because a non-empty `allowedRoles`/`allowedMembers` list cannot be distinguished from "no change requested" using the list itself, clearing a restriction back to "everyone may post" requires the corresponding `clearAllowedRoles`/`clearAllowedMembers` flag, since passing an empty list is a no-op.
-
-Two hierarchy guards apply:
-
-- **`ownerOnly` is owner-only to change.** Holding `channel.update` is not enough. Only the community owner may flip this flag, since it overrides every other restriction (including the editor's own access, if they're not the owner).
-- **`allowedRoles`/`allowedMembers` edits are scoped to the editor's hierarchy.** Only the *entries that actually change* (added or removed relative to the channel's current lists) are checked, entries already present that aren't touched are left alone. For each changed role, the editor's highest role position must be strictly greater than that role's position (so an editor can never add or remove their own top role, or anything at or above it). For each changed member, the editor must outrank that member by the same strictly-greater rule applied to roles, computed the same way as the moderation hierarchy check used by `banUser`/`kickUser`. The community owner is exempt from both checks. A violation returns `Forbidden`.
-
-<XRPCEndpointCard
-	method="POST"
-	nsid="social.colibri.channel.update"
-	authenticated
-	queryParams={{
-		channel: {
-			type: "at-uri",
-			required: true
-		},
-		category: {
-			type: "at-uri",
-			required: false
-		},
-		name: {
-			type: "string",
-			required: false
-		},
-		description: {
-			type: "string",
-			required: false
-		},
-		ownerOnly: {
-			type: "boolean",
-			required: false
-		},
-		allowedRoles: {
-			type: "string[] (repeated)",
-			required: false
-		},
-		clearAllowedRoles: {
-			type: "boolean",
-			required: false
-		},
-		allowedMembers: {
-			type: "string[] (repeated)",
-			required: false
-		},
-		clearAllowedMembers: {
-			type: "boolean",
-			required: false
-		}
-	}}
-	response={{
-		uri: {
-			type: "at-uri",
-			required: true
-		}
-	}}
-/>
-
-Broadcasts `channel_event { event: "upsert", uri, category, name?, description?, ownerOnly?, allowedRoles?, allowedMembers? }`, plus a `category_event { event: "upsert", uri, channelOrder }` for each affected category when the channel moved.
-
-### `social.colibri.channel.delete`
-
-Deletes a channel and removes it from its parent category's `channelOrder`. Requires `channel.delete` permission.
-
-<XRPCEndpointCard
-	method="POST"
-	nsid="social.colibri.channel.delete"
-	authenticated
-	queryParams={{
-		channel: {
-			type: "at-uri",
-			required: true
-		}
-	}}
-	response={{
-		uri: {
-			type: "at-uri",
-			required: true
-		}
-	}}
-/>
-
-Broadcasts `channel_event { event: "delete", uri }` and `category_event { event: "upsert", uri, channelOrder }`.
-
-### `social.colibri.community.reorderChannels`
-
-Persists a new channel order within a category. `channelOrder` is provided as **repeated** query-string values, each either an AT URI or a bare record key; anything else is rejected with `InvalidRequest`. An empty `channelOrder` is also rejected when the category currently has one, so a dropped query param can't silently wipe the order. Requires `channel.update` permission.
-
-<XRPCEndpointCard
-	method="POST"
-	nsid="social.colibri.community.reorderChannels"
-	authenticated
-	queryParams={{
-		category: {
-			type: "at-uri",
-			required: true
-		},
-		channelOrder: {
-			type: "string[] (repeated)",
-			required: true
-		}
-	}}
-	response={{
-		uri: {
-			type: "at-uri",
-			required: true
-		}
-	}}
-/>
-
-Broadcasts `category_event { event: "upsert", uri, channelOrder }`.
-
-### `social.colibri.community.reorderCategories`
-
-Persists a new category order for the community sidebar. `categoryOrder` is provided as **repeated** query-string values, each either an AT URI or a bare record key; anything else is rejected with `InvalidRequest`. An empty `categoryOrder` is also rejected when the community currently has one. Requires `category.update` permission.
-
-<XRPCEndpointCard
-	method="POST"
-	nsid="social.colibri.community.reorderCategories"
-	authenticated
-	queryParams={{
-		community: {
-			type: "at-uri",
-			required: true
-		},
-		categoryOrder: {
-			type: "string[] (repeated)",
-			required: true
-		}
-	}}
-	response={{
-		uri: {
-			type: "at-uri",
-			required: true
-		}
-	}}
-/>
-
-Broadcasts `community_event { event: "upsert", uri, categoryOrder }`.
-
-### `social.colibri.community.kick`
-
-Removes a member from the community by DID. Writes a `kick` moderation record and revokes the member record. Unlike `kickUser`, accepts a DID directly (no handle resolution). Requires `member.kick` permission.
-
-<XRPCEndpointCard
-	method="POST"
-	nsid="social.colibri.community.kick"
-	authenticated
-	queryParams={{
-		community: {
-			type: "at-uri",
-			required: true
-		},
-		member: {
-			type: "did",
-			required: true
-		}
-	}}
-	response={{
-		did: {
 			type: "did",
 			required: true
 		},
-		handle: {
-			type: "handle",
-			required: true
-		}
-	}}
-/>
-
-Broadcasts `member_event { event: "leave", community, memberDid }` via the tap firehose once the member record is deleted.
-
-### `social.colibri.community.setMemberRoles`
-
-Replaces a member's full role set. `roles` is provided as **repeated** query-string values (AT-URIs or bare rkeys). Requires `role.manage` permission.
-
-<XRPCEndpointCard
-	method="POST"
-	nsid="social.colibri.community.setMemberRoles"
-	authenticated
-	queryParams={{
-		community: {
-			type: "at-uri",
-			required: true
-		},
-		member: {
-			type: "did",
-			required: true
-		},
-		roles: {
-			type: "string[] (repeated)",
-			required: true
-		}
-	}}
-	response={{
-		did: {
-			type: "did",
-			required: true
-		},
-		roles: {
-			type: "string[]",
-			required: true
-		}
-	}}
-/>
-
-Broadcasts `member_event { event: "roles_updated", community, member: { did, roles, data... } }` via the tap firehose once the member record is updated.
-
-### `social.colibri.role.create`
-
-Creates a new role in a community. Requires `role.manage` permission. `position` sets the role's hierarchy rank; higher values sit higher. `permissions` is provided as **repeated** query-string values.
-
-<XRPCEndpointCard
-	method="POST"
-	nsid="social.colibri.role.create"
-	authenticated
-	queryParams={{
-		community: {
-			type: "at-uri",
-			required: true
-		},
-		name: {
-			type: "string",
-			required: true
-		},
-		position: {
-			type: "integer",
-			required: true
-		},
-		permissions: {
-			type: "string[] (repeated)",
-			required: false
-		},
-		color: {
-			type: "string (hex #rrggbb)",
-			required: false
-		},
-		hoisted: {
-			type: "boolean",
-			required: false
-		},
-		mentionable: {
-			type: "boolean",
-			required: false
-		}
-	}}
-	response={{
-		uri: {
-			type: "at-uri",
-			required: true
-		}
-	}}
-/>
-
-Broadcasts `role_event { event: "upsert", uri, community, name, permissions, position, color?, hoisted?, mentionable? }` via the tap firehose once the role record is written.
-
-### `social.colibri.role.update`
-
-Updates a role's fields. Only supplied fields are changed; omitted fields keep their current values. Supplying a non-empty `permissions` list **replaces** the current permission set. Requires `role.manage` permission. Returns `InvalidRequest` if the role has `protected: true`.
-
-<XRPCEndpointCard
-	method="POST"
-	nsid="social.colibri.role.update"
-	authenticated
-	queryParams={{
 		role: {
-			type: "at-uri",
-			required: true
-		},
-		name: {
-			type: "string",
+			type: "record-key",
 			required: false
 		},
-		color: {
-			type: "string (hex #rrggbb)",
-			required: false
-		},
-		permissions: {
-			type: "string[] (repeated)",
-			required: false
-		},
-		position: {
+		limit: {
 			type: "integer",
 			required: false
 		},
-		hoisted: {
-			type: "boolean",
+		cursor: {
+			type: "string",
 			required: false
-		},
-		mentionable: {
-			type: "boolean",
-			required: false
-		}
-	}}
-	response={{
-		uri: {
-			type: "at-uri",
-			required: true
-		}
-	}}
-/>
-
-Broadcasts `role_event { event: "upsert", uri, community, name, permissions, position, ... }` via the tap firehose once the role record is updated.
-
-### `social.colibri.role.delete`
-
-Deletes a role from a community. Requires `role.manage` permission. Returns `InvalidRequest` if the role has `protected: true` (e.g. the bootstrap Owner role).
-
-<XRPCEndpointCard
-	method="POST"
-	nsid="social.colibri.role.delete"
-	authenticated
-	queryParams={{
-		role: {
-			type: "at-uri",
-			required: true
-		}
-	}}
-	response={{
-		uri: {
-			type: "at-uri",
-			required: true
-		}
-	}}
-/>
-
-Broadcasts `role_event { event: "delete", uri }` via the tap firehose once the role record is deleted.
-
-### `social.colibri.community.listBannedUsers`
-
-Lists all banned users for a community, each hydrated into their full profile (handle, Bluesky profile, and Colibri status).
-
-<XRPCEndpointCard
-	method="GET"
-	nsid="social.colibri.community.listBannedUsers"
-	queryParams={{
-		community: {
-			type: "at-uri",
-			required: true
-		}
-	}}
-	response={{
-		users: {
-			type: "object[]",
-			required: true,
-			children: {
-				did: {
-					type: "did",
-					required: true,
-				},
-				handle: {
-					type: "handle",
-					required: true,
-				},
-				data: {
-					type: "object",
-					required: true,
-					children: {
-						displayName: {
-							type: "string",
-							required: true,
-						},
-						avatar: {
-							type: "blob",
-							required: false,
-						},
-						banner: {
-							type: "blob",
-							required: false,
-						},
-						description: {
-							type: "string",
-							required: false,
-						},
-						isBot: {
-							type: "boolean",
-							required: true,
-						},
-						onlineState: {
-							type: "string",
-							required: true,
-						},
-						status: {
-							type: "object",
-							required: true,
-							children: {
-								emoji: {
-									type: "string",
-									required: false,
-								},
-								text: {
-									type: "string",
-									required: true
-								}
-							}
-						},
-					}
-				}
-			}
-		}
-	}}
-/>
-
-### `social.colibri.community.listCategories`
-
-Lists all categories in a community.
-
-<XRPCEndpointCard
-	method="GET"
-	nsid="social.colibri.community.listCategories"
-	queryParams={{
-		community: {
-			type: "at-uri",
-			required: true
-		}
-	}}
-	response={{
-		categories: {
-			type: "object[]",
-			required: true,
-			children: {
-				uri: {
-					type: "at-uri",
-					required: true,
-				},
-				name: {
-					type: "string",
-					required: true,
-				},
-				channelOrder: {
-					type: "string[]",
-					required: true,
-				},
-			}
-		}
-	}}
-/>
-
-### `social.colibri.community.listChannels`
-
-Lists all channels in a community.
-
-<XRPCEndpointCard
-	method="GET"
-	nsid="social.colibri.community.listChannels"
-	queryParams={{
-		community: {
-			type: "at-uri",
-			required: true
-		}
-	}}
-	response={{
-		channels: {
-			type: "object[]",
-			required: true,
-			children: {
-				uri: {
-					type: "at-uri",
-					required: true,
-				},
-				name: {
-					type: "string",
-					required: true,
-				},
-				type: {
-					type: "string",
-					required: true,
-				},
-				category: {
-					type: "string",
-					required: true,
-				},
-				description: {
-					type: "string",
-					required: false,
-				},
-				ownerOnly: {
-					type: "boolean",
-					required: false,
-				},
-				allowedRoles: {
-					type: "string[]",
-					required: false,
-				},
-				allowedMembers: {
-					type: "string[]",
-					required: false,
-				},
-			}
-		}
-	}}
-/>
-
-### `social.colibri.community.listRoles`
-
-Lists all roles cached for a community.
-
-<XRPCEndpointCard
-	method="GET"
-	nsid="social.colibri.community.listRoles"
-	queryParams={{
-		community: {
-			type: "at-uri",
-			required: true
-		}
-	}}
-	response={{
-		roles: {
-			type: "object[]",
-			required: true,
-			children: {
-				uri: {
-					type: "at-uri",
-					required: true,
-				},
-				name: {
-					type: "string",
-					required: true,
-				},
-				color: {
-					type: "string",
-					required: false,
-				},
-				permissions: {
-					type: "string[]",
-					required: true,
-				},
-				position: {
-					type: "integer",
-					required: true,
-				},
-				hoisted: {
-					type: "boolean",
-					required: false,
-				},
-				mentionable: {
-					type: "boolean",
-					required: false,
-				},
-				protected: {
-					type: "boolean",
-					required: false,
-				},
-				channelOverrides: {
-					type: "object[]",
-					required: true,
-					children: {
-						channel: {
-							type: "string",
-							required: true,
-						},
-						allow: {
-							type: "string[]",
-							required: true,
-						},
-						deny: {
-							type: "string[]",
-							required: true,
-						},
-					}
-				},
-			}
-		}
-	}}
-/>
-
-### `social.colibri.community.listMembers`
-
-Lists all members with their roles, status information and Bluesky profiles.
-
-<XRPCEndpointCard
-	method="GET"
-	nsid="social.colibri.community.listMembers"
-	queryParams={{
-		community: {
-			type: "at-uri",
-			required: true
 		}
 	}}
 	response={{
 		members: {
-			type: "object[]",
+			type: "array",
 			required: true,
 			children: {
-				did: {
-					type: "did",
-					required: true,
-				},
-				handle: {
-					type: "handle",
-					required: true,
+				actor: {
+					type: "profileView",
+					required: true
 				},
 				roles: {
-					type: "string[]",
-					required: true,
+					type: "array",
+					required: true
 				},
-				data: {
-					type: "object",
-					required: true,
-					children: {
-						displayName: {
-							type: "string",
-							required: true,
-						},
-						avatar: {
-							type: "blob",
-							required: false,
-						},
-						banner: {
-							type: "blob",
-							required: false,
-						},
-						description: {
-							type: "string",
-							required: false,
-						},
-						isBot: {
-							type: "boolean",
-							required: true,
-						},
-						onlineState: {
-							type: "string",
-							required: true,
-						},
-						status: {
-							type: "object",
-							required: true,
-							children: {
-								emoji: {
-									type: "string",
-									required: false,
-								},
-								text: {
-									type: "string",
-									required: true
-								}
-							}
-						},
-					}
+				joinedAt: {
+					type: "datetime",
+					required: true
+				},
+				nickname: {
+					type: "string",
+					required: false
 				}
 			}
+		},
+		cursor: {
+			type: "string",
+			required: false
 		}
 	}}
 />
 
-### `social.colibri.community.getData`
+`limit` defaults to `50` and cannot exceed `100`.
 
-Returns all cached data for a community in a single response: the community record, its categories, channels, roles, and members. Returns `NotFound` if no community record is cached for the given URI.
+| Error | Description |
+| --- | --- |
+| `AuthRequired` | The request is missing, malformed, or unverifiable service auth. |
+| `Forbidden` | The requesting user lacks permission to list this community's members. |
+| `CommunityNotFound` | No community exists with that DID. |
+
+### Invitations
+
+#### `social.colibri.beta.community.createInvitation`
+
+Creates an invitation code for a community, optionally limited to a number of uses or an expiry time.
 
 <XRPCEndpointCard
-	method="GET"
-	nsid="social.colibri.community.getData"
-	queryParams={{
+	method="POST"
+	nsid="social.colibri.beta.community.createInvitation"
+	authenticated
+	body={{
 		community: {
-			type: "at-uri",
+			type: "did",
 			required: true
+		},
+		maxUses: {
+			type: "integer",
+			required: false
+		},
+		expiresAt: {
+			type: "datetime",
+			required: false
 		}
 	}}
 	response={{
-		community: {
+		invitation: {
 			type: "object",
-			required: true,
-			children: {
-				uri: {
-					type: "at-uri",
-					required: true,
-				},
-				name: {
-					type: "string",
-					required: true,
-				},
-				description: {
-					type: "string",
-					required: true,
-				},
-				picture: {
-					type: "blob",
-					required: false,
-				},
-				categoryOrder: {
-					type: "string[]",
-					required: true,
-				},
-				requiresApprovalToJoin: {
-					type: "boolean",
-					required: true,
-				},
-			}
-		},
-		categories: {
-			type: "object[]",
-			required: true,
-			children: {
-				uri: {
-					type: "at-uri",
-					required: true,
-				},
-				name: {
-					type: "string",
-					required: true,
-				},
-				channelOrder: {
-					type: "string[]",
-					required: true,
-				},
-			}
-		},
-		channels: {
-			type: "object[]",
-			required: true,
-			children: {
-				uri: {
-					type: "at-uri",
-					required: true,
-				},
-				name: {
-					type: "string",
-					required: true,
-				},
-				type: {
-					type: "string",
-					required: true,
-				},
-				category: {
-					type: "string",
-					required: true,
-				},
-				description: {
-					type: "string",
-					required: false,
-				},
-				ownerOnly: {
-					type: "boolean",
-					required: false,
-				},
-				allowedRoles: {
-					type: "string[]",
-					required: false,
-				},
-				allowedMembers: {
-					type: "string[]",
-					required: false,
-				},
-			}
-		},
-		roles: {
-			type: "object[]",
-			required: true,
-			children: {
-				uri: {
-					type: "at-uri",
-					required: true,
-				},
-				name: {
-					type: "string",
-					required: true,
-				},
-				color: {
-					type: "string",
-					required: false,
-				},
-				permissions: {
-					type: "string[]",
-					required: true,
-				},
-				position: {
-					type: "integer",
-					required: true,
-				},
-				hoisted: {
-					type: "boolean",
-					required: false,
-				},
-				mentionable: {
-					type: "boolean",
-					required: false,
-				},
-				protected: {
-					type: "boolean",
-					required: false,
-				},
-				channelOverrides: {
-					type: "object[]",
-					required: true,
-					children: {
-						channel: {
-							type: "string",
-							required: true,
-						},
-						allow: {
-							type: "string[]",
-							required: true,
-						},
-						deny: {
-							type: "string[]",
-							required: true,
-						},
-					}
-				},
-			}
-		},
-		members: {
-			type: "object[]",
-			required: true,
-			children: {
-				did: {
-					type: "did",
-					required: true,
-				},
-				handle: {
-					type: "handle",
-					required: true,
-				},
-				roles: {
-					type: "string[]",
-					required: true,
-				},
-				data: {
-					type: "object",
-					required: true,
-					children: {
-						displayName: {
-							type: "string",
-							required: true,
-						},
-						avatar: {
-							type: "blob",
-							required: false,
-						},
-						banner: {
-							type: "blob",
-							required: false,
-						},
-						description: {
-							type: "string",
-							required: false,
-						},
-						isBot: {
-							type: "boolean",
-							required: true,
-						},
-						onlineState: {
-							type: "string",
-							required: true,
-						},
-						status: {
-							type: "object",
-							required: true,
-							children: {
-								emoji: {
-									type: "string",
-									required: false,
-								},
-								text: {
-									type: "string",
-									required: true
-								}
-							}
-						},
-					}
-				}
-			}
-		}
-	}}
-/>
-
-### `social.colibri.community.blockMessage`
-
-Hides a message in a given community. Requires the caller to hold the `message.hide` permission.
-
-<XRPCEndpointCard
-	method="POST"
-	nsid="social.colibri.community.blockMessage"
-	authenticated
-	queryParams={{
-		community: {
-			type: "at-uri",
-			required: true
-		},
-		message: {
-			type: "at-uri",
-			required: true
-		},
-	}}
-	response={{
-		message: {
-			type: "at-uri",
-			required: true,
-		}
-	}}
-/>
-
-Broadcasts `message_event { event: "delete", uri: <message> }` via the tap firehose once the moderation record is indexed, so connected clients remove the hidden message without a reload.
-
-### `social.colibri.community.suppressMessageEmbeds`
-
-Hides specific link previews on a message by writing a `suppressEmbeds` moderation record carrying the URLs it applies to. Requires the `message.hide` permission, evaluated against the message's own channel so per-channel overrides apply.
-
-Authors hide their own previews through the `suppressedEmbeds` field on the `social.colibri.message` record instead. The two sets are tracked separately and unioned at read time, so each side can only ever undo its own: a moderator cannot restore a preview its author hid, and an author cannot restore one a moderator hid.
-
-<XRPCEndpointCard
-	method="POST"
-	nsid="social.colibri.community.suppressMessageEmbeds"
-	authenticated
-	queryParams={{
-		community: {
-			type: "at-uri",
-			required: true
-		},
-		message: {
-			type: "at-uri",
-			required: true
-		},
-		embeds: {
-			type: "uri[]",
-			required: true,
-		},
-	}}
-	response={{
-		message: {
-			type: "at-uri",
-			required: true,
-		}
-	}}
-/>
-
-`embeds` is a repeated query parameter naming the URLs to hide. Blank entries and duplicates are dropped, and a call carrying more than 32 URLs, or none at all, is rejected as `InvalidRequest`.
-
-### `social.colibri.community.unsuppressMessageEmbeds`
-
-Restores link previews a moderator previously hid. Same permission and channel scoping as `suppressMessageEmbeds`. Has no effect on previews the author suppressed themselves.
-
-<XRPCEndpointCard
-	method="POST"
-	nsid="social.colibri.community.unsuppressMessageEmbeds"
-	authenticated
-	queryParams={{
-		community: {
-			type: "at-uri",
-			required: true
-		},
-		message: {
-			type: "at-uri",
-			required: true
-		},
-		embeds: {
-			type: "uri[]",
-			required: true,
-		},
-	}}
-	response={{
-		message: {
-			type: "at-uri",
-			required: true,
-		}
-	}}
-/>
-
-Both actions broadcast `message_event { event: "embeds", uri: <message>, modSuppressedEmbeds: [...] }`. The array is the complete moderator-suppressed set after the change rather than a delta, so a client can apply it without replaying history.
-
-Whether a preview is rendered at all is a client-side decision: `linkEmbeds` on the community and channel records gates it, and `embed.getMetadata` receives no channel context, so those toggles are a display policy rather than an enforced boundary.
-
-### `social.colibri.community.banUser`
-
-Bans a user from a community by writing a `ban` moderation record. Requires the `member.ban` permission. Callers can only ban members ranked strictly below them in the role hierarchy.
-
-<XRPCEndpointCard
-	method="POST"
-	nsid="social.colibri.community.banUser"
-	authenticated
-	queryParams={{
-		community: {
-			type: "at-uri",
-			required: true
-		},
-		identifier: {
-			type: "did | handle",
-			required: true
-		}
-	}}
-	response={{
-		did: {
-			type: "did",
-			required: true,
-		},
-		handle: {
-			type: "handle",
-			required: true,
-		}
-	}}
-/>
-
-### `social.colibri.community.unbanUser`
-
-Unbans a user from a community, allowing them to write messages there again. Requires the `member.unban` permission.
-
-<XRPCEndpointCard
-	method="POST"
-	nsid="social.colibri.community.unbanUser"
-	authenticated
-	queryParams={{
-		community: {
-			type: "at-uri",
-			required: true
-		},
-		identifier: {
-			type: "did | handle",
-			required: true
-		}
-	}}
-	response={{
-		did: {
-			type: "did",
-			required: true,
-		},
-		handle: {
-			type: "handle",
-			required: true,
-		}
-	}}
-/>
-
-Broadcasts `member_event { event: "leave", community, memberDid }` via the tap firehose once the member record is revoked.
-
-### `social.colibri.community.kickUser`
-
-Kicks a user from a community by writing a `kick` moderation record and revoking their membership. Unlike a ban, the kicked user is not prevented from rejoining. Requires the `member.ban` permission. Callers can only kick members ranked strictly below them in the role hierarchy.
-
-<XRPCEndpointCard
-	method="POST"
-	nsid="social.colibri.community.kickUser"
-	authenticated
-	queryParams={{
-		community: {
-			type: "at-uri",
-			required: true
-		},
-		identifier: {
-			type: "did | handle",
-			required: true
-		}
-	}}
-	response={{
-		did: {
-			type: "did",
-			required: true,
-		},
-		handle: {
-			type: "handle",
-			required: true,
-		}
-	}}
-/>
-
-Broadcasts `member_event { event: "leave", community, memberDid }` via the tap firehose once the member record is revoked.
-
-### `social.colibri.community.createInvitation`
-
-Creates an invitation code for the specified community. Requires the `invitation.create` permission.
-
-<XRPCEndpointCard
-	method="POST"
-	nsid="social.colibri.community.createInvitation"
-	authenticated
-	queryParams={{
-		community: {
-			type: "at-uri",
-			required: true
-		},
-	}}
-	response={{
-		code: {
-			type: "string",
-			required: true,
-		},
-		community: {
-			type: "at-uri",
-			required: true,
-		},
-		createdBy: {
-			type: "did",
-			required: true
-		},
-		active: {
-			type: "boolean",
-			required: true
-		}
-	}}
-/>
-
-### `social.colibri.community.getInvitation`
-
-Get information about a given invitation code. Does not require authentication.
-
-<XRPCEndpointCard
-	method="GET"
-	nsid="social.colibri.community.getInvitation"
-	queryParams={{
-		code: {
-			type: "string",
-			required: true
-		},
-	}}
-	response={{
-		code: {
-			type: "string",
-			required: true,
-		},
-		community: {
-			type: "at-uri",
-			required: true,
-		},
-		createdBy: {
-			type: "did",
-			required: true
-		},
-		active: {
-			type: "boolean",
-			required: true
-		}
-	}}
-/>
-
-### `social.colibri.community.listInvitations`
-
-List all invitations for the specified community. Requires the `invitation.create` permission.
-
-<XRPCEndpointCard
-	method="POST"
-	nsid="social.colibri.community.listInvitations"
-	authenticated
-	queryParams={{
-		uri: {
-			type: "at-uri",
-			required: true
-		},
-	}}
-	response={{
-		codes: {
-			type: "object[]",
 			required: true,
 			children: {
 				code: {
 					type: "string",
-					required: true,
-				},
-				community: {
-					type: "at-uri",
-					required: true,
+					required: true
 				},
 				createdBy: {
 					type: "did",
@@ -2416,48 +981,211 @@ List all invitations for the specified community. Requires the `invitation.creat
 				active: {
 					type: "boolean",
 					required: true
+				},
+				createdAt: {
+					type: "datetime",
+					required: true
+				},
+				expiresAt: {
+					type: "datetime",
+					required: false
+				},
+				uses: {
+					type: "integer",
+					required: false
+				},
+				maxUses: {
+					type: "integer",
+					required: false
 				}
 			}
 		}
 	}}
 />
 
-### `social.colibri.community.deleteInvitation`
+`maxUses`, when given, must be at least `1`.
 
-Deactivates an invitation code for the specified community. Requires the `invitation.delete` permission.
+| Error | Description |
+| --- | --- |
+| `AuthRequired` | The request is missing, malformed, or unverifiable service auth. |
+| `Forbidden` | The requesting user lacks the `invitation.create` permission. |
+| `CommunityNotFound` | No community exists with that DID. |
+
+#### `social.colibri.beta.community.deleteInvitation`
+
+Deletes an invitation code, so it can no longer be redeemed.
 
 <XRPCEndpointCard
 	method="POST"
-	nsid="social.colibri.community.deleteInvitation"
+	nsid="social.colibri.beta.community.deleteInvitation"
 	authenticated
-	queryParams={{
-		uri: {
-			type: "at-uri",
+	body={{
+		community: {
+			type: "did",
 			required: true
 		},
 		code: {
 			type: "string",
 			required: true
-		},
+		}
+	}}
+	response={{}}
+/>
+
+| Error | Description |
+| --- | --- |
+| `AuthRequired` | The request is missing, malformed, or unverifiable service auth. |
+| `Forbidden` | The requesting user lacks the `invitation.delete` permission. |
+| `CommunityNotFound` | No community exists with that DID. |
+| `InvitationNotFound` | No invitation exists with that code. |
+
+#### `social.colibri.beta.community.getInvitation`
+
+Resolves an invitation code to the community it leads to, so a client can show what a code invites the user into before they accept it. This is the one invitation endpoint that doesn't require membership or even authentication, since the whole point is to preview an invitation before joining.
+
+<XRPCEndpointCard
+	method="GET"
+	nsid="social.colibri.beta.community.getInvitation"
+	authenticated={false}
+	queryParams={{
+		code: {
+			type: "string",
+			required: true
+		}
 	}}
 	response={{
-		code: {
-			type: "string",
+		invitation: {
+			type: "object",
 			required: true,
+			children: {
+				code: {
+					type: "string",
+					required: true
+				},
+				createdBy: {
+					type: "did",
+					required: true
+				},
+				active: {
+					type: "boolean",
+					required: true
+				},
+				createdAt: {
+					type: "datetime",
+					required: true
+				},
+				expiresAt: {
+					type: "datetime",
+					required: false
+				},
+				uses: {
+					type: "integer",
+					required: false
+				},
+				maxUses: {
+					type: "integer",
+					required: false
+				}
+			}
+		},
+		community: {
+			type: "object",
+			required: true,
+			children: {
+				did: {
+					type: "did",
+					required: true
+				},
+				handle: {
+					type: "handle",
+					required: true
+				},
+				name: {
+					type: "string",
+					required: true
+				},
+				description: {
+					type: "string",
+					required: false
+				},
+				picture: {
+					type: "uri",
+					required: false
+				},
+				banner: {
+					type: "uri",
+					required: false
+				},
+				requiresApprovalToJoin: {
+					type: "boolean",
+					required: true
+				},
+				linkEmbeds: {
+					type: "boolean",
+					required: true
+				},
+				labelers: {
+					type: "array",
+					required: false
+				},
+				migratedFrom: {
+					type: "at-uri",
+					required: false
+				},
+				memberCount: {
+					type: "integer",
+					required: false
+				},
+				viewer: {
+					type: "object",
+					required: true,
+					children: {
+						isMember: {
+							type: "boolean",
+							required: true
+						},
+						isOwner: {
+							type: "boolean",
+							required: false
+						},
+						isBanned: {
+							type: "boolean",
+							required: false
+						},
+						applicationPending: {
+							type: "boolean",
+							required: false
+						},
+						roles: {
+							type: "array",
+							required: false
+						},
+						permissions: {
+							type: "array",
+							required: false
+						}
+					}
+				}
+			}
 		}
 	}}
 />
 
-### `social.colibri.channel.listMessages`
+| Error | Description |
+| --- | --- |
+| `InvitationNotFound` | No invitation exists with that code. |
 
-Get a paginated message history for the specified channel, newest messages first. Banned users' messages are filtered out, as are messages that have been hidden by a `hideMessage` moderation action (and not later un-hidden). Hidden messages are excluded from both the top-level list and any embedded `parent`. Set `all` to `true` to include hidden messages in the response (e.g. for moderation views); it defaults to `false`. The `createdAt` field reflects when the message was authored (taken directly from the AT Protocol record), not when the AppView indexed it.
+#### `social.colibri.beta.community.listInvitations`
+
+Lists a community's invitation codes.
 
 <XRPCEndpointCard
 	method="GET"
-	nsid="social.colibri.channel.listMessages"
+	nsid="social.colibri.beta.community.listInvitations"
+	authenticated
 	queryParams={{
-		channel: {
-			type: "at-uri",
+		community: {
+			type: "did",
 			required: true
 		},
 		limit: {
@@ -2467,486 +1195,1718 @@ Get a paginated message history for the specified channel, newest messages first
 		cursor: {
 			type: "string",
 			required: false
-		},
-		all: {
-			type: "boolean",
-			required: false
-		},
+		}
 	}}
 	response={{
-		cursor: {
-			type: "string",
-			required: false,
-		},
-		messages: {
-			type: "object[]",
+		invitations: {
+			type: "array",
 			required: true,
 			children: {
-				uri: {
-					type: "at-uri",
-					required: true,
-				},
-				text: {
+				code: {
 					type: "string",
-					required: true,
+					required: true
 				},
-				facets: {
-					type: "Facet[]",
-					required: true,
+				createdBy: {
+					type: "did",
+					required: true
 				},
-				channel: {
-					type: "at-uri",
-					required: true,
-				},
-				community: {
-					type: "at-uri",
-					required: true,
-				},
-				author: {
-					type: "object",
-					required: true,
-					children: {
-						did: {
-							type: "did",
-							required: true,
-						},
-						handle: {
-							type: "handle",
-							required: true,
-						},
-						data: {
-							type: "object",
-							required: true,
-							children: {
-								displayName: {
-									type: "string",
-									required: true,
-								},
-								avatar: {
-									type: "blob",
-									required: false,
-								},
-								banner: {
-									type: "blob",
-									required: false,
-								},
-								description: {
-									type: "string",
-									required: false,
-								},
-								isBot: {
-									type: "boolean",
-									required: true,
-								},
-								onlineState: {
-									type: "string",
-									required: true,
-								},
-								status: {
-									type: "object",
-									required: true,
-									children: {
-										emoji: {
-											type: "string",
-											required: false,
-										},
-										text: {
-											type: "string",
-											required: true,
-										},
-									}
-								},
-							}
-						},
-					}
-				},
-				parent: {
-					type: "object",
-					required: false,
-					children: {
-						uri: {
-							type: "at-uri",
-							required: true,
-						},
-						text: {
-							type: "string",
-							required: true,
-						},
-						facets: {
-							type: "Facet[]",
-							required: true,
-						},
-						channel: {
-							type: "at-uri",
-							required: true,
-						},
-						community: {
-							type: "at-uri",
-							required: true,
-						},
-						author: {
-							type: "object",
-							required: true,
-							children: {
-								did: {
-									type: "did",
-									required: true,
-								},
-								handle: {
-									type: "handle",
-									required: true,
-								},
-								data: {
-									type: "object",
-									required: true,
-									children: {
-										displayName: {
-											type: "string",
-											required: true,
-										},
-										avatar: {
-											type: "blob",
-											required: false,
-										},
-										banner: {
-											type: "blob",
-											required: false,
-										},
-										description: {
-											type: "string",
-											required: false,
-										},
-										isBot: {
-											type: "boolean",
-											required: true,
-										},
-										onlineState: {
-											type: "string",
-											required: true,
-										},
-										status: {
-											type: "object",
-											required: true,
-											children: {
-												emoji: {
-													type: "string",
-													required: false,
-												},
-												text: {
-													type: "string",
-													required: true,
-												},
-											}
-										},
-									}
-								},
-							}
-						},
-						attachments: {
-							type: "object[]",
-							required: true,
-							children: {
-								blob: {
-									type: "blob",
-									required: true,
-								},
-								name: {
-									type: "string",
-									required: false,
-								},
-							}
-						},
-						reactions: {
-							type: "object[]",
-							required: true,
-							children: {
-								emoji: {
-									type: "string",
-									required: true,
-								},
-								count: {
-									type: "integer",
-									required: true,
-								},
-								reactorDids: {
-									type: "string[]",
-									required: true,
-								},
-							}
-						},
-						createdAt: {
-							type: "datetime",
-							required: true,
-						},
-						edited: {
-							type: "boolean",
-							required: true,
-						},
-					}
-				},
-				attachments: {
-					type: "object[]",
-					required: true,
-					children: {
-						blob: {
-							type: "blob",
-							required: true,
-						},
-						name: {
-							type: "string",
-							required: false,
-						},
-					}
-				},
-				reactions: {
-					type: "object[]",
-					required: true,
-					children: {
-						emoji: {
-							type: "string",
-							required: true,
-						},
-						count: {
-							type: "integer",
-							required: true,
-						},
-						reactorDids: {
-							type: "string[]",
-							required: true,
-						},
-					}
+				active: {
+					type: "boolean",
+					required: true
 				},
 				createdAt: {
 					type: "datetime",
-					required: true,
+					required: true
 				},
-				edited: {
-					type: "boolean",
-					required: true,
+				expiresAt: {
+					type: "datetime",
+					required: false
 				},
+				uses: {
+					type: "integer",
+					required: false
+				},
+				maxUses: {
+					type: "integer",
+					required: false
+				}
+			}
+		},
+		cursor: {
+			type: "string",
+			required: false
+		}
+	}}
+/>
+
+`limit` defaults to `50` and cannot exceed `100`.
+
+| Error | Description |
+| --- | --- |
+| `AuthRequired` | The request is missing, malformed, or unverifiable service auth. |
+| `Forbidden` | The requesting user lacks the `invitation.create` permission. |
+| `CommunityNotFound` | No community exists with that DID. |
+
+### Moderation
+
+#### `social.colibri.beta.community.ban`
+
+Bans a member from a community. This removes their member record and stops the community issuing them further space credentials, so they can no longer read the community's spaces. Their existing content isn't deleted: it stays in their own repo, where it can still be labelled or filtered like anyone else's.
+
+<XRPCEndpointCard
+	method="POST"
+	nsid="social.colibri.beta.community.ban"
+	authenticated
+	body={{
+		community: {
+			type: "did",
+			required: true
+		},
+		subject: {
+			type: "did",
+			required: true
+		},
+		reason: {
+			type: "string",
+			required: false
+		}
+	}}
+	response={{}}
+/>
+
+| Error | Description |
+| --- | --- |
+| `AuthRequired` | The request is missing, malformed, or unverifiable service auth. |
+| `Forbidden` | The caller lacks the `member.ban` permission. |
+| `CommunityNotFound` | No community exists at the given DID. |
+| `AlreadyBanned` | The subject is already banned from this community. |
+| `RoleHierarchy` | The subject holds a role at or above the caller's highest role position. |
+| `CredentialsUnavailable` | The AppView cannot act as the community because its stored credentials are missing or unusable. |
+
+#### `social.colibri.beta.community.unban`
+
+Lifts a ban, letting the community issue the subject space credentials again.
+
+<XRPCEndpointCard
+	method="POST"
+	nsid="social.colibri.beta.community.unban"
+	authenticated
+	body={{
+		community: {
+			type: "did",
+			required: true
+		},
+		subject: {
+			type: "did",
+			required: true
+		},
+		reason: {
+			type: "string",
+			required: false
+		}
+	}}
+	response={{}}
+/>
+
+| Error | Description |
+| --- | --- |
+| `AuthRequired` | The request is missing, malformed, or unverifiable service auth. |
+| `Forbidden` | The caller lacks the `member.unban` permission. |
+| `CommunityNotFound` | No community exists at the given DID. |
+| `NotBanned` | The subject is not currently banned from this community. |
+| `CredentialsUnavailable` | The AppView cannot act as the community because its stored credentials are missing or unusable. |
+
+#### `social.colibri.beta.community.listBans`
+
+Lists the members currently banned from a community, derived from the moderation log's ban and unban entries.
+
+<XRPCEndpointCard
+	method="GET"
+	nsid="social.colibri.beta.community.listBans"
+	authenticated
+	queryParams={{
+		community: {
+			type: "did",
+			required: true
+		},
+		limit: {
+			type: "integer",
+			required: false
+		},
+		cursor: {
+			type: "string",
+			required: false
+		}
+	}}
+	response={{
+		bans: {
+			type: "array",
+			required: true,
+			children: {
+				actor: {
+					type: "profileView",
+					required: true
+				},
+				reason: {
+					type: "string",
+					required: false
+				},
+				bannedBy: {
+					type: "did",
+					required: true
+				},
+				bannedAt: {
+					type: "datetime",
+					required: true
+				}
+			}
+		},
+		cursor: {
+			type: "string",
+			required: false
+		}
+	}}
+/>
+
+`limit` defaults to `50` and cannot exceed `100`.
+
+| Error | Description |
+| --- | --- |
+| `AuthRequired` | The request is missing, malformed, or unverifiable service auth. |
+| `Forbidden` | The caller lacks the `member.ban` permission. |
+| `CommunityNotFound` | No community exists at the given DID. |
+
+#### `social.colibri.beta.community.listModerationLog`
+
+Lists a community's moderation audit log, most recent entry first.
+
+<XRPCEndpointCard
+	method="GET"
+	nsid="social.colibri.beta.community.listModerationLog"
+	authenticated
+	queryParams={{
+		community: {
+			type: "did",
+			required: true
+		},
+		limit: {
+			type: "integer",
+			required: false
+		},
+		cursor: {
+			type: "string",
+			required: false
+		}
+	}}
+	response={{
+		entries: {
+			type: "array",
+			required: true,
+			children: {
+				rkey: {
+					type: "record-key",
+					required: true
+				},
+				action: {
+					type: "string",
+					required: true
+				},
+				subject: {
+					type: "profileView",
+					required: true
+				},
+				reason: {
+					type: "string",
+					required: false
+				},
+				createdBy: {
+					type: "did",
+					required: true
+				},
+				createdAt: {
+					type: "datetime",
+					required: true
+				}
+			}
+		},
+		cursor: {
+			type: "string",
+			required: false
+		}
+	}}
+/>
+
+`action` is `ban`, `unban`, or `kick`. `limit` defaults to `50` and cannot exceed `100`.
+
+| Error | Description |
+| --- | --- |
+| `AuthRequired` | The request is missing, malformed, or unverifiable service auth. |
+| `Forbidden` | The caller lacks the `moderation.viewLog` permission. |
+| `CommunityNotFound` | No community exists at the given DID. |
+
+#### `social.colibri.beta.community.applyLabel`
+
+Applies a label to a record in one of the community's spaces. This is how content gets hidden, marked as a spoiler, or has its link previews suppressed. The record itself is left untouched, since it lives in its author's own repo, but the effect differs by label value. A `hidden` label stops the AppView serving the record at all: it is withheld from reads, from notifications and from the events socket, and replies to it see a `deletedMessageView` in place of their parent. Moderators holding `label.apply` and the record's own author still receive it. `spoiler` and `embeds-suppressed` are display hints, forwarded on `messageView.labels` for the client to honour. Which labelers count is the `labelers` list in the community's settings, defaulting to the community itself.
+
+<XRPCEndpointCard
+	method="POST"
+	nsid="social.colibri.beta.community.applyLabel"
+	authenticated
+	body={{
+		space: {
+			type: "space-ref",
+			required: true
+		},
+		subject: {
+			type: "object",
+			required: true,
+			children: {
+				did: {
+					type: "did",
+					required: true
+				},
+				collection: {
+					type: "nsid",
+					required: true
+				},
+				rkey: {
+					type: "record-key",
+					required: true
+				}
+			}
+		},
+		val: {
+			type: "string",
+			required: true
+		},
+		scope: {
+			type: "array",
+			required: false
+		},
+		reason: {
+			type: "string",
+			required: false
+		}
+	}}
+	response={{
+		label: {
+			type: "object",
+			required: true,
+			children: {
+				src: {
+					type: "did",
+					required: true
+				},
+				val: {
+					type: "string",
+					required: true
+				},
+				scope: {
+					type: "array",
+					required: false
+				},
+				reason: {
+					type: "string",
+					required: false
+				},
+				createdAt: {
+					type: "datetime",
+					required: true
+				}
 			}
 		}
 	}}
 />
 
-### `social.colibri.channel.getReadCursor`
+`val` is one of `hidden`, `spoiler`, or `embeds-suppressed`. `scope` narrows the label to specific URIs inside the subject record. Leave it out to label the whole record.
 
-Get the read cursor for the current user and specified channel.
+| Error | Description |
+| --- | --- |
+| `AuthRequired` | The request is missing, malformed, or unverifiable service auth. |
+| `Forbidden` | The caller lacks the `label.apply` permission. |
+| `CommunityNotFound` | No community exists at the given DID. |
+| `SpaceNotFound` | No space exists at the given reference. |
+| `InvalidRequest` | The scope or val is not valid for the subject record. |
+| `CredentialsUnavailable` | The AppView cannot act as the community because its stored credentials are missing or unusable. |
+
+#### `social.colibri.beta.community.negateLabel`
+
+Retracts a label by writing a negating one, rather than deleting the original label record.
+
+<XRPCEndpointCard
+	method="POST"
+	nsid="social.colibri.beta.community.negateLabel"
+	authenticated
+	body={{
+		space: {
+			type: "space-ref",
+			required: true
+		},
+		subject: {
+			type: "object",
+			required: true,
+			children: {
+				did: {
+					type: "did",
+					required: true
+				},
+				collection: {
+					type: "nsid",
+					required: true
+				},
+				rkey: {
+					type: "record-key",
+					required: true
+				}
+			}
+		},
+		val: {
+			type: "string",
+			required: true
+		},
+		reason: {
+			type: "string",
+			required: false
+		}
+	}}
+	response={{}}
+/>
+
+| Error | Description |
+| --- | --- |
+| `AuthRequired` | The request is missing, malformed, or unverifiable service auth. |
+| `Forbidden` | The caller lacks the `label.apply` permission. |
+| `CommunityNotFound` | No community exists at the given DID. |
+| `SpaceNotFound` | No space exists at the given reference. |
+| `LabelNotFound` | No active label matching the subject and value exists to negate. |
+| `CredentialsUnavailable` | The AppView cannot act as the community because its stored credentials are missing or unusable. |
+
+### Reads
+
+#### `social.colibri.beta.community.getCommunity`
+
+Gets a community by DID or handle.
 
 <XRPCEndpointCard
 	method="GET"
-	nsid="social.colibri.channel.getReadCursor"
+	nsid="social.colibri.beta.community.getCommunity"
 	authenticated
 	queryParams={{
-		channel: {
-			type: "at-uri",
+		community: {
+			type: "at-identifier",
 			required: true
-		},
+		}
 	}}
 	response={{
-		uri: {
-			type: "at-uri",
+		community: {
+			type: "object",
 			required: true,
-		},
-		cursor: {
-			type: "string",
-			required: true,
-		},
-		channel: {
-			type: "at-uri",
-			required: true,
+			children: {
+				did: {
+					type: "did",
+					required: true
+				},
+				handle: {
+					type: "handle",
+					required: true
+				},
+				name: {
+					type: "string",
+					required: true
+				},
+				description: {
+					type: "string",
+					required: false
+				},
+				picture: {
+					type: "uri",
+					required: false
+				},
+				banner: {
+					type: "uri",
+					required: false
+				},
+				requiresApprovalToJoin: {
+					type: "boolean",
+					required: true
+				},
+				linkEmbeds: {
+					type: "boolean",
+					required: true
+				},
+				labelers: {
+					type: "array",
+					required: false
+				},
+				migratedFrom: {
+					type: "at-uri",
+					required: false
+				},
+				memberCount: {
+					type: "integer",
+					required: false
+				},
+				viewer: {
+					type: "object",
+					required: true,
+					children: {
+						isMember: {
+							type: "boolean",
+							required: true
+						},
+						isOwner: {
+							type: "boolean",
+							required: false
+						},
+						isBanned: {
+							type: "boolean",
+							required: false
+						},
+						applicationPending: {
+							type: "boolean",
+							required: false
+						},
+						roles: {
+							type: "array",
+							required: false
+						},
+						permissions: {
+							type: "array",
+							required: false
+						}
+					}
+				}
+			}
 		}
 	}}
 />
 
-### `social.colibri.channel.listUnreadStatus`
+| Error | Description |
+| --- | --- |
+| `AuthRequired` | The request is missing, malformed, or unverifiable service auth. |
+| `CommunityNotFound` | No community exists at that identifier. |
 
-Returns per-channel unread status for the authenticated user across every channel in a community.
+#### `social.colibri.beta.community.listCategories`
+
+Gets a community's category layout, with each category's channels already nested inside it, so a client can draw the whole sidebar from one call.
 
 <XRPCEndpointCard
 	method="GET"
-	nsid="social.colibri.channel.listUnreadStatus"
+	nsid="social.colibri.beta.community.listCategories"
 	authenticated
 	queryParams={{
 		community: {
-			type: "at-uri",
+			type: "did",
+			required: true
+		}
+	}}
+	response={{
+		categories: {
+			type: "array",
+			required: true,
+			children: {
+				rkey: {
+					type: "record-key",
+					required: true
+				},
+				name: {
+					type: "string",
+					required: true
+				},
+				channels: {
+					type: "array",
+					required: true,
+					children: {
+						space: {
+							type: "space-ref",
+							required: true
+						},
+						type: {
+							type: "string",
+							required: true
+						},
+						name: {
+							type: "string",
+							required: true
+						},
+						description: {
+							type: "string",
+							required: false
+						},
+						category: {
+							type: "record-key",
+							required: false
+						},
+						ownerOnly: {
+							type: "boolean",
+							required: false
+						},
+						allowedRoles: {
+							type: "array",
+							required: false
+						},
+						allowedMembers: {
+							type: "array",
+							required: false
+						},
+						linkEmbeds: {
+							type: "boolean",
+							required: false
+						},
+						migratedFrom: {
+							type: "at-uri",
+							required: false
+						},
+						viewer: {
+							type: "object",
+							required: true,
+							children: {
+								canRead: {
+									type: "boolean",
+									required: true
+								},
+								canPost: {
+									type: "boolean",
+									required: true
+								},
+								permissions: {
+									type: "array",
+									required: false
+								}
+							}
+						},
+						visibleToRoles: {
+							type: "array",
+							required: false
+						},
+						visibleToMembers: {
+							type: "array",
+							required: false
+						},
+						private: {
+							type: "boolean",
+							required: false
+						}
+					}
+				}
+			}
+		}
+	}}
+/>
+
+`type` is `social.colibri.beta.channel.text` or `social.colibri.beta.channel.voice`.
+
+| Error | Description |
+| --- | --- |
+| `AuthRequired` | The request is missing, malformed, or unverifiable service auth. |
+| `Forbidden` | The requesting user lacks permission to view this community's categories. |
+| `CommunityNotFound` | No community exists with that DID. |
+
+#### `social.colibri.beta.community.listChannels`
+
+Lists a community's channels as a flat list, for clients that don't need the category grouping.
+
+<XRPCEndpointCard
+	method="GET"
+	nsid="social.colibri.beta.community.listChannels"
+	authenticated
+	queryParams={{
+		community: {
+			type: "did",
 			required: true
 		}
 	}}
 	response={{
 		channels: {
-			type: "object[]",
+			type: "array",
 			required: true,
 			children: {
-				channelUri: {
-					type: "at-uri",
-					required: true,
+				space: {
+					type: "space-ref",
+					required: true
 				},
-				hasUnreadMessages: {
-					type: "boolean",
-					required: true,
-				},
-				unreadPingCount: {
-					type: "integer",
-					required: true,
-				},
-			}
-		}
-	}}
-/>
-
-### `social.colibri.channel.listReactions`
-
-Get all reactions for a specified message, grouped by emoji with reactor DIDs.
-
-<XRPCEndpointCard
-	method="GET"
-	nsid="social.colibri.channel.listReactions"
-	queryParams={{
-		message: {
-			type: "at-uri",
-			required: true
-		},
-	}}
-	response={{
-		reactions: {
-			type: "object[]",
-			required: true,
-			children: {
-				emoji: {
+				type: {
 					type: "string",
-					required: true,
+					required: true
 				},
-				count: {
-					type: "integer",
-					required: true,
+				name: {
+					type: "string",
+					required: true
 				},
-				reactorDids: {
-					type: "string[]",
-					required: true,
+				description: {
+					type: "string",
+					required: false
 				},
+				category: {
+					type: "record-key",
+					required: false
+				},
+				ownerOnly: {
+					type: "boolean",
+					required: false
+				},
+				allowedRoles: {
+					type: "array",
+					required: false
+				},
+				allowedMembers: {
+					type: "array",
+					required: false
+				},
+				linkEmbeds: {
+					type: "boolean",
+					required: false
+				},
+				migratedFrom: {
+					type: "at-uri",
+					required: false
+				},
+				viewer: {
+					type: "object",
+					required: true,
+					children: {
+						canRead: {
+							type: "boolean",
+							required: true
+						},
+						canPost: {
+							type: "boolean",
+							required: true
+						},
+						permissions: {
+							type: "array",
+							required: false
+						}
+					}
+				},
+				visibleToRoles: {
+					type: "array",
+					required: false
+				},
+				visibleToMembers: {
+					type: "array",
+					required: false
+				},
+				private: {
+					type: "boolean",
+					required: false
+				}
 			}
 		}
 	}}
 />
 
-### `social.colibri.embed.getMetadata`
+| Error | Description |
+| --- | --- |
+| `AuthRequired` | The request is missing, malformed, or unverifiable service auth. |
+| `Forbidden` | The requesting user lacks permission to view this community's channels. |
+| `CommunityNotFound` | No community exists with that DID. |
 
-Fetches a URL server-side and returns its OpenGraph/Twitter-card metadata, so the client's IP is never exposed to the target site. Requires authentication to keep the AppView from becoming a public open URL-fetch proxy. Results are cached, including empty ones, to avoid re-fetching pages that carry no embed tags. The outbound request is guarded against SSRF (private, loopback, and link-local addresses are refused). `largeImage` reflects whether the preview should render large or as a small thumbnail.
+#### `social.colibri.beta.community.listRoles`
+
+Lists a community's roles.
 
 <XRPCEndpointCard
 	method="GET"
-	nsid="social.colibri.embed.getMetadata"
+	nsid="social.colibri.beta.community.listRoles"
 	authenticated
 	queryParams={{
-		uri: {
-			type: "uri",
+		community: {
+			type: "did",
 			required: true
 		}
 	}}
 	response={{
-		title: {
-			type: "string",
-			required: false,
+		roles: {
+			type: "array",
+			required: true,
+			children: {
+				rkey: {
+					type: "record-key",
+					required: true
+				},
+				name: {
+					type: "string",
+					required: true
+				},
+				color: {
+					type: "string",
+					required: false
+				},
+				permissions: {
+					type: "array",
+					required: true
+				},
+				position: {
+					type: "integer",
+					required: true
+				},
+				hoisted: {
+					type: "boolean",
+					required: false
+				},
+				mentionable: {
+					type: "boolean",
+					required: false
+				},
+				protected: {
+					type: "boolean",
+					required: false
+				},
+				channelOverrides: {
+					type: "array",
+					required: false,
+					children: {
+						channel: {
+							type: "record-key",
+							required: true
+						},
+						allow: {
+							type: "array",
+							required: false
+						},
+						deny: {
+							type: "array",
+							required: false
+						}
+					}
+				},
+				memberCount: {
+					type: "integer",
+					required: false
+				}
+			}
+		}
+	}}
+/>
+
+`position` is the role's place in the hierarchy: a higher number outranks a lower one, and that ordering is what `RoleHierarchy` errors elsewhere enforce.
+
+| Error | Description |
+| --- | --- |
+| `AuthRequired` | The request is missing, malformed, or unverifiable service auth. |
+| `Forbidden` | The requesting user lacks permission to view this community's roles. |
+| `CommunityNotFound` | No community exists with that DID. |
+
+## Categories
+
+Categories group a community's channels for display. Ordering lives outside both records: the community's `social.colibri.beta.community.settings` record holds `categoryOrder` for the categories themselves, and each category record holds `channelOrder` for the channels inside it.
+
+### `social.colibri.beta.category.create`
+
+Creates a category in a community and appends it to the community's `categoryOrder`.
+
+<XRPCEndpointCard
+	method="POST"
+	nsid="social.colibri.beta.category.create"
+	authenticated={true}
+	body={{
+		community: { type: "did", required: true },
+		name: { type: "string (1-32 chars)", required: true },
+	}}
+	response={{
+		category: { type: "categoryView", required: true },
+	}}
+/>
+
+| Error | Description |
+| --- | --- |
+| `AuthRequired` | The request is missing, malformed, or unverifiable service auth. |
+| `Forbidden` | The caller lacks the `category.create` permission. |
+| `CommunityNotFound` | No community exists at the given DID. |
+| `CredentialsUnavailable` | The AppView cannot act as the community because its stored credentials are missing or unusable. |
+
+### `social.colibri.beta.category.update`
+
+Renames a category.
+
+<XRPCEndpointCard
+	method="POST"
+	nsid="social.colibri.beta.category.update"
+	authenticated={true}
+	body={{
+		community: { type: "did", required: true },
+		category: { type: "record-key", required: true },
+		name: { type: "string (1-32 chars)", required: true },
+	}}
+	response={{
+		category: { type: "categoryView", required: true },
+	}}
+/>
+
+| Error | Description |
+| --- | --- |
+| `AuthRequired` | The request is missing, malformed, or unverifiable service auth. |
+| `Forbidden` | The caller lacks the `category.update` permission. |
+| `CommunityNotFound` | No community exists at the given DID. |
+| `CategoryNotFound` | No category exists at the given record key. |
+| `CredentialsUnavailable` | The AppView cannot act as the community because its stored credentials are missing or unusable. |
+
+### `social.colibri.beta.category.delete`
+
+Deletes a category and removes it from `categoryOrder`. Its channels are not deleted: they become uncategorised until moved to another category.
+
+<XRPCEndpointCard
+	method="POST"
+	nsid="social.colibri.beta.category.delete"
+	authenticated={true}
+	body={{
+		community: { type: "did", required: true },
+		category: { type: "record-key", required: true },
+	}}
+	response={{}}
+/>
+
+| Error | Description |
+| --- | --- |
+| `AuthRequired` | The request is missing, malformed, or unverifiable service auth. |
+| `Forbidden` | The caller lacks the `category.delete` permission. |
+| `CommunityNotFound` | No community exists at the given DID. |
+| `CategoryNotFound` | No category exists at the given record key. |
+| `CredentialsUnavailable` | The AppView cannot act as the community because its stored credentials are missing or unusable. |
+
+## Channels
+
+A channel is a permissioned space in its own right, not a record inside the community. The space key is the channel's identity, and the channel's own configuration is the `social.colibri.beta.channel` record at key `self` inside that space. That is also why the channel record carries no `community` or `category` field: `channel.create` creates the space first and then writes the configuration record into it, and `channel.delete` deletes the space outright.
+
+`allowedRoles` and `allowedMembers` gate who may post. `visibleToRoles` and `visibleToMembers` gate who may read, so a read-only announcement channel can restrict posting while staying readable to the whole community. Non-empty visibility lists make the channel private, and the community's PDS then refuses space credentials for it to anyone outside those lists.
+
+### `social.colibri.beta.channel.create`
+
+Creates a channel: first the space, then the `social.colibri.beta.channel` record at key `self` inside it, and finally the channel's entry at the end of its category's `channelOrder`.
+
+<XRPCEndpointCard
+	method="POST"
+	nsid="social.colibri.beta.channel.create"
+	authenticated={true}
+	body={{
+		community: { type: "did", required: true },
+		type: { type: "nsid", required: true },
+		name: { type: "string (1-32 chars)", required: true },
+		category: { type: "record-key", required: true },
+		description: { type: "string (max 256 chars)", required: false },
+		ownerOnly: { type: "boolean", required: false },
+		allowedRoles: { type: "record-key[]", required: false },
+		allowedMembers: { type: "did[]", required: false },
+		visibleToRoles: { type: "record-key[]", required: false },
+		visibleToMembers: { type: "did[]", required: false },
+	}}
+	response={{
+		channel: { type: "channelView", required: true },
+	}}
+/>
+
+`type` must be one of `social.colibri.beta.channel.text` or `social.colibri.beta.channel.voice`.
+
+| Error | Description |
+| --- | --- |
+| `AuthRequired` | The request has no valid service auth. |
+| `Forbidden` | The requesting user lacks the `channel.create` permission. |
+| `CommunityNotFound` | No community matches the given DID. |
+| `CategoryNotFound` | No category matches the given record key. |
+| `RoleHierarchy` | The requesting user cannot grant a role that outranks their own. |
+| `InvalidRequest` | The arguments are inconsistent or malformed beyond schema validation. |
+| `CredentialsUnavailable` | The AppView cannot act as the community because its stored credentials are missing or unusable. |
+| `PdsUnavailable` | The community's PDS is unreachable or the AppView has no administrative access to it. |
+| `UpstreamFailure` | The community's PDS failed while creating the channel's space. |
+
+### `social.colibri.beta.channel.update`
+
+Updates a channel's configuration. A field left absent from the request keeps its current value rather than being cleared.
+
+<XRPCEndpointCard
+	method="POST"
+	nsid="social.colibri.beta.channel.update"
+	authenticated={true}
+	body={{
+		channel: { type: "space-ref", required: true },
+		name: { type: "string (1-32 chars)", required: false },
+		description: { type: "string (max 256 chars)", required: false },
+		category: { type: "record-key", required: false },
+		ownerOnly: { type: "boolean", required: false },
+		allowedRoles: { type: "record-key[]", required: false },
+		allowedMembers: { type: "did[]", required: false },
+		linkEmbeds: { type: "boolean", required: false },
+		visibleToRoles: { type: "record-key[]", required: false },
+		visibleToMembers: { type: "did[]", required: false },
+	}}
+	response={{
+		channel: { type: "channelView", required: true },
+	}}
+/>
+
+| Error | Description |
+| --- | --- |
+| `AuthRequired` | The request has no valid service auth. |
+| `Forbidden` | The requesting user lacks the `channel.update` permission. |
+| `ChannelNotFound` | No channel matches the given space reference. |
+| `CategoryNotFound` | No category matches the given record key. |
+| `RoleHierarchy` | The requesting user cannot grant a role that outranks their own. |
+| `CredentialsUnavailable` | The AppView cannot act as the community because its stored credentials are missing or unusable. |
+
+### `social.colibri.beta.channel.delete`
+
+Deletes a channel's space. Messages members wrote in it stay in their own repos: deleting the channel makes them unreadable to everyone but their authors, it does not delete them.
+
+<XRPCEndpointCard
+	method="POST"
+	nsid="social.colibri.beta.channel.delete"
+	authenticated={true}
+	body={{
+		channel: { type: "space-ref", required: true },
+	}}
+	response={{}}
+/>
+
+| Error | Description |
+| --- | --- |
+| `AuthRequired` | The request has no valid service auth. |
+| `Forbidden` | The requesting user lacks the `channel.delete` permission. |
+| `ChannelNotFound` | No channel matches the given space reference. |
+| `CredentialsUnavailable` | The AppView cannot act as the community because its stored credentials are missing or unusable. |
+| `PdsUnavailable` | The community's PDS is unreachable or the AppView has no administrative access to it. |
+| `UpstreamFailure` | The community's PDS failed while deleting the channel's space. |
+
+### `social.colibri.beta.channel.getChannel`
+
+Gets one channel.
+
+<XRPCEndpointCard
+	method="GET"
+	nsid="social.colibri.beta.channel.getChannel"
+	authenticated={true}
+	queryParams={{
+		channel: { type: "space-ref", required: true },
+	}}
+	response={{
+		channel: { type: "channelView", required: true },
+	}}
+/>
+
+| Error | Description |
+| --- | --- |
+| `AuthRequired` | The request has no valid service auth. |
+| `Forbidden` | The requesting user may not read this channel. |
+| `ChannelNotFound` | No channel matches the given space reference. |
+
+Messages carrying a `hidden` label from a labeler the community honours are
+withheld, so a page can come back shorter than `limit`. That is not the end of
+the results: keep following `cursor` until it is absent, because the cursor is
+keyed on the record key of the last row examined, not the last row returned.
+
+A reply whose parent is withheld or deleted gets a `deletedMessageView` in
+`parent` instead of a `messageView`, so `parent` is a union and has to be
+discriminated on `$type`. Moderators holding `label.apply`, and a message's own
+author, receive hidden messages in full with the label attached.
+
+### `social.colibri.beta.channel.listMessages`
+
+Lists a channel's messages, newest first by default. Messages from the repo-backed community a channel was migrated from are included in the same list and marked `legacy`.
+
+<XRPCEndpointCard
+	method="GET"
+	nsid="social.colibri.beta.channel.listMessages"
+	authenticated={true}
+	queryParams={{
+		channel: { type: "space-ref", required: true },
+		limit: { type: "integer (1-100, default 50)", required: false },
+		cursor: { type: "string", required: false },
+		reverse: { type: "boolean (default false)", required: false },
+	}}
+	response={{
+		cursor: { type: "string", required: false },
+		messages: { type: "messageView[]", required: true },
+	}}
+/>
+
+| Error | Description |
+| --- | --- |
+| `AuthRequired` | The request has no valid service auth. |
+| `Forbidden` | The requesting user may not read this channel. |
+| `ChannelNotFound` | No channel matches the given space reference. |
+
+### `social.colibri.beta.channel.listReactions`
+
+Lists everyone who reacted to one message, for a reaction hover card.
+
+<XRPCEndpointCard
+	method="GET"
+	nsid="social.colibri.beta.channel.listReactions"
+	authenticated={true}
+	queryParams={{
+		channel: { type: "space-ref", required: true },
+		messageAuthor: { type: "did", required: true },
+		messageRkey: { type: "record-key", required: true },
+		emoji: { type: "string", required: false },
+		limit: { type: "integer (1-100, default 50)", required: false },
+		cursor: { type: "string", required: false },
+	}}
+	response={{
+		cursor: { type: "string", required: false },
+		reactions: { type: "reactionView[]", required: true },
+	}}
+/>
+
+| Error | Description |
+| --- | --- |
+| `AuthRequired` | The request has no valid service auth. |
+| `Forbidden` | The requesting user may not read this channel. |
+| `ChannelNotFound` | No channel matches the given space reference. |
+| `MessageNotFound` | No message matches the given author and record key in that channel. |
+
+### `social.colibri.beta.channel.listUnreadStatus`
+
+Lists per-channel unread state for the requesting user, optionally scoped to one community.
+
+<XRPCEndpointCard
+	method="GET"
+	nsid="social.colibri.beta.channel.listUnreadStatus"
+	authenticated={true}
+	queryParams={{
+		community: { type: "did", required: false },
+		limit: { type: "integer (1-100, default 50)", required: false },
+	}}
+	response={{
+		statuses: { type: "unreadStatus[]", required: true },
+	}}
+/>
+
+| Error | Description |
+| --- | --- |
+| `AuthRequired` | The request has no valid service auth. |
+
+### `social.colibri.beta.channel.putReadCursors`
+
+Pushes the requesting user's read cursors for one community to the AppView, so unread counts update immediately instead of waiting for the next sync pass. The client writes its own `social.colibri.beta.channel.read` record to its personal space first, then calls this. Clients should debounce this call rather than sending it on every message.
+
+<XRPCEndpointCard
+	method="POST"
+	nsid="social.colibri.beta.channel.putReadCursors"
+	authenticated={true}
+	body={{
+		community: { type: "did", required: true },
+		cursors: {
+			type: "object[]",
+			required: true,
+			children: {
+				channel: { type: "record-key", required: true },
+				cursor: { type: "tid", required: true },
+			},
 		},
-		description: {
-			type: "string",
-			required: false,
-		},
-		siteName: {
-			type: "string",
-			required: false,
-		},
-		themeColor: {
-			type: "string",
-			required: false,
-		},
-		image: {
+	}}
+	response={{
+		statuses: { type: "unreadStatus[]", required: true },
+	}}
+/>
+
+The `cursors` array is a complete replacement of the community's read state, not a merge with what the AppView already has.
+
+| Error | Description |
+| --- | --- |
+| `AuthRequired` | The request has no valid service auth. |
+| `CommunityNotFound` | No community matches the given DID. |
+
+### `social.colibri.beta.channel.reorder`
+
+Sets the complete channel order within one category.
+
+<XRPCEndpointCard
+	method="POST"
+	nsid="social.colibri.beta.channel.reorder"
+	authenticated={true}
+	body={{
+		community: { type: "did", required: true },
+		category: { type: "record-key", required: true },
+		channels: { type: "record-key[]", required: true },
+	}}
+	response={{}}
+/>
+
+`channels` must contain exactly the category's current set of channels, reordered. Adding, dropping, or duplicating a channel space key fails the request.
+
+| Error | Description |
+| --- | --- |
+| `AuthRequired` | The request has no valid service auth. |
+| `Forbidden` | The requesting user lacks the `channel.update` permission. |
+| `CommunityNotFound` | No community matches the given DID. |
+| `CategoryNotFound` | No category matches the given record key. |
+| `InvalidRequest` | The given channels do not match the category's current set of channels. |
+| `CredentialsUnavailable` | The AppView cannot act as the community because its stored credentials are missing or unusable. |
+
+## Roles
+
+A role carries a base permission list plus optional per-channel `allow` and `deny` overrides. Evaluating a permission in a channel checks the channel `deny` list first, which beats everything, then the channel `allow` list, which grants the permission even without a base grant, and only then falls back to the role's base permissions.
+
+Every action taken against another member is guarded by hierarchy: the actor must strictly outrank the target, comparing highest role position to highest role position. A tie does not outrank. This applies the same way to granting a role, editing a role's position, or deleting a role, so nobody can act on a role at or above their own.
+
+### `social.colibri.beta.role.create`
+
+Creates a role in a community.
+
+<XRPCEndpointCard
+	method="POST"
+	nsid="social.colibri.beta.role.create"
+	authenticated={true}
+	body={{
+		community: { type: "did", required: true },
+		name: { type: "string (1-32 chars)", required: true },
+		permissions: { type: "string[]", required: true },
+		color: { type: "string (max 7 chars, #rrggbb)", required: false },
+		position: { type: "integer", required: false },
+		hoisted: { type: "boolean", required: false },
+		mentionable: { type: "boolean", required: false },
+	}}
+	response={{
+		role: { type: "roleView", required: true },
+	}}
+/>
+
+The caller can only grant a `position` strictly below their own highest role, and can only grant permissions they hold themselves.
+
+| Error | Description |
+| --- | --- |
+| `AuthRequired` | The request is missing, malformed, or unverifiable service auth. |
+| `Forbidden` | The caller lacks the `role.manage` permission. |
+| `CommunityNotFound` | No community exists at the given DID. |
+| `InvalidRequest` | The arguments are inconsistent or malformed beyond schema validation. |
+| `RoleHierarchy` | The requested position is at or above the caller's highest role position, or the permissions include one the caller does not hold. |
+| `CredentialsUnavailable` | The AppView cannot act as the community because its stored credentials are missing or unusable. |
+
+### `social.colibri.beta.role.update`
+
+Updates a role's settings, including its per-channel overrides.
+
+<XRPCEndpointCard
+	method="POST"
+	nsid="social.colibri.beta.role.update"
+	authenticated={true}
+	body={{
+		community: { type: "did", required: true },
+		role: { type: "record-key", required: true },
+		name: { type: "string (1-32 chars)", required: false },
+		color: { type: "string (max 7 chars, #rrggbb)", required: false },
+		permissions: { type: "string[]", required: false },
+		position: { type: "integer", required: false },
+		hoisted: { type: "boolean", required: false },
+		mentionable: { type: "boolean", required: false },
+		channelOverrides: {
 			type: "object[]",
 			required: false,
 			children: {
-				url: {
-					type: "uri",
-					required: true,
-				},
-				alt: {
-					type: "string",
-					required: false,
-				}
-			}
+				channel: { type: "record-key", required: true },
+				allow: { type: "string[]", required: false },
+				deny: { type: "string[]", required: false },
+			},
 		},
-		video: {
-			type: "object[]",
-			required: false,
+	}}
+	response={{
+		role: { type: "roleView", required: true },
+	}}
+/>
+
+A role marked `protected`, which is the role created alongside the community, cannot be updated at all. Any `allow` entry added through `channelOverrides` is held to the same hierarchy check as `permissions`: the caller must hold that permission themselves.
+
+| Error | Description |
+| --- | --- |
+| `AuthRequired` | The request is missing, malformed, or unverifiable service auth. |
+| `Forbidden` | The caller lacks the `role.manage` permission. |
+| `CommunityNotFound` | No community exists at the given DID. |
+| `RoleNotFound` | No role exists at the given record key. |
+| `RoleProtected` | The role is marked protected and cannot be modified. |
+| `RoleHierarchy` | The change would place the role at or above the caller's highest role position, or grants a permission the caller does not hold. |
+| `CredentialsUnavailable` | The AppView cannot act as the community because its stored credentials are missing or unusable. |
+
+### `social.colibri.beta.role.delete`
+
+Deletes a role and strips it from every member who holds it.
+
+<XRPCEndpointCard
+	method="POST"
+	nsid="social.colibri.beta.role.delete"
+	authenticated={true}
+	body={{
+		community: { type: "did", required: true },
+		role: { type: "record-key", required: true },
+	}}
+	response={{}}
+/>
+
+A protected role cannot be deleted, and the role being deleted must be strictly below the caller's highest role position.
+
+| Error | Description |
+| --- | --- |
+| `AuthRequired` | The request is missing, malformed, or unverifiable service auth. |
+| `Forbidden` | The caller lacks the `role.manage` permission. |
+| `CommunityNotFound` | No community exists at the given DID. |
+| `RoleNotFound` | No role exists at the given record key. |
+| `RoleProtected` | The role is marked protected and cannot be deleted. |
+| `RoleHierarchy` | The role is at or above the caller's highest role position. |
+| `CredentialsUnavailable` | The AppView cannot act as the community because its stored credentials are missing or unusable. |
+
+## Actors and preferences
+
+Every Colibri user gets exactly one permissioned space of type `social.colibri.beta.actor.preferences`, anchored on their own DID, holding their mutes, settings, and read cursors. Its authority is the user's own DID, and its policy is an empty `member-list`. The space manager authorizes the space's own authority before it consults the policy, so the owner always gets in and an empty list means nobody else ever does. A delegation token for this space is single-use and lives 60 seconds, so the AppView cannot renew its own access without an active client. `grantSpaceAccess` is how the client hands one over, and when no client is online the AppView keeps serving its last synced copy rather than failing.
+
+Beyond preferences, this group covers a user's public profile, off-protocol presence, community list, and account deletion.
+
+### `social.colibri.beta.actor.getProfile`
+
+Gets a user's profile: their identity, resolved display fields, and any live presence the AppView is tracking for them.
+
+<XRPCEndpointCard
+	method="GET"
+	nsid="social.colibri.beta.actor.getProfile"
+	authenticated
+	queryParams={{
+		actor: {
+			type: "at-identifier",
+			required: true
+		}
+	}}
+	response={{
+		profile: {
+			type: "object",
+			required: true,
 			children: {
-				url: {
-					type: "uri",
-					required: true,
+				did: {
+					type: "did",
+					required: true
 				},
-				mimeType: {
+				handle: {
+					type: "handle",
+					required: true
+				},
+				displayName: {
 					type: "string",
+					required: true
+				},
+				description: {
+					type: "string",
+					required: false
+				},
+				avatar: {
+					type: "uri",
+					required: false
+				},
+				banner: {
+					type: "uri",
+					required: false
+				},
+				isBot: {
+					type: "boolean",
+					required: true
+				},
+				syncBluesky: {
+					type: "boolean",
+					required: true
+				},
+				theme: {
+					type: "object",
 					required: false,
+					children: {
+						accentColor: {
+							type: "string",
+							required: false
+						},
+						bannerColor: {
+							type: "string",
+							required: false
+						},
+						gradient: {
+							type: "object",
+							required: false,
+							children: {
+								primary: {
+									type: "string",
+									required: false
+								},
+								secondary: {
+									type: "string",
+									required: false
+								}
+							}
+						}
+					}
+				},
+				preferredBadge: {
+					type: "string",
+					required: false
+				},
+				presence: {
+					type: "object",
+					required: false,
+					children: {
+						onlineState: {
+							type: "string",
+							required: true
+						},
+						status: {
+							type: "object",
+							required: false,
+							children: {
+								text: {
+									type: "string",
+									required: true
+								},
+								emoji: {
+									type: "string",
+									required: false
+								}
+							}
+						},
+						voice: {
+							type: "object",
+							required: false,
+							children: {
+								channel: {
+									type: "space-ref",
+									required: true
+								},
+								muted: {
+									type: "boolean",
+									required: false
+								},
+								deafened: {
+									type: "boolean",
+									required: false
+								}
+							}
+						}
+					}
 				}
 			}
+		}
+	}}
+/>
+
+`avatar` and `banner` are URLs served by this AppView's blob proxy, not raw blob references. `theme` always comes from the user's own `social.colibri.beta.actor.profile` record, even when `syncBluesky` is set and the other display fields come from `app.bsky.actor.profile` instead.
+
+| Error | Description |
+| --- | --- |
+| `AuthRequired` | The request has no valid service auth. |
+| `ActorNotFound` | No user matches the given DID or handle. |
+
+### `social.colibri.beta.actor.getPreferences`
+
+Gets the requesting user's own settings, as the AppView currently holds them. This is the AppView's synced copy, not a live read of the user's personal space, so it can lag behind a write the user just made until `putSettings` or `putMutes` catches it up or a sync notification arrives.
+
+<XRPCEndpointCard
+	method="GET"
+	nsid="social.colibri.beta.actor.getPreferences"
+	authenticated
+	response={{
+		preferences: {
+			type: "object",
+			required: true,
+			children: {
+				notificationLevel: {
+					type: "string",
+					required: true
+				},
+				communityOrder: {
+					type: "did[]",
+					required: true
+				},
+				mutes: {
+					type: "object[]",
+					required: true,
+					children: {
+						subject: {
+							type: "did",
+							required: true
+						},
+						createdAt: {
+							type: "datetime",
+							required: true
+						}
+					}
+				},
+				gifFavorites: {
+					type: "string[]",
+					required: true
+				}
+			}
+		}
+	}}
+/>
+
+`notificationLevel` is one of `all` or `mentionsAndReplies`.
+
+| Error | Description |
+| --- | --- |
+| `AuthRequired` | The request has no valid service auth. |
+
+### `social.colibri.beta.actor.listCommunities`
+
+Gets the requesting user's communities, ordered the way the user prefers them in their sidebar.
+
+<XRPCEndpointCard
+	method="GET"
+	nsid="social.colibri.beta.actor.listCommunities"
+	authenticated
+	response={{
+		communities: {
+			type: "communityView[]",
+			required: true
+		}
+	}}
+/>
+
+| Error | Description |
+| --- | --- |
+| `AuthRequired` | The request has no valid service auth. |
+
+### `social.colibri.beta.actor.putSettings`
+
+Pushes the requesting user's `social.colibri.beta.actor.settings` record to the AppView so the change takes effect immediately, instead of waiting for the AppView to notice the write on its own sync pass. The client writes the record to its own personal space first, then calls this. Any field left out of the request leaves the AppView's current value for it unchanged.
+
+<XRPCEndpointCard
+	method="POST"
+	nsid="social.colibri.beta.actor.putSettings"
+	authenticated
+	body={{
+		notificationLevel: {
+			type: "string",
+			required: false
 		},
-		largeImage: {
-			type: "boolean",
-			required: false,
+		communityOrder: {
+			type: "did[]",
+			required: false
+		},
+		gifFavorites: {
+			type: "string[]",
+			required: false
+		}
+	}}
+	response={{
+		preferences: {
+			type: "preferences",
+			required: true
 		}
 	}}
 />
 
-### `social.colibri.embed.getImage`
+`notificationLevel` accepts `all` or `mentionsAndReplies`. The response shape is the same `preferences` object [`getPreferences`](#socialcolibriactorgetpreferences) returns, after the update.
 
-Proxies a remote embed preview image through the AppView so the client's IP is never exposed to the image host. Unauthenticated, like [`com.atproto.sync.getBlob`](#comatprotosyncgetblob), because it is loaded directly via an `<img src>`, but constrained by the same SSRF guard and an `image/*` content-type requirement: anything that isn't an image is rejected.
+| Error | Description |
+| --- | --- |
+| `AuthRequired` | The request has no valid service auth. |
+| `InvalidRequest` | A field is present but does not hold an allowed value. |
+
+### `social.colibri.beta.actor.putMutes`
+
+Replaces the AppView's whole copy of the requesting user's mute list, so a mute or unmute takes effect immediately. As with `putSettings`, the client writes the underlying `social.colibri.beta.actor.mute` records to its own personal space first, then calls this with the complete, resulting list.
 
 <XRPCEndpointCard
-	method="GET"
-	nsid="social.colibri.embed.getImage"
-	queryParams={{
-		url: {
-			type: "uri",
+	method="POST"
+	nsid="social.colibri.beta.actor.putMutes"
+	authenticated
+	body={{
+		mutes: {
+			type: "object[]",
+			required: true,
+			children: {
+				subject: {
+					type: "did",
+					required: true
+				},
+				createdAt: {
+					type: "datetime",
+					required: true
+				}
+			}
+		}
+	}}
+	response={{
+		preferences: {
+			type: "preferences",
+			required: true
+		}
+	}}
+/>
+
+The response shape is the same `preferences` object [`getPreferences`](#socialcolibriactorgetpreferences) returns, after the update.
+
+| Error | Description |
+| --- | --- |
+| `AuthRequired` | The request has no valid service auth. |
+
+### `social.colibri.beta.actor.setStatus`
+
+Sets the requesting user's off-protocol presence: their status line and derived online state. Any field left out of the request leaves the AppView's current value for it unchanged.
+
+<XRPCEndpointCard
+	method="POST"
+	nsid="social.colibri.beta.actor.setStatus"
+	authenticated
+	body={{
+		text: {
+			type: "string",
+			required: false
+		},
+		emoji: {
+			type: "string",
+			required: false
+		},
+		onlineState: {
+			type: "string",
+			required: false
+		}
+	}}
+	response={{
+		presence: {
+			type: "object",
+			required: true,
+			children: {
+				onlineState: {
+					type: "string",
+					required: true
+				},
+				status: {
+					type: "object",
+					required: false,
+					children: {
+						text: {
+							type: "string",
+							required: true
+						},
+						emoji: {
+							type: "string",
+							required: false
+						}
+					}
+				},
+				voice: {
+					type: "object",
+					required: false,
+					children: {
+						channel: {
+							type: "space-ref",
+							required: true
+						},
+						muted: {
+							type: "boolean",
+							required: false
+						},
+						deafened: {
+							type: "boolean",
+							required: false
+						}
+					}
+				}
+			}
+		}
+	}}
+/>
+
+`onlineState` accepts `online`, `away`, `dnd`, or `offline`. `text` is capped at 32 characters.
+
+| Error | Description |
+| --- | --- |
+| `AuthRequired` | The request has no valid service auth. |
+| `InvalidRequest` | A field is present but does not hold an allowed value. |
+
+### `social.colibri.beta.actor.grantSpaceAccess`
+
+Hands the AppView a delegation token for one of the requesting user's own personal spaces, most often their `social.colibri.beta.actor.preferences` space. The AppView exchanges it for a space credential and syncs the space, as described above.
+
+<XRPCEndpointCard
+	method="POST"
+	nsid="social.colibri.beta.actor.grantSpaceAccess"
+	authenticated
+	body={{
+		space: {
+			type: "space-ref",
+			required: true
+		},
+		delegationToken: {
+			type: "string",
 			required: true
 		}
 	}}
 	response={{
-		image: {
-			type: "bytes",
+		expiresAt: {
+			type: "datetime",
 			required: true
 		}
 	}}
 />
 
-### `social.colibri.embed.getVideo`
+Call this again before `expiresAt` to keep access current. A user may only grant access to a space they are themselves the authority of.
 
-Proxies a remote embed video through the AppView, the `<video>` counterpart to [`getImage`](#socialcolibriembedgetimage) and unauthenticated for the same reason. Constrained by the same SSRF guard and a `video/mp4`-or-`video/webm` content-type requirement, plus a per-client-IP rate limit (`EMBED_VIDEO_RATE_LIMIT`, 120 requests a minute by default).
+| Error | Description |
+| --- | --- |
+| `AuthRequired` | The request has no valid service auth. |
+| `InvalidRequest` | The arguments are inconsistent or malformed beyond schema validation. |
+| `InvalidDelegationToken` | The delegation token is malformed, expired, or already used. |
+| `SpaceNotFound` | No space matches the given space reference. |
+| `NotAuthorized` | The delegation token does not grant access to the given space. |
+| `UpstreamFailure` | The user's PDS failed while the AppView exchanged the delegation token or synced the space. |
 
-Byte ranges are honoured, answering `Range` with a `206` and a `Content-Range`. This is not an optimisation: WebKit will not play a source that cannot serve a range at all, so the native macOS and iOS apps depend on it. A clip that would exceed the proxy's 8 MiB budget is refused outright rather than served truncated, since a cut-off file does not decode.
+### `social.colibri.beta.actor.getDeletionStatus`
+
+Gets what would happen if the requesting user deleted their account right now, so a client can show them the consequences before they confirm.
 
 <XRPCEndpointCard
 	method="GET"
-	nsid="social.colibri.embed.getVideo"
-	queryParams={{
-		url: {
-			type: "uri",
-			required: true
-		}
-	}}
+	nsid="social.colibri.beta.actor.getDeletionStatus"
+	authenticated
 	response={{
-		video: {
-			type: "bytes",
+		records: {
+			type: "integer",
+			required: true
+		},
+		notifications: {
+			type: "integer",
+			required: true
+		},
+		soleOwnedCommunities: {
+			type: "communityView[]",
 			required: true
 		}
 	}}
 />
 
-### `social.colibri.notification.listNotifications`
+`soleOwnedCommunities` lists communities the user solely owns, which block deletion until they are transferred or deleted.
 
-Returns a paginated list of notifications for the authenticated user, newest first. Each notification embeds the underlying message body so clients can render the notification without a follow-up fetch. `message` is omitted if the underlying message has been removed from the AppView cache.
+| Error | Description |
+| --- | --- |
+| `AuthRequired` | The request has no valid service auth. |
+
+### `social.colibri.beta.actor.deleteAccount`
+
+Erases the requesting user's Colibri data held by this AppView: their indexed records, notifications, mutes, settings, and cached profile. This never touches the user's own repos, since those stay under the user's own control regardless of what this AppView indexes.
+
+<XRPCEndpointCard
+	method="POST"
+	nsid="social.colibri.beta.actor.deleteAccount"
+	authenticated
+	response={{
+		deleted: {
+			type: "integer",
+			required: true
+		}
+	}}
+/>
+
+A user who solely owns a community must transfer or delete it first. See [`getDeletionStatus`](#socialcolibriactorgetdeletionstatus).
+
+| Error | Description |
+| --- | --- |
+| `AuthRequired` | The request has no valid service auth. |
+| `SoleOwnerOfCommunity` | The user solely owns at least one community and must transfer or delete it before deleting their account. |
+
+## Notifications
+
+A notification is raised for a mention, a reply, or a plain message in a channel the user is watching, and it always carries who caused it and where it happened. The AppView tracks two separate marks on a user's notifications: unread, cleared in bulk by timestamp with `updateSeen`, and unseen per channel, used to drive a channel's unread badge. Push delivery is a separate concern, registered per device through `registerPush` and `unregisterPush`.
+
+### `social.colibri.beta.notification.listNotifications`
+
+Gets the requesting user's notifications, newest first.
 
 <XRPCEndpointCard
 	method="GET"
-	nsid="social.colibri.notification.listNotifications"
+	nsid="social.colibri.beta.notification.listNotifications"
 	authenticated
 	queryParams={{
 		limit: {
@@ -2968,28 +2928,32 @@ Returns a paginated list of notifications for the authenticated user, newest fir
 			required: true,
 			children: {
 				id: {
-					type: "integer",
-					required: true
-				},
-				recipientDid: {
-					type: "did",
+					type: "string",
 					required: true
 				},
 				kind: {
 					type: "string",
 					required: true
 				},
-				messageUri: {
-					type: "at-uri",
+				author: {
+					type: "profileView",
 					required: true
 				},
-				authorDid: {
+				channel: {
+					type: "space-ref",
+					required: true
+				},
+				community: {
 					type: "did",
 					required: true
 				},
-				channelUri: {
-					type: "at-uri",
-					required: true
+				message: {
+					type: "messageView",
+					required: false
+				},
+				mentionRole: {
+					type: "string",
+					required: false
 				},
 				indexedAt: {
 					type: "datetime",
@@ -2998,82 +2962,25 @@ Returns a paginated list of notifications for the authenticated user, newest fir
 				seenAt: {
 					type: "datetime",
 					required: false
-				},
-				mentionRoleName: {
-					type: "string",
-					required: false
-				},
-				message: {
-					type: "object",
-					required: false,
-					children: {
-						text: {
-							type: "string",
-							required: true
-						},
-						facets: {
-							type: "Facet[]",
-							required: true
-						},
-						createdAt: {
-							type: "datetime",
-							required: true
-						},
-						parent: {
-							type: "record-key",
-							required: false
-						},
-						attachments: {
-							type: "object[]",
-							required: true,
-							children: {
-								blob: {
-									type: "blob",
-									required: true,
-								},
-								name: {
-									type: "string",
-									required: false,
-								},
-							}
-						},
-						edited: {
-							type: "boolean",
-							required: false
-						}
-					}
 				}
 			}
 		}
 	}}
 />
 
-The `kind` value is one of `mention` or `reply`.
+`limit` defaults to 50 and accepts 1 through 100. `kind` is one of `mention`, `reply`, or `message`. `author` has the same shape [`getProfile`](#socialcolibriactorgetprofile) returns. `message` is only present when the message it was raised for is still readable, and `mentionRole` is only set for a role mention.
 
-Mentions and replies are deduplicated per (recipient, message, kind), so a single message that both mentions and replies to the recipient produces two notification rows.
+| Error | Description |
+| --- | --- |
+| `AuthRequired` | The request has no valid service auth. |
 
-#### Role mention expansion
+### `social.colibri.beta.notification.getUnreadCount`
 
-A message facet of type `social.colibri.richtext.facet#role` (see [`#role`](/docs/specification/facets#role)) is expanded at index time into one `mention`-kind notification per member holding the role. Because expansion happens where the message is indexed, not where it is written, the client cannot forge a ping.
-
-For each role facet the AppView:
-
-1. Ignores the facet if the role URI's authority doesn't match the message's community (no cross-community pings).
-2. Loads the role record and checks its `mentionable` flag. If set, the role is pingable by anyone.
-3. If not marked mentionable, expands the role only when the message **author** holds the `mention.roles` permission.
-4. Notifies every member whose `roles` include the role, skipping the author. These share the `(recipient, message, kind)` dedup with direct mentions, so a member both `@`-mentioned and role-mentioned receives a single row.
-
-Delivery (live WebSocket and Web Push, including per-recipient DND/mute filtering) is unchanged.
-
-Each role-triggered notification is tagged with the display name of the role that produced it, captured at index time, so clients can render "mentioned via @&lt;role&gt;". This surfaces as `mentionRoleName` on the [`listNotifications`](#socialcolibrinotificationlistnotifications) view and the [`notification_event`](#notification_event) payload, and as the Web Push title (`Mentioned via @&lt;role&gt;`). When a member holds several of the mentioned roles they are attributed to the first one in the message's facet order. A member who is both directly mentioned and role-mentioned keeps the direct mention with no role tag.
-
-### `social.colibri.notification.getUnreadCount`
-
-Returns the count of unseen notifications for the authenticated user.
+Gets how many of the requesting user's notifications are unread, for a badge count that does not need the notifications themselves.
 
 <XRPCEndpointCard
 	method="GET"
-	nsid="social.colibri.notification.getUnreadCount"
+	nsid="social.colibri.beta.notification.getUnreadCount"
 	authenticated
 	response={{
 		count: {
@@ -3083,40 +2990,26 @@ Returns the count of unseen notifications for the authenticated user.
 	}}
 />
 
-### `social.colibri.notification.updateSeen`
+| Error | Description |
+| --- | --- |
+| `AuthRequired` | The request has no valid service auth. |
 
-Marks every unseen notification for the authenticated user whose `indexedAt` is at or before `seenAt` as seen. If `seenAt` is omitted, the AppView uses its current clock for both the cutoff and the stamped `seenAt`.
+### `social.colibri.beta.notification.getUnseen`
 
-<XRPCEndpointCard
-	method="POST"
-	nsid="social.colibri.notification.updateSeen"
-	authenticated
-	queryParams={{
-		seenAt: {
-			type: "datetime",
-			required: false
-		}
-	}}
-	response={{
-		updated: {
-			type: "integer",
-			required: true
-		}
-	}}
-/>
-
-### `social.colibri.notification.getUnseen`
-
-Returns the authenticated user's unseen notifications within a single channel. Clients use this when a channel opens to learn which messages still owe a ping, so each one can be cleared (via [`updateSeenForMessage`](#socialcolibrinotificationupdateseenformessage)) as its message scrolls into view.
+Gets the requesting user's unseen notifications for one channel, used to render that channel's unread badge detail rather than a global count.
 
 <XRPCEndpointCard
 	method="GET"
-	nsid="social.colibri.notification.getUnseen"
+	nsid="social.colibri.beta.notification.getUnseen"
 	authenticated
 	queryParams={{
 		channel: {
-			type: "at-uri",
+			type: "space-ref",
 			required: true
+		},
+		limit: {
+			type: "integer",
+			required: false
 		}
 	}}
 	response={{
@@ -3125,375 +3018,778 @@ Returns the authenticated user's unseen notifications within a single channel. C
 			required: true,
 			children: {
 				id: {
-					type: "integer",
-					required: true,
+					type: "string",
+					required: true
 				},
-				messageUri: {
-					type: "at-uri",
-					required: true,
+				kind: {
+					type: "string",
+					required: true
+				},
+				author: {
+					type: "profileView",
+					required: true
+				},
+				channel: {
+					type: "space-ref",
+					required: true
+				},
+				community: {
+					type: "did",
+					required: true
+				},
+				message: {
+					type: "messageView",
+					required: false
+				},
+				mentionRole: {
+					type: "string",
+					required: false
 				},
 				indexedAt: {
 					type: "datetime",
-					required: true,
+					required: true
 				},
+				seenAt: {
+					type: "datetime",
+					required: false
+				}
 			}
 		}
 	}}
 />
 
-### `social.colibri.notification.updateSeenForMessage`
+`limit` defaults to 50 and accepts 1 through 100.
 
-Marks the authenticated user's unseen notifications for a single message as seen. When at least one row is cleared, the AppView broadcasts a [`seen_event`](#seen_event) with `event: "message_seen"` to the user's other connected clients so their unread badges update live.
+| Error | Description |
+| --- | --- |
+| `AuthRequired` | The request has no valid service auth. |
+| `ChannelNotFound` | No channel matches the given space reference. |
+
+### `social.colibri.beta.notification.updateSeen`
+
+Marks every notification raised at or before a point in time seen, the bulk action behind "mark all as read".
 
 <XRPCEndpointCard
 	method="POST"
-	nsid="social.colibri.notification.updateSeenForMessage"
+	nsid="social.colibri.beta.notification.updateSeen"
 	authenticated
-	queryParams={{
-		message: {
-			type: "at-uri",
+	body={{
+		seenAt: {
+			type: "datetime",
 			required: true
 		}
 	}}
 	response={{
-		updated: {
+		unread: {
 			type: "integer",
 			required: true
 		}
 	}}
 />
 
-### `social.colibri.notification.registerPush`
+| Error | Description |
+| --- | --- |
+| `AuthRequired` | The request has no valid service auth. |
 
-Registers a Web Push subscription for the authenticated user so the AppView can deliver background push notifications when the app is closed.
+### `social.colibri.beta.notification.updateSeenForMessage`
 
-:::note[Service routing]
-This endpoint and [`unregisterPush`](#socialcolibrinotificationunregisterpush) belong to the notification service: proxy them with `atproto-proxy: did:web:api.colibri.social#colibri_notif` rather than `#colibri_appview`.
-:::
+Marks the notifications raised by one message seen, for when a user reads a single message rather than a whole channel.
 
 <XRPCEndpointCard
 	method="POST"
-	nsid="social.colibri.notification.registerPush"
+	nsid="social.colibri.beta.notification.updateSeenForMessage"
 	authenticated
 	body={{
-		platform: {
-			type: "string",
+		channel: {
+			type: "space-ref",
 			required: true
 		},
-		endpoint: {
-			type: "string",
-			required: true
-		},
-		keys: {
+		message: {
 			type: "object",
 			required: true,
 			children: {
-				p256dh: {
-					type: "string",
+				did: {
+					type: "did",
 					required: true
 				},
-				auth: {
-					type: "string",
+				rkey: {
+					type: "record-key",
 					required: true
 				}
 			}
 		}
 	}}
 	response={{
-		registered: {
-			type: "boolean",
+		unread: {
+			type: "integer",
 			required: true
 		}
 	}}
 />
 
-### `social.colibri.notification.unregisterPush`
+`message` addresses the message by its author's DID and its record key, since a record key is only unique per repo and a channel space aggregates many authors' repos.
 
-Drops a previously registered Web Push subscription for the authenticated user, identified by its `endpoint`. Called when the user disables notifications or the browser rotates/expires the subscription.
+| Error | Description |
+| --- | --- |
+| `AuthRequired` | The request has no valid service auth. |
+| `ChannelNotFound` | No channel matches the given space reference. |
+| `MessageNotFound` | No message matches the given record reference in that channel. |
+
+### `social.colibri.beta.notification.registerPush`
+
+Registers a push endpoint for the requesting user's device.
 
 <XRPCEndpointCard
 	method="POST"
-	nsid="social.colibri.notification.unregisterPush"
+	nsid="social.colibri.beta.notification.registerPush"
 	authenticated
 	body={{
-		endpoint: {
+		provider: {
 			type: "string",
+			required: true
+		},
+		platform: {
+			type: "string",
+			required: true
+		},
+		endpoint: {
+			type: "uri",
+			required: false
+		},
+		p256dh: {
+			type: "string",
+			required: false
+		},
+		auth: {
+			type: "string",
+			required: false
+		},
+		token: {
+			type: "string",
+			required: false
+		}
+	}}
+/>
+
+`provider` is `webpush` or `fcm`, and `platform` is `web`, `ios`, or `android`. Web Push registration requires `endpoint`, `p256dh`, and `auth`. FCM registration requires `token`.
+
+| Error | Description |
+| --- | --- |
+| `AuthRequired` | The request has no valid service auth. |
+| `InvalidRequest` | The fields required for the given provider are missing or malformed. |
+| `PushNotConfigured` | This AppView has no keypair for the requested provider. |
+
+### `social.colibri.beta.notification.unregisterPush`
+
+Removes a previously registered push endpoint.
+
+<XRPCEndpointCard
+	method="POST"
+	nsid="social.colibri.beta.notification.unregisterPush"
+	authenticated
+	body={{
+		provider: {
+			type: "string",
+			required: true
+		},
+		endpoint: {
+			type: "uri",
+			required: false
+		},
+		token: {
+			type: "string",
+			required: false
+		}
+	}}
+/>
+
+`provider` is `webpush` or `fcm`. Unregistering a Web Push endpoint needs `endpoint`, and unregistering an FCM registration needs `token`.
+
+| Error | Description |
+| --- | --- |
+| `AuthRequired` | The request has no valid service auth. |
+| `InvalidRequest` | The arguments are inconsistent or malformed beyond schema validation. |
+
+## Embeds and GIFs
+
+Pasting a link into a message gets a preview through `getMetadata`, and the GIF picker is backed by `searchGifs`, `trendingGifs`, and `gifCategories`. The AppView fetches every link on the client's behalf behind an SSRF guard, so a client's own address is never exposed to the site being previewed, and a hostname that resolves to a private, loopback, or otherwise blocked address is refused even if the URL itself looks public.
+
+### `social.colibri.beta.embed.getMetadata`
+
+Fetches and parses a link preview: page title, description, site name, and a preview image or video where the page declares one.
+
+<XRPCEndpointCard
+	method="GET"
+	nsid="social.colibri.beta.embed.getMetadata"
+	authenticated
+	queryParams={{
+		uri: {
+			type: "uri",
 			required: true
 		}
 	}}
 	response={{
-		unregistered: {
-			type: "boolean",
-			required: true
+		embed: {
+			type: "object",
+			required: true,
+			children: {
+				uri: {
+					type: "uri",
+					required: true
+				},
+				title: {
+					type: "string",
+					required: false
+				},
+				description: {
+					type: "string",
+					required: false
+				},
+				siteName: {
+					type: "string",
+					required: false
+				},
+				image: {
+					type: "object",
+					required: false,
+					children: {
+						url: {
+							type: "uri",
+							required: true
+						},
+						width: {
+							type: "integer",
+							required: false
+						},
+						height: {
+							type: "integer",
+							required: false
+						},
+						alt: {
+							type: "string",
+							required: false
+						}
+					}
+				},
+				video: {
+					type: "object",
+					required: false,
+					children: {
+						url: {
+							type: "uri",
+							required: true
+						},
+						mimeType: {
+							type: "string",
+							required: true
+						},
+						width: {
+							type: "integer",
+							required: false
+						},
+						height: {
+							type: "integer",
+							required: false
+						},
+						duration: {
+							type: "integer",
+							required: false
+						}
+					}
+				}
+			}
 		}
 	}}
 />
 
-#### `notification_event`
+`image.url` and `video.url` are served by this AppView's own proxy rather than pointing at the original site. `video.mimeType` is always `video/mp4` or `video/webm`, since those are the only formats considered playable.
 
-Notification events are emitted over [`social.colibri.sync.subscribeEvents`](#socialcolibrisyncsubscribeevents) immediately after a notification is indexed. The payload mirrors a single entry of [`listNotifications`](#socialcolibrinotificationlistnotifications) and always carries the message body.
+| Error | Description |
+| --- | --- |
+| `AuthRequired` | The request has no valid service auth. |
+| `InvalidRequest` | The arguments are inconsistent or malformed beyond schema validation. |
+| `NotFetchable` | The target refused the request, timed out, or resolves to an address the AppView will not fetch. |
+| `UpstreamFailure` | The target site failed while the AppView fetched or parsed it. |
 
-```ts title="data"
-{
-	id: integer;
-	kind: 'mention' | 'reply';
-	messageUri: string;
-	authorDid: string;
-	channelUri: string;
-	indexedAt: string;
-	mentionRoleName?: string; // set when a role mention triggered this notification
-	message: {
-		text: string;
-		facets: facet[];
-		createdAt: string;
-		parent?: string;
-		attachments: { blob: blob; name?: string; }[];
-		edited?: boolean;
-	};
-}
-```
+### `social.colibri.beta.embed.searchGifs`
 
-##### Web Push delivery
-
-Alongside each `notification_event` broadcast over the WebSocket, the AppView also sends a [VAPID Web Push](https://datatracker.ietf.org/doc/html/rfc8030) message to every Web Push subscription the recipient has registered via [`registerPush`](#socialcolibrinotificationregisterpush).
-
-The push payload is JSON shaped for the Service Worker that renders it:
-
-```ts title="push payload"
-{
-	title: string;        // "New mention" | "New reply" | "Mentioned via @<role>"
-	body: string;         // the message text
-	tag?: string;         // the message URI (collapses duplicates)
-	icon?: string;
-	data: {
-		channelUri: string; // required
-		messageUri: string;
-	};
-}
-```
-
-The AppView owns the VAPID keypair and exposes the public key to clients out of band (as the `PUBLIC_VAPID_KEY` build-time environment variable). Subscriptions that the push service reports as gone (HTTP `404`/`410`) are pruned automatically.
-
-#### `seen_event`
-
-Emitted over [`social.colibri.sync.subscribeEvents`](#socialcolibrisyncsubscribeevents) to keep unread state in sync across a user's devices. Unlike most events, a `seen_event` is delivered only to the originating user's own connected clients (filtered by DID).
-
-```ts title="data"
-{
-	event: 'channel_read' | 'message_seen';
-	channelUri: string;
-	messageUri?: string; // present on message_seen
-	cleared?: number;    // present on message_seen
-}
-```
-
-## Cross-AppView writes
-
-Every community has exactly one AppView that administers it, the holder of its `community_credentials` and the only party able to write to the community repo. That is the same hub the [Humming](#humming) topology uses, discovered the same way, from the `appview` field on the `social.colibri.community` record.
-
-A user, however, talks only to their own AppView, so a request that writes to a community repo has to reach the administering AppView somehow. Rather than have clients address a foreign AppView directly, the user's own AppView **relays** the request and returns the hub's answer, which keeps every client connection pointed at the one AppView the user chose.
-
-### Which methods relay
-
-Any method that writes to a community's repo. In the reference AppView that is exactly the set reaching its credential-bound write helpers:
-
-`community.banUser`, `community.unbanUser`, `community.kickUser`, `community.kick`, `community.blockMessage`, `community.suppressMessageEmbeds`, `community.unsuppressMessageEmbeds`, `community.approveMembership`, `community.leave`, `community.update`, `community.delete`, `community.setMemberRoles`, `community.reorderChannels`, `community.reorderCategories`, `channel.create`, `channel.update`, `channel.delete`, `category.create`, `category.update`, `category.delete`, `role.create`, `role.update`, `role.delete`.
-
-Reads never relay. Moderation state is on-protocol, so every AppView reconstructs identical state from the firehose without holding any credentials. `community.create`, `community.migrate` and `community.registerCredentials` do not relay either, since they establish or acquire hub status rather than depending on it.
-
-### Delegated service auth
-
-A relayed request is authenticated with a token the relaying AppView signs itself, exactly as in Humming: `iss` is its own `did:web`, `aud` is the hub's, and `lxm` is the method being relayed. It adds one claim:
-
-| Claim | Meaning |
-| ----- | ------- |
-| `act` | DID of the user the relaying AppView is acting for. |
-
-`act` lives **inside the signed claims** rather than travelling as a request parameter, so the delegation cannot be altered in transit independently of the signature.
-
-An AppView receiving a token with `act` must apply all of the following:
-
-1. **The token verifies normally.** Signature, `aud` matching its own DID, `lxm` matching the method, and the expiry cap all apply unchanged.
-2. **The issuer must be the actor's declared AppView.** The request is refused unless `act`'s `social.colibri.actor.profile` carries a `presenceService` equal to the token's `iss`. A valid signature proves who sent the request. This check proves who they may act as. It is the same anchor Humming uses, so a user who has opted out of cross-instance presence has also opted out of being acted for.
-3. **Permissions are derived locally, never delegated.** Only identity crosses the boundary. The receiving AppView loads `act`'s roles and permissions from its own mirror of the community and applies its usual checks.
-4. **Relays never chain.** A request that already carries `act` and still is not for a community this AppView administers must be refused with `NotCommunityHub`, not forwarded a second time.
-
-A token **without** `act` must be rejected by any method that does not accept delegation, rather than silently ignoring the claim.
-
-### Errors
-
-| Error | Status | Meaning |
-| ----- | ------ | ------- |
-| `NotCommunityHub` | 421 | This AppView does not administer the community. The response body carries a `hub` field naming the AppView that does, so a misrouted caller can correct itself. |
-| `AppViewNotAuthorized` | 403 | The `act` in a delegated token has not published the sending AppView as authorized to act for it. |
-
-`NotCommunityHub` extends the standard error body with one optional member:
-
-```json
-{
-  "error": "NotCommunityHub",
-  "message": "This community is administered by did:web:example.com.",
-  "hub": "did:web:example.com"
-}
-```
-
-A relaying AppView should reconstruct the hub's error rather than flattening it, so callers see the code the hub actually returned. An unrecognised code should degrade to `UpstreamFailure` while keeping the hub's message.
-
-### Peer transport
-
-An AppView is addressed by the `did:web` in the community record, which is a field any repo can write, so the outbound call is treated as untrusted:
-
-- **`https` only.** No plaintext, at any port. This is also what makes the classic cloud-metadata target unreachable, since it serves plaintext only.
-- **Any port.** Self-hosting behind a non-443 port is legitimate and must not be blocked.
-- **Loopback and unspecified addresses refused.** A crafted `appview` field must not be able to aim an authenticated request at something listening on the AppView's own host. Private and link-local ranges stay reachable so an AppView on an internal network can peer.
-- **No redirects.** A 307 or 308 would replay the signed token and body at a host the peer chooses.
-- **Pinned resolution.** The address validated must be the address dialled.
-- **Bounded response.** A peer is not trusted to answer small.
-
-## Humming
-
-:::caution[Experimental]
-Humming is **enabled by default**. AppViews can opt out out by returning  a `NotEnabled` error on the endpoint below and opening no outbound connections. In the reference AppView, this can be achieved by starting the AppView with `HUMMING_ENABLED=false`. Cross-instance behaviour has not yet been hardened by a large federated deployment, so treat it as experimental.
-:::
-
-Colibri is built to be self-hostable, so it's possible that a community's members are spread across several AppViews. On-protocol data reaches every AppView through the tap firehose. **Off-protocol** signals, like online status, typing, voice presence, never touch a repo, so without Humming they are contained within the AppView that produced them. A user on one instance can't see the presence of a community member on another.
-
-**Humming** bridges that gap. A **Hum** is a single off-protocol event (a status change, a typing start, a voice join/leave) that one AppView relays to another so it can be delivered to that instance's clients over its ordinary [`social.colibri.sync.subscribeEvents`](#socialcolibrisyncsubscribeevents) stream. Humming carries **only** these ephemeral signals. It cannot carry a message, a membership, or any other on-protocol data.
-
-### Topology: per-community hub
-
-Every community already has exactly one AppView that administers it, the holder of its `community_credentials`, the only party that can write to the community repo. That AppView is the community's **presence hub**. It is discovered from the community record itself: `social.colibri.community` carries an `appview` field (a `did:web`) naming the home AppView.
-
-Presence flows through the hub in a **star** topology, not a gossip mesh:
-
-1. A **leaf** (any AppView with a local, online member of the community) sends the member's Hums to the community's hub via [`sendHum`](#socialcolibrisyncsendhum).
-2. The **hub** injects the Hum for its own local clients and fans it out to every leaf subscribed via [`subscribeHums`](#socialcolibrisyncsubscribehums).
-3. **Leaves never re-forward.** A Hum received over `subscribeHums` is delivered to local clients only.
-
-A Hum therefore makes **at most two hops** (leaf → hub → leaf), and an instance only ever sees traffic for communities its own users belong to. There is no whole-network flood.
-
-### Trust model
-
-A Hum is only acted on if it passes every check below. The design goal is that a forged or abusive Hum can, at worst, cause a cosmetic presence blip for a user who already opted in.
-
-1. **Off-protocol data only.** The wire type for a Hum's event is a closed union of `userEvent`, `typingEvent`, and `voicePresenceEvent`. An on-protocol payload will be ignored.
-2. **The peer AppView is authenticated.** Every Hum carries an [inter-service auth](https://atproto.com/specs/xrpc#inter-service-authentication-jwt) JWT signed by the sending AppView's key (`iss` = its `did:web`, `aud` = the receiver's `did:web`, `lxm` = the method NSID). This is a peer-to-peer AppView token, **not** the user OAuth token used by the rest of the API.
-3. **The origin must be an AppView.** The verified issuer must be a `did:web`. This stops a user from minting a service-auth token under their own `did:plc` and originating presence for themselves.
-4. **The origin must be the subject's declared presence service.** A Hum about a user is dropped unless its `origin` equals that user's `presenceService` (see [Opting in](#opting-in)). A valid signature proves *who sent* the Hum, this check proves *who they may speak for*. A missing `presenceService` means the user hasn't opted in, so the Hum is dropped.
-5. **The subject must be a member.** The subject must hold a `social.colibri.member` record on the target community, so a peer can't inject a user into a community they never joined.
-6. **Channels must belong to the community.** Any channel a typing or voice event references must be an `at-uri` whose authority is the target community.
-
-Finally, the receiver re-derives the subject's identity from its own view of that user's repo and attributes the injected event to the envelope's `subject`. The peer-supplied identity fields inside the event payload (display name, handle, the inner `did`) are discarded and only the ephemeral status/typing/voice signal is taken from the Hum. This closes any attempt to attribute an event to a different user.
-
-### Opting in
-
-Cross-instance presence is **opt-in per user**. A user opts in by publishing a `presenceService` field (a `did:web`) on their `social.colibri.actor.profile`, naming the AppView allowed to speak for their presence. The reference Colibri client keeps this in sync with the AppView the user actually connects to (the one chosen in the settings picker) and exposes a **"Share presence across AppViews"** toggle, on by default.
-
-Turning the toggle off removes the `presenceService` key from the profile. A missing key is the signal for "opted out": every AppView drops Hums about that user, so their presence, typing, and voice never cross an instance boundary. Local, same-AppView presence is unaffected.
-
-### The Hum envelope
-
-Both endpoints exchange the same envelope:
-
-```ts title="humEnvelope"
-{
-	origin: string;      // did:web of the AppView that produced the Hum
-	id: string;          // unique per origin, used for dedup across relay paths
-	ttl: number;         // remaining hops (0..8), starts at 1, hub decrements to 0
-	subject: string;     // did of the user the event is about
-	community: string;   // at-uri of the community the event is scoped to
-	event: UserEvent | TypingEvent | VoicePresenceEvent;
-}
-```
-
-`userEvent` and `typingEvent` are the same shapes emitted over [`subscribeEvents`](#socialcolibrisyncsubscribeevents). `voicePresenceEvent` describes a voice channel join/leave:
-
-```ts title="voicePresenceEvent"
-{
-	event: 'join' | 'leave';
-	channel: string; // at-uri of the voice channel
-	did: string;     // subject (re-derived by the receiver)
-}
-```
-
-### `social.colibri.sync.sendHum`
-
-Informs this AppView, acting as a community's hub, of an off-protocol event that occurred for one of the calling AppView's users.
+Searches the GIF picker's provider.
 
 <XRPCEndpointCard
-	method="POST"
-	nsid="social.colibri.sync.sendHum"
-	body={{
-		origin: {
-			type: "did",
-			required: true
-		},
-		id: {
+	method="GET"
+	nsid="social.colibri.beta.embed.searchGifs"
+	authenticated
+	queryParams={{
+		q: {
 			type: "string",
 			required: true
 		},
-		ttl: {
+		limit: {
 			type: "integer",
+			required: false
+		},
+		cursor: {
+			type: "string",
+			required: false
+		}
+	}}
+	response={{
+		cursor: {
+			type: "string",
+			required: false
+		},
+		gifs: {
+			type: "object[]",
+			required: true,
+			children: {
+				id: {
+					type: "string",
+					required: true
+				},
+				url: {
+					type: "uri",
+					required: true
+				},
+				previewUrl: {
+					type: "uri",
+					required: true
+				},
+				width: {
+					type: "integer",
+					required: true
+				},
+				height: {
+					type: "integer",
+					required: true
+				},
+				title: {
+					type: "string",
+					required: false
+				}
+			}
+		}
+	}}
+/>
+
+`limit` defaults to 50 and accepts 1 through 100. `id` is stable enough to save as a favorite in `putSettings`' `gifFavorites`.
+
+| Error | Description |
+| --- | --- |
+| `AuthRequired` | The request has no valid service auth. |
+| `GifsNotConfigured` | This AppView has no GIF provider key configured. |
+| `UpstreamFailure` | The GIF provider failed. |
+
+### `social.colibri.beta.embed.trendingGifs`
+
+Gets trending GIFs from the GIF picker's provider, for the picker's default view before a user types a query.
+
+<XRPCEndpointCard
+	method="GET"
+	nsid="social.colibri.beta.embed.trendingGifs"
+	authenticated
+	queryParams={{
+		limit: {
+			type: "integer",
+			required: false
+		},
+		cursor: {
+			type: "string",
+			required: false
+		}
+	}}
+	response={{
+		cursor: {
+			type: "string",
+			required: false
+		},
+		gifs: {
+			type: "object[]",
+			required: true,
+			children: {
+				id: {
+					type: "string",
+					required: true
+				},
+				url: {
+					type: "uri",
+					required: true
+				},
+				previewUrl: {
+					type: "uri",
+					required: true
+				},
+				width: {
+					type: "integer",
+					required: true
+				},
+				height: {
+					type: "integer",
+					required: true
+				},
+				title: {
+					type: "string",
+					required: false
+				}
+			}
+		}
+	}}
+/>
+
+`limit` defaults to 50 and accepts 1 through 100.
+
+| Error | Description |
+| --- | --- |
+| `AuthRequired` | The request has no valid service auth. |
+| `GifsNotConfigured` | This AppView has no GIF provider key configured. |
+| `UpstreamFailure` | The GIF provider failed. |
+
+### `social.colibri.beta.embed.gifCategories`
+
+Lists the categories shown in the GIF picker.
+
+<XRPCEndpointCard
+	method="GET"
+	nsid="social.colibri.beta.embed.gifCategories"
+	authenticated
+	response={{
+		categories: {
+			type: "object[]",
+			required: true,
+			children: {
+				name: {
+					type: "string",
+					required: true
+				},
+				previewUrl: {
+					type: "uri",
+					required: false
+				}
+			}
+		}
+	}}
+/>
+
+| Error | Description |
+| --- | --- |
+| `AuthRequired` | The request has no valid service auth. |
+| `GifsNotConfigured` | This AppView has no GIF provider key configured. |
+| `UpstreamFailure` | The GIF provider failed. |
+
+## Voice
+
+Joining a voice channel, publishing and consuming audio, and reacting to who else is in the room all happen over the voice signalling WebSocket, described in [the voice signalling socket](#the-voice-socket). `social.colibri.beta.voice.moderate` is the one voice action that exists as an XRPC method instead: muting, deafening, or disconnecting someone else in a voice channel.
+
+### `social.colibri.beta.voice.moderate`
+
+Acts on someone in a voice channel: forcing their microphone muted, forcing them deafened, or disconnecting them outright. Any boolean field left out of the request leaves the AppView's current value for it unchanged, except `disconnect`, which only ever acts when set.
+
+<XRPCEndpointCard
+	method="POST"
+	nsid="social.colibri.beta.voice.moderate"
+	authenticated
+	body={{
+		channel: {
+			type: "space-ref",
 			required: true
 		},
 		subject: {
 			type: "did",
 			required: true
 		},
-		community: {
-			type: "at-uri",
-			required: true
+		muted: {
+			type: "boolean",
+			required: false
 		},
-		event: {
-			type: "object",
-			required: true
+		deafened: {
+			type: "boolean",
+			required: false
+		},
+		disconnect: {
+			type: "boolean",
+			required: false
 		}
 	}}
 />
 
-#### Authentication
+The caller needs the `voice.moderate` permission for the channel, and the subject must currently be connected to it.
 
-`sendHum` is authenticated with a peer-AppView **inter-service auth** JWT, not the user OAuth token used elsewhere. The token is supplied as a bearer token (`Authorization: Bearer <jwt>`), with `aud` set to the receiving AppView's `did:web` and `lxm` set to `social.colibri.sync.sendHum`. The receiver resolves the issuer's DID document, verifies the signature, and treats `iss` as the peer AppView identity, which must equal the envelope's `origin`.
+| Error | Description |
+| --- | --- |
+| `AuthRequired` | The request has no valid service auth. |
+| `Forbidden` | The requesting user lacks the voice.moderate permission. |
+| `ChannelNotFound` | No channel matches the given space reference. |
+| `NotInVoice` | The subject is not currently connected to the channel. |
+| `VoiceUnavailable` | This AppView has no voice SFU running. |
 
-The receiver then runs the [trust model](#trust-model) checks, injects the event locally (presence and voice as `Community`-scoped events on `subscribeEvents`, typing as a client-to-client typing event), and, if it is a hub, while `ttl > 0`, decrements `ttl` and republishes the Hum to its `subscribeHums` subscribers.
+## Blobs
 
-Errors: `AuthRequired` (missing/invalid token), `Forbidden` (any trust-model check failed), `RateLimited` (peer exceeded its per-peer budget), `UnsupportedEvent` (payload was not an off-protocol event), `NotEnabled` (Humming disabled on this AppView).
+`social.colibri.beta.blob.get` replaced the old public blob proxy. It now serves blobs from *permissioned* spaces by holding a space credential a browser client never gets, fetching through `com.atproto.space.getBlob` rather than the public `com.atproto.sync.getBlob`. Do not confuse the two: `space.getBlob` requires the AppView's own credential for that space, while `sync.getBlob` only ever works for a blob on a fully public repo. Every byte this endpoint serves is verified against the requested CID before it reaches the caller, and the content type is sniffed from the bytes rather than trusted from whatever the upstream declared.
 
-### `social.colibri.sync.subscribeHums`
+### `social.colibri.beta.blob.get`
 
-A peer AppView opens this WebSocket to receive, in real time, the Hums this AppView relays in its hub role.
+Serves a blob from a permissioned space through the AppView, or a blob from a public repo directly. The response is the raw blob bytes, not a JSON body, and it honours HTTP range requests.
 
 <XRPCEndpointCard
-	method="WS"
-	nsid="social.colibri.sync.subscribeHums"
+	method="GET"
+	nsid="social.colibri.beta.blob.get"
+	authenticated
+	queryParams={{
+		did: {
+			type: "did",
+			required: true
+		},
+		cid: {
+			type: "cid",
+			required: true
+		},
+		space: {
+			type: "space-ref",
+			required: false
+		},
+		variant: {
+			type: "string",
+			required: false
+		},
+		filename: {
+			type: "string",
+			required: false
+		}
+	}}
 />
 
-#### Authentication
+`space` is required for a blob in a permissioned space, and omitted for a blob on a public repo. `variant` selects a rendition of a resizable image: `thumbnail`, `avatar`, `banner`, or `full` for the untouched original. `filename`, when set, sets the downloaded file's name.
 
-Like [`subscribeEvents`](#socialcolibrisyncsubscribeevents), a browser-incompatible header can't be set on a `WebSocket`, so the peer's inter-service auth JWT (`aud` = this AppView, `lxm` = `social.colibri.sync.subscribeHums`) is offered through the subprotocol list, after the same `colibri.auth.bearer` sentinel:
+| Error | Description |
+| --- | --- |
+| `AuthRequired` | The request has no valid service auth. |
+| `Forbidden` | The requesting user may not read the space holding the blob. |
+| `BlobNotFound` | No blob matches the given DID and CID. |
+| `InvalidRequest` | The arguments are inconsistent or malformed beyond schema validation. |
+| `UpstreamFailure` | The repo's PDS failed while the AppView fetched the blob. |
 
-```js
-new WebSocket(url, ["colibri.auth.bearer", token]);
+## Server
+
+`social.colibri.beta.server.describeServer` is what a client probes to decide whether a host is a Colibri AppView at all, and which of its optional features are turned on.
+
+### `social.colibri.beta.server.describeServer`
+
+Gets information about this AppView: its own identity, the software version it runs, and the space types and optional features it understands.
+
+<XRPCEndpointCard
+	method="GET"
+	nsid="social.colibri.beta.server.describeServer"
+	response={{
+		did: {
+			type: "did",
+			required: true
+		},
+		version: {
+			type: "string",
+			required: true
+		},
+		handleDomain: {
+			type: "string",
+			required: true
+		},
+		pds: {
+			type: "uri",
+			required: true
+		},
+		contact: {
+			type: "string",
+			required: false
+		},
+		features: {
+			type: "string[]",
+			required: false
+		},
+		spaceTypes: {
+			type: "nsid[]",
+			required: false
+		}
+	}}
+/>
+
+`handleDomain` is the domain community handles are minted under, and `pds` is the PDS communities are created on. `features` lists which of `voice`, `push`, `gifs`, and `embeds` this deployment has turned on. `spaceTypes` lists the space type NSIDs this AppView understands, which is how a client can tell a deployment apart that predates a given space type from one that just has no instances of it yet.
+
+## The events socket
+
+`social.colibri.beta.sync.subscribeEvents` is a WebSocket at
+`/xrpc/social.colibri.beta.sync.subscribeEvents`. It carries everything that happens
+while a client is connected: messages, reactions, structure changes, presence,
+typing, notifications and voice participation.
+
+Frames are JSON in both directions, and each one is tagged with a `$type` naming
+a definition in `social.colibri.beta.sync.defs`:
+
+```json
+{ "$type": "social.colibri.beta.sync.defs#messageEvent", "…": "…" }
 ```
 
-The sentinel is echoed back on success, the token is not.
+### Subscription is explicit
 
-#### Need-to-know egress
+A connection is sent **nothing it did not ask for**.
 
-A valid token authenticates *who* is connecting, not *what* they may see. Streaming every relayed Hum to any authenticated peer would leak the presence of every user in every community on the hub. Instead, the hub only forwards Hums for a community when that community has a member who declared the connecting peer as their `presenceService`. This authorized set is recomputed periodically as memberships and `presenceService` choices change.
+Send a `subscribe` frame naming the communities and channels you want. The
+server keeps a topic index and answers with `subscribed`, confirming what the
+connection is now receiving. Anything you are not entitled to read is silently
+dropped from that confirmation rather than refused, so compare what you asked
+for against what came back.
 
-A peer may additionally narrow what it receives by declaring the communities it cares about as repeated `communities` query parameters (`?communities=<did>&communities=<did>`). This is intersected with the authorized set: it can only shrink the stream, never widen it. Omitting it streams everything the peer is authorized for.
+`unsubscribe` removes topics again. Events for the connected user personally,
+such as notifications, arrive without any subscription.
 
-:::note
-`subscribeHums` is egress-only: inbound frames are ignored except the close signal. Peers push Hums with [`sendHum`](#socialcolibrisyncsendhum), never here.
+### Client frames
+
+| Frame | What it does |
+| --- | --- |
+| `subscribe` | Adds communities and channels to what this connection receives |
+| `unsubscribe` | Removes communities and channels |
+| `heartbeat` | Keeps the connection alive and reports the user is present. Answered with `ack` |
+| `typing` | Reports that the user is typing in a channel |
+| `viewChannel` | Reports which channel the user is looking at, which drives read state and away detection |
+| `setPresence` | Updates the user's own presence |
+
+### Server frames
+
+| Frame | Sent when |
+| --- | --- |
+| `ack` | Answering a heartbeat |
+| `error` | Something the client sent could not be acted on |
+| `subscribed` | After a subscribe or unsubscribe, confirming what this connection now receives |
+| `messageEvent` | A message was written, edited or deleted in a subscribed channel. `create` and `update` carry the full `messageView` in `message`, and `delete` carries only the `subject` reference. A message already hidden when it is indexed is not published |
+| `reactionEvent` | A reaction was added or removed in a subscribed channel |
+| `channelEvent` | A channel was created, changed or deleted |
+| `categoryEvent` | A category was created, changed or deleted |
+| `roleEvent` | A role was created, changed or deleted |
+| `memberEvent` | Someone joined, left or had their roles changed |
+| `communityEvent` | A community's profile or settings changed |
+| `applicationEvent` | The pending-application queue changed. Only sent to members who can manage approvals |
+| `labelEvent` | A label was applied or retracted on a record in a subscribed space. A `create` of `hidden` means the message is not served any more and should be taken off screen, and a `negate` of `hidden` is followed by a `messageEvent` re-publishing it |
+| `moderationEvent` | A moderation action was logged. Only sent to members who can read the log |
+| `notificationEvent` | A notification was raised for the connected user |
+| `seenEvent` | The user marked notifications seen elsewhere, so this client should clear the same badges |
+| `presenceEvent` | Someone's presence changed |
+| `typingEvent` | Someone is typing in a subscribed channel |
+| `voiceEvent` | A voice channel's participants changed |
+| `communityProgressEvent` | Progress while a community is being created, which takes several PDS round trips |
+
+The server pings every 30 seconds and drops connections that stop answering.
+
+## The voice socket
+
+Voice is a second WebSocket at `/xrpc/social.colibri.beta.voice.subscribeSignals`,
+separate from the events socket, and it speaks
+[mediasoup](https://mediasoup.org) client signalling. Frames are tagged from
+`social.colibri.beta.voice.defs`.
+
+:::caution[Join before anything else]
+A connection must send `join` before any other frame. Joining a second channel
+on the same connection is not supported. Open a new connection or leave first.
 :::
 
-### Propagation bounds & abuse controls
+### Client frames
 
-The star topology bounds propagation structurally (two hops, no re-forwarding), and several additional guards protect self-hosted instances:
+| Frame | What it does |
+| --- | --- |
+| `join` | Joins a voice channel. Required first |
+| `leave` | Leaves the channel this connection is in |
+| `getRtpCapabilities` | Requests the router's RTP capabilities for the joined channel |
+| `createTransport` | Requests a new WebRTC transport |
+| `connectTransport` | Completes DTLS negotiation for a transport this connection created |
+| `produce` | Starts producing media on a send transport |
+| `closeProducer` | Closes a producer this connection owns |
+| `consume` | Starts consuming another peer's producer on a receive transport |
+| `resumeConsumer` | Resumes a consumer, which is created paused |
+| `setSelfState` | Updates this connection's own mute or deafen state. An absent field is left unchanged |
+| `heartbeat` | Keeps the connection alive. Answered with `ack` |
 
-- **`ttl`** starts at `1` and the hub decrements it to `0` on rebroadcast; a bound that, combined with leaves never re-forwarding, prevents loops.
-- **Dedup.** Each AppView keeps a bounded set of recently-seen envelope `id`s and drops duplicates that arrive over more than one relay path, along with any Hum it originated itself.
-- **`HUM_MAX_PEERS`** caps the number of distinct remote hubs a leaf will dial (default `32`). Beyond the cap, extra hubs are skipped.
-- **`HUM_MAX_SUBSCRIBERS`** caps concurrent inbound `subscribeHums` streams a hub will hold (default `256`). Further connections are rejected with `TooManySubscribers`.
-- **Per-peer rate limit** on `sendHum` (`HUM_RATE_LIMIT`, default `240`/minute per peer). Presence and typing are inherently low-rate, so a peer exceeding the budget is `RateLimited`.
+### Server frames
+
+| Frame | Sent when |
+| --- | --- |
+| `ack` | Answering a heartbeat |
+| `error` | Something the client sent could not be acted on |
+| `joined` | Confirming this connection joined a channel |
+| `rtpCapabilities` | Answering `getRtpCapabilities` |
+| `transportOptions` | Answering `createTransport` |
+| `producerInfo` | A producer is available to consume |
+| `consumerOptions` | Answering `consume` |
+| `producerRemoved` | A peer's producer closed |
+| `peerJoined`, `peerLeft` | A peer joined or left the channel |
+| `speakingUpdate` | Someone started or stopped speaking |
+| `moderationChanged` | A peer's server-enforced mute or deafen state changed |
+
+There are no correlation identifiers on these frames. A reply is matched to a
+request by its type and by the order it arrives in, so do not have two requests
+of the same kind outstanding on one connection.
+
+Server-enforced mute is distinct from self-mute. A moderator mute arrives as
+`moderationChanged`, and `setSelfState` cannot lift it.
+
+## Protocol callbacks
+
+Three inbound methods are called by a community's PDS rather than by a client.
+They authenticate with service auth from the space authority, and each one
+verifies that the caller is the authority for the space it is talking about.
+
+### `com.atproto.simplespace.checkUserAccess`
+
+Answers whether a user may hold a credential for a space. The community's PDS
+calls this before minting anything, so this is where bans, membership and
+channel visibility are enforced.
+
+It answers from local projections with an in-memory cache and makes no outbound
+call of its own. It fails closed: an unrecognised space type, an unknown
+community or a caller that is not the space's authority all return
+`authorized: false`.
+
+<XRPCEndpointCard
+	method="GET"
+	nsid="com.atproto.simplespace.checkUserAccess"
+	queryParams={{
+		space: { type: "space-ref", required: true },
+		user: { type: "did", required: true },
+		clientId: { type: "string", required: false }
+	}}
+	response={{
+		authorized: { type: "boolean", required: true }
+	}}
+	authenticated={true}
+/>
+
+### `com.atproto.space.notifyWrite`
+
+Tells the AppView that a repo in a space has been written to, which enqueues a
+pull of that repo. Notifications are best effort, and the periodic sweep is
+what guarantees correctness, so a missed one costs latency rather than data. See [Sync](/docs/architecture/sync).
+
+<XRPCEndpointCard
+	method="POST"
+	nsid="com.atproto.space.notifyWrite"
+	body={{
+		space: { type: "space-ref", required: true },
+		repo: { type: "did", required: true }
+	}}
+	authenticated={true}
+/>
+
+### `com.atproto.space.notifySpaceDeleted`
+
+Tells the AppView a space no longer exists, so it drops its copy and forgets the
+credential. Ignored unless the caller is that space's authority.
+
+<XRPCEndpointCard
+	method="POST"
+	nsid="com.atproto.space.notifySpaceDeleted"
+	body={{
+		space: { type: "space-ref", required: true }
+	}}
+	authenticated={true}
+/>
+
+## See also
+
+- [AppView Architecture](/docs/architecture/appview): what implements this.
+- [Lexicons](/docs/specification/lexicons): the record and method schemas themselves.
+- [Facets](/docs/specification/facets): how rich text is encoded.

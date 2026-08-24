@@ -1,0 +1,76 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.channel.listMessages",
+	"defs": {
+		"main": {
+			"type": "query",
+			"description": "Lists messages in a channel, newest first by default. Messages from the repo-backed channel this one was migrated from are included and marked legacy.",
+			"parameters": {
+				"type": "params",
+				"required": [
+					"channel"
+				],
+				"properties": {
+					"channel": {
+						"type": "string",
+						"format": "space-ref",
+						"description": "The channel to list messages from."
+					},
+					"limit": {
+						"type": "integer",
+						"minimum": 1,
+						"maximum": 100,
+						"default": 50,
+						"description": "Maximum number of messages to return."
+					},
+					"cursor": {
+						"type": "string",
+						"description": "Pagination cursor from a previous call."
+					},
+					"reverse": {
+						"type": "boolean",
+						"default": false,
+						"description": "Whether to return the oldest messages first instead of the newest."
+					}
+				}
+			},
+			"output": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"messages"
+					],
+					"properties": {
+						"cursor": {
+							"type": "string",
+							"description": "Pagination cursor for the next page."
+						},
+						"messages": {
+							"type": "array",
+							"description": "The channel's messages.",
+							"items": {
+								"type": "ref",
+								"ref": "social.colibri.beta.channel.defs#messageView"
+							}
+						}
+					}
+				}
+			},
+			"errors": [
+				{
+					"name": "AuthRequired",
+					"description": "The request has no valid service auth."
+				},
+				{
+					"name": "Forbidden",
+					"description": "The requesting user may not read this channel."
+				},
+				{
+					"name": "ChannelNotFound",
+					"description": "No channel matches the given space reference."
+				}
+			]
+		}
+	}
+}

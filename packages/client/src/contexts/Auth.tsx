@@ -10,16 +10,10 @@ import {
 import { type Client, getClient } from "../atproto/auth";
 import { primeFromLocation } from "../atproto/channel-prefetch";
 import { sessionDead } from "../atproto/session-health";
-import { XrpcClient } from "../atproto/xrpc";
+import { primaryClient } from "../atproto/xrpc";
 import { AppLoadingScreen } from "../components/AppLoadingScreen";
 import { AppViewUnreachableModal } from "../components/app/AppViewUnreachableModal";
 import { SessionExpiredRedirect } from "../components/app/SessionExpiredRedirect";
-import {
-	getAppViewHost,
-	getAppViewServiceRef,
-	verifyColibriAppView,
-} from "../utils/appview";
-import { reportPdsStatus } from "../utils/dev-diagnostics";
 import { markBoot } from "../utils/perf";
 
 export const AuthContext = createContext<Client>(undefined);
@@ -34,16 +28,8 @@ export const AuthContextProvider: ParentComponent = (props) => {
 	createEffect(() => {
 		const resolved = client();
 		if (!resolved?.loggedIn) return;
-		primeFromLocation(new XrpcClient(getAppViewServiceRef(), resolved.agent));
+		primeFromLocation(primaryClient(resolved.agent));
 	});
-
-	// An AppView with no usable PDS serves every read fine and fails every
-	// write. Ask once at startup so that shows up before the first one does.
-	if (import.meta.env.DEV) {
-		void verifyColibriAppView(getAppViewHost("http")).then((description) =>
-			reportPdsStatus(description?.pds),
-		);
-	}
 
 	return (
 		<Switch>

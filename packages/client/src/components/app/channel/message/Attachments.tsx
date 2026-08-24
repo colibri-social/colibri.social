@@ -1,4 +1,3 @@
-import type { AttachmentObj } from "@colibri-social/lib";
 import {
 	type Component,
 	createEffect,
@@ -28,11 +27,7 @@ import SpeakerLowIcon from "~icons/ph/speaker-low-fill";
 import SpeakerMutedIcon from "~icons/ph/speaker-x-fill";
 import SpinnerIcon from "~icons/ph/spinner-gap";
 import XIcon from "~icons/ph/x";
-import {
-	resolveBlob,
-	resolveBlobDownload,
-} from "../../../../atproto/resolve-blob";
-import type { Message } from "../../../../atproto/xrpc/social/colibri/channel/listMessages";
+import type { AttachmentView } from "../../../../atproto/views";
 import { isTauriRuntime } from "../../../../notifications/environment";
 import { createSwipe } from "../../../../utils/create-swipe";
 import {
@@ -44,7 +39,7 @@ import { openExternalLink } from "../../../../utils/open-external-link";
 import { isDesktopNative } from "../../../../utils/platform";
 import { Button } from "../../../ui/Button";
 
-type AttachmentComponent = Component<{ item: AttachmentObj; did: string }>;
+type AttachmentComponent = Component<{ item: AttachmentView }>;
 
 /** Shared base for the small square icon buttons used in the control bars. */
 const CONTROL_BTN =
@@ -130,10 +125,9 @@ const TimeDisplay: Component<{ tone: "muted" | "light" }> = (props) => (
 
 export const AudioAttachment: AttachmentComponent = (props) => {
 	const name = () => props.item.name ?? "Audio";
-	const src = () => resolveBlob(props.did, props.item.blob);
-	const downloadSrc = () =>
-		resolveBlobDownload(props.did, props.item.blob, name());
-	const size = "size" in props.item.blob ? props.item.blob.size : undefined;
+	const src = () => props.item.url;
+	const downloadSrc = () => props.item.url;
+	const size = () => props.item.size;
 
 	return (
 		<media-player
@@ -145,7 +139,7 @@ export const AudioAttachment: AttachmentComponent = (props) => {
 		>
 			<media-provider>
 				<Show when={src()}>
-					{(url) => <source src={url()} type={props.item.blob.mimeType} />}
+					{(url) => <source src={url()} type={props.item.mimeType} />}
 				</Show>
 			</media-provider>
 
@@ -164,10 +158,12 @@ export const AudioAttachment: AttachmentComponent = (props) => {
 					<span class="truncate font-medium text-sm text-primary group-hover/file:underline">
 						{name()}
 					</span>
-					<Show when={size !== undefined}>
-						<span class="text-sm text-muted-foreground">
-							{formatBytes(size as number)}
-						</span>
+					<Show when={size()}>
+						{(bytes) => (
+							<span class="text-sm text-muted-foreground">
+								{formatBytes(bytes())}
+							</span>
+						)}
 					</Show>
 				</div>
 			</a>
@@ -454,13 +450,12 @@ export const MediaLightboxGallery: Component<{
 };
 
 export const ImageGallery: Component<{
-	images: AttachmentObj[];
-	did: string;
+	images: ReadonlyArray<AttachmentView>;
 }> = (props) => {
 	const items = (): GalleryImage[] =>
 		props.images.map((i) => ({
-			url: resolveBlob(props.did, i.blob),
-			downloadUrl: resolveBlobDownload(props.did, i.blob, i.name),
+			url: i.url,
+			downloadUrl: i.url,
 			name: i.name,
 			width: i.width,
 			height: i.height,
@@ -471,9 +466,8 @@ export const ImageGallery: Component<{
 
 export const VideoAttachment: AttachmentComponent = (props) => {
 	const name = () => props.item.name ?? "Video";
-	const src = () => resolveBlob(props.did, props.item.blob);
-	const downloadSrc = () =>
-		resolveBlobDownload(props.did, props.item.blob, name());
+	const src = () => props.item.url;
+	const downloadSrc = () => props.item.url;
 
 	const usePseudoFullscreen = isTauriRuntime() && !isDesktopNative();
 	const [pseudoFullscreen, setPseudoFullscreen] = createSignal(false);
@@ -558,7 +552,7 @@ export const VideoAttachment: AttachmentComponent = (props) => {
 
 			<media-provider>
 				<Show when={src()}>
-					{(url) => <source src={url()} type={props.item.blob.mimeType} />}
+					{(url) => <source src={url()} type={props.item.mimeType} />}
 				</Show>
 			</media-provider>
 
@@ -658,8 +652,8 @@ export const VideoAttachment: AttachmentComponent = (props) => {
 
 export const GenericFileAttachment: AttachmentComponent = (props) => {
 	const name = () => props.item.name ?? "File";
-	const src = () => resolveBlobDownload(props.did, props.item.blob, name());
-	const size = "size" in props.item.blob ? props.item.blob.size : undefined;
+	const src = () => props.item.url;
+	const size = () => props.item.size;
 
 	return (
 		<a
@@ -675,10 +669,14 @@ export const GenericFileAttachment: AttachmentComponent = (props) => {
 			<div class="flex min-w-0 flex-col">
 				<span class="truncate font-medium text-foreground">{name()}</span>
 				<span class="text-sm text-muted-foreground">
-					{props.item.blob.mimeType}
-					<Show when={size !== undefined}>
-						{" · "}
-						{formatBytes(size as number)}
+					{props.item.mimeType}
+					<Show when={size()}>
+						{(bytes) => (
+							<>
+								{" · "}
+								{formatBytes(bytes())}
+							</>
+						)}
 					</Show>
 				</span>
 			</div>
@@ -689,7 +687,7 @@ export const GenericFileAttachment: AttachmentComponent = (props) => {
 
 export const MessageAttachments: Component<{
 	did: string;
-	attachments: Message["attachments"];
+	attachments: ReadonlyArray<AttachmentView>;
 	disableHover?: boolean;
 }> = (props) => {
 	/**
@@ -699,9 +697,9 @@ export const MessageAttachments: Component<{
 		props.attachments
 			.filter(
 				(x) =>
-					!x.blob.mimeType.includes("image/") &&
-					!x.blob.mimeType.includes("video/") &&
-					!x.blob.mimeType.includes("audio/"),
+					!x.mimeType.includes("image/") &&
+					!x.mimeType.includes("video/") &&
+					!x.mimeType.includes("audio/"),
 			)
 			.map((x) => ({ ...x, name: x.name ?? "file" }));
 
@@ -710,7 +708,7 @@ export const MessageAttachments: Component<{
 	 */
 	const audioFiles = () =>
 		props.attachments
-			.filter((x) => x.blob.mimeType.includes("audio/"))
+			.filter((x) => x.mimeType.includes("audio/"))
 			.map((x) => ({ ...x, name: x.name ?? "audio" }));
 
 	/**
@@ -718,39 +716,39 @@ export const MessageAttachments: Component<{
 	 */
 	const imageFiles = () =>
 		props.attachments
-			.filter((x) => x.blob.mimeType.includes("image/"))
+			.filter((x) => x.mimeType.includes("image/"))
 			.map((x) => ({ ...x, name: x.name ?? "image" }));
 	/**
 	 * Returns all video files.
 	 */
 	const videoFiles = () =>
 		props.attachments
-			.filter((x) => x.blob.mimeType.includes("video/"))
+			.filter((x) => x.mimeType.includes("video/"))
 			.map((x) => ({ ...x, name: x.name ?? "video" }));
 
 	return (
 		<div class="w-full flex flex-col gap-2">
 			<Show when={imageFiles().length > 0}>
-				<ImageGallery images={imageFiles()} did={props.did} />
+				<ImageGallery images={imageFiles()} />
 			</Show>
 			<Show when={videoFiles().length > 0}>
 				<div class="w-full flex flex-row flex-wrap gap-2">
 					<For each={videoFiles()}>
-						{(item) => <VideoAttachment item={item} did={props.did} />}
+						{(item) => <VideoAttachment item={item} />}
 					</For>
 				</div>
 			</Show>
 			<Show when={audioFiles().length > 0}>
 				<div class="w-full flex flex-col gap-2">
 					<For each={audioFiles()}>
-						{(item) => <AudioAttachment item={item} did={props.did} />}
+						{(item) => <AudioAttachment item={item} />}
 					</For>
 				</div>
 			</Show>
 			<Show when={nonDisplayableFiles().length > 0}>
 				<div class="w-full flex flex-col gap-2">
 					<For each={nonDisplayableFiles()}>
-						{(item) => <GenericFileAttachment item={item} did={props.did} />}
+						{(item) => <GenericFileAttachment item={item} />}
 					</For>
 				</div>
 			</Show>

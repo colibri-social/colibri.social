@@ -1,44 +1,42 @@
 import { createSignal, Match, type ParentComponent, Switch } from "solid-js";
 import { toast } from "somoto";
+import { colibri } from "../../../atproto/lexicons";
+import { clientForManagingApp } from "../../../atproto/xrpc";
 import { Button } from "../../../components/ui/Button";
 import { ResponsiveDialog } from "../../../components/ui/ResponsiveDialog";
 import { useCommunityContext } from "../../../contexts/Community";
 import { useUserContext } from "../../../contexts/User";
 import { showError } from "../../../errors/show-error";
+import { webAppOrigin } from "../../../utils/web-origin";
 import { Spinner } from "../../icons/Spinner";
 
-/**
- * A modal for creating an invitation link.
- */
 export const InviteLinkCreationModal: ParentComponent<{
 	generateNew?: boolean;
 	refetch?: (...args: any[]) => void;
 }> = (props) => {
 	const user = useUserContext();
 	const community = useCommunityContext();
-	const uri = () => community().community.uri;
 	const [code, setCode] = createSignal<string | undefined>();
 	const [loading, setLoading] = createSignal(false);
 	const [open, setOpen] = createSignal(false);
 	const [copied, setCopied] = createSignal(false);
 
-	/**
-	 * Gets an invite code for the specified community.
-	 */
 	const createInviteLink = async () => {
 		setLoading(true);
-		const res = await user.xrpc.social.colibri.community.createInvitation(
-			uri(),
+		const client = clientForManagingApp(
+			user.atproto.agent,
+			community().community.managingApp,
 		);
+		const res = await client.call(colibri.community.createInvitation.main, {
+			body: { community: community().community.did },
+		});
 		setLoading(false);
-		if (!res.ok || !res.data) {
-			showError(res.ok ? undefined : res.error, {
-				fallbackTitle: "Failed to create invite link.",
-			});
+		if (!res.ok) {
+			showError(res.error, { fallbackTitle: "Failed to create invite link." });
 			return;
 		}
-		setCode(res.data.code);
-		toast.success(`Invite code created: ${res.data.code}`);
+		setCode(res.data.invitation.code);
+		toast.success(`Invite code created: ${res.data.invitation.code}`);
 		props.refetch?.();
 	};
 
@@ -50,7 +48,7 @@ export const InviteLinkCreationModal: ParentComponent<{
 		}
 	};
 
-	const linkText = () => `https://colibri.social/invite/${code()}`;
+	const linkText = () => `${webAppOrigin()}/invite/${code()}`;
 
 	const copyLink = () => {
 		navigator.clipboard.writeText(linkText());

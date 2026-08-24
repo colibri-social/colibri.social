@@ -1,22 +1,55 @@
 ---
 title: "Lexicons"
+description: "Every schema Colibri defines, grouped by kind."
 ---
 
 import LexiconDefinitions from "@/components/docs/LexiconDefinitions.astro";
 
-Colibri defines a set of AT Protocol lexicons for its data types and AppView
-endpoints. They are grouped below by kind.
+Colibri's lexicons define its wire format. The AppView validates against them,
+handler types are generated from them, and a change to one is a protocol change
+rather than an implementation detail.
+
+They are authored in the AppView repository and published as
+[`@colibri-social/lexicons`](https://www.npmjs.com/package/@colibri-social/lexicons),
+which ships the raw JSON alongside generated TypeScript. Import those types
+rather than redeclaring the shapes. The definitions rendered on this page are
+generated from that package.
+
+## Reading these
+
+Two properties of [permissioned spaces](/docs/architecture/spaces) shape most of
+what you see below.
+
+**A space type is a lexicon.** Seven of the documents here have a `main`
+definition of type `space`. Each lists the record collections its space may hold
+and carries a name written for people rather than developers, because that name
+is what an OAuth consent screen shows.
+
+**A record is addressed by author as well as key.** Record keys are unique per
+repository, and a space aggregates many repositories, so a bare key is
+ambiguous. Message parents and reaction targets carry `{ did, rkey }`. Role and
+channel references stay bare keys, because those are only ever written by the
+community itself.
+
+## Space types
+
+Each declares the collections its space may hold, and the consent-screen name a
+user sees when an app asks for access.
+
+<LexiconDefinitions category="spaces" />
 
 ## Records
 
-Persisted records that live in a user's or community's repository.
+Records persisted in a user's or a community's repository, read through the
+space they belong to.
 
 <LexiconDefinitions category="records" />
 
 ## Shared definitions
 
-Reusable object definitions (`*.defs`) referenced by records, queries, and
-events across the other lexicons.
+Reusable object definitions (`*.defs`) referenced by records, queries and events
+across the other lexicons. The event socket's frames live here, in
+`social.colibri.beta.sync.defs`.
 
 <LexiconDefinitions category="shared" />
 
@@ -32,14 +65,16 @@ Mutating `POST` endpoints served by the AppView.
 
 <LexiconDefinitions category="procedures" />
 
-## Subscriptions
-
-WebSocket event streams.
-
-<LexiconDefinitions category="subscriptions" />
-
 ## Permission sets
 
-OAuth permission sets bundling the scopes a client can request.
+The scopes a client can request. These are expressed over **spaces** rather than
+over repository collections, so a consent screen can say "read and post in this
+community's channels" instead of listing NSIDs at a user.
 
 <LexiconDefinitions category="permissions" />
+
+## See also
+
+- [AppView Specification](/docs/specification/appview): the endpoints these describe.
+- [Facets](/docs/specification/facets): how rich text is encoded.
+- [Communities](/docs/architecture/communities): which records live where.

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import type { Member } from "../atproto/xrpc/social/colibri/community/listMembers";
+import type { Member } from "../contexts/community-payload";
 import { createMemberIndex } from "./member-search";
 import { forgetSpeakers, recordSpeaker, speakerRanks } from "./recent-speakers";
 

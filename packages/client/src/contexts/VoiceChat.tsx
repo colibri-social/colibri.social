@@ -11,7 +11,35 @@ import {
 } from "solid-js";
 import { createStore } from "solid-js/store";
 import { toast } from "somoto";
+import { asSpaceRef } from "../atproto/lexicons";
+import { voiceDisabledOn } from "../atproto/server-features";
+import { frameIs, setPresenceFrame } from "../atproto/sync-frames";
+import type { ProfileView } from "../atproto/views";
+import {
+	type ClientVoiceFrame,
+	closeProducerFrame,
+	connectTransportFrame,
+	consumeFrame,
+	createTransportFrame,
+	decodeMediaSource,
+	decodeVoiceFrame,
+	encodeVoiceFrame,
+	getRtpCapabilitiesFrame,
+	heartbeatFrame,
+	isServerVoiceFrame,
+	joinFrame,
+	type MediaSource,
+	produceFrame,
+	resumeConsumerFrame,
+	type ServerVoiceFrame,
+	setSelfStateFrame,
+	type TransportOptionsFrame,
+	VOICE_SIGNAL_LXM,
+	VOICE_SIGNAL_PATH,
+} from "../atproto/voice-frames";
 import { classifyThrown } from "../errors/classify";
+import { isAppViewErrorCode } from "../errors/codes";
+import { colibriError } from "../errors/error";
 import { showError } from "../errors/show-error";
 import {
 	createNoiseSuppressor,
@@ -22,11 +50,7 @@ import {
 	type SuppressionMonitor,
 } from "../hooks/createSuppressionMonitor";
 import { noiseMode } from "../hooks/noise/modes";
-import {
-	getAppViewHost,
-	getAppViewHostFromDid,
-	getAppViewServiceRef,
-} from "../utils/appview";
+import { appViewHostFor, getAppViewServiceRef } from "../utils/appview";
 import { createLogger } from "../utils/logger";
 import {
 	displayMediaRequest,
@@ -40,7 +64,6 @@ import {
 } from "../utils/screen-share";
 import { pickVoiceHandler, supportsWebRtc } from "../utils/voice-device";
 import {
-	authorityOf,
 	computePresenceSync,
 	type PresenceMember,
 } from "../utils/voice-presence";
@@ -78,7 +101,7 @@ export type VoiceChatConnection = {
 	uri: string | null;
 	channelName: string | null;
 	communityName: string | null;
-	hubDid: string | null;
+	managingApp: string | null;
 };
 
 export type VoiceChatStates = {
@@ -105,6 +128,11 @@ export type VoiceMemberState = {
 	serverDeafened?: boolean;
 };
 
+export type PresenceSource = {
+	did: string;
+	actor: Pick<ProfileView, "presence">;
+};
+
 export type VoiceChatData = {
 	connection: VoiceChatConnection;
 	states: VoiceChatStates;
@@ -119,7 +147,11 @@ export type VoiceChatData = {
 export type VoiceChatActions = {
 	connect: (
 		channelUri: string,
-		meta?: { channelName?: string; communityName?: string; hubDid?: string },
+		meta?: {
+			channelName?: string;
+			communityName?: string;
+			managingApp?: string;
+		},
 	) => Promise<void>;
 	disconnect: () => void;
 	toggleMic: () => void;
@@ -135,8 +167,8 @@ export type VoiceChatActions = {
 	toggleDeafen: () => void;
 	setFocusedKey: (key: string | null) => void;
 	setOverlayDismissed: (dismissed: boolean) => void;
-	syncPresence: (communityUri: string, members: Array<PresenceMember>) => void;
-	addPresence: (member: PresenceMember) => void;
+	syncPresence: (communityUri: string, members: Array<PresenceSource>) => void;
+	addPresence: (member: PresenceSource) => void;
 };
 
 export type VoiceChatContextValue = [VoiceChatData, VoiceChatActions];
@@ -144,50 +176,19 @@ export type VoiceChatContextValue = [VoiceChatData, VoiceChatActions];
 const VoiceChatContext = createContext<VoiceChatContextValue>();
 
 const AUTH_SUBPROTOCOL = "colibri.auth.bearer";
-const LXM = "social.colibri.voice.signal";
-const SCREEN_AUDIO_SOURCE = "screenaudio";
 const SPEAKING_THRESHOLD = 0.007;
 const MAX_RECONNECT_ATTEMPTS = 6;
 const STATS_INTERVAL_MS = 3000;
 const STATS_FAST_MS = 400;
+const HEARTBEAT_INTERVAL_MS = 20000;
 
-type ServerMessage =
-	| {
-			action: "init";
-			routerRtpCapabilities: types.RtpCapabilities;
-			producerTransportOptions: types.TransportOptions;
-			consumerTransportOptions: types.TransportOptions;
-			iceServers: RTCIceServer[];
-	  }
-	| { action: "connectedProducerTransport" }
-	| { action: "produced"; id: string }
-	| { action: "connectedConsumerTransport" }
-	| {
-			action: "consumed";
-			id: string;
-			producerId: string;
-			kind: types.MediaKind;
-			rtpParameters: types.RtpParameters;
-	  }
-	| {
-			action: "producerAdded";
-			did: string;
-			producerId: string;
-			kind: types.MediaKind;
-			source: string;
-	  }
-	| { action: "producerRemoved"; did: string; producerId: string }
-	| { action: "activeSpeakers"; dids: string[] }
-	| { action: "serverMuted"; muted: boolean }
-	| { action: "serverDeafened"; deafened: boolean }
-	| { action: "kicked" }
-	| { action: "superseded" }
-	| { action: "error"; message: string };
+type ChannelRef = ReturnType<typeof asSpaceRef>;
 
-const communityUriForChannel = (channelUri: string): string | null => {
-	const authority = authorityOf(channelUri);
-	if (!authority) return null;
-	return `at://${authority}/social.colibri.community/self`;
+const disconnectReason = (reason: string | undefined): string => {
+	if (reason === "moderator") return "A moderator disconnected you.";
+	if (reason === "superseded") return "You joined this call somewhere else.";
+	if (reason === "channelGone") return "The channel is no longer there.";
+	return "The server closed your connection.";
 };
 
 export const VoiceChatContextProvider: ParentComponent = (props) => {
@@ -205,7 +206,7 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 			uri: null,
 			channelName: null,
 			communityName: null,
-			hubDid: null,
+			managingApp: null,
 		},
 		states: {
 			camEnabled: false,
@@ -246,6 +247,9 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 	let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 	let statsTimer: ReturnType<typeof setTimeout> | null = null;
 	let statsGen = 0;
+	let heartbeatTimer: ReturnType<typeof setInterval> | null = null;
+	let channelRef: ChannelRef | null = null;
+	let sendChain: Promise<void> = Promise.resolve();
 	let pendingVideoTeardown: Promise<void> | null = null;
 	const videoTrackListeners = new Map<VideoSource, () => void>();
 
@@ -256,17 +260,13 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 	>();
 	const producerOwners = new Map<
 		string,
-		{ did: string; kind: types.MediaKind; source: string }
+		{ did: string; kind: types.MediaKind; source: MediaSource }
 	>();
 	const pendingConsume: string[] = [];
-	const pendingByAction = new Map<
-		string,
-		Array<{ resolve: (m: ServerMessage) => void; reject: (e: unknown) => void }>
-	>();
-	const pendingConsumed = new Map<
-		string,
-		{ resolve: (m: ServerMessage) => void; reject: (e: unknown) => void }
-	>();
+	let pendingReplies: Array<{
+		resolve: (frame: ServerVoiceFrame) => void;
+		reject: (err: unknown) => void;
+	}> = [];
 
 	const dbg = (...args: unknown[]): void => {
 		log.debug(args.map(String).join(" "));
@@ -280,7 +280,7 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 				userAgent:
 					typeof navigator === "undefined" ? "unknown" : navigator.userAgent,
 				channel: voiceData.connection.uri,
-				hubDid: voiceData.connection.hubDid,
+				managingApp: voiceData.connection.managingApp,
 				state: voiceData.connection.state,
 			});
 			Sentry.captureException(
@@ -316,45 +316,53 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 		disconnect();
 	};
 
-	const send = (message: Record<string, unknown>): void => {
+	const send = (frame: ClientVoiceFrame): void => {
 		if (ws?.readyState === WebSocket.OPEN) {
-			dbg("→ send", message.action, message);
-			ws.send(JSON.stringify(message));
+			dbg("→ send", frame.$type, frame);
+			ws.send(encodeVoiceFrame(frame));
 		} else {
-			dbg("✗ send dropped (socket not open)", message.action, {
+			dbg("✗ send dropped (socket not open)", frame.$type, {
 				readyState: ws?.readyState,
 			});
 		}
 	};
 
-	const waitForAction = (action: string): Promise<ServerMessage> => {
-		return new Promise((resolve, reject) => {
-			const queue = pendingByAction.get(action) ?? [];
-			queue.push({ resolve, reject });
-			pendingByAction.set(action, queue);
-		});
+	const sendAndWait = (frame: ClientVoiceFrame): Promise<ServerVoiceFrame> => {
+		const run = sendChain.then(
+			() =>
+				new Promise<ServerVoiceFrame>((resolve, reject) => {
+					pendingReplies.push({ resolve, reject });
+					send(frame);
+				}),
+		);
+		sendChain = run.then(
+			() => undefined,
+			() => undefined,
+		);
+		return run;
 	};
 
-	const waitForConsumed = (producerId: string): Promise<ServerMessage> => {
-		return new Promise((resolve, reject) => {
-			pendingConsumed.set(producerId, { resolve, reject });
-		});
+	const expectFrame = <T extends ServerVoiceFrame["$type"]>(
+		frame: ServerVoiceFrame,
+		type: T,
+	): Extract<ServerVoiceFrame, { $type: T }> => {
+		if (frame.$type !== type) {
+			throw colibriError({
+				code: "MalformedResponse",
+				message: `expected ${type}, got ${frame.$type}`,
+			});
+		}
+		return frame as Extract<ServerVoiceFrame, { $type: T }>;
 	};
 
 	const rejectAllPending = (): void => {
-		for (const queue of pendingByAction.values()) {
-			for (const p of queue) {
-				p.reject(new Error("voice signaling closed"));
-			}
+		const pending = pendingReplies;
+		pendingReplies = [];
+		sendChain = Promise.resolve();
+
+		for (const p of pending) {
+			p.reject(colibriError({ code: "VoiceConnectionLost" }));
 		}
-
-		pendingByAction.clear();
-
-		for (const p of pendingConsumed.values()) {
-			p.reject(new Error("voice signaling closed"));
-		}
-
-		pendingConsumed.clear();
 	};
 
 	const removeFromChannel = (channel: string, did: string): void => {
@@ -380,22 +388,30 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 	};
 
 	const sendVoiceState = (): void => {
-		const channel = voiceData.connection.uri;
-
-		if (!channel) return;
-
-		const community = communityUriForChannel(channel);
-
-		if (!community) return;
+		if (!channelRef) return;
 
 		const muted = !voiceData.states.micEnabled;
 		const deafened = voiceData.states.deafened;
 
 		setVoiceData("memberStates", user.did, { muted, deafened });
 
-		socket.send({
-			type: "voice_state",
-			data: { channel, community, muted, deafened },
+		socket.send(
+			setPresenceFrame({
+				voice: { channel: channelRef, muted, deafened },
+			}),
+		);
+	};
+
+	const sendSelfState = (): void => {
+		if (!ready) return;
+
+		void sendAndWait(
+			setSelfStateFrame({
+				muted: !voiceData.states.micEnabled,
+				deafened: voiceData.states.deafened,
+			}),
+		).catch((err) => {
+			dbg("✗ setSelfState failed", err);
 		});
 	};
 
@@ -499,6 +515,22 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 		void loop();
 	};
 
+	const stopHeartbeat = (): void => {
+		if (heartbeatTimer) {
+			clearInterval(heartbeatTimer);
+			heartbeatTimer = null;
+		}
+	};
+
+	const startHeartbeat = (): void => {
+		stopHeartbeat();
+		heartbeatTimer = setInterval(() => {
+			void sendAndWait(heartbeatFrame()).catch((err) => {
+				dbg("✗ heartbeat failed", err);
+			});
+		}, HEARTBEAT_INTERVAL_MS);
+	};
+
 	const resetState = (): void => {
 		setVoiceData("connection", {
 			state: ConnectionState.Disconnected,
@@ -507,7 +539,7 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 			uri: null,
 			channelName: null,
 			communityName: null,
-			hubDid: null,
+			managingApp: null,
 		});
 		setVoiceData("states", {
 			camEnabled: false,
@@ -533,6 +565,8 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 		suppressionMonitor?.destroy();
 		suppressionMonitor = null;
 		stopStatsMonitor();
+		stopHeartbeat();
+		channelRef = null;
 		speakingContext?.close().catch(() => {});
 		speakingContext = null;
 		localSpeaking = false;
@@ -699,15 +733,22 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 	};
 
 	const consumeProducer = async (producerId: string): Promise<void> => {
-		if (!recvTransport) return;
+		if (!recvTransport || !device) return;
 		const owner = producerOwners.get(producerId);
 		dbg("consumeProducer()", { producerId, owner });
 
-		send({ action: "consume", producerId });
-		let message: ServerMessage;
+		let reply: Extract<
+			ServerVoiceFrame,
+			{ $type: "social.colibri.beta.voice.defs#consumerOptions" }
+		>;
 
 		try {
-			message = await waitForConsumed(producerId);
+			reply = expectFrame(
+				await sendAndWait(
+					consumeFrame(recvTransport.id, producerId, device.rtpCapabilities),
+				),
+				"social.colibri.beta.voice.defs#consumerOptions",
+			);
 		} catch (err) {
 			dbg("✗ consume rejected", { producerId, err });
 			log.warn("could not receive a participant's stream", {
@@ -724,18 +765,20 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 			return;
 		}
 
-		if (message.action !== "consumed") return;
-
 		const consumer = await recvTransport.consume({
-			id: message.id,
-			producerId: message.producerId,
-			kind: message.kind,
-			rtpParameters: message.rtpParameters,
+			id: reply.id,
+			producerId: reply.producerId,
+			kind: reply.kind as types.MediaKind,
+			rtpParameters: reply.rtpParameters as unknown as types.RtpParameters,
 		});
 
 		consumers.set(consumer.id, consumer);
 
-		send({ action: "consumerResume", id: consumer.id });
+		try {
+			await sendAndWait(resumeConsumerFrame(consumer.id));
+		} catch (err) {
+			dbg("✗ resumeConsumer failed", { consumerId: consumer.id, err });
+		}
 
 		if (consumer.kind === "audio") {
 			const el = new Audio();
@@ -743,7 +786,7 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 			el.autoplay = true;
 			el.srcObject = new MediaStream([consumer.track]);
 			const channel: keyof VolumeOverrides =
-				owner?.source === SCREEN_AUDIO_SOURCE ? "screen" : "voice";
+				owner?.source === "screen" ? "screen" : "voice";
 			applyAudioSettings(el, owner?.did ?? "", channel);
 			audioEls.set(consumer.id, { el, did: owner?.did ?? "", channel });
 
@@ -781,62 +824,21 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 		}
 	};
 
-	const setupDevice = async (message: ServerMessage): Promise<void> => {
-		if (message.action !== "init") return;
+	const toTransportOptions = (
+		frame: TransportOptionsFrame,
+	): types.TransportOptions => ({
+		id: frame.id,
+		iceParameters: frame.iceParameters as unknown as types.IceParameters,
+		iceCandidates: frame.iceCandidates as unknown as types.IceCandidate[],
+		dtlsParameters: frame.dtlsParameters as unknown as types.DtlsParameters,
+	});
 
-		const describeCandidates = (
-			cands: Array<Record<string, unknown>> | undefined,
-		): string =>
-			(cands ?? [])
-				.map(
-					(c) =>
-						`${c.protocol}://${(c.ip ?? c.address) as string}:${c.port} (${c.type})`,
-				)
-				.join(", ") || "(none)";
-		dbg("init received", {
-			iceServers: message.iceServers,
-			iceServerCount: message.iceServers?.length ?? 0,
-			producerCandidates: describeCandidates(
-				message.producerTransportOptions.iceCandidates as unknown as Array<
-					Record<string, unknown>
-				>,
-			),
-			consumerCandidates: describeCandidates(
-				message.consumerTransportOptions.iceCandidates as unknown as Array<
-					Record<string, unknown>
-				>,
-			),
-		});
-
-		setVoiceData(
-			"states",
-			"deafened",
-			userPreferences.preferences().voice.selfDeafened,
-		);
-
-		const handlerName = pickVoiceHandler();
-		dbg("device handler", { handlerName, userAgent: navigator.userAgent });
-		Sentry.addBreadcrumb({
-			category: "voice.device",
-			level: handlerName ? "info" : "warning",
-			message: `handler ${handlerName ?? "none"}`,
-		});
-
-		device = new Device({ handlerName });
-		await device.load({ routerRtpCapabilities: message.routerRtpCapabilities });
-		dbg("device loaded", { canProduceAudio: device.canProduce("audio") });
-
-		sendTransport = device.createSendTransport({
-			...message.producerTransportOptions,
-			iceServers: message.iceServers,
-		});
-		dbg("sendTransport created", { id: sendTransport.id });
-
-		sendTransport.on("connect", ({ dtlsParameters }, callback, errback) => {
+	const wireSendTransport = (transport: types.Transport): void => {
+		transport.on("connect", ({ dtlsParameters }, callback, errback) => {
 			dbg("sendTransport 'connect' fired → sending DTLS params");
-			send({ action: "connectProducerTransport", dtlsParameters });
-			waitForAction("connectedProducerTransport")
-				.then(() => {
+			sendAndWait(connectTransportFrame(transport.id, dtlsParameters))
+				.then((frame) => {
+					expectFrame(frame, "social.colibri.beta.voice.defs#ack");
 					dbg("sendTransport DTLS confirmed by server");
 					callback();
 				})
@@ -847,7 +849,7 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 		});
 
 		let sendConnected = false;
-		sendTransport.on("connectionstatechange", (state) => {
+		transport.on("connectionstatechange", (state) => {
 			dbg("sendTransport connectionstatechange →", state);
 			if (state === "connected") sendConnected = true;
 			if (state === "failed" || state === "disconnected") {
@@ -858,9 +860,9 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 		});
 
 		setTimeout(() => {
-			if (sendConnected || !sendTransport) return;
+			if (sendConnected || sendTransport !== transport) return;
 			dbg("⏱ sendTransport still not connected after 8s — dumping ICE stats");
-			void sendTransport.getStats().then((stats) => {
+			void transport.getStats().then((stats) => {
 				const pairs: unknown[] = [];
 				const local = new Map<string, Record<string, unknown>>();
 				const remote = new Map<string, Record<string, unknown>>();
@@ -875,20 +877,21 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 			});
 		}, 8000);
 
-		sendTransport.observer.on("close", () => dbg("sendTransport closed"));
+		transport.observer.on("close", () => dbg("sendTransport closed"));
 
-		sendTransport.on(
+		transport.on(
 			"produce",
 			({ kind, rtpParameters, appData }, callback, errback) => {
-				const source = (appData as { source?: string }).source ?? "mic";
+				const source = (appData as { source?: MediaSource }).source ?? "mic";
 				dbg("sendTransport 'produce' fired", { kind, source });
-				send({ action: "produce", kind, rtpParameters, source });
-				waitForAction("produced")
-					.then((m) => {
-						if (m.action === "produced") {
-							dbg("produce confirmed", { id: m.id, kind, source });
-							callback({ id: m.id });
-						}
+				sendAndWait(produceFrame(transport.id, kind, rtpParameters, source))
+					.then((frame) => {
+						const info = expectFrame(
+							frame,
+							"social.colibri.beta.voice.defs#producerInfo",
+						);
+						dbg("produce confirmed", { id: info.producerId, kind, source });
+						callback({ id: info.producerId });
 					})
 					.catch((err) => {
 						dbg("✗ produce failed", err);
@@ -896,18 +899,14 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 					});
 			},
 		);
+	};
 
-		recvTransport = device.createRecvTransport({
-			...message.consumerTransportOptions,
-			iceServers: message.iceServers,
-		});
-		dbg("recvTransport created", { id: recvTransport.id });
-
-		recvTransport.on("connect", ({ dtlsParameters }, callback, errback) => {
+	const wireRecvTransport = (transport: types.Transport): void => {
+		transport.on("connect", ({ dtlsParameters }, callback, errback) => {
 			dbg("recvTransport 'connect' fired → sending DTLS params");
-			send({ action: "connectConsumerTransport", dtlsParameters });
-			waitForAction("connectedConsumerTransport")
-				.then(() => {
+			sendAndWait(connectTransportFrame(transport.id, dtlsParameters))
+				.then((frame) => {
+					expectFrame(frame, "social.colibri.beta.voice.defs#ack");
 					dbg("recvTransport DTLS confirmed by server");
 					callback();
 				})
@@ -917,7 +916,7 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 				});
 		});
 
-		recvTransport.on("connectionstatechange", (state) => {
+		transport.on("connectionstatechange", (state) => {
 			dbg("recvTransport connectionstatechange →", state);
 			if (state === "failed" || state === "disconnected") {
 				dbg(
@@ -926,9 +925,51 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 			}
 		});
 
-		recvTransport.observer.on("close", () => dbg("recvTransport closed"));
+		transport.observer.on("close", () => dbg("recvTransport closed"));
+	};
 
-		send({ action: "init", rtpCapabilities: device.rtpCapabilities });
+	const performHandshake = async (): Promise<void> => {
+		setVoiceData(
+			"states",
+			"deafened",
+			userPreferences.preferences().voice.selfDeafened,
+		);
+
+		const rtpCaps = expectFrame(
+			await sendAndWait(getRtpCapabilitiesFrame()),
+			"social.colibri.beta.voice.defs#rtpCapabilities",
+		);
+
+		const handlerName = pickVoiceHandler();
+		dbg("device handler", { handlerName, userAgent: navigator.userAgent });
+		Sentry.addBreadcrumb({
+			category: "voice.device",
+			level: handlerName ? "info" : "warning",
+			message: `handler ${handlerName ?? "none"}`,
+		});
+
+		device = new Device({ handlerName });
+		await device.load({
+			routerRtpCapabilities:
+				rtpCaps.payload as unknown as types.RtpCapabilities,
+		});
+		dbg("device loaded", { canProduceAudio: device.canProduce("audio") });
+
+		const sendOptions = expectFrame(
+			await sendAndWait(createTransportFrame("send")),
+			"social.colibri.beta.voice.defs#transportOptions",
+		);
+		sendTransport = device.createSendTransport(toTransportOptions(sendOptions));
+		dbg("sendTransport created", { id: sendTransport.id });
+		wireSendTransport(sendTransport);
+
+		const recvOptions = expectFrame(
+			await sendAndWait(createTransportFrame("recv")),
+			"social.colibri.beta.voice.defs#transportOptions",
+		);
+		recvTransport = device.createRecvTransport(toTransportOptions(recvOptions));
+		dbg("recvTransport created", { id: recvTransport.id });
+		wireRecvTransport(recvTransport);
 
 		try {
 			await startMic();
@@ -952,7 +993,9 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 		}
 
 		sendVoiceState();
+		sendSelfState();
 		startStatsMonitor();
+		startHeartbeat();
 
 		const queued = pendingConsume.splice(0, pendingConsume.length);
 		for (const producerId of queued) {
@@ -962,87 +1005,123 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 		}
 	};
 
-	const handleServerMessage = (message: ServerMessage): void => {
-		dbg("← recv", message.action, message);
-		switch (message.action) {
-			case "init":
-				setupDevice(message).catch(failSetup);
+	const handlePeerProducer = (
+		frame: Extract<
+			ServerVoiceFrame,
+			{ $type: "social.colibri.beta.voice.defs#producerInfo" }
+		>,
+	): void => {
+		const source =
+			decodeMediaSource(frame.source) ??
+			(frame.kind === "audio" ? "mic" : "cam");
+
+		producerOwners.set(frame.producerId, {
+			did: frame.did,
+			kind: frame.kind as types.MediaKind,
+			source,
+		});
+
+		if (
+			frame.kind === "video" &&
+			frame.did !== user.did &&
+			voiceData.connection.state === ConnectionState.Connected
+		) {
+			playSound(source === "screen" ? "screenShared" : "camOn");
+		}
+
+		if (ready) {
+			consumeProducer(frame.producerId).catch((err) =>
+				reportVoiceFailure(err, "consume"),
+			);
+		} else {
+			pendingConsume.push(frame.producerId);
+		}
+	};
+
+	const handleServerFrame = (frame: ServerVoiceFrame): void => {
+		dbg("← recv", frame.$type, frame);
+
+		switch (frame.$type) {
+			case "social.colibri.beta.voice.defs#joined":
+			case "social.colibri.beta.voice.defs#rtpCapabilities":
+			case "social.colibri.beta.voice.defs#transportOptions":
+			case "social.colibri.beta.voice.defs#ack":
+			case "social.colibri.beta.voice.defs#consumerOptions":
+				pendingReplies.shift()?.resolve(frame);
 				break;
-			case "connectedProducerTransport":
-			case "connectedConsumerTransport":
-			case "produced": {
-				const queue = pendingByAction.get(message.action);
-				queue?.shift()?.resolve(message);
-				break;
-			}
-			case "consumed": {
-				pendingConsumed.get(message.producerId)?.resolve(message);
-				pendingConsumed.delete(message.producerId);
-				break;
-			}
-			case "producerAdded":
-				producerOwners.set(message.producerId, {
-					did: message.did,
-					kind: message.kind,
-					source: message.source,
-				});
-				if (
-					message.kind === "video" &&
-					message.did !== user.did &&
-					voiceData.connection.state === ConnectionState.Connected
-				) {
-					playSound(message.source === "screen" ? "screenShared" : "camOn");
+			case "social.colibri.beta.voice.defs#producerInfo":
+				if (frame.did === user.did) {
+					pendingReplies.shift()?.resolve(frame);
+				} else {
+					handlePeerProducer(frame);
 				}
-				if (ready) {
-					consumeProducer(message.producerId).catch((err) =>
-						reportVoiceFailure(err, "consume"),
-					);
-				} else pendingConsume.push(message.producerId);
 				break;
-			case "producerRemoved": {
-				const owner = producerOwners.get(message.producerId);
-				removeProducer(message.producerId);
+			case "social.colibri.beta.voice.defs#error": {
+				const next = pendingReplies.shift();
+				const err = colibriError({
+					code: isAppViewErrorCode(frame.error)
+						? frame.error
+						: "InvalidRequest",
+					serverMessage: frame.message,
+				});
+				if (next) next.reject(err);
+				else log.error("unsolicited voice error", { code: frame.error });
+				break;
+			}
+			case "social.colibri.beta.voice.defs#peerJoined":
+				dbg("peer joined the room", { did: frame.did });
+				break;
+			case "social.colibri.beta.voice.defs#peerLeft":
+				for (const [producerId, owner] of [...producerOwners.entries()]) {
+					if (owner.did === frame.did) removeProducer(producerId);
+				}
+				break;
+			case "social.colibri.beta.voice.defs#producerRemoved": {
+				const owner = producerOwners.get(frame.producerId);
+				removeProducer(frame.producerId);
 				if (
 					owner?.kind === "video" &&
-					message.did !== user.did &&
+					frame.did !== user.did &&
 					voiceData.connection.state === ConnectionState.Connected
 				) {
 					playSound(owner.source === "screen" ? "screenUnshared" : "camOff");
 				}
 				break;
 			}
-			case "activeSpeakers":
-				serverSpeakers = message.dids;
+			case "social.colibri.beta.voice.defs#speakingUpdate":
+				serverSpeakers = frame.speaking
+					? serverSpeakers.includes(frame.did)
+						? serverSpeakers
+						: [...serverSpeakers, frame.did]
+					: serverSpeakers.filter((d) => d !== frame.did);
 				recomputeSpeakers();
 				break;
-			case "serverMuted":
-				setVoiceData("states", "serverMuted", message.muted);
-				setVoiceData("memberStates", user.did, (prev) => ({
+			case "social.colibri.beta.voice.defs#moderationChanged": {
+				const serverMuted = frame.serverMuted ?? false;
+				const serverDeafened = frame.serverDeafened ?? false;
+
+				setVoiceData("memberStates", frame.did, (prev) => ({
 					...prev,
-					muted: prev?.muted ?? false,
-					deafened: prev?.deafened ?? false,
-					serverMuted: message.muted,
+					muted: frame.muted,
+					deafened: frame.deafened,
+					serverMuted,
+					serverDeafened,
 				}));
+
+				if (frame.did === user.did) {
+					setVoiceData("states", "serverMuted", serverMuted);
+					setVoiceData("states", "serverDeafened", serverDeafened);
+					if (serverMuted && voiceData.states.micEnabled) setMic(false);
+					if (serverDeafened && !voiceData.states.deafened) setDeafen(true);
+				}
 				break;
-			case "serverDeafened":
-				setVoiceData("states", "serverDeafened", message.deafened);
-				setVoiceData("memberStates", user.did, (prev) => ({
-					...prev,
-					muted: prev?.muted ?? false,
-					deafened: prev?.deafened ?? false,
-					serverDeafened: message.deafened,
-				}));
-				break;
-			case "kicked":
-				toast("You were removed from the voice channel.");
+			}
+			case "social.colibri.beta.voice.defs#disconnected":
+				dbg("the server removed us from the call", { reason: frame.reason });
+				toast("You were disconnected from the call", {
+					description: disconnectReason(frame.reason),
+				});
 				disconnect();
-				break;
-			case "superseded":
-				toast("You joined the voice channel on another device.");
-				disconnect();
-				break;
-			case "error":
-				log.error("SFU reported an error", { message: message.message });
 				break;
 		}
 	};
@@ -1050,18 +1129,31 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 	const openSignaling = async (channelUri: string): Promise<void> => {
 		if (!auth?.loggedIn) return;
 
-		const hubDid = voiceData.connection.hubDid;
-		const serviceRef = hubDid
-			? `${hubDid}#colibri_appview`
+		let ref: ChannelRef;
+		try {
+			ref = asSpaceRef(channelUri);
+		} catch (err) {
+			log.error("channel is not a valid voice space reference", {
+				code: classifyThrown(err).code,
+			});
+			toast.error("Couldn't join the voice channel", {
+				description: "That channel isn't set up for voice yet.",
+			});
+			disconnect();
+			return;
+		}
+
+		const managingApp = voiceData.connection.managingApp;
+		const serviceRef = managingApp
+			? `${managingApp}#colibri_appview`
 			: getAppViewServiceRef();
-		const host =
-			(hubDid && getAppViewHostFromDid(hubDid, "ws")) || getAppViewHost("ws");
+		const wsHost = appViewHostFor(managingApp ?? undefined, "ws");
 
 		let token: string;
 		try {
 			const { data } = await auth.agent.com.atproto.server.getServiceAuth({
 				aud: serviceRef,
-				lxm: LXM,
+				lxm: VOICE_SIGNAL_LXM,
 				exp: Math.floor(Date.now() / 1000) + 60,
 			});
 			token = data.token;
@@ -1074,23 +1166,39 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 		}
 
 		intentionalClose = false;
-		const url = `${host}/xrpc/${LXM}?channel=${encodeURIComponent(channelUri)}`;
+		channelRef = ref;
+		pendingReplies = [];
+		sendChain = Promise.resolve();
+
+		const url = `${wsHost}${VOICE_SIGNAL_PATH}`;
 		dbg("opening signaling socket", { url });
 		const socketConn = new WebSocket(url, [AUTH_SUBPROTOCOL, token]);
 		ws = socketConn;
 
-		socketConn.onopen = () =>
+		socketConn.onopen = () => {
 			dbg("signaling socket open", { protocol: socketConn.protocol });
+			sendAndWait(joinFrame(ref))
+				.then((frame) => {
+					expectFrame(frame, "social.colibri.beta.voice.defs#joined");
+					return performHandshake();
+				})
+				.catch((err) => {
+					if (ws !== socketConn) return;
+					failSetup(err);
+				});
+		};
 
 		socketConn.onmessage = (event) => {
-			let message: ServerMessage;
-			try {
-				message = JSON.parse(event.data as string) as ServerMessage;
-			} catch {
-				dbg("✗ failed to parse server message", event.data);
+			const frame = decodeVoiceFrame(event.data as string);
+			if (!frame) {
+				dbg("✗ failed to decode server frame", event.data);
 				return;
 			}
-			handleServerMessage(message);
+			if (!isServerVoiceFrame(frame)) {
+				dbg("✗ received a non-server frame", frame.$type);
+				return;
+			}
+			handleServerFrame(frame);
 		};
 
 		socketConn.onerror = (event) => {
@@ -1136,7 +1244,11 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 
 	const connect = async (
 		channelUri: string,
-		meta?: { channelName?: string; communityName?: string; hubDid?: string },
+		meta?: {
+			channelName?: string;
+			communityName?: string;
+			managingApp?: string;
+		},
 	): Promise<void> => {
 		if (
 			voiceData.connection.uri === channelUri &&
@@ -1158,12 +1270,18 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 			return;
 		}
 
+		if (await voiceDisabledOn(appViewHostFor(meta?.managingApp, "http"))) {
+			log.warn("this appview has voice turned off");
+			toast.error("Voice isn't available here.", {
+				description: "This community's server has no voice server running.",
+			});
+			return;
+		}
+
 		dbg("connect()", {
 			channelUri,
-			hubDid: meta?.hubDid ?? null,
-			appViewHost:
-				(meta?.hubDid && getAppViewHostFromDid(meta.hubDid, "ws")) ||
-				getAppViewHost("ws"),
+			managingApp: meta?.managingApp ?? null,
+			appViewHost: appViewHostFor(meta?.managingApp, "ws"),
 		});
 		reconnectAttempts = 0;
 
@@ -1175,7 +1293,7 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 			uri: channelUri,
 			channelName: meta?.channelName ?? null,
 			communityName: meta?.communityName ?? null,
-			hubDid: meta?.hubDid ?? null,
+			managingApp: meta?.managingApp ?? null,
 		});
 
 		playSound("join");
@@ -1219,6 +1337,8 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 			localSpeaking = false;
 			recomputeSpeakers();
 		}
+
+		sendSelfState();
 	};
 
 	const setDeafen = (deafened: boolean): void => {
@@ -1230,10 +1350,20 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 
 		setVoiceData("states", "deafened", deafened);
 		userPreferences.setVoiceSelfState({ selfDeafened: deafened });
+
+		sendSelfState();
 	};
 
 	const toggleMic = (): void => {
 		if (!micProducer) return;
+
+		if (voiceData.states.serverMuted && !voiceData.states.micEnabled) {
+			toast("You're muted by a moderator", {
+				description: "Ask them to lift it before you can unmute.",
+			});
+			return;
+		}
+
 		const next = !voiceData.states.micEnabled;
 		setMic(next);
 		playSound(next ? "unmute" : "mute");
@@ -1301,7 +1431,7 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 
 		screenAudioProducer = await sendTransport.produce({
 			track,
-			appData: { source: SCREEN_AUDIO_SOURCE },
+			appData: { source: "screen" satisfies MediaSource },
 		});
 
 		screenAudioListener = (): void => stopScreenAudio();
@@ -1319,7 +1449,11 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 			screenAudioListener = null;
 		}
 
-		send({ action: "closeProducer", producerId: screenAudioProducer.id });
+		void sendAndWait(closeProducerFrame(screenAudioProducer.id)).catch(
+			(err) => {
+				dbg("✗ closeProducer failed", err);
+			},
+		);
 		screenAudioProducer.track?.stop();
 		screenAudioProducer.close();
 		screenAudioProducer = null;
@@ -1370,7 +1504,9 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 			videoTrackListeners.delete(which);
 		}
 
-		send({ action: "closeProducer", producerId: producer.id });
+		void sendAndWait(closeProducerFrame(producer.id)).catch((err) => {
+			dbg("✗ closeProducer failed", err);
+		});
 
 		producer.track?.stop();
 		producer.close();
@@ -1514,6 +1650,14 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 
 	const toggleDeafen = (): void => {
 		const next = !voiceData.states.deafened;
+
+		if (!next && voiceData.states.serverDeafened) {
+			toast("You're deafened by a moderator", {
+				description: "Ask them to lift it before you can undeafen.",
+			});
+			return;
+		}
+
 		if (next) {
 			setDeafen(true);
 			setMic(false);
@@ -1525,7 +1669,20 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 		sendVoiceState();
 	};
 
-	const addPresence = (member: PresenceMember): void => {
+	const toPresenceMember = (source: PresenceSource): PresenceMember => {
+		const voice = source.actor.presence?.voice;
+		return {
+			did: source.did,
+			vc: voice?.channel,
+			vcMuted: voice?.muted,
+			vcDeafened: voice?.deafened,
+			vcServerMuted: voice?.serverMuted,
+			vcServerDeafened: voice?.serverDeafened,
+		};
+	};
+
+	const addPresence = (source: PresenceSource): void => {
+		const member = toPresenceMember(source);
 		if (!member.vc) return;
 
 		applyPresence("join", member.vc, member.did);
@@ -1544,11 +1701,11 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 
 	const syncPresence = (
 		communityUri: string,
-		members: Array<PresenceMember>,
+		sources: Array<PresenceSource>,
 	): void => {
 		const plan = computePresenceSync({
 			communityUri,
-			members,
+			members: sources.map(toPresenceMember),
 			presence: voiceData.presence,
 			ownChannel:
 				voiceData.connection.state !== ConnectionState.Disconnected
@@ -1605,49 +1762,29 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 	);
 
 	const unsubscribePresence = socket.onEvent((event) => {
-		if (event.type === "voice_presence_event") {
-			const data = event.data;
-			if (!data) return;
+		if (!frameIs(event, "voiceEvent")) return;
 
-			applyPresence(data.event, data.channel, data.did);
+		if (event.event === "join" || event.event === "leave") {
+			applyPresence(event.event, event.channel, event.did);
+		}
 
-			if (
-				data.did !== user.did &&
-				voiceData.connection.state === ConnectionState.Connected &&
-				voiceData.connection.uri === data.channel
-			) {
-				playSound(data.event === "leave" ? "leave" : "join");
-			}
-		} else if (event.type === "voice_state_event") {
-			const data = event.data;
+		if (event.event === "join" || event.event === "update") {
+			setVoiceData("memberStates", event.did, (prev) => ({
+				...prev,
+				muted: event.voice?.muted ?? false,
+				deafened: event.voice?.deafened ?? false,
+				serverMuted: event.voice?.serverMuted ?? false,
+				serverDeafened: event.voice?.serverDeafened ?? false,
+			}));
+		}
 
-			if (!data) return;
-
-			setVoiceData("memberStates", data.did, (prev) => {
-				const next: VoiceMemberState = {
-					...prev,
-					muted: prev?.muted ?? false,
-					deafened: prev?.deafened ?? false,
-				};
-
-				if (data.muted !== undefined) next.muted = data.muted;
-				if (data.deafened !== undefined) next.deafened = data.deafened;
-				if (data.serverMuted !== undefined) next.serverMuted = data.serverMuted;
-				if (data.serverDeafened !== undefined)
-					next.serverDeafened = data.serverDeafened;
-
-				return next;
-			});
-
-			if (data.did === user.did) {
-				if (data.serverMuted !== undefined) {
-					setVoiceData("states", "serverMuted", data.serverMuted);
-				}
-
-				if (data.serverDeafened !== undefined) {
-					setVoiceData("states", "serverDeafened", data.serverDeafened);
-				}
-			}
+		if (
+			(event.event === "join" || event.event === "leave") &&
+			event.did !== user.did &&
+			voiceData.connection.state === ConnectionState.Connected &&
+			voiceData.connection.uri === event.channel
+		) {
+			playSound(event.event === "leave" ? "leave" : "join");
 		}
 	});
 

@@ -56,8 +56,10 @@ let brokenReported = false;
 export const noteCacheFailure = (err: unknown): void => {
 	if (brokenReported) return;
 	brokenReported = true;
+	const classified = classifyThrown(err);
 	log.warn("the offline cache is unusable, falling back to network reads", {
-		code: classifyThrown(err).code,
+		code: classified.code,
+		reason: classified.message,
 	});
 	reportError(new ColibriError({ code: "CacheUnavailable", cause: err }), {
 		stage: "cache",
@@ -208,18 +210,23 @@ export const writeUser = (ns: string, snap: UserSnapshot): Promise<void> =>
 
 export const readCommunity = (
 	ns: string,
-	uri: string,
+	communityDid: string,
 ): Promise<CommunitySnapshot | undefined> =>
-	read<CommunitySnapshot>("community", communityKey(ns, uri));
+	read<CommunitySnapshot>("community", communityKey(ns, communityDid));
 
 export const writeCommunity = (
 	ns: string,
-	uri: string,
+	communityDid: string,
 	snap: CommunitySnapshot,
-): Promise<void> => write("community", communityKey(ns, uri), snap);
+): Promise<void> => write("community", communityKey(ns, communityDid), snap);
 
-export const deleteCommunity = (ns: string, uri: string): Promise<void> =>
-	request("community", "readwrite", (s) => s.delete(communityKey(ns, uri)))
+export const deleteCommunity = (
+	ns: string,
+	communityDid: string,
+): Promise<void> =>
+	request("community", "readwrite", (s) =>
+		s.delete(communityKey(ns, communityDid)),
+	)
 		.then(() => undefined)
 		.catch((err) => {
 			noteCacheFailure(err);
@@ -245,25 +252,30 @@ const writeAndMaybeEvict = (
 
 export const readMessages = (
 	ns: string,
-	channelUri: string,
+	channelSpace: string,
 ): Promise<MessagesSnapshot | undefined> =>
-	read<MessagesSnapshot>("messages", messagesKey(ns, channelUri));
+	read<MessagesSnapshot>("messages", messagesKey(ns, channelSpace));
 
 export const writeMessages = (
 	ns: string,
-	channelUri: string,
+	channelSpace: string,
 	snap: MessagesSnapshot,
 ): Promise<void> => {
 	return writeAndMaybeEvict(
 		"messages",
-		messagesKey(ns, channelUri),
+		messagesKey(ns, channelSpace),
 		snap,
 		MAX_CHANNELS,
 	);
 };
 
-export const deleteMessages = (ns: string, channelUri: string): Promise<void> =>
-	request("messages", "readwrite", (s) => s.delete(messagesKey(ns, channelUri)))
+export const deleteMessages = (
+	ns: string,
+	channelSpace: string,
+): Promise<void> =>
+	request("messages", "readwrite", (s) =>
+		s.delete(messagesKey(ns, channelSpace)),
+	)
 		.then(() => undefined)
 		.catch((err) => {
 			noteCacheFailure(err);

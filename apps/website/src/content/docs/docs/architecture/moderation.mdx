@@ -1,0 +1,148 @@
+---
+title: Moderation
+description: What a community can do about content it does not want, when it does not own that content.
+sidebar:
+  order: 6
+---
+
+import { Steps } from "@astrojs/starlight/components";
+
+A message lives in its author's own repository. A community cannot reach in and
+remove it.
+
+A community controls two things instead: **who may read its spaces**, and **what
+it says about the content in them**.
+
+## Operations are labels
+
+Hiding a message, marking it a spoiler and suppressing its embeds are all
+[`social.colibri.beta.label`](/docs/specification/lexicons) records, written into the
+same space as the content they describe.
+
+A label shares the access boundary of the thing it labels, so a label on a
+message in a private channel is readable only by people who can read that
+channel.
+
+Retracting a label writes a **negating label** rather than deleting the
+original, so a reader moving forward through the log sees that the label was
+withdrawn.
+
+The AppView treats the two label kinds differently.
+
+### `hidden` is withheld, not forwarded
+
+A message carrying a `hidden` label from a labeler the community honours is
+**not served at all**. It is absent from `listMessages`, from `listReactions`,
+from notifications, from unread counts and from the events socket. A client is
+never asked to be trusted with it, because it never arrives.
+
+Two viewers are exempt:
+
+- A moderator holding `label.apply` receives it with its label attached, since
+  reviewing and retracting a hide requires seeing what was hidden.
+- The author receives their own, with its label attached. The record is in their
+  repository and they can read it from their own PDS at any time.
+
+A reply whose parent is withheld gets a `deletedMessageView` stand-in in place
+of the parent, identical to the one an author's own deletion produces. A client
+cannot tell the two cases apart.
+
+### `spoiler` and `embeds-suppressed` are passed through
+
+These are display instructions rather than access decisions. The AppView
+forwards them on `messageView.labels` and the client honours them.
+
+:::caution[What hiding cannot do]
+Hiding stops **this AppView** serving the record. It does not remove it. The
+message stays in its author's repository, and anyone holding a credential for
+the space can read it directly from the PDS, or run an AppView that ignores the
+label. Clients should say "hidden" and not imply "deleted", because implying
+otherwise sets an expectation the protocol cannot meet.
+:::
+
+## A community can be moderated by more than itself
+
+A labeler is an admitted member of the space writing labels into its own
+repository. There is nothing special about it at the protocol level.
+
+`social.colibri.beta.community.settings` carries a `labelers` list, which is the set
+of DIDs whose labels this community honours. It defaults to the community
+itself. Labels from anyone else are ignored at read time rather than refused at
+write time, so a third party is free to publish labels about a community's
+content and readers are free to take no notice.
+
+## Banning is a credential decision
+
+Banning someone deletes their `social.colibri.beta.member` record and stops the
+community issuing them credentials. The next time their client asks the
+community's PDS to read one of its spaces, the PDS asks the AppView, and the
+AppView says no.
+
+The refusal happens at the protocol layer, before any data moves. It is not a
+flag a client is trusted to respect.
+
+Their existing messages stay in their own repository.
+They can be labelled and filtered. They cannot be removed.
+
+`social.colibri.beta.moderation` records that the ban happened. It is an audit log,
+not the enforcement mechanism, and it holds `ban`, `unban` and `kick` entries.
+
+:::note[Ban state is ordered by record key]
+Whether someone is currently banned is decided by the most recent `ban` or
+`unban` entry for them, ordered by record key rather than by `createdAt`. The
+key is a TID and therefore monotonic. `createdAt` is author supplied, and two
+entries can share a millisecond.
+:::
+
+## Roles and permissions
+
+A role carries a list of permissions and optional per-channel `allow` and `deny`
+overrides. Evaluation runs in a fixed order:
+
+<Steps>
+
+1. A channel-level `deny` beats everything else.
+2. A channel-level `allow` grants the permission without needing it at the
+   community level.
+3. Otherwise the role's base permission list decides.
+
+</Steps>
+
+Every action taken *against another person* is additionally guarded by
+hierarchy: you must strictly outrank them. The community itself outranks
+everyone, and someone with no roles outranks nobody. Equal rank is not enough,
+so two admins cannot ban each other.
+
+## Reading and posting are separate
+
+A channel has two pairs of lists. `allowedRoles` and `allowedMembers` gate
+**posting**, and `visibleToRoles` and `visibleToMembers` gate **reading**.
+
+A read-only announcement channel fills the posting lists and leaves the
+visibility lists empty, so it restricts who may post while staying readable to
+the whole community.
+
+Empty visibility lists mean every member may read. A non-empty list makes the
+channel private, and the AppView refuses space credentials for it to anyone not
+on the list.
+
+## Access decisions fail closed
+
+`com.atproto.simplespace.checkUserAccess` is the endpoint the community's PDS
+calls before minting any credential. It answers from the AppView's local
+projections with an in-memory cache and makes no outbound call of its own.
+
+An unrecognised space type is refused rather than allowed. When the AppView
+cannot tell whether someone belongs, the answer is no.
+
+| Space | Who gets in |
+| --- | --- |
+| profile | anyone, unless the community is private |
+| configuration, members | members |
+| moderation | holders of `moderation.viewLog` |
+| a channel | per that channel's visibility |
+
+## See also
+
+- [Permissioned Spaces](/docs/architecture/spaces): how a credential refusal enforces access.
+- [Communities](/docs/architecture/communities): the spaces these decisions are made about.

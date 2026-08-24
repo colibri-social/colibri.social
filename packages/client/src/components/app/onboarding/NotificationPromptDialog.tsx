@@ -15,6 +15,10 @@ import {
 	isWebRuntime,
 } from "../../../notifications";
 import { isPushSupported } from "../../../notifications/push-web";
+import {
+	registerPushWith,
+	unregisterPushWith,
+} from "../../../notifications/push-xrpc";
 import { claimBlockingDialog } from "../../../utils/blocking-dialog";
 import { createLogger } from "../../../utils/logger";
 import { Button } from "../../ui/Button";
@@ -61,12 +65,8 @@ export const NotificationPromptDialog: Component = () => {
 		setBusy(true);
 		try {
 			const permission = await enablePushNotifications(
-				(sub) => user.xrpc.social.colibri.notification.registerPush(sub),
-				(endpoint, provider) =>
-					user.xrpc.social.colibri.notification.unregisterPush(
-						endpoint,
-						provider,
-					),
+				registerPushWith(user.xrpc),
+				unregisterPushWith(user.xrpc),
 			);
 			if (permission === "granted") {
 				setNativeNotifications(true);

@@ -1,0 +1,695 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.sync.defs",
+	"defs": {
+		"subscribe": {
+			"type": "object",
+			"description": "Adds communities and channels to what this connection receives. Subscription is explicit: a connection is sent nothing it did not ask for.",
+			"required": [],
+			"properties": {
+				"communities": {
+					"type": "array",
+					"items": {
+						"type": "string",
+						"format": "did",
+						"description": "A community."
+					},
+					"description": "Communities to start receiving events for."
+				},
+				"channels": {
+					"type": "array",
+					"items": {
+						"type": "string",
+						"format": "space-ref",
+						"description": "A channel."
+					},
+					"description": "Channels to start receiving messages for."
+				}
+			}
+		},
+		"unsubscribe": {
+			"type": "object",
+			"description": "Removes communities and channels from what this connection receives.",
+			"required": [],
+			"properties": {
+				"communities": {
+					"type": "array",
+					"items": {
+						"type": "string",
+						"format": "did",
+						"description": "A community."
+					},
+					"description": "Communities to stop receiving events for."
+				},
+				"channels": {
+					"type": "array",
+					"items": {
+						"type": "string",
+						"format": "space-ref",
+						"description": "A channel."
+					},
+					"description": "Channels to stop receiving messages for."
+				}
+			}
+		},
+		"heartbeat": {
+			"type": "object",
+			"description": "Keeps the connection alive and tells the AppView the user is still present. The server answers with an ack.",
+			"required": [],
+			"properties": {}
+		},
+		"typing": {
+			"type": "object",
+			"description": "Reports that the user is typing in a channel.",
+			"required": [
+				"channel"
+			],
+			"properties": {
+				"channel": {
+					"type": "string",
+					"format": "space-ref",
+					"description": "The channel being typed in."
+				}
+			}
+		},
+		"viewChannel": {
+			"type": "object",
+			"description": "Reports which channel the user is looking at, which drives read state and away detection. An absent channel means they are looking at none.",
+			"required": [],
+			"properties": {
+				"channel": {
+					"type": "string",
+					"format": "space-ref",
+					"description": "The channel now in view."
+				}
+			}
+		},
+		"setPresence": {
+			"type": "object",
+			"description": "Updates the user's own presence over the socket.",
+			"required": [],
+			"properties": {
+				"onlineState": {
+					"type": "string",
+					"description": "Requested online state.",
+					"knownValues": [
+						"online",
+						"away",
+						"dnd",
+						"offline"
+					]
+				},
+				"voice": {
+					"type": "ref",
+					"ref": "#voiceSelfState",
+					"description": "The user's own voice state, when connected to a voice channel."
+				}
+			}
+		},
+		"voiceSelfState": {
+			"type": "object",
+			"description": "A user's own voice state.",
+			"required": [
+				"channel"
+			],
+			"properties": {
+				"channel": {
+					"type": "string",
+					"format": "space-ref",
+					"description": "The voice channel."
+				},
+				"muted": {
+					"type": "boolean",
+					"description": "Whether the microphone is muted."
+				},
+				"deafened": {
+					"type": "boolean",
+					"description": "Whether the user has deafened themselves."
+				}
+			}
+		},
+		"ack": {
+			"type": "object",
+			"description": "Answers a heartbeat.",
+			"required": [],
+			"properties": {}
+		},
+		"error": {
+			"type": "object",
+			"description": "Something the client sent could not be acted on.",
+			"required": [
+				"error"
+			],
+			"properties": {
+				"error": {
+					"type": "string",
+					"description": "Error name.",
+					"knownValues": [
+						"InvalidFrame",
+						"Forbidden",
+						"NotFound",
+						"RateLimited"
+					]
+				},
+				"message": {
+					"type": "string",
+					"description": "Human-readable detail."
+				}
+			}
+		},
+		"subscribed": {
+			"type": "object",
+			"description": "Confirms what this connection is now receiving, after a subscribe or unsubscribe. Anything the user is not entitled to read is silently absent.",
+			"required": [
+				"communities",
+				"channels"
+			],
+			"properties": {
+				"communities": {
+					"type": "array",
+					"items": {
+						"type": "string",
+						"format": "did",
+						"description": "A community."
+					},
+					"description": "Communities being received."
+				},
+				"channels": {
+					"type": "array",
+					"items": {
+						"type": "string",
+						"format": "space-ref",
+						"description": "A channel."
+					},
+					"description": "Channels being received."
+				}
+			}
+		},
+		"messageEvent": {
+			"type": "object",
+			"description": "A message was written, edited, or deleted in a subscribed channel.",
+			"required": [
+				"event",
+				"channel"
+			],
+			"properties": {
+				"event": {
+					"type": "string",
+					"description": "What happened.",
+					"knownValues": [
+						"create",
+						"update",
+						"delete"
+					]
+				},
+				"channel": {
+					"type": "string",
+					"format": "space-ref",
+					"description": "The channel it happened in."
+				},
+				"message": {
+					"type": "ref",
+					"ref": "social.colibri.beta.channel.defs#messageView",
+					"description": "The message. Absent on delete, where the reference alone identifies it."
+				},
+				"subject": {
+					"type": "ref",
+					"ref": "social.colibri.beta.defs#recordRef",
+					"description": "Which message, for deletes."
+				}
+			}
+		},
+		"reactionEvent": {
+			"type": "object",
+			"description": "A reaction was added or removed in a subscribed channel.",
+			"required": [
+				"event",
+				"channel",
+				"target",
+				"emoji",
+				"actor"
+			],
+			"properties": {
+				"event": {
+					"type": "string",
+					"description": "What happened.",
+					"knownValues": [
+						"create",
+						"delete"
+					]
+				},
+				"channel": {
+					"type": "string",
+					"format": "space-ref",
+					"description": "The channel it happened in."
+				},
+				"target": {
+					"type": "ref",
+					"ref": "social.colibri.beta.defs#recordRef",
+					"description": "The message reacted to."
+				},
+				"emoji": {
+					"type": "string",
+					"description": "The emoji or custom shortcode."
+				},
+				"actor": {
+					"type": "string",
+					"format": "did",
+					"description": "Who reacted."
+				}
+			}
+		},
+		"channelEvent": {
+			"type": "object",
+			"description": "A channel was created, changed, or deleted.",
+			"required": [
+				"event",
+				"community"
+			],
+			"properties": {
+				"event": {
+					"type": "string",
+					"description": "What happened.",
+					"knownValues": [
+						"create",
+						"update",
+						"delete"
+					]
+				},
+				"community": {
+					"type": "string",
+					"format": "did",
+					"description": "The community it belongs to."
+				},
+				"channel": {
+					"type": "ref",
+					"ref": "social.colibri.beta.community.defs#channelView",
+					"description": "The channel. Absent on delete."
+				},
+				"space": {
+					"type": "string",
+					"format": "space-ref",
+					"description": "Which channel, for deletes."
+				}
+			}
+		},
+		"categoryEvent": {
+			"type": "object",
+			"description": "A category was created, changed, or deleted.",
+			"required": [
+				"event",
+				"community"
+			],
+			"properties": {
+				"event": {
+					"type": "string",
+					"description": "What happened.",
+					"knownValues": [
+						"create",
+						"update",
+						"delete"
+					]
+				},
+				"community": {
+					"type": "string",
+					"format": "did",
+					"description": "The community it belongs to."
+				},
+				"category": {
+					"type": "ref",
+					"ref": "social.colibri.beta.community.defs#categoryView",
+					"description": "The category. Absent on delete."
+				},
+				"rkey": {
+					"type": "string",
+					"format": "record-key",
+					"description": "Which category, for deletes."
+				}
+			}
+		},
+		"roleEvent": {
+			"type": "object",
+			"description": "A role was created, changed, or deleted.",
+			"required": [
+				"event",
+				"community"
+			],
+			"properties": {
+				"event": {
+					"type": "string",
+					"description": "What happened.",
+					"knownValues": [
+						"create",
+						"update",
+						"delete"
+					]
+				},
+				"community": {
+					"type": "string",
+					"format": "did",
+					"description": "The community it belongs to."
+				},
+				"role": {
+					"type": "ref",
+					"ref": "social.colibri.beta.community.defs#roleView",
+					"description": "The role. Absent on delete."
+				},
+				"rkey": {
+					"type": "string",
+					"format": "record-key",
+					"description": "Which role, for deletes."
+				}
+			}
+		},
+		"memberEvent": {
+			"type": "object",
+			"description": "Someone joined, left, or had their roles changed.",
+			"required": [
+				"event",
+				"community"
+			],
+			"properties": {
+				"event": {
+					"type": "string",
+					"description": "What happened. A kick or a ban arrives as a leave.",
+					"knownValues": [
+						"join",
+						"leave",
+						"update"
+					]
+				},
+				"community": {
+					"type": "string",
+					"format": "did",
+					"description": "The community."
+				},
+				"member": {
+					"type": "ref",
+					"ref": "social.colibri.beta.community.defs#memberView",
+					"description": "The member. Absent on leave."
+				},
+				"subject": {
+					"type": "string",
+					"format": "did",
+					"description": "Who, for leaves."
+				}
+			}
+		},
+		"communityEvent": {
+			"type": "object",
+			"description": "A community's profile or settings changed.",
+			"required": [
+				"event",
+				"community"
+			],
+			"properties": {
+				"event": {
+					"type": "string",
+					"description": "What happened.",
+					"knownValues": [
+						"update",
+						"delete"
+					]
+				},
+				"community": {
+					"type": "string",
+					"format": "did",
+					"description": "The community."
+				},
+				"view": {
+					"type": "ref",
+					"ref": "social.colibri.beta.community.defs#communityView",
+					"description": "The community. Absent on delete."
+				}
+			}
+		},
+		"applicationEvent": {
+			"type": "object",
+			"description": "The pending-application queue changed. Only sent to members who can manage approvals.",
+			"required": [
+				"event",
+				"community",
+				"subject"
+			],
+			"properties": {
+				"event": {
+					"type": "string",
+					"description": "What happened.",
+					"knownValues": [
+						"create",
+						"approve",
+						"dismiss",
+						"undismiss"
+					]
+				},
+				"community": {
+					"type": "string",
+					"format": "did",
+					"description": "The community."
+				},
+				"subject": {
+					"type": "string",
+					"format": "did",
+					"description": "The applicant."
+				},
+				"application": {
+					"type": "ref",
+					"ref": "social.colibri.beta.community.defs#applicationView",
+					"description": "The application. Absent on approve."
+				}
+			}
+		},
+		"labelEvent": {
+			"type": "object",
+			"description": "A label was applied or retracted on a record in a subscribed space.",
+			"required": [
+				"event",
+				"space",
+				"subject",
+				"val",
+				"src"
+			],
+			"properties": {
+				"event": {
+					"type": "string",
+					"description": "What happened.",
+					"knownValues": [
+						"create",
+						"negate"
+					]
+				},
+				"space": {
+					"type": "string",
+					"format": "space-ref",
+					"description": "The space the labelled record lives in."
+				},
+				"subject": {
+					"type": "ref",
+					"ref": "social.colibri.beta.label#subject",
+					"description": "The labelled record."
+				},
+				"val": {
+					"type": "string",
+					"description": "The label value."
+				},
+				"src": {
+					"type": "string",
+					"format": "did",
+					"description": "The labeler."
+				}
+			}
+		},
+		"moderationEvent": {
+			"type": "object",
+			"description": "A moderation action was logged. Only sent to members who can read the log.",
+			"required": [
+				"community",
+				"entry"
+			],
+			"properties": {
+				"community": {
+					"type": "string",
+					"format": "did",
+					"description": "The community."
+				},
+				"entry": {
+					"type": "ref",
+					"ref": "social.colibri.beta.community.defs#moderationView",
+					"description": "The log entry."
+				}
+			}
+		},
+		"notificationEvent": {
+			"type": "object",
+			"description": "A notification was raised for the connected user.",
+			"required": [
+				"notification"
+			],
+			"properties": {
+				"notification": {
+					"type": "ref",
+					"ref": "social.colibri.beta.notification.defs#notificationView",
+					"description": "The notification."
+				}
+			}
+		},
+		"seenEvent": {
+			"type": "object",
+			"description": "The connected user marked notifications seen somewhere else, so this client should clear the same badges.",
+			"required": [
+				"unread"
+			],
+			"properties": {
+				"unread": {
+					"type": "integer",
+					"description": "The user's remaining unread count."
+				},
+				"channel": {
+					"type": "string",
+					"format": "space-ref",
+					"description": "The channel that was marked seen, when it was a single channel."
+				},
+				"seenAt": {
+					"type": "string",
+					"format": "datetime",
+					"description": "The point everything was marked seen up to."
+				}
+			}
+		},
+		"presenceEvent": {
+			"type": "object",
+			"description": "Someone's presence changed.",
+			"required": [
+				"did",
+				"presence"
+			],
+			"properties": {
+				"did": {
+					"type": "string",
+					"format": "did",
+					"description": "Whose presence changed."
+				},
+				"presence": {
+					"type": "ref",
+					"ref": "social.colibri.beta.actor.defs#presence",
+					"description": "Their new presence."
+				}
+			}
+		},
+		"preferencesEvent": {
+			"type": "object",
+			"description": "The connected user changed their own preferences somewhere else.",
+			"required": [
+				"preferences"
+			],
+			"properties": {
+				"preferences": {
+					"type": "ref",
+					"ref": "social.colibri.beta.actor.defs#preferences",
+					"description": "Their preferences as they now stand."
+				}
+			}
+		},
+		"typingEvent": {
+			"type": "object",
+			"description": "Someone is typing in a subscribed channel.",
+			"required": [
+				"did",
+				"channel"
+			],
+			"properties": {
+				"did": {
+					"type": "string",
+					"format": "did",
+					"description": "Who is typing."
+				},
+				"channel": {
+					"type": "string",
+					"format": "space-ref",
+					"description": "Where."
+				}
+			}
+		},
+		"voiceEvent": {
+			"type": "object",
+			"description": "A voice channel's participants changed.",
+			"required": [
+				"event",
+				"channel",
+				"did"
+			],
+			"properties": {
+				"event": {
+					"type": "string",
+					"description": "What happened.",
+					"knownValues": [
+						"join",
+						"leave",
+						"update",
+						"speaking"
+					]
+				},
+				"channel": {
+					"type": "string",
+					"format": "space-ref",
+					"description": "The voice channel."
+				},
+				"did": {
+					"type": "string",
+					"format": "did",
+					"description": "Who."
+				},
+				"voice": {
+					"type": "ref",
+					"ref": "social.colibri.beta.actor.defs#voiceState",
+					"description": "Their voice state. Absent on leave."
+				},
+				"speaking": {
+					"type": "boolean",
+					"description": "Whether they are currently speaking, on speaking events."
+				}
+			}
+		},
+		"communityProgressEvent": {
+			"type": "object",
+			"description": "Progress while a community is being created, which takes several PDS round-trips.",
+			"required": [
+				"step",
+				"completed",
+				"total"
+			],
+			"properties": {
+				"step": {
+					"type": "string",
+					"description": "What the AppView is doing now.",
+					"knownValues": [
+						"creatingAccount",
+						"creatingSpaces",
+						"writingProfile",
+						"creatingOwnerRole",
+						"creatingStarterChannels",
+						"done",
+						"failed"
+					]
+				},
+				"completed": {
+					"type": "integer",
+					"description": "Steps finished."
+				},
+				"total": {
+					"type": "integer",
+					"description": "Steps in total."
+				},
+				"community": {
+					"type": "string",
+					"format": "did",
+					"description": "The community, once its account exists."
+				},
+				"message": {
+					"type": "string",
+					"description": "Human-readable detail, set on failure."
+				}
+			}
+		}
+	}
+}

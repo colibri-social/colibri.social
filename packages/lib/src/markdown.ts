@@ -39,18 +39,18 @@ export interface MarkdownToken {
 }
 
 const FEATURE_TYPE: Record<MarkdownTokenKind, Feature["$type"]> = {
-	bold: "social.colibri.richtext.facet#bold",
-	italic: "social.colibri.richtext.facet#italic",
-	underline: "social.colibri.richtext.facet#underline",
-	strikethrough: "social.colibri.richtext.facet#strikethrough",
-	code: "social.colibri.richtext.facet#code",
-	codeblock: "social.colibri.richtext.facet#codeblock",
-	quote: "social.colibri.richtext.facet#quote",
-	link: "social.colibri.richtext.facet#link",
-	heading: "social.colibri.richtext.facet#heading",
-	list: "social.colibri.richtext.facet#list",
-	subtext: "social.colibri.richtext.facet#subtext",
-	spoiler: "social.colibri.richtext.facet#spoiler",
+	bold: "social.colibri.beta.richtext.facet#bold",
+	italic: "social.colibri.beta.richtext.facet#italic",
+	underline: "social.colibri.beta.richtext.facet#underline",
+	strikethrough: "social.colibri.beta.richtext.facet#strikethrough",
+	code: "social.colibri.beta.richtext.facet#code",
+	codeblock: "social.colibri.beta.richtext.facet#codeblock",
+	quote: "social.colibri.beta.richtext.facet#quote",
+	link: "social.colibri.beta.richtext.facet#link",
+	heading: "social.colibri.beta.richtext.facet#heading",
+	list: "social.colibri.beta.richtext.facet#list",
+	subtext: "social.colibri.beta.richtext.facet#subtext",
+	spoiler: "social.colibri.beta.richtext.facet#spoiler",
 };
 
 const INLINE_MARKER: Partial<Record<MarkdownTokenKind, string>> = {
@@ -434,22 +434,22 @@ const buildFeature = (token: MarkdownToken): Feature => {
 	switch (token.kind) {
 		case "codeblock":
 			return {
-				$type: "social.colibri.richtext.facet#codeblock",
+				$type: "social.colibri.beta.richtext.facet#codeblock",
 				...(token.lang ? { lang: token.lang } : {}),
 			};
 		case "link":
 			return {
-				$type: "social.colibri.richtext.facet#link",
+				$type: "social.colibri.beta.richtext.facet#link",
 				uri: token.uri ?? "",
-			};
+			} as Feature;
 		case "heading":
 			return {
-				$type: "social.colibri.richtext.facet#heading",
+				$type: "social.colibri.beta.richtext.facet#heading",
 				level: token.level ?? 1,
 			};
 		case "list":
 			return {
-				$type: "social.colibri.richtext.facet#list",
+				$type: "social.colibri.beta.richtext.facet#list",
 				ordered: Boolean(token.ordered),
 			};
 		default:
@@ -532,9 +532,9 @@ export const parseMarkdown = (
 		const cleanEnd = mapToClean(endStr);
 		if (cleanEnd <= cleanStart) return;
 		facets.push({
-			$type: "social.colibri.richtext.facet",
+			$type: "social.colibri.beta.richtext.facet",
 			index: {
-				$type: "app.bsky.richtext.facet#byteSlice",
+				$type: "social.colibri.beta.richtext.facet#byteSlice",
 				byteStart: cleanToByte(cleanStart),
 				byteEnd: cleanToByte(cleanEnd),
 			},

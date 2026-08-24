@@ -1,0 +1,76 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.category.update",
+	"defs": {
+		"main": {
+			"type": "procedure",
+			"description": "Updates a category's name.",
+			"input": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"community",
+						"category"
+					],
+					"properties": {
+						"community": {
+							"type": "string",
+							"format": "did",
+							"description": "The community the category belongs to."
+						},
+						"category": {
+							"type": "string",
+							"format": "record-key",
+							"description": "The category's record key."
+						},
+						"name": {
+							"type": "string",
+							"minLength": 1,
+							"maxLength": 32,
+							"description": "The category's new name."
+						}
+					}
+				}
+			},
+			"output": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"category"
+					],
+					"properties": {
+						"category": {
+							"type": "ref",
+							"ref": "social.colibri.beta.community.defs#categoryView",
+							"description": "The updated category."
+						}
+					}
+				}
+			},
+			"errors": [
+				{
+					"name": "AuthRequired",
+					"description": "The request is missing, malformed, or unverifiable service auth."
+				},
+				{
+					"name": "Forbidden",
+					"description": "The caller lacks the category.update permission."
+				},
+				{
+					"name": "CommunityNotFound",
+					"description": "No community exists at the given DID."
+				},
+				{
+					"name": "CategoryNotFound",
+					"description": "No category exists at the given record key."
+				},
+				{
+					"name": "CredentialsUnavailable",
+					"description": "The AppView cannot act as the community because its stored credentials are missing or unusable."
+				}
+			]
+		}
+	}
+}

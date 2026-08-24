@@ -1,26 +1,27 @@
-import type { ActorData } from "@colibri-social/lib";
 import { createContext, type ParentComponent, useContext } from "solid-js";
 import { createStore } from "solid-js/store";
+import { colibri } from "../atproto/lexicons";
+import type { ProfileView } from "../atproto/views";
 import { useUserContext } from "./User";
 
 type ActorCacheContextValue = {
-	resolve: (did: string) => ActorData | undefined;
-	seed: (actor: ActorData) => void;
+	resolve: (did: string) => ProfileView | undefined;
+	seed: (actor: ProfileView) => void;
 };
 
 const ActorCacheContext = createContext<ActorCacheContextValue>();
 
 export const ActorCacheProvider: ParentComponent = (props) => {
 	const user = useUserContext();
-	const [cache, setCache] = createStore<Record<string, ActorData>>({});
+	const [cache, setCache] = createStore<Record<string, ProfileView>>({});
 	const inflight = new Set<string>();
 
-	const seed = (actor: ActorData): void => {
+	const seed = (actor: ProfileView): void => {
 		if (actor?.did) setCache(actor.did, actor);
 	};
 
-	const resolve = (did: string): ActorData | undefined => {
-		if (did === user.did) return user as unknown as ActorData;
+	const resolve = (did: string): ProfileView | undefined => {
+		if (did === user.did) return user as unknown as ProfileView;
 
 		const cached = cache[did];
 
@@ -28,10 +29,10 @@ export const ActorCacheProvider: ParentComponent = (props) => {
 
 		if (!inflight.has(did)) {
 			inflight.add(did);
-			user.xrpc.social.colibri.actor
-				.getData(did)
+			user.xrpc
+				.call(colibri.actor.getProfile.main, { params: { actor: did } })
 				.then((res) => {
-					if (res.ok && res.data) setCache(did, res.data);
+					if (res.ok && res.data?.profile) setCache(did, res.data.profile);
 				})
 				.catch(() => {})
 				.finally(() => inflight.delete(did));

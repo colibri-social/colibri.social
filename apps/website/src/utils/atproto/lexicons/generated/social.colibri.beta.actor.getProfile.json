@@ -1,0 +1,49 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.actor.getProfile",
+	"defs": {
+		"main": {
+			"type": "query",
+			"description": "Gets a user's profile.",
+			"parameters": {
+				"type": "params",
+				"required": [
+					"actor"
+				],
+				"properties": {
+					"actor": {
+						"type": "string",
+						"description": "The user's DID or handle.",
+						"format": "at-identifier"
+					}
+				}
+			},
+			"output": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"profile"
+					],
+					"properties": {
+						"profile": {
+							"type": "ref",
+							"ref": "social.colibri.beta.actor.defs#profileView",
+							"description": "The user's profile."
+						}
+					}
+				}
+			},
+			"errors": [
+				{
+					"name": "AuthRequired",
+					"description": "The request has no valid service auth."
+				},
+				{
+					"name": "ActorNotFound",
+					"description": "No user matches the given DID or handle."
+				}
+			]
+		}
+	}
+}

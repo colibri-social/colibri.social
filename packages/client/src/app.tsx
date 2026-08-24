@@ -12,7 +12,7 @@ import {
 	type ParentComponent,
 	Show,
 } from "solid-js";
-import { urlSegmentToUri } from "./atproto/community-uri-to-url-compatible";
+import { buildChannelPath } from "./atproto/colibri-channel-url";
 import { OutboxController } from "./atproto/outbox/OutboxController";
 import { initSessionDebug } from "./atproto/session-debug";
 import { sessionDead } from "./atproto/session-health";
@@ -50,7 +50,6 @@ import AppLayout from "./layouts/AppLayout";
 import ChannelLayoutWithContext from "./layouts/ChannelLayout";
 import CommunityLayoutWithContext from "./layouts/CommunityLayout";
 import { appShellMounted } from "./utils/app-shell";
-import { AtURI } from "./utils/at-uri";
 import { createLogger } from "./utils/logger";
 import { isMobileNow, useIsMobile } from "./utils/mobile-pane";
 import { trackNavHistory } from "./utils/nav-history";
@@ -62,14 +61,11 @@ initTheme();
 initTitleBar();
 initSessionDebug();
 
-// Accepted forms of the `:channelType` URL segment. We accept both the
-// short form (legacy records that store `"text"` / `"voice"`) and the full
-// NSID (`"social.colibri.channel.text"` / `"social.colibri.channel.voice"`)
-// — see the `props.channel.type === ...` checks in Category.tsx for the
-// same dual-form handling. Add new variants here when introducing new
-// channel kinds.
-const TEXT_CHANNEL_TYPES = ["text", "social.colibri.channel.text"];
-const VOICE_CHANNEL_TYPES = ["voice", "social.colibri.channel.voice"];
+// Accepted forms of the `:channelType` URL segment: the short form the app
+// builds its own links from, and the full channel space type a shared link
+// may carry.
+const TEXT_CHANNEL_TYPES = ["text", "social.colibri.beta.channel.text"];
+const VOICE_CHANNEL_TYPES = ["voice", "social.colibri.beta.channel.voice"];
 
 const AppRoute: ParentComponent = (props) => {
 	return (
@@ -126,7 +122,14 @@ const AppErrorScreen: Component<{ error: unknown; reset: () => void }> = (
 			});
 			return;
 		}
-		log.error("uncaught render error", { code: failure().code });
+		log.error("uncaught render error", {
+			code: failure().code,
+			reason: failure().message,
+			stack:
+				import.meta.env.DEV && props.error instanceof Error
+					? props.error.stack
+					: undefined,
+		});
 		setEventId(
 			reportError(props.error, { stage: "render", severity: "fatal" }).eventId,
 		);
@@ -211,7 +214,10 @@ const App: ParentComponent = () => {
 											const params = useParams();
 											const navigate = useNavigate();
 											const c = useCommunityContext();
-											const communityUrlSeg = () => params.community!;
+											const communityDid = () => params.community!;
+
+											const routeFor = (channel: { space: string }) =>
+												buildChannelPath(channel.space);
 
 											createEffect(() => {
 												// On mobile the community placeholder IS the nav-root
@@ -219,29 +225,24 @@ const App: ParentComponent = () => {
 												// taps a channel to push into chat.
 												if (isMobileNow()) return;
 
-												if (
-													c().community.uri !==
-													urlSegmentToUri(communityUrlSeg())
-												)
-													return;
+												if (c().community.did !== communityDid()) return;
 
 												const raw = localStorage.getItem(
-													`${communityUrlSeg()}:last-viewed`,
+													`${communityDid()}:last-viewed`,
 												);
 
 												if (raw) {
 													try {
 														const channel = JSON.parse(raw) as {
-															uri: string;
-															type: string;
+															space: string;
 														};
-														if (
-															c().channels.some((ch) => ch.uri === channel.uri)
-														) {
-															navigate(
-																`/app/c/${communityUrlSeg()}/${channel.type}/${new AtURI(channel.uri).identifier}`,
-																{ replace: true },
-															);
+														const route = c().channels.some(
+															(ch) => ch.space === channel.space,
+														)
+															? routeFor(channel)
+															: undefined;
+														if (route) {
+															navigate(route, { replace: true });
 															return;
 														}
 													} catch {}
@@ -250,10 +251,8 @@ const App: ParentComponent = () => {
 												const firstChannel = c().channels[0];
 												if (!firstChannel) return;
 
-												navigate(
-													`/app/c/${communityUrlSeg()}/${firstChannel.type}/${new AtURI(firstChannel.uri).identifier}`,
-													{ replace: true },
-												);
+												const route = routeFor(firstChannel);
+												if (route) navigate(route, { replace: true });
 											});
 
 											return (

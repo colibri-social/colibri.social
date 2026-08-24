@@ -1,9 +1,11 @@
 import type { MentionNodeAttrs } from "@tiptap/extension-mention";
 import type { SuggestionOptions } from "@tiptap/suggestion";
-import type { Category } from "../../../../atproto/xrpc/social/colibri/community/listCategories";
-import type { Channel } from "../../../../atproto/xrpc/social/colibri/community/listChannels";
-import type { Member } from "../../../../atproto/xrpc/social/colibri/community/listMembers";
-import type { Role } from "../../../../atproto/xrpc/social/colibri/community/listRoles";
+import type {
+	Category,
+	Channel,
+	Member,
+	Role,
+} from "../../../../contexts/community-payload";
 import { ambiguousCategoryName } from "../../../../utils/channel-category";
 import { searchEmojis } from "../../../../utils/emoji-data";
 import { foldText } from "../../../../utils/fold-text";

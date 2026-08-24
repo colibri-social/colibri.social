@@ -1,0 +1,142 @@
+---
+title: Permissioned Spaces
+description: The AT Protocol primitive Colibri is built on, and how access to one is granted.
+sidebar:
+  order: 1
+---
+
+import { Steps } from "@astrojs/starlight/components";
+
+Colibri is built on **atproto permissioned spaces**.
+Everything else in this section assumes them, so start here.
+
+A space is a shared, access-controlled view over records that still live in
+their authors' own repositories. It is not a container that holds records. It is
+an agreement between a group of repos about who may read them.
+
+:::note[Alpha]
+Permissioned spaces are an unfinished part of the AT Protocol. The
+implementation Colibri tracks is an alpha, it is explicitly not for production
+use, and it changes. Expect breakage.
+:::
+
+## How access works
+
+A community's data is gated at the protocol level, by the community's own PDS.
+A reader without a credential for the space gets nothing, rather than getting
+records a client is expected to hide.
+
+There is **no relay for permissioned data**, so an AppView cannot subscribe to a
+firehose and wait for community content to arrive. It pulls each member's
+repository from that member's own host, presenting a credential for the space.
+See [Sync](/docs/architecture/sync).
+
+## The three parties
+
+| Party | Role |
+| --- | --- |
+| **Authority** | Owns the space and decides who may read it. For a Colibri community, this is the community's own DID. |
+| **Repo host** | Holds a member's repository and serves their records to whoever presents a valid credential. |
+| **Reader** | Anything that wants to read the space. The AppView is one, and a client can be another. |
+
+A space is identified by its authority, a space type, and a key:
+
+```
+at://{authority}/space/{spaceType}/{skey}
+```
+
+The space type is an NSID naming a lexicon whose `main` definition is a space
+declaration. It lists the record collections the space may hold and carries a
+human-readable name, which is what an OAuth consent screen shows a user.
+
+A record inside a space needs the author as well, because record keys are unique
+per repository and a space aggregates many repositories:
+
+```
+at://{authority}/space/{spaceType}/{skey}/{author}/{collection}/{rkey}
+```
+
+Colibri message and reaction references carry an author DID alongside the record
+key. A bare key is ambiguous inside a space, and resolving one can find the
+wrong record.
+
+## Getting a credential
+
+Reading a space requires a **space credential** issued by the authority.
+Obtaining one is a three-party exchange.
+
+<Steps>
+
+1. **A delegation token is minted by the reader's own PDS.** It is single use,
+   lives 60 seconds, and names the space authority as its audience.
+
+2. **The token is presented to the authority** in exchange for a credential,
+   along with a DPoP proof binding the credential to a key the reader holds.
+   The authority decides here whether to issue anything at all.
+
+3. **The credential is presented to each repo host** in the space, with a fresh
+   DPoP proof naming that host.
+
+</Steps>
+
+The two tokens are carried differently. A delegation token goes in
+`Authorization: Bearer` with a DPoP proof that has **no** `ath` claim, because
+it is an authorization grant rather than an access token. A space credential
+goes in `Authorization: DPoP` with a proof that **does** carry `ath`.
+
+Delegation tokens are replay protected. Once used, a token is spent.
+
+### A note on app passwords
+
+`com.atproto.space.getDelegationToken` requires the `ACCESS_FULL` scope, which
+app passwords do not carry. Minting a delegation token needs either an OAuth
+session with the right scopes or a session opened with the account's real
+password.
+
+The AppView therefore stores a generated strong password for each community
+instead of an app password, and a client requests `space:` scopes at sign-in
+before it can grant the AppView access to the user's personal space.
+
+## Policies
+
+An authority answers credential requests according to the space's **policy**.
+Colibri uses two of them.
+
+**`member-list`** is a literal list of DIDs. A user's personal space uses an
+empty one. The space manager authorizes the owner before it consults any policy,
+so the owner always gets in and nobody else ever does.
+
+**`managing-app`** delegates the decision to an application. Every Colibri
+community space uses this, naming the AppView. When someone asks the community's
+PDS for a credential, the PDS calls
+[`com.atproto.simplespace.checkUserAccess`](/docs/specification/appview) on the
+AppView and does what it says.
+
+A ban is therefore the AppView answering "no" when the community's PDS asks
+whether that person may read, rather than a record clients are trusted to
+honour. The refusal happens at the protocol layer, before any data moves.
+
+:::caution[The AppView must be reachable]
+`managing-app` makes the AppView's reachability a hard requirement. If a
+community's PDS cannot reach the AppView, it cannot mint credentials for that
+community's spaces, and the community becomes unreadable even though its PDS is
+up.
+
+The write path has a consequence of its own. See
+[the writer set](/docs/architecture/sync#the-writer-set).
+:::
+
+## One AppView per community
+
+A community is bound to the AppView that manages it. Reading a space requires a
+credential, and only the managing AppView holds the community's credentials, so
+a community's members cannot be spread across independent instances.
+
+See [Communities and AppViews](/docs/help/moderating-across-appviews) for what
+that means when you belong to communities on more than one.
+
+## See also
+
+- [Communities](/docs/architecture/communities): the six spaces a Colibri community is made of.
+- [Sync](/docs/architecture/sync): how the AppView keeps a copy of a space current.
+- [Moderation](/docs/architecture/moderation): what a community can and cannot do to a message.

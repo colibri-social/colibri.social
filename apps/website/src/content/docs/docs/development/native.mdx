@@ -37,7 +37,7 @@ A full `tauri build` needs `TAURI_SIGNING_PRIVATE_KEY` and `TAURI_SIGNING_PRIVAT
 
 ### Windows
 
-The bare executable from `tauri build --no-bundle` does not complete the `social.colibri:/oauth/callback` deep link, so OAuth sign-in never finishes on it. The browser hands off correctly and the app is simply never brought up. Other deep links such as `social.colibri:/invite/<code>` do route fine on the same binary, so the app looks healthy right up until you try to log in. Build and sideload an MSIX for anything touching sign-in or deep links.
+The bare executable from `tauri build --no-bundle` does not complete the `social.colibri:/oauth/callback` deep link, so OAuth sign-in never finishes on it. The browser hands off correctly and the app is never brought up. Other deep links such as `social.colibri:/invite/<code>` do route fine on the same binary, so the app looks healthy right up until you try to log in. Build and sideload an MSIX for anything touching sign-in or deep links.
 
 If you need to test this nonetheless, do the following:
 

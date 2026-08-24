@@ -3,49 +3,68 @@ title: "Colibri Social Documentation"
 description: "Learn about Colibri's architecture, specification, and how to contribute."
 ---
 
-Colibri (pronounced **/ˈkoʊ lɪ bri/**) is a next-generation social chat app built on the AT protocol. It functions entirely by using ATproto as infrastructure and utilizes the protocol to its limits.
+Colibri (pronounced **/ˈkoʊ lɪ bri/**) is a chat app built on the AT Protocol.
+It uses the protocol as infrastructure rather than as a login provider, so your
+messages live in your own repository and travel with your identity.
 
-This documentation aims to provide an overview over the architecture of the project, the specifications for lexicons, associated labels and the AppView, as well as helpful pages about contributing to Colibri.
+Colibri's communities are built on
+[permissioned spaces](/docs/architecture/spaces), a part of the protocol that
+lets a group of repositories agree on who may read them. Most of the rest of
+these docs builds on it.
+
+:::note[If you are a member, not a developer]
+[The Move to Private Communities](/docs/help/spaces-migration) covers what
+changed for you, in plain terms.
+:::
 
 ## Architecture
 
 | Page | Contents |
 | --- | --- |
-| [AppView Architecture](/docs/architecture/appview) | Architectural and technical details about our AppView implementation |
-| [Client Architecture](/docs/architecture/client) | Architectural and technical details about our client implementation |
-| [Communities](/docs/architecture/communities) | How communities work and where their records are stored |
+| [Permissioned Spaces](/docs/architecture/spaces) | The protocol primitive Colibri is built on, and how access is granted |
+| [Communities](/docs/architecture/communities) | The six spaces a community is made of, and where each record lives |
+| [AppView](/docs/architecture/appview) | What the service does, what it runs on, and how the code is arranged |
+| [Sync](/docs/architecture/sync) | Keeping a copy of a space current without a relay |
+| [Storage](/docs/architecture/storage) | What the database holds, and which parts can be thrown away |
+| [Moderation](/docs/architecture/moderation) | What a community can do about content it does not own |
+| [Client](/docs/architecture/client) | The frontend that talks to an AppView |
 
 ## Specification
 
 | Page | Contents |
 | --- | --- |
-| [AppView Specification](/docs/specification/appview) | The XRPC endpoints and event stream an AppView must implement |
-| [Lexicons](/docs/specification/lexicons) | The AT Protocol record schemas Colibri defines |
+| [AppView](/docs/specification/appview) | Every XRPC method, both WebSockets, and the protocol callbacks |
+| [Lexicons](/docs/specification/lexicons) | The schemas themselves, grouped by kind |
 | [Facets](/docs/specification/facets) | How rich-text facets are encoded, rendered, and which take precedence |
 
 ## Development
 
 | Page | Contents |
 | --- | --- |
-| [Overview](/docs/development/overview) | The local stack, prerequisites, and how dev mode differs from production |
-| [AppView Development](/docs/development/appview) | Running the Rust service, its dependencies, migrations, and tests |
-| [Client Development](/docs/development/client) | The SolidJS client, the Astro website, and the native shell |
-| [Running a PDS](/docs/development/pds) | The PDS communities live on, why it's required, and how to run one |
+| [Overview](/docs/development/overview) | The local stack and how dev mode differs from production |
+| [AppView](/docs/development/appview) | Running the TypeScript service, its build, and its configuration |
+| [Client](/docs/development/client) | The SolidJS client, the Astro website, and the native shell |
+| [Testing](/docs/development/testing) | Unit tests, the integration suite, and what CI runs |
+| [Running a PDS](/docs/development/pds) | The spaces-alpha PDS this depends on |
+| [Errors](/docs/development/errors) | How errors are declared and surfaced |
 
 ## Self-hosting
 
 | Page | Contents |
 | --- | --- |
-| [Getting Started](/docs/self-hosting/getting-started) | Running your own AppView and connecting a client to it |
+| [Getting Started](/docs/self-hosting/getting-started) | Running your own AppView, and the reachability it requires |
 
 ## Contributing
 
 | Page | Contents |
 | --- | --- |
-| [Overview](/docs/contributing/overview) | How to get involved and contribute to Colibri |
+| [Overview](/docs/contributing/overview) | How to get involved |
 
 ## Help
 
 | Page | Contents |
 | --- | --- |
-| [Legacy Communities](/docs/help/legacy-communities) | Migrating communities created before the current schema |
+| [The Move to Private Communities](/docs/help/spaces-migration) | What changes for members when a community goes private |
+| [Communities and AppViews](/docs/help/moderating-across-appviews) | A community lives on one instance |
+| [Legacy Communities](/docs/help/legacy-communities) | Communities created during the alpha |
+| [Deleting Your Account](/docs/help/delete-account) | Removing your Colibri data |

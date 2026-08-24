@@ -1,0 +1,241 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.channel.defs",
+	"defs": {
+		"messageView": {
+			"type": "object",
+			"description": "A message as the AppView serves it, with its author, reactions and labels resolved.",
+			"required": [
+				"uri",
+				"rkey",
+				"channel",
+				"author",
+				"text",
+				"createdAt",
+				"attachments",
+				"reactions",
+				"labels"
+			],
+			"properties": {
+				"uri": {
+					"type": "string",
+					"format": "at-uri",
+					"description": "The message's full space AT-URI."
+				},
+				"rkey": {
+					"type": "string",
+					"format": "record-key",
+					"description": "The message's record key, for addressing it as a reply target."
+				},
+				"channel": {
+					"type": "string",
+					"format": "space-ref",
+					"description": "The channel space the message lives in."
+				},
+				"author": {
+					"type": "ref",
+					"ref": "social.colibri.beta.actor.defs#profileView",
+					"description": "Who wrote it."
+				},
+				"text": {
+					"type": "string",
+					"description": "The message body."
+				},
+				"facets": {
+					"type": "array",
+					"items": {
+						"type": "ref",
+						"ref": "social.colibri.beta.richtext.facet"
+					},
+					"description": "Rich text annotations."
+				},
+				"createdAt": {
+					"type": "string",
+					"format": "datetime",
+					"description": "When it was sent."
+				},
+				"updatedAt": {
+					"type": "string",
+					"format": "datetime",
+					"description": "When it was last edited. Absent means never edited."
+				},
+				"parent": {
+					"type": "union",
+					"refs": [
+						"#messageView",
+						"#deletedMessageView"
+					],
+					"description": "The message being replied to, or a stand-in when it can no longer be served. Never itself nested."
+				},
+				"attachments": {
+					"type": "array",
+					"items": {
+						"type": "ref",
+						"ref": "#attachmentView"
+					},
+					"description": "Attached files."
+				},
+				"reactions": {
+					"type": "array",
+					"items": {
+						"type": "ref",
+						"ref": "#reactionView"
+					},
+					"description": "Reactions, aggregated by emoji."
+				},
+				"labels": {
+					"type": "array",
+					"items": {
+						"type": "ref",
+						"ref": "social.colibri.beta.community.defs#labelView"
+					},
+					"description": "Labels from labelers this community honours. `src` says who applied each one. A `hidden` label is enforced by the AppView, which withholds the message rather than serving it, so a message that reaches you carries only labels you are meant to act on for display, such as `spoiler`."
+				},
+				"suppressedEmbeds": {
+					"type": "array",
+					"items": {
+						"type": "string",
+						"format": "uri",
+						"description": "A URL."
+					},
+					"description": "URLs whose preview the author chose not to show."
+				},
+				"embeds": {
+					"type": "array",
+					"items": {
+						"type": "ref",
+						"ref": "social.colibri.beta.embed.defs#linkEmbed"
+					},
+					"description": "Resolved link previews."
+				},
+				"legacy": {
+					"type": "boolean",
+					"description": "Whether this message comes from the repo-backed community this channel was migrated from, and is therefore immutable."
+				}
+			}
+		},
+		"deletedMessageView": {
+			"type": "object",
+			"description": "Stands in for a message the AppView will not serve: deleted by its author, or hidden by a moderator. The two cases are deliberately indistinguishable, so hiding does not leak what was hidden. Render it as an unavailable message.",
+			"required": [
+				"uri",
+				"rkey",
+				"channel"
+			],
+			"properties": {
+				"uri": {
+					"type": "string",
+					"format": "at-uri",
+					"description": "The message's full space AT-URI."
+				},
+				"rkey": {
+					"type": "string",
+					"format": "record-key",
+					"description": "The message's record key."
+				},
+				"channel": {
+					"type": "string",
+					"format": "space-ref",
+					"description": "The channel space it lived in."
+				}
+			}
+		},
+		"attachmentView": {
+			"type": "object",
+			"description": "A file attached to a message.",
+			"required": [
+				"url",
+				"mimeType"
+			],
+			"properties": {
+				"url": {
+					"type": "string",
+					"format": "uri",
+					"description": "URL served by this AppView's blob proxy."
+				},
+				"name": {
+					"type": "string",
+					"description": "The original filename.",
+					"maxLength": 256
+				},
+				"mimeType": {
+					"type": "string",
+					"description": "The sniffed content type."
+				},
+				"size": {
+					"type": "integer",
+					"description": "Size in bytes."
+				},
+				"width": {
+					"type": "integer",
+					"description": "Intrinsic pixel width, when the file is a decodable image or video."
+				},
+				"height": {
+					"type": "integer",
+					"description": "Intrinsic pixel height, when the file is a decodable image or video."
+				}
+			}
+		},
+		"reactionView": {
+			"type": "object",
+			"description": "Reactions to a message with one emoji.",
+			"required": [
+				"emoji",
+				"count",
+				"reactors"
+			],
+			"properties": {
+				"emoji": {
+					"type": "string",
+					"description": "The emoji or custom shortcode."
+				},
+				"count": {
+					"type": "integer",
+					"description": "How many people reacted."
+				},
+				"reactors": {
+					"type": "array",
+					"items": {
+						"type": "string",
+						"format": "did",
+						"description": "Someone who reacted."
+					},
+					"description": "Who reacted."
+				},
+				"viewerReacted": {
+					"type": "boolean",
+					"description": "Whether the requesting user is among them."
+				}
+			}
+		},
+		"unreadStatus": {
+			"type": "object",
+			"description": "Per-channel unread state for the requesting user.",
+			"required": [
+				"channel",
+				"hasUnread",
+				"unreadMentions"
+			],
+			"properties": {
+				"channel": {
+					"type": "string",
+					"format": "space-ref",
+					"description": "The channel."
+				},
+				"hasUnread": {
+					"type": "boolean",
+					"description": "Whether anything is unread."
+				},
+				"unreadMentions": {
+					"type": "integer",
+					"description": "How many unread messages mention the user."
+				},
+				"cursor": {
+					"type": "string",
+					"format": "tid",
+					"description": "The user's current read cursor."
+				}
+			}
+		}
+	}
+}

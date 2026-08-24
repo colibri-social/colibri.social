@@ -1,0 +1,53 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.channel.getChannel",
+	"defs": {
+		"main": {
+			"type": "query",
+			"description": "Gets one channel.",
+			"parameters": {
+				"type": "params",
+				"required": [
+					"channel"
+				],
+				"properties": {
+					"channel": {
+						"type": "string",
+						"format": "space-ref",
+						"description": "The channel to get."
+					}
+				}
+			},
+			"output": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"channel"
+					],
+					"properties": {
+						"channel": {
+							"type": "ref",
+							"ref": "social.colibri.beta.community.defs#channelView",
+							"description": "The requested channel."
+						}
+					}
+				}
+			},
+			"errors": [
+				{
+					"name": "AuthRequired",
+					"description": "The request has no valid service auth."
+				},
+				{
+					"name": "Forbidden",
+					"description": "The requesting user may not read this channel."
+				},
+				{
+					"name": "ChannelNotFound",
+					"description": "No channel matches the given space reference."
+				}
+			]
+		}
+	}
+}

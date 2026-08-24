@@ -1,0 +1,69 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.actor.putSettings",
+	"defs": {
+		"main": {
+			"type": "procedure",
+			"description": "Pushes the requesting user's social.colibri.beta.actor.settings record to the AppView, so it takes effect immediately instead of waiting for a sync notification. The client writes the record to its own personal space first, then calls this. An absent field leaves the current value unchanged.",
+			"input": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"properties": {
+						"notificationLevel": {
+							"type": "string",
+							"description": "Which messages produce a notification. Absent leaves the current value unchanged.",
+							"knownValues": [
+								"all",
+								"mentionsAndReplies"
+							]
+						},
+						"communityOrder": {
+							"type": "array",
+							"description": "Communities in preferred sidebar order. Absent leaves the current value unchanged.",
+							"items": {
+								"type": "string",
+								"format": "did",
+								"description": "A community."
+							}
+						},
+						"gifFavorites": {
+							"type": "array",
+							"description": "GIFs saved from the picker, stored whole. Absent leaves the current value unchanged.",
+							"items": {
+								"type": "ref",
+								"ref": "social.colibri.beta.embed.defs#gifView"
+							}
+						}
+					}
+				}
+			},
+			"output": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"preferences"
+					],
+					"properties": {
+						"preferences": {
+							"type": "ref",
+							"ref": "social.colibri.beta.actor.defs#preferences",
+							"description": "The requesting user's settings, after the update."
+						}
+					}
+				}
+			},
+			"errors": [
+				{
+					"name": "AuthRequired",
+					"description": "The request has no valid service auth."
+				},
+				{
+					"name": "InvalidRequest",
+					"description": "A field is present but does not hold an allowed value."
+				}
+			]
+		}
+	}
+}

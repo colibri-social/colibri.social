@@ -1,0 +1,71 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.community.listInvitations",
+	"defs": {
+		"main": {
+			"type": "query",
+			"description": "Lists a community's invitation codes.",
+			"parameters": {
+				"type": "params",
+				"required": [
+					"community"
+				],
+				"properties": {
+					"community": {
+						"type": "string",
+						"format": "did",
+						"description": "The community to list invitations for."
+					},
+					"limit": {
+						"type": "integer",
+						"minimum": 1,
+						"maximum": 100,
+						"default": 50,
+						"description": "The maximum number of results to return."
+					},
+					"cursor": {
+						"type": "string",
+						"description": "The cursor from a previous call, for fetching the next page."
+					}
+				}
+			},
+			"output": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"invitations"
+					],
+					"properties": {
+						"cursor": {
+							"type": "string",
+							"description": "A cursor for fetching the next page."
+						},
+						"invitations": {
+							"type": "array",
+							"items": {
+								"type": "ref",
+								"ref": "social.colibri.beta.community.defs#invitationView"
+							},
+							"description": "The community's invitations."
+						}
+					}
+				}
+			},
+			"errors": [
+				{
+					"name": "AuthRequired",
+					"description": "The request is missing, malformed, or unverifiable service auth."
+				},
+				{
+					"name": "Forbidden",
+					"description": "The requesting user lacks the invitation.create permission."
+				},
+				{
+					"name": "CommunityNotFound",
+					"description": "No community exists with that DID."
+				}
+			]
+		}
+	}
+}

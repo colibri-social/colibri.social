@@ -34,7 +34,7 @@ The client is packaged as a library because more than one shell consumes it. The
    pnpm install
    ```
 
-2. Create a `.env` from `.env.example`. Nothing in it is required for client work; `PUBLIC_VAPID_KEY` only matters if you're testing Web Push, and must match the AppView's `VAPID_PUBLIC_KEY`.
+2. Create a `.env` from `.env.example`. Nothing in it is required for client work. `PUBLIC_VAPID_KEY` only matters if you're testing Web Push, and must match the AppView's `VAPID_PUBLIC_KEY`.
 
 3. Start the client dev server:
 
@@ -46,13 +46,13 @@ The client is packaged as a library because more than one shell consumes it. The
 
 </Steps>
 
-You also need [the AppView running](/docs/development/appview) on `127.0.0.1:8000`. In dev mode the client talks to it directly instead of proxying through your PDS, and mints its own service-auth tokens, so a local AppView isn't optional, and the AppView switcher in settings is ignored.
+You also need [the AppView running](/docs/development/appview) on `127.0.0.1:3000`, with `APPVIEW_DID=did:web:localhost%3A3000` rather than the matching bare IP, which a PDS refuses as a service-auth audience. In dev mode the client talks to it directly instead of proxying through your PDS, and mints its own service-auth tokens, so a local AppView isn't optional, and the AppView switcher in settings is ignored.
 
 ## Logging in locally
 
-Login uses a real Atmosphere account through OAuth, against whatever PDS that account lives on. Two things trip people up:
+Login uses a real Atmosphere account through OAuth, against whatever PDS that account lives on. Two details trip people up:
 
-- **The early-access allowlist.** `packages/client/src/atproto/allowlist.ts` is a hardcoded set of DIDs, enforced in dev exactly as in production: a session for a DID that isn't in it is cleared and you land on the waitlist screen. Add your own DID while developing.
+- **The early-access allowlist.** `packages/client/src/atproto/allowlist.ts` holds an `ALLOWLIST_ENABLED` flag and a hardcoded set of DIDs, compiled into the client and enforced in dev as it is in production. While the flag is on, a session for a DID outside the set is cleared and you land on the waitlist screen, so add your own DID before you sign in.
 - **Localhost OAuth clients.** In dev the client id is the [localhost development form](https://atproto.com/specs/oauth#localhost-client-development), `http://localhost?scope=...&redirect_uri=http://127.0.0.1:<port>/app/login`, instead of a hosted client metadata document. Scopes are built from the AppView's `did:web`, so they're derived from what your local install points at.
 
 ### Faking a logout
@@ -64,7 +64,7 @@ in every build. Run `__colibriSession.help()` for the list.
 __colibriSession.expire()               // end the session and watch the redirect to sign-in
 __colibriSession.expire("InvalidToken") // any ColibriErrorCode works
 __colibriSession.fail()                 // one AuthRequired, three inside 60s end the session
-__colibriSession.signOut()              // the deliberate sign-out path instead
+__colibriSession.signOut()              // the explicit sign-out path instead
 __colibriSession.state()                // { dead, code }
 ```
 
@@ -79,12 +79,28 @@ pnpm test
 pnpm --filter @colibri-social/client typecheck
 ```
 
-Tests are [Vitest](https://vitest.dev) files sitting next to the code they
-cover, configured by a small `vitest.config.ts` in each tested package.
-Everything covered so far is plain TypeScript that runs in Node. The XRPC wrappers are the most valuable thing to
-add to. Each one is a plain function of `(fetch, ...args)`, so a mocked fetch
-is the whole harness. See [Testing](/docs/development/testing) for what belongs
-where, the component sandbox, and how the AppView is kept in sync.
+Tests are [Vitest](https://vitest.dev) files configured by a small
+`vitest.config.ts` in each tested package. The client defines two
+[projects](https://vitest.dev/guide/projects):
+
+```sh
+pnpm --filter @colibri-social/client test              # unit
+pnpm --filter @colibri-social/client test:integration  # against a real stack
+```
+
+`unit` covers `src/**/*.test.ts`, sitting next to the code it tests, and runs in
+Node with nothing else running. The pure logic is where coverage pays off: the
+sync and voice frame codecs, space reference parsing, read cursor coalescing,
+label folding, cache snapshot merges, and the outbox. `pnpm test` never touches
+the integration project, so a green run needs no services.
+
+`integration` covers `test/integration/**` and drives the real client against a
+local AppView and PDS, so it checks the wire format that a mocked fetch cannot.
+It stays out of pull request CI, because the spaces alpha moves underneath it.
+See `packages/client/test/integration/README.md` for bringing the stack up.
+
+See [Testing](/docs/development/testing) for what belongs where, the component
+sandbox, and how the AppView is kept in sync.
 
 ## Running the website
 
@@ -162,7 +178,7 @@ pnpm dev:client
 pnpm whats-new:generate  # removes it again
 ```
 
-The popup opens once per unseen release, so if you have already dismissed it, clear `lastSeenReleaseNote` inside the `colibri:user-preferences` entry in local storage to bring it back. A browser profile with no stored preferences at all counts as a new install and is deliberately left alone.
+The popup opens once per unseen release, so if you have already dismissed it, clear `lastSeenReleaseNote` inside the `colibri:user-preferences` entry in local storage to bring it back. A browser profile with no stored preferences at all counts as a new install and is left alone.
 
 The preview renders through the same platform filter as a real release, so an entry limited to `ios` will not show up in a desktop browser.
 
@@ -186,7 +202,7 @@ kind: feature
 
 `title`, `icon`, `body` and `platforms` are required. `kind` is optional and defaults to `fix` for a `patch` bump and `feature` otherwise. A long `body` can wrap onto indented continuation lines. Colons inside values are fine, so no quoting is needed.
 
-`platforms` takes a comma-separated list of `web`, `ios`, `android`, `macos`, `windows` and `linux`, plus three shorthands: `all` for every platform, `mobile` for `ios, android`, and `desktop` for `macos, windows, linux`. Combine them freely, so `mobile, macos` is three platforms. `all` is the right answer unless the change genuinely is not visible somewhere.
+`platforms` takes a comma-separated list of `web`, `ios`, `android`, `macos`, `windows` and `linux`, plus three shorthands: `all` for every platform, `mobile` for `ios, android`, and `desktop` for `macos, windows, linux`. Combine them freely, so `mobile, macos` is three platforms. `all` is the right answer unless the change is invisible on some platform.
 
 The key exists because the App Store does not let the iOS app show release notes for anything other than iOS. Every place an entry is rendered filters to one platform: the in-app popup and the settings page filter to the platform the app is running on, and the App Store and Play listings filter to the platform being published. An entry naming no matching platform is invisible there, and a release with nothing left for a store gets a generic "Bug fixes and improvements." line instead.
 

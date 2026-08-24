@@ -1,8 +1,11 @@
-import type { OnlineState } from "@colibri-social/lib";
 import type { Component } from "solid-js";
 import CaretRightIcon from "~icons/ph/caret-right";
+import { colibri } from "../../../atproto/lexicons";
 import { useCommunityContext } from "../../../contexts/Community";
+import type { OnlineState } from "../../../contexts/community-payload";
+import { normalizeOnlineState } from "../../../contexts/community-payload";
 import { useUserContext } from "../../../contexts/User";
+import { showError } from "../../../errors/show-error";
 import {
 	DropdownStatusSelect,
 	STATE_LABELS,
@@ -13,18 +16,29 @@ export const SelfProfileActions: Component = () => {
 	const user = useUserContext();
 	const community = useCommunityContext();
 
-	const onlineState = (): OnlineState => user.data.onlineState;
+	const onlineState = (): OnlineState =>
+		normalizeOnlineState(user.presence?.onlineState);
 	const onlineDot = () =>
 		STATE_OPTIONS.find((s) => s.value === onlineState())?.dot ?? "";
+
+	const setOnlineState = async (next: OnlineState) => {
+		const res = await user.xrpc.call(colibri.actor.setStatus.main, {
+			body: { onlineState: next },
+		});
+		if (!res.ok) {
+			showError(res.error);
+			return;
+		}
+		user.updateProfile({ presence: res.data.presence });
+		community().utils.patchMember(user.did, { onlineState: next });
+	};
 
 	return (
 		<DropdownStatusSelect
 			value={onlineState()}
 			setValue={(e) => {
 				const next = typeof e === "string" ? e : e(onlineState());
-				user.xrpc.social.colibri.actor.setState(next);
-				user.updateActorData({ onlineState: next });
-				community().utils.patchMember(user.did, { onlineState: next });
+				void setOnlineState(next);
 			}}
 		>
 			<button

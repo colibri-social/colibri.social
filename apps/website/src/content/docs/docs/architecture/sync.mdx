@@ -1,0 +1,144 @@
+---
+title: Sync
+description: How the AppView keeps a local copy of a permissioned space current without a relay.
+sidebar:
+  order: 4
+---
+
+There is no relay for permissioned data, so there is no firehose to consume. The
+AppView pulls each member's repository from that member's own host, holding a
+[space credential](/docs/architecture/spaces#getting-a-credential) that says it
+may.
+
+## Correctness rests on a set hash
+
+Each repository carries a **signed commit** whose digest is an
+[LtHash](https://engineering.fb.com/2019/03/01/security/homomorphic-hashing/)
+over the records it holds. The AppView keeps its own running hash over its own
+copy.
+
+To advance, it calls `listRepoOps(since)`, applies each operation, and updates
+its hash as it goes. When a page reaches the head of the log, the host includes
+the current commit, and the two hashes are compared.
+
+- **They agree.** The copy is correct, and the commit's signature says so.
+- **They disagree.** Something was missed or corrupted. The AppView falls back
+  to `getRepo`, streams the CAR through verification, and rebuilds from scratch.
+
+A dropped operation is detected on the next pull and healed, so nothing in the
+pipeline has to be reliable for the local copy to end up correct.
+
+An LtHash is homomorphic and order independent. Applying one operation is an
+addition and a subtraction rather than a recomputation, and two copies holding
+the same records always agree on the hash regardless of the order they arrived
+in.
+
+## Push for latency, sweep for correctness
+
+Two mechanisms run at once.
+
+**Push.** The AppView registers itself with `com.atproto.space.registerNotify`.
+When a member writes, their host tells the space authority, and the authority
+forwards a `notifyWrite` to every registered syncer. That enqueues the repo for
+a pull, usually within a moment of the write.
+
+**Sweep.** Every sync interval, `listRepos` returns the authority's view of the
+writer set with each repository's current revision. Anything ahead of the local
+cursor is enqueued, and anything that has disappeared is dropped.
+
+Write notifications are explicitly best effort in the proposal, so the sweep is
+the correctness guarantee and push is only latency. An AppView behind NAT that
+never receives a single notification still converges, just more slowly.
+
+:::note[Notifications need a DID document entry]
+`registerNotify` names a service *identifier*, not a URL, and the space host
+resolves the delivery endpoint from the AppView's DID document. Without an
+`#atproto_space_syncer` service entry there, no notification is ever delivered
+and sync quietly falls back to the sweep interval.
+:::
+
+A bounded worker pool drains the queue with one pull at a time per repository,
+so a burst of notifications about the same repo collapses into a single pull.
+
+## The writer set
+
+The sweep is only as complete as the writer set, and that set is not the
+AppView's to maintain.
+
+A member enters it when their host notifies the authority of a write **and the
+authority accepts that notification**. Under a `managing-app` policy, accepting
+means asking the managing app whether that member belongs. A refusal there drops
+the write out of the writer set, and an unreachable managing app counts as a
+refusal.
+
+The record is still in the member's repository. Nothing enumerates it until that
+member writes again, so it does not appear in the community until then.
+
+Two different links carry notifications and only one of them belongs to the
+AppView. When the AppView misses its own, the sweep catches up. When the
+authority misses the member's host, the write stays out of the writer set.
+
+:::caution[What an outage costs]
+A self-hosted AppView that goes down does more than refuse credentials for the
+duration. Writes made while it was unreachable never enter the writer set, so
+they stay invisible after it comes back until their author writes again.
+
+Your `APPVIEW_DID` must resolve, and its service endpoint must answer, from
+wherever the community's PDS runs.
+:::
+
+## When a pull fails
+
+A repository that fails records a consecutive failure count and a retry time,
+backing off exponentially to an hour. The sweep skips a repository that is still
+backing off.
+
+The response depends on what failed.
+
+| What happened | What the AppView does |
+| --- | --- |
+| The host no longer retains the revision the AppView asked to resume from | Full recovery from the CAR |
+| The set hash disagrees with a verified commit | Full recovery from the CAR |
+| The account is gone, taken down, suspended or deactivated | Drop the repository |
+| The authority says the space is deleted | Drop the space and forget the credential |
+| Anything else | Back off and retry, keeping the copy |
+
+An unrecognised error never counts as a deletion.
+
+## Writes the AppView makes itself
+
+When the AppView writes a record on a community's behalf, the syncer will
+deliver that same record back a moment later. A moment is longer than the person
+who asked for the write is willing to wait, so the writer also applies the
+change to the local record store and projections directly.
+
+The record store is keyed by space, author, collection and record key, so the
+syncer's later delivery of the same record overwrites an identical row and
+changes nothing.
+
+## Personal spaces
+
+A user's [preferences space](/docs/architecture/communities#the-personal-space)
+syncs through the same engine, with one repository in it.
+
+A delegation token lives 60 seconds and is single use, so the AppView cannot
+renew a credential for a personal space without an active client to mint one.
+When no client is online, it serves its last synced copy indefinitely.
+
+The client also pushes mutes, settings and read cursors over XRPC, so those are
+consistent immediately rather than after a notify round trip.
+
+## Jetstream
+
+One thread of public atproto remains. The AppView consumes
+[Jetstream](https://github.com/bluesky-social/jetstream) v2 for `identity` and
+`account` events only, which invalidates the identity cache when someone changes
+their handle and purges accounts that have been deleted or deactivated.
+
+It requests those two event kinds and nothing else. No commits are consumed, and
+no public repository is indexed.
+
+## See also
+
+- [Permissioned Spaces](/docs/architecture/spaces): where credentials come from.
+- [Storage](/docs/architecture/storage): what the synced records land in, and the atomicity the cursor depends on.

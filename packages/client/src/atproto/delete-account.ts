@@ -3,14 +3,14 @@ import { classifyThrown } from "../errors/classify";
 import type { ColibriError } from "../errors/error";
 import { unregisterAllPush } from "../notifications";
 import { createLogger } from "../utils/logger";
+import { colibri } from "./lexicons";
 import { deleteRecords, listCollections, listRecordKeys } from "./pds";
-import type { XrpcClient } from "./xrpc";
-import type { DeletedCounts } from "./xrpc/social/colibri/actor";
+import type { ColibriClient } from "./xrpc";
 
 const log = createLogger("delete-account");
 
 const COLIBRI_PREFIX = "social.colibri.";
-const SIGNAL_COLLECTION = "social.colibri.actor.data";
+const SIGNAL_COLLECTION = "social.colibri.beta.actor.profile";
 
 export type DeleteProgress =
 	| { step: "push" }
@@ -18,23 +18,25 @@ export type DeleteProgress =
 	| { step: "appview" };
 
 export type DeleteAccountResult = {
-	deleted?: DeletedCounts;
+	deleted?: number;
 	failedCollections: Array<{ collection: string; error: ColibriError }>;
 	error?: ColibriError;
 };
 
 export const orderCollections = (collections: Array<string>): Array<string> => {
-	const colibri = collections.filter((nsid) => nsid.startsWith(COLIBRI_PREFIX));
+	const colibriCollections = collections.filter((nsid) =>
+		nsid.startsWith(COLIBRI_PREFIX),
+	);
 	return [
-		...colibri.filter((nsid) => nsid !== SIGNAL_COLLECTION).sort(),
-		...colibri.filter((nsid) => nsid === SIGNAL_COLLECTION),
+		...colibriCollections.filter((nsid) => nsid !== SIGNAL_COLLECTION).sort(),
+		...colibriCollections.filter((nsid) => nsid === SIGNAL_COLLECTION),
 	];
 };
 
 export const deleteColibriAccount = async (input: {
 	agent: Agent;
 	did: string;
-	xrpc: XrpcClient;
+	xrpc: ColibriClient;
 	onProgress?: (progress: DeleteProgress) => void;
 }): Promise<DeleteAccountResult> => {
 	const { agent, did, xrpc, onProgress } = input;
@@ -42,7 +44,12 @@ export const deleteColibriAccount = async (input: {
 
 	onProgress?.({ step: "push" });
 	await unregisterAllPush((endpoint, provider) =>
-		xrpc.social.colibri.notification.unregisterPush(endpoint, provider),
+		xrpc.push(colibri.notification.unregisterPush.main, {
+			body:
+				provider === "fcm"
+					? { provider, token: endpoint }
+					: { provider, endpoint },
+		}),
 	);
 
 	let collections: Array<string>;
@@ -81,8 +88,8 @@ export const deleteColibriAccount = async (input: {
 	}
 
 	onProgress?.({ step: "appview" });
-	const res = await xrpc.social.colibri.actor.deleteAccount();
+	const res = await xrpc.call(colibri.actor.deleteAccount.main, { body: {} });
 	if (!res.ok) return { failedCollections, error: res.error };
 
-	return { deleted: res.data.deleted, failedCollections };
+	return { deleted: res.data?.deleted ?? 0, failedCollections };
 };

@@ -1,4 +1,4 @@
-import type { ActorData, ColibriRichTextLink } from "@colibri-social/lib";
+import type { ColibriRichTextLink } from "@colibri-social/lib";
 import {
 	batch,
 	type Component,
@@ -16,7 +16,13 @@ import PencilIcon from "~icons/ph/pencil";
 import ProhibitIcon from "~icons/ph/prohibit";
 import SmileyIcon from "~icons/ph/smiley";
 import TrashIcon from "~icons/ph/trash";
-import type { Message as MessageData } from "../../../../atproto/xrpc/social/colibri/channel/listMessages";
+import type { PendingMessage } from "../../../../atproto/cache/schema";
+import type {
+	MessageParent,
+	MessageView,
+	ProfileView,
+} from "../../../../atproto/views";
+import { isVisibleParent } from "../../../../atproto/views";
 import { useChannelContext } from "../../../../contexts/Channel";
 import { useCommunityContext } from "../../../../contexts/Community";
 import {
@@ -71,7 +77,7 @@ function reactTooltip(emoji: string): string {
  * A rendered message component in a chat.
  */
 export const Message: Component<{
-	data: MessageData;
+	data: MessageView | PendingMessage;
 	isSubsequent: boolean;
 	hasSubsequent: boolean;
 	isLast: boolean;
@@ -154,8 +160,11 @@ const MessageInner: Component<{
 	// Prefer the live member record so profile changes (avatar/name/status)
 	// propagate to already-rendered messages, falling back to the embedded
 	// snapshot for non-members / cross-community authors.
-	const resolveAuthor = (author: ActorData): ActorData =>
-		community().members.find((m) => m.did === author.did) ?? author;
+	const authorMember = (author: ProfileView) =>
+		community().members.find((m) => m.did === author.did);
+
+	const resolveAuthor = (author: ProfileView): ProfileView =>
+		authorMember(author)?.actor ?? author;
 
 	const resolveReactor = useReactorResolver();
 
@@ -166,8 +175,19 @@ const MessageInner: Component<{
 		}
 	});
 
+	const parent = (): MessageParent | undefined =>
+		"parent" in message ? message.parent : undefined;
+
+	const visibleParent = (): MessageView | undefined => {
+		const value = parent();
+		return value !== undefined && isVisibleParent(value) ? value : undefined;
+	};
+
+	const isEdited = (): boolean =>
+		"updatedAt" in message && message.updatedAt !== undefined;
+
 	const isSubsequentMessage = () => {
-		if (message.parent) return false;
+		if (parent()) return false;
 		if (!props.isSubsequent) return false;
 		return true;
 	};
@@ -175,7 +195,8 @@ const MessageInner: Component<{
 	const linkFacets = (): Array<ColibriRichTextLink> =>
 		message.facets
 			?.filter(
-				(f) => f.features[0].$type === "social.colibri.richtext.facet#link",
+				(f) =>
+					f.features[0].$type === "social.colibri.beta.richtext.facet#link",
 			)
 			.map((f) => f.features[0] as ColibriRichTextLink) || [];
 
@@ -344,38 +365,57 @@ const MessageInner: Component<{
 				>
 					<BlockDrawer />
 					<DeletionDrawer />
-					<Show when={message.parent}>
-						<div class="flex flex-row gap-4 group/reply cursor-pointer w-full max-w-full">
-							<button
-								type="button"
-								class="before:w-8 before:block before:h-2 before:border-t before:border-l before:border-muted-foreground/50 before:rounded-tl-sm w-10 h-4 relative before:absolute before:translate-y-0.75 before:left-5.5 before:transform before:-translate-x-1 group-hover/reply:before:border-foreground cursor-pointer"
-								onClick={() => channel.jumpToMessage(message.parent!.uri)}
-							/>
-							<div
-								class="flex flex-row items-center gap-2 group-hover/reply:text-foreground w-full max-w-[calc(100%-4rem)]"
-								onClick={() => channel.jumpToMessage(message.parent!.uri)}
-							>
-								<User.Avatar
-									user={resolveAuthor(message.parent!.author)}
-									size="small"
-									disableState
+					<Show when={parent() !== undefined}>
+						{(() => (
+							<div class="flex flex-row gap-4 group/reply w-full max-w-full">
+								<button
+									type="button"
+									disabled={visibleParent() === undefined}
+									class="before:w-8 before:block before:h-2 before:border-t before:border-l before:border-muted-foreground/50 before:rounded-tl-sm w-10 h-4 relative before:absolute before:translate-y-0.75 before:left-5.5 before:transform before:-translate-x-1 group-hover/reply:before:border-foreground not-disabled:cursor-pointer"
+									onClick={() => {
+										const visible = visibleParent();
+										if (visible) channel.jumpToMessage(visible.uri);
+									}}
 								/>
-								<strong class="text-xs block">
-									<User.DisplayableName
-										user={resolveAuthor(message.parent!.author)}
-									/>
-								</strong>
-								<span class="text-xs overflow-hidden text-ellipsis text-nowrap flex-1">
-									{message.parent!.text}
-								</span>
+								<Show
+									when={visibleParent()}
+									fallback={
+										<div class="flex flex-row items-center gap-2 w-full max-w-[calc(100%-4rem)]">
+											<span class="text-xs italic text-muted-foreground">
+												This message is no longer available.
+											</span>
+										</div>
+									}
+								>
+									{(visible) => (
+										<div
+											class="flex flex-row items-center gap-2 group-hover/reply:text-foreground w-full max-w-[calc(100%-4rem)] cursor-pointer"
+											onClick={() => channel.jumpToMessage(visible().uri)}
+										>
+											<User.Avatar
+												user={resolveAuthor(visible().author)}
+												size="small"
+												disableState
+											/>
+											<strong class="text-xs block">
+												<User.DisplayableName
+													user={resolveAuthor(visible().author)}
+												/>
+											</strong>
+											<span class="text-xs overflow-hidden text-ellipsis text-nowrap flex-1">
+												{visible().text}
+											</span>
+										</div>
+									)}
+								</Show>
 							</div>
-						</div>
+						))()}
 					</Show>
 					<div class="flex flex-row gap-4">
 						<Switch>
 							<Match when={!isSubsequentMessage()}>
 								<MemberContextMenu
-									member={resolveAuthor(message.author)}
+									member={authorMember(message.author)}
 									class="contents"
 									disabled={isPending() || contextMenuOpen()}
 								>
@@ -419,7 +459,7 @@ const MessageInner: Component<{
 								<Show when={!isSubsequentMessage()}>
 									<div class="flex gap-2 text-sm items-baseline flex-wrap">
 										<MemberContextMenu
-											member={resolveAuthor(message.author)}
+											member={authorMember(message.author)}
 											class="contents"
 											disabled={isPending() || contextMenuOpen()}
 										>
@@ -438,7 +478,7 @@ const MessageInner: Component<{
 										<small class="text-muted-foreground">
 											<MessageTimestamp datetime={message.createdAt} />
 										</small>
-										<Show when={message.edited}>
+										<Show when={isEdited()}>
 											<small class="text-muted-foreground">(edited)</small>
 										</Show>
 									</div>
@@ -467,7 +507,7 @@ const MessageInner: Component<{
 								<Show when={!isSubsequentMessage()}>
 									<div class="flex gap-2 text-sm items-baseline flex-wrap">
 										<MemberContextMenu
-											member={resolveAuthor(message.author)}
+											member={authorMember(message.author)}
 											class="contents"
 											disabled={isPending() || contextMenuOpen()}
 										>
@@ -488,7 +528,7 @@ const MessageInner: Component<{
 										<small class="text-muted-foreground">
 											<MessageTimestamp datetime={message.createdAt} />
 										</small>
-										<Show when={message.edited}>
+										<Show when={isEdited()}>
 											<small class="text-muted-foreground">(edited)</small>
 										</Show>
 									</div>
@@ -498,7 +538,7 @@ const MessageInner: Component<{
 										<Match when={!editMode() || isMobile()}>
 											<RichTextRenderer
 												text={newText}
-												isEdited={isSubsequentMessage() && message.edited}
+												isEdited={isSubsequentMessage() && isEdited()}
 												classList={{
 													"text-muted-foreground": isPending(),
 													"text-foreground": !isPending(),
@@ -610,7 +650,7 @@ const MessageInner: Component<{
 							</For>
 						</div>
 					</Show>
-					<Show when={message.reactions.length > 0}>
+					<Show when={sortedReactions().length > 0}>
 						<div
 							data-reaction-pill
 							ref={(el) => {
@@ -640,13 +680,13 @@ const MessageInner: Component<{
 													class="border rounded-sm hover:bg-card px-1.5 py-1 flex gap-1 items-center cursor-pointer"
 													classList={{
 														"border-primary bg-primary/15 hover:bg-primary/25":
-															item.reactorDIDs.includes(user.did),
+															item.reactors.includes(user.did),
 														"border-border bg-card hover:bg-muted":
-															!item.reactorDIDs.includes(user.did),
+															!item.reactors.includes(user.did),
 													}}
 													{...tooltipProps}
 													onClick={() => {
-														const reactionIndex = item.reactorDIDs.indexOf(
+														const reactionIndex = item.reactors.indexOf(
 															user.did,
 														);
 
@@ -671,7 +711,7 @@ const MessageInner: Component<{
 											<TooltipContent>
 												<div class="flex max-w-64 flex-col gap-1.5">
 													<div class="flex flex-row items-center gap-1">
-														<For each={item.reactorDIDs.slice(0, 6)}>
+														<For each={item.reactors.slice(0, 6)}>
 															{(did) => (
 																<User.Avatar
 																	user={resolveReactor(did)}
@@ -683,7 +723,7 @@ const MessageInner: Component<{
 														</For>
 													</div>
 													<p class="m-0 text-wrap">
-														{reactedByLabel(item.reactorDIDs, resolveReactor)}{" "}
+														{reactedByLabel(item.reactors, resolveReactor)}{" "}
 														reacted
 														<Show when={emojiShortcode(item.emoji)}>
 															{(shortcode) => <> with :{shortcode()}:</>}

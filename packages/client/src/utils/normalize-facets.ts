@@ -20,38 +20,37 @@ export const stableStringify = (value: unknown): string => {
 
 export const buildFeatureKey = (feature: Feature): string => {
 	switch (feature.$type) {
-		case "social.colibri.richtext.facet#mention":
+		case "social.colibri.beta.richtext.facet#mention":
 			return `${feature.$type}:${"did" in feature ? feature.did : ""}`;
-		case "social.colibri.richtext.facet#channel":
+		case "social.colibri.beta.richtext.facet#channel":
 			return `${feature.$type}:${"channel" in feature ? feature.channel : ""}`;
-		case "social.colibri.richtext.facet#role":
+		case "social.colibri.beta.richtext.facet#role":
 			return `${feature.$type}:${"role" in feature ? feature.role : ""}`;
-		case "social.colibri.richtext.facet#link":
+		case "social.colibri.beta.richtext.facet#link":
 			return `${feature.$type}:${"uri" in feature ? feature.uri : ""}`;
-		case "social.colibri.richtext.facet#codeblock":
+		case "social.colibri.beta.richtext.facet#codeblock":
 			return `${feature.$type}:${"lang" in feature ? (feature.lang ?? "") : ""}`;
-		case "social.colibri.richtext.facet#time":
+		case "social.colibri.beta.richtext.facet#time":
 			return `${feature.$type}:${"datetime" in feature ? feature.datetime : ""}`;
-		case "social.colibri.richtext.facet#heading":
+		case "social.colibri.beta.richtext.facet#heading":
 			return `${feature.$type}:${"level" in feature ? feature.level : ""}`;
-		case "social.colibri.richtext.facet#list":
+		case "social.colibri.beta.richtext.facet#list":
 			return `${feature.$type}:${"ordered" in feature ? feature.ordered : ""}`;
-		case "social.colibri.richtext.facet#bold":
-		case "social.colibri.richtext.facet#italic":
-		case "social.colibri.richtext.facet#underline":
-		case "social.colibri.richtext.facet#strikethrough":
-		case "social.colibri.richtext.facet#code":
-		case "social.colibri.richtext.facet#quote":
-		case "social.colibri.richtext.facet#subtext":
-		case "social.colibri.richtext.facet#spoiler":
+		case "social.colibri.beta.richtext.facet#bold":
+		case "social.colibri.beta.richtext.facet#italic":
+		case "social.colibri.beta.richtext.facet#underline":
+		case "social.colibri.beta.richtext.facet#strikethrough":
+		case "social.colibri.beta.richtext.facet#code":
+		case "social.colibri.beta.richtext.facet#quote":
+		case "social.colibri.beta.richtext.facet#subtext":
+		case "social.colibri.beta.richtext.facet#spoiler":
 			return feature.$type;
 		default:
-			// @ts-expect-error: nah, this never happens
 			return `${feature.$type}:${stableStringify(feature)}`;
 	}
 };
 
-const QUOTE_TYPE = "social.colibri.richtext.facet#quote";
+const QUOTE_TYPE = "social.colibri.beta.richtext.facet#quote";
 
 const hasQuote = (facet: ColibriRichTextFacet): boolean =>
 	facet.features.some((f) => f.$type === QUOTE_TYPE);
@@ -104,7 +103,7 @@ export const normalizeFacets = (
 
 	return [...grouped.values()]
 		.map((entry) => ({
-			$type: entry.firstFacet.$type ?? "social.colibri.richtext.facet",
+			$type: entry.firstFacet.$type ?? "social.colibri.beta.richtext.facet",
 			index: {
 				...entry.firstFacet.index,
 				byteStart: entry.byteStart,

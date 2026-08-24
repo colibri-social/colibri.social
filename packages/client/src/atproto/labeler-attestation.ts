@@ -9,7 +9,7 @@ import {
 	readExternalAccountLink,
 	writeExternalAccountLink,
 } from "./cache/store";
-import { resolvePdsHost } from "./resolve-pds";
+import { resolvePdsForDid } from "./identity";
 
 const log = createLogger("badges");
 
@@ -49,7 +49,7 @@ const fetchLink = async (
 	labelerDid: string,
 	subject: string,
 ): Promise<ExternalAccountLink | null> => {
-	const host = await resolvePdsHost(labelerDid);
+	const host = await resolvePdsForDid(labelerDid);
 	if (!host) {
 		log.warn("the labeler has no resolvable PDS, cannot read the link", {
 			did: labelerDid,

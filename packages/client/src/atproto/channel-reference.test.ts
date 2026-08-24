@@ -6,28 +6,28 @@ import {
 	resetChannelReferences,
 	resolveChannelChip,
 } from "./channel-reference";
-import type { XrpcClient } from "./xrpc";
+import { asSpaceRef } from "./lexicons";
+import type { ColibriClient } from "./xrpc";
 
 const DID = "did:plc:abc123";
-const COMMUNITY = `at://${DID}/social.colibri.community/self`;
-const CHANNEL = `at://${DID}/social.colibri.channel/general`;
+const OTHER_DID = "did:plc:other";
+const CHANNEL = `at://${DID}/space/social.colibri.beta.channel.text/general`;
 
-const channel = (uri: string, name: string) => ({
-	uri,
+const channel = (space: string, name: string) => ({
+	space: asSpaceRef(space),
 	name,
-	type: "social.colibri.channel.text",
-	category: `at://${DID}/social.colibri.category/main`,
+	type: "social.colibri.beta.channel.text",
+	category: "main",
+	viewer: { canRead: true, canPost: true },
 });
 
 const clientReturning = (
 	impl: () => unknown,
-): { client: XrpcClient; getData: ReturnType<typeof vi.fn> } => {
-	const getData = vi.fn(async () => impl());
+): { client: ColibriClient; call: ReturnType<typeof vi.fn> } => {
+	const call = vi.fn(async () => impl());
 	return {
-		getData,
-		client: {
-			social: { colibri: { community: { getData } } },
-		} as unknown as XrpcClient,
+		call,
+		client: { call } as unknown as ColibriClient,
 	};
 };
 
@@ -43,62 +43,62 @@ describe("channel-reference", () => {
 	});
 
 	it("resolves a channel primed from the community context", () => {
-		primeCommunityChannels(COMMUNITY, [channel(CHANNEL, "general")]);
+		primeCommunityChannels(DID, [channel(CHANNEL, "general")]);
 		expect(peekChannel(CHANNEL)).toEqual({
-			uri: CHANNEL,
+			space: CHANNEL,
 			name: "general",
-			type: "social.colibri.channel.text",
-			communityUri: COMMUNITY,
+			type: "social.colibri.beta.channel.text",
+			communityDid: DID,
 		});
 	});
 
 	it("issues no request for a primed community", async () => {
-		const { client, getData } = clientReturning(() => ok([]));
-		primeCommunityChannels(COMMUNITY, [channel(CHANNEL, "general")]);
-		await loadCommunityChannels(client, COMMUNITY);
-		expect(getData).not.toHaveBeenCalled();
+		const { client, call } = clientReturning(() => ok([]));
+		primeCommunityChannels(DID, [channel(CHANNEL, "general")]);
+		await loadCommunityChannels(client, DID);
+		expect(call).not.toHaveBeenCalled();
 	});
 
 	it("collapses concurrent loads of the same community into one request", async () => {
-		const { client, getData } = clientReturning(() =>
+		const { client, call } = clientReturning(() =>
 			ok([channel(CHANNEL, "general")]),
 		);
 		await Promise.all([
-			loadCommunityChannels(client, COMMUNITY),
-			loadCommunityChannels(client, COMMUNITY),
-			loadCommunityChannels(client, COMMUNITY),
+			loadCommunityChannels(client, DID),
+			loadCommunityChannels(client, DID),
+			loadCommunityChannels(client, DID),
 		]);
-		expect(getData).toHaveBeenCalledTimes(1);
+		expect(call).toHaveBeenCalledTimes(1);
 		expect(peekChannel(CHANNEL)?.name).toBe("general");
 	});
 
 	it("refetches once the entry goes stale", async () => {
 		vi.useFakeTimers();
-		const { client, getData } = clientReturning(() =>
+		const { client, call } = clientReturning(() =>
 			ok([channel(CHANNEL, "general")]),
 		);
-		await loadCommunityChannels(client, COMMUNITY);
-		await loadCommunityChannels(client, COMMUNITY);
-		expect(getData).toHaveBeenCalledTimes(1);
+		await loadCommunityChannels(client, DID);
+		await loadCommunityChannels(client, DID);
+		expect(call).toHaveBeenCalledTimes(1);
 
 		vi.advanceTimersByTime(300_001);
-		await loadCommunityChannels(client, COMMUNITY);
-		expect(getData).toHaveBeenCalledTimes(2);
+		await loadCommunityChannels(client, DID);
+		expect(call).toHaveBeenCalledTimes(2);
 	});
 
 	it("holds off on retrying a failure until the cooldown passes", async () => {
 		vi.useFakeTimers();
-		const { client, getData } = clientReturning(() => {
+		const { client, call } = clientReturning(() => {
 			throw new Error("offline");
 		});
 
-		await loadCommunityChannels(client, COMMUNITY);
-		await loadCommunityChannels(client, COMMUNITY);
-		expect(getData).toHaveBeenCalledTimes(1);
+		await loadCommunityChannels(client, DID);
+		await loadCommunityChannels(client, DID);
+		expect(call).toHaveBeenCalledTimes(1);
 
 		vi.advanceTimersByTime(30_001);
-		await loadCommunityChannels(client, COMMUNITY);
-		expect(getData).toHaveBeenCalledTimes(2);
+		await loadCommunityChannels(client, DID);
+		expect(call).toHaveBeenCalledTimes(2);
 	});
 
 	it("treats a failed result the same as a throw", async () => {
@@ -106,16 +106,16 @@ describe("channel-reference", () => {
 			ok: false,
 			error: { code: "NetworkError" },
 		}));
-		await loadCommunityChannels(client, COMMUNITY);
+		await loadCommunityChannels(client, DID);
 		expect(peekChannel(CHANNEL)).toBeUndefined();
 	});
 
 	it("drops channels that disappeared from a community on reprime", () => {
-		primeCommunityChannels(COMMUNITY, [
+		primeCommunityChannels(DID, [
 			channel(CHANNEL, "general"),
 			channel(`${CHANNEL}-2`, "random"),
 		]);
-		primeCommunityChannels(COMMUNITY, [channel(CHANNEL, "general")]);
+		primeCommunityChannels(DID, [channel(CHANNEL, "general")]);
 		expect(peekChannel(`${CHANNEL}-2`)).toBeUndefined();
 		expect(peekChannel(CHANNEL)).toBeDefined();
 	});
@@ -123,10 +123,10 @@ describe("channel-reference", () => {
 	it("evicts the oldest community past the cap", () => {
 		for (let i = 0; i < 21; i++) {
 			primeCommunityChannels(
-				`at://did:plc:c${i}/social.colibri.community/self`,
+				`did:plc:c${i}`,
 				[
 					channel(
-						`at://did:plc:c${i}/social.colibri.channel/general`,
+						`at://did:plc:c${i}/space/social.colibri.beta.channel.text/general`,
 						"general",
 					),
 				],
@@ -134,27 +134,31 @@ describe("channel-reference", () => {
 			);
 		}
 		expect(
-			peekChannel("at://did:plc:c0/social.colibri.channel/general"),
+			peekChannel(
+				"at://did:plc:c0/space/social.colibri.beta.channel.text/general",
+			),
 		).toBeUndefined();
 		expect(
-			peekChannel("at://did:plc:c20/social.colibri.channel/general"),
+			peekChannel(
+				"at://did:plc:c20/space/social.colibri.beta.channel.text/general",
+			),
 		).toBeDefined();
 	});
 });
 
 describe("resolveChannelChip", () => {
-	const SUPPORT = `at://${DID}/social.colibri.category/support`;
-	const BUGS = `at://${DID}/social.colibri.category/bugs`;
-	const OTHER = `at://${DID}/social.colibri.channel/general-2`;
+	const SUPPORT = "support";
+	const BUGS = "bugs";
+	const OTHER = `at://${DID}/space/social.colibri.beta.channel.text/general-2`;
 
-	const categorized = (uri: string, name: string, category: string) => ({
-		...channel(uri, name),
+	const categorized = (space: string, name: string, category: string) => ({
+		...channel(space, name),
 		category,
 	});
 
 	const categories = [
-		{ uri: SUPPORT, name: "Support", channelOrder: [] },
-		{ uri: BUGS, name: "Bugs", channelOrder: [] },
+		{ rkey: SUPPORT, name: "Support", channels: [] },
+		{ rkey: BUGS, name: "Bugs", channels: [] },
 	];
 
 	it("adds the category when a local channel name collides", () => {
@@ -163,9 +167,10 @@ describe("resolveChannelChip", () => {
 			categorized(OTHER, "general", BUGS),
 		];
 
-		expect(
-			resolveChannelChip(CHANNEL, channels, [], COMMUNITY, categories),
-		).toEqual({ label: "general", category: "Support" });
+		expect(resolveChannelChip(CHANNEL, channels, [], DID, categories)).toEqual({
+			label: "general",
+			category: "Support",
+		});
 	});
 
 	it("omits the category when the local channel name is unique", () => {
@@ -174,18 +179,16 @@ describe("resolveChannelChip", () => {
 			categorized(OTHER, "random", BUGS),
 		];
 
-		expect(
-			resolveChannelChip(CHANNEL, channels, [], COMMUNITY, categories),
-		).toEqual({ label: "general" });
+		expect(resolveChannelChip(CHANNEL, channels, [], DID, categories)).toEqual({
+			label: "general",
+		});
 	});
 
 	it("omits the category for a channel in another community", () => {
-		const foreign = "at://did:plc:other/social.colibri.channel/general";
-		primeCommunityChannels("at://did:plc:other/social.colibri.community/self", [
-			channel(foreign, "general"),
-		]);
+		const foreign = `at://${OTHER_DID}/space/social.colibri.beta.channel.text/general`;
+		primeCommunityChannels(OTHER_DID, [channel(foreign, "general")]);
 
-		expect(resolveChannelChip(foreign, [], [], COMMUNITY, categories)).toEqual({
+		expect(resolveChannelChip(foreign, [], [], DID, categories)).toEqual({
 			label: "general",
 		});
 	});

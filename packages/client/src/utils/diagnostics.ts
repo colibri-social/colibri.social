@@ -146,9 +146,7 @@ const collectAccountSection = async (
 			value("AppView", appViewUrl),
 			value(
 				"AppView software",
-				description
-					? `${description.software} ${description.flavor} v${description.version}`
-					: "unreachable",
+				description ? `colibri-appview v${description.version}` : "unreachable",
 			),
 		],
 	};

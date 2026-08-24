@@ -1,0 +1,79 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.server.describeServer",
+	"defs": {
+		"main": {
+			"type": "query",
+			"description": "Gets information about this AppView.",
+			"output": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"did",
+						"software",
+						"flavor",
+						"version",
+						"handleDomain",
+						"pds"
+					],
+					"properties": {
+						"did": {
+							"type": "string",
+							"format": "did",
+							"description": "The AppView's own identity."
+						},
+						"software": {
+							"type": "string",
+							"description": "Stable software identifier, always 'colibri-appview'. Clients key on this to confirm a host is a Colibri AppView before pointing themselves at it."
+						},
+						"flavor": {
+							"type": "string",
+							"description": "Which build of the software this is. 'vanilla' for the stock AppView, and any string a fork or a customised deployment chooses for itself."
+						},
+						"version": {
+							"type": "string",
+							"description": "The running software version."
+						},
+						"handleDomain": {
+							"type": "string",
+							"description": "The domain community handles are minted under."
+						},
+						"pds": {
+							"type": "string",
+							"format": "uri",
+							"description": "The PDS communities are created on."
+						},
+						"contact": {
+							"type": "string",
+							"description": "How to reach the operator."
+						},
+						"features": {
+							"type": "array",
+							"description": "Optional features this AppView supports.",
+							"items": {
+								"type": "string",
+								"description": "A feature identifier.",
+								"knownValues": [
+									"voice",
+									"push",
+									"gifs",
+									"embeds"
+								]
+							}
+						},
+						"spaceTypes": {
+							"type": "array",
+							"description": "The space types this AppView understands.",
+							"items": {
+								"type": "string",
+								"format": "nsid",
+								"description": "A space type."
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+}

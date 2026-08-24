@@ -1,0 +1,77 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.notification.registerPush",
+	"defs": {
+		"main": {
+			"type": "procedure",
+			"description": "Registers a push endpoint for the requesting user's device. Web Push requires endpoint, p256dh, and auth. FCM requires token.",
+			"input": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"provider",
+						"platform"
+					],
+					"properties": {
+						"provider": {
+							"type": "string",
+							"description": "The push provider to register with.",
+							"knownValues": [
+								"webpush",
+								"fcm"
+							]
+						},
+						"platform": {
+							"type": "string",
+							"description": "The platform the device runs.",
+							"knownValues": [
+								"web",
+								"ios",
+								"android"
+							]
+						},
+						"endpoint": {
+							"type": "string",
+							"format": "uri",
+							"description": "The Web Push subscription endpoint. Required when provider is webpush."
+						},
+						"p256dh": {
+							"type": "string",
+							"description": "The Web Push subscription's p256dh key. Required when provider is webpush."
+						},
+						"auth": {
+							"type": "string",
+							"description": "The Web Push subscription's auth secret. Required when provider is webpush."
+						},
+						"token": {
+							"type": "string",
+							"description": "The FCM registration token. Required when provider is fcm."
+						}
+					}
+				}
+			},
+			"output": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"properties": {}
+				}
+			},
+			"errors": [
+				{
+					"name": "AuthRequired",
+					"description": "The request has no valid service auth."
+				},
+				{
+					"name": "InvalidRequest",
+					"description": "The fields required for the given provider are missing or malformed."
+				},
+				{
+					"name": "PushNotConfigured",
+					"description": "This AppView has no keypair for the requested provider."
+				}
+			]
+		}
+	}
+}

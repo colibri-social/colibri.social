@@ -9,17 +9,19 @@ import {
 	type Setter,
 	Show,
 } from "solid-js";
-import { toast } from "somoto";
 import BugIcon from "~icons/ph/bug";
 import ShieldIcon from "~icons/ph/shield";
 import WarningDiamondIcon from "~icons/ph/warning-diamond";
 import WrenchIcon from "~icons/ph/wrench";
-import type { Channel } from "../../../atproto/xrpc/social/colibri/community/listChannels";
+import { colibri } from "../../../atproto/lexicons";
+import type { ChannelView } from "../../../atproto/views";
+import { clientForManagingApp } from "../../../atproto/xrpc";
 import {
 	useCommunityContext,
 	usePermissions,
 } from "../../../contexts/Community";
 import { useUserContext } from "../../../contexts/User";
+import { showError } from "../../../errors/show-error";
 import { Spinner } from "../../icons/Spinner";
 import { Button } from "../../ui/Button";
 import {
@@ -60,7 +62,10 @@ const LINK_EMBED_CHOICES: Array<{
 	{ value: "off", label: "Hide", description: "Never show previews here." },
 ];
 
-const GeneralChannelSettings: Component<{ channel: Channel }> = (props) => {
+const sameSet = (a: ReadonlyArray<string>, b: ReadonlyArray<string>) =>
+	a.length === b.length && a.every((x) => b.includes(x));
+
+const GeneralChannelSettings: Component<{ channel: ChannelView }> = (props) => {
 	const user = useUserContext();
 	const community = useCommunityContext();
 
@@ -86,34 +91,33 @@ const GeneralChannelSettings: Component<{ channel: Channel }> = (props) => {
 
 	const handleSave = async () => {
 		setLoading(true);
-		try {
-			const trimmed = name().trim();
-			const choice = linkEmbeds();
-			const res = await user.xrpc.social.colibri.channel.update(
-				props.channel.uri,
-				trimmed,
-				{
-					description: description(),
-					linkEmbeds: choice === "inherit" ? undefined : choice === "on",
-					clearLinkEmbeds: choice === "inherit",
-				},
-			);
-			if (!res) {
-				toast.error("Failed to save channel settings.");
-				return;
-			}
-			// Optimistically reflect the save so the form leaves its dirty state
-			// immediately; the `channel_event` echo re-applies the same fields.
-			community().utils.patchChannel(props.channel.uri, {
-				name: trimmed,
-				description: description(),
+		const trimmed = name().trim();
+		const choice = linkEmbeds();
+		const client = clientForManagingApp(
+			user.atproto.agent,
+			community().community.managingApp,
+		);
+		const res = await client.call(colibri.channel.update.main, {
+			body: {
+				channel: props.channel.space,
+				name: trimmed !== initialName() ? trimmed : undefined,
+				description:
+					description() !== initialDesc() ? description() : undefined,
 				linkEmbeds: choice === "inherit" ? undefined : choice === "on",
+			},
+		});
+		setLoading(false);
+		if (!res.ok) {
+			showError(res.error, {
+				fallbackTitle: "Failed to save channel settings.",
 			});
-		} catch {
-			toast.error("Failed to save channel settings.");
-		} finally {
-			setLoading(false);
+			return;
 		}
+		community().utils.patchChannel(props.channel.space, {
+			name: trimmed,
+			description: description(),
+			linkEmbeds: choice === "inherit" ? undefined : choice === "on",
+		});
 	};
 
 	const isDirty = () => {
@@ -187,7 +191,7 @@ const GeneralChannelSettings: Component<{ channel: Channel }> = (props) => {
 	);
 };
 
-const PermissionsPage: Component<{ channel: Channel }> = (props) => {
+const PermissionsPage: Component<{ channel: ChannelView }> = (props) => {
 	const user = useUserContext();
 	const community = useCommunityContext();
 	const { isAdmin: _isAdmin } = usePermissions();
@@ -197,18 +201,24 @@ const PermissionsPage: Component<{ channel: Channel }> = (props) => {
 	const initialOwnerOnly = () => props.channel.ownerOnly || false;
 	const initialAllowedRoles = () => props.channel.allowedRoles ?? [];
 	const initialAllowedMembers = () => props.channel.allowedMembers ?? [];
+	const initialVisibleToRoles = () => props.channel.visibleToRoles ?? [];
+	const initialVisibleToMembers = () => props.channel.visibleToMembers ?? [];
 
 	const [loading, setLoading] = createSignal(false);
 	const [ownerOnly, setOwnerOnly] = createSignal(initialOwnerOnly());
-	// Allow-lists are edited in local state and only committed on save, so adding
-	// or removing a role/member stages the change rather than hitting the server.
-	const [allowedRoles, setAllowedRoles] = createSignal(initialAllowedRoles());
-	const [allowedMembers, setAllowedMembers] = createSignal(
+	const [allowedRoles, setAllowedRoles] = createSignal<string[]>(
+		initialAllowedRoles(),
+	);
+	const [allowedMembers, setAllowedMembers] = createSignal<string[]>(
 		initialAllowedMembers(),
 	);
+	const [visibleToRoles, setVisibleToRoles] = createSignal<string[]>(
+		initialVisibleToRoles(),
+	);
+	const [visibleToMembers, setVisibleToMembers] = createSignal<string[]>(
+		initialVisibleToMembers(),
+	);
 
-	// Re-sync when the channel record changes underneath us (see the matching
-	// note in GeneralChannelSettings).
 	createEffect(on(initialOwnerOnly, (o) => setOwnerOnly(o), { defer: true }));
 	createEffect(
 		on(initialAllowedRoles, (r) => setAllowedRoles(r), { defer: true }),
@@ -216,58 +226,69 @@ const PermissionsPage: Component<{ channel: Channel }> = (props) => {
 	createEffect(
 		on(initialAllowedMembers, (m) => setAllowedMembers(m), { defer: true }),
 	);
+	createEffect(
+		on(initialVisibleToRoles, (r) => setVisibleToRoles(r), { defer: true }),
+	);
+	createEffect(
+		on(initialVisibleToMembers, (m) => setVisibleToMembers(m), {
+			defer: true,
+		}),
+	);
 
 	const handleSave = async () => {
 		setLoading(true);
-		try {
-			const roles = allowedRoles();
-			const members = allowedMembers();
-			const res = await user.xrpc.social.colibri.channel.update(
-				props.channel.uri,
-				undefined,
-				{
-					// Only send ownerOnly when it actually changed: the server gates
-					// any ownerOnly write behind an admin check, so sending it on an
-					// allow-list-only edit would reject the whole save for non-admins.
-					ownerOnly:
-						ownerOnly() !== initialOwnerOnly() ? ownerOnly() : undefined,
-					// An empty array appends no params, which the server reads as "no
-					// change"; the explicit clear flags wipe an allow-list instead.
-					allowedRoles: roles.length ? roles : undefined,
-					clearAllowedRoles: roles.length === 0,
-					allowedMembers: members.length ? members : undefined,
-					clearAllowedMembers: members.length === 0,
-				},
-			);
-			if (!res) {
-				toast.error("Failed to save permissions.");
-				return;
-			}
-			community().utils.patchChannel(props.channel.uri, {
-				ownerOnly: ownerOnly(),
-				allowedRoles: roles,
-				allowedMembers: members,
-			});
-		} catch {
-			toast.error("Failed to save permissions.");
-		} finally {
-			setLoading(false);
+		const roles = allowedRoles();
+		const members = allowedMembers();
+		const visRoles = visibleToRoles();
+		const visMembers = visibleToMembers();
+		const client = clientForManagingApp(
+			user.atproto.agent,
+			community().community.managingApp,
+		);
+		const res = await client.call(colibri.channel.update.main, {
+			body: {
+				channel: props.channel.space,
+				ownerOnly: ownerOnly() !== initialOwnerOnly() ? ownerOnly() : undefined,
+				allowedRoles: sameSet(roles, initialAllowedRoles()) ? undefined : roles,
+				allowedMembers: sameSet(members, initialAllowedMembers())
+					? undefined
+					: members,
+				visibleToRoles: sameSet(visRoles, initialVisibleToRoles())
+					? undefined
+					: visRoles,
+				visibleToMembers: sameSet(visMembers, initialVisibleToMembers())
+					? undefined
+					: visMembers,
+			},
+		});
+		setLoading(false);
+		if (!res.ok) {
+			showError(res.error, { fallbackTitle: "Failed to save permissions." });
+			return;
 		}
+		community().utils.patchChannel(props.channel.space, {
+			ownerOnly: ownerOnly(),
+			allowedRoles: roles,
+			allowedMembers: members as ChannelView["allowedMembers"],
+			visibleToRoles: visRoles,
+			visibleToMembers: visMembers as ChannelView["visibleToMembers"],
+		});
 	};
-
-	const sameSet = (a: string[], b: string[]) =>
-		a.length === b.length && a.every((x) => b.includes(x));
 
 	const isDirty = () =>
 		ownerOnly() !== initialOwnerOnly() ||
 		!sameSet(allowedRoles(), initialAllowedRoles()) ||
-		!sameSet(allowedMembers(), initialAllowedMembers());
+		!sameSet(allowedMembers(), initialAllowedMembers()) ||
+		!sameSet(visibleToRoles(), initialVisibleToRoles()) ||
+		!sameSet(visibleToMembers(), initialVisibleToMembers());
 
 	const handleReset = () => {
 		setLoading(false);
 		setOwnerOnly(initialOwnerOnly());
 		setAllowedRoles(initialAllowedRoles());
 		setAllowedMembers(initialAllowedMembers());
+		setVisibleToRoles(initialVisibleToRoles());
+		setVisibleToMembers(initialVisibleToMembers());
 	};
 
 	return (
@@ -275,7 +296,7 @@ const PermissionsPage: Component<{ channel: Channel }> = (props) => {
 			loading={loading}
 			canReset={isDirty()}
 			title="Permissions"
-			description="Permissions control who can chat in this channel. If a user or role is not specified here, they will still see the channel."
+			description="Control who can see this channel and who can chat in it. If a user or role is not specified, they are still allowed."
 			onSave={handleSave}
 			onReset={handleReset}
 		>
@@ -300,6 +321,10 @@ const PermissionsPage: Component<{ channel: Channel }> = (props) => {
 				</div>
 			</Show>
 			<ChannelAllowListEditor
+				visibleToRoles={visibleToRoles}
+				setVisibleToRoles={setVisibleToRoles}
+				visibleToMembers={visibleToMembers}
+				setVisibleToMembers={setVisibleToMembers}
 				allowedRoles={allowedRoles}
 				setAllowedRoles={setAllowedRoles}
 				allowedMembers={allowedMembers}
@@ -312,9 +337,10 @@ const PermissionsPage: Component<{ channel: Channel }> = (props) => {
 
 const DangerSettingsPage: Component<{
 	setOpen: Setter<boolean>;
-	channel: Channel;
+	channel: ChannelView;
 }> = (props) => {
 	const user = useUserContext();
+	const community = useCommunityContext();
 
 	const [loading, setLoading] = createSignal<boolean>(false);
 	const [channelNameReset, setChannelNameReset] = createSignal("");
@@ -323,14 +349,19 @@ const DangerSettingsPage: Component<{
 
 	const deleteChannel = async () => {
 		setLoading(true);
-		try {
-			await user.xrpc.social.colibri.channel.delete(props.channel.uri);
-			props.setOpen(false);
-		} catch {
-			toast.error("Failed to delete channel.");
-		} finally {
-			setLoading(false);
+		const client = clientForManagingApp(
+			user.atproto.agent,
+			community().community.managingApp,
+		);
+		const res = await client.call(colibri.channel.delete.main, {
+			body: { channel: props.channel.space },
+		});
+		setLoading(false);
+		if (!res.ok) {
+			showError(res.error, { fallbackTitle: "Failed to delete channel." });
+			return;
 		}
+		props.setOpen(false);
 	};
 
 	return (
@@ -374,7 +405,7 @@ const DangerSettingsPage: Component<{
 };
 
 export const ChannelSettingsModal: ParentComponent<{
-	channel: Channel;
+	channel: ChannelView;
 	class?: string;
 	open?: Accessor<boolean>;
 	setOpen?: Setter<boolean>;
@@ -427,7 +458,7 @@ export const ChannelSettingsModal: ParentComponent<{
 			debugPage={{
 				title: "Debug Information",
 				id: "info",
-				component: () => <SettingsInfoPage uri={props.channel.uri} />,
+				component: () => <SettingsInfoPage uri={props.channel.space} />,
 				icon: () => <BugIcon />,
 			}}
 		/>

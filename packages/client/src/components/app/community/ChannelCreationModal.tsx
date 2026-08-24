@@ -6,11 +6,13 @@ import {
 	Show,
 } from "solid-js";
 import type { JSX } from "solid-js/jsx-runtime";
-import { toast } from "somoto";
 import ChatCircleDotsIcon from "~icons/ph/chat-circle-dots";
 import SpeakerHighIcon from "~icons/ph/speaker-high";
+import { colibri } from "../../../atproto/lexicons";
+import { clientForManagingApp } from "../../../atproto/xrpc";
 import { useCommunityContext } from "../../../contexts/Community";
 import { useUserContext } from "../../../contexts/User";
+import { showError } from "../../../errors/show-error";
 import { cx } from "../../../utils/cva";
 import { Button } from "../../ui/Button";
 import { DialogFooter } from "../../ui/Dialog";
@@ -36,6 +38,11 @@ import { ChannelAllowListEditor } from "./ChannelAllowListEditor";
 
 type ValidChannel = "text" | "voice";
 
+const CHANNEL_TYPE_NSID: Record<ValidChannel, string> = {
+	text: "social.colibri.beta.channel.text",
+	voice: "social.colibri.beta.channel.voice",
+};
+
 export const ChannelCreationModal: Component<{
 	category: string;
 	community: string;
@@ -48,14 +55,14 @@ export const ChannelCreationModal: Component<{
 	const [type, setType] = createSignal<ValidChannel>("text");
 	const [loading, setLoading] = createSignal(false);
 	const [isRestricted, setIsRestricted] = createSignal(false);
-	// The modal is a two-step flow: step 0 is the channel basics, step 1 is the
-	// post allow-list, reachable only when the channel is marked restricted.
 	const [page, setPage] = createSignal<0 | 1>(0);
 	const [allowedRoles, setAllowedRoles] = createSignal<string[]>([]);
 	const [allowedMembers, setAllowedMembers] = createSignal<string[]>([]);
+	const [visibleToRoles, setVisibleToRoles] = createSignal<string[]>([]);
+	const [visibleToMembers, setVisibleToMembers] = createSignal<string[]>([]);
 
 	const categoryName = () =>
-		community().categories.find((x) => x.uri === props.category)!.name;
+		community().categories.find((x) => x.rkey === props.category)!.name;
 
 	const reset = () => {
 		setName("");
@@ -64,6 +71,8 @@ export const ChannelCreationModal: Component<{
 		setPage(0);
 		setAllowedRoles([]);
 		setAllowedMembers([]);
+		setVisibleToRoles([]);
+		setVisibleToMembers([]);
 	};
 
 	const handleOpenChange = (next: boolean) => {
@@ -73,21 +82,28 @@ export const ChannelCreationModal: Component<{
 
 	const handleCreate = async () => {
 		setLoading(true);
-		try {
-			await user.xrpc.social.colibri.channel.create(
-				props.community,
-				props.category,
-				name().trim(),
-				`social.colibri.channel.${type()}`,
-				isRestricted() ? allowedRoles() : undefined,
-				isRestricted() ? allowedMembers() : undefined,
-			);
-			handleOpenChange(false);
-		} catch {
-			toast.error("Failed to create channel.");
-		} finally {
-			setLoading(false);
+		const client = clientForManagingApp(
+			user.atproto.agent,
+			community().community.managingApp,
+		);
+		const res = await client.call(colibri.channel.create.main, {
+			body: {
+				community: props.community,
+				category: props.category,
+				name: name().trim(),
+				type: CHANNEL_TYPE_NSID[type()],
+				allowedRoles: isRestricted() ? allowedRoles() : undefined,
+				allowedMembers: isRestricted() ? allowedMembers() : undefined,
+				visibleToRoles: isRestricted() ? visibleToRoles() : undefined,
+				visibleToMembers: isRestricted() ? visibleToMembers() : undefined,
+			},
+		});
+		setLoading(false);
+		if (!res.ok) {
+			showError(res.error, { fallbackTitle: "Failed to create channel." });
+			return;
 		}
+		handleOpenChange(false);
 	};
 
 	const iconsByType: Record<ValidChannel, (className?: string) => JSX.Element> =
@@ -111,10 +127,14 @@ export const ChannelCreationModal: Component<{
 				fallback={
 					<div class="flex flex-col gap-2">
 						<span class="text-sm text-muted-foreground">
-							Only the roles and members you select here will be able to chat in
-							this channel. Leave both empty to allow everyone.
+							Only the roles and members you select here will be able to see or
+							chat in this channel. Leave everything empty to allow everyone.
 						</span>
 						<ChannelAllowListEditor
+							visibleToRoles={visibleToRoles}
+							setVisibleToRoles={setVisibleToRoles}
+							visibleToMembers={visibleToMembers}
+							setVisibleToMembers={setVisibleToMembers}
 							allowedRoles={allowedRoles}
 							setAllowedRoles={setAllowedRoles}
 							allowedMembers={allowedMembers}
@@ -184,8 +204,8 @@ export const ChannelCreationModal: Component<{
 						<div>
 							<SwitchLabel>Restricted Channel</SwitchLabel>
 							<SwitchDescription>
-								Only selected members and roles will be able to chat in this
-								channel.
+								Only selected members and roles will be able to see or chat in
+								this channel.
 							</SwitchDescription>
 						</div>
 						<SwitchInput />

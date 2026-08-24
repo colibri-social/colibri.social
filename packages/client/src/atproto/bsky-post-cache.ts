@@ -1,6 +1,7 @@
 import type { AppBskyFeedDefs } from "@atproto/api";
 import { classifyThrown } from "../errors/classify";
 import { createLogger } from "../utils/logger";
+import { getPosts } from "./bsky";
 import {
 	cacheEnabled,
 	readBskyHandle,
@@ -8,7 +9,6 @@ import {
 	writeBskyHandle,
 	writeBskyPost,
 } from "./cache/store";
-import { getPosts } from "./xrpc/app/bsky/feed/getPosts";
 
 const log = createLogger("bsky");
 

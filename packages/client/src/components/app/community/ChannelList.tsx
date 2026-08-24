@@ -16,20 +16,24 @@ import {
 	untrack,
 } from "solid-js";
 import { createStore } from "solid-js/store";
-import { toast } from "somoto";
 import PlusIcon from "~icons/ph/plus";
-import type { Channel } from "../../../atproto/xrpc/social/colibri/community/listChannels";
+import { colibri } from "../../../atproto/lexicons";
+import { spaceSkey } from "../../../atproto/space-ref";
+import { clientForManagingApp } from "../../../atproto/xrpc";
 import {
 	useCommunityContext,
 	usePermissions,
 } from "../../../contexts/Community";
+import type { Channel } from "../../../contexts/community-payload";
 import { useUserContext } from "../../../contexts/User";
+import { showError } from "../../../errors/show-error";
 import { LongPressSensors } from "../../../utils/create-longpress-sensor";
 import {
 	animateToNewPositions,
 	capturePositions,
 	reorderList,
 } from "../../../utils/drag";
+import { createLogger } from "../../../utils/logger";
 import { Button } from "../../ui/Button";
 import {
 	buildChannelOrder,
@@ -42,6 +46,8 @@ import { ChannelCreationModal } from "./ChannelCreationModal";
 import { ChannelSettingsModal } from "./ChannelSettingsModal";
 import { SortableCategory } from "./SortableCategory";
 import { useProcessedSidebar } from "./useProcessedSidebar";
+
+const log = createLogger("community");
 
 export const ChannelList: Component<{
 	onCategoryReorder?: (categories: CategoryWithChannels[]) => void;
@@ -58,6 +64,9 @@ export const ChannelList: Component<{
 	const canUpdateCategory = () => _canUpdateCategory(user.did);
 	const canUpdateChannel = () => _canUpdateChannel(user.did);
 
+	const client = () =>
+		clientForManagingApp(user.atproto.agent, community().community.managingApp);
+
 	const [committedOrder, setCommittedOrder] = createSignal<
 		CategoryWithChannels[] | null
 	>(null);
@@ -67,14 +76,14 @@ export const ChannelList: Component<{
 	const sortedCategories = () => {
 		const current = committedOrder();
 		if (!current) return processed().categories;
-		const byUri = new Map(processed().categories.map((c) => [c.uri, c]));
+		const byRkey = new Map(processed().categories.map((c) => [c.rkey, c]));
 		const ordered = current
-			.map((c) => byUri.get(c.uri))
+			.map((c) => byRkey.get(c.rkey))
 			.filter((c): c is CategoryWithChannels => c !== undefined);
-		const seen = new Set(ordered.map((c) => c.uri));
+		const seen = new Set(ordered.map((c) => c.rkey));
 		return [
 			...ordered,
-			...processed().categories.filter((c) => !seen.has(c.uri)),
+			...processed().categories.filter((c) => !seen.has(c.rkey)),
 		];
 	};
 
@@ -100,7 +109,9 @@ export const ChannelList: Component<{
 	const [dragActive, setDragActive] = createSignal(false);
 
 	const sameOrder = (a: string[] | undefined, b: string[]) =>
-		!!a && a.length === b.length && a.every((uri, index) => uri === b[index]);
+		!!a &&
+		a.length === b.length &&
+		a.every((space, index) => space === b[index]);
 
 	createEffect(() => {
 		const categories = sortedCategories();
@@ -109,54 +120,59 @@ export const ChannelList: Component<{
 		batch(() => {
 			const known = new Set<string>();
 			for (const category of categories) {
-				known.add(category.uri);
+				known.add(category.rkey);
 				const serverOrder = buildChannelOrder(category);
-				const pending = pendingOrders[category.uri];
+				const pending = pendingOrders[category.rkey];
 				if (pending) {
 					if (!sameOrder(pending, serverOrder)) continue;
-					setPendingOrders(category.uri, undefined);
+					setPendingOrders(category.rkey, undefined);
 				}
 				if (
 					!sameOrder(
-						untrack(() => channelOrders[category.uri]),
+						untrack(() => channelOrders[category.rkey]),
 						serverOrder,
 					)
 				) {
-					setChannelOrders(category.uri, serverOrder);
+					setChannelOrders(category.rkey, serverOrder);
 				}
-				const injected = untrack(() => movedChannels[category.uri]);
+				const injected = untrack(() => movedChannels[category.rkey]);
 				if (injected?.length) {
-					const settled = new Set(category.channels.map((ch) => ch.uri));
-					const stillPending = injected.filter((ch) => !settled.has(ch.uri));
+					const settled = new Set(category.channels.map((ch) => ch.space));
+					const stillPending = injected.filter((ch) => !settled.has(ch.space));
 					if (stillPending.length !== injected.length) {
-						setMovedChannels(category.uri, stillPending);
+						setMovedChannels(category.rkey, stillPending);
 					}
 				}
 			}
-			for (const uri of untrack(() => Object.keys(channelOrders))) {
-				if (known.has(uri)) continue;
-				setChannelOrders(uri, undefined as unknown as string[]);
-				setPendingOrders(uri, undefined);
-				setMovedChannels(uri, undefined as unknown as Channel[]);
+			for (const rkey of untrack(() => Object.keys(channelOrders))) {
+				if (known.has(rkey)) continue;
+				setChannelOrders(rkey, undefined as unknown as string[]);
+				setPendingOrders(rkey, undefined);
+				setMovedChannels(rkey, undefined as unknown as Channel[]);
 			}
 		});
 	});
 
-	const handleChannelReorder = (categoryUri: string, newOrder: string[]) => {
+	const handleChannelReorder = (categoryRkey: string, newOrder: string[]) => {
 		batch(() => {
-			setChannelOrders(categoryUri, newOrder);
-			setPendingOrders(categoryUri, newOrder);
+			setChannelOrders(categoryRkey, newOrder);
+			setPendingOrders(categoryRkey, newOrder);
 		});
-		void user.xrpc.social.colibri.community
-			.reorderChannels(categoryUri, newOrder)
-			.then((res) => {
-				if (res) return;
-				toast.error("Failed to save the channel order.");
-				setPendingOrders(categoryUri, undefined);
+		void client()
+			.call(colibri.channel.reorder.main, {
+				body: {
+					community: community().community.did,
+					category: categoryRkey,
+					channels: newOrder.map((space) => spaceSkey(space) ?? space),
+				},
 			})
-			.catch(() => {
-				toast.error("Failed to save the channel order.");
-				setPendingOrders(categoryUri, undefined);
+			.then((res) => {
+				if (res.ok) return;
+				log.error("reordering channels failed", { code: res.error.code });
+				showError(res.error, {
+					fallbackTitle: "Failed to save the channel order.",
+				});
+				setPendingOrders(categoryRkey, undefined);
 			});
 	};
 
@@ -164,19 +180,19 @@ export const ChannelList: Component<{
 		channelId: string | number,
 	): string | undefined => {
 		const id = String(channelId);
-		for (const [catUri, order] of Object.entries(channelOrders)) {
-			if (order.includes(id)) return catUri;
+		for (const [catRkey, order] of Object.entries(channelOrders)) {
+			if (order.includes(id)) return catRkey;
 		}
 		return undefined;
 	};
 
-	const findChannelData = (uri: string): Channel | undefined => {
+	const findChannelData = (space: string): Channel | undefined => {
 		for (const cat of sortedCategories()) {
-			const ch = cat.channels.find((c) => c.uri === uri);
+			const ch = cat.channels.find((c) => c.space === space);
 			if (ch) return ch;
 		}
 		for (const channels of Object.values(movedChannels)) {
-			const ch = channels.find((c) => c.uri === uri);
+			const ch = channels.find((c) => c.space === space);
 			if (ch) return ch;
 		}
 		return undefined;
@@ -188,54 +204,57 @@ export const ChannelList: Component<{
 	const categoryEls = new Map<string, HTMLElement>();
 	const categoryTops = new Map<string, number>();
 
-	const categoryUriSet = createMemo(
-		() => new Set(sortedCategories().map((c) => c.uri)),
+	const categoryRkeySet = createMemo(
+		() => new Set(sortedCategories().map((c) => c.rkey)),
 	);
 
 	const [channelDropTarget, setChannelDropTarget] =
 		createSignal<ChannelDropTarget | null>(null);
 
 	const isCategoryId = (id: string | number) =>
-		categoryUriSet().has(String(id));
+		categoryRkeySet().has(String(id));
 
 	const collisionDetector = (
 		draggable: Parameters<typeof closestCenter>[0],
 		droppables: Parameters<typeof closestCenter>[1],
 		context: Parameters<typeof closestCenter>[2],
 	): Droppable | null => {
-		const catUris = categoryUriSet();
+		const catRkeys = categoryRkeySet();
 
-		if (catUris.has(String(draggable.id))) {
+		if (catRkeys.has(String(draggable.id))) {
 			return closestCenter(
 				draggable,
-				droppables.filter((d) => catUris.has(String(d.id))),
+				droppables.filter((d) => catRkeys.has(String(d.id))),
 				context,
 			);
 		}
 
 		const cy = draggable.transformed.center.y;
-		let targetCatUri: string | undefined;
-		for (const [catUri, el] of categoryEls) {
+		let targetCatRkey: string | undefined;
+		for (const [catRkey, el] of categoryEls) {
 			const rect = el.getBoundingClientRect();
 			if (cy >= rect.top && cy <= rect.bottom) {
-				targetCatUri = catUri;
+				targetCatRkey = catRkey;
 				break;
 			}
 		}
 
-		if (targetCatUri) {
-			const catChannelIds = channelOrders[targetCatUri] ?? [];
+		if (targetCatRkey) {
+			const catChannelIds = channelOrders[targetCatRkey] ?? [];
 			const channelsInCat = droppables.filter((d) =>
 				catChannelIds.includes(String(d.id)),
 			);
 			if (channelsInCat.length === 0) {
-				return droppables.find((d) => String(d.id) === targetCatUri) ?? null;
+				return droppables.find((d) => String(d.id) === targetCatRkey) ?? null;
 			}
 			const closest = closestCenter(draggable, channelsInCat, context);
 			if (!closest)
-				return droppables.find((d) => String(d.id) === targetCatUri) ?? null;
+				return droppables.find((d) => String(d.id) === targetCatRkey) ?? null;
 
-			if (draggedChannelSourceCat && draggedChannelSourceCat !== targetCatUri) {
+			if (
+				draggedChannelSourceCat &&
+				draggedChannelSourceCat !== targetCatRkey
+			) {
 				const isLast =
 					catChannelIds.indexOf(String(closest.id)) ===
 					catChannelIds.length - 1;
@@ -243,7 +262,7 @@ export const ChannelList: Component<{
 					isLast &&
 					draggable.transformed.center.y > closest.transformed.center.y
 				) {
-					return droppables.find((d) => String(d.id) === targetCatUri) ?? null;
+					return droppables.find((d) => String(d.id) === targetCatRkey) ?? null;
 				}
 			}
 
@@ -252,7 +271,7 @@ export const ChannelList: Component<{
 
 		return closestCenter(
 			draggable,
-			droppables.filter((d) => !catUris.has(String(d.id))),
+			droppables.filter((d) => !catRkeys.has(String(d.id))),
 			context,
 		);
 	};
@@ -264,8 +283,8 @@ export const ChannelList: Component<{
 	): CategoryWithChannels[] =>
 		reorderList(
 			list,
-			list.findIndex((c) => c.uri === fromId),
-			list.findIndex((c) => c.uri === toId),
+			list.findIndex((c) => c.rkey === fromId),
+			list.findIndex((c) => c.rkey === toId),
 		);
 
 	const onDragStart = ({ draggable }: DragEvent) => {
@@ -274,7 +293,7 @@ export const ChannelList: Component<{
 		if (isCategoryId(draggable.id)) {
 			if (!canUpdateCategory()) return;
 			dragBaseOrder = sortedCategories();
-			setDraggedCategory(dragBaseOrder.find((c) => c.uri === draggable.id));
+			setDraggedCategory(dragBaseOrder.find((c) => c.rkey === draggable.id));
 		} else {
 			if (!canUpdateChannel()) return;
 			draggedChannelId = String(draggable.id);
@@ -310,8 +329,8 @@ export const ChannelList: Component<{
 		}
 
 		setChannelDropTarget({
-			categoryUri: hoverCat,
-			insertBeforeUri: isCatDrop ? null : droppableId,
+			categoryRkey: hoverCat,
+			insertBeforeSpace: isCatDrop ? null : droppableId,
 		});
 	};
 
@@ -319,19 +338,22 @@ export const ChannelList: Component<{
 		final: CategoryWithChannels[],
 		previous: CategoryWithChannels[] | null,
 	) => {
-		const res = await user.xrpc.social.colibri.community
-			.reorderCategories(
-				community().community.uri,
-				final.map((c) => c.uri),
-			)
-			.catch(() => undefined);
-		if (res) return;
-		toast.error("Failed to save the category order.");
+		const res = await client().call(colibri.community.reorderCategories.main, {
+			body: {
+				community: community().community.did,
+				categories: final.map((c) => c.rkey),
+			},
+		});
+		if (res.ok) return;
+		log.error("reordering categories failed", { code: res.error.code });
+		showError(res.error, {
+			fallbackTitle: "Failed to save the category order.",
+		});
 		setCommittedOrder(previous);
 	};
 
 	const persistChannelMove = async (
-		channelId: string,
+		channelSpace: string,
 		sourceCat: string,
 		destCat: string,
 		destOrder: string[],
@@ -341,24 +363,34 @@ export const ChannelList: Component<{
 				setPendingOrders(sourceCat, undefined);
 				setPendingOrders(destCat, undefined);
 				setMovedChannels(destCat, (prev) =>
-					(prev ?? []).filter((ch) => ch.uri !== channelId),
+					(prev ?? []).filter((ch) => ch.space !== channelSpace),
 				);
 			});
 
-		const moved = await user.xrpc.social.colibri.channel
-			.update(channelId, undefined, { category: destCat })
-			.catch(() => undefined);
-		if (!moved) {
-			toast.error("Failed to move the channel.");
+		const moved = await client().call(colibri.channel.update.main, {
+			body: { channel: channelSpace, category: destCat },
+		});
+		if (!moved.ok) {
+			log.error("moving a channel failed", { code: moved.error.code });
+			showError(moved.error, { fallbackTitle: "Failed to move the channel." });
 			rollback();
 			return;
 		}
 
-		const reordered = await user.xrpc.social.colibri.community
-			.reorderChannels(destCat, destOrder)
-			.catch(() => undefined);
-		if (!reordered) {
-			toast.error("Failed to save the channel order.");
+		const reordered = await client().call(colibri.channel.reorder.main, {
+			body: {
+				community: community().community.did,
+				category: destCat,
+				channels: destOrder.map((space) => spaceSkey(space) ?? space),
+			},
+		});
+		if (!reordered.ok) {
+			log.error("reordering channels after a move failed", {
+				code: reordered.error.code,
+			});
+			showError(reordered.error, {
+				fallbackTitle: "Failed to save the channel order.",
+			});
 			rollback();
 		}
 	};
@@ -423,7 +455,7 @@ export const ChannelList: Component<{
 				setPendingOrders(sourceCat, srcOrder);
 				setPendingOrders(destCat, destOrder);
 				setMovedChannels(sourceCat, (prev) =>
-					(prev ?? []).filter((ch) => ch.uri !== channelId),
+					(prev ?? []).filter((ch) => ch.space !== channelId),
 				);
 				if (channelData) {
 					setMovedChannels(destCat, (prev) => [...(prev ?? []), channelData]);
@@ -438,38 +470,40 @@ export const ChannelList: Component<{
 
 	const visibleCategories = () => draggingOrder() ?? sortedCategories();
 
-	const [settingsChannelUri, setSettingsChannelUri] = createSignal<
+	const [settingsChannelSpace, setSettingsChannelSpace] = createSignal<
 		string | null
 	>(null);
 	const [channelSettingsOpen, setChannelSettingsOpen] = createSignal(false);
 	const settingsChannel = createMemo(() => {
-		const uri = settingsChannelUri();
-		return uri ? (findChannelData(uri) ?? null) : null;
+		const space = settingsChannelSpace();
+		return space ? (findChannelData(space) ?? null) : null;
 	});
-	const openChannelSettings = (uri: string) => {
-		setSettingsChannelUri(uri);
+	const openChannelSettings = (space: string) => {
+		setSettingsChannelSpace(space);
 		setChannelSettingsOpen(true);
 	};
 
-	const [settingsCategoryUri, setSettingsCategoryUri] = createSignal<
+	const [settingsCategoryRkey, setSettingsCategoryRkey] = createSignal<
 		string | null
 	>(null);
 	const [categorySettingsOpen, setCategorySettingsOpen] = createSignal(false);
 	const settingsCategory = createMemo(() => {
-		const uri = settingsCategoryUri();
-		return uri ? (sortedCategories().find((c) => c.uri === uri) ?? null) : null;
+		const rkey = settingsCategoryRkey();
+		return rkey
+			? (sortedCategories().find((c) => c.rkey === rkey) ?? null)
+			: null;
 	});
-	const openCategorySettings = (uri: string) => {
-		setSettingsCategoryUri(uri);
+	const openCategorySettings = (rkey: string) => {
+		setSettingsCategoryRkey(rkey);
 		setCategorySettingsOpen(true);
 	};
 
-	const [creationCategoryUri, setCreationCategoryUri] = createSignal<
+	const [creationCategoryRkey, setCreationCategoryRkey] = createSignal<
 		string | null
 	>(null);
 	const [channelCreationOpen, setChannelCreationOpen] = createSignal(false);
-	const openChannelCreation = (uri: string) => {
-		setCreationCategoryUri(uri);
+	const openChannelCreation = (rkey: string) => {
+		setCreationCategoryRkey(rkey);
 		setChannelCreationOpen(true);
 	};
 
@@ -482,23 +516,23 @@ export const ChannelList: Component<{
 		>
 			<LongPressSensors />
 			<nav class="w-full h-full flex flex-col overflow-y-auto overflow-x-clip pb-4">
-				<SortableProvider ids={visibleCategories().map((c) => c.uri)}>
+				<SortableProvider ids={visibleCategories().map((c) => c.rkey)}>
 					<For each={visibleCategories()}>
 						{(category) => (
 							<div
 								class="relative"
-								ref={(node) => categoryEls.set(category.uri, node)}
+								ref={(node) => categoryEls.set(category.rkey, node)}
 							>
 								<SortableCategory
 									category={category}
-									communityUri={community().community.uri}
+									communityDid={community().community.did}
 									channelOrder={
-										channelOrders[category.uri] ?? buildChannelOrder(category)
+										channelOrders[category.rkey] ?? buildChannelOrder(category)
 									}
 									onChannelReorder={handleChannelReorder}
-									injectedChannels={movedChannels[category.uri] ?? []}
+									injectedChannels={movedChannels[category.rkey] ?? []}
 									dropTarget={
-										channelDropTarget()?.categoryUri === category.uri
+										channelDropTarget()?.categoryRkey === category.rkey
 											? channelDropTarget()
 											: null
 									}
@@ -528,18 +562,18 @@ export const ChannelList: Component<{
 						/>
 					)}
 				</Show>
-				<Show when={creationCategoryUri()}>
-					{(uri) => (
+				<Show when={creationCategoryRkey()}>
+					{(rkey) => (
 						<ChannelCreationModal
-							category={uri()}
-							community={community().community.uri}
+							category={rkey()}
+							community={community().community.did}
 							open={channelCreationOpen}
 							setOpen={setChannelCreationOpen}
 						/>
 					)}
 				</Show>
 				<Show when={canCreateCategory()}>
-					<CategoryCreationModal community={community().community.uri}>
+					<CategoryCreationModal community={community().community.did}>
 						<Button
 							size="sm"
 							class="w-[calc(100%-2rem)] mx-4 mt-4"

@@ -1,6 +1,6 @@
-import type { Colibri_MessageEvent } from "@colibri-social/lib";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import type { Message } from "../xrpc/social/colibri/channel/listMessages";
+import type { MessageEventFrame } from "../sync-frames";
+import type { MessageView } from "../views";
 import { rkeyOf } from "./messages-snapshot";
 import {
 	applyMessageEvent,
@@ -15,36 +15,38 @@ import {
 import type { MessagesSnapshot } from "./schema";
 
 const DID = "did:plc:abc123";
-const CHANNEL = `at://${DID}/social.colibri.channel/general`;
-const COMMUNITY = `at://${DID}/social.colibri.community/self`;
+const OTHER_DID = "did:plc:xyz789";
+const CHANNEL = `at://${DID}/space/social.colibri.beta.channel.text/general`;
 
 const author = {
 	did: DID,
 	handle: "someone.example",
-	data: { displayName: "Someone" },
-} as unknown as Message["author"];
-
-const DEFAULT_CREATED_AT = "2026-01-01T00:00:00.000Z";
+	displayName: "Someone",
+	isBot: false,
+	syncBluesky: false,
+} as unknown as MessageView["author"];
 
 const message = (
 	rkey: string,
 	text = "hello",
-	createdAt = DEFAULT_CREATED_AT,
-): Message => ({
-	uri: `at://${DID}/social.colibri.message/${rkey}`,
-	text,
-	facets: [],
-	channel: CHANNEL,
-	community: COMMUNITY,
-	author,
-	attachments: [],
-	reactions: [],
-	createdAt,
-	edited: false,
-});
+	createdAt = "2026-01-01T00:00:00.000Z",
+	did = DID,
+): MessageView =>
+	({
+		uri: `${CHANNEL}/social.colibri.beta.message/${rkey}`,
+		rkey,
+		channel: CHANNEL,
+		text,
+		facets: [],
+		author: did === DID ? author : { ...author, did },
+		attachments: [],
+		reactions: [],
+		labels: [],
+		createdAt,
+	}) as unknown as MessageView;
 
 const snapshot = (
-	messages: Message[],
+	messages: MessageView[],
 	hasMore?: boolean,
 ): MessagesSnapshot => ({
 	messages,
@@ -52,97 +54,101 @@ const snapshot = (
 	ts: 1,
 });
 
-type Event = NonNullable<Colibri_MessageEvent["data"]>;
-
-const upsert = (
+const create = (
 	rkey: string,
 	text = "hello",
-	createdAt = DEFAULT_CREATED_AT,
-): Event =>
+	createdAt = "2026-01-01T00:00:00.000Z",
+): MessageEventFrame =>
 	({
-		event: "upsert",
-		uri: `at://${DID}/social.colibri.message/${rkey}`,
+		$type: "social.colibri.beta.sync.defs#messageEvent",
+		event: "create",
 		channel: CHANNEL,
-		text,
-		facets: [],
-		createdAt,
-		edited: false,
-		attachments: [],
-		author,
-	}) as unknown as Event;
+		message: message(rkey, text, createdAt),
+	}) as unknown as MessageEventFrame;
 
-const remove = (rkey: string): Event =>
+const update = (rkey: string, text: string): MessageEventFrame =>
 	({
-		event: "delete",
-		uri: `at://${DID}/social.colibri.message/${rkey}`,
+		$type: "social.colibri.beta.sync.defs#messageEvent",
+		event: "update",
 		channel: CHANNEL,
-	}) as unknown as Event;
+		message: message(rkey, text),
+	}) as unknown as MessageEventFrame;
+
+const remove = (rkey: string, did = DID): MessageEventFrame =>
+	({
+		$type: "social.colibri.beta.sync.defs#messageEvent",
+		event: "delete",
+		channel: CHANNEL,
+		subject: { did, rkey },
+	}) as unknown as MessageEventFrame;
 
 describe("applyMessageEvent", () => {
 	it("appends a new message", () => {
-		const next = applyMessageEvent(snapshot([message("a")]), upsert("b"), 50);
+		const next = applyMessageEvent(snapshot([message("a")]), create("b"), 50);
 		expect(next?.messages.map((m) => m.text)).toEqual(["hello", "hello"]);
-		expect(next?.messages[1]?.uri).toContain("/b");
-	});
-
-	it("carries `community` over from an existing row", () => {
-		const next = applyMessageEvent(snapshot([message("a")]), upsert("b"), 50);
-		expect(next?.messages[1]?.community).toBe(COMMUNITY);
-	});
-
-	it("skips an event when the snapshot has no row to source `community` from", () => {
-		expect(applyMessageEvent(snapshot([]), upsert("b"), 50)).toBeUndefined();
+		expect(next?.messages[1]?.rkey).toBe("b");
 	});
 
 	it("edits in place rather than appending a duplicate", () => {
 		const next = applyMessageEvent(
 			snapshot([message("a"), message("b")]),
-			upsert("b", "edited"),
+			update("b", "edited"),
 			50,
 		);
 		expect(next?.messages).toHaveLength(2);
 		expect(next?.messages[1]?.text).toBe("edited");
 	});
 
-	it("keeps reactions on an edit, since the event carries none", () => {
-		const withReaction = message("b");
-		withReaction.reactions = [{ emoji: "👍", count: 1, reactorDIDs: [DID] }];
-		const next = applyMessageEvent(
-			snapshot([message("a"), withReaction]),
-			upsert("b", "edited"),
-			50,
-		);
-		expect(next?.messages[1]?.reactions).toHaveLength(1);
+	it("ignores an update for a message outside the cached window", () => {
+		expect(
+			applyMessageEvent(snapshot([message("a")]), update("zzz", "edited"), 50),
+		).toBeUndefined();
 	});
 
-	it("removes a deleted message", () => {
+	it("removes a deleted message by its RecordRef, not by uri", () => {
 		const next = applyMessageEvent(
 			snapshot([message("a"), message("b")]),
 			remove("b"),
 			50,
 		);
-		expect(next?.messages.map((m) => m.uri)).toEqual([
-			`at://${DID}/social.colibri.message/a`,
-		]);
+		expect(next?.messages.map((m) => m.rkey)).toEqual(["a"]);
 	});
 
-	it("reports no change when the deleted message is not in the snapshot", () => {
+	it("does not delete a message from a different author sharing the same rkey", () => {
+		const mine = message("a", "hello", "2026-01-01T00:00:00.000Z", DID);
+		const theirs = message("a", "hello", "2026-01-01T00:00:00.000Z", OTHER_DID);
+		const next = applyMessageEvent(
+			snapshot([mine, theirs]),
+			remove("a", OTHER_DID),
+			50,
+		);
+		expect(next?.messages).toEqual([mine]);
+	});
+
+	it("reports no change when the delete has no matching message", () => {
 		expect(
 			applyMessageEvent(snapshot([message("a")]), remove("zzz"), 50),
+		).toBeUndefined();
+	});
+
+	it("reports no change when a delete event carries no subject", () => {
+		const malformed = {
+			$type: "social.colibri.beta.sync.defs#messageEvent",
+			event: "delete",
+			channel: CHANNEL,
+		} as unknown as MessageEventFrame;
+		expect(
+			applyMessageEvent(snapshot([message("a")]), malformed, 50),
 		).toBeUndefined();
 	});
 
 	it("trims to the page size, keeping the newest rows", () => {
 		const next = applyMessageEvent(
 			snapshot([message("a"), message("b"), message("c")]),
-			upsert("d"),
+			create("d"),
 			3,
 		);
-		expect(next?.messages.map((m) => m.uri.split("/").pop())).toEqual([
-			"b",
-			"c",
-			"d",
-		]);
+		expect(next?.messages.map((m) => m.rkey)).toEqual(["b", "c", "d"]);
 	});
 
 	it("splices a replayed message into date order instead of appending it", () => {
@@ -151,21 +157,17 @@ describe("applyMessageEvent", () => {
 				message("a", "hello", "2026-01-01T00:00:00.000Z"),
 				message("c", "hello", "2026-01-03T00:00:00.000Z"),
 			]),
-			upsert("b", "hello", "2026-01-02T00:00:00.000Z"),
+			create("b", "hello", "2026-01-02T00:00:00.000Z"),
 			50,
 		);
-		expect(next?.messages.map((m) => m.uri.split("/").pop())).toEqual([
-			"a",
-			"b",
-			"c",
-		]);
+		expect(next?.messages.map((m) => m.rkey)).toEqual(["a", "b", "c"]);
 	});
 
 	it("ignores a replayed message older than the snapshot window", () => {
 		expect(
 			applyMessageEvent(
 				snapshot([message("b", "hello", "2026-01-02T00:00:00.000Z")], true),
-				upsert("a", "hello", "2026-01-01T00:00:00.000Z"),
+				create("a", "hello", "2026-01-01T00:00:00.000Z"),
 				50,
 			),
 		).toBeUndefined();
@@ -174,17 +176,14 @@ describe("applyMessageEvent", () => {
 	it("keeps a message older than the window when the whole channel is loaded", () => {
 		const next = applyMessageEvent(
 			snapshot([message("b", "hello", "2026-01-02T00:00:00.000Z")], false),
-			upsert("a", "hello", "2026-01-01T00:00:00.000Z"),
+			create("a", "hello", "2026-01-01T00:00:00.000Z"),
 			50,
 		);
-		expect(next?.messages.map((m) => m.uri.split("/").pop())).toEqual([
-			"a",
-			"b",
-		]);
+		expect(next?.messages.map((m) => m.rkey)).toEqual(["a", "b"]);
 	});
 
 	it("refreshes `ts` so an updated snapshot stays ahead in the LRU", () => {
-		const next = applyMessageEvent(snapshot([message("a")]), upsert("b"), 50);
+		const next = applyMessageEvent(snapshot([message("a")]), create("b"), 50);
 		expect(next?.ts).toBeGreaterThan(1);
 	});
 });
@@ -202,7 +201,7 @@ describe("registerOpenChannel", () => {
 		expect(isOpenChannel(CHANNEL)).toBe(false);
 	});
 
-	it("treats an empty URI as no claim", () => {
+	it("treats an empty space as no claim", () => {
 		registerOpenChannel("");
 		expect(isOpenChannel("")).toBe(false);
 	});
@@ -210,19 +209,19 @@ describe("registerOpenChannel", () => {
 
 describe("the background snapshot queue", () => {
 	const NS = "appview:did:plc:me";
-	const OTHER = `at://${DID}/social.colibri.channel/random`;
+	const OTHER = `at://${DID}/space/social.colibri.beta.channel.text/random`;
 
 	let stored: Map<string, MessagesSnapshot>;
-	let writes: Array<{ uri: string; snapshot: MessagesSnapshot }>;
+	let writes: Array<{ space: string; snapshot: MessagesSnapshot }>;
 	let errors: unknown[];
 
 	const configure = () => {
 		configureSnapshotWriter({
 			namespace: () => NS,
-			read: (ns, uri) => Promise.resolve(stored.get(`${ns}:${uri}`)),
-			write: (ns, uri, snapshot) => {
-				writes.push({ uri, snapshot });
-				stored.set(`${ns}:${uri}`, snapshot);
+			read: (ns, space) => Promise.resolve(stored.get(`${ns}:${space}`)),
+			write: (ns, space, snap) => {
+				writes.push({ space, snapshot: snap });
+				stored.set(`${ns}:${space}`, snap);
 				return Promise.resolve();
 			},
 			onError: (err) => {
@@ -231,8 +230,8 @@ describe("the background snapshot queue", () => {
 		});
 	};
 
-	const seed = (uri: string, messages: Message[]) => {
-		stored.set(`${NS}:${uri}`, snapshot(messages));
+	const seed = (space: string, messages: MessageView[]) => {
+		stored.set(`${NS}:${space}`, snapshot(messages));
 	};
 
 	const settle = () =>
@@ -240,20 +239,18 @@ describe("the background snapshot queue", () => {
 			setTimeout(resolve, 0);
 		});
 
-	const offer = (uri: string, messages: Message[]) => {
-		offerSnapshotWindow(uri, messages, {
+	const offer = (space: string, messages: MessageView[]) => {
+		offerSnapshotWindow(space, messages, {
 			readCursor: undefined,
 			hasMore: false,
 			limit: 50,
 		});
 	};
 
-	const rkeys = (messages: Message[]) => messages.map((m) => rkeyOf(m.uri));
+	const rkeys = (messages: MessageView[]) => messages.map((m) => m.rkey);
 
-	const inChannel = (rkey: string, uri: string): Message => ({
-		...message(rkey),
-		channel: uri,
-	});
+	const inChannel = (rkey: string, space: string): MessageView =>
+		({ ...message(rkey), channel: space }) as unknown as MessageView;
 
 	const foreign = (rkey: string) => inChannel(rkey, OTHER);
 
@@ -308,7 +305,7 @@ describe("the background snapshot queue", () => {
 		flushSnapshotWriter();
 
 		expect(writes).toHaveLength(1);
-		expect(writes[0]?.uri).toBe(CHANNEL);
+		expect(writes[0]?.space).toBe(CHANNEL);
 		expect(rkeys(writes[0]?.snapshot.messages ?? [])).toEqual(["a", "b"]);
 	});
 
@@ -316,7 +313,7 @@ describe("the background snapshot queue", () => {
 		configure();
 		seed(CHANNEL, [message("a")]);
 
-		foldMessageEvent(upsert("b"), 50);
+		foldMessageEvent(create("b"), 50);
 		offer(CHANNEL, [message("a")]);
 		await settle();
 		flushSnapshotWriter();
@@ -334,7 +331,7 @@ describe("the background snapshot queue", () => {
 		await settle();
 		flushSnapshotWriter();
 
-		expect(writes.map((w) => w.uri).sort()).toEqual([CHANNEL, OTHER].sort());
+		expect(writes.map((w) => w.space).sort()).toEqual([CHANNEL, OTHER].sort());
 
 		writes.length = 0;
 		flushSnapshotWriter();
@@ -351,7 +348,7 @@ describe("the background snapshot queue", () => {
 		registerOpenChannel(CHANNEL);
 		flushSnapshotWriter();
 
-		expect(writes.map((w) => w.uri)).toEqual([OTHER]);
+		expect(writes.map((w) => w.space)).toEqual([OTHER]);
 	});
 
 	it("replaces a stored snapshot that belongs to another channel", async () => {
@@ -390,7 +387,7 @@ describe("the background snapshot queue", () => {
 		configure();
 		stored.set(`${NS}:${CHANNEL}`, snapshot([foreign("z")]));
 
-		foldMessageEvent(upsert("b"), 50);
+		foldMessageEvent(create("b"), 50);
 		await settle();
 		flushSnapshotWriter();
 
@@ -411,5 +408,11 @@ describe("the background snapshot queue", () => {
 		await settle();
 
 		expect(errors).toHaveLength(1);
+	});
+});
+
+describe("rkeyOf re-export sanity", () => {
+	it("still extracts the rkey from a message uri", () => {
+		expect(rkeyOf(message("a").uri)).toBe("a");
 	});
 });

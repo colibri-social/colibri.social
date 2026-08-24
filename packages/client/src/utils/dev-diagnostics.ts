@@ -1,5 +1,3 @@
-import type { PdsStatusReport } from "./appview";
-
 /** Keep in sync with `PDS_UNAVAILABLE` in the AppView's `src/lib/responses.rs`. */
 const PDS_UNAVAILABLE = "PdsUnavailable";
 
@@ -84,7 +82,7 @@ export const reportXrpcNetworkError = (method: string, err: unknown): void => {
 		console.error(err);
 		if (refused) {
 			console.info(
-				"No AppView answered on http://localhost:8000. Start it with `cargo run` in the appview repo.",
+				"No AppView answered on http://localhost:3000. Start it with `pnpm dev` in the appview repo.",
 			);
 		}
 		console.groupEnd();
@@ -95,20 +93,3 @@ export const reportXrpcNetworkError = (method: string, err: unknown): void => {
  * Reports the AppView's boot-time PDS probe, so a broken `PDS_LOC` is visible
  * at startup rather than after the first write silently fails.
  */
-export const reportPdsStatus = (pds: PdsStatusReport | undefined): void => {
-	if (!import.meta.env.DEV || !pds || pds.reachable) return;
-
-	reportOnce("boot:pds", () => {
-		console.group(
-			"%c[appview] no PDS connected",
-			"color:#fbbf24;font-weight:bold",
-		);
-		console.warn(
-			pds.configured
-				? `The AppView's PDS probe reported: ${pds.status}.`
-				: "The AppView has no usable PDS_LOC configured.",
-		);
-		console.info(pdsRemediation());
-		console.groupEnd();
-	});
-};

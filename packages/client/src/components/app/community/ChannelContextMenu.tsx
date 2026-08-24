@@ -9,11 +9,13 @@ import PhoneCallIcon from "~icons/ph/phone-call";
 import PhoneSlashIcon from "~icons/ph/phone-slash";
 import TrashIcon from "~icons/ph/trash";
 import { buildColibriChannelUrl } from "../../../atproto/colibri-channel-url";
-import type { Channel } from "../../../atproto/xrpc/social/colibri/community/listChannels";
+import { colibri, SPACE_TYPES } from "../../../atproto/lexicons";
+import { clientForManagingApp } from "../../../atproto/xrpc";
 import {
 	useCommunityContext,
 	usePermissions,
 } from "../../../contexts/Community";
+import type { Channel } from "../../../contexts/community-payload";
 import { useMutes } from "../../../contexts/Mutes";
 import { useNotifications } from "../../../contexts/Notifications";
 import { useUserContext } from "../../../contexts/User";
@@ -21,8 +23,10 @@ import {
 	ConnectionState,
 	useVoiceChatContext,
 } from "../../../contexts/VoiceChat";
-import { AtURI } from "../../../utils/at-uri";
+import { classifyThrown } from "../../../errors/classify";
+import { showError } from "../../../errors/show-error";
 import { createLongPress } from "../../../utils/create-long-press";
+import { createLogger } from "../../../utils/logger";
 import { useIsTouch } from "../../../utils/touch";
 import { Button } from "../../ui/Button";
 import {
@@ -43,11 +47,8 @@ import {
 } from "../../ui/Dialog";
 import { handoffDrawer, MenuDrawer, MenuDrawerItem } from "../../ui/MenuDrawer";
 
-/**
- * Right-click context menu for a channel in the sidebar. "Settings" is
- * delegated to the parent (which owns a single controlled `ChannelSettingsModal`
- * shared with the hover gear button); "Delete" confirms then deletes.
- */
+const log = createLogger("community");
+
 export const ChannelContextMenu: ParentComponent<{
 	channel: Channel;
 	onOpenSettings: () => void;
@@ -60,23 +61,26 @@ export const ChannelContextMenu: ParentComponent<{
 	const { canUpdateChannel: _canUpdateChannel, canDeleteChannel: _canDelete } =
 		usePermissions();
 
-	const muted = () => mutes.isChannelMuted(props.channel.uri);
+	const muted = () => mutes.isChannelMuted(props.channel.space);
 
-	const isVoice = () =>
-		props.channel.type === "voice" ||
-		props.channel.type === "social.colibri.channel.voice";
+	const toggleMute = () =>
+		void (muted()
+			? mutes.unmuteChannel(props.channel.space)
+			: mutes.muteChannel(props.channel.space));
+
+	const isVoice = () => props.channel.type === SPACE_TYPES.channelVoice;
 
 	const isConnectedHere = () =>
-		voiceData.connection.uri === props.channel.uri &&
+		voiceData.connection.uri === props.channel.space &&
 		voiceData.connection.state !== ConnectionState.Disconnected;
 
 	const toggleConnection = () =>
 		isConnectedHere()
 			? disconnect()
-			: connect(props.channel.uri, {
+			: connect(props.channel.space, {
 					channelName: props.channel.name,
 					communityName: community().community.name,
-					hubDid: community().community.appview,
+					managingApp: community().community.managingApp,
 				});
 
 	const canUpdate = () => _canUpdateChannel(user.did);
@@ -84,13 +88,9 @@ export const ChannelContextMenu: ParentComponent<{
 	const isTouch = useIsTouch();
 
 	const copyChannelLink = () => {
-		void navigator.clipboard.writeText(
-			buildColibriChannelUrl({
-				communityUri: community().community.uri,
-				channelType: props.channel.type,
-				channelRkey: new AtURI(props.channel.uri).identifier,
-			}),
-		);
+		const url = buildColibriChannelUrl(props.channel.space);
+		if (!url) return;
+		void navigator.clipboard.writeText(url);
 		toast.success("Channel link copied to clipboard!");
 	};
 
@@ -98,18 +98,27 @@ export const ChannelContextMenu: ParentComponent<{
 	const [deleting, setDeleting] = createSignal(false);
 	const [menuOpen, setMenuOpen] = createSignal(false);
 
-	const toggleMute = () =>
-		void (muted()
-			? mutes.unmuteChannel(props.channel.uri)
-			: mutes.muteChannel(props.channel.uri));
-
 	const handleDelete = async () => {
 		setDeleting(true);
 		try {
-			await user.xrpc.social.colibri.channel.delete(props.channel.uri);
+			const client = clientForManagingApp(
+				user.atproto.agent,
+				community().community.managingApp,
+			);
+			const res = await client.call(colibri.channel.delete.main, {
+				body: { channel: props.channel.space },
+			});
+			if (!res.ok) {
+				log.error("deleting a channel failed", { code: res.error.code });
+				showError(res.error, { fallbackTitle: "Failed to delete channel." });
+				return;
+			}
 			setConfirmOpen(false);
-		} catch {
-			toast.error("Failed to delete channel.");
+		} catch (err) {
+			log.error("deleting a channel failed", {
+				code: classifyThrown(err).code,
+			});
+			showError(err, { fallbackTitle: "Failed to delete channel." });
 		} finally {
 			setDeleting(false);
 		}
@@ -150,7 +159,7 @@ export const ChannelContextMenu: ParentComponent<{
 						<MenuDrawerItem
 							onClick={() => {
 								setMenuOpen(false);
-								void notifications.markChannelAsRead(props.channel.uri);
+								void notifications.markChannelAsRead(props.channel.space);
 							}}
 						>
 							<CheckIcon />
@@ -220,19 +229,13 @@ export const ChannelContextMenu: ParentComponent<{
 							<Show when={!isVoice()}>
 								<ContextMenuItem
 									onClick={() =>
-										void notifications.markChannelAsRead(props.channel.uri)
+										void notifications.markChannelAsRead(props.channel.space)
 									}
 								>
 									<CheckIcon />
 									<span>Mark as read</span>
 								</ContextMenuItem>
-								<ContextMenuItem
-									onClick={() =>
-										void (muted()
-											? mutes.unmuteChannel(props.channel.uri)
-											: mutes.muteChannel(props.channel.uri))
-									}
-								>
+								<ContextMenuItem onClick={toggleMute}>
 									<Show when={muted()} fallback={<BellSlashIcon />}>
 										<BellIcon />
 									</Show>
@@ -273,8 +276,9 @@ export const ChannelContextMenu: ParentComponent<{
 							<DialogTitle>Delete #{props.channel.name}?</DialogTitle>
 						</DialogHeader>
 						<p class="text-sm text-muted-foreground">
-							This permanently deletes the channel and all of its messages. This
-							cannot be undone.
+							This permanently deletes the channel. Messages members wrote here
+							stay in their own repos, but nobody except their authors will be
+							able to read them afterward. This cannot be undone.
 						</p>
 						<DialogFooter class="flex-col sm:flex-row gap-2">
 							<Button

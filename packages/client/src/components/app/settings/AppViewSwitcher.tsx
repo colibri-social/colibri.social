@@ -8,18 +8,15 @@ import {
 	useContext,
 } from "solid-js";
 import { toast } from "somoto";
-import { syncPresenceService } from "../../../atproto/presence";
 import { endSession } from "../../../atproto/session";
 import { AuthContext } from "../../../contexts/Auth";
 import { useUserPreferences } from "../../../contexts/UserPreferences";
-import { classifyThrown } from "../../../errors/classify";
 import { unregisterAllPush } from "../../../notifications";
 import {
 	isValidAppViewUrl,
 	normalizeAppViewUrl,
 	verifyColibriAppView,
 } from "../../../utils/appview";
-import { createLogger } from "../../../utils/logger";
 import { openExternalLink } from "../../../utils/open-external-link";
 import { Alert, AlertDescription, AlertTitle } from "../../ui/Alert";
 import { Button } from "../../ui/Button";
@@ -29,8 +26,6 @@ import {
 	TextFieldInput,
 	TextFieldLabel,
 } from "../../ui/TextField";
-
-const log = createLogger("appview-switcher");
 
 const DefaultDescription = () => (
 	<>
@@ -44,15 +39,15 @@ const DefaultDescription = () => (
 			<Alert variant="info" class="my-4">
 				<AlertTitle>Development Mode</AlertTitle>
 				<AlertDescription>
-					In development, your requests will always go to 127.0.0.1:8000. This
+					In development, your requests will always go to 127.0.0.1:3000. This
 					check will still be made against the URL you enter.
 				</AlertDescription>
 			</Alert>
 		</Show>
 		<p class="mb-2">
-			Whichever AppView you choose is published on your public profile when
-			presence sharing is on. Communities hosted on a different AppView need
-			that to accept moderation actions from yours.
+			A community names the AppView that holds its credentials, so a community
+			managed elsewhere keeps working from here. Your sign-in is authorised for
+			one AppView at a time, which is why switching needs you to sign in again.
 		</p>
 		<a
 			href="https://github.com/colibri-social/appview"
@@ -106,20 +101,12 @@ export const AppViewSwitcher: Component<{
 
 		userPreferences.setPreferredAppView(url);
 
-		const currentAgent = agent();
-		const did = currentAgent?.did;
-		if (userPreferences.preferences().sharePresence && currentAgent && did) {
-			try {
-				await syncPresenceService(currentAgent, did, true, url);
-			} catch (err) {
-				log.warn("could not publish the new AppView on the profile", {
-					code: classifyThrown(err).code,
-				});
-			}
-		}
+		const did = agent()?.did;
 
 		toast.success(
-			`Connected to Colibri AppView (${description.flavor}) v${description.version}.`,
+			description.flavor === "vanilla"
+				? `Connected to Colibri AppView v${description.version}.`
+				: `Connected to Colibri AppView v${description.version} (${description.flavor}).`,
 			{
 				id: toastId,
 				description: "Signing you in again to authorise the new AppView...",
@@ -155,7 +142,7 @@ export const AppViewSwitcher: Component<{
 					minLength={1}
 					type="url"
 					required
-					placeholder="https://api.colibri.social"
+					placeholder="https://spaces-api.colibri.social"
 					class="w-full"
 				/>
 				<Button

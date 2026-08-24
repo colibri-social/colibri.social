@@ -1,62 +1,33 @@
-import type { $Typed } from "@atproto/api";
+import type { social } from "@colibri-social/lexicons";
 
-interface ByteSlice {
-	$type?: "app.bsky.richtext.facet#byteSlice";
-	byteStart: number;
-	byteEnd: number;
-}
+export type ByteSlice = social.colibri.beta.richtext.facet.ByteSlice;
 
-export type ColibriRichTextChannel = {
-	$type?: "social.colibri.richtext.facet#channel";
-	channel: string;
-};
+export type ColibriRichTextChannel = social.colibri.beta.richtext.facet.Channel;
 
-export type ColibriRichTextBold = {
-	$type?: "social.colibri.richtext.facet#bold";
-};
+export type ColibriRichTextBold = social.colibri.beta.richtext.facet.Bold;
 
-export type ColibriRichTextItalic = {
-	$type?: "social.colibri.richtext.facet#italic";
-};
+export type ColibriRichTextItalic = social.colibri.beta.richtext.facet.Italic;
 
-export type ColibriRichTextUnderline = {
-	$type?: "social.colibri.richtext.facet#underline";
-};
+export type ColibriRichTextUnderline =
+	social.colibri.beta.richtext.facet.Underline;
 
-export type ColibriRichTextStrikethrough = {
-	$type?: "social.colibri.richtext.facet#strikethrough";
-};
+export type ColibriRichTextStrikethrough =
+	social.colibri.beta.richtext.facet.Strikethrough;
 
-export type ColibriRichTextCode = {
-	$type?: "social.colibri.richtext.facet#code";
-};
+export type ColibriRichTextCode = social.colibri.beta.richtext.facet.Code;
 
-export type ColibriRichTextCodeblock = {
-	$type?: "social.colibri.richtext.facet#codeblock";
-	lang?: string;
-};
+export type ColibriRichTextCodeblock =
+	social.colibri.beta.richtext.facet.Codeblock;
 
-export type ColibriRichTextQuote = {
-	$type?: "social.colibri.richtext.facet#quote";
-};
+export type ColibriRichTextQuote = social.colibri.beta.richtext.facet.Quote;
 
-export type ColibriRichTextHeading = {
-	$type?: "social.colibri.richtext.facet#heading";
-	level: number;
-};
+export type ColibriRichTextHeading = social.colibri.beta.richtext.facet.Heading;
 
-export type ColibriRichTextList = {
-	$type?: "social.colibri.richtext.facet#list";
-	ordered: boolean;
-};
+export type ColibriRichTextList = social.colibri.beta.richtext.facet.List;
 
-export type ColibriRichTextSubtext = {
-	$type?: "social.colibri.richtext.facet#subtext";
-};
+export type ColibriRichTextSubtext = social.colibri.beta.richtext.facet.Subtext;
 
-export type ColibriRichTextSpoiler = {
-	$type?: "social.colibri.richtext.facet#spoiler";
-};
+export type ColibriRichTextSpoiler = social.colibri.beta.richtext.facet.Spoiler;
 
 export type TimestampStyle =
 	| "time-short"
@@ -67,46 +38,28 @@ export type TimestampStyle =
 	| "datetime-long"
 	| "relative";
 
-export type ColibriRichTextTime = {
-	$type?: "social.colibri.richtext.facet#time";
-	datetime: string;
-	style?: TimestampStyle;
-};
+export const TIMESTAMP_STYLES: ReadonlyArray<TimestampStyle> = [
+	"time-short",
+	"time-long",
+	"date-short",
+	"date-long",
+	"datetime-short",
+	"datetime-long",
+	"relative",
+];
 
-export type ColibriRichTextMention = {
-	$type?: "social.colibri.richtext.facet#mention";
-	did: string;
-};
+export const isTimestampStyle = (value: unknown): value is TimestampStyle =>
+	typeof value === "string" &&
+	(TIMESTAMP_STYLES as ReadonlyArray<string>).includes(value);
 
-export type ColibriRichTextRole = {
-	$type?: "social.colibri.richtext.facet#role";
-	role: string;
-};
+export type ColibriRichTextTime = social.colibri.beta.richtext.facet.Time;
 
-export type ColibriRichTextLink = {
-	$type?: "social.colibri.richtext.facet#link";
-	uri: string;
-};
+export type ColibriRichTextMention = social.colibri.beta.richtext.facet.Mention;
 
-export interface ColibriRichTextFacet {
-	$type?: "social.colibri.richtext.facet";
-	index: ByteSlice;
-	features: (
-		| $Typed<ColibriRichTextChannel>
-		| $Typed<ColibriRichTextBold>
-		| $Typed<ColibriRichTextItalic>
-		| $Typed<ColibriRichTextUnderline>
-		| $Typed<ColibriRichTextStrikethrough>
-		| $Typed<ColibriRichTextCode>
-		| $Typed<ColibriRichTextCodeblock>
-		| $Typed<ColibriRichTextQuote>
-		| $Typed<ColibriRichTextHeading>
-		| $Typed<ColibriRichTextList>
-		| $Typed<ColibriRichTextSubtext>
-		| $Typed<ColibriRichTextSpoiler>
-		| $Typed<ColibriRichTextMention>
-		| $Typed<ColibriRichTextRole>
-		| $Typed<ColibriRichTextLink>
-		| $Typed<ColibriRichTextTime>
-	)[];
-}
+export type ColibriRichTextRole = social.colibri.beta.richtext.facet.Role;
+
+export type ColibriRichTextLink = social.colibri.beta.richtext.facet.Link;
+
+export type ColibriRichTextFacet = social.colibri.beta.richtext.facet.Main;
+
+export type ColibriRichTextFeature = ColibriRichTextFacet["features"][number];

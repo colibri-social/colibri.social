@@ -1,5 +1,6 @@
 export type { Retryability } from "./classify";
 export {
+	classifyEnvelope,
 	classifyResponse,
 	classifyThrown,
 	isConnectivityError,
@@ -15,11 +16,11 @@ export type {
 	AppViewErrorCode,
 	ColibriErrorCode,
 	ErrorDomain,
+	LabelerErrorCode,
+	SocketErrorCode,
 } from "./codes";
 export {
 	ALL_ERROR_CODES,
-	APPVIEW_CODE_DESCRIPTIONS,
-	APPVIEW_METHOD_ERRORS,
 	domainOf,
 	GONE_CODES,
 	isAppViewErrorCode,

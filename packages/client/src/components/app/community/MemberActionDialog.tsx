@@ -1,13 +1,16 @@
-import type { ActorData } from "@colibri-social/lib";
 import {
 	type Accessor,
 	createSignal,
 	type ParentComponent,
 	type Setter,
 } from "solid-js";
-import { toast } from "somoto";
+import { colibri } from "../../../atproto/lexicons";
+import { clientForManagingApp } from "../../../atproto/xrpc";
 import { useCommunityContext } from "../../../contexts/Community";
+import type { Member } from "../../../contexts/community-payload";
 import { useUserContext } from "../../../contexts/User";
+import { showError } from "../../../errors/show-error";
+import { createLogger } from "../../../utils/logger";
 import { Spinner } from "../../icons/Spinner";
 import { Button } from "../../ui/Button";
 import {
@@ -18,7 +21,8 @@ import {
 	DialogPortal,
 } from "../../ui/Dialog";
 import { displayableNameFn } from "../user/DisplayableName";
-import { CrossAppViewModerationAlert } from "./CrossAppViewModerationAlert";
+
+const log = createLogger("community");
 
 export type ActionDialogData = {
 	open: boolean;
@@ -28,7 +32,7 @@ export type ActionDialogData = {
 export const MemberActionDialog: ParentComponent<{
 	dialog: Accessor<ActionDialogData>;
 	setDialog: Setter<ActionDialogData>;
-	member: ActorData;
+	member: Member;
 }> = (props) => {
 	const user = useUserContext();
 	const community = useCommunityContext();
@@ -36,39 +40,50 @@ export const MemberActionDialog: ParentComponent<{
 
 	const header = () =>
 		props.dialog().type === "kick"
-			? `Kick ${displayableNameFn(props.member)} from this community?`
-			: `Ban ${displayableNameFn(props.member)} from this community?`;
+			? `Kick ${displayableNameFn(
+					{ displayName: props.member.data.displayName },
+					props.member.nickname,
+				)} from this community?`
+			: `Ban ${displayableNameFn(
+					{ displayName: props.member.data.displayName },
+					props.member.nickname,
+				)} from this community?`;
 
 	const description = () =>
 		props.dialog().type === "kick"
-			? "They will be able to re-join with a link."
-			: "They will be unable to rejoin unless you revoke the ban.";
+			? community().community.requiresApprovalToJoin
+				? "Their request to rejoin will need approval again."
+				: "They can rejoin with an invite link at any time."
+			: "They lose access to this community, but their existing messages stay as they are. Revoke the ban to let them back in.";
 
 	const handleAction = async () => {
 		setLoading(true);
 
-		if (props.dialog().type === "ban") {
-			const data = await user.xrpc.social.colibri.community.banUser(
-				community().community.uri,
-				props.member.did,
-			);
+		const client = clientForManagingApp(
+			user.atproto.agent,
+			community().community.managingApp,
+		);
+		const body = {
+			community: community().community.did,
+			subject: props.member.did,
+		};
 
-			if (!data) {
-				setLoading(false);
-				toast.error("Failed to ban user.");
-				return;
-			}
-		} else {
-			const data = await user.xrpc.social.colibri.community.kickUser(
-				community().community.uri,
-				props.member.did,
-			);
+		const res =
+			props.dialog().type === "ban"
+				? await client.call(colibri.community.ban.main, { body })
+				: await client.call(colibri.community.kick.main, { body });
 
-			if (!data) {
-				setLoading(false);
-				toast.error("Failed to kick user.");
-				return;
-			}
+		if (!res.ok) {
+			setLoading(false);
+			const action = props.dialog().type === "ban" ? "banning" : "kicking";
+			log.error(`${action} a member failed`, { code: res.error.code });
+			showError(res.error, {
+				fallbackTitle:
+					props.dialog().type === "ban"
+						? "Failed to ban user."
+						: "Failed to kick user.",
+			});
+			return;
 		}
 
 		setLoading(false);
@@ -84,7 +99,6 @@ export const MemberActionDialog: ParentComponent<{
 					</DialogHeader>
 					<div class="flex flex-col gap-4">
 						<p class="m-0 text-center">{description()}</p>
-						<CrossAppViewModerationAlert />
 					</div>
 					<DialogFooter>
 						<Button

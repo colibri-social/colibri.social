@@ -1,0 +1,72 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.community.listBans",
+	"defs": {
+		"main": {
+			"type": "query",
+			"description": "Lists the members currently banned from a community. Being banned means the community declines to issue them space credentials, so they cannot read it. Their existing messages stay in their own repos.",
+			"parameters": {
+				"type": "params",
+				"required": [
+					"community"
+				],
+				"properties": {
+					"community": {
+						"type": "string",
+						"format": "did",
+						"description": "The community to list bans for."
+					},
+					"limit": {
+						"type": "integer",
+						"minimum": 1,
+						"maximum": 100,
+						"default": 50,
+						"description": "Maximum number of bans to return."
+					},
+					"cursor": {
+						"type": "string",
+						"description": "Pagination cursor from a previous response."
+					}
+				}
+			},
+			"output": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"bans"
+					],
+					"properties": {
+						"cursor": {
+							"type": "string",
+							"description": "Pagination cursor for the next page, if more bans exist."
+						},
+						"bans": {
+							"type": "array",
+							"items": {
+								"type": "ref",
+								"ref": "social.colibri.beta.community.defs#bannedActorView",
+								"description": "A ban."
+							},
+							"description": "Members currently banned, most recently banned first."
+						}
+					}
+				}
+			},
+			"errors": [
+				{
+					"name": "AuthRequired",
+					"description": "The request is missing, malformed, or unverifiable service auth."
+				},
+				{
+					"name": "Forbidden",
+					"description": "The caller lacks the member.ban permission."
+				},
+				{
+					"name": "CommunityNotFound",
+					"description": "No community exists at the given DID."
+				}
+			]
+		}
+	}
+}
