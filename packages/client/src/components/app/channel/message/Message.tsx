@@ -722,7 +722,7 @@ const MessageInner: Component<{
 															)}
 														</For>
 													</div>
-													<p class="m-0 text-wrap">
+													<p class="m-0 wrap-anywhere">
 														{reactedByLabel(item.reactors, resolveReactor)}{" "}
 														reacted
 														<Show when={emojiShortcode(item.emoji)}>
