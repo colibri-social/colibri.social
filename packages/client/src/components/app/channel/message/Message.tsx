@@ -24,7 +24,10 @@ import type {
 } from "../../../../atproto/views";
 import { isVisibleParent } from "../../../../atproto/views";
 import { useChannelContext } from "../../../../contexts/Channel";
-import { useCommunityContext } from "../../../../contexts/Community";
+import {
+	useCommunityContext,
+	usePermissions,
+} from "../../../../contexts/Community";
 import {
 	MessageContextProvider,
 	useMessageContext,
@@ -62,6 +65,7 @@ import {
 	isDirectMediaUrl,
 	isRemovableEmbed,
 } from "./Embed";
+import { HiddenMessageNotice, HiddenMessagePlaceholder } from "./HiddenMessage";
 import { InlineEditor } from "./InlineEditor";
 import { MessageTimestamp } from "./MessageTimestamp";
 import { ReactionsViewer } from "./ReactionsViewer";
@@ -104,6 +108,7 @@ const MessageInner: Component<{
 	const user = useUserContext();
 	const channel = useChannelContext();
 	const community = useCommunityContext();
+	const { canApplyLabel } = usePermissions();
 	const isMobile = useIsMobile();
 	const isTouch = useIsTouch();
 	const { preferences, emojiUsage } = useUserPreferences();
@@ -112,8 +117,10 @@ const MessageInner: Component<{
 	const {
 		message,
 		isPending,
+		isLegacy,
+		isHiddenByModerator,
+		revealed,
 		editMode,
-		isAdmin,
 		messageEditable,
 		isRepliedTo,
 		containsMentionOrIsReplyToUser,
@@ -140,6 +147,8 @@ const MessageInner: Component<{
 		openEmbedsModal,
 		sortedReactions,
 	} = useMessageContext();
+
+	const collapsedByHide = () => isHiddenByModerator() && !revealed();
 
 	const embedRemover = (uri: string): ((e: MouseEvent) => void) | undefined => {
 		if (!isRemovableEmbed(uri)) return undefined;
@@ -411,6 +420,9 @@ const MessageInner: Component<{
 							</div>
 						))()}
 					</Show>
+					<Show when={isHiddenByModerator() && revealed()}>
+						<HiddenMessageNotice />
+					</Show>
 					<div class="flex flex-row gap-4">
 						<Switch>
 							<Match when={!isSubsequentMessage()}>
@@ -443,114 +455,125 @@ const MessageInner: Component<{
 							</Match>
 						</Switch>
 						<Show
-							when={
-								!("hash" in message) &&
-								(((message.attachments || []).length > 0 &&
-									message.text.trim().length === 0) ||
-									isLoneMediaLink())
+							when={!collapsedByHide()}
+							fallback={
+								<HiddenMessagePlaceholder
+									author={resolveAuthor(message.author)}
+									createdAt={message.createdAt}
+									showAuthor={!isSubsequentMessage()}
+								/>
 							}
 						>
-							<div
-								class="pb-2 flex flex-col gap-1 w-full max-w-[calc(100%-4rem)]"
-								classList={{
-									"pt-2": isSubsequentMessage(),
-								}}
+							<Show
+								when={
+									!("hash" in message) &&
+									(((message.attachments || []).length > 0 &&
+										message.text.trim().length === 0) ||
+										isLoneMediaLink())
+								}
 							>
-								<Show when={!isSubsequentMessage()}>
-									<div class="flex gap-2 text-sm items-baseline flex-wrap">
-										<MemberContextMenu
-											member={authorMember(message.author)}
-											class="contents"
-											disabled={isPending() || contextMenuOpen()}
-										>
-											<User.ProfilePopover
-												user={resolveAuthor(message.author)}
-												disabled={isPending()}
-											>
-												<span class="font-bold cursor-pointer">
-													<User.DisplayableName
-														user={resolveAuthor(message.author)}
-														underlineOnHover
-													/>
-												</span>
-											</User.ProfilePopover>
-										</MemberContextMenu>
-										<small class="text-muted-foreground">
-											<MessageTimestamp datetime={message.createdAt} />
-										</small>
-										<Show when={isEdited()}>
-											<small class="text-muted-foreground">(edited)</small>
-										</Show>
-									</div>
-								</Show>
-
-								<Show when={editMode() && !isMobile()}>
-									<InlineEditor />
-								</Show>
-								<Show
-									when={isLoneMediaLink()}
-									fallback={
-										<MessageAttachments
-											did={message.author.did}
-											attachments={message.attachments || []}
-										/>
-									}
+								<div
+									class="pb-2 flex flex-col gap-1 w-full max-w-[calc(100%-4rem)]"
+									classList={{
+										"pt-2": isSubsequentMessage(),
+									}}
 								>
-									<SectionBoundary name="embed" compact>
-										<Embed uri={linkFacets()[0].uri} />
-									</SectionBoundary>
-								</Show>
-							</div>
-						</Show>
-						<Show when={message.text.trim().length > 0 && !isLoneMediaLink()}>
-							<div class="flex flex-col w-full min-w-0 justify-center">
-								<Show when={!isSubsequentMessage()}>
-									<div class="flex gap-2 text-sm items-baseline flex-wrap">
-										<MemberContextMenu
-											member={authorMember(message.author)}
-											class="contents"
-											disabled={isPending() || contextMenuOpen()}
-										>
-											<User.ProfilePopover
-												user={resolveAuthor(message.author)}
-												disabled={isPending()}
+									<Show when={!isSubsequentMessage()}>
+										<div class="flex gap-2 text-sm items-baseline flex-wrap">
+											<MemberContextMenu
+												member={authorMember(message.author)}
+												class="contents"
+												disabled={isPending() || contextMenuOpen()}
 											>
-												<div class="flex flex-row items-center gap-2">
+												<User.ProfilePopover
+													user={resolveAuthor(message.author)}
+													disabled={isPending()}
+												>
 													<span class="font-bold cursor-pointer">
 														<User.DisplayableName
 															user={resolveAuthor(message.author)}
 															underlineOnHover
 														/>
 													</span>
-												</div>
-											</User.ProfilePopover>
-										</MemberContextMenu>
-										<small class="text-muted-foreground">
-											<MessageTimestamp datetime={message.createdAt} />
-										</small>
-										<Show when={isEdited()}>
-											<small class="text-muted-foreground">(edited)</small>
-										</Show>
-									</div>
-								</Show>
-								<div>
-									<Switch>
-										<Match when={!editMode() || isMobile()}>
-											<RichTextRenderer
-												text={newText}
-												isEdited={isSubsequentMessage() && isEdited()}
-												classList={{
-													"text-muted-foreground": isPending(),
-													"text-foreground": !isPending(),
-												}}
+												</User.ProfilePopover>
+											</MemberContextMenu>
+											<small class="text-muted-foreground">
+												<MessageTimestamp datetime={message.createdAt} />
+											</small>
+											<Show when={isEdited()}>
+												<small class="text-muted-foreground">(edited)</small>
+											</Show>
+										</div>
+									</Show>
+
+									<Show when={editMode() && !isMobile()}>
+										<InlineEditor />
+									</Show>
+									<Show
+										when={isLoneMediaLink()}
+										fallback={
+											<MessageAttachments
+												did={message.author.did}
+												attachments={message.attachments || []}
 											/>
-										</Match>
-										<Match when={editMode() && !isMobile()}>
-											<InlineEditor />
-										</Match>
-									</Switch>
+										}
+									>
+										<SectionBoundary name="embed" compact>
+											<Embed uri={linkFacets()[0].uri} />
+										</SectionBoundary>
+									</Show>
 								</div>
-							</div>
+							</Show>
+							<Show when={message.text.trim().length > 0 && !isLoneMediaLink()}>
+								<div class="flex flex-col w-full min-w-0 justify-center">
+									<Show when={!isSubsequentMessage()}>
+										<div class="flex gap-2 text-sm items-baseline flex-wrap">
+											<MemberContextMenu
+												member={authorMember(message.author)}
+												class="contents"
+												disabled={isPending() || contextMenuOpen()}
+											>
+												<User.ProfilePopover
+													user={resolveAuthor(message.author)}
+													disabled={isPending()}
+												>
+													<div class="flex flex-row items-center gap-2">
+														<span class="font-bold cursor-pointer">
+															<User.DisplayableName
+																user={resolveAuthor(message.author)}
+																underlineOnHover
+															/>
+														</span>
+													</div>
+												</User.ProfilePopover>
+											</MemberContextMenu>
+											<small class="text-muted-foreground">
+												<MessageTimestamp datetime={message.createdAt} />
+											</small>
+											<Show when={isEdited()}>
+												<small class="text-muted-foreground">(edited)</small>
+											</Show>
+										</div>
+									</Show>
+									<div>
+										<Switch>
+											<Match when={!editMode() || isMobile()}>
+												<RichTextRenderer
+													text={newText}
+													isEdited={isSubsequentMessage() && isEdited()}
+													classList={{
+														"text-muted-foreground": isPending(),
+														"text-foreground": !isPending(),
+													}}
+												/>
+											</Match>
+											<Match when={editMode() && !isMobile()}>
+												<InlineEditor />
+											</Match>
+										</Switch>
+									</div>
+								</div>
+							</Show>
 						</Show>
 						<Show when={!isPending() && !isMobile()}>
 							<div
@@ -591,9 +614,15 @@ const MessageInner: Component<{
 										<ArrowBendUpLeft />
 									</Action>
 								</Show>
-								<Show when={isAdmin() && message.author.did !== user.did}>
+								<Show
+									when={
+										canApplyLabel(user.did) &&
+										!isLegacy() &&
+										message.author.did !== user.did
+									}
+								>
 									<Action
-										tooltipText="Block"
+										tooltipText="Hide"
 										buttonClasses="text-destructive"
 										onClick={(e) => {
 											handlePotentialBlock(e);
@@ -621,6 +650,7 @@ const MessageInner: Component<{
 					</div>
 					<Show
 						when={
+							!collapsedByHide() &&
 							!("hash" in message) &&
 							(message.attachments || []).length > 0 &&
 							message.text.trim().length > 0
@@ -635,6 +665,7 @@ const MessageInner: Component<{
 					</Show>
 					<Show
 						when={
+							!collapsedByHide() &&
 							visibleEmbedUris().length > 0 &&
 							!("hash" in message) &&
 							!isLoneMediaLink()
@@ -650,7 +681,7 @@ const MessageInner: Component<{
 							</For>
 						</div>
 					</Show>
-					<Show when={sortedReactions().length > 0}>
+					<Show when={!collapsedByHide() && sortedReactions().length > 0}>
 						<div
 							data-reaction-pill
 							ref={(el) => {

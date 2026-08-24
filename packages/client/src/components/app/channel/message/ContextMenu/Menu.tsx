@@ -54,6 +54,7 @@ export const MessageContextMenu: ParentComponent<{
 	const {
 		message,
 		isPending,
+		isLegacy,
 		messageEditable,
 		canReply,
 		enableReplyMode,
@@ -82,6 +83,9 @@ export const MessageContextMenu: ParentComponent<{
 	const isTouch = useIsTouch();
 	const ownsMessage = () => user.did === message.author.did;
 	const quickReactions = createMemo(() => topEmoji(emojiUsage(), 4));
+
+	const canHideMessage = () =>
+		!isPending() && !isLegacy() && !ownsMessage() && canApplyLabel(user.did);
 
 	const canManageEmbeds = () =>
 		!isPending() &&
@@ -187,7 +191,7 @@ export const MessageContextMenu: ParentComponent<{
 										<span class="text-destructive">Delete Message</span>
 									</ContextMenuItem>
 								</Show>
-								<Show when={!ownsMessage() && canApplyLabel(user.did)}>
+								<Show when={canHideMessage()}>
 									<ContextMenuItem
 										onClick={(e) => handlePotentialBlock(e as MouseEvent)}
 									>
@@ -331,7 +335,7 @@ export const MessageContextMenu: ParentComponent<{
 							<span>Delete Message</span>
 						</MenuDrawerItem>
 					</Show>
-					<Show when={!ownsMessage() && canApplyLabel(user.did)}>
+					<Show when={canHideMessage()}>
 						<MenuDrawerItem
 							destructive
 							onClick={(e) =>

@@ -13,7 +13,11 @@ import {
 } from "solid-js";
 import { toast } from "somoto";
 import type { PendingMessage } from "../atproto/cache/schema";
-import { embedSuppression, isEmbedSuppressed } from "../atproto/labels";
+import {
+	embedSuppression,
+	isEmbedSuppressed,
+	isHidden,
+} from "../atproto/labels";
 import { asUri, COLLECTIONS, colibri } from "../atproto/lexicons";
 import { buildReactionRecord } from "../atproto/message-record";
 import {
@@ -83,6 +87,9 @@ export type MessageContextValue = {
 
 	isPending: Accessor<boolean>;
 	isLegacy: Accessor<boolean>;
+	isHiddenByModerator: Accessor<boolean>;
+	revealed: Accessor<boolean>;
+	toggleRevealed: () => void;
 	editMode: Accessor<boolean>;
 	isAdmin: Accessor<boolean>;
 	messageEditable: Accessor<boolean>;
@@ -141,6 +148,15 @@ export const MessageContextProvider: ParentComponent<{ data: MessageData }> = (
 		const target = confirmed();
 		return target !== undefined && isLegacyImmutable(target);
 	};
+
+	const isHiddenByModerator = () => {
+		const target = confirmed();
+		return target !== undefined && isHidden(target);
+	};
+
+	const [revealed, setRevealed] = createSignal(false);
+
+	const toggleRevealed = () => setRevealed((prev) => !prev);
 
 	const sortedReactions = createMemo(() =>
 		sortReactionGroups(confirmed()?.reactions ?? []),
@@ -342,7 +358,9 @@ export const MessageContextProvider: ParentComponent<{ data: MessageData }> = (
 			},
 		});
 		if (res.ok) {
-			channel.removeMessage(target.uri);
+			channel.patchMessage(target.uri, {
+				labels: [...target.labels, res.data.label],
+			});
 		} else {
 			toast.error("Failed to hide message.");
 		}
@@ -570,7 +588,7 @@ export const MessageContextProvider: ParentComponent<{ data: MessageData }> = (
 	};
 
 	const handlePotentialBlock = (e: MouseEvent) => {
-		if (isPending()) return;
+		if (isPending() || isLegacy()) return;
 		if (e.shiftKey) {
 			confirmBlock();
 			return;
@@ -676,6 +694,9 @@ export const MessageContextProvider: ParentComponent<{ data: MessageData }> = (
 		setNewText,
 		isPending,
 		isLegacy,
+		isHiddenByModerator,
+		revealed,
+		toggleRevealed,
 		editMode,
 		isAdmin,
 		messageEditable,

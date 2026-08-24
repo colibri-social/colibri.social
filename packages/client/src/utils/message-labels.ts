@@ -21,12 +21,10 @@ export const foldLabelEvent = (
 		return { kind: "noop" };
 	}
 
-	if (event.val === HIDDEN) {
-		if (event.event !== "create") return { kind: "noop" };
-		if (message.author.did === viewer.did || viewer.canApplyLabel) {
-			return { kind: "noop" };
-		}
-		return { kind: "remove" };
+	const keepsHidden = message.author.did === viewer.did || viewer.canApplyLabel;
+
+	if (event.val === HIDDEN && !keepsHidden) {
+		return event.event === "create" ? { kind: "remove" } : { kind: "noop" };
 	}
 
 	if (event.event === "create") {

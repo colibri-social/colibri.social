@@ -3,6 +3,7 @@ import { namespace } from "../../atproto/cache/keys";
 import {
 	configureSnapshotWriter,
 	flushSnapshotWriter,
+	foldLabelEvent,
 	foldMessageEvent,
 	resetSnapshotWriter,
 } from "../../atproto/cache/messages-writer";
@@ -46,8 +47,11 @@ export const MessageSnapshotWriter: Component = () => {
 		});
 
 		const unsubscribe = socket.onEvent((event) => {
-			if (!frameIs(event, "messageEvent")) return;
-			foldMessageEvent(event, PAGE_SIZE);
+			if (frameIs(event, "messageEvent")) {
+				foldMessageEvent(event, PAGE_SIZE);
+				return;
+			}
+			if (frameIs(event, "labelEvent")) foldLabelEvent(event);
 		});
 
 		const flushTimer = setInterval(flushSnapshotWriter, FLUSH_INTERVAL_MS);

@@ -1,11 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import type { MessageEventFrame } from "../sync-frames";
+import type { LabelEventFrame, MessageEventFrame } from "../sync-frames";
 import type { MessageView } from "../views";
 import { rkeyOf } from "./messages-snapshot";
 import {
+	applyLabelEvent,
 	applyMessageEvent,
 	configureSnapshotWriter,
 	flushSnapshotWriter,
+	foldLabelEvent,
 	foldMessageEvent,
 	isOpenChannel,
 	offerSnapshotWindow,
@@ -81,6 +83,76 @@ const remove = (rkey: string, did = DID): MessageEventFrame =>
 		channel: CHANNEL,
 		subject: { did, rkey },
 	}) as unknown as MessageEventFrame;
+
+const labelEvent = (
+	event: "create" | "negate",
+	val: string,
+	rkey: string,
+	did = DID,
+): LabelEventFrame =>
+	({
+		$type: "social.colibri.beta.sync.defs#labelEvent",
+		event,
+		space: CHANNEL,
+		subject: { did, collection: "social.colibri.beta.message", rkey },
+		val,
+		src: DID,
+	}) as unknown as LabelEventFrame;
+
+describe("applyLabelEvent", () => {
+	it("drops a message a hidden label was applied to", () => {
+		const next = applyLabelEvent(
+			snapshot([message("a"), message("b")]),
+			labelEvent("create", "hidden", "b"),
+		);
+		expect(next?.messages.map((m) => m.rkey)).toEqual(["a"]);
+	});
+
+	it("keeps a message from a different author sharing the same rkey", () => {
+		const mine = message("a", "hello", "2026-01-01T00:00:00.000Z", DID);
+		const theirs = message("a", "hello", "2026-01-01T00:00:00.000Z", OTHER_DID);
+		const next = applyLabelEvent(
+			snapshot([mine, theirs]),
+			labelEvent("create", "hidden", "a", OTHER_DID),
+		);
+		expect(next?.messages).toEqual([mine]);
+	});
+
+	it("moves the cursor to the oldest remaining message", () => {
+		const next = applyLabelEvent(
+			snapshot([message("a"), message("b")]),
+			labelEvent("create", "hidden", "a"),
+		);
+		expect(next?.cursor).toBe("b");
+	});
+
+	it("ignores a display-hint label", () => {
+		expect(
+			applyLabelEvent(
+				snapshot([message("a")]),
+				labelEvent("create", "spoiler", "a"),
+			),
+		).toBeUndefined();
+	});
+
+	it("ignores a hidden negate, since a messageEvent republishes the message", () => {
+		expect(
+			applyLabelEvent(
+				snapshot([message("a")]),
+				labelEvent("negate", "hidden", "a"),
+			),
+		).toBeUndefined();
+	});
+
+	it("reports no change when the subject is outside the cached window", () => {
+		expect(
+			applyLabelEvent(
+				snapshot([message("a")]),
+				labelEvent("create", "hidden", "zzz"),
+			),
+		).toBeUndefined();
+	});
+});
 
 describe("applyMessageEvent", () => {
 	it("appends a new message", () => {
@@ -307,6 +379,30 @@ describe("the background snapshot queue", () => {
 		expect(writes).toHaveLength(1);
 		expect(writes[0]?.space).toBe(CHANNEL);
 		expect(rkeys(writes[0]?.snapshot.messages ?? [])).toEqual(["a", "b"]);
+	});
+
+	it("folds a hidden label into a background channel's snapshot", async () => {
+		configure();
+		seed(CHANNEL, [message("a"), message("b")]);
+
+		foldLabelEvent(labelEvent("create", "hidden", "b"));
+		await settle();
+		flushSnapshotWriter();
+
+		expect(rkeys(writes[0]?.snapshot.messages ?? [])).toEqual(["a"]);
+		expect(errors).toEqual([]);
+	});
+
+	it("leaves the open channel's snapshot to the channel itself on a label", async () => {
+		configure();
+		seed(CHANNEL, [message("a"), message("b")]);
+		registerOpenChannel(CHANNEL);
+
+		foldLabelEvent(labelEvent("create", "hidden", "b"));
+		await settle();
+		flushSnapshotWriter();
+
+		expect(writes).toEqual([]);
 	});
 
 	it("keeps a folded event when a window lands for the same channel", async () => {

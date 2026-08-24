@@ -49,13 +49,10 @@ export const DisplayableName: Component<{
 				"max-width":
 					props.avatarSize === "small" ? "calc(100% - 32px)" : "100%",
 			}}
-			class={cx(
-				"group/name inline-flex flex-row items-center gap-2 w-full",
-				props.className,
-			)}
+			class={cx("group/name w-full", props.className)}
 		>
 			<span
-				class="truncate min-w-0"
+				class="truncate min-w-0 w-full inline-block"
 				classList={{
 					"group-hover/name:underline": props.underlineOnHover,
 				}}

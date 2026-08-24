@@ -28,6 +28,7 @@ const sync = (args: {
 	presence?: Record<string, Array<string>>;
 	ownChannel?: string | null;
 	communityAuthority?: string;
+	pinned?: ReadonlySet<string>;
 }) =>
 	computePresenceSync({
 		communityAuthority: args.communityAuthority ?? HOME,
@@ -35,6 +36,7 @@ const sync = (args: {
 		presence: args.presence ?? {},
 		ownChannel: args.ownChannel ?? null,
 		ownDid: ME,
+		pinned: args.pinned,
 	});
 
 const planFor = (
@@ -246,5 +248,58 @@ describe("effectiveMuted / effectiveDeafened", () => {
 		expect(
 			effectiveDeafened(state({ deafened: true, serverDeafened: false })),
 		).toBe(true);
+	});
+});
+
+describe("computePresenceSync with pinned members", () => {
+	it("keeps a member the snapshot predates", () => {
+		const plan = sync({
+			members: [],
+			presence: { [VC_A]: [ALICE] },
+			pinned: new Set([ALICE]),
+		});
+
+		expect(planFor(plan, VC_A)).toBeUndefined();
+	});
+
+	it("still removes members that are not pinned", () => {
+		const plan = sync({
+			members: [],
+			presence: { [VC_A]: [ALICE, BOB] },
+			pinned: new Set([ALICE]),
+		});
+
+		expect(planFor(plan, VC_A)?.left).toEqual([BOB]);
+	});
+
+	it("does not move a pinned member the snapshot puts elsewhere", () => {
+		const plan = sync({
+			members: [inVoice(ALICE, VC_B)],
+			presence: { [VC_A]: [ALICE] },
+			pinned: new Set([ALICE]),
+		});
+
+		expect(planFor(plan, VC_A)).toBeUndefined();
+		expect(planFor(plan, VC_B)).toBeUndefined();
+	});
+
+	it("leaves a pinned member's state alone", () => {
+		const plan = sync({
+			members: [inVoice(ALICE, VC_A, { vcMuted: true })],
+			presence: { [VC_A]: [ALICE] },
+			pinned: new Set([ALICE]),
+		});
+
+		expect(plan.states).toEqual([]);
+	});
+
+	it("ignores channels outside the community even when pinned", () => {
+		const plan = sync({
+			members: [],
+			presence: { [OTHER_VC]: [ALICE] },
+			pinned: new Set([ALICE]),
+		});
+
+		expect(plan.channels).toEqual([]);
 	});
 });

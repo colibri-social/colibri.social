@@ -81,6 +81,7 @@ const makeClientId = () => {
 const clientId = makeClientId();
 
 const OAUTH_FETCH_TIMEOUT_MS = 12_000;
+const XRPC_FETCH_TIMEOUT_MS = 30_000;
 const WRITE_FETCH_TIMEOUT_MS = 60_000;
 const CLOCK_SKEW_LIMIT_MS = 30_000;
 const OAUTH_FETCH_ATTEMPTS = 2;
@@ -130,6 +131,13 @@ const isConnectivityError = (err: unknown): boolean =>
 	err instanceof TypeError ||
 	(err instanceof DOMException && err.name === "TimeoutError");
 
+export class TransportFailure extends Error {
+	constructor(cause: unknown) {
+		super(cause instanceof Error ? cause.message : String(cause), { cause });
+		this.name = "TransportFailure";
+	}
+}
+
 const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
 
 export const methodOf = (
@@ -155,6 +163,16 @@ export const isRepeatable = (
 	if (typeof input !== "string" && !(input instanceof URL)) return false;
 	if (init?.body != null) return false;
 	return SAFE_METHODS.has(methodOf(input, init));
+};
+
+export const isXrpc = (input: Parameters<typeof fetch>[0]): boolean => {
+	const url =
+		typeof input === "string"
+			? input
+			: input instanceof URL
+				? input.href
+				: input.url;
+	return url.includes("/xrpc/");
 };
 
 const wait = (ms: number) =>
@@ -183,7 +201,11 @@ const withFetchTimeout =
 	async (input, init) => {
 		const host = requestHost(input);
 		const repeatable = isRepeatable(input, init);
-		const budget = isWrite(input, init) ? WRITE_FETCH_TIMEOUT_MS : ms;
+		const budget = isWrite(input, init)
+			? WRITE_FETCH_TIMEOUT_MS
+			: isXrpc(input)
+				? XRPC_FETCH_TIMEOUT_MS
+				: ms;
 		requestsStarted += 1;
 		let lastError: unknown;
 
@@ -242,6 +264,7 @@ const withFetchTimeout =
 				if (givingUp) {
 					if (isConnectivityError(lastError)) {
 						unreachableHost = host || unreachableHost;
+						throw new TransportFailure(lastError);
 					}
 					throw lastError;
 				}

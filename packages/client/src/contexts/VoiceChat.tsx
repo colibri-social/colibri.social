@@ -52,7 +52,8 @@ import {
 import { noiseMode } from "../hooks/noise/modes";
 import { appViewHostFor, getAppViewServiceRef } from "../utils/appview";
 import { applyAudioSink } from "../utils/audio-sink";
-import { createLogger } from "../utils/logger";
+import { createLogger, isVerboseLogging } from "../utils/logger";
+import { watchPortErrors } from "../utils/port-diagnostics";
 import {
 	displayMediaRequest,
 	type ScreenShareOptions,
@@ -70,6 +71,7 @@ import {
 	effectiveMuted,
 	type PresenceMember,
 } from "../utils/voice-presence";
+import { syncGroupFor } from "../utils/voice-sync";
 import { useAuthContext } from "./Auth";
 import { useSocketContext } from "./Socket";
 import { useSounds } from "./Sounds";
@@ -173,8 +175,10 @@ export type VoiceChatActions = {
 	syncPresence: (
 		communityAuthority: string,
 		members: Array<PresenceSource>,
+		since?: number,
 	) => void;
 	addPresence: (member: PresenceSource) => void;
+	presenceMark: () => number;
 };
 
 export type VoiceChatContextValue = [VoiceChatData, VoiceChatActions];
@@ -262,6 +266,8 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 	let sendChain: Promise<void> = Promise.resolve();
 	let pendingVideoTeardown: Promise<void> | null = null;
 	let sessionId = 0;
+	let presenceClock = 0;
+	const joinOrder = new Map<string, number>();
 	const videoTrackListeners = new Map<VideoSource, () => void>();
 
 	const consumers = new Map<string, types.Consumer>();
@@ -417,16 +423,23 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 		);
 	};
 
+	const inAnyChannel = (did: string): boolean =>
+		Object.values(voiceData.presence).some((dids) => dids?.includes(did));
+
 	const applyPresence = (kind: string, channel: string, did: string): void => {
 		if (kind === "leave") {
 			removeFromChannel(channel, did);
+			if (inAnyChannel(did)) return;
 
+			joinOrder.delete(did);
 			setVoiceData("memberStates", did, undefined!);
 
 			for (const [producerId, owner] of [...producerOwners.entries()]) {
 				if (owner.did === did) removeProducer(producerId);
 			}
 		} else {
+			presenceClock += 1;
+			joinOrder.set(did, presenceClock);
 			setVoiceData("presence", channel, (current) =>
 				current?.includes(did) ? current : [...(current ?? []), did],
 			);
@@ -533,6 +546,84 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 		}
 	};
 
+	const meanJitterBufferMs = (
+		report: Record<string, unknown>,
+	): number | undefined => {
+		const delay = report.jitterBufferDelay;
+		const emitted = report.jitterBufferEmittedCount;
+
+		if (
+			typeof delay !== "number" ||
+			typeof emitted !== "number" ||
+			emitted <= 0
+		)
+			return undefined;
+
+		return Math.round((delay / emitted) * 1000);
+	};
+
+	const logPlayoutSkew = async (): Promise<void> => {
+		if (!recvTransport || !isVerboseLogging()) return;
+
+		const groupOf = new Map<string, string>();
+
+		for (const consumer of consumers.values()) {
+			const owner = producerOwners.get(consumer.producerId);
+			if (owner) groupOf.set(consumer.track.id, syncGroupFor(owner));
+		}
+
+		if (!groupOf.size) return;
+
+		type PlayoutSide = { playoutAt?: number; jitterMs?: number };
+		const groups = new Map<
+			string,
+			{ audio: PlayoutSide; video: PlayoutSide }
+		>();
+
+		try {
+			const stats = await recvTransport.getStats();
+
+			stats.forEach((report: { type?: string } & Record<string, unknown>) => {
+				if (report.type !== "inbound-rtp") return;
+
+				const trackId = report.trackIdentifier;
+				if (typeof trackId !== "string") return;
+
+				const group = groupOf.get(trackId);
+				if (!group) return;
+
+				const side = groups.get(group) ?? { audio: {}, video: {} };
+				const playoutAt = report.estimatedPlayoutTimestamp;
+
+				side[report.kind === "audio" ? "audio" : "video"] = {
+					playoutAt: typeof playoutAt === "number" ? playoutAt : undefined,
+					jitterMs: meanJitterBufferMs(report),
+				};
+
+				groups.set(group, side);
+			});
+		} catch {
+			return;
+		}
+
+		for (const [group, { audio, video }] of groups) {
+			if (video.playoutAt === undefined && video.jitterMs === undefined)
+				continue;
+
+			const skewMs =
+				audio.playoutAt !== undefined && video.playoutAt !== undefined
+					? Math.round(audio.playoutAt - video.playoutAt)
+					: undefined;
+
+			dbg("a/v skew", {
+				group,
+				skewMs,
+				audioJitterMs: audio.jitterMs,
+				videoJitterMs: video.jitterMs,
+			});
+		}
+	};
+
 	const pollQuality = async (): Promise<boolean> => {
 		const rtts = (
 			await Promise.all([readRtt(sendTransport), readRtt(recvTransport)])
@@ -543,6 +634,8 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 		const min = Math.min(...rtts);
 		setVoiceData("connection", "quality", rttToQuality(min));
 		setVoiceData("connection", "latency", Math.round(min * 1000));
+
+		void logPlayoutSkew();
 
 		return true;
 	};
@@ -680,21 +773,24 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 		ready = false;
 	};
 
+	const abandonSignaling = (): void => {
+		if (!ws) return;
+		const stale = ws;
+		ws = null;
+		stale.onclose = null;
+		stale.onerror = null;
+		stale.onmessage = null;
+		stale.onopen = null;
+		stale.close();
+	};
+
 	const teardown = (): void => {
 		if (reconnectTimer) {
 			clearTimeout(reconnectTimer);
 			reconnectTimer = null;
 		}
 		teardownMedia();
-
-		if (ws) {
-			ws.onclose = null;
-			ws.onerror = null;
-			ws.onmessage = null;
-			ws.onopen = null;
-			ws.close();
-			ws = null;
-		}
+		abandonSignaling();
 	};
 
 	const setupLocalSpeaking = (track: MediaStreamTrack): void => {
@@ -876,6 +972,7 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 			producerId: reply.producerId,
 			kind: reply.kind as types.MediaKind,
 			rtpParameters: reply.rtpParameters as unknown as types.RtpParameters,
+			...(owner ? { streamId: syncGroupFor(owner) } : {}),
 		});
 
 		if (stale() || !producerOwners.has(producerId)) {
@@ -1332,6 +1429,7 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 
 		const url = `${wsHost}${VOICE_SIGNAL_PATH}`;
 		dbg("opening signaling socket", { url });
+		abandonSignaling();
 		const socketConn = new WebSocket(url, [AUTH_SUBPROTOCOL, token]);
 		ws = socketConn;
 
@@ -1349,6 +1447,7 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 		};
 
 		socketConn.onmessage = (event) => {
+			if (ws !== socketConn) return;
 			const frame = decodeVoiceFrame(event.data as string);
 			if (!frame) {
 				dbg("✗ failed to decode server frame", event.data);
@@ -1381,6 +1480,7 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 
 	const scheduleReconnect = (channelUri: string): void => {
 		if (reconnectTimer) return;
+		abandonSignaling();
 		if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
 			log.warn("gave up reconnecting to voice", { channelUri });
 			toast.error("Lost the voice connection", {
@@ -1963,9 +2063,21 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 		}));
 	};
 
+	const presenceMark = (): number => presenceClock;
+
+	const pinnedSince = (since: number | undefined): Set<string> => {
+		const pinned = new Set<string>();
+		if (since === undefined) return pinned;
+		for (const [did, at] of joinOrder) {
+			if (at > since) pinned.add(did);
+		}
+		return pinned;
+	};
+
 	const syncPresence = (
 		communityAuthority: string,
 		sources: Array<PresenceSource>,
+		since?: number,
 	): void => {
 		const plan = computePresenceSync({
 			communityAuthority,
@@ -1976,6 +2088,7 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 					? voiceData.connection.uri
 					: null,
 			ownDid: user.did,
+			pinned: pinnedSince(since),
 		});
 
 		for (const { channel, added, left, moved } of plan.channels) {
@@ -2035,6 +2148,8 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 			{ defer: true },
 		),
 	);
+
+	onCleanup(watchPortErrors());
 
 	const unsubscribePresence = socket.onEvent((event) => {
 		if (!frameIs(event, "voiceEvent")) return;
@@ -2108,6 +2223,7 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 		setOverlayDismissed,
 		syncPresence,
 		addPresence,
+		presenceMark,
 	};
 
 	onCleanup(() => {

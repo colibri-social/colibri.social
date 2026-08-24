@@ -43,6 +43,7 @@ import {
 	writeMessages,
 } from "../atproto/cache/store";
 import { takeChannelMessages } from "../atproto/channel-prefetch";
+import { isHidden } from "../atproto/labels";
 import {
 	asAtUri,
 	asDatetime,
@@ -265,6 +266,14 @@ export const ChannelContextProvider: ParentComponent<{
 	const [messages, setMessages] = createSignal<
 		(MessageView | PendingMessage)[]
 	>([]);
+
+	const visibleToViewer = (message: MessageView | PendingMessage): boolean => {
+		if ("hash" in message) return true;
+		if (!isHidden(message)) return true;
+		return canApplyLabel(user.did) || message.author.did === user.did;
+	};
+
+	const visibleMessages = createMemo(() => messages().filter(visibleToViewer));
 	const reactionRkeyCache = new Map<string, Map<string, string>>();
 	const refKey = (ref: RecordRef) => `${ref.did}:${ref.rkey}`;
 
@@ -1132,7 +1141,7 @@ export const ChannelContextProvider: ParentComponent<{
 		batch(() => {
 			if (placement.kind === "append") {
 				setMessages((prev) => [...prev, incoming]);
-				setNewIncomingMessage((n) => n + 1);
+				if (visibleToViewer(incoming)) setNewIncomingMessage((n) => n + 1);
 			} else {
 				setMessages((prev) => insertAt(prev, incoming, placement.index));
 			}
@@ -1264,7 +1273,7 @@ export const ChannelContextProvider: ParentComponent<{
 				if (placement.kind === "drop") continue;
 				if (placement.kind === "append") {
 					merged = [...merged, message];
-					appended = true;
+					appended = appended || visibleToViewer(message);
 				} else {
 					merged = insertAt(merged, message, placement.index);
 				}
@@ -1365,7 +1374,7 @@ export const ChannelContextProvider: ParentComponent<{
 		linkEmbedsEnabled,
 		canSendMessages,
 		channelSpace,
-		messages,
+		messages: visibleMessages,
 		hasMore,
 		loadingOlder,
 		initialLoading,

@@ -117,9 +117,9 @@ const OVERLAY_DELAY = 250;
 
 const REFRESH_RETRY_DELAYS = [1000, 2000, 4000, 8000];
 
-const COMMUNITY_CALL_TIMEOUT = 15_000;
+const COMMUNITY_CALL_TIMEOUT = 45_000;
 
-const STALL_AFTER = 25_000;
+const STALL_AFTER = 60_000;
 
 const MEMBER_PAGE_SIZE = 100;
 
@@ -165,12 +165,13 @@ export const CommunityContextProvider: ParentComponent = (props) => {
 	const user = useUserContext();
 	const socket = useSocketContext();
 	const navigate = useNavigate();
-	const [, { syncPresence, addPresence }] = useVoiceChatContext();
+	const [, { syncPresence, addPresence, presenceMark }] = useVoiceChatContext();
 	const communityIdentifier = createMemo(() => getCommunityParam());
 
 	const pendingRoleIntents = new Map<string, Array<string>>();
 
 	let lastFetched: CommunityPayload | undefined;
+	let lastFetchedMark = 0;
 
 	const [fetchedCommunity, setFetchedCommunity] = createSignal<
 		CommunityPayload | undefined
@@ -231,6 +232,7 @@ export const CommunityContextProvider: ParentComponent = (props) => {
 			}
 
 			const session = sessions.begin(identifier);
+			const mark = presenceMark();
 			pendingRoleIntents.clear();
 			if (fetchedCommunity()?.community.did !== identifier) {
 				setFetchedCommunity(undefined);
@@ -314,6 +316,7 @@ export const CommunityContextProvider: ParentComponent = (props) => {
 			});
 
 			lastFetched = payload;
+			lastFetchedMark = mark;
 			setFetchedCommunity(payload);
 			setSnapshot(payload);
 			return payload;
@@ -443,7 +446,7 @@ export const CommunityContextProvider: ParentComponent = (props) => {
 		if (data !== lastFetched || data === syncedPayload) return;
 
 		syncedPayload = data;
-		syncPresence(data.community.did, data.members);
+		syncPresence(data.community.did, data.members, lastFetchedMark);
 
 		if (data.members.some((m) => m.did === user.did)) {
 			cancelMembershipRetry();

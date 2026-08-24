@@ -77,20 +77,62 @@ export const grantPreferencesAccess = async (
 	}
 };
 
+const APPVIEW_RENEW_WINDOW_MS = 300_000;
 const REGRANT_MARGIN_MS = 360_000;
+const REGRANT_MIN_DELAY_MS = 30_000;
+const REGRANT_RETRY_BASE_MS = 5_000;
+const REGRANT_RETRY_MAX_MS = 120_000;
+
+export const regrantDelay = (lifetimeMs: number): number =>
+	Math.max(
+		lifetimeMs - Math.max(REGRANT_MARGIN_MS, APPVIEW_RENEW_WINDOW_MS),
+		REGRANT_MIN_DELAY_MS,
+	);
+
+export const regrantRetryDelay = (failures: number): number => {
+	const capped = Math.min(
+		REGRANT_RETRY_BASE_MS * 2 ** (failures - 1),
+		REGRANT_RETRY_MAX_MS,
+	);
+	return capped * (0.8 + Math.random() * 0.4);
+};
 
 export const scheduleRegrant = (
 	agent: Agent,
 	xrpc: ColibriClient,
 	expiresAt: string,
 ): (() => void) => {
-	const lifetime = new Date(expiresAt).getTime() - Date.now();
-	const margin = Math.min(REGRANT_MARGIN_MS, Math.floor(lifetime / 2));
-	const delay = Math.max(lifetime - margin, 0);
-	const timer = setTimeout(() => {
+	let timer: ReturnType<typeof setTimeout> | undefined;
+	let stopped = false;
+	let failures = 0;
+
+	const lifetimeOf = (at: string) => new Date(at).getTime() - Date.now();
+
+	const arm = (delay: number) => {
+		if (stopped) return;
+		timer = setTimeout(run, delay);
+	};
+
+	const run = () => {
 		void grantPreferencesAccess(agent, xrpc).then((next) => {
-			if (next) scheduleRegrant(agent, xrpc, next.expiresAt);
+			if (stopped) return;
+			if (next) {
+				failures = 0;
+				arm(regrantDelay(lifetimeOf(next.expiresAt)));
+				return;
+			}
+			failures += 1;
+			log.warn("the preferences grant did not land, trying again", {
+				failures,
+			});
+			arm(regrantRetryDelay(failures));
 		});
-	}, delay);
-	return () => clearTimeout(timer);
+	};
+
+	arm(regrantDelay(lifetimeOf(expiresAt)));
+
+	return () => {
+		stopped = true;
+		if (timer !== undefined) clearTimeout(timer);
+	};
 };

@@ -5,7 +5,11 @@ import {
 	XrpcInvalidResponseError,
 	XrpcResponseError,
 } from "@atproto/lex-client";
-import { classifyEnvelope, classifyThrown } from "../../errors/classify";
+import {
+	classifyEnvelope,
+	classifyThrown,
+	isOffline,
+} from "../../errors/classify";
 import type { ColibriErrorCode } from "../../errors/codes";
 import { ColibriError } from "../../errors/error";
 import { reportError } from "../../errors/report";
@@ -27,6 +31,20 @@ export interface CallOptions {
 }
 
 const QUEUED_HEADER = "x-colibri-queued";
+
+const DEFAULT_TIMEOUT_MS = 45_000;
+const RETRY_ATTEMPTS = 3;
+const RETRY_BASE_MS = 500;
+const RETRY_MAX_MS = 4_000;
+
+const RETRY_CODES = new Set<ColibriErrorCode>([
+	"Timeout",
+	"NetworkFailed",
+	"Unreachable",
+	"UpstreamFailure",
+	"PdsUnavailable",
+	"InternalError",
+]);
 
 const DPOP_ENVELOPE_CODES = new Set([
 	"invalid_dpop_proof",
@@ -97,6 +115,25 @@ const fail = (
 	return xrpcFail(error);
 };
 
+const isQuery = (method: Method): boolean => !("input" in method);
+
+const backoff = (attempt: number): number => {
+	const capped = Math.min(RETRY_BASE_MS * 2 ** (attempt - 1), RETRY_MAX_MS);
+	return capped * (0.8 + Math.random() * 0.4);
+};
+
+const sleep = (ms: number, signal: AbortSignal): Promise<void> =>
+	new Promise((resolve) => {
+		let timer: ReturnType<typeof setTimeout> | undefined;
+		const done = () => {
+			if (timer !== undefined) clearTimeout(timer);
+			signal.removeEventListener("abort", done);
+			resolve();
+		};
+		timer = setTimeout(done, ms);
+		signal.addEventListener("abort", done, { once: true });
+	});
+
 export const call = async <M extends Method>(
 	client: Client,
 	method: M,
@@ -114,40 +151,54 @@ export const call = async <M extends Method>(
 		);
 	}
 
-	const deadline =
-		options?.timeoutMs !== undefined
-			? AbortSignal.timeout(options.timeoutMs)
-			: undefined;
+	const deadline = AbortSignal.timeout(
+		options?.timeoutMs ?? DEFAULT_TIMEOUT_MS,
+	);
 
-	const signal =
-		deadline && options?.signal
-			? AbortSignal.any([options.signal, deadline])
-			: (deadline ?? options?.signal);
+	const signal = options?.signal
+		? AbortSignal.any([options.signal, deadline])
+		: deadline;
 
-	const result = await client
-		.xrpcSafe(
-			method as never,
-			{
-				...(input ?? {}),
-				...(signal ? { signal } : {}),
-			} as never,
-		)
-		.catch((cause: unknown) => cause as Error);
+	const attempts = isQuery(method) ? RETRY_ATTEMPTS : 1;
 
-	const aborted =
-		options?.signal?.aborted === true || deadline?.aborted === true;
+	let failure: ColibriError | undefined;
 
-	if (result instanceof Error) {
-		return fail(toColibriError(lxm, result), lxm, options, aborted);
+	for (let attempt = 1; attempt <= attempts; attempt++) {
+		const result = await client
+			.xrpcSafe(
+				method as never,
+				{
+					...(input ?? {}),
+					signal,
+				} as never,
+			)
+			.catch((cause: unknown) => cause as Error);
+
+		if (!(result instanceof Error)) {
+			if (signal.aborted) {
+				return xrpcFail(new ColibriError({ code: "Timeout", method: lxm }));
+			}
+			return xrpcOk(
+				result.body as Output<M>,
+				result.headers.get(QUEUED_HEADER) === "1",
+			);
+		}
+
+		failure = toColibriError(lxm, result);
+
+		if (signal.aborted || sessionDead()) break;
+		if (attempt === attempts) break;
+		if (!RETRY_CODES.has(failure.code) || isOffline()) break;
+
+		await sleep(backoff(attempt), signal);
+		if (signal.aborted) break;
 	}
 
-	if (aborted) {
-		return xrpcFail(new ColibriError({ code: "Timeout", method: lxm }));
-	}
-
-	return xrpcOk(
-		result.body as Output<M>,
-		result.headers.get(QUEUED_HEADER) === "1",
+	return fail(
+		failure ?? new ColibriError({ code: "Unexpected", method: lxm }),
+		lxm,
+		options,
+		signal.aborted,
 	);
 };
 

@@ -16,7 +16,8 @@ vi.stubGlobal("window", {
 	location: { hostname: "colibri.social", host: "colibri.social", port: "" },
 });
 
-const { isRepeatable, isWrite, methodOf } = await import("./auth");
+const { isRepeatable, isWrite, isXrpc, methodOf, preflightFetch } =
+	await import("./auth");
 
 describe("isRepeatable", () => {
 	it("repeats a plain GET", () => {
@@ -106,5 +107,48 @@ describe("isWrite", () => {
 	it("does not call a read a write", () => {
 		expect(isWrite("https://api.example/xrpc/get")).toBe(false);
 		expect(isWrite(new Request("https://api.example/xrpc/get"))).toBe(false);
+	});
+});
+
+describe("isXrpc", () => {
+	it("recognises an xrpc path however the input is shaped", () => {
+		expect(
+			isXrpc("https://api.example/xrpc/social.colibri.actor.getProfile"),
+		).toBe(true);
+		expect(isXrpc(new URL("https://api.example/xrpc/x"))).toBe(true);
+		expect(isXrpc(new Request("https://api.example/xrpc/x"))).toBe(true);
+	});
+
+	it("does not claim an oauth endpoint", () => {
+		expect(isXrpc("https://pds.example/oauth/token")).toBe(false);
+		expect(
+			isXrpc("https://pds.example/.well-known/oauth-authorization-server"),
+		).toBe(false);
+	});
+});
+
+describe("preflightFetch", () => {
+	it("does not let a connection failure escape as a TypeError", async () => {
+		vi.stubGlobal(
+			"fetch",
+			vi.fn(async () => {
+				throw new TypeError("Failed to fetch");
+			}),
+		);
+
+		const failure = await preflightFetch("https://pds.example/oauth/token", {
+			method: "POST",
+			body: new URLSearchParams({ grant_type: "refresh_token" }),
+		}).then(
+			() => undefined,
+			(err: unknown) => err,
+		);
+
+		expect(failure).toBeInstanceOf(Error);
+		expect(failure).not.toBeInstanceOf(TypeError);
+		expect((failure as Error).name).toBe("TransportFailure");
+		expect((failure as Error).cause).toBeInstanceOf(TypeError);
+
+		vi.unstubAllGlobals();
 	});
 });

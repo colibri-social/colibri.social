@@ -70,19 +70,35 @@ describe("foldLabelEvent", () => {
 		expect(result).toEqual({ kind: "remove" });
 	});
 
-	it("keeps the message visible to its own author", () => {
+	it("keeps the message for its own author and records the label", () => {
 		const result = foldLabelEvent(
 			message(),
 			hiddenEvent("create"),
 			{ did: AUTHOR_DID, canApplyLabel: false },
 			now,
 		);
-		expect(result).toEqual({ kind: "noop" });
+		expect(result).toEqual({
+			kind: "update",
+			labels: [{ src: MODERATOR_DID, val: "hidden", createdAt: now() }],
+		});
 	});
 
-	it("keeps the message visible to a moderator holding label.apply", () => {
+	it("keeps the message for a moderator holding label.apply and records the label", () => {
 		const result = foldLabelEvent(
 			message(),
+			hiddenEvent("create"),
+			{ did: VIEWER_DID, canApplyLabel: true },
+			now,
+		);
+		expect(result).toEqual({
+			kind: "update",
+			labels: [{ src: MODERATOR_DID, val: "hidden", createdAt: now() }],
+		});
+	});
+
+	it("does not duplicate a hidden label already present for a moderator", () => {
+		const result = foldLabelEvent(
+			message([label("hidden")]),
 			hiddenEvent("create"),
 			{ did: VIEWER_DID, canApplyLabel: true },
 			now,
@@ -90,7 +106,17 @@ describe("foldLabelEvent", () => {
 		expect(result).toEqual({ kind: "noop" });
 	});
 
-	it("does nothing on a hidden negate, since a messageEvent republishes the message", () => {
+	it("drops the hidden label for a moderator on negate", () => {
+		const result = foldLabelEvent(
+			message([label("hidden")]),
+			hiddenEvent("negate"),
+			{ did: VIEWER_DID, canApplyLabel: true },
+			now,
+		);
+		expect(result).toEqual({ kind: "update", labels: [] });
+	});
+
+	it("does nothing on a hidden negate for an ordinary viewer, since a messageEvent republishes the message", () => {
 		const result = foldLabelEvent(
 			message(),
 			hiddenEvent("negate"),

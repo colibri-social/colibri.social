@@ -265,4 +265,119 @@ describe("call", () => {
 			if (!res.ok) expect(res.error.code).toBe("InvalidToken");
 		});
 	});
+
+	describe("when a read fails on something that may pass", () => {
+		const failsThenSucceeds = (failures: number, status: number) => {
+			let calls = 0;
+			const client = clientThat(async () => {
+				calls += 1;
+				return calls <= failures
+					? new Response(envelope("UpstreamFailure", "upstream is down"), {
+							status,
+							headers: { "content-type": "application/json" },
+						})
+					: new Response(JSON.stringify({ statuses: [] }), {
+							status: 200,
+							headers: { "content-type": "application/json" },
+						});
+			});
+			return { client, attempts: () => calls };
+		};
+
+		it("tries again and succeeds", async () => {
+			const { client, attempts } = failsThenSucceeds(1, 502);
+			const res = await call(client, method, params);
+
+			expect(res.ok).toBe(true);
+			expect(attempts()).toBe(2);
+			expect(reportError).not.toHaveBeenCalled();
+		});
+
+		it("gives up after a bounded number of attempts", async () => {
+			const { client, attempts } = failsThenSucceeds(99, 502);
+			const res = await call(client, method, params);
+
+			expect(res.ok).toBe(false);
+			expect(attempts()).toBe(3);
+			expect(reportError).toHaveBeenCalledTimes(1);
+		});
+
+		it("does not retry a failure the server will keep giving us", async () => {
+			let calls = 0;
+			const client = clientThat(async () => {
+				calls += 1;
+				return new Response(envelope("Forbidden", "not a member"), {
+					status: 403,
+					headers: { "content-type": "application/json" },
+				});
+			});
+			const res = await call(client, method, params);
+
+			expect(res.ok).toBe(false);
+			expect(calls).toBe(1);
+		});
+
+		it("leaves a rate limit for the caller rather than sleeping on it", async () => {
+			let calls = 0;
+			const client = clientThat(async () => {
+				calls += 1;
+				return new Response(envelope("RateLimited", "slow down"), {
+					status: 429,
+					headers: { "content-type": "application/json", "retry-after": "12" },
+				});
+			});
+			const res = await call(client, method, params);
+
+			expect(res.ok).toBe(false);
+			expect(calls).toBe(1);
+			if (!res.ok) expect(res.error.retryAfterMs).toBe(12_000);
+		});
+
+		it("stops trying once the caller aborts", async () => {
+			const controller = new AbortController();
+			let calls = 0;
+			const client = clientThat(async () => {
+				calls += 1;
+				controller.abort();
+				throw new TypeError("Failed to fetch");
+			});
+			const res = await call(client, method, params, {
+				signal: controller.signal,
+			});
+
+			expect(res.ok).toBe(false);
+			expect(calls).toBe(1);
+			expect(reportError).not.toHaveBeenCalled();
+		});
+
+		it("stops trying once the session dies", async () => {
+			let calls = 0;
+			const client = clientThat(async () => {
+				calls += 1;
+				dead = true;
+				throw new TypeError("Failed to fetch");
+			});
+			const res = await call(client, method, params);
+
+			expect(res.ok).toBe(false);
+			expect(calls).toBe(1);
+		});
+
+		it("does not retry a write, which the outbox owns", async () => {
+			let calls = 0;
+			const client = clientThat(async () => {
+				calls += 1;
+				return new Response(envelope("UpstreamFailure", "upstream is down"), {
+					status: 502,
+					headers: { "content-type": "application/json" },
+				});
+			});
+			const res = await call(client, colibri.channel.putReadCursors.main, {
+				body: { community: "did:plc:community", cursors: [] },
+			});
+
+			expect(res.ok).toBe(false);
+			expect(calls).toBe(1);
+		});
+	});
 });

@@ -99,6 +99,11 @@ const codeForThrownShape = (err: unknown): ColibriErrorCode | undefined => {
 
 	if (name === "TimeoutError" || name === "AbortError") return "Timeout";
 
+	if (name === "TransportFailure") {
+		const cause = (err as { cause?: unknown }).cause;
+		return codeForThrownShape(cause) ?? "NetworkFailed";
+	}
+
 	const sessionCode = name ? SESSION_ERROR_NAMES.get(name) : undefined;
 	if (sessionCode) return sessionCode;
 

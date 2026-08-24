@@ -87,18 +87,29 @@ export async function createNoiseSuppressor(
 	let pendingMode: NoiseSuppressionMode | null = null;
 	let destroyed = false;
 
+	const cleanups = new Set<() => void>();
+
+	const track = <T>(value: T, dispose: (item: T) => void): T => {
+		if (destroyed) {
+			try {
+				dispose(value);
+			} catch {}
+			return value;
+		}
+		cleanups.add(() => dispose(value));
+		return value;
+	};
+
 	let rnnoiseNode: RnnoiseWorkletNode | null = null;
 	let rnnoiseWasm: ArrayBuffer | null = null;
 	let rnnoisePromise: Promise<AudioNode> | null = null;
 
-	let dfnNode: AudioWorkletNode | null = null;
 	let dfnCore: DeepFilterNet3Core | null = null;
 	let dfnPromise: Promise<AudioWorkletNode> | null = null;
 	let highPassNode: BiquadFilterNode | null = null;
 	let gateNode: AudioWorkletNode | null = null;
 
 	const modelHosts = new Map<NoiseSuppressionMode, Promise<ModelHost>>();
-	const builtHosts: ModelHost[] = [];
 
 	let currentLevel = clampLevel(options.suppressionLevel ?? DFN_DEFAULT_LEVEL);
 
@@ -149,10 +160,16 @@ export async function createNoiseSuppressor(
 				});
 			}
 			await ctx.audioWorklet.addModule(rnnoiseWorkletPath);
-			rnnoiseNode = new RnnoiseWorkletNode(ctx, {
-				wasmBinary: rnnoiseWasm,
-				maxChannels: 2,
-			});
+			rnnoiseNode = track(
+				new RnnoiseWorkletNode(ctx, {
+					wasmBinary: rnnoiseWasm,
+					maxChannels: 2,
+				}),
+				(node) => {
+					if (ctx.state !== "closed") node.destroy();
+					node.disconnect();
+				},
+			);
 			return rnnoiseNode;
 		})().catch((err) => {
 			rnnoisePromise = null;
@@ -169,8 +186,8 @@ export async function createNoiseSuppressor(
 				ctx,
 				dfnParamsFor(mode, currentLevel),
 			);
-			dfnCore = core;
-			dfnNode = node;
+			dfnCore = track(core, (item) => item.destroy());
+			track(node, (item) => item.disconnect());
 			return node;
 		})().catch((err) => {
 			log.warn("DeepFilterNet unavailable", { code: classifyThrown(err).code });
@@ -199,10 +216,11 @@ export async function createNoiseSuppressor(
 		let promise = modelHosts.get(mode);
 		if (!promise) {
 			promise = createModelHost(ctx, mode, () => onModelFailure(mode)).then(
-				(host) => {
-					builtHosts.push(host);
-					return host;
-				},
+				(host) =>
+					track(host, (item) => {
+						item.node.disconnect();
+						item.destroy();
+					}),
 			);
 			promise.catch(() => modelHosts.delete(mode));
 			modelHosts.set(mode, promise);
@@ -224,12 +242,17 @@ export async function createNoiseSuppressor(
 		if (mode === "high") {
 			const node = await buildDfnNode(mode);
 			applyDfnParams(mode);
-			highPassNode ??= createHighPassNode(ctx);
-			gateNode ??= await createVoiceGateNode(ctx, {
-				onSpeaking: (speaking) => {
-					if (activeMode === "high") options.onSpeaking?.(speaking);
-				},
-			});
+			highPassNode ??= track(createHighPassNode(ctx), (node) =>
+				node.disconnect(),
+			);
+			gateNode ??= track(
+				await createVoiceGateNode(ctx, {
+					onSpeaking: (speaking) => {
+						if (activeMode === "high") options.onSpeaking?.(speaking);
+					},
+				}),
+				(node) => node.disconnect(),
+			);
 			return [highPassNode, node, gateNode];
 		}
 
@@ -293,6 +316,7 @@ export async function createNoiseSuppressor(
 		outputTrack: destination.stream.getAudioTracks()[0],
 		setMode,
 		setSuppressionLevel: (level) => {
+			if (destroyed) return;
 			currentLevel = clampLevel(level);
 			if (activeMode) applyDfnParams(activeMode);
 		},
@@ -301,20 +325,17 @@ export async function createNoiseSuppressor(
 			destroyed = true;
 			stopWatchdog();
 			source.disconnect();
-			rnnoiseNode?.disconnect();
-			dfnNode?.disconnect();
-			highPassNode?.disconnect();
-			gateNode?.disconnect();
-			dfnCore?.destroy();
-			for (const host of builtHosts) {
-				host.node.disconnect();
-				host.destroy();
+			for (const dispose of cleanups) {
+				try {
+					dispose();
+				} catch {}
 			}
+			cleanups.clear();
 			rnnoiseNode = null;
-			dfnNode = null;
 			dfnCore = null;
 			highPassNode = null;
 			gateNode = null;
+			currentChain = [];
 			ctx.close().catch(() => {});
 		},
 	};

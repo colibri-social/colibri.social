@@ -172,6 +172,32 @@ describe("classifyThrown", () => {
 		);
 	});
 
+	it("keeps the cause's meaning when the transport wrapper hides it", () => {
+		offline(false);
+		const wrap = (cause: unknown) => {
+			const err = new Error("wrapped");
+			err.name = "TransportFailure";
+			(err as { cause?: unknown }).cause = cause;
+			return err;
+		};
+
+		expect(classifyThrown(wrap(new TypeError("Failed to fetch"))).code).toBe(
+			"NetworkFailed",
+		);
+		expect(
+			classifyThrown(wrap(new DOMException("timed out", "TimeoutError"))).code,
+		).toBe("Timeout");
+	});
+
+	it("does not mistake a wrapped connection failure for an expired token", () => {
+		offline(false);
+		const err = new Error("Failed to fetch");
+		err.name = "TransportFailure";
+		(err as { cause?: unknown }).cause = new TypeError("Failed to fetch");
+
+		expect(classifyThrown(err).needsReauth).toBe(false);
+	});
+
 	it("recognises a stalled local storage", () => {
 		offline(false);
 		const err = new Error("IndexedDB unavailable");

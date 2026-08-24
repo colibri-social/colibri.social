@@ -37,11 +37,14 @@ export const computePresenceSync = (args: {
 	presence: Record<string, Array<string>>;
 	ownChannel: string | null;
 	ownDid: string;
+	pinned?: ReadonlySet<string>;
 }): PresenceSyncPlan => {
 	const empty: PresenceSyncPlan = { channels: [], states: [] };
 
 	const authority = args.communityAuthority;
 	if (!authority) return empty;
+
+	const pinned = args.pinned ?? new Set<string>();
 
 	const isLocal = (channel: string) => authorityOf(channel) === authority;
 
@@ -98,11 +101,13 @@ export const computePresenceSync = (args: {
 
 		for (const did of prev) {
 			if (next?.has(did)) continue;
+			if (pinned.has(did)) continue;
 			if (stillInVoice.has(did)) plan.moved.push(did);
 			else plan.left.push(did);
 		}
 
 		for (const did of next ?? []) {
+			if (pinned.has(did)) continue;
 			if (!prev.includes(did)) plan.added.push(did);
 		}
 
@@ -111,11 +116,13 @@ export const computePresenceSync = (args: {
 		}
 	}
 
+	const fresh = states.filter((entry) => !pinned.has(entry.did));
+
 	return {
 		channels,
 		states: ownChannelIsLocal
-			? states.filter((entry) => entry.did !== args.ownDid)
-			: states,
+			? fresh.filter((entry) => entry.did !== args.ownDid)
+			: fresh,
 	};
 };
 

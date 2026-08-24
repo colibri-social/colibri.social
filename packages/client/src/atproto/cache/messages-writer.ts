@@ -1,5 +1,6 @@
 import { insertAt, placeMessage } from "../../utils/message-order";
-import type { MessageEventFrame } from "../sync-frames";
+import { HIDDEN } from "../labels";
+import type { LabelEventFrame, MessageEventFrame } from "../sync-frames";
 import type { MessageView } from "../views";
 import {
 	belongsToChannel,
@@ -76,6 +77,29 @@ export const foldMessageEvent = (
 			if (!snapshotBelongsTo(current, channelSpace)) return;
 			if (isOpenChannel(channelSpace)) return;
 			const next = applyMessageEvent(current, event, limit);
+			if (next) pending.set(channelSpace, next);
+		} catch (err) {
+			active.onError(err);
+		}
+	});
+};
+
+export const foldLabelEvent = (event: LabelEventFrame): void => {
+	const active = io;
+	if (!active) return;
+
+	const channelSpace = event.space;
+	if (!channelSpace || isOpenChannel(channelSpace)) return;
+
+	enqueue(channelSpace, async () => {
+		try {
+			const current =
+				pending.get(channelSpace) ??
+				(await active.read(active.namespace(), channelSpace));
+			if (!current) return;
+			if (!snapshotBelongsTo(current, channelSpace)) return;
+			if (isOpenChannel(channelSpace)) return;
+			const next = applyLabelEvent(current, event);
 			if (next) pending.set(channelSpace, next);
 		} catch (err) {
 			active.onError(err);
@@ -177,6 +201,25 @@ export const applyMessageEvent = (
 		messages,
 		cursor: cursorFor(messages, snapshot.cursor),
 		hasMore: messages.length < next.length ? true : snapshot.hasMore,
+		ts: Date.now(),
+	};
+};
+
+export const applyLabelEvent = (
+	snapshot: MessagesSnapshot,
+	event: LabelEventFrame,
+): MessagesSnapshot | undefined => {
+	if (event.val !== HIDDEN || event.event !== "create") return undefined;
+
+	const remaining = snapshot.messages.filter(
+		(m) => m.author.did !== event.subject.did || m.rkey !== event.subject.rkey,
+	);
+	if (remaining.length === snapshot.messages.length) return undefined;
+
+	return {
+		...snapshot,
+		messages: remaining,
+		cursor: cursorFor(remaining, snapshot.cursor),
 		ts: Date.now(),
 	};
 };
