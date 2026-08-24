@@ -2,6 +2,10 @@ import { colibri } from "../atproto/lexicons";
 import { clientForManagingApp } from "../atproto/xrpc";
 import { useCommunityContext } from "../contexts/Community";
 import { useUserContext } from "../contexts/User";
+import { showError } from "../errors/show-error";
+import { createLogger } from "./logger";
+
+const log = createLogger("community");
 
 export const createRoleSync = (opts: {
 	did?: () => string;
@@ -39,6 +43,8 @@ export const createRoleSync = (opts: {
 				});
 				lastSent = gen;
 				if (!res.ok) {
+					log.error("setting member roles failed", { code: res.error.code });
+					showError(res.error);
 					community().utils.refetch();
 					return;
 				}
