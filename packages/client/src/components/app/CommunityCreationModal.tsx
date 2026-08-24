@@ -9,9 +9,20 @@ import {
 	Show,
 	Switch,
 } from "solid-js";
+import { toast } from "somoto";
 import XCircleIcon from "~icons/ph/x-circle";
+import { namespace } from "../../atproto/cache/keys";
 import { resolveHandleToDid } from "../../atproto/identity";
 import { colibri } from "../../atproto/lexicons";
+import {
+	advancePending,
+	clearPending,
+	creationInFlight,
+	readPending,
+	setCreationInFlight,
+	writePending,
+} from "../../atproto/pending-community";
+import { resumeQuietly } from "../../atproto/resume-community-creation";
 import { frameIs, progressStepLabel } from "../../atproto/sync-frames";
 import type { CommunityView, LegacyCommunityView } from "../../atproto/views";
 import type { ColibriClient } from "../../atproto/xrpc";
@@ -20,6 +31,7 @@ import { useUserContext } from "../../contexts/User";
 import { classifyThrown } from "../../errors/classify";
 import { ColibriError } from "../../errors/error";
 import { showError } from "../../errors/show-error";
+import { getAppViewDid } from "../../utils/appview";
 import { IMAGE_UPLOAD_ACCEPT } from "../../utils/image-upload";
 import { createLogger } from "../../utils/logger";
 import { Image } from "../icons/Image";
@@ -63,9 +75,15 @@ const log = createLogger("community-create");
 
 const COMMUNITY_DETAILS = 1;
 const LOADING = 2;
+const UNFINISHED = 3;
+const BUSY = 4;
 
 const MAX_PICTURE_BYTES = 1_048_576;
 const MAX_BANNER_BYTES = 4_194_304;
+
+const CREATE_TIMEOUT_MS = 120_000;
+const INDEX_ATTEMPTS = 10;
+const INDEX_POLL_MS = 1_000;
 
 type CreationMode = "create" | "adopt" | "migrate";
 
@@ -113,8 +131,6 @@ const isValidHandleOrDid = (value: string): boolean => {
 const isValidAccountPassword = (value: string): boolean =>
 	value.trim().length >= 8;
 
-let creationInFlight = false;
-
 const putCommunityImage = async (
 	client: ColibriClient,
 	did: string,
@@ -139,28 +155,40 @@ const applyPendingImages = async (
 	community: CommunityView,
 	pictureFile: File | undefined,
 	bannerFile: File | undefined,
-): Promise<CommunityView> => {
+): Promise<{ community: CommunityView; unsaved: boolean }> => {
 	let latest = community;
-	if (pictureFile) {
-		latest = await putCommunityImage(
-			client,
-			latest.did,
-			"picture",
-			pictureFile,
-			MAX_PICTURE_BYTES,
-		);
-	}
-	if (bannerFile) {
-		latest = await putCommunityImage(
-			client,
-			latest.did,
-			"banner",
-			bannerFile,
-			MAX_BANNER_BYTES,
-		);
-	}
-	return latest;
+	let unsaved = false;
+
+	const apply = async (
+		kind: "picture" | "banner",
+		file: File | undefined,
+		maxBytes: number,
+	) => {
+		if (!file) return;
+		try {
+			latest = await putCommunityImage(
+				client,
+				latest.did,
+				kind,
+				file,
+				maxBytes,
+			);
+		} catch (err) {
+			unsaved = true;
+			log.warn(`could not save the community ${kind}`, {
+				code: classifyThrown(err).code,
+			});
+		}
+	};
+
+	await apply("picture", pictureFile, MAX_PICTURE_BYTES);
+	await apply("banner", bannerFile, MAX_BANNER_BYTES);
+
+	return { community: latest, unsaved };
 };
+
+const IMAGES_UNSAVED_MESSAGE =
+	"Your picture and banner weren't saved. You can set them in community settings.";
 
 export const CommunityCreationModal: ParentComponent = (props) => {
 	const user = useUserContext();
@@ -193,6 +221,15 @@ export const CommunityCreationModal: ParentComponent = (props) => {
 	const [loading, _setLoading] = createSignal<boolean>(false);
 	const [open, setOpen] = createSignal(false);
 	const [step, setStep] = createSignal<number>(COMMUNITY_DETAILS);
+
+	const ns = () => namespace(getAppViewDid(), user.did);
+
+	const enterModal = (next: boolean) => {
+		if (next && !creationInFlight() && readPending(ns())) {
+			setStep(UNFINISHED);
+		}
+		setOpen(next);
+	};
 
 	const resetState = () => {
 		setMode("create");
@@ -572,7 +609,10 @@ export const CommunityCreationModal: ParentComponent = (props) => {
 				>
 					Cancel
 				</Button>
-				<Button disabled={!canCreate()} onClick={() => setStep(LOADING)}>
+				<Button
+					disabled={!canCreate()}
+					onClick={() => setStep(creationInFlight() ? BUSY : LOADING)}
+				>
 					{mode() === "migrate"
 						? "Migrate"
 						: mode() === "adopt"
@@ -583,76 +623,134 @@ export const CommunityCreationModal: ParentComponent = (props) => {
 		</>
 	);
 
+	const enterCommunity = (did: string) => {
+		resetState();
+		setOpen(false);
+		window.location.href = `/app/c/${did}`;
+	};
+
+	const UnfinishedScreen: Component = () => {
+		const pending = readPending(ns());
+		const [checking, setChecking] = createSignal(false);
+
+		const check = async () => {
+			setChecking(true);
+			const outcome = await resumeQuietly(user.xrpc, ns());
+			setChecking(false);
+
+			if (outcome.kind === "done") {
+				if (outcome.imagesDropped) toast(IMAGES_UNSAVED_MESSAGE);
+				await user.refetchCommunities();
+				enterCommunity(outcome.community.did);
+				return;
+			}
+
+			if (outcome.kind === "abandoned") {
+				toast(`${outcome.name} was never finished. You can create it again.`);
+				setStep(COMMUNITY_DETAILS);
+				return;
+			}
+
+			if (outcome.kind === "none") {
+				setStep(COMMUNITY_DETAILS);
+				return;
+			}
+
+			toast("Colibri still can't tell whether it finished. Try again shortly.");
+		};
+
+		const discard = () => {
+			clearPending(ns());
+			setStep(COMMUNITY_DETAILS);
+		};
+
+		return (
+			<>
+				<div class="flex flex-col gap-2">
+					<p class="m-0 text-sm text-muted-foreground">
+						Colibri lost contact with the server while creating{" "}
+						<span class="font-medium text-foreground">
+							{pending?.name ?? "your community"}
+						</span>
+						. It may already exist, so Colibri won't create a second one until
+						it knows.
+					</p>
+				</div>
+				<DialogFooter>
+					<Button variant="secondary" disabled={checking()} onClick={discard}>
+						Start over
+					</Button>
+					<Button disabled={checking()} onClick={() => void check()}>
+						{checking() ? "Checking…" : "Check again"}
+					</Button>
+				</DialogFooter>
+			</>
+		);
+	};
+
+	const BusyScreen: Component = () => (
+		<div class="flex flex-col items-center justify-center gap-3 py-6">
+			<span class="text-sm text-muted-foreground text-center text-pretty">
+				A community is already being created. Wait for that one to finish before
+				starting another.
+			</span>
+			<Button variant="secondary" onClick={() => setOpen(false)}>
+				Close
+			</Button>
+		</div>
+	);
+
 	const LoadingScreen: Component = () => {
 		const socket = useSocketContext();
 		const [status, setStatus] = createSignal("Working");
+		let progressFailure: string | undefined;
 
 		const waitForCommunityIndexed = async (did: string) => {
-			for (let attempt = 0; attempt < 10; attempt++) {
+			for (let attempt = 0; attempt < INDEX_ATTEMPTS; attempt++) {
 				const res = await user.xrpc.call(
-					colibri.actor.listCommunities.main,
-					{},
+					colibri.community.getCommunity.main,
+					{ params: { community: did } },
+					{ expected: ["CommunityNotFound", "NotFound"] },
 				);
-				if (res.ok && res.data.communities.some((c) => c.did === did)) return;
-				await new Promise((resolve) => setTimeout(resolve, 1000));
+				if (res.ok && res.data.community.viewer.isMember) return;
+				await new Promise((resolve) => setTimeout(resolve, INDEX_POLL_MS));
 			}
+			log.warn("the new community had not indexed in time", { community: did });
 		};
 
 		const runCreate = async (): Promise<CommunityView> => {
-			const created = await user.xrpc.call(colibri.community.create.main, {
-				body: {
-					name: name().trim(),
-					description: description().trim() || undefined,
+			const created = await user.xrpc.call(
+				colibri.community.create.main,
+				{
+					body: {
+						name: name().trim(),
+						description: description().trim() || undefined,
+					},
 				},
-			});
-			if (!created.ok) throw created.error;
-			let latest = created.data.community;
-
-			if (requiresApprovalToJoin()) {
-				const updated = await user.xrpc.call(colibri.community.update.main, {
-					body: { community: latest.did, requiresApprovalToJoin: true },
-				});
-				if (!updated.ok) throw updated.error;
-				latest = updated.data.community;
-			}
-
-			return applyPendingImages(
-				user.xrpc,
-				latest,
-				picture()?.acceptedFiles[0],
-				banner()?.acceptedFiles[0],
+				{ signal: AbortSignal.timeout(CREATE_TIMEOUT_MS) },
 			);
+			if (!created.ok) throw created.error;
+			return created.data.community;
 		};
 
 		const runAdopt = async (): Promise<CommunityView> => {
 			const trimmedIdentifier = identifier().trim();
 			const did = await resolveHandleToDid(trimmedIdentifier);
-			const adopted = await user.xrpc.call(colibri.community.adopt.main, {
-				body: {
-					did,
-					identifier: trimmedIdentifier,
-					password: password(),
-					name: name().trim(),
-					description: description().trim() || undefined,
+			const adopted = await user.xrpc.call(
+				colibri.community.adopt.main,
+				{
+					body: {
+						did,
+						identifier: trimmedIdentifier,
+						password: password(),
+						name: name().trim(),
+						description: description().trim() || undefined,
+					},
 				},
-			});
-			if (!adopted.ok) throw adopted.error;
-			let latest = adopted.data.community;
-
-			if (requiresApprovalToJoin()) {
-				const updated = await user.xrpc.call(colibri.community.update.main, {
-					body: { community: latest.did, requiresApprovalToJoin: true },
-				});
-				if (!updated.ok) throw updated.error;
-				latest = updated.data.community;
-			}
-
-			return applyPendingImages(
-				user.xrpc,
-				latest,
-				picture()?.acceptedFiles[0],
-				banner()?.acceptedFiles[0],
+				{ signal: AbortSignal.timeout(CREATE_TIMEOUT_MS) },
 			);
+			if (!adopted.ok) throw adopted.error;
+			return adopted.data.community;
 		};
 
 		const runMigrate = async (): Promise<CommunityView> => {
@@ -663,38 +761,115 @@ export const CommunityCreationModal: ParentComponent = (props) => {
 			return migrated.data.community;
 		};
 
-		onMount(async () => {
-			if (creationInFlight) return;
-			creationInFlight = true;
+		const applySettings = async (
+			community: CommunityView,
+		): Promise<CommunityView> => {
+			if (!requiresApprovalToJoin()) return community;
 
-			const unsubscribe = socket.onEvent((event) => {
-				if (!frameIs(event, "communityProgressEvent")) return;
-				setStatus(progressStepLabel(event.step));
+			const updated = await user.xrpc.call(colibri.community.update.main, {
+				body: { community: community.did, requiresApprovalToJoin: true },
+			});
+			if (updated.ok) return updated.data.community;
+
+			log.warn("could not apply the join setting", {
+				code: updated.error.code,
+			});
+			toast(
+				"Join approval wasn't turned on. You can change it in community settings.",
+			);
+			return community;
+		};
+
+		const provision = async (): Promise<{
+			community: CommunityView;
+			recovered: boolean;
+		}> => {
+			if (mode() === "migrate") {
+				return { community: await runMigrate(), recovered: false };
+			}
+
+			writePending(ns(), {
+				name: name().trim(),
+				requiresApprovalToJoin: requiresApprovalToJoin(),
+				startedAt: Date.now(),
+				imagesDropped:
+					picture()?.acceptedFiles[0] !== undefined ||
+					banner()?.acceptedFiles[0] !== undefined,
 			});
 
 			try {
-				const created =
-					mode() === "adopt"
-						? await runAdopt()
-						: mode() === "migrate"
-							? await runMigrate()
-							: await runCreate();
+				const community =
+					mode() === "adopt" ? await runAdopt() : await runCreate();
+				return { community, recovered: false };
+			} catch (err) {
+				const resumed = await resumeQuietly(user.xrpc, ns());
+				if (resumed.kind === "done") {
+					log.warn("recovered a community whose response was lost", {
+						code: classifyThrown(err).code,
+					});
+					if (resumed.imagesDropped) toast(IMAGES_UNSAVED_MESSAGE);
+					return { community: resumed.community, recovered: true };
+				}
+				if (resumed.kind === "wait") setStep(UNFINISHED);
+				throw err;
+			}
+		};
+
+		const finishFreshCommunity = async (
+			community: CommunityView,
+		): Promise<CommunityView> => {
+			const settled = await applySettings(community);
+			const images = await applyPendingImages(
+				user.xrpc,
+				settled,
+				picture()?.acceptedFiles[0],
+				banner()?.acceptedFiles[0],
+			);
+			if (images.unsaved) toast(IMAGES_UNSAVED_MESSAGE);
+			return images.community;
+		};
+
+		onMount(async () => {
+			if (creationInFlight()) {
+				setStep(BUSY);
+				return;
+			}
+
+			const unsubscribe = socket.onEvent((event) => {
+				if (!frameIs(event, "communityProgressEvent")) return;
+				if (event.community) advancePending(ns(), event.community);
+				if (event.step === "failed" && event.message) {
+					progressFailure = event.message;
+				}
+				setStatus(
+					event.step === "failed"
+						? (event.message ?? progressStepLabel(event.step))
+						: progressStepLabel(event.step),
+				);
+			});
+
+			try {
+				setCreationInFlight(true);
+
+				const provisioned = await provision();
+				const community = provisioned.recovered
+					? provisioned.community
+					: await finishFreshCommunity(provisioned.community);
 
 				setStatus("Finishing up...");
-				await waitForCommunityIndexed(created.did);
+				await waitForCommunityIndexed(community.did);
+				clearPending(ns());
 				await user.refetchCommunities();
-				resetState();
-				setOpen(false);
-				window.location.href = `/app/c/${created.did}`;
+				enterCommunity(community.did);
 			} catch (err) {
 				log.error(`${mode()} community failed`, {
 					code: classifyThrown(err).code,
 				});
-				showError(err);
-				setStep(COMMUNITY_DETAILS);
+				showError(err, { description: progressFailure });
+				if (step() === LOADING) setStep(COMMUNITY_DETAILS);
 			} finally {
 				unsubscribe();
-				creationInFlight = false;
+				setCreationInFlight(false);
 			}
 		});
 
@@ -709,15 +884,17 @@ export const CommunityCreationModal: ParentComponent = (props) => {
 	return (
 		<ResponsiveDialog
 			open={open()}
-			onOpenChange={setOpen}
+			onOpenChange={enterModal}
 			trigger={props.children}
 			title={
 				<span class="text-center w-full">
-					{mode() === "migrate"
-						? "Migrate a community"
-						: mode() === "adopt"
-							? "Adopt a community"
-							: "Create a community"}
+					{step() === UNFINISHED
+						? "Unfinished community"
+						: mode() === "migrate"
+							? "Migrate a community"
+							: mode() === "adopt"
+								? "Adopt a community"
+								: "Create a community"}
 				</span>
 			}
 			contentClass="w-lg"
@@ -728,6 +905,12 @@ export const CommunityCreationModal: ParentComponent = (props) => {
 				</Match>
 				<Match when={step() === LOADING}>
 					<LoadingScreen />
+				</Match>
+				<Match when={step() === UNFINISHED}>
+					<UnfinishedScreen />
+				</Match>
+				<Match when={step() === BUSY}>
+					<BusyScreen />
 				</Match>
 			</Switch>
 		</ResponsiveDialog>

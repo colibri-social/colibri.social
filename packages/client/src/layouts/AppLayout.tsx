@@ -25,6 +25,8 @@ import { evictCommunity } from "../atproto/cache/community-evict";
 import { namespace } from "../atproto/cache/keys";
 import { linkErrorMessage, readLinkOutcome } from "../atproto/labeler-link";
 import { writeCommunityOrder } from "../atproto/notificationPreference";
+import { creationInFlight } from "../atproto/pending-community";
+import { resumeQuietly } from "../atproto/resume-community-creation";
 import { frameIs } from "../atproto/sync-frames";
 import type { CommunityView } from "../atproto/views";
 import { AppBadge } from "../components/app/AppBadge";
@@ -302,6 +304,40 @@ const AppLayout: ParentComponent = (props) => {
 		if (dids.length === 0) return;
 		const release = socket.subscribe({ communities: dids });
 		onCleanup(release);
+	});
+
+	const finishPendingCreation = async () => {
+		if (creationInFlight()) return;
+
+		const outcome = await resumeQuietly(
+			user.xrpc,
+			namespace(getAppViewDid(), user.did),
+		);
+
+		if (outcome.kind === "done") {
+			await user.refetchCommunities();
+			toast(`${outcome.community.name} is ready.`, {
+				action: {
+					label: "Open",
+					onClick: () => navigate(`/app/c/${outcome.community.did}`),
+				},
+			});
+			return;
+		}
+
+		if (outcome.kind === "abandoned") {
+			toast(`${outcome.name} was never finished. You can create it again.`);
+		}
+	};
+
+	onMount(() => void finishPendingCreation());
+
+	let hadSocket = socket.connected();
+	createEffect(() => {
+		const isConnected = socket.connected();
+		const reconnected = isConnected && !hadSocket;
+		hadSocket = isConnected;
+		if (reconnected) void finishPendingCreation();
 	});
 
 	onMount(() => {

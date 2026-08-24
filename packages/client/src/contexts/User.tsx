@@ -301,6 +301,14 @@ export const UserContextProvider: ParentComponent = (props) => {
 						});
 					});
 
+					let wasConnected = socket.connected();
+					createEffect(() => {
+						const isConnected = socket.connected();
+						const reconnected = isConnected && !wasConnected;
+						wasConnected = isConnected;
+						if (reconnected) void refetchCommunities();
+					});
+
 					const cleanup = socket.onEvent((event) => {
 						if (frameIs(event, "memberEvent")) {
 							if (
