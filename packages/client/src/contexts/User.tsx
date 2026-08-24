@@ -327,7 +327,10 @@ export const UserContextProvider: ParentComponent = (props) => {
 							}
 
 							const view = event.view;
-							if (!view) return;
+							if (!view) {
+								void refetchCommunities();
+								return;
+							}
 							mutate({
 								...current,
 								communities: current.communities.map((c) =>

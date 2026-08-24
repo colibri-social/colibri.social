@@ -93,7 +93,7 @@ type CommunityContextData = CommunityPayload & {
 		setRolesForUser: (did: string, roles: Array<string>) => void;
 		patchChannel: (space: string, patch: Partial<Channel>) => void;
 		patchCategory: (rkey: string, patch: Partial<Category>) => void;
-		patchCommunity: (patch: Partial<CommunityPayload["community"]>) => void;
+		patchCommunity: (community: CommunityPayload["community"]) => void;
 		patchMember: (did: string, patch: Partial<MemberData>) => void;
 		searchMembers: (query: string, limit: number) => Array<Member>;
 		refetch: () => void;
@@ -589,10 +589,10 @@ export const CommunityContextProvider: ParentComponent = (props) => {
 		});
 	};
 
-	const patchCommunity = (patch: Partial<CommunityPayload["community"]>) => {
+	const patchCommunity = (community: CommunityPayload["community"]) => {
 		const prev = currentPayload();
 		if (!prev) return;
-		setSnapshot({ ...prev, community: { ...prev.community, ...patch } });
+		setSnapshot({ ...prev, community });
 	};
 
 	const patchMember = (did: string, patch: Partial<MemberData>) => {
