@@ -1087,7 +1087,12 @@ export const ChannelContextProvider: ParentComponent<{
 		}
 
 		const incoming = event.message;
-		if (!incoming) return;
+		if (!incoming) {
+			log.error("a message event arrived without its message", {
+				event: event.event,
+			});
+			return;
+		}
 
 		const pendingHash = `outbox:${incoming.rkey}`;
 		const pending = messages().find(

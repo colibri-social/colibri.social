@@ -85,6 +85,7 @@ const RECONNECT_BASE_MS = 1_000;
 const RECONNECT_MAX_MS = 30_000;
 const HEARTBEAT_MS = 20_000;
 const STALE_MS = 30_000;
+const PROBE_TIMEOUT_MS = 5_000;
 
 const backoffMs = (attempt: number): number => {
 	const capped = Math.min(RECONNECT_BASE_MS * 2 ** attempt, RECONNECT_MAX_MS);
@@ -105,6 +106,7 @@ export const SocketContextProvider: ParentComponent = (props) => {
 	let ws: WebSocket | null = null;
 	let heartbeat: ReturnType<typeof setInterval> | null = null;
 	let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+	let probeTimer: ReturnType<typeof setTimeout> | null = null;
 	let destroyed = false;
 	let hadConnectedOnce = false;
 	let attempt = 0;
@@ -286,6 +288,7 @@ export const SocketContextProvider: ParentComponent = (props) => {
 			});
 
 			socket.addEventListener("close", (ev) => {
+				clearProbe();
 				if (socketHeartbeat) {
 					clearInterval(socketHeartbeat);
 					if (heartbeat === socketHeartbeat) heartbeat = null;
@@ -333,13 +336,17 @@ export const SocketContextProvider: ParentComponent = (props) => {
 		}
 	};
 
+	const clearProbe = () => {
+		if (!probeTimer) return;
+		clearTimeout(probeTimer);
+		probeTimer = null;
+	};
+
 	const forceReconnect = () => {
 		if (destroyed || !auth?.loggedIn || sessionDead()) return;
 		if (connectStartedAt !== null && Date.now() - connectStartedAt < STALE_MS)
 			return;
-		const healthy =
-			ws?.readyState === WebSocket.OPEN && Date.now() - lastFrameAt < STALE_MS;
-		if (healthy) return;
+		clearProbe();
 		if (reconnectTimer) {
 			clearTimeout(reconnectTimer);
 			reconnectTimer = null;
@@ -352,22 +359,46 @@ export const SocketContextProvider: ParentComponent = (props) => {
 		connect();
 	};
 
+	const probeLiveness = () => {
+		if (destroyed || !auth?.loggedIn || sessionDead()) return;
+		if (ws?.readyState !== WebSocket.OPEN) {
+			forceReconnect();
+			return;
+		}
+		if (probeTimer) return;
+
+		const probedAt = Date.now();
+		if (!sendFrame(heartbeatFrame())) {
+			forceReconnect();
+			return;
+		}
+
+		probeTimer = setTimeout(() => {
+			probeTimer = null;
+			if (destroyed || ws?.readyState !== WebSocket.OPEN) return;
+			if (lastFrameAt >= probedAt) return;
+			log.warn("no reply to the liveness probe, reconnecting");
+			forceReconnect();
+		}, PROBE_TIMEOUT_MS);
+	};
+
 	const onVisible = () => {
-		if (document.visibilityState === "visible") forceReconnect();
+		if (document.visibilityState === "visible") probeLiveness();
 	};
 
 	onMount(() => {
 		connect();
 		document.addEventListener("visibilitychange", onVisible);
-		window.addEventListener("online", forceReconnect);
-		window.addEventListener("focus", forceReconnect);
+		window.addEventListener("online", probeLiveness);
+		window.addEventListener("focus", probeLiveness);
 	});
 
 	onCleanup(() => {
 		destroyed = true;
 		document.removeEventListener("visibilitychange", onVisible);
-		window.removeEventListener("online", forceReconnect);
-		window.removeEventListener("focus", forceReconnect);
+		window.removeEventListener("online", probeLiveness);
+		window.removeEventListener("focus", probeLiveness);
+		clearProbe();
 		if (heartbeat) clearInterval(heartbeat);
 		if (reconnectTimer) clearTimeout(reconnectTimer);
 		ws?.close();
