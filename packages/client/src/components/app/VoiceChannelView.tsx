@@ -234,16 +234,24 @@ export const VoiceChannelView: Component = () => {
 			})),
 	);
 
+	const showNonVideoParticipants = createMemo(
+		() => preferences.preferences().voice.showNonVideoParticipants !== false,
+	);
+
+	const showOwnCamera = createMemo(
+		() => preferences.preferences().voice.showOwnCamera !== false,
+	);
+
 	const tiles = createMemo<TileDescriptor[]>(() => {
-		const view = preferences.preferences().voice;
+		const withoutVideo = showNonVideoParticipants();
+		const withOwnCamera = showOwnCamera();
 		const list: TileDescriptor[] = [];
 
 		for (const member of participantMembers()) {
 			if (!member) continue;
 			const hasCam = !!cameraFor(member.did);
-			if (view.showNonVideoParticipants === false && !hasCam) continue;
-			if (member.did === user.did && hasCam && view.showOwnCamera === false)
-				continue;
+			if (!withoutVideo && !hasCam) continue;
+			if (member.did === user.did && hasCam && !withOwnCamera) continue;
 			list.push({ kind: "participant", key: `p:${member.did}`, member });
 		}
 

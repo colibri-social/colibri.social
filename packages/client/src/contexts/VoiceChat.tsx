@@ -51,6 +51,7 @@ import {
 } from "../hooks/createSuppressionMonitor";
 import { noiseMode } from "../hooks/noise/modes";
 import { appViewHostFor, getAppViewServiceRef } from "../utils/appview";
+import { applyAudioSink } from "../utils/audio-sink";
 import { createLogger } from "../utils/logger";
 import {
 	displayMediaRequest,
@@ -470,6 +471,7 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 		el: HTMLAudioElement,
 		did: string,
 		channel: keyof VolumeOverrides,
+		options: { force?: boolean } = {},
 	): void => {
 		const output = userPreferences.preferences().voice.output;
 		const override =
@@ -481,13 +483,16 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 		el.volume = Math.max(0, Math.min(1, base * (override?.volume ?? 1)));
 		el.muted = override?.muted ?? false;
 
-		const sinkable = el as HTMLAudioElement & {
-			setSinkId?: (id: string) => Promise<void>;
-		};
+		void applyAudioSink(el, output.preferredDeviceId, options).catch((err) => {
+			log.warn("could not route voice audio to the selected speaker", {
+				code: classifyThrown(err).code,
+			});
+		});
+	};
 
-		if (output.preferredDeviceId && typeof sinkable.setSinkId === "function") {
-			sinkable.setSinkId(output.preferredDeviceId).catch(() => {});
-		}
+	const reapplyAudioSettings = (options: { force?: boolean } = {}): void => {
+		for (const { el, did, channel } of audioEls.values())
+			applyAudioSettings(el, did, channel, options);
 	};
 
 	const rttToQuality = (rtt: number): ConnectionQuality => {
@@ -1988,9 +1993,20 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 
 	createEffect(() => {
 		userPreferences.preferences();
-		for (const { el, did, channel } of audioEls.values())
-			applyAudioSettings(el, did, channel);
+		reapplyAudioSettings();
 	});
+
+	const mediaDevices =
+		typeof navigator === "undefined" ? undefined : navigator.mediaDevices;
+
+	if (mediaDevices) {
+		const onDeviceChange = (): void => reapplyAudioSettings({ force: true });
+
+		mediaDevices.addEventListener("devicechange", onDeviceChange);
+		onCleanup(() =>
+			mediaDevices.removeEventListener("devicechange", onDeviceChange),
+		);
+	}
 
 	createEffect(
 		on(

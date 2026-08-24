@@ -38,7 +38,7 @@ const DisplayedRole: ParentComponent<{
 		<button
 			type="button"
 			disabled={!props.manageable()}
-			class="flex flex-row items-center gap-4 justify-between rounded-sm w-full"
+			class="flex flex-row items-center gap-4 justify-between rounded-sm w-full min-w-0"
 			onClick={
 				props.toggleRole
 					? () => {
@@ -51,14 +51,14 @@ const DisplayedRole: ParentComponent<{
 				"hover:bg-muted p-1.5 py-1 cursor-pointer": !props.children,
 			}}
 		>
-			<div class="flex flex-row items-center gap-2 test">
+			<div class="flex flex-row items-center gap-2 min-w-0">
 				<div
-					class="w-2 h-2 rounded-full"
+					class="w-2 h-2 rounded-full shrink-0"
 					style={{
 						background: `${props.role.color ?? "#fff"}`,
 					}}
 				/>
-				{props.role.name}
+				<span class="truncate min-w-0">{props.role.name}</span>
 			</div>
 			{props.children}
 		</button>
@@ -74,7 +74,7 @@ const DisplayedMember: ParentComponent<{
 		<button
 			type="button"
 			disabled={!props.manageable()}
-			class="flex flex-row items-center gap-4 justify-between rounded-sm w-full"
+			class="flex flex-row items-center gap-4 justify-between rounded-sm w-full min-w-0"
 			onClick={
 				props.toggleMember
 					? () => {
@@ -87,7 +87,7 @@ const DisplayedMember: ParentComponent<{
 				"hover:bg-muted p-1.5 py-1 cursor-pointer": !props.children,
 			}}
 		>
-			<div class="flex flex-row items-center gap-2 test">
+			<div class="flex flex-row items-center gap-2 min-w-0">
 				<User.InlineProfile user={props.member.actor} color={false} />
 			</div>
 			{props.children}
@@ -253,7 +253,7 @@ const AllowListSection: Component<{
 									>
 										{(group) => (
 											<div class="flex flex-col">
-												<span class="text-sm text-muted-foreground px-2 py-1">
+												<span class="text-sm text-muted-foreground px-2 py-1 truncate">
 													{group.role.name} — {group.members.length}
 												</span>
 												<For each={group.members}>
@@ -281,7 +281,7 @@ const AllowListSection: Component<{
 				<For each={allowedMembersByRoles()}>
 					{(group) => (
 						<div class="flex flex-col gap-2">
-							<span class="text-sm text-muted-foreground">
+							<span class="text-sm text-muted-foreground truncate">
 								{group.role.name} — {group.members.length}
 							</span>
 							<For each={group.members}>

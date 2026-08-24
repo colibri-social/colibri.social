@@ -8,7 +8,7 @@ export const InlineProfile: Component<{
 	color?: boolean;
 }> = (props) => {
 	return (
-		<div class="flex flex-row gap-2 items-center">
+		<div class="flex flex-row gap-2 items-center min-w-0">
 			<Avatar user={props.user} size="small" disableState={false} />
 			<DisplayableName color={props.color} user={props.user} />
 		</div>
