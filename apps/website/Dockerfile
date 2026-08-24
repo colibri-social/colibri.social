@@ -20,7 +20,6 @@ RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
     pnpm install --frozen-lockfile --store-dir=/pnpm/store
 
 # Declare build args
-ARG APPVIEW_DOMAIN
 ARG SAME_TLD_DID
 
 ARG SENTRY_DSN
@@ -31,7 +30,6 @@ ARG TURSO_DATABASE_URL
 ARG PUBLIC_VAPID_KEY
 
 # Make them available to Astro's build step
-ENV APPVIEW_DOMAIN=$APPVIEW_DOMAIN
 ENV SAME_TLD_DID=$SAME_TLD_DID
 
 ENV SENTRY_DSN=${SENTRY_DSN}

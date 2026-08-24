@@ -4,8 +4,6 @@ services:
       context: .
       dockerfile: apps/website/Dockerfile
       args:
-        - INVITE_API_KEY=${INVITE_API_KEY}
-        - APPVIEW_DOMAIN=${APPVIEW_DOMAIN}
         - SAME_TLD_DID=${SAME_TLD_DID}
         - REDIS_PASSWORD=${REDIS_PASSWORD}
         - SENTRY_DSN=${SENTRY_DSN}
@@ -17,8 +15,6 @@ services:
     container_name: colibri-app
     restart: unless-stopped
     environment:
-      - INVITE_API_KEY=${INVITE_API_KEY}
-      - APPVIEW_DOMAIN=${APPVIEW_DOMAIN}
       - SAME_TLD_DID=${SAME_TLD_DID}
       - REDIS_PASSWORD=${REDIS_PASSWORD}
       - SENTRY_DSN=${SENTRY_DSN}
