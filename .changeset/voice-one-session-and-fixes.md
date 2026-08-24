@@ -19,5 +19,5 @@ Along with it:
 - A moderator muting you no longer rewrites your own saved preference, so your next call is not stuck muted.
 - Audio from someone who left mid-connect no longer keeps playing, and a stream announced twice is only played once.
 - Being disconnected for losing access to a channel now says so.
-- STUN and TURN servers the voice server advertises are used.
+- STUN and TURN servers the voice server advertises are used, which needs `@colibri-social/lexicons` 2.5.0.
 - Removed the "hear yourself" microphone test, which spoke a protocol the server no longer serves and had been failing silently. The input level meter is unaffected.

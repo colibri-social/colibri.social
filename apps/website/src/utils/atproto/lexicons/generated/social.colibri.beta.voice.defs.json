@@ -49,6 +49,14 @@
 						"send",
 						"recv"
 					]
+				},
+				"iceServers": {
+					"type": "array",
+					"description": "STUN and TURN servers the client should use while gathering candidates. Absent when the server has none configured.",
+					"items": {
+						"type": "unknown",
+						"description": "One opaque RTCIceServer entry."
+					}
 				}
 			}
 		},

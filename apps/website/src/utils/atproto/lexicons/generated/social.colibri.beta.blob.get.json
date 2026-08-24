@@ -40,6 +40,19 @@
 					"filename": {
 						"type": "string",
 						"description": "Sets the download filename."
+					},
+					"viewer": {
+						"type": "string",
+						"format": "did",
+						"description": "Who the media link was signed for. Set by the AppView on a signed link, alongside exp and sig."
+					},
+					"exp": {
+						"type": "integer",
+						"description": "Unix time in seconds after which the media link stops working."
+					},
+					"sig": {
+						"type": "string",
+						"description": "Signature over did, cid, space, viewer and exp, which lets an img or video element load the blob without a bearer header."
 					}
 				}
 			},

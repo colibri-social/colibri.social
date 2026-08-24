@@ -936,15 +936,15 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 	const toTransportOptions = (
 		frame: TransportOptionsFrame,
 	): types.TransportOptions => {
-		const iceServers = (frame as { iceServers?: unknown }).iceServers;
+		const iceServers = frame.iceServers ?? [];
 
 		return {
 			id: frame.id,
 			iceParameters: frame.iceParameters as unknown as types.IceParameters,
 			iceCandidates: frame.iceCandidates as unknown as types.IceCandidate[],
 			dtlsParameters: frame.dtlsParameters as unknown as types.DtlsParameters,
-			...(Array.isArray(iceServers) && iceServers.length > 0
-				? { iceServers: iceServers as RTCIceServer[] }
+			...(iceServers.length > 0
+				? { iceServers: iceServers as unknown as RTCIceServer[] }
 				: {}),
 		};
 	};

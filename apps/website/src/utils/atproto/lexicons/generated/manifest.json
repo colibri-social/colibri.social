@@ -15,7 +15,7 @@
 		"social.colibri.beta.actor.putSettings": "5258bf3b7a480da9c10a37b1a3e5e0da48f4d8de05ca5544837cf8636e79b9ea",
 		"social.colibri.beta.actor.setStatus": "9e01fbd40acf0069fe4f625bd703bd3f4ce820f42dc9c0cc425a77bac6be7e26",
 		"social.colibri.beta.actor.settings": "7b1a4113231925466016030c5a25b621b73c878deac9b302a2de0f91893adb79",
-		"social.colibri.beta.blob.get": "0bef4e4b1d685b9dc7006fe8a5ced488dd867a3908143728439ea86b578022a1",
+		"social.colibri.beta.blob.get": "3de53bd47f9eb78376542012a21d0aa91e6a4df175fee4e8a21435b92bfec8ca",
 		"social.colibri.beta.category": "55a22fbd510c2ebf0df49df5b1e154d85a6e9031db97cdf885703db46a1ab37d",
 		"social.colibri.beta.category.create": "6a31200852870c4cca629dad3da720f6a30b6655a746554ced4d254781c5553d",
 		"social.colibri.beta.category.delete": "ccb0bbae4cc6a9ba4639da086545ebd09f6654bbd28d1fded0fc4fcfb51a037e",
@@ -105,7 +105,7 @@
 		"social.colibri.beta.role.update": "5aebd8d3e3661baa50d00df14180f2be4249c71724b8a00426ad2cec38e9330a",
 		"social.colibri.beta.server.describeServer": "2a6c7af3e2296999fd206b9eb367b706272730a9e0caaaa95865617762c7a652",
 		"social.colibri.beta.sync.defs": "27854a8d7955dc15575ac482f21e01607fc6bc5eaa64123c2d837b3f9f1886bf",
-		"social.colibri.beta.voice.defs": "3db27c2515bd8b875a798e4de2e0ff670583d81c32e4884c9acd4dd37fb38bb0",
+		"social.colibri.beta.voice.defs": "4e425a0b2e4c7183f80da5e1aeb599f468747eb2add1e0ad4d8e0e4621f586db",
 		"social.colibri.beta.voice.moderate": "1fbbf9be83920c0fa5d4617734010e1ce4f71871947e68be8445c7557ae22ba0"
 	}
 }
