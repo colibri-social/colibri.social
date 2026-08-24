@@ -67,10 +67,9 @@ export type LoggedInUser = Extract<User, { loggedIn: true }> & {
 	refetchCommunities: () => Promise<void>;
 	/**
 	 * Re-reads the profile from the AppView. Needed after writing the profile
-	 * record to the user's own repo, because there is no announce endpoint for it:
-	 * the AppView picks the commit up off Jetstream and refreshes its cache from
-	 * the event. A host running without Jetstream falls back to its cache TTL, so
-	 * this can legitimately return the pre-edit view.
+	 * record to the user's own repo, because there is no announce endpoint for it.
+	 * The AppView reads your own profile straight from your PDS rather than from
+	 * its cache, so this returns the record you just wrote.
 	 */
 	refetchProfile: () => Promise<void>;
 	/** Patches fields in the local actor data without a full refetch. */
@@ -259,6 +258,11 @@ export const UserContextProvider: ParentComponent = (props) => {
 						}
 					};
 
+					const liveProfile = (): ProfileView => {
+						const u = user.latest;
+						return u?.loggedIn ? u : value;
+					};
+
 					const updateProfile = (patch: Partial<ProfileView>) => {
 						const cur = user.latest;
 						if (!cur?.loggedIn) return;
@@ -357,8 +361,34 @@ export const UserContextProvider: ParentComponent = (props) => {
 									return u?.loggedIn ? u.communities : value.communities;
 								},
 								get handle() {
-									const u = user.latest;
-									return u?.loggedIn ? u.handle : value.handle;
+									return liveProfile().handle;
+								},
+								get displayName() {
+									return liveProfile().displayName;
+								},
+								get description() {
+									return liveProfile().description;
+								},
+								get avatar() {
+									return liveProfile().avatar;
+								},
+								get banner() {
+									return liveProfile().banner;
+								},
+								get isBot() {
+									return liveProfile().isBot;
+								},
+								get syncBluesky() {
+									return liveProfile().syncBluesky;
+								},
+								get theme() {
+									return liveProfile().theme;
+								},
+								get preferredBadge() {
+									return liveProfile().preferredBadge;
+								},
+								get presence() {
+									return liveProfile().presence;
 								},
 								refetchCommunities,
 								refetchProfile,

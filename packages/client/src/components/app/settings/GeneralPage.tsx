@@ -85,13 +85,14 @@ export const GeneralPage: Component = () => {
 			? (user.banner ?? undefined)
 			: undefined;
 
-	const initialTheme = JSON.stringify(themeStateToRecord(theme()));
+	const savedTheme = () =>
+		JSON.stringify(themeStateToRecord(themeStateFromTheme(user.theme)));
 
 	const hasEdited = (): boolean =>
 		name() !== displayableNameFn(user) ||
 		description() !== (user.description ?? "") ||
 		syncBluesky() !== (user.syncBluesky ?? false) ||
-		JSON.stringify(themeStateToRecord(theme())) !== initialTheme ||
+		JSON.stringify(themeStateToRecord(theme())) !== savedTheme() ||
 		imageRemoved() ||
 		bannerRemoved() ||
 		image() !== undefined ||
