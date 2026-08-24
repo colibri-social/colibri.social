@@ -25,19 +25,23 @@ export const WelcomeScreen: Component = () => {
 					/>
 					<h3>Welcome to the Spaces Test.</h3>
 					<p>
-						<strong>
-							Stuff will break. Go crazy. Have fun. DM{" "}
-							<a
-								href="https://bsky.app/profile/lou.gg"
-								target="_blank"
-								rel="noreferrer"
-								onClick={(e) =>
-									openExternalLink("https://bsky.app/profile/lou.gg", e)
-								}
-							>
-								@lou.gg
-							</a>{" "}
-							on Bluesky when stuff breaks.
+						Stuff will break. Go crazy. Have fun. DM{" "}
+						<a
+							href="https://bsky.app/profile/lou.gg"
+							target="_blank"
+							rel="noreferrer"
+							onClick={(e) =>
+								openExternalLink("https://bsky.app/profile/lou.gg", e)
+							}
+						>
+							@lou.gg
+						</a>{" "}
+						on Bluesky when stuff breaks.
+					</p>
+					<p>
+						<strong class="text-foreground">
+							Please be advised that this is for testing only. Any communities
+							you create will not be carried over when Spaces become stable.
 						</strong>
 					</p>
 
