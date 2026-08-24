@@ -36,13 +36,10 @@ import {
 	SwitchThumb,
 	Switch as ToggleSwitch,
 } from "../../../components/ui/Switch";
-import { useAuthContext } from "../../../contexts/Auth";
-import { useUserContext } from "../../../contexts/User";
 import {
 	type NoiseSuppressionMode,
 	useUserPreferences,
 	type VoiceInputSettings,
-	type VoiceIOSettings,
 } from "../../../contexts/UserPreferences";
 import { useVoiceChatContext } from "../../../contexts/VoiceChat";
 import { classifyThrown } from "../../../errors/classify";
@@ -58,10 +55,6 @@ import {
 	createSuppressionMonitor,
 	type SuppressionMonitor,
 } from "../../../hooks/createSuppressionMonitor";
-import {
-	createVoiceLoopback,
-	type VoiceLoopback,
-} from "../../../hooks/createVoiceLoopback";
 import {
 	EXPERIMENTAL_DENOISERS_EXPERIMENT,
 	NOISE_MODES,
@@ -105,11 +98,8 @@ type NoiseModeOption = { id: NoiseSuppressionMode; name: string };
 
 export const VoicePage: Component = () => {
 	const userPreferences = useUserPreferences();
-	const auth = useAuthContext();
-	const user = useUserContext();
 	const [voiceData, { toggleMic }] = useVoiceChatContext();
 
-	const [loopback, setLoopback] = createSignal<VoiceLoopback | null>(null);
 	const [audioCtx, setAudioCtx] = createSignal<AudioContext | null>(null);
 	const [testStream, setTestStream] = createSignal<MediaStream | null>(null);
 	const [audioInput, setAudioInput] = createSignal<MediaStreamTrack | null>(
@@ -195,30 +185,6 @@ export const VoicePage: Component = () => {
 			.map((d) => ({ name: d.label, id: d.deviceId }));
 	};
 
-	const startLoopback = (
-		ctx: AudioContext,
-		track: MediaStreamTrack,
-		inputGain: number,
-		outputGain: number,
-	) => {
-		if (!auth?.loggedIn) return;
-
-		const lb = createVoiceLoopback({
-			agent: auth.agent,
-			did: user.did,
-			sourceTrack: track,
-			audioCtx: ctx,
-			outputDeviceId:
-				userPreferences.preferences().voice.output.preferredDeviceId ??
-				undefined,
-		});
-
-		lb.inGain.gain.value = inputGain;
-		lb.setOutputVolume(outputGain);
-
-		setLoopback(lb);
-	};
-
 	const startMonitor = (
 		rawTrack: MediaStreamTrack,
 		processedTrack: MediaStreamTrack,
@@ -247,19 +213,6 @@ export const VoicePage: Component = () => {
 		monitor()?.destroy();
 		setMonitor(null);
 
-		loopback()?.destroy();
-		setLoopback(null);
-
-		userPreferences.setPreferences((current) => ({
-			...current,
-			voice: {
-				...current.voice,
-				output: {
-					...current.voice.output,
-					enabled: true,
-				},
-			},
-		}));
 		audioCtx()?.close();
 		setAudioCtx(null);
 
@@ -290,17 +243,6 @@ export const VoicePage: Component = () => {
 			toggleMic();
 		}
 
-		userPreferences.setPreferences((current) => ({
-			...current,
-			voice: {
-				...current.voice,
-				output: {
-					...current.voice.output,
-					enabled: false,
-				},
-			},
-		}));
-
 		const ctx = new AudioContext({
 			latencyHint: "interactive",
 			sampleRate: 48000,
@@ -322,12 +264,6 @@ export const VoicePage: Component = () => {
 			setAudioInput(ns.outputTrack);
 			setTestStream(stream);
 
-			startLoopback(
-				ctx,
-				ns.outputTrack,
-				input.volume,
-				userPreferences.preferences().voice.output.volume,
-			);
 			startMonitor(rawTrack, ns.outputTrack);
 		} catch (err) {
 			reportMicTestFailure(err, "Couldn't start the microphone test.");
@@ -337,7 +273,6 @@ export const VoicePage: Component = () => {
 
 	const restartTrackIfActive = async (
 		inputOverrides?: Partial<VoiceInputSettings>,
-		outputOverrides?: Partial<VoiceIOSettings>,
 	) => {
 		if (!testStream()) return;
 
@@ -345,16 +280,9 @@ export const VoicePage: Component = () => {
 			...userPreferences.preferences().voice.input,
 			...inputOverrides,
 		};
-		const outputPrefs = {
-			...userPreferences.preferences().voice.output,
-			...outputOverrides,
-		};
 
 		monitor()?.destroy();
 		setMonitor(null);
-
-		loopback()?.destroy();
-		setLoopback(null);
 
 		suppressor()?.destroy();
 		setSuppressor(null);
@@ -363,8 +291,6 @@ export const VoicePage: Component = () => {
 
 		setTestStream(null);
 		setAudioInput(null);
-
-		const ctx = audioCtx()!;
 
 		try {
 			const stream = await openMic(inputPrefs);
@@ -380,7 +306,6 @@ export const VoicePage: Component = () => {
 			setAudioInput(ns.outputTrack);
 			setTestStream(stream);
 
-			startLoopback(ctx, ns.outputTrack, inputPrefs.volume, outputPrefs.volume);
 			startMonitor(rawTrack, ns.outputTrack);
 		} catch (err) {
 			reportMicTestFailure(err, "Couldn't reopen the microphone.");
@@ -450,12 +375,6 @@ export const VoicePage: Component = () => {
 								getValueLabel={(params) => `${params.values[0]}%`}
 								onChange={(e) => {
 									const v = e[0] / 100;
-
-									loopback()?.inGain.gain.setTargetAtTime(
-										v,
-										audioCtx()!.currentTime,
-										0.01,
-									);
 
 									userPreferences.setPreferences((current) => ({
 										...current,
@@ -539,8 +458,6 @@ export const VoicePage: Component = () => {
 								getValueLabel={(params) => `${params.values[0]}%`}
 								onChange={(e) => {
 									const v = e[0] / 100;
-
-									loopback()?.setOutputVolume(v);
 
 									userPreferences.setPreferences((current) => ({
 										...current,

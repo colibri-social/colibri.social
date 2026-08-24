@@ -9,7 +9,7 @@ import {
 	type ParentComponent,
 	useContext,
 } from "solid-js";
-import { createStore } from "solid-js/store";
+import { createStore, reconcile } from "solid-js/store";
 import { toast } from "somoto";
 import { asSpaceRef } from "../atproto/lexicons";
 import { voiceDisabledOn } from "../atproto/server-features";
@@ -167,7 +167,10 @@ export type VoiceChatActions = {
 	toggleDeafen: () => void;
 	setFocusedKey: (key: string | null) => void;
 	setOverlayDismissed: (dismissed: boolean) => void;
-	syncPresence: (communityUri: string, members: Array<PresenceSource>) => void;
+	syncPresence: (
+		communityAuthority: string,
+		members: Array<PresenceSource>,
+	) => void;
 	addPresence: (member: PresenceSource) => void;
 };
 
@@ -181,6 +184,7 @@ const MAX_RECONNECT_ATTEMPTS = 6;
 const STATS_INTERVAL_MS = 3000;
 const STATS_FAST_MS = 400;
 const HEARTBEAT_INTERVAL_MS = 20000;
+const REPLY_TIMEOUT_MS = 15000;
 
 type ChannelRef = ReturnType<typeof asSpaceRef>;
 
@@ -188,6 +192,8 @@ const disconnectReason = (reason: string | undefined): string => {
 	if (reason === "moderator") return "A moderator disconnected you.";
 	if (reason === "superseded") return "You joined this call somewhere else.";
 	if (reason === "channelGone") return "The channel is no longer there.";
+	if (reason === "forbidden")
+		return "You no longer have access to this channel.";
 	return "The server closed your connection.";
 };
 
@@ -252,6 +258,7 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 	let channelRef: ChannelRef | null = null;
 	let sendChain: Promise<void> = Promise.resolve();
 	let pendingVideoTeardown: Promise<void> | null = null;
+	let sessionId = 0;
 	const videoTrackListeners = new Map<VideoSource, () => void>();
 
 	const consumers = new Map<string, types.Consumer>();
@@ -264,6 +271,7 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 		{ did: string; kind: types.MediaKind; source: MediaSource }
 	>();
 	const pendingConsume: string[] = [];
+	const consumersByProducer = new Map<string, string | null>();
 	let pendingReplies: Array<{
 		resolve: (frame: ServerVoiceFrame) => void;
 		reject: (err: unknown) => void;
@@ -301,6 +309,10 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 
 	const failSetup = (err: unknown): void => {
 		if (voiceData.connection.state === ConnectionState.Disconnected) return;
+		if (voiceData.connection.state === ConnectionState.Reconnecting) {
+			dbg("setup failed while reconnecting, letting the retry run", err);
+			return;
+		}
 
 		dbg("✗ setupDevice failed", err);
 
@@ -341,7 +353,28 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 		const run = sendChain.then(
 			() =>
 				new Promise<ServerVoiceFrame>((resolve, reject) => {
-					pendingReplies.push({ resolve, reject });
+					const timer = setTimeout(() => {
+						const at = pendingReplies.indexOf(waiter);
+						if (at !== -1) pendingReplies.splice(at, 1);
+						dbg("✗ no reply", frame.$type);
+						reject(colibriError({ code: "VoiceConnectionLost" }));
+						const uri = voiceData.connection.uri;
+						if (uri && !intentionalClose) {
+							teardownMedia();
+							scheduleReconnect(uri);
+						}
+					}, REPLY_TIMEOUT_MS);
+					const waiter = {
+						resolve: (value: ServerVoiceFrame) => {
+							clearTimeout(timer);
+							resolve(value);
+						},
+						reject: (reason: unknown) => {
+							clearTimeout(timer);
+							reject(reason);
+						},
+					};
+					pendingReplies.push(waiter);
 					send(frame);
 				}),
 		);
@@ -560,8 +593,8 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 			serverDeafened: false,
 		});
 		setVoiceData("activeSpeakers", []);
-		setVoiceData("videoStreams", {});
-		setVoiceData("memberStates", user.did, undefined!);
+		setVoiceData("videoStreams", reconcile({}));
+		setVoiceData("memberStates", reconcile({}));
 		setVoiceData("focusedKey", null);
 	};
 
@@ -616,6 +649,7 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 		audioEls.clear();
 
 		producerOwners.clear();
+		consumersByProducer.clear();
 		pendingConsume.length = 0;
 
 		sendTransport?.close();
@@ -699,81 +733,96 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 			},
 		});
 
-		if (stale()) {
-			dbg("startMic(): session ended while waiting for the microphone");
-			for (const track of stream.getTracks()) track.stop();
-			return;
-		}
-
 		const rawTrack = stream.getAudioTracks()[0];
+		let ns: NoiseSuppressor | null = null;
+		let adopted = false;
 
-		const ns = await createNoiseSuppressor(rawTrack, {
-			desiredMode: input.noiseSuppressionMode,
-			suppressionLevel: input.noiseSuppressionLevel,
-			onFallback: (_from, to) => {
-				userPreferences.setNoiseSuppressionMode(to);
-				toast(
-					`Switched to ${noiseMode(to).label.toLowerCase()} noise suppression`,
-					{
-						description:
-							"The mode you picked couldn't run smoothly on this device.",
-					},
-				);
-			},
-			onSpeaking: (speaking) => {
-				if (speaking === localSpeaking) return;
-				localSpeaking = speaking && voiceData.states.micEnabled;
-				recomputeSpeakers();
-			},
-		});
+		try {
+			if (stale()) {
+				dbg("startMic(): session ended while waiting for the microphone");
+				return;
+			}
 
-		if (stale()) {
-			dbg("startMic(): session ended while building the audio graph");
-			ns.destroy();
-			for (const track of stream.getTracks()) track.stop();
-			return;
+			ns = await createNoiseSuppressor(rawTrack, {
+				desiredMode: input.noiseSuppressionMode,
+				suppressionLevel: input.noiseSuppressionLevel,
+				onFallback: (_from, to) => {
+					userPreferences.setNoiseSuppressionMode(to);
+					toast(
+						`Switched to ${noiseMode(to).label.toLowerCase()} noise suppression`,
+						{
+							description:
+								"The mode you picked couldn't run smoothly on this device.",
+						},
+					);
+				},
+				onSpeaking: (speaking) => {
+					if (speaking === localSpeaking) return;
+					localSpeaking = speaking && voiceData.states.micEnabled;
+					recomputeSpeakers();
+				},
+			});
+
+			if (stale()) {
+				dbg("startMic(): session ended while building the audio graph");
+				return;
+			}
+
+			const producer = await transport.produce({
+				track: ns.outputTrack,
+				appData: { source: "mic" },
+			});
+
+			if (stale()) {
+				dbg("startMic(): session ended before the producer was live");
+				producer.close();
+				return;
+			}
+
+			micStream = stream;
+			suppressor = ns;
+			micProducer = producer;
+			adopted = true;
+
+			const muted = userPreferences.preferences().voice.selfMuted;
+			if (muted) producer.pause();
+
+			setVoiceData("states", "micEnabled", !muted);
+			setupLocalSpeaking(rawTrack);
+			suppressionMonitor = createSuppressionMonitor({
+				rawTrack,
+				processedTrack: ns.outputTrack,
+				isActive: () => voiceData.states.micEnabled,
+				isTunable: () =>
+					noiseMode(suppressor?.getActiveMode() ?? "off").tunable,
+				hintsEnabled: () =>
+					userPreferences.preferences().voice.noiseSuppressionHints,
+				getLevel: () =>
+					userPreferences.preferences().voice.input.noiseSuppressionLevel,
+				setLevel: (level) => userPreferences.setNoiseSuppressionLevel(level),
+				disableHints: () => userPreferences.setNoiseSuppressionHints(false),
+			});
+		} finally {
+			if (!adopted) {
+				ns?.destroy();
+				for (const track of stream.getTracks()) track.stop();
+			}
 		}
-
-		const producer = await transport.produce({
-			track: ns.outputTrack,
-			appData: { source: "mic" },
-		});
-
-		if (stale()) {
-			dbg("startMic(): session ended before the producer was live");
-			producer.close();
-			ns.destroy();
-			for (const track of stream.getTracks()) track.stop();
-			return;
-		}
-
-		micStream = stream;
-		suppressor = ns;
-		micProducer = producer;
-		const muted = userPreferences.preferences().voice.selfMuted;
-
-		if (muted) micProducer.pause();
-
-		setVoiceData("states", "micEnabled", !muted);
-		setupLocalSpeaking(rawTrack);
-		suppressionMonitor = createSuppressionMonitor({
-			rawTrack,
-			processedTrack: ns.outputTrack,
-			isActive: () => voiceData.states.micEnabled,
-			isTunable: () => noiseMode(suppressor?.getActiveMode() ?? "off").tunable,
-			hintsEnabled: () =>
-				userPreferences.preferences().voice.noiseSuppressionHints,
-			getLevel: () =>
-				userPreferences.preferences().voice.input.noiseSuppressionLevel,
-			setLevel: (level) => userPreferences.setNoiseSuppressionLevel(level),
-			disableHints: () => userPreferences.setNoiseSuppressionHints(false),
-		});
 	};
 
 	const consumeProducer = async (producerId: string): Promise<void> => {
 		if (!recvTransport || !device) return;
+		if (consumersByProducer.has(producerId)) {
+			dbg("consumeProducer(): already consuming", { producerId });
+			return;
+		}
+
 		const owner = producerOwners.get(producerId);
 		dbg("consumeProducer()", { producerId, owner });
+
+		const epoch = mediaEpoch;
+		const stale = (): boolean => mediaEpoch !== epoch;
+		consumersByProducer.set(producerId, null);
 
 		let reply: Extract<
 			ServerVoiceFrame,
@@ -788,6 +837,11 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 				"social.colibri.beta.voice.defs#consumerOptions",
 			);
 		} catch (err) {
+			consumersByProducer.delete(producerId);
+			if (stale()) {
+				dbg("consume abandoned, the session ended while it was in flight");
+				return;
+			}
 			dbg("✗ consume rejected", { producerId, err });
 			log.warn("could not receive a participant's stream", {
 				producerId,
@@ -810,12 +864,28 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 			rtpParameters: reply.rtpParameters as unknown as types.RtpParameters,
 		});
 
+		if (stale() || !producerOwners.has(producerId)) {
+			dbg("consume landed after its owner left", { producerId });
+			consumer.close();
+			consumersByProducer.delete(producerId);
+			return;
+		}
+
 		consumers.set(consumer.id, consumer);
+		consumersByProducer.set(producerId, consumer.id);
 
 		try {
 			await sendAndWait(resumeConsumerFrame(consumer.id));
 		} catch (err) {
 			dbg("✗ resumeConsumer failed", { consumerId: consumer.id, err });
+		}
+
+		if (stale()) {
+			dbg("consume resumed after the session ended", { producerId });
+			consumer.close();
+			consumers.delete(consumer.id);
+			consumersByProducer.delete(producerId);
+			return;
 		}
 
 		if (consumer.kind === "audio") {
@@ -842,6 +912,7 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 
 	const removeProducer = (producerId: string): void => {
 		producerOwners.delete(producerId);
+		consumersByProducer.delete(producerId);
 
 		for (const [id, consumer] of consumers) {
 			if (consumer.producerId !== producerId) continue;
@@ -864,12 +935,19 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 
 	const toTransportOptions = (
 		frame: TransportOptionsFrame,
-	): types.TransportOptions => ({
-		id: frame.id,
-		iceParameters: frame.iceParameters as unknown as types.IceParameters,
-		iceCandidates: frame.iceCandidates as unknown as types.IceCandidate[],
-		dtlsParameters: frame.dtlsParameters as unknown as types.DtlsParameters,
-	});
+	): types.TransportOptions => {
+		const iceServers = (frame as { iceServers?: unknown }).iceServers;
+
+		return {
+			id: frame.id,
+			iceParameters: frame.iceParameters as unknown as types.IceParameters,
+			iceCandidates: frame.iceCandidates as unknown as types.IceCandidate[],
+			dtlsParameters: frame.dtlsParameters as unknown as types.DtlsParameters,
+			...(Array.isArray(iceServers) && iceServers.length > 0
+				? { iceServers: iceServers as RTCIceServer[] }
+				: {}),
+		};
+	};
 
 	const wireSendTransport = (transport: types.Transport): void => {
 		transport.on("connect", ({ dtlsParameters }, callback, errback) => {
@@ -1132,14 +1210,20 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 				else log.error("unsolicited voice error", { code: frame.error });
 				break;
 			}
-			case "social.colibri.beta.voice.defs#peerJoined":
+			case "social.colibri.beta.voice.defs#peerJoined": {
 				dbg("peer joined the room", { did: frame.did });
+				const joinedUri = voiceData.connection.uri;
+				if (joinedUri) applyPresence("join", joinedUri, frame.did);
 				break;
-			case "social.colibri.beta.voice.defs#peerLeft":
+			}
+			case "social.colibri.beta.voice.defs#peerLeft": {
+				const leftUri = voiceData.connection.uri;
+				if (leftUri) applyPresence("leave", leftUri, frame.did);
 				for (const [producerId, owner] of [...producerOwners.entries()]) {
 					if (owner.did === frame.did) removeProducer(producerId);
 				}
 				break;
+			}
 			case "social.colibri.beta.voice.defs#producerRemoved": {
 				const owner = producerOwners.get(frame.producerId);
 				removeProducer(frame.producerId);
@@ -1175,8 +1259,9 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 				if (frame.did === user.did) {
 					setVoiceData("states", "serverMuted", serverMuted);
 					setVoiceData("states", "serverDeafened", serverDeafened);
-					if (serverMuted && voiceData.states.micEnabled) setMic(false);
-					if (serverDeafened && !voiceData.states.deafened) setDeafen(true);
+					if (serverMuted && voiceData.states.micEnabled) setMic(false, false);
+					if (serverDeafened && !voiceData.states.deafened)
+						setDeafen(true, false);
 				}
 				break;
 			}
@@ -1286,6 +1371,12 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 	const scheduleReconnect = (channelUri: string): void => {
 		if (reconnectTimer) return;
 		if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
+			log.warn("gave up reconnecting to voice", { channelUri });
+			toast.error("Lost the voice connection", {
+				description:
+					"Colibri couldn't get back into the channel. Try rejoining.",
+			});
+			playSound("leave");
 			applyPresence("leave", channelUri, user.did);
 			teardown();
 			resetState();
@@ -1295,9 +1386,10 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 		setVoiceData("connection", "state", ConnectionState.Reconnecting);
 		setVoiceData("connection", "quality", ConnectionQuality.Lost);
 		setVoiceData("connection", "latency", null);
+		setVoiceData("states", "micEnabled", false);
 		setVoiceData("states", "camEnabled", false);
 		setVoiceData("states", "screenEnabled", false);
-		setVoiceData("videoStreams", {});
+		setVoiceData("videoStreams", reconcile({}));
 		setVoiceData("activeSpeakers", []);
 		const delay = Math.min(1000 * 2 ** (reconnectAttempts - 1), 10000);
 		reconnectTimer = setTimeout(() => {
@@ -1326,30 +1418,8 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 		}
 		if (!auth?.loggedIn) return;
 
-		if (!supportsWebRtc()) {
-			toast.error("Voice isn't available on this system", {
-				description:
-					"This system's web engine was built without WebRTC, so calls can't connect.",
-			});
-			return;
-		}
-
-		if (await voiceDisabledOn(appViewHostFor(meta?.managingApp, "http"))) {
-			log.warn("this appview has voice turned off");
-			toast.error("Voice isn't available here.", {
-				description: "This community's server has no voice server running.",
-			});
-			return;
-		}
-
-		dbg("connect()", {
-			channelUri,
-			managingApp: meta?.managingApp ?? null,
-			appViewHost: appViewHostFor(meta?.managingApp, "ws"),
-		});
-		reconnectAttempts = 0;
-
-		setVoiceData("overlayDismissed", false);
+		sessionId += 1;
+		const session = sessionId;
 		setVoiceData("connection", {
 			state: ConnectionState.Connecting,
 			quality: ConnectionQuality.Unknown,
@@ -1359,6 +1429,41 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 			communityName: meta?.communityName ?? null,
 			managingApp: meta?.managingApp ?? null,
 		});
+
+		const giveUp = (): void => {
+			if (sessionId !== session) return;
+			teardown();
+			resetState();
+		};
+
+		if (!supportsWebRtc()) {
+			toast.error("Voice isn't available on this system", {
+				description:
+					"This system's web engine was built without WebRTC, so calls can't connect.",
+			});
+			giveUp();
+			return;
+		}
+
+		if (await voiceDisabledOn(appViewHostFor(meta?.managingApp, "http"))) {
+			log.warn("this appview has voice turned off");
+			toast.error("Voice isn't available here.", {
+				description: "This community's server has no voice server running.",
+			});
+			giveUp();
+			return;
+		}
+
+		if (sessionId !== session) return;
+
+		dbg("connect()", {
+			channelUri,
+			managingApp: meta?.managingApp ?? null,
+			appViewHost: appViewHostFor(meta?.managingApp, "ws"),
+		});
+		reconnectAttempts = 0;
+
+		setVoiceData("overlayDismissed", false);
 
 		playSound("join");
 
@@ -1378,7 +1483,9 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 		const wait = pendingVideoTeardown;
 		pendingVideoTeardown = null;
 		if (wait) {
+			const session = sessionId;
 			void wait.then(() => {
+				if (sessionId !== session) return;
 				teardown();
 				resetState();
 			});
@@ -1388,14 +1495,14 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 		}
 	};
 
-	const setMic = (enabled: boolean): void => {
+	const setMic = (enabled: boolean, remember = true): void => {
 		if (micProducer) {
 			if (enabled) micProducer.resume();
 			else micProducer.pause();
 		}
 
 		setVoiceData("states", "micEnabled", enabled);
-		userPreferences.setVoiceSelfState({ selfMuted: !enabled });
+		if (remember) userPreferences.setVoiceSelfState({ selfMuted: !enabled });
 
 		if (!enabled && localSpeaking) {
 			localSpeaking = false;
@@ -1405,7 +1512,7 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 		sendSelfState();
 	};
 
-	const setDeafen = (deafened: boolean): void => {
+	const setDeafen = (deafened: boolean, remember = true): void => {
 		for (const consumer of consumers.values()) {
 			if (consumer.kind !== "audio") continue;
 			if (deafened) consumer.pause();
@@ -1413,7 +1520,7 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 		}
 
 		setVoiceData("states", "deafened", deafened);
-		userPreferences.setVoiceSelfState({ selfDeafened: deafened });
+		if (remember) userPreferences.setVoiceSelfState({ selfDeafened: deafened });
 
 		sendSelfState();
 	};
@@ -1473,16 +1580,29 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 
 		if (quality) track.contentHint = screenContentHint(quality);
 
-		const producer = await transport.produce({
-			track,
-			appData: { source: which },
-			...(quality
-				? {
-						encodings: screenEncodings(quality),
-						codecOptions: screenCodecOptions(quality),
-					}
-				: {}),
-		});
+		let producer: types.Producer;
+		try {
+			producer = await transport.produce({
+				track,
+				appData: { source: which },
+				...(quality
+					? {
+							encodings: screenEncodings(quality),
+							codecOptions: screenCodecOptions(quality),
+						}
+					: {}),
+			});
+		} catch (err) {
+			if (voiceData.videoStreams[selfVideoKey(which)]?.stream === preview) {
+				setVoiceData("videoStreams", selfVideoKey(which), undefined!);
+			}
+			setVoiceData(
+				"states",
+				which === "cam" ? "camEnabled" : "screenEnabled",
+				false,
+			);
+			throw err;
+		}
 
 		if (mediaEpoch !== epoch) {
 			dbg("produceVideo(): session ended before the producer was live", {
@@ -1610,7 +1730,11 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 		// right after toggling off cam/screen, disconnect() waits this out
 		// before closing the transport, so it can't abort that renegotiation
 		// mid-flight (a real cause of native WebRTC crashes on close).
-		pendingVideoTeardown = new Promise((resolve) => setTimeout(resolve, 300));
+		const settling = new Promise<void>((resolve) => setTimeout(resolve, 300));
+		pendingVideoTeardown = settling;
+		void settling.then(() => {
+			if (pendingVideoTeardown === settling) pendingVideoTeardown = null;
+		});
 
 		if (which === "cam") {
 			camProducer = null;
@@ -1827,11 +1951,11 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 	};
 
 	const syncPresence = (
-		communityUri: string,
+		communityAuthority: string,
 		sources: Array<PresenceSource>,
 	): void => {
 		const plan = computePresenceSync({
-			communityUri,
+			communityAuthority,
 			members: sources.map(toPresenceMember),
 			presence: voiceData.presence,
 			ownChannel:

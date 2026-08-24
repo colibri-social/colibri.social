@@ -89,7 +89,7 @@ export const Status: Component = () => {
 
 	return (
 		<div class="w-full h-fit flex flex-col">
-			<Show when={voiceData.connection.state === ConnectionState.Connected}>
+			<Show when={voiceData.connection.state !== ConnectionState.Disconnected}>
 				<div class="w-full p-3 border-t border-border flex flex-col gap-2">
 					<div class="flex flex-row items-center gap-2 justify-between">
 						<div class="flex flex-row items-center gap-2 w-[calc(100%-40px)] overflow-hidden">

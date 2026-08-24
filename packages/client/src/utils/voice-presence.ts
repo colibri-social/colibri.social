@@ -32,7 +32,7 @@ export const authorityOf = (uri: string): string | null => {
 };
 
 export const computePresenceSync = (args: {
-	communityUri: string;
+	communityAuthority: string;
 	members: Array<PresenceMember>;
 	presence: Record<string, Array<string>>;
 	ownChannel: string | null;
@@ -40,7 +40,7 @@ export const computePresenceSync = (args: {
 }): PresenceSyncPlan => {
 	const empty: PresenceSyncPlan = { channels: [], states: [] };
 
-	const authority = authorityOf(args.communityUri);
+	const authority = args.communityAuthority;
 	if (!authority) return empty;
 
 	const isLocal = (channel: string) => authorityOf(channel) === authority;

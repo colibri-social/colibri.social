@@ -5,7 +5,7 @@ import {
 	type PresenceMember,
 } from "./voice-presence";
 
-const HOME = "at://did:plc:home/social.colibri.community/self";
+const HOME = "did:plc:home";
 const VC_A = "at://did:plc:home/social.colibri.channel/a";
 const VC_B = "at://did:plc:home/social.colibri.channel/b";
 const OTHER_VC = "at://did:plc:other/social.colibri.channel/a";
@@ -24,10 +24,10 @@ const sync = (args: {
 	members: Array<PresenceMember>;
 	presence?: Record<string, Array<string>>;
 	ownChannel?: string | null;
-	communityUri?: string;
+	communityAuthority?: string;
 }) =>
 	computePresenceSync({
-		communityUri: args.communityUri ?? HOME,
+		communityAuthority: args.communityAuthority ?? HOME,
 		members: args.members,
 		presence: args.presence ?? {},
 		ownChannel: args.ownChannel ?? null,
@@ -186,13 +186,19 @@ describe("computePresenceSync", () => {
 		expect(plan.channels).toEqual([]);
 	});
 
-	it("returns nothing for an unparseable community uri", () => {
+	it("returns nothing without a community authority", () => {
 		const plan = sync({
 			members: [inVoice(ALICE, VC_A)],
-			communityUri: "not-an-at-uri",
+			communityAuthority: "",
 		});
 
 		expect(plan).toEqual({ channels: [], states: [] });
+	});
+
+	it("takes the bare did the community payload carries", () => {
+		const plan = sync({ members: [inVoice(ALICE, VC_A)] });
+
+		expect(planFor(plan, VC_A)?.added).toEqual([ALICE]);
 	});
 
 	it("reconciles several channels at once", () => {
