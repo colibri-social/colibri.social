@@ -1,5 +1,64 @@
 # @colibri-social/client
 
+## 0.5.0
+
+### Minor Changes
+
+- 474cfe6: Rank emoji search by relevance everywhere, so the picker and `:shortcodes:` agree on what you meant
+
+  <!-- whatsnew
+  title: Better emoji search
+  icon: smiley-fill
+  body: Searching the emoji picker now ranks by relevance instead of category order
+  platforms: all
+  kind: feature
+  -->
+
+- 629eb93: Nest indented lists instead of flattening them, keep emoji where you typed them when editing a message, and trim the whitespace a message carries
+
+  <!-- whatsnew
+  title: Lists that nest
+  icon: list-bullets-fill
+  body: Indented list items now render nested, Tab and Shift+Tab move an item in and out a level, and each level numbers on its own.
+  platforms: all
+  kind: feature
+  -->
+
+- d4631e3: Replaces the seven noise-suppression presets with a single RNNoise engine and an independent voice gate. DeepFilterNet and the experimental DTLN, GTCRN and UL-UNAS backends are gone, along with the strength slider, the suppression hints and the model download pipeline. RNNoise now runs in a worklet Colibri owns, so its speech probability drives the speaking indicator instead of a second AudioContext polling the raw track. Capture asks for a mono track and leaves gain control to Colibri, which makes the microphone volume slider affect real calls for the first time.
+
+  <!-- whatsnew
+  title: Noise, be suppressed!
+  icon: waveform-fill
+  body: Noise suppression is now a single switch instead of seven presets, with a separate Voice Gate switch that mutes you between sentences. This concludes the previous experiment.
+  platforms: all
+  kind: feature
+  -->
+
+### Patch Changes
+
+- cf24042: Paste a link over selected text to turn it into a markdown link, refuse to render a link whose label claims a different host than its target, and confirm before opening a link that leaves Colibri
+
+  <!-- whatsnew
+  title: Safer, better links
+  icon: link-fill
+  body: Pasting a link while text is selected now wraps it into a markdown link. A link whose visible text claims one site while pointing at another shows as plain text instead, and opening a link that leaves Colibri asks first and shows the full address. You can turn that confirmation off in Settings > Preferences.
+  platforms: all
+  kind: feature
+  -->
+
+- 474cfe6: Leave code alone in the composer: shortcodes and pasted emoji stay literal, suggestion popups stay closed, list and quote markers stop continuing, and Enter adds a line instead of sending while you write a fenced block
+
+  <!-- whatsnew
+  title: Code blocks stay code
+  icon: code-block-fill
+  body: Shortcodes like :joy: and pasted emoji stay literal inside code, suggestion popups no longer open there, list markers stop continuing, and Enter adds a line instead of sending while you write a fenced block.
+  platforms: all
+  kind: fix
+  -->
+
+- 97661dd: Render typed `:shortcode:` emoji as twemoji images in the composer, matching the emoji picker and the sent message
+- e7c24be: Fixes the member sidebar overlaying chat content.
+
 ## 0.4.0
 
 ### Minor Changes

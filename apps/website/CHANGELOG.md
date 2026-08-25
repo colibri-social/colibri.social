@@ -1,5 +1,48 @@
 # @colibri-social/website
 
+## 0.3.1
+
+### Patch Changes
+
+- 474cfe6: Rank emoji search by relevance everywhere, so the picker and `:shortcodes:` agree on what you meant
+
+  <!-- whatsnew
+  title: Better emoji search
+  icon: smiley-fill
+  body: Searching the emoji picker now ranks by relevance instead of category order
+  platforms: all
+  kind: feature
+  -->
+
+- 629eb93: Nest indented lists instead of flattening them, keep emoji where you typed them when editing a message, and trim the whitespace a message carries
+
+  <!-- whatsnew
+  title: Lists that nest
+  icon: list-bullets-fill
+  body: Indented list items now render nested, Tab and Shift+Tab move an item in and out a level, and each level numbers on its own.
+  platforms: all
+  kind: feature
+  -->
+
+- d4631e3: Replaces the seven noise-suppression presets with a single RNNoise engine and an independent voice gate. DeepFilterNet and the experimental DTLN, GTCRN and UL-UNAS backends are gone, along with the strength slider, the suppression hints and the model download pipeline. RNNoise now runs in a worklet Colibri owns, so its speech probability drives the speaking indicator instead of a second AudioContext polling the raw track. Capture asks for a mono track and leaves gain control to Colibri, which makes the microphone volume slider affect real calls for the first time.
+
+  <!-- whatsnew
+  title: Noise, be suppressed!
+  icon: waveform-fill
+  body: Noise suppression is now a single switch instead of seven presets, with a separate Voice Gate switch that mutes you between sentences. This concludes the previous experiment.
+  platforms: all
+  kind: feature
+  -->
+
+- Updated dependencies [474cfe6]
+- Updated dependencies [cf24042]
+- Updated dependencies [474cfe6]
+- Updated dependencies [629eb93]
+- Updated dependencies [97661dd]
+- Updated dependencies [d4631e3]
+- Updated dependencies [e7c24be]
+  - @colibri-social/client@0.5.0
+
 ## 0.3.0
 
 ### Minor Changes
