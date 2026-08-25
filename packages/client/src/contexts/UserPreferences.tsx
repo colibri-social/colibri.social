@@ -10,11 +10,6 @@ import {
 } from "solid-js";
 import type { BlueskyClientID } from "../atproto/bluesky-alternatives";
 import type { GifItem } from "../atproto/xrpc/social/colibri/embed/gifTypes";
-import {
-	EXPERIMENTAL_DENOISERS_EXPERIMENT,
-	isNoiseSuppressionMode,
-	noiseMode,
-} from "../hooks/noise/modes";
 import { newestVisibleReleaseNoteVersion } from "../release-notes";
 import { DEFAULT_APPVIEW_URL } from "../utils/appview";
 import {
@@ -59,23 +54,9 @@ export interface VoiceIOSettings extends BaseVoiceVideoSettings {
 	volume: number;
 }
 
-export type NoiseSuppressionMode =
-	| "off"
-	| "low"
-	| "medium"
-	| "high"
-	| "exp-dtln"
-	| "exp-gtcrn"
-	| "exp-ulunas";
-
-const LEGACY_NOISE_SUPPRESSION_MODES: Record<string, NoiseSuppressionMode> = {
-	rnnoise: "low",
-	deepfilternet: "medium",
-};
-
 export interface VoiceInputSettings extends VoiceIOSettings {
-	noiseSuppressionMode: NoiseSuppressionMode;
-	noiseSuppressionLevel: number;
+	noiseSuppression: boolean;
+	voiceGate: boolean;
 }
 
 export interface VolumeOverrides {
@@ -118,7 +99,6 @@ export type UserPreferencesContextData = {
 		selfDeafened: boolean;
 		showNonVideoParticipants: boolean;
 		showOwnCamera: boolean;
-		noiseSuppressionHints: boolean;
 	};
 	preferredBlueskyClient: BlueskyClientID;
 	preferredAppView: string;
@@ -149,8 +129,8 @@ const DEFAULT_PREFERENCES: UserPreferencesContextData = {
 			enabled: true,
 			volume: 1,
 			preferredDeviceId: undefined,
-			noiseSuppressionMode: "medium",
-			noiseSuppressionLevel: 80,
+			noiseSuppression: true,
+			voiceGate: false,
 		},
 		output: {
 			enabled: true,
@@ -171,7 +151,6 @@ const DEFAULT_PREFERENCES: UserPreferencesContextData = {
 		selfDeafened: false,
 		showNonVideoParticipants: true,
 		showOwnCamera: true,
-		noiseSuppressionHints: true,
 	},
 	preferredBlueskyClient: "bluesky",
 	preferredAppView: DEFAULT_APPVIEW_URL,
@@ -193,32 +172,33 @@ const DEFAULT_PREFERENCES: UserPreferencesContextData = {
 	},
 };
 
-function resolveNoiseSuppressionMode(
-	parsedInput: Record<string, unknown>,
-	experimentsEnabled: boolean,
-): NoiseSuppressionMode {
-	const fallback = DEFAULT_PREFERENCES.voice.input.noiseSuppressionMode;
+const GATED_LEGACY_MODE = "high";
+
+function resolveNoiseSuppression(parsedInput: Record<string, unknown>): {
+	noiseSuppression: boolean;
+	voiceGate: boolean;
+} {
 	const stored = parsedInput.noiseSuppressionMode;
 
-	let mode: NoiseSuppressionMode;
-	if (isNoiseSuppressionMode(stored)) {
-		mode = stored;
-	} else if (
-		typeof stored === "string" &&
-		stored in LEGACY_NOISE_SUPPRESSION_MODES
-	) {
-		mode = LEGACY_NOISE_SUPPRESSION_MODES[stored];
-	} else if (
-		stored === undefined &&
-		typeof parsedInput.noiseSuppression === "boolean"
-	) {
-		mode = parsedInput.noiseSuppression ? "medium" : "off";
-	} else {
-		mode = fallback;
+	if (typeof stored === "string") {
+		return {
+			noiseSuppression: stored !== "off",
+			voiceGate: stored === GATED_LEGACY_MODE,
+		};
 	}
 
-	if (noiseMode(mode).experimental && !experimentsEnabled) return fallback;
-	return mode;
+	if (typeof parsedInput.noiseSuppression === "boolean") {
+		return {
+			noiseSuppression: parsedInput.noiseSuppression,
+			voiceGate: parsedInput.voiceGate === true,
+		};
+	}
+
+	const defaults = DEFAULT_PREFERENCES.voice.input;
+	return {
+		noiseSuppression: defaults.noiseSuppression,
+		voiceGate: defaults.voiceGate,
+	};
 }
 
 function loadFromStorage(): UserPreferencesContextData {
@@ -240,14 +220,7 @@ function loadFromStorage(): UserPreferencesContextData {
 			volume: parsedInput.volume ?? defaultInput.volume,
 			preferredDeviceId:
 				parsedInput.preferredDeviceId ?? defaultInput.preferredDeviceId,
-			noiseSuppressionMode: resolveNoiseSuppressionMode(
-				parsedInput,
-				parsed.experiments?.[EXPERIMENTAL_DENOISERS_EXPERIMENT] === true,
-			),
-			noiseSuppressionLevel:
-				typeof parsedInput.noiseSuppressionLevel === "number"
-					? parsedInput.noiseSuppressionLevel
-					: defaultInput.noiseSuppressionLevel,
+			...resolveNoiseSuppression(parsedInput),
 		};
 
 		const parsedScreen = parsedVoice.screen ?? {};
@@ -286,8 +259,8 @@ type UserPreferencesContextValue = {
 	setParticipantVolume: (did: string, volume: number) => void;
 	setParticipantScreenVolume: (did: string, volume: number) => void;
 	setScreenShare: (patch: Partial<ScreenShareOptions>) => void;
-	setNoiseSuppressionMode: (mode: NoiseSuppressionMode) => void;
-	setNoiseSuppressionLevel: (level: number) => void;
+	setNoiseSuppression: (enabled: boolean) => void;
+	setVoiceGate: (enabled: boolean) => void;
 	setVoiceView: (patch: {
 		showNonVideoParticipants?: boolean;
 		showOwnCamera?: boolean;
@@ -300,7 +273,6 @@ type UserPreferencesContextValue = {
 	setNotificationDefaultApplied: (applied: boolean) => void;
 	setLastSeenReleaseNote: (version: string | null) => void;
 	setChatGuidelinesAccepted: (accepted: boolean) => void;
-	setNoiseSuppressionHints: (enabled: boolean) => void;
 	setPreferredBlueskyClient: (client: BlueskyClientID) => void;
 	setPreferredAppView: (appView: string) => void;
 	setSharePresence: (enabled: boolean) => void;
@@ -391,24 +363,20 @@ export const UserPreferencesContextProvider: ParentComponent = (props) => {
 		}));
 	};
 
-	const setNoiseSuppressionMode = (mode: NoiseSuppressionMode) => {
+	const setNoiseSuppression = (enabled: boolean) => {
 		setPreferences((p) => ({
 			...p,
 			voice: {
 				...p.voice,
-				input: { ...p.voice.input, noiseSuppressionMode: mode },
+				input: { ...p.voice.input, noiseSuppression: enabled },
 			},
 		}));
 	};
 
-	const setNoiseSuppressionLevel = (level: number) => {
-		const clamped = Math.max(0, Math.min(100, Math.round(level)));
+	const setVoiceGate = (enabled: boolean) => {
 		setPreferences((p) => ({
 			...p,
-			voice: {
-				...p.voice,
-				input: { ...p.voice.input, noiseSuppressionLevel: clamped },
-			},
+			voice: { ...p.voice, input: { ...p.voice.input, voiceGate: enabled } },
 		}));
 	};
 
@@ -455,13 +423,6 @@ export const UserPreferencesContextProvider: ParentComponent = (props) => {
 
 	const setChatGuidelinesAccepted = (accepted: boolean) => {
 		setPreferences((p) => ({ ...p, chatGuidelinesAccepted: accepted }));
-	};
-
-	const setNoiseSuppressionHints = (enabled: boolean) => {
-		setPreferences((p) => ({
-			...p,
-			voice: { ...p.voice, noiseSuppressionHints: enabled },
-		}));
 	};
 
 	const setPreferredBlueskyClient = (client: BlueskyClientID) => {
@@ -553,8 +514,8 @@ export const UserPreferencesContextProvider: ParentComponent = (props) => {
 				setParticipantVolume,
 				setParticipantScreenVolume,
 				setScreenShare,
-				setNoiseSuppressionMode,
-				setNoiseSuppressionLevel,
+				setNoiseSuppression,
+				setVoiceGate,
 				setVoiceView,
 				toggleMembersVisible,
 				setChannelSidebarWidth,
@@ -564,7 +525,6 @@ export const UserPreferencesContextProvider: ParentComponent = (props) => {
 				setNotificationDefaultApplied,
 				setLastSeenReleaseNote,
 				setChatGuidelinesAccepted,
-				setNoiseSuppressionHints,
 				setPreferredBlueskyClient,
 				setPreferredAppView,
 				setSharePresence,

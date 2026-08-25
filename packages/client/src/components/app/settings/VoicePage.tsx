@@ -6,11 +6,8 @@ import {
 	For,
 	Match,
 	onCleanup,
-	onMount,
-	Show,
 	Switch,
 } from "solid-js";
-import { toast } from "somoto";
 import { Button } from "../../../components/ui/Button";
 import {
 	Select,
@@ -39,7 +36,6 @@ import {
 import { useAuthContext } from "../../../contexts/Auth";
 import { useUserContext } from "../../../contexts/User";
 import {
-	type NoiseSuppressionMode,
 	useUserPreferences,
 	type VoiceInputSettings,
 	type VoiceIOSettings,
@@ -47,26 +43,16 @@ import {
 import { useVoiceChatContext } from "../../../contexts/VoiceChat";
 import { classifyThrown } from "../../../errors/classify";
 import { showError } from "../../../errors/show-error";
-import { useExperiment } from "../../../experiments";
 import { createIsSpeaking } from "../../../hooks/createIsSpeaking";
 import {
+	captureConstraints,
 	createNoiseSuppressor,
 	type NoiseSuppressor,
-	preloadNoiseSuppressor,
 } from "../../../hooks/createNoiseSuppressor";
-import {
-	createSuppressionMonitor,
-	type SuppressionMonitor,
-} from "../../../hooks/createSuppressionMonitor";
 import {
 	createVoiceLoopback,
 	type VoiceLoopback,
 } from "../../../hooks/createVoiceLoopback";
-import {
-	EXPERIMENTAL_DENOISERS_EXPERIMENT,
-	NOISE_MODES,
-	noiseMode,
-} from "../../../hooks/noise/modes";
 import { createLogger } from "../../../utils/logger";
 import { isDeviceOutcome } from "../../../utils/voice-device";
 import { SettingsPage } from "../common/SettingsModal";
@@ -101,8 +87,6 @@ const reportMicTestFailure = (err: unknown, fallbackTitle: string): void => {
 
 const MAX = 49;
 
-type NoiseModeOption = { id: NoiseSuppressionMode; name: string };
-
 export const VoicePage: Component = () => {
 	const userPreferences = useUserPreferences();
 	const auth = useAuthContext();
@@ -118,50 +102,11 @@ export const VoicePage: Component = () => {
 	const [suppressor, setSuppressor] = createSignal<NoiseSuppressor | null>(
 		null,
 	);
-	const [monitor, setMonitor] = createSignal<SuppressionMonitor | null>(null);
 	const [wasLiveMicOn, setWasLiveMicOn] = createSignal(false);
-
-	const experimentalDenoisers = useExperiment(
-		EXPERIMENTAL_DENOISERS_EXPERIMENT,
-	);
-
-	const currentMode = () =>
-		noiseMode(userPreferences.preferences().voice.input.noiseSuppressionMode);
-
-	const noiseModeOptions = (): Array<NoiseModeOption> =>
-		NOISE_MODES.filter(
-			(mode) => !mode.experimental || experimentalDenoisers(),
-		).map((mode) => ({ id: mode.id, name: mode.label }));
-
-	onMount(() => {
-		if (currentMode().usesDeepFilterNet) preloadNoiseSuppressor();
-	});
-
-	const handleSuppressorFallback = (
-		_from: NoiseSuppressionMode,
-		to: NoiseSuppressionMode,
-	) => {
-		userPreferences.setNoiseSuppressionMode(to);
-		toast(
-			`Switched to ${noiseMode(to).label.toLowerCase()} noise suppression`,
-			{
-				description:
-					"The mode you picked couldn't run smoothly on this device.",
-			},
-		);
-	};
 
 	const openMic = (input: VoiceInputSettings): Promise<MediaStream> =>
 		navigator.mediaDevices.getUserMedia({
-			audio: {
-				echoCancellation: true,
-				autoGainControl: true,
-				// The suppressor handles noise removal
-				noiseSuppression: false,
-				deviceId: input.preferredDeviceId
-					? { ideal: input.preferredDeviceId }
-					: undefined,
-			},
+			audio: captureConstraints(input.preferredDeviceId),
 		});
 
 	const spectrum = chroma
@@ -219,34 +164,7 @@ export const VoicePage: Component = () => {
 		setLoopback(lb);
 	};
 
-	const startMonitor = (
-		rawTrack: MediaStreamTrack,
-		processedTrack: MediaStreamTrack,
-	) => {
-		setMonitor(
-			createSuppressionMonitor({
-				rawTrack,
-				processedTrack,
-				isActive: () => !!testStream(),
-				isTunable: () =>
-					noiseMode(suppressor()?.getActiveMode() ?? "off").tunable,
-				hintsEnabled: () =>
-					userPreferences.preferences().voice.noiseSuppressionHints,
-				getLevel: () =>
-					userPreferences.preferences().voice.input.noiseSuppressionLevel,
-				setLevel: (level) => {
-					userPreferences.setNoiseSuppressionLevel(level);
-					suppressor()?.setSuppressionLevel(level);
-				},
-				disableHints: () => userPreferences.setNoiseSuppressionHints(false),
-			}),
-		);
-	};
-
 	const cleanup = () => {
-		monitor()?.destroy();
-		setMonitor(null);
-
 		loopback()?.destroy();
 		setLoopback(null);
 
@@ -313,9 +231,8 @@ export const VoicePage: Component = () => {
 			const rawTrack = stream.getAudioTracks()[0];
 
 			const ns = await createNoiseSuppressor(rawTrack, {
-				desiredMode: input.noiseSuppressionMode,
-				suppressionLevel: input.noiseSuppressionLevel,
-				onFallback: handleSuppressorFallback,
+				suppression: input.noiseSuppression,
+				gate: input.voiceGate,
 			});
 			setSuppressor(ns);
 
@@ -328,7 +245,6 @@ export const VoicePage: Component = () => {
 				input.volume,
 				userPreferences.preferences().voice.output.volume,
 			);
-			startMonitor(rawTrack, ns.outputTrack);
 		} catch (err) {
 			reportMicTestFailure(err, "Couldn't start the microphone test.");
 			cleanup();
@@ -350,9 +266,6 @@ export const VoicePage: Component = () => {
 			...outputOverrides,
 		};
 
-		monitor()?.destroy();
-		setMonitor(null);
-
 		loopback()?.destroy();
 		setLoopback(null);
 
@@ -371,9 +284,8 @@ export const VoicePage: Component = () => {
 			const rawTrack = stream.getAudioTracks()[0];
 
 			const ns = await createNoiseSuppressor(rawTrack, {
-				desiredMode: inputPrefs.noiseSuppressionMode,
-				suppressionLevel: inputPrefs.noiseSuppressionLevel,
-				onFallback: handleSuppressorFallback,
+				suppression: inputPrefs.noiseSuppression,
+				gate: inputPrefs.voiceGate,
 			});
 			setSuppressor(ns);
 
@@ -381,7 +293,6 @@ export const VoicePage: Component = () => {
 			setTestStream(stream);
 
 			startLoopback(ctx, ns.outputTrack, inputPrefs.volume, outputPrefs.volume);
-			startMonitor(rawTrack, ns.outputTrack);
 		} catch (err) {
 			reportMicTestFailure(err, "Couldn't reopen the microphone.");
 			cleanup();
@@ -425,6 +336,11 @@ export const VoicePage: Component = () => {
 													},
 												},
 											}));
+											restartTrackIfActive({
+												preferredDeviceId: (
+													props.item.rawValue as unknown as DeviceOption
+												).id,
+											});
 										}}
 									>
 										{(props.item.rawValue as unknown as DeviceOption).name}
@@ -567,84 +483,39 @@ export const VoicePage: Component = () => {
 					</div>
 				</div>
 			</div>
-			<div class="flex flex-col gap-1">
-				<Select
-					options={noiseModeOptions()}
-					optionValue={"id" as any}
-					optionTextValue={"name" as any}
-					value={noiseModeOptions().find(
-						(o) =>
-							o.id ===
-							userPreferences.preferences().voice.input.noiseSuppressionMode,
-					)}
-					disallowEmptySelection={true}
-					itemComponent={(props) => (
-						<SelectItem
-							item={props.item}
-							class="[&>div]:flex [&>div]:gap-2 [&>div]:items-center"
-							onClick={() => {
-								userPreferences.setNoiseSuppressionMode(
-									(props.item.rawValue as unknown as NoiseModeOption).id,
-								);
-								restartTrackIfActive();
-							}}
-						>
-							{(props.item.rawValue as unknown as NoiseModeOption).name}
-						</SelectItem>
-					)}
-				>
-					<SelectLabel>Noise Suppression</SelectLabel>
-					<SelectTrigger class="w-full" aria-label="Noise Suppression">
-						<SelectValue<NoiseModeOption>>
-							{(state) => state.selectedOption()?.name}
-						</SelectValue>
-					</SelectTrigger>
-					<SelectContent class="[&>ul]:m-0 [&>ul]:py-0 [&>ul]:px-2" />
-				</Select>
-				<p class="text-sm text-muted-foreground my-1">
-					{currentMode().description}
-					<Show
-						when={currentMode().usesDeepFilterNet || currentMode().experimental}
-					>
-						{" "}
-						Colibri drops to a lighter mode automatically if this device can't
-						keep up.
-					</Show>
-				</p>
-				<Show when={currentMode().tunable}>
-					<Slider
-						defaultValue={[
-							userPreferences.preferences().voice.input.noiseSuppressionLevel,
-						]}
-						step={1}
-						maxValue={100}
-						getValueLabel={(params) => `${params.values[0]}%`}
-						onChange={(e) => {
-							const v = e[0];
-							userPreferences.setNoiseSuppressionLevel(v);
-							suppressor()?.setSuppressionLevel(v);
-						}}
-					>
-						<SliderGroup>
-							<SliderLabel>Suppression Strength</SliderLabel>
-							<SliderValueLabel />
-						</SliderGroup>
-						<SliderTrack>
-							<SliderFill />
-							<SliderThumb />
-						</SliderTrack>
-					</Slider>
-				</Show>
+			<div class="flex flex-col gap-3">
 				<ToggleSwitch
-					class="flex flex-row items-center justify-between gap-4 mt-1"
-					checked={userPreferences.preferences().voice.noiseSuppressionHints}
-					onChange={(v) => userPreferences.setNoiseSuppressionHints(v)}
+					class="flex flex-row items-center justify-between gap-4"
+					checked={userPreferences.preferences().voice.input.noiseSuppression}
+					onChange={(v) => {
+						userPreferences.setNoiseSuppression(v);
+						suppressor()?.setSuppression(v);
+					}}
 				>
 					<div class="flex flex-col gap-1">
-						<SwitchLabel>Suppression tips</SwitchLabel>
+						<SwitchLabel>Noise Suppression</SwitchLabel>
 						<SwitchDescription class="text-sm text-muted-foreground max-w-120">
-							Occasionally suggest adjusting the strength during calls when your
-							voice gets cut off or background noise comes through.
+							RNNoise removes background noise like fans, hum and keyboards
+							before your microphone is sent.
+						</SwitchDescription>
+					</div>
+					<SwitchControl>
+						<SwitchThumb />
+					</SwitchControl>
+				</ToggleSwitch>
+				<ToggleSwitch
+					class="flex flex-row items-center justify-between gap-4"
+					checked={userPreferences.preferences().voice.input.voiceGate}
+					onChange={(v) => {
+						userPreferences.setVoiceGate(v);
+						suppressor()?.setGate(v);
+					}}
+				>
+					<div class="flex flex-col gap-1">
+						<SwitchLabel>Voice Gate</SwitchLabel>
+						<SwitchDescription class="text-sm text-muted-foreground max-w-120">
+							Mute your microphone entirely between sentences, so silence stays
+							silent.
 						</SwitchDescription>
 					</div>
 					<SwitchControl>

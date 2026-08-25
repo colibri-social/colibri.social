@@ -1,5 +1,5 @@
-# Fetched at dev/build time by scripts/fetch-model-assets.mjs
-files/noise/
+# Built at dev/build time by scripts/build-worklets.mjs
+files/worklets/
 
 # Fetched at dev/build time by scripts/fetch-emoji-assets.mjs
 files/twemoji/
