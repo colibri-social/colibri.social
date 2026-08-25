@@ -54,6 +54,7 @@ import AppLayout from "./layouts/AppLayout";
 import ChannelLayoutWithContext from "./layouts/ChannelLayout";
 import CommunityLayoutWithContext from "./layouts/CommunityLayout";
 import { appShellMounted } from "./utils/app-shell";
+import { installChunkReloadGuard } from "./utils/chunk-reload";
 import { readLastViewedChannel } from "./utils/last-viewed-channel";
 import { createLogger } from "./utils/logger";
 import { isMobileNow, useIsMobile } from "./utils/mobile-pane";
@@ -65,6 +66,7 @@ import { initTitleBar } from "./utils/titlebar";
 initTheme();
 initTitleBar();
 initSessionDebug();
+installChunkReloadGuard();
 
 // Accepted forms of the `:channelType` URL segment: the short form the app
 // builds its own links from, and the full channel space type a shared link

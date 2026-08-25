@@ -167,6 +167,64 @@ describe("reportError", () => {
 		expect(captureException).toHaveBeenCalledTimes(2);
 	});
 
+	it("collapses one AppView outage into a single issue", () => {
+		for (const method of ["a.b.c", "d.e.f", "g.h.i", "j.k.l"]) {
+			reportError(
+				new ColibriError({ code: "UpstreamFailure", status: 502, method }),
+				{ stage: "xrpc" },
+			);
+		}
+
+		expect(captureException).toHaveBeenCalledTimes(1);
+		expect(fingerprints).toEqual([["appview|UpstreamFailure"]]);
+	});
+
+	it("collapses a lexicon the AppView cannot serve at all", () => {
+		for (const method of ["a.b.c", "d.e.f", "g.h.i"]) {
+			reportError(
+				new ColibriError({
+					code: "NotFound",
+					status: 404,
+					method,
+					context: { unknownCode: "XRPCNotSupported" },
+				}),
+				{ stage: "xrpc" },
+			);
+		}
+
+		expect(captureException).toHaveBeenCalledTimes(1);
+		expect(fingerprints).toEqual([["appview|NotFound"]]);
+	});
+
+	it("keeps a rejected request separate from an outage", () => {
+		reportError(
+			new ColibriError({
+				code: "UpstreamFailure",
+				status: 400,
+				method: "social.colibri.beta.community.create",
+				serverMessage: "Handle too long",
+			}),
+			{ stage: "xrpc" },
+		);
+
+		expect(fingerprints).toEqual([
+			["UpstreamFailure|400|social.colibri.beta.community.create|xrpc"],
+		]);
+	});
+
+	it("still separates an ordinary missing record by method", () => {
+		reportError(
+			new ColibriError({ code: "NotFound", status: 404, method: "a.b" }),
+			{ stage: "xrpc" },
+		);
+		reportError(
+			new ColibriError({ code: "NotFound", status: 404, method: "c.d" }),
+			{ stage: "xrpc" },
+		);
+
+		expect(captureException).toHaveBeenCalledTimes(2);
+	});
+
 	it("keeps our own failures separated by method", () => {
 		reportError(new ColibriError({ code: "MalformedResponse", method: "a.b" }));
 		reportError(new ColibriError({ code: "MalformedResponse", method: "c.d" }));

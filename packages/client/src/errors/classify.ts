@@ -166,8 +166,6 @@ export const isRecordNotFound = (err: unknown): boolean => {
 
 const MIN_HTTP_STATUS = 100;
 
-const XRPC_INVALID_RESPONSE_STATUS = 2;
-
 export const statusOf = (err: unknown): number | undefined => {
 	if (isColibriError(err)) return err.status;
 	if (err && typeof err === "object" && "status" in err) {
@@ -319,13 +317,6 @@ export const classifyThrown = (
 	}
 
 	const status = statusOf(err);
-	if (status === XRPC_INVALID_RESPONSE_STATUS) {
-		return new ColibriError({
-			...shared,
-			code: "MalformedResponse",
-			serverMessage: err instanceof Error ? err.message : undefined,
-		});
-	}
 	if (status !== undefined && status >= MIN_HTTP_STATUS) {
 		return new ColibriError({
 			...shared,

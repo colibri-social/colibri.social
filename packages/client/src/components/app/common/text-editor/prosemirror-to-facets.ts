@@ -226,6 +226,49 @@ const isValidDomain = (str: string): boolean =>
 		return str.charAt(i - 1) === "." && i === str.length - tld.length;
 	});
 
+const TRAILING_PUNCTUATION_REGEX = /[.,;:!?'"‘’“”\]}]$/;
+const TRAILING_POSSESSIVE_REGEX = /['’]s$/i;
+const HOSTNAME_REGEX =
+	/^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*$/;
+
+const trimTrailingPunctuation = (
+	uri: string,
+	endUtf16: number,
+): { uri: string; endUtf16: number } => {
+	let trimmed = uri;
+	let end = endUtf16;
+
+	for (;;) {
+		if (TRAILING_POSSESSIVE_REGEX.test(trimmed)) {
+			trimmed = trimmed.slice(0, -2);
+			end -= 2;
+			continue;
+		}
+
+		if (TRAILING_PUNCTUATION_REGEX.test(trimmed)) {
+			trimmed = trimmed.slice(0, -1);
+			end--;
+			continue;
+		}
+
+		if (trimmed.endsWith(")") && !trimmed.includes("(")) {
+			trimmed = trimmed.slice(0, -1);
+			end--;
+			continue;
+		}
+
+		return { uri: trimmed, endUtf16: end };
+	}
+};
+
+const hasParsableHostname = (uri: string): boolean => {
+	try {
+		return HOSTNAME_REGEX.test(new URL(uri).hostname);
+	} catch {
+		return false;
+	}
+};
+
 /**
  * Detects URLs in plain text that aren't already covered by a link facet
  * and adds link facets for them
@@ -254,23 +297,19 @@ const detectMissingLinkFacets = (
 
 	while ((match = re.exec(text))) {
 		let uri = match[2];
-		if (!uri.startsWith("http")) {
+		const isBareDomain = !uri.startsWith("http");
+		if (isBareDomain) {
 			const domain = match.groups?.domain;
 			if (!domain || !isValidDomain(domain)) continue;
 			uri = `https://${uri}`;
 		}
 
 		const startUtf16 = text.indexOf(match[2], match.index);
-		let endUtf16 = startUtf16 + match[2].length;
+		const trimmed = trimTrailingPunctuation(uri, startUtf16 + match[2].length);
+		uri = trimmed.uri;
+		const endUtf16 = trimmed.endUtf16;
 
-		if (/[.,;:!?]$/.test(uri)) {
-			uri = uri.slice(0, -1);
-			endUtf16--;
-		}
-		if (/[)]$/.test(uri) && !uri.includes("(")) {
-			uri = uri.slice(0, -1);
-			endUtf16--;
-		}
+		if (isBareDomain && !hasParsableHostname(uri)) continue;
 
 		const byteStart = textEncoder.encode(text.slice(0, startUtf16)).length;
 		const byteEnd = textEncoder.encode(text.slice(0, endUtf16)).length;

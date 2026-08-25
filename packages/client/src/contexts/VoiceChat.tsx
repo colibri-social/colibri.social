@@ -39,7 +39,7 @@ import {
 } from "../atproto/voice-frames";
 import { classifyThrown } from "../errors/classify";
 import { isAppViewErrorCode } from "../errors/codes";
-import { colibriError } from "../errors/error";
+import { colibriError, isColibriError } from "../errors/error";
 import { showError } from "../errors/show-error";
 import {
 	createNoiseSuppressor,
@@ -54,6 +54,7 @@ import { appViewHostFor, getAppViewServiceRef } from "../utils/appview";
 import { applyAudioSink } from "../utils/audio-sink";
 import { createLogger, isVerboseLogging } from "../utils/logger";
 import { watchPortErrors } from "../utils/port-diagnostics";
+import { createProducerRegistry } from "../utils/producer-registry";
 import {
 	displayMediaRequest,
 	type ScreenShareOptions,
@@ -210,6 +211,9 @@ const disconnectReason = (reason: string | undefined): string => {
 	return "The server closed your connection.";
 };
 
+const isMissingProducer = (err: unknown): boolean =>
+	isColibriError(err) && err.code === "NotFound";
+
 export const VoiceChatContextProvider: ParentComponent = (props) => {
 	const user = useUserContext();
 	const auth = useAuthContext();
@@ -281,11 +285,11 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 		string,
 		{ el: HTMLAudioElement; did: string; channel: keyof VolumeOverrides }
 	>();
-	const producerOwners = new Map<
-		string,
-		{ did: string; kind: types.MediaKind; source: MediaSource }
-	>();
-	const pendingConsume: string[] = [];
+	const producers = createProducerRegistry<{
+		did: string;
+		kind: types.MediaKind;
+		source: MediaSource;
+	}>();
 	const consumersByProducer = new Map<string, string | null>();
 	let pendingReplies: Array<{
 		resolve: (frame: ServerVoiceFrame) => void;
@@ -440,7 +444,7 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 			joinOrder.delete(did);
 			setVoiceData("memberStates", did, undefined!);
 
-			for (const [producerId, owner] of [...producerOwners.entries()]) {
+			for (const [producerId, owner] of producers.entries()) {
 				if (owner.did === did) removeProducer(producerId);
 			}
 		} else {
@@ -574,7 +578,7 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 		const groupOf = new Map<string, string>();
 
 		for (const consumer of consumers.values()) {
-			const owner = producerOwners.get(consumer.producerId);
+			const owner = producers.owner(consumer.producerId);
 			if (owner) groupOf.set(consumer.track.id, syncGroupFor(owner));
 		}
 
@@ -761,9 +765,8 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 		}
 		audioEls.clear();
 
-		producerOwners.clear();
+		producers.clear();
 		consumersByProducer.clear();
-		pendingConsume.length = 0;
 
 		sendTransport?.close();
 		recvTransport?.close();
@@ -934,7 +937,12 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 			return;
 		}
 
-		const owner = producerOwners.get(producerId);
+		const owner = producers.owner(producerId);
+		if (!owner) {
+			dbg("consumeProducer(): the producer already left", { producerId });
+			return;
+		}
+
 		dbg("consumeProducer()", { producerId, owner });
 
 		const epoch = mediaEpoch;
@@ -959,6 +967,13 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 				dbg("consume abandoned, the session ended while it was in flight");
 				return;
 			}
+			if (!producers.has(producerId) || isMissingProducer(err)) {
+				dbg("consume rejected, the producer left mid-negotiation", {
+					producerId,
+				});
+				return;
+			}
+
 			dbg("✗ consume rejected", { producerId, err });
 			log.warn("could not receive a participant's stream", {
 				producerId,
@@ -979,10 +994,10 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 			producerId: reply.producerId,
 			kind: reply.kind as types.MediaKind,
 			rtpParameters: reply.rtpParameters as unknown as types.RtpParameters,
-			...(owner ? { streamId: syncGroupFor(owner) } : {}),
+			streamId: syncGroupFor(owner),
 		});
 
-		if (stale() || !producerOwners.has(producerId)) {
+		if (stale() || !producers.has(producerId)) {
 			dbg("consume landed after its owner left", { producerId });
 			consumer.close();
 			consumersByProducer.delete(producerId);
@@ -1012,14 +1027,14 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 			el.autoplay = true;
 			el.srcObject = new MediaStream([consumer.track]);
 			const channel: keyof VolumeOverrides =
-				owner?.source === "screen" ? "screen" : "voice";
-			applyAudioSettings(el, owner?.did ?? "", channel);
-			audioEls.set(consumer.id, { el, did: owner?.did ?? "", channel });
+				owner.source === "screen" ? "screen" : "voice";
+			applyAudioSettings(el, owner.did, channel);
+			audioEls.set(consumer.id, { el, did: owner.did, channel });
 
 			if (voiceData.states.deafened) consumer.pause();
 
 			el.play().catch(() => {});
-		} else if (owner) {
+		} else {
 			setVoiceData("videoStreams", producerId, {
 				did: owner.did,
 				source: owner.source === "screen" ? "screen" : "cam",
@@ -1029,7 +1044,7 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 	};
 
 	const removeProducer = (producerId: string): void => {
-		producerOwners.delete(producerId);
+		producers.remove(producerId);
 		consumersByProducer.delete(producerId);
 
 		for (const [id, consumer] of consumers) {
@@ -1257,7 +1272,7 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 		startStatsMonitor();
 		startHeartbeat();
 
-		const queued = pendingConsume.splice(0, pendingConsume.length);
+		const queued = producers.drain();
 		for (const producerId of queued) {
 			consumeProducer(producerId).catch((err) =>
 				reportVoiceFailure(err, "consume"),
@@ -1275,7 +1290,7 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 			decodeMediaSource(frame.source) ??
 			(frame.kind === "audio" ? "mic" : "cam");
 
-		producerOwners.set(frame.producerId, {
+		producers.track(frame.producerId, {
 			did: frame.did,
 			kind: frame.kind as types.MediaKind,
 			source,
@@ -1294,7 +1309,7 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 				reportVoiceFailure(err, "consume"),
 			);
 		} else {
-			pendingConsume.push(frame.producerId);
+			producers.queue(frame.producerId);
 		}
 	};
 
@@ -1337,13 +1352,13 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 			case "social.colibri.beta.voice.defs#peerLeft": {
 				const leftUri = voiceData.connection.uri;
 				if (leftUri) applyPresence("leave", leftUri, frame.did);
-				for (const [producerId, owner] of [...producerOwners.entries()]) {
+				for (const [producerId, owner] of producers.entries()) {
 					if (owner.did === frame.did) removeProducer(producerId);
 				}
 				break;
 			}
 			case "social.colibri.beta.voice.defs#producerRemoved": {
-				const owner = producerOwners.get(frame.producerId);
+				const owner = producers.owner(frame.producerId);
 				removeProducer(frame.producerId);
 				if (
 					owner?.kind === "video" &&
@@ -2140,7 +2155,11 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 		on(
 			() => userPreferences.preferences().voice.input.noiseSuppressionMode,
 			(mode) => {
-				void suppressor?.setMode(mode);
+				void suppressor?.setModeOrFallback(mode).catch((err) => {
+					log.warn("noise suppression mode could not be applied", {
+						code: classifyThrown(err).code,
+					});
+				});
 			},
 			{ defer: true },
 		),

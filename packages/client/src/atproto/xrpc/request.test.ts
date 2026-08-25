@@ -152,12 +152,100 @@ describe("call", () => {
 		if (!res.ok) expect(res.error.code).toBe("MalformedResponse");
 	});
 
+	it("blames the network when the connection drops mid-body", async () => {
+		const client = clientThat(
+			async () =>
+				new Response(
+					new ReadableStream({
+						start(controller) {
+							controller.error(new TypeError("Failed to fetch"));
+						},
+					}),
+					{ status: 200, headers: { "content-type": "application/json" } },
+				),
+		);
+		const res = await call(client, colibri.channel.putReadCursors.main, {
+			body: { community: "did:plc:community", cursors: [] },
+		});
+
+		expect(res.ok).toBe(false);
+		if (!res.ok) {
+			expect(res.error.code).toBe("NetworkFailed");
+			expect(res.error.domain).toBe("transport");
+		}
+	});
+
 	it("fails a body that does not match the output schema", async () => {
 		const client = respondWith(200, JSON.stringify({ statuses: "nope" }));
 		const res = await call(client, method, params);
 
 		expect(res.ok).toBe(false);
 		if (!res.ok) expect(res.error.code).toBe("MalformedResponse");
+	});
+
+	describe("when the server rejects a replayed DPoP proof", () => {
+		const replayThenSucceeds = (replays: number) => {
+			let calls = 0;
+			const client = clientThat(async () => {
+				calls += 1;
+				return calls <= replays
+					? new Response(
+							envelope("invalid_dpop_proof", "DPoP proof replayed"),
+							{
+								status: 401,
+								headers: { "content-type": "application/json" },
+							},
+						)
+					: new Response(JSON.stringify({ statuses: [] }), {
+							status: 200,
+							headers: { "content-type": "application/json" },
+						});
+			});
+			return { client, attempts: () => calls };
+		};
+
+		it("tries again with a fresh proof and succeeds", async () => {
+			const { client, attempts } = replayThenSucceeds(1);
+			const res = await call(client, method, params);
+
+			expect(res.ok).toBe(true);
+			expect(attempts()).toBe(2);
+			expect(reportError).not.toHaveBeenCalled();
+		});
+
+		it("retries a write the server never got to run", async () => {
+			const { client, attempts } = replayThenSucceeds(1);
+			const res = await call(client, colibri.channel.putReadCursors.main, {
+				body: { community: "did:plc:community", cursors: [] },
+			});
+
+			expect(res.ok).toBe(true);
+			expect(attempts()).toBe(2);
+		});
+
+		it("gives up after a single extra attempt", async () => {
+			const { client, attempts } = replayThenSucceeds(99);
+			const res = await call(client, method, params);
+
+			expect(res.ok).toBe(false);
+			expect(attempts()).toBe(2);
+			if (!res.ok) expect(res.error.code).toBe("AuthRequired");
+		});
+
+		it("leaves an ordinary rejection on the first attempt", async () => {
+			let calls = 0;
+			const client = clientThat(async () => {
+				calls += 1;
+				return new Response(envelope("invalid_token", "token is not valid"), {
+					status: 401,
+					headers: { "content-type": "application/json" },
+				});
+			});
+			const res = await call(client, method, params);
+
+			expect(res.ok).toBe(false);
+			expect(calls).toBe(1);
+		});
 	});
 
 	describe("when the caller aborted the request", () => {

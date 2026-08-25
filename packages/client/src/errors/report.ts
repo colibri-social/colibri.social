@@ -34,9 +34,16 @@ interface Seen {
 
 const seen = new Map<string, Seen>();
 
+const XRPC_NOT_SUPPORTED = "XRPCNotSupported";
+
+const isAppViewOutage = (err: ColibriError): boolean =>
+	(err.code === "UpstreamFailure" && (err.status ?? 0) >= 500) ||
+	(err.code === "NotFound" && err.context.unknownCode === XRPC_NOT_SUPPORTED);
+
 const fingerprintOf = (err: ColibriError, options: ReportOptions): string => {
 	if (options.fingerprint) return options.fingerprint;
 	if (err.domain === "transport") return `transport|${err.code}`;
+	if (isAppViewOutage(err)) return `appview|${err.code}`;
 	return [
 		err.code,
 		err.status ?? "",

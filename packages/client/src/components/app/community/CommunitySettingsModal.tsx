@@ -859,10 +859,10 @@ const JoinRequestApprovals: Component = () => {
 					<p class="text-muted-foreground m-0">No pending join requests.</p>
 				</Match>
 				<Match when={pendingMembers().length > 0}>
-					<Table class="h-full">
+					<Table class="h-full table-fixed">
 						<TableHeader>
 							<TableRow>
-								<TableHead class="w-[350px]">User</TableHead>
+								<TableHead class="w-[min(350px,60%)]">User</TableHead>
 								<TableHead class="text-right">Actions</TableHead>
 							</TableRow>
 						</TableHeader>
@@ -911,10 +911,10 @@ const JoinRequestApprovals: Component = () => {
 				<p class="m-0 text-muted-foreground text-sm">
 					These applications are hidden from the active queue.
 				</p>
-				<Table class="h-full">
+				<Table class="h-full table-fixed">
 					<TableHeader>
 						<TableRow>
-							<TableHead class="w-[350px]">User</TableHead>
+							<TableHead class="w-[min(350px,60%)]">User</TableHead>
 							<TableHead class="text-right">Actions</TableHead>
 						</TableRow>
 					</TableHeader>
@@ -1026,10 +1026,10 @@ const MembersPage: Component = () => {
 			loading={() => false}
 			title={`Members${members().length > 0 ? ` — ${members().length}` : ""}`}
 		>
-			<Table class="h-full">
+			<Table class="h-full table-fixed">
 				<TableHeader>
 					<TableRow>
-						<TableHead class="w-[350px]">User</TableHead>
+						<TableHead class="w-[min(350px,60%)]">User</TableHead>
 						<TableHead class="text-right">Actions</TableHead>
 					</TableRow>
 				</TableHeader>
@@ -1449,10 +1449,10 @@ const BannedMembersPage: Component = () => {
 				</Match>
 				<Match when={bannedMembers()}>
 					{(members) => (
-						<Table class="h-full">
+						<Table class="h-full table-fixed">
 							<TableHeader>
 								<TableRow>
-									<TableHead class="w-[350px]">User</TableHead>
+									<TableHead class="w-[min(350px,60%)]">User</TableHead>
 									<TableHead class="text-right">Actions</TableHead>
 								</TableRow>
 							</TableHeader>

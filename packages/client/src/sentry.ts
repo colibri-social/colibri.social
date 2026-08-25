@@ -40,6 +40,8 @@ const IGNORED_MESSAGES = [
 	"Non-Error promise rejection captured",
 	"The play() request was interrupted",
 	"AbortError: The operation was aborted",
+	"dynamically imported module",
+	"Importing a module script failed",
 ];
 
 const NOISY_BREADCRUMB_CATEGORIES = ["voice/debug", "ui.click"];

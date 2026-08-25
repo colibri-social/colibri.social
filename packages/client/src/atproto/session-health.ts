@@ -1,5 +1,5 @@
 import { createSignal } from "solid-js";
-import { classifyThrown } from "../errors/classify";
+import { classifyThrown, readEnvelope } from "../errors/classify";
 import { type ColibriErrorCode, needsReauthentication } from "../errors/codes";
 import { ColibriError } from "../errors/error";
 import { reportError } from "../errors/report";
@@ -93,15 +93,38 @@ export const noteSessionDeleted = (cause: unknown): void => {
 
 const MINT_LXM = "com.atproto.server.getServiceAuth";
 
+const DPOP_PROOF_CODES = new Set(["invalid_dpop_proof", "use_dpop_nonce"]);
+
+const dpopCodeFromChallenge = (res: Response): string | undefined => {
+	const challenge = res.headers.get("www-authenticate");
+	if (!challenge?.startsWith("DPoP")) return undefined;
+	return /error="([^"]+)"/.exec(challenge)?.[1];
+};
+
+const dpopCodeFromBody = async (res: Response): Promise<string | undefined> => {
+	try {
+		return readEnvelope(await res.clone().text()).code;
+	} catch {
+		return undefined;
+	}
+};
+
+const isProofFailure = async (res: Response): Promise<boolean> => {
+	const code = dpopCodeFromChallenge(res) ?? (await dpopCodeFromBody(res));
+	return code !== undefined && DPOP_PROOF_CODES.has(code);
+};
+
 export const observeSession = (
 	url: string,
 	pending: Promise<Response>,
 ): Promise<Response> =>
 	pending.then(
-		(res) => {
+		async (res) => {
 			if (res.ok) noteAuthSuccess();
 			else if (res.status === 401 && !url.includes(MINT_LXM)) {
-				noteAuthFailure("AuthRequired", { status: res.status });
+				if (!(await isProofFailure(res))) {
+					noteAuthFailure("AuthRequired", { status: res.status });
+				}
 			}
 			return res;
 		},

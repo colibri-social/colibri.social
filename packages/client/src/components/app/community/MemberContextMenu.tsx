@@ -1,4 +1,5 @@
 import {
+	type Component,
 	createEffect,
 	createMemo,
 	createSignal,
@@ -273,6 +274,21 @@ const MemberMenu: ParentComponent<{
 		</Checkbox>
 	);
 
+	const MemberLabel: Component<{ prefix: string; suffix?: string }> = (p) => (
+		<span class="flex min-w-0 flex-1 flex-row items-center gap-1">
+			<span class="shrink-0">{p.prefix}</span>
+			<DisplayableName
+				className="min-w-0"
+				color={false}
+				user={profile()}
+				nickname={props.member.nickname}
+			/>
+			<Show when={p.suffix}>
+				<span class="shrink-0">{p.suffix}</span>
+			</Show>
+		</span>
+	);
+
 	const copyDid = () => {
 		navigator.clipboard.writeText(props.member.did);
 		toast.success(
@@ -505,14 +521,7 @@ const MemberMenu: ParentComponent<{
 									}
 								>
 									<UserMinusIcon />
-									<span>
-										Kick{" "}
-										<DisplayableName
-											color={false}
-											user={profile()}
-											nickname={props.member.nickname}
-										/>
-									</span>
+									<MemberLabel prefix="Kick" />
 								</MenuDrawerItem>
 							</Show>
 							<Show when={canBanMember(user.did)}>
@@ -526,14 +535,7 @@ const MemberMenu: ParentComponent<{
 									}
 								>
 									<ProhibitIcon />
-									<span>
-										Ban{" "}
-										<DisplayableName
-											color={false}
-											user={profile()}
-											nickname={props.member.nickname}
-										/>
-									</span>
+									<MemberLabel prefix="Ban" />
 								</MenuDrawerItem>
 							</Show>
 						</Show>
@@ -554,14 +556,9 @@ const MemberMenu: ParentComponent<{
 								) : (
 									<MicrophoneSlashIcon />
 								)}
-								<span>
-									{targetServerMuted() ? "Server unmute" : "Server mute"}{" "}
-									<DisplayableName
-										color={false}
-										user={profile()}
-										nickname={props.member.nickname}
-									/>
-								</span>
+								<MemberLabel
+									prefix={targetServerMuted() ? "Server unmute" : "Server mute"}
+								/>
 							</MenuDrawerItem>
 							<MenuDrawerItem
 								onClick={() =>
@@ -579,14 +576,11 @@ const MemberMenu: ParentComponent<{
 								) : (
 									<SpeakerSlashIcon />
 								)}
-								<span>
-									{targetServerDeafened() ? "Server undeafen" : "Server deafen"}{" "}
-									<DisplayableName
-										color={false}
-										user={profile()}
-										nickname={props.member.nickname}
-									/>
-								</span>
+								<MemberLabel
+									prefix={
+										targetServerDeafened() ? "Server undeafen" : "Server deafen"
+									}
+								/>
 							</MenuDrawerItem>
 							<MenuDrawerItem
 								destructive
@@ -598,15 +592,7 @@ const MemberMenu: ParentComponent<{
 								}
 							>
 								<PhoneSlashIcon />
-								<span>
-									Disconnect{" "}
-									<DisplayableName
-										color={false}
-										user={profile()}
-										nickname={props.member.nickname}
-									/>{" "}
-									from voice
-								</span>
+								<MemberLabel prefix="Disconnect" suffix="from voice" />
 							</MenuDrawerItem>
 						</Show>
 						<MenuDrawerItem
@@ -623,14 +609,15 @@ const MemberMenu: ParentComponent<{
 						open={rolesOpen()}
 						onOpenChange={setRolesOpen}
 						title={
-							<>
-								Roles for{" "}
+							<span class="flex min-w-0 flex-row items-center gap-1">
+								<span class="shrink-0">Roles for</span>
 								<DisplayableName
+									className="min-w-0"
 									color={false}
 									user={profile()}
 									nickname={props.member.nickname}
 								/>
-							</>
+							</span>
 						}
 					>
 						<For each={sortedRoles()}>
@@ -648,12 +635,12 @@ const MemberMenu: ParentComponent<{
 											class="disabled:opacity-50"
 											onClick={() => manageable() && toggleRole(role.rkey)}
 										>
-											<CheckboxLabel class="flex flex-row items-center gap-2 text-base">
+											<CheckboxLabel class="flex min-w-0 flex-row items-center gap-2 text-base">
 												<div
 													class="w-2.5 h-2.5 rounded-full shrink-0"
 													style={{ background: role.color ?? "#fff" }}
 												/>
-												{role.name}
+												<span class="truncate">{role.name}</span>
 											</CheckboxLabel>
 											<CheckboxControl class="ml-auto [&_svg]:size-3.5!" />
 										</MenuDrawerItem>
@@ -812,14 +799,14 @@ const MemberMenu: ParentComponent<{
 																	toggleRole(role.rkey);
 																}}
 															>
-																<CheckboxLabel class="flex flex-row items-center gap-2">
+																<CheckboxLabel class="flex min-w-0 flex-row items-center gap-2">
 																	<div
-																		class="w-2 h-2 rounded-full"
+																		class="w-2 h-2 rounded-full shrink-0"
 																		style={{
 																			background: `${role.color ?? "#fff"}`,
 																		}}
 																	/>
-																	{role.name}
+																	<span class="truncate">{role.name}</span>
 																</CheckboxLabel>
 																<CheckboxControl />
 															</ContextMenuItem>
@@ -846,14 +833,7 @@ const MemberMenu: ParentComponent<{
 										onClick={() => setDialog({ open: true, type: "kick" })}
 									>
 										<UserMinusIcon class="text-destructive" />
-										<span>
-											Kick{" "}
-											<DisplayableName
-												color={false}
-												user={profile()}
-												nickname={props.member.nickname}
-											/>
-										</span>
+										<MemberLabel prefix="Kick" />
 									</ContextMenuItem>
 								</Show>
 								<Show when={canBanMember(user.did)}>
@@ -862,14 +842,7 @@ const MemberMenu: ParentComponent<{
 										onClick={() => setDialog({ open: true, type: "ban" })}
 									>
 										<ProhibitIcon class="text-destructive" />
-										<span>
-											Ban{" "}
-											<DisplayableName
-												color={false}
-												user={profile()}
-												nickname={props.member.nickname}
-											/>
-										</span>
+										<MemberLabel prefix="Ban" />
 									</ContextMenuItem>
 								</Show>
 							</Show>
@@ -885,14 +858,11 @@ const MemberMenu: ParentComponent<{
 									) : (
 										<MicrophoneSlashIcon />
 									)}
-									<span>
-										{targetServerMuted() ? "Server unmute" : "Server mute"}{" "}
-										<DisplayableName
-											color={false}
-											user={profile()}
-											nickname={props.member.nickname}
-										/>
-									</span>
+									<MemberLabel
+										prefix={
+											targetServerMuted() ? "Server unmute" : "Server mute"
+										}
+									/>
 								</ContextMenuItem>
 								<ContextMenuItem
 									onClick={() =>
@@ -906,31 +876,20 @@ const MemberMenu: ParentComponent<{
 									) : (
 										<SpeakerSlashIcon />
 									)}
-									<span>
-										{targetServerDeafened()
-											? "Server undeafen"
-											: "Server deafen"}{" "}
-										<DisplayableName
-											color={false}
-											user={profile()}
-											nickname={props.member.nickname}
-										/>
-									</span>
+									<MemberLabel
+										prefix={
+											targetServerDeafened()
+												? "Server undeafen"
+												: "Server deafen"
+										}
+									/>
 								</ContextMenuItem>
 								<ContextMenuItem
 									class="text-destructive!"
 									onClick={() => moderateVoice("disconnect")}
 								>
 									<PhoneSlashIcon class="text-destructive" />
-									<span>
-										Disconnect{" "}
-										<DisplayableName
-											color={false}
-											user={profile()}
-											nickname={props.member.nickname}
-										/>{" "}
-										from voice
-									</span>
+									<MemberLabel prefix="Disconnect" suffix="from voice" />
 								</ContextMenuItem>
 							</Show>
 							<Show

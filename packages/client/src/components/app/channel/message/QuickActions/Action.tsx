@@ -22,7 +22,7 @@ export const Action: ParentComponent<{
 					type="button"
 					onClick={props.onClick}
 					class={cx(
-						"w-8 h-8 cursor-pointer flex items-center justify-center hover:bg-muted",
+						"w-8 h-8 cursor-pointer flex items-center justify-center hover:bg-muted mt-0.5",
 						props.buttonClasses,
 					)}
 				>

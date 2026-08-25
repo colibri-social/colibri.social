@@ -152,6 +152,80 @@ describe("observeSession", () => {
 		expect(sessionDead()).toBe(true);
 	});
 
+	it("does not blame the session for a replayed DPoP proof", async () => {
+		const { observeSession, sessionDead } = await load();
+		const replayed = () =>
+			observeSession(
+				"/xrpc/social.colibri.beta.actor.getProfile",
+				Promise.resolve(
+					new Response(
+						JSON.stringify({
+							error: "invalid_dpop_proof",
+							message: "DPoP proof replayed",
+						}),
+						{ status: 401, headers: { "content-type": "application/json" } },
+					),
+				),
+			);
+		for (let i = 0; i < 5; i += 1) expect((await replayed()).status).toBe(401);
+		expect(sessionDead()).toBe(false);
+	});
+
+	it("reads the proof failure off the challenge header too", async () => {
+		const { observeSession, sessionDead } = await load();
+		const challenged = () =>
+			observeSession(
+				"/xrpc/social.colibri.beta.actor.getProfile",
+				Promise.resolve(
+					new Response("", {
+						status: 401,
+						headers: {
+							"www-authenticate":
+								'DPoP error="use_dpop_nonce", error_description="nonce required"',
+						},
+					}),
+				),
+			);
+		for (let i = 0; i < 5; i += 1) await challenged();
+		expect(sessionDead()).toBe(false);
+	});
+
+	it("leaves the body readable for the caller", async () => {
+		const { observeSession } = await load();
+		const res = await observeSession(
+			"/xrpc/social.colibri.beta.actor.getProfile",
+			Promise.resolve(
+				new Response(JSON.stringify({ error: "invalid_dpop_proof" }), {
+					status: 401,
+					headers: { "content-type": "application/json" },
+				}),
+			),
+		);
+		expect(await res.json()).toEqual({ error: "invalid_dpop_proof" });
+	});
+
+	it("still ends the session when the token itself is rejected", async () => {
+		const { observeSession, sessionDead } = await load();
+		const rejected = () =>
+			observeSession(
+				"/xrpc/social.colibri.beta.actor.getProfile",
+				Promise.resolve(
+					new Response(
+						JSON.stringify({
+							error: "invalid_token",
+							message: "token is not valid",
+						}),
+						{ status: 401, headers: { "content-type": "application/json" } },
+					),
+				),
+			);
+		await rejected();
+		await rejected();
+		expect(sessionDead()).toBe(false);
+		await rejected();
+		expect(sessionDead()).toBe(true);
+	});
+
 	it("does not blame the session for a refused service-auth mint", async () => {
 		const { observeSession, sessionDead } = await load();
 		const refused = () =>

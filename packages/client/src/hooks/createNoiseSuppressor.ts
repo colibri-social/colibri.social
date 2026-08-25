@@ -17,6 +17,7 @@ import {
 	DFN_SAMPLE_RATE,
 	deviceLikelyTooWeakForDfn,
 	dfnParamsFor,
+	dfnWasmUsable,
 } from "./noise/dfn";
 import { createVoiceGateNode } from "./noise/gate-worklet";
 import { createModelHost, type ModelHost } from "./noise/model-host";
@@ -53,6 +54,7 @@ interface AudioRenderCapacity {
 export interface NoiseSuppressor {
 	readonly outputTrack: MediaStreamTrack;
 	setMode(mode: NoiseSuppressionMode): Promise<void>;
+	setModeOrFallback(mode: NoiseSuppressionMode): Promise<void>;
 	setSuppressionLevel(level: number): void;
 	getActiveMode(): NoiseSuppressionMode;
 	destroy(): void;
@@ -106,6 +108,7 @@ export async function createNoiseSuppressor(
 
 	let dfnCore: DeepFilterNet3Core | null = null;
 	let dfnPromise: Promise<AudioWorkletNode> | null = null;
+	let dfnBlocked = false;
 	let highPassNode: BiquadFilterNode | null = null;
 	let gateNode: AudioWorkletNode | null = null;
 
@@ -134,11 +137,7 @@ export async function createNoiseSuppressor(
 
 		if (overBudgetStreak >= WATCHDOG_STREAK) {
 			stopWatchdog();
-			const from = activeMode ?? options.desiredMode;
-			const to = fallbackFrom(from);
-			void setMode(to).then(() => {
-				options.onFallback?.(from, to);
-			});
+			void demoteFrom(activeMode ?? options.desiredMode);
 		}
 	};
 
@@ -192,6 +191,7 @@ export async function createNoiseSuppressor(
 		})().catch((err) => {
 			log.warn("DeepFilterNet unavailable", { code: classifyThrown(err).code });
 			dfnPromise = null;
+			dfnBlocked = true;
 			throw err;
 		});
 		return dfnPromise;
@@ -206,10 +206,7 @@ export async function createNoiseSuppressor(
 
 	const onModelFailure = (mode: NoiseSuppressionMode): void => {
 		if (activeMode !== mode) return;
-		const to = fallbackFrom(mode);
-		void setMode(to).then(() => {
-			options.onFallback?.(mode, to);
-		});
+		void demoteFrom(mode);
 	};
 
 	const buildModelHost = (mode: NoiseSuppressionMode): Promise<ModelHost> => {
@@ -287,6 +284,41 @@ export async function createNoiseSuppressor(
 		else stopWatchdog();
 	};
 
+	const unavailable = (mode: NoiseSuppressionMode): boolean =>
+		noiseMode(mode).usesDeepFilterNet && (dfnBlocked || !dfnWasmUsable());
+
+	const demoteFrom = async (from: NoiseSuppressionMode): Promise<void> => {
+		let to = fallbackFrom(from, unavailable);
+
+		for (;;) {
+			try {
+				await setMode(to);
+				break;
+			} catch {
+				if (to === "off") break;
+				to = fallbackFrom(to, unavailable);
+			}
+		}
+
+		if (destroyed) return;
+		options.onFallback?.(from, to);
+	};
+
+	const setModeOrFallback = async (
+		mode: NoiseSuppressionMode,
+	): Promise<void> => {
+		if (unavailable(mode)) {
+			await demoteFrom(mode);
+			return;
+		}
+
+		try {
+			await setMode(mode);
+		} catch {
+			await demoteFrom(mode);
+		}
+	};
+
 	const startAt = async (mode: NoiseSuppressionMode): Promise<void> => {
 		const heavy = mode !== "off" && mode !== "low";
 
@@ -302,12 +334,7 @@ export async function createNoiseSuppressor(
 			return;
 		}
 
-		void setMode(mode).catch(() => {
-			const to = fallbackFrom(mode);
-			void setMode(to).then(() => {
-				options.onFallback?.(mode, to);
-			});
-		});
+		void setModeOrFallback(mode);
 	};
 
 	await startAt(options.desiredMode);
@@ -315,6 +342,7 @@ export async function createNoiseSuppressor(
 	return {
 		outputTrack: destination.stream.getAudioTracks()[0],
 		setMode,
+		setModeOrFallback,
 		setSuppressionLevel: (level) => {
 			if (destroyed) return;
 			currentLevel = clampLevel(level);

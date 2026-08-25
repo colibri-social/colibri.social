@@ -1,8 +1,16 @@
+import type { ColibriErrorCode } from "../errors/codes";
 import { colibri } from "./lexicons";
 import type { LinkEmbed } from "./views";
 import type { ColibriClient } from "./xrpc";
 
 const NEGATIVE_TTL_MS = 30_000;
+
+const UNFURL_OUTCOMES: ReadonlyArray<ColibriErrorCode> = [
+	"NotFetchable",
+	"UpstreamFailure",
+	"NotFound",
+	"InvalidRequest",
+];
 
 const resolved = new Map<string, LinkEmbed>();
 const negativeUntil = new Map<string, number>();
@@ -40,7 +48,11 @@ export const getMetadataDeduped = (
 	if (existing) return existing;
 
 	const promise = xrpc
-		.call(colibri.embed.getMetadata.main, { params: { uri } })
+		.call(
+			colibri.embed.getMetadata.main,
+			{ params: { uri } },
+			{ expected: UNFURL_OUTCOMES },
+		)
 		.then((result) => {
 			if (!result.ok || result.data?.embed === undefined) {
 				negativeUntil.set(uri, Date.now() + NEGATIVE_TTL_MS);

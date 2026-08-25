@@ -262,22 +262,11 @@ describe("classifyThrown", () => {
 		expect(classifyThrown(wrapped).code).toBe("ExpiredToken");
 	});
 
-	it("names a reply that failed the lexicon check", () => {
+	it.each([
+		1, 2,
+	])("ignores a status of %i, which is no HTTP status", (status) => {
 		offline(false);
-		const err = Object.assign(
-			new Error(
-				"Invalid response for com.atproto.space.createRecord: uri must be a valid at-uri",
-			),
-			{ status: 2 },
-		);
-		const classified = classifyThrown(err);
-		expect(classified.code).toBe("MalformedResponse");
-		expect(classified.serverMessage).toContain("must be a valid at-uri");
-	});
-
-	it("ignores a status that is not an HTTP status", () => {
-		offline(false);
-		const err = Object.assign(new Error("network issue"), { status: 1 });
+		const err = Object.assign(new Error("network issue"), { status });
 		expect(classifyThrown(err).code).toBe("Unexpected");
 	});
 

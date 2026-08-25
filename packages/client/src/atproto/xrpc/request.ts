@@ -8,6 +8,7 @@ import {
 import {
 	classifyEnvelope,
 	classifyThrown,
+	isConnectivityError,
 	isOffline,
 } from "../../errors/classify";
 import type { ColibriErrorCode } from "../../errors/codes";
@@ -46,8 +47,11 @@ const RETRY_CODES = new Set<ColibriErrorCode>([
 	"InternalError",
 ]);
 
+const DPOP_REPLAY_CODE = "invalid_dpop_proof";
+const DPOP_REPLAY_ATTEMPTS = 1;
+
 const DPOP_ENVELOPE_CODES = new Set([
-	"invalid_dpop_proof",
+	DPOP_REPLAY_CODE,
 	"use_dpop_nonce",
 	"invalid_token",
 ]);
@@ -67,6 +71,9 @@ const isDpopFailure = (error: ColibriError): boolean => {
 	return typeof unknown === "string" && DPOP_ENVELOPE_CODES.has(unknown);
 };
 
+const isDpopReplay = (error: ColibriError): boolean =>
+	error.context.unknownCode === DPOP_REPLAY_CODE;
+
 const isExpected = (
 	code: ColibriErrorCode,
 	expected: ReadonlyArray<ColibriErrorCode> | undefined,
@@ -84,6 +91,9 @@ const toColibriError = (lxm: string, cause: unknown): ColibriError => {
 	}
 
 	if (cause instanceof XrpcInvalidResponseError) {
+		if (isConnectivityError(cause))
+			return classifyThrown(cause, { method: lxm });
+
 		return new ColibriError({
 			code: "MalformedResponse",
 			method: lxm,
@@ -159,11 +169,12 @@ export const call = async <M extends Method>(
 		? AbortSignal.any([options.signal, deadline])
 		: deadline;
 
-	const attempts = isQuery(method) ? RETRY_ATTEMPTS : 1;
+	const maxAttempts = isQuery(method) ? RETRY_ATTEMPTS : 1;
 
 	let failure: ColibriError | undefined;
+	let replayRetries = 0;
 
-	for (let attempt = 1; attempt <= attempts; attempt++) {
+	for (let attempt = 1; attempt <= maxAttempts + replayRetries; attempt++) {
 		const result = await client
 			.xrpcSafe(
 				method as never,
@@ -187,7 +198,13 @@ export const call = async <M extends Method>(
 		failure = toColibriError(lxm, result);
 
 		if (signal.aborted || sessionDead()) break;
-		if (attempt === attempts) break;
+
+		if (isDpopReplay(failure) && replayRetries < DPOP_REPLAY_ATTEMPTS) {
+			replayRetries += 1;
+			continue;
+		}
+
+		if (attempt >= maxAttempts + replayRetries) break;
 		if (!RETRY_CODES.has(failure.code) || isOffline()) break;
 
 		await sleep(backoff(attempt), signal);

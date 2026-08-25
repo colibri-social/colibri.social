@@ -3,6 +3,7 @@ import {
 	getAssetLoader,
 } from "deepfilternet3-noise-filter";
 import type { NoiseSuppressionMode } from "../../contexts/UserPreferences";
+import { colibriError } from "../../errors/error";
 
 export const DFN_ASSET_BASE = "/noise/deepfilternet3";
 export const DFN_SAMPLE_RATE = 48000;
@@ -15,13 +16,33 @@ export const HIGH_PASS_HZ = 90;
 export const clampLevel = (level: number): number =>
 	Math.max(0, Math.min(100, Math.round(level)));
 
+let wasmUsable = true;
+
+export const dfnWasmUsable = (): boolean => wasmUsable;
+
+const isWasmFailure = (err: unknown): boolean =>
+	typeof WebAssembly !== "undefined" &&
+	(err instanceof WebAssembly.CompileError ||
+		err instanceof WebAssembly.LinkError ||
+		err instanceof WebAssembly.RuntimeError);
+
+const warmAsset = async (url: string): Promise<void> => {
+	try {
+		const res = await fetch(url);
+		if (!res.ok) return;
+		await res.arrayBuffer();
+	} catch {}
+};
+
 export function preloadNoiseSuppressor(): void {
+	if (!wasmUsable) return;
+
 	try {
 		const { wasm, model } = getAssetLoader({
 			cdnUrl: DFN_ASSET_BASE,
 		}).getAssetUrls();
-		void fetch(wasm).catch(() => {});
-		void fetch(model).catch(() => {});
+		void warmAsset(wasm);
+		void warmAsset(model);
 	} catch {}
 }
 
@@ -42,7 +63,7 @@ export async function assertDfnModelReachable(): Promise<void> {
 	const bytes = new Uint8Array(await res.arrayBuffer());
 	if (!res.ok || bytes[0] !== 0x1f || bytes[1] !== 0x8b) {
 		throw new Error(
-			`DeepFilterNet model is not a valid gzip at ${model} — check /noise asset hosting`,
+			`DeepFilterNet model is not a valid gzip at ${model}, check /noise asset hosting`,
 		);
 	}
 }
@@ -64,6 +85,14 @@ export const createDfnCore = async (
 	ctx: AudioContext,
 	params: DfnParams,
 ): Promise<{ core: DeepFilterNet3Core; node: AudioWorkletNode }> => {
+	if (!wasmUsable) {
+		throw colibriError({
+			code: "VoiceStreamFailed",
+			message:
+				"DeepFilterNet's wasm module already failed to compile in this session",
+		});
+	}
+
 	await assertDfnModelReachable();
 
 	const core = new DeepFilterNet3Core({
@@ -73,7 +102,13 @@ export const createDfnCore = async (
 		assetConfig: { cdnUrl: DFN_ASSET_BASE },
 	});
 
-	await core.initialize();
+	try {
+		await core.initialize();
+	} catch (err) {
+		if (isWasmFailure(err)) wasmUsable = false;
+		throw err;
+	}
+
 	const node = await core.createAudioWorkletNode(ctx);
 
 	return { core, node };
