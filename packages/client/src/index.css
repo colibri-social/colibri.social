@@ -431,6 +431,13 @@ img.emoji {
 	transform: translateY(-0.09em);
 }
 
+#editor .tiptap.ProseMirror span[data-mention-type="emoji"] img.emoji {
+	-webkit-user-select: none;
+	user-select: none;
+	-webkit-user-drag: none;
+	pointer-events: none;
+}
+
 .rich-text img.emoji {
 	cursor: pointer;
 }

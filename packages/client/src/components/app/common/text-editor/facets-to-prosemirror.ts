@@ -23,10 +23,6 @@ import type { MentionType } from "./prosemirror-to-facets";
 type Feature = ColibriRichTextFacet["features"][number];
 type DocNode = ReturnType<Editor["getJSON"]>["content"][number];
 
-const EMOJI_IMAGE_REGEX = /<img [\s\S\w\W\d\D]+\/>/gm;
-const EMOJI_IMAGE_ALT_REGEX =
-	/<img [\s\S\w\W\d\D]+ alt="([\W]+)" [\s\S\w\W\d\D]+\/>/gm;
-
 /**
  * Formats stored text + facets back into a ProseMirror document for editing.
  */
@@ -220,33 +216,40 @@ function addTextWithNewlines(paragraph: any, text: string): void {
  * Add text nodes with emoji support to a paragraph.
  */
 function addTextNodesWithEmoji(paragraph: any, text: string): void {
-	const textWithEmojis = twemoji.parse(text);
+	const found: Array<{ start: number; emoji: string }> = [];
+	let scan = 0;
+	twemoji.replace(text, (emoji: string) => {
+		const start = text.indexOf(emoji, scan);
+		if (start !== -1) {
+			found.push({ start, emoji });
+			scan = start + emoji.length;
+		}
+		return emoji;
+	});
 
-	const expandedNodes: Array<TextType | MentionType> = textWithEmojis
-		.split(EMOJI_IMAGE_REGEX)
-		.filter((x) => x.length > 0)
-		.map((x) => ({
-			type: "text",
-			text: x,
-			marks: [],
-		}));
+	const nodes: Array<TextType | MentionType> = [];
+	const pushText = (value: string) => {
+		if (value.length > 0) {
+			nodes.push({ type: "text", text: value, marks: [] } as TextType);
+		}
+	};
 
-	let match: RegExpExecArray | null;
-	let j = 1;
-
-	while ((match = EMOJI_IMAGE_ALT_REGEX.exec(textWithEmojis))) {
-		expandedNodes.splice(j, 0, {
+	let cursor = 0;
+	for (const { start, emoji } of found) {
+		pushText(text.slice(cursor, start));
+		nodes.push({
 			type: "mention",
 			attrs: {
 				type: "emoji",
-				label: match[1],
+				label: emoji,
 				avatar: null,
 				handle: null,
 				id: null,
 			},
 		});
-		j++;
+		cursor = start + emoji.length;
 	}
+	pushText(text.slice(cursor));
 
-	paragraph.content!.push(...expandedNodes);
+	paragraph.content!.push(...nodes);
 }

@@ -298,6 +298,7 @@ const QUOTE_MARKER_RE = /^ {0,3}> ?/;
 const UNORDERED_MARKER_RE = /^(\s*)[-*](\s)/;
 
 interface MarkerContext {
+	text: string;
 	positions: number[];
 	index: number;
 	lineStart: number;
@@ -316,13 +317,104 @@ const markerContext = (editor: Editor): MarkerContext | null => {
 	const index = positions.indexOf($from.pos);
 	if (index === -1 || codeContextAt(text, index) === "codeblock") return null;
 
-	return { positions, index, lineStart: found.lineStart, line: found.line };
+	return {
+		text,
+		positions,
+		index,
+		lineStart: found.lineStart,
+		line: found.line,
+	};
+};
+
+interface ListLine {
+	indent: string;
+	markerLen: number;
+	ordered: boolean;
+}
+
+const listLine = (line: string): ListLine | null => {
+	const ordered = ORDERED_MARKER_RE.exec(line);
+	const match = ordered ?? UNORDERED_MARKER_RE.exec(line);
+	if (!match) return null;
+	return { indent: match[1], markerLen: match[0].length, ordered: !!ordered };
+};
+
+const linesBefore = (text: string, lineStart: number): string[] =>
+	lineStart === 0 ? [] : text.slice(0, lineStart - 1).split("\n");
+
+const indentTo = (
+	text: string,
+	lineStart: number,
+	indent: string,
+): string | null => {
+	const before = linesBefore(text, lineStart);
+	for (let i = before.length - 1; i >= 0; i--) {
+		const prev = listLine(before[i]);
+		if (!prev) return null;
+		if (prev.indent.length > indent.length) continue;
+		const target = " ".repeat(prev.markerLen);
+		return target.length > indent.length ? target : null;
+	}
+	return null;
+};
+
+const outdentTo = (
+	text: string,
+	lineStart: number,
+	indent: string,
+): string | null => {
+	if (indent.length === 0) return null;
+	const before = linesBefore(text, lineStart);
+	for (let i = before.length - 1; i >= 0; i--) {
+		const prev = listLine(before[i]);
+		if (!prev) break;
+		if (prev.indent.length < indent.length) return prev.indent;
+	}
+	return "";
+};
+
+const replaceIndent = (
+	editor: Editor,
+	positions: number[],
+	lineStart: number,
+	indent: string,
+	target: string,
+): void => {
+	const from = positions[lineStart];
+	const to = positions[lineStart + indent.length];
+	const caret = editor.state.selection.from;
+	const shifted = Math.max(
+		from + target.length,
+		caret + target.length - indent.length,
+	);
+
+	const chain = editor.chain().focus();
+	if (to > from) chain.deleteRange({ from, to });
+	if (target.length > 0) chain.insertContentAt(from, target);
+	chain.setTextSelection(shifted).run();
+};
+
+const handleListIndent = (editor: Editor, outdent: boolean): boolean => {
+	const context = markerContext(editor);
+	if (!context) return false;
+	const { text, positions, lineStart, line } = context;
+
+	const current = listLine(line);
+	if (!current) return false;
+
+	const target = outdent
+		? outdentTo(text, lineStart, current.indent)
+		: indentTo(text, lineStart, current.indent);
+	if (target === null || target === current.indent) return true;
+
+	replaceIndent(editor, positions, lineStart, current.indent, target);
+	return true;
 };
 
 const handleListContinuation = (editor: Editor): boolean => {
 	const context = markerContext(editor);
 	if (!context) return false;
-	const { positions, index, lineStart, line } = context;
+	const { text, positions, index, lineStart, line } = context;
 
 	const ordered = ORDERED_MARKER_RE.exec(line);
 	const unordered = ordered ? null : UNORDERED_MARKER_RE.exec(line);
@@ -334,8 +426,15 @@ const handleListContinuation = (editor: Editor): boolean => {
 	if (index < lineStart + markerLen) return false;
 
 	const isEmptyItem = line.slice(markerLen).trim() === "";
+	const indent = match[1];
 
 	if (isEmptyItem) {
+		const target = outdentTo(text, lineStart, indent);
+		if (target !== null) {
+			replaceIndent(editor, positions, lineStart, indent, target);
+			return true;
+		}
+
 		const from = positions[lineStart];
 		const to = positions[lineStart + markerLen];
 		editor
@@ -348,8 +447,8 @@ const handleListContinuation = (editor: Editor): boolean => {
 	}
 
 	const nextMarker = ordered
-		? `${Number.parseInt(ordered[2], 10) + 1}. `
-		: "- ";
+		? `${indent}${Number.parseInt(ordered[2], 10) + 1}. `
+		: `${indent}- `;
 	editor.chain().focus().setHardBreak().insertContent(nextMarker).run();
 	return true;
 };
@@ -430,13 +529,29 @@ const OrderedListAutoNumber = Extension.create({
 						});
 						positions.push(pos + 1 + node.content.size);
 
-						let counter = 0;
+						const levels: Array<{ width: number; counter: number }> = [];
 						let index = 0;
 						for (const line of text.split("\n")) {
-							const match = ORDERED_MARKER_RE.exec(line);
+							const item = listLine(line);
+							if (!item) {
+								levels.length = 0;
+								index += line.length + 1;
+								continue;
+							}
+
+							const width = item.indent.length;
+							while (levels.length && levels[levels.length - 1].width > width) {
+								levels.pop();
+							}
+							if (!levels.length || levels[levels.length - 1].width < width) {
+								levels.push({ width, counter: 0 });
+							}
+							const level = levels[levels.length - 1];
+
+							const match = item.ordered ? ORDERED_MARKER_RE.exec(line) : null;
 							if (match) {
-								counter += 1;
-								const expected = String(counter);
+								level.counter += 1;
+								const expected = String(level.counter);
 								if (match[2] !== expected) {
 									const numStart = index + match[1].length;
 									const numEnd = numStart + match[2].length;
@@ -447,7 +562,7 @@ const OrderedListAutoNumber = Extension.create({
 									});
 								}
 							} else {
-								counter = 0;
+								level.counter = 0;
 							}
 							index += line.length + 1;
 						}
@@ -651,6 +766,8 @@ export const TextEditor: Component<{
 							return true;
 						},
 						Delete: () => handleListMarkerDelete(this.editor),
+						Tab: () => handleListIndent(this.editor, false),
+						"Shift-Tab": () => handleListIndent(this.editor, true),
 						"Mod-b": () => {
 							toggleMarker(this.editor, "bold");
 							return true;
@@ -816,7 +933,14 @@ export const TextEditor: Component<{
 						colorClass = "bg-orange-400/25";
 						contents = label;
 					} else {
-						return htmlToDOMOutputSpec(parseEmojiText(label))[0];
+						return [
+							"span",
+							mergeAttributes(HTMLAttributes, {
+								"data-mention-type": "emoji",
+								contenteditable: "false",
+							}),
+							htmlToDOMOutputSpec(parseEmojiText(label))[0],
+						];
 					}
 
 					return [

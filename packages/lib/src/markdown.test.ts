@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import type { ColibriRichTextFacet } from "./facets.js";
-import { facetsToSource, parseMarkdown } from "./markdown.js";
+import {
+	facetsToSource,
+	normalizeWhitespace,
+	parseMarkdown,
+} from "./markdown.js";
 
 type Feature = ColibriRichTextFacet["features"][number];
 
@@ -344,5 +348,102 @@ describe("round trip", () => {
 		for (const facet of parseMarkdown(source, []).facets) {
 			expect(facet.index.byteEnd).toBeGreaterThan(facet.index.byteStart);
 		}
+	});
+});
+
+describe("nested lists", () => {
+	const indentsOf = (source: string): Array<number> =>
+		parseMarkdown(source, [])
+			.facets.flatMap((facet) => facet.features)
+			.filter((feature) => kindOf(feature) === "list")
+			.map((feature) =>
+				"indent" in feature && feature.indent !== undefined
+					? Number(feature.indent)
+					: 0,
+			);
+
+	const roundTrip = (source: string): string => {
+		const parsed = parseMarkdown(source, []);
+		return facetsToSource(parsed.text, parsed.facets).source;
+	};
+
+	it("tags each item with its nesting depth", () => {
+		expect(indentsOf("- a\n  - b\n    - c\n- d")).toEqual([0, 1, 2, 0]);
+	});
+
+	it("omits indent on a flat list", () => {
+		const features = parseMarkdown("- a\n- b", [])
+			.facets.flatMap((facet) => facet.features)
+			.filter((feature) => kindOf(feature) === "list");
+		for (const feature of features)
+			expect(feature).not.toHaveProperty("indent");
+	});
+
+	it("keeps the indent spaces in the stored text", () => {
+		expect(parseMarkdown("- a\n  - b\n- c", []).text).toBe("a\n  b\nc");
+	});
+
+	it("numbers each depth on its own", () => {
+		expect(roundTrip("1. a\n   1. b\n   2. c\n2. d")).toBe(
+			"1. a\n   1. b\n   2. c\n2. d",
+		);
+	});
+
+	it("keeps counting the outer level across a nested bullet", () => {
+		expect(roundTrip("1. a\n   - b\n2. c")).toBe("1. a\n   - b\n2. c");
+	});
+
+	it("places markers after an astral character", () => {
+		expect(roundTrip("- a \u{1f600}\n  - \u{1f600} b")).toBe(
+			"- a \u{1f600}\n  - \u{1f600} b",
+		);
+		expect(roundTrip("\u{1f600} **bold** \u{1f389}")).toBe(
+			"\u{1f600} **bold** \u{1f389}",
+		);
+	});
+
+	it("restarts numbering after a blank line", () => {
+		expect(roundTrip("1. a\n2. b\n\n1. c")).toBe("1. a\n2. b\n\n1. c");
+	});
+});
+
+describe("normalizeWhitespace", () => {
+	const normalized = (source: string): string =>
+		normalizeWhitespace(parseMarkdown(source, [])).text;
+
+	it("strips trailing whitespace on every line", () => {
+		expect(normalized("a   \nb\t\t\nc")).toBe("a\nb\nc");
+	});
+
+	it("caps a run of blank lines at one", () => {
+		expect(normalized("a\n\n\n\n\nb")).toBe("a\n\nb");
+	});
+
+	it("keeps a single blank line", () => {
+		expect(normalized("a\n\nb")).toBe("a\n\nb");
+	});
+
+	it("drops every blank line under a heading", () => {
+		expect(normalized("# H\n\n\nbody")).toBe("H\nbody");
+	});
+
+	it("trims the whole message", () => {
+		expect(normalized("\n\n  hello  \n\n")).toBe("hello");
+	});
+
+	it("leaves blank lines and trailing spaces inside a fence alone", () => {
+		const source = "```js\nconst a = 1;\n\n\n\nconst b = 2;   \n```";
+		expect(normalized(source)).toBe("const a = 1;\n\n\n\nconst b = 2;   ");
+	});
+
+	it("leaves list indentation alone", () => {
+		expect(normalized("- a\n  - b\n- c")).toBe("a\n  b\nc");
+	});
+
+	it("keeps facets aligned with the text it kept", () => {
+		const parsed = parseMarkdown("# H\n\n\n**bold**   ", []);
+		const result = normalizeWhitespace(parsed);
+		expect(result.text).toBe("H\nbold");
+		expect(summarize(result.facets)).toEqual(["0-1:heading", "2-6:bold"]);
 	});
 });

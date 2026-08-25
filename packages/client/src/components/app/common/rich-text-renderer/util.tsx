@@ -1,4 +1,10 @@
-import type { ColibriRichTextFacet } from "@colibri-social/lib";
+import {
+	type ColibriRichTextFacet,
+	indentWidthAt,
+	isSingleLineGap,
+	normalizeWhitespace,
+	resolveListDepths,
+} from "@colibri-social/lib";
 import { A } from "@solidjs/router";
 import { type Component, createSignal, type JSX } from "solid-js";
 import { rewriteBskyUrl } from "../../../../atproto/bsky-post-url";
@@ -506,7 +512,7 @@ export const renderWithFacets = (
 	_community?: string,
 ): Array<JSX.Element> => {
 	const { preferences } = useUserPreferences();
-	const trimmed = trimWithFacets(input);
+	const trimmed = normalizeWhitespace(input);
 	const bytes = textEncoder.encode(trimmed.text);
 
 	const normalizedFacets = normalizeFacets(trimmed.facets);
@@ -534,6 +540,109 @@ export const renderWithFacets = (
 const listFeatureOf = (facet: ColibriRichTextFacet): AnyFeature | undefined =>
 	facet.features.find((f) => f.$type === "social.colibri.richtext.facet#list");
 
+const isOrdered = (feature: AnyFeature | undefined): boolean =>
+	!!feature && "ordered" in feature && !!feature.ordered;
+
+const BULLET_CLASS = ["list-disc", "list-[circle]", "list-[square]"];
+const MAX_LIST_DEPTH = 10;
+
+interface ListItem {
+	facet: ColibriRichTextFacet;
+	children: Array<ListNode>;
+}
+
+interface ListNode {
+	ordered: boolean;
+	items: Array<ListItem>;
+}
+
+interface ListLevel {
+	node: ListNode;
+	lastItem?: ListItem;
+}
+
+const renderList = (
+	items: Array<ColibriRichTextFacet>,
+	byteAt: (index: number) => string | undefined,
+	inline: (start: number, end: number) => Array<JSX.Element>,
+): Array<JSX.Element> => {
+	const depths = resolveListDepths(
+		items.map((facet) => {
+			const feature = listFeatureOf(facet);
+			return {
+				indent:
+					feature && "indent" in feature && feature.indent !== undefined
+						? Number(feature.indent)
+						: undefined,
+				indentWidth: indentWidthAt(byteAt, facet.index.byteStart),
+			};
+		}),
+	);
+
+	const roots: Array<ListNode> = [];
+	const levels: Array<ListLevel> = [];
+
+	const attach = (node: ListNode): boolean => {
+		if (levels.length === 0) {
+			roots.push(node);
+			return true;
+		}
+		const host = levels[levels.length - 1].lastItem;
+		if (!host) return false;
+		host.children.push(node);
+		return true;
+	};
+
+	for (const [i, facet] of items.entries()) {
+		const ordered = isOrdered(listFeatureOf(facet));
+		const depth = Math.min(depths[i], MAX_LIST_DEPTH);
+
+		while (levels.length > depth + 1) levels.pop();
+		while (levels.length < depth + 1) {
+			const node: ListNode = { ordered, items: [] };
+			if (!attach(node)) break;
+			levels.push({ node });
+		}
+
+		let level = levels[levels.length - 1];
+		if (level.node.ordered !== ordered && level.node.items.length > 0) {
+			levels.pop();
+			const sibling: ListNode = { ordered, items: [] };
+			if (attach(sibling)) {
+				level = { node: sibling };
+				levels.push(level);
+			} else {
+				levels.push(level);
+			}
+		}
+
+		const item: ListItem = { facet, children: [] };
+		level.node.items.push(item);
+		level.lastItem = item;
+	}
+
+	const renderNode = (node: ListNode, depth: number): JSX.Element => {
+		const lis = node.items.map((item) => (
+			<li>
+				{inline(item.facet.index.byteStart, item.facet.index.byteEnd)}
+				{item.children.map((child) => renderNode(child, depth + 1))}
+			</li>
+		));
+		const spacing = depth === 0 ? "my-1 pl-2" : "my-0 pl-4";
+		return node.ordered ? (
+			<ol class={`list-decimal list-inside ${spacing}`}>{lis}</ol>
+		) : (
+			<ul
+				class={`${BULLET_CLASS[depth % BULLET_CLASS.length]} list-inside ${spacing}`}
+			>
+				{lis}
+			</ul>
+		);
+	};
+
+	return roots.map((root) => renderNode(root, 0));
+};
+
 /**
  * Renders the block facets covering a byte range, recursing into quotes so that
  * a heading, list, subtext or codeblock nested in a quote is rendered once,
@@ -550,6 +659,11 @@ const renderBlockRange = (
 	let cursor = rangeStart;
 	let lastWasBlock = false;
 
+	const byteAt = (index: number): string | undefined =>
+		index >= 0 && index < bytes.length
+			? String.fromCharCode(bytes[index])
+			: undefined;
+
 	const emitInline = (
 		start: number,
 		end: number,
@@ -560,16 +674,6 @@ const renderBlockRange = (
 		if (lastWasBlock && s < e && bytes[s] === 0x0a) s++;
 		if (beforeBlock && e > s && bytes[e - 1] === 0x0a) e--;
 		if (s < e) result.push(...inline(s, e));
-	};
-
-	const separatedByWhitespace = (from: number, to: number): boolean => {
-		for (let i = from; i < to; i++) {
-			const byte = bytes[i];
-			if (byte !== 0x0a && byte !== 0x20 && byte !== 0x09 && byte !== 0x0d) {
-				return false;
-			}
-		}
-		return true;
 	};
 
 	for (let bi = 0; bi < blockFacets.length; ) {
@@ -619,34 +723,21 @@ const renderBlockRange = (
 		const listFeature = listFeatureOf(blockFacet);
 
 		if (listFeature) {
-			const ordered = "ordered" in listFeature && listFeature.ordered;
 			const items: Array<ColibriRichTextFacet> = [blockFacet];
 			let prevEnd = byteEnd;
 			let j = bi + 1;
 			while (j < blockFacets.length) {
 				const next = blockFacets[j];
-				const nextList = listFeatureOf(next);
-				const nextOrdered =
-					!!nextList && "ordered" in nextList && nextList.ordered;
-				if (!nextList || nextOrdered !== ordered) break;
+				if (!listFeatureOf(next)) break;
 				if (next.index.byteEnd > rangeEnd) break;
 				if (next.index.byteStart < prevEnd) break;
-				if (!separatedByWhitespace(prevEnd, next.index.byteStart)) break;
+				if (!isSingleLineGap(byteAt, prevEnd, next.index.byteStart)) break;
 				items.push(next);
 				prevEnd = next.index.byteEnd;
 				j++;
 			}
 
-			const lis = items.map((item) => (
-				<li>{inline(item.index.byteStart, item.index.byteEnd)}</li>
-			));
-			result.push(
-				ordered ? (
-					<ol class="list-decimal list-inside my-1 pl-2">{lis}</ol>
-				) : (
-					<ul class="list-disc list-inside my-1 pl-2">{lis}</ul>
-				),
-			);
+			result.push(...renderList(items, byteAt, inline));
 
 			cursor = prevEnd;
 			lastWasBlock = true;

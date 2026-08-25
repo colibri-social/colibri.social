@@ -48,6 +48,7 @@ export type ColibriRichTextHeading = {
 export type ColibriRichTextList = {
 	$type?: "social.colibri.richtext.facet#list";
 	ordered: boolean;
+	indent?: number;
 };
 
 export type ColibriRichTextSubtext = {

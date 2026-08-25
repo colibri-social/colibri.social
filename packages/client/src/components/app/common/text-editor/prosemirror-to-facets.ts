@@ -1,6 +1,7 @@
 import { URL_REGEX } from "@atproto/api";
 import {
 	type ColibriRichTextFacet,
+	normalizeWhitespace,
 	parseMarkdown,
 	type SourceFacet,
 	type TimestampStyle,
@@ -9,7 +10,6 @@ import type { Editor, MarkType, NodeType, TextType } from "@tiptap/core";
 import { shortcodeToEmoji } from "@tiptap/extension-emoji";
 import TLDs from "tlds";
 import { TIPTAP_EMOJIS } from "../../../../utils/emoji-data";
-import type { TextWithFacets } from "../rich-text-renderer/util";
 
 export type ParsedText = { text: string; facets: Array<ColibriRichTextFacet> };
 type DocContent =
@@ -61,54 +61,6 @@ export type MentionType = {
 };
 
 const textEncoder = new TextEncoder();
-
-/**
- * Strips leading and trailing whitespace from the text and adjusts facet
- * byte offsets accordingly. Facets that fall entirely within the trimmed
- * regions are removed; facets that partially overlap are clamped.
- */
-const trimTextWithFacets = (input: TextWithFacets): TextWithFacets => {
-	const { text, facets } = input;
-
-	const leadingMatch = text.match(/^\s+/);
-	const trailingMatch = text.match(/\s+$/);
-	const leadingWs = leadingMatch ? leadingMatch[0] : "";
-	const trailingWs = trailingMatch ? trailingMatch[0] : "";
-
-	if (!leadingWs && !trailingWs) return input;
-
-	const trimmedText = text.slice(
-		leadingWs.length,
-		text.length - (trailingWs.length || 0),
-	);
-
-	const leadingBytes = textEncoder.encode(leadingWs).length;
-	const totalBytes = textEncoder.encode(text).length;
-	const trailingBytes = textEncoder.encode(trailingWs).length;
-	const trimmedEndByte = totalBytes - trailingBytes;
-
-	const newFacets: ColibriRichTextFacet[] = [];
-	for (const facet of facets) {
-		const newStart =
-			Math.max(facet.index.byteStart, leadingBytes) - leadingBytes;
-		const newEnd = Math.min(facet.index.byteEnd, trimmedEndByte) - leadingBytes;
-
-		if (newStart >= newEnd) continue;
-
-		newFacets.push({
-			...facet,
-			index: {
-				byteStart: newStart,
-				byteEnd: newEnd,
-			},
-		});
-	}
-
-	return {
-		text: trimmedText,
-		facets: newFacets,
-	};
-};
 
 /**
  * Flattens the ProseMirror document into raw markdown source
@@ -309,8 +261,5 @@ export const proseMirrorToFacets = (
 	const { text, facets } = parseMarkdown(source, atoms);
 	const withDetectedLinks = detectMissingLinkFacets(text, facets);
 
-	return trimTextWithFacets({
-		text,
-		facets: withDetectedLinks,
-	});
+	return normalizeWhitespace({ text, facets: withDetectedLinks });
 };

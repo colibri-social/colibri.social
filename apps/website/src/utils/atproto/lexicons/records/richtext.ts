@@ -5,7 +5,7 @@ export const richtextRecordDocs: LexiconDoc[] = [
 	{
 		lexicon: 1,
 		id: RECORD_IDs.RICHTEXT_FACET,
-		revision: 4,
+		revision: 5,
 		defs: {
 			main: {
 				type: "object",
@@ -135,6 +135,13 @@ export const richtextRecordDocs: LexiconDoc[] = [
 						type: "boolean",
 						description:
 							"Whether the item belongs to an ordered (numbered) list.",
+					},
+					indent: {
+						type: "integer",
+						description:
+							"The nesting depth of the item. 0 is the outermost level.",
+						minimum: 0,
+						maximum: 10,
 					},
 				},
 			},
