@@ -10,6 +10,7 @@ import { Extension } from "@tiptap/core";
 import type { Node as ProseMirrorNode } from "prosemirror-model";
 import { Plugin, PluginKey } from "prosemirror-state";
 import { Decoration, DecorationSet, type EditorView } from "prosemirror-view";
+import { projectBlock } from "./block-projection";
 
 const captureToTag = new Map<string, string>(
 	highlights.map((h) => [h.name, h.tag]),
@@ -48,36 +49,6 @@ const CONTENT_CLASS: Partial<Record<MarkdownToken["kind"], string>> = {
 };
 
 const MARKER_CLASS = "text-muted-foreground/60";
-
-interface BlockProjection {
-	text: string;
-	positions: number[];
-}
-
-/**
- * Builds the raw-text projection of a single textblock and a string-index →
- * doc-position map
- */
-const projectBlock = (node: ProseMirrorNode, pos: number): BlockProjection => {
-	let text = "";
-	const positions: number[] = [];
-	node.forEach((child, offset) => {
-		if (child.isText && child.text) {
-			for (let i = 0; i < child.text.length; i++) {
-				positions.push(pos + 1 + offset + i);
-			}
-			text += child.text;
-		} else if (child.type.name === "hardBreak") {
-			positions.push(pos + 1 + offset);
-			text += "\n";
-		} else {
-			positions.push(pos + 1 + offset);
-			text += "￼";
-		}
-	});
-	positions.push(pos + 1 + node.content.size);
-	return { text, positions };
-};
 
 /**
  * Live markdown decorations: keeps the literal syntax visible but

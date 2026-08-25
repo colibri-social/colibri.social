@@ -241,9 +241,6 @@ importers:
       shiki:
         specifier: ^4.0.2
         version: 4.0.2
-      solid-emoji-picker:
-        specifier: ^0.3.0
-        version: 0.3.0(solid-js@1.9.14)
       solid-js:
         specifier: ^1.9.11
         version: 1.9.14
@@ -491,9 +488,6 @@ importers:
       solid-color:
         specifier: ^0.0.9
         version: 0.0.9(solid-js@1.9.14)
-      solid-emoji-picker:
-        specifier: ^0.3.0
-        version: 0.3.0(solid-js@1.9.14)
       solid-js:
         specifier: ^1.9.5
         version: 1.9.14
@@ -6117,12 +6111,6 @@ packages:
     resolution: {integrity: sha512-9kcKBJIMdS+586cA1g63HYWxKh3h89leeNHbPZ1csYjuni+NvPBtNr11l0iEX2AKKEt6FHk6qNhc/gjoYAW1pA==}
     peerDependencies:
       solid-js: ^1.8
-
-  solid-emoji-picker@0.3.0:
-    resolution: {integrity: sha512-wUntdHCfI9wNlRFu9mMUxUT/BkhR1RRmkfbPjPeNWXqDKqQIiVjQ3GzVkaU9KY3GrYuQRyQDGuf88f0FFGK2lw==}
-    engines: {node: '>=10'}
-    peerDependencies:
-      solid-js: ^1.2
 
   solid-focus-trap@0.1.9:
     resolution: {integrity: sha512-LTyNki6GUJPRLXV5uMWPkYClB07SUMubbr2EkAddiR0CJCF/I283txilMU9RURSr/P8EewMfXWu2o3aWrK7A5A==}
@@ -13190,10 +13178,6 @@ snapshots:
   solid-dismissible@0.1.1(solid-js@1.9.14):
     dependencies:
       '@corvu/utils': 0.4.2(solid-js@1.9.14)
-      solid-js: 1.9.14
-
-  solid-emoji-picker@0.3.0(solid-js@1.9.14):
-    dependencies:
       solid-js: 1.9.14
 
   solid-focus-trap@0.1.9(solid-js@1.9.14):

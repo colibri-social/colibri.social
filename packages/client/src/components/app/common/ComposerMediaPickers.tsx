@@ -2,6 +2,7 @@ import { type Component, createSignal, Show } from "solid-js";
 import GifIcon from "~icons/ph/gif";
 import SmileyIcon from "~icons/ph/smiley";
 import type { GifItem } from "../../../atproto/xrpc/social/colibri/embed/gifTypes";
+import { useUserPreferences } from "../../../contexts/UserPreferences";
 import { useIsMobile } from "../../../utils/mobile-pane";
 import { BottomSheet } from "../../ui/MenuDrawer";
 import {
@@ -31,6 +32,7 @@ export const ComposerMediaPickers: Component<{
 	onGifSelect: (gif: GifItem) => void;
 }> = (props) => {
 	const isMobile = useIsMobile();
+	const { recordEmojiUse } = useUserPreferences();
 
 	// Desktop: independent popovers.
 	const [emojiOpen, setEmojiOpen] = createSignal(false);
@@ -104,6 +106,7 @@ export const ComposerMediaPickers: Component<{
 							<TabsContent value="emoji" class="flex min-h-0 flex-col">
 								<EmojiPickerBody
 									onEmoji={(emoji) => {
+										recordEmojiUse(emoji.emoji);
 										props.onEmojiSelect(emoji.emoji);
 										setDrawerOpen(false);
 									}}

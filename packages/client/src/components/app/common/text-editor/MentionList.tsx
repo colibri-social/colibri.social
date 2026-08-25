@@ -45,6 +45,21 @@ export function isTimeShortcut(item: SuggestionItem): item is TimeShortcut {
 	return "timeShortcut" in item;
 }
 
+const groupRank = (item: SuggestionItem): number => {
+	if (isTimeShortcut(item)) return 3;
+	if (isMember(item)) return 0;
+	if (isRole(item)) return 1;
+	return 2;
+};
+
+/**
+ * The order the popup renders items in. Keyboard navigation indexes into this
+ * same order, so both must derive from here rather than from the raw item list.
+ */
+export const sortSuggestions = (
+	items: ReadonlyArray<SuggestionItem>,
+): SuggestionItem[] => [...items].sort((a, b) => groupRank(a) - groupRank(b));
+
 export const MentionList: Component<{
 	items: SuggestionItem[];
 	char: "@" | "#" | ":";
@@ -70,15 +85,7 @@ export const MentionList: Component<{
 		}
 	};
 
-	const groupRank = (item: SuggestionItem): number => {
-		if (isTimeShortcut(item)) return 3;
-		if (isMember(item)) return 0;
-		if (isRole(item)) return 1;
-		return 2;
-	};
-
-	const sorted: Accessor<SuggestionItem[]> = () =>
-		[...props.items].sort((a, b) => groupRank(a) - groupRank(b));
+	const sorted: Accessor<SuggestionItem[]> = () => sortSuggestions(props.items);
 
 	const members = () => sorted().filter(isMember);
 	const roles = () => sorted().filter(isRole);
@@ -164,7 +171,7 @@ export const MentionList: Component<{
 						</span>
 					</div>
 				</Match>
-				<Match when={isEmoji}>
+				<Match when={isEmoji(bprops.item)}>
 					<div class="flex flex-row items-center justify-between gap-1.5">
 						<span
 							innerHTML={parseEmojiText(

@@ -376,10 +376,6 @@ html[data-titlebar="linux"] {
 	text-decoration-color: var(--primary-hover);
 }
 
-.emoji-section:not(:has(> .emoji-items > *)) {
-	display: none;
-}
-
 .emoji-picker .emoji-items {
 	display: grid;
 	grid-template-columns: repeat(auto-fill, minmax(2.5rem, 1fr));
@@ -390,7 +386,8 @@ html[data-titlebar="linux"] {
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	width: 100%;
+	width: 2.25rem;
+	height: 2.25rem;
 	padding: 0;
 	margin: 0;
 	background: none;

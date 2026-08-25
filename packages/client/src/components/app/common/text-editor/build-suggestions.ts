@@ -6,8 +6,24 @@ import type { Member } from "../../../../atproto/xrpc/social/colibri/community/l
 import type { Role } from "../../../../atproto/xrpc/social/colibri/community/listRoles";
 import { ambiguousCategoryName } from "../../../../utils/channel-category";
 import { searchEmojis } from "../../../../utils/emoji-data";
+import type { EmojiUsage } from "../../../../utils/emoji-usage";
 import { foldText } from "../../../../utils/fold-text";
+import { codeContextAtPos } from "./block-projection";
 import { createMentionRenderer } from "./MentionPopupRenderer";
+
+const allowOutsideCode: NonNullable<
+	SuggestionOptions<unknown, MentionNodeAttrs>["allow"]
+> = ({ state, range }) => {
+	const $from = state.doc.resolve(range.from);
+	if (!$from.parent.type.contentMatch.matchType(state.schema.nodes.mention)) {
+		return false;
+	}
+	return codeContextAtPos(state.doc, range.from) === null;
+};
+
+const EMOJI_LIMIT = 10;
+
+const EMOJI_MIN_QUERY = 2;
 
 const MEMBER_LIMIT = 6;
 
@@ -27,12 +43,18 @@ const insertMention: SuggestionOptions<unknown, MentionNodeAttrs>["command"] =
 			.run();
 	};
 
+export type EmojiSuggestionOptions = {
+	usage: () => Record<string, EmojiUsage>;
+	onPick: (emoji: string) => void;
+};
+
 export const buildSuggestions = (
 	searchMembers: (query: string, limit: number) => Array<Member>,
 	channels: () => Array<Channel>,
 	roles: () => Array<Role>,
 	categories: () => Array<Category>,
 	mainEditor?: boolean,
+	emoji?: EmojiSuggestionOptions,
 ): Omit<SuggestionOptions<any, MentionNodeAttrs>, "editor">[] => {
 	return [
 		{
@@ -54,6 +76,7 @@ export const buildSuggestions = (
 			},
 			render: createMentionRenderer("@", mainEditor),
 			command: insertMention,
+			allow: allowOutsideCode,
 		},
 		{
 			char: "#",
@@ -71,12 +94,21 @@ export const buildSuggestions = (
 			},
 			render: createMentionRenderer("#", mainEditor),
 			command: insertMention,
+			allow: allowOutsideCode,
 		},
 		{
 			char: ":",
-			items: ({ query }) => (query.length < 2 ? [] : searchEmojis(query, 10)),
+			items: ({ query }) =>
+				query.length < EMOJI_MIN_QUERY
+					? []
+					: searchEmojis(query, EMOJI_LIMIT, emoji?.usage()),
 			render: createMentionRenderer(":", mainEditor),
-			command: insertMention,
+			command: (args) => {
+				const picked = args.props as unknown as { label?: string };
+				if (picked.label) emoji?.onPick(picked.label);
+				insertMention(args);
+			},
+			allow: allowOutsideCode,
 		},
 	];
 };
