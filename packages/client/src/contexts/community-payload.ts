@@ -1,4 +1,6 @@
+import { activityOf } from "../atproto/activity";
 import type {
+	Activity,
 	ApplicationView,
 	CategoryView,
 	ChannelView,
@@ -22,6 +24,7 @@ export type MemberData = {
 	syncBluesky: boolean;
 	onlineState: OnlineState;
 	status?: MemberStatus;
+	activity?: Activity;
 	theme?: ProfileView["theme"];
 	preferredBadge?: string;
 };
@@ -85,6 +88,7 @@ const memberDataOf = (actor: ProfileView): MemberData => ({
 	syncBluesky: actor.syncBluesky,
 	onlineState: onlineStateOf(actor),
 	status: actor.presence?.status,
+	activity: activityOf(actor.presence),
 	theme: actor.theme,
 	preferredBadge: actor.preferredBadge,
 });
@@ -109,6 +113,7 @@ export const withMemberPresence = (
 		...member.data,
 		onlineState: normalizeOnlineState(presence.onlineState),
 		status: presence.status,
+		activity: presence.activity,
 	},
 });
 
@@ -117,12 +122,18 @@ export const patchMemberData = (
 	patch: Partial<MemberData>,
 ): Member => {
 	const patched = { ...member, data: { ...member.data, ...patch } };
-	if (!("onlineState" in patch) && !("status" in patch)) return patched;
+	if (
+		!("onlineState" in patch) &&
+		!("status" in patch) &&
+		!("activity" in patch)
+	)
+		return patched;
 
 	return withMemberPresence(patched, {
 		...member.actor.presence,
 		onlineState: patched.data.onlineState,
 		status: patched.data.status,
+		activity: patched.data.activity,
 	});
 };
 
@@ -131,6 +142,7 @@ export const toApplicant = (view: ApplicationView): Applicant => {
 		onlineState: _onlineState,
 		syncBluesky: _syncBluesky,
 		status: _status,
+		activity: _activity,
 		...data
 	} = memberDataOf(view.actor);
 	return {

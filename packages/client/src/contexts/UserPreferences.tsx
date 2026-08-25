@@ -85,6 +85,7 @@ export type UserPreferencesContextData = {
 	channelSidebarWidth: number;
 	nativeNotifications: boolean;
 	notificationPromptDismissed: boolean;
+	activityPromptDismissed: boolean;
 	notificationDefaultApplied: boolean;
 	lastSeenReleaseNote: string | null;
 	voice: {
@@ -118,6 +119,7 @@ const DEFAULT_PREFERENCES: UserPreferencesContextData = {
 	channelSidebarWidth: DEFAULT_CHANNEL_SIDEBAR_WIDTH,
 	nativeNotifications: false,
 	notificationPromptDismissed: false,
+	activityPromptDismissed: false,
 	notificationDefaultApplied: false,
 	lastSeenReleaseNote: null,
 	voice: {
@@ -266,6 +268,7 @@ type UserPreferencesContextValue = {
 	setChannelSidebarWidth: (width: number) => void;
 	setNativeNotifications: (enabled: boolean) => void;
 	setNotificationPromptDismissed: (dismissed: boolean) => void;
+	setActivityPromptDismissed: (dismissed: boolean) => void;
 	setNotificationDefaultApplied: (applied: boolean) => void;
 	setLastSeenReleaseNote: (version: string | null) => void;
 	setPreferredBlueskyClient: (client: BlueskyClientID) => void;
@@ -404,6 +407,10 @@ export const UserPreferencesContextProvider: ParentComponent = (props) => {
 		setPreferences((p) => ({ ...p, notificationPromptDismissed: dismissed }));
 	};
 
+	const setActivityPromptDismissed = (dismissed: boolean) => {
+		setPreferences((p) => ({ ...p, activityPromptDismissed: dismissed }));
+	};
+
 	const setNotificationDefaultApplied = (applied: boolean) => {
 		setPreferences((p) => ({ ...p, notificationDefaultApplied: applied }));
 	};
@@ -508,6 +515,7 @@ export const UserPreferencesContextProvider: ParentComponent = (props) => {
 				setChannelSidebarWidth,
 				setNativeNotifications,
 				setNotificationPromptDismissed,
+				setActivityPromptDismissed,
 				setNotificationDefaultApplied,
 				setLastSeenReleaseNote,
 				setPreferredBlueskyClient,

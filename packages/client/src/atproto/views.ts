@@ -4,6 +4,8 @@ import type { social } from "@colibri-social/lexicons";
 export type ProfileView = social.colibri.beta.actor.defs.ProfileView;
 export type Presence = social.colibri.beta.actor.defs.Presence;
 export type Status = social.colibri.beta.actor.defs.Status;
+export type Activity = social.colibri.beta.actor.defs.Activity;
+export type ActivityKind = "listening" | "playing" | "streaming";
 export type VoiceState = social.colibri.beta.actor.defs.VoiceState;
 export type Preferences = social.colibri.beta.actor.defs.Preferences;
 export type Mute = social.colibri.beta.actor.defs.Mute;

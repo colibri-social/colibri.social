@@ -10,6 +10,7 @@ import {
 import GearIcon from "~icons/ph/gear";
 import PhoneSlashIcon from "~icons/ph/phone-slash";
 import PictureInPictureIcon from "~icons/ph/picture-in-picture";
+import { activitySummary, liveActivityOf } from "../../../atproto/activity";
 import type { ProfileView } from "../../../atproto/views";
 import { useCommunityContext } from "../../../contexts/Community";
 import { normalizeOnlineState } from "../../../contexts/community-payload";
@@ -34,6 +35,7 @@ import {
 import { UserSettingsModal } from "../settings";
 import { ScreenShareButton } from "../voice/ScreenShareButton";
 import User from ".";
+import { ActivityIcon } from "./ActivityCard";
 import { Avatar } from "./Avatar";
 import { ProfilePopover } from "./ProfilePopover";
 import { QuickStatusDialog } from "./QuickStatusDialog";
@@ -68,6 +70,9 @@ export const Status: Component = () => {
 	const onlineState = (): OnlineState =>
 		liveMember()?.data.onlineState ??
 		normalizeOnlineState(user.presence?.onlineState);
+
+	const activity = () =>
+		liveMember()?.data.activity ?? liveActivityOf(user.presence);
 
 	const voiceLabel = (): string =>
 		[voiceData.connection.channelName, voiceData.connection.communityName]
@@ -271,9 +276,23 @@ export const Status: Component = () => {
 							<span class="font-bold leading-5">
 								<User.DisplayableName color={false} user={liveUser()} />
 							</span>
-							<span class="text-xs text-muted-foreground">
-								{STATE_LABELS[onlineState()]}
-							</span>
+							<Show
+								when={activity()}
+								fallback={
+									<span class="text-xs text-muted-foreground">
+										{STATE_LABELS[onlineState()]}
+									</span>
+								}
+							>
+								<span class="text-xs text-muted-foreground flex flex-row items-center gap-1 max-w-full overflow-hidden">
+									<span class="text-purple-400 shrink-0">
+										<ActivityIcon kind={activity()!.kind} />
+									</span>
+									<span class="whitespace-nowrap text-ellipsis overflow-hidden">
+										{activitySummary(activity()!)}
+									</span>
+								</span>
+							</Show>
 						</div>
 					</div>
 				</ProfilePopover>

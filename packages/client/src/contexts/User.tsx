@@ -11,6 +11,7 @@ import {
 	Switch,
 	useContext,
 } from "solid-js";
+import { activityOf, warmActivityImage } from "../atproto/activity";
 import { namespace } from "../atproto/cache/keys";
 import {
 	cacheEnabled,
@@ -112,6 +113,8 @@ export const UserContextProvider: ParentComponent = (props) => {
 
 		const profile = actorDataRes.data?.profile;
 		const communities = communitiesRes.data;
+
+		warmActivityImage(activityOf(profile?.presence)?.imageUri);
 
 		if (!profile) {
 			throw new ColibriError({ code: "MalformedResponse" });
@@ -381,6 +384,7 @@ export const UserContextProvider: ParentComponent = (props) => {
 							const current = user.latest;
 							if (!current?.loggedIn) return;
 							mutate({ ...current, presence: event.presence });
+							warmActivityImage(activityOf(event.presence)?.imageUri);
 						}
 					});
 

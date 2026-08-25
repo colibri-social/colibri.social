@@ -8,6 +8,7 @@ import {
 } from "solid-js";
 import { Dynamic } from "solid-js/web";
 import PencilSimpleIcon from "~icons/ph/pencil-simple";
+import { liveActivityOf } from "../../../atproto/activity";
 import {
 	type BlueskyClientID,
 	getBskyAlternativeClientInfo,
@@ -43,6 +44,8 @@ import {
 	TooltipTrigger,
 } from "../../ui/Tooltip";
 import { LinkContextMenu } from "../common/LinkMenuItems";
+import { ActivityCard } from "./ActivityCard";
+import { ActivityOptInPrompt } from "./ActivityOptInPrompt";
 import { Avatar } from "./Avatar";
 import { Badge } from "./Badge";
 import { DisplayableName, displayableNameFn } from "./DisplayableName";
@@ -166,6 +169,9 @@ export const ProfilePopoverContents: Component<{
 	const { all: allBadges } = useUserBadges(() => props.user);
 
 	const bannerUrl = () => props.preview?.bannerUrl ?? props.user.banner;
+
+	const activity = () =>
+		isPreview() ? undefined : liveActivityOf(props.user.presence);
 
 	return (
 		<div
@@ -341,6 +347,13 @@ export const ProfilePopoverContents: Component<{
 							</Show>
 						</div>
 					</div>
+					<Show when={activity()}>
+						<hr class="w-full h-px border-none bg-border m-0" />
+						<ActivityCard activity={activity()!} />
+					</Show>
+					<Show when={isSelf() && !activity()}>
+						<ActivityOptInPrompt onRequestClose={props.onRequestClose} />
+					</Show>
 					<Show when={props.user.description && !props.hideDescription}>
 						<hr class="w-full h-px border-none bg-border m-0" />
 						<p

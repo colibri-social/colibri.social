@@ -13,6 +13,7 @@ import {
 	Switch,
 	useContext,
 } from "solid-js";
+import { warmActivityImages } from "../atproto/activity";
 import { evictCommunity } from "../atproto/cache/community-evict";
 import {
 	recallCommunity,
@@ -344,6 +345,12 @@ export const CommunityContextProvider: ParentComponent = (props) => {
 	const currentPayload = createMemo(() =>
 		payloadForCommunity(snapshot(), communityIdentifier()),
 	);
+
+	createEffect(() => {
+		const payload = currentPayload();
+		if (!payload) return;
+		warmActivityImages(payload.members.map((m) => m.data.activity));
+	});
 
 	const pending = createMemo(() =>
 		isCommunityResolving(

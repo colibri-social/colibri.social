@@ -1,5 +1,6 @@
 import { createContext, type ParentComponent, useContext } from "solid-js";
 import { createStore } from "solid-js/store";
+import { activityOf, warmActivityImage } from "../atproto/activity";
 import { colibri } from "../atproto/lexicons";
 import type { ProfileView } from "../atproto/views";
 import { useUserContext } from "./User";
@@ -16,8 +17,13 @@ export const ActorCacheProvider: ParentComponent = (props) => {
 	const [cache, setCache] = createStore<Record<string, ProfileView>>({});
 	const inflight = new Set<string>();
 
+	const remember = (actor: ProfileView): void => {
+		setCache(actor.did, actor);
+		warmActivityImage(activityOf(actor.presence)?.imageUri);
+	};
+
 	const seed = (actor: ProfileView): void => {
-		if (actor?.did) setCache(actor.did, actor);
+		if (actor?.did) remember(actor);
 	};
 
 	const resolve = (did: string): ProfileView | undefined => {
@@ -32,7 +38,7 @@ export const ActorCacheProvider: ParentComponent = (props) => {
 			user.xrpc
 				.call(colibri.actor.getProfile.main, { params: { actor: did } })
 				.then((res) => {
-					if (res.ok && res.data?.profile) setCache(did, res.data.profile);
+					if (res.ok && res.data?.profile) remember(res.data.profile);
 				})
 				.catch(() => {})
 				.finally(() => inflight.delete(did));

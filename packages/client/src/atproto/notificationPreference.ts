@@ -52,9 +52,12 @@ const readSettingsRecord = async (
 export type ActorSettingsPatch = Partial<
 	Pick<
 		ActorSettingsRecord,
-		"notificationLevel" | "communityOrder" | "gifFavorites"
+		"notificationLevel" | "communityOrder" | "gifFavorites" | "shareActivity"
 	>
 >;
+
+export const shareActivityOf = (preferences: Preferences): boolean =>
+	preferences.shareActivity === true;
 
 const queuedSettingsRecord = (
 	actorDid: string,
@@ -104,3 +107,11 @@ export const writeCommunityOrder = (
 	communityOrder: ActorSettingsRecord["communityOrder"],
 ): Promise<XrpcResult<PreferencesOutput>> =>
 	writeActorSettings(agent, xrpc, actorDid, { communityOrder });
+
+export const writeShareActivity = (
+	agent: Agent,
+	xrpc: ColibriClient,
+	actorDid: string,
+	shareActivity: boolean,
+): Promise<XrpcResult<PreferencesOutput>> =>
+	writeActorSettings(agent, xrpc, actorDid, { shareActivity });
