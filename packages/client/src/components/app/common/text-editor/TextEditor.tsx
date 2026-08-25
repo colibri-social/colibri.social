@@ -7,7 +7,10 @@ import {
 import { type Editor, Extension, mergeAttributes } from "@tiptap/core";
 import { BubbleMenu } from "@tiptap/extension-bubble-menu";
 import { Document } from "@tiptap/extension-document";
-import Emoji, { EmojiSuggestionPluginKey } from "@tiptap/extension-emoji";
+import Emoji, {
+	EmojiSuggestionPluginKey,
+	shortcodeToEmoji,
+} from "@tiptap/extension-emoji";
 import { HardBreak } from "@tiptap/extension-hard-break";
 import { Mention } from "@tiptap/extension-mention";
 import { Paragraph } from "@tiptap/extension-paragraph";
@@ -87,6 +90,24 @@ const EmojiWithoutSuggestion = Emoji.extend({
 		return (this.parent?.() ?? []).filter(
 			(plugin) => plugin.spec.key !== EmojiSuggestionPluginKey,
 		);
+	},
+	renderHTML({ HTMLAttributes, node }) {
+		const attributes = mergeAttributes(
+			HTMLAttributes,
+			this.options.HTMLAttributes,
+			{ "data-type": this.name },
+		);
+		const item = shortcodeToEmoji(node.attrs.name, this.options.emojis);
+
+		if (!item?.emoji) {
+			return ["span", attributes, `:${node.attrs.name}:`];
+		}
+
+		return [
+			"span",
+			attributes,
+			htmlToDOMOutputSpec(parseEmojiText(item.emoji))[0],
+		];
 	},
 });
 
