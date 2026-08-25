@@ -33,6 +33,7 @@ export const SettingsPage: ParentComponent<{
 	loading: Accessor<boolean>;
 	title: string;
 	description?: string;
+	contentClass?: string;
 	onSave?: () => void;
 	canReset?: boolean;
 	onReset?: () => void;
@@ -58,7 +59,10 @@ export const SettingsPage: ParentComponent<{
 			</Show>
 			<ScrollFadeBottom
 				wrapperClass="flex-1"
-				class="w-full flex flex-col gap-4 px-4 lg:max-w-137 pt-4"
+				class={cx(
+					"w-full flex flex-col gap-4 px-4 lg:max-w-137 pt-4",
+					props.contentClass,
+				)}
 				classList={{
 					"pb-4": hasFooter(),
 					"pb-[calc(1rem+var(--safe-area-bottom))]": !hasFooter(),

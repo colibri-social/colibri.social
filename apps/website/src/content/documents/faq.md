@@ -70,4 +70,4 @@ with any questions.
 
 No, they don't. While we store data the same way Bluesky does, we use a different
 "collection", meaning your data will stay confined to Colibri. You can use a tool
-like [atproto.at](https://atproto.at) to inspect your profile and all related data.
+like [pdsls.dev](https://pdsls.dev) to inspect your profile and all related data.

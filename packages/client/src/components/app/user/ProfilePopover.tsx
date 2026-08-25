@@ -29,6 +29,7 @@ import { openExternalLink } from "../../../utils/open-external-link";
 import { readableUserColor } from "../../../utils/readable-color";
 import { resolvedTheme } from "../../../utils/theme";
 import { useUserBadges } from "../../../utils/user-badges";
+import { PDSls } from "../../icons/PDSls";
 import { BottomSheet } from "../../ui/MenuDrawer";
 import {
 	Popover,
@@ -150,8 +151,7 @@ export const ProfilePopoverContents: Component<{
 	const isSelf = () => !isPreview() && viewer?.did === props.user.did;
 
 	const [bskyTooltipVisible, setBskyTooltipVisible] = createSignal(false);
-	const [atProtoAtTooltipVisible, setAtProtoAtTooltipVisible] =
-		createSignal(false);
+	const [pdslsTooltipVisible, setPdslsTooltipVisible] = createSignal(false);
 
 	const bskyProfileHref = () =>
 		`https://${
@@ -160,8 +160,8 @@ export const ProfilePopoverContents: Component<{
 			).base
 		}/profile/${props.user.handle.replaceAll("at://", "")}`;
 
-	const atProtoAtHref = () =>
-		`https://atproto.at/uri/at://${props.user.handle.replaceAll("at://", "")}`;
+	const pdslsHref = () =>
+		`https://pdsls.dev/at://${props.user.handle.replaceAll("at://", "")}`;
 
 	const accentColor = () =>
 		readableUserColor(props.user.theme?.accentColor, resolvedTheme());
@@ -314,26 +314,23 @@ export const ProfilePopoverContents: Component<{
 											</TooltipContent>
 										</TooltipPortal>
 									</Tooltip>
-									<Tooltip open={atProtoAtTooltipVisible()}>
+									<Tooltip open={pdslsTooltipVisible()}>
 										<TooltipTrigger>
 											<a
-												href={atProtoAtHref()}
+												href={pdslsHref()}
 												target="_blank"
 												rel="noreferrer"
-												onClick={(e) => openExternalLink(atProtoAtHref(), e)}
-												class="hover:text-[#1185fe] flex flex-row items-center gap-1.5 text-sm text-card-foreground font-normal hover:underline"
-												onMouseEnter={() => setAtProtoAtTooltipVisible(true)}
-												onMouseLeave={() => setAtProtoAtTooltipVisible(false)}
+												onClick={(e) => openExternalLink(pdslsHref(), e)}
+												class="text-[#76C4E5] flex flex-row items-center gap-1.5 text-sm font-normal"
+												onMouseEnter={() => setPdslsTooltipVisible(true)}
+												onMouseLeave={() => setPdslsTooltipVisible(false)}
 											>
-												at://
+												<PDSls size={16} />
 											</a>
 										</TooltipTrigger>
 										<TooltipPortal>
 											<TooltipContent>
-												<span>
-													View on atproto.
-													<span class="test-[#1185fe]">at://</span>
-												</span>
+												<span>View on PDSls</span>
 											</TooltipContent>
 										</TooltipPortal>
 									</Tooltip>

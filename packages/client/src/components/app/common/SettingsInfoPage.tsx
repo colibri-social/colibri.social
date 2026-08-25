@@ -1,6 +1,9 @@
-import { type Component, Show } from "solid-js";
-import { AtURI } from "../../../utils/at-uri";
+import { type Component, createSignal, Match, Show, Switch } from "solid-js";
+import CheckIcon from "~icons/ph/check";
+import CopyIcon from "~icons/ph/copy";
+import { describeAtURI } from "../../../utils/at-uri";
 import { openExternalLink } from "../../../utils/open-external-link";
+import { PDSls } from "../../icons/PDSls";
 import { Button } from "../../ui/Button";
 import { CopyButton } from "./CopyButton";
 import { SettingsPage } from "./SettingsModal";
@@ -26,32 +29,85 @@ export const InfoPageItem: Component<{
 	);
 };
 
+export const InfoPageActions: Component<{ uri: string }> = (props) => {
+	const [copied, setCopied] = createSignal(false);
+	const isAtURI = () => props.uri.startsWith("at://");
+	const pdslsHref = () => `https://pdsls.dev/${props.uri}`;
+
+	const copyUri = () => {
+		navigator.clipboard.writeText(props.uri);
+		setCopied(true);
+		setTimeout(() => setCopied(false), 2000);
+	};
+
+	return (
+		<div class="flex flex-row gap-2 items-center flex-wrap">
+			<Show when={isAtURI()}>
+				<Button
+					onClick={copyUri}
+					class="font-medium w-fit flex flex-row gap-2 items-center"
+				>
+					<Switch>
+						<Match when={copied()}>
+							<CheckIcon />
+							<span>Copied!</span>
+						</Match>
+						<Match when={!copied()}>
+							<CopyIcon />
+							<span>Copy AT-URI</span>
+						</Match>
+					</Switch>
+				</Button>
+			</Show>
+			<Show when={isAtURI() || props.uri.startsWith("did:")}>
+				<Button
+					as="a"
+					variant="secondary"
+					href={pdslsHref()}
+					target="_blank"
+					rel="noreferrer"
+					onClick={(e) => openExternalLink(pdslsHref(), e)}
+					class="font-medium w-fit flex flex-row gap-2 items-center"
+				>
+					<PDSls className="text-[#76C4E5]" size={16} />
+					<span>View on PDSls</span>
+				</Button>
+			</Show>
+		</div>
+	);
+};
+
 export const SettingsInfoPage: Component<{
 	uri: string;
 }> = (props) => {
-	const { did, collection, identifier } = AtURI.parseAtURI(props.uri);
-	const atprotoAtHref = `https://atproto.at/uri/${props.uri}`;
+	const parts = () => describeAtURI(props.uri);
 
 	return (
-		<SettingsPage loading={() => false} title="Debug Information">
+		<SettingsPage
+			loading={() => false}
+			title="Debug Information"
+			contentClass="lg:max-w-none"
+		>
 			<div class="flex flex-col gap-4">
-				<InfoPageItem title="Owner DID" value={did} />
-				<InfoPageItem title="Collection" value={collection} />
-				<InfoPageItem title="Identifier" value={identifier} />
-				<InfoPageItem title="AT-URI" value={props.uri} />
-				<Button
-					as="a"
-					href={atprotoAtHref}
-					target="_blank"
-					rel="noreferrer"
-					onClick={(e) => openExternalLink(atprotoAtHref, e)}
-					class="font-medium w-fit flex flex-row gap-2 items-center bg-foreground hover:bg-foreground/90"
-				>
-					<span class="text-background">
-						View on atproto.
-						<span class="text-[#1185fe]">at://</span>
-					</span>
-				</Button>
+				<Show when={parts().spaceAuthority}>
+					{(value) => <InfoPageItem title="Space Authority" value={value()} />}
+				</Show>
+				<Show when={parts().spaceType}>
+					{(value) => <InfoPageItem title="Space Type" value={value()} />}
+				</Show>
+				<Show when={parts().spaceKey}>
+					{(value) => <InfoPageItem title="Space Key" value={value()} />}
+				</Show>
+				<Show when={parts().did}>
+					{(value) => <InfoPageItem title="Owner DID" value={value()} />}
+				</Show>
+				<Show when={parts().collection}>
+					{(value) => <InfoPageItem title="Collection" value={value()} />}
+				</Show>
+				<Show when={parts().identifier}>
+					{(value) => <InfoPageItem title="Identifier" value={value()} />}
+				</Show>
+				<InfoPageActions uri={props.uri} />
 			</div>
 		</SettingsPage>
 	);

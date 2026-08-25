@@ -34,6 +34,40 @@ export const messageIdentity = (
 	return { did, rkey };
 };
 
+export type AtURIDescription = {
+	spaceAuthority?: string;
+	spaceType?: string;
+	spaceKey?: string;
+	did?: string;
+	collection?: string;
+	identifier?: string;
+};
+
+export const describeAtURI = (uri: string): AtURIDescription => {
+	if (!uri.startsWith("at://"))
+		return uri.startsWith("did:") ? { did: uri } : { identifier: uri };
+
+	const [authority, ...rest] = uri.slice("at://".length).split("/");
+
+	if (rest[0] !== "space")
+		return {
+			did: authority || undefined,
+			collection: rest[0] || undefined,
+			identifier: rest[1] || undefined,
+		};
+
+	const [, spaceType, spaceKey, repo, collection, rkey] = rest;
+
+	return {
+		spaceAuthority: authority || undefined,
+		spaceType: spaceType || undefined,
+		spaceKey: spaceKey || undefined,
+		did: repo || undefined,
+		collection: collection || undefined,
+		identifier: rkey || undefined,
+	};
+};
+
 export const channelPath = (channelUri: string): string =>
 	buildChannelPath(channelUri) ??
 	`/app/c/${channelIdentity(channelUri).communityDid}`;

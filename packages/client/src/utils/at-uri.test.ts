@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { AtURI, messageIdentity, toRecordUri } from "./at-uri";
+import { AtURI, describeAtURI, messageIdentity, toRecordUri } from "./at-uri";
 
 const DID = "did:plc:abc123";
 const COLLECTION = "social.colibri.message";
@@ -48,6 +48,49 @@ describe("messageIdentity", () => {
 		expect(
 			messageIdentity(`at://${DID}/social.colibri.beta.reaction/3lk2abc`),
 		).toBeUndefined();
+	});
+});
+
+describe("describeAtURI", () => {
+	const SPACE =
+		"at://did:plc:community/space/social.colibri.beta.channel.text/3mttl45nkb22p";
+
+	it("splits a space-scoped record into its space and record parts", () => {
+		expect(describeAtURI(`${SPACE}/${DID}/${COLLECTION}/3lk2abc`)).toEqual({
+			spaceAuthority: "did:plc:community",
+			spaceType: "social.colibri.beta.channel.text",
+			spaceKey: "3mttl45nkb22p",
+			did: DID,
+			collection: COLLECTION,
+			identifier: "3lk2abc",
+		});
+	});
+
+	it("leaves the record parts undefined for a bare space", () => {
+		expect(describeAtURI(SPACE)).toEqual({
+			spaceAuthority: "did:plc:community",
+			spaceType: "social.colibri.beta.channel.text",
+			spaceKey: "3mttl45nkb22p",
+			did: undefined,
+			collection: undefined,
+			identifier: undefined,
+		});
+	});
+
+	it("splits a plain repo record", () => {
+		expect(describeAtURI(`at://${DID}/${COLLECTION}/3lk2abc`)).toEqual({
+			did: DID,
+			collection: COLLECTION,
+			identifier: "3lk2abc",
+		});
+	});
+
+	it("reads a bare did as the owner", () => {
+		expect(describeAtURI(DID)).toEqual({ did: DID });
+	});
+
+	it("reads a bare record key as the identifier", () => {
+		expect(describeAtURI("3lk2abc")).toEqual({ identifier: "3lk2abc" });
 	});
 });
 
