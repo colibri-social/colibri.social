@@ -21,12 +21,10 @@ import { useUserContext } from "../../../contexts/User";
 import { useUserPreferences } from "../../../contexts/UserPreferences";
 import { cx } from "../../../utils/cva";
 import { parseEmojiText } from "../../../utils/emoji";
+import { handleExternalLinkClick } from "../../../utils/external-link-warning";
 import { LINK_REGEX } from "../../../utils/link-regex";
 import { useIsMobile } from "../../../utils/mobile-pane";
-import {
-	handleExternalLinkClick,
-	openExternalLink,
-} from "../../../utils/open-external-link";
+import { openExternalLink } from "../../../utils/open-external-link";
 import { purify } from "../../..//utils/purify";
 import { readableUserColor } from "../../../utils/readable-color";
 import { resolvedTheme } from "../../../utils/theme";

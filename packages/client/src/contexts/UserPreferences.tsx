@@ -22,6 +22,7 @@ import {
 	normalizeEmojiUsage,
 	pruneEmojiUsage,
 } from "../utils/emoji-usage";
+import { setExternalLinkWarningEnabled } from "../utils/external-link-warning";
 import { isMobileNow } from "../utils/mobile-pane";
 import {
 	DEFAULT_SCREEN_FRAMERATE,
@@ -125,6 +126,7 @@ export type UserPreferencesContextData = {
 	hideCrossAppViewHint: boolean;
 	attachAccountToReports: boolean;
 	linkEmbedsByDefault: boolean;
+	warnOnExternalLinks: boolean;
 	nativeWindowDecorations: boolean;
 	theme: AppTheme | null;
 	recentGifs: Array<GifItem>;
@@ -177,6 +179,7 @@ const DEFAULT_PREFERENCES: UserPreferencesContextData = {
 	hideCrossAppViewHint: false,
 	attachAccountToReports: false,
 	linkEmbedsByDefault: true,
+	warnOnExternalLinks: true,
 	nativeWindowDecorations: false,
 	theme: null,
 	recentGifs: [],
@@ -304,6 +307,7 @@ type UserPreferencesContextValue = {
 	setHideCrossAppViewHint: (hidden: boolean) => void;
 	setAttachAccountToReports: (enabled: boolean) => void;
 	setLinkEmbedsByDefault: (enabled: boolean) => void;
+	setWarnOnExternalLinks: (enabled: boolean) => void;
 	setNativeWindowDecorations: (enabled: boolean) => void;
 	setTheme: (theme: AppTheme | null) => void;
 	pushRecentGif: (gif: GifItem) => void;
@@ -328,6 +332,10 @@ export const UserPreferencesContextProvider: ParentComponent = (props) => {
 		} catch {
 			// localStorage not available (private browsing, etc.)
 		}
+	});
+
+	createEffect(() => {
+		setExternalLinkWarningEnabled(preferences().warnOnExternalLinks);
 	});
 
 	const updateVoice = (patch: Partial<VoicePreferences>) => {
@@ -480,6 +488,10 @@ export const UserPreferencesContextProvider: ParentComponent = (props) => {
 		setPreferences((p) => ({ ...p, linkEmbedsByDefault: enabled }));
 	};
 
+	const setWarnOnExternalLinks = (enabled: boolean) => {
+		setPreferences((p) => ({ ...p, warnOnExternalLinks: enabled }));
+	};
+
 	const setNativeWindowDecorations = (enabled: boolean) => {
 		setPreferences((p) => ({ ...p, nativeWindowDecorations: enabled }));
 	};
@@ -559,6 +571,7 @@ export const UserPreferencesContextProvider: ParentComponent = (props) => {
 				setHideCrossAppViewHint,
 				setAttachAccountToReports,
 				setLinkEmbedsByDefault,
+				setWarnOnExternalLinks,
 				setNativeWindowDecorations,
 				setTheme,
 				pushRecentGif,

@@ -10,6 +10,7 @@ import { Extension } from "@tiptap/core";
 import type { Node as ProseMirrorNode } from "prosemirror-model";
 import { Plugin, PluginKey } from "prosemirror-state";
 import { Decoration, DecorationSet, type EditorView } from "prosemirror-view";
+import { MARKDOWN_LINK_POLICY } from "../../../../utils/link-safety";
 import { projectBlock } from "./block-projection";
 
 const captureToTag = new Map<string, string>(
@@ -138,7 +139,14 @@ export const MarkdownDecorations = Extension.create({
 				if (!node.isTextblock) return;
 
 				const { text, positions } = projectBlock(node, pos);
-				const tokens = tokenizeMarkdown(text);
+				const tokens = tokenizeMarkdown(text).filter(
+					(t) =>
+						t.kind !== "link" ||
+						MARKDOWN_LINK_POLICY.allowLink(
+							text.slice(t.content[0], t.content[1]),
+							t.uri ?? "",
+						),
+				);
 
 				for (const token of tokens) {
 					if (token.kind === "codeblock") {

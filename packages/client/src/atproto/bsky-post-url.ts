@@ -9,7 +9,7 @@ export type BskyPostRef = {
 	rkey: string;
 };
 
-const BSKY_HOSTS = new Set(BSKY_ALTERNATIVES.map((a) => a.base));
+export const BSKY_HOSTS = new Set(BSKY_ALTERNATIVES.map((a) => a.base));
 
 /**
  * Recognizes a Bluesky post permalink on any supported client domain and pulls

@@ -26,7 +26,7 @@ import { Paragraph } from "@tiptap/extension-paragraph";
 import { Text } from "@tiptap/extension-text";
 import { Placeholder, UndoRedo } from "@tiptap/extensions";
 import type { Fragment, Node as ProseMirrorNode } from "prosemirror-model";
-import { Plugin, PluginKey } from "prosemirror-state";
+import { Plugin, PluginKey, TextSelection } from "prosemirror-state";
 import type { EditorView } from "prosemirror-view";
 import {
 	type Component,
@@ -67,6 +67,7 @@ import { findEmoji, hasEmoji, parseEmojiText } from "../../../../utils/emoji";
 import { TIPTAP_EMOJIS } from "../../../../utils/emoji-data";
 import { htmlToDOMOutputSpec } from "../../../../utils/html-to-dom-output-spec";
 import { linkUrisFromFacets } from "../../../../utils/link-facets";
+import { isWebUrl, MARKDOWN_LINK_POLICY } from "../../../../utils/link-safety";
 import { useIsMobile } from "../../../../utils/mobile-pane";
 import { safeAreaOverflowPadding } from "../../../../utils/safe-area";
 import {
@@ -645,6 +646,26 @@ const writeSelectionToClipboard = (
  * (paste gesture) and `InputEvent` (Android IME rich-content insertion, e.g.
  * tapping the Gboard clipboard image chip)
  */
+const wrapSelectionAsMarkdownLink = (
+	view: EditorView,
+	url: string,
+): boolean => {
+	const { from, to } = view.state.selection;
+	if (from === to) return false;
+
+	const label = view.state.doc.textBetween(from, to, "\n", "\n");
+	if (!MARKDOWN_LINK_POLICY.allowLink(label, url)) return false;
+
+	const suffix = `](${url})`;
+	const tr = view.state.tr;
+	tr.insertText(suffix, to, to);
+	tr.insertText("[", from, from);
+	tr.setSelection(TextSelection.create(tr.doc, to + 1 + suffix.length));
+	view.dispatch(tr);
+	view.focus();
+	return true;
+};
+
 const extractImageFiles = (data: DataTransfer | null): Array<File> => {
 	if (!data) return [];
 
@@ -1045,6 +1066,18 @@ export const TextEditor: Component<{
 				const plain = plainPasteRequested;
 				plainPasteRequested = false;
 
+				const pastedUrl = event.clipboardData?.getData("text/plain")?.trim();
+				if (
+					!plain &&
+					pastedUrl &&
+					!/\s/.test(pastedUrl) &&
+					isWebUrl(pastedUrl) &&
+					!parseColibriChannelUrl(pastedUrl) &&
+					wrapSelectionAsMarkdownLink(view, pastedUrl)
+				) {
+					return true;
+				}
+
 				const payload = plain
 					? null
 					: readClipboardFacets(event.clipboardData?.getData("text/html"));
@@ -1083,7 +1116,7 @@ export const TextEditor: Component<{
 				if (!text) return false;
 				if (!text.includes("\n") && !hasEmoji(text)) return false;
 
-				const parsed = parseMarkdown(text, []);
+				const parsed = parseMarkdown(text, [], MARKDOWN_LINK_POLICY);
 				const { content } = facetsToProseMirror(
 					parsed.text,
 					parsed.facets,

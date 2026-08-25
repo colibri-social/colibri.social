@@ -327,6 +327,26 @@ export const PreferencesPage: Component = () => {
 			</Toggle>
 			<Toggle
 				class="flex flex-row gap-4 items-center w-full justify-between shrink-0 mt-4"
+				checked={userPreferences.preferences().warnOnExternalLinks}
+				onChange={userPreferences.setWarnOnExternalLinks}
+			>
+				<div>
+					<SwitchLabel>Warn me before I leave Colibri</SwitchLabel>
+					<SwitchDescription>
+						Shows the full address and asks for confirmation when you open a
+						link that points outside Colibri. Links to Colibri and to your
+						Bluesky client open straight away.
+					</SwitchDescription>
+				</div>
+				<div>
+					<SwitchInput />
+					<SwitchControl>
+						<SwitchThumb />
+					</SwitchControl>
+				</div>
+			</Toggle>
+			<Toggle
+				class="flex flex-row gap-4 items-center w-full justify-between shrink-0 mt-4"
 				checked={userPreferences.preferences().attachAccountToReports}
 				onChange={userPreferences.setAttachAccountToReports}
 			>

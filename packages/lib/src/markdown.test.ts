@@ -447,3 +447,46 @@ describe("normalizeWhitespace", () => {
 		expect(summarize(result.facets)).toEqual(["0-1:heading", "2-6:bold"]);
 	});
 });
+
+describe("parseMarkdown link policy", () => {
+	const rejectAll = { allowLink: () => false };
+
+	it("keeps the literal markers when a link is rejected", () => {
+		const { text, facets } = parseMarkdown(
+			"[https://good.example](https://bad.example)",
+			[],
+			rejectAll,
+		);
+		expect(text).toBe("[https://good.example](https://bad.example)");
+		expect(facets).toEqual([]);
+	});
+
+	it("passes the label and the target to the policy", () => {
+		const seen: Array<[string, string]> = [];
+		parseMarkdown("see [the docs](https://good.example/a)", [], {
+			allowLink: (label, uri) => {
+				seen.push([label, uri]);
+				return true;
+			},
+		});
+		expect(seen).toEqual([["the docs", "https://good.example/a"]]);
+	});
+
+	it("leaves other tokens alone when a link is rejected", () => {
+		const { text, facets } = parseMarkdown(
+			"**b** [a](https://x.example)",
+			[],
+			rejectAll,
+		);
+		expect(text).toBe("b [a](https://x.example)");
+		expect(facets.flatMap((f) => f.features.map(kindOf))).toEqual(["bold"]);
+	});
+
+	it("still emits the link when the policy allows it", () => {
+		const { text, facets } = parseMarkdown("[a](https://x.example)", [], {
+			allowLink: () => true,
+		});
+		expect(text).toBe("a");
+		expect(facets.flatMap((f) => f.features.map(kindOf))).toEqual(["link"]);
+	});
+});

@@ -475,6 +475,10 @@ export interface ParsedMarkdown {
 	facets: Array<ColibriRichTextFacet>;
 }
 
+export interface ParseMarkdownOptions {
+	allowLink?: (label: string, uri: string) => boolean;
+}
+
 /**
  * Collapses spans into an ascending, non-overlapping list
  */
@@ -529,8 +533,15 @@ const removeRanges = (
 export const parseMarkdown = (
 	source: string,
 	extra: SourceFacet[] = [],
+	options?: ParseMarkdownOptions,
 ): ParsedMarkdown => {
-	const tokens = tokenizeMarkdown(source);
+	const allowLink = options?.allowLink;
+	const tokens = tokenizeMarkdown(source).filter(
+		(t) =>
+			t.kind !== "link" ||
+			!allowLink ||
+			allowLink(source.slice(t.content[0], t.content[1]), t.uri ?? ""),
+	);
 	const { text, mapToClean } = removeRanges(
 		source,
 		tokens.flatMap((t) => t.markers),

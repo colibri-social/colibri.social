@@ -13,11 +13,16 @@ import { parseColibriInviteUrl } from "../../../../atproto/colibri-invite-url";
 import { useCommunityContext } from "../../../../contexts/Community";
 import { useUserPreferences } from "../../../../contexts/UserPreferences";
 import { parseEmojiText } from "../../../../utils/emoji";
+import { openUntrustedLink } from "../../../../utils/external-link-warning";
+import {
+	isDisguisedLink,
+	isSafeLinkUri,
+	literalMarkdownLink,
+} from "../../../../utils/link-safety";
 import {
 	buildFeatureKey,
 	normalizeFacets,
 } from "../../../../utils/normalize-facets";
-import { openExternalLink } from "../../../../utils/open-external-link";
 import { purify } from "../../../../utils/purify";
 import { MemberContextMenu } from "../../community/MemberContextMenu";
 import { RoleMentionPopover } from "../../community/RoleMentionPopover";
@@ -145,6 +150,16 @@ const applyStyleForFacet = (text: string, feature: AnyFeature): JSX.Element => {
 		}
 		case "social.colibri.richtext.facet#link": {
 			const rawUri = "uri" in feature ? String(feature.uri) : text;
+			if (!isSafeLinkUri(rawUri) || isDisguisedLink(text, rawUri)) {
+				return (
+					<span
+						innerHTML={parseEmojiText(
+							purify(literalMarkdownLink(text, rawUri)),
+						)}
+					/>
+				);
+			}
+
 			const inviteCode = parseColibriInviteUrl(rawUri);
 			const isBareUrl = text.trim() === rawUri;
 
@@ -176,7 +191,7 @@ const applyStyleForFacet = (text: string, feature: AnyFeature): JSX.Element => {
 					class={LINK_CLASS}
 					target="_blank"
 					rel="noreferrer"
-					onClick={(e) => openExternalLink(displayHref(), e)}
+					onClick={(e) => openUntrustedLink(displayHref(), e)}
 					innerHTML={
 						isBareUrl ? parseEmojiText(purify(displayHref())) : textWithEmojis
 					}
@@ -436,6 +451,20 @@ const renderInlineRange = (
 					case "social.colibri.richtext.facet#link":
 						if ("uri" in feature) {
 							const rawUri = String(feature.uri);
+							if (
+								!isSafeLinkUri(rawUri) ||
+								isDisguisedLink(segmentText, rawUri)
+							) {
+								element = (
+									<span
+										innerHTML={parseEmojiText(
+											purify(literalMarkdownLink(segmentText, rawUri)),
+										)}
+									/>
+								);
+								break;
+							}
+
 							const inviteCode = parseColibriInviteUrl(rawUri);
 							const channelTarget = parseColibriChannelUrl(rawUri);
 
@@ -475,7 +504,7 @@ const renderInlineRange = (
 									class={LINK_CLASS}
 									target="_blank"
 									rel="noreferrer"
-									onClick={(e) => openExternalLink(displayHref(), e)}
+									onClick={(e) => openUntrustedLink(displayHref(), e)}
 								>
 									{isBareUrl ? (
 										<span innerHTML={parseEmojiText(purify(displayHref()))} />
@@ -807,17 +836,4 @@ const renderBlockRange = (
 	}
 
 	return result;
-};
-
-/**
- * Validate that a string is a well-formed http(s) URL.
- * @param value The value to check
- */
-export const isValidUrl = (value: string): boolean => {
-	try {
-		const url = new URL(value);
-		return url.protocol === "http:" || url.protocol === "https:";
-	} catch {
-		return false;
-	}
 };

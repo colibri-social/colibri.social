@@ -19,12 +19,12 @@ import type { GifItem } from "../../../../atproto/xrpc/social/colibri/embed/gifT
 import { useGifFavorites } from "../../../../contexts/GifFavorites";
 import { useUserContext } from "../../../../contexts/User";
 import createMediaQuery from "../../../../utils/create-media-query";
+import { openUntrustedLink } from "../../../../utils/external-link-warning";
 import {
 	constrainedImageStyle,
 	rememberAspectRatio,
 	reservedAspectRatio,
 } from "../../../../utils/image-sizing";
-import { openExternalLink } from "../../../../utils/open-external-link";
 import { REDUCED_MOTION_QUERY } from "../../../hummingbird/Hummingbird";
 import { Lightbox } from "../../common/Lightbox";
 import { MediaLightboxGallery } from "./Attachments";
@@ -273,7 +273,7 @@ const OpenGraphEmbed: Component<{ uri: string }> = (props) => {
 									href={props.uri}
 									target="_blank"
 									rel="noreferrer"
-									onClick={(e) => openExternalLink(props.uri, e)}
+									onClick={(e) => openUntrustedLink(props.uri, e)}
 								>
 									{data()!.title}
 								</a>

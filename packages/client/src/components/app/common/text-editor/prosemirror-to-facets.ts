@@ -8,8 +8,11 @@ import {
 } from "@colibri-social/lib";
 import type { Editor, MarkType, NodeType, TextType } from "@tiptap/core";
 import { shortcodeToEmoji } from "@tiptap/extension-emoji";
-import TLDs from "tlds";
 import { TIPTAP_EMOJIS } from "../../../../utils/emoji-data";
+import {
+	isValidDomain,
+	MARKDOWN_LINK_POLICY,
+} from "../../../../utils/link-safety";
 
 export type ParsedText = { text: string; facets: Array<ColibriRichTextFacet> };
 type DocContent =
@@ -170,13 +173,6 @@ const docToSource = (
 	return { source, atoms };
 };
 
-const isValidDomain = (str: string): boolean =>
-	!!TLDs.find((tld) => {
-		const i = str.lastIndexOf(tld);
-		if (i === -1) return false;
-		return str.charAt(i - 1) === "." && i === str.length - tld.length;
-	});
-
 /**
  * Detects URLs in plain text that aren't already covered by a link facet
  * and adds link facets for them
@@ -258,7 +254,7 @@ export const proseMirrorToFacets = (
 	json: ReturnType<Editor["getJSON"]>,
 ): ParsedText => {
 	const { source, atoms } = docToSource(json.content);
-	const { text, facets } = parseMarkdown(source, atoms);
+	const { text, facets } = parseMarkdown(source, atoms, MARKDOWN_LINK_POLICY);
 	const withDetectedLinks = detectMissingLinkFacets(text, facets);
 
 	return normalizeWhitespace({ text, facets: withDetectedLinks });

@@ -11,8 +11,3 @@ export const openExternalLink = (
 		await openUrl(url);
 	})();
 };
-
-export const handleExternalLinkClick = (event: MouseEvent): void => {
-	const anchor = (event.target as HTMLElement | null)?.closest?.("a");
-	if (anchor?.href) openExternalLink(anchor.href, event);
-};
