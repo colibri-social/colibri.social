@@ -3,13 +3,13 @@
 import ArrowBendUpLeftFillIcon from "~icons/ph/arrow-bend-up-left-fill";
 import ArrowDownFillIcon from "~icons/ph/arrow-down-fill";
 import ArrowLineDownFillIcon from "~icons/ph/arrow-line-down-fill";
-import ArrowLineUpFillIcon from "~icons/ph/arrow-line-up-fill";
 import ArrowUpFillIcon from "~icons/ph/arrow-up-fill";
 import AtFillIcon from "~icons/ph/at-fill";
 import BellFillIcon from "~icons/ph/bell-fill";
 import BellRingingFillIcon from "~icons/ph/bell-ringing-fill";
 import ChecksFillIcon from "~icons/ph/checks-fill";
 import CircleHalfFillIcon from "~icons/ph/circle-half-fill";
+import CodeBlockFillIcon from "~icons/ph/code-block-fill";
 import CornersOutFillIcon from "~icons/ph/corners-out-fill";
 import DeviceMobileFillIcon from "~icons/ph/device-mobile-fill";
 import DownloadSimpleFillIcon from "~icons/ph/download-simple-fill";
@@ -24,8 +24,9 @@ import KeyboardFillIcon from "~icons/ph/keyboard-fill";
 import LightbulbFillIcon from "~icons/ph/lightbulb-fill";
 import LightningFillIcon from "~icons/ph/lightning-fill";
 import LinkBreakFillIcon from "~icons/ph/link-break-fill";
+import LinkFillIcon from "~icons/ph/link-fill";
 import LinkSimpleFillIcon from "~icons/ph/link-simple-fill";
-import MonitorPlayFillIcon from "~icons/ph/monitor-play-fill";
+import ListBulletsFillIcon from "~icons/ph/list-bullets-fill";
 import PencilFillIcon from "~icons/ph/pencil-fill";
 import PlayCircleFillIcon from "~icons/ph/play-circle-fill";
 import ShieldCheckFillIcon from "~icons/ph/shield-check-fill";
@@ -35,20 +36,19 @@ import SmileyFillIcon from "~icons/ph/smiley-fill";
 import SparkleFillIcon from "~icons/ph/sparkle-fill";
 import StarFillIcon from "~icons/ph/star-fill";
 import SunFillIcon from "~icons/ph/sun-fill";
-import TrashFillIcon from "~icons/ph/trash-fill";
 import WaveformFillIcon from "~icons/ph/waveform-fill";
 
 export const RELEASE_NOTE_ICONS = {
 	"arrow-bend-up-left-fill": ArrowBendUpLeftFillIcon,
 	"arrow-down-fill": ArrowDownFillIcon,
 	"arrow-line-down-fill": ArrowLineDownFillIcon,
-	"arrow-line-up-fill": ArrowLineUpFillIcon,
 	"arrow-up-fill": ArrowUpFillIcon,
 	"at-fill": AtFillIcon,
 	"bell-fill": BellFillIcon,
 	"bell-ringing-fill": BellRingingFillIcon,
 	"checks-fill": ChecksFillIcon,
 	"circle-half-fill": CircleHalfFillIcon,
+	"code-block-fill": CodeBlockFillIcon,
 	"corners-out-fill": CornersOutFillIcon,
 	"device-mobile-fill": DeviceMobileFillIcon,
 	"download-simple-fill": DownloadSimpleFillIcon,
@@ -63,8 +63,9 @@ export const RELEASE_NOTE_ICONS = {
 	"lightbulb-fill": LightbulbFillIcon,
 	"lightning-fill": LightningFillIcon,
 	"link-break-fill": LinkBreakFillIcon,
+	"link-fill": LinkFillIcon,
 	"link-simple-fill": LinkSimpleFillIcon,
-	"monitor-play-fill": MonitorPlayFillIcon,
+	"list-bullets-fill": ListBulletsFillIcon,
 	"pencil-fill": PencilFillIcon,
 	"play-circle-fill": PlayCircleFillIcon,
 	"shield-check-fill": ShieldCheckFillIcon,
@@ -74,7 +75,6 @@ export const RELEASE_NOTE_ICONS = {
 	"sparkle-fill": SparkleFillIcon,
 	"star-fill": StarFillIcon,
 	"sun-fill": SunFillIcon,
-	"trash-fill": TrashFillIcon,
 	"waveform-fill": WaveformFillIcon,
 } as const;
 
