@@ -1,6 +1,7 @@
 import { createMemo, createSignal, For, onCleanup, Show } from "solid-js";
 import CaretLeftIcon from "~icons/ph/caret-left";
 import CrownIcon from "~icons/ph/crown-fill";
+import { activityIsLive, activitySummary } from "../../../atproto/activity";
 import { spaceSkey } from "../../../atproto/space-ref";
 import { useCommunityContext } from "../../../contexts/Community";
 import type { Member } from "../../../contexts/community-payload";
@@ -17,6 +18,7 @@ import {
 import { isDrawerOpen } from "../../ui/MenuDrawer";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../../ui/Tooltip";
 import User from "../user";
+import { ActivityIcon } from "../user/ActivityCard";
 import { MemberContextMenu } from "./MemberContextMenu";
 
 // Exact row geometry, so the window never has to measure the DOM.
@@ -40,6 +42,11 @@ type Row =
 const MemberRow = (props: { member: Member }) => {
 	const community = useCommunityContext();
 	const profile = () => props.member.actor;
+	const online = () => props.member.data.onlineState !== "offline";
+	const activity = () => {
+		const current = props.member.data.activity;
+		return activityIsLive(current) ? current : undefined;
+	};
 
 	return (
 		<MemberContextMenu member={props.member}>
@@ -72,22 +79,42 @@ const MemberRow = (props: { member: Member }) => {
 								</span>
 							</Show>
 						</span>
-						<Show
-							when={
-								props.member.data.status &&
-								props.member.data.onlineState !== "offline"
-							}
-						>
+						<Show when={online() && (activity() || props.member.data.status)}>
 							<span class="text-sm w-full leading-5 flex flex-row items-center gap-2">
-								<Show when={props.member.data.status!.emoji}>
-									<span
-										class="[&>img]:min-w-4 [&>img]:min-h-4 [&>img]:w-4 [&>img]:h-4 [&>img]inline"
-										innerHTML={parseEmojiText(props.member.data.status!.emoji!)}
-									/>
+								<Show when={activity()}>
+									{(current) => (
+										<>
+											<span class="text-purple-400 shrink-0 flex items-center">
+												<ActivityIcon kind={current().kind} />
+											</span>
+											<Show when={props.member.data.status}>
+												<span class="text-muted-foreground shrink-0">·</span>
+											</Show>
+										</>
+									)}
 								</Show>
-								<span class="w-full overflow-hidden text-ellipsis whitespace-nowrap">
-									{props.member.data.status!.text}
-								</span>
+								<Show
+									when={props.member.data.status}
+									fallback={
+										<span class="w-full overflow-hidden text-ellipsis whitespace-nowrap text-muted-foreground">
+											{activitySummary(activity()!)}
+										</span>
+									}
+								>
+									{(status) => (
+										<>
+											<Show when={status().emoji}>
+												<span
+													class="[&>img]:min-w-4 [&>img]:min-h-4 [&>img]:w-4 [&>img]:h-4 [&>img]inline"
+													innerHTML={parseEmojiText(status().emoji!)}
+												/>
+											</Show>
+											<span class="w-full overflow-hidden text-ellipsis whitespace-nowrap">
+												{status().text}
+											</span>
+										</>
+									)}
+								</Show>
 							</span>
 						</Show>
 					</div>

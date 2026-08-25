@@ -1,6 +1,5 @@
 import { type Component, createSignal, Show } from "solid-js";
 import { Dynamic } from "solid-js/web";
-import ArrowSquareOutIcon from "~icons/ph/arrow-square-out";
 import BroadcastIcon from "~icons/ph/broadcast";
 import GameControllerIcon from "~icons/ph/game-controller-fill";
 import MusicNoteIcon from "~icons/ph/music-note-fill";
@@ -80,12 +79,9 @@ export const ActivityCard: Component<{ activity: Activity }> = (props) => {
 					target="_blank"
 					rel="noreferrer"
 					onClick={(e) => openUntrustedLink(props.activity.linkUri, e)}
-					class="group/activity relative flex flex-row gap-3 rounded-sm hover:bg-muted/50 focus-visible:bg-muted/50 no-underline text-inherit"
+					class="relative flex flex-row gap-3 rounded-sm items-center hover:bg-muted/50 focus-visible:bg-muted/50 no-underline text-inherit"
 				>
 					{body()}
-					<span class="absolute top-0 right-0 text-muted-foreground opacity-0 group-hover/activity:opacity-100 transition-opacity">
-						<ArrowSquareOutIcon />
-					</span>
 				</a>
 			</Show>
 		</div>

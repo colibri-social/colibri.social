@@ -1,20 +1,11 @@
-import {
-	type Component,
-	createSignal,
-	Match,
-	onCleanup,
-	onMount,
-	Switch,
-} from "solid-js";
+import { type Component, createSignal, Match, Switch } from "solid-js";
 import { toast } from "somoto";
 import SmileyIcon from "~icons/ph/smiley";
 import {
-	getPreferences,
-	shareActivityOf,
-	writeShareActivity,
-} from "../../../atproto/notificationPreference";
-import { frameIs } from "../../../atproto/sync-frames";
-import { useSocketContext } from "../../../contexts/Socket";
+	activitySharing,
+	noteActivitySharing,
+} from "../../../atproto/activity-suggestion";
+import { writeShareActivity } from "../../../atproto/notificationPreference";
 import { useUserContext } from "../../../contexts/User";
 import { createStatusEditor } from "../../../hooks/createStatusEditor";
 import { parseEmojiText } from "../../../utils/emoji";
@@ -36,32 +27,14 @@ const log = createLogger("settings/status");
 
 export const StatusPage: Component = () => {
 	const user = useUserContext();
-	const socket = useSocketContext();
 	const [popoverOpen, setPopoverOpen] = createSignal(false);
-	const [savedSharing, setSavedSharing] = createSignal(false);
-	const [sharing, setSharing] = createSignal(false);
+	const [draft, setDraft] = createSignal<boolean | undefined>(undefined);
 	const [savingSharing, setSavingSharing] = createSignal(false);
 
-	const sharingEdited = () => sharing() !== savedSharing();
-
-	const adoptSharing = (value: boolean) => {
-		const edited = sharingEdited();
-		setSavedSharing(value);
-		if (!edited) setSharing(value);
-	};
-
-	onMount(async () => {
-		const res = await getPreferences(user.xrpc);
-		if (res.ok) adoptSharing(shareActivityOf(res.data.preferences));
-	});
-
-	onMount(() => {
-		const cleanup = socket.onEvent((event) => {
-			if (!frameIs(event, "preferencesEvent")) return;
-			adoptSharing(shareActivityOf(event.preferences));
-		});
-		onCleanup(cleanup);
-	});
+	const savedSharing = () => activitySharing() === true;
+	const sharing = () => draft() ?? savedSharing();
+	const sharingEdited = () =>
+		draft() !== undefined && draft() !== savedSharing();
 
 	const {
 		status,
@@ -95,7 +68,8 @@ export const StatusPage: Component = () => {
 			return false;
 		}
 
-		setSavedSharing(wanted);
+		noteActivitySharing(wanted);
+		setDraft(undefined);
 		return true;
 	};
 
@@ -109,7 +83,7 @@ export const StatusPage: Component = () => {
 	};
 
 	const resetAll = async () => {
-		setSharing(savedSharing());
+		setDraft(undefined);
 		await reset();
 	};
 
@@ -161,7 +135,7 @@ export const StatusPage: Component = () => {
 			<Toggle
 				class="flex flex-row gap-4 items-center w-full justify-between shrink-0 mt-4"
 				checked={sharing()}
-				onChange={setSharing}
+				onChange={setDraft}
 			>
 				<div>
 					<SwitchLabel>Share what I'm listening to</SwitchLabel>

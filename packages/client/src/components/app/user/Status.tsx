@@ -266,7 +266,7 @@ export const Status: Component = () => {
 				<ProfilePopover
 					user={liveUser()}
 					placement="top"
-					class="w-full max-w-[calc(100%-48px)] h-full"
+					class="w-full max-w-[calc(100%-48px-8px)] h-full"
 					onEditStatus={() => setStatusDialogOpen(true)}
 					actions={() => <SelfProfileActions />}
 				>

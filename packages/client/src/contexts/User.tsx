@@ -12,6 +12,10 @@ import {
 	useContext,
 } from "solid-js";
 import { activityOf, warmActivityImage } from "../atproto/activity";
+import {
+	noteActivitySharing,
+	startActivitySuggestion,
+} from "../atproto/activity-suggestion";
 import { namespace } from "../atproto/cache/keys";
 import {
 	cacheEnabled,
@@ -20,6 +24,7 @@ import {
 	writeUser,
 } from "../atproto/cache/store";
 import { colibri } from "../atproto/lexicons";
+import { shareActivityOf } from "../atproto/notificationPreference";
 import {
 	ensurePreferencesSpace,
 	grantPreferencesAccess,
@@ -302,6 +307,15 @@ export const UserContextProvider: ParentComponent = (props) => {
 					};
 
 					onMount(() => {
+						const stop = startActivitySuggestion({
+							did: value.did,
+							xrpc: value.xrpc,
+							dismissed: () => preferences().activityPromptDismissed,
+						});
+						onCleanup(stop);
+					});
+
+					onMount(() => {
 						const { agent } = value.atproto;
 						let cancelRegrant: (() => void) | undefined;
 
@@ -377,6 +391,11 @@ export const UserContextProvider: ParentComponent = (props) => {
 									c.did === view.did ? view : c,
 								),
 							});
+							return;
+						}
+
+						if (frameIs(event, "preferencesEvent")) {
+							noteActivitySharing(shareActivityOf(event.preferences));
 							return;
 						}
 

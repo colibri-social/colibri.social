@@ -1,38 +1,30 @@
-import { type Component, createResource, createSignal, Show } from "solid-js";
+import { type Component, createSignal, Show } from "solid-js";
 import { toast } from "somoto";
-import XIcon from "~icons/ph/x";
 import {
-	getPreferences,
-	shareActivityOf,
-	writeShareActivity,
-} from "../../../atproto/notificationPreference";
-import { hasActivitySource } from "../../../atproto/teal-source";
-import { useSettingsModalContext } from "../../../contexts/SettingsModal";
+	noteActivitySharing,
+	suggestActivity,
+} from "../../../atproto/activity-suggestion";
+import { writeShareActivity } from "../../../atproto/notificationPreference";
 import { useUserContext } from "../../../contexts/User";
 import { useUserPreferences } from "../../../contexts/UserPreferences";
 import { createLogger } from "../../../utils/logger";
 import { Button } from "../../ui/Button";
-import { ActivityIcon } from "./ActivityCard";
+import { TEAL_MARK_SRC } from "./teal-mark";
 
 const log = createLogger("activity-opt-in");
 
-export const ActivityOptInPrompt: Component<{
-	onRequestClose?: () => void;
-}> = (props) => {
+const Separator: Component = () => (
+	<hr class="w-full h-px border-none bg-border m-0" />
+);
+
+export const ActivityOptInPrompt: Component = () => {
 	const user = useUserContext();
-	const settingsModal = useSettingsModalContext();
 	const { preferences, setActivityPromptDismissed } = useUserPreferences();
 	const [busy, setBusy] = createSignal(false);
+	const [hidden, setHidden] = createSignal(false);
 
-	const [available] = createResource(
-		() => (preferences().activityPromptDismissed ? false : user.did),
-		(did: string) => hasActivitySource(did),
-	);
-
-	const [sharing] = createResource(async () => {
-		const res = await getPreferences(user.xrpc);
-		return res.ok ? shareActivityOf(res.data.preferences) : true;
-	});
+	const offer = () =>
+		!hidden() && !preferences().activityPromptDismissed && suggestActivity();
 
 	const enable = async () => {
 		setBusy(true);
@@ -46,50 +38,58 @@ export const ActivityOptInPrompt: Component<{
 
 		if (!res.ok) {
 			log.error("turning on activity sharing failed", { code: res.error.code });
-			toast.error("Could not turn on activity sharing.");
+			toast.error("Could not turn on song presence.");
 			return;
 		}
 
+		noteActivitySharing(true);
 		setActivityPromptDismissed(true);
-		toast.success("Your listening status is now shared.");
+		toast.success("Others can see what you're listening to now.");
+	};
+
+	const hide = () => {
+		setActivityPromptDismissed(true);
+		setHidden(true);
 	};
 
 	return (
-		<Show when={available() === true && sharing() === false}>
-			<hr class="w-full h-px border-none bg-border m-0" />
-			<div class="flex flex-col gap-2 px-1">
-				<div class="flex flex-row items-start gap-2">
-					<span class="text-purple-400 mt-0.5">
-						<ActivityIcon kind="listening" />
-					</span>
-					<span class="text-sm leading-5 flex-1">
-						teal.fm records found. Share what you're listening to?
-					</span>
-					<button
-						type="button"
-						aria-label="Dismiss"
-						class="text-muted-foreground hover:text-foreground cursor-pointer mt-0.5"
-						onClick={() => setActivityPromptDismissed(true)}
-					>
-						<XIcon />
-					</button>
+		<>
+			<Show when={hidden()}>
+				<Separator />
+				<span class="text-xs text-muted-foreground leading-4 px-1">
+					You can enable this at any time via Settings &gt; Status.
+				</span>
+			</Show>
+			<Show when={offer()}>
+				<Separator />
+				<div class="flex flex-col gap-2 px-1">
+					<div class="flex flex-row gap-3">
+						<img
+							src={TEAL_MARK_SRC}
+							alt="teal.fm"
+							width={64}
+							height={64}
+							class="size-16 shrink-0 rounded-sm bg-muted object-cover"
+						/>
+						<div class="flex flex-col min-w-0 gap-0.5">
+							<span class="text-sm font-bold leading-5">
+								Enable song presence
+							</span>
+							<span class="text-xs text-muted-foreground leading-4">
+								Let others see what you're listening to via teal.fm
+							</span>
+						</div>
+					</div>
+					<div class="flex flex-row gap-2">
+						<Button size="sm" class="flex-1" disabled={busy()} onClick={enable}>
+							Enable
+						</Button>
+						<Button size="sm" variant="outline" class="flex-1" onClick={hide}>
+							Hide
+						</Button>
+					</div>
 				</div>
-				<div class="flex flex-row gap-2">
-					<Button size="sm" disabled={busy()} onClick={enable}>
-						Enable
-					</Button>
-					<Button
-						size="sm"
-						variant="outline"
-						onClick={() => {
-							props.onRequestClose?.();
-							settingsModal.openPage("status");
-						}}
-					>
-						Settings
-					</Button>
-				</div>
-			</div>
-		</Show>
+			</Show>
+		</>
 	);
 };

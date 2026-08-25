@@ -91,6 +91,19 @@ describe("hasActivitySource", () => {
 		expect(await hasActivitySource(DID)).toBe(false);
 	});
 
+	it("does not remember an absence, so connecting teal.fm is noticed", async () => {
+		vi.stubGlobal("fetch", vi.fn().mockResolvedValue(page(0)));
+		const initial = await load();
+		expect(await initial.hasActivitySource(DID)).toBe(false);
+		expect(Object.keys(store)).toEqual([]);
+
+		vi.stubGlobal("fetch", vi.fn().mockResolvedValue(page(1)));
+		const reloaded = await load();
+
+		expect(reloaded.peekActivitySource(DID)).toBeUndefined();
+		expect(await reloaded.hasActivitySource(DID)).toBe(true);
+	});
+
 	it("reports no source when the DID has no resolvable PDS", async () => {
 		const fetcher = vi.fn();
 		vi.stubGlobal("fetch", fetcher);

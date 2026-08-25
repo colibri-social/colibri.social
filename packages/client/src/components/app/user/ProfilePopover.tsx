@@ -352,7 +352,7 @@ export const ProfilePopoverContents: Component<{
 						<ActivityCard activity={activity()!} />
 					</Show>
 					<Show when={isSelf() && !activity()}>
-						<ActivityOptInPrompt onRequestClose={props.onRequestClose} />
+						<ActivityOptInPrompt />
 					</Show>
 					<Show when={props.user.description && !props.hideDescription}>
 						<hr class="w-full h-px border-none bg-border m-0" />

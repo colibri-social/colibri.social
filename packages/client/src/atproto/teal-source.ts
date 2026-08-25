@@ -9,13 +9,15 @@ const METHOD = "com.atproto.repo.listRecords";
 
 const COLLECTIONS = ["fm.teal.actor.status", "fm.teal.feed.play"];
 
-const SUCCESS_TTL_MS = 6 * 60 * 60 * 1000;
+const PRESENT_TTL_MS = 6 * 60 * 60 * 1000;
+
+const ABSENT_TTL_MS = 60_000;
 
 const FAILURE_TTL_MS = 30_000;
 
 const REQUEST_TIMEOUT_MS = 8000;
 
-const storageKey = (did: string) => `colibri:activity-source:${did}`;
+const storageKey = (did: string) => `colibri:activity-source:v2:${did}`;
 
 type Entry = { present: boolean; expiresAt: number };
 
@@ -37,6 +39,7 @@ const readStored = (did: string): Entry | undefined => {
 };
 
 const writeStored = (did: string, entry: Entry): void => {
+	if (!entry.present) return;
 	try {
 		localStorage.setItem(storageKey(did), JSON.stringify(entry));
 	} catch {}
@@ -102,7 +105,10 @@ export const hasActivitySource = async (did: string): Promise<boolean> => {
 
 	const request = lookup(did)
 		.then((present) => {
-			const entry = { present, expiresAt: Date.now() + SUCCESS_TTL_MS };
+			const entry = {
+				present,
+				expiresAt: Date.now() + (present ? PRESENT_TTL_MS : ABSENT_TTL_MS),
+			};
 			cache.set(did, entry);
 			writeStored(did, entry);
 			return present;
