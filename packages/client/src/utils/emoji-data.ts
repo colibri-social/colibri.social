@@ -1,7 +1,9 @@
 import type { EmojiItem } from "@tiptap/extension-emoji";
 import keywordData from "emojilib";
+import MiniSearch from "minisearch";
 import byEmoji from "unicode-emoji-json/data-by-emoji.json";
-import emojiComponents from "unicode-emoji-json/data-emoji-components.json";
+import type { EmojiUsage } from "./emoji-usage";
+import { foldText } from "./fold-text";
 
 export type EmojiMeta = {
 	name: string;
@@ -14,9 +16,7 @@ export type EmojiMeta = {
 
 const EMOJI_BY_CHAR = byEmoji as Record<string, EmojiMeta>;
 
-export const EMOJI_COMPONENTS = emojiComponents as Record<string, string>;
-
-export const EMOJI_ALIASES: Record<string, string> = {
+const MANUAL_ALIASES: Record<string, string> = {
 	"+1": "thumbs_up",
 	"-1": "thumbs_down",
 	thumbsup: "thumbs_up",
@@ -68,7 +68,144 @@ export const EMOJI_ALIASES: Record<string, string> = {
 	upside_down: "upside_down_face",
 	slight_smile: "slightly_smiling_face",
 	melting: "melting_face",
+	anger: "anger_symbol",
+	apple: "red_apple",
+	arrow_down: "down_arrow",
+	arrow_left: "left_arrow",
+	arrow_right: "right_arrow",
+	arrow_up: "up_arrow",
+	art: "artist_palette",
+	bangbang: "double_exclamation_mark",
+	bee: "honeybee",
+	beer: "beer_mug",
+	beers: "clinking_beer_mugs",
+	birthday: "birthday_cake",
+	bow: "person_bowing",
+	bulb: "light_bulb",
+	cake: "shortcake",
+	car: "automobile",
+	cat2: "cat",
+	cd: "optical_disk",
+	clapper: "clapper_board",
+	clown: "clown_face",
+	coffee: "hot_beverage",
+	cold_sweat: "anxious_face_with_sweat",
+	computer: "laptop",
+	cool: "cool_button",
+	cowboy: "cowboy_hat_face",
+	dancer: "woman_dancing",
+	email: "envelope",
+	fax: "fax_machine",
+	fearful: "fearful_face",
+	fist: "raised_fist",
+	football: "american_football",
+	fries: "french_fries",
+	gem: "gem_stone",
+	gift: "wrapped_gift",
+	grinning: "grinning_face",
+	gun: "water_pistol",
+	hear_no_evil: "hear_no_evil_monkey",
+	heavy_check_mark: "check_mark",
+	heavy_minus_sign: "minus",
+	heavy_plus_sign: "plus",
+	hourglass: "hourglass_done",
+	hugs: "smiling_face_with_open_hands",
+	information_desk_person: "person_tipping_hand",
+	innocent: "smiling_face_with_halo",
+	interrobang: "exclamation_question_mark",
+	iphone: "mobile_phone",
+	kissing_heart: "face_blowing_a_kiss",
+	knife: "kitchen_knife",
+	lips: "mouth",
+	lock: "locked",
+	mag: "magnifying_glass_tilted_left",
+	mask: "face_with_medical_mask",
+	mega: "megaphone",
+	money_mouth: "money_mouth_face",
+	moneybag: "money_bag",
+	moyai: "moai",
+	nerd: "nerd_face",
+	no_bell: "bell_with_slash",
+	no_entry_sign: "prohibited",
+	notes: "musical_notes",
+	ocean: "water_wave",
+	ok_woman: "woman_gesturing_ok",
+	open_mouth: "face_with_open_mouth",
+	partying: "partying_face",
+	pensive: "pensive_face",
+	persevere: "persevering_face",
+	pleading: "pleading_face",
+	point_down: "backhand_index_pointing_down",
+	point_left: "backhand_index_pointing_left",
+	point_right: "backhand_index_pointing_right",
+	punch: "oncoming_fist",
+	recycle: "recycling_symbol",
+	relieved: "relieved_face",
+	see_no_evil: "see_no_evil_monkey",
+	skull_crossbones: "skull_and_crossbones",
+	sleepy: "sleepy_face",
+	smoking: "cigarette",
+	soccer: "soccer_ball",
+	speak_no_evil: "speak_no_evil_monkey",
+	speech_left: "left_speech_bubble",
+	star2: "glowing_star",
+	stuck_out_tongue_winking_eye: "winking_face_with_tongue",
+	sunglasses2: "sunglasses",
+	sunny: "sun",
+	sweat: "downcast_face_with_sweat",
+	sweat_drops: "sweat_droplets",
+	tea: "teacup_without_handle",
+	triumph: "face_with_steam_from_nose",
+	tv: "television",
+	unlock: "unlocked",
+	weary: "weary_face",
+	woozy: "woozy_face",
+	worried: "worried_face",
+	yawn: "yawning_face",
+	yum: "face_savoring_food",
+	zap: "high_voltage",
+	zipper_mouth: "zipper_mouth_face",
 };
+
+const REGIONAL_INDICATOR_A = 0x1f1e6;
+const REGIONAL_INDICATOR_Z = 0x1f1ff;
+
+const countryCodeFor = (char: string): string | undefined => {
+	const points = [...char].map((part) => part.codePointAt(0) ?? 0);
+	if (points.length !== 2) return undefined;
+	if (
+		points.some(
+			(point) => point < REGIONAL_INDICATOR_A || point > REGIONAL_INDICATOR_Z,
+		)
+	) {
+		return undefined;
+	}
+	return points
+		.map((point) => String.fromCharCode(97 + point - REGIONAL_INDICATOR_A))
+		.join("");
+};
+
+const buildAliases = (): Record<string, string> => {
+	const slugs = new Set<string>();
+	for (const meta of Object.values(EMOJI_BY_CHAR)) slugs.add(meta.slug);
+
+	const aliases: Record<string, string> = {};
+	for (const [alias, slug] of Object.entries(MANUAL_ALIASES)) {
+		if (slugs.has(alias)) continue;
+		if (!slugs.has(slug)) continue;
+		aliases[alias] = slug;
+	}
+	for (const [char, meta] of Object.entries(EMOJI_BY_CHAR)) {
+		const code = countryCodeFor(char);
+		if (!code) continue;
+		const alias = `flag_${code}`;
+		if (slugs.has(alias) || aliases[alias] !== undefined) continue;
+		aliases[alias] = meta.slug;
+	}
+	return aliases;
+};
+
+export const EMOJI_ALIASES: Record<string, string> = buildAliases();
 
 const EMOJI_BY_SLUG = new Map<string, string>();
 const ALIASES_BY_SLUG = new Map<string, string[]>();
@@ -86,8 +223,8 @@ export function aliasesForSlug(slug: string): string[] {
 	return ALIASES_BY_SLUG.get(slug) ?? [];
 }
 
-type PickerEmoji = EmojiMeta & { emoji: string };
-type PickerGroup = { name: string; slug: string; emojis: PickerEmoji[] };
+export type PickerEmoji = EmojiMeta & { emoji: string };
+export type PickerGroup = { name: string; slug: string; emojis: PickerEmoji[] };
 
 export const EMOJI_DATA_RECORD: Record<string, PickerEmoji> =
 	Object.fromEntries(
@@ -136,84 +273,225 @@ export function keywordsForEmoji(char: string): string[] {
 	return keywordsFor(char).map((keyword) => keyword.toLowerCase());
 }
 
+const TOKEN_SPLIT = /[^a-z0-9+]+/;
+
+const tokenize = (value: string): string[] =>
+	foldText(value).split(TOKEN_SPLIT).filter(Boolean);
+
+const TIER_SHORTCODE_EXACT = 0;
+const TIER_SHORTCODE_PREFIX = 1;
+const TIER_WORD_PREFIX = 2;
+const TIER_KEYWORD_EXACT = 3;
+const TIER_KEYWORD_WORD_PREFIX = 4;
+const TIER_SHORTCODE_SUBSTRING = 5;
+const TIER_KEYWORD_SUBSTRING = 6;
+const NO_MATCH = 7;
+
 type EmojiSearchEntry = {
 	emoji: string;
 	slug: string;
 	shortcodes: string[];
-	nameWords: string[];
+	words: string[];
 	keywords: string[];
+	keywordWords: string[];
 };
 
 const EMOJI_SEARCH_INDEX: EmojiSearchEntry[] = Object.entries(
 	EMOJI_BY_CHAR,
-).map(([char, meta]) => ({
-	emoji: char,
-	slug: meta.slug,
-	shortcodes: [meta.slug, ...(ALIASES_BY_SLUG.get(meta.slug) ?? [])].map(
-		(shortcode) => shortcode.toLowerCase(),
-	),
-	nameWords: meta.name.toLowerCase().split(/\s+/),
-	keywords: keywordsForEmoji(char).filter((keyword) => keyword !== meta.slug),
-}));
+).map(([char, meta]) => {
+	const shortcodes = [meta.slug, ...(ALIASES_BY_SLUG.get(meta.slug) ?? [])].map(
+		foldText,
+	);
+	const keywords = keywordsForEmoji(char)
+		.map(foldText)
+		.filter((keyword) => keyword !== meta.slug);
 
-const NO_MATCH = 7;
+	const words = new Set<string>();
+	for (const shortcode of shortcodes) {
+		for (const word of tokenize(shortcode)) words.add(word);
+	}
+	for (const word of tokenize(meta.name)) words.add(word);
+
+	const keywordWords = new Set<string>();
+	for (const keyword of keywords) {
+		for (const word of tokenize(keyword)) keywordWords.add(word);
+	}
+
+	return {
+		emoji: char,
+		slug: meta.slug,
+		shortcodes,
+		words: [...words],
+		keywords,
+		keywordWords: [...keywordWords],
+	};
+});
+
+function tierForToken(entry: EmojiSearchEntry, token: string): number {
+	let best = NO_MATCH;
+	for (const shortcode of entry.shortcodes) {
+		if (shortcode === token) return TIER_SHORTCODE_EXACT;
+		if (shortcode.startsWith(token)) best = TIER_SHORTCODE_PREFIX;
+	}
+	if (best <= TIER_SHORTCODE_PREFIX) return best;
+
+	for (const word of entry.words) {
+		if (word.startsWith(token)) return TIER_WORD_PREFIX;
+	}
+	for (const keyword of entry.keywords) {
+		if (keyword === token) return TIER_KEYWORD_EXACT;
+	}
+	for (const word of entry.keywordWords) {
+		if (word.startsWith(token)) return TIER_KEYWORD_WORD_PREFIX;
+	}
+	for (const shortcode of entry.shortcodes) {
+		if (shortcode.includes(token)) return TIER_SHORTCODE_SUBSTRING;
+	}
+	for (const keyword of entry.keywords) {
+		if (keyword.includes(token)) return TIER_KEYWORD_SUBSTRING;
+	}
+	return NO_MATCH;
+}
 
 function scoreEntry(
 	entry: EmojiSearchEntry,
-	q: string,
-): { score: number; label: string } {
+	tokens: string[],
+	joined: string,
+): number {
 	let best = NO_MATCH;
-	let label = entry.slug;
-	for (const code of entry.shortcodes) {
-		if (code === q) return { score: 0, label: code };
-		if (best > 1 && code.startsWith(q)) {
-			best = 1;
-			label = code;
-		} else if (best > 4 && code.includes(q)) {
-			best = 4;
-			label = code;
+	for (const shortcode of entry.shortcodes) {
+		if (shortcode === joined) return TIER_SHORTCODE_EXACT;
+		if (shortcode.startsWith(joined)) {
+			best = Math.min(best, TIER_SHORTCODE_PREFIX);
+		} else if (shortcode.includes(joined)) {
+			best = Math.min(best, TIER_SHORTCODE_SUBSTRING);
 		}
 	}
-	if (best > 2 && entry.nameWords.some((word) => word.startsWith(q))) {
-		best = 2;
-		label = entry.slug;
+
+	let worst = TIER_SHORTCODE_EXACT;
+	for (const token of tokens) {
+		const tier = tierForToken(entry, token);
+		if (tier === NO_MATCH) {
+			worst = NO_MATCH;
+			break;
+		}
+		if (tier > worst) worst = tier;
 	}
-	if (best > 3 && entry.keywords.some((keyword) => keyword.startsWith(q))) {
-		best = 3;
-		label = entry.slug;
-	}
-	if (best > 5 && entry.keywords.some((keyword) => keyword.includes(q))) {
-		best = 5;
-		label = entry.slug;
-	}
-	return { score: best, label };
+
+	return Math.min(best, worst);
 }
 
-export function searchEmojis(query: string, limit = 10): EmojiSuggestion[] {
-	const q = query.toLowerCase();
+function labelFor(entry: EmojiSearchEntry, joined: string): string {
+	for (const shortcode of entry.shortcodes) {
+		if (shortcode === joined) return shortcode;
+	}
+	return entry.slug;
+}
+
+const MIN_FUZZY_LENGTH = 4;
+
+type FuzzyDocument = {
+	id: number;
+	shortcode: string;
+	name: string;
+};
+
+let fuzzyIndex: MiniSearch<FuzzyDocument> | undefined;
+
+function getFuzzyIndex(): MiniSearch<FuzzyDocument> {
+	if (fuzzyIndex) return fuzzyIndex;
+
+	const index = new MiniSearch<FuzzyDocument>({
+		idField: "id",
+		fields: ["shortcode", "name"],
+		storeFields: [],
+		processTerm: (term) => foldText(term) || null,
+	});
+
+	index.addAll(
+		EMOJI_SEARCH_INDEX.map((entry, id) => ({
+			id,
+			shortcode: entry.shortcodes.join(" ").replaceAll("_", " "),
+			name: entry.words.join(" "),
+		})),
+	);
+
+	fuzzyIndex = index;
+	return index;
+}
+
+function fuzzyMatches(query: string, limit: number): number[] {
+	if (query.length < MIN_FUZZY_LENGTH) return [];
+
+	return getFuzzyIndex()
+		.search(query, {
+			prefix: true,
+			fuzzy: 0.3,
+			maxFuzzy: 2,
+			boost: { shortcode: 3, name: 2 },
+			weights: { prefix: 0.9, fuzzy: 0.4 },
+		})
+		.slice(0, limit)
+		.map((result) => Number(result.id));
+}
+
+export function searchEmojis(
+	query: string,
+	limit = 10,
+	usage?: Record<string, EmojiUsage>,
+): EmojiSuggestion[] {
+	if (limit <= 0) return [];
+
+	const tokens = tokenize(query);
+	if (tokens.length === 0) return [];
+	const joined = tokens.join("_");
+
 	const scored: {
 		score: number;
+		used: number;
 		length: number;
 		index: number;
 		item: EmojiSuggestion;
 	}[] = [];
+
 	for (let i = 0; i < EMOJI_SEARCH_INDEX.length; i++) {
 		const entry = EMOJI_SEARCH_INDEX[i];
-		const { score, label } = scoreEntry(entry, q);
+		const score = scoreEntry(entry, tokens, joined);
 		if (score === NO_MATCH) continue;
+
+		const label = labelFor(entry, joined);
 		scored.push({
 			score,
+			used: -(usage?.[entry.emoji]?.count ?? 0),
 			length: label.length,
 			index: i,
 			item: { name: label, emoji: entry.emoji },
 		});
 	}
-	return scored
+
+	const results = scored
 		.sort(
-			(a, b) => a.score - b.score || a.length - b.length || a.index - b.index,
+			(a, b) =>
+				a.score - b.score ||
+				a.used - b.used ||
+				a.length - b.length ||
+				a.index - b.index,
 		)
 		.slice(0, limit)
-		.map((s) => s.item);
+		.map((entry) => entry.item);
+
+	if (results.length >= limit) return results;
+
+	const seen = new Set(results.map((result) => result.emoji));
+	for (const index of fuzzyMatches(joined, limit)) {
+		if (results.length >= limit) break;
+		const entry = EMOJI_SEARCH_INDEX[index];
+		if (seen.has(entry.emoji)) continue;
+		seen.add(entry.emoji);
+		results.push({ name: entry.slug, emoji: entry.emoji });
+	}
+
+	return results;
 }
 
 export const TIPTAP_EMOJIS: EmojiItem[] = Object.entries(EMOJI_BY_CHAR).map(

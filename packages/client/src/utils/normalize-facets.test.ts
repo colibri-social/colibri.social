@@ -154,6 +154,22 @@ describe("normalizeFacets", () => {
 		expect(result).toHaveLength(2);
 	});
 
+	it("keeps list items at different depths apart", () => {
+		const outer = {
+			$type: "social.colibri.beta.richtext.facet#list",
+			ordered: false,
+		} as Feature;
+		const nested = {
+			$type: "social.colibri.beta.richtext.facet#list",
+			ordered: false,
+			indent: 1,
+		} as Feature;
+
+		const result = normalizeFacets([facet(0, 4, outer), facet(0, 4, nested)]);
+		expect(result).toHaveLength(1);
+		expect(result[0].features).toHaveLength(2);
+	});
+
 	it("defaults the facet type when the source facet omits it", () => {
 		const untyped = {
 			index: { byteStart: 0, byteEnd: 3 },

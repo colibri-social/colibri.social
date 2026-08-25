@@ -5,17 +5,29 @@ import {
 	parseMarkdown,
 	tokenizeMarkdown,
 } from "@colibri-social/lib";
-import { type Editor, Extension, mergeAttributes } from "@tiptap/core";
+import {
+	combineTransactionSteps,
+	type Editor,
+	Extension,
+	findChildrenInRange,
+	getChangedRanges,
+	type InputRule,
+	mergeAttributes,
+	type PasteRule,
+} from "@tiptap/core";
 import { BubbleMenu } from "@tiptap/extension-bubble-menu";
 import { Document } from "@tiptap/extension-document";
-import Emoji, { EmojiSuggestionPluginKey } from "@tiptap/extension-emoji";
+import Emoji, {
+	emojiToShortcode,
+	shortcodeToEmoji,
+} from "@tiptap/extension-emoji";
 import { HardBreak } from "@tiptap/extension-hard-break";
 import { Mention } from "@tiptap/extension-mention";
 import { Paragraph } from "@tiptap/extension-paragraph";
 import { Text } from "@tiptap/extension-text";
 import { Placeholder, UndoRedo } from "@tiptap/extensions";
 import type { Fragment, Node as ProseMirrorNode } from "prosemirror-model";
-import { Plugin } from "prosemirror-state";
+import { Plugin, PluginKey, TextSelection } from "prosemirror-state";
 import type { EditorView } from "prosemirror-view";
 import {
 	type Component,
@@ -43,17 +55,18 @@ import {
 } from "../../../../contexts/Community";
 import { useUserContext } from "../../../../contexts/User";
 import { useUserPreferences } from "../../../../contexts/UserPreferences";
+import { codeContextAt } from "../../../../utils/code-context";
 import {
 	readComposerDraft,
 	readEditDraft,
 	writeComposerDraft,
 	writeEditDraft,
 } from "../../../../utils/composer-drafts";
-import { hasEmoji, parseEmojiText } from "../../../../utils/emoji";
+import { findEmoji, hasEmoji, parseEmojiText } from "../../../../utils/emoji";
 import { TIPTAP_EMOJIS } from "../../../../utils/emoji-data";
-import { createFenceRegex } from "../../../../utils/fenced-code-regex";
 import { htmlToDOMOutputSpec } from "../../../../utils/html-to-dom-output-spec";
 import { linkUrisFromFacets } from "../../../../utils/link-facets";
+import { isWebUrl, MARKDOWN_LINK_POLICY } from "../../../../utils/link-safety";
 import { useIsMobile } from "../../../../utils/mobile-pane";
 import { safeAreaOverflowPadding } from "../../../../utils/safe-area";
 import {
@@ -71,6 +84,7 @@ import {
 	caretRightSpec,
 } from "../channel-chip";
 import { EmojiPopover } from "../EmojiPopover";
+import { codeContextAtPos, cursorLine, projectBlock } from "./block-projection";
 import { buildSuggestions } from "./build-suggestions";
 import { buildClipboardHtml, readClipboardFacets } from "./clipboard-facets";
 import { type ChipScope, facetsToProseMirror } from "./facets-to-prosemirror";
@@ -81,11 +95,108 @@ import { proseMirrorToFacets } from "./prosemirror-to-facets";
 const CHARACTER_LIMIT = 2048;
 const CIRCUMFERENCE = 2 * Math.PI * 8;
 
-const EmojiWithoutSuggestion = Emoji.extend({
+const skipInputRuleInCode = (rule: InputRule): InputRule => {
+	const run = rule.handler;
+	rule.handler = (props) => {
+		if (codeContextAtPos(props.state.doc, props.range.from)) return;
+		return run(props);
+	};
+	return rule;
+};
+
+const skipPasteRuleInCode = (rule: PasteRule): PasteRule => {
+	const run = rule.handler;
+	rule.handler = (props) => {
+		if (codeContextAtPos(props.state.doc, props.range.from)) return;
+		return run(props);
+	};
+	return rule;
+};
+
+const emojiOutsideCodeKey = new PluginKey("emojiOutsideCode");
+
+const EmojiOutsideCode = Emoji.extend({
 	addProseMirrorPlugins() {
-		return (this.parent?.() ?? []).filter(
-			(plugin) => plugin.spec.key !== EmojiSuggestionPluginKey,
+		const { editor, options, type } = this;
+
+		return [
+			new Plugin({
+				key: emojiOutsideCodeKey,
+				props: {
+					handleDoubleClickOn: (_view, pos, node) => {
+						if (node.type !== type) return false;
+						editor.commands.setTextSelection({
+							from: pos,
+							to: pos + node.nodeSize,
+						});
+						return true;
+					},
+				},
+				appendTransaction: (transactions, oldState, newState) => {
+					if (editor.view.composing) return;
+					if (!transactions.some((transaction) => transaction.docChanged))
+						return;
+					if (oldState.doc.eq(newState.doc)) return;
+
+					const { tr } = newState;
+					const changes = getChangedRanges(
+						combineTransactionSteps(oldState.doc, [...transactions]),
+					);
+
+					for (const { newRange } of changes) {
+						const textNodes = findChildrenInRange(
+							newState.doc,
+							newRange,
+							(node) => node.type.isText,
+						);
+
+						for (const { node, pos } of textNodes) {
+							if (!node.text) continue;
+
+							for (const { emoji, index } of findEmoji(node.text)) {
+								const name = emojiToShortcode(emoji, options.emojis);
+								if (!name) continue;
+
+								const from = tr.mapping.map(pos + index);
+								if (codeContextAtPos(tr.doc, from)) continue;
+
+								tr.replaceRangeWith(
+									from,
+									from + emoji.length,
+									type.create({ name }),
+								);
+							}
+						}
+					}
+
+					return tr.steps.length ? tr : undefined;
+				},
+			}),
+		];
+	},
+	addInputRules() {
+		return (this.parent?.() ?? []).map(skipInputRuleInCode);
+	},
+	addPasteRules() {
+		return (this.parent?.() ?? []).map(skipPasteRuleInCode);
+	},
+	renderHTML({ HTMLAttributes, node }) {
+		const attributes = mergeAttributes(
+			HTMLAttributes,
+			this.options.HTMLAttributes,
+			{ "data-type": this.name },
 		);
+		const item = shortcodeToEmoji(node.attrs.name, this.options.emojis);
+
+		if (!item?.emoji) {
+			return ["span", attributes, `:${node.attrs.name}:`];
+		}
+
+		return [
+			"span",
+			attributes,
+			htmlToDOMOutputSpec(parseEmojiText(item.emoji))[0],
+		];
 	},
 });
 
@@ -182,131 +293,128 @@ const toggleMarker = (editor: Editor, kind: ToggleKind): void => {
 		.run();
 };
 
-type FenceMatchIndices = RegExpMatchArray & {
-	indices: Array<[number, number]>;
-};
-
-/**
- * Whether the cursor currently sits inside a ```lang fenced code block.
- * Fences aren't a separate node (see MarkdownCodeHighlight) — they're plain
- * text within a single textblock where newlines are hardBreaks — so we
- * rebuild the block text with a doc-position map and run the same shared
- * fence regex used by the highlighter and facet detection.
- */
-const isInFencedCodeBlock = (editor: Editor): boolean => {
-	const { selection } = editor.state;
-	const block = selection.$from.parent;
-	if (!block.isTextblock) return false;
-
-	const blockStart = selection.$from.start();
-
-	let text = "";
-	const positions: number[] = [];
-	block.forEach((child, offset) => {
-		if (child.isText && child.text) {
-			for (let i = 0; i < child.text.length; i++) {
-				positions.push(blockStart + offset + i);
-			}
-			text += child.text;
-		} else if (child.type.name === "hardBreak") {
-			positions.push(blockStart + offset);
-			text += "\n";
-		}
-	});
-	positions.push(blockStart + block.content.size);
-
-	const cursorPos = selection.$from.pos;
-
-	const matches = [...text.matchAll(createFenceRegex())] as FenceMatchIndices[];
-
-	// Inside the body of a complete fence (both markers already present).
-	for (const match of matches) {
-		const [matchStart, matchEnd] = match.indices[0];
-		if (cursorPos > positions[matchStart] && cursorPos < positions[matchEnd]) {
-			return true;
-		}
-	}
-
-	// On the opening fence marker line (e.g. "```ts") before the closing
-	// fence exists — the regex above can't match an unterminated block, so
-	// detect the marker line itself and keep Enter from sending while the
-	// author is still opening the block. The lang char class mirrors
-	// FENCE_REGEX_SOURCE so both treat the same marker syntax.
-	const cursorIndex = positions.indexOf(cursorPos);
-	if (cursorIndex !== -1) {
-		const lineStart = text.lastIndexOf("\n", cursorIndex - 1) + 1;
-		const nextBreak = text.indexOf("\n", cursorIndex);
-		const lineEnd = nextBreak === -1 ? text.length : nextBreak;
-
-		// The closing fence line of a complete block is also just "```", but a
-		// cursor sitting past it should send, not extend the block. A complete
-		// match's `indices[0]` ends right after its closing fence, so a line
-		// whose end coincides with that is the closing marker — skip it.
-		const onClosingFence = matches.some(
-			(m) => m.indices[0][1] === lineEnd && lineStart === lineEnd - 3,
-		);
-
-		if (
-			!onClosingFence &&
-			/^```[a-zA-Z0-9_+-]*$/.test(text.slice(lineStart, lineEnd))
-		) {
-			return true;
-		}
-	}
-
-	return false;
-};
-
 const ORDERED_MARKER_RE = /^(\s*)(\d+)\.(\s)/;
 const QUOTE_MARKER_RE = /^ {0,3}> ?/;
 const UNORDERED_MARKER_RE = /^(\s*)[-*](\s)/;
 
-const projectCurrentBlock = (
-	editor: Editor,
-): { pos: number; text: string; positions: number[] } => {
-	const { $from } = editor.state.selection;
-	const blockStart = $from.start();
-	let text = "";
-	const positions: number[] = [];
-	$from.parent.forEach((child, offset) => {
-		if (child.isText && child.text) {
-			for (let i = 0; i < child.text.length; i++) {
-				positions.push(blockStart + offset + i);
-			}
-			text += child.text;
-		} else if (child.type.name === "hardBreak") {
-			positions.push(blockStart + offset);
-			text += "\n";
-		} else {
-			positions.push(blockStart + offset);
-			text += "￼";
-		}
-	});
-	positions.push(blockStart + $from.parent.content.size);
-	return { pos: $from.pos, text, positions };
+interface MarkerContext {
+	text: string;
+	positions: number[];
+	index: number;
+	lineStart: number;
+	line: string;
+}
+
+const markerContext = (editor: Editor): MarkerContext | null => {
+	const { selection } = editor.state;
+	if (!selection.empty || !selection.$from.parent.isTextblock) return null;
+
+	const { $from } = selection;
+	const { text, positions } = projectBlock($from.parent, $from.before());
+	const found = cursorLine(text, positions, $from.pos);
+	if (!found) return null;
+
+	const index = positions.indexOf($from.pos);
+	if (index === -1 || codeContextAt(text, index) === "codeblock") return null;
+
+	return {
+		text,
+		positions,
+		index,
+		lineStart: found.lineStart,
+		line: found.line,
+	};
 };
 
-const cursorLine = (
+interface ListLine {
+	indent: string;
+	markerLen: number;
+	ordered: boolean;
+}
+
+const listLine = (line: string): ListLine | null => {
+	const ordered = ORDERED_MARKER_RE.exec(line);
+	const match = ordered ?? UNORDERED_MARKER_RE.exec(line);
+	if (!match) return null;
+	return { indent: match[1], markerLen: match[0].length, ordered: !!ordered };
+};
+
+const linesBefore = (text: string, lineStart: number): string[] =>
+	lineStart === 0 ? [] : text.slice(0, lineStart - 1).split("\n");
+
+const indentTo = (
 	text: string,
+	lineStart: number,
+	indent: string,
+): string | null => {
+	const before = linesBefore(text, lineStart);
+	for (let i = before.length - 1; i >= 0; i--) {
+		const prev = listLine(before[i]);
+		if (!prev) return null;
+		if (prev.indent.length > indent.length) continue;
+		const target = " ".repeat(prev.markerLen);
+		return target.length > indent.length ? target : null;
+	}
+	return null;
+};
+
+const outdentTo = (
+	text: string,
+	lineStart: number,
+	indent: string,
+): string | null => {
+	if (indent.length === 0) return null;
+	const before = linesBefore(text, lineStart);
+	for (let i = before.length - 1; i >= 0; i--) {
+		const prev = listLine(before[i]);
+		if (!prev) break;
+		if (prev.indent.length < indent.length) return prev.indent;
+	}
+	return "";
+};
+
+const replaceIndent = (
+	editor: Editor,
 	positions: number[],
-	cursorPos: number,
-): { lineStart: number; lineEnd: number; line: string } | null => {
-	const cursorIndex = positions.indexOf(cursorPos);
-	if (cursorIndex === -1) return null;
-	const lineStart = text.lastIndexOf("\n", cursorIndex - 1) + 1;
-	const nl = text.indexOf("\n", cursorIndex);
-	const lineEnd = nl === -1 ? text.length : nl;
-	return { lineStart, lineEnd, line: text.slice(lineStart, lineEnd) };
+	lineStart: number,
+	indent: string,
+	target: string,
+): void => {
+	const from = positions[lineStart];
+	const to = positions[lineStart + indent.length];
+	const caret = editor.state.selection.from;
+	const shifted = Math.max(
+		from + target.length,
+		caret + target.length - indent.length,
+	);
+
+	const chain = editor.chain().focus();
+	if (to > from) chain.deleteRange({ from, to });
+	if (target.length > 0) chain.insertContentAt(from, target);
+	chain.setTextSelection(shifted).run();
+};
+
+const handleListIndent = (editor: Editor, outdent: boolean): boolean => {
+	const context = markerContext(editor);
+	if (!context) return false;
+	const { text, positions, lineStart, line } = context;
+
+	const current = listLine(line);
+	if (!current) return false;
+
+	const target = outdent
+		? outdentTo(text, lineStart, current.indent)
+		: indentTo(text, lineStart, current.indent);
+	if (target === null || target === current.indent) return true;
+
+	replaceIndent(editor, positions, lineStart, current.indent, target);
+	return true;
 };
 
 const handleListContinuation = (editor: Editor): boolean => {
-	const { selection } = editor.state;
-	if (!selection.empty || !selection.$from.parent.isTextblock) return false;
-
-	const { pos, text, positions } = projectCurrentBlock(editor);
-	const found = cursorLine(text, positions, pos);
-	if (!found) return false;
-	const { lineStart, line } = found;
+	const context = markerContext(editor);
+	if (!context) return false;
+	const { text, positions, index, lineStart, line } = context;
 
 	const ordered = ORDERED_MARKER_RE.exec(line);
 	const unordered = ordered ? null : UNORDERED_MARKER_RE.exec(line);
@@ -315,11 +423,18 @@ const handleListContinuation = (editor: Editor): boolean => {
 
 	const markerLen = match[0].length;
 
-	if (positions.indexOf(pos) < lineStart + markerLen) return false;
+	if (index < lineStart + markerLen) return false;
 
 	const isEmptyItem = line.slice(markerLen).trim() === "";
+	const indent = match[1];
 
 	if (isEmptyItem) {
+		const target = outdentTo(text, lineStart, indent);
+		if (target !== null) {
+			replaceIndent(editor, positions, lineStart, indent, target);
+			return true;
+		}
+
 		const from = positions[lineStart];
 		const to = positions[lineStart + markerLen];
 		editor
@@ -332,8 +447,8 @@ const handleListContinuation = (editor: Editor): boolean => {
 	}
 
 	const nextMarker = ordered
-		? `${Number.parseInt(ordered[2], 10) + 1}. `
-		: "- ";
+		? `${indent}${Number.parseInt(ordered[2], 10) + 1}. `
+		: `${indent}- `;
 	editor.chain().focus().setHardBreak().insertContent(nextMarker).run();
 	return true;
 };
@@ -343,19 +458,15 @@ const handleListContinuation = (editor: Editor): boolean => {
  * the marker when the line holds nothing but the marker
  */
 const handleQuoteContinuation = (editor: Editor): boolean => {
-	const { selection } = editor.state;
-	if (!selection.empty || !selection.$from.parent.isTextblock) return false;
-
-	const { pos, text, positions } = projectCurrentBlock(editor);
-	const found = cursorLine(text, positions, pos);
-	if (!found) return false;
-	const { lineStart, line } = found;
+	const context = markerContext(editor);
+	if (!context) return false;
+	const { positions, index, lineStart, line } = context;
 
 	const match = QUOTE_MARKER_RE.exec(line);
 	if (!match) return false;
 
 	const markerLen = match[0].length;
-	if (positions.indexOf(pos) < lineStart + markerLen) return false;
+	if (index < lineStart + markerLen) return false;
 
 	if (line.slice(markerLen).trim() === "") {
 		const from = positions[lineStart];
@@ -374,15 +485,11 @@ const handleQuoteContinuation = (editor: Editor): boolean => {
 };
 
 const handleListMarkerDelete = (editor: Editor): boolean => {
-	const { selection } = editor.state;
-	if (!selection.empty || !selection.$from.parent.isTextblock) return false;
+	const context = markerContext(editor);
+	if (!context) return false;
+	const { positions, index, lineStart, line } = context;
 
-	const { pos, text, positions } = projectCurrentBlock(editor);
-	const found = cursorLine(text, positions, pos);
-	if (!found) return false;
-	const { lineStart, line } = found;
-
-	if (positions.indexOf(pos) !== lineStart) return false;
+	if (index !== lineStart) return false;
 	const ordered = ORDERED_MARKER_RE.exec(line);
 	if (!ordered) return false;
 
@@ -422,13 +529,29 @@ const OrderedListAutoNumber = Extension.create({
 						});
 						positions.push(pos + 1 + node.content.size);
 
-						let counter = 0;
+						const levels: Array<{ width: number; counter: number }> = [];
 						let index = 0;
 						for (const line of text.split("\n")) {
-							const match = ORDERED_MARKER_RE.exec(line);
+							const item = listLine(line);
+							if (!item) {
+								levels.length = 0;
+								index += line.length + 1;
+								continue;
+							}
+
+							const width = item.indent.length;
+							while (levels.length && levels[levels.length - 1].width > width) {
+								levels.pop();
+							}
+							if (!levels.length || levels[levels.length - 1].width < width) {
+								levels.push({ width, counter: 0 });
+							}
+							const level = levels[levels.length - 1];
+
+							const match = item.ordered ? ORDERED_MARKER_RE.exec(line) : null;
 							if (match) {
-								counter += 1;
-								const expected = String(counter);
+								level.counter += 1;
+								const expected = String(level.counter);
 								if (match[2] !== expected) {
 									const numStart = index + match[1].length;
 									const numEnd = numStart + match[2].length;
@@ -439,7 +562,7 @@ const OrderedListAutoNumber = Extension.create({
 									});
 								}
 							} else {
-								counter = 0;
+								level.counter = 0;
 							}
 							index += line.length + 1;
 						}
@@ -522,6 +645,26 @@ const writeSelectionToClipboard = (
  * (paste gesture) and `InputEvent` (Android IME rich-content insertion, e.g.
  * tapping the Gboard clipboard image chip)
  */
+const wrapSelectionAsMarkdownLink = (
+	view: EditorView,
+	url: string,
+): boolean => {
+	const { from, to } = view.state.selection;
+	if (from === to) return false;
+
+	const label = view.state.doc.textBetween(from, to, "\n", "\n");
+	if (!MARKDOWN_LINK_POLICY.allowLink(label, url)) return false;
+
+	const suffix = `](${url})`;
+	const tr = view.state.tr;
+	tr.insertText(suffix, to, to);
+	tr.insertText("[", from, from);
+	tr.setSelection(TextSelection.create(tr.doc, to + 1 + suffix.length));
+	view.dispatch(tr);
+	view.focus();
+	return true;
+};
+
 const extractImageFiles = (data: DataTransfer | null): Array<File> => {
 	if (!data) return [];
 
@@ -584,6 +727,7 @@ export const TextEditor: Component<{
 	const channel = useChannelContext();
 	const community = useCommunityContext();
 	const permissions = usePermissions();
+	const { emojiUsage, pushRecentGif, recordEmojiUse } = useUserPreferences();
 
 	const chipScope = (): ChipScope => ({
 		communities: user.communities,
@@ -629,7 +773,8 @@ export const TextEditor: Component<{
 						Enter: () => {
 							if (props.submitOnEnter === false) return false;
 
-							if (isInFencedCodeBlock(this.editor)) {
+							const { doc, selection } = this.editor.state;
+							if (codeContextAtPos(doc, selection.$from.pos) === "codeblock") {
 								return this.editor.commands.setHardBreak();
 							}
 
@@ -641,6 +786,8 @@ export const TextEditor: Component<{
 							return true;
 						},
 						Delete: () => handleListMarkerDelete(this.editor),
+						Tab: () => handleListIndent(this.editor, false),
+						"Shift-Tab": () => handleListIndent(this.editor, true),
 						"Mod-b": () => {
 							toggleMarker(this.editor, "bold");
 							return true;
@@ -701,6 +848,7 @@ export const TextEditor: Component<{
 					() => mentionableRoles(),
 					() => community().categories ?? [],
 					props.mainEditor,
+					{ usage: emojiUsage, onPick: recordEmojiUse },
 				),
 			}).extend({
 				addAttributes() {
@@ -806,7 +954,14 @@ export const TextEditor: Component<{
 						colorClass = "bg-orange-400/25";
 						contents = label;
 					} else {
-						return htmlToDOMOutputSpec(parseEmojiText(label))[0];
+						return [
+							"span",
+							mergeAttributes(HTMLAttributes, {
+								"data-mention-type": "emoji",
+								contenteditable: "false",
+							}),
+							htmlToDOMOutputSpec(parseEmojiText(label))[0],
+						];
 					}
 
 					return [
@@ -862,7 +1017,7 @@ export const TextEditor: Component<{
 			Placeholder.configure({
 				placeholder: () => placeholder(),
 			}),
-			EmojiWithoutSuggestion.configure({ emojis: TIPTAP_EMOJIS }),
+			EmojiOutsideCode.configure({ emojis: TIPTAP_EMOJIS }),
 		],
 		editorProps: {
 			clipboardTextSerializer: (slice) => fragmentToMarkdown(slice.content),
@@ -911,6 +1066,18 @@ export const TextEditor: Component<{
 				const plain = plainPasteRequested;
 				plainPasteRequested = false;
 
+				const pastedUrl = event.clipboardData?.getData("text/plain")?.trim();
+				if (
+					!plain &&
+					pastedUrl &&
+					!/\s/.test(pastedUrl) &&
+					isWebUrl(pastedUrl) &&
+					!parseColibriChannelUrl(pastedUrl) &&
+					wrapSelectionAsMarkdownLink(view, pastedUrl)
+				) {
+					return true;
+				}
+
 				const payload = plain
 					? null
 					: readClipboardFacets(event.clipboardData?.getData("text/html"));
@@ -953,7 +1120,7 @@ export const TextEditor: Component<{
 				if (!text) return false;
 				if (!text.includes("\n") && !hasEmoji(text)) return false;
 
-				const parsed = parseMarkdown(text, []);
+				const parsed = parseMarkdown(text, [], MARKDOWN_LINK_POLICY);
 				const { content } = facetsToProseMirror(
 					parsed.text,
 					parsed.facets,
@@ -1008,8 +1175,6 @@ export const TextEditor: Component<{
 			})
 			.run();
 	};
-
-	const { pushRecentGif } = useUserPreferences();
 
 	/**
 	 * Sends a picked GIF as its own message (Discord-style). The media URL

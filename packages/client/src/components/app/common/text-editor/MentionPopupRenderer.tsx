@@ -18,6 +18,7 @@ import {
 	isRole,
 	isTimeShortcut,
 	MentionList,
+	sortSuggestions,
 } from "./MentionList";
 import { TimePicker } from "./TimePicker";
 
@@ -247,7 +248,11 @@ export const createMentionRenderer = (
 					return true;
 				}
 				if (props.event.key === "Enter" || props.event.key === "Tab") {
-					handleSelect(currentItems, currentCommand, selectedIndex());
+					handleSelect(
+						sortSuggestions(currentItems),
+						currentCommand,
+						selectedIndex(),
+					);
 					return true;
 				}
 				if (props.event.key === "Escape") {

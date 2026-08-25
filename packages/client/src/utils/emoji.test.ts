@@ -3,7 +3,9 @@ import { describe, expect, it, vi } from "vitest";
 vi.mock("@tauri-apps/api/core", () => ({ isTauri: () => false }));
 vi.mock("@tauri-apps/plugin-os", () => ({ platform: () => "macos" }));
 
-const { parseEmojiText, splitEmojiSegments } = await import("./emoji");
+const { findEmoji, parseEmojiText, splitEmojiSegments } = await import(
+	"./emoji"
+);
 
 describe("parseEmojiText", () => {
 	it("escapes markup instead of letting it render", () => {
@@ -67,5 +69,36 @@ describe("splitEmojiSegments", () => {
 
 	it("returns nothing for empty input", () => {
 		expect(splitEmojiSegments("")).toEqual([]);
+	});
+});
+
+describe("findEmoji", () => {
+	it("reports every emoji with its UTF-16 offset", () => {
+		expect(findEmoji("a 😂 b 🎉")).toEqual([
+			{ emoji: "😂", index: 2 },
+			{ emoji: "🎉", index: 7 },
+		]);
+	});
+
+	it("keeps a zero-width-joiner sequence in one match", () => {
+		expect(findEmoji("x 👨‍👩‍👦 y")).toEqual([{ emoji: "👨‍👩‍👦", index: 2 }]);
+	});
+
+	it("keeps a regional-indicator pair in one match", () => {
+		expect(findEmoji("🇩🇪 flag")).toEqual([{ emoji: "🇩🇪", index: 0 }]);
+	});
+
+	it("includes the variation selector in the match", () => {
+		expect(findEmoji("❤️")).toEqual([{ emoji: "❤️", index: 0 }]);
+	});
+
+	it("returns nothing for plain text", () => {
+		expect(findEmoji("no emoji here")).toEqual([]);
+	});
+
+	it("reports only the selector for a base character twemoji does not render", () => {
+		expect(findEmoji("\u{1F590}\uFE0F")).toEqual([
+			{ emoji: "\uFE0F", index: 2 },
+		]);
 	});
 });

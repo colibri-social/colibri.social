@@ -128,6 +128,12 @@
 				"ordered": {
 					"type": "boolean",
 					"description": "Whether the list is numbered."
+				},
+				"indent": {
+					"type": "integer",
+					"description": "The nesting depth of the item. 0 is the outermost level.",
+					"minimum": 0,
+					"maximum": 10
 				}
 			}
 		},

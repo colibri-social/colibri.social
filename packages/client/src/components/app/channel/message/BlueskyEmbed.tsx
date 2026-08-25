@@ -25,7 +25,7 @@ import {
 	isMuTrustedVerifier,
 } from "../../../../atproto/mu-verification";
 import { useUserPreferences } from "../../../../contexts/UserPreferences";
-import { openExternalLink } from "../../../../utils/open-external-link";
+import { openUntrustedLink } from "../../../../utils/external-link-warning";
 import { Lightbox } from "../../common/Lightbox";
 
 /**
@@ -165,7 +165,7 @@ export const BlueskyEmbed: Component<{ uri: string; post: BskyPostRef }> = (
 								href={link()}
 								target="_blank"
 								rel="noreferrer"
-								onClick={(e) => openExternalLink(link(), e)}
+								onClick={(e) => openUntrustedLink(link(), e)}
 							>
 								<Dynamic
 									component={
@@ -192,7 +192,7 @@ export const BlueskyEmbed: Component<{ uri: string; post: BskyPostRef }> = (
 													href={mentionHref}
 													target="_blank"
 													rel="noreferrer"
-													onClick={(e) => openExternalLink(mentionHref, e)}
+													onClick={(e) => openUntrustedLink(mentionHref, e)}
 													class="text-(--primary-hover) decoration-(--primary-hover) font-medium hover:underline inline"
 												>
 													{segment.text}
@@ -211,7 +211,7 @@ export const BlueskyEmbed: Component<{ uri: string; post: BskyPostRef }> = (
 													title={href}
 													target="_blank"
 													rel="noreferrer"
-													onClick={(e) => openExternalLink(href, e)}
+													onClick={(e) => openUntrustedLink(href, e)}
 													class="text-(--primary-hover) decoration-(--primary-hover) font-medium hover:underline inline"
 												>
 													{segment.text}
@@ -230,7 +230,7 @@ export const BlueskyEmbed: Component<{ uri: string; post: BskyPostRef }> = (
 													href={href}
 													target="_blank"
 													rel="noreferrer"
-													onClick={(e) => openExternalLink(href, e)}
+													onClick={(e) => openUntrustedLink(href, e)}
 													class="text-(--primary-hover) decoration-(--primary-hover) font-medium hover:underline inline"
 												>
 													{segment.text}

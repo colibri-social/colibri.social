@@ -343,10 +343,6 @@
 	text-decoration-color: var(--primary-hover);
 }
 
-.emoji-section:not(:has(> .emoji-items > *)) {
-	display: none;
-}
-
 /* Ensure the emoji characters render as emojis, not text */
 .emoji-render {
 	font-variant-emoji: emoji;

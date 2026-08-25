@@ -34,8 +34,11 @@ export const buildFeatureKey = (feature: Feature): string => {
 			return `${feature.$type}:${"datetime" in feature ? feature.datetime : ""}`;
 		case "social.colibri.beta.richtext.facet#heading":
 			return `${feature.$type}:${"level" in feature ? feature.level : ""}`;
-		case "social.colibri.beta.richtext.facet#list":
-			return `${feature.$type}:${"ordered" in feature ? feature.ordered : ""}`;
+		case "social.colibri.beta.richtext.facet#list": {
+			const ordered = "ordered" in feature ? feature.ordered : "";
+			const indent = "indent" in feature ? (feature.indent ?? 0) : 0;
+			return `${feature.$type}:${ordered}:${indent}`;
+		}
 		case "social.colibri.beta.richtext.facet#bold":
 		case "social.colibri.beta.richtext.facet#italic":
 		case "social.colibri.beta.richtext.facet#underline":

@@ -72,6 +72,23 @@ export function hasEmoji(text: string): boolean {
 	return twemoji.test(text);
 }
 
+export interface FoundEmoji {
+	emoji: string;
+	index: number;
+}
+
+export function findEmoji(text: string): Array<FoundEmoji> {
+	const found: Array<FoundEmoji> = [];
+
+	twemoji.replace(text, (emoji: string, ...rest: Array<unknown>) => {
+		const index = rest.at(-2);
+		if (typeof index === "number") found.push({ emoji, index });
+		return emoji;
+	});
+
+	return found;
+}
+
 export function emojiOnlyCount(text: string): number {
 	let count = 0;
 	const withoutEmoji = twemoji.replace(text, () => {

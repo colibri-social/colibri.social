@@ -42,14 +42,10 @@ import { isAppViewErrorCode } from "../errors/codes";
 import { colibriError, isColibriError } from "../errors/error";
 import { showError } from "../errors/show-error";
 import {
+	captureConstraints,
 	createNoiseSuppressor,
 	type NoiseSuppressor,
 } from "../hooks/createNoiseSuppressor";
-import {
-	createSuppressionMonitor,
-	type SuppressionMonitor,
-} from "../hooks/createSuppressionMonitor";
-import { noiseMode } from "../hooks/noise/modes";
 import { appViewHostFor, getAppViewServiceRef } from "../utils/appview";
 import { applyAudioSink } from "../utils/audio-sink";
 import { createLogger, isVerboseLogging } from "../utils/logger";
@@ -193,7 +189,6 @@ export type VoiceChatContextValue = [VoiceChatData, VoiceChatActions];
 const VoiceChatContext = createContext<VoiceChatContextValue>();
 
 const AUTH_SUBPROTOCOL = "colibri.auth.bearer";
-const SPEAKING_THRESHOLD = 0.007;
 const MAX_RECONNECT_ATTEMPTS = 6;
 const STATS_INTERVAL_MS = 3000;
 const STATS_FAST_MS = 400;
@@ -259,9 +254,6 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 	let screenTrackCleanup: (() => void) | null = null;
 	let micStream: MediaStream | null = null;
 	let suppressor: NoiseSuppressor | null = null;
-	let speakingContext: AudioContext | null = null;
-	let speakingInterval: ReturnType<typeof setInterval> | null = null;
-	let suppressionMonitor: SuppressionMonitor | null = null;
 	let localSpeaking = false;
 	let serverSpeakers: string[] = [];
 	let ready = false;
@@ -719,17 +711,9 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 		mediaEpoch += 1;
 		rejectAllPending();
 
-		if (speakingInterval) {
-			clearInterval(speakingInterval);
-			speakingInterval = null;
-		}
-		suppressionMonitor?.destroy();
-		suppressionMonitor = null;
 		stopStatsMonitor();
 		stopHeartbeat();
 		channelRef = null;
-		speakingContext?.close().catch(() => {});
-		speakingContext = null;
 		localSpeaking = false;
 		serverSpeakers = [];
 
@@ -802,37 +786,6 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 		abandonSignaling();
 	};
 
-	const setupLocalSpeaking = (track: MediaStreamTrack): void => {
-		speakingContext = new AudioContext();
-		const source = speakingContext.createMediaStreamSource(
-			new MediaStream([track]),
-		);
-		const analyser = speakingContext.createAnalyser();
-		analyser.fftSize = 512;
-		source.connect(analyser);
-		const buffer = new Uint8Array(analyser.frequencyBinCount);
-
-		speakingInterval = setInterval(() => {
-			if (suppressor?.getActiveMode() === "high") return;
-
-			analyser.getByteTimeDomainData(buffer);
-			let sum = 0;
-
-			for (const v of buffer) {
-				const n = (v - 128) / 128;
-				sum += n * n;
-			}
-
-			const rms = Math.sqrt(sum / buffer.length);
-			const speaking = voiceData.states.micEnabled && rms > SPEAKING_THRESHOLD;
-
-			if (speaking !== localSpeaking) {
-				localSpeaking = speaking;
-				recomputeSpeakers();
-			}
-		}, 150);
-	};
-
 	const startMic = async (): Promise<void> => {
 		const transport = sendTransport;
 		if (!transport) return;
@@ -842,14 +795,7 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 		const input = userPreferences.preferences().voice.input;
 
 		const stream = await navigator.mediaDevices.getUserMedia({
-			audio: {
-				echoCancellation: true,
-				autoGainControl: true,
-				noiseSuppression: false,
-				deviceId: input.preferredDeviceId
-					? { ideal: input.preferredDeviceId }
-					: undefined,
-			},
+			audio: captureConstraints(input.preferredDeviceId),
 		});
 
 		const rawTrack = stream.getAudioTracks()[0];
@@ -863,18 +809,9 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 			}
 
 			ns = await createNoiseSuppressor(rawTrack, {
-				desiredMode: input.noiseSuppressionMode,
-				suppressionLevel: input.noiseSuppressionLevel,
-				onFallback: (_from, to) => {
-					userPreferences.setNoiseSuppressionMode(to);
-					toast(
-						`Switched to ${noiseMode(to).label.toLowerCase()} noise suppression`,
-						{
-							description:
-								"The mode you picked couldn't run smoothly on this device.",
-						},
-					);
-				},
+				suppression: input.noiseSuppression,
+				gate: input.voiceGate,
+				inputGain: input.volume,
 				onSpeaking: (speaking) => {
 					if (speaking === localSpeaking) return;
 					localSpeaking = speaking && !selfMuted();
@@ -908,20 +845,6 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 			if (muted) producer.pause();
 
 			setVoiceData("states", "micEnabled", !muted);
-			setupLocalSpeaking(rawTrack);
-			suppressionMonitor = createSuppressionMonitor({
-				rawTrack,
-				processedTrack: ns.outputTrack,
-				isActive: () => !selfMuted(),
-				isTunable: () =>
-					noiseMode(suppressor?.getActiveMode() ?? "off").tunable,
-				hintsEnabled: () =>
-					userPreferences.preferences().voice.noiseSuppressionHints,
-				getLevel: () =>
-					userPreferences.preferences().voice.input.noiseSuppressionLevel,
-				setLevel: (level) => userPreferences.setNoiseSuppressionLevel(level),
-				disableHints: () => userPreferences.setNoiseSuppressionHints(false),
-			});
 		} finally {
 			if (!adopted) {
 				ns?.destroy();
@@ -2153,13 +2076,9 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 
 	createEffect(
 		on(
-			() => userPreferences.preferences().voice.input.noiseSuppressionMode,
-			(mode) => {
-				void suppressor?.setModeOrFallback(mode).catch((err) => {
-					log.warn("noise suppression mode could not be applied", {
-						code: classifyThrown(err).code,
-					});
-				});
+			() => userPreferences.preferences().voice.input.noiseSuppression,
+			(enabled) => {
+				suppressor?.setSuppression(enabled);
 			},
 			{ defer: true },
 		),
@@ -2167,9 +2086,19 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 
 	createEffect(
 		on(
-			() => userPreferences.preferences().voice.input.noiseSuppressionLevel,
-			(level) => {
-				suppressor?.setSuppressionLevel(level);
+			() => userPreferences.preferences().voice.input.voiceGate,
+			(enabled) => {
+				suppressor?.setGate(enabled);
+			},
+			{ defer: true },
+		),
+	);
+
+	createEffect(
+		on(
+			() => userPreferences.preferences().voice.input.volume,
+			(volume) => {
+				suppressor?.setInputGain(volume);
 			},
 			{ defer: true },
 		),

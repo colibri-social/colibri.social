@@ -33,6 +33,7 @@ import type { CommunityView } from "../atproto/views";
 import { AppBadge } from "../components/app/AppBadge";
 import { AppReconnectingIndicator } from "../components/app/AppReconnectingIndicator";
 import { CommunityCreationModal } from "../components/app/CommunityCreationModal";
+import { ExternalLinkWarningDialog } from "../components/app/common/ExternalLinkWarningDialog";
 import { CommunityAvatar as SharedCommunityAvatar } from "../components/app/community/CommunityAvatar";
 import { CommunityContextMenu } from "../components/app/community/CommunityContextMenu";
 import { PENDING_INVITE_KEY } from "../components/app/community/invite-storage";
@@ -613,6 +614,7 @@ const AppLayout: ParentComponent = (props) => {
 			<VoiceOverlay />
 			<AppReconnectingIndicator />
 			<ReleaseNotesModal />
+			<ExternalLinkWarningDialog />
 			<MessageSnapshotWriter />
 		</div>
 	);

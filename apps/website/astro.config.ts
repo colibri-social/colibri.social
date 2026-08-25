@@ -1,7 +1,6 @@
 import node from "@astrojs/node";
 import solidJs from "@astrojs/solid-js";
 import starlight from "@astrojs/starlight";
-import { verbatimNoiseAssets } from "@colibri-social/assets/vite-verbatim-noise";
 import { sentryVitePlugin } from "@sentry/vite-plugin";
 import tailwindcss from "@tailwindcss/vite";
 import { defineConfig, envField, fontProviders } from "astro/config";
@@ -30,7 +29,6 @@ export default defineConfig({
 			sourcemap: true,
 		},
 		plugins: [
-			verbatimNoiseAssets(),
 			tailwindcss(),
 			vidstack(),
 			sentryVitePlugin({

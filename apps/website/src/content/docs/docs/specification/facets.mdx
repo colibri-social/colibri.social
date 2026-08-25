@@ -135,10 +135,17 @@ Rendered as `<h1>`, `<h2>`, or `<h3>`. Levels are clamped: `1` (or lower) = `<h1
 #### `list`
 
 ```ts title="#list"
-{ ordered: boolean } // true = numbered, false = bulleted
+{
+  ordered: boolean, // true = numbered, false = bulleted
+  indent?: number,  // nesting depth, 0 is the outermost level
+}
 ```
 
-Each `list` facet is one list item. Consecutive list facets are grouped into a single `<ul>`/`<ol>` when they have the same `ordered` value and are directly adjacent, meaning each item's `byteStart` is exactly one byte (the separating newline) after the previous item's `byteEnd`. A change in `ordered`, a gap, or any intervening content ends the list and starts a new one.
+Each `list` facet is one list item. Consecutive list facets are grouped into a single list when the text between them is whitespace holding exactly one newline. A blank line, or any intervening content, ends the list and starts a new one.
+
+Within a group, `indent` decides the nesting. An item deeper than the one before it opens a new `<ul>`/`<ol>` inside that item, and a shallower one closes levels until it fits. `indent` is capped at `10` and may be omitted at the outermost level. The item's own indentation is still part of `text`, so an item at depth 1 keeps the spaces that put it there. When no item in a message carries `indent`, the depths come from those indent widths instead.
+
+Each level takes `ordered` from its first item, so a bulleted list nests inside a numbered one.
 
 #### `quote`
 

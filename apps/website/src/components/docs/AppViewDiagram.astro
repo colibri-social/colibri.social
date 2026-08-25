@@ -1,6 +1,6 @@
 <div class="appview-diagram not-content">
 	<svg
-		viewBox="0 0 820 450"
+		viewBox="0 0 820 500"
 		role="img"
 		aria-label="Data flow between the Colibri client, a PDS, the AppView, member repositories and the AppView's local store."
 		xmlns="http://www.w3.org/2000/svg"
@@ -40,121 +40,125 @@
 			</marker>
 		</defs>
 
-		<path class="edge" d="M190,147 L310,147"></path>
+		<path class="edge" d="M105,160 L105,218"></path>
 		<path
 			class="flow flow-http"
-			d="M190,147 L310,147"
+			d="M105,160 L105,218"
 			marker-end="url(#arrow-accent)"></path>
 
-		<path class="edge" d="M470,147 L620,148"></path>
+		<path class="edge" d="M180,254 L300,254"></path>
 		<path
 			class="flow flow-http"
-			d="M470,147 L620,148"
+			d="M180,254 L300,254"
 			marker-end="url(#arrow-accent)"></path>
 
-		<path class="edge" d="M110,110 C205,24 555,24 686,104"></path>
+		<path
+			class="edge"
+			d="M105,88 L105,52 Q105,40 117,40 L418,40 Q430,40 430,52 L430,200"></path>
 		<path
 			class="flow flow-ws"
-			d="M110,110 C205,24 555,24 686,104"
+			d="M105,88 L105,52 Q105,40 117,40 L418,40 Q430,40 430,52 L430,200"
 			marker-end="url(#arrow-accent)"></path>
-		<path class="edge" d="M694,104 C555,40 205,40 120,110"></path>
+
+		<path
+			class="edge"
+			d="M400,200 L400,72 Q400,60 388,60 L147,60 Q135,60 135,72 L135,88"></path>
 		<path
 			class="flow flow-ws"
-			d="M694,104 C555,40 205,40 120,110"
+			d="M400,200 L400,72 Q400,60 388,60 L147,60 Q135,60 135,72 L135,88"
 			marker-end="url(#arrow-accent)"></path>
 
-		<path class="edge" d="M478,270 C572,254 612,222 646,198"></path>
+		<path class="edge" d="M500,240 L620,240"></path>
 		<path
 			class="flow flow-http"
-			d="M478,270 C572,254 612,222 646,198"
+			d="M500,240 L620,240"
 			marker-end="url(#arrow-accent)"></path>
 
-		<path class="edge" d="M668,200 C632,252 566,302 480,300"></path>
+		<path class="edge" d="M620,268 L500,268"></path>
 		<path
 			class="flow flow-http"
-			d="M668,200 C632,252 566,302 480,300"
+			d="M620,268 L500,268"
 			marker-end="url(#arrow-accent)"></path>
 
-		<path class="edge" d="M638,196 C558,344 380,398 216,386"></path>
+		<path class="edge" d="M340,308 L340,420 Q340,432 328,432 L180,432"></path>
 		<path
 			class="flow flow-http"
-			d="M638,196 C558,344 380,398 216,386"
+			d="M340,308 L340,420 Q340,432 328,432 L180,432"
 			marker-end="url(#arrow-accent)"></path>
 
-		<path class="edge" d="M700,196 L700,350"></path>
+		<path class="edge" d="M460,308 L460,420 Q460,432 472,432 L620,432"></path>
 		<path
 			class="flow flow-sql"
-			d="M700,196 L700,350"
+			d="M460,308 L460,420 Q460,432 472,432 L620,432"
+			marker-start="url(#arrow-muted)"
 			marker-end="url(#arrow-muted)"></path>
 
-		<text class="e-label" x="250" y="138" text-anchor="middle">requests</text>
-		<text class="e-label" x="545" y="138" text-anchor="middle"
-			>service auth</text
-		>
-		<text class="e-label" x="400" y="32" text-anchor="middle"
+		<text class="e-label" x="267" y="30" text-anchor="middle"
 			>subscribeEvents (direct WS connection)</text
 		>
-		<text class="e-label" x="556" y="228" text-anchor="middle"
-			>checkUserAccess</text
+		<text class="e-label" x="119" y="193" text-anchor="start">requests</text>
+		<text class="e-label" x="240" y="244" text-anchor="middle">service auth</text
 		>
-		<text class="e-label" x="566" y="320" text-anchor="middle"
+		<text class="e-label" x="560" y="230" text-anchor="middle"
 			>community writes</text
 		>
-		<text class="e-label" x="404" y="410" text-anchor="middle"
+		<text class="e-label" x="560" y="288" text-anchor="middle"
+			>checkUserAccess</text
+		>
+		<text class="e-label" x="260" y="422" text-anchor="middle"
 			>listRepoOps / getRepo</text
 		>
-		<text class="e-label" x="712" y="278" text-anchor="start">read / write</text
+		<text class="e-label" x="540" y="422" text-anchor="middle">read / write</text
 		>
 
 		<g class="node-group">
-			<rect class="node" x="40" y="110" width="150" height="74" rx="12"></rect>
-			<text class="n-title" x="115" y="142" text-anchor="middle">Client</text>
-			<text class="n-sub" x="115" y="161" text-anchor="middle">SolidJS UI</text>
+			<rect class="node" x="30" y="88" width="150" height="72" rx="12"></rect>
+			<text class="n-title" x="105" y="120" text-anchor="middle">Client</text>
+			<text class="n-sub" x="105" y="139" text-anchor="middle">SolidJS UI</text>
 		</g>
 		<g class="node-group">
-			<rect class="node" x="310" y="110" width="160" height="74" rx="12"></rect>
-			<text class="n-title" x="390" y="142" text-anchor="middle">Your PDS</text>
-			<text class="n-sub" x="390" y="161" text-anchor="middle"
-				>ATproto proxy</text
+			<rect class="node" x="30" y="218" width="150" height="72" rx="12"></rect>
+			<text class="n-title" x="105" y="250" text-anchor="middle">Your PDS</text>
+			<text class="n-sub" x="105" y="269" text-anchor="middle">ATproto proxy</text
 			>
 		</g>
 		<g class="node-group">
-			<rect class="node" x="310" y="250" width="160" height="66" rx="12"></rect>
-			<text class="n-title" x="390" y="276" text-anchor="middle"
+			<rect class="node" x="620" y="218" width="170" height="72" rx="12"></rect>
+			<text class="n-title" x="705" y="250" text-anchor="middle"
 				>Community PDS</text
 			>
-			<text class="n-sub" x="390" y="295" text-anchor="middle"
+			<text class="n-sub" x="705" y="269" text-anchor="middle"
 				>space authority</text
 			>
 		</g>
 		<g class="node-group">
-			<rect class="node" x="40" y="352" width="176" height="66" rx="12"></rect>
-			<text class="n-title" x="128" y="378" text-anchor="middle"
+			<rect class="node" x="30" y="396" width="150" height="72" rx="12"></rect>
+			<text class="n-title" x="105" y="428" text-anchor="middle"
 				>Member repos</text
 			>
-			<text class="n-sub" x="128" y="397" text-anchor="middle"
+			<text class="n-sub" x="105" y="447" text-anchor="middle"
 				>on their own hosts</text
 			>
 		</g>
 		<g class="node-group">
-			<rect class="node" x="610" y="350" width="180" height="66" rx="12"></rect>
-			<text class="n-title" x="700" y="376" text-anchor="middle"
+			<rect class="node" x="620" y="396" width="170" height="72" rx="12"></rect>
+			<text class="n-title" x="705" y="428" text-anchor="middle"
 				>Local store</text
 			>
-			<text class="n-sub" x="700" y="395" text-anchor="middle"
+			<text class="n-sub" x="705" y="447" text-anchor="middle"
 				>libSQL or Postgres</text
 			>
 		</g>
 		<g class="node-group">
 			<rect
 				class="node node-accent"
-				x="620"
-				y="104"
-				width="160"
-				height="92"
+				x="300"
+				y="200"
+				width="200"
+				height="108"
 				rx="14"></rect>
-			<text class="n-title" x="700" y="144" text-anchor="middle">AppView</text>
-			<text class="n-sub n-sub-accent" x="700" y="164" text-anchor="middle"
+			<text class="n-title" x="400" y="248" text-anchor="middle">AppView</text>
+			<text class="n-sub n-sub-accent" x="400" y="270" text-anchor="middle"
 				>Node</text
 			>
 		</g>
@@ -164,7 +168,7 @@
 <style>
 	.appview-diagram {
 		width: 100%;
-		max-width: 720px;
+		max-width: 760px;
 		margin: 2rem auto;
 	}
 

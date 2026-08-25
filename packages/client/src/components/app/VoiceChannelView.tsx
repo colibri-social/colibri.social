@@ -8,7 +8,6 @@ import {
 	For,
 	Match,
 	onCleanup,
-	onMount,
 	Show,
 	Switch,
 } from "solid-js";
@@ -27,8 +26,6 @@ import { useUserContext } from "../../contexts/User";
 import { useUserPreferences } from "../../contexts/UserPreferences";
 import { ConnectionState, useVoiceChatContext } from "../../contexts/VoiceChat";
 import { classifyThrown } from "../../errors/classify";
-import { preloadNoiseSuppressor } from "../../hooks/createNoiseSuppressor";
-import { noiseMode } from "../../hooks/noise/modes";
 import { appViewHostFor } from "../../utils/appview";
 import { getAverageColorFromUrl } from "../../utils/get-average-color";
 import { createLogger } from "../../utils/logger";
@@ -165,17 +162,6 @@ export const VoiceChannelView: Component = () => {
 			setFocusedKey,
 		},
 	] = useVoiceChatContext();
-
-	// Warm the DeepFilterNet assets while the user is looking at a voice channel,
-	// so joining swaps from the low tier to the neural model instantly
-	onMount(() => {
-		if (
-			noiseMode(preferences.preferences().voice.input.noiseSuppressionMode)
-				.usesDeepFilterNet
-		) {
-			preloadNoiseSuppressor();
-		}
-	});
 
 	const channelName = () => {
 		const skey = params.channel;

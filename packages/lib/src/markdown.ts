@@ -36,6 +36,7 @@ export interface MarkdownToken {
 	uri?: string;
 	level?: number;
 	ordered?: boolean;
+	indent?: number;
 }
 
 const FEATURE_TYPE: Record<MarkdownTokenKind, Feature["$type"]> = {
@@ -259,7 +260,7 @@ const tokenizeUnquoted = (source: string): MarkdownToken[] => {
 	const tree = fromMarkdown(source, FROM_MARKDOWN_OPTIONS);
 	const tokens: MarkdownToken[] = [];
 
-	const visit = (node: Nodes): void => {
+	const visit = (node: Nodes, depth = 0): void => {
 		switch (node.type) {
 			case "strong": {
 				const w = wrapMarkers(node);
@@ -366,6 +367,7 @@ const tokenizeUnquoted = (source: string): MarkdownToken[] => {
 					tokens.push({
 						kind: "list",
 						ordered: Boolean(node.ordered),
+						indent: depth,
 						markers: [[offset(item), contentStart]],
 						content: [contentStart, contentEnd],
 					});
@@ -375,7 +377,8 @@ const tokenizeUnquoted = (source: string): MarkdownToken[] => {
 		}
 
 		if ("children" in node) {
-			for (const child of node.children) visit(child);
+			const childDepth = node.type === "list" ? depth + 1 : depth;
+			for (const child of node.children) visit(child, childDepth);
 		}
 	};
 
@@ -451,6 +454,7 @@ const buildFeature = (token: MarkdownToken): Feature => {
 			return {
 				$type: "social.colibri.beta.richtext.facet#list",
 				ordered: Boolean(token.ordered),
+				...(token.indent ? { indent: token.indent } : {}),
 			};
 		default:
 			return { $type: FEATURE_TYPE[token.kind] } as Feature;
@@ -469,6 +473,10 @@ export interface SourceFacet {
 export interface ParsedMarkdown {
 	text: string;
 	facets: Array<ColibriRichTextFacet>;
+}
+
+export interface ParseMarkdownOptions {
+	allowLink?: (label: string, uri: string) => boolean;
 }
 
 /**
@@ -493,15 +501,11 @@ const mergeSpans = (
 	return merged;
 };
 
-/**
- * Parses raw markdown source into the stored representation
- */
-export const parseMarkdown = (
+const removeRanges = (
 	source: string,
-	extra: SourceFacet[] = [],
-): ParsedMarkdown => {
-	const tokens = tokenizeMarkdown(source);
-	const removed = mergeSpans(tokens.flatMap((t) => t.markers));
+	ranges: Array<[number, number]>,
+): { text: string; mapToClean: (index: number) => number } => {
+	const removed = mergeSpans(ranges);
 
 	let text = "";
 	let cursor = 0;
@@ -519,6 +523,30 @@ export const parseMarkdown = (
 		}
 		return index - delta;
 	};
+
+	return { text, mapToClean };
+};
+
+/**
+ * Parses raw markdown source into the stored representation
+ */
+export const parseMarkdown = (
+	source: string,
+	extra: SourceFacet[] = [],
+	options?: ParseMarkdownOptions,
+): ParsedMarkdown => {
+	const allowLink = options?.allowLink;
+	const tokens = tokenizeMarkdown(source).filter(
+		(t) =>
+			t.kind !== "link" ||
+			!allowLink ||
+			allowLink(source.slice(t.content[0], t.content[1]), t.uri ?? ""),
+	);
+	const { text, mapToClean } = removeRanges(
+		source,
+		tokens.flatMap((t) => t.markers),
+	);
+
 	const cleanToByte = (index: number): number =>
 		encoder.encode(text.slice(0, index)).length;
 
@@ -559,6 +587,139 @@ export const parseMarkdown = (
 	return { text, facets };
 };
 
+const byteIndexMap = (text: string): Map<number, number> => {
+	const map = new Map<number, number>();
+	let byte = 0;
+	let i = 0;
+	while (i < text.length) {
+		map.set(byte, i);
+		const codePoint = text.codePointAt(i) as number;
+		byte +=
+			codePoint < 0x80
+				? 1
+				: codePoint < 0x800
+					? 2
+					: codePoint < 0x10000
+						? 3
+						: 4;
+		i += codePoint > 0xffff ? 2 : 1;
+	}
+	map.set(byte, i);
+	return map;
+};
+
+const featureKind = (feature: Feature): string =>
+	(feature.$type ?? "").split("#")[1] ?? "";
+
+interface Line {
+	start: number;
+	end: number;
+	blank: boolean;
+}
+
+const scanLines = (text: string): Line[] => {
+	const lines: Line[] = [];
+	let start = 0;
+	for (;;) {
+		const nl = text.indexOf("\n", start);
+		const end = nl === -1 ? text.length : nl;
+		let content = end;
+		while (content > start && /[ \t\r]/.test(text[content - 1])) content--;
+		lines.push({ start, end, blank: content === start });
+		if (nl === -1) break;
+		start = nl + 1;
+	}
+	return lines;
+};
+
+export const normalizeWhitespace = (input: ParsedMarkdown): ParsedMarkdown => {
+	const { text, facets } = input;
+	if (!text) return input;
+
+	const byteToStr = byteIndexMap(text);
+	const toStr = (byte: number): number => byteToStr.get(byte) ?? text.length;
+
+	const protectedRanges: Array<[number, number]> = [];
+	const headingEnds: number[] = [];
+	for (const facet of facets) {
+		for (const feature of facet.features) {
+			const kind = featureKind(feature);
+			if (kind === "codeblock") {
+				protectedRanges.push([
+					toStr(facet.index.byteStart),
+					toStr(facet.index.byteEnd) + 1,
+				]);
+			} else if (kind === "heading") {
+				headingEnds.push(toStr(facet.index.byteEnd));
+			}
+		}
+	}
+
+	const isProtected = (from: number, to: number): boolean =>
+		protectedRanges.some(([start, end]) => from < end && to > start);
+
+	const lines = scanLines(text);
+	const ranges: Array<[number, number]> = [];
+
+	const headingLines = new Set<number>();
+	for (const end of headingEnds) {
+		const index = lines.findIndex(
+			(line) => end >= line.start && end <= line.end,
+		);
+		if (index !== -1) headingLines.add(index);
+	}
+
+	let blankRunStart = -1;
+	for (let i = 0; i < lines.length; i++) {
+		const line = lines[i];
+
+		if (!line.blank) {
+			let content = line.end;
+			while (content > line.start && /[ \t\r]/.test(text[content - 1])) {
+				content--;
+			}
+			if (content < line.end && !isProtected(content, line.end)) {
+				ranges.push([content, line.end]);
+			}
+			blankRunStart = -1;
+			continue;
+		}
+
+		if (blankRunStart === -1) blankRunStart = i;
+		if (isProtected(line.start, line.end + 1)) continue;
+
+		const underHeading = headingLines.has(blankRunStart - 1);
+		if (underHeading || i > blankRunStart) {
+			ranges.push([line.start, Math.min(line.end + 1, text.length)]);
+		} else if (line.end > line.start) {
+			ranges.push([line.start, line.end]);
+		}
+	}
+
+	const leading = text.length - text.trimStart().length;
+	if (leading > 0 && !isProtected(0, leading)) ranges.push([0, leading]);
+	const trailing = text.length - text.trimEnd().length;
+	if (trailing > 0 && !isProtected(text.length - trailing, text.length)) {
+		ranges.push([text.length - trailing, text.length]);
+	}
+
+	if (ranges.length === 0) return input;
+
+	const { text: cleaned, mapToClean } = removeRanges(text, ranges);
+	const cleanToByte = (index: number): number =>
+		encoder.encode(cleaned.slice(0, index)).length;
+
+	const mapped: Array<ColibriRichTextFacet> = [];
+	for (const facet of facets) {
+		const byteStart = cleanToByte(mapToClean(toStr(facet.index.byteStart)));
+		const byteEnd = cleanToByte(mapToClean(toStr(facet.index.byteEnd)));
+		if (byteEnd <= byteStart) continue;
+		mapped.push({ ...facet, index: { ...facet.index, byteStart, byteEnd } });
+	}
+
+	return { text: cleaned, facets: mapped };
+};
+
 const ATOM_KIND = new Set(["mention", "channel", "role", "time"]);
 
 export interface SourceAtom {
@@ -572,14 +733,63 @@ export interface SourceWithAtoms {
 	atoms: SourceAtom[];
 }
 
-const featureKind = (feature: Feature): string =>
-	(feature.$type ?? "").split("#")[1] ?? "";
-
 interface BlockPrefix {
 	list?: string;
 	heading?: string;
 	subtext?: string;
 }
+
+export const resolveListDepths = (
+	items: Array<{ indent?: number; indentWidth: number }>,
+): number[] => {
+	if (items.some((item) => item.indent !== undefined)) {
+		return items.map((item) => Math.max(0, item.indent ?? 0));
+	}
+
+	const widths: number[] = [];
+	return items.map((item) => {
+		while (widths.length && widths[widths.length - 1] > item.indentWidth) {
+			widths.pop();
+		}
+		if (!widths.length || widths[widths.length - 1] < item.indentWidth) {
+			widths.push(item.indentWidth);
+		}
+		return widths.length - 1;
+	});
+};
+
+const TAB_WIDTH = 4;
+
+export const indentWidthAt = (
+	charAt: (index: number) => string | undefined,
+	index: number,
+): number => {
+	let lineStart = index;
+	while (lineStart > 0 && charAt(lineStart - 1) !== "\n") lineStart--;
+
+	let width = 0;
+	for (let i = lineStart; i < index; i++) {
+		const char = charAt(i);
+		if (char === " ") width += 1;
+		else if (char === "\t") width += TAB_WIDTH;
+		else return 0;
+	}
+	return width;
+};
+
+export const isSingleLineGap = (
+	charAt: (index: number) => string | undefined,
+	from: number,
+	to: number,
+): boolean => {
+	let breaks = 0;
+	for (let i = from; i < to; i++) {
+		const char = charAt(i);
+		if (char === "\n") breaks++;
+		else if (char !== " " && char !== "\t" && char !== "\r") return false;
+	}
+	return breaks === 1;
+};
 
 /**
  * The inverse of {@link parseMarkdown}: rebuilds raw markdown source from stored
@@ -590,15 +800,9 @@ export const facetsToSource = (
 	text: string,
 	facets: Array<ColibriRichTextFacet>,
 ): SourceWithAtoms => {
-	const byteToStr = new Map<number, number>();
-	{
-		let byte = 0;
-		for (let i = 0; i <= text.length; i++) {
-			byteToStr.set(byte, i);
-			if (i < text.length) byte += encoder.encode(text[i]).length;
-		}
-	}
+	const byteToStr = byteIndexMap(text);
 	const toStr = (byte: number): number => byteToStr.get(byte) ?? text.length;
+	const charAt = (index: number): string | undefined => text[index];
 
 	const opensAt = new Map<number, string[]>();
 	const closesAt = new Map<number, string[]>();
@@ -626,8 +830,13 @@ export const facetsToSource = (
 	};
 	const codeblocks: Array<[number, number, string]> = [];
 	const atomStarts = new Map<number, { end: number; feature: Feature }>();
-	const listFacets: Array<{ start: number; end: number; ordered: boolean }> =
-		[];
+	const listFacets: Array<{
+		start: number;
+		end: number;
+		ordered: boolean;
+		indent?: number;
+		indentWidth: number;
+	}> = [];
 	const quoteRanges: Array<[number, number]> = [];
 
 	for (const facet of facets) {
@@ -660,6 +869,11 @@ export const facetsToSource = (
 					start,
 					end,
 					ordered: "ordered" in feature && Boolean(feature.ordered),
+					indent:
+						"indent" in feature && feature.indent !== undefined
+							? Number(feature.indent)
+							: undefined,
+					indentWidth: indentWidthAt(charAt, start),
 				});
 			} else if (kind === "quote") {
 				quoteRanges.push([start, end]);
@@ -670,18 +884,28 @@ export const facetsToSource = (
 	}
 
 	listFacets.sort((a, b) => a.start - b.start);
-	let counter = 0;
-	let prevEnd = -2;
+	const depths = resolveListDepths(listFacets);
+	const counters: number[] = [];
+	let prevEnd = -1;
 	let prevStart = -1;
-	for (const lf of listFacets) {
+	for (const [i, lf] of listFacets.entries()) {
 		if (lf.start === prevStart) continue;
-		if (!(lf.ordered && lf.start === prevEnd + 1)) counter = 0;
+
+		const depth = depths[i];
+		if (prevEnd < 0 || !isSingleLineGap(charAt, prevEnd, lf.start)) {
+			counters.length = 0;
+		} else if (counters.length > depth + 1) {
+			counters.length = depth + 1;
+		}
+
 		if (lf.ordered) {
-			counter++;
-			setPrefix(lf.start, "list", `${counter}. `);
+			counters[depth] = (counters[depth] ?? 0) + 1;
+			setPrefix(lf.start, "list", `${counters[depth]}. `);
 		} else {
+			counters[depth] = 0;
 			setPrefix(lf.start, "list", "- ");
 		}
+
 		prevEnd = lf.end;
 		prevStart = lf.start;
 	}

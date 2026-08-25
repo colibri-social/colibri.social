@@ -2,7 +2,6 @@ import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { assetsDir } from "@colibri-social/assets/node";
-import { verbatimNoiseAssets } from "@colibri-social/assets/vite-verbatim-noise";
 import tailwindcss from "@tailwindcss/vite";
 import devtools from "solid-devtools/vite";
 import Icons from "unplugin-icons/vite";
@@ -29,7 +28,6 @@ const clientCommit = (() => {
 
 export default defineConfig({
 	plugins: [
-		verbatimNoiseAssets(),
 		devtools(),
 		solidPlugin(),
 		tailwindcss(),
