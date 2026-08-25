@@ -50,7 +50,7 @@ export const DisplayableName: Component<{
 					props.avatarSize === "small" ? "calc(100% - 32px)" : "100%",
 			}}
 			class={cx(
-				"group/name inline-flex flex-row items-center gap-2 w-full",
+				"group/name inline-flex min-w-0 flex-row items-center gap-2",
 				props.className,
 			)}
 		>

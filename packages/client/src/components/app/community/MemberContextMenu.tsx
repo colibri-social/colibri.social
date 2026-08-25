@@ -278,7 +278,6 @@ const MemberMenu: ParentComponent<{
 		<span class="flex min-w-0 flex-1 flex-row items-center gap-1">
 			<span class="shrink-0">{p.prefix}</span>
 			<DisplayableName
-				className="min-w-0"
 				color={false}
 				user={profile()}
 				nickname={props.member.nickname}
@@ -612,7 +611,6 @@ const MemberMenu: ParentComponent<{
 							<span class="flex min-w-0 flex-row items-center gap-1">
 								<span class="shrink-0">Roles for</span>
 								<DisplayableName
-									className="min-w-0"
 									color={false}
 									user={profile()}
 									nickname={props.member.nickname}
