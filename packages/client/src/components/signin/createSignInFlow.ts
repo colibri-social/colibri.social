@@ -81,8 +81,10 @@ const MISSING_HANDLE: ErrorCopy = {
 
 const PDS_WITHOUT_SPACES: ErrorCopy = {
 	title: "This account's host can't open private communities.",
+	// description:
+	// 	"Colibri needs a PDS that supports permissioned spaces. Ask your host to update, or use an account on one that already does.",
 	description:
-		"Colibri needs a PDS that supports permissioned spaces. Ask your host to update, or use an account on one that already does.",
+		"Colibri needs a PDS that supports permissioned spaces. Please create a new account on a spaces-compatible PDS. Read more at https://atproto.com/blog/atproto-spaces-alpha.",
 };
 
 const showPrompt = (copy: ErrorCopy): void => {
