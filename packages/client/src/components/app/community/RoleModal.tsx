@@ -7,9 +7,13 @@ import {
 	type ParentComponent,
 } from "solid-js";
 import { colibri } from "../../../atproto/lexicons";
-import { PERMISSIONS } from "../../../atproto/permissions";
+import { nextRolePosition, PERMISSIONS } from "../../../atproto/permissions";
 import { clientForManagingApp } from "../../../atproto/xrpc";
-import { useCommunityContext } from "../../../contexts/Community";
+import {
+	useCommunityContext,
+	usePermissions,
+} from "../../../contexts/Community";
+import type { Role } from "../../../contexts/community-payload";
 import { useUserContext } from "../../../contexts/User";
 import { showError } from "../../../errors/show-error";
 import { createLogger } from "../../../utils/logger";
@@ -55,6 +59,7 @@ export const RoleModal: ParentComponent<{
 }> = (props) => {
 	const user = useUserContext();
 	const community = useCommunityContext();
+	const { hasPermission } = usePermissions();
 	const [open, setOpen] = createSignal(false);
 	const [loading, setLoading] = createSignal(false);
 
@@ -103,6 +108,15 @@ export const RoleModal: ParentComponent<{
 		return luminance > 0.5 ? "#000000" : "#ffffff";
 	};
 
+	const permissionsChanged = (existing: Role) => {
+		// Permissions are an unordered set; compare by membership, not position.
+		const current = permissions();
+		const existingPerms = existing.permissions ?? [];
+		if (current.length !== existingPerms.length) return true;
+		const existingSet = new Set(existingPerms);
+		return current.some((p) => !existingSet.has(p));
+	};
+
 	const isDirty = () => {
 		const existing = existingRole();
 		// Creating a new role: nothing to diff against, so it's always actionable.
@@ -113,16 +127,12 @@ export const RoleModal: ParentComponent<{
 		if (hoisted() !== (existing.hoisted ?? false)) return true;
 		if (mentionable() !== (existing.mentionable ?? false)) return true;
 
-		// Permissions are an unordered set; compare by membership, not position.
-		const current = permissions();
-		const existingPerms = existing.permissions ?? [];
-		if (current.length !== existingPerms.length) return true;
-		const existingSet = new Set(existingPerms);
-		return current.some((p) => !existingSet.has(p));
+		return permissionsChanged(existing);
 	};
 
 	const handleUpdate = async () => {
-		if (!props.role) return;
+		const existing = existingRole();
+		if (!props.role || !existing) return;
 
 		setLoading(true);
 
@@ -134,12 +144,17 @@ export const RoleModal: ParentComponent<{
 			body: {
 				community: community().community.did,
 				role: props.role,
-				name: name(),
-				color: color(),
-				permissions: permissions(),
-				position: existingRole()!.position,
-				hoisted: hoisted(),
-				mentionable: mentionable(),
+				...(name() !== existing.name ? { name: name() } : {}),
+				...(color() !== (existing.color ?? "#ffffff")
+					? { color: color() }
+					: {}),
+				...(permissionsChanged(existing) ? { permissions: permissions() } : {}),
+				...(hoisted() !== (existing.hoisted ?? false)
+					? { hoisted: hoisted() }
+					: {}),
+				...(mentionable() !== (existing.mentionable ?? false)
+					? { mentionable: mentionable() }
+					: {}),
 			},
 		});
 
@@ -162,7 +177,7 @@ export const RoleModal: ParentComponent<{
 			body: {
 				community: community().community.did,
 				name: name(),
-				position: 0,
+				position: nextRolePosition(community().roles),
 				permissions: permissions(),
 				color: color(),
 				hoisted: hoisted(),
@@ -286,7 +301,10 @@ export const RoleModal: ParentComponent<{
 													<Checkbox
 														class="flex flex-row gap-4 items-center w-full justify-between"
 														checked={isInPermsSet(permission.key)}
+														disabled={!hasPermission(user.did, permission.key)}
 														onChange={(checked) => {
+															if (!hasPermission(user.did, permission.key))
+																return;
 															if (checked) {
 																setPermissions((current) => [
 																	...current,

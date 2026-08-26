@@ -725,6 +725,7 @@ export const CommunityCreationModal: ParentComponent = (props) => {
 					body: {
 						name: name().trim(),
 						description: description().trim() || undefined,
+						requiresApprovalToJoin: requiresApprovalToJoin(),
 					},
 				},
 				{ signal: AbortSignal.timeout(CREATE_TIMEOUT_MS) },
@@ -745,6 +746,7 @@ export const CommunityCreationModal: ParentComponent = (props) => {
 						password: password(),
 						name: name().trim(),
 						description: description().trim() || undefined,
+						requiresApprovalToJoin: requiresApprovalToJoin(),
 					},
 				},
 				{ signal: AbortSignal.timeout(CREATE_TIMEOUT_MS) },
@@ -764,10 +766,15 @@ export const CommunityCreationModal: ParentComponent = (props) => {
 		const applySettings = async (
 			community: CommunityView,
 		): Promise<CommunityView> => {
-			if (!requiresApprovalToJoin()) return community;
+			if (mode() === "migrate") return community;
+			if (community.requiresApprovalToJoin === requiresApprovalToJoin())
+				return community;
 
 			const updated = await user.xrpc.call(colibri.community.update.main, {
-				body: { community: community.did, requiresApprovalToJoin: true },
+				body: {
+					community: community.did,
+					requiresApprovalToJoin: requiresApprovalToJoin(),
+				},
 			});
 			if (updated.ok) return updated.data.community;
 
@@ -775,7 +782,7 @@ export const CommunityCreationModal: ParentComponent = (props) => {
 				code: updated.error.code,
 			});
 			toast(
-				"Join approval wasn't turned on. You can change it in community settings.",
+				"Join approval wasn't applied. You can change it in community settings.",
 			);
 			return community;
 		};

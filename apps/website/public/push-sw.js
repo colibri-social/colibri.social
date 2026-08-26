@@ -6,7 +6,10 @@
  * (see packages/client/src/notifications/push-web.ts).
  *
  * Expected push payload (JSON):
- *   { "title": string, "body": string, "tag"?: string, "data"?: { "channelUri"?: string } }
+ *   { "title": string, "body": string, "tag"?: string,
+ *     "data"?: { "channelUri"?: string, "channel"?: string,
+ *                "messageUri"?: string, "messageAuthor"?: string,
+ *                "messageRkey"?: string } }
  *
  * Dismissal payload (sent when the underlying message was deleted; closes the
  * matching notification instead of showing one):
@@ -98,26 +101,76 @@ self.addEventListener("pushsubscriptionchange", (event) => {
 	);
 });
 
+const MESSAGE_COLLECTION = "social.colibri.beta.message";
+
+const activationFrom = (data) => {
+	if (!data) return undefined;
+
+	const channelUri = data.channelUri || data.channel;
+	if (typeof channelUri !== "string" || !channelUri) return undefined;
+
+	let messageUri =
+		typeof data.messageUri === "string" ? data.messageUri : undefined;
+	if (!messageUri && data.messageAuthor && data.messageRkey) {
+		messageUri = `${channelUri}/${data.messageAuthor}/${MESSAGE_COLLECTION}/${data.messageRkey}`;
+	}
+
+	return { channelUri, messageUri };
+};
+
+const channelPathFor = (channelUri) => {
+	if (typeof channelUri !== "string" || !channelUri.startsWith("at://")) {
+		return "/app";
+	}
+
+	const segments = channelUri.slice("at://".length).split("/");
+	if (segments.length !== 4 || segments[1] !== "space") return "/app";
+
+	const [authority, , type, skey] = segments;
+	if (!authority || !type || !skey) return "/app";
+
+	return `/app/c/${authority}/${type}/${encodeURIComponent(skey)}`;
+};
+
+const coldStartUrl = (activation) => {
+	if (!activation) return "/app";
+
+	const path = channelPathFor(activation.channelUri);
+	if (path === "/app" || !activation.messageUri) return path;
+
+	return `${path}?m=${encodeURIComponent(activation.messageUri)}`;
+};
+
+const isAppClient = (client) => {
+	try {
+		return new URL(client.url).pathname.startsWith("/app");
+	} catch {
+		return false;
+	}
+};
+
 self.addEventListener("notificationclick", (event) => {
 	event.notification.close();
 
-	const channelUri = event.notification.data && event.notification.data.channelUri;
-	const target = channelUri
-		? `/app/c/${channelUri.replace("at://", "")}`
-		: "/app";
+	const activation = activationFrom(event.notification.data);
 
 	event.waitUntil(
 		self.clients
 			.matchAll({ type: "window", includeUncontrolled: true })
-			.then((clientList) => {
-				for (const client of clientList) {
-					if ("focus" in client) {
-						client.focus();
-						if ("navigate" in client) client.navigate(target);
-						return;
-					}
+			.then(async (clientList) => {
+				const target = clientList.find(isAppClient);
+
+				if (target) {
+					if ("focus" in target) await target.focus();
+					target.postMessage({
+						type: "colibri-notification-activated",
+						channelUri: activation ? activation.channelUri : undefined,
+						messageUri: activation ? activation.messageUri : undefined,
+					});
+					return;
 				}
-				return self.clients.openWindow(target);
+
+				await self.clients.openWindow(coldStartUrl(activation));
 			}),
 	);
 });

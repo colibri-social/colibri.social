@@ -110,8 +110,8 @@ importers:
         specifier: workspace:0.4.0
         version: link:../../packages/client
       '@colibri-social/lexicons':
-        specifier: ^2.6.0
-        version: 2.6.0
+        specifier: ^2.8.0
+        version: 2.8.0
       '@colibri-social/standard-renderer':
         specifier: workspace:0.0.2
         version: link:../../packages/standard-renderer
@@ -352,8 +352,8 @@ importers:
         specifier: 0.0.0-spaces-alpha-20260818163953
         version: 0.0.0-spaces-alpha-20260818163953(patch_hash=b9762ee8f553b039bee0f267ebcaf2e581bb70141391ea58e59ec0784ba37efa)
       '@colibri-social/lexicons':
-        specifier: ^2.7.0
-        version: 2.7.0
+        specifier: ^2.8.0
+        version: 2.8.0
       '@kobalte/core':
         specifier: ^0.13.11
         version: 0.13.11(solid-js@1.9.14)
@@ -1318,11 +1318,8 @@ packages:
   '@colibri-social/lexicons@2.4.0':
     resolution: {integrity: sha512-iSoS/7ERX4hzmmbEUOP6Z/VwvV6alUFgwpTxq3GzcHGUQ/pe9AWTHLkaIdkuUXRmeBXUT+TJdoPY9SD6fNXLbQ==}
 
-  '@colibri-social/lexicons@2.6.0':
-    resolution: {integrity: sha512-jIJefuQkr7LROdDUFhg5g8ehjgvq4zs+LC3Z+cbyezxNuGC2RSXP1qJru8kozlhwl6n8jEWbdbd4rJe5fHvu2A==}
-
-  '@colibri-social/lexicons@2.7.0':
-    resolution: {integrity: sha512-Xw+WiyXHgpQc6YeYSjYuPSmQwudg3Jl63MHHYmLNHGS4foLNa3Xzdd3ZCvMY/iWqmV6jDWAHR9DqRI6BreicRA==}
+  '@colibri-social/lexicons@2.8.0':
+    resolution: {integrity: sha512-HTrkm+XWHE3z+Gtv8DSomBvVgidcZ1hbR/dnGxV6CPWLBcUFyNbxG0ldDCnd6cPBk6SONGPTFoKssFWMECkAMA==}
 
   '@corvu/dialog@0.2.4':
     resolution: {integrity: sha512-n54vJq+fOy8GVrnYBdJpD6JXNuyx7LOeMrRxwzAvZnYGpW8+AA12tnb/P/2emJj/HjOO5otheGKb0breshdFlA==}
@@ -7888,12 +7885,7 @@ snapshots:
       '@atproto/lex': 0.0.0-spaces-alpha-20260818163953
       '@atproto/lex-data': 0.1.7
 
-  '@colibri-social/lexicons@2.6.0':
-    dependencies:
-      '@atproto/lex': 0.0.0-spaces-alpha-20260818163953
-      '@atproto/lex-data': 0.1.7
-
-  '@colibri-social/lexicons@2.7.0':
+  '@colibri-social/lexicons@2.8.0':
     dependencies:
       '@atproto/lex': 0.0.0-spaces-alpha-20260818163953
       '@atproto/lex-data': 0.1.7

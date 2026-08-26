@@ -219,6 +219,8 @@ export const InviteModal: Component = () => {
 						<Match when={invite()}>
 							{(data) => {
 								const pictureUrl = () => data().community.picture;
+								const gated = () =>
+									data().community.requiresApprovalToJoin === true;
 
 								return (
 									<>
@@ -238,7 +240,12 @@ export const InviteModal: Component = () => {
 												/>
 											</Show>
 											<small class="text-muted-foreground">
-												You've been invited to join
+												<Show
+													when={gated()}
+													fallback="You've been invited to join"
+												>
+													You've been invited to request access to
+												</Show>
 											</small>
 											<h2 class="text-2xl font-black m-0">
 												{data().community.name}
@@ -276,7 +283,9 @@ export const InviteModal: Component = () => {
 												class="min-w-0"
 											>
 												<Show when={!joining()} fallback={<Spinner />}>
-													<span class="shrink-0">Accept as</span>
+													<span class="shrink-0">
+														{gated() ? "Request to join as" : "Accept as"}
+													</span>
 													<span class="flex flex-row gap-1.5 items-center min-w-0">
 														<img
 															width="24"

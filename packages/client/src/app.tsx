@@ -53,6 +53,7 @@ import { reportError } from "./errors/report";
 import AppLayout from "./layouts/AppLayout";
 import ChannelLayoutWithContext from "./layouts/ChannelLayout";
 import CommunityLayoutWithContext from "./layouts/CommunityLayout";
+import { captureNotificationActivationFromUrl } from "./notifications/activation";
 import { appShellMounted } from "./utils/app-shell";
 import { installChunkReloadGuard } from "./utils/chunk-reload";
 import { readLastViewedChannel } from "./utils/last-viewed-channel";
@@ -67,6 +68,7 @@ initTheme();
 initTitleBar();
 initSessionDebug();
 installChunkReloadGuard();
+captureNotificationActivationFromUrl();
 
 // Accepted forms of the `:channelType` URL segment: the short form the app
 // builds its own links from, and the full channel space type a shared link

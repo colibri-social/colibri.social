@@ -53,6 +53,16 @@ export const channelSpaceRef = (
 	return spaceUri(community, type, skey);
 };
 
+export const spaceRecordUri = (
+	space: string,
+	author: string,
+	collection: string,
+	rkey: string,
+): string | undefined => {
+	if (!parseSpace(space)) return undefined;
+	return `${space}/${author}/${collection}/${rkey}`;
+};
+
 export const channelSpaceCandidates = (
 	community: string,
 	skey: string,

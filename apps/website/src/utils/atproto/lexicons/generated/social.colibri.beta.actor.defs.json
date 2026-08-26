@@ -91,6 +91,11 @@
 					"type": "ref",
 					"ref": "#voiceState",
 					"description": "Where the user is connected for voice, if anywhere."
+				},
+				"activity": {
+					"type": "ref",
+					"ref": "#activity",
+					"description": "What the user is doing right now, when they share it and the AppView has something current."
 				}
 			}
 		},
@@ -109,6 +114,66 @@
 				"emoji": {
 					"type": "string",
 					"description": "An emoji shown beside the status."
+				}
+			}
+		},
+		"activity": {
+			"type": "object",
+			"description": "Something the user is doing right now, read from another service they publish to. A client renders it beside their presence.",
+			"required": [
+				"kind",
+				"title",
+				"source"
+			],
+			"properties": {
+				"kind": {
+					"type": "string",
+					"description": "What sort of activity this is. A client that does not know a kind falls back to naming the source.",
+					"knownValues": [
+						"listening",
+						"playing",
+						"streaming"
+					]
+				},
+				"title": {
+					"type": "string",
+					"description": "The main line: a track, a game, or a stream title.",
+					"maxLength": 256
+				},
+				"subtitle": {
+					"type": "string",
+					"description": "The second line, such as the artist.",
+					"maxLength": 256
+				},
+				"detail": {
+					"type": "string",
+					"description": "A third line naming where the title sits, such as the album.",
+					"maxLength": 256
+				},
+				"imageUri": {
+					"type": "string",
+					"format": "uri",
+					"description": "Artwork for the activity, served by this AppView. Absent when none could be resolved."
+				},
+				"linkUri": {
+					"type": "string",
+					"format": "uri",
+					"description": "Where the activity points, such as the track's page on the service it was played from."
+				},
+				"startedAt": {
+					"type": "string",
+					"format": "datetime",
+					"description": "When the activity began."
+				},
+				"endsAt": {
+					"type": "string",
+					"format": "datetime",
+					"description": "After this the activity is no longer current. The AppView clears it and says so, and a client treats a lapsed activity as absent."
+				},
+				"source": {
+					"type": "string",
+					"description": "The service the activity was read from, such as 'teal.fm'.",
+					"maxLength": 64
 				}
 			}
 		},
@@ -184,6 +249,10 @@
 						"ref": "social.colibri.beta.embed.defs#gifView"
 					},
 					"description": "GIFs saved from the picker, stored whole."
+				},
+				"shareActivity": {
+					"type": "boolean",
+					"description": "Whether the AppView may read what the user is listening to and show it to others."
 				}
 			}
 		},

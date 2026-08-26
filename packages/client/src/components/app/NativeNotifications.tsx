@@ -1,4 +1,5 @@
 import { type Component, onCleanup, onMount } from "solid-js";
+import { parseChannelPath } from "../../atproto/colibri-channel-url";
 import { colibri } from "../../atproto/lexicons";
 import type { ProfileView } from "../../atproto/views";
 import { useMutes } from "../../contexts/Mutes";
@@ -7,6 +8,7 @@ import { useSocketContext } from "../../contexts/Socket";
 import { useUserContext } from "../../contexts/User";
 import { useUserPreferences } from "../../contexts/UserPreferences";
 import {
+	emitNotificationActivation,
 	getBackend,
 	isAndroidTauriRuntime,
 	isAppUnfocused,
@@ -15,6 +17,8 @@ import {
 	isTauriRuntime,
 	isWebRuntime,
 	notify,
+	onNotificationActivation,
+	takeCapturedFocusMessageUri,
 	unregisterAllPush,
 	watchNotificationPermission,
 } from "../../notifications";
@@ -29,6 +33,7 @@ import {
 	subscribeFcmPush,
 } from "../../notifications/push-fcm";
 import {
+	listenForNotificationActivation,
 	listenForPushSubscriptionChanges,
 	subscribeWebPush,
 	type WebPushSubscription,
@@ -269,14 +274,33 @@ export const NativeNotifications: Component = () => {
 		void drainMarkReadQueue();
 		onCleanup(listenForPendingMarkRead(() => void drainMarkReadQueue()));
 
+		onCleanup(
+			onNotificationActivation((activation) =>
+				notifications.openNotification({
+					channel: activation.channelUri,
+					messageUri: activation.messageUri,
+					indexedAt: new Date().toISOString(),
+				}),
+			),
+		);
+
+		onCleanup(listenForNotificationActivation(emitNotificationActivation));
+
+		const focusMessageUri = takeCapturedFocusMessageUri();
+		if (focusMessageUri) {
+			const target = parseChannelPath(window.location.pathname);
+			if (target) {
+				emitNotificationActivation({
+					channelUri: target.channelSpace,
+					messageUri: focusMessageUri,
+				});
+			}
+		}
+
 		let cleanupActivation = () => {};
-		void listenForNativeActivation((activation) => {
-			notifications.openNotification({
-				channel: activation.channelUri,
-				messageUri: activation.messageUri,
-				indexedAt: new Date().toISOString(),
-			});
-		}).then((cleanup) => {
+		void listenForNativeActivation((activation) =>
+			emitNotificationActivation(activation),
+		).then((cleanup) => {
 			cleanupActivation = cleanup;
 		});
 		onCleanup(() => cleanupActivation());

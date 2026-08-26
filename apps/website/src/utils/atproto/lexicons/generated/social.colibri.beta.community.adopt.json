@@ -39,6 +39,10 @@
 							"type": "string",
 							"maxLength": 256,
 							"description": "The community's description."
+						},
+						"requiresApprovalToJoin": {
+							"type": "boolean",
+							"description": "Whether joining produces an application a moderator must approve. Defaults to false."
 						}
 					}
 				}

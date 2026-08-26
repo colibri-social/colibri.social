@@ -39,6 +39,7 @@ class ColibriFirebaseMessagingService : FirebaseMessagingService() {
 
 		val body = data["body"] ?: ""
 		val deepLink = data["deepLink"]
+		// TODO: the AppView does not send communityName, the avatar URLs or imageUrl yet, so these stay null.
 		val communityName = data["communityName"]
 		val communityAvatarUrl = data["communityAvatarUrl"]
 		val authorName = data["authorName"] ?: "Someone"

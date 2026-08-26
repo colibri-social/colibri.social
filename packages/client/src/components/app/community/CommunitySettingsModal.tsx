@@ -43,6 +43,7 @@ import {
 } from "../../../atproto/cache/community-tombstone";
 import { communityKey, namespace } from "../../../atproto/cache/keys";
 import { colibri } from "../../../atproto/lexicons";
+import { reorderedRolePositions } from "../../../atproto/permissions";
 import { frameIs } from "../../../atproto/sync-frames";
 import type {
 	BannedActorView,
@@ -1194,9 +1195,12 @@ const RolesPage: Component = () => {
 	});
 
 	const persistOrder = async (ordered: Array<Role>) => {
-		const total = ordered.length;
+		const ownerPosition =
+			community().roles.find((role) => role.protected)?.position ??
+			Number.POSITIVE_INFINITY;
+		const positions = reorderedRolePositions(ordered, ownerPosition);
 		const updates = ordered
-			.map((role, i) => ({ role, position: total - i }))
+			.map((role, i) => ({ role, position: positions[i] }))
 			.filter(({ role, position }) => role.position !== position);
 
 		if (updates.length === 0) {

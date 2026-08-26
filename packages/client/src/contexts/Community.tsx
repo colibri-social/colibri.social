@@ -962,6 +962,7 @@ export const usePermissions = () => {
 		isAdmin,
 		canManage,
 		outranks,
+		hasPermission,
 		canManageCommunity,
 		canDeleteCommunity,
 		canManageApprovals,

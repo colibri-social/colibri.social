@@ -177,3 +177,19 @@ export const getPermissionCeiling = (
 
 export const isRoleBelowCeiling = (ceiling: number, role: RoleView): boolean =>
 	role.position < ceiling;
+
+export const nextRolePosition = (roles: Array<RoleView>): number => {
+	const lowest = roles.reduce(
+		(min, role) => (role.position < min ? role.position : min),
+		Number.POSITIVE_INFINITY,
+	);
+	return Number.isFinite(lowest) ? lowest - 1 : 0;
+};
+
+export const reorderedRolePositions = (
+	ordered: Array<RoleView>,
+	ownerPosition: number,
+): Array<number> => {
+	const top = Math.min(ordered.length, ownerPosition - 1);
+	return ordered.map((_, index) => top - index);
+};

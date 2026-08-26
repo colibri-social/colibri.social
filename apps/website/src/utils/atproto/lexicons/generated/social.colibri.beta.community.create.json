@@ -27,6 +27,10 @@
 						"handlePrefix": {
 							"type": "string",
 							"description": "A slug used for the community handle instead of a generated one."
+						},
+						"requiresApprovalToJoin": {
+							"type": "boolean",
+							"description": "Whether joining produces an application a moderator must approve. Defaults to false."
 						}
 					}
 				}

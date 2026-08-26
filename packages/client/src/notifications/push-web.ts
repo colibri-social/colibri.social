@@ -1,4 +1,5 @@
 import { createLogger } from "../utils/logger";
+import { type NotificationActivation, parsePushActivation } from "./activation";
 import { isWebRuntime } from "./environment";
 
 const log = createLogger("push");
@@ -97,6 +98,24 @@ export const subscribeWebPush = async (
 
 	await register(toSerializable(subscription));
 	return true;
+};
+
+export const listenForNotificationActivation = (
+	onActivation: (activation: NotificationActivation) => void,
+): (() => void) => {
+	if (!isPushSupported()) return () => {};
+
+	const handler = (event: MessageEvent) => {
+		const data = event.data as
+			| { type?: string; channelUri?: unknown; messageUri?: unknown }
+			| undefined;
+		if (data?.type !== "colibri-notification-activated") return;
+
+		const activation = parsePushActivation(data);
+		if (activation) onActivation(activation);
+	};
+	navigator.serviceWorker.addEventListener("message", handler);
+	return () => navigator.serviceWorker.removeEventListener("message", handler);
 };
 
 export const listenForPushSubscriptionChanges = (

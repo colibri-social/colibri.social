@@ -35,6 +35,11 @@
 							"ref": "social.colibri.beta.embed.defs#gifView"
 						},
 						"description": "GIFs the user saved from the picker, stored whole. A saved GIF has to render without another lookup, and an identifier cannot be turned back into one: a GIF favourited from a chat message carries its own URL as the id rather than a provider key, so no provider can resolve it."
+					},
+					"shareActivity": {
+						"type": "boolean",
+						"default": false,
+						"description": "Whether the AppView may read the user's listening records from the services they publish to and show what they are playing to others."
 					}
 				}
 			}

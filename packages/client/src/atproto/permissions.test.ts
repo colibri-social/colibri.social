@@ -7,8 +7,10 @@ import {
 	grantsPermission,
 	isRoleBelowCeiling,
 	LABEL_APPLY,
+	nextRolePosition,
 	PERMISSIONS,
 	ROLE_MANAGE,
+	reorderedRolePositions,
 } from "./permissions";
 import type { RoleView } from "./views";
 
@@ -28,6 +30,7 @@ const MOD = role("mod", 10, [ROLE_MANAGE, LABEL_APPLY]);
 const HELPER = role("helper", 5, [LABEL_APPLY]);
 const ADMIN = role("admin", 20, [ROLE_MANAGE]);
 const ROLES = [MOD, HELPER, ADMIN];
+const OWNER = role("owner", 1000, [ROLE_MANAGE]);
 
 describe("getPermissionCeiling", () => {
 	it("gives an owner an unbounded ceiling regardless of roles", () => {
@@ -138,6 +141,56 @@ describe("isRoleBelowCeiling", () => {
 
 	it("lets a member with no granting role manage nothing", () => {
 		expect(isRoleBelowCeiling(Number.NEGATIVE_INFINITY, HELPER)).toBe(false);
+	});
+});
+
+describe("nextRolePosition", () => {
+	it("places the first role just below the owner role", () => {
+		expect(nextRolePosition([OWNER])).toBe(999);
+	});
+
+	it("places a new role below the lowest existing one", () => {
+		expect(nextRolePosition([OWNER, ...ROLES])).toBe(HELPER.position - 1);
+	});
+
+	it("goes below zero once the lowest role sits at zero", () => {
+		expect(nextRolePosition([OWNER, role("base", 0, [])])).toBe(-1);
+	});
+
+	it("falls back to zero with no roles to compare against", () => {
+		expect(nextRolePosition([])).toBe(0);
+	});
+
+	it("stays below the position of every role the creator could hold", () => {
+		const roles = [OWNER, ...ROLES];
+		const created = nextRolePosition(roles);
+		for (const existing of roles) {
+			expect(existing.position).toBeGreaterThan(created);
+		}
+	});
+
+	it("leaves the created role manageable by the lowest ceiling", () => {
+		const roles = [OWNER, role("base", 0, [ROLE_MANAGE])];
+		const created = role("new", nextRolePosition(roles), []);
+		expect(isRoleBelowCeiling(0, created)).toBe(true);
+	});
+});
+
+describe("reorderedRolePositions", () => {
+	it("numbers roles densely from the top down", () => {
+		expect(reorderedRolePositions([ADMIN, MOD, HELPER], 1000)).toEqual([
+			3, 2, 1,
+		]);
+	});
+
+	it("keeps every role below an owner role sitting low", () => {
+		expect(reorderedRolePositions([ADMIN, MOD, HELPER], 0)).toEqual([
+			-1, -2, -3,
+		]);
+	});
+
+	it("returns nothing for an empty ordering", () => {
+		expect(reorderedRolePositions([], 1000)).toEqual([]);
 	});
 });
 

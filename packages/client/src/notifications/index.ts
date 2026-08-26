@@ -102,6 +102,14 @@ export const unregisterAllPush = async (
 	} catch {}
 };
 
+export type { NotificationActivation } from "./activation";
+export {
+	captureNotificationActivationFromUrl,
+	emitNotificationActivation,
+	onNotificationActivation,
+	parsePushActivation,
+	takeCapturedFocusMessageUri,
+} from "./activation";
 export {
 	isAndroidTauriRuntime,
 	isAppUnfocused,

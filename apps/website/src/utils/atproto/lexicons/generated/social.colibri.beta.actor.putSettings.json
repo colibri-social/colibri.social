@@ -34,6 +34,10 @@
 								"type": "ref",
 								"ref": "social.colibri.beta.embed.defs#gifView"
 							}
+						},
+						"shareActivity": {
+							"type": "boolean",
+							"description": "Whether the AppView may show what the user is listening to. Absent leaves the current value unchanged."
 						}
 					}
 				}
