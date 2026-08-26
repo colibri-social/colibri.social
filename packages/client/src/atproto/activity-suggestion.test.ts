@@ -3,10 +3,12 @@ import type { ColibriClient } from "./xrpc";
 
 const DID = "did:plc:t4ckug4y36pkmxo5ej75v3ug";
 
-const hasActivitySource = vi.fn<(did: string) => Promise<boolean>>();
+type Provider = "teal.fm" | "rocksky.app" | "atradio.fm";
+
+const detectActivitySource = vi.fn<(did: string) => Promise<Provider | null>>();
 const getPreferences = vi.fn();
 
-vi.mock("./teal-source", () => ({ hasActivitySource }));
+vi.mock("./activity-source", () => ({ detectActivitySource }));
 vi.mock("./notificationPreference", () => ({
 	getPreferences,
 	shareActivityOf: (preferences: { shareActivity?: boolean }) =>
@@ -34,9 +36,9 @@ const settle = async () => {
 describe("startActivitySuggestion", () => {
 	beforeEach(() => {
 		vi.useFakeTimers();
-		hasActivitySource.mockReset();
+		detectActivitySource.mockReset();
 		getPreferences.mockReset();
-		hasActivitySource.mockResolvedValue(true);
+		detectActivitySource.mockResolvedValue("teal.fm");
 		getPreferences.mockResolvedValue(preferences(false));
 	});
 
@@ -54,8 +56,8 @@ describe("startActivitySuggestion", () => {
 		});
 		await settle();
 
-		expect(suggestActivity()).toBe(true);
-		expect(hasActivitySource).toHaveBeenCalledTimes(1);
+		expect(suggestActivity()).toBe("teal.fm");
+		expect(detectActivitySource).toHaveBeenCalledTimes(1);
 		stop();
 	});
 
@@ -68,7 +70,7 @@ describe("startActivitySuggestion", () => {
 			dismissed: () => false,
 		});
 
-		expect(suggestActivity()).toBe(false);
+		expect(suggestActivity()).toBeNull();
 		stop();
 	});
 
@@ -83,12 +85,12 @@ describe("startActivitySuggestion", () => {
 		});
 		await settle();
 
-		expect(suggestActivity()).toBe(false);
+		expect(suggestActivity()).toBeNull();
 		stop();
 	});
 
-	it("offers nothing to someone with no teal.fm records", async () => {
-		hasActivitySource.mockResolvedValue(false);
+	it("offers nothing to someone with no listening records", async () => {
+		detectActivitySource.mockResolvedValue(null);
 		const { startActivitySuggestion, suggestActivity } = await load();
 
 		const stop = startActivitySuggestion({
@@ -98,12 +100,12 @@ describe("startActivitySuggestion", () => {
 		});
 		await settle();
 
-		expect(suggestActivity()).toBe(false);
+		expect(suggestActivity()).toBeNull();
 		stop();
 	});
 
-	it("keeps looking, so connecting teal.fm mid-session is picked up", async () => {
-		hasActivitySource.mockResolvedValue(false);
+	it("keeps looking, so connecting a service mid-session is picked up", async () => {
+		detectActivitySource.mockResolvedValue(null);
 		const { startActivitySuggestion, suggestActivity, SOURCE_POLL_MS } =
 			await load();
 
@@ -113,13 +115,13 @@ describe("startActivitySuggestion", () => {
 			dismissed: () => false,
 		});
 		await settle();
-		expect(suggestActivity()).toBe(false);
+		expect(suggestActivity()).toBeNull();
 
-		hasActivitySource.mockResolvedValue(true);
+		detectActivitySource.mockResolvedValue("atradio.fm");
 		await vi.advanceTimersByTimeAsync(SOURCE_POLL_MS);
 		await settle();
 
-		expect(suggestActivity()).toBe(true);
+		expect(suggestActivity()).toBe("atradio.fm");
 		stop();
 	});
 
@@ -134,12 +136,12 @@ describe("startActivitySuggestion", () => {
 		await settle();
 		await vi.advanceTimersByTimeAsync(SOURCE_POLL_MS * 3);
 
-		expect(hasActivitySource).toHaveBeenCalledTimes(1);
+		expect(detectActivitySource).toHaveBeenCalledTimes(1);
 		stop();
 	});
 
 	it("stops looking for someone who hid the suggestion", async () => {
-		hasActivitySource.mockResolvedValue(false);
+		detectActivitySource.mockResolvedValue(null);
 		const { startActivitySuggestion, SOURCE_POLL_MS } = await load();
 
 		const stop = startActivitySuggestion({
@@ -150,12 +152,12 @@ describe("startActivitySuggestion", () => {
 		await settle();
 		await vi.advanceTimersByTimeAsync(SOURCE_POLL_MS * 2);
 
-		expect(hasActivitySource).toHaveBeenCalledTimes(1);
+		expect(detectActivitySource).toHaveBeenCalledTimes(1);
 		stop();
 	});
 
 	it("looks nothing up after it is stopped", async () => {
-		hasActivitySource.mockResolvedValue(false);
+		detectActivitySource.mockResolvedValue(null);
 		const { startActivitySuggestion, SOURCE_POLL_MS } = await load();
 
 		const stop = startActivitySuggestion({
@@ -167,7 +169,7 @@ describe("startActivitySuggestion", () => {
 		stop();
 		await vi.advanceTimersByTimeAsync(SOURCE_POLL_MS * 2);
 
-		expect(hasActivitySource).toHaveBeenCalledTimes(1);
+		expect(detectActivitySource).toHaveBeenCalledTimes(1);
 	});
 
 	it("takes the sharing preference from a live update", async () => {
@@ -180,10 +182,10 @@ describe("startActivitySuggestion", () => {
 			dismissed: () => false,
 		});
 		await settle();
-		expect(suggestActivity()).toBe(true);
+		expect(suggestActivity()).toBe("teal.fm");
 
 		noteActivitySharing(true);
-		expect(suggestActivity()).toBe(false);
+		expect(suggestActivity()).toBeNull();
 		stop();
 	});
 
@@ -201,7 +203,7 @@ describe("startActivitySuggestion", () => {
 		});
 		await settle();
 
-		expect(suggestActivity()).toBe(false);
+		expect(suggestActivity()).toBeNull();
 		stop();
 	});
 });

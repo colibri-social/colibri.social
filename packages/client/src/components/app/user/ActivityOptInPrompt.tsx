@@ -9,7 +9,7 @@ import { useUserContext } from "../../../contexts/User";
 import { useUserPreferences } from "../../../contexts/UserPreferences";
 import { createLogger } from "../../../utils/logger";
 import { Button } from "../../ui/Button";
-import { TEAL_MARK_SRC } from "./teal-mark";
+import { PROVIDER_MARKS } from "./provider-marks";
 
 const log = createLogger("activity-opt-in");
 
@@ -24,7 +24,9 @@ export const ActivityOptInPrompt: Component = () => {
 	const [hidden, setHidden] = createSignal(false);
 
 	const offer = () =>
-		!hidden() && !preferences().activityPromptDismissed && suggestActivity();
+		hidden() || preferences().activityPromptDismissed
+			? null
+			: suggestActivity();
 
 	const enable = async () => {
 		setBusy(true);
@@ -38,7 +40,7 @@ export const ActivityOptInPrompt: Component = () => {
 
 		if (!res.ok) {
 			log.error("turning on activity sharing failed", { code: res.error.code });
-			toast.error("Could not turn on song presence.");
+			toast.error("Could not turn on listening presence.");
 			return;
 		}
 
@@ -61,34 +63,48 @@ export const ActivityOptInPrompt: Component = () => {
 				</span>
 			</Show>
 			<Show when={offer()}>
-				<Separator />
-				<div class="flex flex-col gap-2 px-1">
-					<div class="flex flex-row gap-3">
-						<img
-							src={TEAL_MARK_SRC}
-							alt="teal.fm"
-							width={64}
-							height={64}
-							class="size-16 shrink-0 rounded-sm bg-muted object-cover"
-						/>
-						<div class="flex flex-col min-w-0 gap-0.5">
-							<span class="text-sm font-bold leading-5">
-								Enable song presence
-							</span>
-							<span class="text-xs text-muted-foreground leading-4">
-								Let others see what you're listening to via teal.fm
-							</span>
+				{(provider) => (
+					<>
+						<Separator />
+						<div class="flex flex-col gap-2 px-1">
+							<div class="flex flex-row gap-3">
+								<img
+									src={PROVIDER_MARKS[provider()]}
+									alt={provider()}
+									width={64}
+									height={64}
+									class="size-16 shrink-0 rounded-sm bg-muted object-cover"
+								/>
+								<div class="flex flex-col min-w-0 gap-0.5">
+									<span class="text-sm font-bold leading-5">
+										Enable listening presence
+									</span>
+									<span class="text-xs text-muted-foreground leading-4">
+										Let others see what you're listening to via {provider()}
+									</span>
+								</div>
+							</div>
+							<div class="flex flex-row gap-2">
+								<Button
+									size="sm"
+									class="flex-1"
+									disabled={busy()}
+									onClick={enable}
+								>
+									Enable
+								</Button>
+								<Button
+									size="sm"
+									variant="outline"
+									class="flex-1"
+									onClick={hide}
+								>
+									Hide
+								</Button>
+							</div>
 						</div>
-					</div>
-					<div class="flex flex-row gap-2">
-						<Button size="sm" class="flex-1" disabled={busy()} onClick={enable}>
-							Enable
-						</Button>
-						<Button size="sm" variant="outline" class="flex-1" onClick={hide}>
-							Hide
-						</Button>
-					</div>
-				</div>
+					</>
+				)}
 			</Show>
 		</>
 	);

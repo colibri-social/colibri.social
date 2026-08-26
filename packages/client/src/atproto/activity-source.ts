@@ -7,7 +7,30 @@ const log = createLogger("activity-source");
 
 const METHOD = "com.atproto.repo.listRecords";
 
-const COLLECTIONS = ["fm.teal.actor.status", "fm.teal.feed.play"];
+export type ActivityProvider = "teal.fm" | "rocksky.app" | "atradio.fm";
+
+const PROVIDERS: ReadonlyArray<{
+	id: ActivityProvider;
+	collections: readonly string[];
+}> = [
+	{
+		id: "teal.fm",
+		collections: [
+			"fm.teal.actor.status",
+			"fm.teal.alpha.actor.status",
+			"fm.teal.feed.play",
+			"fm.teal.alpha.feed.play",
+		],
+	},
+	{
+		id: "rocksky.app",
+		collections: ["app.rocksky.actor.status", "app.rocksky.scrobble"],
+	},
+	{
+		id: "atradio.fm",
+		collections: ["fm.atradio.actor.status", "fm.atradio.favorite"],
+	},
+];
 
 const PRESENT_TTL_MS = 6 * 60 * 60 * 1000;
 
@@ -17,29 +40,35 @@ const FAILURE_TTL_MS = 30_000;
 
 const REQUEST_TIMEOUT_MS = 8000;
 
-const storageKey = (did: string) => `colibri:activity-source:v2:${did}`;
+const storageKey = (did: string) => `colibri:activity-source:v3:${did}`;
 
-type Entry = { present: boolean; expiresAt: number };
+type Entry = { provider: ActivityProvider | null; expiresAt: number };
 
 const cache = new Map<string, Entry>();
 
-const inflight = new Map<string, Promise<boolean>>();
+const inflight = new Map<string, Promise<ActivityProvider | null>>();
+
+const isProvider = (value: unknown): value is ActivityProvider =>
+	PROVIDERS.some((provider) => provider.id === value);
 
 const readStored = (did: string): Entry | undefined => {
 	try {
 		const raw = localStorage.getItem(storageKey(did));
 		if (!raw) return undefined;
+
 		const parsed = JSON.parse(raw) as Partial<Entry>;
-		if (typeof parsed.present !== "boolean") return undefined;
 		if (typeof parsed.expiresAt !== "number") return undefined;
-		return { present: parsed.present, expiresAt: parsed.expiresAt };
+		if (parsed.provider !== null && !isProvider(parsed.provider))
+			return undefined;
+
+		return { provider: parsed.provider ?? null, expiresAt: parsed.expiresAt };
 	} catch {
 		return undefined;
 	}
 };
 
 const writeStored = (did: string, entry: Entry): void => {
-	if (!entry.present) return;
+	if (!entry.provider) return;
 	try {
 		localStorage.setItem(storageKey(did), JSON.stringify(entry));
 	} catch {}
@@ -48,12 +77,14 @@ const writeStored = (did: string, entry: Entry): void => {
 const fresh = (entry: Entry | undefined): Entry | undefined =>
 	entry && entry.expiresAt > Date.now() ? entry : undefined;
 
-export const peekActivitySource = (did: string): boolean | undefined => {
+export const peekActivitySource = (
+	did: string,
+): ActivityProvider | null | undefined => {
 	const entry = fresh(cache.get(did)) ?? fresh(readStored(did));
 	if (!entry) return undefined;
 
 	cache.set(did, entry);
-	return entry.present;
+	return entry.provider;
 };
 
 const hasAnyRecord = async (
@@ -86,17 +117,21 @@ const hasAnyRecord = async (
 	return (body.records?.length ?? 0) > 0;
 };
 
-const lookup = async (did: string): Promise<boolean> => {
+const lookup = async (did: string): Promise<ActivityProvider | null> => {
 	const host = await resolvePdsForDid(did);
-	if (!host) return false;
+	if (!host) return null;
 
-	for (const collection of COLLECTIONS) {
-		if (await hasAnyRecord(host, did, collection)) return true;
+	for (const provider of PROVIDERS) {
+		for (const collection of provider.collections) {
+			if (await hasAnyRecord(host, did, collection)) return provider.id;
+		}
 	}
-	return false;
+	return null;
 };
 
-export const hasActivitySource = async (did: string): Promise<boolean> => {
+export const detectActivitySource = async (
+	did: string,
+): Promise<ActivityProvider | null> => {
 	const cached = peekActivitySource(did);
 	if (cached !== undefined) return cached;
 
@@ -104,24 +139,24 @@ export const hasActivitySource = async (did: string): Promise<boolean> => {
 	if (pending) return pending;
 
 	const request = lookup(did)
-		.then((present) => {
+		.then((provider) => {
 			const entry = {
-				present,
-				expiresAt: Date.now() + (present ? PRESENT_TTL_MS : ABSENT_TTL_MS),
+				provider,
+				expiresAt: Date.now() + (provider ? PRESENT_TTL_MS : ABSENT_TTL_MS),
 			};
 			cache.set(did, entry);
 			writeStored(did, entry);
-			return present;
+			return provider;
 		})
 		.catch((err: unknown) => {
-			log.warn("checking for teal.fm records failed", {
+			log.warn("checking for listening records failed", {
 				code: classifyThrown(err, { method: METHOD }).code,
 			});
 			cache.set(did, {
-				present: false,
+				provider: null,
 				expiresAt: Date.now() + FAILURE_TTL_MS,
 			});
-			return false;
+			return null;
 		})
 		.finally(() => {
 			inflight.delete(did);

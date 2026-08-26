@@ -1,32 +1,34 @@
 import { createSignal } from "solid-js";
 import { createLogger } from "../utils/logger";
+import { type ActivityProvider, detectActivitySource } from "./activity-source";
 import { getPreferences, shareActivityOf } from "./notificationPreference";
-import { hasActivitySource } from "./teal-source";
 import type { ColibriClient } from "./xrpc";
 
 const log = createLogger("activity-suggestion");
 
 export const SOURCE_POLL_MS = 15 * 60 * 1000;
 
-const [sourcePresent, setSourcePresent] = createSignal<boolean | undefined>(
-	undefined,
-);
+const [sourceProvider, setSourceProvider] = createSignal<
+	ActivityProvider | null | undefined
+>(undefined);
 
 const [sharing, setSharing] = createSignal<boolean | undefined>(undefined);
 
-export const activitySourcePresent = sourcePresent;
+export const activitySourceProvider = sourceProvider;
 
 export const activitySharing = sharing;
 
-export const suggestActivity = (): boolean =>
-	sourcePresent() === true && sharing() === false;
+export const suggestActivity = (): ActivityProvider | null => {
+	const provider = sourceProvider();
+	return provider && sharing() === false ? provider : null;
+};
 
 export const noteActivitySharing = (value: boolean): void => {
 	setSharing(value);
 };
 
 export const resetActivitySuggestion = (): void => {
-	setSourcePresent(undefined);
+	setSourceProvider(undefined);
 	setSharing(undefined);
 };
 
@@ -48,11 +50,11 @@ const readSharing = async (xrpc: ColibriClient): Promise<void> => {
 };
 
 const readSource = async (did: string): Promise<void> => {
-	setSourcePresent(await hasActivitySource(did));
+	setSourceProvider(await detectActivitySource(did));
 };
 
 const worthLooking = (deps: ActivitySuggestionDeps): boolean =>
-	!deps.dismissed() && sourcePresent() !== true && sharing() !== true;
+	!deps.dismissed() && !sourceProvider() && sharing() !== true;
 
 export const startActivitySuggestion = (
 	deps: ActivitySuggestionDeps,

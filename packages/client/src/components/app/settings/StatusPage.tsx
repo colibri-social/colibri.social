@@ -140,9 +140,9 @@ export const StatusPage: Component = () => {
 				<div>
 					<SwitchLabel>Share what I'm listening to</SwitchLabel>
 					<SwitchDescription>
-						Shows the track you're playing on your profile and in the member
-						list, read from the teal.fm records on your account. Turning this
-						off clears it for everyone as soon as you save.
+						Shows what you're playing on your profile and in the member list,
+						read from your teal.fm, rocksky.app, or atradio.fm records. Turning
+						this off clears it for everyone as soon as you save.
 					</SwitchDescription>
 				</div>
 				<div>
