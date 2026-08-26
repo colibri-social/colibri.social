@@ -1,5 +1,3 @@
-import type { Agent } from "@atproto/api";
-import type { JsonBlobRef } from "@atproto/lexicon";
 import type { ColibriRichTextFacet } from "@colibri-social/lib";
 import { useFileFieldContext } from "@kobalte/core/file-field";
 import {
@@ -14,23 +12,21 @@ import {
 	Switch,
 } from "solid-js";
 import { toast } from "somoto";
-import CheckIcon from "~icons/ph/check";
 import CircleIcon from "~icons/ph/circle";
 import FileIcon from "~icons/ph/file";
 import PaperPlaneRightIcon from "~icons/ph/paper-plane-right-fill";
 import PlusIcon from "~icons/ph/plus";
-import SpinnerIcon from "~icons/ph/spinner-gap";
 import XIcon from "~icons/ph/x";
-import { asUri } from "../../../atproto/lexicons";
-import { uploadBlob } from "../../../atproto/pds";
-import type { AttachmentView, MessageAttachment } from "../../../atproto/views";
-import {
-	type SendMessageAttachment,
-	useChannelContext,
-} from "../../../contexts/Channel";
+import { enqueueMessageSend } from "../../../atproto/outbox/sends";
+import type { Facet, RecordRef } from "../../../atproto/views";
+import { useChannelContext } from "../../../contexts/Channel";
 import { useCommunityContext } from "../../../contexts/Community";
 import { useUserContext } from "../../../contexts/User";
 import { useUserPreferences } from "../../../contexts/UserPreferences";
+import {
+	readAttachmentDraft,
+	writeAttachmentDraft,
+} from "../../../utils/attachment-drafts";
 import { linkUrisFromFacets } from "../../../utils/link-facets";
 import { useIsMobile } from "../../../utils/mobile-pane";
 import {
@@ -47,29 +43,6 @@ import { Lightbox } from "../common/Lightbox";
 import { trimWithFacets } from "../common/rich-text-renderer/util";
 import { TextEditor } from "../common/text-editor/TextEditor";
 import { DisplayableName, displayableNameFn } from "../user/DisplayableName";
-
-// Uploads a single file straight to the user's PDS via the authenticated
-// (OAuth) agent. The record half references the blob, and the preview half is a
-// local object URL so the optimistic message renders before the AppView has a
-// signed URL for it.
-const uploadFile = async (
-	agent: Agent,
-	file: File,
-): Promise<SendMessageAttachment> => {
-	const blob = await uploadBlob(agent, file);
-	return {
-		record: {
-			blob: blob.toJSON() as unknown as JsonBlobRef,
-			name: file.name,
-		} as MessageAttachment,
-		preview: {
-			url: asUri(URL.createObjectURL(file)),
-			mimeType: file.type,
-			name: file.name,
-			size: file.size,
-		} as AttachmentView,
-	};
-};
 
 /**
  * The message input used to send messages to the currently viewed channel.
@@ -94,8 +67,6 @@ export const MessageInput: Component<{
 
 	const [editorEmpty, setEditorEmpty] = createSignal(true);
 	const [charPercent, setCharPercent] = createSignal(0);
-	const [isSending, setIsSending] = createSignal(false);
-	const [uploadedFiles, setUploadedFiles] = createSignal<Set<File>>(new Set());
 	const [embedsEnabled, setEmbedsEnabled] = createSignal(
 		userPreferences.preferences().linkEmbedsByDefault,
 	);
@@ -115,15 +86,19 @@ export const MessageInput: Component<{
 	});
 
 	const clearAttachments = (files: Array<File>) => {
-		if (files.length === 0) return;
 		for (const file of files) fileField.removeFile(file);
-		setUploadedFiles(new Set<File>());
 	};
 
 	createEffect(
 		on(
 			() => channel.channelSpace(),
-			() => clearAttachments([...fileField.acceptedFiles]),
+			(space, previousSpace) => {
+				const carried = [...fileField.acceptedFiles];
+				if (previousSpace) writeAttachmentDraft(previousSpace, carried);
+				clearAttachments(carried);
+				const restored = space ? readAttachmentDraft(space) : [];
+				if (restored.length > 0) fileField.processFiles(restored);
+			},
 			{ defer: true },
 		),
 	);
@@ -170,22 +145,6 @@ export const MessageInput: Component<{
 	};
 
 	/**
-	 * Uploads the given files to the user's PDS in parallel.
-	 * @param files The files to upload
-	 */
-	const uploadFiles = (
-		files: Array<File>,
-	): Promise<Array<SendMessageAttachment>> => {
-		return Promise.all(
-			files.map(async (file) => {
-				const attachment = await uploadFile(user.atproto.agent, file);
-				setUploadedFiles((prev) => new Set(prev).add(file));
-				return attachment;
-			}),
-		);
-	};
-
-	/**
 	 * Sends the message currently contained in the input.
 	 */
 	const sendMessage = async (
@@ -216,53 +175,51 @@ export const MessageInput: Component<{
 			return false;
 		}
 
-		channel.clearReplyingTo();
-		// Reset the throttle so the next keystroke after sending pings promptly.
-		lastTypingPing = 0;
+		const suppressedEmbeds = embedsEnabled()
+			? []
+			: linkUrisFromFacets(cleanFacets).filter(isRemovableEmbed);
 
 		if (hasFiles) {
-			setUploadedFiles(new Set<File>());
-			setIsSending(true);
-		}
+			const queued = await enqueueMessageSend({
+				space: targetChannelSpace,
+				repo: user.did,
+				text: cleanText,
+				facets: cleanFacets as unknown as Array<Facet>,
+				files: acceptedFiles,
+				parent: replyingMessage
+					? ({
+							did: replyingMessage.author.did,
+							rkey: replyingMessage.rkey,
+						} as RecordRef)
+					: undefined,
+				suppressedEmbeds,
+			});
 
-		try {
-			let attachments: Array<SendMessageAttachment> = [];
-			if (hasFiles) {
-				try {
-					attachments = await uploadFiles(acceptedFiles);
-				} catch (err) {
-					toast.error("Failed to upload attachments.", {
-						description:
-							err instanceof Error
-								? err.message
-								: "An unexpected error occurred while uploading to your PDS.",
-					});
-					return false;
-				}
+			if (!queued.ok) {
+				toast.error("Too much waiting to upload", {
+					description:
+						"Send or remove some of your queued attachments before adding more.",
+				});
+				return false;
 			}
 
-			const suppressedEmbeds = embedsEnabled()
-				? []
-				: linkUrisFromFacets(cleanFacets).filter(isRemovableEmbed);
-
+			channel.advanceReadCursor(queued.rkey);
+			clearAttachments(acceptedFiles);
+		} else {
 			await channel.sendMessage({
 				text: cleanText,
 				facets: cleanFacets,
 				parent: replyingMessage,
-				attachments,
 				suppressedEmbeds,
 			});
-
-			if (channel.channelSpace() === targetChannelSpace) {
-				clearAttachments(acceptedFiles);
-			}
-
-			setEmbedsEnabled(userPreferences.preferences().linkEmbedsByDefault);
-
-			return true;
-		} finally {
-			if (hasFiles) setIsSending(false);
 		}
+
+		channel.clearReplyingTo();
+		// Reset the throttle so the next keystroke after sending pings promptly.
+		lastTypingPing = 0;
+		setEmbedsEnabled(userPreferences.preferences().linkEmbedsByDefault);
+
+		return true;
 	};
 
 	const isEditingOnMobile = () =>
@@ -344,29 +301,15 @@ export const MessageInput: Component<{
 					}}
 				>
 					<div class="flex items-center justify-between text-xs">
-						<Show
-							when={isSending()}
-							fallback={
-								<span class="text-muted-foreground">
-									{fileField.acceptedFiles.length}/{props.maxAttachments}{" "}
-									attachments
-								</span>
-							}
-						>
-							<span class="flex items-center gap-1.5 text-foreground">
-								<SpinnerIcon class="size-4 animate-spin" />
-								Uploading {uploadedFiles().size} of{" "}
-								{fileField.acceptedFiles.length}…
-							</span>
-						</Show>
+						<span class="text-muted-foreground">
+							{fileField.acceptedFiles.length}/{props.maxAttachments}{" "}
+							attachments
+						</span>
 					</div>
 					<Show
 						when={isMobile()}
 						fallback={
-							<FileFieldItemList
-								class="flex flex-row gap-2 m-0 p-0 flex-wrap"
-								classList={{ "pointer-events-none": isSending() }}
-							>
+							<FileFieldItemList class="flex flex-row gap-2 m-0 p-0 flex-wrap">
 								{(item) => (
 									<FileFieldItem>
 										<Switch fallback={<FileFieldItemPreviewImage />}>
@@ -378,18 +321,7 @@ export const MessageInput: Component<{
 										</Switch>
 										<FileFieldItemName />
 										<FileFieldItemSize />
-										<Switch fallback={<FileFieldItemDeleteTrigger />}>
-											<Match when={isSending() && uploadedFiles().has(item)}>
-												<span class="[grid-area:delete] self-center flex items-center justify-center p-0.5 text-green-500">
-													<CheckIcon class="size-4" />
-												</span>
-											</Match>
-											<Match when={isSending()}>
-												<span class="[grid-area:delete] self-center flex items-center justify-center p-0.5 text-muted-foreground">
-													<SpinnerIcon class="size-4 animate-spin" />
-												</span>
-											</Match>
-										</Switch>
+										<FileFieldItemDeleteTrigger />
 									</FileFieldItem>
 								)}
 							</FileFieldItemList>
@@ -419,28 +351,14 @@ export const MessageInput: Component<{
 													/>
 												</Lightbox>
 											</Show>
-											<Switch>
-												<Match when={isSending() && uploadedFiles().has(item)}>
-													<div class="absolute inset-0 flex items-center justify-center bg-black/40 text-green-400">
-														<CheckIcon class="size-5" />
-													</div>
-												</Match>
-												<Match when={isSending()}>
-													<div class="absolute inset-0 flex items-center justify-center bg-black/40 text-white">
-														<SpinnerIcon class="size-5 animate-spin" />
-													</div>
-												</Match>
-												<Match when={!isSending()}>
-													<button
-														type="button"
-														aria-label="Remove attachment"
-														onClick={() => fileField.removeFile(item)}
-														class="absolute top-0.5 right-0.5 size-5 flex items-center justify-center rounded-full bg-background/90 text-destructive"
-													>
-														<XIcon class="size-3.5" />
-													</button>
-												</Match>
-											</Switch>
+											<button
+												type="button"
+												aria-label="Remove attachment"
+												onClick={() => fileField.removeFile(item)}
+												class="absolute top-0.5 right-0.5 size-5 flex items-center justify-center rounded-full bg-background/90 text-destructive"
+											>
+												<XIcon class="size-3.5" />
+											</button>
 										</div>
 									);
 								}}
@@ -477,17 +395,13 @@ export const MessageInput: Component<{
 			>
 				<Switch>
 					<Match when={!props.disabled}>
-						<FileFieldTrigger
-							disabled={isSending()}
-							class="w-10 h-10 min-w-10 bg-muted text-muted-foreground hover:text-primary-foreground flex items-center justify-center rounded-lg cursor-pointer disabled:pointer-events-none disabled:opacity-50"
-						>
+						<FileFieldTrigger class="w-10 h-10 min-w-10 bg-muted text-muted-foreground hover:text-primary-foreground flex items-center justify-center rounded-lg cursor-pointer disabled:pointer-events-none disabled:opacity-50">
 							<PlusIcon />
 						</FileFieldTrigger>
 						<div ref={inputEl} class="flex-1 min-w-0">
 							<div class="w-full">
 								<TextEditor
 									mainEditor
-									blocked={isSending}
 									placeholder={`Message ${props.channelName}`}
 									sendMessage={handleSubmit}
 									onChange={handleTypingChange}
@@ -516,7 +430,6 @@ export const MessageInput: Component<{
 							<button
 								type="button"
 								aria-label="Send message"
-								disabled={isSending()}
 								// Keep focus (and the mobile keyboard) on the editor instead of
 								// letting the tap shift it to this button.
 								onMouseDown={(e) => e.preventDefault()}

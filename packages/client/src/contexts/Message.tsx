@@ -24,6 +24,13 @@ import {
 	enqueueSpaceCreate,
 	enqueueSpaceDelete,
 } from "../atproto/outbox/outbox";
+import {
+	discardSend,
+	retrySend,
+	type SendProgress,
+	sendProgress,
+	sendsRevision,
+} from "../atproto/outbox/sends";
 import { nextTid } from "../atproto/outbox/tid";
 import { findReactionRkey } from "../atproto/pds";
 import type { MessageView, ReactionView, RecordRef } from "../atproto/views";
@@ -85,6 +92,9 @@ export type MessageContextValue = {
 	setNewText: Setter<TextWithFacets>;
 
 	isPending: Accessor<boolean>;
+	sendState: Accessor<SendProgress | undefined>;
+	retrySendState: () => void;
+	discardSendState: () => void;
 	isLegacy: Accessor<boolean>;
 	isHiddenByModerator: Accessor<boolean>;
 	revealed: Accessor<boolean>;
@@ -139,6 +149,28 @@ export const MessageContextProvider: ParentComponent<{ data: MessageData }> = (
 	const { recordEmojiUse } = useUserPreferences();
 
 	const isPending = () => "hash" in props.data;
+
+	const uploadingRkey = (): string | undefined => {
+		const { data } = props;
+		if (!("hash" in data)) return undefined;
+		return data.hash.startsWith("outbox:") ? data.hash.slice(7) : undefined;
+	};
+
+	const sendState = (): SendProgress | undefined => {
+		sendsRevision();
+		const rkey = uploadingRkey();
+		return rkey ? sendProgress(rkey) : undefined;
+	};
+
+	const retrySendState = () => {
+		const rkey = uploadingRkey();
+		if (rkey) retrySend(rkey);
+	};
+
+	const discardSendState = () => {
+		const rkey = uploadingRkey();
+		if (rkey) discardSend(rkey);
+	};
 
 	const confirmed = (): MessageView | undefined =>
 		"hash" in props.data ? undefined : props.data;
@@ -692,6 +724,9 @@ export const MessageContextProvider: ParentComponent<{ data: MessageData }> = (
 		newText,
 		setNewText,
 		isPending,
+		sendState,
+		retrySendState,
+		discardSendState,
 		isLegacy,
 		isHiddenByModerator,
 		revealed,

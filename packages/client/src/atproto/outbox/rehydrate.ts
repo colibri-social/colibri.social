@@ -13,8 +13,16 @@ const asString = (value: unknown): string | undefined =>
 const asFacets = (value: unknown): MessageView["facets"] =>
 	Array.isArray(value) ? (value as MessageView["facets"]) : [];
 
+const isAttachmentView = (value: unknown): boolean => {
+	if (typeof value !== "object" || value === null) return false;
+	const { url, mimeType } = value as Record<string, unknown>;
+	return typeof url === "string" && typeof mimeType === "string";
+};
+
 const asAttachments = (value: unknown): MessageView["attachments"] =>
-	Array.isArray(value) ? (value as MessageView["attachments"]) : [];
+	Array.isArray(value)
+		? (value.filter(isAttachmentView) as MessageView["attachments"])
+		: [];
 
 export const messageUriFor = (
 	authorDid: string,
@@ -66,7 +74,18 @@ const toPendingMessage = (
 		attachments: asAttachments(queued.record.attachments),
 		createdAt: asCreatedAt(queued.record.createdAt),
 		...(parent ? { parent: asVisibleParent(parent) } : {}),
+		...(queued.failed ? { failed: true } : {}),
 	};
+};
+
+const dedupeByRkey = (queued: QueuedRecord[]): QueuedRecord[] => {
+	const seen = new Set<string>();
+	return queued.filter((q) => {
+		const key = `${q.kind}:${q.rkey}`;
+		if (seen.has(key)) return false;
+		seen.add(key);
+		return true;
+	});
 };
 
 export const rehydrateQueuedMessages = (input: {
@@ -75,7 +94,9 @@ export const rehydrateQueuedMessages = (input: {
 	queued: QueuedRecord[];
 	existing: (MessageView | PendingMessage)[];
 }): (MessageView | PendingMessage)[] | undefined => {
-	const mine = input.queued.filter((q) => q.space === input.channelSpace);
+	const mine = dedupeByRkey(input.queued).filter(
+		(q) => q.space === input.channelSpace,
+	);
 	if (mine.length === 0) return undefined;
 
 	const byUri = new Map(input.existing.map((m) => [m.uri, m]));
@@ -88,6 +109,12 @@ export const rehydrateQueuedMessages = (input: {
 					byUri.has(messageUriFor(input.author.did, q.rkey)),
 			)
 			.map((q) => [messageUriFor(input.author.did, q.rkey), q]),
+	);
+
+	const sendStates = new Map(
+		mine
+			.filter((q) => q.kind === "spaceCreate")
+			.map((q) => [`outbox:${q.rkey}`, q.failed === true]),
 	);
 
 	const resolveParent: ParentResolver = (ref) =>
@@ -110,10 +137,15 @@ export const rehydrateQueuedMessages = (input: {
 			}),
 		);
 
-	if (additions.length === 0 && edits.size === 0) return undefined;
-
 	const reconciled: (MessageView | PendingMessage)[] = input.existing.map(
 		(m) => {
+			if ("hash" in m) {
+				const failed = sendStates.get(m.hash);
+				if (failed === undefined || failed === (m.failed === true)) return m;
+				return failed
+					? { ...m, failed: true }
+					: (({ failed: _failed, ...rest }) => rest)(m);
+			}
 			const edit = edits.get(m.uri);
 			if (!edit) return m;
 			const text = asString(edit.record.text) ?? m.text;

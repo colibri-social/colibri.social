@@ -37,6 +37,7 @@ export type PendingMessage = Pick<
 	| "parent"
 > & {
 	hash: string;
+	failed?: boolean;
 };
 
 export type MessagesSnapshot = {

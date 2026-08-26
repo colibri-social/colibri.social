@@ -11,6 +11,7 @@ import { namespace } from "../cache/keys";
 import { asSpaceRef } from "../lexicons";
 import { wroteToFrame } from "../sync-frames";
 import { flush, initOutbox, onOutboxSent } from "./outbox";
+import { flushSends, initSends } from "./sends";
 
 export const OutboxController: ParentComponent = (props) => {
 	const user = useUserContext();
@@ -18,12 +19,17 @@ export const OutboxController: ParentComponent = (props) => {
 
 	onMount(() => {
 		if (user.did) {
-			void initOutbox(user.atproto.agent, namespace(getAppViewDid(), user.did));
+			const owner = namespace(getAppViewDid(), user.did);
+			void initOutbox(user.atproto.agent, owner);
+			void initSends(user.atproto.agent, owner);
 		}
 
-		const onFlush = () => void flush();
+		const onFlush = () => {
+			void flush();
+			void flushSends();
+		};
 		const onVisible = () => {
-			if (document.visibilityState === "visible") void flush();
+			if (document.visibilityState === "visible") onFlush();
 		};
 
 		const stopHinting = onOutboxSent(({ space }) => {
@@ -44,7 +50,9 @@ export const OutboxController: ParentComponent = (props) => {
 	});
 
 	createEffect(() => {
-		if (socket.status() === "connected") void flush();
+		if (socket.status() !== "connected") return;
+		void flush();
+		void flushSends();
 	});
 
 	return <>{props.children}</>;

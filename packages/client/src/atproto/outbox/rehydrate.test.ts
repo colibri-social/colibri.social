@@ -212,3 +212,94 @@ describe("rehydrateQueuedMessages", () => {
 		expect(result?.[1]?.parent).toBeUndefined();
 	});
 });
+
+describe("rehydrateQueuedMessages dedupe", () => {
+	it("keeps one row when both queues hold the same rkey, preferring the first", () => {
+		const result = run(
+			[
+				queued("m1", "spaceCreate", {
+					text: "with previews",
+					createdAt: "2026-01-01T00:00:01.000Z",
+					attachments: [{ url: "blob:local", mimeType: "image/png" }],
+				}),
+				queued("m1", "spaceCreate", {
+					text: "with previews",
+					createdAt: "2026-01-01T00:00:01.000Z",
+					attachments: [{ blob: { $type: "blob" } }],
+				}),
+			],
+			[],
+		);
+
+		expect(result).toHaveLength(1);
+		expect(result?.[0]?.attachments).toEqual([
+			{ url: "blob:local", mimeType: "image/png" },
+		]);
+	});
+
+	it("drops attachments that are blob refs rather than renderable views", () => {
+		const result = run(
+			[
+				queued("m1", "spaceCreate", {
+					text: "reloaded while queued",
+					createdAt: "2026-01-01T00:00:01.000Z",
+					attachments: [
+						{ blob: { $type: "blob" }, name: "a.png" },
+						{ url: "blob:local", mimeType: "image/png" },
+					],
+				}),
+			],
+			[],
+		);
+
+		expect(result?.[0]?.attachments).toEqual([
+			{ url: "blob:local", mimeType: "image/png" },
+		]);
+	});
+
+	it("carries the failed flag onto the pending row", () => {
+		const entry = queued("m1", "spaceCreate", {
+			text: "stuck",
+			createdAt: "2026-01-01T00:00:01.000Z",
+		});
+		const result = run([{ ...entry, failed: true }], []);
+
+		expect(result?.[0]).toMatchObject({ failed: true });
+	});
+});
+
+describe("rehydrateQueuedMessages failure state", () => {
+	const pending = (rkey: string, failed?: boolean): PendingMessage => ({
+		hash: `outbox:${rkey}`,
+		uri: messageUriFor(DID, rkey),
+		channel: CHANNEL,
+		author,
+		text: "stuck",
+		facets: [],
+		attachments: [],
+		createdAt: "2026-01-01T00:00:01.000Z",
+		...(failed ? { failed: true } : {}),
+	});
+
+	it("marks a row that has already been rendered as failed", () => {
+		const entry = queued("m1", "spaceCreate", { text: "stuck" });
+		const result = run([{ ...entry, failed: true }], [pending("m1")]);
+
+		expect(result).toHaveLength(1);
+		expect(result?.[0]).toMatchObject({ failed: true, hash: "outbox:m1" });
+	});
+
+	it("clears the flag when the send is retried", () => {
+		const entry = queued("m1", "spaceCreate", { text: "stuck" });
+		const result = run([entry], [pending("m1", true)]);
+
+		expect(result?.[0]).not.toHaveProperty("failed");
+	});
+
+	it("leaves a row alone when its state has not moved", () => {
+		const entry = queued("m1", "spaceCreate", { text: "stuck" });
+		expect(run([{ ...entry, failed: true }], [pending("m1", true)])).toBe(
+			undefined,
+		);
+	});
+});

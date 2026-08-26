@@ -30,7 +30,7 @@ import { SCHEMA_VERSION } from "./schema";
 const log = createLogger("cache");
 
 const DB_NAME = "colibri-cache";
-const DB_VERSION = 3;
+const DB_VERSION = 4;
 const MAX_CHANNELS = 50;
 const MAX_BSKY_ENTRIES = 1000;
 
@@ -39,8 +39,14 @@ const MAX_BSKY_ENTRIES = 1000;
  * `SCHEMA_VERSION` bumps
  */
 const USER_SCOPED_STORES = ["meta", "user", "community", "messages"] as const;
-const STORES = [...USER_SCOPED_STORES, "bsky", "outbox"] as const;
+const STORES = [...USER_SCOPED_STORES, "bsky", "outbox", "sends"] as const;
 type StoreName = (typeof STORES)[number];
+
+const QUEUE_STORES = ["outbox", "sends"] as const;
+type QueueStore = (typeof QUEUE_STORES)[number];
+
+const isQueueStore = (name: StoreName): name is QueueStore =>
+	QUEUE_STORES.includes(name as QueueStore);
 
 export const cacheEnabled = (): boolean => {
 	try {
@@ -77,7 +83,7 @@ const openDb = (): Promise<IDBDatabase> => {
 				if (db.objectStoreNames.contains(name)) continue;
 				const store = db.createObjectStore(
 					name,
-					name === "outbox" ? { autoIncrement: true } : undefined,
+					isQueueStore(name) ? { autoIncrement: true } : undefined,
 				);
 				if (name === "messages" || name === "bsky") {
 					store.createIndex("ts", "ts");
@@ -424,20 +430,22 @@ export const ensureFresh = async (ns: string): Promise<void> => {
 	await write("meta", "meta", { version: SCHEMA_VERSION, owner: ns });
 };
 
-export const outboxAppend = (entry: unknown): Promise<number> =>
-	request<IDBValidKey>("outbox", "readwrite", (s) => s.add(entry)).then(
+const queueAppend = (store: QueueStore, entry: unknown): Promise<number> =>
+	request<IDBValidKey>(store, "readwrite", (s) => s.add(entry)).then(
 		(key) => key as number,
 	);
 
-export const outboxAll = <T>(): Promise<Array<{ seq: number; entry: T }>> =>
+const queueAll = <T>(
+	store: QueueStore,
+): Promise<Array<{ seq: number; entry: T }>> =>
 	openDb()
 		.then(
 			(db) =>
 				new Promise<Array<{ seq: number; entry: T }>>((resolve, reject) => {
 					const out: Array<{ seq: number; entry: T }> = [];
 					const cursorReq = db
-						.transaction("outbox", "readonly")
-						.objectStore("outbox")
+						.transaction(store, "readonly")
+						.objectStore(store)
 						.openCursor();
 					cursorReq.onsuccess = () => {
 						const cursor = cursorReq.result;
@@ -456,18 +464,46 @@ export const outboxAll = <T>(): Promise<Array<{ seq: number; entry: T }>> =>
 			return [];
 		});
 
-export const outboxDelete = (seq: number): Promise<void> =>
-	request("outbox", "readwrite", (s) => s.delete(seq))
+const queueDelete = (store: QueueStore, seq: number): Promise<void> =>
+	request(store, "readwrite", (s) => s.delete(seq))
 		.then(() => undefined)
 		.catch((err) => {
 			noteCacheFailure(err);
 			return undefined;
 		});
 
-export const outboxUpdate = (seq: number, entry: unknown): Promise<void> =>
-	request("outbox", "readwrite", (s) => s.put(entry, seq))
+const queueUpdate = (
+	store: QueueStore,
+	seq: number,
+	entry: unknown,
+): Promise<void> =>
+	request(store, "readwrite", (s) => s.put(entry, seq))
 		.then(() => undefined)
 		.catch((err) => {
 			noteCacheFailure(err);
 			return undefined;
 		});
+
+export const outboxAppend = (entry: unknown): Promise<number> =>
+	queueAppend("outbox", entry);
+
+export const outboxAll = <T>(): Promise<Array<{ seq: number; entry: T }>> =>
+	queueAll<T>("outbox");
+
+export const outboxDelete = (seq: number): Promise<void> =>
+	queueDelete("outbox", seq);
+
+export const outboxUpdate = (seq: number, entry: unknown): Promise<void> =>
+	queueUpdate("outbox", seq, entry);
+
+export const sendsAppend = (entry: unknown): Promise<number> =>
+	queueAppend("sends", entry);
+
+export const sendsAll = <T>(): Promise<Array<{ seq: number; entry: T }>> =>
+	queueAll<T>("sends");
+
+export const sendsDelete = (seq: number): Promise<void> =>
+	queueDelete("sends", seq);
+
+export const sendsUpdate = (seq: number, entry: unknown): Promise<void> =>
+	queueUpdate("sends", seq, entry);

@@ -15,6 +15,7 @@ import ArrowBendUpLeft from "~icons/ph/arrow-bend-up-left";
 import PencilIcon from "~icons/ph/pencil";
 import ProhibitIcon from "~icons/ph/prohibit";
 import SmileyIcon from "~icons/ph/smiley";
+import SpinnerIcon from "~icons/ph/spinner-gap";
 import TrashIcon from "~icons/ph/trash";
 import type { PendingMessage } from "../../../../atproto/cache/schema";
 import type {
@@ -117,6 +118,9 @@ const MessageInner: Component<{
 	const {
 		message,
 		isPending,
+		sendState,
+		retrySendState,
+		discardSendState,
 		isLegacy,
 		isHiddenByModerator,
 		revealed,
@@ -651,7 +655,6 @@ const MessageInner: Component<{
 					<Show
 						when={
 							!collapsedByHide() &&
-							!("hash" in message) &&
 							(message.attachments || []).length > 0 &&
 							message.text.trim().length > 0
 						}
@@ -662,6 +665,37 @@ const MessageInner: Component<{
 								attachments={message.attachments || []}
 							/>
 						</div>
+					</Show>
+					<Show when={sendState()}>
+						{(state) => (
+							<div class="pl-14 pb-2 flex flex-row items-center gap-2 text-xs">
+								<Show
+									when={state().failed}
+									fallback={
+										<span class="flex items-center gap-1.5 text-muted-foreground">
+											<SpinnerIcon class="size-3.5 animate-spin" />
+											Uploading {state().uploaded} of {state().total} files…
+										</span>
+									}
+								>
+									<span class="text-destructive">Couldn't send</span>
+									<button
+										type="button"
+										class="cursor-pointer underline text-muted-foreground hover:text-foreground"
+										onClick={retrySendState}
+									>
+										Retry
+									</button>
+									<button
+										type="button"
+										class="cursor-pointer underline text-muted-foreground hover:text-foreground"
+										onClick={discardSendState}
+									>
+										Discard
+									</button>
+								</Show>
+							</div>
+						)}
 					</Show>
 					<Show
 						when={

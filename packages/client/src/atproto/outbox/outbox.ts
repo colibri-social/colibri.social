@@ -37,6 +37,7 @@ export type QueuedRecord = {
 	space?: string;
 	record: Record<string, unknown>;
 	createdAt: number;
+	failed?: boolean;
 };
 
 let agent: Agent | null = null;

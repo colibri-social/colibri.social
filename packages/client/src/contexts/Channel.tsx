@@ -65,6 +65,11 @@ import {
 	messageUriFor,
 	rehydrateQueuedMessages,
 } from "../atproto/outbox/rehydrate";
+import {
+	onSendDiscarded,
+	pendingSends,
+	sendsRevision,
+} from "../atproto/outbox/sends";
 import { nextTid } from "../atproto/outbox/tid";
 import { adoptRemoteCursors, recordRead } from "../atproto/read-cursor";
 import { spaceSkey } from "../atproto/space-ref";
@@ -76,10 +81,8 @@ import type {
 } from "../atproto/sync-frames";
 import { typingFrame, viewChannelFrame } from "../atproto/sync-frames";
 import type {
-	AttachmentView,
 	ChannelView,
 	Facet,
-	MessageAttachment,
 	MessageRecord,
 	MessageView,
 	RecordRef,
@@ -134,16 +137,10 @@ export type LoadOlderHooks = {
 	onAfterPrepend?: () => void;
 };
 
-export type SendMessageAttachment = {
-	record: MessageAttachment;
-	preview: AttachmentView;
-};
-
 export type SendMessageInput = {
 	text: string;
 	facets?: ReadonlyArray<ColibriRichTextFacet>;
 	parent?: MessageView;
-	attachments?: ReadonlyArray<SendMessageAttachment>;
 	suppressedEmbeds?: ReadonlyArray<string>;
 };
 
@@ -645,12 +642,13 @@ export const ChannelContextProvider: ParentComponent<{
 	createEffect(() => {
 		const space = channelSpace();
 		outboxRevision();
+		sendsRevision();
 		if (!space || initialLoading()) return;
 		untrack(() => {
 			const reconciled = rehydrateQueuedMessages({
 				channelSpace: space,
 				author: profileViewOf(user),
-				queued: queuedRecords(COLLECTIONS.message),
+				queued: [...pendingSends(space), ...queuedRecords(COLLECTIONS.message)],
 				existing: messages(),
 			});
 			if (reconciled) setMessages(reconciled);
@@ -906,7 +904,6 @@ export const ChannelContextProvider: ParentComponent<{
 			facets: input.facets as unknown as Facet[] | undefined,
 			createdAt,
 			parent: parentRef,
-			attachments: input.attachments?.map((a) => a.record),
 			suppressedEmbeds: input.suppressedEmbeds,
 		});
 
@@ -917,7 +914,7 @@ export const ChannelContextProvider: ParentComponent<{
 			author: profileViewOf(user),
 			text: input.text,
 			facets: (input.facets ?? []) as unknown as MessageView["facets"],
-			attachments: (input.attachments ?? []).map((a) => a.preview),
+			attachments: [],
 			createdAt: asDatetime(createdAt),
 			...(input.parent ? { parent: asVisibleParent(input.parent) } : {}),
 		};
@@ -1219,6 +1216,10 @@ export const ChannelContextProvider: ParentComponent<{
 		setMessages((prev) => prev.map((m) => (m === pending ? confirmed : m)));
 	});
 
+	const discardCleanup = onSendDiscarded((rkey) =>
+		removePendingMessage(`outbox:${rkey}`),
+	);
+
 	const catchUp = async (): Promise<void> => {
 		const session = sessions.current();
 		if (!session || session.state.busy) return;
@@ -1331,6 +1332,7 @@ export const ChannelContextProvider: ParentComponent<{
 	onCleanup(() => {
 		socketCleanup();
 		outboxCleanup();
+		discardCleanup();
 		document.removeEventListener("visibilitychange", onVisible);
 		window.removeEventListener("focus", onFocus);
 		typingTimers.forEach((t) => {
