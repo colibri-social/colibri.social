@@ -12,7 +12,10 @@ import CheckCircleIcon from "~icons/ph/check-circle-fill";
 import HeartIcon from "~icons/ph/heart";
 import RepeatIcon from "~icons/ph/repeat";
 import SealCheckIcon from "~icons/ph/seal-check-fill";
-import { getBskyAlternativeClientInfo } from "../../../../atproto/bluesky-alternatives";
+import {
+	getBskyAlternativeClientInfo,
+	getBskyClientAccentColor,
+} from "../../../../atproto/bluesky-alternatives";
 import { fetchPostByRef, peekPost } from "../../../../atproto/bsky-post-cache";
 import {
 	type BskyPostRef,
@@ -105,6 +108,9 @@ export const BlueskyEmbed: Component<{ uri: string; post: BskyPostRef }> = (
 			props.post.rkey,
 		);
 
+	const getLogoColor = () =>
+		getBskyClientAccentColor(preferences().preferredBlueskyClient);
+
 	return (
 		<div>
 			<Show when={post()}>
@@ -112,9 +118,7 @@ export const BlueskyEmbed: Component<{ uri: string; post: BskyPostRef }> = (
 					<div
 						class="flex flex-col gap-2 border border-border bg-card mb-2 rounded-md p-3 max-w-104"
 						style={{
-							"--hover": getBskyAlternativeClientInfo(
-								preferences().preferredBlueskyClient,
-							).color,
+							"--hover": getLogoColor(),
 						}}
 					>
 						<div class="flex flex-row items-center gap-2 w-full justify-between">
@@ -165,6 +169,7 @@ export const BlueskyEmbed: Component<{ uri: string; post: BskyPostRef }> = (
 								href={link()}
 								target="_blank"
 								rel="noreferrer"
+								class="group/northsky-logo"
 								onClick={(e) => openUntrustedLink(link(), e)}
 							>
 								<Dynamic

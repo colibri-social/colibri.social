@@ -12,6 +12,7 @@ import { liveActivityOf } from "../../../atproto/activity";
 import {
 	type BlueskyClientID,
 	getBskyAlternativeClientInfo,
+	getBskyClientAccentColor,
 } from "../../../atproto/bluesky-alternatives";
 import { buildBskyProfileUrl } from "../../../atproto/bsky-post-url";
 import type { ProfileView } from "../../../atproto/views";
@@ -280,12 +281,12 @@ export const ProfilePopoverContents: Component<{
 												rel="noreferrer"
 												onClick={(e) => openExternalLink(bskyProfileHref(), e)}
 												style={{
-													"--hover": getBskyAlternativeClientInfo(
+													"--hover": getBskyClientAccentColor(
 														userPreferences!.preferences()
 															.preferredBlueskyClient,
-													).color,
+													),
 												}}
-												class="hover:text-(--hover) flex flex-row items-center gap-1.5 text-sm text-card-foreground font-normal hover:underline"
+												class="group/northsky-logo hover:text-(--hover) flex flex-row items-center gap-1.5 text-sm text-card-foreground font-normal hover:underline"
 												onMouseEnter={() => setBskyTooltipVisible(true)}
 												onMouseLeave={() => setBskyTooltipVisible(false)}
 											>

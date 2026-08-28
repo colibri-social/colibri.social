@@ -5,20 +5,16 @@ import { Bluesky } from "../components/icons/Bluesky";
 import { DeerSocial } from "../components/icons/DeerSocial";
 import { MuSocial } from "../components/icons/MuSocial";
 import { Witchsky } from "../components/icons/Witchsky";
+import { Northsky } from "../components/icons/Northsky";
 
 export type BlueskyClientID =
-	| "anisota"
-	| "blacksky"
-	| "bluesky"
-	| "deer"
-	| "mu"
-	| "witchsky";
+	"anisota" | "blacksky" | "bluesky" | "deer" | "mu" | "northsky" | "witchsky";
 
 export type BlueskyAlternative = {
 	name: string;
 	base: string;
 	icon: Component<{ className: string }>;
-	color: string;
+	color: string | Array<string>;
 	id: BlueskyClientID;
 };
 
@@ -59,6 +55,24 @@ export const BSKY_ALTERNATIVES: Array<BlueskyAlternative> = [
 		id: "mu",
 	},
 	{
+		name: "Northsky",
+		base: "northsky.app",
+		icon: Northsky,
+		color: [
+			"#2affba",
+			"#31f4bd",
+			"#53bccc",
+			"#718ada",
+			"#8a5fe5",
+			"#9f3def",
+			"#af22f6",
+			"#bb0ffb",
+			"#c204fe",
+			"#c400ff",
+		],
+		id: "northsky",
+	},
+	{
 		name: "Witchsky",
 		base: "witchsky.app",
 		icon: Witchsky,
@@ -70,3 +84,10 @@ export const BSKY_ALTERNATIVES: Array<BlueskyAlternative> = [
 export const getBskyAlternativeClientInfo = (
 	client: BlueskyClientID,
 ): BlueskyAlternative => BSKY_ALTERNATIVES.find((x) => x.id === client)!;
+
+export const getBskyClientAccentColor = (client: BlueskyClientID): string => {
+	const { color } = getBskyAlternativeClientInfo(client);
+	return typeof color === "string"
+		? color
+		: color[Math.floor(color.length / 2)];
+};
