@@ -1,7 +1,6 @@
 import {
-	type BlueskyClientID,
 	BSKY_ALTERNATIVES,
-	getBskyAlternativeClientInfo,
+	type ResolvedBlueskyClient,
 } from "./bluesky-alternatives";
 
 export type BskyPostRef = {
@@ -10,6 +9,15 @@ export type BskyPostRef = {
 };
 
 export const BSKY_HOSTS = new Set(BSKY_ALTERNATIVES.map((a) => a.base));
+
+let customBskyHost: string | null = null;
+
+export const setCustomBskyHost = (host: string | null) => {
+	customBskyHost = host;
+};
+
+export const isBskyHost = (host: string): boolean =>
+	BSKY_HOSTS.has(host) || host === customBskyHost;
 
 /**
  * Recognizes a Bluesky post permalink on any supported client domain and pulls
@@ -23,7 +31,7 @@ export const parseBskyPostUrl = (uri: string): BskyPostRef | null => {
 		return null;
 	}
 
-	if (!BSKY_HOSTS.has(url.hostname)) return null;
+	if (!isBskyHost(url.hostname)) return null;
 
 	const match = url.pathname.match(/^\/profile\/([^/]+)\/post\/([^/]+)\/?$/);
 	if (!match) return null;
@@ -35,29 +43,23 @@ export const parseBskyPostUrl = (uri: string): BskyPostRef | null => {
  * Builds a post permalink pointing at the user's preferred Bluesky client.
  */
 export const buildBskyPostUrl = (
-	client: BlueskyClientID,
+	client: ResolvedBlueskyClient,
 	authority: string,
 	rkey: string,
-): string => {
-	const info = getBskyAlternativeClientInfo(client);
-	return `https://${info.base}/profile/${authority}/post/${rkey}`;
-};
+): string => `https://${client.base}/profile/${authority}/post/${rkey}`;
 
 /**
  * Builds a profile permalink pointing at the user's preferred Bluesky client.
  * `identifier` may be a handle or a DID — every supported client resolves both.
  */
 export const buildBskyProfileUrl = (
-	client: BlueskyClientID,
+	client: ResolvedBlueskyClient,
 	identifier: string,
-): string => {
-	const info = getBskyAlternativeClientInfo(client);
-	return `https://${info.base}/profile/${identifier}`;
-};
+): string => `https://${client.base}/profile/${identifier}`;
 
 export const rewriteBskyUrl = (
 	uri: string,
-	client: BlueskyClientID,
+	client: ResolvedBlueskyClient,
 ): string => {
 	let url: URL;
 	try {
@@ -66,11 +68,9 @@ export const rewriteBskyUrl = (
 		return uri;
 	}
 
-	if (!BSKY_HOSTS.has(url.hostname)) return uri;
+	if (!isBskyHost(url.hostname)) return uri;
+	if (url.hostname === client.base) return uri;
 
-	const target = getBskyAlternativeClientInfo(client).base;
-	if (url.hostname === target) return uri;
-
-	url.hostname = target;
+	url.hostname = client.base;
 	return url.toString();
 };

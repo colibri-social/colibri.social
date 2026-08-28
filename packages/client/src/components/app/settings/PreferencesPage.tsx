@@ -1,8 +1,16 @@
-import { type Component, createMemo, Show } from "solid-js";
+import {
+	type Component,
+	createEffect,
+	createMemo,
+	createSignal,
+	on,
+	Show,
+} from "solid-js";
 import { toast } from "somoto";
 import {
 	type BlueskyAlternative,
-	BSKY_ALTERNATIVES,
+	BSKY_CLIENT_OPTIONS,
+	normalizeBskyClientBase,
 } from "../../../atproto/bluesky-alternatives";
 import { syncPreferredBadge } from "../../../atproto/preferred-badge";
 import { useUserContext } from "../../../contexts/User";
@@ -14,6 +22,7 @@ import { type AppTheme, LIGHT_MODE_EXPERIMENT } from "../../../utils/theme";
 import { applyNativeDecorations } from "../../../utils/titlebar";
 import { restartToApply } from "../../../utils/updater";
 import { badgeText, useUserBadges } from "../../../utils/user-badges";
+import { Button } from "../../ui/Button";
 import {
 	Select,
 	SelectContent,
@@ -31,6 +40,12 @@ import {
 	SwitchThumb,
 	Switch as Toggle,
 } from "../../ui/Switch";
+import {
+	TextField,
+	TextFieldDescription,
+	TextFieldInput,
+	TextFieldLabel,
+} from "../../ui/TextField";
 import { SettingsPage } from "../common/SettingsModal";
 import { Badge } from "../user/Badge";
 import { AppViewSwitcher } from "./AppViewSwitcher";
@@ -56,9 +71,30 @@ export const PreferencesPage: Component = () => {
 		) ?? THEME_OPTIONS[0];
 
 	const selectedClient = () =>
-		BSKY_ALTERNATIVES.find(
+		BSKY_CLIENT_OPTIONS.find(
 			(alt) => alt.id === userPreferences.preferences().preferredBlueskyClient,
 		);
+
+	const [customClientBase, setCustomClientBase] = createSignal(
+		userPreferences.preferences().customBlueskyClientBase,
+	);
+
+	createEffect(
+		on(
+			() => userPreferences.preferences().customBlueskyClientBase,
+			(base) => setCustomClientBase(base),
+			{ defer: true },
+		),
+	);
+
+	const saveCustomClientBase = () => {
+		const base = normalizeBskyClientBase(customClientBase());
+		if (!base) return;
+
+		userPreferences.setPreferredBlueskyClient("custom", base);
+		setCustomClientBase(base);
+		toast.success(`Bluesky links will now point at ${base}.`);
+	};
 
 	const { all: allBadges, primary: primaryBadge } = useUserBadges(() => user);
 
@@ -204,7 +240,7 @@ export const PreferencesPage: Component = () => {
 				</div>
 			</Show>
 			<Select
-				options={BSKY_ALTERNATIVES}
+				options={BSKY_CLIENT_OPTIONS}
 				optionValue={"id" as any}
 				optionTextValue={"name" as any}
 				placeholder="Bluesky"
@@ -217,12 +253,9 @@ export const PreferencesPage: Component = () => {
 						item={props.item}
 						class="[&>div]:flex [&>div]:gap-2 [&>div]:items-center"
 						onClick={() => {
-							userPreferences.setPreferences((current) => ({
-								...current,
-								preferredBlueskyClient: (
-									props.item.rawValue as unknown as BlueskyAlternative
-								).id,
-							}));
+							userPreferences.setPreferredBlueskyClient(
+								(props.item.rawValue as unknown as BlueskyAlternative).id,
+							);
 						}}
 					>
 						{(props.item.rawValue as unknown as BlueskyAlternative).name}
@@ -241,6 +274,36 @@ export const PreferencesPage: Component = () => {
 				</SelectTrigger>
 				<SelectContent class="[&>ul]:m-0 [&>ul]:py-0 [&>ul]:px-2" />
 			</Select>
+			<Show
+				when={userPreferences.preferences().preferredBlueskyClient === "custom"}
+			>
+				<TextField
+					value={customClientBase()}
+					onChange={setCustomClientBase}
+					class="mb-4"
+				>
+					<TextFieldLabel>Custom Client Address</TextFieldLabel>
+					<TextFieldDescription>
+						The domain your client is served from. Posts and profiles link
+						there.
+					</TextFieldDescription>
+					<div class="flex flex-row items-center gap-4 w-full">
+						<TextFieldInput
+							minLength={1}
+							type="text"
+							required
+							placeholder="bsky.app"
+							class="w-full"
+						/>
+						<Button
+							disabled={normalizeBskyClientBase(customClientBase()) === null}
+							onClick={saveCustomClientBase}
+						>
+							Save
+						</Button>
+					</div>
+				</TextField>
+			</Show>
 			<AppViewSwitcher />
 			<Toggle
 				class="flex flex-row gap-4 items-center w-full justify-between shrink-0 mt-4"

@@ -8,6 +8,7 @@ import {
 } from "@colibri-social/lib";
 import { A } from "@solidjs/router";
 import { type Component, createSignal, type JSX } from "solid-js";
+import { resolveBlueskyClient } from "../../../../atproto/bluesky-alternatives";
 import { rewriteBskyUrl } from "../../../../atproto/bsky-post-url";
 import { parseColibriChannelUrl } from "../../../../atproto/colibri-channel-url";
 import { parseColibriInviteUrl } from "../../../../atproto/colibri-invite-url";
@@ -180,7 +181,7 @@ const applyStyleForFacet = (text: string, feature: AnyFeature): JSX.Element => {
 			}
 
 			const displayHref = () =>
-				rewriteBskyUrl(rawUri, preferences().preferredBlueskyClient);
+				rewriteBskyUrl(rawUri, resolveBlueskyClient(preferences()));
 			return (
 				<a
 					data-facet-type="link"
@@ -487,7 +488,7 @@ const renderInlineRange = (
 							}
 
 							const displayHref = () =>
-								rewriteBskyUrl(rawUri, preferences().preferredBlueskyClient);
+								rewriteBskyUrl(rawUri, resolveBlueskyClient(preferences()));
 							const isBareUrl = segmentText.trim() === rawUri;
 							element = (
 								<a

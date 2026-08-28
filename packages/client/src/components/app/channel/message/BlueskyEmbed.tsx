@@ -8,15 +8,14 @@ import {
 } from "@atproto/api";
 import { type Component, createResource, For, Show } from "solid-js";
 import { Dynamic } from "solid-js/web";
+import ArrowSquareOutIcon from "~icons/ph/arrow-square-out";
 import ChatIcon from "~icons/ph/chat-circle";
 import CheckCircleIcon from "~icons/ph/check-circle-fill";
 import HeartIcon from "~icons/ph/heart";
 import RepeatIcon from "~icons/ph/repeat";
 import SealCheckIcon from "~icons/ph/seal-check-fill";
-import {
-	getBskyAlternativeClientInfo,
-	getBskyClientAccentColor,
-} from "../../../../atproto/bluesky-alternatives";
+import { resolveBlueskyClient } from "../../../../atproto/bluesky-alternatives";
+import { blueskyClientIcon } from "../../../../atproto/bluesky-client-icon";
 import { fetchPostByRef, peekPost } from "../../../../atproto/bsky-post-cache";
 import {
 	type BskyPostRef,
@@ -127,15 +126,14 @@ export const BlueskyEmbed: Component<{ uri: string; post: BskyPostRef }> = (
 	};
 
 	// Rewrite to the preferred client; prefer the resolved handle for a clean URL.
+	const client = () => resolveBlueskyClient(preferences());
+
 	const link = () =>
 		buildBskyPostUrl(
-			preferences().preferredBlueskyClient,
+			client(),
 			post()?.author.handle ?? props.post.authority,
 			props.post.rkey,
 		);
-
-	const getLogoColor = () =>
-		getBskyClientAccentColor(preferences().preferredBlueskyClient);
 
 	return (
 		<div>
@@ -144,7 +142,7 @@ export const BlueskyEmbed: Component<{ uri: string; post: BskyPostRef }> = (
 					<div
 						class="flex flex-col gap-2 border border-border bg-card mb-2 rounded-md p-3 max-w-104"
 						style={{
-							"--hover": getLogoColor(),
+							"--hover": client().accentColor,
 						}}
 					>
 						<div class="flex flex-row items-center gap-2 w-full justify-between">
@@ -198,14 +196,19 @@ export const BlueskyEmbed: Component<{ uri: string; post: BskyPostRef }> = (
 								class="group/northsky-logo"
 								onClick={(e) => openUntrustedLink(link(), e)}
 							>
-								<Dynamic
-									component={
-										getBskyAlternativeClientInfo(
-											preferences().preferredBlueskyClient,
-										).icon
+								<Show
+									when={blueskyClientIcon(client().id)}
+									fallback={
+										<ArrowSquareOutIcon class="w-6 h-6 hover:text-(--hover)" />
 									}
-									className="w-6 h-6 hover:text-(--hover)"
-								/>
+								>
+									{(icon) => (
+										<Dynamic
+											component={icon()}
+											className="w-6 h-6 hover:text-(--hover)"
+										/>
+									)}
+								</Show>
 							</a>
 						</div>
 
@@ -215,7 +218,7 @@ export const BlueskyEmbed: Component<{ uri: string; post: BskyPostRef }> = (
 									{(segment) => {
 										if (segment.isMention() && segment.mention) {
 											const mentionHref = buildBskyProfileUrl(
-												preferences().preferredBlueskyClient,
+												client(),
 												segment.mention.did,
 											);
 											return (
@@ -232,10 +235,7 @@ export const BlueskyEmbed: Component<{ uri: string; post: BskyPostRef }> = (
 										}
 
 										if (segment.isLink() && segment.link) {
-											const href = rewriteBskyUrl(
-												segment.link.uri,
-												preferences().preferredBlueskyClient,
-											);
+											const href = rewriteBskyUrl(segment.link.uri, client());
 											return (
 												<a
 													href={href}
@@ -251,11 +251,7 @@ export const BlueskyEmbed: Component<{ uri: string; post: BskyPostRef }> = (
 										}
 
 										if (segment.isTag() && segment.tag) {
-											const href = `https://${
-												getBskyAlternativeClientInfo(
-													preferences().preferredBlueskyClient,
-												).base
-											}/search?q=${encodeURIComponent(`#${segment.tag.tag}`)}`;
+											const href = `https://${client().base}/search?q=${encodeURIComponent(`#${segment.tag.tag}`)}`;
 											return (
 												<a
 													href={href}

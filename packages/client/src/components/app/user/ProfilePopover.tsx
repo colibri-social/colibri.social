@@ -7,13 +7,15 @@ import {
 	Show,
 } from "solid-js";
 import { Dynamic } from "solid-js/web";
+import ArrowSquareOutIcon from "~icons/ph/arrow-square-out";
 import PencilSimpleIcon from "~icons/ph/pencil-simple";
 import { liveActivityOf } from "../../../atproto/activity";
 import {
-	type BlueskyClientID,
-	getBskyAlternativeClientInfo,
-	getBskyClientAccentColor,
+	DEFAULT_BLUESKY_CLIENT,
+	type ResolvedBlueskyClient,
+	resolveBlueskyClient,
 } from "../../../atproto/bluesky-alternatives";
+import { blueskyClientIcon } from "../../../atproto/bluesky-client-icon";
 import { buildBskyProfileUrl } from "../../../atproto/bsky-post-url";
 import type { ProfileView } from "../../../atproto/views";
 import { useCommunityContext } from "../../../contexts/Community";
@@ -73,7 +75,7 @@ type BioMatch = { start: number; end: number; label: string; href: string };
 
 const collectBioMatches = (
 	text: string,
-	preferredBlueskyClient: BlueskyClientID,
+	client: ResolvedBlueskyClient,
 ): Array<BioMatch> => {
 	const matches: Array<BioMatch> = [];
 	let match: RegExpExecArray | null;
@@ -96,7 +98,7 @@ const collectBioMatches = (
 			start: match.index,
 			end: match.index + mention.length,
 			label: mention,
-			href: buildBskyProfileUrl(preferredBlueskyClient, mention.slice(1)),
+			href: buildBskyProfileUrl(client, mention.slice(1)),
 		});
 	}
 
@@ -115,12 +117,12 @@ const collectBioMatches = (
 
 const detectLinksAndMentionsAndFormat = (
 	text: string,
-	preferredBlueskyClient: BlueskyClientID,
+	client: ResolvedBlueskyClient,
 ) => {
 	let html = "";
 	let cursor = 0;
 
-	for (const match of collectBioMatches(text, preferredBlueskyClient)) {
+	for (const match of collectBioMatches(text, client)) {
 		html += escapeHtml(text.slice(cursor, match.start));
 		html += `<a href="${escapeAttr(match.href)}" rel="noreferrer" target="_blank">${escapeHtml(match.label)}</a>`;
 		cursor = match.end;
@@ -154,12 +156,16 @@ export const ProfilePopoverContents: Component<{
 	const [bskyTooltipVisible, setBskyTooltipVisible] = createSignal(false);
 	const [pdslsTooltipVisible, setPdslsTooltipVisible] = createSignal(false);
 
+	const bskyClient = () =>
+		userPreferences
+			? resolveBlueskyClient(userPreferences.preferences())
+			: DEFAULT_BLUESKY_CLIENT;
+
 	const bskyProfileHref = () =>
-		`https://${
-			getBskyAlternativeClientInfo(
-				userPreferences!.preferences().preferredBlueskyClient,
-			).base
-		}/profile/${props.user.handle.replaceAll("at://", "")}`;
+		buildBskyProfileUrl(
+			bskyClient(),
+			props.user.handle.replaceAll("at://", ""),
+		);
 
 	const pdslsHref = () =>
 		`https://pdsls.dev/at://${props.user.handle.replaceAll("at://", "")}`;
@@ -280,38 +286,24 @@ export const ProfilePopoverContents: Component<{
 												target="_blank"
 												rel="noreferrer"
 												onClick={(e) => openExternalLink(bskyProfileHref(), e)}
-												style={{
-													"--hover": getBskyClientAccentColor(
-														userPreferences!.preferences()
-															.preferredBlueskyClient,
-													),
-												}}
+												style={{ "--hover": bskyClient().accentColor }}
 												class="group/northsky-logo hover:text-(--hover) flex flex-row items-center gap-1.5 text-sm text-card-foreground font-normal hover:underline"
 												onMouseEnter={() => setBskyTooltipVisible(true)}
 												onMouseLeave={() => setBskyTooltipVisible(false)}
 											>
-												<Dynamic
-													component={
-														getBskyAlternativeClientInfo(
-															userPreferences!.preferences()
-																.preferredBlueskyClient,
-														).icon
-													}
-													className=""
-												/>
+												<Show
+													when={blueskyClientIcon(bskyClient().id)}
+													fallback={<ArrowSquareOutIcon class="w-4 h-4" />}
+												>
+													{(icon) => (
+														<Dynamic component={icon()} className="" />
+													)}
+												</Show>
 											</a>
 										</TooltipTrigger>
 										<TooltipPortal>
 											<TooltipContent>
-												<span>
-													View on{" "}
-													{
-														getBskyAlternativeClientInfo(
-															userPreferences!.preferences()
-																.preferredBlueskyClient,
-														).name
-													}
-												</span>
+												<span>View on {bskyClient().name}</span>
 											</TooltipContent>
 										</TooltipPortal>
 									</Tooltip>
@@ -359,8 +351,7 @@ export const ProfilePopoverContents: Component<{
 							onClick={handleExternalLinkClick}
 							innerHTML={detectLinksAndMentionsAndFormat(
 								props.user.description!,
-								userPreferences?.preferences().preferredBlueskyClient ??
-									"bluesky",
+								bskyClient(),
 							)}
 						/>
 					</Show>

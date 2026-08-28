@@ -8,7 +8,12 @@ import {
 	type Setter,
 	useContext,
 } from "solid-js";
-import type { BlueskyClientID } from "../atproto/bluesky-alternatives";
+import {
+	type BlueskyClientID,
+	isKnownBlueskyClientID,
+	normalizeBskyClientBase,
+} from "../atproto/bluesky-alternatives";
+import { setCustomBskyHost } from "../atproto/bsky-post-url";
 import type { GifView } from "../atproto/views";
 import { newestVisibleReleaseNoteVersion } from "../release-notes";
 import { DEFAULT_APPVIEW_URL, resolveStoredAppViewUrl } from "../utils/appview";
@@ -100,6 +105,7 @@ export type UserPreferencesContextData = {
 		showOwnCamera: boolean;
 	};
 	preferredBlueskyClient: BlueskyClientID;
+	customBlueskyClientBase: string;
 	preferredAppView: string;
 	sharePresence: boolean;
 	hideCrossAppViewHint: boolean;
@@ -151,6 +157,7 @@ const DEFAULT_PREFERENCES: UserPreferencesContextData = {
 		showOwnCamera: true,
 	},
 	preferredBlueskyClient: "bluesky",
+	customBlueskyClientBase: "",
 	preferredAppView: DEFAULT_APPVIEW_URL,
 	sharePresence: true,
 	hideCrossAppViewHint: false,
@@ -199,6 +206,31 @@ function resolveNoiseSuppression(parsedInput: Record<string, unknown>): {
 	};
 }
 
+function resolveStoredBlueskyClient(parsed: {
+	preferredBlueskyClient?: unknown;
+	customBlueskyClientBase?: unknown;
+}): Pick<
+	UserPreferencesContextData,
+	"preferredBlueskyClient" | "customBlueskyClientBase"
+> {
+	const base =
+		typeof parsed.customBlueskyClientBase === "string"
+			? (normalizeBskyClientBase(parsed.customBlueskyClientBase) ?? "")
+			: "";
+
+	if (!isKnownBlueskyClientID(parsed.preferredBlueskyClient)) {
+		return {
+			preferredBlueskyClient: DEFAULT_PREFERENCES.preferredBlueskyClient,
+			customBlueskyClientBase: base,
+		};
+	}
+
+	return {
+		preferredBlueskyClient: parsed.preferredBlueskyClient,
+		customBlueskyClientBase: base,
+	};
+}
+
 function loadFromStorage(): UserPreferencesContextData {
 	try {
 		const raw = localStorage.getItem(PREFERENCES_STORAGE_KEY);
@@ -239,6 +271,7 @@ function loadFromStorage(): UserPreferencesContextData {
 			voice: { ...DEFAULT_PREFERENCES.voice, ...parsedVoice, input, screen },
 			emojiUsage: normalizeEmojiUsage(parsed.emojiUsage),
 			preferredAppView: resolveStoredAppViewUrl(parsed.preferredAppView),
+			...resolveStoredBlueskyClient(parsed),
 			controls: { ...DEFAULT_PREFERENCES.controls, ...(parsed.controls ?? {}) },
 		};
 	} catch {
@@ -271,7 +304,10 @@ type UserPreferencesContextValue = {
 	setActivityPromptDismissed: (dismissed: boolean) => void;
 	setNotificationDefaultApplied: (applied: boolean) => void;
 	setLastSeenReleaseNote: (version: string | null) => void;
-	setPreferredBlueskyClient: (client: BlueskyClientID) => void;
+	setPreferredBlueskyClient: (
+		client: BlueskyClientID,
+		customBase?: string,
+	) => void;
 	setPreferredAppView: (appView: string) => void;
 	setSharePresence: (enabled: boolean) => void;
 	setHideCrossAppViewHint: (hidden: boolean) => void;
@@ -306,6 +342,15 @@ export const UserPreferencesContextProvider: ParentComponent = (props) => {
 
 	createEffect(() => {
 		setExternalLinkWarningEnabled(preferences().warnOnExternalLinks);
+	});
+
+	createEffect(() => {
+		const { preferredBlueskyClient, customBlueskyClientBase } = preferences();
+		setCustomBskyHost(
+			preferredBlueskyClient === "custom"
+				? normalizeBskyClientBase(customBlueskyClientBase)
+				: null,
+		);
 	});
 
 	const updateVoice = (patch: Partial<VoicePreferences>) => {
@@ -419,8 +464,18 @@ export const UserPreferencesContextProvider: ParentComponent = (props) => {
 		setPreferences((p) => ({ ...p, lastSeenReleaseNote: version }));
 	};
 
-	const setPreferredBlueskyClient = (client: BlueskyClientID) => {
-		setPreferences((p) => ({ ...p, preferredBlueskyClient: client }));
+	const setPreferredBlueskyClient = (
+		client: BlueskyClientID,
+		customBase?: string,
+	) => {
+		setPreferences((p) => ({
+			...p,
+			preferredBlueskyClient: client,
+			customBlueskyClientBase:
+				customBase === undefined
+					? p.customBlueskyClientBase
+					: (normalizeBskyClientBase(customBase) ?? ""),
+		}));
 	};
 
 	const setPreferredAppView = (appView: string) => {

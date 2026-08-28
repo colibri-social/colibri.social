@@ -1,5 +1,5 @@
 import { createSignal } from "solid-js";
-import { BSKY_HOSTS } from "../atproto/bsky-post-url";
+import { isBskyHost } from "../atproto/bsky-post-url";
 import { isTauriRuntime } from "../notifications/environment";
 import { isSafeLinkUri } from "./link-safety";
 import { openExternalLink } from "./open-external-link";
@@ -23,7 +23,7 @@ const hostOf = (url: string): string | null => {
 };
 
 const isTrustedHost = (host: string): boolean => {
-	if (COLIBRI_HOSTS.has(host) || BSKY_HOSTS.has(host)) return true;
+	if (COLIBRI_HOSTS.has(host) || isBskyHost(host)) return true;
 	return host === hostOf(webAppOrigin());
 };
 
