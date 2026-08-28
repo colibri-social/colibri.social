@@ -69,6 +69,34 @@ describe("classifyResponse", () => {
 		expect(err.context.unknownCode).toBe("SomethingNew");
 	});
 
+	it("treats an unresolvable proxy did as an appview outage, not a bad request", () => {
+		for (const message of [
+			"could not resolve proxy did",
+			"could not resolve proxy did service url",
+		]) {
+			const err = classifyResponse({
+				status: 400,
+				body: JSON.stringify({ error: "InvalidRequest", message }),
+				method: "social.colibri.beta.actor.getProfile",
+			});
+			expect(err.code).toBe("Unreachable");
+			expect(err.domain).toBe("transport");
+			expect(err.retryable).toBe(true);
+			expect(err.serverMessage).toBe(message);
+			expect(err.context.unknownCode).toBeUndefined();
+		}
+	});
+
+	it("leaves other InvalidRequest envelopes alone", () => {
+		const err = classifyResponse({
+			status: 400,
+			body: '{"error":"InvalidRequest","message":"did and cid are required"}',
+		});
+		expect(err.code).toBe("InvalidRequest");
+		expect(err.domain).toBe("appview");
+		expect(err.retryable).toBe(false);
+	});
+
 	it("maps statuses that carry no envelope", () => {
 		expect(classifyResponse({ status: 401, body: "" }).code).toBe(
 			"AuthRequired",

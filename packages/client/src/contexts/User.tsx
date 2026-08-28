@@ -197,8 +197,11 @@ export const UserContextProvider: ParentComponent = (props) => {
 		void writeUser(target.ns, target.snapshot);
 	};
 
+	const settledUser = (): User | undefined =>
+		user.error ? undefined : user.latest;
+
 	createEffect(() => {
-		const u = user.latest;
+		const u = settledUser();
 		if (user.loading || !u) return;
 		const target = snapshotFor(u);
 		if (!target) return;
@@ -214,7 +217,8 @@ export const UserContextProvider: ParentComponent = (props) => {
 
 	createEffect(() => {
 		const attach = preferences().attachAccountToReports;
-		const did = user.latest?.loggedIn ? user.latest.did : undefined;
+		const settled = settledUser();
+		const did = settled?.loggedIn ? settled.did : undefined;
 		identifyUser(attach ? did : undefined);
 		setReportingAccount({ did, optedIn: attach });
 	});
@@ -223,7 +227,8 @@ export const UserContextProvider: ParentComponent = (props) => {
 		if (user.loading === true) return;
 
 		markBoot("user:ready");
-		log.info("user loaded");
+		if (user.error) log.warn("user could not be loaded");
+		else log.info("user loaded");
 	});
 
 	const needsSignIn = () =>
@@ -241,7 +246,7 @@ export const UserContextProvider: ParentComponent = (props) => {
 					</Match>
 				</Switch>
 			</Match>
-			<Match when={user.loading && !user.latest}>
+			<Match when={user.loading && !settledUser()}>
 				<AppLoadingScreen message="Fetching user details..." />
 			</Match>
 			<Match when={user.latest}>

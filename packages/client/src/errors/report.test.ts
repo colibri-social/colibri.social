@@ -32,6 +32,7 @@ vi.mock("@sentry/solid", () => {
 
 const { reportError, resetReportSuppression } = await import("./report");
 const { ColibriError } = await import("./error");
+const { classifyResponse } = await import("./classify");
 
 beforeEach(() => {
 	resetReportSuppression();
@@ -278,6 +279,26 @@ describe("reportError", () => {
 		}
 
 		expect(fingerprints).toEqual([["transport|Timeout"]]);
+	});
+
+	it("groups an appview outage seen across many lexicons into one issue", () => {
+		for (const method of [
+			"social.colibri.beta.actor.getProfile",
+			"social.colibri.beta.actor.listCommunities",
+			"social.colibri.beta.channel.listMessages",
+			"social.colibri.beta.actor.grantSpaceAccess",
+		]) {
+			reportError(
+				classifyResponse({
+					status: 400,
+					body: '{"error":"InvalidRequest","message":"could not resolve proxy did"}',
+					method,
+				}),
+				{ stage: "xrpc" },
+			);
+		}
+
+		expect(fingerprints).toEqual([["transport|Unreachable"]]);
 	});
 
 	it("still sends a failure that is ours to fix", () => {

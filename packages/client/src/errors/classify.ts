@@ -257,10 +257,17 @@ export interface ClassifyEnvelopeInput {
 	nowMs?: number;
 }
 
+const PROXY_UNRESOLVED = /^could not resolve proxy did/i;
+
+const isProxyUnresolved = (input: ClassifyEnvelopeInput): boolean =>
+	input.code === "InvalidRequest" && PROXY_UNRESOLVED.test(input.message ?? "");
+
 export const classifyEnvelope = (
 	input: ClassifyEnvelopeInput,
 ): ColibriError => {
-	const known = knownEnvelopeCode(input.code);
+	const known = isProxyUnresolved(input)
+		? "Unreachable"
+		: knownEnvelopeCode(input.code);
 	const resolved: ColibriErrorCode = known ?? codeForStatus(input.status);
 
 	const options: ColibriErrorOptions = {

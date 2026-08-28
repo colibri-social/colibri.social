@@ -82,7 +82,10 @@ export const ProfileGate: ParentComponent = (props) => {
 		},
 	);
 
-	const needsSetup = () => gate()?.needsSetup ?? false;
+	const settledGate = (): GateState | undefined =>
+		gate.error ? undefined : gate();
+
+	const needsSetup = () => settledGate()?.needsSetup ?? false;
 
 	return (
 		<Switch>
@@ -95,15 +98,15 @@ export const ProfileGate: ParentComponent = (props) => {
 			<Match when={needsSetup()}>
 				<ProfileSetupModal
 					open
-					hasBlueskyProfile={gate()?.hasBluesky ?? false}
-					returning={gate()?.returning ?? false}
+					hasBlueskyProfile={settledGate()?.hasBluesky ?? false}
+					returning={settledGate()?.returning ?? false}
 					onComplete={() => {
 						rememberProfile(user.did, true);
 						mutate((prev) => ({ ...prev!, needsSetup: false }));
 					}}
 				/>
 			</Match>
-			<Match when={skipBlocking || (gate() && !gate()!.needsSetup)}>
+			<Match when={skipBlocking || settledGate()?.needsSetup === false}>
 				{props.children}
 			</Match>
 		</Switch>

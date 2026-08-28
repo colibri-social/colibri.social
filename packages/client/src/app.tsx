@@ -49,6 +49,7 @@ import { VoiceChatContextProvider } from "./contexts/VoiceChat";
 import NotFound from "./errors/404";
 import { classifyThrown } from "./errors/classify";
 import { describeError } from "./errors/copy";
+import { isColibriError } from "./errors/error";
 import { reportError } from "./errors/report";
 import AppLayout from "./layouts/AppLayout";
 import ChannelLayoutWithContext from "./layouts/ChannelLayout";
@@ -176,8 +177,13 @@ const AppErrorScreen: Component<{ error: unknown; reset: () => void }> = (
 					? props.error.stack
 					: undefined,
 		});
+		const reported = isColibriError(props.error)
+			? props.error.eventId
+			: undefined;
 		setEventId(
-			reportError(props.error, { stage: "render", severity: "fatal" }).eventId,
+			reported ??
+				reportError(props.error, { stage: "render", severity: "fatal" })
+					.eventId,
 		);
 	});
 

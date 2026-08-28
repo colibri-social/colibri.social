@@ -390,6 +390,27 @@ describe("call", () => {
 			expect(reportError).toHaveBeenCalledTimes(1);
 		});
 
+		it("retries when the PDS cannot resolve the appview did", async () => {
+			let calls = 0;
+			const client = clientThat(async () => {
+				calls += 1;
+				return calls <= 1
+					? new Response(
+							envelope("InvalidRequest", "could not resolve proxy did"),
+							{ status: 400, headers: { "content-type": "application/json" } },
+						)
+					: new Response(JSON.stringify({ statuses: [] }), {
+							status: 200,
+							headers: { "content-type": "application/json" },
+						});
+			});
+			const res = await call(client, method, params);
+
+			expect(res.ok).toBe(true);
+			expect(calls).toBe(2);
+			expect(reportError).not.toHaveBeenCalled();
+		});
+
 		it("does not retry a failure the server will keep giving us", async () => {
 			let calls = 0;
 			const client = clientThat(async () => {

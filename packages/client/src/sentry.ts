@@ -106,6 +106,7 @@ export function initSentry(options: InitSentryOptions): void {
 			/^https:\/\/colibri\.social\/api/,
 			/^https:\/\/api\.colibri\.social/,
 			/^https:\/\/appview\.colibri\.social/,
+			/^https:\/\/spaces-api\.colibri\.social/,
 		],
 		ignoreErrors: IGNORED_MESSAGES,
 		beforeBreadcrumb: (breadcrumb) => {
