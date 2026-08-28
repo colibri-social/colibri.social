@@ -1,4 +1,5 @@
 import {
+	AppBskyEmbedGallery,
 	AppBskyEmbedImages,
 	AppBskyEmbedRecordWithMedia,
 	type AppBskyFeedDefs,
@@ -29,7 +30,29 @@ import {
 } from "../../../../atproto/mu-verification";
 import { useUserPreferences } from "../../../../contexts/UserPreferences";
 import { openUntrustedLink } from "../../../../utils/external-link-warning";
-import { Lightbox } from "../../common/Lightbox";
+import { type GalleryImage, MediaLightboxGallery } from "./Attachments";
+
+type BskyViewImage = {
+	fullsize: string;
+	alt?: string;
+	aspectRatio?: { width: number; height: number };
+};
+
+const toGalleryImage = (thumb: string, image: BskyViewImage): GalleryImage => ({
+	url: image.fullsize,
+	thumbUrl: thumb,
+	alt: image.alt,
+	width: image.aspectRatio?.width,
+	height: image.aspectRatio?.height,
+});
+
+const fromImagesView = (view: AppBskyEmbedImages.View): GalleryImage[] =>
+	view.images.map((image) => toGalleryImage(image.thumb, image));
+
+const fromGalleryView = (view: AppBskyEmbedGallery.View): GalleryImage[] =>
+	view.items
+		.filter(AppBskyEmbedGallery.isViewImage)
+		.map((item) => toGalleryImage(item.thumbnail, item));
 
 /**
  * Renders a native Bluesky post card for a recognized post permalink, fetching
@@ -88,15 +111,18 @@ export const BlueskyEmbed: Component<{ uri: string; post: BskyPostRef }> = (
 		post()?.author.verification?.trustedVerifierStatus === "valid" ||
 		isMuVerifier() === true;
 
-	const images = (): AppBskyEmbedImages.ViewImage[] => {
+	const images = (): GalleryImage[] => {
 		const embed = post()?.embed;
-		if (AppBskyEmbedImages.isView(embed)) return embed.images;
-		if (
-			AppBskyEmbedRecordWithMedia.isView(embed) &&
-			AppBskyEmbedImages.isView(embed.media)
-		) {
-			return embed.media.images;
+
+		if (AppBskyEmbedImages.isView(embed)) return fromImagesView(embed);
+		if (AppBskyEmbedGallery.isView(embed)) return fromGalleryView(embed);
+
+		if (AppBskyEmbedRecordWithMedia.isView(embed)) {
+			const media = embed.media;
+			if (AppBskyEmbedImages.isView(media)) return fromImagesView(media);
+			if (AppBskyEmbedGallery.isView(media)) return fromGalleryView(media);
 		}
+
 		return [];
 	};
 
@@ -250,32 +276,11 @@ export const BlueskyEmbed: Component<{ uri: string; post: BskyPostRef }> = (
 						</Show>
 
 						<Show when={images().length > 0}>
-							<div
-								class="grid gap-1 mt-1"
-								classList={{
-									"grid-cols-1": images().length === 1,
-									"grid-cols-2": images().length > 1,
-								}}
-							>
-								<For each={images()}>
-									{(img) => {
-										const full = img.fullsize;
-										return (
-											<Lightbox src={full}>
-												<img
-													src={img.thumb}
-													alt={img.alt || ""}
-													class="w-full h-auto max-h-72 object-cover rounded-sm bg-muted cursor-zoom-in"
-													style={{
-														"aspect-ratio": img.aspectRatio
-															? `${img.aspectRatio.width} / ${img.aspectRatio.height}`
-															: "16 / 9",
-													}}
-												/>
-											</Lightbox>
-										);
-									}}
-								</For>
+							<div class="mt-1">
+								<MediaLightboxGallery
+									images={images()}
+									maxHeightClass="max-h-72"
+								/>
 							</div>
 						</Show>
 

@@ -3,7 +3,6 @@ import {
 	createEffect,
 	createSignal,
 	For,
-	Index,
 	type JSX,
 	onCleanup,
 	onMount,
@@ -212,16 +211,47 @@ export const AudioAttachment: AttachmentComponent = (props) => {
 	);
 };
 
-/** Grid column layout for a set of image thumbnails. */
-const imageGridClass = (count: number, sizeClass: string): string => {
-	if (count <= 4) return `grid grid-cols-2 gap-1 w-full ${sizeClass}`;
-	return `grid grid-cols-3 gap-1 w-full ${sizeClass}`;
+const MOSAIC_RATIO = "3 / 2";
+const MOSAIC_MAX_TILES = 10;
+
+const MOSAIC_GROUPS: Record<number, number[]> = {
+	2: [2],
+	3: [1, 2],
+	4: [2, 2],
+	5: [2, 3],
+	6: [3, 3],
+	7: [3, 4],
+	8: [4, 4],
+	9: [3, 3, 3],
+	10: [4, 3, 3],
+};
+
+type MosaicTile = { image: GalleryImage; index: number };
+type MosaicGroup = { tiles: MosaicTile[] };
+type Mosaic = { stack: "rows" | "columns"; groups: MosaicGroup[] };
+
+const mosaicOf = (images: GalleryImage[]): Mosaic => {
+	const tiles = images
+		.slice(0, MOSAIC_MAX_TILES)
+		.map((image, index) => ({ image, index }));
+	const sizes = MOSAIC_GROUPS[tiles.length] ?? [tiles.length];
+
+	let taken = 0;
+	const groups = sizes.map((size) => {
+		const group = { tiles: tiles.slice(taken, taken + size) };
+		taken += size;
+		return group;
+	});
+
+	return { stack: tiles.length === 3 ? "columns" : "rows", groups };
 };
 
 export type GalleryImage = {
 	url?: string;
+	thumbUrl?: string;
 	downloadUrl?: string;
 	name?: string;
+	alt?: string;
 	width?: number;
 	height?: number;
 };
@@ -230,14 +260,24 @@ const galleryDownloadUrl = (
 	image: GalleryImage | undefined,
 ): string | undefined => image?.downloadUrl ?? image?.url;
 
+const galleryThumbUrl = (image: GalleryImage | undefined): string | undefined =>
+	image?.thumbUrl ?? image?.url;
+
+const galleryAlt = (image: GalleryImage | undefined): string =>
+	image?.alt ?? image?.name ?? "";
+
 export const MediaLightboxGallery: Component<{
 	images: GalleryImage[];
 	ref?: (el: HTMLDivElement) => void;
 	sizeClass?: string;
+	maxHeightClass?: string;
 	onImageError?: (index: number) => void;
 }> = (props) => {
 	const sizeClass = () => props.sizeClass ?? "max-w-104";
+	const maxHeightClass = () => props.maxHeightClass ?? "max-h-96";
 	const count = () => props.images.length;
+	const mosaic = () => mosaicOf(props.images);
+	const overflow = () => Math.max(0, count() - MOSAIC_MAX_TILES);
 	const [openIndex, setOpenIndex] = createSignal<number | null>(null);
 	let lightboxRef: HTMLDivElement | undefined;
 
@@ -305,17 +345,17 @@ export const MediaLightboxGallery: Component<{
 				fallback={
 					<div
 						ref={props.ref}
-						class={`group/image relative max-h-96 w-full ${sizeClass()}`}
+						class={`group/image relative w-full ${maxHeightClass()} ${sizeClass()}`}
 					>
 						<img
-							src={props.images[0]?.url}
-							class="max-h-96 w-full cursor-zoom-in rounded-lg border border-border object-cover transition-opacity hover:opacity-90"
+							src={galleryThumbUrl(props.images[0])}
+							class={`w-full cursor-zoom-in rounded-lg border border-border object-cover transition-opacity hover:opacity-90 ${maxHeightClass()}`}
 							style={{ "aspect-ratio": reservedAspectRatio(props.images[0]) }}
-							alt={props.images[0]?.name ?? ""}
+							alt={galleryAlt(props.images[0])}
 							loading="lazy"
 							onClick={() => open(0)}
 							onLoad={(e) =>
-								rememberAspectRatio(props.images[0]?.url, e.target)
+								rememberAspectRatio(galleryThumbUrl(props.images[0]), e.target)
 							}
 							onError={() => props.onImageError?.(0)}
 						/>
@@ -333,37 +373,66 @@ export const MediaLightboxGallery: Component<{
 					</div>
 				}
 			>
-				<div ref={props.ref} class={imageGridClass(count(), sizeClass())}>
-					<Index each={props.images}>
-						{(image, i) => (
-							<div class="group/image relative aspect-square">
-								<button
-									type="button"
-									class="h-full w-full cursor-zoom-in overflow-hidden rounded-lg border border-border"
-									onClick={() => open(i)}
-								>
-									<img
-										src={image().url}
-										class="h-full w-full object-cover transition-opacity hover:opacity-90"
-										alt={image().name ?? ""}
-										loading="lazy"
-										onError={() => props.onImageError?.(i)}
-									/>
-								</button>
-								<a
-									class="absolute z-20 top-1 right-1 hidden aspect-square w-8 items-center justify-center rounded-sm border border-border bg-card p-1 hover:bg-muted group-hover/image:flex"
-									href={galleryDownloadUrl(image())}
-									download={image().name}
-									onClick={(e) =>
-										openExternalLink(galleryDownloadUrl(image()), e)
-									}
-									title={image().name ?? "Image"}
-								>
-									<DownloadIcon class="h-5 w-5 shrink-0 text-muted-foreground" />
-								</a>
+				<div
+					ref={props.ref}
+					class={`flex w-full gap-1 ${sizeClass()}`}
+					classList={{
+						"flex-col": mosaic().stack === "rows",
+						"flex-row": mosaic().stack === "columns",
+					}}
+					style={{ "aspect-ratio": MOSAIC_RATIO }}
+				>
+					<For each={mosaic().groups}>
+						{(group) => (
+							<div
+								class="flex min-h-0 min-w-0 flex-1 gap-1"
+								classList={{
+									"flex-row": mosaic().stack === "rows",
+									"flex-col": mosaic().stack === "columns",
+								}}
+							>
+								<For each={group.tiles}>
+									{(tile) => (
+										<div class="group/image relative min-h-0 min-w-0 flex-1">
+											<button
+												type="button"
+												class="h-full w-full cursor-zoom-in overflow-hidden rounded-lg border border-border"
+												onClick={() => open(tile.index)}
+											>
+												<img
+													src={galleryThumbUrl(tile.image)}
+													class="h-full w-full object-cover transition-opacity hover:opacity-90"
+													alt={galleryAlt(tile.image)}
+													loading="lazy"
+													onError={() => props.onImageError?.(tile.index)}
+												/>
+											</button>
+											<Show
+												when={
+													overflow() > 0 && tile.index === MOSAIC_MAX_TILES - 1
+												}
+											>
+												<div class="pointer-events-none absolute inset-0 flex items-center justify-center rounded-lg bg-background/70 font-semibold text-foreground text-lg">
+													+{overflow()}
+												</div>
+											</Show>
+											<a
+												class="absolute z-20 top-1 right-1 hidden aspect-square w-8 items-center justify-center rounded-sm border border-border bg-card p-1 hover:bg-muted group-hover/image:flex"
+												href={galleryDownloadUrl(tile.image)}
+												download={tile.image.name}
+												onClick={(e) =>
+													openExternalLink(galleryDownloadUrl(tile.image), e)
+												}
+												title={tile.image.name ?? "Image"}
+											>
+												<DownloadIcon class="h-5 w-5 shrink-0 text-muted-foreground" />
+											</a>
+										</div>
+									)}
+								</For>
 							</div>
 						)}
-					</Index>
+					</For>
 				</div>
 			</Show>
 
@@ -385,7 +454,7 @@ export const MediaLightboxGallery: Component<{
 					>
 						<img
 							src={props.images[openIndex()!]?.url}
-							alt={props.images[openIndex()!]?.name ?? ""}
+							alt={galleryAlt(props.images[openIndex()!])}
 							class="max-h-[calc(100vh-8rem)] max-w-[calc(100vw-4rem)] rounded-sm"
 							onClick={(e) => e.stopPropagation()}
 						/>
