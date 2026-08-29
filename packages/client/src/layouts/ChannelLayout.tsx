@@ -307,7 +307,9 @@ const ChannelLayout: ParentComponent = (props) => {
 		void channel.loadOlder({
 			prepare: warmEmbeds,
 			onBeforePrepend: () => {
-				if (untrack(() => didInitialScroll)) scrollAnchor.captureRowAnchor();
+				if (!untrack(() => didInitialScroll)) return;
+				scrollAnchor.reconcilePin();
+				scrollAnchor.captureRowAnchor();
 			},
 			onAfterPrepend: () => {
 				if (!untrack(() => didInitialScroll)) return;

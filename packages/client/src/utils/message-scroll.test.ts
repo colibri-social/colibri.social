@@ -549,6 +549,44 @@ describe("pin intent", () => {
 		expect(controller.isPinned()).toBe(true);
 	});
 
+	it("drops a stale pin that sits far from the bottom", () => {
+		const { fake, controller } = createHarness(makeRows("m", 40, 100), 600);
+
+		fake.scrollTo(1000);
+		controller.handleScroll();
+		expect(controller.isPinned()).toBe(true);
+
+		expect(controller.reconcilePin()).toBe(true);
+		expect(controller.isPinned()).toBe(false);
+
+		fake.prepend(makeRows("older", 10, 100));
+		controller.assert();
+
+		expect(fake.offsetOf("m-10")).toBe(0);
+	});
+
+	it("keeps a pin that is still at the bottom", () => {
+		const { fake, controller } = createHarness(makeRows("m", 40, 100), 600);
+		fake.scrollTo(fake.scrollHeight());
+
+		expect(controller.reconcilePin()).toBe(false);
+		expect(controller.isPinned()).toBe(true);
+	});
+
+	it("reconciles nothing while unpinned or gesturing", () => {
+		const { fake, controller } = createHarness(makeRows("m", 40, 100), 600);
+		fake.scrollTo(1000);
+
+		controller.unpin();
+		expect(controller.reconcilePin()).toBe(false);
+
+		controller.pin(false);
+		controller.beginGesture();
+		fake.scrollTo(1000);
+		expect(controller.reconcilePin()).toBe(false);
+		expect(controller.isPinned()).toBe(true);
+	});
+
 	it("leaves pin state alone for a tap that never scrolls", () => {
 		const { controller } = createHarness(makeRows("m", 40, 100), 600);
 

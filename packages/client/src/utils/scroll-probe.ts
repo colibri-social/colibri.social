@@ -116,6 +116,7 @@ export const traceScrollController = (
 		pin: wrap("pin", (options) => controller.pin(options)),
 		unpin: wrap("unpin", () => controller.unpin()),
 		reset: wrap("reset", () => controller.reset()),
+		reconcilePin: wrap("reconcilePin", () => controller.reconcilePin()),
 		assert: wrap("assert", () => controller.assert()),
 		settle: wrap("settle", (options) => controller.settle(options)),
 		captureRowAnchor: wrap("captureRowAnchor", () =>

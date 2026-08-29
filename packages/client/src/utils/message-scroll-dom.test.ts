@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
 	anchoredScrollTop,
 	captureAnchor,
@@ -9,8 +9,10 @@ import {
 	type MessageScrollController,
 } from "./message-scroll";
 import {
+	AUTOSCROLL_MAX_MS,
 	bindScrollGestures,
 	createDomScrollSurface,
+	GESTURE_SAFETY_MS,
 } from "./message-scroll-dom";
 
 type RowSpec = { uri?: string; height: number };
@@ -77,6 +79,7 @@ const createRecordingController = (): MessageScrollController & {
 		pin: () => {},
 		unpin: () => {},
 		reset: () => {},
+		reconcilePin: () => false,
 		assert: () => false,
 		settle: () => {},
 		captureRowAnchor: () => {},
@@ -222,6 +225,10 @@ describe("createDomScrollSurface", () => {
 });
 
 describe("bindScrollGestures", () => {
+	afterEach(() => {
+		vi.useRealTimers();
+	});
+
 	it("ends the gesture when a wheel tick lands after the last scroll event", () => {
 		const { container } = createFixture(makeSpecs("m", 20, 100));
 		const controller = createRecordingController();
@@ -263,6 +270,78 @@ describe("bindScrollGestures", () => {
 
 		container.dispatchEvent(new Event("pointerdown"));
 		container.dispatchEvent(new Event("pointerup"));
+
+		expect(controller.calls).toEqual(["begin", "cancel"]);
+		unbind();
+	});
+
+	it("keeps the gesture armed when a middle-click autoscroll press is released", () => {
+		const { container } = createFixture(makeSpecs("m", 20, 100));
+		const controller = createRecordingController();
+		const unbind = bindScrollGestures(container, controller);
+
+		container.dispatchEvent(new MouseEvent("pointerdown", { button: 1 }));
+		container.dispatchEvent(new MouseEvent("pointerup", { button: 1 }));
+
+		expect(controller.calls).toEqual(["begin"]);
+		unbind();
+	});
+
+	it("ends the middle-click gesture once autoscroll stops moving", () => {
+		const { container } = createFixture(makeSpecs("m", 20, 100));
+		const controller = createRecordingController();
+		const unbind = bindScrollGestures(container, controller);
+
+		container.dispatchEvent(new MouseEvent("pointerdown", { button: 1 }));
+		container.dispatchEvent(new MouseEvent("pointerup", { button: 1 }));
+		container.dispatchEvent(new Event("scroll"));
+		container.dispatchEvent(new Event("scrollend"));
+
+		expect(controller.calls).toEqual(["begin", "end"]);
+		unbind();
+	});
+
+	it("cancels a left-button press that never scrolled", () => {
+		const { container } = createFixture(makeSpecs("m", 20, 100));
+		const controller = createRecordingController();
+		const unbind = bindScrollGestures(container, controller);
+
+		container.dispatchEvent(new MouseEvent("pointerdown", { button: 0 }));
+		container.dispatchEvent(new MouseEvent("pointerup", { button: 0 }));
+
+		expect(controller.calls).toEqual(["begin", "cancel"]);
+		unbind();
+	});
+
+	it("holds the safety timer open while autoscroll has not moved yet", () => {
+		vi.useFakeTimers();
+		const { container } = createFixture(makeSpecs("m", 20, 100));
+		const controller = createRecordingController();
+		const unbind = bindScrollGestures(container, controller);
+
+		container.dispatchEvent(new MouseEvent("pointerdown", { button: 1 }));
+		container.dispatchEvent(new MouseEvent("pointerup", { button: 1 }));
+
+		vi.advanceTimersByTime(GESTURE_SAFETY_MS * 3);
+		expect(controller.calls).toEqual(["begin"]);
+
+		container.dispatchEvent(new Event("scroll"));
+		container.dispatchEvent(new Event("scrollend"));
+
+		expect(controller.calls).toEqual(["begin", "end"]);
+		unbind();
+	});
+
+	it("gives up on a latched gesture that never scrolls", () => {
+		vi.useFakeTimers();
+		const { container } = createFixture(makeSpecs("m", 20, 100));
+		const controller = createRecordingController();
+		const unbind = bindScrollGestures(container, controller);
+
+		container.dispatchEvent(new MouseEvent("pointerdown", { button: 1 }));
+		container.dispatchEvent(new MouseEvent("pointerup", { button: 1 }));
+
+		vi.advanceTimersByTime(AUTOSCROLL_MAX_MS + GESTURE_SAFETY_MS);
 
 		expect(controller.calls).toEqual(["begin", "cancel"]);
 		unbind();

@@ -207,6 +207,7 @@ export type MessageScrollController = {
 	pin(settleOptions?: SettleOptions | false): void;
 	unpin(): void;
 	reset(): void;
+	reconcilePin(): boolean;
 	assert(): boolean;
 	settle(settleOptions?: SettleOptions): void;
 	captureRowAnchor(): void;
@@ -345,6 +346,15 @@ export const createMessageScrollController = (
 			pinned = true;
 			anchor = { mode: "none" };
 			lastWritten = undefined;
+		},
+
+		reconcilePin() {
+			if (!pinned || gesturing) return false;
+			if (isPinnedToBottom(surface, threshold)) return false;
+			pinned = false;
+			cancelSettle();
+			anchor = captureAnchor(surface);
+			return true;
 		},
 
 		assert() {

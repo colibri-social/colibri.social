@@ -6,6 +6,12 @@ import type {
 
 export const SCROLL_QUIET_MS = 140;
 export const GESTURE_SAFETY_MS = 1500;
+export const AUTOSCROLL_MAX_MS = 30_000;
+
+const AUTOSCROLL_BUTTON = 1;
+
+const isAutoscrollPress = (event: Event): boolean =>
+	"button" in event && (event as MouseEvent).button === AUTOSCROLL_BUTTON;
 
 const SCROLLING_KEYS = new Set([
 	"ArrowUp",
@@ -90,6 +96,8 @@ export const bindScrollGestures = (
 ): (() => void) => {
 	const hasScrollEnd = "onscrollend" in window;
 	let sawScroll = false;
+	let latched = false;
+	let latchStart = 0;
 	let quietTimer: number | undefined;
 	let safetyTimer: number | undefined;
 
@@ -102,6 +110,7 @@ export const bindScrollGestures = (
 
 	const finish = () => {
 		clearTimers();
+		latched = false;
 		if (!sawScroll) {
 			controller.cancelGesture();
 			return;
@@ -110,11 +119,22 @@ export const bindScrollGestures = (
 		controller.endGesture();
 	};
 
-	const arm = () => {
+	const onSafety = () => {
+		safetyTimer = undefined;
+		if (latched && !sawScroll && Date.now() - latchStart < AUTOSCROLL_MAX_MS) {
+			safetyTimer = window.setTimeout(onSafety, GESTURE_SAFETY_MS);
+			return;
+		}
+		finish();
+	};
+
+	const arm = (event?: Event) => {
 		if (!controller.isGesturing()) sawScroll = false;
 		clearTimers();
+		latched = event !== undefined && isAutoscrollPress(event);
+		latchStart = Date.now();
 		controller.beginGesture();
-		safetyTimer = window.setTimeout(finish, GESTURE_SAFETY_MS);
+		safetyTimer = window.setTimeout(onSafety, GESTURE_SAFETY_MS);
 	};
 
 	const onScroll = () => {
@@ -125,8 +145,9 @@ export const bindScrollGestures = (
 		quietTimer = window.setTimeout(finish, SCROLL_QUIET_MS);
 	};
 
-	const onPointerUp = () => {
+	const onPointerUp = (event: Event) => {
 		if (!controller.isGesturing()) return;
+		if (isAutoscrollPress(event)) return;
 		if (!sawScroll) finish();
 	};
 
