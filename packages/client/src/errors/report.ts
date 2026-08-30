@@ -11,6 +11,7 @@ export interface ReportOptions {
 	contexts?: Record<string, Record<string, unknown>>;
 	fingerprint?: string;
 	severity?: ColibriError["severity"];
+	force?: boolean;
 }
 
 type DiagnosticsProvider = () => Record<string, unknown> | undefined;
@@ -90,7 +91,7 @@ export const reportError = (
 
 	if (options.context) classified.withContext(options.context);
 
-	if (!isReportableCode(classified.code)) return classified;
+	if (!options.force && !isReportableCode(classified.code)) return classified;
 
 	const fingerprint = fingerprintOf(classified, options);
 	const throttle = suppressedEventId(fingerprint, Date.now());

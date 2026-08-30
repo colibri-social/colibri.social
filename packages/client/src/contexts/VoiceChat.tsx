@@ -12,6 +12,7 @@ import {
 import { createStore } from "solid-js/store";
 import { toast } from "somoto";
 import { classifyThrown } from "../errors/classify";
+import { reportError } from "../errors/report";
 import { showError } from "../errors/show-error";
 import {
 	captureConstraints,
@@ -145,6 +146,9 @@ const SCREEN_AUDIO_SOURCE = "screenaudio";
 const MAX_RECONNECT_ATTEMPTS = 6;
 const STATS_INTERVAL_MS = 3000;
 const STATS_FAST_MS = 400;
+const ICE_WATCHDOG_MS = 8000;
+const SFU_PORT_HINT =
+	"check the SFU's announced IP and its SFU_RTC_MIN_PORT-SFU_RTC_MAX_PORT range";
 
 type ServerMessage =
 	| {
@@ -222,6 +226,10 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 	let device: Device | null = null;
 	let sendTransport: types.Transport | null = null;
 	let recvTransport: types.Transport | null = null;
+	let sendConnected = false;
+	let recvConnected = false;
+	let sendWatchdog: ReturnType<typeof setTimeout> | null = null;
+	let recvWatchdog: ReturnType<typeof setTimeout> | null = null;
 	let micProducer: types.Producer | null = null;
 	let camProducer: types.Producer | null = null;
 	let screenProducer: types.Producer | null = null;
@@ -260,31 +268,85 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 		{ resolve: (m: ServerMessage) => void; reject: (e: unknown) => void }
 	>();
 
-	const dbg = (...args: unknown[]): void => {
-		log.debug(args.map(String).join(" "));
+	const dbg = (message: string, data?: Record<string, unknown>): void => {
+		log.debug(message, data);
 	};
 
-	const reportVoiceFailure = (err: unknown, stage: string): void => {
-		Sentry.withScope((scope) => {
-			scope.setTag("voice.stage", stage);
-			scope.setContext("voice", {
-				handler: device?.handlerName ?? "none",
-				userAgent:
-					typeof navigator === "undefined" ? "unknown" : navigator.userAgent,
-				channel: voiceData.connection.uri,
-				hubDid: voiceData.connection.hubDid,
-				state: voiceData.connection.state,
+	const describeStats = (stats: RTCStatsReport): Record<string, unknown> => {
+		const pairs: string[] = [];
+		const local: string[] = [];
+		const remote: string[] = [];
+
+		stats.forEach((report) => {
+			const r = report as RTCStats & Record<string, unknown>;
+			if (r.type === "candidate-pair") {
+				pairs.push(
+					`${String(r.state)}${r.nominated === true ? " nominated" : ""}`,
+				);
+			} else if (r.type === "local-candidate") {
+				local.push(
+					`${String(r.candidateType)}/${String(r.protocol)}:${String(r.port)}`,
+				);
+			} else if (r.type === "remote-candidate") {
+				remote.push(
+					`${String(r.candidateType)}/${String(r.protocol)}:${String(r.port)}`,
+				);
+			}
+		});
+
+		return {
+			pairCount: pairs.length,
+			localCount: local.length,
+			remoteCount: remote.length,
+			pairs: pairs.join(", ") || "(none)",
+			local: local.join(", ") || "(none)",
+			remote: remote.join(", ") || "(none)",
+		};
+	};
+
+	const armIceWatchdog = (
+		label: "sendTransport" | "recvTransport",
+		transport: types.Transport,
+		isConnected: () => boolean,
+	): ReturnType<typeof setTimeout> =>
+		setTimeout(() => {
+			if (isConnected() || transport.closed) return;
+			dbg(`⏱ ${label} not connected after 8s: ${SFU_PORT_HINT}`, {
+				connectionState: transport.connectionState,
 			});
-			Sentry.captureException(
-				err instanceof Error ? err : new Error(String(err)),
-			);
+			void transport
+				.getStats()
+				.then((stats) => dbg(`${label} ICE stats`, describeStats(stats)))
+				.catch((err) =>
+					dbg(`✗ ${label} ICE stats unavailable`, {
+						code: classifyThrown(err).code,
+					}),
+				);
+		}, ICE_WATCHDOG_MS);
+
+	const reportVoiceFailure = (err: unknown, stage: string): void => {
+		reportError(err, {
+			stage,
+			force: true,
+			fingerprint: `voice|${stage}|${classifyThrown(err).code}`,
+			tags: { "voice.stage": stage },
+			contexts: {
+				voice: {
+					handler: device?.handlerName ?? "none",
+					userAgent:
+						typeof navigator === "undefined" ? "unknown" : navigator.userAgent,
+					channel: voiceData.connection.uri,
+					hubDid: voiceData.connection.hubDid,
+					state: voiceData.connection.state,
+				},
+			},
 		});
 	};
 
 	const failSetup = (err: unknown): void => {
 		if (voiceData.connection.state === ConnectionState.Disconnected) return;
 
-		dbg("✗ setupDevice failed", err);
+		dbg("✗ setupDevice failed", { code: classifyThrown(err).code });
 
 		if (!supportsWebRtc()) {
 			toast.error("Voice isn't available on this system", {
@@ -310,10 +372,11 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 
 	const send = (message: Record<string, unknown>): void => {
 		if (ws?.readyState === WebSocket.OPEN) {
-			dbg("→ send", message.action, message);
+			dbg("→ send", { action: message.action });
 			ws.send(JSON.stringify(message));
 		} else {
-			dbg("✗ send dropped (socket not open)", message.action, {
+			dbg("✗ send dropped (socket not open)", {
+				action: message.action,
 				readyState: ws?.readyState,
 			});
 		}
@@ -557,6 +620,13 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 		producerOwners.clear();
 		pendingConsume.length = 0;
 
+		if (sendWatchdog) clearTimeout(sendWatchdog);
+		if (recvWatchdog) clearTimeout(recvWatchdog);
+		sendWatchdog = null;
+		recvWatchdog = null;
+		sendConnected = false;
+		recvConnected = false;
+
 		sendTransport?.close();
 		recvTransport?.close();
 		sendTransport = null;
@@ -590,7 +660,7 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 
 	const startMic = async (): Promise<void> => {
 		if (!sendTransport) return;
-		dbg("startMic() — requesting getUserMedia + producing");
+		dbg("startMic(): requesting getUserMedia + producing");
 		const input = userPreferences.preferences().voice.input;
 
 		micStream = await navigator.mediaDevices.getUserMedia({
@@ -627,13 +697,24 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 		const owner = producerOwners.get(producerId);
 		dbg("consumeProducer()", { producerId, owner });
 
+		if (recvWatchdog === null) {
+			recvWatchdog = armIceWatchdog(
+				"recvTransport",
+				recvTransport,
+				() => recvConnected,
+			);
+		}
+
 		send({ action: "consume", producerId });
 		let message: ServerMessage;
 
 		try {
 			message = await waitForConsumed(producerId);
 		} catch (err) {
-			dbg("✗ consume rejected", { producerId, err });
+			dbg("✗ consume rejected", {
+				producerId,
+				code: classifyThrown(err).code,
+			});
 			log.warn("could not receive a participant's stream", {
 				producerId,
 				owner,
@@ -718,7 +799,12 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 				)
 				.join(", ") || "(none)";
 		dbg("init received", {
-			iceServers: message.iceServers,
+			iceServers:
+				(message.iceServers ?? [])
+					.flatMap((server) =>
+						Array.isArray(server.urls) ? server.urls : [server.urls],
+					)
+					.join(", ") || "(none)",
 			iceServerCount: message.iceServers?.length ?? 0,
 			producerCandidates: describeCandidates(
 				message.producerTransportOptions.iceCandidates as unknown as Array<
@@ -765,39 +851,20 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 					callback();
 				})
 				.catch((err) => {
-					dbg("✗ sendTransport connect failed", err);
+					dbg("✗ sendTransport connect failed", {
+						code: classifyThrown(err).code,
+					});
 					errback(err as Error);
 				});
 		});
 
-		let sendConnected = false;
 		sendTransport.on("connectionstatechange", (state) => {
-			dbg("sendTransport connectionstatechange →", state);
+			dbg("sendTransport connectionstatechange", { state });
 			if (state === "connected") sendConnected = true;
 			if (state === "failed" || state === "disconnected") {
-				dbg(
-					"✗ sendTransport ICE/DTLS unreachable — check SFU UDP ports 20000-20019 / announced IP",
-				);
+				dbg(`✗ sendTransport ICE/DTLS unreachable: ${SFU_PORT_HINT}`);
 			}
 		});
-
-		setTimeout(() => {
-			if (sendConnected || !sendTransport) return;
-			dbg("⏱ sendTransport still not connected after 8s — dumping ICE stats");
-			void sendTransport.getStats().then((stats) => {
-				const pairs: unknown[] = [];
-				const local = new Map<string, Record<string, unknown>>();
-				const remote = new Map<string, Record<string, unknown>>();
-				stats.forEach((r: { type?: string } & Record<string, unknown>) => {
-					if (r.type === "candidate-pair") pairs.push(r);
-					else if (r.type === "local-candidate") local.set(r.id as string, r);
-					else if (r.type === "remote-candidate") remote.set(r.id as string, r);
-				});
-				dbg("ICE candidate-pairs", pairs);
-				dbg("ICE local-candidates", [...local.values()]);
-				dbg("ICE remote-candidates", [...remote.values()]);
-			});
-		}, 8000);
 
 		sendTransport.observer.on("close", () => dbg("sendTransport closed"));
 
@@ -806,6 +873,13 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 			({ kind, rtpParameters, appData }, callback, errback) => {
 				const source = (appData as { source?: string }).source ?? "mic";
 				dbg("sendTransport 'produce' fired", { kind, source });
+				if (sendWatchdog === null && sendTransport) {
+					sendWatchdog = armIceWatchdog(
+						"sendTransport",
+						sendTransport,
+						() => sendConnected,
+					);
+				}
 				send({ action: "produce", kind, rtpParameters, source });
 				waitForAction("produced")
 					.then((m) => {
@@ -815,7 +889,7 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 						}
 					})
 					.catch((err) => {
-						dbg("✗ produce failed", err);
+						dbg("✗ produce failed", { code: classifyThrown(err).code });
 						errback(err as Error);
 					});
 			},
@@ -836,17 +910,18 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 					callback();
 				})
 				.catch((err) => {
-					dbg("✗ recvTransport connect failed", err);
+					dbg("✗ recvTransport connect failed", {
+						code: classifyThrown(err).code,
+					});
 					errback(err as Error);
 				});
 		});
 
 		recvTransport.on("connectionstatechange", (state) => {
-			dbg("recvTransport connectionstatechange →", state);
+			dbg("recvTransport connectionstatechange", { state });
+			if (state === "connected") recvConnected = true;
 			if (state === "failed" || state === "disconnected") {
-				dbg(
-					"✗ recvTransport ICE/DTLS unreachable — check SFU UDP ports 20000-20019 / announced IP",
-				);
+				dbg(`✗ recvTransport ICE/DTLS unreachable: ${SFU_PORT_HINT}`);
 			}
 		});
 
@@ -887,7 +962,7 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 	};
 
 	const handleServerMessage = (message: ServerMessage): void => {
-		dbg("← recv", message.action, message);
+		dbg("← recv", { action: message.action });
 		switch (message.action) {
 			case "init":
 				setupDevice(message).catch(failSetup);
@@ -1011,14 +1086,16 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 			try {
 				message = JSON.parse(event.data as string) as ServerMessage;
 			} catch {
-				dbg("✗ failed to parse server message", event.data);
+				dbg("✗ failed to parse server message", {
+					bytes: String(event.data).length,
+				});
 				return;
 			}
 			handleServerMessage(message);
 		};
 
-		socketConn.onerror = (event) => {
-			dbg("✗ signaling socket error", event);
+		socketConn.onerror = () => {
+			dbg("✗ signaling socket error", { readyState: socketConn.readyState });
 			log.error("signaling socket errored");
 		};
 
