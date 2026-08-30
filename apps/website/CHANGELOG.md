@@ -1,5 +1,13 @@
 # @colibri-social/website
 
+## 0.3.2
+
+### Patch Changes
+
+- b7a27d0: Keep the microphone working when the capture graph can't be built, and report voice join failures instead of silently dropping them
+- Updated dependencies [b7a27d0]
+  - @colibri-social/client@0.5.1
+
 ## 0.3.1
 
 ### Patch Changes
