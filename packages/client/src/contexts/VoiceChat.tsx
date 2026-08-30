@@ -40,6 +40,7 @@ import {
 import { classifyThrown } from "../errors/classify";
 import { isAppViewErrorCode } from "../errors/codes";
 import { colibriError, isColibriError } from "../errors/error";
+import { reportError } from "../errors/report";
 import { showError } from "../errors/show-error";
 import {
 	captureConstraints,
@@ -193,6 +194,8 @@ const MAX_RECONNECT_ATTEMPTS = 6;
 const STATS_INTERVAL_MS = 3000;
 const STATS_FAST_MS = 400;
 const HEARTBEAT_INTERVAL_MS = 20000;
+const ICE_WATCHDOG_MS = 8000;
+const SFU_PORT_HINT = "check the SFU media port range and the announced IP";
 const REPLY_TIMEOUT_MS = 15000;
 
 type ChannelRef = ReturnType<typeof asSpaceRef>;
@@ -246,6 +249,10 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 	let device: Device | null = null;
 	let sendTransport: types.Transport | null = null;
 	let recvTransport: types.Transport | null = null;
+	let sendConnected = false;
+	let recvConnected = false;
+	let sendWatchdog: ReturnType<typeof setTimeout> | null = null;
+	let recvWatchdog: ReturnType<typeof setTimeout> | null = null;
 	let micProducer: types.Producer | null = null;
 	let camProducer: types.Producer | null = null;
 	let screenProducer: types.Producer | null = null;
@@ -301,20 +308,74 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 		log.debug(args.map(describeArg).join(" "));
 	};
 
-	const reportVoiceFailure = (err: unknown, stage: string): void => {
-		Sentry.withScope((scope) => {
-			scope.setTag("voice.stage", stage);
-			scope.setContext("voice", {
-				handler: device?.handlerName ?? "none",
-				userAgent:
-					typeof navigator === "undefined" ? "unknown" : navigator.userAgent,
-				channel: voiceData.connection.uri,
-				managingApp: voiceData.connection.managingApp,
-				state: voiceData.connection.state,
+	const describeStats = (stats: RTCStatsReport): Record<string, unknown> => {
+		const pairs: string[] = [];
+		const local: string[] = [];
+		const remote: string[] = [];
+
+		stats.forEach((report) => {
+			const r = report as RTCStats & Record<string, unknown>;
+			if (r.type === "candidate-pair") {
+				pairs.push(
+					`${String(r.state)}${r.nominated === true ? " nominated" : ""}`,
+				);
+			} else if (r.type === "local-candidate") {
+				local.push(
+					`${String(r.candidateType)}/${String(r.protocol)}:${String(r.port)}`,
+				);
+			} else if (r.type === "remote-candidate") {
+				remote.push(
+					`${String(r.candidateType)}/${String(r.protocol)}:${String(r.port)}`,
+				);
+			}
+		});
+
+		return {
+			pairCount: pairs.length,
+			localCount: local.length,
+			remoteCount: remote.length,
+			pairs: pairs.join(", ") || "(none)",
+			local: local.join(", ") || "(none)",
+			remote: remote.join(", ") || "(none)",
+		};
+	};
+
+	const armIceWatchdog = (
+		label: "sendTransport" | "recvTransport",
+		transport: types.Transport,
+		isConnected: () => boolean,
+	): ReturnType<typeof setTimeout> =>
+		setTimeout(() => {
+			if (isConnected() || transport.closed) return;
+			dbg(`⏱ ${label} not connected after 8s: ${SFU_PORT_HINT}`, {
+				connectionState: transport.connectionState,
 			});
-			Sentry.captureException(
-				err instanceof Error ? err : new Error(String(err)),
-			);
+			void transport
+				.getStats()
+				.then((stats) => dbg(`${label} ICE stats`, describeStats(stats)))
+				.catch((err) =>
+					dbg(`✗ ${label} ICE stats unavailable`, {
+						code: classifyThrown(err).code,
+					}),
+				);
+		}, ICE_WATCHDOG_MS);
+
+	const reportVoiceFailure = (err: unknown, stage: string): void => {
+		reportError(err, {
+			stage,
+			force: true,
+			fingerprint: `voice|${stage}|${classifyThrown(err).code}`,
+			tags: { "voice.stage": stage },
+			contexts: {
+				voice: {
+					handler: device?.handlerName ?? "none",
+					userAgent:
+						typeof navigator === "undefined" ? "unknown" : navigator.userAgent,
+					channel: voiceData.connection.uri,
+					managingApp: voiceData.connection.managingApp,
+					state: voiceData.connection.state,
+				},
+			},
 		});
 	};
 
@@ -752,6 +813,13 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 		producers.clear();
 		consumersByProducer.clear();
 
+		if (sendWatchdog) clearTimeout(sendWatchdog);
+		if (recvWatchdog) clearTimeout(recvWatchdog);
+		sendWatchdog = null;
+		recvWatchdog = null;
+		sendConnected = false;
+		recvConnected = false;
+
 		sendTransport?.close();
 		recvTransport?.close();
 		sendTransport = null;
@@ -867,6 +935,14 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 		}
 
 		dbg("consumeProducer()", { producerId, owner });
+
+		if (recvWatchdog === null) {
+			recvWatchdog = armIceWatchdog(
+				"recvTransport",
+				recvTransport,
+				() => recvConnected,
+			);
+		}
 
 		const epoch = mediaEpoch;
 		const stale = (): boolean => mediaEpoch !== epoch;
@@ -1020,34 +1096,13 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 				});
 		});
 
-		let sendConnected = false;
 		transport.on("connectionstatechange", (state) => {
 			dbg("sendTransport connectionstatechange →", state);
 			if (state === "connected") sendConnected = true;
 			if (state === "failed" || state === "disconnected") {
-				dbg(
-					"✗ sendTransport ICE/DTLS unreachable: check the SFU media port range and the announced IP",
-				);
+				dbg(`✗ sendTransport ICE/DTLS unreachable: ${SFU_PORT_HINT}`);
 			}
 		});
-
-		setTimeout(() => {
-			if (sendConnected || sendTransport !== transport) return;
-			dbg("⏱ sendTransport still not connected after 8s — dumping ICE stats");
-			void transport.getStats().then((stats) => {
-				const pairs: unknown[] = [];
-				const local = new Map<string, Record<string, unknown>>();
-				const remote = new Map<string, Record<string, unknown>>();
-				stats.forEach((r: { type?: string } & Record<string, unknown>) => {
-					if (r.type === "candidate-pair") pairs.push(r);
-					else if (r.type === "local-candidate") local.set(r.id as string, r);
-					else if (r.type === "remote-candidate") remote.set(r.id as string, r);
-				});
-				dbg("ICE candidate-pairs", pairs);
-				dbg("ICE local-candidates", [...local.values()]);
-				dbg("ICE remote-candidates", [...remote.values()]);
-			});
-		}, 8000);
 
 		transport.observer.on("close", () => dbg("sendTransport closed"));
 
@@ -1056,6 +1111,13 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 			({ kind, rtpParameters, appData }, callback, errback) => {
 				const source = (appData as { source?: MediaSource }).source ?? "mic";
 				dbg("sendTransport 'produce' fired", { kind, source });
+				if (sendWatchdog === null) {
+					sendWatchdog = armIceWatchdog(
+						"sendTransport",
+						transport,
+						() => sendConnected,
+					);
+				}
 				sendAndWait(produceFrame(transport.id, kind, rtpParameters, source))
 					.then((frame) => {
 						const info = expectFrame(
@@ -1090,10 +1152,9 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 
 		transport.on("connectionstatechange", (state) => {
 			dbg("recvTransport connectionstatechange →", state);
+			if (state === "connected") recvConnected = true;
 			if (state === "failed" || state === "disconnected") {
-				dbg(
-					"✗ recvTransport ICE/DTLS unreachable: check the SFU media port range and the announced IP",
-				);
+				dbg(`✗ recvTransport ICE/DTLS unreachable: ${SFU_PORT_HINT}`);
 			}
 		});
 

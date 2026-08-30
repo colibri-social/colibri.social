@@ -232,6 +232,19 @@ describe("classifyThrown", () => {
 		expect(classifyThrown(err).code).toBe("StorageStalled");
 	});
 
+	it("names a blocked microphone permission", () => {
+		offline(false);
+		const err = new DOMException("Permission denied", "NotAllowedError");
+		expect(classifyThrown(err).code).toBe("DevicePermissionDenied");
+	});
+
+	it("names a constraint the input device cannot satisfy", () => {
+		offline(false);
+		const err = new Error("deviceId not satisfiable");
+		err.name = "OverconstrainedError";
+		expect(classifyThrown(err).code).toBe("DeviceUnavailable");
+	});
+
 	it("names a refused token refresh instead of calling it unexpected", () => {
 		offline(false);
 		const err = new Error("token refresh failed");

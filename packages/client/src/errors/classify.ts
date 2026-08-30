@@ -109,6 +109,8 @@ const codeForThrownShape = (err: unknown): ColibriErrorCode | undefined => {
 
 	if (isAtprotoSessionError(err)) return "InvalidToken";
 
+	if (name === "OverconstrainedError") return "DeviceUnavailable";
+
 	if (typeof DOMException !== "undefined" && err instanceof DOMException) {
 		if (name === "NotAllowedError" || name === "SecurityError") {
 			return "DevicePermissionDenied";

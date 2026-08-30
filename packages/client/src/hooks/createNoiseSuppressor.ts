@@ -38,11 +38,46 @@ export const captureConstraints = (
 	deviceId: preferredDeviceId ? { ideal: preferredDeviceId } : undefined,
 });
 
+const passthrough = (rawTrack: MediaStreamTrack): NoiseSuppressor => ({
+	outputTrack: rawTrack,
+	setSuppression: () => {},
+	setGate: () => {},
+	setInputGain: () => {},
+	destroy: () => {},
+});
+
 export async function createNoiseSuppressor(
 	rawTrack: MediaStreamTrack,
 	options: NoiseSuppressorOptions,
 ): Promise<NoiseSuppressor> {
+	try {
+		return await buildProcessingGraph(rawTrack, options);
+	} catch (err) {
+		log.warn("capture graph unavailable, using the raw input", {
+			code: classifyThrown(err).code,
+		});
+		return passthrough(rawTrack);
+	}
+}
+
+async function buildProcessingGraph(
+	rawTrack: MediaStreamTrack,
+	options: NoiseSuppressorOptions,
+): Promise<NoiseSuppressor> {
 	const ctx = new AudioContext({ sampleRate: CAPTURE_SAMPLE_RATE });
+	try {
+		return await connectProcessingGraph(ctx, rawTrack, options);
+	} catch (err) {
+		ctx.close().catch(() => {});
+		throw err;
+	}
+}
+
+async function connectProcessingGraph(
+	ctx: AudioContext,
+	rawTrack: MediaStreamTrack,
+	options: NoiseSuppressorOptions,
+): Promise<NoiseSuppressor> {
 	const source = ctx.createMediaStreamSource(new MediaStream([rawTrack]));
 
 	const destination = ctx.createMediaStreamDestination();
