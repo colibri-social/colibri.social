@@ -58,6 +58,7 @@ export type OutboxRecord = {
 	owner: string;
 	kind: OutboxKind;
 	label?: string;
+	group?: string;
 	createdAt: number;
 	attempts: number;
 };

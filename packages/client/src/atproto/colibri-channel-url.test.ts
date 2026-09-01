@@ -1,13 +1,20 @@
 import { describe, expect, it } from "vitest";
 import {
 	buildChannelPath,
+	buildSpacePath,
+	buildThreadPath,
+	forgetThreadParent,
 	parseChannelPath,
 	parseColibriChannelUrl,
+	parseThreadPath,
+	rememberThreadParent,
 } from "./colibri-channel-url";
 
 const DID = "did:plc:abc123";
 const TEXT_SPACE = `at://${DID}/space/social.colibri.beta.channel.text/general`;
 const VOICE_SPACE = `at://${DID}/space/social.colibri.beta.channel.voice/lounge`;
+const THREAD_SPACE = `at://${DID}/space/social.colibri.beta.channel.thread/3lthread`;
+const CHANNEL_PATH = `/app/c/${DID}/social.colibri.beta.channel.text/general`;
 
 describe("parseChannelPath", () => {
 	it("parses a short-form text path", () => {
@@ -155,5 +162,54 @@ describe("buildChannelPath", () => {
 			),
 		).toBeUndefined();
 		expect(buildChannelPath("not-a-space")).toBeUndefined();
+	});
+});
+
+describe("parseThreadPath", () => {
+	it("reads the thread space out of a nested path", () => {
+		expect(parseThreadPath(`${CHANNEL_PATH}/t/3lthread`)).toEqual({
+			community: DID,
+			threadSkey: "3lthread",
+			threadSpace: THREAD_SPACE,
+		});
+	});
+
+	it("returns nothing for a plain channel path", () => {
+		expect(parseThreadPath(CHANNEL_PATH)).toBeNull();
+	});
+
+	it("rejects a community segment that is not a did", () => {
+		expect(
+			parseThreadPath("/app/c/notadid/text/general/t/3lthread"),
+		).toBeNull();
+	});
+});
+
+describe("buildThreadPath", () => {
+	it("nests the thread under its channel", () => {
+		expect(buildThreadPath(TEXT_SPACE, THREAD_SPACE)).toBe(
+			`${CHANNEL_PATH}/t/3lthread`,
+		);
+	});
+
+	it("returns nothing when the parent is not a channel", () => {
+		expect(buildThreadPath(THREAD_SPACE, THREAD_SPACE)).toBeUndefined();
+	});
+});
+
+describe("buildSpacePath", () => {
+	it("builds a channel path straight from a channel space", () => {
+		expect(buildSpacePath(TEXT_SPACE)).toBe(CHANNEL_PATH);
+	});
+
+	it("cannot place a thread until its parent channel is known", () => {
+		forgetThreadParent(THREAD_SPACE);
+		expect(buildSpacePath(THREAD_SPACE)).toBeUndefined();
+	});
+
+	it("places a thread once its parent channel is known", () => {
+		rememberThreadParent(THREAD_SPACE, TEXT_SPACE);
+		expect(buildSpacePath(THREAD_SPACE)).toBe(`${CHANNEL_PATH}/t/3lthread`);
+		forgetThreadParent(THREAD_SPACE);
 	});
 });

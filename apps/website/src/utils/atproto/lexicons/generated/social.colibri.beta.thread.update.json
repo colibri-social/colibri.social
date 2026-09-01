@@ -1,0 +1,92 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.thread.update",
+	"defs": {
+		"main": {
+			"type": "procedure",
+			"description": "Renames a thread or changes who may read it. An absent field leaves the current value unchanged.",
+			"input": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"thread"
+					],
+					"properties": {
+						"thread": {
+							"type": "string",
+							"format": "space-ref",
+							"description": "The thread to update."
+						},
+						"name": {
+							"type": "string",
+							"minLength": 1,
+							"maxLength": 128,
+							"description": "The thread's title. Absent leaves the current value unchanged."
+						},
+						"visibleToRoles": {
+							"type": "array",
+							"items": {
+								"type": "string",
+								"format": "record-key",
+								"description": "A role."
+							},
+							"description": "Roles that may read this thread. Empty means everyone who may read the channel may read the thread."
+						},
+						"visibleToMembers": {
+							"type": "array",
+							"items": {
+								"type": "string",
+								"format": "did",
+								"description": "A member."
+							},
+							"description": "Members that may read this thread beyond visibleToRoles."
+						}
+					}
+				}
+			},
+			"output": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"thread"
+					],
+					"properties": {
+						"thread": {
+							"type": "ref",
+							"ref": "social.colibri.beta.thread.defs#threadView",
+							"description": "The thread, after the update."
+						}
+					}
+				}
+			},
+			"errors": [
+				{
+					"name": "AuthRequired",
+					"description": "The request has no valid service auth."
+				},
+				{
+					"name": "Forbidden",
+					"description": "The requesting user lacks the thread.manage permission, and is not the user who opened the thread renaming it."
+				},
+				{
+					"name": "ThreadNotFound",
+					"description": "No thread matches the given space reference."
+				},
+				{
+					"name": "RoleHierarchy",
+					"description": "The requesting user cannot grant a role that outranks their own."
+				},
+				{
+					"name": "InvalidRequest",
+					"description": "The arguments are inconsistent or malformed beyond schema validation."
+				},
+				{
+					"name": "CredentialsUnavailable",
+					"description": "The AppView cannot act as the community because its stored credentials are missing or unusable."
+				}
+			]
+		}
+	}
+}

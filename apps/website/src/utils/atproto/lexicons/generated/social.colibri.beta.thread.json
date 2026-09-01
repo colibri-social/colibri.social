@@ -1,0 +1,66 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.thread",
+	"defs": {
+		"main": {
+			"type": "record",
+			"description": "A thread's configuration, including the link to the channel it belongs to. Lives at key 'self' in the thread's own space and is written only by the community.",
+			"key": "literal:self",
+			"record": {
+				"type": "object",
+				"required": [
+					"name",
+					"channel",
+					"createdBy",
+					"createdAt"
+				],
+				"properties": {
+					"name": {
+						"type": "string",
+						"minLength": 1,
+						"maxLength": 128,
+						"description": "The thread's title."
+					},
+					"channel": {
+						"type": "string",
+						"format": "space-ref",
+						"description": "The text channel this thread belongs to. Moving the thread to another channel rewrites this field."
+					},
+					"anchor": {
+						"type": "ref",
+						"ref": "social.colibri.beta.defs#spaceRecordRef",
+						"description": "The message the thread was opened from. Absent on a thread opened from scratch. Its space stays where the thread was opened even after the thread moves to another channel, which is what drops the thread's marker out of the old channel without losing the quoted message."
+					},
+					"createdBy": {
+						"type": "string",
+						"format": "did",
+						"description": "Who opened the thread."
+					},
+					"createdAt": {
+						"type": "string",
+						"format": "datetime",
+						"description": "When the thread was opened."
+					},
+					"visibleToRoles": {
+						"type": "array",
+						"items": {
+							"type": "string",
+							"format": "record-key",
+							"description": "A role permitted to read."
+						},
+						"description": "Roles that may read this thread. Empty or absent means everyone who can read the parent channel can read the thread. A non-empty list makes the thread private: the community declines space credentials for it to anyone outside the list, so it is enforced by the protocol rather than only by a read handler."
+					},
+					"visibleToMembers": {
+						"type": "array",
+						"items": {
+							"type": "string",
+							"format": "did",
+							"description": "A member permitted to read."
+						},
+						"description": "Members that may read this thread in addition to visibleToRoles."
+					}
+				}
+			}
+		}
+	}
+}

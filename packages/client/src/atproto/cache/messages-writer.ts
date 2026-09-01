@@ -12,13 +12,21 @@ import {
 } from "./messages-snapshot";
 import type { MessagesSnapshot } from "./schema";
 
-let openChannel: string | undefined;
+const openBySurface = new Map<string, string>();
 
-export const registerOpenChannel = (space: string | undefined): void => {
-	openChannel = space || undefined;
+export const registerOpenChannel = (
+	space: string | undefined,
+	surface = "primary",
+): void => {
+	if (space) openBySurface.set(surface, space);
+	else openBySurface.delete(surface);
 };
 
-export const isOpenChannel = (space: string): boolean => openChannel === space;
+export const isOpenChannel = (space: string): boolean => {
+	if (!space) return false;
+	for (const open of openBySurface.values()) if (open === space) return true;
+	return false;
+};
 
 export type SnapshotWriterIo = {
 	namespace: () => string;
@@ -176,6 +184,7 @@ export const applyMessageEvent = (
 
 	const message = event.message;
 	if (!message) return undefined;
+	if (!belongsToChannel(message, event.channel)) return undefined;
 
 	const ref = refOf(message);
 	const existing = snapshot.messages.find((m) => sameRecord(m, ref));

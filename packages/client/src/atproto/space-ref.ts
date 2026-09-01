@@ -2,8 +2,10 @@ import type { ChannelSpaceType } from "./lexicons";
 import {
 	CHANNEL_SPACE_TYPES,
 	isChannelSpaceType,
+	isThreadSpaceType,
 	SPACE_TYPES,
 	spaceUri,
+	threadSpace,
 } from "./lexicons";
 
 export type ParsedSpace = {
@@ -36,6 +38,19 @@ export const spaceSkey = (ref: string): string | undefined =>
 export const isChannelSpace = (ref: string): boolean => {
 	const parsed = parseSpace(ref);
 	return parsed !== undefined && isChannelSpaceType(parsed.type);
+};
+
+export const isThreadSpace = (ref: string): boolean => {
+	const parsed = parseSpace(ref);
+	return parsed !== undefined && isThreadSpaceType(parsed.type);
+};
+
+export const threadSpaceRef = (
+	community: string,
+	skey: string,
+): string | undefined => {
+	if (!community || !skey) return undefined;
+	return threadSpace(community, skey);
 };
 
 export const channelSpaceType = (

@@ -185,6 +185,9 @@ export type ChannelContextValue = {
 	focusedMessage: Accessor<string | undefined>;
 	jumpToMessage: (uri: string) => Promise<void>;
 
+	registerComposerFocus: (focus: (() => void) | undefined) => void;
+	focusComposer: () => void;
+
 	sendMessage: (input: SendMessageInput) => Promise<void>;
 	deleteMessage: (target: MessageView) => Promise<void>;
 	patchMessageRecord: (
@@ -229,14 +232,30 @@ export type ChannelContextValue = {
 	initialUnseen: Accessor<UnseenEntry[]>;
 	advanceReadCursor: (explicitRkey?: string) => void;
 	clearUnreadBoundary: () => void;
+
+	selecting: Accessor<boolean>;
+	selection: Accessor<MessageView[]>;
+	isSelected: (uri: string) => boolean;
+	beginSelection: (message: MessageView) => void;
+	toggleSelection: (message: MessageView) => void;
+	clearSelection: () => void;
 };
 
 const log = createLogger("channel");
 
 export const ChannelContext = createContext<ChannelContextValue>();
 
+const [primaryChannel, setPrimaryChannel] = createSignal<
+	ChannelContextValue | undefined
+>(undefined);
+
+export const usePrimaryChannelContext = (): Accessor<
+	ChannelContextValue | undefined
+> => primaryChannel;
+
 export const ChannelContextProvider: ParentComponent<{
 	channel: Accessor<ChannelView | undefined>;
+	surface?: "channel" | "thread" | "draft";
 }> = (props) => {
 	const user = useUserContext();
 	const socket = useSocketContext();
@@ -248,7 +267,13 @@ export const ChannelContextProvider: ParentComponent<{
 	const managingClient = () =>
 		clientForManagingApp(user.atproto.agent, community().community.managingApp);
 
-	const channelSpace = createMemo(() => props.channel()?.space ?? "");
+	const surface = () => props.surface ?? "channel";
+
+	const isPrimarySurface = () => surface() === "channel";
+
+	const channelSpace = createMemo(() =>
+		surface() === "draft" ? "" : (props.channel()?.space ?? ""),
+	);
 
 	const linkEmbedsEnabled = createMemo(
 		() =>
@@ -552,7 +577,7 @@ export const ChannelContextProvider: ParentComponent<{
 			});
 			flushSnapshot();
 			resetComposerTargets();
-			registerOpenChannel(space);
+			registerOpenChannel(space, surface());
 			if (!space) {
 				probe("channel went away, resetting", {
 					listBelongsTo: shortUri(messages()[0]?.channel),
@@ -570,7 +595,7 @@ export const ChannelContextProvider: ParentComponent<{
 	);
 	onCleanup(() => {
 		sessions.dispose();
-		registerOpenChannel(undefined);
+		registerOpenChannel(undefined, surface());
 	});
 
 	let scannedMessages: (MessageView | PendingMessage)[] | undefined;
@@ -1078,14 +1103,24 @@ export const ChannelContextProvider: ParentComponent<{
 	createEffect(() => {
 		const isConnected = socket.connected();
 		if (!isConnected) return;
+		if (!isPrimarySurface()) return;
 		socket.send(viewChannelFrame(channelSpace() || undefined));
 	});
+
+	createEffect(
+		on(channelSpace, (space) => {
+			if (isPrimarySurface() || !space) return;
+			const release = socket.subscribe({ channels: [space] });
+			onCleanup(release);
+		}),
+	);
 
 	createEffect(() => {
 		const space = channelSpace();
 		const did = communityDid();
 		const channel = props.channel();
 		if (!space || !did || !channel) return;
+		if (!isPrimarySurface()) return;
 		rememberLastViewedChannel(did, { space, type: channel.type });
 	});
 
@@ -1131,6 +1166,7 @@ export const ChannelContextProvider: ParentComponent<{
 
 		const placement = placeMessage(messages(), incoming, {
 			hasMore: hasMore(),
+			moved: incoming.channel !== event.channel,
 		});
 		if (placement.kind === "drop") return;
 
@@ -1341,6 +1377,42 @@ export const ChannelContextProvider: ParentComponent<{
 		typingTimers.clear();
 	});
 
+	const [selection, setSelection] = createSignal<MessageView[]>([]);
+
+	const selecting = createMemo(() => selection().length > 0);
+
+	const isSelected = (uri: string): boolean =>
+		selection().some((message) => message.uri === uri);
+
+	const beginSelection = (message: MessageView) => {
+		if (isSelected(message.uri)) return;
+		setSelection((current) => [...current, message]);
+	};
+
+	const toggleSelection = (message: MessageView) => {
+		setSelection((current) =>
+			current.some((entry) => entry.uri === message.uri)
+				? current.filter((entry) => entry.uri !== message.uri)
+				: [...current, message],
+		);
+	};
+
+	const clearSelection = () => setSelection([]);
+
+	let composerFocus: (() => void) | undefined;
+
+	const registerComposerFocus = (focus: (() => void) | undefined) => {
+		composerFocus = focus;
+	};
+
+	const focusComposer = () => {
+		const focus = composerFocus;
+		if (!focus) return;
+		setTimeout(focus, 0);
+	};
+
+	createEffect(on(channelSpace, () => setSelection([])));
+
 	const clearUnreadBoundary = () => setUnreadCursor(undefined);
 
 	const advanceReadCursor = (explicitRkey?: string) => {
@@ -1395,6 +1467,8 @@ export const ChannelContextProvider: ParentComponent<{
 		clearEmptyEditPendingDeletion,
 		focusedMessage,
 		jumpToMessage,
+		registerComposerFocus,
+		focusComposer,
 		sendMessage,
 		deleteMessage,
 		patchMessageRecord,
@@ -1417,7 +1491,20 @@ export const ChannelContextProvider: ParentComponent<{
 		initialUnseen,
 		advanceReadCursor,
 		clearUnreadBoundary,
+		selecting,
+		selection,
+		isSelected,
+		beginSelection,
+		toggleSelection,
+		clearSelection,
 	};
+
+	if (isPrimarySurface()) {
+		setPrimaryChannel(value);
+		onCleanup(() =>
+			setPrimaryChannel((current) => (current === value ? undefined : current)),
+		);
+	}
 
 	return (
 		<ChannelContext.Provider value={value}>

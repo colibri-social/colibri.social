@@ -6,7 +6,7 @@ import { DialogCloseButton } from "../../../ui/Dialog";
  * The dialog tip used in both the mobile and desktop deletion dialog.
  */
 export const DialogTip: Component = () => (
-	<p class="text-sm text-muted-foreground my-1">
+	<p class="text-sm text-muted-foreground my-0">
 		Tip: You can shift-click the button to skip this pop-up!
 	</p>
 );

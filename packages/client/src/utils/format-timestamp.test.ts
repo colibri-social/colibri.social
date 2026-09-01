@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { formatMessageTimestamp, formatTimestamp } from "./format-timestamp";
+import {
+	formatCompactAge,
+	formatMessageTimestamp,
+	formatTimestamp,
+} from "./format-timestamp";
 
 const NOW = new Date("2026-07-26T12:00:00.000Z");
 
@@ -133,5 +137,24 @@ describe("formatMessageTimestamp", () => {
 		expect(formatMessageTimestamp(iso, NOW)).toBe(
 			formatTimestamp(iso, "time-short", NOW),
 		);
+	});
+});
+
+describe("formatCompactAge", () => {
+	const now = new Date("2026-01-10T12:00:00.000Z");
+
+	it("says now for anything under a minute", () => {
+		expect(formatCompactAge("2026-01-10T11:59:30.000Z", now)).toBe("now");
+	});
+
+	it("counts whole minutes, hours, days and weeks", () => {
+		expect(formatCompactAge("2026-01-10T11:55:00.000Z", now)).toBe("5m");
+		expect(formatCompactAge("2026-01-10T09:00:00.000Z", now)).toBe("3h");
+		expect(formatCompactAge("2026-01-08T12:00:00.000Z", now)).toBe("2d");
+		expect(formatCompactAge("2025-12-20T12:00:00.000Z", now)).toBe("3w");
+	});
+
+	it("returns nothing for a datetime it cannot read", () => {
+		expect(formatCompactAge("not a date", now)).toBe("");
 	});
 });

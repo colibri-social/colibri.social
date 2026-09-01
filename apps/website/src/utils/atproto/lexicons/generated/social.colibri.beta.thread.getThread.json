@@ -1,0 +1,53 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.thread.getThread",
+	"defs": {
+		"main": {
+			"type": "query",
+			"description": "Gets one thread, with its anchor message resolved so a client can open it without having read the channel it belongs to.",
+			"parameters": {
+				"type": "params",
+				"required": [
+					"thread"
+				],
+				"properties": {
+					"thread": {
+						"type": "string",
+						"format": "space-ref",
+						"description": "The thread to get."
+					}
+				}
+			},
+			"output": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"thread"
+					],
+					"properties": {
+						"thread": {
+							"type": "ref",
+							"ref": "social.colibri.beta.thread.defs#threadView",
+							"description": "The requested thread."
+						}
+					}
+				}
+			},
+			"errors": [
+				{
+					"name": "AuthRequired",
+					"description": "The request has no valid service auth."
+				},
+				{
+					"name": "Forbidden",
+					"description": "The requesting user may not read this thread."
+				},
+				{
+					"name": "ThreadNotFound",
+					"description": "No thread matches the given space reference."
+				}
+			]
+		}
+	}
+}

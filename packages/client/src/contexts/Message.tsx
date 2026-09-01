@@ -351,22 +351,14 @@ export const MessageContextProvider: ParentComponent<{ data: MessageData }> = (
 		});
 		clearEditDraft(props.data.uri);
 		channel.clearEditingMessage();
-		setTimeout(() => {
-			document
-				.querySelector<HTMLElement>("#editor:not(.temp-editor) .ProseMirror")
-				?.focus();
-		}, 0);
+		channel.focusComposer();
 	};
 
 	const confirmDelete = async () => {
 		const target = confirmed();
 		if (!target || isLegacy()) return;
 		setDeletionModalOpen(false);
-		setTimeout(() => {
-			document
-				.querySelector<HTMLElement>("#editor:not(.temp-editor) .ProseMirror")
-				?.focus();
-		}, 0);
+		channel.focusComposer();
 		await channel.deleteMessage(target);
 	};
 

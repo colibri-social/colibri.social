@@ -37,6 +37,11 @@
 					"format": "space-ref",
 					"description": "The channel it happened in."
 				},
+				"thread": {
+					"type": "string",
+					"format": "space-ref",
+					"description": "The thread it happened in, when it happened in a thread rather than in the channel itself. `channel` stays the thread's parent channel, so a client can route to the thread inside it."
+				},
 				"community": {
 					"type": "string",
 					"format": "did",

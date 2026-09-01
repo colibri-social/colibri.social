@@ -345,7 +345,7 @@ export const MediaLightboxGallery: Component<{
 				fallback={
 					<div
 						ref={props.ref}
-						class={`group/image relative w-full ${maxHeightClass()} ${sizeClass()}`}
+						class={`group/image relative w-fit ${maxHeightClass()} ${sizeClass()}`}
 					>
 						<img
 							src={galleryThumbUrl(props.images[0])}

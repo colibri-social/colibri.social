@@ -8,10 +8,11 @@ import {
 import { type Accessor, batch, createEffect, createSignal } from "solid-js";
 import createMediaQuery from "./create-media-query";
 import { lastViewedChannelPath } from "./last-viewed-channel";
+import { channelPathOf, isThreadPath } from "./thread-presentation";
 
 const CHANNEL_PATH = /^\/app\/c\/[^/]+\/[^/]+\/[^/]+/;
 
-export type Pane = "nav" | "chat" | "members";
+export type Pane = "nav" | "chat" | "thread" | "members";
 
 export const MOBILE_QUERY = "(max-width: 767px)";
 
@@ -66,6 +67,17 @@ export const openChannel = (navigate: Navigator, path: string) => {
 	});
 };
 
+export const openThread = (navigate: Navigator, path: string) => {
+	if (!isMobileNow()) {
+		navigate(path);
+		return;
+	}
+	batch(() => {
+		setPendingPane("thread");
+		navigate(path, { state: { [PANE_HISTORY_KEY]: "thread" } });
+	});
+};
+
 export const createChannelHistoryNormalizer = () => {
 	const [searchParams] = useSearchParams();
 	const location = useLocation();
@@ -92,8 +104,14 @@ export const createChannelHistoryNormalizer = () => {
 	});
 };
 
-const paneIndex = (pane: Pane) =>
-	pane === "nav" ? -1 : pane === "chat" ? 0 : 1;
+const PANE_ORDER: Record<Pane, number> = {
+	nav: -1,
+	chat: 0,
+	thread: 1,
+	members: 2,
+};
+
+const paneIndex = (pane: Pane) => PANE_ORDER[pane];
 
 const RAIL_WIDTH = 56;
 const RUBBER_BAND = 0.15;
@@ -141,9 +159,12 @@ export const createMobilePane = () => {
 
 	const hasChannel = () => CHANNEL_PATH.test(location.pathname);
 
+	const hasThread = () => isThreadPath(location.pathname);
+
 	const paneFromUrl = (): Pane => {
 		if (searchParams.pane === "nav") return "nav";
 		if (searchParams.pane === "members" && hasChannel()) return "members";
+		if (hasThread()) return "thread";
 		return hasChannel() ? "chat" : "nav";
 	};
 
@@ -169,7 +190,7 @@ export const createMobilePane = () => {
 	const canPop = (from: Pane) => from !== "nav";
 
 	const canPush = (from: Pane) =>
-		from === "chat" ||
+		(from === "chat" && !hasThread()) ||
 		(from === "nav" &&
 			(hasChannel() || !!lastViewedChannelPath(location.pathname)));
 
@@ -222,10 +243,16 @@ export const createMobilePane = () => {
 	const popPane = () => {
 		const from = currentPane();
 		if (!canPop(from)) return;
-		if (from === "chat") dismissKeyboard();
+		if (from === "chat" || from === "thread") dismissKeyboard();
 		if (from === "members") {
 			if (paneMarker() === "members") return goBack("chat");
 			return setPane("chat", { replace: true });
+		}
+		if (from === "thread") {
+			if (paneMarker() === "thread") return goBack("chat");
+			return commit("chat", channelPathOf(location.pathname), {
+				replace: true,
+			});
 		}
 		if (paneMarker() === "chat") return goBack("nav");
 		setPane("nav", { replace: true });
@@ -307,6 +334,7 @@ export const createMobilePane = () => {
 		isMobile,
 		currentPane,
 		hasChannel,
+		hasThread,
 		pushPane,
 		popPane,
 		pushDeeper,

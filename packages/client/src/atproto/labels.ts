@@ -7,6 +7,8 @@ export const SPOILER = LABEL_VALUES.spoiler;
 
 export const EMBEDS_SUPPRESSED = LABEL_VALUES.embedsSuppressed;
 
+export const MOVED = LABEL_VALUES.moved;
+
 export type EmbedSuppression = {
 	all: boolean;
 	uris: Set<string>;

@@ -53,6 +53,9 @@ import {
 	MENTION_ROLES,
 	MODERATION_VIEW_LOG,
 	ROLE_MANAGE,
+	THREAD_CREATE,
+	THREAD_MANAGE,
+	THREAD_MOVE,
 	VOICE_MODERATE,
 } from "../atproto/permissions";
 import { frameIs } from "../atproto/sync-frames";
@@ -958,6 +961,10 @@ export const usePermissions = () => {
 
 	const canMentionRoles = (did: string) => hasPermission(did, MENTION_ROLES);
 
+	const canCreateThread = (did: string) => hasPermission(did, THREAD_CREATE);
+	const canManageThreads = (did: string) => hasPermission(did, THREAD_MANAGE);
+	const canMoveMessages = (did: string) => hasPermission(did, THREAD_MOVE);
+
 	return {
 		isAdmin,
 		canManage,
@@ -984,5 +991,8 @@ export const usePermissions = () => {
 		canDeleteInvitation,
 		canModerateVoice,
 		canMentionRoles,
+		canCreateThread,
+		canManageThreads,
+		canMoveMessages,
 	};
 };

@@ -268,10 +268,11 @@
 					"type": "union",
 					"refs": [
 						"#mutedActor",
-						"#mutedChannel"
+						"#mutedChannel",
+						"#mutedThread"
 					],
 					"closed": true,
-					"description": "What is muted. A user or a community is named by DID, a channel by its space."
+					"description": "What is muted. A user or a community is named by DID, a channel or a thread by its space."
 				},
 				"createdAt": {
 					"type": "string",
@@ -305,6 +306,20 @@
 					"type": "string",
 					"format": "space-ref",
 					"description": "The muted channel's space."
+				}
+			}
+		},
+		"mutedThread": {
+			"type": "object",
+			"description": "A muted thread. Muting a thread silences it without leaving the channel it sits beside.",
+			"required": [
+				"thread"
+			],
+			"properties": {
+				"thread": {
+					"type": "string",
+					"format": "space-ref",
+					"description": "The muted thread's space."
 				}
 			}
 		}

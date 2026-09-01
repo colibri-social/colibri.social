@@ -13,20 +13,27 @@ const log = createLogger("mutes");
 
 const MUTED_ACTOR_TYPE = "social.colibri.beta.actor.defs#mutedActor";
 const MUTED_CHANNEL_TYPE = "social.colibri.beta.actor.defs#mutedChannel";
+const MUTED_THREAD_TYPE = "social.colibri.beta.actor.defs#mutedThread";
 
 type WireMuteSubject = ActorMuteRecord["subject"];
 
+type ReadMuteSubject = Mute["subject"];
+
 export type MuteSubject =
 	| { kind: "actor"; did: string }
-	| { kind: "channel"; channel: string };
+	| { kind: "channel"; channel: string }
+	| { kind: "thread"; thread: string };
 
-export const encodeMuteSubject = (subject: MuteSubject): WireMuteSubject =>
-	subject.kind === "actor"
-		? { $type: MUTED_ACTOR_TYPE, did: asDid(subject.did) }
-		: { $type: MUTED_CHANNEL_TYPE, channel: asSpaceRef(subject.channel) };
+export const encodeMuteSubject = (subject: MuteSubject): WireMuteSubject => {
+	if (subject.kind === "actor")
+		return { $type: MUTED_ACTOR_TYPE, did: asDid(subject.did) };
+	if (subject.kind === "thread")
+		return { $type: MUTED_CHANNEL_TYPE, channel: asSpaceRef(subject.thread) };
+	return { $type: MUTED_CHANNEL_TYPE, channel: asSpaceRef(subject.channel) };
+};
 
 export const decodeMuteSubject = (
-	subject: WireMuteSubject,
+	subject: ReadMuteSubject,
 ): MuteSubject | undefined => {
 	if (subject.$type === MUTED_ACTOR_TYPE) {
 		return { kind: "actor", did: subject.did };
@@ -34,11 +41,17 @@ export const decodeMuteSubject = (
 	if (subject.$type === MUTED_CHANNEL_TYPE) {
 		return { kind: "channel", channel: subject.channel };
 	}
+	if (subject.$type === MUTED_THREAD_TYPE) {
+		return { kind: "thread", thread: subject.thread };
+	}
 	return undefined;
 };
 
-export const muteSubjectKey = (subject: MuteSubject): string =>
-	subject.kind === "actor" ? subject.did : subject.channel;
+export const muteSubjectKey = (subject: MuteSubject): string => {
+	if (subject.kind === "actor") return subject.did;
+	if (subject.kind === "thread") return subject.thread;
+	return subject.channel;
+};
 
 type MuteRecordState = {
 	rkey: string;

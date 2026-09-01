@@ -1,0 +1,96 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.thread.moveMessages",
+	"defs": {
+		"main": {
+			"type": "procedure",
+			"description": "Moves messages written by other people into another thread or channel. A message lives in its author's own repo and cannot be rewritten by a moderator, so the move is a `moved` label written into the source space for each message. Every label in one call shares a batch key, and the destination serves the moved messages ordered by that batch key and then by the messages' own record keys, which is what keeps a selection in the order it was in. The AppView withholds a moved message from the space it came from. A user moving only their own messages rewrites the records instead and does not call this method.",
+			"input": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"source",
+						"destination",
+						"subjects"
+					],
+					"properties": {
+						"source": {
+							"type": "string",
+							"format": "space-ref",
+							"description": "The space the messages are in now, either a channel or a thread."
+						},
+						"destination": {
+							"type": "string",
+							"format": "space-ref",
+							"description": "The space to move them to, either a channel or a thread in the same community."
+						},
+						"subjects": {
+							"type": "array",
+							"items": {
+								"type": "ref",
+								"ref": "social.colibri.beta.label#subject",
+								"description": "A message to move."
+							},
+							"description": "The messages to move, at most fifty in one call.",
+							"minLength": 1,
+							"maxLength": 50
+						},
+						"reason": {
+							"type": "string",
+							"maxLength": 512,
+							"description": "Human-readable reason, recorded on every label in the batch."
+						}
+					}
+				}
+			},
+			"output": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"batch",
+						"count"
+					],
+					"properties": {
+						"batch": {
+							"type": "string",
+							"format": "tid",
+							"description": "The batch key shared by every label this call wrote, which is what orders the moved messages in the destination."
+						},
+						"count": {
+							"type": "integer",
+							"description": "How many messages were moved."
+						}
+					}
+				}
+			},
+			"errors": [
+				{
+					"name": "AuthRequired",
+					"description": "The request has no valid service auth."
+				},
+				{
+					"name": "Forbidden",
+					"description": "The requesting user lacks the thread.move permission, or may not read the source or post in the destination."
+				},
+				{
+					"name": "SpaceNotFound",
+					"description": "No space exists at the source or destination reference."
+				},
+				{
+					"name": "MessageNotFound",
+					"description": "One of the subjects is not a message in the source space."
+				},
+				{
+					"name": "InvalidRequest",
+					"description": "The destination is the source, belongs to another community, or a subject is not a message."
+				},
+				{
+					"name": "CredentialsUnavailable",
+					"description": "The AppView cannot act as the community because its stored credentials are missing or unusable."
+				}
+			]
+		}
+	}
+}

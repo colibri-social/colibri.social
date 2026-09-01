@@ -19,6 +19,9 @@ export const INVITATION_CREATE = "invitation.create";
 export const INVITATION_DELETE = "invitation.delete";
 export const VOICE_MODERATE = "voice.moderate";
 export const MENTION_ROLES = "mention.roles";
+export const THREAD_CREATE = "thread.create";
+export const THREAD_MANAGE = "thread.manage";
+export const THREAD_MOVE = "thread.move";
 
 export type PermissionDescriptor = {
 	key: string;
@@ -144,6 +147,24 @@ export const PERMISSIONS: Record<string, Array<PermissionDescriptor>> = {
 			key: MENTION_ROLES,
 			name: "Mention All Roles",
 			description: "Ping roles that aren't marked as mentionable.",
+		},
+	],
+	Threads: [
+		{
+			key: THREAD_CREATE,
+			name: "Create Threads",
+			description: "Open threads beside a channel",
+		},
+		{
+			key: THREAD_MANAGE,
+			name: "Manage Threads",
+			description: "Rename, move and delete threads opened by anyone",
+		},
+		{
+			key: THREAD_MOVE,
+			name: "Move Messages",
+			description:
+				"Move other people's messages into another thread or channel",
 		},
 	],
 };

@@ -15,6 +15,7 @@ import {
 	unmuteSubject as unmuteSubjectRecord,
 } from "../atproto/mutes";
 import { getPreferences } from "../atproto/notificationPreference";
+import { isThreadSpace } from "../atproto/space-ref";
 import { frameIs } from "../atproto/sync-frames";
 import type { Mute } from "../atproto/views";
 import { createLogger } from "../utils/logger";
@@ -58,6 +59,11 @@ export const MutesContextProvider: ParentComponent = (props) => {
 		});
 
 	const isMuted = (did: string): boolean => !!mutedSubjects()[did];
+	const spaceSubject = (space: string): MuteSubject =>
+		isThreadSpace(space)
+			? { kind: "thread", thread: space }
+			: { kind: "channel", channel: space };
+
 	const isChannelMuted = (space: string): boolean => !!mutedSubjects()[space];
 
 	const applyMutes = (mutes: Array<Mute>) => {
@@ -113,17 +119,9 @@ export const MutesContextProvider: ParentComponent = (props) => {
 	const unmuteCommunity = (did: string) =>
 		toggle({ kind: "actor", did }, false, "Failed to unmute community.");
 	const muteChannel = (space: string) =>
-		toggle(
-			{ kind: "channel", channel: space },
-			true,
-			"Failed to mute channel.",
-		);
+		toggle(spaceSubject(space), true, "Failed to mute channel.");
 	const unmuteChannel = (space: string) =>
-		toggle(
-			{ kind: "channel", channel: space },
-			false,
-			"Failed to unmute channel.",
-		);
+		toggle(spaceSubject(space), false, "Failed to unmute channel.");
 
 	onMount(() => {
 		void (async () => {

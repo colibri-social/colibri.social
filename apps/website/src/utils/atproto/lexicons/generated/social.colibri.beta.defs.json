@@ -21,6 +21,37 @@
 					"description": "Record key of the referenced record."
 				}
 			}
+		},
+		"spaceRecordRef": {
+			"type": "object",
+			"description": "A reference to a record in a named space, for pointing at something outside the space the pointer lives in.",
+			"required": [
+				"space",
+				"did",
+				"rkey"
+			],
+			"properties": {
+				"space": {
+					"type": "string",
+					"format": "space-ref",
+					"description": "The space holding the referenced record."
+				},
+				"did": {
+					"type": "string",
+					"format": "did",
+					"description": "DID of the repo holding the referenced record."
+				},
+				"rkey": {
+					"type": "string",
+					"format": "record-key",
+					"description": "Record key of the referenced record."
+				},
+				"cid": {
+					"type": "string",
+					"format": "cid",
+					"description": "The referenced record's CID as it stood when the reference was made."
+				}
+			}
 		}
 	}
 }

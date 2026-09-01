@@ -1,0 +1,59 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.thread.delete",
+	"defs": {
+		"main": {
+			"type": "procedure",
+			"description": "Deletes a thread's space. Messages members wrote in it stay in their own repos and become unreadable to everyone but their authors, the same way deleting a channel works. Messages that were moved into the thread go with it.",
+			"input": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"thread"
+					],
+					"properties": {
+						"thread": {
+							"type": "string",
+							"format": "space-ref",
+							"description": "The thread to delete."
+						}
+					}
+				}
+			},
+			"output": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"properties": {}
+				}
+			},
+			"errors": [
+				{
+					"name": "AuthRequired",
+					"description": "The request has no valid service auth."
+				},
+				{
+					"name": "Forbidden",
+					"description": "The requesting user lacks the thread.manage permission."
+				},
+				{
+					"name": "ThreadNotFound",
+					"description": "No thread matches the given space reference."
+				},
+				{
+					"name": "CredentialsUnavailable",
+					"description": "The AppView cannot act as the community because its stored credentials are missing or unusable."
+				},
+				{
+					"name": "PdsUnavailable",
+					"description": "The community's PDS is unreachable or the AppView has no administrative access to it."
+				},
+				{
+					"name": "UpstreamFailure",
+					"description": "The community's PDS failed while deleting the thread's space."
+				}
+			]
+		}
+	}
+}

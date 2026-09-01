@@ -8,13 +8,17 @@ import {
 	type JSX,
 	Match,
 	on,
+	onCleanup,
+	onMount,
 	Show,
 	Switch,
 } from "solid-js";
 import { toast } from "somoto";
+import ArrowsMergeIcon from "~icons/ph/arrows-merge";
 import CircleIcon from "~icons/ph/circle";
 import FileIcon from "~icons/ph/file";
 import PaperPlaneRightIcon from "~icons/ph/paper-plane-right-fill";
+import PaperclipIcon from "~icons/ph/paperclip";
 import PlusIcon from "~icons/ph/plus";
 import XIcon from "~icons/ph/x";
 import { enqueueMessageSend } from "../../../atproto/outbox/sends";
@@ -30,6 +34,13 @@ import {
 import { linkUrisFromFacets } from "../../../utils/link-facets";
 import { useIsMobile } from "../../../utils/mobile-pane";
 import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuPortal,
+	DropdownMenuTrigger,
+} from "../../ui/DropdownMenu";
+import {
 	FileFieldItem,
 	FileFieldItemDeleteTrigger,
 	FileFieldItemList,
@@ -44,15 +55,28 @@ import { trimWithFacets } from "../common/rich-text-renderer/util";
 import { TextEditor } from "../common/text-editor/TextEditor";
 import { DisplayableName, displayableNameFn } from "../user/DisplayableName";
 
+const PLUS_CLASSES =
+	"w-10 h-10 min-w-10 bg-muted text-muted-foreground hover:text-primary-foreground flex items-center justify-center rounded-lg cursor-pointer disabled:pointer-events-none disabled:opacity-50";
+
 /**
  * The message input used to send messages to the currently viewed channel.
  */
+export type ComposerSubmission = {
+	text: string;
+	facets: Array<ColibriRichTextFacet>;
+	files: Array<File>;
+	suppressedEmbeds: Array<string>;
+};
+
 export const MessageInput: Component<{
 	disabled: boolean;
 	disabledReason?: string;
 	disabledAction?: JSX.Element;
 	channelName: string;
 	maxAttachments: number;
+	placeholder?: string;
+	onSend?: (submission: ComposerSubmission) => Promise<boolean>;
+	onStartThread?: () => void;
 }> = (props) => {
 	const fileField = useFileFieldContext();
 
@@ -179,6 +203,21 @@ export const MessageInput: Component<{
 			? []
 			: linkUrisFromFacets(cleanFacets).filter(isRemovableEmbed);
 
+		const send = props.onSend;
+		if (send) {
+			const sent = await send({
+				text: cleanText,
+				facets: cleanFacets,
+				files: acceptedFiles,
+				suppressedEmbeds,
+			});
+			if (!sent) return false;
+			clearAttachments(acceptedFiles);
+			lastTypingPing = 0;
+			setEmbedsEnabled(userPreferences.preferences().linkEmbedsByDefault);
+			return true;
+		}
+
 		if (hasFiles) {
 			const queued = await enqueueMessageSend({
 				space: targetChannelSpace,
@@ -233,6 +272,17 @@ export const MessageInput: Component<{
 			? channel.submitMessageEdit(text, facets)
 			: sendMessage(text, facets);
 
+	let root: HTMLDivElement | undefined;
+
+	const focusEditor = () => {
+		root
+			?.querySelector<HTMLParagraphElement>("#editor .ProseMirror")
+			?.focus({ preventScroll: true });
+	};
+
+	onMount(() => channel.registerComposerFocus(focusEditor));
+	onCleanup(() => channel.registerComposerFocus(undefined));
+
 	createEffect(() => {
 		const target = channel.replyingTo();
 		// Tracking
@@ -240,17 +290,11 @@ export const MessageInput: Component<{
 
 		if (!target) return;
 
-		const richTextMessageInput = document.querySelector<HTMLParagraphElement>(
-			"#editor .ProseMirror",
-		);
-
-		if (richTextMessageInput) {
-			setTimeout(() => richTextMessageInput.focus({ preventScroll: true }), 0);
-		}
+		setTimeout(focusEditor, 0);
 	});
 
 	return (
-		<div class="w-full flex h-fit flex-col gap-0 relative shrink-0">
+		<div ref={root} class="w-full flex h-fit flex-col gap-0 relative shrink-0">
 			<Show when={isMobile()}>
 				<div class="w-full h-0.5 bg-muted/40 overflow-hidden shrink-0">
 					<div
@@ -395,14 +439,46 @@ export const MessageInput: Component<{
 			>
 				<Switch>
 					<Match when={!props.disabled}>
-						<FileFieldTrigger class="w-10 h-10 min-w-10 bg-muted text-muted-foreground hover:text-primary-foreground flex items-center justify-center rounded-lg cursor-pointer disabled:pointer-events-none disabled:opacity-50">
-							<PlusIcon />
-						</FileFieldTrigger>
+						<Show
+							when={props.onStartThread}
+							fallback={
+								<FileFieldTrigger class={PLUS_CLASSES}>
+									<PlusIcon />
+								</FileFieldTrigger>
+							}
+						>
+							{(startThread) => (
+								<DropdownMenu placement="top-start">
+									<DropdownMenuTrigger
+										class={PLUS_CLASSES}
+										aria-label="More actions"
+									>
+										<PlusIcon />
+									</DropdownMenuTrigger>
+									<DropdownMenuPortal>
+										<DropdownMenuContent class="w-52">
+											<DropdownMenuItem
+												onSelect={() => fileField.fileInputRef()?.click()}
+											>
+												<PaperclipIcon />
+												<span>Attach files</span>
+											</DropdownMenuItem>
+											<DropdownMenuItem onSelect={() => startThread()()}>
+												<ArrowsMergeIcon class="rotate-180" />
+												<span>Start a thread</span>
+											</DropdownMenuItem>
+										</DropdownMenuContent>
+									</DropdownMenuPortal>
+								</DropdownMenu>
+							)}
+						</Show>
 						<div ref={inputEl} class="flex-1 min-w-0">
 							<div class="w-full">
 								<TextEditor
 									mainEditor
-									placeholder={`Message ${props.channelName}`}
+									placeholder={
+										props.placeholder ?? `Message ${props.channelName}`
+									}
 									sendMessage={handleSubmit}
 									onChange={handleTypingChange}
 									onImagePaste={(files) => fileField.processFiles(files)}

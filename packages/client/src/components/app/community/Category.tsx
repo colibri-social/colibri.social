@@ -36,15 +36,20 @@ import type {
 } from "../../../contexts/community-payload";
 import { useMutes } from "../../../contexts/Mutes";
 import { useNotifications } from "../../../contexts/Notifications";
+import { useThreads } from "../../../contexts/Threads";
+import { sidebarThreads } from "../../../contexts/thread-list";
 import { useUserContext } from "../../../contexts/User";
 import {
 	ConnectionState,
 	useVoiceChatContext,
 } from "../../../contexts/VoiceChat";
+import { showChannelTab } from "../../../utils/channel-tab";
 import { openChannel, useIsMobile } from "../../../utils/mobile-pane";
+import { useNow } from "../../../utils/now";
 import { Ear } from "../../icons/Ear";
 import { Microphone } from "../../icons/Microphone";
 import { Button } from "../../ui/Button";
+import { SidebarThreadRow } from "../channel/thread/SidebarThreadRow";
 import User from "../user";
 import { CategoryContextMenu } from "./CategoryContextMenu";
 import { ChannelContextMenu } from "./ChannelContextMenu";
@@ -54,6 +59,8 @@ export type ChannelDropTarget = {
 	categoryRkey: string;
 	insertBeforeSpace: string | null;
 };
+
+const SIDEBAR_THREAD_LIMIT = 5;
 
 const collapseKey = (rkey: string) => `colibri:category-collapsed:${rkey}`;
 
@@ -130,6 +137,8 @@ const SortableChannel: Component<{
 	});
 
 	const community = useCommunityContext();
+	const threads = useThreads();
+	const now = useNow();
 	const [voiceData, { connect }] = useVoiceChatContext();
 
 	const ChannelSpace = () => props.channel.space;
@@ -154,6 +163,7 @@ const SortableChannel: Component<{
 			e.preventDefault();
 			return;
 		}
+		showChannelTab(ChannelSpace(), "chat");
 		if (isVoiceChannel() && !isConnectedHere()) {
 			e.preventDefault();
 			connect(ChannelSpace(), {
@@ -170,6 +180,14 @@ const SortableChannel: Component<{
 	};
 
 	const channelHref = () => buildChannelPath(props.channel.space) ?? "#";
+
+	const liveThreads = () =>
+		sidebarThreads(
+			threads.threads(),
+			props.channel.space,
+			now(),
+			SIDEBAR_THREAD_LIMIT,
+		);
 
 	return (
 		<div
@@ -283,6 +301,18 @@ const SortableChannel: Component<{
 						</div>
 					</A>
 				</ChannelContextMenu>
+				<Show when={liveThreads().length > 0}>
+					<div class="flex flex-col gap-0.5 pl-6">
+						<For each={liveThreads()}>
+							{(thread) => (
+								<SidebarThreadRow
+									thread={thread}
+									active={params.thread === spaceSkey(thread.space)}
+								/>
+							)}
+						</For>
+					</div>
+				</Show>
 				<Show when={isVoiceChannel() && liveVoiceChannelMembers().length > 0}>
 					<div class="pl-6 text-muted-foreground flex flex-col gap-0.5 select-none text-xs">
 						<For each={liveVoiceChannelMembers()}>

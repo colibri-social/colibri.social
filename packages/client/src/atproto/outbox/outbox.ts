@@ -263,6 +263,22 @@ const surfaceTerminal = (entry: OutboxEntry) => {
 	showError(failure, { fallbackTitle: entry.label, report: false });
 };
 
+const dropGroup = async (failed: OutboxEntry): Promise<void> => {
+	const group = failed.group;
+	if (!group) return;
+	const doomed = queue.filter(
+		(entry) => entry !== failed && entry.group === group,
+	);
+	if (doomed.length === 0) return;
+
+	queue = queue.filter((entry) => !doomed.includes(entry));
+	for (const entry of doomed) await outboxDelete(entry.seq);
+	log.warn("dropped queued writes that depended on one that failed", {
+		count: doomed.length,
+	});
+	sync();
+};
+
 const persist = async (record: OutboxRecord): Promise<OutboxEntry> => {
 	const seq = await outboxAppend(record);
 	const entry: OutboxEntry = { ...record, seq };
@@ -310,6 +326,7 @@ export const flush = async (): Promise<void> => {
 			if (outcome === "terminal" || entry.attempts >= MAX_ATTEMPTS) {
 				if (heldForSignIn()) break;
 				surfaceTerminal(entry);
+				await dropGroup(entry);
 			} else if (outcome === "success") {
 				const k = entry.kind;
 				if (k.t === "create" || k.t === "put") {
@@ -437,13 +454,14 @@ export const enqueueSpaceCreate = async (
 	repo: string,
 	collection: string,
 	record: Record<string, unknown>,
-	opts?: { rkey?: string; label?: string },
+	opts?: { rkey?: string; label?: string; group?: string },
 ): Promise<{ uri: string; rkey: string }> => {
 	const rkey = opts?.rkey ?? nextTid();
 	await persist({
 		owner: activeOwner(),
 		kind: { t: "spaceCreate", space, repo, collection, rkey, record },
 		label: opts?.label,
+		group: opts?.group,
 		createdAt: Date.now(),
 		attempts: 0,
 	});
@@ -490,7 +508,7 @@ export const enqueueSpaceDelete = async (
 	repo: string,
 	collection: string,
 	rkey: string,
-	opts?: { label?: string },
+	opts?: { label?: string; group?: string },
 ): Promise<void> => {
 	const pendingCreate = queue.findIndex(
 		(e) =>
@@ -509,6 +527,7 @@ export const enqueueSpaceDelete = async (
 		owner: activeOwner(),
 		kind: { t: "spaceDelete", space, repo, collection, rkey },
 		label: opts?.label,
+		group: opts?.group,
 		createdAt: Date.now(),
 		attempts: 0,
 	});

@@ -93,6 +93,20 @@
 				},
 				{
 					"type": "permission",
+					"resource": "space",
+					"spaceType": "social.colibri.beta.channel.thread",
+					"authority": "*",
+					"action": [
+						"read"
+					],
+					"manage": [
+						"create",
+						"update",
+						"delete"
+					]
+				},
+				{
+					"type": "permission",
 					"resource": "rpc",
 					"inheritAud": true,
 					"lxm": [
@@ -131,7 +145,10 @@
 						"social.colibri.beta.role.create",
 						"social.colibri.beta.role.update",
 						"social.colibri.beta.role.delete",
-						"social.colibri.beta.voice.moderate"
+						"social.colibri.beta.voice.moderate",
+						"social.colibri.beta.thread.delete",
+						"social.colibri.beta.thread.repoint",
+						"social.colibri.beta.thread.moveMessages"
 					]
 				},
 				{

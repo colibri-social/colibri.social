@@ -4,6 +4,9 @@ export const namespace = (appViewDid: string, did: string): string =>
 export const communityKey = (ns: string, communityDid: string): string =>
 	`${ns}:${communityDid}`;
 
+export const threadsKey = (ns: string, communityDid: string): string =>
+	`${ns}:${communityDid}`;
+
 export const messagesKey = (ns: string, channelSpace: string): string =>
 	`${ns}:${channelSpace}`;
 

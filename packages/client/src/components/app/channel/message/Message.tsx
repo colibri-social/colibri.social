@@ -12,6 +12,8 @@ import {
 	Switch,
 } from "solid-js";
 import ArrowBendUpLeft from "~icons/ph/arrow-bend-up-left";
+import ArrowsMergeIcon from "~icons/ph/arrows-merge";
+import ListChecksIcon from "~icons/ph/list-checks";
 import PencilIcon from "~icons/ph/pencil";
 import ProhibitIcon from "~icons/ph/prohibit";
 import SmileyIcon from "~icons/ph/smiley";
@@ -42,6 +44,7 @@ import { parseEmojiText, twemojiImageSrc } from "../../../../utils/emoji";
 import { topEmoji } from "../../../../utils/emoji-usage";
 import { resolveLinkTarget } from "../../../../utils/link-target";
 import { useIsMobile } from "../../../../utils/mobile-pane";
+import { useShiftHeld } from "../../../../utils/shift-held";
 import { useIsTouch } from "../../../../utils/touch";
 import { SectionBoundary } from "../../../SectionBoundary";
 import {
@@ -55,6 +58,8 @@ import { EmojiPopover } from "../../common/EmojiPopover";
 import { RichTextRenderer } from "../../common/rich-text-renderer/RichTextRenderer";
 import { MemberContextMenu } from "../../community/MemberContextMenu";
 import User from "../../user";
+import { MovedFromLine } from "../thread/MovedFromLine";
+import { useMessageThreadActions } from "../thread/message-thread-actions";
 import { MessageAttachments } from "./Attachments";
 import { BlockDrawer } from "./BlockDrawer";
 import { Action } from "./ContextMenu";
@@ -87,6 +92,7 @@ export const Message: Component<{
 	hasSubsequent: boolean;
 	isLast: boolean;
 	disabled?: boolean;
+	anchor?: boolean;
 }> = (props) => {
 	return (
 		<MessageContextProvider data={props.data}>
@@ -95,6 +101,7 @@ export const Message: Component<{
 				hasSubsequent={props.hasSubsequent}
 				isLast={props.isLast}
 				disabled={props.disabled}
+				anchor={props.anchor}
 			/>
 		</MessageContextProvider>
 	);
@@ -105,6 +112,7 @@ const MessageInner: Component<{
 	hasSubsequent: boolean;
 	isLast: boolean;
 	disabled?: boolean;
+	anchor?: boolean;
 }> = (props) => {
 	const user = useUserContext();
 	const channel = useChannelContext();
@@ -113,6 +121,8 @@ const MessageInner: Component<{
 	const isMobile = useIsMobile();
 	const isTouch = useIsTouch();
 	const { preferences, emojiUsage } = useUserPreferences();
+	const threadActions = useMessageThreadActions();
+	const shiftHeld = useShiftHeld();
 	const quickReactions = createMemo(() => topEmoji(emojiUsage(), 3));
 
 	const {
@@ -256,11 +266,34 @@ const MessageInner: Component<{
 		return "pb-0";
 	};
 
+	const settled = () => ("hash" in message ? undefined : message);
+
+	const movedOrigin = (): string | undefined => {
+		const target = settled();
+		if (!target) return undefined;
+		const here = channel.channelSpace();
+		return here && target.channel !== here ? target.channel : undefined;
+	};
+
+	const canOpenThread = () => {
+		if (props.anchor) return false;
+		const target = settled();
+		return target !== undefined && threadActions.canOpenThread(target);
+	};
+
+	const canSelect = () => {
+		if (props.anchor) return false;
+		const target = settled();
+		return target !== undefined && threadActions.canSelect(target);
+	};
+
+	const canEdit = () => !props.anchor && messageEditable();
+
 	const handleDoubleTap = () => {
 		const controls = preferences().controls;
 		if (controls.doubleTapAction === "react") {
 			addReactionOptimistic(controls.doubleTapReactionEmoji);
-		} else if (messageEditable()) {
+		} else if (canEdit()) {
 			enableEditMode();
 		} else {
 			enableReplyMode();
@@ -269,6 +302,7 @@ const MessageInner: Component<{
 
 	return (
 		<MessageContextMenu
+			anchor={props.anchor}
 			classList={{
 				"mt-2": !isSubsequentMessage(),
 			}}
@@ -426,6 +460,11 @@ const MessageInner: Component<{
 					</Show>
 					<Show when={isHiddenByModerator() && revealed()}>
 						<HiddenMessageNotice />
+					</Show>
+					<Show when={movedOrigin()}>
+						{(origin) => (
+							<MovedFromLine origin={origin()} createdAt={message.createdAt} />
+						)}
 					</Show>
 					<div class="flex flex-row gap-4">
 						<Switch>
@@ -618,6 +657,28 @@ const MessageInner: Component<{
 										<ArrowBendUpLeft />
 									</Action>
 								</Show>
+								<Show when={canOpenThread() && shiftHeld()}>
+									<Action
+										tooltipText="Open thread"
+										onClick={() => {
+											const target = settled();
+											if (target) threadActions.openThreadFrom(target);
+										}}
+									>
+										<ArrowsMergeIcon class="rotate-180" />
+									</Action>
+								</Show>
+								<Show when={canSelect() && shiftHeld()}>
+									<Action
+										tooltipText="Select"
+										onClick={() => {
+											const target = settled();
+											if (target) threadActions.select(target);
+										}}
+									>
+										<ListChecksIcon />
+									</Action>
+								</Show>
 								<Show
 									when={
 										canApplyLabel(user.did) &&
@@ -635,10 +696,12 @@ const MessageInner: Component<{
 										<ProhibitIcon />
 									</Action>
 								</Show>
-								<Show when={messageEditable()}>
+								<Show when={canEdit()}>
 									<Action tooltipText="Edit" onClick={enableEditMode}>
 										<PencilIcon />
 									</Action>
+								</Show>
+								<Show when={canEdit() && shiftHeld()}>
 									<Action
 										tooltipText="Delete"
 										buttonClasses="text-destructive"

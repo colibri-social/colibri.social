@@ -14,6 +14,7 @@ import { MessageTimestamp } from "./MessageTimestamp";
  */
 export const MessagePreview: Component<{
 	data: MessageView | PendingMessage;
+	textClass?: string;
 }> = (props) => {
 	const text = (): TextWithFacets => ({
 		text: props.data.text,
@@ -32,7 +33,7 @@ export const MessagePreview: Component<{
 						<MessageTimestamp datetime={props.data.createdAt} />
 					</small>
 				</div>
-				<RichTextRenderer text={text} />
+				<RichTextRenderer text={text} class={props.textClass} />
 			</div>
 		</div>
 	);

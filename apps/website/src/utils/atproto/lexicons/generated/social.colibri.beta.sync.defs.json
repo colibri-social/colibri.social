@@ -4,7 +4,7 @@
 	"defs": {
 		"subscribe": {
 			"type": "object",
-			"description": "Adds communities and channels to what this connection receives. Subscription is explicit: a connection is sent nothing it did not ask for.",
+			"description": "Adds communities, channels and threads to what this connection receives. Subscription is explicit: a connection is sent nothing it did not ask for.",
 			"required": [],
 			"properties": {
 				"communities": {
@@ -21,15 +21,15 @@
 					"items": {
 						"type": "string",
 						"format": "space-ref",
-						"description": "A channel."
+						"description": "A channel or a thread."
 					},
-					"description": "Channels to start receiving messages for."
+					"description": "Channels and threads to start receiving messages for."
 				}
 			}
 		},
 		"unsubscribe": {
 			"type": "object",
-			"description": "Removes communities and channels from what this connection receives.",
+			"description": "Removes communities, channels and threads from what this connection receives.",
 			"required": [],
 			"properties": {
 				"communities": {
@@ -46,9 +46,9 @@
 					"items": {
 						"type": "string",
 						"format": "space-ref",
-						"description": "A channel."
+						"description": "A channel or a thread."
 					},
-					"description": "Channels to stop receiving messages for."
+					"description": "Channels and threads to stop receiving messages for."
 				}
 			}
 		},
@@ -198,9 +198,9 @@
 					"items": {
 						"type": "string",
 						"format": "space-ref",
-						"description": "A channel."
+						"description": "A channel or a thread."
 					},
-					"description": "Channels being received."
+					"description": "Channels and threads being received."
 				}
 			}
 		},
@@ -309,6 +309,51 @@
 					"type": "string",
 					"format": "space-ref",
 					"description": "Which channel, for deletes."
+				}
+			}
+		},
+		"threadEvent": {
+			"type": "object",
+			"description": "A thread was opened, changed, deleted, or written to. This rides the community's topic rather than a topic per thread, so a client keeps every thread's activity age and unread dot live without subscribing to each one.",
+			"required": [
+				"event",
+				"community"
+			],
+			"properties": {
+				"event": {
+					"type": "string",
+					"description": "What happened. `activity` means someone posted, which moves the thread's last activity and nothing else.",
+					"knownValues": [
+						"create",
+						"update",
+						"delete",
+						"activity"
+					]
+				},
+				"community": {
+					"type": "string",
+					"format": "did",
+					"description": "The community it belongs to."
+				},
+				"channel": {
+					"type": "string",
+					"format": "space-ref",
+					"description": "The channel the thread belongs to."
+				},
+				"thread": {
+					"type": "ref",
+					"ref": "social.colibri.beta.thread.defs#threadView",
+					"description": "The thread. Absent on delete and on activity."
+				},
+				"space": {
+					"type": "string",
+					"format": "space-ref",
+					"description": "Which thread, for deletes and for activity."
+				},
+				"lastActivityAt": {
+					"type": "string",
+					"format": "datetime",
+					"description": "The thread's new last activity, on activity events."
 				}
 			}
 		},

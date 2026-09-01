@@ -4,15 +4,18 @@ import {
 	channelSpaceRef,
 	channelSpaceType,
 	isChannelSpace,
+	isThreadSpace,
 	parseSpace,
 	spaceAuthority,
 	spaceSkey,
+	threadSpaceRef,
 } from "./space-ref";
 
 const DID = "did:plc:abc123";
 const TEXT = `at://${DID}/space/social.colibri.beta.channel.text/general`;
 const VOICE = `at://${DID}/space/social.colibri.beta.channel.voice/lounge`;
 const MEMBERS = `at://${DID}/space/social.colibri.beta.community.members/self`;
+const THREAD = `at://${DID}/space/social.colibri.beta.channel.thread/3lthread`;
 
 describe("parseSpace", () => {
 	it("splits a space ref into its three parts", () => {
@@ -113,5 +116,34 @@ describe("channelSpaceCandidates", () => {
 			TEXT,
 			`at://${DID}/space/social.colibri.beta.channel.voice/general`,
 		]);
+	});
+});
+
+describe("isThreadSpace", () => {
+	it("recognises a thread space", () => {
+		expect(isThreadSpace(THREAD)).toBe(true);
+	});
+
+	it("does not treat a channel or a community space as a thread", () => {
+		expect(isThreadSpace(TEXT)).toBe(false);
+		expect(isThreadSpace(VOICE)).toBe(false);
+		expect(isThreadSpace(MEMBERS)).toBe(false);
+	});
+});
+
+describe("isChannelSpace", () => {
+	it("keeps a thread out, so nothing channel-shaped picks one up", () => {
+		expect(isChannelSpace(THREAD)).toBe(false);
+	});
+});
+
+describe("threadSpaceRef", () => {
+	it("builds a thread space from a community and a key", () => {
+		expect(threadSpaceRef(DID, "3lthread")).toBe(THREAD);
+	});
+
+	it("returns nothing without both parts", () => {
+		expect(threadSpaceRef("", "3lthread")).toBeUndefined();
+		expect(threadSpaceRef(DID, "")).toBeUndefined();
 	});
 });

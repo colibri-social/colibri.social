@@ -14,6 +14,7 @@ export type {
 } from "@colibri-social/lexicons";
 export {
 	asAtUri,
+	asCid,
 	asDatetime,
 	asDid,
 	asDidOrUndefined,
@@ -32,6 +33,7 @@ export {
 	communitySpaces,
 	isChannelSpaceType,
 	isPermission,
+	isThreadSpaceType,
 	LABEL_VALUES,
 	MalformedValueError,
 	PERMISSIONS,
@@ -39,4 +41,5 @@ export {
 	SELF,
 	SPACE_TYPES,
 	spaceUri,
+	threadSpace,
 } from "@colibri-social/lexicons";

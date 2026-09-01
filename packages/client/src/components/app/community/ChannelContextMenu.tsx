@@ -1,14 +1,20 @@
+import { useNavigate } from "@solidjs/router";
 import { createSignal, type ParentComponent, Show } from "solid-js";
 import { toast } from "somoto";
+import ArrowsMergeIcon from "~icons/ph/arrows-merge";
 import BellIcon from "~icons/ph/bell";
 import BellSlashIcon from "~icons/ph/bell-slash";
 import CheckIcon from "~icons/ph/check";
 import GearIcon from "~icons/ph/gear";
 import LinkSimpleIcon from "~icons/ph/link-simple";
+import ListDashesIcon from "~icons/ph/list-dashes";
 import PhoneCallIcon from "~icons/ph/phone-call";
 import PhoneSlashIcon from "~icons/ph/phone-slash";
 import TrashIcon from "~icons/ph/trash";
-import { buildColibriChannelUrl } from "../../../atproto/colibri-channel-url";
+import {
+	buildChannelPath,
+	buildColibriChannelUrl,
+} from "../../../atproto/colibri-channel-url";
 import { colibri, SPACE_TYPES } from "../../../atproto/lexicons";
 import { clientForManagingApp } from "../../../atproto/xrpc";
 import {
@@ -18,6 +24,7 @@ import {
 import type { Channel } from "../../../contexts/community-payload";
 import { useMutes } from "../../../contexts/Mutes";
 import { useNotifications } from "../../../contexts/Notifications";
+import { useThreads } from "../../../contexts/Threads";
 import { useUserContext } from "../../../contexts/User";
 import {
 	ConnectionState,
@@ -25,8 +32,10 @@ import {
 } from "../../../contexts/VoiceChat";
 import { classifyThrown } from "../../../errors/classify";
 import { showError } from "../../../errors/show-error";
+import { showChannelTab } from "../../../utils/channel-tab";
 import { createLongPress } from "../../../utils/create-long-press";
 import { createLogger } from "../../../utils/logger";
+import { openChannel } from "../../../utils/mobile-pane";
 import { useIsTouch } from "../../../utils/touch";
 import { Button } from "../../ui/Button";
 import {
@@ -53,13 +62,18 @@ export const ChannelContextMenu: ParentComponent<{
 	channel: Channel;
 	onOpenSettings: () => void;
 }> = (props) => {
+	const navigate = useNavigate();
 	const user = useUserContext();
 	const community = useCommunityContext();
 	const notifications = useNotifications();
 	const mutes = useMutes();
+	const threads = useThreads();
 	const [voiceData, { connect, disconnect }] = useVoiceChatContext();
-	const { canUpdateChannel: _canUpdateChannel, canDeleteChannel: _canDelete } =
-		usePermissions();
+	const {
+		canUpdateChannel: _canUpdateChannel,
+		canDeleteChannel: _canDelete,
+		canCreateThread,
+	} = usePermissions();
 
 	const muted = () => mutes.isChannelMuted(props.channel.space);
 
@@ -85,6 +99,33 @@ export const ChannelContextMenu: ParentComponent<{
 
 	const canUpdate = () => _canUpdateChannel(user.did);
 	const canDelete = () => _canDelete(user.did);
+
+	const canStartThread = () =>
+		props.channel.type === SPACE_TYPES.channelText &&
+		props.channel.viewer.canPost &&
+		canCreateThread(user.did);
+
+	const openHere = () => {
+		const path = buildChannelPath(props.channel.space);
+		if (path) openChannel(navigate, path);
+	};
+
+	const startThread = () => {
+		openHere();
+		threads.openDraft({
+			channel: props.channel.space,
+			suggestedName: "",
+		});
+	};
+
+	const canShowThreads = () =>
+		props.channel.type === SPACE_TYPES.channelText &&
+		props.channel.viewer.canRead;
+
+	const showThreads = () => {
+		showChannelTab(props.channel.space, "threads");
+		openHere();
+	};
 	const isTouch = useIsTouch();
 
 	const copyChannelLink = () => {
@@ -177,6 +218,26 @@ export const ChannelContextMenu: ParentComponent<{
 							<span>{muted() ? "Unmute Channel" : "Mute Channel"}</span>
 						</MenuDrawerItem>
 					</Show>
+					<Show when={canStartThread()}>
+						<MenuDrawerItem
+							onClick={() =>
+								handoffDrawer(() => setMenuOpen(false), startThread)
+							}
+						>
+							<ArrowsMergeIcon class="rotate-180" />
+							<span>Start a Thread</span>
+						</MenuDrawerItem>
+					</Show>
+					<Show when={canShowThreads()}>
+						<MenuDrawerItem
+							onClick={() =>
+								handoffDrawer(() => setMenuOpen(false), showThreads)
+							}
+						>
+							<ListDashesIcon />
+							<span>Show All Threads</span>
+						</MenuDrawerItem>
+					</Show>
 					<MenuDrawerItem
 						onClick={() =>
 							handoffDrawer(() => setMenuOpen(false), copyChannelLink)
@@ -242,6 +303,18 @@ export const ChannelContextMenu: ParentComponent<{
 									<span>{muted() ? "Unmute Channel" : "Mute Channel"}</span>
 								</ContextMenuItem>
 							</Show>
+							<Show when={canStartThread()}>
+								<ContextMenuItem onClick={startThread}>
+									<ArrowsMergeIcon class="rotate-180" />
+									<span>Start a Thread</span>
+								</ContextMenuItem>
+							</Show>
+							<Show when={canShowThreads()}>
+								<ContextMenuItem onClick={showThreads}>
+									<ListDashesIcon />
+									<span>Show All Threads</span>
+								</ContextMenuItem>
+							</Show>
 							<ContextMenuItem onClick={copyChannelLink}>
 								<LinkSimpleIcon />
 								<span>Copy Channel Link</span>
@@ -275,7 +348,7 @@ export const ChannelContextMenu: ParentComponent<{
 						<DialogHeader>
 							<DialogTitle>Delete #{props.channel.name}?</DialogTitle>
 						</DialogHeader>
-						<p class="text-sm text-muted-foreground">
+						<p class="text-sm text-muted-foreground my-0">
 							This permanently deletes the channel. Messages members wrote here
 							stay in their own repos, but nobody except their authors will be
 							able to read them afterward. This cannot be undone.

@@ -1,10 +1,12 @@
 import { createMemo, For, type ParentComponent, Show } from "solid-js";
 import { toast } from "somoto";
 import ArrowBendUpLeftIcon from "~icons/ph/arrow-bend-up-left";
+import ArrowsMergeIcon from "~icons/ph/arrows-merge";
 import CopyIcon from "~icons/ph/copy";
 import HeartIcon from "~icons/ph/heart";
 import InfoIcon from "~icons/ph/info";
 import LinkBreakIcon from "~icons/ph/link-break";
+import ListChecksIcon from "~icons/ph/list-checks";
 import PencilIcon from "~icons/ph/pencil";
 import ProhibitIcon from "~icons/ph/prohibit";
 import SmileyIcon from "~icons/ph/smiley";
@@ -39,6 +41,7 @@ import {
 	LinkDrawerMenuItems,
 } from "../../../common/LinkMenuItems";
 import { copyMessageToClipboard } from "../../../common/text-editor/clipboard-facets";
+import { useMessageThreadActions } from "../../thread/message-thread-actions";
 import { DebugInfo } from "../DebugInfo";
 import { gifItemFromUrl, gifLinkFromFacets } from "../Embed";
 import { EmbedsDrawer } from "../EmbedsDrawer";
@@ -49,6 +52,7 @@ import { EmbedsDrawer } from "../EmbedsDrawer";
  */
 export const MessageContextMenu: ParentComponent<{
 	classList?: Record<string, boolean>;
+	anchor?: boolean;
 }> = (props) => {
 	const user = useUserContext();
 	const {
@@ -78,6 +82,7 @@ export const MessageContextMenu: ParentComponent<{
 	} = useMessageContext();
 
 	const { canApplyLabel } = usePermissions();
+	const threadActions = useMessageThreadActions();
 	const { isFavorited, toggleFavorite } = useGifFavorites();
 	const { emojiUsage } = useUserPreferences();
 	const isTouch = useIsTouch();
@@ -111,6 +116,32 @@ export const MessageContextMenu: ParentComponent<{
 		return uri ? gifItemFromUrl(uri) : undefined;
 	};
 
+	const settled = () => ("hash" in message ? undefined : message);
+
+	const canOpenThread = () => {
+		if (props.anchor) return false;
+		const target = settled();
+		return target !== undefined && threadActions.canOpenThread(target);
+	};
+
+	const canSelect = () => {
+		if (props.anchor) return false;
+		const target = settled();
+		return target !== undefined && threadActions.canSelect(target);
+	};
+
+	const canEdit = () => !props.anchor && messageEditable();
+
+	const openThread = () => {
+		const target = settled();
+		if (target) threadActions.openThreadFrom(target);
+	};
+
+	const startSelection = () => {
+		const target = settled();
+		if (target) threadActions.select(target);
+	};
+
 	return (
 		<>
 			<Show
@@ -129,7 +160,7 @@ export const MessageContextMenu: ParentComponent<{
 									<LinkContextMenuItems target={linkTarget} />
 									<ContextMenuSeparator />
 								</Show>
-								<Show when={messageEditable()}>
+								<Show when={canEdit()}>
 									<ContextMenuItem onClick={enableEditMode}>
 										<PencilIcon />
 										<span>Edit Message</span>
@@ -140,6 +171,20 @@ export const MessageContextMenu: ParentComponent<{
 										<ArrowBendUpLeftIcon />
 										<span>Reply</span>
 									</ContextMenuItem>
+								</Show>
+								<Show when={canOpenThread()}>
+									<ContextMenuItem onClick={openThread}>
+										<ArrowsMergeIcon class="rotate-180" />
+										<span>Open Thread</span>
+									</ContextMenuItem>
+								</Show>
+								<Show when={canSelect()}>
+									<ContextMenuItem onClick={startSelection}>
+										<ListChecksIcon />
+										<span>Select Messages</span>
+									</ContextMenuItem>
+								</Show>
+								<Show when={canReply() || canOpenThread() || canSelect()}>
 									<ContextMenuSeparator />
 								</Show>
 								<Show when={message.text.length > 0}>
@@ -182,7 +227,7 @@ export const MessageContextMenu: ParentComponent<{
 										<span>Show Debug Information</span>
 									</ContextMenuItem>
 								</Show>
-								<Show when={messageEditable()}>
+								<Show when={canEdit()}>
 									<ContextMenuSeparator />
 									<ContextMenuItem
 										onClick={(e) => handlePotentialDeletion(e as MouseEvent)}
@@ -244,7 +289,7 @@ export const MessageContextMenu: ParentComponent<{
 						<LinkDrawerMenuItems target={linkTarget} onSelect={close} />
 						<Separator class="my-1" />
 					</Show>
-					<Show when={messageEditable()}>
+					<Show when={canEdit()}>
 						<MenuDrawerItem
 							onClick={() => {
 								close();
@@ -265,6 +310,25 @@ export const MessageContextMenu: ParentComponent<{
 							<ArrowBendUpLeftIcon />
 							<span>Reply</span>
 						</MenuDrawerItem>
+					</Show>
+					<Show when={canOpenThread()}>
+						<MenuDrawerItem onClick={() => handoffDrawer(close, openThread)}>
+							<ArrowsMergeIcon class="rotate-180" />
+							<span>Open Thread</span>
+						</MenuDrawerItem>
+					</Show>
+					<Show when={canSelect()}>
+						<MenuDrawerItem
+							onClick={() => {
+								close();
+								startSelection();
+							}}
+						>
+							<ListChecksIcon />
+							<span>Select Messages</span>
+						</MenuDrawerItem>
+					</Show>
+					<Show when={canReply() || canOpenThread() || canSelect()}>
 						<Separator class="my-1" />
 					</Show>
 					<Show when={message.text.length > 0}>
@@ -321,7 +385,7 @@ export const MessageContextMenu: ParentComponent<{
 							<span>Show Debug Information</span>
 						</MenuDrawerItem>
 					</Show>
-					<Show when={messageEditable()}>
+					<Show when={canEdit()}>
 						<Separator class="my-1" />
 						<MenuDrawerItem
 							destructive

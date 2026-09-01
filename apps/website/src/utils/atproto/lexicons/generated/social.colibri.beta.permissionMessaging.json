@@ -26,6 +26,23 @@
 				{
 					"type": "permission",
 					"resource": "space",
+					"spaceType": "social.colibri.beta.channel.thread",
+					"authority": "*",
+					"collection": [
+						"social.colibri.beta.message",
+						"social.colibri.beta.reaction",
+						"social.colibri.beta.thread.follow"
+					],
+					"action": [
+						"read",
+						"create",
+						"update",
+						"delete"
+					]
+				},
+				{
+					"type": "permission",
+					"resource": "space",
 					"spaceType": "social.colibri.beta.channel.voice",
 					"authority": "*",
 					"action": [
@@ -81,7 +98,11 @@
 						"social.colibri.beta.embed.searchGifs",
 						"social.colibri.beta.embed.trendingGifs",
 						"social.colibri.beta.embed.gifCategories",
-						"social.colibri.beta.blob.get"
+						"social.colibri.beta.blob.get",
+						"social.colibri.beta.thread.create",
+						"social.colibri.beta.thread.update",
+						"social.colibri.beta.thread.getThread",
+						"social.colibri.beta.thread.listThreads"
 					]
 				},
 				{

@@ -7,6 +7,7 @@ import type {
 	MessageView,
 	ProfileView,
 	RoleView,
+	ThreadView,
 } from "../views";
 
 export const SCHEMA_VERSION = 5;
@@ -22,6 +23,11 @@ export type CommunitySnapshot = {
 	channels: ChannelView[];
 	roles: RoleView[];
 	members: MemberView[];
+	ts: number;
+};
+
+export type ThreadsSnapshot = {
+	threads: ThreadView[];
 	ts: number;
 };
 

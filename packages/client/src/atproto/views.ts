@@ -37,6 +37,11 @@ export type AttachmentView = social.colibri.beta.channel.defs.AttachmentView;
 export type ReactionView = social.colibri.beta.channel.defs.ReactionView;
 export type UnreadStatus = social.colibri.beta.channel.defs.UnreadStatus;
 
+export type ThreadView = social.colibri.beta.thread.defs.ThreadView;
+export type ThreadViewerState =
+	social.colibri.beta.thread.defs.ThreadViewerState;
+export type ThreadFilter = "all" | "unread" | "following";
+
 export type NotificationView =
 	social.colibri.beta.notification.defs.NotificationView;
 
@@ -47,6 +52,7 @@ export type GifView = social.colibri.beta.embed.defs.GifView;
 export type GifCategory = social.colibri.beta.embed.defs.GifCategory;
 
 export type RecordRef = social.colibri.beta.defs.RecordRef;
+export type SpaceRecordRef = social.colibri.beta.defs.SpaceRecordRef;
 
 export type Facet = social.colibri.beta.richtext.facet.Main;
 
@@ -69,6 +75,8 @@ export type ActorSettingsRecord = social.colibri.beta.actor.settings.Main;
 export type ActorMuteRecord = social.colibri.beta.actor.mute.Main;
 export type ChannelReadRecord = social.colibri.beta.channel.read.Main;
 export type ChannelReadCursor = social.colibri.beta.channel.read.Cursor;
+export type ThreadRecord = social.colibri.beta.thread.Main;
+export type ThreadFollowRecord = social.colibri.beta.thread.follow.Main;
 
 export type MessageParent = NonNullable<MessageView["parent"]>;
 
@@ -83,3 +91,9 @@ export const isVisibleParent = (
 
 export const isUnavailableParent = (parent: MessageParent): boolean =>
 	!isVisibleParent(parent);
+
+export type ThreadAnchorMessage = NonNullable<ThreadView["anchorMessage"]>;
+
+export const isVisibleAnchor = (
+	anchor: ThreadAnchorMessage,
+): anchor is l.$Typed<MessageView> => anchor.$type === MESSAGE_VIEW_TYPE;

@@ -4,7 +4,7 @@
 	"defs": {
 		"main": {
 			"type": "query",
-			"description": "Lists messages in a channel, newest first by default. Messages from the repo-backed channel this one was migrated from are included and marked legacy.",
+			"description": "Lists messages in a channel or in a thread, newest first by default. Messages from the repo-backed channel this one was migrated from are included and marked legacy. Messages moved in from another space are included in their move order, and messages moved out are absent.",
 			"parameters": {
 				"type": "params",
 				"required": [
@@ -14,7 +14,7 @@
 					"channel": {
 						"type": "string",
 						"format": "space-ref",
-						"description": "The channel to list messages from."
+						"description": "The channel or thread to list messages from."
 					},
 					"limit": {
 						"type": "integer",
@@ -53,6 +53,15 @@
 								"type": "ref",
 								"ref": "social.colibri.beta.channel.defs#messageView"
 							}
+						},
+						"threads": {
+							"type": "array",
+							"description": "Threads whose anchor message is in this page, so a client can draw a thread's marker under the message it was opened from without a second call. Threads the requesting user may not read are absent.",
+							"items": {
+								"type": "ref",
+								"ref": "social.colibri.beta.thread.defs#threadView",
+								"description": "A thread."
+							}
 						}
 					}
 				}
@@ -64,11 +73,11 @@
 				},
 				{
 					"name": "Forbidden",
-					"description": "The requesting user may not read this channel."
+					"description": "The requesting user may not read this channel or thread."
 				},
 				{
 					"name": "ChannelNotFound",
-					"description": "No channel matches the given space reference."
+					"description": "No channel or thread matches the given space reference."
 				}
 			]
 		}

@@ -1,0 +1,74 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.thread.repoint",
+	"defs": {
+		"main": {
+			"type": "procedure",
+			"description": "Moves a thread to another channel by rewriting the channel its record links to. Who may read the thread follows the new channel. The anchor is left as it was, so the thread's marker leaves the old channel's river while the thread itself still quotes the message it came from.",
+			"input": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"thread",
+						"channel"
+					],
+					"properties": {
+						"thread": {
+							"type": "string",
+							"format": "space-ref",
+							"description": "The thread to move."
+						},
+						"channel": {
+							"type": "string",
+							"format": "space-ref",
+							"description": "The text channel to move it to."
+						}
+					}
+				}
+			},
+			"output": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"thread"
+					],
+					"properties": {
+						"thread": {
+							"type": "ref",
+							"ref": "social.colibri.beta.thread.defs#threadView",
+							"description": "The thread, after the move."
+						}
+					}
+				}
+			},
+			"errors": [
+				{
+					"name": "AuthRequired",
+					"description": "The request has no valid service auth."
+				},
+				{
+					"name": "Forbidden",
+					"description": "The requesting user lacks the thread.manage permission."
+				},
+				{
+					"name": "ThreadNotFound",
+					"description": "No thread matches the given space reference."
+				},
+				{
+					"name": "ChannelNotFound",
+					"description": "No channel matches the given space reference."
+				},
+				{
+					"name": "InvalidRequest",
+					"description": "The destination channel belongs to another community, is not a text channel, or is the channel the thread is already in."
+				},
+				{
+					"name": "CredentialsUnavailable",
+					"description": "The AppView cannot act as the community because its stored credentials are missing or unusable."
+				}
+			]
+		}
+	}
+}

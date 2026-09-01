@@ -12,6 +12,7 @@ import {
 	labelerBadgeDefinitionsKey,
 	labelerLabelsKey,
 	messagesKey,
+	threadsKey,
 } from "./keys";
 import type {
 	BskyHandleSnapshot,
@@ -23,6 +24,7 @@ import type {
 	LabelerBadgeDefinitionsSnapshot,
 	LabelerLabelsSnapshot,
 	MessagesSnapshot,
+	ThreadsSnapshot,
 	UserSnapshot,
 } from "./schema";
 import { SCHEMA_VERSION } from "./schema";
@@ -30,7 +32,7 @@ import { SCHEMA_VERSION } from "./schema";
 const log = createLogger("cache");
 
 const DB_NAME = "colibri-cache";
-const DB_VERSION = 4;
+const DB_VERSION = 5;
 const MAX_CHANNELS = 50;
 const MAX_BSKY_ENTRIES = 1000;
 
@@ -38,7 +40,13 @@ const MAX_BSKY_ENTRIES = 1000;
  * Permission-scoped stores: wiped on logout/account-switch and on
  * `SCHEMA_VERSION` bumps
  */
-const USER_SCOPED_STORES = ["meta", "user", "community", "messages"] as const;
+const USER_SCOPED_STORES = [
+	"meta",
+	"user",
+	"community",
+	"threads",
+	"messages",
+] as const;
 const STORES = [...USER_SCOPED_STORES, "bsky", "outbox", "sends"] as const;
 type StoreName = (typeof STORES)[number];
 
@@ -225,6 +233,29 @@ export const writeCommunity = (
 	communityDid: string,
 	snap: CommunitySnapshot,
 ): Promise<void> => write("community", communityKey(ns, communityDid), snap);
+
+export const readThreads = (
+	ns: string,
+	communityDid: string,
+): Promise<ThreadsSnapshot | undefined> =>
+	read<ThreadsSnapshot>("threads", threadsKey(ns, communityDid));
+
+export const writeThreads = (
+	ns: string,
+	communityDid: string,
+	snap: ThreadsSnapshot,
+): Promise<void> => write("threads", threadsKey(ns, communityDid), snap);
+
+export const deleteThreads = (
+	ns: string,
+	communityDid: string,
+): Promise<void> =>
+	request("threads", "readwrite", (s) => s.delete(threadsKey(ns, communityDid)))
+		.then(() => undefined)
+		.catch((err) => {
+			noteCacheFailure(err);
+			return undefined;
+		});
 
 export const deleteCommunity = (
 	ns: string,

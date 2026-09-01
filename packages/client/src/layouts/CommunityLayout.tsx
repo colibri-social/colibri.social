@@ -1,4 +1,4 @@
-import { useSearchParams } from "@solidjs/router";
+import { useLocation, useSearchParams } from "@solidjs/router";
 import {
 	createEffect,
 	createSignal,
@@ -10,7 +10,10 @@ import CaretDownIcon from "~icons/ph/caret-down";
 import GearIcon from "~icons/ph/gear";
 import SignOutIcon from "~icons/ph/sign-out";
 import UsersIcon from "~icons/ph/users-fill";
+import { parseThreadPath } from "../atproto/colibri-channel-url";
 import { spaceSkey } from "../atproto/space-ref";
+import { ThreadDraftPane } from "../components/app/channel/thread/ThreadDraftPane";
+import { ThreadPane } from "../components/app/channel/thread/ThreadPane";
 import { ChannelList } from "../components/app/community/ChannelList";
 import { ChannelSidebarResizer } from "../components/app/community/ChannelSidebarResizer";
 import { CommunitySettingsModal } from "../components/app/community/CommunitySettingsModal";
@@ -37,6 +40,7 @@ import {
 	usePermissions,
 } from "../contexts/Community";
 import { MemberProfileContextProvider } from "../contexts/MemberProfile";
+import { ThreadsContextProvider, useThreads } from "../contexts/Threads";
 import { useUserContext } from "../contexts/User";
 import { useUserPreferences } from "../contexts/UserPreferences";
 import { createSwipe, type SwipeOptions } from "../utils/create-swipe";
@@ -49,6 +53,8 @@ import {
 } from "../utils/mobile-pane";
 import { isDesktopNative } from "../utils/platform";
 import { publishShellTitle } from "../utils/shell-title";
+import { presentationFromSearch } from "../utils/thread-presentation";
+import { threadPaneDragWidth } from "../utils/thread-width";
 
 const CommunityHeader = () => {
 	const user = useUserContext();
@@ -211,9 +217,23 @@ const CommunityHeader = () => {
 const CommunityLayout: ParentComponent = (props) => {
 	const { preferences, setChannelSidebarWidth } = useUserPreferences();
 	const community = useCommunityContext();
+	const threads = useThreads();
+	const location = useLocation();
+	const [searchParams] = useSearchParams();
 	const [dragWidth, setDragWidth] = createSignal<number | null>(null);
 	const [resizingSidebar, setResizingSidebar] = createSignal(false);
 	const sidebarWidth = () => dragWidth() ?? preferences().channelSidebarWidth;
+
+	const threadOpen = () => parseThreadPath(location.pathname) !== null;
+
+	const threadSplit = () =>
+		threadOpen() &&
+		presentationFromSearch(searchParams.split, isMobile()) === "split";
+
+	const threadWidth = () =>
+		!isMobile() && (threadSplit() || threads.draft() !== undefined)
+			? `${threadPaneDragWidth() ?? preferences().threadPaneWidth}px`
+			: "0px";
 	const {
 		isMobile,
 		currentPane,
@@ -224,6 +244,11 @@ const CommunityLayout: ParentComponent = (props) => {
 		isDragging,
 	} = createMobilePane();
 	createChannelHistoryNormalizer();
+
+	const membersVisible = () =>
+		preferences().membersListVisible &&
+		!threadOpen() &&
+		threads.draft() === undefined;
 
 	publishShellTitle(
 		() => ({
@@ -262,11 +287,14 @@ const CommunityLayout: ParentComponent = (props) => {
 	return (
 		<div
 			class="bg-background w-full h-full flex relative overflow-clip"
-			style={{ "--channel-sidebar-width": `${sidebarWidth()}px` }}
+			style={{
+				"--channel-sidebar-width": `${sidebarWidth()}px`,
+				"--thread-width": threadWidth(),
+			}}
 			classList={{
 				"border-t border-l border-border": !isMobile(),
 				"rounded-tl-xl": !isMobile() && isDesktopNative(),
-				"select-none": resizingSidebar(),
+				"select-none": resizingSidebar() || threadPaneDragWidth() !== null,
 			}}
 		>
 			<aside
@@ -317,10 +345,10 @@ const CommunityLayout: ParentComponent = (props) => {
 				classList={{
 					"w-full h-full": !isMobile(),
 					"max-h-[calc(100vh-var(--titlebar-height)-1px)]": !isMobile(),
-					"max-w-[calc(100vw-var(--channel-sidebar-width)-288px-56px-1px)]":
-						!isMobile() && preferences().membersListVisible,
-					"max-w-[calc(100vw-var(--channel-sidebar-width)-56px-1px)]":
-						!isMobile() && !preferences().membersListVisible,
+					"max-w-[calc(100vw-var(--channel-sidebar-width)-var(--thread-width)-288px-56px-1px)]":
+						!isMobile() && membersVisible(),
+					"max-w-[calc(100vw-var(--channel-sidebar-width)-var(--thread-width)-56px-1px)]":
+						!isMobile() && !membersVisible(),
 					"absolute inset-0 w-full h-full max-w-none! z-20 will-change-pane":
 						isMobile(),
 					"transition-transform duration-300 ease-[cubic-bezier(0.25,1,0.5,1)] motion-reduce:transition-none":
@@ -329,17 +357,23 @@ const CommunityLayout: ParentComponent = (props) => {
 			>
 				{props.children}
 			</div>
-			<MemberSidebar />
+			<ThreadPane />
+			<ThreadDraftPane />
+			<Show when={membersVisible() || isMobile()}>
+				<MemberSidebar />
+			</Show>
 		</div>
 	);
 };
 
 const CommunityLayoutWithContext: ParentComponent = (props) => (
 	<CommunityContextProvider>
-		<MemberProfileContextProvider>
-			<MemberProfileModal />
-			<CommunityLayout>{props.children}</CommunityLayout>
-		</MemberProfileContextProvider>
+		<ThreadsContextProvider>
+			<MemberProfileContextProvider>
+				<MemberProfileModal />
+				<CommunityLayout>{props.children}</CommunityLayout>
+			</MemberProfileContextProvider>
+		</ThreadsContextProvider>
 	</CommunityContextProvider>
 );
 

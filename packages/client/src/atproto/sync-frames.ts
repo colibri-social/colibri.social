@@ -63,6 +63,10 @@ export type ChannelEventFrame = FrameOf<
 	typeof colibri.sync.defs.channelEvent,
 	"channelEvent"
 >;
+export type ThreadEventFrame = FrameOf<
+	typeof colibri.sync.defs.threadEvent,
+	"threadEvent"
+>;
 export type CategoryEventFrame = FrameOf<
 	typeof colibri.sync.defs.categoryEvent,
 	"categoryEvent"
@@ -127,6 +131,7 @@ export type ServerFrame =
 	| MessageEventFrame
 	| ReactionEventFrame
 	| ChannelEventFrame
+	| ThreadEventFrame
 	| CategoryEventFrame
 	| RoleEventFrame
 	| MemberEventFrame
@@ -153,6 +158,7 @@ const SERVER_FRAME_NAMES = [
 	"messageEvent",
 	"reactionEvent",
 	"channelEvent",
+	"threadEvent",
 	"categoryEvent",
 	"roleEvent",
 	"memberEvent",
@@ -178,6 +184,7 @@ const SERVER_FRAME_SCHEMAS: Record<ServerFrameName, FrameSchema> = {
 	messageEvent: colibri.sync.defs.messageEvent,
 	reactionEvent: colibri.sync.defs.reactionEvent,
 	channelEvent: colibri.sync.defs.channelEvent,
+	threadEvent: colibri.sync.defs.threadEvent,
 	categoryEvent: colibri.sync.defs.categoryEvent,
 	roleEvent: colibri.sync.defs.roleEvent,
 	memberEvent: colibri.sync.defs.memberEvent,

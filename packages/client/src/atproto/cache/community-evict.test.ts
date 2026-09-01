@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { CommunitySnapshot } from "./schema";
 
 const deleteCommunity = vi.fn(() => Promise.resolve());
+const deleteThreads = vi.fn(() => Promise.resolve());
 const cacheEnabled = vi.fn(() => true);
 
 vi.mock("./store", () => ({
@@ -10,6 +11,9 @@ vi.mock("./store", () => ({
 	},
 	get deleteCommunity() {
 		return deleteCommunity;
+	},
+	get deleteThreads() {
+		return deleteThreads;
 	},
 }));
 
@@ -34,6 +38,7 @@ const payload = () =>
 
 afterEach(() => {
 	deleteCommunity.mockClear();
+	deleteThreads.mockClear();
 	cacheEnabled.mockReturnValue(true);
 });
 
@@ -50,6 +55,7 @@ describe("evictCommunity", () => {
 		evictCommunity(NS, COMMUNITY_DID);
 
 		expect(deleteCommunity).toHaveBeenCalledWith(NS, COMMUNITY_DID);
+		expect(deleteThreads).toHaveBeenCalledWith(NS, COMMUNITY_DID);
 	});
 
 	it("still clears memory where there is no store to talk to", () => {
@@ -60,6 +66,7 @@ describe("evictCommunity", () => {
 
 		expect(recallCommunity(communityKey(NS, COMMUNITY_DID))).toBeUndefined();
 		expect(deleteCommunity).not.toHaveBeenCalled();
+		expect(deleteThreads).not.toHaveBeenCalled();
 	});
 
 	it("leaves other communities alone", () => {

@@ -1,0 +1,163 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.thread.defs",
+	"defs": {
+		"threadView": {
+			"type": "object",
+			"description": "A thread as the AppView serves it. The thread's identity is its space.",
+			"required": [
+				"space",
+				"channel",
+				"community",
+				"name",
+				"createdBy",
+				"createdAt",
+				"lastActivityAt",
+				"messageCount",
+				"participants",
+				"viewer"
+			],
+			"properties": {
+				"space": {
+					"type": "string",
+					"format": "space-ref",
+					"description": "The thread's space, which is its identity."
+				},
+				"channel": {
+					"type": "string",
+					"format": "space-ref",
+					"description": "The channel the thread belongs to."
+				},
+				"community": {
+					"type": "string",
+					"format": "did",
+					"description": "The community the thread's channel belongs to."
+				},
+				"name": {
+					"type": "string",
+					"description": "The thread's title."
+				},
+				"anchor": {
+					"type": "ref",
+					"ref": "social.colibri.beta.defs#spaceRecordRef",
+					"description": "The message the thread was opened from. Absent on a thread opened from scratch. Its space stays where the thread was opened even after the thread moves to another channel, which is what drops the thread's marker out of the old channel without losing the quoted message. A client draws the thread's marker in the channel river only where the anchor's space is the channel being read."
+				},
+				"anchorMessage": {
+					"type": "union",
+					"refs": [
+						"social.colibri.beta.channel.defs#messageView",
+						"social.colibri.beta.channel.defs#deletedMessageView"
+					],
+					"description": "The anchor message itself, for opening a thread without having read its channel. Served by getThread rather than by listThreads."
+				},
+				"createdBy": {
+					"type": "string",
+					"format": "did",
+					"description": "Who opened the thread."
+				},
+				"createdAt": {
+					"type": "string",
+					"format": "datetime",
+					"description": "When the thread was opened."
+				},
+				"lastActivityAt": {
+					"type": "string",
+					"format": "datetime",
+					"description": "When the thread was last written to. This is what drives the activity age a client shows, since threads carry no presence roster of their own."
+				},
+				"messageCount": {
+					"type": "integer",
+					"description": "How many messages the thread holds."
+				},
+				"movedInCount": {
+					"type": "integer",
+					"description": "How many of those messages were moved in from somewhere else."
+				},
+				"participants": {
+					"type": "array",
+					"items": {
+						"type": "string",
+						"format": "did",
+						"description": "Someone who has posted in the thread."
+					},
+					"description": "Who has posted, most recently active first, capped at a handful."
+				},
+				"private": {
+					"type": "boolean",
+					"description": "Whether the thread restricts who may read it beyond who may read its channel."
+				},
+				"visibleToRoles": {
+					"type": "array",
+					"items": {
+						"type": "string",
+						"format": "record-key",
+						"description": "A role."
+					},
+					"description": "Roles that may read this thread. Empty means everyone who can read the channel may."
+				},
+				"visibleToMembers": {
+					"type": "array",
+					"items": {
+						"type": "string",
+						"format": "did",
+						"description": "A member."
+					},
+					"description": "Members that may read this thread beyond visibleToRoles."
+				},
+				"viewer": {
+					"type": "ref",
+					"ref": "#threadViewerState",
+					"description": "The requesting user's relationship to this thread."
+				}
+			}
+		},
+		"threadViewerState": {
+			"type": "object",
+			"description": "The requesting user's access and unread state for a thread.",
+			"required": [
+				"canRead",
+				"canPost",
+				"canManage",
+				"following",
+				"muted",
+				"hasUnread",
+				"unreadMentions"
+			],
+			"properties": {
+				"canRead": {
+					"type": "boolean",
+					"description": "Whether the user may read this thread."
+				},
+				"canPost": {
+					"type": "boolean",
+					"description": "Whether the user may post in this thread."
+				},
+				"canManage": {
+					"type": "boolean",
+					"description": "Whether the user may rename, move or delete this thread."
+				},
+				"following": {
+					"type": "boolean",
+					"description": "Whether the user follows this thread."
+				},
+				"muted": {
+					"type": "boolean",
+					"description": "Whether the user has muted this thread."
+				},
+				"hasUnread": {
+					"type": "boolean",
+					"description": "Whether anything in the thread is unread."
+				},
+				"unreadMentions": {
+					"type": "integer",
+					"description": "How many unread messages in the thread mention the user."
+				},
+				"cursor": {
+					"type": "string",
+					"format": "tid",
+					"description": "The user's read cursor in this thread."
+				}
+			}
+		}
+	}
+}

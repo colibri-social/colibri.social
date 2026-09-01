@@ -1,4 +1,4 @@
-import { HIDDEN } from "../atproto/labels";
+import { HIDDEN, MOVED } from "../atproto/labels";
 import { asDatetime } from "../atproto/lexicons";
 import type { LabelEventFrame } from "../atproto/sync-frames";
 import type { LabelView, MessageView } from "../atproto/views";
@@ -25,6 +25,10 @@ export const foldLabelEvent = (
 
 	if (event.val === HIDDEN && !keepsHidden) {
 		return event.event === "create" ? { kind: "remove" } : { kind: "noop" };
+	}
+
+	if (event.val === MOVED && event.event === "create") {
+		return { kind: "remove" };
 	}
 
 	if (event.event === "create") {

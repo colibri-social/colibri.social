@@ -1,0 +1,19 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.channel.thread",
+	"defs": {
+		"main": {
+			"type": "space",
+			"description": "A thread beside a text channel. The space key is the thread's identity, and the thread's own configuration is the social.colibri.beta.thread record at key 'self' inside it. That record carries the link to the parent channel and only the community may write it, so a thread cannot claim a channel its community did not put it in.",
+			"key": "tid",
+			"name": "Colibri thread",
+			"collections": [
+				"social.colibri.beta.thread",
+				"social.colibri.beta.thread.follow",
+				"social.colibri.beta.message",
+				"social.colibri.beta.reaction",
+				"social.colibri.beta.label"
+			]
+		}
+	}
+}

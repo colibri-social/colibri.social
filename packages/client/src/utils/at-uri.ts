@@ -1,4 +1,4 @@
-import { buildChannelPath } from "../atproto/colibri-channel-url";
+import { buildSpacePath } from "../atproto/colibri-channel-url";
 import { COLLECTIONS } from "../atproto/lexicons";
 
 /**
@@ -69,7 +69,7 @@ export const describeAtURI = (uri: string): AtURIDescription => {
 };
 
 export const channelPath = (channelUri: string): string =>
-	buildChannelPath(channelUri) ??
+	buildSpacePath(channelUri) ??
 	`/app/c/${channelIdentity(channelUri).communityDid}`;
 
 export class AtURI {

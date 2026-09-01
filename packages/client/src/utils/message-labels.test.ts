@@ -159,6 +159,26 @@ describe("foldLabelEvent", () => {
 		expect(result).toEqual({ kind: "update", labels: [] });
 	});
 
+	it("takes a moved message out of the space it left", () => {
+		const result = foldLabelEvent(
+			message(),
+			hiddenEvent("create", { val: "moved" }),
+			{ did: AUTHOR_DID, canApplyLabel: true },
+			now,
+		);
+		expect(result).toEqual({ kind: "remove" });
+	});
+
+	it("keeps a message whose move was retracted", () => {
+		const result = foldLabelEvent(
+			message([label("moved")]),
+			hiddenEvent("negate", { val: "moved" }),
+			{ did: VIEWER_DID, canApplyLabel: false },
+			now,
+		);
+		expect(result).toEqual({ kind: "update", labels: [] });
+	});
+
 	it("does nothing negating a label that was never applied", () => {
 		const result = foldLabelEvent(
 			message(),

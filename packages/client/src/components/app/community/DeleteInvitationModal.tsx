@@ -56,7 +56,7 @@ export const DeleteLinkModal: ParentComponent<{
 					<DialogHeader>
 						<DialogTitle>Delete this invite link?</DialogTitle>
 					</DialogHeader>
-					<p class="text-sm text-muted-foreground">
+					<p class="text-sm text-muted-foreground m-0">
 						This link will stop working immediately. You can create new links to
 						allow others to join.
 					</p>

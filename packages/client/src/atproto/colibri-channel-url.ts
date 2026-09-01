@@ -1,6 +1,11 @@
 import { webAppOrigin } from "../utils/web-origin";
 import { isChannelSpaceType } from "./lexicons";
-import { channelSpaceRef, parseSpace } from "./space-ref";
+import {
+	channelSpaceRef,
+	isThreadSpace,
+	parseSpace,
+	threadSpaceRef,
+} from "./space-ref";
 
 const CHANNEL_HOSTS = new Set([
 	"colibri.social",
@@ -11,6 +16,8 @@ const CHANNEL_HOSTS = new Set([
 const DEEP_LINK_PROTOCOL = "social.colibri:";
 
 const CHANNEL_PATH = /^\/app\/c\/([^/]+)\/([^/]+)\/([^/]+)/;
+
+const THREAD_PATH = /^\/app\/c\/([^/]+)\/[^/]+\/[^/]+\/t\/([^/]+)/;
 
 export type ChannelUrlTarget = {
 	community: string;
@@ -76,6 +83,57 @@ export const buildChannelPath = (space: string): string | undefined => {
 	if (!isChannelSpaceType(parsed.type)) return undefined;
 
 	return `/app/c/${parsed.authority}/${parsed.type}/${encodeURIComponent(parsed.skey)}`;
+};
+
+export type ThreadUrlTarget = {
+	community: string;
+	threadSkey: string;
+	threadSpace: string;
+};
+
+export const parseThreadPath = (pathname: string): ThreadUrlTarget | null => {
+	const match = THREAD_PATH.exec(pathname);
+	if (!match) return null;
+
+	const community = match[1];
+	if (!community?.startsWith("did:")) return null;
+
+	const threadSkey = decodeURIComponent(match[2] ?? "");
+	if (!threadSkey) return null;
+
+	const space = threadSpaceRef(community, threadSkey);
+	if (!space) return null;
+
+	return { community, threadSkey, threadSpace: space };
+};
+
+export const buildThreadPath = (
+	channelSpace: string,
+	space: string,
+): string | undefined => {
+	const channel = buildChannelPath(channelSpace);
+	if (channel === undefined) return undefined;
+
+	const parsed = parseSpace(space);
+	if (!parsed) return undefined;
+
+	return `${channel}/t/${encodeURIComponent(parsed.skey)}`;
+};
+
+const threadParents = new Map<string, string>();
+
+export const rememberThreadParent = (thread: string, channel: string): void => {
+	threadParents.set(thread, channel);
+};
+
+export const forgetThreadParent = (thread: string): void => {
+	threadParents.delete(thread);
+};
+
+export const buildSpacePath = (space: string): string | undefined => {
+	if (!isThreadSpace(space)) return buildChannelPath(space);
+	const channel = threadParents.get(space);
+	return channel === undefined ? undefined : buildThreadPath(channel, space);
 };
 
 export const buildColibriChannelUrl = (space: string): string | undefined => {

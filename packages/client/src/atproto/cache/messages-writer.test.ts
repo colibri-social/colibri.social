@@ -161,6 +161,22 @@ describe("applyMessageEvent", () => {
 		expect(next?.messages[1]?.rkey).toBe("b");
 	});
 
+	it("ignores a message moved in from another space", () => {
+		const moved = {
+			...message("b"),
+			channel: `at://${DID}/space/social.colibri.beta.channel.text/other`,
+		} as MessageView;
+		const frame = {
+			$type: "social.colibri.beta.sync.defs#messageEvent",
+			event: "create",
+			channel: CHANNEL,
+			message: moved,
+		} as unknown as MessageEventFrame;
+		expect(
+			applyMessageEvent(snapshot([message("a")]), frame, 50),
+		).toBeUndefined();
+	});
+
 	it("edits in place rather than appending a duplicate", () => {
 		const next = applyMessageEvent(
 			snapshot([message("a"), message("b")]),

@@ -25,9 +25,10 @@
 						"knownValues": [
 							"hidden",
 							"spoiler",
-							"embeds-suppressed"
+							"embeds-suppressed",
+							"moved"
 						],
-						"description": "The label value. `hidden` is enforced: the AppView withholds a hidden record instead of serving it. `spoiler` and `embeds-suppressed` are display hints the AppView passes through for the client to honour."
+						"description": "The label value. `hidden` is enforced: the AppView withholds a hidden record instead of serving it. `moved` is enforced too: the AppView withholds the record from this space and serves it in the space named by `destination` instead, ordered by `batch` and then by the record's own key. `spoiler` and `embeds-suppressed` are display hints the AppView passes through for the client to honour."
 					},
 					"scope": {
 						"type": "array",
@@ -36,6 +37,16 @@
 							"format": "uri"
 						},
 						"description": "URIs within the subject record the label narrows to, for values that can apply to part of a record. Absent means the whole record."
+					},
+					"destination": {
+						"type": "string",
+						"format": "space-ref",
+						"description": "Where a `moved` record is served instead of here. Honoured only on a `moved` label."
+					},
+					"batch": {
+						"type": "string",
+						"format": "tid",
+						"description": "Shared by every `moved` label written in one move, and what orders the moved records in the destination ahead of their own record keys. A selection moved together therefore keeps the order it had."
 					},
 					"neg": {
 						"type": "boolean",

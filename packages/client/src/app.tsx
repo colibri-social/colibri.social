@@ -269,6 +269,11 @@ const App: ParentComponent = () => {
 												null
 											} /* ChannelLayout renders the message list; leaf is empty until a TextChannelView is needed */
 										/>
+										<Route
+											path="/c/:community/:channelType/:channel/t/:thread"
+											matchFilters={{ channelType: TEXT_CHANNEL_TYPES }}
+											component={() => null}
+										/>
 									</Route>
 									<Route
 										path="/c/:community/:channelType/:channel"

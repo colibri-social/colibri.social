@@ -94,3 +94,27 @@ export const formatMessageTimestamp = (
 	}
 	return formatTimestamp(datetime, "datetime-short", now);
 };
+
+const COMPACT_AGE_UNITS: Array<{ ms: number; suffix: string }> = [
+	{ ms: 7 * 24 * 60 * 60 * 1000, suffix: "w" },
+	{ ms: 24 * 60 * 60 * 1000, suffix: "d" },
+	{ ms: 60 * 60 * 1000, suffix: "h" },
+	{ ms: 60 * 1000, suffix: "m" },
+];
+
+export const formatCompactAge = (
+	datetime: string,
+	now: Date = new Date(),
+): string => {
+	const date = new Date(datetime);
+	if (Number.isNaN(date.getTime())) return "";
+
+	const elapsed = now.getTime() - date.getTime();
+	if (elapsed < COMPACT_AGE_UNITS[COMPACT_AGE_UNITS.length - 1].ms)
+		return "now";
+
+	for (const { ms, suffix } of COMPACT_AGE_UNITS) {
+		if (elapsed >= ms) return `${Math.floor(elapsed / ms)}${suffix}`;
+	}
+	return "now";
+};

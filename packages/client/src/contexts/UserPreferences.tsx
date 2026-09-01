@@ -36,6 +36,10 @@ import {
 	DEFAULT_CHANNEL_SIDEBAR_WIDTH,
 } from "../utils/sidebar-width";
 import type { AppTheme } from "../utils/theme";
+import {
+	clampThreadPaneWidth,
+	DEFAULT_THREAD_PANE_WIDTH,
+} from "../utils/thread-width";
 
 export const PREFERENCES_STORAGE_KEY = "colibri:user-preferences";
 
@@ -88,6 +92,7 @@ export interface ControlsPreferences {
 export type UserPreferencesContextData = {
 	membersListVisible: boolean;
 	channelSidebarWidth: number;
+	threadPaneWidth: number;
 	nativeNotifications: boolean;
 	notificationPromptDismissed: boolean;
 	activityPromptDismissed: boolean;
@@ -123,6 +128,7 @@ export type UserPreferencesContextData = {
 const DEFAULT_PREFERENCES: UserPreferencesContextData = {
 	membersListVisible: !isMobileNow(),
 	channelSidebarWidth: DEFAULT_CHANNEL_SIDEBAR_WIDTH,
+	threadPaneWidth: DEFAULT_THREAD_PANE_WIDTH,
 	nativeNotifications: false,
 	notificationPromptDismissed: false,
 	activityPromptDismissed: false,
@@ -268,6 +274,7 @@ function loadFromStorage(): UserPreferencesContextData {
 			...parsed,
 			membersListVisible: DEFAULT_PREFERENCES.membersListVisible,
 			channelSidebarWidth: clampSidebarWidth(parsed.channelSidebarWidth),
+			threadPaneWidth: clampThreadPaneWidth(parsed.threadPaneWidth),
 			voice: { ...DEFAULT_PREFERENCES.voice, ...parsedVoice, input, screen },
 			emojiUsage: normalizeEmojiUsage(parsed.emojiUsage),
 			preferredAppView: resolveStoredAppViewUrl(parsed.preferredAppView),
@@ -299,6 +306,7 @@ type UserPreferencesContextValue = {
 	}) => void;
 	toggleMembersVisible: () => void;
 	setChannelSidebarWidth: (width: number) => void;
+	setThreadPaneWidth: (width: number) => void;
 	setNativeNotifications: (enabled: boolean) => void;
 	setNotificationPromptDismissed: (dismissed: boolean) => void;
 	setActivityPromptDismissed: (dismissed: boolean) => void;
@@ -444,6 +452,13 @@ export const UserPreferencesContextProvider: ParentComponent = (props) => {
 		}));
 	};
 
+	const setThreadPaneWidth = (width: number) => {
+		setPreferences((p) => ({
+			...p,
+			threadPaneWidth: clampThreadPaneWidth(width),
+		}));
+	};
+
 	const setNativeNotifications = (enabled: boolean) => {
 		setPreferences((p) => ({ ...p, nativeNotifications: enabled }));
 	};
@@ -568,6 +583,7 @@ export const UserPreferencesContextProvider: ParentComponent = (props) => {
 				setVoiceView,
 				toggleMembersVisible,
 				setChannelSidebarWidth,
+				setThreadPaneWidth,
 				setNativeNotifications,
 				setNotificationPromptDismissed,
 				setActivityPromptDismissed,
