@@ -277,6 +277,43 @@ describe("sidebarThreads", () => {
 		expect(sidebarThreads([quiet], CHANNEL, now, 5)).toEqual([quiet]);
 	});
 
+	const viewer = (
+		overrides: Partial<ThreadView["viewer"]>,
+	): ThreadView["viewer"] => ({
+		canRead: true,
+		canPost: true,
+		canManage: false,
+		following: false,
+		muted: false,
+		hasUnread: false,
+		unreadMentions: 0,
+		...overrides,
+	});
+
+	it("keeps a quiet thread the reader follows", () => {
+		const followed = thread("a", { viewer: viewer({ following: true }) });
+		expect(sidebarThreads([followed], CHANNEL, now, 5)).toEqual([followed]);
+	});
+
+	it("keeps the thread that is open", () => {
+		const quiet = thread("a");
+		expect(
+			sidebarThreads([quiet], CHANNEL, now, 5, { open: quiet.space }),
+		).toEqual([quiet]);
+	});
+
+	it("keeps a thread opened within the last day", () => {
+		const quiet = thread("a");
+		const context = { openedAt: { [quiet.space]: now - 60 * 60 * 1000 } };
+		expect(sidebarThreads([quiet], CHANNEL, now, 5, context)).toEqual([quiet]);
+	});
+
+	it("drops a thread opened more than a day ago", () => {
+		const quiet = thread("a");
+		const context = { openedAt: { [quiet.space]: now - 25 * 60 * 60 * 1000 } };
+		expect(sidebarThreads([quiet], CHANNEL, now, 5, context)).toEqual([]);
+	});
+
 	it("caps the list at the given limit", () => {
 		const recent = Array.from({ length: 8 }, (_, i) =>
 			thread(`t${i}`, {

@@ -187,6 +187,7 @@ const SortableChannel: Component<{
 			props.channel.space,
 			now(),
 			SIDEBAR_THREAD_LIMIT,
+			{ open: threads.openThreadSpace(), openedAt: threads.openedAt() },
 		);
 
 	return (

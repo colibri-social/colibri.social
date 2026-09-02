@@ -1,6 +1,12 @@
 import type { ThreadFilter, ThreadView } from "../atproto/views";
 
 export const SIDEBAR_ACTIVITY_WINDOW_MS = 6 * 60 * 60 * 1000;
+export const SIDEBAR_OPENED_WINDOW_MS = 24 * 60 * 60 * 1000;
+
+export type SidebarThreadContext = {
+	open?: string;
+	openedAt?: Readonly<Record<string, number>>;
+};
 
 const newestFirst = (a: ThreadView, b: ThreadView): number => {
 	if (a.lastActivityAt === b.lastActivityAt) return a.space < b.space ? -1 : 1;
@@ -104,12 +110,33 @@ export const isRecentlyActive = (
 	return now - at <= windowMs;
 };
 
+const wasRecentlyOpened = (
+	thread: ThreadView,
+	now: number,
+	context: SidebarThreadContext,
+): boolean => {
+	if (context.open === thread.space) return true;
+	const at = context.openedAt?.[thread.space];
+	return at !== undefined && now - at <= SIDEBAR_OPENED_WINDOW_MS;
+};
+
+export const belongsInSidebar = (
+	thread: ThreadView,
+	now: number,
+	context: SidebarThreadContext = {},
+): boolean =>
+	thread.viewer.hasUnread ||
+	thread.viewer.following ||
+	wasRecentlyOpened(thread, now, context) ||
+	isRecentlyActive(thread, now);
+
 export const sidebarThreads = (
 	threads: ReadonlyArray<ThreadView>,
 	channel: string,
 	now: number,
 	limit: number,
+	context: SidebarThreadContext = {},
 ): Array<ThreadView> =>
 	threadsInChannel(threads, channel)
-		.filter((t) => isRecentlyActive(t, now) || t.viewer.hasUnread)
+		.filter((t) => belongsInSidebar(t, now, context))
 		.slice(0, limit);

@@ -93,6 +93,7 @@ export type ThreadsContextValue = {
 	) => ThreadView | undefined;
 	openThreadSpace: Accessor<string | undefined>;
 	setOpenThreadSpace: (space: string | undefined) => void;
+	openedAt: Accessor<Readonly<Record<string, number>>>;
 	refresh: () => void;
 	fetchThread: (space: string) => Promise<ThreadView | undefined>;
 	createThread: (input: CreateThreadInput) => Promise<ThreadView | undefined>;
@@ -133,9 +134,11 @@ export const ThreadsContextProvider: ParentComponent = (props) => {
 	const [openThreadSpace, setOpenThreadSpace] = createSignal<
 		string | undefined
 	>(undefined);
+	const [openedAt, setOpenedAt] = createSignal<Record<string, number>>({});
 	const [reloads, setReloads] = createSignal(0);
 	const [draft, setDraft] = createSignal<ThreadDraft | undefined>(undefined);
 	const [hydrated, setHydrated] = createSignal(false);
+	const locallyRead = new Set<string>();
 
 	const communityDid = () => community().community.did;
 
@@ -154,9 +157,17 @@ export const ThreadsContextProvider: ParentComponent = (props) => {
 			rememberThreadParent(thread.space, thread.channel);
 	};
 
+	const settle = (thread: ThreadView): ThreadView =>
+		locallyRead.has(thread.space)
+			? {
+					...thread,
+					viewer: { ...thread.viewer, hasUnread: false, unreadMentions: 0 },
+				}
+			: thread;
+
 	const apply = (next: Array<ThreadView>) => {
 		remember(next);
-		setThreads(next);
+		setThreads(next.map(settle));
 	};
 
 	const snapshots = createSnapshotScheduler<
@@ -254,6 +265,7 @@ export const ThreadsContextProvider: ParentComponent = (props) => {
 				const at = event.lastActivityAt;
 				if (!space || !at) return;
 				const fresh = event.thread;
+				if (space !== openThreadSpace()) locallyRead.delete(space);
 				setThreads((current) => {
 					const touched = touchThread(current, space, at, {
 						markUnread: space !== openThreadSpace(),
@@ -276,7 +288,7 @@ export const ThreadsContextProvider: ParentComponent = (props) => {
 			const thread = event.thread;
 			if (!thread) return;
 			rememberThreadParent(thread.space, thread.channel);
-			setThreads((current) => upsertThread(current, thread));
+			setThreads((current) => upsertThread(current, settle(thread)));
 		});
 		onCleanup(cleanup);
 	});
@@ -296,8 +308,9 @@ export const ThreadsContextProvider: ParentComponent = (props) => {
 
 	const adopt = (thread: ThreadView): ThreadView => {
 		rememberThreadParent(thread.space, thread.channel);
-		setThreads((current) => upsertThread(current, thread));
-		return thread;
+		const next = settle(thread);
+		setThreads((current) => upsertThread(current, next));
+		return next;
 	};
 
 	const fetchThread = async (
@@ -475,7 +488,14 @@ export const ThreadsContextProvider: ParentComponent = (props) => {
 		return true;
 	};
 
+	const openThread = (space: string | undefined) => {
+		setOpenThreadSpace(space);
+		if (space === undefined) return;
+		setOpenedAt((current) => ({ ...current, [space]: Date.now() }));
+	};
+
 	const markRead = (space: string) => {
+		locallyRead.add(space);
 		setThreads((current) => markThreadRead(current, space));
 	};
 
@@ -490,7 +510,8 @@ export const ThreadsContextProvider: ParentComponent = (props) => {
 		inChannel,
 		anchoredAt,
 		openThreadSpace,
-		setOpenThreadSpace,
+		setOpenThreadSpace: openThread,
+		openedAt,
 		refresh: () => setReloads((n) => n + 1),
 		fetchThread,
 		createThread,
