@@ -10,6 +10,7 @@ import {
 	useContext,
 } from "solid-js";
 import { toast } from "somoto";
+import { buildThreadPath } from "../atproto/colibri-channel-url";
 import { colibri } from "../atproto/lexicons";
 import { adoptRemoteCursors, recordRead } from "../atproto/read-cursor";
 import { classifyThrown } from "../errors/classify";
@@ -33,9 +34,14 @@ const log = createLogger("notif");
 
 export type PendingNotificationFocus = {
 	channel: string;
+	thread?: string;
 	messageUri?: string;
 	indexedAt: string;
 };
+
+export const notificationFocusSpace = (
+	target: PendingNotificationFocus,
+): string => target.thread ?? target.channel;
 
 type ChannelEntry = {
 	pings: number;
@@ -126,9 +132,17 @@ export const NotificationsContextProvider: ParentComponent = (props) => {
 
 	const clearPendingFocus = () => setPendingFocus(undefined);
 
+	const pathFor = (target: PendingNotificationFocus): string => {
+		const thread = target.thread;
+		if (thread === undefined) return channelPath(target.channel);
+		return (
+			buildThreadPath(target.channel, thread) ?? channelPath(target.channel)
+		);
+	};
+
 	const openNotification = (target: PendingNotificationFocus) => {
 		setPendingFocus(target);
-		navigate(channelPath(target.channel));
+		navigate(pathFor(target));
 	};
 
 	const communityOf = (channel: string): string =>
@@ -491,7 +505,8 @@ export const NotificationsContextProvider: ParentComponent = (props) => {
 			if (event.$type === NOTIFICATION_EVENT) {
 				const notification = event.notification;
 
-				if (isViewingChannel(location.pathname, notification.channel)) return;
+				const space = notification.thread ?? notification.channel;
+				if (isViewingChannel(location.pathname, space)) return;
 				if (mutes.isCommunityMuted(notification.community)) return;
 				if (mutes.isMuted(notification.author.did)) return;
 				if (notifiedIds.has(notification.id)) return;
@@ -510,6 +525,7 @@ export const NotificationsContextProvider: ParentComponent = (props) => {
 
 				const target: PendingNotificationFocus = {
 					channel: notification.channel,
+					...(notification.thread ? { thread: notification.thread } : {}),
 					messageUri: notification.message?.uri,
 					indexedAt: notification.indexedAt,
 				};

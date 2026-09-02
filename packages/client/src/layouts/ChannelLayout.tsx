@@ -62,7 +62,11 @@ import { useCommunityContext, usePermissions } from "../contexts/Community";
 import { decideChannelExit } from "../contexts/channel-exit";
 import { isChannelRestricted } from "../contexts/channel-permissions";
 import { useMutes } from "../contexts/Mutes";
-import { isSameChannelUri, useNotifications } from "../contexts/Notifications";
+import {
+	isSameChannelUri,
+	notificationFocusSpace,
+	useNotifications,
+} from "../contexts/Notifications";
 import { useThreads } from "../contexts/Threads";
 import { useUserContext } from "../contexts/User";
 import { useUserPreferences } from "../contexts/UserPreferences";
@@ -209,6 +213,19 @@ export const ChannelSurface: ParentComponent<ChannelSurfaceProps> = (props) => {
 	});
 
 	const messageKeys = createMemo(() => channel.messages().map((m) => m.uri));
+
+	const [startReached, setStartReached] = createSignal("");
+
+	createEffect(() => {
+		const space = channel.channelSpace();
+		if (!space || channel.hasMore()) return;
+		setStartReached(space);
+	});
+
+	const atStart = () => {
+		const space = channel.channelSpace();
+		return space !== "" && startReached() === space;
+	};
 
 	const selectableOf = (
 		message: MessageData | PendingMessage,
@@ -595,7 +612,7 @@ export const ChannelSurface: ParentComponent<ChannelSurfaceProps> = (props) => {
 		if (
 			!target ||
 			focusUri === undefined ||
-			!isSameChannelUri(target.channel, channel.channelSpace())
+			!isSameChannelUri(notificationFocusSpace(target), channel.channelSpace())
 		) {
 			readObserver?.disconnect();
 			readObserver = undefined;
@@ -970,7 +987,7 @@ export const ChannelSurface: ParentComponent<ChannelSurfaceProps> = (props) => {
 											</div>
 										</Show>
 
-										<Show when={!channel.hasMore()}>{props.intro}</Show>
+										<Show when={atStart()}>{props.intro}</Show>
 
 										<Show
 											when={
