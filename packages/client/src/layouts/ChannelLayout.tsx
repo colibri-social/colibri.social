@@ -214,19 +214,6 @@ export const ChannelSurface: ParentComponent<ChannelSurfaceProps> = (props) => {
 
 	const messageKeys = createMemo(() => channel.messages().map((m) => m.uri));
 
-	const [startReached, setStartReached] = createSignal("");
-
-	createEffect(() => {
-		const space = channel.channelSpace();
-		if (!space || channel.hasMore()) return;
-		setStartReached(space);
-	});
-
-	const atStart = () => {
-		const space = channel.channelSpace();
-		return space !== "" && startReached() === space;
-	};
-
 	const selectableOf = (
 		message: MessageData | PendingMessage,
 	): message is MessageData => !("hash" in message) && !message.legacy;
@@ -987,7 +974,7 @@ export const ChannelSurface: ParentComponent<ChannelSurfaceProps> = (props) => {
 											</div>
 										</Show>
 
-										<Show when={atStart()}>{props.intro}</Show>
+										{props.intro}
 
 										<Show
 											when={

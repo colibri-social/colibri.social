@@ -27,10 +27,27 @@ import { threadAsChannelView } from "./thread-channel-view";
 const ThreadAnchor: Component<{ thread: ThreadView }> = (props) => {
 	const primary = usePrimaryChannelContext();
 
-	const message = () => {
+	const indexed = () => {
 		const anchor = props.thread.anchorMessage;
 		return anchor !== undefined && isVisibleAnchor(anchor) ? anchor : undefined;
 	};
+
+	const loaded = () => {
+		const anchor = props.thread.anchor;
+		const parent = primary();
+		if (anchor === undefined || parent === undefined) return undefined;
+		return parent
+			.messages()
+			.find(
+				(entry) =>
+					!("hash" in entry) &&
+					entry.rkey === anchor.rkey &&
+					entry.author.did === anchor.did &&
+					entry.channel === anchor.space,
+			);
+	};
+
+	const message = () => indexed() ?? loaded();
 
 	return (
 		<Show when={message()}>
