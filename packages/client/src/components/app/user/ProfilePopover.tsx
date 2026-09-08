@@ -162,13 +162,9 @@ export const ProfilePopoverContents: Component<{
 			: DEFAULT_BLUESKY_CLIENT;
 
 	const bskyProfileHref = () =>
-		buildBskyProfileUrl(
-			bskyClient(),
-			props.user.handle.replaceAll("at://", ""),
-		);
+		buildBskyProfileUrl(bskyClient(), props.user.did);
 
-	const pdslsHref = () =>
-		`https://pdsls.dev/at://${props.user.handle.replaceAll("at://", "")}`;
+	const pdslsHref = () => `https://pdsls.dev/at://${props.user.did}`;
 
 	const accentColor = () =>
 		readableUserColor(props.user.theme?.accentColor, resolvedTheme());
