@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { audienceChange, describeMoveBlock, planMove } from "./thread-move";
+import {
+	audienceChange,
+	describeMoveBlock,
+	movedInFrom,
+	originSpace,
+	planMove,
+} from "./thread-move";
 import type { MessageView } from "./views";
 
 const DID = "did:plc:community";
@@ -89,6 +95,45 @@ describe("planMove", () => {
 			attachments: [{ alt: "" }] as never,
 		});
 		expect(planMove([withFile], { canModerate: true }).kind).toBe("moderate");
+	});
+});
+
+describe("originSpace", () => {
+	it("names the source when the selection was moved in from elsewhere", () => {
+		const plan = planMove([message("3la")], { canModerate: true });
+		expect(originSpace(plan, THREAD)).toBe(CHANNEL);
+	});
+
+	it("finds nothing when the selection is native to the space on screen", () => {
+		const plan = planMove([message("3la")], { canModerate: true });
+		expect(originSpace(plan, CHANNEL)).toBeUndefined();
+	});
+
+	it("finds a thread source, so a message can go back to the thread it left", () => {
+		const plan = planMove([message("3la", { channel: THREAD as never })], {
+			canModerate: true,
+		});
+		expect(originSpace(plan, CHANNEL)).toBe(THREAD);
+	});
+
+	it("finds nothing for a blocked plan", () => {
+		expect(
+			originSpace(planMove([], { canModerate: true }), CHANNEL),
+		).toBeUndefined();
+	});
+});
+
+describe("movedInFrom", () => {
+	it("names the space a message was written in when that is not the space on screen", () => {
+		expect(movedInFrom(message("3la"), THREAD)).toBe(CHANNEL);
+	});
+
+	it("finds nothing for a message at home", () => {
+		expect(movedInFrom(message("3la"), CHANNEL)).toBeUndefined();
+	});
+
+	it("finds nothing before the space on screen is known", () => {
+		expect(movedInFrom(message("3la"), undefined)).toBeUndefined();
 	});
 });
 

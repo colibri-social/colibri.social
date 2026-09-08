@@ -13,6 +13,7 @@ import {
 	describeMoveBlock,
 	type MovePlan,
 	type MoveSubject,
+	originSpace,
 	planMove,
 } from "../../../../atproto/thread-move";
 import type { ThreadView } from "../../../../atproto/views";
@@ -170,13 +171,20 @@ export const SelectionBar: Component = () => {
 				!holds().includes(entry.space),
 		);
 
-	const homeChannel = () => {
-		const current = plan();
-		if (current.kind !== "moderate") return undefined;
-		if (current.source === channel.channelSpace()) return undefined;
-		return community().channels.find(
-			(entry) => entry.space === current.source && entry.viewer.canPost,
+	const origin = (): Destination | undefined => {
+		const space = originSpace(plan(), channel.channelSpace());
+		if (space === undefined) return undefined;
+
+		const thread = threads.bySpace(space);
+		if (thread)
+			return thread.viewer.canPost ? { kind: "thread", thread } : undefined;
+
+		const entry = community().channels.find(
+			(item) => item.space === space && item.viewer.canPost,
 		);
+		return entry
+			? { kind: "channel", space: entry.space, name: entry.name }
+			: undefined;
 	};
 
 	const audienceOf = (destination: Destination) => {
@@ -338,20 +346,12 @@ export const SelectionBar: Component = () => {
 									</DropdownMenuItem>
 									<DropdownMenuSeparator />
 								</Show>
-								<Show when={homeChannel()}>
+								<Show when={origin()}>
 									{(entry) => (
 										<>
-											<DropdownMenuItem
-												onSelect={() =>
-													choose({
-														kind: "channel",
-														space: entry().space,
-														name: entry().name,
-													})
-												}
-											>
+											<DropdownMenuItem onSelect={() => choose(entry())}>
 												<ArrowUUpLeftIcon />
-												<span class="truncate">Back to {entry().name}</span>
+												<span class="truncate">Back to {nameOf(entry())}</span>
 											</DropdownMenuItem>
 											<DropdownMenuSeparator />
 										</>

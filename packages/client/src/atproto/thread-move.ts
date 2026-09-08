@@ -47,6 +47,18 @@ export const planMove = (
 	return { kind: "moderate", source, subjects: ordered.map(toMoveSubject) };
 };
 
+export const movedInFrom = (
+	message: Pick<MessageView, "channel">,
+	here: string | undefined,
+): string | undefined =>
+	here && message.channel !== here ? message.channel : undefined;
+
+export const originSpace = (
+	plan: MovePlan,
+	here: string | undefined,
+): string | undefined =>
+	plan.kind === "moderate" && plan.source !== here ? plan.source : undefined;
+
 export const describeMoveBlock = (reason: MoveBlockReason): string => {
 	switch (reason) {
 		case "nothing-selected":

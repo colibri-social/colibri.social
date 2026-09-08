@@ -20,6 +20,7 @@ import SmileyIcon from "~icons/ph/smiley";
 import SpinnerIcon from "~icons/ph/spinner-gap";
 import TrashIcon from "~icons/ph/trash";
 import type { PendingMessage } from "../../../../atproto/cache/schema";
+import { movedInFrom } from "../../../../atproto/thread-move";
 import type {
 	MessageParent,
 	MessageView,
@@ -270,9 +271,7 @@ const MessageInner: Component<{
 
 	const movedOrigin = (): string | undefined => {
 		const target = settled();
-		if (!target) return undefined;
-		const here = channel.channelSpace();
-		return here && target.channel !== here ? target.channel : undefined;
+		return target ? movedInFrom(target, channel.channelSpace()) : undefined;
 	};
 
 	const canOpenThread = () => {
