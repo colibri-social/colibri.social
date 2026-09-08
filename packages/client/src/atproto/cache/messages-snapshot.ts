@@ -31,15 +31,17 @@ export const buildMessagesSnapshot = (
 		hasMore: boolean;
 		limit: number;
 		now: number;
+		cursor?: string;
 	},
 ): MessagesSnapshot => {
 	const kept = confirmed.slice(-options.limit);
+	const trimmed = kept.length < confirmed.length;
 	return {
 		space: options.space,
 		messages: kept,
 		readCursor: options.readCursor,
-		cursor: cursorFor(kept),
-		hasMore: kept.length < confirmed.length ? true : options.hasMore,
+		cursor: trimmed ? cursorFor(kept) : (options.cursor ?? cursorFor(kept)),
+		hasMore: trimmed ? true : options.hasMore,
 		ts: options.now,
 	};
 };

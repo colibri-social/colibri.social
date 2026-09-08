@@ -48,12 +48,16 @@ type ChannelEntry = {
 	hasUnread: boolean;
 };
 
+export type UnreadHint = "unread" | "read" | "unknown";
+
 type NotificationsContextValue = {
 	pendingFocus: Accessor<PendingNotificationFocus | undefined>;
 	clearPendingFocus: () => void;
 	openNotification: (target: PendingNotificationFocus) => void;
 	pingsForChannel: (channel: string) => number;
 	hasUnreadMessages: (channel: string) => boolean;
+	unreadHint: (channel: string) => UnreadHint;
+	refreshUnread: (communityDid: string) => Promise<boolean>;
 	pingsForCommunity: (communityDid: string) => number;
 	hasUnreadInCommunity: (communityDid: string) => boolean;
 	totalPings: () => number;
@@ -157,6 +161,12 @@ export const NotificationsContextProvider: ParentComponent = (props) => {
 	const hasUnreadMessages = (channel: string): boolean =>
 		!mutes.isCommunityMuted(communityOf(channel)) &&
 		!!channels()[channel]?.hasUnread;
+
+	const unreadHint = (channel: string): UnreadHint => {
+		const entry = channels()[channel];
+		if (!entry) return "unknown";
+		return entry.hasUnread ? "unread" : "read";
+	};
 
 	const pingsForCommunity = (communityDid: string): number => {
 		if (mutes.isCommunityMuted(communityDid)) return 0;
@@ -405,12 +415,9 @@ export const NotificationsContextProvider: ParentComponent = (props) => {
 
 	const seeded = new Set<string>();
 	const blocked = new Set<string>();
-	const seedCommunity = async (communityDid: string): Promise<void> => {
-		if (seeded.has(communityDid) || blocked.has(communityDid)) return;
-		seeded.add(communityDid);
+	const inFlightUnread = new Map<string, Promise<boolean>>();
 
-		let reached = false;
-
+	const loadUnread = async (communityDid: string): Promise<boolean> => {
 		try {
 			const res = await user.xrpc.call(colibri.channel.listUnreadStatus.main, {
 				params: { community: communityDid },
@@ -423,13 +430,11 @@ export const NotificationsContextProvider: ParentComponent = (props) => {
 						code: res.error.code,
 					});
 				}
-				return;
+				return false;
 			}
 
-			reached = true;
-
 			const statuses = res.data?.statuses;
-			if (!statuses) return;
+			if (!statuses) return true;
 
 			adoptRemoteCursors(
 				communityDid,
@@ -459,13 +464,35 @@ export const NotificationsContextProvider: ParentComponent = (props) => {
 				}
 				return next;
 			});
+			return true;
 		} catch (err) {
 			log.error("seeding community notifications failed", {
 				code: classifyThrown(err).code,
 			});
-		} finally {
-			if (!reached) seeded.delete(communityDid);
+			return false;
 		}
+	};
+
+	const refreshUnread = (communityDid: string): Promise<boolean> => {
+		if (!communityDid || blocked.has(communityDid)) {
+			return Promise.resolve(false);
+		}
+		const existing = inFlightUnread.get(communityDid);
+		if (existing) return existing;
+
+		const run = loadUnread(communityDid).finally(() => {
+			inFlightUnread.delete(communityDid);
+		});
+		inFlightUnread.set(communityDid, run);
+		return run;
+	};
+
+	const seedCommunity = async (communityDid: string): Promise<void> => {
+		if (seeded.has(communityDid) || blocked.has(communityDid)) return;
+		seeded.add(communityDid);
+
+		const reached = await refreshUnread(communityDid);
+		if (!reached) seeded.delete(communityDid);
 	};
 
 	createEffect(() => {
@@ -645,6 +672,8 @@ export const NotificationsContextProvider: ParentComponent = (props) => {
 		openNotification,
 		pingsForChannel,
 		hasUnreadMessages,
+		unreadHint,
+		refreshUnread,
 		pingsForCommunity,
 		hasUnreadInCommunity,
 		totalPings,

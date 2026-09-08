@@ -110,6 +110,24 @@ describe("buildMessagesSnapshot", () => {
 		expect(snap.cursor).toBe("m10");
 	});
 
+	it("prefers the server cursor for the rows it stores", () => {
+		const snap = buildMessagesSnapshot(
+			run(10),
+			options({ cursor: "server-token" }),
+		);
+
+		expect(snap.cursor).toBe("server-token");
+	});
+
+	it("ignores the server cursor once the window has been trimmed", () => {
+		const snap = buildMessagesSnapshot(
+			run(60),
+			options({ cursor: "server-token" }),
+		);
+
+		expect(snap.cursor).toBe("m10");
+	});
+
 	it("forces hasMore when the snapshot was truncated", () => {
 		const snap = buildMessagesSnapshot(run(60), options({ hasMore: false }));
 

@@ -185,7 +185,7 @@ const MessageInner: Component<{
 	// propagate to already-rendered messages, falling back to the embedded
 	// snapshot for non-members / cross-community authors.
 	const authorMember = (author: ProfileView) =>
-		community().members.find((m) => m.did === author.did);
+		community().utils.getMember(author.did);
 
 	const resolveAuthor = (author: ProfileView): ProfileView =>
 		authorMember(author)?.actor ?? author;

@@ -11,6 +11,7 @@ import {
 	createSignal,
 	For,
 	Match,
+	onCleanup,
 	type ParentComponent,
 	Show,
 	Switch,
@@ -23,9 +24,11 @@ import LockSimpleFillIcon from "~icons/ph/lock-simple-fill";
 import PlusIcon from "~icons/ph/plus";
 import SpeakerHighIcon from "~icons/ph/speaker-high-fill";
 import SpeakerLowIcon from "~icons/ph/speaker-low-fill";
+import { prefetchChannelMessages } from "../../../atproto/channel-prefetch";
 import { buildChannelPath } from "../../../atproto/colibri-channel-url";
 import { SPACE_TYPES } from "../../../atproto/lexicons";
 import { spaceSkey } from "../../../atproto/space-ref";
+import { clientForManagingApp } from "../../../atproto/xrpc";
 import {
 	useCommunityContext,
 	usePermissions,
@@ -81,6 +84,8 @@ const saveCollapsed = (rkey: string, collapsed: boolean) => {
 
 export type CategoryWithChannels = CategoryType;
 
+const PREFETCH_HOVER_MS = 120;
+
 const SortableChannel: Component<{
 	channel: Channel;
 	communityDid: string;
@@ -113,6 +118,37 @@ const SortableChannel: Component<{
 	const [isDragging, setIsDragging] = createSignal(false);
 	let didDrag = false;
 
+	const community = useCommunityContext();
+	let prefetchTimer: ReturnType<typeof setTimeout> | undefined;
+
+	const cancelPrefetch = () => {
+		if (prefetchTimer === undefined) return;
+		clearTimeout(prefetchTimer);
+		prefetchTimer = undefined;
+	};
+
+	const primeChannel = () => {
+		if (!canRead() || isActive()) return;
+		if (props.channel.type !== SPACE_TYPES.channelText) return;
+		prefetchChannelMessages(
+			clientForManagingApp(
+				user.atproto.agent,
+				community().community.managingApp,
+			),
+			props.channel.space,
+		);
+	};
+
+	const schedulePrefetch = () => {
+		cancelPrefetch();
+		prefetchTimer = setTimeout(() => {
+			prefetchTimer = undefined;
+			primeChannel();
+		}, PREFETCH_HOVER_MS);
+	};
+
+	onCleanup(cancelPrefetch);
+
 	onDndDragStart(({ draggable }) => {
 		if (!canManage()) return;
 		if (String(draggable.id) === props.channel.space) {
@@ -136,7 +172,6 @@ const SortableChannel: Component<{
 		if (Math.abs(transform.x) > 4 || Math.abs(transform.y) > 4) didDrag = true;
 	});
 
-	const community = useCommunityContext();
 	const threads = useThreads();
 	const now = useNow();
 	const [voiceData, { connect }] = useVoiceChatContext();
@@ -220,6 +255,12 @@ const SortableChannel: Component<{
 						class="group/channel text-muted-foreground flex flex-row justify-between items-center gap-2 hover:bg-card rounded-sm cursor-pointer p-1 py-0.5 pr-1.25"
 						href={channelHref()}
 						onClick={handleChannelClick}
+						onPointerEnter={schedulePrefetch}
+						onPointerLeave={cancelPrefetch}
+						onPointerDown={() => {
+							cancelPrefetch();
+							primeChannel();
+						}}
 						draggable={false}
 						activeClass="bg-muted! text-foreground!"
 						classList={{

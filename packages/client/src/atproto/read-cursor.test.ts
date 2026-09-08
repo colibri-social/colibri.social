@@ -16,6 +16,8 @@ const {
 	recordRead,
 	adoptRemoteCursors,
 	flushReadCursors,
+	bumpCursor,
+	recallReadCursor,
 	MAX_INTERVAL_MS,
 	DEBOUNCE_MS,
 } = await import("./read-cursor");
@@ -273,5 +275,111 @@ describe("read-cursor debounce policy", () => {
 		await flushMicrotasks();
 
 		expect(enqueueSpacePut).not.toHaveBeenCalled();
+	});
+});
+
+describe("synchronous cursor reads", () => {
+	let getRecord: ReturnType<typeof vi.fn>;
+	let agent: Agent;
+	let xrpc: ColibriClient;
+
+	beforeEach(() => {
+		vi.useFakeTimers();
+		enqueueSpacePut.mockClear();
+		getRecord = vi.fn(() =>
+			Promise.reject(
+				Object.assign(new Error("not found"), { error: "RecordNotFound" }),
+			),
+		);
+		agent = {
+			com: { atproto: { space: { getRecord } } },
+		} as unknown as Agent;
+		xrpc = {
+			call: vi.fn(() => Promise.resolve({ ok: true, data: { statuses: [] } })),
+		} as unknown as ColibriClient;
+		configureReadCursorWriter({ agent, xrpc, actorDid: ACTOR });
+	});
+
+	afterEach(() => {
+		resetReadCursorWriter();
+		vi.useRealTimers();
+	});
+
+	it("has nothing to recall for an unknown community", () => {
+		expect(recallReadCursor(COMMUNITY_A, "general")).toBeUndefined();
+	});
+
+	it("recalls a read the moment it is recorded, without awaiting hydration", () => {
+		recordRead(COMMUNITY_A, "general", "3jz1a2b3c4d5e");
+
+		expect(recallReadCursor(COMMUNITY_A, "general")).toBe("3jz1a2b3c4d5e");
+	});
+
+	it("recalls a cursor adopted from the appview", () => {
+		adoptRemoteCursors(COMMUNITY_A, [
+			{ channel: "general", cursor: "3jz1a2b3c4d5b" },
+		]);
+
+		expect(recallReadCursor(COMMUNITY_A, "general")).toBe("3jz1a2b3c4d5b");
+	});
+
+	it("keeps communities and channels apart", () => {
+		recordRead(COMMUNITY_A, "general", "3jz1a2b3c4d5a");
+
+		expect(recallReadCursor(COMMUNITY_B, "general")).toBeUndefined();
+		expect(recallReadCursor(COMMUNITY_A, "random")).toBeUndefined();
+	});
+
+	it("forgets everything once the writer has been reset", () => {
+		recordRead(COMMUNITY_A, "general", "3jz1a2b3c4d5e");
+		resetReadCursorWriter();
+
+		expect(recallReadCursor(COMMUNITY_A, "general")).toBeUndefined();
+	});
+
+	it("reports whether a bump advanced the cursor", () => {
+		expect(bumpCursor(COMMUNITY_A, "general", "3jz1a2b3c4d5b")).toBe(true);
+		expect(bumpCursor(COMMUNITY_A, "general", "3jz1a2b3c4d5a")).toBe(false);
+		expect(bumpCursor(COMMUNITY_A, "general", "3jz1a2b3c4d5b")).toBe(false);
+		expect(bumpCursor(COMMUNITY_A, "general", "3jz1a2b3c4d5c")).toBe(true);
+		expect(recallReadCursor(COMMUNITY_A, "general")).toBe("3jz1a2b3c4d5c");
+	});
+
+	it("yields to a newer cursor found on the PDS, and does not write", async () => {
+		getRecord.mockImplementation(() =>
+			Promise.resolve({
+				data: {
+					value: {
+						community: COMMUNITY_A,
+						cursors: [{ channel: "general", cursor: "3jz1a2b3c4d9z" }],
+					},
+				},
+			}),
+		);
+
+		recordRead(COMMUNITY_A, "general", "3jz1a2b3c4d5a");
+		await settleDebounce();
+
+		expect(recallReadCursor(COMMUNITY_A, "general")).toBe("3jz1a2b3c4d9z");
+		expect(enqueueSpacePut).not.toHaveBeenCalled();
+	});
+
+	it("still writes when the PDS record is behind the recorded read", async () => {
+		getRecord.mockImplementation(() =>
+			Promise.resolve({
+				data: {
+					value: {
+						community: COMMUNITY_A,
+						cursors: [{ channel: "general", cursor: "3jz1a2b3c4d0a" }],
+					},
+				},
+			}),
+		);
+
+		recordRead(COMMUNITY_A, "general", "3jz1a2b3c4d5e");
+		await settleDebounce();
+
+		expect(recallReadCursor(COMMUNITY_A, "general")).toBe("3jz1a2b3c4d5e");
+		expect(enqueueSpacePut).toHaveBeenCalledTimes(1);
 	});
 });

@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import type { ThreadView } from "../atproto/views";
 import {
+	anchorKey,
+	indexThreadAnchors,
 	isRecentlyActive,
 	markThreadRead,
 	matchesFilter,
@@ -322,5 +324,63 @@ describe("sidebarThreads", () => {
 			}),
 		);
 		expect(sidebarThreads(recent, CHANNEL, now, 3)).toHaveLength(3);
+	});
+});
+
+describe("indexThreadAnchors", () => {
+	const anchored = (
+		space: string,
+		suffix: string,
+		anchor: { space: string; did: string; rkey: string },
+	) => ({ ...thread(suffix), space, anchor }) as ThreadView;
+
+	it("finds the same thread a linear scan would", () => {
+		const target = anchored(`${CHANNEL}/t/a`, "a", {
+			space: CHANNEL,
+			did: "did:plc:author",
+			rkey: "3lmessage",
+		});
+		const index = indexThreadAnchors([target]);
+
+		expect(index.get(anchorKey(CHANNEL, "did:plc:author", "3lmessage"))).toBe(
+			target,
+		);
+		expect(
+			threadAnchoredAt([target], CHANNEL, "did:plc:author", "3lmessage"),
+		).toBe(target);
+	});
+
+	it("skips threads that were not opened from a message", () => {
+		expect(indexThreadAnchors([thread("b")]).size).toBe(0);
+	});
+
+	it("keeps the first thread when two claim the same anchor, matching a scan", () => {
+		const anchor = {
+			space: CHANNEL,
+			did: "did:plc:author",
+			rkey: "3lmessage",
+		};
+		const first = anchored(`${CHANNEL}/t/a`, "a", anchor);
+		const second = anchored(`${CHANNEL}/t/b`, "b", anchor);
+		const list = [first, second];
+
+		expect(
+			indexThreadAnchors(list).get(
+				anchorKey(anchor.space, anchor.did, anchor.rkey),
+			),
+		).toBe(threadAnchoredAt(list, anchor.space, anchor.did, anchor.rkey));
+	});
+
+	it("keeps anchors in different channels apart", () => {
+		const target = anchored(`${CHANNEL}/t/a`, "a", {
+			space: CHANNEL,
+			did: "did:plc:author",
+			rkey: "3lmessage",
+		});
+		const index = indexThreadAnchors([target]);
+
+		expect(
+			index.get(anchorKey(OTHER, "did:plc:author", "3lmessage")),
+		).toBeUndefined();
 	});
 });

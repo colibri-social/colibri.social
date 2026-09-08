@@ -452,6 +452,64 @@ describe("the background snapshot queue", () => {
 		expect(writes).toEqual([]);
 	});
 
+	it("keeps the flushed snapshot in memory, so the next fold needs no read", async () => {
+		configure();
+		const reads: string[] = [];
+		configureSnapshotWriter({
+			namespace: () => NS,
+			read: (ns, space) => {
+				reads.push(space);
+				return Promise.resolve(stored.get(`${ns}:${space}`));
+			},
+			write: (ns, space, snap) => {
+				writes.push({ space, snapshot: snap });
+				stored.set(`${ns}:${space}`, snap);
+				return Promise.resolve();
+			},
+			onError: (err) => {
+				errors.push(err);
+			},
+		});
+
+		offer(CHANNEL, [message("a")]);
+		await settle();
+		flushSnapshotWriter();
+		reads.length = 0;
+
+		offer(CHANNEL, [message("b")]);
+		await settle();
+
+		expect(reads).toEqual([]);
+		flushSnapshotWriter();
+		expect(rkeys(writes.at(-1)!.snapshot.messages)).toEqual(["a", "b"]);
+	});
+
+	it("files a fold under the namespace it was folded in", async () => {
+		let ns = NS;
+		const OTHER_NS = "appview:did:plc:someone-else";
+		configureSnapshotWriter({
+			namespace: () => ns,
+			read: (n, space) => Promise.resolve(stored.get(`${n}:${space}`)),
+			write: (n, space, snap) => {
+				writes.push({ space: `${n}:${space}`, snapshot: snap });
+				stored.set(`${n}:${space}`, snap);
+				return Promise.resolve();
+			},
+			onError: (err) => {
+				errors.push(err);
+			},
+		});
+
+		offer(CHANNEL, [message("a")]);
+		await settle();
+
+		ns = OTHER_NS;
+		flushSnapshotWriter();
+
+		expect(writes.map((w) => w.space)).toEqual([`${NS}:${CHANNEL}`]);
+		expect(stored.has(`${OTHER_NS}:${CHANNEL}`)).toBe(false);
+	});
+
 	it("skips a channel that became open before the flush", async () => {
 		configure();
 

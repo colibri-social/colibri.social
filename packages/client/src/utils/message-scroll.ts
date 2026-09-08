@@ -445,3 +445,44 @@ export const createMessageScrollController = (
 		dispose: cancelSettle,
 	};
 };
+
+export type LandingDecision =
+	| { kind: "wait"; waitingFor: "initialLoading" | "firstRows" | "readCursor" }
+	| { kind: "land"; onCursor: boolean; markRead: boolean };
+
+export const decideLanding = (input: {
+	initialLoading: boolean;
+	rowCount: number;
+	hasMore: boolean;
+	cursorResolved: boolean;
+	cursorTrusted: boolean;
+	cursorIdx: number;
+	hasCursor: boolean;
+}): LandingDecision => {
+	if (input.initialLoading) {
+		return { kind: "wait", waitingFor: "initialLoading" };
+	}
+	if (input.rowCount === 0 && input.hasMore) {
+		return { kind: "wait", waitingFor: "firstRows" };
+	}
+	if (!input.cursorResolved) {
+		return { kind: "wait", waitingFor: "readCursor" };
+	}
+
+	const onCursor = input.cursorIdx >= 0 && input.cursorIdx < input.rowCount - 1;
+
+	if (onCursor) return { kind: "land", onCursor: true, markRead: false };
+
+	const nothingUnread = input.cursorTrusted && !input.hasCursor;
+
+	const atNewestRow =
+		input.cursorTrusted &&
+		input.hasCursor &&
+		input.cursorIdx === input.rowCount - 1;
+
+	return {
+		kind: "land",
+		onCursor: false,
+		markRead: nothingUnread || atNewestRow,
+	};
+};

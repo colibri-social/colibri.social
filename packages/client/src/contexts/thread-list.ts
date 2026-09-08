@@ -86,6 +86,25 @@ export const threadsInChannel = (
 	channel: string,
 ): Array<ThreadView> => threads.filter((t) => t.channel === channel);
 
+export const anchorKey = (
+	channel: string,
+	author: string,
+	rkey: string,
+): string => `${channel}|${author}|${rkey}`;
+
+export const indexThreadAnchors = (
+	threads: ReadonlyArray<ThreadView>,
+): Map<string, ThreadView> => {
+	const byKey = new Map<string, ThreadView>();
+	for (const thread of threads) {
+		const anchor = thread.anchor;
+		if (anchor === undefined) continue;
+		const key = anchorKey(anchor.space, anchor.did, anchor.rkey);
+		if (!byKey.has(key)) byKey.set(key, thread);
+	}
+	return byKey;
+};
+
 export const threadAnchoredAt = (
 	threads: ReadonlyArray<ThreadView>,
 	channel: string,

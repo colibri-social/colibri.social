@@ -33,12 +33,12 @@ export const MessageSnapshotWriter: Component = () => {
 	};
 
 	onMount(() => {
-		if (!cacheEnabled()) return;
+		const usable = cacheEnabled();
 
 		configureSnapshotWriter({
 			namespace: () => namespace(getAppViewDid(), user.did),
-			read: readMessages,
-			write: writeMessages,
+			read: usable ? readMessages : () => Promise.resolve(undefined),
+			write: usable ? writeMessages : () => Promise.resolve(),
 			onError: (err) => {
 				log.warn("could not fold an event into a snapshot", {
 					code: classifyThrown(err).code,

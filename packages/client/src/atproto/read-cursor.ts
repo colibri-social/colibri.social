@@ -91,24 +91,45 @@ const readExisting = async (
 	}
 };
 
-const ensureHydrated = async (
-	active: ReadCursorIo,
-	communityDid: string,
-): Promise<CommunityState> => {
+const entryFor = (communityDid: string): CommunityState => {
 	let entry = state.get(communityDid);
-	if (entry?.hydrated) return entry;
 	if (!entry) {
 		entry = { cursors: new Map(), hydrated: false };
 		state.set(communityDid, entry);
 	}
+	return entry;
+};
+
+export const bumpCursor = (
+	communityDid: string,
+	channelKey: string,
+	messageTid: string,
+): boolean => {
+	const entry = entryFor(communityDid);
+	const current = entry.cursors.get(channelKey);
+	if (current !== undefined && current >= messageTid) return false;
+	entry.cursors.set(channelKey, messageTid);
+	return true;
+};
+
+export const recallReadCursor = (
+	communityDid: string,
+	channelKey: string,
+): string | undefined => state.get(communityDid)?.cursors.get(channelKey);
+
+const ensureHydrated = async (
+	active: ReadCursorIo,
+	communityDid: string,
+): Promise<CommunityState> => {
+	const existing = state.get(communityDid);
+	if (existing?.hydrated) return existing;
+	const entry = entryFor(communityDid);
 
 	try {
 		const record = await readExisting(active, communityDid);
 		if (record) {
 			for (const cursor of record.cursors) {
-				if (!entry.cursors.has(cursor.channel)) {
-					entry.cursors.set(cursor.channel, cursor.cursor);
-				}
+				bumpCursor(communityDid, cursor.channel, cursor.cursor);
 			}
 		}
 	} catch (err) {
@@ -181,16 +202,8 @@ export const adoptRemoteCursors = (
 ): void => {
 	if (!io || entries.length === 0) return;
 
-	let entry = state.get(communityDid);
-	if (!entry) {
-		entry = { cursors: new Map(), hydrated: false };
-		state.set(communityDid, entry);
-	}
-
 	for (const { channel, cursor } of entries) {
-		const current = entry.cursors.get(channel);
-		if (current !== undefined && current >= cursor) continue;
-		entry.cursors.set(channel, cursor);
+		bumpCursor(communityDid, channel, cursor);
 	}
 };
 
@@ -201,12 +214,11 @@ export const recordRead = (
 ): void => {
 	const active = io;
 	if (!active) return;
+	if (!bumpCursor(communityDid, channelKey, messageTid)) return;
 
 	enqueue(communityDid, async () => {
 		const entry = await ensureHydrated(active, communityDid);
-		const current = entry.cursors.get(channelKey);
-		if (current !== undefined && current >= messageTid) return;
-		entry.cursors.set(channelKey, messageTid);
+		if (entry.cursors.get(channelKey) !== messageTid) return;
 		schedulerFor(communityDid).schedule(communityDid);
 	});
 };

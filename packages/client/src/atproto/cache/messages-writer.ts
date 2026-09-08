@@ -2,6 +2,12 @@ import { insertAt, placeMessage } from "../../utils/message-order";
 import { HIDDEN } from "../labels";
 import type { LabelEventFrame, MessageEventFrame } from "../sync-frames";
 import type { MessageView } from "../views";
+import { messagesKey } from "./keys";
+import {
+	clearMessagesMemory,
+	recallMessages,
+	rememberMessages,
+} from "./messages-memory";
 import {
 	cursorFor,
 	mergeSnapshotWindow,
@@ -42,19 +48,46 @@ export type SnapshotWriterIo = {
 };
 
 let io: SnapshotWriterIo | undefined;
-const pending = new Map<string, MessagesSnapshot>();
+
+const dirty = new Map<string, string>();
 const chains = new Map<string, Promise<void>>();
+
+const reset = (): void => {
+	dirty.clear();
+	chains.clear();
+	clearMessagesMemory();
+};
 
 export const configureSnapshotWriter = (next: SnapshotWriterIo): void => {
 	io = next;
-	pending.clear();
-	chains.clear();
+	reset();
 };
 
 export const resetSnapshotWriter = (): void => {
 	io = undefined;
-	pending.clear();
-	chains.clear();
+	reset();
+};
+
+const load = async (
+	active: SnapshotWriterIo,
+	ns: string,
+	channelSpace: string,
+): Promise<MessagesSnapshot | undefined> => {
+	const remembered = recallMessages(messagesKey(ns, channelSpace));
+	if (remembered) return remembered;
+
+	const stored = await active.read(ns, channelSpace);
+	if (stored) rememberMessages(messagesKey(ns, channelSpace), stored);
+	return stored;
+};
+
+const stage = (
+	ns: string,
+	channelSpace: string,
+	snapshot: MessagesSnapshot,
+) => {
+	rememberMessages(messagesKey(ns, channelSpace), snapshot);
+	dirty.set(channelSpace, ns);
 };
 
 const enqueue = (channelSpace: string, work: () => Promise<void>): void => {
@@ -77,14 +110,13 @@ export const foldMessageEvent = (
 
 	enqueue(channelSpace, async () => {
 		try {
-			const current =
-				pending.get(channelSpace) ??
-				(await active.read(active.namespace(), channelSpace));
+			const ns = active.namespace();
+			const current = await load(active, ns, channelSpace);
 			if (!current) return;
 			if (!snapshotBelongsTo(current, channelSpace)) return;
 			if (isOpenChannel(channelSpace)) return;
 			const next = applyMessageEvent(current, event, limit);
-			if (next) pending.set(channelSpace, next);
+			if (next) stage(ns, channelSpace, next);
 		} catch (err) {
 			active.onError(err);
 		}
@@ -100,14 +132,13 @@ export const foldLabelEvent = (event: LabelEventFrame): void => {
 
 	enqueue(channelSpace, async () => {
 		try {
-			const current =
-				pending.get(channelSpace) ??
-				(await active.read(active.namespace(), channelSpace));
+			const ns = active.namespace();
+			const current = await load(active, ns, channelSpace);
 			if (!current) return;
 			if (!snapshotBelongsTo(current, channelSpace)) return;
 			if (isOpenChannel(channelSpace)) return;
 			const next = applyLabelEvent(current, event);
-			if (next) pending.set(channelSpace, next);
+			if (next) stage(ns, channelSpace, next);
 		} catch (err) {
 			active.onError(err);
 		}
@@ -128,13 +159,13 @@ export const offerSnapshotWindow = (
 
 	enqueue(channelSpace, async () => {
 		try {
-			const stored =
-				pending.get(channelSpace) ??
-				(await active.read(active.namespace(), channelSpace));
+			const ns = active.namespace();
+			const stored = await load(active, ns, channelSpace);
 			if (isOpenChannel(channelSpace)) return;
 			const current =
 				stored && snapshotBelongsTo(stored, channelSpace) ? stored : undefined;
-			pending.set(
+			stage(
+				ns,
 				channelSpace,
 				mergeSnapshotWindow(current, messages, {
 					...options,
@@ -150,13 +181,14 @@ export const offerSnapshotWindow = (
 
 export const flushSnapshotWriter = (): void => {
 	const active = io;
-	if (!active || pending.size === 0) return;
+	if (!active || dirty.size === 0) return;
 
-	const batch = [...pending.entries()];
-	pending.clear();
-	const ns = active.namespace();
-	for (const [channelSpace, snapshot] of batch) {
+	const batch = [...dirty.entries()];
+	dirty.clear();
+	for (const [channelSpace, ns] of batch) {
 		if (isOpenChannel(channelSpace)) continue;
+		const snapshot = recallMessages(messagesKey(ns, channelSpace));
+		if (!snapshot) continue;
 		void active.write(ns, channelSpace, snapshot);
 	}
 };

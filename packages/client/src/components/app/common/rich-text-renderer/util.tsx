@@ -119,7 +119,7 @@ const applyStyleForFacet = (text: string, feature: AnyFeature): JSX.Element => {
 		case "social.colibri.beta.richtext.facet#mention": {
 			const did = "did" in feature ? String(feature.did) : "";
 
-			const member = community().members.find((x) => x.did === did);
+			const member = community().utils.getMember(did);
 
 			if (!member) {
 				return (

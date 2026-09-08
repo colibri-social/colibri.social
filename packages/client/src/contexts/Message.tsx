@@ -289,7 +289,7 @@ export const MessageContextProvider: ParentComponent<{ data: MessageData }> = (
 		const target = confirmed();
 		if (!target) return false;
 		const ownRoleUris = new Set(
-			community().members.find((m) => m.did === user.did)?.roles ?? [],
+			community().utils.getMember(user.did)?.roles ?? [],
 		);
 		const parent = target.parent;
 		const repliedToUser =

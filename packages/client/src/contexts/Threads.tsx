@@ -2,6 +2,7 @@ import {
 	type Accessor,
 	createContext,
 	createEffect,
+	createMemo,
 	createSignal,
 	on,
 	onCleanup,
@@ -47,9 +48,10 @@ import { createLogger } from "../utils/logger";
 import { useCommunityContext } from "./Community";
 import { useSocketContext } from "./Socket";
 import {
+	anchorKey,
+	indexThreadAnchors,
 	markThreadRead,
 	removeThread,
-	threadAnchoredAt,
 	threadsInChannel,
 	touchThread,
 	upsertThread,
@@ -299,12 +301,14 @@ export const ThreadsContextProvider: ParentComponent = (props) => {
 	const inChannel = (channel: string): Array<ThreadView> =>
 		threadsInChannel(threads(), channel);
 
+	const anchorsByKey = createMemo(() => indexThreadAnchors(threads()));
+
 	const anchoredAt = (
 		channel: string,
 		author: string,
 		rkey: string,
 	): ThreadView | undefined =>
-		threadAnchoredAt(threads(), channel, author, rkey);
+		anchorsByKey().get(anchorKey(channel, author, rkey));
 
 	const adopt = (thread: ThreadView): ThreadView => {
 		rememberThreadParent(thread.space, thread.channel);

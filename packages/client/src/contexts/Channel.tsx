@@ -14,7 +14,12 @@ import {
 	useContext,
 } from "solid-js";
 import { toast } from "somoto";
-import { namespace } from "../atproto/cache/keys";
+import { messagesKey, namespace } from "../atproto/cache/keys";
+import {
+	forgetMessages,
+	recallMessages,
+	rememberMessages,
+} from "../atproto/cache/messages-memory";
 import {
 	buildMessagesSnapshot,
 	isSnapshotPaintable,
@@ -70,7 +75,11 @@ import {
 	sendsRevision,
 } from "../atproto/outbox/sends";
 import { nextTid } from "../atproto/outbox/tid";
-import { adoptRemoteCursors, recordRead } from "../atproto/read-cursor";
+import {
+	adoptRemoteCursors,
+	recallReadCursor,
+	recordRead,
+} from "../atproto/read-cursor";
 import { spaceSkey } from "../atproto/space-ref";
 import type {
 	LabelEventFrame,
@@ -102,10 +111,16 @@ import { markBoot } from "../utils/perf";
 import { recordSpeakers } from "../utils/recent-speakers";
 import { probe, shortUri } from "../utils/switch-probe";
 import { useCommunityContext, usePermissions } from "./Community";
-import { createLoadSessions } from "./load-session";
+import { createLoadSessions, type LoadSession } from "./load-session";
+import { useNotifications } from "./Notifications";
 import { profileViewOf } from "./profile-view";
 import { useSocketContext } from "./Socket";
 import { useUserContext } from "./User";
+import {
+	type CursorSource,
+	isTrustedCursorSource,
+	resolveCursorFast,
+} from "./unread-cursor-resolve";
 
 const TYPING_HOLD_MS = 5000;
 
@@ -123,7 +138,11 @@ const JUMP_FETCH_CAP = 50;
 
 const MAX_UNREAD_STATUSES = 100;
 
+const CURSOR_GRACE_MS = 400;
+
 type Did = RecordRef["did"];
+
+type LoadState = { busy: boolean; lastViewAt: number };
 
 export type UnseenEntry = {
 	uri: MessageView["uri"];
@@ -183,6 +202,7 @@ export type ChannelContextValue = {
 
 	focusedMessage: Accessor<string | undefined>;
 	jumpToMessage: (uri: string) => Promise<void>;
+	revealUnread: () => Promise<void>;
 
 	registerComposerFocus: (focus: (() => void) | undefined) => void;
 	focusComposer: () => void;
@@ -228,6 +248,7 @@ export type ChannelContextValue = {
 
 	unreadCursor: Accessor<string | undefined>;
 	unreadCursorResolved: Accessor<boolean>;
+	cursorSource: Accessor<CursorSource | undefined>;
 	initialUnseen: Accessor<UnseenEntry[]>;
 	advanceReadCursor: (explicitRkey?: string) => void;
 	clearUnreadBoundary: () => void;
@@ -259,6 +280,7 @@ export const ChannelContextProvider: ParentComponent<{
 	const user = useUserContext();
 	const socket = useSocketContext();
 	const community = useCommunityContext();
+	const notifications = useNotifications();
 	const { canApplyLabel } = usePermissions();
 
 	const ns = () => namespace(getAppViewDid(), user.did);
@@ -306,6 +328,9 @@ export const ChannelContextProvider: ParentComponent<{
 		undefined,
 	);
 	const [unreadCursorResolved, setUnreadCursorResolved] = createSignal(false);
+	const [cursorSource, setCursorSource] = createSignal<
+		CursorSource | undefined
+	>(undefined);
 	const [initialUnseen, setInitialUnseen] = createSignal<UnseenEntry[]>([]);
 	const [snapshotAge, setSnapshotAge] = createSignal<number | undefined>(
 		undefined,
@@ -333,9 +358,10 @@ export const ChannelContextProvider: ParentComponent<{
 
 	let focusClearTimer: ReturnType<typeof setTimeout> | undefined;
 
-	const sessions = createLoadSessions<{ busy: boolean; lastViewAt: number }>(
-		() => ({ busy: false, lastViewAt: 0 }),
-	);
+	const sessions = createLoadSessions<LoadState>(() => ({
+		busy: false,
+		lastViewAt: 0,
+	}));
 
 	const reset = () => {
 		paintedAt = undefined;
@@ -349,6 +375,7 @@ export const ChannelContextProvider: ParentComponent<{
 			setError(undefined);
 			setUnreadCursor(undefined);
 			setUnreadCursorResolved(false);
+			setCursorSource(undefined);
 			setInitialUnseen([]);
 			setSnapshotAge(undefined);
 			setHydratedFromNetwork(false);
@@ -468,6 +495,36 @@ export const ChannelContextProvider: ParentComponent<{
 		}
 	};
 
+	const mergeFetchedWindow = (
+		ordered: MessageView[],
+		prunable: ReadonlySet<string>,
+	): { merged: (MessageView | PendingMessage)[]; appended: boolean } => {
+		const current = messages();
+		const existing = new Set(current.map((m) => m.uri));
+		const novel = ordered.filter((m) => !existing.has(m.uri));
+		const reconciled = reconcileFetchedWindow(current, ordered, {
+			pageSize: PAGE_SIZE,
+			prunable,
+		});
+		const spansWholeHistory = ordered.length < PAGE_SIZE;
+
+		let merged = reconciled ?? current;
+		let appended = false;
+		for (const message of novel) {
+			const placement = placeMessage(merged, message, {
+				hasMore: spansWholeHistory ? false : hasMore(),
+			});
+			if (placement.kind === "drop") continue;
+			if (placement.kind === "append") {
+				merged = [...merged, message];
+				appended = appended || visibleToViewer(message);
+			} else {
+				merged = insertAt(merged, message, placement.index);
+			}
+		}
+		return { merged, appended };
+	};
+
 	const loadInitial = async (): Promise<void> => {
 		const session = sessions.current();
 		if (!session) return;
@@ -478,11 +535,13 @@ export const ChannelContextProvider: ParentComponent<{
 		setLoadingOlder(true);
 
 		try {
-			const primed = takeChannelMessages(space);
+			const client = managingClient();
+			const prunable = new Set(messages().map((m) => m.uri));
+			const primed = takeChannelMessages(client, space);
 			if (primed) markBoot("prefetch:consumed");
 			const result =
 				(await primed) ??
-				(await managingClient().call(
+				(await client.call(
 					colibri.channel.listMessages.main,
 					{ params: { channel: space, limit: PAGE_SIZE } },
 					{ signal: sessions.teardownSignal },
@@ -514,30 +573,55 @@ export const ChannelContextProvider: ParentComponent<{
 				rows: ordered.length,
 			});
 
-			const stillPending = messages().filter(
-				(m) => "hash" in m && !ordered.some((o) => o.uri === m.uri),
-			);
-
-			batch(() => {
-				setError(undefined);
-				setMessages([...ordered, ...stillPending]);
-				const nextCursor = result.data?.cursor ?? ordered[0]?.rkey;
-				if (nextCursor) setCursor(nextCursor);
-				setHasMore(ordered.length >= PAGE_SIZE);
-				setHydratedFromNetwork(true);
-			});
-			session.state.lastViewAt = Date.now();
-
-			const [readCursor, unseen] = await Promise.all([
-				fetchUnreadCursor(space, sessions.teardownSignal),
-				fetchUnseen(space, sessions.teardownSignal),
-			]);
-			if (sessions.isCurrent(session)) {
+			if (paintedAt !== undefined && messages().length > 0) {
+				const { merged } = mergeFetchedWindow(ordered, prunable);
+				const spansWholeHistory = ordered.length < PAGE_SIZE;
 				batch(() => {
-					setUnreadCursor(readCursor);
-					setInitialUnseen(unseen);
+					setError(undefined);
+					setMessages(merged);
+					if (spansWholeHistory) {
+						const nextCursor = result.data?.cursor ?? ordered[0]?.rkey;
+						if (nextCursor) setCursor(nextCursor);
+						setHasMore(false);
+					}
+					setHydratedFromNetwork(true);
+				});
+			} else {
+				const stillPending = messages().filter(
+					(m) => "hash" in m && !ordered.some((o) => o.uri === m.uri),
+				);
+
+				batch(() => {
+					setError(undefined);
+					setMessages([...ordered, ...stillPending]);
+					const nextCursor = result.data?.cursor ?? ordered[0]?.rkey;
+					if (nextCursor) setCursor(nextCursor);
+					setHasMore(ordered.length >= PAGE_SIZE);
+					setHydratedFromNetwork(true);
 				});
 			}
+			session.state.lastViewAt = Date.now();
+
+			void fetchUnseen(space, sessions.teardownSignal).then((unseen) => {
+				if (sessions.isCurrent(session)) setInitialUnseen(unseen);
+			});
+
+			void fetchUnreadCursor(space, sessions.teardownSignal).then(
+				(readCursor) => {
+					if (!sessions.isCurrent(session)) return;
+					const source = cursorSource();
+					const trusted =
+						unreadCursorResolved() &&
+						source !== undefined &&
+						isTrustedCursorSource(source);
+					if (trusted) return;
+					batch(() => {
+						setUnreadCursor(readCursor);
+						setCursorSource("network");
+						setUnreadCursorResolved(true);
+					});
+				},
+			);
 		} catch (err) {
 			const failure = classifyThrown(err, { method: "channel.listMessages" });
 			log.error("loadInitial failed", { code: failure.code });
@@ -549,7 +633,6 @@ export const ChannelContextProvider: ParentComponent<{
 					setLoadingOlder(false);
 					setInitialLoading(false);
 				});
-				setUnreadCursorResolved(true);
 			}
 		}
 	};
@@ -568,6 +651,81 @@ export const ChannelContextProvider: ParentComponent<{
 
 	const flushSnapshot = () => snapshotWrites.flush();
 
+	const applyPaint = (snapshot: MessagesSnapshot, age: number) => {
+		const restored = restoreMessagesSnapshot(snapshot);
+		paintedAt = snapshot.ts;
+		batch(() => {
+			setMessages(snapshot.messages);
+			if (restored.cursor) setCursor(restored.cursor);
+			if (restored.hasMore !== undefined) setHasMore(restored.hasMore);
+			setUnreadCursor(snapshot.readCursor);
+			setSnapshotAge(age);
+			setInitialLoading(false);
+		});
+	};
+
+	const paintFromMemory = (space: string): boolean => {
+		const key = messagesKey(ns(), space);
+		const cached = recallMessages(key);
+		if (!cached) return false;
+		if (!snapshotBelongsTo(cached, space)) {
+			log.warn("discarded a remembered snapshot that belongs elsewhere", {
+				channel: shortUri(space),
+				stored: shortUri(cached.space),
+			});
+			forgetMessages(key);
+			return false;
+		}
+		const age = snapshotAgeMs(cached, Date.now());
+		if (!isSnapshotPaintable(age)) return false;
+
+		probe("memory paint applied", {
+			channel: shortUri(space),
+			rows: cached.messages.length,
+			ageMs: age,
+		});
+		applyPaint(cached, age);
+		markBoot("memory:paint");
+		return true;
+	};
+
+	const resolveCursor = (space: string) => {
+		const skey = spaceSkey(space);
+		const did = communityDid();
+		const resolution = resolveCursorFast({
+			local: did && skey ? recallReadCursor(did, skey) : undefined,
+			snapshot: unreadCursor(),
+			hint: notifications.unreadHint(space),
+		});
+
+		setCursorSource(resolution.source);
+		if (!resolution.resolved) return;
+		setUnreadCursor(resolution.cursor);
+		setUnreadCursorResolved(true);
+	};
+
+	let cursorGraceTimer: ReturnType<typeof setTimeout> | undefined;
+
+	const clearCursorGrace = () => {
+		if (cursorGraceTimer === undefined) return;
+		clearTimeout(cursorGraceTimer);
+		cursorGraceTimer = undefined;
+	};
+
+	const startCursorGrace = (session: LoadSession<LoadState>) => {
+		clearCursorGrace();
+		cursorGraceTimer = setTimeout(() => {
+			cursorGraceTimer = undefined;
+			if (!sessions.isCurrent(session)) return;
+			if (unreadCursorResolved()) return;
+			probe("cursor grace expired, landing without one", {});
+			batch(() => {
+				setCursorSource("timeout");
+				setUnreadCursorResolved(true);
+			});
+		}, CURSOR_GRACE_MS);
+	};
+
 	createEffect(
 		on(channelSpace, (space) => {
 			probe("channelSpace changed", {
@@ -577,6 +735,7 @@ export const ChannelContextProvider: ParentComponent<{
 			});
 			flushSnapshot();
 			resetComposerTargets();
+			clearCursorGrace();
 			registerOpenChannel(space, surface());
 			if (!space) {
 				probe("channel went away, resetting", {
@@ -588,13 +747,20 @@ export const ChannelContextProvider: ParentComponent<{
 				return;
 			}
 			sessions.begin(space);
-			reset();
+			const session = sessions.current();
+			batch(() => {
+				reset();
+				paintFromMemory(space);
+				resolveCursor(space);
+			});
+			if (!unreadCursorResolved() && session) startCursorGrace(session);
 			probe("reset done", { rows: messages().length });
 			loadInitial();
 		}),
 	);
 	onCleanup(() => {
 		sessions.dispose();
+		clearCursorGrace();
 		registerOpenChannel(undefined, surface());
 	});
 
@@ -626,6 +792,7 @@ export const ChannelContextProvider: ParentComponent<{
 					channel: shortUri(space),
 					stored: shortUri(cached.space),
 				});
+				forgetMessages(messagesKey(ns(), space));
 				void deleteMessages(ns(), space);
 				return;
 			}
@@ -636,7 +803,16 @@ export const ChannelContextProvider: ParentComponent<{
 				return;
 			}
 			if (hydratedFromNetwork()) return;
-			if (messages().length > 0) {
+
+			if (paintedAt !== undefined) {
+				if (cached.ts <= paintedAt) {
+					probe("paint: memory already at least as fresh", {
+						channel: shortUri(space),
+						rows: messages().length,
+					});
+					return;
+				}
+			} else if (messages().length > 0) {
 				probe("paint: BLOCKED by existing rows", {
 					channel: shortUri(space),
 					listBelongsTo: shortUri(messages()[0]?.channel),
@@ -644,23 +820,16 @@ export const ChannelContextProvider: ParentComponent<{
 				});
 				return;
 			}
+
 			probe("paint applied", {
 				channel: shortUri(space),
 				snapshotBelongsTo: shortUri(cached.space),
 				rows: cached.messages.length,
 				ageMs: age,
 			});
-			const restored = restoreMessagesSnapshot(cached);
-			paintedAt = cached.ts;
-			batch(() => {
-				setMessages(cached.messages);
-				if (restored.cursor) setCursor(restored.cursor);
-				if (restored.hasMore !== undefined) setHasMore(restored.hasMore);
-				setUnreadCursor(cached.readCursor);
-				setSnapshotAge(age);
-				setInitialLoading(false);
-				markBoot("cache:paint");
-			});
+			applyPaint(cached, age);
+			rememberMessages(messagesKey(ns(), space), cached);
+			markBoot("cache:paint");
 		}),
 	);
 
@@ -687,23 +856,26 @@ export const ChannelContextProvider: ParentComponent<{
 		);
 		const hydrated = hydratedFromNetwork();
 		const gate = {
-			cacheEnabled: cacheEnabled(),
+			cacheEnabled: true,
 			channelUri: space,
 			hydratedFromNetwork: hydrated,
 			appliedRemoval: appliedRemoval(),
 		};
 		if (!shouldWriteSnapshot(gate)) return;
-		snapshotWrites.schedule({
-			ns: ns(),
-			uri: space,
-			snap: buildMessagesSnapshot(confirmed, {
-				space,
-				readCursor: unreadCursor(),
-				hasMore: hasMore(),
-				limit: PAGE_SIZE,
-				now: hydrated ? Date.now() : (paintedAt ?? Date.now()),
-			}),
+
+		const snap = buildMessagesSnapshot(confirmed, {
+			space,
+			readCursor: unreadCursor(),
+			hasMore: hasMore(),
+			limit: PAGE_SIZE,
+			now: hydrated ? Date.now() : (paintedAt ?? Date.now()),
+			cursor: cursor(),
 		});
+
+		rememberMessages(messagesKey(ns(), space), snap);
+
+		if (!cacheEnabled()) return;
+		snapshotWrites.schedule({ ns: ns(), uri: space, snap });
 	});
 
 	const onHidden = () => {
@@ -745,6 +917,31 @@ export const ChannelContextProvider: ParentComponent<{
 			setFocusedMessage(undefined);
 			focusClearTimer = undefined;
 		}, FOCUS_HOLD_MS);
+	};
+
+	const revealUnread = async (): Promise<void> => {
+		const target = unreadCursor();
+		if (!target) return;
+		const session = sessions.current();
+		if (!session) return;
+
+		const located = () =>
+			messages().find((m) => !("hash" in m) && m.rkey === target);
+
+		let fetches = 0;
+		while (
+			fetches < JUMP_FETCH_CAP &&
+			sessions.isCurrent(session) &&
+			!located() &&
+			hasMore()
+		) {
+			await loadOlder();
+			fetches++;
+		}
+
+		if (!sessions.isCurrent(session)) return;
+		const found = located();
+		if (found) await jumpToMessage(found.uri);
 	};
 
 	const addPendingMessage = (msg: PendingMessage) => {
@@ -1288,29 +1485,8 @@ export const ChannelContextProvider: ParentComponent<{
 				return;
 			}
 
-			const existingUris = new Set(messages().map((m) => m.uri));
-			const novel = ordered.filter((m) => !existingUris.has(m.uri));
-			const reconciled = reconcileFetchedWindow(messages(), ordered, {
-				pageSize: PAGE_SIZE,
-				prunable,
-			});
-
 			const spansWholeHistory = ordered.length < PAGE_SIZE;
-			const kept = reconciled ?? messages();
-			let merged = kept;
-			let appended = false;
-			for (const message of novel) {
-				const placement = placeMessage(merged, message, {
-					hasMore: spansWholeHistory ? false : hasMore(),
-				});
-				if (placement.kind === "drop") continue;
-				if (placement.kind === "append") {
-					merged = [...merged, message];
-					appended = appended || visibleToViewer(message);
-				} else {
-					merged = insertAt(merged, message, placement.index);
-				}
-			}
+			const { merged, appended } = mergeFetchedWindow(ordered, prunable);
 
 			batch(() => {
 				if (merged !== messages()) setMessages(merged);
@@ -1464,6 +1640,7 @@ export const ChannelContextProvider: ParentComponent<{
 		clearEmptyEditPendingDeletion,
 		focusedMessage,
 		jumpToMessage,
+		revealUnread,
 		registerComposerFocus,
 		focusComposer,
 		sendMessage,
@@ -1485,6 +1662,7 @@ export const ChannelContextProvider: ParentComponent<{
 		outgoingMessage,
 		unreadCursor,
 		unreadCursorResolved,
+		cursorSource,
 		initialUnseen,
 		advanceReadCursor,
 		clearUnreadBoundary,

@@ -18,6 +18,7 @@ import {
 } from "solid-js";
 import { toast } from "somoto";
 import ArrowDownIcon from "~icons/ph/arrow-down";
+import ArrowUpIcon from "~icons/ph/arrow-up";
 import BellIcon from "~icons/ph/bell";
 import BellSlashIcon from "~icons/ph/bell-slash";
 import CaretLeftIcon from "~icons/ph/caret-left";
@@ -70,6 +71,7 @@ import {
 import { useThreads } from "../contexts/Threads";
 import { useUserContext } from "../contexts/User";
 import { useUserPreferences } from "../contexts/UserPreferences";
+import { isTrustedCursorSource } from "../contexts/unread-cursor-resolve";
 import { useViewport } from "../contexts/Viewport";
 import { describeError } from "../errors/copy";
 import { cancelChannelTrayNotification } from "../notifications";
@@ -83,6 +85,7 @@ import { linkUrisFromFacets } from "../utils/link-facets";
 import { sameDay } from "../utils/message-order";
 import {
 	createMessageScrollController,
+	decideLanding,
 	KEYBOARD_SETTLE_MAX_FRAMES,
 	shouldLoadOlder,
 	shouldShowJumpToLatest,
@@ -245,8 +248,8 @@ export const ChannelSurface: ParentComponent<ChannelSurfaceProps> = (props) => {
 	let focusWalkUri: string | undefined;
 	let focusWalkAttempts = 0;
 	const FOCUS_WALK_CAP = 50;
-	let cursorWalkAttempts = 0;
 	let didInitialScroll = false;
+	const [landed, setLanded] = createSignal(false);
 	let pingObserver: IntersectionObserver | undefined;
 	const [unseenPings, setUnseenPings] = createSignal<Set<string>>(new Set());
 	let unseenIsPing = new Map<string, boolean>();
@@ -567,7 +570,7 @@ export const ChannelSurface: ParentComponent<ChannelSurfaceProps> = (props) => {
 
 	createEffect(() => {
 		const uri = channel.channelSpace();
-		if (!uri || channel.initialLoading()) return;
+		if (!uri || !channel.hydratedFromNetwork()) return;
 
 		const unseen = channel.initialUnseen();
 		if (unseen.length === 0) return;
@@ -668,12 +671,13 @@ export const ChannelSurface: ParentComponent<ChannelSurfaceProps> = (props) => {
 			stopDriftWatch = undefined;
 			scrollAnchor.reset();
 			didInitialScroll = false;
-			cursorWalkAttempts = 0;
+			setLanded(false);
 			prependCompensated = true;
 			autoContinues = 0;
 			handledOrphans = new Set();
 			setDeletedPingBanner(false);
 			setShowJumpToLatest(false);
+			setDismissedUnreadJump(false);
 		}),
 	);
 
@@ -689,6 +693,20 @@ export const ChannelSurface: ParentComponent<ChannelSurfaceProps> = (props) => {
 			},
 		),
 	);
+
+	const [dismissedUnreadJump, setDismissedUnreadJump] = createSignal(false);
+
+	const showJumpToUnread = createMemo(() => {
+		if (dismissedUnreadJump()) return false;
+		if (!landed()) return false;
+		if (!channel.unreadCursorResolved()) return false;
+		const source = channel.cursorSource();
+		if (source === undefined || !isTrustedCursorSource(source)) return false;
+		const cursor = channel.unreadCursor();
+		if (!cursor) return false;
+		if (!channel.hasMore()) return false;
+		return !channel.messages().some((m) => !("hash" in m) && m.rkey === cursor);
+	});
 
 	const landingInputs = createMemo(() => ({
 		initialLoading: channel.initialLoading(),
@@ -710,46 +728,46 @@ export const ChannelSurface: ParentComponent<ChannelSurfaceProps> = (props) => {
 		} = landingInputs();
 
 		if (didInitialScroll) return;
-		if (initialLoading) {
-			probeScroll("landing gate", { waitingFor: "initialLoading" });
-			return;
-		}
-		if (msgs.length === 0 && hasMore) {
-			probeScroll("landing gate", { waitingFor: "firstRows" });
-			return;
-		}
-		if (!cursorResolved) {
-			probeScroll("landing gate", { waitingFor: "readCursor" });
-			return;
-		}
 
 		const cursorIdx = cursorUri
 			? msgs.findIndex((m) => !("hash" in m) && m.rkey === cursorUri)
 			: -1;
 		const cursorMessageUri = cursorIdx >= 0 ? msgs[cursorIdx]?.uri : undefined;
+		const source = channel.cursorSource();
+
+		const decision = decideLanding({
+			initialLoading,
+			rowCount: msgs.length,
+			hasMore,
+			cursorResolved,
+			cursorTrusted: source !== undefined && isTrustedCursorSource(source),
+			cursorIdx,
+			hasCursor: cursorUri !== undefined,
+		});
+
+		if (decision.kind === "wait") {
+			probeScroll("landing gate", { waitingFor: decision.waitingFor });
+			return;
+		}
 
 		probeScroll("landing decision", {
 			rows: msgs.length,
 			cursor: cursorUri ?? "none",
 			cursorIdx,
 			hasMore,
-			cursorWalkAttempts,
+			source: source ?? "none",
+			onCursor: decision.onCursor,
+			markRead: decision.markRead,
+			loadError: loadError !== undefined,
 			scrollH: round(scrollSurface.getScrollHeight()),
 			clientH: round(scrollSurface.getClientHeight()),
 			top: round(scrollSurface.getScrollTop()),
 		});
 
-		if (cursorUri && cursorIdx === -1) {
-			if (hasMore && !loadError && cursorWalkAttempts < FOCUS_WALK_CAP) {
-				cursorWalkAttempts++;
-				loadOlderPreservingScroll();
-				return;
-			}
-		}
-
 		didInitialScroll = true;
+		setLanded(true);
 
-		const landOnCursor = cursorIdx >= 0 && cursorIdx < msgs.length - 1;
+		const landOnCursor = decision.onCursor;
 
 		requestAnimationFrame(() => {
 			const node =
@@ -790,7 +808,7 @@ export const ChannelSurface: ParentComponent<ChannelSurfaceProps> = (props) => {
 			} else {
 				scrollAnchor.pin();
 				setShowJumpToLatest(false);
-				markReadNow();
+				if (decision.markRead) markReadNow();
 			}
 
 			stopDriftWatch?.();
@@ -859,6 +877,7 @@ export const ChannelSurface: ParentComponent<ChannelSurfaceProps> = (props) => {
 				if (!count) return; // skip initial 0
 				if (!didInitialScroll) return;
 				if (!scrollAnchor.isPinned()) return;
+				if (!channel.unreadCursorResolved()) return;
 				channel.clearUnreadBoundary();
 			},
 		),
@@ -870,9 +889,9 @@ export const ChannelSurface: ParentComponent<ChannelSurfaceProps> = (props) => {
 			(count) => {
 				if (!count) return; // skip initial 0
 				if (!didInitialScroll) return;
-				// The user just sent a message — always pin to the bottom.
 				scrollAnchor.pin();
 				setShowJumpToLatest(false);
+				if (!channel.unreadCursorResolved()) return;
 				channel.clearUnreadBoundary();
 			},
 		),
@@ -1121,6 +1140,21 @@ export const ChannelSurface: ParentComponent<ChannelSurfaceProps> = (props) => {
 											{label()}
 										</StatusPill>
 									)}
+								</Show>
+
+								<Show when={showJumpToUnread()}>
+									<Button
+										variant="secondary"
+										size="sm"
+										onClick={() => {
+											setDismissedUnreadJump(true);
+											void channel.revealUnread();
+										}}
+										class="absolute top-2 left-1/2 -translate-x-1/2 z-10 rounded-full border shadow-md"
+									>
+										<ArrowUpIcon />
+										Jump to first unread
+									</Button>
 								</Show>
 
 								<Show when={showJumpToLatest()}>

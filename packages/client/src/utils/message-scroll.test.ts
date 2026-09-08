@@ -3,6 +3,7 @@ import {
 	captureAnchor,
 	createMessageScrollController,
 	decideGrowthSide,
+	decideLanding,
 	distanceFromBottom,
 	type FrameScheduler,
 	findAnchorRow,
@@ -1319,5 +1320,87 @@ describe("prefetch loop", () => {
 
 		expect(loads).toBe(3);
 		expect(fake.scrollTop()).toBe(600);
+	});
+});
+
+describe("decideLanding", () => {
+	const decide = (
+		overrides?: Partial<Parameters<typeof decideLanding>[0]>,
+	): Extract<ReturnType<typeof decideLanding>, { kind: "land" }> =>
+		decideLanding({
+			initialLoading: false,
+			rowCount: 50,
+			hasMore: true,
+			cursorResolved: true,
+			cursorTrusted: true,
+			cursorIdx: -1,
+			hasCursor: false,
+			...overrides,
+		}) as Extract<ReturnType<typeof decideLanding>, { kind: "land" }>;
+
+	it("waits while the first page is still loading", () => {
+		expect(decide({ initialLoading: true })).toEqual({
+			kind: "wait",
+			waitingFor: "initialLoading",
+		});
+	});
+
+	it("waits for rows when none have arrived and more exist", () => {
+		expect(decide({ rowCount: 0 })).toEqual({
+			kind: "wait",
+			waitingFor: "firstRows",
+		});
+	});
+
+	it("lands on an empty channel that has nothing more to load", () => {
+		expect(decide({ rowCount: 0, hasMore: false })).toEqual({
+			kind: "land",
+			onCursor: false,
+			markRead: true,
+		});
+	});
+
+	it("waits for the cursor before choosing a position", () => {
+		expect(decide({ cursorResolved: false })).toEqual({
+			kind: "wait",
+			waitingFor: "readCursor",
+		});
+	});
+
+	it("lands on the cursor when its message is loaded with rows below it", () => {
+		expect(decide({ cursorIdx: 10, hasCursor: true })).toEqual({
+			kind: "land",
+			onCursor: true,
+			markRead: false,
+		});
+	});
+
+	it("reads the channel when a trusted cursor sits on the newest row", () => {
+		expect(decide({ cursorIdx: 49, hasCursor: true })).toEqual({
+			kind: "land",
+			onCursor: false,
+			markRead: true,
+		});
+	});
+
+	it("reads the channel when a trusted source reports nothing unread", () => {
+		expect(decide({ hasCursor: false }).markRead).toBe(true);
+	});
+
+	it("never reads the channel when the cursor was a timed-out guess", () => {
+		expect(decide({ cursorTrusted: false, hasCursor: false }).markRead).toBe(
+			false,
+		);
+		expect(
+			decide({ cursorTrusted: false, hasCursor: true, cursorIdx: 49 }).markRead,
+		).toBe(false);
+	});
+
+	it("lands without paging back when the cursor is above the loaded window", () => {
+		expect(decide({ cursorIdx: -1, hasCursor: true, hasMore: true })).toEqual({
+			kind: "land",
+			onCursor: false,
+			markRead: false,
+		});
 	});
 });
