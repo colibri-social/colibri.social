@@ -14,7 +14,7 @@ export const MovedFromLine: Component<{ origin: string }> = (props) => {
 	return (
 		<Show when={originName()}>
 			{(name) => (
-				<span class="ml-14 flex flex-row items-center gap-1 text-xs text-muted-foreground">
+				<span class="ml-14 flex flex-row items-center gap-1 text-xs text-muted-foreground mb-1">
 					<ArrowRightIcon class="size-3 shrink-0" />
 					moved from {name()}
 				</span>

@@ -461,9 +461,6 @@ const MessageInner: Component<{
 					<Show when={isHiddenByModerator() && revealed()}>
 						<HiddenMessageNotice />
 					</Show>
-					<Show when={movedOrigin()}>
-						{(origin) => <MovedFromLine origin={origin()} />}
-					</Show>
 					<div class="flex flex-row gap-4">
 						<Switch>
 							<Match when={!isSubsequentMessage()}>
@@ -863,6 +860,9 @@ const MessageInner: Component<{
 							</For>
 						</div>
 						<ReactionsViewer />
+					</Show>
+					<Show when={movedOrigin()}>
+						{(origin) => <MovedFromLine origin={origin()} />}
 					</Show>
 				</div>
 			</div>
