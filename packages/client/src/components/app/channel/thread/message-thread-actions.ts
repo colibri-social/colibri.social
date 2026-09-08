@@ -25,8 +25,7 @@ export const useMessageThreadActions = () => {
 		!inThread() && canCreateThread(user.did) && !message.legacy;
 
 	const canSelect = (message: MessageView): boolean =>
-		!message.legacy &&
-		(message.author.did === user.did || canMoveMessages(user.did));
+		!message.legacy && canMoveMessages(user.did);
 
 	const openThreadFrom = (message: MessageView): void => {
 		threads.openDraft({

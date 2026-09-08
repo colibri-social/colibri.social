@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { MessageView } from "../views";
 import {
-	belongsToChannel,
 	buildMessagesSnapshot,
 	cursorFor,
 	isSnapshotPaintable,
@@ -52,6 +51,7 @@ const run = (count: number, from = 0): MessageView[] =>
 const options = (
 	overrides?: Partial<Parameters<typeof buildMessagesSnapshot>[1]>,
 ) => ({
+	space: CHANNEL,
 	readCursor: undefined,
 	hasMore: true,
 	limit: 50,
@@ -145,6 +145,7 @@ describe("buildMessagesSnapshot", () => {
 describe("restoreMessagesSnapshot", () => {
 	it("prefers the persisted cursor and hasMore", () => {
 		const snap: MessagesSnapshot = {
+			space: CHANNEL,
 			messages: run(3),
 			cursor: "persisted",
 			hasMore: false,
@@ -158,7 +159,7 @@ describe("restoreMessagesSnapshot", () => {
 	});
 
 	it("derives the cursor from a snapshot written before the fields existed", () => {
-		const snap: MessagesSnapshot = { messages: run(3), ts: 1 };
+		const snap: MessagesSnapshot = { space: CHANNEL, messages: run(3), ts: 1 };
 
 		expect(restoreMessagesSnapshot(snap)).toEqual({
 			cursor: "m0",
@@ -178,7 +179,9 @@ describe("restoreMessagesSnapshot", () => {
 
 describe("snapshotAgeMs", () => {
 	it("measures the snapshot against the supplied clock", () => {
-		expect(snapshotAgeMs({ messages: [], ts: 1000 }, 4000)).toBe(3000);
+		expect(
+			snapshotAgeMs({ space: CHANNEL, messages: [], ts: 1000 }, 4000),
+		).toBe(3000);
 	});
 });
 
@@ -352,6 +355,7 @@ describe("mergeSnapshotWindow", () => {
 		messages: MessageView[],
 		overrides?: Partial<MessagesSnapshot>,
 	): MessagesSnapshot => ({
+		space: CHANNEL,
 		messages,
 		cursor: messages[0]?.rkey,
 		hasMore: false,
@@ -441,12 +445,12 @@ describe("mergeSnapshotWindow", () => {
 describe("snapshotBelongsTo", () => {
 	const OTHER = `at://${DID}/space/social.colibri.beta.channel.text/random`;
 
-	const stored = (messages: MessageView[]): MessagesSnapshot => ({
-		messages,
-		ts: 1,
-	});
+	const stored = (
+		messages: MessageView[],
+		space = CHANNEL,
+	): MessagesSnapshot => ({ space, messages, ts: 1 });
 
-	it("accepts a snapshot whose messages all name the channel", () => {
+	it("accepts a snapshot stamped with the space it is read under", () => {
 		expect(snapshotBelongsTo(stored(run(3)), CHANNEL)).toBe(true);
 	});
 
@@ -454,26 +458,16 @@ describe("snapshotBelongsTo", () => {
 		expect(snapshotBelongsTo(stored(run(3)), OTHER)).toBe(false);
 	});
 
-	it("rejects a snapshot with even one foreign message", () => {
+	it("accepts a snapshot holding a message moved in from elsewhere", () => {
 		const mixed = [
 			...run(2),
 			{ ...message("m9"), channel: OTHER } as unknown as MessageView,
 		];
 
-		expect(snapshotBelongsTo(stored(mixed), CHANNEL)).toBe(false);
+		expect(snapshotBelongsTo(stored(mixed), CHANNEL)).toBe(true);
 	});
 
 	it("accepts an empty snapshot", () => {
 		expect(snapshotBelongsTo(stored([]), CHANNEL)).toBe(true);
-	});
-
-	it("gives a message with no channel the benefit of the doubt", () => {
-		const anonymous = {
-			...message("m0"),
-			channel: "",
-		} as unknown as MessageView;
-
-		expect(belongsToChannel(anonymous, CHANNEL)).toBe(true);
-		expect(snapshotBelongsTo(stored([anonymous]), CHANNEL)).toBe(true);
 	});
 });

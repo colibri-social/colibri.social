@@ -1,15 +1,25 @@
-import { type Component, Show } from "solid-js";
+import { type Component, Match, Show, Switch } from "solid-js";
 import ArrowsMergeIcon from "~icons/ph/arrows-merge";
 import ArrowsOutSimpleIcon from "~icons/ph/arrows-out-simple";
 import CaretLeftIcon from "~icons/ph/caret-left";
 import DotsThreeIcon from "~icons/ph/dots-three";
 import LockSimpleFillIcon from "~icons/ph/lock-simple-fill";
+import UsersIcon from "~icons/ph/users";
+import UsersIconFill from "~icons/ph/users-fill";
 import XIcon from "~icons/ph/x";
 import type { ThreadView } from "../../../../atproto/views";
 import { useCommunityContext } from "../../../../contexts/Community";
+import { useUserPreferences } from "../../../../contexts/UserPreferences";
+import { createMobilePane } from "../../../../utils/mobile-pane";
 import { useThreadNavigation } from "../../../../utils/thread-navigation";
 import type { ThreadPresentation } from "../../../../utils/thread-presentation";
 import { Button } from "../../../ui/Button";
+import {
+	Tooltip,
+	TooltipContent,
+	TooltipPortal,
+	TooltipTrigger,
+} from "../../../ui/Tooltip";
 import { ThreadContextMenu } from "./ThreadContextMenu";
 
 export const ThreadHeader: Component<{
@@ -19,6 +29,8 @@ export const ThreadHeader: Component<{
 }> = (props) => {
 	const community = useCommunityContext();
 	const { close, expand } = useThreadNavigation();
+	const { preferences, toggleMembersVisible } = useUserPreferences();
+	const { pushPane } = createMobilePane();
 
 	const channelName = () =>
 		community().channels.find(
@@ -74,6 +86,44 @@ export const ThreadHeader: Component<{
 						>
 							<ArrowsOutSimpleIcon />
 						</Button>
+					</Show>
+					<Show when={props.presentation === "full"}>
+						<Tooltip>
+							<TooltipTrigger>
+								<Button
+									size="sm"
+									variant="ghost"
+									class="size-8"
+									aria-label="Member list"
+									onClick={() =>
+										props.isMobile
+											? pushPane("members")
+											: toggleMembersVisible()
+									}
+								>
+									<Switch>
+										<Match when={preferences().membersListVisible}>
+											<UsersIconFill />
+										</Match>
+										<Match when={!preferences().membersListVisible}>
+											<UsersIcon />
+										</Match>
+									</Switch>
+								</Button>
+							</TooltipTrigger>
+							<TooltipPortal>
+								<TooltipContent>
+									<Switch>
+										<Match when={preferences().membersListVisible}>
+											Hide Member List
+										</Match>
+										<Match when={!preferences().membersListVisible}>
+											Show Member List
+										</Match>
+									</Switch>
+								</TooltipContent>
+							</TooltipPortal>
+						</Tooltip>
 					</Show>
 					<ThreadContextMenu thread={props.thread} trigger="click">
 						<Button

@@ -4,7 +4,7 @@
 	"defs": {
 		"main": {
 			"type": "procedure",
-			"description": "Moves a thread to another channel by rewriting the channel its record links to. Who may read the thread follows the new channel. The anchor is left as it was, so the thread's marker leaves the old channel's river while the thread itself still quotes the message it came from.",
+			"description": "Moves a thread to another channel by rewriting the channel its record links to, and optionally repoints it at another message. Who may read the thread follows the new channel. Left without an anchor the thread keeps the one it has, so its marker sits wherever that message now lives.",
 			"input": {
 				"encoding": "application/json",
 				"schema": {
@@ -23,6 +23,11 @@
 							"type": "string",
 							"format": "space-ref",
 							"description": "The text channel to move it to."
+						},
+						"anchor": {
+							"type": "ref",
+							"ref": "social.colibri.beta.defs#spaceRecordRef",
+							"description": "The message the thread should hang under, for a thread whose anchor was moved. It has to sit in the destination channel, and may be a message the AppView has not indexed yet. Absent keeps the anchor as it is."
 						}
 					}
 				}
@@ -50,7 +55,7 @@
 				},
 				{
 					"name": "Forbidden",
-					"description": "The requesting user lacks the thread.manage permission."
+					"description": "The requesting user lacks the thread.manage permission and did not write both the thread's current anchor and the message it is being repointed at."
 				},
 				{
 					"name": "ThreadNotFound",
@@ -62,7 +67,7 @@
 				},
 				{
 					"name": "InvalidRequest",
-					"description": "The destination channel belongs to another community, is not a text channel, or is the channel the thread is already in."
+					"description": "The destination channel belongs to another community, is not a text channel, or is the channel the thread is already in while no new anchor was given."
 				},
 				{
 					"name": "CredentialsUnavailable",

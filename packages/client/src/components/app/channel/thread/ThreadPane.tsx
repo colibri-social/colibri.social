@@ -126,7 +126,7 @@ export const ThreadPane: Component = () => {
 						isMobile() && !isDragging(),
 					"relative h-full w-[var(--thread-width)] min-w-[var(--thread-width)] shrink-0 border-l border-border":
 						!isMobile() && presentation() === "split",
-					"absolute inset-y-0 right-0 left-[var(--channel-sidebar-width)] z-20":
+					"absolute inset-y-0 right-[var(--members-width)] left-[var(--channel-sidebar-width)] z-20":
 						!isMobile() && presentation() === "full",
 				}}
 			>

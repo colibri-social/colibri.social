@@ -20,10 +20,8 @@ export const compareMessages = (a: Orderable, b: Orderable): number => {
 export const placeMessage = (
 	existing: readonly Orderable[],
 	incoming: Orderable,
-	options: { hasMore: boolean; moved?: boolean },
+	options: { hasMore: boolean },
 ): Placement => {
-	if (options.moved) return { kind: "append" };
-
 	const last = existing.at(-1);
 	if (!last) return { kind: "append" };
 	if (compareMessages(incoming, last) >= 0) return { kind: "append" };

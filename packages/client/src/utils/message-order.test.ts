@@ -103,15 +103,6 @@ describe("placeMessage", () => {
 		).toEqual({ kind: "drop" });
 	});
 
-	it("appends a moved message despite its older timestamp", () => {
-		expect(
-			placeMessage(LOADED, msg("old", "2026-07-12T09:00:00.000Z"), {
-				hasMore: true,
-				moved: true,
-			}),
-		).toEqual({ kind: "append" });
-	});
-
 	it("inserts at the head when the whole channel is already loaded", () => {
 		expect(
 			placeMessage(LOADED, msg("old", "2026-07-12T09:00:00.000Z"), {

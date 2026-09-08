@@ -7,39 +7,23 @@ import CaretRightIcon from "~icons/ph/caret-right";
 import ChatCircleDotsIcon from "~icons/ph/chat-circle-dots";
 import PlusIcon from "~icons/ph/plus";
 import XIcon from "~icons/ph/x";
-import {
-	asDid,
-	asRecordKey,
-	asSpaceRef,
-	COLLECTIONS,
-	SPACE_TYPES,
-} from "../../../../atproto/lexicons";
-import { buildMessageRecord } from "../../../../atproto/message-record";
-import {
-	enqueueSpaceCreate,
-	enqueueSpaceDelete,
-} from "../../../../atproto/outbox/outbox";
-import { nextTid } from "../../../../atproto/outbox/tid";
+import { SPACE_TYPES } from "../../../../atproto/lexicons";
 import {
 	audienceChange,
 	describeMoveBlock,
 	type MovePlan,
+	type MoveSubject,
 	planMove,
 } from "../../../../atproto/thread-move";
-import type {
-	MessageRecord,
-	MessageView,
-	ThreadView,
-} from "../../../../atproto/views";
+import type { ThreadView } from "../../../../atproto/views";
 import { useChannelContext } from "../../../../contexts/Channel";
 import {
 	useCommunityContext,
 	usePermissions,
 } from "../../../../contexts/Community";
+import { useNotifications } from "../../../../contexts/Notifications";
 import { useThreads } from "../../../../contexts/Threads";
 import { useUserContext } from "../../../../contexts/User";
-import { classifyThrown } from "../../../../errors/classify";
-import { createLogger } from "../../../../utils/logger";
 import { Button } from "../../../ui/Button";
 import {
 	Dialog,
@@ -63,17 +47,18 @@ import {
 	TextFieldLabel,
 } from "../../../ui/TextField";
 
-const log = createLogger("thread-move");
-
 type Destination =
 	| { kind: "thread"; thread: ThreadView }
 	| { kind: "channel"; space: string; name: string }
 	| { kind: "new" };
 
+type Target = { space: string; thread?: ThreadView };
+
 export const SelectionBar: Component = () => {
 	const channel = useChannelContext();
 	const community = useCommunityContext();
 	const threads = useThreads();
+	const notifications = useNotifications();
 	const user = useUserContext();
 	const { canMoveMessages, canCreateThread } = usePermissions();
 
@@ -86,10 +71,7 @@ export const SelectionBar: Component = () => {
 	const selection = () => channel.selection();
 
 	const plan = createMemo<MovePlan>(() =>
-		planMove(selection(), {
-			actor: user.did,
-			canModerate: canMoveMessages(user.did),
-		}),
+		planMove(selection(), { canModerate: canMoveMessages(user.did) }),
 	);
 
 	const sourceChannel = () => {
@@ -241,77 +223,12 @@ export const SelectionBar: Component = () => {
 		return newName().trim() || "a new thread";
 	};
 
-	const readRecord = async (
-		message: MessageView,
-	): Promise<MessageRecord | undefined> => {
-		try {
-			const current = await user.atproto.agent.com.atproto.space.getRecord({
-				space: message.channel,
-				repo: user.did,
-				collection: COLLECTIONS.message,
-				rkey: message.rkey,
-			});
-			return current.data.value as MessageRecord;
-		} catch (err) {
-			log.error("could not read the message being moved", {
-				code: classifyThrown(err, { method: "space.getRecord" }).code,
-			});
-			return undefined;
-		}
-	};
-
-	const rewriteInto = async (
-		space: string,
-		messages: ReadonlyArray<MessageView>,
-	): Promise<boolean> => {
-		for (const message of messages) {
-			const existing = await readRecord(message);
-			if (!existing) return false;
-
-			const rkey = nextTid();
-			const group = `move:${rkey}`;
-			const carried = threads.anchoredAt(
-				message.channel,
-				message.author.did,
-				message.rkey,
-			);
-			const record = buildMessageRecord({
-				text: existing.text,
-				facets: existing.facets,
-				createdAt: existing.createdAt,
-				updatedAt: existing.updatedAt,
-				attachments: existing.attachments,
-				suppressedEmbeds: existing.suppressedEmbeds,
-			});
-			await enqueueSpaceCreate(space, user.did, COLLECTIONS.message, record, {
-				rkey,
-				group,
-				label: "Failed to move message.",
-			});
-			await enqueueSpaceDelete(
-				message.channel,
-				user.did,
-				COLLECTIONS.message,
-				message.rkey,
-				{ group, label: "Failed to move message." },
-			);
-			if (carried) {
-				await threads.repointThread(carried.space, space, {
-					space: asSpaceRef(space),
-					did: asDid(user.did),
-					rkey: asRecordKey(rkey),
-				});
-			}
-			channel.removeMessage(message.uri);
-		}
-		return true;
-	};
-
 	const resolveSpace = async (
 		destination: Destination,
-	): Promise<string | undefined> => {
-		if (destination.kind === "thread") return destination.thread.space;
-		if (destination.kind === "channel") return destination.space;
+	): Promise<Target | undefined> => {
+		if (destination.kind === "thread")
+			return { space: destination.thread.space, thread: destination.thread };
+		if (destination.kind === "channel") return { space: destination.space };
 
 		const name = newName().trim();
 		if (!name) return undefined;
@@ -319,7 +236,32 @@ export const SelectionBar: Component = () => {
 			channel: sourceChannel(),
 			name,
 		});
-		return created?.space;
+		return created ? { space: created.space, thread: created } : undefined;
+	};
+
+	const announceMove = (
+		target: Target,
+		subjects: ReadonlyArray<MoveSubject>,
+	) => {
+		const first = subjects[0];
+		const focus = {
+			channel: target.thread?.channel ?? target.space,
+			...(target.thread ? { thread: target.space } : {}),
+			...(first ? { messageUri: first.uri } : {}),
+			indexedAt: new Date().toISOString(),
+		};
+
+		toast.success(
+			subjects.length === 1
+				? "Message moved."
+				: `${subjects.length} messages moved.`,
+			{
+				action: {
+					label: "View",
+					onClick: () => notifications.openNotification(focus),
+				},
+			},
+		);
 	};
 
 	const run = async (destination: Destination): Promise<void> => {
@@ -331,33 +273,22 @@ export const SelectionBar: Component = () => {
 
 		setBusy(true);
 		try {
-			const space = await resolveSpace(destination);
-			if (!space) {
+			const target = await resolveSpace(destination);
+			if (!target) {
 				toast.error("Could not work out where to move those messages.");
 				return;
 			}
 
-			if (current.kind === "rewrite") {
-				if (!(await rewriteInto(space, selection()))) {
-					toast.error("Failed to move messages.");
-					return;
-				}
-			} else {
-				const moved = await threads.moveMessages({
-					source: current.source,
-					destination: space,
-					subjects: current.subjects,
-				});
-				if (!moved) return;
-				for (const subject of current.subjects)
-					channel.removeMessage(subject.uri);
-			}
+			const moved = await threads.moveMessages({
+				source: current.source,
+				destination: target.space,
+				subjects: current.subjects,
+			});
+			if (!moved) return;
+			for (const subject of current.subjects)
+				channel.removeMessage(subject.uri);
 
-			toast.success(
-				selection().length === 1
-					? "Message moved."
-					: `${selection().length} messages moved.`,
-			);
+			announceMove(target, current.subjects);
 			channel.clearSelection();
 			setConfirm(undefined);
 			setNewName("");
@@ -516,11 +447,6 @@ export const SelectionBar: Component = () => {
 											{anchoredThreads().length === 1
 												? `The thread "${anchoredThreads()[0].name}" was opened from one of these messages, so it moves along with it.`
 												: "The threads opened from these messages move along with them."}
-										</p>
-									</Show>
-									<Show when={plan().kind === "rewrite"}>
-										<p class="text-sm text-muted-foreground m-0">
-											Reactions and replies will be dropped.
 										</p>
 									</Show>
 									<DialogFooter class="flex-col gap-2 sm:flex-row">

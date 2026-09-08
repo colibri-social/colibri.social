@@ -1,14 +1,15 @@
+import { COLLECTIONS } from "./lexicons";
 import type { MessageView } from "./views";
 
 export type MoveSubject = {
 	space: string;
 	author: string;
+	collection: string;
 	rkey: string;
 	uri: string;
 };
 
 export type MovePlan =
-	| { kind: "rewrite"; source: string; subjects: Array<MoveSubject> }
 	| { kind: "moderate"; source: string; subjects: Array<MoveSubject> }
 	| { kind: "blocked"; reason: MoveBlockReason };
 
@@ -21,13 +22,14 @@ export type MoveBlockReason =
 export const toMoveSubject = (message: MessageView): MoveSubject => ({
 	space: message.channel,
 	author: message.author.did,
+	collection: COLLECTIONS.message,
 	rkey: message.rkey,
 	uri: message.uri,
 });
 
 export const planMove = (
 	messages: ReadonlyArray<MessageView>,
-	options: { actor: string; canModerate: boolean },
+	options: { canModerate: boolean },
 ): MovePlan => {
 	if (messages.length === 0)
 		return { kind: "blocked", reason: "nothing-selected" };
@@ -37,16 +39,12 @@ export const planMove = (
 	const sources = new Set(messages.map((m) => m.channel));
 	if (sources.size !== 1) return { kind: "blocked", reason: "mixed-sources" };
 
-	const source = messages[0].channel;
-	const ordered = [...messages].sort((a, b) => (a.rkey < b.rkey ? -1 : 1));
-	const subjects = ordered.map(toMoveSubject);
-
-	const allOwn = ordered.every((m) => m.author.did === options.actor);
-	if (allOwn) return { kind: "rewrite", source, subjects };
-
 	if (!options.canModerate) return { kind: "blocked", reason: "not-permitted" };
 
-	return { kind: "moderate", source, subjects };
+	const source = messages[0].channel;
+	const ordered = [...messages].sort((a, b) => (a.rkey < b.rkey ? -1 : 1));
+
+	return { kind: "moderate", source, subjects: ordered.map(toMoveSubject) };
 };
 
 export const describeMoveBlock = (reason: MoveBlockReason): string => {
@@ -58,7 +56,7 @@ export const describeMoveBlock = (reason: MoveBlockReason): string => {
 		case "legacy-message":
 			return "Messages from before the migration cannot be moved.";
 		default:
-			return "You are not allowed to move other people's messages.";
+			return "You are not allowed to move messages.";
 	}
 };
 

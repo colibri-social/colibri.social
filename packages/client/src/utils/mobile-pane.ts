@@ -245,7 +245,10 @@ export const createMobilePane = () => {
 		if (!canPop(from)) return;
 		if (from === "chat" || from === "thread") dismissKeyboard();
 		if (from === "members") {
-			if (paneMarker() === "members") return goBack("chat");
+			const behind = hasThread() ? "thread" : "chat";
+			if (paneMarker() === "members") return goBack(behind);
+			if (behind === "thread")
+				return commit("thread", location.pathname, { replace: true });
 			return setPane("chat", { replace: true });
 		}
 		if (from === "thread") {

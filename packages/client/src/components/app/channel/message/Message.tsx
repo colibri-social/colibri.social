@@ -462,9 +462,7 @@ const MessageInner: Component<{
 						<HiddenMessageNotice />
 					</Show>
 					<Show when={movedOrigin()}>
-						{(origin) => (
-							<MovedFromLine origin={origin()} createdAt={message.createdAt} />
-						)}
+						{(origin) => <MovedFromLine origin={origin()} />}
 					</Show>
 					<div class="flex flex-row gap-4">
 						<Switch>

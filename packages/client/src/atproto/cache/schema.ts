@@ -10,7 +10,7 @@ import type {
 	ThreadView,
 } from "../views";
 
-export const SCHEMA_VERSION = 5;
+export const SCHEMA_VERSION = 6;
 
 export type UserSnapshot = {
 	profile: ProfileView;
@@ -47,6 +47,7 @@ export type PendingMessage = Pick<
 };
 
 export type MessagesSnapshot = {
+	space: string;
 	messages: MessageView[];
 	readCursor?: string;
 	cursor?: string;

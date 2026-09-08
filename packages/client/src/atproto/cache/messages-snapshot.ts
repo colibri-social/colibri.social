@@ -26,6 +26,7 @@ export const cursorFor = (
 export const buildMessagesSnapshot = (
 	confirmed: MessageView[],
 	options: {
+		space: string;
 		readCursor: string | undefined;
 		hasMore: boolean;
 		limit: number;
@@ -34,6 +35,7 @@ export const buildMessagesSnapshot = (
 ): MessagesSnapshot => {
 	const kept = confirmed.slice(-options.limit);
 	return {
+		space: options.space,
 		messages: kept,
 		readCursor: options.readCursor,
 		cursor: cursorFor(kept),
@@ -42,21 +44,16 @@ export const buildMessagesSnapshot = (
 	};
 };
 
-export const belongsToChannel = (
-	message: { channel?: string },
-	channelSpace: string,
-): boolean => !message.channel || message.channel === channelSpace;
-
 export const snapshotBelongsTo = (
 	snapshot: MessagesSnapshot,
 	channelSpace: string,
-): boolean =>
-	snapshot.messages.every((message) => belongsToChannel(message, channelSpace));
+): boolean => snapshot.space === channelSpace;
 
 export const mergeSnapshotWindow = (
 	existing: MessagesSnapshot | undefined,
 	fetched: MessageView[],
 	options: {
+		space: string;
 		readCursor: string | undefined;
 		hasMore: boolean;
 		limit: number;

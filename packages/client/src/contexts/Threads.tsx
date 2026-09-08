@@ -480,6 +480,7 @@ export const ThreadsContextProvider: ParentComponent = (props) => {
 				destination: asSpaceRef(input.destination),
 				subjects: input.subjects.map((subject) => ({
 					did: subject.author,
+					collection: subject.collection,
 					rkey: subject.rkey,
 				})),
 			},

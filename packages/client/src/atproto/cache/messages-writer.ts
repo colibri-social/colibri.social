@@ -3,7 +3,6 @@ import { HIDDEN } from "../labels";
 import type { LabelEventFrame, MessageEventFrame } from "../sync-frames";
 import type { MessageView } from "../views";
 import {
-	belongsToChannel,
 	cursorFor,
 	mergeSnapshotWindow,
 	refOf,
@@ -124,10 +123,7 @@ export const offerSnapshotWindow = (
 	if (!active) return;
 	if (!channelSpace) return;
 
-	const owned = messages.filter((message) =>
-		belongsToChannel(message, channelSpace),
-	);
-	if (owned.length === 0) return;
+	if (messages.length === 0) return;
 	if (isOpenChannel(channelSpace)) return;
 
 	enqueue(channelSpace, async () => {
@@ -140,8 +136,9 @@ export const offerSnapshotWindow = (
 				stored && snapshotBelongsTo(stored, channelSpace) ? stored : undefined;
 			pending.set(
 				channelSpace,
-				mergeSnapshotWindow(current, owned, {
+				mergeSnapshotWindow(current, messages, {
 					...options,
+					space: channelSpace,
 					now: Date.now(),
 				}),
 			);
@@ -184,7 +181,6 @@ export const applyMessageEvent = (
 
 	const message = event.message;
 	if (!message) return undefined;
-	if (!belongsToChannel(message, event.channel)) return undefined;
 
 	const ref = refOf(message);
 	const existing = snapshot.messages.find((m) => sameRecord(m, ref));

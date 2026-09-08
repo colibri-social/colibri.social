@@ -50,7 +50,9 @@ const message = (
 const snapshot = (
 	messages: MessageView[],
 	hasMore?: boolean,
+	space = CHANNEL,
 ): MessagesSnapshot => ({
+	space,
 	messages,
 	hasMore,
 	ts: 1,
@@ -161,7 +163,7 @@ describe("applyMessageEvent", () => {
 		expect(next?.messages[1]?.rkey).toBe("b");
 	});
 
-	it("ignores a message moved in from another space", () => {
+	it("keeps a message moved in from another space", () => {
 		const moved = {
 			...message("b"),
 			channel: `at://${DID}/space/social.colibri.beta.channel.text/other`,
@@ -172,9 +174,8 @@ describe("applyMessageEvent", () => {
 			channel: CHANNEL,
 			message: moved,
 		} as unknown as MessageEventFrame;
-		expect(
-			applyMessageEvent(snapshot([message("a")]), frame, 50),
-		).toBeUndefined();
+		const next = applyMessageEvent(snapshot([message("a")]), frame, 50);
+		expect((next?.messages ?? []).map((m) => m.rkey)).toEqual(["a", "b"]);
 	});
 
 	it("edits in place rather than appending a duplicate", () => {
@@ -463,9 +464,9 @@ describe("the background snapshot queue", () => {
 		expect(writes.map((w) => w.space)).toEqual([OTHER]);
 	});
 
-	it("replaces a stored snapshot that belongs to another channel", async () => {
+	it("replaces a stored snapshot stamped with another channel", async () => {
 		configure();
-		stored.set(`${NS}:${CHANNEL}`, snapshot([foreign("z")]));
+		stored.set(`${NS}:${CHANNEL}`, snapshot([message("z")], false, OTHER));
 
 		offer(CHANNEL, [message("a")]);
 		await settle();
@@ -475,29 +476,30 @@ describe("the background snapshot queue", () => {
 		expect(rkeys(writes[0]?.snapshot.messages ?? [])).toEqual(["a"]);
 	});
 
-	it("drops foreign messages out of an offered window", async () => {
+	it("keeps a moved-in message in an offered window", async () => {
 		configure();
 
 		offer(CHANNEL, [message("a"), foreign("z")]);
 		await settle();
 		flushSnapshotWriter();
 
-		expect(rkeys(writes[0]?.snapshot.messages ?? [])).toEqual(["a"]);
+		expect(rkeys(writes[0]?.snapshot.messages ?? [])).toEqual(["a", "z"]);
+		expect(writes[0]?.snapshot.space).toBe(CHANNEL);
 	});
 
-	it("ignores a window with nothing belonging to the channel", async () => {
+	it("ignores an empty offered window", async () => {
 		configure();
 
-		offer(CHANNEL, [foreign("z")]);
+		offer(CHANNEL, []);
 		await settle();
 		flushSnapshotWriter();
 
 		expect(writes).toEqual([]);
 	});
 
-	it("refuses to fold an event into a foreign snapshot", async () => {
+	it("refuses to fold an event into a snapshot stamped elsewhere", async () => {
 		configure();
-		stored.set(`${NS}:${CHANNEL}`, snapshot([foreign("z")]));
+		stored.set(`${NS}:${CHANNEL}`, snapshot([message("z")], false, OTHER));
 
 		foldMessageEvent(create("b"), 50);
 		await settle();

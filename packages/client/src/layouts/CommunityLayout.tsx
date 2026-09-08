@@ -247,8 +247,10 @@ const CommunityLayout: ParentComponent = (props) => {
 
 	const membersVisible = () =>
 		preferences().membersListVisible &&
-		!threadOpen() &&
+		!threadSplit() &&
 		threads.draft() === undefined;
+
+	const membersWidth = () => (membersVisible() ? "288px" : "0px");
 
 	publishShellTitle(
 		() => ({
@@ -290,6 +292,7 @@ const CommunityLayout: ParentComponent = (props) => {
 			style={{
 				"--channel-sidebar-width": `${sidebarWidth()}px`,
 				"--thread-width": threadWidth(),
+				"--members-width": membersWidth(),
 			}}
 			classList={{
 				"border-t border-l border-border": !isMobile(),
@@ -345,10 +348,8 @@ const CommunityLayout: ParentComponent = (props) => {
 				classList={{
 					"w-full h-full": !isMobile(),
 					"max-h-[calc(100vh-var(--titlebar-height)-1px)]": !isMobile(),
-					"max-w-[calc(100vw-var(--channel-sidebar-width)-var(--thread-width)-288px-56px-1px)]":
-						!isMobile() && membersVisible(),
-					"max-w-[calc(100vw-var(--channel-sidebar-width)-var(--thread-width)-56px-1px)]":
-						!isMobile() && !membersVisible(),
+					"max-w-[calc(100vw-var(--channel-sidebar-width)-var(--thread-width)-var(--members-width)-56px-1px)]":
+						!isMobile(),
 					"absolute inset-0 w-full h-full max-w-none! z-20 will-change-pane":
 						isMobile(),
 					"transition-transform duration-300 ease-[cubic-bezier(0.25,1,0.5,1)] motion-reduce:transition-none":

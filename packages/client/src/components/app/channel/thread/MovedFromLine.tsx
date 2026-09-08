@@ -2,15 +2,10 @@ import { type Component, Show } from "solid-js";
 import ArrowRightIcon from "~icons/ph/arrow-right";
 import { useCommunityContext } from "../../../../contexts/Community";
 import { useThreads } from "../../../../contexts/Threads";
-import { formatCompactAge } from "../../../../utils/format-timestamp";
-import { useNow } from "../../../../utils/now";
 
-export const MovedFromLine: Component<{ origin: string; createdAt: string }> = (
-	props,
-) => {
+export const MovedFromLine: Component<{ origin: string }> = (props) => {
 	const community = useCommunityContext();
 	const threads = useThreads();
-	const now = useNow();
 
 	const originName = () =>
 		community().channels.find((channel) => channel.space === props.origin)
@@ -21,8 +16,7 @@ export const MovedFromLine: Component<{ origin: string; createdAt: string }> = (
 			{(name) => (
 				<span class="ml-14 flex flex-row items-center gap-1 text-xs text-muted-foreground">
 					<ArrowRightIcon class="size-3 shrink-0" />
-					written {formatCompactAge(props.createdAt, new Date(now()))} ago in{" "}
-					{name()}
+					moved from {name()}
 				</span>
 			)}
 		</Show>

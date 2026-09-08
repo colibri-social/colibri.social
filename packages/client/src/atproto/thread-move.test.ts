@@ -26,66 +26,69 @@ const message = (
 	}) as unknown as MessageView;
 
 describe("planMove", () => {
-	it("rewrites when every message is the caller's own", () => {
+	it("orders the subjects by record key, not selection order", () => {
 		const plan = planMove([message("3lb"), message("3la")], {
-			actor: ME,
-			canModerate: false,
+			canModerate: true,
 		});
-		expect(plan).toMatchObject({ kind: "rewrite", source: CHANNEL });
-		expect(plan.kind === "rewrite" && plan.subjects.map((s) => s.rkey)).toEqual(
-			["3la", "3lb"],
-		);
+		expect(plan).toMatchObject({ kind: "moderate", source: CHANNEL });
+		expect(
+			plan.kind === "moderate" && plan.subjects.map((s) => s.rkey),
+		).toEqual(["3la", "3lb"]);
+	});
+
+	it("names the message collection on every subject", () => {
+		const plan = planMove([message("3la")], { canModerate: true });
+		expect(
+			plan.kind === "moderate" && plan.subjects.map((s) => s.collection),
+		).toEqual(["social.colibri.beta.message"]);
 	});
 
 	it("labels the move when someone else's message is in the selection", () => {
 		const plan = planMove(
 			[message("3la"), message("3lb", { author: { did: THEM } as never })],
-			{ actor: ME, canModerate: true },
+			{ canModerate: true },
 		);
 		expect(plan.kind).toBe("moderate");
 	});
 
-	it("blocks a mixed selection when the caller cannot move other people's messages", () => {
+	it("blocks a caller who cannot move messages, own messages included", () => {
+		expect(planMove([message("3la")], { canModerate: false })).toEqual({
+			kind: "blocked",
+			reason: "not-permitted",
+		});
 		expect(
 			planMove([message("3la", { author: { did: THEM } as never })], {
-				actor: ME,
 				canModerate: false,
 			}),
 		).toEqual({ kind: "blocked", reason: "not-permitted" });
 	});
 
 	it("blocks an empty selection", () => {
-		expect(planMove([], { actor: ME, canModerate: true })).toEqual({
+		expect(planMove([], { canModerate: true })).toEqual({
 			kind: "blocked",
 			reason: "nothing-selected",
 		});
 	});
 
-	it("blocks a legacy message, which cannot be rewritten or labelled", () => {
+	it("blocks a legacy message, which cannot be labelled", () => {
 		expect(
-			planMove([message("3la", { legacy: true })], {
-				actor: ME,
-				canModerate: true,
-			}),
+			planMove([message("3la", { legacy: true })], { canModerate: true }),
 		).toEqual({ kind: "blocked", reason: "legacy-message" });
 	});
 
 	it("blocks a selection spanning two spaces, since a move names one source", () => {
 		expect(
 			planMove([message("3la"), message("3lb", { channel: THREAD as never })], {
-				actor: ME,
 				canModerate: true,
 			}),
 		).toEqual({ kind: "blocked", reason: "mixed-sources" });
 	});
 
-	it("rewrites an own message carrying an attachment", () => {
+	it("moves an own message carrying an attachment", () => {
 		const withFile = message("3la", {
 			attachments: [{ alt: "" }] as never,
 		});
-		expect(planMove([withFile], { actor: ME, canModerate: false }).kind).toBe(
-			"rewrite",
-		);
+		expect(planMove([withFile], { canModerate: true }).kind).toBe("moderate");
 	});
 });
 

@@ -16,7 +16,6 @@ import {
 import { toast } from "somoto";
 import { namespace } from "../atproto/cache/keys";
 import {
-	belongsToChannel,
 	buildMessagesSnapshot,
 	isSnapshotPaintable,
 	reconcileFetchedWindow,
@@ -449,7 +448,8 @@ export const ChannelContextProvider: ParentComponent<{
 			batch(() => {
 				setMessages((prev) => [...novel, ...prev]);
 				const newOldest = olderChunk[0];
-				if (newOldest) setCursor(newOldest.rkey);
+				const nextCursor = res.data?.cursor ?? newOldest?.rkey;
+				if (nextCursor) setCursor(nextCursor);
 				if (hitTop) setHasMore(false);
 			});
 			hooks?.onAfterPrepend?.();
@@ -521,8 +521,8 @@ export const ChannelContextProvider: ParentComponent<{
 			batch(() => {
 				setError(undefined);
 				setMessages([...ordered, ...stillPending]);
-				const oldest = ordered[0];
-				if (oldest) setCursor(oldest.rkey);
+				const nextCursor = result.data?.cursor ?? ordered[0]?.rkey;
+				if (nextCursor) setCursor(nextCursor);
 				setHasMore(ordered.length >= PAGE_SIZE);
 				setHydratedFromNetwork(true);
 			});
@@ -624,7 +624,7 @@ export const ChannelContextProvider: ParentComponent<{
 			if (!snapshotBelongsTo(cached, space)) {
 				log.warn("discarded a cached snapshot that belongs elsewhere", {
 					channel: shortUri(space),
-					stored: shortUri(cached.messages[0]?.channel ?? ""),
+					stored: shortUri(cached.space),
 				});
 				void deleteMessages(ns(), space);
 				return;
@@ -646,7 +646,7 @@ export const ChannelContextProvider: ParentComponent<{
 			}
 			probe("paint applied", {
 				channel: shortUri(space),
-				snapshotBelongsTo: shortUri(cached.messages[0]?.channel),
+				snapshotBelongsTo: shortUri(cached.space),
 				rows: cached.messages.length,
 				ageMs: age,
 			});
@@ -683,10 +683,7 @@ export const ChannelContextProvider: ParentComponent<{
 	createEffect(() => {
 		const space = channelSpace();
 		const confirmed = messages().filter(
-			(m): m is MessageView =>
-				!("hash" in m) &&
-				m.uri.startsWith("at://") &&
-				belongsToChannel(m, space),
+			(m): m is MessageView => !("hash" in m) && m.uri.startsWith("at://"),
 		);
 		const hydrated = hydratedFromNetwork();
 		const gate = {
@@ -700,6 +697,7 @@ export const ChannelContextProvider: ParentComponent<{
 			ns: ns(),
 			uri: space,
 			snap: buildMessagesSnapshot(confirmed, {
+				space,
 				readCursor: unreadCursor(),
 				hasMore: hasMore(),
 				limit: PAGE_SIZE,
@@ -1166,7 +1164,6 @@ export const ChannelContextProvider: ParentComponent<{
 
 		const placement = placeMessage(messages(), incoming, {
 			hasMore: hasMore(),
-			moved: incoming.channel !== event.channel,
 		});
 		if (placement.kind === "drop") return;
 
@@ -1319,8 +1316,8 @@ export const ChannelContextProvider: ParentComponent<{
 				if (merged !== messages()) setMessages(merged);
 				if (appended) setNewIncomingMessage((n) => n + 1);
 				if (spansWholeHistory) {
-					const oldest = ordered[0];
-					if (oldest) setCursor(oldest.rkey);
+					const nextCursor = result.data?.cursor ?? ordered[0]?.rkey;
+					if (nextCursor) setCursor(nextCursor);
 					setHasMore(false);
 				}
 				setHydratedFromNetwork(true);

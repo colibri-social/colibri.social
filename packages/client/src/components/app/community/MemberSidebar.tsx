@@ -1,10 +1,13 @@
+import { useLocation } from "@solidjs/router";
 import { createMemo, createSignal, For, onCleanup, Show } from "solid-js";
 import CaretLeftIcon from "~icons/ph/caret-left";
 import CrownIcon from "~icons/ph/crown-fill";
 import { activityIsLive, activitySummary } from "../../../atproto/activity";
+import { parseThreadPath } from "../../../atproto/colibri-channel-url";
 import { spaceSkey } from "../../../atproto/space-ref";
 import { useCommunityContext } from "../../../contexts/Community";
 import type { Member } from "../../../contexts/community-payload";
+import { useThreads } from "../../../contexts/Threads";
 import { useUserPreferences } from "../../../contexts/UserPreferences";
 import { channelAudience } from "../../../utils/channel-audience";
 import { createSwipe } from "../../../utils/create-swipe";
@@ -126,6 +129,8 @@ const MemberRow = (props: { member: Member }) => {
 
 export const MemberSidebar = () => {
 	const community = useCommunityContext();
+	const threads = useThreads();
+	const location = useLocation();
 
 	const currentChannel = createMemo(() => {
 		const skey = getChannelParam();
@@ -133,14 +138,26 @@ export const MemberSidebar = () => {
 		return community().channels.find((c) => spaceSkey(c.space) === skey);
 	});
 
+	const currentThread = createMemo(() => {
+		const space = parseThreadPath(location.pathname)?.threadSpace;
+		return space === undefined ? undefined : threads.bySpace(space);
+	});
+
 	const visibleMembers = createMemo(() => {
-		const channel = currentChannel();
-		if (!channel) return community().members;
-		return channelAudience(community().members, {
-			channel,
+		const audience = {
 			roles: community().roles,
 			ownerDid: community().ownerDid(),
-		});
+		};
+
+		const channel = currentChannel();
+		const inChannel = channel
+			? channelAudience(community().members, { ...audience, channel })
+			: community().members;
+
+		const thread = currentThread();
+		return thread
+			? channelAudience(inChannel, { ...audience, channel: thread })
+			: inChannel;
 	});
 
 	const membersByRoles = () =>
