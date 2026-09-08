@@ -520,7 +520,7 @@ export const SelectionBar: Component = () => {
 									</Show>
 									<Show when={plan().kind === "rewrite"}>
 										<p class="text-sm text-muted-foreground m-0">
-											Reactions and replies will be dropped
+											Reactions and replies will be dropped.
 										</p>
 									</Show>
 									<DialogFooter class="flex-col gap-2 sm:flex-row">
