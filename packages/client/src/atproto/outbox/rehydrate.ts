@@ -2,7 +2,7 @@ import { asVisibleParent } from "../../utils/message-parent";
 import { sameRecord } from "../cache/messages-snapshot";
 import type { PendingMessage } from "../cache/schema";
 import { asAtUri, asDatetime, asSpaceRef, COLLECTIONS } from "../lexicons";
-import type { MessageView, RecordRef } from "../views";
+import type { ForwardView, MessageView, RecordRef } from "../views";
 import type { QueuedRecord } from "./outbox";
 
 const EPOCH = "1970-01-01T00:00:00.000Z";
@@ -24,12 +24,6 @@ const asAttachments = (value: unknown): MessageView["attachments"] =>
 		? (value.filter(isAttachmentView) as MessageView["attachments"])
 		: [];
 
-export const messageUriFor = (
-	authorDid: string,
-	rkey: string,
-): MessageView["uri"] =>
-	asAtUri(`at://${authorDid}/${COLLECTIONS.message}/${rkey}`);
-
 const asDatetimeOrUndefined = (
 	value: unknown,
 ): MessageView["updatedAt"] | undefined => {
@@ -44,6 +38,48 @@ const asDatetimeOrUndefined = (
 
 const asCreatedAt = (value: unknown): PendingMessage["createdAt"] =>
 	asDatetimeOrUndefined(value) ?? asDatetime(EPOCH);
+
+const asSpaceRecordRef = (
+	value: unknown,
+): ForwardView["source"] | undefined => {
+	if (typeof value !== "object" || value === null) return undefined;
+	const { space, did, rkey, cid } = value as Record<string, unknown>;
+	if (
+		typeof space !== "string" ||
+		typeof did !== "string" ||
+		typeof rkey !== "string"
+	)
+		return undefined;
+	return {
+		space,
+		did,
+		rkey,
+		...(typeof cid === "string" ? { cid } : {}),
+	} as ForwardView["source"];
+};
+
+const asForward = (value: unknown): ForwardView | undefined => {
+	if (typeof value !== "object" || value === null) return undefined;
+	const { source, createdAt, text, facets, attachments } = value as Record<
+		string,
+		unknown
+	>;
+	const ref = asSpaceRecordRef(source);
+	if (!ref) return undefined;
+	return {
+		source: ref,
+		createdAt: asCreatedAt(createdAt),
+		text: asString(text) ?? "",
+		...(Array.isArray(facets) ? { facets: asFacets(facets) } : {}),
+		attachments: asAttachments(attachments) ?? [],
+	} as ForwardView;
+};
+
+export const messageUriFor = (
+	authorDid: string,
+	rkey: string,
+): MessageView["uri"] =>
+	asAtUri(`at://${authorDid}/${COLLECTIONS.message}/${rkey}`);
 
 const asRecordRef = (value: unknown): RecordRef | undefined => {
 	if (typeof value !== "object" || value === null) return undefined;
@@ -64,6 +100,7 @@ const toPendingMessage = (
 ): PendingMessage => {
 	const parentRef = asRecordRef(queued.record.parent);
 	const parent = parentRef ? context.resolveParent(parentRef) : undefined;
+	const forward = asForward(queued.record.forward);
 	return {
 		hash: `outbox:${queued.rkey}`,
 		uri: messageUriFor(context.author.did, queued.rkey),
@@ -74,6 +111,7 @@ const toPendingMessage = (
 		attachments: asAttachments(queued.record.attachments),
 		createdAt: asCreatedAt(queued.record.createdAt),
 		...(parent ? { parent: asVisibleParent(parent) } : {}),
+		...(forward ? { forward } : {}),
 		...(queued.failed ? { failed: true } : {}),
 	};
 };

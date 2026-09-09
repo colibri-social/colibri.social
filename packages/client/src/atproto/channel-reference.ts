@@ -21,7 +21,7 @@ export type ResolvedChannel = {
 	type: string;
 	communityDid: string;
 	private?: boolean;
-	viewer: { canRead: boolean };
+	viewer: { canRead: boolean; canPost: boolean };
 };
 
 type Entry = {
@@ -33,6 +33,10 @@ type Entry = {
 const byCommunity = new Map<string, Entry>();
 
 const bySpace = new Map<string, ResolvedChannel>();
+
+export type ResolvedCategory = { rkey: string; name: string };
+
+const categoriesByCommunity = new Map<string, Array<ResolvedCategory>>();
 
 const inflight = new Map<string, Promise<void>>();
 
@@ -65,7 +69,10 @@ export const primeCommunityChannels = (
 			type: channel.type,
 			communityDid,
 			private: channel.private,
-			viewer: { canRead: channel.viewer.canRead },
+			viewer: {
+				canRead: channel.viewer.canRead,
+				canPost: channel.viewer.canPost,
+			},
 		});
 	}
 
@@ -78,9 +85,33 @@ export const primeCommunityChannels = (
 	evictOldest();
 };
 
+export const primeCommunityCategories = (
+	communityDid: string,
+	categories: Array<ResolvedCategory>,
+): void => {
+	categoriesByCommunity.set(
+		communityDid,
+		categories.map(({ rkey, name }) => ({ rkey, name })),
+	);
+};
+
 export const peekChannel = (
 	channelSpace: string,
 ): ResolvedChannel | undefined => bySpace.get(channelSpace);
+
+export const peekCommunityCategories = (
+	communityDid: string,
+): Array<ResolvedCategory> => categoriesByCommunity.get(communityDid) ?? [];
+
+export const peekCommunityChannels = (
+	communityDid: string,
+): Array<ResolvedChannel> => {
+	const entry = byCommunity.get(communityDid);
+	if (!entry) return [];
+	return entry.channelSpaces
+		.map((space) => bySpace.get(space))
+		.filter((channel): channel is ResolvedChannel => channel !== undefined);
+};
 
 const isFresh = (entry: Entry | undefined): boolean => {
 	if (!entry) return false;
@@ -97,6 +128,7 @@ const fetchChannels = async (
 		const cached = await readCommunity(ns, communityDid);
 		if (cached?.channels.length) {
 			primeCommunityChannels(communityDid, cached.channels, 0);
+			primeCommunityCategories(communityDid, cached.categories);
 		}
 	}
 
@@ -110,9 +142,14 @@ const fetchChannels = async (
 	};
 
 	try {
-		const result = await xrpc.call(colibri.community.listChannels.main, {
-			params: { community: communityDid },
-		});
+		const [result, categories] = await Promise.all([
+			xrpc.call(colibri.community.listChannels.main, {
+				params: { community: communityDid },
+			}),
+			xrpc.call(colibri.community.listCategories.main, {
+				params: { community: communityDid },
+			}),
+		]);
 
 		if (!result.ok || !result.data) {
 			markFailed(result.ok ? "MalformedResponse" : result.error.code);
@@ -120,6 +157,9 @@ const fetchChannels = async (
 		}
 
 		primeCommunityChannels(communityDid, result.data.channels ?? []);
+		if (categories.ok && categories.data) {
+			primeCommunityCategories(communityDid, categories.data.categories ?? []);
+		}
 	} catch (err) {
 		markFailed(classifyThrown(err, { method: "community.listChannels" }).code);
 	}
@@ -185,5 +225,6 @@ export const resolveChannelChip = (
 export const resetChannelReferences = (): void => {
 	byCommunity.clear();
 	bySpace.clear();
+	categoriesByCommunity.clear();
 	inflight.clear();
 };

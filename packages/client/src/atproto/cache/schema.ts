@@ -41,6 +41,7 @@ export type PendingMessage = Pick<
 	| "createdAt"
 	| "attachments"
 	| "parent"
+	| "forward"
 > & {
 	hash: string;
 	failed?: boolean;

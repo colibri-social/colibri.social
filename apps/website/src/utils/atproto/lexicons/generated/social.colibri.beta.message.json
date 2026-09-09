@@ -49,6 +49,11 @@
 						},
 						"description": "Files attached to this message."
 					},
+					"forward": {
+						"type": "ref",
+						"ref": "#forward",
+						"description": "Content copied here from another message. Present only on a forwarded message."
+					},
 					"suppressedEmbeds": {
 						"type": "array",
 						"items": {
@@ -57,6 +62,50 @@
 						},
 						"description": "URLs from this message's link facets whose preview the author chose not to show. Moderator suppression is a label instead."
 					}
+				}
+			}
+		},
+		"forward": {
+			"type": "object",
+			"description": "Another message's content, copied and frozen when the forward was made. The copy does not follow later edits, deletions or labels on the message it came from. Never itself nested: forwarding a forwarded message carries this content over and repoints `source` at the message it was forwarded from.",
+			"required": [
+				"source",
+				"createdAt",
+				"text"
+			],
+			"properties": {
+				"source": {
+					"type": "ref",
+					"ref": "social.colibri.beta.defs#spaceRecordRef",
+					"description": "The message this content was copied from."
+				},
+				"createdAt": {
+					"type": "string",
+					"format": "datetime",
+					"description": "When the message this content came from was sent."
+				},
+				"text": {
+					"type": "string",
+					"maxLength": 2048,
+					"description": "The copied message body. Empty when the message that was forwarded carried only attachments."
+				},
+				"facets": {
+					"type": "array",
+					"items": {
+						"type": "ref",
+						"ref": "social.colibri.beta.richtext.facet",
+						"description": "An annotation."
+					},
+					"description": "The copied annotations. A mention here does not notify anyone, because the AppView reads only a message's own facets."
+				},
+				"attachments": {
+					"type": "array",
+					"items": {
+						"type": "ref",
+						"ref": "#attachment",
+						"description": "A copied file."
+					},
+					"description": "The copied files, re-uploaded into the forwarding author's own repo so the forward stands on its own."
 				}
 			}
 		},

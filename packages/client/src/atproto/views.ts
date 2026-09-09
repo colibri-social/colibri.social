@@ -34,6 +34,7 @@ export type MessageView = social.colibri.beta.channel.defs.MessageView;
 export type DeletedMessageView =
 	social.colibri.beta.channel.defs.DeletedMessageView;
 export type AttachmentView = social.colibri.beta.channel.defs.AttachmentView;
+export type ForwardView = social.colibri.beta.channel.defs.ForwardView;
 export type ReactionView = social.colibri.beta.channel.defs.ReactionView;
 export type UnreadStatus = social.colibri.beta.channel.defs.UnreadStatus;
 
@@ -58,6 +59,8 @@ export type Facet = social.colibri.beta.richtext.facet.Main;
 
 export type MessageRecord = social.colibri.beta.message.Main;
 export type MessageAttachment = social.colibri.beta.message.Attachment;
+export type MessageForward = social.colibri.beta.message.Forward;
+export type ForwardSnapshot = Omit<MessageForward, "attachments">;
 export type ReactionRecord = social.colibri.beta.reaction.Main;
 export type LabelRecord = social.colibri.beta.label.Main;
 export type LabelSubject = social.colibri.beta.label.Subject;

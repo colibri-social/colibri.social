@@ -91,6 +91,11 @@
 					},
 					"description": "Labels from labelers this community honours. `src` says who applied each one. A `hidden` label is enforced by the AppView, which withholds the message rather than serving it, so a message that reaches you carries only labels you are meant to act on for display, such as `spoiler`."
 				},
+				"forward": {
+					"type": "ref",
+					"ref": "#forwardView",
+					"description": "Content this message was forwarded from, when it is a forward. Never itself nested."
+				},
 				"suppressedEmbeds": {
 					"type": "array",
 					"items": {
@@ -111,6 +116,59 @@
 				"legacy": {
 					"type": "boolean",
 					"description": "Whether this message comes from the repo-backed community this channel was migrated from, and is therefore immutable."
+				}
+			}
+		},
+		"forwardView": {
+			"type": "object",
+			"description": "The frozen copy a forwarded message carries, with its source resolved as far as this AppView can. Never itself nested, so a forward of a forward reports the message it was forwarded from rather than a chain.",
+			"required": [
+				"source",
+				"createdAt",
+				"text",
+				"attachments"
+			],
+			"properties": {
+				"source": {
+					"type": "ref",
+					"ref": "social.colibri.beta.defs#spaceRecordRef",
+					"description": "The message this content was copied from."
+				},
+				"sourceName": {
+					"type": "string",
+					"description": "Name of the channel or thread the content came from. Absent when this AppView does not know that space."
+				},
+				"sourceCommunity": {
+					"type": "string",
+					"format": "did",
+					"description": "The community owning the source space, which is that space's authority. Absent when the source reference cannot be parsed."
+				},
+				"createdAt": {
+					"type": "string",
+					"format": "datetime",
+					"description": "When the message this content came from was sent."
+				},
+				"text": {
+					"type": "string",
+					"description": "The copied message body."
+				},
+				"facets": {
+					"type": "array",
+					"items": {
+						"type": "ref",
+						"ref": "social.colibri.beta.richtext.facet",
+						"description": "An annotation."
+					},
+					"description": "The copied annotations."
+				},
+				"attachments": {
+					"type": "array",
+					"items": {
+						"type": "ref",
+						"ref": "#attachmentView",
+						"description": "A copied file."
+					},
+					"description": "The copied files, served from the forwarding author's own repo."
 				}
 			}
 		},

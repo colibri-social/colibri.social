@@ -2,11 +2,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
 	loadCommunityChannels,
 	peekChannel,
+	peekCommunityCategories,
+	peekCommunityChannels,
 	primeCommunityChannels,
 	resetChannelReferences,
 	resolveChannelChip,
 } from "./channel-reference";
-import { asSpaceRef } from "./lexicons";
+import { asSpaceRef, colibri } from "./lexicons";
 import type { ColibriClient } from "./xrpc";
 
 const DID = "did:plc:abc123";
@@ -23,11 +25,16 @@ const channel = (space: string, name: string) => ({
 
 const clientReturning = (
 	impl: () => unknown,
+	categories: Array<{ rkey: string; name: string }> = [],
 ): { client: ColibriClient; call: ReturnType<typeof vi.fn> } => {
 	const call = vi.fn(async () => impl());
+	const dispatch = async (schema: unknown) =>
+		schema === colibri.community.listCategories.main
+			? { ok: true, data: { categories } }
+			: call();
 	return {
 		call,
-		client: { call } as unknown as ColibriClient,
+		client: { call: dispatch } as unknown as ColibriClient,
 	};
 };
 
@@ -49,7 +56,8 @@ describe("channel-reference", () => {
 			name: "general",
 			type: "social.colibri.beta.channel.text",
 			communityDid: DID,
-			viewer: { canRead: true },
+			private: undefined,
+			viewer: { canRead: true, canPost: true },
 		});
 	});
 
@@ -100,6 +108,28 @@ describe("channel-reference", () => {
 		vi.advanceTimersByTime(30_001);
 		await loadCommunityChannels(client, DID);
 		expect(call).toHaveBeenCalledTimes(2);
+	});
+
+	it("caches a community's categories alongside its channels", async () => {
+		const { client } = clientReturning(
+			() => ok([channel(CHANNEL, "general")]),
+			[{ rkey: "dev", name: "Development" }],
+		);
+		await loadCommunityChannels(client, DID);
+		expect(peekCommunityCategories(DID)).toEqual([
+			{ rkey: "dev", name: "Development" },
+		]);
+	});
+
+	it("lists a community's channels back", async () => {
+		const { client } = clientReturning(() =>
+			ok([channel(CHANNEL, "general"), channel(`${CHANNEL}-2`, "random")]),
+		);
+		await loadCommunityChannels(client, DID);
+		expect(peekCommunityChannels(DID).map((entry) => entry.name)).toEqual([
+			"general",
+			"random",
+		]);
 	});
 
 	it("treats a failed result the same as a throw", async () => {

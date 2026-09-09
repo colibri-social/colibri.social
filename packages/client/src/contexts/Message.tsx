@@ -72,6 +72,8 @@ export type MessageContextValue = {
 	setDeletionModalOpen: Setter<boolean>;
 	debugModalOpen: Accessor<boolean>;
 	setDebugModalOpen: Setter<boolean>;
+	forwardModalOpen: Accessor<boolean>;
+	setForwardModalOpen: Setter<boolean>;
 	embedsModalOpen: Accessor<boolean>;
 	setEmbedsModalOpen: Setter<boolean>;
 	reactionsViewerOpen: Accessor<boolean>;
@@ -197,6 +199,7 @@ export const MessageContextProvider: ParentComponent<{ data: MessageData }> = (
 	const [deletionModalOpen, setDeletionModalOpen] = createSignal(false);
 	const [emojiPopoverOpen, setEmojiPopoverOpen] = createSignal(false);
 	const [debugModalOpen, setDebugModalOpen] = createSignal(false);
+	const [forwardModalOpen, setForwardModalOpen] = createSignal(false);
 	const [embedsModalOpen, setEmbedsModalOpen] = createSignal(false);
 	const [reactionsViewerOpen, setReactionsViewerOpen] = createSignal(false);
 	const [reactionsViewerEmoji, setReactionsViewerEmoji] = createSignal<
@@ -581,7 +584,11 @@ export const MessageContextProvider: ParentComponent<{ data: MessageData }> = (
 		clearEditDraft(target.uri);
 		channel.clearEditingMessage();
 
-		if (cleanText.length === 0 && target.attachments.length === 0) {
+		if (
+			cleanText.length === 0 &&
+			target.attachments.length === 0 &&
+			target.forward === undefined
+		) {
 			setDeletionModalOpen(true);
 			return;
 		}
@@ -698,6 +705,8 @@ export const MessageContextProvider: ParentComponent<{ data: MessageData }> = (
 		setDeletionModalOpen,
 		debugModalOpen,
 		setDebugModalOpen,
+		forwardModalOpen,
+		setForwardModalOpen,
 		embedsModalOpen,
 		setEmbedsModalOpen,
 		reactionsViewerOpen,

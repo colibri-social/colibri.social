@@ -110,8 +110,8 @@ importers:
         specifier: workspace:0.4.0
         version: link:../../packages/client
       '@colibri-social/lexicons':
-        specifier: ^2.9.1
-        version: 2.9.1
+        specifier: ^2.10.0
+        version: 2.10.0
       '@colibri-social/standard-renderer':
         specifier: workspace:0.0.2
         version: link:../../packages/standard-renderer
@@ -352,8 +352,8 @@ importers:
         specifier: 0.0.0-spaces-alpha-20260818163953
         version: 0.0.0-spaces-alpha-20260818163953(patch_hash=b9762ee8f553b039bee0f267ebcaf2e581bb70141391ea58e59ec0784ba37efa)
       '@colibri-social/lexicons':
-        specifier: ^2.9.1
-        version: 2.9.1
+        specifier: ^2.10.0
+        version: 2.10.0
       '@kobalte/core':
         specifier: ^0.13.11
         version: 0.13.11(solid-js@1.9.14)
@@ -609,8 +609,8 @@ importers:
         specifier: 0.0.0-spaces-alpha-20260818163953
         version: 0.0.0-spaces-alpha-20260818163953(patch_hash=b9762ee8f553b039bee0f267ebcaf2e581bb70141391ea58e59ec0784ba37efa)
       '@colibri-social/lexicons':
-        specifier: ^2.9.1
-        version: 2.9.1
+        specifier: ^2.10.0
+        version: 2.10.0
       '@types/mdast':
         specifier: ^4.0.4
         version: 4.0.4
@@ -1315,8 +1315,8 @@ packages:
     resolution: {integrity: sha512-y7/yvZ2TPAnR9+jnc00klvNNLkJiXFFrQA/hlLCcxA9a2A4zQIOimyFQ9XfwYKiGD1fb5GY8vbKIIgO8d5Tb2A==}
     engines: {node: '>= 20.12.0'}
 
-  '@colibri-social/lexicons@2.9.1':
-    resolution: {integrity: sha512-Kh0YRGP+O4fC3U0XulJhA8ugPdDJ+Iyp+wAnvfL7L3CHa10ALd3zBFD8fw7vP9n9VNey1/oQ6uM5jMLfOUrdIQ==}
+  '@colibri-social/lexicons@2.10.0':
+    resolution: {integrity: sha512-mtbgFFtJb48w+vn1kcW4hYkNEqAMZQkPPGJedXkF156XiJjbccoV3JxGfiOIp6De8vwBdiJliUgEIquxYtGiTw==}
 
   '@corvu/dialog@0.2.4':
     resolution: {integrity: sha512-n54vJq+fOy8GVrnYBdJpD6JXNuyx7LOeMrRxwzAvZnYGpW8+AA12tnb/P/2emJj/HjOO5otheGKb0breshdFlA==}
@@ -7877,7 +7877,7 @@ snapshots:
       fast-wrap-ansi: 0.2.2
       sisteransi: 1.0.5
 
-  '@colibri-social/lexicons@2.9.1':
+  '@colibri-social/lexicons@2.10.0':
     dependencies:
       '@atproto/lex': 0.0.0-spaces-alpha-20260818163953
       '@atproto/lex-data': 0.1.7

@@ -53,6 +53,54 @@ const run = (
 	});
 
 describe("rehydrateQueuedMessages", () => {
+	it("rebuilds a queued forward's snapshot", () => {
+		const result = run(
+			[
+				queued("m9", "spaceCreate", {
+					text: "",
+					createdAt: "2026-01-02T00:00:00.000Z",
+					forward: {
+						source: {
+							space: OTHER_CHANNEL,
+							did: DID,
+							rkey: "m1",
+						},
+						createdAt: "2026-01-01T00:00:00.000Z",
+						text: "the original",
+						attachments: [
+							{ url: "blob:preview", mimeType: "image/png" },
+							{ blob: { $type: "blob" } },
+						],
+					},
+				}),
+			],
+			[],
+		);
+
+		const added = result?.[0] as PendingMessage;
+		expect(added.forward).toEqual({
+			source: { space: OTHER_CHANNEL, did: DID, rkey: "m1" },
+			createdAt: "2026-01-01T00:00:00.000Z",
+			text: "the original",
+			attachments: [{ url: "blob:preview", mimeType: "image/png" }],
+		});
+	});
+
+	it("leaves a queued forward out when its source is unusable", () => {
+		const result = run(
+			[
+				queued("m10", "spaceCreate", {
+					text: "look",
+					createdAt: "2026-01-02T00:00:00.000Z",
+					forward: { createdAt: "2026-01-01T00:00:00.000Z", text: "orphan" },
+				}),
+			],
+			[],
+		);
+
+		expect((result?.[0] as PendingMessage).forward).toBeUndefined();
+	});
+
 	it("appends a queued create that never reached the list", () => {
 		const result = run(
 			[

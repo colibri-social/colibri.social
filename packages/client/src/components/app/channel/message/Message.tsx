@@ -12,6 +12,7 @@ import {
 	Switch,
 } from "solid-js";
 import ArrowBendUpLeft from "~icons/ph/arrow-bend-up-left";
+import ArrowBendUpRight from "~icons/ph/arrow-bend-up-right";
 import ArrowsMergeIcon from "~icons/ph/arrows-merge";
 import ListChecksIcon from "~icons/ph/list-checks";
 import PencilIcon from "~icons/ph/pencil";
@@ -72,6 +73,8 @@ import {
 	isDirectMediaUrl,
 	isRemovableEmbed,
 } from "./Embed";
+import { ForwardDialog } from "./ForwardDialog";
+import { ForwardedMessage } from "./ForwardedMessage";
 import { HiddenMessageNotice, HiddenMessagePlaceholder } from "./HiddenMessage";
 import { InlineEditor } from "./InlineEditor";
 import { MessageTimestamp } from "./MessageTimestamp";
@@ -144,6 +147,7 @@ const MessageInner: Component<{
 		setEmojiPopoverOpen,
 		contextMenuOpen,
 		setContextMenuOpen,
+		setForwardModalOpen,
 		setLinkTarget,
 		setDeletionModalOpen,
 		newText,
@@ -210,8 +214,11 @@ const MessageInner: Component<{
 	const isEdited = (): boolean =>
 		"updatedAt" in message && message.updatedAt !== undefined;
 
+	const forward = () => message.forward;
+
 	const isSubsequentMessage = () => {
 		if (parent()) return false;
+		if (forward()) return false;
 		if (!props.isSubsequent) return false;
 		return true;
 	};
@@ -227,6 +234,7 @@ const MessageInner: Component<{
 	const isLoneMediaLink = (): boolean => {
 		const links = linkFacets();
 		return (
+			forward() === undefined &&
 			links.length === 1 &&
 			isDirectMediaUrl(links[0].uri) &&
 			!isBrokenMediaLink(links[0].uri) &&
@@ -284,6 +292,11 @@ const MessageInner: Component<{
 		if (props.anchor) return false;
 		const target = settled();
 		return target !== undefined && threadActions.canSelect(target);
+	};
+
+	const canForward = () => {
+		const target = settled();
+		return target !== undefined && threadActions.canForward(target);
 	};
 
 	const canEdit = () => !props.anchor && messageEditable();
@@ -411,6 +424,9 @@ const MessageInner: Component<{
 				>
 					<BlockDrawer />
 					<DeletionDrawer />
+					<Show when={!("hash" in message)}>
+						<ForwardDialog />
+					</Show>
 					<Show when={parent() !== undefined}>
 						{(() => (
 							<div class="flex flex-row gap-4 group/reply w-full max-w-full">
@@ -561,7 +577,12 @@ const MessageInner: Component<{
 									</Show>
 								</div>
 							</Show>
-							<Show when={message.text.trim().length > 0 && !isLoneMediaLink()}>
+							<Show
+								when={
+									(message.text.trim().length > 0 || forward() !== undefined) &&
+									!isLoneMediaLink()
+								}
+							>
 								<div class="flex flex-col w-full min-w-0 justify-center">
 									<Show when={!isSubsequentMessage()}>
 										<div class="flex gap-2 text-sm items-baseline flex-wrap">
@@ -592,23 +613,35 @@ const MessageInner: Component<{
 											</Show>
 										</div>
 									</Show>
-									<div>
-										<Switch>
-											<Match when={!editMode() || isMobile()}>
-												<RichTextRenderer
-													text={newText}
-													isEdited={isSubsequentMessage() && isEdited()}
-													classList={{
-														"text-muted-foreground": isPending(),
-														"text-foreground": !isPending(),
-													}}
+									<Show when={forward()}>
+										{(snapshot) => (
+											<div class="py-0.5">
+												<ForwardedMessage
+													forward={snapshot()}
+													authorDid={message.author.did}
 												/>
-											</Match>
-											<Match when={editMode() && !isMobile()}>
-												<InlineEditor />
-											</Match>
-										</Switch>
-									</div>
+											</div>
+										)}
+									</Show>
+									<Show when={message.text.trim().length > 0 || editMode()}>
+										<div>
+											<Switch>
+												<Match when={!editMode() || isMobile()}>
+													<RichTextRenderer
+														text={newText}
+														isEdited={isSubsequentMessage() && isEdited()}
+														classList={{
+															"text-muted-foreground": isPending(),
+															"text-foreground": !isPending(),
+														}}
+													/>
+												</Match>
+												<Match when={editMode() && !isMobile()}>
+													<InlineEditor />
+												</Match>
+											</Switch>
+										</div>
+									</Show>
 								</div>
 							</Show>
 						</Show>
@@ -649,6 +682,14 @@ const MessageInner: Component<{
 								<Show when={canReply()}>
 									<Action tooltipText="Reply" onClick={enableReplyMode}>
 										<ArrowBendUpLeft />
+									</Action>
+								</Show>
+								<Show when={canForward()}>
+									<Action
+										tooltipText="Forward"
+										onClick={() => setForwardModalOpen(true)}
+									>
+										<ArrowBendUpRight />
 									</Action>
 								</Show>
 								<Show when={canOpenThread() && shiftHeld()}>

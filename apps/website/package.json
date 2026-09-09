@@ -36,7 +36,7 @@
 		"@atproto/ws-client": "^0.0.4",
 		"@colibri-social/assets": "workspace:0.0.2",
 		"@colibri-social/client": "workspace:0.4.0",
-		"@colibri-social/lexicons": "^2.9.1",
+		"@colibri-social/lexicons": "^2.10.0",
 		"@colibri-social/standard-renderer": "workspace:0.0.2",
 		"@corvu/drawer": "^0.2.4",
 		"@fontsource-variable/hanken-grotesk": "^5.2.8",

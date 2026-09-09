@@ -1,9 +1,10 @@
-import type { Component } from "solid-js";
+import { type Component, Show } from "solid-js";
 import type { PendingMessage } from "../../../../atproto/cache/schema";
 import type { MessageView } from "../../../../atproto/views";
 import { RichTextRenderer } from "../../common/rich-text-renderer/RichTextRenderer";
 import type { TextWithFacets } from "../../common/rich-text-renderer/util";
 import User from "../../user";
+import { ForwardedMessage } from "./ForwardedMessage";
 import { MessageTimestamp } from "./MessageTimestamp";
 
 /**
@@ -33,7 +34,19 @@ export const MessagePreview: Component<{
 						<MessageTimestamp datetime={props.data.createdAt} />
 					</small>
 				</div>
-				<RichTextRenderer text={text} class={props.textClass} />
+				<Show when={props.data.forward}>
+					{(snapshot) => (
+						<div class="py-0.5">
+							<ForwardedMessage
+								forward={snapshot()}
+								authorDid={props.data.author.did}
+							/>
+						</div>
+					)}
+				</Show>
+				<Show when={props.data.text.trim().length > 0}>
+					<RichTextRenderer text={text} class={props.textClass} />
+				</Show>
 			</div>
 		</div>
 	);

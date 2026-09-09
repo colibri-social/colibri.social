@@ -1,6 +1,7 @@
 import { createMemo, For, type ParentComponent, Show } from "solid-js";
 import { toast } from "somoto";
 import ArrowBendUpLeftIcon from "~icons/ph/arrow-bend-up-left";
+import ArrowBendUpRightIcon from "~icons/ph/arrow-bend-up-right";
 import ArrowsMergeIcon from "~icons/ph/arrows-merge";
 import CopyIcon from "~icons/ph/copy";
 import HeartIcon from "~icons/ph/heart";
@@ -70,6 +71,7 @@ export const MessageContextMenu: ParentComponent<{
 		handlePotentialBlock,
 		contextMenuOpen,
 		setContextMenuOpen,
+		setForwardModalOpen,
 		reactionsViewerOpen,
 		openReactionsViewer,
 		emojiPopoverOpen,
@@ -130,6 +132,11 @@ export const MessageContextMenu: ParentComponent<{
 		return target !== undefined && threadActions.canSelect(target);
 	};
 
+	const canForward = () => {
+		const target = settled();
+		return target !== undefined && threadActions.canForward(target);
+	};
+
 	const canEdit = () => !props.anchor && messageEditable();
 
 	const openThread = () => {
@@ -172,6 +179,12 @@ export const MessageContextMenu: ParentComponent<{
 										<span>Reply</span>
 									</ContextMenuItem>
 								</Show>
+								<Show when={canForward()}>
+									<ContextMenuItem onClick={() => setForwardModalOpen(true)}>
+										<ArrowBendUpRightIcon />
+										<span>Forward</span>
+									</ContextMenuItem>
+								</Show>
 								<Show when={canOpenThread()}>
 									<ContextMenuItem onClick={openThread}>
 										<ArrowsMergeIcon class="rotate-180" />
@@ -184,7 +197,11 @@ export const MessageContextMenu: ParentComponent<{
 										<span>Select Messages</span>
 									</ContextMenuItem>
 								</Show>
-								<Show when={canReply() || canOpenThread() || canSelect()}>
+								<Show
+									when={
+										canReply() || canForward() || canOpenThread() || canSelect()
+									}
+								>
 									<ContextMenuSeparator />
 								</Show>
 								<Show when={message.text.length > 0}>
@@ -311,6 +328,16 @@ export const MessageContextMenu: ParentComponent<{
 							<span>Reply</span>
 						</MenuDrawerItem>
 					</Show>
+					<Show when={canForward()}>
+						<MenuDrawerItem
+							onClick={() =>
+								handoffDrawer(close, () => setForwardModalOpen(true))
+							}
+						>
+							<ArrowBendUpRightIcon />
+							<span>Forward</span>
+						</MenuDrawerItem>
+					</Show>
 					<Show when={canOpenThread()}>
 						<MenuDrawerItem onClick={() => handoffDrawer(close, openThread)}>
 							<ArrowsMergeIcon class="rotate-180" />
@@ -328,7 +355,9 @@ export const MessageContextMenu: ParentComponent<{
 							<span>Select Messages</span>
 						</MenuDrawerItem>
 					</Show>
-					<Show when={canReply() || canOpenThread() || canSelect()}>
+					<Show
+						when={canReply() || canForward() || canOpenThread() || canSelect()}
+					>
 						<Separator class="my-1" />
 					</Show>
 					<Show when={message.text.length > 0}>

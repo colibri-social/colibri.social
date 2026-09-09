@@ -1,3 +1,4 @@
+import { isForwardable } from "../../../../atproto/forward";
 import { asDid, asRecordKey, asSpaceRef } from "../../../../atproto/lexicons";
 import { isThreadSpace } from "../../../../atproto/space-ref";
 import type { MessageView, SpaceRecordRef } from "../../../../atproto/views";
@@ -27,6 +28,8 @@ export const useMessageThreadActions = () => {
 	const canSelect = (message: MessageView): boolean =>
 		!message.legacy && canMoveMessages(user.did);
 
+	const canForward = (message: MessageView): boolean => isForwardable(message);
+
 	const openThreadFrom = (message: MessageView): void => {
 		threads.openDraft({
 			channel: message.channel,
@@ -40,5 +43,5 @@ export const useMessageThreadActions = () => {
 		channel.beginSelection(message);
 	};
 
-	return { canOpenThread, canSelect, openThreadFrom, select };
+	return { canOpenThread, canSelect, canForward, openThreadFrom, select };
 };

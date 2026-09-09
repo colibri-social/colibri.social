@@ -19,6 +19,7 @@ import { sessionDead } from "../session-health";
 import type {
 	AttachmentView,
 	Facet,
+	ForwardSnapshot,
 	MessageAttachment,
 	RecordRef,
 } from "../views";
@@ -46,6 +47,7 @@ export type SendRecord = {
 	text: string;
 	facets: Facet[];
 	parent?: RecordRef;
+	forward?: ForwardSnapshot;
 	suppressedEmbeds: string[];
 	files: SendFile[];
 	createdAt: number;
@@ -64,6 +66,7 @@ export type EnqueueMessageSendInput = {
 	facets: Facet[];
 	files: ReadonlyArray<File>;
 	parent?: RecordRef;
+	forward?: ForwardSnapshot;
 	suppressedEmbeds: ReadonlyArray<string>;
 };
 
@@ -165,8 +168,16 @@ export const pendingSends = (space: string): QueuedRecord[] =>
 				text: entry.text,
 				facets: entry.facets,
 				createdAt: new Date(entry.createdAt).toISOString(),
-				attachments: ensurePreviews(entry),
+				attachments: entry.forward ? [] : ensurePreviews(entry),
 				...(entry.parent ? { parent: entry.parent } : {}),
+				...(entry.forward
+					? {
+							forward: {
+								...entry.forward,
+								attachments: ensurePreviews(entry),
+							},
+						}
+					: {}),
 			},
 			createdAt: entry.createdAt,
 			failed: entry.failed === true,
@@ -257,7 +268,9 @@ const runSend = async (
 		facets: entry.facets,
 		createdAt: new Date(entry.createdAt).toISOString(),
 		parent: entry.parent,
-		attachments,
+		...(entry.forward
+			? { forward: { ...entry.forward, attachments } }
+			: { attachments }),
 		suppressedEmbeds: entry.suppressedEmbeds,
 	});
 
@@ -379,6 +392,7 @@ export const enqueueMessageSend = async (
 		createdAt: Date.now(),
 		attempts: 0,
 		...(input.parent ? { parent: input.parent } : {}),
+		...(input.forward ? { forward: input.forward } : {}),
 	};
 
 	const seq = await sendsAppend(record);

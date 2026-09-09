@@ -1069,7 +1069,11 @@ export const ChannelContextProvider: ParentComponent<{
 		const cleanText = trimmed.text;
 		const cleanFacets = trimmed.facets;
 
-		if (cleanText.length === 0 && target.attachments.length === 0) {
+		if (
+			cleanText.length === 0 &&
+			target.attachments.length === 0 &&
+			target.forward === undefined
+		) {
 			clearEditDraft(target.uri);
 			clearEditingMessage();
 			setEmptyEditPendingDeletion(target);

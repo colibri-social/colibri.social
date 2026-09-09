@@ -2,6 +2,7 @@ import { asDatetime, asUri, COLLECTIONS } from "./lexicons";
 import type {
 	Facet,
 	MessageAttachment,
+	MessageForward,
 	MessageRecord,
 	ReactionRecord,
 	RecordRef,
@@ -14,6 +15,7 @@ export type MessageRecordInput = {
 	updatedAt?: string;
 	parent?: RecordRef;
 	attachments?: ReadonlyArray<MessageAttachment>;
+	forward?: MessageForward;
 	suppressedEmbeds?: ReadonlyArray<string>;
 };
 
@@ -31,6 +33,7 @@ export const buildMessageRecord = (
 	...(input.attachments && input.attachments.length > 0
 		? { attachments: [...input.attachments] }
 		: {}),
+	...(input.forward ? { forward: input.forward } : {}),
 	...(input.suppressedEmbeds && input.suppressedEmbeds.length > 0
 		? { suppressedEmbeds: input.suppressedEmbeds.map(asUri) }
 		: {}),

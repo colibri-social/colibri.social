@@ -112,6 +112,63 @@ describe("the send queue", () => {
 		expect(record.attachments.map((a) => a.name)).toEqual(["a", "b", "c"]);
 	});
 
+	it("puts a forward's re-uploaded files in the snapshot, not on the message", async () => {
+		uploadBlob.mockImplementation((_agent: unknown, target: File) =>
+			Promise.resolve(blobRef(target.name)),
+		);
+
+		const module = await load();
+		await module.enqueueMessageSend({
+			space: SPACE,
+			repo: REPO,
+			text: "look at this",
+			facets: [],
+			files: [file("a")],
+			suppressedEmbeds: [],
+			forward: {
+				source: { space: OTHER_SPACE, did: REPO, rkey: "m1" },
+				createdAt: "2026-01-01T00:00:00.000Z",
+				text: "the original",
+			} as never,
+		});
+		await vi.advanceTimersByTimeAsync(0);
+
+		const record = enqueueSpaceCreate.mock.calls[0]?.[3] as {
+			attachments?: unknown;
+			forward: { text: string; attachments: Array<{ name: string }> };
+		};
+		expect(record.attachments).toBeUndefined();
+		expect(record.forward.text).toBe("the original");
+		expect(record.forward.attachments.map((a) => a.name)).toEqual(["a"]);
+	});
+
+	it("previews a queued forward's files inside the snapshot", async () => {
+		uploadBlob.mockImplementation(() => new Promise(() => undefined));
+
+		const module = await load();
+		await module.enqueueMessageSend({
+			space: SPACE,
+			repo: REPO,
+			text: "",
+			facets: [],
+			files: [file("a")],
+			suppressedEmbeds: [],
+			forward: {
+				source: { space: OTHER_SPACE, did: REPO, rkey: "m1" },
+				createdAt: "2026-01-01T00:00:00.000Z",
+				text: "the original",
+			} as never,
+		});
+		await vi.advanceTimersByTimeAsync(0);
+
+		const projected = module.pendingSends(SPACE)[0]?.record as {
+			attachments: unknown[];
+			forward: { attachments: Array<{ name: string }> };
+		};
+		expect(projected.attachments).toEqual([]);
+		expect(projected.forward.attachments.map((a) => a.name)).toEqual(["a"]);
+	});
+
 	it("writes to the space captured at enqueue time", async () => {
 		uploadBlob.mockImplementation((_agent: unknown, target: File) =>
 			Promise.resolve(blobRef(target.name)),
