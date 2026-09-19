@@ -352,7 +352,7 @@ export const CommunityContextProvider: ParentComponent = (props) => {
 	createEffect(() => {
 		const payload = currentPayload();
 		if (!payload) return;
-		warmActivityImages(payload.members.map((m) => m.data.activity));
+		warmActivityImages(payload.members.flatMap((m) => m.data.activities));
 	});
 
 	const pending = createMemo(() =>

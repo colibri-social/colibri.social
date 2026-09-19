@@ -18,7 +18,10 @@ const activity = (patch: Partial<Activity> = {}): Activity => ({
 });
 
 const presenceWith = (value: Activity | undefined): Presence =>
-	({ onlineState: "online", activity: value }) as Presence;
+	({ onlineState: "online", activities: [value] }) as Presence;
+
+const presenceWithAll = (values: Activity[]): Presence =>
+	({ onlineState: "online", activities: values }) as Presence;
 
 describe("activityLabel", () => {
 	it("names the source for a listening activity", async () => {
@@ -83,7 +86,7 @@ describe("activityIsLive", () => {
 	});
 });
 
-describe("liveActivityOf", () => {
+describe("liveActivitiesOf", () => {
 	beforeEach(() => {
 		vi.useFakeTimers();
 		vi.setSystemTime(new Date("2026-08-25T13:20:00Z"));
@@ -93,25 +96,39 @@ describe("liveActivityOf", () => {
 		vi.useRealTimers();
 	});
 
-	it("reads the activity off a presence", async () => {
-		const { liveActivityOf } = await load();
+	it("reads the activities off a presence", async () => {
+		const { liveActivitiesOf } = await load();
 		const current = activity();
-		expect(liveActivityOf(presenceWith(current))).toEqual(current);
+		expect(liveActivitiesOf(presenceWith(current))).toEqual([current]);
+	});
+
+	it("keeps the live activities and drops the lapsed ones, in order", async () => {
+		const { liveActivitiesOf } = await load();
+		const listening = activity({ endsAt: "2026-08-25T13:29:54Z" });
+		const lapsed = activity({
+			source: "Steam",
+			endsAt: "2026-08-25T13:00:00Z",
+		});
+		const playing = activity({ kind: "playing", source: "Steam" });
+
+		expect(
+			liveActivitiesOf(presenceWithAll([listening, lapsed, playing])),
+		).toEqual([listening, playing]);
 	});
 
 	it("withholds a lapsed activity", async () => {
-		const { liveActivityOf } = await load();
+		const { liveActivitiesOf } = await load();
 		expect(
-			liveActivityOf(
+			liveActivitiesOf(
 				presenceWith(activity({ endsAt: "2026-08-25T13:00:00Z" })),
 			),
-		).toBeUndefined();
+		).toEqual([]);
 	});
 
 	it("copes with a presence that carries no activity", async () => {
-		const { liveActivityOf } = await load();
-		expect(liveActivityOf(presenceWith(undefined))).toBeUndefined();
-		expect(liveActivityOf(undefined)).toBeUndefined();
+		const { liveActivitiesOf } = await load();
+		expect(liveActivitiesOf(presenceWith(undefined))).toEqual([]);
+		expect(liveActivitiesOf(undefined)).toEqual([]);
 	});
 });
 
@@ -180,5 +197,11 @@ describe("warmActivityImage", () => {
 			activity({ imageUri: undefined }),
 		]);
 		expect(created).toHaveLength(1);
+	});
+
+	it("does nothing without a list", async () => {
+		const { warmActivityImages } = await load();
+		warmActivityImages(undefined);
+		expect(created).toHaveLength(0);
 	});
 });

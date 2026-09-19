@@ -46,9 +46,14 @@ const MemberRow = (props: { member: Member }) => {
 	const community = useCommunityContext();
 	const profile = () => props.member.actor;
 	const online = () => props.member.data.onlineState !== "offline";
-	const activity = () => {
-		const current = props.member.data.activity;
-		return activityIsLive(current) ? current : undefined;
+	const activities = () => {
+		const current = props.member.data.activities;
+		return (current ?? [])
+			.map((x) => (activityIsLive(x) ? x : undefined))
+			.filter((x) => typeof x !== "undefined")
+			.sort((x, y) =>
+				new Date(x.startedAt || 0) < new Date(y.startedAt || 0) ? 1 : -1,
+			);
 	};
 
 	return (
@@ -82,13 +87,18 @@ const MemberRow = (props: { member: Member }) => {
 								</span>
 							</Show>
 						</span>
-						<Show when={online() && (activity() || props.member.data.status)}>
+						<Show
+							when={
+								online() &&
+								(activities().length > 0 || props.member.data.status)
+							}
+						>
 							<span class="text-sm w-full leading-5 flex flex-row items-center gap-2">
-								<Show when={activity()}>
+								<Show when={activities()}>
 									{(current) => (
 										<>
 											<span class="text-purple-400 shrink-0 flex items-center">
-												<ActivityIcon kind={current().kind} />
+												<ActivityIcon kind={current()[0]!.kind} />
 											</span>
 											<Show when={props.member.data.status}>
 												<span class="text-muted-foreground shrink-0">·</span>
@@ -99,9 +109,16 @@ const MemberRow = (props: { member: Member }) => {
 								<Show
 									when={props.member.data.status}
 									fallback={
-										<span class="w-full overflow-hidden text-ellipsis whitespace-nowrap text-muted-foreground">
-											{activitySummary(activity()!)}
-										</span>
+										<>
+											<span class="max-w-full overflow-hidden text-ellipsis whitespace-nowrap text-muted-foreground">
+												{activitySummary(activities()[0]!)}
+											</span>
+											<Show when={activities().length > 1}>
+												<span class="text-muted-foreground shrink-0">
+													+ {activities().length - 1}
+												</span>
+											</Show>
+										</>
 									}
 								>
 									{(status) => (

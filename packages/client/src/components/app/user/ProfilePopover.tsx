@@ -9,7 +9,7 @@ import {
 import { Dynamic } from "solid-js/web";
 import ArrowSquareOutIcon from "~icons/ph/arrow-square-out";
 import PencilSimpleIcon from "~icons/ph/pencil-simple";
-import { liveActivityOf } from "../../../atproto/activity";
+import { liveActivitiesOf } from "../../../atproto/activity";
 import {
 	DEFAULT_BLUESKY_CLIENT,
 	type ResolvedBlueskyClient,
@@ -173,8 +173,12 @@ export const ProfilePopoverContents: Component<{
 
 	const bannerUrl = () => props.preview?.bannerUrl ?? props.user.banner;
 
-	const activity = () =>
-		isPreview() ? undefined : liveActivityOf(props.user.presence);
+	const activities = () =>
+		isPreview()
+			? undefined
+			: liveActivitiesOf(props.user.presence).sort((x, y) =>
+					new Date(x.startedAt || 0) < new Date(y.startedAt || 0) ? 1 : -1,
+				);
 
 	return (
 		<div
@@ -333,11 +337,17 @@ export const ProfilePopoverContents: Component<{
 							</Show>
 						</div>
 					</div>
-					<Show when={activity()}>
-						<hr class="w-full h-px border-none bg-border m-0" />
-						<ActivityCard activity={activity()!} />
+					<Show when={activities()}>
+						<For each={activities()}>
+							{(activity) => (
+								<>
+									<hr class="w-full h-px border-none bg-border m-0" />
+									<ActivityCard activity={activity} />
+								</>
+							)}
+						</For>
 					</Show>
-					<Show when={isSelf() && !activity()}>
+					<Show when={isSelf() && !activities()}>
 						<ActivityOptInPrompt />
 					</Show>
 					<Show when={props.user.description && !props.hideDescription}>

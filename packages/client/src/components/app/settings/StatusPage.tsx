@@ -138,11 +138,11 @@ export const StatusPage: Component = () => {
 				onChange={setDraft}
 			>
 				<div>
-					<SwitchLabel>Share what I'm listening to</SwitchLabel>
+					<SwitchLabel>Share what I'm doing</SwitchLabel>
 					<SwitchDescription>
-						Shows what you're playing on your profile and in the member list,
-						read from your teal.fm, rocksky.app, or atradio.fm records. Turning
-						this off clears it for everyone as soon as you save.
+						Shows what you're playing or listening to on your profile and in the
+						member list. Turning this off clears it for everyone as soon as you
+						save.
 					</SwitchDescription>
 				</div>
 				<div>

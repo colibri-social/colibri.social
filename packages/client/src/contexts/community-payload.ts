@@ -24,7 +24,7 @@ export type MemberData = {
 	syncBluesky: boolean;
 	onlineState: OnlineState;
 	status?: MemberStatus;
-	activity?: Activity;
+	activities?: Activity[];
 	theme?: ProfileView["theme"];
 	preferredBadge?: string;
 };
@@ -88,7 +88,7 @@ const memberDataOf = (actor: ProfileView): MemberData => ({
 	syncBluesky: actor.syncBluesky,
 	onlineState: onlineStateOf(actor),
 	status: actor.presence?.status,
-	activity: activityOf(actor.presence),
+	activities: activityOf(actor.presence),
 	theme: actor.theme,
 	preferredBadge: actor.preferredBadge,
 });
@@ -113,7 +113,7 @@ export const withMemberPresence = (
 		...member.data,
 		onlineState: normalizeOnlineState(presence.onlineState),
 		status: presence.status,
-		activity: presence.activity,
+		activities: presence.activities,
 	},
 });
 
@@ -133,7 +133,7 @@ export const patchMemberData = (
 		...member.actor.presence,
 		onlineState: patched.data.onlineState,
 		status: patched.data.status,
-		activity: patched.data.activity,
+		activities: patched.data.activities,
 	});
 };
 
@@ -142,7 +142,7 @@ export const toApplicant = (view: ApplicationView): Applicant => {
 		onlineState: _onlineState,
 		syncBluesky: _syncBluesky,
 		status: _status,
-		activity: _activity,
+		activities: _activity,
 		...data
 	} = memberDataOf(view.actor);
 	return {

@@ -1,6 +1,6 @@
 import { createContext, type ParentComponent, useContext } from "solid-js";
 import { createStore } from "solid-js/store";
-import { activityOf, warmActivityImage } from "../atproto/activity";
+import { activityOf, warmActivityImages } from "../atproto/activity";
 import { colibri } from "../atproto/lexicons";
 import type { ProfileView } from "../atproto/views";
 import { useUserContext } from "./User";
@@ -19,7 +19,7 @@ export const ActorCacheProvider: ParentComponent = (props) => {
 
 	const remember = (actor: ProfileView): void => {
 		setCache(actor.did, actor);
-		warmActivityImage(activityOf(actor.presence)?.imageUri);
+		warmActivityImages(activityOf(actor.presence));
 	};
 
 	const seed = (actor: ProfileView): void => {

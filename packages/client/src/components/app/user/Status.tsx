@@ -10,7 +10,7 @@ import {
 import GearIcon from "~icons/ph/gear";
 import PhoneSlashIcon from "~icons/ph/phone-slash";
 import PictureInPictureIcon from "~icons/ph/picture-in-picture";
-import { activitySummary, liveActivityOf } from "../../../atproto/activity";
+import { activitySummary, liveActivitiesOf } from "../../../atproto/activity";
 import type { ProfileView } from "../../../atproto/views";
 import { useCommunityContext } from "../../../contexts/Community";
 import { normalizeOnlineState } from "../../../contexts/community-payload";
@@ -71,8 +71,15 @@ export const Status: Component = () => {
 		liveMember()?.data.onlineState ??
 		normalizeOnlineState(user.presence?.onlineState);
 
-	const activity = () =>
-		liveMember()?.data.activity ?? liveActivityOf(user.presence);
+	const activities = () =>
+		liveMember()?.data.activities ?? liveActivitiesOf(user.presence);
+
+	const sortedActivities = () =>
+		activities()
+			.filter((x) => typeof x !== "undefined")
+			.sort((x, y) =>
+				new Date(x.startedAt || 0) < new Date(y.startedAt || 0) ? 1 : -1,
+			);
 
 	const voiceLabel = (): string =>
 		[voiceData.connection.channelName, voiceData.connection.communityName]
@@ -277,7 +284,7 @@ export const Status: Component = () => {
 								<User.DisplayableName color={false} user={liveUser()} />
 							</span>
 							<Show
-								when={activity()}
+								when={sortedActivities().length > 0}
 								fallback={
 									<span class="text-xs text-muted-foreground">
 										{STATE_LABELS[onlineState()]}
@@ -286,11 +293,16 @@ export const Status: Component = () => {
 							>
 								<span class="text-xs text-muted-foreground flex flex-row items-center gap-1 max-w-full overflow-hidden">
 									<span class="text-purple-400 shrink-0">
-										<ActivityIcon kind={activity()!.kind} />
+										<ActivityIcon kind={sortedActivities()[0]!.kind} />
 									</span>
 									<span class="whitespace-nowrap text-ellipsis overflow-hidden">
-										{activitySummary(activity()!)}
+										{activitySummary(sortedActivities()[0]!)}
 									</span>
+									<Show when={sortedActivities().length > 1}>
+										<span class="text-muted-foreground shrink-0">
+											+ {sortedActivities().length - 1}
+										</span>
+									</Show>
 								</span>
 							</Show>
 						</div>

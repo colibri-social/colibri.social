@@ -67,7 +67,7 @@ export const ActivityCard: Component<{ activity: Activity }> = (props) => {
 
 	return (
 		<div class="flex flex-col gap-1.5 px-1">
-			<span class="text-[0.6875rem] font-bold tracking-wide uppercase text-muted-foreground">
+			<span class="text-[0.6875rem] font-bold tracking-wide uppercase text-muted-foreground -my-1.5">
 				{activityLabel(props.activity)}
 			</span>
 			<Show

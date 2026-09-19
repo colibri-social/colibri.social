@@ -8,7 +8,7 @@ const KIND_LABELS: Record<ActivityKind, (source: string) => string> = {
 
 export const activityOf = (
 	presence: Presence | undefined,
-): Activity | undefined => presence?.activity;
+): Activity[] | undefined => presence?.activities;
 
 export const activityLabel = (activity: Activity): string => {
 	const label = KIND_LABELS[activity.kind as ActivityKind];
@@ -23,11 +23,13 @@ export const activityIsLive = (activity: Activity | undefined): boolean => {
 	return Number.isNaN(endsAt) || endsAt > Date.now();
 };
 
-export const liveActivityOf = (
+export const liveActivitiesOf = (
 	presence: Presence | undefined,
-): Activity | undefined => {
-	const activity = activityOf(presence);
-	return activityIsLive(activity) ? activity : undefined;
+): Activity[] => {
+	const activities = activityOf(presence);
+	return (activities ?? [])
+		.map((activity) => (activityIsLive(activity) ? activity : undefined))
+		.filter((x) => typeof x !== "undefined");
 };
 
 export const activitySummary = (activity: Activity): string =>
@@ -46,7 +48,8 @@ export const warmActivityImage = (imageUri: string | undefined): void => {
 };
 
 export const warmActivityImages = (
-	activities: Iterable<Activity | undefined>,
+	activities: Iterable<Activity | undefined> | undefined,
 ): void => {
-	for (const activity of activities) warmActivityImage(activity?.imageUri);
+	for (const activity of activities ?? [])
+		warmActivityImage(activity?.imageUri);
 };
