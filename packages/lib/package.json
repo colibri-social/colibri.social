@@ -1,32 +1,32 @@
 {
-  "name": "@colibri-social/lib",
-  "private": true,
-  "type": "module",
-  "version": "0.2.0",
-  "types": "./src/index.ts",
-  "exports": {
-    ".": {
-      "types": "./src/index.ts",
-      "default": "./src/index.ts"
-    }
-  },
-  "scripts": {
-    "build": "tsgo --build",
-    "test": "vitest run"
-  },
-  "dependencies": {
-    "mdast-util-from-markdown": "^2.0.2",
-    "mdast-util-gfm-strikethrough": "^2.0.0",
-    "micromark-extension-gfm-strikethrough": "^2.1.0"
-  },
-  "devDependencies": {
-    "@atproto/api": "0.0.0-spaces-alpha-20260915165437",
-    "@atproto/lexicon": "0.0.0-spaces-alpha-20260915165437",
-    "@atproto/oauth-client-browser": "0.0.0-spaces-alpha-20260915165437",
-    "@colibri-social/lexicons": "^2.11.0",
-    "@types/mdast": "^4.0.4",
-    "@types/node": "^25.6.0",
-    "@typescript/native-preview": "7.0.0-dev.20260627.2",
-    "vitest": "^4.1.10"
-  }
+	"name": "@colibri-social/lib",
+	"private": true,
+	"type": "module",
+	"version": "0.2.0",
+	"types": "./src/index.ts",
+	"exports": {
+		".": {
+			"types": "./src/index.ts",
+			"default": "./src/index.ts"
+		}
+	},
+	"scripts": {
+		"build": "tsgo --build",
+		"test": "vitest run"
+	},
+	"dependencies": {
+		"mdast-util-from-markdown": "^2.0.2",
+		"mdast-util-gfm-strikethrough": "^2.0.0",
+		"micromark-extension-gfm-strikethrough": "^2.1.0"
+	},
+	"devDependencies": {
+		"@atproto/api": "0.0.0-spaces-alpha-20260915165437",
+		"@atproto/lexicon": "0.0.0-spaces-alpha-20260915165437",
+		"@atproto/oauth-client-browser": "0.0.0-spaces-alpha-20260915165437",
+		"@colibri-social/lexicons": "^2.11.0",
+		"@types/mdast": "^4.0.4",
+		"@types/node": "^25.6.0",
+		"@typescript/native-preview": "7.0.0-dev.20260627.2",
+		"vitest": "^4.1.10"
+	}
 }

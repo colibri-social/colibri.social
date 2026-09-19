@@ -6,17 +6,20 @@ settings:
 
 overrides:
   '@atproto/api': 0.0.0-spaces-alpha-20260915165437
+  '@atproto/car': 0.0.0-spaces-alpha-20260915165437
   '@atproto/common': 0.0.0-spaces-alpha-20260915165437
   '@atproto/common-web': 0.0.0-spaces-alpha-20260915165437
   '@atproto/crypto': 0.0.0-spaces-alpha-20260915165437
   '@atproto/identity': 0.0.0-spaces-alpha-20260915165437
   '@atproto/lex': 0.0.0-spaces-alpha-20260915165437
   '@atproto/lex-builder': 0.0.0-spaces-alpha-20260915165437
+  '@atproto/lex-cbor': 0.0.0-spaces-alpha-20260915165437
   '@atproto/lex-client': 0.0.0-spaces-alpha-20260915165437
   '@atproto/lex-cli': 0.0.0-spaces-alpha-20260915165437
   '@atproto/lex-data': 0.0.0-spaces-alpha-20260915165437
   '@atproto/lex-document': 0.0.0-spaces-alpha-20260915165437
   '@atproto/lex-installer': 0.0.0-spaces-alpha-20260915165437
+  '@atproto/lex-json': 0.0.0-spaces-alpha-20260915165437
   '@atproto/lex-resolver': 0.0.0-spaces-alpha-20260915165437
   '@atproto/lex-schema': 0.0.0-spaces-alpha-20260915165437
   '@atproto/lexicon': 0.0.0-spaces-alpha-20260915165437
@@ -982,8 +985,9 @@ packages:
     resolution: {integrity: sha512-Dv6u1QufqLFVJFzhihjokYdT4i5Hxov4/20fl+bCGHGMWBxppp68DVWeksS4B9jhN2PHY97zIskF8nV/FiQL7Q==}
     engines: {node: '>=22'}
 
-  '@atproto/lex-cbor@0.0.0':
-    resolution: {integrity: sha512-9pKVkF7MH6k6+8fw3zLbi4df/JfE8UCsR7yJsX/Qe5dv8QZc6X2s+zNSjp7xynHEUodGI1HxuWnBb5s9iuIsUg==}
+  '@atproto/lex-cbor@0.0.0-spaces-alpha-20260915165437':
+    resolution: {integrity: sha512-PkHGcmzpLlQUjwP1StyKMWX5XeAR7JE8VVIOETh7VWF3EOngpmb67gDXvaRQ0nqRB3o9tMG761sytp2PKhzkNg==}
+    engines: {node: '>=22'}
 
   '@atproto/lex-client@0.0.0-spaces-alpha-20260915165437':
     resolution: {integrity: sha512-ynsSaKvmxUuq33L//15jn1tbgKD8ql7hI7DxCgl3HBIxwRgaKPsEABVsi9jk/n1+je2X760TlVOmYTqr/PBJTA==}
@@ -1001,8 +1005,9 @@ packages:
     resolution: {integrity: sha512-At79M8UB+ooGzLsAIjBUMUm2Ulgm2zDvQBJiJCN0LbLtTS/0babKcgRPhr2aEo7iMvMK6d99RIzb66VqARP2nw==}
     engines: {node: '>=22'}
 
-  '@atproto/lex-json@0.0.0':
-    resolution: {integrity: sha512-nS+oXtoDgehci0dgX7ikALNVIANF/AWm7Q6yHNN54+UEVWi23T8ENdf1ZRfnXY16xm+XacT9NCmf7j5o80e4XA==}
+  '@atproto/lex-json@0.0.0-spaces-alpha-20260915165437':
+    resolution: {integrity: sha512-RPhiPQ3AZ82ljaRfltE3Ql9y44onJLAkuNyQYjiqjazCUnlEjQ/ZuXyQKN3CBooYs9En2gjSv/liT676F+ANHw==}
+    engines: {node: '>=22'}
 
   '@atproto/lex-resolver@0.0.0-spaces-alpha-20260915165437':
     resolution: {integrity: sha512-iPhBqNHgAqKyvsDuAaW4FJQUJol1NjibxU7kj5x+YUp4Ejbjvvu2hTEpbXjNWoEcGnoZJWTsJlF/PlsPQeP3pg==}
@@ -3426,6 +3431,10 @@ packages:
 
   caniuse-lite@1.0.30001810:
     resolution: {integrity: sha512-TITQPUkaz+aVk5GL6NhOdwk1aEaNTSDPsGFWrTuhKGtjTF70jL/Oht2W4c6rXUe5fu7Ie19VIahAXHIIiWWNeg==}
+
+  cborg@4.5.8:
+    resolution: {integrity: sha512-6/viltD51JklRhq4L7jC3zgy6gryuG5xfZ3kzpE+PravtyeQLeQmCYLREhQH7pWENg5pY4Yu/XCd6a7dKScVlw==}
+    hasBin: true
 
   ccount@2.0.1:
     resolution: {integrity: sha512-eyrF0jiFpY+3drT6383f1qhkbGsLSifNAjA61IUjZjmLCWjItY6LB9ft9YhoDgwfmclB2zhu51Lc7+95b8NRAg==}
@@ -6952,7 +6961,7 @@ snapshots:
 
   '@atproto/car@0.0.0-spaces-alpha-20260915165437':
     dependencies:
-      '@atproto/lex-cbor': 0.0.0
+      '@atproto/lex-cbor': 0.0.0-spaces-alpha-20260915165437
       '@atproto/lex-data': 0.0.0-spaces-alpha-20260915165437
       tslib: 2.8.1
       varint: 6.0.0
@@ -6960,14 +6969,14 @@ snapshots:
   '@atproto/common-web@0.0.0-spaces-alpha-20260915165437':
     dependencies:
       '@atproto/lex-data': 0.0.0-spaces-alpha-20260915165437
-      '@atproto/lex-json': 0.0.0
+      '@atproto/lex-json': 0.0.0-spaces-alpha-20260915165437
       '@atproto/syntax': 0.0.0-spaces-alpha-20260915165437
       zod: 3.25.76
 
   '@atproto/common@0.0.0-spaces-alpha-20260915165437':
     dependencies:
       '@atproto/common-web': 0.0.0-spaces-alpha-20260915165437
-      '@atproto/lex-cbor': 0.0.0
+      '@atproto/lex-cbor': 0.0.0-spaces-alpha-20260915165437
       '@atproto/lex-data': 0.0.0-spaces-alpha-20260915165437
       multiformats: 13.4.2
       pino: 10.3.1
@@ -7026,16 +7035,16 @@ snapshots:
       ts-morph: 27.0.2
       tslib: 2.8.1
 
-  '@atproto/lex-cbor@0.0.0':
+  '@atproto/lex-cbor@0.0.0-spaces-alpha-20260915165437':
     dependencies:
       '@atproto/lex-data': 0.0.0-spaces-alpha-20260915165437
-      multiformats: 9.9.0
+      cborg: 4.5.8
       tslib: 2.8.1
 
   '@atproto/lex-client@0.0.0-spaces-alpha-20260915165437':
     dependencies:
       '@atproto/lex-data': 0.0.0-spaces-alpha-20260915165437
-      '@atproto/lex-json': 0.0.0
+      '@atproto/lex-json': 0.0.0-spaces-alpha-20260915165437
       '@atproto/lex-schema': 0.0.0-spaces-alpha-20260915165437
       tslib: 2.8.1
 
@@ -7054,7 +7063,7 @@ snapshots:
   '@atproto/lex-installer@0.0.0-spaces-alpha-20260915165437':
     dependencies:
       '@atproto/lex-builder': 0.0.0-spaces-alpha-20260915165437
-      '@atproto/lex-cbor': 0.0.0
+      '@atproto/lex-cbor': 0.0.0-spaces-alpha-20260915165437
       '@atproto/lex-data': 0.0.0-spaces-alpha-20260915165437
       '@atproto/lex-document': 0.0.0-spaces-alpha-20260915165437
       '@atproto/lex-resolver': 0.0.0-spaces-alpha-20260915165437
@@ -7062,7 +7071,7 @@ snapshots:
       '@atproto/syntax': 0.0.0-spaces-alpha-20260915165437
       tslib: 2.8.1
 
-  '@atproto/lex-json@0.0.0':
+  '@atproto/lex-json@0.0.0-spaces-alpha-20260915165437':
     dependencies:
       '@atproto/lex-data': 0.0.0-spaces-alpha-20260915165437
       tslib: 2.8.1
@@ -7092,7 +7101,7 @@ snapshots:
       '@atproto/lex-client': 0.0.0-spaces-alpha-20260915165437
       '@atproto/lex-data': 0.0.0-spaces-alpha-20260915165437
       '@atproto/lex-installer': 0.0.0-spaces-alpha-20260915165437
-      '@atproto/lex-json': 0.0.0
+      '@atproto/lex-json': 0.0.0-spaces-alpha-20260915165437
       '@atproto/lex-schema': 0.0.0-spaces-alpha-20260915165437
       tslib: 2.8.1
       yargs: 18.1.0
@@ -7162,7 +7171,7 @@ snapshots:
       '@atproto/common': 0.0.0-spaces-alpha-20260915165437
       '@atproto/common-web': 0.0.0-spaces-alpha-20260915165437
       '@atproto/crypto': 0.0.0-spaces-alpha-20260915165437
-      '@atproto/lex-cbor': 0.0.0
+      '@atproto/lex-cbor': 0.0.0-spaces-alpha-20260915165437
       '@atproto/lex-data': 0.0.0-spaces-alpha-20260915165437
       '@atproto/syntax': 0.0.0-spaces-alpha-20260915165437
       zod: 3.25.76
@@ -9459,6 +9468,8 @@ snapshots:
   camelize@1.0.1: {}
 
   caniuse-lite@1.0.30001810: {}
+
+  cborg@4.5.8: {}
 
   ccount@2.0.1: {}
 

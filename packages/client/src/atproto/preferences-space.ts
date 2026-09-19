@@ -30,7 +30,8 @@ export const ensurePreferencesSpace = async (agent: Agent): Promise<void> => {
 		await agent.com.atproto.simplespace.createSpace({
 			type: SPACE_TYPES.actorPreferences,
 			skey: SELF,
-			policy: { $type: "com.atproto.simplespace.defs#memberListPolicy" },
+			readPolicy: { $type: "com.atproto.simplespace.defs#memberListPolicy" },
+			writePolicy: { $type: "com.atproto.simplespace.defs#memberListPolicy" },
 			appAccess: { $type: "com.atproto.simplespace.defs#open" },
 		});
 	} catch (err) {

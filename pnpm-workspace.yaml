@@ -19,17 +19,20 @@ patchedDependencies:
 # Semver ranks 0.0.0 above 0.0.0-spaces-alpha-*, so the pin needs an override
 overrides:
   "@atproto/api": 0.0.0-spaces-alpha-20260915165437
+  "@atproto/car": 0.0.0-spaces-alpha-20260915165437
   "@atproto/common": 0.0.0-spaces-alpha-20260915165437
   "@atproto/common-web": 0.0.0-spaces-alpha-20260915165437
   "@atproto/crypto": 0.0.0-spaces-alpha-20260915165437
   "@atproto/identity": 0.0.0-spaces-alpha-20260915165437
   "@atproto/lex": 0.0.0-spaces-alpha-20260915165437
   "@atproto/lex-builder": 0.0.0-spaces-alpha-20260915165437
+  "@atproto/lex-cbor": 0.0.0-spaces-alpha-20260915165437
   "@atproto/lex-client": 0.0.0-spaces-alpha-20260915165437
   "@atproto/lex-cli": 0.0.0-spaces-alpha-20260915165437
   "@atproto/lex-data": 0.0.0-spaces-alpha-20260915165437
   "@atproto/lex-document": 0.0.0-spaces-alpha-20260915165437
   "@atproto/lex-installer": 0.0.0-spaces-alpha-20260915165437
+  "@atproto/lex-json": 0.0.0-spaces-alpha-20260915165437
   "@atproto/lex-resolver": 0.0.0-spaces-alpha-20260915165437
   "@atproto/lex-schema": 0.0.0-spaces-alpha-20260915165437
   "@atproto/lexicon": 0.0.0-spaces-alpha-20260915165437
