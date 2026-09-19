@@ -1,19 +1,19 @@
 import {
-	type Component,
-	createSignal,
-	For,
-	type JSX,
-	type ParentComponent,
-	Show,
+  type Component,
+  createSignal,
+  For,
+  type JSX,
+  type ParentComponent,
+  Show,
 } from "solid-js";
 import { Dynamic } from "solid-js/web";
 import ArrowSquareOutIcon from "~icons/ph/arrow-square-out";
 import PencilSimpleIcon from "~icons/ph/pencil-simple";
-import { liveActivityOf } from "../../../atproto/activity";
+import { liveActivitiesOf } from "../../../atproto/activity";
 import {
-	DEFAULT_BLUESKY_CLIENT,
-	type ResolvedBlueskyClient,
-	resolveBlueskyClient,
+  DEFAULT_BLUESKY_CLIENT,
+  type ResolvedBlueskyClient,
+  resolveBlueskyClient,
 } from "../../../atproto/bluesky-alternatives";
 import { blueskyClientIcon } from "../../../atproto/bluesky-client-icon";
 import { buildBskyProfileUrl } from "../../../atproto/bsky-post-url";
@@ -35,17 +35,17 @@ import { useUserBadges } from "../../../utils/user-badges";
 import { PDSls } from "../../icons/PDSls";
 import { BottomSheet } from "../../ui/MenuDrawer";
 import {
-	Popover,
-	PopoverContent,
-	PopoverPortal,
-	type PopoverProps,
-	PopoverTrigger,
+  Popover,
+  PopoverContent,
+  PopoverPortal,
+  type PopoverProps,
+  PopoverTrigger,
 } from "../../ui/Popover";
 import {
-	Tooltip,
-	TooltipContent,
-	TooltipPortal,
-	TooltipTrigger,
+  Tooltip,
+  TooltipContent,
+  TooltipPortal,
+  TooltipTrigger,
 } from "../../ui/Tooltip";
 import { LinkContextMenu } from "../common/LinkMenuItems";
 import { ActivityCard } from "./ActivityCard";
@@ -63,10 +63,10 @@ import { SelfStatusEditor } from "./SelfStatusEditor";
  * the external-client links are suppressed.
  */
 export interface ProfilePreviewOverride {
-	/** Avatar image URL, taking precedence over the actor's stored blob. */
-	avatarUrl?: string;
-	/** Banner image URL, taking precedence over the actor's stored blob. */
-	bannerUrl?: string;
+  /** Avatar image URL, taking precedence over the actor's stored blob. */
+  avatarUrl?: string;
+  /** Banner image URL, taking precedence over the actor's stored blob. */
+  bannerUrl?: string;
 }
 
 const MENTION_REGEX = /(?<!\S)@[a-zA-Z0-9._-]+(?:\.[a-zA-Z]{2,})?/gm;
@@ -74,399 +74,401 @@ const MENTION_REGEX = /(?<!\S)@[a-zA-Z0-9._-]+(?:\.[a-zA-Z]{2,})?/gm;
 type BioMatch = { start: number; end: number; label: string; href: string };
 
 const collectBioMatches = (
-	text: string,
-	client: ResolvedBlueskyClient,
+  text: string,
+  client: ResolvedBlueskyClient,
 ): Array<BioMatch> => {
-	const matches: Array<BioMatch> = [];
-	let match: RegExpExecArray | null;
+  const matches: Array<BioMatch> = [];
+  let match: RegExpExecArray | null;
 
-	LINK_REGEX.lastIndex = 0;
-	while ((match = LINK_REGEX.exec(text))) {
-		const link = match[0];
-		matches.push({
-			start: match.index,
-			end: match.index + link.length,
-			label: link,
-			href: link.startsWith("http") ? link : `https://${link}`,
-		});
-	}
+  LINK_REGEX.lastIndex = 0;
+  while ((match = LINK_REGEX.exec(text))) {
+    const link = match[0];
+    matches.push({
+      start: match.index,
+      end: match.index + link.length,
+      label: link,
+      href: link.startsWith("http") ? link : `https://${link}`,
+    });
+  }
 
-	MENTION_REGEX.lastIndex = 0;
-	while ((match = MENTION_REGEX.exec(text))) {
-		const mention = match[0];
-		matches.push({
-			start: match.index,
-			end: match.index + mention.length,
-			label: mention,
-			href: buildBskyProfileUrl(client, mention.slice(1)),
-		});
-	}
+  MENTION_REGEX.lastIndex = 0;
+  while ((match = MENTION_REGEX.exec(text))) {
+    const mention = match[0];
+    matches.push({
+      start: match.index,
+      end: match.index + mention.length,
+      label: mention,
+      href: buildBskyProfileUrl(client, mention.slice(1)),
+    });
+  }
 
-	matches.sort((a, b) => a.start - b.start || b.end - a.end);
+  matches.sort((a, b) => a.start - b.start || b.end - a.end);
 
-	const nonOverlapping: Array<BioMatch> = [];
-	let reached = 0;
-	for (const candidate of matches) {
-		if (candidate.start < reached) continue;
-		nonOverlapping.push(candidate);
-		reached = candidate.end;
-	}
+  const nonOverlapping: Array<BioMatch> = [];
+  let reached = 0;
+  for (const candidate of matches) {
+    if (candidate.start < reached) continue;
+    nonOverlapping.push(candidate);
+    reached = candidate.end;
+  }
 
-	return nonOverlapping;
+  return nonOverlapping;
 };
 
 const detectLinksAndMentionsAndFormat = (
-	text: string,
-	client: ResolvedBlueskyClient,
+  text: string,
+  client: ResolvedBlueskyClient,
 ) => {
-	let html = "";
-	let cursor = 0;
+  let html = "";
+  let cursor = 0;
 
-	for (const match of collectBioMatches(text, client)) {
-		html += escapeHtml(text.slice(cursor, match.start));
-		html += `<a href="${escapeAttr(match.href)}" rel="noreferrer" target="_blank">${escapeHtml(match.label)}</a>`;
-		cursor = match.end;
-	}
+  for (const match of collectBioMatches(text, client)) {
+    html += escapeHtml(text.slice(cursor, match.start));
+    html += `<a href="${escapeAttr(match.href)}" rel="noreferrer" target="_blank">${escapeHtml(match.label)}</a>`;
+    cursor = match.end;
+  }
 
-	html += escapeHtml(text.slice(cursor));
+  html += escapeHtml(text.slice(cursor));
 
-	return html.replaceAll("\n", "<br>");
+  return html.replaceAll("\n", "<br>");
 };
 
 export const ProfilePopoverContents: Component<{
-	user: ProfileView;
-	nickname?: string;
-	preview?: ProfilePreviewOverride;
-	class?: string;
-	actions?: JSX.Element;
-	onEditStatus?: () => void;
-	hideDescription?: boolean;
-	onRequestClose?: () => void;
+  user: ProfileView;
+  nickname?: string;
+  preview?: ProfilePreviewOverride;
+  class?: string;
+  actions?: JSX.Element;
+  onEditStatus?: () => void;
+  hideDescription?: boolean;
+  onRequestClose?: () => void;
 }> = (props) => {
-	const isPreview = () => props.preview !== undefined;
+  const isPreview = () => props.preview !== undefined;
 
-	const community = props.preview ? undefined : useCommunityContext();
-	const userPreferences = props.preview ? undefined : useUserPreferences();
-	const viewer = props.preview ? undefined : useUserContext();
-	const settingsModal = props.preview ? undefined : useSettingsModalContext();
-	const userRoles = () =>
-		community ? community().utils.getRolesForUser(props.user.did) : [];
-	const isSelf = () => !isPreview() && viewer?.did === props.user.did;
+  const community = props.preview ? undefined : useCommunityContext();
+  const userPreferences = props.preview ? undefined : useUserPreferences();
+  const viewer = props.preview ? undefined : useUserContext();
+  const settingsModal = props.preview ? undefined : useSettingsModalContext();
+  const userRoles = () =>
+    community ? community().utils.getRolesForUser(props.user.did) : [];
+  const isSelf = () => !isPreview() && viewer?.did === props.user.did;
 
-	const [bskyTooltipVisible, setBskyTooltipVisible] = createSignal(false);
-	const [pdslsTooltipVisible, setPdslsTooltipVisible] = createSignal(false);
+  const [bskyTooltipVisible, setBskyTooltipVisible] = createSignal(false);
+  const [pdslsTooltipVisible, setPdslsTooltipVisible] = createSignal(false);
 
-	const bskyClient = () =>
-		userPreferences
-			? resolveBlueskyClient(userPreferences.preferences())
-			: DEFAULT_BLUESKY_CLIENT;
+  const bskyClient = () =>
+    userPreferences
+      ? resolveBlueskyClient(userPreferences.preferences())
+      : DEFAULT_BLUESKY_CLIENT;
 
-	const bskyProfileHref = () =>
-		buildBskyProfileUrl(bskyClient(), props.user.did);
+  const bskyProfileHref = () =>
+    buildBskyProfileUrl(bskyClient(), props.user.did);
 
-	const pdslsHref = () => `https://pdsls.dev/at://${props.user.did}`;
+  const pdslsHref = () => `https://pdsls.dev/at://${props.user.did}`;
 
-	const accentColor = () =>
-		readableUserColor(props.user.theme?.accentColor, resolvedTheme());
+  const accentColor = () =>
+    readableUserColor(props.user.theme?.accentColor, resolvedTheme());
 
-	const { all: allBadges } = useUserBadges(() => props.user);
+  const { all: allBadges } = useUserBadges(() => props.user);
 
-	const bannerUrl = () => props.preview?.bannerUrl ?? props.user.banner;
+  const bannerUrl = () => props.preview?.bannerUrl ?? props.user.banner;
 
-	const activity = () =>
-		isPreview() ? undefined : liveActivityOf(props.user.presence);
+  const activities = () =>
+    isPreview() ? undefined : liveActivitiesOf(props.user.presence);
 
-	return (
-		<div
-			class={cx("w-80 relative bg-card", props.class)}
-			onContextMenu={(e) => e.stopPropagation()}
-		>
-			<div
-				class="w-full aspect-3/1 bg-muted"
-				style={(() => {
-					const theme = props.user.theme;
-					if (theme?.gradient?.primary && theme.gradient.secondary)
-						return {
-							background: `linear-gradient(135deg, ${theme.gradient.primary}, ${theme.gradient.secondary})`,
-						};
-					if (theme?.bannerColor) return { background: theme.bannerColor };
-					return undefined;
-				})()}
-			>
-				<Show when={bannerUrl()}>
-					<img
-						src={bannerUrl()}
-						alt={`${props.nickname || props.user.displayName}'s Banner`}
-						class="w-full h-full object-cover"
-					/>
-				</Show>
-			</div>
-			<LinkContextMenu class="contents">
-				<div class="z-10 relative -mt-14 p-4 flex flex-col gap-2 pb-[calc(1rem+var(--safe-area-bottom))]">
-					<div class="flex flex-row items-center gap-4 z-50">
-						<Avatar
-							user={props.user}
-							nickname={props.nickname}
-							size="large"
-							overrideSrc={props.preview?.avatarUrl}
-							disableState={isPreview()}
-						/>
-						<Show
-							when={props.onEditStatus}
-							fallback={
-								<Show
-									when={
-										((props.user.presence?.status?.text?.length ?? 0) > 0 ||
-											(props.user.presence?.status?.emoji?.length ?? 0) > 0) &&
-										props.user.presence?.onlineState !== "offline"
-									}
-								>
-									<span class="flex flex-row items-start gap-2 bg-card border border-border rounded-sm px-1.5 py-0.5 drop-shadow-black drop-shadow-sm max-w-48 overflow-hidden">
-										<Show when={props.user.presence!.status!.emoji}>
-											<span
-												class="h-5.5 w-5.5 [&>img]:min-w-4.5 [&>img]:min-h-4.5 [&>img]:w-4.5 [&>img]:h-4.5 [&>img]inline flex items-center justify-center"
-												innerHTML={parseEmojiText(
-													props.user.presence!.status!.emoji!,
-												)}
-											/>
-										</Show>
-										<span
-											class="leading-5.5 wrap-break-word text-sm w-fit"
-											classList={{
-												"max-w-[calc(100%-22px)]":
-													!!props.user.presence!.status!.emoji,
-												"max-w-full": !props.user.presence!.status!.emoji,
-												hidden: props.user.presence!.status!.text.length === 0,
-											}}
-										>
-											{props.user.presence!.status!.text}
-										</span>
-									</span>
-								</Show>
-							}
-						>
-							<SelfStatusEditor onEditRequested={props.onEditStatus!} />
-						</Show>
-					</div>
-					<div class="px-1 flex flex-col">
-						<span class="font-black text-xl">
-							<Show
-								when={!isPreview()}
-								fallback={
-									<span
-										style={accentColor() ? { color: accentColor() } : undefined}
-									>
-										{displayableNameFn(props.user, props.nickname)}
-									</span>
-								}
-							>
-								<DisplayableName
-									user={props.user}
-									nickname={props.nickname}
-									color={accentColor()}
-									badge={false}
-								/>
-							</Show>
-						</span>
-						<div class="flex flex-row gap-2 items-center flex-wrap">
-							<span class="text-sm">
-								@{props.user.handle.replaceAll("at://", "")}
-							</span>
-							<Show when={!isPreview()}>
-								<span class="w-1 h-1 rounded-full bg-muted-foreground" />
-								<div class="flex flex-row gap-2 items-center">
-									<Tooltip open={bskyTooltipVisible()}>
-										<TooltipTrigger>
-											<a
-												href={bskyProfileHref()}
-												target="_blank"
-												rel="noreferrer"
-												onClick={(e) => openExternalLink(bskyProfileHref(), e)}
-												style={{ "--hover": bskyClient().accentColor }}
-												class="group/northsky-logo hover:text-(--hover) flex flex-row items-center gap-1.5 text-sm text-card-foreground font-normal hover:underline"
-												onMouseEnter={() => setBskyTooltipVisible(true)}
-												onMouseLeave={() => setBskyTooltipVisible(false)}
-											>
-												<Show
-													when={blueskyClientIcon(bskyClient().id)}
-													fallback={<ArrowSquareOutIcon class="w-4 h-4" />}
-												>
-													{(icon) => (
-														<Dynamic component={icon()} className="" />
-													)}
-												</Show>
-											</a>
-										</TooltipTrigger>
-										<TooltipPortal>
-											<TooltipContent>
-												<span>View on {bskyClient().name}</span>
-											</TooltipContent>
-										</TooltipPortal>
-									</Tooltip>
-									<Tooltip open={pdslsTooltipVisible()}>
-										<TooltipTrigger>
-											<a
-												href={pdslsHref()}
-												target="_blank"
-												rel="noreferrer"
-												onClick={(e) => openExternalLink(pdslsHref(), e)}
-												class="text-[#76C4E5] flex flex-row items-center gap-1.5 text-sm font-normal"
-												onMouseEnter={() => setPdslsTooltipVisible(true)}
-												onMouseLeave={() => setPdslsTooltipVisible(false)}
-											>
-												<PDSls size={16} />
-											</a>
-										</TooltipTrigger>
-										<TooltipPortal>
-											<TooltipContent>
-												<span>View on PDSls</span>
-											</TooltipContent>
-										</TooltipPortal>
-									</Tooltip>
-								</div>
-							</Show>
-							<Show when={allBadges().length > 0}>
-								<span class="w-1 h-1 rounded-full bg-muted-foreground" />
-								<For each={allBadges()}>
-									{(val) => <Badge val={val} size="xs" />}
-								</For>
-							</Show>
-						</div>
-					</div>
-					<Show when={activity()}>
-						<hr class="w-full h-px border-none bg-border m-0" />
-						<ActivityCard activity={activity()!} />
-					</Show>
-					<Show when={isSelf() && !activity()}>
-						<ActivityOptInPrompt />
-					</Show>
-					<Show when={props.user.description && !props.hideDescription}>
-						<hr class="w-full h-px border-none bg-border m-0" />
-						<p
-							class="prose dark:prose-invert text-sm m-0 px-1 wrap-anywhere"
-							onClick={handleExternalLinkClick}
-							innerHTML={detectLinksAndMentionsAndFormat(
-								props.user.description!,
-								bskyClient(),
-							)}
-						/>
-					</Show>
-					<Show when={userRoles().length > 0}>
-						<hr class="w-full h-px border-none bg-border m-0" />
-						<div class="w-full flex flex-row items-center gap-1 flex-wrap">
-							<For each={userRoles()}>
-								{(role) => (
-									<div class="flex flex-row items-center gap-2 border border-border rounded-full w-fit px-2">
-										<div
-											class="w-2 h-2 rounded-full"
-											style={{ background: role.color ?? "#fff" }}
-										/>
-										<span class="text-sm">{role.name}</span>
-									</div>
-								)}
-							</For>
-						</div>
-					</Show>
-					<Show when={(isSelf() || props.actions) && !props.hideDescription}>
-						<hr class="w-full h-px border-none bg-border m-0" />
-						<div class="flex flex-col gap-1">
-							<Show when={isSelf()}>
-								<button
-									type="button"
-									class="w-full flex flex-row items-center gap-3 px-2 py-2 rounded-sm hover:bg-muted/50 cursor-pointer text-left text-sm"
-									onClick={() => {
-										props.onRequestClose?.();
-										settingsModal?.setOpen(true);
-									}}
-								>
-									<PencilSimpleIcon />
-									<span>Edit Profile</span>
-								</button>
-							</Show>
-							{props.actions}
-						</div>
-					</Show>
-				</div>
-			</LinkContextMenu>
-		</div>
-	);
+  return (
+    <div
+      class={cx("w-80 relative bg-card", props.class)}
+      onContextMenu={(e) => e.stopPropagation()}
+    >
+      <div
+        class="w-full aspect-3/1 bg-muted"
+        style={(() => {
+          const theme = props.user.theme;
+          if (theme?.gradient?.primary && theme.gradient.secondary)
+            return {
+              background: `linear-gradient(135deg, ${theme.gradient.primary}, ${theme.gradient.secondary})`,
+            };
+          if (theme?.bannerColor) return { background: theme.bannerColor };
+          return undefined;
+        })()}
+      >
+        <Show when={bannerUrl()}>
+          <img
+            src={bannerUrl()}
+            alt={`${props.nickname || props.user.displayName}'s Banner`}
+            class="w-full h-full object-cover"
+          />
+        </Show>
+      </div>
+      <LinkContextMenu class="contents">
+        <div class="z-10 relative -mt-14 p-4 flex flex-col gap-2 pb-[calc(1rem+var(--safe-area-bottom))]">
+          <div class="flex flex-row items-center gap-4 z-50">
+            <Avatar
+              user={props.user}
+              nickname={props.nickname}
+              size="large"
+              overrideSrc={props.preview?.avatarUrl}
+              disableState={isPreview()}
+            />
+            <Show
+              when={props.onEditStatus}
+              fallback={
+                <Show
+                  when={
+                    ((props.user.presence?.status?.text?.length ?? 0) > 0 ||
+                      (props.user.presence?.status?.emoji?.length ?? 0) > 0) &&
+                    props.user.presence?.onlineState !== "offline"
+                  }
+                >
+                  <span class="flex flex-row items-start gap-2 bg-card border border-border rounded-sm px-1.5 py-0.5 drop-shadow-black drop-shadow-sm max-w-48 overflow-hidden">
+                    <Show when={props.user.presence!.status!.emoji}>
+                      <span
+                        class="h-5.5 w-5.5 [&>img]:min-w-4.5 [&>img]:min-h-4.5 [&>img]:w-4.5 [&>img]:h-4.5 [&>img]inline flex items-center justify-center"
+                        innerHTML={parseEmojiText(
+                          props.user.presence!.status!.emoji!,
+                        )}
+                      />
+                    </Show>
+                    <span
+                      class="leading-5.5 wrap-break-word text-sm w-fit"
+                      classList={{
+                        "max-w-[calc(100%-22px)]":
+                          !!props.user.presence!.status!.emoji,
+                        "max-w-full": !props.user.presence!.status!.emoji,
+                        hidden: props.user.presence!.status!.text.length === 0,
+                      }}
+                    >
+                      {props.user.presence!.status!.text}
+                    </span>
+                  </span>
+                </Show>
+              }
+            >
+              <SelfStatusEditor onEditRequested={props.onEditStatus!} />
+            </Show>
+          </div>
+          <div class="px-1 flex flex-col">
+            <span class="font-black text-xl">
+              <Show
+                when={!isPreview()}
+                fallback={
+                  <span
+                    style={accentColor() ? { color: accentColor() } : undefined}
+                  >
+                    {displayableNameFn(props.user, props.nickname)}
+                  </span>
+                }
+              >
+                <DisplayableName
+                  user={props.user}
+                  nickname={props.nickname}
+                  color={accentColor()}
+                  badge={false}
+                />
+              </Show>
+            </span>
+            <div class="flex flex-row gap-2 items-center flex-wrap">
+              <span class="text-sm">
+                @{props.user.handle.replaceAll("at://", "")}
+              </span>
+              <Show when={!isPreview()}>
+                <span class="w-1 h-1 rounded-full bg-muted-foreground" />
+                <div class="flex flex-row gap-2 items-center">
+                  <Tooltip open={bskyTooltipVisible()}>
+                    <TooltipTrigger>
+                      <a
+                        href={bskyProfileHref()}
+                        target="_blank"
+                        rel="noreferrer"
+                        onClick={(e) => openExternalLink(bskyProfileHref(), e)}
+                        style={{ "--hover": bskyClient().accentColor }}
+                        class="group/northsky-logo hover:text-(--hover) flex flex-row items-center gap-1.5 text-sm text-card-foreground font-normal hover:underline"
+                        onMouseEnter={() => setBskyTooltipVisible(true)}
+                        onMouseLeave={() => setBskyTooltipVisible(false)}
+                      >
+                        <Show
+                          when={blueskyClientIcon(bskyClient().id)}
+                          fallback={<ArrowSquareOutIcon class="w-4 h-4" />}
+                        >
+                          {(icon) => (
+                            <Dynamic component={icon()} className="" />
+                          )}
+                        </Show>
+                      </a>
+                    </TooltipTrigger>
+                    <TooltipPortal>
+                      <TooltipContent>
+                        <span>View on {bskyClient().name}</span>
+                      </TooltipContent>
+                    </TooltipPortal>
+                  </Tooltip>
+                  <Tooltip open={pdslsTooltipVisible()}>
+                    <TooltipTrigger>
+                      <a
+                        href={pdslsHref()}
+                        target="_blank"
+                        rel="noreferrer"
+                        onClick={(e) => openExternalLink(pdslsHref(), e)}
+                        class="text-[#76C4E5] flex flex-row items-center gap-1.5 text-sm font-normal"
+                        onMouseEnter={() => setPdslsTooltipVisible(true)}
+                        onMouseLeave={() => setPdslsTooltipVisible(false)}
+                      >
+                        <PDSls size={16} />
+                      </a>
+                    </TooltipTrigger>
+                    <TooltipPortal>
+                      <TooltipContent>
+                        <span>View on PDSls</span>
+                      </TooltipContent>
+                    </TooltipPortal>
+                  </Tooltip>
+                </div>
+              </Show>
+              <Show when={allBadges().length > 0}>
+                <span class="w-1 h-1 rounded-full bg-muted-foreground" />
+                <For each={allBadges()}>
+                  {(val) => <Badge val={val} size="xs" />}
+                </For>
+              </Show>
+            </div>
+          </div>
+          <Show when={activities()}>
+            <hr class="w-full h-px border-none bg-border m-0" />
+            <For each={activities()}>
+              {(activity) => <ActivityCard activity={activity} />}
+            </For>
+          </Show>
+          <Show when={isSelf() && !activities()}>
+            <ActivityOptInPrompt />
+          </Show>
+          <Show when={props.user.description && !props.hideDescription}>
+            <hr class="w-full h-px border-none bg-border m-0" />
+            <p
+              class="prose dark:prose-invert text-sm m-0 px-1 wrap-anywhere"
+              onClick={handleExternalLinkClick}
+              innerHTML={detectLinksAndMentionsAndFormat(
+                props.user.description!,
+                bskyClient(),
+              )}
+            />
+          </Show>
+          <Show when={userRoles().length > 0}>
+            <hr class="w-full h-px border-none bg-border m-0" />
+            <div class="w-full flex flex-row items-center gap-1 flex-wrap">
+              <For each={userRoles()}>
+                {(role) => (
+                  <div class="flex flex-row items-center gap-2 border border-border rounded-full w-fit px-2">
+                    <div
+                      class="w-2 h-2 rounded-full"
+                      style={{ background: role.color ?? "#fff" }}
+                    />
+                    <span class="text-sm">{role.name}</span>
+                  </div>
+                )}
+              </For>
+            </div>
+          </Show>
+          <Show when={(isSelf() || props.actions) && !props.hideDescription}>
+            <hr class="w-full h-px border-none bg-border m-0" />
+            <div class="flex flex-col gap-1">
+              <Show when={isSelf()}>
+                <button
+                  type="button"
+                  class="w-full flex flex-row items-center gap-3 px-2 py-2 rounded-sm hover:bg-muted/50 cursor-pointer text-left text-sm"
+                  onClick={() => {
+                    props.onRequestClose?.();
+                    settingsModal?.setOpen(true);
+                  }}
+                >
+                  <PencilSimpleIcon />
+                  <span>Edit Profile</span>
+                </button>
+              </Show>
+              {props.actions}
+            </div>
+          </Show>
+        </div>
+      </LinkContextMenu>
+    </div>
+  );
 };
 
 export const ProfilePopover: ParentComponent<{
-	user: ProfileView;
-	nickname?: string;
-	class?: string;
-	disabled?: boolean;
-	as?: "div" | "span";
-	placement?: PopoverProps["placement"];
-	actions?: (close: () => void) => JSX.Element;
-	onEditStatus?: () => void;
+  user: ProfileView;
+  nickname?: string;
+  class?: string;
+  disabled?: boolean;
+  as?: "div" | "span";
+  placement?: PopoverProps["placement"];
+  actions?: (close: () => void) => JSX.Element;
+  onEditStatus?: () => void;
 }> = (props) => {
-	const isMobile = useIsMobile();
-	const [open, setOpen] = createSignal(false);
-	const close = () => setOpen(false);
+  const isMobile = useIsMobile();
+  const [open, setOpen] = createSignal(false);
+  const close = () => setOpen(false);
 
-	return (
-		<Show
-			when={isMobile()}
-			fallback={
-				<Popover
-					preventScroll
-					placement={props.placement ?? "left"}
-					flip
-					open={open()}
-					onOpenChange={setOpen}
-				>
-					<PopoverTrigger
-						as={props.as ?? "div"}
-						class={props.class}
-						classList={{
-							"pointer-events-none": props.disabled,
-						}}
-					>
-						{props.children}
-					</PopoverTrigger>
-					<PopoverPortal>
-						<PopoverContent class="w-80 p-0 overflow-hidden relative drop-shadow-black drop-shadow-xl">
-							<ProfilePopoverContents
-								user={props.user}
-								nickname={props.nickname}
-								actions={props.actions?.(close)}
-								onEditStatus={props.onEditStatus}
-								onRequestClose={close}
-							/>
-						</PopoverContent>
-					</PopoverPortal>
-				</Popover>
-			}
-		>
-			<Dynamic
-				component={props.as ?? "div"}
-				class={props.class}
-				classList={{ "pointer-events-none": props.disabled }}
-				onClick={() => {
-					if (!props.disabled) setOpen(true);
-				}}
-			>
-				{props.children}
-			</Dynamic>
-			<BottomSheet
-				open={open()}
-				onOpenChange={setOpen}
-				handleOverlay
-				class="overflow-hidden"
-			>
-				<div class="min-h-0 overflow-y-auto">
-					<ProfilePopoverContents
-						class="w-full"
-						user={props.user}
-						nickname={props.nickname}
-						actions={props.actions?.(close)}
-						onEditStatus={props.onEditStatus}
-						onRequestClose={close}
-					/>
-				</div>
-			</BottomSheet>
-		</Show>
-	);
+  return (
+    <Show
+      when={isMobile()}
+      fallback={
+        <Popover
+          preventScroll
+          placement={props.placement ?? "left"}
+          flip
+          open={open()}
+          onOpenChange={setOpen}
+        >
+          <PopoverTrigger
+            as={props.as ?? "div"}
+            class={props.class}
+            classList={{
+              "pointer-events-none": props.disabled,
+            }}
+          >
+            {props.children}
+          </PopoverTrigger>
+          <PopoverPortal>
+            <PopoverContent class="w-80 p-0 overflow-hidden relative drop-shadow-black drop-shadow-xl">
+              <ProfilePopoverContents
+                user={props.user}
+                nickname={props.nickname}
+                actions={props.actions?.(close)}
+                onEditStatus={props.onEditStatus}
+                onRequestClose={close}
+              />
+            </PopoverContent>
+          </PopoverPortal>
+        </Popover>
+      }
+    >
+      <Dynamic
+        component={props.as ?? "div"}
+        class={props.class}
+        classList={{ "pointer-events-none": props.disabled }}
+        onClick={() => {
+          if (!props.disabled) setOpen(true);
+        }}
+      >
+        {props.children}
+      </Dynamic>
+      <BottomSheet
+        open={open()}
+        onOpenChange={setOpen}
+        handleOverlay
+        class="overflow-hidden"
+      >
+        <div class="min-h-0 overflow-y-auto">
+          <ProfilePopoverContents
+            class="w-full"
+            user={props.user}
+            nickname={props.nickname}
+            actions={props.actions?.(close)}
+            onEditStatus={props.onEditStatus}
+            onRequestClose={close}
+          />
+        </div>
+      </BottomSheet>
+    </Show>
+  );
 };

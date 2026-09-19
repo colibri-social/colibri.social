@@ -5,8 +5,8 @@ packages:
 verifyDepsBeforeRun: warn
 
 allowBuilds:
-  '@parcel/watcher': false
-  '@sentry/cli': false
+  "@parcel/watcher": false
+  "@sentry/cli": false
   core-js: false
   esbuild: true
   protobufjs: false
@@ -14,33 +14,34 @@ allowBuilds:
   skia-canvas: false
 
 patchedDependencies:
-  '@atproto/oauth-client-browser@0.0.0-spaces-alpha-20260818163953': patches/@atproto__oauth-client-browser@0.0.0-spaces-alpha-20260818163953.patch
+  "@atproto/oauth-client-browser@0.0.0-spaces-alpha-20260915165437": patches/@atproto__oauth-client-browser@0.0.0-spaces-alpha-20260915165437.patch
 
 # Semver ranks 0.0.0 above 0.0.0-spaces-alpha-*, so the pin needs an override
 overrides:
-  '@atproto/api': 0.0.0-spaces-alpha-20260818163953
-  '@atproto/common': 0.0.0-spaces-alpha-20260818163953
-  '@atproto/common-web': 0.0.0-spaces-alpha-20260818163953
-  '@atproto/crypto': 0.0.0-spaces-alpha-20260818163953
-  '@atproto/identity': 0.0.0-spaces-alpha-20260818163953
-  '@atproto/lex': 0.0.0-spaces-alpha-20260818163953
-  '@atproto/lex-builder': 0.0.0-spaces-alpha-20260818163953
-  '@atproto/lex-client': 0.0.0-spaces-alpha-20260818163953
-  '@atproto/lex-cli': 0.0.0-spaces-alpha-20260818163953
-  '@atproto/lex-document': 0.0.0-spaces-alpha-20260818163953
-  '@atproto/lex-installer': 0.0.0-spaces-alpha-20260818163953
-  '@atproto/lex-resolver': 0.0.0-spaces-alpha-20260818163953
-  '@atproto/lex-schema': 0.0.0-spaces-alpha-20260818163953
-  '@atproto/lexicon': 0.0.0-spaces-alpha-20260818163953
-  '@atproto/oauth-client': 0.0.0-spaces-alpha-20260818163953
-  '@atproto/oauth-client-browser': 0.0.0-spaces-alpha-20260818163953
-  '@atproto/oauth-scopes': 0.0.0-spaces-alpha-20260818163953
-  '@atproto/repo': 0.0.0-spaces-alpha-20260818163953
-  '@atproto/space': 0.0.0-spaces-alpha-20260818163953
-  '@atproto/sync': 0.0.0-spaces-alpha-20260818163953
-  '@atproto/syntax': 0.0.0-spaces-alpha-20260818163953
-  '@atproto/xrpc': 0.0.0-spaces-alpha-20260818163953
-  '@atproto/xrpc-server': 0.0.0-spaces-alpha-20260818163953
+  "@atproto/api": 0.0.0-spaces-alpha-20260915165437
+  "@atproto/common": 0.0.0-spaces-alpha-20260915165437
+  "@atproto/common-web": 0.0.0-spaces-alpha-20260915165437
+  "@atproto/crypto": 0.0.0-spaces-alpha-20260915165437
+  "@atproto/identity": 0.0.0-spaces-alpha-20260915165437
+  "@atproto/lex": 0.0.0-spaces-alpha-20260915165437
+  "@atproto/lex-builder": 0.0.0-spaces-alpha-20260915165437
+  "@atproto/lex-client": 0.0.0-spaces-alpha-20260915165437
+  "@atproto/lex-cli": 0.0.0-spaces-alpha-20260915165437
+  "@atproto/lex-data": 0.0.0-spaces-alpha-20260915165437
+  "@atproto/lex-document": 0.0.0-spaces-alpha-20260915165437
+  "@atproto/lex-installer": 0.0.0-spaces-alpha-20260915165437
+  "@atproto/lex-resolver": 0.0.0-spaces-alpha-20260915165437
+  "@atproto/lex-schema": 0.0.0-spaces-alpha-20260915165437
+  "@atproto/lexicon": 0.0.0-spaces-alpha-20260915165437
+  "@atproto/oauth-client": 0.0.0-spaces-alpha-20260915165437
+  "@atproto/oauth-client-browser": 0.0.0-spaces-alpha-20260915165437
+  "@atproto/oauth-scopes": 0.0.0-spaces-alpha-20260915165437
+  "@atproto/repo": 0.0.0-spaces-alpha-20260915165437
+  "@atproto/space": 0.0.0-spaces-alpha-20260915165437
+  "@atproto/sync": 0.0.0-spaces-alpha-20260915165437
+  "@atproto/syntax": 0.0.0-spaces-alpha-20260915165437
+  "@atproto/xrpc": 0.0.0-spaces-alpha-20260915165437
+  "@atproto/xrpc-server": 0.0.0-spaces-alpha-20260915165437
 
 minimumReleaseAgeExclude:
-  - '@colibri-social/lexicons@2.0.0 || 2.1.0 || 2.2.0 || 2.3.0 || 2.4.0 || 2.5.0 || 2.6.0 || 2.7.0 || 2.8.0 || 2.9.0 || 2.9.1 || 2.10.0'
+  - "@colibri-social/lexicons@2.0.0 || 2.1.0 || 2.2.0 || 2.3.0 || 2.4.0 || 2.5.0 || 2.6.0 || 2.7.0 || 2.8.0 || 2.9.0 || 2.9.1 || 2.10.0 || 2.11.0"
