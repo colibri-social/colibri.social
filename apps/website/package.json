@@ -20,10 +20,10 @@
 		"lexicons:export": "node --experimental-strip-types scripts/export-lexicons.ts"
 	},
 	"dependencies": {
-		"@astrojs/check": "^0.9.9",
-		"@astrojs/node": "^11.0.2",
-		"@astrojs/solid-js": "^7.0.1",
-		"@astrojs/starlight": "^0.41.3",
+		"@astrojs/check": "^0.9.10",
+		"@astrojs/node": "^11.1.6",
+		"@astrojs/solid-js": "^7.0.2",
+		"@astrojs/starlight": "^0.42.2",
 		"@astrojs/starlight-tailwind": "^5.0.0",
 		"@atproto/api": "0.0.0-spaces-alpha-20260915165437",
 		"@atproto/common-web": "^0.4.17",
@@ -69,7 +69,7 @@
 		"@tiptap/pm": "^3.20.1",
 		"@tiptap/suggestion": "^3.20.1",
 		"@twemoji/api": "^17.0.3",
-		"astro": "7.0.6",
+		"astro": "7.3.3",
 		"chroma-js": "^3.2.0",
 		"clsx": "^2.1.1",
 		"cobe": "^0.6.5",
