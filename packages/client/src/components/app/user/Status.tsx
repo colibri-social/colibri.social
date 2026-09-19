@@ -78,7 +78,7 @@ export const Status: Component = () => {
     activities()
       .filter((x) => typeof x !== "undefined")
       .sort((x, y) =>
-        new Date(x.startedAt || 0) > new Date(y.startedAt || 0) ? 1 : -1,
+        new Date(x.startedAt || 0) < new Date(y.startedAt || 0) ? 1 : -1,
       );
 
   const voiceLabel = (): string =>
@@ -298,6 +298,11 @@ export const Status: Component = () => {
                   <span class="whitespace-nowrap text-ellipsis overflow-hidden">
                     {activitySummary(sortedActivities()[0]!)}
                   </span>
+                  <Show when={sortedActivities().length > 1}>
+                    <span class="text-muted-foreground shrink-0">
+                      + {sortedActivities().length - 1}
+                    </span>
+                  </Show>
                 </span>
               </Show>
             </div>

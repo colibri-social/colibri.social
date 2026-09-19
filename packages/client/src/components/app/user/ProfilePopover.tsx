@@ -174,7 +174,11 @@ export const ProfilePopoverContents: Component<{
   const bannerUrl = () => props.preview?.bannerUrl ?? props.user.banner;
 
   const activities = () =>
-    isPreview() ? undefined : liveActivitiesOf(props.user.presence);
+    isPreview()
+      ? undefined
+      : liveActivitiesOf(props.user.presence).sort((x, y) =>
+          new Date(x.startedAt || 0) < new Date(y.startedAt || 0) ? 1 : -1,
+        );
 
   return (
     <div
@@ -334,9 +338,13 @@ export const ProfilePopoverContents: Component<{
             </div>
           </div>
           <Show when={activities()}>
-            <hr class="w-full h-px border-none bg-border m-0" />
             <For each={activities()}>
-              {(activity) => <ActivityCard activity={activity} />}
+              {(activity) => (
+                <>
+                  <hr class="w-full h-px border-none bg-border m-0" />
+                  <ActivityCard activity={activity} />
+                </>
+              )}
             </For>
           </Show>
           <Show when={isSelf() && !activities()}>

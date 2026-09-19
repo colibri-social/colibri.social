@@ -52,7 +52,7 @@ const MemberRow = (props: { member: Member }) => {
       .map((x) => (activityIsLive(x) ? x : undefined))
       .filter((x) => typeof x !== "undefined")
       .sort((x, y) =>
-        new Date(x.startedAt || 0) > new Date(y.startedAt || 0) ? 1 : -1,
+        new Date(x.startedAt || 0) < new Date(y.startedAt || 0) ? 1 : -1,
       );
   };
 
@@ -100,11 +100,6 @@ const MemberRow = (props: { member: Member }) => {
                       <span class="text-purple-400 shrink-0 flex items-center">
                         <ActivityIcon kind={current()[0]!.kind} />
                       </span>
-                      <Show when={current().length > 1}>
-                        <span class="text-muted-foreground shrink-0">
-                          + {current().length - 1}
-                        </span>
-                      </Show>
                       <Show when={props.member.data.status}>
                         <span class="text-muted-foreground shrink-0">·</span>
                       </Show>
@@ -114,9 +109,16 @@ const MemberRow = (props: { member: Member }) => {
                 <Show
                   when={props.member.data.status}
                   fallback={
-                    <span class="w-full overflow-hidden text-ellipsis whitespace-nowrap text-muted-foreground">
-                      {activitySummary(activities()[0]!)}
-                    </span>
+                    <>
+                      <span class="max-w-full overflow-hidden text-ellipsis whitespace-nowrap text-muted-foreground">
+                        {activitySummary(activities()[0]!)}
+                      </span>
+                      <Show when={activities().length > 1}>
+                        <span class="text-muted-foreground shrink-0">
+                          + {activities().length - 1}
+                        </span>
+                      </Show>
+                    </>
                   }
                 >
                   {(status) => (
