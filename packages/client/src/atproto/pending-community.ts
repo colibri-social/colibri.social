@@ -1,4 +1,5 @@
 import { createSignal } from "solid-js";
+import { statusOf } from "../errors/classify";
 
 const KEY_PREFIX = "colibri:pendingCommunity:";
 
@@ -74,4 +75,14 @@ export const decideResume = (
 				: "abandon";
 	}
 	return ageMs < RESUME_WINDOW_MS ? "wait" : "abandon";
+};
+
+export const isStale = (
+	pending: PendingCreation,
+	nowMs: number = Date.now(),
+): boolean => nowMs - pending.startedAt >= RESUME_WINDOW_MS;
+
+export const wasRefused = (err: unknown): boolean => {
+	const status = statusOf(err);
+	return status !== undefined && status >= 400 && status < 500;
 };

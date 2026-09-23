@@ -1,10 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { ColibriError } from "../errors/error";
 import {
 	advancePending,
 	clearPending,
 	decideResume,
+	isStale,
 	RESUME_WINDOW_MS,
 	readPending,
+	wasRefused,
 	writePending,
 } from "./pending-community";
 
@@ -124,5 +127,41 @@ describe("decideResume", () => {
 		expect(
 			decideResume({ found: true, isMember: true }, RESUME_WINDOW_MS * 10),
 		).toBe("done");
+	});
+});
+
+describe("isStale", () => {
+	const startedAt = 1_000_000;
+	const pending = {
+		name: "Birdwatchers",
+		requiresApprovalToJoin: false,
+		startedAt,
+		imagesDropped: false,
+	};
+
+	it("turns stale once the resume window closes", () => {
+		expect(isStale(pending, startedAt + RESUME_WINDOW_MS - 1)).toBe(false);
+		expect(isStale(pending, startedAt + RESUME_WINDOW_MS)).toBe(true);
+	});
+});
+
+describe("wasRefused", () => {
+	it("treats a 4xx answer from the AppView as final", () => {
+		expect(
+			wasRefused(new ColibriError({ code: "InvalidRequest", status: 400 })),
+		).toBe(true);
+		expect(
+			wasRefused(new ColibriError({ code: "Forbidden", status: 403 })),
+		).toBe(true);
+	});
+
+	it("leaves timeouts, dropped connections, and 5xx answers open", () => {
+		expect(
+			wasRefused(new ColibriError({ code: "InternalError", status: 502 })),
+		).toBe(false);
+		const timeout = new Error("timed out");
+		timeout.name = "TimeoutError";
+		expect(wasRefused(timeout)).toBe(false);
+		expect(wasRefused(new TypeError("fetch failed"))).toBe(false);
 	});
 });

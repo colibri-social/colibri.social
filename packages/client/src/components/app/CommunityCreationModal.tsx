@@ -18,8 +18,10 @@ import {
 	advancePending,
 	clearPending,
 	creationInFlight,
+	isStale,
 	readPending,
 	setCreationInFlight,
+	wasRefused,
 	writePending,
 } from "../../atproto/pending-community";
 import { resumeQuietly } from "../../atproto/resume-community-creation";
@@ -225,7 +227,10 @@ export const CommunityCreationModal: ParentComponent = (props) => {
 	const ns = () => namespace(getAppViewDid(), user.did);
 
 	const enterModal = (next: boolean) => {
-		if (next && !creationInFlight() && readPending(ns())) {
+		const pending = next && !creationInFlight() ? readPending(ns()) : undefined;
+		if (pending && isStale(pending)) {
+			clearPending(ns());
+		} else if (pending) {
 			setStep(UNFINISHED);
 		}
 		setOpen(next);
@@ -809,6 +814,10 @@ export const CommunityCreationModal: ParentComponent = (props) => {
 					mode() === "adopt" ? await runAdopt() : await runCreate();
 				return { community, recovered: false };
 			} catch (err) {
+				if (wasRefused(err)) {
+					clearPending(ns());
+					throw err;
+				}
 				const resumed = await resumeQuietly(user.xrpc, ns());
 				if (resumed.kind === "done") {
 					log.warn("recovered a community whose response was lost", {
