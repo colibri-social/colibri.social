@@ -143,6 +143,7 @@ export interface ColibriServerDescription {
 	contact?: string;
 	features?: Array<string>;
 	spaceTypes?: Array<string>;
+	defaultCommunity?: string;
 }
 
 /**
@@ -185,4 +186,22 @@ export const verifyColibriAppView = async (
 	} finally {
 		clearTimeout(timeout);
 	}
+};
+
+const DEFAULT_COMMUNITY_TIMEOUT_MS = 8_000;
+
+export const fetchDefaultCommunity = async (
+	origin: string = getAppViewHost("http"),
+): Promise<string | undefined> => {
+	const res = await fetch(
+		`${origin}/xrpc/social.colibri.beta.server.describeServer`,
+		{ signal: AbortSignal.timeout(DEFAULT_COMMUNITY_TIMEOUT_MS) },
+	);
+	if (!res.ok) return undefined;
+
+	const data = (await res.json()) as { defaultCommunity?: unknown };
+	return typeof data.defaultCommunity === "string" &&
+		data.defaultCommunity.startsWith("did:")
+		? data.defaultCommunity
+		: undefined;
 };

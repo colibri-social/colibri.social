@@ -26,6 +26,7 @@ import IdentificationBadgeIconFilled from "~icons/ph/identification-badge-fill";
 import ImageIcon from "~icons/ph/image";
 import LinkIcon from "~icons/ph/link";
 import PenIcon from "~icons/ph/pen";
+import PlugsConnectedIcon from "~icons/ph/plugs-connected";
 import PlusIcon from "~icons/ph/plus";
 import ProhibitIcon from "~icons/ph/prohibit";
 import TicketIcon from "~icons/ph/ticket";
@@ -119,6 +120,7 @@ import { CopyButton } from "../common/CopyButton";
 import { SettingsInfoPage } from "../common/SettingsInfoPage";
 import { SettingsModal, SettingsPage } from "../common/SettingsModal";
 import User from "../user";
+import { BridgesSettingsPage } from "./BridgesSettingsPage";
 import { DeleteLinkModal } from "./DeleteInvitationModal";
 import { InviteLinkCreationModal } from "./InviteLinkCreationModal";
 import {
@@ -1650,6 +1652,13 @@ export const CommunitySettingsModal: ParentComponent<{
 						community().community.requiresApprovalToJoin &&
 						canManageApprovals(user.did),
 					badge: () => community().applications.length,
+				},
+				{
+					title: "Bridges",
+					id: "bridges",
+					component: BridgesSettingsPage,
+					icon: () => <PlugsConnectedIcon />,
+					visible: () => canManageCommunity(user.did),
 				},
 				{
 					title: "Banned Users",

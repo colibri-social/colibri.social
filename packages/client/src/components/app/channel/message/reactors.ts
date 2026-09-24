@@ -34,11 +34,14 @@ export function useReactorResolver(): (did: string) => ProfileView {
 export function reactedByLabel(
 	dids: Array<string>,
 	resolveActor: (did: string) => ProfileView,
+	bridgedNames: ReadonlyArray<string> = [],
 ): string {
-	const names = dids
-		.slice(0, 3)
-		.map((did) => displayableNameFn(resolveActor(did)));
-	const remaining = dids.length - names.length;
+	const everyone = [
+		...dids.map((did) => () => displayableNameFn(resolveActor(did))),
+		...bridgedNames.map((name) => () => name),
+	];
+	const names = everyone.slice(0, 3).map((name) => name());
+	const remaining = everyone.length - names.length;
 
 	if (remaining > 0) {
 		return `${names.join(", ")} and ${remaining} ${remaining === 1 ? "other" : "others"}`;

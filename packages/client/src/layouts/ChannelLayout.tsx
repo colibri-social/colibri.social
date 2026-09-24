@@ -75,6 +75,7 @@ import { isTrustedCursorSource } from "../contexts/unread-cursor-resolve";
 import { useViewport } from "../contexts/Viewport";
 import { describeError } from "../errors/copy";
 import { cancelChannelTrayNotification } from "../notifications";
+import { authorKey } from "../utils/bridge";
 import {
 	type ChannelTab,
 	channelTab,
@@ -193,12 +194,12 @@ export const ChannelSurface: ParentComponent<ChannelSurfaceProps> = (props) => {
 			const isOnNewDay = !!prev && !sameDay(prev.createdAt, m.createdAt);
 			const isSubsequent =
 				!!prev &&
-				prev.author.did === m.author.did &&
+				authorKey(prev.author) === authorKey(m.author) &&
 				!isOnNewDay &&
 				withinGroupingWindow(prev.createdAt, m.createdAt);
 			const hasSubsequent =
 				!!next &&
-				next.author.did === m.author.did &&
+				authorKey(next.author) === authorKey(m.author) &&
 				sameDay(next.createdAt, m.createdAt) &&
 				withinGroupingWindow(m.createdAt, next.createdAt);
 

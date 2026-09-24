@@ -45,6 +45,7 @@ overrides:
   "@atproto/syntax": 0.0.0-spaces-alpha-20260915165437
   "@atproto/xrpc": 0.0.0-spaces-alpha-20260915165437
   "@atproto/xrpc-server": 0.0.0-spaces-alpha-20260915165437
+  "@colibri-social/lexicons": link:../colibri-appview-ts/packages/lexicons
 
 minimumReleaseAgeExclude:
   - "@colibri-social/lexicons@2.0.0 || 2.1.0 || 2.2.0 || 2.3.0 || 2.4.0 || 2.5.0 || 2.6.0 || 2.7.0 || 2.8.0 || 2.9.0 || 2.9.1 || 2.10.0 || 2.11.0"

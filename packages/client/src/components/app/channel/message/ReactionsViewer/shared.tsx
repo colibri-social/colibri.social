@@ -3,6 +3,7 @@ import XIcon from "~icons/ph/x";
 import type { ReactionView } from "../../../../../atproto/views";
 import { useMessageContext } from "../../../../../contexts/Message";
 import { useUserContext } from "../../../../../contexts/User";
+import { platformName } from "../../../../../utils/bridge";
 import { cx } from "../../../../../utils/cva";
 import { parseEmojiText } from "../../../../../utils/emoji";
 import User from "../../../user";
@@ -121,6 +122,16 @@ export const ReactorRows: Component<{ reaction: ReactionView }> = (props) => {
 		<div class="flex flex-col">
 			<For each={props.reaction.reactors}>
 				{(did) => <ReactorRow did={did} emoji={props.reaction.emoji} />}
+			</For>
+			<For each={props.reaction.bridgedReactors ?? []}>
+				{(reactor) => (
+					<div class="flex h-11 flex-row items-center gap-2 rounded-sm px-2">
+						<span class="min-w-0 flex-1 truncate text-sm">{reactor.name}</span>
+						<span class="shrink-0 text-sm text-muted-foreground">
+							via {platformName(reactor.platform)}
+						</span>
+					</div>
+				)}
 			</For>
 		</div>
 	);

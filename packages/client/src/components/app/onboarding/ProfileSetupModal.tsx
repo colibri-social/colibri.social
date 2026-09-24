@@ -39,6 +39,7 @@ import {
 	type ThemeState,
 	themeStateToRecord,
 } from "../profile/theme";
+import { joinDefaultCommunity } from "./join-default-community";
 import {
 	type RecordBootstrapConfig,
 	RecordBootstrapModal,
@@ -440,6 +441,7 @@ export const ProfileSetupModal: Component<{
 						}),
 			});
 			void user.refetchProfile();
+			void joinDefaultCommunity(user);
 
 			props.onComplete();
 		},

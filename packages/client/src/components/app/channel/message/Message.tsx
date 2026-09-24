@@ -39,6 +39,7 @@ import {
 } from "../../../../contexts/Message";
 import { useUserContext } from "../../../../contexts/User";
 import { useUserPreferences } from "../../../../contexts/UserPreferences";
+import { platformName } from "../../../../utils/bridge";
 import { createDoubleTap } from "../../../../utils/create-double-tap";
 import { createLongPress } from "../../../../utils/create-long-press";
 import { createSwipe } from "../../../../utils/create-swipe";
@@ -189,10 +190,15 @@ const MessageInner: Component<{
 	// propagate to already-rendered messages, falling back to the embedded
 	// snapshot for non-members / cross-community authors.
 	const authorMember = (author: ProfileView) =>
-		community().utils.getMember(author.did);
+		author.bridge ? undefined : community().utils.getMember(author.did);
 
 	const resolveAuthor = (author: ProfileView): ProfileView =>
 		authorMember(author)?.actor ?? author;
+
+	const bridgedPlatform = () => {
+		const bridge = message.author.bridge;
+		return bridge ? platformName(bridge.platform) : undefined;
+	};
 
 	const resolveReactor = useReactorResolver();
 
@@ -487,7 +493,7 @@ const MessageInner: Component<{
 									<User.ProfilePopover
 										user={resolveAuthor(message.author)}
 										class="w-10 h-10 rounded-full cursor-pointer pt-0.5"
-										disabled={isPending()}
+										disabled={isPending() || bridgedPlatform() !== undefined}
 									>
 										<User.Avatar
 											user={resolveAuthor(message.author)}
@@ -540,7 +546,9 @@ const MessageInner: Component<{
 											>
 												<User.ProfilePopover
 													user={resolveAuthor(message.author)}
-													disabled={isPending()}
+													disabled={
+														isPending() || bridgedPlatform() !== undefined
+													}
 												>
 													<span class="font-bold cursor-pointer">
 														<User.DisplayableName
@@ -550,6 +558,13 @@ const MessageInner: Component<{
 													</span>
 												</User.ProfilePopover>
 											</MemberContextMenu>
+											<Show when={bridgedPlatform()}>
+												{(platform) => (
+													<small class="rounded-sm bg-muted px-1 text-muted-foreground">
+														via {platform()}
+													</small>
+												)}
+											</Show>
 											<small class="text-muted-foreground">
 												<MessageTimestamp datetime={message.createdAt} />
 											</small>
@@ -593,7 +608,9 @@ const MessageInner: Component<{
 											>
 												<User.ProfilePopover
 													user={resolveAuthor(message.author)}
-													disabled={isPending()}
+													disabled={
+														isPending() || bridgedPlatform() !== undefined
+													}
 												>
 													<div class="flex flex-row items-center gap-2">
 														<span class="font-bold cursor-pointer">
@@ -605,6 +622,13 @@ const MessageInner: Component<{
 													</div>
 												</User.ProfilePopover>
 											</MemberContextMenu>
+											<Show when={bridgedPlatform()}>
+												{(platform) => (
+													<small class="rounded-sm bg-muted px-1 text-muted-foreground">
+														via {platform()}
+													</small>
+												)}
+											</Show>
 											<small class="text-muted-foreground">
 												<MessageTimestamp datetime={message.createdAt} />
 											</small>
@@ -886,7 +910,13 @@ const MessageInner: Component<{
 														</For>
 													</div>
 													<p class="m-0 wrap-anywhere">
-														{reactedByLabel(item.reactors, resolveReactor)}{" "}
+														{reactedByLabel(
+															item.reactors,
+															resolveReactor,
+															(item.bridgedReactors ?? []).map(
+																(reactor) => reactor.name,
+															),
+														)}{" "}
 														reacted
 														<Show when={emojiShortcode(item.emoji)}>
 															{(shortcode) => <> with :{shortcode()}:</>}

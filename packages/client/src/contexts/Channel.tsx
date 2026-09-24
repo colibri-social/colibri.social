@@ -101,6 +101,7 @@ import { classifyThrown } from "../errors/classify";
 import type { ColibriError } from "../errors/error";
 import { isPingKind } from "../notifications";
 import { getAppViewDid } from "../utils/appview";
+import { foldBridgedReaction } from "../utils/bridged-reactions";
 import { clearEditDraft } from "../utils/composer-drafts";
 import { rememberLastViewedChannel } from "../utils/last-viewed-channel";
 import { createLogger } from "../utils/logger";
@@ -1380,6 +1381,25 @@ export const ChannelContextProvider: ParentComponent<{
 
 	const handleReactionEvent = (event: ReactionEventFrame) => {
 		if (event.channel !== channelSpace()) return;
+		const bridged = event.bridged;
+		if (bridged) {
+			setMessages((prev) =>
+				prev.map((m) =>
+					"hash" in m || !sameRecord(m, event.target)
+						? m
+						: {
+								...m,
+								reactions: foldBridgedReaction(
+									m.reactions,
+									event.emoji,
+									bridged,
+									event.event === "create",
+								),
+							},
+				),
+			);
+			return;
+		}
 		if (event.event === "create") {
 			addReactionOptimistic(event.target, event.emoji, event.actor);
 		} else {

@@ -36,6 +36,13 @@ export type DeletedMessageView =
 export type AttachmentView = social.colibri.beta.channel.defs.AttachmentView;
 export type ForwardView = social.colibri.beta.channel.defs.ForwardView;
 export type ReactionView = social.colibri.beta.channel.defs.ReactionView;
+export type BridgedReactor = social.colibri.beta.bridge.defs.BridgedReactor;
+export type BridgedActor = social.colibri.beta.bridge.defs.BridgedActor;
+export type BridgeRegistrationView =
+	social.colibri.beta.bridge.defs.RegistrationView;
+export type BridgePairingView = social.colibri.beta.bridge.defs.PairingView;
+export type BridgeRemoteRoom = social.colibri.beta.bridge.defs.RemoteRoom;
+export type BridgeLink = social.colibri.beta.bridge.defs.Link;
 export type UnreadStatus = social.colibri.beta.channel.defs.UnreadStatus;
 
 export type ThreadView = social.colibri.beta.thread.defs.ThreadView;
