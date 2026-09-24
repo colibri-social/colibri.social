@@ -232,6 +232,20 @@ describe("classifyThrown", () => {
 		expect(classifyThrown(err).code).toBe("StorageStalled");
 	});
 
+	it("treats a lost IndexedDB connection as storage, not an ended session", () => {
+		offline(false);
+		const cause = new Error(
+			"Connection to Indexed Database server lost. Refresh the page to try again",
+		);
+		cause.name = "UnknownError";
+		const err = new Error("IndexedDB unavailable: connection lost", { cause });
+		err.name = "DBUnavailableError";
+
+		const classified = classifyThrown(err);
+		expect(classified.code).toBe("StorageStalled");
+		expect(classified.needsReauth).toBe(false);
+	});
+
 	it("names a blocked microphone permission", () => {
 		offline(false);
 		const err = new DOMException("Permission denied", "NotAllowedError");

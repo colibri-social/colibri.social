@@ -34,7 +34,7 @@ overrides:
   '@atproto/xrpc-server': 0.0.0-spaces-alpha-20260915165437
 
 patchedDependencies:
-  '@atproto/oauth-client-browser@0.0.0-spaces-alpha-20260915165437': b9762ee8f553b039bee0f267ebcaf2e581bb70141391ea58e59ec0784ba37efa
+  '@atproto/oauth-client-browser@0.0.0-spaces-alpha-20260915165437': 026615cbad8dbd4f622fab54ef7ae657ab58df91f42908df1d40504bded84b9f
 
 importers:
 
@@ -103,7 +103,7 @@ importers:
         version: 0.0.0-spaces-alpha-20260915165437
       '@atproto/oauth-client-browser':
         specifier: 0.0.0-spaces-alpha-20260915165437
-        version: 0.0.0-spaces-alpha-20260915165437(patch_hash=b9762ee8f553b039bee0f267ebcaf2e581bb70141391ea58e59ec0784ba37efa)
+        version: 0.0.0-spaces-alpha-20260915165437(patch_hash=026615cbad8dbd4f622fab54ef7ae657ab58df91f42908df1d40504bded84b9f)
       '@atproto/oauth-client-node':
         specifier: ^0.3.16
         version: 0.3.17
@@ -357,7 +357,7 @@ importers:
         version: 0.0.0-spaces-alpha-20260915165437
       '@atproto/oauth-client-browser':
         specifier: 0.0.0-spaces-alpha-20260915165437
-        version: 0.0.0-spaces-alpha-20260915165437(patch_hash=b9762ee8f553b039bee0f267ebcaf2e581bb70141391ea58e59ec0784ba37efa)
+        version: 0.0.0-spaces-alpha-20260915165437(patch_hash=026615cbad8dbd4f622fab54ef7ae657ab58df91f42908df1d40504bded84b9f)
       '@colibri-social/lexicons':
         specifier: ^2.11.0
         version: 2.11.0
@@ -614,7 +614,7 @@ importers:
         version: 0.0.0-spaces-alpha-20260915165437
       '@atproto/oauth-client-browser':
         specifier: 0.0.0-spaces-alpha-20260915165437
-        version: 0.0.0-spaces-alpha-20260915165437(patch_hash=b9762ee8f553b039bee0f267ebcaf2e581bb70141391ea58e59ec0784ba37efa)
+        version: 0.0.0-spaces-alpha-20260915165437(patch_hash=026615cbad8dbd4f622fab54ef7ae657ab58df91f42908df1d40504bded84b9f)
       '@colibri-social/lexicons':
         specifier: ^2.11.0
         version: 2.11.0
@@ -7159,7 +7159,7 @@ snapshots:
       multiformats: 13.4.2
       zod: 3.25.76
 
-  '@atproto/oauth-client-browser@0.0.0-spaces-alpha-20260915165437(patch_hash=b9762ee8f553b039bee0f267ebcaf2e581bb70141391ea58e59ec0784ba37efa)':
+  '@atproto/oauth-client-browser@0.0.0-spaces-alpha-20260915165437(patch_hash=026615cbad8dbd4f622fab54ef7ae657ab58df91f42908df1d40504bded84b9f)':
     dependencies:
       '@atproto-labs/did-resolver': 0.0.0-spaces-alpha-20260915165437
       '@atproto-labs/handle-resolver': 0.0.0-spaces-alpha-20260915165437

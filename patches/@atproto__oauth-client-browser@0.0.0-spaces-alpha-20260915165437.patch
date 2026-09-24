@@ -64,10 +64,10 @@ index d2b87f5a00b28ad617e89267401bfc3c9ece08ac..808d2810a4098da09f17a68b32c61ede
      protected createStore<N extends keyof Schema, V extends Value>(name: N, { encode, decode, expiresAt, }: {
          encode: (value: V) => Schema[N]['value'] | PromiseLike<Schema[N]['value']>;
 diff --git a/dist/browser-oauth-database.js b/dist/browser-oauth-database.js
-index dc46131f28ba4a65bd2b9c572735aca2991d8ef3..2403620d2c57a677ac94f141d3ec7f4e2832e1b4 100644
+index dc46131f28ba4a65bd2b9c572735aca2991d8ef3..efc18fe8d5e2d12561b4be594ecd1941a6828814 100644
 --- a/dist/browser-oauth-database.js
 +++ b/dist/browser-oauth-database.js
-@@ -1,15 +1,40 @@
+@@ -1,17 +1,44 @@
  import { WebcryptoKey } from '@atproto/jwk-webcrypto';
 -import { DB } from './indexed-db/index.js';
 +import { DB, DBUnavailableError } from './indexed-db/index.js';
@@ -109,8 +109,12 @@ index dc46131f28ba4a65bd2b9c572735aca2991d8ef3..2403620d2c57a677ac94f141d3ec7f4e
 +    }
      return WebcryptoKey.fromKeypair(encoded.keyPair, encoded.keyId);
  }
++const DB_ATTEMPTS = 3;
++const DB_REOPEN_DELAY_MS = 250;
  const STORES = [
-@@ -21,25 +46,85 @@ const STORES = [
+     'state',
+     'session',
+@@ -21,25 +48,86 @@ const STORES = [
      'authorizationServerMetadataCache',
      'protectedResourceMetadataCache',
  ];
@@ -173,9 +177,10 @@ index dc46131f28ba4a65bd2b9c572735aca2991d8ef3..2403620d2c57a677ac94f141d3ec7f4e
 +        promise.catch(() => null);
 +        return promise;
 +    }
-+    #recover(pending, err) {
++    async #recover(pending, err, attempt) {
 +        if (!(err instanceof DBUnavailableError))
 +            return false;
++        await new Promise((resolve) => setTimeout(resolve, DB_REOPEN_DELAY_MS * attempt));
 +        if (this.#dbPromise === pending)
 +            this.#dbPromise = this.#openOwned();
 +        return true;
@@ -189,24 +194,25 @@ index dc46131f28ba4a65bd2b9c572735aca2991d8ef3..2403620d2c57a677ac94f141d3ec7f4e
 +        if (this.#backend === 'localstorage') {
 +            return await fn(localStorageBackedStore(this.#name, storeName));
 +        }
-+        for (let attempt = 1; attempt <= 2; attempt++) {
++        for (let attempt = 1; attempt <= DB_ATTEMPTS; attempt++) {
 +            const pending = this.#dbPromise;
 +            try {
 +                const db = await pending;
 +                return await db.transaction([storeName], mode, (tx) => fn(tx.objectStore(storeName)));
 +            }
 +            catch (err) {
-+                if (attempt === 2 || !this.#recover(pending, err))
++                if (attempt === DB_ATTEMPTS || !(await this.#recover(pending, err, attempt)))
 +                    throw err;
 +            }
 +        }
      }
      createStore(name, { encode, decode, expiresAt, }) {
          return {
-@@ -136,6 +221,25 @@ export class BrowserOAuthDatabase {
+@@ -136,10 +224,27 @@ export class BrowserOAuthDatabase {
          });
      }
      async cleanup() {
+-        const db = await this.#dbPromise;
 +        if (this.#backend === 'localstorage') {
 +            const now = Date.now();
 +            const prefix = `${this.#name}:`;
@@ -226,10 +232,14 @@ index dc46131f28ba4a65bd2b9c572735aca2991d8ef3..2403620d2c57a677ac94f141d3ec7f4e
 +            }
 +            return;
 +        }
-         const db = await this.#dbPromise;
          for (const name of STORES) {
-             await db.transaction([name], 'readwrite', (tx) => tx
-@@ -147,6 +251,8 @@ export class BrowserOAuthDatabase {
+-            await db.transaction([name], 'readwrite', (tx) => tx
+-                .objectStore(name)
++            await this.run(name, 'readwrite', (store) => store
+                 .index('expiresAt')
+                 .deleteAll(IDBKeyRange.upperBound(Date.now())));
+         }
+@@ -147,6 +252,8 @@ export class BrowserOAuthDatabase {
      async [Symbol.asyncDispose]() {
          clearInterval(this.#cleanupInterval);
          this.#cleanupInterval = undefined;
@@ -252,10 +262,10 @@ index 599f9b81fee5c87cc006fbab8902779f21a9a17c..e9a15956a53df7d617dc34cd8819f349
      getRandomValues(byteLength) {
          return crypto.getRandomValues(new Uint8Array(byteLength));
 diff --git a/dist/indexed-db/db.d.ts b/dist/indexed-db/db.d.ts
-index 75c7dc7a333b60ade2428e6219caf7e5a62692fc..7e9c39e4b7506e21aad28b32b7acc4afe24e31d4 100644
+index 75c7dc7a333b60ade2428e6219caf7e5a62692fc..fec522cc13993bda30c261f20d22ea19727b3bdd 100644
 --- a/dist/indexed-db/db.d.ts
 +++ b/dist/indexed-db/db.d.ts
-@@ -1,11 +1,18 @@
+@@ -1,11 +1,19 @@
  import 'core-js/es/symbol/dispose.js';
  import { DBTransaction } from './db-transaction.js';
  import type { DatabaseSchema } from './schema.js';
@@ -265,6 +275,7 @@ index 75c7dc7a333b60ade2428e6219caf7e5a62692fc..7e9c39e4b7506e21aad28b32b7acc4af
 +    readonly reason: string;
 +    constructor(reason: string, cause?: unknown);
 +}
++export declare function isConnectionLost(err: unknown): boolean;
  export declare class DB<Schema extends DatabaseSchema> implements AsyncDisposable {
      #private;
      protected readonly txOptions?: IDBTransactionOptions | undefined;
@@ -275,10 +286,10 @@ index 75c7dc7a333b60ade2428e6219caf7e5a62692fc..7e9c39e4b7506e21aad28b32b7acc4af
      get name(): string;
      get objectStoreNames(): DOMStringList;
 diff --git a/dist/indexed-db/db.js b/dist/indexed-db/db.js
-index a28ca5c22d12c8f04109c717ac7f42c222ddb0bd..ffcdbbc594c6653f74c322db03812e22927c017a 100644
+index a28ca5c22d12c8f04109c717ac7f42c222ddb0bd..0a5877145f6a74480d91885bb08be526d36beb0c 100644
 --- a/dist/indexed-db/db.js
 +++ b/dist/indexed-db/db.js
-@@ -1,11 +1,32 @@
+@@ -1,11 +1,36 @@
  import 'core-js/es/symbol/dispose.js';
  import { DBTransaction } from './db-transaction.js';
 +export const DB_OPEN_TIMEOUT_MS = 8000;
@@ -289,6 +300,10 @@ index a28ca5c22d12c8f04109c717ac7f42c222ddb0bd..ffcdbbc594c6653f74c322db03812e22
 +        this.name = 'DBUnavailableError';
 +        this.reason = reason;
 +    }
++}
++const CONNECTION_LOST_NAMES = new Set(['UnknownError', 'InvalidStateError']);
++export function isConnectionLost(err) {
++    return err != null && CONNECTION_LOST_NAMES.has(err.name);
 +}
  export class DB {
      static async open(dbName, migrations, txOptions) {
@@ -313,7 +328,7 @@ index a28ca5c22d12c8f04109c717ac7f42c222ddb0bd..ffcdbbc594c6653f74c322db03812e22
              request.onupgradeneeded = ({ oldVersion, newVersion }) => {
                  const db = request.result;
                  try {
-@@ -19,7 +40,7 @@ export class DB {
+@@ -19,7 +44,7 @@ export class DB {
                  }
                  catch (err) {
                      db.close();
@@ -322,10 +337,35 @@ index a28ca5c22d12c8f04109c717ac7f42c222ddb0bd..ffcdbbc594c6653f74c322db03812e22
                  }
              };
          });
-@@ -38,9 +59,12 @@ export class DB {
+@@ -30,17 +55,35 @@ export class DB {
+         this.txOptions = txOptions;
+         this.#db = db;
+         const cleanup = () => {
+-            this.#db = null;
++            if (this.#db === db)
++                this.#db = null;
+             db.removeEventListener('versionchange', cleanup);
+             db.removeEventListener('close', cleanup);
+-            db.close(); // Can we call close on a "closed" database?
++            try {
++                db.close();
++            }
++            catch {
++            }
+         };
++        this.#cleanup = cleanup;
          db.addEventListener('versionchange', cleanup);
          db.addEventListener('close', cleanup);
      }
++    #cleanup;
++    #unavailable(err) {
++        if (err instanceof DBUnavailableError)
++            return err;
++        if (!isConnectionLost(err))
++            return err;
++        this.#cleanup?.();
++        return new DBUnavailableError('connection lost', err);
++    }
 +    get closed() {
 +        return !this.#db;
 +    }
@@ -336,7 +376,7 @@ index a28ca5c22d12c8f04109c717ac7f42c222ddb0bd..ffcdbbc594c6653f74c322db03812e22
          return this.#db;
      }
      get name() {
-@@ -55,17 +79,35 @@ export class DB {
+@@ -55,29 +98,51 @@ export class DB {
      async transaction(storeNames, mode, run) {
          // eslint-disable-next-line no-async-promise-executor
          return new Promise(async (resolve, reject) => {
@@ -371,17 +411,26 @@ index a28ca5c22d12c8f04109c717ac7f42c222ddb0bd..ffcdbbc594c6653f74c322db03812e22
                  };
 -                tx.onerror = () => reject(tx.error);
 -                tx.onabort = () => reject(tx.error || new Error('Transaction aborted'));
-+                tx.onerror = () => settle(reject, tx.error);
-+                tx.onabort = () => settle(reject, tx.error || new Error('Transaction aborted'));
++                tx.onerror = () => settle(reject, this.#unavailable(tx.error));
++                tx.onabort = () => settle(reject, this.#unavailable(tx.error) || new Error('Transaction aborted'));
                  try {
                      const value = await run(new DBTransaction(tx));
                      result = { done: true, value };
-@@ -77,7 +119,7 @@ export class DB {
+                     tx.commit();
+                 }
+                 catch (err) {
+-                    tx.abort();
++                    try {
++                        tx.abort();
++                    }
++                    catch {
++                    }
+                     throw err;
                  }
              }
              catch (err) {
 -                reject(err);
-+                settle(reject, err);
++                settle(reject, this.#unavailable(err));
              }
          });
      }

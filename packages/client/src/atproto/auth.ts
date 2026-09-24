@@ -557,8 +557,10 @@ const loadOAuthClient = (
 		handleResolver,
 		fetch: preflightFetch,
 		databaseOptions,
-		onSessionDeleted: (_sub: string, cause: unknown) =>
-			noteSessionDeleted(cause),
+		onSessionDeleted: (sub: string, cause: unknown) => {
+			if (agent?.did !== sub) return;
+			noteSessionDeleted(cause);
+		},
 	});
 
 const clearDisallowedSession = async (sub: string) => {
