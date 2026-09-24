@@ -25,7 +25,7 @@
     android:usesCleartextTraffic="${usesCleartextTraffic}"
   >
         <activity
-      android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode"
+      android:configChanges="orientation|keyboardHidden|keyboard|navigation|touchscreen|screenSize|locale|layoutDirection|smallestScreenSize|screenLayout|density|fontScale|uiMode"
       android:launchMode="singleTask"
       android:label="@string/main_activity_title"
       android:name=".MainActivity"
