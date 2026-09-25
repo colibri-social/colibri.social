@@ -94,6 +94,14 @@ export const isAtprotoSessionError = (err: unknown): boolean => {
 	return typeof sub === "string" && sub.startsWith("did:");
 };
 
+const PROGRAMMING_TYPE_ERROR =
+	/cannot read propert|cannot set propert|can't access property|is not a function|is not a constructor|is not iterable|is not an object|is undefined|is null|cannot destructure|invalid url|failed to construct|cannot convert|illegal invocation|read.only|assignment to constant/i;
+
+const isProgrammingTypeError = (err: unknown): boolean => {
+	const message = (err as { message?: unknown }).message;
+	return typeof message === "string" && PROGRAMMING_TYPE_ERROR.test(message);
+};
+
 const codeForThrownShape = (err: unknown): ColibriErrorCode | undefined => {
 	const name = nameOf(err);
 
@@ -120,7 +128,9 @@ const codeForThrownShape = (err: unknown): ColibriErrorCode | undefined => {
 		}
 	}
 
-	if (err instanceof TypeError || name === "TypeError") return "NetworkFailed";
+	if (err instanceof TypeError || name === "TypeError") {
+		return isProgrammingTypeError(err) ? undefined : "NetworkFailed";
+	}
 
 	return undefined;
 };

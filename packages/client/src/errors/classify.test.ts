@@ -394,6 +394,34 @@ describe("classifyThrown", () => {
 		expect(classifyThrown(foreign).code).toBe("NetworkFailed");
 	});
 
+	it("keeps a programming TypeError apart from a dropped connection", () => {
+		offline(false);
+		for (const message of [
+			"Cannot read properties of undefined (reading 'did')",
+			'can\'t access property "did", session is undefined',
+			"undefined is not an object (evaluating 'session.did')",
+			"agent.getRecord is not a function",
+			"Failed to construct 'URL': Invalid URL",
+		]) {
+			expect(classifyThrown(new TypeError(message)).code).toBe("Unexpected");
+		}
+		expect(
+			isConnectivityError(new TypeError("Cannot read properties of null")),
+		).toBe(false);
+	});
+
+	it("still treats a fetch TypeError from any engine as a dropped connection", () => {
+		offline(false);
+		for (const message of [
+			"Failed to fetch",
+			"NetworkError when attempting to fetch resource.",
+			"Load failed",
+			"fetch failed",
+		]) {
+			expect(classifyThrown(new TypeError(message)).code).toBe("NetworkFailed");
+		}
+	});
+
 	it("stringifies a thrown non-Error", () => {
 		offline(false);
 		expect(classifyThrown("canceled").message).toBe("canceled");

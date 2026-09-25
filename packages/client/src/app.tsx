@@ -172,6 +172,8 @@ const AppErrorScreen: Component<{ error: unknown; reset: () => void }> = (
 		log.error("uncaught render error", {
 			code: failure().code,
 			reason: failure().message,
+			method: failure().method,
+			cause: failure().cause,
 			stack:
 				import.meta.env.DEV && props.error instanceof Error
 					? props.error.stack
