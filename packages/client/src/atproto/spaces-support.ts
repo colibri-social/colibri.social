@@ -2,20 +2,17 @@ import { createLogger } from "../utils/logger";
 
 const log = createLogger("spaces-support");
 
+const DESCRIBE_METHOD = "community.lexicon.service.describe";
 const PROBE_METHOD = "com.atproto.space.getDelegationToken";
+const CONTROL_METHOD = "com.atproto.space.colibriProbeControl";
 const PROBE_SPACE = "colibri-spaces-probe";
 const PROBE_TIMEOUT_MS = 8_000;
 
-const SUPPORTED_ERRORS = new Set(["InvalidRequest", "InvalidSpaceRef"]);
-
-const UNSUPPORTED_ERRORS = new Set([
-	"AuthMissing",
-	"AuthenticationRequired",
-	"MethodNotImplemented",
-	"XRPCNotSupported",
-	"InvalidLexicon",
-	"LexiconNotFound",
-]);
+type ProbeAnswer = {
+	status: number;
+	error: string | undefined;
+	message: string | undefined;
+};
 
 const cache = new Map<string, boolean>();
 
@@ -24,18 +21,64 @@ const isLoopback = (host: string): boolean => {
 	return name === "localhost" || name === "127.0.0.1" || name === "[::1]";
 };
 
-const probeUrl = (host: string): string =>
-	`${isLoopback(host) ? "http" : "https"}://${host}/xrpc/${PROBE_METHOD}?space=${PROBE_SPACE}`;
+const xrpcUrl = (host: string, method: string, query = ""): string =>
+	`${isLoopback(host) ? "http" : "https"}://${host}/xrpc/${method}${query}`;
 
-const readErrorName = async (res: Response): Promise<string | undefined> => {
+const probeQuery = `?space=${PROBE_SPACE}`;
+
+const request = (url: string): Promise<Response> =>
+	fetch(url, {
+		method: "GET",
+		signal: AbortSignal.timeout(PROBE_TIMEOUT_MS),
+	});
+
+const readJson = async (res: Response): Promise<unknown> => {
 	try {
-		const body: unknown = await res.json();
-		const name = (body as { error?: unknown } | null)?.error;
-		return typeof name === "string" ? name : undefined;
+		return await res.json();
 	} catch {
 		return undefined;
 	}
 };
+
+const readString = (value: unknown): string | undefined =>
+	typeof value === "string" ? value : undefined;
+
+const describedMethods = async (
+	host: string,
+): Promise<string[] | undefined> => {
+	let res: Response;
+	try {
+		res = await request(xrpcUrl(host, DESCRIBE_METHOD));
+	} catch {
+		return undefined;
+	}
+	if (!res.ok) return undefined;
+
+	const methods = ((await readJson(res)) as { methods?: unknown } | null)
+		?.methods;
+	if (!Array.isArray(methods)) return undefined;
+
+	return methods.flatMap((entry) => {
+		const value = readString((entry as { value?: unknown } | null)?.value);
+		return value === undefined ? [] : [value];
+	});
+};
+
+const probe = async (url: string): Promise<ProbeAnswer> => {
+	const res = await request(url);
+	const body = (await readJson(res)) as {
+		error?: unknown;
+		message?: unknown;
+	} | null;
+	return {
+		status: res.status,
+		error: readString(body?.error),
+		message: readString(body?.message),
+	};
+};
+
+const isServerFailure = (status: number): boolean =>
+	status >= 500 && status !== 501;
 
 export const clearSpacesSupportCache = (): void => {
 	cache.clear();
@@ -47,57 +90,40 @@ export const supportsSpaces = async (
 	const cached = cache.get(host);
 	if (cached !== undefined) return cached;
 
-	let res: Response;
+	const methods = await describedMethods(host);
+	if (methods !== undefined) {
+		const supported = methods.includes(PROBE_METHOD);
+		cache.set(host, supported);
+		return supported;
+	}
+
+	let real: ProbeAnswer;
+	let control: ProbeAnswer;
 	try {
-		res = await fetch(probeUrl(host), {
-			method: "GET",
-			signal: AbortSignal.timeout(PROBE_TIMEOUT_MS),
-		});
+		[real, control] = await Promise.all([
+			probe(xrpcUrl(host, PROBE_METHOD, probeQuery)),
+			probe(xrpcUrl(host, CONTROL_METHOD, probeQuery)),
+		]);
 	} catch {
 		log.warn("could not reach the pds to check for spaces support", { host });
 		return undefined;
 	}
 
-	if (res.status === 404 || res.status === 501) {
-		cache.set(host, false);
-		return false;
-	}
-
-	if (res.status >= 500) {
+	if (isServerFailure(real.status) || isServerFailure(control.status)) {
 		log.warn("the pds errored while being checked for spaces support", {
 			host,
-			status: res.status,
+			status: real.status,
+			controlStatus: control.status,
 		});
 		return undefined;
 	}
 
-	const error = await readErrorName(res);
+	const supported =
+		real.error === "InvalidSpaceRef" ||
+		real.message?.includes(`${PROBE_METHOD} params`) === true ||
+		real.status !== control.status ||
+		real.error !== control.error;
 
-	if (error === undefined) {
-		if (res.ok) {
-			cache.set(host, true);
-			return true;
-		}
-		log.warn("the pds answered the spaces probe with no error name", {
-			host,
-			status: res.status,
-		});
-		return undefined;
-	}
-
-	if (SUPPORTED_ERRORS.has(error)) {
-		cache.set(host, true);
-		return true;
-	}
-
-	if (UNSUPPORTED_ERRORS.has(error)) {
-		cache.set(host, false);
-		return false;
-	}
-
-	log.warn("the pds answered the spaces probe with an unfamiliar error", {
-		host,
-		error,
-	});
-	return undefined;
+	cache.set(host, supported);
+	return supported;
 };

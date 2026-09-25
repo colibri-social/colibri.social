@@ -87,8 +87,13 @@ const PDS_WITHOUT_SPACES: ErrorCopy = {
 		"Colibri needs a PDS that supports permissioned spaces. Please create a new account on a spaces-compatible PDS. Read more at https://atproto.com/blog/atproto-spaces-alpha.",
 };
 
-const showPrompt = (copy: ErrorCopy): void => {
-	toast.error(copy.title, { description: copy.description });
+const showPrompt = (copy: ErrorCopy, override?: () => void): void => {
+	toast.error(copy.title, {
+		description: copy.description,
+		action: override
+			? { label: "Let me in anyway", onClick: override }
+			: undefined,
+	});
 };
 
 const showFailure = (err: unknown): void => {
@@ -286,18 +291,25 @@ export const createSignInFlow = (config: { mode?: SignInMode } = {}) => {
 		try {
 			const host = await resolvePdsForDid(account.did);
 
+			const proceed = () => {
+				setTarget(
+					host
+						? { host, icon: providerLogoForHost(host) ?? pdsFaviconUrl(host) }
+						: null,
+				);
+				goToStep("handoff");
+			};
+
 			if (host !== undefined && (await supportsSpaces(host)) === false) {
 				log.warn("the account's pds has no spaces support", { host });
-				showPrompt(PDS_WITHOUT_SPACES);
+				showPrompt(PDS_WITHOUT_SPACES, () => {
+					log.info("spaces support check overridden", { host });
+					proceed();
+				});
 				return;
 			}
 
-			setTarget(
-				host
-					? { host, icon: providerLogoForHost(host) ?? pdsFaviconUrl(host) }
-					: null,
-			);
-			goToStep("handoff");
+			proceed();
 		} finally {
 			setBusy(false);
 		}
@@ -309,17 +321,24 @@ export const createSignInFlow = (config: { mode?: SignInMode } = {}) => {
 		setBusy(true);
 
 		try {
+			const proceed = () => {
+				setProvider(picked);
+				setTarget({ host: picked.host, icon: picked.logo });
+				goToStep("handoff");
+			};
+
 			if ((await supportsSpaces(picked.host)) === false) {
 				log.warn("the chosen provider has no spaces support", {
 					host: picked.host,
 				});
-				showPrompt(PDS_WITHOUT_SPACES);
+				showPrompt(PDS_WITHOUT_SPACES, () => {
+					log.info("spaces support check overridden", { host: picked.host });
+					proceed();
+				});
 				return;
 			}
 
-			setProvider(picked);
-			setTarget({ host: picked.host, icon: picked.logo });
-			goToStep("handoff");
+			proceed();
 		} finally {
 			setBusy(false);
 		}
