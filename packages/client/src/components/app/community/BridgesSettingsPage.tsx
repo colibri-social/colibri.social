@@ -671,7 +671,7 @@ export const BridgesSettingsPage: Component = () => {
 		<SettingsPage
 			loading={loading}
 			title="Bridges"
-			description="Relay channels to a server or workspace on another chat service. Start pairing from the other service, then enter the code it gives you."
+			description="Relay channels to a server or workspace on another chat service. Start pairing from the other service, then enter the code it gives you. Read more in the docs: https://spaces.colibri.social/docs/bridges/pairing/"
 		>
 			<PairingForm onConnected={() => void refetch()} />
 			<Switch>
