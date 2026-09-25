@@ -94,11 +94,11 @@ const MemberRow = (props: { member: Member }) => {
 							}
 						>
 							<span class="text-sm w-full leading-5 flex flex-row items-center gap-2">
-								<Show when={activities()}>
+								<Show when={activities()[0]}>
 									{(current) => (
 										<>
 											<span class="text-purple-400 shrink-0 flex items-center">
-												<ActivityIcon kind={current()[0]!.kind} />
+												<ActivityIcon kind={current().kind} />
 											</span>
 											<Show when={props.member.data.status}>
 												<span class="text-muted-foreground shrink-0">·</span>
