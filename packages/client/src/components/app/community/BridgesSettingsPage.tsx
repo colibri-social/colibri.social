@@ -1,10 +1,12 @@
 import {
 	type Component,
+	createEffect,
 	createMemo,
 	createResource,
 	createSignal,
 	For,
 	Match,
+	onCleanup,
 	Show,
 	Switch,
 } from "solid-js";
@@ -12,6 +14,7 @@ import PlugsConnectedIcon from "~icons/ph/plugs-connected";
 import TrashIcon from "~icons/ph/trash";
 import { colibri } from "../../../atproto/lexicons";
 import type {
+	BridgeBackfillStatus,
 	BridgeLink,
 	BridgePairingView,
 	BridgeRegistrationView,
@@ -21,7 +24,13 @@ import { clientForManagingApp } from "../../../atproto/xrpc";
 import { useCommunityContext } from "../../../contexts/Community";
 import { useUserContext } from "../../../contexts/User";
 import { showError } from "../../../errors/show-error";
-import { platformName } from "../../../utils/bridge";
+import {
+	HISTORY_DEPTHS,
+	type HistoryDepth,
+	historyPercent,
+	historyRequest,
+	platformName,
+} from "../../../utils/bridge";
 import { ErrorState } from "../../ErrorState";
 import { Spinner } from "../../icons/Spinner";
 import { Button } from "../../ui/Button";
@@ -57,6 +66,61 @@ const TEXT_CHANNEL = "social.colibri.beta.channel.text";
 type RoomOption = { id: string; label: string };
 
 const UNLINKED: RoomOption = { id: "", label: "Not linked" };
+
+type DepthOption = { id: HistoryDepth; label: string };
+
+const NO_IMPORT = HISTORY_DEPTHS[0] as DepthOption;
+
+const PROGRESS_POLL_MS = 5000;
+
+const numberFormat = new Intl.NumberFormat();
+
+const dateFormat = new Intl.DateTimeFormat(undefined, { dateStyle: "medium" });
+
+const HistoryStatus: Component<{ status: BridgeBackfillStatus }> = (props) => {
+	const count = () => numberFormat.format(props.status.imported);
+	return (
+		<Switch>
+			<Match when={props.status.state === "running"}>
+				<div class="flex flex-col gap-1">
+					<div
+						class="h-1.5 w-full overflow-hidden rounded-full bg-muted"
+						role="progressbar"
+						aria-label="History import"
+						aria-valuemin={0}
+						aria-valuemax={100}
+						aria-valuenow={historyPercent(props.status)}
+					>
+						<div
+							class="h-full rounded-full bg-primary transition-[width]"
+							style={{ width: `${historyPercent(props.status)}%` }}
+						/>
+					</div>
+					<span class="text-xs text-muted-foreground">
+						Importing history: {historyPercent(props.status)}%, {count()}{" "}
+						messages
+						<Show when={props.status.reached}>
+							{(reached) => (
+								<>, up to {dateFormat.format(new Date(reached()))}</>
+							)}
+						</Show>
+					</span>
+				</div>
+			</Match>
+			<Match when={props.status.state === "done"}>
+				<span class="text-xs text-muted-foreground">
+					Imported {count()} earlier messages.
+				</span>
+			</Match>
+			<Match when={props.status.state === "failed"}>
+				<span class="text-xs text-destructive">
+					The history import stopped after {count()} messages. Choose a range
+					again to retry.
+				</span>
+			</Match>
+		</Switch>
+	);
+};
 
 const useManagingClient = () => {
 	const user = useUserContext();
@@ -258,6 +322,45 @@ const RegistrationCard: Component<{
 	const [links, setLinks] = createSignal<readonly BridgeLink[]>(
 		props.registration.links,
 	);
+	const [depths, setDepths] = createSignal<Record<string, HistoryDepth>>({});
+	const [backfills, setBackfills] = createSignal<
+		readonly BridgeBackfillStatus[]
+	>(props.registration.backfills ?? []);
+
+	const historyOf = (channel: string) => {
+		const request = props.registration.links.find(
+			(link) => link.channel === channel,
+		)?.backfill;
+		if (!request) return undefined;
+		return backfills().find(
+			(status) =>
+				status.channel === channel &&
+				status.requestedAt === request.requestedAt,
+		);
+	};
+
+	const importing = () =>
+		props.registration.enabled &&
+		props.registration.links.some((link) => {
+			if (!link.backfill) return false;
+			const status = historyOf(link.channel);
+			return !status || status.state === "running";
+		});
+
+	createEffect(() => {
+		if (!importing()) return;
+		const timer = setInterval(async () => {
+			const res = await client().call(colibri.bridge.listRegistrations.main, {
+				params: { community: props.registration.community },
+			});
+			if (!res.ok) return;
+			const latest = res.data.registrations.find(
+				(entry) => entry.id === props.registration.id,
+			);
+			if (latest) setBackfills(latest.backfills ?? []);
+		}, PROGRESS_POLL_MS);
+		onCleanup(() => clearInterval(timer));
+	});
 
 	const [rooms] = createResource(
 		() => props.registration.id,
@@ -312,19 +415,44 @@ const RegistrationCard: Component<{
 		);
 	};
 
+	const depthOf = (channel: string): DepthOption =>
+		HISTORY_DEPTHS.find((option) => option.id === depths()[channel]) ??
+		NO_IMPORT;
+
+	const setDepth = (channel: string, option: DepthOption | null) =>
+		setDepths({ ...depths(), [channel]: option?.id ?? "none" });
+
+	const requested = (): readonly BridgeLink[] => {
+		const now = new Date();
+		return links().map((link) => {
+			const depth = depths()[link.channel];
+			return depth && depth !== "none"
+				? {
+						...link,
+						backfill: historyRequest(depth, now) as BridgeLink["backfill"],
+					}
+				: link;
+		});
+	};
+
+	const importsChosen = () =>
+		links().some((link) => (depths()[link.channel] ?? "none") !== "none");
+
 	const edited = () =>
+		importsChosen() ||
 		JSON.stringify(
 			[...links()].sort((a, b) => a.channel.localeCompare(b.channel)),
 		) !==
-		JSON.stringify(
-			[...props.registration.links].sort((a, b) =>
-				a.channel.localeCompare(b.channel),
-			),
-		);
+			JSON.stringify(
+				[...props.registration.links].sort((a, b) =>
+					a.channel.localeCompare(b.channel),
+				),
+			);
 
 	const update = async (changes: {
 		links?: readonly BridgeLink[];
 		enabled?: boolean;
+		mirrorModeration?: boolean;
 	}) => {
 		setBusy(true);
 		try {
@@ -336,6 +464,9 @@ const RegistrationCard: Component<{
 					...(changes.enabled === undefined
 						? {}
 						: { enabled: changes.enabled }),
+					...(changes.mirrorModeration === undefined
+						? {}
+						: { mirrorModeration: changes.mirrorModeration }),
 				},
 			});
 			if (!res.ok) {
@@ -385,6 +516,27 @@ const RegistrationCard: Component<{
 				</SwitchControl>
 			</SwitchComp>
 
+			<SwitchComp
+				checked={props.registration.mirrorModeration ?? false}
+				disabled={busy()}
+				onChange={(mirrorModeration) => void update({ mirrorModeration })}
+				class="flex justify-between items-center gap-x-2"
+			>
+				<div>
+					<SwitchLabel>Mirror moderation</SwitchLabel>
+					<SwitchDescription>
+						Hiding a relayed message here also removes it on{" "}
+						{platformName(props.registration.platform)}, and messages its
+						moderators remove are hidden here. The bridge needs permission to
+						manage messages there.
+					</SwitchDescription>
+				</div>
+				<SwitchInput />
+				<SwitchControl>
+					<SwitchThumb />
+				</SwitchControl>
+			</SwitchComp>
+
 			<div class="flex flex-col gap-2">
 				<span class="text-sm font-medium">Linked channels</span>
 				<Switch>
@@ -404,32 +556,73 @@ const RegistrationCard: Component<{
 					<Match when={rooms()}>
 						<For each={textChannels()}>
 							{(channel) => (
-								<div class="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-4">
-									<span class="text-sm sm:w-48 truncate">#{channel.name}</span>
-									<Select<RoomOption>
-										class="flex-1"
-										options={roomOptions()}
-										optionValue="id"
-										optionTextValue="label"
-										value={linkedRoom(channel.space)}
-										onChange={(option) => setRoom(channel.space, option)}
-										disallowEmptySelection={true}
-										itemComponent={(itemProps) => (
-											<SelectItem item={itemProps.item}>
-												{itemProps.item.rawValue.label}
-											</SelectItem>
-										)}
-									>
-										<SelectTrigger
-											class="w-full"
-											aria-label={`Room linked to ${channel.name}`}
+								<div class="flex flex-col gap-1">
+									<div class="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-4">
+										<span class="text-sm sm:w-48 truncate">
+											#{channel.name}
+										</span>
+										<Select<RoomOption>
+											class="flex-1"
+											options={roomOptions()}
+											optionValue="id"
+											optionTextValue="label"
+											value={linkedRoom(channel.space)}
+											onChange={(option) => setRoom(channel.space, option)}
+											disallowEmptySelection={true}
+											itemComponent={(itemProps) => (
+												<SelectItem item={itemProps.item}>
+													{itemProps.item.rawValue.label}
+												</SelectItem>
+											)}
 										>
-											<SelectValue<RoomOption>>
-												{(state) => state.selectedOption()?.label}
-											</SelectValue>
-										</SelectTrigger>
-										<SelectContent class="[&>ul]:m-0 [&>ul]:py-0 [&>ul]:px-2" />
-									</Select>
+											<SelectTrigger
+												class="w-full"
+												aria-label={`Room linked to ${channel.name}`}
+											>
+												<SelectValue<RoomOption>>
+													{(state) => state.selectedOption()?.label}
+												</SelectValue>
+											</SelectTrigger>
+											<SelectContent class="[&>ul]:m-0 [&>ul]:py-0 [&>ul]:px-2" />
+										</Select>
+										<Show
+											when={links().some(
+												(link) => link.channel === channel.space,
+											)}
+										>
+											<Select<DepthOption>
+												class="sm:w-40"
+												options={[...HISTORY_DEPTHS]}
+												optionValue="id"
+												optionTextValue="label"
+												value={depthOf(channel.space)}
+												onChange={(option) => setDepth(channel.space, option)}
+												disallowEmptySelection={true}
+												itemComponent={(itemProps) => (
+													<SelectItem item={itemProps.item}>
+														{itemProps.item.rawValue.label}
+													</SelectItem>
+												)}
+											>
+												<SelectTrigger
+													class="w-full"
+													aria-label={`Import earlier messages into ${channel.name}`}
+												>
+													<SelectValue<DepthOption>>
+														{(state) => state.selectedOption()?.label}
+													</SelectValue>
+												</SelectTrigger>
+												<SelectContent class="[&>ul]:m-0 [&>ul]:py-0 [&>ul]:px-2" />
+											</Select>
+										</Show>
+									</div>
+									<Show when={historyOf(channel.space)}>
+										{(status) => (
+											<div class="sm:pl-52">
+												<HistoryStatus status={status()} />
+											</div>
+										)}
+									</Show>
 								</div>
 							)}
 						</For>
@@ -437,13 +630,16 @@ const RegistrationCard: Component<{
 							<Button
 								variant="secondary"
 								disabled={!edited() || busy()}
-								onClick={() => setLinks(props.registration.links)}
+								onClick={() => {
+									setLinks(props.registration.links);
+									setDepths({});
+								}}
 							>
 								Reset
 							</Button>
 							<Button
 								disabled={!edited() || busy()}
-								onClick={() => void update({ links: links() })}
+								onClick={() => void update({ links: requested() })}
 							>
 								Save links
 							</Button>

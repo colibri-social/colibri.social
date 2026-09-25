@@ -58,6 +58,11 @@
 							"description": "A member permitted to read."
 						},
 						"description": "Members that may read this thread in addition to visibleToRoles."
+					},
+					"bridged": {
+						"type": "ref",
+						"ref": "social.colibri.beta.bridge.defs#attribution",
+						"description": "Who opened this thread on another service. Honoured only when the community itself wrote the record."
 					}
 				}
 			}

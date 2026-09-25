@@ -458,6 +458,7 @@ export const decideLanding = (input: {
 	cursorTrusted: boolean;
 	cursorIdx: number;
 	hasCursor: boolean;
+	cursorCaughtUp: boolean;
 }): LandingDecision => {
 	if (input.initialLoading) {
 		return { kind: "wait", waitingFor: "initialLoading" };
@@ -478,11 +479,30 @@ export const decideLanding = (input: {
 	const atNewestRow =
 		input.cursorTrusted &&
 		input.hasCursor &&
-		input.cursorIdx === input.rowCount - 1;
+		(input.cursorIdx === input.rowCount - 1 || input.cursorCaughtUp);
 
 	return {
 		kind: "land",
 		onCursor: false,
 		markRead: nothingUnread || atNewestRow,
 	};
+};
+
+export type CursorPosition = "above" | "within" | "caughtUp";
+
+export const cursorPosition = (
+	cursor: string,
+	rkeys: readonly string[],
+): CursorPosition | undefined => {
+	const [first] = rkeys;
+	if (first === undefined) return undefined;
+	let oldest = first;
+	let newest = first;
+	for (const rkey of rkeys) {
+		if (rkey < oldest) oldest = rkey;
+		if (rkey > newest) newest = rkey;
+	}
+	if (cursor >= newest) return "caughtUp";
+	if (cursor < oldest) return "above";
+	return "within";
 };

@@ -22,6 +22,11 @@
 						"type": "ref",
 						"ref": "social.colibri.beta.defs#recordRef",
 						"description": "The message being reacted to."
+					},
+					"bridged": {
+						"type": "ref",
+						"ref": "social.colibri.beta.bridge.defs#attribution",
+						"description": "Who reacted on another service. Honoured only when the community itself wrote the record."
 					}
 				}
 			}

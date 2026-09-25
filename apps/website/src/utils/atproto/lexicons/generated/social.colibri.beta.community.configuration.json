@@ -10,7 +10,8 @@
 			"collections": [
 				"social.colibri.beta.category",
 				"social.colibri.beta.community.settings",
-				"social.colibri.beta.label"
+				"social.colibri.beta.label",
+				"social.colibri.beta.bridge.registration"
 			]
 		}
 	}

@@ -1,0 +1,289 @@
+---
+title: Building a Bridge
+description: Write a connector for another chat service with @colibri-social/bridge-core and run it as a bridge.
+sidebar:
+  label: Building a bridge
+  order: 3
+---
+
+import { Steps } from "@astrojs/starlight/components";
+
+`@colibri-social/bridge-core` does the Colibri half of a bridge. It signs requests, follows the channels admins link, maps messages between the two services, retries failed writes, and skips its own echoes. You write a **connector**, which does the other service's half.
+
+The Colibri bridge for Discord is built this way. Its connector lives in [`packages/bridge-discord`](https://github.com/colibri-social/api/tree/main/packages/bridge-discord) and makes a good reference for a full implementation.
+
+## Requirements
+
+- Node.js 22.13 or later. The mapping store uses the built-in `node:sqlite` module.
+- A [DID](https://atproto.com/specs/did) for the bridge, with a secp256k1 signing key in its DID document.
+- A place to run a long-lived process. The bridge keeps a WebSocket open to the AppView.
+
+## Install the package
+
+```sh
+npm install @colibri-social/bridge-core
+```
+
+## Create an identity
+
+The bridge signs every request to the AppView with [service auth](https://atproto.com/specs/xrpc#inter-service-authentication-jwt), using its own DID as the issuer. Both `did:web` and `did:plc` work.
+
+<Steps>
+
+1. Generate a signing key:
+
+   ```ts
+   import { generateSigningKey } from "@colibri-social/bridge-core";
+
+   const { privateKeyHex, publicDidKey } = await generateSigningKey();
+   ```
+
+   Store `privateKeyHex` as a secret. Anyone who has it can act as your bridge.
+
+2. Publish a DID document with the public key. For a `did:web`, serve the output of `bridgeDidDocument()` at `/.well-known/did.json` on the bridge's domain:
+
+   ```ts
+   import { bridgeDidDocument } from "@colibri-social/bridge-core";
+
+   const document = bridgeDidDocument("did:web:bridge.example.com", publicDidKey);
+   ```
+
+   For a `did:plc`, add `publicDidKey` as the `atproto` verification method.
+
+</Steps>
+
+## Write a connector
+
+A connector implements `NetworkConnector`. The bridge calls `start()` once with a `BridgeContext`, which the connector keeps for the rest of its life.
+
+```ts
+interface NetworkConnector {
+	readonly platform: string;
+	start(context: BridgeContext): Promise<void>;
+	stop(): Promise<void>;
+	listRooms(remoteSpace: string): Promise<RemoteRoomInfo[]>;
+	sendMessage(message: OutboundMessage): Promise<string>;
+}
+```
+
+`platform` is a short, lowercase name for the service (e.g. `discord`, `slack`, `irc`). It's stored on every record the bridge writes.
+
+`listRooms()` returns the rooms in a remote space that admins can link. A **remote space** is whatever groups rooms on the other service, such as a Discord server or a Slack workspace. Both are identified by strings that only your connector interprets.
+
+`sendMessage()` posts a Colibri message on the other service and returns its id there. The bridge stores that id and passes it back for later edits, deletions and replies.
+
+### Receiving messages
+
+When something happens on the other service, pass it to `context.emit()`:
+
+```ts
+context.emit({
+	type: "message",
+	remoteSpace: "workspace-1",
+	remoteRoom: "general",
+	id: "msg-42",
+	author: { id: "user-7", name: "Nelly", avatarUrl: "https://example.com/nelly.png" },
+	markdown: "Hello **Colibri**",
+});
+```
+
+The other event types are `messageEdit`, `messageDelete`, `reactionAdd`, `reactionRemove`, `threadCreate`, `threadUpdate` and `threadDelete`. Emit `roomsChanged` when rooms are created, renamed or deleted, so the room list admins see stays current.
+
+Text crosses the bridge as Markdown. The bridge converts it to and from Colibri [facets](/docs/specification/facets). Convert the other service's own formatting to Markdown before emitting, and back again in `sendMessage()`.
+
+Emit every event, including ones in rooms nobody linked. The bridge drops events for unlinked rooms and events it has already relayed. Your connector must drop its own posts, though. Filter out anything the connector itself sent before calling `emit()`.
+
+### Threads
+
+Events in a thread carry the thread's id as `remoteThread`, and `remoteRoom` stays the room the thread belongs to. A `message` event can also carry `thread`, with the thread's `id`, its `name`, and the id of the message it was opened from as `anchor`:
+
+```ts
+context.emit({
+	type: "message",
+	remoteSpace: "workspace-1",
+	remoteRoom: "general",
+	remoteThread: "thread-9",
+	thread: { id: "thread-9", name: "Launch plans", anchor: "msg-42" },
+	id: "msg-43",
+	author: { id: "user-7", name: "Nelly" },
+	markdown: "First!",
+});
+```
+
+The bridge opens the thread in Colibri the first time it sees it, so threads that existed before a room was linked are picked up too. A message event with a `remoteThread` and no `thread` is dropped until the thread is known.
+
+Everything the bridge sends your connector for a thread carries the same `remoteThread`.
+
+### References
+
+Mentions of people and rooms cross the bridge as Markdown links with a `bridge:` scheme:
+
+```md
+[@Nelly](bridge:user/user-7) posted in [#general](bridge:room/general)
+```
+
+The bridge turns a `bridge:user` link into a mention of that person, and a `bridge:room` link into a mention of the Colibri channel linked to that room. A reference it can't resolve keeps its text and loses the link. Mentions of people on your service and of linked channels reach your connector in the same form. Convert both to and from your service's own mention syntax.
+
+### Forwards
+
+A `message` event can carry `forward`, with the forwarded message's `markdown`, `attachments` and `createdAt`, and its id as `remoteMessage`. When the bridge relayed that message earlier, it posts a Colibri forward. Otherwise it quotes the forwarded text below the message.
+
+An `OutboundMessage` for a Colibri forward carries `forward` too, with the copied `markdown` and `attachments`, plus `source` when the original was relayed.
+
+### History
+
+Implement `HistoryConnector` to let admins import a room's earlier messages. The bridge starts an import when a link carries a `backfill` request it hasn't finished, and calls three methods:
+
+- `roomCreatedAt(room)` returns when the room was created, as the start of an import with no `since`.
+- `listThreads({ remoteSpace, remoteRoom, since, until })` returns the room's public threads opened in that range, archived ones included. Each has an `id`, `name`, `anchor`, `author` and `createdAt`.
+- `fetchHistory({ remoteSpace, remoteRoom, remoteThread, since, until, after })` returns the next messages, oldest first. `after` is the id of the last message the bridge handled. Return an empty array when there are no more.
+
+```ts
+async fetchHistory(request: HistoryRequest): Promise<HistoryMessage[]> {
+	const messages = await this.api.messages(request.remoteThread ?? request.remoteRoom, {
+		after: request.after,
+		since: request.since,
+		limit: 100,
+	});
+	return messages.map((message) => ({
+		remoteSpace: request.remoteSpace,
+		remoteRoom: request.remoteRoom,
+		id: message.id,
+		author: { id: message.userId, name: message.userName },
+		markdown: message.text,
+		createdAt: message.sentAt,
+	}));
+}
+```
+
+A `HistoryMessage` has the same fields as a `message` event, with `createdAt` required. Leave out messages your connector wrote itself.
+
+The bridge imports each thread when its walk through the room reaches the thread's `createdAt`, then carries on with the room. It saves its place in the store after every batch, and resumes from there after a restart. Progress goes back to the AppView as it runs, so admins can follow it.
+
+### Optional capabilities
+
+Implement these methods to relay more than new messages. The bridge detects each one and skips that kind of event when it's missing.
+
+| Interface | Methods | Relays |
+| --- | --- | --- |
+| `EditingConnector` | `editMessage()` | Edits |
+| `DeletingConnector` | `deleteMessage()` | Deletions |
+| `ReactingConnector` | `addReaction()`, `removeReaction()` | Reactions |
+| `ThreadingConnector` | `createThread()`, `renameThread()`, `archiveThread()` | Threads opened, renamed and deleted in Colibri |
+| `ModeratingConnector` | `removeMessage()` | Hidden messages from your service, when an admin turns on moderation mirroring |
+| `HistoryConnector` | `fetchHistory()`, `listThreads()`, `roomCreatedAt()` | Earlier messages, when an admin imports history |
+
+### Pairing
+
+Pairing starts on the other service. Give admins there a way to ask for a code, such as a command, and call `context.pair()`:
+
+```ts
+const { code, expiresAt } = await context.pair({
+	remoteSpace: "workspace-1",
+	remoteSpaceName: "Nelly's Workspace",
+});
+```
+
+Show the code only to the admin who asked for it. Check that they're an admin on the other service first. Anyone who can get a code can offer to relay that remote space to a community.
+
+`context.linkedRooms(remoteSpace)` lists the Colibri channels currently linked to a remote space, for a status command.
+
+## Run the bridge
+
+Create a `Bridge` with a client, your connector, and a store, then start it:
+
+```ts title="src/index.ts"
+import {
+	Bridge,
+	ColibriClient,
+	createServiceAuthSigner,
+	resolveAppviewDid,
+	SqliteBridgeStore,
+} from "@colibri-social/bridge-core";
+import { ConsoleConnector } from "./connector.js";
+
+const appviewUrl = "https://spaces-api.colibri.social";
+
+const bridge = new Bridge({
+	client: new ColibriClient({
+		appviewUrl,
+		appviewDid: await resolveAppviewDid(appviewUrl),
+		signer: await createServiceAuthSigner(process.env.BRIDGE_DID!, process.env.BRIDGE_SIGNING_KEY!),
+	}),
+	connector: new ConsoleConnector(),
+	store: new SqliteBridgeStore("./bridge.sqlite"),
+});
+
+await bridge.start();
+process.once("SIGTERM", () => bridge.stop());
+```
+
+The store maps message ids between the two services and remembers uploaded avatars. Keep its file on persistent storage. A bridge that loses it can no longer edit or delete the messages it relayed before.
+
+Pass a `log` option to receive structured log lines. The bridge is silent without one.
+
+## Example: a console connector
+
+The connector below relays a single linked room to the terminal. Every line typed becomes a message from `console`, and every Colibri message is printed. It's enough to pair a community and watch messages flow in both directions.
+
+```ts title="src/connector.ts"
+import { createInterface } from "node:readline";
+import type {
+	BridgeContext,
+	NetworkConnector,
+	OutboundMessage,
+	RemoteRoomInfo,
+} from "@colibri-social/bridge-core";
+
+const SPACE = "console";
+const ROOM = "terminal";
+
+export class ConsoleConnector implements NetworkConnector {
+	readonly platform = "console";
+	private input = createInterface({ input: process.stdin });
+	private sent = 0;
+
+	async start(context: BridgeContext): Promise<void> {
+		this.input.on("line", async (line) => {
+			if (line === "/pair") {
+				const { code } = await context.pair({ remoteSpace: SPACE, remoteSpaceName: "Terminal" });
+				console.log(`Pairing code: ${code}`);
+				return;
+			}
+			context.emit({
+				type: "message",
+				remoteSpace: SPACE,
+				remoteRoom: ROOM,
+				id: `line-${Date.now()}`,
+				author: { id: "console", name: "Console" },
+				markdown: line,
+			});
+		});
+	}
+
+	async stop(): Promise<void> {
+		this.input.close();
+	}
+
+	async listRooms(): Promise<RemoteRoomInfo[]> {
+		return [{ id: ROOM, name: "terminal", kind: "text" }];
+	}
+
+	async sendMessage(message: OutboundMessage): Promise<string> {
+		console.log(`${message.author.name}: ${message.markdown}`);
+		this.sent += 1;
+		return `sent-${this.sent}`;
+	}
+}
+```
+
+Type `/pair`, redeem the code in your community's settings, and link a channel to `terminal`. [Pairing a Bridge](/docs/bridges/pairing) covers the Colibri side.
+
+## Limits
+
+- The AppView accepts about 5 writes per second from each registration, with bursts up to 30. `bridge-core` waits and retries when it's rate limited.
+- History imports have their own limit of 20 messages per second, with bursts up to 100.
+- Attachments and avatars are uploaded to the community's repo. Each file can be up to 20 MB, and avatars up to 1 MB.
+- Message text is capped at 2048 characters. `bridge-core` truncates longer text.
+
+The [Bridge Reference](/docs/bridges/reference) lists every method and error.

@@ -1,0 +1,87 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.bridge.deleteThread",
+	"defs": {
+		"main": {
+			"type": "procedure",
+			"description": "Deletes a thread the calling bridge opened, along with its space.",
+			"input": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"community",
+						"registration",
+						"thread"
+					],
+					"properties": {
+						"community": {
+							"type": "string",
+							"format": "did",
+							"description": "The community the registration belongs to."
+						},
+						"registration": {
+							"type": "string",
+							"format": "tid",
+							"description": "Record key of the registration."
+						},
+						"thread": {
+							"type": "string",
+							"format": "space-ref",
+							"description": "The thread's space."
+						}
+					}
+				}
+			},
+			"output": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"properties": {}
+				}
+			},
+			"errors": [
+				{
+					"name": "AuthRequired",
+					"description": "The request is missing, malformed, or unverifiable service auth."
+				},
+				{
+					"name": "CommunityNotFound",
+					"description": "No community exists at the given DID."
+				},
+				{
+					"name": "RegistrationNotFound",
+					"description": "The community has no bridge registration with that id."
+				},
+				{
+					"name": "Forbidden",
+					"description": "The caller is not the bridge this registration belongs to."
+				},
+				{
+					"name": "RegistrationDisabled",
+					"description": "An admin has paused this registration."
+				},
+				{
+					"name": "ChannelNotLinked",
+					"description": "The channel is not linked to this registration."
+				},
+				{
+					"name": "RateLimited",
+					"description": "The bridge sent too many requests. Retry after the interval in the response headers."
+				},
+				{
+					"name": "CredentialsUnavailable",
+					"description": "The AppView cannot act as the community because its stored credentials are missing or unusable."
+				},
+				{
+					"name": "ThreadNotFound",
+					"description": "No thread exists in that space."
+				},
+				{
+					"name": "NotBridged",
+					"description": "The thread was not opened for this registration."
+				}
+			]
+		}
+	}
+}

@@ -22,6 +22,8 @@ export const buildFeatureKey = (feature: Feature): string => {
 	switch (feature.$type) {
 		case "social.colibri.beta.richtext.facet#mention":
 			return `${feature.$type}:${"did" in feature ? feature.did : ""}`;
+		case "social.colibri.beta.richtext.facet#bridgedMention":
+			return `${feature.$type}:${"registration" in feature ? feature.registration : ""}:${"remoteId" in feature ? feature.remoteId : ""}`;
 		case "social.colibri.beta.richtext.facet#channel":
 			return `${feature.$type}:${"channel" in feature ? feature.channel : ""}`;
 		case "social.colibri.beta.richtext.facet#role":

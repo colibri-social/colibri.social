@@ -15,6 +15,7 @@ import { toast } from "somoto";
 import type { PendingMessage } from "../atproto/cache/schema";
 import {
 	embedSuppression,
+	HIDDEN,
 	isEmbedSuppressed,
 	isHidden,
 } from "../atproto/labels";
@@ -112,6 +113,7 @@ export type MessageContextValue = {
 	handlePotentialBlock: (e: MouseEvent) => void;
 	confirmDelete: () => Promise<void>;
 	confirmBlock: () => Promise<void>;
+	unhideMessage: () => Promise<void>;
 	canReply: Accessor<boolean>;
 	enableReplyMode: () => void;
 	enableEditMode: () => void;
@@ -492,6 +494,20 @@ export const MessageContextProvider: ParentComponent<{ data: MessageData }> = (
 		return res.ok;
 	};
 
+	const unhideMessage = async () => {
+		const target = confirmed();
+		if (!target) return;
+		const ok = await negateModLabel(target, HIDDEN);
+		if (ok) {
+			setRevealed(false);
+			channel.patchMessage(target.uri, {
+				labels: target.labels.filter((label) => label.val !== HIDDEN),
+			});
+		} else {
+			toast.error("Failed to unhide message.");
+		}
+	};
+
 	const saveModSuppression = async (next: Array<string>) => {
 		const target = confirmed();
 		if (!target) return;
@@ -742,6 +758,7 @@ export const MessageContextProvider: ParentComponent<{ data: MessageData }> = (
 		handlePotentialBlock,
 		confirmDelete,
 		confirmBlock,
+		unhideMessage,
 		canReply,
 		enableReplyMode,
 		enableEditMode,

@@ -6,7 +6,7 @@ description: "How Colibri processes personal data, what leaves your device, and 
 
 **Effective date:** 11 July 2026
 
-**Last updated:** 11 July 2026
+**Last updated:** 25 September 2026
 
 This Privacy Policy explains how personal data is processed when you use the hosted Colibri service at
 [colibri.social](https://colibri.social), including the web app, the AppView, the Colibri-operated Personal Data
@@ -155,6 +155,37 @@ third party.
 When a link is shared, the AppView fetches the target page **on your behalf, from our server**, to generate a preview.
 This is done deliberately so that the linked website does **not** receive your IP address.
 
+### 3.13 Bridges to other chat services
+
+A community admin can pair a **bridge**, a separate process that relays messages between channels of a Colibri
+community and rooms on another chat service, such as a Discord server. Colibri operates a bridge for Discord (the
+"**Colibri Discord bridge**"). Anyone else can run a bridge for Discord or any other service, see Section 13. A bridge
+relays only the channels an admin links, and only while the admin keeps it connected.
+
+**From the other service into Colibri.** For every message, edit, deletion, reaction, and thread in a linked room, the
+bridge sends the AppView the author's **id, display name, and avatar on the other service**, the **message text**,
+**attachments**, replies, forwards, and mentions. The AppView writes this into the community's repository as **public
+AT Protocol records**, attributed to that person, and indexes it like any other message (Section 3.3). The person's
+avatar is uploaded as a blob to the community's repository. This applies to people who have never used Colibri. If an
+admin imports a room's **earlier history**, the same data is written for past messages in the chosen range, up to the
+room's full history.
+
+**From Colibri into the other service.** Messages, edits, deletions, reactions, and threads posted in a linked channel
+are sent to the other service under the Colibri author's **display name and avatar**. Once there, they are processed by
+the operator of that service under its own terms and privacy policy. Discord, for example, stores them as ordinary
+messages in the server.
+
+**Registration records.** When a bridge is paired, the community stores a public registration record that names the
+bridge, the service and server it connects to, the linked channels, and the **DID of the admin who paired it**. Every
+member of the community can read it.
+
+**What the Colibri Discord bridge stores itself.** The bridge keeps a small database that maps message, reaction, and
+thread ids on Discord to the matching Colibri records, the Discord ids of people who reacted to a relayed message, a
+reference to each author's uploaded avatar, and the progress of history imports. It does not store message text. The
+bridge receives events from every room it can see on Discord and discards those from unlinked rooms without storing
+them.
+
+## 4. Legal bases
 ## 4. Legal bases
 
 We rely on the following legal bases under Art. 6(1) GDPR:
@@ -168,6 +199,9 @@ We rely on the following legal bases under Art. 6(1) GDPR:
 - **Consent (Art. 6(1)(a))** where you actively enable an optional feature such as push notifications, or grant device
   permissions for your microphone, camera, or screen. You can withdraw consent at any time, without affecting prior
   processing.
+- **Legitimate interests (Art. 6(1)(f))** for relaying content through a bridge (Section 3.13), in the interest of the
+  community and its members on both services to hold one conversation across them. People on the other service can see
+  that a room is bridged from the bridge's presence there, and can object as described in Section 12.
 - **Legal obligation (Art. 6(1)(c))** where we must process data to comply with the law (e.g. responding to valid
   legal requests).
 
@@ -180,6 +214,9 @@ Because Colibri runs on the AT Protocol:
 - **Federation (Humming).** Colibri AppViews can relay a small amount of **ephemeral** information (online status,
   typing, and voice presence/mute state) to other Colibri AppViews so presence works across instances. No message
   content is relayed by this mechanism, each receiving instance derives identity from its own view of the public network.
+- **Bridges copy content across services.** In a bridged channel, messages from Colibri are copied to the other
+  service, and messages from the other service become public records on the AT Protocol network (Section 3.13). Each
+  copy is then subject to the rules of the service it lives on.
 - **Deletion is best-effort across the network.** When you delete a record or account, Colibri removes it from **our**
   index when we receive the corresponding deletion event from the network, and Colibri will delete data it holds as your
   PDS operator (for colibri.social accounts). We **cannot** guarantee deletion from PDSes we do not operate, from other
@@ -199,6 +236,8 @@ Depending on the features you use, personal data may be processed by:
 - **Your platform's push service** (Google/FCM, Apple, Mozilla, or Microsoft), encrypted push payloads and routing
   metadata, only if you enable push notifications.
 - **Sentry**: error and performance monitoring data (EU ingest region).
+- **The operator of a bridged service** (for example Discord), for messages, names, and avatars relayed from a
+  Colibri channel that a community admin linked to that service.
 - **Klipy**: GIF search terms (via our server) and, when GIFs render, your IP/user agent to Klipy's CDN.
 - **Hosting/infrastructure providers** used to run the AppView and website.
 
@@ -206,7 +245,7 @@ We do not sell personal data, and we do not use it for advertising or profiling.
 
 ## 8. International data transfers
 
-Some recipients (e.g. Sentry, Klipy, and the push services operated by Google, Apple, Microsoft, and Mozilla) are
+Some recipients (e.g. Sentry, Klipy, Discord, and the push services operated by Google, Apple, Microsoft, and Mozilla) are
 established outside the EU/EEA, primarily in the United States. Where personal data is transferred to such recipients,
 the transfer is safeguarded by appropriate measures under Chapter V GDPR, in particular **Standard Contractual Clauses**
 and/or the recipient's certification under the **EU–US Data Privacy Framework**, where available. You can request further
@@ -222,6 +261,13 @@ accounts, deleting your account removes the repository we hold as your PDS opera
 Deleting your Colibri data (Section 12) removes our AppView entries, notifications, read state, presence, push
 subscriptions, and invitations immediately, rather than waiting for the network to propagate the deletion. Images are served through a short-lived in-memory cache keyed by content address, not by account; entries there
 are not addressable per user and fall out on eviction or restart, and cannot be re-fetched once the originals are gone.
+
+Bridged records follow the same rules as other records in the community's repository. Deleting or editing a message on
+the other service deletes or edits its Colibri copy, and the same applies in reverse. When a bridge is disconnected, or
+removed on the other service, its registration is deleted and the Colibri Discord bridge deletes its own database
+entries for that registration. Messages it already relayed stay on both sides until they are deleted there. When
+someone on the other service changes their avatar, the bridge replaces the avatar on all of their bridged records, so
+the previous one is no longer referenced.
 
 Push subscriptions are kept until you disable notifications, the subscription expires, or your platform reports it as no
 longer valid, at which point it is removed. Ephemeral presence and voice state exist only while relevant and are not
@@ -258,6 +304,11 @@ read state, presence, push subscriptions, invitations). It does **not** delete t
 which only your PDS operator can remove, see Section 2. Bans and kicks recorded against you are retained under
 Art. 17(3)(e) GDPR, since deleting them with the account would make them evadable.
 
+**If you post on a bridged service** (for example in a Discord server connected to a Colibri community), deleting a
+message there also deletes its Colibri copy. To have your bridged messages, name, or avatar removed from a community, or
+to object to being relayed, ask the community's admins to unlink the room or disconnect the bridge, or contact
+**pds@colibri.social**.
+
 To exercise any other right, or if the self-service flow fails, contact **pds@colibri.social**. You also have the right to lodge a complaint with a data
 protection supervisory authority. In Germany, the competent authority is generally the authority of the federal state
 in which the controller is established or in which you reside.
@@ -268,7 +319,8 @@ The AT Protocol is an open network. Other PDSes, AppViews, relays, and clients, 
 as GIF and push services, are operated by parties other than Colibri and under their own terms and privacy policies.
 Colibri is not responsible for how those third parties process your data. Likewise, if you use a **self-hosted** Colibri
 AppView or PDS, or a colibri.social community whose designated AppView is operated by someone else, that operator is a
-separate controller responsible for their own instance.
+separate controller responsible for their own instance. The same applies to a **bridge operated by someone other than
+Colibri**: its operator is responsible for the data that bridge processes.
 
 ## 14. Changes to this policy
 

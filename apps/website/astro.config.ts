@@ -83,6 +83,10 @@ export default defineConfig({
 					items: [{ autogenerate: { directory: "docs/specification" } }],
 				},
 				{
+					label: "Bridges",
+					items: [{ autogenerate: { directory: "docs/bridges" } }],
+				},
+				{
 					label: "Development",
 					items: [{ autogenerate: { directory: "docs/development" } }],
 				},

@@ -55,6 +55,7 @@ import {
 } from "../../../../contexts/Community";
 import { useUserContext } from "../../../../contexts/User";
 import { useUserPreferences } from "../../../../contexts/UserPreferences";
+import { bridgedPeople } from "../../../../utils/bridge";
 import { codeContextAt } from "../../../../utils/code-context";
 import {
 	readComposerDraft,
@@ -849,6 +850,17 @@ export const TextEditor: Component<{
 					() => community().categories ?? [],
 					props.mainEditor,
 					{ usage: emojiUsage, onPick: recordEmojiUse },
+					(query, limit) =>
+						bridgedPeople(
+							channel
+								.messages()
+								.flatMap((message) =>
+									"author" in message ? [message.author] : [],
+								)
+								.reverse(),
+							query,
+							limit,
+						),
 				),
 			}).extend({
 				addAttributes() {
@@ -863,6 +875,8 @@ export const TextEditor: Component<{
 						type: { default: "member" },
 						datetime: { default: null },
 						style: { default: null },
+						registration: { default: null },
+						platform: { default: null },
 					};
 				},
 				renderText({ node }) {
@@ -872,7 +886,7 @@ export const TextEditor: Component<{
 						return `@${label ?? handle}`;
 					} else if (type === "channel") {
 						return `#${label}`;
-					} else if (type === "role") {
+					} else if (type === "role" || type === "bridged") {
 						return `@${label}`;
 					} else {
 						return label;
@@ -896,6 +910,9 @@ export const TextEditor: Component<{
 					if (type === "member") {
 						colorClass = "bg-primary/25";
 						contents = `@${label ?? handle}`;
+					} else if (type === "bridged") {
+						colorClass = "bg-primary/25";
+						contents = `@${label}`;
 					} else if (type === "channel") {
 						colorClass = "bg-blue-400/25";
 						contents = `#${label}`;

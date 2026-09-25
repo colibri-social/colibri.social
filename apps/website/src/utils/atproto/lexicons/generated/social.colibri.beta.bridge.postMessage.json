@@ -1,0 +1,139 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.bridge.postMessage",
+	"defs": {
+		"main": {
+			"type": "procedure",
+			"description": "Posts a message from someone on another service into a linked channel. The community writes the message, attributed to that person.",
+			"input": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"community",
+						"registration",
+						"channel",
+						"author",
+						"text"
+					],
+					"properties": {
+						"community": {
+							"type": "string",
+							"format": "did",
+							"description": "The community the registration belongs to."
+						},
+						"registration": {
+							"type": "string",
+							"format": "tid",
+							"description": "Record key of the registration."
+						},
+						"channel": {
+							"type": "string",
+							"format": "space-ref",
+							"description": "The linked channel or thread the record lives in."
+						},
+						"author": {
+							"type": "ref",
+							"ref": "social.colibri.beta.bridge.defs#remoteAuthor",
+							"description": "Who sent the message."
+						},
+						"text": {
+							"type": "string",
+							"maxLength": 2048,
+							"description": "The message body."
+						},
+						"facets": {
+							"type": "array",
+							"items": {
+								"type": "ref",
+								"ref": "social.colibri.beta.richtext.facet",
+								"description": "An annotation."
+							},
+							"description": "Annotations over ranges of the text."
+						},
+						"parent": {
+							"type": "ref",
+							"ref": "social.colibri.beta.defs#recordRef",
+							"description": "The message this one replies to."
+						},
+						"attachments": {
+							"type": "array",
+							"items": {
+								"type": "ref",
+								"ref": "social.colibri.beta.message#attachment",
+								"description": "A file uploaded earlier with uploadBlob."
+							},
+							"maxLength": 10,
+							"description": "Files attached to the message."
+						},
+						"forward": {
+							"type": "ref",
+							"ref": "social.colibri.beta.message#forward",
+							"description": "Content forwarded from another Colibri message."
+						},
+						"remoteMessage": {
+							"type": "string",
+							"maxLength": 256,
+							"description": "The message's id on the other service."
+						},
+						"createdAt": {
+							"type": "string",
+							"format": "datetime",
+							"description": "When the message was sent on the other service. Defaults to now."
+						}
+					}
+				}
+			},
+			"output": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"rkey"
+					],
+					"properties": {
+						"rkey": {
+							"type": "string",
+							"format": "record-key",
+							"description": "Record key of the record the community wrote."
+						}
+					}
+				}
+			},
+			"errors": [
+				{
+					"name": "AuthRequired",
+					"description": "The request is missing, malformed, or unverifiable service auth."
+				},
+				{
+					"name": "CommunityNotFound",
+					"description": "No community exists at the given DID."
+				},
+				{
+					"name": "RegistrationNotFound",
+					"description": "The community has no bridge registration with that id."
+				},
+				{
+					"name": "Forbidden",
+					"description": "The caller is not the bridge this registration belongs to."
+				},
+				{
+					"name": "RegistrationDisabled",
+					"description": "An admin has paused this registration."
+				},
+				{
+					"name": "ChannelNotLinked",
+					"description": "The channel is not linked to this registration."
+				},
+				{
+					"name": "RateLimited",
+					"description": "The bridge sent too many requests. Retry after the interval in the response headers."
+				},
+				{
+					"name": "CredentialsUnavailable",
+					"description": "The AppView cannot act as the community because its stored credentials are missing or unusable."
+				}
+			]
+		}
+	}
+}

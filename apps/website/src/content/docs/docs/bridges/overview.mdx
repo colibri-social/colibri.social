@@ -1,0 +1,92 @@
+---
+title: Bridges
+description: How a bridge relays messages between a Colibri community and another chat service.
+sidebar:
+  label: Overview
+  order: 1
+---
+
+A **bridge** is a separate process that connects a Colibri community to a server, workspace or network on another chat service (e.g. Discord, Slack, IRC). It relays messages, edits, deletions and reactions in both directions, in the channels a community admin links.
+
+Anyone can run a bridge. It talks to the Colibri AppView over the network and needs nothing more than a [DID](https://atproto.com/specs/did) and a signing key. It doesn't need an account on a PDS.
+
+## How bridged messages are written
+
+When someone posts on the other service, the bridge calls [`social.colibri.beta.bridge.postMessage`](/docs/bridges/reference#postmessage). The AppView checks the request and writes the message into the channel **as the community**, through the same writer the community uses for its own records.
+
+Every bridged record carries a `bridged` attribution with the author's name, avatar and id on the other service:
+
+```json title="social.colibri.beta.message"
+{
+	"text": "Hello from the other side",
+	"bridged": {
+		"registration": "3lzy2ji4nms2k",
+		"platform": "discord",
+		"remoteId": "80351110224678912",
+		"name": "Nelly",
+		"remoteMessage": "1276183740532310057"
+	}
+}
+```
+
+The AppView only honours `bridged` on records the community itself wrote. The same field on a record from any other author is ignored, so a member can't pose as someone on another service.
+
+Messages going the other way arrive at the bridge over [`subscribeEvents`](/docs/specification/appview), the same WebSocket stream clients use. The bridge posts them on the other service under the Colibri author's name and avatar.
+
+## What members see
+
+A bridged message shows the remote author's name and avatar. It has no link to a Colibri profile, and the author can't be messaged from Colibri.
+
+Members can mention people who post through a bridge. Type `@` in a channel, and anyone who recently posted there through a bridge appears under **Bridged**. The bridge turns the mention into a mention on the other service, which notifies that person there.
+
+Reactions from the other service count once per remote person. Five people reacting with the same emoji on the other service show as five, even though the community wrote all five reactions.
+
+Every member can read the community's bridge registrations. They list which bridge is connected, who paired it, and which channels it relays.
+
+## What admins control
+
+An admin with the **Manage Community** permission pairs a bridge, links and unlinks channels, imports a channel's earlier history, turns moderation mirroring on and off, pauses it, and disconnects it. [Pairing a Bridge](/docs/bridges/pairing) walks through each step.
+
+A bridge can only write into channels it's linked to, and it can only edit, delete or unreact records it wrote itself. Disconnecting a bridge stops it immediately. Messages it already relayed stay in the channel, the same as a departed member's.
+
+## Threads
+
+A thread opened beside a linked channel is relayed along with the channel, from either side. Threads that only some roles or members can read are left out.
+
+Renaming a thread renames its copy. Deleting a thread in Colibri archives and locks its copy on the other service, which keeps that service's history.
+
+## Moderation
+
+When a moderator hides a message that came from Colibri, the bridge deletes its copy on the other service.
+
+An admin can also turn on **Mirror moderation** for a bridge. Moderation then crosses in both directions:
+
+- Hiding a message that came from the other service removes the original there.
+- When a moderator on the other service removes the copy of a Colibri message, the message is hidden in Colibri.
+
+Unhiding a message in Colibri doesn't restore anything on the other service.
+
+## History
+
+When an admin links a channel, they can import the room's earlier messages too, for the last day, 7 days, 30 days or all of it. Imported messages keep the time they were sent, so they sit in the channel's history in order. They don't send notifications or mark the channel as unread. Public threads opened in that range come across with their messages. Reactions on imported messages aren't imported.
+
+## Supported features
+
+Bridges relay:
+
+- messages, with replies, file attachments and forwards
+- edits and deletions
+- reactions with Unicode emoji
+- threads beside linked channels
+- mentions of people and of linked channels
+- author names and avatars in both directions
+- moderation, as described in [Moderation](#moderation)
+- earlier history from the other service, as described in [History](#history)
+
+Private threads, forum channels, role mentions, custom emoji, stickers, link embeds and typing indicators aren't relayed. Colibri history isn't copied to the other service. A role mention on the other service arrives as plain `@name` text.
+
+## Next steps
+
+- [Pairing a Bridge](/docs/bridges/pairing): connect a bridge to your community and link channels.
+- [Building a Bridge](/docs/bridges/building-a-bridge): write a connector for another chat service.
+- [Bridge Reference](/docs/bridges/reference): every method, field and error.

@@ -1,0 +1,92 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.bridge.update",
+	"defs": {
+		"main": {
+			"type": "procedure",
+			"description": "Changes which channels a bridge relays, or pauses and resumes it. Omitted fields stay as they are.",
+			"input": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"community",
+						"registration"
+					],
+					"properties": {
+						"community": {
+							"type": "string",
+							"format": "did",
+							"description": "The community the registration belongs to."
+						},
+						"registration": {
+							"type": "string",
+							"format": "tid",
+							"description": "Record key of the registration."
+						},
+						"links": {
+							"type": "array",
+							"items": {
+								"type": "ref",
+								"ref": "social.colibri.beta.bridge.defs#link",
+								"description": "A link."
+							},
+							"maxLength": 500,
+							"description": "The complete set of linked channels, replacing the current one."
+						},
+						"enabled": {
+							"type": "boolean",
+							"description": "Whether the bridge may write."
+						},
+						"mirrorModeration": {
+							"type": "boolean",
+							"description": "Whether moderation crosses the bridge."
+						}
+					}
+				}
+			},
+			"output": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"registration"
+					],
+					"properties": {
+						"registration": {
+							"type": "ref",
+							"ref": "social.colibri.beta.bridge.defs#registrationView",
+							"description": "The registration."
+						}
+					}
+				}
+			},
+			"errors": [
+				{
+					"name": "AuthRequired",
+					"description": "The request is missing, malformed, or unverifiable service auth."
+				},
+				{
+					"name": "Forbidden",
+					"description": "The caller lacks the community.manage permission."
+				},
+				{
+					"name": "CommunityNotFound",
+					"description": "No community exists at the given DID."
+				},
+				{
+					"name": "RegistrationNotFound",
+					"description": "The community has no bridge registration with that id."
+				},
+				{
+					"name": "ChannelNotFound",
+					"description": "A link names a channel this community does not have."
+				},
+				{
+					"name": "CredentialsUnavailable",
+					"description": "The AppView cannot act as the community because its stored credentials are missing or unusable."
+				}
+			]
+		}
+	}
+}

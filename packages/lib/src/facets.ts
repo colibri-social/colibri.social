@@ -56,6 +56,9 @@ export type ColibriRichTextTime = social.colibri.beta.richtext.facet.Time;
 
 export type ColibriRichTextMention = social.colibri.beta.richtext.facet.Mention;
 
+export type ColibriRichTextBridgedMention =
+	social.colibri.beta.richtext.facet.BridgedMention;
+
 export type ColibriRichTextRole = social.colibri.beta.richtext.facet.Role;
 
 export type ColibriRichTextLink = social.colibri.beta.richtext.facet.Link;

@@ -1,0 +1,193 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.bridge.importMessages",
+	"defs": {
+		"main": {
+			"type": "procedure",
+			"description": "Imports earlier messages from someone on another service into a linked channel or a thread beside it, after an admin asked for a history import. The community writes each message at its original time, and clients see them only when they load history.",
+			"input": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"community",
+						"registration",
+						"channel",
+						"messages"
+					],
+					"properties": {
+						"community": {
+							"type": "string",
+							"format": "did",
+							"description": "The community the registration belongs to."
+						},
+						"registration": {
+							"type": "string",
+							"format": "tid",
+							"description": "Record key of the registration."
+						},
+						"channel": {
+							"type": "string",
+							"format": "space-ref",
+							"description": "The linked channel, or a thread beside it, the messages go into."
+						},
+						"messages": {
+							"type": "array",
+							"items": {
+								"type": "ref",
+								"ref": "#importedMessage",
+								"description": "A message."
+							},
+							"minLength": 1,
+							"maxLength": 25,
+							"description": "The messages, oldest first."
+						}
+					}
+				}
+			},
+			"output": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"results"
+					],
+					"properties": {
+						"results": {
+							"type": "array",
+							"items": {
+								"type": "ref",
+								"ref": "#importResult",
+								"description": "A written message."
+							},
+							"description": "One result per message, in input order."
+						}
+					}
+				}
+			},
+			"errors": [
+				{
+					"name": "AuthRequired",
+					"description": "The request is missing, malformed, or unverifiable service auth."
+				},
+				{
+					"name": "CommunityNotFound",
+					"description": "No community exists at the given DID."
+				},
+				{
+					"name": "RegistrationNotFound",
+					"description": "The community has no bridge registration with that id."
+				},
+				{
+					"name": "Forbidden",
+					"description": "The caller is not the bridge this registration belongs to."
+				},
+				{
+					"name": "RegistrationDisabled",
+					"description": "An admin has paused this registration."
+				},
+				{
+					"name": "ChannelNotLinked",
+					"description": "The channel is not linked to this registration."
+				},
+				{
+					"name": "RateLimited",
+					"description": "The bridge sent too many requests. Retry after the interval in the response headers."
+				},
+				{
+					"name": "CredentialsUnavailable",
+					"description": "The AppView cannot act as the community because its stored credentials are missing or unusable."
+				},
+				{
+					"name": "BackfillNotRequested",
+					"description": "No admin has asked for a history import on this channel."
+				},
+				{
+					"name": "OutsideBackfillRange",
+					"description": "A message was sent before the requested range or after the request."
+				}
+			]
+		},
+		"importedMessage": {
+			"type": "object",
+			"description": "A message from the room's earlier history.",
+			"required": [
+				"author",
+				"text",
+				"remoteMessage",
+				"createdAt"
+			],
+			"properties": {
+				"author": {
+					"type": "ref",
+					"ref": "social.colibri.beta.bridge.defs#remoteAuthor",
+					"description": "Who sent the message."
+				},
+				"text": {
+					"type": "string",
+					"maxLength": 2048,
+					"description": "The message body."
+				},
+				"facets": {
+					"type": "array",
+					"items": {
+						"type": "ref",
+						"ref": "social.colibri.beta.richtext.facet",
+						"description": "An annotation."
+					},
+					"description": "Annotations over ranges of the text."
+				},
+				"parent": {
+					"type": "ref",
+					"ref": "social.colibri.beta.defs#recordRef",
+					"description": "The message this one replies to."
+				},
+				"attachments": {
+					"type": "array",
+					"items": {
+						"type": "ref",
+						"ref": "social.colibri.beta.message#attachment",
+						"description": "A file uploaded earlier with uploadBlob."
+					},
+					"maxLength": 10,
+					"description": "Files attached to the message."
+				},
+				"forward": {
+					"type": "ref",
+					"ref": "social.colibri.beta.message#forward",
+					"description": "Content forwarded from another Colibri message."
+				},
+				"remoteMessage": {
+					"type": "string",
+					"maxLength": 256,
+					"description": "The message's id on the other service."
+				},
+				"createdAt": {
+					"type": "string",
+					"format": "datetime",
+					"description": "When the message was sent on the other service."
+				}
+			}
+		},
+		"importResult": {
+			"type": "object",
+			"description": "Where an imported message was written.",
+			"required": [
+				"remoteMessage",
+				"rkey"
+			],
+			"properties": {
+				"remoteMessage": {
+					"type": "string",
+					"maxLength": 256,
+					"description": "The message's id on the other service."
+				},
+				"rkey": {
+					"type": "string",
+					"format": "record-key",
+					"description": "Record key of the record the community wrote."
+				}
+			}
+		}
+	}
+}

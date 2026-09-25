@@ -235,6 +235,10 @@
 					"type": "ref",
 					"ref": "social.colibri.beta.defs#recordRef",
 					"description": "Which message, for deletes."
+				},
+				"imported": {
+					"type": "boolean",
+					"description": "Set when a bridge imported the message from earlier history. Clients show it without marking the channel unread."
 				}
 			}
 		},
@@ -275,6 +279,11 @@
 					"type": "string",
 					"format": "did",
 					"description": "Who reacted."
+				},
+				"bridged": {
+					"type": "ref",
+					"ref": "social.colibri.beta.bridge.defs#bridgedReactor",
+					"description": "Present when someone on another service reacted through a bridge. The actor is then the community that wrote the reaction."
 				}
 			}
 		},
@@ -752,6 +761,35 @@
 				"message": {
 					"type": "string",
 					"description": "Human-readable detail, set on failure."
+				}
+			}
+		},
+		"bridgeEvent": {
+			"type": "object",
+			"description": "A registration held by the connected bridge was changed or removed. Sent only to the bridge, which should fetch its configuration again.",
+			"required": [
+				"event",
+				"community",
+				"registration"
+			],
+			"properties": {
+				"event": {
+					"type": "string",
+					"description": "What happened.",
+					"knownValues": [
+						"update",
+						"delete"
+					]
+				},
+				"community": {
+					"type": "string",
+					"format": "did",
+					"description": "The community the registration belongs to."
+				},
+				"registration": {
+					"type": "string",
+					"format": "tid",
+					"description": "Record key of the registration."
 				}
 			}
 		}

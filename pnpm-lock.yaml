@@ -32,7 +32,6 @@ overrides:
   '@atproto/syntax': 0.0.0-spaces-alpha-20260915165437
   '@atproto/xrpc': 0.0.0-spaces-alpha-20260915165437
   '@atproto/xrpc-server': 0.0.0-spaces-alpha-20260915165437
-  '@colibri-social/lexicons': link:../colibri-appview-ts/packages/lexicons
 
 patchedDependencies:
   '@atproto/oauth-client-browser@0.0.0-spaces-alpha-20260915165437': 026615cbad8dbd4f622fab54ef7ae657ab58df91f42908df1d40504bded84b9f
@@ -118,8 +117,8 @@ importers:
         specifier: workspace:0.4.0
         version: link:../../packages/client
       '@colibri-social/lexicons':
-        specifier: link:../../../colibri-appview-ts/packages/lexicons
-        version: link:../../../colibri-appview-ts/packages/lexicons
+        specifier: ^2.12.1
+        version: 2.12.1
       '@colibri-social/standard-renderer':
         specifier: workspace:0.0.2
         version: link:../../packages/standard-renderer
@@ -360,8 +359,8 @@ importers:
         specifier: 0.0.0-spaces-alpha-20260915165437
         version: 0.0.0-spaces-alpha-20260915165437(patch_hash=026615cbad8dbd4f622fab54ef7ae657ab58df91f42908df1d40504bded84b9f)
       '@colibri-social/lexicons':
-        specifier: link:../../../colibri-appview-ts/packages/lexicons
-        version: link:../../../colibri-appview-ts/packages/lexicons
+        specifier: ^2.12.1
+        version: 2.12.1
       '@kobalte/core':
         specifier: ^0.13.11
         version: 0.13.14(solid-js@1.9.15)
@@ -617,8 +616,8 @@ importers:
         specifier: 0.0.0-spaces-alpha-20260915165437
         version: 0.0.0-spaces-alpha-20260915165437(patch_hash=026615cbad8dbd4f622fab54ef7ae657ab58df91f42908df1d40504bded84b9f)
       '@colibri-social/lexicons':
-        specifier: link:../../../colibri-appview-ts/packages/lexicons
-        version: link:../../../colibri-appview-ts/packages/lexicons
+        specifier: ^2.12.1
+        version: 2.12.1
       '@types/mdast':
         specifier: ^4.0.4
         version: 4.0.4
@@ -1452,6 +1451,9 @@ packages:
   '@clack/prompts@1.8.1':
     resolution: {integrity: sha512-dlT1m5e/0yUL0kRNcQn7yGLVThkgbB0Ga/1AmfDDC/8ik6AIiSf2QLQO2zPYvefsHP0aFgxO93cVLCCfDp7kzQ==}
     engines: {node: '>= 20.12.0'}
+
+  '@colibri-social/lexicons@2.12.1':
+    resolution: {integrity: sha512-/BOt3eO/y6uzhCh25VweHOedWlfKE1nM1GyburfzZ5P9WkomEjvalx2sVKWAfYbthx2K1q1t3SrvsidUWvoCww==}
 
   '@corvu/dialog@0.2.4':
     resolution: {integrity: sha512-n54vJq+fOy8GVrnYBdJpD6JXNuyx7LOeMrRxwzAvZnYGpW8+AA12tnb/P/2emJj/HjOO5otheGKb0breshdFlA==}
@@ -7625,6 +7627,11 @@ snapshots:
       fast-string-width: 3.0.2
       fast-wrap-ansi: 0.2.2
       sisteransi: 1.0.5
+
+  '@colibri-social/lexicons@2.12.1':
+    dependencies:
+      '@atproto/lex': 0.0.0-spaces-alpha-20260915165437
+      '@atproto/lex-data': 0.0.0-spaces-alpha-20260915165437
 
   '@corvu/dialog@0.2.4(solid-js@1.9.15)':
     dependencies:

@@ -594,6 +594,7 @@ export const NotificationsContextProvider: ParentComponent = (props) => {
 					clearChannelUnread(event.channel);
 					return;
 				}
+				if (event.imported) return;
 				if (isViewingChannel(location.pathname, event.channel)) return;
 				if (mutes.isCommunityMuted(communityOf(event.channel))) return;
 				if (mutes.isMuted(message.author.did)) return;

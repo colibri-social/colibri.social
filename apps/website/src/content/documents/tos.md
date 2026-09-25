@@ -6,7 +6,7 @@ description: "The terms governing your use of the hosted Colibri service, includ
 
 **Effective date:** 11 July 2026
 
-**Last updated:** 11 July 2026
+**Last updated:** 25 September 2026
 
 These Terms of Service (the "**Terms**") govern your use of the hosted Colibri service at
 [colibri.social](https://colibri.social), including the web app, desktop applications, the AppView, and the
@@ -74,17 +74,32 @@ You retain all ownership of the content you create, it lives in your PDS and tra
 network service technically requires copying and transmitting your content, **you grant the Operator a worldwide,
 non-exclusive, royalty-free licence to host, store, index, cache, reproduce, transmit, and display your public content**
 solely for the purpose of operating and providing the Service (including the AppView index, blob caching, link
-previews, and real-time delivery). This licence exists only to run the Service, reflects the inherently public nature of
+previews, real-time delivery, and relaying through a bridge that a community admin has linked, as described in
+Section 7). This licence exists only to run the Service, reflects the inherently public nature of
 your records on the network, and ends with respect to our systems when the content is deleted and the deletion propagates
 to us, subject to the network realities described in Section 9.
 
-## 7. Communities
+## 7. Communities and bridges
 
 Communities are created and administered by their operators and moderators, who set and enforce their own rules. If you
 create or moderate a community, you are responsible for its conduct and content and for complying with these Terms and
 applicable law. The Operator may host a community's designated AppView, voice server, and presence relay, and may hold
 credentials necessary to administer a community account, but the Operator does not endorse and is not responsible for the
 content or conduct within any community.
+
+A community admin can pair a **bridge** that relays messages between the community's channels and rooms on another chat
+service, such as a Discord server. The Operator runs a bridge for Discord (the "**Colibri Discord bridge**"), and anyone
+else can run a bridge for any service. If you pair a bridge, link a channel, or import a room's earlier history, you are
+responsible for:
+
+- having the right to relay that room's content, and holding the permissions on the other service the bridge asks for
+- complying with the other service's terms, including Discord's Terms of Service and Developer Policy
+- telling the people in the bridged room that their messages, names, and avatars are copied into a public Colibri
+  community, and that messages from Colibri are copied to their room.
+
+Content relayed from another service becomes public records on the AT Protocol network, and content relayed from
+Colibri is subject to the other service's terms once it arrives there. The Operator may disconnect or refuse to index a
+bridge that breaks these Terms. A bridge not operated by the Operator is a third-party service under Section 10.
 
 ## 8. Moderation and enforcement
 
@@ -105,7 +120,7 @@ public may persist elsewhere on the network outside our control.
 
 The Service interoperates with, and may rely on, third parties and independently operated infrastructure, including but
 not limited to: the AT Protocol network and relays, third-party PDSes (such as Bluesky), self-hosted or third-party
-AppViews, push notification services (Google, Apple, Mozilla, Microsoft), the Klipy GIF service, and error-monitoring and
+AppViews, bridges and the chat services they connect to (such as Discord), push notification services (Google, Apple, Mozilla, Microsoft), the Klipy GIF service, and error-monitoring and
 analytics providers. These are operated by others under their own terms, and the Operator is not responsible for them.
 If you run or use a self-hosted Colibri instance, or a community whose AppView is operated by a third party, these Terms
 govern your relationship with **our** hosted Service only.

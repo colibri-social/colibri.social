@@ -1,0 +1,40 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.bridge.getConfiguration",
+	"defs": {
+		"main": {
+			"type": "query",
+			"description": "Lists every registration held by the calling bridge, with its linked channels. A bridge calls this at startup and whenever a registration change reaches it.",
+			"parameters": {
+				"type": "params",
+				"properties": {}
+			},
+			"output": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"registrations"
+					],
+					"properties": {
+						"registrations": {
+							"type": "array",
+							"items": {
+								"type": "ref",
+								"ref": "social.colibri.beta.bridge.defs#registrationView",
+								"description": "A registration."
+							},
+							"description": "The caller's registrations across all communities."
+						}
+					}
+				}
+			},
+			"errors": [
+				{
+					"name": "AuthRequired",
+					"description": "The request is missing, malformed, or unverifiable service auth."
+				}
+			]
+		}
+	}
+}

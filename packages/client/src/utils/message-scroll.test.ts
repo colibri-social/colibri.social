@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
 	captureAnchor,
 	createMessageScrollController,
+	cursorPosition,
 	decideGrowthSide,
 	decideLanding,
 	distanceFromBottom,
@@ -1335,6 +1336,7 @@ describe("decideLanding", () => {
 			cursorTrusted: true,
 			cursorIdx: -1,
 			hasCursor: false,
+			cursorCaughtUp: false,
 			...overrides,
 		}) as Extract<ReturnType<typeof decideLanding>, { kind: "land" }>;
 
@@ -1402,5 +1404,53 @@ describe("decideLanding", () => {
 			onCursor: false,
 			markRead: false,
 		});
+	});
+
+	it("reads the channel when the cursor message is gone but caught up", () => {
+		expect(
+			decide({ cursorIdx: -1, hasCursor: true, cursorCaughtUp: true }),
+		).toEqual({ kind: "land", onCursor: false, markRead: true });
+	});
+
+	it("never reads a caught-up channel on a timed-out guess", () => {
+		expect(
+			decide({
+				cursorTrusted: false,
+				cursorIdx: -1,
+				hasCursor: true,
+				cursorCaughtUp: true,
+			}).markRead,
+		).toBe(false);
+	});
+});
+
+describe("cursorPosition", () => {
+	const rkeys = ["3kaaa", "3kbbb", "3kccc"];
+
+	it("is above when the cursor is older than every loaded row", () => {
+		expect(cursorPosition("3jzzz", rkeys)).toBe("above");
+	});
+
+	it("is within when the cursor sits between loaded rows", () => {
+		expect(cursorPosition("3kbbb", rkeys)).toBe("within");
+		expect(cursorPosition("3kbbc", rkeys)).toBe("within");
+		expect(cursorPosition("3kaaa", rkeys)).toBe("within");
+	});
+
+	it("is caught up when the cursor is the newest row", () => {
+		expect(cursorPosition("3kccc", rkeys)).toBe("caughtUp");
+	});
+
+	it("is caught up when the cursor is newer than every loaded row", () => {
+		expect(cursorPosition("3kddd", rkeys)).toBe("caughtUp");
+	});
+
+	it("does not depend on row order", () => {
+		expect(cursorPosition("3jzzz", ["3kccc", "3kaaa"])).toBe("above");
+		expect(cursorPosition("3kccc", ["3kccc", "3kaaa"])).toBe("caughtUp");
+	});
+
+	it("has no position without confirmed rows", () => {
+		expect(cursorPosition("3kaaa", [])).toBeUndefined();
 	});
 });

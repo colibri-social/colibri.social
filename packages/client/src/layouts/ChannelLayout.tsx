@@ -86,6 +86,7 @@ import { linkUrisFromFacets } from "../utils/link-facets";
 import { sameDay } from "../utils/message-order";
 import {
 	createMessageScrollController,
+	cursorPosition,
 	decideLanding,
 	KEYBOARD_SETTLE_MAX_FRAMES,
 	shouldLoadOlder,
@@ -697,6 +698,9 @@ export const ChannelSurface: ParentComponent<ChannelSurfaceProps> = (props) => {
 
 	const [dismissedUnreadJump, setDismissedUnreadJump] = createSignal(false);
 
+	const confirmedRkeys = (msgs: ReturnType<typeof channel.messages>) =>
+		msgs.flatMap((m) => ("hash" in m ? [] : [m.rkey]));
+
 	const showJumpToUnread = createMemo(() => {
 		if (dismissedUnreadJump()) return false;
 		if (!landed()) return false;
@@ -706,7 +710,9 @@ export const ChannelSurface: ParentComponent<ChannelSurfaceProps> = (props) => {
 		const cursor = channel.unreadCursor();
 		if (!cursor) return false;
 		if (!channel.hasMore()) return false;
-		return !channel.messages().some((m) => !("hash" in m) && m.rkey === cursor);
+		return (
+			cursorPosition(cursor, confirmedRkeys(channel.messages())) === "above"
+		);
 	});
 
 	const landingInputs = createMemo(() => ({
@@ -744,6 +750,9 @@ export const ChannelSurface: ParentComponent<ChannelSurfaceProps> = (props) => {
 			cursorTrusted: source !== undefined && isTrustedCursorSource(source),
 			cursorIdx,
 			hasCursor: cursorUri !== undefined,
+			cursorCaughtUp:
+				cursorUri !== undefined &&
+				cursorPosition(cursorUri, confirmedRkeys(msgs)) === "caughtUp",
 		});
 
 		if (decision.kind === "wait") {

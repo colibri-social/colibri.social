@@ -108,6 +108,7 @@ import { createLogger } from "../utils/logger";
 import { foldLabelEvent } from "../utils/message-labels";
 import { insertAt, placeMessage } from "../utils/message-order";
 import { asVisibleParent } from "../utils/message-parent";
+import { cursorPosition } from "../utils/message-scroll";
 import { markBoot } from "../utils/perf";
 import { recordSpeakers } from "../utils/recent-speakers";
 import { probe, shortUri } from "../utils/switch-probe";
@@ -926,14 +927,19 @@ export const ChannelContextProvider: ParentComponent<{
 		const session = sessions.current();
 		if (!session) return;
 
-		const located = () =>
-			messages().find((m) => !("hash" in m) && m.rkey === target);
+		const confirmed = () =>
+			visibleMessages().filter((m): m is MessageView => !("hash" in m));
+		const aboveWindow = () =>
+			cursorPosition(
+				target,
+				confirmed().map((m) => m.rkey),
+			) === "above";
 
 		let fetches = 0;
 		while (
 			fetches < JUMP_FETCH_CAP &&
 			sessions.isCurrent(session) &&
-			!located() &&
+			aboveWindow() &&
 			hasMore()
 		) {
 			await loadOlder();
@@ -941,7 +947,7 @@ export const ChannelContextProvider: ParentComponent<{
 		}
 
 		if (!sessions.isCurrent(session)) return;
-		const found = located();
+		const found = confirmed().find((m) => m.rkey >= target);
 		if (found) await jumpToMessage(found.uri);
 	};
 
@@ -1372,7 +1378,9 @@ export const ChannelContextProvider: ParentComponent<{
 		batch(() => {
 			if (placement.kind === "append") {
 				setMessages((prev) => [...prev, incoming]);
-				if (visibleToViewer(incoming)) setNewIncomingMessage((n) => n + 1);
+				if (!event.imported && visibleToViewer(incoming)) {
+					setNewIncomingMessage((n) => n + 1);
+				}
 			} else {
 				setMessages((prev) => insertAt(prev, incoming, placement.index));
 			}

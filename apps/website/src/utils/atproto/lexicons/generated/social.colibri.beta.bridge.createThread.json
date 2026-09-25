@@ -1,0 +1,120 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.bridge.createThread",
+	"defs": {
+		"main": {
+			"type": "procedure",
+			"description": "Opens a thread beside a linked channel for someone on another service. The community writes the thread, attributed to that person.",
+			"input": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"community",
+						"registration",
+						"channel",
+						"name",
+						"author"
+					],
+					"properties": {
+						"community": {
+							"type": "string",
+							"format": "did",
+							"description": "The community the registration belongs to."
+						},
+						"registration": {
+							"type": "string",
+							"format": "tid",
+							"description": "Record key of the registration."
+						},
+						"channel": {
+							"type": "string",
+							"format": "space-ref",
+							"description": "The linked channel to open the thread beside."
+						},
+						"name": {
+							"type": "string",
+							"minLength": 1,
+							"maxLength": 128,
+							"description": "The thread's title."
+						},
+						"author": {
+							"type": "ref",
+							"ref": "social.colibri.beta.bridge.defs#remoteAuthor",
+							"description": "Who opened the thread."
+						},
+						"anchor": {
+							"type": "ref",
+							"ref": "social.colibri.beta.defs#recordRef",
+							"description": "The message in the channel the thread was opened from. Absent opens a thread from scratch."
+						},
+						"remoteThread": {
+							"type": "string",
+							"maxLength": 256,
+							"description": "The thread's id on the other service."
+						},
+						"createdAt": {
+							"type": "string",
+							"format": "datetime",
+							"description": "When the thread was opened on the other service. Defaults to now."
+						}
+					}
+				}
+			},
+			"output": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"thread"
+					],
+					"properties": {
+						"thread": {
+							"type": "string",
+							"format": "space-ref",
+							"description": "The thread's space."
+						}
+					}
+				}
+			},
+			"errors": [
+				{
+					"name": "AuthRequired",
+					"description": "The request is missing, malformed, or unverifiable service auth."
+				},
+				{
+					"name": "CommunityNotFound",
+					"description": "No community exists at the given DID."
+				},
+				{
+					"name": "RegistrationNotFound",
+					"description": "The community has no bridge registration with that id."
+				},
+				{
+					"name": "Forbidden",
+					"description": "The caller is not the bridge this registration belongs to."
+				},
+				{
+					"name": "RegistrationDisabled",
+					"description": "An admin has paused this registration."
+				},
+				{
+					"name": "ChannelNotLinked",
+					"description": "The channel is not linked to this registration."
+				},
+				{
+					"name": "RateLimited",
+					"description": "The bridge sent too many requests. Retry after the interval in the response headers."
+				},
+				{
+					"name": "CredentialsUnavailable",
+					"description": "The AppView cannot act as the community because its stored credentials are missing or unusable."
+				},
+				{
+					"name": "MessageNotFound",
+					"description": "The anchor message does not exist in the given channel."
+				}
+			]
+		}
+	}
+}

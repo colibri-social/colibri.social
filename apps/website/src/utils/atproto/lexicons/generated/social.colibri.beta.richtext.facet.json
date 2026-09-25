@@ -32,6 +32,7 @@
 							"#subtext",
 							"#spoiler",
 							"#mention",
+							"#bridgedMention",
 							"#role",
 							"#channel",
 							"#link",
@@ -158,6 +159,32 @@
 					"type": "string",
 					"format": "did",
 					"description": "The mentioned user."
+				}
+			}
+		},
+		"bridgedMention": {
+			"type": "object",
+			"description": "A mention of someone on another service, whose messages a bridge relays.",
+			"required": [
+				"registration",
+				"platform",
+				"remoteId"
+			],
+			"properties": {
+				"registration": {
+					"type": "string",
+					"format": "tid",
+					"description": "Record key of the bridge registration the person is reached through."
+				},
+				"platform": {
+					"type": "string",
+					"maxLength": 64,
+					"description": "The service the person is on."
+				},
+				"remoteId": {
+					"type": "string",
+					"maxLength": 256,
+					"description": "Their id on that service."
 				}
 			}
 		},

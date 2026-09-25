@@ -1,4 +1,5 @@
 import {
+	type ColibriRichTextBridgedMention,
 	type ColibriRichTextChannel,
 	type ColibriRichTextFacet,
 	type ColibriRichTextMention,
@@ -175,6 +176,22 @@ function atomNode(
 		return {
 			type: "mention",
 			attrs: channelChipAttrs(channelFeature.channel, chip),
+		};
+	}
+
+	if (feature.$type === "social.colibri.beta.richtext.facet#bridgedMention") {
+		const bridged = feature as ColibriRichTextBridgedMention;
+		return {
+			type: "mention",
+			attrs: {
+				id: bridged.remoteId,
+				label: sourceText.replace(/^@/, ""),
+				avatar: null,
+				handle: null,
+				registration: bridged.registration,
+				platform: bridged.platform,
+				type: "bridged",
+			},
 		};
 	}
 

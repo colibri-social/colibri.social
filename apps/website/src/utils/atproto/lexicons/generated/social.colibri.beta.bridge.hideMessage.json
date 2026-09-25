@@ -1,0 +1,102 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.bridge.hideMessage",
+	"defs": {
+		"main": {
+			"type": "procedure",
+			"description": "Hides a Colibri member's message after a moderator removed its copy on the other service. The community applies a hidden label to the message. Works only when an admin has turned on moderation mirroring for the registration.",
+			"input": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"community",
+						"registration",
+						"channel",
+						"subject"
+					],
+					"properties": {
+						"community": {
+							"type": "string",
+							"format": "did",
+							"description": "The community the registration belongs to."
+						},
+						"registration": {
+							"type": "string",
+							"format": "tid",
+							"description": "Record key of the registration."
+						},
+						"channel": {
+							"type": "string",
+							"format": "space-ref",
+							"description": "The linked channel or thread the message lives in."
+						},
+						"subject": {
+							"type": "ref",
+							"ref": "social.colibri.beta.defs#recordRef",
+							"description": "The message to hide."
+						},
+						"reason": {
+							"type": "string",
+							"maxLength": 512,
+							"description": "Human-readable reason."
+						}
+					}
+				}
+			},
+			"output": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"properties": {}
+				}
+			},
+			"errors": [
+				{
+					"name": "AuthRequired",
+					"description": "The request is missing, malformed, or unverifiable service auth."
+				},
+				{
+					"name": "CommunityNotFound",
+					"description": "No community exists at the given DID."
+				},
+				{
+					"name": "RegistrationNotFound",
+					"description": "The community has no bridge registration with that id."
+				},
+				{
+					"name": "Forbidden",
+					"description": "The caller is not the bridge this registration belongs to."
+				},
+				{
+					"name": "RegistrationDisabled",
+					"description": "An admin has paused this registration."
+				},
+				{
+					"name": "ChannelNotLinked",
+					"description": "The channel is not linked to this registration."
+				},
+				{
+					"name": "RateLimited",
+					"description": "The bridge sent too many requests. Retry after the interval in the response headers."
+				},
+				{
+					"name": "CredentialsUnavailable",
+					"description": "The AppView cannot act as the community because its stored credentials are missing or unusable."
+				},
+				{
+					"name": "ModerationMirrorOff",
+					"description": "Moderation mirroring is turned off for this registration."
+				},
+				{
+					"name": "RecordNotFound",
+					"description": "No message exists at the given key in that channel."
+				},
+				{
+					"name": "NotBridged",
+					"description": "The message was written by the community itself. Delete it with deleteMessage instead."
+				}
+			]
+		}
+	}
+}

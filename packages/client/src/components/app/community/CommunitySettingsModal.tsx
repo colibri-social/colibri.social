@@ -690,12 +690,12 @@ const InviteLinksPage: Component = () => {
 				<Match when={invitations.error !== undefined}>
 					<ErrorState error={invitations.error} retry={() => void refetch()} />
 				</Match>
-				<Match when={invitations.loading}>
+				<Match when={invitations.loading && invitations.latest === undefined}>
 					<div class="my-2 flex w-full items-center justify-center">
 						<Spinner />
 					</div>
 				</Match>
-				<Match when={invitations()}>
+				<Match when={invitations.latest}>
 					{(invitations) => (
 						<>
 							<Table class="h-full">

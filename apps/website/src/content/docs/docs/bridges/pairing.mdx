@@ -1,0 +1,90 @@
+---
+title: Pairing a Bridge
+description: Connect a bridge to your community, link channels, and disconnect it again.
+sidebar:
+  label: Pairing
+  order: 2
+---
+
+import { Steps } from "@astrojs/starlight/components";
+
+Pairing connects a running bridge to your community. It takes an admin on each side: one on the other service to start it, and one in Colibri to confirm it.
+
+The examples on this page use the Colibri bridge for Discord. Other bridges follow the same steps with their own command for getting a code.
+
+## Pair a bridge
+
+<Steps>
+
+1. Add the [Discord Bot](https://discord.com/oauth2/authorize?client_id=1552595021247684679) to your Server.
+
+2. On the other service, ask the bridge for a pairing code. In Discord, a member with the **Manage Server** permission runs:
+
+   ```
+   /colibri connect
+   ```
+
+   The bridge replies with an eight-character code, visible only to you. The code works once and expires after 10 minutes.
+
+3. In Colibri, open your community's settings and select **Bridges**. You need the **Manage Community** permission.
+
+4. Enter the code under **Pairing code** and select **Look up**. Colibri shows the bridge's handle, the service it connects to, and the name of the server on that service.
+
+5. Check that these match the bridge and server you expect, then select **Connect**.
+
+</Steps>
+
+The bridge is now registered with your community. It relays nothing until you link channels.
+
+## Link channels
+
+After pairing, the bridge reports the rooms it can see on the other service. Each Colibri channel links to at most one room.
+
+<Steps>
+
+1. In **Bridges**, find the bridge you paired.
+
+2. Under **Linked channels**, pick a room for each Colibri channel you want to relay. Leave a channel on **Not linked** to keep it out.
+
+3. To bring over earlier messages, pick how far back to go in the select next to the room: **Last day**, **Last 7 days**, **Last 30 days** or **All history**. Leave it on **Don't import** to relay new messages only.
+
+4. Select **Save links**.
+
+</Steps>
+
+The bridge picks up the new links straight away. From Discord, run `/colibri status` to list the channels the bridge relays.
+
+If the list of rooms is empty, the bridge hasn't reported any yet. Check that it's running and that it can see the channels on the other service.
+
+In Discord, the bot needs these permissions in each linked channel:
+
+- **View Channel**, **Send Messages**, **Read Message History** and **Manage Webhooks**, to relay messages
+- **Add Reactions**, to relay reactions
+- **Create Public Threads**, **Send Messages in Threads** and **Manage Threads**, to relay threads
+- **Manage Messages**, for [Mirror moderation](#mirror-moderation)
+
+## Import history
+
+A linked channel can import the room's earlier messages. Pick a range next to the room and select **Save links**. The bridge imports the messages oldest first, along with the public threads opened in that range, while new messages keep flowing.
+
+A bar under the channel shows how far the import has got, with the number of messages so far. The bridge picks up where it stopped after a restart. If an import fails, pick a range again to start a new one. Messages that were already imported or relayed are skipped.
+
+Imported messages keep the time they were sent and appear in the channel's history as they arrive. They don't notify anyone or mark the channel as unread. Reactions on them aren't imported.
+
+In Discord, importing needs **Read Message History**.
+
+## Mirror moderation
+
+Turn on **Mirror moderation** to let moderation cross the bridge in both directions. Hiding a relayed message in Colibri then removes its original on the other service, and messages that moderators there remove are hidden in Colibri.
+
+The bridge needs permission to remove other people's messages on the other service. In Discord, that's **Manage Messages**. [Moderation](/docs/bridges/overview#moderation) lists what crosses in each direction.
+
+## Pause a bridge
+
+Turn off **Relay messages** to stop the bridge without losing your links. The bridge can't write anything while paused, and messages posted in the meantime aren't relayed later. Turn it back on to resume.
+
+## Disconnect a bridge
+
+Select **Disconnect** on the bridge and confirm. The bridge stops relaying immediately and its registration is deleted. Messages it already relayed stay in your channels.
+
+To connect the same bridge again, start a new pairing from the other service.

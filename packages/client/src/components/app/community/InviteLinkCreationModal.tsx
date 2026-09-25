@@ -43,6 +43,11 @@ export const InviteLinkCreationModal: ParentComponent<{
 	const checkForLinkAndToggleDialog = async (open: boolean) => {
 		setOpen(open);
 
+		if (open && props.generateNew) {
+			setCode(undefined);
+			setCopied(false);
+		}
+
 		if (open && code() === undefined) {
 			await createInviteLink();
 		}

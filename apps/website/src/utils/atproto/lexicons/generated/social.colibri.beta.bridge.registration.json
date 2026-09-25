@@ -1,0 +1,79 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.bridge.registration",
+	"defs": {
+		"main": {
+			"type": "record",
+			"description": "A bridge the community has paired with. Lives in the community's configuration space, so every member can see which bridges are connected and which channels they relay. Written only by the community.",
+			"key": "tid",
+			"record": {
+				"type": "object",
+				"required": [
+					"bridge",
+					"platform",
+					"remoteSpace",
+					"remoteSpaceName",
+					"links",
+					"enabled",
+					"createdBy",
+					"createdAt"
+				],
+				"properties": {
+					"bridge": {
+						"type": "string",
+						"format": "did",
+						"description": "The bridge's DID, which signs its service auth."
+					},
+					"platform": {
+						"type": "string",
+						"maxLength": 64,
+						"description": "The service the bridge connects to."
+					},
+					"remoteSpace": {
+						"type": "string",
+						"maxLength": 256,
+						"description": "The id of the server, workspace or network on the other service."
+					},
+					"remoteSpaceName": {
+						"type": "string",
+						"maxLength": 128,
+						"description": "Its name on the other service when the bridge was paired."
+					},
+					"links": {
+						"type": "array",
+						"items": {
+							"type": "ref",
+							"ref": "social.colibri.beta.bridge.defs#link",
+							"description": "A linked channel."
+						},
+						"maxLength": 500,
+						"description": "Channels the bridge may read and write."
+					},
+					"enabled": {
+						"type": "boolean",
+						"description": "Whether the bridge may currently write. An admin can pause a bridge without unlinking its channels."
+					},
+					"mirrorModeration": {
+						"type": "boolean",
+						"description": "Whether moderation crosses the bridge. When on, hiding a bridged message removes its original on the other service, and a moderator removing a relayed message there hides it here."
+					},
+					"createdBy": {
+						"type": "string",
+						"format": "did",
+						"description": "The admin who paired the bridge."
+					},
+					"createdAt": {
+						"type": "string",
+						"format": "datetime",
+						"description": "When the bridge was paired."
+					},
+					"updatedAt": {
+						"type": "string",
+						"format": "datetime",
+						"description": "When the registration last changed."
+					}
+				}
+			}
+		}
+	}
+}

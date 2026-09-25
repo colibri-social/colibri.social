@@ -41,6 +41,15 @@ export type MentionType = {
 		| {
 				id: string;
 				label: string;
+				avatar: string | null;
+				handle: null;
+				registration: string;
+				platform: string;
+				type: "bridged";
+		  }
+		| {
+				id: string;
+				label: string;
 				avatar: null;
 				handle: null;
 				color?: string;
@@ -117,6 +126,20 @@ const docToSource = (
 								$type: "social.colibri.beta.richtext.facet#channel",
 								channel: mention.attrs.id,
 							},
+						],
+					});
+				} else if (mention.attrs.type === "bridged") {
+					source += `@${mention.attrs.label}`;
+					atoms.push({
+						start,
+						end: source.length,
+						features: [
+							{
+								$type: "social.colibri.beta.richtext.facet#bridgedMention",
+								registration: mention.attrs.registration,
+								platform: mention.attrs.platform,
+								remoteId: mention.attrs.id,
+							} as ColibriRichTextFeature,
 						],
 					});
 				} else if (mention.attrs.type === "role") {

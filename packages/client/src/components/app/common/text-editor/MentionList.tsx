@@ -11,6 +11,7 @@ import {
 import CaretRightIcon from "~icons/ph/caret-right";
 import ClockIcon from "~icons/ph/clock";
 import type { Member, Role } from "../../../../contexts/community-payload";
+import { type BridgedPerson, platformName } from "../../../../utils/bridge";
 import { parseEmojiText } from "../../../../utils/emoji";
 import { ChannelTypeIcon } from "../../community/ChannelTypeIcon";
 import User from "../../user";
@@ -26,6 +27,10 @@ import type {
 
 export function isMember(item: SuggestionItem): item is Member {
 	return "did" in item;
+}
+
+export function isBridged(item: SuggestionItem): item is BridgedPerson {
+	return "remoteId" in item;
 }
 
 export function isRole(item: SuggestionItem): item is Role {
@@ -45,10 +50,11 @@ export function isTimeShortcut(item: SuggestionItem): item is TimeShortcut {
 }
 
 const groupRank = (item: SuggestionItem): number => {
-	if (isTimeShortcut(item)) return 3;
+	if (isTimeShortcut(item)) return 4;
 	if (isMember(item)) return 0;
-	if (isRole(item)) return 1;
-	return 2;
+	if (isBridged(item)) return 1;
+	if (isRole(item)) return 2;
+	return 3;
 };
 
 /**
@@ -87,10 +93,15 @@ export const MentionList: Component<{
 	const sorted: Accessor<SuggestionItem[]> = () => sortSuggestions(props.items);
 
 	const members = () => sorted().filter(isMember);
+	const bridged = () => sorted().filter(isBridged);
 	const roles = () => sorted().filter(isRole);
 	const others = () =>
 		sorted().filter(
-			(item) => !isMember(item) && !isRole(item) && !isTimeShortcut(item),
+			(item) =>
+				!isMember(item) &&
+				!isBridged(item) &&
+				!isRole(item) &&
+				!isTimeShortcut(item),
 		);
 	const regular = () => sorted().filter((item) => !isTimeShortcut(item));
 	const hasTimeShortcut = () => sorted().some(isTimeShortcut);
@@ -143,6 +154,19 @@ export const MentionList: Component<{
 					<span class="text-sm text-muted-foreground">
 						{(bprops.item as Member).handle.replaceAll("at://", "") ||
 							(bprops.item as Member).did}
+					</span>
+				</Match>
+				<Match when={isBridged(bprops.item)}>
+					<div class="flex flex-row items-center gap-1.5">
+						<Show when={(bprops.item as BridgedPerson).avatar}>
+							{(avatar) => (
+								<img src={avatar()} alt="" class="size-6 rounded-full" />
+							)}
+						</Show>
+						<span class="text-sm">{(bprops.item as BridgedPerson).name}</span>
+					</div>
+					<span class="text-sm text-muted-foreground">
+						on {platformName((bprops.item as BridgedPerson).platform)}
 					</span>
 				</Match>
 				<Match when={isRole(bprops.item)}>
@@ -210,10 +234,28 @@ export const MentionList: Component<{
 						{(item, index) => <ItemButton item={item} index={index} />}
 					</For>
 				</Show>
-				<Show when={roles().length > 0}>
+				<Show when={bridged().length > 0}>
 					<span
 						class="text-xs text-muted-foreground mb-2"
 						classList={{ "mt-3": members().length > 0 }}
+					>
+						BRIDGED
+					</span>
+					<For each={bridged()}>
+						{(item, index) => (
+							<ItemButton
+								item={item}
+								index={() => members().length + index()}
+							/>
+						)}
+					</For>
+				</Show>
+				<Show when={roles().length > 0}>
+					<span
+						class="text-xs text-muted-foreground mb-2"
+						classList={{
+							"mt-3": members().length + bridged().length > 0,
+						}}
 					>
 						ROLES
 					</span>
@@ -221,7 +263,7 @@ export const MentionList: Component<{
 						{(item, index) => (
 							<ItemButton
 								item={item}
-								index={() => members().length + index()}
+								index={() => members().length + bridged().length + index()}
 							/>
 						)}
 					</For>
@@ -234,7 +276,9 @@ export const MentionList: Component<{
 						{(item, index) => (
 							<ItemButton
 								item={item}
-								index={() => members().length + roles().length + index()}
+								index={() =>
+									members().length + bridged().length + roles().length + index()
+								}
 							/>
 						)}
 					</For>

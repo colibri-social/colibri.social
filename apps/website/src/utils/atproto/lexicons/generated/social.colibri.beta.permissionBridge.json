@@ -1,0 +1,40 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.permissionBridge",
+	"defs": {
+		"main": {
+			"type": "permission-set",
+			"title": "Colibri bridge",
+			"detail": "Relay messages and reactions between Colibri communities and another chat service, in the channels community admins link.",
+			"permissions": [
+				{
+					"type": "permission",
+					"resource": "rpc",
+					"inheritAud": true,
+					"lxm": [
+						"social.colibri.beta.bridge.createPairing",
+						"social.colibri.beta.bridge.getConfiguration",
+						"social.colibri.beta.bridge.putRemoteRooms",
+						"social.colibri.beta.bridge.uploadBlob",
+						"social.colibri.beta.bridge.postMessage",
+						"social.colibri.beta.bridge.editMessage",
+						"social.colibri.beta.bridge.deleteMessage",
+						"social.colibri.beta.bridge.addReaction",
+						"social.colibri.beta.bridge.removeReaction",
+						"social.colibri.beta.bridge.createThread",
+						"social.colibri.beta.bridge.updateThread",
+						"social.colibri.beta.bridge.deleteThread",
+						"social.colibri.beta.bridge.hideMessage",
+						"social.colibri.beta.bridge.importMessages",
+						"social.colibri.beta.bridge.reportBackfill",
+						"social.colibri.beta.bridge.replaceAvatar",
+						"social.colibri.beta.bridge.leave",
+						"social.colibri.beta.channel.listMessages",
+						"social.colibri.beta.channel.getChannel",
+						"social.colibri.beta.blob.get"
+					]
+				}
+			]
+		}
+	}
+}

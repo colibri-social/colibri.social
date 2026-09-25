@@ -6,6 +6,7 @@ import type {
 	Member,
 	Role,
 } from "../../../../contexts/community-payload";
+import type { BridgedPerson } from "../../../../utils/bridge";
 import { ambiguousCategoryName } from "../../../../utils/channel-category";
 import { searchEmojis } from "../../../../utils/emoji-data";
 import type { EmojiUsage } from "../../../../utils/emoji-usage";
@@ -30,6 +31,8 @@ const EMOJI_MIN_QUERY = 2;
 const MEMBER_LIMIT = 6;
 
 const ROLE_LIMIT = 3;
+
+const BRIDGED_LIMIT = 3;
 
 const CHANNEL_LIMIT = 5;
 
@@ -57,6 +60,7 @@ export const buildSuggestions = (
 	categories: () => Array<Category>,
 	mainEditor?: boolean,
 	emoji?: EmojiSuggestionOptions,
+	searchBridged?: (query: string, limit: number) => Array<BridgedPerson>,
 ): Omit<SuggestionOptions<any, MentionNodeAttrs>, "editor">[] => {
 	return [
 		{
@@ -64,7 +68,10 @@ export const buildSuggestions = (
 			items: ({ query }) => {
 				const q = foldText(query);
 
-				const matchedMembers = searchMembers(query, MEMBER_LIMIT);
+				const matchedMembers = [
+					...searchMembers(query, MEMBER_LIMIT),
+					...(searchBridged?.(query, BRIDGED_LIMIT) ?? []),
+				];
 
 				const matchedRoles = roles()
 					.filter((role) => foldText(role.name).startsWith(q))

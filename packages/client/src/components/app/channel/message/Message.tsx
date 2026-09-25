@@ -14,6 +14,7 @@ import {
 import ArrowBendUpLeft from "~icons/ph/arrow-bend-up-left";
 import ArrowBendUpRight from "~icons/ph/arrow-bend-up-right";
 import ArrowsMergeIcon from "~icons/ph/arrows-merge";
+import EyeIcon from "~icons/ph/eye";
 import ListChecksIcon from "~icons/ph/list-checks";
 import PencilIcon from "~icons/ph/pencil";
 import ProhibitIcon from "~icons/ph/prohibit";
@@ -138,6 +139,7 @@ const MessageInner: Component<{
 		discardSendState,
 		isLegacy,
 		isHiddenByModerator,
+		unhideMessage,
 		revealed,
 		editMode,
 		messageEditable,
@@ -745,15 +747,27 @@ const MessageInner: Component<{
 										message.author.did !== user.did
 									}
 								>
-									<Action
-										tooltipText="Hide"
-										buttonClasses="text-destructive"
-										onClick={(e) => {
-											handlePotentialBlock(e);
-										}}
+									<Show
+										when={isHiddenByModerator()}
+										fallback={
+											<Action
+												tooltipText="Hide"
+												buttonClasses="text-destructive"
+												onClick={(e) => {
+													handlePotentialBlock(e);
+												}}
+											>
+												<ProhibitIcon />
+											</Action>
+										}
 									>
-										<ProhibitIcon />
-									</Action>
+										<Action
+											tooltipText="Unhide"
+											onClick={() => void unhideMessage()}
+										>
+											<EyeIcon />
+										</Action>
+									</Show>
 								</Show>
 								<Show when={canEdit()}>
 									<Action tooltipText="Edit" onClick={enableEditMode}>

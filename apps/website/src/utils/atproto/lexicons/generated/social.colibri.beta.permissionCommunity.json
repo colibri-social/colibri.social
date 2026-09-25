@@ -148,7 +148,13 @@
 						"social.colibri.beta.voice.moderate",
 						"social.colibri.beta.thread.delete",
 						"social.colibri.beta.thread.repoint",
-						"social.colibri.beta.thread.moveMessages"
+						"social.colibri.beta.thread.moveMessages",
+						"social.colibri.beta.bridge.getPairing",
+						"social.colibri.beta.bridge.redeemPairing",
+						"social.colibri.beta.bridge.listRegistrations",
+						"social.colibri.beta.bridge.update",
+						"social.colibri.beta.bridge.revoke",
+						"social.colibri.beta.bridge.listRemoteRooms"
 					]
 				},
 				{

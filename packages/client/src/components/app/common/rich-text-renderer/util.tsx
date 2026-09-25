@@ -14,6 +14,7 @@ import { parseColibriChannelUrl } from "../../../../atproto/colibri-channel-url"
 import { parseColibriInviteUrl } from "../../../../atproto/colibri-invite-url";
 import { useCommunityContext } from "../../../../contexts/Community";
 import { useUserPreferences } from "../../../../contexts/UserPreferences";
+import { platformName } from "../../../../utils/bridge";
 import { parseEmojiText } from "../../../../utils/emoji";
 import { openUntrustedLink } from "../../../../utils/external-link-warning";
 import {
@@ -148,6 +149,17 @@ const applyStyleForFacet = (text: string, feature: AnyFeature): JSX.Element => {
 						/>
 					</User.ProfilePopover>
 				</MemberContextMenu>
+			);
+		}
+		case "social.colibri.beta.richtext.facet#bridgedMention": {
+			const platform = "platform" in feature ? String(feature.platform) : "";
+			return (
+				<span
+					data-facet-type="bridgedMention"
+					title={`On ${platformName(platform)}`}
+					class="bg-primary/25 px-1 rounded-xs inline"
+					innerHTML={textWithEmojis}
+				/>
 			);
 		}
 		case "social.colibri.beta.richtext.facet#link": {
@@ -379,7 +391,9 @@ const renderInlineRange = (
 			(f) => f.$type === "social.colibri.beta.richtext.facet#channel",
 		);
 		const mentionFeature = features.find(
-			(f) => f.$type === "social.colibri.beta.richtext.facet#mention",
+			(f) =>
+				f.$type === "social.colibri.beta.richtext.facet#mention" ||
+				f.$type === "social.colibri.beta.richtext.facet#bridgedMention",
 		);
 		const roleFeature = features.find(
 			(f) => f.$type === "social.colibri.beta.richtext.facet#role",

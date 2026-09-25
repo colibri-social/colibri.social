@@ -62,6 +62,11 @@
 					"type": "ref",
 					"ref": "#presence",
 					"description": "Live presence, when the AppView is tracking any."
+				},
+				"bridge": {
+					"type": "ref",
+					"ref": "social.colibri.beta.bridge.defs#bridgedActor",
+					"description": "Present when this is someone on another service whose messages a bridge relays. They have no Colibri account of their own."
 				}
 			}
 		},
@@ -92,10 +97,13 @@
 					"ref": "#voiceState",
 					"description": "Where the user is connected for voice, if anywhere."
 				},
-				"activity": {
-					"type": "ref",
-					"ref": "#activity",
-					"description": "What the user is doing right now, when they share it and the AppView has something current."
+				"activities": {
+					"type": "array",
+					"items": {
+						"ref": "#activity",
+						"type": "ref"
+					},
+					"description": "What the user is doing right now, one entry per service they share from. Empty when the AppView has nothing current for them."
 				}
 			}
 		},

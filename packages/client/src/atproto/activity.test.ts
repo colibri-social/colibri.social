@@ -133,11 +133,18 @@ describe("liveActivitiesOf", () => {
 });
 
 describe("activitySummary", () => {
-	it("joins the title and subtitle", async () => {
+	it("shows the artist for a listening activity", async () => {
 		const { activitySummary } = await load();
-		expect(activitySummary(activity())).toBe(
-			"Never Gonna Give You Up · Rick Astley",
-		);
+		expect(activitySummary(activity())).toBe("Rick Astley");
+	});
+
+	it("joins the title and subtitle for other kinds", async () => {
+		const { activitySummary } = await load();
+		expect(
+			activitySummary(
+				activity({ kind: "playing", title: "Celeste", subtitle: "Chapter 7" }),
+			),
+		).toBe("Celeste · Chapter 7");
 	});
 
 	it("uses the title alone when there is no subtitle", async () => {

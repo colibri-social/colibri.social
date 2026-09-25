@@ -32,10 +32,11 @@ export const liveActivitiesOf = (
 		.filter((x) => typeof x !== "undefined");
 };
 
-export const activitySummary = (activity: Activity): string =>
-	activity.subtitle
-		? `${activity.title} · ${activity.subtitle}`
-		: activity.title;
+export const activitySummary = (activity: Activity): string => {
+	if (!activity.subtitle) return activity.title;
+	if (activity.kind === "listening") return activity.subtitle;
+	return `${activity.title} · ${activity.subtitle}`;
+};
 
 const warmed = new Set<string>();
 

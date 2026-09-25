@@ -249,7 +249,7 @@
 				},
 				"count": {
 					"type": "integer",
-					"description": "How many people reacted."
+					"description": "How many people reacted, including people reacting through a bridge."
 				},
 				"reactors": {
 					"type": "array",
@@ -258,11 +258,20 @@
 						"format": "did",
 						"description": "Someone who reacted."
 					},
-					"description": "Who reacted."
+					"description": "Colibri users who reacted. People reacting through a bridge are listed in bridgedReactors instead."
 				},
 				"viewerReacted": {
 					"type": "boolean",
 					"description": "Whether the requesting user is among them."
+				},
+				"bridgedReactors": {
+					"type": "array",
+					"items": {
+						"type": "ref",
+						"ref": "social.colibri.beta.bridge.defs#bridgedReactor",
+						"description": "Someone who reacted on another service."
+					},
+					"description": "People on other services who reacted through a bridge."
 				}
 			}
 		},

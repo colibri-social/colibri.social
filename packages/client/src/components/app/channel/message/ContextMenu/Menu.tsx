@@ -4,6 +4,7 @@ import ArrowBendUpLeftIcon from "~icons/ph/arrow-bend-up-left";
 import ArrowBendUpRightIcon from "~icons/ph/arrow-bend-up-right";
 import ArrowsMergeIcon from "~icons/ph/arrows-merge";
 import CopyIcon from "~icons/ph/copy";
+import EyeIcon from "~icons/ph/eye";
 import HeartIcon from "~icons/ph/heart";
 import InfoIcon from "~icons/ph/info";
 import LinkBreakIcon from "~icons/ph/link-break";
@@ -60,6 +61,8 @@ export const MessageContextMenu: ParentComponent<{
 		message,
 		isPending,
 		isLegacy,
+		isHiddenByModerator,
+		unhideMessage,
 		messageEditable,
 		canReply,
 		enableReplyMode,
@@ -254,12 +257,22 @@ export const MessageContextMenu: ParentComponent<{
 									</ContextMenuItem>
 								</Show>
 								<Show when={canHideMessage()}>
-									<ContextMenuItem
-										onClick={(e) => handlePotentialBlock(e as MouseEvent)}
+									<Show
+										when={isHiddenByModerator()}
+										fallback={
+											<ContextMenuItem
+												onClick={(e) => handlePotentialBlock(e as MouseEvent)}
+											>
+												<ProhibitIcon class="text-destructive" />
+												<span class="text-destructive">Hide Message</span>
+											</ContextMenuItem>
+										}
 									>
-										<ProhibitIcon class="text-destructive" />
-										<span class="text-destructive">Hide Message</span>
-									</ContextMenuItem>
+										<ContextMenuItem onClick={() => void unhideMessage()}>
+											<EyeIcon />
+											<span>Unhide Message</span>
+										</ContextMenuItem>
+									</Show>
 								</Show>
 							</ContextMenuContent>
 						</ContextMenuPortal>
@@ -429,17 +442,29 @@ export const MessageContextMenu: ParentComponent<{
 						</MenuDrawerItem>
 					</Show>
 					<Show when={canHideMessage()}>
-						<MenuDrawerItem
-							destructive
-							onClick={(e) =>
-								handoffDrawer(close, () =>
-									handlePotentialBlock(e as MouseEvent),
-								)
+						<Show
+							when={isHiddenByModerator()}
+							fallback={
+								<MenuDrawerItem
+									destructive
+									onClick={(e) =>
+										handoffDrawer(close, () =>
+											handlePotentialBlock(e as MouseEvent),
+										)
+									}
+								>
+									<ProhibitIcon />
+									<span>Hide Message</span>
+								</MenuDrawerItem>
 							}
 						>
-							<ProhibitIcon />
-							<span>Hide Message</span>
-						</MenuDrawerItem>
+							<MenuDrawerItem
+								onClick={() => handoffDrawer(close, () => void unhideMessage())}
+							>
+								<EyeIcon />
+								<span>Unhide Message</span>
+							</MenuDrawerItem>
+						</Show>
 					</Show>
 				</MenuDrawer>
 				<EmojiPopover

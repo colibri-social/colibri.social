@@ -61,6 +61,11 @@
 							"format": "uri"
 						},
 						"description": "URLs from this message's link facets whose preview the author chose not to show. Moderator suppression is a label instead."
+					},
+					"bridged": {
+						"type": "ref",
+						"ref": "social.colibri.beta.bridge.defs#attribution",
+						"description": "Who sent this message on another service. Honoured only when the community itself wrote the record."
 					}
 				}
 			}

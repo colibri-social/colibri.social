@@ -10,9 +10,11 @@ import type {
 	Member,
 	Role,
 } from "../../../../contexts/community-payload";
+import type { BridgedPerson } from "../../../../utils/bridge";
 import { readSafeAreaInsets } from "../../../../utils/safe-area";
 import { displayableNameFn } from "../../user/DisplayableName";
 import {
+	isBridged,
 	isChannel,
 	isMember,
 	isRole,
@@ -33,6 +35,7 @@ export type TimeShortcut = { timeShortcut: true };
 export type ChannelSuggestion = Channel & { categoryLabel?: string };
 export type SuggestionItem =
 	| Member
+	| BridgedPerson
 	| Role
 	| ChannelSuggestion
 	| EmojiSuggestionData
@@ -59,6 +62,15 @@ export function selectItem(
 			handle: item.handle.replaceAll("at://", ""),
 			avatar: item.actor.avatar,
 			type: "member",
+		} as any);
+	} else if (isBridged(item)) {
+		command({
+			id: item.remoteId,
+			label: item.name,
+			avatar: item.avatar ?? null,
+			registration: item.registration,
+			platform: item.platform,
+			type: "bridged",
 		} as any);
 	} else if (isRole(item)) {
 		command({
