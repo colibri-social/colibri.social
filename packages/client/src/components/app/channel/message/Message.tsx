@@ -15,6 +15,7 @@ import ArrowBendUpLeft from "~icons/ph/arrow-bend-up-left";
 import ArrowBendUpRight from "~icons/ph/arrow-bend-up-right";
 import ArrowsMergeIcon from "~icons/ph/arrows-merge";
 import EyeIcon from "~icons/ph/eye";
+import ImageIcon from "~icons/ph/image";
 import ListChecksIcon from "~icons/ph/list-checks";
 import PencilIcon from "~icons/ph/pencil";
 import ProhibitIcon from "~icons/ph/prohibit";
@@ -481,9 +482,24 @@ const MessageInner: Component<{
 													user={resolveAuthor(visible().author)}
 												/>
 											</strong>
-											<span class="text-xs overflow-hidden text-ellipsis text-nowrap flex-1">
-												{visible().text}
-											</span>
+											<Show
+												when={
+													visible().text.trim() !== "" ||
+													(visible().attachments?.length ?? 0) +
+														(visible().forward?.attachments?.length ?? 0) ===
+														0
+												}
+												fallback={
+													<span class="text-xs italic text-muted-foreground flex flex-row items-center gap-1 flex-1">
+														Click to see attachment
+														<ImageIcon class="w-3.5 h-3.5" />
+													</span>
+												}
+											>
+												<span class="text-xs overflow-hidden text-ellipsis text-nowrap flex-1">
+													{visible().text}
+												</span>
+											</Show>
 										</div>
 									)}
 								</Show>
