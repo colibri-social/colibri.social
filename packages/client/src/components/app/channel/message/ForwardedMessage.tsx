@@ -34,6 +34,7 @@ const LOCKED_CHIP_CLASS =
 export const ForwardedMessage: Component<{
 	forward: ForwardView;
 	authorDid: string;
+	refreshMedia?: (url: string) => Promise<string | undefined>;
 }> = (props) => {
 	const user = useUserContext();
 	const community = useCommunityContext();
@@ -108,6 +109,7 @@ export const ForwardedMessage: Component<{
 				<MessageAttachments
 					did={props.authorDid}
 					attachments={props.forward.attachments}
+					refreshMedia={props.refreshMedia}
 				/>
 			</Show>
 			<Show

@@ -1,3 +1,4 @@
+import { canKeepMediaLinks } from "../media-link";
 import type { MessageView, RecordRef } from "../views";
 import type { MessagesSnapshot, PendingMessage } from "./schema";
 
@@ -130,3 +131,56 @@ export const restoreMessagesSnapshot = (
 	cursor: snapshot.cursor ?? cursorFor(snapshot.messages),
 	hasMore: snapshot.hasMore,
 });
+
+const keepLiveMedia = (
+	local: MessageView,
+	fresh: MessageView,
+	nowMs: number,
+): MessageView => {
+	const attachments =
+		local.attachments &&
+		fresh.attachments &&
+		canKeepMediaLinks(local.attachments, fresh.attachments, nowMs)
+			? local.attachments
+			: fresh.attachments;
+	const forward =
+		local.forward &&
+		fresh.forward &&
+		canKeepMediaLinks(
+			local.forward.attachments,
+			fresh.forward.attachments,
+			nowMs,
+		)
+			? local.forward
+			: fresh.forward;
+	return { ...fresh, attachments, forward };
+};
+
+export const adoptFetchedCopies = (
+	local: (MessageView | PendingMessage)[],
+	fetched: ReadonlyArray<MessageView>,
+	nowMs: number,
+): (MessageView | PendingMessage)[] => {
+	const byUri = new Map(fetched.map((m) => [m.uri, m]));
+	let changed = false;
+	const adopted = local.map((message) => {
+		if ("hash" in message) return message;
+		const fresh = byUri.get(message.uri);
+		if (!fresh || fresh === message) return message;
+		changed = true;
+		return keepLiveMedia(message, fresh, nowMs);
+	});
+	return changed ? adopted : local;
+};
+
+export const refreshCursorFor = (
+	local: ReadonlyArray<MessageView | PendingMessage>,
+	uri: string,
+): { cursor: string | undefined } | undefined => {
+	const index = local.findIndex((m) => !("hash" in m) && m.uri === uri);
+	if (index === -1) return undefined;
+	const newer = local
+		.slice(index + 1)
+		.find((m): m is MessageView => !("hash" in m));
+	return { cursor: newer?.rkey };
+};

@@ -8,7 +8,15 @@ import {
 	Show,
 } from "solid-js";
 import { parseThreadPath } from "../../../../atproto/colibri-channel-url";
-import { isVisibleAnchor, type ThreadView } from "../../../../atproto/views";
+import {
+	isMediaLinkExpired,
+	liveMediaLink,
+} from "../../../../atproto/media-link";
+import {
+	isVisibleAnchor,
+	type MessageView,
+	type ThreadView,
+} from "../../../../atproto/views";
 import {
 	ChannelContext,
 	ChannelContextProvider,
@@ -26,6 +34,8 @@ import { threadAsChannelView } from "./thread-channel-view";
 
 const ThreadAnchor: Component<{ thread: ThreadView }> = (props) => {
 	const primary = usePrimaryChannelContext();
+	const threads = useThreads();
+	const triedMediaLinks = new Set<string>();
 
 	const indexed = () => {
 		const anchor = props.thread.anchorMessage;
@@ -49,6 +59,40 @@ const ThreadAnchor: Component<{ thread: ThreadView }> = (props) => {
 
 	const message = () => indexed() ?? loaded();
 
+	const anchorMediaLink = (
+		anchor: MessageView | undefined,
+		url: string,
+	): string | undefined =>
+		anchor === undefined
+			? undefined
+			: liveMediaLink(
+					[
+						...(anchor.attachments ?? []),
+						...(anchor.forward?.attachments ?? []),
+					],
+					url,
+					Date.now(),
+				);
+
+	const refreshAnchorMedia = async (
+		url: string,
+	): Promise<string | undefined> => {
+		const anchor = message();
+		if (anchor === undefined) return undefined;
+		if (indexed() === undefined) {
+			return primary()?.refreshExpiredMedia(anchor.uri, url);
+		}
+		if (!isMediaLinkExpired(url, Date.now())) return url;
+		if (triedMediaLinks.has(url)) return anchorMediaLink(indexed(), url);
+		triedMediaLinks.add(url);
+		const fresh = (await threads.fetchThread(props.thread.space))
+			?.anchorMessage;
+		return anchorMediaLink(
+			fresh !== undefined && isVisibleAnchor(fresh) ? fresh : undefined,
+			url,
+		);
+	};
+
 	return (
 		<Show when={message()}>
 			{(anchor) => (
@@ -69,6 +113,7 @@ const ThreadAnchor: Component<{ thread: ThreadView }> = (props) => {
 									isSubsequent={false}
 									hasSubsequent={false}
 									isLast
+									refreshMedia={refreshAnchorMedia}
 								/>
 							</ChannelContext.Provider>
 						)}

@@ -13,6 +13,7 @@ import type { MediaPlayerElement } from "vidstack/elements";
 import "vidstack/player";
 import "vidstack/player/ui";
 
+import { toast } from "somoto";
 import CaretLeftIcon from "~icons/ph/caret-left";
 import CaretRightIcon from "~icons/ph/caret-right";
 import CornersInIcon from "~icons/ph/corners-in";
@@ -27,6 +28,7 @@ import SpeakerLowIcon from "~icons/ph/speaker-low-fill";
 import SpeakerMutedIcon from "~icons/ph/speaker-x-fill";
 import SpinnerIcon from "~icons/ph/spinner-gap";
 import XIcon from "~icons/ph/x";
+import { isMediaLinkExpired } from "../../../../atproto/media-link";
 import type { AttachmentView } from "../../../../atproto/views";
 import { isTauriRuntime } from "../../../../notifications/environment";
 import { createSwipe } from "../../../../utils/create-swipe";
@@ -39,7 +41,43 @@ import { openExternalLink } from "../../../../utils/open-external-link";
 import { isDesktopNative } from "../../../../utils/platform";
 import { Button } from "../../../ui/Button";
 
-type AttachmentComponent = Component<{ item: AttachmentView }>;
+type RefreshMedia = (url: string) => Promise<string | undefined>;
+
+const startDownload = (url: string, name: string | undefined) => {
+	if (isTauriRuntime()) {
+		openExternalLink(url);
+		return;
+	}
+	const link = document.createElement("a");
+	link.href = url;
+	if (name) link.download = name;
+	link.click();
+};
+
+const downloadMedia = (
+	url: string | undefined,
+	name: string | undefined,
+	event: MouseEvent,
+	refreshMedia: RefreshMedia | undefined,
+) => {
+	if (!url || !refreshMedia || !isMediaLinkExpired(url, Date.now())) {
+		openExternalLink(url, event);
+		return;
+	}
+	event.preventDefault();
+	void refreshMedia(url).then((fresh) => {
+		if (fresh) {
+			startDownload(fresh, name);
+			return;
+		}
+		toast.error("This file's link has expired. Try again in a moment.");
+	});
+};
+
+type AttachmentComponent = Component<{
+	item: AttachmentView;
+	refreshMedia?: RefreshMedia;
+}>;
 
 /** Shared base for the small square icon buttons used in the control bars. */
 const CONTROL_BTN =
@@ -136,6 +174,7 @@ export const AudioAttachment: AttachmentComponent = (props) => {
 			viewType="audio"
 			streamType="on-demand"
 			load="play"
+			onError={() => void props.refreshMedia?.(props.item.url)}
 		>
 			<media-provider>
 				<Show when={src()}>
@@ -148,7 +187,9 @@ export const AudioAttachment: AttachmentComponent = (props) => {
 				class="group/file flex flex-row items-center gap-3 p-3"
 				href={downloadSrc()}
 				download={name()}
-				onClick={(e) => openExternalLink(downloadSrc(), e)}
+				onClick={(e) =>
+					downloadMedia(downloadSrc(), name(), e, props.refreshMedia)
+				}
 				title={name()}
 			>
 				<div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-muted text-primary">
@@ -272,6 +313,7 @@ export const MediaLightboxGallery: Component<{
 	sizeClass?: string;
 	maxHeightClass?: string;
 	onImageError?: (index: number) => void;
+	refreshMedia?: RefreshMedia;
 }> = (props) => {
 	const sizeClass = () => props.sizeClass ?? "max-w-104";
 	const maxHeightClass = () => props.maxHeightClass ?? "max-h-96";
@@ -364,7 +406,12 @@ export const MediaLightboxGallery: Component<{
 							href={galleryDownloadUrl(props.images[0])}
 							download={props.images[0]?.name}
 							onClick={(e) =>
-								openExternalLink(galleryDownloadUrl(props.images[0]), e)
+								downloadMedia(
+									galleryDownloadUrl(props.images[0]),
+									props.images[0]?.name,
+									e,
+									props.refreshMedia,
+								)
 							}
 							title={props.images[0]?.name ?? "Image"}
 						>
@@ -421,7 +468,12 @@ export const MediaLightboxGallery: Component<{
 												href={galleryDownloadUrl(tile.image)}
 												download={tile.image.name}
 												onClick={(e) =>
-													openExternalLink(galleryDownloadUrl(tile.image), e)
+													downloadMedia(
+														galleryDownloadUrl(tile.image),
+														tile.image.name,
+														e,
+														props.refreshMedia,
+													)
 												}
 												title={tile.image.name ?? "Image"}
 											>
@@ -465,9 +517,11 @@ export const MediaLightboxGallery: Component<{
 							download={props.images[openIndex()!]?.name}
 							onClick={(e) => {
 								e.stopPropagation();
-								openExternalLink(
+								downloadMedia(
 									galleryDownloadUrl(props.images[openIndex()!]),
+									props.images[openIndex()!]?.name,
 									e,
+									props.refreshMedia,
 								);
 							}}
 							title={props.images[openIndex()!]?.name ?? "Image"}
@@ -521,6 +575,7 @@ export const MediaLightboxGallery: Component<{
 
 export const ImageGallery: Component<{
 	images: ReadonlyArray<AttachmentView>;
+	refreshMedia?: RefreshMedia;
 }> = (props) => {
 	const items = (): GalleryImage[] =>
 		props.images.map((i) => ({
@@ -531,7 +586,18 @@ export const ImageGallery: Component<{
 			height: i.height,
 		}));
 
-	return <MediaLightboxGallery images={items()} />;
+	const reportImageError = (index: number) => {
+		const url = props.images[index]?.url;
+		if (url) void props.refreshMedia?.(url);
+	};
+
+	return (
+		<MediaLightboxGallery
+			images={items()}
+			onImageError={reportImageError}
+			refreshMedia={props.refreshMedia}
+		/>
+	);
 };
 
 export const VideoAttachment: AttachmentComponent = (props) => {
@@ -609,12 +675,15 @@ export const VideoAttachment: AttachmentComponent = (props) => {
 			load="visible"
 			preload="metadata"
 			playsInline
+			onError={() => void props.refreshMedia?.(props.item.url)}
 		>
 			<a
 				class="absolute z-20 top-4 aspect-square right-4 hidden group-hover:flex items-center justify-center bg-card p-1 rounded-sm hover:bg-muted border border-border"
 				href={downloadSrc()}
 				download={name()}
-				onClick={(e) => openExternalLink(downloadSrc(), e)}
+				onClick={(e) =>
+					downloadMedia(downloadSrc(), name(), e, props.refreshMedia)
+				}
 				title={name()}
 			>
 				<DownloadIcon class="ml-auto h-5 w-5 shrink-0 text-muted-foreground" />
@@ -730,7 +799,7 @@ export const GenericFileAttachment: AttachmentComponent = (props) => {
 			class="flex max-w-104 w-full flex-row items-center gap-3 rounded-lg border border-border bg-card p-2.5 transition-colors hover:bg-muted/75"
 			href={src()}
 			download={name()}
-			onClick={(e) => openExternalLink(src(), e)}
+			onClick={(e) => downloadMedia(src(), name(), e, props.refreshMedia)}
 			title={name()}
 		>
 			<div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
@@ -759,6 +828,7 @@ export const MessageAttachments: Component<{
 	did: string;
 	attachments: ReadonlyArray<AttachmentView>;
 	disableHover?: boolean;
+	refreshMedia?: RefreshMedia;
 }> = (props) => {
 	/**
 	 * Returns all non-displayable files which should be rendered as a box.
@@ -791,26 +861,35 @@ export const MessageAttachments: Component<{
 	return (
 		<div class="w-full flex flex-col gap-2">
 			<Show when={imageFiles().length > 0}>
-				<ImageGallery images={imageFiles()} />
+				<ImageGallery images={imageFiles()} refreshMedia={props.refreshMedia} />
 			</Show>
 			<Show when={videoFiles().length > 0}>
 				<div class="w-full flex flex-row flex-wrap gap-2">
 					<For each={videoFiles()}>
-						{(item) => <VideoAttachment item={item} />}
+						{(item) => (
+							<VideoAttachment item={item} refreshMedia={props.refreshMedia} />
+						)}
 					</For>
 				</div>
 			</Show>
 			<Show when={audioFiles().length > 0}>
 				<div class="w-full flex flex-col gap-2">
 					<For each={audioFiles()}>
-						{(item) => <AudioAttachment item={item} />}
+						{(item) => (
+							<AudioAttachment item={item} refreshMedia={props.refreshMedia} />
+						)}
 					</For>
 				</div>
 			</Show>
 			<Show when={nonDisplayableFiles().length > 0}>
 				<div class="w-full flex flex-col gap-2">
 					<For each={nonDisplayableFiles()}>
-						{(item) => <GenericFileAttachment item={item} />}
+						{(item) => (
+							<GenericFileAttachment
+								item={item}
+								refreshMedia={props.refreshMedia}
+							/>
+						)}
 					</For>
 				</div>
 			</Show>

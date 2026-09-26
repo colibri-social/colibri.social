@@ -99,6 +99,7 @@ export const Message: Component<{
 	isLast: boolean;
 	disabled?: boolean;
 	anchor?: boolean;
+	refreshMedia?: (url: string) => Promise<string | undefined>;
 }> = (props) => {
 	return (
 		<MessageContextProvider data={props.data}>
@@ -108,6 +109,7 @@ export const Message: Component<{
 				isLast={props.isLast}
 				disabled={props.disabled}
 				anchor={props.anchor}
+				refreshMedia={props.refreshMedia}
 			/>
 		</MessageContextProvider>
 	);
@@ -119,6 +121,7 @@ const MessageInner: Component<{
 	isLast: boolean;
 	disabled?: boolean;
 	anchor?: boolean;
+	refreshMedia?: (url: string) => Promise<string | undefined>;
 }> = (props) => {
 	const user = useUserContext();
 	const channel = useChannelContext();
@@ -131,6 +134,7 @@ const MessageInner: Component<{
 	const shiftHeld = useShiftHeld();
 	const quickReactions = createMemo(() => topEmoji(emojiUsage(), 3));
 
+	const messageContext = useMessageContext();
 	const {
 		message,
 		isPending,
@@ -168,7 +172,12 @@ const MessageInner: Component<{
 		modRemoveEmbed,
 		openEmbedsModal,
 		sortedReactions,
-	} = useMessageContext();
+	} = messageContext;
+	const liveMessage = () => messageContext.message;
+	const refreshExpiredMedia = (url: string) =>
+		props.refreshMedia
+			? props.refreshMedia(url)
+			: channel.refreshExpiredMedia(liveMessage().uri, url);
 
 	const collapsedByHide = () => isHiddenByModerator() && !revealed();
 
@@ -222,7 +231,7 @@ const MessageInner: Component<{
 	const isEdited = (): boolean =>
 		"updatedAt" in message && message.updatedAt !== undefined;
 
-	const forward = () => message.forward;
+	const forward = () => liveMessage().forward;
 
 	const isSubsequentMessage = () => {
 		if (parent()) return false;
@@ -584,7 +593,8 @@ const MessageInner: Component<{
 										fallback={
 											<MessageAttachments
 												did={message.author.did}
-												attachments={message.attachments || []}
+												attachments={liveMessage().attachments || []}
+												refreshMedia={refreshExpiredMedia}
 											/>
 										}
 									>
@@ -645,6 +655,7 @@ const MessageInner: Component<{
 												<ForwardedMessage
 													forward={snapshot()}
 													authorDid={message.author.did}
+													refreshMedia={refreshExpiredMedia}
 												/>
 											</div>
 										)}
@@ -798,7 +809,8 @@ const MessageInner: Component<{
 						<div class="pl-14 pb-2">
 							<MessageAttachments
 								did={message.author.did}
-								attachments={message.attachments || []}
+								attachments={liveMessage().attachments || []}
+								refreshMedia={refreshExpiredMedia}
 							/>
 						</div>
 					</Show>

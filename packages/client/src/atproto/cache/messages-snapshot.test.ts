@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { MessageView } from "../views";
 import {
+	adoptFetchedCopies,
 	buildMessagesSnapshot,
 	cursorFor,
 	isSnapshotPaintable,
@@ -10,6 +11,7 @@ import {
 	mergeSnapshotWindow,
 	reconcileFetchedWindow,
 	refOf,
+	refreshCursorFor,
 	restoreMessagesSnapshot,
 	rkeyOf,
 	sameRecord,
@@ -487,5 +489,105 @@ describe("snapshotBelongsTo", () => {
 
 	it("accepts an empty snapshot", () => {
 		expect(snapshotBelongsTo(stored([]), CHANNEL)).toBe(true);
+	});
+});
+
+describe("adoptFetchedCopies", () => {
+	const NOW_MS = 1_800_000_000_000;
+	const signed = (cid: string, expSeconds: number) => ({
+		url: `https://appview.example/xrpc/social.colibri.beta.blob.get?did=${DID}&cid=${cid}&exp=${expSeconds}&sig=${cid}-${expSeconds}`,
+		mimeType: "video/mp4",
+	});
+	const withAttachments = (
+		rkey: string,
+		attachments: ReturnType<typeof signed>[],
+		text = "hello",
+	): MessageView => ({ ...message(rkey), text, attachments }) as MessageView;
+
+	const pending = (hash: string): PendingMessage =>
+		({ ...message(`pending-${hash}`), hash }) as unknown as PendingMessage;
+
+	it("swaps in the fetched copy of a settled message", () => {
+		const stale = message("a");
+		const fresh = { ...message("a"), text: "fresh" };
+		const adopted = adoptFetchedCopies([stale, message("b")], [fresh], NOW_MS);
+		expect(adopted[0]).toEqual(fresh);
+		expect(adopted[1]?.uri).toBe(message("b").uri);
+	});
+
+	it("keeps the same array when nothing was fetched for it", () => {
+		const local = [message("a"), message("b")];
+		expect(adoptFetchedCopies(local, [message("c")], NOW_MS)).toBe(local);
+	});
+
+	it("keeps the same array when the fetched copies are the local ones", () => {
+		const a = message("a");
+		const local = [a];
+		expect(adoptFetchedCopies(local, [a], NOW_MS)).toBe(local);
+	});
+
+	it("keeps local attachments whose links are still valid", () => {
+		const local = withAttachments("a", [signed("c1", NOW_MS / 1000 + 60)]);
+		const fresh = withAttachments(
+			"a",
+			[signed("c1", NOW_MS / 1000 + 900)],
+			"edited",
+		);
+		const [adopted] = adoptFetchedCopies([local], [fresh], NOW_MS) as [
+			MessageView,
+		];
+		expect(adopted.text).toBe("edited");
+		expect(adopted.attachments).toBe(local.attachments);
+	});
+
+	it("takes fresh attachments once the local links expired", () => {
+		const local = withAttachments("a", [signed("c1", NOW_MS / 1000 - 1)]);
+		const fresh = withAttachments("a", [signed("c1", NOW_MS / 1000 + 900)]);
+		const [adopted] = adoptFetchedCopies([local], [fresh], NOW_MS) as [
+			MessageView,
+		];
+		expect(adopted.attachments).toBe(fresh.attachments);
+	});
+
+	it("takes fresh attachments when they point at different blobs", () => {
+		const local = withAttachments("a", [signed("c1", NOW_MS / 1000 + 60)]);
+		const fresh = withAttachments("a", [signed("c2", NOW_MS / 1000 + 900)]);
+		const [adopted] = adoptFetchedCopies([local], [fresh], NOW_MS) as [
+			MessageView,
+		];
+		expect(adopted.attachments).toBe(fresh.attachments);
+	});
+
+	it("leaves pending messages alone", () => {
+		const waiting = pending("h1");
+		const fresh = { ...message("pending-h1"), text: "fresh" };
+		const local = [waiting];
+		expect(adoptFetchedCopies(local, [fresh], NOW_MS)).toBe(local);
+	});
+});
+
+describe("refreshCursorFor", () => {
+	const pending = (hash: string): PendingMessage =>
+		({ ...message(`pending-${hash}`), hash }) as unknown as PendingMessage;
+
+	it("uses the next newer settled message as the cursor", () => {
+		const local = [message("a"), message("b"), message("c")];
+		expect(refreshCursorFor(local, message("a").uri)).toEqual({ cursor: "b" });
+	});
+
+	it("skips pending messages when picking the cursor", () => {
+		const local = [message("a"), pending("h1"), message("c")];
+		expect(refreshCursorFor(local, message("a").uri)).toEqual({ cursor: "c" });
+	});
+
+	it("has no cursor for the newest message", () => {
+		const local = [message("a"), message("b"), pending("h1")];
+		expect(refreshCursorFor(local, message("b").uri)).toEqual({
+			cursor: undefined,
+		});
+	});
+
+	it("returns nothing for a message that is not in the list", () => {
+		expect(refreshCursorFor([message("a")], message("z").uri)).toBeUndefined();
 	});
 });

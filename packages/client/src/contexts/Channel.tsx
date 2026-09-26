@@ -21,10 +21,12 @@ import {
 	rememberMessages,
 } from "../atproto/cache/messages-memory";
 import {
+	adoptFetchedCopies,
 	buildMessagesSnapshot,
 	isSnapshotPaintable,
 	reconcileFetchedWindow,
 	refOf,
+	refreshCursorFor,
 	restoreMessagesSnapshot,
 	sameRecord,
 	shouldWriteSnapshot,
@@ -56,6 +58,7 @@ import {
 	COLLECTIONS,
 	colibri,
 } from "../atproto/lexicons";
+import { isMediaLinkExpired, liveMediaLink } from "../atproto/media-link";
 import { buildMessageRecord } from "../atproto/message-record";
 import {
 	enqueueSpaceCreate,
@@ -144,7 +147,15 @@ const CURSOR_GRACE_MS = 400;
 
 type Did = RecordRef["did"];
 
-type LoadState = { busy: boolean; lastViewAt: number };
+type LoadState = {
+	busy: boolean;
+	lastViewAt: number;
+	triedMediaLinks: Set<string>;
+	mediaRefreshQueue: Set<string>;
+	mediaRefreshFlush: Promise<void> | undefined;
+};
+
+const MEDIA_REFRESH_BATCH_MS = 50;
 
 export type UnseenEntry = {
 	uri: MessageView["uri"];
@@ -183,6 +194,10 @@ export type ChannelContextValue = {
 	initialLoading: Accessor<boolean>;
 	error: Accessor<ColibriError | undefined>;
 	loadOlder: (hooks?: LoadOlderHooks) => Promise<void>;
+	refreshExpiredMedia: (
+		messageUri: string,
+		url: string,
+	) => Promise<string | undefined>;
 
 	snapshotAge: Accessor<number | undefined>;
 	hydratedFromNetwork: Accessor<boolean>;
@@ -363,6 +378,9 @@ export const ChannelContextProvider: ParentComponent<{
 	const sessions = createLoadSessions<LoadState>(() => ({
 		busy: false,
 		lastViewAt: 0,
+		triedMediaLinks: new Set(),
+		mediaRefreshQueue: new Set(),
+		mediaRefreshFlush: undefined,
 	}));
 
 	const reset = () => {
@@ -497,6 +515,100 @@ export const ChannelContextProvider: ParentComponent<{
 		}
 	};
 
+	const flushMediaRefresh = async (
+		session: LoadSession<LoadState>,
+	): Promise<void> => {
+		const queued = [...session.state.mediaRefreshQueue];
+		session.state.mediaRefreshQueue.clear();
+		const space = channelSpace();
+		if (!space || !sessions.isCurrent(session)) return;
+
+		const positions = new Map<string, number>(
+			messages().map((m, index) => [m.uri, index]),
+		);
+		const targets = queued
+			.filter((uri) => positions.has(uri))
+			.sort((left, right) => positions.get(right)! - positions.get(left)!);
+		const covered = new Set<string>();
+
+		for (const uri of targets) {
+			if (covered.has(uri)) continue;
+			const target = refreshCursorFor(messages(), uri);
+			if (!target) continue;
+			try {
+				const res = await managingClient().call(
+					colibri.channel.listMessages.main,
+					{
+						params: { channel: space, limit: PAGE_SIZE, cursor: target.cursor },
+					},
+					{ signal: session.supersededSignal },
+				);
+				if (!sessions.isCurrent(session)) return;
+				if (!res.ok) {
+					log.warn("media refresh failed", { code: res.error.code });
+					return;
+				}
+				const fetched = res.data?.messages ?? [];
+				covered.add(uri);
+				for (const message of fetched) covered.add(message.uri);
+				setMessages((prev) => adoptFetchedCopies(prev, fetched, Date.now()));
+			} catch (err) {
+				if (!sessions.isCurrent(session)) return;
+				const failure = classifyThrown(err, {
+					method: "channel.listMessages",
+				});
+				log.warn("media refresh failed", { code: failure.code });
+				return;
+			}
+		}
+	};
+
+	const currentMediaLink = (
+		messageUri: string,
+		url: string,
+	): string | undefined => {
+		const message = messages().find(
+			(m): m is MessageView => !("hash" in m) && m.uri === messageUri,
+		);
+		if (!message) return undefined;
+		return liveMediaLink(
+			[...(message.attachments ?? []), ...(message.forward?.attachments ?? [])],
+			url,
+			Date.now(),
+		);
+	};
+
+	const scheduleMediaRefresh = (
+		session: LoadSession<LoadState>,
+	): Promise<void> => {
+		if (session.state.mediaRefreshFlush) return session.state.mediaRefreshFlush;
+		const flush = new Promise<void>((resolve) => {
+			setTimeout(() => {
+				session.state.mediaRefreshFlush = undefined;
+				void flushMediaRefresh(session).finally(resolve);
+			}, MEDIA_REFRESH_BATCH_MS);
+		});
+		session.state.mediaRefreshFlush = flush;
+		return flush;
+	};
+
+	const refreshExpiredMedia = async (
+		messageUri: string,
+		url: string,
+	): Promise<string | undefined> => {
+		const session = sessions.current();
+		if (!session) return undefined;
+		if (!isMediaLinkExpired(url, Date.now())) return url;
+		if (session.state.triedMediaLinks.has(url)) {
+			return currentMediaLink(messageUri, url);
+		}
+		session.state.triedMediaLinks.add(url);
+		session.state.mediaRefreshQueue.add(messageUri);
+		await scheduleMediaRefresh(session);
+		if (!sessions.isCurrent(session)) return undefined;
+		return currentMediaLink(messageUri, url);
+	};
+
 	const mergeFetchedWindow = (
 		ordered: MessageView[],
 		prunable: ReadonlySet<string>,
@@ -510,7 +622,7 @@ export const ChannelContextProvider: ParentComponent<{
 		});
 		const spansWholeHistory = ordered.length < PAGE_SIZE;
 
-		let merged = reconciled ?? current;
+		let merged = adoptFetchedCopies(reconciled ?? current, ordered, Date.now());
 		let appended = false;
 		for (const message of novel) {
 			const placement = placeMessage(merged, message, {
@@ -1658,6 +1770,7 @@ export const ChannelContextProvider: ParentComponent<{
 		initialLoading,
 		error,
 		loadOlder,
+		refreshExpiredMedia,
 		snapshotAge,
 		hydratedFromNetwork,
 		replyingTo,
