@@ -113,19 +113,34 @@ export const MessageInput: Component<{
 		for (const file of files) fileField.removeFile(file);
 	};
 
+	let draftSpace = channel.channelSpace();
+
+	const saveDraft = () => {
+		if (draftSpace)
+			writeAttachmentDraft(draftSpace, [...fileField.acceptedFiles]);
+	};
+
+	const restoreDraft = (space: string) => {
+		clearAttachments([...fileField.acceptedFiles]);
+		const restored = space ? readAttachmentDraft(space) : [];
+		if (restored.length > 0) fileField.processFiles(restored);
+		draftSpace = space;
+	};
+
+	onMount(() => restoreDraft(channel.channelSpace()));
+
 	createEffect(
 		on(
 			() => channel.channelSpace(),
-			(space, previousSpace) => {
-				const carried = [...fileField.acceptedFiles];
-				if (previousSpace) writeAttachmentDraft(previousSpace, carried);
-				clearAttachments(carried);
-				const restored = space ? readAttachmentDraft(space) : [];
-				if (restored.length > 0) fileField.processFiles(restored);
+			(space) => {
+				saveDraft();
+				restoreDraft(space);
 			},
 			{ defer: true },
 		),
 	);
+
+	onCleanup(saveDraft);
 
 	let submitMessage: (() => void) | undefined;
 
