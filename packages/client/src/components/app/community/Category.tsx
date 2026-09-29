@@ -42,6 +42,7 @@ import { useNotifications } from "../../../contexts/Notifications";
 import { useThreads } from "../../../contexts/Threads";
 import { sidebarThreads } from "../../../contexts/thread-list";
 import { useUserContext } from "../../../contexts/User";
+import { useUserPreferences } from "../../../contexts/UserPreferences";
 import {
 	ConnectionState,
 	useVoiceChatContext,
@@ -175,6 +176,7 @@ const SortableChannel: Component<{
 	const threads = useThreads();
 	const now = useNow();
 	const [voiceData, { connect }] = useVoiceChatContext();
+	const preferences = useUserPreferences();
 
 	const ChannelSpace = () => props.channel.space;
 	const ChannelRkey = () => spaceSkey(props.channel.space);
@@ -199,7 +201,11 @@ const SortableChannel: Component<{
 			return;
 		}
 		showChannelTab(ChannelSpace(), "chat");
-		if (isVoiceChannel() && !isConnectedHere()) {
+		if (
+			isVoiceChannel() &&
+			!isConnectedHere() &&
+			!preferences.preferences().voice.confirmVoiceJoin
+		) {
 			e.preventDefault();
 			connect(ChannelSpace(), {
 				channelName: props.channel.name,

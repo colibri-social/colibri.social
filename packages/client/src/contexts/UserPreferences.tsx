@@ -108,6 +108,7 @@ export type UserPreferencesContextData = {
 		selfDeafened: boolean;
 		showNonVideoParticipants: boolean;
 		showOwnCamera: boolean;
+		confirmVoiceJoin: boolean;
 	};
 	preferredBlueskyClient: BlueskyClientID;
 	customBlueskyClientBase: string;
@@ -161,6 +162,7 @@ const DEFAULT_PREFERENCES: UserPreferencesContextData = {
 		selfDeafened: false,
 		showNonVideoParticipants: true,
 		showOwnCamera: true,
+		confirmVoiceJoin: false,
 	},
 	preferredBlueskyClient: "bluesky",
 	customBlueskyClientBase: "",
@@ -303,6 +305,7 @@ type UserPreferencesContextValue = {
 	setVoiceView: (patch: {
 		showNonVideoParticipants?: boolean;
 		showOwnCamera?: boolean;
+		confirmVoiceJoin?: boolean;
 	}) => void;
 	toggleMembersVisible: () => void;
 	setChannelSidebarWidth: (width: number) => void;
@@ -434,6 +437,7 @@ export const UserPreferencesContextProvider: ParentComponent = (props) => {
 	const setVoiceView = (patch: {
 		showNonVideoParticipants?: boolean;
 		showOwnCamera?: boolean;
+		confirmVoiceJoin?: boolean;
 	}) => {
 		setPreferences((p) => ({ ...p, voice: { ...p.voice, ...patch } }));
 	};

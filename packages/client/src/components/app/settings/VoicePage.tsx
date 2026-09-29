@@ -438,6 +438,24 @@ export const VoicePage: Component = () => {
 						<SwitchThumb />
 					</SwitchControl>
 				</ToggleSwitch>
+				<ToggleSwitch
+					class="flex flex-row items-center justify-between gap-4"
+					checked={userPreferences.preferences().voice.confirmVoiceJoin}
+					onChange={(v) =>
+						userPreferences.setVoiceView({ confirmVoiceJoin: v })
+					}
+				>
+					<div class="flex flex-col gap-1">
+						<SwitchLabel>Confirm Before Joining</SwitchLabel>
+						<SwitchDescription class="text-sm text-muted-foreground max-w-120">
+							Clicking a voice channel opens it without joining. Use the Join
+							Voice button to connect.
+						</SwitchDescription>
+					</div>
+					<SwitchControl>
+						<SwitchThumb />
+					</SwitchControl>
+				</ToggleSwitch>
 			</div>
 
 			<hr class="w-full h-px bg-muted border-none m-0" />
