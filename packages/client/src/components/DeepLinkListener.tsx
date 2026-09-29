@@ -1,10 +1,18 @@
 import { useNavigate } from "@solidjs/router";
 import { type Component, onCleanup, onMount } from "solid-js";
 import { completeNativeOAuth } from "../atproto/auth";
+import {
+	buildChannelPath,
+	parseColibriChannelUrl,
+} from "../atproto/colibri-channel-url";
 import { useAuthContext } from "../contexts/Auth";
 import { classifyThrown } from "../errors/classify";
 import { isSignInDenial } from "../errors/oauth";
 import { showError } from "../errors/show-error";
+import {
+	emitNotificationActivation,
+	type NotificationActivation,
+} from "../notifications/activation";
 import { isTauriRuntime } from "../notifications/environment";
 import { createLogger } from "../utils/logger";
 
@@ -50,26 +58,24 @@ const parseInviteCode = (url: string): string | null => {
 	}
 };
 
-type ChannelDeepLink = {
-	community: string;
-	channelType: string;
-	channel: string;
-};
-
-const parseChannelDeepLink = (url: string): ChannelDeepLink | null => {
+const parseNotificationDeepLink = (
+	url: string,
+): NotificationActivation | null => {
 	try {
 		const parsed = new URL(url);
+		if (!parsed.protocol.startsWith("social.colibri")) return null;
 		const segments = [parsed.host, ...parsed.pathname.split("/")].filter(
 			Boolean,
 		);
-		const idx = segments.indexOf("channel");
-		if (idx === -1) return null;
-		const [community, channelType, channel] = segments.slice(idx + 1);
-		if (!community || !channelType || !channel) return null;
+		if (segments[0] !== "notification") return null;
+		const channelUri = parsed.searchParams.get("channel");
+		if (!channelUri) return null;
+		const threadUri = parsed.searchParams.get("thread") ?? undefined;
+		const messageUri = parsed.searchParams.get("message") ?? undefined;
 		return {
-			community: decodeURIComponent(community),
-			channelType: decodeURIComponent(channelType),
-			channel: decodeURIComponent(channel),
+			channelUri,
+			...(threadUri ? { threadUri } : {}),
+			...(messageUri ? { messageUri } : {}),
 		};
 	} catch {
 		return null;
@@ -102,9 +108,11 @@ const wasHandled = (url: string): boolean => {
  *   sign-in (see startOAuthSignIn in auth.ts), then reloads into the app.
  * - `social.colibri:/invite/<code>` — opens the in-app invite screen, driving
  *   the existing join / pre-login pending-invite flow (InviteModal + AppLayout).
- * - `social.colibri:/channel/<community>/<channelType>/<channel>` — opens a
- *   specific channel, e.g. from tapping an Android push notification (see
+ * - `social.colibri:/notification?channel=...&thread=...&message=...` opens
+ *   the message a tapped Android push notification points at (see
  *   `ColibriFirebaseMessagingService`'s tap `PendingIntent`).
+ * - `social.colibri:/channel/<community>/<channelType>/<channel>` opens a
+ *   specific channel.
  *
  * Renders nothing and is a no-op outside the Tauri runtime, so it's safe to
  * mount in the shared client on the web too
@@ -155,11 +163,17 @@ export const DeepLinkListener: Component = () => {
 					return;
 				}
 
-				const channelLink = parseChannelDeepLink(url);
-				if (channelLink) {
-					navigate(
-						`/app/c/${channelLink.community}/${channelLink.channelType}/${channelLink.channel}`,
-					);
+				const activation = parseNotificationDeepLink(url);
+				if (activation) {
+					emitNotificationActivation(activation);
+					return;
+				}
+
+				const channelLink = parseColibriChannelUrl(url);
+				const channelPath =
+					channelLink && buildChannelPath(channelLink.channelSpace);
+				if (channelPath) {
+					navigate(channelPath);
 					return;
 				}
 			}

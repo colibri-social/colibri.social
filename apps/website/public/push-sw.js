@@ -8,8 +8,8 @@
  * Expected push payload (JSON):
  *   { "title": string, "body": string, "tag"?: string,
  *     "data"?: { "channelUri"?: string, "channel"?: string,
- *                "messageUri"?: string, "messageAuthor"?: string,
- *                "messageRkey"?: string } }
+ *                "threadUri"?: string, "messageUri"?: string,
+ *                "messageAuthor"?: string, "messageRkey"?: string } }
  *
  * Dismissal payload (sent when the underlying message was deleted; closes the
  * matching notification instead of showing one):
@@ -103,40 +103,60 @@ self.addEventListener("pushsubscriptionchange", (event) => {
 
 const MESSAGE_COLLECTION = "social.colibri.beta.message";
 
+const parseSpace = (uri) => {
+	if (typeof uri !== "string" || !uri.startsWith("at://")) return undefined;
+	const [authority, marker, type, skey] = uri.slice("at://".length).split("/");
+	if (marker !== "space" || !authority || !type || !skey) return undefined;
+	return { authority, type, skey, uri: `at://${authority}/space/${type}/${skey}` };
+};
+
+const THREAD_SPACE_TYPE = "social.colibri.beta.channel.thread";
+
+const isThreadType = (type) => type === THREAD_SPACE_TYPE;
+
 const activationFrom = (data) => {
 	if (!data) return undefined;
 
-	const channelUri = data.channelUri || data.channel;
-	if (typeof channelUri !== "string" || !channelUri) return undefined;
+	const reported = data.channelUri || data.channel;
+	if (typeof reported !== "string" || !reported) return undefined;
 
 	let messageUri =
 		typeof data.messageUri === "string" ? data.messageUri : undefined;
-	if (!messageUri && data.messageAuthor && data.messageRkey) {
-		messageUri = `${channelUri}/${data.messageAuthor}/${MESSAGE_COLLECTION}/${data.messageRkey}`;
+
+	const reportedSpace = parseSpace(reported);
+	const messageSpace = parseSpace(messageUri);
+	let threadUri = typeof data.threadUri === "string" ? data.threadUri : undefined;
+	if (!threadUri && reportedSpace && isThreadType(reportedSpace.type)) {
+		threadUri = reportedSpace.uri;
+	}
+	if (!threadUri && messageSpace && isThreadType(messageSpace.type)) {
+		threadUri = messageSpace.uri;
 	}
 
-	return { channelUri, messageUri };
+	if (!messageUri && data.messageAuthor && data.messageRkey) {
+		messageUri = `${threadUri || reported}/${data.messageAuthor}/${MESSAGE_COLLECTION}/${data.messageRkey}`;
+	}
+
+	return { channelUri: reported, threadUri, messageUri };
 };
 
 const channelPathFor = (channelUri) => {
-	if (typeof channelUri !== "string" || !channelUri.startsWith("at://")) {
-		return "/app";
-	}
-
-	const segments = channelUri.slice("at://".length).split("/");
-	if (segments.length !== 4 || segments[1] !== "space") return "/app";
-
-	const [authority, , type, skey] = segments;
-	if (!authority || !type || !skey) return "/app";
-
-	return `/app/c/${authority}/${type}/${encodeURIComponent(skey)}`;
+	const space = parseSpace(channelUri);
+	if (!space || isThreadType(space.type)) return "/app";
+	return `/app/c/${space.authority}/${space.type}/${encodeURIComponent(space.skey)}`;
 };
 
 const coldStartUrl = (activation) => {
 	if (!activation) return "/app";
 
-	const path = channelPathFor(activation.channelUri);
-	if (path === "/app" || !activation.messageUri) return path;
+	const channel = channelPathFor(activation.channelUri);
+	if (channel === "/app") return "/app";
+
+	const thread = parseSpace(activation.threadUri);
+	const path = thread
+		? `${channel}/t/${encodeURIComponent(thread.skey)}`
+		: channel;
+	if (!activation.messageUri) return path;
 
 	return `${path}?m=${encodeURIComponent(activation.messageUri)}`;
 };
@@ -165,6 +185,7 @@ self.addEventListener("notificationclick", (event) => {
 					target.postMessage({
 						type: "colibri-notification-activated",
 						channelUri: activation ? activation.channelUri : undefined,
+						threadUri: activation ? activation.threadUri : undefined,
 						messageUri: activation ? activation.messageUri : undefined,
 					});
 					return;

@@ -210,6 +210,18 @@ pub fn dismiss_channel(channel_uri: String) -> Result<(), NativeError> {
     Ok(())
 }
 
+pub fn clear_all() -> Result<(), NativeError> {
+    if !is_bundled() {
+        return Err(NativeError::unsupported());
+    }
+
+    let center = UNUserNotificationCenter::currentNotificationCenter();
+    center.removeAllDeliveredNotifications();
+    center.removeAllPendingNotificationRequests();
+
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

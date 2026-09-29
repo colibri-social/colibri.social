@@ -1,6 +1,6 @@
 import type { BrowserOAuthClient } from "@atproto/oauth-client-browser";
-import { unregisterAllPush } from "../notifications";
 import { unregisterPushWith } from "../notifications/push-xrpc";
+import { teardownNotifications } from "../notifications/teardown";
 import { clearAppBadge } from "../utils/badge";
 import { clearUserScoped } from "./cache/store";
 import { beginSignOut } from "./session-health";
@@ -15,6 +15,7 @@ export const endSession = async (): Promise<void> => {
 	ending = true;
 
 	beginSignOut();
+	await teardownNotifications();
 	await clearAppBadge();
 	localStorage.removeItem("sub");
 	await clearUserScoped();
@@ -35,7 +36,7 @@ export const signOut = async (input: {
 	beginSignOut();
 
 	try {
-		await unregisterAllPush(unregisterPushWith(input.xrpc));
+		await teardownNotifications(unregisterPushWith(input.xrpc));
 		await input.client?.revoke(input.did);
 	} finally {
 		await endSession();

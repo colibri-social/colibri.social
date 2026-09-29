@@ -151,6 +151,10 @@ pub fn dismiss_channel(_channel_uri: String) -> Result<(), NativeError> {
     Err(NativeError::unsupported())
 }
 
+pub fn clear_all() -> Result<(), NativeError> {
+    Err(NativeError::unsupported())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -60,18 +60,48 @@ export const cacheNativeAvatar = async (
 	return path ?? undefined;
 };
 
+export const clearNativeNotifications = async (): Promise<void> => {
+	if (!(await isNativeNotificationSupported())) return;
+	const { invoke } = await loadCore();
+	await invoke("native_notify_clear_all");
+};
+
+const takeLaunchActivation = async (): Promise<
+	NativeNotificationActivation | undefined
+> => {
+	if (!(await isNativeNotificationSupported())) return undefined;
+	try {
+		const { invoke } = await loadCore();
+		const activation = await invoke<NativeNotificationActivation | null>(
+			"native_notify_take_activation",
+		);
+		return activation ?? undefined;
+	} catch {
+		return undefined;
+	}
+};
+
 export const listenForNativeActivation = async (
 	handler: (activation: NativeNotificationActivation) => void,
 ): Promise<() => void> => {
 	if (!isTauriRuntime()) return () => {};
 
+	let unlisten = () => {};
+	let delivered: string | undefined;
 	try {
 		const { listen } = await import("@tauri-apps/api/event");
-		return await listen<NativeNotificationActivation>(
+		unlisten = await listen<NativeNotificationActivation>(
 			ACTIVATION_EVENT,
-			(event) => handler(event.payload),
+			(event) => {
+				delivered = event.payload.messageUri;
+				void takeLaunchActivation();
+				handler(event.payload);
+			},
 		);
-	} catch {
-		return () => {};
-	}
+	} catch {}
+
+	const launch = await takeLaunchActivation();
+	if (launch && launch.messageUri !== delivered) handler(launch);
+
+	return unlisten;
 };

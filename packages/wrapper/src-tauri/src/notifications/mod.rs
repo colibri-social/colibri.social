@@ -13,6 +13,7 @@ use unsupported as imp;
 use windows as imp;
 
 use std::path::Path;
+use std::sync::Mutex;
 
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, Manager, Runtime};
@@ -64,6 +65,28 @@ fn cache_avatar(cache_dir: &Path, cid: &str, bytes: &[u8]) -> Option<String> {
     path.to_str().map(str::to_owned)
 }
 
+static LAST_ACTIVATION: Mutex<Option<Activation>> = Mutex::new(None);
+
+fn remember_activation(activation: Activation) {
+    if let Ok(mut slot) = LAST_ACTIVATION.lock() {
+        *slot = Some(activation);
+    }
+}
+
+fn take_activation() -> Option<Activation> {
+    LAST_ACTIVATION.lock().ok().and_then(|mut slot| slot.take())
+}
+
+#[tauri::command]
+pub fn native_notify_take_activation() -> Option<Activation> {
+    take_activation()
+}
+
+#[tauri::command]
+pub fn native_notify_clear_all() -> Result<(), NativeError> {
+    imp::clear_all()
+}
+
 #[tauri::command]
 pub fn native_notify_supported() -> bool {
     imp::supported()
@@ -110,6 +133,7 @@ fn app_icon_path<R: Runtime>(app: &AppHandle<R>) -> Option<String> {
 
 #[cfg(any(target_os = "macos", windows))]
 fn emit_activation<R: Runtime>(app: &AppHandle<R>, activation: Activation) {
+    remember_activation(activation.clone());
     if let Some(window) = app.get_webview_window("main") {
         let _ = window.unminimize();
         let _ = window.set_focus();

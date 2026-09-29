@@ -10,9 +10,13 @@ import {
 	useContext,
 } from "solid-js";
 import { toast } from "somoto";
-import { buildThreadPath } from "../atproto/colibri-channel-url";
+import {
+	buildThreadPath,
+	rememberThreadParent,
+} from "../atproto/colibri-channel-url";
 import { colibri } from "../atproto/lexicons";
 import { adoptRemoteCursors, recordRead } from "../atproto/read-cursor";
+import { isThreadSpace } from "../atproto/space-ref";
 import { classifyThrown } from "../errors/classify";
 import { isGoneCode } from "../errors/codes";
 import {
@@ -144,9 +148,37 @@ export const NotificationsContextProvider: ParentComponent = (props) => {
 		);
 	};
 
-	const openNotification = (target: PendingNotificationFocus) => {
+	const parentChannelOf = async (
+		thread: string,
+	): Promise<string | undefined> => {
+		const res = await user.xrpc.call(colibri.thread.getThread.main, {
+			params: { thread },
+		});
+		if (!res.ok) {
+			log.warn("could not resolve the thread of a notification", {
+				code: res.error.code,
+			});
+			return undefined;
+		}
+		rememberThreadParent(res.data.thread.space, res.data.thread.channel);
+		return res.data.thread.channel;
+	};
+
+	const show = (target: PendingNotificationFocus) => {
 		setPendingFocus(target);
 		navigate(pathFor(target));
+	};
+
+	const openNotification = (target: PendingNotificationFocus) => {
+		if (!isThreadSpace(target.channel)) {
+			show(target);
+			return;
+		}
+
+		const thread = target.thread ?? target.channel;
+		void parentChannelOf(thread).then((channel) =>
+			show({ ...target, thread, channel: channel ?? thread }),
+		);
 	};
 
 	const communityOf = (channel: string): string =>
@@ -542,9 +574,9 @@ export const NotificationsContextProvider: ParentComponent = (props) => {
 				const isPing = isPingKind(notification.kind);
 				const isStale = isStaleNotificationEvent(notification.indexedAt);
 
-				if (isPing) {
-					adjustPings(notification.channel, 1);
-					if (!isStale) playSound("ping");
+				if (isPing) adjustPings(notification.channel, 1);
+				if (!isStale && user.presence?.onlineState !== "dnd") {
+					playSound("ping");
 				}
 
 				if (preferences().nativeNotifications && isAppUnfocused()) return;

@@ -7,6 +7,8 @@ mod macos_media;
 #[cfg(desktop)]
 mod notifications;
 #[cfg(desktop)]
+mod quit_guard;
+#[cfg(desktop)]
 #[cfg_attr(not(any(target_os = "macos", target_os = "windows")), allow(dead_code))]
 mod screen_capture;
 #[cfg(desktop)]
@@ -290,7 +292,13 @@ pub fn run() {
             #[cfg(desktop)]
             notifications::native_notify_dismiss,
             #[cfg(desktop)]
-            notifications::native_notify_cache_avatar
+            notifications::native_notify_cache_avatar,
+            #[cfg(desktop)]
+            notifications::native_notify_take_activation,
+            #[cfg(desktop)]
+            notifications::native_notify_clear_all,
+            #[cfg(desktop)]
+            quit_guard::ready_to_exit
         ])
         .register_uri_scheme_protocol("emoji", |ctx, request| {
             let not_found = || {
@@ -377,6 +385,24 @@ pub fn run() {
             let _ = app;
             Ok(())
         })
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .on_window_event(|_window, _event| {
+            #[cfg(desktop)]
+            if let tauri::WindowEvent::CloseRequested { api, .. } = _event {
+                if _window.label() == "main" && !quit_guard::released() {
+                    api.prevent_close();
+                    quit_guard::hold(_window.app_handle());
+                }
+            }
+        })
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        .run(|_app, _event| {
+            #[cfg(desktop)]
+            if let tauri::RunEvent::ExitRequested { code: None, api, .. } = &_event {
+                if !quit_guard::released() {
+                    api.prevent_exit();
+                    quit_guard::hold(_app);
+                }
+            }
+        });
 }

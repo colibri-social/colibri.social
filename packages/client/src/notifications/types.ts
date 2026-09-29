@@ -11,6 +11,7 @@ export type NotificationPayload = {
 	/** Routing hints used when the notification is clicked. */
 	data?: {
 		channelUri?: string;
+		threadUri?: string;
 		messageUri?: string;
 	};
 };

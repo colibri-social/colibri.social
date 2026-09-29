@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
 	captureNotificationActivationFromUrl,
+	discardPendingNotificationActivation,
 	emitNotificationActivation,
 	onNotificationActivation,
 	parsePushActivation,
@@ -11,6 +12,9 @@ const CHANNEL =
 	"at://did:plc:community/space/social.colibri.beta.channel.text/general";
 const AUTHOR = "did:plc:author00000000000000000000";
 const MESSAGE = `${CHANNEL}/${AUTHOR}/social.colibri.beta.message/3lkmsg1`;
+const THREAD =
+	"at://did:plc:community/space/social.colibri.beta.channel.thread/3lkthread1";
+const THREAD_MESSAGE = `${THREAD}/${AUTHOR}/social.colibri.beta.message/3lkmsg1`;
 
 describe("parsePushActivation", () => {
 	it("composes the message URI from the AppView's channel, author and rkey", () => {
@@ -57,6 +61,35 @@ describe("parsePushActivation", () => {
 		});
 	});
 
+	it("reads the thread a message lives in", () => {
+		expect(
+			parsePushActivation({
+				channelUri: CHANNEL,
+				threadUri: THREAD,
+				messageAuthor: AUTHOR,
+				messageRkey: "3lkmsg1",
+			}),
+		).toEqual({
+			channelUri: CHANNEL,
+			threadUri: THREAD,
+			messageUri: THREAD_MESSAGE,
+		});
+	});
+
+	it("treats a thread reported as the channel as the thread", () => {
+		expect(
+			parsePushActivation({
+				channel: THREAD,
+				messageAuthor: AUTHOR,
+				messageRkey: "3lkmsg1",
+			}),
+		).toEqual({
+			channelUri: THREAD,
+			threadUri: THREAD,
+			messageUri: THREAD_MESSAGE,
+		});
+	});
+
 	it("rejects a payload with no channel reference", () => {
 		expect(parsePushActivation({ messageRkey: "3lkmsg1" })).toBeUndefined();
 		expect(parsePushActivation({ channel: "" })).toBeUndefined();
@@ -82,6 +115,50 @@ describe("onNotificationActivation", () => {
 		expect(second).toHaveBeenCalledTimes(2);
 
 		stopSecond();
+	});
+
+	it("holds an activation until the first subscriber arrives", () => {
+		emitNotificationActivation({ channelUri: CHANNEL, messageUri: MESSAGE });
+
+		const late = vi.fn();
+		const stop = onNotificationActivation(late);
+		expect(late).toHaveBeenCalledWith({
+			channelUri: CHANNEL,
+			messageUri: MESSAGE,
+		});
+
+		const later = vi.fn();
+		const stopLater = onNotificationActivation(later);
+		expect(later).not.toHaveBeenCalled();
+
+		stop();
+		stopLater();
+	});
+
+	it("drops a held activation when it is discarded", () => {
+		emitNotificationActivation({ channelUri: CHANNEL });
+		discardPendingNotificationActivation();
+
+		const handler = vi.fn();
+		const stop = onNotificationActivation(handler);
+		expect(handler).not.toHaveBeenCalled();
+		stop();
+	});
+
+	it("names the thread of a message focused from a native notification", () => {
+		const handler = vi.fn();
+		const stop = onNotificationActivation(handler);
+
+		emitNotificationActivation({
+			channelUri: CHANNEL,
+			messageUri: THREAD_MESSAGE,
+		});
+		expect(handler).toHaveBeenCalledWith({
+			channelUri: CHANNEL,
+			threadUri: THREAD,
+			messageUri: THREAD_MESSAGE,
+		});
+		stop();
 	});
 });
 

@@ -4,6 +4,7 @@ import * as Sentry from "@sentry/solid";
 import { type Accessor, createSignal } from "solid-js";
 import { toast } from "somoto";
 import { classifyThrown, isStorageFailure } from "../errors/classify";
+import { isRetryableCode } from "../errors/codes";
 import { ColibriError, isColibriError } from "../errors/error";
 import { classifyNativeError, wasCancelled } from "../errors/native";
 import { classifyOAuthError, classifyOAuthParams } from "../errors/oauth";
@@ -637,6 +638,16 @@ const resetSession = () => {
 	clearInMemorySession();
 };
 
+const storedSub = (): string | null => {
+	try {
+		return localStorage.getItem("sub");
+	} catch {
+		return null;
+	}
+};
+
+export const hasStoredSession = (): boolean => storedSub() !== null;
+
 const reportRestoreStorageFailure = async (err: unknown): Promise<void> => {
 	const device = await deviceContext();
 
@@ -698,11 +709,18 @@ const init = async () => {
 			void reportRestoreStorageFailure(e).catch(() => {});
 		} else {
 			const failure = classifyThrown(e);
-			log.error("restoring the session failed", { code: failure.code });
 			if (failure.needsReauth) {
+				log.error("restoring the session failed", { code: failure.code });
 				markSessionDead(failure.code, { stage: "oauth.restore" });
+				resetSession();
+			} else {
+				log.warn("refreshing the session at launch failed", {
+					code: failure.code,
+				});
+				if (!(await restoreFromStoredTokens())) {
+					clearInMemorySession();
+				}
 			}
-			resetSession();
 		}
 	}
 
@@ -770,39 +788,62 @@ const restoreExistingSession = async () => {
 			}
 		}
 
-		const { session, state } = result;
+		await adoptSession(result.session, result.state);
+	}
+};
 
-		if (!isAllowedDid(session.sub)) {
-			log.info("account is not in the early-access allowlist");
-			await clearDisallowedSession(session.sub);
-			return;
-		}
+const adoptSession = async (
+	session: RestoredSession,
+	state: string | null | undefined,
+): Promise<void> => {
+	if (!isAllowedDid(session.sub)) {
+		log.info("account is not in the early-access allowlist");
+		await clearDisallowedSession(session.sub);
+		return;
+	}
 
-		if (state != null) {
-			log.info("authenticated", { state });
-		} else {
-			log.info("restored the last active session");
-		}
+	if (state != null) {
+		log.info("authenticated", { state });
+	} else {
+		log.info("restored the last active session");
+	}
 
-		agent = new Agent({
-			did: session.did,
-			fetchHandler: (url, init) =>
-				observeSession(url, session.fetchHandler(url, init)),
+	agent = new Agent({
+		did: session.did,
+		fetchHandler: (url, init) =>
+			observeSession(url, session.fetchHandler(url, init)),
+	});
+
+	try {
+		setGrantedScopes((await session.getTokenInfo(false)).scope);
+	} catch {}
+
+	const cached = grantedScopes();
+	if (
+		state == null &&
+		navigator.onLine &&
+		cached !== undefined &&
+		getMissingScopeSets(cached).length === 0
+	) {
+		void revalidateGrantedScopes(session);
+	}
+};
+
+const restoreFromStoredTokens = async (): Promise<boolean> => {
+	const client = oAuthClient;
+	const sub = storedSub();
+	if (!client || !sub) return false;
+
+	try {
+		await adoptSession(await client.restore(sub, false), null);
+		return agent !== undefined;
+	} catch (e) {
+		const failure = classifyThrown(e);
+		log.warn("the stored session could not be loaded", {
+			code: failure.code,
 		});
-
-		try {
-			setGrantedScopes((await session.getTokenInfo(false)).scope);
-		} catch {}
-
-		const cached = grantedScopes();
-		if (
-			state == null &&
-			navigator.onLine &&
-			cached !== undefined &&
-			getMissingScopeSets(cached).length === 0
-		) {
-			void revalidateGrantedScopes(session);
-		}
+		if (!isRetryableCode(failure.code)) resetSession();
+		return false;
 	}
 };
 

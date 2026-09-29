@@ -1,5 +1,8 @@
 import { type Component, onCleanup, onMount } from "solid-js";
-import { parseChannelPath } from "../../atproto/colibri-channel-url";
+import {
+	parseChannelPath,
+	parseThreadPath,
+} from "../../atproto/colibri-channel-url";
 import { colibri } from "../../atproto/lexicons";
 import type { ProfileView } from "../../atproto/views";
 import { useMutes } from "../../contexts/Mutes";
@@ -246,6 +249,7 @@ export const NativeNotifications: Component = () => {
 					data: {
 						messageUri: notification.message?.uri,
 						channelUri: notification.channel,
+						threadUri: notification.thread,
 					},
 				});
 			})();
@@ -278,6 +282,7 @@ export const NativeNotifications: Component = () => {
 			onNotificationActivation((activation) =>
 				notifications.openNotification({
 					channel: activation.channelUri,
+					...(activation.threadUri ? { thread: activation.threadUri } : {}),
 					messageUri: activation.messageUri,
 					indexedAt: new Date().toISOString(),
 				}),
@@ -289,9 +294,11 @@ export const NativeNotifications: Component = () => {
 		const focusMessageUri = takeCapturedFocusMessageUri();
 		if (focusMessageUri) {
 			const target = parseChannelPath(window.location.pathname);
+			const thread = parseThreadPath(window.location.pathname);
 			if (target) {
 				emitNotificationActivation({
 					channelUri: target.channelSpace,
+					...(thread ? { threadUri: thread.threadSpace } : {}),
 					messageUri: focusMessageUri,
 				});
 			}

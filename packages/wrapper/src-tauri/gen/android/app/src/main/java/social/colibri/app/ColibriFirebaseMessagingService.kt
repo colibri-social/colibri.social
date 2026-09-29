@@ -38,11 +38,11 @@ class ColibriFirebaseMessagingService : FirebaseMessagingService() {
 		}
 
 		val body = data["body"] ?: ""
-		val deepLink = data["deepLink"]
+		val deepLink = notificationDeepLink(channelUri, data["threadUri"], messageUri) ?: data["deepLink"]
 		// TODO: the AppView does not send communityName, the avatar URLs or imageUrl yet, so these stay null.
 		val communityName = data["communityName"]
 		val communityAvatarUrl = data["communityAvatarUrl"]
-		val authorName = data["authorName"] ?: "Someone"
+		val authorName = data["authorName"] ?: data["title"] ?: "Someone"
 		val authorAvatarUrl = data["authorAvatarUrl"]
 		val imageUrl = data["imageUrl"]
 
@@ -67,6 +67,26 @@ class ColibriFirebaseMessagingService : FirebaseMessagingService() {
 			)
 		}.start()
 	}
+
+	private fun notificationDeepLink(
+		channelUri: String,
+		threadUri: String?,
+		messageUri: String?,
+	): String? =
+		try {
+			Uri.Builder()
+				.scheme("social.colibri")
+				.path("/notification")
+				.appendQueryParameter("channel", channelUri)
+				.apply {
+					threadUri?.let { appendQueryParameter("thread", it) }
+					messageUri?.let { appendQueryParameter("message", it) }
+				}
+				.build()
+				.toString()
+		} catch (e: Exception) {
+			null
+		}
 
 	private fun ensureNotificationChannel() {
 		if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
