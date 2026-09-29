@@ -148,6 +148,27 @@ export const MarkdownDecorations = Extension.create({
 						),
 				);
 
+				const subtextLineStarts = new Set(
+					tokens
+						.filter((t) => t.kind === "subtext")
+						.map((t) => t.markers[0][0]),
+				);
+				if (subtextLineStarts.size > 0) {
+					let lineStart = 0;
+					const allSubtext = text.split("\n").every((line) => {
+						const isSubtext = subtextLineStarts.has(lineStart);
+						lineStart += line.length + 1;
+						return isSubtext;
+					});
+					if (allSubtext) {
+						decorations.push(
+							Decoration.node(pos, pos + node.nodeSize, {
+								class: "subtext-block",
+							}),
+						);
+					}
+				}
+
 				for (const token of tokens) {
 					if (token.kind === "codeblock") {
 						highlightCodeblock(decorations, token, text, positions);

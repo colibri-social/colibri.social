@@ -11,6 +11,11 @@
 	word-break: break-word;
 }
 
+#editor .tiptap.ProseMirror p.subtext-block {
+	font-size: var(--text-xs);
+	line-height: var(--text-xs--line-height);
+}
+
 #editor .tiptap.ProseMirror p:last-of-type {
 	margin-bottom: 0;
 }
