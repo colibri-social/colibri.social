@@ -1,4 +1,4 @@
-import type { Component } from "solid-js";
+import { type Component, onCleanup, onMount } from "solid-js";
 import { useCommunityContext } from "../../../../contexts/Community";
 import { useMessageContext } from "../../../../contexts/Message";
 import { useUserContext } from "../../../../contexts/User";
@@ -13,9 +13,20 @@ export const InlineEditor: Component = () => {
 	const messageCtx = useMessageContext();
 	const { editedText, saveEditedText, submitEdits, cancelEdits } = messageCtx;
 
+	let root: HTMLDivElement | undefined;
+
+	onMount(() =>
+		messageCtx.registerEditorFocus(() =>
+			root
+				?.querySelector<HTMLElement>(".ProseMirror")
+				?.focus({ preventScroll: true }),
+		),
+	);
+	onCleanup(() => messageCtx.registerEditorFocus(undefined));
+
 	return (
 		<>
-			<div class="w-full">
+			<div ref={root} class="w-full">
 				<TextEditor
 					text={facetsToProseMirror(
 						editedText().text,

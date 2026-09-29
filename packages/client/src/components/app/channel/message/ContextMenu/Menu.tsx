@@ -15,6 +15,7 @@ import SmileyIcon from "~icons/ph/smiley";
 import StarIcon from "~icons/ph/star";
 import StarFillIcon from "~icons/ph/star-fill";
 import TrashIcon from "~icons/ph/trash";
+import { useChannelContext } from "../../../../../contexts/Channel";
 import { usePermissions } from "../../../../../contexts/Community";
 import { useGifFavorites } from "../../../../../contexts/GifFavorites";
 import { useMessageContext } from "../../../../../contexts/Message";
@@ -67,6 +68,7 @@ export const MessageContextMenu: ParentComponent<{
 		canReply,
 		enableReplyMode,
 		enableEditMode,
+		focusEditor,
 		handlePotentialDeletion,
 		setDebugModalOpen,
 		blockModalOpen,
@@ -86,6 +88,7 @@ export const MessageContextMenu: ParentComponent<{
 		canModerateEmbeds,
 	} = useMessageContext();
 
+	const channel = useChannelContext();
 	const { canApplyLabel } = usePermissions();
 	const threadActions = useMessageThreadActions();
 	const { isFavorited, toggleFavorite } = useGifFavorites();
@@ -142,6 +145,26 @@ export const MessageContextMenu: ParentComponent<{
 
 	const canEdit = () => !props.anchor && messageEditable();
 
+	let focusAfterClose: (() => void) | undefined;
+
+	const editFromMenu = () => {
+		focusAfterClose = focusEditor;
+		enableEditMode();
+	};
+
+	const replyFromMenu = () => {
+		focusAfterClose = channel.focusComposer;
+		enableReplyMode();
+	};
+
+	const restoreFocusAfterClose = (event: Event) => {
+		const focus = focusAfterClose;
+		focusAfterClose = undefined;
+		if (!focus) return;
+		event.preventDefault();
+		focus();
+	};
+
 	const openThread = () => {
 		const target = settled();
 		if (target) threadActions.openThreadFrom(target);
@@ -165,19 +188,19 @@ export const MessageContextMenu: ParentComponent<{
 							{props.children}
 						</ContextMenuTrigger>
 						<ContextMenuPortal>
-							<ContextMenuContent>
+							<ContextMenuContent onCloseAutoFocus={restoreFocusAfterClose}>
 								<Show when={linkTarget()}>
 									<LinkContextMenuItems target={linkTarget} />
 									<ContextMenuSeparator />
 								</Show>
 								<Show when={canEdit()}>
-									<ContextMenuItem onClick={enableEditMode}>
+									<ContextMenuItem onClick={editFromMenu}>
 										<PencilIcon />
 										<span>Edit Message</span>
 									</ContextMenuItem>
 								</Show>
 								<Show when={canReply()}>
-									<ContextMenuItem onClick={enableReplyMode}>
+									<ContextMenuItem onClick={replyFromMenu}>
 										<ArrowBendUpLeftIcon />
 										<span>Reply</span>
 									</ContextMenuItem>

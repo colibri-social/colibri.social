@@ -229,8 +229,10 @@ const MessageInner: Component<{
 		return value !== undefined && isVisibleParent(value) ? value : undefined;
 	};
 
-	const isEdited = (): boolean =>
-		"updatedAt" in message && message.updatedAt !== undefined;
+	const isEdited = (): boolean => {
+		const current = liveMessage();
+		return "updatedAt" in current && current.updatedAt !== undefined;
+	};
 
 	const forward = () => liveMessage().forward;
 
@@ -242,8 +244,8 @@ const MessageInner: Component<{
 	};
 
 	const linkFacets = (): Array<ColibriRichTextLink> =>
-		message.facets
-			?.filter(
+		liveMessage()
+			.facets?.filter(
 				(f) =>
 					f.features[0].$type === "social.colibri.beta.richtext.facet#link",
 			)
@@ -256,7 +258,7 @@ const MessageInner: Component<{
 			links.length === 1 &&
 			isDirectMediaUrl(links[0].uri) &&
 			!isBrokenMediaLink(links[0].uri) &&
-			message.text.trim() === links[0].uri
+			liveMessage().text.trim() === links[0].uri
 		);
 	};
 

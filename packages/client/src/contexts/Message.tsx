@@ -117,6 +117,8 @@ export type MessageContextValue = {
 	canReply: Accessor<boolean>;
 	enableReplyMode: () => void;
 	enableEditMode: () => void;
+	registerEditorFocus: (focus: (() => void) | undefined) => void;
+	focusEditor: () => void;
 	cancelEdits: () => void;
 	submitEdits: (
 		text: string,
@@ -348,6 +350,14 @@ export const MessageContextProvider: ParentComponent<{ data: MessageData }> = (
 		if (!target || isLegacy()) return;
 		channel.setEditingMessage(target);
 	};
+
+	let editorFocus: (() => void) | undefined;
+
+	const registerEditorFocus = (focus: (() => void) | undefined) => {
+		editorFocus = focus;
+	};
+
+	const focusEditor = () => editorFocus?.();
 
 	const cancelEdits = () => {
 		setEditedText({
@@ -762,6 +772,8 @@ export const MessageContextProvider: ParentComponent<{ data: MessageData }> = (
 		canReply,
 		enableReplyMode,
 		enableEditMode,
+		registerEditorFocus,
+		focusEditor,
 		cancelEdits,
 		submitEdits,
 		addReactionOptimistic,
