@@ -16,7 +16,7 @@ const { regrantDelay, regrantRetryDelay, scheduleRegrant } = await import(
 	"./preferences-space"
 );
 
-const APPVIEW_RENEW_WINDOW_MS = 300_000;
+const APPVIEW_RENEW_WINDOW_MS = 120_000;
 
 const agent = {
 	did: "did:plc:viewer",
@@ -40,14 +40,14 @@ afterEach(() => {
 
 describe("regrantDelay", () => {
 	it("leaves the appview more margin than its own renewal window", () => {
-		for (const lifetime of [400_000, 600_000, 900_000, 3_600_000]) {
+		for (const lifetime of [200_000, 600_000, 900_000, 3_600_000]) {
 			const delay = regrantDelay(lifetime);
 			expect(lifetime - delay).toBeGreaterThan(APPVIEW_RENEW_WINDOW_MS);
 		}
 	});
 
 	it("does not spin when the credential is already inside the window", () => {
-		expect(regrantDelay(120_000)).toBeGreaterThanOrEqual(30_000);
+		expect(regrantDelay(60_000)).toBeGreaterThanOrEqual(30_000);
 		expect(regrantDelay(-1)).toBeGreaterThanOrEqual(30_000);
 	});
 });
@@ -70,7 +70,7 @@ describe("scheduleRegrant", () => {
 			data: { expiresAt: inMs(3_600_000) },
 		});
 
-		const stop = scheduleRegrant(agent, xrpc, inMs(390_000));
+		const stop = scheduleRegrant(agent, xrpc, inMs(200_000));
 
 		await vi.advanceTimersByTimeAsync(31_000);
 		expect(grantSpaceAccess).toHaveBeenCalledTimes(1);
@@ -84,10 +84,10 @@ describe("scheduleRegrant", () => {
 	it("stops the whole chain when the caller disposes it", async () => {
 		grantSpaceAccess.mockResolvedValue({
 			ok: true,
-			data: { expiresAt: inMs(390_000) },
+			data: { expiresAt: inMs(200_000) },
 		});
 
-		const stop = scheduleRegrant(agent, xrpc, inMs(390_000));
+		const stop = scheduleRegrant(agent, xrpc, inMs(200_000));
 
 		await vi.advanceTimersByTimeAsync(31_000);
 		expect(grantSpaceAccess).toHaveBeenCalledTimes(1);

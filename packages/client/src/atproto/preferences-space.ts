@@ -28,7 +28,7 @@ const isSpaceAlreadyExists = (err: unknown): boolean =>
 export const ensurePreferencesSpace = async (agent: Agent): Promise<void> => {
 	try {
 		await agent.com.atproto.simplespace.createSpace({
-			type: SPACE_TYPES.actorPreferences,
+			spaceType: SPACE_TYPES.actorPreferences,
 			skey: SELF,
 			readPolicy: { $type: "com.atproto.simplespace.defs#memberListPolicy" },
 			writePolicy: { $type: "com.atproto.simplespace.defs#memberListPolicy" },
@@ -78,8 +78,8 @@ export const grantPreferencesAccess = async (
 	}
 };
 
-const APPVIEW_RENEW_WINDOW_MS = 300_000;
-const REGRANT_MARGIN_MS = 360_000;
+const APPVIEW_RENEW_WINDOW_MS = 120_000;
+const REGRANT_MARGIN_MS = 180_000;
 const REGRANT_MIN_DELAY_MS = 30_000;
 const REGRANT_RETRY_BASE_MS = 5_000;
 const REGRANT_RETRY_MAX_MS = 120_000;
