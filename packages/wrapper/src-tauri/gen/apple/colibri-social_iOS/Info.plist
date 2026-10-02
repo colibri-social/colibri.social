@@ -52,6 +52,7 @@
 			<key>CFBundleURLSchemes</key>
 			<array>
 				<string>social.colibri</string>
+				<string>social.colibri.spaces</string>
 			</array>
 			<key>CFBundleURLName</key>
 			<string>social.colibri</string>

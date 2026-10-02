@@ -112,6 +112,14 @@ describe("parseColibriChannelUrl", () => {
 		).toBe(TEXT_SPACE);
 	});
 
+	it("accepts the spaces deep-link scheme", () => {
+		expect(
+			parseColibriChannelUrl(
+				`social.colibri.spaces:/channel/${DID}/text/general`,
+			)?.channelSpace,
+		).toBe(TEXT_SPACE);
+	});
+
 	it("rejects a foreign host", () => {
 		expect(
 			parseColibriChannelUrl(`https://example.com/app/c/${DID}/text/general`),

@@ -4,8 +4,15 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Version to build (e.g. 0.1.0-rc.3)."
+        description: "Version to build (e.g. 0.1.0-rc.3, or 0.5.0-spaces.1 on the spaces channel)."
         required: true
+      channel:
+        description: "Release channel. spaces ships to TestFlight, the spaces Play track, the Store flight, a beta updater feed and the -beta cask and bucket entries."
+        type: choice
+        default: stable
+        options:
+          - stable
+          - spaces
       appstore:
         description: "Also build and upload the Apple App Store packages."
         type: boolean
@@ -40,12 +47,36 @@ on:
         default: true
 
 concurrency:
-  group: publish-${{ inputs.version }}-${{ inputs.appstore_only }}-${{ inputs.msstore_only }}-${{ inputs.appstore_platform }}-${{ inputs.play_track }}
+  group: publish-${{ inputs.channel }}-${{ inputs.version }}-${{ inputs.appstore_only }}-${{ inputs.msstore_only }}-${{ inputs.appstore_platform }}-${{ inputs.play_track }}
   cancel-in-progress: false
 
+env:
+  SPACES_PLAY_TRACK: spaces
+
 jobs:
+  channel:
+    name: Check release channel
+    runs-on: ubuntu-latest
+    steps:
+      - name: Match the version to the channel
+        env:
+          CHANNEL: ${{ inputs.channel }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          if [ "$CHANNEL" = "spaces" ]; then
+            if ! echo "$VERSION" | grep -qE '^[0-9]+\.[0-9]+\.0-spaces\.[0-9]+$'; then
+              echo "::error::spaces releases need a version like 0.5.0-spaces.1, got $VERSION"
+              exit 1
+            fi
+          elif echo "$VERSION" | grep -q -- '-spaces\.'; then
+            echo "::error::$VERSION is a spaces version, dispatch it with channel=spaces"
+            exit 1
+          fi
+
   publish-tauri:
     name: Publish (${{ matrix.label }})
+    needs: channel
     if: ${{ !inputs.appstore_only && !inputs.msstore_only }}
     permissions:
       contents: write
@@ -237,7 +268,7 @@ jobs:
           releaseBody: ""
           releaseDraft: false
           prerelease: true
-          args: ${{ matrix.args }}
+          args: ${{ matrix.args }}${{ inputs.channel == 'spaces' && !matrix.is-android && format(' --config {0}/packages/wrapper/src-tauri/tauri.spaces.conf.json', github.workspace) || '' }}
           mobile: ${{ matrix.mobile }}
 
       - name: Verify macOS signing and notarization
@@ -289,6 +320,7 @@ jobs:
 
   mas:
     name: Mac App Store
+    needs: channel
     if: ${{ (inputs.appstore || inputs.appstore_only) && inputs.appstore_platform != 'ios' && !inputs.msstore_only }}
     runs-on: macos-latest
     permissions:
@@ -440,7 +472,7 @@ jobs:
           exit 1
 
       - name: Render App Store release notes
-        if: steps.validate.outputs.validated == 'true'
+        if: steps.validate.outputs.validated == 'true' && inputs.channel == 'stable'
         run: |
           set -euo pipefail
           NOTES_VERSION=$(node -p "require('./packages/client/package.json').version")
@@ -459,8 +491,17 @@ jobs:
         if: steps.validate.outputs.validated == 'true'
         run: pip install --disable-pip-version-check codemagic-cli-tools==0.69.0
 
+      - name: Upload to TestFlight
+        if: steps.validate.outputs.validated == 'true' && inputs.channel == 'spaces'
+        env:
+          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APPLE_API_ISSUER }}
+          APP_STORE_CONNECT_KEY_IDENTIFIER: ${{ secrets.APPLE_API_KEY }}
+        run: |
+          set -euo pipefail
+          app-store-connect publish --path "$PKG_PATH"
+
       - name: Upload and submit to App Store
-        if: steps.validate.outputs.validated == 'true'
+        if: steps.validate.outputs.validated == 'true' && inputs.channel == 'stable'
         env:
           APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APPLE_API_ISSUER }}
           APP_STORE_CONNECT_KEY_IDENTIFIER: ${{ secrets.APPLE_API_KEY }}
@@ -493,6 +534,7 @@ jobs:
 
   ios:
     name: iOS App Store
+    needs: channel
     if: ${{ (inputs.appstore || inputs.appstore_only) && inputs.appstore_platform != 'macos' && !inputs.msstore_only }}
     runs-on: macos-latest
     permissions:
@@ -607,7 +649,7 @@ jobs:
           exit 1
 
       - name: Render App Store release notes
-        if: steps.validate.outputs.validated == 'true'
+        if: steps.validate.outputs.validated == 'true' && inputs.channel == 'stable'
         run: |
           set -euo pipefail
           NOTES_VERSION=$(node -p "require('./packages/client/package.json').version")
@@ -626,8 +668,17 @@ jobs:
         if: steps.validate.outputs.validated == 'true'
         run: pip install --disable-pip-version-check codemagic-cli-tools==0.69.0
 
+      - name: Upload to TestFlight
+        if: steps.validate.outputs.validated == 'true' && inputs.channel == 'spaces'
+        env:
+          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APPLE_API_ISSUER }}
+          APP_STORE_CONNECT_KEY_IDENTIFIER: ${{ secrets.APPLE_API_KEY }}
+        run: |
+          set -euo pipefail
+          app-store-connect publish --path "$IPA_PATH"
+
       - name: Upload and submit to App Store
-        if: steps.validate.outputs.validated == 'true'
+        if: steps.validate.outputs.validated == 'true' && inputs.channel == 'stable'
         env:
           APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APPLE_API_ISSUER }}
           APP_STORE_CONNECT_KEY_IDENTIFIER: ${{ secrets.APPLE_API_KEY }}
@@ -683,6 +734,8 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TOKEN: ${{ steps.app-token.outputs.token }}
           VERSION: ${{ inputs.version }}
+          CASK: ${{ inputs.channel == 'spaces' && 'colibri-social-beta' || 'colibri-social' }}
+          CONFLICTS: ${{ inputs.channel == 'spaces' && 'colibri-social' || 'colibri-social-beta' }}
         run: |
           set -euo pipefail
           TAG="v$VERSION"
@@ -699,8 +752,8 @@ jobs:
           git clone --depth 1 "https://x-access-token:$TOKEN@github.com/colibri-social/homebrew-tap.git" "$TAP_DIR"
           echo "TAP_DIR=$TAP_DIR" >> "$GITHUB_ENV"
           mkdir -p "$TAP_DIR/Casks"
-          cat > "$TAP_DIR/Casks/colibri-social.rb" <<RUBY
-          cask "colibri-social" do
+          cat > "$TAP_DIR/Casks/$CASK.rb" <<RUBY
+          cask "$CASK" do
             version "$VERSION"
             sha256 "$SHA"
 
@@ -708,6 +761,8 @@ jobs:
             name "Colibri Social"
             desc "Next-generation social chat app built on the AT Protocol"
             homepage "https://colibri.social"
+
+            conflicts_with cask: "$CONFLICTS"
 
             app "Colibri Social.app"
 
@@ -727,9 +782,10 @@ jobs:
       - name: Verify cask install
         env:
           HOMEBREW_NO_AUTO_UPDATE: "1"
+          CASK: ${{ inputs.channel == 'spaces' && 'colibri-social-beta' || 'colibri-social' }}
         run: |
           set -euo pipefail
-          brew install --cask colibri-social/tap/colibri-social
+          brew install --cask "colibri-social/tap/$CASK"
           APP="/Applications/Colibri Social.app"
           test -d "$APP"
           codesign --verify --deep --strict --verbose=2 "$APP"
@@ -739,14 +795,15 @@ jobs:
       - name: Push cask
         env:
           VERSION: ${{ inputs.version }}
+          CASK: ${{ inputs.channel == 'spaces' && 'colibri-social-beta' || 'colibri-social' }}
         run: |
           set -euo pipefail
           cd "$TAP_DIR"
           git config user.name "colibri-release[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add Casks/colibri-social.rb
+          git add "Casks/$CASK.rb"
           git diff --cached --quiet && exit 0
-          git commit -m "colibri-social $VERSION"
+          git commit -m "$CASK $VERSION"
           git branch -M main
           git push origin HEAD:main
 
@@ -768,6 +825,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TOKEN: ${{ steps.app-token.outputs.token }}
           VERSION: ${{ inputs.version }}
+          MANIFEST: ${{ inputs.channel == 'spaces' && 'colibri-social-beta' || 'colibri-social' }}
         run: |
           set -euo pipefail
           TAG="v$VERSION"
@@ -788,13 +846,13 @@ jobs:
             architecture: { "64bit": { url: $url, hash: $hash } },
             post_install: ["Remove-Item \"$dir\\`$PLUGINSDIR\" -Recurse -Force -ErrorAction SilentlyContinue"],
             shortcuts: [["Colibri Social.exe", "Colibri Social"]]
-          }' > bucket/bucket/colibri-social.json
+          }' > "bucket/bucket/$MANIFEST.json"
           cd bucket
           git config user.name "colibri-release[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add bucket/colibri-social.json
+          git add "bucket/$MANIFEST.json"
           git diff --cached --quiet && exit 0
-          git commit -m "colibri-social $VERSION"
+          git commit -m "$MANIFEST $VERSION"
           git branch -M main
           git push origin HEAD:main
 
@@ -824,29 +882,29 @@ jobs:
           NOTES_VERSION=$(node -p "require('./packages/client/package.json').version")
           node --experimental-strip-types scripts/render-release-notes.ts \
             --version="$NOTES_VERSION" --platform=android --max=500 \
-            ${{ inputs.play_track == 'production' && '--strict' || '' }} \
+            ${{ inputs.channel == 'stable' && inputs.play_track == 'production' && '--strict' || '' }} \
             --out=whatsnew/whatsnew-en-US
           cat whatsnew/whatsnew-en-US
 
       - name: Compute Play release name (production only)
-        if: inputs.play_track == 'production'
+        if: inputs.channel == 'stable' && inputs.play_track == 'production'
         env:
           VERSION: ${{ inputs.version }}
         run: echo "PLAY_RELEASE_NAME=$VERSION ($(date -u +%F))" >> "$GITHUB_ENV"
 
       - name: Upload to Play (testing track)
-        if: inputs.play_track != 'production'
+        if: inputs.channel == 'spaces' || inputs.play_track != 'production'
         uses: r0adkll/upload-google-play@v1
         with:
           serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
           packageName: social.colibri.app
           releaseFiles: dl/*.aab
-          track: ${{ inputs.play_track }}
+          track: ${{ inputs.channel == 'spaces' && env.SPACES_PLAY_TRACK || inputs.play_track }}
           status: completed
           whatsNewDirectory: whatsnew
 
       - name: Upload to Play (production, staged rollout)
-        if: inputs.play_track == 'production'
+        if: inputs.channel == 'stable' && inputs.play_track == 'production'
         uses: r0adkll/upload-google-play@v1
         with:
           serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
@@ -859,7 +917,7 @@ jobs:
           whatsNewDirectory: whatsnew
 
       - name: Mirror onto the testing tracks
-        if: inputs.play_mirror_testing
+        if: inputs.play_mirror_testing && inputs.channel == 'stable'
         env:
           PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
           SOURCE_TRACK: ${{ inputs.play_track }}
@@ -878,6 +936,7 @@ jobs:
             --notes=whatsnew/whatsnew-en-US
 
   msstore-build:
+    needs: channel
     if: ${{ inputs.msstore_only || !inputs.appstore_only }}
     runs-on: windows-latest
     steps:
@@ -1014,8 +1073,18 @@ jobs:
 
       - name: Publish MSIX to Microsoft Store
         shell: pwsh
+        env:
+          CHANNEL: ${{ inputs.channel }}
+          SPACES_FLIGHT_ID: ${{ secrets.MSSTORE_SPACES_FLIGHT_ID }}
         run: |
           $bundle = Get-ChildItem -Path dl -Filter *.msixbundle | Select-Object -First 1
           if (-not $bundle) { throw "No .msixbundle found in dl/" }
-          Write-Host "Publishing $($bundle.Name) to product 9P8Q77FCCSWR"
-          msstore publish $bundle.FullName -id 9P8Q77FCCSWR --uploadTimeout 600 --verbose
+          if ($env:CHANNEL -eq "spaces") {
+            $flightId = "$env:SPACES_FLIGHT_ID".Trim()
+            if ([string]::IsNullOrWhiteSpace($flightId)) { throw "Repository secret MSSTORE_SPACES_FLIGHT_ID is empty or unset." }
+            Write-Host "Publishing $($bundle.Name) to flight $flightId of product 9P8Q77FCCSWR"
+            msstore publish $bundle.FullName -id 9P8Q77FCCSWR -f $flightId --uploadTimeout 600 --verbose
+          } else {
+            Write-Host "Publishing $($bundle.Name) to product 9P8Q77FCCSWR"
+            msstore publish $bundle.FullName -id 9P8Q77FCCSWR --uploadTimeout 600 --verbose
+          }

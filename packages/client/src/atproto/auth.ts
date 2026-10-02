@@ -49,7 +49,7 @@ export const isLocal = () =>
 const NATIVE_CLIENT_ORIGIN =
 	(typeof window !== "undefined" &&
 		(window as { __COLIBRI_WEB_ORIGIN__?: string }).__COLIBRI_WEB_ORIGIN__) ||
-	"https://colibri.social";
+	"https://spaces.colibri.social";
 
 const makeClientId = () => {
 	// The conventional document pins the default AppView, a per-AppView document

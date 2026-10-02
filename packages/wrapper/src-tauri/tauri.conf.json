@@ -73,13 +73,15 @@
 			"mobile": [
 				{
 					"scheme": [
-						"social.colibri"
+						"social.colibri",
+						"social.colibri.spaces"
 					]
 				}
 			],
 			"desktop": {
 				"schemes": [
-					"social.colibri"
+					"social.colibri",
+					"social.colibri.spaces"
 				]
 			}
 		}

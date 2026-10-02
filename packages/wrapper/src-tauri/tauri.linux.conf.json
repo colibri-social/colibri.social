@@ -1,0 +1,87 @@
+{
+	"$schema": "https://schema.tauri.app/config/2",
+	"build": {
+		"beforeBundleCommand": "strip --strip-unneeded src-tauri/target/release/libcef.so"
+	},
+	"bundle": {
+		"linux": {
+			"deb": {
+				"depends": [
+					"libnss3",
+					"libnspr4",
+					"libatk-bridge2.0-0 | libatk-bridge2.0-0t64",
+					"libcups2 | libcups2t64",
+					"libdrm2",
+					"libgbm1",
+					"libxkbcommon0",
+					"libxcomposite1",
+					"libxdamage1",
+					"libxrandr2",
+					"libasound2 | libasound2t64"
+				],
+				"files": {
+					"/usr/lib/colibri-social/libcef.so": "target/release/libcef.so",
+					"/usr/lib/colibri-social/libEGL.so": "target/release/libEGL.so",
+					"/usr/lib/colibri-social/libGLESv2.so": "target/release/libGLESv2.so",
+					"/usr/lib/colibri-social/libvk_swiftshader.so": "target/release/libvk_swiftshader.so",
+					"/usr/lib/colibri-social/libvulkan.so.1": "target/release/libvulkan.so.1",
+					"/usr/lib/colibri-social/vk_swiftshader_icd.json": "target/release/vk_swiftshader_icd.json",
+					"/usr/lib/colibri-social/icudtl.dat": "target/release/icudtl.dat",
+					"/usr/lib/colibri-social/v8_context_snapshot.bin": "target/release/v8_context_snapshot.bin",
+					"/usr/lib/colibri-social/resources.pak": "target/release/resources.pak",
+					"/usr/lib/colibri-social/chrome_100_percent.pak": "target/release/chrome_100_percent.pak",
+					"/usr/lib/colibri-social/chrome_200_percent.pak": "target/release/chrome_200_percent.pak",
+					"/usr/lib/colibri-social/locales": "target/release/locales"
+				}
+			},
+			"rpm": {
+				"compression": {
+					"type": "none"
+				},
+				"depends": [
+					"nss",
+					"nspr",
+					"at-spi2-atk",
+					"cups-libs",
+					"libdrm",
+					"mesa-libgbm",
+					"libxkbcommon",
+					"libXcomposite",
+					"libXdamage",
+					"libXrandr",
+					"alsa-lib"
+				],
+				"files": {
+					"/usr/lib/colibri-social/libcef.so": "target/release/libcef.so",
+					"/usr/lib/colibri-social/libEGL.so": "target/release/libEGL.so",
+					"/usr/lib/colibri-social/libGLESv2.so": "target/release/libGLESv2.so",
+					"/usr/lib/colibri-social/libvk_swiftshader.so": "target/release/libvk_swiftshader.so",
+					"/usr/lib/colibri-social/libvulkan.so.1": "target/release/libvulkan.so.1",
+					"/usr/lib/colibri-social/vk_swiftshader_icd.json": "target/release/vk_swiftshader_icd.json",
+					"/usr/lib/colibri-social/icudtl.dat": "target/release/icudtl.dat",
+					"/usr/lib/colibri-social/v8_context_snapshot.bin": "target/release/v8_context_snapshot.bin",
+					"/usr/lib/colibri-social/resources.pak": "target/release/resources.pak",
+					"/usr/lib/colibri-social/chrome_100_percent.pak": "target/release/chrome_100_percent.pak",
+					"/usr/lib/colibri-social/chrome_200_percent.pak": "target/release/chrome_200_percent.pak",
+					"/usr/lib/colibri-social/locales": "target/release/locales"
+				}
+			},
+			"appimage": {
+				"files": {
+					"/usr/lib/libcef.so": "target/release/libcef.so",
+					"/usr/lib/libEGL.so": "target/release/libEGL.so",
+					"/usr/lib/libGLESv2.so": "target/release/libGLESv2.so",
+					"/usr/lib/libvk_swiftshader.so": "target/release/libvk_swiftshader.so",
+					"/usr/lib/libvulkan.so.1": "target/release/libvulkan.so.1",
+					"/usr/lib/vk_swiftshader_icd.json": "target/release/vk_swiftshader_icd.json",
+					"/usr/lib/icudtl.dat": "target/release/icudtl.dat",
+					"/usr/lib/v8_context_snapshot.bin": "target/release/v8_context_snapshot.bin",
+					"/usr/lib/resources.pak": "target/release/resources.pak",
+					"/usr/lib/chrome_100_percent.pak": "target/release/chrome_100_percent.pak",
+					"/usr/lib/chrome_200_percent.pak": "target/release/chrome_200_percent.pak",
+					"/usr/lib/locales": "target/release/locales"
+				}
+			}
+		}
+	}
+}

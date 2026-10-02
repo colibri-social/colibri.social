@@ -33,7 +33,12 @@ sentry = ["dep:sentry"]
 updater = ["dep:tauri-plugin-updater", "dep:tauri-plugin-process", "dep:tauri-plugin-fs"]
 
 [dependencies]
-tauri = { version = "2", features = ["config-json5"] }
+tauri = { version = "2", default-features = false, features = [
+    "config-json5",
+    "compression",
+    "common-controls-v6",
+    "dynamic-acl",
+] }
 tauri-plugin-opener = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
@@ -157,8 +162,12 @@ objc2-web-kit = { version = "0.3", default-features = false, features = [
 ] }
 dispatch2 = "0.3"
 
+[target.'cfg(not(target_os = "linux"))'.dependencies]
+tauri = { version = "2", features = ["wry"] }
+
 [target.'cfg(target_os = "linux")'.dependencies]
-webkit2gtk = { version = "2.0.1", features = ["v2_40"] }
+tauri-runtime-cef = { git = "https://github.com/SableClient/tauri-runtime-cef", rev = "b83d02a135781b8d73d8d12d70a590d5063180a1" }
+gtk = "0.18"
 
 [target.'cfg(windows)'.dependencies]
 windows-version = "0.1"

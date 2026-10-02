@@ -58,7 +58,7 @@ targets:
         NSCameraUsageDescription: Colibri uses your camera for video in voice channels and calls.
         NSMicrophoneUsageDescription: Colibri uses your microphone for voice channels and calls.
         CFBundleURLTypes:
-          - CFBundleURLSchemes: [social.colibri]
+          - CFBundleURLSchemes: [social.colibri, social.colibri.spaces]
             CFBundleURLName: social.colibri
     entitlements:
       path: colibri-social_iOS/colibri-social_iOS.entitlements

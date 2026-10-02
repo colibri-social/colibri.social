@@ -39,7 +39,7 @@ const WAITLIST_SCOPE = "atproto transition:email";
 const WEB_ORIGIN =
 	(typeof window !== "undefined" &&
 		(window as { __COLIBRI_WEB_ORIGIN__?: string }).__COLIBRI_WEB_ORIGIN__) ||
-	"https://colibri.social";
+	"https://spaces.colibri.social";
 
 type Phase = "idle" | "connecting" | "returning" | "done" | "error";
 

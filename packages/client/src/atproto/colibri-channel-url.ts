@@ -13,7 +13,10 @@ const CHANNEL_HOSTS = new Set([
 	"spaces.colibri.social",
 ]);
 
-const DEEP_LINK_PROTOCOL = "social.colibri:";
+const DEEP_LINK_PROTOCOLS = new Set([
+	"social.colibri:",
+	"social.colibri.spaces:",
+]);
 
 const CHANNEL_PATH = /^\/app\/c\/([^/]+)\/([^/]+)\/([^/]+)/;
 
@@ -60,7 +63,7 @@ export const parseColibriChannelUrl = (
 		return null;
 	}
 
-	if (url.protocol === DEEP_LINK_PROTOCOL) {
+	if (DEEP_LINK_PROTOCOLS.has(url.protocol)) {
 		const segments = [url.host, ...url.pathname.split("/")].filter(Boolean);
 		const index = segments.indexOf("channel");
 		if (index === -1) return null;

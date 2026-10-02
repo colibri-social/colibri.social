@@ -1,7 +1,7 @@
 use tauri::Manager;
 
 #[cfg(target_os = "linux")]
-mod linux_media;
+mod linux_cef;
 #[cfg(target_os = "macos")]
 mod macos_media;
 #[cfg(desktop)]
@@ -13,6 +13,11 @@ mod quit_guard;
 mod screen_capture;
 #[cfg(desktop)]
 mod titlebar;
+
+#[cfg(target_os = "linux")]
+pub type AppRuntime = tauri_runtime_cef::CefRuntime<tauri::EventLoopMessage>;
+#[cfg(not(target_os = "linux"))]
+pub type AppRuntime = tauri::Wry;
 
 pub mod native_error {
     #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
@@ -195,10 +200,15 @@ fn init_sentry() -> Option<sentry::ClientInitGuard> {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    #[cfg(target_os = "linux")]
+    if let linux_cef::Launch::Handled = linux_cef::bootstrap() {
+        return;
+    }
+
     #[cfg(feature = "sentry")]
     let _sentry = init_sentry();
 
-    let mut builder = tauri::Builder::default();
+    let mut builder = tauri::Builder::<AppRuntime>::new();
 
     #[cfg(target_os = "ios")]
     {
@@ -222,7 +232,10 @@ pub fn run() {
                 #[cfg(any(target_os = "linux", windows))]
                 if _argv.len() != 2 {
                     use tauri_plugin_deep_link::DeepLinkExt;
-                    if let Some(url) = _argv.iter().find(|arg| arg.starts_with("social.colibri:")) {
+                    if let Some(url) = _argv.iter().find(|arg| {
+                        arg.starts_with("social.colibri:")
+                            || arg.starts_with("social.colibri.spaces:")
+                    }) {
                         app.deep_link()
                             .handle_cli_arguments([String::new(), url.clone()].into_iter());
                     }
@@ -367,15 +380,15 @@ pub fn run() {
                     eprintln!("deep-link scheme registration failed: {error}");
                 }
             }
+            #[cfg(target_os = "linux")]
+            linux_cef::attach(app.handle());
+
             #[cfg(desktop)]
             if let Some(window) = app.get_webview_window("main") {
                 #[cfg(target_os = "macos")]
                 macos_media::enable_media(&window);
 
                 titlebar::setup(&window);
-
-                #[cfg(target_os = "linux")]
-                linux_media::enable_media(&window);
             }
 
             #[cfg(desktop)]

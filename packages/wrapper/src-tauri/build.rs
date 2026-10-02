@@ -34,5 +34,8 @@ fn main() {
         }
         println!("cargo:rerun-if-changed=src/web_auth.m");
     }
+    if target_os == "linux" {
+        println!("cargo:rustc-link-arg-bins=-Wl,-rpath,$ORIGIN:$ORIGIN/../lib/colibri-social:$ORIGIN/../lib");
+    }
     tauri_build::build()
 }

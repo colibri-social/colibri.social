@@ -1,6 +1,6 @@
 import { isTauriRuntime } from "../notifications/environment";
 
-const PUBLIC_WEB_ORIGIN = "https://colibri.social";
+const PUBLIC_WEB_ORIGIN = "https://spaces.colibri.social";
 
 export const webAppOrigin = (): string => {
 	if (typeof window === "undefined") return PUBLIC_WEB_ORIGIN;

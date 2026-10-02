@@ -1,0 +1,10 @@
+{
+	"$schema": "https://schema.tauri.app/config/2",
+	"plugins": {
+		"updater": {
+			"endpoints": [
+				"https://spaces.colibri.social/beta/{{target}}/{{arch}}/{{current_version}}"
+			]
+		}
+	}
+}

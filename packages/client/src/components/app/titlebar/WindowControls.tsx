@@ -15,7 +15,7 @@ const CELL_CLASS =
 const CLOSE_CLASS =
 	"data-[hovered]:bg-[#c42b1c] data-[hovered]:text-white data-[pressed]:bg-[#b2261a] data-[pressed]:text-white";
 
-const Glyph: Component<{ children: string }> = (props) => (
+const Glyph: Component<{ children: string; diagonal?: boolean }> = (props) => (
 	<svg
 		width="10"
 		height="10"
@@ -23,7 +23,7 @@ const Glyph: Component<{ children: string }> = (props) => (
 		fill="none"
 		stroke="currentColor"
 		stroke-width="1"
-		shape-rendering="crispEdges"
+		shape-rendering={props.diagonal ? "geometricPrecision" : "crispEdges"}
 		aria-hidden="true"
 	>
 		<path d={props.children} />
@@ -36,7 +36,7 @@ const MaximizeGlyph = () => <Glyph>M0.5 0.5h9v9h-9z</Glyph>;
 
 const RestoreGlyph = () => <Glyph>M2.5 2.5v-2h7v7h-2M0.5 2.5h7v7h-7z</Glyph>;
 
-const CloseGlyph = () => <Glyph>M0.5 0.5l9 9M9.5 0.5l-9 9</Glyph>;
+const CloseGlyph = () => <Glyph diagonal>M0.5 0.5l9 9M9.5 0.5l-9 9</Glyph>;
 
 export const WindowControls: Component<WindowControlsProps> = (props) => {
 	const [hovered, setHovered] = createSignal<WindowControl | null>(null);

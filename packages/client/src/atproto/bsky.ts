@@ -5,6 +5,7 @@ import { createLogger } from "../utils/logger";
 const log = createLogger("bsky");
 
 const PUBLIC_APPVIEW = "https://public.api.bsky.app";
+const TYPEAHEAD_SERVICE = "https://typeahead.waow.tech";
 
 export type ActorTypeaheadResult = {
 	did: string;
@@ -33,7 +34,7 @@ export const searchActorsTypeahead = async (
 	const trimmed = q.trim();
 	if (trimmed.length === 0) return [];
 
-	const url = `${PUBLIC_APPVIEW}/xrpc/app.bsky.actor.searchActorsTypeahead?q=${encodeURIComponent(trimmed)}&limit=8`;
+	const url = `${TYPEAHEAD_SERVICE}/xrpc/app.bsky.actor.searchActorsTypeahead?q=${encodeURIComponent(trimmed)}&limit=8`;
 
 	try {
 		const res = await fetch(url, { signal });

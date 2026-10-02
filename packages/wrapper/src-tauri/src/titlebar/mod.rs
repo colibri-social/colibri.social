@@ -1,6 +1,8 @@
 use std::sync::Mutex;
 
-use tauri::{Emitter, Manager, WebviewWindow, WindowEvent};
+use tauri::{Emitter, Manager, WindowEvent};
+
+type WebviewWindow = tauri::WebviewWindow<crate::AppRuntime>;
 
 use crate::native_error::NativeError;
 
