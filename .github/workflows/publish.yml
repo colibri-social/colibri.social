@@ -51,7 +51,8 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  SPACES_PLAY_TRACK: spaces
+  SPACES_PLAY_TRACK: Spaces
+  SPACES_TESTFLIGHT_GROUP: External
 
 jobs:
   channel:
@@ -498,7 +499,13 @@ jobs:
           APP_STORE_CONNECT_KEY_IDENTIFIER: ${{ secrets.APPLE_API_KEY }}
         run: |
           set -euo pipefail
-          app-store-connect publish --path "$PKG_PATH"
+          app-store-connect publish \
+            --path "$PKG_PATH" \
+            --testflight \
+            --expire-build-submitted-for-review \
+            --beta-group "$SPACES_TESTFLIGHT_GROUP" \
+            --whats-new "Colibri Spaces beta ${{ inputs.version }}" \
+            --max-build-processing-wait 45
 
       - name: Upload and submit to App Store
         if: steps.validate.outputs.validated == 'true' && inputs.channel == 'stable'
@@ -675,7 +682,13 @@ jobs:
           APP_STORE_CONNECT_KEY_IDENTIFIER: ${{ secrets.APPLE_API_KEY }}
         run: |
           set -euo pipefail
-          app-store-connect publish --path "$IPA_PATH"
+          app-store-connect publish \
+            --path "$IPA_PATH" \
+            --testflight \
+            --expire-build-submitted-for-review \
+            --beta-group "$SPACES_TESTFLIGHT_GROUP" \
+            --whats-new "Colibri Spaces beta ${{ inputs.version }}" \
+            --max-build-processing-wait 45
 
       - name: Upload and submit to App Store
         if: steps.validate.outputs.validated == 'true' && inputs.channel == 'stable'
@@ -937,7 +950,7 @@ jobs:
 
   msstore-build:
     needs: channel
-    if: ${{ inputs.msstore_only || !inputs.appstore_only }}
+    if: ${{ (inputs.msstore_only || !inputs.appstore_only) && (inputs.channel == 'stable' || vars.MSSTORE_SPACES_FLIGHT_ID != '') }}
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v7
@@ -1075,13 +1088,13 @@ jobs:
         shell: pwsh
         env:
           CHANNEL: ${{ inputs.channel }}
-          SPACES_FLIGHT_ID: ${{ secrets.MSSTORE_SPACES_FLIGHT_ID }}
+          SPACES_FLIGHT_ID: ${{ vars.MSSTORE_SPACES_FLIGHT_ID }}
         run: |
           $bundle = Get-ChildItem -Path dl -Filter *.msixbundle | Select-Object -First 1
           if (-not $bundle) { throw "No .msixbundle found in dl/" }
           if ($env:CHANNEL -eq "spaces") {
             $flightId = "$env:SPACES_FLIGHT_ID".Trim()
-            if ([string]::IsNullOrWhiteSpace($flightId)) { throw "Repository secret MSSTORE_SPACES_FLIGHT_ID is empty or unset." }
+            if ([string]::IsNullOrWhiteSpace($flightId)) { throw "Repository variable MSSTORE_SPACES_FLIGHT_ID is empty or unset." }
             Write-Host "Publishing $($bundle.Name) to flight $flightId of product 9P8Q77FCCSWR"
             msstore publish $bundle.FullName -id 9P8Q77FCCSWR -f $flightId --uploadTimeout 600 --verbose
           } else {
