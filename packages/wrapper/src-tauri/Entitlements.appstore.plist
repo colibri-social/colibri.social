@@ -15,5 +15,9 @@
 	<true/>
 	<key>com.apple.application-identifier</key>
 	<string>8V8SWK3942.social.colibri.app</string>
+	<key>com.apple.developer.aps-environment</key>
+	<string>production</string>
+	<key>com.apple.developer.usernotifications.time-sensitive</key>
+	<true/>
 </dict>
 </plist>

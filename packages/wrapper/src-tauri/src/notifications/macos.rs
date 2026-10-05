@@ -5,14 +5,16 @@ use std::sync::OnceLock;
 use block2::RcBlock;
 use objc2::rc::Retained;
 use objc2::runtime::ProtocolObject;
-use objc2::{define_class, msg_send, DefinedClass, MainThreadOnly};
+use objc2::{define_class, msg_send, ClassType, DefinedClass, MainThreadOnly};
 use objc2_foundation::{
     MainThreadMarker, NSArray, NSBundle, NSError, NSObject, NSObjectProtocol, NSString, NSURL,
 };
+use objc2_app_kit::NSApplication;
 use objc2_user_notifications::{
     UNAuthorizationOptions, UNMutableNotificationContent, UNNotification, UNNotificationAttachment,
     UNNotificationPresentationOptions, UNNotificationRequest, UNNotificationResponse,
-    UNNotificationSound, UNUserNotificationCenter, UNUserNotificationCenterDelegate,
+    UNNotificationSound, UNPushNotificationTrigger, UNUserNotificationCenter,
+    UNUserNotificationCenterDelegate,
 };
 
 use super::{NotificationPayload, Activation};
@@ -61,6 +63,19 @@ pub fn supported() -> bool {
     is_bundled() && AUTHORIZED.load(Ordering::Relaxed)
 }
 
+fn is_push(notification: &UNNotification) -> bool {
+    notification
+        .request()
+        .trigger()
+        .is_some_and(|trigger| trigger.isKindOfClass(UNPushNotificationTrigger::class()))
+}
+
+fn app_is_active() -> bool {
+    MainThreadMarker::new()
+        .map(|mtm| NSApplication::sharedApplication(mtm).isActive())
+        .unwrap_or(false)
+}
+
 type ActivationHandler = Box<dyn Fn(Activation)>;
 
 pub struct DelegateIvars {
@@ -81,9 +96,13 @@ define_class!(
         fn will_present(
             &self,
             _center: &UNUserNotificationCenter,
-            _notification: &UNNotification,
+            notification: &UNNotification,
             completion_handler: &block2::DynBlock<dyn Fn(UNNotificationPresentationOptions)>,
         ) {
+            if is_push(notification) && app_is_active() {
+                completion_handler.call((UNNotificationPresentationOptions::empty(),));
+                return;
+            }
             completion_handler.call((
                 UNNotificationPresentationOptions::Banner
                     | UNNotificationPresentationOptions::Sound
@@ -98,10 +117,18 @@ define_class!(
             response: &UNNotificationResponse,
             completion_handler: &block2::DynBlock<dyn Fn()>,
         ) {
-            let content = response.notification().request().content();
+            let request = response.notification().request();
+            let content = request.content();
+            let user_info = content.userInfo();
+            let pushed = |key: &str| {
+                user_info
+                    .objectForKey(&NSString::from_str(key))
+                    .and_then(|value| value.downcast::<NSString>().ok())
+                    .map(|value| value.to_string())
+            };
             let activation = Activation {
-                message_uri: response.notification().request().identifier().to_string(),
-                channel_uri: content.threadIdentifier().to_string(),
+                message_uri: pushed("messageUri").unwrap_or_else(|| request.identifier().to_string()),
+                channel_uri: pushed("channelUri").unwrap_or_else(|| content.threadIdentifier().to_string()),
             };
 
             if let Some(callback) = self.ivars().on_activate.borrow().as_ref() {

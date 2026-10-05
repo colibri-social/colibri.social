@@ -3,7 +3,6 @@ import {
 	parseChannelPath,
 	parseThreadPath,
 } from "../../atproto/colibri-channel-url";
-import { colibri } from "../../atproto/lexicons";
 import type { ProfileView } from "../../atproto/views";
 import { useMutes } from "../../contexts/Mutes";
 import { useNotifications } from "../../contexts/Notifications";
@@ -11,6 +10,7 @@ import { useSocketContext } from "../../contexts/Socket";
 import { useUserContext } from "../../contexts/User";
 import { useUserPreferences } from "../../contexts/UserPreferences";
 import {
+	appleTauriPlatform,
 	emitNotificationActivation,
 	getBackend,
 	isAndroidTauriRuntime,
@@ -30,8 +30,8 @@ import {
 	listenForPendingMarkRead,
 	readPendingMarkRead,
 } from "../../notifications/mark-read-queue";
+import { subscribeApnsPush } from "../../notifications/push-apns";
 import {
-	type FcmSubscription,
 	listenForFcmTokenRefresh,
 	subscribeFcmPush,
 } from "../../notifications/push-fcm";
@@ -39,8 +39,11 @@ import {
 	listenForNotificationActivation,
 	listenForPushSubscriptionChanges,
 	subscribeWebPush,
-	type WebPushSubscription,
 } from "../../notifications/push-web";
+import {
+	registerPushWith,
+	unregisterPushWith,
+} from "../../notifications/push-xrpc";
 import {
 	cacheNativeAvatar,
 	isNativeNotificationSupported,
@@ -91,29 +94,8 @@ export const NativeNotifications: Component = () => {
 	const { preferences, setNativeNotifications, setNotificationDefaultApplied } =
 		useUserPreferences();
 
-	const registerPush = (sub: WebPushSubscription | FcmSubscription) =>
-		sub.platform === "web"
-			? user.xrpc.push(colibri.notification.registerPush.main, {
-					body: {
-						provider: "webpush",
-						platform: "web",
-						endpoint: sub.endpoint,
-						p256dh: sub.keys.p256dh,
-						auth: sub.keys.auth,
-					},
-				})
-			: user.xrpc.push(colibri.notification.registerPush.main, {
-					body: { provider: "fcm", platform: "android", token: sub.token },
-				});
-
-	const unregisterPush = (endpointOrToken: string, provider?: string) =>
-		provider === "fcm"
-			? user.xrpc.push(colibri.notification.unregisterPush.main, {
-					body: { provider: "fcm", token: endpointOrToken },
-				})
-			: user.xrpc.push(colibri.notification.unregisterPush.main, {
-					body: { provider: "webpush", endpoint: endpointOrToken },
-				});
+	const registerPush = registerPushWith(user.xrpc);
+	const unregisterPush = unregisterPushWith(user.xrpc);
 
 	const reconcilePermission = async (): Promise<void> => {
 		const enabled = preferences().nativeNotifications;
@@ -143,6 +125,21 @@ export const NativeNotifications: Component = () => {
 		);
 	};
 
+	let apnsActive = false;
+
+	const reassertApnsRegistration = async (): Promise<void> => {
+		if (!preferences().nativeNotifications) return;
+		if ((await appleTauriPlatform()) === null) return;
+		apnsActive = await subscribeApnsPush(registerPush, (token) =>
+			unregisterPush(token, "apns"),
+		);
+	};
+
+	const reassertNativeRegistration = async (): Promise<void> => {
+		await reassertFcmRegistration();
+		await reassertApnsRegistration();
+	};
+
 	onMount(() => {
 		void (async () => {
 			if (isTauriRuntime()) {
@@ -165,7 +162,7 @@ export const NativeNotifications: Component = () => {
 				}
 
 				await reconcilePermission();
-				await reassertFcmRegistration();
+				await reassertNativeRegistration();
 				return;
 			}
 
@@ -177,13 +174,13 @@ export const NativeNotifications: Component = () => {
 			if (document.visibilityState === "visible") {
 				void reconcilePermission();
 				void reassertWebPushRegistration();
-				void reassertFcmRegistration();
+				void reassertNativeRegistration();
 			}
 		};
 		document.addEventListener("visibilitychange", handleVisibilityChange);
 		const intervalId = window.setInterval(() => {
 			void reassertWebPushRegistration();
-			void reassertFcmRegistration();
+			void reassertNativeRegistration();
 		}, PUSH_REASSERT_INTERVAL_MS);
 		const cleanupPushChangeListener = listenForPushSubscriptionChanges(() => {
 			void reassertWebPushRegistration();
@@ -209,7 +206,7 @@ export const NativeNotifications: Component = () => {
 			if (event.$type !== "social.colibri.beta.sync.defs#notificationEvent") {
 				return;
 			}
-			if (fcmActive) return;
+			if (fcmActive || apnsActive) return;
 			if (!preferences().nativeNotifications) return;
 			if (user.presence?.onlineState === "dnd") return;
 

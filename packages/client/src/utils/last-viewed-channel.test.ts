@@ -103,3 +103,55 @@ describe("lastViewedChannelPath", () => {
 		expect(lastViewedChannelPath("/app")).toBeUndefined();
 	});
 });
+
+describe("cold start restore", () => {
+	const load = async () => {
+		vi.resetModules();
+		return import("./last-viewed-channel");
+	};
+
+	it("restores the last community once per session", async () => {
+		const first = await load();
+		first.rememberLastViewedChannel(DID, { space: SPACE, type: TEXT });
+
+		const fresh = await load();
+		expect(fresh.claimColdStartCommunity(() => true)).toBe(DID);
+		expect(fresh.claimColdStartCommunity(() => true)).toBeUndefined();
+		expect(fresh.takeColdStartRestore(DID)).toBe(true);
+		expect(fresh.takeColdStartRestore(DID)).toBe(false);
+	});
+
+	it("skips a community the user is no longer a member of", async () => {
+		const first = await load();
+		first.rememberLastViewedChannel(DID, { space: SPACE, type: TEXT });
+
+		const fresh = await load();
+		expect(fresh.claimColdStartCommunity(() => false)).toBeUndefined();
+		expect(fresh.takeColdStartRestore(DID)).toBe(false);
+	});
+
+	it("drops the pending restore once another channel opens first", async () => {
+		const first = await load();
+		first.rememberLastViewedChannel(DID, { space: SPACE, type: TEXT });
+
+		const fresh = await load();
+		fresh.claimColdStartCommunity(() => true);
+		fresh.rememberLastViewedChannel(DID, { space: SPACE, type: TEXT });
+		expect(fresh.takeColdStartRestore(DID)).toBe(false);
+	});
+});
+
+describe("cancelColdStartRestore", () => {
+	it("stops a claimed restore from running", async () => {
+		vi.resetModules();
+		const first = await import("./last-viewed-channel");
+		first.rememberLastViewedChannel(DID, { space: SPACE, type: TEXT });
+
+		vi.resetModules();
+		const fresh = await import("./last-viewed-channel");
+		fresh.claimColdStartCommunity(() => true);
+		fresh.cancelColdStartRestore();
+		expect(fresh.isColdStartRestorePending(DID)).toBe(false);
+		expect(fresh.takeColdStartRestore(DID)).toBe(false);
+	});
+});

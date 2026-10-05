@@ -8,41 +8,105 @@
 
 /* Begin PBXBuildFile section */
 		042BCF43A2C2A2704918C8B1 /* libapp.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 2381A5815BBB759639B6B97F /* libapp.a */; };
-		9612D7A467BC49BCAC7171DA /* AppIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = B2DFAC3C695F45CE80C2AD0A /* AppIcon.icon */; };
 		07728968E370873295808823 /* main.mm in Sources */ = {isa = PBXBuildFile; fileRef = EDA1032A4BF1DB787769D94F /* main.mm */; };
-		1B7D40E5C9A2F6338E51A0D4 /* AuthenticationServices.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 6C93F1A05D28B4E77A03C6BF /* AuthenticationServices.framework */; };
 		20ADE81D8B13F10CD53AEDDD /* UIKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 23F92E71B3C59D62A5115BB8 /* UIKit.framework */; };
 		2F139F11E0E7E8F139F2020C /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 33EEEEEE430CFB4960970B87 /* LaunchScreen.storyboard */; };
 		4B92D1B35B5AD5B3546508E9 /* CoreGraphics.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 932F4D78F5E2340766504215 /* CoreGraphics.framework */; };
+		5182AB89C9740B6BF7A2892F /* Intents.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B8ED2C3801A6DABAE38B0B1C /* Intents.framework */; };
+		6FA7D288711ECF133301235D /* AppIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = 84A1CAEC0E7449F9AF3B1495 /* AppIcon.icon */; };
 		786EB06D44A0D25D6BCE0616 /* QuartzCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B972DDDF4E6E36CAC7072E2B /* QuartzCore.framework */; };
+		9A99D7A125BE3853ED76204B /* UserNotifications.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4D2B5E1A4C191719339E1434 /* UserNotifications.framework */; };
+		B185DC6651EA6DF8079CA21D /* NotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8A00DA89E2BD4943E148AF8 /* NotificationService.swift */; };
+		B2BB87911304611436CCB5E0 /* AuthenticationServices.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 3626D1097137495EF5817B2C /* AuthenticationServices.framework */; };
 		B3C29F6433EAB7E11DE194DD /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 50765EB523701966B25949CA /* Assets.xcassets */; };
 		BE124219C3D392E07473F2C6 /* assets in Resources */ = {isa = PBXBuildFile; fileRef = 3B4087853713445F7F9F602C /* assets */; };
 		C73E598DCB507F87FD36E0AA /* WebKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0A1A312706C37641916B0EC4 /* WebKit.framework */; };
 		D03CB0CE111E71A0F1237385 /* MetalKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B95D904107C622AE7EF9BD2D /* MetalKit.framework */; };
+		ED975AA96EF30135C588CC1E /* NotificationService.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 7A6E827D3C37AE46AE6C738B /* NotificationService.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		EEA74BECB5D2035D83A582FC /* Metal.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D51A5144CE637D91656CF10F /* Metal.framework */; };
+		EF8AD89F037CE2C80C74CBB2 /* UserNotifications.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4D2B5E1A4C191719339E1434 /* UserNotifications.framework */; };
 		FA94483809A67F8354AC6D6D /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E0E40CBCE3EC8FD99C884C08 /* Security.framework */; };
 /* End PBXBuildFile section */
 
+/* Begin PBXContainerItemProxy section */
+		2B323BF6EBAE22F2A316224A /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = BAA9FCFDC443CAD060CF9E4B /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 490032B671F993CB31786A8B;
+			remoteInfo = NotificationService;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		DEEB4A9B11CF19ACB642AA9E /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				ED975AA96EF30135C588CC1E /* NotificationService.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
+		04BEE598542ADBE9F35B4A7F /* server.rs */ = {isa = PBXFileReference; path = server.rs; sourceTree = "<group>"; };
+		05F883AAF63A7DB876062499 /* macos.rs */ = {isa = PBXFileReference; path = macos.rs; sourceTree = "<group>"; };
 		0A1A312706C37641916B0EC4 /* WebKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WebKit.framework; path = System/Library/Frameworks/WebKit.framework; sourceTree = SDKROOT; };
+		0BC02A7A0B32CC485D554938 /* unsupported.rs */ = {isa = PBXFileReference; path = unsupported.rs; sourceTree = "<group>"; };
+		17030F8CAED6A9A22E6BA9B4 /* enumerate.rs */ = {isa = PBXFileReference; path = enumerate.rs; sourceTree = "<group>"; };
+		19449B77B4654CA0E9106A45 /* item.rs */ = {isa = PBXFileReference; path = item.rs; sourceTree = "<group>"; };
 		2381A5815BBB759639B6B97F /* libapp.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = libapp.a; sourceTree = "<group>"; };
-		B2DFAC3C695F45CE80C2AD0A /* AppIcon.icon */ = {isa = PBXFileReference; lastKnownFileType = wrapper.icon; path = AppIcon.icon; sourceTree = "<group>"; };
 		23F92E71B3C59D62A5115BB8 /* UIKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = UIKit.framework; path = System/Library/Frameworks/UIKit.framework; sourceTree = SDKROOT; };
-		6C93F1A05D28B4E77A03C6BF /* AuthenticationServices.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AuthenticationServices.framework; path = System/Library/Frameworks/AuthenticationServices.framework; sourceTree = SDKROOT; };
+		275E95FBF3AD8DC965791ABC /* windows.rs */ = {isa = PBXFileReference; path = windows.rs; sourceTree = "<group>"; };
+		299891131075654152BC2B1D /* mod.rs */ = {isa = PBXFileReference; path = mod.rs; sourceTree = "<group>"; };
 		33EEEEEE430CFB4960970B87 /* LaunchScreen.storyboard */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; path = LaunchScreen.storyboard; sourceTree = "<group>"; };
+		3626D1097137495EF5817B2C /* AuthenticationServices.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AuthenticationServices.framework; path = System/Library/Frameworks/AuthenticationServices.framework; sourceTree = SDKROOT; };
 		3B4087853713445F7F9F602C /* assets */ = {isa = PBXFileReference; lastKnownFileType = folder; path = assets; sourceTree = SOURCE_ROOT; };
+		40B5FF4DE196E3AFB5AB9961 /* macos_media.rs */ = {isa = PBXFileReference; path = macos_media.rs; sourceTree = "<group>"; };
+		4B07F3E9BACB872E04415AD3 /* windows.rs */ = {isa = PBXFileReference; path = windows.rs; sourceTree = "<group>"; };
+		4D2B5E1A4C191719339E1434 /* UserNotifications.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = UserNotifications.framework; path = System/Library/Frameworks/UserNotifications.framework; sourceTree = SDKROOT; };
+		4ED8ED3BA1DC486A58DC2EA9 /* mod.rs */ = {isa = PBXFileReference; path = mod.rs; sourceTree = "<group>"; };
 		50765EB523701966B25949CA /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		557B1DCBDBE646EC761FAA08 /* permission.rs */ = {isa = PBXFileReference; path = permission.rs; sourceTree = "<group>"; };
 		5FDAC522F447AFAEB03509C0 /* bindings.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = bindings.h; sourceTree = "<group>"; };
+		62BCA66A08317B7C3382D8F0 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		62ECBD38B52B54418BD9B817 /* thumbnail.rs */ = {isa = PBXFileReference; path = thumbnail.rs; sourceTree = "<group>"; };
+		665EBA069F2F5EB589DED6ED /* audio.rs */ = {isa = PBXFileReference; path = audio.rs; sourceTree = "<group>"; };
+		6C81C8829500C3C462576D4C /* web_auth.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = web_auth.m; sourceTree = "<group>"; };
+		71FB9EC3FA1F59D7B0EBBE04 /* capture.rs */ = {isa = PBXFileReference; path = capture.rs; sourceTree = "<group>"; };
 		78CAC261C8931EA913041F5C /* colibri-social_iOS.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = "colibri-social_iOS.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		7A6E827D3C37AE46AE6C738B /* NotificationService.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = NotificationService.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		8264E20E0C4CB6D49BCCF741 /* encoder.rs */ = {isa = PBXFileReference; path = encoder.rs; sourceTree = "<group>"; };
+		84A1CAEC0E7449F9AF3B1495 /* AppIcon.icon */ = {isa = PBXFileReference; lastKnownFileType = wrapper.icon; path = AppIcon.icon; sourceTree = "<group>"; };
+		86B9510A9E9E6F50C01E0614 /* macos.rs */ = {isa = PBXFileReference; path = macos.rs; sourceTree = "<group>"; };
+		886F096BD7BF8B8636814DD9 /* NotificationService.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = NotificationService.entitlements; sourceTree = "<group>"; };
+		8F72145BC95E17778A22D29F /* linux_cef.rs */ = {isa = PBXFileReference; path = linux_cef.rs; sourceTree = "<group>"; };
 		932F4D78F5E2340766504215 /* CoreGraphics.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreGraphics.framework; path = System/Library/Frameworks/CoreGraphics.framework; sourceTree = SDKROOT; };
 		969998B8BCBCB17448F091C1 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		A3FD30ADF96EED2A31C5FC79 /* stream.rs */ = {isa = PBXFileReference; path = stream.rs; sourceTree = "<group>"; };
+		AB7802EA53AE6700AD93CA4F /* encoder.rs */ = {isa = PBXFileReference; path = encoder.rs; sourceTree = "<group>"; };
+		B09A16B7DBDEE63C757FFE00 /* macos.rs */ = {isa = PBXFileReference; path = macos.rs; sourceTree = "<group>"; };
+		B72385D53ABC2EE64976278D /* mod.rs */ = {isa = PBXFileReference; path = mod.rs; sourceTree = "<group>"; };
+		B8ED2C3801A6DABAE38B0B1C /* Intents.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Intents.framework; path = System/Library/Frameworks/Intents.framework; sourceTree = SDKROOT; };
 		B95D904107C622AE7EF9BD2D /* MetalKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MetalKit.framework; path = System/Library/Frameworks/MetalKit.framework; sourceTree = SDKROOT; };
 		B972DDDF4E6E36CAC7072E2B /* QuartzCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = QuartzCore.framework; path = System/Library/Frameworks/QuartzCore.framework; sourceTree = SDKROOT; };
+		BEB146BDDE9409ADEB90064A /* unsupported.rs */ = {isa = PBXFileReference; path = unsupported.rs; sourceTree = "<group>"; };
+		C02905E30CA7F81BC28359D2 /* quit_guard.rs */ = {isa = PBXFileReference; path = quit_guard.rs; sourceTree = "<group>"; };
+		C8A00DA89E2BD4943E148AF8 /* NotificationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationService.swift; sourceTree = "<group>"; };
+		CA3921C45814308750C9E62E /* windows.rs */ = {isa = PBXFileReference; path = windows.rs; sourceTree = "<group>"; };
 		D1CA0BAFCAEFC1C03B2B7BF7 /* lib.rs */ = {isa = PBXFileReference; path = lib.rs; sourceTree = "<group>"; };
+		D3D9A35645D71B84B658BE3A /* apns.rs */ = {isa = PBXFileReference; path = apns.rs; sourceTree = "<group>"; };
 		D51A5144CE637D91656CF10F /* Metal.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Metal.framework; path = System/Library/Frameworks/Metal.framework; sourceTree = SDKROOT; };
+		D6F3AE6A7E61680DED8164EB /* apns.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = apns.m; sourceTree = "<group>"; };
+		DB7FFFDB7ED501717B4E35AC /* linux.rs */ = {isa = PBXFileReference; path = linux.rs; sourceTree = "<group>"; };
 		E0E40CBCE3EC8FD99C884C08 /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = System/Library/Frameworks/Security.framework; sourceTree = SDKROOT; };
 		EDA1032A4BF1DB787769D94F /* main.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = main.mm; sourceTree = "<group>"; };
 		F0A9F8EDF7AF07ED882CD0B8 /* main.rs */ = {isa = PBXFileReference; path = main.rs; sourceTree = "<group>"; };
+		F2F0F2D6114615C349BCDCEE /* audio.rs */ = {isa = PBXFileReference; path = audio.rs; sourceTree = "<group>"; };
 		F7B3C1071A3246B1B9F6A3A7 /* colibri-social_iOS.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = "colibri-social_iOS.entitlements"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -52,14 +116,24 @@
 			buildActionMask = 2147483647;
 			files = (
 				042BCF43A2C2A2704918C8B1 /* libapp.a in Frameworks */,
-				1B7D40E5C9A2F6338E51A0D4 /* AuthenticationServices.framework in Frameworks */,
+				B2BB87911304611436CCB5E0 /* AuthenticationServices.framework in Frameworks */,
 				4B92D1B35B5AD5B3546508E9 /* CoreGraphics.framework in Frameworks */,
 				EEA74BECB5D2035D83A582FC /* Metal.framework in Frameworks */,
 				D03CB0CE111E71A0F1237385 /* MetalKit.framework in Frameworks */,
 				786EB06D44A0D25D6BCE0616 /* QuartzCore.framework in Frameworks */,
 				FA94483809A67F8354AC6D6D /* Security.framework in Frameworks */,
 				20ADE81D8B13F10CD53AEDDD /* UIKit.framework in Frameworks */,
+				9A99D7A125BE3853ED76204B /* UserNotifications.framework in Frameworks */,
 				C73E598DCB507F87FD36E0AA /* WebKit.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		99BC16E13B849B0E5254A98E /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				5182AB89C9740B6BF7A2892F /* Intents.framework in Frameworks */,
+				EF8AD89F037CE2C80C74CBB2 /* UserNotifications.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -70,21 +144,35 @@
 			isa = PBXGroup;
 			children = (
 				78CAC261C8931EA913041F5C /* colibri-social_iOS.app */,
+				7A6E827D3C37AE46AE6C738B /* NotificationService.appex */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		11E5D846053AF9781F23E745 /* notifications */ = {
+			isa = PBXGroup;
+			children = (
+				B09A16B7DBDEE63C757FFE00 /* macos.rs */,
+				4ED8ED3BA1DC486A58DC2EA9 /* mod.rs */,
+				0BC02A7A0B32CC485D554938 /* unsupported.rs */,
+				4B07F3E9BACB872E04415AD3 /* windows.rs */,
+			);
+			path = notifications;
 			sourceTree = "<group>";
 		};
 		1F18FE7F90A76D538FD5816A /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
-				6C93F1A05D28B4E77A03C6BF /* AuthenticationServices.framework */,
+				3626D1097137495EF5817B2C /* AuthenticationServices.framework */,
 				932F4D78F5E2340766504215 /* CoreGraphics.framework */,
+				B8ED2C3801A6DABAE38B0B1C /* Intents.framework */,
 				2381A5815BBB759639B6B97F /* libapp.a */,
 				D51A5144CE637D91656CF10F /* Metal.framework */,
 				B95D904107C622AE7EF9BD2D /* MetalKit.framework */,
 				B972DDDF4E6E36CAC7072E2B /* QuartzCore.framework */,
 				E0E40CBCE3EC8FD99C884C08 /* Security.framework */,
 				23F92E71B3C59D62A5115BB8 /* UIKit.framework */,
+				4D2B5E1A4C191719339E1434 /* UserNotifications.framework */,
 				0A1A312706C37641916B0EC4 /* WebKit.framework */,
 			);
 			name = Frameworks;
@@ -125,11 +213,79 @@
 		69165A6FF40572CD434A2230 /* src */ = {
 			isa = PBXGroup;
 			children = (
+				D6F3AE6A7E61680DED8164EB /* apns.m */,
+				D3D9A35645D71B84B658BE3A /* apns.rs */,
 				D1CA0BAFCAEFC1C03B2B7BF7 /* lib.rs */,
+				8F72145BC95E17778A22D29F /* linux_cef.rs */,
+				40B5FF4DE196E3AFB5AB9961 /* macos_media.rs */,
 				F0A9F8EDF7AF07ED882CD0B8 /* main.rs */,
+				C02905E30CA7F81BC28359D2 /* quit_guard.rs */,
+				6C81C8829500C3C462576D4C /* web_auth.m */,
+				11E5D846053AF9781F23E745 /* notifications */,
+				C11106FAB7D145C19F8DB63E /* screen_capture */,
+				7BC3F6B13F60826C7E8A8C90 /* titlebar */,
 			);
 			name = src;
 			path = ../../src;
+			sourceTree = "<group>";
+		};
+		739114419F6196E52D6C1373 /* windows */ = {
+			isa = PBXGroup;
+			children = (
+				F2F0F2D6114615C349BCDCEE /* audio.rs */,
+				71FB9EC3FA1F59D7B0EBBE04 /* capture.rs */,
+				8264E20E0C4CB6D49BCCF741 /* encoder.rs */,
+				17030F8CAED6A9A22E6BA9B4 /* enumerate.rs */,
+				19449B77B4654CA0E9106A45 /* item.rs */,
+				62ECBD38B52B54418BD9B817 /* thumbnail.rs */,
+			);
+			path = windows;
+			sourceTree = "<group>";
+		};
+		7BC3F6B13F60826C7E8A8C90 /* titlebar */ = {
+			isa = PBXGroup;
+			children = (
+				DB7FFFDB7ED501717B4E35AC /* linux.rs */,
+				05F883AAF63A7DB876062499 /* macos.rs */,
+				B72385D53ABC2EE64976278D /* mod.rs */,
+				CA3921C45814308750C9E62E /* windows.rs */,
+			);
+			path = titlebar;
+			sourceTree = "<group>";
+		};
+		88AE56B925E58A09BF314F7B /* NotificationService */ = {
+			isa = PBXGroup;
+			children = (
+				62BCA66A08317B7C3382D8F0 /* Info.plist */,
+				886F096BD7BF8B8636814DD9 /* NotificationService.entitlements */,
+				C8A00DA89E2BD4943E148AF8 /* NotificationService.swift */,
+			);
+			path = NotificationService;
+			sourceTree = "<group>";
+		};
+		9279470EB32AD3AB2675BE75 /* macos */ = {
+			isa = PBXGroup;
+			children = (
+				665EBA069F2F5EB589DED6ED /* audio.rs */,
+				AB7802EA53AE6700AD93CA4F /* encoder.rs */,
+				557B1DCBDBE646EC761FAA08 /* permission.rs */,
+				A3FD30ADF96EED2A31C5FC79 /* stream.rs */,
+			);
+			path = macos;
+			sourceTree = "<group>";
+		};
+		C11106FAB7D145C19F8DB63E /* screen_capture */ = {
+			isa = PBXGroup;
+			children = (
+				86B9510A9E9E6F50C01E0614 /* macos.rs */,
+				299891131075654152BC2B1D /* mod.rs */,
+				04BEE598542ADBE9F35B4A7F /* server.rs */,
+				BEB146BDDE9409ADEB90064A /* unsupported.rs */,
+				275E95FBF3AD8DC965791ABC /* windows.rs */,
+				9279470EB32AD3AB2675BE75 /* macos */,
+				739114419F6196E52D6C1373 /* windows */,
+			);
+			path = screen_capture;
 			sourceTree = "<group>";
 		};
 		CD2D2A0C7173F8DC6ADE7B9C /* colibri-social_iOS */ = {
@@ -144,12 +300,13 @@
 		D472E04D020F7F1B2CF5D75A = {
 			isa = PBXGroup;
 			children = (
-				B2DFAC3C695F45CE80C2AD0A /* AppIcon.icon */,
+				84A1CAEC0E7449F9AF3B1495 /* AppIcon.icon */,
 				3B4087853713445F7F9F602C /* assets */,
 				50765EB523701966B25949CA /* Assets.xcassets */,
 				33EEEEEE430CFB4960970B87 /* LaunchScreen.storyboard */,
 				CD2D2A0C7173F8DC6ADE7B9C /* colibri-social_iOS */,
 				54AF2488524C169A51141132 /* Externals */,
+				88AE56B925E58A09BF314F7B /* NotificationService */,
 				234D70556009D4FDA4B70755 /* Sources */,
 				69165A6FF40572CD434A2230 /* src */,
 				1F18FE7F90A76D538FD5816A /* Frameworks */,
@@ -160,6 +317,24 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		490032B671F993CB31786A8B /* NotificationService */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = D7934C05EA00E59E156909D8 /* Build configuration list for PBXNativeTarget "NotificationService" */;
+			buildPhases = (
+				935765CABC583E6742AD9F43 /* Sources */,
+				99BC16E13B849B0E5254A98E /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = NotificationService;
+			packageProductDependencies = (
+			);
+			productName = NotificationService;
+			productReference = 7A6E827D3C37AE46AE6C738B /* NotificationService.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 		A235D283518EBE6C98F7FB16 /* colibri-social_iOS */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = D759AF5D5EFF31DF88839FDD /* Build configuration list for PBXNativeTarget "colibri-social_iOS" */;
@@ -168,10 +343,12 @@
 				D2DAEC80D27DC6F07066442D /* Sources */,
 				F8EDAFC13998377E51F0A1FC /* Resources */,
 				015DE870942E7B9871DE049C /* Frameworks */,
+				DEEB4A9B11CF19ACB642AA9E /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				789570791D5B214D67222E29 /* PBXTargetDependency */,
 			);
 			name = "colibri-social_iOS";
 			packageProductDependencies = (
@@ -189,6 +366,12 @@
 				BuildIndependentTargetsInParallel = YES;
 				LastUpgradeCheck = 1430;
 				TargetAttributes = {
+					490032B671F993CB31786A8B = {
+						DevelopmentTeam = 8V8SWK3942;
+					};
+					A235D283518EBE6C98F7FB16 = {
+						DevelopmentTeam = 8V8SWK3942;
+					};
 				};
 			};
 			buildConfigurationList = D687E0259945ADBAF8509F6B /* Build configuration list for PBXProject "colibri-social" */;
@@ -206,6 +389,7 @@
 			projectRoot = "";
 			targets = (
 				A235D283518EBE6C98F7FB16 /* colibri-social_iOS */,
+				490032B671F993CB31786A8B /* NotificationService */,
 			);
 		};
 /* End PBXProject section */
@@ -215,7 +399,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				9612D7A467BC49BCAC7171DA /* AppIcon.icon in Resources */,
+				6FA7D288711ECF133301235D /* AppIcon.icon in Resources */,
 				B3C29F6433EAB7E11DE194DD /* Assets.xcassets in Resources */,
 				2F139F11E0E7E8F139F2020C /* LaunchScreen.storyboard in Resources */,
 				BE124219C3D392E07473F2C6 /* assets in Resources */,
@@ -249,6 +433,14 @@
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		935765CABC583E6742AD9F43 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B185DC6651EA6DF8079CA21D /* NotificationService.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		D2DAEC80D27DC6F07066442D /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -258,6 +450,14 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		789570791D5B214D67222E29 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 490032B671F993CB31786A8B /* NotificationService */;
+			targetProxy = 2B323BF6EBAE22F2A316224A /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		572CBF4BCD10F8E97A39183E /* release */ = {
@@ -295,6 +495,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = 8V8SWK3942;
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
@@ -383,6 +584,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = 8V8SWK3942;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
@@ -443,6 +645,50 @@
 			};
 			name = debug;
 		};
+		B7E66750EB2C29D7D930DBDD /* release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = (
+					arm64,
+				);
+				CODE_SIGN_ENTITLEMENTS = NotificationService/NotificationService.entitlements;
+				"EXCLUDED_ARCHS[sdk=iphoneos*]" = x86_64;
+				INFOPLIST_FILE = NotificationService/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = social.colibri.app.NotificationService;
+				PRODUCT_NAME = NotificationService;
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = release;
+		};
+		FFF56875E51D24F3230DE76D /* debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = (
+					arm64,
+				);
+				CODE_SIGN_ENTITLEMENTS = NotificationService/NotificationService.entitlements;
+				"EXCLUDED_ARCHS[sdk=iphoneos*]" = x86_64;
+				INFOPLIST_FILE = NotificationService/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = social.colibri.app.NotificationService;
+				PRODUCT_NAME = NotificationService;
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = debug;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -460,6 +706,15 @@
 			buildConfigurations = (
 				9A49B7EC97EA6A2FAD566718 /* debug */,
 				63CCFF8DF88B46D32CE27530 /* release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = debug;
+		};
+		D7934C05EA00E59E156909D8 /* Build configuration list for PBXNativeTarget "NotificationService" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FFF56875E51D24F3230DE76D /* debug */,
+				B7E66750EB2C29D7D930DBDD /* release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = debug;

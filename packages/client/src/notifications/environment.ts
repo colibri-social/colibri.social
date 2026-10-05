@@ -22,6 +22,19 @@ export const isAndroidTauriRuntime = async (): Promise<boolean> => {
 	return platform() === "android";
 };
 
+export type AppleTauriPlatform = "ios" | "macos";
+
+export const appleTauriPlatform =
+	async (): Promise<AppleTauriPlatform | null> => {
+		if (!isTauriRuntime()) return null;
+		const { platform } = await import("@tauri-apps/plugin-os");
+		const current = platform();
+		return current === "ios" || current === "macos" ? current : null;
+	};
+
+export const isIosTauriRuntime = async (): Promise<boolean> =>
+	(await appleTauriPlatform()) === "ios";
+
 export const isAppUnfocused = (): boolean =>
 	typeof document === "undefined" ||
 	document.visibilityState === "hidden" ||

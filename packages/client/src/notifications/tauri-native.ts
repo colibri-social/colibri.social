@@ -1,4 +1,4 @@
-import { isTauriRuntime } from "./environment";
+import { isIosTauriRuntime, isTauriRuntime } from "./environment";
 
 export type NativeNotificationRequest = {
 	title: string;
@@ -11,7 +11,7 @@ export type NativeNotificationRequest = {
 
 export type NativeNotificationActivation = {
 	channelUri: string;
-	messageUri: string;
+	messageUri?: string;
 };
 
 export const ACTIVATION_EVENT = "colibri-notification-activated";
@@ -69,17 +69,25 @@ export const clearNativeNotifications = async (): Promise<void> => {
 const takeLaunchActivation = async (): Promise<
 	NativeNotificationActivation | undefined
 > => {
-	if (!(await isNativeNotificationSupported())) return undefined;
+	const command = (await isIosTauriRuntime())
+		? "apns_take_activation"
+		: (await isNativeNotificationSupported())
+			? "native_notify_take_activation"
+			: undefined;
+	if (!command) return undefined;
 	try {
 		const { invoke } = await loadCore();
 		const activation = await invoke<NativeNotificationActivation | null>(
-			"native_notify_take_activation",
+			command,
 		);
 		return activation ?? undefined;
 	} catch {
 		return undefined;
 	}
 };
+
+const activationKey = (activation: NativeNotificationActivation): string =>
+	`${activation.channelUri} ${activation.messageUri ?? ""}`;
 
 export const listenForNativeActivation = async (
 	handler: (activation: NativeNotificationActivation) => void,
@@ -93,7 +101,7 @@ export const listenForNativeActivation = async (
 		unlisten = await listen<NativeNotificationActivation>(
 			ACTIVATION_EVENT,
 			(event) => {
-				delivered = event.payload.messageUri;
+				delivered = activationKey(event.payload);
 				void takeLaunchActivation();
 				handler(event.payload);
 			},
@@ -101,7 +109,7 @@ export const listenForNativeActivation = async (
 	} catch {}
 
 	const launch = await takeLaunchActivation();
-	if (launch && launch.messageUri !== delivered) handler(launch);
+	if (launch && activationKey(launch) !== delivered) handler(launch);
 
 	return unlisten;
 };

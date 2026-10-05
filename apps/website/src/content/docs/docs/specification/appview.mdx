@@ -3165,11 +3165,15 @@ Registers a push endpoint for the requesting user's device.
 		token: {
 			type: "string",
 			required: false
+		},
+		environment: {
+			type: "string",
+			required: false
 		}
 	}}
 />
 
-`provider` is `webpush` or `fcm`, and `platform` is `web`, `ios`, or `android`. Web Push registration requires `endpoint`, `p256dh`, and `auth`. FCM registration requires `token`.
+`provider` is `webpush`, `fcm`, or `apns`, and `platform` is `web`, `ios`, `android`, or `macos`. Web Push registration requires `endpoint`, `p256dh`, and `auth`. FCM registration requires `token`. APNs registration requires `token`, the hex-encoded device token, and `environment`, which is `sandbox` or `production` depending on how the app was signed.
 
 | Error | Description |
 | --- | --- |
@@ -3201,7 +3205,7 @@ Removes a previously registered push endpoint.
 	}}
 />
 
-`provider` is `webpush` or `fcm`. Unregistering a Web Push endpoint needs `endpoint`, and unregistering an FCM registration needs `token`.
+`provider` is `webpush`, `fcm`, or `apns`. Unregistering a Web Push endpoint needs `endpoint`, and unregistering an FCM or APNs registration needs `token`.
 
 | Error | Description |
 | --- | --- |

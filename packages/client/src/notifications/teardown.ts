@@ -1,6 +1,7 @@
 import { discardPendingNotificationActivation } from "./activation";
 import { isAndroidTauriRuntime, isWebRuntime } from "./environment";
 import { unregisterAllPush } from "./index";
+import { hasCachedApnsToken } from "./push-apns";
 import { hasCachedFcmToken } from "./push-fcm";
 import { hasWebPushSubscription } from "./push-web";
 import { clearNativeNotifications } from "./tauri-native";
@@ -55,7 +56,7 @@ export const teardownNotifications = (
 };
 
 export const hasLeftoverPushRegistration = async (): Promise<boolean> => {
-	if (hasCachedFcmToken()) return true;
+	if (hasCachedFcmToken() || hasCachedApnsToken()) return true;
 	try {
 		return await hasWebPushSubscription();
 	} catch {

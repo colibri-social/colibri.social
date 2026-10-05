@@ -1,7 +1,12 @@
 import { classifyNativeError } from "../errors/native";
 import { createLogger } from "../utils/logger";
 import { isMacOS } from "../utils/platform";
-import { isAndroidTauriRuntime, isTauriRuntime } from "./environment";
+import {
+	isAndroidTauriRuntime,
+	isIosTauriRuntime,
+	isTauriRuntime,
+} from "./environment";
+import { removeDeliveredApnsChannel } from "./push-apns";
 import {
 	dismissNativeChannel,
 	isNativeNotificationSupported,
@@ -55,6 +60,13 @@ export const cancelChannelTrayNotification = async (
 		try {
 			const { removeActive } = await loadPlugin();
 			await removeActive([{ id: javaStringHashCode(channelUri) }]);
+		} catch {}
+		return;
+	}
+
+	if (await isIosTauriRuntime()) {
+		try {
+			await removeDeliveredApnsChannel(channelUri);
 		} catch {}
 		return;
 	}

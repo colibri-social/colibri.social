@@ -84,13 +84,19 @@ and, where you have enabled presence sharing, to show your status to others.
 
 ### 3.5 Push notifications
 
-If you enable push notifications, your browser or operating system generates a **push subscription** (an endpoint URL
-provided by your platform's push service (Google, Apple, Mozilla, or Microsoft) plus cryptographic keys). We store this
-subscription together with your DID so we can deliver notifications. When a notification is triggered, the AppView
-composes a payload that includes the **notification title and the message text** (with spoiler-marked content redacted),
-the message identifier, and the channel identifier. The payload is **encrypted** (RFC 8291) before it is handed to your
-platform's push service, so the push provider cannot read the message conten. It does receive routing metadata (the
-endpoint, timing, and delivery information). Notifications respect your do-not-disturb state and channel/community mutes.
+If you enable push notifications, your browser or device registers with your platform's push service and hands us an
+identifier for it. In a browser this is a **push subscription** (an endpoint URL from Google, Apple, Mozilla, or
+Microsoft plus cryptographic keys). In the Android app it's a **Firebase Cloud Messaging token** from Google, and in the
+iOS and macOS apps it's an **Apple Push Notification service device token** from Apple. We store this identifier
+together with your DID so we can deliver notifications. When a notification is triggered, the AppView composes a payload
+that includes the **notification title, the sender's display name and avatar URL, and the message text** (with
+spoiler-marked content redacted), the message identifier, and the channel identifier.
+
+Web Push payloads are **encrypted** (RFC 8291) before they're handed to the push service, so the push provider can't
+read the message content. Payloads sent through Firebase Cloud Messaging and the Apple Push Notification service are
+protected in transit (TLS) but aren't end-to-end encrypted, so Google or Apple can process their content to deliver
+them. Every push service also receives routing metadata (the endpoint or token, timing, and delivery information).
+Notifications respect your do-not-disturb state and channel/community mutes.
 
 ### 3.6 Voice and video
 
@@ -233,8 +239,8 @@ data described in Section 3.7, which is exempt from consent under §25(2) TDDDG.
 Depending on the features you use, personal data may be processed by:
 
 - **Your PDS operator** (Colibri, Bluesky, or a self-hosted server), the canonical home of your data.
-- **Your platform's push service** (Google/FCM, Apple, Mozilla, or Microsoft), encrypted push payloads and routing
-  metadata, only if you enable push notifications.
+- **Your platform's push service** (Google/FCM, Apple/APNs, Mozilla, or Microsoft), push payloads and routing metadata,
+  only if you enable push notifications.
 - **Sentry**: error and performance monitoring data (EU ingest region).
 - **The operator of a bridged service** (for example Discord), for messages, names, and avatars relayed from a
   Colibri channel that a community admin linked to that service.
@@ -276,7 +282,7 @@ retained as history. On-device data persists until you clear it, log out, or uni
 ## 10. Security
 
 We take appropriate technical and organisational measures to protect personal data, including: encryption in transit
-(HTTPS/TLS, DTLS-SRTP for real-time media), encryption of stored community credentials (AES-256-GCM), encrypted push
+(HTTPS/TLS, DTLS-SRTP for real-time media), encryption of stored community credentials (AES-256-GCM), encrypted Web Push
 payloads (RFC 8291), and short-lived, cryptographically signed authentication tokens. No system is perfectly secure, and
 we cannot guarantee absolute security. In particular, remember that content you post to the network is public (Section
 2).

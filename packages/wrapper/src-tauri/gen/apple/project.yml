@@ -4,6 +4,9 @@ options:
   deploymentTarget:
     iOS: 15.0
 fileGroups: [../../src]
+settings:
+  base:
+    DEVELOPMENT_TEAM: 8V8SWK3942
 configs:
   debug: debug
   release: release
@@ -60,8 +63,13 @@ targets:
         CFBundleURLTypes:
           - CFBundleURLSchemes: [social.colibri, social.colibri.spaces]
             CFBundleURLName: social.colibri
+        NSUserActivityTypes: [INSendMessageIntent]
     entitlements:
       path: colibri-social_iOS/colibri-social_iOS.entitlements
+      properties:
+        aps-environment: development
+        com.apple.developer.usernotifications.communication: true
+        com.apple.developer.usernotifications.time-sensitive: true
     scheme:
       environmentVariables:
         RUST_BACKTRACE: full
@@ -77,6 +85,7 @@ targets:
         EXCLUDED_ARCHS[sdk=iphoneos*]: x86_64
       groups: [app]
     dependencies:
+      - target: NotificationService
       - framework: libapp.a
         embed: false
       - sdk: AuthenticationServices.framework
@@ -86,6 +95,7 @@ targets:
       - sdk: QuartzCore.framework
       - sdk: Security.framework
       - sdk: UIKit.framework
+      - sdk: UserNotifications.framework
       - sdk: WebKit.framework
     preBuildScripts:
       - script: pnpm tauri ios xcode-script -v --platform ${PLATFORM_DISPLAY_NAME:?} --sdk-root ${SDKROOT:?} --framework-search-paths "${FRAMEWORK_SEARCH_PATHS:?}" --header-search-paths "${HEADER_SEARCH_PATHS:?}" --gcc-preprocessor-definitions "${GCC_PREPROCESSOR_DEFINITIONS:-}" --configuration ${CONFIGURATION:?} ${FORCE_COLOR} ${ARCHS:?}
@@ -94,3 +104,29 @@ targets:
         outputFiles:
           - $(SRCROOT)/Externals/x86_64/${CONFIGURATION}/libapp.a
           - $(SRCROOT)/Externals/arm64/${CONFIGURATION}/libapp.a
+  NotificationService:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: NotificationService
+    info:
+      path: NotificationService/Info.plist
+      properties:
+        CFBundleDisplayName: Colibri Social Notifications
+        CFBundleShortVersionString: 0.1.14
+        CFBundleVersion: "0.1.14"
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.usernotifications.service
+          NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).NotificationService
+    entitlements:
+      path: NotificationService/NotificationService.entitlements
+    settings:
+      base:
+        PRODUCT_NAME: NotificationService
+        PRODUCT_BUNDLE_IDENTIFIER: social.colibri.app.NotificationService
+        SWIFT_VERSION: "5.0"
+        ARCHS: [arm64]
+        EXCLUDED_ARCHS[sdk=iphoneos*]: x86_64
+    dependencies:
+      - sdk: Intents.framework
+      - sdk: UserNotifications.framework

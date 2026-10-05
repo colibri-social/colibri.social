@@ -24,15 +24,18 @@ fn main() {
         }
         build
             .file("src/web_auth.m")
+            .file("src/apns.m")
             .flag("-fobjc-arc")
             .compile("colibri_web_auth");
         println!("cargo:rustc-link-lib=framework=AuthenticationServices");
+        println!("cargo:rustc-link-lib=framework=UserNotifications");
         if target_os == "ios" {
             println!("cargo:rustc-link-lib=framework=UIKit");
         } else {
             println!("cargo:rustc-link-lib=framework=AppKit");
         }
         println!("cargo:rerun-if-changed=src/web_auth.m");
+        println!("cargo:rerun-if-changed=src/apns.m");
     }
     if target_os == "linux" {
         println!("cargo:rustc-link-arg-bins=-Wl,-rpath,$ORIGIN:$ORIGIN/../lib/colibri-social:$ORIGIN/../lib");

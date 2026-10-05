@@ -25,6 +25,7 @@ import {
 	notify,
 	watchNotificationPermission,
 } from "../../../notifications";
+import { unsubscribeApnsPush } from "../../../notifications/push-apns";
 import { unsubscribeFcmPush } from "../../../notifications/push-fcm";
 import { unsubscribeWebPush } from "../../../notifications/push-web";
 import {
@@ -205,6 +206,7 @@ export const NotificationsPage: Component = () => {
 					await unsubscribeWebPush((endpoint) => unregister(endpoint));
 				}
 				await unsubscribeFcmPush((token) => unregister(token, "fcm"));
+				await unsubscribeApnsPush((token) => unregister(token, "apns"));
 			}
 		} catch (err) {
 			log.error("updating push registration failed", {

@@ -26,7 +26,9 @@ import {
 	isStaleNotificationEvent,
 } from "../notifications";
 import { channelIdentity, channelPath, messageIdentity } from "../utils/at-uri";
+import { cancelColdStartRestore } from "../utils/last-viewed-channel";
 import { createLogger } from "../utils/logger";
+import { openChannel } from "../utils/mobile-pane";
 import { clearableNotifications } from "./deferred-mark-read";
 import { useMutes } from "./Mutes";
 import { useSocketContext } from "./Socket";
@@ -166,10 +168,12 @@ export const NotificationsContextProvider: ParentComponent = (props) => {
 
 	const show = (target: PendingNotificationFocus) => {
 		setPendingFocus(target);
-		navigate(pathFor(target));
+		if (target.thread === undefined) openChannel(navigate, pathFor(target));
+		else navigate(pathFor(target));
 	};
 
 	const openNotification = (target: PendingNotificationFocus) => {
+		cancelColdStartRestore();
 		if (!isThreadSpace(target.channel)) {
 			show(target);
 			return;

@@ -42,7 +42,7 @@ import {
 } from "./contexts/default-channel";
 import { SocketContextProvider } from "./contexts/Socket";
 import { SoundsContextProvider } from "./contexts/Sounds";
-import { UserContextProvider } from "./contexts/User";
+import { UserContextProvider, useUserContext } from "./contexts/User";
 import { UserPreferencesContextProvider } from "./contexts/UserPreferences";
 import { ViewportProvider } from "./contexts/Viewport";
 import { VoiceChatContextProvider } from "./contexts/VoiceChat";
@@ -57,9 +57,14 @@ import CommunityLayoutWithContext from "./layouts/CommunityLayout";
 import { captureNotificationActivationFromUrl } from "./notifications/activation";
 import { appShellMounted } from "./utils/app-shell";
 import { installChunkReloadGuard } from "./utils/chunk-reload";
-import { readLastViewedChannel } from "./utils/last-viewed-channel";
+import {
+	claimColdStartCommunity,
+	isColdStartRestorePending,
+	readLastViewedChannel,
+	takeColdStartRestore,
+} from "./utils/last-viewed-channel";
 import { createLogger } from "./utils/logger";
-import { isMobileNow, useIsMobile } from "./utils/mobile-pane";
+import { isMobileNow, openChannel, useIsMobile } from "./utils/mobile-pane";
 import { trackNavHistory } from "./utils/nav-history";
 import { isDesktopNative } from "./utils/platform";
 import { initTheme } from "./utils/theme";
@@ -109,6 +114,26 @@ const RedirectToApp: Component = () => {
 	return <AppLoadingScreen message="Redirecting to app..." />;
 };
 
+const AppIndexRoute: Component = () => {
+	const navigate = useNavigate();
+	const user = useUserContext();
+	const community = claimColdStartCommunity((did) =>
+		(user.communities ?? []).some((c) => c.did === did),
+	);
+
+	onMount(() => {
+		if (community && isColdStartRestorePending(community)) {
+			navigate(`/app/c/${community}`, { replace: true });
+		}
+	});
+
+	return (
+		<Show when={!community}>
+			<WelcomeScreen />
+		</Show>
+	);
+};
+
 const CommunityIndexRoute: Component = () => {
 	const params = useParams();
 	const navigate = useNavigate();
@@ -125,9 +150,18 @@ const CommunityIndexRoute: Component = () => {
 	let redirectedFor: string | undefined;
 
 	createEffect(() => {
-		if (isMobileNow()) return;
 		if (c().community.did !== communityDid()) return;
 		if (redirectedFor === communityDid()) return;
+
+		if (isMobileNow()) {
+			if (!takeColdStartRestore(communityDid())) return;
+			const channel = restorable();
+			const route = channel && buildChannelPath(channel.space);
+			if (!route) return;
+			redirectedFor = communityDid();
+			openChannel(navigate, route);
+			return;
+		}
 
 		const channel = restorable() ?? pickDefaultChannel(c());
 		if (!channel) return;
@@ -258,7 +292,7 @@ const App: ParentComponent = () => {
 							<Route path="/app/register" component={SignUpRoute} />
 							<Route path="/app/waitlist" component={WaitlistScreen} />
 							<Route path="/app" component={AppRoute}>
-								<Route path="/" component={WelcomeScreen} />
+								<Route path="/" component={AppIndexRoute} />
 								<Route path="/invite/:code" component={InviteModal} />
 								<Route path="/delete-account" component={DeleteAccountScreen} />
 								<Route component={CommunityLayoutWithContext}>

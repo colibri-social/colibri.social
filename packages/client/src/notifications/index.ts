@@ -1,15 +1,9 @@
 import { toast } from "somoto";
 import { isTauriRuntime, isWebRuntime } from "./environment";
-import {
-	type FcmSubscription,
-	subscribeFcmPush,
-	unsubscribeFcmPush,
-} from "./push-fcm";
-import {
-	subscribeWebPush,
-	unsubscribeWebPush,
-	type WebPushSubscription,
-} from "./push-web";
+import { subscribeApnsPush, unsubscribeApnsPush } from "./push-apns";
+import { subscribeFcmPush, unsubscribeFcmPush } from "./push-fcm";
+import { subscribeWebPush, unsubscribeWebPush } from "./push-web";
+import type { PushSubscription } from "./push-xrpc";
 import { tauriBackend } from "./tauri";
 import type {
 	NotificationBackend,
@@ -72,9 +66,7 @@ export const notify = async (payload: NotificationPayload): Promise<void> => {
 };
 
 export const enablePushNotifications = async (
-	registerPush: (
-		sub: WebPushSubscription | FcmSubscription,
-	) => Promise<unknown>,
+	registerPush: (sub: PushSubscription) => Promise<unknown>,
 	unregisterPush: (endpoint: string, provider?: string) => Promise<unknown>,
 ): Promise<NotificationPermission> => {
 	const permission = await getBackend().requestPermission();
@@ -84,6 +76,9 @@ export const enablePushNotifications = async (
 		await subscribeWebPush(registerPush);
 	}
 	await subscribeFcmPush(registerPush, (token) => unregisterPush(token, "fcm"));
+	await subscribeApnsPush(registerPush, (token) =>
+		unregisterPush(token, "apns"),
+	);
 
 	return permission;
 };
@@ -100,6 +95,9 @@ export const unregisterAllPush = async (
 	try {
 		await unsubscribeFcmPush((token) => unregister(token, "fcm"));
 	} catch {}
+	try {
+		await unsubscribeApnsPush((token) => unregister(token, "apns"));
+	} catch {}
 };
 
 export type { NotificationActivation } from "./activation";
@@ -111,8 +109,10 @@ export {
 	takeCapturedFocusMessageUri,
 } from "./activation";
 export {
+	appleTauriPlatform,
 	isAndroidTauriRuntime,
 	isAppUnfocused,
+	isIosTauriRuntime,
 	isTauriRuntime,
 	isWebRuntime,
 } from "./environment";

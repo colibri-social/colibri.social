@@ -1,5 +1,7 @@
 use tauri::Manager;
 
+#[cfg(any(target_os = "macos", target_os = "ios"))]
+mod apns;
 #[cfg(target_os = "linux")]
 mod linux_cef;
 #[cfg(target_os = "macos")]
@@ -274,6 +276,12 @@ pub fn run() {
         .plugin(tauri_plugin_os::init())
         .invoke_handler(tauri::generate_handler![
             web_auth::start_web_auth,
+            #[cfg(any(target_os = "macos", target_os = "ios"))]
+            apns::apns_register,
+            #[cfg(any(target_os = "macos", target_os = "ios"))]
+            apns::apns_remove_delivered,
+            #[cfg(target_os = "ios")]
+            apns::activation::apns_take_activation,
             #[cfg(desktop)]
             titlebar::titlebar_init,
             #[cfg(desktop)]
@@ -393,6 +401,9 @@ pub fn run() {
 
             #[cfg(desktop)]
             notifications::setup(app.handle());
+
+            #[cfg(target_os = "ios")]
+            apns::activation::setup(app.handle());
 
             #[cfg(not(any(target_os = "linux", windows, desktop)))]
             let _ = app;

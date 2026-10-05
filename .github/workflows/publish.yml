@@ -613,11 +613,43 @@ jobs:
           node packages/wrapper/scripts/set-version.mjs "$IOS_VERSION" --bundle-version="$GITHUB_RUN_NUMBER"
           echo "IOS_VERSION=$IOS_VERSION" >> "$GITHUB_ENV"
 
-      - name: Build and sign App Store IPA
+      - name: install iOS signing certificate and profiles
         env:
           IOS_CERTIFICATE: ${{ secrets.IOS_CERTIFICATE }}
           IOS_CERTIFICATE_PASSWORD: ${{ secrets.IOS_CERTIFICATE_PASSWORD }}
-          IOS_MOBILE_PROVISION: ${{ secrets.IOS_PROVISIONPROFILE }}
+          IOS_PROVISIONPROFILE: ${{ secrets.IOS_PROVISIONPROFILE }}
+          IOS_NSE_PROVISIONPROFILE: ${{ secrets.IOS_NSE_PROVISIONPROFILE }}
+        run: |
+          set -euo pipefail
+          KEYCHAIN="$RUNNER_TEMP/colibri-ios.keychain-db"
+          KEYCHAIN_PASSWORD=$(uuidgen)
+
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+
+          echo "$IOS_CERTIFICATE" | base64 --decode > "$RUNNER_TEMP/distribution.p12"
+          security import "$RUNNER_TEMP/distribution.p12" -k "$KEYCHAIN" \
+            -P "$IOS_CERTIFICATE_PASSWORD" -A
+          rm -f "$RUNNER_TEMP/distribution.p12"
+
+          security set-key-partition-list -S apple-tool:,apple:,codesign: \
+            -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN" >/dev/null
+
+          EXISTING=$(security list-keychains -d user | tr -d '"' | tr '\n' ' ')
+          security list-keychains -d user -s "$KEYCHAIN" $EXISTING
+          security default-keychain -s "$KEYCHAIN"
+          security find-identity -v -p codesigning "$KEYCHAIN" | grep -qF "Apple Distribution"
+
+          echo "$IOS_PROVISIONPROFILE" | base64 --decode > "$RUNNER_TEMP/app.mobileprovision"
+          echo "$IOS_NSE_PROVISIONPROFILE" | base64 --decode > "$RUNNER_TEMP/nse.mobileprovision"
+          test -s "$RUNNER_TEMP/app.mobileprovision"
+          test -s "$RUNNER_TEMP/nse.mobileprovision"
+          echo "IOS_APP_PROFILE=$RUNNER_TEMP/app.mobileprovision" >> "$GITHUB_ENV"
+          echo "IOS_NSE_PROFILE=$RUNNER_TEMP/nse.mobileprovision" >> "$GITHUB_ENV"
+
+      - name: Build and sign App Store IPA
+        env:
           APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
           APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
           APPLE_DEVELOPMENT_TEAM: "8V8SWK3942"

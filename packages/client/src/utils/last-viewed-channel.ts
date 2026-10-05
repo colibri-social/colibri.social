@@ -6,6 +6,11 @@ type StoredChannel = { uri?: unknown; space?: unknown; type?: unknown };
 
 const storageKey = (communityDid: string) => `${communityDid}:last-viewed`;
 
+const LAST_COMMUNITY_KEY = "last-viewed-community";
+
+let coldStartCommunity: string | undefined;
+let coldStartClaimed = false;
+
 export const readLastViewedChannel = (
 	communityDid: string,
 ): LastViewedChannel | undefined => {
@@ -40,7 +45,43 @@ export const rememberLastViewedChannel = (
 			storageKey(communityDid),
 			JSON.stringify({ uri: channel.space, type: channel.type }),
 		);
+		localStorage.setItem(LAST_COMMUNITY_KEY, communityDid);
 	} catch {}
+	coldStartClaimed = true;
+	coldStartCommunity = undefined;
+};
+
+export const readLastViewedCommunity = (): string | undefined => {
+	try {
+		return localStorage.getItem(LAST_COMMUNITY_KEY) ?? undefined;
+	} catch {
+		return undefined;
+	}
+};
+
+export const claimColdStartCommunity = (
+	isMember: (communityDid: string) => boolean,
+): string | undefined => {
+	if (coldStartClaimed) return undefined;
+	coldStartClaimed = true;
+	const community = readLastViewedCommunity();
+	if (!community || !isMember(community)) return undefined;
+	coldStartCommunity = community;
+	return community;
+};
+
+export const cancelColdStartRestore = (): void => {
+	coldStartClaimed = true;
+	coldStartCommunity = undefined;
+};
+
+export const isColdStartRestorePending = (communityDid: string): boolean =>
+	coldStartCommunity === communityDid;
+
+export const takeColdStartRestore = (communityDid: string): boolean => {
+	if (coldStartCommunity !== communityDid) return false;
+	coldStartCommunity = undefined;
+	return true;
 };
 
 export const lastViewedChannelPath = (pathname: string): string | undefined => {

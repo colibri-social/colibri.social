@@ -1742,13 +1742,9 @@ export const ChannelContextProvider: ParentComponent<{
 
 		let newest = explicitRkey;
 		if (!newest) {
-			const msgs = messages();
-			for (let i = msgs.length - 1; i >= 0; i--) {
-				const m = msgs[i];
-				if (m && !("hash" in m)) {
-					newest = m.rkey;
-					break;
-				}
+			for (const m of messages()) {
+				if ("hash" in m) continue;
+				if (newest === undefined || m.rkey > newest) newest = m.rkey;
 			}
 		}
 
