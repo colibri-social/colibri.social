@@ -150,6 +150,8 @@ jobs:
       - name: setup Android SDK (Android only)
         if: matrix.is-android
         uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
 
       - name: Verify prebuilt Assets.car (macOS only)
         if: matrix.platform == 'macos-latest'
@@ -290,12 +292,17 @@ jobs:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
           SENTRY_ORG: colibri-social
           SENTRY_PROJECT: rust-native-app
+          INCLUDE_SOURCES: ${{ (matrix.platform == 'ubuntu-24.04' || matrix.platform == 'ubuntu-24.04-arm') && 'false' || 'true' }}
         run: |
           if [ -z "${SENTRY_AUTH_TOKEN:-}" ]; then
             echo "SENTRY_AUTH_TOKEN is not set, skipping debug symbol upload."
             exit 0
           fi
-          pnpm dlx @sentry/cli debug-files upload --include-sources packages/wrapper/src-tauri/target
+          SOURCES_FLAG=()
+          if [ "$INCLUDE_SOURCES" = "true" ]; then
+            SOURCES_FLAG=(--include-sources)
+          fi
+          pnpm dlx @sentry/cli debug-files upload "${SOURCES_FLAG[@]}" packages/wrapper/src-tauri/target
 
       - name: Route AAB to Play, remove from release (Android only)
         if: matrix.is-android

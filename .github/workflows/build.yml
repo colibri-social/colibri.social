@@ -109,6 +109,8 @@ jobs:
       - name: Setup Android SDK (Android only)
         if: matrix.is-android
         uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
 
       - name: Verify prebuilt Assets.car (macOS only)
         if: matrix.platform == 'macos-latest'
