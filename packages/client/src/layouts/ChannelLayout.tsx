@@ -1266,7 +1266,7 @@ const ChannelHeader: Component<{
 	};
 
 	return (
-		<div class="sticky top-0 left-0 border-b border-border bg-background h-12 p-2 w-full flex flex-row items-center justify-between">
+		<div class="shrink-0 border-b border-border bg-background h-12 p-2 w-full flex flex-row items-center justify-between">
 			<div class="flex flex-row gap-2 pl-1 items-center min-w-0 flex-1">
 				<Show when={isMobile()}>
 					<button

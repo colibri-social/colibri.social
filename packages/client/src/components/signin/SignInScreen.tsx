@@ -108,6 +108,7 @@ const SignInScreenContent: Component<{ mode?: SignInMode }> = (props) => {
 				ref={shellEl}
 				class="flex w-full flex-col overflow-hidden bg-background pt-[var(--safe-area-top)] pl-[var(--safe-area-left)] pr-[var(--safe-area-right)] md:flex-row-reverse"
 				classList={{
+					"fixed inset-x-0 top-0": needsShellInsets(),
 					"h-[calc(100dvh-var(--titlebar-height))]":
 						shellHeight() === undefined,
 					"transition-[height,transform,padding-bottom] duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]":
