@@ -19,6 +19,7 @@ type Manifest = {
 type GithubRelease = {
 	draft: boolean;
 	tag_name: string;
+	html_url: string;
 	assets: Array<{ name: string; browser_download_url: string }>;
 };
 
@@ -34,12 +35,54 @@ const cache = new Map<
 	{ manifest: Manifest; fetchedAt: number }
 >();
 
+let releasesCache: { releases: GithubRelease[]; fetchedAt: number } | null =
+	null;
+
 const githubHeaders = (): HeadersInit => {
 	const headers: Record<string, string> = {
 		accept: "application/vnd.github+json",
 	};
 	if (GITHUB_TOKEN) headers.authorization = `Bearer ${GITHUB_TOKEN}`;
 	return headers;
+};
+
+const fetchReleases = async (): Promise<GithubRelease[] | null> => {
+	if (releasesCache && Date.now() - releasesCache.fetchedAt < CACHE_TTL_MS) {
+		return releasesCache.releases;
+	}
+
+	const res = await fetch(
+		`https://api.github.com/repos/${REPO}/releases?per_page=30`,
+		{ headers: githubHeaders() },
+	);
+	if (!res.ok) return null;
+
+	const releases = (await res.json()) as GithubRelease[];
+	releasesCache = { releases, fetchedAt: Date.now() };
+	return releases;
+};
+
+const findLatestRelease = async (
+	channel: UpdateChannel,
+): Promise<GithubRelease | undefined> => {
+	const releases = await fetchReleases();
+	return releases?.find((r) => !r.draft && releaseChannel(r) === channel);
+};
+
+export const latestSpacesRelease = async (): Promise<{
+	version: string;
+	url: string;
+} | null> => {
+	try {
+		const release = await findLatestRelease("spaces");
+		if (!release) return null;
+		return {
+			version: release.tag_name.replace(/^v/, ""),
+			url: release.html_url,
+		};
+	} catch {
+		return null;
+	}
 };
 
 const fetchLatestManifest = async (
@@ -50,16 +93,7 @@ const fetchLatestManifest = async (
 		return cached.manifest;
 	}
 
-	const releasesRes = await fetch(
-		`https://api.github.com/repos/${REPO}/releases?per_page=30`,
-		{ headers: githubHeaders() },
-	);
-	if (!releasesRes.ok) return null;
-
-	const releases = (await releasesRes.json()) as GithubRelease[];
-	const release = releases.find(
-		(r) => !r.draft && releaseChannel(r) === channel,
-	);
+	const release = await findLatestRelease(channel);
 	const asset = release?.assets.find((a) => a.name === "latest.json");
 	if (!asset) return null;
 
