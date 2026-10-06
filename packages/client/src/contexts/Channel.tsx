@@ -58,7 +58,12 @@ import {
 	COLLECTIONS,
 	colibri,
 } from "../atproto/lexicons";
-import { isMediaLinkExpired, liveMediaLink } from "../atproto/media-link";
+import {
+	isMediaLinkExpired,
+	isMediaLinkExpiring,
+	liveMediaLink,
+	mediaRefreshDueAt,
+} from "../atproto/media-link";
 import { buildMessageRecord } from "../atproto/message-record";
 import {
 	enqueueSpaceCreate,
@@ -106,6 +111,7 @@ import { isPingKind } from "../notifications";
 import { getAppViewDid } from "../utils/appview";
 import { foldBridgedReaction } from "../utils/bridged-reactions";
 import { clearEditDraft } from "../utils/composer-drafts";
+import createMediaRefresh from "../utils/create-media-refresh";
 import { rememberLastViewedChannel } from "../utils/last-viewed-channel";
 import { createLogger } from "../utils/logger";
 import { foldLabelEvent } from "../utils/message-labels";
@@ -156,6 +162,14 @@ type LoadState = {
 };
 
 const MEDIA_REFRESH_BATCH_MS = 50;
+
+const mediaLinksOf = (message: MessageView | PendingMessage): string[] => {
+	if ("hash" in message) return [];
+	return [
+		...(message.attachments ?? []),
+		...(message.forward?.attachments ?? []),
+	].map((attachment) => attachment.url);
+};
 
 export type UnseenEntry = {
 	uri: MessageView["uri"];
@@ -608,6 +622,24 @@ export const ChannelContextProvider: ParentComponent<{
 		if (!sessions.isCurrent(session)) return undefined;
 		return currentMediaLink(messageUri, url);
 	};
+
+	const mediaRefreshAt = createMemo(() =>
+		mediaRefreshDueAt(messages().flatMap(mediaLinksOf)),
+	);
+
+	createMediaRefresh(mediaRefreshAt, () => {
+		const session = sessions.current();
+		if (!session) return;
+		const now = Date.now();
+		for (const message of messages()) {
+			if ("hash" in message) continue;
+			if (mediaLinksOf(message).some((url) => isMediaLinkExpiring(url, now))) {
+				session.state.mediaRefreshQueue.add(message.uri);
+			}
+		}
+		if (session.state.mediaRefreshQueue.size === 0) return;
+		return scheduleMediaRefresh(session);
+	});
 
 	const mergeFetchedWindow = (
 		ordered: MessageView[],

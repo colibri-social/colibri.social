@@ -31,6 +31,7 @@ import {
 	writeCommunity,
 } from "../atproto/cache/store";
 import { colibri } from "../atproto/lexicons";
+import { mediaRefreshDueAt } from "../atproto/media-link";
 import {
 	APPROVAL_MANAGE,
 	CATEGORY_CREATE,
@@ -63,11 +64,14 @@ import type { MemberView } from "../atproto/views";
 import { type ColibriClient, clientForManagingApp } from "../atproto/xrpc";
 import { AppLoadingScreen } from "../components/AppLoadingScreen";
 import { ErrorState } from "../components/ErrorState";
+import { classifyThrown } from "../errors/classify";
 import type { ColibriErrorCode } from "../errors/codes";
 import { ColibriError } from "../errors/error";
 import { showError } from "../errors/show-error";
 import { getAppViewDid } from "../utils/appview";
+import createMediaRefresh from "../utils/create-media-refresh";
 import { getCommunityParam } from "../utils/get-param";
+import { createLogger } from "../utils/logger";
 import { createMemberIndex } from "../utils/member-search";
 import { markBoot } from "../utils/perf";
 import { speakerRanks } from "../utils/recent-speakers";
@@ -119,6 +123,8 @@ type CommunityContextData = CommunityPayload & {
 		refetchApplications: () => void;
 	};
 };
+
+const log = createLogger("community");
 
 const OVERLAY_DELAY = 250;
 
@@ -580,6 +586,37 @@ export const CommunityContextProvider: ParentComponent = (props) => {
 		if (isCommunityInert(cacheKey(identifier))) return;
 		void refetch();
 	};
+
+	const refreshCommunityView = async () => {
+		const did = currentPayload()?.community.did;
+		if (!did || community.loading) return;
+		try {
+			const res = await user.xrpc.call(
+				colibri.community.getCommunity.main,
+				{ params: { community: did } },
+				{
+					timeoutMs: COMMUNITY_CALL_TIMEOUT,
+					expected: ["CommunityNotFound"],
+				},
+			);
+			const latest = currentPayload();
+			if (!res.ok || latest?.community.did !== did) return;
+			setSnapshot({ ...latest, community: res.data.community });
+		} catch (err) {
+			log.warn("refreshing the community view failed", {
+				code: classifyThrown(err).code,
+			});
+		}
+	};
+
+	createMediaRefresh(
+		createMemo(() => {
+			if (community.loading) return undefined;
+			const view = currentPayload()?.community;
+			return view ? mediaRefreshDueAt([view.picture, view.banner]) : undefined;
+		}),
+		refreshCommunityView,
+	);
 
 	const requestRefetchApplications = () => {
 		const identifier = communityIdentifier();

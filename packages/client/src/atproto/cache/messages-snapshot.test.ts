@@ -527,10 +527,10 @@ describe("adoptFetchedCopies", () => {
 	});
 
 	it("keeps local attachments whose links are still valid", () => {
-		const local = withAttachments("a", [signed("c1", NOW_MS / 1000 + 60)]);
+		const local = withAttachments("a", [signed("c1", NOW_MS / 1000 + 1800)]);
 		const fresh = withAttachments(
 			"a",
-			[signed("c1", NOW_MS / 1000 + 900)],
+			[signed("c1", NOW_MS / 1000 + 3600)],
 			"edited",
 		);
 		const [adopted] = adoptFetchedCopies([local], [fresh], NOW_MS) as [
@@ -538,6 +538,15 @@ describe("adoptFetchedCopies", () => {
 		];
 		expect(adopted.text).toBe("edited");
 		expect(adopted.attachments).toBe(local.attachments);
+	});
+
+	it("takes fresh attachments once the local links are about to expire", () => {
+		const local = withAttachments("a", [signed("c1", NOW_MS / 1000 + 60)]);
+		const fresh = withAttachments("a", [signed("c1", NOW_MS / 1000 + 3600)]);
+		const [adopted] = adoptFetchedCopies([local], [fresh], NOW_MS) as [
+			MessageView,
+		];
+		expect(adopted.attachments).toBe(fresh.attachments);
 	});
 
 	it("takes fresh attachments once the local links expired", () => {

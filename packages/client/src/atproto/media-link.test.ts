@@ -2,8 +2,11 @@ import { describe, expect, it } from "vitest";
 import {
 	canKeepMediaLinks,
 	isMediaLinkExpired,
+	isMediaLinkExpiring,
 	liveMediaLink,
+	MEDIA_REFRESH_LEAD_MS,
 	mediaLinkTarget,
+	mediaRefreshDueAt,
 } from "./media-link";
 
 const NOW_MS = 1_800_000_000_000;
@@ -60,8 +63,41 @@ describe("mediaLinkTarget", () => {
 	});
 });
 
+describe("isMediaLinkExpiring", () => {
+	it("reports a link inside the refresh lead window", () => {
+		expect(isMediaLinkExpiring(link(String(NOW_MS / 1000 + 60)), NOW_MS)).toBe(
+			true,
+		);
+	});
+
+	it("accepts a link that expires after the lead window", () => {
+		expect(
+			isMediaLinkExpiring(link(String(NOW_MS / 1000 + 3600)), NOW_MS),
+		).toBe(false);
+	});
+
+	it("accepts a link without exp", () => {
+		expect(isMediaLinkExpiring(link(), NOW_MS)).toBe(false);
+	});
+});
+
+describe("mediaRefreshDueAt", () => {
+	it("schedules the lead window before the earliest expiry", () => {
+		const soon = NOW_MS / 1000 + 600;
+		const later = NOW_MS / 1000 + 3600;
+		expect(
+			mediaRefreshDueAt([link(String(later)), link(String(soon)), undefined]),
+		).toBe(soon * 1000 - MEDIA_REFRESH_LEAD_MS);
+	});
+
+	it("returns undefined when no link expires", () => {
+		expect(mediaRefreshDueAt([link(), undefined, "not a url"])).toBeUndefined();
+	});
+});
+
 describe("canKeepMediaLinks", () => {
-	const future = String(NOW_MS / 1000 + 60);
+	const future = String(NOW_MS / 1000 + 3600);
+	const expiring = String(NOW_MS / 1000 + 60);
 	const past = String(NOW_MS / 1000 - 60);
 
 	it("keeps unexpired links to the same blobs", () => {
@@ -73,6 +109,16 @@ describe("canKeepMediaLinks", () => {
 	it("drops expired links", () => {
 		expect(
 			canKeepMediaLinks([{ url: link(past) }], [{ url: link(future) }], NOW_MS),
+		).toBe(false);
+	});
+
+	it("drops links that expire within the refresh lead window", () => {
+		expect(
+			canKeepMediaLinks(
+				[{ url: link(expiring) }],
+				[{ url: link(future) }],
+				NOW_MS,
+			),
 		).toBe(false);
 	});
 

@@ -3,6 +3,7 @@ import type { BrowserOAuthClient } from "@atproto/oauth-client-browser";
 import {
 	createContext,
 	createEffect,
+	createMemo,
 	createResource,
 	Match,
 	onCleanup,
@@ -24,6 +25,7 @@ import {
 	writeUser,
 } from "../atproto/cache/store";
 import { colibri } from "../atproto/lexicons";
+import { mediaRefreshDueAt } from "../atproto/media-link";
 import { shareActivityOf } from "../atproto/notificationPreference";
 import {
 	ensurePreferencesSpace,
@@ -47,6 +49,7 @@ import { classifyThrown } from "../errors/classify";
 import { ColibriError } from "../errors/error";
 import { identifyUser } from "../sentry";
 import { getAppViewDid } from "../utils/appview";
+import createMediaRefresh from "../utils/create-media-refresh";
 import { createLogger } from "../utils/logger";
 import { markBoot } from "../utils/perf";
 import { useAuthContext } from "./Auth";
@@ -273,6 +276,17 @@ export const UserContextProvider: ParentComponent = (props) => {
 							});
 						}
 					};
+
+					createMediaRefresh(
+						createMemo(() => {
+							const cur = user.latest;
+							if (user.loading || !cur?.loggedIn) return undefined;
+							return mediaRefreshDueAt(
+								cur.communities.flatMap((c) => [c.picture, c.banner]),
+							);
+						}),
+						refetchCommunities,
+					);
 
 					const dropCommunity = (did: string) => {
 						const cur = user.latest;
