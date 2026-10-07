@@ -1,0 +1,18 @@
+@keyframes ui-icon-msg-sweep {
+	from {
+		transform: scaleX(0);
+	}
+	to {
+		transform: scaleX(1);
+	}
+}
+
+[data-animated-icon="text-strikethrough"][data-hover] [data-part="strike"],
+[data-animated-icon="text-underline"][data-hover] [data-part="underline"] {
+	animation: ui-icon-msg-sweep calc(320ms * var(--motion-scale))
+		var(--ease-out-quick) both;
+}
+
+[data-animated-icon="text-underline"][data-hover] [data-part="underline"] {
+	animation-delay: calc(80ms * var(--motion-scale));
+}

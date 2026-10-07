@@ -13,6 +13,8 @@
 			"packages/lib/**",
 			"packages/client/**",
 			"packages/assets/**",
+			"packages/ui/**",
+			"!packages/ui/storybook-static",
 			"!**/dist",
 			"!**/.astro",
 			"!apps/website/public",

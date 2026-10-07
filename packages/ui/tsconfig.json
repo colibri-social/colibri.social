@@ -1,0 +1,20 @@
+{
+	"compilerOptions": {
+		"composite": true,
+		"jsx": "preserve",
+		"jsxImportSource": "solid-js",
+		"target": "ESNext",
+		"allowSyntheticDefaultImports": true,
+		"esModuleInterop": true,
+		"isolatedModules": true,
+		"module": "ESNext",
+		"moduleResolution": "bundler",
+		"noEmit": true,
+		"resolveJsonModule": true,
+		"strict": true,
+		"skipLibCheck": true,
+		"types": ["vite/client"]
+	},
+	"include": ["src", ".storybook"],
+	"exclude": ["node_modules", "dist", "storybook-static"]
+}

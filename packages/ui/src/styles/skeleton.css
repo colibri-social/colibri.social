@@ -1,0 +1,87 @@
+:root {
+	--skeleton-base: color-mix(in srgb, var(--foreground) 7%, transparent);
+	--skeleton-shine: color-mix(in srgb, var(--foreground) 6%, transparent);
+	--skeleton-sweep: 1600ms;
+	--skeleton-fade: 150ms;
+}
+
+:root[data-theme="light"] {
+	--skeleton-base: color-mix(in srgb, var(--foreground) 7%, transparent);
+	--skeleton-shine: color-mix(in srgb, white 70%, transparent);
+}
+
+@keyframes ui-skeleton-sweep {
+	from {
+		background-position-x: -200vw;
+	}
+	to {
+		background-position-x: 100vw;
+	}
+}
+
+@keyframes ui-skeleton-in {
+	from {
+		opacity: 0;
+	}
+	to {
+		opacity: 1;
+	}
+}
+
+[data-skeleton] {
+	display: block;
+	flex-shrink: 0;
+	background-color: var(--skeleton-base);
+	background-image: linear-gradient(
+		100deg,
+		transparent 35%,
+		var(--skeleton-shine) 50%,
+		transparent 65%
+	);
+	background-size: 200vw 100%;
+	background-repeat: no-repeat;
+	background-attachment: fixed;
+	background-position-x: -200vw;
+	animation: ui-skeleton-sweep calc(var(--skeleton-sweep) * var(--motion-scale))
+		cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+[data-loadable-skeleton] {
+	transition: opacity calc(var(--skeleton-fade) * var(--motion-scale))
+		var(--ease-out-quick, ease-out);
+}
+
+[data-loadable-content][data-entering] {
+	animation: ui-skeleton-in calc(var(--skeleton-fade) * var(--motion-scale))
+		var(--ease-out-quick, ease-out) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	[data-skeleton] {
+		animation: none;
+		background-image: none;
+	}
+
+	[data-loadable-skeleton] {
+		transition: none;
+	}
+
+	[data-loadable-content][data-entering] {
+		animation: none;
+	}
+}
+
+:root[data-reduced-motion="true"] {
+	& [data-skeleton] {
+		animation: none;
+		background-image: none;
+	}
+
+	& [data-loadable-skeleton] {
+		transition: none;
+	}
+
+	& [data-loadable-content][data-entering] {
+		animation: none;
+	}
+}

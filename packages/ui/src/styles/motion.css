@@ -1,0 +1,168 @@
+:root {
+	--ease-out-quick: cubic-bezier(0.2, 0, 0, 1);
+	--ease-exit: cubic-bezier(0.4, 0, 1, 1);
+	--duration-color: 140ms;
+	--duration-exit: 140ms;
+}
+
+@keyframes ui-spin {
+	to {
+		transform: rotate(360deg);
+	}
+}
+
+@keyframes ui-modal-in {
+	from {
+		opacity: 0;
+		transform: scale(var(--modal-from-scale, 0.96));
+	}
+}
+
+@keyframes ui-modal-out {
+	to {
+		opacity: 0;
+		transform: scale(var(--modal-to-scale, 0.98));
+		filter: blur(4px);
+	}
+}
+
+@keyframes ui-fade-in {
+	from {
+		opacity: 0;
+	}
+}
+
+@keyframes ui-fade-out {
+	to {
+		opacity: 0;
+	}
+}
+
+@utility modal-motion {
+	&[data-expanded] {
+		animation: ui-modal-in
+			calc(var(--duration-overlay-in, 320ms) * var(--motion-scale))
+			var(--ease-overlay-in, var(--ease-out-quick)) both;
+	}
+
+	&[data-closed] {
+		animation: ui-modal-out calc(var(--duration-exit) * var(--motion-scale))
+			var(--ease-exit) both;
+	}
+}
+
+@utility overlay-motion {
+	&[data-expanded] {
+		animation: ui-fade-in calc(200ms * var(--motion-scale))
+			var(--ease-out-quick) both;
+	}
+
+	&[data-closed] {
+		animation: ui-fade-out calc(var(--duration-exit) * var(--motion-scale))
+			var(--ease-exit) both;
+	}
+}
+
+@utility sheet-motion {
+	&[data-transitioning] {
+		transition-property: transform, height, opacity;
+		transition-duration: calc(
+			var(--duration-sheet, 500ms) *
+			var(--motion-scale)
+		);
+		transition-timing-function: var(
+			--ease-sheet,
+			cubic-bezier(0.32, 0.72, 0, 1)
+		);
+	}
+
+	&[data-closing] {
+		transition-duration: calc(220ms * var(--motion-scale));
+		transition-timing-function: cubic-bezier(0.32, 0, 0.67, 0);
+	}
+}
+
+@utility pressable {
+	transition:
+		scale calc(200ms * var(--motion-scale)) ease-out,
+		background-color calc(var(--duration-color) * var(--motion-scale))
+		var(--ease-out-quick),
+		color calc(var(--duration-color) * var(--motion-scale))
+		var(--ease-out-quick),
+		opacity calc(var(--duration-color) * var(--motion-scale))
+		var(--ease-out-quick),
+		box-shadow calc(var(--duration-color) * var(--motion-scale))
+		var(--ease-out-quick);
+	touch-action: manipulation;
+	user-select: none;
+	-webkit-user-select: none;
+
+	&[data-pressed] {
+		scale: var(--press-scale, 0.97);
+		transition:
+			scale calc(200ms * var(--motion-scale)) ease-out,
+			background-color 0ms,
+			color 0ms,
+			opacity 0ms,
+			box-shadow calc(var(--duration-color) * var(--motion-scale))
+			var(--ease-out-quick);
+	}
+}
+
+@utility ripple {
+	position: relative;
+	isolation: isolate;
+	-webkit-tap-highlight-color: transparent;
+}
+
+[data-ripple-layer] {
+	position: absolute;
+	inset: 0;
+	z-index: -1;
+	overflow: hidden;
+	border-radius: inherit;
+	pointer-events: none;
+	mask-image: var(--ripple-noise, none);
+	mask-size: var(--ripple-noise-size, auto);
+	mask-repeat: repeat;
+}
+
+[data-ripple-layer][data-placement="over"] {
+	z-index: 1;
+}
+
+[data-ripple-wave] {
+	position: absolute;
+	border-radius: 9999px;
+	background: radial-gradient(
+		closest-side,
+		var(--ripple-color, color-mix(in srgb, currentColor 10%, transparent))
+			var(--ripple-solid, 72%),
+		transparent
+	);
+	pointer-events: none;
+	will-change: transform, opacity;
+}
+
+@utility focus-ring {
+	outline: none;
+
+	&:focus-visible {
+		box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 25%, transparent);
+		border-color: var(--primary);
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	:root {
+		--press-scale: 1;
+		--modal-from-scale: 1;
+		--modal-to-scale: 1;
+	}
+}
+
+:root[data-reduced-motion="true"] {
+	--press-scale: 1;
+	--modal-from-scale: 1;
+	--modal-to-scale: 1;
+}

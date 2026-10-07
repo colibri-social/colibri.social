@@ -1,0 +1,82 @@
+@font-face {
+	font-family: "Hanken Grotesk";
+	src: url("../fonts/HankenGrotesk-Regular.woff2") format("woff2");
+	font-display: swap;
+	font-weight: 100 900;
+	font-style: normal;
+}
+
+@font-face {
+	font-family: "Hanken Grotesk";
+	src: url("../fonts/HankenGrotesk-Italic.woff2") format("woff2");
+	font-display: swap;
+	font-weight: 100 900;
+	font-style: italic;
+}
+
+@font-face {
+	font-family: "Hanken Grotesk Fallback";
+	src: local("Arial");
+	font-display: swap;
+	font-weight: 100 900;
+	font-style: normal;
+	size-adjust: 102.0635%;
+	ascent-override: 97.9782%;
+	descent-override: 29.6874%;
+	line-gap-override: 0%;
+}
+
+@font-face {
+	font-family: "Hanken Grotesk Fallback";
+	src: local("Arial");
+	font-display: swap;
+	font-weight: 100 900;
+	font-style: italic;
+	size-adjust: 102.0635%;
+	ascent-override: 97.9782%;
+	descent-override: 29.6874%;
+	line-gap-override: 0%;
+}
+
+@font-face {
+	font-family: Stardom;
+	src:
+		url("../fonts/Stardom-Regular.woff2") format("woff2"),
+		url("../fonts/Stardom-Regular.woff") format("woff");
+	font-display: swap;
+	font-weight: 400;
+	font-style: normal;
+}
+
+@font-face {
+	font-family: "Stardom Fallback";
+	src: local("Arial");
+	font-display: swap;
+	font-weight: 400;
+	font-style: normal;
+	size-adjust: 109.6903%;
+	ascent-override: 85.6959%;
+	descent-override: 23.7031%;
+	line-gap-override: 8.2049%;
+}
+
+@font-face {
+	font-family: "Geist Mono";
+	src: url("../fonts/GeistMono.woff2") format("woff2");
+	font-display: swap;
+	font-weight: 100 900;
+	font-style: normal;
+	size-adjust: 93.0189%;
+}
+
+@font-face {
+	font-family: "Geist Mono Fallback";
+	src: local("Arial");
+	font-display: swap;
+	font-weight: 100 900;
+	font-style: normal;
+	size-adjust: 125.1931%;
+	ascent-override: 69.4609%;
+	descent-override: 20.3878%;
+	line-gap-override: 0%;
+}

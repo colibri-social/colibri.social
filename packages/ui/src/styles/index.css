@@ -1,0 +1,168 @@
+@import "tailwindcss";
+@import "./fonts.css";
+@import "./motion.css";
+@import "./icons.css";
+@import "./icons/navigation.css";
+@import "./icons/messaging.css";
+@import "./icons/media.css";
+@import "./icons/people.css";
+@import "./icons/system.css";
+@import "./icons/brand.css";
+@import "./skeleton.css";
+@import "./safe-area.css";
+
+@source "../";
+
+@custom-variant light (&:where([data-theme="light"], [data-theme="light"] *));
+@custom-variant reduced-motion (
+	&:where([data-reduced-motion="true"], [data-reduced-motion="true"] *)
+);
+
+:root {
+	--background: #080808;
+	--foreground: #ffffff;
+	--card: #0f0f0f;
+	--popover: #171717;
+	--popover-highlight: #1e1e1e;
+	--primary: #8e51ff;
+	--primary-highlight: #9c66ff;
+	--primary-foreground: #ffffff;
+	--primary-fill: #8b4dfb;
+	--primary-fill-highlight: #803fee;
+	--secondary: #232323;
+	--secondary-highlight: #2c2c2c;
+	--secondary-foreground: #ffffff;
+	--muted: #262626;
+	--muted-foreground: #a1a1a1;
+	--accent: #404040;
+	--destructive: #ff575a;
+	--destructive-highlight: #ff7073;
+	--destructive-foreground: #ffffff;
+	--destructive-fill: #db333d;
+	--destructive-fill-highlight: #ce2132;
+	--success: #4ade80;
+	--warning: #ffd857;
+	--info: #5cadff;
+	--border: rgb(255 255 255 / 0.08);
+	--control-border: #353535;
+	--overlay: rgb(8 8 8 / 0.75);
+	--shadow-color: rgb(0 0 0 / 0.25);
+	--mention: rgb(142 81 255 / 0.25);
+
+	--motion-scale: 1;
+	--font-display-stack: Stardom, "Stardom Fallback", serif;
+	--font-sans-stack: "Hanken Grotesk", "Hanken Grotesk Fallback", sans-serif;
+	--font-mono-stack: "Geist Mono", "Geist Mono Fallback", monospace;
+
+	color-scheme: dark;
+}
+
+:root[data-theme="light"] {
+	--background: #f7f7f8;
+	--foreground: #0b0b0c;
+	--card: #ffffff;
+	--popover: #ffffff;
+	--popover-highlight: #f2f2f3;
+	--primary: #8e51ff;
+	--primary-highlight: #7d3ff0;
+	--primary-foreground: #ffffff;
+	--primary-fill: #8b4dfb;
+	--primary-fill-highlight: #803fee;
+	--secondary: #ededee;
+	--secondary-highlight: #e4e4e6;
+	--secondary-foreground: #0b0b0c;
+	--muted: #ececee;
+	--muted-foreground: #66666b;
+	--accent: #d4d4d8;
+	--destructive: #c21f30;
+	--destructive-highlight: #b01a2a;
+	--destructive-foreground: #ffffff;
+	--destructive-fill: #db333d;
+	--destructive-fill-highlight: #ce2132;
+	--success: #22a55a;
+	--warning: #d9a400;
+	--info: #1f7ae0;
+	--border: rgb(0 0 0 / 0.08);
+	--control-border: #d4d4d8;
+	--overlay: rgb(8 8 8 / 0.4);
+	--shadow-color: rgb(0 0 0 / 0.12);
+	--mention: rgb(142 81 255 / 0.16);
+
+	color-scheme: light;
+}
+
+:root[data-slow-motion="true"] {
+	--motion-scale: 5;
+}
+
+@theme inline {
+	--color-background: var(--background);
+	--color-foreground: var(--foreground);
+	--color-card: var(--card);
+	--color-popover: var(--popover);
+	--color-popover-highlight: var(--popover-highlight);
+	--color-primary: var(--primary);
+	--color-primary-highlight: var(--primary-highlight);
+	--color-primary-foreground: var(--primary-foreground);
+	--color-primary-fill: var(--primary-fill);
+	--color-primary-fill-highlight: var(--primary-fill-highlight);
+	--color-secondary: var(--secondary);
+	--color-secondary-highlight: var(--secondary-highlight);
+	--color-secondary-foreground: var(--secondary-foreground);
+	--color-muted: var(--muted);
+	--color-muted-foreground: var(--muted-foreground);
+	--color-accent: var(--accent);
+	--color-destructive: var(--destructive);
+	--color-destructive-highlight: var(--destructive-highlight);
+	--color-destructive-foreground: var(--destructive-foreground);
+	--color-destructive-fill: var(--destructive-fill);
+	--color-destructive-fill-highlight: var(--destructive-fill-highlight);
+	--color-success: var(--success);
+	--color-warning: var(--warning);
+	--color-info: var(--info);
+	--color-border: var(--border);
+	--color-control-border: var(--control-border);
+	--color-overlay: var(--overlay);
+	--color-mention: var(--mention);
+
+	--font-sans: var(--font-sans-stack);
+	--font-display: var(--font-display-stack);
+	--font-mono: var(--font-mono-stack);
+
+	--radius-control-xs: 6px;
+	--radius-control-sm: 8px;
+	--radius-control: 10px;
+	--radius-control-lg: 12px;
+	--radius-checkbox: 6px;
+	--radius-badge: 4px;
+	--radius-surface: 12px;
+	--radius-sheet: 16px;
+
+	--shadow-overlay: 0 8px 8px 2px var(--shadow-color);
+}
+
+@layer base {
+	html,
+	body {
+		background: var(--background);
+		color: var(--foreground);
+		font-family: var(--font-sans-stack);
+		-webkit-font-smoothing: antialiased;
+		-moz-osx-font-smoothing: grayscale;
+		-webkit-tap-highlight-color: transparent;
+	}
+
+	*,
+	::before,
+	::after {
+		border-color: var(--border);
+	}
+}
+
+@utility eyebrow {
+	font-size: 12px;
+	line-height: 16px;
+	font-weight: 700;
+	letter-spacing: 0.04em;
+	text-transform: uppercase;
+}
