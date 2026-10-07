@@ -510,8 +510,9 @@ const AppLayout: ParentComponent = (props) => {
 	return (
 		<div
 			ref={shellEl}
-			class="flex flex-col w-full bg-card relative"
+			class="flex flex-col w-full bg-card"
 			classList={{
+				relative: !needsShellInsets(),
 				"h-[100dvh]": needsShellInsets() && shellHeight() === undefined,
 				"h-screen": !needsShellInsets(),
 				"pt-[var(--safe-area-top)]": needsShellInsets(),

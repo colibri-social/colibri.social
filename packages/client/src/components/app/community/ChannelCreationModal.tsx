@@ -60,6 +60,7 @@ export const ChannelCreationModal: Component<{
 	const [allowedMembers, setAllowedMembers] = createSignal<string[]>([]);
 	const [visibleToRoles, setVisibleToRoles] = createSignal<string[]>([]);
 	const [visibleToMembers, setVisibleToMembers] = createSignal<string[]>([]);
+	let nameInput: HTMLInputElement | undefined;
 
 	const categoryName = () =>
 		community().categories.find((x) => x.rkey === props.category)!.name;
@@ -78,6 +79,12 @@ export const ChannelCreationModal: Component<{
 	const handleOpenChange = (next: boolean) => {
 		props.setOpen(next);
 		if (!next) reset();
+	};
+
+	const focusNameInput = (event: Event) => {
+		if (!nameInput) return;
+		event.preventDefault();
+		nameInput.focus();
 	};
 
 	const handleCreate = async () => {
@@ -121,6 +128,7 @@ export const ChannelCreationModal: Component<{
 			open={props.open()}
 			onOpenChange={handleOpenChange}
 			title={page() === 0 ? "Create Channel" : "Restricted Access"}
+			onOpenAutoFocus={focusNameInput}
 		>
 			<Show
 				when={page() === 0}
@@ -189,6 +197,7 @@ export const ChannelCreationModal: Component<{
 					<TextField class="gap-1.5 relative">
 						<TextFieldLabel>Name</TextFieldLabel>
 						<TextFieldInput
+							ref={nameInput}
 							placeholder="New Channel"
 							value={name()}
 							onInput={(e) => setName(e.currentTarget.value)}

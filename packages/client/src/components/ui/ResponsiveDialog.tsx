@@ -19,6 +19,7 @@ export interface ResponsiveDialogProps {
 	children: JSX.Element;
 	contentClass?: string;
 	class?: string;
+	onOpenAutoFocus?: (event: Event) => void;
 }
 
 /**
@@ -38,7 +39,10 @@ export const ResponsiveDialog = (props: ResponsiveDialogProps) => {
 						<DialogTrigger class={props.class}>{props.trigger}</DialogTrigger>
 					</Show>
 					<DialogPortal>
-						<DialogContent class={props.contentClass}>
+						<DialogContent
+							class={props.contentClass}
+							onOpenAutoFocus={props.onOpenAutoFocus}
+						>
 							<Show when={props.title}>
 								<DialogHeader>
 									<DialogTitle>{props.title}</DialogTitle>
