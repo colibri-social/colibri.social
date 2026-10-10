@@ -1,5 +1,6 @@
 import { Show } from "solid-js";
 import { cx } from "../../utils/cx";
+import { AnimatedImage } from "../AnimatedImage/AnimatedImage";
 import { Skeleton, SkeletonText } from "../Skeleton/Skeleton";
 import { createPressRipple, pressSurface } from "./shared";
 
@@ -63,7 +64,11 @@ export const LinkEmbed = (props: LinkEmbedProps) => {
 		<Show
 			when={props.onOpenImage}
 			fallback={
-				<img src={imageProps.image.src} alt="" class={imageProps.class} />
+				<AnimatedImage
+					src={imageProps.image.src}
+					alt=""
+					class={imageProps.class}
+				/>
 			}
 		>
 			<button
@@ -73,11 +78,11 @@ export const LinkEmbed = (props: LinkEmbedProps) => {
 				aria-label={`Open image from ${label()}`}
 				onClick={() => props.onOpenImage?.()}
 				class={cx(
-					"relative z-10 block shrink-0 cursor-zoom-in overflow-hidden border-0 bg-transparent p-0 outline-none focus-visible:shadow-[0_0_0_2px_var(--primary)]",
+					"relative z-10 block shrink-0 cursor-zoom-in overflow-hidden border-0 bg-transparent p-0 outline-none focus-ring",
 					imageProps.class,
 				)}
 			>
-				<img
+				<AnimatedImage
 					src={imageProps.image.src}
 					alt=""
 					class="block size-full object-cover"
@@ -98,7 +103,7 @@ export const LinkEmbed = (props: LinkEmbedProps) => {
 					href={props.url}
 					target="_blank"
 					rel="noreferrer"
-					class="flex min-w-0 flex-1 flex-col gap-0.5 no-underline outline-none after:absolute after:inset-0 after:content-[''] focus-visible:after:rounded-[6px] focus-visible:after:shadow-[inset_0_0_0_2px_var(--primary)]"
+					class="flex min-w-0 flex-1 flex-col gap-0.5 no-underline outline-none select-text after:absolute after:inset-0 after:content-[''] focus-visible:after:rounded-[6px] focus-visible:after:shadow-[inset_0_0_0_2px_var(--primary)]"
 				>
 					<span class="truncate text-xs text-muted-foreground">{label()}</span>
 					<Show when={props.title}>

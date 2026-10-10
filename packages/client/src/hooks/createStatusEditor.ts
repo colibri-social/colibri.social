@@ -3,6 +3,7 @@ import { toast } from "somoto";
 import { colibri } from "../atproto/lexicons";
 import { useUserContext } from "../contexts/User";
 import { createLogger } from "../utils/logger";
+import { clampStatusText } from "../utils/status-text";
 
 const log = createLogger("status");
 
@@ -13,7 +14,8 @@ export const createStatusEditor = () => {
 	const currentEmoji = () => user.presence?.status?.emoji ?? "";
 
 	const [loading, setLoading] = createSignal(false);
-	const [status, setStatus] = createSignal(currentText());
+	const [status, setStatusText] = createSignal(currentText());
+	const setStatus = (text: string) => setStatusText(clampStatusText(text));
 	const [emoji, setEmoji] = createSignal(currentEmoji());
 
 	const save = async () => {

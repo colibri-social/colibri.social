@@ -1,27 +1,45 @@
 import { MenuDotsIcon } from "@solar-icons/solid/bold/menu-dots";
 import { SmileCircleIcon } from "@solar-icons/solid/bold/smile-circle";
 import { ReplyIcon } from "@solar-icons/solid/linear/reply";
-import { createSignal, For } from "solid-js";
+import { createSignal, For, Show } from "solid-js";
 import { expect, fn, screen, userEvent, waitFor, within } from "storybook/test";
 import type { Meta, StoryObj } from "storybook-solidjs-vite";
 import {
 	type GroupableMessage,
 	groupMessages,
 } from "../../utils/message-groups";
+import { contrastRatio, NameColorProvider } from "../../utils/name-color";
 import { formatMessageTime } from "../../utils/time";
-import { Badge, MentionChip } from "../Badge/Badge";
+import { MentionChip, TeamBadge } from "../Badge/Badge";
 import { Button } from "../Button/Button";
 import { Composer } from "../Composer/Composer";
 import { TypingIndicator } from "../Composer/TypingIndicator";
 import { IconButton } from "../IconButton/IconButton";
 import { InboxGroupCard } from "../Inbox/InboxGroupCard";
+import type { RichText } from "../RichEditor/types";
+import { RichTextProvider } from "../RichText/context";
+import { build, f, mark } from "../RichText/fixtures";
+import { RichTextRenderer } from "../RichText/RichText";
+import type { RoleIdentity } from "../Roles/RoleBadge";
 import { CHAT_LAYOUT, type ChatPlatform } from "./layout";
 import { MessagePreview } from "./MessagePreview";
 import { type MessageHighlight, MessageRow } from "./MessageRow";
 import { MessagePreviewSkeleton, MessageRowSkeleton } from "./MessageSkeletons";
 
+const STORY_MEMBERS: Record<string, { did: string; name: string }> = {
+	"did:plc:lou": { did: "did:plc:lou", name: "Lou" },
+	"did:plc:username": { did: "did:plc:username", name: "Username" },
+};
+
 const meta = {
 	title: "Messaging/Message",
+	decorators: [
+		(Story) => (
+			<RichTextProvider value={{ member: (did) => STORY_MEMBERS[did] }}>
+				<Story />
+			</RichTextProvider>
+		),
+	],
 } satisfies Meta;
 
 export default meta;
@@ -32,8 +50,6 @@ const mobile = { viewport: { defaultViewport: "iphone" } };
 const NOW = new Date(2026, 9, 7, 9, 41);
 const at = (hours: number, minutes: number, dayOffset = 0) =>
 	new Date(2026, 9, 7 + dayOffset, hours, minutes);
-
-const TeamBadge = () => <Badge>Team</Badge>;
 
 type Fixture = GroupableMessage & {
 	id: string;
@@ -48,7 +64,11 @@ const conversation: Fixture[] = [
 		author: "did:plc:username",
 		name: "Username",
 		timestamp: at(9, 2),
-		body: () => "Just past it, sat on the rail for a good minute :)",
+		body: () => (
+			<RichTextRenderer
+				value={{ text: "Just past it, sat on the rail for a good minute :)" }}
+			/>
+		),
 	},
 	{
 		id: "2",
@@ -57,10 +77,13 @@ const conversation: Fixture[] = [
 		team: true,
 		timestamp: at(9, 4),
 		body: () => (
-			<>
-				I have walked that path for <strong>years</strong> and never once have I
-				seen one. Lucky you!
-			</>
+			<RichTextRenderer
+				value={build([
+					"I have walked that path for ",
+					mark("years", f.bold),
+					" and never once have I seen one. Lucky you! 🐦",
+				])}
+			/>
 		),
 	},
 	{
@@ -69,14 +92,20 @@ const conversation: Fixture[] = [
 		name: "Lou",
 		team: true,
 		timestamp: at(9, 6),
-		body: () => "The crows have started following me on my run now",
+		body: () => (
+			<RichTextRenderer
+				value={{ text: "The crows have started following me on my run now" }}
+			/>
+		),
 	},
 	{
 		id: "4",
 		author: "did:plc:username",
 		name: "Username",
 		timestamp: at(9, 20),
-		body: () => "Did you feed them once?",
+		body: () => (
+			<RichTextRenderer value={{ text: "Did you feed them once?" }} />
+		),
 	},
 	{
 		id: "5",
@@ -84,15 +113,24 @@ const conversation: Fixture[] = [
 		name: "Lou",
 		team: true,
 		timestamp: at(9, 31),
-		body: () =>
-			"I may have shared a sandwich in feb, now that I think about it.",
+		body: () => (
+			<RichTextRenderer
+				value={{
+					text: "I may have shared a sandwich in feb, now that I think about it.",
+				}}
+			/>
+		),
 	},
 	{
 		id: "6",
 		author: "did:plc:username",
 		name: "Username",
 		timestamp: at(9, 33),
-		body: () => "Then that's your life now, they do not forget faces.",
+		body: () => (
+			<RichTextRenderer
+				value={{ text: "Then that's your life now, they do not forget faces." }}
+			/>
+		),
 	},
 	{
 		id: "7",
@@ -100,9 +138,12 @@ const conversation: Fixture[] = [
 		name: "Username",
 		timestamp: at(9, 34),
 		body: () => (
-			<>
-				<MentionChip>@Lou</MentionChip> I am the crow whisperer.
-			</>
+			<RichTextRenderer
+				value={build([
+					mark("@Lou", f.mention("did:plc:lou")),
+					" I am the crow whisperer.",
+				])}
+			/>
 		),
 	},
 ];
@@ -211,7 +252,6 @@ const highlights: { value: MessageHighlight; label: string }[] = [
 	{ value: "mention", label: "Mentions you" },
 	{ value: "replying", label: "You're replying to this" },
 	{ value: "jumped", label: "Jumped to, fades after 1.5s" },
-	{ value: "editing", label: "Editing on mobile" },
 	{ value: "menu", label: "Menu open" },
 ];
 
@@ -458,7 +498,9 @@ export const EditedAndLong: Story = {
 				continuation
 				edited
 			>
-				And this follow-up got edited too.
+				<RichTextRenderer
+					value={build(["Also ", mark("edited", f.italic), "."])}
+				/>
 			</MessageRow>
 			<MessageRow
 				author={{ name: "Lou" }}
@@ -479,6 +521,375 @@ export const EditedAndLong: Story = {
 			</MessageRow>
 		</div>
 	),
+	play: async ({ canvasElement }) => {
+		const content = Array.from(
+			canvasElement.querySelectorAll("[data-message-content]"),
+		).find((element) => element.querySelector("[data-rich-text]"));
+		const text = content?.querySelector("em")?.getBoundingClientRect();
+		const marker = Array.from(content?.querySelectorAll("span") ?? [])
+			.find((element) => element.textContent === "(edited)")
+			?.getBoundingClientRect();
+		await expect(
+			marker && text && Math.abs(marker.bottom - text.bottom),
+		).toBeLessThan(4);
+	},
+};
+
+const editSave = fn();
+const editCancel = fn();
+
+const EditableMessage = (props: {
+	platform: ChatPlatform;
+	initial: RichText;
+	attachments?: boolean;
+	failSave?: boolean;
+}) => {
+	const [value, setValue] = createSignal<RichText>(props.initial);
+	const [editing, setEditing] = createSignal(false);
+	const [edited, setEdited] = createSignal(false);
+	const editState = () =>
+		editing()
+			? {
+					value: value(),
+					allowEmpty: props.attachments,
+					onSave: async (next: RichText) => {
+						editSave(next);
+						if (props.failSave) return false;
+						setValue(next);
+						setEdited(true);
+						setEditing(false);
+						return true;
+					},
+					onCancel: () => {
+						editCancel();
+						setEditing(false);
+					},
+				}
+			: undefined;
+	return (
+		<div class="flex min-h-dvh flex-col bg-background py-2 text-foreground">
+			<MessageRow
+				author={{ name: "Lou" }}
+				timestamp={at(9, 20)}
+				now={NOW}
+				locale="en-GB"
+				platform={props.platform}
+				edited={edited()}
+				editing={editState()}
+				attachments={
+					props.attachments ? (
+						<div class="h-24 w-40 rounded-control bg-muted" />
+					) : undefined
+				}
+			>
+				<RichTextRenderer value={value()} />
+			</MessageRow>
+			<div class="px-4 pt-4">
+				<Button
+					variant="secondary"
+					disabled={editing()}
+					onClick={() => setEditing(true)}
+				>
+					Edit
+				</Button>
+			</div>
+			<Show when={props.platform === "mobile"}>
+				<div class="mt-auto">
+					<Composer
+						platform="mobile"
+						channelName="general"
+						onSend={(next) => {
+							composerSend(next);
+							return true;
+						}}
+						editing={
+							editState()
+								? {
+										...(editState() as NonNullable<
+											ReturnType<typeof editState>
+										>),
+										preview: value().text,
+									}
+								: undefined
+						}
+					/>
+				</div>
+			</Show>
+		</div>
+	);
+};
+
+const composerSend = fn();
+
+const composerEditorOf = (canvasElement: HTMLElement) =>
+	canvasElement.querySelector("[data-composer] .ProseMirror") as HTMLElement;
+
+const startComposerEdit = async (canvasElement: HTMLElement) => {
+	editSave.mockClear();
+	editCancel.mockClear();
+	await userEvent.click(
+		within(canvasElement).getByRole("button", { name: "Edit" }),
+	);
+	await waitFor(() =>
+		expect(
+			canvasElement.querySelector('[data-composer-bar="edit"][data-open]'),
+		).not.toBeNull(),
+	);
+	await waitFor(() => expect(composerEditorOf(canvasElement)).toHaveFocus());
+};
+
+const editorOf = (canvasElement: HTMLElement) =>
+	canvasElement.querySelector(
+		"[data-message-editor] .ProseMirror",
+	) as HTMLElement;
+
+const startEditing = async (canvasElement: HTMLElement) => {
+	editSave.mockClear();
+	editCancel.mockClear();
+	await userEvent.click(
+		within(canvasElement).getByRole("button", { name: "Edit" }),
+	);
+	await waitFor(() => expect(editorOf(canvasElement)).toHaveFocus());
+};
+
+export const InlineEditDesktop: Story = {
+	render: () => (
+		<EditableMessage
+			platform="desktop"
+			initial={{ text: "The kingfisher sits on the rail", facets: [] }}
+		/>
+	),
+	play: async ({ canvasElement }) => {
+		const row = canvasElement.querySelector("[data-message]") as HTMLElement;
+		await startEditing(canvasElement);
+		await expect(row).toHaveAttribute("data-editing");
+		await expect(row).not.toHaveAttribute("data-highlight");
+		await expect(
+			canvasElement.querySelector("[data-message-content]"),
+		).toBeNull();
+		await expect(
+			canvasElement.querySelector("[data-message-editor-hint]"),
+		).toHaveTextContent("escape to cancel");
+		await expect(
+			canvasElement.querySelector("[data-message-editor-hint]"),
+		).toHaveTextContent("enter to submit");
+		await userEvent.keyboard(" by the bend{Enter}");
+		await waitFor(() => expect(row).not.toHaveAttribute("data-editing"));
+		await expect(editSave).toHaveBeenCalledWith(
+			expect.objectContaining({
+				text: "The kingfisher sits on the rail by the bend",
+			}),
+		);
+		await expect(row).toHaveTextContent("by the bend");
+		await expect(row).toHaveTextContent("(edited)");
+		await startEditing(canvasElement);
+		await userEvent.keyboard("{Escape}");
+		await waitFor(() => expect(row).not.toHaveAttribute("data-editing"));
+		await expect(editCancel).toHaveBeenCalledOnce();
+	},
+};
+
+export const InlineEditEmoji: Story = {
+	render: () => (
+		<EditableMessage
+			platform="desktop"
+			initial={{ text: "The kingfisher sits on the rail", facets: [] }}
+		/>
+	),
+	play: async ({ canvasElement }) => {
+		const canvas = within(canvasElement);
+		await startEditing(canvasElement);
+		const paragraph = editorOf(canvasElement).querySelector("p") as HTMLElement;
+		await userEvent.pointer({
+			keys: "[MouseLeft]",
+			target: paragraph,
+			offset: 0,
+		});
+		await userEvent.keyboard("X");
+		await waitFor(() =>
+			expect(editorOf(canvasElement)).toHaveTextContent(
+				"XThe kingfisher sits on the rail",
+			),
+		);
+		await userEvent.click(canvas.getByRole("button", { name: "Add an emoji" }));
+		const search = await screen.findByLabelText(
+			"Search emoji",
+			{ selector: "input" },
+			{ timeout: 3000 },
+		);
+		await waitFor(() => expect(search).toHaveFocus(), { timeout: 3000 });
+		await userEvent.keyboard("salute{Enter}");
+		await waitFor(
+			() =>
+				expect(
+					screen.queryByRole("dialog", { name: "Emoji picker" }),
+				).not.toBeInTheDocument(),
+			{ timeout: 3000 },
+		);
+		await waitFor(() =>
+			expect(editorOf(canvasElement)).toHaveTextContent(
+				"X\u{1FAE1}The kingfisher sits on the rail",
+			),
+		);
+		await waitFor(() => expect(editorOf(canvasElement)).toHaveFocus());
+	},
+};
+
+export const MobileEditInComposer: Story = {
+	parameters: mobile,
+	render: () => (
+		<EditableMessage
+			platform="mobile"
+			initial={{ text: "Meet at the old mill", facets: [] }}
+		/>
+	),
+	play: async ({ canvasElement }) => {
+		const canvas = within(canvasElement);
+		const row = canvasElement.querySelector("[data-message]") as HTMLElement;
+		await userEvent.click(composerEditorOf(canvasElement));
+		await userEvent.keyboard("half typed");
+		await startComposerEdit(canvasElement);
+		await expect(row).not.toHaveAttribute("data-editing");
+		await expect(row).not.toHaveAttribute("data-highlight");
+		await expect(
+			canvasElement.querySelector("[data-message-editor]"),
+		).toBeNull();
+		await expect(
+			canvasElement.querySelector("[data-edit-bar]"),
+		).toHaveTextContent("Editing message");
+		await expect(composerEditorOf(canvasElement)).toHaveTextContent(
+			"Meet at the old mill",
+		);
+		await userEvent.keyboard(" at noon");
+		await userEvent.click(canvas.getByRole("button", { name: "Save edit" }));
+		await waitFor(() =>
+			expect(editSave).toHaveBeenCalledWith(
+				expect.objectContaining({ text: "Meet at the old mill at noon" }),
+			),
+		);
+		await expect(composerSend).not.toHaveBeenCalled();
+		await waitFor(() =>
+			expect(composerEditorOf(canvasElement)).toHaveTextContent("half typed"),
+		);
+		await expect(row).toHaveTextContent("Meet at the old mill at noon");
+		await expect(row).toHaveTextContent("(edited)");
+		await startComposerEdit(canvasElement);
+		await userEvent.click(
+			canvas.getByRole("button", { name: "Cancel editing" }),
+		);
+		await expect(editCancel).toHaveBeenCalledOnce();
+		await waitFor(() =>
+			expect(composerEditorOf(canvasElement)).toHaveTextContent("half typed"),
+		);
+		await expect(
+			canvas.getByRole("button", { name: "Send message" }),
+		).toBeInTheDocument();
+	},
+};
+
+export const MobileEditRules: Story = {
+	parameters: mobile,
+	render: () => (
+		<EditableMessage
+			platform="mobile"
+			initial={{ text: "Unchanged", facets: [] }}
+		/>
+	),
+	play: async ({ canvasElement }) => {
+		const canvas = within(canvasElement);
+		await startComposerEdit(canvasElement);
+		await userEvent.click(canvas.getByRole("button", { name: "Save edit" }));
+		await waitFor(() => expect(editCancel).toHaveBeenCalledOnce());
+		await expect(editSave).not.toHaveBeenCalled();
+		await startComposerEdit(canvasElement);
+		await userEvent.keyboard("{Backspace>9/}");
+		await waitFor(() =>
+			expect(canvas.getByRole("button", { name: "Save edit" })).toBeDisabled(),
+		);
+	},
+};
+
+export const MobileEditFailedSave: Story = {
+	parameters: mobile,
+	render: () => (
+		<EditableMessage
+			platform="mobile"
+			failSave
+			initial={{ text: "Draft that fails", facets: [] }}
+		/>
+	),
+	play: async ({ canvasElement }) => {
+		const canvas = within(canvasElement);
+		await startComposerEdit(canvasElement);
+		await userEvent.keyboard(" to save");
+		await userEvent.click(canvas.getByRole("button", { name: "Save edit" }));
+		await waitFor(() => expect(editSave).toHaveBeenCalledOnce());
+		await waitFor(() =>
+			expect(composerEditorOf(canvasElement)).toHaveTextContent(
+				"Draft that fails to save",
+			),
+		);
+		await expect(
+			canvasElement.querySelector('[data-composer-bar="edit"][data-open]'),
+		).not.toBeNull();
+	},
+};
+
+export const InlineEditAlignment: Story = {
+	render: () => (
+		<EditableMessage
+			platform="desktop"
+			initial={{ text: "The kingfisher sits on the rail", facets: [] }}
+		/>
+	),
+	play: async ({ canvasElement }) => {
+		await startEditing(canvasElement);
+		const box = canvasElement.querySelector(
+			"[data-message-editor-box]",
+		) as HTMLElement;
+		const glyph = canvasElement.querySelector(
+			"[data-message-editor-emoji] svg",
+		) as SVGElement;
+		const paragraph = editorOf(canvasElement).querySelector("p") as HTMLElement;
+		const boxRect = box.getBoundingClientRect();
+		const glyphRect = glyph.getBoundingClientRect();
+		const textRange = document.createRange();
+		textRange.selectNodeContents(paragraph);
+		const textRect = textRange.getClientRects()[0] as DOMRect;
+		const leftInset = textRect.left - boxRect.left;
+		const rightInset = boxRect.right - glyphRect.right;
+		await expect(Math.abs(rightInset - leftInset)).toBeLessThanOrEqual(1);
+		const lineHeight = Number.parseFloat(
+			getComputedStyle(editorOf(canvasElement)).lineHeight,
+		);
+		const lineCenter =
+			editorOf(canvasElement).getBoundingClientRect().top + lineHeight / 2;
+		const glyphCenter = glyphRect.top + glyphRect.height / 2;
+		await expect(Math.abs(glyphCenter - lineCenter)).toBeLessThanOrEqual(1);
+		await expect(boxRect.height).toBeLessThanOrEqual(lineHeight + 18 + 0.5);
+	},
+};
+
+export const InlineEditFailedSave: Story = {
+	render: () => (
+		<EditableMessage
+			platform="desktop"
+			failSave
+			initial={{ text: "Draft that fails", facets: [] }}
+		/>
+	),
+	play: async ({ canvasElement }) => {
+		const row = canvasElement.querySelector("[data-message]") as HTMLElement;
+		await startEditing(canvasElement);
+		await userEvent.keyboard(" to save{Enter}");
+		await waitFor(() => expect(editSave).toHaveBeenCalledOnce());
+		await expect(row).toHaveAttribute("data-editing");
+		await waitFor(() =>
+			expect(editorOf(canvasElement)).toHaveTextContent(
+				"Draft that fails to save",
+			),
+		);
+	},
 };
 
 export const ContinuationTime: Story = {
@@ -598,7 +1009,7 @@ export const InboxPreviews: Story = {
 			<InboxGroupCard name="Awesome Space" summary="2 mentions">
 				<MessagePreview
 					author="Username"
-					badge={<TeamBadge />}
+					badge={<TeamBadge describe={false} />}
 					timestamp={at(9, 34)}
 					now={NOW}
 					locale="en-GB"
@@ -608,7 +1019,7 @@ export const InboxPreviews: Story = {
 				</MessagePreview>
 				<MessagePreview
 					author="Username"
-					badge={<TeamBadge />}
+					badge={<TeamBadge describe={false} />}
 					timestamp={at(9, 35)}
 					now={NOW}
 					locale="en-GB"
@@ -622,7 +1033,7 @@ export const InboxPreviews: Story = {
 			<InboxGroupCard name="Replies test" summary="1 reply">
 				<MessagePreview
 					author="Username"
-					badge={<TeamBadge />}
+					badge={<TeamBadge describe={false} />}
 					timestamp={at(18, 30, -2)}
 					now={NOW}
 					locale="en-GB"
@@ -748,7 +1159,7 @@ const AlignmentDemo = (props: { platform: ChatPlatform }) => (
 			<MessageRow
 				platform={props.platform}
 				author={{ name: "Lou" }}
-				badge={<Badge>Team</Badge>}
+				badge={<TeamBadge />}
 				timestamp={at(9, 30)}
 				now={NOW}
 				locale="en-GB"
@@ -795,8 +1206,10 @@ const checkAlignment = async (
 	canvasElement: HTMLElement,
 	platform: ChatPlatform,
 ) => {
-	const textarea = canvasElement.querySelector("textarea");
-	const textStart = left(textarea);
+	const field = canvasElement.querySelector(
+		"[data-rich-editor] [contenteditable]",
+	);
+	const textStart = left(field);
 	const contents = canvasElement.querySelectorAll("[data-message-content]");
 	await expect(contents.length).toBe(3);
 	for (const content of contents) {
@@ -838,10 +1251,21 @@ const checkAlignment = async (
 	);
 };
 
+const checkTypingClearsLastMessage = async (canvasElement: HTMLElement) => {
+	const messages = canvasElement.querySelectorAll("[data-message]");
+	const last = messages[messages.length - 1]?.getBoundingClientRect();
+	const typing = canvasElement
+		.querySelector("[data-typing-indicator]")
+		?.getBoundingClientRect();
+	if (!last || !typing) throw new Error("Message or typing indicator missing");
+	await expect(typing.top).toBeGreaterThanOrEqual(Math.floor(last.bottom));
+};
+
 export const ChatAlignmentDesktop: Story = {
 	render: () => <AlignmentDemo platform="desktop" />,
 	play: async ({ canvasElement }) => {
 		await checkAlignment(canvasElement, "desktop");
+		await checkTypingClearsLastMessage(canvasElement);
 		const article = canvasElement.querySelector(
 			"[data-message]",
 		) as HTMLElement;
@@ -861,11 +1285,184 @@ export const ChatAlignmentMobile: Story = {
 	render: () => <AlignmentDemo platform="mobile" />,
 	play: async ({ canvasElement }) => {
 		await checkAlignment(canvasElement, "mobile");
+		await checkTypingClearsLastMessage(canvasElement);
 		const article = canvasElement.querySelector(
 			"[data-message]",
 		) as HTMLElement;
 		const style = getComputedStyle(article);
 		await expect(style.borderTopRightRadius).toBe("0px");
 		await expect(style.marginTop).toBe(`${CHAT_LAYOUT.mobile.groupGap}px`);
+	},
+};
+
+const storyModerators: RoleIdentity = {
+	id: "mods",
+	name: "Moderators",
+	color: "#c4a7ff",
+	badge: { kind: "icon", name: "shield-check", color: "#76c4e5" },
+};
+
+const NameColorDemo = () => (
+	<div class="flex min-h-dvh flex-col bg-background py-2 text-foreground">
+		<MessageRow
+			author={{ name: "Lis", nameColor: "#ff7a90" }}
+			timestamp={at(9, 10)}
+			now={NOW}
+			locale="en-GB"
+			data-testid="lis"
+		>
+			My name keeps the color I picked
+		</MessageRow>
+		<MessageRow
+			author={{ name: "Lou", nameColor: "#22d3ee", role: storyModerators }}
+			badge={<TeamBadge />}
+			timestamp={at(9, 12)}
+			now={NOW}
+			locale="en-GB"
+			reply={{
+				author: { name: "Lis", nameColor: "#ff7a90" },
+				text: "My name keeps the color I picked",
+			}}
+			data-testid="lou"
+		>
+			Mine follows the moderator role
+		</MessageRow>
+		<MessageRow
+			author={{ name: "Kris", nameColor: "#000000" }}
+			timestamp={at(9, 14)}
+			now={NOW}
+			locale="en-GB"
+			data-testid="kris"
+		>
+			I picked black, which would vanish here
+		</MessageRow>
+		<MessageRow
+			author={{ name: "Mara" }}
+			timestamp={at(9, 16)}
+			now={NOW}
+			locale="en-GB"
+			data-testid="mara"
+		>
+			No color for me
+		</MessageRow>
+		<TypingIndicator
+			users={[
+				{ name: "Lis", nameColor: "#ff7a90" },
+				{ name: "Lou", nameColor: "#22d3ee", roleColor: "#c4a7ff" },
+			]}
+			class="px-4"
+		/>
+	</div>
+);
+
+const nameColorOf = (root: HTMLElement, id: string) => {
+	const name = root.querySelector<HTMLElement>(
+		`[data-testid="${id}"] [data-message-header] [data-author-name]`,
+	);
+	return getComputedStyle(name as Element).color;
+};
+
+export const NameColors: Story = {
+	parameters: mobile,
+	render: () => <NameColorDemo />,
+	play: async ({ canvasElement, step }) => {
+		await step("User colors show in chat", async () => {
+			await expect(nameColorOf(canvasElement, "lis")).toBe(
+				"rgb(255, 122, 144)",
+			);
+			await expect(nameColorOf(canvasElement, "mara")).toBe(
+				"rgb(255, 255, 255)",
+			);
+		});
+
+		await step("A role color overrides the user's color", async () => {
+			await expect(nameColorOf(canvasElement, "lou")).toBe(
+				"rgb(196, 167, 255)",
+			);
+		});
+
+		await step("Unreadable colors are lightened in dark mode", async () => {
+			const color = nameColorOf(canvasElement, "kris");
+			const [r, g, b] = (color.match(/\d+/g) ?? []).map(Number);
+			const hex = `#${[r, g, b].map((v) => v.toString(16).padStart(2, "0")).join("")}`;
+			await expect(contrastRatio(hex, "#2c2c2c")).toBeGreaterThanOrEqual(4.5);
+		});
+
+		await step("Header order is name, role badge, user badges", async () => {
+			const header = canvasElement.querySelector(
+				'[data-testid="lou"] [data-message-header] > div',
+			) as HTMLElement;
+			const order = Array.from(header.children).map((child) =>
+				child.matches("[data-author-name]")
+					? "name"
+					: child.querySelector("[data-role-badge]")
+						? "role"
+						: child.querySelector("[data-user-badge]") ||
+								child.matches("[data-user-badge]")
+							? "user"
+							: "other",
+			);
+			await expect(order).toEqual(["name", "role", "user"]);
+			await expect(
+				within(header).getByRole("button", { name: "Moderators role" }),
+			).toBeVisible();
+		});
+
+		await step("Replies and typing names use the same colors", async () => {
+			const reply = canvasElement.querySelector<HTMLElement>(
+				'[data-testid="lou"] [data-message-reply] [data-author-name]',
+			);
+			await expect(getComputedStyle(reply as Element).color).toBe(
+				"rgb(255, 122, 144)",
+			);
+			const typing =
+				canvasElement.querySelectorAll<HTMLElement>("[data-typing-name]");
+			await expect(getComputedStyle(typing[0]).color).toBe(
+				"rgb(255, 122, 144)",
+			);
+			await expect(getComputedStyle(typing[1]).color).toBe(
+				"rgb(196, 167, 255)",
+			);
+		});
+	},
+};
+
+export const NameColorsOverridden: Story = {
+	parameters: mobile,
+	render: () => (
+		<NameColorProvider overrideUserColors>
+			<NameColorDemo />
+		</NameColorProvider>
+	),
+	play: async ({ canvasElement }) => {
+		await expect(nameColorOf(canvasElement, "lis")).toBe("rgb(255, 255, 255)");
+		await expect(nameColorOf(canvasElement, "lou")).toBe("rgb(196, 167, 255)");
+	},
+};
+
+export const NameColorsLight: Story = {
+	parameters: mobile,
+	globals: { theme: "light" },
+	render: () => (
+		<div class="flex min-h-dvh flex-col bg-background py-2 text-foreground">
+			<MessageRow
+				author={{ name: "Snow", nameColor: "#ffffff" }}
+				timestamp={at(9, 10)}
+				now={NOW}
+				locale="en-GB"
+				data-testid="snow"
+			>
+				White would vanish on a light background
+			</MessageRow>
+		</div>
+	),
+	play: async ({ canvasElement }) => {
+		await waitFor(() =>
+			expect(document.documentElement.dataset.theme).toBe("light"),
+		);
+		const color = nameColorOf(canvasElement, "snow");
+		const [r, g, b] = (color.match(/\d+/g) ?? []).map(Number);
+		const hex = `#${[r, g, b].map((v) => v.toString(16).padStart(2, "0")).join("")}`;
+		await expect(contrastRatio(hex, "#e4e4e6")).toBeGreaterThanOrEqual(4.5);
 	},
 };

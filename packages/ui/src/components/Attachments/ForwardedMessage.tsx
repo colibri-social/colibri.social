@@ -3,6 +3,11 @@ import { LockKeyholeIcon } from "@solar-icons/solid/bold/lock-keyhole";
 import { AltArrowRightIcon } from "@solar-icons/solid/linear/alt-arrow-right";
 import { type JSX, Show } from "solid-js";
 import { cx } from "../../utils/cx";
+import {
+	nameColorClass,
+	nameColorStyle,
+	useNameColor,
+} from "../../utils/name-color";
 import { Avatar } from "../Avatar/Avatar";
 import { createPressRipple, pressSurface } from "./shared";
 
@@ -15,6 +20,8 @@ export type ForwardSource = {
 
 export type ForwardedMessageProps = {
 	author: string;
+	authorNameColor?: string;
+	authorRoleColor?: string;
 	time: string;
 	source?: ForwardSource;
 	children?: JSX.Element;
@@ -79,26 +86,42 @@ const SourceChip = (props: { source?: ForwardSource }) => {
 	);
 };
 
-export const ForwardedMessage = (props: ForwardedMessageProps) => (
-	<div
-		data-forwarded-message=""
-		class={cx("flex w-full max-w-[480px] gap-3", props.class)}
-	>
-		<span aria-hidden="true" class="w-0.5 shrink-0 rounded-full bg-accent" />
-		<div class="flex min-w-0 flex-1 flex-col gap-1.5 py-0.5">
-			<span class="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-muted-foreground [&>svg]:size-3.5">
-				<ForwardIcon />
-				<span>
-					Forwarded from{" "}
-					<span class="font-semibold text-foreground">{props.author}</span>
+export const ForwardedMessage = (props: ForwardedMessageProps) => {
+	const authorColor = useNameColor(() => ({
+		userColor: props.authorNameColor,
+		roleColor: props.authorRoleColor,
+		context: "chat",
+	}));
+	return (
+		<div
+			data-forwarded-message=""
+			class={cx("flex w-full max-w-[480px] gap-3", props.class)}
+		>
+			<span aria-hidden="true" class="w-0.5 shrink-0 rounded-full bg-accent" />
+			<div class="flex min-w-0 flex-1 flex-col gap-1.5 py-0.5">
+				<span class="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-muted-foreground [&>svg]:size-3.5">
+					<ForwardIcon />
+					<span>
+						Forwarded from{" "}
+						<span
+							data-author-name=""
+							class={cx(
+								"font-semibold",
+								authorColor() ? nameColorClass : "text-foreground",
+							)}
+							style={nameColorStyle(authorColor())}
+						>
+							{props.author}
+						</span>
+					</span>
+					<span aria-hidden="true">·</span>
+					<span>{props.time}</span>
 				</span>
-				<span aria-hidden="true">·</span>
-				<span>{props.time}</span>
-			</span>
-			<div class="flex min-w-0 flex-col gap-2 text-base text-foreground">
-				{props.children}
+				<div class="flex min-w-0 flex-col gap-2 text-base text-foreground select-text">
+					{props.children}
+				</div>
+				<SourceChip source={props.source} />
 			</div>
-			<SourceChip source={props.source} />
 		</div>
-	</div>
-);
+	);
+};

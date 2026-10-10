@@ -12,11 +12,7 @@ import {
 } from "../../icons/animated/media";
 import { cx } from "../../utils/cx";
 import { Button } from "../Button/Button";
-import {
-	Tooltip,
-	TooltipContent,
-	TooltipTrigger,
-} from "../MessageActions/Tooltip";
+import { Tooltip, TooltipContent, TooltipTrigger } from "../Tooltip/Tooltip";
 import {
 	CallControlButton,
 	CallLeaveButton,
@@ -126,7 +122,7 @@ export const VoiceStatusPanel = (props: VoiceStatusPanelProps) => {
 							aria-label={`Connection: ${latencyLabel()}`}
 							data-quality-tile=""
 							class={cx(
-								"flex size-8 shrink-0 cursor-default items-center justify-center rounded-control-sm border-0 p-0 outline-none focus-visible:shadow-[0_0_0_2px_var(--primary)] [&_svg]:size-5",
+								"flex size-8 shrink-0 cursor-default items-center justify-center rounded-control-sm border-0 p-0 outline-none focus-ring [&_svg]:size-5",
 								qualityTile[quality()],
 							)}
 						>

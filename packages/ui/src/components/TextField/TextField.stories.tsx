@@ -1,11 +1,9 @@
 import { CopyIcon } from "@solar-icons/solid/bold/copy";
 import { PipetteIcon } from "@solar-icons/solid/bold/pipette";
 import { SmileCircleIcon } from "@solar-icons/solid/bold/smile-circle";
-import { createSignal, For, Show } from "solid-js";
-import { expect, fn, screen, userEvent, waitFor, within } from "storybook/test";
+import { expect, fn, userEvent, within } from "storybook/test";
 import type { Meta, StoryObj } from "storybook-solidjs-vite";
 import { IconButton } from "../IconButton/IconButton";
-import { Popover, PopoverContent, PopoverTrigger } from "../Popover/Popover";
 import { SearchField, TextArea, TextField } from "./TextField";
 
 const meta = {
@@ -45,76 +43,6 @@ export const WithLeading: Story = {
 		label: "Status",
 		placeholder: "What are you up to?",
 		leading: <SmileCircleIcon />,
-	},
-};
-
-const STATUS_EMOJIS = ["🐦", "🪺", "🎧", "💻", "☕", "🌙", "🎮", "📚"];
-
-const StatusField = () => {
-	const [emoji, setEmoji] = createSignal<string>();
-	const [open, setOpen] = createSignal(false);
-
-	return (
-		<TextField
-			label="Status"
-			placeholder="What are you up to?"
-			defaultValue="Building a nest!"
-			leading={
-				<Popover open={open()} onOpenChange={setOpen} placement="bottom-start">
-					<PopoverTrigger
-						as={IconButton}
-						variant="ghost"
-						size="sm"
-						label={
-							emoji() ? `Status emoji ${emoji()}` : "Choose a status emoji"
-						}
-						class="-ml-1.5 text-lg text-muted-foreground"
-						icon={
-							<Show when={emoji()} fallback={<SmileCircleIcon />}>
-								{emoji()}
-							</Show>
-						}
-					/>
-					<PopoverContent title="Status emoji">
-						<div class="grid grid-cols-4 gap-1">
-							<For each={STATUS_EMOJIS}>
-								{(item) => (
-									<button
-										type="button"
-										aria-label={item}
-										class="pressable flex size-10 cursor-pointer items-center justify-center rounded-control text-2xl hover:bg-secondary data-pressed:bg-secondary"
-										onClick={() => {
-											setEmoji(item);
-											setOpen(false);
-										}}
-									>
-										{item}
-									</button>
-								)}
-							</For>
-						</div>
-					</PopoverContent>
-				</Popover>
-			}
-		/>
-	);
-};
-
-export const WithEmojiButton: Story = {
-	render: () => <StatusField />,
-	play: async ({ canvasElement }) => {
-		const canvas = within(canvasElement);
-		await userEvent.click(
-			canvas.getByRole("button", { name: "Choose a status emoji" }),
-		);
-		const dialog = await screen.findByRole("dialog");
-		await userEvent.click(within(dialog).getByRole("button", { name: "🐦" }));
-		await waitFor(() =>
-			expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
-		);
-		await expect(
-			canvas.getByRole("button", { name: "Status emoji 🐦" }),
-		).toBeInTheDocument();
 	},
 };
 

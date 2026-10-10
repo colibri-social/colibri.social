@@ -3,15 +3,18 @@ import { PenIcon } from "@solar-icons/solid/bold/pen";
 import { ReplyIcon } from "@solar-icons/solid/bold/reply";
 import { type JSX, Show } from "solid-js";
 import { cx } from "../../utils/cx";
+import { createExitHold } from "../../utils/exit-hold";
 import { createSlot } from "../../utils/slot";
 import { IconButton } from "../IconButton/IconButton";
 
-export type ComposerBarTone = "info" | "warning";
+export type ComposerBarTone = "info" | "warning" | "primary";
 
 const toneClass: Record<ComposerBarTone, string> = {
 	info: "bg-[color-mix(in_srgb,var(--info)_8%,transparent)] [--composer-bar-accent:var(--info)]",
 	warning:
 		"bg-[color-mix(in_srgb,var(--warning)_8%,transparent)] [--composer-bar-accent:var(--warning)]",
+	primary:
+		"bg-[color-mix(in_srgb,var(--primary)_8%,transparent)] [--composer-bar-accent:var(--primary-highlight)]",
 };
 
 export type ComposerBarProps = {
@@ -22,7 +25,9 @@ export type ComposerBarProps = {
 	trailing?: JSX.Element;
 	cancelLabel: string;
 	onCancel?: () => void;
+	kind?: string;
 	class?: string;
+	ref?: (element: HTMLDivElement) => void;
 };
 
 export const ComposerBar = (props: ComposerBarProps) => {
@@ -31,7 +36,8 @@ export const ComposerBar = (props: ComposerBarProps) => {
 
 	return (
 		<div
-			data-composer-bar=""
+			ref={(element) => props.ref?.(element)}
+			data-composer-bar={props.kind ?? ""}
 			data-open={props.open || undefined}
 			inert={!props.open}
 			aria-hidden={props.open ? undefined : "true"}
@@ -77,34 +83,58 @@ export type ReplyBarProps = {
 	class?: string;
 };
 
-export const ReplyBar = (props: ReplyBarProps) => (
-	<ComposerBar
-		open={props.open}
-		tone="info"
-		icon={<ReplyIcon />}
-		cancelLabel="Cancel reply"
-		onCancel={props.onCancel}
-		class={props.class}
-	>
-		Replying to <span class="font-semibold text-foreground">{props.name}</span>
-	</ComposerBar>
-);
+export const ReplyBar = (props: ReplyBarProps) => {
+	const name = createExitHold(
+		() => props.name,
+		() => props.open,
+	);
+	return (
+		<ComposerBar
+			ref={name.settle}
+			open={props.open}
+			tone="info"
+			kind="reply"
+			icon={<ReplyIcon />}
+			cancelLabel="Cancel reply"
+			onCancel={props.onCancel}
+			class={props.class}
+		>
+			Replying to{" "}
+			<span class="font-semibold text-foreground">{name.value()}</span>
+		</ComposerBar>
+	);
+};
 
 export type EditBarProps = {
 	open: boolean;
+	preview?: JSX.Element;
 	onCancel?: () => void;
 	class?: string;
 };
 
-export const EditBar = (props: EditBarProps) => (
-	<ComposerBar
-		open={props.open}
-		tone="warning"
-		icon={<PenIcon />}
-		cancelLabel="Cancel editing"
-		onCancel={props.onCancel}
-		class={props.class}
-	>
-		<span class="text-foreground">Editing message</span>
-	</ComposerBar>
-);
+export const EditBar = (props: EditBarProps) => {
+	const shown = createExitHold(
+		() => props.preview,
+		() => props.open,
+	);
+	const preview = createSlot(() => shown.value());
+	return (
+		<ComposerBar
+			ref={shown.settle}
+			open={props.open}
+			tone="primary"
+			kind="edit"
+			icon={<PenIcon />}
+			cancelLabel="Cancel editing"
+			onCancel={props.onCancel}
+			class={props.class}
+		>
+			<span data-edit-bar="" class="text-foreground">
+				Editing message
+			</span>
+			<Show when={preview.has()}>
+				<span class="text-muted-foreground"> · {preview()}</span>
+			</Show>
+		</ComposerBar>
+	);
+};

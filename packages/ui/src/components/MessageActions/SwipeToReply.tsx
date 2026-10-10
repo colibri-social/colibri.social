@@ -106,7 +106,6 @@ export const SwipeToReply = (props: SwipeToReplyProps) => {
 							data-swipe-arrow=""
 							data-crossed={progress() >= 1 || undefined}
 							class={iconEffectClass("pop")}
-							style={{ "--fx-scale": "1.35" }}
 						>
 							<ReplyIcon class="size-5" />
 						</span>

@@ -216,7 +216,6 @@ export const AnimatedStarsIcon = (props: AnimatedIconProps) => (
 			hover="pop"
 			attention="pop"
 			origin="8.5px 8.5px"
-			vars={{ "--fx-scale": "1.18" }}
 		/>
 		<SolarShape
 			path={stars0}
@@ -224,7 +223,7 @@ export const AnimatedStarsIcon = (props: AnimatedIconProps) => (
 			hover="pop"
 			attention="pop"
 			origin="17.5px 17.5px"
-			vars={{ "--fx-scale": "1.25", "--fx-delay": "120ms" }}
+			vars={{ "--fx-delay": "120ms" }}
 		/>
 	</AnimatedIcon>
 );

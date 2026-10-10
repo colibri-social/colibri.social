@@ -2,9 +2,18 @@ import { CrownIcon } from "@solar-icons/solid/bold/crown";
 import { ShieldCheckIcon } from "@solar-icons/solid/bold/shield-check";
 import { UsersGroupRoundedIcon } from "@solar-icons/solid/bold/users-group-rounded";
 import { For } from "solid-js";
-import { expect, screen, userEvent, waitFor, within } from "storybook/test";
-import type { Meta, StoryObj } from "storybook-solidjs-vite";
 import {
+	expect,
+	fireEvent,
+	screen,
+	userEvent,
+	waitFor,
+	within,
+} from "storybook/test";
+import type { Meta, StoryObj } from "storybook-solidjs-vite";
+import { PlayTesterBadge } from "../../icons/animated/brand";
+import {
+	AppBadge,
 	Badge,
 	BOT_BADGE_DEFINITION,
 	BotBadge,
@@ -92,13 +101,18 @@ export const UserBadges: Story = {
 		);
 		await expect(team?.textContent).toBe("TEAM");
 		const triggers = canvas.getAllByRole("button", { name: "TEAM" });
-		await userEvent.click(triggers[0] as HTMLElement);
+		(triggers[0] as HTMLElement).focus();
+		await userEvent.keyboard("{Enter}");
 		await waitFor(() =>
-			expect(screen.getByText("Official Colibri Maintainer")).toBeVisible(),
+			expect(
+				within(screen.getByRole("dialog", { name: "TEAM" })).getByText(
+					"Official Colibri Maintainer",
+				),
+			).toBeVisible(),
 		);
 		await userEvent.keyboard("{Escape}");
 		await waitFor(() =>
-			expect(screen.queryByText("Official Colibri Maintainer")).toBeNull(),
+			expect(screen.queryByRole("dialog", { name: "TEAM" })).toBeNull(),
 		);
 	},
 };
@@ -178,5 +192,71 @@ export const MentionKinds: Story = {
 		await expect(getComputedStyle(user).cursor).toBe("pointer");
 		await expect(getComputedStyle(bridged).cursor).not.toBe("pointer");
 		await expect(bridged).toHaveAttribute("title", "On Matrix");
+	},
+};
+
+const tap = async (element: HTMLElement) => {
+	await fireEvent.pointerDown(element, { pointerType: "touch", button: 0 });
+	await fireEvent.pointerUp(element, { pointerType: "touch", button: 0 });
+	await fireEvent.click(element, { detail: 1 });
+};
+
+export const BadgeInfoOnProfile: Story = {
+	render: () => (
+		<div class="flex items-center gap-2 p-16 text-2xl font-bold">
+			Lou
+			<TeamBadge size="sm" />
+			<AppBadge
+				name="Play Store tester"
+				description="Helped test the Colibri App for the Play Store release"
+				icon={<PlayTesterBadge size={16} />}
+			/>
+		</div>
+	),
+	play: async ({ canvasElement, step }) => {
+		const canvas = within(canvasElement);
+		const team = canvas.getByRole("button", { name: "TEAM" });
+		const app = canvas.getByRole("button", { name: "Play Store tester" });
+
+		await step("Hover shows a tooltip on desktop", async () => {
+			await userEvent.hover(app);
+			const tooltip = await screen.findByRole("tooltip", {}, { timeout: 3000 });
+			await expect(tooltip).toHaveTextContent("Play Store tester");
+			await expect(tooltip).toHaveTextContent(
+				"Helped test the Colibri App for the Play Store release",
+			);
+			await userEvent.click(app);
+			await expect(screen.queryByRole("dialog")).toBeNull();
+			await userEvent.unhover(app);
+			await waitFor(() => expect(screen.queryByRole("tooltip")).toBeNull());
+		});
+
+		await step("Keyboard focus shows the tooltip", async () => {
+			team.focus();
+			await waitFor(
+				() =>
+					expect(screen.getByRole("tooltip")).toHaveTextContent(
+						"Official Colibri Maintainer",
+					),
+				{ timeout: 3000 },
+			);
+			team.blur();
+			await waitFor(() => expect(screen.queryByRole("tooltip")).toBeNull());
+		});
+
+		await step("A tap opens a popover on touch", async () => {
+			await tap(app);
+			const dialog = await screen.findByRole("dialog", {
+				name: "Play Store tester",
+			});
+			await expect(dialog).toHaveTextContent(
+				"Helped test the Colibri App for the Play Store release",
+			);
+			await expect(app).toHaveAttribute("aria-expanded", "true");
+			await expect(screen.queryByRole("tooltip")).toBeNull();
+			await tap(app);
+			await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+			await expect(app).toHaveAttribute("aria-expanded", "false");
+		});
 	},
 };

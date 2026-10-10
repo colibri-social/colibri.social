@@ -120,7 +120,6 @@ export const AnimatedGifIcon = (props: AnimatedIconProps) => (
 			hover="pop"
 			attention="bounce"
 			origin="10px 10px"
-			vars={{ "--fx-scale": "1.1" }}
 		/>
 	</AnimatedIcon>
 );

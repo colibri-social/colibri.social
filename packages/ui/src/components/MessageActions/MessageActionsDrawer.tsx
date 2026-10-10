@@ -19,6 +19,7 @@ import {
 import { ThreadIcon } from "../../icons/custom";
 import { cx } from "../../utils/cx";
 import { createRipple } from "../../utils/ripple";
+import { DeveloperModeCard } from "../DeveloperMode/DeveloperModeCard";
 import { Drawer, DrawerContent } from "../Drawer/Drawer";
 import { DestructiveRow, ListGroup } from "../List/List";
 import type { RenderEmoji } from "./ReactionBar";
@@ -45,7 +46,7 @@ export const ActionRow = (props: ActionRowProps) => {
 			onClick={(event) => props.onClick?.(event)}
 			class={cx(
 				"ripple flex h-10 w-full shrink-0 cursor-pointer items-center gap-2 px-3 text-left text-foreground outline-none",
-				"hover:bg-secondary-highlight focus-visible:shadow-[inset_0_0_0_2px_var(--primary)]",
+				"hover:bg-secondary-highlight focus-ring-inset",
 				"disabled:cursor-not-allowed disabled:opacity-50",
 				props.class,
 			)}
@@ -76,7 +77,7 @@ const QuickReaction = (props: {
 			onClick={() => props.onClick()}
 			class={cx(
 				"ripple flex h-12 min-w-0 flex-1 cursor-pointer items-center justify-center rounded-control-lg bg-secondary text-muted-foreground outline-none",
-				"hover:bg-secondary-highlight focus-visible:shadow-[inset_0_0_0_2px_var(--primary)]",
+				"hover:bg-secondary-highlight focus-ring-inset",
 				"[&>img]:size-6 [&>svg]:size-6",
 			)}
 		>
@@ -103,7 +104,14 @@ export type MessageActionsDrawerProps = {
 	onHide?: () => void;
 	onUnhide?: () => void;
 	onDelete?: () => void;
+	developer?: MessageDeveloperInfo;
 	label?: string;
+};
+
+export type MessageDeveloperInfo = {
+	atUri: string;
+	pdslsHref?: string;
+	onCopy?: () => void;
 };
 
 export const MessageActionsDrawer = (props: MessageActionsDrawerProps) => {
@@ -257,6 +265,16 @@ export const MessageActionsDrawer = (props: MessageActionsDrawerProps) => {
 							/>
 						</Show>
 					</ListGroup>
+				</Show>
+				<Show when={props.developer}>
+					{(developer) => (
+						<DeveloperModeCard
+							copyLabel="Copy AT-URI"
+							copyValue={developer().atUri}
+							onCopy={developer().onCopy}
+							pdslsHref={developer().pdslsHref}
+						/>
+					)}
 				</Show>
 			</DrawerContent>
 		</Drawer>

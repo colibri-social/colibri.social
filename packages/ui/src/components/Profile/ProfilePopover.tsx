@@ -1,6 +1,8 @@
 import { Popover as KobaltePopover } from "@kobalte/core/popover";
 import { createSignal, type JSX, Show } from "solid-js";
 import { cx } from "../../utils/cx";
+import { createExitHold } from "../../utils/exit-hold";
+import { revealLayer, topLayerAttrs } from "../../utils/nested-layers";
 import { usePopperOverflowPadding } from "../../utils/safe-area";
 import type { PopoverPlacement } from "../Popover/Popover";
 import { Skeleton, SkeletonText } from "../Skeleton/Skeleton";
@@ -72,8 +74,19 @@ export const ProfilePopover = (props: ProfilePopoverProps) => {
 		props.onOpenChange?.(next);
 	};
 
-	const name = () =>
-		props.profile ? (props.profile.nickname ?? props.profile.displayName) : "";
+	const shown = createExitHold(
+		() => ({ profile: props.profile, loading: props.loading }),
+		open,
+	);
+	const ExitHoldMarker = () => {
+		shown.track();
+		return null;
+	};
+
+	const name = () => {
+		const profile = shown.value().profile;
+		return profile ? (profile.nickname ?? profile.displayName) : "";
+	};
 
 	return (
 		<KobaltePopover
@@ -94,7 +107,7 @@ export const ProfilePopover = (props: ProfilePopoverProps) => {
 					aria-disabled={props.disabled || undefined}
 					data-profile-trigger=""
 					class={cx(
-						"cursor-pointer outline-none focus-visible:shadow-[0_0_0_2px_var(--primary)]",
+						"cursor-pointer outline-none focus-ring",
 						props.disabled && "pointer-events-none",
 						props.triggerClass,
 					)}
@@ -104,6 +117,8 @@ export const ProfilePopover = (props: ProfilePopoverProps) => {
 			</Show>
 			<KobaltePopover.Portal>
 				<KobaltePopover.Content
+					{...topLayerAttrs}
+					ref={revealLayer}
 					aria-label={name() ? `${name()}'s profile` : "Loading profile"}
 					data-profile-popover=""
 					class={cx(popoverFrame, props.contentClass)}
@@ -118,9 +133,10 @@ export const ProfilePopover = (props: ProfilePopoverProps) => {
 						anchor.focus({ preventScroll: true });
 					}}
 				>
+					<ExitHoldMarker />
 					<div class="min-h-0 overflow-y-auto overscroll-contain">
 						<Show
-							when={!props.loading && props.profile}
+							when={!shown.value().loading && shown.value().profile}
 							fallback={<ProfilePopoverSkeleton />}
 						>
 							{(profile) => (

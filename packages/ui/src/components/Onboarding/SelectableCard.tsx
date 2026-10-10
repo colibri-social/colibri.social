@@ -13,6 +13,7 @@ export type SelectableCardGroupProps = {
 	name?: string;
 	label?: JSX.Element;
 	"aria-label"?: string;
+	orientation?: "horizontal" | "vertical";
 	class?: string;
 	children: JSX.Element;
 };
@@ -23,6 +24,7 @@ export const SelectableCardGroup = (props: SelectableCardGroupProps) => {
 		"defaultValue",
 		"onChange",
 		"label",
+		"orientation",
 		"class",
 		"children",
 	]);
@@ -50,7 +52,15 @@ export const SelectableCardGroup = (props: SelectableCardGroupProps) => {
 					{label()}
 				</KobalteRadioGroup.Label>
 			</Show>
-			<div class="flex gap-4">{local.children}</div>
+			<div
+				data-orientation={local.orientation ?? "horizontal"}
+				class={cx(
+					"flex",
+					local.orientation === "vertical" ? "flex-col gap-2" : "gap-4",
+				)}
+			>
+				{local.children}
+			</div>
 		</KobalteRadioGroup>
 	);
 };
@@ -58,6 +68,8 @@ export const SelectableCardGroup = (props: SelectableCardGroupProps) => {
 export type SelectableCardProps = {
 	value: string;
 	label: JSX.Element;
+	description?: JSX.Element;
+	layout?: "tile" | "row";
 	icon?: JSX.Element;
 	disabled?: boolean;
 	class?: string;
@@ -65,7 +77,9 @@ export type SelectableCardProps = {
 
 export const SelectableCard = (props: SelectableCardProps) => {
 	const icon = createSlot(() => props.icon);
+	const description = createSlot(() => props.description);
 	const ripple = createRipple();
+	const isRow = () => props.layout === "row";
 
 	return (
 		<KobalteRadioGroup.Item
@@ -73,6 +87,7 @@ export const SelectableCard = (props: SelectableCardProps) => {
 			value={props.value}
 			disabled={props.disabled}
 			data-selectable-card=""
+			data-layout={isRow() ? "row" : "tile"}
 			class={cx(
 				"group/tile ripple min-w-0 flex-1 rounded-surface bg-card text-foreground",
 				"hover:bg-popover data-checked:hover:bg-card",
@@ -96,13 +111,37 @@ export const SelectableCard = (props: SelectableCardProps) => {
 				class="pointer-events-none absolute inset-0 z-[-1] rounded-[inherit] border border-border"
 			/>
 			<KobalteRadioGroup.ItemInput class="peer" />
-			<KobalteRadioGroup.ItemLabel class="flex size-full cursor-pointer flex-col items-center justify-center gap-3 p-3 text-center group-data-disabled/tile:cursor-not-allowed">
+			<KobalteRadioGroup.ItemLabel
+				class={cx(
+					"flex size-full cursor-pointer group-data-disabled/tile:cursor-not-allowed",
+					isRow()
+						? "flex-row items-center gap-3 px-4 py-3 text-left"
+						: "flex-col items-center justify-center gap-3 p-3 text-center",
+				)}
+			>
 				<Show when={icon.has()}>
 					<span class="flex size-6 shrink-0 items-center justify-center [&>svg]:size-6">
 						{icon()}
 					</span>
 				</Show>
-				<span class="text-sm leading-[18px]">{props.label}</span>
+				<Show
+					when={isRow()}
+					fallback={<span class="text-sm leading-[18px]">{props.label}</span>}
+				>
+					<span class="flex min-w-0 flex-col gap-0.5">
+						<span class="text-sm leading-[18px] font-semibold">
+							{props.label}
+						</span>
+						<Show when={description.has()}>
+							<KobalteRadioGroup.ItemDescription
+								aria-hidden="true"
+								class="text-xs leading-4 text-muted-foreground group-data-checked/tile:text-current/80"
+							>
+								{description()}
+							</KobalteRadioGroup.ItemDescription>
+						</Show>
+					</span>
+				</Show>
 			</KobalteRadioGroup.ItemLabel>
 		</KobalteRadioGroup.Item>
 	);

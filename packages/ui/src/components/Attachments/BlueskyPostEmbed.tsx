@@ -81,7 +81,7 @@ const QuotedPost = (props: { post: BlueskyPost }) => (
 		class="flex flex-col gap-1.5 rounded-badge border border-border p-3"
 	>
 		<PostHeader post={props.post} size="sm" />
-		<p class="m-0 line-clamp-3 text-sm">{props.post.text}</p>
+		<p class="m-0 line-clamp-3 text-sm select-text">{props.post.text}</p>
 	</div>
 );
 
@@ -128,7 +128,7 @@ export const BlueskyPostEmbed = (props: BlueskyPostEmbedProps) => (
 				Replying to @{props.post.replyTo}
 			</span>
 		</Show>
-		<p class="m-0 text-sm whitespace-pre-wrap">{props.post.text}</p>
+		<p class="m-0 text-sm whitespace-pre-wrap select-text">{props.post.text}</p>
 		<Show when={props.post.images?.length}>
 			<MediaGrid
 				items={props.post.images ?? []}

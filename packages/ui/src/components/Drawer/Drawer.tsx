@@ -1,6 +1,8 @@
 import CorvuDrawer from "@corvu/drawer";
 import {
+	createContext,
 	createEffect,
+	createRenderEffect,
 	createSignal,
 	type JSX,
 	on,
@@ -8,8 +10,15 @@ import {
 	type ParentProps,
 	Show,
 	splitProps,
+	useContext,
 } from "solid-js";
 import { cx } from "../../utils/cx";
+import { createHeightTransition } from "../../utils/height-transition";
+import {
+	revealLayer,
+	topLayerAttrs,
+	useParentLayers,
+} from "../../utils/nested-layers";
 import { createSlot } from "../../utils/slot";
 
 export type DrawerProps = ParentProps<{
@@ -17,9 +26,31 @@ export type DrawerProps = ParentProps<{
 	onOpenChange?: (open: boolean) => void;
 	initialOpen?: boolean;
 	modal?: boolean;
+	initialFocus?: "first-focusable" | "content";
+	initialFocusEl?: HTMLElement;
 }>;
 
+const DrawerContentRef = createContext<(element: HTMLElement) => void>();
+
 const OPENING_SETTLE_FRAMES = 3;
+const CLOSE_FALLBACK_SLACK_MS = 250;
+
+const longestTransitionMs = (element: HTMLElement) => {
+	const style = getComputedStyle(element);
+	const seconds = (value: string) =>
+		value.split(",").map((part) => {
+			const trimmed = part.trim();
+			const amount = Number.parseFloat(trimmed);
+			if (Number.isNaN(amount)) return 0;
+			return trimmed.endsWith("ms") ? amount : amount * 1000;
+		});
+	const durations = seconds(style.transitionDuration);
+	const delays = seconds(style.transitionDelay);
+	return Math.max(
+		0,
+		...durations.map((duration, index) => duration + (delays[index] ?? 0)),
+	);
+};
 
 export const Drawer = (props: DrawerProps) => {
 	const [open, setOpen] = createSignal(
@@ -80,6 +111,29 @@ export const Drawer = (props: DrawerProps) => {
 		if (frame) cancelAnimationFrame(frame);
 	});
 
+	const parentLayers = useParentLayers();
+	let releaseLayer: (() => void) | undefined;
+	createRenderEffect(
+		on(open, (isOpen) => {
+			if (!parentLayers) return;
+			if (isOpen && !releaseLayer) {
+				releaseLayer = parentLayers.register();
+				return;
+			}
+			if (!isOpen && releaseLayer) {
+				const release = releaseLayer;
+				releaseLayer = undefined;
+				requestAnimationFrame(() => release());
+			}
+		}),
+	);
+	onCleanup(() => releaseLayer?.());
+
+	const [contentElement, setContentElement] = createSignal<HTMLElement>();
+	const initialFocusEl = () =>
+		props.initialFocusEl ??
+		(props.initialFocus === "content" ? contentElement() : undefined);
+
 	const onOpenChange = (next: boolean) => {
 		if (props.open === undefined) apply(next);
 		props.onOpenChange?.(next);
@@ -92,8 +146,13 @@ export const Drawer = (props: DrawerProps) => {
 			modal={props.modal ?? true}
 			side="bottom"
 			velocityFunction={(distance, time) => distance / time}
+			initialFocusEl={initialFocusEl()}
 		>
-			{() => props.children}
+			{() => (
+				<DrawerContentRef.Provider value={setContentElement}>
+					{props.children}
+				</DrawerContentRef.Provider>
+			)}
 		</CorvuDrawer>
 	);
 };
@@ -123,20 +182,49 @@ export const DrawerContent = (props: DrawerContentProps) => {
 		"children",
 	]);
 	const context = CorvuDrawer.useContext();
+	const registerContent = useContext(DrawerContentRef);
 	const title = createSlot(() => local.title);
 	const titleIcon = createSlot(() => local.titleIcon);
 	const description = createSlot(() => local.description);
 	const header = createSlot(() => local.header);
 	const footer = createSlot(() => local.footer);
+	const heightTransition = createHeightTransition({
+		isBusy: () => context.isTransitioning() || context.isDragging(),
+	});
+	let contentNode: HTMLElement | undefined;
+
+	createEffect(() => {
+		if (context.transitionState() !== "closing") return;
+		const element = contentNode;
+		if (!element) return;
+		const timer = setTimeout(() => {
+			if (context.transitionState() !== "closing") return;
+			element.dispatchEvent(
+				new TransitionEvent("transitionend", {
+					propertyName: "transform",
+					bubbles: true,
+				}),
+			);
+		}, longestTransitionMs(element) + CLOSE_FALLBACK_SLACK_MS);
+		onCleanup(() => clearTimeout(timer));
+	});
 
 	return (
 		<CorvuDrawer.Portal>
 			<CorvuDrawer.Overlay
+				{...topLayerAttrs}
 				class="sheet-motion fixed inset-0 z-50 bg-overlay"
 				style={{ opacity: context.openPercentage() }}
 			/>
 			<CorvuDrawer.Content
 				{...rest}
+				{...topLayerAttrs}
+				ref={(element: HTMLElement) => {
+					contentNode = element;
+					revealLayer(element);
+					registerContent?.(element);
+					heightTransition(element);
+				}}
 				class={cx(
 					"sheet-motion fixed inset-x-0 bottom-0 z-50 flex max-h-[min(90dvh,calc(100dvh-var(--safe-area-top,0px)-16px))] flex-col pl-safe pr-safe",
 					"rounded-t-sheet bg-popover text-foreground outline-none",
@@ -189,6 +277,7 @@ export const DrawerContent = (props: DrawerContentProps) => {
 					class={cx(
 						"flex min-h-0 flex-col overflow-y-auto overscroll-contain",
 						footer.has() ? "pb-4" : "pb-safe-offset-4",
+						!header.has() && "-mt-(--focus-ring-reach) pt-(--focus-ring-reach)",
 						header.has() && "rounded-t-sheet",
 					)}
 				>

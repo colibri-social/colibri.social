@@ -1,7 +1,19 @@
 import { Dialog } from "@kobalte/core/dialog";
 import { CloseIcon } from "@solar-icons/solid/bold/close";
-import { type JSX, type ParentProps, Show, splitProps } from "solid-js";
+import {
+	type JSX,
+	type ParentProps,
+	Show,
+	splitProps,
+	useContext,
+} from "solid-js";
 import { cx } from "../../utils/cx";
+import { createHeightTransition } from "../../utils/height-transition";
+import {
+	createNestedLayers,
+	isInsideNestedLayer,
+	NestedLayerContext,
+} from "../../utils/nested-layers";
 import { createSlot } from "../../utils/slot";
 import { IconButton } from "../IconButton/IconButton";
 
@@ -12,17 +24,40 @@ export type ModalProps = ParentProps<{
 	modal?: boolean;
 }>;
 
-export const Modal = (props: ModalProps) => (
-	<Dialog
-		open={props.open}
-		onOpenChange={props.onOpenChange}
-		defaultOpen={props.defaultOpen}
-		modal={props.modal ?? true}
-		preventScroll
-	>
-		{props.children}
-	</Dialog>
-);
+export const Modal = (props: ModalProps) => {
+	const layers = createNestedLayers();
+	return (
+		<Dialog
+			open={props.open}
+			onOpenChange={props.onOpenChange}
+			defaultOpen={props.defaultOpen}
+			modal={props.modal ?? true}
+			preventScroll
+		>
+			<NestedLayerContext.Provider value={layers}>
+				{props.children}
+			</NestedLayerContext.Provider>
+		</Dialog>
+	);
+};
+
+const useNestedLayerGuards = () => {
+	const layers = useContext(NestedLayerContext);
+	const guard = (event: Event & { detail?: { originalEvent?: Event } }) => {
+		const target = event.detail?.originalEvent?.target ?? event.target;
+		if (layers?.active() || isInsideNestedLayer(target)) event.preventDefault();
+	};
+	return {
+		get trapFocus() {
+			return !layers?.active();
+		},
+		onInteractOutside: guard,
+		onFocusOutside: guard,
+		onEscapeKeyDown: (event: KeyboardEvent) => {
+			if (layers?.active()) event.preventDefault();
+		},
+	};
+};
 
 export const ModalTrigger = Dialog.Trigger;
 
@@ -57,6 +92,7 @@ export type ModalContentProps = {
 	closeLabel?: string;
 	class?: string;
 	children?: JSX.Element;
+	onCloseAutoFocus?: (event: Event) => void;
 };
 
 export const ModalContent = (props: ModalContentProps) => {
@@ -70,6 +106,8 @@ export const ModalContent = (props: ModalContentProps) => {
 	]);
 	const description = createSlot(() => local.description);
 	const footer = createSlot(() => local.footer);
+	const heightTransition = createHeightTransition();
+	const guards = useNestedLayerGuards();
 
 	return (
 		<Dialog.Portal>
@@ -77,6 +115,8 @@ export const ModalContent = (props: ModalContentProps) => {
 			<div class="fixed inset-0 z-50 flex items-center justify-center px-safe-offset-4 pt-safe-offset-10 pb-safe-offset-4 md:pt-safe-offset-4">
 				<Dialog.Content
 					{...rest}
+					{...guards}
+					ref={heightTransition}
 					class={cx(surface, "w-full gap-4 p-4 md:w-[360px]", local.class)}
 				>
 					<div class="flex min-h-6 items-start justify-between gap-3">
@@ -107,7 +147,7 @@ export const ModalContent = (props: ModalContentProps) => {
 
 export type LargeModalContentProps = {
 	title: JSX.Element;
-	sidebar: JSX.Element;
+	sidebar?: JSX.Element;
 	closeLabel?: string;
 	class?: string;
 	children?: JSX.Element;
@@ -121,6 +161,8 @@ export const LargeModalContent = (props: LargeModalContentProps) => {
 		"class",
 		"children",
 	]);
+	const guards = useNestedLayerGuards();
+	const sidebar = createSlot(() => local.sidebar);
 
 	return (
 		<Dialog.Portal>
@@ -128,16 +170,25 @@ export const LargeModalContent = (props: LargeModalContentProps) => {
 			<div class="fixed inset-0 z-50 flex items-center justify-center px-safe-offset-4 pt-safe-offset-4 pb-safe-offset-4">
 				<Dialog.Content
 					{...rest}
+					{...guards}
 					class={cx(
 						surface,
 						"h-full max-h-[800px] w-full max-w-[1200px] flex-row",
 						local.class,
 					)}
 				>
-					<nav class="flex w-72 shrink-0 flex-col gap-6 overflow-y-auto bg-card p-4">
-						{local.sidebar}
-					</nav>
-					<div class="flex min-w-0 flex-1 flex-col border-l border-border">
+					<Show when={sidebar.has()}>
+						<nav class="flex w-72 shrink-0 flex-col gap-6 overflow-y-auto bg-card p-4">
+							{sidebar()}
+						</nav>
+					</Show>
+					<div
+						data-modal-main=""
+						class={cx(
+							"flex min-w-0 flex-1 flex-col",
+							sidebar.has() && "border-l border-border",
+						)}
+					>
 						<div class="flex h-12 shrink-0 items-center justify-between border-b border-border pr-2 pl-4">
 							<Dialog.Title class="truncate text-base font-semibold">
 								{local.title}

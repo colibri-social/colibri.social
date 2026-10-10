@@ -234,10 +234,7 @@ export const VoiceTile = (props: VoiceTileProps) => {
 				data-kind={props.tile.kind ?? "participant"}
 				aria-pressed={!!props.focused}
 				onClick={() => props.onSelect?.()}
-				class={cx(
-					shellClass(),
-					"cursor-pointer p-0 outline-none focus-visible:shadow-[0_0_0_2px_var(--primary)]",
-				)}
+				class={cx(shellClass(), "cursor-pointer p-0 outline-none focus-ring")}
 				style={shellStyle()}
 			>
 				{content()}
@@ -333,7 +330,7 @@ export const VoiceGrid = (props: VoiceGridProps) => {
 			data-columns={focused() ? undefined : columns()}
 			data-focused={focused() ? "" : undefined}
 			class={cx(
-				"relative flex size-full min-h-0 flex-col items-center justify-center",
+				"relative flex size-full min-h-0 flex-col items-center justify-center p-(--focus-ring-reach)",
 				props.class,
 			)}
 			style={{ gap: `${gap()}px` }}
@@ -379,8 +376,11 @@ export const VoiceGrid = (props: VoiceGridProps) => {
 						<Show when={others().length}>
 							<div
 								data-voice-strip=""
-								class="flex w-full shrink-0 justify-center overflow-x-auto overscroll-x-contain"
-								style={{ gap: `${gap()}px`, height: `${STRIP_HEIGHT}px` }}
+								class="ring-room flex w-full shrink-0 justify-center-safe overflow-x-auto overscroll-x-contain"
+								style={{
+									gap: `${gap()}px`,
+									height: `calc(${STRIP_HEIGHT}px + var(--focus-ring-reach) * 2)`,
+								}}
 							>
 								<For each={others()}>
 									{(other) => (

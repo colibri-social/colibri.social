@@ -113,7 +113,7 @@ export const Radio = (props: RadioProps) => {
 					"transition-[background-color,border-color,box-shadow] duration-[calc(var(--duration-color)*var(--motion-scale))]",
 					"hover:border-accent",
 					"data-checked:border-transparent data-checked:bg-primary data-checked:shadow-[inset_0_0_0_1px_var(--border)]",
-					"peer-focus-visible:shadow-[0_0_0_3px_color-mix(in_srgb,var(--primary)_25%,transparent)]",
+					"peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-primary peer-focus-visible:outline-solid",
 					"group-data-disabled/radio:cursor-not-allowed group-data-disabled/radio:opacity-50",
 				)}
 			>
@@ -130,7 +130,10 @@ export const Radio = (props: RadioProps) => {
 						</KobalteRadioGroup.ItemLabel>
 					</Show>
 					<Show when={description.has()}>
-						<KobalteRadioGroup.ItemDescription class="text-xs text-muted-foreground">
+						<KobalteRadioGroup.ItemDescription
+							data-search-description=""
+							class="text-xs text-muted-foreground"
+						>
 							{description()}
 						</KobalteRadioGroup.ItemDescription>
 					</Show>

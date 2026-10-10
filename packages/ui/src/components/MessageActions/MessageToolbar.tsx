@@ -11,14 +11,14 @@ import { For, type JSX, Show } from "solid-js";
 import { ThreadIcon } from "../../icons/custom";
 import { cx } from "../../utils/cx";
 import { useShiftHeld } from "../../utils/gestures/shift-held";
-import { DropdownMenu } from "../ContextMenu/Menu";
+import { DropdownMenu } from "../DropdownMenu/DropdownMenu";
+import { Tooltip, TooltipContent, TooltipTrigger } from "../Tooltip/Tooltip";
 import type { RenderEmoji } from "./ReactionBar";
-import { Tooltip, TooltipContent, TooltipTrigger } from "./Tooltip";
 
 export const toolbarActionClass = cx(
 	"group/action flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-control-sm outline-none",
 	"text-muted-foreground hover:bg-popover-highlight hover:text-foreground data-expanded:bg-popover-highlight data-expanded:text-foreground",
-	"focus-visible:shadow-[inset_0_0_0_2px_var(--primary)]",
+	"focus-ring-inset",
 );
 
 const toolbarGlyphClass = cx(
@@ -168,11 +168,7 @@ export const MessageToolbar = (props: MessageToolbarProps) => {
 					data-revealed={revealed() || undefined}
 					aria-hidden={revealed() ? undefined : "true"}
 					inert={!revealed() || undefined}
-					class={cx(
-						"-ml-0.5 grid grid-cols-[0fr] data-revealed:ml-0 data-revealed:grid-cols-[1fr]",
-						"transition-[grid-template-columns,margin] duration-[calc(160ms*var(--motion-scale))] ease-out",
-						"motion-reduce:transition-none reduced-motion:transition-none",
-					)}
+					class="-ml-0.5 grid grid-cols-[0fr] data-revealed:ml-0 data-revealed:grid-cols-[1fr]"
 				>
 					<div class="flex min-w-0 items-center gap-0.5 overflow-hidden">
 						<Show
@@ -254,9 +250,10 @@ export const MessageToolbar = (props: MessageToolbarProps) => {
 			</Show>
 			<Show when={props.menu}>
 				<DropdownMenu
-					triggerLabel="More actions"
+					label="More actions"
 					triggerClass={toolbarActionClass}
-					triggerContent={
+					triggerProps={{ title: "More actions" }}
+					trigger={
 						<span aria-hidden="true" class={toolbarGlyphClass}>
 							<MenuDotsIcon />
 						</span>

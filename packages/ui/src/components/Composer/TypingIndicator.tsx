@@ -2,7 +2,6 @@ import {
 	createEffect,
 	createSignal,
 	For,
-	type JSX,
 	Match,
 	onCleanup,
 	Show,
@@ -10,12 +9,19 @@ import {
 } from "solid-js";
 import { cx } from "../../utils/cx";
 import { motionScale, prefersReducedMotion } from "../../utils/motion";
+import {
+	nameColorClass,
+	nameColorStyle,
+	useNameColor,
+} from "../../utils/name-color";
 import { Avatar } from "../Avatar/Avatar";
 
 export type TypingUser = {
 	name: string;
 	avatarSrc?: string;
 	color?: string;
+	nameColor?: string;
+	roleColor?: string;
 };
 
 export type TypingIndicatorProps = {
@@ -27,9 +33,22 @@ export type TypingIndicatorProps = {
 const MAX_AVATARS = 3;
 const DOT_CYCLE_MS = 1200;
 
-const Name = (props: { children: JSX.Element }) => (
-	<span class="font-semibold text-foreground">{props.children}</span>
-);
+const Name = (props: { user?: TypingUser }) => {
+	const color = useNameColor(() => ({
+		userColor: props.user?.nameColor,
+		roleColor: props.user?.roleColor,
+		context: "chat",
+	}));
+	return (
+		<span
+			data-typing-name=""
+			class={cx("font-semibold", color() ? nameColorClass : "text-foreground")}
+			style={nameColorStyle(color())}
+		>
+			{props.user?.name}
+		</span>
+	);
+};
 
 const Dots = () => {
 	const dots: HTMLSpanElement[] = [];
@@ -132,15 +151,14 @@ export const TypingIndicator = (props: TypingIndicatorProps) => {
 			<span data-typing-names="" class="min-w-0 truncate whitespace-nowrap">
 				<Switch>
 					<Match when={users().length === 1}>
-						<Name>{users()[0]?.name}</Name> is typing
+						<Name user={users()[0]} /> is typing
 					</Match>
 					<Match when={users().length === 2}>
-						<Name>{users()[0]?.name}</Name> and <Name>{users()[1]?.name}</Name>{" "}
-						are typing
+						<Name user={users()[0]} /> and <Name user={users()[1]} /> are typing
 					</Match>
 					<Match when={users().length === 3}>
-						<Name>{users()[0]?.name}</Name>, <Name>{users()[1]?.name}</Name> and{" "}
-						<Name>{users()[2]?.name}</Name> are typing
+						<Name user={users()[0]} />, <Name user={users()[1]} /> and{" "}
+						<Name user={users()[2]} /> are typing
 					</Match>
 					<Match when={users().length > 3}>Several people are typing</Match>
 				</Switch>

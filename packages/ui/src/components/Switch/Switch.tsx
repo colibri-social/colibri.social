@@ -188,7 +188,7 @@ export const Switch = (props: SwitchProps) => {
 				class={cx(
 					"relative shrink-0 cursor-pointer touch-none select-none rounded-full border border-border bg-secondary",
 					"transition-[box-shadow,border-color] duration-[calc(var(--duration-color)*var(--motion-scale))]",
-					"peer-focus-visible:border-primary peer-focus-visible:shadow-[0_0_0_3px_color-mix(in_srgb,var(--primary)_25%,transparent)]",
+					"peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-primary peer-focus-visible:outline-solid",
 					"group-data-disabled/switch:cursor-not-allowed group-data-disabled/switch:opacity-50",
 				)}
 				style={{
@@ -223,7 +223,10 @@ export const Switch = (props: SwitchProps) => {
 						</KobalteSwitch.Label>
 					</Show>
 					<Show when={description.has()}>
-						<KobalteSwitch.Description class="text-xs text-muted-foreground">
+						<KobalteSwitch.Description
+							data-search-description=""
+							class="text-xs text-muted-foreground"
+						>
 							{description()}
 						</KobalteSwitch.Description>
 					</Show>

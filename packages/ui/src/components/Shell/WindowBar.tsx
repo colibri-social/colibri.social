@@ -8,6 +8,7 @@ import {
 } from "solid-js";
 import { cx } from "../../utils/cx";
 import { createSlot } from "../../utils/slot";
+import { AnimatedImage } from "../AnimatedImage/AnimatedImage";
 
 export type WindowControl = "minimize" | "maximize" | "close";
 
@@ -21,7 +22,7 @@ export type WindowControlsProps = {
 };
 
 const CELL =
-	"inline-flex h-full w-[46px] shrink-0 cursor-default items-center justify-center border-0 bg-transparent p-0 text-foreground/85 outline-none hover:bg-foreground/10 active:bg-foreground/5 focus-visible:shadow-[inset_0_0_0_2px_var(--primary)]";
+	"inline-flex h-full w-[46px] shrink-0 cursor-default items-center justify-center border-0 bg-transparent p-0 text-foreground/85 outline-none hover:bg-foreground/10 active:bg-foreground/5 focus-ring-inset";
 
 const CLOSE =
 	"hover:bg-[#c42b1c] hover:text-white active:bg-[#b2261a] active:text-white";
@@ -91,7 +92,6 @@ export type WindowBarProps = {
 	iconSrc?: string;
 	leading?: JSX.Element;
 	controls?: JSX.Element;
-	controlsSide?: "left" | "right";
 	macInset?: boolean;
 	dragRegion?: boolean;
 	onContextMenu?: (event: MouseEvent) => void;
@@ -105,7 +105,6 @@ export const WindowBar = (props: WindowBarProps) => {
 	const [gutter, setGutter] = createSignal(0);
 	let leadingBox: HTMLDivElement | undefined;
 	let trailingBox: HTMLDivElement | undefined;
-	const controlsOnLeft = () => props.controlsSide === "left";
 
 	onMount(() => {
 		const measure = () =>
@@ -136,12 +135,9 @@ export const WindowBar = (props: WindowBarProps) => {
 			<div
 				ref={leadingBox}
 				data-window-bar-leading=""
-				class={cx(
-					"flex h-full shrink-0 items-center gap-1 px-2",
-					controlsOnLeft() && "order-last",
-				)}
+				class="flex h-full shrink-0 items-center gap-1 px-2"
 			>
-				<Show when={props.macInset && !controlsOnLeft()}>
+				<Show when={props.macInset}>
 					<div
 						data-traffic-light-inset=""
 						class="h-full w-(--titlebar-leading-inset,72px) shrink-0"
@@ -153,7 +149,7 @@ export const WindowBar = (props: WindowBarProps) => {
 				<div class="pointer-events-none absolute inset-y-0 right-(--titlebar-gutter) left-(--titlebar-gutter) flex items-center justify-center gap-2">
 					<Show when={props.iconSrc}>
 						{(src) => (
-							<img
+							<AnimatedImage
 								src={src()}
 								alt=""
 								width={20}
@@ -172,10 +168,7 @@ export const WindowBar = (props: WindowBarProps) => {
 				ref={trailingBox}
 				data-window-bar-trailing=""
 				data-tauri-drag-region={props.dragRegion ? "false" : undefined}
-				class={cx(
-					"flex h-full shrink-0 items-center",
-					controlsOnLeft() && "order-first",
-				)}
+				class="flex h-full shrink-0 items-center"
 			>
 				<Show when={controls.has()}>{controls()}</Show>
 			</div>

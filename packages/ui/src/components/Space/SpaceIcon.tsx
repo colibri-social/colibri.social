@@ -1,5 +1,6 @@
 import { createSignal, Show } from "solid-js";
 import { cx } from "../../utils/cx";
+import { AnimatedImage } from "../AnimatedImage/AnimatedImage";
 
 export type SpaceIconSize = 48 | 64;
 
@@ -40,7 +41,7 @@ export const SpaceIcon = (props: SpaceIconProps) => {
 				fallback={<span aria-hidden="true">{spaceInitials(props.name)}</span>}
 			>
 				{(src) => (
-					<img
+					<AnimatedImage
 						src={src()}
 						alt=""
 						decoding="async"

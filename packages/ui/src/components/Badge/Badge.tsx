@@ -2,7 +2,7 @@ import { type JSX, Show, splitProps } from "solid-js";
 import { cva, cx, type VariantProps } from "../../utils/cx";
 import { createPress } from "../../utils/press";
 import { createSlot } from "../../utils/slot";
-import { Popover, PopoverContent, PopoverTrigger } from "../Popover/Popover";
+import { BadgeInfo } from "./BadgeInfo";
 
 const userBadgeBase =
 	"inline-flex shrink-0 items-center rounded-badge px-1.5 font-sans font-bold whitespace-nowrap";
@@ -198,25 +198,41 @@ export const UserBadge = (props: UserBadgeProps) => {
 			fallback={face(props.class)}
 		>
 			{(description) => (
-				<Popover placement="top" gutter={4}>
-					<PopoverTrigger
-						as="span"
-						class={cx(
-							"inline-flex shrink-0 cursor-pointer rounded-badge outline-none focus-visible:shadow-[0_0_0_2px_var(--primary)]",
-							props.class,
-						)}
-						onClick={(event: MouseEvent) => event.stopPropagation()}
-					>
-						{face()}
-					</PopoverTrigger>
-					<PopoverContent class="w-fit max-w-64 px-3 py-1.5 text-xs">
-						{description()}
-					</PopoverContent>
-				</Popover>
+				<BadgeInfo
+					name={props.definition.name}
+					description={description()}
+					class={props.class}
+				>
+					{face()}
+				</BadgeInfo>
 			)}
 		</Show>
 	);
 };
+
+export type AppBadgeProps = {
+	name: string;
+	description?: string;
+	icon: JSX.Element;
+	class?: string;
+};
+
+export const AppBadge = (props: AppBadgeProps) => (
+	<BadgeInfo
+		name={props.name}
+		description={props.description}
+		label={props.name}
+		class={cx("rounded-control-xs", props.class)}
+	>
+		<span
+			data-app-badge=""
+			aria-hidden="true"
+			class="flex shrink-0 items-center rounded-control-xs bg-muted p-1 [&>img]:size-4 [&>svg]:size-4"
+		>
+			{props.icon}
+		</span>
+	</BadgeInfo>
+);
 
 export type BotBadgeProps = Omit<UserBadgeProps, "definition">;
 
@@ -326,6 +342,14 @@ const mentionVariants = cva({
 		},
 	],
 });
+
+export const mentionChipClass = (
+	kind: MentionKind = "user",
+	interactive = false,
+) => mentionVariants({ kind, interactive });
+
+export const timeChipClass =
+	"rounded-[2px] bg-muted px-0.5 text-foreground [box-decoration-break:clone] [-webkit-box-decoration-break:clone]";
 
 export const MentionChip = (props: MentionChipProps) => {
 	const [local, rest] = splitProps(props, [

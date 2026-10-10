@@ -1,11 +1,13 @@
-:root {
+:root,
+[data-theme="dark"] {
 	--skeleton-base: color-mix(in srgb, var(--foreground) 7%, transparent);
 	--skeleton-shine: color-mix(in srgb, var(--foreground) 6%, transparent);
 	--skeleton-sweep: 1600ms;
 	--skeleton-fade: 150ms;
 }
 
-:root[data-theme="light"] {
+:root[data-theme="light"],
+[data-theme="light"] {
 	--skeleton-base: color-mix(in srgb, var(--foreground) 7%, transparent);
 	--skeleton-shine: color-mix(in srgb, white 70%, transparent);
 }

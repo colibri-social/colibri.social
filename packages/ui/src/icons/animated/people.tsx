@@ -84,7 +84,7 @@ export const AnimatedUserMinusRoundedIcon = (props: AnimatedIconProps) => (
 			hover="pop"
 			attention="shake"
 			origin="16.5px 18.5px"
-			vars={{ "--fx-delay": "60ms", "--fx-scale": "1.2" }}
+			vars={{ "--fx-delay": "60ms" }}
 		/>
 	</AnimatedIcon>
 );
@@ -183,7 +183,6 @@ export const AnimatedHandStarsIcon = (props: AnimatedIconProps) => (
 			hover="pop"
 			attention="pop"
 			origin="4px 9px"
-			vars={{ "--fx-scale": "1.4" }}
 		/>
 		<SolarShape
 			path={handStars3}
@@ -191,7 +190,7 @@ export const AnimatedHandStarsIcon = (props: AnimatedIconProps) => (
 			hover="pop"
 			attention="pop"
 			origin="12px 6px"
-			vars={{ "--fx-scale": "1.25", "--fx-delay": "80ms" }}
+			vars={{ "--fx-delay": "80ms" }}
 		/>
 		<SolarShape
 			path={handStars2}
@@ -199,7 +198,7 @@ export const AnimatedHandStarsIcon = (props: AnimatedIconProps) => (
 			hover="pop"
 			attention="pop"
 			origin="20px 9px"
-			vars={{ "--fx-scale": "1.4", "--fx-delay": "160ms" }}
+			vars={{ "--fx-delay": "160ms" }}
 		/>
 	</AnimatedIcon>
 );

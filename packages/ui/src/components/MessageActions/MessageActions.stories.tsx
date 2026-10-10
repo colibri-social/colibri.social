@@ -584,6 +584,12 @@ export const LongPressDrawer: Story = {
 						onCopyText={fn()}
 						onHide={fn()}
 						onDelete={fn()}
+						developer={{
+							atUri:
+								"at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/social.colibri.beta.message/3lmsg",
+							pdslsHref:
+								"https://pdsls.dev/at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/social.colibri.beta.message/3lmsg",
+						}}
 					/>
 				</div>
 			</HapticsProvider>
@@ -624,6 +630,15 @@ export const LongPressDrawer: Story = {
 		await expect(
 			within(dialog).getByRole("button", { name: "React with 🐦" }),
 		).toBeVisible();
+		const developer = within(dialog).getByRole("region", {
+			name: "Developer mode",
+		});
+		await expect(
+			within(developer).getByRole("button", { name: "Copy AT-URI" }),
+		).toBeVisible();
+		await expect(
+			within(developer).getByRole("link", { name: "Show on PDSls" }),
+		).toHaveAttribute("href", expect.stringContaining("pdsls.dev"));
 		await userEvent.click(
 			within(dialog).getByRole("button", { name: "Reply" }),
 		);

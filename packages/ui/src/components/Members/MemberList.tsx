@@ -1,8 +1,11 @@
-import { For, type JSX } from "solid-js";
+import { createMemo, For, Show } from "solid-js";
 import { cx } from "../../utils/cx";
 import type { Presence } from "../Avatar/Avatar";
-import { SectionLabel } from "../List/List";
-import { MemberRow, type MemberRowVariant } from "./MemberRow";
+import type { RoleIdentity } from "../Roles/RoleBadge";
+import { MemberGroupLabel, MemberListEntry } from "./MemberListParts";
+import type { MemberRowVariant } from "./MemberRow";
+import { countMemberRows } from "./member-list-model";
+import { VirtualMemberList } from "./VirtualMemberList";
 
 export type Member = {
 	id: string;
@@ -11,15 +14,15 @@ export type Member = {
 	avatarColor?: string;
 	presence: Presence;
 	status?: string;
-	roleColor?: string;
+	statusShowWhileOffline?: boolean;
+	role?: RoleIdentity;
 	hoistedRoleId?: string;
 	bot?: boolean;
 	owner?: boolean;
 };
 
-export type HoistedRole = {
+export type HoistedRole = RoleIdentity & {
 	id: string;
-	name: string;
 };
 
 export type MemberGroupKind = "role" | "online" | "bots" | "offline";
@@ -28,6 +31,7 @@ export type MemberGroup = {
 	id: string;
 	label: string;
 	kind: MemberGroupKind;
+	role?: RoleIdentity;
 	members: Member[];
 };
 
@@ -53,6 +57,7 @@ export const groupMembers = (
 				id: `role:${role.id}`,
 				label: role.name,
 				kind: "role",
+				role,
 				members: inRole,
 			});
 	}
@@ -83,89 +88,92 @@ export const groupMembers = (
 	return groups;
 };
 
-export const memberGroupHeaderClass =
-	"min-h-[18px] px-2 [&_*]:leading-[18px] [&_*]:font-normal";
+export { memberGroupHeaderClass } from "./MemberListParts";
+
+export const MEMBER_VIRTUALIZE_AFTER = 150;
 
 export type MemberListProps = {
 	groups: MemberGroup[];
 	variant?: MemberRowVariant;
-	onOpen?: (member: Member) => void;
+	onOpen?: (member: Member, event: MouseEvent) => void;
 	onMemberContextMenu?: (member: Member, event: MouseEvent) => void;
+	virtualizeAfter?: number;
 	class?: string;
 };
 
-export const MemberList = (props: MemberListProps) => {
-	const variant = () => props.variant ?? "desktop";
-
-	const Row = (rowProps: { member: Member; offline: boolean }) => (
-		<MemberRow
-			variant={variant()}
-			name={rowProps.member.name}
-			avatarSrc={rowProps.member.avatarSrc}
-			avatarColor={rowProps.member.avatarColor}
-			presence={rowProps.member.presence}
-			status={rowProps.member.status}
-			roleColor={rowProps.member.roleColor}
-			bot={rowProps.member.bot}
-			owner={rowProps.member.owner}
-			offline={rowProps.offline}
-			onOpen={props.onOpen ? () => props.onOpen?.(rowProps.member) : undefined}
-			onContextMenu={
-				props.onMemberContextMenu
-					? (event) => {
-							event.preventDefault();
-							props.onMemberContextMenu?.(rowProps.member, event);
-						}
-					: undefined
-			}
-		/>
-	);
-
-	const rows = (group: MemberGroup): JSX.Element => (
-		<For each={group.members}>
-			{(member) => <Row member={member} offline={group.kind === "offline"} />}
-		</For>
-	);
-
-	return (
-		<div
-			data-member-list=""
-			data-variant={variant()}
-			class={cx(
-				"flex flex-col",
-				variant() === "mobile" ? "gap-6" : "gap-4 px-2 py-4",
-				props.class,
-			)}
-		>
-			<For each={props.groups}>
-				{(group) => (
-					<section
-						aria-label={`${group.label}, ${group.members.length}`}
-						data-member-group={group.kind}
+const StaticMemberList = (
+	props: Omit<MemberListProps, "variant"> & { variant: MemberRowVariant },
+) => (
+	<div
+		data-member-list=""
+		data-variant={props.variant}
+		class={cx(
+			"flex flex-col",
+			props.variant === "mobile" ? "gap-6" : "gap-4 px-2 py-4",
+			props.class,
+		)}
+	>
+		<For each={props.groups}>
+			{(group) => (
+				<section
+					aria-label={`${group.label}, ${group.members.length}`}
+					data-member-group={group.kind}
+					class="flex flex-col gap-2"
+				>
+					<MemberGroupLabel group={group} variant={props.variant} />
+					<div
 						class={cx(
 							"flex flex-col",
-							variant() === "mobile" ? "gap-2" : "gap-2",
+							props.variant === "mobile" &&
+								"overflow-hidden rounded-control bg-secondary",
 						)}
 					>
-						<SectionLabel
-							class={
-								variant() === "desktop" ? memberGroupHeaderClass : undefined
-							}
-							label={group.label}
-							count={group.members.length}
-						/>
-						<div
-							class={cx(
-								"flex flex-col",
-								variant() === "mobile" &&
-									"overflow-hidden rounded-control bg-secondary",
+						<For each={group.members}>
+							{(member) => (
+								<MemberListEntry
+									member={member}
+									offline={group.kind === "offline"}
+									variant={props.variant}
+									onOpen={props.onOpen}
+									onMemberContextMenu={props.onMemberContextMenu}
+								/>
 							)}
-						>
-							{rows(group)}
-						</div>
-					</section>
-				)}
-			</For>
-		</div>
+						</For>
+					</div>
+				</section>
+			)}
+		</For>
+	</div>
+);
+
+export const MemberList = (props: MemberListProps) => {
+	const variant = () => props.variant ?? "desktop";
+	const threshold = () => props.virtualizeAfter ?? MEMBER_VIRTUALIZE_AFTER;
+	const virtual = createMemo<boolean>((previous) => {
+		const rows = countMemberRows(props.groups);
+		return previous ? rows > threshold() / 2 : rows > threshold();
+	}, false);
+
+	return (
+		<Show
+			when={virtual()}
+			fallback={
+				<StaticMemberList
+					groups={props.groups}
+					variant={variant()}
+					onOpen={props.onOpen}
+					onMemberContextMenu={props.onMemberContextMenu}
+					class={props.class}
+				/>
+			}
+		>
+			<VirtualMemberList
+				groups={props.groups}
+				variant={variant()}
+				onOpen={props.onOpen}
+				onMemberContextMenu={props.onMemberContextMenu}
+				class={props.class}
+			/>
+		</Show>
 	);
 };

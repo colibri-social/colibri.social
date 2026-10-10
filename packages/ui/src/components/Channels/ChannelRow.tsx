@@ -51,8 +51,7 @@ export type ChannelRowProps = RowEvents & {
 	class?: string;
 };
 
-const rowFocus =
-	"outline-none focus-visible:shadow-[inset_0_0_0_2px_var(--primary)]";
+const rowFocus = "outline-none focus-ring-inset";
 
 const pluralMentions = (count: number) =>
 	`${count} ${count === 1 ? "mention" : "mentions"}`;
@@ -80,7 +79,7 @@ const SettingsButton = (props: { label: string; onClick: () => void }) => (
 			props.onClick();
 		}}
 		data-channel-settings=""
-		class="relative z-10 flex size-6 shrink-0 cursor-pointer items-center justify-center rounded-[4px] border-0 bg-transparent p-0 text-muted-foreground opacity-0 outline-none group-hover/channel:opacity-100 group-data-[active]/channel:opacity-100 hover:bg-secondary-highlight hover:text-foreground focus-visible:opacity-100 focus-visible:shadow-[0_0_0_2px_var(--primary)] [&>svg]:size-4"
+		class="relative z-10 flex size-6 shrink-0 cursor-pointer items-center justify-center rounded-[4px] border-0 bg-transparent p-0 text-muted-foreground opacity-0 outline-none group-hover/channel:opacity-100 group-data-[active]/channel:opacity-100 hover:bg-secondary-highlight hover:text-foreground focus-visible:opacity-100 focus-ring [&>svg]:size-4"
 	>
 		<SettingsIcon />
 	</button>

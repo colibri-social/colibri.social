@@ -1,12 +1,23 @@
 import { BellOffIcon } from "@solar-icons/solid/bold/bell-off";
 import { ChatRoundDotsIcon } from "@solar-icons/solid/bold/chat-round-dots";
-import { ChecklistMinimalisticIcon } from "@solar-icons/solid/bold/checklist-minimalistic";
+import { DocumentsIcon } from "@solar-icons/solid/bold/documents";
 import { LinkIcon } from "@solar-icons/solid/bold/link";
-import { createSignal, For, type JSX } from "solid-js";
+import { SettingsIcon } from "@solar-icons/solid/bold/settings";
+import { TrashBinTrashIcon } from "@solar-icons/solid/bold/trash-bin-trash";
+import { createSignal, For, type JSX, Show } from "solid-js";
 import { expect, screen, userEvent, waitFor, within } from "storybook/test";
 import type { Meta, StoryObj } from "storybook-solidjs-vite";
+import {
+	hasIntermediate,
+	recordHeightTransitions,
+	sampleHeights,
+	withSlowMotion,
+} from "../../foundations/motion-test";
 import { ThreadIcon } from "../../icons/custom";
 import { Button } from "../Button/Button";
+import { MarkReadIcon } from "../ContextMenu/menu-entries";
+import { DeveloperModeCard } from "../DeveloperMode/DeveloperModeCard";
+import { DestructiveRow } from "../List/List";
 import { Drawer, DrawerContent, DrawerTrigger } from "./Drawer";
 
 const meta = {
@@ -18,17 +29,27 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-const actions: { icon: JSX.Element; label: string }[] = [
-	{ icon: <ChecklistMinimalisticIcon />, label: "Mark as read" },
+type DrawerAction = { icon: JSX.Element; label: string };
+
+const actions: DrawerAction[] = [
+	{ icon: <MarkReadIcon />, label: "Mark as read" },
 	{ icon: <BellOffIcon />, label: "Mute channel" },
 	{ icon: <ThreadIcon />, label: "Start a thread" },
 	{ icon: <ChatRoundDotsIcon />, label: "Show all threads" },
 	{ icon: <LinkIcon />, label: "Copy channel link" },
 ];
 
-const ActionGroup = () => (
+const manageActions: DrawerAction[] = [
+	{ icon: <DocumentsIcon />, label: "Duplicate" },
+	{ icon: <SettingsIcon />, label: "Edit channel" },
+];
+
+const CHANNEL_AT_URI =
+	"at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/social.colibri.beta.channel/3lawesome";
+
+const ActionGroup = (props: { actions: DrawerAction[] }) => (
 	<div class="flex flex-col overflow-hidden rounded-control-lg bg-secondary">
-		<For each={actions}>
+		<For each={props.actions}>
 			{(action, index) => (
 				<>
 					{index() > 0 && <div class="h-px bg-border" />}
@@ -52,18 +73,14 @@ export const ContextMenu: Story = {
 				Open channel menu
 			</DrawerTrigger>
 			<DrawerContent title="Awesome Channel" titleIcon={<ChatRoundDotsIcon />}>
-				<ActionGroup />
-				<div class="flex flex-col gap-2 rounded-surface border border-border bg-popover p-3">
-					<p class="text-sm">Developer mode</p>
-					<div class="flex gap-2">
-						<Button variant="secondary" class="flex-1">
-							Copy AT-URI
-						</Button>
-						<Button variant="secondary" class="flex-1">
-							Show on PDSls
-						</Button>
-					</div>
-				</div>
+				<ActionGroup actions={actions} />
+				<ActionGroup actions={manageActions} />
+				<DestructiveRow icon={<TrashBinTrashIcon />} label="Delete channel" />
+				<DeveloperModeCard
+					copyLabel="Copy AT-URI"
+					copyValue={CHANNEL_AT_URI}
+					pdslsHref={`https://pdsls.dev/${CHANNEL_AT_URI}`}
+				/>
 			</DrawerContent>
 		</Drawer>
 	),
@@ -73,6 +90,27 @@ export const ContextMenu: Story = {
 		);
 		const dialog = await screen.findByRole("dialog");
 		await expect(within(dialog).getByText("Awesome Channel")).toBeVisible();
+		await expect(
+			within(dialog)
+				.getAllByRole("button")
+				.map((button) => button.textContent?.trim())
+				.slice(0, 8),
+		).toEqual([
+			"Mark as read",
+			"Mute channel",
+			"Start a thread",
+			"Show all threads",
+			"Copy channel link",
+			"Duplicate",
+			"Edit channel",
+			"Delete channel",
+		]);
+		await expect(
+			within(dialog).getByRole("button", { name: "Copy AT-URI" }),
+		).toBeVisible();
+		await expect(
+			within(dialog).getByRole("link", { name: "Show on PDSls" }),
+		).toHaveAttribute("href", `https://pdsls.dev/${CHANNEL_AT_URI}`);
 		await waitFor(() =>
 			expect(dialog).toContainElement(document.activeElement as HTMLElement),
 		);
@@ -142,15 +180,38 @@ const closeDuringOpening =
 		const dialog = await screen.findByRole("dialog");
 		await new Promise((resolve) => setTimeout(resolve, delay));
 		within(dialog).getByRole("button", { name: "Close now" }).click();
-		await new Promise((resolve) => setTimeout(resolve, 1200));
-		await expect(
-			document.querySelector("[data-corvu-drawer-content]"),
-		).toBeNull();
+		await waitFor(
+			() =>
+				expect(
+					document.querySelector("[data-corvu-drawer-content]"),
+				).toBeNull(),
+			{ timeout: 4000 },
+		);
 	};
 
 export const CloseDuringOpening: Story = {
 	render: () => <QuickCloseDemo />,
 	play: closeDuringOpening(50),
+};
+
+export const ClosesWithoutTransitionEnd: Story = {
+	render: () => <QuickCloseDemo />,
+	play: async ({ canvasElement }) => {
+		await userEvent.click(
+			within(canvasElement).getByRole("button", { name: "Open quick close" }),
+		);
+		const dialog = await screen.findByRole("dialog");
+		await new Promise((resolve) => setTimeout(resolve, 900));
+		dialog.style.transitionProperty = "none";
+		within(dialog).getByRole("button", { name: "Close now" }).click();
+		await waitFor(
+			() =>
+				expect(
+					document.querySelector("[data-corvu-drawer-content]"),
+				).toBeNull(),
+			{ timeout: 4000 },
+		);
+	},
 };
 
 export const CloseRightAfterOpening: Story = {
@@ -161,4 +222,74 @@ export const CloseRightAfterOpening: Story = {
 export const CloseMidTransition: Story = {
 	render: () => <QuickCloseDemo />,
 	play: closeDuringOpening(250),
+};
+
+const GrowingSheet = () => {
+	const [expanded, setExpanded] = createSignal(false);
+	return (
+		<Drawer>
+			<DrawerTrigger as={Button} variant="secondary">
+				Open growing sheet
+			</DrawerTrigger>
+			<DrawerContent title="Notifications">
+				<Button
+					variant="secondary"
+					onClick={() => setExpanded((value) => !value)}
+				>
+					{expanded() ? "Show less" : "Show more"}
+				</Button>
+				<Show when={expanded()}>
+					<For each={[1, 2, 3, 4]}>
+						{(index) => (
+							<div class="flex h-12 shrink-0 items-center rounded-control-lg bg-secondary px-3 text-sm font-semibold">
+								Option {index}
+							</div>
+						)}
+					</For>
+				</Show>
+			</DrawerContent>
+		</Drawer>
+	);
+};
+
+export const AnimatesHeight: Story = {
+	render: () => <GrowingSheet />,
+	play: async ({ canvasElement }) => {
+		const opening = recordHeightTransitions();
+		await userEvent.click(
+			within(canvasElement).getByRole("button", { name: "Open growing sheet" }),
+		);
+		const dialog = await screen.findByRole("dialog");
+		await new Promise((resolve) => setTimeout(resolve, 700));
+		opening.stop();
+		await expect(opening.count()).toBe(0);
+		await waitFor(
+			() => expect(dialog).not.toHaveAttribute("data-transitioning"),
+			{ timeout: 3000 },
+		);
+		const before = dialog.offsetHeight;
+		await withSlowMotion(async () => {
+			const sampling = sampleHeights(dialog, 700);
+			await userEvent.click(
+				within(dialog).getByRole("button", { name: "Show more" }),
+			);
+			const samples = await sampling;
+			await waitFor(() => expect(dialog.style.height).toBe(""), {
+				timeout: 4000,
+			});
+			const after = dialog.offsetHeight;
+			await expect(after).toBeGreaterThan(before + 150);
+			await expect(hasIntermediate(samples, before, after)).toBe(true);
+		});
+		await userEvent.click(
+			within(dialog).getByRole("button", { name: "Show less" }),
+		);
+		await waitFor(
+			() => {
+				expect(dialog.style.height).toBe("");
+				expect(dialog.offsetHeight).toBe(before);
+			},
+			{ timeout: 3000 },
+		);
+	},
 };

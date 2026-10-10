@@ -88,14 +88,13 @@ export const AnimatedVolumeIcon = (
 							name="volume-wave-inner"
 							hover="pop"
 							origin="17.4px 12px"
-							vars={{ "--fx-scale": "1.25" }}
 						/>
 						<SolarShape
 							path={volumeLoud1}
 							name="volume-wave-outer"
 							hover="pop"
 							origin="19px 12px"
-							vars={{ "--fx-scale": "1.25", "--fx-delay": "70ms" }}
+							vars={{ "--fx-delay": "70ms" }}
 						/>
 					</g>
 				</Part>
@@ -279,7 +278,7 @@ export const AnimatedRadioIcon = (props: AnimatedIconProps) => (
 			name="radio-knob"
 			hover="pop"
 			origin="7.5px 17px"
-			vars={{ "--fx-scale": "1.4", "--fx-delay": "80ms" }}
+			vars={{ "--fx-delay": "80ms" }}
 		/>
 	</AnimatedIcon>
 );

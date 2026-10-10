@@ -12,11 +12,12 @@ export type CategoryHeaderProps = {
 	onCreateChannel?: () => void;
 	onOpenSettings?: () => void;
 	controls?: string;
+	trailing?: JSX.Element;
 	class?: string;
 };
 
 const headerAction =
-	"flex size-5 shrink-0 cursor-pointer items-center justify-center rounded-control-xs border-0 bg-transparent p-0 text-muted-foreground opacity-0 outline-none group-hover/category:opacity-100 hover:bg-secondary-highlight hover:text-foreground focus-visible:opacity-100 focus-visible:shadow-[0_0_0_2px_var(--primary)] [&>svg]:size-4";
+	"flex size-5 shrink-0 cursor-pointer items-center justify-center rounded-control-xs border-0 bg-transparent p-0 text-muted-foreground opacity-0 outline-none group-hover/category:opacity-100 hover:bg-secondary-highlight hover:text-foreground focus-visible:opacity-100 focus-ring [&>svg]:size-4";
 
 export const CategoryHeader = (props: CategoryHeaderProps) => (
 	<div
@@ -28,7 +29,7 @@ export const CategoryHeader = (props: CategoryHeaderProps) => (
 			aria-expanded={!props.collapsed}
 			aria-controls={props.controls}
 			onClick={() => props.onToggle?.()}
-			class="flex min-w-0 flex-1 cursor-pointer items-center gap-2 rounded-control-xs border-0 bg-transparent px-2 py-1 text-left text-xs leading-4 text-muted-foreground outline-none hover:text-foreground focus-visible:shadow-[0_0_0_2px_var(--primary)]"
+			class="flex min-w-0 flex-1 cursor-pointer items-center gap-2 rounded-control-xs border-0 bg-transparent px-2 py-1 text-left text-xs leading-4 text-muted-foreground outline-none hover:text-foreground focus-ring"
 		>
 			<AnimatedCaretIcon open={!props.collapsed} size={16} class="shrink-0" />
 			<span class="min-w-0 truncate">{props.name}</span>
@@ -53,6 +54,7 @@ export const CategoryHeader = (props: CategoryHeaderProps) => (
 				<SettingsIcon />
 			</button>
 		</Show>
+		{props.trailing}
 	</div>
 );
 
@@ -63,6 +65,8 @@ export type ChannelCategoryProps = Omit<
 	collapsed?: boolean;
 	defaultCollapsed?: boolean;
 	onCollapsedChange?: (collapsed: boolean) => void;
+	headerTrailing?: JSX.Element;
+	instant?: boolean;
 	children?: JSX.Element;
 };
 
@@ -92,11 +96,14 @@ export const ChannelCategory = (props: ChannelCategoryProps) => {
 				onCreateChannel={props.onCreateChannel}
 				onOpenSettings={props.onOpenSettings}
 				controls={listId}
+				trailing={props.headerTrailing}
 			/>
 			<div
 				class={cx(
-					"grid transition-[grid-template-rows] duration-[calc(var(--duration-overlay-in,360ms)*var(--motion-scale))] ease-(--ease-overlay-in)",
-					"motion-reduce:transition-none reduced-motion:transition-none",
+					"grid",
+					props.instant
+						? "transition-none"
+						: "transition-[grid-template-rows] duration-[calc(var(--duration-overlay-in,360ms)*var(--motion-scale))] ease-(--ease-overlay-in) motion-reduce:transition-none reduced-motion:transition-none",
 					collapsed() ? "grid-rows-[0fr]" : "grid-rows-[1fr]",
 				)}
 			>
@@ -105,9 +112,16 @@ export const ChannelCategory = (props: ChannelCategoryProps) => {
 					inert={collapsed() || undefined}
 					data-category-rows=""
 					class={cx(
-						"flex min-h-0 flex-col gap-2 overflow-hidden",
+						"flex min-h-0 flex-col gap-2",
+						props.instant && !collapsed()
+							? "overflow-visible"
+							: "overflow-hidden",
 						collapsed()
-							? "invisible transition-[visibility] delay-[calc(var(--duration-overlay-in,360ms)*var(--motion-scale))] duration-0 motion-reduce:delay-0 reduced-motion:delay-0"
+							? cx(
+									"invisible",
+									!props.instant &&
+										"transition-[visibility] delay-[calc(var(--duration-overlay-in,360ms)*var(--motion-scale))] duration-0 motion-reduce:delay-0 reduced-motion:delay-0",
+								)
 							: "visible",
 					)}
 				>

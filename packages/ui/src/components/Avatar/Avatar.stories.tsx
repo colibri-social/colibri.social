@@ -1,6 +1,13 @@
+import { For } from "solid-js";
 import { expect, within } from "storybook/test";
 import type { Meta, StoryObj } from "storybook-solidjs-vite";
 import { Avatar } from "./Avatar";
+import {
+	DEFAULT_AVATAR_SET,
+	defaultAvatar,
+	defaultAvatarFor,
+	defaultAvatarUrl,
+} from "./default-avatars/default-avatars";
 
 const SAMPLE_IMAGE =
 	"data:image/svg+xml;utf8," +
@@ -123,9 +130,126 @@ export const SpaceIcon: Story = {
 };
 
 export const BrokenImageFallsBack: Story = {
-	args: { src: "https://invalid.invalid/avatar.png", name: "Fallback User" },
+	args: {
+		src: "https://invalid.invalid/avatar.png",
+		name: "Fallback User",
+		fallback: "initials",
+	},
 	play: async ({ canvasElement }) => {
 		const canvas = within(canvasElement);
 		await expect(await canvas.findByText("FU")).toBeInTheDocument();
+	},
+};
+
+export const BrokenImageShowsDefaultAvatar: Story = {
+	args: {
+		src: "https://invalid.invalid/avatar.png",
+		name: "Fallback User",
+		seed: "did:plc:fallbackuser",
+	},
+	play: async ({ canvasElement }) => {
+		const expected = defaultAvatarFor("did:plc:fallbackuser");
+		const illustration = await new Promise<HTMLImageElement>((resolve) => {
+			const check = () => {
+				const found = canvasElement.querySelector<HTMLImageElement>(
+					"[data-default-avatar]",
+				);
+				if (found) resolve(found);
+				else requestAnimationFrame(check);
+			};
+			check();
+		});
+		await expect(illustration).toHaveAttribute("data-default-avatar", expected);
+		await expect(illustration).toHaveAttribute("aria-hidden", "true");
+		await expect(within(canvasElement).getByText("Fallback User")).toHaveClass(
+			"sr-only",
+		);
+	},
+};
+
+const SEEDS = [
+	"did:plc:ewvi7nxzyoun6zhxrhs64oiz",
+	"did:plc:z72i7hdynmk6r22z27h6tvur",
+	"did:plc:44ybard66vv44zksje25o7dz",
+	"did:plc:vc7f4oafdgxsihk4cry2xpze",
+	"did:web:colibri.social",
+	"did:plc:oky5czdrnfjpqslsw2a5iclo",
+];
+
+export const DefaultAvatarAssignment: Story = {
+	render: () => (
+		<div class="flex flex-wrap items-center gap-4">
+			<For each={SEEDS}>
+				{(seed) => <Avatar name={seed} seed={seed} size="lg" />}
+			</For>
+			<Avatar name="Space without icon" shape="square" size="lg" />
+		</div>
+	),
+	play: async ({ canvasElement }) => {
+		const illustrations = Array.from(
+			canvasElement.querySelectorAll("[data-default-avatar]"),
+		).map((node) => node.getAttribute("data-default-avatar"));
+		await expect(illustrations).toEqual(
+			SEEDS.map((seed) => defaultAvatarFor(seed)),
+		);
+		await expect(
+			within(canvasElement).getByText("SW", { selector: "span" }),
+		).toBeInTheDocument();
+		await expect(defaultAvatarFor(SEEDS[0])).toBe(defaultAvatarFor(SEEDS[0]));
+		await expect(defaultAvatarFor(SEEDS[0], ["feather-quill"])).toBe(
+			"feather-quill",
+		);
+	},
+};
+
+const DEFAULT_AVATAR_SIZES = [88, 40, 20];
+
+export const DefaultAvatars: Story = {
+	render: () => (
+		<div class="grid grid-cols-1 gap-x-8 gap-y-4 sm:grid-cols-2">
+			<For each={DEFAULT_AVATAR_SET}>
+				{(id) => (
+					<figure
+						class="m-0 flex items-center gap-4"
+						data-default-avatar-option={id}
+					>
+						<For each={DEFAULT_AVATAR_SIZES}>
+							{(size) => (
+								<img
+									src={defaultAvatarUrl(id)}
+									alt=""
+									width={size}
+									height={size}
+									class="shrink-0 rounded-full"
+								/>
+							)}
+						</For>
+						<figcaption class="text-sm">
+							<span class="block font-semibold">{defaultAvatar(id).label}</span>
+							<span class="block font-mono text-xs text-muted-foreground select-text">
+								{id}
+							</span>
+						</figcaption>
+					</figure>
+				)}
+			</For>
+		</div>
+	),
+	play: async ({ canvasElement }) => {
+		const ids = Array.from(
+			canvasElement.querySelectorAll("[data-default-avatar-option]"),
+		).map((node) => node.getAttribute("data-default-avatar-option"));
+		await expect(ids).toEqual([
+			"feather-quill",
+			"feather-iridescent",
+			"feather-pair",
+			"feather-fan",
+			"feather-falling",
+		]);
+		const images = Array.from(canvasElement.querySelectorAll("img"));
+		await Promise.all(images.map((image) => image.decode()));
+		for (const image of images) {
+			await expect(image.naturalWidth).toBeGreaterThan(0);
+		}
 	},
 };

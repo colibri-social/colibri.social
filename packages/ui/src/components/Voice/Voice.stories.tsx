@@ -1,6 +1,7 @@
 import { createSignal, For, type JSX, onCleanup } from "solid-js";
 import { expect, fn, screen, userEvent, waitFor, within } from "storybook/test";
 import type { Meta, StoryObj } from "storybook-solidjs-vite";
+import { expectFocusRingVisible } from "../../foundations/focus-ring-test";
 import { HapticsProvider } from "../../utils/haptics";
 import { storyImages } from "../Banner/story-images";
 import { CallControls } from "./CallControls";
@@ -323,6 +324,21 @@ export const FocusTile: Story = {
 		await expect(
 			canvas.getByRole("button", { name: /^Lis\b(?!.*focused)/ }),
 		).toHaveAttribute("aria-pressed", "false");
+	},
+};
+
+export const StripFocusRing: Story = {
+	render: () => <FocusDemo />,
+	play: async ({ canvasElement }) => {
+		const canvas = within(canvasElement);
+		await userEvent.click(
+			canvas.getByRole("button", { name: /^Lis\b(?!.*focused)/ }),
+		);
+		const strip = canvasElement.querySelector(
+			"[data-voice-strip]",
+		) as HTMLElement;
+		const first = within(strip).getAllByRole("button")[0] as HTMLElement;
+		await expectFocusRingVisible(first);
 	},
 };
 

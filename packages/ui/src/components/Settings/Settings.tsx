@@ -8,9 +8,12 @@ import { createSignal, type JSX, onCleanup, Show, splitProps } from "solid-js";
 import { copyText } from "../../utils/clipboard";
 import { cx } from "../../utils/cx";
 import { createSlot } from "../../utils/slot";
+import { AnimatedImage } from "../AnimatedImage/AnimatedImage";
 import { Avatar } from "../Avatar/Avatar";
 import { Card } from "../Card/Card";
 import { IconButton } from "../IconButton/IconButton";
+import { InviteStateBadge } from "../Invite/InviteStateBadge";
+import type { InviteState } from "../Invite/invite-links";
 
 const COPIED_MS = 1500;
 
@@ -42,6 +45,7 @@ export type InviteCardProps = {
 	expires: JSX.Element;
 	creator: { handle: string; avatar?: string };
 	uses: JSX.Element;
+	state?: InviteState;
 	onCopy?: (value: string) => void;
 	onMenu?: (event: MouseEvent) => void;
 	class?: string;
@@ -52,7 +56,10 @@ export const InviteCard = (props: InviteCardProps) => {
 	let timer: ReturnType<typeof setTimeout> | undefined;
 	onCleanup(() => clearTimeout(timer));
 
+	const active = () => (props.state ?? "active") === "active";
+
 	const copy = async (anchor: HTMLElement) => {
+		if (!active()) return;
 		if (!(await copyText(props.copyValue, anchor))) return;
 		clearTimeout(timer);
 		setCopied(true);
@@ -64,14 +71,25 @@ export const InviteCard = (props: InviteCardProps) => {
 		<div class={cx("relative w-full", props.class)}>
 			<Card
 				tone="secondary"
-				onClick={(event) => void copy(event.currentTarget)}
+				data-invite-state={props.state ?? "active"}
+				onClick={
+					active() ? (event) => void copy(event.currentTarget) : undefined
+				}
 				class="flex flex-col gap-2 p-4"
 			>
 				<span class="flex h-7 min-w-0 items-center gap-2 pr-9">
-					<span class="sr-only">Copy invite link </span>
-					<span class="min-w-0 truncate text-xl leading-none font-bold">
+					<Show when={active()}>
+						<span class="sr-only">Copy invite link </span>
+					</Show>
+					<span
+						class={cx(
+							"min-w-0 truncate text-xl leading-none font-bold",
+							!active() && "text-muted-foreground",
+						)}
+					>
 						{props.code}
 					</span>
+					<InviteStateBadge state={props.state ?? "active"} />
 					<span
 						aria-hidden="true"
 						data-copied={copied() || undefined}
@@ -80,7 +98,10 @@ export const InviteCard = (props: InviteCardProps) => {
 						Copied
 					</span>
 				</span>
-				<CardInfoRow icon={<ClockCircleIcon />} label="Expires in:">
+				<CardInfoRow
+					icon={<ClockCircleIcon />}
+					label={props.state === "expired" ? "Expired:" : "Expires in:"}
+				>
 					{props.expires}
 				</CardInfoRow>
 				<CardInfoRow icon={<UserIcon />} label="Created by:">
@@ -215,7 +236,7 @@ export type EmojiRowProps = {
 
 export const EmojiRow = (props: EmojiRowProps) => (
 	<div class={cx("flex h-10 w-full items-center gap-2 px-3", props.class)}>
-		<img
+		<AnimatedImage
 			src={props.src}
 			alt=""
 			width={24}
@@ -244,12 +265,12 @@ export const EmojiRow = (props: EmojiRowProps) => (
 						}
 					>
 						{(avatar) => (
-							<img
+							<AnimatedImage
 								src={avatar()}
 								alt=""
 								width={16}
 								height={16}
-								class="size-4 shrink-0 rounded-full object-cover outline-1 -outline-offset-1 outline-white/8"
+								class="size-4 shrink-0 rounded-full object-cover outline-1 -outline-offset-1 outline-white/8 light:outline-black/8"
 							/>
 						)}
 					</Show>

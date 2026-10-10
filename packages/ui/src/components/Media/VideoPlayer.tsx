@@ -77,7 +77,7 @@ const fadeClass =
 	"transition-opacity duration-[calc(160ms*var(--motion-scale))] ease-out motion-reduce:transition-none reduced-motion:transition-none";
 
 const controlButton =
-	"pressable flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-control-sm border-0 bg-transparent p-0 text-white outline-none hover:bg-white/15 focus-visible:shadow-[0_0_0_2px_var(--primary)] [&_svg]:size-5";
+	"pressable flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-control-sm border-0 bg-transparent p-0 text-white outline-none hover:bg-white/15 focus-ring [&_svg]:size-5";
 
 const bufferedRanges = (video: HTMLVideoElement): [number, number][] => {
 	const ranges: [number, number][] = [];
@@ -382,7 +382,7 @@ export const VideoPlayer = (props: VideoPlayerProps) => {
 			data-fullscreen={fullscreen() || undefined}
 			class={cx(
 				"group/video relative isolate overflow-hidden bg-black text-white outline-none",
-				"focus-visible:shadow-[inset_0_0_0_2px_var(--primary)]",
+				"focus-ring-inset",
 				playing() && !showControls() && "cursor-none",
 				props.class,
 			)}
@@ -470,7 +470,7 @@ export const VideoPlayer = (props: VideoPlayerProps) => {
 					<span class="text-sm font-semibold">This video can't be played</span>
 					<button
 						type="button"
-						class="cursor-pointer rounded-control-xs border-0 bg-transparent px-1 py-0.5 text-sm font-semibold text-white/80 underline-offset-2 outline-none hover:text-white hover:underline focus-visible:shadow-[0_0_0_2px_var(--primary)]"
+						class="cursor-pointer rounded-control-xs border-0 bg-transparent px-1 py-0.5 text-sm font-semibold text-white/80 underline-offset-2 outline-none hover:text-white hover:underline focus-ring"
 						onClick={() => {
 							setFailed(false);
 							video?.load();
@@ -536,7 +536,7 @@ export const VideoPlayer = (props: VideoPlayerProps) => {
 								<div
 									data-video-volume=""
 									class={cx(
-										"w-0 overflow-hidden opacity-0 transition-[width,opacity] duration-[calc(160ms*var(--motion-scale))] ease-out motion-reduce:transition-none reduced-motion:transition-none",
+										"ring-room-y w-0 overflow-hidden opacity-0 transition-[width,opacity] duration-[calc(160ms*var(--motion-scale))] ease-out motion-reduce:transition-none reduced-motion:transition-none",
 										"group-focus-within/volume:w-16 group-focus-within/volume:opacity-100 group-hover/volume:w-16 group-hover/volume:opacity-100",
 									)}
 								>

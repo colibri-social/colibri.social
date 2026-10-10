@@ -1,0 +1,67 @@
+import { storyImages } from "../Banner/story-images";
+import type { DiscoverySpace } from "./discovery-model";
+
+export const discoveryFixtures = (): DiscoverySpace[] => [
+	{
+		id: "flock",
+		name: "Colibri Social Flock",
+		handle: "flock.colibri.social",
+		iconSrc: storyImages.violetIcon(),
+		bannerSrc: storyImages.sunsetBanner(),
+		description:
+			"A cozy corner for people who build things on the AT Protocol. Share projects, ask questions, and hang out in voice on Fridays.",
+		memberCount: 180,
+		onlineCount: 24,
+		ownerHandle: "lou.gg",
+		joinMode: "open",
+		viewer: "none",
+	},
+	{
+		id: "pixel",
+		name: "Pixel Garden",
+		handle: "pixel.garden",
+		iconSrc: storyImages.tealIcon(),
+		description: "Pixel art, palettes, and weekly prompts.",
+		memberCount: 38,
+		onlineCount: 5,
+		ownerHandle: "ivy.pixel.garden",
+		joinMode: "approval",
+		viewer: "none",
+	},
+	{
+		id: "owls",
+		name: "Night Owls",
+		handle: "nightowls.social",
+		bannerColor: "linear-gradient(135deg, #1e3a8a, #0f172a)",
+		description: "Late night chats, music, and co-working in voice.",
+		memberCount: 12480,
+		onlineCount: 1312,
+		ownerHandle: "noor.bsky.social",
+		joinMode: "approval",
+		viewer: "pending",
+	},
+	{
+		id: "trail",
+		name: "Trail Runners",
+		handle: "trail.run",
+		iconSrc: storyImages.amberIcon(),
+		bannerColor: "linear-gradient(135deg, #166534, #052e16)",
+		description: "Routes, races, and recovery tips.",
+		memberCount: 342,
+		onlineCount: 17,
+		ownerHandle: "ada.trail.run",
+		joinMode: "open",
+		viewer: "member",
+	},
+	{
+		id: "birders",
+		name: "Backyard Birders",
+		handle: "birders.example.com",
+		description:
+			"Share sightings, feeder setups, and blurry photos of birds that would not sit still.",
+		memberCount: 1,
+		ownerHandle: "robin.example.com",
+		joinMode: "open",
+		viewer: "none",
+	},
+];

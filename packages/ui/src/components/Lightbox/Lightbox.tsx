@@ -28,6 +28,7 @@ import {
 	springTransition,
 } from "../../utils/motion";
 import { formatMessageTime, type TimeInput } from "../../utils/time";
+import { AnimatedImage } from "../AnimatedImage/AnimatedImage";
 import type { MediaItem } from "../Attachments/MediaGrid";
 import { IconButton, iconButtonVariants } from "../IconButton/IconButton";
 import { VideoPlayer } from "../Media/VideoPlayer";
@@ -89,6 +90,8 @@ const ORIGIN_RADIUS = 12;
 
 const flight: SpringConfig = { stiffness: 380, damping: 36 };
 const settle: SpringConfig = springs.sheet;
+
+type SpringChannel = "main" | "dismiss";
 
 const clamp = (value: number, min: number, max: number) =>
 	Math.min(max, Math.max(min, value));
@@ -187,7 +190,7 @@ export const Lightbox = (props: LightboxProps) => {
 	let lastMouseToggle = 0;
 	let closeButton: HTMLButtonElement | undefined;
 	let returnFocus: HTMLElement | null = null;
-	let spring: SpringHandle | undefined;
+	const activeSprings = new Map<SpringChannel, SpringHandle>();
 	let chromeTimer: ReturnType<typeof setTimeout> | undefined;
 	let copiedTimer: ReturnType<typeof setTimeout> | undefined;
 	let tapTimer: ReturnType<typeof setTimeout> | undefined;
@@ -290,8 +293,8 @@ export const Lightbox = (props: LightboxProps) => {
 		phase() === "open" && chrome() && dismissRatio() < 0.05 ? 1 : 0;
 
 	const stopSpring = () => {
-		spring?.stop();
-		spring = undefined;
+		for (const handle of activeSprings.values()) handle.stop();
+		activeSprings.clear();
 	};
 
 	const runSpring = (
@@ -300,10 +303,14 @@ export const Lightbox = (props: LightboxProps) => {
 		config: SpringConfig,
 		onUpdate: (value: number) => void,
 		velocity = 0,
+		channel: SpringChannel = "main",
 	) => {
-		stopSpring();
+		activeSprings.get(channel)?.stop();
 		const handle = animateSpring({ from, to, config, onUpdate, velocity });
-		spring = handle;
+		activeSprings.set(channel, handle);
+		void handle.finished.then(() => {
+			if (activeSprings.get(channel) === handle) activeSprings.delete(channel);
+		});
 		return handle.finished;
 	};
 
@@ -467,23 +474,21 @@ export const Lightbox = (props: LightboxProps) => {
 		scheduleChromeHide();
 	};
 
-	const go = (direction: -1 | 1) => {
+	const go = (direction: -1 | 1, velocity = 0) => {
 		const next = index() + direction;
 		if (next < 0 || next >= count() || phase() !== "open") return;
 		const distance = viewport().width + SLIDE_GAP;
 		const reduced = prefersReducedMotion();
-		if (reduced) {
-			setSwipeX(0);
+		const carried = reduced
+			? 0
+			: clamp(swipeX() + direction * distance, -distance, distance);
+		activeSprings.get("main")?.stop();
+		activeSprings.delete("main");
+		batch(() => {
 			setIndex(next);
-			return;
-		}
-		void runSpring(swipeX(), -direction * distance, settle, setSwipeX).then(
-			() =>
-				batch(() => {
-					setSwipeX(0);
-					setIndex(next);
-				}),
-		);
+			setSwipeX(carried);
+		});
+		if (!reduced) void runSpring(carried, 0, settle, setSwipeX, velocity);
 	};
 
 	const panBounds = (scale: number) => {
@@ -802,7 +807,7 @@ export const Lightbox = (props: LightboxProps) => {
 						: 0;
 			const target = index() + direction;
 			if (direction !== 0 && target >= 0 && target < count()) {
-				go(direction as -1 | 1);
+				go(direction as -1 | 1, speed.x * 1000);
 				return;
 			}
 			void runSpring(dx, 0, settle, setSwipeX, speed.x * 1000);
@@ -817,7 +822,7 @@ export const Lightbox = (props: LightboxProps) => {
 				requestClose();
 				return;
 			}
-			void runSpring(dy, 0, settle, setDismissY, speed.y * 1000);
+			void runSpring(dy, 0, settle, setDismissY, speed.y * 1000, "dismiss");
 		}
 	};
 
@@ -826,7 +831,7 @@ export const Lightbox = (props: LightboxProps) => {
 		if (pointers.size > 0) return;
 		gesture = { kind: "idle" };
 		void runSpring(swipeX(), 0, settle, setSwipeX);
-		void runSpring(dismissY(), 0, settle, setDismissY);
+		void runSpring(dismissY(), 0, settle, setDismissY, 0, "dismiss");
 	};
 
 	const focusables = () =>
@@ -993,7 +998,7 @@ export const Lightbox = (props: LightboxProps) => {
 					<div
 						ref={stage}
 						data-lightbox-stage=""
-						class="absolute inset-0 touch-none"
+						class="absolute inset-0 isolate touch-none"
 						onPointerDown={onPointerDown}
 						onPointerMove={onPointerMove}
 						onPointerUp={onPointerUp}
@@ -1017,8 +1022,11 @@ export const Lightbox = (props: LightboxProps) => {
 										<Show
 											when={isVideo(entry())}
 											fallback={
-												<img
+												<AnimatedImage
 													data-lightbox-media=""
+													animated={entry()?.kind === "gif" ? true : undefined}
+													play={offset === 0}
+													playOnDemand="none"
 													src={entry()?.src}
 													alt={entry()?.alt ?? ""}
 													draggable={false}

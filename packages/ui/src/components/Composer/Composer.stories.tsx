@@ -3,11 +3,12 @@ import { expect, fn, userEvent, waitFor, within } from "storybook/test";
 import type { Meta, StoryObj } from "storybook-solidjs-vite";
 import { storyImages } from "../Banner/story-images";
 import { Button } from "../Button/Button";
-import { Switch } from "../Switch/Switch";
+import type { RichEditorHandle } from "../RichEditor/RichEditor";
+import type { RichEditorSources } from "../RichEditor/types";
 import { AttachmentTray, type PendingAttachment } from "./AttachmentTray";
-import { CharacterRing } from "./CharacterRing";
+import { CHARACTER_LIMIT, CharacterRing } from "./CharacterRing";
 import { Composer } from "./Composer";
-import { EditBar, ReplyBar } from "./ComposerBar";
+import { ReplyBar } from "./ComposerBar";
 import { TypingIndicator, type TypingUser } from "./TypingIndicator";
 
 const meta = {
@@ -41,7 +42,17 @@ const typists: TypingUser[] = [
 ];
 
 const textarea = (canvasElement: HTMLElement) =>
-	within(canvasElement).getByRole("textbox") as HTMLTextAreaElement;
+	within(canvasElement).getByRole("textbox") as HTMLElement;
+
+const scroller = (canvasElement: HTMLElement) =>
+	textarea(canvasElement).parentElement as HTMLElement;
+
+const isEmpty = (canvasElement: HTMLElement) =>
+	canvasElement.querySelector("[data-rich-editor]")?.hasAttribute("data-empty");
+
+const hardBreaks = (canvasElement: HTMLElement) =>
+	textarea(canvasElement).querySelectorAll("br:not(.ProseMirror-trailingBreak)")
+		.length;
 
 export const MobileEmpty: Story = {
 	render: () => (
@@ -60,9 +71,9 @@ export const MobileEmpty: Story = {
 		await expect(send).toBeEnabled();
 		const icon = send.querySelector("svg");
 		await userEvent.click(send);
-		await expect(onSend).toHaveBeenCalledWith("   Hi there");
+		await expect(onSend).toHaveBeenCalledWith({ text: "Hi there", facets: [] });
 		await expect(icon).toHaveAttribute("data-attention");
-		await expect(textarea(canvasElement)).toHaveValue("");
+		await waitFor(() => expect(isEmpty(canvasElement)).toBe(true));
 		await expect(send).toBeDisabled();
 		await waitFor(() => expect(icon).not.toHaveAttribute("data-attention"), {
 			timeout: 4000,
@@ -81,10 +92,12 @@ export const MobileTyping: Story = {
 		</MobileScreen>
 	),
 	play: async ({ canvasElement }) => {
+		onSend.mockClear();
 		const field = textarea(canvasElement);
 		await userEvent.click(field);
 		await userEvent.keyboard("{Enter}");
-		await expect(field.value).toBe("Did you feed them once?\n");
+		await expect(onSend).not.toHaveBeenCalled();
+		await waitFor(() => expect(hardBreaks(canvasElement)).toBe(1));
 	},
 };
 
@@ -109,17 +122,17 @@ export const MobileOverflow: Story = {
 	),
 	play: async ({ canvasElement }) => {
 		const field = textarea(canvasElement);
-		const oneLine = field.getBoundingClientRect().height;
-		await expect(oneLine).toBe(21);
+		const box = scroller(canvasElement);
+		await expect(box.getBoundingClientRect().height).toBe(21);
 		await userEvent.click(field);
 		await userEvent.keyboard("1{Enter}2{Enter}3");
-		await waitFor(() => expect(field.getBoundingClientRect().height).toBe(63));
-		await userEvent.clear(field);
+		await waitFor(() => expect(box.getBoundingClientRect().height).toBe(63));
+		await userEvent.keyboard("{Enter}");
 		await userEvent.paste(eightPlusLines);
-		await waitFor(() => expect(field.getBoundingClientRect().height).toBe(168));
-		await expect(field.style.overflowY).toBe("auto");
+		await waitFor(() => expect(box.getBoundingClientRect().height).toBe(168));
+		await expect(box.scrollHeight).toBeGreaterThan(box.clientHeight);
 		await userEvent.paste("\n11\n12");
-		await expect(field.getBoundingClientRect().height).toBe(168);
+		await expect(box.getBoundingClientRect().height).toBe(168);
 	},
 };
 
@@ -138,13 +151,88 @@ export const DesktopSend: Story = {
 		const field = textarea(canvasElement);
 		await userEvent.click(field);
 		await userEvent.keyboard("First line{Shift>}{Enter}{/Shift}second line");
-		await expect(field.value).toBe("First line\nsecond line");
+		await expect(hardBreaks(canvasElement)).toBe(1);
 		await expect(onSend).not.toHaveBeenCalled();
 		await userEvent.keyboard("{Enter}");
-		await expect(onSend).toHaveBeenCalledWith("First line\nsecond line");
-		await expect(field).toHaveValue("");
+		await expect(onSend).toHaveBeenCalledWith({
+			text: "First line\nsecond line",
+			facets: [],
+		});
+		await waitFor(() => expect(isEmpty(canvasElement)).toBe(true));
 		await userEvent.keyboard("{Enter}");
 		await expect(onSend).toHaveBeenCalledTimes(1);
+	},
+};
+
+const suggestionSources: RichEditorSources = {
+	searchMembers: (query, limit) =>
+		[
+			{ did: "did:plc:lou", name: "Lou", handle: "lou.gg" },
+			{ did: "did:plc:lena", name: "Lena", handle: "lena.bsky.social" },
+		]
+			.filter((member) =>
+				member.name.toLowerCase().startsWith(query.toLowerCase()),
+			)
+			.slice(0, limit),
+};
+
+const expectSuggestionsAnchored = async (canvasElement: HTMLElement) => {
+	const field = textarea(canvasElement);
+	await userEvent.click(field);
+	await userEvent.keyboard("Hey @l");
+	const list = await within(canvasElement).findByRole("listbox", {
+		name: "Suggestions",
+	});
+	const panel = list.closest("[data-suggestions]");
+	const box = canvasElement.querySelector("[data-composer-box]");
+	const panelRect = rect(panel);
+	const boxRect = rect(box);
+	await expect(Math.abs(panelRect.left - boxRect.left)).toBeLessThanOrEqual(1);
+	await expect(Math.abs(panelRect.width - boxRect.width)).toBeLessThanOrEqual(
+		1,
+	);
+	await expect(boxRect.top - panelRect.bottom).toBeGreaterThanOrEqual(7);
+	await expect(boxRect.top - panelRect.bottom).toBeLessThanOrEqual(9);
+	await userEvent.keyboard("{Enter}");
+	await waitFor(() =>
+		expect(
+			field.querySelector("[data-mention-type='member']"),
+		).toHaveTextContent("@Lou"),
+	);
+};
+
+export const DesktopSuggestions: Story = {
+	render: () => (
+		<DesktopScreen>
+			<Composer
+				platform="desktop"
+				channelName="general"
+				sources={suggestionSources}
+				typing={<TypingIndicator users={typists.slice(0, 2)} />}
+				onSend={onSend}
+			/>
+		</DesktopScreen>
+	),
+	play: async ({ canvasElement }) => {
+		onSend.mockClear();
+		await expectSuggestionsAnchored(canvasElement);
+		await expect(onSend).not.toHaveBeenCalled();
+	},
+};
+
+export const MobileSuggestions: Story = {
+	render: () => (
+		<MobileScreen>
+			<Composer
+				channelName="general"
+				sources={suggestionSources}
+				typing={<TypingIndicator size="sm" users={typists.slice(0, 2)} />}
+				onSend={onSend}
+			/>
+		</MobileScreen>
+	),
+	play: async ({ canvasElement }) => {
+		await expectSuggestionsAnchored(canvasElement);
 	},
 };
 
@@ -235,6 +323,147 @@ export const MobileRing: Story = {
 	},
 };
 
+const onEditSave = fn();
+const onEditCancel = fn();
+
+export const Editing: Story = {
+	render: () => (
+		<MobileScreen>
+			<Composer
+				channelName="general"
+				onSend={onSend}
+				editing={{
+					value: { text: "The heron left at dawn", facets: [] },
+					preview: "The heron left at dawn",
+					onSave: (value) => {
+						onEditSave(value);
+						return true;
+					},
+					onCancel: onEditCancel,
+				}}
+			/>
+		</MobileScreen>
+	),
+	play: async ({ canvasElement }) => {
+		const canvas = within(canvasElement);
+		const bar = canvasElement.querySelector('[data-composer-bar="edit"]');
+		await expect(bar).toHaveAttribute("data-open");
+		const editor = canvasElement.querySelector(
+			"[data-composer] .ProseMirror",
+		) as HTMLElement;
+		await waitFor(() =>
+			expect(editor).toHaveTextContent("The heron left at dawn"),
+		);
+		await expect(
+			canvas.getByRole("button", { name: "Upload a file" }),
+		).toBeDisabled();
+		await waitFor(() => expect(editor).toHaveFocus());
+		await userEvent.keyboard(" again");
+		await userEvent.click(canvas.getByRole("button", { name: "Save edit" }));
+		await waitFor(() =>
+			expect(onEditSave).toHaveBeenCalledWith(
+				expect.objectContaining({ text: "The heron left at dawn again" }),
+			),
+		);
+		await expect(onSend).not.toHaveBeenCalled();
+	},
+};
+
+export const EditingCancelHoldsPreview: Story = {
+	render: () => {
+		const [editing, setEditing] = createSignal(true);
+		return (
+			<MobileScreen>
+				<div class="px-4 pb-4">
+					<Button variant="secondary" onClick={() => setEditing(true)}>
+						Edit message
+					</Button>
+				</div>
+				<Composer
+					channelName="general"
+					class="[--duration-overlay-in:1200ms]"
+					onSend={onSend}
+					editing={
+						editing()
+							? {
+									value: { text: "The heron left at dawn", facets: [] },
+									preview: "The heron left at dawn",
+									onSave: () => true,
+									onCancel: () => setEditing(false),
+								}
+							: undefined
+					}
+				/>
+			</MobileScreen>
+		);
+	},
+	play: async ({ canvasElement }) => {
+		const canvas = within(canvasElement);
+		const bar = canvasElement.querySelector<HTMLElement>(
+			'[data-composer-bar="edit"]',
+		);
+		if (!bar) throw new Error("Missing edit bar");
+		const running = () =>
+			bar
+				.getAnimations()
+				.some((animation) => animation.playState === "running");
+		const closes = async () => {
+			await expect(bar).toHaveAttribute("data-open");
+			await waitFor(() => expect(running()).toBe(false), { timeout: 3000 });
+			await expect(bar).toHaveTextContent("The heron left at dawn");
+			await userEvent.click(
+				canvas.getByRole("button", { name: "Cancel editing" }),
+			);
+			await expect(bar).not.toHaveAttribute("data-open");
+			await expect(running()).toBe(true);
+			await expect(bar).toHaveTextContent("The heron left at dawn");
+			await waitFor(
+				() => expect(bar).not.toHaveTextContent("The heron left at dawn"),
+				{ timeout: 3000 },
+			);
+		};
+		await closes();
+		await userEvent.click(canvas.getByRole("button", { name: "Edit message" }));
+		await closes();
+	},
+};
+
+export const ReplyCancelHoldsName: Story = {
+	render: () => {
+		const [replyTo, setReplyTo] = createSignal<string | undefined>("Lou");
+		return (
+			<MobileScreen>
+				<Composer
+					channelName="general"
+					class="[--duration-overlay-in:1200ms]"
+					onSend={onSend}
+					top={
+						<ReplyBar
+							open={!!replyTo()}
+							name={replyTo()}
+							onCancel={() => setReplyTo(undefined)}
+						/>
+					}
+				/>
+			</MobileScreen>
+		);
+	},
+	play: async ({ canvasElement }) => {
+		const canvas = within(canvasElement);
+		const bar = canvasElement.querySelector<HTMLElement>(
+			'[data-composer-bar="reply"]',
+		);
+		if (!bar) throw new Error("Missing reply bar");
+		await expect(bar).toHaveTextContent("Replying to Lou");
+		await userEvent.click(canvas.getByRole("button", { name: "Cancel reply" }));
+		await expect(bar).not.toHaveAttribute("data-open");
+		await expect(bar).toHaveTextContent("Replying to Lou");
+		await waitFor(() => expect(bar).not.toHaveTextContent("Lou"), {
+			timeout: 3000,
+		});
+	},
+};
+
 export const Replying: Story = {
 	render: () => {
 		const [replying, setReplying] = createSignal(true);
@@ -266,40 +495,13 @@ export const Replying: Story = {
 	play: async ({ canvasElement }) => {
 		onCancel.mockClear();
 		const canvas = within(canvasElement);
-		const bar = canvasElement.querySelector("[data-composer-bar]");
+		const bar = canvasElement.querySelector('[data-composer-bar="reply"]');
 		await expect(bar).toHaveAttribute("data-open");
 		await expect(canvas.getByText("Lou")).toBeInTheDocument();
 		await userEvent.click(canvas.getByRole("button", { name: "Cancel reply" }));
 		await expect(onCancel).toHaveBeenCalledOnce();
 		await expect(bar).not.toHaveAttribute("data-open");
 		await expect(bar).toHaveAttribute("inert");
-	},
-};
-
-export const Editing: Story = {
-	render: () => {
-		const [editing, setEditing] = createSignal(true);
-		return (
-			<MobileScreen>
-				<div class="px-4 pb-4">
-					<Switch label="Editing" checked={editing()} onChange={setEditing} />
-				</div>
-				<Composer
-					channelName="general"
-					defaultValue="I may have shared a sandwich in feb"
-					onSend={onSend}
-					onEscape={() => setEditing(false)}
-					top={<EditBar open={editing()} onCancel={() => setEditing(false)} />}
-				/>
-			</MobileScreen>
-		);
-	},
-	play: async ({ canvasElement }) => {
-		const bar = canvasElement.querySelector("[data-composer-bar]");
-		await expect(bar).toHaveAttribute("data-open");
-		await userEvent.click(textarea(canvasElement));
-		await userEvent.keyboard("{Escape}");
-		await expect(bar).not.toHaveAttribute("data-open");
 	},
 };
 
@@ -334,7 +536,7 @@ const rect = (element: Element | null) => {
 	return element.getBoundingClientRect();
 };
 
-const textStart = (field: HTMLTextAreaElement) =>
+const textStart = (field: HTMLElement) =>
 	rect(field).left + Number.parseFloat(getComputedStyle(field).paddingLeft);
 
 const expectTypingAligned = async (canvasElement: HTMLElement) => {
@@ -448,6 +650,8 @@ export const DesktopIconsFlushRight: Story = {
 	},
 };
 
+let editorHandle: RichEditorHandle | undefined;
+
 const liveStart = "Crows remember faces. ".repeat(100).slice(0, 2040);
 
 export const RingLiveTyping: Story = {
@@ -469,9 +673,8 @@ export const RingLiveTyping: Story = {
 		await expect(ring).toHaveAttribute("data-visible");
 		await expect(count).toHaveTextContent("8");
 		const warmColor = getComputedStyle(progress as Element).stroke;
-		const field = textarea(canvasElement);
-		field.focus();
-		field.setSelectionRange(field.value.length, field.value.length);
+		await userEvent.click(textarea(canvasElement));
+		editorHandle?.focus("end");
 		await userEvent.keyboard("abc");
 		await expect(count).toHaveTextContent("5");
 		await userEvent.keyboard("abcdef");
@@ -503,6 +706,21 @@ export const RingIntensity: Story = {
 		await expect(intensity(1640)).toBeLessThan(intensity(1880));
 		await expect(intensity(1880)).toBeLessThan(intensity(2030));
 		await expect(intensity(2048)).toBe(1);
+		const arcShare = (length: number) => {
+			const arc = canvas
+				.getByTestId(`ring-${length}`)
+				.querySelector("[data-ring-progress]") as SVGCircleElement;
+			const circumference = Number(arc.getAttribute("stroke-dasharray"));
+			const offset = Number(arc.getAttribute("stroke-dashoffset"));
+			return (circumference - offset) / circumference;
+		};
+		await expect(arcShare(1640)).toBeCloseTo(0, 2);
+		await expect(arcShare(1760)).toBeGreaterThan(arcShare(1640));
+		await expect(arcShare(1880)).toBeGreaterThan(arcShare(1760));
+		await expect(arcShare(2030)).toBeGreaterThan(arcShare(1880));
+		await expect(arcShare(1880)).toBeCloseTo(intensity(1880), 2);
+		await expect(arcShare(2048)).toBeCloseTo(1, 5);
+		await expect(arcShare(2060)).toBeCloseTo(1, 5);
 		await expect(canvas.getByTestId("ring-1960")).toHaveAttribute(
 			"data-tone",
 			"warning",
@@ -510,6 +728,98 @@ export const RingIntensity: Story = {
 		await expect(canvas.getByTestId("ring-1760")).toHaveAttribute(
 			"data-tone",
 			"default",
+		);
+	},
+};
+
+const RING_STEPS = [1500, 1700, 1990, 2050, 1700];
+
+export const RingThresholdCrossing: Story = {
+	render: () => {
+		const [step, setStep] = createSignal(0);
+		return (
+			<div class="flex items-center gap-4 bg-background p-6">
+				<CharacterRing data-testid="ring" length={RING_STEPS[step()]} />
+				<Button
+					variant="secondary"
+					onClick={() => setStep((index) => (index + 1) % RING_STEPS.length)}
+				>
+					Next length
+				</Button>
+			</div>
+		);
+	},
+	play: async ({ canvasElement }) => {
+		const canvas = within(canvasElement);
+		const ring = canvas.getByTestId("ring");
+		const glyph = () => ring.querySelector("svg") as SVGSVGElement;
+		const arc = () =>
+			ring.querySelector("[data-ring-progress]") as SVGCircleElement;
+		const next = () =>
+			userEvent.click(canvas.getByRole("button", { name: "Next length" }));
+		await expect(ring).not.toHaveAttribute("data-visible");
+		await next();
+		await expect(ring).toHaveAttribute("data-visible");
+		await expect(arc().getAnimations().length).toBeGreaterThan(0);
+		await next();
+		await expect(ring).toHaveAttribute("data-crossed", "warning");
+		await expect(glyph().getAnimations().length).toBeGreaterThan(0);
+		await next();
+		await expect(ring).toHaveAttribute("data-tone", "destructive");
+		await expect(ring).toHaveAttribute("data-crossed", "destructive");
+		await next();
+		await expect(ring).toHaveAttribute("data-tone", "default");
+		await expect(ring).toHaveAttribute("data-crossed", "destructive");
+	},
+};
+
+export const RingFullCircle: Story = {
+	render: () => (
+		<div class="flex items-center gap-4 bg-background p-6">
+			<CharacterRing data-testid="full" length={CHARACTER_LIMIT} />
+			<CharacterRing data-testid="small" length={CHARACTER_LIMIT * 0.9} />
+		</div>
+	),
+	play: async ({ canvasElement }) => {
+		const canvas = within(canvasElement);
+		for (const id of ["full", "small"]) {
+			const arc = canvas
+				.getByTestId(id)
+				.querySelector("[data-ring-progress]") as SVGCircleElement;
+			await expect(arc).not.toHaveAttribute("vector-effect");
+			await expect(arc.getAttribute("stroke-dasharray")).toBe(
+				arc.getAttribute("pathLength"),
+			);
+		}
+		const full = canvas
+			.getByTestId("full")
+			.querySelector("[data-ring-progress]") as SVGCircleElement;
+		await expect(Number(full.getAttribute("stroke-dashoffset"))).toBe(0);
+	},
+};
+
+export const RingCountsBytes: Story = {
+	render: () => (
+		<Composer
+			channelName="general"
+			onSend={onSend}
+			defaultValue={"\u00fc".repeat(1100)}
+		/>
+	),
+	play: async ({ canvasElement }) => {
+		const ring = await waitFor(
+			() => {
+				const element = canvasElement.querySelector("[data-character-ring]");
+				if (!element) throw new Error("no ring");
+				return element;
+			},
+			{ timeout: 3000 },
+		);
+		await waitFor(
+			() => expect(ring).toHaveAttribute("data-tone", "destructive"),
+			{
+				timeout: 3000,
+			},
 		);
 	},
 };

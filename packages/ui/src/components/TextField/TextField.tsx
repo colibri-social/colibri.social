@@ -127,7 +127,7 @@ export const TextField = (props: TextFieldProps) => {
 			>
 				<div class={cx(fieldShell, "h-10")}>
 					<Show when={leading.has()}>
-						<span class="flex shrink-0 items-center text-muted-foreground [&>svg]:size-4">
+						<span class="flex min-w-4 shrink-0 items-center justify-center text-muted-foreground [&>svg]:size-4">
 							{leading()}
 						</span>
 					</Show>

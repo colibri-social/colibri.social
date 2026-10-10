@@ -11,6 +11,11 @@ import {
 } from "solid-js";
 import { cx } from "../../utils/cx";
 import { motionScale, prefersReducedMotion } from "../../utils/motion";
+import {
+	nameColorClass,
+	nameColorStyle,
+	useNameColor,
+} from "../../utils/name-color";
 import { createSlot } from "../../utils/slot";
 import {
 	formatFullTimestamp,
@@ -18,16 +23,29 @@ import {
 	formatShortTime,
 	type TimeInput,
 } from "../../utils/time";
+import { AnimatedImage } from "../AnimatedImage/AnimatedImage";
 import { Avatar } from "../Avatar/Avatar";
 import { Drawer, DrawerContent } from "../Drawer/Drawer";
 import { DestructiveRow, ListGroup } from "../List/List";
+import { RoleBadge, type RoleIdentity } from "../Roles/RoleBadge";
 import { chatLayoutVars } from "./layout";
+import { type MessageEditing, MessageEditor } from "./MessageEditor";
+import { useMessageListItem } from "./message-list-context";
 
 export type MessageAuthor = {
 	name: string;
 	avatarSrc?: string;
 	color?: string;
+	nameColor?: string;
+	role?: RoleIdentity;
 };
+
+export const useAuthorNameColor = (author: () => MessageAuthor | undefined) =>
+	useNameColor(() => ({
+		userColor: author()?.nameColor,
+		roleColor: author()?.role?.color,
+		context: "chat",
+	}));
 
 export type MessageReply = {
 	author?: MessageAuthor;
@@ -36,12 +54,7 @@ export type MessageReply = {
 	onClick?: () => void;
 };
 
-export type MessageHighlight =
-	| "mention"
-	| "replying"
-	| "jumped"
-	| "editing"
-	| "menu";
+export type MessageHighlight = "mention" | "replying" | "jumped" | "menu";
 
 export type MessageState = "sent" | "pending" | "failed";
 
@@ -69,6 +82,7 @@ export type MessageRowProps = Omit<
 	toolbar?: JSX.Element;
 	toolbarOpen?: boolean;
 	highlight?: MessageHighlight;
+	editing?: MessageEditing;
 	state?: MessageState;
 	platform?: MessagePlatform;
 	onFailedPress?: () => void;
@@ -79,25 +93,25 @@ export type MessageRowProps = Omit<
 
 export const PENDING_DIM_DELAY_MS = 300;
 export const JUMP_HIGHLIGHT_MS = 1500;
-const JUMP_FADE_MS = 600;
+export const JUMP_FADE_MS = 600;
 
 const highlightClass: Record<MessageHighlight, string> = {
 	mention:
 		"bg-primary/10 shadow-[inset_2px_0_0_var(--primary)] hover:bg-primary/15",
 	replying: "bg-info/5 shadow-[inset_2px_0_0_var(--info)] hover:bg-info/10",
 	jumped: "bg-info/15 shadow-[inset_2px_0_0_var(--info)]",
-	editing: "bg-warning/10 shadow-[inset_2px_0_0_var(--warning)]",
 	menu: "bg-muted/60 hover:bg-muted/60",
 };
 
 const failedLinkButton =
-	"cursor-pointer rounded-control-xs text-destructive-highlight underline underline-offset-2 outline-none hover:text-foreground focus-visible:shadow-[0_0_0_2px_var(--primary)]";
+	"cursor-pointer rounded-control-xs text-destructive-highlight underline underline-offset-2 outline-none hover:text-foreground focus-ring";
 
 const contentText =
-	"text-base leading-[21px] [overflow-wrap:anywhere] [&_a]:text-primary-highlight [&_a]:underline-offset-2 [&_a]:decoration-1 [&_a:hover]:underline";
+	"text-base leading-[21px] [overflow-wrap:anywhere] [&>[data-rich-text]]:inline [&_a:not([data-chip])]:text-primary-highlight [&_a:not([data-chip])]:underline-offset-2 [&_a:not([data-chip])]:decoration-1 [&_a:not([data-chip]):hover]:underline";
 
 const ReplyLine = (props: { reply: MessageReply }) => {
 	const interactive = () => !!props.reply.onClick && !props.reply.unavailable;
+	const replyNameColor = useAuthorNameColor(() => props.reply.author);
 	return (
 		<div
 			data-message-reply=""
@@ -122,7 +136,7 @@ const ReplyLine = (props: { reply: MessageReply }) => {
 					onClick={() => props.reply.onClick?.()}
 					class={cx(
 						"group/reply flex min-w-0 flex-1 items-center gap-2 text-left text-xs leading-4 text-foreground",
-						"outline-none focus-visible:rounded-control-xs focus-visible:shadow-[0_0_0_2px_var(--primary)]",
+						"outline-none focus-visible:rounded-control-xs focus-ring",
 						interactive() ? "cursor-pointer" : "cursor-default",
 					)}
 				>
@@ -130,10 +144,10 @@ const ReplyLine = (props: { reply: MessageReply }) => {
 						{(author) => (
 							<span class="flex shrink-0 items-center gap-1">
 								<span class="relative size-4 shrink-0 overflow-hidden rounded-full bg-accent">
-									<Show when={author().avatarSrc}>
+									<Show when={author().avatarSrc} keyed>
 										{(src) => (
-											<img
-												src={src()}
+											<AnimatedImage
+												src={src}
 												alt=""
 												class="size-full object-cover"
 												draggable={false}
@@ -141,7 +155,14 @@ const ReplyLine = (props: { reply: MessageReply }) => {
 										)}
 									</Show>
 								</span>
-								<span class="font-semibold whitespace-nowrap">
+								<span
+									data-author-name=""
+									class={cx(
+										"font-semibold whitespace-nowrap",
+										replyNameColor() && nameColorClass,
+									)}
+									style={nameColorStyle(replyNameColor())}
+								>
 									{author().name}
 								</span>
 							</span>
@@ -176,6 +197,7 @@ export const MessageRow = (props: MessageRowProps) => {
 		"toolbar",
 		"toolbarOpen",
 		"highlight",
+		"editing",
 		"state",
 		"platform",
 		"onFailedPress",
@@ -185,6 +207,13 @@ export const MessageRow = (props: MessageRowProps) => {
 		"class",
 	]);
 	const badge = createSlot(() => local.badge);
+	const nameColor = useAuthorNameColor(() => local.author);
+	const nameTone = () =>
+		failed()
+			? "text-destructive"
+			: nameColor()
+				? nameColorClass
+				: "text-foreground";
 	const content = createSlot(() => local.children);
 	const attachments = createSlot(() => local.attachments);
 	const reactions = createSlot(() => local.reactions);
@@ -192,6 +221,9 @@ export const MessageRow = (props: MessageRowProps) => {
 	const toolbar = createSlot(() => local.toolbar);
 	const [dimmed, setDimmed] = createSignal(false);
 	const [failedMenuOpen, setFailedMenuOpen] = createSignal(false);
+	const listItem = useMessageListItem();
+	const highlight = (): MessageHighlight | undefined =>
+		listItem?.jumped() ? "jumped" : local.highlight;
 	let root: HTMLElement | undefined;
 
 	createEffect(
@@ -212,29 +244,26 @@ export const MessageRow = (props: MessageRowProps) => {
 	);
 
 	createEffect(
-		on(
-			() => local.highlight,
-			(highlight) => {
-				if (highlight !== "jumped" || !root) return;
-				const reduced = prefersReducedMotion();
-				const fade = root.animate(
-					[
-						{},
-						{
-							backgroundColor: "transparent",
-							boxShadow: "inset 2px 0 0 transparent",
-						},
-					],
+		on(highlight, (value) => {
+			if (value !== "jumped" || !root) return;
+			const reduced = prefersReducedMotion();
+			const fade = root.animate(
+				[
+					{},
 					{
-						duration: reduced ? 0 : JUMP_FADE_MS * motionScale(),
-						delay: JUMP_HIGHLIGHT_MS * motionScale(),
-						easing: "ease-out",
-						fill: "forwards",
+						backgroundColor: "transparent",
+						boxShadow: "inset 2px 0 0 transparent",
 					},
-				);
-				onCleanup(() => fade.cancel());
-			},
-		),
+				],
+				{
+					duration: reduced ? 0 : JUMP_FADE_MS * motionScale(),
+					delay: JUMP_HIGHLIGHT_MS * motionScale(),
+					easing: "ease-out",
+					fill: "forwards",
+				},
+			);
+			onCleanup(() => fade.cancel());
+		}),
 	);
 
 	const fullTime = () => formatFullTimestamp(local.timestamp, local.locale);
@@ -253,7 +282,7 @@ export const MessageRow = (props: MessageRowProps) => {
 		setFailedMenuOpen(true);
 	};
 	const pressFailed = (event: MouseEvent) => {
-		if (!failed() || !mobile()) return;
+		if (!failed() || !mobile() || editing()) return;
 		const target = event.target as Element | null;
 		if (target?.closest("a, button, input, textarea, [role='button']")) return;
 		openFailedOptions();
@@ -263,6 +292,7 @@ export const MessageRow = (props: MessageRowProps) => {
 		action?.();
 	};
 	const headless = () => !!local.continuation && !local.reply;
+	const editing = () => (mobile() ? undefined : local.editing);
 
 	const AuthorAvatar = () => (
 		<Avatar
@@ -282,8 +312,13 @@ export const MessageRow = (props: MessageRowProps) => {
 					local.ref?.(element);
 				}}
 				data-message=""
+				data-message-key={listItem?.key}
+				aria-posinset={listItem?.position()}
+				aria-setsize={listItem?.setSize()}
+				tabIndex={listItem ? (listItem.active() ? 0 : -1) : rest.tabIndex}
 				data-continuation={headless() || undefined}
-				data-highlight={local.highlight}
+				data-highlight={highlight()}
+				data-editing={editing() ? "" : undefined}
 				data-state={local.state ?? "sent"}
 				data-dimmed={dimmed() || undefined}
 				data-platform={local.platform ?? "desktop"}
@@ -299,12 +334,13 @@ export const MessageRow = (props: MessageRowProps) => {
 					"group/message relative flex flex-col gap-2 pr-(--chat-row-end-padding) pl-(--chat-row-padding)",
 					!mobile() && "rounded-r-[4px]",
 					headless() ? "py-1" : "mt-(--chat-group-gap) py-1",
-					local.highlight
-						? highlightClass[local.highlight]
+					highlight()
+						? highlightClass[highlight() as MessageHighlight]
 						: failed()
 							? "hover:bg-destructive/10"
 							: "hover:bg-popover",
 					failed() && mobile() && "cursor-pointer",
+					listItem && "focus-ring-inset",
 					local.class,
 				)}
 			>
@@ -344,7 +380,7 @@ export const MessageRow = (props: MessageRowProps) => {
 									type="button"
 									aria-label={`${local.author.name}'s profile`}
 									onClick={(event) => onClick()(event)}
-									class="size-10 shrink-0 cursor-pointer self-start rounded-full outline-none focus-visible:shadow-[0_0_0_2px_var(--primary)]"
+									class="size-10 shrink-0 cursor-pointer self-start rounded-full outline-none focus-ring"
 								>
 									<AuthorAvatar />
 								</button>
@@ -362,10 +398,14 @@ export const MessageRow = (props: MessageRowProps) => {
 										when={local.onAuthorClick}
 										fallback={
 											<span
+												data-author-name=""
 												class={cx(
 													"truncate text-sm leading-4 font-semibold",
-													failed() ? "text-destructive" : "text-foreground",
+													nameTone(),
 												)}
+												style={
+													failed() ? undefined : nameColorStyle(nameColor())
+												}
 											>
 												{local.author.name}
 											</span>
@@ -375,14 +415,21 @@ export const MessageRow = (props: MessageRowProps) => {
 											<button
 												type="button"
 												onClick={(event) => onClick()(event)}
+												data-author-name=""
 												class={cx(
-													"cursor-pointer truncate rounded-control-xs text-sm leading-4 font-semibold decoration-1 underline-offset-2 outline-none hover:underline focus-visible:shadow-[0_0_0_2px_var(--primary)]",
-													failed() ? "text-destructive" : "text-foreground",
+													"cursor-pointer truncate rounded-control-xs text-sm leading-4 font-semibold decoration-1 underline-offset-2 outline-none hover:underline focus-ring",
+													nameTone(),
 												)}
+												style={
+													failed() ? undefined : nameColorStyle(nameColor())
+												}
 											>
 												{local.author.name}
 											</button>
 										)}
+									</Show>
+									<Show when={local.author.role?.badge && local.author.role}>
+										{(role) => <RoleBadge role={role()} />}
 									</Show>
 									<Show when={badge.has()}>{badge()}</Show>
 									<Show when={local.via}>
@@ -412,13 +459,21 @@ export const MessageRow = (props: MessageRowProps) => {
 								</span>
 							</div>
 						</Show>
-						<Show when={content.has()}>
+						<Show when={editing()}>
+							{(state) => (
+								<MessageEditor
+									editing={state()}
+									platform={local.platform ?? "desktop"}
+								/>
+							)}
+						</Show>
+						<Show when={content.has() && !editing()}>
 							<div
 								data-message-content=""
 								class={cx(
 									contentText,
 									failed()
-										? "text-destructive [&_a]:text-destructive-highlight [&_a]:underline"
+										? "text-destructive [&_a:not([data-chip])]:text-destructive-highlight [&_a:not([data-chip])]:underline"
 										: "text-foreground",
 								)}
 							>
@@ -479,7 +534,7 @@ export const MessageRow = (props: MessageRowProps) => {
 									data-message-failed=""
 									aria-haspopup="dialog"
 									onClick={openFailedOptions}
-									class="flex cursor-pointer items-center self-start rounded-control-xs text-left text-xs leading-4 text-destructive outline-none focus-visible:shadow-[0_0_0_2px_var(--primary)]"
+									class="flex cursor-pointer items-center self-start rounded-control-xs text-left text-xs leading-4 text-destructive outline-none focus-ring"
 								>
 									Failed to send. Tap for options
 								</button>
@@ -497,7 +552,7 @@ export const MessageRow = (props: MessageRowProps) => {
 						</Show>
 					</div>
 				</div>
-				<Show when={toolbar.has()}>
+				<Show when={toolbar.has() && !editing()}>
 					<div
 						data-message-toolbar=""
 						class={cx(

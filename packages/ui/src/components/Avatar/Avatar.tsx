@@ -8,6 +8,12 @@ import {
 	splitProps,
 } from "solid-js";
 import { cx } from "../../utils/cx";
+import { AnimatedImage } from "../AnimatedImage/AnimatedImage";
+import {
+	type DefaultAvatarId,
+	defaultAvatarFor,
+	defaultAvatarUrl,
+} from "./default-avatars/default-avatars";
 
 export type Presence = "online" | "idle" | "dnd" | "offline";
 
@@ -121,6 +127,9 @@ export type AvatarProps = Omit<
 	shape?: "circle" | "square";
 	presence?: Presence;
 	color?: string;
+	seed?: string;
+	fallback?: "illustration" | "initials";
+	defaultAvatars?: readonly DefaultAvatarId[];
 };
 
 const initialsOf = (name: string) =>
@@ -140,11 +149,18 @@ export const Avatar = (props: AvatarProps) => {
 		"presence",
 		"color",
 		"class",
+		"seed",
+		"fallback",
+		"defaultAvatars",
 	]);
 	const [loaded, setLoaded] = createSignal(false);
 	const [failed, setFailed] = createSignal(false);
 	const pixels = () => SIZES[local.size ?? "md"];
 	const showImage = () => !!local.src && !failed();
+	const fallbackMode = () =>
+		local.fallback ?? (local.shape === "square" ? "initials" : "illustration");
+	const illustration = () =>
+		defaultAvatarFor(local.seed ?? local.name, local.defaultAvatars);
 	const radius = () =>
 		local.shape === "square" ? "rounded-[28%]" : "rounded-full";
 	const presenceSize = () => Math.max(6, Math.round(pixels() * 0.25));
@@ -171,14 +187,30 @@ export const Avatar = (props: AvatarProps) => {
 					"font-size": `${Math.round(pixels() * 0.4)}px`,
 				}}
 			>
-				<Show when={(!showImage() || !loaded()) && pixels() >= 24}>
+				<Show
+					when={
+						fallbackMode() === "initials" &&
+						(!showImage() || !loaded()) &&
+						pixels() >= 24
+					}
+				>
 					<span aria-hidden="true">{initialsOf(local.name)}</span>
+				</Show>
+				<Show when={fallbackMode() === "illustration" && !showImage()}>
+					<AnimatedImage
+						src={defaultAvatarUrl(illustration())}
+						alt=""
+						aria-hidden="true"
+						draggable={false}
+						data-default-avatar={illustration()}
+						class={cx("absolute inset-0 size-full", radius())}
+					/>
 				</Show>
 				<Show
 					when={showImage()}
 					fallback={<span class="sr-only">{local.name}</span>}
 				>
-					<img
+					<AnimatedImage
 						src={local.src}
 						alt={local.name}
 						draggable={false}

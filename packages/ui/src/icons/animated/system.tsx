@@ -241,7 +241,6 @@ export const AnimatedShareCircleIcon = (props: AnimatedIconProps) => (
 			hover="pop"
 			attention="pop"
 			origin="12px 6px"
-			vars={{ "--fx-scale": "1.25" }}
 		/>
 		<SolarShape
 			path={shareCircle2}
@@ -249,7 +248,7 @@ export const AnimatedShareCircleIcon = (props: AnimatedIconProps) => (
 			hover="pop"
 			attention="pop"
 			origin="18.5px 18px"
-			vars={{ "--fx-scale": "1.25", "--fx-delay": "70ms" }}
+			vars={{ "--fx-delay": "70ms" }}
 		/>
 		<SolarShape
 			path={shareCircle1}
@@ -257,7 +256,7 @@ export const AnimatedShareCircleIcon = (props: AnimatedIconProps) => (
 			hover="pop"
 			attention="pop"
 			origin="5.5px 18px"
-			vars={{ "--fx-scale": "1.25", "--fx-delay": "140ms" }}
+			vars={{ "--fx-delay": "140ms" }}
 		/>
 	</AnimatedIcon>
 );

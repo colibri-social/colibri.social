@@ -1,4 +1,5 @@
 import { type JSX, Show, splitProps } from "solid-js";
+import { cx } from "../../utils/cx";
 import { Banner } from "../Banner/Banner";
 import { Card } from "../Card/Card";
 import { SpaceIcon } from "./SpaceIcon";
@@ -30,7 +31,11 @@ export const SpaceCard = (props: SpaceCardProps) => {
 	]);
 
 	return (
-		<Card {...rest} tone="card" class={local.class}>
+		<Card
+			{...rest}
+			tone="card"
+			class={cx("flex flex-col justify-start", local.class)}
+		>
 			<Banner
 				ratio="space"
 				src={local.bannerSrc}

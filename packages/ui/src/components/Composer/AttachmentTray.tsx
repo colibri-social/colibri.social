@@ -3,6 +3,7 @@ import { DangerTriangleIcon } from "@solar-icons/solid/bold/danger-triangle";
 import { FileIcon } from "@solar-icons/solid/bold/file";
 import { For, Show } from "solid-js";
 import { cx } from "../../utils/cx";
+import { AnimatedImage } from "../AnimatedImage/AnimatedImage";
 
 export type PendingAttachment = {
 	id: string;
@@ -57,20 +58,21 @@ const UploadProgress = (props: { progress: number }) => (
 				cy="10"
 				r={RING_RADIUS}
 				fill="none"
-				stroke="rgb(255 255 255 / 0.25)"
 				stroke-width="2"
+				data-upload-track=""
+				class="stroke-foreground/25"
 			/>
 			<circle
 				cx="10"
 				cy="10"
 				r={RING_RADIUS}
 				fill="none"
-				stroke="white"
 				stroke-width="2"
+				data-upload-arc=""
 				stroke-linecap="round"
 				stroke-dasharray={`${RING_CIRCUMFERENCE}`}
 				stroke-dashoffset={`${RING_CIRCUMFERENCE * (1 - Math.min(1, Math.max(0, props.progress)))}`}
-				class="transition-[stroke-dashoffset] duration-[calc(var(--duration-color)*var(--motion-scale))] ease-[var(--ease-out-quick)] motion-reduce:transition-none reduced-motion:transition-none"
+				class="stroke-foreground transition-[stroke-dashoffset] duration-[calc(var(--duration-color)*var(--motion-scale))] ease-[var(--ease-out-quick)] motion-reduce:transition-none reduced-motion:transition-none"
 			/>
 		</svg>
 	</span>
@@ -89,7 +91,7 @@ export const AttachmentTray = (props: AttachmentTrayProps) => (
 					</span>
 				)}
 			</Show>
-			<ul class="m-0 flex list-none gap-2 overflow-x-auto p-0 pt-1.5 pr-1.5">
+			<ul class="-mx-1 -mt-1 -mb-1 flex list-none gap-2 overflow-x-auto p-1 pt-2.5 pr-2.5">
 				<For each={props.items}>
 					{(item) => (
 						<li
@@ -122,7 +124,7 @@ export const AttachmentTray = (props: AttachmentTrayProps) => (
 									}
 								>
 									{(src) => (
-										<img
+										<AnimatedImage
 											src={src()}
 											alt={item.name}
 											class="size-full object-cover"

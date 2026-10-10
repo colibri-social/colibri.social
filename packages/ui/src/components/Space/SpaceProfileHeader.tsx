@@ -58,7 +58,7 @@ export const SpaceProfileHeader = (props: SpaceProfileHeaderProps) => {
 						</Show>
 					</div>
 					<Show when={props.description}>
-						<p class="text-base text-pretty text-muted-foreground">
+						<p class="text-base text-pretty text-muted-foreground select-text">
 							{props.description}
 						</p>
 					</Show>

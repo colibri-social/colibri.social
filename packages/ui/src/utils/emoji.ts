@@ -1,16 +1,12 @@
-import { createSignal } from "solid-js";
-
-export type EmojiAssetResolver = (
-	codepoint: string,
-	emoji: string,
-) => string | undefined;
-
 export type EmojiSegment =
 	| { kind: "text"; value: string }
 	| { kind: "emoji"; value: string };
 
 export const JUMBO_EMOJI_LIMIT = 27;
+export const EMOJI_GLYPH_EM = 1.25;
+export const EMOJI_FONT_FAMILY = "Colibri Emoji";
 
+const JUMBO_SCAN_LIMIT = JUMBO_EMOJI_LIMIT * 40;
 const ZWJ = String.fromCodePoint(0x200d);
 const VARIATION_SELECTOR = new RegExp(String.fromCodePoint(0xfe0f), "g");
 const EMOJI_GRAPHEME = new RegExp(
@@ -18,21 +14,14 @@ const EMOJI_GRAPHEME = new RegExp(
 	"u",
 );
 const PICTOGRAPHIC = /\p{Extended_Pictographic}|\p{Regional_Indicator}/u;
-
-const [resolver, setResolver] = createSignal<EmojiAssetResolver | undefined>(
-	undefined,
+const KEYCAP = new RegExp(
+	`^[0-9#*]${String.fromCodePoint(0xfe0f)}?\\u20e3$`,
+	"u",
 );
-
-export const emojiAssetResolver = resolver;
-
-export const setEmojiAssetResolver = (next: EmojiAssetResolver | null) => {
-	setResolver(() => next ?? undefined);
-};
-
-export const twemojiAssetResolver =
-	(base: string, size = "72x72", extension = ".png"): EmojiAssetResolver =>
-	(codepoint) =>
-		`${base.endsWith("/") ? base : `${base}/`}${size}/${codepoint}${extension}`;
+const MAYBE_EMOJI = new RegExp(
+	`[\\p{Extended_Pictographic}\\p{Regional_Indicator}${String.fromCodePoint(0x20e3)}]`,
+	"u",
+);
 
 export const toEmojiCodepoint = (emoji: string) => {
 	const value = emoji.includes(ZWJ)
@@ -46,17 +35,15 @@ export const toEmojiCodepoint = (emoji: string) => {
 	return points.join("-");
 };
 
-export const emojiImageSrc = (emoji: string) =>
-	resolver()?.(toEmojiCodepoint(emoji), emoji);
-
 export const isEmojiGrapheme = (grapheme: string) =>
-	PICTOGRAPHIC.test(grapheme) && EMOJI_GRAPHEME.test(grapheme);
+	KEYCAP.test(grapheme) ||
+	(PICTOGRAPHIC.test(grapheme) && EMOJI_GRAPHEME.test(grapheme));
 
-const graphemes = (text: string): string[] => {
+let segmenter: Intl.Segmenter | undefined;
+
+export const graphemes = (text: string): string[] => {
 	if (typeof Intl !== "undefined" && "Segmenter" in Intl) {
-		const segmenter = new Intl.Segmenter(undefined, {
-			granularity: "grapheme",
-		});
+		segmenter ??= new Intl.Segmenter(undefined, { granularity: "grapheme" });
 		return Array.from(segmenter.segment(text), (part) => part.segment);
 	}
 	return Array.from(text);
@@ -79,13 +66,15 @@ export const splitEmojiSegments = (text: string): EmojiSegment[] => {
 };
 
 export const hasEmoji = (text: string) =>
-	splitEmojiSegments(text).some((segment) => segment.kind === "emoji");
+	MAYBE_EMOJI.test(text) &&
+	graphemes(text).some((grapheme) => isEmojiGrapheme(grapheme));
 
 export const emojiOnlyCount = (text: string) => {
+	if (text.length > JUMBO_SCAN_LIMIT || !MAYBE_EMOJI.test(text)) return 0;
 	let count = 0;
-	for (const segment of splitEmojiSegments(text)) {
-		if (segment.kind === "emoji") count += 1;
-		else if (segment.value.trim().length > 0) return 0;
+	for (const grapheme of graphemes(text)) {
+		if (isEmojiGrapheme(grapheme)) count += 1;
+		else if (grapheme.trim().length > 0) return 0;
 	}
 	return count;
 };

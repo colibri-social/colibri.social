@@ -1,11 +1,13 @@
 import { AccessibilityIcon } from "@solar-icons/solid/bold/accessibility";
 import { BellIcon } from "@solar-icons/solid/bold/bell";
 import { ChatRoundDotsIcon } from "@solar-icons/solid/bold/chat-round-dots";
+import { ChatSquareDotsIcon } from "@solar-icons/solid/bold/chat-square-dots";
 import { CrownIcon } from "@solar-icons/solid/bold/crown";
 import { Logout2Icon } from "@solar-icons/solid/bold/logout-2";
 import { SettingsIcon } from "@solar-icons/solid/bold/settings";
 import { ShareIcon } from "@solar-icons/solid/bold/share";
 import { ShieldCheckIcon } from "@solar-icons/solid/bold/shield-check";
+import { VolumeLoudIcon } from "@solar-icons/solid/bold/volume-loud";
 import { createSignal, For } from "solid-js";
 import { expect, userEvent, waitFor, within } from "storybook/test";
 import type { Meta, StoryObj } from "storybook-solidjs-vite";
@@ -139,13 +141,13 @@ const channelTypes = [
 		value: "text",
 		title: "Text",
 		description: "Send messages, images, and links.",
-		icon: <ChatRoundDotsIcon />,
+		icon: <ChatSquareDotsIcon />,
 	},
 	{
 		value: "voice",
 		title: "Voice",
 		description: "Talk together with voice and video.",
-		icon: <BellIcon />,
+		icon: <VolumeLoudIcon />,
 	},
 ];
 

@@ -38,7 +38,7 @@ export const Variants: Story = {
 			<Button variant="secondary">Secondary</Button>
 			<Button variant="tertiary">Tertiary</Button>
 			<Button variant="destructive-subtle">Transfer ownership</Button>
-			<Button variant="destructive">Delete space</Button>
+			<Button variant="destructive">Delete Space</Button>
 		</div>
 	),
 };
@@ -68,17 +68,17 @@ export const Disabled: Story = {
 				Transfer ownership
 			</Button>
 			<Button variant="destructive" disabled>
-				Delete space
+				Delete Space
 			</Button>
 		</div>
 	),
 };
 
 export const Loading: Story = {
-	args: { loading: true, children: "Join this space" },
+	args: { loading: true, children: "Join this Space" },
 	play: async ({ canvasElement, args }) => {
 		const button = within(canvasElement).getByRole("button", {
-			name: "Join this space",
+			name: "Join this Space",
 		});
 		await expect(button).toHaveAttribute("aria-busy", "true");
 		await userEvent.click(button);
@@ -90,7 +90,7 @@ export const Block: Story = {
 	parameters: { viewport: { defaultViewport: "iphone" } },
 	render: () => (
 		<div class="flex w-full max-w-[370px] flex-col gap-3">
-			<Button block>Create space</Button>
+			<Button block>Create Space</Button>
 			<Button block variant="destructive">
 				Delete channel
 			</Button>

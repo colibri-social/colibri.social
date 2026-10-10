@@ -5,6 +5,7 @@ import {
 	createContext,
 	createEffect,
 	createSignal,
+	createUniqueId,
 	type JSX,
 	onCleanup,
 	onMount,
@@ -16,12 +17,8 @@ import { cx } from "../../utils/cx";
 import { createRipple } from "../../utils/ripple";
 import { createSlot } from "../../utils/slot";
 import { CountBadge } from "../Badge/Badge";
-import {
-	Tooltip,
-	TooltipContent,
-	TooltipTrigger,
-} from "../MessageActions/Tooltip";
 import { SpaceIcon } from "../Space/SpaceIcon";
+import { Tooltip, TooltipContent, TooltipTrigger } from "../Tooltip/Tooltip";
 
 const FOCUSABLE = "[data-rail-focusable]";
 
@@ -35,7 +32,6 @@ export const SPACE_RAIL_METRICS = {
 		paddingTop: 2,
 		tabLeft: 6,
 		tabRing: 2,
-		cornerOverhang: 16,
 	},
 	desktop: {
 		width: 56,
@@ -44,14 +40,21 @@ export const SPACE_RAIL_METRICS = {
 		paddingTop: 0,
 		tabLeft: 8,
 		tabRing: 0,
-		cornerOverhang: 0,
 	},
 } as const;
 
 export const SPACE_RAIL_FILLET = 11;
 export const SPACE_RAIL_TAB_RADIUS = 12;
 
-export const spaceRailPanelClass = "relative rounded-tl-sheet";
+export const spaceRailPanelClass =
+	"rail-join relative rounded-tl-sheet border-t border-l border-muted bg-card";
+
+const RAIL_TAB_VARS = [
+	"--rail-tab-offset",
+	"--rail-tab-height",
+	"--rail-tab-visible",
+	"--rail-tab-duration",
+] as const;
 
 type RailContextValue = {
 	platform: Accessor<SpaceRailPlatform>;
@@ -157,21 +160,6 @@ const ActiveTab = (props: {
 					"-webkit-mask-image": filletMask("0 100%"),
 				}}
 			/>
-			<Show when={metrics().cornerOverhang > 0}>
-				<span
-					data-rail-tab-corner=""
-					class="absolute top-0 bg-primary"
-					style={{
-						left: `${width()}px`,
-						width: "var(--radius-sheet)",
-						height: "var(--radius-sheet)",
-						"mask-image":
-							"radial-gradient(circle var(--radius-sheet) at 100% 100%, transparent calc(var(--radius-sheet) - 0.5px), #000 var(--radius-sheet))",
-						"-webkit-mask-image":
-							"radial-gradient(circle var(--radius-sheet) at 100% 100%, transparent calc(var(--radius-sheet) - 0.5px), #000 var(--radius-sheet))",
-					}}
-				/>
-			</Show>
 		</span>
 	);
 };
@@ -201,6 +189,24 @@ const RailFrame = (
 	const [animate, setAnimate] = createSignal(false);
 	let rail: HTMLElement | undefined;
 	let content: HTMLDivElement | undefined;
+	let scroller: HTMLDivElement | undefined;
+	let host: HTMLElement | undefined;
+
+	const writeJoin = (instant: boolean) => {
+		if (!host) return;
+		const value = top();
+		const tabHeight = metrics().icon + metrics().tabRing * 2;
+		const offset =
+			(value ?? 0) - metrics().tabRing - (scroller?.scrollTop ?? 0);
+		const shown = !!active() && value !== undefined && offset > -0.5;
+		host.style.setProperty("--rail-tab-offset", `${offset}px`);
+		host.style.setProperty("--rail-tab-height", `${tabHeight}px`);
+		host.style.setProperty("--rail-tab-visible", shown ? "1" : "0");
+		host.style.setProperty(
+			"--rail-tab-duration",
+			instant || !animate() ? "0ms" : "calc(240ms * var(--motion-scale))",
+		);
+	};
 
 	const measure = () => {
 		const element = active();
@@ -217,6 +223,12 @@ const RailFrame = (
 		measure();
 	});
 
+	createEffect(() => {
+		top();
+		animate();
+		writeJoin(false);
+	});
+
 	onMount(() => {
 		if (!rail) return;
 		const all = Array.from(rail.querySelectorAll<HTMLElement>(FOCUSABLE));
@@ -224,6 +236,15 @@ const RailFrame = (
 			const first = all[0];
 			if (first) first.tabIndex = 0;
 		}
+		host =
+			rail.closest<HTMLElement>("[data-space-rail-host]") ??
+			rail.parentElement ??
+			undefined;
+		writeJoin(true);
+		const target = host;
+		onCleanup(() => {
+			for (const name of RAIL_TAB_VARS) target?.style.removeProperty(name);
+		});
 		const observer = new ResizeObserver(() => measure());
 		if (content) observer.observe(content);
 		onCleanup(() => observer.disconnect());
@@ -242,10 +263,12 @@ const RailFrame = (
 			style={{ width: `${metrics().width}px` }}
 		>
 			<div
+				ref={scroller}
+				onScroll={() => writeJoin(true)}
 				data-rail-scroll=""
 				class="absolute inset-y-0 left-0 overflow-x-hidden overflow-y-auto overscroll-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
 				style={{
-					width: `${metrics().width + metrics().cornerOverhang}px`,
+					width: `${metrics().width}px`,
 					background:
 						"linear-gradient(to bottom, var(--background) 91.784%, var(--card))",
 				}}
@@ -298,42 +321,86 @@ const RailFrame = (
 	);
 };
 
-const RailTooltip = (props: { label: string; trigger: JSX.Element }) => (
-	<Tooltip placement="right">
+const RailTooltip = (props: {
+	label: string;
+	trigger: JSX.Element;
+	suppressed?: boolean;
+}) => (
+	<Tooltip
+		placement="right"
+		disabled={props.suppressed}
+		open={props.suppressed ? false : undefined}
+	>
 		{props.trigger}
 		<TooltipContent>{props.label}</TooltipContent>
 	</Tooltip>
 );
 
+export type SpaceRailActionPopup = "dialog" | "menu" | "listbox";
+
 export type SpaceRailActionProps = {
 	label: string;
 	icon: JSX.Element;
 	onClick: () => void;
+	ref?: HTMLButtonElement | ((element: HTMLButtonElement) => void);
+	"aria-expanded"?: boolean;
+	"aria-haspopup"?: SpaceRailActionPopup;
+	"aria-controls"?: string;
+	badge?: JSX.Element;
+	badgeLabel?: string;
 };
 
 export const SpaceRailAction = (props: SpaceRailActionProps) => {
 	const rail = useRail();
 	const ripple = createRipple();
+	const badge = createSlot(() => props.badge);
+	const badgeLabelId = createUniqueId();
 	const size = () => SPACE_RAIL_METRICS[rail?.platform() ?? "mobile"].icon;
 	return (
 		<div class="relative flex shrink-0 justify-center" data-rail-action="">
-			<RailTooltip
-				label={props.label}
-				trigger={
-					<TooltipTrigger
-						ref={ripple}
-						type="button"
-						tabIndex={-1}
-						data-rail-focusable=""
-						aria-label={props.label}
-						onClick={props.onClick}
-						class="ripple relative flex shrink-0 cursor-pointer items-center justify-center rounded-control border-0 bg-muted p-0 text-foreground outline-none hover:bg-accent focus-visible:shadow-[0_0_0_2px_var(--primary)] [&>svg]:size-6"
-						style={{ width: `${size()}px`, height: `${size()}px` }}
+			<span
+				class="relative flex shrink-0"
+				style={{ width: `${size()}px`, height: `${size()}px` }}
+			>
+				<RailTooltip
+					label={props.label}
+					suppressed={props["aria-expanded"] === true}
+					trigger={
+						<TooltipTrigger
+							ref={(element: HTMLButtonElement) => {
+								ripple(element);
+								if (typeof props.ref === "function") props.ref(element);
+							}}
+							type="button"
+							tabIndex={-1}
+							data-rail-focusable=""
+							aria-label={props.label}
+							aria-expanded={props["aria-expanded"]}
+							aria-haspopup={props["aria-haspopup"]}
+							aria-controls={props["aria-controls"]}
+							aria-describedby={props.badgeLabel ? badgeLabelId : undefined}
+							onClick={props.onClick}
+							class="ripple relative flex size-full shrink-0 cursor-pointer items-center justify-center rounded-control border-0 bg-muted p-0 text-foreground outline-none hover:bg-accent focus-ring-inset [&>svg]:size-6"
+						>
+							{props.icon}
+						</TooltipTrigger>
+					}
+				/>
+				<Show when={badge.has()}>
+					<span
+						aria-hidden="true"
+						data-rail-action-badge=""
+						class="pointer-events-none absolute -right-1 -bottom-1 flex"
 					>
-						{props.icon}
-					</TooltipTrigger>
-				}
-			/>
+						{badge()}
+					</span>
+				</Show>
+			</span>
+			<Show when={props.badgeLabel}>
+				<span id={badgeLabelId} class="sr-only">
+					{props.badgeLabel}
+				</span>
+			</Show>
 		</div>
 	);
 };
@@ -411,7 +478,7 @@ export const SpaceRailItem = (props: SpaceRailItemProps) => {
 						class={cx(
 							"group ripple relative flex shrink-0 cursor-pointer items-center justify-center rounded-control border-0 bg-transparent outline-none",
 							"transition-[padding] duration-[calc(240ms*var(--motion-scale))] ease-[cubic-bezier(0.4,0,0.2,1)] motion-reduce:transition-none reduced-motion:transition-none",
-							"focus-visible:shadow-[0_0_0_2px_var(--background),0_0_0_4px_var(--primary-highlight)]",
+							"focus-ring-inset",
 						)}
 						style={{
 							width: `${size()}px`,
@@ -434,7 +501,7 @@ export const SpaceRailItem = (props: SpaceRailItemProps) => {
 							/>
 							<span
 								aria-hidden="true"
-								class="absolute inset-0 bg-white/0 group-hover:bg-white/8"
+								class="absolute inset-0 bg-white/0 group-hover:bg-white/8 light:group-hover:bg-black/8"
 							/>
 						</span>
 						<span class="sr-only">{itemLabel(props)}</span>

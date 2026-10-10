@@ -14,7 +14,7 @@ import { iconEffectClass } from "../../utils/icon-fx";
 import { playKeyframes } from "../../utils/motion";
 import { createRipple } from "../../utils/ripple";
 import { Emoji } from "../Emoji/Emoji";
-import { Tooltip, TooltipContent, TooltipTrigger } from "./Tooltip";
+import { Tooltip, TooltipContent, TooltipTrigger } from "../Tooltip/Tooltip";
 
 export type Reaction = {
 	emoji: string;
@@ -27,7 +27,7 @@ export type Reaction = {
 export type RenderEmoji = (emoji: string) => JSX.Element;
 
 const defaultRenderEmoji: RenderEmoji = (emoji) => (
-	<Emoji emoji={emoji} class="size-4 text-base [&]:m-0" />
+	<Emoji emoji={emoji} size={16} />
 );
 
 const EMOJI_POP: Keyframe[] = [
@@ -115,7 +115,7 @@ export const ReactionChip = (props: ReactionChipProps) => {
 				onClick={() => props.onToggle?.(props.emoji, !!props.mine)}
 				class={cx(
 					"ripple inline-flex h-7 shrink-0 cursor-pointer items-center gap-1.5 rounded-control-sm border px-2 outline-none",
-					"focus-visible:shadow-[0_0_0_2px_var(--primary)] disabled:cursor-not-allowed disabled:opacity-50",
+					"focus-ring disabled:cursor-not-allowed disabled:opacity-50",
 					props.mine
 						? "border-primary bg-[color-mix(in_srgb,var(--primary)_18%,transparent)] text-[color-mix(in_srgb,var(--primary)_35%,var(--foreground))] hover:bg-[color-mix(in_srgb,var(--primary)_26%,transparent)]"
 						: "border-border bg-popover text-muted-foreground hover:bg-popover-highlight",
@@ -165,7 +165,7 @@ export const AddReactionButton = (props: AddReactionButtonProps) => {
 			onClick={(event) => props.onClick?.(event)}
 			class={cx(
 				"ripple inline-flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-control-sm border border-border bg-popover text-muted-foreground outline-none",
-				"hover:bg-popover-highlight hover:text-foreground focus-visible:shadow-[0_0_0_2px_var(--primary)]",
+				"hover:bg-popover-highlight hover:text-foreground focus-ring",
 				"disabled:cursor-not-allowed disabled:opacity-50",
 				props.class,
 			)}

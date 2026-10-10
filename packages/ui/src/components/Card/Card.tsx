@@ -58,7 +58,7 @@ export const Card = (props: CardProps) => {
 				cardSurface(tone()),
 				interactive() &&
 					cx(
-						"ripple cursor-pointer outline-none focus-visible:shadow-[0_0_0_2px_var(--primary)]",
+						"ripple cursor-pointer outline-none focus-ring",
 						"disabled:cursor-not-allowed disabled:opacity-50",
 						interactiveToneClass[tone()],
 					),

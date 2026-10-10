@@ -138,16 +138,25 @@ export const ChannelListHeaderSkeleton = (
 
 export type SpaceRailSkeletonProps = {
 	count?: number;
+	leading?: boolean;
 	platform?: SpaceRailPlatform;
 	class?: string;
 };
 
 export const SpaceRailSkeleton = (props: SpaceRailSkeletonProps) => {
 	const metrics = () => SPACE_RAIL_METRICS[props.platform ?? "mobile"];
+	const tile = () => (
+		<Skeleton
+			class="rounded-control"
+			width={metrics().icon}
+			height={metrics().icon}
+		/>
+	);
 	return (
 		<div
 			aria-hidden="true"
 			data-space-rail-skeleton=""
+			data-platform={props.platform ?? "mobile"}
 			class={cx(
 				"flex h-full shrink-0 flex-col overflow-hidden pb-2",
 				props.class,
@@ -158,17 +167,30 @@ export const SpaceRailSkeleton = (props: SpaceRailSkeletonProps) => {
 				"padding-top": `${metrics().paddingTop}px`,
 			}}
 		>
-			<For each={Array.from({ length: props.count ?? 5 })}>
-				{() => (
+			<Show when={props.leading ?? true}>
+				<span class="flex shrink-0 flex-col items-center gap-2">
 					<span
+						data-rail-skeleton-leading=""
 						class="flex shrink-0 justify-center"
 						style={{ height: `${metrics().icon}px` }}
 					>
-						<Skeleton
-							class="rounded-control"
-							width={metrics().icon}
-							height={metrics().icon}
-						/>
+						{tile()}
+					</span>
+					<span
+						data-rail-skeleton-separator=""
+						class="block h-px shrink-0 bg-popover"
+						style={{ width: `${metrics().icon}px` }}
+					/>
+				</span>
+			</Show>
+			<For each={Array.from({ length: props.count ?? 5 })}>
+				{() => (
+					<span
+						data-rail-skeleton-item=""
+						class="flex shrink-0 justify-center"
+						style={{ height: `${metrics().icon}px` }}
+					>
+						{tile()}
 					</span>
 				)}
 			</For>

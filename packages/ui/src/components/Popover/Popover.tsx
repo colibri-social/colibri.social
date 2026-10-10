@@ -1,6 +1,7 @@
 import { Popover as KobaltePopover } from "@kobalte/core/popover";
 import { type JSX, type ParentProps, Show, splitProps } from "solid-js";
 import { cx } from "../../utils/cx";
+import { revealLayer, topLayerAttrs } from "../../utils/nested-layers";
 import { usePopperOverflowPadding } from "../../utils/safe-area";
 import { createSlot } from "../../utils/slot";
 
@@ -58,7 +59,9 @@ export const PopoverContent = (props: PopoverContentProps) => {
 	return (
 		<KobaltePopover.Portal>
 			<KobaltePopover.Content
+				{...topLayerAttrs}
 				{...rest}
+				ref={revealLayer}
 				class={cx(
 					"modal-motion z-50 flex max-w-[calc(100vw-32px-var(--safe-area-left,0px)-var(--safe-area-right,0px))] flex-col gap-2 rounded-surface border border-border",
 					"bg-popover p-2 text-foreground shadow-overlay outline-none",

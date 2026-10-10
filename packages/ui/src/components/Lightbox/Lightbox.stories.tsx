@@ -471,6 +471,54 @@ export const Desktop: Story = {
 	),
 };
 
+const slideShift = (viewer: HTMLElement) => {
+	const slide = viewer.querySelector<HTMLElement>('[data-lightbox-slide="0"]');
+	const match = slide?.style.transform.match(/translate3d\((-?[\d.]+)px/);
+	return match ? Number.parseFloat(match[1] as string) : Number.NaN;
+};
+
+export const RapidNavigation: Story = {
+	render: () => (
+		<Gallery
+			desktop
+			items={galleryItems}
+			text="Spam the arrows: the index and the slide position stay in sync."
+		/>
+	),
+	play: async ({ canvasElement }) => {
+		await userEvent.click(
+			within(canvasElement).getAllByRole("button", {
+				name: /^Open image/,
+			})[0] as HTMLElement,
+		);
+		const viewer = await dialog();
+		await waitFor(() => expect(viewer).toHaveAttribute("data-phase", "open"));
+		const next = within(viewer).getByRole("button", { name: "Next" });
+		const previous = within(viewer).getByRole("button", { name: "Previous" });
+		const limit = window.innerWidth + 32;
+		const sequence = [next, next, next, previous, next, next, next, next, next];
+		let expected = 0;
+		for (const button of sequence) {
+			await userEvent.click(button);
+			expected = Math.min(
+				galleryItems.length - 1,
+				Math.max(0, expected + (button === next ? 1 : -1)),
+			);
+			await expect(viewer).toHaveAttribute("data-index", String(expected));
+			await expect(Math.abs(slideShift(viewer))).toBeLessThanOrEqual(limit);
+		}
+		await expect(viewer).toHaveAttribute(
+			"data-index",
+			String(galleryItems.length - 1),
+		);
+		await waitFor(() => expect(slideShift(viewer)).toBe(0), { timeout: 3000 });
+		await userEvent.keyboard("{Escape}");
+		await waitFor(() =>
+			expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
+		);
+	},
+};
+
 export const DesktopVideo: Story = {
 	render: () => <VideoGallery desktop />,
 };

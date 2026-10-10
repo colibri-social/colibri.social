@@ -51,6 +51,7 @@ export type ProfileData = {
 	status?: JSX.Element;
 	statusEmoji?: string;
 	statusEditable?: boolean;
+	statusShowWhileOffline?: boolean;
 	onStatusClick?: JSX.EventHandler<HTMLButtonElement, MouseEvent>;
 	nowPlaying?: Omit<NowPlayingCardProps, "tone" | "class">[];
 	bio?: JSX.Element;
@@ -103,6 +104,7 @@ export const ProfileContentHeader = (props: ProfileContentPartProps) => {
 			status={props.profile.status}
 			statusEmoji={props.profile.statusEmoji}
 			statusEditable={props.profile.statusEditable}
+			statusShowWhileOffline={props.profile.statusShowWhileOffline}
 			onStatusClick={props.profile.onStatusClick}
 			surface={props.surface ?? "popover"}
 			headingLevel={props.headingLevel}
@@ -155,7 +157,7 @@ export const ProfileContentBody = (props: ProfileContentPartProps) => {
 			</For>
 			<Show when={bio.has()}>
 				<ProfileSection label="Bio">
-					<p class="m-0 text-base break-words text-muted-foreground [&_a]:text-primary-highlight [&_a]:underline-offset-2 [&_a:hover]:underline">
+					<p class="m-0 text-base break-words text-muted-foreground select-text [&_a]:text-primary-highlight [&_a]:underline-offset-2 [&_a:hover]:underline">
 						{bio()}
 					</p>
 				</ProfileSection>

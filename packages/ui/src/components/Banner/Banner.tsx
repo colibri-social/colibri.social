@@ -10,6 +10,7 @@ import {
 import { cx } from "../../utils/cx";
 import { getImageTint, tintGradient } from "../../utils/image-tint";
 import { createSlot } from "../../utils/slot";
+import { AnimatedImage } from "../AnimatedImage/AnimatedImage";
 
 export type BannerRatio = "user" | "space";
 
@@ -123,7 +124,7 @@ export const Banner = (props: BannerProps) => {
 				when={props.src && imageState() !== "failed" ? props.src : undefined}
 			>
 				{(src) => (
-					<img
+					<AnimatedImage
 						src={src()}
 						alt={props.alt ?? ""}
 						decoding="async"

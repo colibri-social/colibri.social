@@ -4,6 +4,7 @@ import { ArrowLeftIcon } from "@solar-icons/solid/linear/arrow-left";
 import { type JSX, Show } from "solid-js";
 import { AnimatedBellIcon } from "../../icons/animated/icons";
 import { AnimatedThreadIcon } from "../../icons/animated/messaging";
+import { AnimatedUsersGroupTwoRoundedIcon } from "../../icons/animated/people";
 import { cx } from "../../utils/cx";
 import { createSlot } from "../../utils/slot";
 import { IconButton } from "../IconButton/IconButton";
@@ -24,6 +25,8 @@ export type ChannelHeaderProps = {
 	safeTop?: boolean;
 	muted?: boolean;
 	onMutedChange?: (muted: boolean) => void;
+	membersOpen?: boolean;
+	onToggleMembers?: () => void;
 	actions?: JSX.Element;
 	class?: string;
 };
@@ -119,6 +122,17 @@ const MobileChannelHeader = (props: ChannelHeaderProps) => {
 					</Show>
 				</span>
 			</Show>
+			<Show when={props.onToggleMembers}>
+				<IconButton
+					variant="ghost"
+					size="md"
+					label={props.membersOpen ? "Hide members" : "Show members"}
+					aria-pressed={!!props.membersOpen}
+					icon={<AnimatedUsersGroupTwoRoundedIcon />}
+					onClick={() => props.onToggleMembers?.()}
+					class="[&_svg]:size-6"
+				/>
+			</Show>
 		</div>
 	);
 };
@@ -131,7 +145,7 @@ const DesktopChannelHeader = (props: ChannelHeaderProps) => {
 		<div
 			data-channel-header="desktop"
 			class={cx(
-				"flex h-12 shrink-0 items-center justify-between gap-4 border-b border-border bg-background p-2 text-foreground",
+				"flex h-12 shrink-0 items-center justify-between gap-4 border-b border-muted bg-card p-2 text-foreground",
 				props.safeTop &&
 					"h-[calc(48px+var(--safe-area-top,0px))] pt-safe-offset-2 pr-safe-offset-2 pl-safe-offset-2",
 				props.class,
@@ -161,8 +175,35 @@ const DesktopChannelHeader = (props: ChannelHeaderProps) => {
 					)}
 				</Show>
 			</div>
-			<Show when={props.onMutedChange || actions.has()}>
+			<Show
+				when={
+					props.onOpenThreads ||
+					props.onMutedChange ||
+					props.onToggleMembers ||
+					actions.has()
+				}
+			>
 				<div class="flex shrink-0 items-center gap-2">
+					<Show when={props.onOpenThreads}>
+						<span class="relative inline-flex shrink-0">
+							<IconButton
+								variant="ghost"
+								size="md"
+								label={
+									props.threadsUnread ? "Threads, new activity" : "Threads"
+								}
+								icon={<AnimatedThreadIcon />}
+								onClick={() => props.onOpenThreads?.()}
+							/>
+							<Show when={props.threadsUnread}>
+								<span
+									aria-hidden="true"
+									data-threads-unread=""
+									class="pointer-events-none absolute top-1 right-1 size-2 rounded-full bg-foreground ring-2 ring-background"
+								/>
+							</Show>
+						</span>
+					</Show>
 					<Show when={props.onMutedChange}>
 						<IconButton
 							variant="ghost"
@@ -172,6 +213,16 @@ const DesktopChannelHeader = (props: ChannelHeaderProps) => {
 							data-muted={props.muted ? "" : undefined}
 							icon={<AnimatedBellIcon muted={!!props.muted} />}
 							onClick={() => props.onMutedChange?.(!props.muted)}
+						/>
+					</Show>
+					<Show when={props.onToggleMembers}>
+						<IconButton
+							variant="ghost"
+							size="md"
+							label={props.membersOpen ? "Hide members" : "Show members"}
+							aria-pressed={!!props.membersOpen}
+							icon={<AnimatedUsersGroupTwoRoundedIcon />}
+							onClick={() => props.onToggleMembers?.()}
 						/>
 					</Show>
 					{actions()}

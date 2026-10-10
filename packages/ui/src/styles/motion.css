@@ -1,4 +1,8 @@
 :root {
+	--duration-resize: 280ms;
+	--focus-ring-width: 2px;
+	--focus-ring-offset: 2px;
+	--focus-ring-reach: calc(var(--focus-ring-width) + var(--focus-ring-offset));
 	--ease-out-quick: cubic-bezier(0.2, 0, 0, 1);
 	--ease-exit: cubic-bezier(0.4, 0, 1, 1);
 	--duration-color: 140ms;
@@ -80,6 +84,30 @@
 		transition-duration: calc(220ms * var(--motion-scale));
 		transition-timing-function: cubic-bezier(0.32, 0, 0.67, 0);
 	}
+
+	&[data-resizing] {
+		transition-duration: calc(var(--duration-resize) * var(--motion-scale));
+		transition-timing-function: var(--ease-out-quick);
+	}
+}
+
+@keyframes ui-tooltip-in {
+	from {
+		opacity: 0;
+		transform: scale(var(--tooltip-from-scale, 0.94));
+	}
+}
+
+@utility tooltip-motion {
+	&[data-expanded]:not([data-instant]) {
+		animation: ui-tooltip-in calc(140ms * var(--motion-scale))
+			var(--ease-out-quick) both;
+	}
+
+	&[data-closed] {
+		animation: ui-fade-out calc(100ms * var(--motion-scale)) var(--ease-exit)
+			both;
+	}
 }
 
 @utility pressable {
@@ -148,8 +176,17 @@
 	outline: none;
 
 	&:focus-visible {
-		box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 25%, transparent);
-		border-color: var(--primary);
+		outline: var(--focus-ring-width) solid var(--primary);
+		outline-offset: var(--focus-ring-offset);
+	}
+}
+
+@utility focus-ring-inset {
+	outline: none;
+
+	&:focus-visible {
+		outline: var(--focus-ring-width) solid var(--primary);
+		outline-offset: calc(var(--focus-ring-width) * -1);
 	}
 }
 
@@ -158,11 +195,43 @@
 		--press-scale: 1;
 		--modal-from-scale: 1;
 		--modal-to-scale: 1;
+		--tooltip-from-scale: 1;
+		--duration-resize: 1ms;
 	}
 }
 
 :root[data-reduced-motion="true"] {
+	--duration-resize: 1ms;
 	--press-scale: 1;
 	--modal-from-scale: 1;
 	--modal-to-scale: 1;
+	--tooltip-from-scale: 1;
+}
+
+@utility ring-room {
+	padding: var(--focus-ring-reach);
+	margin: calc(var(--focus-ring-reach) * -1);
+}
+
+@utility ring-room-x {
+	padding-inline: var(--focus-ring-reach);
+	margin-inline: calc(var(--focus-ring-reach) * -1);
+}
+
+@utility ring-room-y {
+	padding-block: var(--focus-ring-reach);
+	margin-block: calc(var(--focus-ring-reach) * -1);
+}
+
+@layer components {
+	[data-height-transition] {
+		transition-property: height;
+		transition-duration: calc(var(--duration-resize) * var(--motion-scale));
+		transition-timing-function: var(--ease-out-quick);
+	}
+}
+
+::highlight(settings-search) {
+	background-color: color-mix(in srgb, var(--primary) 35%, transparent);
+	color: var(--foreground);
 }

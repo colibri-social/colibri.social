@@ -1,0 +1,47 @@
+@property --rail-join-offset {
+	syntax: "<length>";
+	inherits: true;
+	initial-value: 0px;
+}
+
+@utility rail-join {
+	--rail-fade: 11px;
+	--rail-join-offset: var(--rail-tab-offset, 0px);
+	--rail-fade-top: clamp(0px, var(--rail-join-offset), var(--rail-fade));
+	transition: --rail-join-offset var(--rail-tab-duration, 0ms)
+		cubic-bezier(0.4, 0, 0.2, 1);
+
+	&::before {
+		content: "";
+		position: absolute;
+		top: calc(-1px - var(--rail-fade-top));
+		left: -1px;
+		width: 1px;
+		height: calc(
+			var(--rail-tab-height, 0px) +
+			var(--rail-fade-top) +
+			var(--rail-fade)
+		);
+		background: linear-gradient(
+			to bottom,
+			var(--muted) 0,
+			var(--primary) var(--rail-fade-top),
+			var(--primary) calc(100% - var(--rail-fade)),
+			var(--muted) 100%
+		);
+		opacity: var(--rail-tab-visible, 0);
+		transform: translate3d(0, var(--rail-join-offset), 0);
+		pointer-events: none;
+		z-index: 1;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.rail-join {
+		transition: none;
+	}
+}
+
+:root[data-reduced-motion="true"] .rail-join {
+	transition: none;
+}

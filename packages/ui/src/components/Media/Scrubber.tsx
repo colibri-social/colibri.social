@@ -170,7 +170,7 @@ export const Scrubber = (props: ScrubberProps) => {
 			data-active={active() || undefined}
 			class={cx(
 				"group/scrubber relative flex h-6 min-w-0 cursor-pointer touch-none items-center outline-none select-none",
-				"focus-visible:rounded-control-xs focus-visible:shadow-[0_0_0_2px_var(--primary)]",
+				"focus-visible:rounded-control-xs focus-ring",
 				props.disabled && "cursor-not-allowed opacity-50",
 				props.class,
 			)}

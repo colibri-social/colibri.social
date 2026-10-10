@@ -2,8 +2,15 @@ import { PenIcon } from "@solar-icons/solid/bold/pen";
 import { children, For, type JSX, Show, splitProps } from "solid-js";
 import { Dynamic } from "solid-js/web";
 import { cx } from "../../utils/cx";
+import {
+	nameColorClass,
+	nameColorStyle,
+	resolveNameColor,
+} from "../../utils/name-color";
 import { createRipple } from "../../utils/ripple";
 import { createSlot } from "../../utils/slot";
+import { isStatusVisible } from "../../utils/status-visibility";
+import { AnimatedImage } from "../AnimatedImage/AnimatedImage";
 import { Avatar, type Presence } from "../Avatar/Avatar";
 import { Banner } from "../Banner/Banner";
 import { Card, type CardTone } from "../Card/Card";
@@ -44,7 +51,7 @@ export const StatusBubble = (props: StatusBubbleProps) => {
 			class={cx(
 				"flex w-fit max-w-full min-w-0 items-start gap-1.5 rounded-control border border-border bg-secondary px-2 py-1 text-left text-foreground",
 				interactive() &&
-					"ripple cursor-pointer outline-none hover:bg-secondary-highlight focus-visible:shadow-[0_0_0_2px_var(--primary)]",
+					"ripple cursor-pointer outline-none hover:bg-secondary-highlight focus-ring",
 				props.class,
 			)}
 		>
@@ -54,7 +61,7 @@ export const StatusBubble = (props: StatusBubbleProps) => {
 						data-status-emoji=""
 						class="flex h-[18px] shrink-0 items-center text-sm"
 					>
-						<Emoji emoji={emoji()} class="mx-0 size-[18px]" />
+						<Emoji emoji={emoji()} size={18} />
 					</span>
 				)}
 			</Show>
@@ -62,6 +69,7 @@ export const StatusBubble = (props: StatusBubbleProps) => {
 				data-status-text=""
 				class={cx(
 					"line-clamp-3 min-w-0 text-sm leading-[18px] break-words",
+					!interactive() && "select-text",
 					!hasText() && "sr-only",
 				)}
 			>
@@ -107,6 +115,7 @@ export type ProfileHeaderProps = {
 	status?: JSX.Element;
 	statusEmoji?: string;
 	statusEditable?: boolean;
+	statusShowWhileOffline?: boolean;
 	onStatusClick?: JSX.EventHandler<HTMLButtonElement, MouseEvent>;
 	actions?: JSX.Element;
 	surface?: ProfileSurface;
@@ -120,6 +129,8 @@ export const ProfileHeader = (props: ProfileHeaderProps) => {
 	const status = createSlot(() => props.status);
 	const actions = createSlot(() => props.actions);
 	const surface = () => surfaceColor[props.surface ?? "background"];
+	const nameColor = () =>
+		resolveNameColor({ userColor: props.nameColor, context: "chat" });
 	const meta = () =>
 		[`@${props.handle}`, props.pronouns].filter(
 			(part): part is string => !!part,
@@ -153,7 +164,16 @@ export const ProfileHeader = (props: ProfileHeaderProps) => {
 						presence={props.presence}
 					/>
 				</span>
-				<Show when={status.has() || props.statusEmoji}>
+				<Show
+					when={
+						(status.has() || props.statusEmoji) &&
+						isStatusVisible({
+							presence: props.presence,
+							showWhileOffline: props.statusShowWhileOffline,
+							own: props.statusEditable,
+						})
+					}
+				>
 					<StatusBubble
 						class="mt-[34px]"
 						emoji={props.statusEmoji}
@@ -168,8 +188,12 @@ export const ProfileHeader = (props: ProfileHeaderProps) => {
 				<div class="flex min-w-0 items-center gap-2">
 					<Dynamic
 						component={`h${props.headingLevel ?? 2}`}
-						class="m-0 min-w-0 truncate text-2xl leading-[31px] font-bold text-foreground"
-						style={props.nameColor ? { color: props.nameColor } : undefined}
+						data-profile-name=""
+						class={cx(
+							"m-0 min-w-0 truncate text-2xl leading-[31px] font-bold",
+							nameColor() ? nameColorClass : "text-foreground",
+						)}
+						style={nameColorStyle(nameColor())}
 					>
 						<EmojiText text={props.displayName} />
 					</Dynamic>
@@ -185,7 +209,11 @@ export const ProfileHeader = (props: ProfileHeaderProps) => {
 										class="size-1 shrink-0 rounded-full bg-muted-foreground"
 									/>
 								</Show>
-								<span class="min-w-0 truncate">{part}</span>
+								<span
+									class={cx("min-w-0 truncate", index() === 0 && "select-text")}
+								>
+									{part}
+								</span>
 							</>
 						)}
 					</For>
@@ -204,7 +232,7 @@ export const ProfileHeader = (props: ProfileHeaderProps) => {
 										title={link.label}
 										aria-label={link.label}
 										data-profile-link=""
-										class="flex size-6 items-center justify-center rounded-control-xs text-muted-foreground outline-none hover:bg-secondary hover:text-foreground focus-visible:shadow-[0_0_0_2px_var(--primary)] [&>svg]:size-4 [&>img]:size-4"
+										class="flex size-6 items-center justify-center rounded-control-xs text-muted-foreground outline-none hover:bg-secondary hover:text-foreground focus-ring [&>svg]:size-4 [&>img]:size-4"
 									>
 										{link.icon}
 									</a>
@@ -217,9 +245,7 @@ export const ProfileHeader = (props: ProfileHeaderProps) => {
 							aria-hidden="true"
 							class="size-1 shrink-0 rounded-full bg-muted-foreground"
 						/>
-						<span class="flex shrink-0 items-center rounded-control-xs bg-muted p-1 [&>svg]:size-4 [&>img]:size-4">
-							{appBadge()}
-						</span>
+						{appBadge()}
 					</Show>
 				</div>
 			</div>
@@ -262,11 +288,11 @@ export const NowPlayingCard = (props: NowPlayingCardProps) => {
 			<span class="flex min-w-0 items-center gap-3">
 				<span class="relative size-18 shrink-0 overflow-hidden rounded-badge bg-muted">
 					<Show when={local.artSrc}>
-						<img
+						<AnimatedImage
 							src={local.artSrc}
 							alt=""
 							draggable={false}
-							class="absolute inset-0 size-full object-cover outline-1 -outline-offset-1 outline-white/8"
+							class="absolute inset-0 size-full object-cover outline-1 -outline-offset-1 outline-white/8 light:outline-black/8"
 						/>
 					</Show>
 				</span>

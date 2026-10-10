@@ -159,7 +159,7 @@ export const RowStates: Story = {
 							avatarColor={member.avatarColor}
 							presence={member.presence}
 							status={member.status}
-							roleColor={member.roleColor}
+							role={member.role}
 							owner={member.owner}
 							onOpen={() => onOpen(member.id)}
 						/>
@@ -178,6 +178,7 @@ export const RowStates: Story = {
 					avatarColor="#525252"
 					presence="online"
 					status="Back on Monday"
+					statusShowWhileOffline
 					offline
 				/>
 			</div>
@@ -249,5 +250,100 @@ export const GroupingHelper: Story = {
 			"mara",
 			"noor",
 		]);
+	},
+};
+
+export const RoleColorsAndBadges: Story = {
+	render: () => (
+		<div class="h-dvh w-72 overflow-y-auto border-l border-border bg-card text-foreground">
+			<MemberList
+				groups={groupMembers(fixtureMembers(), fixtureRoles)}
+				onOpen={(member) => onOpen(member.id)}
+			/>
+		</div>
+	),
+	play: async ({ canvasElement, step }) => {
+		const nameOf = (name: string) =>
+			Array.from(
+				canvasElement.querySelectorAll<HTMLElement>("[data-member-name]"),
+			).find((element) => element.textContent === name) as HTMLElement;
+
+		await step("Names use the top role color, else plain", async () => {
+			await expect(getComputedStyle(nameOf("Lou")).color).toBe(
+				"rgb(196, 167, 255)",
+			);
+			await expect(getComputedStyle(nameOf("Kris")).color).toBe(
+				"rgb(255, 216, 87)",
+			);
+			await expect(getComputedStyle(nameOf("Mara")).color).toBe(
+				"rgb(255, 255, 255)",
+			);
+		});
+
+		await step("The role group header shows the role badge", async () => {
+			const group = canvasElement.querySelector(
+				'[data-member-group="role"]',
+			) as HTMLElement;
+			const header = group.firstElementChild as HTMLElement;
+			const badge = within(header).getByRole("button", {
+				name: "Moderators role",
+			});
+			await expect(badge).toBeVisible();
+			await expect(Math.round(header.getBoundingClientRect().height)).toBe(18);
+		});
+
+		await step(
+			"Rows show the badge after the name without nesting buttons",
+			async () => {
+				const row = nameOf("Lou").closest("[data-member-row]") as HTMLElement;
+				const badge = row.querySelector<HTMLElement>("[data-role-badge]");
+				await expect(badge).not.toBeNull();
+				await expect(badge).toHaveAttribute("role", "img");
+				await expect(badge).toHaveAccessibleName("Moderators role");
+				await expect(row.querySelectorAll("button").length).toBe(0);
+				const glyph = badge?.querySelector("[data-role-badge-glyph]");
+				await expect(
+					Math.round(glyph?.getBoundingClientRect().width ?? 0),
+				).toBe(16);
+				await expect(
+					nameOf("Lou").compareDocumentPosition(badge as Node) &
+						Node.DOCUMENT_POSITION_FOLLOWING,
+				).toBeTruthy();
+			},
+		);
+	},
+};
+
+export const StatusWhileOffline: Story = {
+	render: () => (
+		<div class="flex w-80 flex-col gap-6 bg-background p-4 text-foreground">
+			<div class="flex flex-col bg-card p-2">
+				<MemberRow
+					name="Ola"
+					avatarColor="#525252"
+					presence="offline"
+					status="Out on the water"
+					offline
+				/>
+				<MemberRow
+					name="Pim"
+					avatarColor="#525252"
+					presence="offline"
+					status="Back on Monday"
+					statusShowWhileOffline
+					offline
+				/>
+				<MemberRow name="Lou" presence="online" status="Building a nest" />
+			</div>
+			<MemberList groups={groupMembers(fixtureMembers(), fixtureRoles)} />
+		</div>
+	),
+	play: async ({ canvasElement }) => {
+		const canvas = within(canvasElement);
+		await expect(canvas.queryByText("Out on the water")).toBeNull();
+		await expect(canvas.getAllByText("Back on Monday").length).toBe(2);
+		await expect(canvas.getAllByText("Building a nest").length).toBeGreaterThan(
+			0,
+		);
 	},
 };

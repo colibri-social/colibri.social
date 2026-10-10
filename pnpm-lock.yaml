@@ -117,8 +117,8 @@ importers:
         specifier: workspace:0.4.0
         version: link:../../packages/client
       '@colibri-social/lexicons':
-        specifier: ^2.12.1
-        version: 2.12.1
+        specifier: ^2.13.0
+        version: 2.13.0
       '@colibri-social/standard-renderer':
         specifier: workspace:0.0.2
         version: link:../../packages/standard-renderer
@@ -359,8 +359,8 @@ importers:
         specifier: 0.0.0-spaces-alpha-20261001173819
         version: 0.0.0-spaces-alpha-20261001173819(patch_hash=026615cbad8dbd4f622fab54ef7ae657ab58df91f42908df1d40504bded84b9f)
       '@colibri-social/lexicons':
-        specifier: ^2.12.1
-        version: 2.12.1
+        specifier: ^2.13.0
+        version: 2.13.0
       '@kobalte/core':
         specifier: ^0.13.11
         version: 0.13.14(solid-js@1.9.15)
@@ -616,8 +616,8 @@ importers:
         specifier: 0.0.0-spaces-alpha-20261001173819
         version: 0.0.0-spaces-alpha-20261001173819(patch_hash=026615cbad8dbd4f622fab54ef7ae657ab58df91f42908df1d40504bded84b9f)
       '@colibri-social/lexicons':
-        specifier: ^2.12.1
-        version: 2.12.1
+        specifier: ^2.13.0
+        version: 2.13.0
       '@types/mdast':
         specifier: ^4.0.4
         version: 4.0.4
@@ -646,6 +646,9 @@ importers:
 
   packages/ui:
     dependencies:
+      '@colibri-social/lib':
+        specifier: workspace:*
+        version: link:../lib
       '@corvu/drawer':
         specifier: ^0.2.4
         version: 0.2.4(solid-js@1.9.15)
@@ -655,15 +658,81 @@ importers:
       '@solar-icons/solid':
         specifier: ^2.3.2
         version: 2.3.2(solid-js@1.9.15)
+      '@thisbeyond/solid-dnd':
+        specifier: ^0.7.5
+        version: 0.7.5(solid-js@1.9.15)
+      '@tiptap/core':
+        specifier: ^3.31.3
+        version: 3.31.3(@tiptap/pm@3.31.3)
+      '@tiptap/extension-bubble-menu':
+        specifier: ^3.31.3
+        version: 3.31.3(@tiptap/core@3.31.3(@tiptap/pm@3.31.3))(@tiptap/pm@3.31.3)
+      '@tiptap/extension-document':
+        specifier: ^3.31.3
+        version: 3.31.3(@tiptap/core@3.31.3(@tiptap/pm@3.31.3))
+      '@tiptap/extension-emoji':
+        specifier: ^3.31.3
+        version: 3.31.3(@tiptap/core@3.31.3(@tiptap/pm@3.31.3))(@tiptap/pm@3.31.3)(@tiptap/suggestion@3.31.3(@floating-ui/dom@1.8.0)(@tiptap/core@3.31.3(@tiptap/pm@3.31.3))(@tiptap/pm@3.31.3))(emojibase@17.0.0)
+      '@tiptap/extension-hard-break':
+        specifier: ^3.31.3
+        version: 3.31.3(@tiptap/core@3.31.3(@tiptap/pm@3.31.3))
+      '@tiptap/extension-mention':
+        specifier: ^3.31.3
+        version: 3.31.3(@tiptap/core@3.31.3(@tiptap/pm@3.31.3))(@tiptap/pm@3.31.3)(@tiptap/suggestion@3.31.3(@floating-ui/dom@1.8.0)(@tiptap/core@3.31.3(@tiptap/pm@3.31.3))(@tiptap/pm@3.31.3))
+      '@tiptap/extension-paragraph':
+        specifier: ^3.31.3
+        version: 3.31.3(@tiptap/core@3.31.3(@tiptap/pm@3.31.3))
+      '@tiptap/extension-text':
+        specifier: ^3.31.3
+        version: 3.31.3(@tiptap/core@3.31.3(@tiptap/pm@3.31.3))
+      '@tiptap/extensions':
+        specifier: ^3.31.3
+        version: 3.31.3(@tiptap/core@3.31.3(@tiptap/pm@3.31.3))(@tiptap/pm@3.31.3)
+      '@tiptap/suggestion':
+        specifier: ^3.31.3
+        version: 3.31.3(@floating-ui/dom@1.8.0)(@tiptap/core@3.31.3(@tiptap/pm@3.31.3))(@tiptap/pm@3.31.3)
+      chrono-node:
+        specifier: ^2.10.1
+        version: 2.10.1
       cva:
         specifier: 1.0.0-beta.4
         version: 1.0.0-beta.4(typescript@6.0.3)
+      emojilib:
+        specifier: ^4.0.3
+        version: 4.0.3
+      minisearch:
+        specifier: ^7.2.0
+        version: 7.2.0
+      prosemirror-history:
+        specifier: ^1.5.0
+        version: 1.5.0
+      prosemirror-model:
+        specifier: ^1.25.11
+        version: 1.25.11
+      prosemirror-state:
+        specifier: ^1.4.4
+        version: 1.4.4
+      prosemirror-view:
+        specifier: ^1.42.4
+        version: 1.42.4
       solid-js:
         specifier: ^1.9.15
         version: 1.9.15
+      solid-tiptap:
+        specifier: ^0.8.0
+        version: 0.8.0(@tiptap/core@3.31.3(@tiptap/pm@3.31.3))(@tiptap/pm@3.31.3)(solid-js@1.9.15)
       tailwind-merge:
         specifier: ^3.4.0
         version: 3.7.0
+      tlds:
+        specifier: ^1.261.0
+        version: 1.261.0
+      unicode-emoji-json:
+        specifier: ^0.9.0
+        version: 0.9.0
+      virtua:
+        specifier: 0.52.7
+        version: 0.52.7(react@19.3.0)(solid-js@1.9.15)
     devDependencies:
       '@storybook/addon-a11y':
         specifier: ^10.6.1
@@ -1519,8 +1588,8 @@ packages:
     resolution: {integrity: sha512-dlT1m5e/0yUL0kRNcQn7yGLVThkgbB0Ga/1AmfDDC/8ik6AIiSf2QLQO2zPYvefsHP0aFgxO93cVLCCfDp7kzQ==}
     engines: {node: '>= 20.12.0'}
 
-  '@colibri-social/lexicons@2.12.1':
-    resolution: {integrity: sha512-/BOt3eO/y6uzhCh25VweHOedWlfKE1nM1GyburfzZ5P9WkomEjvalx2sVKWAfYbthx2K1q1t3SrvsidUWvoCww==}
+  '@colibri-social/lexicons@2.13.0':
+    resolution: {integrity: sha512-z3ikcgPS9fSKZxpgyHhceUtCJYhaXyfH64OeglPLaxRHa8YVLhYfVGROTGtAXuOnbEi8I5VDl6ZzcduWItUl8g==}
 
   '@corvu/dialog@0.2.4':
     resolution: {integrity: sha512-n54vJq+fOy8GVrnYBdJpD6JXNuyx7LOeMrRxwzAvZnYGpW8+AA12tnb/P/2emJj/HjOO5otheGKb0breshdFlA==}
@@ -6887,6 +6956,32 @@ packages:
     engines: {node: '>=18'}
     deprecated: 'Vidstack is deprecated and gets security fixes only until January 2028. Use Video.js 10: https://videojs.org/docs/framework/html/guides/migrate-from-vidstack?utm_source=vidstack (coding agents: run npx @videojs/cli agents skills, then follow the guide''s AI Quickstart)'
 
+  virtua@0.52.7:
+    resolution: {integrity: sha512-3xdhgKCbetu7Gez+DJfjmE+1zI7tsCN+07ZpUBhABDyqqT5r+fji6c0vmQCZlxI8o022d/LdIm2E/9T/LE9rPA==}
+    peerDependencies:
+      '@angular/common': '>=20.0.0'
+      '@angular/core': '>=20.0.0'
+      react: '>=16.14.0'
+      react-dom: '>=16.14.0'
+      solid-js: '>=1.0'
+      svelte: '>=5.0'
+      vue: '>=3.2'
+    peerDependenciesMeta:
+      '@angular/common':
+        optional: true
+      '@angular/core':
+        optional: true
+      react:
+        optional: true
+      react-dom:
+        optional: true
+      solid-js:
+        optional: true
+      svelte:
+        optional: true
+      vue:
+        optional: true
+
   vite-plugin-solid@2.11.14:
     resolution: {integrity: sha512-7ZVBt8rpoyqmlwin2kRIUveaHoF6/kulY7gsnD+qFh4nS29V4OPAnw+ojoAspXIjObiL9o1xh9a/nTuYHm02Rw==}
     peerDependencies:
@@ -8254,7 +8349,7 @@ snapshots:
       fast-wrap-ansi: 0.2.2
       sisteransi: 1.0.5
 
-  '@colibri-social/lexicons@2.12.1':
+  '@colibri-social/lexicons@2.13.0':
     dependencies:
       '@atproto/lex': 0.0.0-spaces-alpha-20261001173819
       '@atproto/lex-data': 0.0.0-spaces-alpha-20261001173819
@@ -13575,6 +13670,11 @@ snapshots:
       lit-html: 2.8.0
       media-captions: 1.0.4
       unplugin: 1.16.1
+
+  virtua@0.52.7(react@19.3.0)(solid-js@1.9.15):
+    optionalDependencies:
+      react: 19.3.0
+      solid-js: 1.9.15
 
   vite-plugin-solid@2.11.14(@testing-library/jest-dom@6.9.1)(solid-js@1.9.15)(supports-color@11.0.0)(vite@8.3.0(@types/node@25.9.7)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.13)(yaml@2.9.1)):
     dependencies:

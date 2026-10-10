@@ -2,6 +2,12 @@ import { LockKeyholeMinimalisticIcon } from "@solar-icons/solid/bold/lock-keyhol
 import { For, type JSX, Match, Show, Switch } from "solid-js";
 import { ThreadIcon } from "../../icons/custom";
 import { cx } from "../../utils/cx";
+import {
+	nameColorClass,
+	nameColorStyle,
+	useNameColor,
+} from "../../utils/name-color";
+import { AnimatedImage } from "../AnimatedImage/AnimatedImage";
 import { CountBadge } from "../Badge/Badge";
 import { Card, type CardTone } from "../Card/Card";
 
@@ -9,6 +15,33 @@ export type ThreadPerson = {
 	name: string;
 	avatarSrc?: string;
 	color?: string;
+	nameColor?: string;
+	roleColor?: string;
+};
+
+const PersonName = (props: { person?: ThreadPerson; muted?: boolean }) => {
+	const color = useNameColor(() => ({
+		userColor: props.person?.nameColor,
+		roleColor: props.person?.roleColor,
+		context: "chat",
+	}));
+	const colored = () => !props.muted && !!color();
+	return (
+		<span
+			data-author-name=""
+			class={cx(
+				"shrink-0 font-semibold",
+				props.muted
+					? "text-muted-foreground"
+					: colored()
+						? nameColorClass
+						: "text-foreground",
+			)}
+			style={colored() ? nameColorStyle(color()) : undefined}
+		>
+			{props.person?.name}
+		</span>
+	);
 };
 
 export type ThreadLastMessage = ThreadPerson & {
@@ -95,7 +128,7 @@ export const TinyAvatar = (
 	>
 		<Show when={props.avatarSrc}>
 			{(src) => (
-				<img
+				<AnimatedImage
 					src={src()}
 					alt=""
 					draggable={false}
@@ -160,7 +193,7 @@ const ThreadSummary = (props: ThreadSummaryProps & { size: ThreadSize }) => {
 				props.onOpen && (read() ? surface().readHover : surface().unreadHover),
 				props.size === "compact" &&
 					!read() &&
-					"shadow-[0_4px_4px_1px_rgb(0_0_0/0.25)]",
+					"shadow-[0_4px_4px_1px_var(--shadow-color)]",
 				props.class,
 			)}
 		>
@@ -229,7 +262,7 @@ const ThreadSummary = (props: ThreadSummaryProps & { size: ThreadSize }) => {
 						>
 							<TypingAvatars people={typing()} size={size().avatar} />
 							<span class="min-w-0 truncate text-muted-foreground">
-								<TypingNames names={typing().map((person) => person.name)} />
+								<TypingNames people={typing()} />
 							</span>
 						</span>
 					</Match>
@@ -243,14 +276,7 @@ const ThreadSummary = (props: ThreadSummaryProps & { size: ThreadSize }) => {
 								)}
 							>
 								<TinyAvatar {...message()} size={size().avatar} />
-								<span
-									class={cx(
-										"shrink-0 font-semibold",
-										read() ? "text-muted-foreground" : "text-foreground",
-									)}
-								>
-									{message().name}
-								</span>
+								<PersonName person={message()} muted={read()} />
 								<span
 									class={cx(
 										"min-w-0 flex-1 truncate",
@@ -268,16 +294,14 @@ const ThreadSummary = (props: ThreadSummaryProps & { size: ThreadSize }) => {
 	);
 };
 
-export const TypingNames = (props: { names: string[] }) => (
+export const TypingNames = (props: { people: ThreadPerson[] }) => (
 	<Switch fallback={<>Several people are typing...</>}>
-		<Match when={props.names.length === 1}>
-			<span class="font-semibold text-foreground">{props.names[0]}</span> is
-			typing...
+		<Match when={props.people.length === 1}>
+			<PersonName person={props.people[0]} /> is typing...
 		</Match>
-		<Match when={props.names.length === 2}>
-			<span class="font-semibold text-foreground">{props.names[0]}</span> and{" "}
-			<span class="font-semibold text-foreground">{props.names[1]}</span> are
-			typing...
+		<Match when={props.people.length === 2}>
+			<PersonName person={props.people[0]} /> and{" "}
+			<PersonName person={props.people[1]} /> are typing...
 		</Match>
 	</Switch>
 );

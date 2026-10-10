@@ -1,6 +1,7 @@
 import { createSignal, type JSX } from "solid-js";
 import { expect, fn, userEvent, waitFor, within } from "storybook/test";
 import type { Meta, StoryObj } from "storybook-solidjs-vite";
+import { expectFocusRingVisible } from "../../foundations/focus-ring-test";
 import { createStoryClip } from "../Media/story-clip";
 import { MessageRow } from "../Message/MessageRow";
 import {
@@ -153,6 +154,12 @@ export const Media: Story = {
 
 export const MediaDesktop: Story = {
 	render: () => <MediaCases desktop />,
+	play: async ({ canvasElement }) => {
+		const tile = within(canvasElement).getAllByRole("button", {
+			name: /^Open image/,
+		})[0] as HTMLElement;
+		await expectFocusRingVisible(tile);
+	},
 };
 
 const FileCases = (props: { desktop?: boolean }) => {

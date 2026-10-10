@@ -82,7 +82,7 @@ export const TabBar = (props: TabBarProps) => {
 				<nav
 					{...rest}
 					aria-label={local.label ?? "Main"}
-					class="pointer-events-auto flex h-12 gap-1 rounded-[calc(var(--radius-control)+3px)] border border-border bg-popover p-[3px] shadow-[0_4px_4px_rgb(0_0_0/0.25)]"
+					class="pointer-events-auto flex h-12 gap-1 rounded-[calc(var(--radius-control)+3px)] border border-border bg-popover p-[3px] shadow-[0_4px_4px_var(--shadow-color)]"
 				>
 					<Show when={local.items} fallback={local.children}>
 						{(items) => (
@@ -149,7 +149,7 @@ export const TabBarItem = (props: TabBarItemProps) => {
 			data-active={active() || undefined}
 			data-icon-host=""
 			class={cx(
-				"focus-ring ripple flex min-w-0 flex-1 cursor-pointer flex-col items-center justify-center rounded-control p-1 text-muted-foreground",
+				"focus-ring-inset ripple flex min-w-0 flex-1 cursor-pointer flex-col items-center justify-center rounded-control p-1 text-muted-foreground",
 				"touch-manipulation select-none data-active:text-foreground",
 				"[transition:color_calc(var(--duration-color)*var(--motion-scale))_var(--ease-out-quick)]",
 				"disabled:cursor-not-allowed disabled:opacity-50",

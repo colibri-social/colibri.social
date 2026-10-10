@@ -113,6 +113,67 @@ export const InviteLinks: Story = {
 	},
 };
 
+export const InviteLinkStates: Story = {
+	render: () => (
+		<Page title="Invite links">
+			<InviteCard
+				code="pQ7mZr2xLw4aB"
+				copyValue="https://colibri.social/invite/pQ7mZr2xLw4aB"
+				expires="6 days"
+				creator={{ handle: "entropic.software" }}
+				uses="12 / 25"
+				onCopy={inviteCopy}
+				onMenu={inviteMenu}
+			/>
+			<InviteCard
+				code="expiredLink01"
+				copyValue="https://colibri.social/invite/expiredLink01"
+				state="expired"
+				expires="2 days ago"
+				creator={{ handle: "birdwatcher.bsky.social" }}
+				uses="3 / 10"
+				onCopy={inviteCopy}
+				onMenu={inviteMenu}
+			/>
+			<InviteCard
+				code="usedUpLink777"
+				copyValue="https://colibri.social/invite/usedUpLink777"
+				state="used-up"
+				expires="1 day"
+				creator={{ handle: "timtinkers.online" }}
+				uses="5 / 5"
+				onCopy={inviteCopy}
+				onMenu={inviteMenu}
+			/>
+		</Page>
+	),
+	play: async ({ canvasElement }) => {
+		const writeText = stubClipboard();
+		inviteCopy.mockClear();
+		const canvas = within(canvasElement);
+		await expect(
+			canvas.getByRole("button", { name: /^Copy invite link pQ7mZr2xLw4aB/ }),
+		).toBeInTheDocument();
+		await expect(
+			canvas.queryByRole("button", { name: /^Copy invite link expiredLink01/ }),
+		).toBeNull();
+		await expect(
+			canvas.queryByRole("button", { name: /^Copy invite link usedUpLink777/ }),
+		).toBeNull();
+		await expect(canvas.getByText("Expired")).toBeVisible();
+		await expect(canvas.getByText("Used up")).toBeVisible();
+		await expect(canvas.getByText("Expired:")).toBeVisible();
+		await userEvent.click(canvas.getByText("expiredLink01"));
+		await expect(writeText).not.toHaveBeenCalled();
+		await expect(inviteCopy).not.toHaveBeenCalled();
+		await expect(
+			canvas.getByRole("button", {
+				name: "More actions for invite expiredLink01",
+			}),
+		).toBeInTheDocument();
+	},
+};
+
 export const Bridges: Story = {
 	render: () => {
 		return (

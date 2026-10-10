@@ -114,7 +114,7 @@ export const CollapsingInbox: Story = {
 				actions={
 					<button
 						type="button"
-						class="text-sm font-semibold text-primary-highlight"
+						class="cursor-pointer rounded-control-xs text-sm font-semibold text-primary-highlight focus-ring"
 					>
 						Mark all read
 					</button>

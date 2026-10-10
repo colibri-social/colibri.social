@@ -2,8 +2,9 @@ import type { JSX } from "solid-js";
 import { cx } from "../../utils/cx";
 import { createRipple } from "../../utils/ripple";
 
-export const pressSurface =
-	"ripple cursor-pointer outline-none focus-visible:shadow-[0_0_0_2px_var(--primary)]";
+export const pressSurface = "ripple cursor-pointer outline-none focus-ring";
+export const pressSurfaceInset =
+	"ripple cursor-pointer outline-none focus-ring-inset";
 
 export const embedSurface =
 	"rounded-surface border border-border bg-card text-foreground";
@@ -39,7 +40,7 @@ export const TextAction = (props: TextActionProps) => (
 		type="button"
 		onClick={() => props.onClick()}
 		class={cx(
-			"inline-flex shrink-0 cursor-pointer items-center gap-1 rounded-control-xs border-0 bg-transparent px-1 py-0.5 text-sm font-semibold text-primary-highlight outline-none hover:bg-primary/10 focus-visible:shadow-[0_0_0_2px_var(--primary)] [&>svg]:size-4",
+			"inline-flex shrink-0 cursor-pointer items-center gap-1 rounded-control-xs border-0 bg-transparent px-1 py-0.5 text-sm font-semibold text-primary-highlight outline-none hover:bg-primary/10 focus-ring [&>svg]:size-4",
 			props.class,
 		)}
 	>

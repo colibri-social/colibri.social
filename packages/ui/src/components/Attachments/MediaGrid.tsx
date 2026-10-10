@@ -1,11 +1,18 @@
 import { EyeIcon } from "@solar-icons/solid/bold/eye";
+import { PauseIcon } from "@solar-icons/solid/bold/pause";
 import { PlayIcon } from "@solar-icons/solid/bold/play";
 import { createSignal, For, type JSX, Show } from "solid-js";
 import { AnimatedDownloadIcon } from "../../icons/animated/navigation";
 import { cx } from "../../utils/cx";
+import {
+	appActive,
+	isAnimatedSource,
+	reducedMotionActive,
+} from "../../utils/playback";
+import { AnimatedImage } from "../AnimatedImage/AnimatedImage";
 import { VideoPlayer } from "../Media/VideoPlayer";
 import { Skeleton } from "../Skeleton/Skeleton";
-import { createPressRipple, pressSurface } from "./shared";
+import { createPressRipple, pressSurfaceInset } from "./shared";
 
 export type MediaKind = "image" | "video" | "gif";
 
@@ -86,6 +93,17 @@ export const MediaTile = (props: MediaTileProps) => {
 	const [revealed, setRevealed] = createSignal(false);
 	const [loaded, setLoaded] = createSignal(false);
 	const [started, setStarted] = createSignal(false);
+	const [playing, setPlaying] = createSignal(false);
+	const animates = () =>
+		props.item.kind === "gif" ||
+		(props.item.kind !== "video" && isAnimatedSource(props.item.src));
+	const showPlayToggle = () =>
+		!props.loading &&
+		animates() &&
+		reducedMotionActive() &&
+		appActive() &&
+		!hidden() &&
+		!props.overflow;
 	const press = createPressRipple();
 	const hidden = () => !!props.item.spoiler && !revealed();
 	const inlineVideo = () =>
@@ -137,7 +155,7 @@ export const MediaTile = (props: MediaTileProps) => {
 					type="button"
 					class={cx(
 						"absolute inset-0 block size-full border-0 bg-transparent p-0",
-						pressSurface,
+						pressSurfaceInset,
 					)}
 					onClick={() => {
 						if (hidden()) {
@@ -148,7 +166,10 @@ export const MediaTile = (props: MediaTileProps) => {
 					}}
 				>
 					<span class="sr-only">{label()}</span>
-					<img
+					<AnimatedImage
+						animated={props.item.kind === "gif" ? true : undefined}
+						playOnDemand="none"
+						play={playing()}
 						src={
 							props.item.kind === "video"
 								? (props.item.poster ?? "")
@@ -177,7 +198,9 @@ export const MediaTile = (props: MediaTileProps) => {
 							</span>
 						</span>
 					</Show>
-					<Show when={props.item.kind === "gif" && !hidden()}>
+					<Show
+						when={props.item.kind === "gif" && !hidden() && !showPlayToggle()}
+					>
 						<MediaPill class="bottom-2 left-2">GIF</MediaPill>
 					</Show>
 					<Show when={props.item.alt && !hidden() && !props.overflow}>
@@ -205,6 +228,21 @@ export const MediaTile = (props: MediaTileProps) => {
 					</Show>
 				</button>
 			</Show>
+			<Show when={showPlayToggle()}>
+				<button
+					type="button"
+					data-gif-toggle=""
+					aria-pressed={playing()}
+					aria-label={`${playing() ? "Pause" : "Play"} ${props.item.kind === "gif" ? "GIF" : "animation"}`}
+					onClick={() => setPlaying((value) => !value)}
+					class="absolute bottom-1.5 left-1.5 flex h-7 cursor-pointer items-center gap-1 rounded-control-sm border-0 bg-black/60 px-2 text-xs font-semibold text-white backdrop-blur-sm outline-none select-none hover:bg-black/75 focus-ring [&>svg]:size-3.5"
+				>
+					{playing() ? <PauseIcon /> : <PlayIcon />}
+					<Show when={props.item.kind === "gif"}>
+						<span aria-hidden="true">GIF</span>
+					</Show>
+				</button>
+			</Show>
 			<Show
 				when={
 					!props.loading &&
@@ -218,7 +256,7 @@ export const MediaTile = (props: MediaTileProps) => {
 					download={props.item.name ?? ""}
 					aria-label={`Download ${props.item.name ?? kindLabel(props.item.kind)}`}
 					data-icon-host=""
-					class="absolute top-1.5 right-1.5 flex size-7 items-center justify-center rounded-control-sm bg-black/60 text-white opacity-0 outline-none backdrop-blur-sm group-hover/tile:opacity-100 hover:bg-black/75 focus-visible:opacity-100 focus-visible:shadow-[0_0_0_2px_var(--primary)] [&>svg]:size-4"
+					class="absolute top-1.5 right-1.5 flex size-7 items-center justify-center rounded-control-sm bg-black/60 text-white opacity-0 outline-none backdrop-blur-sm group-hover/tile:opacity-100 hover:bg-black/75 focus-visible:opacity-100 focus-ring [&>svg]:size-4"
 				>
 					<AnimatedDownloadIcon />
 				</a>

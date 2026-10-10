@@ -10,6 +10,10 @@
 @import "./icons/brand.css";
 @import "./skeleton.css";
 @import "./safe-area.css";
+@import "./space-rail.css";
+@import "./hummingbird.css";
+@import "./onboarding.css";
+@import "./rich-editor.css";
 
 @source "../";
 
@@ -19,13 +23,23 @@
 );
 
 :root {
+	--motion-scale: 1;
+	--font-display-stack: Stardom, "Stardom Fallback", "Colibri Emoji", serif;
+	--font-sans-stack:
+		"Hanken Grotesk", "Hanken Grotesk Fallback", "Colibri Emoji", sans-serif;
+	--font-mono-stack:
+		"Geist Mono", "Geist Mono Fallback", "Colibri Emoji", monospace;
+}
+
+:root,
+[data-theme="dark"] {
 	--background: #080808;
 	--foreground: #ffffff;
 	--card: #0f0f0f;
 	--popover: #171717;
 	--popover-highlight: #1e1e1e;
 	--primary: #8e51ff;
-	--primary-highlight: #9c66ff;
+	--primary-highlight: #a579ff;
 	--primary-foreground: #ffffff;
 	--primary-fill: #8b4dfb;
 	--primary-fill-highlight: #803fee;
@@ -35,7 +49,7 @@
 	--muted: #262626;
 	--muted-foreground: #a1a1a1;
 	--accent: #404040;
-	--destructive: #ff575a;
+	--destructive: #ff585b;
 	--destructive-highlight: #ff7073;
 	--destructive-foreground: #ffffff;
 	--destructive-fill: #db333d;
@@ -49,22 +63,18 @@
 	--shadow-color: rgb(0 0 0 / 0.25);
 	--mention: rgb(142 81 255 / 0.25);
 
-	--motion-scale: 1;
-	--font-display-stack: Stardom, "Stardom Fallback", serif;
-	--font-sans-stack: "Hanken Grotesk", "Hanken Grotesk Fallback", sans-serif;
-	--font-mono-stack: "Geist Mono", "Geist Mono Fallback", monospace;
-
 	color-scheme: dark;
 }
 
-:root[data-theme="light"] {
+:root[data-theme="light"],
+[data-theme="light"] {
 	--background: #f7f7f8;
 	--foreground: #0b0b0c;
 	--card: #ffffff;
 	--popover: #ffffff;
 	--popover-highlight: #f2f2f3;
 	--primary: #8e51ff;
-	--primary-highlight: #7d3ff0;
+	--primary-highlight: #733add;
 	--primary-foreground: #ffffff;
 	--primary-fill: #8b4dfb;
 	--primary-fill-highlight: #803fee;
@@ -72,18 +82,18 @@
 	--secondary-highlight: #e4e4e6;
 	--secondary-foreground: #0b0b0c;
 	--muted: #ececee;
-	--muted-foreground: #66666b;
-	--accent: #d4d4d8;
-	--destructive: #c21f30;
+	--muted-foreground: #606065;
+	--accent: #b7b7bb;
+	--destructive: #bc1e2f;
 	--destructive-highlight: #b01a2a;
 	--destructive-foreground: #ffffff;
 	--destructive-fill: #db333d;
 	--destructive-fill-highlight: #ce2132;
-	--success: #22a55a;
-	--warning: #d9a400;
-	--info: #1f7ae0;
-	--border: rgb(0 0 0 / 0.08);
-	--control-border: #d4d4d8;
+	--success: #127035;
+	--warning: #925004;
+	--info: #1960b4;
+	--border: rgb(0 0 0 / 0.1);
+	--control-border: #bdbdc1;
 	--overlay: rgb(8 8 8 / 0.4);
 	--shadow-color: rgb(0 0 0 / 0.12);
 	--mention: rgb(142 81 255 / 0.16);
@@ -150,6 +160,18 @@
 		-webkit-font-smoothing: antialiased;
 		-moz-osx-font-smoothing: grayscale;
 		-webkit-tap-highlight-color: transparent;
+	}
+
+	body {
+		-webkit-user-select: none;
+		user-select: none;
+	}
+
+	input,
+	textarea,
+	[contenteditable]:not([contenteditable="false"]) {
+		-webkit-user-select: text;
+		user-select: text;
 	}
 
 	*,

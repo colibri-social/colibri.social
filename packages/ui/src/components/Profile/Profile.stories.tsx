@@ -6,8 +6,9 @@ import { createSignal } from "solid-js";
 import { expect, fn, screen, userEvent, waitFor, within } from "storybook/test";
 import type { Meta, StoryObj } from "storybook-solidjs-vite";
 import { PlayTesterBadge } from "../../icons/animated/brand";
+import { contrastRatio } from "../../utils/name-color";
 import { createRipple } from "../../utils/ripple";
-import { Badge } from "../Badge/Badge";
+import { AppBadge, TeamBadge } from "../Badge/Badge";
 import { Button } from "../Button/Button";
 import { DeveloperModeCard } from "../DeveloperMode/DeveloperModeCard";
 import { Drawer, DrawerContent, DrawerTrigger } from "../Drawer/Drawer";
@@ -55,15 +56,13 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-const TeamBadge = () => <Badge class="h-5 text-sm">Team</Badge>;
-
 const EditProfileRow = () => {
 	const ripple = createRipple();
 	return (
 		<button
 			ref={ripple}
 			type="button"
-			class="ripple flex h-10 w-full cursor-pointer items-center gap-2 rounded-control bg-secondary px-3 text-left text-foreground outline-none hover:bg-secondary-highlight focus-visible:shadow-[inset_0_0_0_2px_var(--primary)]"
+			class="ripple flex h-10 w-full cursor-pointer items-center gap-2 rounded-control bg-secondary px-3 text-left text-foreground outline-none hover:bg-secondary-highlight focus-ring-inset"
 		>
 			<span class="flex size-6 items-center justify-center [&>svg]:size-6">
 				<PenIcon />
@@ -82,8 +81,14 @@ export const ProfileTab: Story = {
 				pronouns="he/him"
 				avatarSrc={AVATAR}
 				presence="online"
-				badge={<TeamBadge />}
-				appBadge={<PlayTesterBadge size={16} />}
+				badge={<TeamBadge size="sm" />}
+				appBadge={
+					<AppBadge
+						name="Play Store tester"
+						description="Helped test the Colibri App for the Play Store release"
+						icon={<PlayTesterBadge size={16} />}
+					/>
+				}
 				status={LONG_STATUS}
 				statusEditable
 				onStatusClick={() => onStatusClick()}
@@ -147,8 +152,14 @@ const lou = (overrides: Partial<ProfileData> = {}): ProfileData => ({
 	pronouns: "he/him",
 	avatarSrc: AVATAR,
 	presence: "online",
-	badge: <TeamBadge />,
-	appBadge: <PlayTesterBadge size={16} />,
+	badge: <TeamBadge size="sm" />,
+	appBadge: (
+		<AppBadge
+			name="Play Store tester"
+			description="Helped test the Colibri App for the Play Store release"
+			icon={<PlayTesterBadge size={16} />}
+		/>
+	),
 	links: [
 		{
 			label: "View on Bluesky",
@@ -246,7 +257,7 @@ export const PopoverFromAuthor: Story = {
 			<div class="min-h-[720px] w-[720px] bg-background py-6 pl-[360px]">
 				<MessageRow
 					author={{ name: "Lou", avatarSrc: AVATAR }}
-					badge={<TeamBadge />}
+					badge={<TeamBadge size="sm" />}
 					timestamp={AT}
 					now={NOW}
 					locale="en-GB"
@@ -498,6 +509,41 @@ export const PopoverNoBanner: Story = {
 	},
 };
 
+const toHex = (rgb: string) => {
+	const parts = rgb.match(/\d+/g)?.slice(0, 3).map(Number) ?? [];
+	return `#${parts.map((part) => part.toString(16).padStart(2, "0")).join("")}`;
+};
+
+export const PopoverDarkNameColor: Story = {
+	parameters: desktop,
+	render: () => (
+		<div class="flex min-h-[720px] w-full justify-end bg-background p-4">
+			<ProfilePopover
+				profile={lou({ accentColor: "#0b0b10", actions: [] })}
+				triggerLabel="Lou, dark name color"
+				as="button"
+			>
+				<span class="text-sm text-foreground">Dark name color</span>
+			</ProfilePopover>
+		</div>
+	),
+	play: async ({ canvasElement }) => {
+		await userEvent.click(
+			within(canvasElement).getByRole("button", {
+				name: "Lou, dark name color",
+			}),
+		);
+		const popover = await screen.findByRole("dialog", {
+			name: "Lou's profile",
+		});
+		const name = popover.querySelector<HTMLElement>("[data-profile-name]");
+		await expect(name).not.toBeNull();
+		const color = toHex(getComputedStyle(name as HTMLElement).color);
+		await expect(color).not.toBe("#0b0b10");
+		await expect(contrastRatio(color, "#171717")).toBeGreaterThanOrEqual(4.5);
+	},
+};
+
 export const PopoverSkeletonParity: Story = {
 	parameters: desktop,
 	render: () => (
@@ -574,5 +620,56 @@ export const NowPlaying: Story = {
 		await expect(link).toHaveAccessibleName(
 			/Listening to teal\.fm.*Manual Drive 1991.*DUSQK/,
 		);
+	},
+};
+
+export const StatusWhileOffline: Story = {
+	render: () => (
+		<div class="flex w-[360px] flex-col gap-6 bg-background pb-4 text-foreground">
+			<article data-testid="offline-hidden" aria-label="Ola, offline">
+				<ProfileHeader
+					displayName="Ola"
+					handle="ola.bsky.social"
+					avatarColor="#525252"
+					presence="offline"
+					statusEmoji="🛶"
+					status="Out on the water"
+				/>
+			</article>
+			<article
+				data-testid="offline-shown"
+				aria-label="Pim, offline with status shown"
+			>
+				<ProfileHeader
+					displayName="Pim"
+					handle="pim.bsky.social"
+					avatarColor="#525252"
+					presence="offline"
+					statusEmoji="🌴"
+					status="Back on Monday"
+					statusShowWhileOffline
+				/>
+			</article>
+			<article data-testid="own-offline" aria-label="Your profile, offline">
+				<ProfileHeader
+					displayName="Lou"
+					handle="lou.gg"
+					avatarSrc={AVATAR}
+					presence="offline"
+					statusEmoji="🐦"
+					status="Building a nest"
+					statusEditable
+				/>
+			</article>
+		</div>
+	),
+	play: async ({ canvasElement }) => {
+		const bubble = (id: string) =>
+			within(canvasElement)
+				.getByTestId(id)
+				.querySelector("[data-status-bubble]");
+		await expect(bubble("offline-hidden")).toBeNull();
+		await expect(bubble("offline-shown")).not.toBeNull();
+		await expect(bubble("own-offline")).not.toBeNull();
 	},
 };

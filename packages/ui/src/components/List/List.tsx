@@ -8,11 +8,14 @@ import { createSlot } from "../../utils/slot";
 import { Checkbox } from "../Checkbox/Checkbox";
 import { Radio, RadioGroup } from "../Radio/Radio";
 import { Switch } from "../Switch/Switch";
+import { createSearchable, createSearchGroup } from "./settings-search";
 
 const rowHighlight = "ripple hover:bg-secondary-highlight";
 
-const rowFocus =
-	"outline-none focus-visible:shadow-[inset_0_0_0_2px_var(--primary)]";
+const rowFocus = "outline-none focus-ring-inset";
+
+const groupDividers =
+	"[&>*]:border-border [&>:not([hidden])~:not([hidden])]:border-t";
 
 const forwardRowClick = (
 	event: MouseEvent & { currentTarget: HTMLElement },
@@ -60,9 +63,9 @@ export const SectionLabel = (props: SectionLabelProps) => {
 						type="button"
 						onClick={() => action().onClick?.()}
 						class={cx(
-							"flex shrink-0 cursor-pointer items-center gap-1 rounded-control-xs text-sm font-medium text-primary-highlight",
+							"flex shrink-0 cursor-pointer items-center gap-1 rounded-control-xs text-sm font-semibold text-primary-highlight",
 							"transition-opacity duration-[calc(var(--duration-color)*var(--motion-scale))] hover:opacity-80 active:opacity-70",
-							"outline-none focus-visible:shadow-[0_0_0_3px_color-mix(in_srgb,var(--primary)_25%,transparent)]",
+							"focus-ring",
 						)}
 					>
 						<Show when={actionIcon.has()}>
@@ -88,9 +91,14 @@ export type ListGroupProps = {
 
 export const ListGroup = (props: ListGroupProps) => {
 	const label = createSlot(() => props.label);
+	const search = createSearchGroup();
 
 	return (
-		<section class={cx("flex w-full flex-col gap-2", props.class)}>
+		<section
+			ref={search.ref}
+			hidden={search.hidden()}
+			class={cx("flex w-full flex-col gap-2", props.class)}
+		>
 			<Show when={label.has()}>
 				<SectionLabel
 					label={label()}
@@ -98,7 +106,12 @@ export const ListGroup = (props: ListGroupProps) => {
 					action={props.action}
 				/>
 			</Show>
-			<div class="flex flex-col divide-y divide-border overflow-hidden rounded-control bg-secondary">
+			<div
+				class={cx(
+					"flex flex-col overflow-hidden rounded-control bg-secondary",
+					groupDividers,
+				)}
+			>
 				{props.children}
 			</div>
 		</section>
@@ -107,6 +120,7 @@ export const ListGroup = (props: ListGroupProps) => {
 
 export type NavRowProps = {
 	label: JSX.Element;
+	keywords?: readonly string[];
 	icon?: JSX.Element;
 	value?: string;
 	external?: boolean;
@@ -124,14 +138,20 @@ export const NavRow = (props: NavRowProps) => {
 		"external",
 		"href",
 		"class",
+		"keywords",
 	]);
 	const icon = createSlot(() => local.icon);
 	const label = createSlot(() => local.label);
 	const ripple = createRipple();
+	const search = createSearchable(() => local.keywords);
 
 	return (
 		<Dynamic
-			ref={ripple}
+			ref={(element: HTMLElement) => {
+				ripple(element);
+				search.ref(element);
+			}}
+			hidden={search.hidden()}
 			component={local.href ? "a" : "button"}
 			type={local.href ? undefined : "button"}
 			href={local.href}
@@ -152,7 +172,10 @@ export const NavRow = (props: NavRowProps) => {
 					{icon()}
 				</span>
 			</Show>
-			<span class="min-w-0 flex-1 truncate text-sm font-semibold">
+			<span
+				data-search-label=""
+				class="min-w-0 flex-1 truncate text-sm font-semibold"
+			>
 				{label()}
 			</span>
 			<Show when={local.value}>
@@ -176,6 +199,7 @@ export const NavRow = (props: NavRowProps) => {
 
 export type DestructiveRowProps = {
 	label: JSX.Element;
+	keywords?: readonly string[];
 	icon?: JSX.Element;
 	onClick?: (event: MouseEvent) => void;
 	disabled?: boolean;
@@ -186,10 +210,15 @@ export const DestructiveRow = (props: DestructiveRowProps) => {
 	const icon = createSlot(() => props.icon);
 	const label = createSlot(() => props.label);
 	const ripple = createRipple();
+	const search = createSearchable(() => props.keywords);
 
 	return (
 		<button
-			ref={ripple}
+			ref={(element) => {
+				ripple(element);
+				search.ref(element);
+			}}
+			hidden={search.hidden()}
 			type="button"
 			onClick={(event) => props.onClick?.(event)}
 			disabled={props.disabled}
@@ -206,7 +235,10 @@ export const DestructiveRow = (props: DestructiveRowProps) => {
 					{icon()}
 				</span>
 			</Show>
-			<span class="min-w-0 flex-1 truncate text-sm font-semibold">
+			<span
+				data-search-label=""
+				class="min-w-0 flex-1 truncate text-sm font-semibold"
+			>
 				{label()}
 			</span>
 		</button>
@@ -215,7 +247,9 @@ export const DestructiveRow = (props: DestructiveRowProps) => {
 
 export type ToggleRowProps = {
 	title: JSX.Element;
+	keywords?: readonly string[];
 	description?: JSX.Element;
+	icon?: JSX.Element;
 	checked?: boolean;
 	defaultChecked?: boolean;
 	onChange?: (checked: boolean) => void;
@@ -225,28 +259,44 @@ export type ToggleRowProps = {
 };
 
 export const ToggleRow = (props: ToggleRowProps) => {
+	const icon = createSlot(() => props.icon);
 	const ripple = createRipple({ disabled: () => props.disabled });
+	const search = createSearchable(() => props.keywords);
 
 	return (
 		<div
-			ref={ripple}
+			ref={(element) => {
+				ripple(element);
+				search.ref(element);
+			}}
+			hidden={search.hidden()}
 			onClick={forwardRowClick}
+			data-list-toggle-row=""
 			class={cx(
-				"flex w-full shrink-0 cursor-pointer px-3 py-2",
+				"flex w-full shrink-0 cursor-pointer items-center gap-2 px-3 py-2",
 				rowHighlight,
 				props.disabled && "cursor-not-allowed hover:bg-transparent",
 				props.class,
 			)}
 		>
+			<Show when={icon.has()}>
+				<span
+					aria-hidden="true"
+					data-toggle-row-icon=""
+					class="flex size-6 shrink-0 items-center justify-center text-foreground [&>svg]:size-6"
+				>
+					{icon()}
+				</span>
+			</Show>
 			<Switch
 				checked={props.checked}
 				defaultChecked={props.defaultChecked}
 				onChange={props.onChange}
 				disabled={props.disabled}
 				name={props.name}
-				label={props.title}
+				label={<span data-search-label="">{props.title}</span>}
 				description={props.description}
-				class="flex w-full flex-row-reverse items-center justify-between gap-4"
+				class="flex min-w-0 flex-1 flex-row-reverse items-center justify-between gap-4"
 			/>
 		</div>
 	);
@@ -266,9 +316,14 @@ export type RadioRowGroupProps = {
 
 export const RadioRowGroup = (props: RadioRowGroupProps) => {
 	const label = createSlot(() => props.label);
+	const search = createSearchGroup();
 
 	return (
-		<section class={cx("flex w-full flex-col gap-2", props.class)}>
+		<section
+			ref={search.ref}
+			hidden={search.hidden()}
+			class={cx("flex w-full flex-col gap-2", props.class)}
+		>
 			<Show when={label.has()}>
 				<SectionLabel label={label()} />
 			</Show>
@@ -279,7 +334,10 @@ export const RadioRowGroup = (props: RadioRowGroupProps) => {
 				disabled={props.disabled}
 				name={props.name}
 				aria-label={props["aria-label"]}
-				class="flex flex-col gap-0 divide-y divide-border overflow-hidden rounded-control bg-secondary"
+				class={cx(
+					"flex flex-col gap-0 overflow-hidden rounded-control bg-secondary",
+					groupDividers,
+				)}
 			>
 				{props.children}
 			</RadioGroup>
@@ -289,6 +347,7 @@ export const RadioRowGroup = (props: RadioRowGroupProps) => {
 
 export type RadioRowProps = {
 	value: string;
+	keywords?: readonly string[];
 	title: JSX.Element;
 	description?: JSX.Element;
 	icon?: JSX.Element;
@@ -300,10 +359,15 @@ export const RadioRow = (props: RadioRowProps) => {
 	const icon = createSlot(() => props.icon);
 	const title = createSlot(() => props.title);
 	const ripple = createRipple({ disabled: () => props.disabled });
+	const search = createSearchable(() => props.keywords);
 
 	return (
 		<div
-			ref={ripple}
+			ref={(element) => {
+				ripple(element);
+				search.ref(element);
+			}}
+			hidden={search.hidden()}
 			onClick={forwardRowClick}
 			class={cx(
 				"flex w-full shrink-0 cursor-pointer items-center gap-2 px-3 py-2",
@@ -321,7 +385,11 @@ export const RadioRow = (props: RadioRowProps) => {
 				value={props.value}
 				disabled={props.disabled}
 				labelPosition="start"
-				label={<span class="font-semibold">{title()}</span>}
+				label={
+					<span data-search-label="" class="font-semibold">
+						{title()}
+					</span>
+				}
 				description={props.description}
 				class="min-w-0 flex-1 items-center justify-between gap-4"
 			/>
@@ -400,9 +468,14 @@ export type SidebarNavSectionProps = {
 
 export const SidebarNavSection = (props: SidebarNavSectionProps) => {
 	const label = createSlot(() => props.label);
+	const search = createSearchGroup();
 
 	return (
-		<div class={cx("flex flex-col gap-2", props.class)}>
+		<div
+			ref={search.ref}
+			hidden={search.hidden()}
+			class={cx("flex flex-col gap-2", props.class)}
+		>
 			<Show when={label.has()}>
 				<SectionLabel label={label()} />
 			</Show>
@@ -415,6 +488,7 @@ export type SidebarNavItemTone = "default" | "destructive";
 
 export type SidebarNavItemProps = {
 	label: JSX.Element;
+	keywords?: readonly string[];
 	icon?: JSX.Element;
 	tone?: SidebarNavItemTone;
 	active?: boolean;
@@ -428,10 +502,15 @@ export const SidebarNavItem = (props: SidebarNavItemProps) => {
 	const icon = createSlot(() => props.icon);
 	const label = createSlot(() => props.label);
 	const ripple = createRipple();
+	const search = createSearchable(() => props.keywords);
 
 	return (
 		<Dynamic
-			ref={ripple}
+			ref={(element: HTMLElement) => {
+				ripple(element);
+				search.ref(element);
+			}}
+			hidden={search.hidden()}
 			component={props.href ? "a" : "button"}
 			type={props.href ? undefined : "button"}
 			href={props.href}
@@ -445,7 +524,7 @@ export const SidebarNavItem = (props: SidebarNavItemProps) => {
 					? "text-destructive hover:bg-secondary/60"
 					: "text-muted-foreground hover:bg-secondary/60 hover:text-foreground",
 				"aria-[current=page]:bg-secondary aria-[current=page]:text-foreground",
-				"outline-none focus-visible:shadow-[0_0_0_3px_color-mix(in_srgb,var(--primary)_25%,transparent)]",
+				"focus-ring",
 				props.class,
 			)}
 		>
@@ -454,7 +533,10 @@ export const SidebarNavItem = (props: SidebarNavItemProps) => {
 					{icon()}
 				</span>
 			</Show>
-			<span class="min-w-0 flex-1 truncate text-sm font-semibold">
+			<span
+				data-search-label=""
+				class="min-w-0 flex-1 truncate text-sm font-semibold"
+			>
 				{label()}
 			</span>
 			<Show when={props.external}>

@@ -4,6 +4,10 @@
 
 The icon artwork in `src/icons/solar` and the animated icons in `src/icons/animated` are adapted from the [Solar Icons Set](https://www.figma.com/community/file/1166831539721848736) by 480 Design, licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). The paths are split into separately animated parts. The library also depends on [`@solar-icons/solid`](https://github.com/saoudi-h/solar-icons) by Hakim Saoudi, released under the MIT License.
 
+## Twemoji
+
+The Colibri Emoji font in `src/fonts/ColibriEmoji.woff2` is built by `scripts/build-emoji-font.mjs` from the [Twemoji](https://github.com/jdecked/twemoji) graphics, copyright 2019 Twitter, Inc and other contributors, licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). The graphics are converted into a COLRv0 color font, with extra ligatures for sequences written without variation selectors.
+
 ## Heroicons
 
 The GIF glyph in `src/icons/animated/brand.tsx` and `src/icons/solar/brand.ts` comes from [Heroicons](https://heroicons.com) by Tailwind Labs, released under the MIT License.

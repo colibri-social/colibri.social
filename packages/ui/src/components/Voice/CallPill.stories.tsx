@@ -7,13 +7,14 @@ import { VolumeLoudIcon } from "@solar-icons/solid/bold/volume-loud";
 import { createSignal, For, type JSX } from "solid-js";
 import { expect, fn, userEvent, waitFor, within } from "storybook/test";
 import type { Meta, StoryObj } from "storybook-solidjs-vite";
+import { withSlowMotion } from "../../foundations/motion-test";
 import { HapticsProvider } from "../../utils/haptics";
 import { storyImages } from "../Banner/story-images";
 import { ChannelHeader } from "../ChannelHeader/ChannelHeader";
 import { Composer } from "../Composer/Composer";
 import { MessageRow } from "../Message/MessageRow";
 import { TabBar } from "../TabBar/TabBar";
-import { CallPill } from "./CallPill";
+import { CallPill, type CallPillPosition } from "./CallPill";
 import type { VoiceParticipant } from "./shared";
 
 const meta = {
@@ -30,6 +31,7 @@ const AT = new Date("2026-10-08T14:12:00");
 const haptics = { impact: fn(), selection: fn(), notification: fn() };
 const onLeave = fn();
 const onOpenCall = fn();
+const onPositionChange = fn((_position: CallPillPosition) => {});
 
 const participants: VoiceParticipant[] = [
 	{
@@ -83,10 +85,12 @@ const Phone = (props: {
 
 const LiveCallPill = (props: {
 	avoidTop?: number;
+	avoidBottom?: number;
 	defaultExpanded?: boolean;
 }) => {
 	const [muted, setMuted] = createSignal(false);
 	const [deafened, setDeafened] = createSignal(false);
+	const [position, setPosition] = createSignal<CallPillPosition>("top");
 	return (
 		<CallPill
 			contained
@@ -98,6 +102,12 @@ const LiveCallPill = (props: {
 			deafened={deafened()}
 			defaultExpanded={props.defaultExpanded}
 			avoidTop={props.avoidTop}
+			avoidBottom={props.avoidBottom}
+			position={position()}
+			onPositionChange={(next) => {
+				setPosition(next);
+				onPositionChange(next);
+			}}
 			onToggleMute={() => setMuted((value) => !value)}
 			onToggleDeafen={() => setDeafened((value) => !value)}
 			onOpenCall={onOpenCall}
@@ -198,26 +208,46 @@ const assertInside = async (inner: DOMRect, frame: DOMRect, insets: Insets) => {
 };
 
 const settle = () =>
-	new Promise<void>((resolve) => {
-		const pill = document.querySelectorAll("[data-call-pill]");
-		Promise.all(
-			[...pill].flatMap((element) =>
-				element.getAnimations().map((animation) => animation.finished),
-			),
-		).then(
-			() => resolve(),
-			() => resolve(),
-		);
-	});
+	waitFor(
+		() => {
+			for (const element of document.querySelectorAll("[data-call-pill]")) {
+				expect(element).not.toHaveAttribute("data-animating");
+			}
+		},
+		{ timeout: 6000 },
+	);
+
+const firePointer = (
+	target: Element,
+	type: string,
+	clientX: number,
+	clientY: number,
+	pointerType = "touch",
+) =>
+	target.dispatchEvent(
+		new PointerEvent(type, {
+			bubbles: true,
+			cancelable: true,
+			pointerType,
+			pointerId: 11,
+			isPrimary: true,
+			button: 0,
+			buttons: type === "pointerup" ? 0 : 1,
+			clientX,
+			clientY,
+		}),
+	);
 
 export const Screens: Story = {
 	render: () => (
 		<Board>
 			<Phone label="Spaces tab" width={402} height={720} insets={PORTRAIT}>
-				<SpacesScreen overlay={<LiveCallPill />} />
+				<SpacesScreen overlay={<LiveCallPill avoidBottom={56} />} />
 			</Phone>
 			<Phone label="Channel" width={402} height={720} insets={PORTRAIT}>
-				<ChannelScreen overlay={<LiveCallPill avoidTop={48} />} />
+				<ChannelScreen
+					overlay={<LiveCallPill avoidTop={48} avoidBottom={64} />}
+				/>
 			</Phone>
 			<Phone label="Narrow" width={320} height={640} insets={PORTRAIT}>
 				<ChannelScreen
@@ -365,5 +395,160 @@ export const ExpandAndCollapse: Story = {
 		swipe("pointermove", y - 40);
 		swipe("pointerup", y - 40);
 		await waitFor(() => expect(pill).not.toHaveAttribute("data-expanded"));
+	},
+};
+
+const InteractiveBoard = (props: { defaultExpanded?: boolean }) => (
+	<Board>
+		<Phone label="Interactive" width={320} height={560} insets={PORTRAIT}>
+			<SpacesScreen
+				overlay={
+					<LiveCallPill
+						avoidBottom={56}
+						defaultExpanded={props.defaultExpanded}
+					/>
+				}
+			/>
+		</Phone>
+	</Board>
+);
+
+export const PressDuringAnimation: Story = {
+	render: () => <InteractiveBoard />,
+	play: async ({ canvasElement }) => {
+		const frame = phone(canvasElement, "Interactive");
+		const pill = pillOf(frame);
+		const canvas = within(frame);
+		await withSlowMotion(async () => {
+			await userEvent.click(
+				canvas.getByRole("button", { name: /show call controls/ }),
+			);
+			await expect(pill).toHaveAttribute("data-animating");
+			await userEvent.click(canvas.getByRole("button", { name: "Mute" }));
+			await expect(
+				canvas.getByRole("button", { name: "Unmute" }),
+			).toHaveAttribute("aria-pressed", "true");
+			await userEvent.click(
+				canvas.getByRole("button", { name: "Hide call controls" }),
+			);
+			await expect(pill).not.toHaveAttribute("data-expanded");
+			await expect(pill).toHaveAttribute("data-animating");
+			await userEvent.click(
+				canvas.getByRole("button", { name: /show call controls/ }),
+			);
+			await expect(pill).toHaveAttribute("data-expanded");
+			await settle();
+		});
+		await expect(pill.style.width).toBe("");
+		await expect(pill.style.height).toBe("");
+		await expect(pill.style.transform).toBe("");
+		const section = pill.querySelector("section") as HTMLElement;
+		await expect(
+			Math.abs(pill.clientHeight - section.offsetHeight),
+		).toBeLessThanOrEqual(1);
+		await assertInside(
+			pill.getBoundingClientRect(),
+			frame.getBoundingClientRect(),
+			PORTRAIT,
+		);
+		await expect(
+			canvas.getByRole("button", { name: "Unmute" }),
+		).toBeInTheDocument();
+	},
+};
+
+export const DragToSnap: Story = {
+	render: () => <InteractiveBoard />,
+	play: async ({ canvasElement }) => {
+		onPositionChange.mockClear();
+		const frame = phone(canvasElement, "Interactive");
+		const pill = pillOf(frame);
+		const bounds = frame.getBoundingClientRect();
+		const box = pill.getBoundingClientRect();
+		const x = box.left + box.width / 2;
+		const y = box.top + box.height / 2;
+		const target = bounds.top + bounds.height * 0.7;
+		firePointer(pill, "pointerdown", x, y);
+		firePointer(pill, "pointermove", x, y + 20);
+		firePointer(pill, "pointermove", x, (y + target) / 2);
+		firePointer(pill, "pointermove", x, target);
+		await expect(pill).toHaveAttribute("data-dragging");
+		firePointer(pill, "pointerup", x, target);
+		pill
+			.querySelector("button")
+			?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+		await expect(onPositionChange).toHaveBeenCalledTimes(1);
+		await expect(onPositionChange).toHaveBeenCalledWith("bottom");
+		await expect(pill).toHaveAttribute("data-position", "bottom");
+		await expect(pill).not.toHaveAttribute("data-expanded");
+		await settle();
+		const tabBar = within(frame).getByRole("navigation", { name: "Main" });
+		await expect(pill.getBoundingClientRect().bottom).toBeLessThanOrEqual(
+			tabBar.getBoundingClientRect().top + 0.5,
+		);
+		await assertInside(pill.getBoundingClientRect(), bounds, PORTRAIT);
+
+		const low = pill.getBoundingClientRect();
+		const lowY = low.top + low.height / 2;
+		firePointer(pill, "pointerdown", x, lowY);
+		firePointer(pill, "pointermove", x, lowY - 30);
+		firePointer(pill, "pointermove", x, lowY - 60);
+		firePointer(pill, "pointerup", x, lowY - 60);
+		await settle();
+		await expect(pill).toHaveAttribute("data-position", "bottom");
+		await expect(onPositionChange).toHaveBeenCalledTimes(1);
+		await expect(pill.style.transform).toBe("");
+	},
+};
+
+export const SmallDragIsTap: Story = {
+	render: () => <InteractiveBoard />,
+	play: async ({ canvasElement }) => {
+		onPositionChange.mockClear();
+		const frame = phone(canvasElement, "Interactive");
+		const pill = pillOf(frame);
+		const button = within(frame).getByRole("button", {
+			name: /show call controls/,
+		});
+		const box = button.getBoundingClientRect();
+		const x = box.left + box.width / 2;
+		const y = box.top + box.height / 2;
+		firePointer(button, "pointerdown", x, y);
+		firePointer(button, "pointermove", x, y + 3);
+		firePointer(button, "pointermove", x, y + 5);
+		firePointer(button, "pointerup", x, y + 5);
+		await expect(pill).not.toHaveAttribute("data-dragging");
+		button.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+		await expect(pill).toHaveAttribute("data-expanded");
+		await expect(pill).toHaveAttribute("data-position", "top");
+		await expect(onPositionChange).not.toHaveBeenCalled();
+	},
+};
+
+export const MoveWithKeyboard: Story = {
+	render: () => <InteractiveBoard defaultExpanded />,
+	play: async ({ canvasElement }) => {
+		onPositionChange.mockClear();
+		const frame = phone(canvasElement, "Interactive");
+		const pill = pillOf(frame);
+		const canvas = within(frame);
+		const move = canvas.getByRole("button", { name: "Move to bottom" });
+		move.focus();
+		await userEvent.keyboard("{Enter}");
+		await expect(onPositionChange).toHaveBeenCalledWith("bottom");
+		await expect(pill).toHaveAttribute("data-position", "bottom");
+		await expect(pill).toHaveAttribute("data-expanded");
+		await expect(
+			canvas.getByRole("button", { name: "Move to top" }),
+		).toHaveFocus();
+		await settle();
+		await assertInside(
+			pill.getBoundingClientRect(),
+			frame.getBoundingClientRect(),
+			PORTRAIT,
+		);
+		await userEvent.keyboard("{Enter}");
+		await expect(pill).toHaveAttribute("data-position", "top");
+		await expect(onPositionChange).toHaveBeenLastCalledWith("top");
 	},
 };

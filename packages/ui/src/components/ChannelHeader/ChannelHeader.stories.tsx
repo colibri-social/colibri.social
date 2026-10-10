@@ -1,8 +1,6 @@
-import { UsersGroupRoundedIcon } from "@solar-icons/solid/bold/users-group-rounded";
 import { createSignal, type JSX } from "solid-js";
 import { expect, fn, userEvent, waitFor, within } from "storybook/test";
 import type { Meta, StoryObj } from "storybook-solidjs-vite";
-import { IconButton } from "../IconButton/IconButton";
 import { ChannelHeader } from "./ChannelHeader";
 import { ChannelHeaderSkeleton } from "./ChannelHeaderSkeleton";
 
@@ -24,14 +22,43 @@ const Stack = (props: { children: JSX.Element }) => (
 	</div>
 );
 
-const DesktopActions = () => (
-	<IconButton
-		variant="ghost"
-		size="md"
-		label="Show member list"
-		icon={<UsersGroupRoundedIcon />}
-	/>
-);
+const onToggleMembers = fn();
+
+const createMembersToggle = () => {
+	const [open, setOpen] = createSignal(false);
+	return {
+		membersOpen: open,
+		onToggleMembers: () => {
+			onToggleMembers();
+			setOpen((value) => !value);
+		},
+	};
+};
+
+const membersIcon = (button: HTMLElement) =>
+	button.querySelector('[data-animated-icon="users-group"]');
+
+const expectMembersToggleAnimates = async (button: HTMLElement) => {
+	await expect(membersIcon(button)).not.toBeNull();
+	button.dispatchEvent(
+		new PointerEvent("pointerenter", { pointerType: "mouse" }),
+	);
+	await expect(membersIcon(button)).toHaveAttribute("data-hover");
+	await waitFor(() =>
+		expect(membersIcon(button)).not.toHaveAttribute("data-hover"),
+	);
+	button.dispatchEvent(
+		new PointerEvent("pointerdown", {
+			bubbles: true,
+			button: 0,
+			pointerType: "touch",
+		}),
+	);
+	await expect(membersIcon(button)).toHaveAttribute("data-hover");
+	button.dispatchEvent(
+		new PointerEvent("pointerup", { bubbles: true, pointerType: "touch" }),
+	);
+};
 
 const onMutedChange = fn();
 
@@ -40,6 +67,7 @@ const MutableDesktopHeader = (props: {
 	description?: string;
 }) => {
 	const [muted, setMuted] = createSignal(false);
+	const members = createMembersToggle();
 	return (
 		<ChannelHeader
 			platform="desktop"
@@ -50,13 +78,15 @@ const MutableDesktopHeader = (props: {
 				onMutedChange(next);
 				setMuted(next);
 			}}
-			actions={<DesktopActions />}
+			membersOpen={members.membersOpen()}
+			onToggleMembers={members.onToggleMembers}
 		/>
 	);
 };
 
-export const Mobile: Story = {
-	render: () => (
+const MobileHeaders = () => {
+	const mobileMembers = createMembersToggle();
+	return (
 		<Stack>
 			<ChannelHeader
 				name="general"
@@ -71,9 +101,15 @@ export const Mobile: Story = {
 				onOpenInfo={onOpenInfo}
 				onOpenThreads={onOpenThreads}
 				threadsUnread
+				membersOpen={mobileMembers.membersOpen()}
+				onToggleMembers={mobileMembers.onToggleMembers}
 			/>
 		</Stack>
-	),
+	);
+};
+
+export const Mobile: Story = {
+	render: () => <MobileHeaders />,
 	play: async ({ canvasElement }) => {
 		onBack.mockClear();
 		onOpenInfo.mockClear();
@@ -110,6 +146,14 @@ export const Mobile: Story = {
 		await expect(
 			canvas.getByRole("button", { name: "Threads, new activity" }),
 		).toBeVisible();
+		onToggleMembers.mockClear();
+		const members = canvas.getByRole("button", { name: "Show members" });
+		await expectMembersToggleAnimates(members);
+		await userEvent.click(members);
+		await expect(onToggleMembers).toHaveBeenCalledTimes(1);
+		await expect(members).toHaveAttribute("aria-pressed", "true");
+		await userEvent.click(members);
+		await expect(members).toHaveAttribute("aria-pressed", "false");
 		const headings = canvas.getAllByRole("heading", { level: 1 });
 		await expect(headings[0]).toHaveTextContent("general");
 		await expect(
@@ -133,7 +177,7 @@ export const LongName: Story = {
 				platform="desktop"
 				name={LONG_NAME}
 				description="This is the channel description, and it keeps going well past the edge of the header"
-				actions={<DesktopActions />}
+				onToggleMembers={() => {}}
 			/>
 		</Stack>
 	),
@@ -172,9 +216,18 @@ export const Desktop: Story = {
 		await expect(
 			canvas.getByText("This is the channel description"),
 		).toBeVisible();
-		await expect(
-			canvas.getAllByRole("button", { name: "Show member list" }),
-		).toHaveLength(2);
+		const toggles = canvas.getAllByRole("button", { name: "Show members" });
+		await expect(toggles).toHaveLength(2);
+		onToggleMembers.mockClear();
+		const members = toggles[0];
+		await expect(members).toHaveAttribute("aria-pressed", "false");
+		await expectMembersToggleAnimates(members);
+		await userEvent.click(members);
+		await expect(onToggleMembers).toHaveBeenCalledTimes(1);
+		await expect(members).toHaveAttribute("aria-pressed", "true");
+		await expect(members).toHaveAccessibleName("Hide members");
+		await userEvent.click(members);
+		await expect(members).toHaveAccessibleName("Show members");
 		onMutedChange.mockClear();
 		const bell = canvas.getAllByRole("button", { name: "Mute channel" })[0];
 		const slash = () => bell.querySelector("[data-slashed]");
@@ -229,7 +282,7 @@ export const SizeParity: Story = {
 						platform="desktop"
 						name="Active channel"
 						description="This is the channel description"
-						actions={<DesktopActions />}
+						onToggleMembers={() => {}}
 					/>
 				</div>
 				<div data-pair="skeleton">

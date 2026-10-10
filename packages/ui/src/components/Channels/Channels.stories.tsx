@@ -1,5 +1,4 @@
 import { BellIcon } from "@solar-icons/solid/bold/bell";
-import { ChecklistMinimalisticIcon } from "@solar-icons/solid/bold/checklist-minimalistic";
 import { InboxIcon } from "@solar-icons/solid/bold/inbox";
 import { LogoutIcon } from "@solar-icons/solid/bold/logout";
 import { SettingsIcon } from "@solar-icons/solid/bold/settings";
@@ -27,6 +26,7 @@ import {
 import { TabBar, TabBarItem } from "../TabBar/TabBar";
 import type { VoiceParticipant } from "../Voice/shared";
 import { CategoryHeader, ChannelCategory } from "./Category";
+import { ChannelList, type ChannelListCategory } from "./ChannelList";
 import {
 	ActionTile,
 	ActionTiles,
@@ -40,6 +40,7 @@ import {
 	ChannelRowSkeleton,
 	VoiceChannelRowSkeleton,
 } from "./ChannelSkeletons";
+import type { ChannelLayout } from "./channel-layout";
 
 const meta = {
 	title: "Navigation/Channel list",
@@ -167,7 +168,17 @@ const SpacesTab = () => {
 	];
 	return (
 		<div class="flex h-dvh overflow-hidden bg-background pt-safe">
-			<SpaceRail onCreate={() => {}} onDiscover={() => {}}>
+			<SpaceRail
+				leading={
+					<SpaceRailAction
+						label="Inbox"
+						icon={<InboxIcon />}
+						onClick={() => {}}
+					/>
+				}
+				onCreate={() => {}}
+				onDiscover={() => {}}
+			>
 				<For each={spaces}>
 					{(item) => (
 						<SpaceRailItem
@@ -389,6 +400,16 @@ export const DesktopSidebar: Story = {
 					memberCount={99}
 					ownerHandle="lou.gg"
 					onOpenSpace={() => {}}
+					menu={{
+						onInvite: () => {},
+						onOpenSettings: () => {},
+						onOpenNotificationSettings: () => {},
+						onMarkAsRead: () => {},
+						onMutedChange: () => {},
+						onCreateChannel: () => {},
+						onCreateCategory: () => {},
+						onLeave: () => {},
+					}}
 				/>
 				<div class="flex flex-col">
 					<ChannelCategory
@@ -460,6 +481,327 @@ export const DesktopSidebar: Story = {
 				Math.abs(topInset(gear, target) - rightInset(gear, target)),
 			).toBeLessThanOrEqual(0.5);
 		}
+	},
+};
+
+const onInvite = fn();
+const onLeave = fn();
+const onMutedChange = fn();
+
+export const DesktopHeaderMenu: Story = {
+	parameters: desktop,
+	render: () => (
+		<div class="w-72 bg-background text-foreground">
+			<ChannelListHeader
+				platform="desktop"
+				name="A Space with a rather long name that truncates"
+				iconSrc={storyImages.violetIcon()}
+				memberCount={99}
+				menu={{
+					onInvite,
+					onOpenSettings: () => {},
+					onOpenNotificationSettings: () => {},
+					onMarkAsRead: () => {},
+					muted: false,
+					onMutedChange,
+					onCreateChannel: () => {},
+					onCreateCategory: () => {},
+					onReorderChannels: () => {},
+					developerMode: true,
+					onCopyAtUri: () => {},
+					onLeave,
+				}}
+			/>
+		</div>
+	),
+	play: async ({ canvasElement }) => {
+		onInvite.mockClear();
+		onLeave.mockClear();
+		const canvas = within(canvasElement);
+		await expect(
+			canvas.queryByRole("button", { name: /Invite people/ }),
+		).toBeNull();
+		const trigger = canvasElement.querySelector(
+			"[data-space-name-button]",
+		) as HTMLElement;
+		const row = canvasElement.querySelector(
+			"[data-space-header-row]",
+		) as HTMLElement;
+		const box = trigger.getBoundingClientRect();
+		const rowBox = row.getBoundingClientRect();
+		await expect(Math.round(box.height)).toBe(28);
+		await expect(Math.round(rowBox.height)).toBe(44);
+		await expect(Math.round(box.left - rowBox.left)).toBe(8);
+		await expect(box.width).toBeLessThanOrEqual(rowBox.width - 16);
+		const chevron = trigger.querySelector(
+			"[data-space-chevron]",
+		) as HTMLElement;
+		await expect(getComputedStyle(chevron).rotate).toMatch(/^(none|0deg)$/);
+		await userEvent.click(trigger);
+		const menu = await screen.findByRole("menu", undefined, { timeout: 3000 });
+		await waitFor(
+			() => expect(getComputedStyle(chevron).rotate).toBe("180deg"),
+			{ timeout: 3000 },
+		);
+		const labels = within(menu)
+			.getAllByRole("menuitem")
+			.map((item) => item.textContent?.trim());
+		await expect(labels).toEqual([
+			"Invite people",
+			"Space settings",
+			"Notification settings",
+			"Mark as read",
+			"Create channel",
+			"Create category",
+			"Reorder channels",
+			"Developer mode",
+			"Leave Space",
+		]);
+		await userEvent.click(
+			within(menu).getByRole("menuitem", { name: "Invite people" }),
+		);
+		await expect(onInvite).toHaveBeenCalledTimes(1);
+		await waitFor(() => expect(screen.queryByRole("menu")).toBeNull(), {
+			timeout: 3000,
+		});
+		await userEvent.click(trigger);
+		const again = await screen.findByRole("menu", undefined, { timeout: 3000 });
+		await userEvent.click(
+			within(again).getByRole("menuitemcheckbox", { name: "Mute Space" }),
+		);
+		await expect(onMutedChange).toHaveBeenCalledWith(true);
+		await userEvent.keyboard("{Escape}");
+		await waitFor(
+			() => {
+				expect(screen.queryByRole("menu")).toBeNull();
+				expect(
+					document.querySelector('body > div[aria-hidden="true"]'),
+				).toBeNull();
+			},
+			{ timeout: 3000 },
+		);
+	},
+};
+
+type ReorderChannel = { id: string; name: string };
+
+const reorderSpace = () => ({
+	uncategorized: [] as ReorderChannel[],
+	categories: [
+		{
+			id: "hangout",
+			name: "Hangout",
+			channels: [
+				{ id: "general", name: "General" },
+				{ id: "photos", name: "Photos" },
+				{ id: "files", name: "File sharing" },
+			],
+		},
+		{
+			id: "voice",
+			name: "Voice",
+			channels: [{ id: "lounge", name: "Lounge" }],
+		},
+	] as ChannelListCategory<ReorderChannel>[],
+});
+
+const HeaderReorder = (props: {
+	platform: "mobile" | "desktop";
+	manage: boolean;
+}) => {
+	const [space, setSpace] = createSignal(reorderSpace());
+	const [reordering, setReordering] = createSignal(false);
+	const [muted, setMuted] = createSignal(false);
+	const desktopPlatform = props.platform === "desktop";
+	const applyLayout = (layout: ChannelLayout) =>
+		setSpace((current) => {
+			const all = new Map(
+				current.categories.flatMap((category) =>
+					category.channels.map((entry) => [entry.id, entry] as const),
+				),
+			);
+			const byId = new Map(
+				current.categories.map((category) => [category.id, category]),
+			);
+			const pick = (ids: readonly string[]) =>
+				ids.flatMap((id) => {
+					const entry = all.get(id);
+					return entry ? [entry] : [];
+				});
+			return {
+				uncategorized: pick(layout.uncategorized),
+				categories: layout.categories.map((category) => ({
+					...(byId.get(category.id) as ChannelListCategory<ReorderChannel>),
+					channels: pick(category.channels),
+				})),
+			};
+		});
+	return (
+		<div
+			class={
+				desktopPlatform
+					? "h-dvh w-72 overflow-y-auto border-0 border-r border-solid border-border bg-card text-foreground"
+					: "h-dvh w-full overflow-y-auto bg-card text-foreground"
+			}
+		>
+			<ChannelListHeader
+				platform={props.platform}
+				name="Colibri Social Flock"
+				iconSrc={storyImages.violetIcon()}
+				memberCount={99}
+				ownerHandle="lou.gg"
+				menu={{
+					onMarkAsRead: () => {},
+					get muted() {
+						return muted();
+					},
+					onMutedChange: setMuted,
+					onCreateChannel: props.manage ? () => {} : undefined,
+					onReorderChannels: props.manage
+						? () => setReordering(true)
+						: undefined,
+					onLeave: () => {},
+				}}
+			/>
+			<ChannelList
+				uncategorized={space().uncategorized}
+				categories={space().categories}
+				getId={(entry) => entry.id}
+				channelName={(entry) => entry.name}
+				canReorder={props.manage}
+				reorderMode={reordering()}
+				onReorderModeChange={setReordering}
+				onReorder={(change) => applyLayout(change.layout)}
+				renderChannel={(entry) => (
+					<ChannelRow
+						name={entry.name}
+						platform={props.platform}
+						density={desktopPlatform ? "compact" : "default"}
+					/>
+				)}
+			/>
+		</div>
+	);
+};
+
+const channelOrder = (root: HTMLElement, categoryId: string) =>
+	Array.from(
+		root.querySelectorAll<HTMLElement>(
+			`[data-list-category="${categoryId}"] [data-list-node="channel"]`,
+		),
+		(node) => node.dataset.channelId,
+	);
+
+const openSpaceMenu = async (root: HTMLElement) => {
+	await userEvent.click(
+		root.querySelector("[data-space-name-button]") as HTMLElement,
+	);
+};
+
+export const DesktopHeaderReorder: Story = {
+	parameters: desktop,
+	render: () => <HeaderReorder platform="desktop" manage />,
+	play: async ({ canvasElement }) => {
+		const canvas = within(canvasElement);
+		await expect(
+			canvas.queryByRole("button", { name: "Reorder General" }),
+		).toBeNull();
+		await openSpaceMenu(canvasElement);
+		const menu = await screen.findByRole("menu", undefined, { timeout: 3000 });
+		await userEvent.click(
+			within(menu).getByRole("menuitem", { name: "Reorder channels" }),
+		);
+		const handle = await canvas.findByRole("button", {
+			name: "Reorder General",
+		});
+		await expect(handle).toBeVisible();
+		await expect(
+			canvas.getByRole("button", { name: "Move General up" }),
+		).toBeVisible();
+		const down = canvas.getByRole("button", { name: "Move General down" });
+		await expect(down).toBeVisible();
+		await userEvent.click(down);
+		await waitFor(() =>
+			expect(channelOrder(canvasElement, "hangout")).toEqual([
+				"photos",
+				"general",
+				"files",
+			]),
+		);
+		await userEvent.click(canvas.getByRole("button", { name: "Done" }));
+		await waitFor(() =>
+			expect(
+				canvas.queryByRole("button", { name: "Reorder General" }),
+			).toBeNull(),
+		);
+		await expect(canvasElement.querySelector("[data-reorder-bar]")).toBeNull();
+	},
+};
+
+export const MobileHeaderReorder: Story = {
+	render: () => <HeaderReorder platform="mobile" manage />,
+	play: async ({ canvasElement }) => {
+		const canvas = within(canvasElement);
+		await openSpaceMenu(canvasElement);
+		const drawer = await screen.findByRole("dialog", undefined, {
+			timeout: 3000,
+		});
+		const mute = within(drawer).getByRole("switch", { name: "Mute Space" });
+		const muteRow = mute.closest("[data-list-toggle-row]");
+		if (!muteRow) throw new Error("Missing Mute Space row");
+		await expect(
+			muteRow.querySelector("[data-toggle-row-icon] svg"),
+		).toBeInstanceOf(SVGElement);
+		await expect(mute).toHaveAttribute("aria-checked", "false");
+		await userEvent.click(mute);
+		await waitFor(() => expect(mute).toHaveAttribute("aria-checked", "true"));
+		await expect(mute).toBeChecked();
+		await userEvent.click(mute);
+		await waitFor(() => expect(mute).toHaveAttribute("aria-checked", "false"));
+		await expect(mute).not.toBeChecked();
+		await expect(mute.isConnected).toBe(true);
+		await userEvent.click(
+			within(drawer).getByRole("button", { name: "Reorder channels" }),
+		);
+		await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull(), {
+			timeout: 3000,
+		});
+		const handle = await canvas.findByRole("button", {
+			name: "Reorder Photos",
+		});
+		await expect(getComputedStyle(handle).touchAction).toBe("none");
+		await expect(
+			canvas.getByRole("button", { name: "Move Photos up" }),
+		).toBeInTheDocument();
+		const row = canvasElement.querySelector(
+			'[data-channel-id="photos"] [data-channel-row]',
+		) as HTMLElement;
+		await expect(row.closest("[inert]")).not.toBeNull();
+		await userEvent.click(canvas.getByRole("button", { name: "Done" }));
+		await waitFor(() =>
+			expect(
+				canvas.queryByRole("button", { name: "Reorder Photos" }),
+			).toBeNull(),
+		);
+	},
+};
+
+export const HeaderMenuWithoutManage: Story = {
+	parameters: desktop,
+	render: () => <HeaderReorder platform="desktop" manage={false} />,
+	play: async ({ canvasElement }) => {
+		await openSpaceMenu(canvasElement);
+		const menu = await screen.findByRole("menu", undefined, { timeout: 3000 });
+		await expect(
+			within(menu).getByRole("menuitem", { name: "Mark as read" }),
+		).toBeInTheDocument();
+		await expect(
+			within(menu).queryByRole("menuitem", { name: "Reorder channels" }),
+		).toBeNull();
+		await userEvent.keyboard("{Escape}");
+		await waitFor(() => expect(screen.queryByRole("menu")).toBeNull(), {
+			timeout: 3000,
+		});
 	},
 };
 
@@ -549,7 +891,7 @@ export const SpaceDrawer: Story = {
 						<ActionTile icon={<SettingsIcon />} label="Settings" />
 					</ActionTiles>
 					<ListGroup>
-						<NavRow icon={<ChecklistMinimalisticIcon />} label="Mark as read" />
+						<NavRow label="Mark as read" />
 						<NavRow label="Show members" />
 					</ListGroup>
 					<ListGroup>

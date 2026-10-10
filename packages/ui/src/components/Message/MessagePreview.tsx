@@ -2,6 +2,11 @@ import { ReplyIcon } from "@solar-icons/solid/linear/reply";
 import { type JSX, Show, splitProps } from "solid-js";
 import { Dynamic } from "solid-js/web";
 import { cx } from "../../utils/cx";
+import {
+	nameColorClass,
+	nameColorStyle,
+	useNameColor,
+} from "../../utils/name-color";
 import { createRipple } from "../../utils/ripple";
 import { createSlot } from "../../utils/slot";
 import {
@@ -9,9 +14,12 @@ import {
 	formatMessageTime,
 	type TimeInput,
 } from "../../utils/time";
+import { RoleBadge, type RoleIdentity } from "../Roles/RoleBadge";
 
 export type MessagePreviewProps = {
 	author: string;
+	nameColor?: string;
+	role?: RoleIdentity;
 	badge?: JSX.Element;
 	timestamp: TimeInput;
 	now?: TimeInput;
@@ -26,6 +34,8 @@ export type MessagePreviewProps = {
 export const MessagePreview = (props: MessagePreviewProps) => {
 	const [local] = splitProps(props, [
 		"author",
+		"nameColor",
+		"role",
 		"badge",
 		"timestamp",
 		"now",
@@ -40,6 +50,11 @@ export const MessagePreview = (props: MessagePreviewProps) => {
 	const reply = createSlot(() => local.reply);
 	const interactive = () => !!(local.onClick || local.href);
 	const ripple = createRipple();
+	const nameColor = useNameColor(() => ({
+		userColor: local.nameColor,
+		roleColor: local.role?.color,
+		context: "chat",
+	}));
 
 	return (
 		<Dynamic
@@ -54,7 +69,7 @@ export const MessagePreview = (props: MessagePreviewProps) => {
 			class={cx(
 				"flex w-full flex-col gap-2 p-3 text-left text-foreground",
 				interactive() &&
-					"ripple cursor-pointer outline-none hover:bg-popover focus-visible:shadow-[inset_0_0_0_2px_var(--primary)]",
+					"ripple cursor-pointer outline-none hover:bg-popover focus-ring-inset",
 				local.class,
 			)}
 		>
@@ -70,9 +85,19 @@ export const MessagePreview = (props: MessagePreviewProps) => {
 			<span class="flex w-full min-w-0 flex-col gap-1">
 				<span class="flex h-4 min-w-0 items-center gap-3">
 					<span class="flex min-w-0 items-center gap-1.5">
-						<span class="truncate text-sm leading-4 font-semibold">
+						<span
+							data-author-name=""
+							class={cx(
+								"truncate text-sm leading-4 font-semibold",
+								nameColor() && nameColorClass,
+							)}
+							style={nameColorStyle(nameColor())}
+						>
 							{local.author}
 						</span>
+						<Show when={local.role?.badge && local.role}>
+							{(role) => <RoleBadge role={role()} interactive={false} />}
+						</Show>
 						<Show when={badge.has()}>{badge()}</Show>
 					</span>
 					<time
