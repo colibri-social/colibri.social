@@ -6,10 +6,14 @@ import { AnimatedBellIcon } from "../../icons/animated/icons";
 import { AnimatedThreadIcon } from "../../icons/animated/messaging";
 import { AnimatedUsersGroupTwoRoundedIcon } from "../../icons/animated/people";
 import { cx } from "../../utils/cx";
+import { createRipple } from "../../utils/ripple";
 import { createSlot } from "../../utils/slot";
-import { IconButton } from "../IconButton/IconButton";
+import { IconButton, iconButtonTouchTarget } from "../IconButton/IconButton";
+import { SegmentedControl } from "../SegmentedControl/SegmentedControl";
 
 export type ChannelHeaderPlatform = "mobile" | "desktop";
+
+export type ChannelHeaderView = "chat" | "threads";
 
 export type ChannelHeaderProps = {
 	name: string;
@@ -22,6 +26,8 @@ export type ChannelHeaderProps = {
 	infoLabel?: string;
 	onOpenThreads?: () => void;
 	threadsUnread?: boolean;
+	view?: ChannelHeaderView;
+	onViewChange?: (view: ChannelHeaderView) => void;
 	safeTop?: boolean;
 	muted?: boolean;
 	onMutedChange?: (muted: boolean) => void;
@@ -46,12 +52,22 @@ const ChannelGlyph = (props: { icon: JSX.Element; size: 20 | 24 }) => (
 const MobileChannelHeader = (props: ChannelHeaderProps) => {
 	const icon = createSlot(() => props.icon ?? <ChatSquareDotsIcon />);
 	const actions = createSlot(() => props.actions);
+	const ripple = createRipple();
+	const trigger = () => props.onToggleMembers ?? props.onOpenInfo;
+	const triggerLabel = () => {
+		if (props.onToggleMembers) {
+			return props.membersOpen
+				? `${props.name}, hide members`
+				: `${props.name}, show members`;
+		}
+		return props.infoLabel ?? `${props.name}, channel info`;
+	};
 
 	const title = () => (
 		<>
-			<ChannelGlyph icon={icon()} size={24} />
+			<ChannelGlyph icon={icon()} size={20} />
 			<span
-				class="min-w-0 truncate text-xl leading-6.5 font-bold"
+				class="min-w-0 truncate text-base leading-5 font-bold"
 				title={props.name}
 			>
 				{props.name}
@@ -63,9 +79,9 @@ const MobileChannelHeader = (props: ChannelHeaderProps) => {
 		<div
 			data-channel-header="mobile"
 			class={cx(
-				"flex h-12 shrink-0 items-center gap-3 border-b border-border bg-background px-3 py-2 text-foreground",
+				"flex h-11 shrink-0 items-center gap-3 border-b border-border bg-background px-3 py-1.5 text-foreground",
 				props.safeTop &&
-					"h-[calc(48px+var(--safe-area-top,0px))] pt-safe-offset-2 pr-safe-offset-3 pl-safe-offset-3",
+					"h-[calc(44px+var(--safe-area-top,0px))] pt-[calc(6px+var(--safe-area-top,0px))] pr-safe-offset-3 pl-safe-offset-3",
 				props.class,
 			)}
 		>
@@ -76,21 +92,26 @@ const MobileChannelHeader = (props: ChannelHeaderProps) => {
 					label={props.backLabel ?? "Back"}
 					icon={<ArrowLeftIcon />}
 					onClick={() => props.onBack?.()}
-					class="[&_svg]:size-6"
+					class={iconButtonTouchTarget}
 				/>
 			</Show>
-			<h1 class="m-0 flex min-w-0 flex-1">
+			<h1 class="m-0 flex h-full min-w-0 flex-1">
 				<Show
-					when={props.onOpenInfo}
+					when={trigger()}
 					fallback={
 						<span class="flex min-w-0 items-center gap-2">{title()}</span>
 					}
 				>
 					<button
+						ref={ripple}
 						type="button"
-						aria-label={props.infoLabel ?? `${props.name}, channel info`}
-						onClick={() => props.onOpenInfo?.()}
-						class="pressable focus-ring -mx-1 flex min-w-0 cursor-pointer items-center gap-2 rounded-control-sm border border-transparent px-1 text-left enabled:hover:bg-secondary data-pressed:bg-secondary"
+						data-channel-header-trigger=""
+						aria-label={triggerLabel()}
+						aria-pressed={
+							props.onToggleMembers ? !!props.membersOpen : undefined
+						}
+						onClick={() => trigger()?.()}
+						class="ripple pressable focus-ring -ml-1 flex h-full min-w-0 flex-1 cursor-pointer items-center gap-2 rounded-control-sm border border-transparent px-1 text-left"
 					>
 						{title()}
 						<AltArrowRightIcon
@@ -101,7 +122,7 @@ const MobileChannelHeader = (props: ChannelHeaderProps) => {
 				</Show>
 			</h1>
 			<Show when={actions.has()}>
-				<div class="flex shrink-0 items-center gap-2">{actions()}</div>
+				<div class="flex shrink-0 items-center gap-3">{actions()}</div>
 			</Show>
 			<Show when={props.onOpenThreads}>
 				<span class="relative inline-flex shrink-0">
@@ -111,7 +132,7 @@ const MobileChannelHeader = (props: ChannelHeaderProps) => {
 						label={props.threadsUnread ? "Threads, new activity" : "Threads"}
 						icon={<AnimatedThreadIcon />}
 						onClick={() => props.onOpenThreads?.()}
-						class="[&_svg]:size-6"
+						class={iconButtonTouchTarget}
 					/>
 					<Show when={props.threadsUnread}>
 						<span
@@ -121,17 +142,6 @@ const MobileChannelHeader = (props: ChannelHeaderProps) => {
 						/>
 					</Show>
 				</span>
-			</Show>
-			<Show when={props.onToggleMembers}>
-				<IconButton
-					variant="ghost"
-					size="md"
-					label={props.membersOpen ? "Hide members" : "Show members"}
-					aria-pressed={!!props.membersOpen}
-					icon={<AnimatedUsersGroupTwoRoundedIcon />}
-					onClick={() => props.onToggleMembers?.()}
-					class="[&_svg]:size-6"
-				/>
 			</Show>
 		</div>
 	);
@@ -177,6 +187,7 @@ const DesktopChannelHeader = (props: ChannelHeaderProps) => {
 			</div>
 			<Show
 				when={
+					props.onViewChange ||
 					props.onOpenThreads ||
 					props.onMutedChange ||
 					props.onToggleMembers ||
@@ -184,7 +195,37 @@ const DesktopChannelHeader = (props: ChannelHeaderProps) => {
 				}
 			>
 				<div class="flex shrink-0 items-center gap-2">
-					<Show when={props.onOpenThreads}>
+					<Show when={props.onViewChange}>
+						{(change) => (
+							<SegmentedControl
+								size="sm"
+								aria-label="Channel view"
+								class="w-auto"
+								value={props.view ?? "chat"}
+								onChange={(value) => change()(value as ChannelHeaderView)}
+								options={[
+									{ value: "chat", label: "Chat" },
+									{
+										value: "threads",
+										label: (
+											<span class="flex items-center gap-1.5">
+												Threads
+												<Show when={props.threadsUnread}>
+													<span
+														aria-hidden="true"
+														data-threads-unread=""
+														class="size-1.5 shrink-0 rounded-full bg-foreground"
+													/>
+													<span class="sr-only">, new activity</span>
+												</Show>
+											</span>
+										),
+									},
+								]}
+							/>
+						)}
+					</Show>
+					<Show when={props.onOpenThreads && !props.onViewChange}>
 						<span class="relative inline-flex shrink-0">
 							<IconButton
 								variant="ghost"

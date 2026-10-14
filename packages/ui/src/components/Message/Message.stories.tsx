@@ -10,9 +10,10 @@ import {
 } from "../../utils/message-groups";
 import { contrastRatio, NameColorProvider } from "../../utils/name-color";
 import { formatMessageTime } from "../../utils/time";
+import { defaultAvatarFor } from "../Avatar/default-avatars/default-avatars";
 import { MentionChip, TeamBadge } from "../Badge/Badge";
 import { Button } from "../Button/Button";
-import { Composer } from "../Composer/Composer";
+import { COMPOSER_TYPING_INSET, Composer } from "../Composer/Composer";
 import { TypingIndicator } from "../Composer/TypingIndicator";
 import { IconButton } from "../IconButton/IconButton";
 import { InboxGroupCard } from "../Inbox/InboxGroupCard";
@@ -1155,7 +1156,14 @@ export const SkeletonParity: Story = {
 
 const AlignmentDemo = (props: { platform: ChatPlatform }) => (
 	<div class="flex min-h-dvh flex-col justify-end bg-background text-foreground">
-		<div class="flex flex-col pb-2">
+		<div
+			class="flex flex-col pb-2"
+			style={
+				props.platform === "mobile"
+					? { "padding-bottom": `${8 + COMPOSER_TYPING_INSET}px` }
+					: undefined
+			}
+		>
 			<MessageRow
 				platform={props.platform}
 				author={{ name: "Lou" }}
@@ -1464,5 +1472,57 @@ export const NameColorsLight: Story = {
 		const [r, g, b] = (color.match(/\d+/g) ?? []).map(Number);
 		const hex = `#${[r, g, b].map((v) => v.toString(16).padStart(2, "0")).join("")}`;
 		await expect(contrastRatio(hex, "#e4e4e6")).toBeGreaterThanOrEqual(4.5);
+	},
+};
+
+const seedPair = () => {
+	const first = "did:plc:sameNameA";
+	for (let index = 0; index < 50; index++) {
+		const second = `did:plc:sameNameB${index}`;
+		if (defaultAvatarFor(second) !== defaultAvatarFor(first)) {
+			return [first, second] as const;
+		}
+	}
+	throw new Error("No distinct seeds found");
+};
+
+const [SEED_A, SEED_B] = seedPair();
+
+export const DefaultAvatarsFollowSeed: Story = {
+	parameters: mobile,
+	render: () => (
+		<div class="flex flex-col bg-background">
+			<For
+				each={[
+					{ testId: "a", name: "Alex", seed: SEED_A },
+					{ testId: "b", name: "Alex", seed: SEED_B },
+					{ testId: "c", name: "Renamed Alex", seed: SEED_A },
+				]}
+			>
+				{(author) => (
+					<div data-testid={author.testId}>
+						<MessageRow
+							platform="mobile"
+							author={{ name: author.name, seed: author.seed }}
+							timestamp={at(9, 30)}
+							now={NOW}
+							locale="en-GB"
+						>
+							Same name, different person
+						</MessageRow>
+					</div>
+				)}
+			</For>
+		</div>
+	),
+	play: async ({ canvasElement }) => {
+		const illustration = (testId: string) =>
+			canvasElement
+				.querySelector(`[data-testid="${testId}"] [data-default-avatar]`)
+				?.getAttribute("data-default-avatar");
+		await expect(illustration("a")).toBe(defaultAvatarFor(SEED_A));
+		await expect(illustration("b")).toBe(defaultAvatarFor(SEED_B));
+		await expect(illustration("a")).not.toBe(illustration("b"));
+		await expect(illustration("c")).toBe(illustration("a"));
 	},
 };

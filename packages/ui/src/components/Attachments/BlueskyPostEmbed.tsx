@@ -16,6 +16,7 @@ export const BLUESKY_BLUE = "#1185fe";
 export type BlueskyAuthor = {
 	name: string;
 	handle: string;
+	did?: string;
 	avatarSrc?: string;
 	verified?: boolean;
 };
@@ -52,6 +53,7 @@ const PostHeader = (props: { post: BlueskyPost; size: "sm" | "md" }) => (
 	<span class="flex min-w-0 items-center gap-2">
 		<Avatar
 			name={props.post.author.name}
+			seed={props.post.author.did ?? props.post.author.handle}
 			src={props.post.author.avatarSrc}
 			size={props.size === "md" ? "md" : "xs"}
 			class="shrink-0"

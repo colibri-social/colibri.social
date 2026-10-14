@@ -2,6 +2,7 @@ import { LockKeyholeMinimalisticIcon } from "@solar-icons/solid/bold/lock-keyhol
 import { For, type JSX, Match, Show, Switch } from "solid-js";
 import { ThreadIcon } from "../../icons/custom";
 import { cx } from "../../utils/cx";
+import { createMenuTrigger } from "../../utils/gestures";
 import {
 	nameColorClass,
 	nameColorStyle,
@@ -61,6 +62,7 @@ export type ThreadSummaryProps = {
 	private?: boolean;
 	tone?: CardTone;
 	onOpen?: JSX.EventHandler<HTMLElement, MouseEvent>;
+	onMenu?: (event: Event) => void;
 	class?: string;
 };
 
@@ -181,9 +183,16 @@ const ThreadSummary = (props: ThreadSummaryProps & { size: ThreadSize }) => {
 
 	return (
 		<Card
+			ref={(element: HTMLElement) =>
+				createMenuTrigger(element, {
+					enabled: () => !!props.onMenu,
+					onMenu: (event) => props.onMenu?.(event),
+				})
+			}
 			tone={tone()}
 			onClick={props.onOpen}
 			data-thread={props.size}
+			data-menu-trigger={props.onMenu ? "" : undefined}
 			data-state={read() ? "read" : "unread"}
 			class={cx(
 				"flex items-center",

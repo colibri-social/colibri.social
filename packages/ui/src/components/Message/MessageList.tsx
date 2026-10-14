@@ -50,6 +50,17 @@ import {
 } from "./message-list-model";
 
 export const PIN_THRESHOLD_PX = 80;
+export const REPIN_PX = 2;
+const USER_SCROLL_MS = 400;
+const SCROLL_KEYS = new Set([
+	"ArrowUp",
+	"ArrowDown",
+	"PageUp",
+	"PageDown",
+	"Home",
+	"End",
+	" ",
+]);
 export const JUMP_BUTTON_SHOW_PX = 200;
 export const PREFETCH_MIN_PX = 400;
 export const SKELETON_ROWS = 12;
@@ -97,6 +108,8 @@ export type MessageListProps<T extends GroupableMessage> = {
 	onLoadNewer?: () => void;
 	onJumpToLatest?: () => void;
 	onAtBottomChange?: (atBottom: boolean) => void;
+	bottomInset?: number;
+	jumpLift?: number;
 	header?: JSX.Element;
 	empty?: JSX.Element;
 	keepMounted?: readonly string[];
@@ -131,28 +144,43 @@ const skeletonPattern = [
 const SkeletonBlock = (props: {
 	platform: ChatPlatform;
 	position: "top" | "bottom";
-}) => (
-	<div
-		aria-hidden="true"
-		data-message-list-skeleton={props.position}
-		class="flex flex-col"
-	>
-		<For each={Array.from({ length: SKELETON_ROWS }, (_, index) => index)}>
-			{(index) => {
-				const shape = skeletonPattern[index % skeletonPattern.length];
-				return (
-					<MessageRowSkeleton
-						platform={props.platform}
-						lines={shape?.lines}
-						continuation={shape?.continuation}
-						reply={shape?.reply}
-						nameWidth={64 + ((index * 37) % 60)}
-					/>
-				);
-			}}
-		</For>
-	</div>
-);
+}) => {
+	let block: HTMLDivElement | undefined;
+	onMount(() => {
+		if (!block || typeof IntersectionObserver === "undefined") return;
+		const element = block;
+		const observer = new IntersectionObserver((entries) => {
+			const entry = entries.at(-1);
+			if (!entry) return;
+			element.toggleAttribute("data-offscreen", !entry.isIntersecting);
+		});
+		observer.observe(element);
+		onCleanup(() => observer.disconnect());
+	});
+	return (
+		<div
+			ref={block}
+			aria-hidden="true"
+			data-message-list-skeleton={props.position}
+			class="flex flex-col"
+		>
+			<For each={Array.from({ length: SKELETON_ROWS }, (_, index) => index)}>
+				{(index) => {
+					const shape = skeletonPattern[index % skeletonPattern.length];
+					return (
+						<MessageRowSkeleton
+							platform={props.platform}
+							lines={shape?.lines}
+							continuation={shape?.continuation}
+							reply={shape?.reply}
+							nameWidth={64 + ((index * 37) % 60)}
+						/>
+					);
+				}}
+			</For>
+		</div>
+	);
+};
 
 export const ANNOUNCE_INTERVAL_MS = 3000;
 
@@ -699,7 +727,10 @@ export const MessageList = <T extends GroupableMessage>(
 	const onScroll = () => {
 		distance = measureDistance();
 		if (autoScroll) armAutoScroll(SCROLL_QUIET_MS);
-		else setPinned(!props.hasNewer && distance <= PIN_THRESHOLD_PX);
+		else if (props.hasNewer) setPinned(false);
+		else if (userScrolling()) setPinned(distance <= REPIN_PX);
+		else if (distance <= REPIN_PX) setPinned(true);
+		else if (distance > PIN_THRESHOLD_PX) setPinned(false);
 		updateJumpVisibility();
 		maybeLoad();
 	};
@@ -709,11 +740,47 @@ export const MessageList = <T extends GroupableMessage>(
 		if (autoScroll) finishAutoScroll(true);
 	};
 
+	let userScrollAt = Number.NEGATIVE_INFINITY;
+	let pointerHeld = false;
+	const markUserScroll = () => {
+		userScrollAt = performance.now();
+	};
+	const userScrolling = () =>
+		touching ||
+		pointerHeld ||
+		performance.now() - userScrollAt < USER_SCROLL_MS;
+
+	const onWheel = () => {
+		markUserScroll();
+		interrupt();
+	};
+
+	const onScrollKey = (event: KeyboardEvent) => {
+		if (SCROLL_KEYS.has(event.key)) markUserScroll();
+	};
+
+	const onScrollerPointerDown = (event: PointerEvent) => {
+		if (event.pointerType !== "mouse") return;
+		pointerHeld = true;
+		markUserScroll();
+		const release = () => {
+			pointerHeld = false;
+			markUserScroll();
+			window.removeEventListener("pointerup", release, true);
+			window.removeEventListener("pointercancel", release, true);
+		};
+		window.addEventListener("pointerup", release, true);
+		window.addEventListener("pointercancel", release, true);
+	};
+
 	const followsBottom = () => untrack(pinned) && !autoScroll && !touching;
 
 	const onTouchStart = () => {
 		touching = true;
+		const moving = autoScroll;
 		interrupt();
+		const element = scroller();
+		if (moving && element && handle) handle.scrollTo(element.scrollTop);
 	};
 
 	const onTouchEnd = () => {
@@ -963,7 +1030,10 @@ export const MessageList = <T extends GroupableMessage>(
 		const mutations = new MutationObserver(onFeedHeightChange);
 		if (feed) mutations.observe(feed, { attributeFilter: ["style"] });
 		element.addEventListener("scroll", onScroll, { passive: true });
-		element.addEventListener("wheel", interrupt, { passive: true });
+		element.addEventListener("wheel", onWheel, { passive: true });
+		element.addEventListener("keydown", onScrollKey);
+		element.addEventListener("pointerdown", onScrollerPointerDown);
+		element.addEventListener("touchmove", markUserScroll, { passive: true });
 		element.addEventListener("touchstart", onTouchStart, { passive: true });
 		element.addEventListener("touchend", onTouchEnd, { passive: true });
 		element.addEventListener("touchcancel", onTouchEnd, { passive: true });
@@ -976,7 +1046,10 @@ export const MessageList = <T extends GroupableMessage>(
 			resize.disconnect();
 			mutations.disconnect();
 			element.removeEventListener("scroll", onScroll);
-			element.removeEventListener("wheel", interrupt);
+			element.removeEventListener("wheel", onWheel);
+			element.removeEventListener("keydown", onScrollKey);
+			element.removeEventListener("pointerdown", onScrollerPointerDown);
+			element.removeEventListener("touchmove", markUserScroll);
 			element.removeEventListener("touchstart", onTouchStart);
 			element.removeEventListener("touchend", onTouchEnd);
 			element.removeEventListener("touchcancel", onTouchEnd);
@@ -1047,7 +1120,15 @@ export const MessageList = <T extends GroupableMessage>(
 					>
 						{renderRow}
 					</Virtualizer>
-					<div data-message-list-bottom="" class="flex flex-col pb-2">
+					<div
+						data-message-list-bottom=""
+						class="flex flex-col pb-2"
+						style={
+							props.bottomInset
+								? { "padding-bottom": `${8 + props.bottomInset}px` }
+								: undefined
+						}
+					>
 						<Show when={props.hasNewer}>
 							<SkeletonBlock platform={platform()} position="bottom" />
 						</Show>
@@ -1060,6 +1141,7 @@ export const MessageList = <T extends GroupableMessage>(
 				mode={jumpMode()}
 				count={unseen()}
 				platform={platform()}
+				lift={props.jumpLift}
 				onJump={() => scrollToBottom()}
 			/>
 			<div role="status" class="sr-only" data-message-list-announcer="">

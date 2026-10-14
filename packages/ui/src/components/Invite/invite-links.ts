@@ -1,7 +1,7 @@
 export type InviteSummary = {
 	code: string;
 	url: string;
-	creator: { handle: string; avatar?: string };
+	creator: { handle: string; avatar?: string; did?: string };
 	uses: number;
 	maxUses?: number;
 	expiresAt?: string;

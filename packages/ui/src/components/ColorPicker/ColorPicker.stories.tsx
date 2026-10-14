@@ -1,6 +1,7 @@
 import { createSignal } from "solid-js";
 import { expect, fn, screen, userEvent, waitFor, within } from "storybook/test";
 import type { Meta, StoryObj } from "storybook-solidjs-vite";
+import { expectNoLayoutIssues } from "../../foundations/layout-test";
 import { ColorPicker, ColorPickerPanel, ThemeColorPicker } from "./ColorPicker";
 
 const meta = {
@@ -264,5 +265,46 @@ export const MobileDrawer: Story = {
 		await expect(
 			within(dialog).getByRole("textbox", { name: "Hex color" }),
 		).toBeVisible();
+	},
+};
+
+export const MobileRowRemove: Story = {
+	args: { label: "Color", value: "", onChange: fn() },
+	parameters: { viewport: { defaultViewport: "iphone" } },
+	render: () => {
+		const [color, setColor] = createSignal<string>();
+		return (
+			<ColorPicker
+				platform="mobile"
+				variant="row"
+				label="Color"
+				value={color() ?? ""}
+				onChange={setColor}
+				onRemove={color() ? () => setColor(undefined) : undefined}
+				presets={ROLE_PRESETS}
+			/>
+		);
+	},
+	play: async ({ canvasElement }) => {
+		const canvas = within(canvasElement);
+		const row = canvas.getByRole("button", { name: /Color/ });
+		await expect(row).toHaveTextContent("None");
+		await userEvent.click(row);
+		let dialog = await screen.findByRole("dialog");
+		await expect(
+			within(dialog).queryByRole("button", { name: "Remove color" }),
+		).toBeNull();
+		await userEvent.click(
+			within(dialog).getByRole("button", { name: "#06b6d4" }),
+		);
+		await waitFor(() => expect(row).toHaveTextContent("#06b6d4"));
+		dialog = await screen.findByRole("dialog");
+		const remove = await within(dialog).findByRole("button", {
+			name: "Remove color",
+		});
+		await expectNoLayoutIssues(dialog);
+		await userEvent.click(remove);
+		await waitFor(() => expect(row).toHaveTextContent("None"));
+		await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
 	},
 };

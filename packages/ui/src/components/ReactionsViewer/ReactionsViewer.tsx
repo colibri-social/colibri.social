@@ -79,6 +79,7 @@ const ReactorRow = (props: {
 			<Avatar
 				aria-hidden="true"
 				name={props.reactor.name}
+				seed={props.reactor.id}
 				src={props.reactor.avatarSrc}
 				color={props.reactor.avatarColor}
 				size={desktop() ? "base" : "md"}

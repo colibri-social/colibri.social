@@ -142,3 +142,62 @@ describe("unresolved mentions", () => {
 		expect(mention?.attrs).toMatchObject({ label: "Lou", type: "member" });
 	});
 });
+
+describe("custom emoji", () => {
+	const uri = "at://did:plc:hq/blue.moji.collection.item/shipit";
+	const facets = [
+		{
+			index: { byteStart: 3, byteEnd: 7 },
+			features: [
+				{
+					$type: "social.colibri.beta.richtext.facet#customEmoji",
+					uri,
+					cid: "bafyshipit",
+				},
+			],
+		},
+	] as unknown as ColibriRichTextFacet[];
+	const resolveCustomEmoji = ({ uri: target }: { uri: string }) =>
+		target === uri
+			? { id: uri, name: "shipit", src: "https://blobs.test/shipit" }
+			: undefined;
+
+	it("loads an emoji facet back as an inline emoji node", () => {
+		const doc = facetsToProseMirror("Go 🚀", facets, { resolveCustomEmoji });
+		expect(inline(doc)[1]).toMatchObject({
+			type: "mention",
+			attrs: {
+				type: "customEmoji",
+				id: uri,
+				cid: "bafyshipit",
+				label: "🚀",
+				name: "shipit",
+				avatar: "https://blobs.test/shipit",
+			},
+		});
+		expect(proseMirrorToFacets(doc as never)).toMatchObject({
+			text: "Go 🚀",
+			facets: [
+				{
+					index: { byteStart: 3, byteEnd: 7 },
+					features: [
+						{
+							$type: "social.colibri.beta.richtext.facet#customEmoji",
+							uri,
+							cid: "bafyshipit",
+						},
+					],
+				},
+			],
+		});
+	});
+
+	it("keeps an unresolvable emoji facet as plain text", () => {
+		const doc = facetsToProseMirror("Go 🚀", facets);
+		expect(inline(doc).every((node) => node.type === "text")).toBe(true);
+		expect(proseMirrorToFacets(doc as never)).toEqual({
+			text: "Go 🚀",
+			facets: [],
+		});
+	});
+});

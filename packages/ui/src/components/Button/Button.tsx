@@ -31,7 +31,7 @@ export const buttonVariants = cva({
 				"border-border bg-secondary text-destructive enabled:hover:bg-secondary-highlight data-pressed:bg-secondary-highlight",
 		},
 		block: {
-			true: "w-full",
+			true: "w-full min-w-0 shrink",
 			false: "",
 		},
 	},
@@ -107,7 +107,7 @@ export const Button = (props: ButtonProps) => {
 			)}
 		>
 			<span
-				class="inline-flex items-center gap-2 transition-opacity duration-[calc(var(--duration-color)*var(--motion-scale))]"
+				class="inline-flex max-w-full min-w-0 items-center gap-2 transition-opacity duration-[calc(var(--duration-color)*var(--motion-scale))]"
 				classList={{ "opacity-0": !!local.loading }}
 			>
 				<Show when={icon.has()}>
@@ -121,7 +121,9 @@ export const Button = (props: ButtonProps) => {
 						{icon()}
 					</span>
 				</Show>
-				{local.children}
+				<span data-button-label="" class="min-w-0 truncate">
+					{local.children}
+				</span>
 			</span>
 			<Show when={local.loading}>
 				<span class="absolute inset-0 flex items-center justify-center">

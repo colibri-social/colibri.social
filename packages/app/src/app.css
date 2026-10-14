@@ -1,0 +1,26 @@
+@import "@colibri-social/ui/index.css";
+
+@source "./";
+
+html,
+body {
+	height: 100%;
+	overscroll-behavior: none;
+	background: var(--background);
+	-webkit-tap-highlight-color: transparent;
+}
+
+body {
+	margin: 0;
+	overflow: hidden;
+}
+
+#root {
+	height: 100dvh;
+}
+
+[data-pane-stack],
+[data-pane] [data-message-list-scroller],
+[data-pane] [data-scroll-y] {
+	touch-action: pan-y pinch-zoom;
+}

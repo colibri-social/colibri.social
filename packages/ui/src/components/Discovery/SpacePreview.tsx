@@ -5,6 +5,7 @@ import {
 	createEffect,
 	createSignal,
 	createUniqueId,
+	type JSX,
 	Match,
 	on,
 	onMount,
@@ -104,7 +105,7 @@ export const JoinSpaceAction = (props: JoinSpaceActionProps) => {
 					>
 						{props.space.joinMode === "approval"
 							? "Request to join"
-							: "Join Space"}
+							: "Join this Space"}
 					</Button>
 				</Match>
 			</Switch>
@@ -142,6 +143,7 @@ export type SpacePreviewProps = DiscoveryActions & {
 	busy?: boolean;
 	onBack: () => void;
 	backLabel?: string;
+	extra?: JSX.Element;
 	class?: string;
 };
 
@@ -235,6 +237,7 @@ export const SpacePreview = (props: SpacePreviewProps) => {
 						onOpenSpace={props.onOpenSpace}
 						class="pt-1"
 					/>
+					{props.extra}
 				</div>
 			</article>
 		</section>
@@ -245,6 +248,7 @@ export type SpacePreviewHeaderProps = DiscoveryActions & {
 	space: DiscoverySpace;
 	busy?: boolean;
 	nameId?: string;
+	extra?: JSX.Element;
 };
 
 export const SpacePreviewHeader = (props: SpacePreviewHeaderProps) => (
@@ -259,14 +263,17 @@ export const SpacePreviewHeader = (props: SpacePreviewHeaderProps) => (
 		ownerHandle={props.space.ownerHandle}
 		description={props.space.description}
 		actions={
-			<JoinSpaceAction
-				space={props.space}
-				busy={props.busy}
-				layout="stacked"
-				onJoin={props.onJoin}
-				onRequestJoin={props.onRequestJoin}
-				onOpenSpace={props.onOpenSpace}
-			/>
+			<div class="flex flex-col gap-4">
+				<JoinSpaceAction
+					space={props.space}
+					busy={props.busy}
+					layout="stacked"
+					onJoin={props.onJoin}
+					onRequestJoin={props.onRequestJoin}
+					onOpenSpace={props.onOpenSpace}
+				/>
+				{props.extra}
+			</div>
 		}
 	/>
 );

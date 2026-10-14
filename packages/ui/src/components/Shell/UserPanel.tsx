@@ -1,4 +1,5 @@
-import { type JSX, Show } from "solid-js";
+import { type JSX, Show, type ValidComponent } from "solid-js";
+import { Dynamic } from "solid-js/web";
 import { AnimatedSettingsIcon } from "../../icons/animated/icons";
 import { cx } from "../../utils/cx";
 import { createRipple } from "../../utils/ripple";
@@ -9,12 +10,14 @@ import { AvatarSkeleton, SkeletonText } from "../Skeleton/Skeleton";
 
 export type UserPanelProps = {
 	name: string;
+	avatarSeed?: string;
 	avatarSrc?: string;
 	avatarColor?: string;
 	presence?: Presence;
 	status?: JSX.Element;
 	voice?: JSX.Element;
 	onOpenProfile?: JSX.EventHandler<HTMLButtonElement, MouseEvent>;
+	profileTrigger?: ValidComponent;
 	onOpenSettings?: JSX.EventHandler<HTMLButtonElement, MouseEvent>;
 	settingsLabel?: string;
 	class?: string;
@@ -41,15 +44,22 @@ export const UserPanel = (props: UserPanelProps) => {
 				</div>
 			</Show>
 			<div class="flex h-[54px] items-center gap-2 p-[7px]">
-				<button
+				<Dynamic
+					component={props.profileTrigger ?? "button"}
 					ref={ripple}
 					type="button"
-					onClick={(event) => props.onOpenProfile?.(event)}
+					onClick={(
+						event: MouseEvent & {
+							currentTarget: HTMLButtonElement;
+							target: Element;
+						},
+					) => props.onOpenProfile?.(event)}
 					data-user-panel-profile=""
 					class="ripple flex h-10 min-w-0 flex-1 cursor-pointer items-center gap-2 rounded-control px-1 text-left text-foreground outline-none hover:bg-popover-highlight focus-ring"
 				>
 					<Avatar
 						name={props.name}
+						seed={props.avatarSeed}
 						src={props.avatarSrc}
 						color={props.avatarColor}
 						presence={props.presence}
@@ -65,7 +75,7 @@ export const UserPanel = (props: UserPanelProps) => {
 							</span>
 						</Show>
 					</span>
-				</button>
+				</Dynamic>
 				<IconButton
 					variant="ghost"
 					size="md"

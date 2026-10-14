@@ -46,6 +46,7 @@ export type VoiceStatusPanelProps = CallMediaState & {
 	onToggleCamera?: () => void;
 	onToggleScreenShare?: () => void;
 	onShowOverlay?: () => void;
+	onOpenCall?: () => void;
 	class?: string;
 };
 
@@ -141,9 +142,26 @@ export const VoiceStatusPanel = (props: VoiceStatusPanelProps) => {
 							{voiceStatusLabel(props.state)}
 						</span>
 						<Show when={location()}>
-							<span class="truncate text-xs text-muted-foreground">
-								{location()}
-							</span>
+							<Show
+								when={props.onOpenCall}
+								fallback={
+									<span class="truncate text-xs text-muted-foreground">
+										{location()}
+									</span>
+								}
+							>
+								{(open) => (
+									<button
+										type="button"
+										data-open-call=""
+										aria-label={`Open call, ${location()}`}
+										onClick={() => open()()}
+										class="cursor-pointer truncate rounded-control-sm border-0 bg-transparent p-0 text-left text-xs text-muted-foreground outline-none hover:text-foreground hover:underline focus-ring"
+									>
+										{location()}
+									</button>
+								)}
+							</Show>
 						</Show>
 					</div>
 				</div>

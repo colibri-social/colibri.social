@@ -7,6 +7,11 @@ import { createLocalPreview } from "../../utils/local-preview";
 import { AnimatedImage } from "../AnimatedImage/AnimatedImage";
 import { ThemeColorPicker } from "../ColorPicker/ColorPicker";
 import { Hummingbird } from "../Hummingbird/Hummingbird";
+import type { ImageCropShape } from "../ImageCropper/crop-math";
+import {
+	ImageCropper,
+	type ImageCropperPlatform,
+} from "../ImageCropper/ImageCropper";
 import { ToggleRow } from "../List/List";
 import { DisplayNameField } from "../Profile/DisplayNameField";
 import { TextArea, TextField } from "../TextField/TextField";
@@ -214,27 +219,61 @@ export const ProfileSourceScreen = (props: ProfileSourceScreenProps) => {
 	);
 };
 
-type ImagePickerProps = {
+export type ProfileImagePickerProps = {
 	maxBytes: number;
+	crop?: ImageCropShape;
+	platform?: ImageCropperPlatform;
 	onFile?: (file: File) => void;
 	onError: (message: string | undefined) => void;
 	children: (open: () => void) => JSX.Element;
 };
 
-const ImagePicker = (props: ImagePickerProps) => {
+export const PROFILE_CROP_INPUT_MAX_BYTES = 30_000_000;
+
+export const ProfileImagePicker = (props: ProfileImagePickerProps) => {
 	let input: HTMLInputElement | undefined;
+	const [cropping, setCropping] = createSignal<File>();
+	const [cropOpen, setCropOpen] = createSignal(false);
 	const pick = async (file: File | undefined) => {
 		if (!file) return;
+		const crops = !!props.crop && file.type !== "image/gif";
 		const rejection = await validateImageFile(
 			file,
 			PROFILE_IMAGE_ACCEPT,
-			props.maxBytes,
+			crops ? PROFILE_CROP_INPUT_MAX_BYTES : props.maxBytes,
 		);
 		props.onError(rejection?.message);
-		if (!rejection) props.onFile?.(file);
+		if (rejection) return;
+		if (!crops) {
+			props.onFile?.(file);
+			return;
+		}
+		setCropping(file);
+		setCropOpen(true);
+	};
+	const applyCrop = (file: File) => {
+		if (file.size > props.maxBytes) {
+			props.onError("This image is still too large after cropping.");
+			return;
+		}
+		props.onError(undefined);
+		props.onFile?.(file);
 	};
 	return (
 		<>
+			<Show when={props.crop}>
+				{(shape) => (
+					<ImageCropper
+						open={cropOpen()}
+						onOpenChange={setCropOpen}
+						file={cropping()}
+						shape={shape()}
+						platform={props.platform}
+						maxBytes={props.maxBytes}
+						onApply={applyCrop}
+					/>
+				)}
+			</Show>
 			<input
 				ref={input}
 				type="file"
@@ -314,8 +353,10 @@ export const ProfileEditorScreen = (props: ProfileEditorScreenProps) => {
 					data-profile-editor-card=""
 					class="relative w-full overflow-hidden rounded-sheet border border-border bg-popover shadow-overlay"
 				>
-					<ImagePicker
+					<ProfileImagePicker
 						maxBytes={PROFILE_BANNER_MAX_BYTES}
+						crop="banner"
+						platform={docked() ? "desktop" : "mobile"}
 						onFile={(file) => {
 							banner.set(file);
 							props.onBannerFile?.(file);
@@ -361,9 +402,11 @@ export const ProfileEditorScreen = (props: ProfileEditorScreenProps) => {
 								</Show>
 							</div>
 						)}
-					</ImagePicker>
-					<ImagePicker
+					</ProfileImagePicker>
+					<ProfileImagePicker
 						maxBytes={PROFILE_AVATAR_MAX_BYTES}
+						crop="avatar"
+						platform={docked() ? "desktop" : "mobile"}
 						onFile={(file) => {
 							avatar.set(file);
 							props.onAvatarFile?.(file);
@@ -394,7 +437,7 @@ export const ProfileEditorScreen = (props: ProfileEditorScreenProps) => {
 								</Show>
 							</button>
 						)}
-					</ImagePicker>
+					</ProfileImagePicker>
 					<div class="flex flex-col gap-4 px-4 pt-[44px] pb-4">
 						<div
 							data-profile-name-row=""

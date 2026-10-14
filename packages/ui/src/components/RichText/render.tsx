@@ -12,7 +12,12 @@ import {
 	buildFeatureKey,
 	normalizeFacets,
 } from "../../utils/rich-text/normalize-facets";
-import type { RichTextResolvers, TextWithFacets } from "./context";
+import type {
+	RichTextCustomEmoji,
+	RichTextForeignFeature,
+	RichTextResolvers,
+	TextWithFacets,
+} from "./context";
 import {
 	BridgedMentionFacet,
 	ChannelChip,
@@ -35,7 +40,127 @@ export const emojiShortcode = (slug: string) => aliasesForSlug(slug)[0] ?? slug;
 
 const PLAIN_EMOJI_KINDS = new Set(["code", "link"]);
 
-const emojiText = (segment: string, ctx: RichTextResolvers): JSX.Element => {
+const CUSTOM_EMOJI_KIND = "customEmoji";
+
+const CUSTOM_EMOJI_PATTERN = /:([a-z0-9_]{2,32}):/g;
+const CUSTOM_EMOJI_GLYPH = "\u{1F642}";
+
+export const withCustomEmojiAsGlyphs = (
+	text: string,
+	resolve: RichTextResolvers["customEmoji"],
+) =>
+	resolve && text.includes(":")
+		? text.replace(CUSTOM_EMOJI_PATTERN, (token, name: string) =>
+				resolve(name) ? CUSTOM_EMOJI_GLYPH : token,
+			)
+		: text;
+
+export const emojiFacetText = (
+	value: TextWithFacets,
+	ctx: RichTextResolvers,
+): string | undefined => {
+	const text = value.text ?? "";
+	const facets = value.facets ?? [];
+	if (facets.length === 0) return text;
+	const resolve = ctx.customEmojiFeature;
+	if (!resolve) return undefined;
+	const bytes = encoder.encode(text);
+	const ranges: { start: number; end: number }[] = [];
+	for (const facet of facets) {
+		const emoji = facet.features.every(
+			(feature) =>
+				kindOf(feature) === CUSTOM_EMOJI_KIND &&
+				!!resolve(feature as RichTextForeignFeature)?.src,
+		);
+		if (!emoji || facet.features.length === 0) return undefined;
+		ranges.push({ start: facet.index.byteStart, end: facet.index.byteEnd });
+	}
+	ranges.sort((a, b) => a.start - b.start);
+	let out = "";
+	let last = 0;
+	for (const range of ranges) {
+		if (range.start < last) return undefined;
+		out += decoder.decode(bytes.subarray(last, range.start));
+		out += CUSTOM_EMOJI_GLYPH;
+		last = range.end;
+	}
+	return out + decoder.decode(bytes.subarray(last));
+};
+
+const customEmojiImage = (
+	emoji: RichTextCustomEmoji,
+	ctx: RichTextResolvers,
+): JSX.Element => {
+	const image = (
+		<img
+			data-custom-emoji={emoji.name}
+			src={emoji.src}
+			alt={emoji.alt ?? `:${emoji.name}:`}
+			title={`:${emoji.name}:`}
+			draggable={false}
+			class="inline-block size-[1.375em] object-contain align-text-bottom"
+		/>
+	);
+	if (!ctx.onCustomEmojiOpen) return image;
+	return (
+		// biome-ignore lint/a11y/useSemanticElements: inline emoji stay selectable text inside the paragraph
+		<span
+			role="button"
+			tabIndex={0}
+			data-custom-emoji-button=""
+			data-custom-emoji-id={emoji.id}
+			data-custom-emoji-name={emoji.name}
+			data-custom-emoji-src={emoji.src}
+			data-custom-emoji-alt={emoji.alt}
+			aria-label={`:${emoji.name}:`}
+			class="cursor-pointer rounded-[4px] outline-none focus-ring"
+		>
+			{image}
+		</span>
+	);
+};
+
+const foreignEmoji = (
+	features: readonly Feature[],
+	ctx: RichTextResolvers,
+): RichTextCustomEmoji | undefined => {
+	const resolve = ctx.customEmojiFeature;
+	if (!resolve) return undefined;
+	for (const feature of features) {
+		if (kindOf(feature) !== CUSTOM_EMOJI_KIND) continue;
+		const emoji = resolve(feature as RichTextForeignFeature);
+		if (emoji?.src) return emoji;
+	}
+	return undefined;
+};
+
+const customEmojiText = (
+	segment: string,
+	ctx: RichTextResolvers,
+): JSX.Element => {
+	const resolve = ctx.customEmoji;
+	if (!resolve || !segment.includes(":")) return unicodeEmojiText(segment, ctx);
+	const result: JSX.Element[] = [];
+	let last = 0;
+	for (const match of segment.matchAll(CUSTOM_EMOJI_PATTERN)) {
+		const emoji = resolve(match[1] ?? "");
+		if (!emoji) continue;
+		const index = match.index ?? 0;
+		if (index > last)
+			result.push(unicodeEmojiText(segment.slice(last, index), ctx));
+		result.push(customEmojiImage(emoji, ctx));
+		last = index + match[0].length;
+	}
+	if (result.length === 0) return unicodeEmojiText(segment, ctx);
+	if (last < segment.length)
+		result.push(unicodeEmojiText(segment.slice(last), ctx));
+	return result;
+};
+
+const unicodeEmojiText = (
+	segment: string,
+	ctx: RichTextResolvers,
+): JSX.Element => {
 	if (ctx.emojiInfo === false) return segment;
 	const parts = splitEmojiSegments(segment);
 	if (!parts.some((part) => part.kind === "emoji")) return segment;
@@ -294,7 +419,12 @@ const renderInlineRange = (
 		const plain = features.some((feature) =>
 			PLAIN_EMOJI_KINDS.has(kindOf(feature)),
 		);
-		let element: JSX.Element = plain ? segment : emojiText(segment, ctx);
+		const foreign = plain ? undefined : foreignEmoji(features, ctx);
+		let element: JSX.Element = foreign
+			? customEmojiImage(foreign, ctx)
+			: plain
+				? segment
+				: customEmojiText(segment, ctx);
 		const ordered = [...features].sort(
 			(a, b) => wrapRank(kindOf(a)) - wrapRank(kindOf(b)),
 		);

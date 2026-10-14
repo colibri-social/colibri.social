@@ -14,7 +14,6 @@ export type DiscoverySpace = {
 	bannerColor?: string;
 	description?: string;
 	memberCount: number;
-	onlineCount?: number;
 	ownerHandle?: string;
 	joinMode: SpaceJoinMode;
 	viewer: DiscoveryViewerState;
@@ -26,15 +25,8 @@ export type DiscoveryActions = {
 	onOpenSpace?: (spaceId: string) => void;
 };
 
-const countFormat = new Intl.NumberFormat("en");
-
-export const formatOnlineCount = (count: number) =>
-	`${countFormat.format(count)} online`;
-
 export const memberSummary = (space: DiscoverySpace) =>
-	space.onlineCount
-		? `${formatMemberCount(space.memberCount)} · ${formatOnlineCount(space.onlineCount)}`
-		: formatMemberCount(space.memberCount);
+	formatMemberCount(space.memberCount);
 
 export const matchesDiscoveryQuery = (space: DiscoverySpace, query: string) => {
 	const needle = query.trim().toLowerCase();

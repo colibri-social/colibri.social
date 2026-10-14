@@ -133,6 +133,7 @@ export const ChannelContextMenu = (props: ChannelContextMenuProps) => (
 export type VoiceChannelMenuActions = ChannelManageActions & {
 	connected?: boolean;
 	onConnectedChange?: (connected: boolean) => void;
+	onOpenChat?: () => void;
 };
 
 const voiceEntry = (
@@ -153,7 +154,16 @@ export const voiceChannelMenuEntries = (
 	sectionEntries([
 		{
 			label: "Voice",
-			items: [actions.onConnectedChange && voiceEntry(actions)],
+			items: [
+				actions.onConnectedChange && voiceEntry(actions),
+				actions.onOpenChat && {
+					label: "Open chat",
+					get icon() {
+						return <ChatRoundDotsIcon />;
+					},
+					onSelect: actions.onOpenChat,
+				},
+			],
 		},
 		...manageSections(actions),
 	]);

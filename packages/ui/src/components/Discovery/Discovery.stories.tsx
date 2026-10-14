@@ -1,7 +1,9 @@
-import { createSignal } from "solid-js";
+import { createSignal, type JSX } from "solid-js";
 import { expect, fn, screen, userEvent, waitFor, within } from "storybook/test";
 import type { Meta, StoryObj } from "storybook-solidjs-vite";
+import { expectNoLayoutIssues } from "../../foundations/layout-test";
 import { Button } from "../Button/Button";
+import { DeveloperModeCard } from "../DeveloperMode/DeveloperModeCard";
 import { DiscoveryModal, DiscoveryScreen } from "./Discovery";
 import { discoveryFixtures } from "./discovery-fixtures";
 import type { DiscoveryPlatform, DiscoverySpace } from "./discovery-model";
@@ -30,6 +32,7 @@ type HarnessOptions = {
 	selectedId?: string;
 	query?: string;
 	loading?: boolean;
+	previewExtra?: (space: DiscoverySpace) => JSX.Element;
 };
 
 const Harness = (props: { platform: DiscoveryPlatform } & HarnessOptions) => {
@@ -57,6 +60,7 @@ const Harness = (props: { platform: DiscoveryPlatform } & HarnessOptions) => {
 		loading: props.loading,
 		defaultSelectedId: props.selectedId,
 		defaultQuery: props.query,
+		previewExtra: props.previewExtra,
 		onJoin: (id: string) => {
 			onJoin(id);
 			setBusyIds((current) => [...current, id]);
@@ -170,12 +174,10 @@ export const Desktop: Story = {
 		await expect(
 			dialog.querySelector("[data-discovery-results]"),
 		).not.toBeVisible();
-		await expect(
-			within(preview).getByText("180 members · 24 online"),
-		).toBeInTheDocument();
+		await expect(within(preview).getByText("180 members")).toBeInTheDocument();
 		await expect(within(preview).getByText("By @lou.gg")).toBeInTheDocument();
 		await userEvent.click(
-			within(preview).getByRole("button", { name: "Join Space" }),
+			within(preview).getByRole("button", { name: "Join this Space" }),
 		);
 		await expect(onJoin).toHaveBeenCalledWith("flock");
 		const open = await within(preview).findByRole("button", {
@@ -225,7 +227,7 @@ export const Mobile: Story = {
 			expect(sheet.contains(document.activeElement)).toBe(true),
 		);
 		const join = await within(sheet).findByRole("button", {
-			name: "Join Space",
+			name: "Join this Space",
 		});
 		await waitFor(() => expect(join).toBeVisible());
 		const initialTop = sheet.getBoundingClientRect().top;
@@ -381,4 +383,80 @@ export const LoadingOnMobile: Story = {
 	name: "Loading on mobile",
 	parameters: mobileViewport,
 	render: mobile({ loading: true }),
+};
+
+const longNamed = () =>
+	discoveryFixtures().map((space) =>
+		space.id === "flock"
+			? {
+					...space,
+					name: "Colibri Social Flock for night owls, early birds and everyone in between",
+				}
+			: space,
+	);
+
+export const DeveloperMode: Story = {
+	name: "Developer mode",
+	render: desktop({
+		selectedId: "flock",
+		previewExtra: (space) => (
+			<DeveloperModeCard
+				copyLabel="Copy DID"
+				copyValue={space.id}
+				pdslsHref={`https://pdsls.dev/at://${space.id}`}
+			/>
+		),
+	}),
+	play: async () => {
+		const dialog = await discoveryDialog();
+		const preview = await within(dialog).findByRole("region", {
+			name: "Colibri Social Flock",
+		});
+		const developer = await within(preview).findByRole("region", {
+			name: "Developer mode",
+		});
+		await waitFor(() =>
+			expect(
+				within(developer).getByRole("button", { name: "Copy DID" }),
+			).toBeVisible(),
+		);
+		await expectNoLayoutIssues(developer);
+	},
+};
+
+export const DeveloperModeOnMobile: Story = {
+	name: "Developer mode on mobile",
+	parameters: mobileViewport,
+	render: mobile({
+		spaces: longNamed(),
+		selectedId: "flock",
+		previewExtra: (space) => (
+			<DeveloperModeCard
+				copyLabel="Copy DID"
+				copyValue={space.id}
+				pdslsHref={`https://pdsls.dev/at://${space.id}`}
+			/>
+		),
+	}),
+	play: async ({ canvasElement }) => {
+		const sheet = await screen.findByRole("dialog", {
+			name: /^Colibri Social Flock for night owls/,
+		});
+		const developer = await within(sheet).findByRole("region", {
+			name: "Developer mode",
+		});
+		await expect(
+			within(developer).getByRole("button", { name: "Copy DID" }),
+		).toBeVisible();
+		await expect(
+			within(sheet).getByRole("button", { name: "Join this Space" }),
+		).toBeVisible();
+		await expectNoLayoutIssues(sheet);
+		await expect(
+			within(canvasElement).getByRole("heading", {
+				level: 1,
+				name: "Discovery Feed",
+			}),
+		).toBeInTheDocument();
+	},
 };

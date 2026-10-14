@@ -3,6 +3,7 @@ import { cx } from "../../utils/cx";
 import { createDoubleTap } from "../../utils/gestures/double-tap";
 import { createLongPress } from "../../utils/gestures/long-press";
 import { type Haptics, useHaptics } from "../../utils/haptics";
+import { createRipple } from "../../utils/ripple";
 
 export type DoubleTapAction = "react" | "editOrReply";
 
@@ -22,7 +23,9 @@ export type MessageGestureOptions = {
 };
 
 const DEFAULT_IGNORE =
-	"[data-reaction], [data-reaction-bar], [data-member-menu]";
+	"[data-reaction], [data-reaction-bar], [data-member-menu], [data-menu-trigger]";
+
+const RIPPLE_IGNORE = `${DEFAULT_IGNORE}, button, a, input, textarea, [role="button"], [contenteditable="true"]`;
 
 export const createMessageGestures = (
 	element: HTMLElement,
@@ -67,11 +70,19 @@ export type MessageGesturesProps = MessageGestureOptions & {
 export const MessageGestures = (props: MessageGesturesProps) => {
 	const [local, options] = splitProps(props, ["class", "children"]);
 	const haptics = useHaptics();
+	const ripple = createRipple({
+		placement: "over",
+		ignore: RIPPLE_IGNORE,
+		disabled: () => !(options.longPress ?? true),
+	});
 	return (
 		<div
-			ref={(element) => createMessageGestures(element, () => options, haptics)}
+			ref={(element) => {
+				createMessageGestures(element, () => options, haptics);
+				ripple(element);
+			}}
 			data-message-gestures=""
-			class={cx("w-full", local.class)}
+			class={cx("ripple w-full", local.class)}
 		>
 			{local.children}
 		</div>

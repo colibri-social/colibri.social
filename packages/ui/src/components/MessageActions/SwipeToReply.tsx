@@ -129,10 +129,6 @@ export const SwipeToReply = (props: SwipeToReplyProps) => {
 				)}
 				style={{
 					transform: offset() !== 0 ? `translateX(${offset()}px)` : undefined,
-					"border-radius":
-						exposed() > 0
-							? `0 ${progress() * 16}px ${progress() * 16}px 0`
-							: undefined,
 				}}
 			>
 				{props.children}

@@ -9,9 +9,14 @@ import {
 	within,
 } from "storybook/test";
 import type { Meta, StoryObj } from "storybook-solidjs-vite";
+import { expectNoLayoutIssues } from "../../foundations/layout-test";
 import { storyImages } from "../Banner/story-images";
 import type { MemberIdentityData } from "../Members/MemberIdentity";
-import { type SpaceRole, SpaceRoleList } from "./RoleList";
+import {
+	type SpaceRole,
+	SpaceRoleList,
+	SpaceRoleListSkeleton,
+} from "./RoleList";
 import { RoleMembers } from "./RoleMembers";
 import { ROLE_PERMISSION_GROUPS, RolePermissionList } from "./RolePermissions";
 
@@ -127,6 +132,145 @@ export const Roles: Story = {
 	},
 };
 
+export const HoldToReorderInList: Story = {
+	render: () => <RolesHarness />,
+	play: async ({ canvasElement }) => {
+		onReorder.mockClear();
+		const holdRow = (id: string) =>
+			canvasElement.querySelector<HTMLElement>(
+				`[data-role-hold="${id}"]`,
+			) as HTMLElement;
+		const owner = holdRow("owner");
+		const ownerBox = center(owner);
+		await fireEvent.pointerDown(owner, {
+			pointerType: "touch",
+			isPrimary: true,
+			button: 0,
+			clientX: ownerBox.x,
+			clientY: ownerBox.y,
+		});
+		await new Promise((resolve) => setTimeout(resolve, 480));
+		await expect(owner.hasAttribute("data-lifted")).toBe(false);
+		await fireEvent.pointerUp(document, {
+			pointerType: "touch",
+			clientX: ownerBox.x,
+			clientY: ownerBox.y,
+		});
+		const moderators = holdRow("mods");
+		const start = center(moderators);
+		const target = center(holdRow("helpers"));
+		await fireEvent.pointerDown(moderators, {
+			pointerType: "touch",
+			isPrimary: true,
+			button: 0,
+			clientX: start.x,
+			clientY: start.y,
+		});
+		await new Promise((resolve) => setTimeout(resolve, 480));
+		await expect(moderators.hasAttribute("data-lifted")).toBe(true);
+		await expect(moderators.style.transform).toContain("scale(1.03)");
+		for (let step = 1; step <= 6; step++) {
+			await fireEvent.pointerMove(document, {
+				pointerType: "touch",
+				clientX: start.x,
+				clientY: start.y + ((target.y - start.y) * step) / 6,
+			});
+			await new Promise((resolve) => requestAnimationFrame(resolve));
+		}
+		await expect(moderators.style.transform).toContain("translate3d(0px,");
+		await expectNoLayoutIssues(canvasElement);
+		await fireEvent.pointerUp(document, {
+			pointerType: "touch",
+			clientX: target.x,
+			clientY: target.y,
+		});
+		await expect(onReorder).toHaveBeenCalledWith([
+			"owner",
+			"artists",
+			"helpers",
+			"mods",
+			"everyone",
+		]);
+		await waitFor(() =>
+			expect(viewNames(canvasElement)).toEqual([
+				"Owner",
+				"Artists",
+				"Helpers",
+				"Moderators",
+				"Everyone",
+			]),
+		);
+		await expect(
+			canvasElement.querySelector("[data-lifted]"),
+		).not.toBeInTheDocument();
+	},
+};
+
+const rankedRoles: SpaceRole[] = [
+	{
+		id: "owner",
+		name: "Owner",
+		color: "#ffd857",
+		protected: true,
+		memberCount: 1,
+	},
+	{
+		id: "admins",
+		name: "Administrators of the night owls art club and friends",
+		color: "#c4a7ff",
+		locked: true,
+		memberCount: 2,
+	},
+	{ id: "mods", name: "Moderators", color: "#7ee0a1", memberCount: 3 },
+	{ id: "artists", name: "Artists", color: "#ff7a90", memberCount: 1240 },
+	{ id: "helpers", name: "Helpers", memberCount: 0 },
+];
+
+export const LockedRolesWithCounts: Story = {
+	render: () => (
+		<div class="flex min-h-dvh flex-col gap-4 bg-popover p-4 text-foreground">
+			<SpaceRoleList roles={rankedRoles} onOpen={fn()} onReorder={onReorder} />
+		</div>
+	),
+	play: async ({ canvasElement }) => {
+		const rows = Array.from(
+			canvasElement.querySelectorAll<HTMLElement>("[data-role-row]"),
+		);
+		await expect(rows.map((row) => row.hasAttribute("data-locked"))).toEqual([
+			false,
+			true,
+			false,
+			false,
+			false,
+		]);
+		await expect(rows[3]).toHaveTextContent("1240 members");
+		await expect(rows[4]).toHaveTextContent("0 members");
+		await expect(
+			within(rows[1] as HTMLElement).getByRole("img", {
+				name: "You can't edit this role",
+			}),
+		).toBeVisible();
+		await expectNoLayoutIssues(canvasElement);
+		await enterReorder(canvasElement);
+		await expect(sortableNames(canvasElement)).toHaveLength(3);
+	},
+};
+
+export const RoleListLoading: Story = {
+	render: () => (
+		<div class="flex min-h-dvh flex-col gap-4 bg-popover p-4 text-foreground">
+			<SpaceRoleListSkeleton />
+		</div>
+	),
+	play: async ({ canvasElement }) => {
+		await expect(
+			canvasElement.querySelectorAll(
+				"[data-space-role-list-skeleton] [data-skeleton]",
+			).length,
+		).toBeGreaterThan(5);
+	},
+};
+
 export const ReorderWithMouse: Story = {
 	render: () => <RolesHarness />,
 	play: async ({ canvasElement, step }) => {
@@ -214,6 +358,46 @@ export const ReorderWithTouchHold: Story = {
 				"Artists",
 			]),
 		);
+	},
+};
+
+export const TouchHoldLiftsRow: Story = {
+	render: () => <RolesHarness />,
+	play: async ({ canvasElement }) => {
+		await enterReorder(canvasElement);
+		const items = canvasElement.querySelectorAll<HTMLElement>(
+			"[data-sortable-item]",
+		);
+		const held = items[1] as HTMLElement;
+		const other = items[0] as HTMLElement;
+		const handle = held.querySelector("[data-sortable-handle]") as HTMLElement;
+		const point = center(handle);
+		await fireEvent.pointerDown(handle, {
+			pointerType: "touch",
+			button: 0,
+			clientX: point.x,
+			clientY: point.y,
+		});
+		await waitFor(() => expect(held).toHaveAttribute("data-dragging"), {
+			timeout: 1000,
+		});
+		await waitFor(() => {
+			expect(
+				getComputedStyle(held.closest("ol")?.parentElement as HTMLElement)
+					.overflow,
+			).toBe("visible");
+			expect(getComputedStyle(held).boxShadow).not.toBe("none");
+			expect(getComputedStyle(held).backgroundColor).not.toBe(
+				getComputedStyle(other).backgroundColor,
+			);
+		});
+		await fireEvent.pointerUp(document, { pointerType: "touch" });
+		await waitFor(() => expect(held).not.toHaveAttribute("data-dragging"));
+		await expect(sortableNames(canvasElement)).toEqual([
+			"Moderators",
+			"Artists",
+			"Helpers",
+		]);
 	},
 };
 

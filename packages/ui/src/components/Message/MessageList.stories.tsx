@@ -188,6 +188,47 @@ export const PinnedOnAppend: Story = {
 	},
 };
 
+export const HoldsSmallScrollUp: Story = {
+	name: "Holds a small scroll up",
+	render: () => {
+		const channel = createChannel({ source: createListMessages(300) });
+		return (
+			<ChannelView
+				channel={channel}
+				height="700px"
+				toolbar={() => receiveButton(channel)}
+			/>
+		);
+	},
+	play: async ({ canvasElement }) => {
+		const canvas = within(canvasElement);
+		await settled(canvasElement);
+		const scroller = scrollerOf(canvasElement);
+		await expect(distanceOf(scroller)).toBeLessThanOrEqual(1);
+		scroller.dispatchEvent(
+			new WheelEvent("wheel", { deltaY: -20, bubbles: true }),
+		);
+		scroller.scrollTop -= 20;
+		await frames(3);
+		const before = scroller.scrollTop;
+		const receive = canvas.getByRole("button", { name: "Receive message" });
+		for (let index = 0; index < 3; index++) {
+			await userEvent.click(receive);
+			await sleep(300);
+		}
+		await sleep(1200);
+		await expect(Math.abs(scroller.scrollTop - before)).toBeLessThanOrEqual(1);
+		await expect(distanceOf(scroller)).toBeGreaterThan(20);
+		scroller.dispatchEvent(
+			new WheelEvent("wheel", { deltaY: 400, bubbles: true }),
+		);
+		scroller.scrollTop = scroller.scrollHeight;
+		await frames(3);
+		await userEvent.click(receive);
+		await waitFor(() => expect(distanceOf(scroller)).toBeLessThanOrEqual(1));
+	},
+};
+
 export const PrependKeepsPosition: Story = {
 	render: () => {
 		const channel = createChannel();
@@ -339,6 +380,43 @@ export const JumpToMessage: Story = {
 		await expect(
 			canvasElement.querySelector("[data-message-list-jump]"),
 		).toHaveAttribute("data-visible");
+	},
+};
+
+export const TouchStopsScroll: Story = {
+	render: () => {
+		const channel = createChannel({ paging: false });
+		return (
+			<ChannelView
+				channel={channel}
+				height="700px"
+				toolbar={(handle) => (
+					<Button
+						variant="secondary"
+						onClick={() => handle()?.scrollToBottom({ smooth: true })}
+					>
+						Scroll to bottom
+					</Button>
+				)}
+			/>
+		);
+	},
+	play: async ({ canvasElement }) => {
+		const canvas = within(canvasElement);
+		await settled(canvasElement);
+		const scroller = scrollerOf(canvasElement);
+		await scrollTo(scroller, scroller.scrollTop - scroller.clientHeight * 2);
+		await userEvent.click(
+			canvas.getByRole("button", { name: "Scroll to bottom" }),
+		);
+		await waitFor(() =>
+			expect(distanceOf(scroller)).toBeLessThan(scroller.clientHeight * 1.9),
+		);
+		scroller.dispatchEvent(new TouchEvent("touchstart", { bubbles: true }));
+		const stoppedAt = scroller.scrollTop;
+		await sleep(400);
+		await expect(Math.abs(scroller.scrollTop - stoppedAt)).toBeLessThan(2);
+		await expect(distanceOf(scroller)).toBeGreaterThan(50);
 	},
 };
 
@@ -1021,7 +1099,9 @@ const expectJumpCardGeometry = async (
 	minimumTarget: number,
 ) => {
 	const list = scrollerOf(canvas).getBoundingClientRect();
-	const card = jumpCardOf(canvas).firstElementChild as HTMLElement;
+	const card = jumpCardOf(canvas).querySelector(
+		"[data-jump-card]",
+	) as HTMLElement;
 	const surface = card.getBoundingClientRect();
 	const left = surface.left - list.left;
 	const right = list.right - surface.right;

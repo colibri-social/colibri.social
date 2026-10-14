@@ -2,6 +2,7 @@ import type { ColibriRichTextFacet } from "@colibri-social/lib";
 import { createSignal, type JSX } from "solid-js";
 import { expect, fn, userEvent, waitFor, within } from "storybook/test";
 import type { Meta, StoryObj } from "storybook-solidjs-vite";
+import { expectNoLayoutIssues } from "../../foundations/layout-test";
 import { storyImages } from "../Banner/story-images";
 import { buildClipboardHtml } from "./clipboard-facets";
 import { RichEditorProvider } from "./context";
@@ -55,7 +56,37 @@ const channels: ChannelSuggestion[] = [
 	{ id: "lounge", name: "lounge", kind: "voice" },
 ];
 
+const customEmojiSrc = (fill: string) =>
+	`data:image/svg+xml,${encodeURIComponent(
+		`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><rect width="24" height="24" rx="6" fill="${fill}"/></svg>`,
+	)}`;
+
+const customEmoji = [
+	{
+		id: "at://did:plc:hq/blue.moji.collection.item/shipit",
+		name: "shipit",
+		src: customEmojiSrc("#2f6fed"),
+		source: "Colibri HQ",
+		cid: "bafyshipit",
+		alt: "A rocket",
+		fallback: "🚀",
+	},
+	{
+		id: "at://did:plc:owls/blue.moji.collection.item/ship_of_theseus_with_an_unreasonably_long_name",
+		name: "ship_of_theseus_with_an_unreasonably_long_name",
+		src: customEmojiSrc("#d9467a"),
+		source: "The Night Owls Art Club and Friends Collective",
+	},
+];
+
 const sources: RichEditorSources = {
+	searchCustomEmoji: (query, limit) =>
+		customEmoji
+			.filter((emoji) => emoji.name.includes(query.toLowerCase()))
+			.slice(0, limit),
+	customEmojiByName: (name) => customEmoji.find((emoji) => emoji.name === name),
+	resolveCustomEmoji: ({ uri }) =>
+		customEmoji.find((emoji) => emoji.id === uri),
 	searchMembers: (query, limit) =>
 		members
 			.filter((member) =>
@@ -278,6 +309,109 @@ export const EmojiShortcodes: Story = {
 		await waitFor(() =>
 			expect(currentValue(canvasElement).text).toBe("Hi 👋 🎉 :tada:"),
 		);
+	},
+};
+
+export const CustomEmojiShortcodes: Story = {
+	render: () => <Harness platform="mobile" />,
+	play: async ({ canvasElement }) => {
+		const canvas = within(canvasElement);
+		const editor = field(canvasElement);
+		await userEvent.click(editor);
+		await userEvent.keyboard("Go :ship");
+		const list = await canvas.findByRole("listbox", { name: "Suggestions" });
+		const options = within(list).getAllByRole("option");
+		await expect(options[0]).toHaveTextContent(":shipit:");
+		await expect(
+			options[0].querySelector("img[data-custom-emoji-suggestion='shipit']"),
+		).not.toBeNull();
+		await expect(options[1]).toHaveTextContent(
+			":ship_of_theseus_with_an_unreasonably_long_name:",
+		);
+		await expectNoLayoutIssues(list);
+		await userEvent.keyboard("{Enter}");
+		await waitFor(() =>
+			expect(
+				editor.querySelector(
+					"[data-mention-type='customEmoji'][data-custom-emoji='shipit'] img",
+				),
+			).toHaveAttribute("alt", "A rocket"),
+		);
+		await waitFor(() => expect(currentValue(canvasElement).text).toBe("Go 🚀"));
+		await expect(currentValue(canvasElement).facets).toEqual([
+			expect.objectContaining({
+				index: expect.objectContaining({ byteStart: 3, byteEnd: 7 }),
+				features: [
+					{
+						$type: "social.colibri.beta.richtext.facet#customEmoji",
+						uri: "at://did:plc:hq/blue.moji.collection.item/shipit",
+						cid: "bafyshipit",
+					},
+				],
+			}),
+		]);
+	},
+};
+
+let inlineEditor: RichEditorHandle | undefined;
+
+export const CustomEmojiInline: Story = {
+	render: () => (
+		<Harness
+			platform="mobile"
+			onReady={(handle) => {
+				inlineEditor = handle;
+			}}
+			initialValue={{
+				text: "Ship it 🚀",
+				facets: [
+					{
+						index: { byteStart: 8, byteEnd: 12 },
+						features: [
+							{
+								$type: "social.colibri.beta.richtext.facet#customEmoji",
+								uri: "at://did:plc:hq/blue.moji.collection.item/shipit",
+							} as never,
+						],
+					},
+				],
+			}}
+		/>
+	),
+	play: async ({ canvasElement }) => {
+		const editor = field(canvasElement);
+		await waitFor(() =>
+			expect(
+				editor.querySelector("[data-custom-emoji='shipit'] img"),
+			).not.toBeNull(),
+		);
+		await userEvent.click(editor);
+		inlineEditor?.focus("end");
+		await waitFor(() => expect(editor).toHaveFocus());
+		await new Promise((resolve) => setTimeout(resolve, 50));
+		await userEvent.keyboard(
+			" :ship_of_theseus_with_an_unreasonably_long_name:",
+		);
+		await waitFor(() =>
+			expect(
+				editor.querySelectorAll("[data-mention-type='customEmoji'] img"),
+			).toHaveLength(2),
+		);
+		await expectNoLayoutIssues(editor);
+		await expect(currentValue(canvasElement).text).toBe(
+			"Ship it 🚀 :ship_of_theseus_with_an_unreasonably_long_name:",
+		);
+		await expect(featureTypes(currentValue(canvasElement))).toEqual([
+			"customEmoji",
+			"customEmoji",
+		]);
+		await userEvent.keyboard("{Backspace}");
+		await waitFor(() =>
+			expect(
+				editor.querySelectorAll("[data-mention-type='customEmoji']"),
+			).toHaveLength(1),
+		);
+		await expect(currentValue(canvasElement).text).toBe("Ship it 🚀");
 	},
 };
 

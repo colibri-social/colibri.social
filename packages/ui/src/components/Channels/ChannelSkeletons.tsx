@@ -79,7 +79,7 @@ export const CategoryHeaderSkeleton = (props: { class?: string }) => (
 		class={cx("flex w-full items-center gap-2 px-2 py-1", props.class)}
 	>
 		<Skeleton width={16} height={16} class="shrink-0 rounded-[4px]" />
-		<SkeletonText size="xs" leading={16} width={96} />
+		<SkeletonText size="sm" leading={20} width={96} />
 	</span>
 );
 

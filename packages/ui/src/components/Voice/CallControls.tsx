@@ -138,9 +138,16 @@ export type CallControlsProps = CallMediaState & {
 	onToggleCamera?: () => void;
 	onToggleScreenShare?: () => void;
 	onOpenChat?: () => void;
+	chatOpen?: boolean;
 	onLeave?: () => void;
 	class?: string;
 };
+
+export const chatToggleProps = (open: boolean | undefined) => ({
+	label: open ? "Close chat" : "Open chat",
+	pressed: open === undefined ? undefined : open,
+	tone: (open ? "active" : "default") as CallControlTone,
+});
 
 export const CallControls = (props: CallControlsProps) => {
 	const [local] = splitProps(props, ["class"]);
@@ -195,7 +202,9 @@ export const CallControls = (props: CallControlsProps) => {
 			</Show>
 			<Show when={props.onOpenChat}>
 				<CallControlButton
-					label="Open chat"
+					label={chatToggleProps(props.chatOpen).label}
+					pressed={chatToggleProps(props.chatOpen).pressed}
+					tone={chatToggleProps(props.chatOpen).tone}
 					size={props.size}
 					icon={<ChatRoundDotsIcon />}
 					onClick={props.onOpenChat}

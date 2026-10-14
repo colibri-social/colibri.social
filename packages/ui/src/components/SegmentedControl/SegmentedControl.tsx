@@ -42,7 +42,7 @@ export const SegmentedControl = (props: SegmentedControlProps) => {
 			{...rest}
 			data-segmented-control=""
 			class={cx(
-				"relative flex w-full shrink-0 items-stretch bg-secondary p-0.5 select-none",
+				"relative grid w-full shrink-0 auto-cols-fr grid-flow-col items-stretch bg-secondary p-0.5 select-none",
 				"data-[disabled]:opacity-50",
 				rootSize[size()],
 				local.class,
@@ -60,7 +60,7 @@ export const SegmentedControl = (props: SegmentedControlProps) => {
 					<KobalteSegmentedControl.Item
 						value={option.value}
 						disabled={option.disabled}
-						class="relative flex min-w-0 flex-1"
+						class="relative flex min-w-0"
 					>
 						<KobalteSegmentedControl.ItemInput class="peer sr-only" />
 						<KobalteSegmentedControl.ItemLabel

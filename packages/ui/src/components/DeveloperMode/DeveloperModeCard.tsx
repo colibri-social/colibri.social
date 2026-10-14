@@ -17,7 +17,15 @@ export type DeveloperModeCardProps = {
 	class?: string;
 };
 
+export const pdslsHrefFor = (value: string | undefined) => {
+	if (!value) return undefined;
+	if (value.startsWith("at://")) return `https://pdsls.dev/${value}`;
+	if (value.startsWith("did:")) return `https://pdsls.dev/at://${value}`;
+	return undefined;
+};
+
 export const DeveloperModeCard = (props: DeveloperModeCardProps) => {
+	const pdslsHref = () => props.pdslsHref ?? pdslsHrefFor(props.copyValue);
 	const [copied, setCopied] = createSignal(false);
 	let resetTimer: ReturnType<typeof setTimeout> | undefined;
 	onCleanup(() => clearTimeout(resetTimer));
@@ -60,7 +68,7 @@ export const DeveloperModeCard = (props: DeveloperModeCardProps) => {
 				>
 					<span class="truncate">{props.copyLabel ?? "Copy DID"}</span>
 				</Button>
-				<Show when={props.pdslsHref}>
+				<Show when={pdslsHref()}>
 					{(href) => (
 						<a
 							href={href()}

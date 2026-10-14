@@ -48,6 +48,10 @@
 		cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 
+[data-offscreen] [data-skeleton] {
+	animation-play-state: paused;
+}
+
 [data-loadable-skeleton] {
 	transition: opacity calc(var(--skeleton-fade) * var(--motion-scale))
 		var(--ease-out-quick, ease-out);

@@ -11,8 +11,10 @@ import {
 	within,
 } from "storybook/test";
 import type { Meta, StoryObj } from "storybook-solidjs-vite";
+import { LinkWarning } from "../LinkWarning/LinkWarning";
 import { Popover, PopoverContent, PopoverTrigger } from "../Popover/Popover";
 import {
+	CUSTOM_EMOJI_FEATURE,
 	type RichTextChannel,
 	RichTextProvider,
 	type RichTextResolvers,
@@ -58,6 +60,8 @@ const onChannelOpen = fn((_channel: string, event: MouseEvent) =>
 	event.preventDefault(),
 ).mockName("onChannelOpen");
 const onLockedChannel = fn().mockName("onLockedChannel");
+const onExternalLink = fn().mockName("onExternalLink");
+const onLinkConfirm = fn().mockName("onLinkConfirm");
 
 const resolvers: RichTextResolvers = {
 	member: (did) => MEMBERS[did],
@@ -329,6 +333,70 @@ const BLOCKS = build([
 	{ block: [f.subtext], parts: ["Subtext under it"] },
 ]);
 
+const ConfirmedLinks = () => {
+	const [pending, setPending] = createSignal<{
+		url: string;
+		disguised: boolean;
+	}>();
+	const [open, setOpen] = createSignal(false);
+	return (
+		<RichTextProvider
+			value={{
+				...resolvers,
+				platform: "mobile",
+				onExternalLink: (url, link) => {
+					onExternalLink(url, link);
+					setPending({ url, disguised: link.disguised });
+					setOpen(true);
+				},
+			}}
+		>
+			<div class="min-h-dvh bg-background p-4 text-base leading-[21px] text-foreground">
+				<RichTextRenderer value={LINKS} />
+			</div>
+			<LinkWarning
+				open={open()}
+				onOpenChange={setOpen}
+				url={pending()?.url ?? ""}
+				disguised={pending()?.disguised}
+				platform="mobile"
+				onConfirm={onLinkConfirm}
+			/>
+		</RichTextProvider>
+	);
+};
+
+export const LinksWithConfirmation: Story = {
+	parameters: { viewport: { defaultViewport: "iphone" } },
+	render: () => <ConfirmedLinks />,
+	play: async ({ canvasElement }) => {
+		onExternalLink.mockClear();
+		onLinkConfirm.mockClear();
+		const canvas = within(canvasElement);
+		const disguised = canvas.getByRole("link", { name: "google.com" });
+		await expect(disguised).toHaveAttribute("data-disguised", "true");
+		await userEvent.click(disguised);
+		await expect(onExternalLink).toHaveBeenCalledWith(
+			"https://evil.example/login",
+			{ label: "google.com", disguised: true },
+		);
+		const drawer = await screen.findByRole("dialog", {
+			name: "Open external link?",
+		});
+		await expect(drawer).toHaveTextContent("different address");
+		await expect(
+			drawer.querySelector("[data-link-warning-host]"),
+		).toHaveTextContent("evil.example");
+		await userEvent.click(
+			within(drawer).getByRole("button", { name: "Cancel" }),
+		);
+		await expect(onLinkConfirm).not.toHaveBeenCalled();
+		await expect(
+			canvasElement.querySelectorAll("[data-facet-type='unsafe-link']").length,
+		).toBe(1);
+	},
+};
+
 export const Blocks: Story = {
 	render: () => <Frame value={BLOCKS} />,
 	play: async ({ canvasElement }) => {
@@ -542,6 +610,176 @@ export const EmojiInCodeAndLinks: Story = {
 		const buttons = canvasElement.querySelectorAll("[data-emoji-button]");
 		await expect(buttons.length).toBe(1);
 		await expect(buttons[0].closest("code, a")).toBeNull();
+	},
+};
+
+const CUSTOM_EMOJI: Record<string, string> = {
+	party_parrot: `data:image/svg+xml,${encodeURIComponent(
+		'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><rect width="24" height="24" rx="6" fill="#9c66ff"/></svg>',
+	)}`,
+};
+
+const CustomFrame = (props: { value: TextWithFacets }) => (
+	<RichTextProvider
+		value={{
+			...resolvers,
+			customEmoji: (name) =>
+				CUSTOM_EMOJI[name] ? { name, src: CUSTOM_EMOJI[name] } : undefined,
+		}}
+	>
+		<div class="bg-background p-4 text-base leading-[21px] text-foreground">
+			<RichTextRenderer value={props.value} />
+		</div>
+	</RichTextProvider>
+);
+
+export const CustomEmoji: Story = {
+	render: () => (
+		<>
+			<CustomFrame
+				value={build([
+					"Ship it :party_parrot: but not :unknown: or ",
+					mark(":party_parrot:", f.code),
+					" 🐦",
+				])}
+			/>
+			<CustomFrame
+				value={{ text: ":party_parrot::party_parrot:", facets: [] }}
+			/>
+		</>
+	),
+	play: async ({ canvasElement }) => {
+		const [inline, jumbo] = Array.from(
+			canvasElement.querySelectorAll("[data-rich-text]"),
+		);
+		const images = inline.querySelectorAll("img[data-custom-emoji]");
+		await expect(images.length).toBe(1);
+		await expect(images[0]).toHaveAttribute("alt", ":party_parrot:");
+		await expect(inline.textContent).toContain(":unknown:");
+		await expect(inline.querySelector("code")?.textContent).toBe(
+			":party_parrot:",
+		);
+		await expect(inline.querySelectorAll("[data-emoji-button]").length).toBe(1);
+		await expect(inline).not.toHaveAttribute("data-jumbo");
+		await expect(jumbo).toHaveAttribute("data-jumbo");
+		await expect(jumbo.querySelectorAll("img[data-custom-emoji]").length).toBe(
+			2,
+		);
+	},
+};
+
+const OWL_URI = "at://did:plc:owls/blue.moji.collection.item/owl";
+
+const openedEmoji = fn();
+
+const ForeignFrame = (props: { value: TextWithFacets }) => (
+	<RichTextProvider
+		value={{
+			...resolvers,
+			customEmojiFeature: (feature) =>
+				feature.$type === CUSTOM_EMOJI_FEATURE && feature.uri === OWL_URI
+					? {
+							id: OWL_URI,
+							name: "owl",
+							src: CUSTOM_EMOJI.party_parrot as string,
+							alt: "An owl",
+						}
+					: undefined,
+		}}
+	>
+		<div class="bg-background p-4 text-base leading-[21px] text-foreground">
+			<RichTextRenderer value={props.value} />
+		</div>
+	</RichTextProvider>
+);
+
+const foreignFacet = (text: string, token: string, uri = OWL_URI) => {
+	const byteStart = encoder.encode(text.slice(0, text.indexOf(token))).length;
+	return {
+		$type: FACET,
+		index: { byteStart, byteEnd: byteStart + encoder.encode(token).length },
+		features: [{ $type: CUSTOM_EMOJI_FEATURE, uri }],
+	} as unknown as NonNullable<TextWithFacets["facets"]>[number];
+};
+
+export const CustomEmojiTap: Story = {
+	render: () => (
+		<RichTextProvider
+			value={{
+				...resolvers,
+				customEmoji: (name) =>
+					CUSTOM_EMOJI[name]
+						? { id: `emoji:${name}`, name, src: CUSTOM_EMOJI[name] }
+						: undefined,
+				onCustomEmojiOpen: openedEmoji,
+			}}
+		>
+			<div class="bg-background p-4 text-base leading-[21px] text-foreground">
+				<RichTextRenderer value={build(["Party :party_parrot: time"])} />
+			</div>
+		</RichTextProvider>
+	),
+	play: async ({ canvasElement }) => {
+		openedEmoji.mockClear();
+		const button = canvasElement.querySelector<HTMLElement>(
+			"[data-custom-emoji-button]",
+		);
+		await expect(button).toHaveAttribute("aria-label", ":party_parrot:");
+		await userEvent.click(button as HTMLElement);
+		await expect(openedEmoji).toHaveBeenCalledWith(
+			expect.objectContaining({
+				id: "emoji:party_parrot",
+				name: "party_parrot",
+			}),
+			button,
+		);
+		button?.focus();
+		await userEvent.keyboard("{Enter}");
+		await expect(openedEmoji).toHaveBeenCalledTimes(2);
+	},
+};
+
+export const CustomEmojiFacet: Story = {
+	render: () => (
+		<>
+			<ForeignFrame
+				value={{
+					text: "Grüße 🦉 from the owls",
+					facets: [foreignFacet("Grüße 🦉 from the owls", "🦉")],
+				}}
+			/>
+			<ForeignFrame
+				value={{
+					text: ":owl:",
+					facets: [foreignFacet(":owl:", ":owl:")],
+				}}
+			/>
+			<ForeignFrame
+				value={{
+					text: "lost :unicorn: here",
+					facets: [
+						foreignFacet(
+							"lost :unicorn: here",
+							":unicorn:",
+							"at://did:plc:owls/blue.moji.collection.item/unicorn",
+						),
+					],
+				}}
+			/>
+		</>
+	),
+	play: async ({ canvasElement }) => {
+		const [inline, jumbo, unresolved] = Array.from(
+			canvasElement.querySelectorAll("[data-rich-text]"),
+		);
+		const image = inline.querySelector("img[data-custom-emoji]");
+		await expect(image).toHaveAttribute("data-custom-emoji", "owl");
+		await expect(image).toHaveAttribute("alt", "An owl");
+		await expect(inline.textContent).not.toContain("🦉");
+		await expect(inline).not.toHaveAttribute("data-jumbo");
+		await expect(jumbo).toHaveAttribute("data-jumbo");
+		await expect(unresolved.querySelector("img[data-custom-emoji]")).toBeNull();
+		await expect(unresolved.textContent).toContain(":unicorn:");
 	},
 };
 

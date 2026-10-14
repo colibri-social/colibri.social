@@ -5,6 +5,7 @@ import { UserIdIcon } from "@solar-icons/solid/bold/user-id";
 import { createSignal, For, type JSX, Show } from "solid-js";
 import { expect, screen, userEvent, waitFor, within } from "storybook/test";
 import type { Meta, StoryObj } from "storybook-solidjs-vite";
+import { expectNoLayoutIssues } from "../../foundations/layout-test";
 import {
 	hasIntermediate,
 	recordHeightTransitions,
@@ -80,6 +81,47 @@ export const MenuInsideModal: Story = {
 		await expect(
 			within(menu).getByRole("menuitem", { name: "Rename" }),
 		).toBeInTheDocument();
+	},
+};
+
+export const KeyboardMenuInLargeModal: Story = {
+	name: "Keyboard menu in large modal",
+	render: () => (
+		<Modal>
+			<ModalTrigger as={Button}>Open settings</ModalTrigger>
+			<LargeModalContent title="Roles">
+				<div class="flex flex-col gap-4">
+					<For each={Array.from({ length: 30 }, (_, index) => index)}>
+						{(index) => (
+							<p class="m-0 text-sm text-muted-foreground">Row {index + 1}</p>
+						)}
+					</For>
+					<DropdownMenu
+						label="Role options"
+						trigger="Role options"
+						triggerAs={Button}
+						items={[{ label: "Rename" }, { label: "Delete" }]}
+					/>
+				</div>
+			</LargeModalContent>
+		</Modal>
+	),
+	play: async ({ canvasElement }) => {
+		await userEvent.click(
+			within(canvasElement).getByRole("button", { name: "Open settings" }),
+		);
+		const dialog = await screen.findByRole("dialog", { name: "Roles" });
+		const trigger = within(dialog).getByRole("button", {
+			name: "Role options",
+		});
+		trigger.focus();
+		await userEvent.keyboard("{Enter}");
+		const menu = await screen.findByRole("menu", {}, { timeout: 3000 });
+		await waitFor(() =>
+			expect(
+				within(menu).getByRole("menuitem", { name: "Rename" }),
+			).toHaveFocus(),
+		);
 	},
 };
 
@@ -333,5 +375,93 @@ export const AnimatesHeight: Story = {
 			await expect(after).toBeGreaterThan(before + 100);
 			await expect(hasIntermediate(samples, before, after)).toBe(true);
 		});
+	},
+};
+
+const rolePages = ["Roles", "Moderators", "Permissions"] as const;
+
+export const NestedPages: Story = {
+	name: "Nested pages",
+	render: () => {
+		const [depth, setDepth] = createSignal(1);
+		const trail = () =>
+			rolePages.slice(0, depth() - 1).map((label, index) => ({
+				label,
+				onSelect: () => setDepth(index + 1),
+			}));
+		return (
+			<Modal>
+				<ModalTrigger as={Button}>Open Space settings</ModalTrigger>
+				<LargeModalContent
+					title={rolePages[depth() - 1]}
+					trail={trail()}
+					onBack={depth() > 1 ? () => setDepth(depth() - 1) : undefined}
+					sidebar={<SettingsSidebar active="Profile" onSelect={() => {}} />}
+				>
+					<Show
+						when={depth() < rolePages.length}
+						fallback={
+							<p class="text-sm text-muted-foreground">
+								Permissions for Moderators go here.
+							</p>
+						}
+					>
+						<Button onClick={() => setDepth(depth() + 1)}>
+							Open {rolePages[depth()]}
+						</Button>
+					</Show>
+				</LargeModalContent>
+			</Modal>
+		);
+	},
+	play: async ({ canvasElement }) => {
+		await userEvent.click(
+			within(canvasElement).getByRole("button", {
+				name: "Open Space settings",
+			}),
+		);
+		const dialog = await screen.findByRole("dialog", { name: "Roles" });
+		await expect(
+			within(dialog).queryByRole("navigation", { name: "Breadcrumb" }),
+		).toBeNull();
+		await expect(
+			within(dialog).queryByRole("button", { name: "Back" }),
+		).toBeNull();
+		await userEvent.click(
+			within(dialog).getByRole("button", { name: "Open Moderators" }),
+		);
+		await userEvent.click(
+			within(dialog).getByRole("button", { name: "Open Permissions" }),
+		);
+		const crumbs = within(dialog).getByRole("navigation", {
+			name: "Breadcrumb",
+		});
+		await expect(
+			Array.from(crumbs.querySelectorAll("li")).map((item) =>
+				item.textContent?.replace("/", "").trim(),
+			),
+		).toEqual(["Roles", "Moderators", "Permissions"]);
+		await expect(within(crumbs).getByText("Permissions")).toHaveAttribute(
+			"aria-current",
+			"page",
+		);
+		await expectNoLayoutIssues(dialog);
+		await userEvent.click(within(dialog).getByRole("button", { name: "Back" }));
+		await waitFor(() =>
+			expect(
+				within(dialog).getByRole("button", { name: "Open Permissions" }),
+			).toBeInTheDocument(),
+		);
+		await userEvent.click(
+			within(crumbs).getByRole("button", { name: "Roles" }),
+		);
+		await waitFor(() =>
+			expect(
+				within(dialog).queryByRole("navigation", { name: "Breadcrumb" }),
+			).toBeNull(),
+		);
+		await expect(
+			within(dialog).queryByRole("button", { name: "Back" }),
+		).toBeNull();
 	},
 };

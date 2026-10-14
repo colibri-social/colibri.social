@@ -1,6 +1,8 @@
 import { Dialog } from "@kobalte/core/dialog";
 import { CloseIcon } from "@solar-icons/solid/bold/close";
+import { ArrowLeftIcon } from "@solar-icons/solid/linear/arrow-left";
 import {
+	For,
 	type JSX,
 	type ParentProps,
 	Show,
@@ -145,8 +147,16 @@ export const ModalContent = (props: ModalContentProps) => {
 	);
 };
 
+export type ModalTrailItem = {
+	label: JSX.Element;
+	onSelect?: () => void;
+};
+
 export type LargeModalContentProps = {
 	title: JSX.Element;
+	trail?: ModalTrailItem[];
+	onBack?: () => void;
+	backLabel?: string;
 	sidebar?: JSX.Element;
 	closeLabel?: string;
 	class?: string;
@@ -156,6 +166,9 @@ export type LargeModalContentProps = {
 export const LargeModalContent = (props: LargeModalContentProps) => {
 	const [local, rest] = splitProps(props, [
 		"title",
+		"trail",
+		"onBack",
+		"backLabel",
 		"sidebar",
 		"closeLabel",
 		"class",
@@ -189,10 +202,69 @@ export const LargeModalContent = (props: LargeModalContentProps) => {
 							sidebar.has() && "border-l border-border",
 						)}
 					>
-						<div class="flex h-12 shrink-0 items-center justify-between border-b border-border pr-2 pl-4">
-							<Dialog.Title class="truncate text-base font-semibold">
-								{local.title}
-							</Dialog.Title>
+						<div
+							class={cx(
+								"flex h-12 shrink-0 items-center gap-2 border-b border-border pr-2",
+								local.onBack ? "pl-2" : "pl-4",
+							)}
+						>
+							<Show when={local.onBack}>
+								<IconButton
+									variant="ghost"
+									size="md"
+									label={local.backLabel ?? "Back"}
+									icon={<ArrowLeftIcon />}
+									data-modal-back=""
+									onClick={() => local.onBack?.()}
+								/>
+							</Show>
+							<Show
+								when={local.trail?.length}
+								fallback={
+									<Dialog.Title class="min-w-0 flex-1 truncate text-base font-semibold">
+										{local.title}
+									</Dialog.Title>
+								}
+							>
+								<nav aria-label="Breadcrumb" class="flex min-w-0 flex-1">
+									<ol class="m-0 flex min-w-0 list-none items-center gap-1.5 p-0">
+										<For each={local.trail}>
+											{(item) => (
+												<li
+													data-modal-trail=""
+													class="flex min-w-0 shrink items-center gap-1.5 text-base text-muted-foreground"
+												>
+													<Show
+														when={item.onSelect}
+														fallback={
+															<span class="truncate">{item.label}</span>
+														}
+													>
+														{(select) => (
+															<button
+																type="button"
+																onClick={() => select()()}
+																class="focus-ring cursor-pointer truncate rounded-control-sm border-0 bg-transparent p-0 text-base text-muted-foreground hover:text-foreground"
+															>
+																{item.label}
+															</button>
+														)}
+													</Show>
+													<span aria-hidden="true">/</span>
+												</li>
+											)}
+										</For>
+										<li class="flex min-w-0 shrink-[0.5] items-center">
+											<Dialog.Title
+												aria-current="page"
+												class="truncate text-base font-semibold"
+											>
+												{local.title}
+											</Dialog.Title>
+										</li>
+									</ol>
+								</nav>
+							</Show>
 							<ModalCloseButton label={local.closeLabel} />
 						</div>
 						<div class="min-h-0 flex-1 overflow-y-auto p-4">

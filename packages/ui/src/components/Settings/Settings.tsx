@@ -4,16 +4,30 @@ import { MenuDotsVerticalIcon } from "@solar-icons/solid/bold/menu-dots-vertical
 import { TransferHorizontalIcon } from "@solar-icons/solid/bold/transfer-horizontal";
 import { UserIcon } from "@solar-icons/solid/bold/user";
 import { VerifiedCheckIcon } from "@solar-icons/solid/bold/verified-check";
-import { createSignal, type JSX, onCleanup, Show, splitProps } from "solid-js";
+import {
+	createSignal,
+	For,
+	type JSX,
+	onCleanup,
+	Show,
+	splitProps,
+} from "solid-js";
 import { copyText } from "../../utils/clipboard";
 import { cx } from "../../utils/cx";
 import { createSlot } from "../../utils/slot";
 import { AnimatedImage } from "../AnimatedImage/AnimatedImage";
 import { Avatar } from "../Avatar/Avatar";
 import { Card } from "../Card/Card";
+import { Checkbox } from "../Checkbox/Checkbox";
+import {
+	DropdownMenu,
+	type DropdownMenuEntry,
+} from "../DropdownMenu/DropdownMenu";
 import { IconButton } from "../IconButton/IconButton";
 import { InviteStateBadge } from "../Invite/InviteStateBadge";
 import type { InviteState } from "../Invite/invite-links";
+import { SpaceIcon } from "../Space/SpaceIcon";
+import { Tooltip, TooltipContent, TooltipTrigger } from "../Tooltip/Tooltip";
 
 const COPIED_MS = 1500;
 
@@ -43,7 +57,7 @@ export type InviteCardProps = {
 	code: string;
 	copyValue: string;
 	expires: JSX.Element;
-	creator: { handle: string; avatar?: string };
+	creator: { handle: string; avatar?: string; did?: string };
 	uses: JSX.Element;
 	state?: InviteState;
 	onCopy?: (value: string) => void;
@@ -108,6 +122,7 @@ export const InviteCard = (props: InviteCardProps) => {
 					<Avatar
 						size="xs"
 						name={props.creator.handle}
+						seed={props.creator.did ?? props.creator.handle}
 						src={props.creator.avatar}
 						class="shrink-0"
 					/>
@@ -231,11 +246,21 @@ export type EmojiRowProps = {
 	uploader?: { handle: string; avatar?: string };
 	menuLabel?: string;
 	onMenu?: (event: MouseEvent) => void;
+	selectable?: boolean;
+	selected?: boolean;
+	onSelectedChange?: (selected: boolean) => void;
 	class?: string;
 };
 
 export const EmojiRow = (props: EmojiRowProps) => (
-	<div class={cx("flex h-10 w-full items-center gap-2 px-3", props.class)}>
+	<div
+		data-emoji-row={props.name}
+		class={cx(
+			"flex h-10 w-full items-center gap-2 pl-3",
+			props.selectable ? "pr-2" : "pr-3",
+			props.class,
+		)}
+	>
 		<AnimatedImage
 			src={props.src}
 			alt=""
@@ -277,13 +302,188 @@ export const EmojiRow = (props: EmojiRowProps) => (
 				</>
 			)}
 		</Show>
-		<IconButton
-			size="sm"
-			variant="ghost"
-			label={props.menuLabel ?? `More actions for :${props.name}:`}
-			icon={<MenuDotsVerticalIcon />}
-			onClick={(event) => props.onMenu?.(event)}
-			class="-mx-1.5 text-muted-foreground"
-		/>
+		<Show
+			when={props.selectable}
+			fallback={
+				<Show when={props.onMenu}>
+					<IconButton
+						size="sm"
+						variant="ghost"
+						label={props.menuLabel ?? `More actions for :${props.name}:`}
+						icon={<MenuDotsVerticalIcon />}
+						onClick={(event) => props.onMenu?.(event)}
+						class="-mx-1.5 text-muted-foreground"
+					/>
+				</Show>
+			}
+		>
+			<Checkbox
+				aria-label={`Include :${props.name}:`}
+				checked={props.selected ?? false}
+				onChange={(next) => props.onSelectedChange?.(next)}
+			/>
+		</Show>
 	</div>
 );
+
+export type BridgeStatusTone = "active" | "warning" | "error";
+
+export type BridgeSummaryCardProps = {
+	name: string;
+	platform: string;
+	handle: string;
+	verified?: boolean;
+	icon?: JSX.Element;
+	channels: readonly string[];
+	maxChannels?: number;
+	status: { tone: BridgeStatusTone; label: string };
+	mirrorModeration?: boolean;
+	menuLabel?: string;
+	menuItems?: DropdownMenuEntry[];
+	class?: string;
+};
+
+const statusDotClass: Record<BridgeStatusTone, string> = {
+	active: "bg-success",
+	warning: "bg-warning",
+	error: "bg-destructive",
+};
+
+const BRIDGE_CHANNEL_CHIPS = 3;
+
+export const BridgeSummaryCard = (props: BridgeSummaryCardProps) => {
+	const icon = createSlot(() => props.icon);
+	const limit = () => props.maxChannels ?? BRIDGE_CHANNEL_CHIPS;
+	const shown = () => props.channels.slice(0, limit());
+	const hidden = () => props.channels.slice(limit());
+
+	return (
+		<Card
+			tone="secondary"
+			data-bridge-summary={props.name}
+			class={cx("flex min-w-0 flex-col gap-4 p-4", props.class)}
+		>
+			<div class="flex min-w-0 items-start gap-3">
+				<span class="flex size-8 shrink-0 items-center justify-center [&>svg]:size-6">
+					<Show
+						when={icon.has()}
+						fallback={
+							<SpaceIcon
+								name={props.platform}
+								size={32}
+								class="bg-accent text-foreground"
+							/>
+						}
+					>
+						{icon()}
+					</Show>
+				</span>
+				<div class="flex min-w-0 flex-1 flex-col gap-0.5">
+					<span class="flex min-w-0 items-center gap-1.5">
+						<span
+							class="min-w-0 truncate text-base leading-5 font-bold"
+							title={props.name}
+						>
+							{props.name}
+						</span>
+						<Show when={props.verified}>
+							<VerifiedCheckIcon
+								class="size-4 shrink-0 text-primary"
+								aria-label="Verified"
+								role="img"
+							/>
+						</Show>
+					</span>
+					<span
+						class="min-w-0 truncate text-xs text-muted-foreground"
+						title={`${props.platform} bridge by ${props.handle}`}
+					>
+						{`${props.platform} bridge by ${props.handle}`}
+					</span>
+				</div>
+				<Show when={props.menuItems?.length}>
+					<DropdownMenu
+						platform="desktop"
+						label={props.menuLabel ?? `${props.name} bridge options`}
+						items={props.menuItems}
+						placement="bottom-end"
+						triggerAs={IconButton}
+						triggerProps={{
+							size: "sm",
+							label: props.menuLabel ?? `More actions for ${props.name} bridge`,
+							icon: <MenuDotsVerticalIcon />,
+							class: cx("-mt-0.5 -mr-0.5", cardMenuButton),
+						}}
+					/>
+				</Show>
+			</div>
+			<Show
+				when={props.channels.length > 0}
+				fallback={
+					<p class="m-0 text-sm text-muted-foreground">
+						No channels linked yet
+					</p>
+				}
+			>
+				<ul
+					aria-label="Linked channels"
+					data-bridge-channels=""
+					class="m-0 flex min-w-0 list-none flex-wrap gap-1.5 p-0"
+				>
+					<For each={shown()}>
+						{(channel) => (
+							<li class="flex min-w-0 max-w-full">
+								<span
+									class="flex h-6 min-w-0 items-center gap-1 rounded-full bg-secondary-highlight pr-2.5 pl-1.5 text-xs font-semibold"
+									title={channel}
+								>
+									<HashtagIcon
+										aria-hidden="true"
+										class="size-3.5 shrink-0 text-muted-foreground"
+									/>
+									<span class="min-w-0 truncate">{channel}</span>
+								</span>
+							</li>
+						)}
+					</For>
+					<Show when={hidden().length > 0}>
+						<li class="flex shrink-0">
+							<Tooltip placement="top">
+								<TooltipTrigger
+									as="span"
+									tabIndex={0}
+									data-bridge-channels-more=""
+									aria-label={`${hidden().length} more: ${hidden().join(", ")}`}
+									class="focus-ring flex h-6 cursor-default items-center rounded-full bg-secondary-highlight px-2.5 text-xs font-semibold text-muted-foreground"
+								>
+									{`+${hidden().length}`}
+								</TooltipTrigger>
+								<TooltipContent>{hidden().join(", ")}</TooltipContent>
+							</Tooltip>
+						</li>
+					</Show>
+				</ul>
+			</Show>
+			<div class="mt-auto flex min-w-0 items-center justify-between gap-3 text-xs">
+				<span
+					data-bridge-status={props.status.tone}
+					class="flex min-w-0 items-center gap-1.5 font-semibold"
+				>
+					<span
+						aria-hidden="true"
+						class={cx(
+							"size-2 shrink-0 rounded-full",
+							statusDotClass[props.status.tone],
+						)}
+					/>
+					<span class="min-w-0 truncate">{props.status.label}</span>
+				</span>
+				<Show when={props.mirrorModeration !== undefined}>
+					<span class="shrink-0 text-muted-foreground">
+						{`Mirror moderation: ${props.mirrorModeration ? "on" : "off"}`}
+					</span>
+				</Show>
+			</div>
+		</Card>
+	);
+};

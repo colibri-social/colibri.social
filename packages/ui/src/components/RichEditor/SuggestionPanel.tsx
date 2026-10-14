@@ -24,6 +24,7 @@ const SECTION_LABEL: Record<SuggestionItem["kind"], string> = {
 	bridged: "Bridged",
 	role: "Roles",
 	channel: "Channels",
+	customEmoji: "Custom emoji",
 	emoji: "Emoji",
 	time: "Time",
 };
@@ -47,6 +48,7 @@ const SuggestionRow = (props: { item: SuggestionItem }): JSX.Element => (
 					<Avatar
 						size="sm"
 						name={member().name}
+						seed={member().did}
 						src={member().avatarSrc}
 						color={member().color}
 						presence={member().presence}
@@ -65,7 +67,12 @@ const SuggestionRow = (props: { item: SuggestionItem }): JSX.Element => (
 		<Match when={props.item.kind === "bridged" && props.item.person}>
 			{(person) => (
 				<>
-					<Avatar size="sm" name={person().name} src={person().avatarSrc} />
+					<Avatar
+						size="sm"
+						name={person().name}
+						seed={`${person().platform}:${person().remoteId}`}
+						src={person().avatarSrc}
+					/>
 					<span class="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
 						{person().name}
 					</span>
@@ -123,6 +130,30 @@ const SuggestionRow = (props: { item: SuggestionItem }): JSX.Element => (
 							{channel().name}
 						</span>
 					</span>
+				</>
+			)}
+		</Match>
+		<Match when={props.item.kind === "customEmoji" && props.item.emoji}>
+			{(emoji) => (
+				<>
+					<img
+						aria-hidden="true"
+						alt=""
+						src={emoji().src}
+						draggable={false}
+						data-custom-emoji-suggestion={emoji().name}
+						class="size-6 shrink-0 object-contain"
+					/>
+					<span class="min-w-0 flex-1 truncate text-sm text-foreground">
+						:{emoji().name}:
+					</span>
+					<Show when={emoji().source}>
+						{(source) => (
+							<span class="max-w-[40%] shrink-0 truncate text-sm text-muted-foreground">
+								{source()}
+							</span>
+						)}
+					</Show>
 				</>
 			)}
 		</Match>

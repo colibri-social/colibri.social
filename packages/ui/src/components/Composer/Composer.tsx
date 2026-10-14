@@ -1,10 +1,10 @@
+import { AddIcon } from "@solar-icons/solid/bold/add";
 import { CheckCircleIcon } from "@solar-icons/solid/bold/check-circle";
 import { SmileCircleIcon } from "@solar-icons/solid/bold/smile-circle";
 import { createEffect, createSignal, type JSX, on, Show } from "solid-js";
 import type { AnimatedIconHandle } from "../../icons/animated/AnimatedIcon";
 import { AnimatedGifIcon } from "../../icons/animated/brand";
 import { AnimatedSendIcon } from "../../icons/animated/icons";
-import { AnimatedUploadIcon } from "../../icons/animated/navigation";
 import { cx } from "../../utils/cx";
 import { iconEffectClass } from "../../utils/icon-fx";
 import { createSlot } from "../../utils/slot";
@@ -35,6 +35,8 @@ export type ComposerEditing = {
 	onCancel: () => void;
 	allowEmpty?: boolean;
 };
+
+export const COMPOSER_TYPING_INSET = 32;
 
 export type ComposerProps = {
 	platform?: ComposerPlatform;
@@ -72,6 +74,8 @@ export type ComposerProps = {
 };
 
 const DEFAULT_MAX_LINES = 8;
+
+const keepEditorFocus = (event: Event) => event.preventDefault();
 
 const toolButtonClass =
 	"text-muted-foreground enabled:hover:text-foreground data-pressed:text-foreground";
@@ -195,7 +199,12 @@ export const Composer = (props: ComposerProps) => {
 					class={
 						platform() === "desktop"
 							? "[--typing-ring:var(--card)]"
-							: "pointer-events-none [--typing-ring:var(--background)]"
+							: cx(
+									"pointer-events-none absolute inset-x-0 bottom-full flex h-8 flex-col justify-end [padding-inline:inherit] [--typing-ring:var(--background)]",
+									"bg-linear-to-b from-transparent via-background/70 via-35% to-background to-90%",
+									"opacity-0 transition-opacity duration-[calc(var(--duration-color)*var(--motion-scale))] ease-[var(--ease-out-quick)] has-data-active:opacity-100",
+									"motion-reduce:transition-none reduced-motion:transition-none",
+								)
 					}
 				>
 					{typing()}
@@ -204,7 +213,10 @@ export const Composer = (props: ComposerProps) => {
 			<div data-composer-anchor="" class="relative">
 				<div
 					data-composer-box=""
-					class="flex flex-col overflow-clip rounded-control-lg border border-popover-highlight bg-popover shadow-[0_0_8px_0_rgb(0_0_0/0.5)] light:shadow-[0_0_8px_0_rgb(0_0_0/0.12)]"
+					class={cx(
+						"flex flex-col overflow-clip rounded-control-lg border border-popover-highlight bg-popover shadow-[0_0_8px_0_rgb(0_0_0/0.5)] light:shadow-[0_0_8px_0_rgb(0_0_0/0.12)]",
+						"has-[[contenteditable=true]:focus]:border-control-border",
+					)}
 				>
 					<EditBar
 						open={!!editing()}
@@ -232,14 +244,14 @@ export const Composer = (props: ComposerProps) => {
 						<div
 							class={cx(
 								"flex items-end",
-								platform() === "desktop" ? "gap-3 p-3" : "gap-2 p-2",
+								platform() === "desktop" ? "gap-3 px-3 py-[11px]" : "gap-2 p-2",
 							)}
 						>
 							<IconButton
 								data-composer-upload=""
 								variant="ghost"
 								label="Upload a file"
-								icon={<AnimatedUploadIcon />}
+								icon={<AddIcon />}
 								class={toolButtonClass}
 								disabled={!!editing()}
 								onClick={(event) => props.onUpload?.(event)}
@@ -301,6 +313,8 @@ export const Composer = (props: ComposerProps) => {
 								icon={<SmileCircleIcon />}
 								iconEffect="wiggle"
 								class={toolButtonClass}
+								onPointerDown={keepEditorFocus}
+								onMouseDown={keepEditorFocus}
 								onClick={(event) => props.onEmoji?.(event)}
 							/>
 							<Show

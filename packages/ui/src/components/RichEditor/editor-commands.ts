@@ -8,7 +8,9 @@ import { codeContextAt } from "../../utils/rich-text/code-context";
 import { MARKDOWN_LINK_POLICY } from "../../utils/rich-text/link-safety";
 import { codeContextAtPos, cursorLine, projectBlock } from "./block-projection";
 import { buildClipboardHtml } from "./clipboard-facets";
+import { customEmojiAttrs } from "./custom-emoji";
 import { proseMirrorToFacets } from "./prosemirror-to-facets";
+import type { CustomEmojiSuggestion } from "./types";
 
 export type FormatKind =
 	| "bold"
@@ -393,17 +395,35 @@ const SHORTCODE_TO_EMOJI = (() => {
 export const emojiForShortcode = (shortcode: string) =>
 	SHORTCODE_TO_EMOJI.get(shortcode.toLowerCase());
 
-export const ShortcodeEmoji = Extension.create({
+export type ShortcodeEmojiOptions = {
+	customEmoji: (name: string) => CustomEmojiSuggestion | undefined;
+};
+
+export const ShortcodeEmoji = Extension.create<ShortcodeEmojiOptions>({
 	name: "shortcodeEmoji",
+	addOptions() {
+		return { customEmoji: () => undefined };
+	},
 	addInputRules() {
+		const options = this.options;
 		return [
 			new InputRule({
 				find: /(?:^|\s):([a-zA-Z0-9_+-]+):$/,
 				handler: ({ state, range, match }) => {
-					const emoji = emojiForShortcode(match[1]);
-					if (!emoji) return null;
-					const start = range.to - match[1].length - 1;
+					const name = match[1];
+					const start = range.to - name.length - 1;
 					if (codeContextAtPos(state.doc, start)) return null;
+					const custom = options.customEmoji(name);
+					if (custom) {
+						const node = state.schema.nodes.mention?.create(
+							customEmojiAttrs(custom),
+						);
+						if (!node) return null;
+						state.tr.replaceWith(start, range.to, node);
+						return;
+					}
+					const emoji = emojiForShortcode(name);
+					if (!emoji) return null;
 					state.tr.insertText(emoji, start, range.to);
 				},
 			}),

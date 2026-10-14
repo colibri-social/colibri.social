@@ -1,8 +1,10 @@
 import { createRoot, createSignal, For, Show } from "solid-js";
 import { expect, fn, screen, userEvent, waitFor, within } from "storybook/test";
 import type { Meta, StoryObj } from "storybook-solidjs-vite";
+import { expectNoLayoutIssues } from "../../foundations/layout-test";
 import { createSwipe } from "../../utils/gestures/swipe";
 import { type Haptics, HapticsProvider } from "../../utils/haptics";
+import { Button } from "../Button/Button";
 import {
 	MessageContextMenu,
 	MessageMenuItems,
@@ -294,6 +296,18 @@ export const Toolbar: Story = {
 			"[data-toolbar-separator]",
 		);
 		await expect(separators.length).toBe(2);
+		const ownButtons = canvas
+			.getAllByRole("toolbar", { name: "Message actions" })[0]
+			.querySelectorAll<HTMLElement>(
+				"[data-toolbar-action], button[title='More actions']",
+			);
+		const flush = (left: HTMLElement, right: HTMLElement) =>
+			Math.abs(
+				right.getBoundingClientRect().left - left.getBoundingClientRect().right,
+			);
+		await expect(flush(ownButtons[0], ownButtons[1])).toBeLessThan(0.5);
+		await expect(flush(ownButtons[3], ownButtons[4])).toBeLessThan(0.5);
+		await expect(flush(ownButtons[4], ownButtons[5])).toBeLessThan(0.5);
 		const toolbarElement = canvasElement.querySelector(
 			"[data-message-toolbar]",
 		) as HTMLElement;
@@ -346,21 +360,37 @@ export const ToolbarShiftReveal: Story = {
 		toolbarDelete.mockClear();
 		toolbarHide.mockClear();
 		const canvas = within(canvasElement);
-		const [ownBar, otherBar] = canvas
-			.getAllByRole("toolbar", { name: "Message actions" })
-			.map((element) => within(element));
+		const [ownElement, otherElement] = canvas.getAllByRole("toolbar", {
+			name: "Message actions",
+		});
+		const ownBar = within(ownElement);
+		const otherBar = within(otherElement);
 		const names = (bar: typeof ownBar) =>
 			bar
 				.getAllByRole("button")
 				.map((button) => button.getAttribute("aria-label"));
-		const extras = canvasElement.querySelectorAll<HTMLElement>(
-			"[data-toolbar-extras]",
-		);
-		await expect(extras.length).toBe(2);
-		for (const extra of extras) {
-			await expect(extra).toHaveAttribute("inert");
-			await expect(extra.getBoundingClientRect().width).toBe(0);
-		}
+		const xOf = (bar: typeof ownBar, name: string) =>
+			Math.round(
+				bar.getByRole("button", { name }).getBoundingClientRect().left,
+			);
+		const regular = (bar: typeof ownBar, own: boolean) =>
+			["Add reaction", own ? "Edit" : "Reply", "Forward"].map((name) =>
+				xOf(bar, name),
+			);
+		const ownBefore = regular(ownBar, true);
+		const otherBefore = regular(otherBar, false);
+		const rightOf = (element: HTMLElement) =>
+			Math.round(element.getBoundingClientRect().right);
+		const ownRight = rightOf(ownElement);
+		const moreRect = ownBar
+			.getByRole("button", { name: "More actions" })
+			.getBoundingClientRect();
+		const otherMoreRect = otherBar
+			.getByRole("button", { name: "More actions" })
+			.getBoundingClientRect();
+		await expect(
+			canvasElement.querySelectorAll("[data-toolbar-extras]"),
+		).toHaveLength(0);
 		await expect(names(ownBar)).not.toContain("Delete message");
 
 		window.dispatchEvent(
@@ -368,40 +398,68 @@ export const ToolbarShiftReveal: Story = {
 		);
 		await waitFor(() =>
 			expect(names(ownBar)).toEqual([
-				"React with 🐦",
-				"React with 👀",
-				"React with 🔥",
-				"Add reaction",
-				"Edit",
-				"Forward",
 				"Reply",
 				"Open thread",
 				"Copy text",
+				"Add reaction",
+				"Edit",
+				"Forward",
 				"Delete message",
-				"More actions",
 			]),
 		);
 		await expect(names(otherBar)).toEqual([
-			"React with 🐦",
-			"React with 👀",
-			"React with 🔥",
-			"Add reaction",
-			"Reply",
-			"Forward",
 			"Open thread",
 			"Copy text",
 			"Select messages",
+			"Add reaction",
+			"Reply",
+			"Forward",
 			"Hide message",
-			"More actions",
 		]);
-		for (const extra of extras) {
-			await expect(extra).not.toHaveAttribute("inert");
-			await waitFor(() =>
-				expect(extra.getBoundingClientRect().width).toBeGreaterThan(100),
-			);
-		}
+		const hideRect = otherBar
+			.getByRole("button", { name: "Hide message" })
+			.getBoundingClientRect();
+		await expect(Math.round(hideRect.left)).toBe(
+			Math.round(otherMoreRect.left),
+		);
+		await expect(Math.round(hideRect.width)).toBe(
+			Math.round(otherMoreRect.width),
+		);
+		await expect(
+			otherBar.getByRole("button", { name: "Hide message" }).className,
+		).toContain("text-destructive");
+		await expect(
+			canvasElement.querySelectorAll("[data-toolbar-separator]"),
+		).toHaveLength(0);
+		await expect(regular(ownBar, true)).toEqual(ownBefore);
+		await expect(regular(otherBar, false)).toEqual(otherBefore);
+		await expect(rightOf(ownElement)).toBe(ownRight);
+		const extras = ownElement.querySelector<HTMLElement>(
+			"[data-toolbar-extras]",
+		);
+		await expect(
+			(extras as HTMLElement).getBoundingClientRect().right,
+		).toBeLessThanOrEqual(
+			ownBar
+				.getByRole("button", { name: "Add reaction" })
+				.getBoundingClientRect().left + 0.5,
+		);
 		const deleteButton = ownBar.getByRole("button", { name: "Delete message" });
 		await expect(deleteButton.className).toContain("text-destructive");
+		const deleteRect = deleteButton.getBoundingClientRect();
+		await expect(Math.round(deleteRect.left)).toBe(Math.round(moreRect.left));
+		await expect(Math.round(deleteRect.width)).toBe(Math.round(moreRect.width));
+		await expect(Math.round(deleteRect.height)).toBe(
+			Math.round(moreRect.height),
+		);
+		await expect(deleteButton.textContent?.trim()).toBe("");
+		await expect(deleteButton.querySelector("svg")).not.toBeNull();
+		const probe = document.createElement("span");
+		probe.className = "text-destructive";
+		document.body.append(probe);
+		const danger = getComputedStyle(probe).color;
+		probe.remove();
+		await expect(getComputedStyle(deleteButton).color).toBe(danger);
 		await userEvent.click(deleteButton);
 		await expect(toolbarDelete).toHaveBeenCalledTimes(1);
 		await userEvent.click(
@@ -416,11 +474,21 @@ export const ToolbarShiftReveal: Story = {
 		window.dispatchEvent(
 			new KeyboardEvent("keyup", { key: "Shift", shiftKey: false }),
 		);
-		await waitFor(() => expect(names(ownBar)).not.toContain("Delete message"));
-		for (const extra of extras) {
-			await expect(extra).toHaveAttribute("inert");
-			await waitFor(() => expect(extra.getBoundingClientRect().width).toBe(0));
-		}
+		await waitFor(() => expect(names(ownBar)).toContain("More actions"));
+		await expect(names(ownBar)).toEqual([
+			"React with 🐦",
+			"React with 👀",
+			"React with 🔥",
+			"Add reaction",
+			"Edit",
+			"Forward",
+			"More actions",
+		]);
+		await expect(
+			canvasElement.querySelectorAll("[data-toolbar-separator]"),
+		).toHaveLength(2);
+		await expect(regular(ownBar, true)).toEqual(ownBefore);
+		await expect(regular(otherBar, false)).toEqual(otherBefore);
 	},
 };
 
@@ -520,6 +588,8 @@ export const SwipeReply: Story = {
 		await expect(
 			canvasElement.querySelector("[data-swipe-arrow]"),
 		).toHaveAttribute("data-crossed");
+		await expect(getComputedStyle(content).borderTopRightRadius).toBe("0px");
+		await expect(getComputedStyle(content).borderBottomRightRadius).toBe("0px");
 		touch("pointermove", content, startX - 80, y);
 		await nextFrame();
 		await expect(haptics.impact).toHaveBeenCalledTimes(1);
@@ -602,6 +672,8 @@ export const LongPressDrawer: Story = {
 		const row = within(canvasElement).getByTestId("pressable-row");
 		const rect = row.getBoundingClientRect();
 		touch("pointerdown", row, rect.left + 40, rect.top + 20);
+		const host = row.closest("[data-message-gestures]") as HTMLElement;
+		await expect(host.querySelector("[data-ripple-wave]")).not.toBeNull();
 		await new Promise((resolve) => setTimeout(resolve, 500));
 		await expect(haptics.impact).toHaveBeenCalledWith("medium");
 		const dialog = await screen.findByRole("dialog", {
@@ -1000,5 +1072,139 @@ export const SwipeUtility: Story = {
 				dispose();
 			});
 		});
+	},
+};
+
+const touchAt = (target: EventTarget, type: string, x: number, y: number) =>
+	target.dispatchEvent(
+		new PointerEvent(type, {
+			pointerId: 41,
+			pointerType: "touch",
+			isPrimary: true,
+			clientX: x,
+			clientY: y,
+			bubbles: true,
+		}),
+	);
+
+export const LongPressCancelsWhenAnotherGestureTakesOver: Story = {
+	render: () => {
+		const [count, setCount] = createSignal(0);
+		return (
+			<div class="p-4">
+				<MessageGestures onLongPress={() => setCount((value) => value + 1)}>
+					<div data-testid="row" class="rounded-control bg-card p-4">
+						Hold me
+					</div>
+				</MessageGestures>
+				<output data-testid="calls">{count()}</output>
+			</div>
+		);
+	},
+	play: async ({ canvasElement }) => {
+		const canvas = within(canvasElement);
+		const row = canvas.getByTestId("row");
+		const calls = canvas.getByTestId("calls");
+		const box = row.getBoundingClientRect();
+		const x = box.left + 20;
+		const y = box.top + 20;
+		touchAt(row, "pointerdown", x, y);
+		touchAt(document.body, "pointermove", x + 30, y);
+		await new Promise((resolve) => setTimeout(resolve, 550));
+		touchAt(document.body, "pointerup", x + 30, y);
+		await expect(calls).toHaveTextContent("0");
+		touchAt(row, "pointerdown", x, y);
+		await new Promise((resolve) => setTimeout(resolve, 550));
+		touchAt(row, "pointerup", x, y);
+		await expect(calls).toHaveTextContent("1");
+	},
+};
+
+const InPlaceDemo = (props: { onReact: (emoji: string) => void }) => {
+	const [open, setOpen] = createSignal(false);
+	return (
+		<div class="min-h-screen bg-background p-4">
+			<Button variant="secondary" onClick={() => setOpen(true)}>
+				Open actions
+			</Button>
+			<MessageActionsDrawer
+				open={open()}
+				onOpenChange={setOpen}
+				quickReactions={["👍", "❤️", "😂", "🐦"]}
+				onReact={props.onReact}
+				onReply={() => {}}
+				onCopyText={() => {}}
+			/>
+		</div>
+	);
+};
+
+export const MoreReactionsInPlace: Story = {
+	parameters: iphone,
+	render: () => {
+		const [picked, setPicked] = createSignal<string[]>([]);
+		return (
+			<>
+				<InPlaceDemo
+					onReact={(emoji) => setPicked((list) => [...list, emoji])}
+				/>
+				<output data-testid="picked">{picked().join(",")}</output>
+			</>
+		);
+	},
+	play: async ({ canvasElement }) => {
+		const canvas = within(canvasElement);
+		await userEvent.click(canvas.getByRole("button", { name: "Open actions" }));
+		const dialog = await screen.findByRole("dialog", {
+			name: "Message actions",
+		});
+		await waitFor(() => expect(dialog).toBeVisible());
+		await userEvent.click(
+			within(dialog).getByRole("button", { name: "More reactions" }),
+		);
+		await waitFor(() =>
+			expect(dialog.querySelector("[data-reaction-picker]")).not.toBeNull(),
+		);
+		await expect(screen.getAllByRole("dialog")).toHaveLength(1);
+		await new Promise((resolve) => setTimeout(resolve, 500));
+		await expectNoLayoutIssues(dialog);
+		const focused = document.activeElement as HTMLElement | null;
+		await expect(focused?.closest("[data-emoji-key]")).toBeNull();
+		await userEvent.keyboard("{Escape}");
+		await waitFor(() =>
+			expect(
+				within(dialog).getByRole("button", { name: "More reactions" }),
+			).toBeVisible(),
+		);
+		await expect(dialog).toBeVisible();
+		await userEvent.click(
+			within(dialog).getByRole("button", { name: "More reactions" }),
+		);
+		await userEvent.click(
+			within(dialog).getByRole("button", { name: "Back to message actions" }),
+		);
+		await waitFor(() =>
+			expect(dialog.querySelector("[data-reaction-picker]")).toBeNull(),
+		);
+		await userEvent.click(
+			within(dialog).getByRole("button", { name: "More reactions" }),
+		);
+		const cell = await waitFor(() => {
+			const found = dialog.querySelector<HTMLButtonElement>(
+				"[data-reaction-picker] [data-emoji-key]",
+			);
+			if (!found) throw new Error("No emoji cells yet");
+			return found;
+		});
+		await userEvent.click(cell);
+		await waitFor(() =>
+			expect(
+				screen.queryByRole("dialog", { name: "Message actions" }),
+			).toBeNull(),
+		);
+		await expect(
+			canvas.getByTestId("picked").textContent?.length,
+		).toBeGreaterThan(0);
+		await expect(canvas.getByTestId("picked").textContent).not.toContain(",");
 	},
 };

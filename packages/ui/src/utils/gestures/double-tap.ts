@@ -11,6 +11,8 @@ export type DoubleTapOptions = {
 const CLICK_SUPPRESS_MS = 500;
 const TAP_SLOP = 32;
 
+const PASSIVE_CAPTURE = { capture: true, passive: true } as const;
+
 export const createDoubleTap = (
 	element: HTMLElement,
 	options: DoubleTapOptions,
@@ -25,6 +27,7 @@ export const createDoubleTap = (
 	let startY = 0;
 	let startT = 0;
 	let pressing = false;
+	let pointerId: number | undefined;
 	let moved = false;
 	let lastTapAt = Number.NEGATIVE_INFINITY;
 	let lastTapX = 0;
@@ -43,6 +46,8 @@ export const createDoubleTap = (
 	const onPointerDown = (event: PointerEvent) => {
 		if (!isEnabled()) return;
 		if (event.pointerType === "mouse") return;
+		pointerId = event.pointerId;
+		listen();
 		startX = event.clientX;
 		startY = event.clientY;
 		startT = performance.now();
@@ -51,7 +56,7 @@ export const createDoubleTap = (
 	};
 
 	const onPointerMove = (event: PointerEvent) => {
-		if (!pressing || moved) return;
+		if (!pressing || moved || event.pointerId !== pointerId) return;
 		if (
 			Math.hypot(event.clientX - startX, event.clientY - startY) > moveTolerance
 		) {
@@ -60,8 +65,9 @@ export const createDoubleTap = (
 	};
 
 	const onPointerUp = (event: PointerEvent) => {
-		if (!pressing) return;
+		if (!pressing || event.pointerId !== pointerId) return;
 		pressing = false;
+		unlisten();
 		const now = performance.now();
 		const isValidTap = !moved && now - startT <= maxTapDuration;
 		if (!isValidTap) {
@@ -82,8 +88,10 @@ export const createDoubleTap = (
 		lastTapY = startY;
 	};
 
-	const onPointerCancel = () => {
+	const onPointerCancel = (event: PointerEvent) => {
+		if (event.pointerId !== pointerId) return;
 		pressing = false;
+		unlisten();
 	};
 
 	let applied = false;
@@ -96,17 +104,38 @@ export const createDoubleTap = (
 		element.style.setProperty("-webkit-user-select", enabled ? "none" : "");
 	});
 
+	let listening = false;
+
+	const listen = () => {
+		if (listening) return;
+		listening = true;
+		document.addEventListener("pointermove", onPointerMove, PASSIVE_CAPTURE);
+		document.addEventListener("pointerup", onPointerUp, PASSIVE_CAPTURE);
+		document.addEventListener(
+			"pointercancel",
+			onPointerCancel,
+			PASSIVE_CAPTURE,
+		);
+	};
+
+	const unlisten = () => {
+		if (!listening) return;
+		listening = false;
+		document.removeEventListener("pointermove", onPointerMove, PASSIVE_CAPTURE);
+		document.removeEventListener("pointerup", onPointerUp, PASSIVE_CAPTURE);
+		document.removeEventListener(
+			"pointercancel",
+			onPointerCancel,
+			PASSIVE_CAPTURE,
+		);
+	};
+
 	element.addEventListener("pointerdown", onPointerDown, { passive: true });
-	element.addEventListener("pointermove", onPointerMove, { passive: true });
-	element.addEventListener("pointerup", onPointerUp);
-	element.addEventListener("pointercancel", onPointerCancel, { passive: true });
 	document.addEventListener("click", onClickCapture, { capture: true });
 
 	onCleanup(() => {
 		element.removeEventListener("pointerdown", onPointerDown);
-		element.removeEventListener("pointermove", onPointerMove);
-		element.removeEventListener("pointerup", onPointerUp);
-		element.removeEventListener("pointercancel", onPointerCancel);
+		unlisten();
 		document.removeEventListener("click", onClickCapture, { capture: true });
 	});
 };

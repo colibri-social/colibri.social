@@ -11,6 +11,7 @@ import { prefersReducedMotion } from "../../utils/motion";
 import { createSlot } from "../../utils/slot";
 
 const BAR_HEIGHT = 48;
+const EXPANDED_TITLE_DROP = 8;
 const COMPACT_SCALE = 20 / 24;
 const FADE_START = 0.7;
 
@@ -118,7 +119,7 @@ export const CollapsingTitleLayout = (props: CollapsingTitleLayoutProps) => {
 						style={{
 							"max-width": `min(calc(100% - 32px), calc((100% - 40px - var(--collapse-actions-width, 0px)) / ${COMPACT_SCALE}))`,
 							"font-weight": "calc(800 - 100 * var(--collapse-progress, 0))",
-							transform: `scale(calc(1 - ${1 - COMPACT_SCALE} * var(--collapse-progress, 0)))`,
+							transform: `translateY(calc(${EXPANDED_TITLE_DROP}px * (1 - var(--collapse-progress, 0)))) scale(calc(1 - ${1 - COMPACT_SCALE} * var(--collapse-progress, 0)))`,
 						}}
 					>
 						{local.title}
@@ -131,6 +132,9 @@ export const CollapsingTitleLayout = (props: CollapsingTitleLayoutProps) => {
 								local.safeTop &&
 									"top-safe right-[calc(16px+var(--safe-area-right,0px))]",
 							)}
+							style={{
+								transform: `translateY(calc(${EXPANDED_TITLE_DROP}px * (1 - var(--collapse-progress, 0))))`,
+							}}
 						>
 							{actions()}
 						</div>
@@ -138,7 +142,7 @@ export const CollapsingTitleLayout = (props: CollapsingTitleLayoutProps) => {
 				</div>
 				<div
 					class={cx(
-						"flex flex-col gap-4 px-4 pb-4",
+						"flex flex-col gap-4 px-4 pt-2 pb-4",
 						local.safeTop && "px-safe-offset-4",
 						local.contentClass,
 					)}

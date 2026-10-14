@@ -1,0 +1,14 @@
+{
+	"name": "@colibri-social/preview",
+	"private": true,
+	"version": "0.0.0",
+	"description": "Native preview shell for the new Colibri client with mock data.",
+	"type": "module",
+	"license": "MIT",
+	"scripts": {
+		"tauri": "tauri"
+	},
+	"devDependencies": {
+		"@tauri-apps/cli": "^2"
+	}
+}

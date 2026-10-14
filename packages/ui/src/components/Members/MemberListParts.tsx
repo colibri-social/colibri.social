@@ -1,4 +1,4 @@
-import { Show } from "solid-js";
+import { type JSX, Show } from "solid-js";
 import { SectionLabel } from "../List/List";
 import { RoleBadge } from "../Roles/RoleBadge";
 import type { Member, MemberGroup } from "./MemberList";
@@ -10,6 +10,8 @@ export const memberGroupHeaderClass =
 export type MemberListHandlers = {
 	onOpen?: (member: Member, event: MouseEvent) => void;
 	onMemberContextMenu?: (member: Member, event: MouseEvent) => void;
+	onMemberMenu?: (member: Member, event: Event) => void;
+	wrapMember?: (member: Member, row: JSX.Element) => JSX.Element;
 };
 
 export const MemberGroupLabel = (props: {
@@ -30,7 +32,7 @@ export const MemberGroupLabel = (props: {
 	/>
 );
 
-export const MemberListEntry = (
+const MemberListRow = (
 	props: MemberListHandlers & {
 		member: Member;
 		offline: boolean;
@@ -40,6 +42,7 @@ export const MemberListEntry = (
 	<MemberRow
 		variant={props.variant}
 		name={props.member.name}
+		seed={props.member.id}
 		avatarSrc={props.member.avatarSrc}
 		avatarColor={props.member.avatarColor}
 		presence={props.member.presence}
@@ -60,5 +63,25 @@ export const MemberListEntry = (
 					}
 				: undefined
 		}
+		onMenu={
+			props.onMemberMenu
+				? (event) => props.onMemberMenu?.(props.member, event)
+				: undefined
+		}
 	/>
 );
+
+export const MemberListEntry = (
+	props: MemberListHandlers & {
+		member: Member;
+		offline: boolean;
+		variant: MemberRowVariant;
+	},
+) => {
+	const row = () => <MemberListRow {...props} />;
+	return (
+		<Show when={props.wrapMember} fallback={row()}>
+			{(wrap) => wrap()(props.member, row())}
+		</Show>
+	);
+};

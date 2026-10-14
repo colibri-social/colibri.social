@@ -2,6 +2,7 @@ import { createSignal, type JSX } from "solid-js";
 import { expect, fn, userEvent, waitFor, within } from "storybook/test";
 import type { Meta, StoryObj } from "storybook-solidjs-vite";
 import { expectFocusRingVisible } from "../../foundations/focus-ring-test";
+import { expectNoLayoutIssues } from "../../foundations/layout-test";
 import { createStoryClip } from "../Media/story-clip";
 import { MessageRow } from "../Message/MessageRow";
 import {
@@ -391,7 +392,6 @@ const ContextCases = (props: { desktop?: boolean }) => (
 		<Message
 			attachments={
 				<ForwardedMessage
-					author="Lis"
 					time="Yesterday at 18:12"
 					source={{ channel: "birdwatching", href: "#birdwatching" }}
 				>
@@ -403,7 +403,6 @@ const ContextCases = (props: { desktop?: boolean }) => (
 			name="Tim"
 			attachments={
 				<ForwardedMessage
-					author="Lou"
 					time="Today at 09:10"
 					source={{
 						channel: "general",
@@ -419,7 +418,7 @@ const ContextCases = (props: { desktop?: boolean }) => (
 		<Message
 			name="Lis"
 			attachments={
-				<ForwardedMessage author="Kris" time="12 Mar at 18:30">
+				<ForwardedMessage time="12 Mar at 18:30">
 					This came from somewhere private.
 				</ForwardedMessage>
 			}
@@ -562,5 +561,102 @@ export const SkeletonParity: Story = {
 				height: Math.round(real.height),
 			});
 		}
+	},
+};
+
+export const ForwardSourceOpens: Story = {
+	render: () => {
+		const [opened, setOpened] = createSignal(0);
+		return (
+			<Screen>
+				<ForwardedMessage
+					time="Today at 09:10"
+					source={{
+						channel: "general",
+						space: "Colibri Social Flock",
+						onOpen: () => setOpened((count) => count + 1),
+					}}
+				>
+					Here are the photos
+				</ForwardedMessage>
+				<ForwardedMessage time="12 Mar at 18:30">
+					This came from somewhere private.
+				</ForwardedMessage>
+				<span data-opened={opened()} />
+			</Screen>
+		);
+	},
+	play: async ({ canvasElement }) => {
+		const canvas = within(canvasElement);
+		const chip = canvas.getByRole("button", {
+			name: /From #general in Colibri Social Flock/,
+		});
+		await userEvent.click(chip);
+		await expect(
+			canvasElement.querySelector("[data-opened]")?.getAttribute("data-opened"),
+		).toBe("1");
+		await expect(
+			canvas.queryByRole("button", { name: /private channel/ }),
+		).not.toBeInTheDocument();
+		await expect(canvas.getByText("From a private channel")).toBeVisible();
+	},
+};
+
+export const LinkEmbedImageOpens: Story = {
+	render: () => {
+		const [opened, setOpened] = createSignal(0);
+		return (
+			<Screen>
+				<LinkEmbed
+					url="https://atproto.com/guides/overview"
+					siteName="AT Protocol"
+					title="Protocol overview"
+					image={fixtureImage(1, 1200, 628)}
+					onOpenImage={() => setOpened((count) => count + 1)}
+				/>
+				<span data-opened={opened()} />
+			</Screen>
+		);
+	},
+	play: async ({ canvasElement }) => {
+		const canvas = within(canvasElement);
+		const before = window.location.href;
+		const image = canvas.getByRole("button", {
+			name: "Open image from AT Protocol",
+		});
+		await userEvent.click(image);
+		await expect(
+			canvasElement.querySelector("[data-opened]")?.getAttribute("data-opened"),
+		).toBe("1");
+		await expect(window.location.href).toBe(before);
+		await expect(image.closest("a")).toBeNull();
+		await expect(
+			canvas.getByRole("link", { name: /Protocol overview/ }),
+		).toHaveAttribute("href", "https://atproto.com/guides/overview");
+	},
+};
+
+export const MediaUploading: Story = {
+	render: () => (
+		<div class="w-[402px] p-4" data-testid="uploading-host">
+			<MediaGrid
+				items={fixtureImages(2).map((item, index) => ({
+					...item,
+					name: `photo-${index + 1}.jpg`,
+					progress: index === 0 ? 0.4 : undefined,
+				}))}
+			/>
+		</div>
+	),
+	play: async ({ canvasElement }) => {
+		const canvas = within(canvasElement);
+		const bar = await canvas.findByRole("progressbar", {
+			name: "Uploading photo-1.jpg",
+		});
+		await expect(bar).toHaveAttribute("aria-valuenow", "40");
+		await expect(
+			canvas.queryByRole("progressbar", { name: "Uploading photo-2.jpg" }),
+		).toBeNull();
+		await expectNoLayoutIssues(canvas.getByTestId("uploading-host"));
 	},
 };

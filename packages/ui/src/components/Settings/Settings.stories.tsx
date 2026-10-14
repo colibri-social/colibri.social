@@ -1,14 +1,23 @@
 import { AddIcon } from "@solar-icons/solid/bold/add";
 import { CheckIcon } from "@solar-icons/solid/bold/check";
 import { For, type JSX } from "solid-js";
-import { expect, fn, userEvent, waitFor, within } from "storybook/test";
+import { expect, fn, screen, userEvent, waitFor, within } from "storybook/test";
 import type { Meta, StoryObj } from "storybook-solidjs-vite";
+import { expectNoLayoutIssues } from "../../foundations/layout-test";
 import { Button } from "../Button/Button";
 import { NavHeader } from "../Header/NavHeader";
 import { IconButton } from "../IconButton/IconButton";
 import { ListGroup } from "../List/List";
 import { SearchField, TextField } from "../TextField/TextField";
-import { BridgeCard, EmojiRow, InviteCard, Step, StepList } from "./Settings";
+import {
+	BridgeCard,
+	BridgeSummaryCard,
+	type BridgeSummaryCardProps,
+	EmojiRow,
+	InviteCard,
+	Step,
+	StepList,
+} from "./Settings";
 
 const meta = {
 	title: "Surfaces/Settings cards",
@@ -56,6 +65,7 @@ const inviteCopy = fn();
 const inviteMenu = fn();
 const bridgeMenu = fn();
 const bridgeAdd = fn();
+const emojiMenu = fn();
 
 export const InviteLinks: Story = {
 	render: () => {
@@ -276,11 +286,13 @@ export const EmojiPacks: Story = {
 					name="tux"
 					src={tux}
 					uploader={{ handle: "timtinkers.online" }}
+					onMenu={emojiMenu}
 				/>
 				<EmojiRow
 					name="opsec"
 					src={opsec}
 					uploader={{ handle: "kris.kralsei.stream" }}
+					onMenu={emojiMenu}
 				/>
 			</>
 		);
@@ -318,5 +330,182 @@ export const EmojiPacks: Story = {
 		await expect(
 			canvas.getAllByRole("button", { name: "More actions for :tux:" }),
 		).toHaveLength(3);
+	},
+};
+
+const summaryMenu = {
+	manage: fn(),
+	disconnect: fn(),
+};
+
+const summaryCards: Omit<BridgeSummaryCardProps, "menuItems">[] = [
+	{
+		name: "Night Owls Art Club",
+		platform: "Matrix",
+		handle: "matrix-bridge.colibri.social",
+		verified: true,
+		channels: ["general", "critique", "gifs", "showcase", "archive"],
+		status: { tone: "active", label: "Relaying" },
+		mirrorModeration: true,
+	},
+	{
+		name: "The extraordinarily long named workspace for weekend trail runners and friends",
+		platform: "Slack",
+		handle: "a-very-long-bridge-operator-handle.example.social",
+		channels: [
+			"planning-and-logistics-for-the-autumn-season",
+			"routes",
+			"gear",
+			"carpools",
+			"photos",
+			"race-results",
+			"injuries-and-recovery",
+			"off-topic",
+		],
+		status: { tone: "warning", label: "Paused" },
+		mirrorModeration: false,
+	},
+	{
+		name: "Colibri HQ",
+		platform: "IRC",
+		handle: "irc.colibri.social",
+		channels: ["dev"],
+		status: { tone: "error", label: "History import failed" },
+		mirrorModeration: false,
+	},
+	{
+		name: "Fresh link",
+		platform: "Matrix",
+		handle: "matrix-bridge.colibri.social",
+		channels: [],
+		status: { tone: "active", label: "Relaying" },
+	},
+];
+
+export const BridgeSummaryGrid: Story = {
+	name: "Bridge summary grid",
+	parameters: { viewport: { defaultViewport: "responsive" } },
+	render: () => (
+		<div class="min-h-dvh bg-popover p-6 text-foreground">
+			<ul
+				data-bridge-summary-grid=""
+				class="m-0 mx-auto grid max-w-3xl list-none grid-cols-2 gap-4 p-0"
+			>
+				<For each={summaryCards}>
+					{(card) => (
+						<li class="flex min-w-0">
+							<BridgeSummaryCard
+								{...card}
+								class="flex-1"
+								menuItems={[
+									{
+										kind: "item",
+										label: "Manage bridge",
+										onSelect: () => summaryMenu.manage(card.name),
+									},
+									{
+										kind: "item",
+										label: "Disconnect bridge",
+										tone: "destructive",
+										onSelect: () => summaryMenu.disconnect(card.name),
+									},
+								]}
+							/>
+						</li>
+					)}
+				</For>
+			</ul>
+		</div>
+	),
+	play: async ({ canvasElement }) => {
+		summaryMenu.manage.mockClear();
+		summaryMenu.disconnect.mockClear();
+		const grid = canvasElement.querySelector(
+			"[data-bridge-summary-grid]",
+		) as HTMLElement;
+		await expectNoLayoutIssues(grid);
+		const cards = Array.from(
+			grid.querySelectorAll<HTMLElement>("[data-bridge-summary]"),
+		);
+		await expect(cards).toHaveLength(4);
+		const [first, long, failed, empty] = cards as [
+			HTMLElement,
+			HTMLElement,
+			HTMLElement,
+			HTMLElement,
+		];
+		await expect(first.getBoundingClientRect().height).toBe(
+			long.getBoundingClientRect().height,
+		);
+		await expect(
+			within(first).getByText("Matrix bridge by matrix-bridge.colibri.social"),
+		).toBeInTheDocument();
+		await expect(
+			within(first).getByRole("img", { name: "Verified" }),
+		).toBeVisible();
+		await expect(within(first).getAllByRole("listitem")).toHaveLength(4);
+		await expect(
+			first.querySelector("[data-bridge-channels-more]")?.textContent,
+		).toBe("+2");
+		await expect(
+			long
+				.querySelector("[data-bridge-channels-more]")
+				?.getAttribute("aria-label"),
+		).toBe(
+			"5 more: carpools, photos, race-results, injuries-and-recovery, off-topic",
+		);
+		await expect(
+			first
+				.querySelector("[data-bridge-status]")
+				?.getAttribute("data-bridge-status"),
+		).toBe("active");
+		await expect(
+			long
+				.querySelector("[data-bridge-status]")
+				?.getAttribute("data-bridge-status"),
+		).toBe("warning");
+		await expect(
+			within(failed).getByText("History import failed"),
+		).toBeVisible();
+		await expect(
+			within(long).getByText("Mirror moderation: off"),
+		).toBeVisible();
+		await expect(
+			within(empty).getByText("No channels linked yet"),
+		).toBeVisible();
+		const tile = empty.querySelector("[data-space-icon]") as HTMLElement;
+		await expect(getComputedStyle(tile).backgroundColor).not.toBe(
+			getComputedStyle(empty).backgroundColor,
+		);
+		await expect(getComputedStyle(tile).color).toBe(
+			getComputedStyle(empty).color,
+		);
+		await expect(
+			within(empty).queryByText(/Mirror moderation/),
+		).not.toBeInTheDocument();
+		const chip = within(long)
+			.getByText("planning-and-logistics-for-the-autumn-season")
+			.closest("span[title]") as HTMLElement;
+		await expect(chip.getBoundingClientRect().right).toBeLessThanOrEqual(
+			long.getBoundingClientRect().right,
+		);
+		await userEvent.click(
+			within(first).getByRole("button", {
+				name: "More actions for Night Owls Art Club bridge",
+			}),
+		);
+		const menu = await screen.findByRole("menu");
+		await expect(
+			within(menu)
+				.getAllByRole("menuitem")
+				.map((item) => item.textContent?.trim()),
+		).toEqual(["Manage bridge", "Disconnect bridge"]);
+		await userEvent.click(
+			within(menu).getByRole("menuitem", { name: "Disconnect bridge" }),
+		);
+		await expect(summaryMenu.disconnect).toHaveBeenCalledWith(
+			"Night Owls Art Club",
+		);
+		await waitFor(() => expect(screen.queryByRole("menu")).toBeNull());
 	},
 };

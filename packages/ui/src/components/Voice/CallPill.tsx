@@ -5,7 +5,6 @@ import {
 	createEffect,
 	createMemo,
 	createSignal,
-	For,
 	on,
 	onCleanup,
 	onMount,
@@ -14,6 +13,7 @@ import {
 import { AnimatedMicrophoneIcon } from "../../icons/animated/icons";
 import { AnimatedHeadphonesIcon } from "../../icons/animated/media";
 import { cx } from "../../utils/cx";
+import { KeyedFor } from "../../utils/keyed";
 import {
 	motionScale,
 	prefersReducedMotion,
@@ -155,19 +155,23 @@ const AvatarStack = (props: {
 	size: "xs" | "base";
 }) => (
 	<span data-call-pill-avatars="" class="flex shrink-0 items-center">
-		<For each={shownParticipants(props.participants, props.max)}>
+		<KeyedFor
+			each={shownParticipants(props.participants, props.max)}
+			by={(participant) => participant.id}
+		>
 			{(participant, index) => (
 				<SpeakingAvatar
-					name={participant.name}
-					src={participant.avatarSrc}
-					speaking={participant.speaking}
+					name={participant().name}
+					seed={participant().id}
+					src={participant().avatarSrc}
+					speaking={participant().speaking}
 					size={props.size}
 					class={cx(
 						index() > 0 && (props.size === "xs" ? "-ml-1.5" : "-ml-2.5"),
 					)}
 				/>
 			)}
-		</For>
+		</KeyedFor>
 	</span>
 );
 

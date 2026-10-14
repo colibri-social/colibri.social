@@ -39,10 +39,36 @@ export type RichTextLinkTarget =
 	| { kind: "channel"; channel: string }
 	| { kind: "internal"; href: string };
 
+export type RichTextExternalLink = {
+	label: string;
+	disguised: boolean;
+};
+
 export type RichTextHighlighter = (
 	lang: string | undefined,
 	code: string,
 ) => Promise<string | null | undefined> | string | null | undefined;
+
+export type RichTextCustomEmoji = {
+	name: string;
+	src: string;
+	alt?: string;
+	id?: string;
+};
+
+export const CUSTOM_EMOJI_FEATURE =
+	"social.colibri.beta.richtext.facet#customEmoji";
+
+export type RichTextCustomEmojiFeature = {
+	$type: typeof CUSTOM_EMOJI_FEATURE;
+	uri: string;
+	cid?: string;
+};
+
+export type RichTextForeignFeature = { $type?: string } & Record<
+	string,
+	unknown
+>;
 
 export type RichTextResolvers = {
 	platform?: RichTextPlatform;
@@ -56,10 +82,19 @@ export type RichTextResolvers = {
 	linkTarget?: (uri: string) => RichTextLinkTarget | undefined;
 	rewriteUrl?: (uri: string) => string;
 	onLinkOpen?: (href: string, event: MouseEvent) => void;
+	onExternalLink?: (href: string, link: RichTextExternalLink) => void;
 	onNavigate?: (href: string, event: MouseEvent) => void;
 	bridgePlatformName?: (platform: string) => string;
 	highlight?: RichTextHighlighter;
 	emojiInfo?: boolean;
+	customEmoji?: (name: string) => RichTextCustomEmoji | undefined;
+	customEmojiFeature?: (
+		feature: RichTextForeignFeature,
+	) => RichTextCustomEmoji | undefined;
+	onCustomEmojiOpen?: (
+		emoji: RichTextCustomEmoji,
+		anchor?: HTMLElement,
+	) => void;
 };
 
 const RichTextContext = createContext<RichTextResolvers>({});

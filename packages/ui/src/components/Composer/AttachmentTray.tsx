@@ -1,6 +1,7 @@
 import { CloseIcon } from "@solar-icons/solid/bold/close";
 import { DangerTriangleIcon } from "@solar-icons/solid/bold/danger-triangle";
 import { FileIcon } from "@solar-icons/solid/bold/file";
+import { RestartIcon } from "@solar-icons/solid/bold/restart";
 import { For, Show } from "solid-js";
 import { cx } from "../../utils/cx";
 import { AnimatedImage } from "../AnimatedImage/AnimatedImage";
@@ -18,6 +19,7 @@ export type AttachmentTrayProps = {
 	items: PendingAttachment[];
 	max?: number;
 	onRemove?: (id: string) => void;
+	onRetry?: (id: string) => void;
 	class?: string;
 };
 
@@ -43,10 +45,10 @@ const extensionOf = (name: string) => {
 		: undefined;
 };
 
-const UploadProgress = (props: { progress: number }) => (
+export const UploadProgress = (props: { progress: number; label?: string }) => (
 	<span
 		role="progressbar"
-		aria-label="Uploading"
+		aria-label={props.label ?? "Uploading"}
 		aria-valuemin={0}
 		aria-valuemax={100}
 		aria-valuenow={Math.round(props.progress * 100)}
@@ -141,13 +143,31 @@ export const AttachmentTray = (props: AttachmentTrayProps) => (
 									<UploadProgress progress={item.progress ?? 0} />
 								</Show>
 								<Show when={item.failed}>
-									<span
-										role="img"
-										aria-label="Upload failed"
-										class="absolute inset-0 flex items-center justify-center bg-background/60 text-destructive"
+									<Show
+										when={props.onRetry}
+										fallback={
+											<span
+												role="img"
+												aria-label="Upload failed"
+												class="absolute inset-0 flex items-center justify-center bg-background/60 text-destructive"
+											>
+												<DangerTriangleIcon class="size-5" />
+											</span>
+										}
 									>
-										<DangerTriangleIcon class="size-5" />
-									</span>
+										<button
+											type="button"
+											aria-label={`Upload failed, retry ${item.name}`}
+											data-attachment-retry=""
+											onClick={() => props.onRetry?.(item.id)}
+											class="focus-ring-inset absolute inset-0 flex cursor-pointer flex-col items-center justify-center gap-0.5 border-0 bg-background/70 text-destructive"
+										>
+											<RestartIcon class="size-5" />
+											<span class="text-xs leading-none font-semibold">
+												Retry
+											</span>
+										</button>
+									</Show>
 								</Show>
 							</div>
 							<button

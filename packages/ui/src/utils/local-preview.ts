@@ -1,6 +1,7 @@
 import {
 	type Accessor,
 	createEffect,
+	createMemo,
 	createSignal,
 	on,
 	onCleanup,
@@ -30,11 +31,12 @@ export const createLocalPreview = (
 		setLocal(undefined);
 	};
 
-	createEffect(on(controlled, clear, { defer: true }));
+	const source = createMemo(controlled);
+	createEffect(on(source, clear, { defer: true }));
 	onCleanup(revoke);
 
 	return {
-		src: () => local()?.url ?? controlled(),
+		src: () => local()?.url ?? source(),
 		animated: () => (local() ? local()?.animated : undefined),
 		set: (file) => {
 			revoke();

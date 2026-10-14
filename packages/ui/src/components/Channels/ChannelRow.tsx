@@ -7,14 +7,16 @@ import { SettingsIcon } from "@solar-icons/solid/bold/settings";
 import { VolumeIcon } from "@solar-icons/solid/bold/volume";
 import { VolumeLoudIcon } from "@solar-icons/solid/bold/volume-loud";
 import { VolumeSmallIcon } from "@solar-icons/solid/bold/volume-small";
-import { For, type JSX, Show } from "solid-js";
+import { type JSX, Show } from "solid-js";
 import { Dynamic } from "solid-js/web";
 import { HeadphonesSlashIcon, MicrophoneSlashIcon } from "../../icons/custom";
 import { cx } from "../../utils/cx";
 import { createLongPress } from "../../utils/gestures";
+import { KeyedFor } from "../../utils/keyed";
 import { createRipple } from "../../utils/ripple";
 import { Avatar } from "../Avatar/Avatar";
 import { CountBadge } from "../Badge/Badge";
+import { SkeletonCircle, SkeletonText } from "../Skeleton/Skeleton";
 import type { VoiceParticipant } from "../Voice/shared";
 
 export type ChannelPlatform = "mobile" | "desktop";
@@ -120,7 +122,10 @@ export const ChannelRow = (props: ChannelRowProps) => {
 					compact() && "h-8",
 					"hover:bg-popover/60",
 					rowFocus,
-					desktop() && props.active && "bg-popover hover:bg-popover",
+					props.active &&
+						(desktop()
+							? "bg-popover hover:bg-popover"
+							: "bg-muted hover:bg-muted"),
 				)}
 			>
 				<span class="flex h-5 w-full min-w-0 items-center gap-2">
@@ -236,6 +241,7 @@ export type VoiceChannelRowProps = RowEvents & {
 	muted?: boolean;
 	private?: boolean;
 	participants?: VoiceParticipant[];
+	onOpenParticipant?: (id: string) => void;
 	platform?: ChannelPlatform;
 	class?: string;
 };
@@ -280,7 +286,9 @@ export const VoiceChannelRow = (props: VoiceChannelRowProps) => {
 					props.joined
 						? "rounded-r-control-sm border-primary"
 						: "border-transparent hover:bg-popover/60",
-					desktop() && props.active && !props.joined && "bg-popover",
+					props.active &&
+						!props.joined &&
+						(desktop() ? "bg-popover" : "bg-muted"),
 				)}
 				style={
 					props.joined ? { "background-image": joinedHighlight } : undefined
@@ -348,31 +356,38 @@ export const VoiceChannelRow = (props: VoiceChannelRowProps) => {
 						props.joined ? "border-primary" : "border-transparent",
 					)}
 				>
-					<For each={participants()}>
-						{(person) => <ParticipantRow person={person} />}
-					</For>
+					<KeyedFor each={participants()} by={(person) => person.id}>
+						{(person) => (
+							<ParticipantRow
+								person={person()}
+								live={!!props.joined}
+								onOpen={props.onOpenParticipant}
+							/>
+						)}
+					</KeyedFor>
 				</ul>
 			</Show>
 		</div>
 	);
 };
 
-const ParticipantRow = (props: { person: VoiceParticipant }) => (
-	<li
-		data-voice-participant=""
-		data-speaking={props.person.speaking || undefined}
-		class="flex min-w-0 items-center gap-2 p-1"
-	>
+const ParticipantContent = (props: {
+	person: VoiceParticipant;
+	live: boolean;
+}) => (
+	<>
 		<span
 			data-speaking-ring=""
 			class={cx(
 				"flex shrink-0 rounded-full",
-				props.person.speaking &&
+				props.live &&
+					props.person.speaking &&
 					"outline-[1.5px] outline-offset-1 outline-primary outline-solid",
 			)}
 		>
 			<Avatar
 				name={props.person.name}
+				seed={props.person.id}
 				src={props.person.avatarSrc}
 				color={props.person.color}
 				size="sm"
@@ -382,7 +397,7 @@ const ParticipantRow = (props: { person: VoiceParticipant }) => (
 		<span class="min-w-0 flex-1 truncate text-base leading-5 font-semibold text-muted-foreground">
 			{props.person.name}
 		</span>
-		<Show when={props.person.speaking}>
+		<Show when={props.live && props.person.speaking}>
 			<span class="sr-only">, speaking</span>
 		</Show>
 		<Show when={props.person.deafened}>
@@ -402,6 +417,55 @@ const ParticipantRow = (props: { person: VoiceParticipant }) => (
 			>
 				<MicrophoneSlashIcon />
 			</span>
+		</Show>
+	</>
+);
+
+const ParticipantRow = (props: {
+	person: VoiceParticipant;
+	live: boolean;
+	onOpen?: (id: string) => void;
+}) => (
+	<li
+		data-voice-participant=""
+		data-pending={props.person.pending || undefined}
+		data-speaking={(props.live && props.person.speaking) || undefined}
+		class="flex min-w-0"
+	>
+		<Show
+			when={!props.person.pending}
+			fallback={
+				<span
+					data-voice-participant-skeleton=""
+					class="flex min-w-0 flex-1 items-center gap-2 p-1"
+				>
+					<SkeletonCircle size={24} />
+					<SkeletonText size="base" width="45%" />
+					<span class="sr-only">Loading participant</span>
+				</span>
+			}
+		>
+			<Show
+				when={props.onOpen}
+				fallback={
+					<span class="flex min-w-0 flex-1 items-center gap-2 p-1">
+						<ParticipantContent person={props.person} live={props.live} />
+					</span>
+				}
+			>
+				{(open) => (
+					<button
+						type="button"
+						onClick={() => open()(props.person.id)}
+						class={cx(
+							"flex min-w-0 flex-1 cursor-pointer items-center gap-2 rounded-control-xs border-0 bg-transparent p-1 text-left hover:bg-popover/60",
+							rowFocus,
+						)}
+					>
+						<ParticipantContent person={props.person} live={props.live} />
+					</button>
+				)}
+			</Show>
 		</Show>
 	</li>
 );

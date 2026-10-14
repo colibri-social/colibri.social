@@ -143,6 +143,26 @@ const firePointerEnter = (element: Element, pointerType: string) => {
 	);
 };
 
+export const FocusAfterTouchSuppressed: Story = {
+	render: () => <IconTip label="Pinned messages" icon={<PinIcon />} />,
+	play: async ({ canvasElement }) => {
+		const trigger = within(canvasElement).getByRole("button", {
+			name: "Pinned messages",
+		});
+		document.body.dispatchEvent(
+			new PointerEvent("pointerdown", { pointerType: "touch", bubbles: true }),
+		);
+		trigger.focus();
+		await new Promise((resolve) => setTimeout(resolve, 900));
+		await expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
+		trigger.blur();
+		await userEvent.keyboard("{Shift}");
+		trigger.focus();
+		await screen.findByRole("tooltip", {}, { timeout: 2000 });
+		trigger.blur();
+	},
+};
+
 export const TouchSuppressed: Story = {
 	render: () => <IconTip label="Pinned messages" icon={<PinIcon />} />,
 	play: async ({ canvasElement }) => {

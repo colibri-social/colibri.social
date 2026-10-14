@@ -1,11 +1,9 @@
-import { BellIcon } from "@solar-icons/solid/bold/bell";
 import { InboxIcon } from "@solar-icons/solid/bold/inbox";
-import { LogoutIcon } from "@solar-icons/solid/bold/logout";
-import { SettingsIcon } from "@solar-icons/solid/bold/settings";
-import { UserPlusIcon } from "@solar-icons/solid/bold/user-plus";
+import { VolumeSmallIcon } from "@solar-icons/solid/bold/volume-small";
 import { createSignal, For, type JSX } from "solid-js";
 import { expect, fn, screen, userEvent, waitFor, within } from "storybook/test";
 import type { Meta, StoryObj } from "storybook-solidjs-vite";
+import { expectNoLayoutIssues } from "../../foundations/layout-test";
 import { AnimatedSettingsIcon } from "../../icons/animated/icons";
 import {
 	AnimatedProfileIcon,
@@ -14,10 +12,9 @@ import {
 import { AnimatedInboxIcon } from "../../icons/animated/system";
 import { storyImages } from "../Banner/story-images";
 import { Button } from "../Button/Button";
-import { DeveloperModeCard } from "../DeveloperMode/DeveloperModeCard";
-import { Drawer, DrawerContent, DrawerTrigger } from "../Drawer/Drawer";
-import { DestructiveRow, ListGroup, NavRow } from "../List/List";
-import { SpaceProfileHeader } from "../Space/SpaceProfileHeader";
+import { CategoryContextMenu } from "../ContextMenu/CategoryMenu";
+import { ChannelContextMenu } from "../ContextMenu/ChannelMenu";
+import { SpaceDrawer as SpaceDrawerComponent } from "../Space/SpaceDrawer";
 import {
 	SpaceRail,
 	SpaceRailAction,
@@ -26,12 +23,9 @@ import {
 import { TabBar, TabBarItem } from "../TabBar/TabBar";
 import type { VoiceParticipant } from "../Voice/shared";
 import { CategoryHeader, ChannelCategory } from "./Category";
+import { ChannelDrawer as ChannelDrawerComponent } from "./ChannelDrawer";
 import { ChannelList, type ChannelListCategory } from "./ChannelList";
-import {
-	ActionTile,
-	ActionTiles,
-	ChannelListHeader,
-} from "./ChannelListHeader";
+import { ChannelListHeader } from "./ChannelListHeader";
 import { CategoryEmpty, ChannelRow, VoiceChannelRow } from "./ChannelRow";
 import {
 	CategoryHeaderSkeleton,
@@ -866,53 +860,80 @@ export const CompactList: Story = {
 	},
 };
 
-export const SpaceDrawer: Story = {
-	render: () => (
-		<div class="min-h-dvh bg-background p-4">
-			<Drawer>
-				<DrawerTrigger as={Button} variant="secondary">
+const SpaceDrawerDemo = () => {
+	const [open, setOpen] = createSignal(false);
+	const [muted, setMuted] = createSignal(false);
+	return (
+		<div class="min-h-dvh bg-background">
+			<ChannelListHeader
+				name="Colibri Social Flock"
+				iconSrc={storyImages.violetIcon()}
+				memberCount={99}
+				ownerHandle="lou.gg"
+				description="A cozy corner for people who build things on the AT Protocol."
+				developer={{
+					copyLabel: "Copy DID",
+					copyValue: "did:plc:colibrisocialflock",
+					pdslsHref: "https://pdsls.dev/at://did:plc:colibrisocialflock",
+				}}
+				menu={{
+					onInvite: () => {},
+					onOpenNotificationSettings: () => {},
+					onOpenSettings: () => {},
+					onMarkAsRead: () => {},
+					get muted() {
+						return muted();
+					},
+					onMutedChange: setMuted,
+					onCreateChannel: () => {},
+					onCreateCategory: () => {},
+					onReorderChannels: () => {},
+					onLeave: () => {},
+					developerMode: true,
+				}}
+			/>
+			<div class="p-4">
+				<Button variant="secondary" onClick={() => setOpen(true)}>
 					Open Space
-				</DrawerTrigger>
-				<DrawerContent
-					aria-label="Colibri Social Flock"
-					header={
-						<SpaceProfileHeader
-							name="Colibri Social Flock"
-							iconSrc={storyImages.violetIcon()}
-							memberCount={99}
-							ownerHandle="lou.gg"
-							description="A cozy corner for people who build things on the AT Protocol."
-						/>
-					}
-				>
-					<ActionTiles>
-						<ActionTile icon={<UserPlusIcon />} label="Invite" />
-						<ActionTile icon={<BellIcon />} label="Notifications" />
-						<ActionTile icon={<SettingsIcon />} label="Settings" />
-					</ActionTiles>
-					<ListGroup>
-						<NavRow label="Mark as read" />
-						<NavRow label="Show members" />
-					</ListGroup>
-					<ListGroup>
-						<NavRow label="Create category" />
-						<NavRow label="Create channel" />
-					</ListGroup>
-					<ListGroup>
-						<DestructiveRow icon={<LogoutIcon />} label="Leave Space" />
-					</ListGroup>
-					<DeveloperModeCard
-						copyLabel="Copy DID"
-						copyValue="did:plc:colibrisocialflock"
-						pdslsHref="https://pdsls.dev/at://did:plc:colibrisocialflock"
-					/>
-				</DrawerContent>
-			</Drawer>
+				</Button>
+			</div>
+			<SpaceDrawerComponent
+				open={open()}
+				onOpenChange={setOpen}
+				name="Colibri Social Flock"
+				iconSrc={storyImages.violetIcon()}
+				memberCount={99}
+				ownerHandle="lou.gg"
+				description="A cozy corner for people who build things on the AT Protocol."
+				onInvite={() => {}}
+				onOpenNotificationSettings={() => {}}
+				onOpenSettings={() => {}}
+				onMarkAsRead={() => {}}
+				muted={muted()}
+				onMutedChange={setMuted}
+				onCreateChannel={() => {}}
+				onCreateCategory={() => {}}
+				onReorderChannels={() => {}}
+				onLeave={() => {}}
+				developerMode
+				developer={{
+					copyLabel: "Copy DID",
+					copyValue: "did:plc:colibrisocialflock",
+					pdslsHref: "https://pdsls.dev/at://did:plc:colibrisocialflock",
+				}}
+			/>
 		</div>
-	),
+	);
+};
+
+export const SpaceDrawer: Story = {
+	parameters: { viewport: { defaultViewport: "iphone" } },
+	render: () => <SpaceDrawerDemo />,
 	play: async ({ canvasElement }) => {
 		await userEvent.click(
-			within(canvasElement).getByRole("button", { name: "Open Space" }),
+			within(canvasElement).getByRole("button", {
+				name: "Colibri Social Flock, Space options",
+			}),
 		);
 		const dialog = await screen.findByRole("dialog");
 		await waitFor(() =>
@@ -920,9 +941,355 @@ export const SpaceDrawer: Story = {
 				within(dialog).getByRole("button", { name: "Invite" }),
 			).toBeVisible(),
 		);
+		await new Promise((resolve) => setTimeout(resolve, 400));
+		await expectNoLayoutIssues(dialog);
+		const labels = Array.from(
+			dialog.querySelectorAll<HTMLElement>("button, [role=switch], label"),
+		).map((element) => element.textContent?.trim());
+		await expect(labels.indexOf("Create channel")).toBeLessThan(
+			labels.indexOf("Create category"),
+		);
+		for (const row of ["Mark as read", "Create channel", "Reorder channels"]) {
+			const button = within(dialog).getByRole("button", { name: row });
+			await expect(button.querySelector("svg")).not.toBeNull();
+		}
+		await expect(within(dialog).getByText("Mute Space")).toBeInTheDocument();
 		await expect(
 			within(dialog).getByRole("button", { name: "Leave Space" }),
 		).toBeInTheDocument();
+	},
+};
+
+const MemberSpaceDrawerDemo = () => {
+	const [open, setOpen] = createSignal(false);
+	const [muted, setMuted] = createSignal(false);
+	return (
+		<div class="min-h-dvh bg-background p-4">
+			<Button variant="secondary" onClick={() => setOpen(true)}>
+				Hold Space
+			</Button>
+			<SpaceDrawerComponent
+				open={open()}
+				onOpenChange={setOpen}
+				name="Night Owls Art Club for Late Sketchers and Insomniac Painters"
+				iconSrc={storyImages.violetIcon()}
+				memberCount={500}
+				description="Late night sketching, critique threads and the occasional speedpaint."
+				onOpenNotificationSettings={() => {}}
+				onMarkAsRead={() => {}}
+				muted={muted()}
+				onMutedChange={setMuted}
+				onLeave={() => {}}
+			/>
+		</div>
+	);
+};
+
+export const SpaceDrawerForMembers: Story = {
+	parameters: { viewport: { defaultViewport: "iphone" } },
+	render: () => <MemberSpaceDrawerDemo />,
+	play: async ({ canvasElement }) => {
+		await userEvent.click(
+			within(canvasElement).getByRole("button", { name: "Hold Space" }),
+		);
+		const dialog = await screen.findByRole("dialog");
+		const row = await within(dialog).findByRole("button", {
+			name: "Notification settings",
+		});
+		await new Promise((resolve) => setTimeout(resolve, 400));
+		await expectNoLayoutIssues(dialog);
+		await expect(
+			within(dialog).queryByRole("button", { name: "Notifications" }),
+		).toBeNull();
+		const group = row.parentElement;
+		await expect(
+			group?.contains(
+				within(dialog).getByRole("button", { name: "Mark as read" }),
+			),
+		).toBe(true);
+	},
+};
+
+const ChannelDrawerDemo = (props: { name: string }) => {
+	const [open, setOpen] = createSignal(false);
+	const [muted, setMuted] = createSignal(false);
+	return (
+		<div class="min-h-dvh bg-background p-4">
+			<Button variant="secondary" onClick={() => setOpen(true)}>
+				Hold general
+			</Button>
+			<ChannelDrawerComponent
+				open={open()}
+				onOpenChange={setOpen}
+				name={props.name}
+				onMarkAsRead={() => {}}
+				muted={muted()}
+				onMutedChange={setMuted}
+				onStartThread={() => {}}
+				onShowThreads={() => {}}
+				onCopyLink={() => {}}
+				onDuplicate={() => {}}
+				onEdit={() => {}}
+				developerMode
+				developer={{
+					copyLabel: "Copy AT-URI",
+					copyValue:
+						"at://did:plc:colibrisocialflock/space/social.colibri.beta.channel.text/general",
+				}}
+			/>
+		</div>
+	);
+};
+
+const openChannelDrawer = async (canvasElement: HTMLElement, name: string) => {
+	await waitFor(() =>
+		expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
+	);
+	await waitFor(() =>
+		expect(getComputedStyle(document.body).pointerEvents).not.toBe("none"),
+	);
+	await userEvent.click(
+		within(canvasElement).getByRole("button", { name: "Hold general" }),
+	);
+	const dialog = await screen.findByRole("dialog", {
+		name: `${name} options`,
+	});
+	await waitFor(() => expect(dialog).toBeVisible());
+	await new Promise((resolve) => setTimeout(resolve, 400));
+	return dialog;
+};
+
+export const ChannelDrawer: Story = {
+	parameters: { viewport: { defaultViewport: "iphone" } },
+	render: () => <ChannelDrawerDemo name="general" />,
+	play: async ({ canvasElement }) => {
+		const dialog = await openChannelDrawer(canvasElement, "general");
+		await expectNoLayoutIssues(dialog);
+		const header = dialog.querySelector(
+			"[data-channel-drawer-header]",
+		) as HTMLElement;
+		await expect(
+			Math.round(
+				header.getBoundingClientRect().left -
+					dialog.getBoundingClientRect().left,
+			),
+		).toBe(16);
+		const groups = Array.from(dialog.querySelectorAll("section")).map((group) =>
+			Array.from(group.querySelectorAll("button")).map((button) =>
+				button.textContent?.trim(),
+			),
+		);
+		await expect(groups.slice(0, 2)).toEqual([
+			[
+				"Mark as read",
+				"Mute channel",
+				"Start a thread",
+				"Show all threads",
+				"Copy channel link",
+			],
+			["Duplicate", "Edit channel"],
+		]);
+		for (const row of groups.slice(0, 2).flat()) {
+			const button = within(dialog).getByRole("button", { name: row });
+			await expect(button.querySelector("svg")).not.toBeNull();
+			await expect(button.querySelectorAll("svg").length).toBe(1);
+		}
+		await expect(
+			within(dialog).getByRole("link", { name: "Show on PDSls" }),
+		).toHaveAttribute(
+			"href",
+			"https://pdsls.dev/at://did:plc:colibrisocialflock/space/social.colibri.beta.channel.text/general",
+		);
+		await expect(
+			within(dialog).queryByRole("button", { name: "Delete channel" }),
+		).toBeNull();
+		await userEvent.click(
+			within(dialog).getByRole("button", { name: "Mute channel" }),
+		);
+		const reopened = await openChannelDrawer(canvasElement, "general");
+		await expect(
+			within(reopened).getByRole("button", { name: "Unmute channel" }),
+		).toBeInTheDocument();
+	},
+};
+
+export const ChannelDrawerLongName: Story = {
+	parameters: { viewport: { defaultViewport: "iphone" } },
+	render: () => (
+		<ChannelDrawerDemo name="super-duper-long-channel-name-that-is-probably-too-long-for-the-app" />
+	),
+	play: async ({ canvasElement }) => {
+		const dialog = await openChannelDrawer(
+			canvasElement,
+			"super-duper-long-channel-name-that-is-probably-too-long-for-the-app",
+		);
+		await expectNoLayoutIssues(dialog);
+		await expect(
+			within(dialog).getByRole("link", { name: "Show on PDSls" }),
+		).toBeVisible();
+	},
+};
+
+const joinVoice = fn();
+const openChat = fn();
+
+const VoiceChannelDrawerDemo = () => {
+	const [open, setOpen] = createSignal(false);
+	const [inCall, setInCall] = createSignal(false);
+	return (
+		<div class="min-h-dvh bg-background p-4">
+			<Button variant="secondary" onClick={() => setOpen(true)}>
+				Hold general
+			</Button>
+			<ChannelDrawerComponent
+				open={open()}
+				onOpenChange={setOpen}
+				name="lounge"
+				icon={<VolumeSmallIcon />}
+				onJoinVoice={() => {
+					joinVoice();
+					setInCall(true);
+				}}
+				onOpenCall={inCall() ? () => {} : undefined}
+				onOpenChat={openChat}
+				onCopyLink={() => {}}
+				onDuplicate={() => {}}
+				onEdit={() => {}}
+				developerMode
+				developer={{
+					copyLabel: "Copy AT-URI",
+					copyValue:
+						"at://did:plc:colibrisocialflock/space/social.colibri.beta.channel.voice/lounge",
+				}}
+			/>
+		</div>
+	);
+};
+
+export const VoiceChannelDrawer: Story = {
+	parameters: { viewport: { defaultViewport: "iphone" } },
+	render: () => <VoiceChannelDrawerDemo />,
+	play: async ({ canvasElement }) => {
+		joinVoice.mockClear();
+		openChat.mockClear();
+		const dialog = await openChannelDrawer(canvasElement, "lounge");
+		await expectNoLayoutIssues(dialog);
+		const groups = Array.from(dialog.querySelectorAll("section")).map((group) =>
+			Array.from(group.querySelectorAll("button")).map((button) =>
+				button.textContent?.trim(),
+			),
+		);
+		await expect(groups.slice(0, 3)).toEqual([
+			["Join voice", "Open chat"],
+			["Copy channel link"],
+			["Duplicate", "Edit channel"],
+		]);
+		await expect(
+			within(dialog).queryByRole("button", { name: "Mark as read" }),
+		).toBeNull();
+		await userEvent.click(
+			within(dialog).getByRole("button", { name: "Join voice" }),
+		);
+		await expect(joinVoice).toHaveBeenCalledTimes(1);
+		const reopened = await openChannelDrawer(canvasElement, "lounge");
+		await expect(
+			within(reopened).getByRole("button", { name: "Open call" }),
+		).toBeInTheDocument();
+		await expect(
+			within(reopened).queryByRole("button", { name: "Join voice" }),
+		).toBeNull();
+		await userEvent.click(
+			within(reopened).getByRole("button", { name: "Open chat" }),
+		);
+		await expect(openChat).toHaveBeenCalledTimes(1);
+	},
+};
+
+export const MobileActiveRow: Story = {
+	parameters: { viewport: { defaultViewport: "iphone" } },
+	render: () => (
+		<Panel class="flex flex-col gap-1 px-2">
+			<ChannelRow name="general" active />
+			<ChannelRow name="design" />
+		</Panel>
+	),
+	play: async ({ canvasElement }) => {
+		const [active, idle] = Array.from(
+			canvasElement.querySelectorAll<HTMLElement>("[data-channel-row] > *"),
+		);
+		if (!active || !idle) throw new Error("Missing rows");
+		await expect(getComputedStyle(active).backgroundColor).toBe(
+			"rgb(38, 38, 38)",
+		);
+		await expect(getComputedStyle(idle).backgroundColor).toBe(
+			"rgba(0, 0, 0, 0)",
+		);
+		const name = idle.querySelector("[data-channel-name]") as HTMLElement;
+		await expect(getComputedStyle(name).color).toBe("rgb(161, 161, 161)");
+	},
+};
+
+const openParticipant = fn();
+
+export const VoiceParticipants: Story = {
+	render: () => {
+		const [speaking, setSpeaking] = createSignal(false);
+		const [joined, setJoined] = createSignal(false);
+		const people = (): VoiceParticipant[] => [
+			{ ...lis, speaking: speaking() },
+			{ ...tim },
+			{ id: "did:plc:loading", name: "did:plc:loading", pending: true },
+		];
+		return (
+			<Panel class="flex flex-col gap-2 px-2">
+				<Button variant="secondary" onClick={() => setSpeaking((on) => !on)}>
+					Toggle speaking
+				</Button>
+				<Button variant="secondary" onClick={() => setJoined((on) => !on)}>
+					Toggle joined
+				</Button>
+				<VoiceChannelRow
+					name="Birdwatch call"
+					joined={joined()}
+					participants={people()}
+					onOpenParticipant={openParticipant}
+				/>
+			</Panel>
+		);
+	},
+	play: async ({ canvasElement }) => {
+		const canvas = within(canvasElement);
+		const list = canvas.getByRole("list", { name: "In Birdwatch call" });
+		const pending = list.querySelector("[data-pending]");
+		await expect(
+			pending?.querySelector("[data-voice-participant-skeleton]"),
+		).not.toBeNull();
+		await expect(list.textContent).not.toContain("did:plc:loading");
+		const image = () =>
+			list.querySelector<HTMLImageElement>(
+				"[data-voice-participant]:first-child img",
+			);
+		const before = image();
+		await expect(before).not.toBeNull();
+		const first = () =>
+			list.querySelector("[data-voice-participant]:first-child");
+		await userEvent.click(
+			canvas.getByRole("button", { name: "Toggle speaking" }),
+		);
+		await new Promise((resolve) => setTimeout(resolve, 50));
+		await expect(first()).not.toHaveAttribute("data-speaking");
+		await expect(
+			list.querySelector("[data-speaking-ring][class*='outline-primary']"),
+		).toBeNull();
+		await expect(list.textContent).not.toContain("speaking");
+		await userEvent.click(
+			canvas.getByRole("button", { name: "Toggle joined" }),
+		);
+		await waitFor(() => expect(first()).toHaveAttribute("data-speaking"));
+		await expect(image()).toBe(before);
+		await userEvent.click(within(list).getByRole("button", { name: /Lis/ }));
+		await expect(openParticipant).toHaveBeenCalledWith("lis");
+		await expectNoLayoutIssues(list as HTMLElement);
 	},
 };
 
@@ -984,5 +1351,322 @@ export const Skeletons: Story = {
 			await expect(Math.abs(a.width - b.width)).toBeLessThanOrEqual(1);
 			await expect(Math.abs(a.height - b.height)).toBeLessThanOrEqual(1);
 		}
+	},
+};
+
+export const CategoryRightClick: Story = {
+	name: "Category right-click menu",
+	parameters: desktop,
+	render: () => {
+		const [muted, setMuted] = createSignal(false);
+		return (
+			<div class="h-dvh w-72 overflow-y-auto border-0 border-r border-solid border-border bg-card text-foreground">
+				<ChannelList
+					uncategorized={reorderSpace().uncategorized}
+					categories={reorderSpace().categories}
+					getId={(entry) => entry.id}
+					channelName={(entry) => entry.name}
+					wrapCategoryHeader={(id, header) => (
+						<CategoryContextMenu
+							name={id === "voice" ? "Voice" : "Hangout"}
+							muted={muted()}
+							onMutedChange={setMuted}
+							onMarkAsRead={() => {}}
+						>
+							{header}
+						</CategoryContextMenu>
+					)}
+					renderChannel={(entry) => (
+						<ChannelRow
+							name={entry.name}
+							platform="desktop"
+							density="compact"
+						/>
+					)}
+				/>
+			</div>
+		);
+	},
+	play: async ({ canvasElement }) => {
+		const header = canvasElement.querySelector(
+			'[data-list-category="hangout"] [data-category-header]',
+		) as HTMLElement;
+		const rect = header.getBoundingClientRect();
+		header.dispatchEvent(
+			new MouseEvent("contextmenu", {
+				bubbles: true,
+				cancelable: true,
+				button: 2,
+				clientX: rect.left + 24,
+				clientY: rect.top + 8,
+			}),
+		);
+		const menu = await screen.findByRole("menu", { name: "Hangout options" });
+		const mute = within(menu).getByRole("menuitemcheckbox", { name: /Mute/ });
+		await userEvent.click(mute);
+		await waitFor(() => expect(mute).toHaveAttribute("aria-checked", "true"));
+		await userEvent.keyboard("{Escape}");
+		await waitFor(() => expect(screen.queryByRole("menu")).toBeNull());
+		const row = within(canvasElement).getByText("General");
+		row.dispatchEvent(
+			new MouseEvent("contextmenu", { bubbles: true, cancelable: true }),
+		);
+		await expect(screen.queryByRole("menu")).toBeNull();
+		await userEvent.click(
+			within(header).getByRole("button", { name: "Hangout" }),
+		);
+		await waitFor(() =>
+			expect(
+				canvasElement
+					.querySelector('[data-list-category="hangout"] [data-category]')
+					?.hasAttribute("data-collapsed"),
+			).toBe(true),
+		);
+	},
+};
+
+const LONG_OWNER = "bartholomew.the.heron.watcher.bsky.social";
+
+export const HeaderChips: Story = {
+	name: "Header member and owner chips",
+	parameters: desktop,
+	render: () => (
+		<div class="flex gap-6 bg-background text-foreground">
+			<div data-header-frame="long" class="w-72 bg-card">
+				<ChannelListHeader
+					platform="desktop"
+					name="Colibri Social Flock"
+					iconSrc={storyImages.violetIcon()}
+					memberCount={1240}
+					ownerHandle={LONG_OWNER}
+				/>
+			</div>
+			<div data-header-frame="short" class="w-72 bg-card">
+				<ChannelListHeader
+					platform="desktop"
+					name="Colibri Social Flock"
+					iconSrc={storyImages.violetIcon()}
+					memberCount={99}
+					ownerHandle="lou.gg"
+				/>
+			</div>
+			<div data-header-frame="mobile" class="w-[338px] bg-card">
+				<ChannelListHeader
+					platform="mobile"
+					name="Colibri Social Flock"
+					iconSrc={storyImages.violetIcon()}
+					memberCount={1240}
+					ownerHandle={LONG_OWNER}
+				/>
+			</div>
+		</div>
+	),
+	play: async ({ canvasElement }) => {
+		const chipsIn = (frame: string) => {
+			const root = canvasElement.querySelector(
+				`[data-header-frame="${frame}"]`,
+			) as HTMLElement;
+			const row = root.querySelector("[data-space-chips]") as HTMLElement;
+			const [members, owner] = Array.from(row.children) as HTMLElement[];
+			if (!members || !owner) throw new Error("chips missing");
+			return { root, row, members, owner };
+		};
+		for (const frame of ["long", "mobile"]) {
+			const { root, row, members, owner } = chipsIn(frame);
+			await expect(members.textContent?.trim()).toBe("1,240 members");
+			await expect(owner.textContent?.trim()).toBe(`Owner @${LONG_OWNER}`);
+			const first = members.getBoundingClientRect();
+			const second = owner.getBoundingClientRect();
+			await expect(second.top).toBeGreaterThanOrEqual(first.bottom);
+			await expect(Math.round(second.top - first.bottom)).toBe(
+				Math.round(Number.parseFloat(getComputedStyle(row).rowGap)),
+			);
+			await expect(second.left).toBe(first.left);
+			await expect(second.right).toBeLessThanOrEqual(
+				row.getBoundingClientRect().right + 0.5,
+			);
+			const label = owner.querySelector(".truncate") as HTMLElement;
+			await expect(label.scrollWidth).toBeGreaterThan(label.clientWidth);
+			await expect(owner.title).toBe(`Owner @${LONG_OWNER}`);
+			await expectNoLayoutIssues(root);
+		}
+		const { root, members, owner } = chipsIn("short");
+		await expect(owner.textContent?.trim()).toBe("Owner @lou.gg");
+		await expect(Math.round(owner.getBoundingClientRect().top)).toBe(
+			Math.round(members.getBoundingClientRect().top),
+		);
+		await expect(owner.textContent).not.toContain("By");
+		await expectNoLayoutIssues(root);
+	},
+};
+
+const hoverBackground = (element: Element) => {
+	for (const sheet of Array.from(document.styleSheets)) {
+		let rules: CSSRuleList;
+		try {
+			rules = sheet.cssRules;
+		} catch {
+			continue;
+		}
+		const queue = Array.from(rules);
+		while (queue.length > 0) {
+			const rule = queue.shift();
+			if (rule && "cssRules" in rule && !(rule instanceof CSSStyleRule)) {
+				queue.push(...Array.from((rule as CSSGroupingRule).cssRules));
+				continue;
+			}
+			if (!(rule instanceof CSSStyleRule)) continue;
+			if (!rule.selectorText.includes(":hover")) continue;
+			const background = rule.style.backgroundColor;
+			if (!background) continue;
+			const selector = rule.selectorText.replaceAll(":hover", "");
+			try {
+				if (element.matches(selector)) return background;
+			} catch {}
+		}
+	}
+	return undefined;
+};
+
+const heroFrames = [
+	{ id: "bright", bannerColor: "linear-gradient(135deg, #fef3c7, #ffffff)" },
+	{ id: "dark", bannerColor: "#050505" },
+	{ id: "image", bannerSrc: storyImages.sunsetBanner() },
+	{ id: "none" },
+] as const;
+
+export const DesktopBannerHeader: Story = {
+	name: "Desktop banner behind the Space name",
+	parameters: desktop,
+	render: () => (
+		<div class="flex flex-wrap gap-6 bg-background p-4 text-foreground">
+			<For each={heroFrames}>
+				{(frame) => (
+					<div data-hero-frame={frame.id} class="w-72 bg-card">
+						<ChannelListHeader
+							platform="desktop"
+							name="Colibri Social Flock"
+							bannerColor={
+								"bannerColor" in frame ? frame.bannerColor : undefined
+							}
+							bannerSrc={"bannerSrc" in frame ? frame.bannerSrc : undefined}
+							memberCount={99}
+							ownerHandle="lou.gg"
+							menu={{ onMarkAsRead: () => {}, onLeave: () => {} }}
+						/>
+					</div>
+				)}
+			</For>
+		</div>
+	),
+	play: async ({ canvasElement }) => {
+		for (const frame of heroFrames) {
+			const root = canvasElement.querySelector(
+				`[data-hero-frame="${frame.id}"]`,
+			) as HTMLElement;
+			const header = root.querySelector(
+				"[data-channel-list-header]",
+			) as HTMLElement;
+			const banner = root.querySelector("[data-banner]") as HTMLElement;
+			const row = root.querySelector("[data-space-header-row]") as HTMLElement;
+			const name = root.querySelector("[data-space-name]") as HTMLElement;
+			const chevron = root.querySelector("[data-space-chevron]") as HTMLElement;
+			const trigger = root.querySelector(
+				"[data-space-name-button]",
+			) as HTMLElement;
+			const withBanner = frame.id !== "none";
+			if (withBanner) {
+				await expect(banner.getBoundingClientRect().top).toBe(
+					header.getBoundingClientRect().top,
+				);
+				await expect(row.getBoundingClientRect().top).toBe(
+					banner.getBoundingClientRect().top,
+				);
+				await expect(getComputedStyle(name).textShadow).not.toBe("none");
+				await expect(getComputedStyle(chevron).filter).toContain("drop-shadow");
+				await expect(getComputedStyle(banner).borderTopLeftRadius).toBe("0px");
+				await expect(root.querySelector("[data-banner-flush]")).not.toBeNull();
+			} else {
+				await expect(banner.getBoundingClientRect().top).toBeGreaterThanOrEqual(
+					row.getBoundingClientRect().bottom,
+				);
+				await expect(getComputedStyle(name).textShadow).toBe("none");
+				await expect(root.querySelector("[data-banner-flush]")).toBeNull();
+			}
+			await expect(hoverBackground(trigger)).toBeTruthy();
+			const box = trigger.getBoundingClientRect();
+			const hit = document.elementFromPoint(
+				box.left + box.width / 2,
+				box.top + box.height / 2,
+			);
+			await expect(!!hit && trigger.contains(hit)).toBe(true);
+			await expectNoLayoutIssues(root);
+		}
+	},
+};
+
+const widthChannels = [
+	{ id: "short", name: "hi", preview: "ok" },
+	{ id: "mid", name: "general", preview: "Kingfisher by the bridge" },
+	{
+		id: "long",
+		name: "a-very-long-channel-name-that-keeps-going",
+		preview:
+			"This preview is far longer than the sidebar could ever show in one line of text",
+	},
+];
+
+export const DesktopRowWidths: Story = {
+	name: "Desktop rows fill the list",
+	parameters: desktop,
+	render: () => (
+		<div class="h-dvh w-72 overflow-y-auto bg-card text-foreground">
+			<ChannelList
+				categories={[{ id: "talk", name: "Talk", channels: widthChannels }]}
+				uncategorized={widthChannels.map((entry) => ({
+					...entry,
+					id: `${entry.id}-loose`,
+				}))}
+				getId={(entry) => entry.id}
+				channelName={(entry) => entry.name}
+				renderChannel={(entry) => (
+					<ChannelContextMenu name={entry.name} onCopyLink={() => {}}>
+						<ChannelRow
+							name={entry.name}
+							platform="desktop"
+							unread
+							preview={{ author: "Lou", text: entry.preview }}
+							attachment={entry.id === "mid" ? "image" : undefined}
+						/>
+					</ChannelContextMenu>
+				)}
+			/>
+		</div>
+	),
+	play: async ({ canvasElement }) => {
+		const slots = Array.from(
+			canvasElement.querySelectorAll<HTMLElement>("[data-channel-slot]"),
+		);
+		await expect(slots).toHaveLength(6);
+		const width = slots[0]?.getBoundingClientRect().width ?? 0;
+		await expect(width).toBeGreaterThan(200);
+		for (const slot of slots) {
+			const row = slot.querySelector("[data-channel-row]") as HTMLElement;
+			await expect(slot.getBoundingClientRect().width).toBe(width);
+			await expect(row.getBoundingClientRect().width).toBe(width);
+			const preview = row.querySelector(
+				"[data-channel-preview]",
+			) as HTMLElement;
+			await expect(preview.getBoundingClientRect().right).toBeLessThanOrEqual(
+				row.getBoundingClientRect().right,
+			);
+			await expect(getComputedStyle(preview).textOverflow).toBe("ellipsis");
+		}
+		const long = Array.from(
+			canvasElement.querySelectorAll<HTMLElement>("[data-channel-preview]"),
+		).find((preview) => preview.textContent?.includes("far longer"));
+		if (!long) throw new Error("long preview missing");
+		await expect(long.scrollWidth).toBeGreaterThan(long.clientWidth);
+		await expectNoLayoutIssues(canvasElement);
 	},
 };

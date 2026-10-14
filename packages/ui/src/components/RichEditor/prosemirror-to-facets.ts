@@ -62,6 +62,16 @@ export type MentionType = {
 				type: "emoji";
 		  }
 		| {
+				id: string;
+				label: string;
+				avatar: string | null;
+				handle: null;
+				name: string;
+				alt?: string | null;
+				cid?: string | null;
+				type: "customEmoji";
+		  }
+		| {
 				id: null;
 				label: string;
 				avatar: null;
@@ -151,6 +161,19 @@ const docToSource = (
 								$type: "social.colibri.beta.richtext.facet#role",
 								role: mention.attrs.id,
 							},
+						],
+					});
+				} else if (mention.attrs.type === "customEmoji") {
+					source += mention.attrs.label;
+					atoms.push({
+						start,
+						end: source.length,
+						features: [
+							{
+								$type: "social.colibri.beta.richtext.facet#customEmoji",
+								uri: mention.attrs.id,
+								...(mention.attrs.cid ? { cid: mention.attrs.cid } : {}),
+							} as unknown as ColibriRichTextFeature,
 						],
 					});
 				} else if (mention.attrs.type === "time") {

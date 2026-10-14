@@ -36,6 +36,7 @@ export type ProfileDeveloperInfo = {
 
 export type ProfileData = {
 	displayName: string;
+	avatarSeed?: string;
 	nickname?: string;
 	handle: string;
 	pronouns?: string;
@@ -59,13 +60,16 @@ export type ProfileData = {
 	actionsLabel?: string;
 	actions?: ProfileAction[];
 	developer?: ProfileDeveloperInfo;
+	self?: boolean;
 };
 
 export type ProfileContentPartProps = {
 	profile: ProfileData;
 	surface?: ProfileSurface;
+	tight?: boolean;
 	headingLevel?: 1 | 2 | 3;
 	onAction?: (action: ProfileAction) => void;
+	footer?: JSX.Element;
 	class?: string;
 };
 
@@ -83,9 +87,12 @@ const runAction = (
 	action.onSelect?.();
 };
 
+export const profileActionsOf = (profile: ProfileData) =>
+	profile.self ? [] : (profile.actions ?? []);
+
 export const ProfileContentHeader = (props: ProfileContentPartProps) => {
 	const quickActions = () =>
-		(props.profile.actions ?? []).filter((action) => action.quick);
+		profileActionsOf(props.profile).filter((action) => action.quick);
 
 	return (
 		<ProfileHeader
@@ -93,6 +100,7 @@ export const ProfileContentHeader = (props: ProfileContentPartProps) => {
 			nameColor={props.profile.accentColor}
 			handle={props.profile.handle}
 			pronouns={props.profile.pronouns}
+			avatarSeed={props.profile.avatarSeed}
 			avatarSrc={props.profile.avatarSrc}
 			avatarColor={props.profile.avatarColor}
 			presence={props.profile.presence}
@@ -107,6 +115,7 @@ export const ProfileContentHeader = (props: ProfileContentPartProps) => {
 			statusShowWhileOffline={props.profile.statusShowWhileOffline}
 			onStatusClick={props.profile.onStatusClick}
 			surface={props.surface ?? "popover"}
+			tight={props.tight}
 			headingLevel={props.headingLevel}
 			class={props.class}
 			actions={
@@ -145,6 +154,7 @@ const ProfileSection = (props: { label: string; children: JSX.Element }) => (
 
 export const ProfileContentBody = (props: ProfileContentPartProps) => {
 	const bio = createSlot(() => props.profile.bio);
+	const footer = createSlot(() => props.footer);
 	const tone = () => (props.surface === "background" ? "card" : "secondary");
 
 	return (
@@ -157,7 +167,7 @@ export const ProfileContentBody = (props: ProfileContentPartProps) => {
 			</For>
 			<Show when={bio.has()}>
 				<ProfileSection label="Bio">
-					<p class="m-0 text-base break-words text-muted-foreground select-text [&_a]:text-primary-highlight [&_a]:underline-offset-2 [&_a:hover]:underline">
+					<p class="m-0 text-base break-words text-foreground select-text [&_a]:text-primary-highlight [&_a]:underline-offset-2 [&_a:hover]:underline">
 						{bio()}
 					</p>
 				</ProfileSection>
@@ -187,9 +197,9 @@ export const ProfileContentBody = (props: ProfileContentPartProps) => {
 					</div>
 				</ProfileSection>
 			</Show>
-			<Show when={(props.profile.actions ?? []).length > 0}>
+			<Show when={profileActionsOf(props.profile).length > 0}>
 				<ListGroup label={props.profile.actionsLabel ?? "Actions"}>
-					<For each={props.profile.actions}>
+					<For each={profileActionsOf(props.profile)}>
 						{(action) => (
 							<Show
 								when={action.tone === "destructive"}
@@ -220,6 +230,11 @@ export const ProfileContentBody = (props: ProfileContentPartProps) => {
 					/>
 				)}
 			</Show>
+			<Show when={footer.has()}>
+				<div data-profile-footer="" class="flex flex-col">
+					{footer()}
+				</div>
+			</Show>
 		</div>
 	);
 };
@@ -229,6 +244,7 @@ export const ProfileContent = (props: ProfileContentPartProps) => (
 		<ProfileContentHeader
 			profile={props.profile}
 			surface={props.surface}
+			tight={props.tight}
 			headingLevel={props.headingLevel}
 			onAction={props.onAction}
 		/>
@@ -236,6 +252,7 @@ export const ProfileContent = (props: ProfileContentPartProps) => (
 			profile={props.profile}
 			surface={props.surface}
 			onAction={props.onAction}
+			footer={props.footer}
 			class="px-4 pt-4 pb-4"
 		/>
 	</div>

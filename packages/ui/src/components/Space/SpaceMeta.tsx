@@ -17,8 +17,27 @@ export const MemberCountChip = (props: {
 	</Chip>
 );
 
-export const OwnerChip = (props: { handle: string }) => (
-	<Chip icon={<MentionCircleIcon />}>
-		{`By @${props.handle.replace(/^@/, "")}`}
-	</Chip>
-);
+export const OwnerChip = (props: {
+	handle: string;
+	short?: boolean;
+	class?: string;
+}) => {
+	const handle = () => `@${props.handle.replace(/^@/, "")}`;
+	return (
+		<Chip
+			icon={<MentionCircleIcon />}
+			data-owner-chip=""
+			title={props.short ? `Owner ${handle()}` : undefined}
+			class={props.class}
+		>
+			{props.short ? (
+				<>
+					<span class="sr-only">Owner </span>
+					{handle()}
+				</>
+			) : (
+				`By ${handle()}`
+			)}
+		</Chip>
+	);
+};

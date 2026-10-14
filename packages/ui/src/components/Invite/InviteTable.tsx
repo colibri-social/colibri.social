@@ -576,6 +576,7 @@ export const InviteTable = (props: InviteTableProps) => {
 					<Avatar
 						size="xs"
 						name={invite.creator.handle}
+						seed={invite.creator.did ?? invite.creator.handle}
 						src={invite.creator.avatar}
 						class="shrink-0"
 					/>

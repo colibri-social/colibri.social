@@ -1,4 +1,4 @@
-import { createSignal, createUniqueId, Show } from "solid-js";
+import { createSignal, createUniqueId, type JSX, Show } from "solid-js";
 import { cx } from "../../utils/cx";
 import { Drawer, DrawerContent } from "../Drawer/Drawer";
 import { NavHeader } from "../Header/NavHeader";
@@ -18,6 +18,7 @@ export type DiscoveryProps = DiscoveryActions & {
 	busyIds?: readonly string[];
 	defaultSelectedId?: string;
 	defaultQuery?: string;
+	previewExtra?: (space: DiscoverySpace) => JSX.Element;
 	class?: string;
 };
 
@@ -61,6 +62,7 @@ const DesktopDiscovery = (props: DiscoveryProps) => {
 								onRequestJoin={props.onRequestJoin}
 								onOpenSpace={props.onOpenSpace}
 								onBack={back}
+								extra={props.previewExtra?.(space())}
 							/>
 						)}
 					</Show>
@@ -96,6 +98,7 @@ const MobileDiscovery = (props: DiscoveryProps) => {
 						return (
 							<DrawerContent
 								aria-label={space().name}
+								headerBleed
 								header={
 									<SpacePreviewHeader
 										space={space()}
@@ -103,7 +106,11 @@ const MobileDiscovery = (props: DiscoveryProps) => {
 										busy={props.busyIds?.includes(space().id)}
 										onJoin={props.onJoin}
 										onRequestJoin={props.onRequestJoin}
-										onOpenSpace={props.onOpenSpace}
+										onOpenSpace={(id) => {
+											setOpen(false);
+											props.onOpenSpace?.(id);
+										}}
+										extra={props.previewExtra?.(space())}
 									/>
 								}
 							/>
@@ -153,12 +160,11 @@ export const DiscoveryScreen = (props: DiscoveryScreenProps) => (
 		data-discovery-screen=""
 		class="flex h-full min-h-0 flex-col bg-background text-foreground"
 	>
-		<NavHeader
-			title={props.title ?? "Discover Spaces"}
-			onNavigate={props.onBack}
-			safeTop
-		/>
-		<div class="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pt-2 pb-safe-offset-4">
+		<NavHeader navigateLabel="Back" onNavigate={props.onBack} safeTop />
+		<div class="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto overscroll-contain px-4 pb-safe-offset-4">
+			<h1 class="m-0 truncate text-2xl leading-tight font-extrabold text-foreground">
+				{props.title ?? "Discovery Feed"}
+			</h1>
 			<Discovery {...props} platform="mobile" />
 		</div>
 	</div>

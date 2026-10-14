@@ -2,11 +2,16 @@ import { createSignal, For, type JSX, onCleanup } from "solid-js";
 import { expect, fn, screen, userEvent, waitFor, within } from "storybook/test";
 import type { Meta, StoryObj } from "storybook-solidjs-vite";
 import { expectFocusRingVisible } from "../../foundations/focus-ring-test";
+import { expectNoLayoutIssues } from "../../foundations/layout-test";
 import { HapticsProvider } from "../../utils/haptics";
 import { storyImages } from "../Banner/story-images";
 import { CallControls } from "./CallControls";
 import { CallScreen } from "./CallScreen";
 import type { VoiceParticipant } from "./shared";
+import {
+	type FloatingCorner,
+	VoiceFloatingWindow,
+} from "./VoiceFloatingWindow";
 import {
 	VoiceGrid,
 	VoiceTile,
@@ -14,9 +19,14 @@ import {
 	voiceGridColumns,
 } from "./VoiceGrid";
 import {
+	VoiceDrawer,
+	VoiceJoinActions,
 	VoiceJoinDrawer,
 	VoiceJoinPanel,
+	VoiceJoinRoster,
 	VoiceParticipantRow,
+	VoiceSheetHeader,
+	VoiceStage,
 } from "./VoiceJoin";
 import {
 	VoiceParticipantRowSkeleton,
@@ -400,12 +410,68 @@ export const JoinPanels: Story = {
 		const full = within(within(canvasElement).getByTestId("join-full"));
 		const list = full.getByRole("list", { name: "In Hangout" });
 		await expect(within(list).getAllByRole("listitem")).toHaveLength(3);
-		await expect(
-			list.querySelector("[data-voice-participant][data-speaking]"),
-		).not.toBeNull();
+		await expect(list.querySelector("[data-speaking]")).toBeNull();
 		await expect(
 			full.getAllByRole("img", { name: "Muted" }).length,
 		).toBeGreaterThan(0);
+	},
+};
+
+const openRosterParticipant = fn();
+
+export const StableAvatars: Story = {
+	render: () => {
+		const [speaking, setSpeaking] = createSignal(false);
+		const tiles = (): VoiceTileData[] =>
+			people.slice(0, 3).map((person, index) => ({
+				...person,
+				speaking: index === 0 && speaking(),
+			}));
+		const roster = (): VoiceParticipant[] => [
+			...tiles(),
+			{ id: "did:plc:loading", name: "did:plc:loading", pending: true },
+		];
+		return (
+			<Screen class="flex flex-col gap-3">
+				<button type="button" onClick={() => setSpeaking((on) => !on)}>
+					Toggle speaking
+				</button>
+				<div data-testid="stage" class="h-80">
+					<VoiceStage tiles={tiles()} />
+				</div>
+				<VoiceJoinRoster
+					channelName="Hangout"
+					participants={roster()}
+					onOpenParticipant={openRosterParticipant}
+				/>
+			</Screen>
+		);
+	},
+	play: async ({ canvasElement }) => {
+		const canvas = within(canvasElement);
+		const stage = canvas.getByTestId("stage");
+		const list = canvas.getByRole("list", { name: "In Hangout" });
+		const stageImages = () => Array.from(stage.querySelectorAll("img"));
+		const rosterImages = () => Array.from(list.querySelectorAll("img"));
+		await waitFor(() => expect(stageImages().length).toBeGreaterThan(0));
+		const stageBefore = stageImages();
+		const rosterBefore = rosterImages();
+		await userEvent.click(
+			canvas.getByRole("button", { name: "Toggle speaking" }),
+		);
+		await waitFor(() =>
+			expect(stage.querySelector("[data-speaking]")).not.toBeNull(),
+		);
+		await expect(stageImages()).toEqual(stageBefore);
+		await expect(rosterImages()).toEqual(rosterBefore);
+		await expect(list.querySelector("[data-pending]")).not.toBeNull();
+		await expect(list.textContent).not.toContain("did:plc:loading");
+		const first = people[0] as VoiceParticipant;
+		await userEvent.click(
+			within(list).getByRole("button", { name: new RegExp(first.name) }),
+		);
+		await expect(openRosterParticipant).toHaveBeenCalledWith(first.id);
+		await expectNoLayoutIssues(list as HTMLElement);
 	},
 };
 
@@ -428,6 +494,168 @@ export const JoinDrawer: Story = {
 			expect(
 				within(dialog).getByRole("button", { name: "Join voice" }),
 			).toBeVisible(),
+		);
+		await expectNoLayoutIssues(dialog);
+	},
+};
+
+const morphLeave = fn();
+
+const MorphDemo = (props: { participants: VoiceParticipant[] }) => {
+	const [open, setOpen] = createSignal(true);
+	const [joined, setJoined] = createSignal(false);
+	const [joinMuted, setJoinMuted] = createSignal(false);
+	const [muted, setMuted] = createSignal(false);
+	const [deafened, setDeafened] = createSignal(false);
+	const [cameraOn, setCameraOn] = createSignal(false);
+	const self: VoiceParticipant = { id: "you", name: "You", presence: "online" };
+	const tiles = (): VoiceTileData[] => [
+		...props.participants,
+		{ ...self, muted: muted(), deafened: deafened() },
+	];
+	return (
+		<Screen>
+			<button type="button" onClick={() => setOpen(true)}>
+				Reopen
+			</button>
+			<VoiceDrawer
+				open={open()}
+				onOpenChange={setOpen}
+				joined={joined()}
+				label={joined() ? "Voice call" : "Join Hangout"}
+				header={
+					<VoiceSheetHeader
+						title="Hangout"
+						closeLabel={joined() ? "Minimize call" : "Close"}
+						onClose={() => setOpen(false)}
+						onOpenSettings={() => {}}
+					/>
+				}
+				footer={
+					joined() ? (
+						<CallControls
+							muted={muted()}
+							deafened={deafened()}
+							cameraOn={cameraOn()}
+							onToggleCamera={() => setCameraOn((value) => !value)}
+							onToggleMute={() => setMuted((value) => !value)}
+							onToggleDeafen={() => setDeafened((value) => !value)}
+							onOpenChat={() => {}}
+							onLeave={() => {
+								morphLeave();
+								setJoined(false);
+								setOpen(false);
+							}}
+						/>
+					) : (
+						<VoiceJoinActions
+							joinMuted={joinMuted()}
+							onJoinMutedChange={setJoinMuted}
+							onJoin={() => {
+								setMuted(joinMuted());
+								setJoined(true);
+							}}
+							onOpenChat={() => {}}
+						/>
+					)
+				}
+			>
+				{joined() ? (
+					<VoiceStage tiles={tiles()} />
+				) : (
+					<VoiceJoinRoster
+						channelName="Hangout"
+						participants={props.participants}
+					/>
+				)}
+			</VoiceDrawer>
+		</Screen>
+	);
+};
+
+const settledHeight = async (element: HTMLElement, expected: number) =>
+	waitFor(
+		() => {
+			expect(element.hasAttribute("data-height-transition")).toBe(false);
+			expect(
+				Math.abs(element.getBoundingClientRect().height - expected),
+			).toBeLessThan(1);
+		},
+		{ timeout: 3000 },
+	);
+
+export const DrawerMorph: Story = {
+	render: () => <MorphDemo participants={[]} />,
+	play: async () => {
+		morphLeave.mockClear();
+		const prompt = await screen.findByRole("dialog", { name: "Join Hangout" });
+		await waitFor(() =>
+			expect(
+				within(prompt).getByText(
+					"This voice channel is empty. Join to get the conversation started!",
+				),
+			).toBeVisible(),
+		);
+		await expectNoLayoutIssues(prompt);
+		await expect(prompt.getBoundingClientRect().height).toBeLessThan(
+			window.innerHeight / 2,
+		);
+		const micToggle = within(prompt).getByRole("button", {
+			name: "Join muted",
+		});
+		await userEvent.click(micToggle);
+		await expect(micToggle).toHaveAttribute("aria-pressed", "true");
+		await userEvent.click(
+			within(prompt).getByRole("button", { name: "Join voice" }),
+		);
+		const call = await screen.findByRole("dialog", { name: "Voice call" });
+		await expect(call).toBe(prompt);
+		await expect(call).toHaveAttribute("data-fill");
+		await settledHeight(call, window.innerHeight);
+		await expect(
+			within(call).getByRole("button", { name: "Unmute" }),
+		).toHaveAttribute("aria-pressed", "true");
+		const tile = call.querySelector("[data-voice-tile]") as HTMLElement;
+		const box = tile.getBoundingClientRect();
+		await expect(Math.abs(box.width - box.height)).toBeLessThan(1);
+		await expectNoLayoutIssues(call);
+		await userEvent.click(
+			within(call).getByRole("button", { name: "Leave call" }),
+		);
+		await expect(morphLeave).toHaveBeenCalledTimes(1);
+		await waitFor(() =>
+			expect(screen.queryByRole("dialog", { name: "Voice call" })).toBeNull(),
+		);
+	},
+};
+
+export const DrawerMorphCrowded: Story = {
+	render: () => <MorphDemo participants={people.slice(0, 5)} />,
+	play: async () => {
+		const prompt = await screen.findByRole("dialog", { name: "Join Hangout" });
+		await waitFor(() =>
+			expect(prompt.querySelectorAll("[data-voice-participant]").length).toBe(
+				5,
+			),
+		);
+		await expectNoLayoutIssues(prompt);
+		await userEvent.click(
+			within(prompt).getByRole("button", { name: "Join voice" }),
+		);
+		const call = await screen.findByRole("dialog", { name: "Voice call" });
+		await settledHeight(call, window.innerHeight);
+		await waitFor(() =>
+			expect(call.querySelectorAll("[data-voice-tile]").length).toBe(6),
+		);
+		await expect(
+			call.querySelector("[data-voice-grid]")?.getAttribute("data-columns"),
+		).toBe("2");
+		await expectNoLayoutIssues(call);
+		await userEvent.click(
+			within(call).getByRole("button", { name: "Minimize call" }),
+		);
+		await waitFor(() =>
+			expect(screen.queryByRole("dialog", { name: "Voice call" })).toBeNull(),
 		);
 	},
 };
@@ -830,5 +1058,285 @@ export const JoinPanelNarrow: Story = {
 			await expect(rect.left).toBeGreaterThanOrEqual(frame.left - 0.5);
 			await expect(rect.right).toBeLessThanOrEqual(frame.right + 0.5);
 		}
+	},
+};
+
+const openCall = fn();
+
+export const StatusPanelOpensCall: Story = {
+	name: "Status panel opens call",
+	parameters: { viewport: { defaultViewport: "responsive" } },
+	render: () => (
+		<Screen class="flex min-h-dvh flex-col gap-4 bg-background p-4 text-foreground">
+			<div class="w-72 rounded-control-lg bg-card">
+				<VoiceStatusPanel
+					state="connected"
+					quality="good"
+					latency={42}
+					channelName="Hangout"
+					spaceName="Colibri Social Flock"
+					onDisconnect={() => {}}
+					onOpenCall={openCall}
+				/>
+			</div>
+		</Screen>
+	),
+	play: async ({ canvasElement }) => {
+		openCall.mockClear();
+		const canvas = within(canvasElement);
+		const link = canvas.getByRole("button", {
+			name: "Open call, Hangout · Colibri Social Flock",
+		});
+		await userEvent.click(link);
+		await expect(openCall).toHaveBeenCalledTimes(1);
+		link.focus();
+		await expectFocusRingVisible(link);
+		await expectNoLayoutIssues(canvasElement);
+	},
+};
+
+export const LandscapeStage: Story = {
+	name: "Landscape stage",
+	parameters: { viewport: { defaultViewport: "responsive" } },
+	render: () => (
+		<Screen class="flex h-[480px] w-[960px] flex-col bg-card p-4 text-foreground">
+			<VoiceStage tiles={people.slice(0, 4)} portrait={false} />
+		</Screen>
+	),
+	play: async ({ canvasElement }) => {
+		const tiles = Array.from(
+			canvasElement.querySelectorAll<HTMLElement>("[data-voice-tile]"),
+		);
+		await expect(tiles.length).toBe(4);
+		await waitFor(() => {
+			const rect = (tiles[0] as HTMLElement).getBoundingClientRect();
+			expect(rect.height).toBeGreaterThan(100);
+			expect(rect.width / rect.height).toBeCloseTo(16 / 9, 1);
+		});
+	},
+};
+
+const ChatToggleDemo = () => {
+	const [open, setOpen] = createSignal(false);
+	return (
+		<Screen class="flex flex-col gap-6 bg-popover p-4 text-foreground">
+			<div data-testid="join-actions" class="w-[360px]">
+				<VoiceJoinActions
+					onJoin={() => {}}
+					onOpenChat={() => setOpen(!open())}
+					chatOpen={open()}
+				/>
+			</div>
+			<div data-testid="call-controls">
+				<CallControls
+					onToggleMute={() => {}}
+					onToggleDeafen={() => {}}
+					onOpenChat={() => setOpen(!open())}
+					chatOpen={open()}
+					onLeave={() => {}}
+				/>
+			</div>
+		</Screen>
+	);
+};
+
+export const ChatToggle: Story = {
+	name: "Chat toggle",
+	parameters: { viewport: { defaultViewport: "responsive" } },
+	render: () => <ChatToggleDemo />,
+	play: async ({ canvasElement }) => {
+		const canvas = within(canvasElement);
+		const join = within(canvas.getByTestId("join-actions"));
+		const controls = within(canvas.getByTestId("call-controls"));
+		const joinChat = join.getByRole("button", { name: "Open chat" });
+		await expect(joinChat).toHaveAttribute("aria-pressed", "false");
+		await expect(joinChat).toHaveAttribute("data-tone", "default");
+		await userEvent.click(joinChat);
+		for (const scope of [join, controls]) {
+			const close = scope.getByRole("button", { name: "Close chat" });
+			await expect(close).toHaveAttribute("aria-pressed", "true");
+			await expect(close).toHaveAttribute("data-tone", "active");
+			await expect(getComputedStyle(close).backgroundColor).not.toBe(
+				getComputedStyle(scope.getAllByRole("button")[0] as HTMLElement)
+					.backgroundColor,
+			);
+		}
+		await userEvent.click(controls.getByRole("button", { name: "Close chat" }));
+		await expect(
+			join.getByRole("button", { name: "Open chat" }),
+		).toHaveAttribute("aria-pressed", "false");
+		await expect(
+			controls.getByRole("button", { name: "Open chat" }),
+		).toBeInTheDocument();
+	},
+};
+
+const floatingReturn = fn();
+const floatingDismiss = fn();
+const floatingDisconnect = fn();
+
+const FloatingDemo = () => {
+	const [corner, setCorner] = createSignal<FloatingCorner>("br");
+	const [camera, setCamera] = createSignal(true);
+	return (
+		<Screen class="relative h-dvh w-full bg-background text-foreground">
+			<output data-testid="corner">{corner()}</output>
+			<VoiceFloatingWindow
+				tile={people[0] as VoiceTileData}
+				channelName="Hangout"
+				corner={corner()}
+				onCornerChange={setCorner}
+				cameraOn={camera()}
+				onToggleCamera={() => setCamera(!camera())}
+				onReturn={floatingReturn}
+				onDismiss={floatingDismiss}
+				onDisconnect={floatingDisconnect}
+			/>
+		</Screen>
+	);
+};
+
+const settleTransform = () => new Promise((r) => setTimeout(r, 700));
+
+export const FloatingWindow: Story = {
+	name: "Floating window",
+	parameters: { viewport: { defaultViewport: "responsive" } },
+	render: () => <FloatingDemo />,
+	play: async ({ canvasElement }) => {
+		floatingReturn.mockClear();
+		floatingDismiss.mockClear();
+		floatingDisconnect.mockClear();
+		const win = await waitFor(() => {
+			const found = document.querySelector<HTMLElement>(
+				"[data-voice-floating]",
+			);
+			if (!found) throw new Error("missing floating window");
+			return found;
+		});
+		const corner = within(canvasElement).getByTestId("corner");
+		await settleTransform();
+		const rect = () => win.getBoundingClientRect();
+		await expect(Math.round(rect().right)).toBe(window.innerWidth - 16);
+		await expect(Math.round(rect().bottom)).toBe(window.innerHeight - 16);
+		await expect(rect().width / rect().height).toBeCloseTo(16 / 9, 1);
+
+		const surface = win.querySelector("[data-floating-surface]") as HTMLElement;
+		const start = rect();
+		const from = { x: start.left + 40, y: start.top + 40 };
+		surface.dispatchEvent(
+			new PointerEvent("pointerdown", {
+				bubbles: true,
+				button: 0,
+				pointerId: 7,
+				clientX: from.x,
+				clientY: from.y,
+			}),
+		);
+		for (let step = 1; step <= 10; step++) {
+			win.dispatchEvent(
+				new PointerEvent("pointermove", {
+					bubbles: true,
+					pointerId: 7,
+					clientX: from.x - step * 90,
+					clientY: from.y - step * 50,
+				}),
+			);
+		}
+		await expect(win).toHaveAttribute("data-dragging");
+		win.dispatchEvent(
+			new PointerEvent("pointerup", { bubbles: true, pointerId: 7 }),
+		);
+		await expect(corner).toHaveTextContent("tl");
+		await settleTransform();
+		await expect(Math.round(rect().left)).toBe(16);
+		await expect(Math.round(rect().top)).toBe(16);
+
+		surface.focus();
+		await expectFocusRingVisible(surface);
+		await userEvent.keyboard("{ArrowRight}");
+		await expect(corner).toHaveTextContent("tr");
+		await userEvent.keyboard("{ArrowDown}");
+		await expect(corner).toHaveTextContent("br");
+		await userEvent.keyboard("{Enter}");
+		await expect(floatingReturn).toHaveBeenCalledTimes(1);
+
+		await userEvent.hover(surface);
+		const chrome = within(win);
+		await userEvent.click(
+			chrome.getByRole("button", { name: /^Hangout.*back to call$/ }),
+		);
+		await expect(floatingReturn).toHaveBeenCalledTimes(2);
+		await userEvent.click(
+			chrome.getByRole("button", { name: "Turn off camera" }),
+		);
+		await expect(
+			chrome.queryByRole("button", { name: "Turn off camera" }),
+		).toBeNull();
+		await userEvent.click(
+			chrome.getByRole("button", { name: "Hide floating window" }),
+		);
+		await expect(floatingDismiss).toHaveBeenCalledTimes(1);
+		await userEvent.click(chrome.getByRole("button", { name: "Disconnect" }));
+		await expect(floatingDisconnect).toHaveBeenCalledTimes(1);
+		await expect(corner).toHaveTextContent("br");
+		await expectNoLayoutIssues(win);
+	},
+};
+
+export const FloatingWindowResize: Story = {
+	name: "Floating window resize",
+	parameters: { viewport: { defaultViewport: "responsive" } },
+	render: () => {
+		const [width, setWidth] = createSignal(320);
+		return (
+			<Screen class="relative h-dvh w-full bg-background text-foreground">
+				<output data-testid="width">{width()}</output>
+				<VoiceFloatingWindow
+					tile={people[1] as VoiceTileData}
+					channelName="Hangout"
+					width={width()}
+					onWidthChange={setWidth}
+					onReturn={() => {}}
+					onDismiss={() => {}}
+					onDisconnect={() => {}}
+				/>
+			</Screen>
+		);
+	},
+	play: async ({ canvasElement }) => {
+		const output = within(canvasElement).getByTestId("width");
+		const win = await waitFor(() => {
+			const found = document.querySelector<HTMLElement>(
+				"[data-voice-floating]",
+			);
+			if (!found) throw new Error("missing floating window");
+			return found;
+		});
+		const surface = win.querySelector("[data-floating-surface]") as HTMLElement;
+		surface.focus();
+		await userEvent.keyboard("{Shift>}{ArrowRight}{/Shift}");
+		await expect(output).toHaveTextContent("336");
+		await userEvent.keyboard("{Shift>}{ArrowUp}{/Shift}");
+		await expect(output).toHaveTextContent("352");
+		await expect(win.getBoundingClientRect().width).toBeCloseTo(352, 0);
+		await expect(win).toHaveAttribute("data-corner", "br");
+		await userEvent.keyboard("{Shift>}{ArrowDown}{ArrowLeft}{/Shift}");
+		await expect(output).toHaveTextContent("320");
+		for (let step = 0; step < 12; step++) {
+			await userEvent.keyboard("{Shift>}{ArrowLeft}{/Shift}");
+		}
+		await expect(output).toHaveTextContent("220");
+		for (let step = 0; step < 30; step++) {
+			await userEvent.keyboard("{Shift>}{ArrowRight}{/Shift}");
+		}
+		const max = Math.min(
+			560,
+			window.innerWidth - 32,
+			((window.innerHeight - 32) * 16) / 9,
+		);
+		await expect(Number(output.textContent)).toBeCloseTo(max, 0);
+		await userEvent.keyboard("{ArrowLeft}");
+		await expect(win).toHaveAttribute("data-corner", "bl");
+		await expect(Number(output.textContent)).toBeCloseTo(max, 0);
 	},
 };

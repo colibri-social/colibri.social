@@ -73,6 +73,7 @@ export type EmojiPickerProps = {
 	onSkinToneChange?: (tone: SkinTone) => void;
 	autofocus?: boolean;
 	searchPlaceholder?: string;
+	searchRef?: (element: HTMLInputElement) => void;
 	class?: string;
 };
 
@@ -546,6 +547,7 @@ export const EmojiPicker = (props: EmojiPickerProps) => {
 					onKeyDown={onSearchKeyDown}
 					ref={(element) => {
 						searchInput = element;
+						props.searchRef?.(element);
 					}}
 					class="flex-1"
 				/>

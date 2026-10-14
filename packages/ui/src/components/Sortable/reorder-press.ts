@@ -27,6 +27,7 @@ export const isHoldPointer = (pointerType: string) =>
 
 let suppressUntil = 0;
 let suppressTarget: HTMLElement | undefined;
+let suppressAnywhere = false;
 
 const swallowClick = (event: MouseEvent) => {
 	const target = suppressTarget;
@@ -35,18 +36,29 @@ const swallowClick = (event: MouseEvent) => {
 		suppressTarget = undefined;
 		return;
 	}
-	if (!(event.target instanceof Node) || !target.contains(event.target)) return;
+	if (
+		!suppressAnywhere &&
+		(!(event.target instanceof Node) || !target.contains(event.target))
+	)
+		return;
 	event.preventDefault();
 	event.stopPropagation();
+	clearSuppression();
+};
+
+const clearSuppression = () => {
 	suppressUntil = 0;
 	suppressTarget = undefined;
 	document.removeEventListener("click", swallowClick, true);
+	document.removeEventListener("pointerdown", clearSuppression, true);
 };
 
-export const suppressNextClick = (element: HTMLElement) => {
+export const suppressNextClick = (element: HTMLElement, anywhere = false) => {
 	suppressUntil = performance.now() + CLICK_SUPPRESS_MS;
 	suppressTarget = element;
+	suppressAnywhere = anywhere;
 	document.addEventListener("click", swallowClick, true);
+	document.addEventListener("pointerdown", clearSuppression, true);
 };
 
 const root = () => document.documentElement.style;
@@ -244,7 +256,7 @@ export const startReorderPress = (
 				lift();
 				return;
 			}
-			suppressNextClick(options.element);
+			suppressNextClick(options.element, true);
 			teardown();
 			options.onHold?.(event);
 		}, HOLD_DELAY_MS);

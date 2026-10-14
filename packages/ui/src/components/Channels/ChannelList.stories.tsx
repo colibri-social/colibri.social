@@ -963,6 +963,33 @@ export const SaveFails: Story = {
 	},
 };
 
+export const CategoryHeaderPress: Story = {
+	render: (args) => (
+		<Playground args={args} platform="mobile" canReorder={false} />
+	),
+	play: async ({ canvasElement }) => {
+		const toggle = canvasElement.querySelector<HTMLElement>(
+			"[data-category-toggle]",
+		) as HTMLElement;
+		const row = canvasElement.querySelector<HTMLElement>(
+			"[data-channel-row] .ripple",
+		) as HTMLElement;
+		await expect(toggle.classList.contains("ripple")).toBe(true);
+		await expect(getComputedStyle(toggle).borderTopLeftRadius).toBe(
+			getComputedStyle(row).borderTopLeftRadius,
+		);
+		await expect(getComputedStyle(toggle).borderTopLeftRadius).not.toBe("0px");
+		await expect(Number.parseFloat(getComputedStyle(toggle).fontSize)).toBe(14);
+		const start = centerOf(toggle);
+		const touch = { pointerType: "touch", pointerId: ++pointerSeed };
+		pointer(toggle, "pointerdown", start, touch);
+		await waitFor(() =>
+			expect(toggle.querySelector("[data-ripple-layer] *")).not.toBeNull(),
+		);
+		pointer(toggle, "pointerup", start, touch);
+	},
+};
+
 export const WithoutPermission: Story = {
 	render: (args) => (
 		<Playground args={args} platform="mobile" canReorder={false} />

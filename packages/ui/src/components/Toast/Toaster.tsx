@@ -18,6 +18,7 @@ import {
 } from "solid-js";
 import { Portal } from "solid-js/web";
 import { cx } from "../../utils/cx";
+import { blockTouchScroll } from "../../utils/gestures";
 import { useHaptics } from "../../utils/haptics";
 import {
 	motionScale,
@@ -212,8 +213,15 @@ const ToastItem = (props: {
 	let startedAt = 0;
 	let swallowClick = false;
 
-	const axisDelta = (dx: number, dy: number) => (mobile() ? dy : dx);
-	const dismissSign = () => (mobile() ? -1 : 1);
+	let axis: "x" | "y" | undefined;
+	const [exitVector, setExitVector] = createSignal({ x: 1, y: 0 });
+
+	const allowsAxis = (next: "x" | "y") => mobile() || next === "x";
+	const dismisses = (along: number) => {
+		if (along === 0) return false;
+		if (axis === "y") return along < 0;
+		return mobile() || along > 0;
+	};
 
 	const onPointerDown = (event: PointerEvent) => {
 		if (event.button !== 0 || record.dismissed) return;
@@ -222,32 +230,30 @@ const ToastItem = (props: {
 		startY = event.clientY;
 		startedAt = performance.now();
 		swallowClick = false;
+		axis = undefined;
 	};
 
 	const onPointerMove = (event: PointerEvent) => {
 		if (pointerId !== event.pointerId) return;
 		const dx = event.clientX - startX;
 		const dy = event.clientY - startY;
-		const along = axisDelta(dx, dy);
-		const across = mobile() ? dx : dy;
 		if (!dragging()) {
-			if (Math.abs(along) < SWIPE_SLOP) {
-				if (Math.abs(across) > SWIPE_SLOP) pointerId = undefined;
-				return;
-			}
-			if (Math.abs(across) > Math.abs(along)) {
+			if (Math.hypot(dx, dy) < SWIPE_SLOP) return;
+			const next = Math.abs(dx) > Math.abs(dy) ? "x" : "y";
+			if (!allowsAxis(next)) {
 				pointerId = undefined;
 				return;
 			}
+			axis = next;
 			setDragging(true);
 			ctx.setSwiping(true);
 			try {
 				(event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
 			} catch {}
 		}
-		const toward = Math.sign(along) === dismissSign();
-		const distance = toward ? along : along * RUBBER_BAND;
-		setSwipe(mobile() ? { x: 0, y: distance } : { x: distance, y: 0 });
+		const along = axis === "x" ? dx : dy;
+		const distance = dismisses(along) ? along : along * RUBBER_BAND;
+		setSwipe(axis === "x" ? { x: distance, y: 0 } : { x: 0, y: distance });
 	};
 
 	const finishDrag = (event: PointerEvent, cancelled: boolean) => {
@@ -255,17 +261,20 @@ const ToastItem = (props: {
 		pointerId = undefined;
 		if (!dragging()) return;
 		swallowClick = true;
-		const along = axisDelta(event.clientX - startX, event.clientY - startY);
+		const along =
+			axis === "x" ? event.clientX - startX : event.clientY - startY;
 		const elapsed = Math.max(1, performance.now() - startedAt);
 		const velocity = Math.abs(along) / elapsed;
-		const toward = Math.sign(along) === dismissSign();
 		setDragging(false);
 		ctx.setSwiping(false);
 		if (
 			!cancelled &&
-			toward &&
+			dismisses(along) &&
 			(Math.abs(along) > SWIPE_COMMIT || velocity > SWIPE_VELOCITY)
 		) {
+			setExitVector(
+				axis === "x" ? { x: Math.sign(along), y: 0 } : { x: 0, y: -1 },
+			);
 			dismissToast(record.id, true);
 			return;
 		}
@@ -280,12 +289,11 @@ const ToastItem = (props: {
 	};
 
 	const exitTransform = () => {
-		if (record.swiped) {
-			return mobile()
-				? "translate3d(0, calc(-100% - 24px), 0)"
-				: "translate3d(calc(100% + 24px), 0, 0)";
-		}
-		return undefined;
+		if (!record.swiped) return undefined;
+		const vector = exitVector();
+		if (vector.y < 0) return "translate3d(0, calc(-100% - 24px), 0)";
+		const sign = vector.x < 0 ? "-" : "";
+		return `translate3d(calc(${sign}100% ${sign ? "-" : "+"} 24px), 0, 0)`;
 	};
 
 	const transform = () => {
@@ -345,6 +353,7 @@ const ToastItem = (props: {
 			onPointerUp={(event) => finishDrag(event, false)}
 			onPointerCancel={(event) => finishDrag(event, true)}
 			on:click={{ handleEvent: onClickCapture, capture: true }}
+			ref={(element) => onCleanup(blockTouchScroll(element, dragging))}
 			class={cx(
 				"absolute inset-x-0 overflow-visible select-none [-webkit-user-select:none]",
 				mobile() ? "top-0 origin-top" : "bottom-0 origin-bottom",
@@ -623,7 +632,7 @@ export const Toaster = (props: ToasterProps) => {
 					"pointer-events-none fixed z-[90]",
 					platform() === "mobile"
 						? "top-safe-offset-2 left-1/2 w-[min(420px,calc(100vw-32px-var(--safe-area-left,0px)-var(--safe-area-right,0px)))] -translate-x-1/2"
-						: "right-[calc(16px+var(--safe-area-right,0px))] bottom-safe-offset-4 w-[min(360px,calc(100vw-32px))]",
+						: "right-[calc(16px+var(--safe-area-right,0px))] bottom-[calc(16px+var(--safe-area-bottom,0px)+var(--toast-bottom-offset,0px))] w-[min(360px,calc(100vw-32px))]",
 					props.class,
 				)}
 			>

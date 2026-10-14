@@ -101,6 +101,7 @@ export type ProfileHeaderLink = {
 
 export type ProfileHeaderProps = {
 	displayName: string;
+	avatarSeed?: string;
 	nameColor?: string;
 	links?: ProfileHeaderLink[];
 	handle: string;
@@ -117,8 +118,11 @@ export type ProfileHeaderProps = {
 	statusEditable?: boolean;
 	statusShowWhileOffline?: boolean;
 	onStatusClick?: JSX.EventHandler<HTMLButtonElement, MouseEvent>;
+	onAvatarClick?: JSX.EventHandler<HTMLButtonElement, MouseEvent>;
+	avatarLabel?: string;
 	actions?: JSX.Element;
 	surface?: ProfileSurface;
+	tight?: boolean;
 	headingLevel?: 1 | 2 | 3;
 	class?: string;
 };
@@ -152,18 +156,28 @@ export const ProfileHeader = (props: ProfileHeaderProps) => {
 				<div class="absolute top-4 right-4 z-10 flex">{actions()}</div>
 			</Show>
 			<div class="relative -mt-12 flex items-start gap-3 pr-4 pl-3">
-				<span
-					class="flex shrink-0 rounded-full p-1"
+				<Dynamic
+					component={props.onAvatarClick ? "button" : "span"}
+					type={props.onAvatarClick ? "button" : undefined}
+					aria-label={props.onAvatarClick ? props.avatarLabel : undefined}
+					data-profile-avatar=""
+					onClick={props.onAvatarClick}
+					class={cx(
+						"flex shrink-0 rounded-full border-0 p-1",
+						props.onAvatarClick &&
+							"cursor-pointer outline-none focus-ring active:scale-[0.97] transition-transform duration-[calc(120ms*var(--motion-scale))]",
+					)}
 					style={{ "background-color": surface() }}
 				>
 					<Avatar
 						size="xl"
 						name={props.displayName}
+						seed={props.avatarSeed}
 						src={props.avatarSrc}
 						color={props.avatarColor}
 						presence={props.presence}
 					/>
-				</span>
+				</Dynamic>
 				<Show
 					when={
 						(status.has() || props.statusEmoji) &&
@@ -184,7 +198,13 @@ export const ProfileHeader = (props: ProfileHeaderProps) => {
 					</StatusBubble>
 				</Show>
 			</div>
-			<div class="flex min-w-0 flex-col gap-1 px-4 pt-2.5">
+			<div
+				data-profile-identity=""
+				class={cx(
+					"flex min-w-0 flex-col px-4 pt-2.5",
+					props.tight ? "gap-[0.5px]" : "gap-1",
+				)}
+			>
 				<div class="flex min-w-0 items-center gap-2">
 					<Dynamic
 						component={`h${props.headingLevel ?? 2}`}
@@ -199,7 +219,10 @@ export const ProfileHeader = (props: ProfileHeaderProps) => {
 					</Dynamic>
 					<Show when={badge.has()}>{badge()}</Show>
 				</div>
-				<div class="flex min-h-6 min-w-0 items-center gap-2 text-sm leading-[18px] text-foreground">
+				<div
+					data-profile-meta=""
+					class="flex min-h-6 min-w-0 items-center gap-2 text-sm leading-[18px] text-foreground"
+				>
 					<For each={meta()}>
 						{(part, index) => (
 							<>

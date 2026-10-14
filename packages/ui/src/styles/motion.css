@@ -81,8 +81,14 @@
 	}
 
 	&[data-closing] {
-		transition-duration: calc(220ms * var(--motion-scale));
-		transition-timing-function: cubic-bezier(0.32, 0, 0.67, 0);
+		transition-duration: calc(
+			var(--sheet-close-duration, 220ms) *
+			var(--motion-scale)
+		);
+		transition-timing-function: var(
+			--sheet-close-ease,
+			cubic-bezier(0.32, 0, 0.67, 0)
+		);
 	}
 
 	&[data-resizing] {

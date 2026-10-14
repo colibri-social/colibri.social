@@ -17,14 +17,14 @@ export const ChannelHeaderSkeleton = (props: ChannelHeaderSkeletonProps) => (
 				aria-hidden="true"
 				data-channel-header-skeleton="mobile"
 				class={cx(
-					"flex h-12 shrink-0 items-center gap-3 border-b border-border bg-background px-3 py-2",
+					"flex h-11 shrink-0 items-center gap-2 border-b border-border bg-background px-3 py-1.5",
 					props.class,
 				)}
 			>
 				<Skeleton class="size-8 shrink-0 rounded-control-sm" />
 				<span class="flex min-w-0 flex-1 items-center gap-2">
-					<Skeleton class="size-6 shrink-0 rounded-control-xs" />
-					<SkeletonText size="xl" leading={26} width={140} />
+					<Skeleton class="size-5 shrink-0 rounded-control-xs" />
+					<SkeletonText size="base" leading={20} width={120} />
 				</span>
 				<Skeleton class="size-8 shrink-0 rounded-control-sm" />
 			</div>

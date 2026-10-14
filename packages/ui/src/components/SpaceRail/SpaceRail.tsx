@@ -14,6 +14,7 @@ import {
 	useContext,
 } from "solid-js";
 import { cx } from "../../utils/cx";
+import { createLongPress } from "../../utils/gestures";
 import { createRipple } from "../../utils/ripple";
 import { createSlot } from "../../utils/slot";
 import { CountBadge } from "../Badge/Badge";
@@ -29,7 +30,7 @@ export const SPACE_RAIL_METRICS = {
 		width: 64,
 		icon: 48,
 		gap: 8,
-		paddingTop: 2,
+		paddingTop: 18,
 		tabLeft: 6,
 		tabRing: 2,
 	},
@@ -48,6 +49,9 @@ export const SPACE_RAIL_TAB_RADIUS = 12;
 
 export const spaceRailPanelClass =
 	"rail-join relative rounded-tl-sheet border-t border-l border-muted bg-card";
+
+export const spaceRailMobilePanelClass =
+	"rail-join relative rounded-tl-control-sm border-t border-l border-muted bg-card";
 
 const RAIL_TAB_VARS = [
 	"--rail-tab-offset",
@@ -68,6 +72,7 @@ const useRail = () => useContext(RailContext);
 export type SpaceRailProps = {
 	"aria-label"?: string;
 	platform?: SpaceRailPlatform;
+	paddingTop?: number;
 	leading?: JSX.Element;
 	onCreate?: () => void;
 	onDiscover?: () => void;
@@ -280,7 +285,7 @@ const RailFrame = (
 					style={{
 						width: `${metrics().width}px`,
 						gap: `${metrics().gap}px`,
-						"padding-top": `${metrics().paddingTop}px`,
+						"padding-top": `${props.paddingTop ?? metrics().paddingTop}px`,
 					}}
 				>
 					<ActiveTab
@@ -412,6 +417,7 @@ export type SpaceRailItemProps = {
 	unread?: boolean;
 	mentions?: number;
 	onSelect?: () => void;
+	onMenu?: (event: Event) => void;
 	class?: string;
 };
 
@@ -449,7 +455,13 @@ export const SpaceRailItem = (props: SpaceRailItemProps) => {
 
 	return (
 		<div
-			ref={item}
+			ref={(element) => {
+				item = element;
+				createLongPress(element, {
+					enabled: () => !!props.onMenu,
+					onLongPress: (event) => props.onMenu?.(event),
+				});
+			}}
 			data-rail-item=""
 			data-state={props.active ? "active" : props.unread ? "unread" : "read"}
 			class={cx("relative z-10 flex shrink-0 justify-center", local.class)}
@@ -475,6 +487,11 @@ export const SpaceRailItem = (props: SpaceRailItemProps) => {
 						data-rail-focusable=""
 						aria-current={props.active ? "page" : undefined}
 						onClick={() => props.onSelect?.()}
+						onContextMenu={(event: MouseEvent) => {
+							if (!props.onMenu) return;
+							event.preventDefault();
+							props.onMenu(event);
+						}}
 						class={cx(
 							"group ripple relative flex shrink-0 cursor-pointer items-center justify-center rounded-control border-0 bg-transparent outline-none",
 							"transition-[padding] duration-[calc(240ms*var(--motion-scale))] ease-[cubic-bezier(0.4,0,0.2,1)] motion-reduce:transition-none reduced-motion:transition-none",

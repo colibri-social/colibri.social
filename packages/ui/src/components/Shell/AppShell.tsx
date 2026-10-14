@@ -92,11 +92,11 @@ export const AppShell = (props: AppShellProps) => {
 						</nav>
 						<div
 							data-shell-sidebar=""
-							class="rail-join relative flex h-full w-(--channel-sidebar-width) min-w-(--channel-sidebar-width) flex-col rounded-tl-sheet border-t border-l border-muted bg-background"
+							class="rail-join relative flex h-full w-(--channel-sidebar-width) min-w-(--channel-sidebar-width) flex-col rounded-tl-sheet border-t border-l border-muted bg-background has-[[data-banner-flush]]:rounded-tl-none"
 						>
 							<div
 								data-shell-sidebar-content=""
-								class="flex min-h-0 flex-1 flex-col overflow-hidden rounded-tl-[calc(var(--radius-sheet)-1px)]"
+								class="flex min-h-0 flex-1 flex-col overflow-hidden rounded-tl-[calc(var(--radius-sheet)-1px)] has-[[data-banner-flush]]:rounded-tl-none"
 							>
 								{props.sidebar}
 							</div>

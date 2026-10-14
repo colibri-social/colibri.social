@@ -42,6 +42,14 @@ export const iconButtonVariants = cva({
 	},
 });
 
+export const iconButtonTouchTarget = [
+	"-m-1.5 size-11 border-0 bg-transparent enabled:hover:bg-transparent data-pressed:bg-transparent",
+	"before:pointer-events-none before:absolute before:inset-1.5 before:rounded-control-sm before:content-['']",
+	"before:transition-[background-color] before:duration-[calc(var(--duration-color)*var(--motion-scale))] motion-reduce:before:transition-none",
+	"enabled:hover:before:bg-secondary data-pressed:before:bg-secondary focus-visible:outline-offset-[-4px]",
+	"[&_svg]:relative [&_svg]:size-5",
+].join(" ");
+
 export type IconButtonProps = Omit<
 	JSX.ButtonHTMLAttributes<HTMLButtonElement>,
 	"disabled" | "children"

@@ -2,6 +2,7 @@ import { InboxIcon } from "@solar-icons/solid/bold/inbox";
 import { createSignal, For } from "solid-js";
 import { expect, fn, screen, userEvent, waitFor, within } from "storybook/test";
 import type { Meta, StoryObj } from "storybook-solidjs-vite";
+import { expectNoLayoutIssues } from "../../foundations/layout-test";
 import { storyImages } from "../Banner/story-images";
 import { CategoryHeader } from "../Channels/Category";
 import { ChannelListHeader } from "../Channels/ChannelListHeader";
@@ -9,6 +10,7 @@ import { ChannelRow, VoiceChannelRow } from "../Channels/ChannelRow";
 import { DropdownMenu } from "../DropdownMenu/DropdownMenu";
 import { InviteTable } from "../Invite/InviteTable";
 import { FIXED_NOW, inviteFixtures } from "../Invite/invite-fixtures";
+import { MemberRow } from "../Members/MemberRow";
 import { InviteCard } from "../Settings/Settings";
 import {
 	SpaceRail,
@@ -18,9 +20,11 @@ import {
 import { CategoryContextMenu } from "./CategoryMenu";
 import { ChannelContextMenu, VoiceChannelContextMenu } from "./ChannelMenu";
 import { inviteMenuEntries } from "./InviteMenu";
+import { MemberContextMenu, type MemberMenuRole } from "./MemberMenu";
 import { ContextMenu, MenuItem, MenuSeparator } from "./Menu";
 import { MessageContextMenu } from "./MessageMenu";
 import { SpaceContextMenu } from "./SpaceMenu";
+import { ThreadContextMenu } from "./ThreadMenu";
 
 const meta = {
 	title: "Overlays/Context menu",
@@ -163,6 +167,7 @@ const spy = {
 	copyInvite: fn(),
 	deleteCategory: fn(),
 	leave: fn(),
+	openChat: fn(),
 };
 
 const resetSpies = () => {
@@ -294,6 +299,7 @@ const Sidebar = (props: { member?: boolean; developerMode?: boolean }) => {
 						name="Birdwatch call"
 						connected={connected()}
 						onConnectedChange={setConnected}
+						onOpenChat={spy.openChat}
 						onCopyLink={noop}
 						onDuplicate={manage()}
 						onEdit={manage()}
@@ -494,6 +500,7 @@ export const VoiceChannelMenu: Story = {
 		await expect(groupNames(menu)).toEqual(["Voice", "Share", "Manage"]);
 		await expect(itemNames(menu)).toEqual([
 			"Join voice",
+			"Open chat",
 			"Copy channel link",
 			"Duplicate",
 			"Edit channel",
@@ -508,7 +515,12 @@ export const VoiceChannelMenu: Story = {
 		await expect(
 			within(again).getByRole("menuitem", { name: "Leave voice" }),
 		).toBeVisible();
-		await closeWithEscape();
+		spy.openChat.mockClear();
+		await userEvent.click(
+			within(again).getByRole("menuitem", { name: "Open chat" }),
+		);
+		await waitForClosed();
+		await expect(spy.openChat).toHaveBeenCalledTimes(1);
 	},
 };
 
@@ -677,6 +689,7 @@ export const MemberPermissions: Story = {
 		const voice = await openMenu(voiceRow(canvas), "Birdwatch call options");
 		await expect(itemNames(voice)).toEqual([
 			"Join voice",
+			"Open chat",
 			"Copy channel link",
 			"Developer mode",
 		]);
@@ -747,5 +760,274 @@ export const ViewportEdges: Story = {
 		const submenu = await screen.findByRole("menu", { name: "Developer mode" });
 		await waitFor(() => expectInsideViewport(submenu));
 		await closeWithEscape();
+	},
+};
+
+const memberSpy = {
+	viewProfile: fn(),
+	roleChange: fn(),
+	kick: fn(),
+	ban: fn(),
+	copyDid: fn(),
+	copyAtUri: fn(),
+};
+
+const LONG_MEMBER_NAME =
+	"Bartholomew Featherstonehaugh-Wrigglesworth the Third of the Northern Marsh";
+
+const memberRoles = (): MemberMenuRole[] => [
+	{
+		id: "mods",
+		name: "Moderators",
+		color: "#c4a7ff",
+		assigned: true,
+		manageable: true,
+	},
+	{
+		id: "artists",
+		name: "Artists",
+		color: "#ffd857",
+		assigned: false,
+		manageable: true,
+	},
+	{
+		id: "night",
+		name: "Night owls who stay up far too late sketching birds",
+		color: "#76c4e5",
+		assigned: false,
+		manageable: true,
+	},
+	{
+		id: "admins",
+		name: "Admins",
+		color: "#ff7a7a",
+		assigned: false,
+		manageable: false,
+	},
+];
+
+const MemberMenuDemo = (props: { moderator: boolean }) => {
+	const [roles, setRoles] = createSignal(memberRoles());
+	return (
+		<div class="min-h-screen bg-background p-8">
+			<div class="w-60 rounded-surface bg-card p-2">
+				<MemberContextMenu
+					name={LONG_MEMBER_NAME}
+					onViewProfile={memberSpy.viewProfile}
+					roles={props.moderator ? roles() : undefined}
+					onRoleChange={
+						props.moderator
+							? (id, assigned) => {
+									memberSpy.roleChange(id, assigned);
+									setRoles((current) =>
+										current.map((role) =>
+											role.id === id ? { ...role, assigned } : role,
+										),
+									);
+								}
+							: undefined
+					}
+					onKick={props.moderator ? memberSpy.kick : undefined}
+					onBan={props.moderator ? memberSpy.ban : undefined}
+					onCopyDid={memberSpy.copyDid}
+					developerMode
+					onCopyAtUri={memberSpy.copyAtUri}
+				>
+					<MemberRow
+						name={LONG_MEMBER_NAME}
+						seed="did:plc:bartholomew"
+						presence="online"
+						status="Counting herons by the reeds"
+					/>
+				</MemberContextMenu>
+			</div>
+		</div>
+	);
+};
+
+const memberRow = (canvas: Canvas) =>
+	canvas
+		.getAllByText(LONG_MEMBER_NAME)[0]
+		?.closest("[data-member-row]") as Element;
+
+const MEMBER_MENU = `${LONG_MEMBER_NAME} options`;
+
+export const MemberMenu: Story = {
+	render: () => <MemberMenuDemo moderator />,
+	play: async ({ canvasElement }) => {
+		for (const spy of Object.values(memberSpy)) spy.mockClear();
+		const canvas = within(canvasElement);
+		const menu = await openMenu(memberRow(canvas), MEMBER_MENU);
+		await waitFor(() => expectInsideViewport(menu));
+		await expectNoLayoutIssues(menu);
+		await expect(itemNames(menu)).toEqual([
+			"View profile",
+			"Roles",
+			`Kick ${LONG_MEMBER_NAME}`,
+			`Ban ${LONG_MEMBER_NAME}`,
+			"Copy DID",
+			"Developer mode",
+		]);
+		for (const verb of ["Kick", "Ban"]) {
+			const item = within(menu).getByRole("menuitem", {
+				name: `${verb} ${LONG_MEMBER_NAME}`,
+			});
+			await expect(item).toHaveAttribute("data-tone", "destructive");
+			const label = Array.from(item.querySelectorAll("span")).find((span) =>
+				span.textContent?.startsWith(verb),
+			) as HTMLElement;
+			await expect(label.scrollWidth).toBeGreaterThan(label.clientWidth);
+			await expect(label.getBoundingClientRect().right).toBeLessThanOrEqual(
+				menu.getBoundingClientRect().right,
+			);
+		}
+
+		await userEvent.hover(
+			within(menu).getByRole("menuitem", { name: "Roles" }),
+		);
+		const submenu = await screen.findByRole("menu", { name: "Roles" });
+		await waitFor(() => expectInsideViewport(submenu));
+		await expectNoLayoutIssues(submenu);
+		const artists = within(submenu).getByRole("menuitemcheckbox", {
+			name: "Artists",
+		});
+		await expect(artists).toHaveAttribute("aria-checked", "false");
+		await userEvent.click(artists);
+		await expect(memberSpy.roleChange).toHaveBeenCalledWith("artists", true);
+		await waitFor(() =>
+			expect(
+				within(screen.getByRole("menu", { name: "Roles" })).getByRole(
+					"menuitemcheckbox",
+					{ name: "Artists" },
+				),
+			).toHaveAttribute("aria-checked", "true"),
+		);
+		await expect(screen.getByRole("menu", { name: "Roles" })).toBe(submenu);
+		await expect(
+			within(submenu).getByRole("menuitemcheckbox", { name: "Admins" }),
+		).toHaveAttribute("aria-disabled", "true");
+		await closeWithEscape();
+
+		const again = await openMenu(memberRow(canvas), MEMBER_MENU);
+		await userEvent.click(
+			within(again).getByRole("menuitem", {
+				name: `Kick ${LONG_MEMBER_NAME}`,
+			}),
+		);
+		await expect(memberSpy.kick).toHaveBeenCalledTimes(1);
+		await waitForClosed();
+	},
+};
+
+export const MemberMenuRegularMember: Story = {
+	render: () => <MemberMenuDemo moderator={false} />,
+	play: async ({ canvasElement }) => {
+		const canvas = within(canvasElement);
+		const menu = await openMenu(memberRow(canvas), MEMBER_MENU);
+		await expect(itemNames(menu)).toEqual([
+			"View profile",
+			"Copy DID",
+			"Developer mode",
+		]);
+		await closeWithEscape();
+	},
+};
+
+const threadSpy = {
+	follow: fn(),
+	rename: fn(),
+	move: fn(),
+	remove: fn(),
+};
+
+const LONG_THREAD_NAME =
+	"Kingfisher sightings along the river path behind the old mill";
+
+export const ThreadMenu: Story = {
+	render: () => (
+		<div class="min-h-screen bg-background p-8">
+			<ThreadContextMenu
+				name={LONG_THREAD_NAME}
+				following={false}
+				onFollowingChange={threadSpy.follow}
+				muted={false}
+				onMutedChange={() => {}}
+				onMarkAsRead={() => {}}
+				onCopyLink={() => {}}
+				onRename={threadSpy.rename}
+				onMove={threadSpy.move}
+				onDelete={threadSpy.remove}
+			>
+				<button type="button" class="w-64 truncate text-left">
+					{LONG_THREAD_NAME}
+				</button>
+			</ThreadContextMenu>
+		</div>
+	),
+	play: async ({ canvasElement }) => {
+		for (const spy of Object.values(threadSpy)) spy.mockClear();
+		const canvas = within(canvasElement);
+		const menu = await openMenu(
+			canvas.getByRole("button", { name: LONG_THREAD_NAME }),
+			`${LONG_THREAD_NAME} options`,
+		);
+		await waitFor(() => expectInsideViewport(menu));
+		await expectNoLayoutIssues(menu);
+		await expect(itemNames(menu)).toEqual([
+			"Mark as read",
+			"Copy thread link",
+			"Rename thread",
+			"Move to channel",
+			"Delete thread",
+		]);
+		await expect(
+			within(menu).getByRole("menuitemcheckbox", { name: /Follow thread/ }),
+		).toBeInTheDocument();
+		await userEvent.click(
+			within(menu).getByRole("menuitem", { name: "Delete thread" }),
+		);
+		await expect(threadSpy.remove).toHaveBeenCalledTimes(1);
+	},
+};
+
+const onTargetClick = fn();
+
+export const PressTargetCloses: Story = {
+	name: "Press on the target closes",
+	render: () => (
+		<div class="min-h-screen bg-background p-8">
+			<ContextMenu
+				aria-label="Target options"
+				menu={<MenuItem label="Copy" onSelect={onCopy} />}
+			>
+				<button
+					type="button"
+					data-testid="target"
+					onClick={onTargetClick}
+					class="flex h-40 w-full items-center justify-center rounded-surface border border-dashed border-border text-sm text-muted-foreground"
+				>
+					Right-click, then click here
+				</button>
+			</ContextMenu>
+		</div>
+	),
+	play: async ({ canvasElement }) => {
+		onTargetClick.mockClear();
+		onCopy.mockClear();
+		const target = within(canvasElement).getByTestId("target");
+		await openMenu(target, "Target options");
+		await userEvent.click(target);
+		await waitFor(() =>
+			expect(screen.queryByRole("menu", { name: "Target options" })).toBeNull(),
+		);
+		await expect(onTargetClick).not.toHaveBeenCalled();
+		await expect(onCopy).not.toHaveBeenCalled();
+		await userEvent.click(target);
+		await expect(onTargetClick).toHaveBeenCalledTimes(1);
+		await openMenu(target, "Target options");
+		await userEvent.click(canvasElement.firstElementChild as HTMLElement);
+		await waitFor(() =>
+			expect(screen.queryByRole("menu", { name: "Target options" })).toBeNull(),
+		);
 	},
 };

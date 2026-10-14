@@ -293,3 +293,110 @@ export const AnimatesHeight: Story = {
 		);
 	},
 };
+
+export const HeaderInsets: Story = {
+	render: () => (
+		<div class="flex gap-2 p-4">
+			<Drawer>
+				<DrawerTrigger as={Button} variant="secondary">
+					Padded header
+				</DrawerTrigger>
+				<DrawerContent
+					aria-label="Padded header"
+					header={<span data-probe="padded">general</span>}
+				>
+					<p class="m-0 text-sm">Body</p>
+				</DrawerContent>
+			</Drawer>
+			<Drawer>
+				<DrawerTrigger as={Button} variant="secondary">
+					Bleed header
+				</DrawerTrigger>
+				<DrawerContent
+					aria-label="Bleed header"
+					headerBleed
+					header={<div data-probe="bleed" class="h-20 bg-primary" />}
+				>
+					<p class="m-0 text-sm">Body</p>
+				</DrawerContent>
+			</Drawer>
+		</div>
+	),
+	play: async ({ canvasElement }) => {
+		const canvas = within(canvasElement);
+		const inset = async (name: string, probe: string) => {
+			await userEvent.click(canvas.getByRole("button", { name }));
+			const dialog = await screen.findByRole("dialog", { name });
+			await waitFor(() => expect(dialog).toBeVisible());
+			const box = dialog.getBoundingClientRect();
+			const inner = (
+				dialog.querySelector(`[data-probe="${probe}"]`) as HTMLElement
+			).getBoundingClientRect();
+			const result = {
+				left: Math.round(inner.left - box.left),
+				top: Math.round(inner.top - box.top),
+			};
+			await userEvent.keyboard("{Escape}");
+			await waitFor(() =>
+				expect(screen.queryByRole("dialog", { name })).toBeNull(),
+			);
+			return result;
+		};
+		const padded = await inset("Padded header", "padded");
+		await expect(padded.left).toBe(16);
+		await expect(padded.top).toBeGreaterThanOrEqual(24);
+		const bleed = await inset("Bleed header", "bleed");
+		await expect(bleed.left).toBe(0);
+	},
+};
+
+const HandoffDemo = () => {
+	const [first, setFirst] = createSignal(false);
+	const [second, setSecond] = createSignal(false);
+	return (
+		<div class="p-4">
+			<Button variant="secondary" onClick={() => setFirst(true)}>
+				Open first
+			</Button>
+			<Drawer open={first()} onOpenChange={setFirst}>
+				<DrawerContent title="First drawer">
+					<Button
+						onClick={() => {
+							setFirst(false);
+							setSecond(true);
+						}}
+					>
+						Open second
+					</Button>
+				</DrawerContent>
+			</Drawer>
+			<Drawer open={second()} onOpenChange={setSecond}>
+				<DrawerContent title="Second drawer">
+					<p class="m-0 text-sm">Still here</p>
+				</DrawerContent>
+			</Drawer>
+		</div>
+	);
+};
+
+export const HandoffToAnotherDrawer: Story = {
+	render: () => <HandoffDemo />,
+	play: async ({ canvasElement }) => {
+		const canvas = within(canvasElement);
+		await userEvent.click(canvas.getByRole("button", { name: "Open first" }));
+		const first = await screen.findByRole("dialog", { name: "First drawer" });
+		await waitFor(() => expect(first).toBeVisible());
+		await new Promise((resolve) => setTimeout(resolve, 300));
+		await userEvent.click(
+			within(first).getByRole("button", { name: "Open second" }),
+		);
+		await screen.findByRole("dialog", { name: "Second drawer" });
+		await new Promise((resolve) => setTimeout(resolve, 1200));
+		await expect(
+			screen.getByRole("dialog", { name: "Second drawer" }),
+		).toBeVisible();
+		await expect(
+			screen.queryByRole("dialog", { name: "First drawer" }),
+		).toBeNull();
+	},
+};

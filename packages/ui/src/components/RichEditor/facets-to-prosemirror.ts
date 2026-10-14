@@ -11,6 +11,7 @@ import {
 import type { Editor } from "@tiptap/core";
 import { formatTimestamp } from "../../utils/rich-text/format-timestamp";
 import { normalizeFacets } from "../../utils/rich-text/normalize-facets";
+import { customEmojiAttrs } from "./custom-emoji";
 import type { MentionType } from "./prosemirror-to-facets";
 import type { ChannelChip, RichEditorSources } from "./types";
 
@@ -24,7 +25,11 @@ export const UNRESOLVED_CHANNEL_LABEL = "unknown-channel";
 
 export type FacetResolvers = Pick<
 	RichEditorSources,
-	"resolveMember" | "resolveRole" | "resolveChannel" | "matchChannelUrl"
+	| "resolveMember"
+	| "resolveRole"
+	| "resolveChannel"
+	| "matchChannelUrl"
+	| "resolveCustomEmoji"
 >;
 
 export const channelChipAttrs = (channelId: string, chip: ChannelChip) => ({
@@ -147,6 +152,21 @@ const atomNode = (
 					type: "time",
 					datetime: time.datetime,
 					style,
+				},
+			};
+		}
+		case "social.colibri.beta.richtext.facet#customEmoji" as Feature["$type"]: {
+			const { uri, cid } = feature as unknown as { uri?: string; cid?: string };
+			if (typeof uri !== "string") return undefined;
+			const emoji = resolvers.resolveCustomEmoji?.({ uri, cid });
+			if (!emoji) return undefined;
+			return {
+				type: "mention",
+				attrs: {
+					...customEmojiAttrs({ ...emoji, fallback: sourceText }),
+					id: uri,
+					cid: cid ?? emoji.cid ?? null,
+					type: "customEmoji",
 				},
 			};
 		}

@@ -1,5 +1,5 @@
 import { BellIcon } from "@solar-icons/solid/bold/bell";
-import { onCleanup } from "solid-js";
+import { onCleanup, onMount } from "solid-js";
 import { expect, fn, userEvent, waitFor } from "storybook/test";
 import type { Meta, StoryObj } from "storybook-solidjs-vite";
 import { Button } from "../Button/Button";
@@ -177,6 +177,61 @@ export const Mobile: Story = {
 	args: { platform: "mobile" },
 	parameters: { viewport: { defaultViewport: "iphone" } },
 	render: () => <Playground />,
+};
+
+const FakeComposer = () => {
+	let footer: HTMLDivElement | undefined;
+	onMount(() => {
+		const root = document.documentElement;
+		const sync = () =>
+			root.style.setProperty(
+				"--toast-bottom-offset",
+				`${footer?.getBoundingClientRect().height ?? 0}px`,
+			);
+		const observer = new ResizeObserver(sync);
+		if (footer) observer.observe(footer);
+		sync();
+		onCleanup(() => {
+			observer.disconnect();
+			root.style.removeProperty("--toast-bottom-offset");
+		});
+	});
+	return (
+		<div
+			ref={footer}
+			data-testid="fake-composer"
+			class="fixed inset-x-0 bottom-0 flex h-28 items-center justify-end border-t border-border bg-card px-4"
+		>
+			<Button>Send</Button>
+		</div>
+	);
+};
+
+export const AboveComposer: Story = {
+	name: "Above the composer",
+	render: () => <FakeComposer />,
+	play: async () => {
+		toast("Forwarded to #general");
+		await waitFor(() => expect(activeItems()).toHaveLength(1));
+		const composer = document.querySelector(
+			"[data-testid='fake-composer']",
+		) as HTMLElement;
+		const region = document.querySelector("[data-toaster]") as HTMLElement;
+		await waitFor(() =>
+			expect(region.getBoundingClientRect().bottom).toBeLessThanOrEqual(
+				composer.getBoundingClientRect().top - 15,
+			),
+		);
+		await expect(
+			Math.round(window.innerWidth - region.getBoundingClientRect().right),
+		).toBe(16);
+		composer.style.height = "200px";
+		await waitFor(() =>
+			expect(region.getBoundingClientRect().bottom).toBeLessThanOrEqual(
+				composer.getBoundingClientRect().top - 15,
+			),
+		);
+	},
 };
 
 export const Stacking: Story = {
@@ -361,6 +416,18 @@ export const SwipeMobile: Story = {
 		await wait(450);
 		await expect(activeItems()).toHaveLength(1);
 		await drag(activeItems()[0], 0, -70, "touch");
+		await waitFor(() => expect(activeItems()).toHaveLength(0));
+		toast("Swipe left to dismiss");
+		await waitFor(() =>
+			expect(activeItems()[0]).toHaveAttribute("data-mounted"),
+		);
+		await drag(activeItems()[0], -80, 0, "touch");
+		await waitFor(() => expect(activeItems()).toHaveLength(0));
+		toast("Swipe right to dismiss");
+		await waitFor(() =>
+			expect(activeItems()[0]).toHaveAttribute("data-mounted"),
+		);
+		await drag(activeItems()[0], 80, 0, "touch");
 		await waitFor(() => expect(activeItems()).toHaveLength(0));
 	},
 };

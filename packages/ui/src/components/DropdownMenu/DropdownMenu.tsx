@@ -8,6 +8,7 @@ import {
 	type JSX,
 	Match,
 	on,
+	onCleanup,
 	Show,
 	Switch,
 	type ValidComponent,
@@ -45,7 +46,9 @@ export type DropdownMenuPlacement =
 	| "bottom-start"
 	| "bottom-end"
 	| "left"
-	| "right";
+	| "left-start"
+	| "right"
+	| "right-start";
 
 export type DropdownMenuItemEntry = {
 	kind?: "item";
@@ -486,19 +489,66 @@ export type DropdownMenuProps = {
 	onOpenChange?: (open: boolean) => void;
 	placement?: DropdownMenuPlacement;
 	contentClass?: string;
+	submenu?: boolean;
+	gutter?: number;
 };
+
+const HOVER_CLOSE_MS = 150;
 
 export const DropdownMenu = (props: DropdownMenuProps) => {
 	const [internalOpen, setInternalOpen] = createSignal(
 		props.defaultOpen ?? false,
 	);
 	const open = () => props.open ?? internalOpen();
+	let keepOpen = false;
 	const setOpen = (next: boolean) => {
+		if (!next && keepOpen) {
+			keepOpen = false;
+			return;
+		}
 		setInternalOpen(next);
 		props.onOpenChange?.(next);
 	};
 	const overflowPadding = usePopperOverflowPadding();
 	const mobile = () => props.platform === "mobile";
+	let content: HTMLElement | undefined;
+	let closeTimer: ReturnType<typeof setTimeout> | undefined;
+	let openedByHover = false;
+	const cancelClose = () => {
+		clearTimeout(closeTimer);
+		closeTimer = undefined;
+	};
+	const hoverOpen = (event: PointerEvent) => {
+		if (!props.submenu || event.pointerType !== "mouse") return;
+		cancelClose();
+		if (open()) return;
+		openedByHover = true;
+		setOpen(true);
+	};
+	const hoverLeave = (event: PointerEvent) => {
+		if (!props.submenu || event.pointerType !== "mouse" || !open()) return;
+		cancelClose();
+		closeTimer = setTimeout(() => {
+			closeTimer = undefined;
+			if (content?.contains(document.activeElement) && !openedByHover) return;
+			setOpen(false);
+		}, HOVER_CLOSE_MS);
+	};
+	onCleanup(cancelClose);
+	const focusFirstItem = (attempt = 0) => {
+		requestAnimationFrame(() => {
+			const item = content?.isConnected
+				? content.querySelector<HTMLElement>(
+						'[role^="menuitem"]:not([data-disabled])',
+					)
+				: undefined;
+			if (item && document.activeElement !== item) item.focus();
+			if (attempt < 4 && open()) focusFirstItem(attempt + 1);
+		});
+	};
+	const sideKeys = props.placement?.startsWith("left")
+		? { open: "ArrowLeft", close: "ArrowRight" }
+		: { open: "ArrowRight", close: "ArrowLeft" };
 
 	createEffect(
 		on(
@@ -519,7 +569,7 @@ export const DropdownMenu = (props: DropdownMenuProps) => {
 					open={open()}
 					onOpenChange={setOpen}
 					placement={props.placement ?? "bottom-end"}
-					gutter={6}
+					gutter={props.gutter ?? 6}
 					overflowPadding={overflowPadding()}
 				>
 					<KobalteDropdownMenu.Trigger
@@ -528,13 +578,55 @@ export const DropdownMenu = (props: DropdownMenuProps) => {
 						aria-label={props.triggerAs ? undefined : props.label}
 						class={props.triggerClass}
 						{...props.triggerProps}
+						onPointerEnter={hoverOpen}
+						onPointerLeave={hoverLeave}
+						ref={(element: HTMLElement) => {
+							if (!props.submenu) return;
+							const onKey = (event: KeyboardEvent) => {
+								if (event.key !== sideKeys.open) return;
+								event.preventDefault();
+								event.stopPropagation();
+								openedByHover = false;
+								setOpen(true);
+								focusFirstItem();
+							};
+							element.addEventListener("keydown", onKey, true);
+							onCleanup(() =>
+								element.removeEventListener("keydown", onKey, true),
+							);
+						}}
+						onPointerDown={(event: PointerEvent) => {
+							if (props.submenu && open() && event.pointerType !== "touch") {
+								keepOpen = true;
+								queueMicrotask(() => {
+									keepOpen = false;
+								});
+							}
+							openedByHover = false;
+						}}
 					>
 						{props.trigger}
 					</KobalteDropdownMenu.Trigger>
 					<KobalteDropdownMenu.Portal>
 						<KobalteDropdownMenu.Content
 							{...topLayerAttrs}
-							ref={revealLayer}
+							ref={(element: HTMLElement) => {
+								content = element;
+								revealLayer(element);
+							}}
+							data-submenu={props.submenu ? "" : undefined}
+							onPointerEnter={(event: PointerEvent) => {
+								if (event.pointerType === "mouse") cancelClose();
+							}}
+							onPointerLeave={hoverLeave}
+							onOpenAutoFocus={(event: Event) => {
+								if (props.submenu && openedByHover) event.preventDefault();
+							}}
+							onKeyDown={(event: KeyboardEvent) => {
+								if (!props.submenu || event.key !== sideKeys.close) return;
+								event.preventDefault();
+								setOpen(false);
+							}}
 							aria-label={props.label}
 							class={cx(
 								menuContentClass,
@@ -577,3 +669,22 @@ export const DropdownMenu = (props: DropdownMenuProps) => {
 		</Show>
 	);
 };
+
+export type MenuDrawerProps = {
+	open: boolean;
+	onOpenChange: (open: boolean) => void;
+	label: string;
+	title?: JSX.Element;
+	items: DropdownMenuEntry[];
+};
+
+export const MenuDrawer = (props: MenuDrawerProps) => (
+	<Drawer open={props.open} onOpenChange={props.onOpenChange}>
+		<DrawerContent title={props.title} aria-label={props.label}>
+			<MobileGroups
+				entries={props.items}
+				close={() => props.onOpenChange(false)}
+			/>
+		</DrawerContent>
+	</Drawer>
+);

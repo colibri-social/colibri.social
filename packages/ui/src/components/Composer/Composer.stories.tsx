@@ -1,8 +1,13 @@
 import { createSignal, For, type JSX } from "solid-js";
 import { expect, fn, userEvent, waitFor, within } from "storybook/test";
 import type { Meta, StoryObj } from "storybook-solidjs-vite";
+import { expectNoLayoutIssues } from "../../foundations/layout-test";
 import { storyImages } from "../Banner/story-images";
 import { Button } from "../Button/Button";
+import {
+	type MediaPickerKind,
+	MediaPickers,
+} from "../MediaPickerSheet/MediaPickerSheet";
 import type { RichEditorHandle } from "../RichEditor/RichEditor";
 import type { RichEditorSources } from "../RichEditor/types";
 import { AttachmentTray, type PendingAttachment } from "./AttachmentTray";
@@ -81,6 +86,100 @@ export const MobileEmpty: Story = {
 	},
 };
 
+export const FocusedBorder: Story = {
+	render: () => (
+		<MobileScreen>
+			<Composer channelName="general" onSend={onSend} />
+		</MobileScreen>
+	),
+	play: async ({ canvasElement }) => {
+		const box = canvasElement.querySelector(
+			"[data-composer-box]",
+		) as HTMLElement;
+		const field = textarea(canvasElement);
+		const border = () => getComputedStyle(box).borderTopColor;
+		const resting = border();
+		await userEvent.click(field);
+		await waitFor(() => expect(border()).not.toBe(resting));
+		field.blur();
+		await waitFor(() => expect(border()).toBe(resting));
+		const button = within(box).getByRole("button", { name: "Add an emoji" });
+		button.focus();
+		await expect(document.activeElement).toBe(button);
+		await expect(border()).toBe(resting);
+	},
+};
+
+export const EmojiKeepsKeyboard: Story = {
+	render: () => {
+		const [open, setOpen] = createSignal<MediaPickerKind | null>(null);
+		return (
+			<MobileScreen>
+				<Composer
+					channelName="general"
+					onSend={onSend}
+					onEmoji={() => setOpen("emoji")}
+				/>
+				<MediaPickers
+					platform="mobile"
+					open={open()}
+					onOpenChange={setOpen}
+					emoji={{}}
+					gif={{
+						source: {
+							search: async () => ({ gifs: [] }),
+							trending: async () => ({ gifs: [] }),
+							categories: async () => [],
+						},
+					}}
+					onEmoji={() => {}}
+					onGif={() => {}}
+				/>
+			</MobileScreen>
+		);
+	},
+	play: async ({ canvasElement }) => {
+		const field = textarea(canvasElement);
+		await userEvent.click(field);
+		await waitFor(() => expect(field).toHaveFocus());
+		const button = within(canvasElement).getByRole("button", {
+			name: "Add an emoji",
+		});
+		const losses: string[] = [];
+		const onFocusIn = (event: FocusEvent) => {
+			const target = event.target as HTMLElement;
+			if (
+				target !== field &&
+				target.getAttribute("aria-label") !== "Search emoji"
+			)
+				losses.push(target.tagName);
+		};
+		document.addEventListener("focusin", onFocusIn);
+		await userEvent.click(button);
+		const search = await waitFor(() => {
+			const input = document.querySelector<HTMLInputElement>(
+				'input[aria-label="Search emoji"]',
+			);
+			expect(input).not.toBeNull();
+			expect(input).toHaveFocus();
+			return input as HTMLInputElement;
+		});
+		document.removeEventListener("focusin", onFocusIn);
+		await expect(losses).toEqual([]);
+		await userEvent.type(search, "heart");
+		await expect(search).toHaveFocus();
+		await userEvent.keyboard("{Escape}");
+		await expect(search).toHaveValue("");
+		await userEvent.keyboard("{Escape}");
+		await waitFor(() =>
+			expect(
+				document.querySelector('input[aria-label="Search emoji"]'),
+			).toBeNull(),
+		);
+		await waitFor(() => expect(field).toHaveFocus());
+	},
+};
+
 export const MobileTyping: Story = {
 	render: () => (
 		<MobileScreen>
@@ -145,6 +244,10 @@ export const DesktopSend: Story = {
 	play: async ({ canvasElement }) => {
 		onSend.mockClear();
 		const canvas = within(canvasElement);
+		const box = canvasElement.querySelector(
+			"[data-composer-box]",
+		) as HTMLElement;
+		await expect(box.getBoundingClientRect().height).toBeCloseTo(56, 0);
 		await expect(
 			canvas.queryByRole("button", { name: "Send message" }),
 		).toBeNull();
@@ -159,6 +262,9 @@ export const DesktopSend: Story = {
 			facets: [],
 		});
 		await waitFor(() => expect(isEmpty(canvasElement)).toBe(true));
+		await waitFor(() =>
+			expect(box.getBoundingClientRect().height).toBeCloseTo(56, 0),
+		);
 		await userEvent.keyboard("{Enter}");
 		await expect(onSend).toHaveBeenCalledTimes(1);
 	},
@@ -522,9 +628,7 @@ export const Typing: Story = {
 		await expect(statuses[1]).toHaveTextContent(
 			"Username and Lou are typing...",
 		);
-		await expect(statuses[2]).toHaveTextContent(
-			"Username, Lou and Kris are typing...",
-		);
+		await expect(statuses[2]).toHaveTextContent("Several people are typing...");
 		await expect(statuses[3]).toHaveTextContent("Several people are typing...");
 		const empty = canvasElement.querySelectorAll("[data-typing-indicator]")[5];
 		await expect(empty).not.toHaveAttribute("data-active");
@@ -906,4 +1010,47 @@ export const Disabled: Story = {
 			/>
 		</MobileScreen>
 	),
+};
+
+export const TrayRetry: Story = {
+	render: () => {
+		const [items, setItems] = createSignal<PendingAttachment[]>([
+			{ id: "a", name: "trail-map.png", failed: true },
+			{ id: "b", name: "notes.pdf", progress: 0.4 },
+		]);
+		const [retried, setRetried] = createSignal(0);
+		return (
+			<div class="w-[402px] p-4" data-testid="tray-host">
+				<AttachmentTray
+					items={items()}
+					onRetry={(id) => {
+						setRetried((count) => count + 1);
+						setItems((list) =>
+							list.map((item) =>
+								item.id === id ? { ...item, failed: false, progress: 0 } : item,
+							),
+						);
+					}}
+					onRemove={(id) =>
+						setItems((list) => list.filter((item) => item.id !== id))
+					}
+				/>
+				<output data-testid="retried">{retried()}</output>
+			</div>
+		);
+	},
+	play: async ({ canvasElement }) => {
+		const canvas = within(canvasElement);
+		const retry = canvas.getByRole("button", {
+			name: "Upload failed, retry trail-map.png",
+		});
+		await expectNoLayoutIssues(canvas.getByTestId("tray-host"));
+		await userEvent.click(retry);
+		await expect(canvas.getByTestId("retried")).toHaveTextContent("1");
+		await expect(
+			canvas.queryByRole("button", {
+				name: "Upload failed, retry trail-map.png",
+			}),
+		).toBeNull();
+	},
 };

@@ -11,6 +11,7 @@ export type RippleOptions = {
 	haptic?: HapticImpact;
 	disabled?: Accessor<boolean | undefined>;
 	placement?: "under" | "over";
+	ignore?: string;
 };
 
 const GROW_MS = 420;
@@ -155,6 +156,8 @@ export const attachRipple = (
 	const onPointerDown = (event: PointerEvent) => {
 		if (event.button !== 0 || isDisabled()) return;
 		if (!pointerTypes.includes(event.pointerType as RipplePointerType)) return;
+		const target = event.target as Element | null;
+		if (options.ignore && target?.closest?.(options.ignore)) return;
 		const rect = layerFor(host).getBoundingClientRect();
 		spawn(event.clientX - rect.left, event.clientY - rect.top);
 	};

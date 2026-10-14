@@ -15,6 +15,7 @@ allowBuilds:
 
 patchedDependencies:
   "@atproto/oauth-client-browser@0.0.0-spaces-alpha-20261001173819": patches/@atproto__oauth-client-browser@0.0.0-spaces-alpha-20261001173819.patch
+  '@kobalte/utils@0.9.2': patches/@kobalte__utils@0.9.2.patch
 
 # Semver ranks 0.0.0 above 0.0.0-spaces-alpha-*, so the pin needs an override
 overrides:

@@ -13,6 +13,7 @@ import {
 	SpaceRailAction,
 	SpaceRailItem,
 	type SpaceRailPlatform,
+	spaceRailMobilePanelClass,
 	spaceRailPanelClass,
 } from "./SpaceRail";
 
@@ -61,12 +62,14 @@ const Rail = (props: {
 	platform?: SpaceRailPlatform;
 	initial?: string;
 	panel?: boolean;
+	paddingTop?: number;
 }) => {
 	const [active, setActive] = createSignal(props.initial ?? "flock");
 	return (
 		<div class="flex h-dvh bg-background">
 			<SpaceRail
 				platform={props.platform}
+				paddingTop={props.paddingTop}
 				leading={
 					<SpaceRailAction
 						label="Inbox"
@@ -96,7 +99,7 @@ const Rail = (props: {
 			<Show when={props.panel !== false}>
 				<div
 					data-rail-panel=""
-					class={`${spaceRailPanelClass} min-w-0 flex-1`}
+					class={`${(props.platform ?? "mobile") === "mobile" ? spaceRailMobilePanelClass : spaceRailPanelClass} min-w-0 flex-1`}
 				/>
 			</Show>
 		</div>
@@ -266,8 +269,14 @@ export const FigmaMobile: Story = {
 		const panel = canvasElement.querySelector(
 			"[data-rail-panel]",
 		) as HTMLElement;
-		await expect(getComputedStyle(panel).borderTopLeftRadius).toBe("16px");
+		await expect(getComputedStyle(panel).borderTopLeftRadius).toBe("8px");
 		near(rectOf(panel).left, rail.right);
+		const first = rectOf(
+			canvasElement.querySelector(
+				"[data-rail-focusable], [data-rail-action] button",
+			),
+		);
+		near(first.top - rectOf(panel).top, 18);
 		const actions = Array.from(
 			canvasElement.querySelectorAll("[data-rail-action] button"),
 		).map(rectOf);
@@ -295,6 +304,27 @@ export const FigmaDesktop: Story = {
 			),
 		);
 		await waitFor(() => near(inner.width, 36));
+	},
+};
+
+export const DesktopTopInset: Story = {
+	name: "Desktop top inset",
+	parameters: { viewport: { defaultViewport: "responsive" } },
+	render: () => <Rail platform="desktop" paddingTop={8} />,
+	play: async ({ canvasElement }) => {
+		const rail = rectOf(canvasElement.querySelector("[data-space-rail]"));
+		const inbox = rectOf(
+			canvasElement.querySelector("[data-rail-action] button"),
+		);
+		near(inbox.top - rail.top, 8);
+		const tab = canvasElement.querySelector("[data-rail-tab]") as HTMLElement;
+		const active = rectOf(
+			canvasElement.querySelector(
+				'[data-rail-item][data-state="active"] [data-rail-focusable]',
+			),
+		);
+		await waitFor(() => near(rectOf(tab).top, active.top));
+		near(active.top - rail.top, 57 + 8);
 	},
 };
 
@@ -698,5 +728,69 @@ export const ActionAsPopupTrigger: Story = {
 			() => expect(screen.getByRole("tooltip")).toHaveTextContent("Inbox"),
 			{ timeout: 3000 },
 		);
+	},
+};
+
+const MenuRail = (props: {
+	onMenu: (id: string) => void;
+	onSelect: (id: string) => void;
+}) => (
+	<div class="h-[480px]">
+		<SpaceRail>
+			<For each={spaces}>
+				{(space) => (
+					<SpaceRailItem
+						name={space.name}
+						iconSrc={space.iconSrc}
+						active={space.id === spaces[0]?.id}
+						onSelect={() => props.onSelect(space.id)}
+						onMenu={() => props.onMenu(space.id)}
+					/>
+				)}
+			</For>
+		</SpaceRail>
+	</div>
+);
+
+let menuPointerSeed = 0;
+
+const itemMenuArgs = { onMenu: fn(), onSelect: fn() };
+
+export const ItemMenu: Story = {
+	render: () => (
+		<MenuRail onMenu={itemMenuArgs.onMenu} onSelect={itemMenuArgs.onSelect} />
+	),
+	play: async ({ canvasElement }) => {
+		const { onMenu, onSelect } = itemMenuArgs;
+		onMenu.mockClear();
+		onSelect.mockClear();
+		const second = spaces[1];
+		if (!second) return;
+		const button = within(canvasElement).getByRole("button", {
+			name: new RegExp(second.name),
+		});
+		const box = button.getBoundingClientRect();
+		const init = {
+			bubbles: true,
+			pointerType: "touch",
+			pointerId: ++menuPointerSeed,
+			clientX: box.left + box.width / 2,
+			clientY: box.top + box.height / 2,
+		};
+		button.dispatchEvent(new PointerEvent("pointerdown", init));
+		await new Promise((resolve) => setTimeout(resolve, 500));
+		button.dispatchEvent(new PointerEvent("pointerup", init));
+		button.click();
+		await expect(onMenu).toHaveBeenCalledWith(second.id);
+		await expect(onSelect).not.toHaveBeenCalled();
+
+		onMenu.mockClear();
+		button.dispatchEvent(
+			new MouseEvent("contextmenu", { bubbles: true, cancelable: true }),
+		);
+		await expect(onMenu).toHaveBeenCalledWith(second.id);
+
+		await userEvent.click(button);
+		await expect(onSelect).toHaveBeenCalledWith(second.id);
 	},
 };

@@ -1,7 +1,8 @@
 import { createMemo, createSignal } from "solid-js";
-import { expect, userEvent, waitFor, within } from "storybook/test";
+import { expect, screen, userEvent, waitFor, within } from "storybook/test";
 import type { Meta, StoryObj } from "storybook-solidjs-vite";
 import { Button } from "../Button/Button";
+import { MemberContextMenu } from "../ContextMenu/MemberMenu";
 import { ProfilePopover } from "../Profile/ProfilePopover";
 import {
 	createManyMembers,
@@ -140,7 +141,7 @@ export const ManyMembersMobile: Story = {
 		await expect(rowsOf(canvasElement).length).toBeLessThan(60);
 		const first = rowsOf(canvasElement)[0] as HTMLElement;
 		const card = first.parentElement as HTMLElement;
-		await expect(getComputedStyle(card).borderTopLeftRadius).toBe("10px");
+		await expect(getComputedStyle(card).borderTopLeftRadius).toBe("12px");
 		await expect(getComputedStyle(card).borderBottomLeftRadius).toBe("0px");
 		await scrollTo(scroller, scroller.scrollHeight / 3);
 		await expect(rowsOf(canvasElement).length).toBeLessThan(60);
@@ -391,5 +392,54 @@ export const PopoverOnVirtualRow: Story = {
 		).toBeNull();
 		await waitFor(() => expect(popover.isConnected).toBe(false));
 		await waitFor(() => expect(document.activeElement).toBe(row));
+	},
+};
+
+export const RightClickMenu: Story = {
+	name: "Right-click menu",
+	render: () => {
+		const [opened, setOpened] = createSignal("");
+		return (
+			<div class="h-[800px] w-72 overflow-y-auto border-l border-border bg-card text-foreground">
+				<p data-opened="" class="sr-only">
+					{opened()}
+				</p>
+				<MemberList
+					groups={groupMembers(fixtureMembers(), fixtureRoles)}
+					wrapMember={(member, row) => (
+						<MemberContextMenu
+							name={member.name}
+							onViewProfile={() => setOpened(member.name)}
+						>
+							{row}
+						</MemberContextMenu>
+					)}
+				/>
+			</div>
+		);
+	},
+	play: async ({ canvasElement }) => {
+		const row = canvasElement.querySelector("[data-member-row]") as HTMLElement;
+		const name = row.querySelector("[data-member-name]")?.textContent ?? "";
+		await expect(Math.round(row.getBoundingClientRect().height)).toBe(44);
+		const rect = row.getBoundingClientRect();
+		row.dispatchEvent(
+			new MouseEvent("contextmenu", {
+				bubbles: true,
+				cancelable: true,
+				button: 2,
+				clientX: rect.left + 24,
+				clientY: rect.top + 12,
+			}),
+		);
+		const menu = await screen.findByRole("menu");
+		await userEvent.click(
+			within(menu).getByRole("menuitem", { name: /View profile/ }),
+		);
+		await waitFor(() =>
+			expect(canvasElement.querySelector("[data-opened]")?.textContent).toBe(
+				name,
+			),
+		);
 	},
 };

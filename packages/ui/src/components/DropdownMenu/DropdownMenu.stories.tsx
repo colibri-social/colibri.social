@@ -6,6 +6,7 @@ import { PenIcon } from "@solar-icons/solid/bold/pen";
 import { ShareIcon } from "@solar-icons/solid/bold/share";
 import { SortIcon } from "@solar-icons/solid/bold/sort";
 import { TrashBinTrashIcon } from "@solar-icons/solid/bold/trash-bin-trash";
+import { AltArrowRightIcon } from "@solar-icons/solid/linear/alt-arrow-right";
 import { createSignal } from "solid-js";
 import { expect, fn, screen, userEvent, waitFor, within } from "storybook/test";
 import type { Meta, StoryObj } from "storybook-solidjs-vite";
@@ -214,5 +215,144 @@ export const Sorting: Story = {
 				/>
 			</div>
 		);
+	},
+};
+
+const flyoutOptions = {
+	online: "Online",
+	idle: "Away",
+	dnd: "Do not disturb",
+	offline: "Offline",
+} as const;
+
+type FlyoutValue = keyof typeof flyoutOptions;
+
+const FlyoutDot = (props: { value: FlyoutValue }) => (
+	<span
+		class="size-2.5 rounded-full"
+		classList={{
+			"bg-green-500": props.value === "online",
+			"bg-amber-400": props.value === "idle",
+			"bg-red-500": props.value === "dnd",
+			"bg-zinc-500": props.value === "offline",
+		}}
+	/>
+);
+
+const SideFlyoutDemo = () => {
+	const [value, setValue] = createSignal<FlyoutValue>("online");
+	const change = (next: string) => setValue(next as FlyoutValue);
+	const items = (): DropdownMenuEntry[] => [
+		{
+			kind: "radio",
+			value: value(),
+			onChange: change,
+			options: [
+				{
+					value: "online",
+					label: "Online",
+					icon: <FlyoutDot value="online" />,
+				},
+			],
+		},
+		{ kind: "separator" },
+		{
+			kind: "radio",
+			value: value(),
+			onChange: change,
+			options: [
+				{ value: "idle", label: "Away", icon: <FlyoutDot value="idle" /> },
+				{
+					value: "dnd",
+					label: "Do not disturb",
+					description: "You won't get desktop notifications",
+					icon: <FlyoutDot value="dnd" />,
+				},
+				{
+					value: "offline",
+					label: "Offline",
+					description: "You'll appear offline",
+					icon: <FlyoutDot value="offline" />,
+				},
+			],
+		},
+	];
+	return (
+		<div class="flex w-72 flex-col gap-1 rounded-control border border-border bg-secondary p-1">
+			<DropdownMenu
+				submenu
+				placement="right-start"
+				label="Online status"
+				items={items()}
+				triggerAs="button"
+				triggerProps={{
+					type: "button",
+					"aria-label": `Online status: ${flyoutOptions[value()]}`,
+					"data-flyout-trigger": "",
+				}}
+				triggerClass="flex h-8 w-full cursor-pointer items-center gap-2 rounded-control-sm border-0 bg-transparent px-2 text-left text-sm font-semibold text-foreground outline-none hover:bg-secondary-highlight focus-ring data-expanded:bg-secondary-highlight"
+				trigger={
+					<>
+						<FlyoutDot value={value()} />
+						<span class="min-w-0 flex-1 truncate">
+							{flyoutOptions[value()]}
+						</span>
+						<AltArrowRightIcon aria-hidden="true" class="size-4 shrink-0" />
+					</>
+				}
+			/>
+			<button
+				type="button"
+				class="flex h-8 items-center rounded-control-sm border-0 bg-transparent px-2 text-sm font-semibold text-foreground"
+			>
+				Edit profile
+			</button>
+		</div>
+	);
+};
+
+export const SideFlyout: Story = {
+	name: "Side flyout",
+	render: () => <SideFlyoutDemo />,
+	play: async ({ canvasElement }) => {
+		const canvas = within(canvasElement);
+		const trigger = canvas.getByRole("button", { name: /^Online status/ });
+		await userEvent.hover(trigger);
+		const menu = await screen.findByRole("menu", { name: /^Online status/ });
+		await expect(menu.getBoundingClientRect().left).toBeGreaterThanOrEqual(
+			trigger.getBoundingClientRect().right,
+		);
+		await expect(document.activeElement).not.toBe(
+			within(menu).getAllByRole("menuitemradio")[0],
+		);
+		await expect(within(menu).getAllByRole("separator")).toHaveLength(1);
+		const dnd = within(menu).getByRole("menuitemradio", {
+			name: /Do not disturb/,
+		});
+		await expect(dnd).toHaveTextContent("You won't get desktop notifications");
+		await userEvent.click(trigger);
+		await expect(screen.getByRole("menu")).toBeInTheDocument();
+		await userEvent.click(dnd);
+		await waitFor(() => expect(screen.queryByRole("menu")).toBeNull());
+		await expect(trigger).toHaveAccessibleName("Online status: Do not disturb");
+		trigger.focus();
+		await userEvent.keyboard("{ArrowRight}");
+		const keyed = await screen.findByRole("menu", { name: /^Online status/ });
+		await waitFor(() =>
+			expect(document.activeElement).toBe(
+				within(keyed).getAllByRole("menuitemradio")[0],
+			),
+		);
+		await userEvent.keyboard("{ArrowLeft}");
+		await waitFor(() => expect(screen.queryByRole("menu")).toBeNull());
+		await waitFor(() => expect(document.activeElement).toBe(trigger));
+		await userEvent.keyboard("{Enter}");
+		await screen.findByRole("menu", { name: /^Online status/ });
+		await userEvent.keyboard("{Escape}");
+		await waitFor(() => expect(screen.queryByRole("menu")).toBeNull());
+		await userEvent.hover(trigger);
+		await screen.findByRole("menu", { name: /^Online status/ });
+		await userEvent.unhover(trigger);
+		await waitFor(() => expect(screen.queryByRole("menu")).toBeNull());
 	},
 };

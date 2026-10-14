@@ -4,6 +4,9 @@
 	"type": "module",
 	"version": "0.0.0",
 	"description": "The Colibri Social component library.",
+	"sideEffects": [
+		"*.css"
+	],
 	"license": "MIT",
 	"exports": {
 		".": {

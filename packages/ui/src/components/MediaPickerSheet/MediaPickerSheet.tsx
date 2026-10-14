@@ -1,4 +1,4 @@
-import { Show } from "solid-js";
+import { createSignal, Show } from "solid-js";
 import { Drawer, DrawerContent } from "../Drawer/Drawer";
 import {
 	type EmojiPick,
@@ -17,7 +17,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "../Tabs/Tabs";
 
 export type MediaPickerKind = "emoji" | "gif";
 
-type EmojiOptions = Omit<EmojiPickerProps, "platform" | "onPick" | "autofocus">;
+type EmojiOptions = Omit<
+	EmojiPickerProps,
+	"platform" | "onPick" | "autofocus" | "searchRef"
+>;
 type GifOptions = Omit<GifPickerProps, "platform" | "onPick" | "autofocus">;
 
 export type MediaPickerSheetProps = {
@@ -31,50 +34,55 @@ export type MediaPickerSheetProps = {
 	onGif: (gif: Gif, event: MouseEvent) => void;
 };
 
-export const MediaPickerSheet = (props: MediaPickerSheetProps) => (
-	<Drawer
-		open={props.open}
-		onOpenChange={props.onOpenChange}
-		initialFocus="content"
-	>
-		<DrawerContent aria-label="Emoji and GIF picker">
-			<Tabs
-				value={props.tab}
-				onChange={(value) => props.onTabChange(value as MediaPickerKind)}
-				class="gap-3"
-			>
-				<TabsList aria-label="Picker">
-					<TabsTrigger value="emoji" class="flex-1 justify-center">
-						Emoji
-					</TabsTrigger>
-					<TabsTrigger value="gif" class="flex-1 justify-center">
-						GIFs
-					</TabsTrigger>
-				</TabsList>
-				<TabsContent value="emoji">
-					<EmojiPicker
-						{...props.emoji}
-						platform="mobile"
-						onPick={(pick, event) => {
-							props.onEmoji(pick, event);
-							props.onOpenChange(false);
-						}}
-					/>
-				</TabsContent>
-				<TabsContent value="gif">
-					<GifPicker
-						{...props.gif}
-						platform="mobile"
-						onPick={(gif, event) => {
-							props.onGif(gif, event);
-							props.onOpenChange(false);
-						}}
-					/>
-				</TabsContent>
-			</Tabs>
-		</DrawerContent>
-	</Drawer>
-);
+export const MediaPickerSheet = (props: MediaPickerSheetProps) => {
+	const [emojiSearch, setEmojiSearch] = createSignal<HTMLInputElement>();
+	return (
+		<Drawer
+			open={props.open}
+			onOpenChange={props.onOpenChange}
+			initialFocus="content"
+			initialFocusEl={props.tab === "emoji" ? emojiSearch() : undefined}
+		>
+			<DrawerContent aria-label="Emoji and GIF picker">
+				<Tabs
+					value={props.tab}
+					onChange={(value) => props.onTabChange(value as MediaPickerKind)}
+					class="gap-3"
+				>
+					<TabsList aria-label="Picker">
+						<TabsTrigger value="emoji" class="flex-1 justify-center">
+							Emoji
+						</TabsTrigger>
+						<TabsTrigger value="gif" class="flex-1 justify-center">
+							GIFs
+						</TabsTrigger>
+					</TabsList>
+					<TabsContent value="emoji">
+						<EmojiPicker
+							{...props.emoji}
+							platform="mobile"
+							searchRef={setEmojiSearch}
+							onPick={(pick, event) => {
+								props.onEmoji(pick, event);
+								props.onOpenChange(false);
+							}}
+						/>
+					</TabsContent>
+					<TabsContent value="gif">
+						<GifPicker
+							{...props.gif}
+							platform="mobile"
+							onPick={(gif, event) => {
+								props.onGif(gif, event);
+								props.onOpenChange(false);
+							}}
+						/>
+					</TabsContent>
+				</Tabs>
+			</DrawerContent>
+		</Drawer>
+	);
+};
 
 export type MediaPickersProps = {
 	platform?: "mobile" | "desktop";

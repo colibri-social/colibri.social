@@ -726,6 +726,7 @@ const ATOM_KIND = new Set([
 	"channel",
 	"role",
 	"time",
+	"customEmoji",
 ]);
 
 export interface SourceAtom {

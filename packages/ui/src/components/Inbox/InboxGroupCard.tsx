@@ -7,6 +7,7 @@ export type InboxGroupCardProps = {
 	name: string;
 	iconSrc?: string;
 	summary?: JSX.Element;
+	actions?: JSX.Element;
 	children?: JSX.Element;
 	class?: string;
 };
@@ -30,6 +31,11 @@ export const InboxGroupCard = (props: InboxGroupCardProps) => {
 						</p>
 					</Show>
 				</div>
+				<Show when={props.actions}>
+					<div data-inbox-group-actions="" class="flex shrink-0 items-center">
+						{props.actions}
+					</div>
+				</Show>
 			</div>
 			<For each={list()}>
 				{(item) => (

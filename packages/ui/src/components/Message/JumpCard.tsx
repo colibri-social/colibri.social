@@ -12,6 +12,7 @@ export type JumpCardProps = {
 	mode: JumpCardMode;
 	count: number;
 	platform: ChatPlatform;
+	lift?: number;
 	onJump: () => void;
 };
 
@@ -44,47 +45,55 @@ export const JumpCard = (props: JumpCardProps) => {
 			)}
 		>
 			<div
-				data-jump-card=""
-				class={cx(
-					"pointer-events-auto flex max-w-md min-w-0 items-center gap-3 border border-border bg-popover p-1 pl-3.5 text-foreground shadow-overlay",
-					mobile() ? "rounded-sheet" : "rounded-surface",
-				)}
+				data-jump-lift=""
+				class="flex min-w-0 justify-center transition-transform duration-[calc(200ms*var(--motion-scale))] ease-[var(--ease-out-quick)] motion-reduce:transition-none reduced-motion:transition-none"
+				style={{
+					transform: props.lift ? `translateY(${-props.lift}px)` : undefined,
+				}}
 			>
-				<Show when={props.mode === "new"}>
-					<span
-						aria-hidden="true"
-						class="size-2 shrink-0 rounded-full bg-primary-highlight"
-					/>
-				</Show>
-				<p
-					id={textId}
+				<div
+					data-jump-card=""
 					class={cx(
-						"m-0 min-w-0 truncate text-sm tabular-nums",
-						props.mode === "new" ? "font-semibold" : "text-muted-foreground",
-					)}
-					title={text()}
-				>
-					{text()}
-				</p>
-				<button
-					type="button"
-					aria-describedby={textId}
-					onClick={() => props.onJump()}
-					class={cx(
-						"pressable focus-ring inline-flex shrink-0 cursor-pointer items-center gap-1.5 border text-sm font-semibold whitespace-nowrap [&_svg]:size-4",
-						mobile()
-							? "h-11 rounded-control-lg pr-4 pl-3"
-							: "h-8 rounded-control-sm pr-3 pl-2.5",
-						props.mode === "new"
-							? "border-border bg-primary-fill text-primary-foreground hover:bg-primary-fill-highlight"
-							: "border-border bg-secondary text-foreground hover:bg-secondary-highlight",
+						"pointer-events-auto flex max-w-md min-w-0 items-center gap-3 border border-border bg-popover p-1 pl-3.5 text-foreground shadow-overlay",
+						mobile() ? "rounded-sheet" : "rounded-surface",
 					)}
 				>
-					<Show when={props.mode === "present"} fallback={<ArrowDownIcon />}>
-						<ArrowDownToLineIcon />
+					<Show when={props.mode === "new"}>
+						<span
+							aria-hidden="true"
+							class="size-2 shrink-0 rounded-full bg-primary-highlight"
+						/>
 					</Show>
-					{props.mode === "present" ? "Jump to present" : "Jump to bottom"}
-				</button>
+					<p
+						id={textId}
+						class={cx(
+							"m-0 min-w-0 truncate text-sm tabular-nums",
+							props.mode === "new" ? "font-semibold" : "text-muted-foreground",
+						)}
+						title={text()}
+					>
+						{text()}
+					</p>
+					<button
+						type="button"
+						aria-describedby={textId}
+						onClick={() => props.onJump()}
+						class={cx(
+							"pressable focus-ring inline-flex shrink-0 cursor-pointer items-center gap-1.5 border text-sm font-semibold whitespace-nowrap [&_svg]:size-4",
+							mobile()
+								? "h-11 rounded-control-lg pr-4 pl-3"
+								: "h-8 rounded-control-sm pr-3 pl-2.5",
+							props.mode === "new"
+								? "border-border bg-primary-fill text-primary-foreground hover:bg-primary-fill-highlight"
+								: "border-border bg-secondary text-foreground hover:bg-secondary-highlight",
+						)}
+					>
+						<Show when={props.mode === "present"} fallback={<ArrowDownIcon />}>
+							<ArrowDownToLineIcon />
+						</Show>
+						{props.mode === "present" ? "Jump to present" : "Jump to bottom"}
+					</button>
+				</div>
 			</div>
 		</div>
 	);

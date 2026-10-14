@@ -5,21 +5,23 @@ import { UserMinusRoundedIcon } from "@solar-icons/solid/bold/user-minus-rounded
 import { createSignal } from "solid-js";
 import { expect, fn, screen, userEvent, waitFor, within } from "storybook/test";
 import type { Meta, StoryObj } from "storybook-solidjs-vite";
+import { expectNoLayoutIssues } from "../../foundations/layout-test";
 import { PlayTesterBadge } from "../../icons/animated/brand";
 import { contrastRatio } from "../../utils/name-color";
 import { createRipple } from "../../utils/ripple";
 import { AppBadge, TeamBadge } from "../Badge/Badge";
 import { Button } from "../Button/Button";
 import { DeveloperModeCard } from "../DeveloperMode/DeveloperModeCard";
-import { Drawer, DrawerContent, DrawerTrigger } from "../Drawer/Drawer";
 import { SectionLabel } from "../List/List";
 import { MessageRow } from "../Message/MessageRow";
-import { NowPlayingCard, ProfileHeader, StatusBubble } from "./Profile";
 import {
-	ProfileContentBody,
-	ProfileContentHeader,
-	type ProfileData,
-} from "./ProfileContent";
+	OwnProfilePopoverFixture,
+	ownProfileFixture,
+} from "./own-profile-fixture";
+import { PresenceDrawer as PresenceDrawerComponent } from "./PresenceDrawer";
+import { NowPlayingCard, ProfileHeader, StatusBubble } from "./Profile";
+import { ProfileContentHeader, type ProfileData } from "./ProfileContent";
+import { ProfileDrawer as ProfileDrawerComponent } from "./ProfileDrawer";
 import {
 	PROFILE_POPOVER_WIDTH,
 	ProfilePopover,
@@ -45,6 +47,7 @@ const BIO =
 	"This is a long user description that goes on for however long the owner needs it to, up to the character limit.";
 
 const onStatusClick = fn();
+const onAvatarClick = fn();
 const onBubbleClick = fn();
 const onAuthorAction = fn();
 
@@ -92,6 +95,8 @@ export const ProfileTab: Story = {
 				status={LONG_STATUS}
 				statusEditable
 				onStatusClick={() => onStatusClick()}
+				onAvatarClick={() => onAvatarClick()}
+				avatarLabel="Change your online status, currently Online"
 				surface="background"
 				headingLevel={1}
 			/>
@@ -120,6 +125,7 @@ export const ProfileTab: Story = {
 	),
 	play: async ({ canvasElement }) => {
 		onStatusClick.mockClear();
+		onAvatarClick.mockClear();
 		const canvas = within(canvasElement);
 		await expect(canvas.getAllByRole("heading")).toHaveLength(1);
 		await expect(canvas.getByRole("heading", { name: "Lou" })).toBeVisible();
@@ -127,6 +133,12 @@ export const ProfileTab: Story = {
 			canvas.getByRole("button", { name: /^Edit status:/ }),
 		);
 		await expect(onStatusClick).toHaveBeenCalledOnce();
+		await userEvent.click(
+			canvas.getByRole("button", {
+				name: "Change your online status, currently Online",
+			}),
+		);
+		await expect(onAvatarClick).toHaveBeenCalledOnce();
 		const bubble = canvasElement.querySelector<HTMLElement>(
 			"[data-status-bubble]",
 		);
@@ -211,27 +223,25 @@ const sectionLabels = (root: ParentNode) =>
 		section.getAttribute("data-profile-section"),
 	);
 
+const ProfileDrawerDemo = (props: { loading?: boolean }) => {
+	const [open, setOpen] = createSignal(true);
+	return (
+		<>
+			<Button variant="secondary" onClick={() => setOpen(true)}>
+				Open profile
+			</Button>
+			<ProfileDrawerComponent
+				open={open()}
+				onOpenChange={setOpen}
+				profile={lou()}
+				loading={props.loading}
+			/>
+		</>
+	);
+};
+
 export const ProfileDrawer: Story = {
-	render: () => {
-		const profile = lou();
-		return (
-			<Drawer initialOpen>
-				<DrawerTrigger as={Button} variant="secondary">
-					Open profile
-				</DrawerTrigger>
-				<DrawerContent
-					aria-label="Lou's profile"
-					header={<ProfileContentHeader profile={profile} surface="popover" />}
-				>
-					<ProfileContentBody
-						profile={profile}
-						surface="popover"
-						class="-mt-2"
-					/>
-				</DrawerContent>
-			</Drawer>
-		);
-	},
+	render: () => <ProfileDrawerDemo />,
 	play: async () => {
 		const dialog = await screen.findByRole("dialog");
 		await waitFor(() =>
@@ -240,6 +250,99 @@ export const ProfileDrawer: Story = {
 			).toBeVisible(),
 		);
 		await expect(sectionLabels(dialog)).toEqual(["Bio", "Space roles"]);
+		await new Promise((resolve) => setTimeout(resolve, 400));
+		await expectNoLayoutIssues(dialog);
+		const nameBox = dialog
+			.querySelector("[data-profile-name]")
+			?.getBoundingClientRect();
+		const handleBox = dialog
+			.querySelector("[data-profile-meta] span")
+			?.getBoundingClientRect();
+		if (!nameBox || !handleBox) throw new Error("identity missing");
+		await expect(handleBox.top - nameBox.bottom).toBeCloseTo(7, 1);
+		const focused = document.activeElement as HTMLElement | null;
+		await expect(
+			!!focused && dialog.contains(focused) && focused.tagName === "BUTTON",
+		).toBe(false);
+	},
+};
+
+const onPresenceChange = fn();
+
+const PresenceDrawerDemo = () => {
+	const [open, setOpen] = createSignal(true);
+	const [value, setValue] = createSignal<"online" | "idle" | "dnd" | "offline">(
+		"online",
+	);
+	return (
+		<div class="min-h-dvh bg-background p-4">
+			<Button variant="secondary" onClick={() => setOpen(true)}>
+				{`Presence: ${value()}`}
+			</Button>
+			<PresenceDrawerComponent
+				open={open()}
+				onOpenChange={setOpen}
+				value={value()}
+				onChange={(next) => {
+					onPresenceChange(next);
+					setValue(next);
+				}}
+			/>
+		</div>
+	);
+};
+
+export const PresenceDrawer: Story = {
+	render: () => <PresenceDrawerDemo />,
+	play: async ({ canvasElement }) => {
+		onPresenceChange.mockClear();
+		const dialog = await screen.findByRole("dialog", { name: "Online status" });
+		const radios = await within(dialog).findAllByRole("radio");
+		await expect(radios.map((radio) => radio.textContent?.trim())).toEqual([
+			"Online",
+			"Away",
+			"Do not disturb",
+			"Offline",
+		]);
+		await expect(
+			within(dialog).getByRole("radio", { name: "Online" }),
+		).toHaveAttribute("aria-checked", "true");
+		await new Promise((resolve) => setTimeout(resolve, 400));
+		await expectNoLayoutIssues(dialog);
+		await userEvent.click(
+			within(dialog).getByRole("radio", { name: "Do not disturb" }),
+		);
+		await expect(onPresenceChange).toHaveBeenCalledWith("dnd");
+		await waitFor(() =>
+			expect(
+				screen.queryByRole("dialog", { name: "Online status" }),
+			).toBeNull(),
+		);
+		await userEvent.click(
+			within(canvasElement).getByRole("button", { name: "Presence: dnd" }),
+		);
+		const reopened = await screen.findByRole("dialog", {
+			name: "Online status",
+		});
+		await expect(
+			within(reopened).getByRole("radio", { name: "Do not disturb" }),
+		).toHaveAttribute("aria-checked", "true");
+		await userEvent.click(
+			within(reopened).getByRole("radio", { name: "Do not disturb" }),
+		);
+		await expect(onPresenceChange).toHaveBeenCalledTimes(1);
+	},
+};
+
+export const ProfileDrawerLoading: Story = {
+	render: () => <ProfileDrawerDemo loading />,
+	play: async () => {
+		const dialog = await screen.findByRole("dialog", {
+			name: "Loading profile",
+		});
+		await expect(
+			dialog.querySelector("[data-profile-popover-skeleton]"),
+		).not.toBeNull();
 	},
 };
 
@@ -397,6 +500,15 @@ export const PopoverFromMemberRow: Story = {
 				within(popover).getByRole("heading", { name: "Lou" }),
 			).toBeVisible(),
 		);
+		await waitFor(() => expect(popover).toHaveFocus());
+		const nameBox = popover
+			.querySelector("[data-profile-name]")
+			?.getBoundingClientRect();
+		const handleBox = popover
+			.querySelector("[data-profile-meta] span")
+			?.getBoundingClientRect();
+		if (!nameBox || !handleBox) throw new Error("identity missing");
+		await expect(handleBox.top - nameBox.bottom).toBeCloseTo(3.5, 0);
 		const popoverRect = popover.getBoundingClientRect();
 		await expect(popoverRect.right).toBeLessThanOrEqual(
 			trigger.getBoundingClientRect().left,
@@ -671,5 +783,224 @@ export const StatusWhileOffline: Story = {
 		await expect(bubble("offline-hidden")).toBeNull();
 		await expect(bubble("offline-shown")).not.toBeNull();
 		await expect(bubble("own-offline")).not.toBeNull();
+	},
+};
+
+export const PopoverOwnProfile: Story = {
+	name: "Popover own profile",
+	parameters: desktop,
+	render: () => (
+		<div class="flex min-h-[760px] w-[720px] flex-col justify-end bg-background p-4">
+			<div class="w-[312px]">
+				<OwnProfilePopoverFixture
+					profile={ownProfileFixture({
+						actions: [
+							{ label: "Kick Lou", tone: "destructive", quick: true },
+							{ label: "Ban Lou", tone: "destructive", quick: true },
+						],
+					})}
+				/>
+			</div>
+		</div>
+	),
+	play: async ({ canvasElement }) => {
+		const canvas = within(canvasElement);
+		const trigger = canvas.getByRole("button", { name: /^Lou/ });
+		await userEvent.click(trigger);
+		const popover = await screen.findByRole("dialog", { name: "Your profile" });
+		await expect(trigger).toHaveAttribute("aria-expanded", "true");
+		await expect(popover.offsetWidth).toBe(PROFILE_POPOVER_WIDTH);
+		await expect(popover.getBoundingClientRect().bottom).toBeLessThanOrEqual(
+			trigger.getBoundingClientRect().top,
+		);
+		await expect(popover.querySelector("[data-banner]")).not.toBeNull();
+		await waitFor(() =>
+			expect(
+				within(popover).getByRole("heading", { name: "Lou" }),
+			).toBeVisible(),
+		);
+		await expect(sectionLabels(popover)).toEqual(["Bio", "Space roles"]);
+		await expect(
+			popover.querySelector("[data-profile-quick-actions]"),
+		).toBeNull();
+		await expect(
+			within(popover).queryByRole("button", { name: /^(Kick|Ban) Lou$/ }),
+		).toBeNull();
+		const body = popover.querySelector("[data-profile-body]");
+		const footer = popover.querySelector("[data-profile-footer]");
+		await expect(body?.lastElementChild).toBe(footer);
+		const card = footer?.querySelector<HTMLElement>(".bg-secondary");
+		if (!card) throw new Error("action card missing");
+		await expect(getComputedStyle(card).backgroundColor).not.toBe(
+			getComputedStyle(popover).backgroundColor,
+		);
+		const rows = Array.from(card.children) as HTMLElement[];
+		await expect(rows.map((row) => row.textContent?.trim())).toEqual([
+			"Online",
+			"Edit profile",
+			"Edit status",
+		]);
+		await expect(getComputedStyle(rows[1] as HTMLElement).borderTopWidth).toBe(
+			"1px",
+		);
+		const bio = popover.querySelector('[data-profile-section="Bio"] p');
+		if (!(bio instanceof HTMLElement)) throw new Error("bio missing");
+		const probe = document.createElement("span");
+		probe.style.color = "var(--foreground)";
+		popover.append(probe);
+		await expect(getComputedStyle(bio).color).toBe(
+			getComputedStyle(probe).color,
+		);
+		probe.remove();
+		const statusRow = within(popover).getByRole("button", {
+			name: /^Online status/,
+		});
+		await userEvent.hover(statusRow);
+		const menu = await screen.findByRole("menu", { name: /^Online status/ });
+		await expect(menu.getBoundingClientRect().left).toBeGreaterThanOrEqual(
+			popover.getBoundingClientRect().right,
+		);
+		await userEvent.click(
+			within(menu).getByRole("menuitemradio", { name: /Do not disturb/ }),
+		);
+		await waitFor(() => expect(screen.queryByRole("menu")).toBeNull());
+		await expect(statusRow).toHaveAccessibleName(
+			"Online status: Do not disturb",
+		);
+		await expectNoLayoutIssues(card);
+		statusRow.focus();
+		await userEvent.keyboard("{ArrowRight}");
+		const keyed = await screen.findByRole("menu", { name: /^Online status/ });
+		await waitFor(() =>
+			expect(document.activeElement).toBe(
+				within(keyed).getAllByRole("menuitemradio")[0],
+			),
+		);
+		await userEvent.keyboard("{ArrowLeft}");
+		await waitFor(() => expect(screen.queryByRole("menu")).toBeNull());
+		await waitFor(() => expect(document.activeElement).toBe(statusRow));
+		await userEvent.keyboard("{Escape}");
+		await waitFor(() =>
+			expect(screen.queryByRole("dialog", { name: "Your profile" })).toBeNull(),
+		);
+		await waitFor(() => expect(document.activeElement).toBe(trigger));
+	},
+};
+
+export const PopoverSelfHidesModeration: Story = {
+	name: "Popover self hides moderation",
+	parameters: desktop,
+	render: () => {
+		const [open, setOpen] = createSignal(false);
+		let anchor: HTMLElement | undefined;
+		return (
+			<div class="min-h-[720px] w-[720px] bg-background py-6 pl-[360px]">
+				<button
+					type="button"
+					onClick={(event) => {
+						anchor = event.currentTarget;
+						setOpen(true);
+					}}
+				>
+					Open my profile
+				</button>
+				<ProfilePopover
+					profile={lou({ self: true })}
+					anchor={() => anchor}
+					open={open()}
+					onOpenChange={setOpen}
+					placement="left-start"
+				/>
+			</div>
+		);
+	},
+	play: async ({ canvasElement }) => {
+		await userEvent.click(
+			within(canvasElement).getByRole("button", { name: "Open my profile" }),
+		);
+		const popover = await screen.findByRole("dialog", {
+			name: "Lou's profile",
+		});
+		await expect(
+			popover.querySelector("[data-profile-quick-actions]"),
+		).toBeNull();
+		await expect(
+			within(popover).queryByRole("button", { name: /^(Kick|Ban) Lou$/ }),
+		).toBeNull();
+		await expect(sectionLabels(popover)).toEqual(["Bio", "Space roles"]);
+	},
+};
+
+const StaysPutDemo = () => {
+	const [open, setOpen] = createSignal(false);
+	const [pushed, setPushed] = createSignal(false);
+	const [anchor, setAnchor] = createSignal<HTMLElement>();
+	const [rect, setRect] = createSignal<DOMRect>();
+	return (
+		<div class="flex min-h-[720px] w-full justify-end bg-background">
+			<div class="w-60 border-l border-border bg-card p-2">
+				<Button variant="secondary" onClick={() => setPushed(true)}>
+					Push rows down
+				</Button>
+				{pushed() ? <div data-pushed="" class="h-32" /> : null}
+				<button
+					type="button"
+					data-anchor-row=""
+					class="mt-40 block w-full rounded-control-sm p-2 text-left"
+					onClick={(event) => {
+						setAnchor(event.currentTarget);
+						setRect(event.currentTarget.getBoundingClientRect());
+						setOpen(true);
+					}}
+				>
+					Lou
+				</button>
+				<ProfilePopover
+					open={open()}
+					onOpenChange={setOpen}
+					anchor={anchor}
+					anchorRect={rect}
+					profile={{
+						displayName: "Lou",
+						handle: "lou.gg",
+						avatarSeed: "did:plc:lou",
+						presence: "online",
+					}}
+				/>
+			</div>
+		</div>
+	);
+};
+
+export const PopoverStaysPut: Story = {
+	name: "Popover stays where it opened",
+	parameters: desktop,
+	render: () => <StaysPutDemo />,
+	play: async ({ canvasElement }) => {
+		const row = canvasElement.querySelector("[data-anchor-row]") as HTMLElement;
+		await userEvent.click(row);
+		const popover = await screen.findByRole("dialog", {
+			name: "Lou's profile",
+		});
+		await new Promise((resolve) => setTimeout(resolve, 400));
+		const before = popover.getBoundingClientRect();
+		const rowBefore = row.getBoundingClientRect();
+		const push = within(canvasElement).getByRole("button", {
+			name: "Push rows down",
+		});
+		push.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+		await waitFor(() =>
+			expect(row.getBoundingClientRect().top).toBeGreaterThan(
+				rowBefore.top + 100,
+			),
+		);
+		await new Promise((resolve) => setTimeout(resolve, 200));
+		const after = popover.getBoundingClientRect();
+		await expect(before.top).toBeGreaterThan(100);
+		await expect(after.top).toBeCloseTo(before.top, 0);
+		await expect(after.left).toBeCloseTo(before.left, 0);
+		await expect(screen.getByRole("dialog", { name: "Lou's profile" })).toBe(
+			popover,
+		);
 	},
 };

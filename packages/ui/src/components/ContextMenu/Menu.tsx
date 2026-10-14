@@ -1,6 +1,14 @@
 import { ContextMenu as KobalteContextMenu } from "@kobalte/core/context-menu";
 import { DropdownMenu as KobalteDropdownMenu } from "@kobalte/core/dropdown-menu";
-import { type JSX, type ParentProps, Show, splitProps } from "solid-js";
+import {
+	createSignal,
+	type JSX,
+	onCleanup,
+	type ParentProps,
+	Show,
+	splitProps,
+	untrack,
+} from "solid-js";
 import { cx } from "../../utils/cx";
 import { revealLayer, topLayerAttrs } from "../../utils/nested-layers";
 import { usePopperOverflowPadding } from "../../utils/safe-area";
@@ -97,13 +105,55 @@ export const ContextMenu = (props: ContextMenuProps) => {
 		"contentClass",
 		"children",
 	]);
+	const [open, setOpen] = createSignal(false);
+	const change = (next: boolean) => {
+		setOpen(next);
+		local.onOpenChange?.(next);
+	};
+	const swallowClick = () => {
+		const swallow = (event: MouseEvent) => {
+			event.preventDefault();
+			event.stopPropagation();
+			stop();
+		};
+		const timer = setTimeout(() => stop(), 600);
+		const stop = () => {
+			clearTimeout(timer);
+			window.removeEventListener("click", swallow, true);
+		};
+		window.addEventListener("click", swallow, true);
+	};
+	const bindTrigger = (element: HTMLElement) => {
+		const closeOnPress = (event: PointerEvent) => {
+			if (!untrack(open) || event.button !== 0) return;
+			event.preventDefault();
+			event.stopPropagation();
+			swallowClick();
+			const pointerType = event.pointerType;
+			setTimeout(() =>
+				document.body.dispatchEvent(
+					new PointerEvent("pointerdown", {
+						bubbles: true,
+						cancelable: true,
+						button: 0,
+						pointerType,
+					}),
+				),
+			);
+		};
+		element.addEventListener("pointerdown", closeOnPress, true);
+		onCleanup(() =>
+			element.removeEventListener("pointerdown", closeOnPress, true),
+		);
+	};
 	return (
 		<KobalteContextMenu
 			modal={false}
-			onOpenChange={local.onOpenChange}
+			onOpenChange={change}
 			overflowPadding={overflowPadding()}
 		>
 			<KobalteContextMenu.Trigger
+				ref={bindTrigger}
 				disabled={local.disabled}
 				class={cx("block", local.class)}
 			>

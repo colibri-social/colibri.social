@@ -125,6 +125,7 @@ export type NavRowProps = {
 	value?: string;
 	external?: boolean;
 	href?: string;
+	chevron?: boolean;
 	onClick?: (event: MouseEvent) => void;
 	disabled?: boolean;
 	class?: string;
@@ -137,6 +138,7 @@ export const NavRow = (props: NavRowProps) => {
 		"value",
 		"external",
 		"href",
+		"chevron",
 		"class",
 		"keywords",
 	]);
@@ -188,11 +190,13 @@ export const NavRow = (props: NavRowProps) => {
 					</span>
 				)}
 			</Show>
-			<span class="flex size-4 shrink-0 items-center justify-center text-muted-foreground [&>svg]:size-4">
-				<Show when={local.external} fallback={<AltArrowRightIcon />}>
-					<ArrowRightUpIcon />
-				</Show>
-			</span>
+			<Show when={local.chevron !== false || local.external}>
+				<span class="flex size-4 shrink-0 items-center justify-center text-muted-foreground [&>svg]:size-4">
+					<Show when={local.external} fallback={<AltArrowRightIcon />}>
+						<ArrowRightUpIcon />
+					</Show>
+				</span>
+			</Show>
 		</Dynamic>
 	);
 };

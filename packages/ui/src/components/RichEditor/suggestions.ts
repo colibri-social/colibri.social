@@ -8,9 +8,11 @@ import type {
 import { searchEmojis } from "../../utils/emoji-data";
 import { foldText } from "../../utils/fold-text";
 import { codeContextAtPos } from "./block-projection";
+import { customEmojiAttrs } from "./custom-emoji";
 import type {
 	BridgedSuggestion,
 	ChannelSuggestion,
+	CustomEmojiSuggestion,
 	MemberSuggestion,
 	RichEditorSources,
 	RoleSuggestion,
@@ -23,6 +25,7 @@ export type SuggestionItem =
 	| { kind: "bridged"; person: BridgedSuggestion }
 	| { kind: "role"; role: RoleSuggestion }
 	| { kind: "channel"; channel: ChannelSuggestion }
+	| { kind: "customEmoji"; emoji: CustomEmojiSuggestion }
 	| { kind: "emoji"; emoji: string; name: string }
 	| { kind: "time" };
 
@@ -54,6 +57,7 @@ const KIND_RANK: Record<SuggestionItem["kind"], number> = {
 	bridged: 1,
 	role: 2,
 	channel: 3,
+	customEmoji: 3,
 	emoji: 3,
 	time: 4,
 };
@@ -96,6 +100,8 @@ export const suggestionAttrs = (
 				category: item.channel.categoryLabel ?? null,
 				type: "channel",
 			};
+		case "customEmoji":
+			return customEmojiAttrs(item.emoji);
 		case "emoji":
 			return { label: item.emoji, type: "emoji" };
 		case "time":
@@ -195,18 +201,30 @@ export const buildSuggestions = (
 	},
 	{
 		char: ":",
-		items: ({ query }) =>
-			query.length < EMOJI_MIN_QUERY
-				? []
-				: searchEmojis(query, EMOJI_LIMIT, sources().emojiUsage?.()).map(
-						(match) => ({
-							kind: "emoji",
-							emoji: match.emoji,
-							name: match.name,
-						}),
-					),
+		items: ({ query }) => {
+			if (query.length < EMOJI_MIN_QUERY) return [];
+			const custom: SuggestionItem[] = (
+				sources().searchCustomEmoji?.(query, EMOJI_LIMIT) ?? []
+			)
+				.slice(0, EMOJI_LIMIT)
+				.map((emoji) => ({ kind: "customEmoji", emoji }));
+			const unicode: SuggestionItem[] = searchEmojis(
+				query,
+				EMOJI_LIMIT - custom.length,
+				sources().emojiUsage?.(),
+			).map((match) => ({
+				kind: "emoji",
+				emoji: match.emoji,
+				name: match.name,
+			}));
+			return [...custom, ...unicode];
+		},
 		render: renderer(":", controller),
 		command: ({ editor, range, props }) => {
+			if ((props as { type?: string }).type === "customEmoji") {
+				insertChip(editor, range, props);
+				return;
+			}
 			const emoji = String(props.label ?? "");
 			if (!emoji) return;
 			sources().onEmojiPick?.(emoji);

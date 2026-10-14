@@ -100,6 +100,23 @@ export const LongTitle: Story = {
 	},
 };
 
+export const MatchesScreenSurface: Story = {
+	args: { title: "Threads in #general" },
+	render: (args) => (
+		<div class="flex h-dvh flex-col bg-popover">
+			<NavHeader {...args} />
+			<div class="flex-1 p-4 text-sm">Thread list</div>
+		</div>
+	),
+	play: async ({ canvasElement }) => {
+		const header = canvasElement.querySelector("header") as HTMLElement;
+		const screen = header.parentElement as HTMLElement;
+		await expect(getComputedStyle(header).backgroundColor).toBe(
+			getComputedStyle(screen).backgroundColor,
+		);
+	},
+};
+
 const inboxItems = Array.from({ length: 30 }, (_, index) => ({
 	id: index,
 	title: `Mention in #general ${index + 1}`,

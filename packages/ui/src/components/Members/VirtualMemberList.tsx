@@ -258,9 +258,9 @@ export const VirtualMemberList = (props: VirtualMemberListProps) => {
 		return (
 			<div
 				class={cx(
-					mobile() && "overflow-hidden bg-secondary",
-					mobile() && rowProps.row().first && "rounded-t-control",
-					mobile() && rowProps.row().last && "rounded-b-control",
+					mobile() && "overflow-hidden bg-popover-highlight",
+					mobile() && rowProps.row().first && "rounded-t-surface",
+					mobile() && rowProps.row().last && "rounded-b-surface",
 				)}
 			>
 				<MemberListEntry
@@ -269,6 +269,8 @@ export const VirtualMemberList = (props: VirtualMemberListProps) => {
 					variant={props.variant}
 					onOpen={props.onOpen}
 					onMemberContextMenu={props.onMemberContextMenu}
+					onMemberMenu={props.onMemberMenu}
+					wrapMember={props.wrapMember}
 				/>
 			</div>
 		);

@@ -1,6 +1,6 @@
 import { AltArrowDownIcon } from "@solar-icons/solid/linear/alt-arrow-down";
 import { AltArrowRightIcon } from "@solar-icons/solid/linear/alt-arrow-right";
-import { type JSX, Show } from "solid-js";
+import { createSignal, type JSX, mergeProps, Show } from "solid-js";
 import { cx } from "../../utils/cx";
 import { createRipple } from "../../utils/ripple";
 import { Banner } from "../Banner/Banner";
@@ -9,7 +9,9 @@ import {
 	type SpaceContextMenuActions,
 	spaceContextMenuEntries,
 } from "../ContextMenu/SpaceMenu";
+import type { DeveloperModeCardProps } from "../DeveloperMode/DeveloperModeCard";
 import { DropdownMenu } from "../DropdownMenu/DropdownMenu";
+import { SpaceDrawer, type SpaceDrawerProps } from "../Space/SpaceDrawer";
 import { MemberCountChip, OwnerChip } from "../Space/SpaceMeta";
 import type { ChannelPlatform } from "./ChannelRow";
 
@@ -24,6 +26,8 @@ export type ChannelListHeaderProps = {
 	onOpenSpace?: () => void;
 	openLabel?: string;
 	menu?: SpaceMenuActions;
+	description?: string;
+	developer?: DeveloperModeCardProps;
 	platform?: ChannelPlatform;
 	class?: string;
 };
@@ -35,20 +39,32 @@ export const spaceMenuEntries = spaceContextMenuEntries;
 const spaceNameClass =
 	"group/space-name flex h-7 max-w-full min-w-0 cursor-pointer items-center gap-2 rounded-control-sm border-0 bg-transparent px-2 text-left text-foreground outline-none focus-ring hover:bg-popover data-expanded:bg-popover";
 
-const SpaceNameContent = (props: { name: string; desktop: boolean }) => (
+const overlayTextClass = "text-white [text-shadow:0_1px_3px_rgb(0_0_0/0.7)]";
+
+const SpaceNameContent = (props: {
+	name: string;
+	desktop: boolean;
+	overlay?: boolean;
+}) => (
 	<>
 		<span
 			data-space-name=""
 			class={cx(
 				"min-w-0 truncate font-bold",
 				props.desktop ? "text-base" : "text-xl",
+				props.overlay && overlayTextClass,
 			)}
 		>
 			{props.name}
 		</span>
 		<span
 			data-space-chevron=""
-			class="flex size-4 shrink-0 text-muted-foreground transition-transform duration-[calc(200ms*var(--motion-scale))] ease-[cubic-bezier(0.2,0,0,1)] group-data-expanded/space-name:rotate-180 motion-reduce:transition-none reduced-motion:transition-none [&>svg]:size-4"
+			class={cx(
+				"flex size-4 shrink-0 transition-transform duration-[calc(200ms*var(--motion-scale))] ease-[cubic-bezier(0.2,0,0,1)] group-data-expanded/space-name:rotate-180 motion-reduce:transition-none reduced-motion:transition-none [&>svg]:size-4",
+				props.overlay
+					? "text-white [filter:drop-shadow(0_1px_2px_rgb(0_0_0/0.7))]"
+					: "text-muted-foreground",
+			)}
 		>
 			<Show when={props.desktop} fallback={<AltArrowRightIcon />}>
 				<AltArrowDownIcon />
@@ -65,37 +81,31 @@ const MobileSpaceButton = (props: {
 	label?: string;
 	menu?: SpaceMenuActions;
 	onClick?: () => void;
+	drawer: Omit<SpaceDrawerProps, "open" | "onOpenChange">;
 }) => {
 	const ripple = createRipple();
+	const [open, setOpen] = createSignal(false);
 	return (
-		<Show
-			when={props.menu}
-			fallback={
-				<button
-					ref={ripple}
-					type="button"
-					data-space-name-button=""
-					aria-haspopup="dialog"
-					aria-label={props.label ?? `${props.name}, Space options`}
-					onClick={() => props.onClick?.()}
-					class={mobileSpaceNameClass}
-				>
-					<SpaceNameContent name={props.name} desktop={false} />
-				</button>
-			}
-		>
-			{(menu) => (
-				<DropdownMenu
-					platform="mobile"
-					label={props.label ?? `${props.name}, Space options`}
-					title={props.name}
-					items={spaceMenuEntries(menu())}
-					triggerClass={mobileSpaceNameClass}
-					triggerProps={{ ref: ripple, "data-space-name-button": "" }}
-					trigger={<SpaceNameContent name={props.name} desktop={false} />}
-				/>
-			)}
-		</Show>
+		<>
+			<button
+				ref={ripple}
+				type="button"
+				data-space-name-button=""
+				aria-haspopup="dialog"
+				aria-expanded={props.menu ? open() : undefined}
+				aria-label={props.label ?? `${props.name}, Space options`}
+				onClick={() => {
+					if (props.menu) setOpen(true);
+					else props.onClick?.();
+				}}
+				class={mobileSpaceNameClass}
+			>
+				<SpaceNameContent name={props.name} desktop={false} />
+			</button>
+			<Show when={props.menu}>
+				<SpaceDrawer {...props.drawer} open={open()} onOpenChange={setOpen} />
+			</Show>
+		</>
 	);
 };
 
@@ -104,8 +114,16 @@ const DesktopSpaceButton = (props: {
 	label?: string;
 	menu?: SpaceMenuActions;
 	onClick?: () => void;
+	overlay?: boolean;
 }) => (
-	<div data-space-header-row="" class="flex h-11 min-w-0 items-center p-2">
+	<div
+		data-space-header-row=""
+		data-overlay={props.overlay ? "" : undefined}
+		class={cx(
+			"flex h-11 min-w-0 items-center p-2",
+			props.overlay && "absolute inset-x-0 top-0 z-10",
+		)}
+	>
 		<Show
 			when={props.menu}
 			fallback={
@@ -116,7 +134,7 @@ const DesktopSpaceButton = (props: {
 					onClick={() => props.onClick?.()}
 					class={spaceNameClass}
 				>
-					<SpaceNameContent name={props.name} desktop />
+					<SpaceNameContent name={props.name} desktop overlay={props.overlay} />
 				</button>
 			}
 		>
@@ -128,7 +146,13 @@ const DesktopSpaceButton = (props: {
 					items={spaceMenuEntries(menu())}
 					triggerClass={spaceNameClass}
 					triggerProps={{ "data-space-name-button": "" }}
-					trigger={<SpaceNameContent name={props.name} desktop />}
+					trigger={
+						<SpaceNameContent
+							name={props.name}
+							desktop
+							overlay={props.overlay}
+						/>
+					}
 				/>
 			)}
 		</Show>
@@ -137,11 +161,12 @@ const DesktopSpaceButton = (props: {
 
 export const ChannelListHeader = (props: ChannelListHeaderProps) => {
 	const desktop = () => props.platform === "desktop";
+	const overlay = () => desktop() && !!(props.bannerSrc || props.bannerColor);
 	const chips = () => (
-		<div class="flex flex-wrap gap-1">
+		<div data-space-chips="" class="flex min-w-0 flex-wrap gap-1">
 			<MemberCountChip count={props.memberCount} label={props.memberLabel} />
 			<Show when={props.ownerHandle}>
-				{(handle) => <OwnerChip handle={handle()} />}
+				{(handle) => <OwnerChip handle={handle()} short />}
 			</Show>
 		</div>
 	);
@@ -152,20 +177,27 @@ export const ChannelListHeader = (props: ChannelListHeaderProps) => {
 			data-platform={desktop() ? "desktop" : "mobile"}
 			class={cx("flex w-full flex-col", props.class)}
 		>
-			<Show when={desktop()}>
-				<DesktopSpaceButton
-					name={props.name}
-					label={props.openLabel}
-					menu={props.menu}
-					onClick={props.onOpenSpace}
+			<div
+				data-space-hero=""
+				data-banner-flush={overlay() ? "" : undefined}
+				class="relative flex flex-col"
+			>
+				<Show when={desktop()}>
+					<DesktopSpaceButton
+						name={props.name}
+						label={props.openLabel}
+						menu={props.menu}
+						onClick={props.onOpenSpace}
+						overlay={overlay()}
+					/>
+				</Show>
+				<Banner
+					ratio="space"
+					src={props.bannerSrc}
+					tintFrom={props.iconSrc}
+					color={props.bannerColor}
 				/>
-			</Show>
-			<Banner
-				ratio="space"
-				src={props.bannerSrc}
-				tintFrom={props.iconSrc}
-				color={props.bannerColor}
-			/>
+			</div>
 			<div
 				class={cx(
 					"flex flex-col gap-2 p-4",
@@ -180,6 +212,35 @@ export const ChannelListHeader = (props: ChannelListHeaderProps) => {
 						label={props.openLabel}
 						menu={props.menu}
 						onClick={props.onOpenSpace}
+						drawer={mergeProps(() => props.menu ?? {}, {
+							get name() {
+								return props.name;
+							},
+							get iconSrc() {
+								return props.iconSrc;
+							},
+							get bannerSrc() {
+								return props.bannerSrc;
+							},
+							get bannerColor() {
+								return props.bannerColor;
+							},
+							get memberCount() {
+								return props.memberCount;
+							},
+							get memberLabel() {
+								return props.memberLabel;
+							},
+							get ownerHandle() {
+								return props.ownerHandle;
+							},
+							get description() {
+								return props.description;
+							},
+							get developer() {
+								return props.developer;
+							},
+						})}
 					/>
 				</Show>
 				{chips()}

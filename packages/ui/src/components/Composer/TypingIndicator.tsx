@@ -18,6 +18,7 @@ import { Avatar } from "../Avatar/Avatar";
 
 export type TypingUser = {
 	name: string;
+	seed?: string;
 	avatarSrc?: string;
 	color?: string;
 	nameColor?: string;
@@ -140,6 +141,7 @@ export const TypingIndicator = (props: TypingIndicatorProps) => {
 						>
 							<Avatar
 								name={user.name}
+								seed={user.seed}
 								src={user.avatarSrc}
 								color={user.color}
 								size="xs"
@@ -156,11 +158,7 @@ export const TypingIndicator = (props: TypingIndicatorProps) => {
 					<Match when={users().length === 2}>
 						<Name user={users()[0]} /> and <Name user={users()[1]} /> are typing
 					</Match>
-					<Match when={users().length === 3}>
-						<Name user={users()[0]} />, <Name user={users()[1]} /> and{" "}
-						<Name user={users()[2]} /> are typing
-					</Match>
-					<Match when={users().length > 3}>Several people are typing</Match>
+					<Match when={users().length > 2}>Several people are typing</Match>
 				</Switch>
 				<Show when={users().length > 0}>
 					<Dots />

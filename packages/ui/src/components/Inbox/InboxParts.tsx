@@ -191,7 +191,7 @@ export const MarkReadButton = (props: MarkReadButtonProps) => (
 				props.onMarkRead(props.notification.id);
 			}}
 			class={cx(
-				"opacity-0 group-hover/row:opacity-100 group-focus-within/row:opacity-100 focus-visible:opacity-100",
+				"opacity-0 group-hover/row:opacity-100 group-focus-within/row:opacity-100 focus-visible:opacity-100 [@media(hover:none)]:opacity-100",
 				"transition-opacity duration-[calc(120ms*var(--motion-scale))] ease-(--ease-out-quick)",
 				props.class,
 			)}

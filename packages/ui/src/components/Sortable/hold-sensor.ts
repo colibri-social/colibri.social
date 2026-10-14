@@ -97,6 +97,7 @@ export const createHoldSensor = (id: Id = "hold-sensor") => {
 				document.addEventListener("touchmove", blockTouchScroll, {
 					passive: false,
 				});
+				begin();
 			}, HOLD_DELAY_MS);
 		}
 	};

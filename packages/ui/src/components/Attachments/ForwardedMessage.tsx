@@ -1,13 +1,8 @@
 import { ForwardIcon } from "@solar-icons/solid/bold/forward";
 import { LockKeyholeIcon } from "@solar-icons/solid/bold/lock-keyhole";
 import { AltArrowRightIcon } from "@solar-icons/solid/linear/alt-arrow-right";
-import { type JSX, Show } from "solid-js";
+import { type JSX, Match, Show, Switch } from "solid-js";
 import { cx } from "../../utils/cx";
-import {
-	nameColorClass,
-	nameColorStyle,
-	useNameColor,
-} from "../../utils/name-color";
 import { Avatar } from "../Avatar/Avatar";
 import { createPressRipple, pressSurface } from "./shared";
 
@@ -16,12 +11,10 @@ export type ForwardSource = {
 	space?: string;
 	spaceIconSrc?: string;
 	href?: string;
+	onOpen?: () => void;
 };
 
 export type ForwardedMessageProps = {
-	author: string;
-	authorNameColor?: string;
-	authorRoleColor?: string;
 	time: string;
 	source?: ForwardSource;
 	children?: JSX.Element;
@@ -33,6 +26,30 @@ const sourceLabel = (source: ForwardSource) =>
 
 const chipClass =
 	"inline-flex w-fit max-w-full items-center gap-1 rounded-control-xs bg-muted px-1.5 py-0.5 text-xs text-muted-foreground [&>svg]:size-3.5 [&>svg]:shrink-0";
+
+const interactiveChipClass = cx(
+	chipClass,
+	"cursor-pointer border-0 no-underline hover:bg-accent hover:text-foreground",
+	pressSurface,
+);
+
+const SourceChipBody = (props: { source: ForwardSource }) => (
+	<>
+		<Show when={props.source.space}>
+			{(space) => (
+				<Avatar
+					name={space()}
+					src={props.source.spaceIconSrc}
+					size="xs"
+					shape="square"
+					class="size-3.5"
+				/>
+			)}
+		</Show>
+		<span class="truncate">From {sourceLabel(props.source)}</span>
+		<AltArrowRightIcon />
+	</>
+);
 
 const SourceChip = (props: { source?: ForwardSource }) => {
 	const press = createPressRipple();
@@ -47,51 +64,48 @@ const SourceChip = (props: { source?: ForwardSource }) => {
 			}
 		>
 			{(source) => (
-				<Show
-					when={source().href}
+				<Switch
 					fallback={
 						<span class={chipClass}>
 							<span class="truncate">From {sourceLabel(source())}</span>
 						</span>
 					}
 				>
-					{(href) => (
-						<a
-							ref={press}
-							href={href()}
-							class={cx(
-								chipClass,
-								"no-underline hover:bg-accent hover:text-foreground",
-								pressSurface,
-							)}
-						>
-							<Show when={source().space}>
-								{(space) => (
-									<Avatar
-										name={space()}
-										src={source().spaceIconSrc}
-										size="xs"
-										shape="square"
-										class="size-3.5"
-									/>
-								)}
-							</Show>
-							<span class="truncate">From {sourceLabel(source())}</span>
-							<AltArrowRightIcon />
-						</a>
-					)}
-				</Show>
+					<Match when={source().onOpen}>
+						{(onOpen) => (
+							<button
+								ref={press}
+								type="button"
+								data-forward-source=""
+								onClick={(event) => {
+									event.stopPropagation();
+									onOpen()();
+								}}
+								class={interactiveChipClass}
+							>
+								<SourceChipBody source={source()} />
+							</button>
+						)}
+					</Match>
+					<Match when={source().href}>
+						{(href) => (
+							<a
+								ref={press}
+								href={href()}
+								data-forward-source=""
+								class={interactiveChipClass}
+							>
+								<SourceChipBody source={source()} />
+							</a>
+						)}
+					</Match>
+				</Switch>
 			)}
 		</Show>
 	);
 };
 
 export const ForwardedMessage = (props: ForwardedMessageProps) => {
-	const authorColor = useNameColor(() => ({
-		userColor: props.authorNameColor,
-		roleColor: props.authorRoleColor,
-		context: "chat",
-	}));
 	return (
 		<div
 			data-forwarded-message=""
@@ -101,19 +115,7 @@ export const ForwardedMessage = (props: ForwardedMessageProps) => {
 			<div class="flex min-w-0 flex-1 flex-col gap-1.5 py-0.5">
 				<span class="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-muted-foreground [&>svg]:size-3.5">
 					<ForwardIcon />
-					<span>
-						Forwarded from{" "}
-						<span
-							data-author-name=""
-							class={cx(
-								"font-semibold",
-								authorColor() ? nameColorClass : "text-foreground",
-							)}
-							style={nameColorStyle(authorColor())}
-						>
-							{props.author}
-						</span>
-					</span>
+					<span>Forwarded</span>
 					<span aria-hidden="true">·</span>
 					<span>{props.time}</span>
 				</span>

@@ -1,3 +1,4 @@
+import { LockKeyholeMinimalisticIcon } from "@solar-icons/solid/bold/lock-keyhole-minimalistic";
 import { AltArrowRightIcon } from "@solar-icons/solid/linear/alt-arrow-right";
 import { type JSX, Show } from "solid-js";
 import { cx } from "../../utils/cx";
@@ -8,6 +9,7 @@ import {
 	type RoleBadgeValue,
 	RoleColorDot,
 	type RoleIdentity,
+	RoleMark,
 } from "./RoleBadge";
 
 const roleRowClass = cx(
@@ -24,8 +26,23 @@ const Chevron = () => (
 	</span>
 );
 
+export const roleMemberCountLabel = (count: number) =>
+	count === 1 ? "1 member" : `${count} members`;
+
+const MemberCount = (props: { count?: number }) => (
+	<Show when={props.count !== undefined}>
+		<span
+			data-role-member-count=""
+			class="shrink-0 text-xs font-semibold text-muted-foreground tabular-nums"
+		>
+			{roleMemberCountLabel(props.count ?? 0)}
+		</span>
+	</Show>
+);
+
 export type RoleRowProps = {
 	role: RoleIdentity;
+	memberCount?: number;
 	onClick?: (event: MouseEvent) => void;
 	disabled?: boolean;
 	class?: string;
@@ -53,10 +70,43 @@ export const RoleRow = (props: RoleRowProps) => {
 			<span class="min-w-0 flex-1 truncate text-sm font-semibold">
 				{props.role.name}
 			</span>
+			<MemberCount count={props.memberCount} />
 			<Chevron />
 		</button>
 	);
 };
+
+export type LockedRoleRowProps = {
+	role: RoleIdentity;
+	memberCount?: number;
+	lockLabel: string;
+	class?: string;
+};
+
+export const LockedRoleRow = (props: LockedRoleRowProps) => (
+	<div
+		data-role-row=""
+		data-locked=""
+		class={cx(
+			"flex h-10 w-full items-center gap-2 px-3 text-muted-foreground",
+			props.class,
+		)}
+	>
+		<RoleMark role={props.role} interactive={false} />
+		<span class="min-w-0 flex-1 truncate text-sm font-semibold text-foreground">
+			{props.role.name}
+		</span>
+		<MemberCount count={props.memberCount} />
+		<span
+			role="img"
+			aria-label={props.lockLabel}
+			title={props.lockLabel}
+			class="flex size-4 shrink-0 items-center justify-center [&>svg]:size-4"
+		>
+			<LockKeyholeMinimalisticIcon />
+		</span>
+	</div>
+);
 
 export type RoleBadgeSettingRowProps = {
 	label?: JSX.Element;

@@ -91,10 +91,30 @@ export const MessageToolbar = (props: MessageToolbarProps) => {
 	const shiftHeld = useShiftHeld();
 	const extras = () =>
 		props.own
-			? [props.onReply, props.onOpenThread, props.onCopyText, props.onDelete]
-			: [props.onOpenThread, props.onCopyText, props.onSelect, props.onHide];
-	const hasExtras = () => extras().some(Boolean);
+			? [props.onReply, props.onOpenThread, props.onCopyText]
+			: [props.onOpenThread, props.onCopyText, props.onSelect];
+	const danger = () => {
+		if (props.onDelete) {
+			return {
+				action: "delete",
+				label: "Delete message",
+				icon: <TrashBinTrashIcon />,
+				run: props.onDelete,
+			};
+		}
+		if (!props.own && props.onHide) {
+			return {
+				action: "hide",
+				label: "Hide message",
+				icon: <ForbiddenCircleIcon />,
+				run: props.onHide,
+			};
+		}
+		return undefined;
+	};
+	const hasExtras = () => extras().some(Boolean) || !!danger();
 	const revealed = () => shiftHeld() && hasExtras();
+	const dangerReplacesMenu = () => revealed() && !!danger();
 
 	return (
 		<div
@@ -102,27 +122,90 @@ export const MessageToolbar = (props: MessageToolbarProps) => {
 			aria-label="Message actions"
 			data-message-toolbar=""
 			data-own={props.own || undefined}
+			data-revealed={revealed() || undefined}
 			class={cx(
-				"flex w-fit items-center gap-0.5 rounded-control border border-border bg-popover p-0.5 shadow-overlay",
+				"flex w-fit items-center rounded-control border border-border bg-popover p-0.5 shadow-overlay",
 				props.class,
 			)}
 		>
-			<For each={recent()}>
-				{(emoji) => (
-					<ToolbarAction
-						action="react"
-						label={props.reactLabel?.(emoji) ?? `React with ${emoji}`}
-						icon={(props.renderEmoji ?? defaultRenderEmoji)(emoji)}
-						onClick={() => props.onReact?.(emoji)}
+			<Show when={!revealed()}>
+				<For each={recent()}>
+					{(emoji) => (
+						<ToolbarAction
+							action="react"
+							label={props.reactLabel?.(emoji) ?? `React with ${emoji}`}
+							icon={(props.renderEmoji ?? defaultRenderEmoji)(emoji)}
+							onClick={() => props.onReact?.(emoji)}
+						/>
+					)}
+				</For>
+				<Show when={recent().length > 0}>
+					<div
+						aria-hidden="true"
+						data-toolbar-separator=""
+						class="mx-0.5 h-5 w-px shrink-0 bg-border"
 					/>
-				)}
-			</For>
-			<Show when={recent().length > 0}>
-				<div
-					aria-hidden="true"
-					data-toolbar-separator=""
-					class="mx-0.5 h-5 w-px shrink-0 bg-border"
-				/>
+				</Show>
+			</Show>
+			<Show when={revealed()}>
+				<div data-toolbar-extras="" class="flex items-center">
+					<Show
+						when={props.own}
+						fallback={
+							<>
+								<Show when={props.onOpenThread}>
+									<ToolbarAction
+										action="open-thread"
+										label="Open thread"
+										icon={<ThreadIcon />}
+										onClick={() => props.onOpenThread?.()}
+									/>
+								</Show>
+								<Show when={props.onCopyText}>
+									<ToolbarAction
+										action="copy-text"
+										label="Copy text"
+										icon={<CopyIcon />}
+										onClick={() => props.onCopyText?.()}
+									/>
+								</Show>
+								<Show when={props.onSelect}>
+									<ToolbarAction
+										action="select"
+										label="Select messages"
+										icon={<ChecklistIcon />}
+										onClick={() => props.onSelect?.()}
+									/>
+								</Show>
+							</>
+						}
+					>
+						<Show when={props.onReply}>
+							<ToolbarAction
+								action="reply"
+								label="Reply"
+								icon={<ReplyIcon />}
+								onClick={() => props.onReply?.()}
+							/>
+						</Show>
+						<Show when={props.onOpenThread}>
+							<ToolbarAction
+								action="open-thread"
+								label="Open thread"
+								icon={<ThreadIcon />}
+								onClick={() => props.onOpenThread?.()}
+							/>
+						</Show>
+						<Show when={props.onCopyText}>
+							<ToolbarAction
+								action="copy-text"
+								label="Copy text"
+								icon={<CopyIcon />}
+								onClick={() => props.onCopyText?.()}
+							/>
+						</Show>
+					</Show>
+				</div>
 			</Show>
 			<Show when={props.onAddReaction}>
 				<ToolbarAction
@@ -162,107 +245,36 @@ export const MessageToolbar = (props: MessageToolbarProps) => {
 					onClick={() => props.onForward?.()}
 				/>
 			</Show>
-			<Show when={hasExtras()}>
-				<div
-					data-toolbar-extras=""
-					data-revealed={revealed() || undefined}
-					aria-hidden={revealed() ? undefined : "true"}
-					inert={!revealed() || undefined}
-					class="-ml-0.5 grid grid-cols-[0fr] data-revealed:ml-0 data-revealed:grid-cols-[1fr]"
-				>
-					<div class="flex min-w-0 items-center gap-0.5 overflow-hidden">
-						<Show
-							when={props.own}
-							fallback={
-								<>
-									<Show when={props.onOpenThread}>
-										<ToolbarAction
-											action="open-thread"
-											label="Open thread"
-											icon={<ThreadIcon />}
-											onClick={() => props.onOpenThread?.()}
-										/>
-									</Show>
-									<Show when={props.onCopyText}>
-										<ToolbarAction
-											action="copy-text"
-											label="Copy text"
-											icon={<CopyIcon />}
-											onClick={() => props.onCopyText?.()}
-										/>
-									</Show>
-									<Show when={props.onSelect}>
-										<ToolbarAction
-											action="select"
-											label="Select messages"
-											icon={<ChecklistIcon />}
-											onClick={() => props.onSelect?.()}
-										/>
-									</Show>
-									<Show when={props.onHide}>
-										<ToolbarAction
-											action="hide"
-											label="Hide message"
-											icon={<ForbiddenCircleIcon />}
-											tone="destructive"
-											onClick={() => props.onHide?.()}
-										/>
-									</Show>
-								</>
+			<Show
+				when={dangerReplacesMenu() ? danger() : undefined}
+				fallback={
+					<Show when={props.menu}>
+						<DropdownMenu
+							label="More actions"
+							triggerClass={toolbarActionClass}
+							triggerProps={{ title: "More actions" }}
+							trigger={
+								<span aria-hidden="true" class={toolbarGlyphClass}>
+									<MenuDotsIcon />
+								</span>
 							}
-						>
-							<Show when={props.onReply}>
-								<ToolbarAction
-									action="reply"
-									label="Reply"
-									icon={<ReplyIcon />}
-									onClick={() => props.onReply?.()}
-								/>
-							</Show>
-							<Show when={props.onOpenThread}>
-								<ToolbarAction
-									action="open-thread"
-									label="Open thread"
-									icon={<ThreadIcon />}
-									onClick={() => props.onOpenThread?.()}
-								/>
-							</Show>
-							<Show when={props.onCopyText}>
-								<ToolbarAction
-									action="copy-text"
-									label="Copy text"
-									icon={<CopyIcon />}
-									onClick={() => props.onCopyText?.()}
-								/>
-							</Show>
-							<Show when={props.onDelete}>
-								<ToolbarAction
-									action="delete"
-									label="Delete message"
-									icon={<TrashBinTrashIcon />}
-									tone="destructive"
-									onClick={() => props.onDelete?.()}
-								/>
-							</Show>
-						</Show>
-					</div>
-				</div>
-			</Show>
-			<Show when={props.menu}>
-				<DropdownMenu
-					label="More actions"
-					triggerClass={toolbarActionClass}
-					triggerProps={{ title: "More actions" }}
-					trigger={
-						<span aria-hidden="true" class={toolbarGlyphClass}>
-							<MenuDotsIcon />
-						</span>
-					}
-					open={props.menuOpen}
-					onOpenChange={props.onMenuOpenChange}
-					placement="bottom-end"
-					menu={props.menu}
-				/>
+							open={props.menuOpen}
+							onOpenChange={props.onMenuOpenChange}
+							placement="bottom-end"
+							menu={props.menu}
+						/>
+					</Show>
+				}
+			>
+				{(item) => (
+					<ToolbarAction
+						action={item().action}
+						label={item().label}
+						icon={item().icon}
+						tone="destructive"
+						onClick={() => item().run()}
+					/>
+				)}
 			</Show>
 		</div>
 	);

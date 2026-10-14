@@ -12,7 +12,12 @@ import {
 	type TextWithFacets,
 	useRichText,
 } from "./context";
-import { emojiShortcode, renderRichText } from "./render";
+import {
+	emojiFacetText,
+	emojiShortcode,
+	renderRichText,
+	withCustomEmojiAsGlyphs,
+} from "./render";
 
 const TOGGLE_GRACE_MS = 400;
 
@@ -114,8 +119,11 @@ export const RichTextRenderer = (props: RichTextRendererProps) => {
 	const rendered = createMemo(() => renderRichText(local.value, ctx));
 	const jumbo = createMemo(() => {
 		if (local.jumbo === false) return false;
-		const facets = local.value.facets ?? [];
-		return facets.length === 0 && isJumboEmojiText(local.value.text ?? "");
+		const text = emojiFacetText(local.value, ctx);
+		return (
+			text !== undefined &&
+			isJumboEmojiText(withCustomEmojiAsGlyphs(text, ctx.customEmoji))
+		);
 	});
 
 	const [emojiTarget, setEmojiTarget] = createSignal<EmojiInfoTarget>();
@@ -158,9 +166,38 @@ export const RichTextRenderer = (props: RichTextRendererProps) => {
 		setEmojiTarget({ emoji, slug, rect: element.getBoundingClientRect() });
 	};
 
+	const customEmojiFrom = (target: EventTarget | null) => {
+		const element = (target as Element | null)?.closest?.<HTMLElement>(
+			"[data-custom-emoji-button]",
+		);
+		return element && root?.contains(element) ? element : undefined;
+	};
+
+	const openCustomEmoji = (element: HTMLElement) => {
+		const { customEmojiName, customEmojiSrc, customEmojiId, customEmojiAlt } =
+			element.dataset;
+		if (!customEmojiName || !customEmojiSrc) return;
+		ctx.onCustomEmojiOpen?.(
+			{
+				name: customEmojiName,
+				src: customEmojiSrc,
+				id: customEmojiId,
+				alt: customEmojiAlt,
+			},
+			element,
+		);
+	};
+
 	const onClick: JSX.EventHandler<HTMLDivElement, MouseEvent> = (event) => {
 		if (typeof local.onClick === "function") local.onClick(event);
-		if (event.defaultPrevented || ctx.emojiInfo === false) return;
+		if (event.defaultPrevented) return;
+		const custom = customEmojiFrom(event.target);
+		if (custom) {
+			event.stopPropagation();
+			openCustomEmoji(custom);
+			return;
+		}
+		if (ctx.emojiInfo === false) return;
 		const element = emojiButtonFrom(event.target);
 		if (!element) return;
 		event.stopPropagation();
@@ -171,8 +208,16 @@ export const RichTextRenderer = (props: RichTextRendererProps) => {
 		event,
 	) => {
 		if (typeof local.onKeyDown === "function") local.onKeyDown(event);
-		if (event.defaultPrevented || ctx.emojiInfo === false) return;
+		if (event.defaultPrevented) return;
 		if (event.key !== "Enter" && event.key !== " ") return;
+		const custom = customEmojiFrom(event.target);
+		if (custom) {
+			event.preventDefault();
+			event.stopPropagation();
+			openCustomEmoji(custom);
+			return;
+		}
+		if (ctx.emojiInfo === false) return;
 		const element = emojiButtonFrom(event.target);
 		if (!element) return;
 		event.preventDefault();

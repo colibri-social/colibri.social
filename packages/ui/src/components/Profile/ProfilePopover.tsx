@@ -1,5 +1,5 @@
 import { Popover as KobaltePopover } from "@kobalte/core/popover";
-import { createSignal, type JSX, Show } from "solid-js";
+import { createSignal, type JSX, Show, type ValidComponent } from "solid-js";
 import { cx } from "../../utils/cx";
 import { createExitHold } from "../../utils/exit-hold";
 import { revealLayer, topLayerAttrs } from "../../utils/nested-layers";
@@ -23,6 +23,7 @@ export type ProfilePopoverProps = {
 	loading?: boolean;
 	children?: JSX.Element;
 	anchor?: () => HTMLElement | undefined;
+	anchorRect?: () => DOMRect | undefined;
 	as?: "div" | "span" | "button";
 	triggerClass?: string;
 	triggerLabel?: string;
@@ -33,6 +34,9 @@ export type ProfilePopoverProps = {
 	onOpenChange?: (open: boolean) => void;
 	onAction?: (action: ProfileAction) => void;
 	contentClass?: string;
+	footer?: JSX.Element;
+	label?: string;
+	renderTrigger?: (trigger: ValidComponent) => JSX.Element;
 };
 
 export const PROFILE_POPOVER_WIDTH = 360;
@@ -99,8 +103,14 @@ export const ProfilePopover = (props: ProfilePopoverProps) => {
 			modal={false}
 			overflowPadding={overflowPadding()}
 			anchorRef={props.anchor}
+			getAnchorRect={(element?: HTMLElement) =>
+				props.anchorRect?.() ?? element?.getBoundingClientRect()
+			}
 		>
-			<Show when={!props.anchor}>
+			<Show when={props.renderTrigger}>
+				{(render) => render()(KobaltePopover.Trigger)}
+			</Show>
+			<Show when={!props.anchor && !props.renderTrigger}>
 				<KobaltePopover.Trigger
 					as={props.as ?? "div"}
 					aria-label={props.triggerLabel}
@@ -119,18 +129,25 @@ export const ProfilePopover = (props: ProfilePopoverProps) => {
 				<KobaltePopover.Content
 					{...topLayerAttrs}
 					ref={revealLayer}
-					aria-label={name() ? `${name()}'s profile` : "Loading profile"}
+					aria-label={
+						props.label ?? (name() ? `${name()}'s profile` : "Loading profile")
+					}
 					data-profile-popover=""
 					class={cx(popoverFrame, props.contentClass)}
 					style={{
 						"max-height": "var(--kb-popper-content-available-height, 80vh)",
 					}}
+					tabIndex={-1}
 					onContextMenu={(event: MouseEvent) => event.stopPropagation()}
+					onOpenAutoFocus={(event: Event) => {
+						event.preventDefault();
+						(event.currentTarget as HTMLElement).focus({ preventScroll: true });
+					}}
 					onCloseAutoFocus={(event: Event) => {
 						const anchor = props.anchor?.();
 						if (!anchor) return;
 						event.preventDefault();
-						anchor.focus({ preventScroll: true });
+						if (anchor.isConnected) anchor.focus({ preventScroll: true });
 					}}
 				>
 					<ExitHoldMarker />
@@ -143,6 +160,8 @@ export const ProfilePopover = (props: ProfilePopoverProps) => {
 								<ProfileContent
 									profile={profile()}
 									surface="popover"
+									tight
+									footer={props.footer}
 									onAction={(action) => {
 										setOpen(false);
 										props.onAction?.(action);

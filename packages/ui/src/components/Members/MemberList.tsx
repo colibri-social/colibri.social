@@ -1,4 +1,4 @@
-import { createMemo, For, Show } from "solid-js";
+import { createMemo, For, type JSX, Show } from "solid-js";
 import { cx } from "../../utils/cx";
 import type { Presence } from "../Avatar/Avatar";
 import type { RoleIdentity } from "../Roles/RoleBadge";
@@ -97,6 +97,8 @@ export type MemberListProps = {
 	variant?: MemberRowVariant;
 	onOpen?: (member: Member, event: MouseEvent) => void;
 	onMemberContextMenu?: (member: Member, event: MouseEvent) => void;
+	onMemberMenu?: (member: Member, event: Event) => void;
+	wrapMember?: (member: Member, row: JSX.Element) => JSX.Element;
 	virtualizeAfter?: number;
 	class?: string;
 };
@@ -125,7 +127,7 @@ const StaticMemberList = (
 						class={cx(
 							"flex flex-col",
 							props.variant === "mobile" &&
-								"overflow-hidden rounded-control bg-secondary",
+								"overflow-hidden rounded-surface bg-popover-highlight",
 						)}
 					>
 						<For each={group.members}>
@@ -136,6 +138,8 @@ const StaticMemberList = (
 									variant={props.variant}
 									onOpen={props.onOpen}
 									onMemberContextMenu={props.onMemberContextMenu}
+									onMemberMenu={props.onMemberMenu}
+									wrapMember={props.wrapMember}
 								/>
 							)}
 						</For>
@@ -163,6 +167,8 @@ export const MemberList = (props: MemberListProps) => {
 					variant={variant()}
 					onOpen={props.onOpen}
 					onMemberContextMenu={props.onMemberContextMenu}
+					onMemberMenu={props.onMemberMenu}
+					wrapMember={props.wrapMember}
 					class={props.class}
 				/>
 			}
@@ -172,6 +178,8 @@ export const MemberList = (props: MemberListProps) => {
 				variant={variant()}
 				onOpen={props.onOpen}
 				onMemberContextMenu={props.onMemberContextMenu}
+				onMemberMenu={props.onMemberMenu}
+				wrapMember={props.wrapMember}
 				class={props.class}
 			/>
 		</Show>

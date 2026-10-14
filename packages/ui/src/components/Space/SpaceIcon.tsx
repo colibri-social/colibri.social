@@ -2,7 +2,7 @@ import { createSignal, Show } from "solid-js";
 import { cx } from "../../utils/cx";
 import { AnimatedImage } from "../AnimatedImage/AnimatedImage";
 
-export type SpaceIconSize = 48 | 64;
+export type SpaceIconSize = 20 | 32 | 48 | 64;
 
 export type SpaceIconProps = {
 	name: string;
@@ -12,6 +12,8 @@ export type SpaceIconProps = {
 };
 
 const sizeClass: Record<SpaceIconSize, string> = {
+	20: "size-5 rounded-control-xs text-[10px]",
+	32: "size-8 rounded-control-sm text-xs",
 	48: "size-12 rounded-control text-base",
 	64: "size-16 rounded-surface text-xl",
 };

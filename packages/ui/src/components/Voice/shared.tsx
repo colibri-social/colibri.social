@@ -1,5 +1,6 @@
 import {
 	createEffect,
+	createMemo,
 	createSignal,
 	type JSX,
 	onCleanup,
@@ -22,6 +23,7 @@ export type VoiceParticipant = {
 	deafened?: boolean;
 	serverMuted?: boolean;
 	serverDeafened?: boolean;
+	pending?: boolean;
 };
 
 export const speakingRingClass =
@@ -29,6 +31,7 @@ export const speakingRingClass =
 
 export type SpeakingAvatarProps = {
 	name: string;
+	seed?: string;
 	src?: string;
 	color?: string;
 	presence?: Presence;
@@ -58,6 +61,7 @@ export const SpeakingAvatar = (props: SpeakingAvatarProps) => (
 	>
 		<Avatar
 			name={props.name}
+			seed={props.seed}
 			src={props.src}
 			color={props.color}
 			presence={props.presence}
@@ -126,21 +130,23 @@ export const createTileFill = (
 	source: () => { color?: string; tintFrom?: string },
 ) => {
 	const [tint, setTint] = createSignal<string>();
+	const color = createMemo(() => source().color);
+	const tintFrom = createMemo(() => source().tintFrom);
 	createEffect(() => {
-		const { color, tintFrom } = source();
+		const from = tintFrom();
 		setTint(undefined);
-		if (color || !tintFrom) return;
+		if (color() || !from) return;
 		let active = true;
 		onCleanup(() => {
 			active = false;
 		});
-		void getImageTint(tintFrom).then((value) => {
+		void getImageTint(from).then((value) => {
 			if (active) setTint(value);
 		});
 	});
 	return () => {
-		const { color } = source();
-		if (color) return color;
+		const solid = color();
+		if (solid) return solid;
 		const value = tint();
 		return value ? tintGradient(value) : undefined;
 	};

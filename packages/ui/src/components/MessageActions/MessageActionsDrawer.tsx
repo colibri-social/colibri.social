@@ -7,8 +7,10 @@ import { PenIcon } from "@solar-icons/solid/bold/pen";
 import { ReplyIcon } from "@solar-icons/solid/bold/reply";
 import { SmileCircleIcon } from "@solar-icons/solid/bold/smile-circle";
 import { TrashBinTrashIcon } from "@solar-icons/solid/bold/trash-bin-trash";
+import { ArrowLeftIcon } from "@solar-icons/solid/linear/arrow-left";
 import {
 	createEffect,
+	createSignal,
 	For,
 	type JSX,
 	on,
@@ -21,6 +23,12 @@ import { cx } from "../../utils/cx";
 import { createRipple } from "../../utils/ripple";
 import { DeveloperModeCard } from "../DeveloperMode/DeveloperModeCard";
 import { Drawer, DrawerContent } from "../Drawer/Drawer";
+import {
+	type EmojiPick,
+	EmojiPicker,
+	type EmojiPickerProps,
+} from "../EmojiPicker/EmojiPicker";
+import { IconButton } from "../IconButton/IconButton";
 import { DestructiveRow, ListGroup } from "../List/List";
 import type { RenderEmoji } from "./ReactionBar";
 
@@ -92,6 +100,8 @@ export type MessageActionsDrawerProps = {
 	quickReactions?: string[];
 	onReact?: (emoji: string) => void;
 	onMoreReactions?: () => void;
+	emojiPicker?: Omit<EmojiPickerProps, "platform" | "onPick" | "autofocus">;
+	onEmojiPick?: (pick: EmojiPick) => void;
 	renderEmoji?: RenderEmoji;
 	reactLabel?: (emoji: string) => string;
 	onEdit?: () => void;
@@ -114,7 +124,10 @@ export type MessageDeveloperInfo = {
 	onCopy?: () => void;
 };
 
+export type MessageActionsView = "actions" | "reactions";
+
 export const MessageActionsDrawer = (props: MessageActionsDrawerProps) => {
+	const [view, setView] = createSignal<MessageActionsView>("actions");
 	let freshInput = false;
 	const markFresh = () => {
 		freshInput = true;
@@ -124,7 +137,10 @@ export const MessageActionsDrawer = (props: MessageActionsDrawerProps) => {
 		on(
 			() => props.open,
 			(open) => {
-				if (open) freshInput = false;
+				if (open) {
+					freshInput = false;
+					setView("actions");
+				}
 			},
 		),
 	);
@@ -155,126 +171,171 @@ export const MessageActionsDrawer = (props: MessageActionsDrawerProps) => {
 			props.onOpenThread ||
 			props.onSelect
 		);
+	const canPickInPlace = () => !props.onMoreReactions && !!props.onReact;
+	const showMore = () => !!props.onMoreReactions || canPickInPlace();
+	const openMore = () => {
+		if (props.onMoreReactions) {
+			run(props.onMoreReactions)();
+			return;
+		}
+		setView("reactions");
+	};
+	const pickReaction = (pick: EmojiPick) => {
+		props.onOpenChange(false);
+		if (props.onEmojiPick) {
+			props.onEmojiPick(pick);
+			return;
+		}
+		if (pick.kind === "unicode") props.onReact?.(pick.emoji);
+	};
+	const backToActions = (event: KeyboardEvent) => {
+		if (view() !== "reactions") return;
+		event.preventDefault();
+		event.stopPropagation();
+		setView("actions");
+	};
 	const hasModeration = () =>
 		!!(props.hidden ? props.onUnhide : props.onHide) || !!props.onDelete;
 
 	return (
-		<Drawer open={props.open} onOpenChange={handleOpenChange}>
-			<DrawerContent aria-label={props.label ?? "Message actions"}>
-				<Show
-					when={
-						(props.quickReactions ?? []).length > 0 || props.onMoreReactions
-					}
-				>
-					<div data-quick-reactions="" class="flex items-center gap-2 py-0.5">
-						<For each={props.quickReactions ?? []}>
-							{(emoji) => (
-								<QuickReaction
-									label={props.reactLabel?.(emoji) ?? `React with ${emoji}`}
-									onClick={run(() => props.onReact?.(emoji))}
-								>
-									{(props.renderEmoji ?? defaultRenderEmoji)(emoji)}
-								</QuickReaction>
-							)}
-						</For>
-						<Show when={props.onMoreReactions}>
-							<QuickReaction
-								label="More reactions"
-								onClick={run(props.onMoreReactions)}
-							>
-								<SmileCircleIcon />
-							</QuickReaction>
-						</Show>
+		<Drawer
+			open={props.open}
+			onOpenChange={handleOpenChange}
+			initialFocus="content"
+		>
+			<DrawerContent
+				aria-label={props.label ?? "Message actions"}
+				onEscapeKeyDown={backToActions}
+			>
+				<Show when={view() === "reactions"}>
+					<div data-reaction-picker="" class="flex flex-col gap-3">
+						<div class="flex items-center gap-2">
+							<IconButton
+								variant="ghost"
+								size="md"
+								label="Back to message actions"
+								icon={<ArrowLeftIcon />}
+								onClick={() => setView("actions")}
+								class="-ml-1.5 [&_svg]:size-5"
+							/>
+							<span class="text-base font-bold">Add a reaction</span>
+						</div>
+						<EmojiPicker
+							{...props.emojiPicker}
+							platform="mobile"
+							onPick={(pick) => pickReaction(pick)}
+						/>
 					</div>
 				</Show>
-				<Show when={hasPrimary()}>
-					<ListGroup>
-						<Show when={props.onEdit}>
-							<ActionRow
-								icon={<PenIcon />}
-								label="Edit message"
-								onClick={run(props.onEdit)}
-							/>
-						</Show>
-						<Show when={props.onReply}>
-							<ActionRow
-								icon={<ReplyIcon />}
-								label="Reply"
-								onClick={run(props.onReply)}
-							/>
-						</Show>
-						<Show when={props.onForward}>
-							<ActionRow
-								icon={<ForwardIcon />}
-								label="Forward"
-								onClick={run(props.onForward)}
-							/>
-						</Show>
-						<Show when={props.onOpenThread}>
-							<ActionRow
-								icon={<ThreadIcon />}
-								label="Open thread"
-								onClick={run(props.onOpenThread)}
-							/>
-						</Show>
-						<Show when={props.onSelect}>
-							<ActionRow
-								icon={<ChecklistIcon />}
-								label="Select messages"
-								onClick={run(props.onSelect)}
-							/>
-						</Show>
-					</ListGroup>
-				</Show>
-				<Show when={props.onCopyText}>
-					<ListGroup>
-						<ActionRow
-							icon={<CopyIcon />}
-							label="Copy text"
-							onClick={run(props.onCopyText)}
-						/>
-					</ListGroup>
-				</Show>
-				<Show when={hasModeration()}>
-					<ListGroup>
-						<Show
-							when={props.hidden}
-							fallback={
-								<Show when={props.onHide}>
-									<DestructiveRow
-										icon={<ForbiddenCircleIcon />}
-										label="Hide message"
-										onClick={run(props.onHide)}
-									/>
-								</Show>
-							}
-						>
-							<Show when={props.onUnhide}>
+				<Show when={view() === "actions"}>
+					<Show when={(props.quickReactions ?? []).length > 0 || showMore()}>
+						<div data-quick-reactions="" class="flex items-center gap-2 py-0.5">
+							<For each={props.quickReactions ?? []}>
+								{(emoji) => (
+									<QuickReaction
+										label={props.reactLabel?.(emoji) ?? `React with ${emoji}`}
+										onClick={run(() => props.onReact?.(emoji))}
+									>
+										{(props.renderEmoji ?? defaultRenderEmoji)(emoji)}
+									</QuickReaction>
+								)}
+							</For>
+							<Show when={showMore()}>
+								<QuickReaction label="More reactions" onClick={openMore}>
+									<SmileCircleIcon />
+								</QuickReaction>
+							</Show>
+						</div>
+					</Show>
+					<Show when={hasPrimary()}>
+						<ListGroup>
+							<Show when={props.onEdit}>
 								<ActionRow
-									icon={<EyeIcon />}
-									label="Unhide message"
-									onClick={run(props.onUnhide)}
+									icon={<PenIcon />}
+									label="Edit message"
+									onClick={run(props.onEdit)}
 								/>
 							</Show>
-						</Show>
-						<Show when={props.onDelete}>
-							<DestructiveRow
-								icon={<TrashBinTrashIcon />}
-								label="Delete message"
-								onClick={run(props.onDelete)}
+							<Show when={props.onReply}>
+								<ActionRow
+									icon={<ReplyIcon />}
+									label="Reply"
+									onClick={run(props.onReply)}
+								/>
+							</Show>
+							<Show when={props.onForward}>
+								<ActionRow
+									icon={<ForwardIcon />}
+									label="Forward"
+									onClick={run(props.onForward)}
+								/>
+							</Show>
+							<Show when={props.onOpenThread}>
+								<ActionRow
+									icon={<ThreadIcon />}
+									label="Open thread"
+									onClick={run(props.onOpenThread)}
+								/>
+							</Show>
+							<Show when={props.onSelect}>
+								<ActionRow
+									icon={<ChecklistIcon />}
+									label="Select messages"
+									onClick={run(props.onSelect)}
+								/>
+							</Show>
+						</ListGroup>
+					</Show>
+					<Show when={props.onCopyText}>
+						<ListGroup>
+							<ActionRow
+								icon={<CopyIcon />}
+								label="Copy text"
+								onClick={run(props.onCopyText)}
 							/>
-						</Show>
-					</ListGroup>
-				</Show>
-				<Show when={props.developer}>
-					{(developer) => (
-						<DeveloperModeCard
-							copyLabel="Copy AT-URI"
-							copyValue={developer().atUri}
-							onCopy={developer().onCopy}
-							pdslsHref={developer().pdslsHref}
-						/>
-					)}
+						</ListGroup>
+					</Show>
+					<Show when={hasModeration()}>
+						<ListGroup>
+							<Show
+								when={props.hidden}
+								fallback={
+									<Show when={props.onHide}>
+										<DestructiveRow
+											icon={<ForbiddenCircleIcon />}
+											label="Hide message"
+											onClick={run(props.onHide)}
+										/>
+									</Show>
+								}
+							>
+								<Show when={props.onUnhide}>
+									<ActionRow
+										icon={<EyeIcon />}
+										label="Unhide message"
+										onClick={run(props.onUnhide)}
+									/>
+								</Show>
+							</Show>
+							<Show when={props.onDelete}>
+								<DestructiveRow
+									icon={<TrashBinTrashIcon />}
+									label="Delete message"
+									onClick={run(props.onDelete)}
+								/>
+							</Show>
+						</ListGroup>
+					</Show>
+					<Show when={props.developer}>
+						{(developer) => (
+							<DeveloperModeCard
+								copyLabel="Copy AT-URI"
+								copyValue={developer().atUri}
+								onCopy={developer().onCopy}
+								pdslsHref={developer().pdslsHref}
+							/>
+						)}
+					</Show>
 				</Show>
 			</DrawerContent>
 		</Drawer>

@@ -1,4 +1,5 @@
 import { batch, onCleanup } from "solid-js";
+import { blockTouchScroll } from "./touch-scroll-block";
 
 export type SwipeOptions = {
 	onSwipeRight?: (dx: number) => void;
@@ -184,8 +185,10 @@ export const createSwipe = (element: HTMLElement, options: SwipeOptions) => {
 	element.addEventListener("pointermove", onPointerMove, { passive: true });
 	element.addEventListener("pointerup", onPointerUp, { passive: true });
 	element.addEventListener("pointercancel", onPointerCancel, { passive: true });
+	const unblock = blockTouchScroll(element, () => claimed);
 
 	onCleanup(() => {
+		unblock();
 		cancelMoveFrame();
 		clearClickSwallow();
 		element.removeEventListener("pointerdown", onPointerDown);

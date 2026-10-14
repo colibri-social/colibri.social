@@ -46,6 +46,8 @@ export const Card = (props: CardProps) => {
 			{...rest}
 			ref={(element: HTMLElement) => {
 				if (interactive()) ripple(element);
+				const forwarded = (rest as { ref?: unknown }).ref;
+				if (typeof forwarded === "function") forwarded(element);
 			}}
 			component={local.href ? "a" : interactive() ? "button" : "div"}
 			type={!local.href && interactive() ? "button" : undefined}

@@ -2,6 +2,7 @@ import { CrownIcon } from "@solar-icons/solid/bold/crown";
 import { type JSX, Show, splitProps } from "solid-js";
 import { Dynamic } from "solid-js/web";
 import { cx } from "../../utils/cx";
+import { createMenuTrigger } from "../../utils/gestures";
 import {
 	nameColorClass,
 	nameColorStyle,
@@ -18,6 +19,7 @@ export type MemberRowVariant = "mobile" | "desktop";
 
 export type MemberRowProps = {
 	name: string;
+	seed?: string;
 	avatarSrc?: string;
 	avatarColor?: string;
 	presence?: Presence;
@@ -31,12 +33,13 @@ export type MemberRowProps = {
 	variant?: MemberRowVariant;
 	onOpen?: JSX.EventHandler<HTMLElement, MouseEvent>;
 	onContextMenu?: JSX.EventHandler<HTMLElement, MouseEvent>;
+	onMenu?: (event: Event) => void;
 	class?: string;
 	"aria-label"?: string;
 };
 
 const ringColor: Record<MemberRowVariant, string> = {
-	mobile: "var(--secondary)",
+	mobile: "var(--popover-highlight)",
 	desktop: "var(--card)",
 };
 
@@ -56,6 +59,7 @@ export const memberAvatarSize = {
 export const MemberRow = (props: MemberRowProps) => {
 	const [local, rest] = splitProps(props, [
 		"name",
+		"seed",
 		"avatarSrc",
 		"avatarColor",
 		"presence",
@@ -68,6 +72,7 @@ export const MemberRow = (props: MemberRowProps) => {
 		"offline",
 		"variant",
 		"onOpen",
+		"onMenu",
 		"class",
 	]);
 	const variant = () => local.variant ?? "desktop";
@@ -95,9 +100,14 @@ export const MemberRow = (props: MemberRowProps) => {
 			type={interactive() ? "button" : undefined}
 			ref={(element: HTMLElement) => {
 				if (interactive()) ripple(element);
+				createMenuTrigger(element, {
+					enabled: () => !!local.onMenu,
+					onMenu: (event) => local.onMenu?.(event),
+				});
 			}}
 			onClick={local.onOpen}
 			data-member-row=""
+			data-member-menu={local.onMenu ? "" : undefined}
 			data-offline={local.offline || undefined}
 			class={cx(
 				memberRowBase,
@@ -106,9 +116,7 @@ export const MemberRow = (props: MemberRowProps) => {
 				interactive() &&
 					cx(
 						"ripple cursor-pointer outline-none focus-ring-inset",
-						variant() === "mobile"
-							? "hover:bg-secondary-highlight"
-							: "hover:bg-popover",
+						variant() === "mobile" ? "hover:bg-secondary" : "hover:bg-popover",
 					),
 				local.class,
 			)}
@@ -117,6 +125,7 @@ export const MemberRow = (props: MemberRowProps) => {
 			<Avatar
 				size={memberAvatarSize[variant()]}
 				name={local.name}
+				seed={local.seed}
 				src={local.avatarSrc}
 				color={local.avatarColor}
 				presence={presence()}

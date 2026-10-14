@@ -52,6 +52,16 @@ export type ChannelUrlMatch = {
 	resolve?: () => Promise<ChannelChip | undefined>;
 };
 
+export type CustomEmojiSuggestion = {
+	id: string;
+	name: string;
+	src: string;
+	source?: string;
+	cid?: string;
+	alt?: string;
+	fallback?: string;
+};
+
 export type EmojiUsageEntry = { count: number; lastUsed: number };
 
 export type HighlightSpan = { start: number; end: number; tag: string };
@@ -78,6 +88,12 @@ export type RichEditorSources = {
 	resolveChannel?: (id: string) => ChannelChip | undefined;
 	matchChannelUrl?: (text: string) => ChannelUrlMatch | null;
 	emojiUsage?: () => Record<string, EmojiUsageEntry>;
+	searchCustomEmoji?: (query: string, limit: number) => CustomEmojiSuggestion[];
+	customEmojiByName?: (name: string) => CustomEmojiSuggestion | undefined;
+	resolveCustomEmoji?: (feature: {
+		uri: string;
+		cid?: string;
+	}) => CustomEmojiSuggestion | undefined;
 	onEmojiPick?: (emoji: string) => void;
 	highlightCode?: CodeHighlighter;
 	timeShortcut?: boolean;

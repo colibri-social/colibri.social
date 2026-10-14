@@ -1,4 +1,5 @@
 import { createEffect, onCleanup } from "solid-js";
+import { stopScrollMotion } from "./stop-scroll";
 
 export type LongPressOptions = {
 	onLongPress: (event: PointerEvent) => void;
@@ -10,6 +11,8 @@ export type LongPressOptions = {
 
 const SUPPRESS_WINDOW = 700;
 
+const PASSIVE_CAPTURE = { capture: true, passive: true } as const;
+
 export const createLongPress = (
 	element: HTMLElement,
 	options: LongPressOptions,
@@ -20,6 +23,7 @@ export const createLongPress = (
 	let startX = 0;
 	let startY = 0;
 	let pressing = false;
+	let pointerId: number | undefined;
 	let moved = false;
 	let lastEvent: PointerEvent | undefined;
 	let armTimer: number | undefined;
@@ -42,6 +46,7 @@ export const createLongPress = (
 		}
 		if (!suppressing) return;
 		document.removeEventListener("click", onClickCapture, { capture: true });
+		document.removeEventListener("pointerdown", stopSuppressing, true);
 		suppressing = false;
 	};
 
@@ -51,6 +56,7 @@ export const createLongPress = (
 		suppressTimer = window.setTimeout(stopSuppressing, SUPPRESS_WINDOW + 50);
 		if (suppressing) return;
 		document.addEventListener("click", onClickCapture, { capture: true });
+		document.addEventListener("pointerdown", stopSuppressing, true);
 		suppressing = true;
 	};
 
@@ -64,8 +70,6 @@ export const createLongPress = (
 			stopSuppressing();
 			return;
 		}
-		const target = event.target as Node | null;
-		if (!target || !element.contains(target)) return;
 		event.stopPropagation();
 		event.preventDefault();
 		suppressClickUntil = 0;
@@ -76,6 +80,9 @@ export const createLongPress = (
 		if (!isEnabled()) return;
 		if (event.pointerType === "mouse") return;
 		if (options.shouldStart && !options.shouldStart(event)) return;
+		pointerId = event.pointerId;
+		stopScrollMotion(element);
+		listen();
 		startX = event.clientX;
 		startY = event.clientY;
 		pressing = true;
@@ -89,7 +96,7 @@ export const createLongPress = (
 	};
 
 	const onPointerMove = (event: PointerEvent) => {
-		if (!pressing || moved) return;
+		if (!pressing || moved || event.pointerId !== pointerId) return;
 		lastEvent = event;
 		if (
 			Math.hypot(event.clientX - startX, event.clientY - startY) > moveCancel
@@ -99,8 +106,10 @@ export const createLongPress = (
 		}
 	};
 
-	const onPointerEnd = () => {
+	const onPointerEnd = (event: PointerEvent) => {
+		if (event.pointerId !== pointerId) return;
 		pressing = false;
+		unlisten();
 		disarm();
 	};
 
@@ -121,10 +130,29 @@ export const createLongPress = (
 		element.style.setProperty("-webkit-user-select", value);
 	});
 
+	let listening = false;
+
+	const listen = () => {
+		if (listening) return;
+		listening = true;
+		document.addEventListener("pointermove", onPointerMove, PASSIVE_CAPTURE);
+		document.addEventListener("pointerup", onPointerEnd, PASSIVE_CAPTURE);
+		document.addEventListener("pointercancel", onPointerEnd, PASSIVE_CAPTURE);
+	};
+
+	const unlisten = () => {
+		if (!listening) return;
+		listening = false;
+		document.removeEventListener("pointermove", onPointerMove, PASSIVE_CAPTURE);
+		document.removeEventListener("pointerup", onPointerEnd, PASSIVE_CAPTURE);
+		document.removeEventListener(
+			"pointercancel",
+			onPointerEnd,
+			PASSIVE_CAPTURE,
+		);
+	};
+
 	element.addEventListener("pointerdown", onPointerDown, { passive: true });
-	element.addEventListener("pointermove", onPointerMove, { passive: true });
-	element.addEventListener("pointerup", onPointerEnd);
-	element.addEventListener("pointercancel", onPointerEnd, { passive: true });
 	element.addEventListener("contextmenu", onContextMenu);
 	element.addEventListener("selectstart", onSelectStart);
 
@@ -132,9 +160,7 @@ export const createLongPress = (
 		disarm();
 		stopSuppressing();
 		element.removeEventListener("pointerdown", onPointerDown);
-		element.removeEventListener("pointermove", onPointerMove);
-		element.removeEventListener("pointerup", onPointerEnd);
-		element.removeEventListener("pointercancel", onPointerEnd);
+		unlisten();
 		element.removeEventListener("contextmenu", onContextMenu);
 		element.removeEventListener("selectstart", onSelectStart);
 	});

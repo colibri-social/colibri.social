@@ -81,6 +81,7 @@ export type ChannelListProps<T> = {
 	onCollapsedChange?: (categoryId: string, collapsed: boolean) => void;
 	onCreateChannel?: (categoryId: string) => void;
 	onOpenCategorySettings?: (categoryId: string) => void;
+	wrapCategoryHeader?: (categoryId: string, header: JSX.Element) => JSX.Element;
 	emptyCategoryLabel?: string;
 	haptics?: Haptics;
 	class?: string;
@@ -1234,6 +1235,13 @@ export const ChannelList = <T,>(props: ChannelListProps<T>) => {
 						data-lifted={keyboardLifted("channel", id) || undefined}
 						data-placeholder={pointerDragging("channel", id) || undefined}
 						onPointerDown={(event) => {
+							if (
+								!reorderMode() &&
+								(event.target as Element | null)?.closest?.(
+									"[data-voice-participant]",
+								)
+							)
+								return;
 							const element = nodes.get(key);
 							if (element) startPress(event, "channel", id, element, false);
 						}}
@@ -1244,7 +1252,11 @@ export const ChannelList = <T,>(props: ChannelListProps<T>) => {
 							keyboardLifted("channel", id) && "z-10 bg-popover shadow-overlay",
 						)}
 					>
-						<div class="flex min-w-0 flex-1" inert={reorderMode() || undefined}>
+						<div
+							data-channel-slot=""
+							class="flex min-w-0 flex-1 [&>*]:min-w-0 [&>*]:flex-1"
+							inert={reorderMode() || undefined}
+						>
 							{props.renderChannel(channel, itemState)}
 						</div>
 						<Show when={reorderMode()}>
@@ -1307,7 +1319,7 @@ export const ChannelList = <T,>(props: ChannelListProps<T>) => {
 							startPress(event, "category", id, header, false);
 						}}
 						class={cx(
-							"[&_[data-category-header]]:rounded-control-xs [&_[data-category-header]]:transition-[background-color,box-shadow,opacity] [&_[data-category-header]]:duration-[calc(var(--duration-color,150ms)*var(--motion-scale))]",
+							"[&_[data-category-header]]:rounded-control-sm [&_[data-category-header]]:transition-[background-color,box-shadow,opacity] [&_[data-category-header]]:duration-[calc(var(--duration-color,150ms)*var(--motion-scale))]",
 							"[&[data-drop-target]_[data-category-header]]:bg-primary/15",
 							"[&[data-lifted]_[data-category-header]]:bg-popover [&[data-lifted]_[data-category-header]]:shadow-overlay",
 							pointerDragging("category", id) &&
@@ -1328,6 +1340,11 @@ export const ChannelList = <T,>(props: ChannelListProps<T>) => {
 								reorderMode() || !props.onOpenCategorySettings
 									? undefined
 									: () => props.onOpenCategorySettings?.(id)
+							}
+							wrapHeader={
+								props.wrapCategoryHeader && !reorderMode()
+									? (header) => props.wrapCategoryHeader?.(id, header)
+									: undefined
 							}
 							headerTrailing={
 								<Show when={reorderMode()}>

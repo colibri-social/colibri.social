@@ -33,6 +33,14 @@ export type DrawerProps = ParentProps<{
 const DrawerContentRef = createContext<(element: HTMLElement) => void>();
 
 const OPENING_SETTLE_FRAMES = 3;
+const FLICK_MIN_VELOCITY = 0.15;
+const FLICK_GAIN = 2.5;
+const RELEASE_WINDOW_MS = 80;
+const CLOSE_MIN_SPEED = 1.2;
+const CLOSE_MIN_MS = 110;
+const CLOSE_MAX_MS = 280;
+const CLOSE_BREAKPOINT = 0.72;
+const CLOSE_SLOW_EASE = "cubic-bezier(0.3, 0.6, 0.6, 1)";
 const CLOSE_FALLBACK_SLACK_MS = 250;
 
 const longestTransitionMs = (element: HTMLElement) => {
@@ -134,7 +142,43 @@ export const Drawer = (props: DrawerProps) => {
 		props.initialFocusEl ??
 		(props.initialFocus === "content" ? contentElement() : undefined);
 
+	let releaseVelocity = 0;
+	let releasedAt = 0;
+
+	const velocityFunction = (distance: number, time: number) => {
+		releaseVelocity = distance / time;
+		releasedAt = performance.now();
+		if (releaseVelocity <= FLICK_MIN_VELOCITY) return 1;
+		return 1 + releaseVelocity * FLICK_GAIN;
+	};
+
+	const tuneCloseMotion = () => {
+		const element = contentElement();
+		if (!element) return;
+		const fromDrag = performance.now() - releasedAt < RELEASE_WINDOW_MS;
+		if (!fromDrag) {
+			element.style.removeProperty("--sheet-close-duration");
+			element.style.removeProperty("--sheet-close-ease");
+			return;
+		}
+		const remaining = Math.max(
+			0,
+			window.innerHeight - element.getBoundingClientRect().top,
+		);
+		const speed = Math.max(releaseVelocity, CLOSE_MIN_SPEED);
+		const duration = Math.min(
+			CLOSE_MAX_MS,
+			Math.max(CLOSE_MIN_MS, remaining / speed),
+		);
+		element.style.setProperty("--sheet-close-duration", `${duration}ms`);
+		element.style.setProperty(
+			"--sheet-close-ease",
+			releaseVelocity >= CLOSE_MIN_SPEED ? "linear" : CLOSE_SLOW_EASE,
+		);
+	};
+
 	const onOpenChange = (next: boolean) => {
+		if (!next) tuneCloseMotion();
 		if (props.open === undefined) apply(next);
 		props.onOpenChange?.(next);
 	};
@@ -145,7 +189,10 @@ export const Drawer = (props: DrawerProps) => {
 			onOpenChange={onOpenChange}
 			modal={props.modal ?? true}
 			side="bottom"
-			velocityFunction={(distance, time) => distance / time}
+			closeOnOutsidePointerStrategy="pointerdown"
+			closeOnOutsideFocus={false}
+			velocityFunction={velocityFunction}
+			breakPoints={[CLOSE_BREAKPOINT]}
 			initialFocusEl={initialFocusEl()}
 		>
 			{() => (
@@ -165,7 +212,11 @@ export type DrawerContentProps = {
 	titleIcon?: JSX.Element;
 	description?: JSX.Element;
 	header?: JSX.Element;
+	headerBleed?: boolean;
+	onEscapeKeyDown?: (event: KeyboardEvent) => void;
 	footer?: JSX.Element;
+	handle?: boolean;
+	fill?: boolean;
 	class?: string;
 	children?: JSX.Element;
 	"aria-label"?: string;
@@ -177,10 +228,15 @@ export const DrawerContent = (props: DrawerContentProps) => {
 		"titleIcon",
 		"description",
 		"header",
+		"headerBleed",
+		"onEscapeKeyDown",
 		"footer",
+		"handle",
+		"fill",
 		"class",
 		"children",
 	]);
+	const showHandle = () => local.handle ?? true;
 	const context = CorvuDrawer.useContext();
 	const registerContent = useContext(DrawerContentRef);
 	const title = createSlot(() => local.title);
@@ -221,18 +277,26 @@ export const DrawerContent = (props: DrawerContentProps) => {
 				{...topLayerAttrs}
 				ref={(element: HTMLElement) => {
 					contentNode = element;
+					element.addEventListener("keydown", (event) => {
+						if (event.key === "Escape") local.onEscapeKeyDown?.(event);
+					});
 					revealLayer(element);
 					registerContent?.(element);
 					heightTransition(element);
 				}}
 				class={cx(
 					"sheet-motion fixed inset-x-0 bottom-0 z-50 flex max-h-[min(90dvh,calc(100dvh-var(--safe-area-top,0px)-16px))] flex-col pl-safe pr-safe",
-					"rounded-t-sheet bg-popover text-foreground outline-none",
+					"bg-popover text-foreground outline-none",
 					"after:absolute after:inset-x-0 after:top-full after:h-1/2 after:bg-inherit",
+					local.fill
+						? "h-dvh max-h-none rounded-none pt-safe"
+						: "rounded-t-sheet",
 					local.class,
 				)}
+				data-fill={local.fill ? "" : undefined}
 			>
 				<div
+					hidden={!showHandle()}
 					class={cx(
 						"flex shrink-0 justify-center",
 						header.has()
@@ -277,16 +341,30 @@ export const DrawerContent = (props: DrawerContentProps) => {
 					class={cx(
 						"flex min-h-0 flex-col overflow-y-auto overscroll-contain",
 						footer.has() ? "pb-4" : "pb-safe-offset-4",
-						!header.has() && "-mt-(--focus-ring-reach) pt-(--focus-ring-reach)",
-						header.has() && "rounded-t-sheet",
+						!header.has() &&
+							(showHandle()
+								? "-mt-(--focus-ring-reach) pt-(--focus-ring-reach)"
+								: "pt-4"),
+						header.has() && !local.fill && "rounded-t-sheet",
+						local.fill && "flex-1",
 					)}
 				>
 					<Show when={header.has()}>
-						<div data-drawer-header="" class="shrink-0">
+						<div
+							data-drawer-header=""
+							data-bleed={local.headerBleed || undefined}
+							class={cx("shrink-0", !local.headerBleed && "px-4 pt-6")}
+						>
 							{header()}
 						</div>
 					</Show>
-					<div class={cx("flex flex-col gap-6 px-4", header.has() && "pt-6")}>
+					<div
+						class={cx(
+							"flex flex-col gap-6 px-4",
+							header.has() && "pt-6",
+							local.fill && "min-h-0 flex-1",
+						)}
+					>
 						{local.children}
 					</div>
 				</div>

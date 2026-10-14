@@ -1,0 +1,19 @@
+[package]
+name = "colibri-preview"
+version = "0.0.0"
+description = "Native preview shell for the new Colibri client with mock data."
+authors = ["Louis Escher"]
+license = "MIT"
+edition = "2021"
+
+[lib]
+name = "preview_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"

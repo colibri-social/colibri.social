@@ -322,13 +322,23 @@ export const LinkFacet = (props: {
 	ctx: RichTextResolvers;
 	children: JSX.Element;
 }) => {
+	const disguised = () => isDisguisedLink(props.label, props.uri);
 	const safe = () =>
-		isSafeLinkUri(props.uri) && !isDisguisedLink(props.label, props.uri);
+		isSafeLinkUri(props.uri) && (!disguised() || !!props.ctx.onExternalLink);
 	const target = createMemo(() =>
-		safe() ? props.ctx.linkTarget?.(props.uri) : undefined,
+		safe() && !disguised() ? props.ctx.linkTarget?.(props.uri) : undefined,
 	);
 	const href = () => props.ctx.rewriteUrl?.(props.uri) ?? props.uri;
 	const bare = () => props.label.trim() === props.uri;
+	const open = (event: MouseEvent) => {
+		const confirm = props.ctx.onExternalLink;
+		if (confirm) {
+			event.preventDefault();
+			confirm(href(), { label: props.label, disguised: disguised() });
+			return;
+		}
+		props.ctx.onLinkOpen?.(href(), event);
+	};
 
 	return (
 		<Switch
@@ -340,8 +350,9 @@ export const LinkFacet = (props: {
 					title={href()}
 					target="_blank"
 					rel="noreferrer noopener"
+					data-disguised={disguised() || undefined}
 					class={LINK_CLASS}
-					onClick={(event) => props.ctx.onLinkOpen?.(href(), event)}
+					onClick={open}
 				>
 					{bare() ? href() : props.children}
 				</a>

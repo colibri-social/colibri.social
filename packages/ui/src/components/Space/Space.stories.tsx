@@ -95,6 +95,7 @@ export const SpaceDrawer: Story = {
 				</DrawerTrigger>
 				<DrawerContent
 					aria-label="Colibri Social Flock"
+					headerBleed
 					header={
 						<SpaceProfileHeader
 							name="Colibri Social Flock"

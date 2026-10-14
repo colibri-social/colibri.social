@@ -322,6 +322,22 @@ const paintedPng = async (name: string, stops: [string, string]) => {
 	return new File([blob], name, { type: "image/png" });
 };
 
+const applyCrop = async () => {
+	const dialog = await screen.findByRole("dialog");
+	await waitFor(
+		() =>
+			expect(
+				dialog.querySelector("[data-image-crop-stage][data-ready]"),
+			).not.toBeNull(),
+		{ timeout: 5000 },
+	);
+	await userEvent.click(within(dialog).getByRole("button", { name: "Apply" }));
+	await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+	await waitFor(() =>
+		expect(document.querySelector('body > div[aria-hidden="true"]')).toBeNull(),
+	);
+};
+
 const pick = (input: HTMLInputElement, file: File) => {
 	const transfer = new DataTransfer();
 	transfer.items.add(file);
@@ -781,6 +797,7 @@ export const ProfileImagesPreview: Story = {
 		}
 
 		pick(avatarInput, await paintedPng("avatar.png", ["#8e51ff", "#5b21b6"]));
+		await applyCrop();
 		const avatar = await waitFor(() => {
 			const image = canvasElement.querySelector<HTMLImageElement>(
 				"[data-profile-avatar-preview]",
@@ -794,6 +811,7 @@ export const ProfileImagesPreview: Story = {
 		).toBeInTheDocument();
 
 		pick(bannerInput, await paintedPng("banner.png", ["#f472b6", "#7c3aed"]));
+		await applyCrop();
 		const banner = await waitFor(() => {
 			const image = canvasElement.querySelector<HTMLImageElement>(
 				"[data-profile-banner-preview]",
@@ -804,6 +822,7 @@ export const ProfileImagesPreview: Story = {
 		await expect(banner.getAttribute("src")).toMatch(/^blob:/);
 		const firstBanner = banner.getAttribute("src");
 		pick(bannerInput, await paintedPng("banner-2.png", ["#2dd4bf", "#0f766e"]));
+		await applyCrop();
 		await waitFor(() =>
 			expect(
 				canvasElement

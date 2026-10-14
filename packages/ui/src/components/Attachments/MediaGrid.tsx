@@ -10,6 +10,7 @@ import {
 	reducedMotionActive,
 } from "../../utils/playback";
 import { AnimatedImage } from "../AnimatedImage/AnimatedImage";
+import { UploadProgress } from "../Composer/AttachmentTray";
 import { VideoPlayer } from "../Media/VideoPlayer";
 import { Skeleton } from "../Skeleton/Skeleton";
 import { createPressRipple, pressSurfaceInset } from "./shared";
@@ -27,6 +28,7 @@ export type MediaItem = {
 	duration?: string;
 	spoiler?: boolean;
 	downloadHref?: string;
+	progress?: number;
 };
 
 export const MEDIA_GRID_MAX_TILES = 10;
@@ -126,6 +128,14 @@ export const MediaTile = (props: MediaTileProps) => {
 		>
 			<Show when={props.loading || !loaded()}>
 				<Skeleton class="absolute inset-0 size-full rounded-none" />
+			</Show>
+			<Show when={props.item.progress !== undefined && props.item.progress < 1}>
+				<span data-media-uploading="" class="absolute inset-0 z-10">
+					<UploadProgress
+						progress={props.item.progress ?? 0}
+						label={`Uploading ${props.item.name ?? kindLabel(props.item.kind)}`}
+					/>
+				</span>
 			</Show>
 			<Show when={!props.loading && inlineVideo()}>
 				<VideoPlayer

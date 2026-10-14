@@ -10,6 +10,7 @@ import {
 	splitProps,
 } from "solid-js";
 import { cx } from "../../utils/cx";
+import { createMenuTrigger } from "../../utils/gestures";
 import { motionScale, prefersReducedMotion } from "../../utils/motion";
 import {
 	nameColorClass,
@@ -34,6 +35,7 @@ import { useMessageListItem } from "./message-list-context";
 
 export type MessageAuthor = {
 	name: string;
+	seed?: string;
 	avatarSrc?: string;
 	color?: string;
 	nameColor?: string;
@@ -89,6 +91,7 @@ export type MessageRowProps = Omit<
 	onRetry?: () => void;
 	onDelete?: () => void;
 	onAuthorClick?: (event: MouseEvent) => void;
+	onAuthorMenu?: (event: Event) => void;
 };
 
 export const PENDING_DIM_DELAY_MS = 300;
@@ -204,9 +207,16 @@ export const MessageRow = (props: MessageRowProps) => {
 		"onRetry",
 		"onDelete",
 		"onAuthorClick",
+		"onAuthorMenu",
 		"class",
 	]);
 	const badge = createSlot(() => local.badge);
+	const authorInteractive = () => !!(local.onAuthorClick || local.onAuthorMenu);
+	const authorMenu = (element: HTMLElement) =>
+		createMenuTrigger(element, {
+			enabled: () => !!local.onAuthorMenu,
+			onMenu: (event) => local.onAuthorMenu?.(event),
+		});
 	const nameColor = useAuthorNameColor(() => local.author);
 	const nameTone = () =>
 		failed()
@@ -297,6 +307,7 @@ export const MessageRow = (props: MessageRowProps) => {
 	const AuthorAvatar = () => (
 		<Avatar
 			name={local.author.name}
+			seed={local.author.seed}
 			src={local.author.avatarSrc}
 			color={local.author.color}
 			size="md"
@@ -374,12 +385,14 @@ export const MessageRow = (props: MessageRowProps) => {
 							</span>
 						}
 					>
-						<Show when={local.onAuthorClick} fallback={<AuthorAvatar />}>
-							{(onClick) => (
+						<Show when={authorInteractive()} fallback={<AuthorAvatar />}>
+							{(_) => (
 								<button
 									type="button"
+									ref={authorMenu}
+									data-member-menu={local.onAuthorMenu ? "" : undefined}
 									aria-label={`${local.author.name}'s profile`}
-									onClick={(event) => onClick()(event)}
+									onClick={(event) => local.onAuthorClick?.(event)}
 									class="size-10 shrink-0 cursor-pointer self-start rounded-full outline-none focus-ring"
 								>
 									<AuthorAvatar />
@@ -395,7 +408,7 @@ export const MessageRow = (props: MessageRowProps) => {
 							>
 								<div class="flex min-w-0 items-center gap-1.5">
 									<Show
-										when={local.onAuthorClick}
+										when={authorInteractive()}
 										fallback={
 											<span
 												data-author-name=""
@@ -411,10 +424,12 @@ export const MessageRow = (props: MessageRowProps) => {
 											</span>
 										}
 									>
-										{(onClick) => (
+										{(_) => (
 											<button
 												type="button"
-												onClick={(event) => onClick()(event)}
+												ref={authorMenu}
+												data-member-menu={local.onAuthorMenu ? "" : undefined}
+												onClick={(event) => local.onAuthorClick?.(event)}
 												data-author-name=""
 												class={cx(
 													"cursor-pointer truncate rounded-control-xs text-sm leading-4 font-semibold decoration-1 underline-offset-2 outline-none hover:underline focus-ring",

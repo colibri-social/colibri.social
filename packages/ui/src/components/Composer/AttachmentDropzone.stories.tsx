@@ -227,3 +227,54 @@ export const ReducedMotion: Story = {
 		}
 	},
 };
+
+const onPaneFiles = fn();
+
+export const ZoneScope: Story = {
+	name: "Zone scope",
+	render: () => (
+		<div class="flex h-[640px] bg-card text-foreground">
+			<AttachmentDropzone
+				scope="zone"
+				channelName="general"
+				onFiles={onFiles}
+				class="border-r border-border"
+			>
+				<div data-testid="chat" class="flex-1 p-4">
+					Chat
+				</div>
+			</AttachmentDropzone>
+			<AttachmentDropzone
+				scope="zone"
+				channelName="Route ideas"
+				onFiles={onPaneFiles}
+			>
+				<div data-testid="pane" class="flex-1 p-4">
+					Thread
+				</div>
+			</AttachmentDropzone>
+		</div>
+	),
+	play: async ({ canvasElement }) => {
+		onFiles.mockClear();
+		onPaneFiles.mockClear();
+		const canvas = within(canvasElement);
+		const [chatOverlay, paneOverlay] = Array.from(
+			canvasElement.querySelectorAll("[data-attachment-dropzone-overlay]"),
+		);
+		const chat = canvas.getByTestId("chat");
+		const pane = canvas.getByTestId("pane");
+		const transfer = fileTransfer(...storyFiles());
+		fireDrag(chat, "dragenter", transfer);
+		await expect(chatOverlay).toHaveAttribute("data-visible");
+		await expect(paneOverlay).not.toHaveAttribute("data-visible");
+		fireDrag(pane, "dragenter", transfer);
+		fireDrag(chat, "dragleave", transfer);
+		await expect(chatOverlay).not.toHaveAttribute("data-visible");
+		await expect(paneOverlay).toHaveAttribute("data-visible");
+		fireDrag(pane, "drop", transfer);
+		await expect(onPaneFiles).toHaveBeenCalledTimes(1);
+		await expect(onFiles).not.toHaveBeenCalled();
+		await expect(paneOverlay).not.toHaveAttribute("data-visible");
+	},
+};

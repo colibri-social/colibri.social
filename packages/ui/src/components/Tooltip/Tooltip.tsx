@@ -37,10 +37,37 @@ type TooltipState = {
 	setHoverCapable: (capable: boolean) => void;
 };
 
+const isHoverPointer = (event: PointerEvent) =>
+	event.pointerType !== "touch" && event.pointerType !== "pen";
+
 const TooltipStateContext = createContext<TooltipState>({
 	instant: () => false,
 	setHoverCapable: () => {},
 });
+
+const [touchModality, setTouchModality] = createSignal(false);
+let modalityInstalled = false;
+
+const installModality = () => {
+	if (modalityInstalled || typeof document === "undefined") return;
+	modalityInstalled = true;
+	document.addEventListener(
+		"pointerdown",
+		(event) => setTouchModality(!isHoverPointer(event)),
+		{ capture: true, passive: true },
+	);
+	document.addEventListener(
+		"pointermove",
+		(event) => {
+			if (event.pointerType === "mouse") setTouchModality(false);
+		},
+		{ capture: true, passive: true },
+	);
+	document.addEventListener("keydown", () => setTouchModality(false), {
+		capture: true,
+		passive: true,
+	});
+};
 
 export type TooltipProps = ParentProps<{
 	placement?: TooltipPlacement;
@@ -54,6 +81,7 @@ export type TooltipProps = ParentProps<{
 }>;
 
 export const Tooltip = (props: TooltipProps) => {
+	installModality();
 	const overflowPadding = usePopperOverflowPadding();
 	const [instant, setInstant] = createSignal(false);
 	const [hoverCapable, setHoverCapable] = createSignal(true);
@@ -86,7 +114,7 @@ export const Tooltip = (props: TooltipProps) => {
 			openDelay={props.openDelay ?? TOOLTIP_OPEN_DELAY}
 			closeDelay={props.closeDelay ?? 0}
 			skipDelayDuration={TOOLTIP_SKIP_DELAY}
-			disabled={props.disabled || !hoverCapable()}
+			disabled={props.disabled || !hoverCapable() || touchModality()}
 			open={props.open}
 			defaultOpen={props.defaultOpen}
 			onOpenChange={onOpenChange}
@@ -98,9 +126,6 @@ export const Tooltip = (props: TooltipProps) => {
 		</KobalteTooltip>
 	);
 };
-
-const isHoverPointer = (event: PointerEvent) =>
-	event.pointerType !== "touch" && event.pointerType !== "pen";
 
 const callUserHandler = (handler: unknown, event: Event) => {
 	if (typeof handler === "function") handler(event);

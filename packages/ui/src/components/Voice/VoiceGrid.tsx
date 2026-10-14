@@ -2,13 +2,14 @@ import { ScreenShareIcon } from "@solar-icons/solid/bold/screen-share";
 import {
 	createMemo,
 	createSignal,
-	For,
+	Index,
 	type JSX,
 	onCleanup,
 	onMount,
 	Show,
 } from "solid-js";
 import { cx } from "../../utils/cx";
+import { KeyedFor } from "../../utils/keyed";
 import type { AvatarSize } from "../Avatar/Avatar";
 import {
 	createTileFill,
@@ -34,6 +35,7 @@ export const voiceTileKey = (tile: VoiceTileData) =>
 export type VoiceTileProps = {
 	tile: VoiceTileData;
 	compact?: boolean;
+	portrait?: boolean;
 	focused?: boolean;
 	onSelect?: () => void;
 	class?: string;
@@ -41,6 +43,9 @@ export type VoiceTileProps = {
 };
 
 const MAX_TILE_AVATAR = 88;
+const MAX_PORTRAIT_AVATAR = 92;
+const PORTRAIT_FILL =
+	"linear-gradient(to bottom, var(--primary-highlight), var(--primary))";
 const MIN_TILE_AVATAR = 12;
 const LABEL_SMALL_BELOW = 140;
 
@@ -57,6 +62,7 @@ export const voiceTileLayout = (
 	width: number,
 	height: number,
 	compact = false,
+	maxAvatar = MAX_TILE_AVATAR,
 ): VoiceTileLayout => {
 	const padding = compact ? 8 : 12;
 	const labelSmall = compact || height < LABEL_SMALL_BELOW;
@@ -64,7 +70,7 @@ export const voiceTileLayout = (
 	const labelHeight = labelSmall ? 20 : 28;
 	const areaBottom = labelBottom + labelHeight + 4;
 	const fit = Math.min(
-		MAX_TILE_AVATAR,
+		maxAvatar,
 		height * 0.45,
 		width * 0.35,
 		height - padding - areaBottom,
@@ -106,7 +112,12 @@ export const VoiceTile = (props: VoiceTileProps) => {
 	};
 	const layout = createMemo(() =>
 		box().w && box().h
-			? voiceTileLayout(box().w, box().h, props.compact)
+			? voiceTileLayout(
+					box().w,
+					box().h,
+					props.compact,
+					props.portrait ? MAX_PORTRAIT_AVATAR : MAX_TILE_AVATAR,
+				)
 			: undefined,
 	);
 	const labelSmall = () => layout()?.labelSmall ?? !!props.compact;
@@ -138,6 +149,7 @@ export const VoiceTile = (props: VoiceTileProps) => {
 					>
 						<SpeakingAvatar
 							name={props.tile.name}
+							seed={props.tile.id}
 							src={props.tile.avatarSrc}
 							size={avatarSizeFor(layout()?.avatar ?? 40)}
 							pixels={layout()?.avatar ?? (props.compact ? 40 : 88)}
@@ -195,7 +207,8 @@ export const VoiceTile = (props: VoiceTileProps) => {
 
 	const shellClass = () =>
 		cx(
-			"relative flex items-center justify-center overflow-hidden rounded-surface border border-border bg-secondary",
+			"relative flex items-center justify-center overflow-hidden rounded-surface border bg-secondary",
+			props.portrait ? "border-transparent" : "border-border",
 			speakingRingClass,
 			speaking()
 				? "border-primary shadow-[0_0_0_2px_var(--primary)]"
@@ -205,7 +218,13 @@ export const VoiceTile = (props: VoiceTileProps) => {
 		);
 
 	const shellStyle = (): JSX.CSSProperties => ({
-		...(hasVideo() ? {} : fill() ? { background: fill() } : {}),
+		...(hasVideo()
+			? {}
+			: fill()
+				? { background: fill() }
+				: props.portrait
+					? { background: PORTRAIT_FILL }
+					: {}),
 		...(props.style ?? {}),
 	});
 
@@ -243,14 +262,25 @@ export const VoiceTile = (props: VoiceTileProps) => {
 	);
 };
 
-export const voiceGridColumns = (count: number) =>
-	count <= 1 ? 1 : count <= 6 ? 2 : 3;
+export const voiceGridColumns = (count: number, portrait = false) =>
+	portrait
+		? count <= 2
+			? 1
+			: count <= 8
+				? 2
+				: 3
+		: count <= 1
+			? 1
+			: count <= 6
+				? 2
+				: 3;
 
 export type VoiceGridProps = {
 	tiles: VoiceTileData[];
 	gap?: number;
 	focusedKey?: string | null;
 	onFocusChange?: (key: string | null) => void;
+	portrait?: boolean;
 	class?: string;
 };
 
@@ -282,7 +312,8 @@ export const VoiceGrid = (props: VoiceGridProps) => {
 		return props.tiles.filter((tile) => voiceTileKey(tile) !== key);
 	});
 
-	const columns = () => voiceGridColumns(props.tiles.length);
+	const columns = () => voiceGridColumns(props.tiles.length, props.portrait);
+	const ratio = () => (props.portrait ? 1 : 16 / 9);
 
 	const rows = createMemo(() => {
 		const cols = columns();
@@ -300,22 +331,24 @@ export const VoiceGrid = (props: VoiceGridProps) => {
 		if (!w || !h || !cols || !count) return null;
 		const availableW = w - gap() * (cols - 1);
 		const availableH = h - gap() * (count - 1);
-		const width = Math.min(availableW / cols, (availableH / count) * (16 / 9));
-		return { w: width, h: width * (9 / 16) };
+		const width = Math.min(availableW / cols, (availableH / count) * ratio());
+		return { w: width, h: width / ratio() };
 	});
 
 	const focusedSize = createMemo(() => {
 		const { w, h } = size();
 		if (!w || !h) return null;
 		const reserved = others().length ? STRIP_HEIGHT + gap() : 0;
-		const width = Math.min(w, ((h - reserved) * 16) / 9);
-		return { w: width, h: (width * 9) / 16 };
+		const width = Math.min(w, (h - reserved) * ratio());
+		return { w: width, h: width / ratio() };
 	});
 
-	const toggle = (tile: VoiceTileData) => {
+	const toggle = (tile: () => VoiceTileData | undefined) => {
 		if (!props.onFocusChange) return undefined;
 		return () => {
-			const key = voiceTileKey(tile);
+			const current = tile();
+			if (!current) return;
+			const key = voiceTileKey(current);
 			props.onFocusChange?.(props.focusedKey === key ? null : key);
 		};
 	};
@@ -338,17 +371,18 @@ export const VoiceGrid = (props: VoiceGridProps) => {
 			<Show
 				when={focused()}
 				fallback={
-					<For each={rows()}>
+					<Index each={rows()}>
 						{(row) => (
 							<div
 								data-voice-row=""
 								class="flex w-full justify-center"
 								style={{ gap: `${gap()}px` }}
 							>
-								<For each={row}>
+								<KeyedFor each={row()} by={voiceTileKey}>
 									{(tile) => (
 										<VoiceTile
-											tile={tile}
+											tile={tile()}
+											portrait={props.portrait}
 											onSelect={toggle(tile)}
 											style={{
 												width: px(tileSize()?.w),
@@ -356,18 +390,19 @@ export const VoiceGrid = (props: VoiceGridProps) => {
 											}}
 										/>
 									)}
-								</For>
+								</KeyedFor>
 							</div>
 						)}
-					</For>
+					</Index>
 				}
 			>
 				{(tile) => (
 					<>
 						<VoiceTile
 							tile={tile()}
+							portrait={props.portrait}
 							focused
-							onSelect={toggle(tile())}
+							onSelect={toggle(tile)}
 							style={{
 								width: px(focusedSize()?.w),
 								height: px(focusedSize()?.h),
@@ -382,10 +417,11 @@ export const VoiceGrid = (props: VoiceGridProps) => {
 									height: `calc(${STRIP_HEIGHT}px + var(--focus-ring-reach) * 2)`,
 								}}
 							>
-								<For each={others()}>
+								<KeyedFor each={others()} by={voiceTileKey}>
 									{(other) => (
 										<VoiceTile
-											tile={other}
+											tile={other()}
+											portrait={props.portrait}
 											compact
 											onSelect={toggle(other)}
 											class="shrink-0"
@@ -395,7 +431,7 @@ export const VoiceGrid = (props: VoiceGridProps) => {
 											}}
 										/>
 									)}
-								</For>
+								</KeyedFor>
 							</div>
 						</Show>
 					</>

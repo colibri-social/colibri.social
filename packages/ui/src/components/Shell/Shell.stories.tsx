@@ -1,5 +1,5 @@
 import { createSignal, For, type JSX } from "solid-js";
-import { expect, fn, userEvent, within } from "storybook/test";
+import { expect, fn, screen, userEvent, waitFor, within } from "storybook/test";
 import type { Meta, StoryObj } from "storybook-solidjs-vite";
 import { Badge } from "../Badge/Badge";
 import { storyImages } from "../Banner/story-images";
@@ -14,6 +14,7 @@ import { fileTransfer, fireDrag, storyFiles } from "../Composer/drag-fixtures";
 import { fixtureMembers, fixtureRoles } from "../Members/fixtures";
 import { groupMembers, MemberList } from "../Members/MemberList";
 import { MessageRow } from "../Message/MessageRow";
+import { Popover, PopoverContent, PopoverTrigger } from "../Popover/Popover";
 import { AppShell } from "./AppShell";
 import {
 	DEFAULT_THREAD_PANE_WIDTH,
@@ -199,7 +200,6 @@ export const Desktop: Story = {
 		await expect(animatedIn("Threads")).not.toBeNull();
 		await expect(animatedIn("Mute channel")).not.toBeNull();
 		await expect(animatedIn("Hide members")).not.toBeNull();
-		await expect(animatedIn("Upload a file")).not.toBeNull();
 		await expect(animatedIn("Send a GIF")).not.toBeNull();
 		await expect(animatedIn("Add an emoji")).not.toBeNull();
 		await userEvent.click(canvas.getByRole("button", { name: /^Lou/ }));
@@ -435,5 +435,46 @@ export const UserPanelParity: Story = {
 		await expect(
 			Math.round(text.getBoundingClientRect().left - face.right),
 		).toBe(8);
+	},
+};
+
+export const UserPanelProfilePopover: Story = {
+	name: "User panel profile popover",
+	render: () => (
+		<div class="flex h-[480px] w-[312px] flex-col justify-end bg-background p-4">
+			<Popover placement="top-start">
+				<UserPanel
+					name="Lou"
+					presence="online"
+					status="Building a nest"
+					profileTrigger={PopoverTrigger}
+				/>
+				<PopoverContent aria-label="Your profile" class="w-72">
+					<p class="m-0 p-2 text-sm">Your profile goes here.</p>
+				</PopoverContent>
+			</Popover>
+		</div>
+	),
+	play: async ({ canvasElement }) => {
+		const canvas = within(canvasElement);
+		const trigger = canvas.getByRole("button", { name: /^Lou/ });
+		await expect(trigger).toHaveAttribute("aria-expanded", "false");
+		await userEvent.click(trigger);
+		const popover = await screen.findByRole("dialog", { name: "Your profile" });
+		await expect(trigger).toHaveAttribute("aria-expanded", "true");
+		await expect(popover.getBoundingClientRect().bottom).toBeLessThanOrEqual(
+			trigger.getBoundingClientRect().top,
+		);
+		await userEvent.click(trigger);
+		await waitFor(() =>
+			expect(
+				screen.queryByRole("dialog", { name: "Your profile" }),
+			).not.toBeInTheDocument(),
+		);
+		await expect(trigger).toHaveAttribute("aria-expanded", "false");
+		await userEvent.click(trigger);
+		await screen.findByRole("dialog", { name: "Your profile" });
+		await userEvent.keyboard("{Escape}");
+		await waitFor(() => expect(document.activeElement).toBe(trigger));
 	},
 };

@@ -14,6 +14,7 @@ import {
 import { cx } from "../../utils/cx";
 import { useHaptics } from "../../utils/haptics";
 import { createRipple } from "../../utils/ripple";
+import { Button } from "../Button/Button";
 import { Drawer, DrawerContent } from "../Drawer/Drawer";
 import { Popover, PopoverContent } from "../Popover/Popover";
 import { Slider } from "../Slider/Slider";
@@ -426,7 +427,8 @@ export type ColorRowProps = TriggerButtonProps & {
 export const ColorRow = (props: ColorRowProps) => {
 	const [local, rest] = splitProps(props, ["color", "label", "class", "ref"]);
 	const ref = useRippleRef(() => local.ref);
-	const hex = () => normalizeHex(local.color) ?? local.color;
+	const hex = () =>
+		local.color ? (normalizeHex(local.color) ?? local.color) : "None";
 
 	return (
 		<button
@@ -449,8 +451,11 @@ export const ColorRow = (props: ColorRowProps) => {
 			</span>
 			<span
 				aria-hidden="true"
-				class="size-4 shrink-0 rounded-[4px] border border-border"
-				style={{ "background-color": local.color }}
+				class={cx(
+					"size-4 shrink-0 rounded-[4px] border border-border",
+					!local.color && "border-dashed border-muted-foreground/60",
+				)}
+				style={{ "background-color": local.color || "transparent" }}
 			/>
 		</button>
 	);
@@ -517,9 +522,13 @@ export const ColorPicker = (props: ColorPickerProps) => {
 	const mobileTrigger = () => {
 		const shared = {
 			"aria-haspopup": "dialog" as const,
-			"aria-expanded": open(),
+			get "aria-expanded"() {
+				return open();
+			},
 			onClick: () => setOpen(true),
-			disabled: props.disabled,
+			get disabled() {
+				return props.disabled;
+			},
 		};
 		return props.variant === "row" ? (
 			<ColorRow
@@ -548,13 +557,43 @@ export const ColorPicker = (props: ColorPickerProps) => {
 					{desktopTrigger()}
 					<PopoverContent aria-label={props.label} class="w-72 p-3">
 						{panel()}
+						<Show when={props.variant === "row" && props.onRemove}>
+							<Button
+								variant="destructive-subtle"
+								class="mt-3 w-full"
+								onClick={() => {
+									props.onRemove?.();
+									setOpen(false);
+								}}
+							>
+								{props.removeLabel ?? "Remove color"}
+							</Button>
+						</Show>
 					</PopoverContent>
 				</Popover>
 			}
 		>
 			{mobileTrigger()}
 			<Drawer open={open()} onOpenChange={setOpen}>
-				<DrawerContent title={props.label}>{panel()}</DrawerContent>
+				<DrawerContent
+					title={props.label}
+					footer={
+						props.variant === "row" && props.onRemove ? (
+							<Button
+								variant="destructive-subtle"
+								class="w-full"
+								onClick={() => {
+									props.onRemove?.();
+									setOpen(false);
+								}}
+							>
+								{props.removeLabel ?? "Remove color"}
+							</Button>
+						) : undefined
+					}
+				>
+					{panel()}
+				</DrawerContent>
 			</Drawer>
 		</Show>
 	);

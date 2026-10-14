@@ -60,6 +60,16 @@ export type RoleBadgeIconName = (typeof ROLE_BADGE_ICONS)[number]["name"];
 
 export const DEFAULT_ROLE_BADGE_COLOR = "#76c4e5";
 
+export const ROLE_COLOR_PRESETS = [
+	"#ef4444",
+	"#f59e0b",
+	"#84cc16",
+	"#10b981",
+	"#06b6d4",
+	"#6366f1",
+	"#ffffff",
+];
+
 export type RoleBadgeValue =
 	| { kind: "icon"; name: RoleBadgeIconName; color?: string }
 	| { kind: "image"; url: string };

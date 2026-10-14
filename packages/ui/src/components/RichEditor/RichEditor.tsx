@@ -37,6 +37,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "../Tooltip/Tooltip";
 import { codeContextAtPos } from "./block-projection";
 import { readClipboardFacets } from "./clipboard-facets";
 import { useRichEditorSources } from "./context";
+import { customEmojiAttrs } from "./custom-emoji";
 import {
 	activeFormats,
 	emojiForShortcode,
@@ -69,7 +70,12 @@ import {
 	suggestionAttrs,
 } from "./suggestions";
 import { TimePicker } from "./TimePicker";
-import type { RichEditorSources, RichText, TimeAttrs } from "./types";
+import type {
+	CustomEmojiSuggestion,
+	RichEditorSources,
+	RichText,
+	TimeAttrs,
+} from "./types";
 
 export type RichEditorPlatform = "mobile" | "desktop";
 
@@ -85,6 +91,7 @@ export type RichEditorHandle = {
 	getJSON: () => EditorJSON | undefined;
 	setJSON: (json: EditorJSON) => void;
 	insertText: (text: string) => void;
+	insertCustomEmoji: (emoji: CustomEmojiSuggestion) => void;
 	submit: () => void;
 	element: () => HTMLElement | undefined;
 };
@@ -232,6 +239,30 @@ const mentionChipSpec = (
 
 	if (type === "emoji") {
 		return ["span", mergeAttributes(HTMLAttributes, base), label];
+	}
+
+	if (type === "customEmoji") {
+		const name = typeof attrs.name === "string" ? attrs.name : label;
+		const src = typeof attrs.avatar === "string" ? attrs.avatar : "";
+		const alt = typeof attrs.alt === "string" && attrs.alt ? attrs.alt : label;
+		if (!src) return ["span", mergeAttributes(HTMLAttributes, base), label];
+		return [
+			"span",
+			mergeAttributes(HTMLAttributes, base, {
+				"data-custom-emoji": name,
+				title: `:${name}:`,
+				class: "inline-block align-text-bottom",
+			}),
+			[
+				"img",
+				{
+					src,
+					alt,
+					draggable: "false",
+					class: "inline-block size-[1.375em] object-contain",
+				},
+			],
+		];
 	}
 
 	return [
@@ -539,7 +570,9 @@ export const RichEditor = (props: RichEditorProps) => {
 					highlightCode: () => sources().highlightCode,
 				}),
 				OrderedListAutoNumber,
-				ShortcodeEmoji,
+				ShortcodeEmoji.configure({
+					customEmoji: (name) => sources().customEmojiByName?.(name),
+				}),
 				UndoRedo,
 				Mention.configure({
 					HTMLAttributes: { "data-type": "mention" },
@@ -559,6 +592,9 @@ export const RichEditor = (props: RichEditorProps) => {
 							style: { default: null },
 							registration: { default: null },
 							platform: { default: null },
+							name: { default: null },
+							alt: { default: null },
+							cid: { default: null },
 						};
 					},
 					renderText({ node }) {
@@ -852,6 +888,15 @@ export const RichEditor = (props: RichEditorProps) => {
 			if (!instance) return;
 			if (text.includes("\n")) insertParsedText(instance, text);
 			else instance.chain().focus().insertContent(text).run();
+		},
+		insertCustomEmoji: (emoji) => {
+			const instance = editor();
+			if (!instance) return;
+			instance
+				.chain()
+				.focus()
+				.insertContent({ type: "mention", attrs: customEmojiAttrs(emoji) })
+				.run();
 		},
 		submit,
 		element: () => editor()?.view.dom,

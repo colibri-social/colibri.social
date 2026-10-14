@@ -14,6 +14,7 @@ export type AttachmentDropzoneProps = {
 	onFiles: (files: File[]) => void;
 	channelName?: string;
 	disabled?: boolean;
+	scope?: "window" | "zone";
 	footer?: JSX.Element;
 	children?: JSX.Element;
 	class?: string;
@@ -40,14 +41,18 @@ export const AttachmentDropzone = (props: AttachmentDropzoneProps) => {
 		if (props.disabled) reset();
 	});
 
+	const counts = (event: DragEvent) =>
+		props.scope !== "zone" ||
+		(event.target instanceof Node && !!root?.contains(event.target));
+
 	const handleEnter = (event: DragEvent) => {
-		if (props.disabled || !draggingFiles(event)) return;
+		if (props.disabled || !draggingFiles(event) || !counts(event)) return;
 		depth += 1;
 		setActive(true);
 	};
 
 	const handleLeave = (event: DragEvent) => {
-		if (!draggingFiles(event) || depth === 0) return;
+		if (!draggingFiles(event) || depth === 0 || !counts(event)) return;
 		depth -= 1;
 		if (depth === 0) setActive(false);
 	};
